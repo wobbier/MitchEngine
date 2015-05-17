@@ -1,9 +1,21 @@
 #include "Entity.h"
+namespace ma {
+	Entity::Entity() {
+	}
 
+	Entity::~Entity() {
+	}
 
-ma::Entity::Entity() {
-}
+	Component* Entity::GetComponent(int id) {
+		return Components.at(id);
+	}
 
+	void Entity::AddComponent(Component* component) {
+		Components.push_back(component);
+		component->Handle = Components.size() - 1;
+	}
 
-ma::Entity::~Entity() {
+	bool Entity::HasComponent(int id) {
+
+	}
 }

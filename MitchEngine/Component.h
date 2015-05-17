@@ -5,5 +5,7 @@ namespace ma {
 	public:
 		Component();
 		~Component();
+
+		unsigned int Handle;
 	};
 }
