@@ -1,24 +1,23 @@
 #include "Renderer.h"
 
-namespace ma {
-	Renderer::Renderer() {
-	}
+using namespace ma;
+
+Renderer::Renderer() {
+}
 
 
-	void Renderer::Update(float dt) {
+void Renderer::Update(float dt) {
 
-	}
+}
 
-	void Renderer::Init() {
+void Renderer::Init() {
 
-	}
+}
 
-	void Renderer::SendMessage(Message* message) {
+void Renderer::SendMessage(Message* message) {
 
-	}
+}
 
-	Renderer::~Renderer() {
-
-	}
+Renderer::~Renderer() {
 
 }

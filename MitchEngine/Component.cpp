@@ -1,9 +1,9 @@
 #include "Component.h"
 
-namespace ma {
-	Component::Component() {
-	}
+using namespace ma;
 
-	Component::~Component() {
-	}
+Component::Component() {
+}
+
+Component::~Component() {
 }

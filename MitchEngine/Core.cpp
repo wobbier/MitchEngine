@@ -1,6 +1,7 @@
 #include "Core.h"
-namespace ma {
-	Core::~Core() {
 
-	}
+using namespace ma;
+
+Core::~Core() {
+
 }

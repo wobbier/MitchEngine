@@ -20,6 +20,12 @@ namespace ma {
 
 		// Add a new core to the engine. (Render, Physics, Input, etc...)
 		void Add(Core* core);
+
+		// Remove copy, copy assignment, move, and move assignment constructors.
+		Engine(const Engine&) = delete;
+		Engine& operator=(const Engine&) = delete;
+		Engine(Engine&&) = delete;
+		Engine& operator=(Engine&&) = delete;
 	protected:
 	private:
 		std::vector<Core*> Cores;
