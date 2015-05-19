@@ -16,7 +16,7 @@ void Renderer::Init(Engine* e) {
 	e->Log.Log(Logger::INFO, "Renderer Initialized...");
 }
 
-void Renderer::SendMessage(Message* message) {
+void Renderer::SendMessage(class Message* message) {
 
 }
 

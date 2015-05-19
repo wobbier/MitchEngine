@@ -1,5 +1,6 @@
 #include "Engine.h"
 #include "Renderer.h"
+#include "Window.h"
 
 using namespace ma;
 
@@ -12,6 +13,8 @@ bool Engine::Init() {
 	Log.SetLogPriority(Logger::INFO);
 
 	Add("Renderer", new Renderer());
+
+	Window* window = new Window("YO", 800, 600);
 	return true;
 }
 
