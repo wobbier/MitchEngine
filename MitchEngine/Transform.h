@@ -15,6 +15,6 @@ namespace ma {
 		virtual void Init() final;
 
 		// Can receive messages from the engine.
-		virtual void SendMessage(Message* message) final;
+		virtual void SendMessage(class Message* message) final;
 	};
 }

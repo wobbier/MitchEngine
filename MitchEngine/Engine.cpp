@@ -1,8 +1,17 @@
 #include "Engine.h"
+#include "Renderer.h"
 
 using namespace ma;
 
+Engine::~Engine() {
+
+}
+
 bool Engine::Init() {
+	Log.SetLogFile("engine.txt");
+	Log.SetLogPriority(Logger::INFO);
+
+	Add("Renderer", new Renderer());
 	return true;
 }
 
@@ -13,12 +22,13 @@ void Engine::StartLoop() {
 }
 
 void Engine::Update(float dt) {
-	for (std::vector<Core*>::iterator i = Cores.begin(); i != Cores.end(); i++) {
-		Core* c = *i;
-		c->Update(dt);
+	for (auto& i : Cores) {
+		i.second->Update(dt);
 	}
 }
 
-void Engine::Add(Core* core) {
-	Cores.push_back(core);
+void Engine::Add(std::string name, Core* core) {
+	core->Init(this);
+	std::pair<std::string, Core*> NewCore(name, core);
+	Cores.insert(NewCore);
 }

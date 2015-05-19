@@ -1,6 +1,5 @@
 // 2015 Mitchell Andrews
 #pragma once
-#include "Entity.h"
 
 namespace ma {
 	class Component {
@@ -8,7 +7,7 @@ namespace ma {
 		Component();
 		~Component();
 
-		ma::Entity* Entity;
+		class Entity* Object;
 
 		unsigned int Handle;
 	};

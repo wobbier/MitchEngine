@@ -1,9 +1,6 @@
 // 2015 Mitchell Andrews
 #pragma once
 
-// Message is nonexistent at the moment.
-class Message;
-
 namespace ma {
 	class Core {
 	public:
@@ -14,10 +11,12 @@ namespace ma {
 		virtual void Update(float dt) = 0;
 
 		// Separate init from construction code.
-		virtual void Init() = 0;
+		virtual void Init(class Engine* e);
 
 		// Can receive messages from the engine.
-		virtual void SendMessage(Message* message) = 0;
+		virtual void SendMessage(class Message* message) = 0;
+	protected:
+		class Engine* GameEngine;
 	};
 }
 

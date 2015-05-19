@@ -15,9 +15,9 @@ Component* Entity::GetComponent(int id) {
 void Entity::AddComponent(Component* component) {
 	Components.push_back(component);
 	component->Handle = Components.size() - 1;
-	component->Entity = this;
+	component->Object = this;
 }
 
 bool Entity::HasComponent(int id) {
-
+	return true;
 }

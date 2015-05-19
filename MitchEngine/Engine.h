@@ -1,13 +1,15 @@
 // 2015 Mitchell Andrews
 #pragma once
 #include "Core.h"
-#include <vector>
+#include "Logger.h"
+#include <unordered_map>
+#include <string>
 
 namespace ma {
 	class Engine {
 	public:
 		Engine() = default;
-		~Engine() = default;
+		~Engine();
 
 		// Initialize our core engine components.
 		bool Init();
@@ -19,7 +21,12 @@ namespace ma {
 		void Update(float dt);
 
 		// Add a new core to the engine. (Render, Physics, Input, etc...)
-		void Add(Core* core);
+		void Add(std::string name, Core* core);
+
+		// Retrieve the core from then engine for use.
+		Core* Get(std::string name);
+
+		Logger Log;
 
 		// Remove copy, copy assignment, move, and move assignment constructors.
 		Engine(const Engine&) = delete;
@@ -28,6 +35,6 @@ namespace ma {
 		Engine& operator=(Engine&&) = delete;
 	protected:
 	private:
-		std::vector<Core*> Cores;
+		std::unordered_map<std::string, Core*> Cores;
 	};
 }
