@@ -2,6 +2,8 @@
 #pragma once
 #include "Core.h"
 #include "Logger.h"
+#include "Window.h"
+#include "Config.h"
 #include <unordered_map>
 #include <string>
 
@@ -26,6 +28,8 @@ namespace ma {
 		// Retrieve the core from then engine for use.
 		Core* Get(std::string name);
 
+		Window* GetWindow();
+
 		Logger Log;
 
 		// Remove copy, copy assignment, move, and move assignment constructors.
@@ -35,6 +39,8 @@ namespace ma {
 		Engine& operator=(Engine&&) = delete;
 	protected:
 	private:
+		Window* GameWindow;
 		std::unordered_map<std::string, Core*> Cores;
+		Config* EngineConfig;
 	};
 }

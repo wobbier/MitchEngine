@@ -1,6 +1,7 @@
+// 2015 Mitchell Andrews
 #pragma once
 #include <iostream>
-
+#include <string>
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
@@ -11,8 +12,7 @@ namespace ma {
 	public:
 		static int WINDOW_HEIGHT, WINDOW_WIDTH;
 		GLFWwindow* window;
-
-		Window(char* title, int width, int height);
+		Window(std::string title, int width = WINDOW_WIDTH, int height = WINDOW_HEIGHT);
 		~Window();
 
 		bool ShouldClose();

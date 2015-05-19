@@ -5,33 +5,53 @@
 using namespace ma;
 
 Engine::~Engine() {
-
+	Log.Log(Logger::INFO, "Mitch Engine shutting down.");
 }
 
 bool Engine::Init() {
 	Log.SetLogFile("engine.txt");
 	Log.SetLogPriority(Logger::INFO);
+	Log.Log(Logger::INFO, "Starting the MitchEngine.");
+
+	EngineConfig = new Config("Config\\Engine.cfg");
+
+	auto WindowConfig = EngineConfig->Root["window"];
+	int WindowWidth = WindowConfig["width"].asInt();
+	int WindowHeight = WindowConfig["height"].asInt();
+
+	GameWindow = new Window(EngineConfig->GetValue("title"), WindowWidth, WindowHeight);
 
 	Add("Renderer", new Renderer());
 
-	Window* window = new Window("YO", 800, 600);
+	// Initialize all the cores.
+	for (auto& c : Cores) {
+		c.second->Init(this);
+	}
 	return true;
 }
 
 void Engine::StartLoop() {
-	while (true) {
+	while (!GameWindow->ShouldClose()) {
 		Update(60.0f / 100.0f);
 	}
 }
 
 void Engine::Update(float dt) {
-	for (auto& i : Cores) {
-		i.second->Update(dt);
+	for (auto& c : Cores) {
+		c.second->Update(dt);
 	}
 }
 
 void Engine::Add(std::string name, Core* core) {
-	core->Init(this);
 	std::pair<std::string, Core*> NewCore(name, core);
 	Cores.insert(NewCore);
 }
+
+Core* Engine::Get(std::string name) {
+	return Cores[name];
+}
+
+Window* Engine::GetWindow() {
+	return GameWindow;
+}
+

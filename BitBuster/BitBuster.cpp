@@ -3,14 +3,14 @@
 #include "Entity.h"
 #include "Component.h"
 #include <iostream>
-
+using namespace ma;
 int main() {
-	ma::Engine* engine = new ma::Engine();
+	Engine* engine = new Engine();
 
 	engine->Init();
 
-	ma::Entity* e = new ma::Entity();
-	ma::Component* component = new ma::Component();
+	Entity* e = new Entity();
+	Component* component = new Component();
 	e->AddComponent(component);
 	component = e->GetComponent(0);
 

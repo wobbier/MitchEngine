@@ -12,10 +12,10 @@ void Transform::Update(float dt) {
 
 }
 
-void ma::Transform::Init() {
+void Transform::Init() {
 
 }
 
-void ma::Transform::SendMessage(class Message* message) {
+void Transform::SendMessage(class Message* message) {
 
 }

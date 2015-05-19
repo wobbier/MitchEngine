@@ -6,14 +6,18 @@ using namespace ma;
 Renderer::Renderer() : Core(){
 }
 
-
-void Renderer::Update(float dt) {
-
-}
-
 void Renderer::Init(Engine* e) {
 	Core::Init(e);
-	e->Log.Log(Logger::INFO, "Renderer Initialized...");
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+
+	GameEngine->Log.Log(Logger::INFO, "Renderer Initialized...");
+	GameEngine->Log.Log(Logger::INFO, (const char*)glGetString(GL_VERSION));
+}
+void Renderer::Update(float dt) {
+	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glfwSwapBuffers(GameEngine->GetWindow()->window);
 }
 
 void Renderer::SendMessage(class Message* message) {
@@ -21,5 +25,5 @@ void Renderer::SendMessage(class Message* message) {
 }
 
 Renderer::~Renderer() {
-	//e->Log.Log(Logger::DEBUG, "Renderer Destroyed...");
+	GameEngine->Log.Log(Logger::DEBUG, "Renderer Destroyed...");
 }
