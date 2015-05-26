@@ -10,8 +10,8 @@ void Renderer::Init() {
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 
-	//GetWorld().Log.Log(Logger::INFO, "Renderer Initialized...");
-	//GameEngine->Log.Log(Logger::INFO, (const char*)glGetString(GL_VERSION));
+	Logger::Get().Log(Logger::INFO, "Renderer Initialized...");
+	Logger::Get().Log(Logger::INFO, (const char*)glGetString(GL_VERSION));
 }
 void Renderer::Update(float dt) {
 	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
@@ -27,5 +27,5 @@ void Renderer::SendMessage(class Message* message) {
 }
 
 Renderer::~Renderer() {
-	//GameEngine->Log.Log(Logger::DEBUG, "Renderer Destroyed...");
+	Logger::Get().Log(Logger::DEBUG, "Renderer Destroyed...");
 }

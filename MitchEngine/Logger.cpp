@@ -2,9 +2,6 @@
 
 using namespace ma;
 
-Logger::Logger() {
-}
-
 Logger::~Logger() {
 }
 

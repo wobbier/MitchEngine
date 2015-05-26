@@ -53,18 +53,15 @@
     <ClCompile Include="Sprite.cpp">
       <Filter>Source Files\Components</Filter>
     </ClCompile>
-    <ClCompile Include="World.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="Game.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="World.cpp">
+      <Filter>Source Files\Engine</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Game.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="World.h">
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="Config.h">
@@ -98,6 +95,12 @@
       <Filter>Source Files\Components</Filter>
     </ClInclude>
     <ClInclude Include="TypeId.h">
+      <Filter>Source Files\Utility</Filter>
+    </ClInclude>
+    <ClInclude Include="World.h">
+      <Filter>Source Files\Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="Singleton.h">
       <Filter>Source Files\Utility</Filter>
     </ClInclude>
   </ItemGroup>

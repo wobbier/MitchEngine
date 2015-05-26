@@ -3,14 +3,12 @@
 #include "Window.h"
 #include "Renderer.h"
 #include "World.h"
-#include "Logger.h"
 #include "Config.h"
 
 namespace ma {
 	class Game {
 	public:
 		World* GameWorld;
-		Logger Log;
 
 		Game();
 		virtual ~Game();

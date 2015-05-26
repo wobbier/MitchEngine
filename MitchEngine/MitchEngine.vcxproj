@@ -94,6 +94,7 @@
     <ClInclude Include="Game.h" />
     <ClInclude Include="Logger.h" />
     <ClInclude Include="Renderer.h" />
+    <ClInclude Include="Singleton.h" />
     <ClInclude Include="Sprite.h" />
     <ClInclude Include="Transform.h" />
     <ClInclude Include="TypeId.h" />

@@ -2,16 +2,16 @@
 #pragma once
 #include <iostream>
 #include <fstream>
-
+#include "Singleton.h"
 /*
 Logger.h
 A utility class for creating and managing logs for the engine. You can change the
 log file name and priority levels to control what info gets saved and where.
 */
 namespace ma {
-	class Logger {
+	class Logger : public Singleton<Logger> {
+		friend class Singleton<Logger>;
 	public:
-		Logger();
 		~Logger();
 		/*
 		The log priority levels.
@@ -52,5 +52,6 @@ namespace ma {
 		std::ofstream mLogFile;
 		std::string mLogFileLocation;
 		LogType mPriority;
+		Logger() = default;
 	};
 }

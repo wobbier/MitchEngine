@@ -1,4 +1,5 @@
 #include "Game.h"
+#include "Logger.h"
 
 using namespace ma;
 
@@ -10,9 +11,9 @@ Game::~Game() {
 }
 
 void Game::Start() {
-	Log.SetLogFile("engine.txt");
-	Log.SetLogPriority(Logger::INFO);
-	Log.Log(Logger::INFO, "Starting the MitchEngine.");
+	Logger::Get().SetLogFile("engine.txt");
+	Logger::Get().SetLogPriority(Logger::INFO);
+	Logger::Get().Log(Logger::INFO, "Starting the MitchEngine.");
 
 	EngineConfig = new Config("Config\\Engine.cfg");
 
