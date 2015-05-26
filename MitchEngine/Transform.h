@@ -1,10 +1,15 @@
 #pragma once
 #include "Component.h"
+#include <glm.hpp>
 
 namespace ma {
 	class Transform :
-		public Component {
+		public Component<Transform> {
 	public:
+		glm::vec2 Position;
+		glm::vec2 Scale;
+		float Rotation;
+
 		Transform();
 		~Transform();
 

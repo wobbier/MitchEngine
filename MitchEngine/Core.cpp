@@ -3,10 +3,10 @@
 
 using namespace ma;
 
-Core::~Core() {
-
+World& BaseCore::GetWorld() const {
+	return *GameWorld;
 }
 
-void Core::Init(Engine* e) {
-	GameEngine = e;
+std::vector<Entity> BaseCore::GetEntities() const {
+	return Entities;
 }

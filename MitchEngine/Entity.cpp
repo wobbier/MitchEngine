@@ -5,19 +5,21 @@ using namespace ma;
 Entity::Entity() {
 }
 
+Entity::Entity(World& inWorld, ID inId) :
+Id(inId),
+GameWorld(&inWorld) {
+}
+
 Entity::~Entity() {
 }
 
-Component* Entity::GetComponent(int id) {
-	return Components.at(id);
+template <typename T>
+T& Entity::AddComponent(T* inComponent) {
+	static_assert(std::is_base_of<BaseComponent, T>(), "T is not a component, cannot add T to entity");
+	AddComponent(inComponent, T::GetTypeId());
+	return *inComponent;
 }
 
-void Entity::AddComponent(Component* component) {
-	Components.push_back(component);
-	component->Handle = Components.size() - 1;
-	component->Object = this;
-}
-
-bool Entity::HasComponent(int id) {
-	return true;
+void Entity::AddComponent(BaseComponent* inComponent, Type inComponentTypeId) {
+	//GameWorld->m_entityAttributes.componentStorage.addComponent(*this, inComponent, inComponentTypeId);
 }

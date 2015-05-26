@@ -1,23 +1,20 @@
 #pragma once
-#include "Core.h"
-#include "Sprite.h"
+#include "Component.h"
 
 namespace ma {
-	class Renderer :
-		public Core<Renderer> {
+	class Sprite :
+		public Component<Sprite> {
 	public:
-		Renderer();
-		~Renderer();
-
-		// Separate init from construction code.
-		virtual void Init() final;
+		Sprite();
+		~Sprite();
 
 		// Each core must update each loop
 		virtual void Update(float dt) final;
 
+		// Separate init from construction code.
+		virtual void Init() final;
+
 		// Can receive messages from the engine.
 		virtual void SendMessage(class Message* message) final;
-
-		void AddSprite(Sprite* sprite);
 	};
 }

@@ -1,19 +1,26 @@
-// 2015 Mitchell Andrews
-#include "Engine.h"
-#include "Entity.h"
-#include "Component.h"
-#include <iostream>
+#include "BitBuster.h"
+
 using namespace ma;
-int main() {
-	Engine* engine = new Engine();
 
-	engine->Init();
+BitBuster::BitBuster() : Game() {
+}
 
-	Entity* e = new Entity();
-	Component* component = new Component();
-	e->AddComponent(component);
-	component = e->GetComponent(0);
+BitBuster::~BitBuster() {
+	Game::~Game();
+}
 
-	engine->StartLoop();
-	return 0;
+void BitBuster::Initialize() {
+
+}
+
+void BitBuster::Update(float DeltaTime) {
+
+}
+
+void BitBuster::Render() {
+
+}
+
+void BitBuster::End() {
+
 }

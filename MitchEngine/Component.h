@@ -1,14 +1,22 @@
 // 2015 Mitchell Andrews
 #pragma once
+#include <string>
+#include <vector>
 
 namespace ma {
-	class Component {
+	class BaseComponent {
+	public:
+		BaseComponent() = default;
+		~BaseComponent() = default;
+	};
+
+	template<typename T>
+	class Component
+		: BaseComponent {
 	public:
 		Component();
 		~Component();
 
-		class Entity* Object;
-
-		unsigned int Handle;
+		typedef std::vector<std::reference_wrapper<BaseComponent>> ComponentArray;
 	};
 }
