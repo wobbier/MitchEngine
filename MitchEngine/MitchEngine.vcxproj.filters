@@ -118,5 +118,8 @@
     <ClInclude Include="EntityIdPool.h">
       <Filter>Source Files\Engine</Filter>
     </ClInclude>
+    <ClInclude Include="ClassTypeId.h">
+      <Filter>Source Files\Engine</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

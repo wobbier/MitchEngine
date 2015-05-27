@@ -88,6 +88,7 @@
     <ClCompile Include="World.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="ClassTypeId.h" />
     <ClInclude Include="Component.h" />
     <ClInclude Include="ComponentStorage.h" />
     <ClInclude Include="Config.h" />

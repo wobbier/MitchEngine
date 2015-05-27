@@ -13,8 +13,9 @@ void Renderer::Init() {
 	Logger::Get().Log(Logger::INFO, "Renderer Initialized...");
 	Logger::Get().Log(Logger::INFO, (const char*)glGetString(GL_VERSION));
 }
+float x = 1.0f;
 void Renderer::Update(float dt) {
-	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+	glClearColor(x -= dt, 1.0f, 1.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 

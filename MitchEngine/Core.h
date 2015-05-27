@@ -1,6 +1,7 @@
 // 2015 Mitchell Andrews
 #pragma once
 #include "Entity.h"
+#include "ClassTypeId.h"
 #include <vector>
 
 namespace ma {
@@ -9,7 +10,7 @@ namespace ma {
 	class BaseCore {
 	public:
 		BaseCore() = default;
-		virtual ~BaseCore() = 0;
+		virtual ~BaseCore() = default;
 
 		// Each core must update each loop
 		virtual void Update(float dt) = 0;
@@ -40,11 +41,15 @@ namespace ma {
 	// Use the CRTP patten to define custom systems
 	template<typename T>
 	class Core
-		: BaseCore {
+		: public BaseCore {
 	public:
 		typedef Core<T> BaseCore;
 
 		Core() = default;
+
+		static Type GetTypeId() {
+			return ClassTypeId<BaseCore>::GetTypeId<T>();
+		}
 	};
 }
 
