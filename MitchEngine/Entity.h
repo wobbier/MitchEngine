@@ -53,12 +53,12 @@ namespace ma {
 		~Entity();
 		Entity(const Entity&) = default;
 		Entity& operator=(const Entity&) = default;
-		Entity(Entity&&) = delete;
-		Entity& operator=(Entity&&) = delete;
 
 
 		template <typename T>
 		T& AddComponent(T* inComponent);
+
+		const ID& GetId() const;
 	protected:
 	private:
 		World* GameWorld = nullptr;

@@ -59,6 +59,12 @@
     <ClCompile Include="World.cpp">
       <Filter>Source Files\Engine</Filter>
     </ClCompile>
+    <ClCompile Include="ComponentStorage.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="EntityIdPool.cpp">
+      <Filter>Source Files\Engine</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Game.h">
@@ -102,6 +108,15 @@
     </ClInclude>
     <ClInclude Include="Singleton.h">
       <Filter>Source Files\Utility</Filter>
+    </ClInclude>
+    <ClInclude Include="ComponentStorage.h">
+      <Filter>Source Files\Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="Util.h">
+      <Filter>Source Files\Utility</Filter>
+    </ClInclude>
+    <ClInclude Include="EntityIdPool.h">
+      <Filter>Source Files\Engine</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

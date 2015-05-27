@@ -39,8 +39,8 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <IncludePath>..\ThirdParty\glm\;$(IncludePath)</IncludePath>
-    <LibraryPath>..\ThirdParty\glm\;$(LibraryPath)</LibraryPath>
+    <IncludePath>C:\SDK\boost_1_58_0;..\ThirdParty\glm\;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\SDK\boost_1_58_0\libs;..\ThirdParty\glm\;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -73,10 +73,12 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Component.cpp" />
+    <ClCompile Include="ComponentStorage.cpp" />
     <ClCompile Include="Config.cpp" />
     <ClCompile Include="Core.cpp" />
     <ClCompile Include="Engine.cpp" />
     <ClCompile Include="Entity.cpp" />
+    <ClCompile Include="EntityIdPool.cpp" />
     <ClCompile Include="Game.cpp" />
     <ClCompile Include="Logger.cpp" />
     <ClCompile Include="Renderer.cpp" />
@@ -87,12 +89,15 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Component.h" />
+    <ClInclude Include="ComponentStorage.h" />
     <ClInclude Include="Config.h" />
     <ClInclude Include="Core.h" />
     <ClInclude Include="Engine.h" />
     <ClInclude Include="Entity.h" />
+    <ClInclude Include="EntityIdPool.h" />
     <ClInclude Include="Game.h" />
     <ClInclude Include="Logger.h" />
+    <ClInclude Include="Util.h" />
     <ClInclude Include="Renderer.h" />
     <ClInclude Include="Singleton.h" />
     <ClInclude Include="Sprite.h" />

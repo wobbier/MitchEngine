@@ -1,5 +1,5 @@
 #include "Entity.h"
-
+#include "World.h"
 using namespace ma;
 
 Entity::Entity() {
@@ -21,5 +21,9 @@ T& Entity::AddComponent(T* inComponent) {
 }
 
 void Entity::AddComponent(BaseComponent* inComponent, Type inComponentTypeId) {
-	//GameWorld->m_entityAttributes.componentStorage.addComponent(*this, inComponent, inComponentTypeId);
+	GameWorld->EntityAttributes.Storage.AddComponent(*this, inComponent, inComponentTypeId);
+}
+
+const Entity::ID& Entity::GetId() const {
+	return Id;
 }
