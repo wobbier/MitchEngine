@@ -11,7 +11,7 @@ namespace ma {
 		float Rotation;
 
 		Transform();
-		~Transform();
+		virtual ~Transform();
 
 		// Each core must update each loop
 		virtual void Update(float dt) final;

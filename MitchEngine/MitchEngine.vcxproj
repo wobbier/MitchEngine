@@ -73,6 +73,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Component.cpp" />
+    <ClCompile Include="ComponentFilter.cpp" />
     <ClCompile Include="ComponentStorage.cpp" />
     <ClCompile Include="Config.cpp" />
     <ClCompile Include="Core.cpp" />
@@ -90,7 +91,9 @@
   <ItemGroup>
     <ClInclude Include="ClassTypeId.h" />
     <ClInclude Include="Component.h" />
+    <ClInclude Include="ComponentFilter.h" />
     <ClInclude Include="ComponentStorage.h" />
+    <ClInclude Include="ComponentTypeArray.h" />
     <ClInclude Include="Config.h" />
     <ClInclude Include="Core.h" />
     <ClInclude Include="Engine.h" />
@@ -103,7 +106,6 @@
     <ClInclude Include="Singleton.h" />
     <ClInclude Include="Sprite.h" />
     <ClInclude Include="Transform.h" />
-    <ClInclude Include="TypeId.h" />
     <ClInclude Include="Window.h" />
     <ClInclude Include="World.h" />
   </ItemGroup>

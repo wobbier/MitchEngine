@@ -11,19 +11,17 @@ GameWorld(&inWorld) {
 }
 
 Entity::~Entity() {
+
 }
 
-template <typename T>
-T& Entity::AddComponent(T* inComponent) {
-	static_assert(std::is_base_of<BaseComponent, T>(), "T is not a component, cannot add T to entity");
-	AddComponent(inComponent, T::GetTypeId());
-	return *inComponent;
-}
-
-void Entity::AddComponent(BaseComponent* inComponent, Type inComponentTypeId) {
+void Entity::AddComponent(BaseComponent* inComponent, TypeId inComponentTypeId) {
 	GameWorld->EntityAttributes.Storage.AddComponent(*this, inComponent, inComponentTypeId);
 }
 
 const Entity::ID& Entity::GetId() const {
 	return Id;
+}
+
+BaseComponent& Entity::GetComponent(TypeId InTypeId) const {
+	return GameWorld->EntityAttributes.Storage.GetComponent(*this, InTypeId);
 }

@@ -33,7 +33,7 @@ void ma::World::Simulate() {
 	}
 }
 
-void ma::World::AddCore(BaseCore& InCore, Type InCoreTypeId) {
+void ma::World::AddCore(BaseCore& InCore, TypeId InCoreTypeId) {
 
 }
 

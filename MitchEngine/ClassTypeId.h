@@ -3,18 +3,20 @@
 
 namespace ma {
 
+	typedef std::size_t TypeId;
+
 	template<typename TBase>
 	class ClassTypeId {
 	public:
 		template<typename T>
-		static std::size_t GetTypeId() {
-			static const std::size_t Id = NextTypeId++;
+		static TypeId GetTypeId() {
+			static const TypeId Id = NextTypeId++;
 			return Id;
 		}
 	private:
-		static std::size_t NextTypeId;
+		static TypeId NextTypeId;
 	};
 
 	template<typename TBase>
-	std::size_t ClassTypeId<TBase>::NextTypeId = 0;
+	TypeId ClassTypeId<TBase>::NextTypeId = 0;
 }

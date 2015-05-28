@@ -2,6 +2,9 @@
 #include "Core.h"
 #include "Sprite.h"
 
+#include <GL/glew.h>
+#include <GLFW/glfw3.h>
+
 namespace ma {
 	class Renderer :
 		public Core<Renderer> {
@@ -15,8 +18,7 @@ namespace ma {
 		// Each core must update each loop
 		virtual void Update(float dt) final;
 
-		// Can receive messages from the engine.
-		virtual void SendMessage(class Message* message) final;
+		void Render();
 
 		void AddSprite(Sprite* sprite);
 	};

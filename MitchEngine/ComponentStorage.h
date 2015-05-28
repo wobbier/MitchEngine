@@ -6,6 +6,7 @@
 #include "Entity.h"
 #include "Component.h"
 #include "Util.h"
+#include "ComponentTypeArray.h"
 
 namespace ma {
 	class ComponentStorage {
@@ -16,7 +17,9 @@ namespace ma {
 		MA_NONCOPYABLE(ComponentStorage);
 		MA_NONMOVABLE(ComponentStorage);
 
-		void AddComponent(Entity& InEntity, BaseComponent* InComponent, Type InComponentTypeId);
+		void AddComponent(Entity& InEntity, BaseComponent* InComponent, TypeId InComponentTypeId);
+
+		BaseComponent& GetComponent(const Entity& InEntity, TypeId InTypeId);
 
 		void Resize(std::size_t InAmount);
 	private:
@@ -28,11 +31,10 @@ namespace ma {
 			EntityComponents(EntityComponents&& E) :
 				Components(std::move(E.Components)),
 				ComponentTypeList(std::move(E.ComponentTypeList)) {
-
 			}
 			ImplComponentArray Components;
 
-			boost::dynamic_bitset<> ComponentTypeList;
+			ComponentTypeArray ComponentTypeList;
 		};
 
 		std::vector<EntityComponents> ComponentEntries;

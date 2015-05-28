@@ -35,7 +35,7 @@ namespace ma {
 			}
 		};
 
-		typedef std::unordered_map<Type, std::unique_ptr<BaseCore, CoreDeleter>> CoreArray;
+		typedef std::unordered_map<TypeId, std::unique_ptr<BaseCore, CoreDeleter>> CoreArray;
 
 		CoreArray Cores;
 
@@ -75,7 +75,7 @@ namespace ma {
 
 		EntityCache;
 
-		void AddCore(BaseCore& InCore, Type InCoreTypeId);
+		void AddCore(BaseCore& InCore, TypeId InCoreTypeId);
 
 		void CheckForResize(std::size_t InNumEntitiesToBeAllocated);
 

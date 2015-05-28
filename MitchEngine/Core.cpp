@@ -1,7 +1,10 @@
 #include "Core.h"
-#include "Engine.h"
 
 using namespace ma;
+
+BaseCore::BaseCore(const ComponentFilter& Filter) : CompFilter(Filter){
+
+}
 
 World& BaseCore::GetWorld() const {
 	return *GameWorld;
@@ -9,4 +12,16 @@ World& BaseCore::GetWorld() const {
 
 std::vector<Entity> BaseCore::GetEntities() const {
 	return Entities;
+}
+
+const ComponentFilter& BaseCore::GetComponentFilter() const {
+	return CompFilter;
+}
+
+void BaseCore::Add(Entity& InEntity) {
+	Entities.push_back(InEntity);
+}
+
+ma::BaseCore::~BaseCore() {
+
 }

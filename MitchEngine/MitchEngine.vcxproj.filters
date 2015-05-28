@@ -65,6 +65,9 @@
     <ClCompile Include="EntityIdPool.cpp">
       <Filter>Source Files\Engine</Filter>
     </ClCompile>
+    <ClCompile Include="ComponentFilter.cpp">
+      <Filter>Source Files\Engine</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Game.h">
@@ -100,9 +103,6 @@
     <ClInclude Include="Transform.h">
       <Filter>Source Files\Components</Filter>
     </ClInclude>
-    <ClInclude Include="TypeId.h">
-      <Filter>Source Files\Utility</Filter>
-    </ClInclude>
     <ClInclude Include="World.h">
       <Filter>Source Files\Engine</Filter>
     </ClInclude>
@@ -119,6 +119,12 @@
       <Filter>Source Files\Engine</Filter>
     </ClInclude>
     <ClInclude Include="ClassTypeId.h">
+      <Filter>Source Files\Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="ComponentFilter.h">
+      <Filter>Source Files\Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="ComponentTypeArray.h">
       <Filter>Source Files\Engine</Filter>
     </ClInclude>
   </ItemGroup>

@@ -2,6 +2,7 @@
 #pragma once
 #include "Entity.h"
 #include "ClassTypeId.h"
+#include "ComponentFilter.h"
 #include <vector>
 
 namespace ma {
@@ -10,19 +11,23 @@ namespace ma {
 	class BaseCore {
 	public:
 		BaseCore() = default;
-		virtual ~BaseCore() = default;
+		BaseCore(const ComponentFilter& Filter);
+		virtual ~BaseCore() = 0;
 
 		// Each core must update each loop
 		virtual void Update(float dt) = 0;
 
-		// Can receive messages from the engine.
-		virtual void SendMessage(class Message* message) = 0;
-
-		// Get The World attached to the System
+		// Get The World attached to the Core
 		World& GetWorld() const;
 
-		// Get All the entities that are within the System
+		// Get All the entities that are within the Core
 		std::vector<Entity> GetEntities() const;
+
+		// Get the component filter associated with the core.
+		const ComponentFilter& GetComponentFilter() const;
+
+		// Add an entity to the core
+		void Add(Entity& InEntity);
 	protected:
 		class Engine* GameEngine;
 	private:
@@ -35,6 +40,8 @@ namespace ma {
 		// The World attached to the system
 		World* GameWorld;
 
+		ComponentFilter CompFilter;
+
 		friend class World;
 	};
 
@@ -43,11 +50,15 @@ namespace ma {
 	class Core
 		: public BaseCore {
 	public:
-		typedef Core<T> BaseCore;
+		typedef Core<T> Base;
 
 		Core() = default;
 
-		static Type GetTypeId() {
+		Core(const ComponentFilter& InComponentFilter) : BaseCore(InComponentFilter) {
+
+		}
+
+		static TypeId GetTypeId() {
 			return ClassTypeId<BaseCore>::GetTypeId<T>();
 		}
 	};

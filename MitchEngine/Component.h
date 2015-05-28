@@ -2,21 +2,21 @@
 #pragma once
 #include <string>
 #include <vector>
+#include "ClassTypeId.h"
 
 namespace ma {
 	class BaseComponent {
 	public:
-		BaseComponent() = default;
 		~BaseComponent() = default;
 	};
 
 	template<typename T>
 	class Component
-		: BaseComponent {
+		: public BaseComponent {
 	public:
-		Component();
-		~Component();
-
-		typedef std::vector<std::reference_wrapper<BaseComponent>> ComponentArray;
+		static TypeId GetTypeId() {
+			return ClassTypeId<BaseComponent>::GetTypeId<T>();
+		}
 	};
+	typedef std::vector<std::reference_wrapper<BaseComponent>> ComponentArray;
 }
