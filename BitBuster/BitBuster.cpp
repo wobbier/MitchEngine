@@ -17,20 +17,19 @@ BitBuster::~BitBuster() {
 }
 
 void BitBuster::Initialize() {
+	Entity& TestEnt = GameWorld->CreateEntity();
+	auto& TransformComponent = TestEnt.AddComponent<Transform>();
+	auto& SpriteComponent = TestEnt.AddComponent<Sprite>();
+	TransformComponent.Position = glm::vec2(1.f, 0.5f);
+
+	TestEnt.SetActive(true);
+
 	ren = new Renderer();
 	GameWorld->AddCore<Renderer>(*ren);
-	Entity TestEnt = GameWorld->CreateEntity();
-	Transform* tt = new Transform();
-	tt->Position = glm::vec2(0.5f, 0.5f);
-	auto& t = TestEnt.AddComponent<Transform>(tt);
-	Sprite& SpriteComponent = TestEnt.AddComponent<Sprite>(new Sprite());
-	ren->Add(TestEnt);
-	t.Position = glm::vec2(1.f, 0.5f);
 }
 
 void BitBuster::Update(float DeltaTime) {
 	GameWorld->Simulate();
-	//ren->Update(DeltaTime);
 }
 
 void BitBuster::Render() {

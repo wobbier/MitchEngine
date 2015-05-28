@@ -24,6 +24,10 @@ void ma::ComponentStorage::AddComponent(Entity& InEntity, BaseComponent* InCompo
 	ComponentData.ComponentTypeList[InComponentTypeId] = true;
 }
 
+ma::ComponentTypeArray ma::ComponentStorage::GetComponentTypes(const Entity& InEntity) const {
+	return ComponentEntries[InEntity.GetId().Index].ComponentTypeList;
+}
+
 void ComponentStorage::Resize(std::size_t InAmount) {
 	std::cout << "RESIZE NOT IMPLEMENTED!";
 }

@@ -25,14 +25,14 @@ namespace ma {
 
 		// Get the component filter associated with the core.
 		const ComponentFilter& GetComponentFilter() const;
-
-		// Add an entity to the core
-		void Add(Entity& InEntity);
 	protected:
 		class Engine* GameEngine;
 	private:
 		// Separate init from construction code.
 		virtual void Init() = 0;
+
+		// Add an entity to the core
+		void Add(Entity& InEntity);
 
 		// The Entities that are attached to this system
 		std::vector<Entity> Entities;

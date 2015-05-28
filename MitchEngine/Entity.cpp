@@ -25,3 +25,11 @@ const Entity::ID& Entity::GetId() const {
 BaseComponent& Entity::GetComponent(TypeId InTypeId) const {
 	return GameWorld->EntityAttributes.Storage.GetComponent(*this, InTypeId);
 }
+
+void ma::Entity::SetActive(const bool InActive) {
+	GameWorld->ActivateEntity(*this, InActive);
+}
+
+bool ma::Entity::operator==(const Entity& entity) const {
+	return Id == entity.Id && entity.GameWorld == GameWorld;
+}

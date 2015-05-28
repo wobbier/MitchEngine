@@ -25,3 +25,4 @@ void BaseCore::Add(Entity& InEntity) {
 ma::BaseCore::~BaseCore() {
 
 }
+

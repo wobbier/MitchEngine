@@ -21,6 +21,8 @@ namespace ma {
 
 		BaseComponent& GetComponent(const Entity& InEntity, TypeId InTypeId);
 
+		ComponentTypeArray GetComponentTypes(const Entity& InEntity) const;
+
 		void Resize(std::size_t InAmount);
 	private:
 		typedef std::vector<std::unique_ptr<BaseComponent> > ImplComponentArray;

@@ -1,16 +1,27 @@
 #pragma once
 #include <memory>
+#include <unordered_map>
 #include <boost/dynamic_bitset.hpp>
 #include "Entity.h"
 #include "Core.h"
 #include "ComponentStorage.h"
 #include "EntityIdPool.h"
+#include "Util.h"
 
 namespace ma {
-	typedef std::vector<Entity> EntityArray;
 	class World {
-	public:
+	private:
+		typedef std::vector<Entity> EntityArray;
 
+		struct CoreDeleter {
+			void operator() (BaseCore* InCore) const {
+				InCore->GameWorld = nullptr;
+				InCore->Entities.clear();
+			}
+		};
+
+		typedef std::unordered_map<TypeId, std::unique_ptr<BaseCore, CoreDeleter>> CoreArray;
+	public:
 		template <typename TCore>
 		void AddCore(TCore& inCore);
 
@@ -23,27 +34,17 @@ namespace ma {
 		World();
 		World(std::size_t InEntityPoolSize);
 		~World();
-		World(const World& world) = delete;
-		World(World&& world) = delete;
-		World& operator=(const World&) = delete;
-		World& operator=(World&&) = delete;
+
+		MA_NONCOPYABLE(World);
+		MA_NONMOVABLE(World);
 	private:
-		struct CoreDeleter {
-			void operator() (BaseCore* InCore) const {
-				InCore->GameWorld = nullptr;
-				InCore->Entities.clear();
-			}
-		};
-
-		typedef std::unordered_map<TypeId, std::unique_ptr<BaseCore, CoreDeleter>> CoreArray;
-
 		CoreArray Cores;
 
 		EntityIdPool EntIdPool;
 
 		struct TEntityAttributes {
 			struct Attribute {
-				bool IsActive;
+				bool IsActive = true;
 
 				boost::dynamic_bitset<> Cores;
 			};
@@ -62,15 +63,21 @@ namespace ma {
 			ComponentStorage Storage;
 
 			std::vector<Attribute> Attributes;
-		};
-
-		TEntityAttributes EntityAttributes;
+		}
+		
+		EntityAttributes;
 
 		struct TEntityCache {
 			EntityArray Alive;
 			EntityArray Killed;
 			EntityArray Activated;
 			EntityArray Deactivated;
+
+			void ClearTemp() {
+				Killed.clear();
+				Activated.clear();
+				Deactivated.clear();
+			}
 		}
 
 		EntityCache;
@@ -80,6 +87,8 @@ namespace ma {
 		void CheckForResize(std::size_t InNumEntitiesToBeAllocated);
 
 		void Resize(std::size_t InAmount);
+
+		void ActivateEntity(const Entity& InEntity, const bool InActive);
 
 		// Access to components
 		friend class Entity;

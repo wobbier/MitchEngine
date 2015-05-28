@@ -60,15 +60,22 @@ namespace ma {
 		~Entity();
 		Entity(const Entity&) = default;
 		Entity& operator=(const Entity&) = default;
-
+		bool operator==(const Entity& entity) const;
+		bool operator!=(const Entity& entity) const { return !operator==(entity); }
 
 		template <typename T>
 		T& AddComponent(T* inComponent);
+
+		template <typename T, typename... Args>
+		T& AddComponent(Args&&... args);
 
 		template <typename T>
 		T& GetComponent() const;
 
 		const ID& GetId() const;
+
+		void SetActive(const bool InActive);
+
 	protected:
 	private:
 		World* GameWorld = nullptr;
@@ -89,5 +96,10 @@ namespace ma {
 	T& ma::Entity::GetComponent() const {
 		//static_assert(std::is_base_of<BaseComponent, T>(), "T is not a component, cannot get T from Entity");
 		return static_cast<T&>(GetComponent(T::GetTypeId()));
+	}
+
+	template <typename T, typename... Args>
+	T& ma::Entity::AddComponent(Args&&... args) {
+		return AddComponent(new T{std::forward<Args>(args)...});
 	}
 }
