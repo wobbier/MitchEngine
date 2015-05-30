@@ -25,6 +25,9 @@ void Game::Start() {
 
 	GameWorld = new World();
 
+	auto SpriteRenderer = new Renderer();
+	GameWorld->AddCore<Renderer>(*SpriteRenderer);
+
 	Initialize();
 	// Game loop
 	while (!GameWindow->ShouldClose()) {
@@ -33,7 +36,9 @@ void Game::Start() {
 		//float time = Time::Get()->GetTimeInMilliseconds();
 		//Time::Get()->deltaTime = (time <= 0.0f || time >= 0.3) ? 0.0001f : time;
 		// Update our engine
-		Update(100.0f/30.0f);
+		GameWorld->Simulate();
+		Update(100.0f / 30.0f);
+		SpriteRenderer->Render();
 		Render();
 		// Swap the buffers
 		glfwSwapBuffers(GameWindow->window);

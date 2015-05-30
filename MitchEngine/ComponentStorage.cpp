@@ -22,6 +22,8 @@ void ma::ComponentStorage::AddComponent(Entity& InEntity, BaseComponent* InCompo
 
 	CheckCapacity(ComponentData.ComponentTypeList, InComponentTypeId);
 	ComponentData.ComponentTypeList[InComponentTypeId] = true;
+
+	InComponent->Init();
 }
 
 ma::ComponentTypeArray ma::ComponentStorage::GetComponentTypes(const Entity& InEntity) const {

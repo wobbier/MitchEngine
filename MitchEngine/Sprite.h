@@ -1,10 +1,17 @@
 #pragma once
 #include "Component.h"
+#include "Texture.h"
+#include "Shader.h"
 
 namespace ma {
 	class Sprite :
 		public Component<Sprite> {
 	public:
+
+		Texture* SourceImage = nullptr;
+
+		Shader CurrentShader;
+
 		Sprite();
 		~Sprite();
 
@@ -16,5 +23,9 @@ namespace ma {
 
 		// Can receive messages from the engine.
 		virtual void SendMessage(class Message* message) final;
+
+		void SetSourceImage(std::string InPath);
+
+		void SetShader(std::string InVert, std::string InFrag);
 	};
 }

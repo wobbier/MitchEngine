@@ -20,6 +20,7 @@ namespace ma {
 
 		void Render();
 
-		void AddSprite(Sprite* sprite);
+		GLuint VAO;
+
 	};
 }

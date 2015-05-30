@@ -1,4 +1,6 @@
 #include "Window.h"
+#include "Logger.h"
+#include <assert.h>
 
 using namespace ma;
 
@@ -11,6 +13,7 @@ Window::Window(std::string title, int width, int height) {
 
 	// Init GLFW
 	glfwInit();
+
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
@@ -18,6 +21,10 @@ Window::Window(std::string title, int width, int height) {
 
 	window = glfwCreateWindow(width, height, title.c_str(), nullptr, nullptr); // Windowed
 	glfwMakeContextCurrent(window);
+	if (window == nullptr) {
+		Logger::Get().Log(Logger::ERR, "Failed to create window.");
+		assert(0);
+	}
 
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 }

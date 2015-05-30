@@ -8,7 +8,7 @@
 #include <string>
 
 using namespace ma;
-Renderer* ren;
+
 BitBuster::BitBuster() : Game() {
 }
 
@@ -21,19 +21,14 @@ void BitBuster::Initialize() {
 	auto& TransformComponent = TestEnt.AddComponent<Transform>();
 	auto& SpriteComponent = TestEnt.AddComponent<Sprite>();
 	TransformComponent.Position = glm::vec2(1.f, 0.5f);
-
+	SpriteComponent.SetSourceImage("Default.png");
 	TestEnt.SetActive(true);
-
-	ren = new Renderer();
-	GameWorld->AddCore<Renderer>(*ren);
 }
 
 void BitBuster::Update(float DeltaTime) {
-	GameWorld->Simulate();
 }
 
 void BitBuster::Render() {
-	ren->Render();
 }
 
 void BitBuster::End() {

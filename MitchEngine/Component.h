@@ -8,6 +8,8 @@ namespace ma {
 	class BaseComponent {
 	public:
 		~BaseComponent() = default;
+
+		virtual void Init() = 0;
 	};
 
 	template<typename T>

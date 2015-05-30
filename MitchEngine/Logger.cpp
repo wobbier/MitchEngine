@@ -35,7 +35,7 @@ bool Logger::Log(LogType priority, std::string message) {
 		type = "[Warning]: ";
 		break;
 	case ERR:
-		type = "[Error]: ";
+		type = "[! Error !]: ";
 		break;
 	default:
 		type = "[Unknown]: ";
