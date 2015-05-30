@@ -18,16 +18,21 @@ How to make a Mitch game
 3. Make a Visual studio template of the example game (or create a empty project and link the libraries).
 4. Run the newly created project and start coding!
 
-    // Create an entity.
-    auto& TestEntity = GameWorld->CreateEntity();
-    // Add some components
+```cpp
+	// Create an entity.
+	auto& TestEntity = GameWorld->CreateEntity();
+    
+	// Add some components
 	auto& TransformComponent = TestEntity.AddComponent<Transform>();
 	auto& SpriteComponent = TestEntity.AddComponent<Sprite>();
-    // Start changing some values
+    
+	// Start changing some values
 	TransformComponent.Position = glm::vec2(1.f, 0.5f);
 	SpriteComponent.SetSourceImage("Default.png");
-    // Tell the world the entity is ready to be updated
+    
+	// Tell the world the entity is ready to be updated
 	TestEntity.SetActive(true);
+```
 
 Main features
 -------------
