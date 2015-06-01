@@ -6,8 +6,8 @@ namespace ma {
 	class Transform :
 		public Component<Transform> {
 	public:
-		glm::vec2 Position;
-		glm::vec2 Scale;
+		glm::vec3 Position;
+		glm::vec3 Scale;
 		float Rotation;
 
 		Transform();

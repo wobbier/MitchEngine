@@ -16,7 +16,7 @@ void Sprite::Update(float dt) {
 }
 
 void Sprite::Init() {
-	SetShader("Shaders/Sprite.vert", "Shaders/Sprite.frag");
+	SetShader("Shaders/Default.vert", "Shaders/Default.frag");
 }
 
 void Sprite::SendMessage(class Message* message) {

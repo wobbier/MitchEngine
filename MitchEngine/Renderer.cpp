@@ -6,6 +6,13 @@
 #include "Window.h"
 #include "Shader.h"
 
+#include <glm.hpp>
+#include <gtc/matrix_transform.hpp>
+#include <gtc/type_ptr.hpp>
+#include <gtx/rotate_vector.hpp>
+
+#include "Camera.h"
+
 using namespace ma;
 
 Renderer::Renderer() : Base(ComponentFilter().Requires<Transform>().Requires<Sprite>()){
@@ -24,13 +31,13 @@ void Renderer::Init() {
 	// Set up vertex data (and buffer(s)) and attribute pointers
 	GLfloat vertices[] = {
 		// Positions          // Colors           // Texture Coords
-		0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, // Top Right
-		0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f, // Bottom Right
-		-0.5f, -0.5f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, // Bottom Left
-		-0.5f, 0.5f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f  // Top Left 
+		1.f, 1.f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, // Top Right
+		1.f, -1.f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f, // Bottom Right
+		-1.f, -1.f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, // Bottom Left
+		-1.f, 1.f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f  // Top Left 
 	};
 
-	GLuint indices[] = {  // Note that we start from 0!
+	GLuint indices[] = {
 		0, 1, 3, // First Triangle
 		1, 2, 3  // Second Triangle
 	};
@@ -60,6 +67,10 @@ void Renderer::Init() {
 
 	glBindVertexArray(0); // Unbind VAO
 
+	if (Camera::CurrentCamera == nullptr) {
+		Camera::CurrentCamera = new Camera();
+	}
+
 	Logger::Get().Log(Logger::DEBUG, "Renderer Initialized...");
 	Logger::Get().Log(Logger::DEBUG, (const char*)glGetString(GL_VERSION));
 }
@@ -84,10 +95,26 @@ void ma::Renderer::Render() {
 		glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
 		sprite.CurrentShader.Use();
 
+		glm::mat4 view;
+		view = Camera::CurrentCamera->GetViewMatrix();
+		glm::mat4 projection;
+		projection = glm::ortho(0.f, GLfloat(Window::WINDOW_WIDTH), GLfloat(Window::WINDOW_HEIGHT), 0.f, -10.0f, 10.f);
+		GLint modelLoc = glGetUniformLocation(sprite.CurrentShader.Program, "model");
+		GLint viewLoc = glGetUniformLocation(sprite.CurrentShader.Program, "view");
+		GLint projLoc = glGetUniformLocation(sprite.CurrentShader.Program, "projection");
+		glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
+		glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
+
+		glm::mat4 model = glm::mat4(1);
+		model = glm::translate(model, trans.Position);
+		model = glm::scale(model, glm::vec3(sprite.SourceImage->Width, sprite.SourceImage->Height, 1.f));
+		model = glm::scale(model, trans.Scale);
+		
+		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, sprite.SourceImage->Id);
-		glUniform1i(glGetUniformLocation(sprite.CurrentShader.Program, "ourTexture1"), 0);
-
+		glUniform1i(glGetUniformLocation(sprite.CurrentShader.Program, "texture_diffuse"), 0);
 
 		glBindVertexArray(VAO);
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);

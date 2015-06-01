@@ -1,14 +1,17 @@
-// Source3 Engine - 2014 Mitchell Andrews
+// 2015 Mitchell Andrews
 #pragma once
 #include "Window.h"
 #include "Renderer.h"
 #include "World.h"
 #include "Config.h"
+#include "Util.h"
 
 namespace ma {
 	class Game {
 	public:
 		World* GameWorld;
+
+		long long FrameRate;
 
 		Game();
 		virtual ~Game();
@@ -25,10 +28,8 @@ namespace ma {
 		Window* GetWindow();
 
 		// Remove copy, copy assignment, move, and move assignment constructors.
-		Game(const Game&) = delete;
-		Game& operator=(const Game&) = delete;
-		Game(Game&&) = delete;
-		Game& operator=(Game&&) = delete;
+		MA_NONCOPYABLE(Game);
+		MA_NONMOVABLE(Game);
 	private:
 		bool Running;
 		Window* GameWindow;

@@ -1,7 +1,9 @@
 #include "Game.h"
 #include "Logger.h"
+#include "Clock.h"
 
 using namespace ma;
+using namespace std;
 
 Game::Game() : Running(true) {
 }
@@ -29,15 +31,22 @@ void Game::Start() {
 	GameWorld->AddCore<Renderer>(*SpriteRenderer);
 
 	Initialize();
+
+	Clock& GameClock = Clock::Get();
+	GameClock.Reset();
+
 	// Game loop
 	while (!GameWindow->ShouldClose()) {
 		// Check and call events
 		glfwPollEvents();
-		//float time = Time::Get()->GetTimeInMilliseconds();
-		//Time::Get()->deltaTime = (time <= 0.0f || time >= 0.3) ? 0.0001f : time;
+
+		float time = GameClock.GetTimeInMilliseconds();
+		GameClock.deltaTime = (time <= 0.0f || time >= 0.3) ? 0.0001f : time;
+
 		// Update our engine
 		GameWorld->Simulate();
-		Update(100.0f / 30.0f);
+		Update(GameClock.deltaTime);
+
 		SpriteRenderer->Render();
 		Render();
 		// Swap the buffers

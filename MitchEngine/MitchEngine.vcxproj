@@ -85,11 +85,13 @@
     <ClCompile Include="Renderer.cpp" />
     <ClCompile Include="Sprite.cpp" />
     <ClCompile Include="Texture.cpp" />
+    <ClCompile Include="Clock.cpp" />
     <ClCompile Include="Transform.cpp" />
     <ClCompile Include="Window.cpp" />
     <ClCompile Include="World.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Camera.h" />
     <ClInclude Include="ClassTypeId.h" />
     <ClInclude Include="Component.h" />
     <ClInclude Include="ComponentFilter.h" />
@@ -104,6 +106,7 @@
     <ClInclude Include="Logger.h" />
     <ClInclude Include="Shader.h" />
     <ClInclude Include="Texture.h" />
+    <ClInclude Include="Clock.h" />
     <ClInclude Include="Util.h" />
     <ClInclude Include="Renderer.h" />
     <ClInclude Include="Singleton.h" />

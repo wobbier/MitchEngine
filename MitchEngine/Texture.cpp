@@ -11,8 +11,7 @@ Texture::Texture(std::string InPath) {
 
 	// Generate texture ID and load texture data 
 	glGenTextures(1, &Id);
-	int width, height;
-	unsigned char* image = SOIL_load_image(InPath.c_str(), &width, &height, 0, SOIL_LOAD_RGB);
+	unsigned char* image = SOIL_load_image(InPath.c_str(), &Width, &Height, 0, SOIL_LOAD_RGB);
 	if (image == 0) {
 		Logger::Get().Log(Logger::ERR, "Failed to load texture: " + InPath);
 		assert(0);
@@ -22,12 +21,12 @@ Texture::Texture(std::string InPath) {
 
 	// Assign texture to ID
 	glBindTexture(GL_TEXTURE_2D, Id);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, Width, Height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
 	glGenerateMipmap(GL_TEXTURE_2D);
 
 	// Parameters
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glBindTexture(GL_TEXTURE_2D, 0);

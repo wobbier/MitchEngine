@@ -26,7 +26,7 @@ Window::Window(std::string title, int width, int height) {
 		assert(0);
 	}
 
-	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 }
 
 Window::~Window() {

@@ -11,6 +11,9 @@ namespace ma {
 		std::string Type;
 		std::string Directory;
 
+		int Width;
+		int Height;
+
 		Texture() = delete;
 		Texture(std::string InPath);
 		~Texture();
