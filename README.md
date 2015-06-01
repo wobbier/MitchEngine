@@ -20,11 +20,11 @@ How to make a Mitch game
 
 ```cpp
 	// Create an entity.
-	auto& TestEntity = GameWorld->CreateEntity();
+	Entity& TestEntity = GameWorld->CreateEntity();
     
 	// Add some components
-	auto& TransformComponent = TestEntity.AddComponent<Transform>();
-	auto& SpriteComponent = TestEntity.AddComponent<Sprite>();
+	Transform& TransformComponent = TestEntity.AddComponent<Transform>();
+	Sprite& SpriteComponent = TestEntity.AddComponent<Sprite>();
     
 	// Start changing some values
 	TransformComponent.Position = glm::vec2(1.f, 0.5f);
