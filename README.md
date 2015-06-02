@@ -4,6 +4,8 @@ The 2D game engine so good it has my name in it.
 Mitch Engine is a simple c++ component-based engine for building 2d games, demos, and other graphical applications.
 It's a great hobby project to keep me exploring the world of c++.
 
+Check out my [Trello Board][5] to check out the current development status.
+
 The engine is:
 
   * Open source
@@ -68,3 +70,4 @@ Contact me
 [2]: https://dl.dropboxusercontent.com/u/14759830/Portfolio/MitchEngine/EngineDeps.7z "Download Dependencies"
 [3]: https://github.com/wobbier/MitchEngine/issues "GitHub Issues"
 [4]: http://www.twitter.com/wobbier "Twitter"
+[5]: https://trello.com/b/QpR06bQl/mitchengine-status "Trello Board"
