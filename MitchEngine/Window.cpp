@@ -1,5 +1,6 @@
 #include "Window.h"
 #include "Logger.h"
+#include "Input.h"
 #include <assert.h>
 
 using namespace ma;
@@ -27,6 +28,8 @@ Window::Window(std::string title, int width, int height) {
 	}
 
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+	glfwSetKeyCallback(window, &Input::KeyCallback);
+	glfwSetCursorPosCallback(window, &Input::MouseCallback);
 }
 
 Window::~Window() {

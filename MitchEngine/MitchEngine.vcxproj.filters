@@ -77,6 +77,9 @@
     <ClCompile Include="Transform.cpp">
       <Filter>Source Files\Components</Filter>
     </ClCompile>
+    <ClCompile Include="Input.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Game.h">
@@ -148,5 +151,6 @@
     <ClInclude Include="Sprite.h">
       <Filter>Source Files\Components</Filter>
     </ClInclude>
+    <ClInclude Include="Input.h" />
   </ItemGroup>
 </Project>
