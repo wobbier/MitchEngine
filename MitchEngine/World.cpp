@@ -40,7 +40,7 @@ void ma::World::Simulate() {
 				}
 			}
 			else if (Attr.Cores.size() > CoreIndex && Attr.Cores[CoreIndex]) {
-				//InCore.second->Remove(InEntity);
+				InCore.second->Remove(InEntity);
 				Attr.Cores[CoreIndex] = false;
 			}
 		}
@@ -94,7 +94,7 @@ std::size_t ma::World::GetEntityCount() const {
 	return EntityCache.Alive.size();
 }
 
-void ma::World::ActivateEntity(const Entity& InEntity, const bool InActive) {
+void ma::World::ActivateEntity(Entity& InEntity, const bool InActive) {
 	if (InActive) {
 		EntityCache.Activated.push_back(InEntity);
 	}

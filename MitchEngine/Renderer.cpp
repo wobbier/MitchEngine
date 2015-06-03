@@ -85,7 +85,7 @@ Renderer::~Renderer() {
 
 float x = 1.0f;
 void ma::Renderer::Render() {
-	x -= 0.001f;
+	x -= 0.01f;
 	glClearColor(x, 1.0f, 1.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	auto Renderables = GetEntities();
@@ -108,7 +108,7 @@ void ma::Renderer::Render() {
 		glm::mat4 model = glm::mat4(1);
 		model = glm::translate(model, trans.Position);
 		model = glm::scale(model, glm::vec3(sprite.SourceImage->Width, sprite.SourceImage->Height, 1.f));
-		model = glm::scale(model, trans.Scale);
+		//model = glm::scale(model, trans.Scale);
 		
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 

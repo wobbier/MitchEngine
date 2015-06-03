@@ -44,7 +44,7 @@ namespace ma {
 
 		struct TEntityAttributes {
 			struct Attribute {
-				bool IsActive = true;
+				bool IsActive;
 
 				boost::dynamic_bitset<> Cores;
 			};
@@ -88,7 +88,7 @@ namespace ma {
 
 		void Resize(std::size_t InAmount);
 
-		void ActivateEntity(const Entity& InEntity, const bool InActive);
+		void ActivateEntity(Entity& InEntity, const bool InActive);
 
 		// Access to components
 		friend class Entity;

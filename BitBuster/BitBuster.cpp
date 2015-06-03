@@ -7,6 +7,8 @@
 #include "Entity.h"
 #include <string>
 
+#include <memory>
+
 using namespace ma;
 
 BitBuster::BitBuster() : Game() {
@@ -15,24 +17,31 @@ BitBuster::BitBuster() : Game() {
 BitBuster::~BitBuster() {
 	Game::~Game();
 }
-Transform* TransformComponent;
+
+std::vector<Entity> EntList;
+
 void BitBuster::Initialize() {
-	Entity& TestEnt = GameWorld->CreateEntity();
-	TransformComponent = &(TestEnt.AddComponent<Transform>());
-	auto& SpriteComponent = TestEnt.AddComponent<Sprite>();
-	TransformComponent->Position = glm::vec3(20.f, 20.0f, 0.0f);
-	TransformComponent->Scale = glm::vec3(1.f);
-	SpriteComponent.SetSourceImage("Default.png");
-	TestEnt.SetActive(true);
+	for (int i = 0; i < 3; ++i) {
+		EntList.push_back(GameWorld->CreateEntity());
+		auto& TransformComponent = EntList[i].AddComponent<Transform>();
+		auto& SpriteComponent = EntList[i].AddComponent<Sprite>();
+		TransformComponent.Position = glm::vec3(20.f * i, 20.0f, 0.0f);
+		TransformComponent.Scale = glm::vec3(1.f);
+		SpriteComponent.SetSourceImage("Default.png");
+		EntList[i].SetActive(true);
+	}
 }
 
 void BitBuster::Update(float DeltaTime) {
-	TransformComponent->Position += glm::vec3(10 * DeltaTime, 10 * DeltaTime, 0);
+	for (auto E : EntList)
+	{
+		Transform& TransformComponent = E.GetComponent<Transform>();
+		TransformComponent.Position += glm::vec3(10 * DeltaTime, 10 * DeltaTime, 0);
+	}
 }
 
 void BitBuster::Render() {
 }
 
 void BitBuster::End() {
-
 }

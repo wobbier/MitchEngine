@@ -4,9 +4,10 @@
 #include "ClassTypeId.h"
 #include <unordered_map>
 #include <string>
+#include <cstdint>
 
 // Testing 32-bit / 64-bit ids
-#undef MITCH_32_BIT_IDS
+#define MITCH_32_BIT_IDS
 
 #ifdef MITCH_32_BIT_IDS
 #	define MITCH_ENTITY_ID_INDEX_BIT_COUNT 20
@@ -26,9 +27,9 @@ namespace ma {
 			// Possible room for 64-bit
 			typedef 
 #ifdef MITCH_32_BIT_IDS
-				__int32
+				std::uint32_t
 #else
-				__int64
+				std::uint64_t
 #endif
 				IntType;
 

@@ -1,5 +1,4 @@
 // 2015 Mitchell Andrews
-// Oh god the venture with boost and the dynamic_bitset.
 
 #pragma once
 #include <boost/dynamic_bitset.hpp>

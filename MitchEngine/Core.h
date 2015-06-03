@@ -34,6 +34,8 @@ namespace ma {
 		// Add an entity to the core
 		void Add(Entity& InEntity);
 
+		void Remove(Entity& InEntity);
+
 		// The Entities that are attached to this system
 		std::vector<Entity> Entities;
 
