@@ -28,8 +28,16 @@ void ma::Sprite::SetSourceImage(std::string InPath) {
 		delete SourceImage;
 	}
 	SourceImage = new Texture(InPath);
+	SetSpriteRect(0, 0, SourceImage->Width, SourceImage->Height);
 }
 
 void ma::Sprite::SetShader(std::string InVert, std::string InFrag) {
 	CurrentShader = Shader(InVert.c_str(), InFrag.c_str());
+}
+
+void ma::Sprite::SetSpriteRect(float InX, float InY, float InWidth, float InHeight) {
+	TextureRect.x = InX / SourceImage->Width;
+	TextureRect.y = InY / SourceImage->Height;
+	TextureRect.z = (InX + InWidth) / SourceImage->Width;
+	TextureRect.w = (InY + InHeight) / SourceImage->Height;
 }

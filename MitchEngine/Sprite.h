@@ -2,6 +2,7 @@
 #include "Component.h"
 #include "Texture.h"
 #include "Shader.h"
+#include <glm.hpp>
 
 namespace ma {
 	class Sprite :
@@ -9,6 +10,8 @@ namespace ma {
 	public:
 
 		Texture* SourceImage = nullptr;
+
+		glm::vec4 TextureRect;
 
 		Shader CurrentShader;
 
@@ -25,6 +28,8 @@ namespace ma {
 		virtual void SendMessage(class Message* message) final;
 
 		void SetSourceImage(std::string InPath);
+
+		void SetSpriteRect(float InX, float InY, float InWidth, float InHeight);
 
 		void SetShader(std::string InVert, std::string InFrag);
 	};

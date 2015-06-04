@@ -19,7 +19,6 @@ namespace ma {
 		void Start();
 		virtual void Initialize() = 0;
 		virtual void Update(float DeltaTime) = 0;
-		virtual void Render() = 0;
 		virtual void End() = 0;
 
 		bool IsRunning() const;

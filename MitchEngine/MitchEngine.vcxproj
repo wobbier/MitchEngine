@@ -72,6 +72,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Animation.cpp" />
+    <ClCompile Include="AnimationCore.cpp" />
     <ClCompile Include="Component.cpp" />
     <ClCompile Include="ComponentFilter.cpp" />
     <ClCompile Include="ComponentStorage.cpp" />
@@ -92,6 +94,8 @@
     <ClCompile Include="World.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Animation.h" />
+    <ClInclude Include="AnimationCore.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="ClassTypeId.h" />
     <ClInclude Include="Component.h" />

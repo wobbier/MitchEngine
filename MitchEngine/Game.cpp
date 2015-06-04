@@ -1,6 +1,7 @@
 #include "Game.h"
 #include "Logger.h"
 #include "Clock.h"
+#include "AnimationCore.h"
 
 using namespace ma;
 using namespace std;
@@ -30,6 +31,9 @@ void Game::Start() {
 	auto SpriteRenderer = new Renderer();
 	GameWorld->AddCore<Renderer>(*SpriteRenderer);
 
+	auto Animator = new AnimationCore();
+	GameWorld->AddCore<AnimationCore>(*Animator);
+
 	Initialize();
 
 	Clock& GameClock = Clock::Get();
@@ -45,10 +49,10 @@ void Game::Start() {
 
 		// Update our engine
 		GameWorld->Simulate();
+		Animator->Update(GameClock.deltaTime);
 		Update(GameClock.deltaTime);
 
 		SpriteRenderer->Render();
-		Render();
 		// Swap the buffers
 		glfwSwapBuffers(GameWindow->window);
 	}

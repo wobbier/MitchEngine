@@ -11,8 +11,6 @@ namespace ma {
 
 		virtual void Update(float DeltaTime) override;
 
-		virtual void Render() override;
-
 		virtual void End() override;
 	};
 }

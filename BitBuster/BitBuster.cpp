@@ -8,6 +8,7 @@
 #include <string>
 #include "Input.h"
 #include "Window.h"
+#include "Animation.h"
 
 #include <memory>
 
@@ -27,7 +28,8 @@ void BitBuster::Initialize() {
 		EntList.push_back(GameWorld->CreateEntity());
 		auto& TransformComponent = EntList[i].AddComponent<Transform>();
 		auto& SpriteComponent = EntList[i].AddComponent<Sprite>();
-		TransformComponent.Position = glm::vec3(200.f * i, Window::WINDOW_HEIGHT / 2, 0.0f);
+		EntList[i].AddComponent<Animation>();
+		TransformComponent.Position = glm::vec3((Window::WINDOW_HEIGHT / 3) + 200.f * i, Window::WINDOW_HEIGHT / 2, 0.0f);
 		TransformComponent.Scale = glm::vec3(1.f);
 		SpriteComponent.SetSourceImage("Default" + std::to_string(i) + ".png");
 		EntList[i].SetActive(true);
@@ -37,22 +39,19 @@ void BitBuster::Initialize() {
 void BitBuster::Update(float DeltaTime) {
 	for (auto E : EntList) {
 		Transform& TransformComponent = E.GetComponent<Transform>();
-		if (Input::Get()->IsKeyDown(GLFW_KEY_W)) {
+		if (Input::Get().IsKeyDown(GLFW_KEY_W)) {
 			TransformComponent.Position += glm::vec3(0, -40 * DeltaTime, 0);
 		}
-		if (Input::Get()->IsKeyDown(GLFW_KEY_S)) {
+		if (Input::Get().IsKeyDown(GLFW_KEY_S)) {
 			TransformComponent.Position += glm::vec3(0, 40 * DeltaTime, 0);
 		}
-		if (Input::Get()->IsKeyDown(GLFW_KEY_A)) {
+		if (Input::Get().IsKeyDown(GLFW_KEY_A)) {
 			TransformComponent.Position += glm::vec3(-40 * DeltaTime, 0, 0);
 		}
-		if (Input::Get()->IsKeyDown(GLFW_KEY_D)) {
+		if (Input::Get().IsKeyDown(GLFW_KEY_D)) {
 			TransformComponent.Position += glm::vec3(40 * DeltaTime, 0, 0);
 		}
 	}
-}
-
-void BitBuster::Render() {
 }
 
 void BitBuster::End() {
