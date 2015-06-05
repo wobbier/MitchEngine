@@ -40,4 +40,5 @@ void ma::Sprite::SetSpriteRect(float InX, float InY, float InWidth, float InHeig
 	TextureRect.y = InY / SourceImage->Height;
 	TextureRect.z = (InX + InWidth) / SourceImage->Width;
 	TextureRect.w = (InY + InHeight) / SourceImage->Height;
+	FrameSize = glm::vec2(InWidth, InHeight);
 }

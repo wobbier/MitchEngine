@@ -27,6 +27,8 @@ void Renderer::Init() {
 	glViewport(0, 0, Window::WINDOW_WIDTH, Window::WINDOW_HEIGHT);
 
 	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	// Set up vertex data (and buffer(s)) and attribute pointers
 	GLfloat vertices[] = {
@@ -103,6 +105,7 @@ void ma::Renderer::Render() {
 	for (auto& InEntity : Renderables) {
 		auto& trans = InEntity.GetComponent<Transform>();
 		auto& sprite = InEntity.GetComponent<Sprite>();
+
 		sprite.CurrentShader.Use();
 		GLuint Program = sprite.CurrentShader.Program;
 
@@ -131,11 +134,11 @@ void ma::Renderer::Render() {
 
 		glm::mat4 model = glm::mat4(1);
 		model = glm::translate(model, trans.Position);
-		model = glm::scale(model, glm::vec3(sprite.SourceImage->Width, sprite.SourceImage->Height, 1.f));
+		model = glm::scale(model, glm::vec3(sprite.FrameSize.x, sprite.FrameSize.y, 1.f));
 		model = glm::scale(model, trans.Scale);
 
 		glUniformMatrix4fv(ModelLoc, 1, GL_FALSE, glm::value_ptr(model));
-
+		glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_BLEND);
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, sprite.SourceImage->Id);
 		glUniform1i(glGetUniformLocation(Program, "texture_diffuse"), 0);

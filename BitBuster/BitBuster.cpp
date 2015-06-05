@@ -24,14 +24,19 @@ BitBuster::~BitBuster() {
 std::vector<Entity> EntList;
 
 void BitBuster::Initialize() {
-	for (int i = 0; i < 3; ++i) {
+	for (int i = 0; i < 4; ++i) {
 		EntList.push_back(GameWorld->CreateEntity());
 		auto& TransformComponent = EntList[i].AddComponent<Transform>();
 		auto& SpriteComponent = EntList[i].AddComponent<Sprite>();
-		EntList[i].AddComponent<Animation>();
+		auto& AnimationComponent = EntList[i].AddComponent<Animation>();
+
 		TransformComponent.Position = glm::vec3((Window::WINDOW_HEIGHT / 3) + 200.f * i, Window::WINDOW_HEIGHT / 2, 0.0f);
 		TransformComponent.Scale = glm::vec3(1.f);
-		SpriteComponent.SetSourceImage("Default" + std::to_string(i) + ".png");
+
+		SpriteComponent.SetSourceImage("Default3.png");
+
+		AnimationComponent.SetAnimationInfo(SpriteComponent.SourceImage->Width, SpriteComponent.SourceImage->Height, 7, 4);
+		AnimationComponent.FPS = 24.f;
 		EntList[i].SetActive(true);
 	}
 }

@@ -13,6 +13,9 @@ namespace ma {
 
 		glm::vec4 TextureRect;
 
+		// TODO: Remove this from sprite
+		glm::vec2 FrameSize;
+
 		Shader CurrentShader;
 
 		Sprite();
