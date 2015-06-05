@@ -22,15 +22,17 @@ How to make a Mitch game
 
 ```cpp
 	// Create an entity.
-	Entity& TestEntity = GameWorld->CreateEntity();
+	Entity TestEntity = GameWorld->CreateEntity();
     
 	// Add some components
 	Transform& TransformComponent = TestEntity.AddComponent<Transform>();
 	Sprite& SpriteComponent = TestEntity.AddComponent<Sprite>();
+    Animation& AnimationComponent = TestEntity.Addcomponent<Animation>();
     
 	// Start changing some values
 	TransformComponent.Position = glm::vec2(1.f, 0.5f);
 	SpriteComponent.SetSourceImage("Default.png");
+    AnimationComponent.SetAnimationInfo(SpriteComponent.Width, SpriteComponent.Height, 7, 4);
     
 	// Tell the world the entity is ready to be updated
 	TestEntity.SetActive(true);
@@ -39,6 +41,7 @@ How to make a Mitch game
 Main features
 -------------
    * Component based design
+   * Sprite sheet animations
    * Scene management
    * Mouse/Keyboard on desktop
    * Language: C++, with json config files
@@ -52,6 +55,7 @@ Build Requirements
 * GLEW - 1.11.0
 * GLFW - 3.0.4
 * JsonCpp - 1.0.0
+* SOIL (Simple OpenGL Image Library) - Latest
 
 Contributing to the Project
 --------------------------------
