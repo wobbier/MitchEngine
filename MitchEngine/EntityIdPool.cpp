@@ -30,3 +30,9 @@ std::size_t EntityIdPool::GetSize() const {
 void EntityIdPool::Resize(std::size_t InAmount) {
 	Entities.resize(InAmount);
 }
+
+void EntityIdPool::Remove(Entity::ID InEntityId) {
+	auto& Counter = Entities[InEntityId.Index];
+	++Counter;
+	FreeList.emplace_back(InEntityId.Index, Counter);
+}

@@ -53,7 +53,7 @@ void ma::World::Simulate() {
 			auto CoreIndex = InCore.first;
 			if (Attr.Cores.size() <= CoreIndex) continue;
 			if (Attr.Cores[CoreIndex]) {
-				//InCore.second.
+				InCore.second->Remove(InEntity);
 				Attr.Cores[CoreIndex] = false;
 			}
 		}
@@ -63,9 +63,9 @@ void ma::World::Simulate() {
 
 		EntityCache.Alive.erase(std::remove(EntityCache.Alive.begin(), EntityCache.Alive.end(), InEntity), EntityCache.Alive.end());
 
-		//EntityAttributes.Storage.RemoveAllComponents(InEntity);
+		EntityAttributes.Storage.RemoveAllComponents(InEntity);
 
-		//EntIdPool.Remove(InEntity.GetId());
+		EntIdPool.Remove(InEntity.GetId());
 	}
 
 	EntityCache.ClearTemp();

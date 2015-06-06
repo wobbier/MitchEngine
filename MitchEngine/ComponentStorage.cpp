@@ -30,6 +30,22 @@ ma::ComponentTypeArray ma::ComponentStorage::GetComponentTypes(const Entity& InE
 	return ComponentEntries[InEntity.GetId().Index].ComponentTypeList;
 }
 
+void ma::ComponentStorage::RemoveComponent(const Entity& InEntity, TypeId InTypeId) {
+	auto Index = InEntity.GetId().Index;
+	auto& ComponentData = ComponentEntries[Index];
+
+	ComponentData.Components[InTypeId].reset();
+	ComponentData.ComponentTypeList[InTypeId] = false;
+}
+
+void ComponentStorage::RemoveAllComponents(Entity& InEntity) {
+	auto Index = InEntity.GetId().Index;
+	auto& ComponentData = ComponentEntries[Index];
+
+	ComponentData.Components.clear();
+	ComponentData.ComponentTypeList.clear();
+}
+
 void ComponentStorage::Resize(std::size_t InAmount) {
 	std::cout << "RESIZE NOT IMPLEMENTED!";
 }

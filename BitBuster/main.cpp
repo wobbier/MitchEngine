@@ -5,7 +5,7 @@
 using namespace ma;
 
 int main() {
-	BitBuster* game = new BitBuster();
-	game->Start();
+	BitBuster game;
+	game.Start();
 	return 0;
 }

@@ -33,3 +33,7 @@ void ma::Entity::SetActive(const bool InActive) {
 bool ma::Entity::operator==(const Entity& entity) const {
 	return Id == entity.Id && entity.GameWorld == GameWorld;
 }
+
+void ma::Entity::RemoveComponent(TypeId InComponentTypeId) {
+	GameWorld->EntityAttributes.Storage.RemoveComponent(*this, InComponentTypeId);
+}

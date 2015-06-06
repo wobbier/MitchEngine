@@ -17,7 +17,7 @@ namespace ma {
 
 		void Resize(std::size_t InAmount);
 
-
+		void Remove(Entity::ID InEntityId);
 	protected:
 	private:
 		std::size_t DefaultPoolSize;

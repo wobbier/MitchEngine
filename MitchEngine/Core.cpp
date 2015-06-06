@@ -26,7 +26,7 @@ ma::BaseCore::~BaseCore() {
 
 }
 
-void ma::BaseCore::Remove(Entity& InEntity) {
+void BaseCore::Remove(Entity& InEntity) {
 	Entities.erase(std::remove(Entities.begin(), Entities.end(), InEntity), Entities.end());
 }
 

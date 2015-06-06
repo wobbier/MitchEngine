@@ -73,6 +73,9 @@ namespace ma {
 		template <typename T>
 		T& GetComponent() const;
 
+		template <typename T>
+		void RemoveComponent();
+
 		const ID& GetId() const;
 
 		void SetActive(const bool InActive);
@@ -84,9 +87,9 @@ namespace ma {
 
 		void AddComponent(BaseComponent* inComponent, TypeId inComponentTypeId);
 		BaseComponent& GetComponent(TypeId InTypeId) const;
+		void RemoveComponent(TypeId InComponentTypeId);
 	};
-
-	template <typename T>
+template <typename T>
 	T& Entity::AddComponent(T* inComponent) {
 		//static_assert(std::is_base_of<BaseComponent, T>(), "T is not a component, cannot add T to entity");
 		AddComponent(inComponent, T::GetTypeId());
@@ -102,5 +105,10 @@ namespace ma {
 	template <typename T, typename... Args>
 	T& ma::Entity::AddComponent(Args&&... args) {
 		return AddComponent(new T{std::forward<Args>(args)...});
+	}
+
+	template <typename T>
+	void ma::Entity::RemoveComponent() {
+		RemoveComponent(T::GetTypeId());
 	}
 }
