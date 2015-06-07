@@ -25,6 +25,15 @@ BitBuster::~BitBuster() {
 std::vector<Entity> EntList;
 
 void BitBuster::Initialize() {
+	for (int i = 0; i < 2; ++i) {
+		Entity& Background = GameWorld->CreateEntity();
+		Transform& BGPos = Background.AddComponent<Transform>();
+		Sprite& BGSprite = Background.AddComponent<Sprite>();
+		BGSprite.SetSourceImage("colored_grass.png");
+		BGPos.Position = glm::vec3(BGSprite.FrameSize.x * i, Window::WINDOW_HEIGHT / 2, 0.0f);
+		Background.SetActive(true);
+	}
+
 	for (int i = 0; i < 4; ++i) {
 		EntList.push_back(GameWorld->CreateEntity());
 		auto& TransformComponent = EntList[i].AddComponent<Transform>();

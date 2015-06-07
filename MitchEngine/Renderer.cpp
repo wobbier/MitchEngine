@@ -26,7 +26,8 @@ void Renderer::Init() {
 	}
 	glViewport(0, 0, Window::WINDOW_WIDTH, Window::WINDOW_HEIGHT);
 
-	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_ALPHA_TEST);
+	glAlphaFunc(GL_GREATER, 0.1f);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
