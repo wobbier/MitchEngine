@@ -15,10 +15,6 @@ namespace ma {
 		FramesAccumulated = 0;
 	}
 
-	void Animation::Update(float dt) {
-
-	}
-
 	void Animation::SetAnimationInfo(int InWidth, int InHeight, int InColumns, int InRows) {
 		CurrentFrame = glm::vec2(2, 4);
 		GridSize = glm::vec2(InColumns, InRows);

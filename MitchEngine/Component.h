@@ -19,6 +19,10 @@ namespace ma {
 		static TypeId GetTypeId() {
 			return ClassTypeId<BaseComponent>::GetTypeId<T>();
 		}
+
+		// Each core must update each loop
+		virtual void Update(float dt) {
+		}
 	};
 	typedef std::vector<std::reference_wrapper<BaseComponent>> ComponentArray;
 }

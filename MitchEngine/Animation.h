@@ -27,9 +27,6 @@ namespace ma {
 		Animation();
 		~Animation();
 
-		// Each core must update each loop
-		virtual void Update(float dt) final;
-
 		// Separate init from construction code.
 		virtual void Init() final;
 

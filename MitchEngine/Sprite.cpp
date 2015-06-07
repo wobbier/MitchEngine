@@ -11,16 +11,8 @@ Sprite::Sprite() {
 Sprite::~Sprite() {
 }
 
-void Sprite::Update(float dt) {
-
-}
-
 void Sprite::Init() {
 	SetShader("Shaders/Default.vert", "Shaders/Default.frag");
-}
-
-void Sprite::SendMessage(class Message* message) {
-
 }
 
 void ma::Sprite::SetSourceImage(std::string InPath) {

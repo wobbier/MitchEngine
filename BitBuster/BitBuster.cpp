@@ -50,6 +50,7 @@ void BitBuster::Initialize() {
 		AnimationComponent.FPS = 24.f;
 		EntList[i].SetActive(true);
 	}
+
 	for (int i = 0; i < 20; ++i) {
 		Entity& Ground = GameWorld->CreateEntity();
 		auto& TransformComponent = Ground.AddComponent<Transform>();

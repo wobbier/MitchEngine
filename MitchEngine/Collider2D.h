@@ -12,9 +12,6 @@ namespace ma {
 		// Separate init from construction code.
 		virtual void Init() final;
 
-		// Each core must update each loop
-		virtual void Update(float dt) final;
-
 		void SetBodyType(b2BodyType InBodyType);
 	private:
 		class b2PhysicsWorld;

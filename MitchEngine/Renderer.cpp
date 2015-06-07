@@ -137,6 +137,9 @@ void ma::Renderer::Render() {
 		model = glm::translate(model, trans.Position);
 		model = glm::scale(model, glm::vec3(sprite.FrameSize.x, sprite.FrameSize.y, 1.f));
 		model = glm::scale(model, trans.Scale);
+		model = glm::rotate(model, trans.Rotation.x, glm::vec3(1, 0, 0));
+		model = glm::rotate(model, trans.Rotation.y, glm::vec3(0, 1, 0));
+		model = glm::rotate(model, trans.Rotation.z, glm::vec3(0, 0, 1));
 
 		glUniformMatrix4fv(ModelLoc, 1, GL_FALSE, glm::value_ptr(model));
 		glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_BLEND);
