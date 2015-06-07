@@ -2,6 +2,7 @@
 #include "Logger.h"
 #include "Clock.h"
 #include "AnimationCore.h"
+#include "PhysicsCore.h"
 
 using namespace ma;
 using namespace std;
@@ -28,11 +29,14 @@ void Game::Start() {
 
 	GameWorld = new World();
 
-	auto SpriteRenderer = new Renderer();
-	GameWorld->AddCore<Renderer>(*SpriteRenderer);
+	auto SpriteRenderer = Renderer();
+	GameWorld->AddCore<Renderer>(SpriteRenderer);
 
-	auto Animator = new AnimationCore();
-	GameWorld->AddCore<AnimationCore>(*Animator);
+	auto Animator = AnimationCore();
+	GameWorld->AddCore<AnimationCore>(Animator);
+
+	auto Physics = PhysicsCore();
+	GameWorld->AddCore<PhysicsCore>(Physics);
 
 	Initialize();
 
@@ -49,10 +53,11 @@ void Game::Start() {
 
 		// Update our engine
 		GameWorld->Simulate();
-		Animator->Update(GameClock.deltaTime);
+		Physics.Update(GameClock.deltaTime);
+		Animator.Update(GameClock.deltaTime);
 		Update(GameClock.deltaTime);
 
-		SpriteRenderer->Render();
+		SpriteRenderer.Render();
 		// Swap the buffers
 		glfwSwapBuffers(GameWindow->window);
 	}

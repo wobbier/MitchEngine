@@ -39,8 +39,8 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <IncludePath>..\ThirdParty\SOIL\include;D:\SDK\boost_1_58_0;..\ThirdParty\glm\;$(IncludePath)</IncludePath>
-    <LibraryPath>..\ThirdParty\SOIL\lib;D:\SDK\boost_1_58_0\libs;..\ThirdParty\glm\;$(LibraryPath)</LibraryPath>
+    <IncludePath>..\ThirdParty\Box2D\include;..\ThirdParty\SOIL\include;D:\SDK\boost_1_58_0;..\ThirdParty\glm\;$(IncludePath)</IncludePath>
+    <LibraryPath>..\ThirdParty\Box2D\lib;..\ThirdParty\SOIL\lib;D:\SDK\boost_1_58_0\libs;..\ThirdParty\glm\;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -54,7 +54,7 @@
     </Link>
     <Lib>
       <AdditionalLibraryDirectories>..\ThirdParty\GLFW\lib;..\ThirdParty\GLEW\lib;..\ThirdParty\Jsoncpp\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>opengl32.lib;glew32d.lib;glfw3.lib;jsoncpp.lib;SOIL.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>opengl32.lib;glew32d.lib;glfw3.lib;jsoncpp.lib;SOIL.lib;Box2D.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -74,6 +74,7 @@
   <ItemGroup>
     <ClCompile Include="Animation.cpp" />
     <ClCompile Include="AnimationCore.cpp" />
+    <ClCompile Include="Collider2D.cpp" />
     <ClCompile Include="Component.cpp" />
     <ClCompile Include="ComponentFilter.cpp" />
     <ClCompile Include="ComponentStorage.cpp" />
@@ -85,6 +86,7 @@
     <ClCompile Include="Game.cpp" />
     <ClCompile Include="Input.cpp" />
     <ClCompile Include="Logger.cpp" />
+    <ClCompile Include="PhysicsCore.cpp" />
     <ClCompile Include="Renderer.cpp" />
     <ClCompile Include="Sprite.cpp" />
     <ClCompile Include="Texture.cpp" />
@@ -98,6 +100,7 @@
     <ClInclude Include="AnimationCore.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="ClassTypeId.h" />
+    <ClInclude Include="Collider2D.h" />
     <ClInclude Include="Component.h" />
     <ClInclude Include="ComponentFilter.h" />
     <ClInclude Include="ComponentStorage.h" />
@@ -110,6 +113,7 @@
     <ClInclude Include="Game.h" />
     <ClInclude Include="Input.h" />
     <ClInclude Include="Logger.h" />
+    <ClInclude Include="PhysicsCore.h" />
     <ClInclude Include="Shader.h" />
     <ClInclude Include="Texture.h" />
     <ClInclude Include="Clock.h" />

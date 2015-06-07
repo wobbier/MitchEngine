@@ -39,8 +39,8 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <IncludePath>..\ThirdParty\SOIL\include;D:\SDK\boost_1_58_0;..\ThirdParty\glm\;$(IncludePath)</IncludePath>
-    <LibraryPath>..\ThirdParty\SOIL\lib;D:\SDK\boost_1_58_0\libs;..\ThirdParty\glm\;$(LibraryPath)</LibraryPath>
+    <IncludePath>..\ThirdParty\Box2D\include;..\ThirdParty\SOIL\include;D:\SDK\boost_1_58_0;..\ThirdParty\glm\;$(IncludePath)</IncludePath>
+    <LibraryPath>..\ThirdParty\Box2D\lib;..\ThirdParty\SOIL\lib;D:\SDK\boost_1_58_0\libs;..\ThirdParty\glm\;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -52,7 +52,7 @@
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>..\ThirdParty\Jsoncpp\lib;..\ThirdParty\GLFW\lib;..\ThirdParty\GLEW\lib;../Debug/;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>MitchEngine.lib;glfw3.lib;glew32d.lib;jsoncpp.lib;SOIL.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>MitchEngine.lib;glfw3.lib;glew32d.lib;jsoncpp.lib;SOIL.lib;Box2D.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
     </Link>
     <ProjectReference>

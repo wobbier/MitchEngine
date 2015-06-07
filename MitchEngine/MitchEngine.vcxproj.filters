@@ -86,6 +86,12 @@
     <ClCompile Include="Input.cpp">
       <Filter>Source Files\Engine</Filter>
     </ClCompile>
+    <ClCompile Include="PhysicsCore.cpp">
+      <Filter>Source Files\Cores</Filter>
+    </ClCompile>
+    <ClCompile Include="Collider2D.cpp">
+      <Filter>Source Files\Components</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Game.h">
@@ -165,6 +171,12 @@
     </ClInclude>
     <ClInclude Include="Input.h">
       <Filter>Source Files\Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="PhysicsCore.h">
+      <Filter>Source Files\Cores</Filter>
+    </ClInclude>
+    <ClInclude Include="Collider2D.h">
+      <Filter>Source Files\Components</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -7,6 +7,7 @@
 namespace ma {
 	class Sprite :
 		public Component<Sprite> {
+		friend class Renderer;
 	public:
 
 		Texture* SourceImage = nullptr;

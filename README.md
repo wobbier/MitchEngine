@@ -10,7 +10,7 @@ The engine is:
 
   * Open source
   * Easy to use
-  * Free
+  * Awesome
 
 How to make a Mitch game
 -----------------------
@@ -27,12 +27,14 @@ How to make a Mitch game
 	// Add some components
 	Transform& TransformComponent = TestEntity.AddComponent<Transform>();
 	Sprite& SpriteComponent = TestEntity.AddComponent<Sprite>();
+    Collider2D& ColliderComponent = TestEntity.AddComponent<Collider2D>();
     Animation& AnimationComponent = TestEntity.Addcomponent<Animation>();
     
 	// Start changing some values
 	TransformComponent.Position = glm::vec2(1.f, 0.5f);
 	SpriteComponent.SetSourceImage("Default.png");
     AnimationComponent.SetAnimationInfo(SpriteComponent.Width, SpriteComponent.Height, 7, 4);
+    ColliderComponent.SetBodyType(b2_dynamicBody);
     
 	// Tell the world the entity is ready to be updated
 	TestEntity.SetActive(true);
@@ -41,6 +43,7 @@ How to make a Mitch game
 Main features
 -------------
    * Component based design
+   * Physics components (Box2D)
    * Sprite sheet animations
    * Scene management
    * Mouse/Keyboard on desktop
@@ -56,6 +59,7 @@ Build Requirements
 * GLFW - 3.0.4
 * JsonCpp - 1.0.0
 * SOIL (Simple OpenGL Image Library) - Latest
+* Box2D - 2.3.0
 
 Contributing to the Project
 --------------------------------
