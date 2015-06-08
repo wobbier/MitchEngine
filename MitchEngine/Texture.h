@@ -3,9 +3,10 @@
 #include <GL/glew.h>
 #include "SOIL.h"
 #include "Util.h"
+#include "Resource.h"
 
 namespace ma {
-	class Texture {
+	class Texture : public Resource {
 	public:
 		GLuint Id;
 		std::string Type;
@@ -14,9 +15,10 @@ namespace ma {
 		int Width;
 		int Height;
 
-		Texture() = delete;
-		Texture(std::string InPath);
+		Texture();
 		~Texture();
+
+		static Texture* Load(const std::string& InFilePath);
 
 		// Textures should not be copied around in memory
 		MA_NONCOPYABLE(Texture);

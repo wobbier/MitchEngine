@@ -7,6 +7,7 @@
 #include "ComponentStorage.h"
 #include "EntityIdPool.h"
 #include "Util.h"
+#include "ResourceCache.h"
 
 namespace ma {
 	class World {

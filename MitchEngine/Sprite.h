@@ -9,12 +9,8 @@ namespace ma {
 		public Component<Sprite> {
 		friend class Renderer;
 	public:
-
-		Texture* SourceImage = nullptr;
-
 		glm::vec4 TextureRect;
 
-		// TODO: Remove this from sprite
 		glm::vec2 FrameSize;
 
 		Shader CurrentShader;
@@ -25,10 +21,12 @@ namespace ma {
 		// Separate init from construction code.
 		virtual void Init() final;
 
-		void SetSourceImage(std::string InPath);
+		void SetImage(Texture* InTexture);
 
 		void SetSpriteRect(float InX, float InY, float InWidth, float InHeight);
 
 		void SetShader(std::string InVert, std::string InFrag);
+	private:
+		Texture* SourceImage = nullptr;
 	};
 }

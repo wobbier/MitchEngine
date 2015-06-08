@@ -47,7 +47,7 @@ void ComponentStorage::RemoveAllComponents(Entity& InEntity) {
 }
 
 void ComponentStorage::Resize(std::size_t InAmount) {
-	std::cout << "RESIZE NOT IMPLEMENTED!";
+	ComponentEntries.resize(InAmount);
 }
 
 BaseComponent& ComponentStorage::GetComponent(const Entity& InEntity, TypeId InTypeId) {

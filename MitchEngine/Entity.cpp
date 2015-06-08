@@ -11,7 +11,6 @@ GameWorld(&inWorld) {
 }
 
 Entity::~Entity() {
-
 }
 
 void Entity::AddComponent(BaseComponent* inComponent, TypeId inComponentTypeId) {

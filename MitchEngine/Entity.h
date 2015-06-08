@@ -89,7 +89,8 @@ namespace ma {
 		BaseComponent& GetComponent(TypeId InTypeId) const;
 		void RemoveComponent(TypeId InComponentTypeId);
 	};
-template <typename T>
+
+	template <typename T>
 	T& Entity::AddComponent(T* inComponent) {
 		//static_assert(std::is_base_of<BaseComponent, T>(), "T is not a component, cannot add T to entity");
 		AddComponent(inComponent, T::GetTypeId());

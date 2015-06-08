@@ -4,6 +4,9 @@
 #include "Sprite.h"
 #include "Box2D/Box2D.h"
 
+#define M_PI 3.14159
+#define RADIANS_TO_DEGREES(__ANGLE__) ((__ANGLE__) / M_PI * 180.0)
+
 namespace ma {
 	PhysicsCore::PhysicsCore() : Base(ComponentFilter().Requires<Transform>().Requires<Collider2D>()) {
 	}
@@ -13,7 +16,7 @@ namespace ma {
 	}
 
 	void PhysicsCore::Init() {
-		Gravity = b2Vec2(0, 10);
+		Gravity = b2Vec2(0, 100);
 		PhysicsWorld = new b2World(Gravity);
 	}
 
@@ -33,7 +36,7 @@ namespace ma {
 				ColliderComponent.Body = PhysicsWorld->CreateBody(&ColliderComponent.BodyDefinition);
 
 				if (&SpriteComponent) {
-					ColliderComponent.ShapeDefinition.SetAsBox((SpriteComponent.FrameSize.x / 6), (SpriteComponent.FrameSize.y / 6));
+					ColliderComponent.ShapeDefinition.SetAsBox((SpriteComponent.FrameSize.x / 6.5f), (SpriteComponent.FrameSize.y / 6.5f));
 				}
 				else {
 					ColliderComponent.ShapeDefinition.SetAsBox(1, 1);
@@ -47,7 +50,7 @@ namespace ma {
 			}
 
 			TransformComponent.Position = glm::vec3(ColliderComponent.Body->GetPosition().x, ColliderComponent.Body->GetPosition().y, TransformComponent.Position.z);
+			TransformComponent.Rotation = glm::vec3(0, 0, RADIANS_TO_DEGREES(ColliderComponent.Body->GetAngle()));
 		}
 	}
-
 }

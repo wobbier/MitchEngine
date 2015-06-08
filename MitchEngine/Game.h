@@ -5,11 +5,14 @@
 #include "World.h"
 #include "Config.h"
 #include "Util.h"
+#include "ResourceCache.h"
 
 namespace ma {
 	class Game {
 	public:
 		World* GameWorld;
+
+		ResourceCache Resources;
 
 		long long FrameRate;
 

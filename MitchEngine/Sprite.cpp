@@ -15,11 +15,11 @@ void Sprite::Init() {
 	SetShader("Shaders/Default.vert", "Shaders/Default.frag");
 }
 
-void ma::Sprite::SetSourceImage(std::string InPath) {
+void ma::Sprite::SetImage(Texture* InTexture) {
 	if (SourceImage != nullptr) {
 		delete SourceImage;
 	}
-	SourceImage = new Texture(InPath);
+	SourceImage = InTexture;
 	SetSpriteRect(0, 0, SourceImage->Width, SourceImage->Height);
 }
 
