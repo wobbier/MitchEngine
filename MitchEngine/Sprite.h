@@ -8,6 +8,7 @@ namespace ma {
 	class Sprite :
 		public Component<Sprite> {
 		friend class Renderer;
+		friend class AnimationCore;
 	public:
 		glm::vec4 TextureRect;
 

@@ -19,7 +19,7 @@ namespace ma {
 		template<class T>
 		T* Get(const std::string& InFilePath);
 	private:
-		std::vector<std::map<std::string, ma::Resource*>> ResourceStack;
+		std::vector<std::map<std::string, class Resource*>> ResourceStack;
 	};
 
 	template<class T>
