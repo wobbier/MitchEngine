@@ -81,7 +81,6 @@
     <ClCompile Include="ComponentStorage.cpp" />
     <ClCompile Include="Config.cpp" />
     <ClCompile Include="Core.cpp" />
-    <ClCompile Include="Engine.cpp" />
     <ClCompile Include="Entity.cpp" />
     <ClCompile Include="EntityIdPool.cpp" />
     <ClCompile Include="Game.cpp" />
@@ -109,7 +108,6 @@
     <ClInclude Include="ComponentTypeArray.h" />
     <ClInclude Include="Config.h" />
     <ClInclude Include="Core.h" />
-    <ClInclude Include="Engine.h" />
     <ClInclude Include="Entity.h" />
     <ClInclude Include="EntityIdPool.h" />
     <ClInclude Include="Game.h" />

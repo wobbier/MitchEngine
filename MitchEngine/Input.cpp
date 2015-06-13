@@ -1,5 +1,7 @@
 #include "Input.h"
+#include "Logger.h"
 #include <glm.hpp>
+#include <string>
 #include <iostream>
 namespace ma {
 #pragma region KeyboardInput
@@ -20,6 +22,13 @@ namespace ma {
 		return true;
 	}
 
+	bool Input::IsKeyUp(int key) {
+		if (Keys[key].Action == 0) {
+			return true;
+		}
+		return false;
+	}
+
 #pragma endregion
 
 #pragma region MouseInput
@@ -27,6 +36,7 @@ namespace ma {
 	void Input::MouseCallback(GLFWwindow* window, double xpos, double ypos) {
 		Input& Instance = Get();
 		Instance.Mouse.Position = glm::vec2(xpos, ypos);
+		Logger::Get().Log(Logger::DEBUG, std::to_string(Instance.Mouse.Position.x));
 	}
 
 	glm::vec2 Input::GetMousePosition() {

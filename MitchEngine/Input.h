@@ -21,6 +21,8 @@ namespace ma {
 		};
 
 		bool IsKeyDown(int key);
+
+		bool IsKeyUp(int key);
 		glm::vec2 GetMousePosition();
 
 	private:

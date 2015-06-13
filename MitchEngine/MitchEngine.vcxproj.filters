@@ -32,9 +32,6 @@
     <ClCompile Include="Core.cpp">
       <Filter>Source Files\Engine</Filter>
     </ClCompile>
-    <ClCompile Include="Engine.cpp">
-      <Filter>Source Files\Engine</Filter>
-    </ClCompile>
     <ClCompile Include="Entity.cpp">
       <Filter>Source Files\Engine</Filter>
     </ClCompile>
@@ -110,9 +107,6 @@
       <Filter>Source Files\Engine</Filter>
     </ClInclude>
     <ClInclude Include="Core.h">
-      <Filter>Source Files\Engine</Filter>
-    </ClInclude>
-    <ClInclude Include="Engine.h">
       <Filter>Source Files\Engine</Filter>
     </ClInclude>
     <ClInclude Include="Entity.h">
