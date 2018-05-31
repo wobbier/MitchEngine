@@ -11,6 +11,29 @@ workspace "MitchEngine"
    "../ThirdParty/Boost",
    "../ThirdParty/JsonCPP/include"
    }
+   libdirs {
+	"../ThirdParty/SOIL/libs",
+	"../ThirdParty/GLEW/lib/%{cfg.buildcfg}/Win32",
+	"../ThirdParty/GLFW/lib-vc2015",
+	"../ThirdParty/JsonCPP/**/%{cfg.buildcfg}"
+   }
+   
+   links {
+   	   "SOIL",
+	   "glfw3",
+	   "opengl32",
+	   "lib_json"
+   }
+
+   filter "configurations:Debug"
+	   links {
+		   "glew32d"
+	   }
+   
+   filter "configurations:Release"
+   links {
+	   "glew32"
+   }
    
 project "MitchEngine"
    kind "StaticLib"

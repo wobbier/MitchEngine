@@ -6,10 +6,6 @@
 	path = ThirdParty/GLFW
 	url = https://github.com/glfw/glfw.git
 	ignore = dirty
-[submodule "ThirdParty/Boost"]
-	path = ThirdParty/Boost
-	url = https://github.com/povilasb/boost-header-only.git
-	ignore = dirty
 [submodule "ThirdParty/SOIL"]
 	path = ThirdParty/SOIL
 	url = https://github.com/Friduric/simple-opengl-image-library.git

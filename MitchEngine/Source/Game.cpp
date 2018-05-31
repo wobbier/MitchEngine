@@ -21,7 +21,7 @@ void Game::Start()
 	Logger::Get().SetLogPriority(Logger::LogType::Info);
 	Logger::Get().Log(Logger::LogType::Info, "Starting the MitchEngine.");
 
-	EngineConfig = new Config("Config\\Engine.cfg");
+	EngineConfig = new Config("Assets\\Config\\Engine.cfg");
 
 	auto WindowConfig = EngineConfig->Root["window"];
 	int WindowWidth = WindowConfig["width"].asInt();

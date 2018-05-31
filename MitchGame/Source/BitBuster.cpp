@@ -34,8 +34,9 @@ void BitBuster::Initialize()
 		Entity& Background = GameWorld->CreateEntity();
 		Transform& BGPos = Background.GetComponent<Transform>();
 		Sprite& BGSprite = Background.AddComponent<Sprite>();
-		BGSprite.SetImage(Resources.Get<Texture>("colored_grass.png"));
+		BGSprite.SetImage(Resources.Get<Texture>("Assets\\colored_grass.png"));
 		BGPos.Position = glm::vec3(BGSprite.FrameSize.x * i, Window::WINDOW_HEIGHT / 2, 0.0f);
+		Background.SetActive(true);
 	}
 
 	for (int i = 0; i < 10; ++i)
@@ -48,10 +49,11 @@ void BitBuster::Initialize()
 
 		TransformComponent.Position = glm::vec3((SpriteComponent.FrameSize.x + 200) * i, SpriteComponent.FrameSize.y * i, 0.0f);
 
-		SpriteComponent.SetImage(Resources.Get<Texture>("Default3.png"));
+		SpriteComponent.SetImage(Resources.Get<Texture>("Assets\\Default3.png"));
 
 		AnimationComponent.SetAnimationInfo(SpriteComponent.FrameSize.x, SpriteComponent.FrameSize.y, 7, 4);
 		AnimationComponent.FPS = 60.f;
+		EntList[i].SetActive(true);
 	}
 
 	for (int i = 0; i < 30; ++i)
@@ -61,11 +63,11 @@ void BitBuster::Initialize()
 		auto& SpriteComponent = Ground.AddComponent<Sprite>();
 		auto& ColliderComponent = Ground.AddComponent<Collider2D>();
 
-		SpriteComponent.SetImage(Resources.Get<Texture>("Grass.png"));
+		SpriteComponent.SetImage(Resources.Get<Texture>("Assets\\Grass.png"));
 
 		TransformComponent.Position = glm::vec3(SpriteComponent.FrameSize.x * i, Window::WINDOW_HEIGHT - (SpriteComponent.FrameSize.y / 2), 0.0f);
 		TransformComponent.Scale = glm::vec3(1.f);
-
+		Ground.SetActive(true);
 		//ColliderComponent.SetBodyType(b2_staticBody);
 	}
 }

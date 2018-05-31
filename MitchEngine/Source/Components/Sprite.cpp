@@ -17,7 +17,7 @@ Sprite::~Sprite()
 
 void Sprite::Init()
 {
-	SetShader("Shaders/Default.vert", "Shaders/Default.frag");
+	SetShader("Assets/Shaders/Default.vert", "Assets/Shaders/Default.frag");
 }
 
 void MAN::Sprite::SetImage(Texture* InTexture)
