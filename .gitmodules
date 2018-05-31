@@ -10,6 +10,6 @@
 [submodule "ThirdParty/SOIL"]
 	path = ThirdParty/SOIL
 	url = https://github.com/Friduric/simple-opengl-image-library.git
-[submodule ".\\ThirdParty\\Bullet"]
-	path = .\\ThirdParty\\Bullet
+[submodule "ThirdParty/Bullet"]
+	path = ThirdParty/Bullet
 	url = https://github.com/bulletphysics/bullet3.git
