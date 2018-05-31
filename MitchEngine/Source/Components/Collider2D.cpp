@@ -12,12 +12,12 @@ namespace MAN
 
 	void Collider2D::Init()
 	{
-		ShapeDefinition.SetAsBox(1, 1);
-		SetBodyType(b2_dynamicBody);
+		//ShapeDefinition.SetAsBox(1, 1);
+		//SetBodyType(b2_dynamicBody);
 	}
 
-	void Collider2D::SetBodyType(b2BodyType InBodyType)
-	{
-		BodyDefinition.type = InBodyType;
-	}
+	//void Collider2D::SetBodyType(b2BodyType InBodyType)
+	//{
+	//	BodyDefinition.type = InBodyType;
+	//}
 }

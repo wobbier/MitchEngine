@@ -1,6 +1,6 @@
 #pragma once
 #include "Engine/Component.h"
-#include "Box2D/Box2D.h"
+//#include "Box2D/Box2D.h"
 
 namespace MAN
 {
@@ -14,14 +14,14 @@ namespace MAN
 		// Separate init from construction code.
 		virtual void Init() final;
 
-		void SetBodyType(b2BodyType InBodyType);
+		//void SetBodyType(b2BodyType InBodyType);
 	private:
-		class b2PhysicsWorld;
-		b2Body* Body;
+		//class b2PhysicsWorld;
+		//b2Body* Body;
 
-		b2BodyDef BodyDefinition;
-		b2FixtureDef FixtureDefinition;
-		b2PolygonShape ShapeDefinition;
+		//b2BodyDef BodyDefinition;
+		//b2FixtureDef FixtureDefinition;
+		//b2PolygonShape ShapeDefinition;
 
 		bool IsInitialized;
 	};

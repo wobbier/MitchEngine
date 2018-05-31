@@ -24,7 +24,7 @@ void Renderer::Init()
 	glewExperimental = GL_TRUE;
 	if (glewInit() != GLEW_OK)
 	{
-		Logger::Get().Log(Logger::ERR, "Failed to initialize GLEW");
+		Logger::Get().Log(Logger::LogType::Error, "Failed to initialize GLEW");
 		assert(0);
 	}
 	glViewport(0, 0, Window::WINDOW_WIDTH, Window::WINDOW_HEIGHT);
@@ -87,8 +87,8 @@ void Renderer::Init()
 		Camera::CurrentCamera = new Camera();
 	}
 
-	Logger::Get().Log(Logger::DEBUG, "Renderer Initialized...");
-	Logger::Get().Log(Logger::DEBUG, (const char*)glGetString(GL_VERSION));
+	Logger::Get().Log(Logger::LogType::Debug, "Renderer Initialized...");
+	Logger::Get().Log(Logger::LogType::Debug, (const char*)glGetString(GL_VERSION));
 }
 
 void Renderer::Update(float dt)
@@ -97,7 +97,7 @@ void Renderer::Update(float dt)
 
 Renderer::~Renderer()
 {
-	Logger::Get().Log(Logger::DEBUG, "Renderer Destroyed...");
+	Logger::Get().Log(Logger::LogType::Debug, "Renderer Destroyed...");
 }
 
 float x = 1.0f;

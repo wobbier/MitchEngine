@@ -1,6 +1,6 @@
-#include "Window.h"
-#include "Logger.h"
-#include "Input.h"
+#include "Engine/Window.h"
+#include "Engine/Input.h"
+#include "Utility/Logger.h"
 #include <assert.h>
 
 using namespace MAN;
@@ -25,7 +25,7 @@ Window::Window(std::string title, int width, int height)
 	glfwMakeContextCurrent(window);
 	if (window == nullptr)
 	{
-		Logger::Get().Log(Logger::ERR, "Failed to create window.");
+		Logger::Get().Log(Logger::LogType::Error, "Failed to create window.");
 		assert(0);
 	}
 

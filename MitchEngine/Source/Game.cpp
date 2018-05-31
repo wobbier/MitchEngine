@@ -1,8 +1,8 @@
 #include "Game.h"
-#include "Logger.h"
-#include "Clock.h"
-#include "AnimationCore.h"
-#include "PhysicsCore.h"
+#include "Utility/Logger.h"
+#include "Engine/Clock.h"
+#include "Cores/AnimationCore.h"
+#include "Cores/PhysicsCore.h"
 
 using namespace MAN;
 using namespace std;
@@ -18,8 +18,8 @@ Game::~Game()
 void Game::Start()
 {
 	Logger::Get().SetLogFile("engine.txt");
-	Logger::Get().SetLogPriority(Logger::INFO);
-	Logger::Get().Log(Logger::INFO, "Starting the MitchEngine.");
+	Logger::Get().SetLogPriority(Logger::LogType::Info);
+	Logger::Get().Log(Logger::LogType::Info, "Starting the MitchEngine.");
 
 	EngineConfig = new Config("Config\\Engine.cfg");
 

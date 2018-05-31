@@ -1,7 +1,6 @@
 #pragma once
 #include <vector>
 #include <memory>
-#include <boost/dynamic_bitset.hpp>
 
 #include "Engine/Entity.h"
 #include "Engine/Component.h"

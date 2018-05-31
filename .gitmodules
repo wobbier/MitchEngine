@@ -18,3 +18,7 @@
 	path = ThirdParty/Bullet
 	url = https://github.com/bulletphysics/bullet3.git
 	ignore = dirty
+[submodule "ThirdParty/JsonCPP"]
+	path = ThirdParty/JsonCPP
+	url = https://github.com/open-source-parsers/jsoncpp.git
+	ignore = dirty

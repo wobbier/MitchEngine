@@ -43,7 +43,7 @@ namespace MAN
 	{
 		Input& Instance = Get();
 		Instance.Mouse.Position = glm::vec2(xpos, ypos);
-		Logger::Get().Log(Logger::DEBUG, std::to_string(Instance.Mouse.Position.x));
+		Logger::Get().Log(Logger::LogType::Debug, std::to_string(Instance.Mouse.Position.x));
 	}
 
 	glm::vec2 Input::GetMousePosition()

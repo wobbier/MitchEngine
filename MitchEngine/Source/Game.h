@@ -1,11 +1,11 @@
 // 2015 Mitchell Andrews
 #pragma once
-#include "Window.h"
-#include "Renderer.h"
-#include "World.h"
-#include "Config.h"
-#include "Util.h"
-#include "ResourceCache.h"
+#include "Engine/Window.h"
+#include "Engine/World.h"
+#include "Engine/ResourceCache.h"
+#include "Cores/Renderer.h"
+#include "Utility/Config.h"
+#include "Utility/Util.h"
 
 namespace MAN
 {

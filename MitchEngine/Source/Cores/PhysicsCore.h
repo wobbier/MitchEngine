@@ -1,6 +1,6 @@
 #pragma once
 #include "Engine/Core.h"
-#include "Box2D/Box2D.h"
+//#include "Box2D/Box2D.h"
 
 namespace MAN
 {
@@ -8,9 +8,9 @@ namespace MAN
 	{
 		friend class Core<PhysicsCore>;
 	public:
-		b2World * PhysicsWorld;
+		//b2World * PhysicsWorld;
 
-		b2Vec2 Gravity;
+		//b2Vec2 Gravity;
 
 		PhysicsCore();
 		~PhysicsCore();

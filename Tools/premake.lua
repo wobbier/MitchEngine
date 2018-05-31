@@ -8,7 +8,8 @@ workspace "MitchEngine"
    "../ThirdParty/GLFW/include",
    "../ThirdParty/SOIL/include",
    "../ThirdParty/GLEW/include",
-   "../ThirdParty/Boost/include"
+   "../ThirdParty/Boost",
+   "../ThirdParty/JsonCPP/include"
    }
    
 project "MitchEngine"

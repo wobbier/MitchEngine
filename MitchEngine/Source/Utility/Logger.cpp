@@ -11,14 +11,14 @@ void Logger::SetLogFile(std::string filename)
 	mLogFileLocation = filename;
 }
 
-void Logger::SetLogPriority(LogType priority)
+void Logger::SetLogPriority(Logger::LogType priority)
 {
 	mPriority = priority;
 }
 
-bool Logger::Log(LogType priority, std::string message)
+bool Logger::Log(Logger::LogType priority, std::string message)
 {
-	if (mPriority == NONE) return false;
+	if (mPriority == LogType::None) return false;
 	if (priority < mPriority)
 		return false;
 
@@ -27,19 +27,19 @@ bool Logger::Log(LogType priority, std::string message)
 	char* type;
 	switch (priority)
 	{
-	case INFO:
+	case LogType::Info:
 		type = "[Info]: ";
 		break;
-	case TRACE:
+	case LogType::Trace:
 		type = "[Trace]: ";
 		break;
-	case DEBUG:
+	case LogType::Debug:
 		type = "[Debug]: ";
 		break;
-	case WARN:
+	case LogType::Warning:
 		type = "[Warning]: ";
 		break;
-	case ERR:
+	case LogType::Error:
 		type = "[! Error !]: ";
 		break;
 	default:

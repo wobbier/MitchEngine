@@ -1,15 +1,15 @@
 #include "BitBuster.h"
-#include "Renderer.h"
-#include "Logger.h"
-#include "Sprite.h"
-#include "Component.h"
-#include "Transform.h"
-#include "Entity.h"
+#include "Cores/Renderer.h"
+#include "Utility/Logger.h"
+#include "Components/Sprite.h"
+#include "Engine/Component.h"
+#include "Components/Transform.h"
+#include "Engine/Entity.h"
 #include <string>
-#include "Input.h"
-#include "Window.h"
-#include "Animation.h"
-#include "Collider2D.h"
+#include "Engine/Input.h"
+#include "Engine/Window.h"
+#include "Components/Animation.h"
+#include "Components/Collider2D.h"
 
 #include <memory>
 
@@ -66,7 +66,7 @@ void BitBuster::Initialize()
 		TransformComponent.Position = glm::vec3(SpriteComponent.FrameSize.x * i, Window::WINDOW_HEIGHT - (SpriteComponent.FrameSize.y / 2), 0.0f);
 		TransformComponent.Scale = glm::vec3(1.f);
 
-		ColliderComponent.SetBodyType(b2_staticBody);
+		//ColliderComponent.SetBodyType(b2_staticBody);
 	}
 }
 

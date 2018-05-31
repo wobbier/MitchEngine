@@ -1,7 +1,7 @@
 #include <iostream>
 #include <assert.h>
-#include "Texture.h"
-#include "Logger.h"
+#include "Graphics/Texture.h"
+#include "Utility/Logger.h"
 #include <SOIL.h>
 
 using namespace MAN;
@@ -25,11 +25,11 @@ Texture* Texture::Load(const std::string& InFilePath)
 	unsigned char* image = SOIL_load_image(InFilePath.c_str(), &LoadedTexture->Width, &LoadedTexture->Height, 0, SOIL_LOAD_RGBA);
 	if (image == 0)
 	{
-		Logger::Get().Log(Logger::ERR, "Failed to load texture: " + InFilePath);
+		Logger::Get().Log(Logger::LogType::Error, "Failed to load texture: " + InFilePath);
 		assert(0);
 	}
 
-	Logger::Get().Log(Logger::INFO, "Loaded Texture: " + InFilePath);
+	Logger::Get().Log(Logger::LogType::Info, "Loaded Texture: " + InFilePath);
 
 	// Assign texture to ID
 	glBindTexture(GL_TEXTURE_2D, LoadedTexture->Id);

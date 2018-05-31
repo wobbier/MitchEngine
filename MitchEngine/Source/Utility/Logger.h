@@ -20,14 +20,14 @@ namespace MAN
 		Setting a priority will only allow the logger to output
 		the set level and higher.
 		*/
-		enum LogType
+		enum class LogType : int
 		{
-			NONE = 0,
-			INFO,
-			TRACE,
-			DEBUG,
-			WARN,
-			ERR
+			None = 0,
+			Info,
+			Trace,
+			Debug,
+			Warning,
+			Error
 		};
 
 		//************************************
@@ -43,14 +43,14 @@ namespace MAN
 		Set the logger write priority.
 		@param priority: The logger priority to change to
 		*/
-		void SetLogPriority(LogType priority);
+		void SetLogPriority(Logger::LogType priority);
 		/*
 		Write a message to the file currently set with the given priority.
 		@param priority: The logger priority to change to
 		@param message: The message to write to the file
 		@returns true if the log was written to the file else false.
 		*/
-		bool Log(LogType priority, std::string message);
+		bool Log(Logger::LogType priority, std::string message);
 	private:
 		std::ofstream mLogFile;
 		std::string mLogFileLocation;
