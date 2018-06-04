@@ -1,7 +1,8 @@
-# MitchEngine
-The 2D game engine so good it has my name in it.
+![Mitch Engine Banner](https://raw.githubusercontent.com/wobbier/MitchEngine/master/Docs/GitHub/me_banner.png)
+======
+The 3D game engine so good it has my name in it.
 
-Mitch Engine is a simple c++ component-based engine for building 2d games, demos, and other graphical applications.
+Mitch Engine is a simple c++ component based engine for building 3d games, demos, and other graphical applications.
 It's a great hobby project to keep me exploring the world of c++.
 
 Check out my [Trello Board][5] to check out the current development status.
@@ -27,15 +28,15 @@ How to make a Mitch game
 	// Add some components
 	Transform& TransformComponent = TestEntity.AddComponent<Transform>();
 	Sprite& SpriteComponent = TestEntity.AddComponent<Sprite>();
-    Collider2D& ColliderComponent = TestEntity.AddComponent<Collider2D>();
-    Animation& AnimationComponent = TestEntity.Addcomponent<Animation>();
-    
+	Collider2D& ColliderComponent = TestEntity.AddComponent<Collider2D>();
+	Animation& AnimationComponent = TestEntity.Addcomponent<Animation>();
+
 	// Start changing some values
 	TransformComponent.Position = glm::vec2(1.f, 0.5f);
 	SpriteComponent.SetSourceImage("Default.png");
-    AnimationComponent.SetAnimationInfo(SpriteComponent.Width, SpriteComponent.Height, 7, 4);
-    ColliderComponent.SetBodyType(b2_dynamicBody);
-    
+	AnimationComponent.SetAnimationInfo(SpriteComponent.Width, SpriteComponent.Height, 7, 4);
+	ColliderComponent.SetBodyType(b2_dynamicBody);
+
 	// Tell the world the entity is ready to be updated
 	TestEntity.SetActive(true);
 ```
@@ -43,8 +44,7 @@ How to make a Mitch game
 Main features
 -------------
    * Component based design
-   * Physics components (Box2D)
-   * Sprite sheet animations
+   * Physics components (Bullet3D)
    * Scene management
    * Mouse/Keyboard on desktop
    * Language: C++, with json config files
@@ -59,7 +59,7 @@ Build Requirements
 * GLFW - 3.0.4
 * JsonCpp - 1.0.0
 * SOIL (Simple OpenGL Image Library) - Latest
-* Box2D - 2.3.0
+* Bullet - Latest
 
 Contributing to the Project
 --------------------------------
