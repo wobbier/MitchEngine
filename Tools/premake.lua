@@ -6,14 +6,14 @@ workspace "MitchEngine"
    "../MitchEngine/Source",
    "../ThirdParty/GLM/glm",
    "../ThirdParty/GLFW/include",
-   "../ThirdParty/SOIL/include",
+   "../ThirdParty/SOIL/src",
    "../ThirdParty/GLEW/include",
    "../ThirdParty/Boost",
    "../ThirdParty/JsonCPP/include",
    "../ThirdParty/GLEW/auto/src"
    }
    libdirs {
-	"../ThirdParty/SOIL/libs",
+	"../ThirdParty/SOIL/**/%{cfg.buildcfg}",
 	"../ThirdParty/GLEW/lib/%{cfg.buildcfg}/Win32",
 	"../ThirdParty/GLFW/lib-vc2015",
 	"../ThirdParty/GLFW/**/%{cfg.buildcfg}",
@@ -44,8 +44,13 @@ project "MitchEngine"
    location "../MitchEngine"
 	files { 
 			"../MitchEngine/Source/**.h", 
-			"../MitchEngine/Source/**.cpp", 
-			"../MitchEngine/Source/**.txt" 
+			"../MitchEngine/Source/**.cpp",
+			"../MitchEngine/Source/**.txt", 
+			"../Tools/**.lua" 
+	}
+
+	vpaths {
+		["Build"] = "../Tools/*.lua"
 	}
 
    filter "configurations:Debug"
@@ -62,13 +67,6 @@ project "MitchGame"
    targetdir "../Build/%{cfg.buildcfg}"
    location "../MitchGame"
    links "MitchEngine"
-   
-	files { 
-			"../MitchGame/Source/**.h", 
-			"../MitchGame/Source/**.cpp", 
-			"../MitchGame/Source/**.txt" 
-	}
-
    files { "**.h", "**.c" }
 
    filter "configurations:Debug"
@@ -86,6 +84,15 @@ externalproject "lib_json"
    kind "StaticLib"
    language "C++"
    toolset "v141"
+   targetdir "../Build/%{cfg.buildcfg}"
+   
+externalproject "SOIL"
+   location "../ThirdParty/SOIL/projects/VC9"
+   uuid "57940020-8E99-AEB6-271F-61E0F7F6B73C"
+   kind "StaticLib"
+   language "C++"
+   toolset "v141"
+   targetdir "../Build/%{cfg.buildcfg}"
 
 --externalproject "glew_shared"
    --location "../ThirdParty/GLEW/build/vc15/"
