@@ -25,3 +25,4 @@
 [submodule "ThirdParty/GLEW"]
 	path = ThirdParty/GLEW
 	url = https://github.com/LuaDist/glew.git
+	ignore = dirty

@@ -7,14 +7,14 @@ workspace "MitchEngine"
    "../ThirdParty/GLM/glm",
    "../ThirdParty/GLFW/include",
    "../ThirdParty/SOIL/src",
-   "../ThirdParty/GLEW/include",
-   "../ThirdParty/Boost",
+   "../../glew/include",
+   "../ThirdParty/Boost/boost-1.64.0",
    "../ThirdParty/JsonCPP/include",
    "../ThirdParty/GLEW/auto/src"
    }
    libdirs {
 	"../ThirdParty/SOIL/**/%{cfg.buildcfg}",
-	"../ThirdParty/GLEW/lib/%{cfg.buildcfg}/Win32",
+	"../ThirdParty/GLEW/**/%{cfg.buildcfg}",
 	"../ThirdParty/GLFW/lib-vc2015",
 	"../ThirdParty/GLFW/**/%{cfg.buildcfg}",
 	"../ThirdParty/JsonCPP/**/%{cfg.buildcfg}"
@@ -24,17 +24,18 @@ workspace "MitchEngine"
    	   "SOIL",
 	   "glfw3",
 	   "opengl32",
-	   "lib_json"
+	   "lib_json",
+	   "glew"
    }
 
    filter "configurations:Debug"
 	   links {
-		   "glew32d"
+		   "glewd"
 	   }
    
    filter "configurations:Release"
    links {
-	   "glew32"
+	   "glew"
    }
    
 project "MitchEngine"
@@ -67,7 +68,10 @@ project "MitchGame"
    targetdir "../Build/%{cfg.buildcfg}"
    location "../MitchGame"
    links "MitchEngine"
-   files { "**.h", "**.c" }
+   files {
+   "../MitchGame/**.h",
+   "../MitchGame/**.cpp"
+   }
 
    filter "configurations:Debug"
       defines { "DEBUG" }
@@ -76,7 +80,7 @@ project "MitchGame"
    filter "configurations:Release"
       defines { "NDEBUG" }
       optimize "On"
-
+	  
 group "ThirdParty"
 externalproject "lib_json"
    location "../ThirdParty/JsonCPP/makefiles/msvc2010"
@@ -85,7 +89,7 @@ externalproject "lib_json"
    language "C++"
    toolset "v141"
    targetdir "../Build/%{cfg.buildcfg}"
-   
+
 externalproject "SOIL"
    location "../ThirdParty/SOIL/projects/VC9"
    uuid "57940020-8E99-AEB6-271F-61E0F7F6B73C"
@@ -93,10 +97,11 @@ externalproject "SOIL"
    language "C++"
    toolset "v141"
    targetdir "../Build/%{cfg.buildcfg}"
-
---externalproject "glew_shared"
-   --location "../ThirdParty/GLEW/build/vc15/"
-   --uuid "57940020-8E99-AEB6-271F-61E0F7F6B737"
-   --kind "StaticLib"
-   --language "C"
-   --toolset "v141"
+   
+externalproject "glew"
+   location "../ThirdParty/GLEW/build"
+   uuid "57940020-8E99-AEB6-271F-61E0F7F6B73D"
+   kind "StaticLib"
+   language "C++"
+   toolset "v141"
+   targetdir "../Build/%{cfg.buildcfg}"
