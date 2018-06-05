@@ -17,3 +17,6 @@
 [submodule "ThirdParty/GLEW"]
 	path = ThirdParty/GLEW
 	url = https://github.com/nigels-com/glew.git
+[submodule "ThirdParty/SOIL"]
+	path = ThirdParty/SOIL
+	url = https://github.com/kbranigan/Simple-OpenGL-Image-Library.git
