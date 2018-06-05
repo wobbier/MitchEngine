@@ -6,10 +6,6 @@
 	path = ThirdParty/GLFW
 	url = https://github.com/glfw/glfw.git
 	ignore = dirty
-[submodule "ThirdParty/SOIL"]
-	path = ThirdParty/SOIL
-	url = https://github.com/Friduric/simple-opengl-image-library.git
-	ignore = dirty
 [submodule "ThirdParty/Bullet"]
 	path = ThirdParty/Bullet
 	url = https://github.com/bulletphysics/bullet3.git
@@ -18,3 +14,6 @@
 	path = ThirdParty/JsonCPP
 	url = https://github.com/open-source-parsers/jsoncpp.git
 	ignore = dirty
+[submodule "ThirdParty/GLEW"]
+	path = ThirdParty/GLEW
+	url = https://github.com/nigels-com/glew.git

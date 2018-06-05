@@ -9,12 +9,14 @@ workspace "MitchEngine"
    "../ThirdParty/SOIL/include",
    "../ThirdParty/GLEW/include",
    "../ThirdParty/Boost",
-   "../ThirdParty/JsonCPP/include"
+   "../ThirdParty/JsonCPP/include",
+   "../ThirdParty/GLEW/auto/src"
    }
    libdirs {
 	"../ThirdParty/SOIL/libs",
 	"../ThirdParty/GLEW/lib/%{cfg.buildcfg}/Win32",
 	"../ThirdParty/GLFW/lib-vc2015",
+	"../ThirdParty/GLFW/**/%{cfg.buildcfg}",
 	"../ThirdParty/JsonCPP/**/%{cfg.buildcfg}"
    }
    
@@ -76,3 +78,18 @@ project "MitchGame"
    filter "configurations:Release"
       defines { "NDEBUG" }
       optimize "On"
+
+group "ThirdParty"
+externalproject "lib_json"
+   location "../ThirdParty/JsonCPP/makefiles/msvc2010"
+   uuid "57940020-8E99-AEB6-271F-61E0F7F6B73B"
+   kind "StaticLib"
+   language "C++"
+   toolset "v141"
+
+--externalproject "glew_shared"
+   --location "../ThirdParty/GLEW/build/vc15/"
+   --uuid "57940020-8E99-AEB6-271F-61E0F7F6B737"
+   --kind "StaticLib"
+   --language "C"
+   --toolset "v141"
