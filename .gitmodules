@@ -14,11 +14,14 @@
 	path = ThirdParty/JsonCPP
 	url = https://github.com/open-source-parsers/jsoncpp.git
 	ignore = dirty
-[submodule "ThirdParty/GLEW"]
-	path = ThirdParty/GLEW
-	url = https://github.com/nigels-com/glew.git
-	ignore = dirty
 [submodule "ThirdParty/SOIL"]
 	path = ThirdParty/SOIL
 	url = https://github.com/kbranigan/Simple-OpenGL-Image-Library.git
 	ignore = dirty
+[submodule "ThirdParty/Boost"]
+	path = ThirdParty/Boost
+	url = https://github.com/NumScale/boost-header-only.git
+	ignore = dirty
+[submodule "ThirdParty/GLEW"]
+	path = ThirdParty/GLEW
+	url = https://github.com/LuaDist/glew.git
