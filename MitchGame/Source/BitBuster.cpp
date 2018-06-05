@@ -36,7 +36,6 @@ void BitBuster::Initialize()
 		Sprite& BGSprite = Background.AddComponent<Sprite>();
 		BGSprite.SetImage(Resources.Get<Texture>("Assets\\colored_grass.png"));
 		BGPos.Position = glm::vec3(BGSprite.FrameSize.x * i, Window::WINDOW_HEIGHT / 2, 0.0f);
-		Background.SetActive(true);
 	}
 
 	for (int i = 0; i < 10; ++i)
@@ -53,7 +52,6 @@ void BitBuster::Initialize()
 
 		AnimationComponent.SetAnimationInfo(SpriteComponent.FrameSize.x, SpriteComponent.FrameSize.y, 7, 4);
 		AnimationComponent.FPS = 60.f;
-		EntList[i].SetActive(true);
 	}
 
 	for (int i = 0; i < 30; ++i)
@@ -67,7 +65,6 @@ void BitBuster::Initialize()
 
 		TransformComponent.Position = glm::vec3(SpriteComponent.FrameSize.x * i, Window::WINDOW_HEIGHT - (SpriteComponent.FrameSize.y / 2), 0.0f);
 		TransformComponent.Scale = glm::vec3(1.f);
-		Ground.SetActive(true);
 		//ColliderComponent.SetBodyType(b2_staticBody);
 	}
 }
@@ -79,12 +76,10 @@ void BitBuster::Update(float DeltaTime)
 		Transform& TransformComponent = E.GetComponent<Transform>();
 		if (Input::Get().IsKeyDown(GLFW_KEY_W))
 		{
-			E.SetActive(true);
 			TransformComponent.Position += glm::vec3(0, -40 * DeltaTime, 0);
 		}
 		if (Input::Get().IsKeyDown(GLFW_KEY_S))
 		{
-			E.SetActive(false);
 			TransformComponent.Position += glm::vec3(0, 40 * DeltaTime, 0);
 		}
 		if (Input::Get().IsKeyDown(GLFW_KEY_A))
