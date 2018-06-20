@@ -5,8 +5,6 @@
 
 #include "Components/Transform.h"
 
-using namespace MAN;
-
 Sprite::Sprite()
 {
 }
@@ -20,7 +18,7 @@ void Sprite::Init()
 	SetShader("Assets/Shaders/Default.vert", "Assets/Shaders/Default.frag");
 }
 
-void MAN::Sprite::SetImage(Texture* InTexture)
+void Sprite::SetImage(Texture* InTexture)
 {
 	if (SourceImage != nullptr)
 	{
@@ -30,12 +28,12 @@ void MAN::Sprite::SetImage(Texture* InTexture)
 	SetSpriteRect(0, 0, SourceImage->Width, SourceImage->Height);
 }
 
-void MAN::Sprite::SetShader(std::string InVert, std::string InFrag)
+void Sprite::SetShader(std::string InVert, std::string InFrag)
 {
 	CurrentShader = Shader(InVert.c_str(), InFrag.c_str());
 }
 
-void MAN::Sprite::SetSpriteRect(float InX, float InY, float InWidth, float InHeight)
+void Sprite::SetSpriteRect(float InX, float InY, float InWidth, float InHeight)
 {
 	TextureRect.x = InX / SourceImage->Width;
 	TextureRect.y = InY / SourceImage->Height;

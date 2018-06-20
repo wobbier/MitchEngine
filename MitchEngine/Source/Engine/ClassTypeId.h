@@ -1,24 +1,21 @@
 #pragma once
 #include <memory>
 
-namespace MAN
+typedef std::size_t TypeId;
+
+template<typename TBase>
+class ClassTypeId
 {
-	typedef std::size_t TypeId;
-
-	template<typename TBase>
-	class ClassTypeId
+public:
+	template<typename T>
+	static TypeId GetTypeId()
 	{
-	public:
-		template<typename T>
-		static TypeId GetTypeId()
-		{
-			static const TypeId Id = NextTypeId++;
-			return Id;
-		}
-	private:
-		static TypeId NextTypeId;
-	};
+		static const TypeId Id = NextTypeId++;
+		return Id;
+	}
+private:
+	static TypeId NextTypeId;
+};
 
-	template<typename TBase>
-	TypeId ClassTypeId<TBase>::NextTypeId = 0;
-}
+template<typename TBase>
+TypeId ClassTypeId<TBase>::NextTypeId = 0;

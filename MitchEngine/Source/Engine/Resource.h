@@ -2,31 +2,28 @@
 #include "ResourceCache.h"
 #include <string>
 
-namespace MAN
+class Resource
 {
-	class Resource
+	friend class ResourceCache;
+public:
+	Resource() = default;
+	virtual ~Resource() = default;
+
+	bool IsCached() const
 	{
-		friend class ResourceCache;
-	public:
-		Resource() = default;
-		virtual ~Resource() = default;
+		return Resources != nullptr;
+	}
 
-		bool IsCached() const
-		{
-			return Resources != nullptr;
-		}
+	ResourceCache* GetResourceCache()
+	{
+		return Resources;
+	}
 
-		ResourceCache* GetResourceCache()
-		{
-			return Resources;
-		}
+	const ResourceCache* GetResourceCache() const
+	{
+		return Resources;
+	}
 
-		const ResourceCache* GetResourceCache() const
-		{
-			return Resources;
-		}
-
-	private:
-		ResourceCache * Resources;
-	};
-}
+private:
+	ResourceCache * Resources;
+};

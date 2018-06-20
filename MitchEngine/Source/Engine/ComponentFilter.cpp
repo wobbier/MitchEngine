@@ -1,7 +1,5 @@
 #include "ComponentFilter.h"
 
-using namespace MAN;
-
 bool ComponentFilter::PassFilter(const ComponentTypeArray& InComponentTypeArray) const
 {
 	// Loop through the component type bits

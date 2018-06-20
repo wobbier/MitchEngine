@@ -1,7 +1,5 @@
 #include "Logger.h"
 
-using namespace MAN;
-
 Logger::~Logger()
 {
 }

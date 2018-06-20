@@ -1,12 +1,15 @@
 #include "Engine/Window.h"
 #include "Engine/Input.h"
 #include "Utility/Logger.h"
+#include <glad.c>
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
 #include <assert.h>
-
-using namespace MAN;
 
 int Window::WINDOW_WIDTH = 960;
 int Window::WINDOW_HEIGHT = 540;
+
+void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 
 Window::Window(std::string title, int width, int height)
 {
@@ -22,10 +25,18 @@ Window::Window(std::string title, int width, int height)
 	glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 
 	window = glfwCreateWindow(width, height, title.c_str(), nullptr, nullptr); // Windowed
-	glfwMakeContextCurrent(window);
-	if (window == nullptr)
+	if (!window)
 	{
 		Logger::Get().Log(Logger::LogType::Error, "Failed to create window.");
+		assert(0);
+	}
+	
+	glfwMakeContextCurrent(window);
+	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+
+	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+	{
+		std::cout << "Failed to initialize GLAD" << std::endl;
 		assert(0);
 	}
 
@@ -41,4 +52,19 @@ Window::~Window()
 bool Window::ShouldClose()
 {
 	return (glfwWindowShouldClose(window) == 1) ? true : false;
+}
+
+
+void Window::PollInput()
+{
+	glfwPollEvents();
+}
+void Window::Swap()
+{
+	glfwSwapBuffers(window);
+}
+
+void framebuffer_size_callback(GLFWwindow* window, int width, int height)
+{
+	glViewport(0, 0, width, height);
 }

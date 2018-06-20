@@ -1,28 +1,25 @@
 #pragma once
 #include <string>
-#include <GL/glew.h>
+//#include <GL/glew.h>
 #include "SOIL.h"
 #include "Utility/Util.h"
 #include "Engine/Resource.h"
 
-namespace MAN
+class Texture : public Resource
 {
-	class Texture : public Resource
-	{
-	public:
-		GLuint Id;
-		std::string Type;
-		std::string Directory;
+public:
+	//GLuint Id;
+	std::string Type;
+	std::string Directory;
 
-		int Width;
-		int Height;
+	int Width;
+	int Height;
 
-		Texture();
-		~Texture();
+	Texture();
+	~Texture();
 
-		static Texture* Load(const std::string& InFilePath);
+	static Texture* Load(const std::string& InFilePath);
 
-		// Textures should not be copied around in memory
-		MA_NONCOPYABLE(Texture);
-	};
-}
+	// Textures should not be copied around in memory
+	MA_NONCOPYABLE(Texture);
+};

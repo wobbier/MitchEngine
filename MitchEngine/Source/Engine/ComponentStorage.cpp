@@ -2,8 +2,6 @@
 #include "ComponentTypeArray.h"
 #include <iostream>
 
-using namespace MAN;
-
 ComponentStorage::ComponentStorage(std::size_t InEntityAmount) :
 	ComponentEntries(InEntityAmount)
 {
@@ -13,7 +11,7 @@ ComponentStorage::~ComponentStorage()
 {
 }
 
-void MAN::ComponentStorage::AddComponent(Entity& InEntity, BaseComponent* InComponent, TypeId InComponentTypeId)
+void ComponentStorage::AddComponent(Entity& InEntity, BaseComponent* InComponent, TypeId InComponentTypeId)
 {
 	auto Index = InEntity.GetId().Index;
 
@@ -28,12 +26,12 @@ void MAN::ComponentStorage::AddComponent(Entity& InEntity, BaseComponent* InComp
 	InComponent->Init();
 }
 
-MAN::ComponentTypeArray MAN::ComponentStorage::GetComponentTypes(const Entity& InEntity) const
+ComponentTypeArray ComponentStorage::GetComponentTypes(const Entity& InEntity) const
 {
 	return ComponentEntries[InEntity.GetId().Index].ComponentTypeList;
 }
 
-void MAN::ComponentStorage::RemoveComponent(const Entity& InEntity, TypeId InTypeId)
+void ComponentStorage::RemoveComponent(const Entity& InEntity, TypeId InTypeId)
 {
 	auto Index = InEntity.GetId().Index;
 	auto& ComponentData = ComponentEntries[Index];

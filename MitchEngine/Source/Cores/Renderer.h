@@ -2,28 +2,27 @@
 #include "Engine/Core.h"
 #include "Components/Sprite.h"
 
-#include <GL/glew.h>
+//#include <GL/glew.h>
+#include <glad/glad.h>
 #include <GLFW/glfw3.h>
+//#define GLuint unsigned int
 
-namespace MAN
+class Renderer :
+	public Core<Renderer>
 {
-	class Renderer :
-		public Core<Renderer>
-	{
-	public:
-		Renderer();
-		~Renderer();
+public:
+	Renderer();
+	~Renderer();
 
-		// Separate init from construction code.
-		virtual void Init() final;
+	// Separate init from construction code.
+	virtual void Init() final;
 
-		// Each core must update each loop
-		virtual void Update(float dt) final;
+	// Each core must update each loop
+	virtual void Update(float dt) final;
 
-		void Render();
+	void Render();
 
-		GLuint VAO;
-		GLuint VBO[2];
-		GLuint EBO;
-	};
-}
+	unsigned int VAO;
+	unsigned int VBO[2];
+	unsigned int EBO;
+};

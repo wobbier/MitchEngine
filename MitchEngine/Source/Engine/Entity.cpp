@@ -1,6 +1,5 @@
 #include "Entity.h"
 #include "World.h"
-using namespace MAN;
 
 Entity::Entity()
 {
@@ -31,17 +30,17 @@ BaseComponent& Entity::GetComponent(TypeId InTypeId) const
 	return GameWorld->EntityAttributes.Storage.GetComponent(*this, InTypeId);
 }
 
-void MAN::Entity::SetActive(const bool InActive)
+void Entity::SetActive(const bool InActive)
 {
 	GameWorld->ActivateEntity(*this, InActive);
 }
 
-bool MAN::Entity::operator==(const Entity& entity) const
+bool Entity::operator==(const Entity& entity) const
 {
 	return Id == entity.Id && entity.GameWorld == GameWorld;
 }
 
-void MAN::Entity::RemoveComponent(TypeId InComponentTypeId)
+void Entity::RemoveComponent(TypeId InComponentTypeId)
 {
 	GameWorld->EntityAttributes.Storage.RemoveComponent(*this, InComponentTypeId);
 }

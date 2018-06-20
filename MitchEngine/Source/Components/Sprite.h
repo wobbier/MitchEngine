@@ -4,32 +4,29 @@
 #include "Graphics/Shader.h"
 #include <glm.hpp>
 
-namespace MAN
+class Sprite :
+	public Component<Sprite>
 {
-	class Sprite :
-		public Component<Sprite>
-	{
-		friend class Renderer;
-		friend class AnimationCore;
-	public:
-		glm::vec4 TextureRect;
+	friend class Renderer;
+	friend class AnimationCore;
+public:
+	glm::vec4 TextureRect;
 
-		glm::vec2 FrameSize;
+	glm::vec2 FrameSize;
 
-		Shader CurrentShader;
+	Shader CurrentShader;
 
-		Sprite();
-		~Sprite();
+	Sprite();
+	~Sprite();
 
-		// Separate init from construction code.
-		virtual void Init() final;
+	// Separate init from construction code.
+	virtual void Init() final;
 
-		void SetImage(Texture* InTexture);
+	void SetImage(Texture* InTexture);
 
-		void SetSpriteRect(float InX, float InY, float InWidth, float InHeight);
+	void SetSpriteRect(float InX, float InY, float InWidth, float InHeight);
 
-		void SetShader(std::string InVert, std::string InFrag);
-	private:
-		Texture * SourceImage = nullptr;
-	};
-}
+	void SetShader(std::string InVert, std::string InFrag);
+private:
+	Texture * SourceImage = nullptr;
+};

@@ -13,8 +13,6 @@
 
 #include <memory>
 
-using namespace MAN;
-
 BitBuster::BitBuster() : Game()
 {
 }

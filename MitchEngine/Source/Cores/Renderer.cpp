@@ -13,79 +13,77 @@
 
 #include "Engine/Camera.h"
 
-using namespace MAN;
-
 Renderer::Renderer() : Base(ComponentFilter().Requires<Transform>().Requires<Sprite>())
 {
 }
 
 void Renderer::Init()
 {
-	glewExperimental = GL_TRUE;
-	if (glewInit() != GLEW_OK)
-	{
-		Logger::Get().Log(Logger::LogType::Error, "Failed to initialize GLEW");
-		assert(0);
-	}
-	glViewport(0, 0, Window::WINDOW_WIDTH, Window::WINDOW_HEIGHT);
+	//glewExperimental = GL_TRUE;
+	//if (glewInit() != GLEW_OK)
+	//{
+	//	Logger::Get().Log(Logger::LogType::Error, "Failed to initialize GLEW");
+	//	assert(0);
+	//}
+	//glViewport(0, 0, Window::WINDOW_WIDTH, Window::WINDOW_HEIGHT);
 
-	glEnable(GL_ALPHA_TEST);
-	glAlphaFunc(GL_GREATER, 0.1f);
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	//glEnable(GL_ALPHA_TEST);
+	//glAlphaFunc(GL_GREATER, 0.1f);
+	//glEnable(GL_BLEND);
+	//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	// Set up vertex data (and buffer(s)) and attribute pointers
-	GLfloat vertices[] = {
-		// Positions          // Colors
-		0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 0.0f,
-		0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 0.0f,
-		-0.5f, -0.5f, 0.0f, 0.0f, 0.0f, 1.0f,
-		-0.5f, 0.5f, 0.0f, 1.0f, 1.0f, 0.0f,
-	};
+	//// Set up vertex data (and buffer(s)) and attribute pointers
+	//GLfloat vertices[] = {
+	//	// Positions          // Colors
+	//	0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 0.0f,
+	//	0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 0.0f,
+	//	-0.5f, -0.5f, 0.0f, 0.0f, 0.0f, 1.0f,
+	//	-0.5f, 0.5f, 0.0f, 1.0f, 1.0f, 0.0f,
+	//};
 
-	GLuint indices[] = {
-		0, 1, 3, // First Triangle
-		1, 2, 3  // Second Triangle
-	};
+	//GLuint indices[] = {
+	//	0, 1, 3, // First Triangle
+	//	1, 2, 3  // Second Triangle
+	//};
 
-	glGenVertexArrays(1, &VAO);
-	glGenBuffers(2, VBO);
-	glGenBuffers(1, &EBO);
+	//glGenVertexArrays(1, &VAO);
+	//glGenBuffers(2, VBO);
+	//glGenBuffers(1, &EBO);
 
-	glBindVertexArray(VAO);
+	//glBindVertexArray(VAO);
 
-	glBindBuffer(GL_ARRAY_BUFFER, VBO[0]);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+	//glBindBuffer(GL_ARRAY_BUFFER, VBO[0]);
+	//glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+	//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+	//glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
-	// Position attribute
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (GLvoid*)0);
-	glEnableVertexAttribArray(0);
-	// Color attribute
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
-	glEnableVertexAttribArray(1);
+	//// Position attribute
+	//glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (GLvoid*)0);
+	//glEnableVertexAttribArray(0);
+	//// Color attribute
+	//glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
+	//glEnableVertexAttribArray(1);
 
-	GLfloat TextureCoords[] = {
-		1.f, 1.f,
-		1.f, 0.f,
-		0.f, 0.f,
-		0.f, 1.f
-	};
-	glBindBuffer(GL_ARRAY_BUFFER, VBO[1]);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(TextureCoords), TextureCoords, GL_DYNAMIC_DRAW);
+	//GLfloat TextureCoords[] = {
+	//	1.f, 1.f,
+	//	1.f, 0.f,
+	//	0.f, 0.f,
+	//	0.f, 1.f
+	//};
+	//glBindBuffer(GL_ARRAY_BUFFER, VBO[1]);
+	//glBufferData(GL_ARRAY_BUFFER, sizeof(TextureCoords), TextureCoords, GL_DYNAMIC_DRAW);
 
-	// TexCoord attribute
-	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0 * sizeof(GLfloat), (GLvoid*)(0 * sizeof(GLfloat)));
-	glEnableVertexAttribArray(2);
+	//// TexCoord attribute
+	//glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0 * sizeof(GLfloat), (GLvoid*)(0 * sizeof(GLfloat)));
+	//glEnableVertexAttribArray(2);
 
-	glBindVertexArray(0); // Unbind VAO
+	//glBindVertexArray(0); // Unbind VAO
 
-	if (Camera::CurrentCamera == nullptr)
-	{
-		Camera::CurrentCamera = new Camera();
-	}
+	//if (Camera::CurrentCamera == nullptr)
+	//{
+	//	Camera::CurrentCamera = new Camera();
+	//}
 
 	Logger::Get().Log(Logger::LogType::Debug, "Renderer Initialized...");
 	Logger::Get().Log(Logger::LogType::Debug, (const char*)glGetString(GL_VERSION));
@@ -101,9 +99,9 @@ Renderer::~Renderer()
 }
 
 float x = 1.0f;
-void MAN::Renderer::Render()
+void Renderer::Render()
 {
-	x -= 0.01f;
+	x -= 0.01f;/*
 	glClearColor(x, 1.0f, 1.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -156,5 +154,5 @@ void MAN::Renderer::Render()
 		glBindVertexArray(VAO);
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 		glBindVertexArray(0);
-	}
+	}*/
 }

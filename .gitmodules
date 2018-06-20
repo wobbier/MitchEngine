@@ -10,10 +10,6 @@
 	path = ThirdParty/Bullet
 	url = https://github.com/bulletphysics/bullet3.git
 	ignore = dirty
-[submodule "ThirdParty/JsonCPP"]
-	path = ThirdParty/JsonCPP
-	url = https://github.com/open-source-parsers/jsoncpp.git
-	ignore = dirty
 [submodule "ThirdParty/SOIL"]
 	path = ThirdParty/SOIL
 	url = https://github.com/kbranigan/Simple-OpenGL-Image-Library.git
@@ -21,8 +17,4 @@
 [submodule "ThirdParty/Boost"]
 	path = ThirdParty/Boost
 	url = https://github.com/NumScale/boost-header-only.git
-	ignore = dirty
-[submodule "ThirdParty/GLEW"]
-	path = ThirdParty/GLEW
-	url = https://github.com/LuaDist/glew.git
 	ignore = dirty

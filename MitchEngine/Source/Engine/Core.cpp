@@ -1,7 +1,5 @@
 #include "Core.h"
 
-using namespace MAN;
-
 BaseCore::BaseCore(const ComponentFilter& Filter) : CompFilter(Filter)
 {
 }
@@ -26,7 +24,7 @@ void BaseCore::Add(Entity& InEntity)
 	Entities.push_back(InEntity);
 }
 
-MAN::BaseCore::~BaseCore()
+BaseCore::~BaseCore()
 {
 }
 

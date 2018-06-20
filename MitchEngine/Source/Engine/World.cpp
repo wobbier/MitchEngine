@@ -2,8 +2,6 @@
 #include "Components/Transform.h"
 #include <unordered_map>
 
-using namespace MAN;
-
 #define DEFAULT_ENTITY_POOL_SIZE 50
 
 World::World() : World(DEFAULT_ENTITY_POOL_SIZE)
@@ -20,7 +18,7 @@ World::~World()
 {
 }
 
-MAN::Entity MAN::World::CreateEntity()
+Entity World::CreateEntity()
 {
 	CheckForResize(1);
 	EntityCache.Alive.emplace_back(*this, EntIdPool.Create());
@@ -29,7 +27,7 @@ MAN::Entity MAN::World::CreateEntity()
 	return EntityCache.Alive.back();
 }
 
-void MAN::World::Simulate()
+void World::Simulate()
 {
 	for (auto& InEntity : EntityCache.Activated)
 	{
@@ -86,14 +84,14 @@ void MAN::World::Simulate()
 	EntityCache.ClearTemp();
 }
 
-void MAN::World::AddCore(BaseCore& InCore, TypeId InCoreTypeId)
+void World::AddCore(BaseCore& InCore, TypeId InCoreTypeId)
 {
 	Cores[InCoreTypeId].reset(&InCore);
 	InCore.GameWorld = this;
 	InCore.Init();
 }
 
-void MAN::World::CheckForResize(std::size_t InNumEntitiesToBeAllocated)
+void World::CheckForResize(std::size_t InNumEntitiesToBeAllocated)
 {
 	auto NewSize = GetEntityCount() + InNumEntitiesToBeAllocated;
 
@@ -103,18 +101,18 @@ void MAN::World::CheckForResize(std::size_t InNumEntitiesToBeAllocated)
 	}
 }
 
-void MAN::World::Resize(std::size_t InAmount)
+void World::Resize(std::size_t InAmount)
 {
 	EntIdPool.Resize(InAmount);
 	EntityAttributes.Resize(InAmount);
 }
 
-std::size_t MAN::World::GetEntityCount() const
+std::size_t World::GetEntityCount() const
 {
 	return EntityCache.Alive.size();
 }
 
-void MAN::World::ActivateEntity(Entity& InEntity, const bool InActive)
+void World::ActivateEntity(Entity& InEntity, const bool InActive)
 {
 	if (InActive)
 	{

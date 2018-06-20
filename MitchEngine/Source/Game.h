@@ -7,36 +7,33 @@
 #include "Utility/Config.h"
 #include "Utility/Util.h"
 
-namespace MAN
+class Game
 {
-	class Game
-	{
-	public:
-		World * GameWorld;
+public:
+	World * GameWorld;
 
-		ResourceCache Resources;
+	ResourceCache Resources;
 
-		long long FrameRate;
+	long long FrameRate;
 
-		Game();
-		virtual ~Game();
+	Game();
+	virtual ~Game();
 
-		void Start();
-		virtual void Initialize() = 0;
-		virtual void Update(float DeltaTime) = 0;
-		virtual void End() = 0;
+	void Start();
+	virtual void Initialize() = 0;
+	virtual void Update(float DeltaTime) = 0;
+	virtual void End() = 0;
 
-		bool IsRunning() const;
-		void Quit();
+	bool IsRunning() const;
+	void Quit();
 
-		Window* GetWindow();
+	Window* GetWindow();
 
-		// Remove copy, copy assignment, move, and move assignment constructors.
-		MA_NONCOPYABLE(Game);
-		MA_NONMOVABLE(Game);
-	private:
-		bool Running;
-		Window* GameWindow;
-		Config* EngineConfig;
-	};
-}
+	// Remove copy, copy assignment, move, and move assignment constructors.
+	MA_NONCOPYABLE(Game);
+	MA_NONMOVABLE(Game);
+private:
+	bool Running;
+	Window* GameWindow;
+	Config* EngineConfig;
+};

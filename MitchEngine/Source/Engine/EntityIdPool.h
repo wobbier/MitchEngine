@@ -2,31 +2,28 @@
 #include "Utility/Util.h"
 #include "Engine/Entity.h"
 
-namespace MAN
+class EntityIdPool
 {
-	class EntityIdPool
-	{
-	public:
-		EntityIdPool(std::size_t InPoolSize);
+public:
+	EntityIdPool(std::size_t InPoolSize);
 
-		MA_NONCOPYABLE(EntityIdPool);
-		MA_NONMOVABLE(EntityIdPool);
+	MA_NONCOPYABLE(EntityIdPool);
+	MA_NONMOVABLE(EntityIdPool);
 
-		Entity::ID Create();
+	Entity::ID Create();
 
-		std::size_t GetSize() const;
+	std::size_t GetSize() const;
 
-		void Resize(std::size_t InAmount);
+	void Resize(std::size_t InAmount);
 
-		void Remove(Entity::ID InEntityId);
-	protected:
-	private:
-		std::size_t DefaultPoolSize;
+	void Remove(Entity::ID InEntityId);
+protected:
+private:
+	std::size_t DefaultPoolSize;
 
-		std::size_t NextId;
+	std::size_t NextId;
 
-		std::vector<Entity::ID> FreeList;
+	std::vector<Entity::ID> FreeList;
 
-		std::vector<Entity::ID::IntType> Entities;
-	};
-}
+	std::vector<Entity::ID::IntType> Entities;
+};

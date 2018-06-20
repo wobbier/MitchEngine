@@ -1,7 +1,5 @@
 #include "EntityIdPool.h"
 
-using namespace MAN;
-
 EntityIdPool::EntityIdPool(std::size_t InPoolSize) :
 	DefaultPoolSize(InPoolSize),
 	NextId(0),

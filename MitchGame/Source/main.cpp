@@ -2,8 +2,6 @@
 #include "BitBuster.h"
 #include <iostream>
 
-using namespace MAN;
-
 int main()
 {
 	BitBuster game;

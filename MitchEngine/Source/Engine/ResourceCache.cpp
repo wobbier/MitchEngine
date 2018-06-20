@@ -1,34 +1,31 @@
 #include "ResourceCache.h"
 
-namespace MAN
+ResourceCache::ResourceCache()
 {
-	ResourceCache::ResourceCache()
-	{
-		Push();
-	}
+	Push();
+}
 
-	ResourceCache::~ResourceCache()
-	{
-		Pop();
-	}
+ResourceCache::~ResourceCache()
+{
+	Pop();
+}
 
-	void ResourceCache::Push()
-	{
-		ResourceStack.push_back(std::map<std::string, Resource*>());
-	}
+void ResourceCache::Push()
+{
+	ResourceStack.push_back(std::map<std::string, Resource*>());
+}
 
-	void ResourceCache::Pop()
+void ResourceCache::Pop()
+{
+	auto& V = ResourceStack[ResourceStack.size() - 1];
+	for (auto I = V.begin(); I != V.end(); ++I)
 	{
-		auto& V = ResourceStack[ResourceStack.size() - 1];
-		for (auto I = V.begin(); I != V.end(); ++I)
-		{
-			delete I->second;
-		}
-		ResourceStack.pop_back();
+		delete I->second;
 	}
+	ResourceStack.pop_back();
+}
 
-	size_t ResourceCache::GetStackSize()
-	{
-		return ResourceStack.size();
-	}
+size_t ResourceCache::GetStackSize()
+{
+	return ResourceStack.size();
 }

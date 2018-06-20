@@ -4,30 +4,27 @@
 #include <vector>
 #include "ClassTypeId.h"
 
-namespace MAN
+class BaseComponent
 {
-	class BaseComponent
+public:
+	~BaseComponent() = default;
+
+	virtual void Init() = 0;
+};
+
+template<typename T>
+class Component
+	: public BaseComponent
+{
+public:
+	static TypeId GetTypeId()
 	{
-	public:
-		~BaseComponent() = default;
+		return ClassTypeId<BaseComponent>::GetTypeId<T>();
+	}
 
-		virtual void Init() = 0;
-	};
-
-	template<typename T>
-	class Component
-		: public BaseComponent
+	// Each core must update each loop
+	virtual void Update(float dt)
 	{
-	public:
-		static TypeId GetTypeId()
-		{
-			return ClassTypeId<BaseComponent>::GetTypeId<T>();
-		}
-
-		// Each core must update each loop
-		virtual void Update(float dt)
-		{
-		}
-	};
-	typedef std::vector<std::reference_wrapper<BaseComponent>> ComponentArray;
-}
+	}
+};
+typedef std::vector<std::reference_wrapper<BaseComponent>> ComponentArray;

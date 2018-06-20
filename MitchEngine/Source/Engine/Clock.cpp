@@ -1,7 +1,5 @@
 #include "Clock.h"
 
-using namespace MAN;
-
 Clock::Clock()
 {
 	Reset();
@@ -11,7 +9,7 @@ Clock::~Clock()
 {
 }
 
-void MAN::Clock::Reset()
+void Clock::Reset()
 {
 	mTicks = GetHardwareCounterValue();
 	mHighResolutionSupport = false;

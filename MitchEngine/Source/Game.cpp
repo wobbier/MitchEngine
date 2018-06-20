@@ -4,9 +4,6 @@
 #include "Cores/AnimationCore.h"
 #include "Cores/PhysicsCore.h"
 
-using namespace MAN;
-using namespace std;
-
 Game::Game() : Running(true)
 {
 }
@@ -23,11 +20,11 @@ void Game::Start()
 
 	EngineConfig = new Config("Assets\\Config\\Engine.cfg");
 
-	auto WindowConfig = EngineConfig->Root["window"];
-	int WindowWidth = WindowConfig["width"].asInt();
-	int WindowHeight = WindowConfig["height"].asInt();
+	//auto WindowConfig = EngineConfig->Root["window"];
+	int WindowWidth = 1280;//WindowConfig["width"].asInt();
+	int WindowHeight = 720;//WindowConfig["height"].asInt();
 
-	GameWindow = new Window(EngineConfig->GetValue("title"), WindowWidth, WindowHeight);
+	GameWindow = new Window("MitchEngine", WindowWidth, WindowHeight);
 
 	GameWorld = new World();
 
@@ -49,7 +46,7 @@ void Game::Start()
 	while (!GameWindow->ShouldClose())
 	{
 		// Check and call events
-		glfwPollEvents();
+		GameWindow->PollInput();
 
 		float time = GameClock.GetTimeInMilliseconds();
 		GameClock.deltaTime = (time <= 0.0f || time >= 0.3) ? 0.0001f : time;
@@ -62,7 +59,7 @@ void Game::Start()
 
 		SpriteRenderer.Render();
 		// Swap the buffers
-		glfwSwapBuffers(GameWindow->window);
+		GameWindow->Swap();
 	}
 	glfwTerminate();
 }

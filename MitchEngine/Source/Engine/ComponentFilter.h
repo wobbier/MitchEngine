@@ -3,33 +3,30 @@
 #include "ComponentTypeArray.h"
 #include "ClassTypeId.h"
 
-namespace MAN
+class ComponentFilter
 {
-	class ComponentFilter
+public:
+	ComponentFilter() = default;
+
+	~ComponentFilter() = default;
+
+	template<typename C>
+	ComponentFilter& Requires()
 	{
-	public:
-		ComponentFilter() = default;
+		//static_assert(std::is_base_of<BaseComponent, C>(), "C doesn't inherit from Component");
+		CheckCapacity(RequiredComponentsList, C::GetTypeId());
+		RequiredComponentsList[C::GetTypeId()] = true;
+		return *this;
+	}
 
-		~ComponentFilter() = default;
+	bool PassFilter(const ComponentTypeArray& InComponentTypeArray) const;
 
-		template<typename C>
-		ComponentFilter& Requires()
-		{
-			//static_assert(std::is_base_of<BaseComponent, C>(), "C doesn't inherit from Component");
-			CheckCapacity(RequiredComponentsList, C::GetTypeId());
-			RequiredComponentsList[C::GetTypeId()] = true;
-			return *this;
-		}
+	void Clear();
 
-		bool PassFilter(const ComponentTypeArray& InComponentTypeArray) const;
+private:
+	ComponentTypeArray RequiredComponentsList;
 
-		void Clear();
+	ComponentTypeArray RequiresOneOfComponentsList;
 
-	private:
-		ComponentTypeArray RequiredComponentsList;
-
-		ComponentTypeArray RequiresOneOfComponentsList;
-
-		ComponentTypeArray ExcludeComponentsList;
-	};
-}
+	ComponentTypeArray ExcludeComponentsList;
+};
