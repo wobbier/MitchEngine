@@ -14,6 +14,7 @@ public:
 
 	Camera()
 	{
+		Position = glm::vec3(0.f, 0.f, 3.f);
 		Up = glm::vec3(0.f, 1.f, 0.f);
 		Front = glm::vec3(0.f, 0.f, -1.f);
 	}
@@ -21,7 +22,7 @@ public:
 
 	glm::mat4 GetViewMatrix()
 	{
-		return glm::lookAt(this->Position, this->Position + this->Front, this->Up);
+		return glm::lookAt(Position, Position + Front, Up);
 	}
 };
 

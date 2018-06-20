@@ -9,17 +9,14 @@ workspace "MitchEngine"
    "../ThirdParty/GLAD/src/",
    "../ThirdParty/GLM/glm",
    "../ThirdParty/GLFW/include",
-   "../ThirdParty/SOIL/src",
+   "../ThirdParty/STB",
    "../ThirdParty/Boost/boost-1.64.0"
    }
    libdirs {
-	"../ThirdParty/SOIL/**/%{cfg.buildcfg}",
-	"../ThirdParty/GLFW/**/%{cfg.buildcfg}",
-	"../ThirdParty/JsonCPP/**/%{cfg.buildcfg}"
+	"../ThirdParty/GLFW/src/src/%{cfg.buildcfg}"
    }
 
    links {
-   	   "SOIL",
 	   "glfw3",
 	   "opengl32"
    }
@@ -30,6 +27,7 @@ project "MitchEngine"
    targetdir "../Build/%{cfg.buildcfg}"
    location "../MitchEngine"
 	files {
+			"../MitchEngine/Assets/**.*",
 			"../MitchEngine/Source/**.h",
 			"../MitchEngine/Source/**.cpp",
 			"../MitchEngine/Source/**.txt",
@@ -47,6 +45,10 @@ project "MitchEngine"
    filter "configurations:Release"
       defines { "NDEBUG" }
       optimize "On"
+
+	postbuildcommands {
+	  "{COPY} ../MitchEngine/Assets %{cfg.targetdir}"
+	}
 
 project "MitchGame"
    kind "ConsoleApp"
@@ -68,17 +70,9 @@ project "MitchGame"
       optimize "On"
 
 group "ThirdParty"
-externalproject "SOIL"
-   location "../ThirdParty/SOIL/src"
-   uuid "57940020-8E99-AEB6-271F-61E0F7F6B73C"
-   kind "StaticLib"
-   language "C++"
-   toolset "v141"
-   targetdir "../Build/%{cfg.buildcfg}"
-
 externalproject "glfw"
    location "../ThirdParty/GLFW/src/src"
-   uuid "57940020-8E99-AEB6-271F-61E0F7F6B73E"
+   uuid "8A0313E9-F6C0-4C24-9258-65C9F6D5802C"
    kind "StaticLib"
    language "C++"
    toolset "v141"

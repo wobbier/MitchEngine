@@ -33,6 +33,11 @@ void Sprite::SetShader(std::string InVert, std::string InFrag)
 	CurrentShader = Shader(InVert.c_str(), InFrag.c_str());
 }
 
+Texture* Sprite::GetTexture()
+{
+	return SourceImage;
+}
+
 void Sprite::SetSpriteRect(float InX, float InY, float InWidth, float InHeight)
 {
 	TextureRect.x = InX / SourceImage->Width;

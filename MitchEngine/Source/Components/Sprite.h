@@ -27,6 +27,8 @@ public:
 	void SetSpriteRect(float InX, float InY, float InWidth, float InHeight);
 
 	void SetShader(std::string InVert, std::string InFrag);
+
+	Texture* GetTexture();
 private:
 	Texture * SourceImage = nullptr;
 };

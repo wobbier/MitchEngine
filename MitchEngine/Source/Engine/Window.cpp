@@ -28,6 +28,7 @@ Window::Window(std::string title, int width, int height)
 	if (!window)
 	{
 		Logger::Get().Log(Logger::LogType::Error, "Failed to create window.");
+		glfwTerminate();
 		assert(0);
 	}
 	
