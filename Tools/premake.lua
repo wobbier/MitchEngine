@@ -1,6 +1,7 @@
 -- premake5.lua
 workspace "MitchEngine"
    configurations { "Debug", "Release" }
+   startproject "MitchGame"
    location "../"
    includedirs {
    "../MitchEngine/Source",
@@ -13,7 +14,6 @@ workspace "MitchEngine"
    }
    libdirs {
 	"../ThirdParty/SOIL/**/%{cfg.buildcfg}",
-	"../ThirdParty/GLFW/lib-vc2015",
 	"../ThirdParty/GLFW/**/%{cfg.buildcfg}",
 	"../ThirdParty/JsonCPP/**/%{cfg.buildcfg}"
    }
@@ -69,7 +69,7 @@ project "MitchGame"
 
 group "ThirdParty"
 externalproject "SOIL"
-   location "../ThirdParty/SOIL/projects/VC9"
+   location "../ThirdParty/SOIL/src"
    uuid "57940020-8E99-AEB6-271F-61E0F7F6B73C"
    kind "StaticLib"
    language "C++"
@@ -77,7 +77,7 @@ externalproject "SOIL"
    targetdir "../Build/%{cfg.buildcfg}"
 
 externalproject "glfw"
-   location "../ThirdParty/GLFW/src"
+   location "../ThirdParty/GLFW/src/src"
    uuid "57940020-8E99-AEB6-271F-61E0F7F6B73E"
    kind "StaticLib"
    language "C++"
