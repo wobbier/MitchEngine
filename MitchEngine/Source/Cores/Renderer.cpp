@@ -11,7 +11,7 @@
 #include <gtc/type_ptr.hpp>
 #include <gtx/rotate_vector.hpp>
 
-#include "Engine/Camera.h"
+#include "Components/Camera.h"
 #include <iostream>
 
 Renderer::Renderer() : Base(ComponentFilter().Requires<Transform>().Requires<Sprite>())
@@ -85,11 +85,6 @@ void Renderer::Init()
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
 	glEnableVertexAttribArray(1);
 
-	if (Camera::CurrentCamera == nullptr)
-	{
-		Camera::CurrentCamera = new Camera();
-	}
-
 	Logger::Get().Log(Logger::LogType::Debug, "Renderer Initialized...");
 	Logger::Get().Log(Logger::LogType::Debug, (const char*)glGetString(GL_VERSION));
 }
@@ -106,6 +101,15 @@ Renderer::~Renderer()
 float x = 1.0f;
 void Renderer::Render()
 {
+	Camera* CurrentCamera = Camera::CurrentCamera;
+	if (!CurrentCamera)
+	{
+		return;
+	}
+
+	const Entity* CameraObject = CurrentCamera->GetParentEntity();
+	const Transform& cameraTransform = CameraObject->GetComponent<Transform>();
+
 	x -= 0.01f;
 	glClearColor(x, 1.0f, 1.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -124,6 +128,9 @@ void Renderer::Render()
 		glm::vec3(-1.3f,  1.0f, -1.5f)
 	};
 
+	glm::mat4 projection = glm::perspective(glm::radians(Camera::CurrentCamera->Zoom), (float)Window::WINDOW_WIDTH / (float)Window::WINDOW_HEIGHT, 0.1f, 100.0f);
+	glm::mat4 view = Camera::CurrentCamera->GetViewMatrix(cameraTransform.Position);
+
 	auto Renderables = GetEntities();
 	for (auto& InEntity : Renderables)
 	{
@@ -139,10 +146,8 @@ void Renderer::Render()
 		shader.Use();
 		GLuint Program = shader.GetProgram();
 
-		glm::mat4 projection = glm::perspective(glm::radians(Camera::CurrentCamera->Zoom), (float)Window::WINDOW_WIDTH / (float)Window::WINDOW_HEIGHT, 0.1f, 100.0f);
 		shader.SetMat4("projection", projection);
 
-		glm::mat4 view = Camera::CurrentCamera->GetViewMatrix();
 		shader.SetMat4("view", view);
 
 		glBindVertexArray(VAO);

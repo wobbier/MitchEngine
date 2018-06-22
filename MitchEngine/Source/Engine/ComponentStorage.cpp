@@ -22,7 +22,7 @@ void ComponentStorage::AddComponent(Entity& InEntity, BaseComponent* InComponent
 
 	CheckCapacity(ComponentData.ComponentTypeList, InComponentTypeId);
 	ComponentData.ComponentTypeList[InComponentTypeId] = true;
-
+	InComponent->OnCreate(&InEntity);
 	InComponent->Init();
 }
 

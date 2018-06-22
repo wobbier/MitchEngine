@@ -9,7 +9,6 @@
 int Window::WINDOW_WIDTH = 960;
 int Window::WINDOW_HEIGHT = 540;
 
-void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 
 Window::Window(std::string title, int width, int height)
 {
@@ -33,7 +32,7 @@ Window::Window(std::string title, int width, int height)
 	}
 	
 	glfwMakeContextCurrent(window);
-	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+	glfwSetFramebufferSizeCallback(window, Window::FramebufferSizeCallback);
 
 	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
 	{
@@ -65,7 +64,8 @@ void Window::Swap()
 	glfwSwapBuffers(window);
 }
 
-void framebuffer_size_callback(GLFWwindow* window, int width, int height)
+
+void Window::FramebufferSizeCallback(GLFWwindow* window, int width, int height)
 {
 	glViewport(0, 0, width, height);
 }

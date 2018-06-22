@@ -7,14 +7,23 @@ class Animation : public Component<Animation>
 {
 	friend class AnimationCore;
 public:
+
+	Animation();
+	~Animation();
+
 	struct State
 	{
-		State() : Name("Default"), FPS(60.f)
-		{
-		}
+		State();
 		std::string Name;
 		float FPS;
 	};
+
+	void SetAnimationInfo(int InWidth, int InHeight, int InColumns, int InRows);
+	// Separate init from construction code.
+	virtual void Init() final;
+	
+	const float GetFramesAccumulated() const;
+
 	bool IsPlaying;
 
 	float FPS;
@@ -23,13 +32,6 @@ public:
 
 	glm::vec2 GridSize;
 
-	void SetAnimationInfo(int InWidth, int InHeight, int InColumns, int InRows);
-
-	Animation();
-	~Animation();
-
-	// Separate init from construction code.
-	virtual void Init() final;
 
 private:
 	float FramesAccumulated;

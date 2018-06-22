@@ -1,12 +1,12 @@
 #pragma once
 #include "Game.h"
 
-class BitBuster :
+class MitchGame :
 	public Game
 {
 public:
-	BitBuster();
-	virtual ~BitBuster() override;
+	MitchGame();
+	virtual ~MitchGame() override;
 
 	virtual void Initialize() override;
 

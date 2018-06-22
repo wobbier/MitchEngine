@@ -1,10 +1,10 @@
 // 2015 Mitchell Andrews
-#include "BitBuster.h"
+#include "MitchGame.h"
 #include <iostream>
 
 int main()
 {
-	BitBuster game;
+	MitchGame game;
 	game.Start();
 	return 0;
 }

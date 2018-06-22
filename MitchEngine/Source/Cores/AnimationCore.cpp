@@ -26,7 +26,7 @@ void AnimationCore::Update(float dt)
 
 		// Update the animations timer for next frame.
 		AnimationComponent.FramesAccumulated += dt * AnimationComponent.FPS;
-		AnimationComponent.CurrentFrame.x = (int)AnimationComponent.FramesAccumulated;
+		AnimationComponent.CurrentFrame.x = (int)AnimationComponent.GetFramesAccumulated();
 
 		if (AnimationComponent.CurrentFrame.x >= AnimationComponent.GridSize.x)
 		{

@@ -6,10 +6,7 @@
 #include <string>
 #include <cstdint>
 
-// Testing 32-bit / 64-bit ids
-#define MITCH_32_BIT_IDS
-
-#ifdef MITCH_32_BIT_IDS
+#ifdef _WIN32
 #	define MITCH_ENTITY_ID_INDEX_BIT_COUNT 20
 #	define MITCH_ENTITY_ID_COUNTER_BIT_COUNT 12
 #else
@@ -24,9 +21,8 @@ class Entity
 public:
 	struct ID
 	{
-		// Possible room for 64-bit
 		typedef
-#ifdef MITCH_32_BIT_IDS
+#ifdef _WIN32
 			std::uint32_t
 #else
 			std::uint64_t

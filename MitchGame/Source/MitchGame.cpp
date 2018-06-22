@@ -1,4 +1,4 @@
-#include "BitBuster.h"
+#include "MitchGame.h"
 #include "Cores/Renderer.h"
 #include "Utility/Logger.h"
 #include "Components/Sprite.h"
@@ -10,22 +10,26 @@
 #include "Engine/Window.h"
 #include "Components/Animation.h"
 #include "Components/Collider2D.h"
+#include "Components/Camera.h"
 
 #include <memory>
 
-BitBuster::BitBuster() : Game()
+MitchGame::MitchGame() : Game()
 {
 }
 
-BitBuster::~BitBuster()
+MitchGame::~MitchGame()
 {
 	Game::~Game();
 }
 
 std::vector<Entity> EntList;
 
-void BitBuster::Initialize()
+void MitchGame::Initialize()
 {
+	Entity& MainCamera = GameWorld->CreateEntity();
+	MainCamera.AddComponent<Camera>();
+
 	Entity& Background = GameWorld->CreateEntity();
 	Transform& BGPos = Background.GetComponent<Transform>();
 	Sprite& BGSprite = Background.AddComponent<Sprite>();
@@ -33,7 +37,7 @@ void BitBuster::Initialize()
 	BGPos.Position = glm::vec3(BGSprite.FrameSize.x, Window::WINDOW_HEIGHT / 2, 0.0f);
 }
 
-void BitBuster::Update(float DeltaTime)
+void MitchGame::Update(float DeltaTime)
 {
 	for (auto E : EntList)
 	{
@@ -57,6 +61,6 @@ void BitBuster::Update(float DeltaTime)
 	}
 }
 
-void BitBuster::End()
+void MitchGame::End()
 {
 }

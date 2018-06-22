@@ -18,5 +18,11 @@ public:
 	void Swap();
 
 private:
+	void MouseCallback(GLFWwindow* window, double xpos, double ypos);
+	void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
+	void ProcessInput(GLFWwindow *window);
+	static void FramebufferSizeCallback(GLFWwindow* window, int width, int height);
+
+private:
 	GLFWwindow* window;
 };
