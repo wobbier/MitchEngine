@@ -13,7 +13,7 @@ workspace "MitchEngine"
    "../ThirdParty/Boost/boost-1.64.0"
    }
    libdirs {
-	"../ThirdParty/GLFW/src/src/%{cfg.buildcfg}"
+	"../ThirdParty/GLFW/src/%{cfg.buildcfg}"
    }
 
    links {
@@ -46,10 +46,6 @@ project "MitchEngine"
       defines { "NDEBUG" }
       optimize "On"
 
-	postbuildcommands {
-	  "{COPY} ../MitchEngine/Assets %{cfg.targetdir}"
-	}
-
 project "MitchGame"
    kind "ConsoleApp"
    language "C++"
@@ -57,6 +53,8 @@ project "MitchGame"
    location "../MitchGame"
    links "MitchEngine"
    files {
+   "../MitchGame/Assets/**.frag",
+   "../MitchGame/Assets/**.vert",
    "../MitchGame/**.h",
    "../MitchGame/**.cpp"
    }
@@ -71,7 +69,7 @@ project "MitchGame"
 
 group "ThirdParty"
 externalproject "glfw"
-   location "../ThirdParty/GLFW/src/src"
+   location "../ThirdParty/GLFW/src"
    uuid "8A0313E9-F6C0-4C24-9258-65C9F6D5802C"
    kind "StaticLib"
    language "C++"
