@@ -4,21 +4,14 @@
 #include <vector>
 #include "ClassTypeId.h"
 
-class Entity;
-
 class BaseComponent
 {
 	friend class ComponentStorage;
 public:
+	BaseComponent() = default;
 	~BaseComponent() = default;
 
 	virtual void Init() = 0;
-	const Entity* GetParentEntity();
-
-private:
-	void OnCreate(Entity* Owner);
-
-	Entity* ParentEntity;
 };
 
 template<typename T>
@@ -38,4 +31,4 @@ public:
 private:
 };
 
-typedef std::vector<std::reference_wrapper<BaseComponent>> ComponentArray;
+using ComponentArray = std::vector<std::reference_wrapper<BaseComponent>>;

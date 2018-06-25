@@ -107,9 +107,6 @@ void Renderer::Render()
 		return;
 	}
 
-	const Entity* CameraObject = CurrentCamera->GetParentEntity();
-	const Transform& cameraTransform = CameraObject->GetComponent<Transform>();
-
 	x -= 0.01f;
 	glClearColor(x, 1.0f, 1.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -129,7 +126,7 @@ void Renderer::Render()
 	};
 
 	glm::mat4 projection = glm::perspective(glm::radians(Camera::CurrentCamera->Zoom), (float)Window::WINDOW_WIDTH / (float)Window::WINDOW_HEIGHT, 0.1f, 100.0f);
-	glm::mat4 view = Camera::CurrentCamera->GetViewMatrix(cameraTransform.Position);
+	glm::mat4 view = Camera::CurrentCamera->GetViewMatrix();
 
 	auto Renderables = GetEntities();
 	for (auto& InEntity : Renderables)

@@ -3,6 +3,7 @@
 #include <gtc/matrix_transform.hpp>
 
 #include "Engine/Component.h"
+#include "Components/Transform.h"
 
 class Camera
 	: public Component<Camera>
@@ -10,6 +11,7 @@ class Camera
 public:
 	static Camera* CurrentCamera;
 
+	glm::vec3 Position;
 	glm::vec3 Front;
 	glm::vec3 Up;
 	float Zoom = 45.0f;
@@ -19,5 +21,7 @@ public:
 
 	virtual void Init() override;
 
-	glm::mat4 GetViewMatrix(const glm::vec3& Position);
+	glm::mat4 GetViewMatrix();
+	void UpdateCameraTransform(glm::vec3 TransformComponent);
+	bool IsCurrent();
 };

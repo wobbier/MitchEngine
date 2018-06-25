@@ -1,6 +1,7 @@
 #include "Game.h"
 #include "Utility/Logger.h"
 #include "Engine/Clock.h"
+#include "Cores/Camera/CameraCore.h"
 #include "Cores/AnimationCore.h"
 #include "Cores/PhysicsCore.h"
 
@@ -37,6 +38,9 @@ void Game::Start()
 	auto Physics = PhysicsCore();
 	GameWorld->AddCore<PhysicsCore>(Physics);
 
+	auto Cameras = CameraCore();
+	GameWorld->AddCore<CameraCore>(Cameras);
+
 	Initialize();
 
 	Clock& GameClock = Clock::Get();
@@ -49,13 +53,16 @@ void Game::Start()
 		GameWindow->PollInput();
 
 		float time = GameClock.GetTimeInMilliseconds();
-		GameClock.deltaTime = (time <= 0.0f || time >= 0.3) ? 0.0001f : time;
+		const float deltaTime = GameClock.deltaTime = (time <= 0.0f || time >= 0.3) ? 0.0001f : time;
 
 		// Update our engine
 		GameWorld->Simulate();
-		Physics.Update(GameClock.deltaTime);
-		Animator.Update(GameClock.deltaTime);
-		Update(GameClock.deltaTime);
+		Physics.Update(deltaTime);
+		Animator.Update(deltaTime);
+
+		Update(deltaTime);
+
+		Cameras.Update(deltaTime);
 
 		SpriteRenderer.Render();
 		// Swap the buffers

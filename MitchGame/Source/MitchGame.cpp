@@ -29,6 +29,7 @@ void MitchGame::Initialize()
 {
 	Entity& MainCamera = GameWorld->CreateEntity();
 	MainCamera.AddComponent<Camera>();
+	EntList.push_back(MainCamera);
 
 	Entity& Background = GameWorld->CreateEntity();
 	Transform& BGPos = Background.GetComponent<Transform>();
@@ -44,11 +45,11 @@ void MitchGame::Update(float DeltaTime)
 		Transform& TransformComponent = E.GetComponent<Transform>();
 		if (Input::Get().IsKeyDown(GLFW_KEY_W))
 		{
-			TransformComponent.Position += glm::vec3(0, -40 * DeltaTime, 0);
+			TransformComponent.Position += glm::vec3(0, 0, -40 * DeltaTime);
 		}
 		if (Input::Get().IsKeyDown(GLFW_KEY_S))
 		{
-			TransformComponent.Position += glm::vec3(0, 40 * DeltaTime, 0);
+			TransformComponent.Position += glm::vec3(0, 0, 40 * DeltaTime);
 		}
 		if (Input::Get().IsKeyDown(GLFW_KEY_A))
 		{
