@@ -33,11 +33,9 @@ project "MitchEngine"
 			"../MitchEngine/Source/**.txt",
 			"../Tools/**.lua"
 	}
-
 	vpaths {
 		["Build"] = "../Tools/*.lua"
 	}
-
    filter "configurations:Debug"
       defines { "DEBUG" }
       symbols "On"
@@ -71,6 +69,14 @@ group "ThirdParty"
 externalproject "glfw"
    location "../ThirdParty/GLFW/src"
    uuid "8A0313E9-F6C0-4C24-9258-65C9F6D5802C"
+   kind "StaticLib"
+   language "C++"
+   toolset "v141"
+   targetdir "../Build/%{cfg.buildcfg}"
+
+externalproject "Bullet3Collision"
+   location "../ThirdParty/Bullet/build3/vs2010"
+   uuid "8A0313E9-F6C0-4C24-9258-65C9F6D5802D"
    kind "StaticLib"
    language "C++"
    toolset "v141"
