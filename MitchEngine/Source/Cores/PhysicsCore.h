@@ -1,14 +1,13 @@
 #pragma once
 #include "Engine/Core.h"
-//#include "Box2D/Box2D.h"
+#include <btBulletDynamicsCommon.h>
 
 class PhysicsCore : public Core<PhysicsCore>
 {
 	friend class Core<PhysicsCore>;
 public:
-	//b2World * PhysicsWorld;
-
-	//b2Vec2 Gravity;
+	btDiscreteDynamicsWorld* PhysicsWorld;
+	btVector3 Gravity;
 
 	PhysicsCore();
 	~PhysicsCore();

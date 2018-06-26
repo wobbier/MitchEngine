@@ -1,13 +1,12 @@
 #include "Cores/PhysicsCore.h"
 #include "Components/Transform.h"
-#include "Components/Collider2D.h"
-#include "Components/Sprite.h"
+#include "Components/Physics/Rigidbody.h"
 //#include "Box2D/Box2D.h"
 
 #define M_PI 3.14159
 #define RADIANS_TO_DEGREES(__ANGLE__) ((__ANGLE__) / M_PI * 180.0)
 
-PhysicsCore::PhysicsCore() : Base(ComponentFilter().Requires<Transform>().Requires<Collider2D>())
+PhysicsCore::PhysicsCore() : Base(ComponentFilter().Requires<Transform>().Requires<Rigidbody>())
 {
 }
 
@@ -17,20 +16,42 @@ PhysicsCore::~PhysicsCore()
 
 void PhysicsCore::Init()
 {
-	//Gravity = b2Vec2(0, 100);
-	//PhysicsWorld = new b2World(Gravity);
+	Gravity = btVector3(0, -10, 0);
+	///collision configuration contains default setup for memory, collision setup. Advanced users can create their own configuration.
+	btDefaultCollisionConfiguration* collisionConfiguration = new btDefaultCollisionConfiguration();
+
+	///use the default collision dispatcher. For parallel processing you can use a diffent dispatcher (see Extras/BulletMultiThreaded)
+	btCollisionDispatcher* dispatcher = new btCollisionDispatcher(collisionConfiguration);
+
+	///btDbvtBroadphase is a good general purpose broadphase. You can also try out btAxis3Sweep.
+	btBroadphaseInterface* overlappingPairCache = new btDbvtBroadphase();
+
+	///the default constraint solver. For parallel processing you can use a different solver (see Extras/BulletMultiThreaded)
+	btSequentialImpulseConstraintSolver* solver = new btSequentialImpulseConstraintSolver;
+
+	PhysicsWorld = new btDiscreteDynamicsWorld(dispatcher, overlappingPairCache, solver, collisionConfiguration);
+
+	PhysicsWorld->setGravity(Gravity);
 }
 
 void PhysicsCore::Update(float dt)
 {
-	//PhysicsWorld->Step(dt, 9, 3);
-
 	auto PhysicsEntites = GetEntities();
 	for (auto& InEntity : PhysicsEntites)
 	{
 		auto& TransformComponent = InEntity.GetComponent<Transform>();
-		auto& ColliderComponent = InEntity.GetComponent<Collider2D>();
-		auto& SpriteComponent = InEntity.GetComponent<Sprite>();
+		auto& RigidbodyComponent = InEntity.GetComponent<Rigidbody>();
+		if (RigidbodyComponent.IsInitialized)
+		{
+		}
+	}
+
+	PhysicsWorld->stepSimulation(dt, 10);
+
+	for (auto& InEntity : PhysicsEntites)
+	{
+		auto& TransformComponent = InEntity.GetComponent<Transform>();
+		auto& RigidbodyComponent = InEntity.GetComponent<Rigidbody>();
 		/*
 		if (!ColliderComponent.IsInitialized)
 		{

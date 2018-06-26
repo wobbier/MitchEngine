@@ -9,8 +9,8 @@
 #include "Engine/Input.h"
 #include "Engine/Window.h"
 #include "Components/Animation.h"
-#include "Components/Collider2D.h"
 #include "Components/Camera.h"
+#include "Components/Physics/Rigidbody.h"
 
 #include <memory>
 
