@@ -75,7 +75,7 @@ project "MitchGame"
 
 group "ThirdParty"
 externalproject "glfw"
-	location "../ThirdParty/GLFW/src/src"
+	location "../ThirdParty/GLFW/src"
 	uuid "8A0313E9-F6C0-4C24-9258-65C9F6D5802C"
 	kind "StaticLib"
 	language "C++"
