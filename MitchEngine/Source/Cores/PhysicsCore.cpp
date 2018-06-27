@@ -57,6 +57,7 @@ void PhysicsCore::Update(float dt)
 		{
 			btTransform trans;
 			RigidbodyComponent.InternalRigidbody->getMotionState()->getWorldTransform(trans);
+			trans.setRotation(btQuaternion(TransformComponent.Rotation.x, TransformComponent.Rotation.y, TransformComponent.Rotation.z));
 			trans.setOrigin(btVector3(TransformComponent.Position.x, TransformComponent.Position.y, TransformComponent.Position.z));
 			RigidbodyComponent.InternalRigidbody->getMotionState()->setWorldTransform(trans);
 		}
@@ -74,6 +75,7 @@ void PhysicsCore::Update(float dt)
 		RigidbodyComponent.InternalRigidbody->getMotionState()->getWorldTransform(trans);
 
 		TransformComponent.Position = glm::vec3(trans.getOrigin().x(), trans.getOrigin().y(), trans.getOrigin().z());
+		TransformComponent.Rotation = glm::vec3(trans.getRotation().x(), trans.getRotation().y(), trans.getRotation().z());
 	}
 
 }

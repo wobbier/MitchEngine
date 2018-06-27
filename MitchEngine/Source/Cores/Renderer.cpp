@@ -11,6 +11,7 @@
 #include <gtc/matrix_transform.hpp>
 #include <gtc/type_ptr.hpp>
 #include <gtx/rotate_vector.hpp>
+#include <gtx/quaternion.hpp>
 
 #include "Components/Camera.h"
 #include <iostream>
@@ -91,7 +92,8 @@ void Renderer::Render()
 		glm::mat4 model(1.0f);
 		model = glm::translate(model, trans.Position);
 		float angle = 20.0f * i;
-		model = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
+		//model = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
+		model = model * glm::toMat4(trans.Rotation);
 		shader.SetMat4("model", model);
 
 		cube.DrawCube();
