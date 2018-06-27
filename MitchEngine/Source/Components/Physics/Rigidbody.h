@@ -1,6 +1,7 @@
 #pragma once
 #include "Engine/Component.h"
-//#include "Box2D/Box2D.h"
+#include <btBulletDynamicsCommon.h>
+#include <glm.hpp>
 
 class Rigidbody : public Component<Rigidbody>
 {
@@ -12,14 +13,12 @@ public:
 	// Separate init from construction code.
 	virtual void Init() final;
 
-	//void SetBodyType(b2BodyType InBodyType);
+	bool IsRigidbodyInitialized();
+
 private:
-	//class b2PhysicsWorld;
-	//b2Body* Body;
+	void CreateObject(const glm::vec3& Position);
+	btRigidBody* InternalRigidbody;
 
-	//b2BodyDef BodyDefinition;
-	//b2FixtureDef FixtureDefinition;
-	//b2PolygonShape ShapeDefinition;
-
-	bool IsInitialized;
+protected:
+	bool IsInitialized = false;
 };

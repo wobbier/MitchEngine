@@ -30,6 +30,8 @@ Entity MainCamera;
 void MitchGame::Initialize()
 {
 	MainCamera = GameWorld->CreateEntity();
+	Transform& CameraPos = MainCamera.GetComponent<Transform>();
+	CameraPos.Position = glm::vec3(0, 5, 20);
 	MainCamera.AddComponent<Camera>();
 
 	glm::vec3 cubePositions[] = {
@@ -52,6 +54,7 @@ void MitchGame::Initialize()
 		BGPos.Position = cubePosition;
 		Sprite& BGSprite = Cube.AddComponent<Sprite>();
 		Cube.AddComponent<DebugCube>();
+		Cube.AddComponent<Rigidbody>();
 		BGSprite.SetImage(Resources.Get<Texture>("Assets/colored_grass.png"));
 	}
 

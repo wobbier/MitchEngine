@@ -10,8 +10,27 @@ Rigidbody::~Rigidbody()
 
 void Rigidbody::Init()
 {
-	//ShapeDefinition.SetAsBox(1, 1);
-	//SetBodyType(b2_dynamicBody);
+
+}
+
+
+bool Rigidbody::IsRigidbodyInitialized()
+{
+	return IsInitialized;
+}
+
+void Rigidbody::CreateObject(const glm::vec3& Position)
+{
+	btCollisionShape* fallShape = new btSphereShape(1);
+
+	btDefaultMotionState* fallMotionState =
+		new btDefaultMotionState(btTransform(btQuaternion(0, 0, 0, 1), btVector3(Position.x, Position.y, Position.z)));
+	btScalar mass = 1;
+	btVector3 fallInertia(0, 0, 0);
+	fallShape->calculateLocalInertia(mass, fallInertia);
+	btRigidBody::btRigidBodyConstructionInfo fallRigidBodyCI(mass, fallMotionState, fallShape, fallInertia);
+	InternalRigidbody = new btRigidBody(fallRigidBodyCI);
+	IsInitialized = true;
 }
 
 //void Collider2D::SetBodyType(b2BodyType InBodyType)

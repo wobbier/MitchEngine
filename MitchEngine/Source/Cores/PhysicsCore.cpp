@@ -32,6 +32,13 @@ void PhysicsCore::Init()
 	PhysicsWorld = new btDiscreteDynamicsWorld(dispatcher, overlappingPairCache, solver, collisionConfiguration);
 
 	PhysicsWorld->setGravity(Gravity);
+
+	btCollisionShape* groundShape = new btStaticPlaneShape(btVector3(0, 3, 0), 1);
+	btDefaultMotionState* groundMotionState = new btDefaultMotionState(btTransform(btQuaternion(0, 0, 0, 1), btVector3(0, -1, 0)));
+	btRigidBody::btRigidBodyConstructionInfo
+		groundRigidBodyCI(0, groundMotionState, groundShape, btVector3(0, 0, 0));
+	btRigidBody* groundRigidBody = new btRigidBody(groundRigidBodyCI);
+	PhysicsWorld->addRigidBody(groundRigidBody);
 }
 
 void PhysicsCore::Update(float dt)
@@ -39,44 +46,34 @@ void PhysicsCore::Update(float dt)
 	auto PhysicsEntites = GetEntities();
 	for (auto& InEntity : PhysicsEntites)
 	{
-		auto& TransformComponent = InEntity.GetComponent<Transform>();
-		auto& RigidbodyComponent = InEntity.GetComponent<Rigidbody>();
-		if (RigidbodyComponent.IsInitialized)
+		Transform& TransformComponent = InEntity.GetComponent<Transform>();
+		Rigidbody& RigidbodyComponent = InEntity.GetComponent<Rigidbody>();
+		if (!RigidbodyComponent.IsRigidbodyInitialized())
 		{
+			RigidbodyComponent.CreateObject(TransformComponent.Position);
+			PhysicsWorld->addRigidBody(RigidbodyComponent.InternalRigidbody);
+		}
+		else
+		{
+			btTransform trans;
+			RigidbodyComponent.InternalRigidbody->getMotionState()->getWorldTransform(trans);
+			trans.setOrigin(btVector3(TransformComponent.Position.x, TransformComponent.Position.y, TransformComponent.Position.z));
+			RigidbodyComponent.InternalRigidbody->getMotionState()->setWorldTransform(trans);
 		}
 	}
 
+	// Need a fixed delta probably
 	PhysicsWorld->stepSimulation(dt, 10);
 
 	for (auto& InEntity : PhysicsEntites)
 	{
-		auto& TransformComponent = InEntity.GetComponent<Transform>();
-		auto& RigidbodyComponent = InEntity.GetComponent<Rigidbody>();
-		/*
-		if (!ColliderComponent.IsInitialized)
-		{
-			ColliderComponent.BodyDefinition.position = b2Vec2(TransformComponent.Position.x, TransformComponent.Position.y);
+		Transform& TransformComponent = InEntity.GetComponent<Transform>();
+		Rigidbody& RigidbodyComponent = InEntity.GetComponent<Rigidbody>();
 
-			ColliderComponent.Body = PhysicsWorld->CreateBody(&ColliderComponent.BodyDefinition);
+		btTransform trans;
+		RigidbodyComponent.InternalRigidbody->getMotionState()->getWorldTransform(trans);
 
-			if (&SpriteComponent)
-			{
-				ColliderComponent.ShapeDefinition.SetAsBox((SpriteComponent.FrameSize.x / 6.5f), (SpriteComponent.FrameSize.y / 6.5f));
-			}
-			else
-			{
-				ColliderComponent.ShapeDefinition.SetAsBox(1, 1);
-			}
-			ColliderComponent.FixtureDefinition.shape = &ColliderComponent.ShapeDefinition;
-			ColliderComponent.FixtureDefinition.density = 1.f;
-			ColliderComponent.FixtureDefinition.friction = .3f;
-
-			ColliderComponent.Body->CreateFixture(&ColliderComponent.FixtureDefinition);
-			ColliderComponent.IsInitialized = true;
-		}
-
-		TransformComponent.Position = glm::vec3(ColliderComponent.Body->GetPosition().x, ColliderComponent.Body->GetPosition().y, TransformComponent.Position.z);
-		TransformComponent.Rotation = glm::vec3(0, 0, RADIANS_TO_DEGREES(ColliderComponent.Body->GetAngle()));
-		*/
+		TransformComponent.Position = glm::vec3(trans.getOrigin().x(), trans.getOrigin().y(), trans.getOrigin().z());
 	}
+
 }
