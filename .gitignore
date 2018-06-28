@@ -25,7 +25,7 @@ bld/
 [Bb]in/
 [Oo]bj/
 [Bb]uild/
-
+!**/Components/**/Debug
 # Visual Studo 2015 cache/options directory
 .vs/
 
