@@ -39,11 +39,20 @@ void PhysicsCore::Init()
 		groundRigidBodyCI(0, groundMotionState, groundShape, btVector3(0, 0, 0));
 	btRigidBody* groundRigidBody = new btRigidBody(groundRigidBodyCI);
 	PhysicsWorld->addRigidBody(groundRigidBody);
+
+	PhysicsWorld->setDebugDrawer(new GLDebugDrawer());
+	PhysicsWorld->getDebugDrawer()->setDebugMode(btIDebugDraw::DBG_DrawWireframe);
+
+	PhysicsWorld->debugDrawWorld();
 }
 
 void PhysicsCore::Update(float dt)
 {
 	auto PhysicsEntites = GetEntities();
+
+	// Need a fixed delta probably
+	PhysicsWorld->stepSimulation(dt, 10);
+
 	for (auto& InEntity : PhysicsEntites)
 	{
 		Transform& TransformComponent = InEntity.GetComponent<Transform>();
@@ -53,29 +62,52 @@ void PhysicsCore::Update(float dt)
 			RigidbodyComponent.CreateObject(TransformComponent.Position);
 			PhysicsWorld->addRigidBody(RigidbodyComponent.InternalRigidbody);
 		}
-		else
-		{
-			btTransform trans;
-			RigidbodyComponent.InternalRigidbody->getMotionState()->getWorldTransform(trans);
-			trans.setRotation(btQuaternion(TransformComponent.Rotation.x, TransformComponent.Rotation.y, TransformComponent.Rotation.z));
-			trans.setOrigin(btVector3(TransformComponent.Position.x, TransformComponent.Position.y, TransformComponent.Position.z));
-			RigidbodyComponent.InternalRigidbody->getMotionState()->setWorldTransform(trans);
-		}
-	}
-
-	// Need a fixed delta probably
-	PhysicsWorld->stepSimulation(dt, 10);
-
-	for (auto& InEntity : PhysicsEntites)
-	{
-		Transform& TransformComponent = InEntity.GetComponent<Transform>();
-		Rigidbody& RigidbodyComponent = InEntity.GetComponent<Rigidbody>();
 
 		btTransform trans;
 		RigidbodyComponent.InternalRigidbody->getMotionState()->getWorldTransform(trans);
 
 		TransformComponent.Position = glm::vec3(trans.getOrigin().x(), trans.getOrigin().y(), trans.getOrigin().z());
-		TransformComponent.Rotation = glm::vec3(trans.getRotation().x(), trans.getRotation().y(), trans.getRotation().z());
+		TransformComponent.Rotation = glm::quat(trans.getRotation().x(), trans.getRotation().y(), trans.getRotation().z(), trans.getRotation().w());
 	}
+
+}
+
+void GLDebugDrawer::drawLine(const btVector3& from, const btVector3& to, const btVector3& fromColor, const btVector3& toColor)
+{
+
+}
+
+void GLDebugDrawer::drawLine(const btVector3& from, const btVector3& to, const btVector3& color)
+{
+
+}
+
+void GLDebugDrawer::drawSphere(const btVector3& p, btScalar radius, const btVector3& color)
+{
+
+}
+
+void GLDebugDrawer::drawTriangle(const btVector3& a, const btVector3& b, const btVector3& c, const btVector3& color, btScalar alpha)
+{
+
+}
+
+void GLDebugDrawer::drawContactPoint(const btVector3& PointOnB, const btVector3& normalOnB, btScalar distance, int lifeTime, const btVector3& color)
+{
+
+}
+
+void GLDebugDrawer::reportErrorWarning(const char* warningString)
+{
+
+}
+
+void GLDebugDrawer::draw3dText(const btVector3& location, const char* textString)
+{
+
+}
+
+void GLDebugDrawer::setDebugMode(int debugMode)
+{
 
 }

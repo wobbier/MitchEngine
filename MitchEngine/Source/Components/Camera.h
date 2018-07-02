@@ -15,6 +15,8 @@ public:
 	glm::vec3 Front;
 	glm::vec3 Up;
 	float Zoom = 45.0f;
+	float Yaw = -90.f;
+	float Pitch = 0.f;
 
 	Camera();
 	~Camera() = default;

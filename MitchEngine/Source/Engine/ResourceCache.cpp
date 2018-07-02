@@ -17,6 +17,11 @@ void ResourceCache::Push()
 
 void ResourceCache::Pop()
 {
+	if (ResourceStack.empty())
+	{
+		return;
+	}
+
 	auto& V = ResourceStack[ResourceStack.size() - 1];
 	for (auto I = V.begin(); I != V.end(); ++I)
 	{

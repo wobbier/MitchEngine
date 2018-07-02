@@ -10,6 +10,7 @@
 #include "Engine/Window.h"
 #include "Components/Animation.h"
 #include "Components/Camera.h"
+#include "Components/FlyingCamera.h"
 #include "Components/Physics/Rigidbody.h"
 #include "Components/Debug/DebugCube.h"
 
@@ -25,14 +26,19 @@ MitchGame::~MitchGame()
 	Game::~Game();
 }
 
-Entity MainCamera;
-
 void MitchGame::Initialize()
 {
 	MainCamera = GameWorld->CreateEntity();
 	Transform& CameraPos = MainCamera.GetComponent<Transform>();
 	CameraPos.Position = glm::vec3(0, 5, 20);
 	MainCamera.AddComponent<Camera>();
+	MainCamera.AddComponent<FlyingCamera>();
+
+	SecondaryCamera = GameWorld->CreateEntity();
+	Transform& SecondaryPos = SecondaryCamera.GetComponent<Transform>();
+	SecondaryPos.Position = glm::vec3(0, 5, 20);
+	SecondaryCamera.AddComponent<Camera>();
+	SecondaryCamera.AddComponent<FlyingCamera>();
 
 	glm::vec3 cubePositions[] = {
 		glm::vec3(0.0f,  0.0f,  0.0f),
@@ -54,31 +60,36 @@ void MitchGame::Initialize()
 		BGPos.Position = cubePosition;
 		Sprite& BGSprite = Cube.AddComponent<Sprite>();
 		Cube.AddComponent<DebugCube>();
-		Cube.AddComponent<Rigidbody>();
 		BGSprite.SetImage(Resources.Get<Texture>("Assets/colored_grass.png"));
+		Cubes.push_back(Cube);
 	}
-
+	FlyingCameraController = new FlyingCameraCore();
+	GameWorld->AddCore<FlyingCameraCore>(*FlyingCameraController);
 }
 
 void MitchGame::Update(float DeltaTime)
 {
+	FlyingCameraController->Update(DeltaTime);
+
+	Input& Instance = Input::Get();
+	if (Instance.IsKeyDown(GLFW_KEY_1))
+	{
+		Camera::CurrentCamera = &MainCamera.GetComponent<Camera>();
+	}
+	if (Instance.IsKeyDown(GLFW_KEY_2))
+	{
+		Camera::CurrentCamera = &SecondaryCamera.GetComponent<Camera>();
+	}
+	if (Instance.IsKeyDown(GLFW_KEY_P) && !AddedPhysics)
+	{
+		for (auto& Cube : Cubes)
+		{
+			Cube.AddComponent<Rigidbody>();
+		}
+		AddedPhysics = true;
+	}
+
 	Transform& TransformComponent = MainCamera.GetComponent<Transform>();
-	if (Input::Get().IsKeyDown(GLFW_KEY_W))
-	{
-		TransformComponent.Position += glm::vec3(0, 0, -40 * DeltaTime);
-	}
-	if (Input::Get().IsKeyDown(GLFW_KEY_S))
-	{
-		TransformComponent.Position += glm::vec3(0, 0, 40 * DeltaTime);
-	}
-	if (Input::Get().IsKeyDown(GLFW_KEY_A))
-	{
-		TransformComponent.Position += glm::vec3(-40 * DeltaTime, 0, 0);
-	}
-	if (Input::Get().IsKeyDown(GLFW_KEY_D))
-	{
-		TransformComponent.Position += glm::vec3(40 * DeltaTime, 0, 0);
-	}
 }
 
 void MitchGame::End()

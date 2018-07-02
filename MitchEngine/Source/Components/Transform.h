@@ -3,7 +3,7 @@
 
 #define GLM_ENABLE_EXPERIMENTAL 1
 #include <glm.hpp>
-#include <gtc/quaternion.hpp>
+#include <gtx/quaternion.hpp>
 
 class Transform :
 	public Component<Transform>

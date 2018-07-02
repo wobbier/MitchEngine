@@ -91,8 +91,9 @@ void Renderer::Render()
 		// calculate the model matrix for each object and pass it to shader before drawing
 		glm::mat4 model(1.0f);
 		model = glm::translate(model, trans.Position);
-		float angle = 20.0f * i;
-		//model = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
+		model = glm::scale(model, glm::vec3(1, 1, 1));
+		//model = model * glm::toMat4(trans.Rotation);
+		//model = glm::rotate(glm::toMat4(trans.Rotation), glm::vec3(1,1,1));
 		model = model * glm::toMat4(trans.Rotation);
 		shader.SetMat4("model", model);
 

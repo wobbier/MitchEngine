@@ -18,6 +18,7 @@ Entity::~Entity()
 void Entity::AddComponent(BaseComponent* inComponent, TypeId inComponentTypeId)
 {
 	GameWorld->EntityAttributes.Storage.AddComponent(*this, inComponent, inComponentTypeId);
+	SetActive(true);
 }
 
 const Entity::ID& Entity::GetId() const

@@ -1,8 +1,9 @@
 #pragma once
 #include "Game.h"
+#include "Cores/FlyingCameraCore.h"
 
-class MitchGame :
-	public Game
+class MitchGame
+	: public Game
 {
 public:
 	MitchGame();
@@ -13,4 +14,11 @@ public:
 	virtual void Update(float DeltaTime) override;
 
 	virtual void End() override;
+
+	FlyingCameraCore* FlyingCameraController;
+
+	Entity MainCamera;
+	Entity SecondaryCamera;
+	std::vector<Entity> Cubes;
+	bool AddedPhysics = false;
 };

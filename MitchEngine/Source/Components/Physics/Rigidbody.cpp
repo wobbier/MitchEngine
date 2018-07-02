@@ -21,7 +21,7 @@ bool Rigidbody::IsRigidbodyInitialized()
 
 void Rigidbody::CreateObject(const glm::vec3& Position)
 {
-	btCollisionShape* fallShape = new btSphereShape(1);
+	btCollisionShape* fallShape = new btBoxShape(btVector3(1,1,1));
 
 	btDefaultMotionState* fallMotionState =
 		new btDefaultMotionState(btTransform(btQuaternion(0, 0, 0, 1), btVector3(Position.x, Position.y, Position.z)));

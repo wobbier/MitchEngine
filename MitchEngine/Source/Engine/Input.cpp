@@ -8,7 +8,7 @@
 
 void Input::KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode)
 {
-	printf("%i, %i, %i, %i\n", key, scancode, action, mode);
+	//printf("%i, %i, %i, %i\n", key, scancode, action, mode);
 	Input& Instance = Get();
 	Instance.Keys[key].Id = key;
 	Instance.Keys[key].Scancode = scancode;
@@ -42,7 +42,7 @@ void Input::MouseCallback(GLFWwindow* window, double xpos, double ypos)
 {
 	Input& Instance = Get();
 	Instance.Mouse.Position = glm::vec2(xpos, ypos);
-	Logger::Get().Log(Logger::LogType::Debug, std::to_string(Instance.Mouse.Position.x));
+	//Logger::Get().Log(Logger::LogType::Debug, std::to_string(Instance.Mouse.Position.x));
 }
 
 glm::vec2 Input::GetMousePosition()

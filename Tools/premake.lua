@@ -56,6 +56,9 @@ project "MitchEngine"
 		"../MitchEngine/Source/**.txt",
 		"../Tools/**.lua"
 	}
+	includedirs {
+		"../MitchGame/Source"
+	}
 	vpaths {
 		["Build"] = "../Tools/*.lua"
 	}
