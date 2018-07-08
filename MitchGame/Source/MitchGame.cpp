@@ -3,6 +3,7 @@
 #include "Utility/Logger.h"
 #include "Components/Sprite.h"
 #include "Engine/Component.h"
+#include "Engine/Clock.h"
 #include "Components/Transform.h"
 #include "Engine/Entity.h"
 #include <string>
@@ -29,14 +30,14 @@ MitchGame::~MitchGame()
 void MitchGame::Initialize()
 {
 	MainCamera = GameWorld->CreateEntity();
-	Transform& CameraPos = MainCamera.GetComponent<Transform>();
-	CameraPos.Position = glm::vec3(0, 5, 20);
+	Transform& CameraPos = MainCamera.AddComponent<Transform>();
+	CameraPos.SetPosition(glm::vec3(0, 5, 20));
 	MainCamera.AddComponent<Camera>();
 	MainCamera.AddComponent<FlyingCamera>();
 
 	SecondaryCamera = GameWorld->CreateEntity();
-	Transform& SecondaryPos = SecondaryCamera.GetComponent<Transform>();
-	SecondaryPos.Position = glm::vec3(0, 5, 20);
+	Transform& SecondaryPos = SecondaryCamera.AddComponent<Transform>();
+	SecondaryPos.SetPosition(glm::vec3(0, 5, 20));
 	SecondaryCamera.AddComponent<Camera>();
 	SecondaryCamera.AddComponent<FlyingCamera>();
 
@@ -55,18 +56,36 @@ void MitchGame::Initialize()
 
 	for (auto cubePosition : cubePositions)
 	{
+		/*Entity Cube = GameWorld->CreateEntity();
+		Transform& BGPos = Cube.AddComponent<Transform>();
+		BGPos.SetPosition(cubePosition);
+		BGPos.SetParent(SecondaryPos);
+		Sprite& BGSprite = Cube.AddComponent<Sprite>();
+		Cube.AddComponent<DebugCube>();
+		BGSprite.SetImage(Resources.Get<Texture>("Assets/colored_grass.png"));*/
+		//Cubes.push_back(Cube);
+	}
+
+	Transform* previousTransform = &SecondaryPos;
+	for (int i = 0; i < 10; ++i)
+	{
 		Entity Cube = GameWorld->CreateEntity();
-		Transform& BGPos = Cube.GetComponent<Transform>();
-		BGPos.Position = cubePosition;
+		Transform& BGPos = Cube.AddComponent<Transform>();
+		BGPos.SetPosition(glm::vec3(i * 1.f, i * 1.5f, 0.f));
+		//BGPos.SetParent(*previousTransform);
 		Sprite& BGSprite = Cube.AddComponent<Sprite>();
 		Cube.AddComponent<DebugCube>();
 		BGSprite.SetImage(Resources.Get<Texture>("Assets/colored_grass.png"));
 		Cubes.push_back(Cube);
+		previousTransform = &BGPos;
+		Cube.SetActive(true);
 	}
+
 	FlyingCameraController = new FlyingCameraCore();
 	GameWorld->AddCore<FlyingCameraCore>(*FlyingCameraController);
 }
 
+float totalTime = 0.f;
 void MitchGame::Update(float DeltaTime)
 {
 	FlyingCameraController->Update(DeltaTime);
@@ -74,11 +93,11 @@ void MitchGame::Update(float DeltaTime)
 	Input& Instance = Input::Get();
 	if (Instance.IsKeyDown(GLFW_KEY_1))
 	{
-		Camera::CurrentCamera = &MainCamera.GetComponent<Camera>();
+		MainCamera.GetComponent<Camera>().SetCurrent();
 	}
 	if (Instance.IsKeyDown(GLFW_KEY_2))
 	{
-		Camera::CurrentCamera = &SecondaryCamera.GetComponent<Camera>();
+		SecondaryCamera.GetComponent<Camera>().SetCurrent();
 	}
 	if (Instance.IsKeyDown(GLFW_KEY_P) && !AddedPhysics)
 	{
@@ -88,7 +107,26 @@ void MitchGame::Update(float DeltaTime)
 		}
 		AddedPhysics = true;
 	}
+	int i = 0;
+	for (auto& Cube : Cubes)
+	{
+		Transform& CubeTransform = Cube.GetComponent<Transform>();
+		CubeTransform.SetPosition(glm::vec3(i, glm::sin(totalTime + i), 0));
+		i++;
+	}
 
+	totalTime += DeltaTime;
+
+	Camera* CurrentCamera = Camera::CurrentCamera;
+	{
+		if (CurrentCamera->Zoom >= 1.0f && CurrentCamera->Zoom <= 45.0f)
+			CurrentCamera->Zoom -= PrevMouseScroll.y - Input::Get().GetMouseScrollOffset().y;
+		if (CurrentCamera->Zoom <= 1.0f)
+			CurrentCamera->Zoom = 1.0f;
+		if (CurrentCamera->Zoom >= 45.0f)
+			CurrentCamera->Zoom = 45.0f;
+	}
+	PrevMouseScroll = Input::Get().GetMouseScrollOffset();
 	Transform& TransformComponent = MainCamera.GetComponent<Transform>();
 }
 

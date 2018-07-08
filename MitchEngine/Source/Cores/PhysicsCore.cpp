@@ -59,15 +59,15 @@ void PhysicsCore::Update(float dt)
 		Rigidbody& RigidbodyComponent = InEntity.GetComponent<Rigidbody>();
 		if (!RigidbodyComponent.IsRigidbodyInitialized())
 		{
-			RigidbodyComponent.CreateObject(TransformComponent.Position);
+			RigidbodyComponent.CreateObject(TransformComponent.GetPosition());
 			PhysicsWorld->addRigidBody(RigidbodyComponent.InternalRigidbody);
 		}
 
 		btTransform trans;
 		RigidbodyComponent.InternalRigidbody->getMotionState()->getWorldTransform(trans);
 
-		TransformComponent.Position = glm::vec3(trans.getOrigin().x(), trans.getOrigin().y(), trans.getOrigin().z());
-		TransformComponent.Rotation = glm::quat(trans.getRotation().x(), trans.getRotation().y(), trans.getRotation().z(), trans.getRotation().w());
+		TransformComponent.SetPosition(glm::vec3(trans.getOrigin().x(), trans.getOrigin().y(), trans.getOrigin().z()));
+		//TransformComponent.Rotation = glm::quat(trans.getRotation().x(), trans.getRotation().y(), trans.getRotation().z(), trans.getRotation().w());
 	}
 
 }

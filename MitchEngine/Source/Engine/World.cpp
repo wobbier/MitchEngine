@@ -22,7 +22,6 @@ Entity World::CreateEntity()
 {
 	CheckForResize(1);
 	EntityCache.Alive.emplace_back(*this, EntIdPool.Create());
-	EntityCache.Alive.back().AddComponent<Transform>();
 	EntityCache.Alive.back().SetActive(true);
 	return EntityCache.Alive.back();
 }

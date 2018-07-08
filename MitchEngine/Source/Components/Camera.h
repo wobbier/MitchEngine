@@ -26,4 +26,5 @@ public:
 	glm::mat4 GetViewMatrix();
 	void UpdateCameraTransform(glm::vec3 TransformComponent);
 	bool IsCurrent();
+	void SetCurrent();
 };

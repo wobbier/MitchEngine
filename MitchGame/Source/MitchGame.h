@@ -21,4 +21,6 @@ public:
 	Entity SecondaryCamera;
 	std::vector<Entity> Cubes;
 	bool AddedPhysics = false;
+
+	glm::vec2 PrevMouseScroll;
 };

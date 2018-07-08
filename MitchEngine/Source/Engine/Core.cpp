@@ -4,6 +4,11 @@ BaseCore::BaseCore(const ComponentFilter& Filter) : CompFilter(Filter)
 {
 }
 
+
+void BaseCore::OnEntityAdded(Entity& NewEntity)
+{
+}
+
 World& BaseCore::GetWorld() const
 {
 	return *GameWorld;
@@ -22,6 +27,7 @@ const ComponentFilter& BaseCore::GetComponentFilter() const
 void BaseCore::Add(Entity& InEntity)
 {
 	Entities.push_back(InEntity);
+	OnEntityAdded(InEntity);
 }
 
 BaseCore::~BaseCore()

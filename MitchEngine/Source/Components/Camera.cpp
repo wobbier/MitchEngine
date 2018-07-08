@@ -31,3 +31,8 @@ bool Camera::IsCurrent()
 {
 	return Camera::CurrentCamera == this;
 }
+
+void Camera::SetCurrent()
+{
+	CurrentCamera = this;
+}

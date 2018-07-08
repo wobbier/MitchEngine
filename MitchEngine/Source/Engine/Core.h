@@ -16,6 +16,7 @@ public:
 
 	// Each core must update each loop
 	virtual void Update(float dt) = 0;
+	virtual void OnEntityAdded(Entity& NewEntity);
 
 	// Get The World attached to the Core
 	World& GetWorld() const;

@@ -39,10 +39,11 @@ Window::Window(std::string title, int width, int height)
 		std::cout << "Failed to initialize GLAD" << std::endl;
 		assert(0);
 	}
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
-	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 	glfwSetKeyCallback(window, &Input::KeyCallback);
 	glfwSetCursorPosCallback(window, &Input::MouseCallback);
+	glfwSetScrollCallback(window, &Input::ScrollCallback);
 }
 
 Window::~Window()

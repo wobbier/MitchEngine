@@ -3,18 +3,16 @@
 #include <string>
 #include <glm.hpp>
 
-class FlyingCamera
-	: public Component<FlyingCamera>
+class SpotLight : public Component<SpotLight>
 {
 public:
 
-	FlyingCamera();
-	~FlyingCamera();
+	SpotLight() = default;
+	~SpotLight() = default;
 
 	// Separate init from construction code.
 	virtual void Init() final;
 
-	float FlyingSpeed = 3.5f;
-
-	float LookSensitivity = .15f;
+	int LightVAO;
+	int LightVBO;
 };

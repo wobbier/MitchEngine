@@ -45,9 +45,22 @@ void Input::MouseCallback(GLFWwindow* window, double xpos, double ypos)
 	//Logger::Get().Log(Logger::LogType::Debug, std::to_string(Instance.Mouse.Position.x));
 }
 
+
+void Input::ScrollCallback(GLFWwindow* window, double xoffset, double yoffset)
+{
+	Input& Instance = Get();
+	Instance.Mouse.Scroll -= glm::vec2(xoffset, yoffset);
+}
+
 glm::vec2 Input::GetMousePosition()
 {
 	return Mouse.Position;
+}
+
+
+glm::vec2 Input::GetMouseScrollOffset()
+{
+	return Mouse.Scroll;
 }
 
 #pragma endregion

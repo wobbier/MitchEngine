@@ -1,7 +1,7 @@
 #include "CameraCore.h"
 #include "Components/Camera.h"
 
-CameraCore::CameraCore() : Base(ComponentFilter().Requires<Camera>())
+CameraCore::CameraCore() : Base(ComponentFilter().Requires<Camera>().Requires<Transform>())
 {
 }
 
@@ -24,7 +24,7 @@ void CameraCore::Update(float dt)
 
 		if (CameraComponent.IsCurrent())
 		{
-			CameraComponent.UpdateCameraTransform(TransformComponent.Position);
+			CameraComponent.UpdateCameraTransform(TransformComponent.GetPosition());
 		}
 	}
 }

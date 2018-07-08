@@ -51,7 +51,7 @@ Main features
 Build Requirements
 ------------------
 
-* Windows 7+, VS 2013+
+* Windows 10, VS 2017
 * CMake - 3.12.0
 
 Contributing to the Project

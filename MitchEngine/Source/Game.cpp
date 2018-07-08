@@ -4,6 +4,7 @@
 #include "Cores/Camera/CameraCore.h"
 #include "Cores/AnimationCore.h"
 #include "Cores/PhysicsCore.h"
+#include "Cores/SceneGraph.h"
 
 Game::Game() : Running(true)
 {
@@ -41,6 +42,9 @@ void Game::Start()
 	auto Cameras = CameraCore();
 	GameWorld->AddCore<CameraCore>(Cameras);
 
+	auto SceneNodes = SceneGraph();
+	GameWorld->AddCore<SceneGraph>(SceneNodes);
+
 	Initialize();
 
 	Clock& GameClock = Clock::Get();
@@ -61,6 +65,8 @@ void Game::Start()
 		Animator.Update(deltaTime);
 
 		Update(deltaTime);
+
+		SceneNodes.Update(deltaTime);
 
 		Cameras.Update(deltaTime);
 

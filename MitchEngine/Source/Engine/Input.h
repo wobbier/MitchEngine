@@ -20,12 +20,14 @@ public:
 	struct MouseInfo
 	{
 		glm::vec2 Position;
+		glm::vec2 Scroll;
 	};
 
 	bool IsKeyDown(int key);
 
 	bool IsKeyUp(int key);
 	glm::vec2 GetMousePosition();
+	glm::vec2 GetMouseScrollOffset();
 
 private:
 	Input() = default;
@@ -35,4 +37,5 @@ private:
 
 	static void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode);
 	static void MouseCallback(GLFWwindow* window, double xpos, double ypos);
+	static void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 };

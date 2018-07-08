@@ -89,12 +89,14 @@ void Renderer::Render()
 		shader.SetMat4("view", view);
 
 		// calculate the model matrix for each object and pass it to shader before drawing
-		glm::mat4 model(1.0f);
-		model = glm::translate(model, trans.Position);
-		model = glm::scale(model, glm::vec3(1, 1, 1));
+		//glm::mat4 model(1.0f);
+		//model = glm::translate(model, trans.GetPosition());
+		//model = glm::scale(model, glm::vec3(1, 1, 1));
 		//model = model * glm::toMat4(trans.Rotation);
 		//model = glm::rotate(glm::toMat4(trans.Rotation), glm::vec3(1,1,1));
-		model = model * glm::toMat4(trans.Rotation);
+		//model = model * glm::toMat4(trans.Rotation);
+		glm::mat4 model = trans.WorldTransform;
+		model = glm::scale(model, glm::vec3(1, 1, 1));
 		shader.SetMat4("model", model);
 
 		cube.DrawCube();
