@@ -14,6 +14,7 @@
 #include "Components/FlyingCamera.h"
 #include "Components/Physics/Rigidbody.h"
 #include "Components/Debug/DebugCube.h"
+#include "Components/Graphics/Model.h"
 
 #include <memory>
 
@@ -40,6 +41,14 @@ void MitchGame::Initialize()
 	SecondaryPos.SetPosition(glm::vec3(0, 5, 20));
 	SecondaryCamera.AddComponent<Camera>();
 	SecondaryCamera.AddComponent<FlyingCamera>();
+
+	Entity Player = GameWorld->CreateEntity();
+	Player.AddComponent<Transform>();
+	Player.AddComponent<Model>("Assets/Models/nanosuit.obj", "Assets/Shaders/Albedo");
+
+	Entity Dummy = GameWorld->CreateEntity();
+	Dummy.AddComponent<Transform>();
+	Dummy.AddComponent<Model>("Assets/Models/dummy_obj.obj", "Assets/Shaders/Albedo");
 
 	glm::vec3 cubePositions[] = {
 		glm::vec3(0.0f,  0.0f,  0.0f),

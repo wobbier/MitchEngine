@@ -5,6 +5,7 @@
 #include "Cores/AnimationCore.h"
 #include "Cores/PhysicsCore.h"
 #include "Cores/SceneGraph.h"
+#include "Graphics/Cubemap.h"
 
 Game::Game() : Running(true)
 {

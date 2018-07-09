@@ -5,6 +5,7 @@ workspace "MitchEngine"
 	location "../"
 	includedirs {
 		"../MitchEngine/Source",
+		"../ThirdParty/AssIMP/include",
 		"../ThirdParty/Bullet/src",
 		"../ThirdParty/GLAD/include/",
 		"../ThirdParty/GLAD/src/",
@@ -21,7 +22,8 @@ workspace "MitchEngine"
 
 	links {
 		"glfw3",
-		"opengl32"
+		"opengl32",
+		"LibAssIMP"
 	}
 
 	filter "configurations:Debug"
@@ -107,6 +109,15 @@ externalproject "LibBulletDynamics"
 	location "../ThirdParty/Bullet/src/BulletDynamics"
 	filename "BulletDynamics"
 	uuid "8A0313E9-F6C0-4C24-9258-65C9F6D5802F"
+	kind "StaticLib"
+	language "C++"
+	toolset "v141"
+	targetdir "../Build/%{cfg.buildcfg}"
+
+externalproject "LibAssIMP"
+	location "../ThirdParty/AssIMP/code"
+	filename "Assimp"
+	uuid "8A0313E9-F6C0-4C24-9258-65C9F6D58021"
 	kind "StaticLib"
 	language "C++"
 	toolset "v141"

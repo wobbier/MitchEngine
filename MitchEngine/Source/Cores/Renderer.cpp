@@ -1,11 +1,14 @@
 #include "Renderer.h"
 #include "Components/Debug/DebugCube.h"
+#include "Components/Debug/DebugCube.h"
+#include "Components/Graphics/Model.h"
 #include "Components/Sprite.h"
 #include "Components/Transform.h"
 #include "Engine/ComponentFilter.h"
 #include "Utility/Logger.h"
 #include "Engine/Window.h"
 #include "Graphics/Shader.h"
+#include "Engine/Resource.h"
 
 #include <glm.hpp>
 #include <gtc/matrix_transform.hpp>
@@ -16,7 +19,7 @@
 #include "Components/Camera.h"
 #include <iostream>
 
-Renderer::Renderer() : Base(ComponentFilter().Requires<Transform>().Requires<Sprite>().Requires<DebugCube>())
+Renderer::Renderer() : Base(ComponentFilter().Requires<Transform>().Requires<Model>())
 {
 }
 
@@ -26,6 +29,61 @@ void Renderer::Init()
 
 	Logger::Get().Log(Logger::LogType::Debug, "Renderer Initialized...");
 	Logger::Get().Log(Logger::LogType::Debug, (const char*)glGetString(GL_VERSION));
+
+	SkyboxMap = Cubemap::Load("Assets/skybox");
+	SkyboxShader = new Shader("Assets/Shaders/Skybox.vert", "Assets/Shaders/Skybox.frag");
+	float skyboxVertices[] = {
+		// positions          
+		-1.0f,  1.0f, -1.0f,
+		-1.0f, -1.0f, -1.0f,
+		1.0f, -1.0f, -1.0f,
+		1.0f, -1.0f, -1.0f,
+		1.0f,  1.0f, -1.0f,
+		-1.0f,  1.0f, -1.0f,
+
+		-1.0f, -1.0f,  1.0f,
+		-1.0f, -1.0f, -1.0f,
+		-1.0f,  1.0f, -1.0f,
+		-1.0f,  1.0f, -1.0f,
+		-1.0f,  1.0f,  1.0f,
+		-1.0f, -1.0f,  1.0f,
+
+		1.0f, -1.0f, -1.0f,
+		1.0f, -1.0f,  1.0f,
+		1.0f,  1.0f,  1.0f,
+		1.0f,  1.0f,  1.0f,
+		1.0f,  1.0f, -1.0f,
+		1.0f, -1.0f, -1.0f,
+
+		-1.0f, -1.0f,  1.0f,
+		-1.0f,  1.0f,  1.0f,
+		1.0f,  1.0f,  1.0f,
+		1.0f,  1.0f,  1.0f,
+		1.0f, -1.0f,  1.0f,
+		-1.0f, -1.0f,  1.0f,
+
+		-1.0f,  1.0f, -1.0f,
+		1.0f,  1.0f, -1.0f,
+		1.0f,  1.0f,  1.0f,
+		1.0f,  1.0f,  1.0f,
+		-1.0f,  1.0f,  1.0f,
+		-1.0f,  1.0f, -1.0f,
+
+		-1.0f, -1.0f, -1.0f,
+		-1.0f, -1.0f,  1.0f,
+		1.0f, -1.0f, -1.0f,
+		1.0f, -1.0f, -1.0f,
+		-1.0f, -1.0f,  1.0f,
+		1.0f, -1.0f,  1.0f
+	};
+	// skybox VAO
+	glGenVertexArrays(1, &skyboxVAO);
+	glGenBuffers(1, &skyboxVBO);
+	glBindVertexArray(skyboxVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices, GL_STATIC_DRAW);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
 }
 
 void Renderer::Update(float dt)
@@ -37,7 +95,6 @@ Renderer::~Renderer()
 	Logger::Get().Log(Logger::LogType::Debug, "Renderer Destroyed...");
 }
 
-float x = 1.0f;
 void Renderer::Render()
 {
 	Camera* CurrentCamera = Camera::CurrentCamera;
@@ -46,9 +103,11 @@ void Renderer::Render()
 		return;
 	}
 
-	x -= 0.01f;
-	glClearColor(x, 1.0f, 1.0f, 1.0f);
+	glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	SkyboxShader->Use();
+	SkyboxShader->SetInt("skybox", 0);
 
 	// world space positions of our cubes
 	glm::vec3 cubePositions[] = {
@@ -72,21 +131,15 @@ void Renderer::Render()
 	for (auto& InEntity : Renderables)
 	{
 		Transform& trans = InEntity.GetComponent<Transform>();
-		Sprite& sprite = InEntity.GetComponent<Sprite>();
-		DebugCube& cube = InEntity.GetComponent<DebugCube>();
+		Model& modelComponent = InEntity.GetComponent<Model>();
 
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, sprite.GetTexture()->Id);
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, sprite.GetTexture()->Id);
+		Shader* shader = modelComponent.modelShader;
+		shader->Use();
+		GLuint Program = shader->GetProgram();
 
-		Shader& shader = sprite.CurrentShader;
-		shader.Use();
-		GLuint Program = shader.GetProgram();
+		shader->SetMat4("projection", projection);
 
-		shader.SetMat4("projection", projection);
-
-		shader.SetMat4("view", view);
+		shader->SetMat4("view", view);
 
 		// calculate the model matrix for each object and pass it to shader before drawing
 		//glm::mat4 model(1.0f);
@@ -97,10 +150,22 @@ void Renderer::Render()
 		//model = model * glm::toMat4(trans.Rotation);
 		glm::mat4 model = trans.WorldTransform;
 		model = glm::scale(model, glm::vec3(1, 1, 1));
-		shader.SetMat4("model", model);
-
-		cube.DrawCube();
-
+		shader->SetMat4("model", model);
+		modelComponent.Draw();
+		//cube.DrawCube();
+		glBindVertexArray(0);
 		i++;
 	}
+	// draw skybox as last
+	glDepthFunc(GL_LEQUAL);  // change depth function so depth test passes when values are equal to depth buffer's content
+	SkyboxShader->Use();
+	SkyboxShader->SetMat4("view", glm::mat4(glm::mat3(Camera::CurrentCamera->GetViewMatrix())));
+	SkyboxShader->SetMat4("projection", projection);
+	// skybox cube
+	glBindVertexArray(skyboxVAO);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, SkyboxMap->Id);
+	glDrawArrays(GL_TRIANGLES, 0, 36);
+	glBindVertexArray(0);
+	glDepthFunc(GL_LESS); // set depth function back to default
 }
