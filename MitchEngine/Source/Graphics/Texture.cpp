@@ -28,19 +28,27 @@ Texture* Texture::Load(const std::string& InFilePath)
 	glBindTexture(GL_TEXTURE_2D, LoadedTexture->Id);
 
 	// Parameters
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 	stbi_set_flip_vertically_on_load(true); // tell stb_image.h to flip loaded texture's on the y-axis.
 	unsigned char* image = stbi_load(InFilePath.c_str(), &LoadedTexture->Width, &LoadedTexture->Height, &LoadedTexture->nrChannels, 0);
 	if (image)
 	{
+		GLenum format;
+		if (LoadedTexture->nrChannels == 1)
+			format = GL_RED;
+		else if (LoadedTexture->nrChannels == 3)
+			format = GL_RGB;
+		else if (LoadedTexture->nrChannels == 4)
+			format = GL_RGBA;
+
 		Logger::Get().Log(Logger::LogType::Info, "Loaded Texture: " + InFilePath);
 
 		// Assign texture to ID
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, LoadedTexture->Width, LoadedTexture->Height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+		glTexImage2D(GL_TEXTURE_2D, 0, format, LoadedTexture->Width, LoadedTexture->Height, 0, format, GL_UNSIGNED_BYTE, image);
 		glGenerateMipmap(GL_TEXTURE_2D);
 	}
 	else

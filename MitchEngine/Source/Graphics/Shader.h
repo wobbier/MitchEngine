@@ -13,7 +13,7 @@ public:
 	Shader() = default;
 
 	// Constructor generates the shader on the fly
-	Shader(const char* InVertexPath, const char* InFragPath);
+	Shader(const std::string& InVertexPath, const std::string& InFragPath);
 
 	// Uses the current shader
 	void Use();

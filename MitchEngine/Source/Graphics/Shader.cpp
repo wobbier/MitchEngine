@@ -3,7 +3,7 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
-Shader::Shader(const char* InVertexPath, const char* InFragPath)
+Shader::Shader(const std::string& InVertexPath, const std::string& InFragPath)
 {
 	// Retrieve the shader source code from paths
 	std::string VertexSource;
@@ -12,8 +12,8 @@ Shader::Shader(const char* InVertexPath, const char* InFragPath)
 	try
 	{
 		// Open files
-		std::ifstream vShaderFile(InVertexPath);
-		std::ifstream fShaderFile(InFragPath);
+		std::ifstream vShaderFile(InVertexPath.c_str());
+		std::ifstream fShaderFile(InFragPath.c_str());
 		std::stringstream vShaderStream, fShaderStream;
 
 		// Read file's buffer contents into streams
