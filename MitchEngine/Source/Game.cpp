@@ -5,6 +5,7 @@
 #include "Cores/AnimationCore.h"
 #include "Cores/PhysicsCore.h"
 #include "Cores/SceneGraph.h"
+#include "Graphics/Cubemap.h"
 
 Game::Game() : Running(true)
 {
@@ -16,9 +17,9 @@ Game::~Game()
 
 void Game::Start()
 {
-	Logger::Get().SetLogFile("engine.txt");
-	Logger::Get().SetLogPriority(Logger::LogType::Info);
-	Logger::Get().Log(Logger::LogType::Info, "Starting the MitchEngine.");
+	Logger::GetInstance().SetLogFile("engine.txt");
+	Logger::GetInstance().SetLogPriority(Logger::LogType::Info);
+	Logger::GetInstance().Log(Logger::LogType::Info, "Starting the MitchEngine.");
 
 	EngineConfig = new Config("Assets\\Config\\Engine.cfg");
 
@@ -30,8 +31,8 @@ void Game::Start()
 
 	GameWorld = new World();
 
-	auto SpriteRenderer = Renderer();
-	GameWorld->AddCore<Renderer>(SpriteRenderer);
+	auto ModelRenderer = Renderer();
+	GameWorld->AddCore<Renderer>(ModelRenderer);
 
 	auto Animator = AnimationCore();
 	GameWorld->AddCore<AnimationCore>(Animator);
@@ -47,7 +48,7 @@ void Game::Start()
 
 	Initialize();
 
-	Clock& GameClock = Clock::Get();
+	Clock& GameClock = Clock::GetInstance();
 	GameClock.Reset();
 
 	// Game loop
@@ -70,7 +71,7 @@ void Game::Start()
 
 		Cameras.Update(deltaTime);
 
-		SpriteRenderer.Render();
+		ModelRenderer.Render();
 		// Swap the buffers
 		GameWindow->Swap();
 	}

@@ -5,6 +5,7 @@ workspace "MitchEngine"
 	location "../"
 	includedirs {
 		"../MitchEngine/Source",
+		"../ThirdParty/AssIMP/include",
 		"../ThirdParty/Bullet/src",
 		"../ThirdParty/GLAD/include/",
 		"../ThirdParty/GLAD/src/",
@@ -49,6 +50,9 @@ project "MitchEngine"
 	language "C++"
 	targetdir "../Build/%{cfg.buildcfg}"
 	location "../MitchEngine"
+	links {
+		"LibAssIMP"
+	}
 	files {
 		"../MitchEngine/Assets/**.*",
 		"../MitchEngine/Source/**.h",
@@ -62,6 +66,7 @@ project "MitchEngine"
 	vpaths {
 		["Build"] = "../Tools/*.lua"
 	}
+	postbuildcommands {"xcopy /y /d  \"..\\ThirdParty\\AssIMP\\bin\\%{cfg.buildcfg}\\*.dll\" \"$(ProjectDir)$(OutDir)\""}
 
 project "MitchGame"
 	kind "ConsoleApp"
@@ -84,7 +89,8 @@ externalproject "glfw"
 	language "C++"
 	toolset "v141"
 	targetdir "../Build/%{cfg.buildcfg}"
-
+	
+group "ThirdParty/Bullet"
 externalproject "LibBulletCollision"
 	location "../ThirdParty/Bullet/src/BulletCollision"
 	filename "BulletCollision"
@@ -108,6 +114,32 @@ externalproject "LibBulletDynamics"
 	filename "BulletDynamics"
 	uuid "8A0313E9-F6C0-4C24-9258-65C9F6D5802F"
 	kind "StaticLib"
+	language "C++"
+	toolset "v141"
+	targetdir "../Build/%{cfg.buildcfg}"
+	
+group "ThirdParty/Assimp"
+externalproject "LibAssIMP"
+	location "../ThirdParty/AssIMP/code"
+	filename "Assimp"
+	uuid "8A0313E9-F6C0-4C24-9258-65C9F6D58021"
+	kind "SharedLib"
+	language "C++"
+	toolset "v141"
+	targetdir "../Build/%{cfg.buildcfg}"
+externalproject "LibAssimpIrrXML"
+	location "../ThirdParty/AssIMP/contrib/irrXML"
+	filename "irrXML"
+	uuid "8A0313E9-F6C0-4C24-9258-65C9F6D58022"
+	kind "SharedLib"
+	language "C++"
+	toolset "v141"
+	targetdir "../Build/%{cfg.buildcfg}"
+externalproject "LibAssimpZLibStatic"
+	location "../ThirdParty/AssIMP/contrib/zlib"
+	filename "zlibstatic"
+	uuid "8A0313E9-F6C0-4C24-9258-65C9F6D58023"
+	kind "SharedLib"
 	language "C++"
 	toolset "v141"
 	targetdir "../Build/%{cfg.buildcfg}"

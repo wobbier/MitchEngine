@@ -26,7 +26,7 @@ Window::Window(std::string title, int width, int height)
 	window = glfwCreateWindow(width, height, title.c_str(), nullptr, nullptr); // Windowed
 	if (!window)
 	{
-		Logger::Get().Log(Logger::LogType::Error, "Failed to create window.");
+		Logger::GetInstance().Log(Logger::LogType::Error, "Failed to create window.");
 		glfwTerminate();
 		assert(0);
 	}

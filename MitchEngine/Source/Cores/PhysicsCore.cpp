@@ -57,11 +57,6 @@ void PhysicsCore::Update(float dt)
 	{
 		Transform& TransformComponent = InEntity.GetComponent<Transform>();
 		Rigidbody& RigidbodyComponent = InEntity.GetComponent<Rigidbody>();
-		if (!RigidbodyComponent.IsRigidbodyInitialized())
-		{
-			RigidbodyComponent.CreateObject(TransformComponent.GetPosition());
-			PhysicsWorld->addRigidBody(RigidbodyComponent.InternalRigidbody);
-		}
 
 		btTransform trans;
 		RigidbodyComponent.InternalRigidbody->getMotionState()->getWorldTransform(trans);
@@ -70,6 +65,18 @@ void PhysicsCore::Update(float dt)
 		//TransformComponent.Rotation = glm::quat(trans.getRotation().x(), trans.getRotation().y(), trans.getRotation().z(), trans.getRotation().w());
 	}
 
+}
+
+
+void PhysicsCore::OnEntityAdded(Entity& NewEntity)
+{
+	Transform& TransformComponent = NewEntity.GetComponent<Transform>();
+	Rigidbody& RigidbodyComponent = NewEntity.GetComponent<Rigidbody>();
+	if (!RigidbodyComponent.IsRigidbodyInitialized())
+	{
+		RigidbodyComponent.CreateObject(TransformComponent.GetPosition());
+		PhysicsWorld->addRigidBody(RigidbodyComponent.InternalRigidbody);
+	}
 }
 
 void GLDebugDrawer::drawLine(const btVector3& from, const btVector3& to, const btVector3& fromColor, const btVector3& toColor)

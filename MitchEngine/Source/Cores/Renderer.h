@@ -1,6 +1,7 @@
 #pragma once
 #include "Engine/Core.h"
-#include "Components/Sprite.h"
+#include "Graphics/Cubemap.h"
+#include "Graphics/Shader.h"
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -19,5 +20,7 @@ public:
 	virtual void Update(float dt) final;
 
 	void Render();
-
+	Cubemap* SkyboxMap = nullptr;
+	Shader* SkyboxShader = nullptr;
+	unsigned int skyboxVAO, skyboxVBO;
 };

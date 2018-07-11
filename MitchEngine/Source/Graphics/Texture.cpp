@@ -45,7 +45,7 @@ Texture* Texture::Load(const std::string& InFilePath)
 		else if (LoadedTexture->nrChannels == 4)
 			format = GL_RGBA;
 
-		Logger::Get().Log(Logger::LogType::Info, "Loaded Texture: " + InFilePath);
+		Logger::GetInstance().Log(Logger::LogType::Info, "Loaded Texture: " + InFilePath);
 
 		// Assign texture to ID
 		glTexImage2D(GL_TEXTURE_2D, 0, format, LoadedTexture->Width, LoadedTexture->Height, 0, format, GL_UNSIGNED_BYTE, image);
@@ -53,7 +53,7 @@ Texture* Texture::Load(const std::string& InFilePath)
 	}
 	else
 	{
-		Logger::Get().Log(Logger::LogType::Error, "Failed to load texture: " + InFilePath);
+		Logger::GetInstance().Log(Logger::LogType::Error, "Failed to load texture: " + InFilePath);
 		assert(0);
 	}
 
