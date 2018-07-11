@@ -5,7 +5,7 @@ class Singleton
 {
 public:
 	// Gets the class instance associated with the singleton.
-	static T& Get();
+	static T& GetInstance();
 
 	virtual ~Singleton();
 
@@ -26,7 +26,7 @@ protected:
 };
 
 template <class T>
-T& Singleton<T>::Get()
+T& Singleton<T>::GetInstance()
 {
 	static T singleton;
 	return singleton;

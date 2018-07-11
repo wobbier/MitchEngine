@@ -28,8 +28,14 @@ void FlyingCameraCore::Update(float dt)
 
 		if (&CameraComponent == Camera::CurrentCamera)
 		{
-			float CameraSpeed = FlyingCameraComponent.FlyingSpeed * dt;
-			Input& Instance = Input::Get();
+			float CameraSpeed = FlyingCameraComponent.FlyingSpeed;
+			Input& Instance = Input::GetInstance();
+
+			if (Instance.IsKeyDown(GLFW_KEY_LEFT_SHIFT))
+			{
+				CameraSpeed += FlyingCameraComponent.SpeedModifier;
+			}
+			CameraSpeed *= dt;
 			if (Instance.IsKeyDown(GLFW_KEY_W))
 			{
 				TransformComponent.SetPosition((CameraSpeed * CameraComponent.Front) + TransformComponent.GetPosition());
@@ -45,6 +51,18 @@ void FlyingCameraCore::Update(float dt)
 			if (Instance.IsKeyDown(GLFW_KEY_D))
 			{
 				TransformComponent.Translate(glm::normalize(glm::cross(CameraComponent.Front, CameraComponent.Up)) * CameraSpeed);
+			}
+			if (Instance.IsKeyDown(GLFW_KEY_SPACE))
+			{
+				TransformComponent.Translate(CameraComponent.Up * CameraSpeed);
+			}
+			if (Instance.IsKeyDown(GLFW_KEY_E))
+			{
+				TransformComponent.Translate(glm::normalize(glm::cross(glm::cross(CameraComponent.Front, CameraComponent.Up), CameraComponent.Front)) * CameraSpeed);
+			}
+			if (Instance.IsKeyDown(GLFW_KEY_Q))
+			{
+				TransformComponent.Translate(glm::normalize(glm::cross(glm::cross(CameraComponent.Front, -CameraComponent.Up), CameraComponent.Front)) * CameraSpeed);
 			}
 
 			glm::vec2 MousePosition = Instance.GetMousePosition();

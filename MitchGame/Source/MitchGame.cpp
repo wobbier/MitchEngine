@@ -84,7 +84,7 @@ void MitchGame::Initialize()
 		//BGPos.SetParent(*previousTransform);
 		Sprite& BGSprite = Cube.AddComponent<Sprite>();
 		Cube.AddComponent<DebugCube>();
-		BGSprite.SetImage(Resources.Get<Texture>("Assets/colored_grass.png"));
+		BGSprite.SetImage(ResourceCache::GetInstance().Get<Texture>("Assets/colored_grass.png"));
 		Cubes.push_back(Cube);
 		previousTransform = &BGPos;
 		Cube.SetActive(true);
@@ -99,7 +99,7 @@ void MitchGame::Update(float DeltaTime)
 {
 	FlyingCameraController->Update(DeltaTime);
 
-	Input& Instance = Input::Get();
+	Input& Instance = Input::GetInstance();
 	if (Instance.IsKeyDown(GLFW_KEY_1))
 	{
 		MainCamera.GetComponent<Camera>().SetCurrent();
@@ -129,13 +129,13 @@ void MitchGame::Update(float DeltaTime)
 	Camera* CurrentCamera = Camera::CurrentCamera;
 	{
 		if (CurrentCamera->Zoom >= 1.0f && CurrentCamera->Zoom <= 45.0f)
-			CurrentCamera->Zoom -= PrevMouseScroll.y - Input::Get().GetMouseScrollOffset().y;
+			CurrentCamera->Zoom -= PrevMouseScroll.y - Input::GetInstance().GetMouseScrollOffset().y;
 		if (CurrentCamera->Zoom <= 1.0f)
 			CurrentCamera->Zoom = 1.0f;
 		if (CurrentCamera->Zoom >= 45.0f)
 			CurrentCamera->Zoom = 45.0f;
 	}
-	PrevMouseScroll = Input::Get().GetMouseScrollOffset();
+	PrevMouseScroll = Input::GetInstance().GetMouseScrollOffset();
 	Transform& TransformComponent = MainCamera.GetComponent<Transform>();
 }
 

@@ -27,8 +27,8 @@ void Renderer::Init()
 {
 	glEnable(GL_DEPTH_TEST);
 
-	Logger::Get().Log(Logger::LogType::Debug, "Renderer Initialized...");
-	Logger::Get().Log(Logger::LogType::Debug, (const char*)glGetString(GL_VERSION));
+	Logger::GetInstance().Log(Logger::LogType::Debug, "Renderer Initialized...");
+	Logger::GetInstance().Log(Logger::LogType::Debug, (const char*)glGetString(GL_VERSION));
 
 	SkyboxMap = Cubemap::Load("Assets/skybox");
 	SkyboxShader = new Shader("Assets/Shaders/Skybox.vert", "Assets/Shaders/Skybox.frag");
@@ -92,7 +92,7 @@ void Renderer::Update(float dt)
 
 Renderer::~Renderer()
 {
-	Logger::Get().Log(Logger::LogType::Debug, "Renderer Destroyed...");
+	Logger::GetInstance().Log(Logger::LogType::Debug, "Renderer Destroyed...");
 }
 
 void Renderer::Render()
@@ -133,7 +133,7 @@ void Renderer::Render()
 		Transform& trans = InEntity.GetComponent<Transform>();
 		Model& modelComponent = InEntity.GetComponent<Model>();
 
-		Shader* shader = modelComponent.modelShader;
+		Shader* shader = modelComponent.ModelShader;
 		shader->Use();
 		GLuint Program = shader->GetProgram();
 

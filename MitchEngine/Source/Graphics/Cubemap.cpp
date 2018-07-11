@@ -46,7 +46,7 @@ Cubemap* Cubemap::Load(const std::string& InFilePath)
 		}
 		else
 		{
-			Logger::Get().Log(Logger::LogType::Error, "Failed to load Cubemap: " + InFilePath);
+			Logger::GetInstance().Log(Logger::LogType::Error, "Failed to load Cubemap: " + InFilePath);
 			assert(0);
 		}
 		stbi_image_free(image);

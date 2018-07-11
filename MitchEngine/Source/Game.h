@@ -12,8 +12,6 @@ class Game
 public:
 	World * GameWorld;
 
-	ResourceCache Resources;
-
 	long long FrameRate;
 
 	Game();
