@@ -31,8 +31,8 @@ void Game::Start()
 
 	GameWorld = new World();
 
-	auto SpriteRenderer = Renderer();
-	GameWorld->AddCore<Renderer>(SpriteRenderer);
+	auto ModelRenderer = Renderer();
+	GameWorld->AddCore<Renderer>(ModelRenderer);
 
 	auto Animator = AnimationCore();
 	GameWorld->AddCore<AnimationCore>(Animator);
@@ -71,7 +71,7 @@ void Game::Start()
 
 		Cameras.Update(deltaTime);
 
-		SpriteRenderer.Render();
+		ModelRenderer.Render();
 		// Swap the buffers
 		GameWindow->Swap();
 	}
