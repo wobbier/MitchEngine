@@ -1,0 +1,13 @@
+version: 0.0.{build}
+os: Visual Studio 2017
+build:
+  project: MitchEngine.sln
+  parallel: true
+  verbosity: normal
+  
+before_build:
+  - git submodule init
+  - git submodule update
+  - cd ThirdParty/GLFW && dir
+  - cd ../../
+  - ./GenerateSolution.bat
