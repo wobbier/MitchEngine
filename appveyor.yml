@@ -7,4 +7,7 @@ build:
   
 before_build:
   - git submodule init
+  - git submodule update
+  - cd ThirdParty/GLFW && dir
+  - cd ../../
   - ./GenerateSolution.bat
