@@ -8,6 +8,7 @@ It's a great hobby project to keep me exploring the world of c++.
 Check out my [Trello Board][4] to check out the current development status.
 
 [![Build status](https://ci.appveyor.com/api/projects/status/7x55po7se0siesdn?svg=true)](https://ci.appveyor.com/project/wobbier/mitchengine)
+![license](https://img.shields.io/github/license/wobbier/mitchengine.svg)
 
 The engine is:
 
