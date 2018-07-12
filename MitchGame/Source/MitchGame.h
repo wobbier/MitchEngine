@@ -1,6 +1,7 @@
 #pragma once
 #include "Game.h"
 #include "Cores/FlyingCameraCore.h"
+#include <glm.hpp>
 
 class MitchGame
 	: public Game

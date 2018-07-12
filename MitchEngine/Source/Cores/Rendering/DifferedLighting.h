@@ -6,12 +6,12 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
-class Renderer :
-	public Core<Renderer>
+class DifferedLighting :
+	public Core<DifferedLighting>
 {
 public:
-	Renderer();
-	~Renderer();
+	DifferedLighting();
+	~DifferedLighting();
 
 	// Separate init from construction code.
 	virtual void Init() final;
@@ -19,12 +19,11 @@ public:
 	// Each core must update each loop
 	virtual void Update(float dt) final;
 
-	void Render();
-	Cubemap* SkyboxMap = nullptr;
-	Shader* SkyboxShader = nullptr;
+	void PostRender();
+	void PreRender();
+
 	Shader* LightingPassShader = nullptr;
-	Shader* LightingBoxShader = nullptr;
-	unsigned int skyboxVAO, skyboxVBO;
+
 	std::vector<glm::vec3> lightPositions;
 	unsigned int gBuffer;
 	std::vector<glm::vec3> lightColors;

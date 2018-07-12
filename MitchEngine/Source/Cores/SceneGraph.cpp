@@ -28,9 +28,12 @@ void SceneGraph::Update(float dt)
 		TransformStack.pop();
 		for (Transform* Child : CurrentTransform->Children)
 		{
-			glm::mat4 mat = Child->LocalTransform;
-			mat = CurrentTransform->WorldTransform * mat;
-			Child->SetWorldTransform(mat);
+			if (Child->IsDirty)
+			{
+				glm::mat4 mat = Child->LocalTransform;
+				mat = CurrentTransform->WorldTransform * mat;
+				Child->SetWorldTransform(mat);
+			}
 			TransformStack.push(Child);
 		}
 	}

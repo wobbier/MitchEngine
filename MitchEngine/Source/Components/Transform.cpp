@@ -33,8 +33,9 @@ glm::vec3 Transform::GetPosition()
 
 void Transform::SetWorldTransform(glm::mat4& NewWorldTransform)
 {
+	// update local transform
 	WorldTransform = NewWorldTransform;
-	SetDirty(!Children.empty());
+	SetDirty(false);
 }
 
 void Transform::Init()
@@ -43,9 +44,12 @@ void Transform::Init()
 
 void Transform::SetDirty(bool Dirty)
 {
-	if (Dirty && (Dirty != IsDirty) && ParentTransform)
+	if (Dirty && (Dirty != IsDirty) && Children.size())
 	{
-		ParentTransform->SetDirty(Dirty);
+		for (auto Child : Children)
+		{
+			Child->SetDirty(Dirty);
+		}
 	}
 	IsDirty = Dirty;
 }

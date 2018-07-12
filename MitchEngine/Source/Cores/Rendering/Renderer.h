@@ -22,11 +22,5 @@ public:
 	void Render();
 	Cubemap* SkyboxMap = nullptr;
 	Shader* SkyboxShader = nullptr;
-	Shader* LightingPassShader = nullptr;
-	Shader* LightingBoxShader = nullptr;
 	unsigned int skyboxVAO, skyboxVBO;
-	std::vector<glm::vec3> lightPositions;
-	unsigned int gBuffer;
-	std::vector<glm::vec3> lightColors;
-	unsigned int gPosition, gNormal, gAlbedoSpec;
 };
