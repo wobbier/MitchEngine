@@ -6,4 +6,5 @@ build:
   verbosity: normal
   
 before_build:
+  - git submodule init
   - ./GenerateSolution.bat
