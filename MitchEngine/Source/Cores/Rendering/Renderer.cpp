@@ -103,9 +103,7 @@ void Renderer::Render()
 		return;
 	}
 
-	glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
 	SkyboxShader->Use();
 	SkyboxShader->SetInt("skybox", 0);
 
@@ -122,9 +120,12 @@ void Renderer::Render()
 		glm::vec3(1.5f,  0.2f, -1.5f),
 		glm::vec3(-1.3f,  1.0f, -1.5f)
 	};
+	float SCR_WIDTH = (float)Window::WINDOW_WIDTH;
+	float SCR_HEIGHT = (float)Window::WINDOW_HEIGHT;
 
-	glm::mat4 projection = glm::perspective(glm::radians(Camera::CurrentCamera->Zoom), (float)Window::WINDOW_WIDTH / (float)Window::WINDOW_HEIGHT, 0.1f, 100.0f);
+	glm::mat4 projection = glm::perspective(glm::radians(Camera::CurrentCamera->Zoom), SCR_WIDTH / SCR_HEIGHT, 0.1f, 100.0f);
 	glm::mat4 view = Camera::CurrentCamera->GetViewMatrix();
+
 
 	int i = 0;
 	auto Renderables = GetEntities();
@@ -153,9 +154,9 @@ void Renderer::Render()
 		shader->SetMat4("model", model);
 		modelComponent.Draw();
 		//cube.DrawCube();
-		glBindVertexArray(0);
 		i++;
 	}
+
 	// draw skybox as last
 	glDepthFunc(GL_LEQUAL);  // change depth function so depth test passes when values are equal to depth buffer's content
 	SkyboxShader->Use();

@@ -1,18 +1,16 @@
 #pragma once
 #include "Engine/Component.h"
-#include <string>
 #include <glm.hpp>
 
-class SpotLight : public Component<SpotLight>
+class Light : public Component<Light>
 {
 public:
 
-	SpotLight() = default;
-	~SpotLight() = default;
+	Light() = default;
+	~Light() = default;
 
 	// Separate init from construction code.
 	virtual void Init() final;
 
-	int LightVAO;
-	int LightVBO;
+	glm::vec3 Colour = glm::vec3(1.f);
 };

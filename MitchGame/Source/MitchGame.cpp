@@ -1,5 +1,4 @@
 #include "MitchGame.h"
-#include "Cores/Renderer.h"
 #include "Utility/Logger.h"
 #include "Components/Sprite.h"
 #include "Engine/Component.h"
@@ -15,6 +14,7 @@
 #include "Components/Physics/Rigidbody.h"
 #include "Components/Debug/DebugCube.h"
 #include "Components/Graphics/Model.h"
+#include "Components/Lighting/Light.h"
 
 #include <memory>
 
@@ -46,6 +46,20 @@ void MitchGame::Initialize()
 	Player.AddComponent<Transform>();
 	Player.AddComponent<Model>("Assets/Models/nanosuit.obj", "Assets/Shaders/Albedo");
 
+	const int Lights = 32;
+	srand(13);
+	for (unsigned int i = 0; i < Lights; i++)
+	{
+		Entity TestLight = GameWorld->CreateEntity();
+		Transform& LightTransform = TestLight.AddComponent<Transform>();
+		Light& LightInfo = TestLight.AddComponent<Light>();
+
+		float xPos = ((rand() % 100) / 100.0) * 6.0 - 3.0;
+		float yPos = ((rand() % 100) / 100.0) * 6.0 - 4.0;
+		float zPos = ((rand() % 100) / 100.0) * 6.0 - 3.0;
+		LightTransform.SetPosition(glm::vec3(xPos, yPos, zPos));
+	}
+
 	Entity Dummy = GameWorld->CreateEntity();
 	Dummy.AddComponent<Transform>();
 	Dummy.AddComponent<Model>("Assets/Models/dummy_obj.obj", "Assets/Shaders/Albedo");
@@ -62,18 +76,6 @@ void MitchGame::Initialize()
 		glm::vec3(1.5f,  0.2f, -1.5f),
 		glm::vec3(-1.3f,  1.0f, -1.5f)
 	};
-
-	for (auto cubePosition : cubePositions)
-	{
-		/*Entity Cube = GameWorld->CreateEntity();
-		Transform& BGPos = Cube.AddComponent<Transform>();
-		BGPos.SetPosition(cubePosition);
-		BGPos.SetParent(SecondaryPos);
-		Sprite& BGSprite = Cube.AddComponent<Sprite>();
-		Cube.AddComponent<DebugCube>();
-		BGSprite.SetImage(Resources.Get<Texture>("Assets/colored_grass.png"));*/
-		//Cubes.push_back(Cube);
-	}
 
 	Transform* previousTransform = &SecondaryPos;
 	for (int i = 0; i < 10; ++i)

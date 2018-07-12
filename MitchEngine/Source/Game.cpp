@@ -1,6 +1,8 @@
 #include "Game.h"
 #include "Utility/Logger.h"
 #include "Engine/Clock.h"
+#include "Cores/Rendering/Renderer.h"
+#include "Cores/Rendering/DifferedLighting.h"
 #include "Cores/Camera/CameraCore.h"
 #include "Cores/AnimationCore.h"
 #include "Cores/PhysicsCore.h"
@@ -33,6 +35,9 @@ void Game::Start()
 
 	auto ModelRenderer = Renderer();
 	GameWorld->AddCore<Renderer>(ModelRenderer);
+
+	auto LightingRenderer = DifferedLighting();
+	GameWorld->AddCore<DifferedLighting>(LightingRenderer);
 
 	auto Animator = AnimationCore();
 	GameWorld->AddCore<AnimationCore>(Animator);
@@ -71,7 +76,10 @@ void Game::Start()
 
 		Cameras.Update(deltaTime);
 
+		LightingRenderer.PreRender();
 		ModelRenderer.Render();
+		LightingRenderer.PostRender();
+
 		// Swap the buffers
 		GameWindow->Swap();
 	}
