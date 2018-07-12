@@ -1,5 +1,4 @@
 #include "MitchGame.h"
-#include "Cores/Renderer.h"
 #include "Utility/Logger.h"
 #include "Components/Sprite.h"
 #include "Engine/Component.h"
