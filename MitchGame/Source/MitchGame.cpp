@@ -46,6 +46,10 @@ void MitchGame::Initialize()
 	Player.AddComponent<Transform>();
 	Player.AddComponent<Model>("Assets/Models/nanosuit.obj", "Assets/Shaders/Albedo");
 
+	Entity Cube = GameWorld->CreateEntity();
+	Cube.AddComponent<Transform>();
+	Cube.AddComponent<Model>("Assets/Models/cube.obj", "Assets/Shaders/Albedo");
+
 	const int Lights = 32;
 	srand(13);
 	for (unsigned int i = 0; i < Lights; i++)

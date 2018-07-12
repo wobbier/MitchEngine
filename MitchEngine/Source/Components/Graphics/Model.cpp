@@ -76,7 +76,7 @@ Mesh Model::ProcessMesh(aiMesh *mesh, const aiScene *scene)
 		if (mesh->mTextureCoords[0])
 		{
 			glm::vec2 vec;
-			
+
 			// A vertex can contain up to 8 different texture coordinates. We assume that we won't use models where a vertex can have multiple texture coordinates so we always take the first set (0).
 			vec.x = mesh->mTextureCoords[0][i].x;
 			vec.y = mesh->mTextureCoords[0][i].y;
@@ -86,17 +86,20 @@ Mesh Model::ProcessMesh(aiMesh *mesh, const aiScene *scene)
 		{
 			vertex.TexCoords = glm::vec2(0.0f, 0.0f);
 		}
-
-		vector.x = mesh->mTangents[i].x;
-		vector.y = mesh->mTangents[i].y;
-		vector.z = mesh->mTangents[i].z;
-		vertex.Tangent = vector;
-
-		vector.x = mesh->mBitangents[i].x;
-		vector.y = mesh->mBitangents[i].y;
-		vector.z = mesh->mBitangents[i].z;
-		vertex.Bitangent = vector;
-
+		if (mesh->mTangents)
+		{
+			vector.x = mesh->mTangents[i].x;
+			vector.y = mesh->mTangents[i].y;
+			vector.z = mesh->mTangents[i].z;
+			vertex.Tangent = vector;
+		}
+		if (mesh->mBitangents)
+		{
+			vector.x = mesh->mBitangents[i].x;
+			vector.y = mesh->mBitangents[i].y;
+			vector.z = mesh->mBitangents[i].z;
+			vertex.Bitangent = vector;
+		}
 		vertices.push_back(vertex);
 	}
 
@@ -126,9 +129,12 @@ void Model::LoadMaterialTextures(std::vector<Texture*>& textures, aiMaterial *ma
 	{
 		aiString str;
 		mat->GetTexture(type, i, &str);
-		Texture* texture = ResourceCache::GetInstance().Get<Texture>(std::string("Assets/Models/") + str.C_Str());
-		texture->type = typeName;
-		texture->path = str.C_Str();
-		textures.push_back(texture);
+		if (std::string(str.C_Str()) != ".")
+		{
+			Texture* texture = ResourceCache::GetInstance().Get<Texture>(std::string("Assets/Models/") + str.C_Str());
+			texture->type = typeName;
+			texture->path = str.C_Str();
+			textures.push_back(texture);
+		}
 	}
 }
