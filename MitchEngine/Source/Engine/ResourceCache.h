@@ -36,7 +36,6 @@ T* ResourceCache::Get(const std::string& InFilePath)
 		if (I != ResourceStack[i].end())
 		{
 			T* Res = dynamic_cast<T*>(I->second);
-			assert(Res);
 			return Res;
 		}
 	}

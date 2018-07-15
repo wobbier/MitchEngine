@@ -10,13 +10,11 @@
 	path = ThirdParty/Bullet
 	url = https://github.com/bulletphysics/bullet3.git
 	ignore = dirty
-[submodule "ThirdParty/Boost"]
-	path = ThirdParty/Boost
-	url = https://github.com/NumScale/boost-header-only.git
-	ignore = dirty
 [submodule "ThirdParty/STB"]
 	path = ThirdParty/STB
 	url = https://github.com/nothings/stb.git
+	ignore = dirty
 [submodule "ThirdParty/AssIMP"]
 	path = ThirdParty/AssIMP
 	url = https://github.com/assimp/assimp.git
+	ignore = dirty

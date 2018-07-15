@@ -44,7 +44,6 @@ void World::Simulate()
 				{
 					InCore.second->Add(InEntity);
 
-					CheckCapacity(Attr.Cores, CoreIndex);
 					Attr.Cores[CoreIndex] = true;
 				}
 			}

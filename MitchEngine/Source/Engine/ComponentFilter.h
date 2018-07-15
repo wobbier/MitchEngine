@@ -13,8 +13,7 @@ public:
 	template<typename C>
 	ComponentFilter& Requires()
 	{
-		//static_assert(std::is_base_of<BaseComponent, C>(), "C doesn't inherit from Component");
-		CheckCapacity(RequiredComponentsList, C::GetTypeId());
+		static_assert(std::is_base_of<BaseComponent, C>(), "C doesn't inherit from Component");
 		RequiredComponentsList[C::GetTypeId()] = true;
 		return *this;
 	}

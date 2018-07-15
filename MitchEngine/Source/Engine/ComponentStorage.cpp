@@ -21,7 +21,6 @@ void ComponentStorage::AddComponent(Entity& InEntity, BaseComponent* InComponent
 	CheckCapacity(ComponentData.Components, InComponentTypeId);
 	ComponentData.Components[InComponentTypeId].reset(InComponent);
 
-	CheckCapacity(ComponentData.ComponentTypeList, InComponentTypeId);
 	ComponentData.ComponentTypeList[InComponentTypeId] = true;
 	InComponent->Init();
 }
@@ -46,7 +45,6 @@ void ComponentStorage::RemoveAllComponents(Entity& InEntity)
 	auto& ComponentData = ComponentEntries[Index];
 
 	ComponentData.Components.clear();
-	ComponentData.ComponentTypeList.clear();
 }
 
 void ComponentStorage::Resize(std::size_t InAmount)

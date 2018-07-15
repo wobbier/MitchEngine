@@ -11,8 +11,7 @@ workspace "MitchEngine"
 		"../ThirdParty/GLAD/src/",
 		"../ThirdParty/GLM/glm",
 		"../ThirdParty/GLFW/include",
-		"../ThirdParty/STB",
-		"../ThirdParty/Boost/boost-1.64.0"
+		"../ThirdParty/STB"
 	}
 	libdirs {
 		"../ThirdParty/GLFW/src/%{cfg.buildcfg}",

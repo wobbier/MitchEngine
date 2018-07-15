@@ -15,7 +15,7 @@ void Clock::Reset()
 	mTicks = GetHardwareCounterValue();
 	mHighResolutionSupport = false;
 	mHighResolutionSupport = (bool)QueryPerformanceFrequency(&mTicksPerSecond);
-	mTicksPerSecond.QuadPart /= 1000.0f;
+	mTicksPerSecond.QuadPart /= static_cast<LONGLONG>(1000.0f);
 	deltaTime = 0.0001f;
 }
 
@@ -34,7 +34,7 @@ float Clock::GetTimeInMilliseconds()
 float Clock::GetTimeInSeconds()
 {
 	LARGE_INTEGER ticks = GetHardwareCounterValue();
-	double time = (ticks.QuadPart - mTicks.QuadPart) / mTicksPerSecond.QuadPart;
+	double time = static_cast<double>((ticks.QuadPart - mTicks.QuadPart) / mTicksPerSecond.QuadPart);
 	mTicks = ticks;
 	return (float)time;
 }

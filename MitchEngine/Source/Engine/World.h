@@ -1,7 +1,6 @@
 #pragma once
 #include <memory>
 #include <unordered_map>
-#include <boost/dynamic_bitset.hpp>
 #include "Engine/Entity.h"
 #include "Engine/Core.h"
 #include "Engine/ComponentStorage.h"
@@ -51,7 +50,7 @@ private:
 		{
 			bool IsActive;
 
-			boost::dynamic_bitset<> Cores;
+			std::bitset<64> Cores;
 		};
 
 		TEntityAttributes(std::size_t InEntityAmount) :
