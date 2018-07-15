@@ -1,3 +1,4 @@
+#include "PCH.h"
 #include "ComponentFilter.h"
 
 bool ComponentFilter::PassFilter(const ComponentTypeArray& InComponentTypeArray) const

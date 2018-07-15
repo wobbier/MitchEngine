@@ -1,3 +1,4 @@
+#include "PCH.h"
 #include "Clock.h"
 
 Clock::Clock()

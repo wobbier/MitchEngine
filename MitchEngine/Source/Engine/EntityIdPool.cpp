@@ -1,3 +1,4 @@
+#include "PCH.h"
 #include "EntityIdPool.h"
 
 EntityIdPool::EntityIdPool(std::size_t InPoolSize) :

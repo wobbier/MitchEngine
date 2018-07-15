@@ -1,4 +1,4 @@
-// 2015 Mitchell Andrews
+// 2018 Mitchell Andrews
 #pragma once
 #include "Engine/Window.h"
 #include "Engine/World.h"

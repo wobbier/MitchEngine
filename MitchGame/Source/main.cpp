@@ -1,4 +1,4 @@
-// 2015 Mitchell Andrews
+// 2018 Mitchell Andrews
 #include "MitchGame.h"
 #include <iostream>
 

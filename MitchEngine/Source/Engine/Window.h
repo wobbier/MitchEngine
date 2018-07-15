@@ -1,4 +1,4 @@
-// 2015 Mitchell Andrews
+// 2018 Mitchell Andrews
 #pragma once
 #include <iostream>
 #include <string>

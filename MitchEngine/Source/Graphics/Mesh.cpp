@@ -1,6 +1,6 @@
-#include <iostream>
-#include <assert.h>
+#include "PCH.h"
 #include "Graphics/Mesh.h"
+#include <iostream>
 #include "Utility/Logger.h"
 
 #include <glad/glad.h>

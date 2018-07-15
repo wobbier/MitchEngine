@@ -1,3 +1,4 @@
+#include "PCH.h"
 #include "Cores/AnimationCore.h"
 #include "Components/Sprite.h"
 #include "Components/Animation.h"

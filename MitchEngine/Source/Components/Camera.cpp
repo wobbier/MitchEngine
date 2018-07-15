@@ -1,3 +1,4 @@
+#include "PCH.h"
 #include "Camera.h"
 
 Camera* Camera::CurrentCamera = nullptr;

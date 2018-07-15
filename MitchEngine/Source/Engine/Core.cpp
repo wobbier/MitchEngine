@@ -1,3 +1,4 @@
+#include "PCH.h"
 #include "Core.h"
 
 BaseCore::BaseCore(const ComponentFilter& Filter) : CompFilter(Filter)

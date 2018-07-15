@@ -1,3 +1,4 @@
+#include "PCH.h"
 #include "Sprite.h"
 
 #include "Engine/Component.h"

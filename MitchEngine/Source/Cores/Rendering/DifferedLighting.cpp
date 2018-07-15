@@ -1,3 +1,4 @@
+#include "PCH.h"
 #include "DifferedLighting.h"
 #include "Components/Debug/DebugCube.h"
 #include "Components/Transform.h"
@@ -7,12 +8,6 @@
 #include "Engine/Window.h"
 #include "Graphics/Shader.h"
 #include "Engine/Resource.h"
-
-#include <glm.hpp>
-#include <gtc/matrix_transform.hpp>
-#include <gtc/type_ptr.hpp>
-#include <gtx/rotate_vector.hpp>
-#include <gtx/quaternion.hpp>
 
 #include "Components/Camera.h"
 #include <iostream>

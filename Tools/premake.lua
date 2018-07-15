@@ -50,18 +50,17 @@ project "MitchEngine"
 	language "C++"
 	targetdir "../Build/%{cfg.buildcfg}"
 	location "../MitchEngine"
+	pchheader "PCH.h"
+	pchsource "../MitchEngine/Source/PCH.cpp"
 	links {
 		"LibAssIMP"
 	}
 	files {
 		"../MitchEngine/Assets/**.*",
-		"../MitchEngine/Source/**.h",
-		"../MitchEngine/Source/**.cpp",
-		"../MitchEngine/Source/**.txt",
+		"../MitchEngine/**.h",
+		"../MitchEngine/**.cpp",
+		"../MitchEngine/**.txt",
 		"../Tools/**.lua"
-	}
-	includedirs {
-		"../MitchGame/Source"
 	}
 	vpaths {
 		["Build"] = "../Tools/*.lua"
@@ -79,6 +78,10 @@ project "MitchGame"
 		"../MitchGame/Assets/**.vert",
 		"../MitchGame/**.h",
 		"../MitchGame/**.cpp"
+	}
+	includedirs {
+		"../MitchGame/Source",
+		"."
 	}
 
 group "ThirdParty"
