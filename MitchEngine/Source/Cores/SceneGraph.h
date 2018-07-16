@@ -1,6 +1,8 @@
 #pragma once
 #include "Engine/Core.h"
 
+class Transform;
+
 class SceneGraph : public Core<SceneGraph>
 {
 public:
@@ -14,6 +16,7 @@ public:
 	virtual void Update(float dt) final;
 
 	virtual void OnEntityAdded(Entity& NewEntity) final;
+	void UpdateUI(Transform* StartingTransform);
 
 	Entity RootEntity;
 };

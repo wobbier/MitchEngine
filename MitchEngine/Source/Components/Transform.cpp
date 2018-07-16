@@ -9,6 +9,15 @@ Transform::Transform()
 {
 }
 
+
+Transform::Transform(const std::string& TransformName)
+	: LocalTransform(1.f)
+	, WorldTransform(1.f)
+	, Name(std::move(TransformName))
+{
+
+}
+
 Transform::~Transform()
 {
 }
@@ -21,7 +30,15 @@ void Transform::SetPosition(glm::vec3 NewPosition)
 }
 
 
-void Transform::Translate(glm::vec3 NewPosition)
+void Transform::SetScale(glm::vec3 NewScale)
+{
+	LocalTransform[0] = NewScale.x;
+	LocalTransform[5] = NewScale.y;
+	LocalTransform[10] = NewScale.z;
+	SetDirty(true);
+}
+
+void Transform::Translate(glm::vec3 NewTransform)
 {
 	LocalTransform = glm::translate(LocalTransform, NewPosition);
 	SetDirty(true);

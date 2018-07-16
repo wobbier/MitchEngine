@@ -6,6 +6,9 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <assert.h>
+#include "Graphics/UI/imgui.h"
+#include "Graphics/UI/imgui_impl_glfw.h"
+#include "Graphics/UI/imgui_impl_opengl3.h"
 
 int Window::WINDOW_WIDTH = 960;
 int Window::WINDOW_HEIGHT = 540;
@@ -40,11 +43,25 @@ Window::Window(std::string title, int width, int height)
 		std::cout << "Failed to initialize GLAD" << std::endl;
 		assert(0);
 	}
-	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+	//glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
 	glfwSetKeyCallback(window, &Input::KeyCallback);
 	glfwSetCursorPosCallback(window, &Input::MouseCallback);
 	glfwSetScrollCallback(window, &Input::ScrollCallback);
+	// Setup Dear ImGui binding
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO(); (void)io;
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;  // Enable Keyboard Controls
+	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;   // Enable Gamepad Controls
+
+	ImGui_ImplGlfw_InitForOpenGL(window, true);
+	const char* glsl_version = "#version 130";
+	ImGui_ImplOpenGL3_Init(glsl_version);
+	glfwSetKeyCallback(window, ImGui_ImplGlfw_KeyCallback);
+
+	// Setup style
+	ImGui::StyleColorsDark();
 }
 
 Window::~Window()
@@ -63,6 +80,7 @@ void Window::PollInput()
 }
 void Window::Swap()
 {
+	glfwMakeContextCurrent(window);
 	glfwSwapBuffers(window);
 }
 

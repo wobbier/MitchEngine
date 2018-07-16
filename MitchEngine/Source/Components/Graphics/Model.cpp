@@ -69,9 +69,16 @@ Mesh Model::ProcessMesh(aiMesh *mesh, const aiScene *scene)
 		vector.z = mesh->mVertices[i].z;
 		vertex.Position = vector;
 
-		vector.x = mesh->mNormals[i].x;
-		vector.y = mesh->mNormals[i].y;
-		vector.z = mesh->mNormals[i].z;
+		if (mesh->mNormals)
+		{
+			vector.x = mesh->mNormals[i].x;
+			vector.y = mesh->mNormals[i].y;
+			vector.z = mesh->mNormals[i].z;
+		}
+		else
+		{
+			vector = glm::vec3();
+		}
 		vertex.Normal = vector;
 
 		if (mesh->mTextureCoords[0])
@@ -118,8 +125,8 @@ Mesh Model::ProcessMesh(aiMesh *mesh, const aiScene *scene)
 
 	LoadMaterialTextures(textures, material, aiTextureType_DIFFUSE, "texture_diffuse");
 	LoadMaterialTextures(textures, material, aiTextureType_SPECULAR, "texture_specular");
-	LoadMaterialTextures(textures, material, aiTextureType_HEIGHT, "texture_normal");
-	LoadMaterialTextures(textures, material, aiTextureType_AMBIENT, "texture_height");
+	LoadMaterialTextures(textures, material, aiTextureType_NORMALS, "texture_normal");
+	LoadMaterialTextures(textures, material, aiTextureType_HEIGHT, "texture_height");
 
 	return Mesh(vertices, indices, textures);
 }

@@ -31,31 +31,32 @@ MitchGame::~MitchGame()
 void MitchGame::Initialize()
 {
 	MainCamera = GameWorld->CreateEntity();
-	Transform& CameraPos = MainCamera.AddComponent<Transform>();
+	Transform& CameraPos = MainCamera.AddComponent<Transform>("Main Camera");
 	CameraPos.SetPosition(glm::vec3(0, 5, 20));
 	MainCamera.AddComponent<Camera>();
 	MainCamera.AddComponent<FlyingCamera>();
+	MainCamera.AddComponent<Light>();
 
 	SecondaryCamera = GameWorld->CreateEntity();
-	Transform& SecondaryPos = SecondaryCamera.AddComponent<Transform>();
+	Transform& SecondaryPos = SecondaryCamera.AddComponent<Transform>("Secondary Camera");
 	SecondaryPos.SetPosition(glm::vec3(0, 5, 20));
 	SecondaryCamera.AddComponent<Camera>();
 	SecondaryCamera.AddComponent<FlyingCamera>();
 
-	Entity Player = GameWorld->CreateEntity();
-	Player.AddComponent<Transform>();
-	Player.AddComponent<Model>("Assets/Models/nanosuit.obj", "Assets/Shaders/Albedo");
+	//Entity Player = GameWorld->CreateEntity();
+	//Player.AddComponent<Transform>();
+	//Player.AddComponent<Model>("Assets/Models/nanosuit.obj", "Assets/Shaders/Albedo");
 
-	Entity Cube = GameWorld->CreateEntity();
-	Cube.AddComponent<Transform>();
-	Cube.AddComponent<Model>("Assets/Models/cube.obj", "Assets/Shaders/Albedo");
+	//Entity Cube = GameWorld->CreateEntity();
+	//Cube.AddComponent<Transform>("Fucked up cube");
+	//Cube.AddComponent<Model>("Assets/Models/cube.obj", "Assets/Shaders/Albedo");
 
 	const int Lights = 32;
 	srand(13);
 	for (unsigned int i = 0; i < Lights; i++)
 	{
 		Entity TestLight = GameWorld->CreateEntity();
-		Transform& LightTransform = TestLight.AddComponent<Transform>();
+		Transform& LightTransform = TestLight.AddComponent<Transform>("Light " + std::to_string(i));
 		Light& LightInfo = TestLight.AddComponent<Light>();
 
 		float xPos = ((rand() % 100) / 100.0) * 6.0 - 3.0;
@@ -65,8 +66,8 @@ void MitchGame::Initialize()
 	}
 
 	Entity Dummy = GameWorld->CreateEntity();
-	Dummy.AddComponent<Transform>();
-	Dummy.AddComponent<Model>("Assets/Models/dummy_obj.obj", "Assets/Shaders/Albedo");
+	Dummy.AddComponent<Transform>("Lantern");
+	Dummy.AddComponent<Model>("Assets/Models/nanosuit.obj", "Assets/Shaders/Albedo");
 
 	glm::vec3 cubePositions[] = {
 		glm::vec3(0.0f,  0.0f,  0.0f),
@@ -85,12 +86,12 @@ void MitchGame::Initialize()
 	for (int i = 0; i < 10; ++i)
 	{
 		Entity Cube = GameWorld->CreateEntity();
-		Transform& BGPos = Cube.AddComponent<Transform>();
+		Transform& BGPos = Cube.AddComponent<Transform>("Grass Cubes???? " + std::to_string(i));
+		BGPos.SetScale(glm::vec3(.2f, .2f, .2f));
 		BGPos.SetPosition(glm::vec3(i * 1.f, i * 1.5f, 0.f));
-		//BGPos.SetParent(*previousTransform);
-		Sprite& BGSprite = Cube.AddComponent<Sprite>();
+		BGPos.SetParent(*previousTransform);
+		Cube.AddComponent<Model>("Assets/Models/nanosuit.obj", "Assets/Shaders/Albedo");
 		Cube.AddComponent<DebugCube>();
-		BGSprite.SetImage(ResourceCache::GetInstance().Get<Texture>("Assets/colored_grass.png"));
 		Cubes.push_back(Cube);
 		previousTransform = &BGPos;
 		Cube.SetActive(true);

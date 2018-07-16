@@ -1,9 +1,11 @@
 -- premake5.lua
 workspace "MitchEngine"
 	configurations { "Debug", "Release" }
+	platforms { "Win32", "Win64" }
 	startproject "MitchGame"
 	location "../"
 	includedirs {
+		"../MitchEngine/",
 		"../MitchEngine/Source",
 		"../ThirdParty/AssIMP/include",
 		"../ThirdParty/Bullet/src",
@@ -41,6 +43,13 @@ workspace "MitchEngine"
 		"BulletCollision",
 		"LinearMath"
 	}
+	filter {}
+
+	filter "platforms:Win32"
+		architecture "x32"
+	
+	filter "platforms:Win64"
+		architecture "x64"
 
 	filter {}
 
@@ -64,7 +73,10 @@ project "MitchEngine"
 	vpaths {
 		["Build"] = "../Tools/*.lua"
 	}
-	postbuildcommands {"xcopy /y /d  \"..\\ThirdParty\\AssIMP\\bin\\%{cfg.buildcfg}\\*.dll\" \"$(ProjectDir)$(OutDir)\""}
+	postbuildcommands {
+		"xcopy /y /d  \"..\\ThirdParty\\AssIMP\\bin\\%{cfg.buildcfg}\\*.dll\" \"$(ProjectDir)$(OutDir)\"",
+		"xcopy /y /d  \"..\\ThirdParty\\GLFW\\src\\%{cfg.buildcfg}\\*.dll\" \"$(ProjectDir)$(OutDir)\""
+	}
 
 project "MitchGame"
 	kind "ConsoleApp"
@@ -87,7 +99,7 @@ group "ThirdParty"
 externalproject "glfw"
 	location "../ThirdParty/GLFW/src"
 	uuid "8A0313E9-F6C0-4C24-9258-65C9F6D5802C"
-	kind "StaticLib"
+	kind "SharedLib"
 	language "C++"
 	toolset "v141"
 	targetdir "../Build/%{cfg.buildcfg}"
