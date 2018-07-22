@@ -31,7 +31,9 @@ Window::Window(std::string title, int width, int height)
 		assert(0);
 	}
 
+#if MAN_ENABLE_RENDERDOC
 	RenderDoc = new RenderDocManager();
+#endif
 	
 	glfwMakeContextCurrent(window);
 	glfwSetFramebufferSizeCallback(window, Window::FramebufferSizeCallback);

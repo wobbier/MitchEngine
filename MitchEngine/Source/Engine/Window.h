@@ -4,7 +4,10 @@
 #include <string>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+
+#if MAN_ENABLE_RENDERDOC
 #include "Utility/Debug/RenderDocManager.h"
+#endif
 
 class Window
 {
@@ -25,6 +28,9 @@ private:
 	static void FramebufferSizeCallback(GLFWwindow* window, int width, int height);
 
 private:
-	GLFWwindow* window;
+	GLFWwindow * window;
+
+#if MAN_ENABLE_RENDERDOC
 	RenderDocManager* RenderDoc;
+#endif
 };
