@@ -4,6 +4,7 @@
 #include <string>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+#include "Utility/Debug/RenderDocManager.h"
 
 class Window
 {
@@ -25,4 +26,5 @@ private:
 
 private:
 	GLFWwindow* window;
+	RenderDocManager* RenderDoc;
 };

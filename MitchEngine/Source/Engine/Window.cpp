@@ -10,7 +10,6 @@
 int Window::WINDOW_WIDTH = 960;
 int Window::WINDOW_HEIGHT = 540;
 
-
 Window::Window(std::string title, int width, int height)
 {
 	WINDOW_HEIGHT = height;
@@ -31,6 +30,8 @@ Window::Window(std::string title, int width, int height)
 		glfwTerminate();
 		assert(0);
 	}
+
+	RenderDoc = new RenderDocManager();
 	
 	glfwMakeContextCurrent(window);
 	glfwSetFramebufferSizeCallback(window, Window::FramebufferSizeCallback);

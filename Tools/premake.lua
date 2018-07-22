@@ -11,7 +11,8 @@ workspace "MitchEngine"
 		"../ThirdParty/GLAD/src/",
 		"../ThirdParty/GLM/glm",
 		"../ThirdParty/GLFW/include",
-		"../ThirdParty/STB"
+		"../ThirdParty/STB",
+		"C:/Program Files/RenderDoc"
 	}
 	libdirs {
 		"../ThirdParty/GLFW/src/%{cfg.buildcfg}",
@@ -64,7 +65,10 @@ project "MitchEngine"
 	vpaths {
 		["Build"] = "../Tools/*.lua"
 	}
-	postbuildcommands {"xcopy /y /d  \"..\\ThirdParty\\AssIMP\\bin\\%{cfg.buildcfg}\\*.dll\" \"$(ProjectDir)$(OutDir)\""}
+	postbuildcommands {
+		"xcopy /y /d  \"..\\ThirdParty\\AssIMP\\bin\\%{cfg.buildcfg}\\*.dll\" \"$(ProjectDir)$(OutDir)\"",
+		"xcopy /y /d  \"C:\\Program Files\\RenderDoc\\renderdoc.dll\" \"$(ProjectDir)$(OutDir)\""
+	}
 
 project "MitchGame"
 	kind "ConsoleApp"
