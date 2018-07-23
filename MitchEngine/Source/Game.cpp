@@ -54,6 +54,11 @@ void Game::Start()
 
 	Initialize();
 
+	int i = 0;
+#ifdef MAN_EDITOR
+	i = 2;
+#endif
+
 	Clock& GameClock = Clock::GetInstance();
 	GameClock.Reset();
 

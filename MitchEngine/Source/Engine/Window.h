@@ -5,7 +5,7 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
-#if MAN_ENABLE_RENDERDOC
+#ifdef MAN_ENABLE_RENDERDOC
 #include "Utility/Debug/RenderDocManager.h"
 #endif
 
@@ -30,7 +30,7 @@ private:
 private:
 	GLFWwindow * window;
 
-#if MAN_ENABLE_RENDERDOC
+#ifdef MAN_ENABLE_RENDERDOC
 	RenderDocManager* RenderDoc;
 #endif
 };

@@ -46,7 +46,7 @@ void FlyingCameraCore::Update(float dt)
 			}
 			if (Instance.IsKeyDown(GLFW_KEY_A))
 			{
-				TransformComponent.Translate(-glm::normalize(glm::cross(CameraComponent.Front, CameraComponent.Up)) * CameraSpeed);
+				TransformComponent.Translate(glm::normalize(glm::cross(CameraComponent.Up, CameraComponent.Front)) * CameraSpeed);
 			}
 			if (Instance.IsKeyDown(GLFW_KEY_D))
 			{

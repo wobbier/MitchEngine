@@ -14,8 +14,5 @@
 #include <gtx/rotate_vector.hpp>
 #include <gtx/quaternion.hpp>
 
-// defines
-#define MAN_ENABLE_RENDERDOC 0
-
 // core
 #include "Game.h"

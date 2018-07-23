@@ -1,6 +1,12 @@
 -- premake5.lua
+
+newoption {
+   trigger     = "with-renderdoc",
+   description = "Include support for RenderDoc."
+}
+
 workspace "MitchEngine"
-	configurations { "Debug", "Release" }
+	configurations { "Debug", "Release", "Debug Editor", "Release Editor" }
 	startproject "MitchGame"
 	location "../"
 	includedirs {
@@ -14,18 +20,13 @@ workspace "MitchEngine"
 		"../ThirdParty/STB",
 		"C:/Program Files/RenderDoc"
 	}
-	libdirs {
-		"../ThirdParty/GLFW/src/%{cfg.buildcfg}",
-		"../ThirdParty/GLFW/src/src/%{cfg.buildcfg}",
-		"../ThirdParty/Bullet/lib/%{cfg.buildcfg}"
-	}
 
 	links {
 		"glfw3",
 		"opengl32"
 	}
 
-	filter "configurations:Debug"
+	filter "configurations:Debug*"
 	defines { "DEBUG" }
 	symbols "On"
 	links {
@@ -33,8 +34,13 @@ workspace "MitchEngine"
 		"BulletCollision_Debug",
 		"LinearMath_Debug"
 	}
+	libdirs {
+		"../ThirdParty/GLFW/src/Debug",
+		"../ThirdParty/GLFW/src/src/Debug",
+		"../ThirdParty/Bullet/lib/Debug"
+	}
 
-	filter "configurations:Release"
+	filter "configurations:Release*"
 	defines { "NDEBUG" }
 	optimize "On"
 	links {
@@ -42,9 +48,18 @@ workspace "MitchEngine"
 		"BulletCollision",
 		"LinearMath"
 	}
+	libdirs {
+		"../ThirdParty/GLFW/src/Release",
+		"../ThirdParty/GLFW/src/src/Release",
+		"../ThirdParty/Bullet/lib/Release"
+	}
+	
+	filter "configurations:*Editor"
+	defines { "MAN_EDITOR=1" }
 
 	filter {}
 
+group "Engine"
 project "MitchEngine"
 	kind "StaticLib"
 	language "C++"
@@ -65,11 +80,23 @@ project "MitchEngine"
 	vpaths {
 		["Build"] = "../Tools/*.lua"
 	}
+
+	configuration "with-renderdoc"
+	defines { "MAN_ENABLE_RENDERDOC" }
 	postbuildcommands {
-		"xcopy /y /d  \"..\\ThirdParty\\AssIMP\\bin\\%{cfg.buildcfg}\\*.dll\" \"$(ProjectDir)$(OutDir)\"",
 		"xcopy /y /d  \"C:\\Program Files\\RenderDoc\\renderdoc.dll\" \"$(ProjectDir)$(OutDir)\""
 	}
 
+	filter "configurations:Debug*"
+	postbuildcommands {
+		"xcopy /y /d  \"..\\ThirdParty\\AssIMP\\bin\\Debug\\*.dll\" \"$(ProjectDir)$(OutDir)\"",
+	}
+	filter "configurations:Release*"
+	postbuildcommands {
+		"xcopy /y /d  \"..\\ThirdParty\\AssIMP\\bin\\Release\\*.dll\" \"$(ProjectDir)$(OutDir)\"",
+	}
+
+group "Games"
 project "MitchGame"
 	kind "ConsoleApp"
 	language "C++"
@@ -87,7 +114,10 @@ project "MitchGame"
 		"."
 	}
 
-group "ThirdParty"
+	filter "configurations:Debug Editor"
+	configuration "Debug"
+
+group "Engine/ThirdParty"
 externalproject "glfw"
 	location "../ThirdParty/GLFW/src"
 	uuid "8A0313E9-F6C0-4C24-9258-65C9F6D5802C"
@@ -95,15 +125,16 @@ externalproject "glfw"
 	language "C++"
 	toolset "v141"
 	targetdir "../Build/%{cfg.buildcfg}"
+	filter "configurations:Debug Editor"
+	configuration "Debug"
 	
-group "ThirdParty/Bullet"
+group "Engine/ThirdParty/Bullet"
 externalproject "LibBulletCollision"
 	location "../ThirdParty/Bullet/src/BulletCollision"
 	filename "BulletCollision"
 	uuid "8A0313E9-F6C0-4C24-9258-65C9F6D5802D"
 	kind "StaticLib"
 	language "C++"
-	toolset "v141"
 	targetdir "../Build/%{cfg.buildcfg}"
 
 externalproject "LibLinearMath"
@@ -112,7 +143,6 @@ externalproject "LibLinearMath"
 	uuid "8A0313E9-F6C0-4C24-9258-65C9F6D5802E"
 	kind "StaticLib"
 	language "C++"
-	toolset "v141"
 	targetdir "../Build/%{cfg.buildcfg}"
 
 externalproject "LibBulletDynamics"
@@ -121,17 +151,15 @@ externalproject "LibBulletDynamics"
 	uuid "8A0313E9-F6C0-4C24-9258-65C9F6D5802F"
 	kind "StaticLib"
 	language "C++"
-	toolset "v141"
 	targetdir "../Build/%{cfg.buildcfg}"
 	
-group "ThirdParty/Assimp"
+group "Engine/ThirdParty/Assimp"
 externalproject "LibAssIMP"
 	location "../ThirdParty/AssIMP/code"
 	filename "Assimp"
 	uuid "8A0313E9-F6C0-4C24-9258-65C9F6D58021"
 	kind "SharedLib"
 	language "C++"
-	toolset "v141"
 	targetdir "../Build/%{cfg.buildcfg}"
 externalproject "LibAssimpIrrXML"
 	location "../ThirdParty/AssIMP/contrib/irrXML"
@@ -139,7 +167,6 @@ externalproject "LibAssimpIrrXML"
 	uuid "8A0313E9-F6C0-4C24-9258-65C9F6D58022"
 	kind "SharedLib"
 	language "C++"
-	toolset "v141"
 	targetdir "../Build/%{cfg.buildcfg}"
 externalproject "LibAssimpZLibStatic"
 	location "../ThirdParty/AssIMP/contrib/zlib"
@@ -147,5 +174,4 @@ externalproject "LibAssimpZLibStatic"
 	uuid "8A0313E9-F6C0-4C24-9258-65C9F6D58023"
 	kind "SharedLib"
 	language "C++"
-	toolset "v141"
 	targetdir "../Build/%{cfg.buildcfg}"
