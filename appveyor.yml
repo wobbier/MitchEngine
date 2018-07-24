@@ -2,7 +2,7 @@ version: 0.0.{build}
 os: Visual Studio 2017
 build:
   project: MitchEngine.sln
-  parallel: false
+  parallel: true
   verbosity: normal
   
 before_build:

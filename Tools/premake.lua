@@ -71,7 +71,9 @@ project "MitchEngine"
 	dependson {
 		"LibAssIMP",
 		"glfw",
-		"LibBulletCollision"
+		"LibBulletCollision",
+		"LibBulletDynamics",
+		"LibLinearMath"
 	}
 	files {
 		"../MitchEngine/Assets/**.*",
@@ -108,6 +110,9 @@ project "MitchGame"
 	targetdir "../Build/%{cfg.buildcfg}"
 	location "../MitchGame"
 	links "MitchEngine"
+	dependson {
+		"MitchEngine"
+	}
 	files {
 		"../MitchGame/Assets/**.frag",
 		"../MitchGame/Assets/**.vert",
