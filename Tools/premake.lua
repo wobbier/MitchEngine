@@ -22,8 +22,8 @@ workspace "MitchEngine"
 	}
 
 	links {
-		"glfw3",
-		"opengl32"
+		"opengl32",
+		"glfw3dll"
 	}
 
 	filter "configurations:Debug*"
@@ -35,9 +35,8 @@ workspace "MitchEngine"
 		"LinearMath_Debug"
 	}
 	libdirs {
-		"../ThirdParty/GLFW/src/Debug",
-		"../ThirdParty/GLFW/src/src/Debug",
-		"../ThirdParty/Bullet/lib/Debug"
+		"../ThirdParty/Bullet/lib/Debug",
+		"../ThirdParty/GLFW/src/Debug"
 	}
 
 	filter "configurations:Release*"
@@ -49,9 +48,8 @@ workspace "MitchEngine"
 		"LinearMath"
 	}
 	libdirs {
-		"../ThirdParty/GLFW/src/Release",
-		"../ThirdParty/GLFW/src/src/Release",
-		"../ThirdParty/Bullet/lib/Release"
+		"../ThirdParty/Bullet/lib/Release",
+		"../ThirdParty/GLFW/src/Release"
 	}
 	
 	filter "configurations:*Editor"
@@ -69,6 +67,11 @@ project "MitchEngine"
 	pchsource "../MitchEngine/Source/PCH.cpp"
 	links {
 		"LibAssIMP"
+	}
+	dependson {
+		"LibAssIMP",
+		"glfw",
+		"LibBulletCollision"
 	}
 	files {
 		"../MitchEngine/Assets/**.*",
@@ -90,10 +93,12 @@ project "MitchEngine"
 	filter "configurations:Debug*"
 	postbuildcommands {
 		"xcopy /y /d  \"..\\ThirdParty\\AssIMP\\bin\\Debug\\*.dll\" \"$(ProjectDir)$(OutDir)\"",
+		"xcopy /y /d  \"..\\ThirdParty\\GLFW\\src\\Debug\\*.dll\" \"$(ProjectDir)$(OutDir)\""
 	}
 	filter "configurations:Release*"
 	postbuildcommands {
 		"xcopy /y /d  \"..\\ThirdParty\\AssIMP\\bin\\Release\\*.dll\" \"$(ProjectDir)$(OutDir)\"",
+		"xcopy /y /d  \"..\\ThirdParty\\GLFW\\src\\Debug\\*.dll\" \"$(ProjectDir)$(OutDir)\""
 	}
 
 group "Games"
@@ -121,7 +126,7 @@ group "Engine/ThirdParty"
 externalproject "glfw"
 	location "../ThirdParty/GLFW/src"
 	uuid "8A0313E9-F6C0-4C24-9258-65C9F6D5802C"
-	kind "StaticLib"
+	kind "SharedLib"
 	language "C++"
 	toolset "v141"
 	targetdir "../Build/%{cfg.buildcfg}"
