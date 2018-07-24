@@ -1,5 +1,5 @@
 cd ThirdParty/GLFW
-cmake -G "Visual Studio 15 2017"
+cmake -G "Visual Studio 15 2017" -DBUILD_SHARED_LIBS=true
 cd ../AssIMP
 cmake -G "Visual Studio 15 2017"
 cd ../Bullet
