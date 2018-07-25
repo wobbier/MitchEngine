@@ -61,6 +61,12 @@ void PhysicsCore::Update(float dt)
 
 		btTransform trans;
 		RigidbodyComponent.InternalRigidbody->getMotionState()->getWorldTransform(trans);
+		if (TransformComponent.IsDirty)
+		{
+			glm::vec3 transPos = TransformComponent.GetPosition();
+			trans.setOrigin(btVector3(transPos.x, transPos.y, transPos.z));
+			RigidbodyComponent.InternalRigidbody->getMotionState()->setWorldTransform(trans);
+		}
 
 		TransformComponent.SetPosition(glm::vec3(trans.getOrigin().x(), trans.getOrigin().y(), trans.getOrigin().z()));
 		//TransformComponent.Rotation = glm::quat(trans.getRotation().x(), trans.getRotation().y(), trans.getRotation().z(), trans.getRotation().w());

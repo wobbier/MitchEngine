@@ -10,6 +10,7 @@ workspace "MitchEngine"
 	startproject "MitchGame"
 	location "../"
 	includedirs {
+		"../MitchEngine/",
 		"../MitchEngine/Source",
 		"../ThirdParty/AssIMP/include",
 		"../ThirdParty/Bullet/src",

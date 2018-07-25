@@ -9,6 +9,10 @@
 #include "Cores/PhysicsCore.h"
 #include "Cores/SceneGraph.h"
 #include "Graphics/Cubemap.h"
+#include "Graphics/UI/imgui.h"
+#include "Graphics/UI/imgui_impl_glfw.h"
+#include "Graphics/UI/imgui_impl_opengl3.h"
+#include "Engine/Input.h"
 
 Game::Game() : Running(true)
 {
@@ -17,7 +21,7 @@ Game::Game() : Running(true)
 Game::~Game()
 {
 }
-
+bool my_tool_active = false;
 void Game::Start()
 {
 	Logger::GetInstance().SetLogFile("engine.txt");
@@ -61,6 +65,9 @@ void Game::Start()
 
 	Clock& GameClock = Clock::GetInstance();
 	GameClock.Reset();
+	bool show_demo_window = true;
+	bool show_another_window = false;
+	ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
 	// Game loop
 	while (!GameWindow->ShouldClose())
@@ -70,6 +77,12 @@ void Game::Start()
 
 		float time = GameClock.GetTimeInMilliseconds();
 		const float deltaTime = GameClock.deltaTime = (time <= 0.0f || time >= 0.3) ? 0.0001f : time;
+
+#ifdef MAN_EDITOR
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
+#endif
 
 		// Update our engine
 		GameWorld->Simulate();
@@ -86,6 +99,19 @@ void Game::Start()
 		ModelRenderer.Render();
 		LightingRenderer.PostRender();
 
+#ifdef MAN_EDITOR
+		show_demo_window = true;
+
+		// 3. Show the ImGui demo window. Most of the sample code is in ImGui::ShowDemoWindow(). Read its code to learn more about Dear ImGui!
+		if (true)
+		{
+			ImGui::SetNextWindowPos(ImVec2(650, 20), ImGuiCond_FirstUseEver); // Normally user code doesn't need/want to call this because positions are saved in .ini file anyway. Here we just want to make the demo initial state a bit more friendly!
+			ImGui::ShowDemoWindow(&show_demo_window);
+		}
+		ImGui::Render();
+
+		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+#endif
 		// Swap the buffers
 		GameWindow->Swap();
 	}
