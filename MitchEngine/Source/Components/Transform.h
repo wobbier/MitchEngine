@@ -10,16 +10,19 @@ class Transform :
 	public Component<Transform>
 {
 	friend class SceneGraph;
+	friend class PhysicsCore;
 public:
 	Transform();
+	Transform(const std::string& Name);
 	virtual ~Transform();
 
 	void SetPosition(glm::vec3 NewPosition);
-	void Translate(glm::vec3 NewPosition);
+	void SetScale(glm::vec3 NewScale);
+	void Translate(glm::vec3 NewTransform);
 	glm::vec3 GetPosition();
 
-	MA_NONCOPYABLE(Transform);
-	MA_NONMOVABLE(Transform);
+	MAN_NONCOPYABLE(Transform)
+	MAN_NONMOVABLE(Transform)
 
 	// Separate init from construction code.
 	virtual void Init() final;
@@ -28,6 +31,7 @@ public:
 	void RemoveChild(Transform* TargetTransform);
 	glm::mat4 LocalTransform;
 	glm::mat4 WorldTransform;
+	std::string Name;
 private:
 	void SetWorldTransform(glm::mat4& NewWorldTransform);
 	void SetDirty(bool Dirty);

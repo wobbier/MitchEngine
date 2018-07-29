@@ -98,6 +98,7 @@ Renderer::~Renderer()
 
 void Renderer::Render()
 {
+	BROFILER_CATEGORY("Renderer::Render", Brofiler::Color::Red)
 	Camera* CurrentCamera = Camera::CurrentCamera;
 	if (!CurrentCamera)
 	{
@@ -150,9 +151,7 @@ void Renderer::Render()
 		//model = model * glm::toMat4(trans.Rotation);
 		//model = glm::rotate(glm::toMat4(trans.Rotation), glm::vec3(1,1,1));
 		//model = model * glm::toMat4(trans.Rotation);
-		glm::mat4 model = trans.WorldTransform;
-		model = glm::scale(model, glm::vec3(1, 1, 1));
-		shader->SetMat4("model", model);
+		shader->SetMat4("model", trans.WorldTransform);
 		modelComponent.Draw();
 		//cube.DrawCube();
 		i++;

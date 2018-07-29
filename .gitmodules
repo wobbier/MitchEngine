@@ -18,3 +18,6 @@
 	path = ThirdParty/AssIMP
 	url = https://github.com/assimp/assimp.git
 	ignore = dirty
+[submodule "ThirdParty/Brofiler"]
+	path = ThirdParty/Brofiler
+	url = https://github.com/wobbier/brofiler

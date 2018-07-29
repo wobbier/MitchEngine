@@ -29,6 +29,7 @@ Entity World::CreateEntity()
 
 void World::Simulate()
 {
+	BROFILER_CATEGORY("World::Simulate", Brofiler::Color::Blue)
 	for (auto& InEntity : EntityCache.Activated)
 	{
 		auto& Attr = EntityAttributes.Attributes[InEntity.GetId().Index];

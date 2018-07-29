@@ -14,5 +14,7 @@
 #include <gtx/rotate_vector.hpp>
 #include <gtx/quaternion.hpp>
 
+#include "Utility/Util.h"
+#include "Brofiler.h"
 // core
 #include "Game.h"
