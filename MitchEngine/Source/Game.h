@@ -27,8 +27,8 @@ public:
 	Window* GetWindow();
 
 	// Remove copy, copy assignment, move, and move assignment constructors.
-	MA_NONCOPYABLE(Game);
-	MA_NONMOVABLE(Game);
+	MAN_NONCOPYABLE(Game)
+	MAN_NONMOVABLE(Game);
 private:
 	bool Running;
 	Window* GameWindow;

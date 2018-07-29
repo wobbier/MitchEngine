@@ -21,8 +21,8 @@ public:
 	void Translate(glm::vec3 NewTransform);
 	glm::vec3 GetPosition();
 
-	MA_NONCOPYABLE(Transform);
-	MA_NONMOVABLE(Transform);
+	MAN_NONCOPYABLE(Transform)
+	MAN_NONMOVABLE(Transform)
 
 	// Separate init from construction code.
 	virtual void Init() final;

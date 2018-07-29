@@ -7,8 +7,8 @@ class EntityIdPool
 public:
 	EntityIdPool(std::size_t InPoolSize);
 
-	MA_NONCOPYABLE(EntityIdPool);
-	MA_NONMOVABLE(EntityIdPool);
+	MAN_NONCOPYABLE(EntityIdPool);
+	MAN_NONMOVABLE(EntityIdPool);
 
 	Entity::ID Create();
 

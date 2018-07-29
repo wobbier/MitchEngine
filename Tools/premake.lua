@@ -19,12 +19,14 @@ workspace "MitchEngine"
 		"../ThirdParty/GLM/glm",
 		"../ThirdParty/GLFW/include",
 		"../ThirdParty/STB",
+		"../ThirdParty/Brofiler/BrofilerCore",
 		"C:/Program Files/RenderDoc"
 	}
 
 	links {
 		"opengl32",
-		"glfw3dll"
+		"glfw3dll",
+		"BrofilerCore"
 	}
 
 	filter "configurations:Debug*"
@@ -37,7 +39,8 @@ workspace "MitchEngine"
 	}
 	libdirs {
 		"../ThirdParty/Bullet/lib/Debug",
-		"../ThirdParty/GLFW/src/Debug"
+		"../ThirdParty/GLFW/src/Debug",
+		"../ThirdParty/Brofiler/Bin/vs2017/x32/Debug"
 	}
 
 	filter "configurations:Release*"
@@ -50,7 +53,8 @@ workspace "MitchEngine"
 	}
 	libdirs {
 		"../ThirdParty/Bullet/lib/Release",
-		"../ThirdParty/GLFW/src/Release"
+		"../ThirdParty/GLFW/src/Release",
+		"../ThirdParty/Brofiler/Bin/vs2017/x32/Release"
 	}
 	
 	filter "configurations:*Editor"
@@ -74,7 +78,9 @@ project "MitchEngine"
 		"glfw",
 		"LibBulletCollision",
 		"LibBulletDynamics",
-		"LibLinearMath"
+		"LibLinearMath",
+		"LibBrofiler",
+		"BrofilerApp"
 	}
 	files {
 		"../MitchEngine/Assets/**.*",
@@ -96,12 +102,14 @@ project "MitchEngine"
 	filter "configurations:Debug*"
 	postbuildcommands {
 		"xcopy /y /d  \"..\\ThirdParty\\AssIMP\\bin\\Debug\\*.dll\" \"$(ProjectDir)$(OutDir)\"",
-		"xcopy /y /d  \"..\\ThirdParty\\GLFW\\src\\Debug\\*.dll\" \"$(ProjectDir)$(OutDir)\""
+		"xcopy /y /d  \"..\\ThirdParty\\GLFW\\src\\Debug\\*.dll\" \"$(ProjectDir)$(OutDir)\"",
+		"xcopy /y /d  \"..\\ThirdParty\\Brofiler\\Bin\\vs2017\\x32\\Debug\\*.dll\" \"$(ProjectDir)$(OutDir)\""
 	}
 	filter "configurations:Release*"
 	postbuildcommands {
 		"xcopy /y /d  \"..\\ThirdParty\\AssIMP\\bin\\Release\\*.dll\" \"$(ProjectDir)$(OutDir)\"",
-		"xcopy /y /d  \"..\\ThirdParty\\GLFW\\src\\Debug\\*.dll\" \"$(ProjectDir)$(OutDir)\""
+		"xcopy /y /d  \"..\\ThirdParty\\GLFW\\src\\Release\\*.dll\" \"$(ProjectDir)$(OutDir)\"",
+		"xcopy /y /d  \"..\\ThirdParty\\Brofiler\\Bin\\vs2017\\x32\\Release\\*.dll\" \"$(ProjectDir)$(OutDir)\""
 	}
 
 group "Games"
@@ -185,4 +193,21 @@ externalproject "LibAssimpZLibStatic"
 	uuid "8A0313E9-F6C0-4C24-9258-65C9F6D58023"
 	kind "SharedLib"
 	language "C++"
+	targetdir "../Build/%{cfg.buildcfg}"
+	
+group "Engine/ThirdParty/Brofiler"
+externalproject "LibBrofiler"
+	location "../ThirdParty/Brofiler/Build/vs2017"
+	filename "BrofilerCore"
+	uuid "8A0313E9-F6C0-4C24-9258-65C9F6D58024"
+	kind "SharedLib"
+	language "C++"
+	targetdir "../Build/%{cfg.buildcfg}"
+	
+externalproject "BrofilerApp"
+	location "../ThirdParty/Brofiler/Brofiler"
+	filename "Brofiler"
+	uuid "8A0313E9-F6C0-4C24-9258-65C9F6D58025"
+	kind "WindowedApp"
+	language "C#"
 	targetdir "../Build/%{cfg.buildcfg}"

@@ -37,8 +37,8 @@ public:
 	World(std::size_t InEntityPoolSize);
 	~World();
 
-	MA_NONCOPYABLE(World);
-	MA_NONMOVABLE(World);
+	MAN_NONCOPYABLE(World);
+	MAN_NONMOVABLE(World);
 private:
 	CoreArray Cores;
 

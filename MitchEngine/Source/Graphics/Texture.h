@@ -19,7 +19,7 @@ public:
 	static Texture* Load(const std::string& InFilePath);
 
 	// Textures should not be copied around in memory
-	MA_NONCOPYABLE(Texture);
+	MAN_NONCOPYABLE(Texture);
 	int nrChannels;
 	std::string type;
 	std::string path;

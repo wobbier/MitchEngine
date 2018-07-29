@@ -14,8 +14,8 @@ public:
 	ComponentStorage(std::size_t InEntityAmount);
 	~ComponentStorage();
 
-	MA_NONCOPYABLE(ComponentStorage);
-	MA_NONMOVABLE(ComponentStorage);
+	MAN_NONCOPYABLE(ComponentStorage)
+	MAN_NONMOVABLE(ComponentStorage)
 
 	void AddComponent(Entity& InEntity, BaseComponent* InComponent, TypeId InComponentTypeId);
 

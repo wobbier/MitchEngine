@@ -72,6 +72,7 @@ void Game::Start()
 	// Game loop
 	while (!GameWindow->ShouldClose())
 	{
+		BROFILER_FRAME("MainLoop")
 		// Check and call events
 		GameWindow->PollInput();
 

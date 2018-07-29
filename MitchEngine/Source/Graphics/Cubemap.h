@@ -19,6 +19,6 @@ public:
 	static Cubemap* Load(const std::string& InFilePath);
 
 	// Textures should not be copied around in memory
-	MA_NONCOPYABLE(Cubemap);
+	MAN_NONCOPYABLE(Cubemap);
 	int nrChannels;
 };
