@@ -4,6 +4,17 @@ newoption {
    trigger     = "with-renderdoc",
    description = "Include support for RenderDoc."
 }
+workspace "OpenFBX"
+	configurations { "Debug", "Release" }
+project "OpenFBX"
+	location "../ThirdParty/OpenFBX"
+	language "C++"
+	targetdir "../ThirdParty/OpenFBX/Lib/%{cfg.buildcfg}"
+	kind "StaticLib"
+	files {
+		"../ThirdParty/OpenFBX/src/*.*"
+	}
+
 
 workspace "MitchEngine"
 	configurations { "Debug", "Release", "Debug Editor", "Release Editor" }
@@ -20,13 +31,15 @@ workspace "MitchEngine"
 		"../ThirdParty/GLFW/include",
 		"../ThirdParty/STB",
 		"../ThirdParty/Brofiler/BrofilerCore",
+		"../ThirdParty/OpenFBX/src",
 		"C:/Program Files/RenderDoc"
 	}
 
 	links {
 		"opengl32",
 		"glfw3dll",
-		"BrofilerCore"
+		"BrofilerCore",
+		"OpenFBX"
 	}
 
 	filter "configurations:Debug*"
@@ -40,7 +53,8 @@ workspace "MitchEngine"
 	libdirs {
 		"../ThirdParty/Bullet/lib/Debug",
 		"../ThirdParty/GLFW/src/Debug",
-		"../ThirdParty/Brofiler/Bin/vs2017/x32/Debug"
+		"../ThirdParty/Brofiler/Bin/vs2017/x32/Debug",
+		"../ThirdParty/OpenFBX/Lib/Debug"
 	}
 
 	filter "configurations:Release*"
@@ -54,7 +68,8 @@ workspace "MitchEngine"
 	libdirs {
 		"../ThirdParty/Bullet/lib/Release",
 		"../ThirdParty/GLFW/src/Release",
-		"../ThirdParty/Brofiler/Bin/vs2017/x32/Release"
+		"../ThirdParty/Brofiler/Bin/vs2017/x32/Release",
+		"../ThirdParty/OpenFBX/Lib/Release"
 	}
 	
 	filter "configurations:*Editor"
@@ -80,6 +95,7 @@ project "MitchEngine"
 		"LibBulletDynamics",
 		"LibLinearMath",
 		"LibBrofiler",
+		"LibOpenFBX",
 		"BrofilerApp"
 	}
 	files {
@@ -146,6 +162,14 @@ externalproject "glfw"
 	targetdir "../Build/%{cfg.buildcfg}"
 	filter "configurations:Debug Editor"
 	configuration "Debug"
+
+externalproject "LibOpenFBX"
+	location "../ThirdParty/OpenFBX"
+	filename "OpenFBX"
+	uuid "8A0313E9-F6C0-4C24-9258-65C9F6D5812D"
+	kind "StaticLib"
+	language "C++"
+	targetdir "../Build/%{cfg.buildcfg}"
 	
 group "Engine/ThirdParty/Bullet"
 externalproject "LibBulletCollision"
