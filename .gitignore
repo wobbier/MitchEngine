@@ -210,3 +210,5 @@ FakesAssemblies/
 *.opt
 
 !**/Assets/**/*.obj
+engine.txt
+imgui.ini

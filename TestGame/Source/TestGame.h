@@ -1,19 +1,22 @@
 #pragma once
 #include "Game.h"
+#include "Cores/FlyingCameraCore.h"
 #include <glm.hpp>
 
-class MitchGame
+class TestGame
 	: public Game
 {
 public:
-	MitchGame();
-	virtual ~MitchGame() override;
+	TestGame();
+	virtual ~TestGame() override;
 
 	virtual void Initialize() override;
 
 	virtual void Update(float DeltaTime) override;
 
 	virtual void End() override;
+
+	FlyingCameraCore* FlyingCameraController;
 
 	Entity MainCamera;
 	Entity SecondaryCamera;

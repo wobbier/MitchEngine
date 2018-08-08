@@ -69,12 +69,14 @@ Mesh Model::ProcessMesh(aiMesh *mesh, const aiScene *scene)
 		vector.z = mesh->mVertices[i].z;
 		vertex.Position = vector;
 
-		vector.x = mesh->mNormals[i].x;
-		vector.y = mesh->mNormals[i].y;
-		vector.z = mesh->mNormals[i].z;
-		vertex.Normal = vector;
+		if (mesh->HasNormals())
+		{
+			vector.x = mesh->mNormals[i].x;
+			vector.y = mesh->mNormals[i].y;
+			vector.z = mesh->mNormals[i].z;
+			vertex.Normal = vector;
+		}
 
-		if (mesh->mTextureCoords[0])
 		{
 			glm::vec2 vec;
 
@@ -82,10 +84,6 @@ Mesh Model::ProcessMesh(aiMesh *mesh, const aiScene *scene)
 			vec.x = mesh->mTextureCoords[0][i].x;
 			vec.y = mesh->mTextureCoords[0][i].y;
 			vertex.TexCoords = vec;
-		}
-		else
-		{
-			vertex.TexCoords = glm::vec2(0.0f, 0.0f);
 		}
 		if (mesh->mTangents)
 		{
@@ -130,9 +128,13 @@ void Model::LoadMaterialTextures(std::vector<Texture*>& textures, aiMaterial *ma
 	{
 		aiString str;
 		mat->GetTexture(type, i, &str);
-		if (std::string(str.C_Str()) != ".")
+
+		std::string fileName = str.C_Str();
+		//fileName = fileName.substr(fileName.find_last_of('\\')+1, fileName.size()-1);
+
+		if (fileName != ".")
 		{
-			Texture* texture = ResourceCache::GetInstance().Get<Texture>(std::string("Assets/Models/") + str.C_Str());
+			Texture* texture = ResourceCache::GetInstance().Get<Texture>(Directory + "/" + fileName);
 			texture->type = typeName;
 			texture->path = str.C_Str();
 			textures.push_back(texture);

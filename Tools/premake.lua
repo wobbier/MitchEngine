@@ -149,6 +149,26 @@ project "MitchGame"
 		"."
 	}
 
+project "TestGame"
+	kind "ConsoleApp"
+	language "C++"
+	targetdir "../Build/%{cfg.buildcfg}"
+	location "../TestGame"
+	links "MitchEngine"
+	dependson {
+		"MitchEngine"
+	}
+	files {
+		"../TestGame/Assets/**.frag",
+		"../TestGame/Assets/**.vert",
+		"../TestGame/**.h",
+		"../TestGame/**.cpp"
+	}
+	includedirs {
+		"../TestGame/Source",
+		"."
+	}
+
 	filter "configurations:Debug Editor"
 	configuration "Debug"
 
