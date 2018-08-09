@@ -1,7 +1,6 @@
-// 2018 Mitchell Andrews
 #pragma once
 #include "Entity.h"
-#include "ClassTypeId.h"
+#include "Utility/ClassTypeId.h"
 #include "ComponentFilter.h"
 #include <vector>
 

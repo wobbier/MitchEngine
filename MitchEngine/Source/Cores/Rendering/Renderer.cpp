@@ -5,7 +5,7 @@
 #include "Components/Graphics/Model.h"
 #include "Components/Sprite.h"
 #include "Components/Transform.h"
-#include "Engine/ComponentFilter.h"
+#include "ECS/ComponentFilter.h"
 #include "Utility/Logger.h"
 #include "Engine/Window.h"
 #include "Graphics/Shader.h"

@@ -1,5 +1,5 @@
 #pragma once
-#include "Engine/Component.h"
+#include "ECS/Component.h"
 #include "Graphics/Texture.h"
 #include "Graphics/Shader.h"
 #include <glm.hpp>

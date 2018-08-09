@@ -1,5 +1,5 @@
 #pragma once
-#include "Engine/Component.h"
+#include "ECS/Component.h"
 
 #define GLM_ENABLE_EXPERIMENTAL 1
 #include <glm.hpp>

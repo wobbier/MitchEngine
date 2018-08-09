@@ -2,9 +2,9 @@
 #include <vector>
 #include <memory>
 
-#include "Engine/Entity.h"
-#include "Engine/Component.h"
-#include "Engine/ComponentTypeArray.h"
+#include "ECS/Entity.h"
+#include "ECS/Component.h"
+#include "ECS/ComponentTypeArray.h"
 
 #include "Utility/Util.h"
 

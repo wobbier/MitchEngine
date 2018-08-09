@@ -1,8 +1,8 @@
 #include "PCH.h"
 #include "Sprite.h"
 
-#include "Engine/Component.h"
-#include "Engine/Entity.h"
+#include "ECS/Component.h"
+#include "ECS/Entity.h"
 
 #include "Components/Transform.h"
 

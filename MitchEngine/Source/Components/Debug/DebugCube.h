@@ -1,5 +1,5 @@
 #pragma once
-#include "Engine/Component.h"
+#include "ECS/Component.h"
 
 class DebugCube
 	: public Component<DebugCube>

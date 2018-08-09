@@ -1,5 +1,5 @@
 #pragma once
-#include "Engine/Component.h"
+#include "ECS/Component.h"
 #include <glm.hpp>
 
 class Light : public Component<Light>

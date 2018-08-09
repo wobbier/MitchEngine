@@ -1,7 +1,5 @@
 #pragma once
-#include "Engine/Component.h"
-#include <string>
-#include <glm.hpp>
+#include "ECS/Component.h"
 
 class FlyingCamera
 	: public Component<FlyingCamera>

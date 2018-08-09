@@ -1,5 +1,5 @@
 #pragma once
-#include "Engine/Component.h"
+#include "ECS/Component.h"
 //#include "Box2D/Box2D.h"
 
 class Collider2D : public Component<Collider2D>

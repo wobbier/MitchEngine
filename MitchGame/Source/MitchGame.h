@@ -16,9 +16,4 @@ public:
 	virtual void End() override;
 
 	Entity MainCamera;
-	Entity SecondaryCamera;
-	std::vector<Entity> Cubes;
-	bool AddedPhysics = false;
-
-	glm::vec2 PrevMouseScroll;
 };

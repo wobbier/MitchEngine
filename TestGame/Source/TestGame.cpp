@@ -1,10 +1,10 @@
 #include "TestGame.h"
 #include "Utility/Logger.h"
 #include "Components/Sprite.h"
-#include "Engine/Component.h"
+#include "ECS/Component.h"
 #include "Engine/Clock.h"
 #include "Components/Transform.h"
-#include "Engine/Entity.h"
+#include "ECS/Entity.h"
 #include <string>
 #include "Engine/Input.h"
 #include "Engine/Window.h"

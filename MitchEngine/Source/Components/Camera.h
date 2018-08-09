@@ -2,7 +2,7 @@
 #include <glm.hpp>
 #include <gtc/matrix_transform.hpp>
 
-#include "Engine/Component.h"
+#include "ECS/Component.h"
 #include "Components/Transform.h"
 
 class Camera

@@ -1,8 +1,8 @@
 #include "MitchGame.h"
-#include "Engine/Component.h"
+#include "ECS/Component.h"
 #include "Engine/Clock.h"
 #include "Components/Transform.h"
-#include "Engine/Entity.h"
+#include "ECS/Entity.h"
 #include <string>
 #include "Engine/Input.h"
 #include "Engine/Window.h"
@@ -31,6 +31,10 @@ void MitchGame::Initialize()
 	CameraPos.SetPosition(glm::vec3(0, 5, 20));
 	MainCamera.AddComponent<Camera>();
 	MainCamera.AddComponent<Light>();
+
+	Entity Ground = GameWorld->CreateEntity();
+	Ground.AddComponent<Transform>("Ground obvs");
+	Ground.AddComponent<Model>("Assets/ground.fbx", "Assets/Shaders/Albedo");
 }
 
 void MitchGame::Update(float DeltaTime)

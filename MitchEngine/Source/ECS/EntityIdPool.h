@@ -1,6 +1,6 @@
 #pragma once
 #include "Utility/Util.h"
-#include "Engine/Entity.h"
+#include "ECS/Entity.h"
 
 class EntityIdPool
 {

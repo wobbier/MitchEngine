@@ -1,7 +1,7 @@
 // 2018 Mitchell Andrews
 #pragma once
 #include "Component.h"
-#include "ClassTypeId.h"
+#include "Utility/ClassTypeId.h"
 #include <unordered_map>
 #include <string>
 #include <cstdint>

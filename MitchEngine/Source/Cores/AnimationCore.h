@@ -1,5 +1,5 @@
 #pragma once
-#include "Engine/Core.h"
+#include "ECS/Core.h"
 
 class AnimationCore : public Core<AnimationCore>
 {

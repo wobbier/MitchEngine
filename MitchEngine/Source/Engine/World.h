@@ -1,10 +1,10 @@
 #pragma once
 #include <memory>
 #include <unordered_map>
-#include "Engine/Entity.h"
-#include "Engine/Core.h"
-#include "Engine/ComponentStorage.h"
-#include "Engine/EntityIdPool.h"
+#include "ECS/Entity.h"
+#include "ECS/Core.h"
+#include "ECS/ComponentStorage.h"
+#include "ECS/EntityIdPool.h"
 #include "Utility/Util.h"
 #include "Engine/ResourceCache.h"
 
