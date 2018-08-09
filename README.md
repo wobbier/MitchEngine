@@ -21,32 +21,32 @@ How to make a Mitch game
 
 1. Pull the repo and run GenerateSolution.bat (Requires CMake for ThirdParty projects)
 2. Make a Visual studio template of the example game.
-3. Run the newly created project and start coding!
-4. ????
-5. Profit
+3. ????
+4. Profit
 
 ```cpp
 // Create an entity.
-Entity TestEntity = GameWorld->CreateEntity();
+Entity MainCamera = GameWorld->CreateEntity();
 
 // Add some components
-Transform& TransformComponent = TestEntity.AddComponent<Transform>();
-Sprite& SpriteComponent = TestEntity.AddComponent<Sprite>();
-Collider2D& ColliderComponent = TestEntity.AddComponent<Collider2D>();
-Animation& AnimationComponent = TestEntity.Addcomponent<Animation>();
+Transform& CameraTransform = MainCamera.AddComponent<Transform>("Main Camera");
+Camera& ModelComponent = MainCamera.AddComponent<Camera>();
 
 // Start changing some values
-TransformComponent.Position = glm::vec2(1.f, 0.5f);
-SpriteComponent.SetSourceImage("Default.png");
-AnimationComponent.SetAnimationInfo(SpriteComponent.Width, SpriteComponent.Height, 7, 4);
+CameraTransform.SetPosition(0.f, 5.f, 10.f);
+
+
+// Spawning models.
+Entity ModelEntity = GameWorld->CreateEntity();
+
+// Add some components
+Transform& TransformComponent = ModelEntity.AddComponent<Transform>("Ground Model");
+Model& ModelComponent = ModelEntity.AddComponent<Model>("Assets/Models/ground.fbx", "Assets/Shaders/Albedo");
 ```
 
 Main features
 -------------
    * (ECS) Entity-Component System based design
-   * Physics components (Bullet3D)
-   * Scene management
-   * Mouse/Keyboard on desktop
    * Language: C++
    * Open Source Commercial Friendly(MIT): Compatible with open and closed source projects
    * OpenGL 3.3 (desktop) based
@@ -54,8 +54,19 @@ Main features
 Build Requirements
 ------------------
 
-* Windows 10, VS 2017
+* Windows 10
+* Visual Studio 2017
 * CMake - 3.12.0
+
+Third Party Libraries
+--------------------------------
+
+  * [Assimp][5]
+  * [Brofiler][6]
+  * [Bullet Physics][7]
+  * [GLFW][8]
+  * [GLM][9]
+  * [STB][10]
 
 Contributing to the Project
 --------------------------------
@@ -74,3 +85,9 @@ Contact me
 [2]: https://github.com/wobbier/MitchEngine/issues "GitHub Issues"
 [3]: http://www.twitter.com/wobbier "Twitter"
 [4]: https://trello.com/b/QpR06bQl/mitchengine-status "Trello Board"
+[5]: https://github.com/assimp/assimp "Assimp"
+[6]: https://github.com/bombomby/brofiler "Brofiler"
+[7]: https://github.com/bulletphysics/bullet3 "Bullet3D"
+[8]: https://github.com/glfw/glfw "GLFW"
+[9]: https://github.com/g-truc/glm "GLM"
+[10]: https://github.com/nothings/stb "STB Image"
