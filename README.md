@@ -30,7 +30,7 @@ Entity MainCamera = GameWorld->CreateEntity();
 
 // Add some components
 Transform& CameraTransform = MainCamera.AddComponent<Transform>("Main Camera");
-Camera& ModelComponent = MainCamera.AddComponent<Camera>();
+Camera& CameraComponent = MainCamera.AddComponent<Camera>();
 
 // Start changing some values
 CameraTransform.SetPosition(0.f, 5.f, 10.f);
