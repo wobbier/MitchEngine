@@ -2,11 +2,11 @@
 #include "Engine/Window.h"
 #include "Engine/Input.h"
 #include "Utility/Logger.h"
-#include <glad.c>
+#include <assert.h>
+/*
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-#include <assert.h>
-
+#include <glad.c>
 #ifdef MAN_EDITOR
 #include "Graphics/UI/imgui.h"
 #include "Graphics/UI/imgui_impl_glfw.h"
@@ -98,3 +98,4 @@ void Window::FramebufferSizeCallback(GLFWwindow* window, int width, int height)
 {
 	glViewport(0, 0, width, height);
 }
+*/

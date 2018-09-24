@@ -11,7 +11,7 @@
 
 #include "Components/Camera.h"
 #include <iostream>
-
+/*
 DifferedLighting::DifferedLighting() : Base(ComponentFilter().Requires<Transform>().Requires<Light>())
 {
 }
@@ -194,3 +194,4 @@ void DifferedLighting::PostRender()
 	glBlitFramebuffer(0, 0, SCR_WIDTH, SCR_HEIGHT, 0, 0, SCR_WIDTH, SCR_HEIGHT, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
+*/

@@ -3,9 +3,10 @@
 #include "Graphics/Cubemap.h"
 #include "Graphics/Shader.h"
 
+
+/*
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-
 class DifferedLighting :
 	public Core<DifferedLighting>
 {
@@ -29,3 +30,4 @@ public:
 	std::vector<glm::vec3> lightColors;
 	unsigned int gPosition, gNormal, gAlbedoSpec;
 };
+*/

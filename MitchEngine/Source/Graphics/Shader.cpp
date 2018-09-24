@@ -1,8 +1,8 @@
 #include "PCH.h"
 #include "Shader.h"
 
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
+//#include <glad/glad.h>
+//#include <GLFW/glfw3.h>
 
 Shader::Shader(const std::string& InVertexPath, const std::string& InFragPath)
 {
@@ -41,7 +41,7 @@ Shader::Shader(const std::string& InVertexPath, const std::string& InFragPath)
 	unsigned int vertex, fragment;
 	int success;
 	char infoLog[512];
-
+	/*
 	// Vertex Shader
 	vertex = glCreateShader(GL_VERTEX_SHADER);
 	glShaderSource(vertex, 1, &vShaderCode, NULL);
@@ -84,12 +84,12 @@ Shader::Shader(const std::string& InVertexPath, const std::string& InFragPath)
 
 	// Delete the shaders as they're linked into our program now and no longer necessary
 	glDeleteShader(vertex);
-	glDeleteShader(fragment);
+	glDeleteShader(fragment);*/
 }
 
 void Shader::Use()
 {
-	glUseProgram(Program);
+	//glUseProgram(Program);
 }
 
 const unsigned int Shader::GetProgram() const
@@ -99,25 +99,25 @@ const unsigned int Shader::GetProgram() const
 
 void Shader::SetMat4(const std::string &name, const glm::mat4 &mat) const
 {
-	glUniformMatrix4fv(glGetUniformLocation(Program, name.c_str()), 1, GL_FALSE, &mat[0][0]);
+	//glUniformMatrix4fv(glGetUniformLocation(Program, name.c_str()), 1, GL_FALSE, &mat[0][0]);
 }
 
 void Shader::SetInt(const std::string &name, int value) const
 {
-	glUniform1i(glGetUniformLocation(Program, name.c_str()), value);
+	//glUniform1i(glGetUniformLocation(Program, name.c_str()), value);
 }
 
 void Shader::SetVec3(const std::string &name, const glm::vec3 &value) const
 {
-	glUniform3fv(glGetUniformLocation(Program, name.c_str()), 1, &value[0]);
+	//glUniform3fv(glGetUniformLocation(Program, name.c_str()), 1, &value[0]);
 }
 
 void Shader::SetVec3(const std::string &name, float x, float y, float z) const
 {
-	glUniform3f(glGetUniformLocation(Program, name.c_str()), x, y, z);
+	//glUniform3f(glGetUniformLocation(Program, name.c_str()), x, y, z);
 }
 
 void Shader::SetFloat(const std::string &name, float value) const
 {
-	glUniform1f(glGetUniformLocation(Program, name.c_str()), value);
+	//glUniform1f(glGetUniformLocation(Program, name.c_str()), value);
 }

@@ -24,13 +24,13 @@ public:
 	bool IsRunning() const;
 	void Quit();
 
-	Window* GetWindow();
+	//Window* GetWindow();
 
 	// Remove copy, copy assignment, move, and move assignment constructors.
 	MAN_NONCOPYABLE(Game)
 	MAN_NONMOVABLE(Game);
 private:
 	bool Running;
-	Window* GameWindow;
+	//Window* GameWindow;
 	Config* EngineConfig;
 };

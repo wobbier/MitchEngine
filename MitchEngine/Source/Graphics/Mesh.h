@@ -5,9 +5,10 @@
 #include "Texture.h"
 #include "Shader.h"
 
+/*
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-
+*/
 struct Vertex
 {
 	glm::vec3 Position;

@@ -34,15 +34,15 @@ void Game::Start()
 	int WindowWidth = 1280;//WindowConfig["width"].asInt();
 	int WindowHeight = 720;//WindowConfig["height"].asInt();
 
-	GameWindow = new Window("MitchEngine", WindowWidth, WindowHeight);
+	//GameWindow = new Window("MitchEngine", WindowWidth, WindowHeight);
 
 	GameWorld = new World();
 
-	auto ModelRenderer = Renderer();
-	GameWorld->AddCore<Renderer>(ModelRenderer);
+	//auto ModelRenderer = Renderer();
+	//GameWorld->AddCore<Renderer>(ModelRenderer);
 
-	auto LightingRenderer = DifferedLighting();
-	GameWorld->AddCore<DifferedLighting>(LightingRenderer);
+	//auto LightingRenderer = DifferedLighting();
+	//GameWorld->AddCore<DifferedLighting>(LightingRenderer);
 
 	auto Animator = AnimationCore();
 	GameWorld->AddCore<AnimationCore>(Animator);
@@ -70,19 +70,21 @@ void Game::Start()
 	ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
 	// Game loop
-	while (!GameWindow->ShouldClose())
+	while (true)//(!GameWindow->ShouldClose())
 	{
 		BROFILER_FRAME("MainLoop")
 		// Check and call events
-		GameWindow->PollInput();
+		//GameWindow->PollInput();
 
 		float time = GameClock.GetTimeInMilliseconds();
 		const float deltaTime = GameClock.deltaTime = (time <= 0.0f || time >= 0.3) ? 0.0001f : time;
 
 #ifdef MAN_EDITOR
+		/*
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
+		*/
 #endif
 
 		// Update our engine
@@ -96,9 +98,9 @@ void Game::Start()
 
 		Cameras.Update(deltaTime);
 
-		LightingRenderer.PreRender();
-		ModelRenderer.Render();
-		LightingRenderer.PostRender();
+		//LightingRenderer.PreRender();
+		//ModelRenderer.Render();
+		//LightingRenderer.PostRender();
 
 #ifdef MAN_EDITOR
 		show_demo_window = true;
@@ -114,11 +116,11 @@ void Game::Start()
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 #endif
 		// Swap the buffers
-		GameWindow->Swap();
+		//GameWindow->Swap();
 	}
 	glfwTerminate();
 }
 
-bool Game::IsRunning() const { return Running; }
+//bool Game::IsRunning() const { return Running; }
 
 void Game::Quit() { Running = false; }

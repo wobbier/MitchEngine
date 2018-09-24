@@ -19,7 +19,7 @@
 
 #include "Components/Camera.h"
 #include <iostream>
-
+/*
 Renderer::Renderer() : Base(ComponentFilter().Requires<Transform>().Requires<Model>())
 {
 }
@@ -170,3 +170,4 @@ void Renderer::Render()
 	glBindVertexArray(0);
 	glDepthFunc(GL_LESS); // set depth function back to default
 }
+*/

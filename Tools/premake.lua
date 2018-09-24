@@ -1,4 +1,7 @@
 -- premake5.lua
+require "vstudio"
+dofile "premake-winrt/_preload.lua"
+require "premake-winrt/winrt"
 
 newoption {
    trigger     = "with-renderdoc",
@@ -18,6 +21,7 @@ project "OpenFBX"
 
 workspace "MitchEngine"
 	configurations { "Debug", "Release", "Debug Editor", "Release Editor" }
+	platforms { "x64" }
 	startproject "MitchGame"
 	location "../"
 	includedirs {
@@ -50,6 +54,9 @@ workspace "MitchEngine"
 		"BulletCollision_Debug",
 		"LinearMath_Debug"
 	}
+	links {
+		"d2d1", "d3d11", "dxgi", "windowscodecs", "dwrite"
+	}
 	libdirs {
 		"../ThirdParty/Bullet/lib/Debug",
 		"../ThirdParty/GLFW/src/Debug",
@@ -69,7 +76,9 @@ workspace "MitchEngine"
 		"../ThirdParty/Bullet/lib/Release",
 		"../ThirdParty/GLFW/src/Release",
 		"../ThirdParty/Brofiler/Bin/vs2017/x32/Release",
-		"../ThirdParty/OpenFBX/Lib/Release"
+		"../ThirdParty/OpenFBX/Lib/Release",
+		"$(VCInstallDir)\\lib\\store\\amd64",
+		"$(VCInstallDir)\\lib\\amd64"
 	}
 	
 	filter "configurations:*Editor"
@@ -108,7 +117,7 @@ project "MitchEngine"
 	vpaths {
 		["Build"] = "../Tools/*.lua"
 	}
-
+	
 	configuration "with-renderdoc"
 	defines { "MAN_ENABLE_RENDERDOC" }
 	postbuildcommands {
@@ -131,6 +140,11 @@ project "MitchEngine"
 group "Games"
 project "MitchGame"
 	kind "ConsoleApp"
+	system "windowsuniversal"
+	systemversion "10.0.14393.0"
+	certificatefile "App1_TemporaryKey.pfx"
+	certificatethumbprint "8d68369eaf2c030cd45ca6fce7f367e608b5463e"
+	defaultlanguage "en-US"
 	language "C++"
 	targetdir "../Build/%{cfg.buildcfg}"
 	location "../MitchGame"
@@ -141,13 +155,21 @@ project "MitchGame"
 	files {
 		"../MitchGame/Assets/**.frag",
 		"../MitchGame/Assets/**.vert",
+		"../MitchGame/Assets/**.png",
 		"../MitchGame/**.h",
-		"../MitchGame/**.cpp"
+		"../MitchGame/**.cpp",
+		"../MitchGame/**.pfx",
+		"../MitchGame/**.hlsl",
+		"../MitchGame/**.appxmanifest"
 	}
 	includedirs {
 		"../MitchGame/Source",
 		"."
 	}
+	filter { "files:**.hlsl" }
+		buildaction "FxCompile"
+	filter { "files:Assets/*.png" }
+		deploy "true"
 
 project "TestGame"
 	kind "ConsoleApp"
