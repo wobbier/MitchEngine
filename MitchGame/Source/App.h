@@ -2,9 +2,9 @@
 
 #include "pch.h"
 #include "Common\DeviceResources.h"
-#include "App1Main.h"
+#include "App5Main.h"
 
-namespace App1
+namespace App5
 {
 	// Main entry point for our app. Connects the app with the Windows shell and handles application lifecycle events.
 	ref class App sealed : public Windows::ApplicationModel::Core::IFrameworkView
@@ -12,7 +12,7 @@ namespace App1
 	public:
 		App();
 
-		// IFrameworkView methods.
+		// IFrameworkView Methods.
 		virtual void Initialize(Windows::ApplicationModel::Core::CoreApplicationView^ applicationView);
 		virtual void SetWindow(Windows::UI::Core::CoreWindow^ window);
 		virtual void Load(Platform::String^ entryPoint);
@@ -36,11 +36,8 @@ namespace App1
 		void OnDisplayContentsInvalidated(Windows::Graphics::Display::DisplayInformation^ sender, Platform::Object^ args);
 
 	private:
-		// Private accessor for m_deviceResources, protects against device removed errors.
-		std::shared_ptr<DX::DeviceResources> GetDeviceResources();
-
 		std::shared_ptr<DX::DeviceResources> m_deviceResources;
-		std::unique_ptr<App1Main> m_main;
+		std::unique_ptr<App5Main> m_main;
 		bool m_windowClosed;
 		bool m_windowVisible;
 	};

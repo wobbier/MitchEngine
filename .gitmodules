@@ -21,9 +21,6 @@
 [submodule "ThirdParty/Brofiler"]
 	path = ThirdParty/Brofiler
 	url = https://github.com/wobbier/brofiler
-[submodule "ThirdParty/OpenFBX"]
-	path = ThirdParty/OpenFBX
-	url = https://github.com/nem0/OpenFBX
 [submodule "Tools/premake-winrt"]
 	path = Tools/premake-winrt
 	url = git@github.com:wobbier/premake-winrt.git

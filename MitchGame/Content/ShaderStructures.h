@@ -1,6 +1,6 @@
 ﻿#pragma once
 
-namespace App1
+namespace App5
 {
 	// Constant buffer used to send MVP matrices to the vertex shader.
 	struct ModelViewProjectionConstantBuffer
