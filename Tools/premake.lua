@@ -143,40 +143,20 @@ project "MitchGame"
 		"../MitchGame/**.h",
 		"../MitchGame/**.cpp",
 		"../MitchGame/**.pfx",
-		"../MitchGame/**.hlsl",
 		"../MitchGame/**.appxmanifest"
 	}
 	includedirs {
 		"../MitchGame/Source",
 		"."
 	}
-	filter { "files:**.hlsl" }
-		buildaction "FxCompile"
+	postbuildcommands {
+		"fxc /T ps_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\SamplePixelShader.cso Content\\SamplePixelShader.hlsl",
+		"fxc /T ps_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\AppX\\SamplePixelShader.cso Content\\SamplePixelShader.hlsl",
+		"fxc /T vs_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\SampleVertexShader.cso Content\\SampleVertexShader.hlsl",
+		"fxc /T vs_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\AppX\\SampleVertexShader.cso Content\\SampleVertexShader.hlsl"
+		}
 	filter { "files:Assets/*.png" }
 		deploy "true"
-
-project "TestGame"
-	kind "ConsoleApp"
-	language "C++"
-	targetdir "../Build/%{cfg.buildcfg}"
-	location "../TestGame"
-	links "MitchEngine"
-	dependson {
-		"MitchEngine"
-	}
-	files {
-		"../TestGame/Assets/**.frag",
-		"../TestGame/Assets/**.vert",
-		"../TestGame/**.h",
-		"../TestGame/**.cpp"
-	}
-	includedirs {
-		"../TestGame/Source",
-		"."
-	}
-
-	filter "configurations:Debug Editor"
-	configuration "Debug"
 
 group "Engine/ThirdParty"
 externalproject "glfw"
