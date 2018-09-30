@@ -23,4 +23,4 @@
 	url = https://github.com/wobbier/brofiler
 [submodule "Tools/premake-winrt"]
 	path = Tools/premake-winrt
-	url = git@github.com:wobbier/premake-winrt.git
+	url = https://github.com/wobbier/premake-winrt.git
