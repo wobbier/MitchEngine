@@ -1,9 +1,7 @@
-﻿#include "stdafx.h"
+#include "stdafx.h"
 #include "App.h"
 
 #include <ppltasks.h>
-
-using namespace App5;
 
 using namespace concurrency;
 using namespace Windows::ApplicationModel;
@@ -14,20 +12,6 @@ using namespace Windows::UI::Input;
 using namespace Windows::System;
 using namespace Windows::Foundation;
 using namespace Windows::Graphics::Display;
-
-// The main function is only used to initialize our IFrameworkView class.
-[Platform::MTAThread]
-int main(Platform::Array<Platform::String^>^)
-{
-	auto direct3DApplicationSource = ref new Direct3DApplicationSource();
-	CoreApplication::Run(direct3DApplicationSource);
-	return 0;
-}
-
-IFrameworkView^ Direct3DApplicationSource::CreateView()
-{
-	return ref new App();
-}
 
 App::App() :
 	m_windowClosed(false),
@@ -85,7 +69,7 @@ void App::Load(Platform::String^ entryPoint)
 {
 	if (m_main == nullptr)
 	{
-		m_main = std::unique_ptr<App5Main>(new App5Main(m_deviceResources));
+		m_main = std::unique_ptr<TestDirectX>(new TestDirectX(m_deviceResources));
 	}
 }
 

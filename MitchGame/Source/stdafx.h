@@ -1,5 +1,6 @@
 ﻿#pragma once
 
+#include "Game.h"
 #include <wrl.h>
 #include <wrl/client.h>
 #include <dxgi1_4.h>

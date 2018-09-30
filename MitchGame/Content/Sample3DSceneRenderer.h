@@ -4,8 +4,6 @@
 #include "ShaderStructures.h"
 #include "..\Common\StepTimer.h"
 
-namespace App5
-{
 	// This sample renderer instantiates a basic rendering pipeline.
 	class Sample3DSceneRenderer
 	{
@@ -46,5 +44,3 @@ namespace App5
 		float	m_degreesPerSecond;
 		bool	m_tracking;
 	};
-}
-

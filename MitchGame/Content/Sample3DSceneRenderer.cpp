@@ -3,8 +3,6 @@
 
 #include "..\Common\DirectXHelper.h"
 
-using namespace App5;
-
 using namespace DirectX;
 using namespace Windows::Foundation;
 

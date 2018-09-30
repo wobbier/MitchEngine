@@ -4,8 +4,6 @@
 #include "..\Common\DeviceResources.h"
 #include "..\Common\StepTimer.h"
 
-namespace App5
-{
 	// Renders the current FPS value in the bottom right corner of the screen using Direct2D and DirectWrite.
 	class SampleFpsTextRenderer
 	{
@@ -28,4 +26,3 @@ namespace App5
 		Microsoft::WRL::ComPtr<IDWriteTextLayout3>      m_textLayout;
 		Microsoft::WRL::ComPtr<IDWriteTextFormat2>      m_textFormat;
 	};
-}

@@ -1,7 +1,5 @@
 ﻿#pragma once
 
-namespace App5
-{
 	// Constant buffer used to send MVP matrices to the vertex shader.
 	struct ModelViewProjectionConstantBuffer
 	{
@@ -16,4 +14,3 @@ namespace App5
 		DirectX::XMFLOAT3 pos;
 		DirectX::XMFLOAT3 color;
 	};
-}

@@ -2,7 +2,7 @@
 ======
 The 3D game engine so good it has my name in it.
 
-Mitch Engine is a simple c++ component based engine for building 3d games, demos, and other graphical applications.
+Mitch Engine is a simple c++ component based game engine for creating games on the Xbox One and Windows 10 Store.
 It's a great hobby project to keep me exploring the world of c++.
 
 Check out my [Trello Board][4] to check out the current development status.

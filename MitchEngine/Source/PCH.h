@@ -6,6 +6,15 @@
 #include <algorithm>
 #include <vector>
 
+// windows
+#include <wrl.h>
+#include <wrl/client.h>
+#include <wincodec.h>
+#include <DirectXColors.h>
+#include <DirectXMath.h>
+#include <memory>
+#include <concrt.h>
+
 // glm
 #define GLM_ENABLE_EXPERIMENTAL 1
 #include <glm.hpp>

@@ -1,14 +1,13 @@
 ﻿#include "stdafx.h"
-#include "App5Main.h"
+#include "TestDirectX.h"
 #include "Common\DirectXHelper.h"
 
-using namespace App5;
 using namespace Windows::Foundation;
 using namespace Windows::System::Threading;
 using namespace Concurrency;
 
 // Loads and initializes application assets when the application is loaded.
-App5Main::App5Main(const std::shared_ptr<DX::DeviceResources>& deviceResources) :
+TestDirectX::TestDirectX(const std::shared_ptr<DX::DeviceResources>& deviceResources) :
 	m_deviceResources(deviceResources)
 {
 	// Register to be notified if the Device is lost or recreated
@@ -27,21 +26,21 @@ App5Main::App5Main(const std::shared_ptr<DX::DeviceResources>& deviceResources) 
 	*/
 }
 
-App5Main::~App5Main()
+TestDirectX::~TestDirectX()
 {
 	// Deregister device notification
 	m_deviceResources->RegisterDeviceNotify(nullptr);
 }
 
 // Updates application state when the window size changes (e.g. device orientation change)
-void App5Main::CreateWindowSizeDependentResources() 
+void TestDirectX::CreateWindowSizeDependentResources() 
 {
 	// TODO: Replace this with the size-dependent initialization of your app's content.
 	m_sceneRenderer->CreateWindowSizeDependentResources();
 }
 
 // Updates the application state once per frame.
-void App5Main::Update() 
+void TestDirectX::Update() 
 {
 	// Update scene objects.
 	m_timer.Tick([&]()
@@ -54,7 +53,7 @@ void App5Main::Update()
 
 // Renders the current frame according to the current application state.
 // Returns true if the frame was rendered and is ready to be displayed.
-bool App5Main::Render() 
+bool TestDirectX::Render() 
 {
 	// Don't try to render anything before the first Update.
 	if (m_timer.GetFrameCount() == 0)
@@ -85,14 +84,14 @@ bool App5Main::Render()
 }
 
 // Notifies renderers that device resources need to be released.
-void App5Main::OnDeviceLost()
+void TestDirectX::OnDeviceLost()
 {
 	m_sceneRenderer->ReleaseDeviceDependentResources();
 	m_fpsTextRenderer->ReleaseDeviceDependentResources();
 }
 
 // Notifies renderers that device resources may now be recreated.
-void App5Main::OnDeviceRestored()
+void TestDirectX::OnDeviceRestored()
 {
 	m_sceneRenderer->CreateDeviceDependentResources();
 	m_fpsTextRenderer->CreateDeviceDependentResources();
