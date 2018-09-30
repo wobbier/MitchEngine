@@ -3,6 +3,7 @@
 #include "Graphics/Cubemap.h"
 #include "Graphics/Shader.h"
 
+/*
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
@@ -24,3 +25,4 @@ public:
 	Shader* SkyboxShader = nullptr;
 	unsigned int skyboxVAO, skyboxVBO;
 };
+*/

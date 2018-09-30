@@ -2,13 +2,13 @@
 #pragma once
 #include <iostream>
 #include <string>
+/*
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
 #ifdef MAN_ENABLE_RENDERDOC
 #include "Utility/Debug/RenderDocManager.h"
 #endif
-
 class Window
 {
 private:
@@ -34,3 +34,4 @@ private:
 	RenderDocManager* RenderDoc;
 #endif
 };
+*/

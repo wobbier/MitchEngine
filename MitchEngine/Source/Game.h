@@ -5,6 +5,7 @@
 #include "Engine/ResourceCache.h"
 #include "Utility/Config.h"
 #include "Utility/Util.h"
+#include "Engine/Clock.h"
 
 class Game
 {
@@ -17,6 +18,7 @@ public:
 	virtual ~Game();
 
 	void Start();
+	void Tick();
 	virtual void Initialize() = 0;
 	virtual void Update(float DeltaTime) = 0;
 	virtual void End() = 0;
@@ -24,13 +26,18 @@ public:
 	bool IsRunning() const;
 	void Quit();
 
-	Window* GetWindow();
+	//Window* GetWindow();
 
 	// Remove copy, copy assignment, move, and move assignment constructors.
 	MAN_NONCOPYABLE(Game)
 	MAN_NONMOVABLE(Game);
+	class AnimationCore* Animator;
+	class PhysicsCore* Physics;
+	class CameraCore* Cameras;
+	class SceneGraph* SceneNodes;
+	Clock& GameClock;
 private:
 	bool Running;
-	Window* GameWindow;
+	//Window* GameWindow;
 	Config* EngineConfig;
 };

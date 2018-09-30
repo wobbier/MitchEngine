@@ -1,10 +1,22 @@
-// 2018 Mitchell Andrews
+#include "stdafx.h"
 #include "MitchGame.h"
-#include <iostream>
+#include "App.h"
 
-int main()
+using namespace Windows::ApplicationModel::Core;
+
+ref class Direct3DApplicationSource sealed : Windows::ApplicationModel::Core::IFrameworkViewSource
 {
-	MitchGame game;
-	game.Start();
+public:
+	virtual Windows::ApplicationModel::Core::IFrameworkView^ CreateView()
+	{
+		return ref new App();
+	}
+};
+
+[Platform::MTAThread]
+int main(Platform::Array<Platform::String^>^)
+{
+	auto direct3DApplicationSource = ref new Direct3DApplicationSource();
+	CoreApplication::Run(direct3DApplicationSource);
 	return 0;
 }

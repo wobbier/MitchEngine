@@ -1,23 +1,16 @@
 -- premake5.lua
+require "vstudio"
+dofile "premake-winrt/_preload.lua"
+require "premake-winrt/winrt"
 
 newoption {
    trigger     = "with-renderdoc",
    description = "Include support for RenderDoc."
 }
-workspace "OpenFBX"
-	configurations { "Debug", "Release" }
-project "OpenFBX"
-	location "../ThirdParty/OpenFBX"
-	language "C++"
-	targetdir "../ThirdParty/OpenFBX/Lib/%{cfg.buildcfg}"
-	kind "StaticLib"
-	files {
-		"../ThirdParty/OpenFBX/src/*.*"
-	}
-
 
 workspace "MitchEngine"
 	configurations { "Debug", "Release", "Debug Editor", "Release Editor" }
+	platforms { "x64" }
 	startproject "MitchGame"
 	location "../"
 	includedirs {
@@ -31,15 +24,13 @@ workspace "MitchEngine"
 		"../ThirdParty/GLFW/include",
 		"../ThirdParty/STB",
 		"../ThirdParty/Brofiler/BrofilerCore",
-		"../ThirdParty/OpenFBX/src",
 		"C:/Program Files/RenderDoc"
 	}
 
 	links {
 		"opengl32",
 		"glfw3dll",
-		"BrofilerCore",
-		"OpenFBX"
+		"BrofilerCore"
 	}
 
 	filter "configurations:Debug*"
@@ -50,11 +41,13 @@ workspace "MitchEngine"
 		"BulletCollision_Debug",
 		"LinearMath_Debug"
 	}
+	links {
+		"d2d1", "d3d11", "dxgi", "windowscodecs", "dwrite"
+	}
 	libdirs {
 		"../ThirdParty/Bullet/lib/Debug",
 		"../ThirdParty/GLFW/src/Debug",
-		"../ThirdParty/Brofiler/Bin/vs2017/x32/Debug",
-		"../ThirdParty/OpenFBX/Lib/Debug"
+		"../ThirdParty/Brofiler/Bin/vs2017/x64/Debug"
 	}
 
 	filter "configurations:Release*"
@@ -68,8 +61,9 @@ workspace "MitchEngine"
 	libdirs {
 		"../ThirdParty/Bullet/lib/Release",
 		"../ThirdParty/GLFW/src/Release",
-		"../ThirdParty/Brofiler/Bin/vs2017/x32/Release",
-		"../ThirdParty/OpenFBX/Lib/Release"
+		"../ThirdParty/Brofiler/Bin/vs2017/x64/Release",
+		"$(VCInstallDir)\\lib\\store\\amd64",
+		"$(VCInstallDir)\\lib\\amd64"
 	}
 	
 	filter "configurations:*Editor"
@@ -95,7 +89,6 @@ project "MitchEngine"
 		"LibBulletDynamics",
 		"LibLinearMath",
 		"LibBrofiler",
-		"LibOpenFBX",
 		"BrofilerApp"
 	}
 	files {
@@ -108,7 +101,7 @@ project "MitchEngine"
 	vpaths {
 		["Build"] = "../Tools/*.lua"
 	}
-
+	
 	configuration "with-renderdoc"
 	defines { "MAN_ENABLE_RENDERDOC" }
 	postbuildcommands {
@@ -119,18 +112,24 @@ project "MitchEngine"
 	postbuildcommands {
 		"xcopy /y /d  \"..\\ThirdParty\\AssIMP\\bin\\Debug\\*.dll\" \"$(ProjectDir)$(OutDir)\"",
 		"xcopy /y /d  \"..\\ThirdParty\\GLFW\\src\\Debug\\*.dll\" \"$(ProjectDir)$(OutDir)\"",
-		"xcopy /y /d  \"..\\ThirdParty\\Brofiler\\Bin\\vs2017\\x32\\Debug\\*.dll\" \"$(ProjectDir)$(OutDir)\""
+		"xcopy /y /d  \"..\\ThirdParty\\Brofiler\\Bin\\vs2017\\x64\\Debug\\*.dll\" \"$(ProjectDir)$(OutDir)\""
 	}
 	filter "configurations:Release*"
 	postbuildcommands {
 		"xcopy /y /d  \"..\\ThirdParty\\AssIMP\\bin\\Release\\*.dll\" \"$(ProjectDir)$(OutDir)\"",
 		"xcopy /y /d  \"..\\ThirdParty\\GLFW\\src\\Release\\*.dll\" \"$(ProjectDir)$(OutDir)\"",
-		"xcopy /y /d  \"..\\ThirdParty\\Brofiler\\Bin\\vs2017\\x32\\Release\\*.dll\" \"$(ProjectDir)$(OutDir)\""
+		"xcopy /y /d  \"..\\ThirdParty\\Brofiler\\Bin\\vs2017\\x64\\Release\\*.dll\" \"$(ProjectDir)$(OutDir)\""
 	}
 
 group "Games"
 project "MitchGame"
 	kind "ConsoleApp"
+	system "windowsuniversal"
+	consumewinrtextension "true"
+	systemversion "10.0.14393.0"
+	certificatefile "MitchGame_TemporaryKey.pfx"
+	certificatethumbprint "8d68369eaf2c030cd45ca6fce7f367e608b5463e"
+	defaultlanguage "en-US"
 	language "C++"
 	targetdir "../Build/%{cfg.buildcfg}"
 	location "../MitchGame"
@@ -141,36 +140,24 @@ project "MitchGame"
 	files {
 		"../MitchGame/Assets/**.frag",
 		"../MitchGame/Assets/**.vert",
+		"../MitchGame/Assets/**.png",
 		"../MitchGame/**.h",
-		"../MitchGame/**.cpp"
+		"../MitchGame/**.cpp",
+		"../MitchGame/**.pfx",
+		"../MitchGame/**.appxmanifest"
 	}
 	includedirs {
 		"../MitchGame/Source",
 		"."
 	}
-
-project "TestGame"
-	kind "ConsoleApp"
-	language "C++"
-	targetdir "../Build/%{cfg.buildcfg}"
-	location "../TestGame"
-	links "MitchEngine"
-	dependson {
-		"MitchEngine"
-	}
-	files {
-		"../TestGame/Assets/**.frag",
-		"../TestGame/Assets/**.vert",
-		"../TestGame/**.h",
-		"../TestGame/**.cpp"
-	}
-	includedirs {
-		"../TestGame/Source",
-		"."
-	}
-
-	filter "configurations:Debug Editor"
-	configuration "Debug"
+	postbuildcommands {
+		"fxc /T ps_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\SamplePixelShader.cso Content\\SamplePixelShader.hlsl",
+		"fxc /T ps_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\AppX\\SamplePixelShader.cso Content\\SamplePixelShader.hlsl",
+		"fxc /T vs_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\SampleVertexShader.cso Content\\SampleVertexShader.hlsl",
+		"fxc /T vs_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\AppX\\SampleVertexShader.cso Content\\SampleVertexShader.hlsl"
+		}
+	filter { "files:Assets/*.png" }
+		deploy "true"
 
 group "Engine/ThirdParty"
 externalproject "glfw"
@@ -183,14 +170,6 @@ externalproject "glfw"
 	filter "configurations:Debug Editor"
 	configuration "Debug"
 
-externalproject "LibOpenFBX"
-	location "../ThirdParty/OpenFBX"
-	filename "OpenFBX"
-	uuid "8A0313E9-F6C0-4C24-9258-65C9F6D5812D"
-	kind "StaticLib"
-	language "C++"
-	targetdir "../Build/%{cfg.buildcfg}"
-	
 group "Engine/ThirdParty/Bullet"
 externalproject "LibBulletCollision"
 	location "../ThirdParty/Bullet/src/BulletCollision"

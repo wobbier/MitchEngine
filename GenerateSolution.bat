@@ -1,9 +1,9 @@
 cd ThirdParty/GLFW
-cmake -G "Visual Studio 15 2017" -DBUILD_SHARED_LIBS=true
+cmake -G "Visual Studio 15 2017 Win64" -DBUILD_SHARED_LIBS=true
 cd ../AssIMP
-cmake -G "Visual Studio 15 2017"
+cmake -G "Visual Studio 15 2017 Win64"
 cd ../Bullet
-cmake -G "Visual Studio 15 2017" -DUSE_MSVC_RUNTIME_LIBRARY_DLL=true
+cmake -G "Visual Studio 15 2017 Win64" -DUSE_MSVC_RUNTIME_LIBRARY_DLL=true
 cd ../Brofiler
 call GenerateProjects.bat
 cd ../../
