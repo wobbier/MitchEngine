@@ -1,15 +1,37 @@
 #include "stdafx.h"
-#include "MitchGame.h"
 #include "App.h"
+#include "MitchGame.h"
 
 using namespace Windows::ApplicationModel::Core;
+
+ref class GameApp
+	: public App
+{
+public:
+	virtual void Init() override
+	{
+		if (!m_game)
+		{
+			m_game = std::make_unique<MitchGame>();
+			m_game->Start();
+		}
+	}
+
+	virtual void Tick() override
+	{
+		m_game->Tick();
+	}
+
+private:
+	std::unique_ptr<MitchGame> m_game;
+};
 
 ref class Direct3DApplicationSource sealed : Windows::ApplicationModel::Core::IFrameworkViewSource
 {
 public:
 	virtual Windows::ApplicationModel::Core::IFrameworkView^ CreateView()
 	{
-		return ref new App();
+		return ref new GameApp();
 	}
 };
 

@@ -24,7 +24,7 @@ void SceneGraph::Init()
 
 void SceneGraph::Update(float dt)
 {
-	BROFILER_CATEGORY("SceneGraph::Update", Brofiler::Color::Green)
+	//BROFILER_CATEGORY("SceneGraph::Update", Brofiler::Color::Green)
 	Transform* RootEntityTransform = &RootEntity.GetComponent<Transform>();
 	std::stack<Transform*> TransformStack;
 	TransformStack.push(RootEntityTransform);

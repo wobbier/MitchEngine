@@ -19,9 +19,9 @@ public:
 
 	void Start();
 	void Tick();
-	virtual void Initialize() = 0;
-	virtual void Update(float DeltaTime) = 0;
-	virtual void End() = 0;
+	virtual void Initialize();
+	virtual void Update(float DeltaTime);
+	virtual void End();
 
 	bool IsRunning() const;
 	void Quit();
@@ -29,8 +29,6 @@ public:
 	//Window* GetWindow();
 
 	// Remove copy, copy assignment, move, and move assignment constructors.
-	MAN_NONCOPYABLE(Game)
-	MAN_NONMOVABLE(Game);
 	class AnimationCore* Animator;
 	class PhysicsCore* Physics;
 	class CameraCore* Cameras;

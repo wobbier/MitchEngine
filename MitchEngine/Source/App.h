@@ -1,15 +1,14 @@
 #pragma once
 
-#include "pch.h"
-#include "Common\DeviceResources.h"
-#include "TestDirectX.h"
+//#include "pch.h"
+//#include "Common\DeviceResources.h"
+//#include "TestDirectX.h"
+#include "Game.h"
 
 // Main entry point for our app. Connects the app with the Windows shell and handles application lifecycle events.
-ref class App sealed : public Windows::ApplicationModel::Core::IFrameworkView
+ref class App : public Windows::ApplicationModel::Core::IFrameworkView
 {
 public:
-	App();
-
 	// IFrameworkView Methods.
 	virtual void Initialize(Windows::ApplicationModel::Core::CoreApplicationView^ applicationView);
 	virtual void SetWindow(Windows::UI::Core::CoreWindow^ window);
@@ -17,6 +16,11 @@ public:
 	virtual void Run();
 	virtual void Uninitialize();
 
+	virtual void Init() {};
+	virtual void Tick() {};
+
+internal:
+	App();
 protected:
 	// Application lifecycle event handlers.
 	void OnActivated(Windows::ApplicationModel::Core::CoreApplicationView^ applicationView, Windows::ApplicationModel::Activation::IActivatedEventArgs^ args);
@@ -34,8 +38,8 @@ protected:
 	void OnDisplayContentsInvalidated(Windows::Graphics::Display::DisplayInformation^ sender, Platform::Object^ args);
 
 private:
-	std::shared_ptr<DX::DeviceResources> m_deviceResources;
-	std::unique_ptr<TestDirectX> m_main;
+	//std::shared_ptr<DX::DeviceResources> m_deviceResources;
+	//std::unique_ptr<TestDirectX> m_main;
 	bool m_windowClosed;
 	bool m_windowVisible;
 };

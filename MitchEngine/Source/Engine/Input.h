@@ -1,6 +1,5 @@
 #pragma once
 #include "Utility/Singleton.h"
-#include <GLFW/glfw3.h>
 #include <map>
 #include <glm.hpp>
 
@@ -28,8 +27,8 @@ public:
 	bool IsKeyUp(int key);
 	glm::vec2 GetMousePosition();
 	glm::vec2 GetMouseScrollOffset();
-	static void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode);
-	static void MouseCallback(GLFWwindow* window, double xpos, double ypos);
+	//static void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode);
+	//static void MouseCallback(GLFWwindow* window, double xpos, double ypos);
 
 private:
 	Input() = default;
@@ -37,5 +36,5 @@ private:
 	std::map<int, Key> Keys;
 	MouseInfo Mouse;
 
-	static void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
+	//static void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 };

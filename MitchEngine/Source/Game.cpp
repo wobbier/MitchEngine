@@ -81,7 +81,7 @@ void Game::Tick()
 	// Game loop
 	//while (true)//(!GameWindow->ShouldClose())
 	{
-		BROFILER_FRAME("MainLoop")
+		//BROFILER_FRAME("MainLoop")
 			// Check and call events
 			//GameWindow->PollInput();
 
@@ -127,7 +127,27 @@ void Game::Tick()
 		// Swap the buffers
 		//GameWindow->Swap();
 	}
-	glfwTerminate();
+	//glfwTerminate();
+}
+
+void Game::Initialize()
+{
+
+}
+
+void Game::Update(float DeltaTime)
+{
+
+}
+
+void Game::End()
+{
+
+}
+
+bool Game::IsRunning() const
+{
+	return true;
 }
 
 //bool Game::IsRunning() const { return Running; }

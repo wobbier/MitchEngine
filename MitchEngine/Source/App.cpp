@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "PCH.h"
 #include "App.h"
 
 #include <ppltasks.h>
@@ -35,7 +35,8 @@ void App::Initialize(CoreApplicationView^ applicationView)
 
 	// At this point we have access to the device. 
 	// We can create the device-dependent resources.
-	m_deviceResources = std::make_shared<DX::DeviceResources>();
+	//m_deviceResources = std::make_shared<DX::DeviceResources>();
+	Init();
 }
 
 // Called when the CoreWindow object is created (or re-created).
@@ -61,16 +62,15 @@ void App::SetWindow(CoreWindow^ window)
 	DisplayInformation::DisplayContentsInvalidated +=
 		ref new TypedEventHandler<DisplayInformation^, Object^>(this, &App::OnDisplayContentsInvalidated);
 
-	m_deviceResources->SetWindow(window);
+	//m_deviceResources->SetWindow(window);
 }
 
 // Initializes scene resources, or loads a previously saved app state.
 void App::Load(Platform::String^ entryPoint)
 {
-	if (m_main == nullptr)
+	/*if (m_main == nullptr)
 	{
-		m_main = std::unique_ptr<TestDirectX>(new TestDirectX(m_deviceResources));
-	}
+	}*/
 }
 
 // This method is called after the window becomes active.
@@ -82,12 +82,7 @@ void App::Run()
 		{
 			CoreWindow::GetForCurrentThread()->Dispatcher->ProcessEvents(CoreProcessEventsOption::ProcessAllIfPresent);
 
-			m_main->Update();
-
-			if (m_main->Render())
-			{
-				m_deviceResources->Present();
-			}
+			Tick();
 		}
 		else
 		{
@@ -121,7 +116,7 @@ void App::OnSuspending(Platform::Object^ sender, SuspendingEventArgs^ args)
 
 	create_task([this, deferral]()
 	{
-        m_deviceResources->Trim();
+        //m_deviceResources->Trim();
 
 		// Insert your code here.
 
@@ -142,8 +137,8 @@ void App::OnResuming(Platform::Object^ sender, Platform::Object^ args)
 
 void App::OnWindowSizeChanged(CoreWindow^ sender, WindowSizeChangedEventArgs^ args)
 {
-	m_deviceResources->SetLogicalSize(Size(sender->Bounds.Width, sender->Bounds.Height));
-	m_main->CreateWindowSizeDependentResources();
+	//m_deviceResources->SetLogicalSize(Size(sender->Bounds.Width, sender->Bounds.Height));
+	//m_main->CreateWindowSizeDependentResources();
 }
 
 void App::OnVisibilityChanged(CoreWindow^ sender, VisibilityChangedEventArgs^ args)
@@ -164,17 +159,17 @@ void App::OnDpiChanged(DisplayInformation^ sender, Object^ args)
 	// if it is being scaled for high resolution devices. Once the DPI is set on DeviceResources,
 	// you should always retrieve it using the GetDpi method.
 	// See DeviceResources.cpp for more details.
-	m_deviceResources->SetDpi(sender->LogicalDpi);
-	m_main->CreateWindowSizeDependentResources();
+	//m_deviceResources->SetDpi(sender->LogicalDpi);
+	//m_main->CreateWindowSizeDependentResources();
 }
 
 void App::OnOrientationChanged(DisplayInformation^ sender, Object^ args)
 {
-	m_deviceResources->SetCurrentOrientation(sender->CurrentOrientation);
-	m_main->CreateWindowSizeDependentResources();
+	//m_deviceResources->SetCurrentOrientation(sender->CurrentOrientation);
+	//m_main->CreateWindowSizeDependentResources();
 }
 
 void App::OnDisplayContentsInvalidated(DisplayInformation^ sender, Object^ args)
 {
-	m_deviceResources->ValidateDevice();
+	//m_deviceResources->ValidateDevice();
 }
