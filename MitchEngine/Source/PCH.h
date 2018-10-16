@@ -19,7 +19,7 @@
 #include <DirectXColors.h>
 #include <DirectXMath.h>
 #include <memory>
-//#include <agile.h>
+#include <agile.h>
 #include <concrt.h>
 
 // std

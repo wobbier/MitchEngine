@@ -1,4 +1,4 @@
-﻿#include "stdafx.h"
+﻿#include "PCH.h"
 #include "DeviceResources.h"
 #include "DirectXHelper.h"
 
@@ -10,6 +10,7 @@ using namespace Windows::Graphics::Display;
 using namespace Windows::UI::Core;
 using namespace Windows::UI::Xaml::Controls;
 using namespace Platform;
+using namespace std;
 
 namespace DisplayMetrics
 {
@@ -475,8 +476,8 @@ void DX::DeviceResources::UpdateRenderTargetSize()
 	m_outputSize.Height = DX::ConvertDipsToPixels(m_logicalSize.Height, m_effectiveDpi);
 
 	// Prevent zero size DirectX content from being created.
-	m_outputSize.Width = max(m_outputSize.Width, 1);
-	m_outputSize.Height = max(m_outputSize.Height, 1);
+	m_outputSize.Width = max(static_cast<int>(m_outputSize.Width), 1);
+	m_outputSize.Height = max(static_cast<int>(m_outputSize.Height), 1);
 }
 
 // This method is called when the CoreWindow is created (or re-created).

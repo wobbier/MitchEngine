@@ -26,6 +26,10 @@ workspace "MitchEngine"
 	links {
 		"d2d1", "d3d11", "dxgi", "windowscodecs", "dwrite"
 	}
+	
+	defines{
+		"NOMINMAX"
+	}
 
 	filter "configurations:Debug*"
 	defines { "DEBUG" }
@@ -65,6 +69,12 @@ project "MitchEngine"
 	vpaths {
 		["Build"] = "../Tools/*.lua"
 	}
+	postbuildcommands {
+		"fxc /T ps_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\SamplePixelShader.cso Assets\\Shaders\\SamplePixelShader.hlsl",
+		"fxc /T ps_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\AppX\\SamplePixelShader.cso Assets\\Shaders\\SamplePixelShader.hlsl",
+		"fxc /T vs_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\SampleVertexShader.cso Assets\\Shaders\\SampleVertexShader.hlsl",
+		"fxc /T vs_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\AppX\\SampleVertexShader.cso Assets\\Shaders\\SampleVertexShader.hlsl"
+		}
 	
 	configuration "with-renderdoc"
 	defines { "MAN_ENABLE_RENDERDOC", "__cplusplus_winrt" }
@@ -108,11 +118,5 @@ project "MitchGame"
 		"../MitchGame/Source",
 		"."
 	}
-	postbuildcommands {
-		"fxc /T ps_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\SamplePixelShader.cso Content\\SamplePixelShader.hlsl",
-		"fxc /T ps_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\AppX\\SamplePixelShader.cso Content\\SamplePixelShader.hlsl",
-		"fxc /T vs_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\SampleVertexShader.cso Content\\SampleVertexShader.hlsl",
-		"fxc /T vs_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\AppX\\SampleVertexShader.cso Content\\SampleVertexShader.hlsl"
-		}
 	filter { "files:Assets/*.png" }
 		deploy "true"

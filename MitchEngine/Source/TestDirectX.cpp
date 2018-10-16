@@ -1,6 +1,6 @@
-﻿#include "stdafx.h"
+﻿#include "PCH.h"
 #include "TestDirectX.h"
-#include "Common\DirectXHelper.h"
+#include "Graphics\Common\DirectXHelper.h"
 
 using namespace Windows::Foundation;
 using namespace Windows::System::Threading;

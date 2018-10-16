@@ -1,9 +1,9 @@
 ﻿#pragma once
 
-#include "Common\StepTimer.h"
-#include "Common\DeviceResources.h"
-#include "Content\Sample3DSceneRenderer.h"
-#include "Content\SampleFpsTextRenderer.h"
+#include "Graphics\Common\StepTimer.h"
+#include "Graphics\Common\DeviceResources.h"
+#include "Graphics\Content\Sample3DSceneRenderer.h"
+#include "Graphics\Content\SampleFpsTextRenderer.h"
 
 // Renders Direct2D and 3D content on the screen.
 class TestDirectX : public DX::IDeviceNotify

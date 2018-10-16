@@ -4,26 +4,14 @@
 
 using namespace Windows::ApplicationModel::Core;
 
-ref class GameApp
+ref class GameApp sealed
 	: public App
 {
 public:
-	virtual void Init() override
+	GameApp()
+		: App(std::make_unique<MitchGame>())
 	{
-		if (!m_game)
-		{
-			m_game = std::make_unique<MitchGame>();
-			m_game->Start();
-		}
 	}
-
-	virtual void Tick() override
-	{
-		m_game->Tick();
-	}
-
-private:
-	std::unique_ptr<MitchGame> m_game;
 };
 
 ref class Direct3DApplicationSource sealed : Windows::ApplicationModel::Core::IFrameworkViewSource

@@ -1,4 +1,4 @@
-﻿#include "stdafx.h"
+﻿#include "PCH.h"
 #include "Sample3DSceneRenderer.h"
 
 #include "..\Common\DirectXHelper.h"
