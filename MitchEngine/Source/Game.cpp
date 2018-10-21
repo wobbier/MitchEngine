@@ -26,7 +26,7 @@ Game::~Game()
 {
 }
 bool my_tool_active = false;
-void Game::Start()
+void Game::Start(const std::shared_ptr<DX::DeviceResources>& deviceResources)
 {
 	Logger::GetInstance().SetLogFile("engine.txt");
 	Logger::GetInstance().SetLogPriority(Logger::LogType::Info);
@@ -59,6 +59,9 @@ void Game::Start()
 
 	SceneNodes = new SceneGraph();
 	GameWorld->AddCore<SceneGraph>(*SceneNodes);
+
+	ModelRenderer = new Renderer(deviceResources);
+	GameWorld->AddCore<Renderer>(*ModelRenderer);
 
 	Initialize();
 
@@ -107,6 +110,8 @@ void Game::Tick()
 
 		Cameras->Update(deltaTime);
 
+		ModelRenderer->Update(deltaTime);
+
 		//LightingRenderer.PreRender();
 		//ModelRenderer.Render();
 		//LightingRenderer.PostRender();
@@ -143,6 +148,16 @@ void Game::Update(float DeltaTime)
 void Game::End()
 {
 
+}
+
+bool Game::Render()
+{
+	return ModelRenderer->Render();
+}
+
+void Game::WindowResized()
+{
+	ModelRenderer->CreateWindowSizeDependentResources();
 }
 
 bool Game::IsRunning() const

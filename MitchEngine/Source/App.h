@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Graphics/Common/DeviceResources.h"
-#include "TestDirectX.h"
 #include "Game.h"
 
 // Main entry point for our app. Connects the app with the Windows shell and handles application lifecycle events.
@@ -39,7 +38,6 @@ protected:
 private:
 	std::shared_ptr<DX::DeviceResources> m_deviceResources;
 	std::unique_ptr<Game> m_main;
-	std::unique_ptr<TestDirectX> m_test;
 	bool m_windowClosed;
 	bool m_windowVisible;
 };

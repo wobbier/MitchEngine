@@ -60,7 +60,6 @@ project "MitchEngine"
 	pchheader "PCH.h"
 	pchsource "../MitchEngine/Source/PCH.cpp"
 	files {
-		"../MitchEngine/Assets/**.*",
 		"../MitchEngine/**.h",
 		"../MitchEngine/**.cpp",
 		"../MitchEngine/**.txt",
