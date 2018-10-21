@@ -16,3 +16,6 @@
 [submodule "Tools/premake-winrt"]
 	path = Tools/premake-winrt
 	url = https://github.com/wobbier/premake-winrt.git
+[submodule "ThirdParty/OZZ"]
+	path = ThirdParty/OZZ
+	url = https://github.com/guillaumeblanc/ozz-animation.git
