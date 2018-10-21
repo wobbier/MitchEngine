@@ -1,6 +1,6 @@
 #pragma once
 #include "ECS/Component.h"
-#include <btBulletDynamicsCommon.h>
+//#include <btBulletDynamicsCommon.h>
 #include <glm.hpp>
 
 class Rigidbody : public Component<Rigidbody>
@@ -17,7 +17,7 @@ public:
 
 private:
 	void CreateObject(const glm::vec3& Position);
-	btRigidBody* InternalRigidbody;
+	//btRigidBody* InternalRigidbody;
 
 protected:
 	bool IsInitialized = false;

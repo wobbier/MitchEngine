@@ -2,17 +2,9 @@
 	path = ThirdParty/GLM
 	url = https://github.com/g-truc/glm.git
 	ignore = dirty
-[submodule "ThirdParty/GLFW"]
-	path = ThirdParty/GLFW
-	url = https://github.com/glfw/glfw.git
-	ignore = dirty
 [submodule "ThirdParty/Bullet"]
 	path = ThirdParty/Bullet
 	url = https://github.com/bulletphysics/bullet3.git
-	ignore = dirty
-[submodule "ThirdParty/STB"]
-	path = ThirdParty/STB
-	url = https://github.com/nothings/stb.git
 	ignore = dirty
 [submodule "ThirdParty/AssIMP"]
 	path = ThirdParty/AssIMP

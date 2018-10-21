@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "PCH.h"
 #include "App.h"
 
 #include <ppltasks.h>
@@ -67,10 +67,7 @@ void App::SetWindow(CoreWindow^ window)
 // Initializes scene resources, or loads a previously saved app state.
 void App::Load(Platform::String^ entryPoint)
 {
-	if (m_main == nullptr)
-	{
-		m_main = std::unique_ptr<TestDirectX>(new TestDirectX(m_deviceResources));
-	}
+	m_main->Start(m_deviceResources);
 }
 
 // This method is called after the window becomes active.
@@ -82,7 +79,7 @@ void App::Run()
 		{
 			CoreWindow::GetForCurrentThread()->Dispatcher->ProcessEvents(CoreProcessEventsOption::ProcessAllIfPresent);
 
-			m_main->Update();
+			m_main->Tick();
 
 			if (m_main->Render())
 			{
@@ -143,7 +140,7 @@ void App::OnResuming(Platform::Object^ sender, Platform::Object^ args)
 void App::OnWindowSizeChanged(CoreWindow^ sender, WindowSizeChangedEventArgs^ args)
 {
 	m_deviceResources->SetLogicalSize(Size(sender->Bounds.Width, sender->Bounds.Height));
-	m_main->CreateWindowSizeDependentResources();
+	m_main->WindowResized();
 }
 
 void App::OnVisibilityChanged(CoreWindow^ sender, VisibilityChangedEventArgs^ args)
@@ -165,13 +162,13 @@ void App::OnDpiChanged(DisplayInformation^ sender, Object^ args)
 	// you should always retrieve it using the GetDpi method.
 	// See DeviceResources.cpp for more details.
 	m_deviceResources->SetDpi(sender->LogicalDpi);
-	m_main->CreateWindowSizeDependentResources();
+	m_main->WindowResized();
 }
 
 void App::OnOrientationChanged(DisplayInformation^ sender, Object^ args)
 {
 	m_deviceResources->SetCurrentOrientation(sender->CurrentOrientation);
-	m_main->CreateWindowSizeDependentResources();
+	m_main->WindowResized();
 }
 
 void App::OnDisplayContentsInvalidated(DisplayInformation^ sender, Object^ args)

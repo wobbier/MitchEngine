@@ -1,7 +1,7 @@
-﻿#include "stdafx.h"
+﻿#include "PCH.h"
 #include "SampleFpsTextRenderer.h"
 
-#include "Common/DirectXHelper.h"
+#include "Graphics/Common/DirectXHelper.h"
 
 using namespace Microsoft::WRL;
 

@@ -7,15 +7,15 @@
 
 #pragma region KeyboardInput
 
-void Input::KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode)
-{
-	//printf("%i, %i, %i, %i\n", key, scancode, action, mode);
-	Input& Instance = GetInstance();
-	Instance.Keys[key].Id = key;
-	Instance.Keys[key].Scancode = scancode;
-	Instance.Keys[key].Action = action;
-	Instance.Keys[key].Mode = mode;
-}
+//void Input::KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode)
+//{
+//	//printf("%i, %i, %i, %i\n", key, scancode, action, mode);
+//	Input& Instance = GetInstance();
+//	Instance.Keys[key].Id = key;
+//	Instance.Keys[key].Scancode = scancode;
+//	Instance.Keys[key].Action = action;
+//	Instance.Keys[key].Mode = mode;
+//}
 
 bool Input::IsKeyDown(int key)
 {
@@ -38,20 +38,20 @@ bool Input::IsKeyUp(int key)
 #pragma endregion
 
 #pragma region MouseInput
-
-void Input::MouseCallback(GLFWwindow* window, double xpos, double ypos)
-{
-	Input& Instance = GetInstance();
-	Instance.Mouse.Position = glm::vec2(xpos, ypos);
-	//Logger::Get().Log(Logger::LogType::Debug, std::to_string(Instance.Mouse.Position.x));
-}
-
-
-void Input::ScrollCallback(GLFWwindow* window, double xoffset, double yoffset)
-{
-	Input& Instance = GetInstance();
-	Instance.Mouse.Scroll -= glm::vec2(xoffset, yoffset);
-}
+//
+//void Input::MouseCallback(GLFWwindow* window, double xpos, double ypos)
+//{
+//	Input& Instance = GetInstance();
+//	Instance.Mouse.Position = glm::vec2(xpos, ypos);
+//	//Logger::Get().Log(Logger::LogType::Debug, std::to_string(Instance.Mouse.Position.x));
+//}
+//
+//
+//void Input::ScrollCallback(GLFWwindow* window, double xoffset, double yoffset)
+//{
+//	Input& Instance = GetInstance();
+//	Instance.Mouse.Scroll -= glm::vec2(xoffset, yoffset);
+//}
 
 glm::vec2 Input::GetMousePosition()
 {

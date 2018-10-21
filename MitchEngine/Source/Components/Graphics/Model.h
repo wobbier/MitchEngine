@@ -3,9 +3,6 @@
 #include <string>
 #include <glm.hpp>
 
-#include <assimp/Importer.hpp>
-#include <assimp/scene.h>
-#include <assimp/postprocess.h>
 
 #include "Graphics/Texture.h"
 #include "Graphics/Mesh.h"
@@ -28,9 +25,9 @@ private:
 
 	void Load(std::string const &path);
 
-	void ProcessNode(aiNode *node, const aiScene *scene);
+	//void ProcessNode(aiNode *node, const aiScene *scene);
 
-	Mesh ProcessMesh(aiMesh *mesh, const aiScene *scene);
+	//Mesh ProcessMesh(aiMesh *mesh, const aiScene *scene);
 
-	void LoadMaterialTextures(std::vector<Texture*>& textures, aiMaterial *mat, aiTextureType type, std::string typeName);
+	//void LoadMaterialTextures(std::vector<Texture*>& textures, aiMaterial *mat, aiTextureType type, std::string typeName);
 };

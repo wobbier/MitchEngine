@@ -26,7 +26,7 @@ Game::~Game()
 {
 }
 bool my_tool_active = false;
-void Game::Start()
+void Game::Start(const std::shared_ptr<DX::DeviceResources>& deviceResources)
 {
 	Logger::GetInstance().SetLogFile("engine.txt");
 	Logger::GetInstance().SetLogPriority(Logger::LogType::Info);
@@ -60,6 +60,9 @@ void Game::Start()
 	SceneNodes = new SceneGraph();
 	GameWorld->AddCore<SceneGraph>(*SceneNodes);
 
+	ModelRenderer = new Renderer(deviceResources);
+	GameWorld->AddCore<Renderer>(*ModelRenderer);
+
 	Initialize();
 
 	GameClock.Reset();
@@ -81,7 +84,7 @@ void Game::Tick()
 	// Game loop
 	//while (true)//(!GameWindow->ShouldClose())
 	{
-		BROFILER_FRAME("MainLoop")
+		//BROFILER_FRAME("MainLoop")
 			// Check and call events
 			//GameWindow->PollInput();
 
@@ -107,6 +110,8 @@ void Game::Tick()
 
 		Cameras->Update(deltaTime);
 
+		ModelRenderer->Update(deltaTime);
+
 		//LightingRenderer.PreRender();
 		//ModelRenderer.Render();
 		//LightingRenderer.PostRender();
@@ -127,7 +132,37 @@ void Game::Tick()
 		// Swap the buffers
 		//GameWindow->Swap();
 	}
-	glfwTerminate();
+	//glfwTerminate();
+}
+
+void Game::Initialize()
+{
+
+}
+
+void Game::Update(float DeltaTime)
+{
+
+}
+
+void Game::End()
+{
+
+}
+
+bool Game::Render()
+{
+	return ModelRenderer->Render();
+}
+
+void Game::WindowResized()
+{
+	ModelRenderer->CreateWindowSizeDependentResources();
+}
+
+bool Game::IsRunning() const
+{
+	return true;
 }
 
 //bool Game::IsRunning() const { return Running; }

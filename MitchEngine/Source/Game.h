@@ -6,6 +6,7 @@
 #include "Utility/Config.h"
 #include "Utility/Util.h"
 #include "Engine/Clock.h"
+#include "Graphics/Common/DeviceResources.h"
 
 class Game
 {
@@ -17,24 +18,24 @@ public:
 	Game();
 	virtual ~Game();
 
-	void Start();
+	void Start(const std::shared_ptr<DX::DeviceResources>& deviceResources);
 	void Tick();
-	virtual void Initialize() = 0;
-	virtual void Update(float DeltaTime) = 0;
-	virtual void End() = 0;
+	virtual void Initialize();
+	virtual void Update(float DeltaTime);
+	virtual void End();
+	bool Render();
+	void WindowResized();
 
 	bool IsRunning() const;
 	void Quit();
 
 	//Window* GetWindow();
 
-	// Remove copy, copy assignment, move, and move assignment constructors.
-	MAN_NONCOPYABLE(Game)
-	MAN_NONMOVABLE(Game);
 	class AnimationCore* Animator;
 	class PhysicsCore* Physics;
 	class CameraCore* Cameras;
 	class SceneGraph* SceneNodes;
+	class Renderer* ModelRenderer;
 	Clock& GameClock;
 private:
 	bool Running;

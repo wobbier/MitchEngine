@@ -4,7 +4,9 @@ build:
   project: MitchEngine.sln
   parallel: true
   verbosity: normal
-  
+branches:
+  only:
+    - master
 before_build:
   - git submodule init
   - git submodule update

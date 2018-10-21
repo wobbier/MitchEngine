@@ -3,15 +3,17 @@
 #include "Graphics/Cubemap.h"
 #include "Graphics/Shader.h"
 
-/*
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
+#include "Graphics\Common\StepTimer.h"
+#include "Graphics\Common\DeviceResources.h"
+#include "Graphics\Content\Sample3DSceneRenderer.h"
+#include "Graphics\Content\SampleFpsTextRenderer.h"
 
-class Renderer :
-	public Core<Renderer>
+class Renderer
+	: public Core<Renderer>
+	, public DX::IDeviceNotify
 {
 public:
-	Renderer();
+	Renderer(const std::shared_ptr<DX::DeviceResources>& deviceResources);
 	~Renderer();
 
 	// Separate init from construction code.
@@ -20,9 +22,19 @@ public:
 	// Each core must update each loop
 	virtual void Update(float dt) final;
 
-	void Render();
+	bool Render();
 	Cubemap* SkyboxMap = nullptr;
 	Shader* SkyboxShader = nullptr;
-	unsigned int skyboxVAO, skyboxVBO;
+
+	void CreateWindowSizeDependentResources();
+	virtual void OnDeviceLost() override;
+	virtual void OnDeviceRestored() override;
+
+private:
+	std::shared_ptr<DX::DeviceResources> m_deviceResources;
+	std::unique_ptr<Sample3DSceneRenderer> m_sceneRenderer;
+	std::unique_ptr<SampleFpsTextRenderer> m_fpsTextRenderer;
+
+	// Rendering loop timer.
+	DX::StepTimer m_timer;
 };
-*/

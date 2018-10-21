@@ -1,15 +1,25 @@
 #include "stdafx.h"
-#include "MitchGame.h"
 #include "App.h"
+#include "MitchGame.h"
 
 using namespace Windows::ApplicationModel::Core;
+
+ref class GameApp sealed
+	: public App
+{
+public:
+	GameApp()
+		: App(std::make_unique<MitchGame>())
+	{
+	}
+};
 
 ref class Direct3DApplicationSource sealed : Windows::ApplicationModel::Core::IFrameworkViewSource
 {
 public:
 	virtual Windows::ApplicationModel::Core::IFrameworkView^ CreateView()
 	{
-		return ref new App();
+		return ref new GameApp();
 	}
 };
 
