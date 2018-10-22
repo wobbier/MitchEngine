@@ -88,7 +88,7 @@ void Game::Tick()
 			// Check and call events
 			//GameWindow->PollInput();
 
-			float time = GameClock.GetTimeInMilliseconds();
+		float time = GameClock.GetTimeInMilliseconds();
 		const float deltaTime = GameClock.deltaTime = (time <= 0.0f || time >= 0.3) ? 0.0001f : time;
 
 #ifdef MAN_EDITOR

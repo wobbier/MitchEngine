@@ -18,6 +18,7 @@ workspace "MitchEngine"
 		"../MitchEngine/Source",
 		"../ThirdParty/GLM/glm",
 		"../ThirdParty/OZZ/include",
+		"C:/Program Files/Autodesk/FBX/FBX SDK/2019.0/include",
 		"C:/Program Files/RenderDoc"
 	}
 
@@ -25,7 +26,7 @@ workspace "MitchEngine"
 		"../Build/%{cfg.buildcfg}"
 	}
 	links {
-		"d2d1", "d3d11", "dxgi", "windowscodecs", "dwrite"
+		"d2d1", "d3d11", "dxgi", "windowscodecs", "dwrite", "libfbxsdk-md"
 	}
 	
 	defines{
@@ -35,13 +36,17 @@ workspace "MitchEngine"
 	filter "configurations:Debug*"
 	defines { "DEBUG" }
 	symbols "On"
+	libdirs {
+		"C:/Program Files/Autodesk/FBX/FBX SDK/2019.0/lib/vs2015store/%{cfg.platform}/debug"
+	}
 
 	filter "configurations:Release*"
 	defines { "NDEBUG" }
 	optimize "On"
 	libdirs {
 		"$(VCInstallDir)\\lib\\store\\amd64",
-		"$(VCInstallDir)\\lib\\amd64"
+		"$(VCInstallDir)\\lib\\amd64",
+		"C:/Program Files/Autodesk/FBX/FBX SDK/2019.0/lib/vs2015store/%{cfg.platform}/release"
 	}
 	
 	filter "configurations:*Editor"
