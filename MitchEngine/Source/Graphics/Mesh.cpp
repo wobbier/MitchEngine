@@ -3,12 +3,6 @@
 #include <iostream>
 #include "Utility/Logger.h"
 
-/*
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
-
-#include <stb_image.h>
-*/
 Mesh::Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices, std::vector<Texture*> textures)
 {
 	this->vertices = vertices;

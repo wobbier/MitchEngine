@@ -22,10 +22,10 @@ public:
 	struct ID
 	{
 		typedef
-#ifdef _WIN32
-			std::uint32_t
-#else
+#ifdef _WIN64
 			std::uint64_t
+#else
+			std::uint32_t
 #endif
 			IntType;
 
