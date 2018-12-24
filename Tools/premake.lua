@@ -9,7 +9,7 @@ newoption {
 }
 
 workspace "MitchEngine"
-	configurations { "Debug", "Release", "Debug Editor", "Release Editor" }
+	configurations { "Debug", "Release" }
 	platforms { "x64" }
 	startproject "MitchGame"
 	location "../"
@@ -17,6 +17,8 @@ workspace "MitchEngine"
 		"../MitchEngine/",
 		"../MitchEngine/Source",
 		"../ThirdParty/GLM/glm",
+		"../ThirdParty/OZZ/include",
+		"C:/Program Files/Autodesk/FBX/FBX SDK/2019.0/include",
 		"C:/Program Files/RenderDoc"
 	}
 
@@ -24,7 +26,7 @@ workspace "MitchEngine"
 		"../Build/%{cfg.buildcfg}"
 	}
 	links {
-		"d2d1", "d3d11", "dxgi", "windowscodecs", "dwrite"
+		"d2d1", "d3d11", "dxgi", "windowscodecs", "dwrite", "libfbxsdk-md"
 	}
 	
 	defines{
@@ -34,17 +36,18 @@ workspace "MitchEngine"
 	filter "configurations:Debug*"
 	defines { "DEBUG" }
 	symbols "On"
+	libdirs {
+		"C:/Program Files/Autodesk/FBX/FBX SDK/2019.0/lib/vs2015store/%{cfg.platform}/debug"
+	}
 
 	filter "configurations:Release*"
 	defines { "NDEBUG" }
 	optimize "On"
 	libdirs {
 		"$(VCInstallDir)\\lib\\store\\amd64",
-		"$(VCInstallDir)\\lib\\amd64"
+		"$(VCInstallDir)\\lib\\amd64",
+		"C:/Program Files/Autodesk/FBX/FBX SDK/2019.0/lib/vs2015store/%{cfg.platform}/release"
 	}
-	
-	filter "configurations:*Editor"
-	defines { "MAN_EDITOR=1" }
 
 	filter {}
 
@@ -119,3 +122,37 @@ project "MitchGame"
 	}
 	filter { "files:Assets/*.png" }
 		deploy "true"
+
+	filter "configurations:Debug Editor"
+	configuration "Debug"
+
+group "Engine/ThirdParty/OZZ"
+externalproject "ozz_geometry"
+	location "../ThirdParty/OZZ/src/geometry/runtime"
+	filename "ozz_geometry"
+	uuid "8A0313E9-F6C0-4C24-9258-65C9F6D58021"
+	kind "SharedLib"
+	language "C++"
+	targetdir "../Build/%{cfg.buildcfg}"
+	
+externalproject "LibOZZCore"
+	location "../ThirdParty/OZZ/src/options"
+	filename "ozz_options"
+	uuid "8A0313E9-F6C0-4C24-9258-65C9F6D58022"
+	kind "SharedLib"
+	language "C++"
+	targetdir "../Build/%{cfg.buildcfg}"
+externalproject "LibOZZBase"
+	location "../ThirdParty/OZZ/src/base"
+	filename "ozz_base"
+	uuid "8A0313E9-F6C0-4C24-9258-65C9F6D58023"
+	kind "SharedLib"
+	language "C++"
+	targetdir "../Build/%{cfg.buildcfg}"
+externalproject "LibOZZAnimation"
+	location "../ThirdParty/OZZ/src/animation/runtime"
+	filename "ozz_animation"
+	uuid "8A0313E9-F6C0-4C24-9258-65C9F6D58024"
+	kind "SharedLib"
+	language "C++"
+	targetdir "../Build/%{cfg.buildcfg}"

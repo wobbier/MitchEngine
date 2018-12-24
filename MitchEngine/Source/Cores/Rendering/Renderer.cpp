@@ -25,7 +25,7 @@ Renderer::Renderer(const std::shared_ptr<DX::DeviceResources>& deviceResources)
 	, m_deviceResources(deviceResources)
 {
 	m_deviceResources->RegisterDeviceNotify(this);
-	m_sceneRenderer = std::unique_ptr<Sample3DSceneRenderer>(new Sample3DSceneRenderer(m_deviceResources));
+	m_sceneRenderer = std::unique_ptr<TestModelRenderer>(new TestModelRenderer(m_deviceResources));
 
 	m_fpsTextRenderer = std::unique_ptr<SampleFpsTextRenderer>(new SampleFpsTextRenderer(m_deviceResources));
 
@@ -122,9 +122,16 @@ bool Renderer::Render()
 	context->ClearRenderTargetView(m_deviceResources->GetBackBufferRenderTargetView(), DirectX::Colors::CornflowerBlue);
 	context->ClearDepthStencilView(m_deviceResources->GetDepthStencilView(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
+	auto Renderables = GetEntities();
+
+	for (Entity ent : Renderables)
+	{
+		ent.GetComponent<Model>().Draw(m_deviceResources);
+	}
+
 	// Render the scene objects.
 	// TODO: Replace this with your app's content rendering functions.
-	m_sceneRenderer->Render();
+	m_sceneRenderer->Render(GetEntities());
 	m_fpsTextRenderer->Render();
 
 	return true;

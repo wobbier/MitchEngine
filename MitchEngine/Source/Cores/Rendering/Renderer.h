@@ -5,7 +5,7 @@
 
 #include "Graphics\Common\StepTimer.h"
 #include "Graphics\Common\DeviceResources.h"
-#include "Graphics\Content\Sample3DSceneRenderer.h"
+#include "Graphics\Content\TestModelRenderer.h"
 #include "Graphics\Content\SampleFpsTextRenderer.h"
 
 class Renderer
@@ -32,7 +32,7 @@ public:
 
 private:
 	std::shared_ptr<DX::DeviceResources> m_deviceResources;
-	std::unique_ptr<Sample3DSceneRenderer> m_sceneRenderer;
+	std::unique_ptr<TestModelRenderer> m_sceneRenderer;
 	std::unique_ptr<SampleFpsTextRenderer> m_fpsTextRenderer;
 
 	// Rendering loop timer.
