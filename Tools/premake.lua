@@ -66,12 +66,13 @@ project "MitchEngine"
 		"../MitchEngine/**.h",
 		"../MitchEngine/**.cpp",
 		"../MitchEngine/**.txt",
-		"../Tools/**.lua"
+		"../Tools/*.lua"
 	}
 	vpaths {
 		["Build"] = "../Tools/*.lua"
 	}
 	postbuildcommands {
+		"mkdir ..\\Build\\%{cfg.buildcfg}\\AppX",
 		"fxc /T ps_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\SamplePixelShader.cso Assets\\Shaders\\SamplePixelShader.hlsl",
 		"fxc /T ps_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\AppX\\SamplePixelShader.cso Assets\\Shaders\\SamplePixelShader.hlsl",
 		"fxc /T vs_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\SampleVertexShader.cso Assets\\Shaders\\SampleVertexShader.hlsl",
@@ -125,34 +126,3 @@ project "MitchGame"
 
 	filter "configurations:Debug Editor"
 	configuration "Debug"
-
-group "Engine/ThirdParty/OZZ"
-externalproject "ozz_geometry"
-	location "../ThirdParty/OZZ/src/geometry/runtime"
-	filename "ozz_geometry"
-	uuid "8A0313E9-F6C0-4C24-9258-65C9F6D58021"
-	kind "SharedLib"
-	language "C++"
-	targetdir "../Build/%{cfg.buildcfg}"
-	
-externalproject "LibOZZCore"
-	location "../ThirdParty/OZZ/src/options"
-	filename "ozz_options"
-	uuid "8A0313E9-F6C0-4C24-9258-65C9F6D58022"
-	kind "SharedLib"
-	language "C++"
-	targetdir "../Build/%{cfg.buildcfg}"
-externalproject "LibOZZBase"
-	location "../ThirdParty/OZZ/src/base"
-	filename "ozz_base"
-	uuid "8A0313E9-F6C0-4C24-9258-65C9F6D58023"
-	kind "SharedLib"
-	language "C++"
-	targetdir "../Build/%{cfg.buildcfg}"
-externalproject "LibOZZAnimation"
-	location "../ThirdParty/OZZ/src/animation/runtime"
-	filename "ozz_animation"
-	uuid "8A0313E9-F6C0-4C24-9258-65C9F6D58024"
-	kind "SharedLib"
-	language "C++"
-	targetdir "../Build/%{cfg.buildcfg}"
