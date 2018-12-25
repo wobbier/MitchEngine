@@ -17,7 +17,7 @@ install:
     }
     
 build:
-  project: MitchEngine.sln
+  project: MitchEngineUWP.sln
   parallel: true
   verbosity: normal
 branches:
@@ -26,4 +26,4 @@ branches:
 before_build:
   - git submodule init
   - git submodule update
-  - ./GenerateSolution.bat
+  - ./GenerateSolutionUWP.bat

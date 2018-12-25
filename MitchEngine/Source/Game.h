@@ -29,7 +29,9 @@ public:
 	bool IsRunning() const;
 	void Quit();
 
-	//Window* GetWindow();
+#ifdef ME_PLATFORM_WIN64
+	Window* GetWindow();
+#endif
 
 	class AnimationCore* Animator;
 	class PhysicsCore* Physics;
@@ -39,6 +41,8 @@ public:
 	Clock& GameClock;
 private:
 	bool Running;
-	//Window* GameWindow;
+#ifdef ME_PLATFORM_WIN64
+	Window* GameWindow;
+#endif
 	Config* EngineConfig;
 };

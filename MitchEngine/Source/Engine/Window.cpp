@@ -3,7 +3,9 @@
 #include "Engine/Input.h"
 #include "Utility/Logger.h"
 #include <assert.h>
-/*
+
+#ifdef ME_PLATFORM_WIN64
+
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <glad.c>
@@ -98,4 +100,4 @@ void Window::FramebufferSizeCallback(GLFWwindow* window, int width, int height)
 {
 	glViewport(0, 0, width, height);
 }
-*/
+#endif

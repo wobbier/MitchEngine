@@ -8,7 +8,28 @@ newoption {
    description = "Include support for RenderDoc."
 }
 
-workspace "MitchEngine"
+newoption {
+   trigger     = "uwp",
+   description = "Generate a UWP solution."
+}
+
+function getPlatformPostfix(thing)
+	if (_OPTIONS["uwp"]) then
+	return (thing .. "UWP")
+	end
+	configuration ""
+	return thing
+end
+
+function isUWP()
+	if (_OPTIONS["uwp"]) then
+		return true
+	end
+
+	return false
+end
+
+workspace (getPlatformPostfix("MitchEngine"))
 	configurations { "Debug", "Release" }
 	platforms { "x64" }
 	startproject "MitchGame"
@@ -25,9 +46,14 @@ workspace "MitchEngine"
 	libdirs {
 		"../Build/%{cfg.buildcfg}"
 	}
-	links {
-		"d2d1", "d3d11", "dxgi", "windowscodecs", "dwrite", "libfbxsdk-md"
-	}
+	if (isUWP()) then
+		defines { "ME_PLATFORM_UWP" }
+		links {
+			"d2d1", "d3d11", "dxgi", "windowscodecs", "dwrite", "libfbxsdk-md"
+		}
+	else
+		defines { "ME_PLATFORM_WIN64" }
+	end
 	
 	defines{
 		"NOMINMAX"
@@ -52,11 +78,14 @@ workspace "MitchEngine"
 	filter {}
 
 group "Engine"
-project "MitchEngine"
+project (getPlatformPostfix("MitchEngine"))
 	kind "StaticLib"
-	system "windowsuniversal"
-	consumewinrtextension "true"
-	systemversion "10.0.14393.0"
+	print("%{cfg.platform}")
+	if (isUWP()) then
+		system "windowsuniversal"
+		consumewinrtextension "true"
+		systemversion "10.0.14393.0"
+	end
 	language "C++"
 	targetdir "../Build/%{cfg.buildcfg}"
 	location "../MitchEngine"
@@ -94,22 +123,24 @@ project "MitchEngine"
 	filter {}
 
 group "Games"
-project "MitchGame"
+project (getPlatformPostfix("MitchGame"))
 	kind "ConsoleApp"
-	system "windowsuniversal"
-	consumewinrtextension "true"
-	systemversion "10.0.14393.0"
-	certificatefile "MitchGame_TemporaryKey.pfx"
-	certificatethumbprint "8d68369eaf2c030cd45ca6fce7f367e608b5463e"
-	defaultlanguage "en-US"
+	if (isUWP()) then
+		system "windowsuniversal"
+		consumewinrtextension "true"
+		systemversion "10.0.14393.0"
+		certificatefile "MitchGame_TemporaryKey.pfx"
+		certificatethumbprint "8d68369eaf2c030cd45ca6fce7f367e608b5463e"
+		defaultlanguage "en-US"
+	end
 	language "C++"
 	targetdir "../Build/%{cfg.buildcfg}"
 	location "../MitchGame"
 	links {
-		"MitchEngine.lib"
+		(getPlatformPostfix("MitchEngine") .. ".lib")
 	}
 	dependson {
-		"MitchEngine"
+		getPlatformPostfix("MitchEngine")
 	}
 	files {
 		"../MitchGame/Assets/**.frag",
@@ -120,6 +151,7 @@ project "MitchGame"
 		"../MitchGame/**.pfx",
 		"../MitchGame/**.appxmanifest"
 	}
+
 	includedirs {
 		"../MitchGame/Source",
 		"."

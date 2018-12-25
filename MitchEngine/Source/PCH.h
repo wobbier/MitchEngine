@@ -10,6 +10,7 @@
 #include <windows.h>
 #include <wrl.h>
 #include <wrl/client.h>
+#ifdef ME_PLATFORM_UWP
 #include <dxgi1_4.h>
 #include <d3d11_3.h>
 #include <d2d1_3.h>
@@ -18,9 +19,9 @@
 #include <wincodec.h>
 #include <DirectXColors.h>
 #include <DirectXMath.h>
-#include <memory>
 #include <agile.h>
 #include <concrt.h>
+#endif
 
 #include "ozz/animation/runtime/animation.h"
 #include "ozz/animation/runtime/blending_job.h"
@@ -40,10 +41,12 @@
 #include "ozz/base/memory/allocator.h"
 
 #include "ozz/options/options.h"
+
 // std
 #include <string>
 #include <algorithm>
 #include <vector>
+#include <memory>
 
 // windows
 #include <wrl.h>

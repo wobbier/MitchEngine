@@ -38,7 +38,9 @@ void Game::Start(const std::shared_ptr<DX::DeviceResources>& deviceResources)
 	int WindowWidth = 1280;//WindowConfig["width"].asInt();
 	int WindowHeight = 720;//WindowConfig["height"].asInt();
 
-	//GameWindow = new Window("MitchEngine", WindowWidth, WindowHeight);
+#ifdef ME_PLATFORM_WIN64
+	GameWindow = new Window("MitchEngine", WindowWidth, WindowHeight);
+#endif
 
 	GameWorld = new World();
 
@@ -82,11 +84,13 @@ void Game::Tick()
 #endif
 
 	// Game loop
-	//while (true)//(!GameWindow->ShouldClose())
+#ifdef ME_PLATFORM_WIN64
+	while (!GameWindow->ShouldClose())
 	{
 		//BROFILER_FRAME("MainLoop")
 			// Check and call events
-			//GameWindow->PollInput();
+			GameWindow->PollInput();
+#endif
 
 		float time = GameClock.GetTimeInMilliseconds();
 		const float deltaTime = GameClock.deltaTime = (time <= 0.0f || time >= 0.3) ? 0.0001f : time;
@@ -129,10 +133,13 @@ void Game::Tick()
 
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 #endif
+
+#ifdef ME_PLATFORM_WIN64
 		// Swap the buffers
-		//GameWindow->Swap();
+		GameWindow->Swap();
 	}
-	//glfwTerminate();
+	glfwTerminate();
+#endif
 }
 
 void Game::Initialize()
