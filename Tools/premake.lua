@@ -15,9 +15,8 @@ newoption {
 
 function getPlatformPostfix(thing)
 	if (_OPTIONS["uwp"]) then
-	return (thing .. "UWP")
+		return (thing .. "UWP")
 	end
-	configuration ""
 	return thing
 end
 
@@ -38,11 +37,25 @@ workspace (getPlatformPostfix("MitchEngine"))
 		"../MitchEngine/",
 		"../MitchEngine/Source",
 		"../ThirdParty/GLM/glm",
-		"../ThirdParty/OZZ/include",
 		"C:/Program Files/Autodesk/FBX/FBX SDK/2019.0/include",
 		"C:/Program Files/RenderDoc"
 	}
-
+	if not isUWP() then
+		includedirs {
+			"../ThirdParty/AssIMP/include",
+			"../ThirdParty/Bullet/src",
+			"../ThirdParty/GLAD/include/",
+			"../ThirdParty/GLAD/src/",
+			"../ThirdParty/GLFW/include",
+			"../ThirdParty/STB",
+			"../ThirdParty/Brofiler/BrofilerCore"
+		}
+	end
+	
+	linkoptions {
+		"-IGNORE:4221,4006"
+	}
+	
 	libdirs {
 		"../Build/%{cfg.buildcfg}"
 	}
@@ -51,8 +64,19 @@ workspace (getPlatformPostfix("MitchEngine"))
 		links {
 			"d2d1", "d3d11", "dxgi", "windowscodecs", "dwrite", "libfbxsdk-md"
 		}
+		libdirs {
+			"C:/Program Files/Autodesk/FBX/FBX SDK/2019.0/lib/vs2015store/%{cfg.platform}/%{cfg.buildcfg}"
+		}
 	else
 		defines { "ME_PLATFORM_WIN64" }
+		libdirs {
+			"../ThirdParty/Lib/Bullet/Win64/%{cfg.buildcfg}",
+			"../ThirdParty/Lib/GLFW/Win64/%{cfg.buildcfg}",
+			"C:/Program Files/Autodesk/FBX/FBX SDK/2019.0/lib/vs2015/%{cfg.platform}/%{cfg.buildcfg}"
+		}
+		links {
+			"opengl32", "glfw3dll", "libfbxsdk-md"
+		}
 	end
 	
 	defines{
@@ -62,17 +86,13 @@ workspace (getPlatformPostfix("MitchEngine"))
 	filter "configurations:Debug*"
 	defines { "DEBUG" }
 	symbols "On"
-	libdirs {
-		"C:/Program Files/Autodesk/FBX/FBX SDK/2019.0/lib/vs2015store/%{cfg.platform}/debug"
-	}
 
 	filter "configurations:Release*"
 	defines { "NDEBUG" }
 	optimize "On"
 	libdirs {
 		"$(VCInstallDir)\\lib\\store\\amd64",
-		"$(VCInstallDir)\\lib\\amd64",
-		"C:/Program Files/Autodesk/FBX/FBX SDK/2019.0/lib/vs2015store/%{cfg.platform}/release"
+		"$(VCInstallDir)\\lib\\amd64"
 	}
 
 	filter {}
@@ -97,6 +117,12 @@ project (getPlatformPostfix("MitchEngine"))
 		"../MitchEngine/**.txt",
 		"../Tools/*.lua"
 	}
+	if not isUWP() then
+		excludes {
+			"../MitchEngine/**/Graphics/Common/*.*",
+			"../MitchEngine/**/Graphics/Content/*.*"
+		}
+	end
 	vpaths {
 		["Build"] = "../Tools/*.lua"
 	}
@@ -124,15 +150,15 @@ project (getPlatformPostfix("MitchEngine"))
 
 group "Games"
 project (getPlatformPostfix("MitchGame"))
-	kind "ConsoleApp"
 	if (isUWP()) then
+		kind "StaticLib"
 		system "windowsuniversal"
 		consumewinrtextension "true"
 		systemversion "10.0.14393.0"
-		certificatefile "MitchGame_TemporaryKey.pfx"
-		certificatethumbprint "8d68369eaf2c030cd45ca6fce7f367e608b5463e"
-		defaultlanguage "en-US"
+	else
+		kind "ConsoleApp"
 	end
+
 	language "C++"
 	targetdir "../Build/%{cfg.buildcfg}"
 	location "../MitchGame"
@@ -151,13 +177,52 @@ project (getPlatformPostfix("MitchGame"))
 		"../MitchGame/**.pfx",
 		"../MitchGame/**.appxmanifest"
 	}
+	if (isUWP()) then
+		excludes {
+			"../MitchGame/Source/main.cpp"
+		}
+	end
 
 	includedirs {
 		"../MitchGame/Source",
 		"."
 	}
-	filter { "files:Assets/*.png" }
-		deploy "true"
 
-	filter "configurations:Debug Editor"
-	configuration "Debug"
+group "App"
+if (isUWP()) then
+	project (getPlatformPostfix("MitchGame_EntryPoint"))
+		kind "ConsoleApp"
+		if (isUWP()) then
+			system "windowsuniversal"
+			consumewinrtextension "true"
+			systemversion "10.0.14393.0"
+			certificatefile "MitchGame_TemporaryKey.pfx"
+			certificatethumbprint "8d68369eaf2c030cd45ca6fce7f367e608b5463e"
+			defaultlanguage "en-US"
+		end
+		language "C++"
+		targetdir "../Build/%{cfg.buildcfg}"
+		location "../MitchGame_EntryPoint"
+		links {
+			(getPlatformPostfix("MitchGame") .. ".lib")
+		}
+		dependson {
+			getPlatformPostfix("MitchGame")
+		}
+		files {
+			"../MitchGame_EntryPoint/Assets/**.frag",
+			"../MitchGame_EntryPoint/Assets/**.vert",
+			"../MitchGame_EntryPoint/Assets/**.png",
+			"../MitchGame_EntryPoint/**.h",
+			"../MitchGame_EntryPoint/**.cpp",
+			"../MitchGame_EntryPoint/**.pfx",
+			"../MitchGame_EntryPoint/**.appxmanifest"
+		}
+		
+		includedirs {
+			"../MitchGame/Source",
+			"."
+		}
+		filter { "files:Assets/*.png" }
+			deploy "true"
+end

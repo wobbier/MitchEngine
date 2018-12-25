@@ -6,7 +6,9 @@
 #include "Utility/Config.h"
 #include "Utility/Util.h"
 #include "Engine/Clock.h"
+#ifdef ME_PLATFORM_UWP
 #include "Graphics/Common/DeviceResources.h"
+#endif // ME_PLATFORM_UWP
 
 class Game
 {
@@ -18,7 +20,11 @@ public:
 	Game();
 	virtual ~Game();
 
+#ifdef ME_PLATFORM_UWP
 	void Start(const std::shared_ptr<DX::DeviceResources>& deviceResources);
+#else
+	void Start();
+#endif
 	void Tick();
 	virtual void Initialize();
 	virtual void Update(float DeltaTime);

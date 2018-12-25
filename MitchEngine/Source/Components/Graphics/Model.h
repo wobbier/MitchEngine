@@ -6,7 +6,6 @@
 
 #include "Graphics/Texture.h"
 #include "Graphics/Mesh.h"
-#include "Graphics/Common/DeviceResources.h"
 
 class Model : public Component<Model>
 {
@@ -15,7 +14,7 @@ public:
 	Model(std::string const &path, const std::string& shader, bool gamma = false);
 	~Model();
 
-	void Draw(std::shared_ptr<DX::DeviceResources> deviceResources);
+	void Draw();
 
 	// Separate init from construction code.
 	virtual void Init() final;

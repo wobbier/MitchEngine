@@ -26,7 +26,11 @@ Game::~Game()
 {
 }
 bool my_tool_active = false;
+#ifdef ME_PLATFORM_UWP
 void Game::Start(const std::shared_ptr<DX::DeviceResources>& deviceResources)
+#else
+void Game::Start()
+#endif
 {
 	Logger::GetInstance().SetLogFile("engine.txt");
 	Logger::GetInstance().SetLogPriority(Logger::LogType::Info);
@@ -62,8 +66,10 @@ void Game::Start(const std::shared_ptr<DX::DeviceResources>& deviceResources)
 	SceneNodes = new SceneGraph();
 	GameWorld->AddCore<SceneGraph>(*SceneNodes);
 
+#ifdef ME_PLATFORM_UWP
 	ModelRenderer = new Renderer(deviceResources);
 	GameWorld->AddCore<Renderer>(*ModelRenderer);
+#endif
 
 	Initialize();
 
@@ -114,8 +120,9 @@ void Game::Tick()
 
 		Cameras->Update(deltaTime);
 
+#ifdef ME_PLATFORM_UWP
 		ModelRenderer->Update(deltaTime);
-
+#endif
 		//LightingRenderer.PreRender();
 		//ModelRenderer.Render();
 		//LightingRenderer.PostRender();
@@ -164,7 +171,7 @@ bool Game::Render()
 
 void Game::WindowResized()
 {
-	ModelRenderer->CreateWindowSizeDependentResources();
+	//ModelRenderer->CreateWindowSizeDependentResources();
 }
 
 bool Game::IsRunning() const

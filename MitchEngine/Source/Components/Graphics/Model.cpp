@@ -13,7 +13,7 @@ Model::~Model()
 {
 }
 
-void Model::Draw(std::shared_ptr<DX::DeviceResources> deviceResources)
+void Model::Draw()
 {
 	for (unsigned int i = 0; i < Meshes.size(); i++)
 	{

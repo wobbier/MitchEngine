@@ -20,6 +20,7 @@
 #include "Components/Camera.h"
 #include <iostream>
 
+#ifdef ME_PLATFORM_UWP
 Renderer::Renderer(const std::shared_ptr<DX::DeviceResources>& deviceResources)
 	: Base(ComponentFilter().Requires<Transform>().Requires<Model>())
 	, m_deviceResources(deviceResources)
@@ -28,6 +29,13 @@ Renderer::Renderer(const std::shared_ptr<DX::DeviceResources>& deviceResources)
 	m_sceneRenderer = std::unique_ptr<TestModelRenderer>(new TestModelRenderer(m_deviceResources));
 
 	m_fpsTextRenderer = std::unique_ptr<SampleFpsTextRenderer>(new SampleFpsTextRenderer(m_deviceResources));
+
+}
+#endif
+
+Renderer::Renderer()
+	: Base(ComponentFilter().Requires<Transform>().Requires<Model>())
+{
 
 }
 
@@ -86,16 +94,20 @@ void Renderer::Init()
 
 void Renderer::Update(float dt)
 {
+#ifdef ME_PLATFORM_UWP
 	m_timer.Tick([&]()
 	{
 		m_sceneRenderer->Update(m_timer);
 		m_fpsTextRenderer->Update(m_timer);
 	});
+#endif
 }
 
 Renderer::~Renderer()
 {
+#ifdef ME_PLATFORM_UWP
 	m_deviceResources->RegisterDeviceNotify(nullptr);
+#endif
 	Logger::GetInstance().Log(Logger::LogType::Debug, "Renderer Destroyed...");
 }
 
@@ -103,6 +115,7 @@ bool Renderer::Render()
 {
 	//BROFILER_CATEGORY("Renderer::Render", Brofiler::Color::Red)
 	Camera* CurrentCamera = Camera::CurrentCamera;
+#ifdef ME_PLATFORM_UWP
 	if (!CurrentCamera || m_timer.GetFrameCount() == 0)
 	{
 		return false;
@@ -126,17 +139,18 @@ bool Renderer::Render()
 
 	for (Entity ent : Renderables)
 	{
-		ent.GetComponent<Model>().Draw(m_deviceResources);
+		ent.GetComponent<Model>().Draw();
 	}
 
 	// Render the scene objects.
 	// TODO: Replace this with your app's content rendering functions.
 	m_sceneRenderer->Render(GetEntities());
 	m_fpsTextRenderer->Render();
-
+#endif
 	return true;
 }
 
+#ifdef ME_PLATFORM_UWP
 void Renderer::OnDeviceLost()
 {
 	m_sceneRenderer->ReleaseDeviceDependentResources();
@@ -154,3 +168,4 @@ void Renderer::CreateWindowSizeDependentResources()
 {
 	m_sceneRenderer->CreateWindowSizeDependentResources();
 }
+#endif
