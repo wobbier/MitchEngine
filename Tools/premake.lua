@@ -108,6 +108,9 @@ project "MitchGame"
 	links {
 		"MitchEngine.lib"
 	}
+	dependson {
+		"MitchEngine"
+	}
 	files {
 		"../MitchGame/Assets/**.frag",
 		"../MitchGame/Assets/**.vert",
