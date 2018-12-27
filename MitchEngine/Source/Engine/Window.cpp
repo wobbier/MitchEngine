@@ -4,7 +4,7 @@
 #include "Utility/Logger.h"
 #include <assert.h>
 
-#ifdef ME_PLATFORM_WIN64
+#if ME_PLATFORM_WIN64
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>

@@ -1,8 +1,10 @@
 #include "PCH.h"
 #include "Shader.h"
 
-//#include <glad/glad.h>
-//#include <GLFW/glfw3.h>
+#if ME_PLATFORM_WIN64
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
+#endif
 
 Shader::Shader(const std::string& InVertexPath, const std::string& InFragPath)
 {
@@ -37,11 +39,12 @@ Shader::Shader(const std::string& InVertexPath, const std::string& InFragPath)
 	const char* vShaderCode = VertexSource.c_str();
 	const char * fShaderCode = FragSource.c_str();
 
+#if ME_PLATFORM_WIN64
 	// Variables for our compiled shaders
 	unsigned int vertex, fragment;
 	int success;
 	char infoLog[512];
-	/*
+
 	// Vertex Shader
 	vertex = glCreateShader(GL_VERTEX_SHADER);
 	glShaderSource(vertex, 1, &vShaderCode, NULL);
@@ -84,12 +87,15 @@ Shader::Shader(const std::string& InVertexPath, const std::string& InFragPath)
 
 	// Delete the shaders as they're linked into our program now and no longer necessary
 	glDeleteShader(vertex);
-	glDeleteShader(fragment);*/
+	glDeleteShader(fragment);
+#endif
 }
 
 void Shader::Use()
 {
-	//glUseProgram(Program);
+#if ME_PLATFORM_WIN64
+	glUseProgram(Program);
+#endif
 }
 
 const unsigned int Shader::GetProgram() const
@@ -99,25 +105,35 @@ const unsigned int Shader::GetProgram() const
 
 void Shader::SetMat4(const std::string &name, const glm::mat4 &mat) const
 {
-	//glUniformMatrix4fv(glGetUniformLocation(Program, name.c_str()), 1, GL_FALSE, &mat[0][0]);
+#if ME_PLATFORM_WIN64
+	glUniformMatrix4fv(glGetUniformLocation(Program, name.c_str()), 1, GL_FALSE, &mat[0][0]);
+#endif
 }
 
 void Shader::SetInt(const std::string &name, int value) const
 {
-	//glUniform1i(glGetUniformLocation(Program, name.c_str()), value);
+#if ME_PLATFORM_WIN64
+	glUniform1i(glGetUniformLocation(Program, name.c_str()), value);
+#endif
 }
 
 void Shader::SetVec3(const std::string &name, const glm::vec3 &value) const
 {
-	//glUniform3fv(glGetUniformLocation(Program, name.c_str()), 1, &value[0]);
+#if ME_PLATFORM_WIN64
+	glUniform3fv(glGetUniformLocation(Program, name.c_str()), 1, &value[0]);
+#endif
 }
 
 void Shader::SetVec3(const std::string &name, float x, float y, float z) const
 {
-	//glUniform3f(glGetUniformLocation(Program, name.c_str()), x, y, z);
+#if ME_PLATFORM_WIN64
+	glUniform3f(glGetUniformLocation(Program, name.c_str()), x, y, z);
+#endif
 }
 
 void Shader::SetFloat(const std::string &name, float value) const
 {
-	//glUniform1f(glGetUniformLocation(Program, name.c_str()), value);
+#if ME_PLATFORM_WIN64
+	glUniform1f(glGetUniformLocation(Program, name.c_str()), value);
+#endif
 }

@@ -115,6 +115,8 @@ Mesh Model::ProcessMesh(FbxMesh* mesh, const FbxScene* scene)
 	{
 		int numVerts = mesh->GetPolygonSize(i);
 
+		indices.push_back(mesh->GetPolygonVertexIndex(i));
+
 		if (numVerts != 3)
 		{
 			Logger::GetInstance().Log(Logger::LogType::Error, "[Mesh] is not triangulated.");
@@ -126,13 +128,14 @@ Mesh Model::ProcessMesh(FbxMesh* mesh, const FbxScene* scene)
 			glm::vec3 vector;
 
 			vector.x = verts[j].mData[0];
-			vector.y = verts[i].mData[1];
-			vector.z = verts[i].mData[2];
+			vector.y = verts[j].mData[1];
+			vector.z = verts[j].mData[2];
 
 			vertex.Position = vector;
 
 			vertices.push_back(vertex);
 		}
+
 	}
 
 	return Mesh(vertices, indices, textures);

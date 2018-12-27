@@ -7,7 +7,7 @@
 
 #pragma region KeyboardInput
 
-#ifdef ME_PLATFORM_WIN64
+#if ME_PLATFORM_WIN64
 void Input::KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode)
 {
 	//printf("%i, %i, %i, %i\n", key, scancode, action, mode);
@@ -41,7 +41,7 @@ bool Input::IsKeyUp(int key)
 
 #pragma region MouseInput
 
-#ifdef ME_PLATFORM_WIN64
+#if ME_PLATFORM_WIN64
 void Input::MouseCallback(GLFWwindow* window, double xpos, double ypos)
 {
 	Input& Instance = GetInstance();

@@ -3,7 +3,7 @@
 #include <iostream>
 #include <string>
 
-#ifdef ME_PLATFORM_WIN64
+#if ME_PLATFORM_WIN64
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 

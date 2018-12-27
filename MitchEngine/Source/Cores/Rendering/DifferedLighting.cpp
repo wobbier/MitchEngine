@@ -11,7 +11,9 @@
 
 #include "Components/Camera.h"
 #include <iostream>
-/*
+
+#if ME_PLATFORM_WIN64
+
 DifferedLighting::DifferedLighting() : Base(ComponentFilter().Requires<Transform>().Requires<Light>())
 {
 }
@@ -115,7 +117,7 @@ DifferedLighting::~DifferedLighting()
 
 void DifferedLighting::PreRender()
 {
-	glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+	glClearColor(0.1f, 0.1f, 255.f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	glBindFramebuffer(GL_FRAMEBUFFER, gBuffer);
@@ -123,7 +125,7 @@ void DifferedLighting::PreRender()
 
 void DifferedLighting::PostRender()
 {
-	BROFILER_CATEGORY("DifferedLighting::PostRender", Brofiler::Color::White)
+	//BROFILER_CATEGORY("DifferedLighting::PostRender", Brofiler::Color::White)
 	Camera* CurrentCamera = Camera::CurrentCamera;
 	if (!CurrentCamera)
 	{
@@ -194,4 +196,4 @@ void DifferedLighting::PostRender()
 	glBlitFramebuffer(0, 0, SCR_WIDTH, SCR_HEIGHT, 0, 0, SCR_WIDTH, SCR_HEIGHT, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
-*/
+#endif

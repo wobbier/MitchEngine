@@ -3,6 +3,9 @@
 #include <map>
 #include <glm.hpp>
 
+#if ME_PLATFORM_WIN64
+#include "GLFW/glfw3.h"
+#endif
 class Input : public Singleton<Input>
 {
 	friend class Singleton<Input>;
@@ -28,7 +31,7 @@ public:
 	glm::vec2 GetMousePosition();
 	glm::vec2 GetMouseScrollOffset();
 
-#ifdef ME_PLATFORM_WIN64
+#if ME_PLATFORM_WIN64
 	static void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode);
 	static void MouseCallback(GLFWwindow* window, double xpos, double ypos);
 	static void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset);

@@ -7,8 +7,20 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 
-#include <windows.h>
+#ifdef ME_PLATFORM_WIN64
+#define ME_PLATFORM_WIN64 1
+#else
+#define ME_PLATFORM_WIN64 0
+#endif
+
 #ifdef ME_PLATFORM_UWP
+#define ME_PLATFORM_UWP 1
+#else
+#define ME_PLATFORM_UWP 0
+#endif
+
+#include <windows.h>
+#if ME_PLATFORM_UWP
 #include <wrl.h>
 #include <wrl/client.h>
 #include <dxgi1_4.h>
@@ -21,6 +33,11 @@
 #include <DirectXMath.h>
 #include <agile.h>
 #include <concrt.h>
+#endif
+
+#if ME_PLATFORM_WIN64
+#include "glad/glad.h"
+#include "GLFW/glfw3.h"
 #endif
 
 //#include "ozz/animation/runtime/animation.h"

@@ -26,7 +26,7 @@ Game::~Game()
 {
 }
 bool my_tool_active = false;
-#ifdef ME_PLATFORM_UWP
+#if ME_PLATFORM_UWP
 void Game::Start(const std::shared_ptr<DX::DeviceResources>& deviceResources)
 #else
 void Game::Start()
@@ -42,7 +42,7 @@ void Game::Start()
 	int WindowWidth = 1280;//WindowConfig["width"].asInt();
 	int WindowHeight = 720;//WindowConfig["height"].asInt();
 
-#ifdef ME_PLATFORM_WIN64
+#if ME_PLATFORM_WIN64
 	GameWindow = new Window("MitchEngine", WindowWidth, WindowHeight);
 #endif
 
@@ -51,9 +51,10 @@ void Game::Start()
 	//auto ModelRenderer = Renderer();
 	//GameWorld->AddCore<Renderer>(ModelRenderer);
 
-	//auto LightingRenderer = DifferedLighting();
-	//GameWorld->AddCore<DifferedLighting>(LightingRenderer);
-
+#if ME_PLATFORM_WIN64
+	LightingRenderer = new DifferedLighting();
+	GameWorld->AddCore<DifferedLighting>(*LightingRenderer);
+#endif
 	Animator = new AnimationCore();
 	GameWorld->AddCore<AnimationCore>(*Animator);
 
@@ -66,10 +67,13 @@ void Game::Start()
 	SceneNodes = new SceneGraph();
 	GameWorld->AddCore<SceneGraph>(*SceneNodes);
 
-#ifdef ME_PLATFORM_UWP
+#if ME_PLATFORM_UWP
 	ModelRenderer = new Renderer(deviceResources);
-	GameWorld->AddCore<Renderer>(*ModelRenderer);
 #endif
+#if ME_PLATFORM_WIN64
+	ModelRenderer = new Renderer();
+#endif
+	GameWorld->AddCore<Renderer>(*ModelRenderer);
 
 	Initialize();
 
@@ -90,7 +94,7 @@ void Game::Tick()
 #endif
 
 	// Game loop
-#ifdef ME_PLATFORM_WIN64
+#if ME_PLATFORM_WIN64
 	while (!GameWindow->ShouldClose())
 	{
 		//BROFILER_FRAME("MainLoop")
@@ -108,7 +112,6 @@ void Game::Tick()
 		ImGui::NewFrame();
 		*/
 #endif
-
 		// Update our engine
 		GameWorld->Simulate();
 		Physics->Update(deltaTime);
@@ -120,12 +123,12 @@ void Game::Tick()
 
 		Cameras->Update(deltaTime);
 
-#ifdef ME_PLATFORM_UWP
 		ModelRenderer->Update(deltaTime);
+#if ME_PLATFORM_WIN64
+		LightingRenderer->PreRender();
+		ModelRenderer->Render();
+		LightingRenderer->PostRender();
 #endif
-		//LightingRenderer.PreRender();
-		//ModelRenderer.Render();
-		//LightingRenderer.PostRender();
 
 #ifdef MAN_EDITOR
 		show_demo_window = true;
@@ -141,7 +144,7 @@ void Game::Tick()
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 #endif
 
-#ifdef ME_PLATFORM_WIN64
+#if ME_PLATFORM_WIN64
 		// Swap the buffers
 		GameWindow->Swap();
 	}

@@ -3,7 +3,7 @@
 #include "Graphics/Cubemap.h"
 #include "Graphics/Shader.h"
 
-#ifdef ME_PLATFORM_UWP
+#if ME_PLATFORM_UWP
 #include "Graphics\Common\StepTimer.h"
 #include "Graphics\Common\DeviceResources.h"
 #include "Graphics\Content\TestModelRenderer.h"
@@ -12,13 +12,13 @@
 
 class Renderer
 	: public Core<Renderer>
-#ifdef ME_PLATFORM_UWP
+#if ME_PLATFORM_UWP
 	, public DX::IDeviceNotify
 #endif // ME_PLATFORM_UWP
 {
 public:
 	Renderer();
-#ifdef ME_PLATFORM_UWP
+#if ME_PLATFORM_UWP
 	Renderer(const std::shared_ptr<DX::DeviceResources>& deviceResources);
 #endif // ME_PLATFORM_UWP
 	~Renderer();
@@ -33,7 +33,7 @@ public:
 	Cubemap* SkyboxMap = nullptr;
 	Shader* SkyboxShader = nullptr;
 
-#ifdef ME_PLATFORM_UWP
+#if ME_PLATFORM_UWP
 	void CreateWindowSizeDependentResources();
 	virtual void OnDeviceLost() override;
 	virtual void OnDeviceRestored() override;
@@ -46,4 +46,7 @@ private:
 	// Rendering loop timer.
 	DX::StepTimer m_timer;
 #endif // ME_PLATFORM_UWP
+#if ME_PLATFORM_WIN64
+	unsigned int skyboxVAO, skyboxVBO;
+#endif
 };

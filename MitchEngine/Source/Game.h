@@ -6,7 +6,7 @@
 #include "Utility/Config.h"
 #include "Utility/Util.h"
 #include "Engine/Clock.h"
-#ifdef ME_PLATFORM_UWP
+#if ME_PLATFORM_UWP
 #include "Graphics/Common/DeviceResources.h"
 #endif // ME_PLATFORM_UWP
 
@@ -20,7 +20,7 @@ public:
 	Game();
 	virtual ~Game();
 
-#ifdef ME_PLATFORM_UWP
+#if ME_PLATFORM_UWP
 	void Start(const std::shared_ptr<DX::DeviceResources>& deviceResources);
 #else
 	void Start();
@@ -35,7 +35,7 @@ public:
 	bool IsRunning() const;
 	void Quit();
 
-#ifdef ME_PLATFORM_WIN64
+#if ME_PLATFORM_WIN64
 	Window* GetWindow();
 #endif
 
@@ -44,10 +44,11 @@ public:
 	class CameraCore* Cameras;
 	class SceneGraph* SceneNodes;
 	class Renderer* ModelRenderer;
+	class DifferedLighting* LightingRenderer;
 	Clock& GameClock;
 private:
 	bool Running;
-#ifdef ME_PLATFORM_WIN64
+#if ME_PLATFORM_WIN64
 	Window* GameWindow;
 #endif
 	Config* EngineConfig;
