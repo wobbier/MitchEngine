@@ -28,9 +28,10 @@ private:
 
 	static FbxManager* g_pFbxSdkManager;
 
-	//void ProcessNode(aiNode *node, const aiScene *scene);
+	Mesh ProcessMesh(FbxMesh* mesh, const FbxScene* scene, int& vertexCounter, FbxNode* child);
 
-	Mesh ProcessMesh(FbxMesh* mesh, const FbxScene* scene);
-
-	//void LoadMaterialTextures(std::vector<Texture*>& textures, aiMaterial *mat, aiTextureType type, std::string typeName);
+	void LoadMaterial(FbxNode* node, FbxMesh* mesh, std::vector<Texture*>& materials);
+	void LoadMaterialTextures(FbxSurfaceMaterial* material, std::vector<Texture*>& materials);
+	glm::vec2 ReadUV(FbxMesh* mesh, int controlPointIndex, int textureUVIndex, int uvLayer);
+	glm::vec3 ReadNormal(FbxMesh* mesh, int controlPointIndex, int vertextCounter);
 };

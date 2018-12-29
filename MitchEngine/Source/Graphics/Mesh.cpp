@@ -29,15 +29,15 @@ void Mesh::Draw(Shader shader)
 
 		std::string number;
 		std::string name = textures[i]->type;
-		if (name == "texture_diffuse")
+		if (name == "DiffuseColor")
 		{
 			number = std::to_string(diffuseNr++);
 		}
-		else if (name == "texture_specular")
+		else if (name == "SpecularColor")
 		{
 			number = std::to_string(specularNr++);
 		}
-		else if (name == "texture_normal")
+		else if (name == "NormalMap")
 		{
 			number = std::to_string(normalNr++);
 		}
@@ -85,11 +85,11 @@ void Mesh::InitMesh()
 	glEnableVertexAttribArray(2);
 	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, TexCoords));
 	// Tangent
-	glEnableVertexAttribArray(3);
-	glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, Tangent));
-	// Bitangent
-	glEnableVertexAttribArray(4);
-	glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, Bitangent));
+	/*glEnableVertexAttribArray(3);
+	glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, Tangent));*/
+	//// Bitangent
+	//glEnableVertexAttribArray(4);
+	//glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, Bitangent));
 
 	glBindVertexArray(0);
 #endif

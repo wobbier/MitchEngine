@@ -1,0 +1,57 @@
+# Blender MTL File: 'Neck_Mech_BGE_Export.blend'
+# Material Count: 4
+
+newmtl Control_Module
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.800000 0.800000 0.800000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.000000
+d 1.000000
+illum 2
+map_Bump ..\\Control_Module_nmap.jpg
+map_Kd ..\\Control_Module_color.jpg
+map_Ks ..\\Control_Module_rough.jpg
+refl ..\\ref.jpg
+
+newmtl Neck_Mech
+Ns 23.529412
+Ka 0.000000 0.000000 0.000000
+Kd 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.000000
+d 1.000000
+illum 2
+map_Bump ..\\Hydraulic_nmap.jpg
+map_Kd ..\\Hydraulic_col.jpg
+map_Ks ..\\Hydraulic_rough.jpg
+refl ..\\ref.jpg
+
+newmtl Walker
+Ns 17.647059
+Ka 0.000000 0.000000 0.000000
+Kd 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.000000
+d 1.000000
+illum 2
+map_Bump ..\\walker_nmap.jpg
+map_Kd ..\\walker_color.jpg
+map_Ks ..\\walker_color.jpg
+refl ..\\ref.jpg
+
+newmtl Walker_Glas
+Ns 100.000000
+Ka 0.000000 0.000000 0.000000
+Kd 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.000000
+d 0.371622
+illum 2
+map_Bump ..\\walker_nmap.jpg
+map_Kd ..\\walker_color.jpg
+map_Ks ..\\walker_color.jpg

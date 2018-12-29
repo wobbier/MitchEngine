@@ -44,17 +44,15 @@ void MitchGame::Initialize()
 
 	Entity Ground = GameWorld->CreateEntity();
 	Ground.AddComponent<Transform>("Ground obvs");
-	Ground.AddComponent<Model>("Assets/ground.fbx", "Assets/Shaders/Albedo");
+	Ground.AddComponent<Model>("Assets/Mech/mech.fbx", "Assets/Shaders/Albedo");
 
-	////Entity Player = GameWorld->CreateEntity();
-	////Player.AddComponent<Transform>();
-	////Player.AddComponent<Model>("Assets/Models/nanosuit.obj", "Assets/Shaders/Albedo");
+	/*Entity Ground2 = GameWorld->CreateEntity();
+	Ground2.AddComponent<Transform>("Ground obvs");
+	Ground2.GetComponent<Transform>().SetPosition(glm::vec3(0, 0, 0));
+	Ground2.GetComponent<Transform>().SetScale(glm::vec3(0.025f, 0.025f, 0.025f));
+	Ground2.AddComponent<Model>("Assets/Hog/Roadhog.fbx", "Assets/Shaders/Albedo");*/
 
-	////Entity Cube = GameWorld->CreateEntity();
-	////Cube.AddComponent<Transform>("Fucked up cube");
-	////Cube.AddComponent<Model>("Assets/Models/cube.obj", "Assets/Shaders/Albedo");
-
-	const int Lights = 31;
+	const int Lights = 5;
 	srand(13);
 	for (unsigned int i = 0; i < Lights; i++)
 	{
@@ -67,36 +65,6 @@ void MitchGame::Initialize()
 		float zPos = ((rand() % 100) / 100.0) * 6.0 - 3.0;
 		LightTransform.SetPosition(glm::vec3(xPos, yPos, zPos));
 	}
-
-	//glm::vec3 cubePositions[] = {
-	//	glm::vec3(0.0f,  0.0f,  0.0f),
-	//	glm::vec3(2.0f,  5.0f, -15.0f),
-	//	glm::vec3(-1.5f, -2.2f, -2.5f),
-	//	glm::vec3(-3.8f, -2.0f, -12.3f),
-	//	glm::vec3(2.4f, -0.4f, -3.5f),
-	//	glm::vec3(-1.7f,  3.0f, -7.5f),
-	//	glm::vec3(1.3f, -2.0f, -2.5f),
-	//	glm::vec3(1.5f,  2.0f, -2.5f),
-	//	glm::vec3(1.5f,  0.2f, -1.5f),
-	//	glm::vec3(-1.3f,  1.0f, -1.5f)
-	//};
-	//Transform* previousTransform = nullptr;
-	//for (int i = 0; i < 1; ++i)
-	//{
-	//	//Entity Cube = GameWorld->CreateEntity();
-	//	//Transform& BGPos = Cube.AddComponent<Transform>("Grass Cubes???? " + std::to_string(i));
-	//	//BGPos.SetPosition(glm::vec3(i * 2.f, 0.f, 0.f));
-	//	//BGPos.SetScale(glm::vec3(.1f, .1f, .1f));
-	//	//if (previousTransform)
-	//	//{
-	//	//	//BGPos.SetParent(*previousTransform);
-	//	//}
-	//	//Cube.AddComponent<Model>("Assets/Models/TerraBlend.fbx", "Assets/Shaders/Albedo");
-	//	////Cube.AddComponent<DebugCube>();
-	//	//Cubes.push_back(Cube);
-	//	//previousTransform = &BGPos;
-	//	//Cube.SetActive(true);
-	//}
 
 	FlyingCameraController = new FlyingCameraCore();
 	GameWorld->AddCore<FlyingCameraCore>(*FlyingCameraController);

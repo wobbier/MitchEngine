@@ -104,8 +104,8 @@ project (getPlatformPostfix("MitchEngine"))
 	if (isUWP()) then
 		system "windowsuniversal"
 		consumewinrtextension "true"
-		systemversion "10.0.14393.0"
 	end
+	systemversion "10.0.14393.0"
 	language "C++"
 	targetdir "../Build/%{cfg.buildcfg}"
 	location "../MitchEngine"
@@ -131,7 +131,8 @@ project (getPlatformPostfix("MitchEngine"))
 		"fxc /T ps_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\SamplePixelShader.cso Assets\\Shaders\\SamplePixelShader.hlsl",
 		"fxc /T ps_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\AppX\\SamplePixelShader.cso Assets\\Shaders\\SamplePixelShader.hlsl",
 		"fxc /T vs_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\SampleVertexShader.cso Assets\\Shaders\\SampleVertexShader.hlsl",
-		"fxc /T vs_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\AppX\\SampleVertexShader.cso Assets\\Shaders\\SampleVertexShader.hlsl"
+		"fxc /T vs_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\AppX\\SampleVertexShader.cso Assets\\Shaders\\SampleVertexShader.hlsl",
+		"xcopy /y /d  \"..\\ThirdParty\\Lib\\GLFW\\Win64\\%{cfg.buildcfg}\\glfw3.dll\" \"..\\Build\\%{cfg.buildcfg}\""
 		}
 	
 	configuration "with-renderdoc"
@@ -154,11 +155,11 @@ project (getPlatformPostfix("MitchGame"))
 		kind "StaticLib"
 		system "windowsuniversal"
 		consumewinrtextension "true"
-		systemversion "10.0.14393.0"
 	else
 		kind "ConsoleApp"
 	end
-
+	
+	systemversion "10.0.14393.0"
 	language "C++"
 	targetdir "../Build/%{cfg.buildcfg}"
 	location "../MitchGame"
