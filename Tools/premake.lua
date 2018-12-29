@@ -36,14 +36,13 @@ workspace (getPlatformPostfix("MitchEngine"))
 	includedirs {
 		"../MitchEngine/",
 		"../MitchEngine/Source",
+		"../ThirdParty/Bullet/src",
 		"../ThirdParty/GLM/glm",
 		"C:/Program Files/Autodesk/FBX/FBX SDK/2019.0/include",
 		"C:/Program Files/RenderDoc"
 	}
 	if not isUWP() then
 		includedirs {
-			"../ThirdParty/AssIMP/include",
-			"../ThirdParty/Bullet/src",
 			"../ThirdParty/GLAD/include/",
 			"../ThirdParty/GLAD/src/",
 			"../ThirdParty/GLFW/include",
@@ -65,6 +64,7 @@ workspace (getPlatformPostfix("MitchEngine"))
 			"d2d1", "d3d11", "dxgi", "windowscodecs", "dwrite", "libfbxsdk-md"
 		}
 		libdirs {
+			"../ThirdParty/Lib/Bullet/Win64/%{cfg.buildcfg}",
 			"C:/Program Files/Autodesk/FBX/FBX SDK/2019.0/lib/vs2015store/%{cfg.platform}/%{cfg.buildcfg}"
 		}
 	else
@@ -86,6 +86,11 @@ workspace (getPlatformPostfix("MitchEngine"))
 	filter "configurations:Debug*"
 	defines { "DEBUG" }
 	symbols "On"
+	links {
+		"BulletDynamics_Debug",
+		"BulletCollision_Debug",
+		"LinearMath_Debug"
+	}
 
 	filter "configurations:Release*"
 	defines { "NDEBUG" }
@@ -93,6 +98,11 @@ workspace (getPlatformPostfix("MitchEngine"))
 	libdirs {
 		"$(VCInstallDir)\\lib\\store\\amd64",
 		"$(VCInstallDir)\\lib\\amd64"
+	}
+	links {
+		"BulletDynamics_MinsizeRel",
+		"BulletCollision_MinsizeRel",
+		"LinearMath_MinsizeRel"
 	}
 
 	filter {}

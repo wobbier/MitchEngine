@@ -43,7 +43,8 @@ void MitchGame::Initialize()
 	SecondaryCamera.AddComponent<FlyingCamera>();
 
 	Entity Ground = GameWorld->CreateEntity();
-	Ground.AddComponent<Transform>("Ground obvs");
+	Ground.AddComponent<Transform>("Ground obvs").SetPosition(glm::vec3(0.f, 20.f, 0.f));
+	Ground.AddComponent<Rigidbody>();
 	Ground.AddComponent<Model>("Assets/Mech/mech.fbx", "Assets/Shaders/Albedo");
 
 	/*Entity Ground2 = GameWorld->CreateEntity();
