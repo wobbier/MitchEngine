@@ -27,3 +27,7 @@
 [submodule "ThirdParty/GLAD"]
 	path = ThirdParty/GLAD
 	url = https://github.com/wobbier/MitchEngineGLAD
+[submodule "ThirdParty/Brofiler"]
+	path = ThirdParty/Brofiler
+	url = https://github.com/bombomby/brofiler
+	branch = v2.0
