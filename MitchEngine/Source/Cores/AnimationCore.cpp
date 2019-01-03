@@ -18,7 +18,7 @@ void AnimationCore::Init()
 float i = 0;
 void AnimationCore::Update(float dt)
 {
-	//BROFILER_CATEGORY("AnimationCore::Update", Brofiler::Color::Green)
+	BROFILER_CATEGORY("AnimationCore::Update", Brofiler::Color::Green)
 	auto Animatables = GetEntities();
 	for (auto& InEntity : Animatables)
 	{

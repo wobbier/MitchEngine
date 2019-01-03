@@ -10,11 +10,6 @@
 #include "Cores/SceneGraph.h"
 #include "Graphics/Cubemap.h"
 #include "Engine/Input.h"
-#ifdef MAN_EDITOR
-#include "Graphics/UI/imgui.h"
-#include "Graphics/UI/imgui_impl_glfw.h"
-#include "Graphics/UI/imgui_impl_opengl3.h"
-#endif
 
 Game::Game()
 	: Running(true)
@@ -82,22 +77,11 @@ void Game::Start()
 
 void Game::Tick()
 {
-	int i = 0;
-#ifdef MAN_EDITOR
-	i = 2;
-#endif
-
-#ifdef MAN_EDITOR
-	bool show_demo_window = true;
-	bool show_another_window = false;
-	ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-#endif
-
 	// Game loop
 #if ME_PLATFORM_WIN64
 	while (!GameWindow->ShouldClose())
 	{
-		//BROFILER_FRAME("MainLoop")
+		BROFILER_FRAME("MainLoop")
 			// Check and call events
 			GameWindow->PollInput();
 #endif
@@ -105,13 +89,6 @@ void Game::Tick()
 		float time = GameClock.GetTimeInMilliseconds();
 		const float deltaTime = GameClock.deltaTime = (time <= 0.0f || time >= 0.3) ? 0.0001f : time;
 
-#ifdef MAN_EDITOR
-		/*
-		ImGui_ImplOpenGL3_NewFrame();
-		ImGui_ImplGlfw_NewFrame();
-		ImGui::NewFrame();
-		*/
-#endif
 		// Update our engine
 		GameWorld->Simulate();
 		Physics->Update(deltaTime);
@@ -124,27 +101,15 @@ void Game::Tick()
 		Cameras->Update(deltaTime);
 
 		ModelRenderer->Update(deltaTime);
+
 #if ME_PLATFORM_WIN64
 		LightingRenderer->PreRender();
+#endif
+
 		ModelRenderer->Render();
-		LightingRenderer->PostRender();
-#endif
-
-#ifdef MAN_EDITOR
-		show_demo_window = true;
-
-		// 3. Show the ImGui demo window. Most of the sample code is in ImGui::ShowDemoWindow(). Read its code to learn more about Dear ImGui!
-		if (true)
-		{
-			ImGui::SetNextWindowPos(ImVec2(650, 20), ImGuiCond_FirstUseEver); // Normally user code doesn't need/want to call this because positions are saved in .ini file anyway. Here we just want to make the demo initial state a bit more friendly!
-			ImGui::ShowDemoWindow(&show_demo_window);
-		}
-		ImGui::Render();
-
-		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-#endif
 
 #if ME_PLATFORM_WIN64
+		LightingRenderer->PostRender();
 		// Swap the buffers
 		GameWindow->Swap();
 	}

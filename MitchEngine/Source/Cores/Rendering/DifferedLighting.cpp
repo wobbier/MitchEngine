@@ -125,7 +125,7 @@ void DifferedLighting::PreRender()
 
 void DifferedLighting::PostRender()
 {
-	//BROFILER_CATEGORY("DifferedLighting::PostRender", Brofiler::Color::White)
+	BROFILER_CATEGORY("DifferedLighting::PostRender", Brofiler::Color::White)
 	Camera* CurrentCamera = Camera::CurrentCamera;
 	if (!CurrentCamera)
 	{

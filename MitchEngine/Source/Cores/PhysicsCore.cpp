@@ -49,7 +49,7 @@ void PhysicsCore::Init()
 
 void PhysicsCore::Update(float dt)
 {
-	//BROFILER_CATEGORY("PhysicsCore::Update", Brofiler::Color::Green)
+	BROFILER_CATEGORY("PhysicsCore::Update", Brofiler::Color::Green)
 	auto PhysicsEntites = GetEntities();
 
 	// Need a fixed delta probably

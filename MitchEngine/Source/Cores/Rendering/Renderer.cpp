@@ -121,7 +121,7 @@ Renderer::~Renderer()
 
 bool Renderer::Render()
 {
-	//BROFILER_CATEGORY("Renderer::Render", Brofiler::Color::Red)
+	BROFILER_CATEGORY("Renderer::Render", Brofiler::Color::Red)
 	Camera* CurrentCamera = Camera::CurrentCamera;
 	if (!CurrentCamera)
 	{

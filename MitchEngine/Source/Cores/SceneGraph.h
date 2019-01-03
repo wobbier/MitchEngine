@@ -17,9 +17,5 @@ public:
 
 	virtual void OnEntityAdded(Entity& NewEntity) final;
 
-#ifdef MAN_EDITOR
-	void UpdateUI(Transform* StartingTransform);
-#endif
-
 	Entity RootEntity;
 };

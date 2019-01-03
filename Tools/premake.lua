@@ -39,15 +39,15 @@ workspace (getPlatformPostfix("MitchEngine"))
 		"../ThirdParty/Bullet/src",
 		"../ThirdParty/GLM/glm",
 		"C:/Program Files/Autodesk/FBX/FBX SDK/2019.0/include",
-		"C:/Program Files/RenderDoc"
+		"C:/Program Files/RenderDoc",
+		"../ThirdParty/Brofiler/BrofilerCore"
 	}
 	if not isUWP() then
 		includedirs {
 			"../ThirdParty/GLAD/include/",
 			"../ThirdParty/GLAD/src/",
 			"../ThirdParty/GLFW/include",
-			"../ThirdParty/STB",
-			"../ThirdParty/Brofiler/BrofilerCore"
+			"../ThirdParty/STB"
 		}
 	end
 	
@@ -58,6 +58,11 @@ workspace (getPlatformPostfix("MitchEngine"))
 	libdirs {
 		"../Build/%{cfg.buildcfg}"
 	}
+
+	links {
+		"BrofilerCore"
+	}
+
 	if (isUWP()) then
 		defines { "ME_PLATFORM_UWP" }
 		links {
@@ -65,14 +70,16 @@ workspace (getPlatformPostfix("MitchEngine"))
 		}
 		libdirs {
 			"../ThirdParty/Lib/Bullet/Win64/%{cfg.buildcfg}",
-			"C:/Program Files/Autodesk/FBX/FBX SDK/2019.0/lib/vs2015store/%{cfg.platform}/%{cfg.buildcfg}"
+			"C:/Program Files/Autodesk/FBX/FBX SDK/2019.0/lib/vs2015store/%{cfg.platform}/%{cfg.buildcfg}",
+			"../ThirdParty/Lib/Brofiler/UWP/%{cfg.buildcfg}"
 		}
 	else
 		defines { "ME_PLATFORM_WIN64" }
 		libdirs {
 			"../ThirdParty/Lib/Bullet/Win64/%{cfg.buildcfg}",
 			"../ThirdParty/Lib/GLFW/Win64/%{cfg.buildcfg}",
-			"C:/Program Files/Autodesk/FBX/FBX SDK/2019.0/lib/vs2015/%{cfg.platform}/%{cfg.buildcfg}"
+			"C:/Program Files/Autodesk/FBX/FBX SDK/2019.0/lib/vs2015/%{cfg.platform}/%{cfg.buildcfg}",
+			"../ThirdParty/Lib/Brofiler/Win64/%{cfg.buildcfg}"
 		}
 		links {
 			"opengl32", "glfw3dll", "libfbxsdk-md"

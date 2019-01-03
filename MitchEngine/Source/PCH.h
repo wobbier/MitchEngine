@@ -40,6 +40,8 @@
 #include "GLFW/glfw3.h"
 #endif
 
+#include "Brofiler.h"
+
 //#include "ozz/animation/runtime/animation.h"
 //#include "ozz/animation/runtime/blending_job.h"
 //#include "ozz/animation/runtime/local_to_model_job.h"

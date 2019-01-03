@@ -9,11 +9,6 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <glad.c>
-#ifdef MAN_EDITOR
-#include "Graphics/UI/imgui.h"
-#include "Graphics/UI/imgui_impl_glfw.h"
-#include "Graphics/UI/imgui_impl_opengl3.h"
-#endif
 
 int Window::WINDOW_WIDTH = 960;
 int Window::WINDOW_HEIGHT = 540;
@@ -55,25 +50,6 @@ Window::Window(std::string title, int width, int height)
 	glfwSetKeyCallback(window, &Input::KeyCallback);
 	glfwSetCursorPosCallback(window, &Input::MouseCallback);
 	glfwSetScrollCallback(window, &Input::ScrollCallback);
-
-#ifdef MAN_EDITOR
-
-	// Setup Dear ImGui binding
-	IMGUI_CHECKVERSION();
-	ImGui::CreateContext();
-	ImGuiIO& io = ImGui::GetIO(); (void)io;
-	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;  // Enable Keyboard Controls
-	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;   // Enable Gamepad Controls
-
-	ImGui_ImplGlfw_InitForOpenGL(window, true);
-	const char* glsl_version = "#version 130";
-	ImGui_ImplOpenGL3_Init(glsl_version);
-	glfwSetKeyCallback(window, ImGui_ImplGlfw_KeyCallback);
-	glfwSetCursorPosCallback(window, ImGui_ImplGlfw_MousePosCallback);
-
-	// Setup style
-	ImGui::StyleColorsDark();
-#endif
 }
 
 Window::~Window()

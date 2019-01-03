@@ -27,7 +27,6 @@ MitchGame::~MitchGame()
 
 void MitchGame::Initialize()
 {
-
 	MainCamera = GameWorld->CreateEntity();
 	Transform& CameraPos = MainCamera.AddComponent<Transform>("Main Camera");
 	CameraPos.SetPosition(glm::vec3(0, 5, 20));
