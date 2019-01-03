@@ -7,7 +7,6 @@
 #include "Graphics\Common\StepTimer.h"
 #include "Graphics\Common\DeviceResources.h"
 #include "Graphics\Content\TestModelRenderer.h"
-#include "Graphics\Content\SampleFpsTextRenderer.h"
 #endif // ME_PLATFORM_UWP
 
 class Renderer
@@ -41,7 +40,6 @@ public:
 private:
 	std::shared_ptr<DX::DeviceResources> m_deviceResources;
 	std::unique_ptr<TestModelRenderer> m_sceneRenderer;
-	std::unique_ptr<SampleFpsTextRenderer> m_fpsTextRenderer;
 
 	// Rendering loop timer.
 	DX::StepTimer m_timer;

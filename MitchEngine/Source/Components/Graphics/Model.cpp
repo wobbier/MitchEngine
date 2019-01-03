@@ -286,6 +286,8 @@ void Model::LoadMaterialTextures(FbxSurfaceMaterial* material, std::vector<Textu
 							Texture* loadedTexture = ResourceCache::GetInstance().Get<Texture>(filename);
 							loadedTexture->path = filename;
 							loadedTexture->type = textureType;
+							Logger::GetInstance().Log(Logger::LogType::Info, "Loaded Texture Type: " + loadedTexture->type);
+
 							materials.push_back(loadedTexture);
 						}
 					}

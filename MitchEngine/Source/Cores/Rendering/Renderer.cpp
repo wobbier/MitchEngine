@@ -27,9 +27,6 @@ Renderer::Renderer(const std::shared_ptr<DX::DeviceResources>& deviceResources)
 {
 	m_deviceResources->RegisterDeviceNotify(this);
 	m_sceneRenderer = std::unique_ptr<TestModelRenderer>(new TestModelRenderer(m_deviceResources));
-
-	m_fpsTextRenderer = std::unique_ptr<SampleFpsTextRenderer>(new SampleFpsTextRenderer(m_deviceResources));
-
 }
 #endif
 
@@ -110,7 +107,6 @@ void Renderer::Update(float dt)
 	m_timer.Tick([&]()
 	{
 		m_sceneRenderer->Update(m_timer);
-		m_fpsTextRenderer->Update(m_timer);
 	});
 #endif
 }
@@ -148,7 +144,7 @@ bool Renderer::Render()
 	context->OMSetRenderTargets(1, targets, m_deviceResources->GetDepthStencilView());
 
 	// Clear the back buffer and depth stencil view.
-	context->ClearRenderTargetView(m_deviceResources->GetBackBufferRenderTargetView(), DirectX::Colors::CornflowerBlue);
+	context->ClearRenderTargetView(m_deviceResources->GetBackBufferRenderTargetView(), DirectX::Colors::Black);
 	context->ClearDepthStencilView(m_deviceResources->GetDepthStencilView(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
 	auto Renderables = GetEntities();
@@ -159,9 +155,7 @@ bool Renderer::Render()
 	}
 
 	// Render the scene objects.
-	// TODO: Replace this with your app's content rendering functions.
 	m_sceneRenderer->Render(GetEntities());
-	m_fpsTextRenderer->Render();
 #endif
 
 #if ME_PLATFORM_WIN64
@@ -240,13 +234,11 @@ bool Renderer::Render()
 void Renderer::OnDeviceLost()
 {
 	m_sceneRenderer->ReleaseDeviceDependentResources();
-	m_fpsTextRenderer->ReleaseDeviceDependentResources();
 }
 
 void Renderer::OnDeviceRestored()
 {
 	m_sceneRenderer->CreateDeviceDependentResources();
-	m_fpsTextRenderer->CreateDeviceDependentResources();
 	CreateWindowSizeDependentResources();
 }
 
