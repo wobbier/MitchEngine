@@ -1,4 +1,7 @@
 ![Mitch Engine Banner](https://raw.githubusercontent.com/wobbier/MitchEngine/master/Docs/GitHub/me_banner.png)
+[![Build status](https://ci.appveyor.com/api/projects/status/7x55po7se0siesdn?svg=true)](https://ci.appveyor.com/project/wobbier/mitchengine)
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/858846f643cc47258ed72f9cfddb28b2)](https://www.codacy.com/app/rastaninja77/MitchEngine?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=wobbier/MitchEngine&amp;utm_campaign=Badge_Grade)
+![license](https://img.shields.io/github/license/wobbier/mitchengine.svg)
 ======
 The 3D game engine so good it has my name in it.
 
@@ -6,9 +9,6 @@ Mitch Engine is a simple c++ component based game engine for creating games on t
 It's a great hobby project to keep me exploring the world of c++.
 
 Check out my [Trello Board][4] to check out the current development status.
-
-[![Build status](https://ci.appveyor.com/api/projects/status/7x55po7se0siesdn?svg=true)](https://ci.appveyor.com/project/wobbier/mitchengine)
-![license](https://img.shields.io/github/license/wobbier/mitchengine.svg)
 
 The engine is:
 
@@ -19,7 +19,7 @@ The engine is:
 How to make a Mitch game
 -----------------------
 
-1. Pull the repo and run GenerateSolution.bat (Requires CMake for ThirdParty projects)
+1. Pull the repo and run GenerateSolution.bat
 2. Make a Visual studio template of the example game.
 3. ????
 4. Profit
@@ -48,7 +48,7 @@ Main features
 -------------
    * (ECS) Entity-Component System based design
    * Language: C++
-   * DirectX 11
+   * DirectX 11 / OpenGL
    * Open Source Commercial Friendly(MIT): Compatible with open and closed source projects
 
 Build Requirements
@@ -60,8 +60,8 @@ Build Requirements
 	* Universal Windows Platform development
 	* Game development with C++
 	* C++ Universal Windows Platform tools
-* CMake - 3.12.0
-* Autodesk FBX SDK - 2019.0 VS2015 UAP
+* CMake - 3.12.0 (Required if you wish to update ThirdParty projects)
+* Autodesk FBX SDK 2019.0 - VS2015 (for Win64) & VS2015 UAP (for Win10 / Xbox One)
 
 Third Party Libraries
 --------------------------------
