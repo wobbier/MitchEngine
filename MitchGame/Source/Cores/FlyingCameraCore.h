@@ -1,7 +1,17 @@
 #pragma once
 #include "ECS/Core.h"
+#include "Events/EventReceiver.h"
 
-class FlyingCameraCore : public Core<FlyingCameraCore>
+class TestEvent
+	: public Event<TestEvent>
+{
+public:
+	bool Enabled = true;
+};
+
+class FlyingCameraCore
+	: public Core<FlyingCameraCore>
+	, public EventReceiver
 {
 public:
 	FlyingCameraCore();
@@ -13,8 +23,11 @@ public:
 	// Each core must update each loop
 	virtual void Update(float dt) final;
 
+	virtual bool OnEvent(const BaseEvent& evt);
+
 private:
-	int LastX = 0;
-	int LastY = 0;
+	float LastX = 0.f;
+	float LastY = 0.f;
 	bool FirstUpdate = true;
+	bool InputEnabled = false;
 };

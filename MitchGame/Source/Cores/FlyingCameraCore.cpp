@@ -3,6 +3,7 @@
 #include "Components/Transform.h"
 #include "Components/Camera.h"
 #include "Engine/Input.h"
+#include "Events/EventManager.h"
 
 FlyingCameraCore::FlyingCameraCore() : Base(ComponentFilter().Requires<FlyingCamera>().Requires<Camera>())
 {
@@ -14,10 +15,27 @@ FlyingCameraCore::~FlyingCameraCore()
 
 void FlyingCameraCore::Init()
 {
+	std::vector<TypeId> events;
+	events.push_back(TestEvent::GetEventId());
+	EventManager::GetInstance().RegisterReceiver(this, events);
 }
 
 void FlyingCameraCore::Update(float dt)
 {
+	Input& Instance = Input::GetInstance();
+#if ME_PLATFORM_WIN64
+	if (Instance.IsKeyDown(GLFW_KEY_ENTER))
+	{
+		TestEvent testEvent;
+		testEvent.Enabled = !InputEnabled;
+		testEvent.Fire();
+	}
+#endif
+	if (!InputEnabled)
+	{
+		return;
+	}
+
 	auto Animatables = GetEntities();
 	for (auto& InEntity : Animatables)
 	{
@@ -29,7 +47,6 @@ void FlyingCameraCore::Update(float dt)
 		if (&CameraComponent == Camera::CurrentCamera)
 		{
 			float CameraSpeed = FlyingCameraComponent.FlyingSpeed;
-			Input& Instance = Input::GetInstance();
 #if ME_PLATFORM_WIN64
 			if (Instance.IsKeyDown(GLFW_KEY_LEFT_SHIFT))
 			{
@@ -101,4 +118,16 @@ void FlyingCameraCore::Update(float dt)
 			CameraComponent.Front = glm::normalize(Front);
 		}
 	}
+}
+
+bool FlyingCameraCore::OnEvent(const BaseEvent& evt)
+{
+	if (evt.GetEventId() == TestEvent::GetEventId())
+	{
+		const TestEvent& test = static_cast<const TestEvent&>(evt);
+		InputEnabled = test.Enabled;
+		return true;
+	}
+
+	return false;
 }
