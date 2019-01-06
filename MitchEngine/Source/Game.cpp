@@ -2,7 +2,7 @@
 #include "Game.h"
 #include "Utility/Logger.h"
 #include "Engine/Clock.h"
-#include "Cores/Rendering/Renderer.h"
+#include "Cores/Rendering/RenderCore.h"
 #include "Cores/Rendering/DifferedLighting.h"
 #include "Cores/Camera/CameraCore.h"
 #include "Cores/AnimationCore.h"
@@ -43,9 +43,6 @@ void Game::Start()
 
 	GameWorld = new World();
 
-	//auto ModelRenderer = Renderer();
-	//GameWorld->AddCore<Renderer>(ModelRenderer);
-
 #if ME_PLATFORM_WIN64
 	LightingRenderer = new DifferedLighting();
 	GameWorld->AddCore<DifferedLighting>(*LightingRenderer);
@@ -63,12 +60,12 @@ void Game::Start()
 	GameWorld->AddCore<SceneGraph>(*SceneNodes);
 
 #if ME_PLATFORM_UWP
-	ModelRenderer = new Renderer(deviceResources);
+	ModelRenderer = new RenderCore(deviceResources);
 #endif
 #if ME_PLATFORM_WIN64
-	ModelRenderer = new Renderer();
+	ModelRenderer = new RenderCore();
 #endif
-	GameWorld->AddCore<Renderer>(*ModelRenderer);
+	GameWorld->AddCore<RenderCore>(*ModelRenderer);
 
 	Initialize();
 

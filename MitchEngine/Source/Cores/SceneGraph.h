@@ -3,7 +3,8 @@
 
 class Transform;
 
-class SceneGraph : public Core<SceneGraph>
+class SceneGraph
+	: public Core<SceneGraph>
 {
 public:
 	SceneGraph();

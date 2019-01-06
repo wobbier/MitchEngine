@@ -114,10 +114,28 @@ workspace (getPlatformPostfix("MitchEngine"))
 
 	filter {}
 
+group "Engine/Modules"
+project (getPlatformPostfix("Moonlight"))
+	kind "StaticLib"
+	if (isUWP()) then
+		system "windowsuniversal"
+		consumewinrtextension "true"
+	end
+	systemversion "10.0.14393.0"
+	language "C++"
+	targetdir "../Build/%{cfg.buildcfg}"
+	location "../Modules/Moonlight"
+	files {
+		"../Modules/Moonlight/Source/**.*"
+	}
+	vpaths {
+		["Source"] = "../Source/**.*",
+		["Source"] = "../Source/*.*"
+	}
+
 group "Engine"
 project (getPlatformPostfix("MitchEngine"))
 	kind "StaticLib"
-	print("%{cfg.platform}")
 	if (isUWP()) then
 		system "windowsuniversal"
 		consumewinrtextension "true"
@@ -129,10 +147,16 @@ project (getPlatformPostfix("MitchEngine"))
 	pchheader "PCH.h"
 	pchsource "../MitchEngine/Source/PCH.cpp"
 	files {
-		"../MitchEngine/**.h",
-		"../MitchEngine/**.cpp",
-		"../MitchEngine/**.txt",
+		"../MitchEngine/Source/**.h",
+		"../MitchEngine/Source/**.cpp",
+		"../MitchEngine/Source/**.txt",
 		"../Tools/*.lua"
+	}
+	dependson {
+		getPlatformPostfix("Moonlight")
+	}
+	links {
+		(getPlatformPostfix("Moonlight") .. ".lib")
 	}
 	if not isUWP() then
 		excludes {
@@ -141,7 +165,8 @@ project (getPlatformPostfix("MitchEngine"))
 		}
 	end
 	vpaths {
-		["Build"] = "../Tools/*.lua"
+		["Build"] = "../Tools/*.lua",
+		["Source"] = "../Source/**.*"
 	}
 	postbuildcommands {
 		"mkdir ..\\Build\\%{cfg.buildcfg}\\AppX",
@@ -210,14 +235,12 @@ group "App"
 if (isUWP()) then
 	project (getPlatformPostfix("MitchGame_EntryPoint"))
 		kind "ConsoleApp"
-		if (isUWP()) then
-			system "windowsuniversal"
-			consumewinrtextension "true"
-			systemversion "10.0.14393.0"
-			certificatefile "MitchGame_TemporaryKey.pfx"
-			certificatethumbprint "8d68369eaf2c030cd45ca6fce7f367e608b5463e"
-			defaultlanguage "en-US"
-		end
+		system "windowsuniversal"
+		consumewinrtextension "true"
+		systemversion "10.0.14393.0"
+		certificatefile "MitchGame_TemporaryKey.pfx"
+		certificatethumbprint "8d68369eaf2c030cd45ca6fce7f367e608b5463e"
+		defaultlanguage "en-US"
 		language "C++"
 		targetdir "../Build/%{cfg.buildcfg}"
 		location "../MitchGame_EntryPoint"

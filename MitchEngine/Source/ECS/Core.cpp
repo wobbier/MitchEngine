@@ -15,7 +15,7 @@ World& BaseCore::GetWorld() const
 	return *GameWorld;
 }
 
-std::vector<Entity> BaseCore::GetEntities() const
+const std::vector<Entity>& BaseCore::GetEntities() const
 {
 	return Entities;
 }

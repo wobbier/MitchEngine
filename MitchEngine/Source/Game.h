@@ -43,7 +43,7 @@ public:
 	class PhysicsCore* Physics;
 	class CameraCore* Cameras;
 	class SceneGraph* SceneNodes;
-	class Renderer* ModelRenderer;
+	class RenderCore* ModelRenderer;
 	class DifferedLighting* LightingRenderer;
 	Clock& GameClock;
 private:

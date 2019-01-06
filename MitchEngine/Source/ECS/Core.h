@@ -21,7 +21,7 @@ public:
 	World& GetWorld() const;
 
 	// Get All the entities that are within the Core
-	std::vector<Entity> GetEntities() const;
+	const std::vector<Entity>& GetEntities() const;
 
 	// Get the component filter associated with the core.
 	const ComponentFilter& GetComponentFilter() const;
