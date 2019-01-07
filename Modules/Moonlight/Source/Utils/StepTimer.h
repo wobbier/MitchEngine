@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+#if ME_PLATFORM_UWP
+
 #include <wrl.h>
 
 namespace DX
@@ -181,3 +183,5 @@ namespace DX
 		uint64 m_targetElapsedTicks;
 	};
 }
+
+#endif

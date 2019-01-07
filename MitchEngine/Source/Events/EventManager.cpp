@@ -25,3 +25,25 @@ void EventManager::FireEvent(TypeId eventId, const BaseEvent& event)
 		}
 	}
 }
+
+void EventManager::QueueEvent(const BaseEvent& event)
+{
+	m_queuedEvents.push(std::move(event));
+}
+
+void EventManager::FirePendingEvents()
+{
+	while (!m_queuedEvents.empty())
+	{
+		const BaseEvent& event = m_queuedEvents.front();
+		auto& recievers = m_eventReceivers[event.GetEventId()];
+		for (auto reciever : recievers)
+		{
+			if (reciever->OnEvent(event))
+			{
+				break;
+			}
+		}
+		m_queuedEvents.pop();
+	}
+}

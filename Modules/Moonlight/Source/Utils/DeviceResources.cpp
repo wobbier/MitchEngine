@@ -1,6 +1,7 @@
-﻿#include "PCH.h"
-#include "DeviceResources.h"
+﻿#include "DeviceResources.h"
 #include "DirectXHelper.h"
+
+#if ME_PLATFORM_UWP
 
 using namespace D2D1;
 using namespace DirectX;
@@ -690,3 +691,5 @@ DXGI_MODE_ROTATION DX::DeviceResources::ComputeDisplayRotation()
 	}
 	return rotation;
 }
+
+#endif

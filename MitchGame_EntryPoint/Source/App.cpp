@@ -1,7 +1,10 @@
 #include "PCH.h"
 #include "App.h"
+#include "MitchGame.h"
 
 #include <ppltasks.h>
+#include "Renderer.h"
+#include "Device/D3D12Device.h"
 
 using namespace concurrency;
 using namespace Windows::ApplicationModel;
@@ -35,7 +38,9 @@ void App::Initialize(CoreApplicationView^ applicationView)
 
 	// At this point we have access to the device. 
 	// We can create the device-dependent resources.
-	m_deviceResources = std::make_shared<DX::DeviceResources>();
+	//m_deviceResources = std::make_shared<DX::DeviceResources>();
+
+	m_main = std::make_unique<MitchGame>();
 }
 
 // Called when the CoreWindow object is created (or re-created).
@@ -61,13 +66,14 @@ void App::SetWindow(CoreWindow^ window)
 	DisplayInformation::DisplayContentsInvalidated +=
 		ref new TypedEventHandler<DisplayInformation^, Object^>(this, &App::OnDisplayContentsInvalidated);
 
-	m_deviceResources->SetWindow(window);
+	Moonlight::D3D12Device& device = static_cast<Moonlight::D3D12Device&>(Moonlight::Renderer::Get().GetDevice());
+	device.SetWindow(window);
 }
 
 // Initializes scene resources, or loads a previously saved app state.
 void App::Load(Platform::String^ entryPoint)
 {
-	m_main->Start(m_deviceResources);
+	m_main->Start();
 }
 
 // This method is called after the window becomes active.
@@ -80,11 +86,6 @@ void App::Run()
 			CoreWindow::GetForCurrentThread()->Dispatcher->ProcessEvents(CoreProcessEventsOption::ProcessAllIfPresent);
 
 			m_main->Tick();
-
-			if (m_main->Render())
-			{
-				m_deviceResources->Present();
-			}
 		}
 		else
 		{
@@ -118,7 +119,7 @@ void App::OnSuspending(Platform::Object^ sender, SuspendingEventArgs^ args)
 
 	create_task([this, deferral]()
 	{
-        m_deviceResources->Trim();
+        Moonlight::Renderer::Get().GetDevice().Trim();
 
 		// Insert your code here.
 
@@ -139,7 +140,7 @@ void App::OnResuming(Platform::Object^ sender, Platform::Object^ args)
 
 void App::OnWindowSizeChanged(CoreWindow^ sender, WindowSizeChangedEventArgs^ args)
 {
-	m_deviceResources->SetLogicalSize(Size(sender->Bounds.Width, sender->Bounds.Height));
+	Moonlight::Renderer::Get().GetDevice().SetLogicalSize(glm::vec2(sender->Bounds.Width, sender->Bounds.Height));
 	m_main->WindowResized();
 }
 
@@ -161,17 +162,17 @@ void App::OnDpiChanged(DisplayInformation^ sender, Object^ args)
 	// if it is being scaled for high resolution devices. Once the DPI is set on DeviceResources,
 	// you should always retrieve it using the GetDpi method.
 	// See DeviceResources.cpp for more details.
-	m_deviceResources->SetDpi(sender->LogicalDpi);
+	//Moonlight::Renderer::Get().GetDevice().SetDpi(sender->LogicalDpi);
 	m_main->WindowResized();
 }
 
 void App::OnOrientationChanged(DisplayInformation^ sender, Object^ args)
 {
-	m_deviceResources->SetCurrentOrientation(sender->CurrentOrientation);
+	//Moonlight::Renderer::Get().GetDevice().SetCurrentOrientation(sender->CurrentOrientation);
 	m_main->WindowResized();
 }
 
 void App::OnDisplayContentsInvalidated(DisplayInformation^ sender, Object^ args)
 {
-	m_deviceResources->ValidateDevice();
+	//Moonlight::Renderer::Get().GetDevice().ValidateDevice();
 }

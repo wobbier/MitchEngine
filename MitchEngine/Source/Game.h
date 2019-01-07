@@ -6,9 +6,6 @@
 #include "Utility/Config.h"
 #include "Utility/Util.h"
 #include "Engine/Clock.h"
-#if ME_PLATFORM_UWP
-#include "Graphics/Common/DeviceResources.h"
-#endif // ME_PLATFORM_UWP
 
 class Game
 {
@@ -20,11 +17,7 @@ public:
 	Game();
 	virtual ~Game();
 
-#if ME_PLATFORM_UWP
-	void Start(const std::shared_ptr<DX::DeviceResources>& deviceResources);
-#else
 	void Start();
-#endif
 	void Tick();
 	virtual void Initialize();
 	virtual void Update(float DeltaTime);
@@ -39,7 +32,6 @@ public:
 	Window* GetWindow();
 #endif
 
-	class AnimationCore* Animator;
 	class PhysicsCore* Physics;
 	class CameraCore* Cameras;
 	class SceneGraph* SceneNodes;

@@ -24,16 +24,24 @@ class Event
 {
 public:
 	Event()
-		: BaseEvent(ClassTypeId<BaseEvent>::GetTypeId<T>())
+		: BaseEvent(GetEventId())
 	{
-
 	}
+
 	static TypeId GetEventId()
 	{
 		return ClassTypeId<BaseEvent>::GetTypeId<T>();
 	}
+
 	void Fire();
+	void Queue();
 };
+
+template <class T>
+void Event<T>::Queue()
+{
+	EventManager::GetInstance().QueueEvent(*this);
+}
 
 template <class T>
 void Event<T>::Fire()

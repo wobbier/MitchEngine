@@ -1,8 +1,15 @@
 #pragma once
 #include "IDevice.h"
 
-class GLDevice
-	: public IDevice
-{
+#ifdef ME_PLATFORM_WIN64
 
-};
+namespace Moonlight
+{
+	class GLDevice
+		: public IDevice
+	{
+
+	};
+}
+
+#endif

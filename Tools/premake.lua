@@ -40,7 +40,8 @@ workspace (getPlatformPostfix("MitchEngine"))
 		"../ThirdParty/GLM/glm",
 		"C:/Program Files/Autodesk/FBX/FBX SDK/2019.0/include",
 		"C:/Program Files/RenderDoc",
-		"../ThirdParty/Brofiler/BrofilerCore"
+		"../ThirdParty/Brofiler/BrofilerCore",
+		"../Modules/Moonlight/Source"
 	}
 	if not isUWP() then
 		includedirs {
@@ -152,12 +153,15 @@ project (getPlatformPostfix("MitchEngine"))
 		"../MitchEngine/Source/**.txt",
 		"../Tools/*.lua"
 	}
+
 	dependson {
 		getPlatformPostfix("Moonlight")
 	}
+
 	links {
 		(getPlatformPostfix("Moonlight") .. ".lib")
 	}
+
 	if not isUWP() then
 		excludes {
 			"../MitchEngine/**/Graphics/Common/*.*",

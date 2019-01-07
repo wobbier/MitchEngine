@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+#if ME_PLATFORM_UWP
+
 #include <ppltasks.h>	// For create_task
 
 namespace DX
@@ -61,3 +63,5 @@ namespace DX
 	}
 #endif
 }
+
+#endif

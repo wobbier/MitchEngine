@@ -3,7 +3,6 @@
 #include "Components/Debug/DebugCube.h"
 #include "Components/Debug/DebugCube.h"
 #include "Components/Graphics/Model.h"
-#include "Components/Sprite.h"
 #include "Components/Transform.h"
 #include "ECS/ComponentFilter.h"
 #include "Utility/Logger.h"
@@ -20,20 +19,12 @@
 #include "Components/Camera.h"
 #include <iostream>
 
-#if ME_PLATFORM_UWP
-RenderCore::RenderCore(const std::shared_ptr<DX::DeviceResources>& deviceResources)
-	: Base(ComponentFilter().Requires<Transform>().Requires<Model>())
-	, m_deviceResources(deviceResources)
-{
-	m_deviceResources->RegisterDeviceNotify(this);
-	m_sceneRenderer = std::unique_ptr<TestModelRenderer>(new TestModelRenderer(m_deviceResources));
-}
-#endif
-
 RenderCore::RenderCore()
 	: Base(ComponentFilter().Requires<Transform>().Requires<Model>())
 {
-
+	//m_sceneRenderer = std::unique_ptr<TestModelRenderer>(new TestModelRenderer(m_deviceResources));
+	m_renderer = &Moonlight::Renderer::Get();
+	m_renderer->RegisterDeviceNotify(this);
 }
 
 void RenderCore::Init()
@@ -103,19 +94,11 @@ void RenderCore::Init()
 
 void RenderCore::Update(float dt)
 {
-#if ME_PLATFORM_UWP
-	m_timer.Tick([&]()
-	{
-		m_sceneRenderer->Update(m_timer);
-	});
-#endif
+	m_renderer->Update(dt);
 }
 
 RenderCore::~RenderCore()
 {
-#if ME_PLATFORM_UWP
-	m_deviceResources->RegisterDeviceNotify(nullptr);
-#endif
 	Logger::GetInstance().Log(Logger::LogType::Debug, "RenderCore Destroyed...");
 }
 
@@ -127,36 +110,8 @@ bool RenderCore::Render()
 	{
 		return false;
 	}
-#if ME_PLATFORM_UWP
-	if (m_timer.GetFrameCount() == 0)
-	{
-		return false;
-	}
 
-	auto context = m_deviceResources->GetD3DDeviceContext();
-
-	// Reset the viewport to target the whole screen.
-	auto viewport = m_deviceResources->GetScreenViewport();
-	context->RSSetViewports(1, &viewport);
-
-	// Reset render targets to the screen.
-	ID3D11RenderTargetView *const targets[1] = { m_deviceResources->GetBackBufferRenderTargetView() };
-	context->OMSetRenderTargets(1, targets, m_deviceResources->GetDepthStencilView());
-
-	// Clear the back buffer and depth stencil view.
-	context->ClearRenderTargetView(m_deviceResources->GetBackBufferRenderTargetView(), DirectX::Colors::Black);
-	context->ClearDepthStencilView(m_deviceResources->GetDepthStencilView(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
-
-	auto Renderables = GetEntities();
-
-	for (Entity ent : Renderables)
-	{
-		ent.GetComponent<Model>().Draw();
-	}
-
-	// Render the scene objects.
-	m_sceneRenderer->Render(GetEntities());
-#endif
+	m_renderer->Render();
 
 #if ME_PLATFORM_WIN64
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -230,20 +185,17 @@ bool RenderCore::Render()
 	return true;
 }
 
-#if ME_PLATFORM_UWP
 void RenderCore::OnDeviceLost()
 {
-	m_sceneRenderer->ReleaseDeviceDependentResources();
+#if ME_PLATFORM_UWP
+	m_renderer->ReleaseDeviceDependentResources();
+#endif
 }
 
 void RenderCore::OnDeviceRestored()
 {
-	m_sceneRenderer->CreateDeviceDependentResources();
-	CreateWindowSizeDependentResources();
-}
-
-void RenderCore::CreateWindowSizeDependentResources()
-{
-	m_sceneRenderer->CreateWindowSizeDependentResources();
-}
+#if ME_PLATFORM_UWP
+	m_renderer->CreateDeviceDependentResources();
+	m_renderer->GetDevice().CreateWindowSizeDependentResources();
 #endif
+}

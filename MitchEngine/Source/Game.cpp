@@ -5,11 +5,11 @@
 #include "Cores/Rendering/RenderCore.h"
 #include "Cores/Rendering/DifferedLighting.h"
 #include "Cores/Camera/CameraCore.h"
-#include "Cores/AnimationCore.h"
 #include "Cores/PhysicsCore.h"
 #include "Cores/SceneGraph.h"
 #include "Graphics/Cubemap.h"
 #include "Engine/Input.h"
+#include "Events/EventManager.h"
 
 Game::Game()
 	: Running(true)
@@ -21,11 +21,7 @@ Game::~Game()
 {
 }
 bool my_tool_active = false;
-#if ME_PLATFORM_UWP
-void Game::Start(const std::shared_ptr<DX::DeviceResources>& deviceResources)
-#else
 void Game::Start()
-#endif
 {
 	Logger::GetInstance().SetLogFile("engine.txt");
 	Logger::GetInstance().SetLogPriority(Logger::LogType::Info);
@@ -47,8 +43,6 @@ void Game::Start()
 	LightingRenderer = new DifferedLighting();
 	GameWorld->AddCore<DifferedLighting>(*LightingRenderer);
 #endif
-	Animator = new AnimationCore();
-	GameWorld->AddCore<AnimationCore>(*Animator);
 
 	Physics = new PhysicsCore();
 	GameWorld->AddCore<PhysicsCore>(*Physics);
@@ -59,58 +53,54 @@ void Game::Start()
 	SceneNodes = new SceneGraph();
 	GameWorld->AddCore<SceneGraph>(*SceneNodes);
 
-#if ME_PLATFORM_UWP
-	ModelRenderer = new RenderCore(deviceResources);
-#endif
-#if ME_PLATFORM_WIN64
 	ModelRenderer = new RenderCore();
-#endif
 	GameWorld->AddCore<RenderCore>(*ModelRenderer);
 
 	Initialize();
 
 	GameClock.Reset();
-}
-
-void Game::Tick()
-{
 	// Game loop
 #if ME_PLATFORM_WIN64
 	while (!GameWindow->ShouldClose())
 	{
 		BROFILER_FRAME("MainLoop")
-			// Check and call events
-			GameWindow->PollInput();
-#endif
-
-		float time = GameClock.GetTimeInMilliseconds();
-		const float deltaTime = GameClock.deltaTime = (time <= 0.0f || time >= 0.3) ? 0.0001f : time;
-
-		// Update our engine
-		GameWorld->Simulate();
-		Physics->Update(deltaTime);
-		Animator->Update(deltaTime);
-
-		Update(deltaTime);
-
-		SceneNodes->Update(deltaTime);
-
-		Cameras->Update(deltaTime);
-
-		ModelRenderer->Update(deltaTime);
-
-#if ME_PLATFORM_WIN64
-		LightingRenderer->PreRender();
-#endif
-
-		ModelRenderer->Render();
-
-#if ME_PLATFORM_WIN64
-		LightingRenderer->PostRender();
-		// Swap the buffers
-		GameWindow->Swap();
+		// Check and call events
+		GameWindow->PollInput();
+		Tick();
 	}
 	glfwTerminate();
+#endif
+}
+
+void Game::Tick()
+{
+	EventManager::GetInstance().FirePendingEvents();
+
+	float time = GameClock.GetTimeInMilliseconds();
+	const float deltaTime = GameClock.deltaTime = (time <= 0.0f || time >= 0.3) ? 0.0001f : time;
+
+	// Update our engine
+	GameWorld->Simulate();
+	Physics->Update(deltaTime);
+
+	Update(deltaTime);
+
+	SceneNodes->Update(deltaTime);
+
+	Cameras->Update(deltaTime);
+
+	ModelRenderer->Update(deltaTime);
+
+#if ME_PLATFORM_WIN64
+	LightingRenderer->PreRender();
+#endif
+
+	ModelRenderer->Render();
+
+#if ME_PLATFORM_WIN64
+	LightingRenderer->PostRender();
+	// Swap the buffers
+	GameWindow->Swap();
 #endif
 }
 

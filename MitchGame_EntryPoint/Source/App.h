@@ -1,15 +1,11 @@
 #pragma once
 
-#include "Graphics/Common/DeviceResources.h"
 #include "Game.h"
 
 // Main entry point for our app. Connects the app with the Windows shell and handles application lifecycle events.
 ref class App : public Windows::ApplicationModel::Core::IFrameworkView
 {
 internal:
-	App(std::unique_ptr<Game> ayy) : m_main(std::move(ayy)) {
-
-	}
 	App();
 public:
 	// IFrameworkView Methods.
@@ -36,7 +32,6 @@ protected:
 	void OnDisplayContentsInvalidated(Windows::Graphics::Display::DisplayInformation^ sender, Platform::Object^ args);
 
 private:
-	std::shared_ptr<DX::DeviceResources> m_deviceResources;
 	std::unique_ptr<Game> m_main;
 	bool m_windowClosed;
 	bool m_windowVisible;

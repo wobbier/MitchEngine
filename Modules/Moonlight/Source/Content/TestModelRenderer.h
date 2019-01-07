@@ -1,14 +1,19 @@
 ﻿#pragma once
+#include <vector>
 
-#include "..\Common\DeviceResources.h"
+#if ME_PLATFORM_UWP
+
+#include "Device/IDevice.h"
+#include "Device/D3D12Device.h"
 #include "ShaderStructures.h"
-#include "..\Common\StepTimer.h"
+#include "..\Utils\StepTimer.h"
 
-	// This sample renderer instantiates a basic rendering pipeline.
-	class Sample3DSceneRenderer
+namespace Moonlight
+{
+	class TestModelRenderer
 	{
 	public:
-		Sample3DSceneRenderer(const std::shared_ptr<DX::DeviceResources>& deviceResources);
+		TestModelRenderer(D3D12Device* deviceResources);
 		void CreateDeviceDependentResources();
 		void CreateWindowSizeDependentResources();
 		void ReleaseDeviceDependentResources();
@@ -25,7 +30,7 @@
 
 	private:
 		// Cached pointer to device resources.
-		std::shared_ptr<DX::DeviceResources> m_deviceResources;
+		D3D12Device* m_deviceResources;
 
 		// Direct3D resources for cube geometry.
 		Microsoft::WRL::ComPtr<ID3D11InputLayout>	m_inputLayout;
@@ -44,3 +49,6 @@
 		float	m_degreesPerSecond;
 		bool	m_tracking;
 	};
+}
+
+#endif
