@@ -112,7 +112,6 @@ bool RenderCore::Render()
 	}
 
 	m_renderer->Render();
-
 #if ME_PLATFORM_WIN64
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	SkyboxShader->Use();

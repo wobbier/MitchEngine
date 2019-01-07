@@ -2,7 +2,7 @@
 #include "Device/D3D12Device.h"
 #include "Device/GLDevice.h"
 
-#ifdef ME_PLATFORM_UWP
+#if ME_PLATFORM_UWP
 #include <DirectXColors.h>
 #endif
 
@@ -10,14 +10,12 @@ namespace Moonlight
 {
 	Renderer::Renderer()
 	{
-#ifdef ME_PLATFORM_UWP
+#if ME_PLATFORM_UWP
 		m_device = new D3D12Device();
 		m_sceneRenderer = std::make_unique<TestModelRenderer>(static_cast<D3D12Device*>(m_device));
-#endif // ME_PLATFORM_UWP
-
-#ifdef ME_PLATFORM_WIN64
+#elif ME_PLATFORM_WIN64
 		m_device = new GLDevice();
-#endif // ME_PLATFORM_WIN64
+#endif
 	}
 
 	void Renderer::SetWindow()
@@ -67,7 +65,9 @@ namespace Moonlight
 		// Clear the back buffer and depth stencil view.
 		context->ClearRenderTargetView(device->GetBackBufferRenderTargetView(), DirectX::Colors::Black);
 		context->ClearDepthStencilView(device->GetDepthStencilView(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+		m_sceneRenderer->Render();
 #endif
+
 		m_device->Present();
 	}
 

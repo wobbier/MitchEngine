@@ -18,12 +18,15 @@ namespace Moonlight
 		virtual void Present()
 		{
 		}
+
 		virtual void CreateDeviceIndependentResources()
 		{
 		}
+
 		virtual void CreateDeviceResources()
 		{
 		}
+
 		virtual void CreateWindowSizeDependentResources()
 		{
 		}
