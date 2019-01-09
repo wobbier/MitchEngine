@@ -3,6 +3,8 @@
 
 #if ME_PLATFORM_UWP
 
+#include <DirectXColors.h>
+
 using namespace D2D1;
 using namespace DirectX;
 using namespace Microsoft::WRL;
@@ -609,6 +611,23 @@ namespace Moonlight
 		m_d3dDevice.As(&dxgiDevice);
 
 		dxgiDevice->Trim();
+	}
+
+	void D3D12Device::PreRender()
+	{
+		auto context = GetD3DDeviceContext();
+
+		// Reset the viewport to target the whole screen.
+		auto viewport = GetScreenViewport();
+		context->RSSetViewports(1, &viewport);
+
+		// Reset render targets to the screen.
+		ID3D11RenderTargetView *const targets[1] = { GetBackBufferRenderTargetView() };
+		context->OMSetRenderTargets(1, targets, GetDepthStencilView());
+
+		// Clear the back buffer and depth stencil view.
+		context->ClearRenderTargetView(GetBackBufferRenderTargetView(), DirectX::Colors::Black);
+		context->ClearDepthStencilView(GetDepthStencilView(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 	}
 
 	// Present the contents of the swap chain to the screen.

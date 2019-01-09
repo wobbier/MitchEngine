@@ -38,5 +38,12 @@ namespace Moonlight
 		virtual void SetLogicalSize(glm::vec2 vec2)
 		{
 		}
+
+		virtual void PreRender()
+		{
+
+		}
+
+
 	};
 }

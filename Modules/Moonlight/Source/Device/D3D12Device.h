@@ -27,6 +27,8 @@ namespace Moonlight
 		void HandleDeviceLost();
 		void RegisterDeviceNotify(IDeviceNotify* deviceNotify);
 		void Trim();
+
+		virtual void PreRender() final;
 		virtual void Present() final;
 
 		// The size of the render target, in pixels.
