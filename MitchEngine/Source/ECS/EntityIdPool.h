@@ -1,5 +1,5 @@
 #pragma once
-#include "Utility/Util.h"
+#include "Dementia.h"
 #include "ECS/Entity.h"
 
 class EntityIdPool
@@ -7,8 +7,8 @@ class EntityIdPool
 public:
 	EntityIdPool(std::size_t InPoolSize);
 
-	MAN_NONCOPYABLE(EntityIdPool);
-	MAN_NONMOVABLE(EntityIdPool);
+	ME_NONCOPYABLE(EntityIdPool);
+	ME_NONMOVABLE(EntityIdPool);
 
 	Entity::ID Create();
 

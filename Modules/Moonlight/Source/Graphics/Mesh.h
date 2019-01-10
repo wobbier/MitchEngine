@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
-#include "Utility/Util.h"
-#include "Engine/Resource.h"
+#include <vector>
+
 #include "Texture.h"
 #include "Shader.h"
 

@@ -1,7 +1,7 @@
 // 2018 Mitchell Andrews
 #pragma once
 #include <Windows.h>
-#include "Utility/Singleton.h"
+#include "Singleton.h"
 
 /*
 Clock.h

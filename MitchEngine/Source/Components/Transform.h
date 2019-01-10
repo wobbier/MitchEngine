@@ -4,7 +4,7 @@
 #define GLM_ENABLE_EXPERIMENTAL 1
 #include <glm.hpp>
 #include <gtx/quaternion.hpp>
-#include "Utility/Util.h"
+#include "Dementia.h"
 
 class Transform :
 	public Component<Transform>
@@ -21,8 +21,8 @@ public:
 	void Translate(glm::vec3 NewTransform);
 	glm::vec3 GetPosition();
 
-	MAN_NONCOPYABLE(Transform)
-	MAN_NONMOVABLE(Transform)
+	ME_NONCOPYABLE(Transform)
+	ME_NONMOVABLE(Transform)
 
 	// Separate init from construction code.
 	virtual void Init() final;

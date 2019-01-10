@@ -2,7 +2,7 @@
 #pragma once
 #include <iostream>
 #include <fstream>
-#include "Utility/Singleton.h"
+#include "Singleton.h"
 /*
 Logger.h
 A utility class for creating and managing logs for the engine. You can change the

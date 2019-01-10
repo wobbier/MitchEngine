@@ -1,4 +1,3 @@
-// 2018 Mitchell Andrews
 #pragma once
 #include <fstream>
 //#include <json/json.h>

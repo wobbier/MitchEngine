@@ -3,7 +3,7 @@
 #include <map>
 #include <string>
 #include "Resource.h"
-#include "Utility/Singleton.h"
+#include "Singleton.h"
 
 class ResourceCache
 	: public Singleton<ResourceCache>

@@ -1,4 +1,3 @@
-#include "PCH.h"
 #include "Shader.h"
 
 #if ME_PLATFORM_WIN64

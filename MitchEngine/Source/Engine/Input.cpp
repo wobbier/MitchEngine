@@ -1,6 +1,6 @@
 #include "PCH.h"
 #include "Engine/Input.h"
-#include "Utility/Logger.h"
+#include "Logger.h"
 #include <glm.hpp>
 #include <string>
 #include <iostream>
@@ -18,6 +18,15 @@ void Input::KeyCallback(GLFWwindow* window, int key, int scancode, int action, i
 	Instance.Keys[key].Mode = mode;
 }
 #endif
+
+void Input::KeyCallback(Windows::System::VirtualKey key)
+{
+	Input& Instance = GetInstance();
+	/*Instance.Keys[key].Id = ;
+	Instance.Keys[key].Scancode = scancode;
+	Instance.Keys[key].Action = action;
+	Instance.Keys[key].Mode = mode;*/
+}
 
 bool Input::IsKeyDown(int key)
 {

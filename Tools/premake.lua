@@ -20,14 +20,9 @@ function getPlatformPostfix(thing)
 	return thing
 end
 
-function isUWP()
-	if (_OPTIONS["uwp"]) then
-		return true
-	end
+isUWP = _OPTIONS["uwp"]
 
-	return false
-end
-
+-- Engine workspace
 workspace (getPlatformPostfix("MitchEngine"))
 	configurations { "Debug", "Release" }
 	platforms { "x64" }
@@ -41,34 +36,23 @@ workspace (getPlatformPostfix("MitchEngine"))
 		"C:/Program Files/Autodesk/FBX/FBX SDK/2019.0/include",
 		"C:/Program Files/RenderDoc",
 		"../ThirdParty/Brofiler/BrofilerCore",
-		"../Modules/Moonlight/Source"
-	}
-	if not isUWP() then
-		includedirs {
-			"../ThirdParty/GLAD/include/",
-			"../ThirdParty/GLAD/src/",
-			"../ThirdParty/GLFW/include",
-			"../ThirdParty/STB"
-		}
-	end
-	
-	linkoptions {
-		"-IGNORE:4221,4006"
+		"../Modules/Moonlight/Source",
+		"../Modules/Dementia/Source"
 	}
 	
 	libdirs {
 		"../Build/%{cfg.buildcfg}"
 	}
 
-	links {
-		"BrofilerCore"
-	}
-
-	if (isUWP()) then
+	if isUWP then
 		defines { "ME_PLATFORM_UWP" }
-		links {
-			"d2d1", "d3d11", "dxgi", "windowscodecs", "dwrite", "libfbxsdk-md"
+		includedirs {
+			"../ThirdParty/GLAD/include/",
+			"../ThirdParty/GLAD/src/",
+			"../ThirdParty/GLFW/include",
+			"../ThirdParty/STB"
 		}
+		
 		libdirs {
 			"../ThirdParty/Lib/Bullet/Win64/%{cfg.buildcfg}",
 			"C:/Program Files/Autodesk/FBX/FBX SDK/2019.0/lib/vs2015store/%{cfg.platform}/%{cfg.buildcfg}",
@@ -82,11 +66,29 @@ workspace (getPlatformPostfix("MitchEngine"))
 			"C:/Program Files/Autodesk/FBX/FBX SDK/2019.0/lib/vs2015/%{cfg.platform}/%{cfg.buildcfg}",
 			"../ThirdParty/Lib/Brofiler/Win64/%{cfg.buildcfg}"
 		}
+	end
+	
+	links {
+		"BrofilerCore",
+		getPlatformPostfix("Dementia")
+	}
+
+	-- Platform specific options
+	if (isUWP) then
+		links {
+			"d2d1", "d3d11", "dxgi", "windowscodecs", "dwrite", "libfbxsdk-md"
+		}
+	else
+
 		links {
 			"opengl32", "glfw3dll", "libfbxsdk-md"
 		}
 	end
 	
+	linkoptions {
+		"-IGNORE:4221,4006,4264,4099"
+	}
+
 	defines{
 		"NOMINMAX"
 	}
@@ -113,12 +115,13 @@ workspace (getPlatformPostfix("MitchEngine"))
 		"LinearMath_MinsizeRel"
 	}
 
-	filter {}
+	
+------------------------------------------------------- Renderer Project -----------------------------------------------------
 
 group "Engine/Modules"
 project (getPlatformPostfix("Moonlight"))
 	kind "StaticLib"
-	if (isUWP()) then
+	if (isUWP) then
 		system "windowsuniversal"
 		consumewinrtextension "true"
 	end
@@ -126,6 +129,9 @@ project (getPlatformPostfix("Moonlight"))
 	language "C++"
 	targetdir "../Build/%{cfg.buildcfg}"
 	location "../Modules/Moonlight"
+	includedirs {
+		"../Modules/Moonlight/Source/"
+	}
 	files {
 		"../Modules/Moonlight/Source/**.*"
 	}
@@ -133,11 +139,38 @@ project (getPlatformPostfix("Moonlight"))
 		["Source"] = "../Source/**.*",
 		["Source"] = "../Source/*.*"
 	}
+	
+------------------------------------------------------- Utility Project ------------------------------------------------------
+
+project (getPlatformPostfix("Dementia"))
+	kind "StaticLib"
+	--if (isUWP) then
+	--	system "windowsuniversal"
+	--	consumewinrtextension "true"
+	--end
+	systemversion "10.0.14393.0"
+	language "C++"
+	targetdir "../Build/%{cfg.buildcfg}"
+	location "../Modules/Dementia"
+	removeincludedirs "*"
+	removelinks "*"
+	includedirs {
+		"../Modules/Dementia/Source/"
+	}
+	files {
+		"../Modules/Dementia/Source/**.*"
+	}
+	vpaths {
+		["Source"] = "../Source/**.*",
+		["Source"] = "../Source/*.*"
+	}
+
+------------------------------------------------------- Engine Project -------------------------------------------------------
 
 group "Engine"
 project (getPlatformPostfix("MitchEngine"))
 	kind "StaticLib"
-	if (isUWP()) then
+	if (isUWP) then
 		system "windowsuniversal"
 		consumewinrtextension "true"
 	end
@@ -154,6 +187,8 @@ project (getPlatformPostfix("MitchEngine"))
 		"../Tools/*.lua"
 	}
 
+	filter {}
+
 	dependson {
 		getPlatformPostfix("Moonlight")
 	}
@@ -162,7 +197,7 @@ project (getPlatformPostfix("MitchEngine"))
 		(getPlatformPostfix("Moonlight") .. ".lib")
 	}
 
-	if not isUWP() then
+	if not isUWP then
 		excludes {
 			"../MitchEngine/**/Graphics/Common/*.*",
 			"../MitchEngine/**/Graphics/Content/*.*"
@@ -194,10 +229,10 @@ project (getPlatformPostfix("MitchEngine"))
 	postbuildcommands {
 	}
 	filter {}
-
+	
 group "Games"
 project (getPlatformPostfix("MitchGame"))
-	if (isUWP()) then
+	if (isUWP) then
 		kind "StaticLib"
 		system "windowsuniversal"
 		consumewinrtextension "true"
@@ -209,6 +244,9 @@ project (getPlatformPostfix("MitchGame"))
 	language "C++"
 	targetdir "../Build/%{cfg.buildcfg}"
 	location "../MitchGame"
+	includedirs {
+		"../MitchGame/Source"
+	}
 	links {
 		(getPlatformPostfix("MitchEngine") .. ".lib")
 	}
@@ -224,7 +262,7 @@ project (getPlatformPostfix("MitchGame"))
 		"../MitchGame/**.pfx",
 		"../MitchGame/**.appxmanifest"
 	}
-	if (isUWP()) then
+	if (isUWP) then
 		excludes {
 			"../MitchGame/Source/main.cpp"
 		}
@@ -236,7 +274,7 @@ project (getPlatformPostfix("MitchGame"))
 	}
 
 group "App"
-if (isUWP()) then
+if (isUWP) then
 	project (getPlatformPostfix("MitchGame_EntryPoint"))
 		kind "ConsoleApp"
 		system "windowsuniversal"

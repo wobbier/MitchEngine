@@ -1,5 +1,5 @@
 #pragma once
-#include "Utility/ClassTypeId.h"
+#include "ClassTypeId.h"
 
 class BaseEvent
 {

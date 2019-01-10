@@ -5,8 +5,8 @@
 #include "ECS/Core.h"
 #include "ECS/ComponentStorage.h"
 #include "ECS/EntityIdPool.h"
-#include "Utility/Util.h"
-#include "Engine/ResourceCache.h"
+#include "Dementia.h"
+#include "Resource/ResourceCache.h"
 
 class World
 {
@@ -37,8 +37,8 @@ public:
 	World(std::size_t InEntityPoolSize);
 	~World();
 
-	MAN_NONCOPYABLE(World);
-	MAN_NONMOVABLE(World);
+	ME_NONCOPYABLE(World);
+	ME_NONMOVABLE(World);
 private:
 	CoreArray Cores;
 

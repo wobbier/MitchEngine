@@ -1,4 +1,3 @@
-#include "PCH.h"
 #include "ResourceCache.h"
 
 ResourceCache::ResourceCache()

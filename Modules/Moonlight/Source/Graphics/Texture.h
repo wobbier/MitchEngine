@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
-#include "Utility/Util.h"
-#include "Engine/Resource.h"
+#include "Dementia.h"
+#include "Resource/Resource.h"
 
 class Texture : public Resource
 {
@@ -19,7 +19,7 @@ public:
 	static Texture* Load(const std::string& InFilePath);
 
 	// Textures should not be copied around in memory
-	MAN_NONCOPYABLE(Texture);
+	ME_NONCOPYABLE(Texture);
 	int nrChannels;
 	std::string type;
 	std::string path;

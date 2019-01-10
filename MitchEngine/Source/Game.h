@@ -2,9 +2,8 @@
 #pragma once
 #include "Engine/Window.h"
 #include "Engine/World.h"
-#include "Engine/ResourceCache.h"
-#include "Utility/Config.h"
-#include "Utility/Util.h"
+#include "Resource/ResourceCache.h"
+#include "Config.h"
 #include "Engine/Clock.h"
 
 class Game

@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
-#include "Utility/Util.h"
-#include "Engine/Resource.h"
+#include "Dementia.h"
+#include "Resource/Resource.h"
 
 class Cubemap : public Resource
 {
@@ -19,6 +19,6 @@ public:
 	static Cubemap* Load(const std::string& InFilePath);
 
 	// Textures should not be copied around in memory
-	MAN_NONCOPYABLE(Cubemap);
+	ME_NONCOPYABLE(Cubemap);
 	int nrChannels;
 };

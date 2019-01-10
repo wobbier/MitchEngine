@@ -2,7 +2,7 @@
 #pragma once
 #include <string>
 #include <vector>
-#include "Utility/ClassTypeId.h"
+#include "ClassTypeId.h"
 
 class BaseComponent
 {

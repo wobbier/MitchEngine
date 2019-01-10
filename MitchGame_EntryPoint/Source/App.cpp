@@ -66,6 +66,9 @@ void App::SetWindow(CoreWindow^ window)
 	DisplayInformation::DisplayContentsInvalidated +=
 		ref new TypedEventHandler<DisplayInformation^, Object^>(this, &App::OnDisplayContentsInvalidated);
 
+	window->KeyDown += 
+		ref new Windows::Foundation::TypedEventHandler<Windows::UI::Core::CoreWindow ^, Windows::UI::Core::KeyEventArgs ^>(this, &App::OnKeyDown);
+
 	Moonlight::D3D12Device& device = static_cast<Moonlight::D3D12Device&>(Moonlight::Renderer::Get().GetDevice());
 	device.SetWindow(window);
 }
@@ -152,6 +155,11 @@ void App::OnVisibilityChanged(CoreWindow^ sender, VisibilityChangedEventArgs^ ar
 void App::OnWindowClosed(CoreWindow^ sender, CoreWindowEventArgs^ args)
 {
 	m_windowClosed = true;
+}
+
+void App::OnKeyDown(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::KeyEventArgs^ args)
+{
+	//Input::KeyCallback(args->VirtualKey);
 }
 
 // DisplayInformation event handlers.

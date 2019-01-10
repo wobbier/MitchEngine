@@ -1,4 +1,3 @@
-#include "PCH.h"
 #include "Logger.h"
 
 Logger::~Logger()

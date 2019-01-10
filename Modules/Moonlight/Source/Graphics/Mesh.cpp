@@ -1,7 +1,6 @@
-#include "PCH.h"
-#include "Graphics/Mesh.h"
+#include "Mesh.h"
 #include <iostream>
-#include "Utility/Logger.h"
+#include "Logger.h"
 
 Mesh::Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices, std::vector<Texture*> textures)
 {

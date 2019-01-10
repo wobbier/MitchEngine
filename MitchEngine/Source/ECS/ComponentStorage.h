@@ -6,7 +6,7 @@
 #include "ECS/Component.h"
 #include "ECS/ComponentTypeArray.h"
 
-#include "Utility/Util.h"
+#include "Dementia.h"
 
 class ComponentStorage
 {
@@ -14,8 +14,8 @@ public:
 	ComponentStorage(std::size_t InEntityAmount);
 	~ComponentStorage();
 
-	MAN_NONCOPYABLE(ComponentStorage)
-	MAN_NONMOVABLE(ComponentStorage)
+	ME_NONCOPYABLE(ComponentStorage)
+	ME_NONMOVABLE(ComponentStorage)
 
 	void AddComponent(Entity& InEntity, BaseComponent* InComponent, TypeId InComponentTypeId);
 

@@ -1,7 +1,7 @@
 #pragma once
 #include "Component.h"
 #include "ComponentTypeArray.h"
-#include "Utility/ClassTypeId.h"
+#include "ClassTypeId.h"
 
 class ComponentFilter
 {

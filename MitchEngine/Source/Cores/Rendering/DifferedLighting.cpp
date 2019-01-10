@@ -4,10 +4,10 @@
 #include "Components/Transform.h"
 #include "Components/Lighting/Light.h"
 #include "ECS/ComponentFilter.h"
-#include "Utility/Logger.h"
+#include "Logger.h"
 #include "Engine/Window.h"
 #include "Graphics/Shader.h"
-#include "Engine/Resource.h"
+#include "Resource/Resource.h"
 
 #include "Components/Camera.h"
 #include <iostream>

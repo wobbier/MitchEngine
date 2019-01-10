@@ -1,8 +1,7 @@
-#include "PCH.h"
 #include <iostream>
 #include <assert.h>
-#include "Graphics/Cubemap.h"
-#include "Utility/Logger.h"
+#include "Cubemap.h"
+#include "Logger.h"
 
 #if ME_PLATFORM_WIN64
 

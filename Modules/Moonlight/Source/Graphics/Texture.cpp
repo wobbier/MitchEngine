@@ -1,8 +1,7 @@
-#include "PCH.h"
 #include <iostream>
 #include <assert.h>
-#include "Graphics/Texture.h"
-#include "Utility/Logger.h"
+#include "Texture.h"
+#include "Logger.h"
 
 #if ME_PLATFORM_WIN64
 #include <glad/glad.h>

@@ -1,6 +1,6 @@
 #pragma once
 #include "Entity.h"
-#include "Utility/ClassTypeId.h"
+#include "ClassTypeId.h"
 #include "ComponentFilter.h"
 #include <vector>
 

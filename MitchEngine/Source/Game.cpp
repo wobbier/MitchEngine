@@ -1,6 +1,6 @@
 #include "PCH.h"
 #include "Game.h"
-#include "Utility/Logger.h"
+#include "Logger.h"
 #include "Engine/Clock.h"
 #include "Cores/Rendering/RenderCore.h"
 #include "Cores/Rendering/DifferedLighting.h"

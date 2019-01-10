@@ -5,10 +5,10 @@
 #include "Components/Graphics/Model.h"
 #include "Components/Transform.h"
 #include "ECS/ComponentFilter.h"
-#include "Utility/Logger.h"
+#include "Logger.h"
 #include "Engine/Window.h"
 #include "Graphics/Shader.h"
-#include "Engine/Resource.h"
+#include "Resource/Resource.h"
 
 #include <glm.hpp>
 #include <gtc/matrix_transform.hpp>

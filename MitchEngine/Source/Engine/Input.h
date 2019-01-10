@@ -1,5 +1,5 @@
 #pragma once
-#include "Utility/Singleton.h"
+#include "Singleton.h"
 #include <map>
 #include <glm.hpp>
 
@@ -35,7 +35,9 @@ public:
 	static void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode);
 	static void MouseCallback(GLFWwindow* window, double xpos, double ypos);
 	static void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
-#endif // ME_PLATFORM_WIN64
+#else
+	static void KeyCallback(Windows::System::VirtualKey key);
+#endif
 
 private:
 	Input() = default;

@@ -2,8 +2,8 @@
 #include <unordered_map>
 #include <queue>
 
-#include "Utility/Singleton.h"
-#include "Utility/ClassTypeId.h"
+#include "Singleton.h"
+#include "ClassTypeId.h"
 #include "EventReceiver.h"
 
 class EventManager

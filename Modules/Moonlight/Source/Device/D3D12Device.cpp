@@ -12,6 +12,7 @@ using namespace Windows::Foundation;
 using namespace Windows::Graphics::Display;
 using namespace Windows::UI::Core;
 using namespace Windows::UI::Xaml::Controls;
+using namespace Windows::UI::Popups;
 using namespace Platform;
 using namespace std;
 
@@ -86,6 +87,9 @@ namespace Moonlight
 	{
 		CreateDeviceIndependentResources();
 		CreateDeviceResources();
+
+		MessageDialog Dialog("The renderer is currently under construction.", "Sorry!");
+		Dialog.ShowAsync();
 	}
 
 	// Configures resources that don't depend on the Direct3D device.
@@ -448,7 +452,6 @@ namespace Moonlight
 	void D3D12Device::UpdateRenderTargetSize()
 	{
 		m_effectiveDpi = m_dpi;
-
 		// To improve battery life on high resolution devices, render to a smaller render target
 		// and allow the GPU to scale the output when it is presented.
 		if (!DisplayMetrics::SupportHighResolutions && m_dpi > DisplayMetrics::DpiThreshold)
