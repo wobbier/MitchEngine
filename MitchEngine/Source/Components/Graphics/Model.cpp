@@ -1,6 +1,6 @@
 #include "PCH.h"
 #include "Model.h"
-#include "Utility/Logger.h"
+#include "Logger.h"
 
 #include <fbxsdk/utils/fbxgeometryconverter.h>
 
