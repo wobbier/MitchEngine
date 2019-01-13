@@ -3,13 +3,13 @@
 #include <map>
 #include <string>
 #include "Resource.h"
-#include "Singleton.h"
 
 class ResourceCache
-	: public Singleton<ResourceCache>
 {
-	friend class Singleton<ResourceCache>;
 public:
+	ResourceCache();
+	~ResourceCache();
+
 	void Push();
 
 	void Pop();
@@ -18,10 +18,7 @@ public:
 
 	template<class T>
 	T* Get(const std::string& InFilePath);
-
 private:
-	ResourceCache();
-	~ResourceCache();
 
 	std::vector<std::map<std::string, class Resource*>> ResourceStack;
 };

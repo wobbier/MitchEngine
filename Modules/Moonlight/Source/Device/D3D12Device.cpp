@@ -75,7 +75,7 @@ namespace Moonlight
 	D3D12Device::D3D12Device()
 		: IDevice()
 		, m_screenViewport()
-		, m_d3dFeatureLevel(D3D_FEATURE_LEVEL_12_1)
+		, m_d3dFeatureLevel(D3D_FEATURE_LEVEL_11_1)
 		, m_d3dRenderTargetSize()
 		, m_outputSize()
 		, m_logicalSize()
@@ -88,8 +88,8 @@ namespace Moonlight
 		CreateDeviceIndependentResources();
 		CreateDeviceResources();
 
-		MessageDialog Dialog("The renderer is currently under construction.", "Sorry!");
-		Dialog.ShowAsync();
+		//MessageDialog Dialog("The renderer is currently under construction.", "Sorry!");
+		//Dialog.ShowAsync();
 	}
 
 	// Configures resources that don't depend on the Direct3D device.
@@ -308,6 +308,9 @@ namespace Moonlight
 			ComPtr<IDXGIFactory4> dxgiFactory;
 			DX::ThrowIfFailed(dxgiAdapter->GetParent(IID_PPV_ARGS(&dxgiFactory)));
 
+
+			auto reason = m_d3dDevice->GetDeviceRemovedReason();
+			
 			ComPtr<IDXGISwapChain1> swapChain;
 			DX::ThrowIfFailed(
 				dxgiFactory->CreateSwapChainForCoreWindow(
@@ -471,6 +474,7 @@ namespace Moonlight
 
 		// Calculate the necessary render target size in pixels.
 		m_outputSize.Width = DX::ConvertDipsToPixels(m_logicalSize.x, m_effectiveDpi);
+		m_outputSize.Width = DX::ConvertDipsToPixels(m_logicalSize.x, m_effectiveDpi);
 		m_outputSize.Height = DX::ConvertDipsToPixels(m_logicalSize.y, m_effectiveDpi);
 
 		// Prevent zero size DirectX content from being created.
@@ -583,6 +587,7 @@ namespace Moonlight
 	// Recreate all device resources and set them back to the current state.
 	void D3D12Device::HandleDeviceLost()
 	{
+		GetD3DDevice()->Release();
 		m_swapChain = nullptr;
 
 		if (m_deviceNotify != nullptr)

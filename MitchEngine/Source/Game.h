@@ -24,12 +24,12 @@ public:
 	bool Render();
 	void WindowResized();
 
+	ResourceCache& GetResources();
+
 	bool IsRunning() const;
 	void Quit();
 
-#if ME_PLATFORM_WIN64
 	Window* GetWindow();
-#endif
 
 	class PhysicsCore* Physics;
 	class CameraCore* Cameras;
@@ -39,8 +39,7 @@ public:
 	Clock& GameClock;
 private:
 	bool Running;
-#if ME_PLATFORM_WIN64
 	Window* GameWindow;
-#endif
 	Config* EngineConfig;
+	ResourceCache Resources;
 };

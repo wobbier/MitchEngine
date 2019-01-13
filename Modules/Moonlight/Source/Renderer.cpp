@@ -14,6 +14,11 @@ namespace Moonlight
 #endif
 	}
 
+	Renderer::~Renderer()
+	{
+
+	}
+
 	void Renderer::SetWindow()
 	{
 
@@ -50,7 +55,10 @@ namespace Moonlight
 		}
 		m_sceneRenderer->Render();
 #endif
-
+		for (FBXModel* model : Models)
+		{
+			model->Draw();
+		}
 		m_device->Present();
 	}
 
@@ -67,6 +75,16 @@ namespace Moonlight
 		m_sceneRenderer->CreateDeviceDependentResources();
 		m_sceneRenderer->CreateWindowSizeDependentResources();
 #endif
+	}
+
+	void Renderer::PushModel(FBXModel* model)
+	{
+		Models.push_back(model);
+	}
+
+	ResourceCache& Renderer::GetResources()
+	{
+		return Resources;
 	}
 
 }

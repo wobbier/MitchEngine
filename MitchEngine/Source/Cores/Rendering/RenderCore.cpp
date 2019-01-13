@@ -23,7 +23,7 @@ RenderCore::RenderCore()
 	: Base(ComponentFilter().Requires<Transform>().Requires<Model>())
 {
 	//m_sceneRenderer = std::unique_ptr<TestModelRenderer>(new TestModelRenderer(m_deviceResources));
-	m_renderer = &Moonlight::Renderer::Get();
+	m_renderer = &Moonlight::Renderer::GetInstance();
 	m_renderer->RegisterDeviceNotify(this);
 }
 
@@ -109,6 +109,11 @@ bool RenderCore::Render()
 	if (!CurrentCamera)
 	{
 		return false;
+	}
+
+	auto Renderables = GetEntities();
+	for (auto& InEntity : Renderables)
+	{
 	}
 
 	m_renderer->Render();

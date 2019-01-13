@@ -33,9 +33,7 @@ void Game::Start()
 	int WindowWidth = 1280;//WindowConfig["width"].asInt();
 	int WindowHeight = 720;//WindowConfig["height"].asInt();
 
-#if ME_PLATFORM_WIN64
 	GameWindow = new Window("MitchEngine", WindowWidth, WindowHeight);
-#endif
 
 	GameWorld = new World();
 
@@ -126,7 +124,11 @@ bool Game::Render()
 
 void Game::WindowResized()
 {
-	//ModelRenderer->CreateWindowSizeDependentResources();
+}
+
+ResourceCache& Game::GetResources()
+{
+	return Resources;
 }
 
 bool Game::IsRunning() const
@@ -137,3 +139,8 @@ bool Game::IsRunning() const
 //bool Game::IsRunning() const { return Running; }
 
 void Game::Quit() { Running = false; }
+
+Window* Game::GetWindow()
+{
+	return GameWindow;
+}

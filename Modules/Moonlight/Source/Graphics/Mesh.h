@@ -4,35 +4,41 @@
 
 #include "Texture.h"
 #include "Shader.h"
+#include "Content/ShaderStructures.h"
 
-struct Vertex
+namespace Moonlight
 {
-	glm::vec3 Position;
-	glm::vec3 Normal;
-	glm::vec2 TexCoords;
-	glm::vec3 Tangent;
-	glm::vec3 Bitangent;
-};
+	struct Vertex
+	{
+		DirectX::XMFLOAT3 Position;
+		DirectX::XMFLOAT3 Normal;
+	};
 
-class Mesh
-{
-public:
-	Mesh() = delete;
-	~Mesh();
+	class Mesh
+	{
+	public:
+		Mesh() = delete;
+		~Mesh();
 
-	std::vector<Vertex> vertices;
-	std::vector<unsigned int> indices;
-	std::vector<Texture*> textures;
-	unsigned int VAO;
+		std::vector<Vertex> vertices;
+		std::vector<unsigned int> indices;
+		std::vector<Texture*> textures;
+		unsigned int VAO;
 
-	Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices, std::vector<Texture*> textures);
+		Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices, std::vector<Texture*> textures);
 
-	// render the mesh
-	void Draw(Shader shader);
+		// render the mesh
+		void Draw(Moonlight::Shader& shader);
 
-private:
-	unsigned int VBO, EBO;
+	private:
+		unsigned int VBO, EBO;
 
-	void InitMesh();
+		// System resources for cube geometry.
+		uint32	m_indexCount;
+		void InitMesh();
 
-};
+		Microsoft::WRL::ComPtr<ID3D11Buffer>		m_vertexBuffer;
+		Microsoft::WRL::ComPtr<ID3D11Buffer>		m_indexBuffer;
+
+	};
+}

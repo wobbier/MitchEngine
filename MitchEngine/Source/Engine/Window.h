@@ -6,6 +6,7 @@
 #if ME_PLATFORM_WIN64
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+#endif
 
 #ifdef MAN_ENABLE_RENDERDOC
 #include "Utility/Debug/RenderDocManager.h"
@@ -17,6 +18,8 @@ public:
 	static int WINDOW_HEIGHT, WINDOW_WIDTH;
 	Window(std::string title, int width = WINDOW_WIDTH, int height = WINDOW_HEIGHT);
 	~Window();
+
+#if ME_PLATFORM_WIN64
 
 	bool ShouldClose();
 	void PollInput();
@@ -30,10 +33,10 @@ private:
 
 private:
 	GLFWwindow * window;
+#endif
 
 #ifdef MAN_ENABLE_RENDERDOC
 	RenderDocManager* RenderDoc;
 #endif
 };
 
-#endif

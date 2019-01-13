@@ -38,7 +38,6 @@ void App::Initialize(CoreApplicationView^ applicationView)
 
 	// At this point we have access to the device. 
 	// We can create the device-dependent resources.
-	//m_deviceResources = std::make_shared<DX::DeviceResources>();
 
 	m_main = std::make_unique<MitchGame>();
 }
@@ -69,7 +68,7 @@ void App::SetWindow(CoreWindow^ window)
 	window->KeyDown += 
 		ref new Windows::Foundation::TypedEventHandler<Windows::UI::Core::CoreWindow ^, Windows::UI::Core::KeyEventArgs ^>(this, &App::OnKeyDown);
 
-	Moonlight::D3D12Device& device = static_cast<Moonlight::D3D12Device&>(Moonlight::Renderer::Get().GetDevice());
+	Moonlight::D3D12Device& device = static_cast<Moonlight::D3D12Device&>(Moonlight::Renderer::GetInstance().GetDevice());
 	device.SetWindow(window);
 }
 
@@ -122,7 +121,7 @@ void App::OnSuspending(Platform::Object^ sender, SuspendingEventArgs^ args)
 
 	create_task([this, deferral]()
 	{
-        Moonlight::Renderer::Get().GetDevice().Trim();
+        Moonlight::Renderer::GetInstance().GetDevice().Trim();
 
 		// Insert your code here.
 
@@ -143,7 +142,7 @@ void App::OnResuming(Platform::Object^ sender, Platform::Object^ args)
 
 void App::OnWindowSizeChanged(CoreWindow^ sender, WindowSizeChangedEventArgs^ args)
 {
-	Moonlight::Renderer::Get().GetDevice().SetLogicalSize(glm::vec2(sender->Bounds.Width, sender->Bounds.Height));
+	Moonlight::Renderer::GetInstance().GetDevice().SetLogicalSize(glm::vec2(sender->Bounds.Width, sender->Bounds.Height));
 	m_main->WindowResized();
 }
 
@@ -170,17 +169,17 @@ void App::OnDpiChanged(DisplayInformation^ sender, Object^ args)
 	// if it is being scaled for high resolution devices. Once the DPI is set on DeviceResources,
 	// you should always retrieve it using the GetDpi method.
 	// See DeviceResources.cpp for more details.
-	//Moonlight::Renderer::Get().GetDevice().SetDpi(sender->LogicalDpi);
+	static_cast<Moonlight::D3D12Device&>(Moonlight::Renderer::GetInstance().GetDevice()).SetDpi(sender->LogicalDpi);
 	m_main->WindowResized();
 }
 
 void App::OnOrientationChanged(DisplayInformation^ sender, Object^ args)
 {
-	//Moonlight::Renderer::Get().GetDevice().SetCurrentOrientation(sender->CurrentOrientation);
+	static_cast<Moonlight::D3D12Device&>(Moonlight::Renderer::GetInstance().GetDevice()).SetCurrentOrientation(sender->CurrentOrientation);
 	m_main->WindowResized();
 }
 
 void App::OnDisplayContentsInvalidated(DisplayInformation^ sender, Object^ args)
 {
-	//Moonlight::Renderer::Get().GetDevice().ValidateDevice();
+	static_cast<Moonlight::D3D12Device&>(Moonlight::Renderer::GetInstance().GetDevice()).ValidateDevice();
 }

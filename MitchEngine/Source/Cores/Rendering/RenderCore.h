@@ -21,7 +21,7 @@ public:
 
 	bool Render();
 	Cubemap* SkyboxMap = nullptr;
-	Shader* SkyboxShader = nullptr;
+	Moonlight::Shader* SkyboxShader = nullptr;
 
 	virtual void OnDeviceLost() override;
 	virtual void OnDeviceRestored() override;

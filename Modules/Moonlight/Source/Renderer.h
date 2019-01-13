@@ -4,21 +4,19 @@
 #include "Device/IDevice.h"
 #include "Utils/StepTimer.h"
 #include "Content/TestModelRenderer.h"
+#include "Singleton.h"
+#include "Resource/ResourceCache.h"
+#include "Graphics/FBXModel.h"
 
 namespace Moonlight
 {
 	class Renderer
+		: public Singleton<Renderer>
 	{
-	protected:
-		Renderer();
-		~Renderer() = default;
-
 	public:
-		static Renderer& Get()
-		{
-			static Renderer Instance;
-			return Instance;
-		}
+		Renderer();
+		virtual ~Renderer() final;
+
 		void SetWindow();
 		void RegisterDeviceNotify(IDeviceNotify* deviceNotify);
 
@@ -29,8 +27,14 @@ namespace Moonlight
 
 		void ReleaseDeviceDependentResources() const;
 		void CreateDeviceDependentResources() const;
+
+		void PushModel(FBXModel* model);
+
+		ResourceCache& GetResources();
 	private:
 		IDevice* m_device;
+
+		ResourceCache Resources;
 
 #if ME_PLATFORM_UWP
 		std::unique_ptr<TestModelRenderer> m_sceneRenderer;
@@ -38,5 +42,6 @@ namespace Moonlight
 		// Rendering loop timer.
 		DX::StepTimer m_timer;
 #endif
+		std::vector<FBXModel*> Models;
 	};
 }

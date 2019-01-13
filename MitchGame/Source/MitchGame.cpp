@@ -41,10 +41,12 @@ void MitchGame::Initialize()
 	SecondaryCamera.AddComponent<Light>();
 	SecondaryCamera.AddComponent<FlyingCamera>();
 
-	Entity Ground = GameWorld->CreateEntity();
-	Ground.AddComponent<Transform>("Ground obvs").SetPosition(glm::vec3(0.f, 20.f, 0.f));
-	Ground.AddComponent<Rigidbody>();
-	Ground.AddComponent<Model>("Assets/Mech/mech.fbx", "Assets/Shaders/Albedo");
+	Entity TestModel = GameWorld->CreateEntity();
+	Transform& ModelTransform = TestModel.AddComponent<Transform>("Ground obvs");
+	ModelTransform.SetPosition(glm::vec3(0.f, 20.f, 0.f));
+	ModelTransform.SetScale(glm::vec3(0.02f, 0.02f, 0.02f));
+	TestModel.AddComponent<Rigidbody>();
+	TestModel.AddComponent<Model>("Assets/Mech/mech.fbx", "Assets/Shaders/Albedo");
 
 	/*Entity Ground2 = GameWorld->CreateEntity();
 	Ground2.AddComponent<Transform>("Ground obvs");
