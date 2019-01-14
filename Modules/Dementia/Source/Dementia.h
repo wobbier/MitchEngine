@@ -50,5 +50,5 @@ Class& operator=(Class&&) = delete;
 #ifdef ME_ENABLE_RENDERDOC
 #define ME_ENABLE_RENDERDOC 1
 #else
-#define ME_ENABLE_RENDERDOC 1
+#define ME_ENABLE_RENDERDOC 0
 #endif

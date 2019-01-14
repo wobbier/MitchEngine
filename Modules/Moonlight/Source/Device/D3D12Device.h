@@ -59,7 +59,6 @@ namespace Moonlight
 		ID3D11DepthStencilView*		GetDepthStencilView() const { return m_d3dDepthStencilView.Get(); }
 		D3D11_VIEWPORT				GetScreenViewport() const { return m_screenViewport; }
 		DirectX::XMFLOAT4X4			GetOrientationTransform3D() const { return m_orientationTransform3D; }
-
 		// D2D Accessors.
 		ID2D1Factory3*				GetD2DFactory() const { return m_d2dFactory.Get(); }
 		ID2D1Device2*				GetD2DDevice() const { return m_d2dDevice.Get(); }
@@ -80,6 +79,7 @@ namespace Moonlight
 		Microsoft::WRL::ComPtr<ID3D11Device3>			m_d3dDevice;
 		Microsoft::WRL::ComPtr<ID3D11DeviceContext3>	m_d3dContext;
 		Microsoft::WRL::ComPtr<IDXGISwapChain3>			m_swapChain;
+		ID3D11RasterizerState*							WireFrame;
 
 		// Direct3D rendering objects. Required for 3D.
 		Microsoft::WRL::ComPtr<ID3D11RenderTargetView1>	m_d3dRenderTargetView;

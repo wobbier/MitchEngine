@@ -233,6 +233,13 @@ namespace Moonlight
 				&m_d2dContext
 			)
 		);
+
+		D3D11_RASTERIZER_DESC wfdesc;
+		ZeroMemory(&wfdesc, sizeof(D3D11_RASTERIZER_DESC));
+		wfdesc.FillMode = D3D11_FILL_SOLID;
+		wfdesc.CullMode = D3D11_CULL_FRONT;
+		hr = device->CreateRasterizerState(&wfdesc, &WireFrame);
+		GetD3DDeviceContext()->RSSetState(WireFrame);
 	}
 
 	// These resources need to be recreated every time the window size is changed.
