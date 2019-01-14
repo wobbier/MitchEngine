@@ -1,6 +1,6 @@
 ﻿#include "TestModelRenderer.h"
 
-#if ME_PLATFORM_UWP
+#if ME_DIRECTX
 
 #include "Components/Camera.h"
 #include "Device/D3D12Device.h"
@@ -78,7 +78,7 @@ namespace Moonlight
 			return;
 		}
 
-		Size outputSize = m_deviceResources->GetOutputSize();
+		TSize outputSize = m_deviceResources->GetOutputSize();
 		float aspectRatio = outputSize.Width / outputSize.Height;
 		float fovAngleY = 70.0f * XM_PI / 180.0f;
 

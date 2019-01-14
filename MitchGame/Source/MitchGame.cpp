@@ -5,7 +5,6 @@
 #include "ECS/Entity.h"
 #include <string>
 #include "Engine/Input.h"
-#include "Engine/Window.h"
 #include "Components/Animation.h"
 #include "Components/Camera.h"
 #include "Components/Physics/Rigidbody.h"
@@ -76,7 +75,7 @@ float totalTime = 0.f;
 void MitchGame::Update(float DeltaTime)
 {
 	FlyingCameraController->Update(DeltaTime);
-#if ME_PLATFORM_WIN64
+#if ME_OPENGL
 	Input& Instance = Input::GetInstance();
 	if (Instance.IsKeyDown(GLFW_KEY_1))
 	{

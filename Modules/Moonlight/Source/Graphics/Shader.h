@@ -33,7 +33,7 @@ namespace Moonlight
 		const bool IsLoaded() const { return isLoaded; };
 
 	private:
-#if ME_PLATFORM_UWP
+#if ME_DIRECTX
 		Microsoft::WRL::ComPtr<ID3D11InputLayout>	m_inputLayout;
 		Microsoft::WRL::ComPtr<ID3D11VertexShader>	m_vertexShader;
 		Microsoft::WRL::ComPtr<ID3D11PixelShader>	m_pixelShader;

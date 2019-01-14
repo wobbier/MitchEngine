@@ -5,14 +5,14 @@
 #include "Components/Lighting/Light.h"
 #include "ECS/ComponentFilter.h"
 #include "Logger.h"
-#include "Engine/Window.h"
+#include "Window/GLWindow.h"
 #include "Graphics/Shader.h"
 #include "Resource/Resource.h"
 
 #include "Components/Camera.h"
 #include <iostream>
 
-#if ME_PLATFORM_WIN64
+#if ME_OPENGL
 
 DifferedLighting::DifferedLighting() : Base(ComponentFilter().Requires<Transform>().Requires<Light>())
 {

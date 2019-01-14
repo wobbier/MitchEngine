@@ -1,12 +1,13 @@
 ﻿#pragma once
 #include <vector>
 
-#if ME_PLATFORM_UWP
+#if ME_DIRECTX
 
 #include "Device/IDevice.h"
 #include "Device/D3D12Device.h"
 #include "ShaderStructures.h"
-#include "..\Utils\StepTimer.h"
+#include "Utils/StepTimer.h"
+#include "Utils/DirectXHelper.h"
 
 namespace Moonlight
 {

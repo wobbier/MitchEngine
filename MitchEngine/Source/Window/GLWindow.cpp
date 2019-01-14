@@ -1,26 +1,20 @@
 #include "PCH.h"
-#include "Engine/Window.h"
+#include "Window/IWindow.h"
 #include "Engine/Input.h"
 #include "Logger.h"
 #include <assert.h>
 
-#if ME_PLATFORM_WIN64
+#if ME_OPENGL
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <glad.c>
 
-#endif
+#include "Renderer.h"
 
-int Window::WINDOW_WIDTH = 960;
-int Window::WINDOW_HEIGHT = 540;
-
-Window::Window(std::string title, int width, int height)
+GLWindow::GLWindow(std::string title, int width, int height)
+	: IWindow(title, width, height)
 {
-	WINDOW_HEIGHT = height;
-	WINDOW_WIDTH = width;
-
-#if ME_PLATFORM_WIN64
 	// Init GLFW
 	glfwInit();
 
@@ -36,12 +30,7 @@ Window::Window(std::string title, int width, int height)
 		glfwTerminate();
 		assert(0);
 	}
-#endif
-#ifdef MAN_ENABLE_RENDERDOC
-	RenderDoc = new RenderDocManager();
-#endif
-	
-#if ME_PLATFORM_WIN64
+
 	glfwMakeContextCurrent(window);
 	glfwSetFramebufferSizeCallback(window, Window::FramebufferSizeCallback);
 
@@ -54,32 +43,31 @@ Window::Window(std::string title, int width, int height)
 	glfwSetKeyCallback(window, &Input::KeyCallback);
 	glfwSetCursorPosCallback(window, &Input::MouseCallback);
 	glfwSetScrollCallback(window, &Input::ScrollCallback);
-#endif
 }
 
-Window::~Window()
+GLWindow::~GLWindow()
 {
 }
 
-#if ME_PLATFORM_WIN64
-bool Window::ShouldClose()
+bool GLWindow::ShouldClose()
 {
 	return (glfwWindowShouldClose(window) == 1) ? true : false;
 }
 
 
-void Window::PollInput()
+void GLWindow::PollInput()
 {
 	glfwPollEvents();
 }
-void Window::Swap()
+void GLWindow::Swap()
 {
 	glfwMakeContextCurrent(window);
 	glfwSwapBuffers(window);
 }
 
-void Window::FramebufferSizeCallback(GLFWwindow* window, int width, int height)
+void GLWindow::FramebufferSizeCallback(GLFWwindow* window, int width, int height)
 {
 	glViewport(0, 0, width, height);
 }
+
 #endif

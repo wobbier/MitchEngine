@@ -23,7 +23,7 @@ void FlyingCameraCore::Init()
 void FlyingCameraCore::Update(float dt)
 {
 	Input& Instance = Input::GetInstance();
-#if ME_PLATFORM_WIN64
+#if ME_OPENGL
 	if (Instance.IsKeyDown(GLFW_KEY_ENTER))
 	{
 		TestEvent testEvent;
@@ -47,7 +47,7 @@ void FlyingCameraCore::Update(float dt)
 		if (&CameraComponent == Camera::CurrentCamera)
 		{
 			float CameraSpeed = FlyingCameraComponent.FlyingSpeed;
-#if ME_PLATFORM_WIN64
+#if ME_OPENGL
 			if (Instance.IsKeyDown(GLFW_KEY_LEFT_SHIFT))
 			{
 				CameraSpeed += FlyingCameraComponent.SpeedModifier;

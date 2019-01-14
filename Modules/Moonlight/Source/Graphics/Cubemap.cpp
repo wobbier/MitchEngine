@@ -3,7 +3,7 @@
 #include "Cubemap.h"
 #include "Logger.h"
 
-#if ME_PLATFORM_WIN64
+#if ME_OPENGL
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -24,7 +24,7 @@ Cubemap* Cubemap::Load(const std::string& InFilePath)
 {
 	Cubemap* LoadedCubemap = new Cubemap();
 	LoadedCubemap->Directory = InFilePath.substr(0, InFilePath.find_last_of('/'));
-#if ME_PLATFORM_WIN64
+#if ME_OPENGL
 	// Generate Cubemap ID and load Cubemap data
 	glGenTextures(1, &LoadedCubemap->Id);
 	glBindTexture(GL_TEXTURE_CUBE_MAP, LoadedCubemap->Id);

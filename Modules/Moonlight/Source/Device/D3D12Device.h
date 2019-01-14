@@ -1,7 +1,7 @@
 #pragma once
 #include "IDevice.h"
 
-#ifdef ME_PLATFORM_UWP
+#ifdef ME_DIRECTX
 
 #include <d3d11_3.h>
 #include <d2d1_3.h>
@@ -10,18 +10,33 @@
 #include <DirectXMath.h>
 #include <wincodec.h>
 #include <wrl/client.h>
+
+#if ME_PLATFORM_UWP
 #include <agile.h>
+#endif
 
 namespace Moonlight
 {
+	struct TSize
+	{
+		int Width;
+		int Height;
+	};
 	class D3D12Device
 		: public IDevice
 	{
 	public:
 		D3D12Device();
+#if ME_PLATFORM_UWP
 		void SetWindow(Windows::UI::Core::CoreWindow^ window);
-		virtual void SetLogicalSize(glm::vec2 logicalSize);
 		void SetCurrentOrientation(Windows::Graphics::Display::DisplayOrientations currentOrientation);
+#endif
+#if ME_PLATFORM_WIN64
+		void SetWindow(HWND window);
+#endif
+		// The size of the render target, in pixels.
+		TSize GetOutputSize() const { return m_outputSize; }
+		virtual void SetLogicalSize(glm::vec2 logicalSize);
 		void SetDpi(float dpi);
 		void ValidateDevice();
 		void HandleDeviceLost();
@@ -30,9 +45,6 @@ namespace Moonlight
 
 		virtual void PreRender() final;
 		virtual void Present() final;
-
-		// The size of the render target, in pixels.
-		Windows::Foundation::Size	GetOutputSize() const { return m_outputSize; }
 
 		// The size of the render target, in dips.
 		glm::vec2					GetLogicalSize() const { return m_logicalSize; }
@@ -85,16 +97,22 @@ namespace Moonlight
 		Microsoft::WRL::ComPtr<IWICImagingFactory2>	m_wicFactory;
 
 		// Cached reference to the Window.
+#if ME_PLATFORM_UWP
 		Platform::Agile<Windows::UI::Core::CoreWindow> m_window;
+		Windows::Graphics::Display::DisplayOrientations	m_nativeOrientation;
+		Windows::Graphics::Display::DisplayOrientations	m_currentOrientation;
+#endif
+
+#if ME_PLATFORM_WIN64
+		HWND m_window;
+#endif
 
 		// Cached device properties.
 		D3D_FEATURE_LEVEL								m_d3dFeatureLevel;
-		Windows::Foundation::Size						m_d3dRenderTargetSize;
-		Windows::Foundation::Size						m_outputSize;
 		glm::vec2										m_logicalSize;
-		Windows::Graphics::Display::DisplayOrientations	m_nativeOrientation;
-		Windows::Graphics::Display::DisplayOrientations	m_currentOrientation;
 		float											m_dpi;
+		TSize						m_d3dRenderTargetSize;
+		TSize						m_outputSize;
 
 		// This is the DPI that will be reported back to the app. It takes into account whether the app supports high resolution screens or not.
 		float m_effectiveDpi;

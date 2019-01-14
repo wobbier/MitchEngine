@@ -1,7 +1,7 @@
 #include "D3D12Device.h"
 #include "Utils/DirectXHelper.h"
 
-#if ME_PLATFORM_UWP
+#if ME_DIRECTX
 
 #include <DirectXColors.h>
 
@@ -9,11 +9,13 @@ using namespace D2D1;
 using namespace DirectX;
 using namespace Microsoft::WRL;
 using namespace Windows::Foundation;
+#if ME_PLATFORM_UWP
 using namespace Windows::Graphics::Display;
 using namespace Windows::UI::Core;
 using namespace Windows::UI::Xaml::Controls;
 using namespace Windows::UI::Popups;
 using namespace Platform;
+#endif
 using namespace std;
 
 namespace Moonlight
@@ -76,11 +78,13 @@ namespace Moonlight
 		: IDevice()
 		, m_screenViewport()
 		, m_d3dFeatureLevel(D3D_FEATURE_LEVEL_11_1)
+		, m_logicalSize()
+#if ME_PLATFORM_UWP
 		, m_d3dRenderTargetSize()
 		, m_outputSize()
-		, m_logicalSize()
 		, m_nativeOrientation(DisplayOrientations::None)
 		, m_currentOrientation(DisplayOrientations::None)
+#endif
 		, m_dpi(-1.0f)
 		, m_effectiveDpi(-1.0f)
 		, m_deviceNotify(nullptr)
@@ -312,6 +316,7 @@ namespace Moonlight
 			auto reason = m_d3dDevice->GetDeviceRemovedReason();
 			
 			ComPtr<IDXGISwapChain1> swapChain;
+#if ME_PLATFORM_UWP
 			DX::ThrowIfFailed(
 				dxgiFactory->CreateSwapChainForCoreWindow(
 					m_d3dDevice.Get(),
@@ -321,6 +326,18 @@ namespace Moonlight
 					&swapChain
 				)
 			);
+#elif ME_PLATFORM_WIN64
+			DX::ThrowIfFailed(
+				dxgiFactory->CreateSwapChainForHwnd(
+					m_d3dDevice.Get(),
+					m_window,
+					&swapChainDesc,
+					nullptr,
+					nullptr,
+					&swapChain
+				)
+			);
+#endif
 
 			DX::ThrowIfFailed(swapChain.As(&m_swapChain));
 
@@ -365,8 +382,8 @@ namespace Moonlight
 			m_orientationTransform3D = ScreenRotation::Rotation90;
 			break;
 
-		default:
-			throw ref new FailureException();
+		//default:
+			//throw ref new FailureException();
 		}
 
 		DX::ThrowIfFailed(m_swapChain->SetRotation(displayRotation));
@@ -448,7 +465,9 @@ namespace Moonlight
 		m_d2dContext->SetDpi(m_effectiveDpi, m_effectiveDpi);
 
 		// Grayscale text anti-aliasing is recommended for all Windows Store apps.
+#if ME_PLATFORM_UWP
 		m_d2dContext->SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE);
+#endif
 	}
 
 	// Determine the dimensions of the render target and whether it will be scaled down.
@@ -465,7 +484,7 @@ namespace Moonlight
 			// When the device is in portrait orientation, height > width. Compare the
 			// larger dimension against the width threshold and the smaller dimension
 			// against the height threshold.
-			if (max(width, height) > DisplayMetrics::WidthThreshold && min(width, height) > DisplayMetrics::HeightThreshold)
+			if (std::fmax(width, height) > DisplayMetrics::WidthThreshold && std::fmax(width, height) > DisplayMetrics::HeightThreshold)
 			{
 				// To scale the app we change the effective DPI. Logical size does not change.
 				m_effectiveDpi /= 2.0f;
@@ -478,9 +497,10 @@ namespace Moonlight
 		m_outputSize.Height = DX::ConvertDipsToPixels(m_logicalSize.y, m_effectiveDpi);
 
 		// Prevent zero size DirectX content from being created.
-		m_outputSize.Width = max(static_cast<int>(m_outputSize.Width), 1);
-		m_outputSize.Height = max(static_cast<int>(m_outputSize.Height), 1);
+		m_outputSize.Width = std::fmax(static_cast<int>(m_outputSize.Width), 1);
+		m_outputSize.Height = std::fmax(static_cast<int>(m_outputSize.Height), 1);
 	}
+#if ME_PLATFORM_UWP
 
 	// This method is called when the CoreWindow is created (or re-created).
 	void D3D12Device::SetWindow(CoreWindow^ window)
@@ -496,7 +516,17 @@ namespace Moonlight
 
 		CreateWindowSizeDependentResources();
 	}
+#endif
+#if ME_PLATFORM_WIN64
+	void D3D12Device::SetWindow(HWND window)
+	{
+		m_window = window;
+		m_logicalSize = glm::vec2(1280, 720);
+		m_dpi = 96;
 
+		CreateWindowSizeDependentResources();
+	}
+#endif
 	// This method is called in the event handler for the SizeChanged event.
 	void D3D12Device::SetLogicalSize(glm::vec2 logicalSize)
 	{
@@ -515,13 +545,17 @@ namespace Moonlight
 			m_dpi = dpi;
 
 			// When the display DPI changes, the logical size of the window (measured in Dips) also changes and needs to be updated.
+#if ME_PLATFORM_UWP
 			m_logicalSize = glm::vec2(m_window->Bounds.Width, m_window->Bounds.Height);
-
+#elif ME_PLATFORM_WIN64
+			m_logicalSize = glm::vec2(1280, 720);
+#endif
 			m_d2dContext->SetDpi(m_dpi, m_dpi);
 			CreateWindowSizeDependentResources();
 		}
 	}
 
+#if ME_PLATFORM_UWP
 	// This method is called in the event handler for the OrientationChanged event.
 	void D3D12Device::SetCurrentOrientation(DisplayOrientations currentOrientation)
 	{
@@ -531,6 +565,7 @@ namespace Moonlight
 			CreateWindowSizeDependentResources();
 		}
 	}
+#endif
 
 	// This method is called in the event handler for the DisplayContentsInvalidated event.
 	void D3D12Device::ValidateDevice()
@@ -623,6 +658,15 @@ namespace Moonlight
 
 	void D3D12Device::PreRender()
 	{
+#if ME_PLATFORM_UWP
+		if (!m_window.Get())
+#elif ME_PLATFORM_WIN64
+		if (!m_window)
+#endif
+		{
+			return;
+		}
+
 		auto context = GetD3DDeviceContext();
 
 		// Reset the viewport to target the whole screen.
@@ -671,10 +715,11 @@ namespace Moonlight
 	// current display orientation.
 	DXGI_MODE_ROTATION D3D12Device::ComputeDisplayRotation()
 	{
-		DXGI_MODE_ROTATION rotation = DXGI_MODE_ROTATION_UNSPECIFIED;
+		DXGI_MODE_ROTATION rotation = DXGI_MODE_ROTATION_IDENTITY;
 
 		// Note: NativeOrientation can only be Landscape or Portrait even though
 		// the DisplayOrientations enum has other values.
+#if ME_PLATFORM_UWP
 		switch (m_nativeOrientation)
 		{
 		case DisplayOrientations::Landscape:
@@ -719,6 +764,7 @@ namespace Moonlight
 			}
 			break;
 		}
+#endif
 		return rotation;
 	}
 }

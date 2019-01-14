@@ -1,8 +1,12 @@
 ﻿#pragma once
+#include "Dementia.h"
+
+#if ME_DIRECTX
 
 #if ME_PLATFORM_UWP
-
 #include <ppltasks.h>	// For create_task
+#endif
+#include <vcruntime_exception.h>
 
 namespace DX
 {
@@ -10,11 +14,16 @@ namespace DX
 	{
 		if (FAILED(hr))
 		{
+#if ME_PLATFORM_UWP
 			// Set a breakpoint on this line to catch Win32 API errors.
 			throw Platform::Exception::CreateException(hr);
+#elif ME_PLATFORM_WIN64
+			throw std::exception("The method or operation is not implemented.");
+#endif
 		}
 	}
 
+#if ME_PLATFORM_UWP
 	// Function that reads from a binary file asynchronously.
 	inline Concurrency::task<std::vector<byte>> ReadDataAsync(const std::wstring& filename)
 	{
@@ -33,7 +42,8 @@ namespace DX
 			Streams::DataReader::FromBuffer(fileBuffer)->ReadBytes(Platform::ArrayReference<byte>(returnBuffer.data(), fileBuffer->Length));
 			return returnBuffer;
 		});
-	}
+}
+#endif
 
 	// Converts a length in device-independent pixels (DIPs) to a length in physical pixels.
 	inline float ConvertDipsToPixels(float dips, float dpi)

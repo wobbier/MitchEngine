@@ -7,7 +7,7 @@
 
 #pragma region KeyboardInput
 
-#if ME_PLATFORM_WIN64
+#if ME_OPENGL
 void Input::KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode)
 {
 	//printf("%i, %i, %i, %i\n", key, scancode, action, mode);
@@ -19,6 +19,7 @@ void Input::KeyCallback(GLFWwindow* window, int key, int scancode, int action, i
 }
 #endif
 
+#if ME_PLATFORM_UWP
 void Input::KeyCallback(Windows::System::VirtualKey key)
 {
 	Input& Instance = GetInstance();
@@ -27,6 +28,7 @@ void Input::KeyCallback(Windows::System::VirtualKey key)
 	Instance.Keys[key].Action = action;
 	Instance.Keys[key].Mode = mode;*/
 }
+#endif
 
 bool Input::IsKeyDown(int key)
 {
@@ -50,7 +52,7 @@ bool Input::IsKeyUp(int key)
 
 #pragma region MouseInput
 
-#if ME_PLATFORM_WIN64
+#if ME_OPENGL
 void Input::MouseCallback(GLFWwindow* window, double xpos, double ypos)
 {
 	Input& Instance = GetInstance();

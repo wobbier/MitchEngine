@@ -1,6 +1,6 @@
 ﻿#pragma once
 
-#if ME_PLATFORM_UWP
+#if ME_DIRECTX
 
 // Constant buffer used to send MVP matrices to the vertex shader.
 struct ModelViewProjectionConstantBuffer

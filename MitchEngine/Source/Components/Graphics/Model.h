@@ -2,8 +2,12 @@
 #include "ECS/Component.h"
 #include <string>
 #include <glm.hpp>
-#include "Graphics/Shader.h"
-#include "Graphics/FBXModel.h"
+
+namespace Moonlight
+{
+	class Shader;
+	class FBXModel;
+}
 
 class Model : public Component<Model>
 {
@@ -16,6 +20,7 @@ public:
 
 	Moonlight::FBXModel* ModelResource = nullptr;
 	Moonlight::Shader* ModelShader = nullptr;
+
 private:
 	bool EnableGammaCorrection;
 };

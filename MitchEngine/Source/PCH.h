@@ -3,24 +3,10 @@
 
 #include <SDKDDKVer.h>
 
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-
-#ifdef ME_PLATFORM_WIN64
-#define ME_PLATFORM_WIN64 1
-#else
-#define ME_PLATFORM_WIN64 0
-#endif
-
-#ifdef ME_PLATFORM_UWP
-#define ME_PLATFORM_UWP 1
-#else
-#define ME_PLATFORM_UWP 0
-#endif
+#include "Dementia.h"
 
 #include <windows.h>
-#if ME_PLATFORM_UWP
+#if ME_DIRECTX
 #include <wrl.h>
 #include <wrl/client.h>
 #include <dxgi1_4.h>
@@ -31,11 +17,13 @@
 #include <wincodec.h>
 #include <DirectXColors.h>
 #include <DirectXMath.h>
-#include <agile.h>
 #include <concrt.h>
 #endif
+#if ME_PLATFORM_UWP
+#include <agile.h>
+#endif
 
-#if ME_PLATFORM_WIN64
+#if ME_OPENGL
 #include "glad/glad.h"
 #include "GLFW/glfw3.h"
 #endif
@@ -75,6 +63,5 @@
 #include <gtx/rotate_vector.hpp>
 #include <gtx/quaternion.hpp>
 
-#include "Dementia.h"
 // core
 #include "Game.h"

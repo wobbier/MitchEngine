@@ -6,7 +6,7 @@
 #include "Components/Transform.h"
 #include "ECS/ComponentFilter.h"
 #include "Logger.h"
-#include "Engine/Window.h"
+#include "Window/GLWindow.h"
 #include "Graphics/Shader.h"
 #include "Resource/Resource.h"
 
@@ -29,7 +29,7 @@ RenderCore::RenderCore()
 
 void RenderCore::Init()
 {
-#if ME_PLATFORM_WIN64
+#if ME_OPENGL
 	glEnable(GL_DEPTH_TEST);
 	Logger::GetInstance().Log(Logger::LogType::Debug, "Renderer Initialized...");
 	Logger::GetInstance().Log(Logger::LogType::Debug, (const char*)glGetString(GL_VERSION));
@@ -117,7 +117,7 @@ bool RenderCore::Render()
 	}
 
 	m_renderer->Render();
-#if ME_PLATFORM_WIN64
+#if ME_OPENGL
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	SkyboxShader->Use();
 	SkyboxShader->SetInt("skybox", 0);
@@ -191,14 +191,14 @@ bool RenderCore::Render()
 
 void RenderCore::OnDeviceLost()
 {
-#if ME_PLATFORM_UWP
+#if ME_DIRECTX
 	m_renderer->ReleaseDeviceDependentResources();
 #endif
 }
 
 void RenderCore::OnDeviceRestored()
 {
-#if ME_PLATFORM_UWP
+#if ME_DIRECTX
 	m_renderer->CreateDeviceDependentResources();
 	m_renderer->GetDevice().CreateWindowSizeDependentResources();
 #endif

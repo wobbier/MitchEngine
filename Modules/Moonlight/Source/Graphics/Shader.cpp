@@ -1,6 +1,6 @@
 #include "Shader.h"
 
-#if ME_PLATFORM_WIN64
+#if ME_OPENGL
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #endif
@@ -18,8 +18,8 @@ namespace Moonlight
 		try
 		{
 			// Open files
-			std::ifstream vShaderFile(InVertexPath.c_str());
-			std::ifstream fShaderFile(InFragPath.c_str());
+			std::ifstream vShaderFile("Assets/Shaders/SampleVertexShader.cso");
+			std::ifstream fShaderFile("Assets/Shaders/SamplePixelShader.cso");
 			std::stringstream vShaderStream, fShaderStream;
 
 			// Read file's buffer contents into streams
@@ -42,18 +42,26 @@ namespace Moonlight
 		const char* vShaderCode = VertexSource.c_str();
 		const char * fShaderCode = FragSource.c_str();
 
+		auto dxDevice = static_cast<D3D12Device&>(Renderer::GetInstance().GetDevice());
+
+#if ME_PLATFORM_UWP
 		// Load shaders asynchronously.
 		auto loadVSTask = DX::ReadDataAsync(L"SampleVertexShader.cso");
 		auto loadPSTask = DX::ReadDataAsync(L"SamplePixelShader.cso");
 
-		auto dxDevice = static_cast<D3D12Device&>(Renderer::GetInstance().GetDevice());
 		// After the vertex shader file is loaded, create the shader and input layout.
 		auto createVSTask = loadVSTask.then([this, dxDevice](const std::vector<byte>& fileData)
 		{
+#endif
 			DX::ThrowIfFailed(
 				dxDevice.GetD3DDevice()->CreateVertexShader(
+#if ME_PLATFORM_UWP
 					&fileData[0],
 					fileData.size(),
+#elif ME_DIRECTX
+					&vShaderCode[0],
+					VertexSource.size(),
+#endif
 					nullptr,
 					&m_vertexShader
 				)
@@ -69,28 +77,42 @@ namespace Moonlight
 				dxDevice.GetD3DDevice()->CreateInputLayout(
 					vertexDesc,
 					ARRAYSIZE(vertexDesc),
+#if ME_PLATFORM_UWP
 					&fileData[0],
 					fileData.size(),
+#elif ME_DIRECTX
+					&vShaderCode[0],
+					VertexSource.size(),
+#endif
 					&m_inputLayout
 				)
 			);
+#if ME_PLATFORM_UWP
 		});
 
 		// After the pixel shader file is loaded, create the shader and constant buffer.
 		auto createPSTask = loadPSTask.then([this, dxDevice](const std::vector<byte>& fileData)
 		{
+#endif
 			DX::ThrowIfFailed(
 				dxDevice.GetD3DDevice()->CreatePixelShader(
+#if ME_PLATFORM_UWP
 					&fileData[0],
 					fileData.size(),
+#elif ME_DIRECTX
+					&fShaderCode[0],
+					FragSource.size(),
+#endif
 					nullptr,
 					&m_pixelShader
 				)
 			);
 			isLoaded = true;
-		});
+#if ME_PLATFORM_UWP
+	});
+#endif
 
-#if ME_PLATFORM_WIN64
+#if ME_OPENGL
 		// Variables for our compiled shaders
 		unsigned int vertex, fragment;
 		int success;
@@ -170,7 +192,7 @@ namespace Moonlight
 			nullptr,
 			0
 		);
-#if ME_PLATFORM_WIN64
+#if ME_OPENGL
 		glUseProgram(Program);
 #endif
 	}
@@ -182,35 +204,35 @@ namespace Moonlight
 
 	void Shader::SetMat4(const std::string &name, const glm::mat4 &mat) const
 	{
-#if ME_PLATFORM_WIN64
+#if ME_OPENGL
 		glUniformMatrix4fv(glGetUniformLocation(Program, name.c_str()), 1, GL_FALSE, &mat[0][0]);
 #endif
 	}
 
 	void Shader::SetInt(const std::string &name, int value) const
 	{
-#if ME_PLATFORM_WIN64
+#if ME_OPENGL
 		glUniform1i(glGetUniformLocation(Program, name.c_str()), value);
 #endif
 	}
 
 	void Shader::SetVec3(const std::string &name, const glm::vec3 &value) const
 	{
-#if ME_PLATFORM_WIN64
+#if ME_OPENGL
 		glUniform3fv(glGetUniformLocation(Program, name.c_str()), 1, &value[0]);
 #endif
 	}
 
 	void Shader::SetVec3(const std::string &name, float x, float y, float z) const
 	{
-#if ME_PLATFORM_WIN64
+#if ME_OPENGL
 		glUniform3f(glGetUniformLocation(Program, name.c_str()), x, y, z);
 #endif
 	}
 
 	void Shader::SetFloat(const std::string &name, float value) const
 	{
-#if ME_PLATFORM_WIN64
+#if ME_OPENGL
 		glUniform1f(glGetUniformLocation(Program, name.c_str()), value);
 #endif
 	}

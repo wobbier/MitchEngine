@@ -8,6 +8,10 @@
 #include "Resource/ResourceCache.h"
 #include "Graphics/FBXModel.h"
 
+#if ME_ENABLE_RENDERDOC
+#include "Debug/RenderDocManager.h"
+#endif
+
 namespace Moonlight
 {
 	class Renderer
@@ -36,12 +40,16 @@ namespace Moonlight
 
 		ResourceCache Resources;
 
-#if ME_PLATFORM_UWP
+#if ME_DIRECTX
 		std::unique_ptr<TestModelRenderer> m_sceneRenderer;
 
 		// Rendering loop timer.
 		DX::StepTimer m_timer;
 #endif
 		std::vector<FBXModel*> Models;
+
+#if ME_ENABLE_RENDERDOC
+		RenderDocManager* RenderDoc;
+#endif
 	};
 }

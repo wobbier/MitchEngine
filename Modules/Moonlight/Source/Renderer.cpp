@@ -6,11 +6,15 @@ namespace Moonlight
 {
 	Renderer::Renderer()
 	{
-#if ME_PLATFORM_UWP
+#if ME_DIRECTX
 		m_device = new D3D12Device();
 		m_sceneRenderer = std::make_unique<TestModelRenderer>(static_cast<D3D12Device*>(m_device));
-#elif ME_PLATFORM_WIN64
+#elif ME_OPENGL
 		m_device = new GLDevice();
+#endif
+
+#if ME_ENABLE_RENDERDOC
+		RenderDoc = new RenderDocManager();
 #endif
 	}
 
@@ -36,7 +40,7 @@ namespace Moonlight
 
 	void Renderer::Update(float dt)
 	{
-#if ME_PLATFORM_UWP
+#if ME_DIRECTX
 		m_timer.Tick([&]()
 		{
 			m_sceneRenderer->Update(m_timer);
@@ -48,7 +52,7 @@ namespace Moonlight
 	{
 		m_device->PreRender();
 
-#if ME_PLATFORM_UWP
+#if ME_DIRECTX
 		if (m_timer.GetFrameCount() == 0)
 		{
 			return;
@@ -64,14 +68,14 @@ namespace Moonlight
 
 	void Renderer::ReleaseDeviceDependentResources() const
 	{
-#if ME_PLATFORM_UWP
+#if ME_DIRECTX
 		m_sceneRenderer->ReleaseDeviceDependentResources();
 #endif
 	}
 
 	void Renderer::CreateDeviceDependentResources() const
 	{
-#if ME_PLATFORM_UWP
+#if ME_DIRECTX
 		m_sceneRenderer->CreateDeviceDependentResources();
 		m_sceneRenderer->CreateWindowSizeDependentResources();
 #endif

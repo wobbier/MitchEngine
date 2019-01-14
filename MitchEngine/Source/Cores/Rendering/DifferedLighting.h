@@ -3,7 +3,7 @@
 #include "Graphics/Cubemap.h"
 #include "Graphics/Shader.h"
 
-#if ME_PLATFORM_WIN64
+#if ME_OPENGL
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>

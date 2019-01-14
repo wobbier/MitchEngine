@@ -11,6 +11,12 @@
 #include "Engine/Input.h"
 #include "Events/EventManager.h"
 
+#if ME_DIRECTX
+#include "Window/D3D12Window.h"
+#elif ME_OPENGL
+#include "Window/GLWindow.h"
+#endif
+
 Game::Game()
 	: Running(true)
 	, GameClock(Clock::GetInstance())
@@ -33,11 +39,15 @@ void Game::Start()
 	int WindowWidth = 1280;//WindowConfig["width"].asInt();
 	int WindowHeight = 720;//WindowConfig["height"].asInt();
 
-	GameWindow = new Window("MitchEngine", WindowWidth, WindowHeight);
+#if ME_DIRECTX && !ME_PLATFORM_UWP
+	GameWindow = new D3D12Window("MitchEngine", WindowWidth, WindowHeight);
+#elif ME_OPENGL
+	GameWindow = new GLWindow();
+#endif
 
 	GameWorld = new World();
 
-#if ME_PLATFORM_WIN64
+#if ME_OPENGL
 	LightingRenderer = new DifferedLighting();
 	GameWorld->AddCore<DifferedLighting>(*LightingRenderer);
 #endif
@@ -59,13 +69,22 @@ void Game::Start()
 	GameClock.Reset();
 	// Game loop
 #if ME_PLATFORM_WIN64
-	while (!GameWindow->ShouldClose())
+	while (true)
 	{
 		BROFILER_FRAME("MainLoop")
-		// Check and call events
-		GameWindow->PollInput();
+			// Check and call events
+			GameWindow->ParseMessageQueue();
+
+		if (GameWindow->ShouldClose())
+		{
+			End();
+			break;
+		}
 		Tick();
 	}
+#endif
+
+#if ME_OPENGL
 	glfwTerminate();
 #endif
 }
@@ -89,13 +108,13 @@ void Game::Tick()
 
 	ModelRenderer->Update(deltaTime);
 
-#if ME_PLATFORM_WIN64
+#if ME_OPENGL
 	LightingRenderer->PreRender();
 #endif
 
 	ModelRenderer->Render();
 
-#if ME_PLATFORM_WIN64
+#if ME_OPENGL
 	LightingRenderer->PostRender();
 	// Swap the buffers
 	GameWindow->Swap();
@@ -140,7 +159,9 @@ bool Game::IsRunning() const
 
 void Game::Quit() { Running = false; }
 
-Window* Game::GetWindow()
+#if ME_PLATFORM_WIN64
+IWindow* Game::GetWindow()
 {
 	return GameWindow;
 }
+#endif

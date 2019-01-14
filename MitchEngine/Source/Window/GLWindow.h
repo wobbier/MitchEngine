@@ -3,27 +3,22 @@
 #include <iostream>
 #include <string>
 
-#if ME_PLATFORM_WIN64
+#if ME_OPENGL
+
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-#endif
 
-#ifdef MAN_ENABLE_RENDERDOC
-#include "Utility/Debug/RenderDocManager.h"
-#endif
-class Window
+class GLWindow
+	: public IWindow
 {
-private:
 public:
 	static int WINDOW_HEIGHT, WINDOW_WIDTH;
 	Window(std::string title, int width = WINDOW_WIDTH, int height = WINDOW_HEIGHT);
 	~Window();
 
-#if ME_PLATFORM_WIN64
-
-	bool ShouldClose();
-	void PollInput();
-	void Swap();
+	virtual bool ShouldClose() final;
+	virtual void PollInput() final;
+	virtual void Swap() final;
 
 private:
 	void MouseCallback(GLFWwindow* window, double xpos, double ypos);
@@ -31,12 +26,7 @@ private:
 	void ProcessInput(GLFWwindow *window);
 	static void FramebufferSizeCallback(GLFWwindow* window, int width, int height);
 
-private:
 	GLFWwindow * window;
-#endif
-
-#ifdef MAN_ENABLE_RENDERDOC
-	RenderDocManager* RenderDoc;
-#endif
 };
 
+#endif

@@ -1,10 +1,11 @@
 // 2018 Mitchell Andrews
 #pragma once
-#include "Engine/Window.h"
 #include "Engine/World.h"
 #include "Resource/ResourceCache.h"
 #include "Config.h"
 #include "Engine/Clock.h"
+
+class IWindow;
 
 class Game
 {
@@ -29,7 +30,7 @@ public:
 	bool IsRunning() const;
 	void Quit();
 
-	Window* GetWindow();
+	IWindow* GetWindow();
 
 	class PhysicsCore* Physics;
 	class CameraCore* Cameras;
@@ -39,7 +40,7 @@ public:
 	Clock& GameClock;
 private:
 	bool Running;
-	Window* GameWindow;
+	IWindow* GameWindow;
 	Config* EngineConfig;
 	ResourceCache Resources;
 };

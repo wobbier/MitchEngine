@@ -61,7 +61,7 @@ namespace Moonlight
 			0,
 			0
 		);
-#if ME_PLATFORM_WIN64
+#if ME_OPENGL
 		unsigned int diffuseNr = 1;
 		unsigned int specularNr = 1;
 		unsigned int normalNr = 1;
@@ -172,7 +172,7 @@ namespace Moonlight
 				&m_indexBuffer
 			)
 		);
-#if ME_PLATFORM_WIN64
+#if ME_OPENGL
 		glGenVertexArrays(1, &VAO);
 		glGenBuffers(1, &VBO);
 		glGenBuffers(1, &EBO);

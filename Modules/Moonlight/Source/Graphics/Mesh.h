@@ -5,6 +5,9 @@
 #include "Texture.h"
 #include "Shader.h"
 #include "Content/ShaderStructures.h"
+#include <DirectXMath.h>
+#include <wrl/event.h>
+#include <d3d11.h>
 
 namespace Moonlight
 {
@@ -34,7 +37,7 @@ namespace Moonlight
 		unsigned int VBO, EBO;
 
 		// System resources for cube geometry.
-		uint32	m_indexCount;
+		unsigned int m_indexCount;
 		void InitMesh();
 
 		Microsoft::WRL::ComPtr<ID3D11Buffer>		m_vertexBuffer;

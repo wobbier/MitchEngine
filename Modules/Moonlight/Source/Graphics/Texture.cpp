@@ -3,7 +3,7 @@
 #include "Texture.h"
 #include "Logger.h"
 
-#if ME_PLATFORM_WIN64
+#if ME_OPENGL
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
@@ -25,7 +25,7 @@ Texture* Texture::Load(const std::string& InFilePath)
 	Texture* LoadedTexture = new Texture();
 	LoadedTexture->Directory = InFilePath.substr(0, InFilePath.find_last_of('/'));
 
-#if ME_PLATFORM_WIN64
+#if ME_OPENGL
 	// Generate texture ID and load texture data
 	glGenTextures(1, &LoadedTexture->Id);
 	glBindTexture(GL_TEXTURE_2D, LoadedTexture->Id);

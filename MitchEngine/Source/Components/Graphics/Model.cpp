@@ -1,8 +1,9 @@
 #include "PCH.h"
 #include "Model.h"
 #include "Logger.h"
-
 #include "Renderer.h"
+#include "Graphics/FBXModel.h"
+#include "Graphics/Shader.h"
 
 Model::Model(std::string const &path, const std::string& shader, bool gamma /*= false*/) : EnableGammaCorrection(gamma)
 {

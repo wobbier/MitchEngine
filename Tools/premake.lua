@@ -13,6 +13,16 @@ newoption {
    description = "Generate a UWP solution."
 }
 
+newoption {
+   trigger     = "gfxapi",
+   value       = "API",
+   description = "Choose a particular 3D API for rendering",
+   allowed = {
+      { "opengl",    "OpenGL" },
+      { "directx",  "DirectX" }
+   }
+}
+
 function getPlatformPostfix(thing)
 	if (_OPTIONS["uwp"]) then
 		return (thing .. "UWP")
@@ -21,6 +31,8 @@ function getPlatformPostfix(thing)
 end
 
 isUWP = _OPTIONS["uwp"]
+withOpenGL = _OPTIONS["gfxapi"] == "opengl" and not isUWP
+withDirectX = _OPTIONS["gfxapi"] == "directx" or isUWP
 
 -- Engine workspace
 workspace (getPlatformPostfix("MitchEngine"))
@@ -46,13 +58,6 @@ workspace (getPlatformPostfix("MitchEngine"))
 
 	if isUWP then
 		defines { "ME_PLATFORM_UWP" }
-		includedirs {
-			"../ThirdParty/GLAD/include/",
-			"../ThirdParty/GLAD/src/",
-			"../ThirdParty/GLFW/include",
-			"../ThirdParty/STB"
-		}
-		
 		libdirs {
 			"../ThirdParty/Lib/Bullet/Win64/%{cfg.buildcfg}",
 			"C:/Program Files/Autodesk/FBX/FBX SDK/2019.0/lib/vs2015store/%{cfg.platform}/%{cfg.buildcfg}",
@@ -67,21 +72,33 @@ workspace (getPlatformPostfix("MitchEngine"))
 			"../ThirdParty/Lib/Brofiler/Win64/%{cfg.buildcfg}"
 		}
 	end
+	if withOpenGL and not isUWP then
+		includedirs {
+			"../ThirdParty/GLAD/include/",
+			"../ThirdParty/GLAD/src/",
+			"../ThirdParty/GLFW/include",
+			"../ThirdParty/STB"
+		}
+	end
 	
 	links {
 		"BrofilerCore",
-		getPlatformPostfix("Dementia")
+		getPlatformPostfix("Dementia"),
+		"libfbxsdk-md"
 	}
 
 	-- Platform specific options
-	if (isUWP) then
+	if withDirectX then
+		defines { "ME_DIRECTX" }
 		links {
-			"d2d1", "d3d11", "dxgi", "windowscodecs", "dwrite", "libfbxsdk-md"
+			"d2d1", "d3d11", "dxgi", "windowscodecs", "dwrite"
 		}
-	else
+	end
 
+	if withOpenGL and not isUWP then
+		defines { "ME_OPENGL" }
 		links {
-			"opengl32", "glfw3dll", "libfbxsdk-md"
+			"opengl32", "glfw3dll"
 		}
 	end
 	
