@@ -18,7 +18,6 @@ newoption {
    value       = "API",
    description = "Choose a particular 3D API for rendering",
    allowed = {
-      { "opengl",    "OpenGL" },
       { "directx",  "DirectX" }
    }
 }
@@ -31,7 +30,6 @@ function getPlatformPostfix(thing)
 end
 
 isUWP = _OPTIONS["uwp"]
-withOpenGL = _OPTIONS["gfxapi"] == "opengl" and not isUWP
 withDirectX = _OPTIONS["gfxapi"] == "directx" or isUWP
 
 -- Engine workspace
@@ -72,14 +70,6 @@ workspace (getPlatformPostfix("MitchEngine"))
 			"../ThirdParty/Lib/Brofiler/Win64/%{cfg.buildcfg}"
 		}
 	end
-	if withOpenGL and not isUWP then
-		includedirs {
-			"../ThirdParty/GLAD/include/",
-			"../ThirdParty/GLAD/src/",
-			"../ThirdParty/GLFW/include",
-			"../ThirdParty/STB"
-		}
-	end
 	
 	links {
 		"BrofilerCore",
@@ -92,13 +82,6 @@ workspace (getPlatformPostfix("MitchEngine"))
 		defines { "ME_DIRECTX" }
 		links {
 			"d2d1", "d3d11", "dxgi", "windowscodecs", "dwrite"
-		}
-	end
-
-	if withOpenGL and not isUWP then
-		defines { "ME_OPENGL" }
-		links {
-			"opengl32", "glfw3dll"
 		}
 	end
 	
@@ -132,7 +115,6 @@ workspace (getPlatformPostfix("MitchEngine"))
 		"LinearMath_MinsizeRel"
 	}
 
-	
 ------------------------------------------------------- Renderer Project -----------------------------------------------------
 
 group "Engine/Modules"
@@ -229,8 +211,7 @@ project (getPlatformPostfix("MitchEngine"))
 		"fxc /T ps_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\SamplePixelShader.cso Assets\\Shaders\\SamplePixelShader.hlsl",
 		"fxc /T ps_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\AppX\\SamplePixelShader.cso Assets\\Shaders\\SamplePixelShader.hlsl",
 		"fxc /T vs_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\SampleVertexShader.cso Assets\\Shaders\\SampleVertexShader.hlsl",
-		"fxc /T vs_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\AppX\\SampleVertexShader.cso Assets\\Shaders\\SampleVertexShader.hlsl",
-		"xcopy /y /d  \"..\\ThirdParty\\Lib\\GLFW\\Win64\\%{cfg.buildcfg}\\glfw3.dll\" \"..\\Build\\%{cfg.buildcfg}\""
+		"fxc /T vs_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\AppX\\SampleVertexShader.cso Assets\\Shaders\\SampleVertexShader.hlsl"
 		}
 	
 	configuration "with-renderdoc"

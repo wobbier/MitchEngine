@@ -9,8 +9,6 @@ namespace Moonlight
 #if ME_DIRECTX
 		m_device = new D3D12Device();
 		m_sceneRenderer = std::make_unique<TestModelRenderer>(static_cast<D3D12Device*>(m_device));
-#elif ME_OPENGL
-		m_device = new GLDevice();
 #endif
 
 #if ME_ENABLE_RENDERDOC

@@ -3,7 +3,6 @@
 #include "Logger.h"
 #include "Engine/Clock.h"
 #include "Cores/Rendering/RenderCore.h"
-#include "Cores/Rendering/DifferedLighting.h"
 #include "Cores/Camera/CameraCore.h"
 #include "Cores/PhysicsCore.h"
 #include "Cores/SceneGraph.h"
@@ -11,11 +10,7 @@
 #include "Engine/Input.h"
 #include "Events/EventManager.h"
 
-#if ME_DIRECTX
 #include "Window/D3D12Window.h"
-#elif ME_OPENGL
-#include "Window/GLWindow.h"
-#endif
 
 Game::Game()
 	: Running(true)
@@ -41,16 +36,9 @@ void Game::Start()
 
 #if ME_DIRECTX && !ME_PLATFORM_UWP
 	GameWindow = new D3D12Window("MitchEngine", WindowWidth, WindowHeight);
-#elif ME_OPENGL
-	GameWindow = new GLWindow();
 #endif
 
 	GameWorld = new World();
-
-#if ME_OPENGL
-	LightingRenderer = new DifferedLighting();
-	GameWorld->AddCore<DifferedLighting>(*LightingRenderer);
-#endif
 
 	Physics = new PhysicsCore();
 	GameWorld->AddCore<PhysicsCore>(*Physics);
@@ -83,10 +71,6 @@ void Game::Start()
 		Tick();
 	}
 #endif
-
-#if ME_OPENGL
-	glfwTerminate();
-#endif
 }
 
 void Game::Tick()
@@ -108,17 +92,7 @@ void Game::Tick()
 
 	ModelRenderer->Update(deltaTime);
 
-#if ME_OPENGL
-	LightingRenderer->PreRender();
-#endif
-
 	ModelRenderer->Render();
-
-#if ME_OPENGL
-	LightingRenderer->PostRender();
-	// Swap the buffers
-	GameWindow->Swap();
-#endif
 }
 
 void Game::Initialize()

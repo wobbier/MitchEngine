@@ -23,14 +23,12 @@ void FlyingCameraCore::Init()
 void FlyingCameraCore::Update(float dt)
 {
 	Input& Instance = Input::GetInstance();
-#if ME_OPENGL
-	if (Instance.IsKeyDown(GLFW_KEY_ENTER))
+	/*if (Instance.IsKeyDown(GLFW_KEY_ENTER))
 	{
 		TestEvent testEvent;
 		testEvent.Enabled = !InputEnabled;
 		testEvent.Fire();
-	}
-#endif
+	}*/
 	if (!InputEnabled)
 	{
 		return;
@@ -47,7 +45,7 @@ void FlyingCameraCore::Update(float dt)
 		if (&CameraComponent == Camera::CurrentCamera)
 		{
 			float CameraSpeed = FlyingCameraComponent.FlyingSpeed;
-#if ME_OPENGL
+			/*
 			if (Instance.IsKeyDown(GLFW_KEY_LEFT_SHIFT))
 			{
 				CameraSpeed += FlyingCameraComponent.SpeedModifier;
@@ -81,7 +79,7 @@ void FlyingCameraCore::Update(float dt)
 			{
 				TransformComponent.Translate(glm::normalize(glm::cross(glm::cross(CameraComponent.Front, -CameraComponent.Up), CameraComponent.Front)) * CameraSpeed);
 			}
-#endif
+			*/
 
 			glm::vec2 MousePosition = Instance.GetMousePosition();
 			if (MousePosition == glm::vec2(0, 0))

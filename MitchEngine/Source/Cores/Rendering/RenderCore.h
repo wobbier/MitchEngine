@@ -27,8 +27,6 @@ public:
 	virtual void OnDeviceRestored() override;
 
 private:
-#if ME_OPENGL
-	unsigned int skyboxVAO, skyboxVBO;
-#endif
+
 	Moonlight::Renderer* m_renderer;
 };

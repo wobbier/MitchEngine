@@ -23,11 +23,6 @@
 #include <agile.h>
 #endif
 
-#if ME_OPENGL
-#include "glad/glad.h"
-#include "GLFW/glfw3.h"
-#endif
-
 #include "Brofiler.h"
 
 //#include "ozz/animation/runtime/animation.h"
