@@ -67,9 +67,6 @@ void App::SetWindow(CoreWindow^ window)
 
 	window->KeyDown += 
 		ref new Windows::Foundation::TypedEventHandler<Windows::UI::Core::CoreWindow ^, Windows::UI::Core::KeyEventArgs ^>(this, &App::OnKeyDown);
-
-	Moonlight::D3D12Device& device = static_cast<Moonlight::D3D12Device&>(Moonlight::Renderer::GetInstance().GetDevice());
-	device.SetWindow(window);
 }
 
 // Initializes scene resources, or loads a previously saved app state.
@@ -81,19 +78,7 @@ void App::Load(Platform::String^ entryPoint)
 // This method is called after the window becomes active.
 void App::Run()
 {
-	while (!m_windowClosed)
-	{
-		if (m_windowVisible)
-		{
-			CoreWindow::GetForCurrentThread()->Dispatcher->ProcessEvents(CoreProcessEventsOption::ProcessAllIfPresent);
-
-			m_main->Tick();
-		}
-		else
-		{
-			CoreWindow::GetForCurrentThread()->Dispatcher->ProcessEvents(CoreProcessEventsOption::ProcessOneAndAllPending);
-		}
-	}
+	m_main->Run();
 }
 
 // Required for IFrameworkView.
@@ -121,7 +106,7 @@ void App::OnSuspending(Platform::Object^ sender, SuspendingEventArgs^ args)
 
 	create_task([this, deferral]()
 	{
-        Moonlight::Renderer::GetInstance().GetDevice().Trim();
+        Game::GetEngine().GetRenderer().GetDevice().Trim();
 
 		// Insert your code here.
 
@@ -142,8 +127,7 @@ void App::OnResuming(Platform::Object^ sender, Platform::Object^ args)
 
 void App::OnWindowSizeChanged(CoreWindow^ sender, WindowSizeChangedEventArgs^ args)
 {
-	Moonlight::Renderer::GetInstance().GetDevice().SetLogicalSize(glm::vec2(sender->Bounds.Width, sender->Bounds.Height));
-	m_main->WindowResized();
+	Game::GetEngine().GetRenderer().GetDevice().SetLogicalSize(glm::vec2(sender->Bounds.Width, sender->Bounds.Height));
 }
 
 void App::OnVisibilityChanged(CoreWindow^ sender, VisibilityChangedEventArgs^ args)
@@ -169,17 +153,15 @@ void App::OnDpiChanged(DisplayInformation^ sender, Object^ args)
 	// if it is being scaled for high resolution devices. Once the DPI is set on DeviceResources,
 	// you should always retrieve it using the GetDpi method.
 	// See DeviceResources.cpp for more details.
-	static_cast<Moonlight::D3D12Device&>(Moonlight::Renderer::GetInstance().GetDevice()).SetDpi(sender->LogicalDpi);
-	m_main->WindowResized();
+	static_cast<Moonlight::D3D12Device&>(Game::GetEngine().GetRenderer().GetDevice()).SetDpi(sender->LogicalDpi);
 }
 
 void App::OnOrientationChanged(DisplayInformation^ sender, Object^ args)
 {
-	static_cast<Moonlight::D3D12Device&>(Moonlight::Renderer::GetInstance().GetDevice()).SetCurrentOrientation(sender->CurrentOrientation);
-	m_main->WindowResized();
+	static_cast<Moonlight::D3D12Device&>(Game::GetEngine().GetRenderer().GetDevice()).SetCurrentOrientation(sender->CurrentOrientation);
 }
 
 void App::OnDisplayContentsInvalidated(DisplayInformation^ sender, Object^ args)
 {
-	static_cast<Moonlight::D3D12Device&>(Moonlight::Renderer::GetInstance().GetDevice()).ValidateDevice();
+	static_cast<Moonlight::D3D12Device&>(Game::GetEngine().GetRenderer().GetDevice()).ValidateDevice();
 }

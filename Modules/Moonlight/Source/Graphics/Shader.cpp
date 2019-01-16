@@ -2,6 +2,7 @@
 
 #include "Utils/DirectXHelper.h"
 #include "Renderer.h"
+#include "Game.h"
 
 namespace Moonlight
 {
@@ -38,7 +39,7 @@ namespace Moonlight
 		const char* vShaderCode = VertexSource.c_str();
 		const char * fShaderCode = FragSource.c_str();
 
-		auto dxDevice = static_cast<D3D12Device&>(Renderer::GetInstance().GetDevice());
+		auto dxDevice = static_cast<D3D12Device&>(Game::GetEngine().GetRenderer().GetDevice());
 
 #if ME_PLATFORM_UWP
 		// Load shaders asynchronously.
@@ -122,7 +123,7 @@ namespace Moonlight
 		{
 			return;
 		}
-		auto dxDevice = static_cast<D3D12Device&>(Renderer::GetInstance().GetDevice());
+		auto dxDevice = static_cast<D3D12Device&>(Game::GetEngine().GetRenderer().GetDevice());
 		dxDevice.GetD3DDeviceContext()->IASetInputLayout(m_inputLayout.Get());
 
 		// Attach our vertex shader.

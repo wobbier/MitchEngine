@@ -13,6 +13,7 @@
 #include "Components/FlyingCamera.h"
 
 #include <memory>
+#include "Engine/World.h"
 
 MitchGame::MitchGame()
 	: Game()
@@ -26,6 +27,7 @@ MitchGame::~MitchGame()
 
 void MitchGame::Initialize()
 {
+	auto GameWorld = GetEngine().GetWorld().lock();
 	MainCamera = GameWorld->CreateEntity();
 	Transform& CameraPos = MainCamera.AddComponent<Transform>("Main Camera");
 	CameraPos.SetPosition(glm::vec3(0, 5, 20));

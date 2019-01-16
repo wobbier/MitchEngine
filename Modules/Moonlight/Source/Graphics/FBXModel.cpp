@@ -8,6 +8,8 @@
 #include "Graphics/FBXModel.h"
 #include "Logger.h"
 #include "Renderer.h"
+#include "Texture.h"
+#include "Game.h"
 
 namespace Moonlight
 {
@@ -314,7 +316,7 @@ namespace Moonlight
 							{
 								std::string filename = fileTexture->GetFileName();
 
-								Texture* loadedTexture = Renderer::GetInstance().GetResources().Get<Texture>(filename);
+								Texture* loadedTexture = Game::GetEngine().GetRenderer().GetResources().Get<Texture>(filename);
 								loadedTexture->path = filename;
 								loadedTexture->type = textureType;
 								Logger::GetInstance().Log(Logger::LogType::Info, "Loaded Texture Type: " + loadedTexture->type);

@@ -4,43 +4,27 @@
 #include "Resource/ResourceCache.h"
 #include "Config.h"
 #include "Engine/Clock.h"
+#include "Engine/MitchEngine.h"
 
 class IWindow;
 
 class Game
 {
 public:
-	World * GameWorld;
-
-	long long FrameRate;
 
 	Game();
 	virtual ~Game();
+	ME_NONCOPYABLE(Game)
+	ME_NONMOVABLE(Game)
 
 	void Start();
-	void Tick();
+	void Run();
+
 	virtual void Initialize();
 	virtual void Update(float DeltaTime);
 	virtual void End();
-	bool Render();
-	void WindowResized();
 
-	ResourceCache& GetResources();
-
-	bool IsRunning() const;
-	void Quit();
-
-	IWindow* GetWindow();
-
-	class PhysicsCore* Physics;
-	class CameraCore* Cameras;
-	class SceneGraph* SceneNodes;
-	class RenderCore* ModelRenderer;
-	class DifferedLighting* LightingRenderer;
-	Clock& GameClock;
+	static MitchEngine& GetEngine() { return m_engine; }
 private:
-	bool Running;
-	IWindow* GameWindow;
-	Config* EngineConfig;
-	ResourceCache Resources;
+	static MitchEngine m_engine;
 };

@@ -15,7 +15,6 @@
 namespace Moonlight
 {
 	class Renderer
-		: public Singleton<Renderer>
 	{
 	public:
 		Renderer();

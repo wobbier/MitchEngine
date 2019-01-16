@@ -34,6 +34,7 @@ namespace Moonlight
 #if ME_PLATFORM_WIN64
 		void SetWindow(HWND window);
 #endif
+
 		// The size of the render target, in pixels.
 		TSize GetOutputSize() const { return m_outputSize; }
 		virtual void SetLogicalSize(glm::vec2 logicalSize);

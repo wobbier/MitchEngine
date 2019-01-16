@@ -22,7 +22,7 @@ RenderCore::RenderCore()
 	: Base(ComponentFilter().Requires<Transform>().Requires<Model>())
 {
 	//m_sceneRenderer = std::unique_ptr<TestModelRenderer>(new TestModelRenderer(m_deviceResources));
-	m_renderer = &Moonlight::Renderer::GetInstance();
+	m_renderer = &Game::GetEngine().GetRenderer();
 	m_renderer->RegisterDeviceNotify(this);
 }
 

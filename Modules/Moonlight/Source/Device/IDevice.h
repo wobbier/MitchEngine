@@ -43,6 +43,10 @@ namespace Moonlight
 		{
 
 		}
+		virtual void WindowSizeChanged(glm::vec3 Width, glm::vec3 Height)
+		{
+
+		}
 
 
 	};

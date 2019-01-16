@@ -92,6 +92,7 @@ namespace Moonlight
 		CreateDeviceIndependentResources();
 		CreateDeviceResources();
 
+		SetWindow(CoreWindow::GetForCurrentThread());
 		//MessageDialog Dialog("The renderer is currently under construction.", "Sorry!");
 		//Dialog.ShowAsync();
 	}
@@ -327,7 +328,7 @@ namespace Moonlight
 			DX::ThrowIfFailed(
 				dxgiFactory->CreateSwapChainForCoreWindow(
 					m_d3dDevice.Get(),
-					reinterpret_cast<IUnknown*>(m_window.Get()),
+					reinterpret_cast<IUnknown*>(CoreWindow::GetForCurrentThread()),
 					&swapChainDesc,
 					nullptr,
 					&swapChain

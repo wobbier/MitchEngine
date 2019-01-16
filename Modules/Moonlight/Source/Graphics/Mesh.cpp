@@ -8,6 +8,7 @@
 #include "Utils/DirectXHelper.h"
 #include <DirectXMath.h>
 #include "Shader.h"
+#include "Game.h"
 
 namespace Moonlight
 {
@@ -33,7 +34,7 @@ namespace Moonlight
 		{
 			return;
 		}
-		auto context = static_cast<D3D12Device&>(Renderer::GetInstance().GetDevice()).GetD3DDeviceContext();
+		auto context = static_cast<D3D12Device&>(Game::GetEngine().GetRenderer().GetDevice()).GetD3DDeviceContext();
 		// Each vertex is one instance of the VertexPositionColor struct.
 		UINT stride = sizeof(Vertex);
 		UINT offset = 0;
@@ -118,7 +119,7 @@ namespace Moonlight
 			{DirectX::XMFLOAT3(0.5f,  0.5f, -0.5f), DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f)},
 			{DirectX::XMFLOAT3(0.5f,  0.5f,  0.5f), DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f)},
 		};
-		auto device = static_cast<D3D12Device&>(Moonlight::Renderer::GetInstance().GetDevice());
+		auto device = static_cast<D3D12Device&>(Game::GetEngine().GetRenderer().GetDevice());
 		D3D11_SUBRESOURCE_DATA vertexBufferData = { 0 };
 		vertexBufferData.pSysMem = &vertices[0];
 		vertexBufferData.SysMemPitch = 0;
