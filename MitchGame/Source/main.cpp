@@ -4,7 +4,7 @@ int main()
 {
 	MitchGame* game = new MitchGame();
 	game->Start();
-	game->Tick();
+	game->Run();
 
 	return 0;
 }

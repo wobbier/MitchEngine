@@ -64,8 +64,6 @@ D3D12Window::D3D12Window(std::string title, int width, int height)
 	}
 
 	ShowWindow(hwnd, SW_NORMAL);
-
-	static_cast<Moonlight::D3D12Device&>(Moonlight::Renderer::GetInstance().GetDevice()).SetWindow(hwnd);
 }
 
 D3D12Window::~D3D12Window()

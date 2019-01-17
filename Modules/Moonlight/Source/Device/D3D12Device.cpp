@@ -92,7 +92,11 @@ namespace Moonlight
 		CreateDeviceIndependentResources();
 		CreateDeviceResources();
 
+#if ME_PLATFORM_UWP
 		SetWindow(CoreWindow::GetForCurrentThread());
+#else
+		SetWindow(GetActiveWindow());
+#endif
 		//MessageDialog Dialog("The renderer is currently under construction.", "Sorry!");
 		//Dialog.ShowAsync();
 	}

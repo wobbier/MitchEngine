@@ -25,10 +25,13 @@ MitchEngine::~MitchEngine()
 
 void MitchEngine::Init(Game* game)
 {
-	if (m_isInitialized)
+	if (m_isInitialized || !game)
 	{
 		return;
 	}
+
+	m_game = game;
+
 	Logger::GetInstance().SetLogFile("engine.txt");
 	Logger::GetInstance().SetLogPriority(Logger::LogType::Info);
 	Logger::GetInstance().Log(Logger::LogType::Info, "Starting the MitchEngine.");
@@ -42,12 +45,9 @@ void MitchEngine::Init(Game* game)
 #if ME_PLATFORM_WIN64
 	GameWindow = new D3D12Window("MitchEngine", WindowWidth, WindowHeight);
 #endif
-
 #if ME_PLATFORM_UWP
 	GameWindow = new UWPWindow("MitchEngine", WindowWidth, WindowHeight);
 #endif
-
-	m_game = game;
 
 	m_renderer = new Moonlight::Renderer();
 
