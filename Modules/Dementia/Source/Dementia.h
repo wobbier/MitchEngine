@@ -19,10 +19,6 @@ Class& operator=(Class&&) = delete;
 
 #define ME_NONMOVABLE(Class) ME_DISABLE_MOVE_CONSTRUCTOR(Class); ME_DISABLE_MOVE_ASSIGNMENT(Class);
 
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-
 #ifdef ME_PLATFORM_WIN64
 #define ME_PLATFORM_WIN64 1
 #else
@@ -46,3 +42,5 @@ Class& operator=(Class&&) = delete;
 #else
 #define ME_ENABLE_RENDERDOC 0
 #endif
+
+#define forever for(;;)

@@ -23,15 +23,15 @@ void FlyingCameraCore::Init()
 void FlyingCameraCore::Update(float dt)
 {
 	Input& Instance = Input::GetInstance();
-	/*if (Instance.IsKeyDown(GLFW_KEY_ENTER))
+	if (Instance.IsKeyDown(KeyCode::Enter))
 	{
 		TestEvent testEvent;
 		testEvent.Enabled = !InputEnabled;
 		testEvent.Fire();
-	}*/
+	}
 	if (!InputEnabled)
 	{
-		return;
+		//return;
 	}
 
 	auto Animatables = GetEntities();
@@ -45,41 +45,39 @@ void FlyingCameraCore::Update(float dt)
 		if (&CameraComponent == Camera::CurrentCamera)
 		{
 			float CameraSpeed = FlyingCameraComponent.FlyingSpeed;
-			/*
-			if (Instance.IsKeyDown(GLFW_KEY_LEFT_SHIFT))
+			if (Instance.IsKeyDown(KeyCode::LeftShift))
 			{
 				CameraSpeed += FlyingCameraComponent.SpeedModifier;
 			}
 			CameraSpeed *= dt;
-			if (Instance.IsKeyDown(GLFW_KEY_W))
+			if (Instance.IsKeyDown(KeyCode::W))
 			{
 				TransformComponent.SetPosition((CameraSpeed * CameraComponent.Front) + TransformComponent.GetPosition());
 			}
-			if (Instance.IsKeyDown(GLFW_KEY_S))
+			if (Instance.IsKeyDown(KeyCode::S))
 			{
 				TransformComponent.SetPosition(TransformComponent.GetPosition() - (CameraSpeed * CameraComponent.Front));
 			}
-			if (Instance.IsKeyDown(GLFW_KEY_A))
+			if (Instance.IsKeyDown(KeyCode::A))
 			{
 				TransformComponent.Translate(glm::normalize(glm::cross(CameraComponent.Up, CameraComponent.Front)) * CameraSpeed);
 			}
-			if (Instance.IsKeyDown(GLFW_KEY_D))
+			if (Instance.IsKeyDown(KeyCode::D))
 			{
 				TransformComponent.Translate(glm::normalize(glm::cross(CameraComponent.Front, CameraComponent.Up)) * CameraSpeed);
 			}
-			if (Instance.IsKeyDown(GLFW_KEY_SPACE))
+			if (Instance.IsKeyDown(KeyCode::Space))
 			{
 				TransformComponent.Translate(CameraComponent.Up * CameraSpeed);
 			}
-			if (Instance.IsKeyDown(GLFW_KEY_E))
+			if (Instance.IsKeyDown(KeyCode::E))
 			{
 				TransformComponent.Translate(glm::normalize(glm::cross(glm::cross(CameraComponent.Front, CameraComponent.Up), CameraComponent.Front)) * CameraSpeed);
 			}
-			if (Instance.IsKeyDown(GLFW_KEY_Q))
+			if (Instance.IsKeyDown(KeyCode::Q))
 			{
 				TransformComponent.Translate(glm::normalize(glm::cross(glm::cross(CameraComponent.Front, -CameraComponent.Up), CameraComponent.Front)) * CameraSpeed);
 			}
-			*/
 
 			glm::vec2 MousePosition = Instance.GetMousePosition();
 			if (MousePosition == glm::vec2(0, 0))

@@ -4,36 +4,36 @@
 #include <glm.hpp>
 #include <string>
 #include <iostream>
+#include <Windows.h>
+#include <WinUser.h>
 
 #pragma region KeyboardInput
 
 #if ME_PLATFORM_UWP
-void Input::KeyCallback(Windows::System::VirtualKey key)
+void Input::KeyCallback(VirtualKey key)
 {
 	Input& Instance = GetInstance();
-	/*Instance.Keys[key].Id = ;
-	Instance.Keys[key].Scancode = scancode;
-	Instance.Keys[key].Action = action;
-	Instance.Keys[key].Mode = mode;*/
 }
 #endif
 
-bool Input::IsKeyDown(int key)
+bool Input::IsKeyDown(KeyCode key)
 {
-	if (Keys[key].Action == 0)
-	{
-		return false;
-	}
-	return true;
-}
-
-bool Input::IsKeyUp(int key)
-{
-	if (Keys[key].Action == 0)
+#if ME_PLATFORM_WIN64
+	SHORT keyState = GetAsyncKeyState(key);
+	if ((1 << 15) & keyState)
+#else
+	CoreVirtualKeyStates keyPress = Windows::UI::Core::CoreWindow::GetForCurrentThread()->GetAsyncKeyState(key);
+	if (keyPress == CoreVirtualKeyStates::Down)
+#endif
 	{
 		return true;
 	}
 	return false;
+}
+
+bool Input::IsKeyUp(KeyCode key)
+{
+	return !IsKeyDown(key);
 }
 
 #pragma endregion
@@ -42,6 +42,19 @@ bool Input::IsKeyUp(int key)
 
 glm::vec2 Input::GetMousePosition()
 {
+	
+#if ME_PLATFORM_WIN64
+	POINT position;
+	if (GetCursorPos(&position))
+#else
+	glm::vec2 position;
+	position.x = CoreWindow::GetForCurrentThread()->PointerPosition.X;
+	position.y = CoreWindow::GetForCurrentThread()->PointerPosition.Y;
+#endif
+	{
+		return glm::vec2(position.x, position.y);
+	}
+
 	return Mouse.Position;
 }
 

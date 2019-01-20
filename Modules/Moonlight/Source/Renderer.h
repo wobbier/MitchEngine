@@ -3,14 +3,15 @@
 
 #include "Device/IDevice.h"
 #include "Utils/StepTimer.h"
-#include "Content/TestModelRenderer.h"
 #include "Singleton.h"
 #include "Resource/ResourceCache.h"
 #include "Graphics/FBXModel.h"
+#include "Utils/DirectXHelper.h"
 
 #if ME_ENABLE_RENDERDOC
 #include "Debug/RenderDocManager.h"
 #endif
+#include <d3d11.h>
 
 namespace Moonlight
 {
@@ -28,8 +29,8 @@ namespace Moonlight
 		void Update(float dt);
 		void Render();
 
-		void ReleaseDeviceDependentResources() const;
-		void CreateDeviceDependentResources() const;
+		void ReleaseDeviceDependentResources();
+		void CreateDeviceDependentResources();
 
 		void PushModel(FBXModel* model);
 
@@ -40,11 +41,11 @@ namespace Moonlight
 		ResourceCache Resources;
 
 #if ME_DIRECTX
-		std::unique_ptr<TestModelRenderer> m_sceneRenderer;
-
-		// Rendering loop timer.
-		DX::StepTimer m_timer;
+		Microsoft::WRL::ComPtr<ID3D11Buffer> m_constantBuffer;
+		ModelViewProjectionConstantBuffer m_constantBufferData;
+		float m_degreesPerSecond = 45.f;
 #endif
+
 		std::vector<FBXModel*> Models;
 
 #if ME_ENABLE_RENDERDOC

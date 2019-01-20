@@ -77,17 +77,16 @@ float totalTime = 0.f;
 void MitchGame::Update(float DeltaTime)
 {
 	FlyingCameraController->Update(DeltaTime);
-#if ME_OPENGL
 	Input& Instance = Input::GetInstance();
-	if (Instance.IsKeyDown(GLFW_KEY_1))
+	if (Instance.IsKeyDown(KeyCode::Number1))
 	{
 		MainCamera.GetComponent<Camera>().SetCurrent();
 	}
-	if (Instance.IsKeyDown(GLFW_KEY_2))
+	if (Instance.IsKeyDown(KeyCode::Number2))
 	{
 		SecondaryCamera.GetComponent<Camera>().SetCurrent();
 	}
-	if (Instance.IsKeyDown(GLFW_KEY_P) && !AddedPhysics)
+	if (Instance.IsKeyDown(KeyCode::P) && !AddedPhysics)
 	{
 		for (auto& Cube : Cubes)
 		{
@@ -95,7 +94,6 @@ void MitchGame::Update(float DeltaTime)
 		}
 		AddedPhysics = true;
 	}
-#endif
 	int i = 0;
 	for (auto& Cube : Cubes)
 	{

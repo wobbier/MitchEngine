@@ -75,7 +75,7 @@ void MitchEngine::Run()
 {
 	GameClock.Reset();
 	// Game loop
-	while (true)
+	forever
 	{
 		BROFILER_FRAME("MainLoop")
 			// Check and call events
@@ -127,8 +127,6 @@ bool MitchEngine::IsRunning() const
 {
 	return true;
 }
-
-//bool Game::IsRunning() const { return Running; }
 
 void MitchEngine::Quit() { Running = false; }
 
