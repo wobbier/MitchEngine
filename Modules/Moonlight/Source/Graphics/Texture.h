@@ -2,25 +2,33 @@
 #include <string>
 #include "Dementia.h"
 #include "Resource/Resource.h"
-
-class Texture : public Resource
+#include <d3d11.h>
+namespace Moonlight
 {
-public:
-	unsigned int Id;
-	std::string Type;
-	std::string Directory;
+	class Texture : public Resource
+	{
+	public:
+		unsigned int Id;
+		std::string Type;
+		std::string Directory;
 
-	int Width;
-	int Height;
+		int Width;
+		int Height;
 
-	Texture();
-	~Texture();
+		Texture();
+		~Texture();
 
-	static Texture* Load(const std::string& InFilePath);
+		static Texture* Load(const std::string& InFilePath);
 
-	// Textures should not be copied around in memory
-	ME_NONCOPYABLE(Texture);
-	int nrChannels;
-	std::string type;
-	std::string path;
-};
+		// Textures should not be copied around in memory
+		ME_NONCOPYABLE(Texture);
+		int nrChannels;
+		std::string type;
+		std::string path;
+
+		ID3D11ShaderResourceView* CubesTexture;
+		ID3D11SamplerState* CubesTexSamplerState;
+
+		static std::wstring ToStringW(const std::string& strText);
+	};
+}

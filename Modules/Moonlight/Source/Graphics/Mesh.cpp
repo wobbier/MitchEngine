@@ -56,6 +56,9 @@ namespace Moonlight
 
 		shader.Use();
 
+		context->PSSetShaderResources(0, 1, &textures[0]->CubesTexture);
+		context->PSSetSamplers(0, 1, &textures[0]->CubesTexSamplerState);
+
 		// Draw the objects.
 		context->DrawIndexed(
 			m_indexCount,

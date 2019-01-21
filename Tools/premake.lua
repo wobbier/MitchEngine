@@ -123,7 +123,15 @@ project (getPlatformPostfix("Moonlight"))
 	if (isUWP) then
 		system "windowsuniversal"
 		consumewinrtextension "true"
+		nuget { "directxtk_uwp:2018.11.20.1" }
+		includedirs { "../packages/directxtk_uwp.2018.11.20.1/include" }
+		libdirs { "../packages/directxtk_uwp.2018.11.20.1/lib/x64/%{cfg.buildcfg}" }
+	else
+		nuget { "directxtk_desktop_2015:2018.11.20.1" }
+		includedirs { "../packages/directxtk_desktop_2015.2018.11.20.1/include" }
+		libdirs { "../packages/directxtk_desktop_2015.2018.11.20.1/lib/x64/%{cfg.buildcfg}" }
 	end
+		links { "DirectXTK" }
 	systemversion "10.0.14393.0"
 	language "C++"
 	targetdir "../Build/%{cfg.buildcfg}"

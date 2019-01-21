@@ -14,6 +14,7 @@
 
 #include <memory>
 #include "Engine/World.h"
+#include "FilePath.h"
 
 MitchGame::MitchGame()
 	: Game()
@@ -47,6 +48,7 @@ void MitchGame::Initialize()
 	ModelTransform.SetPosition(glm::vec3(0.f, 20.f, 0.f));
 	ModelTransform.SetScale(glm::vec3(0.02f, 0.02f, 0.02f));
 	TestModel.AddComponent<Rigidbody>();
+	FilePath path("Assets/Mech/mech.fbx");
 	TestModel.AddComponent<Model>("Assets/Mech/mech.fbx", "Assets/Shaders/Albedo");
 
 	/*Entity Ground2 = GameWorld->CreateEntity();

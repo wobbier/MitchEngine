@@ -153,7 +153,9 @@ namespace Moonlight
 					// A vertex can contain up to 8 different texture coordinates. We assume that we won't use models where a vertex can have multiple texture coordinates so we always take the first set (0).
 					//			vec.x = mesh->mTextureCoords[0][i].x;
 					//			vec.y = mesh->mTextureCoords[0][i].y;
-					//vertex.TexCoords = ReadUV(mesh, controlPointIndex, mesh->GetTextureUVIndex(i, j), k);
+					glm::vec2 uv = ReadUV(mesh, controlPointIndex, mesh->GetTextureUVIndex(i, j), k);
+					vertex.TextureCoord.x = uv.x;
+					vertex.TextureCoord.y = uv.y;
 				}
 
 

@@ -15,6 +15,7 @@ namespace Moonlight
 	{
 		DirectX::XMFLOAT3 Position;
 		DirectX::XMFLOAT3 Normal;
+		DirectX::XMFLOAT2 TextureCoord;
 	};
 
 	class Mesh
