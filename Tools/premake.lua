@@ -123,11 +123,11 @@ project (getPlatformPostfix("Moonlight"))
 	if (isUWP) then
 		system "windowsuniversal"
 		consumewinrtextension "true"
-		nuget { "directxtk_uwp:2018.11.20.1" }
+		--nuget { "directxtk_uwp:2018.11.20.1" }
 		includedirs { "../packages/directxtk_uwp.2018.11.20.1/include" }
 		libdirs { "../packages/directxtk_uwp.2018.11.20.1/lib/x64/%{cfg.buildcfg}" }
 	else
-		nuget { "directxtk_desktop_2015:2018.11.20.1" }
+		--nuget { "directxtk_desktop_2015:2018.11.20.1" }
 		includedirs { "../packages/directxtk_desktop_2015.2018.11.20.1/include" }
 		libdirs { "../packages/directxtk_desktop_2015.2018.11.20.1/lib/x64/%{cfg.buildcfg}" }
 	end
@@ -215,11 +215,8 @@ project (getPlatformPostfix("MitchEngine"))
 		["Source"] = "../Source/**.*"
 	}
 	postbuildcommands {
-		"mkdir ..\\Build\\%{cfg.buildcfg}\\AppX",
-		"fxc /T ps_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\SamplePixelShader.cso Assets\\Shaders\\SamplePixelShader.hlsl",
-		"fxc /T ps_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\AppX\\SamplePixelShader.cso Assets\\Shaders\\SamplePixelShader.hlsl",
-		"fxc /T vs_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\SampleVertexShader.cso Assets\\Shaders\\SampleVertexShader.hlsl",
-		"fxc /T vs_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\AppX\\SampleVertexShader.cso Assets\\Shaders\\SampleVertexShader.hlsl"
+		"fxc /T ps_4_0_level_9_3 /Fo ..\\Assets\\Shaders\\SimplePixelShader.cso ..\\Assets\\Shaders\\SimplePixelShader.hlsl",
+		"fxc /T vs_4_0_level_9_3 /Fo ..\\Assets\\Shaders\\SimpleVertexShader.cso ..\\Assets\\Shaders\\SimpleVertexShader.hlsl",
 		}
 	
 	configuration "with-renderdoc"

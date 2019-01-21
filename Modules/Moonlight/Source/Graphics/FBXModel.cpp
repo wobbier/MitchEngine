@@ -89,9 +89,9 @@ namespace Moonlight
 		delete converter;
 	}
 
-	FBXModel* FBXModel::Load(const std::string& InFilePath)
+	FBXModel* FBXModel::Load(const FilePath& InFilePath)
 	{
-		FBXModel* model = new FBXModel(InFilePath);
+		FBXModel* model = new FBXModel(InFilePath.FullPath);
 
 		// TODO ASync
 		{

@@ -8,7 +8,7 @@
 
 Model::Model(std::string const &path, const std::string& shader, bool gamma /*= false*/) : EnableGammaCorrection(gamma)
 {
-	ModelResource = Game::GetEngine().GetRenderer().GetResources().Get<Moonlight::FBXModel>(path);
+	ModelResource = Game::GetEngine().GetRenderer().GetResources().Get<Moonlight::FBXModel>(FilePath(path));
 	ModelShader = new Moonlight::Shader((shader + ".vert"), (shader + ".frag"));
 	ModelResource->SetShader(ModelShader);
 	Game::GetEngine().GetRenderer().PushModel(ModelResource);

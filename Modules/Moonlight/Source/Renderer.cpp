@@ -98,9 +98,9 @@ namespace Moonlight
 			XMMatrixTranspose(perspectiveMatrix * orientationMatrix)
 		);
 
-		const XMVECTORF32 eye = { currentCamera->Position.x, currentCamera->Position.y, currentCamera->Position.z, 0 };// { 0.0f, 0.7f, 1.5f, 0.0f };//
+		const XMVECTORF32 eye = { currentCamera->Position.x, currentCamera->Position.y, currentCamera->Position.z, 0 };
 		const XMVECTORF32 at = { currentCamera->Position.x + currentCamera->Front.x, currentCamera->Position.y + currentCamera->Front.y, currentCamera->Position.z + currentCamera->Front.z, 0.0f };
-		const XMVECTORF32 up = { currentCamera->Up.x, currentCamera->Up.y, currentCamera->Up.z, 0 }; //{ 0.f, 1.0f, 0.f, 0.f };//
+		const XMVECTORF32 up = { currentCamera->Up.x, currentCamera->Up.y, currentCamera->Up.z, 0 };
 
 		XMStoreFloat4x4(&m_constantBufferData.view, XMMatrixTranspose(XMMatrixLookAtRH(eye, at, up)));
 
@@ -157,5 +157,4 @@ namespace Moonlight
 	{
 		return Resources;
 	}
-
 }

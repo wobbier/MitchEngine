@@ -12,10 +12,10 @@ Cubemap::~Cubemap()
 	// TODO: Unload Cubemaps
 }
 
-Cubemap* Cubemap::Load(const std::string& InFilePath)
+Cubemap* Cubemap::Load(const FilePath& InFilePath)
 {
 	Cubemap* LoadedCubemap = new Cubemap();
-	LoadedCubemap->Directory = InFilePath.substr(0, InFilePath.find_last_of('/'));
+
 
 	return LoadedCubemap;
 }

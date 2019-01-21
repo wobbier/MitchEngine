@@ -3,6 +3,7 @@
 #include <map>
 #include <string>
 #include "Resource.h"
+#include "FilePath.h"
 
 class ResourceCache
 {
@@ -17,19 +18,19 @@ public:
 	size_t GetStackSize();
 
 	template<class T>
-	T* Get(const std::string& InFilePath);
+	T* Get(const FilePath& InFilePath);
 private:
 
 	std::vector<std::map<std::string, class Resource*>> ResourceStack;
 };
 
 template<class T>
-T* ResourceCache::Get(const std::string& InFilePath)
+T* ResourceCache::Get(const FilePath& InFilePath)
 {
 	std::map<std::string, Resource*>::iterator I;
 	for (int i = ResourceStack.size() - 1; i >= 0; i--)
 	{
-		I = ResourceStack[i].find(InFilePath);
+		I = ResourceStack[i].find(InFilePath.FullPath);
 		if (I != ResourceStack[i].end())
 		{
 			T* Res = dynamic_cast<T*>(I->second);
@@ -38,6 +39,6 @@ T* ResourceCache::Get(const std::string& InFilePath)
 	}
 	T* Res = T::Load(InFilePath);
 	Res->Resources = this;
-	ResourceStack[ResourceStack.size() - 1][InFilePath] = Res;
+	ResourceStack[ResourceStack.size() - 1][InFilePath.FullPath] = Res;
 	return Res;
 }

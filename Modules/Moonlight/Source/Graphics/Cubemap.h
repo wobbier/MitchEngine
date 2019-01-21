@@ -16,7 +16,7 @@ public:
 	Cubemap();
 	~Cubemap();
 
-	static Cubemap* Load(const std::string& InFilePath);
+	static Cubemap* Load(const FilePath& InFilePath);
 
 	// Textures should not be copied around in memory
 	ME_NONCOPYABLE(Cubemap);

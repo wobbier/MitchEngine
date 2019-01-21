@@ -5,6 +5,7 @@
 #include "Game.h"
 
 #include <VertexTypes.h>
+#include "Texture.h"
 
 namespace Moonlight
 {
@@ -13,12 +14,14 @@ namespace Moonlight
 		// Retrieve the shader source code from paths
 		std::string VertexSource;
 		std::string FragSource;
+		FilePath vPath("Assets/Shaders/SimpleVertexShader.cso");
+		FilePath fPath("Assets/Shaders/SimplePixelShader.cso");
 
 		try
 		{
 			// Open files
-			std::ifstream vShaderFile("Assets/Shaders/SampleVertexShader.cso");
-			std::ifstream fShaderFile("Assets/Shaders/SamplePixelShader.cso");
+			std::ifstream vShaderFile(vPath.FullPath);
+			std::ifstream fShaderFile(fPath.FullPath);
 			std::stringstream vShaderStream, fShaderStream;
 
 			// Read file's buffer contents into streams
@@ -45,8 +48,8 @@ namespace Moonlight
 
 #if ME_PLATFORM_UWP
 		// Load shaders asynchronously.
-		auto loadVSTask = DX::ReadDataAsync(L"SampleVertexShader.cso");
-		auto loadPSTask = DX::ReadDataAsync(L"SamplePixelShader.cso");
+		auto loadVSTask = DX::ReadDataAsync(Texture::ToStringW(vPath.LocalPath));
+		auto loadPSTask = DX::ReadDataAsync(Texture::ToStringW(fPath.LocalPath));
 
 		// After the vertex shader file is loaded, create the shader and input layout.
 		auto createVSTask = loadVSTask.then([this, dxDevice](const std::vector<byte>& fileData)

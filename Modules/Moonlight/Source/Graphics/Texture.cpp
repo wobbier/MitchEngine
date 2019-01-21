@@ -21,11 +21,10 @@ namespace Moonlight
 		// TODO: Unload textures
 	}
 
-	Texture* Texture::Load(const std::string& InFilePath)
+	Texture* Texture::Load(const FilePath& InFilePath)
 	{
 		Texture* LoadedTexture = new Texture();
-		std::wstring filePath = ToStringW(InFilePath);
-		LoadedTexture->Directory = InFilePath.substr(0, InFilePath.find_last_of('/'));
+		std::wstring filePath = ToStringW(InFilePath.FullPath);
 		auto device = static_cast<Moonlight::D3D12Device&>(Game::GetEngine().GetRenderer().GetDevice());
 		ID3D11DeviceContext* context;
 		device.GetD3DDevice()->GetImmediateContext(&context);

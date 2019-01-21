@@ -18,7 +18,7 @@ namespace Moonlight
 		Texture();
 		~Texture();
 
-		static Texture* Load(const std::string& InFilePath);
+		static Texture* Load(const FilePath& InFilePath);
 
 		// Textures should not be copied around in memory
 		ME_NONCOPYABLE(Texture);

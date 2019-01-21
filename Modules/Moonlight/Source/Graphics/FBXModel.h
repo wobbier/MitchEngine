@@ -5,6 +5,9 @@
 #include "Graphics/Texture.h"
 #include "Graphics/Mesh.h"
 #include "Resource/Resource.h"
+#include "FilePath.h"
+#include <string>
+#include <vector>
 
 namespace std
 {
@@ -30,7 +33,7 @@ namespace Moonlight
 
 		void Load();
 
-		static FBXModel* Load(const std::string& InFilePath);
+		static FBXModel* Load(const FilePath& InFilePath);
 		void Draw();
 
 		void SetShader(Shader* shader);
