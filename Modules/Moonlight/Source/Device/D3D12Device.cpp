@@ -723,6 +723,12 @@ namespace Moonlight
 		}
 	}
 
+	void D3D12Device::WindowSizeChanged(const glm::vec2& NewSize)
+	{
+		m_logicalSize = NewSize;
+		CreateWindowSizeDependentResources();
+	}
+
 	// This method determines the rotation between the display device's native orientation and the
 	// current display orientation.
 	DXGI_MODE_ROTATION D3D12Device::ComputeDisplayRotation()

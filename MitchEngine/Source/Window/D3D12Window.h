@@ -20,6 +20,8 @@ public:
 
 private:
 	bool ExitRequested = false;
+
+	HWND Window;
 };
 
 #endif

@@ -11,6 +11,7 @@
 #include "Cores/Rendering/RenderCore.h"
 #include "Game.h"
 #include "Window/IWindow.h"
+#include "Input.h"
 
 MitchEngine::MitchEngine()
 	: Running(true)
@@ -67,7 +68,6 @@ void MitchEngine::Init(Game* game)
 
 	m_game->Initialize();
 
-
 	m_isInitialized = true;
 }
 
@@ -91,6 +91,7 @@ void MitchEngine::Run()
 
 		float time = GameClock.GetTimeInMilliseconds();
 		const float deltaTime = GameClock.deltaTime = (time <= 0.0f || time >= 0.3) ? 0.0001f : time;
+
 
 		// Update our engine
 		GameWorld->Simulate();
@@ -121,6 +122,11 @@ std::weak_ptr<World> MitchEngine::GetWorld() const
 ResourceCache& MitchEngine::GetResources()
 {
 	return Resources;
+}
+
+const bool MitchEngine::IsInitialized() const
+{
+	return m_isInitialized;
 }
 
 bool MitchEngine::IsRunning() const

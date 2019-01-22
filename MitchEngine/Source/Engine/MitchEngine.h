@@ -21,6 +21,7 @@ public:
 	std::weak_ptr<World> GetWorld() const;
 	bool IsRunning() const;
 	void Quit();
+	const bool IsInitialized() const;
 
 	IWindow* GetWindow();
 

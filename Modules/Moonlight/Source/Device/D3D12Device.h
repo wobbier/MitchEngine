@@ -47,6 +47,8 @@ namespace Moonlight
 		virtual void PreRender() final;
 		virtual void Present() final;
 
+		virtual void WindowSizeChanged(const glm::vec2& NewSize) final;
+
 		// The size of the render target, in dips.
 		glm::vec2					GetLogicalSize() const { return m_logicalSize; }
 		float						GetDpi() const { return m_effectiveDpi; }

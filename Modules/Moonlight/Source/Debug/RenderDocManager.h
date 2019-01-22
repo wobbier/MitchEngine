@@ -23,6 +23,10 @@ public:
 	{
 	}
 
+	void Capture()
+	{
+		RenderDocApi->TriggerCapture();
+	}
 private:
 	RENDERDOC_API_1_1_2* RenderDocApi = nullptr;
 };

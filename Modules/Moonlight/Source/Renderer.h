@@ -35,6 +35,8 @@ namespace Moonlight
 		void PushModel(FBXModel* model);
 
 		ResourceCache& GetResources();
+
+		void WindowResized(const glm::vec2& NewSize);
 	private:
 		IDevice* m_device;
 
@@ -47,9 +49,9 @@ namespace Moonlight
 #endif
 
 		std::vector<FBXModel*> Models;
-
 #if ME_ENABLE_RENDERDOC
 		RenderDocManager* RenderDoc;
 #endif
+
 	};
 }

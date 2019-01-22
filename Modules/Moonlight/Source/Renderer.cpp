@@ -157,4 +157,15 @@ namespace Moonlight
 	{
 		return Resources;
 	}
+
+	void Renderer::WindowResized(const glm::vec2& NewSize)
+	{
+		if (!m_device)
+		{
+			return;
+		}
+
+		m_device->WindowSizeChanged(NewSize);
+	}
+
 }
