@@ -119,11 +119,6 @@ std::weak_ptr<World> MitchEngine::GetWorld() const
 	return GameWorld;
 }
 
-ResourceCache& MitchEngine::GetResources()
-{
-	return Resources;
-}
-
 const bool MitchEngine::IsInitialized() const
 {
 	return m_isInitialized;

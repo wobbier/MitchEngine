@@ -25,8 +25,6 @@ public:
 
 	IWindow* GetWindow();
 
-	ResourceCache& GetResources();
-
 	class PhysicsCore* Physics;
 	class CameraCore* Cameras;
 	class SceneGraph* SceneNodes;
@@ -39,7 +37,6 @@ private:
 	bool Running;
 	IWindow* GameWindow;
 	Config* EngineConfig;
-	ResourceCache Resources;
 
 	Game* m_game;
 

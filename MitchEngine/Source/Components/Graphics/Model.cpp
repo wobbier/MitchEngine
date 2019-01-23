@@ -5,13 +5,13 @@
 #include "Graphics/FBXModel.h"
 #include "Graphics/Shader.h"
 #include "Game.h"
+#include "Resource/ResourceCache.h"
+#include "Graphics/FBXModel.h"
 
-Model::Model(std::string const &path, const std::string& shader, bool gamma /*= false*/) : EnableGammaCorrection(gamma)
+Model::Model(const std::string& path, const std::string& shader)
+	: ModelPath(path)
+	, ShaderPath(shader)
 {
-	ModelResource = Game::GetEngine().GetRenderer().GetResources().Get<Moonlight::FBXModel>(FilePath(path));
-	ModelShader = new Moonlight::Shader((shader + ".vert"), (shader + ".frag"));
-	ModelResource->SetShader(ModelShader);
-	Game::GetEngine().GetRenderer().PushModel(ModelResource);
 }
 
 Model::~Model()
@@ -20,4 +20,12 @@ Model::~Model()
 
 void Model::Init()
 {
+	ModelShader = new Moonlight::Shader((ShaderPath.FullPath + ".vert"), (ShaderPath.FullPath + ".frag"));
+	ModelResource = ResourceCache::GetInstance().Get<FBXModel>(ModelPath);
+	ModelResource->SetShader(ModelShader);
+}
+
+unsigned int Model::GetId()
+{
+	return Id;
 }

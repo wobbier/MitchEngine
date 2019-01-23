@@ -4,21 +4,24 @@
 #include <string>
 #include "Resource.h"
 #include "FilePath.h"
+#include "Singleton.h"
 
 class ResourceCache
+	: public Singleton<ResourceCache>
 {
-public:
+	friend class Singleton<ResourceCache>;
 	ResourceCache();
 	~ResourceCache();
 
+public:
 	void Push();
-
 	void Pop();
 
 	size_t GetStackSize();
 
 	template<class T>
 	T* Get(const FilePath& InFilePath);
+
 private:
 
 	std::vector<std::map<std::string, class Resource*>> ResourceStack;
@@ -33,7 +36,7 @@ T* ResourceCache::Get(const FilePath& InFilePath)
 		I = ResourceStack[i].find(InFilePath.FullPath);
 		if (I != ResourceStack[i].end())
 		{
-			T* Res = dynamic_cast<T*>(I->second);
+			T* Res = static_cast<T*>(I->second);
 			return Res;
 		}
 	}

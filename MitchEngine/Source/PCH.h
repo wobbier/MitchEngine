@@ -49,6 +49,8 @@
 #include <algorithm>
 #include <vector>
 #include <memory>
+#include <map>
+#include <unordered_map>
 
 // glm
 #define GLM_ENABLE_EXPERIMENTAL 1

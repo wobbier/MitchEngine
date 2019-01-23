@@ -5,6 +5,7 @@
 #include <glm.hpp>
 #include <gtx/quaternion.hpp>
 #include "Dementia.h"
+#include <DirectXMath.h>
 
 class Transform :
 	public Component<Transform>
@@ -32,6 +33,7 @@ public:
 	glm::mat4 LocalTransform;
 	glm::mat4 WorldTransform;
 	std::string Name;
+	DirectX::XMMATRIX GetMatrix();
 private:
 	void SetWorldTransform(glm::mat4& NewWorldTransform);
 	void SetDirty(bool Dirty);

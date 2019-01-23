@@ -36,6 +36,15 @@ void RenderCore::Update(float dt)
 	m_renderer->Update(dt);
 }
 
+void RenderCore::OnEntityAdded(Entity& NewEntity)
+{
+	Moonlight::Renderer::ModelCommand command;
+	Model& model = NewEntity.GetComponent<Model>();
+	command.Meshes = model.ModelResource->Meshes;
+	command.ModelShader = model.ModelShader;
+	model.Id = Game::GetEngine().GetRenderer().PushModel(command);
+}
+
 RenderCore::~RenderCore()
 {
 	Logger::GetInstance().Log(Logger::LogType::Debug, "RenderCore Destroyed...");
@@ -53,6 +62,10 @@ bool RenderCore::Render()
 	auto Renderables = GetEntities();
 	for (auto& InEntity : Renderables)
 	{
+		Model& model = InEntity.GetComponent<Model>();
+		Transform& transform = InEntity.GetComponent<Transform>();
+
+		m_renderer->UpdateMatrix(model.GetId(), transform.GetMatrix());
 	}
 
 	m_renderer->Render();

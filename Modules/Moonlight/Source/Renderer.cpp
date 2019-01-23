@@ -11,6 +11,16 @@ using namespace Windows::Foundation;
 
 namespace Moonlight
 {
+	void Renderer::UpdateMatrix(unsigned int Id, DirectX::XMMATRIX NewTransform)
+	{
+		if (Id >= Models.size())
+		{
+			return;
+		}
+
+		Models[Id].Transform = std::move(NewTransform);
+	}
+
 	Renderer::Renderer()
 	{
 #if ME_DIRECTX
@@ -58,7 +68,6 @@ namespace Moonlight
 
 		m_device->PreRender();
 
-#if ME_DIRECTX
 		auto device = static_cast<D3D12Device*>(m_device);
 		auto context = device->GetD3DDeviceContext();
 
@@ -91,8 +100,6 @@ namespace Moonlight
 
 		XMMATRIX orientationMatrix = XMLoadFloat4x4(&orientation);
 
-		XMStoreFloat4x4(&m_constantBufferData.model, XMMatrixTranspose(XMMatrixIdentity()));
-
 		XMStoreFloat4x4(
 			&m_constantBufferData.projection,
 			XMMatrixTranspose(perspectiveMatrix * orientationMatrix)
@@ -104,29 +111,32 @@ namespace Moonlight
 
 		XMStoreFloat4x4(&m_constantBufferData.view, XMMatrixTranspose(XMMatrixLookAtRH(eye, at, up)));
 
-		// Prepare the constant buffer to send it to the graphics device.
-		context->UpdateSubresource1(
-			m_constantBuffer.Get(),
-			0,
-			NULL,
-			&m_constantBufferData,
-			0,
-			0,
-			0
-		);
-
-		// Send the constant buffer to the graphics device.
-		context->VSSetConstantBuffers1(
-			0,
-			1,
-			m_constantBuffer.GetAddressOf(),
-			nullptr,
-			nullptr
-		);
-#endif
-		for (FBXModel* model : Models)
+		for (const ModelCommand& model : Models)
 		{
-			model->Draw();
+			XMStoreFloat4x4(&m_constantBufferData.model, XMMatrixTranspose(model.Transform));
+			// Prepare the constant buffer to send it to the graphics device.
+			context->UpdateSubresource1(
+				m_constantBuffer.Get(),
+				0,
+				NULL,
+				&m_constantBufferData,
+				0,
+				0,
+				0
+			);
+
+			// Send the constant buffer to the graphics device.
+			context->VSSetConstantBuffers1(
+				0,
+				1,
+				m_constantBuffer.GetAddressOf(),
+				nullptr,
+				nullptr
+			);
+			for (Mesh* mesh : model.Meshes)
+			{
+				mesh->Draw(*model.ModelShader);
+			}
 		}
 		m_device->Present();
 	}
@@ -148,14 +158,29 @@ namespace Moonlight
 		);
 	}
 
-	void Renderer::PushModel(FBXModel* model)
+	unsigned int Renderer::PushModel(const ModelCommand& NewModel)
 	{
-		Models.push_back(model);
+		if (!FreeCommandIndicies.empty())
+		{
+			unsigned int openIndex = FreeCommandIndicies.front();
+			FreeCommandIndicies.pop();
+			Models[openIndex] = std::move(NewModel);
+			return openIndex;
+		}
+
+		Models.push_back(std::move(NewModel));
+		return Models.size() - 1;
 	}
 
-	ResourceCache& Renderer::GetResources()
+	bool Renderer::PopModel(unsigned int id)
 	{
-		return Resources;
+		if (id >= Models.size())
+		{
+			return false;
+		}
+
+		Models[id].Meshes.clear();
+		return true;
 	}
 
 	void Renderer::WindowResized(const glm::vec2& NewSize)

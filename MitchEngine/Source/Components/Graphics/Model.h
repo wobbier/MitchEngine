@@ -6,21 +6,24 @@
 namespace Moonlight
 {
 	class Shader;
-	class FBXModel;
 }
 
 class Model : public Component<Model>
 {
+	friend class RenderCore;
 public:
-	Model(std::string const &path, const std::string& shader, bool gamma = false);
+	Model(const std::string& path, const std::string& shader);
 	~Model();
 
 	// Separate init from construction code.
 	virtual void Init() final;
 
-	Moonlight::FBXModel* ModelResource = nullptr;
+	FBXModel* ModelResource = nullptr;
 	Moonlight::Shader* ModelShader = nullptr;
 
+	unsigned int GetId();
 private:
-	bool EnableGammaCorrection;
+	FilePath ModelPath;
+	FilePath ShaderPath;
+	unsigned int Id;
 };

@@ -12,11 +12,22 @@
 #include "Debug/RenderDocManager.h"
 #endif
 #include <d3d11.h>
+#include <DirectXMath.h>
+#include <queue>
 
 namespace Moonlight
 {
 	class Renderer
 	{
+	public:
+		struct ModelCommand
+		{
+			std::vector<Mesh*> Meshes;
+			Shader* ModelShader;
+			DirectX::XMMATRIX Transform;
+		};
+
+		void UpdateMatrix(unsigned int Id, DirectX::XMMATRIX NewTransform);
 	public:
 		Renderer();
 		virtual ~Renderer() final;
@@ -32,15 +43,12 @@ namespace Moonlight
 		void ReleaseDeviceDependentResources();
 		void CreateDeviceDependentResources();
 
-		void PushModel(FBXModel* model);
-
-		ResourceCache& GetResources();
+		unsigned int PushModel(const ModelCommand& model);
+		bool PopModel(unsigned int id);
 
 		void WindowResized(const glm::vec2& NewSize);
 	private:
 		IDevice* m_device;
-
-		ResourceCache Resources;
 
 #if ME_DIRECTX
 		Microsoft::WRL::ComPtr<ID3D11Buffer> m_constantBuffer;
@@ -48,7 +56,8 @@ namespace Moonlight
 		float m_degreesPerSecond = 45.f;
 #endif
 
-		std::vector<FBXModel*> Models;
+		std::vector<ModelCommand> Models;
+		std::queue<unsigned int> FreeCommandIndicies;
 #if ME_ENABLE_RENDERDOC
 		RenderDocManager* RenderDoc;
 #endif

@@ -87,3 +87,14 @@ void Transform::RemoveChild(Transform* TargetTransform)
 {
 	Children.erase(std::remove(Children.begin(), Children.end(), TargetTransform), Children.end());
 }
+
+DirectX::XMMATRIX Transform::GetMatrix()
+{
+	DirectX::XMMATRIX mat = DirectX::XMMATRIX(
+		WorldTransform[0][0], WorldTransform[0][1], WorldTransform[0][2], WorldTransform[0][3],
+		WorldTransform[1][0], WorldTransform[1][1], WorldTransform[1][2], WorldTransform[1][3],
+		WorldTransform[2][0], WorldTransform[2][1], WorldTransform[2][2], WorldTransform[2][3],
+		WorldTransform[3][0], WorldTransform[3][1], WorldTransform[3][2], WorldTransform[3][3]);
+	//DirectX::XMMatrixIdentity();
+	return mat;
+}
