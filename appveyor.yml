@@ -1,20 +1,5 @@
 version: 0.0.{build}
 os: Visual Studio 2017
-environment:
-  matrix:
-  - env_fbxsdk_path: "http://download.autodesk.com/us/fbx/2019/2019.0/fbx20190_fbxsdk_vs2015store_win.exe"
-  
-install:
-# Setup Fbx sdk
-- ps: >-
-    if ($Env:env_fbxsdk_path) {
-      cd ThirdParty
-      md fbx
-      cd fbx
-      Start-FileDownload $Env:env_fbxsdk_path "fbxsdk.exe"
-      Start-Process -FilePath "fbxsdk.exe" /S -Wait
-      cd ../../
-    }
     
 build:
   project: MitchEngineUWP.sln
@@ -27,3 +12,7 @@ before_build:
   - git submodule init
   - git submodule update
   - ./GenerateSolutionUWP.bat
+  - cd ThirdParty
+  - ./GenerateSolutions.bat
+  - cd ..
+  - nuget restore
