@@ -73,7 +73,8 @@ workspace (getPlatformPostfix("MitchEngine"))
 	links {
 		"BrofilerCore",
 		getPlatformPostfix("Dementia"),
-		"assimp-vc140-mt"
+		"assimp-vc140-mt",
+		"IrrXML"
 	}
 
 	-- Platform specific options
@@ -92,16 +93,17 @@ workspace (getPlatformPostfix("MitchEngine"))
 		"NOMINMAX"
 	}
 
-	filter "configurations:Debug*"
+	filter "configurations:Debug"
 	defines { "DEBUG" }
 	symbols "On"
 	links {
 		"BulletDynamics_Debug",
 		"BulletCollision_Debug",
-		"LinearMath_Debug"
+		"LinearMath_Debug",
+		"zlibstaticd"
 	}
 
-	filter "configurations:Release*"
+	filter "configurations:Release"
 	defines { "NDEBUG" }
 	optimize "On"
 	libdirs {
@@ -111,7 +113,8 @@ workspace (getPlatformPostfix("MitchEngine"))
 	links {
 		"BulletDynamics_MinsizeRel",
 		"BulletCollision_MinsizeRel",
-		"LinearMath_MinsizeRel"
+		"LinearMath_MinsizeRel",
+		"zlibstatic"
 	}
 
 ------------------------------------------------------- Renderer Project -----------------------------------------------------
@@ -216,14 +219,12 @@ project (getPlatformPostfix("MitchEngine"))
 	if isUWP then
 	postbuildcommands {
 		"fxc /T ps_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\SimplePixelShader.cso ..\\Assets\\Shaders\\SimplePixelShader.hlsl",
-		"fxc /T vs_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\SimpleVertexShader.cso ..\\Assets\\Shaders\\SimpleVertexShader.hlsl",
-		"xcopy /y /d  \"..\\ThirdParty\\Dll\\Assimp\\%{cfg.buildcfg}\\*.dll\" \"$(ProjectDir)$(OutDir)\\AppX\""
+		"fxc /T vs_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\SimpleVertexShader.cso ..\\Assets\\Shaders\\SimpleVertexShader.hlsl"
 		}
 	else
 	postbuildcommands {
 		"fxc /T ps_4_0_level_9_3 /Fo ..\\Assets\\Shaders\\SimplePixelShader.cso ..\\Assets\\Shaders\\SimplePixelShader.hlsl",
-		"fxc /T vs_4_0_level_9_3 /Fo ..\\Assets\\Shaders\\SimpleVertexShader.cso ..\\Assets\\Shaders\\SimpleVertexShader.hlsl",
-		"xcopy /y /d  \"..\\ThirdParty\\Dll\\Assimp\\%{cfg.buildcfg}\\*.dll\" \"$(ProjectDir)$(OutDir)\""
+		"fxc /T vs_4_0_level_9_3 /Fo ..\\Assets\\Shaders\\SimpleVertexShader.cso ..\\Assets\\Shaders\\SimpleVertexShader.hlsl"
 		}
 	end
 	configuration "with-renderdoc"
@@ -232,12 +233,14 @@ project (getPlatformPostfix("MitchEngine"))
 		"xcopy /y /d  \"C:\\Program Files\\RenderDoc\\renderdoc.dll\" \"$(ProjectDir)$(OutDir)\""
 	}
 
-	filter "configurations:Debug*"
+	filter "configurations:Debug"
 	postbuildcommands {
 	}
-	filter "configurations:Release*"
+
+	filter "configurations:Release"
 	postbuildcommands {
 	}
+
 	filter {}
 	
 group "Games"
@@ -275,6 +278,9 @@ project (getPlatformPostfix("MitchGame"))
 	if (isUWP) then
 		excludes {
 			"../MitchGame/Source/main.cpp"
+		}
+	postbuildcommands {
+		"xcopy /y /d  \"..\\Assets\\**.*\" \"$(ProjectDir)$(OutDir)\\AppX\\Assets\""
 		}
 	end
 

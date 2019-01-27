@@ -19,3 +19,8 @@
 	url = https://github.com/bombomby/brofiler
 	branch = v2.0
 	ignore = dirty
+[submodule "ThirdParty/Assimp"]
+	path = ThirdParty/Assimp
+	url = https://github.com/assimp/assimp
+	tag = v4.1.0
+	ignore = dirty
