@@ -2,11 +2,10 @@
 #include "Model.h"
 #include "Logger.h"
 #include "Renderer.h"
-#include "Graphics/FBXModel.h"
+#include "Graphics/ModelResource.h"
 #include "Graphics/Shader.h"
 #include "Game.h"
 #include "Resource/ResourceCache.h"
-#include "Graphics/FBXModel.h"
 
 Model::Model(const std::string& path, const std::string& shader)
 	: ModelPath(path)
@@ -21,8 +20,8 @@ Model::~Model()
 void Model::Init()
 {
 	ModelShader = new Moonlight::Shader((ShaderPath.FullPath + ".vert"), (ShaderPath.FullPath + ".frag"));
-	ModelResource = ResourceCache::GetInstance().Get<FBXModel>(ModelPath);
-	ModelResource->SetShader(ModelShader);
+	ModelHandle = ResourceCache::GetInstance().Get<ModelResource>(ModelPath);
+	ModelHandle->SetShader(ModelShader);
 }
 
 unsigned int Model::GetId()

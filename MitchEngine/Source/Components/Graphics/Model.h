@@ -18,7 +18,7 @@ public:
 	// Separate init from construction code.
 	virtual void Init() final;
 
-	FBXModel* ModelResource = nullptr;
+	ModelResource* ModelHandle = nullptr;
 	Moonlight::Shader* ModelShader = nullptr;
 
 	unsigned int GetId();

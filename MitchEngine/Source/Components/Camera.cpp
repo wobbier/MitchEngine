@@ -37,3 +37,8 @@ void Camera::SetCurrent()
 {
 	CurrentCamera = this;
 }
+
+float Camera::GetFOV()
+{
+	return m_FOV;
+}

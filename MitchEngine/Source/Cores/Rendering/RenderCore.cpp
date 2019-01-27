@@ -40,7 +40,7 @@ void RenderCore::OnEntityAdded(Entity& NewEntity)
 {
 	Moonlight::Renderer::ModelCommand command;
 	Model& model = NewEntity.GetComponent<Model>();
-	command.Meshes = model.ModelResource->Meshes;
+	command.Meshes = model.ModelHandle->Meshes;
 	command.ModelShader = model.ModelShader;
 	model.Id = Game::GetEngine().GetRenderer().PushModel(command);
 }

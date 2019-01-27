@@ -8,6 +8,7 @@
 #include <DirectXMath.h>
 #include <wrl/event.h>
 #include <d3d11.h>
+#include "Material.h"
 
 namespace Moonlight
 {
@@ -26,17 +27,15 @@ namespace Moonlight
 
 		std::vector<Vertex> vertices;
 		std::vector<unsigned int> indices;
-		std::vector<Texture*> textures;
+		Material* material;
 		unsigned int VAO;
 
-		Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices, std::vector<Texture*> textures);
+		Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices, Material* newMaterial);
 
 		// render the mesh
 		void Draw(Moonlight::Shader& shader);
 
 	private:
-		unsigned int VBO, EBO;
-
 		// System resources for cube geometry.
 		unsigned int m_indexCount;
 		void InitMesh();

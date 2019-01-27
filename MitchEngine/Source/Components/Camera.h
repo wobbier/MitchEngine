@@ -27,4 +27,7 @@ public:
 	void UpdateCameraTransform(glm::vec3 TransformComponent);
 	bool IsCurrent();
 	void SetCurrent();
+	float GetFOV();
+private:
+	float m_FOV = 45.f;
 };

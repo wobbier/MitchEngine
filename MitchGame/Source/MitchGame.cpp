@@ -48,14 +48,13 @@ void MitchGame::Initialize()
 	ModelTransform.SetPosition(glm::vec3(0.f, 20.f, 0.f));
 	ModelTransform.SetScale(glm::vec3(0.5f, 0.5f, 0.5f));
 	TestModel.AddComponent<Rigidbody>();
-	TestModel.AddComponent<Model>("Assets/Mech/mech.fbx", "Assets/Shaders/Albedo");
-
+	TestModel.AddComponent<Model>("Assets/marcus.fbx", "Assets/Shaders/Albedo");
 
 	Entity TestModel2 = GameWorld->CreateEntity();
 	Transform& ModelTransform2 = TestModel2.AddComponent<Transform>("Ground obvs2");
 	ModelTransform2.SetPosition(glm::vec3(5.f, 20.f, 0.f));
 	TestModel2.AddComponent<Rigidbody>();
-	TestModel2.AddComponent<Model>("Assets/Mech/mech.fbx", "Assets/Shaders/Albedo");
+	TestModel2.AddComponent<Model>("Assets/cube.obj", "Assets/Shaders/Albedo");
 
 	/*Entity Ground2 = GameWorld->CreateEntity();
 	Ground2.AddComponent<Transform>("Ground obvs");

@@ -41,6 +41,9 @@ public:
 
 		FullPath = Directory + LocalPath;
 
+		size_t pos = FullPath.find_last_of("/");
+		Directory = FullPath.substr(0, pos + 1);
+
 #if ME_PLATFORM_UWP
 		std::replace(LocalPath.begin(), LocalPath.end(), '/', '\\');
 #endif

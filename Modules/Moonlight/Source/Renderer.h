@@ -5,7 +5,7 @@
 #include "Utils/StepTimer.h"
 #include "Singleton.h"
 #include "Resource/ResourceCache.h"
-#include "Graphics/FBXModel.h"
+#include "Graphics/ModelResource.h"
 #include "Utils/DirectXHelper.h"
 
 #if ME_ENABLE_RENDERDOC

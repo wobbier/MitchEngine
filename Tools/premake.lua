@@ -43,22 +43,22 @@ workspace (getPlatformPostfix("MitchEngine"))
 		"../MitchEngine/Source",
 		"../ThirdParty/Bullet/src",
 		"../ThirdParty/GLM/glm",
-		"C:/Program Files/Autodesk/FBX/FBX SDK/2019.0/include",
 		"C:/Program Files/RenderDoc",
 		"../ThirdParty/Brofiler/BrofilerCore",
 		"../Modules/Moonlight/Source",
-		"../Modules/Dementia/Source"
+		"../Modules/Dementia/Source",
+		"../ThirdParty/Assimp/include"
 	}
 	
 	libdirs {
-		"../Build/%{cfg.buildcfg}"
+		"../Build/%{cfg.buildcfg}",
+		"../ThirdParty/Lib/Assimp/%{cfg.buildcfg}"
 	}
 
 	if isUWP then
 		defines { "ME_PLATFORM_UWP" }
 		libdirs {
 			"../ThirdParty/Lib/Bullet/Win64/%{cfg.buildcfg}",
-			"C:/Program Files/Autodesk/FBX/FBX SDK/2019.0/lib/vs2015store/%{cfg.platform}/%{cfg.buildcfg}",
 			"../ThirdParty/Lib/Brofiler/UWP/%{cfg.buildcfg}"
 		}
 	else
@@ -66,7 +66,6 @@ workspace (getPlatformPostfix("MitchEngine"))
 		libdirs {
 			"../ThirdParty/Lib/Bullet/Win64/%{cfg.buildcfg}",
 			"../ThirdParty/Lib/GLFW/Win64/%{cfg.buildcfg}",
-			"C:/Program Files/Autodesk/FBX/FBX SDK/2019.0/lib/vs2015/%{cfg.platform}/%{cfg.buildcfg}",
 			"../ThirdParty/Lib/Brofiler/Win64/%{cfg.buildcfg}"
 		}
 	end
@@ -74,7 +73,7 @@ workspace (getPlatformPostfix("MitchEngine"))
 	links {
 		"BrofilerCore",
 		getPlatformPostfix("Dementia"),
-		"libfbxsdk-md"
+		"assimp-vc140-mt"
 	}
 
 	-- Platform specific options
@@ -214,11 +213,19 @@ project (getPlatformPostfix("MitchEngine"))
 		["Build"] = "../Tools/*.lua",
 		["Source"] = "../Source/**.*"
 	}
+	if isUWP then
+	postbuildcommands {
+		"fxc /T ps_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\SimplePixelShader.cso ..\\Assets\\Shaders\\SimplePixelShader.hlsl",
+		"fxc /T vs_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\SimpleVertexShader.cso ..\\Assets\\Shaders\\SimpleVertexShader.hlsl",
+		"xcopy /y /d  \"..\\ThirdParty\\Dll\\Assimp\\%{cfg.buildcfg}\\*.dll\" \"$(ProjectDir)$(OutDir)\\AppX\""
+		}
+	else
 	postbuildcommands {
 		"fxc /T ps_4_0_level_9_3 /Fo ..\\Assets\\Shaders\\SimplePixelShader.cso ..\\Assets\\Shaders\\SimplePixelShader.hlsl",
 		"fxc /T vs_4_0_level_9_3 /Fo ..\\Assets\\Shaders\\SimpleVertexShader.cso ..\\Assets\\Shaders\\SimpleVertexShader.hlsl",
+		"xcopy /y /d  \"..\\ThirdParty\\Dll\\Assimp\\%{cfg.buildcfg}\\*.dll\" \"$(ProjectDir)$(OutDir)\""
 		}
-	
+	end
 	configuration "with-renderdoc"
 	defines { "MAN_ENABLE_RENDERDOC", "__cplusplus_winrt" }
 	postbuildcommands {
