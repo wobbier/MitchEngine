@@ -279,9 +279,6 @@ project (getPlatformPostfix("MitchGame"))
 		excludes {
 			"../MitchGame/Source/main.cpp"
 		}
-	postbuildcommands {
-		"xcopy /y /d  \"..\\Assets\\**.*\" \"$(ProjectDir)$(OutDir)\\AppX\\Assets\""
-		}
 	end
 
 	includedirs {

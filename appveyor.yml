@@ -12,6 +12,7 @@ before_build:
   - git submodule init
   - git submodule update
   - ./GenerateSolutionUWP.bat
+  - ./CopyAssets.bat
   - cd ThirdParty
   - ./GenerateSolutions.bat
   - cd ..

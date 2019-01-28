@@ -14,23 +14,11 @@ public:
 		std::string ProgramPath(buf);
 
 		std::replace(ProgramPath.begin(), ProgramPath.end(), '\\', '/');
-		std::size_t found = ProgramPath.rfind("/../");
-		if (found != std::string::npos)
-		{
-			Directory = ProgramPath.substr(0, found);
-			found = Directory.rfind('/', Directory.length());
-			if (found != std::string::npos)
-			{
-				Directory = Directory.substr(0, found + 1);
-			}
-		}
-		else
-		{
-			size_t pos = ProgramPath.find_last_of("/");
-			Directory = ProgramPath.substr(0, pos + 1);
-		}
+		size_t pos = ProgramPath.find_last_of("/");
+		Directory = ProgramPath.substr(0, pos + 1);
 
 		LocalPath = InFile;
+
 		std::replace(LocalPath.begin(), LocalPath.end(), '\\', '/');
 
 		size_t path = LocalPath.find(Directory);
@@ -41,7 +29,7 @@ public:
 
 		FullPath = Directory + LocalPath;
 
-		size_t pos = FullPath.find_last_of("/");
+		pos = FullPath.find_last_of("/");
 		Directory = FullPath.substr(0, pos + 1);
 
 #if ME_PLATFORM_UWP
