@@ -48,7 +48,7 @@ namespace Moonlight
 
 		void WindowResized(const glm::vec2& NewSize);
 	private:
-		IDevice* m_device;
+		class D3D12Device* m_device;
 
 #if ME_DIRECTX
 		Microsoft::WRL::ComPtr<ID3D11Buffer> m_constantBuffer;

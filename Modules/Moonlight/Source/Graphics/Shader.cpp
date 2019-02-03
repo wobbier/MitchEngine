@@ -46,78 +46,42 @@ namespace Moonlight
 
 		auto dxDevice = static_cast<D3D12Device&>(Game::GetEngine().GetRenderer().GetDevice());
 
-#if ME_PLATFORM_UWP
-		// Load shaders asynchronously.
-		auto loadVSTask = DX::ReadDataAsync(Texture::ToStringW(vPath.LocalPath));
-		auto loadPSTask = DX::ReadDataAsync(Texture::ToStringW(fPath.LocalPath));
+		DX::ThrowIfFailed(
+			dxDevice.GetD3DDevice()->CreateVertexShader(
+				&vShaderCode[0],
+				VertexSource.size(),
+				nullptr,
+				&m_vertexShader
+			)
+		);
 
-		// After the vertex shader file is loaded, create the shader and input layout.
-		auto createVSTask = loadVSTask.then([this, dxDevice](const std::vector<byte>& fileData)
+		static const D3D11_INPUT_ELEMENT_DESC vertexDesc[] =
 		{
-#endif
-			DX::ThrowIfFailed(
-				dxDevice.GetD3DDevice()->CreateVertexShader(
-#if ME_PLATFORM_UWP
-					&fileData[0],
-					fileData.size(),
-#elif ME_DIRECTX
-					&vShaderCode[0],
-					VertexSource.size(),
-#endif
-					nullptr,
-					&m_vertexShader
-				)
-			);
+			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,    0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+			{ "NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT,    0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+			{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,       0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		};
 
-			/*{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-			{ "COLOR", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-			{ "TEXCOORD", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0 },*/
+		DX::ThrowIfFailed(
+			dxDevice.GetD3DDevice()->CreateInputLayout(
+				vertexDesc,
+				ARRAYSIZE(vertexDesc),
+				&vShaderCode[0],
+				VertexSource.size(),
+				&m_inputLayout
+			)
+		);
 
-			static const D3D11_INPUT_ELEMENT_DESC vertexDesc[] =
-			{
-				{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,    0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-				{ "NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT,    0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-				{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,       0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-			};
+		DX::ThrowIfFailed(
+			dxDevice.GetD3DDevice()->CreatePixelShader(
+				&fShaderCode[0],
+				FragSource.size(),
+				nullptr,
+				&m_pixelShader
+			)
+		);
 
-			DX::ThrowIfFailed(
-				dxDevice.GetD3DDevice()->CreateInputLayout(
-					vertexDesc,
-					ARRAYSIZE(vertexDesc),
-#if ME_PLATFORM_UWP
-					&fileData[0],
-					fileData.size(),
-#elif ME_DIRECTX
-					&vShaderCode[0],
-					VertexSource.size(),
-#endif
-					&m_inputLayout
-				)
-			);
-#if ME_PLATFORM_UWP
-		});
-
-		// After the pixel shader file is loaded, create the shader and constant buffer.
-		auto createPSTask = loadPSTask.then([this, dxDevice](const std::vector<byte>& fileData)
-		{
-#endif
-			DX::ThrowIfFailed(
-				dxDevice.GetD3DDevice()->CreatePixelShader(
-#if ME_PLATFORM_UWP
-					&fileData[0],
-					fileData.size(),
-#elif ME_DIRECTX
-					&fShaderCode[0],
-					FragSource.size(),
-#endif
-					nullptr,
-					&m_pixelShader
-				)
-			);
-			isLoaded = true;
-#if ME_PLATFORM_UWP
-		});
-#endif
+		isLoaded = true;
 	}
 
 	Shader::~Shader()

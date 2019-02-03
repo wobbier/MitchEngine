@@ -82,8 +82,6 @@ namespace Moonlight
 #if ME_PLATFORM_UWP
 		, m_d3dRenderTargetSize()
 		, m_outputSize()
-		, m_nativeOrientation(DisplayOrientations::None)
-		, m_currentOrientation(DisplayOrientations::None)
 #endif
 		, m_dpi(-1.0f)
 		, m_effectiveDpi(-1.0f)
@@ -261,14 +259,8 @@ namespace Moonlight
 
 		UpdateRenderTargetSize();
 
-		// The width and height of the swap chain must be based on the window's
-		// natively-oriented width and height. If the window is not in the native
-		// orientation, the dimensions must be reversed.
-		DXGI_MODE_ROTATION displayRotation = ComputeDisplayRotation();
-
-		bool swapDimensions = displayRotation == DXGI_MODE_ROTATION_ROTATE90 || displayRotation == DXGI_MODE_ROTATION_ROTATE270;
-		m_d3dRenderTargetSize.Width = swapDimensions ? m_outputSize.Height : m_outputSize.Width;
-		m_d3dRenderTargetSize.Height = swapDimensions ? m_outputSize.Width : m_outputSize.Height;
+		m_d3dRenderTargetSize.Width = m_outputSize.Width;
+		m_d3dRenderTargetSize.Height = m_outputSize.Height;
 
 		if (m_swapChain != nullptr)
 		{
@@ -360,45 +352,7 @@ namespace Moonlight
 			);
 		}
 
-		// Set the proper orientation for the swap chain, and generate 2D and
-		// 3D matrix transformations for rendering to the rotated swap chain.
-		// Note the rotation angle for the 2D and 3D transforms are different.
-		// This is due to the difference in coordinate spaces.  Additionally,
-		// the 3D matrix is specified explicitly to avoid rounding errors.
-
-		switch (displayRotation)
-		{
-		case DXGI_MODE_ROTATION_IDENTITY:
-			m_orientationTransform2D = Matrix3x2F::Identity();
-			m_orientationTransform3D = ScreenRotation::Rotation0;
-			break;
-
-		case DXGI_MODE_ROTATION_ROTATE90:
-			m_orientationTransform2D =
-				Matrix3x2F::Rotation(90.0f) *
-				Matrix3x2F::Translation(m_logicalSize.y, 0.0f);
-			m_orientationTransform3D = ScreenRotation::Rotation270;
-			break;
-
-		case DXGI_MODE_ROTATION_ROTATE180:
-			m_orientationTransform2D =
-				Matrix3x2F::Rotation(180.0f) *
-				Matrix3x2F::Translation(m_logicalSize.x, m_logicalSize.y);
-			m_orientationTransform3D = ScreenRotation::Rotation180;
-			break;
-
-		case DXGI_MODE_ROTATION_ROTATE270:
-			m_orientationTransform2D =
-				Matrix3x2F::Rotation(270.0f) *
-				Matrix3x2F::Translation(0.0f, m_logicalSize.x);
-			m_orientationTransform3D = ScreenRotation::Rotation90;
-			break;
-
-		//default:
-			//throw ref new FailureException();
-		}
-
-		DX::ThrowIfFailed(m_swapChain->SetRotation(displayRotation));
+		DX::ThrowIfFailed(m_swapChain->SetRotation(DXGI_MODE_ROTATION_IDENTITY));
 
 		// Create a render target view of the swap chain back buffer.
 		ComPtr<ID3D11Texture2D1> backBuffer;
@@ -521,8 +475,6 @@ namespace Moonlight
 
 		m_window = window;
 		m_logicalSize = glm::vec2(window->Bounds.Width, window->Bounds.Height);
-		m_nativeOrientation = currentDisplayInformation->NativeOrientation;
-		m_currentOrientation = currentDisplayInformation->CurrentOrientation;
 		m_dpi = currentDisplayInformation->LogicalDpi;
 		m_d2dContext->SetDpi(m_dpi, m_dpi);
 
@@ -566,18 +518,6 @@ namespace Moonlight
 			CreateWindowSizeDependentResources();
 		}
 	}
-
-#if ME_PLATFORM_UWP
-	// This method is called in the event handler for the OrientationChanged event.
-	void D3D12Device::SetCurrentOrientation(DisplayOrientations currentOrientation)
-	{
-		if (m_currentOrientation != currentOrientation)
-		{
-			m_currentOrientation = currentOrientation;
-			CreateWindowSizeDependentResources();
-		}
-	}
-#endif
 
 	// This method is called in the event handler for the DisplayContentsInvalidated event.
 	void D3D12Device::ValidateDevice()
@@ -668,122 +608,10 @@ namespace Moonlight
 		dxgiDevice->Trim();
 	}
 
-	void D3D12Device::PreRender()
-	{
-#if ME_PLATFORM_UWP
-		if (!m_window.Get())
-#elif ME_PLATFORM_WIN64
-		if (!m_window)
-#endif
-		{
-			return;
-		}
-
-		auto context = GetD3DDeviceContext();
-
-		// Reset the viewport to target the whole screen.
-		auto viewport = GetScreenViewport();
-		context->RSSetViewports(1, &viewport);
-
-		// Reset render targets to the screen.
-		ID3D11RenderTargetView *const targets[1] = { GetBackBufferRenderTargetView() };
-		context->OMSetRenderTargets(1, targets, GetDepthStencilView());
-
-		// Clear the back buffer and depth stencil view.
-		context->ClearRenderTargetView(GetBackBufferRenderTargetView(), DirectX::Colors::Black);
-		context->ClearDepthStencilView(GetDepthStencilView(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
-	}
-
-	// Present the contents of the swap chain to the screen.
-	void D3D12Device::Present()
-	{
-		// The first argument instructs DXGI to block until VSync, putting the application
-		// to sleep until the next VSync. This ensures we don't waste any cycles rendering
-		// frames that will never be displayed to the screen.
-		DXGI_PRESENT_PARAMETERS parameters = { 0 };
-		HRESULT hr = m_swapChain->Present1(1, 0, &parameters);
-
-		// Discard the contents of the render target.
-		// This is a valid operation only when the existing contents will be entirely
-		// overwritten. If dirty or scroll rects are used, this call should be removed.
-		m_d3dContext->DiscardView1(m_d3dRenderTargetView.Get(), nullptr, 0);
-
-		// Discard the contents of the depth stencil.
-		m_d3dContext->DiscardView1(m_d3dDepthStencilView.Get(), nullptr, 0);
-
-		// If the device was removed either by a disconnection or a driver upgrade, we 
-		// must recreate all device resources.
-		if (hr == DXGI_ERROR_DEVICE_REMOVED || hr == DXGI_ERROR_DEVICE_RESET)
-		{
-			HandleDeviceLost();
-		}
-		else
-		{
-			DX::ThrowIfFailed(hr);
-		}
-	}
-
 	void D3D12Device::WindowSizeChanged(const glm::vec2& NewSize)
 	{
 		m_logicalSize = NewSize;
 		CreateWindowSizeDependentResources();
-	}
-
-	// This method determines the rotation between the display device's native orientation and the
-	// current display orientation.
-	DXGI_MODE_ROTATION D3D12Device::ComputeDisplayRotation()
-	{
-		DXGI_MODE_ROTATION rotation = DXGI_MODE_ROTATION_IDENTITY;
-
-		// Note: NativeOrientation can only be Landscape or Portrait even though
-		// the DisplayOrientations enum has other values.
-#if ME_PLATFORM_UWP
-		switch (m_nativeOrientation)
-		{
-		case DisplayOrientations::Landscape:
-			switch (m_currentOrientation)
-			{
-			case DisplayOrientations::Landscape:
-				rotation = DXGI_MODE_ROTATION_IDENTITY;
-				break;
-
-			case DisplayOrientations::Portrait:
-				rotation = DXGI_MODE_ROTATION_ROTATE270;
-				break;
-
-			case DisplayOrientations::LandscapeFlipped:
-				rotation = DXGI_MODE_ROTATION_ROTATE180;
-				break;
-
-			case DisplayOrientations::PortraitFlipped:
-				rotation = DXGI_MODE_ROTATION_ROTATE90;
-				break;
-			}
-			break;
-
-		case DisplayOrientations::Portrait:
-			switch (m_currentOrientation)
-			{
-			case DisplayOrientations::Landscape:
-				rotation = DXGI_MODE_ROTATION_ROTATE90;
-				break;
-
-			case DisplayOrientations::Portrait:
-				rotation = DXGI_MODE_ROTATION_IDENTITY;
-				break;
-
-			case DisplayOrientations::LandscapeFlipped:
-				rotation = DXGI_MODE_ROTATION_ROTATE270;
-				break;
-
-			case DisplayOrientations::PortraitFlipped:
-				rotation = DXGI_MODE_ROTATION_ROTATE180;
-				break;
-			}
-			break;
-		}
-#endif
-		return rotation;
 	}
 }
 #endif

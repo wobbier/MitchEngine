@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include <DirectXMath.h>
 
 #if ME_DIRECTX
 

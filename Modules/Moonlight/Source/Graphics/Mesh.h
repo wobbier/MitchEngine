@@ -3,7 +3,6 @@
 #include <vector>
 
 #include "Texture.h"
-#include "Shader.h"
 #include "Content/ShaderStructures.h"
 #include <DirectXMath.h>
 #include <wrl/event.h>
@@ -33,7 +32,7 @@ namespace Moonlight
 		Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices, Material* newMaterial);
 
 		// render the mesh
-		void Draw(Moonlight::Shader& shader);
+		void Draw();
 
 	private:
 		// System resources for cube geometry.

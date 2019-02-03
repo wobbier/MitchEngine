@@ -77,9 +77,6 @@ UWPWindow::UWPWindowMessageHandler::UWPWindowMessageHandler(UWPWindow* window)
 	currentDisplayInformation->DpiChanged +=
 		ref new TypedEventHandler<DisplayInformation^, Object^>(this, &UWPWindowMessageHandler::OnDpiChanged);
 
-	currentDisplayInformation->OrientationChanged +=
-		ref new TypedEventHandler<DisplayInformation^, Object^>(this, &UWPWindowMessageHandler::OnOrientationChanged);
-
 	DisplayInformation::DisplayContentsInvalidated +=
 		ref new TypedEventHandler<DisplayInformation^, Object^>(this, &UWPWindowMessageHandler::OnDisplayContentsInvalidated);
 }
@@ -113,11 +110,6 @@ void UWPWindow::UWPWindowMessageHandler::OnDpiChanged(DisplayInformation^ sender
 	// you should always retrieve it using the GetDpi method.
 	// See DeviceResources.cpp for more details.
 	static_cast<Moonlight::D3D12Device&>(Game::GetEngine().GetRenderer().GetDevice()).SetDpi(sender->LogicalDpi);
-}
-
-void UWPWindow::UWPWindowMessageHandler::OnOrientationChanged(DisplayInformation^ sender, Object^ args)
-{
-	static_cast<Moonlight::D3D12Device&>(Game::GetEngine().GetRenderer().GetDevice()).SetCurrentOrientation(sender->CurrentOrientation);
 }
 
 void UWPWindow::UWPWindowMessageHandler::OnDisplayContentsInvalidated(DisplayInformation^ sender, Object^ args)

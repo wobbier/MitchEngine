@@ -12,6 +12,7 @@
 #include "assimp/material.h"
 #include "assimp/mesh.h"
 #include "assimp/scene.h"
+#include "Graphics/Shader.h"
 
 class ModelResource
 	: public Resource

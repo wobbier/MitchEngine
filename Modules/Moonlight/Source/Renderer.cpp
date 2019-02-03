@@ -5,6 +5,7 @@
 #include "Utils/DirectXHelper.h"
 #include <DirectXMath.h>
 #include "Components/Camera.h"
+#include <DirectXColors.h>
 
 using namespace DirectX;
 using namespace Windows::Foundation;
@@ -23,9 +24,7 @@ namespace Moonlight
 
 	Renderer::Renderer()
 	{
-#if ME_DIRECTX
 		m_device = new D3D12Device();
-#endif
 
 #if ME_ENABLE_RENDERDOC
 		RenderDoc = new RenderDocManager();
@@ -66,12 +65,21 @@ namespace Moonlight
 			return;
 		}
 
-		m_device->PreRender();
+		auto context = m_device->GetD3DDeviceContext();
 
-		auto device = static_cast<D3D12Device*>(m_device);
-		auto context = device->GetD3DDeviceContext();
+		// Reset the viewport to target the whole screen.
+		auto viewport = m_device->GetScreenViewport();
+		context->RSSetViewports(1, &viewport);
 
-		TSize outputSize = device->GetOutputSize();
+		// Reset render targets to the screen.
+		ID3D11RenderTargetView *const targets[1] = { m_device->GetBackBufferRenderTargetView() };
+		context->OMSetRenderTargets(1, targets, m_device->GetDepthStencilView());
+
+		// Clear the back buffer and depth stencil view.
+		context->ClearRenderTargetView(m_device->GetBackBufferRenderTargetView(), DirectX::Colors::Black);
+		context->ClearDepthStencilView(m_device->GetDepthStencilView(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+
+		TSize outputSize = m_device->GetOutputSize();
 		float aspectRatio = static_cast<float>(outputSize.Width) / static_cast<float>(outputSize.Height);
 		float fovAngleY = currentCamera->GetFOV() * XM_PI / 180.0f;
 
@@ -96,13 +104,9 @@ namespace Moonlight
 			100.0f
 		);
 
-		XMFLOAT4X4 orientation = device->GetOrientationTransform3D();
-
-		XMMATRIX orientationMatrix = XMLoadFloat4x4(&orientation);
-
 		XMStoreFloat4x4(
 			&m_constantBufferData.projection,
-			XMMatrixTranspose(perspectiveMatrix * orientationMatrix)
+			XMMatrixTranspose(perspectiveMatrix)
 		);
 
 		const XMVECTORF32 eye = { currentCamera->Position.x, currentCamera->Position.y, currentCamera->Position.z, 0 };
@@ -133,12 +137,39 @@ namespace Moonlight
 				nullptr,
 				nullptr
 			);
+
 			for (Mesh* mesh : model.Meshes)
 			{
-				mesh->Draw(*model.ModelShader);
+				model.ModelShader->Use();
+
+				mesh->Draw();
 			}
 		}
-		m_device->Present();
+
+		// The first argument instructs DXGI to block until VSync, putting the application
+		// to sleep until the next VSync. This ensures we don't waste any cycles rendering
+		// frames that will never be displayed to the screen.
+		DXGI_PRESENT_PARAMETERS parameters = { 0 };
+		HRESULT hr = m_device->GetSwapChain()->Present1(1, 0, &parameters);
+
+		// Discard the contents of the render target.
+		// This is a valid operation only when the existing contents will be entirely
+		// overwritten. If dirty or scroll rects are used, this call should be removed.
+		m_device->GetD3DDeviceContext()->DiscardView1(m_device->GetBackBufferRenderTargetView(), nullptr, 0);
+
+		// Discard the contents of the depth stencil.
+		m_device->GetD3DDeviceContext()->DiscardView1(m_device->GetDepthStencilView(), nullptr, 0);
+
+		// If the device was removed either by a disconnection or a driver upgrade, we 
+		// must recreate all device resources.
+		if (hr == DXGI_ERROR_DEVICE_REMOVED || hr == DXGI_ERROR_DEVICE_RESET)
+		{
+			m_device->HandleDeviceLost();
+		}
+		else
+		{
+			DX::ThrowIfFailed(hr);
+		}
 	}
 
 	void Renderer::ReleaseDeviceDependentResources()

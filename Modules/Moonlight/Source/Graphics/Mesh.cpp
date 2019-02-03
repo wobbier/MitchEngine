@@ -61,12 +61,8 @@ namespace Moonlight
 		);
 	}
 
-	void Mesh::Draw(Moonlight::Shader& shader)
+	void Mesh::Draw()
 	{
-		if (!shader.IsLoaded())
-		{
-			return;
-		}
 		auto context = static_cast<D3D12Device&>(Game::GetEngine().GetRenderer().GetDevice()).GetD3DDeviceContext();
 		// Each vertex is one instance of the VertexPositionColor struct.
 		UINT stride = sizeof(Vertex);
@@ -86,8 +82,6 @@ namespace Moonlight
 		);
 
 		context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-		shader.Use();
 
 		if (material->GetTexture("DiffuseColor"))
 		{

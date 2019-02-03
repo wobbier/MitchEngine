@@ -44,9 +44,6 @@ namespace Moonlight
 		void RegisterDeviceNotify(IDeviceNotify* deviceNotify);
 		void Trim();
 
-		virtual void PreRender() final;
-		virtual void Present() final;
-
 		virtual void WindowSizeChanged(const glm::vec2& NewSize) final;
 
 		// The size of the render target, in dips.
@@ -61,7 +58,6 @@ namespace Moonlight
 		ID3D11RenderTargetView1*	GetBackBufferRenderTargetView() const { return m_d3dRenderTargetView.Get(); }
 		ID3D11DepthStencilView*		GetDepthStencilView() const { return m_d3dDepthStencilView.Get(); }
 		D3D11_VIEWPORT				GetScreenViewport() const { return m_screenViewport; }
-		DirectX::XMFLOAT4X4			GetOrientationTransform3D() const { return m_orientationTransform3D; }
 		// D2D Accessors.
 		ID2D1Factory3*				GetD2DFactory() const { return m_d2dFactory.Get(); }
 		ID2D1Device2*				GetD2DDevice() const { return m_d2dDevice.Get(); }
@@ -69,14 +65,12 @@ namespace Moonlight
 		ID2D1Bitmap1*				GetD2DTargetBitmap() const { return m_d2dTargetBitmap.Get(); }
 		IDWriteFactory3*			GetDWriteFactory() const { return m_dwriteFactory.Get(); }
 		IWICImagingFactory2*		GetWicImagingFactory() const { return m_wicFactory.Get(); }
-		D2D1::Matrix3x2F			GetOrientationTransform2D() const { return m_orientationTransform2D; }
 
 	private:
 		virtual void CreateDeviceIndependentResources() final;
 		virtual void CreateDeviceResources() final;
 		virtual void CreateWindowSizeDependentResources() final;
 		void UpdateRenderTargetSize();
-		DXGI_MODE_ROTATION ComputeDisplayRotation();
 
 		// Direct3D objects.
 		Microsoft::WRL::ComPtr<ID3D11Device3>			m_d3dDevice;
@@ -102,10 +96,7 @@ namespace Moonlight
 		// Cached reference to the Window.
 #if ME_PLATFORM_UWP
 		Platform::Agile<Windows::UI::Core::CoreWindow> m_window;
-		Windows::Graphics::Display::DisplayOrientations	m_nativeOrientation;
-		Windows::Graphics::Display::DisplayOrientations	m_currentOrientation;
 #endif
-
 #if ME_PLATFORM_WIN64
 		HWND m_window;
 #endif
@@ -119,10 +110,6 @@ namespace Moonlight
 
 		// This is the DPI that will be reported back to the app. It takes into account whether the app supports high resolution screens or not.
 		float m_effectiveDpi;
-
-		// Transforms used for display orientation.
-		D2D1::Matrix3x2F	m_orientationTransform2D;
-		DirectX::XMFLOAT4X4	m_orientationTransform3D;
 
 		// The IDeviceNotify can be held directly as it owns the DeviceResources.
 		IDeviceNotify* m_deviceNotify;
