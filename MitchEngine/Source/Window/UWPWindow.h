@@ -40,6 +40,7 @@ public:
 	virtual bool ShouldClose() final;
 	virtual void ParseMessageQueue() final;
 	virtual void Swap() final;
+	virtual glm::vec2 GetSize() const final;
 
 	void SetVisibility(bool Visible);
 private:

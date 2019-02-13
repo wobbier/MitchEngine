@@ -16,7 +16,7 @@ public:
 	void Init(Game* game);
 	void Run();
 
-	Moonlight::Renderer& GetRenderer();
+	Moonlight::Renderer& GetRenderer() const;
 
 	std::weak_ptr<World> GetWorld() const;
 	bool IsRunning() const;

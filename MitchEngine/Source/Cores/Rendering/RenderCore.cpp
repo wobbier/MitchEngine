@@ -68,8 +68,6 @@ bool RenderCore::Render()
 		m_renderer->UpdateMatrix(model.GetId(), transform.GetMatrix());
 	}
 
-	m_renderer->Render();
-
 	return true;
 }
 

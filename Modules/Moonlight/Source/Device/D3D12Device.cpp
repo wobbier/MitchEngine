@@ -4,6 +4,7 @@
 #if ME_DIRECTX
 
 #include <DirectXColors.h>
+#include <CommonStates.h>
 
 using namespace D2D1;
 using namespace DirectX;
@@ -20,58 +21,7 @@ using namespace std;
 
 namespace Moonlight
 {
-	namespace DisplayMetrics
-	{
-		// High resolution displays can require a lot of GPU and battery power to render.
-		// High resolution phones, for example, may suffer from poor battery life if
-		// games attempt to render at 60 frames per second at full fidelity.
-		// The decision to render at full fidelity across all platforms and form factors
-		// should be deliberate.
-		static const bool SupportHighResolutions = false;
-
-		// The default thresholds that define a "high resolution" display. If the thresholds
-		// are exceeded and SupportHighResolutions is false, the dimensions will be scaled
-		// by 50%.
-		static const float DpiThreshold = 192.0f;		// 200% of standard desktop display.
-		static const float WidthThreshold = 1920.0f;	// 1080p width.
-		static const float HeightThreshold = 1080.0f;	// 1080p height.
-	};
-
-	// Constants used to calculate screen rotations
-	namespace ScreenRotation
-	{
-		// 0-degree Z-rotation
-		static const XMFLOAT4X4 Rotation0(
-			1.0f, 0.0f, 0.0f, 0.0f,
-			0.0f, 1.0f, 0.0f, 0.0f,
-			0.0f, 0.0f, 1.0f, 0.0f,
-			0.0f, 0.0f, 0.0f, 1.0f
-		);
-
-		// 90-degree Z-rotation
-		static const XMFLOAT4X4 Rotation90(
-			0.0f, 1.0f, 0.0f, 0.0f,
-			-1.0f, 0.0f, 0.0f, 0.0f,
-			0.0f, 0.0f, 1.0f, 0.0f,
-			0.0f, 0.0f, 0.0f, 1.0f
-		);
-
-		// 180-degree Z-rotation
-		static const XMFLOAT4X4 Rotation180(
-			-1.0f, 0.0f, 0.0f, 0.0f,
-			0.0f, -1.0f, 0.0f, 0.0f,
-			0.0f, 0.0f, 1.0f, 0.0f,
-			0.0f, 0.0f, 0.0f, 1.0f
-		);
-
-		// 270-degree Z-rotation
-		static const XMFLOAT4X4 Rotation270(
-			0.0f, -1.0f, 0.0f, 0.0f,
-			1.0f, 0.0f, 0.0f, 0.0f,
-			0.0f, 0.0f, 1.0f, 0.0f,
-			0.0f, 0.0f, 0.0f, 1.0f
-		);
-	};
+	std::unique_ptr<DirectX::CommonStates> CommonStatesHelper;
 
 	// Constructor for DeviceResources.
 	D3D12Device::D3D12Device()
@@ -79,22 +29,14 @@ namespace Moonlight
 		, m_screenViewport()
 		, m_d3dFeatureLevel(D3D_FEATURE_LEVEL_11_1)
 		, m_logicalSize()
-#if ME_PLATFORM_UWP
 		, m_d3dRenderTargetSize()
 		, m_outputSize()
-#endif
-		, m_dpi(-1.0f)
-		, m_effectiveDpi(-1.0f)
 		, m_deviceNotify(nullptr)
 	{
 		CreateDeviceIndependentResources();
 		CreateDeviceResources();
+		CreateWindowSizeDependentResources();
 
-#if ME_PLATFORM_UWP
-		SetWindow(CoreWindow::GetForCurrentThread());
-#else
-		SetWindow(GetActiveWindow());
-#endif
 		//MessageDialog Dialog("The renderer is currently under construction.", "Sorry!");
 		//Dialog.ShowAsync();
 	}
@@ -110,16 +52,6 @@ namespace Moonlight
 		// If the project is in a debug build, enable Direct2D debugging via SDK Layers.
 		options.debugLevel = D2D1_DEBUG_LEVEL_INFORMATION;
 #endif
-
-		// Initialize the Direct2D Factory.
-		DX::ThrowIfFailed(
-			D2D1CreateFactory(
-				D2D1_FACTORY_TYPE_SINGLE_THREADED,
-				__uuidof(ID2D1Factory3),
-				&options,
-				&m_d2dFactory
-			)
-		);
 
 		// Initialize the DirectWrite Factory.
 		DX::ThrowIfFailed(
@@ -226,23 +158,16 @@ namespace Moonlight
 			m_d3dDevice.As(&dxgiDevice)
 		);
 
-		DX::ThrowIfFailed(
-			m_d2dFactory->CreateDevice(dxgiDevice.Get(), &m_d2dDevice)
-		);
-
-		DX::ThrowIfFailed(
-			m_d2dDevice->CreateDeviceContext(
-				D2D1_DEVICE_CONTEXT_OPTIONS_NONE,
-				&m_d2dContext
-			)
-		);
-
 		D3D11_RASTERIZER_DESC wfdesc;
 		ZeroMemory(&wfdesc, sizeof(D3D11_RASTERIZER_DESC));
 		wfdesc.FillMode = D3D11_FILL_SOLID;
 		wfdesc.CullMode = D3D11_CULL_FRONT;
 		hr = device->CreateRasterizerState(&wfdesc, &WireFrame);
 		GetD3DDeviceContext()->RSSetState(WireFrame);
+
+		CommonStatesHelper = std::make_unique<DirectX::CommonStates>(m_d3dDevice.Get());
+
+		GetD3DDeviceContext()->OMSetBlendState(CommonStatesHelper->AlphaBlend(), Colors::Black, 0xFFFFFFFF);
 	}
 
 	// These resources need to be recreated every time the window size is changed.
@@ -252,8 +177,6 @@ namespace Moonlight
 		ID3D11RenderTargetView* nullViews[] = { nullptr };
 		m_d3dContext->OMSetRenderTargets(ARRAYSIZE(nullViews), nullViews, nullptr);
 		m_d3dRenderTargetView = nullptr;
-		m_d2dContext->SetTarget(nullptr);
-		m_d2dTargetBitmap = nullptr;
 		m_d3dDepthStencilView = nullptr;
 		m_d3dContext->Flush1(D3D11_CONTEXT_TYPE_ALL, nullptr);
 
@@ -290,7 +213,6 @@ namespace Moonlight
 		else
 		{
 			// Otherwise, create a new one using the same adapter as the existing Direct3D device.
-			DXGI_SCALING scaling = DisplayMetrics::SupportHighResolutions ? DXGI_SCALING_NONE : DXGI_SCALING_STRETCH;
 			DXGI_SWAP_CHAIN_DESC1 swapChainDesc = { 0 };
 
 			swapChainDesc.Width = lround(m_d3dRenderTargetSize.Width);		// Match the size of the window.
@@ -303,7 +225,7 @@ namespace Moonlight
 			swapChainDesc.BufferCount = 2;									// Use double-buffering to minimize latency.
 			swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;	// All Windows Store apps must use this SwapEffect.
 			swapChainDesc.Flags = 0;
-			swapChainDesc.Scaling = scaling;
+			swapChainDesc.Scaling = DXGI_SCALING_NONE;
 			swapChainDesc.AlphaMode = DXGI_ALPHA_MODE_IGNORE;
 
 			// This sequence obtains the DXGI factory that was used to create the Direct3D device above.
@@ -315,7 +237,6 @@ namespace Moonlight
 
 			ComPtr<IDXGIFactory4> dxgiFactory;
 			DX::ThrowIfFailed(dxgiAdapter->GetParent(IID_PPV_ARGS(&dxgiFactory)));
-
 
 			auto reason = m_d3dDevice->GetDeviceRemovedReason();
 			
@@ -334,7 +255,7 @@ namespace Moonlight
 			DX::ThrowIfFailed(
 				dxgiFactory->CreateSwapChainForHwnd(
 					m_d3dDevice.Get(),
-					m_window,
+					GetActiveWindow(),
 					&swapChainDesc,
 					nullptr,
 					nullptr,
@@ -403,118 +324,22 @@ namespace Moonlight
 		);
 
 		m_d3dContext->RSSetViewports(1, &m_screenViewport);
-
-		// Create a Direct2D target bitmap associated with the
-		// swap chain back buffer and set it as the current target.
-		D2D1_BITMAP_PROPERTIES1 bitmapProperties =
-			D2D1::BitmapProperties1(
-				D2D1_BITMAP_OPTIONS_TARGET | D2D1_BITMAP_OPTIONS_CANNOT_DRAW,
-				D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED),
-				m_dpi,
-				m_dpi
-			);
-
-		ComPtr<IDXGISurface2> dxgiBackBuffer;
-		DX::ThrowIfFailed(
-			m_swapChain->GetBuffer(0, IID_PPV_ARGS(&dxgiBackBuffer))
-		);
-
-		DX::ThrowIfFailed(
-			m_d2dContext->CreateBitmapFromDxgiSurface(
-				dxgiBackBuffer.Get(),
-				&bitmapProperties,
-				&m_d2dTargetBitmap
-			)
-		);
-
-		m_d2dContext->SetTarget(m_d2dTargetBitmap.Get());
-		m_d2dContext->SetDpi(m_effectiveDpi, m_effectiveDpi);
-
-		// Grayscale text anti-aliasing is recommended for all Windows Store apps.
-#if ME_PLATFORM_UWP
-		m_d2dContext->SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE);
-#endif
 	}
 
 	// Determine the dimensions of the render target and whether it will be scaled down.
 	void D3D12Device::UpdateRenderTargetSize()
 	{
-		m_effectiveDpi = m_dpi;
-		// To improve battery life on high resolution devices, render to a smaller render target
-		// and allow the GPU to scale the output when it is presented.
-		if (!DisplayMetrics::SupportHighResolutions && m_dpi > DisplayMetrics::DpiThreshold)
-		{
-			float width = DX::ConvertDipsToPixels(m_logicalSize.x, m_dpi);
-			float height = DX::ConvertDipsToPixels(m_logicalSize.y, m_dpi);
-
-			// When the device is in portrait orientation, height > width. Compare the
-			// larger dimension against the width threshold and the smaller dimension
-			// against the height threshold.
-			if (std::fmax(width, height) > DisplayMetrics::WidthThreshold && std::fmax(width, height) > DisplayMetrics::HeightThreshold)
-			{
-				// To scale the app we change the effective DPI. Logical size does not change.
-				m_effectiveDpi /= 2.0f;
-			}
-		}
-
-		// Calculate the necessary render target size in pixels.
-		m_outputSize.Width = DX::ConvertDipsToPixels(m_logicalSize.x, m_effectiveDpi);
-		m_outputSize.Width = DX::ConvertDipsToPixels(m_logicalSize.x, m_effectiveDpi);
-		m_outputSize.Height = DX::ConvertDipsToPixels(m_logicalSize.y, m_effectiveDpi);
-
 		// Prevent zero size DirectX content from being created.
-		m_outputSize.Width = std::fmax(static_cast<int>(m_outputSize.Width), 1);
-		m_outputSize.Height = std::fmax(static_cast<int>(m_outputSize.Height), 1);
+		m_outputSize.Width = std::fmax(static_cast<int>(m_logicalSize.x), 1);
+		m_outputSize.Height = std::fmax(static_cast<int>(m_logicalSize.y), 1);
 	}
-#if ME_PLATFORM_UWP
 
-	// This method is called when the CoreWindow is created (or re-created).
-	void D3D12Device::SetWindow(CoreWindow^ window)
-	{
-		DisplayInformation^ currentDisplayInformation = DisplayInformation::GetForCurrentView();
-
-		m_window = window;
-		m_logicalSize = glm::vec2(window->Bounds.Width, window->Bounds.Height);
-		m_dpi = currentDisplayInformation->LogicalDpi;
-		m_d2dContext->SetDpi(m_dpi, m_dpi);
-
-		CreateWindowSizeDependentResources();
-	}
-#endif
-#if ME_PLATFORM_WIN64
-	void D3D12Device::SetWindow(HWND window)
-	{
-		m_window = window;
-		m_logicalSize = glm::vec2(1280, 720);
-		m_dpi = 96;
-
-		CreateWindowSizeDependentResources();
-	}
-#endif
 	// This method is called in the event handler for the SizeChanged event.
 	void D3D12Device::SetLogicalSize(glm::vec2 logicalSize)
 	{
 		if (m_logicalSize != logicalSize)
 		{
 			m_logicalSize = logicalSize;
-			CreateWindowSizeDependentResources();
-		}
-	}
-
-	// This method is called in the event handler for the DpiChanged event.
-	void D3D12Device::SetDpi(float dpi)
-	{
-		if (dpi != m_dpi)
-		{
-			m_dpi = dpi;
-
-			// When the display DPI changes, the logical size of the window (measured in Dips) also changes and needs to be updated.
-#if ME_PLATFORM_UWP
-			m_logicalSize = glm::vec2(m_window->Bounds.Width, m_window->Bounds.Height);
-#elif ME_PLATFORM_WIN64
-			m_logicalSize = glm::vec2(1280, 720);
-#endif
-			m_d2dContext->SetDpi(m_dpi, m_dpi);
 			CreateWindowSizeDependentResources();
 		}
 	}
@@ -583,7 +408,6 @@ namespace Moonlight
 		}
 
 		CreateDeviceResources();
-		m_d2dContext->SetDpi(m_dpi, m_dpi);
 		CreateWindowSizeDependentResources();
 
 		if (m_deviceNotify != nullptr)

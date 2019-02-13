@@ -14,6 +14,7 @@
 #if ME_PLATFORM_UWP
 #include <agile.h>
 #endif
+#include <memory>
 
 namespace Moonlight
 {
@@ -27,18 +28,10 @@ namespace Moonlight
 	{
 	public:
 		D3D12Device();
-#if ME_PLATFORM_UWP
-		void SetWindow(Windows::UI::Core::CoreWindow^ window);
-		void SetCurrentOrientation(Windows::Graphics::Display::DisplayOrientations currentOrientation);
-#endif
-#if ME_PLATFORM_WIN64
-		void SetWindow(HWND window);
-#endif
 
 		// The size of the render target, in pixels.
 		TSize GetOutputSize() const { return m_outputSize; }
 		virtual void SetLogicalSize(glm::vec2 logicalSize);
-		void SetDpi(float dpi);
 		void ValidateDevice();
 		void HandleDeviceLost();
 		void RegisterDeviceNotify(IDeviceNotify* deviceNotify);
@@ -48,7 +41,6 @@ namespace Moonlight
 
 		// The size of the render target, in dips.
 		glm::vec2					GetLogicalSize() const { return m_logicalSize; }
-		float						GetDpi() const { return m_effectiveDpi; }
 
 		// D3D Accessors.
 		ID3D11Device3*				GetD3DDevice() const { return m_d3dDevice.Get(); }
@@ -59,10 +51,6 @@ namespace Moonlight
 		ID3D11DepthStencilView*		GetDepthStencilView() const { return m_d3dDepthStencilView.Get(); }
 		D3D11_VIEWPORT				GetScreenViewport() const { return m_screenViewport; }
 		// D2D Accessors.
-		ID2D1Factory3*				GetD2DFactory() const { return m_d2dFactory.Get(); }
-		ID2D1Device2*				GetD2DDevice() const { return m_d2dDevice.Get(); }
-		ID2D1DeviceContext2*		GetD2DDeviceContext() const { return m_d2dContext.Get(); }
-		ID2D1Bitmap1*				GetD2DTargetBitmap() const { return m_d2dTargetBitmap.Get(); }
 		IDWriteFactory3*			GetDWriteFactory() const { return m_dwriteFactory.Get(); }
 		IWICImagingFactory2*		GetWicImagingFactory() const { return m_wicFactory.Get(); }
 
@@ -77,17 +65,12 @@ namespace Moonlight
 		Microsoft::WRL::ComPtr<ID3D11DeviceContext3>	m_d3dContext;
 		Microsoft::WRL::ComPtr<IDXGISwapChain3>			m_swapChain;
 		ID3D11RasterizerState*							WireFrame;
+		ID3D11BlendState*								BlendState;
 
 		// Direct3D rendering objects. Required for 3D.
 		Microsoft::WRL::ComPtr<ID3D11RenderTargetView1>	m_d3dRenderTargetView;
 		Microsoft::WRL::ComPtr<ID3D11DepthStencilView>	m_d3dDepthStencilView;
 		D3D11_VIEWPORT									m_screenViewport;
-
-		// Direct2D drawing components.
-		Microsoft::WRL::ComPtr<ID2D1Factory3>		m_d2dFactory;
-		Microsoft::WRL::ComPtr<ID2D1Device2>		m_d2dDevice;
-		Microsoft::WRL::ComPtr<ID2D1DeviceContext2>	m_d2dContext;
-		Microsoft::WRL::ComPtr<ID2D1Bitmap1>		m_d2dTargetBitmap;
 
 		// DirectWrite drawing components.
 		Microsoft::WRL::ComPtr<IDWriteFactory3>		m_dwriteFactory;
@@ -104,12 +87,8 @@ namespace Moonlight
 		// Cached device properties.
 		D3D_FEATURE_LEVEL								m_d3dFeatureLevel;
 		glm::vec2										m_logicalSize;
-		float											m_dpi;
 		TSize						m_d3dRenderTargetSize;
 		TSize						m_outputSize;
-
-		// This is the DPI that will be reported back to the app. It takes into account whether the app supports high resolution screens or not.
-		float m_effectiveDpi;
 
 		// The IDeviceNotify can be held directly as it owns the DeviceResources.
 		IDeviceNotify* m_deviceNotify;

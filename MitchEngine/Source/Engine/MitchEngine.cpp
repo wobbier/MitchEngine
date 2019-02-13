@@ -51,6 +51,7 @@ void MitchEngine::Init(Game* game)
 #endif
 
 	m_renderer = new Moonlight::Renderer();
+	m_renderer->WindowResized(GameWindow->GetSize());
 
 	GameWorld = std::make_shared<World>();
 
@@ -105,11 +106,14 @@ void MitchEngine::Run()
 
 		ModelRenderer->Update(deltaTime);
 
-		ModelRenderer->Render();
+		if (ModelRenderer->Render())
+		{
+			m_renderer->Render();
+		}
 	}
 }
 
-Moonlight::Renderer& MitchEngine::GetRenderer()
+Moonlight::Renderer& MitchEngine::GetRenderer() const
 {
 	return *m_renderer;
 }

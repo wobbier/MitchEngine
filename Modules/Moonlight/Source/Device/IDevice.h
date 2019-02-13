@@ -15,37 +15,16 @@ namespace Moonlight
 		IDevice() = default;
 		~IDevice() = default;
 
-		virtual void Present()
-		{
-		}
+		virtual void CreateDeviceIndependentResources() = 0;
 
-		virtual void CreateDeviceIndependentResources()
-		{
-		}
+		virtual void CreateDeviceResources() = 0;
 
-		virtual void CreateDeviceResources()
-		{
-		}
+		virtual void CreateWindowSizeDependentResources() = 0;
 
-		virtual void CreateWindowSizeDependentResources()
-		{
-		}
+		virtual void Trim() = 0;
 
-		virtual void Trim()
-		{
-		}
+		virtual void SetLogicalSize(glm::vec2 vec2) = 0;
 
-		virtual void SetLogicalSize(glm::vec2 vec2)
-		{
-		}
-
-		virtual void PreRender()
-		{
-
-		}
-		virtual void WindowSizeChanged(const glm::vec2& NewSize)
-		{
-
-		}
+		virtual void WindowSizeChanged(const glm::vec2& NewSize) = 0;
 	};
 }

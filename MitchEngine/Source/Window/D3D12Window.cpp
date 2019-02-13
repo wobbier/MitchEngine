@@ -98,6 +98,15 @@ void D3D12Window::Swap()
 {
 }
 
+glm::vec2 D3D12Window::GetSize() const
+{
+	RECT newSize;
+
+	GetWindowRect(Window, &newSize);
+
+	return glm::vec2(newSize.right - newSize.left, newSize.bottom - newSize.top);
+}
+
 LRESULT CALLBACK WinProc(HWND D3D12Window, unsigned int msg, WPARAM wp, LPARAM lp)
 {
 	switch (msg)

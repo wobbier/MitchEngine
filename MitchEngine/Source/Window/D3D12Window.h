@@ -18,6 +18,8 @@ public:
 	virtual void ParseMessageQueue() final;
 	virtual void Swap() final;
 
+	glm::vec2 GetSize() const;
+
 private:
 	bool ExitRequested = false;
 

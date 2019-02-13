@@ -25,7 +25,7 @@ namespace Moonlight
 	{
 		Texture* LoadedTexture = new Texture();
 		std::wstring filePath = ToStringW(InFilePath.FullPath);
-		auto device = static_cast<Moonlight::D3D12Device&>(Game::GetEngine().GetRenderer().GetDevice());
+		auto& device = static_cast<Moonlight::D3D12Device&>(Game::GetEngine().GetRenderer().GetDevice());
 		ID3D11DeviceContext* context;
 		device.GetD3DDevice()->GetImmediateContext(&context);
 		ID3D11Resource* resource;

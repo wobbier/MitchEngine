@@ -47,6 +47,11 @@ void UWPWindow::Swap()
 {
 }
 
+glm::vec2 UWPWindow::GetSize() const
+{
+	return glm::vec2(WINDOW_WIDTH, WINDOW_HEIGHT);
+}
+
 void UWPWindow::SetVisibility(bool Visible)
 {
 	m_windowVisible = Visible;
@@ -60,6 +65,7 @@ UWPWindow::UWPWindowMessageHandler::UWPWindowMessageHandler(UWPWindow* window)
 {
 	m_window = window;
 	CoreWindow^ coreWindow = CoreWindow::GetForCurrentThread();
+
 	coreWindow->SizeChanged +=
 		ref new TypedEventHandler<CoreWindow^, WindowSizeChangedEventArgs^>(this, &UWPWindowMessageHandler::OnWindowSizeChanged);
 
@@ -74,16 +80,18 @@ UWPWindow::UWPWindowMessageHandler::UWPWindowMessageHandler(UWPWindow* window)
 
 	DisplayInformation^ currentDisplayInformation = DisplayInformation::GetForCurrentView();
 
-	currentDisplayInformation->DpiChanged +=
-		ref new TypedEventHandler<DisplayInformation^, Object^>(this, &UWPWindowMessageHandler::OnDpiChanged);
-
 	DisplayInformation::DisplayContentsInvalidated +=
 		ref new TypedEventHandler<DisplayInformation^, Object^>(this, &UWPWindowMessageHandler::OnDisplayContentsInvalidated);
+
+	IWindow::WINDOW_WIDTH = coreWindow->Bounds.Width;
+	IWindow::WINDOW_HEIGHT = coreWindow->Bounds.Height;
 }
 
 void UWPWindow::UWPWindowMessageHandler::OnWindowSizeChanged(CoreWindow^ sender, WindowSizeChangedEventArgs^ args)
 {
-	Game::GetEngine().GetRenderer().GetDevice().SetLogicalSize(glm::vec2(sender->Bounds.Width, sender->Bounds.Height));
+	m_window->WINDOW_WIDTH = sender->Bounds.Width;
+	m_window->WINDOW_HEIGHT = sender->Bounds.Height;
+	Game::GetEngine().GetRenderer().WindowResized(glm::vec2(WINDOW_WIDTH, WINDOW_HEIGHT));
 }
 
 void UWPWindow::UWPWindowMessageHandler::OnVisibilityChanged(CoreWindow^ sender, VisibilityChangedEventArgs^ args)
@@ -102,15 +110,6 @@ void UWPWindow::UWPWindowMessageHandler::OnKeyDown(Windows::UI::Core::CoreWindow
 }
 
 // DisplayInformation event handlers.
-
-void UWPWindow::UWPWindowMessageHandler::OnDpiChanged(DisplayInformation^ sender, Object^ args)
-{
-	// Note: The value for LogicalDpi retrieved here may not match the effective DPI of the app
-	// if it is being scaled for high resolution devices. Once the DPI is set on DeviceResources,
-	// you should always retrieve it using the GetDpi method.
-	// See DeviceResources.cpp for more details.
-	static_cast<Moonlight::D3D12Device&>(Game::GetEngine().GetRenderer().GetDevice()).SetDpi(sender->LogicalDpi);
-}
 
 void UWPWindow::UWPWindowMessageHandler::OnDisplayContentsInvalidated(DisplayInformation^ sender, Object^ args)
 {

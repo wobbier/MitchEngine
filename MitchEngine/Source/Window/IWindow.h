@@ -14,6 +14,8 @@ public:
 	virtual bool ShouldClose() = 0;
 	virtual void ParseMessageQueue() = 0;
 	virtual void Swap() = 0;
+	virtual glm::vec2 GetSize() const = 0;
+
 protected:
 	bool m_windowVisible;
 };

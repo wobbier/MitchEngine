@@ -30,7 +30,7 @@ namespace Moonlight
 
 	void Mesh::InitMesh()
 	{
-		auto device = static_cast<D3D12Device&>(Game::GetEngine().GetRenderer().GetDevice());
+		auto& device = static_cast<D3D12Device&>(Game::GetEngine().GetRenderer().GetDevice());
 
 		D3D11_SUBRESOURCE_DATA vertexBufferData = { 0 };
 		vertexBufferData.pSysMem = &vertices[0];
