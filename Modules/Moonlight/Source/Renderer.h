@@ -32,6 +32,7 @@ namespace Moonlight
 		Renderer();
 		virtual ~Renderer() final;
 
+		void Init();
 		void SetWindow();
 		void RegisterDeviceNotify(IDeviceNotify* deviceNotify);
 
@@ -48,6 +49,8 @@ namespace Moonlight
 
 		void WindowResized(const glm::vec2& NewSize);
 	private:
+		class SkyBox* Sky;
+
 		class D3D12Device* m_device;
 
 #if ME_DIRECTX

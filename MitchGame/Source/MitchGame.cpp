@@ -15,6 +15,7 @@
 #include <memory>
 #include "Engine/World.h"
 #include "FilePath.h"
+#include "Components/CameraShake.h"
 
 MitchGame::MitchGame()
 	: Game()
@@ -34,6 +35,9 @@ void MitchGame::Initialize()
 	CameraPos.SetPosition(glm::vec3(0, 5, 20));
 	MainCamera.AddComponent<Camera>();
 	MainCamera.AddComponent<FlyingCamera>();
+	CameraShake& shakeComponent = MainCamera.AddComponent<CameraShake>();
+	shakeComponent.MaxDirection = glm::vec3(10, 10, 25);
+	shakeComponent.ShakeAmount = 0.25f;
 	MainCamera.AddComponent<Light>();
 
 	SecondaryCamera = GameWorld->CreateEntity();
@@ -48,19 +52,19 @@ void MitchGame::Initialize()
 	ModelTransform.SetPosition(glm::vec3(0.f, 20.f, 0.f));
 	ModelTransform.SetScale(glm::vec3(0.5f, 0.5f, 0.5f));
 	TestModel.AddComponent<Rigidbody>();
-	TestModel.AddComponent<Model>("Assets/marcus.fbx", "Assets/Shaders/Albedo");
+	TestModel.AddComponent<Model>("Assets/marcus.fbx");
 
 	Entity TestModel2 = GameWorld->CreateEntity();
 	Transform& ModelTransform2 = TestModel2.AddComponent<Transform>("Ground obvs2");
 	ModelTransform2.SetPosition(glm::vec3(5.f, 20.f, 0.f));
 	TestModel2.AddComponent<Rigidbody>();
-	TestModel2.AddComponent<Model>("Assets/cube.obj", "Assets/Shaders/Albedo");
+	//TestModel2.AddComponent<Model>("Assets/cube.obj");
 
 	/*Entity Ground2 = GameWorld->CreateEntity();
 	Ground2.AddComponent<Transform>("Ground obvs");
 	Ground2.GetComponent<Transform>().SetPosition(glm::vec3(0, 0, 0));
 	Ground2.GetComponent<Transform>().SetScale(glm::vec3(0.025f, 0.025f, 0.025f));
-	Ground2.AddComponent<Model>("Assets/Hog/Roadhog.fbx", "Assets/Shaders/Albedo");*/
+	Ground2.AddComponent<Model>("Assets/Hog/Roadhog.fbx");*/
 
 	const int Lights = 5;
 	srand(13);
@@ -78,12 +82,16 @@ void MitchGame::Initialize()
 
 	FlyingCameraController = new FlyingCameraCore();
 	GameWorld->AddCore<FlyingCameraCore>(*FlyingCameraController);
+
+	CameraShakeController = new CameraShakeCore();
+	GameWorld->AddCore<CameraShakeCore>(*CameraShakeController);
 }
 
 float totalTime = 0.f;
 void MitchGame::Update(float DeltaTime)
 {
 	FlyingCameraController->Update(DeltaTime);
+	CameraShakeController->Update(DeltaTime);
 	Input& Instance = Input::GetInstance();
 	if (Instance.IsKeyDown(KeyCode::Number1))
 	{

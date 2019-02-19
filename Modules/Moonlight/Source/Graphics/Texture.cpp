@@ -28,9 +28,8 @@ namespace Moonlight
 		auto& device = static_cast<Moonlight::D3D12Device&>(Game::GetEngine().GetRenderer().GetDevice());
 		ID3D11DeviceContext* context;
 		device.GetD3DDevice()->GetImmediateContext(&context);
-		ID3D11Resource* resource;
 
-		DX::ThrowIfFailed(CreateWICTextureFromFile(device.GetD3DDevice(), filePath.c_str(), &resource, &LoadedTexture->CubesTexture));
+		DX::ThrowIfFailed(CreateWICTextureFromFile(device.GetD3DDevice(), filePath.c_str(), &LoadedTexture->resource, &LoadedTexture->CubesTexture));
 		D3D11_SAMPLER_DESC sampDesc;
 		ZeroMemory(&sampDesc, sizeof(sampDesc));
 		sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;

@@ -12,7 +12,7 @@ class Model : public Component<Model>
 {
 	friend class RenderCore;
 public:
-	Model(const std::string& path, const std::string& shader);
+	Model(const std::string& path);
 	~Model();
 
 	// Separate init from construction code.
@@ -24,6 +24,5 @@ public:
 	unsigned int GetId();
 private:
 	FilePath ModelPath;
-	FilePath ShaderPath;
 	unsigned int Id;
 };

@@ -74,6 +74,7 @@ void MitchEngine::Init(Game* game)
 
 void MitchEngine::Run()
 {
+	m_renderer->Init();
 	GameClock.Reset();
 	// Game loop
 	forever

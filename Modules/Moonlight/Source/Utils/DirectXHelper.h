@@ -1,8 +1,6 @@
 ﻿#pragma once
 #include "Dementia.h"
 
-#if ME_DIRECTX
-
 #include <vcruntime_exception.h>
 
 namespace DX
@@ -48,5 +46,3 @@ namespace DX
 	}
 #endif
 }
-
-#endif

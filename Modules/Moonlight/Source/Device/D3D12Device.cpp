@@ -33,7 +33,7 @@ namespace Moonlight
 		, m_outputSize()
 		, m_deviceNotify(nullptr)
 	{
-		CreateDeviceIndependentResources();
+		CreateFactories();
 		CreateDeviceResources();
 		CreateWindowSizeDependentResources();
 
@@ -42,7 +42,7 @@ namespace Moonlight
 	}
 
 	// Configures resources that don't depend on the Direct3D device.
-	void D3D12Device::CreateDeviceIndependentResources()
+	void D3D12Device::CreateFactories()
 	{
 		// Initialize Direct2D resources.
 		D2D1_FACTORY_OPTIONS options;
@@ -167,7 +167,7 @@ namespace Moonlight
 
 		CommonStatesHelper = std::make_unique<DirectX::CommonStates>(m_d3dDevice.Get());
 
-		GetD3DDeviceContext()->OMSetBlendState(CommonStatesHelper->AlphaBlend(), Colors::Black, 0xFFFFFFFF);
+		//GetD3DDeviceContext()->OMSetBlendState(CommonStatesHelper->AlphaBlend(), Colors::White, 0xFF000000);
 	}
 
 	// These resources need to be recreated every time the window size is changed.
@@ -238,7 +238,7 @@ namespace Moonlight
 			ComPtr<IDXGIFactory4> dxgiFactory;
 			DX::ThrowIfFailed(dxgiAdapter->GetParent(IID_PPV_ARGS(&dxgiFactory)));
 
-			auto reason = m_d3dDevice->GetDeviceRemovedReason();
+			DX::ThrowIfFailed(m_d3dDevice->GetDeviceRemovedReason());
 			
 			ComPtr<IDXGISwapChain1> swapChain;
 #if ME_PLATFORM_UWP

@@ -140,15 +140,15 @@ Moonlight::Mesh* ModelResource::ProcessMesh(aiMesh *mesh, const aiScene *scene)
 
 	aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
 
-	LoadMaterialTextures(newMaterial, material, aiTextureType_DIFFUSE, "DiffuseColor");
-	LoadMaterialTextures(newMaterial, material, aiTextureType_SPECULAR, "DiffuseSpecular");
-	LoadMaterialTextures(newMaterial, material, aiTextureType_NORMALS, "DiffuseNormal");
-	LoadMaterialTextures(newMaterial, material, aiTextureType_HEIGHT, "DiffuseHeight");
+	LoadMaterialTextures(newMaterial, material, aiTextureType_DIFFUSE, Moonlight::TextureType::Diffuse);
+	LoadMaterialTextures(newMaterial, material, aiTextureType_SPECULAR, Moonlight::TextureType::Specular);
+	LoadMaterialTextures(newMaterial, material, aiTextureType_NORMALS, Moonlight::TextureType::Normal);
+	LoadMaterialTextures(newMaterial, material, aiTextureType_HEIGHT, Moonlight::TextureType::Height);
 
 	return new Moonlight::Mesh(vertices, indices, newMaterial);
 }
 
-void ModelResource::LoadMaterialTextures(Moonlight::Material* newMaterial, aiMaterial *mat, aiTextureType type, std::string typeName)
+void ModelResource::LoadMaterialTextures(Moonlight::Material* newMaterial, aiMaterial *mat, aiTextureType type, const Moonlight::TextureType& typeName)
 {
 	for (unsigned int i = 0; i < mat->GetTextureCount(type); i++)
 	{
@@ -157,7 +157,7 @@ void ModelResource::LoadMaterialTextures(Moonlight::Material* newMaterial, aiMat
 		if (std::string(str.C_Str()) != ".")
 		{
 			Moonlight::Texture* texture = ResourceCache::GetInstance().Get<Moonlight::Texture>(Directory + std::string(str.C_Str()));
-			texture->type = typeName;
+			texture->Type = typeName;
 			texture->path = str.C_Str();
 			newMaterial->SetTexture(typeName, texture);
 		}

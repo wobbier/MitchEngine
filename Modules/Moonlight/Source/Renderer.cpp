@@ -6,6 +6,7 @@
 #include <DirectXMath.h>
 #include "Components/Camera.h"
 #include <DirectXColors.h>
+#include "Graphics/SkyBox.h"
 
 using namespace DirectX;
 using namespace Windows::Foundation;
@@ -36,6 +37,11 @@ namespace Moonlight
 	Renderer::~Renderer()
 	{
 		ReleaseDeviceDependentResources();
+	}
+
+	void Renderer::Init()
+	{
+		Sky = new SkyBox("Assets/skybox.jpg");
 	}
 
 	void Renderer::SetWindow()
@@ -76,7 +82,7 @@ namespace Moonlight
 		context->OMSetRenderTargets(1, targets, m_device->GetDepthStencilView());
 
 		// Clear the back buffer and depth stencil view.
-		context->ClearRenderTargetView(m_device->GetBackBufferRenderTargetView(), DirectX::Colors::Black);
+		context->ClearRenderTargetView(m_device->GetBackBufferRenderTargetView(), DirectX::Colors::RoyalBlue);
 		context->ClearDepthStencilView(m_device->GetDepthStencilView(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
 		TSize outputSize = m_device->GetOutputSize();
@@ -114,6 +120,37 @@ namespace Moonlight
 		const XMVECTORF32 up = { currentCamera->Up.x, currentCamera->Up.y, currentCamera->Up.z, 0 };
 
 		XMStoreFloat4x4(&m_constantBufferData.view, XMMatrixTranspose(XMMatrixLookAtRH(eye, at, up)));
+
+		{
+			DirectX::XMMATRIX mat = DirectX::XMMATRIX(
+				1, 0, 0, eye[0],
+				0, 1, 0, eye[1],
+				0, 0, 1, eye[2],
+				0, 0, 0, eye[3]);
+			XMVECTORF32 skyUp = { 0.f, 0.f, 1.f };
+			XMVECTORF32 skyForward = { 0.f, 1.f, 0.f };
+			XMStoreFloat4x4(&m_constantBufferData.model, XMMatrixTranspose(XMMatrixTranslation(eye[0], eye[1], eye[2])));
+			// Prepare the constant buffer to send it to the graphics device.
+			context->UpdateSubresource1(
+				m_constantBuffer.Get(),
+				0,
+				NULL,
+				&m_constantBufferData,
+				0,
+				0,
+				0
+			);
+
+			// Send the constant buffer to the graphics device.
+			context->VSSetConstantBuffers1(
+				0,
+				1,
+				m_constantBuffer.GetAddressOf(),
+				nullptr,
+				nullptr
+			);
+			Sky->Draw();
+		}
 
 		for (const ModelCommand& model : Models)
 		{

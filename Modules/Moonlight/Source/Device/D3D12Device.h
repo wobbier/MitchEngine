@@ -55,7 +55,7 @@ namespace Moonlight
 		IWICImagingFactory2*		GetWicImagingFactory() const { return m_wicFactory.Get(); }
 
 	private:
-		virtual void CreateDeviceIndependentResources() final;
+		virtual void CreateFactories() final;
 		virtual void CreateDeviceResources() final;
 		virtual void CreateWindowSizeDependentResources() final;
 		void UpdateRenderTargetSize();

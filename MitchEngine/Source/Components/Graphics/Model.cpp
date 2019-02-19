@@ -7,9 +7,8 @@
 #include "Game.h"
 #include "Resource/ResourceCache.h"
 
-Model::Model(const std::string& path, const std::string& shader)
+Model::Model(const std::string& path)
 	: ModelPath(path)
-	, ShaderPath(shader)
 {
 }
 
@@ -19,7 +18,7 @@ Model::~Model()
 
 void Model::Init()
 {
-	ModelShader = new Moonlight::Shader((ShaderPath.FullPath + ".vert"), (ShaderPath.FullPath + ".frag"));
+	ModelShader = new Moonlight::Shader("Assets/Shaders/SimpleVertexShader.cso", "Assets/Shaders/SimplePixelShader.cso");
 	ModelHandle = ResourceCache::GetInstance().Get<ModelResource>(ModelPath);
 	ModelHandle->SetShader(ModelShader);
 }

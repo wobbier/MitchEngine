@@ -16,7 +16,7 @@ namespace Moonlight
 		Shader() = default;
 
 		// Constructor generates the shader on the fly
-		Shader(const std::string& InVertexPath, const std::string& InFragPath);
+		Shader(const std::string& InVertexPath, const std::string& InPixelPath);
 
 		~Shader();
 

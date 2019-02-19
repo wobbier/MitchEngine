@@ -83,10 +83,10 @@ namespace Moonlight
 
 		context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-		if (material->GetTexture("DiffuseColor"))
+		if (material->GetTexture(TextureType::Diffuse))
 		{
-			context->PSSetShaderResources(0, 1, &material->GetTexture("DiffuseColor")->CubesTexture);
-			context->PSSetSamplers(0, 1, &material->GetTexture("DiffuseColor")->CubesTexSamplerState);
+			context->PSSetShaderResources(0, 1, &material->GetTexture(TextureType::Diffuse)->CubesTexture);
+			context->PSSetSamplers(0, 1, &material->GetTexture(TextureType::Diffuse)->CubesTexSamplerState);
 		}
 
 		// Draw the objects.

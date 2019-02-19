@@ -101,7 +101,7 @@ void FlyingCameraCore::Update(float dt)
 
 			const float Yaw = CameraComponent.Yaw += XOffset;
 			float Pitch = CameraComponent.Pitch += YOffest;
-
+			
 			if (Pitch > 89.0f)
 				Pitch = 89.0f;
 			if (Pitch < -89.0f)

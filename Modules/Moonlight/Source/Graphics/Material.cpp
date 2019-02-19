@@ -12,12 +12,12 @@ namespace Moonlight
 
 	}
 
-	void Material::SetTexture(std::string textureType, Moonlight::Texture* loadedTexture)
+	void Material::SetTexture(const TextureType& textureType, Moonlight::Texture* loadedTexture)
 	{
 		Textures[textureType] = loadedTexture;
 	}
 
-	const Moonlight::Texture* Material::GetTexture(const std::string& type) const
+	const Moonlight::Texture* Material::GetTexture(const TextureType& type) const
 	{
 		if (Textures.find(type) == Textures.end())
 		{

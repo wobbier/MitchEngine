@@ -15,7 +15,7 @@ namespace Moonlight
 		IDevice() = default;
 		~IDevice() = default;
 
-		virtual void CreateDeviceIndependentResources() = 0;
+		virtual void CreateFactories() = 0;
 
 		virtual void CreateDeviceResources() = 0;
 

@@ -30,6 +30,7 @@ function getPlatformPostfix(thing)
 end
 
 isUWP = _OPTIONS["uwp"]
+withRenderdoc = _OPTIONS["with-renderdoc"]
 withDirectX = _OPTIONS["gfxapi"] == "directx" or isUWP
 
 -- Engine workspace
@@ -47,7 +48,8 @@ workspace (getPlatformPostfix("MitchEngine"))
 		"../ThirdParty/Brofiler/BrofilerCore",
 		"../Modules/Moonlight/Source",
 		"../Modules/Dementia/Source",
-		"../ThirdParty/Assimp/include"
+		"../ThirdParty/Assimp/include",
+		"../ThirdParty/PerlinNoise"
 	}
 	
 	libdirs {
@@ -173,6 +175,13 @@ project (getPlatformPostfix("Dementia"))
 		["Source"] = "../Source/**.*",
 		["Source"] = "../Source/*.*"
 	}
+	
+	if withRenderdoc then
+	defines { "ME_ENABLE_RENDERDOC", "__cplusplus_winrt" }
+	postbuildcommands {
+		"xcopy /y /d  \"C:\\Program Files\\RenderDoc\\renderdoc.dll\" \"$(ProjectDir)$(OutDir)\""
+	}
+	end
 
 ------------------------------------------------------- Engine Project -------------------------------------------------------
 
