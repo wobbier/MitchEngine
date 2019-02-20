@@ -122,13 +122,6 @@ namespace Moonlight
 		XMStoreFloat4x4(&m_constantBufferData.view, XMMatrixTranspose(XMMatrixLookAtRH(eye, at, up)));
 
 		{
-			DirectX::XMMATRIX mat = DirectX::XMMATRIX(
-				1, 0, 0, eye[0],
-				0, 1, 0, eye[1],
-				0, 0, 1, eye[2],
-				0, 0, 0, eye[3]);
-			XMVECTORF32 skyUp = { 0.f, 0.f, 1.f };
-			XMVECTORF32 skyForward = { 0.f, 1.f, 0.f };
 			XMStoreFloat4x4(&m_constantBufferData.model, XMMatrixTranspose(XMMatrixTranslation(eye[0], eye[1], eye[2])));
 			// Prepare the constant buffer to send it to the graphics device.
 			context->UpdateSubresource1(

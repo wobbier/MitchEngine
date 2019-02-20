@@ -121,7 +121,7 @@ namespace Moonlight
 			&m_d3dFeatureLevel,			// Returns feature level of device created.
 			&context					// Returns the device immediate context.
 		);
-
+		DX::ThrowIfFailed(hr);
 		if (FAILED(hr))
 		{
 			// If the initialization fails, fall back to the WARP device.
@@ -276,8 +276,8 @@ namespace Moonlight
 		DX::ThrowIfFailed(m_swapChain->SetRotation(DXGI_MODE_ROTATION_IDENTITY));
 
 		// Create a render target view of the swap chain back buffer.
-		ComPtr<ID3D11Texture2D1> backBuffer;
-		DX::ThrowIfFailed(m_swapChain->GetBuffer(0, IID_PPV_ARGS(&backBuffer)));
+		ComPtr<ID3D11Texture2D> backBuffer;
+		DX::ThrowIfFailed(m_swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), &backBuffer));
 
 		DX::ThrowIfFailed(
 			m_d3dDevice->CreateRenderTargetView1(
