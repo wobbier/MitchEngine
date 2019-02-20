@@ -7,6 +7,7 @@
 #include "Components/Camera.h"
 #include <DirectXColors.h>
 #include "Graphics/SkyBox.h"
+#include "Brofiler.h"
 
 using namespace DirectX;
 using namespace Windows::Foundation;
@@ -65,6 +66,7 @@ namespace Moonlight
 
 	void Renderer::Render()
 	{
+
 		Camera* currentCamera = Camera::CurrentCamera;
 		if (!currentCamera)
 		{
@@ -145,8 +147,11 @@ namespace Moonlight
 			Sky->Draw();
 		}
 
+		m_device->ResetCullingMode();
+
 		for (const ModelCommand& model : Models)
 		{
+			BROFILER_CATEGORY("Render::ModelCommand", Brofiler::Color::OrangeRed);
 			XMStoreFloat4x4(&m_constantBufferData.model, XMMatrixTranspose(model.Transform));
 			// Prepare the constant buffer to send it to the graphics device.
 			context->UpdateSubresource1(
@@ -167,10 +172,16 @@ namespace Moonlight
 				nullptr,
 				nullptr
 			);
-
+			Shader* cachedShader = model.ModelShader;
 			for (Mesh* mesh : model.Meshes)
 			{
-				model.ModelShader->Use();
+				BROFILER_CATEGORY("Render::SingleMesh", Brofiler::Color::OrangeRed);
+				
+				if (model.ModelShader != cachedShader)
+				{
+					cachedShader = model.ModelShader;
+					cachedShader->Use();
+				}
 
 				mesh->Draw();
 			}
@@ -180,7 +191,7 @@ namespace Moonlight
 		// to sleep until the next VSync. This ensures we don't waste any cycles rendering
 		// frames that will never be displayed to the screen.
 		DXGI_PRESENT_PARAMETERS parameters = { 0 };
-		HRESULT hr = m_device->GetSwapChain()->Present1(1, 0, &parameters);
+		HRESULT hr = m_device->GetSwapChain()->Present1(0, 0, &parameters);
 
 		// Discard the contents of the render target.
 		// This is a valid operation only when the existing contents will be entirely

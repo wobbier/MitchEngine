@@ -5,7 +5,7 @@
 
 #include "IWindow.h"
 
-#if ME_DIRECTX && !ME_PLATFORM_UWP
+#if ME_PLATFORM_WIN64
 
 class D3D12Window
 	: public IWindow

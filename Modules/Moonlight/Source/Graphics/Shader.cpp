@@ -6,6 +6,7 @@
 
 #include <VertexTypes.h>
 #include "Texture.h"
+#include "Brofiler.h"
 
 namespace Moonlight
 {
@@ -96,6 +97,8 @@ namespace Moonlight
 
 	void Shader::Use()
 	{
+		BROFILER_CATEGORY("Shader::Use", Brofiler::Color::LightPink)
+
 		if (!IsLoaded())
 		{
 			return;

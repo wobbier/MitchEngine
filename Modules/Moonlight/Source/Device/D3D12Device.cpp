@@ -162,7 +162,12 @@ namespace Moonlight
 		ZeroMemory(&wfdesc, sizeof(D3D11_RASTERIZER_DESC));
 		wfdesc.FillMode = D3D11_FILL_SOLID;
 		wfdesc.CullMode = D3D11_CULL_FRONT;
+		hr = device->CreateRasterizerState(&wfdesc, &FrontFaceCulled);
+		GetD3DDeviceContext()->RSSetState(FrontFaceCulled);
+
+		wfdesc.FillMode = D3D11_FILL_WIREFRAME;
 		hr = device->CreateRasterizerState(&wfdesc, &WireFrame);
+
 		GetD3DDeviceContext()->RSSetState(WireFrame);
 
 		CommonStatesHelper = std::make_unique<DirectX::CommonStates>(m_d3dDevice.Get());
@@ -269,7 +274,7 @@ namespace Moonlight
 			// Ensure that DXGI does not queue more than one frame at a time. This both reduces latency and
 			// ensures that the application will only render after each VSync, minimizing power consumption.
 			DX::ThrowIfFailed(
-				dxgiDevice->SetMaximumFrameLatency(1)
+				dxgiDevice->SetMaximumFrameLatency(0)
 			);
 		}
 
@@ -437,5 +442,11 @@ namespace Moonlight
 		m_logicalSize = NewSize;
 		CreateWindowSizeDependentResources();
 	}
+
+	void D3D12Device::ResetCullingMode() const
+	{
+		GetD3DDeviceContext()->RSSetState(FrontFaceCulled);
+	}
+
 }
 #endif

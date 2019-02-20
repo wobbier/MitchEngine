@@ -31,11 +31,6 @@ void RenderCore::Init()
 	Logger::GetInstance().Log(Logger::LogType::Debug, "RenderCore Initialized...");
 }
 
-void RenderCore::Update(float dt)
-{
-	m_renderer->Update(dt);
-}
-
 void RenderCore::OnEntityAdded(Entity& NewEntity)
 {
 	Moonlight::Renderer::ModelCommand command;
@@ -50,13 +45,14 @@ RenderCore::~RenderCore()
 	Logger::GetInstance().Log(Logger::LogType::Debug, "RenderCore Destroyed...");
 }
 
-bool RenderCore::Render()
+void RenderCore::Update(float dt)
 {
-	BROFILER_CATEGORY("Renderer::Render", Brofiler::Color::Red)
+	m_renderer->Update(dt);
+	BROFILER_CATEGORY("RenderCore::Update", Brofiler::Color::CornflowerBlue)
 	Camera* CurrentCamera = Camera::CurrentCamera;
 	if (!CurrentCamera)
 	{
-		return false;
+		return;
 	}
 
 	auto Renderables = GetEntities();
@@ -67,8 +63,6 @@ bool RenderCore::Render()
 
 		m_renderer->UpdateMatrix(model.GetId(), transform.GetMatrix());
 	}
-
-	return true;
 }
 
 void RenderCore::OnDeviceLost()

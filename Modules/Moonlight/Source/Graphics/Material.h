@@ -13,6 +13,6 @@ namespace Moonlight
 		void SetTexture(const TextureType& textureType, Moonlight::Texture* loadedTexture);
 		const Texture* GetTexture(const TextureType& type) const;
 	private:
-		std::unordered_map<TextureType, Texture*> Textures;
+		std::vector<Texture*> Textures;
 	};
 }

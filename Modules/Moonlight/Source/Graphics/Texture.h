@@ -5,13 +5,16 @@
 #include <d3d11.h>
 namespace Moonlight
 {
-	enum class TextureType : unsigned short
+	enum TextureType
 	{
 		Diffuse = 0,
 		Normal,
 		Specular,
-		Height
+		Height,
+		Opacity,
+		Count
 	};
+
 	class Texture : public Resource
 	{
 	public:

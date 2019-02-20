@@ -4,7 +4,7 @@
 #include "Logger.h"
 #include <assert.h>
 
-#if ME_DIRECTX && !ME_PLATFORM_UWP
+#if ME_PLATFORM_WIN64
 
 #include "Renderer.h"
 #include "Device/D3D12Device.h"

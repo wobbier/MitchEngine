@@ -39,6 +39,7 @@ namespace Moonlight
 
 		virtual void WindowSizeChanged(const glm::vec2& NewSize) final;
 
+		void ResetCullingMode() const;
 		// The size of the render target, in dips.
 		glm::vec2					GetLogicalSize() const { return m_logicalSize; }
 
@@ -65,6 +66,7 @@ namespace Moonlight
 		Microsoft::WRL::ComPtr<ID3D11DeviceContext3>	m_d3dContext;
 		Microsoft::WRL::ComPtr<IDXGISwapChain3>			m_swapChain;
 		ID3D11RasterizerState*							WireFrame;
+		ID3D11RasterizerState*							FrontFaceCulled;
 		ID3D11BlendState*								BlendState;
 
 		// Direct3D rendering objects. Required for 3D.

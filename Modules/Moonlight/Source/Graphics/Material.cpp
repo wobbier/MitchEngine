@@ -1,10 +1,12 @@
 #include "Material.h"
+#include "Brofiler.h"
+#include "Texture.h"
 
 namespace Moonlight
 {
 	Material::Material()
+		: Textures(TextureType::Count, nullptr)
 	{
-
 	}
 
 	Material::~Material()
@@ -19,12 +21,7 @@ namespace Moonlight
 
 	const Moonlight::Texture* Material::GetTexture(const TextureType& type) const
 	{
-		if (Textures.find(type) == Textures.end())
-		{
-			return nullptr;
-		}
-
-		return Textures.at(type);
+		return Textures[type];
 	}
 
 }

@@ -21,7 +21,6 @@ public:
 
 	virtual void OnEntityAdded(Entity& NewEntity) final;
 
-	bool Render();
 	Cubemap* SkyboxMap = nullptr;
 	Moonlight::Shader* SkyboxShader = nullptr;
 

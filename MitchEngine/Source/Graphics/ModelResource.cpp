@@ -144,6 +144,7 @@ Moonlight::Mesh* ModelResource::ProcessMesh(aiMesh *mesh, const aiScene *scene)
 	LoadMaterialTextures(newMaterial, material, aiTextureType_SPECULAR, Moonlight::TextureType::Specular);
 	LoadMaterialTextures(newMaterial, material, aiTextureType_NORMALS, Moonlight::TextureType::Normal);
 	LoadMaterialTextures(newMaterial, material, aiTextureType_HEIGHT, Moonlight::TextureType::Height);
+	LoadMaterialTextures(newMaterial, material, aiTextureType_OPACITY, Moonlight::TextureType::Opacity);
 
 	return new Moonlight::Mesh(vertices, indices, newMaterial);
 }

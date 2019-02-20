@@ -99,7 +99,10 @@ void MitchEngine::Run()
 		GameWorld->Simulate();
 		Physics->Update(deltaTime);
 
-		m_game->Update(deltaTime);
+		{
+			BROFILER_CATEGORY("MainLoop::GameUpdate", Brofiler::Color::CornflowerBlue);
+			m_game->Update(deltaTime);
+		}
 
 		SceneNodes->Update(deltaTime);
 
@@ -107,8 +110,8 @@ void MitchEngine::Run()
 
 		ModelRenderer->Update(deltaTime);
 
-		if (ModelRenderer->Render())
 		{
+			BROFILER_CATEGORY("MainLoop::Renderer::Render", Brofiler::Color::CornflowerBlue);
 			m_renderer->Render();
 		}
 	}

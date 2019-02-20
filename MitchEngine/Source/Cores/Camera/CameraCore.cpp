@@ -16,6 +16,7 @@ void CameraCore::Init()
 
 void CameraCore::Update(float dt)
 {
+	BROFILER_CATEGORY("CameraCore::Update", Brofiler::Color::CornflowerBlue);
 	auto Cameras = GetEntities();
 	for (auto& InEntity : Cameras)
 	{

@@ -9,6 +9,7 @@
 #include <DirectXMath.h>
 #include "Shader.h"
 #include "Game.h"
+#include "Brofiler.h"
 
 namespace Moonlight
 {
@@ -63,37 +64,53 @@ namespace Moonlight
 
 	void Mesh::Draw()
 	{
+		BROFILER_CATEGORY("Mesh::Draw", Brofiler::Color::DarkSlateBlue);
+
 		auto context = static_cast<D3D12Device&>(Game::GetEngine().GetRenderer().GetDevice()).GetD3DDeviceContext();
-		// Each vertex is one instance of the VertexPositionColor struct.
-		UINT stride = sizeof(Vertex);
-		UINT offset = 0;
-		context->IASetVertexBuffers(
-			0,
-			1,
-			m_vertexBuffer.GetAddressOf(),
-			&stride,
-			&offset
-		);
-
-		context->IASetIndexBuffer(
-			m_indexBuffer.Get(),
-			DXGI_FORMAT_R32_UINT, // Each index is one 16-bit unsigned integer (short).
-			0
-		);
-
-		context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-		if (material->GetTexture(TextureType::Diffuse))
+		
 		{
-			context->PSSetShaderResources(0, 1, &material->GetTexture(TextureType::Diffuse)->CubesTexture);
-			context->PSSetSamplers(0, 1, &material->GetTexture(TextureType::Diffuse)->CubesTexSamplerState);
+			BROFILER_CATEGORY("Mesh::Draw::Setup", Brofiler::Color::DarkSlateBlue);
+			// Each vertex is one instance of the VertexPositionColor struct.
+			UINT stride = sizeof(Vertex);
+			UINT offset = 0;
+			context->IASetVertexBuffers(
+				0,
+				1,
+				m_vertexBuffer.GetAddressOf(),
+				&stride,
+				&offset
+			);
+
+			context->IASetIndexBuffer(
+				m_indexBuffer.Get(),
+				DXGI_FORMAT_R32_UINT, // Each index is one 16-bit unsigned integer (short).
+				0
+			);
+
+			context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		}
 
-		// Draw the objects.
-		context->DrawIndexed(
-			m_indexCount,
-			0,
-			0
-		);
+		{
+			BROFILER_CATEGORY("Mesh::Draw::Texture", Brofiler::Color::DarkSlateBlue);
+			const Texture* diffuse = material->GetTexture(TextureType::Diffuse);
+			if (diffuse)
+			{
+				{
+					BROFILER_CATEGORY("Mesh::Draw::Texture::ShaderResources", Brofiler::Color::DarkSlateBlue);
+					context->PSSetShaderResources(0, 1, &diffuse->CubesTexture);
+				}
+				context->PSSetSamplers(0, 1, &diffuse->CubesTexSamplerState);
+			}
+		}
+
+		{
+			BROFILER_CATEGORY("Mesh::Draw::DrawCall", Brofiler::Color::DarkSlateBlue);
+			// Draw the objects.
+			context->DrawIndexed(
+				m_indexCount,
+				0,
+				0
+			);
+		}
 	}
 }

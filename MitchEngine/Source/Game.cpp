@@ -40,7 +40,6 @@ void Game::Initialize()
 
 void Game::Update(float DeltaTime)
 {
-
 }
 
 void Game::End()
