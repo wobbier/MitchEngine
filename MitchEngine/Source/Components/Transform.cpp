@@ -52,7 +52,7 @@ glm::vec3 Transform::GetPosition()
 void Transform::SetWorldTransform(glm::mat4& NewWorldTransform)
 {
 	// update local transform
-	WorldTransform = NewWorldTransform;
+	WorldTransform = std::move(NewWorldTransform);
 	SetDirty(false);
 }
 

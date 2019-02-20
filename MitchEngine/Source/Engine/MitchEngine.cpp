@@ -94,7 +94,7 @@ void MitchEngine::Run()
 		float time = GameClock.GetTimeInMilliseconds();
 		const float deltaTime = GameClock.deltaTime = (time <= 0.0f || time >= 0.3) ? 0.0001f : time;
 
-
+		AccumulatedTime += deltaTime;
 		// Update our engine
 		GameWorld->Simulate();
 		Physics->Update(deltaTime);
@@ -106,12 +106,13 @@ void MitchEngine::Run()
 
 		SceneNodes->Update(deltaTime);
 
-		Cameras->Update(deltaTime);
-
-		ModelRenderer->Update(deltaTime);
-
+		if (AccumulatedTime >= 1.0f / FPS)
 		{
-			BROFILER_CATEGORY("MainLoop::Renderer::Render", Brofiler::Color::CornflowerBlue);
+			Cameras->Update(deltaTime);
+
+			ModelRenderer->Update(AccumulatedTime);
+
+			AccumulatedTime -= 1.0f / FPS;
 			m_renderer->Render();
 		}
 	}

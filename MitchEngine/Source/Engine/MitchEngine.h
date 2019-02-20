@@ -8,6 +8,7 @@ class IWindow;
 class MitchEngine
 {
 public:
+	const float FPS = 144.0f;
 	long long FrameRate;
 
 	MitchEngine();
@@ -39,6 +40,6 @@ private:
 	Config* EngineConfig;
 
 	Game* m_game;
-
+	float AccumulatedTime = 0.0f;
 	bool m_isInitialized = false;
 };

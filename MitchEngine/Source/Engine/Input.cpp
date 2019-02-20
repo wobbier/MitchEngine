@@ -18,6 +18,7 @@ void Input::KeyCallback(VirtualKey key)
 
 bool Input::IsKeyDown(KeyCode key)
 {
+	BROFILER_CATEGORY("Input::IsKeyDown", Brofiler::Color::YellowGreen);
 #if ME_PLATFORM_WIN64
 	SHORT keyState = GetAsyncKeyState(key);
 	if ((1 << 15) & keyState)

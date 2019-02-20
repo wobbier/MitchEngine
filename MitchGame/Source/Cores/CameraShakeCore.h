@@ -1,6 +1,7 @@
 #pragma once
 #include "ECS/Core.h"
 #include "Events/EventReceiver.h"
+#include "PerlinNoise.hpp"
 
 class CameraShakeCore
 	: public Core<CameraShakeCore>
@@ -20,4 +21,5 @@ private:
 	float LastY = 0.f;
 	bool FirstUpdate = true;
 	float TotalTime = 0.f;
+	siv::PerlinNoise Noise;
 };

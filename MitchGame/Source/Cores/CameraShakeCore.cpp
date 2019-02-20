@@ -6,8 +6,11 @@
 #include "Events/EventManager.h"
 #include "PerlinNoise.hpp"
 #include "Engine/Clock.h"
+#include "Brofiler.h"
 
-CameraShakeCore::CameraShakeCore() : Base(ComponentFilter().Requires<CameraShake>().Requires<Camera>())
+CameraShakeCore::CameraShakeCore()
+	: Base(ComponentFilter().Requires<CameraShake>().Requires<Camera>())
+	, Noise(2001)
 {
 }
 
@@ -21,6 +24,7 @@ void CameraShakeCore::Init()
 
 void CameraShakeCore::Update(float dt)
 {
+	BROFILER_CATEGORY("CameraShakeCore::Update", Brofiler::Color::Green);
 	TotalTime += dt;
 	Input& Instance = Input::GetInstance();
 
@@ -34,9 +38,9 @@ void CameraShakeCore::Update(float dt)
 
 		if (&CameraComponent == Camera::CurrentCamera)
 		{
-			float Yaw = CameraShakeComponent.MaxDirection.x * CameraShakeComponent.ShakeAmount * siv::PerlinNoise(12345).noise(TotalTime);
-			float Pitch = CameraShakeComponent.MaxDirection.y * CameraShakeComponent.ShakeAmount * siv::PerlinNoise(2243).noise(TotalTime);
-			float Roll = CameraShakeComponent.MaxDirection.z * CameraShakeComponent.ShakeAmount * siv::PerlinNoise(54321).noise(TotalTime);
+			float Yaw = CameraShakeComponent.MaxDirection.x * CameraShakeComponent.ShakeAmount * Noise.noise(TotalTime);
+			float Pitch = CameraShakeComponent.MaxDirection.y * CameraShakeComponent.ShakeAmount * Noise.noise(TotalTime + 500);
+			float Roll = CameraShakeComponent.MaxDirection.z * CameraShakeComponent.ShakeAmount * Noise.noise(TotalTime + 1000);
 			Pitch += CameraComponent.Pitch;
 			Yaw += CameraComponent.Yaw;
 			CameraComponent.Up += CameraComponent.Roll;

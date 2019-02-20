@@ -4,6 +4,7 @@
 #include "Components/Camera.h"
 #include "Engine/Input.h"
 #include "Events/EventManager.h"
+#include "Brofiler.h"
 
 FlyingCameraCore::FlyingCameraCore() : Base(ComponentFilter().Requires<FlyingCamera>().Requires<Camera>())
 {
@@ -22,6 +23,8 @@ void FlyingCameraCore::Init()
 
 void FlyingCameraCore::Update(float dt)
 {
+	BROFILER_CATEGORY("FlyingCameraCore::Update", Brofiler::Color::Green);
+
 	Input& Instance = Input::GetInstance();
 	if (Instance.IsKeyDown(KeyCode::Enter))
 	{

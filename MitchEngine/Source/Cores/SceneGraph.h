@@ -17,6 +17,6 @@ public:
 	virtual void Update(float dt) final;
 
 	virtual void OnEntityAdded(Entity& NewEntity) final;
-
+	void UpdateRecursively(Transform* transform);
 	Entity RootEntity;
 };

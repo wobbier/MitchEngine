@@ -20,24 +20,24 @@ void SceneGraph::Init()
 
 void SceneGraph::Update(float dt)
 {
-	BROFILER_CATEGORY("SceneGraph::Update", Brofiler::Color::Green)
-	Transform* RootEntityTransform = &RootEntity.GetComponent<Transform>();
-	std::stack<Transform*> TransformStack;
-	TransformStack.push(RootEntityTransform);
-	while (!TransformStack.empty())
+	BROFILER_CATEGORY("SceneGraph::Update", Brofiler::Color::Green);
+
+	// Seems O.K. for now
+	UpdateRecursively(&RootEntity.GetComponent<Transform>());
+}
+
+void SceneGraph::UpdateRecursively(Transform* CurrentTransform)
+{
+	BROFILER_CATEGORY("SceneGraph::UpdateRecursively", Brofiler::Color::DarkOrange);
+	for (Transform* Child : CurrentTransform->Children)
 	{
-		Transform* CurrentTransform = TransformStack.top();
-		TransformStack.pop();
-		for (Transform* Child : CurrentTransform->Children)
+		if (Child->IsDirty)
 		{
-			if (Child->IsDirty)
-			{
-				glm::mat4 mat = Child->LocalTransform;
-				mat = CurrentTransform->WorldTransform * mat;
-				Child->SetWorldTransform(mat);
-			}
-			TransformStack.push(Child);
+			BROFILER_CATEGORY("SceneGraph::Update::IsDirty", Brofiler::Color::DarkOrange);
+			glm::mat4& mat = Child->LocalTransform;
+			Child->SetWorldTransform(CurrentTransform->WorldTransform * mat);
 		}
+		UpdateRecursively(Child);
 	}
 }
 

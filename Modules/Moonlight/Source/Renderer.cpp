@@ -66,6 +66,7 @@ namespace Moonlight
 
 	void Renderer::Render()
 	{
+		BROFILER_CATEGORY("Renderer::Render", Brofiler::Color::CornflowerBlue);
 
 		Camera* currentCamera = Camera::CurrentCamera;
 		if (!currentCamera)
