@@ -22,6 +22,16 @@ newoption {
    }
 }
 
+newoption {
+   trigger     = "project-name",
+   description = "Notifies premake we're generating a game solution."
+}
+
+-- Modify these in your game premake --
+CertificateFile = "";
+CertificateThumbprint = "";
+---------------------------------------
+
 function getPlatformPostfix(thing)
 	if (_OPTIONS["uwp"]) then
 		return (thing .. "UWP")
@@ -32,13 +42,23 @@ end
 isUWP = _OPTIONS["uwp"]
 withRenderdoc = _OPTIONS["with-renderdoc"]
 withDirectX = _OPTIONS["gfxapi"] == "directx" or isUWP
+dirPrefix = "../";
+ProjectName = _OPTIONS["project-name"];
+
+if(_OPTIONS["project-name"]) then
+	dirPrefix = "../../"
+else
+	ProjectName = "MitchEngine"
+	CertificateFile = "MitchGame_TemporaryKey.pfx"
+	CertificateThumbprint = "8d68369eaf2c030cd45ca6fce7f367e608b5463e"
+end
 
 -- Engine workspace
-workspace (getPlatformPostfix("MitchEngine"))
+workspace (getPlatformPostfix(ProjectName))
 	configurations { "Debug", "Release" }
 	platforms { "x64" }
-	startproject "MitchGame"
-	location "../"
+	startproject (getPlatformPostfix(ProjectName))
+	location (dirPrefix)
 	includedirs {
 		"../MitchEngine/",
 		"../MitchEngine/Source",
@@ -128,12 +148,12 @@ project (getPlatformPostfix("Moonlight"))
 		system "windowsuniversal"
 		consumewinrtextension "true"
 		--nuget { "directxtk_uwp:2018.11.20.1" }
-		includedirs { "../packages/directxtk_uwp.2018.11.20.1/include" }
-		libdirs { "../packages/directxtk_uwp.2018.11.20.1/lib/x64/%{cfg.buildcfg}" }
+		includedirs { (dirPrefix) .. "packages/directxtk_uwp.2018.11.20.1/include" }
+		libdirs { (dirPrefix) .. "packages/directxtk_uwp.2018.11.20.1/lib/x64/%{cfg.buildcfg}" }
 	else
 		--nuget { "directxtk_desktop_2015:2018.11.20.1" }
-		includedirs { "../packages/directxtk_desktop_2015.2018.11.20.1/include" }
-		libdirs { "../packages/directxtk_desktop_2015.2018.11.20.1/lib/x64/%{cfg.buildcfg}" }
+		includedirs { (dirPrefix) .. "packages/directxtk_desktop_2015.2018.11.20.1/include" }
+		libdirs { (dirPrefix) .. "packages/directxtk_desktop_2015.2018.11.20.1/lib/x64/%{cfg.buildcfg}" }
 	end
 		links { "DirectXTK" }
 	systemversion "10.0.14393.0"
@@ -253,6 +273,7 @@ project (getPlatformPostfix("MitchEngine"))
 	filter {}
 	
 group "Games"
+if not _OPTIONS["project-name"] then
 project (getPlatformPostfix("MitchGame"))
 	if (isUWP) then
 		kind "StaticLib"
@@ -302,8 +323,8 @@ if (isUWP) then
 		system "windowsuniversal"
 		consumewinrtextension "true"
 		systemversion "10.0.14393.0"
-		certificatefile "MitchGame_TemporaryKey.pfx"
-		certificatethumbprint "8d68369eaf2c030cd45ca6fce7f367e608b5463e"
+		certificatefile (CertificateFile)
+		certificatethumbprint (CertificateThumbprint)
 		defaultlanguage "en-US"
 		language "C++"
 		targetdir "../Build/%{cfg.buildcfg}"
@@ -330,4 +351,81 @@ if (isUWP) then
 		}
 		filter { "files:Assets/*.png" }
 			deploy "true"
+end
+end
+
+function GenerateGameSolution()
+if (isUWP) then
+group "App"
+	project (getPlatformPostfix(ProjectName .. "_EntryPoint"))
+		kind "ConsoleApp"
+		system "windowsuniversal"
+		consumewinrtextension "true"
+		systemversion "10.0.14393.0"
+		certificatefile (CertificateFile)
+		certificatethumbprint (CertificateThumbprint)
+		defaultlanguage "en-US"
+		language "C++"
+		targetdir "Build/%{cfg.buildcfg}"
+		location ((ProjectName) .. "_EntryPoint")
+		links {
+			(getPlatformPostfix(ProjectName) .. ".lib")
+		}
+		dependson {
+			getPlatformPostfix(ProjectName)
+		}
+		files {
+			(ProjectName) .. "_EntryPoint/Assets/**.png",
+			(ProjectName) .. "_EntryPoint/**.h",
+			(ProjectName) .. "_EntryPoint/**.cpp",
+			(ProjectName) .. "_EntryPoint/**.pfx",
+			(ProjectName) .. "_EntryPoint/**.appxmanifest"
+		}
+		
+		includedirs {
+			(ProjectName) .. "/Source",
+			"."
+		}
+		filter { "files:Assets/*.png" }
+			deploy "true"
+end
+project ((getPlatformPostfix(ProjectName)))
+	if (isUWP) then
+		kind "StaticLib"
+		system "windowsuniversal"
+		consumewinrtextension "true"
+	else
+		kind "ConsoleApp"
+	end
+	
+	systemversion "10.0.14393.0"
+	language "C++"
+	targetdir "Build/%{cfg.buildcfg}"
+	location (ProjectName)
+	includedirs {
+		(ProjectName) .. "/Source"
+	}
+	links {
+		(getPlatformPostfix(ProjectName) .. ".lib")
+	}
+	dependson {
+		getPlatformPostfix(ProjectName)
+	}
+	files {
+		(ProjectName) .. "/Assets/**.png",
+		(ProjectName) .. "/**.h",
+		(ProjectName) .. "/**.cpp",
+		(ProjectName) .. "/**.pfx",
+		(ProjectName) .. "/**.appxmanifest"
+	}
+	if (isUWP) then
+		excludes {
+			(ProjectName) .. "/Source/main.cpp"
+		}
+	end
+
+	includedirs {
+		(ProjectName) .. "/Source",
+		"."
+	}
 end
