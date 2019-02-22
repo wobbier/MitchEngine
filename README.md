@@ -19,11 +19,13 @@ The engine is:
 How to make a Mitch game
 -----------------------
 
-1. Pull the repo and run GenerateSolution.bat
-2. Make a Visual studio template of the example game.
+1. Fork the [MitchGame][8] repo and follow the README
+2. Think of an awesome game idea.
 3. ????
 4. Profit
 
+Examples
+-----------------------
 ```cpp
 // Create an entity.
 Entity MainCamera = GameWorld->CreateEntity();
@@ -48,7 +50,7 @@ Main features
 -------------
    * (ECS) Entity-Component System based design
    * Language: C++
-   * DirectX 11 / OpenGL
+   * DirectX 11
    * Open Source Commercial Friendly(MIT): Compatible with open and closed source projects
 
 Build Requirements
@@ -61,7 +63,6 @@ Build Requirements
 	* Game development with C++
 	* C++ Universal Windows Platform tools
 * CMake - 3.12.0 (Required if you wish to update ThirdParty projects)
-* Autodesk FBX SDK 2019.0 - VS2015 (for Win64) & VS2015 UAP (for Win10 / Xbox One)
 
 Third Party Libraries
 --------------------------------
@@ -90,3 +91,4 @@ Contact me
 [5]: https://github.com/guillaumeblanc/ozz-animation "OZZ Animation"
 [6]: https://github.com/bombomby/brofiler "Brofiler"
 [7]: https://github.com/bulletphysics/bullet3 "Bullet 3D"
+[8]: https://github.com/wobbier/MitchGame "MitchGame Example Project"
