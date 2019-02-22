@@ -57,7 +57,13 @@ end
 workspace (getPlatformPostfix(ProjectName))
 	configurations { "Debug", "Release" }
 	platforms { "x64" }
-	startproject (getPlatformPostfix(ProjectName))
+	
+	if isUWP then
+		startproject (getPlatformPostfix(ProjectName .. "_EntryPoint"))
+	else
+		startproject (getPlatformPostfix(ProjectName))
+	end
+	
 	location (dirPrefix)
 	includedirs {
 		"../MitchEngine/",
@@ -368,6 +374,9 @@ group "App"
 		language "C++"
 		targetdir "Build/%{cfg.buildcfg}"
 		location ((ProjectName) .. "_EntryPoint")
+		libdirs {
+			"Build/%{cfg.buildcfg}"
+		}
 		links {
 			(getPlatformPostfix(ProjectName) .. ".lib")
 		}
@@ -406,10 +415,10 @@ project ((getPlatformPostfix(ProjectName)))
 		(ProjectName) .. "/Source"
 	}
 	links {
-		(getPlatformPostfix(ProjectName) .. ".lib")
+		(getPlatformPostfix("MitchEngine") .. ".lib")
 	}
 	dependson {
-		getPlatformPostfix(ProjectName)
+		getPlatformPostfix("MitchEngine")
 	}
 	files {
 		(ProjectName) .. "/Assets/**.png",
