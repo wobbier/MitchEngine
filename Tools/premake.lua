@@ -73,14 +73,17 @@ workspace (getPlatformPostfix(ProjectName))
 		"C:/Program Files/RenderDoc",
 		"../ThirdParty/Brofiler/BrofilerCore",
 		"../Modules/Moonlight/Source",
+		"../Modules/Work/Source",
 		"../Modules/Dementia/Source",
 		"../ThirdParty/Assimp/include",
-		"../ThirdParty/PerlinNoise"
+		"../ThirdParty/PerlinNoise",
+		(dirPrefix) .. "packages/boost.1.69.0.0/lib/native/include"
 	}
 	
 	libdirs {
 		"../Build/%{cfg.buildcfg}",
-		"../ThirdParty/Lib/Assimp/%{cfg.buildcfg}"
+		"../ThirdParty/Lib/Assimp/%{cfg.buildcfg}",
+		(dirPrefix) .. "packages/boost_context-vc141.1.69.0.0/lib/native"
 	}
 
 	if isUWP then
@@ -101,6 +104,7 @@ workspace (getPlatformPostfix(ProjectName))
 	links {
 		"BrofilerCore",
 		getPlatformPostfix("Dementia"),
+		getPlatformPostfix("Work"),
 		"assimp-vc140-mt",
 		"IrrXML"
 	}
@@ -208,6 +212,35 @@ project (getPlatformPostfix("Dementia"))
 		"xcopy /y /d  \"C:\\Program Files\\RenderDoc\\renderdoc.dll\" \"$(ProjectDir)$(OutDir)\""
 	}
 	end
+	
+------------------------------------------------------- Job System ------------------------------------------------------
+
+project (getPlatformPostfix("Work"))
+	kind "StaticLib"
+	--if (isUWP) then
+	--	system "windowsuniversal"
+	--	consumewinrtextension "true"
+	--end
+	systemversion "10.0.14393.0"
+	language "C++"
+	targetdir "../Build/%{cfg.buildcfg}"
+	location "../Modules/Work"
+
+	links {
+		"BrofilerCore",
+		"libboost_context-vc141-mt-s-x64-1_69.lib"
+	}
+
+	includedirs {
+		"../Modules/Work/Source/"
+	}
+	files {
+		"../Modules/Work/Source/**.*"
+	}
+	vpaths {
+		["Source"] = "../Source/**.*",
+		["Source"] = "../Source/*.*"
+	}
 
 ------------------------------------------------------- Engine Project -------------------------------------------------------
 

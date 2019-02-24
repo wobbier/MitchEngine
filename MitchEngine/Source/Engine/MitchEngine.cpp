@@ -107,13 +107,13 @@ void MitchEngine::Run()
 
 		SceneNodes->Update(deltaTime);
 
-		if (AccumulatedTime >= 1.0f / FPS)
+		Cameras->Update(deltaTime);
+
+		ModelRenderer->Update(AccumulatedTime);
+
+		//if (AccumulatedTime >= 1.0f / FPS)
 		{
-			Cameras->Update(deltaTime);
-
-			ModelRenderer->Update(AccumulatedTime);
-
-			AccumulatedTime -= 1.0f / FPS;
+			//AccumulatedTime -= 1.0f / FPS;
 			m_renderer->Render();
 		}
 	}
