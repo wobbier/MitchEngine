@@ -16,10 +16,17 @@
 #include "Engine/World.h"
 #include "FilePath.h"
 #include "Components/CameraShake.h"
+#include "JobScheduler.h"
 
 MitchGame::MitchGame()
 	: Game()
 {
+}
+
+MitchGame::MitchGame(JobScheduler* scheduler)
+	: Game(scheduler)
+{
+
 }
 
 MitchGame::~MitchGame()
@@ -66,7 +73,7 @@ void MitchGame::Initialize()
 	Ground2.GetComponent<Transform>().SetScale(glm::vec3(0.025f, 0.025f, 0.025f));
 	Ground2.AddComponent<Model>("Assets/Hog/Roadhog.fbx");*/
 
-	const int Lights = 5;
+	const int Lights = 10;
 	srand(13);
 	for (unsigned int i = 0; i < Lights; i++)
 	{
@@ -78,6 +85,9 @@ void MitchGame::Initialize()
 		float yPos = ((rand() % 100) / 100.0) * 6.0 - 4.0;
 		float zPos = ((rand() % 100) / 100.0) * 6.0 - 3.0;
 		LightTransform.SetPosition(glm::vec3(xPos, yPos, zPos));
+		LightTransform.SetScale(glm::vec3(0.1f, 0.1f, 0.1f));
+		TestLight.AddComponent<Rigidbody>();
+		TestLight.AddComponent<Model>("Assets/marcus.fbx");
 	}
 
 	FlyingCameraController = new FlyingCameraCore();

@@ -9,6 +9,7 @@
 #include "Renderer.h"
 #include "Device/D3D12Device.h"
 #include <tchar.h>
+#include <corecrt_wstdio.h>
 
 LRESULT CALLBACK WinProc(HWND Window, unsigned int msg, WPARAM wp, LPARAM lp);
 
@@ -91,6 +92,10 @@ void D3D12Window::ParseMessageQueue()
 		if (msg.message == WM_EXITSIZEMOVE)
 		{
 		}
+		if (msg.message == WM_KEYDOWN)
+		{
+			//Logger::GetInstance().Log(Logger::LogType::Debug, "Yoooo");
+		}
 	}
 }
 
@@ -109,6 +114,7 @@ glm::vec2 D3D12Window::GetSize() const
 
 LRESULT CALLBACK WinProc(HWND D3D12Window, unsigned int msg, WPARAM wp, LPARAM lp)
 {
+	wchar_t msg2[32];
 	switch (msg)
 	{
 	case WM_DESTROY:
@@ -121,10 +127,39 @@ LRESULT CALLBACK WinProc(HWND D3D12Window, unsigned int msg, WPARAM wp, LPARAM l
 			GetWindowRect(D3D12Window, &newSize);
 			Game::GetEngine().GetRenderer().WindowResized(glm::vec2(newSize.right - newSize.left, newSize.bottom - newSize.top));
 		}
+		break;
+	case WM_SYSKEYDOWN:
+		swprintf_s(msg2, L"WM_SYSKEYDOWN: 0x%x\n", wp);
+		OutputDebugString(msg2);
+		break;
+
+	case WM_SYSCHAR:
+		swprintf_s(msg2, L"WM_SYSCHAR: %c\n", (wchar_t)wp);
+		OutputDebugString(msg2);
+		break;
+
+	case WM_SYSKEYUP:
+		swprintf_s(msg2, L"WM_SYSKEYUP: 0x%x\n", wp);
+		OutputDebugString(msg2);
+		break;
+
+	case WM_KEYDOWN:
+		swprintf_s(msg2, L"WM_KEYDOWN: 0x%x\n", wp);
+		OutputDebugString(msg2);
+		break;
+
+	case WM_KEYUP:
+		swprintf_s(msg2, L"WM_KEYUP: 0x%x\n", wp);
+		OutputDebugString(msg2);
+		break;
+
+	case WM_CHAR:
+		swprintf_s(msg2, L"WM_CHAR: %c\n", (wchar_t)wp);
+		OutputDebugString(msg2);
+		break;
 		//
-	default:
-		return DefWindowProc(D3D12Window, msg, wp, lp);
 	}
+	return DefWindowProc(D3D12Window, msg, wp, lp);
 }
 
 #endif

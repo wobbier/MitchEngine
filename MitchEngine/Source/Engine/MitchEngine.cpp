@@ -12,6 +12,19 @@
 #include "Game.h"
 #include "Window/IWindow.h"
 #include "Input.h"
+#include "JobScheduler.h"
+#include <thread>
+
+struct UpdatePhysicsParam
+{
+	float DeltaTime;
+	PhysicsCore* Core;
+};
+void UpdatePhysicsCore(JobScheduler* manager, void* game)
+{
+	UpdatePhysicsParam* physics = reinterpret_cast<UpdatePhysicsParam*>(game);
+	physics->Core->Update(physics->DeltaTime);
+}
 
 MitchEngine::MitchEngine()
 	: Running(true)
@@ -72,49 +85,72 @@ void MitchEngine::Init(Game* game)
 	m_isInitialized = true;
 }
 
-void MitchEngine::Run()
+void MitchEngine::Run(JobScheduler* scheduler)
 {
 	m_renderer->Init();
 	GameClock.Reset();
+	float PreviousDeltaTime = 0.0f;
 	// Game loop
 	forever
 	{
-		BROFILER_FRAME("MainLoop")
-			// Check and call events
-			GameWindow->ParseMessageQueue();
+		BROFILER_FRAME("MainLoop");
+	// Check and call events
+		GameWindow->ParseMessageQueue();
 
-		if (GameWindow->ShouldClose())
-		{
-			m_game->End();
-			break;
-		}
+	if (GameWindow->ShouldClose())
+	{
+		m_game->End();
+		return;
+	}
 
 		EventManager::GetInstance().FirePendingEvents();
 
 		float time = GameClock.GetTimeInMilliseconds();
-		const float deltaTime = GameClock.deltaTime = (time <= 0.0f || time >= 0.3) ? 0.0001f : time;
+		float deltaTime = GameClock.deltaTime = ((time <= 0.0f || time >= 0.5f) ? 0.0001f : time) + PreviousDeltaTime;
 
 		AccumulatedTime += deltaTime;
-		// Update our engine
-		GameWorld->Simulate();
-
+		AccumulatedFrameTime += deltaTime;
+		//while (AccumulatedTime >= 1.0f / EngineFrequency)
 		{
-			BROFILER_CATEGORY("MainLoop::GameUpdate", Brofiler::Color::CornflowerBlue);
-			m_game->Update(deltaTime);
-		}
 
-		Physics->Update(deltaTime);
+			// Update our engine
+			GameWorld->Simulate();
 
-		SceneNodes->Update(deltaTime);
+			{
+				BROFILER_CATEGORY("MainLoop::GameUpdate", Brofiler::Color::CornflowerBlue);
+				m_game->Update(deltaTime);
+			}
 
-		Cameras->Update(deltaTime);
+			//Physics->Update(deltaTime);
+			AtomicCounter counter(scheduler);
+			UpdatePhysicsParam param;
+			param.Core = Physics;
+			param.DeltaTime = (1.0f / EngineFrequency);
+			Job job{ UpdatePhysicsCore, &param };
+			scheduler->AddSigleJob(job, &counter);
 
-		ModelRenderer->Update(AccumulatedTime);
+			scheduler->WaitForCounter(&counter, 0, true);
 
-		//if (AccumulatedTime >= 1.0f / FPS)
-		{
-			//AccumulatedTime -= 1.0f / FPS;
-			m_renderer->Render();
+			SceneNodes->Update(deltaTime);
+
+			Cameras->Update(deltaTime);
+
+			if (AccumulatedTime > 1.0f / FPS)
+			{
+				ModelRenderer->Update(AccumulatedTime);
+				m_renderer->Render();
+				AccumulatedTime -= 1.0f / FPS;
+			}
+
+			{
+				float now = GameClock.GetTimeInMilliseconds();
+				float newDelta = (now <= 0.0f || now >= 0.3) ? 0.0001f : now;
+
+				BROFILER_CATEGORY("Thread::Sleep", Brofiler::Color::AliceBlue);
+				std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(((1.0f / EngineFrequency) - newDelta) * 1000.0f)));// + (deltaTime - PreviousDeltaTime)
+
+				PreviousDeltaTime = newDelta;
+			}
 		}
 	}
 }

@@ -17,7 +17,7 @@ PhysicsCore::~PhysicsCore()
 
 void PhysicsCore::Init()
 {
-	Gravity = btVector3(0, -10, 0);
+	Gravity = btVector3(0, -9.8, 0);
 	///collision configuration contains default setup for memory, collision setup. Advanced users can create their own configuration.
 	btDefaultCollisionConfiguration* collisionConfiguration = new btDefaultCollisionConfiguration();
 
@@ -50,7 +50,7 @@ void PhysicsCore::Init()
 void PhysicsCore::Update(float dt)
 {
 	BROFILER_CATEGORY("PhysicsCore::Update", Brofiler::Color::Green)
-	auto PhysicsEntites = GetEntities();
+	auto& PhysicsEntites = GetEntities();
 
 	// Need a fixed delta probably
 	PhysicsWorld->stepSimulation(dt, 10);
@@ -63,14 +63,14 @@ void PhysicsCore::Update(float dt)
 		btRigidBody* rigidbody = RigidbodyComponent.InternalRigidbody;
 		btTransform& trans = rigidbody->getWorldTransform();
 		
-		if (TransformComponent.IsDirty)
+		/*if (TransformComponent.IsDirty)
 		{
 			glm::vec3 transPos = TransformComponent.GetPosition();
 			trans.setOrigin(btVector3(transPos.x, transPos.y, transPos.z));
 			rigidbody->setWorldTransform(trans);
 			rigidbody->activate();
 		}
-		else
+		else*/
 		{
 			TransformComponent.SetPosition(glm::vec3(trans.getOrigin().x(), trans.getOrigin().y(), trans.getOrigin().z()));
 		}

@@ -12,11 +12,18 @@
 
 #include "Window/D3D12Window.h"
 #include "Window/UWPWindow.h"
+#include "JobScheduler.h"
 
 MitchEngine Game::m_engine;
 
 Game::Game()
 {
+}
+
+Game::Game(JobScheduler* scheduler)
+	: m_scheduler(scheduler)
+{
+
 }
 
 Game::~Game()
@@ -30,7 +37,7 @@ void Game::Start()
 
 void Game::Run()
 {
-	GetEngine().Run();
+	GetEngine().Run(m_scheduler);
 }
 
 void Game::Initialize()

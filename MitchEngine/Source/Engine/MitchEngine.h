@@ -9,13 +9,13 @@ class MitchEngine
 {
 public:
 	const float FPS = 144.0f;
-	long long FrameRate;
+	const float EngineFrequency = 10.0f;
 
 	MitchEngine();
 	~MitchEngine();
 
 	void Init(Game* game);
-	void Run();
+	void Run(class JobScheduler* scheduelr);
 
 	Moonlight::Renderer& GetRenderer() const;
 
@@ -41,5 +41,6 @@ private:
 
 	Game* m_game;
 	float AccumulatedTime = 0.0f;
+	float AccumulatedFrameTime = 0.0f;
 	bool m_isInitialized = false;
 };

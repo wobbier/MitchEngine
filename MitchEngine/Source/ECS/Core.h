@@ -3,6 +3,7 @@
 #include "ClassTypeId.h"
 #include "ComponentFilter.h"
 #include <vector>
+#include "Dementia.h"
 
 class World;
 
@@ -16,6 +17,9 @@ public:
 	// Each core must update each loop
 	virtual void Update(float dt) = 0;
 	virtual void OnEntityAdded(Entity& NewEntity);
+
+	ME_NONCOPYABLE(BaseCore);
+	ME_NONMOVABLE(BaseCore);
 
 	// Get The World attached to the Core
 	World& GetWorld() const;

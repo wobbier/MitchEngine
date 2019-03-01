@@ -221,14 +221,16 @@ project (getPlatformPostfix("Work"))
 	--	system "windowsuniversal"
 	--	consumewinrtextension "true"
 	--end
+	--nuget { "boost:1.69.0", "boost_context-vc141:1.69.0" }
 	systemversion "10.0.14393.0"
 	language "C++"
 	targetdir "../Build/%{cfg.buildcfg}"
 	location "../Modules/Work"
-
+	removelinks "*"
 	links {
 		"BrofilerCore",
-		"libboost_context-vc141-mt-s-x64-1_69.lib"
+		"libboost_context-vc141-mt-s-x64-1_69.lib",
+		(getPlatformPostfix("Dementia"))
 	}
 
 	includedirs {

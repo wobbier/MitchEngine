@@ -7,12 +7,14 @@
 #include "Engine/MitchEngine.h"
 
 class IWindow;
+class JobScheduler;
 
 class Game
 {
 public:
 
 	Game();
+	Game(JobScheduler* scheduler);
 	virtual ~Game();
 	ME_NONCOPYABLE(Game)
 	ME_NONMOVABLE(Game)
@@ -27,4 +29,5 @@ public:
 	static MitchEngine& GetEngine() { return m_engine; }
 private:
 	static MitchEngine m_engine;
+	JobScheduler* m_scheduler;
 };

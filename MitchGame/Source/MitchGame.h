@@ -5,11 +5,14 @@
 #include "Cores/FlyingCameraCore.h"
 #include "Cores/CameraShakeCore.h"
 
+class JobScheduler;
+
 class MitchGame
 	: public Game
 {
 public:
 	MitchGame();
+	MitchGame(JobScheduler* scheduler);
 	virtual ~MitchGame() override;
 
 	virtual void Initialize() override;
