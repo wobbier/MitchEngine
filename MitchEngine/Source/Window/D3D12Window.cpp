@@ -98,13 +98,13 @@ void D3D12Window::Swap()
 {
 }
 
-glm::vec2 D3D12Window::GetSize() const
+Vector2 D3D12Window::GetSize() const
 {
 	RECT newSize;
 
 	GetWindowRect(Window, &newSize);
 
-	return glm::vec2(newSize.right - newSize.left, newSize.bottom - newSize.top);
+	return Vector2(newSize.right - newSize.left, newSize.bottom - newSize.top);
 }
 
 LRESULT CALLBACK WinProc(HWND D3D12Window, unsigned int msg, WPARAM wp, LPARAM lp)
@@ -119,7 +119,7 @@ LRESULT CALLBACK WinProc(HWND D3D12Window, unsigned int msg, WPARAM wp, LPARAM l
 		{
 			RECT newSize;
 			GetWindowRect(D3D12Window, &newSize);
-			Game::GetEngine().GetRenderer().WindowResized(glm::vec2(newSize.right - newSize.left, newSize.bottom - newSize.top));
+			Game::GetEngine().GetRenderer().WindowResized(Vector2(newSize.right - newSize.left, newSize.bottom - newSize.top));
 		}
 		//
 	default:

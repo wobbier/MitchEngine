@@ -25,6 +25,8 @@
 
 #include "Brofiler.h"
 
+#include "Math/Vector2.h"
+
 //#include "ozz/animation/runtime/animation.h"
 //#include "ozz/animation/runtime/blending_job.h"
 //#include "ozz/animation/runtime/local_to_model_job.h"

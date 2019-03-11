@@ -2,6 +2,7 @@
 #include "Singleton.h"
 #include <map>
 #include <glm.hpp>
+#include "Math/Vector2.h"
 
 #if ME_PLATFORM_UWP
 using namespace Windows::UI::Core;
@@ -73,14 +74,14 @@ public:
 
 	struct MouseInfo
 	{
-		glm::vec2 Position;
+		Vector2 Position;
 		glm::vec2 Scroll;
 	};
 
 	bool IsKeyDown(KeyCode key);
 
 	bool IsKeyUp(KeyCode key);
-	glm::vec2 GetMousePosition();
+	Vector2 GetMousePosition();
 	glm::vec2 GetMouseScrollOffset();
 
 #if ME_PLATFORM_UWP

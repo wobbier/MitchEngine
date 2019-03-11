@@ -187,16 +187,15 @@ namespace Moonlight
 
 		UpdateRenderTargetSize();
 
-		m_d3dRenderTargetSize.Width = m_outputSize.Width;
-		m_d3dRenderTargetSize.Height = m_outputSize.Height;
+		m_d3dRenderTargetSize = m_outputSize;
 
 		if (m_swapChain != nullptr)
 		{
 			// If the swap chain already exists, resize it.
 			HRESULT hr = m_swapChain->ResizeBuffers(
 				2, // Double-buffered swap chain.
-				lround(m_d3dRenderTargetSize.Width),
-				lround(m_d3dRenderTargetSize.Height),
+				lround(m_d3dRenderTargetSize.X()),
+				lround(m_d3dRenderTargetSize.Y()),
 				DXGI_FORMAT_B8G8R8A8_UNORM,
 				0
 			);
@@ -220,8 +219,8 @@ namespace Moonlight
 			// Otherwise, create a new one using the same adapter as the existing Direct3D device.
 			DXGI_SWAP_CHAIN_DESC1 swapChainDesc = { 0 };
 
-			swapChainDesc.Width = lround(m_d3dRenderTargetSize.Width);		// Match the size of the window.
-			swapChainDesc.Height = lround(m_d3dRenderTargetSize.Height);
+			swapChainDesc.Width = lround(m_d3dRenderTargetSize.X());		// Match the size of the window.
+			swapChainDesc.Height = lround(m_d3dRenderTargetSize.Y());
 			swapChainDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;				// This is the most common swap chain format.
 			swapChainDesc.Stereo = false;
 			swapChainDesc.SampleDesc.Count = 1;								// Don't use multi-sampling.
@@ -295,8 +294,8 @@ namespace Moonlight
 		// Create a depth stencil view for use with 3D rendering if needed.
 		CD3D11_TEXTURE2D_DESC1 depthStencilDesc(
 			DXGI_FORMAT_D24_UNORM_S8_UINT,
-			lround(m_d3dRenderTargetSize.Width),
-			lround(m_d3dRenderTargetSize.Height),
+			lround(m_d3dRenderTargetSize.X()),
+			lround(m_d3dRenderTargetSize.Y()),
 			1, // This depth stencil view has only one texture.
 			1, // Use a single mipmap level.
 			D3D11_BIND_DEPTH_STENCIL
@@ -324,8 +323,8 @@ namespace Moonlight
 		m_screenViewport = CD3D11_VIEWPORT(
 			0.0f,
 			0.0f,
-			m_d3dRenderTargetSize.Width,
-			m_d3dRenderTargetSize.Height
+			m_d3dRenderTargetSize.X(),
+			m_d3dRenderTargetSize.Y()
 		);
 
 		m_d3dContext->RSSetViewports(1, &m_screenViewport);
@@ -335,12 +334,12 @@ namespace Moonlight
 	void D3D12Device::UpdateRenderTargetSize()
 	{
 		// Prevent zero size DirectX content from being created.
-		m_outputSize.Width = std::fmax(static_cast<int>(m_logicalSize.x), 1);
-		m_outputSize.Height = std::fmax(static_cast<int>(m_logicalSize.y), 1);
+		m_outputSize.SetX(std::fmax(static_cast<int>(m_logicalSize.X()), 1));
+		m_outputSize.SetY(std::fmax(static_cast<int>(m_logicalSize.Y()), 1));
 	}
 
 	// This method is called in the event handler for the SizeChanged event.
-	void D3D12Device::SetLogicalSize(glm::vec2 logicalSize)
+	void D3D12Device::SetLogicalSize(Vector2 logicalSize)
 	{
 		if (m_logicalSize != logicalSize)
 		{
@@ -437,7 +436,7 @@ namespace Moonlight
 		dxgiDevice->Trim();
 	}
 
-	void D3D12Device::WindowSizeChanged(const glm::vec2& NewSize)
+	void D3D12Device::WindowSizeChanged(const Vector2& NewSize)
 	{
 		m_logicalSize = NewSize;
 		CreateWindowSizeDependentResources();

@@ -67,12 +67,16 @@ void PhysicsCore::Update(float dt)
 		{
 			glm::vec3 transPos = TransformComponent.GetPosition();
 			trans.setOrigin(btVector3(transPos.x, transPos.y, transPos.z));
+			trans.setRotation(btQuaternion(TransformComponent.Rotation.x, TransformComponent.Rotation.y, TransformComponent.Rotation.z, TransformComponent.Rotation.w));
 			rigidbody->setWorldTransform(trans);
 			rigidbody->activate();
 		}
 		else
 		{
+			btQuaternion rot;
+			trans.getBasis().getRotation(rot);
 			TransformComponent.SetPosition(glm::vec3(trans.getOrigin().x(), trans.getOrigin().y(), trans.getOrigin().z()));
+			TransformComponent.SetRotation(glm::quat(rot.getX(), rot.getY(), rot.getZ(), rot.getW()));
 		}
 	}
 

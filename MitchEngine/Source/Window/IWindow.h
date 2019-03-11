@@ -2,6 +2,7 @@
 #pragma once
 #include <iostream>
 #include <string>
+#include "Math/Vector2.h"
 
 class IWindow
 {
@@ -14,7 +15,7 @@ public:
 	virtual bool ShouldClose() = 0;
 	virtual void ParseMessageQueue() = 0;
 	virtual void Swap() = 0;
-	virtual glm::vec2 GetSize() const = 0;
+	virtual Vector2 GetSize() const = 0;
 
 protected:
 	bool m_windowVisible;
