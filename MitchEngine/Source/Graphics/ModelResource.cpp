@@ -42,7 +42,6 @@ void ModelResource::Load()
 		return;
 	}
 
-
 	ProcessNode(scene->mRootNode, scene);
 }
 
@@ -82,16 +81,12 @@ Moonlight::Mesh* ModelResource::ProcessMesh(aiMesh *mesh, const aiScene *scene)
 	std::vector<Moonlight::Vertex> vertices;
 	std::vector<unsigned int> indices;
 	Moonlight::Material* newMaterial = new Moonlight::Material();
-
 	for (unsigned int i = 0; i < mesh->mNumVertices; i++)
 	{
 		Moonlight::Vertex vertex;
 		DirectX::XMFLOAT3 vector;
 
-		vector.x = mesh->mVertices[i].x;
-		vector.y = mesh->mVertices[i].y;
-		vector.z = mesh->mVertices[i].z;
-		vertex.Position = vector;
+		vertex.Position = { mesh->mVertices[i].x,  mesh->mVertices[i].y,  mesh->mVertices[i].z };
 
 		vector.x = mesh->mNormals[i].x;
 		vector.y = mesh->mNormals[i].y;

@@ -14,6 +14,7 @@
 #include <d3d11.h>
 #include <DirectXMath.h>
 #include <queue>
+#include "Math/Vector2.h"
 
 namespace Moonlight
 {
@@ -47,7 +48,7 @@ namespace Moonlight
 		unsigned int PushModel(const ModelCommand& model);
 		bool PopModel(unsigned int id);
 
-		void WindowResized(const glm::vec2& NewSize);
+		void WindowResized(const Vector2& NewSize);
 	private:
 		class SkyBox* Sky;
 

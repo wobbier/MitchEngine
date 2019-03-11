@@ -4,18 +4,21 @@
 #include <gtc/matrix_transform.hpp>
 
 Transform::Transform()
-	: LocalTransform(1.f)
-	, WorldTransform(1.f)
+	: WorldTransform(1.f)
+	, Position(0.f, 0.f, 0.f)
+	, Rotation(0.f, 0.f, 0.f, 1.0f)
+	, Scale(1.0f, 1.0f, 1.0f)
 {
 }
 
 
 Transform::Transform(const std::string& TransformName)
-	: LocalTransform(1.f)
-	, WorldTransform(1.f)
+	: WorldTransform(1.f)
 	, Name(std::move(TransformName))
+	, Position(0.f, 0.f, 0.f)
+	, Rotation(0.f, 0.f, 0.f, 1.0f)
+	, Scale(1.0f, 1.0f, 1.0f)
 {
-
 }
 
 Transform::~Transform()
@@ -25,28 +28,26 @@ Transform::~Transform()
 
 void Transform::SetPosition(glm::vec3 NewPosition)
 {
-	LocalTransform[3] = glm::vec4(NewPosition, 1.f);
+	Position = glm::vec4(NewPosition, 1.f);
 	SetDirty(true);
 }
 
 
 void Transform::SetScale(glm::vec3 NewScale)
 {
-	LocalTransform[0][0] = NewScale.x;
-	LocalTransform[1][1] = NewScale.y;
-	LocalTransform[2][2] = NewScale.z;
+	Scale = NewScale;
 	SetDirty(true);
 }
 
 void Transform::Translate(glm::vec3 NewPosition)
 {
-	LocalTransform = glm::translate(LocalTransform, NewPosition);
+	Position += NewPosition;
 	SetDirty(true);
 }
 
 glm::vec3 Transform::GetPosition()
 {
-	return glm::vec3(LocalTransform[3][0], LocalTransform[3][1], LocalTransform[3][2]);
+	return Position;
 }
 
 void Transform::SetWorldTransform(glm::mat4& NewWorldTransform)
@@ -66,10 +67,26 @@ void Transform::SetDirty(bool Dirty)
 	{
 		for (auto Child : Children)
 		{
-			Child->SetDirty(Dirty);
+			//if (!Child->IsDirty)
+			{
+				Child->SetDirty(Dirty);
+			}
 		}
 	}
 	IsDirty = Dirty;
+}
+void Transform::SetRotation(glm::vec3 euler)
+{
+	//glm::rotate(Rotation, quat);
+	Rotation = glm::rotate(glm::quat(), euler);
+	SetDirty(true);
+}
+
+void Transform::SetRotation(glm::quat quat)
+{
+	//glm::rotate(Rotation, quat);
+	Rotation = quat;
+	SetDirty(true);
 }
 
 void Transform::SetParent(Transform& NewParent)

@@ -88,8 +88,8 @@ namespace Moonlight
 		context->ClearRenderTargetView(m_device->GetBackBufferRenderTargetView(), DirectX::Colors::RoyalBlue);
 		context->ClearDepthStencilView(m_device->GetDepthStencilView(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
-		TSize outputSize = m_device->GetOutputSize();
-		float aspectRatio = static_cast<float>(outputSize.Width) / static_cast<float>(outputSize.Height);
+		Vector2 outputSize = m_device->GetOutputSize();
+		float aspectRatio = static_cast<float>(outputSize.X()) / static_cast<float>(outputSize.Y());
 		float fovAngleY = currentCamera->GetFOV() * XM_PI / 180.0f;
 
 		// This is a simple example of change that can be made when the app is in
@@ -178,7 +178,7 @@ namespace Moonlight
 			{
 				BROFILER_CATEGORY("Render::SingleMesh", Brofiler::Color::OrangeRed);
 				
-				if (model.ModelShader != cachedShader)
+				//if (model.ModelShader != cachedShader)
 				{
 					cachedShader = model.ModelShader;
 					cachedShader->Use();
@@ -256,7 +256,7 @@ namespace Moonlight
 		return true;
 	}
 
-	void Renderer::WindowResized(const glm::vec2& NewSize)
+	void Renderer::WindowResized(const Vector2& NewSize)
 	{
 		if (!m_device)
 		{

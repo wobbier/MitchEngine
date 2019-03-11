@@ -15,14 +15,10 @@
 #include <agile.h>
 #endif
 #include <memory>
+#include "Math/Vector2.h"
 
 namespace Moonlight
 {
-	struct TSize
-	{
-		int Width;
-		int Height;
-	};
 	class D3D12Device
 		: public IDevice
 	{
@@ -30,18 +26,18 @@ namespace Moonlight
 		D3D12Device();
 
 		// The size of the render target, in pixels.
-		TSize GetOutputSize() const { return m_outputSize; }
-		virtual void SetLogicalSize(glm::vec2 logicalSize);
+		Vector2 GetOutputSize() const { return m_outputSize; }
+		virtual void SetLogicalSize(Vector2 logicalSize);
 		void ValidateDevice();
 		void HandleDeviceLost();
 		void RegisterDeviceNotify(IDeviceNotify* deviceNotify);
 		void Trim();
 
-		virtual void WindowSizeChanged(const glm::vec2& NewSize) final;
+		virtual void WindowSizeChanged(const Vector2& NewSize) final;
 
 		void ResetCullingMode() const;
 		// The size of the render target, in dips.
-		glm::vec2					GetLogicalSize() const { return m_logicalSize; }
+		Vector2					GetLogicalSize() const { return m_logicalSize; }
 
 		// D3D Accessors.
 		ID3D11Device3*				GetD3DDevice() const { return m_d3dDevice.Get(); }
@@ -88,9 +84,9 @@ namespace Moonlight
 
 		// Cached device properties.
 		D3D_FEATURE_LEVEL								m_d3dFeatureLevel;
-		glm::vec2										m_logicalSize;
-		TSize						m_d3dRenderTargetSize;
-		TSize						m_outputSize;
+		Vector2										m_logicalSize;
+		Vector2						m_d3dRenderTargetSize;
+		Vector2						m_outputSize;
 
 		// The IDeviceNotify can be held directly as it owns the DeviceResources.
 		IDeviceNotify* m_deviceNotify;

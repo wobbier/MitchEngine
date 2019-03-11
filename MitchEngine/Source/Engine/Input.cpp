@@ -41,7 +41,7 @@ bool Input::IsKeyUp(KeyCode key)
 
 #pragma region MouseInput
 
-glm::vec2 Input::GetMousePosition()
+Vector2 Input::GetMousePosition()
 {
 	
 #if ME_PLATFORM_WIN64
@@ -53,7 +53,7 @@ glm::vec2 Input::GetMousePosition()
 	position.y = CoreWindow::GetForCurrentThread()->PointerPosition.Y;
 #endif
 	{
-		return glm::vec2(position.x, position.y);
+		return Vector2(position.x, position.y);
 	}
 
 	return Mouse.Position;

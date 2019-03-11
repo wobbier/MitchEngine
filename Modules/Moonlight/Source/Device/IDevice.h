@@ -1,5 +1,6 @@
 #pragma once
-#include <glm.hpp>
+#include "glm.hpp"
+#include "Math/Vector2.h"
 
 namespace Moonlight
 {
@@ -23,8 +24,8 @@ namespace Moonlight
 
 		virtual void Trim() = 0;
 
-		virtual void SetLogicalSize(glm::vec2 vec2) = 0;
+		virtual void SetLogicalSize(Vector2 vec2) = 0;
 
-		virtual void WindowSizeChanged(const glm::vec2& NewSize) = 0;
+		virtual void WindowSizeChanged(const Vector2& NewSize) = 0;
 	};
 }

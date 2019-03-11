@@ -18,6 +18,8 @@ public:
 	virtual ~Transform();
 
 	void SetPosition(glm::vec3 NewPosition);
+	void SetRotation(glm::vec3 euler);
+	void SetRotation(glm::quat quat);
 	void SetScale(glm::vec3 NewScale);
 	void Translate(glm::vec3 NewTransform);
 	glm::vec3 GetPosition();
@@ -30,7 +32,10 @@ public:
 
 	void SetParent(Transform& NewParent);
 	void RemoveChild(Transform* TargetTransform);
-	glm::mat4 LocalTransform;
+	glm::vec3 Position;
+	glm::vec3 Scale;
+	glm::quat Rotation;
+
 	glm::mat4 WorldTransform;
 	std::string Name;
 	DirectX::XMMATRIX GetMatrix();

@@ -34,7 +34,9 @@ void SceneGraph::UpdateRecursively(Transform* CurrentTransform)
 		if (Child->IsDirty)
 		{
 			BROFILER_CATEGORY("SceneGraph::Update::IsDirty", Brofiler::Color::DarkOrange);
-			glm::mat4& mat = Child->LocalTransform;
+			glm::mat4 mat = glm::translate(glm::mat4(1.0f), Child->Position);
+			mat = glm::rotate(mat, glm::angle(Child->Rotation), glm::axis(Child->Rotation));
+			mat = glm::scale(mat, Child->Scale);
 			Child->SetWorldTransform(CurrentTransform->WorldTransform * mat);
 		}
 		UpdateRecursively(Child);

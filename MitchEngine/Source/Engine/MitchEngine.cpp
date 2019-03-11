@@ -97,12 +97,13 @@ void MitchEngine::Run()
 		AccumulatedTime += deltaTime;
 		// Update our engine
 		GameWorld->Simulate();
-		Physics->Update(deltaTime);
 
 		{
 			BROFILER_CATEGORY("MainLoop::GameUpdate", Brofiler::Color::CornflowerBlue);
 			m_game->Update(deltaTime);
 		}
+
+		Physics->Update(deltaTime);
 
 		SceneNodes->Update(deltaTime);
 
