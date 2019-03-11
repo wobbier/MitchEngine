@@ -1,7 +1,6 @@
 #pragma once
 #include "Singleton.h"
 #include <map>
-#include <glm.hpp>
 #include "Math/Vector2.h"
 
 #if ME_PLATFORM_UWP
@@ -75,14 +74,14 @@ public:
 	struct MouseInfo
 	{
 		Vector2 Position;
-		glm::vec2 Scroll;
+		Vector2 Scroll;
 	};
 
 	bool IsKeyDown(KeyCode key);
 
 	bool IsKeyUp(KeyCode key);
 	Vector2 GetMousePosition();
-	glm::vec2 GetMouseScrollOffset();
+	Vector2 GetMouseScrollOffset();
 
 #if ME_PLATFORM_UWP
 	static void KeyCallback(VirtualKey key);

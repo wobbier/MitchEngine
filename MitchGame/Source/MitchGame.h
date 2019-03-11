@@ -1,9 +1,9 @@
 #pragma once
 #include <DirectXMath.h>
 #include "Game.h"
-#include <glm.hpp>
 #include "Cores/FlyingCameraCore.h"
 #include "Cores/CameraShakeCore.h"
+#include "Math/Vector3.h"
 
 class MitchGame
 	: public Game
@@ -26,5 +26,5 @@ public:
 	std::vector<Entity> Cubes;
 	bool AddedPhysics = false;
 
-	glm::vec2 PrevMouseScroll;
+	Vector2 PrevMouseScroll;
 };

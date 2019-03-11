@@ -47,9 +47,9 @@ void UWPWindow::Swap()
 {
 }
 
-glm::vec2 UWPWindow::GetSize() const
+Vector2 UWPWindow::GetSize() const
 {
-	return glm::vec2(WINDOW_WIDTH, WINDOW_HEIGHT);
+	return Vector2(WINDOW_WIDTH, WINDOW_HEIGHT);
 }
 
 void UWPWindow::SetVisibility(bool Visible)
@@ -91,7 +91,7 @@ void UWPWindow::UWPWindowMessageHandler::OnWindowSizeChanged(CoreWindow^ sender,
 {
 	m_window->WINDOW_WIDTH = sender->Bounds.Width;
 	m_window->WINDOW_HEIGHT = sender->Bounds.Height;
-	Game::GetEngine().GetRenderer().WindowResized(glm::vec2(WINDOW_WIDTH, WINDOW_HEIGHT));
+	Game::GetEngine().GetRenderer().WindowResized(Vector2(WINDOW_WIDTH, WINDOW_HEIGHT));
 }
 
 void UWPWindow::UWPWindowMessageHandler::OnVisibilityChanged(CoreWindow^ sender, VisibilityChangedEventArgs^ args)

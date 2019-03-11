@@ -1,5 +1,4 @@
 #pragma once
-#include "glm.hpp"
 #include "Math/Vector2.h"
 
 namespace Moonlight

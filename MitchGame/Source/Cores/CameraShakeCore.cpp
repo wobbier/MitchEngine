@@ -38,12 +38,12 @@ void CameraShakeCore::Update(float dt)
 
 		if (&CameraComponent == Camera::CurrentCamera)
 		{
-			float Yaw = CameraShakeComponent.MaxDirection.x * CameraShakeComponent.ShakeAmount * Noise.noise(TotalTime);
-			float Pitch = CameraShakeComponent.MaxDirection.y * CameraShakeComponent.ShakeAmount * Noise.noise(TotalTime + 500);
-			float Roll = CameraShakeComponent.MaxDirection.z * CameraShakeComponent.ShakeAmount * Noise.noise(TotalTime + 1000);
+			float Yaw = CameraShakeComponent.MaxDirection.X() * CameraShakeComponent.ShakeAmount * Noise.noise(TotalTime);
+			float Pitch = CameraShakeComponent.MaxDirection.Y() * CameraShakeComponent.ShakeAmount * Noise.noise(TotalTime + 500);
+			float Roll = CameraShakeComponent.MaxDirection.Z() * CameraShakeComponent.ShakeAmount * Noise.noise(TotalTime + 1000);
 			Pitch += CameraComponent.Pitch;
 			Yaw += CameraComponent.Yaw;
-			CameraComponent.Up += CameraComponent.Roll;
+			Roll += CameraComponent.Roll;
 			glm::vec3 Front;
 			Front.x = cos(glm::radians(Yaw)) * cos(glm::radians(Pitch));
 			Front.y = sin(glm::radians(Pitch));

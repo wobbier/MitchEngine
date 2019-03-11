@@ -1,7 +1,6 @@
 #include "PCH.h"
 #include "Engine/Input.h"
 #include "Logger.h"
-#include <glm.hpp>
 #include <string>
 #include <iostream>
 #include <Windows.h>
@@ -43,24 +42,24 @@ bool Input::IsKeyUp(KeyCode key)
 
 Vector2 Input::GetMousePosition()
 {
-	
+	Vector2 newPosition = Mouse.Position;
 #if ME_PLATFORM_WIN64
 	POINT position;
 	if (GetCursorPos(&position))
-#else
-	glm::vec2 position;
-	position.x = CoreWindow::GetForCurrentThread()->PointerPosition.X;
-	position.y = CoreWindow::GetForCurrentThread()->PointerPosition.Y;
-#endif
 	{
-		return Vector2(position.x, position.y);
+		newPosition.SetX(position.x);
+		newPosition.SetY(position.y);
 	}
+#else
+	newPosition.SetX(CoreWindow::GetForCurrentThread()->PointerPosition.X);
+	newPosition.SetY(CoreWindow::GetForCurrentThread()->PointerPosition.Y);
+#endif
 
-	return Mouse.Position;
+	return newPosition;
 }
 
 
-glm::vec2 Input::GetMouseScrollOffset()
+Vector2 Input::GetMouseScrollOffset()
 {
 	return Mouse.Scroll;
 }

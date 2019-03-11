@@ -55,19 +55,19 @@ void FlyingCameraCore::Update(float dt)
 			CameraSpeed *= dt;
 			if (Instance.IsKeyDown(KeyCode::W))
 			{
-				TransformComponent.SetPosition((CameraSpeed * CameraComponent.Front) + TransformComponent.GetPosition());
+				TransformComponent.SetPosition((CameraComponent.Front * CameraSpeed) + TransformComponent.GetPosition());
 			}
 			if (Instance.IsKeyDown(KeyCode::S))
 			{
-				TransformComponent.SetPosition(TransformComponent.GetPosition() - (CameraSpeed * CameraComponent.Front));
+				TransformComponent.SetPosition(TransformComponent.GetPosition() - (CameraComponent.Front * CameraSpeed));
 			}
 			if (Instance.IsKeyDown(KeyCode::A))
 			{
-				TransformComponent.Translate(glm::normalize(glm::cross(CameraComponent.Up, CameraComponent.Front)) * CameraSpeed);
+				TransformComponent.Translate(glm::normalize(glm::cross(CameraComponent.Up.GetInternalVec(), CameraComponent.Front.GetInternalVec())) * CameraSpeed);
 			}
 			if (Instance.IsKeyDown(KeyCode::D))
 			{
-				TransformComponent.Translate(glm::normalize(glm::cross(CameraComponent.Front, CameraComponent.Up)) * CameraSpeed);
+				TransformComponent.Translate(glm::normalize(glm::cross(CameraComponent.Front.GetInternalVec(), CameraComponent.Up.GetInternalVec())) * CameraSpeed);
 			}
 			if (Instance.IsKeyDown(KeyCode::Space))
 			{
@@ -75,29 +75,29 @@ void FlyingCameraCore::Update(float dt)
 			}
 			if (Instance.IsKeyDown(KeyCode::E))
 			{
-				TransformComponent.Translate(glm::normalize(glm::cross(glm::cross(CameraComponent.Front, CameraComponent.Up), CameraComponent.Front)) * CameraSpeed);
+				TransformComponent.Translate(glm::normalize(glm::cross(glm::cross(CameraComponent.Front.GetInternalVec(), CameraComponent.Up.GetInternalVec()), CameraComponent.Front.GetInternalVec())) * CameraSpeed);
 			}
 			if (Instance.IsKeyDown(KeyCode::Q))
 			{
-				TransformComponent.Translate(glm::normalize(glm::cross(glm::cross(CameraComponent.Front, -CameraComponent.Up), CameraComponent.Front)) * CameraSpeed);
+				TransformComponent.Translate(glm::normalize(glm::cross(glm::cross(CameraComponent.Front.GetInternalVec(), -CameraComponent.Up.GetInternalVec()), CameraComponent.Front.GetInternalVec())) * CameraSpeed);
 			}
 
-			glm::vec2 MousePosition = Instance.GetMousePosition();
-			if (MousePosition == glm::vec2(0, 0))
+			Vector2 MousePosition = Instance.GetMousePosition();
+			if (MousePosition == Vector2(0, 0))
 			{
 				continue;
 			}
 			if (FirstUpdate)
 			{
-				LastX = MousePosition.x;
-				LastY = MousePosition.y;
+				LastX = MousePosition.X();
+				LastY = MousePosition.Y();
 				FirstUpdate = false;
 			}
 
-			float XOffset = MousePosition.x - LastX;
-			float YOffest = LastY - MousePosition.y;
-			LastX = MousePosition.x;
-			LastY = MousePosition.y;
+			float XOffset = MousePosition.X() - LastX;
+			float YOffest = LastY - MousePosition.Y();
+			LastX = MousePosition.X();
+			LastY = MousePosition.Y();
 
 			XOffset *= FlyingCameraComponent.LookSensitivity;
 			YOffest *= FlyingCameraComponent.LookSensitivity;

@@ -4,6 +4,7 @@
 #include <string>
 
 #include "IWindow.h"
+#include "Math/Vector2.h"
 
 #if ME_PLATFORM_UWP
 
@@ -40,7 +41,7 @@ public:
 	virtual bool ShouldClose() final;
 	virtual void ParseMessageQueue() final;
 	virtual void Swap() final;
-	virtual glm::vec2 GetSize() const final;
+	virtual Vector2 GetSize() const final;
 
 	void SetVisibility(bool Visible);
 private:

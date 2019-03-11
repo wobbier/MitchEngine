@@ -1,7 +1,7 @@
 #pragma once
 #include "ECS/Component.h"
 #include <btBulletDynamicsCommon.h>
-#include <glm.hpp>
+#include "Math/Vector3.h"
 
 class Rigidbody : public Component<Rigidbody>
 {
@@ -16,7 +16,7 @@ public:
 	bool IsRigidbodyInitialized();
 
 private:
-	void CreateObject(const glm::vec3& Position);
+	void CreateObject(const Vector3& Position);
 	btRigidBody* InternalRigidbody;
 
 protected:

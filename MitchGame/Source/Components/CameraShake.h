@@ -2,6 +2,7 @@
 #include "ECS/Component.h"
 #include <string>
 #include <glm.hpp>
+#include "Math/Vector3.h"
 
 class CameraShake
 	: public Component<CameraShake>
@@ -15,5 +16,5 @@ public:
 
 	float ShakeAmount = 0.25f;
 
-	glm::vec3 MaxDirection;
+	Vector3 MaxDirection;
 };

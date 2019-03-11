@@ -1,6 +1,4 @@
 #pragma once 
-#include <glm.hpp>
-
 #include "Graphics/Texture.h"
 #include "Graphics/Mesh.h"
 #include "Resource/Resource.h"

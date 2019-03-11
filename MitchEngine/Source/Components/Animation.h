@@ -1,7 +1,6 @@
 #pragma once
 #include "ECS/Component.h"
 #include <string>
-#include <glm.hpp>
 
 class Animation : public Component<Animation>
 {
@@ -28,9 +27,9 @@ public:
 
 	float FPS;
 
-	glm::vec2 CurrentFrame;
+	Vector2 CurrentFrame;
 
-	glm::vec2 GridSize;
+	Vector2 GridSize;
 
 
 private:

@@ -25,27 +25,26 @@ Transform::~Transform()
 {
 }
 
-
-void Transform::SetPosition(glm::vec3 NewPosition)
+void Transform::SetPosition(Vector3 NewPosition)
 {
-	Position = glm::vec4(NewPosition, 1.f);
+	Position = NewPosition;
 	SetDirty(true);
 }
 
 
-void Transform::SetScale(glm::vec3 NewScale)
+void Transform::SetScale(Vector3 NewScale)
 {
 	Scale = NewScale;
 	SetDirty(true);
 }
 
-void Transform::Translate(glm::vec3 NewPosition)
+void Transform::Translate(Vector3 NewPosition)
 {
 	Position += NewPosition;
 	SetDirty(true);
 }
 
-glm::vec3 Transform::GetPosition()
+Vector3 Transform::GetPosition()
 {
 	return Position;
 }
@@ -75,10 +74,10 @@ void Transform::SetDirty(bool Dirty)
 	}
 	IsDirty = Dirty;
 }
-void Transform::SetRotation(glm::vec3 euler)
+void Transform::SetRotation(Vector3 euler)
 {
 	//glm::rotate(Rotation, quat);
-	Rotation = glm::rotate(glm::quat(), euler);
+	Rotation = glm::rotate(glm::quat(), euler.GetInternalVec());
 	SetDirty(true);
 }
 

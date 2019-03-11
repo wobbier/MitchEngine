@@ -125,7 +125,7 @@ namespace Moonlight
 		return Program;
 	}
 
-	void Shader::SetMat4(const std::string &name, const glm::mat4 &mat) const
+	void Shader::SetMat4(const std::string &name, const Matrix4& mat) const
 	{
 	}
 
@@ -133,7 +133,7 @@ namespace Moonlight
 	{
 	}
 
-	void Shader::SetVec3(const std::string &name, const glm::vec3 &value) const
+	void Shader::SetVec3(const std::string &name, const Vector3& value) const
 	{
 	}
 

@@ -5,8 +5,6 @@
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 
-#include <glm.hpp>
-
 #include <unordered_map>
 
 #include "Logger.h"

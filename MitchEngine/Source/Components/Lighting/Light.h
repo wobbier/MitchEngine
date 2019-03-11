@@ -1,6 +1,6 @@
 #pragma once
 #include "ECS/Component.h"
-#include <glm.hpp>
+#include "Math/Vector3.h"
 
 class Light : public Component<Light>
 {
@@ -12,5 +12,5 @@ public:
 	// Separate init from construction code.
 	virtual void Init() final;
 
-	glm::vec3 Colour = glm::vec3(1.f);
+	Vector3 Colour{ 1.f, 1.f, 1.f };
 };

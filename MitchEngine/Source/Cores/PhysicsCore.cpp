@@ -65,8 +65,8 @@ void PhysicsCore::Update(float dt)
 		
 		if (TransformComponent.IsDirty)
 		{
-			glm::vec3 transPos = TransformComponent.GetPosition();
-			trans.setOrigin(btVector3(transPos.x, transPos.y, transPos.z));
+			Vector3 transPos = TransformComponent.GetPosition();
+			trans.setOrigin(btVector3(transPos.X(), transPos.Y(), transPos.Z()));
 			trans.setRotation(btQuaternion(TransformComponent.Rotation.x, TransformComponent.Rotation.y, TransformComponent.Rotation.z, TransformComponent.Rotation.w));
 			rigidbody->setWorldTransform(trans);
 			rigidbody->activate();
@@ -75,7 +75,7 @@ void PhysicsCore::Update(float dt)
 		{
 			btQuaternion rot;
 			trans.getBasis().getRotation(rot);
-			TransformComponent.SetPosition(glm::vec3(trans.getOrigin().x(), trans.getOrigin().y(), trans.getOrigin().z()));
+			TransformComponent.SetPosition(Vector3(trans.getOrigin().x(), trans.getOrigin().y(), trans.getOrigin().z()));
 			TransformComponent.SetRotation(glm::quat(rot.getX(), rot.getY(), rot.getZ(), rot.getW()));
 		}
 	}

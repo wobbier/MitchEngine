@@ -6,6 +6,7 @@
 #include <gtx/quaternion.hpp>
 #include "Dementia.h"
 #include <DirectXMath.h>
+#include "Math/Vector3.h"
 
 class Transform :
 	public Component<Transform>
@@ -17,12 +18,12 @@ public:
 	Transform(const std::string& Name);
 	virtual ~Transform();
 
-	void SetPosition(glm::vec3 NewPosition);
-	void SetRotation(glm::vec3 euler);
+	void SetPosition(Vector3 NewPosition);
+	void SetRotation(Vector3 euler);
 	void SetRotation(glm::quat quat);
-	void SetScale(glm::vec3 NewScale);
-	void Translate(glm::vec3 NewTransform);
-	glm::vec3 GetPosition();
+	void SetScale(Vector3 NewScale);
+	void Translate(Vector3 NewTransform);
+	Vector3 GetPosition();
 
 	ME_NONCOPYABLE(Transform)
 	ME_NONMOVABLE(Transform)
@@ -32,8 +33,8 @@ public:
 
 	void SetParent(Transform& NewParent);
 	void RemoveChild(Transform* TargetTransform);
-	glm::vec3 Position;
-	glm::vec3 Scale;
+	Vector3 Position;
+	Vector3 Scale;
 	glm::quat Rotation;
 
 	glm::mat4 WorldTransform;

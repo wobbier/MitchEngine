@@ -32,31 +32,31 @@ void MitchGame::Initialize()
 	auto GameWorld = GetEngine().GetWorld().lock();
 	MainCamera = GameWorld->CreateEntity();
 	Transform& CameraPos = MainCamera.AddComponent<Transform>("Main Camera");
-	CameraPos.SetPosition(glm::vec3(0, 5, 20));
+	CameraPos.SetPosition(Vector3(0, 5, 20));
 	MainCamera.AddComponent<Camera>();
 	MainCamera.AddComponent<FlyingCamera>();
 	CameraShake& shakeComponent = MainCamera.AddComponent<CameraShake>();
-	shakeComponent.MaxDirection = glm::vec3(10, 10, 25);
+	shakeComponent.MaxDirection = Vector3(10, 10, 25);
 	shakeComponent.ShakeAmount = 0.25f;
 	MainCamera.AddComponent<Light>();
 
 	SecondaryCamera = GameWorld->CreateEntity();
 	Transform& SecondaryPos = SecondaryCamera.AddComponent<Transform>("Secondary Camera");
-	SecondaryPos.SetPosition(glm::vec3(0, 5, 20));
+	SecondaryPos.SetPosition(Vector3(0, 5, 20));
 	SecondaryCamera.AddComponent<Camera>();
 	SecondaryCamera.AddComponent<Light>();
 	SecondaryCamera.AddComponent<FlyingCamera>();
 
 	Entity TestModel = GameWorld->CreateEntity();
 	Transform& ModelTransform = TestModel.AddComponent<Transform>("Ground obvs");
-	ModelTransform.SetPosition(glm::vec3(0.f, 20.f, 0.f));
-	ModelTransform.SetScale(glm::vec3(0.5f, 0.5f, 0.5f));
+	ModelTransform.SetPosition(Vector3(0.f, 20.f, 0.f));
+	ModelTransform.SetScale(Vector3(0.5f, 0.5f, 0.5f));
 	TestModel.AddComponent<Rigidbody>();
 	TestModel.AddComponent<Model>("Assets/marcus.fbx");
 
 	Entity TestModel2 = GameWorld->CreateEntity();
 	Transform& ModelTransform2 = TestModel2.AddComponent<Transform>("Ground obvs2");
-	ModelTransform2.SetPosition(glm::vec3(5.f, 20.f, 0.f));
+	ModelTransform2.SetPosition(Vector3(5.f, 20.f, 0.f));
 	TestModel2.AddComponent<Rigidbody>();
 	//TestModel2.AddComponent<Model>("Assets/cube.obj");
 
@@ -77,7 +77,7 @@ void MitchGame::Initialize()
 		float xPos = ((rand() % 100) / 100.0) * 6.0 - 3.0;
 		float yPos = ((rand() % 100) / 100.0) * 6.0 - 4.0;
 		float zPos = ((rand() % 100) / 100.0) * 6.0 - 3.0;
-		LightTransform.SetPosition(glm::vec3(xPos, yPos, zPos));
+		LightTransform.SetPosition(Vector3(xPos, yPos, zPos));
 	}
 
 	FlyingCameraController = new FlyingCameraCore();
@@ -122,7 +122,7 @@ void MitchGame::Update(float DeltaTime)
 	Camera* CurrentCamera = Camera::CurrentCamera;
 	{
 		if (CurrentCamera->Zoom >= 1.0f && CurrentCamera->Zoom <= 45.0f)
-			CurrentCamera->Zoom -= PrevMouseScroll.y - Input::GetInstance().GetMouseScrollOffset().y;
+			CurrentCamera->Zoom -= PrevMouseScroll.Y() - Input::GetInstance().GetMouseScrollOffset().Y();
 		if (CurrentCamera->Zoom <= 1.0f)
 			CurrentCamera->Zoom = 1.0f;
 		if (CurrentCamera->Zoom >= 45.0f)
