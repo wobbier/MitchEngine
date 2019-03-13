@@ -8,6 +8,7 @@
 #include <DirectXColors.h>
 #include "Graphics/SkyBox.h"
 #include "Brofiler.h"
+#include "Graphics/Plane.h"
 
 using namespace DirectX;
 using namespace Windows::Foundation;
@@ -42,6 +43,7 @@ namespace Moonlight
 
 	void Renderer::Init()
 	{
+		//Grid = new Plane("Assets/skybox.jpg", GetDevice());
 		Sky = new SkyBox("Assets/skybox.jpg");
 	}
 
@@ -55,7 +57,7 @@ namespace Moonlight
 
 	}
 
-	IDevice& Renderer::GetDevice()
+	D3D12Device& Renderer::GetDevice()
 	{
 		return *m_device;
 	}
@@ -109,7 +111,7 @@ namespace Moonlight
 		XMMATRIX perspectiveMatrix = XMMatrixPerspectiveFovRH(
 			fovAngleY,
 			aspectRatio,
-			0.01f,
+			1.f,
 			100.0f
 		);
 
@@ -146,14 +148,11 @@ namespace Moonlight
 				nullptr
 			);
 			Sky->Draw();
-		}
 
-		m_device->ResetCullingMode();
+			m_device->ResetCullingMode();
 
-		for (const ModelCommand& model : Models)
-		{
-			BROFILER_CATEGORY("Render::ModelCommand", Brofiler::Color::OrangeRed);
-			XMStoreFloat4x4(&m_constantBufferData.model, XMMatrixTranspose(model.Transform));
+			/*
+			XMStoreFloat4x4(&m_constantBufferData.model, XMMatrixTranspose(XMMatrixIdentity()));
 			// Prepare the constant buffer to send it to the graphics device.
 			context->UpdateSubresource1(
 				m_constantBuffer.Get(),
@@ -173,18 +172,48 @@ namespace Moonlight
 				nullptr,
 				nullptr
 			);
-			Shader* cachedShader = model.ModelShader;
-			for (Mesh* mesh : model.Meshes)
-			{
-				BROFILER_CATEGORY("Render::SingleMesh", Brofiler::Color::OrangeRed);
-				
-				//if (model.ModelShader != cachedShader)
-				{
-					cachedShader = model.ModelShader;
-					cachedShader->Use();
-				}
 
-				mesh->Draw();
+			Grid->Draw(GetDevice());
+			*/
+		}
+
+		{
+			for (const ModelCommand& model : Models)
+			{
+				BROFILER_CATEGORY("Render::ModelCommand", Brofiler::Color::OrangeRed);
+				XMStoreFloat4x4(&m_constantBufferData.model, XMMatrixTranspose(model.Transform));
+				// Prepare the constant buffer to send it to the graphics device.
+				context->UpdateSubresource1(
+					m_constantBuffer.Get(),
+					0,
+					NULL,
+					&m_constantBufferData,
+					0,
+					0,
+					0
+				);
+
+				// Send the constant buffer to the graphics device.
+				context->VSSetConstantBuffers1(
+					0,
+					1,
+					m_constantBuffer.GetAddressOf(),
+					nullptr,
+					nullptr
+				);
+				Shader* cachedShader = model.ModelShader;
+				for (Mesh* mesh : model.Meshes)
+				{
+					BROFILER_CATEGORY("Render::SingleMesh", Brofiler::Color::OrangeRed);
+
+					//if (model.ModelShader != cachedShader)
+					{
+						cachedShader = model.ModelShader;
+						cachedShader->Use();
+					}
+
+					mesh->Draw();
+				}
 			}
 		}
 

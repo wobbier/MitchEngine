@@ -51,10 +51,10 @@ namespace Moonlight
 		IDWriteFactory3*			GetDWriteFactory() const { return m_dwriteFactory.Get(); }
 		IWICImagingFactory2*		GetWicImagingFactory() const { return m_wicFactory.Get(); }
 
+		virtual void CreateWindowSizeDependentResources() final;
 	private:
 		virtual void CreateFactories() final;
 		virtual void CreateDeviceResources() final;
-		virtual void CreateWindowSizeDependentResources() final;
 		void UpdateRenderTargetSize();
 
 		// Direct3D objects.

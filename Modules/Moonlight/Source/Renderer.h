@@ -37,7 +37,7 @@ namespace Moonlight
 		void SetWindow();
 		void RegisterDeviceNotify(IDeviceNotify* deviceNotify);
 
-		IDevice& GetDevice();
+		D3D12Device& GetDevice();
 
 		void Update(float dt);
 		void Render();
@@ -51,6 +51,7 @@ namespace Moonlight
 		void WindowResized(const Vector2& NewSize);
 	private:
 		class SkyBox* Sky;
+		class Plane* Grid;
 
 		class D3D12Device* m_device;
 
