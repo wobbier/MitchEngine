@@ -3,7 +3,8 @@
 #include "Dementia.h"
 #include "Resource/Resource.h"
 
-class Cubemap : public Resource
+class Cubemap
+	: public Resource
 {
 public:
 	unsigned int Id;
@@ -13,10 +14,8 @@ public:
 	int Width;
 	int Height;
 
-	Cubemap();
+	Cubemap(const FilePath& InFilePath);
 	~Cubemap();
-
-	static Cubemap* Load(const FilePath& InFilePath);
 
 	// Textures should not be copied around in memory
 	ME_NONCOPYABLE(Cubemap);

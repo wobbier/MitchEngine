@@ -10,9 +10,9 @@ namespace Moonlight
 	public:
 		Material();
 		~Material();
-		void SetTexture(const TextureType& textureType, Moonlight::Texture* loadedTexture);
+		void SetTexture(const TextureType& textureType, std::shared_ptr<Moonlight::Texture> loadedTexture);
 		const Texture* GetTexture(const TextureType& type) const;
 	private:
-		std::vector<Texture*> Textures;
+		std::vector<std::shared_ptr<Texture>> Textures;
 	};
 }

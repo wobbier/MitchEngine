@@ -3,19 +3,12 @@
 #include "Cubemap.h"
 #include "Logger.h"
 
-Cubemap::Cubemap() : Resource()
+Cubemap::Cubemap(const FilePath& InFilePath)
+	: Resource(InFilePath)
 {
 }
 
 Cubemap::~Cubemap()
 {
 	// TODO: Unload Cubemaps
-}
-
-Cubemap* Cubemap::Load(const FilePath& InFilePath)
-{
-	Cubemap* LoadedCubemap = new Cubemap();
-
-
-	return LoadedCubemap;
 }

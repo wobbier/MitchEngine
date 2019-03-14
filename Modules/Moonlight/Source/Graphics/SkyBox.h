@@ -16,11 +16,10 @@ namespace Moonlight
 	public:
 		SkyBox(const std::string& Path);
 
-		class Texture* SkyMap = nullptr;
+		std::shared_ptr<class Texture> SkyMap = nullptr;
 		class Shader* SkyShader = nullptr;
 
 		void Draw();
-
 
 	private:
 		ID3D11RasterizerState* CCWcullMode;
@@ -29,6 +28,6 @@ namespace Moonlight
 		ID3D11DepthStencilState* NoDepth;
 		ID3D11RasterizerState* RSCullNone;
 
-		ModelResource* SkyModel;
+		std::shared_ptr<class ModelResource> SkyModel;
 	};
 }

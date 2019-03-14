@@ -1,9 +1,7 @@
 #pragma once
 #include "ECS/Core.h"
 #include <btBulletDynamicsCommon.h>
-
 #include "LinearMath/btIDebugDraw.h"
-
 
 class GLDebugDrawer : public btIDebugDraw
 {
@@ -44,6 +42,17 @@ public:
 
 	PhysicsCore();
 	~PhysicsCore();
+
+
+	static inline Vector3 ToVector3(const btVector3& other)
+	{
+		return Vector3(other.getX(), other.getY(), other.getZ());
+	}
+
+	static inline btVector3 ToBulletVector(const Vector3& other)
+	{
+		return btVector3(other.X(), other.Y(), other.Z());
+	}
 
 	// Separate init from construction code.
 	virtual void Init() final;

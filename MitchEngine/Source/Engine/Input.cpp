@@ -20,6 +20,7 @@ bool Input::IsKeyDown(KeyCode key)
 	BROFILER_CATEGORY("Input::IsKeyDown", Brofiler::Color::YellowGreen);
 #if ME_PLATFORM_WIN64
 	SHORT keyState = GetAsyncKeyState(key);
+	
 	if ((1 << 15) & keyState)
 #else
 	CoreVirtualKeyStates keyPress = Windows::UI::Core::CoreWindow::GetForCurrentThread()->GetAsyncKeyState(key);
@@ -47,8 +48,8 @@ Vector2 Input::GetMousePosition()
 	POINT position;
 	if (GetCursorPos(&position))
 	{
-		newPosition.SetX(position.x);
-		newPosition.SetY(position.y);
+		newPosition.SetX(static_cast<float>(position.x));
+		newPosition.SetY(static_cast<float>(position.y));
 	}
 #else
 	newPosition.SetX(CoreWindow::GetForCurrentThread()->PointerPosition.X);

@@ -104,7 +104,7 @@ Vector2 D3D12Window::GetSize() const
 
 	GetWindowRect(Window, &newSize);
 
-	return Vector2(newSize.right - newSize.left, newSize.bottom - newSize.top);
+	return Vector2(static_cast<float>(newSize.right - newSize.left), static_cast<float>(newSize.bottom - newSize.top));
 }
 
 LRESULT CALLBACK WinProc(HWND D3D12Window, unsigned int msg, WPARAM wp, LPARAM lp)
@@ -119,7 +119,7 @@ LRESULT CALLBACK WinProc(HWND D3D12Window, unsigned int msg, WPARAM wp, LPARAM l
 		{
 			RECT newSize;
 			GetWindowRect(D3D12Window, &newSize);
-			Game::GetEngine().GetRenderer().WindowResized(Vector2(newSize.right - newSize.left, newSize.bottom - newSize.top));
+			Game::GetEngine().GetRenderer().WindowResized(Vector2(static_cast<float>(newSize.right - newSize.left), static_cast<float>(newSize.bottom - newSize.top)));
 		}
 		//
 	default:

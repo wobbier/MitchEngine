@@ -12,8 +12,8 @@ Animation::~Animation()
 void Animation::Init()
 {
 	FPS = 60.f;
-	CurrentFrame = Vector2(0, 0);
-	GridSize = Vector2(1, 1);
+	CurrentFrame = Vector2(0.f, 0.f);
+	GridSize = Vector2(1.f, 1.f);
 	FramesAccumulated = 0;
 }
 
@@ -25,8 +25,8 @@ const float Animation::GetFramesAccumulated() const
 
 void Animation::SetAnimationInfo(int InWidth, int InHeight, int InColumns, int InRows)
 {
-	CurrentFrame = Vector2(2, 4);
-	GridSize = Vector2(InColumns, InRows);
+	CurrentFrame = Vector2(2.f, 4.f);
+	GridSize = Vector2(static_cast<float>(InColumns), static_cast<float>(InRows));
 }
 
 Animation::State::State() : Name("Default"), FPS(60.f)

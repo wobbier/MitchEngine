@@ -1,16 +1,25 @@
 #pragma once
 #include <glm.hpp>
+#include "LinearMath/btVector3.h"
 
 class Vector3
 {
 public:
+
+#pragma region Constructors
+
 	Vector3(float x, float y, float z)
 		: m_vector(x, y, z)
 	{
 	}
+	Vector3(float val)
+		: m_vector(val)
+	{
+	}
 
+	// #TODO Make this private
 	Vector3(const glm::vec3& other)
-		: m_vector(other)
+		: m_vector(std::move(other))
 	{
 	}
 
@@ -18,15 +27,12 @@ public:
 		: m_vector(0.f, 0.f, 0.f)
 	{
 	}
+#pragma endregion
 
+#pragma region Operators
 	Vector3 operator*(const Vector3& other)
 	{
 		return Vector3(m_vector * other.m_vector);
-	}
-
-	Vector3 operator*(const float& other)
-	{
-		return Vector3(m_vector * other);
 	}
 
 	Vector3 operator+(const Vector3& other)
@@ -37,6 +43,12 @@ public:
 	Vector3 operator-(const Vector3& other)
 	{
 		return Vector3(m_vector - other.m_vector);
+	}
+
+
+	Vector3 operator-() const
+	{
+		return Vector3(-m_vector);
 	}
 
 	Vector3& operator+=(const Vector3& other)
@@ -59,6 +71,8 @@ public:
 	{
 		return m_vector != other.m_vector;
 	}
+
+#pragma endregion
 
 	const float X() const
 	{
@@ -90,15 +104,40 @@ public:
 		m_vector[2] = z;
 	}
 
-	float operator[](float index)
+	float operator[](int index)
 	{
 		return m_vector[index];
 	}
 
-	glm::vec3 GetInternalVec()
+	Vector3 Cross(const Vector3& other)
+	{
+		return Vector3(glm::cross(m_vector, other.m_vector));
+	}
+
+	void Normalize()
+	{
+		m_vector = glm::normalize(m_vector);
+	}
+
+	Vector3 Normalized()
+	{
+		return Vector3(glm::normalize(m_vector));
+	}
+
+	const glm::vec3& GetInternalVec() const
 	{
 		return m_vector;
 	}
 private:
 	glm::vec3 m_vector;
 };
+
+inline Vector3 operator*(float lhs, const Vector3 rhs)
+{
+	return Vector3(lhs * rhs.GetInternalVec());
+}
+
+inline Vector3 operator*(const Vector3 lhs, float rhs)
+{
+	return Vector3(lhs.GetInternalVec() * rhs);
+}

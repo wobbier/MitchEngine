@@ -14,26 +14,21 @@
 #include "Graphics/Material.h"
 #include "Resource/ResourceCache.h"
 
-ModelResource::ModelResource()
-{
-}
-
 ModelResource::ModelResource(const FilePath& path)
-	: Path(path.FullPath)
-	, Directory(path.Directory)
+	: Resource(path)
 {
-
+	Load();
 }
 
 ModelResource::~ModelResource()
 {
-
+	Resource::~Resource();
 }
 
 void ModelResource::Load()
 {
 	Assimp::Importer importer;
-	const aiScene* scene = importer.ReadFile(Path.c_str(), aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
+	const aiScene* scene = importer.ReadFile(Path.FullPath.c_str(), aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
 	if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
 	{
 		std::cout << "ERROR::ASSIMP:: " << importer.GetErrorString() << std::endl;
@@ -41,18 +36,6 @@ void ModelResource::Load()
 	}
 
 	ProcessNode(scene->mRootNode, scene);
-}
-
-ModelResource* ModelResource::Load(const FilePath& InFilePath)
-{
-	ModelResource* model = new ModelResource(InFilePath.FullPath);
-
-	// TODO ASync
-	{
-		model->Load();
-	}
-
-	return model;
 }
 
 void ModelResource::SetShader(Moonlight::Shader* shader)
@@ -150,9 +133,8 @@ void ModelResource::LoadMaterialTextures(Moonlight::Material* newMaterial, aiMat
 		mat->GetTexture(type, i, &str);
 		if (std::string(str.C_Str()) != ".")
 		{
-			Moonlight::Texture* texture = ResourceCache::GetInstance().Get<Moonlight::Texture>(Directory + std::string(str.C_Str()));
+			std::shared_ptr<Moonlight::Texture> texture = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path.Directory + std::string(str.C_Str()));
 			texture->Type = typeName;
-			texture->path = str.C_Str();
 			newMaterial->SetTexture(typeName, texture);
 		}
 	}

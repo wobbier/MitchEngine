@@ -2,7 +2,6 @@
 #include "Cores/PhysicsCore.h"
 #include "Components/Transform.h"
 #include "Components/Physics/Rigidbody.h"
-//#include "Box2D/Box2D.h"
 
 #define M_PI 3.14159
 #define RADIANS_TO_DEGREES(__ANGLE__) ((__ANGLE__) / M_PI * 180.0)

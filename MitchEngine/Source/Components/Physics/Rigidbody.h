@@ -3,7 +3,8 @@
 #include <btBulletDynamicsCommon.h>
 #include "Math/Vector3.h"
 
-class Rigidbody : public Component<Rigidbody>
+class Rigidbody
+	: public Component<Rigidbody>
 {
 	friend class PhysicsCore;
 public:
@@ -14,7 +15,7 @@ public:
 	virtual void Init() final;
 
 	bool IsRigidbodyInitialized();
-
+	void ApplyForce(const Vector3& direction, float force);
 private:
 	void CreateObject(const Vector3& Position);
 	btRigidBody* InternalRigidbody;

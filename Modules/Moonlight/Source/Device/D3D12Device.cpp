@@ -334,8 +334,8 @@ namespace Moonlight
 	void D3D12Device::UpdateRenderTargetSize()
 	{
 		// Prevent zero size DirectX content from being created.
-		m_outputSize.SetX(std::fmax(static_cast<int>(m_logicalSize.X()), 1));
-		m_outputSize.SetY(std::fmax(static_cast<int>(m_logicalSize.Y()), 1));
+		m_outputSize.SetX(static_cast<float>(std::fmax(static_cast<int>(m_logicalSize.X()), 1)));
+		m_outputSize.SetY(static_cast<float>(std::fmax(static_cast<int>(m_logicalSize.Y()), 1)));
 	}
 
 	// This method is called in the event handler for the SizeChanged event.

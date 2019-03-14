@@ -2,6 +2,7 @@
 #include "Transform.h"
 #include <algorithm>
 #include <gtc/matrix_transform.hpp>
+#include "Math/Vector3.h"
 
 Transform::Transform()
 	: WorldTransform(1.f)
@@ -38,6 +39,12 @@ void Transform::SetScale(Vector3 NewScale)
 	SetDirty(true);
 }
 
+void Transform::SetScale(float NewScale)
+{
+	Scale = Vector3(NewScale);
+	SetDirty(true);
+}
+
 void Transform::Translate(Vector3 NewPosition)
 {
 	Position += NewPosition;
@@ -66,7 +73,7 @@ void Transform::SetDirty(bool Dirty)
 	{
 		for (auto Child : Children)
 		{
-			//if (!Child->IsDirty)
+			if (!Child->IsDirty)
 			{
 				Child->SetDirty(Dirty);
 			}

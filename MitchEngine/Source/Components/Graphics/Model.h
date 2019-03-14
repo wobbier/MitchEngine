@@ -17,7 +17,7 @@ public:
 	// Separate init from construction code.
 	virtual void Init() final;
 
-	ModelResource* ModelHandle = nullptr;
+	std::shared_ptr<ModelResource> ModelHandle = nullptr;
 	Moonlight::Shader* ModelShader = nullptr;
 
 	unsigned int GetId();

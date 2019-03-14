@@ -271,7 +271,7 @@ namespace Moonlight
 		}
 
 		Models.push_back(std::move(NewModel));
-		return Models.size() - 1;
+		return static_cast<unsigned int>(Models.size() - 1);
 	}
 
 	bool Renderer::PopModel(unsigned int id)

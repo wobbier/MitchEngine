@@ -14,14 +14,14 @@ namespace Moonlight
 
 	}
 
-	void Material::SetTexture(const TextureType& textureType, Moonlight::Texture* loadedTexture)
+	void Material::SetTexture(const TextureType& textureType, std::shared_ptr<Moonlight::Texture> loadedTexture)
 	{
 		Textures[textureType] = loadedTexture;
 	}
 
 	const Moonlight::Texture* Material::GetTexture(const TextureType& type) const
 	{
-		return Textures[type];
+		return Textures[type].get();
 	}
 
 }

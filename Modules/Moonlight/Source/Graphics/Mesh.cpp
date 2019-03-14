@@ -37,7 +37,7 @@ namespace Moonlight
 		vertexBufferData.pSysMem = &vertices[0];
 		vertexBufferData.SysMemPitch = 0;
 		vertexBufferData.SysMemSlicePitch = 0;
-		CD3D11_BUFFER_DESC vertexBufferDesc(sizeof(Vertex) * vertices.size(), D3D11_BIND_VERTEX_BUFFER);
+		CD3D11_BUFFER_DESC vertexBufferDesc(static_cast<UINT>(sizeof(Vertex) * vertices.size()), D3D11_BIND_VERTEX_BUFFER);
 		DX::ThrowIfFailed(
 			device.GetD3DDevice()->CreateBuffer(
 				&vertexBufferDesc,
@@ -46,7 +46,7 @@ namespace Moonlight
 			)
 		);
 
-		m_indexCount = indices.size();
+		m_indexCount = static_cast<unsigned int>(indices.size());
 
 		D3D11_SUBRESOURCE_DATA indexBufferData = { 0 };
 		indexBufferData.pSysMem = &indices[0];

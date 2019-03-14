@@ -1,28 +1,23 @@
 #pragma once
 #include "ResourceCache.h"
 #include <string>
+#include "FilePath.h"
 
 class Resource
 {
 	friend class ResourceCache;
 public:
-	Resource() = default;
-	virtual ~Resource() = default;
+	Resource() = delete;
+	bool IsCached() const;
 
-	bool IsCached() const
-	{
-		return Resources != nullptr;
-	}
+	ResourceCache* GetResourceCache();
 
-	ResourceCache* GetResourceCache()
-	{
-		return Resources;
-	}
+	const ResourceCache* GetResourceCache() const;
 
-	const ResourceCache* GetResourceCache() const
-	{
-		return Resources;
-	}
+protected:
+	Resource(const FilePath& path);
+	virtual ~Resource();
+	FilePath Path;
 
 private:
 	ResourceCache * Resources;

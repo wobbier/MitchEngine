@@ -21,16 +21,12 @@ public:
 	ModelResource(const FilePath& path);
 	~ModelResource();
 
-	static ModelResource* Load(const FilePath& InFilePath);
-
 	void SetShader(Moonlight::Shader* shader);
 
 	std::vector<Moonlight::Mesh*> Meshes;
 private:
 	void Load();
 
-	std::string Directory;
-	std::string Path;
 	void ProcessNode(aiNode *node, const aiScene *scene);
 
 	Moonlight::Mesh* ProcessMesh(aiMesh *mesh, const aiScene *scene);

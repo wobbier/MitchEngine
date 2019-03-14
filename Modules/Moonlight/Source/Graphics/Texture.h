@@ -15,7 +15,8 @@ namespace Moonlight
 		Count
 	};
 
-	class Texture : public Resource
+	class Texture
+		: public Resource
 	{
 	public:
 		unsigned int Id;
@@ -25,15 +26,11 @@ namespace Moonlight
 		int Width;
 		int Height;
 
-		Texture();
+		Texture(const FilePath& InFilePath);
 		~Texture();
-
-		static Texture* Load(const FilePath& InFilePath);
 
 		// Textures should not be copied around in memory
 		ME_NONCOPYABLE(Texture);
-		int nrChannels;
-		std::string path;
 
 		ID3D11ShaderResourceView* CubesTexture;
 		ID3D11SamplerState* CubesTexSamplerState;

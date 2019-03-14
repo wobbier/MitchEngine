@@ -1,5 +1,6 @@
 #include "PCH.h"
 #include "Rigidbody.h"
+#include "Cores/PhysicsCore.h"
 
 Rigidbody::Rigidbody()
 {
@@ -18,6 +19,11 @@ void Rigidbody::Init()
 bool Rigidbody::IsRigidbodyInitialized()
 {
 	return IsInitialized;
+}
+
+void Rigidbody::ApplyForce(const Vector3& direction, float force)
+{
+	InternalRigidbody->applyForce(PhysicsCore::ToBulletVector(direction * force), -PhysicsCore::ToBulletVector(direction));
 }
 
 void Rigidbody::CreateObject(const Vector3& Position)

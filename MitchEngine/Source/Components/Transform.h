@@ -22,6 +22,7 @@ public:
 	void SetRotation(Vector3 euler);
 	void SetRotation(glm::quat quat);
 	void SetScale(Vector3 NewScale);
+	void SetScale(float NewScale);
 	void Translate(Vector3 NewTransform);
 	Vector3 GetPosition();
 

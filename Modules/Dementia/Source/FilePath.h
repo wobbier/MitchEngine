@@ -7,6 +7,8 @@
 class FilePath
 {
 public:
+	FilePath() = default;
+
 	FilePath(const std::string& InFile)
 	{
 		char buf[1024];

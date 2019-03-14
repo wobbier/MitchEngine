@@ -8,6 +8,7 @@
 #include "Mesh.h"
 #include "Graphics/ModelResource.h"
 #include "Utils/DirectXHelper.h"
+#include "Texture.h"
 
 using namespace DirectX;
 
@@ -69,9 +70,6 @@ namespace Moonlight
 
 		}
 
-		class Texture* SkyMap = nullptr;
-		class Shader* SkyShader = nullptr;
-
 		void Draw(const D3D12Device& device)
 		{
 			auto context = device.GetD3DDeviceContext();
@@ -87,6 +85,9 @@ namespace Moonlight
 		}
 
 
+		std::shared_ptr<Texture> SkyMap = nullptr;
+		class Shader* SkyShader = nullptr;
+
 	private:
 		ID3D11RasterizerState* CCWcullMode;
 		ID3D11RasterizerState* CWcullMode;
@@ -94,6 +95,6 @@ namespace Moonlight
 		ID3D11DepthStencilState* NoDepth;
 		ID3D11RasterizerState* RSCullNone;
 
-		ModelResource* SkyModel;
+		std::shared_ptr<ModelResource> SkyModel;
 	};
 }
