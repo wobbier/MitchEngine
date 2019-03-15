@@ -1,6 +1,9 @@
 #pragma once
 #include "ECS/Core.h"
 #include "Events/EventReceiver.h"
+
+// #NOTE For some reason the perlin noise needs DirectXMath included before it.
+#include <DirectXMath.h>
 #include "PerlinNoise.hpp"
 
 class CameraShakeCore

@@ -1,7 +1,5 @@
 #pragma once
 #include "ECS/Component.h"
-#include <string>
-#include <glm.hpp>
 #include "Math/Vector3.h"
 
 class CameraShake
