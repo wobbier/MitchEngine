@@ -104,7 +104,12 @@ public:
 		m_vector[2] = z;
 	}
 
-	float operator[](int index)
+	float& operator[](int index)
+	{
+		return m_vector[index];
+	}
+
+	const float& operator[](int index) const
 	{
 		return m_vector[index];
 	}
