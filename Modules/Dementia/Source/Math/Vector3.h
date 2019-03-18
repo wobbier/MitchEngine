@@ -12,6 +12,10 @@ public:
 		: m_vector(x, y, z)
 	{
 	}
+	Vector3(int x, int y, int z)
+		: m_vector(static_cast<float>(x), static_cast<float>(y), static_cast<float>(z))
+	{
+	}
 	Vector3(float val)
 		: m_vector(val)
 	{

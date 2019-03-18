@@ -8,6 +8,16 @@
 #include "Texture.h"
 #include "Brofiler.h"
 
+inline std::vector<char> ReadToByteArray(const char* filename)
+{
+	std::vector<char> data;
+	std::ifstream file(filename, std::ios::in | std::ios::binary | std::ios::ate);
+	data.resize(file.tellg());
+	file.seekg(0, std::ios::beg);
+	file.read(&data[0], data.size());
+	return data;
+}
+
 namespace Moonlight
 {
 	Shader::Shader(const std::string& InVertexPath, const std::string& InPixelPath)
@@ -15,43 +25,43 @@ namespace Moonlight
 		// I should compile the hlsl at runtime in debug
 
 		// Retrieve the shader source code from paths
-		std::string VertexSource;
-		std::string FragSource;
 		FilePath vPath(InVertexPath);
 		FilePath fPath(InPixelPath);
+		std::vector<char> VertexSource = ReadToByteArray(vPath.FullPath.c_str());
+		std::vector<char> FragSource = ReadToByteArray(fPath.FullPath.c_str());
+		
+		//try
+		//{
+		//	// Open files
+		//	std::ifstream vShaderFile(vPath.FullPath);
+		//	std::ifstream fShaderFile(fPath.FullPath);
+		//	std::stringstream vShaderStream, fShaderStream;
 
-		try
-		{
-			// Open files
-			std::ifstream vShaderFile(vPath.FullPath);
-			std::ifstream fShaderFile(fPath.FullPath);
-			std::stringstream vShaderStream, fShaderStream;
+		//	// Read file's buffer contents into streams
+		//	vShaderStream << vShaderFile.rdbuf();
+		//	fShaderStream << fShaderFile.rdbuf();
 
-			// Read file's buffer contents into streams
-			vShaderStream << vShaderFile.rdbuf();
-			fShaderStream << fShaderFile.rdbuf();
+		//	// close file handlers
+		//	vShaderFile.close();
+		//	fShaderFile.close();
 
-			// close file handlers
-			vShaderFile.close();
-			fShaderFile.close();
+		//	// Convert stream into string
+		//	VertexSource = vShaderStream.str();
+		//	FragSource = fShaderStream.str();
+		//}
+		//catch (std::exception e)
+		//{
+		//	std::cout << "ERROR::SHADER::FILE_NOT_SUCCESFULLY_READ" << std::endl;
+		//}
 
-			// Convert stream into string
-			VertexSource = vShaderStream.str();
-			FragSource = fShaderStream.str();
-		}
-		catch (std::exception e)
-		{
-			std::cout << "ERROR::SHADER::FILE_NOT_SUCCESFULLY_READ" << std::endl;
-		}
-
-		const char* vShaderCode = VertexSource.c_str();
-		const char * fShaderCode = FragSource.c_str();
+		//const char* vShaderCode = VertexSource.c_str();
+		//const char * fShaderCode = FragSource.c_str();
 
 		auto& dxDevice = static_cast<D3D12Device&>(Game::GetEngine().GetRenderer().GetDevice());
 
 		DX::ThrowIfFailed(
 			dxDevice.GetD3DDevice()->CreateVertexShader(
-				&vShaderCode[0],
+				VertexSource.data(),
 				VertexSource.size(),
 				nullptr,
 				&m_vertexShader
@@ -70,7 +80,7 @@ namespace Moonlight
 			dxDevice.GetD3DDevice()->CreateInputLayout(
 				vertexDesc,
 				ARRAYSIZE(vertexDesc),
-				&vShaderCode[0],
+				VertexSource.data(),
 				VertexSource.size(),
 				&m_inputLayout
 			)
@@ -78,7 +88,7 @@ namespace Moonlight
 
 		DX::ThrowIfFailed(
 			dxDevice.GetD3DDevice()->CreatePixelShader(
-				&fShaderCode[0],
+				FragSource.data(),
 				FragSource.size(),
 				nullptr,
 				&m_pixelShader

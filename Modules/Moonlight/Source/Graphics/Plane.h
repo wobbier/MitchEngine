@@ -22,10 +22,10 @@ namespace Moonlight
 			FilePath SystemPath(Path);
 
 			SkyMap = ResourceCache::GetInstance().Get<Texture>(Path);
-			SkyShader = new Shader("Assets/Shaders/DepthVertexShader.cso", "Assets/Shaders/DepthPixelShader.cso");
+			SkyShader = new Shader("Assets/Shaders/GridVertexShader.cso", "Assets/Shaders/GridPixelShader.cso");
 			SkyModel = ResourceCache::GetInstance().Get<ModelResource>(FilePath("Assets/Plane.fbx"));
 			SkyModel->Meshes[0]->material->SetTexture(TextureType::Diffuse, SkyMap);
-
+			
 			D3D11_RASTERIZER_DESC cmdesc;
 
 			ZeroMemory(&cmdesc, sizeof(D3D11_RASTERIZER_DESC));

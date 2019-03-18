@@ -43,7 +43,7 @@ namespace Moonlight
 
 	void Renderer::Init()
 	{
-		//Grid = new Plane("Assets/skybox.jpg", GetDevice());
+		Grid = new Plane("Assets/skybox.jpg", GetDevice());
 		Sky = new SkyBox("Assets/skybox.jpg");
 	}
 
@@ -86,8 +86,10 @@ namespace Moonlight
 		ID3D11RenderTargetView *const targets[1] = { m_device->GetBackBufferRenderTargetView() };
 		context->OMSetRenderTargets(1, targets, m_device->GetDepthStencilView());
 
+		float darkGrey = (57.0f / 255.0f);
+		DirectX::XMVECTORF32 color = { {darkGrey, darkGrey, darkGrey, 1.0f} };
 		// Clear the back buffer and depth stencil view.
-		context->ClearRenderTargetView(m_device->GetBackBufferRenderTargetView(), DirectX::Colors::RoyalBlue);
+		context->ClearRenderTargetView(m_device->GetBackBufferRenderTargetView(), color);
 		context->ClearDepthStencilView(m_device->GetDepthStencilView(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
 		Vector2 outputSize = m_device->GetOutputSize();
@@ -151,30 +153,8 @@ namespace Moonlight
 
 			m_device->ResetCullingMode();
 
-			/*
-			XMStoreFloat4x4(&m_constantBufferData.model, XMMatrixTranspose(XMMatrixIdentity()));
-			// Prepare the constant buffer to send it to the graphics device.
-			context->UpdateSubresource1(
-				m_constantBuffer.Get(),
-				0,
-				NULL,
-				&m_constantBufferData,
-				0,
-				0,
-				0
-			);
-
-			// Send the constant buffer to the graphics device.
-			context->VSSetConstantBuffers1(
-				0,
-				1,
-				m_constantBuffer.GetAddressOf(),
-				nullptr,
-				nullptr
-			);
-
-			Grid->Draw(GetDevice());
-			*/
+			
+			
 		}
 
 		{
@@ -216,6 +196,29 @@ namespace Moonlight
 				}
 			}
 		}
+
+		XMStoreFloat4x4(&m_constantBufferData.model, XMMatrixTranspose(XMMatrixIdentity()));
+		// Prepare the constant buffer to send it to the graphics device.
+		context->UpdateSubresource1(
+			m_constantBuffer.Get(),
+			0,
+			NULL,
+			&m_constantBufferData,
+			0,
+			0,
+			0
+		);
+
+		// Send the constant buffer to the graphics device.
+		context->VSSetConstantBuffers1(
+			0,
+			1,
+			m_constantBuffer.GetAddressOf(),
+			nullptr,
+			nullptr
+		);
+
+		Grid->Draw(GetDevice());
 
 		// The first argument instructs DXGI to block until VSync, putting the application
 		// to sleep until the next VSync. This ensures we don't waste any cycles rendering

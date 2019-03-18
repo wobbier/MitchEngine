@@ -172,7 +172,21 @@ namespace Moonlight
 
 		CommonStatesHelper = std::make_unique<DirectX::CommonStates>(m_d3dDevice.Get());
 
-		//GetD3DDeviceContext()->OMSetBlendState(CommonStatesHelper->AlphaBlend(), Colors::White, 0xFF000000);
+		ID3D11BlendState* d3dBlendState;
+		D3D11_BLEND_DESC omDesc;
+		ZeroMemory(&omDesc, sizeof(D3D11_BLEND_DESC));
+		omDesc.RenderTarget[0].BlendEnable = true;
+		omDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+		omDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+		omDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+		omDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+		omDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
+		omDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+		omDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+
+		DX::ThrowIfFailed(device->CreateBlendState(&omDesc, &d3dBlendState));
+
+		GetD3DDeviceContext()->OMSetBlendState(d3dBlendState, 0, 0xffffffff);
 	}
 
 	// These resources need to be recreated every time the window size is changed.
@@ -329,6 +343,7 @@ namespace Moonlight
 
 		m_d3dContext->RSSetViewports(1, &m_screenViewport);
 	}
+
 
 	// Determine the dimensions of the render target and whether it will be scaled down.
 	void D3D12Device::UpdateRenderTargetSize()

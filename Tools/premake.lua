@@ -254,21 +254,21 @@ vpaths {
 }
 if isUWP then
   postbuildcommands {
-    "fxc /T ps_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\SimplePixelShader.cso ..\\Assets\\Shaders\\SimplePixelShader.hlsl",
-    "fxc /T vs_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\SimpleVertexShader.cso ..\\Assets\\Shaders\\SimpleVertexShader.hlsl",
-    --"fxc /T vs_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\GridVertexShader.cso ..\\Assets\\Shaders\\GridVertexShader.hlsl",
-    --"fxc /T ps_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\GridPixelShader.cso ..\\Assets\\Shaders\\GridPixelShader.hlsl",
-    "fxc /T vs_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\DepthVertexShader.cso ..\\Assets\\Shaders\\DepthVertexShader.hlsl",
-    "fxc /T ps_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\DepthPixelShader.cso ..\\Assets\\Shaders\\DepthPixelShader.hlsl"
+    "fxc /T ps_5_0 /Fo ..\\Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\SimplePixelShader.cso ..\\Assets\\Shaders\\SimplePixelShader.hlsl",
+    "fxc /T vs_5_0 /Fo ..\\Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\SimpleVertexShader.cso ..\\Assets\\Shaders\\SimpleVertexShader.hlsl",
+    "fxc /T vs_5_0 /Fo ..\\Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\GridVertexShader.cso ..\\Assets\\Shaders\\GridVertexShader.hlsl",
+    "fxc /T ps_5_0 /Fo ..\\Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\GridPixelShader.cso ..\\Assets\\Shaders\\GridPixelShader.hlsl",
+    "fxc /T vs_5_0 /Fo ..\\Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\DepthVertexShader.cso ..\\Assets\\Shaders\\DepthVertexShader.hlsl",
+    "fxc /T ps_5_0 /Fo ..\\Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\DepthPixelShader.cso ..\\Assets\\Shaders\\DepthPixelShader.hlsl"
   }
 else
   postbuildcommands {
-    "fxc /T ps_4_0_level_9_3 /Fo ..\\Assets\\Shaders\\SimplePixelShader.cso ..\\Assets\\Shaders\\SimplePixelShader.hlsl",
-    "fxc /T vs_4_0_level_9_3 /Fo ..\\Assets\\Shaders\\SimpleVertexShader.cso ..\\Assets\\Shaders\\SimpleVertexShader.hlsl",
-    --"fxc /T vs_4_0_level_9_3 /Fo ..\\Assets\\Shaders\\GridVertexShader.cso ..\\Assets\\Shaders\\GridVertexShader.hlsl",
-    --"fxc /T ps_4_0_level_9_3 /Fo ..\\Assets\\Shaders\\GridPixelShader.cso ..\\Assets\\Shaders\\GridPixelShader.hlsl",
-    "fxc /T vs_4_0_level_9_3 /Fo ..\\Assets\\Shaders\\DepthVertexShader.cso ..\\Assets\\Shaders\\DepthVertexShader.hlsl",
-    "fxc /T ps_4_0_level_9_3 /Fo ..\\Assets\\Shaders\\DepthPixelShader.cso ..\\Assets\\Shaders\\DepthPixelShader.hlsl"
+    "fxc /T ps_5_0 /Fo ..\\Assets\\Shaders\\SimplePixelShader.cso ..\\Assets\\Shaders\\SimplePixelShader.hlsl",
+    "fxc /T vs_5_0 /Fo ..\\Assets\\Shaders\\SimpleVertexShader.cso ..\\Assets\\Shaders\\SimpleVertexShader.hlsl",
+    "fxc /T vs_5_0 /Fo ..\\Assets\\Shaders\\GridVertexShader.cso ..\\Assets\\Shaders\\GridVertexShader.hlsl",
+    "fxc /T ps_5_0 /Fo ..\\Assets\\Shaders\\GridPixelShader.cso ..\\Assets\\Shaders\\GridPixelShader.hlsl",
+    "fxc /T vs_5_0 /Fo ..\\Assets\\Shaders\\DepthVertexShader.cso ..\\Assets\\Shaders\\DepthVertexShader.hlsl",
+    "fxc /T ps_5_0 /Fo ..\\Assets\\Shaders\\DepthPixelShader.cso ..\\Assets\\Shaders\\DepthPixelShader.hlsl"
   }
 end
 configuration "with-renderdoc"
