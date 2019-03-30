@@ -2,7 +2,8 @@
 #include "Rigidbody.h"
 #include "Cores/PhysicsCore.h"
 
-Rigidbody::Rigidbody()
+Rigidbody::Rigidbody(ColliderType type)
+	: Type(type)
 {
 }
 
@@ -23,12 +24,24 @@ bool Rigidbody::IsRigidbodyInitialized()
 
 void Rigidbody::ApplyForce(const Vector3& direction, float force)
 {
+	InternalRigidbody->setWorldTransform(btTransform::getIdentity());
 	InternalRigidbody->applyForce(PhysicsCore::ToBulletVector(direction * force), -PhysicsCore::ToBulletVector(direction));
+	InternalRigidbody->activate();
 }
 
 void Rigidbody::CreateObject(const Vector3& Position)
 {
-	btCollisionShape* fallShape = new btBoxShape(btVector3(0.25, 0.25, 0.25));
+	btCollisionShape* fallShape;
+	switch (Type)
+	{
+	case ColliderType::Sphere:
+		fallShape = new btSphereShape(1.0f);
+		break;
+	case ColliderType::Box:
+	default:
+		fallShape = new btBoxShape(btVector3(1.0f, 1.0f, 1.0f));
+		break;
+	}
 
 	btDefaultMotionState* fallMotionState =
 		new btDefaultMotionState(btTransform(btQuaternion(0, 0, 0, 1), btVector3(Position.X(), Position.Y(), Position.Z())));

@@ -65,6 +65,9 @@ public:
 	bool operator!=(const Entity& entity) const { return !operator==(entity); }
 
 	template <typename T>
+	bool HasComponent();
+
+	template <typename T>
 	T& AddComponent(T* inComponent);
 
 	template <typename T, typename... Args>
@@ -86,9 +89,17 @@ private:
 	ID Id;
 
 	void AddComponent(BaseComponent* inComponent, TypeId inComponentTypeId);
+	const bool HasComponent(TypeId inComponentType) const;
 	BaseComponent& GetComponent(TypeId InTypeId) const;
 	void RemoveComponent(TypeId InComponentTypeId);
 };
+
+template <typename T>
+bool Entity::HasComponent()
+{
+	//static_assert(std::is_base_of<BaseComponent, T>(), "T is not a component, cannot add T to entity");
+	return HasComponent(T::GetTypeId());
+}
 
 template <typename T>
 T& Entity::AddComponent(T* inComponent)

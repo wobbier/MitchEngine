@@ -18,6 +18,11 @@ bool ComponentFilter::PassFilter(const ComponentTypeArray& InComponentTypeArray)
 		return false;
 	}
 
+	if ((InComponentTypeArray & RequiresOneOfComponentsList).any())
+	{
+		return true;
+	}
+
 	//if (!RequiresOneOfComponentsList.empty())
 	//{
 	//	if (RequiresOneOfComponentsList.intersects(InComponentTypeArray))

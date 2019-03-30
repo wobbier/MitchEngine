@@ -1,5 +1,5 @@
 #include "PCH.h"
-#include "MitchEngine.h"
+#include "Engine.h"
 #include "Logger.h"
 #include "Config.h"
 #include "Window/UWPWindow.h"
@@ -13,18 +13,18 @@
 #include "Window/IWindow.h"
 #include "Input.h"
 
-MitchEngine::MitchEngine()
+Engine::Engine()
 	: Running(true)
 	, GameClock(Clock::GetInstance())
 {
 }
 
-MitchEngine::~MitchEngine()
+Engine::~Engine()
 {
 
 }
 
-void MitchEngine::Init(Game* game)
+void Engine::Init(Game* game)
 {
 	if (m_isInitialized || !game)
 	{
@@ -72,7 +72,7 @@ void MitchEngine::Init(Game* game)
 	m_isInitialized = true;
 }
 
-void MitchEngine::Run()
+void Engine::Run()
 {
 	m_renderer->Init();
 	GameClock.Reset();
@@ -119,29 +119,29 @@ void MitchEngine::Run()
 	}
 }
 
-Moonlight::Renderer& MitchEngine::GetRenderer() const
+Moonlight::Renderer& Engine::GetRenderer() const
 {
 	return *m_renderer;
 }
 
-std::weak_ptr<World> MitchEngine::GetWorld() const
+std::weak_ptr<World> Engine::GetWorld() const
 {
 	return GameWorld;
 }
 
-const bool MitchEngine::IsInitialized() const
+const bool Engine::IsInitialized() const
 {
 	return m_isInitialized;
 }
 
-bool MitchEngine::IsRunning() const
+bool Engine::IsRunning() const
 {
 	return true;
 }
 
-void MitchEngine::Quit() { Running = false; }
+void Engine::Quit() { Running = false; }
 
-IWindow* MitchEngine::GetWindow()
+IWindow* Engine::GetWindow()
 {
 	return GameWindow;
 }

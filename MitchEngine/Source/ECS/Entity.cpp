@@ -16,6 +16,13 @@ Entity::~Entity()
 {
 }
 
+const bool Entity::HasComponent(TypeId inComponentType) const
+{
+	ComponentTypeArray ar = GameWorld->EntityAttributes.Storage.GetComponentTypes(*this);
+
+	return ar[inComponentType] == true;
+}
+
 void Entity::AddComponent(BaseComponent* inComponent, TypeId inComponentTypeId)
 {
 	GameWorld->EntityAttributes.Storage.AddComponent(*this, inComponent, inComponentTypeId);

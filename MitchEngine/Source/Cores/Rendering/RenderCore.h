@@ -4,6 +4,7 @@
 #include "Graphics/Shader.h"
 #include "Device/IDevice.h"
 #include "Renderer.h"
+#include "Graphics/ModelResource.h"
 
 class RenderCore
 	: public Core<RenderCore>
@@ -28,6 +29,8 @@ public:
 	virtual void OnDeviceRestored() override;
 
 private:
-
+	
 	Moonlight::Renderer* m_renderer;
+	std::shared_ptr<ModelResource> cube;
+	Moonlight::Shader* shader;
 };

@@ -5,14 +5,14 @@
 class Game;
 class IWindow;
 
-class MitchEngine
+class Engine
 {
 public:
 	const float FPS = 144.0f;
 	long long FrameRate;
 
-	MitchEngine();
-	~MitchEngine();
+	Engine();
+	~Engine();
 
 	void Init(Game* game);
 	void Run();

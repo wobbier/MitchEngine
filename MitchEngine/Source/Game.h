@@ -4,7 +4,7 @@
 #include "Resource/ResourceCache.h"
 #include "Config.h"
 #include "Engine/Clock.h"
-#include "Engine/MitchEngine.h"
+#include "Engine/Engine.h"
 
 class IWindow;
 
@@ -24,7 +24,7 @@ public:
 	virtual void Update(float DeltaTime);
 	virtual void End();
 
-	static MitchEngine& GetEngine() { return m_engine; }
+	static Engine& GetEngine() { return m_engine; }
 private:
-	static MitchEngine m_engine;
+	static Engine m_engine;
 };

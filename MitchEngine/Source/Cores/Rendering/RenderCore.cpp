@@ -11,13 +11,19 @@
 
 #include "Components/Camera.h"
 #include <iostream>
+#include "Components/Physics/Rigidbody.h"
+#include "Resource/ResourceCache.h"
+#include "Graphics/ModelResource.h"
 
 RenderCore::RenderCore()
-	: Base(ComponentFilter().Requires<Transform>().Requires<Model>())
+	: Base(ComponentFilter().Requires<Transform>().RequiresOneOf<Model>().RequiresOneOf<Rigidbody>())
 {
 	//m_sceneRenderer = std::unique_ptr<TestModelRenderer>(new TestModelRenderer(m_deviceResources));
 	m_renderer = &Game::GetEngine().GetRenderer();
 	m_renderer->RegisterDeviceNotify(this);
+
+	cube = ResourceCache::GetInstance().Get<ModelResource>(FilePath("Assets/cube.fbx"));
+	shader = new Moonlight::Shader("Assets/Shaders/SimpleVertexShader.cso", "Assets/Shaders/SimplePixelShader.cso");
 }
 
 void RenderCore::Init()
@@ -27,11 +33,26 @@ void RenderCore::Init()
 
 void RenderCore::OnEntityAdded(Entity& NewEntity)
 {
-	Moonlight::Renderer::ModelCommand command;
-	Model& model = NewEntity.GetComponent<Model>();
-	command.Meshes = model.ModelHandle->Meshes;
-	command.ModelShader = model.ModelShader;
-	model.Id = Game::GetEngine().GetRenderer().PushModel(command);
+	if (NewEntity.HasComponent<Model>())
+	{
+		Moonlight::Renderer::ModelCommand command;
+		Model& model = NewEntity.GetComponent<Model>();
+		command.Meshes = model.ModelHandle->Meshes;
+		command.ModelShader = model.ModelShader;
+		model.Id = Game::GetEngine().GetRenderer().PushModel(command);
+	}
+
+	if (NewEntity.HasComponent<Rigidbody>())
+	{
+		Moonlight::Renderer::ModelCommand command;
+		Rigidbody& rigidbody = NewEntity.GetComponent<Rigidbody>();
+
+		command.Meshes = cube->Meshes;
+		command.ModelShader = shader;//model.ModelShader;
+
+		rigidbody.Id = Game::GetEngine().GetRenderer().PushModel(command);
+		//rigidbody.GetColliderType();
+	}
 }
 
 RenderCore::~RenderCore()
@@ -52,10 +73,18 @@ void RenderCore::Update(float dt)
 	auto Renderables = GetEntities();
 	for (auto& InEntity : Renderables)
 	{
-		Model& model = InEntity.GetComponent<Model>();
 		Transform& transform = InEntity.GetComponent<Transform>();
+		if (InEntity.HasComponent<Model>())
+		{
+			Model& model = InEntity.GetComponent<Model>();
+			m_renderer->UpdateMatrix(model.GetId(), transform.GetMatrix());
+		}
 
-		m_renderer->UpdateMatrix(model.GetId(), transform.GetMatrix());
+		if (InEntity.HasComponent<Rigidbody>())
+		{
+			Rigidbody& rigidbody = InEntity.GetComponent<Rigidbody>();
+			m_renderer->UpdateMatrix(rigidbody.Id, rigidbody.GetMat());
+		}
 	}
 }
 

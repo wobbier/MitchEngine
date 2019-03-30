@@ -13,7 +13,7 @@
 #include "Window/D3D12Window.h"
 #include "Window/UWPWindow.h"
 
-MitchEngine Game::m_engine;
+Engine Game::m_engine;
 
 Game::Game()
 {
