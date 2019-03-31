@@ -15,6 +15,7 @@
 #include <DirectXMath.h>
 #include <queue>
 #include "Math/Vector2.h"
+#include <functional>
 
 namespace Moonlight
 {
@@ -40,7 +41,7 @@ namespace Moonlight
 		D3D12Device& GetDevice();
 
 		void Update(float dt);
-		void Render();
+		void Render(std::function<void()> func);
 
 		void ReleaseDeviceDependentResources();
 		void CreateDeviceDependentResources();
@@ -49,6 +50,7 @@ namespace Moonlight
 		bool PopModel(unsigned int id);
 
 		void WindowResized(const Vector2& NewSize);
+
 	private:
 		class SkyBox* Sky;
 		class Plane* Grid;
@@ -66,6 +68,5 @@ namespace Moonlight
 #if ME_ENABLE_RENDERDOC
 		RenderDocManager* RenderDoc;
 #endif
-
 	};
 }

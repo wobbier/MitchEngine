@@ -9,6 +9,10 @@
 #include "Graphics/SkyBox.h"
 #include "Brofiler.h"
 #include "Graphics/Plane.h"
+#include <functional>
+#include "imgui.h"
+#include "examples/imgui_impl_win32.h"
+#include "examples/imgui_impl_dx11.h"
 
 using namespace DirectX;
 using namespace Windows::Foundation;
@@ -66,8 +70,9 @@ namespace Moonlight
 	{
 	}
 
-	void Renderer::Render()
+	void Renderer::Render(std::function<void()> func)
 	{
+		bool show_demo_window = true;
 		BROFILER_CATEGORY("Renderer::Render", Brofiler::Color::CornflowerBlue);
 
 		Camera* currentCamera = Camera::CurrentCamera;
@@ -126,6 +131,7 @@ namespace Moonlight
 		const XMVECTORF32 at = { currentCamera->Position.X() + currentCamera->Front.X(), currentCamera->Position.Y() + currentCamera->Front.Y(), currentCamera->Position.Z() + currentCamera->Front.Z(), 0.0f };
 		const XMVECTORF32 up = { currentCamera->Up.X(), currentCamera->Up.Y(), currentCamera->Up.Z(), 0 };
 
+		//XMStoreFloat4x4(&m_constantBufferData.view, XMMatrixTranspose(XMMatrixIdentity()));
 		XMStoreFloat4x4(&m_constantBufferData.view, XMMatrixTranspose(XMMatrixLookAtRH(eye, at, up)));
 
 		{
@@ -220,6 +226,8 @@ namespace Moonlight
 
 		Grid->Draw(GetDevice());
 
+		func();
+
 		// The first argument instructs DXGI to block until VSync, putting the application
 		// to sleep until the next VSync. This ensures we don't waste any cycles rendering
 		// frames that will never be displayed to the screen.
@@ -297,4 +305,5 @@ namespace Moonlight
 
 		m_device->WindowSizeChanged(NewSize);
 	}
+
 }

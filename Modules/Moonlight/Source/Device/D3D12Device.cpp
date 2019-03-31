@@ -235,16 +235,17 @@ namespace Moonlight
 
 			swapChainDesc.Width = lround(m_d3dRenderTargetSize.X());		// Match the size of the window.
 			swapChainDesc.Height = lround(m_d3dRenderTargetSize.Y());
-			swapChainDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;				// This is the most common swap chain format.
+			swapChainDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;				// This is the most common swap chain format.
 			swapChainDesc.Stereo = false;
 			swapChainDesc.SampleDesc.Count = 1;								// Don't use multi-sampling.
 			swapChainDesc.SampleDesc.Quality = 0;
 			swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
 			swapChainDesc.BufferCount = 2;									// Use double-buffering to minimize latency.
 			swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;	// All Windows Store apps must use this SwapEffect.
-			swapChainDesc.Flags = 0;
-			swapChainDesc.Scaling = DXGI_SCALING_NONE;
-			swapChainDesc.AlphaMode = DXGI_ALPHA_MODE_IGNORE;
+			swapChainDesc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
+			//swapChainDesc.Windowed = TRUE;
+			//swapChainDesc.Scaling = DXGI_SCALING_NONE;
+			//swapChainDesc.AlphaMode = DXGI_ALPHA_MODE_IGNORE;
 
 			// This sequence obtains the DXGI factory that was used to create the Direct3D device above.
 			ComPtr<IDXGIDevice3> dxgiDevice;
@@ -280,6 +281,7 @@ namespace Moonlight
 					&swapChain
 				)
 			);
+			m_window = GetActiveWindow();
 #endif
 
 			DX::ThrowIfFailed(swapChain.As(&m_swapChain));

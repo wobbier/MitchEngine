@@ -52,6 +52,9 @@ namespace Moonlight
 		IWICImagingFactory2*		GetWicImagingFactory() const { return m_wicFactory.Get(); }
 
 		virtual void CreateWindowSizeDependentResources() final;
+#if ME_PLATFORM_WIN64
+		HWND m_window;
+#endif
 	private:
 		virtual void CreateFactories() final;
 		virtual void CreateDeviceResources() final;
@@ -77,9 +80,6 @@ namespace Moonlight
 		// Cached reference to the Window.
 #if ME_PLATFORM_UWP
 		Platform::Agile<Windows::UI::Core::CoreWindow> m_window;
-#endif
-#if ME_PLATFORM_WIN64
-		HWND m_window;
 #endif
 
 		// Cached device properties.

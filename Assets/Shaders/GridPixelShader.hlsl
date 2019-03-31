@@ -13,7 +13,7 @@ float4 main(PixelShaderInput input) : SV_TARGET
     float depth;
 
     depth = input.pos.z / input.pos.w;
-    depth *= 10;
+    //depth *= 10;
 
     if (input.tex.x > 0.495f && input.tex.x < 0.505f)
     {

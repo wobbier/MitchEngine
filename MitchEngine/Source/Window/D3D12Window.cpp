@@ -107,8 +107,11 @@ Vector2 D3D12Window::GetSize() const
 	return Vector2(static_cast<float>(newSize.right - newSize.left), static_cast<float>(newSize.bottom - newSize.top));
 }
 
+extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK WinProc(HWND D3D12Window, unsigned int msg, WPARAM wp, LPARAM lp)
 {
+	if (ImGui_ImplWin32_WndProcHandler(D3D12Window, msg, wp, lp))
+		return true;
 	switch (msg)
 	{
 	case WM_DESTROY:

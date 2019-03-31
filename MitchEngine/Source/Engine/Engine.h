@@ -42,4 +42,8 @@ private:
 	Game* m_game;
 	float AccumulatedTime = 0.0f;
 	bool m_isInitialized = false;
+
+#if ME_EDITOR
+	std::unique_ptr<class Havana> Editor;
+#endif
 };

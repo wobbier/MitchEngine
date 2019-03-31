@@ -12,6 +12,7 @@
 #include "Game.h"
 #include "Window/IWindow.h"
 #include "Input.h"
+#include "../../Havana/Source/Havana.h"
 
 Engine::Engine()
 	: Running(true)
@@ -51,7 +52,6 @@ void Engine::Init(Game* game)
 #endif
 
 	m_renderer = new Moonlight::Renderer();
-	m_renderer->WindowResized(GameWindow->GetSize());
 
 	GameWorld = std::make_shared<World>();
 
@@ -69,6 +69,10 @@ void Engine::Init(Game* game)
 
 	m_game->Initialize();
 
+#if ME_EDITOR
+	Editor = std::make_unique<Havana>(m_renderer);
+#endif
+
 	m_isInitialized = true;
 }
 
@@ -80,14 +84,20 @@ void Engine::Run()
 	forever
 	{
 		BROFILER_FRAME("MainLoop")
-			// Check and call events
-			GameWindow->ParseMessageQueue();
+
+		// Check and call events
+		GameWindow->ParseMessageQueue();
 
 		if (GameWindow->ShouldClose())
 		{
 			m_game->End();
 			break;
 		}
+		m_renderer->WindowResized(GameWindow->GetSize());
+
+#if ME_EDITOR
+		Editor->NewFrame();
+#endif
 
 		EventManager::GetInstance().FirePendingEvents();
 
@@ -107,14 +117,18 @@ void Engine::Run()
 
 		SceneNodes->Update(deltaTime);
 
-		if (AccumulatedTime >= 1.0f / FPS)
+		//if (AccumulatedTime >= 1.0f / FPS)
 		{
 			Cameras->Update(deltaTime);
 
 			ModelRenderer->Update(AccumulatedTime);
 
 			AccumulatedTime -= 1.0f / FPS;
-			m_renderer->Render();
+			m_renderer->Render([this]() {
+#if ME_EDITOR
+				Editor->Render();
+#endif
+			});
 		}
 	}
 }
