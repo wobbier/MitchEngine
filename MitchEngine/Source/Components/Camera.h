@@ -24,7 +24,7 @@ public:
 	~Camera() = default;
 
 	virtual void Init() override;
-	virtual void OnEditorInspect() final;
+
 	Matrix4 GetViewMatrix();
 	void UpdateCameraTransform(Vector3 TransformComponent);
 	bool IsCurrent();
@@ -32,4 +32,11 @@ public:
 	float GetFOV();
 private:
 	float m_FOV = 45.f;
+
+#if ME_EDITOR
+	virtual void OnEditorInspect() final
+	{
+		Havana::Text("Front", Front);
+	}
+#endif
 };

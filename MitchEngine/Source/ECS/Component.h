@@ -15,9 +15,11 @@ public:
 
 	virtual void Init() = 0;
 
-	virtual void OnEditorInspect() = 0;
-
 	EntityID Parent;
+
+#if ME_EDITOR
+	virtual void OnEditorInspect() = 0;
+#endif
 };
 
 template<typename T>
@@ -35,10 +37,11 @@ public:
 	{
 	}
 
+#if ME_EDITOR
 	virtual void OnEditorInspect() override
 	{
 	}
-private:
+#endif
 };
 
 using ComponentArray = std::vector<std::reference_wrapper<BaseComponent>>;

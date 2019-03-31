@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <gtc/matrix_transform.hpp>
 #include "Math/Vector3.h"
-#include "imgui.h"
 
 Transform::Transform()
 	: WorldTransform(1.f)
@@ -55,15 +54,6 @@ void Transform::Translate(Vector3 NewPosition)
 Vector3 Transform::GetPosition()
 {
 	return Position;
-}
-
-void Transform::OnEditorInspect()
-{
-	ImGui::Text("X: %f", GetPosition().X());
-	ImGui::SameLine();
-	ImGui::Text("Y: %f", GetPosition().Y());
-	ImGui::SameLine();
-	ImGui::Text("Z: %f", GetPosition().Z());
 }
 
 void Transform::SetWorldTransform(glm::mat4& NewWorldTransform)

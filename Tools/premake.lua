@@ -55,13 +55,20 @@ end
 
 -- Engine workspace
 workspace (getPlatformPostfix(ProjectName))
+if isUWP then
+configurations { "Debug", "Release" }
+else
 configurations { "Debug", "Release", "Debug Editor", "Release Editor" }
+end
 platforms { "x64" }
 
 if isUWP then
   startproject (getPlatformPostfix(ProjectName .. "_EntryPoint"))
 else
   startproject (getPlatformPostfix(ProjectName))
+  links {
+    "Havana"
+  }
 end
 
 location (dirPrefix)
@@ -94,8 +101,7 @@ links {
   "BrofilerCore",
   getPlatformPostfix("Dementia"),
   "assimp-vc140-mt",
-  "IrrXML",
-  "Havana"
+  "IrrXML"
 }
 
 -- Platform specific options
@@ -115,7 +121,6 @@ defines{
 }
 
 filter "configurations:*Editor"
-
 defines {
 	"ME_EDITOR=1"
 }
@@ -220,6 +225,7 @@ else
   libdirs { (dirPrefix) .. "packages/directxtk_desktop_2015.2018.11.20.1/lib/x64/Release" }
 end
 
+if not isUWP then
 ------------------------------------------------------- Editor Project -----------------------------------------------------
 
 group "Engine/Modules"
@@ -250,6 +256,35 @@ vpaths {
   	"MitchEngine",
 	"Havana"
   }
+
+------------------------------------------------------- ImGui Project ------------------------------------------------------
+
+group "Engine/ThirdParty"
+project (getPlatformPostfix("ImGui"))
+kind "StaticLib"
+--if (isUWP) then
+--	system "windowsuniversal"
+--	consumewinrtextension "true"
+--end
+systemversion "10.0.14393.0"
+language "C++"
+targetdir "../Build/%{cfg.buildcfg}"
+location "../ThirdParty/ImGUI"
+removeincludedirs "*"
+removelinks "*"
+includedirs {
+	"../ThirdParty/ImGUI",
+	"../ThirdParty/ImGUI/examples"
+}
+files {
+  "../ThirdParty/ImGUI/*.h",
+  "../ThirdParty/ImGUI/*.cpp",
+  "../ThirdParty/ImGUI/**/*win32.h",
+  "../ThirdParty/ImGUI/**/*win32.cpp",
+  "../ThirdParty/ImGUI/**/*dx11.*"
+}
+
+end
 
 ------------------------------------------------------- Utility Project ------------------------------------------------------
 
@@ -283,32 +318,6 @@ if withRenderdoc then
   }
 end
 
-------------------------------------------------------- ImGui Project ------------------------------------------------------
-
-group "Engine/ThirdParty"
-project (getPlatformPostfix("ImGui"))
-kind "StaticLib"
---if (isUWP) then
---	system "windowsuniversal"
---	consumewinrtextension "true"
---end
-systemversion "10.0.14393.0"
-language "C++"
-targetdir "../Build/%{cfg.buildcfg}"
-location "../ThirdParty/ImGUI"
-removeincludedirs "*"
-removelinks "*"
-includedirs {
-	"../ThirdParty/ImGUI",
-	"../ThirdParty/ImGUI/examples"
-}
-files {
-  "../ThirdParty/ImGUI/*.h",
-  "../ThirdParty/ImGUI/*.cpp",
-  "../ThirdParty/ImGUI/**/*win32.h",
-  "../ThirdParty/ImGUI/**/*win32.cpp",
-  "../ThirdParty/ImGUI/**/*dx11.*"
-}
 ------------------------------------------------------- Engine Project -------------------------------------------------------
 
 group "Engine"
@@ -343,16 +352,9 @@ includedirs {
 }
 
 links {
-  (getPlatformPostfix("Moonlight") .. ".lib"),
-  (getPlatformPostfix("Havana") .. ".lib")
+  (getPlatformPostfix("Moonlight") .. ".lib")
 }
 
-if not isUWP then
-  excludes {
-    "../MitchEngine/**/Graphics/Common/*.*",
-    "../MitchEngine/**/Graphics/Content/*.*"
-  }
-end
 vpaths {
   ["Build"] = "../Tools/*.lua",
   ["Source"] = "../Source/**.*"
@@ -367,6 +369,13 @@ if isUWP then
     "fxc /T ps_5_0 /Fo ..\\Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\DepthPixelShader.cso ..\\Assets\\Shaders\\DepthPixelShader.hlsl"
   }
 else
+  excludes {
+    "../MitchEngine/**/Graphics/Common/*.*",
+    "../MitchEngine/**/Graphics/Content/*.*"
+  }
+  links {
+    (getPlatformPostfix("Havana") .. ".lib")
+  }
   postbuildcommands {
     "fxc /T ps_5_0 /Fo ..\\Assets\\Shaders\\SimplePixelShader.cso ..\\Assets\\Shaders\\SimplePixelShader.hlsl",
     "fxc /T vs_5_0 /Fo ..\\Assets\\Shaders\\SimpleVertexShader.cso ..\\Assets\\Shaders\\SimpleVertexShader.hlsl",

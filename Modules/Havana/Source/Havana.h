@@ -13,6 +13,9 @@ public:
 	void UpdateWorldRecursive(class Transform* root);
 
 	void Render();
+
+	static void Text(const std::string& Name, const Vector3& Vector);
+
 	class Transform* SelectedTransform = nullptr;
 	Moonlight::Renderer* Renderer;
 };

@@ -1,6 +1,5 @@
 #include "PCH.h"
 #include "Camera.h"
-#include "imgui.h"
 
 Camera* Camera::CurrentCamera = nullptr;
 
@@ -42,11 +41,4 @@ void Camera::SetCurrent()
 float Camera::GetFOV()
 {
 	return m_FOV;
-}
-
-void Camera::OnEditorInspect()
-{
-	ImGui::Text("Front X: %f", Front.X());
-	ImGui::Text("Front Y: %f", Front.Y());
-	ImGui::Text("Front Z: %f", Front.Z());
 }
