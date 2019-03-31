@@ -14,6 +14,7 @@
 #include "Input.h"
 #include "../../Havana/Source/Havana.h"
 #include "Components/Transform.h"
+#include "Dementia.h"
 
 Engine::Engine()
 	: Running(true)

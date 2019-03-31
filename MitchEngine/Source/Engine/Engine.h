@@ -1,6 +1,7 @@
 #pragma once
 #include "Renderer.h"
 #include "World.h"
+#include "Dementia.h"
 
 class Game;
 class IWindow;

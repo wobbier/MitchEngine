@@ -7,6 +7,8 @@
 #include <stack>
 #include "Components/Camera.h"
 
+#if ME_EDITOR
+
 Havana::Havana(Moonlight::Renderer* renderer)
 	: Renderer(renderer)
 {
@@ -129,3 +131,4 @@ void Havana::Text(const std::string& Name, const Vector3& Vector)
 	ImGui::Text("Z: %f", Vector.Z());
 }
 
+#endif

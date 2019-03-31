@@ -43,4 +43,10 @@ Class& operator=(Class&&) = delete;
 #define ME_ENABLE_RENDERDOC 0
 #endif
 
+#ifdef ME_EDITOR
+#define ME_EDITOR 1
+#else
+#define ME_EDITOR 0
+#endif
+
 #define forever for(;;)

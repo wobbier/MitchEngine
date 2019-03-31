@@ -1,6 +1,8 @@
 #pragma once
 #include "Renderer.h"
 
+#if ME_EDITOR
+
 class Havana
 {
 public:
@@ -19,3 +21,5 @@ public:
 	class Transform* SelectedTransform = nullptr;
 	Moonlight::Renderer* Renderer;
 };
+
+#endif

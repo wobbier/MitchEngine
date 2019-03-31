@@ -5,6 +5,7 @@
 #include "ClassTypeId.h"
 #include <memory>
 #include "EntityID.h"
+#include "Dementia.h"
 
 class BaseComponent
 {

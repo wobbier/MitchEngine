@@ -5,6 +5,7 @@
 #include "Components/Transform.h"
 #include "Math/Vector3.h"
 #include "Math/Matirx4.h"
+#include "Dementia.h"
 
 class Camera
 	: public Component<Camera>
