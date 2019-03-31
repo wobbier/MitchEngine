@@ -2,6 +2,10 @@
 #include "imgui.h"
 #include "examples/imgui_impl_win32.h"
 #include "examples/imgui_impl_dx11.h"
+#include "Engine/World.h"
+#include "Components/Transform.h"
+#include <stack>
+#include "Components/Camera.h"
 
 Havana::Havana(Moonlight::Renderer* renderer)
 	: Renderer(renderer)
@@ -20,41 +24,82 @@ void Havana::InitUI()
 	ImGui_ImplDX11_Init(Renderer->GetDevice().GetD3DDevice(), Renderer->GetDevice().GetD3DDeviceContext());
 }
 
+bool show_demo_window = true;
 void Havana::NewFrame()
 {
-	bool show_demo_window = true;
 	ImGui_ImplDX11_NewFrame();
 	ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();
-	ImGui::ShowDemoWindow(&show_demo_window);
 
 	static float f = 0.0f;
-	static int counter = 0;
 
-	ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
+	ImGui::Begin("Debug Info");
 
-	ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
-	ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
-	//ImGui::Checkbox("Another Window", &show_another_window);
+	ImGui::Checkbox("Demo Window", &show_demo_window);
+	ImGui::ShowDemoWindow(&show_demo_window);
 
-	ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
-	//ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
-
-	if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
-		counter++;
-	ImGui::SameLine();
-	ImGui::Text("counter = %d", counter);
-
-	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+	ImGui::Text("FPS Average: %.3f FPS: (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 	ImGui::End();
+}
+
+void Havana::UpdateWorld(World* world, Transform* root)
+{
+	ImGui::Begin("Scene View");
+	UpdateWorldRecursive(root);
+	ImGui::End();
+
+	if (SelectedTransform != nullptr)
+	{
+		ImGui::Begin("Properties");
+		Entity* entity = world->GetEntity(SelectedTransform->Parent);
+		if (entity)
+		{
+			for (BaseComponent* comp : entity->GetAllComponents())
+			{
+				comp->OnEditorInspect();
+			}
+		}
+
+		ImGui::End();
+	}
+}
+
+void Havana::UpdateWorldRecursive(Transform* root)
+{
+	static int selection_mask = (1 << 2);
+	int i = 0;
+	for (Transform* var : root->Children)
+	{
+		ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ((selection_mask & (1 << i)) ? ImGuiTreeNodeFlags_Selected : 0);
+		if (var->Children.empty())
+		{
+			node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen; // ImGuiTreeNodeFlags_Bullet
+			ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, var->Name.c_str());
+			if (ImGui::IsItemClicked())
+			{
+				SelectedTransform = var;
+			}
+			continue;
+		}
+
+		bool node_open = ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, var->Name.c_str());
+		if (ImGui::IsItemClicked())
+		{
+			SelectedTransform = var;
+		}
+
+		if (node_open)
+		{
+			UpdateWorldRecursive(var);
+			ImGui::TreePop();
+		}
+		i++;
+	}
 }
 
 void Havana::Render()
 {
 	ImGui::Render();
-	// Rendering
-	//Renderer->GetDevice().GetD3DDeviceContext()->OMSetRenderTargets(1, &g_mainRenderTargetView, NULL);
-	//Renderer->GetDevice().GetD3DDeviceContext()->ClearRenderTargetView(g_mainRenderTargetView, (float*)&clear_color);
 	ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 }
 

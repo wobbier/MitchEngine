@@ -13,6 +13,7 @@
 #include "Window/IWindow.h"
 #include "Input.h"
 #include "../../Havana/Source/Havana.h"
+#include "Components/Transform.h"
 
 Engine::Engine()
 	: Running(true)
@@ -97,6 +98,7 @@ void Engine::Run()
 
 #if ME_EDITOR
 		Editor->NewFrame();
+		Editor->UpdateWorld(GameWorld.get(), &SceneNodes->RootEntity.GetComponent<Transform>());
 #endif
 
 		EventManager::GetInstance().FirePendingEvents();

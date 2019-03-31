@@ -245,12 +245,7 @@ vpaths {
   ["Source"] = "../Source/**.*",
   ["Source"] = "../Source/*.*"
 }
-  links {
-    (getPlatformPostfix("MitchEngine") .. ".lib")
-  }
-  dependson {
-    getPlatformPostfix("MitchEngine")
-  }
+
   removelinks {
   	"MitchEngine",
 	"Havana"

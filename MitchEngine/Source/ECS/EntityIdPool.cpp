@@ -8,9 +8,9 @@ EntityIdPool::EntityIdPool(std::size_t InPoolSize) :
 {
 }
 
-Entity::ID EntityIdPool::Create()
+EntityID EntityIdPool::Create()
 {
-	Entity::ID Id;
+	EntityID Id;
 
 	if (!FreeList.empty())
 	{
@@ -35,7 +35,7 @@ void EntityIdPool::Resize(std::size_t InAmount)
 	Entities.resize(InAmount);
 }
 
-void EntityIdPool::Remove(Entity::ID InEntityId)
+void EntityIdPool::Remove(EntityID InEntityId)
 {
 	auto& Counter = Entities[InEntityId.Index];
 	++Counter;

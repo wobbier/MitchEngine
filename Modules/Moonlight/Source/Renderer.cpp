@@ -72,7 +72,6 @@ namespace Moonlight
 
 	void Renderer::Render(std::function<void()> func)
 	{
-		bool show_demo_window = true;
 		BROFILER_CATEGORY("Renderer::Render", Brofiler::Color::CornflowerBlue);
 
 		Camera* currentCamera = Camera::CurrentCamera;

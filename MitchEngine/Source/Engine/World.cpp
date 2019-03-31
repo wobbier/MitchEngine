@@ -112,6 +112,18 @@ std::size_t World::GetEntityCount() const
 	return EntityCache.Alive.size();
 }
 
+Entity* World::GetEntity(EntityID id)
+{
+	for (Entity& var : EntityCache.Alive)
+	{
+		if (var.Id == id)
+		{
+			return &var;
+		}
+	}
+	return nullptr;
+}
+
 void World::ActivateEntity(Entity& InEntity, const bool InActive)
 {
 	if (InActive)

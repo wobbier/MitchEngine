@@ -3,6 +3,8 @@
 #include <string>
 #include <vector>
 #include "ClassTypeId.h"
+#include <memory>
+#include "EntityID.h"
 
 class BaseComponent
 {
@@ -12,6 +14,10 @@ public:
 	~BaseComponent() = default;
 
 	virtual void Init() = 0;
+
+	virtual void OnEditorInspect() = 0;
+
+	EntityID Parent;
 };
 
 template<typename T>
@@ -26,6 +32,10 @@ public:
 
 	// Each core must update each loop
 	virtual void Update(float dt)
+	{
+	}
+
+	virtual void OnEditorInspect() override
 	{
 	}
 private:
