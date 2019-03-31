@@ -39,11 +39,6 @@ void PhysicsCore::Init()
 		groundRigidBodyCI(0, groundMotionState, groundShape, btVector3(0, 0, 0));
 	btRigidBody* groundRigidBody = new btRigidBody(groundRigidBodyCI);
 	PhysicsWorld->addRigidBody(groundRigidBody);
-
-	PhysicsWorld->setDebugDrawer(new GLDebugDrawer());
-	PhysicsWorld->getDebugDrawer()->setDebugMode(btIDebugDraw::DBG_DrawWireframe);
-
-	PhysicsWorld->debugDrawWorld();
 }
 
 void PhysicsCore::Update(float dt)
@@ -90,44 +85,4 @@ void PhysicsCore::OnEntityAdded(Entity& NewEntity)
 		RigidbodyComponent.CreateObject(TransformComponent.GetPosition());
 		PhysicsWorld->addRigidBody(RigidbodyComponent.InternalRigidbody);
 	}
-}
-
-void GLDebugDrawer::drawLine(const btVector3& from, const btVector3& to, const btVector3& fromColor, const btVector3& toColor)
-{
-
-}
-
-void GLDebugDrawer::drawLine(const btVector3& from, const btVector3& to, const btVector3& color)
-{
-
-}
-
-void GLDebugDrawer::drawSphere(const btVector3& p, btScalar radius, const btVector3& color)
-{
-
-}
-
-void GLDebugDrawer::drawTriangle(const btVector3& a, const btVector3& b, const btVector3& c, const btVector3& color, btScalar alpha)
-{
-
-}
-
-void GLDebugDrawer::drawContactPoint(const btVector3& PointOnB, const btVector3& normalOnB, btScalar distance, int lifeTime, const btVector3& color)
-{
-
-}
-
-void GLDebugDrawer::reportErrorWarning(const char* warningString)
-{
-
-}
-
-void GLDebugDrawer::draw3dText(const btVector3& location, const char* textString)
-{
-
-}
-
-void GLDebugDrawer::setDebugMode(int debugMode)
-{
-
 }

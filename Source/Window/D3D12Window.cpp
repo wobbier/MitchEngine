@@ -41,9 +41,15 @@ D3D12Window::D3D12Window(std::string title, int width, int height)
 	wc.lpszClassName = CLASS_NAME;
 
 	RegisterClass(&wc);
-
-	RECT wr = { 0, 0, width, height };
-	AdjustWindowRect(&wr, WS_OVERLAPPEDWINDOW, FALSE);
+	//int w = GetSystemMetrics(SM_CXSCREEN);
+	//int h = GetSystemMetrics(SM_CYSCREEN);
+	int w = width;
+	int h = height;
+	//HWND hmain = CreateWindow(L"className", L"title", WS_POPUP, 0, 0, w, h, 0, 0, hInst, 0);
+	//ShowWindow(hmain, SW_SHOW);
+	//RECT wr = { 0, 0, width, height };
+	//AdjustWindowRect(&wr, WS_OVERLAPPEDWINDOW, FALSE);
+	DWORD style = WS_POPUP;
 
 	Window = CreateWindowEx(
 		0,                              // Optional D3D12Window styles.
@@ -51,7 +57,7 @@ D3D12Window::D3D12Window(std::string title, int width, int height)
 		windowTitle.c_str(),    // D3D12Window text
 		WS_OVERLAPPEDWINDOW,            // D3D12Window style
 		// Size and position
-		CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
+		CW_USEDEFAULT, CW_USEDEFAULT, w, h,
 		NULL,       // Parent D3D12Window    
 		NULL,       // Menu
 		GetModuleHandle(0),  // Instance handle
@@ -62,8 +68,7 @@ D3D12Window::D3D12Window(std::string title, int width, int height)
 	{
 		return;
 	}
-
-	ShowWindow(Window, SW_NORMAL);
+	ShowWindow(Window, SW_SHOW);
 }
 
 D3D12Window::~D3D12Window()
