@@ -27,6 +27,8 @@ public:
 
 	void RemoveAllComponents(Entity& InEntity);
 
+	std::vector<BaseComponent*> GetAllComponents(const Entity& InEntity);
+
 	void Resize(std::size_t InAmount);
 private:
 	typedef std::vector<std::unique_ptr<BaseComponent> > ImplComponentArray;

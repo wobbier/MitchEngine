@@ -7,10 +7,12 @@
 #include "Dementia.h"
 #include <DirectXMath.h>
 #include "Math/Vector3.h"
+#include "Havana.h"
 
 class Transform :
 	public Component<Transform>
 {
+	friend class Havana;
 	friend class SceneGraph;
 	friend class PhysicsCore;
 public:
@@ -41,7 +43,15 @@ public:
 	glm::mat4 WorldTransform;
 	std::string Name;
 	DirectX::XMMATRIX GetMatrix();
+	
 private:
+#if ME_EDITOR
+	virtual void OnEditorInspect() final
+	{
+		Havana::Text("Position", GetPosition());
+	}
+#endif
+
 	void SetWorldTransform(glm::mat4& NewWorldTransform);
 	void SetDirty(bool Dirty);
 	bool IsDirty = true;

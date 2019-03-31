@@ -27,3 +27,6 @@
 [submodule "ThirdParty/PerlinNoise"]
 	path = ThirdParty/PerlinNoise
 	url = https://github.com/Reputeless/PerlinNoise.git
+[submodule "ThirdParty/ImGui"]
+	path = ThirdParty/ImGui
+	url = https://github.com/ocornut/imgui

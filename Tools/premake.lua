@@ -55,13 +55,20 @@ end
 
 -- Engine workspace
 workspace (getPlatformPostfix(ProjectName))
+if isUWP then
 configurations { "Debug", "Release" }
+else
+configurations { "Debug", "Release", "Debug Editor", "Release Editor" }
+end
 platforms { "x64" }
 
 if isUWP then
   startproject (getPlatformPostfix(ProjectName .. "_EntryPoint"))
 else
   startproject (getPlatformPostfix(ProjectName))
+  links {
+    "Havana"
+  }
 end
 
 location (dirPrefix)
@@ -74,29 +81,21 @@ includedirs {
   "../ThirdParty/Brofiler/BrofilerCore",
   "../Modules/Moonlight/Source",
   "../Modules/Dementia/Source",
+  "../Modules/Havana/Source",
   "../ThirdParty/Assimp/include",
+  "../ThirdParty/ImGUI",
   "../ThirdParty/PerlinNoise"
-}
-
-libdirs {
-  "../Build/%{cfg.buildcfg}",
-  "../ThirdParty/Lib/Assimp/%{cfg.buildcfg}"
 }
 
 if isUWP then
   defines { "ME_PLATFORM_UWP" }
-  libdirs {
-    "../ThirdParty/Lib/Bullet/Win64/%{cfg.buildcfg}",
-    "../ThirdParty/Lib/Brofiler/UWP/%{cfg.buildcfg}"
-  }
 else
   defines { "ME_PLATFORM_WIN64" }
-  libdirs {
-    "../ThirdParty/Lib/Bullet/Win64/%{cfg.buildcfg}",
-    "../ThirdParty/Lib/GLFW/Win64/%{cfg.buildcfg}",
-    "../ThirdParty/Lib/Brofiler/Win64/%{cfg.buildcfg}"
-  }
 end
+
+libdirs {
+  "../Build/%{cfg.buildcfg}"
+}
 
 links {
   "BrofilerCore",
@@ -121,7 +120,12 @@ defines{
   "NOMINMAX"
 }
 
-filter "configurations:Debug"
+filter "configurations:*Editor"
+defines {
+	"ME_EDITOR=1"
+}
+
+filter "configurations:Debug*"
 defines { "DEBUG" }
 symbols "On"
 links {
@@ -130,8 +134,24 @@ links {
   "LinearMath_Debug",
   "zlibstaticd"
 }
+libdirs {
+  "../ThirdParty/Lib/Assimp/Debug"
+}
 
-filter "configurations:Release"
+if isUWP then
+  libdirs {
+    "../ThirdParty/Lib/Bullet/Win64/Debug",
+    "../ThirdParty/Lib/Brofiler/UWP/Debug"
+  }
+else
+  libdirs {
+    "../ThirdParty/Lib/Bullet/Win64/Debug",
+    "../ThirdParty/Lib/GLFW/Win64/Debug",
+    "../ThirdParty/Lib/Brofiler/Win64/Debug"
+  }
+end
+
+filter "configurations:Release*"
 defines { "NDEBUG" }
 optimize "On"
 libdirs {
@@ -144,6 +164,22 @@ links {
   "LinearMath_MinsizeRel",
   "zlibstatic"
 }
+libdirs {
+  "../ThirdParty/Lib/Assimp/Release"
+}
+
+if isUWP then
+  libdirs {
+    "../ThirdParty/Lib/Bullet/Win64/Release",
+    "../ThirdParty/Lib/Brofiler/UWP/Release"
+  }
+else
+  libdirs {
+    "../ThirdParty/Lib/Bullet/Win64/Release",
+    "../ThirdParty/Lib/GLFW/Win64/Release",
+    "../ThirdParty/Lib/Brofiler/Win64/Release"
+  }
+end
 
 ------------------------------------------------------- Renderer Project -----------------------------------------------------
 
@@ -155,11 +191,9 @@ if (isUWP) then
   consumewinrtextension "true"
   --nuget { "directxtk_uwp:2018.11.20.1" }
   includedirs { (dirPrefix) .. "packages/directxtk_uwp.2018.11.20.1/include" }
-  libdirs { (dirPrefix) .. "packages/directxtk_uwp.2018.11.20.1/lib/x64/%{cfg.buildcfg}" }
 else
   --nuget { "directxtk_desktop_2015:2018.11.20.1" }
   includedirs { (dirPrefix) .. "packages/directxtk_desktop_2015.2018.11.20.1/include" }
-  libdirs { (dirPrefix) .. "packages/directxtk_desktop_2015.2018.11.20.1/lib/x64/%{cfg.buildcfg}" }
 end
 links { "DirectXTK" }
 systemversion "10.0.14393.0"
@@ -176,6 +210,81 @@ vpaths {
   ["Source"] = "../Source/**.*",
   ["Source"] = "../Source/*.*"
 }
+
+configuration "Debug*"
+if (isUWP) then
+  libdirs { (dirPrefix) .. "packages/directxtk_uwp.2018.11.20.1/lib/x64/Debug" }
+else
+  libdirs { (dirPrefix) .. "packages/directxtk_desktop_2015.2018.11.20.1/lib/x64/Debug" }
+end
+
+configuration "Release*"
+if (isUWP) then
+  libdirs { (dirPrefix) .. "packages/directxtk_uwp.2018.11.20.1/lib/x64/Release" }
+else
+  libdirs { (dirPrefix) .. "packages/directxtk_desktop_2015.2018.11.20.1/lib/x64/Release" }
+end
+
+if not isUWP then
+------------------------------------------------------- Editor Project -----------------------------------------------------
+
+group "Engine/Modules"
+project (getPlatformPostfix("Havana"))
+    kind "StaticLib"
+  systemversion "10.0.14393.0"
+if (isUWP) then
+  system "windowsuniversal"
+  consumewinrtextension "true"
+end
+language "C++"
+targetdir "../Build/%{cfg.buildcfg}"
+location "../Modules/Havana"
+includedirs {
+  "../Modules/Havana/Source/",
+    "."
+}
+files {
+  "../Modules/Havana/Source/**.*"
+}
+links { "ImGui" }
+vpaths {
+  ["Source"] = "../Source/**.*",
+  ["Source"] = "../Source/*.*"
+}
+
+  removelinks {
+  	"MitchEngine",
+	"Havana"
+  }
+
+------------------------------------------------------- ImGui Project ------------------------------------------------------
+
+group "Engine/ThirdParty"
+project (getPlatformPostfix("ImGui"))
+kind "StaticLib"
+--if (isUWP) then
+--	system "windowsuniversal"
+--	consumewinrtextension "true"
+--end
+systemversion "10.0.14393.0"
+language "C++"
+targetdir "../Build/%{cfg.buildcfg}"
+location "../ThirdParty/ImGUI"
+removeincludedirs "*"
+removelinks "*"
+includedirs {
+	"../ThirdParty/ImGUI",
+	"../ThirdParty/ImGUI/examples"
+}
+files {
+  "../ThirdParty/ImGUI/*.h",
+  "../ThirdParty/ImGUI/*.cpp",
+  "../ThirdParty/ImGUI/**/*win32.h",
+  "../ThirdParty/ImGUI/**/*win32.cpp",
+  "../ThirdParty/ImGUI/**/*dx11.*"
+}
+
+end
 
 ------------------------------------------------------- Utility Project ------------------------------------------------------
 
@@ -238,16 +347,14 @@ dependson {
   getPlatformPostfix("Moonlight")
 }
 
+includedirs {
+	"../Modules/Havana/Source"
+}
+
 links {
   (getPlatformPostfix("Moonlight") .. ".lib")
 }
 
-if not isUWP then
-  excludes {
-    "../MitchEngine/**/Graphics/Common/*.*",
-    "../MitchEngine/**/Graphics/Content/*.*"
-  }
-end
 vpaths {
   ["Build"] = "../Tools/*.lua",
   ["Source"] = "../Source/**.*"
@@ -262,6 +369,13 @@ if isUWP then
     "fxc /T ps_5_0 /Fo ..\\Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\DepthPixelShader.cso ..\\Assets\\Shaders\\DepthPixelShader.hlsl"
   }
 else
+  excludes {
+    "../MitchEngine/**/Graphics/Common/*.*",
+    "../MitchEngine/**/Graphics/Content/*.*"
+  }
+  links {
+    (getPlatformPostfix("Havana") .. ".lib")
+  }
   postbuildcommands {
     "fxc /T ps_5_0 /Fo ..\\Assets\\Shaders\\SimplePixelShader.cso ..\\Assets\\Shaders\\SimplePixelShader.hlsl",
     "fxc /T vs_5_0 /Fo ..\\Assets\\Shaders\\SimpleVertexShader.cso ..\\Assets\\Shaders\\SimpleVertexShader.hlsl",

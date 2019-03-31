@@ -3,6 +3,8 @@
 #include <string>
 #include <vector>
 #include "ClassTypeId.h"
+#include <memory>
+#include "EntityID.h"
 
 class BaseComponent
 {
@@ -12,6 +14,12 @@ public:
 	~BaseComponent() = default;
 
 	virtual void Init() = 0;
+
+	EntityID Parent;
+
+#if ME_EDITOR
+	virtual void OnEditorInspect() = 0;
+#endif
 };
 
 template<typename T>
@@ -28,7 +36,12 @@ public:
 	virtual void Update(float dt)
 	{
 	}
-private:
+
+#if ME_EDITOR
+	virtual void OnEditorInspect() override
+	{
+	}
+#endif
 };
 
 using ComponentArray = std::vector<std::reference_wrapper<BaseComponent>>;

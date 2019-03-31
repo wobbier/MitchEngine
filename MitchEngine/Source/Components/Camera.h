@@ -32,4 +32,11 @@ public:
 	float GetFOV();
 private:
 	float m_FOV = 45.f;
+
+#if ME_EDITOR
+	virtual void OnEditorInspect() final
+	{
+		Havana::Text("Front", Front);
+	}
+#endif
 };

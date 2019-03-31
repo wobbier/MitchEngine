@@ -4,60 +4,16 @@
 #include "ClassTypeId.h"
 #include <unordered_map>
 #include <string>
-#include <cstdint>
-
-#ifdef _WIN32
-#	define MITCH_ENTITY_ID_INDEX_BIT_COUNT 20
-#	define MITCH_ENTITY_ID_COUNTER_BIT_COUNT 12
-#else
-#	define MITCH_ENTITY_ID_INDEX_BIT_COUNT 48
-#	define MITCH_ENTITY_ID_COUNTER_BIT_COUNT 16
-#endif
+#include "EntityID.h"
 
 class World;
 
 class Entity
 {
+	friend class World;
 public:
-	struct ID
-	{
-		typedef
-#ifdef _WIN64
-			std::uint64_t
-#else
-			std::uint32_t
-#endif
-			IntType;
-
-		IntType Index{ MITCH_ENTITY_ID_INDEX_BIT_COUNT };
-		IntType Counter{ MITCH_ENTITY_ID_COUNTER_BIT_COUNT };
-
-		ID() : Index(0), Counter(0) {};
-		ID(IntType inIndex, IntType inCounter) : Index(inIndex), Counter(inCounter) {};
-
-		inline operator IntType() const
-		{
-			return Value();
-		}
-
-		inline IntType Value() const
-		{
-			return (Counter << MITCH_ENTITY_ID_COUNTER_BIT_COUNT) | Index;
-		}
-
-		void Clear()
-		{
-			Index = Counter = 0;
-		}
-
-		bool IsNull() const
-		{
-			return Value() == 0;
-		}
-	};
-
 	Entity();
-	Entity(World& inWorld, Entity::ID inId);
+	Entity(World& inWorld, EntityID inId);
 	~Entity();
 	Entity(const Entity&) = default;
 	Entity& operator=(const Entity&) = default;
@@ -79,14 +35,16 @@ public:
 	template <typename T>
 	void RemoveComponent();
 
-	const ID& GetId() const;
+	std::vector<BaseComponent*> GetAllComponents();
+
+	const EntityID& GetId() const;
 
 	void SetActive(const bool InActive);
 
 protected:
 private:
 	World * GameWorld = nullptr;
-	ID Id;
+	EntityID Id;
 
 	void AddComponent(BaseComponent* inComponent, TypeId inComponentTypeId);
 	const bool HasComponent(TypeId inComponentType) const;

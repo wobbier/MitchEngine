@@ -6,7 +6,7 @@ Entity::Entity()
 {
 }
 
-Entity::Entity(World& inWorld, ID inId) :
+Entity::Entity(World& inWorld, EntityID inId) :
 	Id(inId),
 	GameWorld(&inWorld)
 {
@@ -29,7 +29,7 @@ void Entity::AddComponent(BaseComponent* inComponent, TypeId inComponentTypeId)
 	SetActive(true);
 }
 
-const Entity::ID& Entity::GetId() const
+const EntityID& Entity::GetId() const
 {
 	return Id;
 }
@@ -52,4 +52,9 @@ bool Entity::operator==(const Entity& entity) const
 void Entity::RemoveComponent(TypeId InComponentTypeId)
 {
 	GameWorld->EntityAttributes.Storage.RemoveComponent(*this, InComponentTypeId);
+}
+
+std::vector<BaseComponent*> Entity::GetAllComponents()
+{
+	return GameWorld->EntityAttributes.Storage.GetAllComponents(*this);
 }
