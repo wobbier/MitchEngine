@@ -73,8 +73,7 @@ end
 
 location (dirPrefix)
 includedirs {
-  "../MitchEngine/",
-  "../MitchEngine/Source",
+  "../Source",
   "../ThirdParty/Bullet/src",
   "../ThirdParty/GLM/glm",
   "C:/Program Files/RenderDoc",
@@ -120,10 +119,11 @@ defines{
   "NOMINMAX"
 }
 
-filter "configurations:*Editor"
+configuration "*Editor"
 defines {
 	"ME_EDITOR=1"
 }
+configuration {}
 
 filter "configurations:Debug*"
 defines { "DEBUG" }
@@ -331,13 +331,13 @@ end
 systemversion "10.0.14393.0"
 language "C++"
 targetdir "../Build/%{cfg.buildcfg}"
-location "../MitchEngine"
+location "../"
 pchheader "PCH.h"
-pchsource "../MitchEngine/Source/PCH.cpp"
+pchsource "../Source/PCH.cpp"
 files {
-  "../MitchEngine/Source/**.h",
-  "../MitchEngine/Source/**.cpp",
-  "../MitchEngine/Source/**.txt",
+  "../Source/**.h",
+  "../Source/**.cpp",
+  "../Source/**.txt",
   "../Tools/*.lua"
 }
 
@@ -357,32 +357,32 @@ links {
 
 vpaths {
   ["Build"] = "../Tools/*.lua",
-  ["Source"] = "../Source/**.*"
+  ["Source"] = "Source/**.*"
 }
 if isUWP then
   postbuildcommands {
-    "fxc /T ps_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\SimplePixelShader.cso ..\\Assets\\Shaders\\SimplePixelShader.hlsl",
-    "fxc /T vs_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\SimpleVertexShader.cso ..\\Assets\\Shaders\\SimpleVertexShader.hlsl",
-    "fxc /T vs_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\GridVertexShader.cso ..\\Assets\\Shaders\\GridVertexShader.hlsl",
-    "fxc /T ps_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\GridPixelShader.cso ..\\Assets\\Shaders\\GridPixelShader.hlsl",
-    "fxc /T vs_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\DepthVertexShader.cso ..\\Assets\\Shaders\\DepthVertexShader.hlsl",
-    "fxc /T ps_4_0_level_9_3 /Fo ..\\Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\DepthPixelShader.cso ..\\Assets\\Shaders\\DepthPixelShader.hlsl"
+    "fxc /T ps_4_0_level_9_3 /Fo Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\SimplePixelShader.cso Assets\\Shaders\\SimplePixelShader.hlsl",
+    "fxc /T vs_4_0_level_9_3 /Fo Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\SimpleVertexShader.cso Assets\\Shaders\\SimpleVertexShader.hlsl",
+    "fxc /T vs_4_0_level_9_3 /Fo Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\GridVertexShader.cso Assets\\Shaders\\GridVertexShader.hlsl",
+    "fxc /T ps_4_0_level_9_3 /Fo Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\GridPixelShader.cso Assets\\Shaders\\GridPixelShader.hlsl",
+    "fxc /T vs_4_0_level_9_3 /Fo Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\DepthVertexShader.cso Assets\\Shaders\\DepthVertexShader.hlsl",
+    "fxc /T ps_4_0_level_9_3 /Fo Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\DepthPixelShader.cso Assets\\Shaders\\DepthPixelShader.hlsl"
   }
 else
   excludes {
-    "../MitchEngine/**/Graphics/Common/*.*",
-    "../MitchEngine/**/Graphics/Content/*.*"
+    "../Source/**/Graphics/Common/*.*",
+    "../Source/**/Graphics/Content/*.*"
   }
   links {
     (getPlatformPostfix("Havana") .. ".lib")
   }
   postbuildcommands {
-    "fxc /T ps_4_0_level_9_3 /Fo ..\\Assets\\Shaders\\SimplePixelShader.cso ..\\Assets\\Shaders\\SimplePixelShader.hlsl",
-    "fxc /T vs_4_0_level_9_3 /Fo ..\\Assets\\Shaders\\SimpleVertexShader.cso ..\\Assets\\Shaders\\SimpleVertexShader.hlsl",
-    "fxc /T vs_4_0_level_9_3 /Fo ..\\Assets\\Shaders\\GridVertexShader.cso ..\\Assets\\Shaders\\GridVertexShader.hlsl",
-    "fxc /T ps_4_0_level_9_3 /Fo ..\\Assets\\Shaders\\GridPixelShader.cso ..\\Assets\\Shaders\\GridPixelShader.hlsl",
-    "fxc /T vs_4_0_level_9_3 /Fo ..\\Assets\\Shaders\\DepthVertexShader.cso ..\\Assets\\Shaders\\DepthVertexShader.hlsl",
-    "fxc /T ps_4_0_level_9_3 /Fo ..\\Assets\\Shaders\\DepthPixelShader.cso ..\\Assets\\Shaders\\DepthPixelShader.hlsl"
+    "fxc /T ps_4_0_level_9_3 /Fo Assets\\Shaders\\SimplePixelShader.cso Assets\\Shaders\\SimplePixelShader.hlsl",
+    "fxc /T vs_4_0_level_9_3 /Fo Assets\\Shaders\\SimpleVertexShader.cso Assets\\Shaders\\SimpleVertexShader.hlsl",
+    "fxc /T vs_4_0_level_9_3 /Fo Assets\\Shaders\\GridVertexShader.cso Assets\\Shaders\\GridVertexShader.hlsl",
+    "fxc /T ps_4_0_level_9_3 /Fo Assets\\Shaders\\GridPixelShader.cso Assets\\Shaders\\GridPixelShader.hlsl",
+    "fxc /T vs_4_0_level_9_3 /Fo Assets\\Shaders\\DepthVertexShader.cso Assets\\Shaders\\DepthVertexShader.hlsl",
+    "fxc /T ps_4_0_level_9_3 /Fo Assets\\Shaders\\DepthPixelShader.cso Assets\\Shaders\\DepthPixelShader.hlsl"
   }
 end
 configuration "with-renderdoc"
@@ -402,86 +402,6 @@ postbuildcommands {
 filter {}
 
 group "App"
-if not _OPTIONS["project-name"] then
-  project (getPlatformPostfix("MitchGame"))
-  if (isUWP) then
-    kind "StaticLib"
-    system "windowsuniversal"
-    consumewinrtextension "true"
-  else
-    kind "ConsoleApp"
-  end
-
-  systemversion "10.0.14393.0"
-  language "C++"
-  targetdir "../Build/%{cfg.buildcfg}"
-  location "../MitchGame"
-  includedirs {
-    "../MitchGame/Source"
-  }
-  links {
-    (getPlatformPostfix("MitchEngine") .. ".lib")
-  }
-  dependson {
-    getPlatformPostfix("MitchEngine")
-  }
-  files {
-    "../MitchGame/Assets/**.frag",
-    "../MitchGame/Assets/**.vert",
-    "../MitchGame/Assets/**.png",
-    "../MitchGame/**.h",
-    "../MitchGame/**.cpp",
-    "../MitchGame/**.pfx",
-    "../MitchGame/**.appxmanifest"
-  }
-  if (isUWP) then
-    excludes {
-      "../MitchGame/Source/main.cpp"
-    }
-  end
-
-  includedirs {
-    "../MitchGame/Source",
-    "."
-  }
-
-  if (isUWP) then
-    project (getPlatformPostfix("MitchGame_EntryPoint"))
-    kind "ConsoleApp"
-    system "windowsuniversal"
-    consumewinrtextension "true"
-    systemversion "10.0.14393.0"
-    certificatefile (CertificateFile)
-    certificatethumbprint (CertificateThumbprint)
-    defaultlanguage "en-US"
-    language "C++"
-    targetdir "../Build/%{cfg.buildcfg}"
-    location "../MitchGame_EntryPoint"
-    links {
-      (getPlatformPostfix("MitchGame") .. ".lib")
-    }
-    dependson {
-      getPlatformPostfix("MitchGame")
-    }
-    files {
-      "../MitchGame_EntryPoint/Assets/**.frag",
-      "../MitchGame_EntryPoint/Assets/**.vert",
-      "../MitchGame_EntryPoint/Assets/**.png",
-      "../MitchGame_EntryPoint/**.h",
-      "../MitchGame_EntryPoint/**.cpp",
-      "../MitchGame_EntryPoint/**.pfx",
-      "../MitchGame_EntryPoint/**.appxmanifest"
-    }
-
-    includedirs {
-      "../MitchGame/Source",
-      "."
-    }
-    filter { "files:Assets/*.png" }
-    deploy "true"
-  end
-end
-
 function GenerateGameSolution()
   if (isUWP) then
     project (getPlatformPostfix(ProjectName .. "_EntryPoint"))
