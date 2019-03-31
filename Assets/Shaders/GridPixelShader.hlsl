@@ -1,6 +1,7 @@
 struct PixelShaderInput
 {
     float4 pos : SV_POSITION;
+    float4 pos2 : POSITION;
     float3 normal : NORMAL;
     float2 tex : TEXCOORD0;
 };
@@ -12,7 +13,7 @@ float4 main(PixelShaderInput input) : SV_TARGET
     // Blue  2B82DF - 43,  130, 223
     float depth;
 
-    depth = input.pos.z / input.pos.w;
+    depth = input.pos2.z / input.pos2.w;
     //depth *= 10;
 
     if (input.tex.x > 0.495f && input.tex.x < 0.505f)
