@@ -45,6 +45,7 @@ namespace Moonlight
 
 		void ReleaseDeviceDependentResources();
 		void CreateDeviceDependentResources();
+		void InitD2DScreenTexture();
 
 		unsigned int PushModel(const ModelCommand& model);
 		bool PopModel(unsigned int id);
@@ -62,6 +63,7 @@ namespace Moonlight
 		ModelViewProjectionConstantBuffer m_constantBufferData;
 		float m_degreesPerSecond = 45.f;
 #endif
+		ID3D11SamplerState* CubesTexSamplerState;
 
 		std::vector<ModelCommand> Models;
 		std::queue<unsigned int> FreeCommandIndicies;

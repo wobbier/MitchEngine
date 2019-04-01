@@ -5,6 +5,7 @@
 
 #include <DirectXColors.h>
 #include <CommonStates.h>
+#include "Graphics/Mesh.h"
 
 using namespace D2D1;
 using namespace DirectX;
@@ -30,7 +31,7 @@ namespace Moonlight
 		, m_d3dFeatureLevel(D3D_FEATURE_LEVEL_11_1)
 		, m_logicalSize()
 		, m_d3dRenderTargetSize()
-		, m_outputSize()
+		, m_outputSize(1280.f, 720.f)
 		, m_deviceNotify(nullptr)
 	{
 		CreateFactories();
@@ -142,7 +143,6 @@ namespace Moonlight
 				)
 			);
 		}
-
 		// Store pointers to the Direct3D 11.3 API device and immediate context.
 		DX::ThrowIfFailed(
 			device.As(&m_d3dDevice)
@@ -189,6 +189,56 @@ namespace Moonlight
 		GetD3DDeviceContext()->OMSetBlendState(d3dBlendState, 0, 0xffffffff);
 	}
 
+	void D3D12Device::InitD2DScreenTexture()
+	{
+		//Create the vertex buffer
+		Vertex v[] =
+		{
+			// Front Face
+			Vertex{{-1.0f, -1.0f, -1.0f}, {-1.0f, -1.0f, -1.0f}, {0.0f, 1.0f}},
+			Vertex{{-1.0f,  1.0f, -1.0f}, {-1.0f,  1.0f, -1.0f}, {0.0f, 0.0f}},
+			Vertex{{1.0f,  1.0f, -1.0f}, {1.0f,  1.0f, -1.0f}, {1.0f, 0.0f }},
+			Vertex{{1.0f, -1.0f, -1.0f}, {1.0f, -1.0f, -1.0f}, {1.0f, 1.0f }},
+		};
+
+		DWORD indices[] = {
+			// Front Face
+			0,  1,  2,
+			0,  2,  3,
+		};
+
+		D3D11_BUFFER_DESC indexBufferDesc;
+		ZeroMemory(&indexBufferDesc, sizeof(indexBufferDesc));
+
+		indexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+		indexBufferDesc.ByteWidth = sizeof(DWORD) * 2 * 3;
+		indexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+		indexBufferDesc.CPUAccessFlags = 0;
+		indexBufferDesc.MiscFlags = 0;
+
+		D3D11_SUBRESOURCE_DATA iinitData;
+
+		iinitData.pSysMem = indices;
+		GetD3DDevice()->CreateBuffer(&indexBufferDesc, &iinitData, &d2dIndexBuffer);
+
+
+		D3D11_BUFFER_DESC vertexBufferDesc;
+		ZeroMemory(&vertexBufferDesc, sizeof(vertexBufferDesc));
+
+		vertexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+		vertexBufferDesc.ByteWidth = sizeof(Vertex) * 4;
+		vertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+		vertexBufferDesc.CPUAccessFlags = 0;
+		vertexBufferDesc.MiscFlags = 0;
+
+		D3D11_SUBRESOURCE_DATA vertexBufferData;
+
+		ZeroMemory(&vertexBufferData, sizeof(vertexBufferData));
+		vertexBufferData.pSysMem = v;
+		DX::ThrowIfFailed(GetD3DDevice()->CreateBuffer(&vertexBufferDesc, &vertexBufferData, &d2dVertBuffer));
+
+	}
+
 	// These resources need to be recreated every time the window size is changed.
 	void D3D12Device::CreateWindowSizeDependentResources()
 	{
@@ -196,6 +246,16 @@ namespace Moonlight
 		ID3D11RenderTargetView* nullViews[] = { nullptr };
 		m_d3dContext->OMSetRenderTargets(ARRAYSIZE(nullViews), nullViews, nullptr);
 		m_d3dRenderTargetView = nullptr;
+		if (renderTargetTextureMap)
+		{
+			renderTargetTextureMap->Release();
+			renderTargetTextureMap = nullptr;
+		}
+		if (renderTargetViewMap)
+		{
+			renderTargetViewMap->Release();
+			renderTargetViewMap = nullptr;
+		}
 		m_d3dDepthStencilView = nullptr;
 		m_d3dContext->Flush1(D3D11_CONTEXT_TYPE_ALL, nullptr);
 
@@ -243,6 +303,7 @@ namespace Moonlight
 			swapChainDesc.BufferCount = 2;									// Use double-buffering to minimize latency.
 			swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;	// All Windows Store apps must use this SwapEffect.
 			swapChainDesc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
+			//swapChainDesc.Scaling = DXGI_SCALING_ASPECT_RATIO_STRETCH;
 			//swapChainDesc.Windowed = TRUE;
 			//swapChainDesc.Scaling = DXGI_SCALING_NONE;
 			//swapChainDesc.AlphaMode = DXGI_ALPHA_MODE_IGNORE;
@@ -294,6 +355,56 @@ namespace Moonlight
 		}
 
 		DX::ThrowIfFailed(m_swapChain->SetRotation(DXGI_MODE_ROTATION_IDENTITY));
+		D3D11_TEXTURE2D_DESC textureDesc;
+		D3D11_RENDER_TARGET_VIEW_DESC1 renderTargetViewDesc;
+		D3D11_SHADER_RESOURCE_VIEW_DESC shaderResourceViewDesc;
+
+		///////////////////////// Map's Texture
+		// Initialize the  texture description.
+		ZeroMemory(&textureDesc, sizeof(textureDesc));
+
+		// Setup the texture description.
+		// We will have our map be a square
+		// We will need to have this texture bound as a render target AND a shader resource
+		textureDesc.Width = GetOutputSize().X();
+		textureDesc.Height = GetOutputSize().Y();
+		textureDesc.MipLevels = 1;
+		textureDesc.ArraySize = 1;
+		textureDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+		textureDesc.SampleDesc.Count = 1;
+		textureDesc.Usage = D3D11_USAGE_DEFAULT;
+		textureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+		textureDesc.CPUAccessFlags = 0;
+		textureDesc.MiscFlags = 0;
+
+		// Create the texture
+		GetD3DDevice()->CreateTexture2D(&textureDesc, NULL, &renderTargetTextureMap);
+
+		/////////////////////// Map's Render Target
+		// Setup the description of the render target view.
+		ZeroMemory(&renderTargetViewDesc, sizeof(renderTargetViewDesc));
+		renderTargetViewDesc.Format = textureDesc.Format;
+		renderTargetViewDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+		renderTargetViewDesc.Texture2D.MipSlice = 0;
+
+		DX::ThrowIfFailed(
+			m_d3dDevice->CreateRenderTargetView1(
+				renderTargetTextureMap,
+				&renderTargetViewDesc,
+				&renderTargetViewMap
+			)
+		);
+
+		ZeroMemory(&shaderResourceViewDesc, sizeof(shaderResourceViewDesc));
+		/////////////////////// Map's Shader Resource View
+		// Setup the description of the shader resource view.
+		shaderResourceViewDesc.Format = textureDesc.Format;
+		shaderResourceViewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+		shaderResourceViewDesc.Texture2D.MostDetailedMip = 0;
+		shaderResourceViewDesc.Texture2D.MipLevels = 1;
+
+		// Create the shader resource view.
+		GetD3DDevice()->CreateShaderResourceView(renderTargetTextureMap, &shaderResourceViewDesc, &shaderResourceViewMap);
 
 		// Create a render target view of the swap chain back buffer.
 		ComPtr<ID3D11Texture2D> backBuffer;
@@ -344,6 +455,8 @@ namespace Moonlight
 		);
 
 		m_d3dContext->RSSetViewports(1, &m_screenViewport);
+
+		InitD2DScreenTexture();
 	}
 
 
@@ -351,8 +464,10 @@ namespace Moonlight
 	void D3D12Device::UpdateRenderTargetSize()
 	{
 		// Prevent zero size DirectX content from being created.
+#if !ME_EDITOR
 		m_outputSize.SetX(static_cast<float>(std::fmax(static_cast<int>(m_logicalSize.X()), 1)));
 		m_outputSize.SetY(static_cast<float>(std::fmax(static_cast<int>(m_logicalSize.Y()), 1)));
+#endif
 	}
 
 	// This method is called in the event handler for the SizeChanged event.
@@ -457,6 +572,7 @@ namespace Moonlight
 	{
 		m_logicalSize = NewSize;
 		CreateWindowSizeDependentResources();
+		//m_swapChain->ResizeBuffers(0, NewSize.X(), NewSize.Y(), DXGI_FORMAT_UNKNOWN, 0);
 	}
 
 	void D3D12Device::ResetCullingMode() const

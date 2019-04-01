@@ -43,6 +43,9 @@ void Havana::NewFrame()
 	ImGui_ImplDX11_NewFrame();
 	ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();
+	ImGuiIO& io = ImGui::GetIO();
+	RenderSize = Vector2(io.DisplaySize.x, io.DisplaySize.y);
+	Renderer->GetDevice().SetOutputSize(RenderSize);
 
 	ImGui::BeginMainMenuBar();
 	ImGui::MenuItem("File");
@@ -167,27 +170,31 @@ void Havana::UpdateWorldRecursive(Transform* root)
 
 void Havana::Render()
 {
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
 	ImGui::Begin("Game");
-	//{
-	//	const int W = 1280;
-	//	const int H = 720;
-	//	ImGui::Text("Lol");
-	//	// Get the current cursor position (where your window is)
-	//	ImVec2 pos = ImGui::GetCursorScreenPos();
+	{
+		RenderSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
+		ImGui::PopStyleVar(3);
 
-	//	// A boolean to allow me to stop the game rendering
-	//	// Get the texture associated to the FBO
-	//	if (Renderer->GetDevice().GetBackBufferRenderTargetView() != nullptr)
-	//	{
-	//	// Ask ImGui to draw it as an image:
-	//	// Under OpenGL the ImGUI image type is GLuint
-	//	// So make sure to use "(void *)tex" but not "&tex"
-	//	ImGui::GetWindowDrawList()->AddImage(
-	//		(void *)Renderer->GetDevice().shaderResourceViewMap, ImVec2(ImGui::GetItemRectMin().x + pos.x,
-	//			ImGui::GetItemRectMin().y + pos.y),
-	//		ImVec2(pos.x + H , pos.y + W), ImVec2(0, 1), ImVec2(1, 0));
-	//	}
-	//}
+		if (Renderer->GetDevice().GetBackBufferRenderTargetView() != nullptr)
+		{
+			// Get the current cursor position (where your window is)
+			ImVec2 pos = ImGui::GetCursorScreenPos();
+			ImVec2 maxPos = ImVec2(pos.x + ImGui::GetWindowSize().x, pos.y + ImGui::GetWindowSize().y);
+			
+		// Ask ImGui to draw it as an image:
+		// Under OpenGL the ImGUI image type is GLuint
+		// So make sure to use "(void *)tex" but not "&tex"
+		ImGui::GetWindowDrawList()->AddImage(
+			(void *)Renderer->GetDevice().shaderResourceViewMap,
+			ImVec2(pos.x, pos.y),
+			ImVec2(maxPos),
+			ImVec2(0, 0),
+			ImVec2(1, 1));
+		}
+	}
 	ImGui::End();
 
 	ImGui::Render();

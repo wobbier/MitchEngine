@@ -49,6 +49,17 @@ namespace Moonlight
 	{
 		Grid = new Plane("Assets/skybox.jpg", GetDevice());
 		Sky = new SkyBox("Assets/skybox.jpg");
+
+		D3D11_SAMPLER_DESC sampDesc;
+		ZeroMemory(&sampDesc, sizeof(sampDesc));
+		sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+		sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
+		sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+		sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+		sampDesc.ComparisonFunc = D3D11_COMPARISON_LESS;
+		sampDesc.MinLOD = 0;
+		sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
+		m_device->GetD3DDevice()->CreateSamplerState(&sampDesc, &CubesTexSamplerState);
 	}
 
 	void Renderer::SetWindow()
@@ -87,13 +98,18 @@ namespace Moonlight
 		context->RSSetViewports(1, &viewport);
 
 		// Reset render targets to the screen.
-		ID3D11RenderTargetView *const targets[1] = { m_device->GetBackBufferRenderTargetView() };
+#if ME_EDITOR
+		ID3D11RenderTargetView *const targets[1] = { m_device->renderTargetViewMap };//
+#else
+		ID3D11RenderTargetView *const targets[1] = { m_device->GetBackBufferRenderTargetView() };//
+#endif
 		context->OMSetRenderTargets(1, targets, m_device->GetDepthStencilView());
 
 		float darkGrey = (57.0f / 255.0f);
 		DirectX::XMVECTORF32 color = { {darkGrey, darkGrey, darkGrey, 1.0f} };
 		// Clear the back buffer and depth stencil view.
 		context->ClearRenderTargetView(m_device->GetBackBufferRenderTargetView(), color);
+		context->ClearRenderTargetView(m_device->renderTargetViewMap, color);
 		context->ClearDepthStencilView(m_device->GetDepthStencilView(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
 		Vector2 outputSize = m_device->GetOutputSize();
@@ -157,9 +173,6 @@ namespace Moonlight
 			Sky->Draw();
 
 			m_device->ResetCullingMode();
-
-			
-			
 		}
 
 		{
@@ -201,7 +214,6 @@ namespace Moonlight
 				}
 			}
 		}
-
 		XMStoreFloat4x4(&m_constantBufferData.model, XMMatrixTranspose(XMMatrixIdentity()));
 		// Prepare the constant buffer to send it to the graphics device.
 		context->UpdateSubresource1(
@@ -225,8 +237,39 @@ namespace Moonlight
 
 		Grid->Draw(GetDevice());
 
-		func();
+		//UINT stride = sizeof(Vertex);
+		//UINT offset = 0;
+		//
+		// Set it to the D2D_PS so that we do not impliment lighting
+		//GetDevice().GetD3DDeviceContext()->PSSetShader(D2D_PS, 0, 0);
 
+		////Set the d2d square's Index buffer
+		//GetDevice().GetD3DDeviceContext()->IASetIndexBuffer(m_device->d2dIndexBuffer, DXGI_FORMAT_R32_UINT, 0);
+		////Set the d2d square's vertex buffer
+		//GetDevice().GetD3DDeviceContext()->IASetVertexBuffers(0, 1, &m_device->d2dVertBuffer, &stride, &offset);
+
+		//// Just set the WVP to a scale and translate, which will put the square into the bottom right corner of the screen
+		////m_constantBufferData. = XMMatrixScaling(0.5f, 0.5f, 0.0f) * XMMatrixTranslation(0.5f, -0.5f, 0.0f);
+		//XMStoreFloat4x4(&m_constantBufferData.model, XMMatrixTranspose(XMMatrixTranslation(0.5f, -0.5f, 0.0f)));
+		////XMMatrixTranspose(WVP);
+		//GetDevice().GetD3DDeviceContext()->UpdateSubresource(m_constantBuffer.Get(), 0, NULL, &m_constantBufferData, 0, 0);
+		//GetDevice().GetD3DDeviceContext()->VSSetConstantBuffers(0, 1, m_constantBuffer.GetAddressOf());
+		//GetDevice().GetD3DDeviceContext()->PSSetShaderResources(0, 1, &m_device->shaderResourceViewMap);    // Draw the map to the square
+
+		//GetDevice().GetD3DDeviceContext()->PSSetSamplers(0, 1, &CubesTexSamplerState);
+
+		////GetDevice().GetD3DDeviceContext()->RSSetState(CWcullMode);
+		////Draw the second cube
+		//GetDevice().GetD3DDeviceContext()->DrawIndexed(6, 0, 0);
+		
+#if ME_EDITOR
+		ID3D11RenderTargetView *const targets2[1] = { m_device->GetBackBufferRenderTargetView() };// , m_device->renderTargetViewMap
+			//////////////////////////// Draw the Map
+			// Make sure to set the render target back
+		GetDevice().GetD3DDeviceContext()->OMSetRenderTargets(1, targets2, m_device->GetDepthStencilView());
+
+#endif
+		func();
 		// The first argument instructs DXGI to block until VSync, putting the application
 		// to sleep until the next VSync. This ensures we don't waste any cycles rendering
 		// frames that will never be displayed to the screen.
@@ -237,6 +280,7 @@ namespace Moonlight
 		// This is a valid operation only when the existing contents will be entirely
 		// overwritten. If dirty or scroll rects are used, this call should be removed.
 		m_device->GetD3DDeviceContext()->DiscardView1(m_device->GetBackBufferRenderTargetView(), nullptr, 0);
+		m_device->GetD3DDeviceContext()->DiscardView1(m_device->shaderResourceViewMap, nullptr, 0);
 
 		// Discard the contents of the depth stencil.
 		m_device->GetD3DDeviceContext()->DiscardView1(m_device->GetDepthStencilView(), nullptr, 0);
@@ -252,6 +296,7 @@ namespace Moonlight
 			DX::ThrowIfFailed(hr);
 		}
 	}
+
 
 	void Renderer::ReleaseDeviceDependentResources()
 	{

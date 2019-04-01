@@ -50,11 +50,28 @@ namespace Moonlight
 		// D2D Accessors.
 		IDWriteFactory3*			GetDWriteFactory() const { return m_dwriteFactory.Get(); }
 		IWICImagingFactory2*		GetWicImagingFactory() const { return m_wicFactory.Get(); }
+		void SetOutputSize(Vector2 NewSize)
+		{
+			if (NewSize != m_outputSize)
+			{
+				m_outputSize = NewSize;
+				CreateWindowSizeDependentResources();
+			}
+		}
+
+		void InitD2DScreenTexture();
 
 		virtual void CreateWindowSizeDependentResources() final;
 #if ME_PLATFORM_WIN64
 		HWND m_window;
 #endif
+		ID3D11Buffer *d2dIndexBuffer;
+		ID3D11Buffer *d2dVertBuffer;
+
+		ID3D11Texture2D* renderTargetTextureMap = nullptr;
+		ID3D11RenderTargetView1* renderTargetViewMap = nullptr;
+		ID3D11ShaderResourceView* shaderResourceViewMap = nullptr;
+		Microsoft::WRL::ComPtr<ID3D11RenderTargetView1>	m_d3dRenderTargetView;
 	private:
 		virtual void CreateFactories() final;
 		virtual void CreateDeviceResources() final;
@@ -69,13 +86,13 @@ namespace Moonlight
 		ID3D11BlendState*								BlendState;
 
 		// Direct3D rendering objects. Required for 3D.
-		Microsoft::WRL::ComPtr<ID3D11RenderTargetView1>	m_d3dRenderTargetView;
 		Microsoft::WRL::ComPtr<ID3D11DepthStencilView>	m_d3dDepthStencilView;
 		D3D11_VIEWPORT									m_screenViewport;
 
 		// DirectWrite drawing components.
 		Microsoft::WRL::ComPtr<IDWriteFactory3>		m_dwriteFactory;
 		Microsoft::WRL::ComPtr<IWICImagingFactory2>	m_wicFactory;
+
 
 		// Cached reference to the Window.
 #if ME_PLATFORM_UWP

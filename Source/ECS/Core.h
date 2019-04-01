@@ -80,8 +80,12 @@ public:
 #endif
 };
 
+#if ME_EDITOR
+
 template<typename T>
 void Core<T>::OnEditorInspect()
 {
 	BaseCore::OnEditorInspect();
 }
+
+#endif

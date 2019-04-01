@@ -21,6 +21,7 @@ public:
 	class Transform* SelectedTransform = nullptr;
 	class BaseCore* SelectedCore = nullptr;
 	Moonlight::Renderer* Renderer;
+	Vector2 RenderSize;
 };
 
 #endif
