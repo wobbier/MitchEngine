@@ -45,17 +45,14 @@ D3D12Window::D3D12Window(std::string title, int width, int height)
 	//int h = GetSystemMetrics(SM_CYSCREEN);
 	int w = width;
 	int h = height;
-	//HWND hmain = CreateWindow(L"className", L"title", WS_POPUP, 0, 0, w, h, 0, 0, hInst, 0);
-	//ShowWindow(hmain, SW_SHOW);
-	//RECT wr = { 0, 0, width, height };
-	//AdjustWindowRect(&wr, WS_OVERLAPPEDWINDOW, FALSE);
-	DWORD style = WS_POPUP;
+	
+	DWORD style = WS_OVERLAPPEDWINDOW;
 
 	Window = CreateWindowEx(
 		0,                              // Optional D3D12Window styles.
 		CLASS_NAME,                     // D3D12Window class
 		windowTitle.c_str(),    // D3D12Window text
-		WS_OVERLAPPEDWINDOW,            // D3D12Window style
+		style,            // D3D12Window style
 		// Size and position
 		CW_USEDEFAULT, CW_USEDEFAULT, w, h,
 		NULL,       // Parent D3D12Window    
@@ -106,8 +103,7 @@ void D3D12Window::Swap()
 Vector2 D3D12Window::GetSize() const
 {
 	RECT newSize;
-
-	GetWindowRect(Window, &newSize);
+	GetClientRect(Window, &newSize);
 
 	return Vector2(static_cast<float>(newSize.right - newSize.left), static_cast<float>(newSize.bottom - newSize.top));
 }
@@ -122,17 +118,16 @@ LRESULT CALLBACK WinProc(HWND D3D12Window, unsigned int msg, WPARAM wp, LPARAM l
 	case WM_DESTROY:
 		PostQuitMessage(0);
 		return 0;
+	case WM_SIZE:
 	case WM_EXITSIZEMOVE:
 		if (Game::GetEngine().IsInitialized())
 		{
 			RECT newSize;
-			GetWindowRect(D3D12Window, &newSize);
+			GetClientRect(D3D12Window, &newSize);
 			Game::GetEngine().GetRenderer().WindowResized(Vector2(static_cast<float>(newSize.right - newSize.left), static_cast<float>(newSize.bottom - newSize.top)));
 		}
-		//
-	default:
-		return DefWindowProc(D3D12Window, msg, wp, lp);
 	}
+	return DefWindowProc(D3D12Window, msg, wp, lp);
 }
 
 #endif

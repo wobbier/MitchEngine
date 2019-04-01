@@ -10,7 +10,7 @@ class BaseCore
 {
 public:
 	BaseCore() = default;
-	BaseCore(const ComponentFilter& Filter);
+	BaseCore(const char* CompName, const ComponentFilter& Filter);
 	virtual ~BaseCore() = 0;
 
 	// Each core must update each loop
@@ -25,6 +25,13 @@ public:
 
 	// Get the component filter associated with the core.
 	const ComponentFilter& GetComponentFilter() const;
+
+	const std::string& GetName() const;
+
+#if ME_EDITOR
+	virtual void OnEditorInspect();
+#endif
+
 protected:
 	class Engine* GameEngine;
 private:
@@ -44,6 +51,8 @@ private:
 
 	ComponentFilter CompFilter;
 
+	std::string Name;
+
 	friend class World;
 };
 
@@ -57,7 +66,7 @@ public:
 
 	Core() = default;
 
-	Core(const ComponentFilter& InComponentFilter) : BaseCore(InComponentFilter)
+	Core(ComponentFilter& InComponentFilter) : BaseCore(typeid(T).name(), InComponentFilter)
 	{
 	}
 
@@ -65,4 +74,14 @@ public:
 	{
 		return ClassTypeId<BaseCore>::GetTypeId<T>();
 	}
+
+#if ME_EDITOR
+	virtual void OnEditorInspect() override;
+#endif
 };
+
+template<typename T>
+void Core<T>::OnEditorInspect()
+{
+	BaseCore::OnEditorInspect();
+}

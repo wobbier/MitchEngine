@@ -91,6 +91,16 @@ void World::AddCore(BaseCore& InCore, TypeId InCoreTypeId)
 	InCore.Init();
 }
 
+std::vector<BaseCore*> World::GetAllCores()
+{
+	std::vector<BaseCore*> cores;
+	for (auto& core : Cores)
+	{
+		cores.push_back(core.second.get());
+	}
+	return cores;
+}
+
 void World::CheckForResize(std::size_t InNumEntitiesToBeAllocated)
 {
 	auto NewSize = GetEntityCount() + InNumEntitiesToBeAllocated;

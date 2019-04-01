@@ -1,8 +1,13 @@
 #include "PCH.h"
 #include "Core.h"
+#include <imgui.h>
+#include <string>
 
-BaseCore::BaseCore(const ComponentFilter& Filter) : CompFilter(Filter)
+BaseCore::BaseCore(const char* CompName, const ComponentFilter& Filter)
+	: Name(CompName)
+	, CompFilter(Filter)
 {
+	Name = Name.substr(Name.find(' ')+1);
 }
 
 
@@ -25,6 +30,11 @@ const ComponentFilter& BaseCore::GetComponentFilter() const
 	return CompFilter;
 }
 
+const std::string& BaseCore::GetName() const
+{
+	return Name;
+}
+
 void BaseCore::Add(Entity& InEntity)
 {
 	Entities.push_back(InEntity);
@@ -39,3 +49,12 @@ void BaseCore::Remove(Entity& InEntity)
 {
 	Entities.erase(std::remove(Entities.begin(), Entities.end(), InEntity), Entities.end());
 }
+
+#if ME_EDITOR
+
+void BaseCore::OnEditorInspect()
+{
+	ImGui::Text("Entity Count: %i", Entities.size());
+}
+
+#endif

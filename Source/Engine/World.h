@@ -27,6 +27,8 @@ public:
 	template <typename TCore>
 	void AddCore(TCore& inCore);
 
+	std::vector<BaseCore*> GetAllCores();
+
 	Entity CreateEntity();
 
 	void Simulate();

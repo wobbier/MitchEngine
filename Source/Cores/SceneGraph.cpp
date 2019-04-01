@@ -52,3 +52,12 @@ void SceneGraph::OnEntityAdded(Entity& NewEntity)
 		NewEntityTransform.SetParent(RootEntity.GetComponent<Transform>());
 	}
 }
+
+#if ME_EDITOR
+
+void SceneGraph::OnEditorInspect()
+{
+	BaseCore::OnEditorInspect();
+}
+
+#endif

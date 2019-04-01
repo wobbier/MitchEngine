@@ -6,6 +6,7 @@
 #include "Components/Transform.h"
 #include <stack>
 #include "Components/Camera.h"
+#include "ECS/Core.h"
 
 #if ME_EDITOR
 
@@ -22,7 +23,8 @@ void Havana::InitUI()
 	ImGuiIO& io = ImGui::GetIO(); (void)io;
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 	io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
-	io.MouseDrawCursor = true;
+	//io.MouseDrawCursor = true;
+	//io.ConfigFlags |= ImGuiConfigFlags_DpiEnableScaleViewports; // FIXME-DPI
 
 	ImGui::StyleColorsDark();
 	ImGuiStyle& style = ImGui::GetStyle();
@@ -84,21 +86,47 @@ void Havana::UpdateWorld(World* world, Transform* root)
 	ImGui::Begin("Scene View");
 	UpdateWorldRecursive(root);
 	ImGui::End();
+	ImGui::Begin("Entity Cores");
+	{
+		int i = 0;
+		for (BaseCore* comp : world->GetAllCores())
+		{
+			ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | (SelectedCore == comp ? ImGuiTreeNodeFlags_Selected : 0);
+			{
+				node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen; // ImGuiTreeNodeFlags_Bullet
+				ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, comp->GetName().c_str());
+				if (ImGui::IsItemClicked())
+				{
+					SelectedCore = comp;
+					SelectedTransform = nullptr;
+				}
+			}
+		}
+	}
+	ImGui::End();
+
+	ImGui::Begin("Properties");
 
 	if (SelectedTransform != nullptr)
 	{
-		ImGui::Begin("Properties");
 		Entity* entity = world->GetEntity(SelectedTransform->Parent);
 		if (entity)
 		{
 			for (BaseComponent* comp : entity->GetAllComponents())
 			{
-				comp->OnEditorInspect();
+				if (ImGui::CollapsingHeader(comp->GetName().c_str()))
+				{
+					comp->OnEditorInspect();
+				}
 			}
 		}
-
-		ImGui::End();
 	}
+
+	if (SelectedCore != nullptr)
+	{
+		SelectedCore->OnEditorInspect();
+	}
+	ImGui::End();
 }
 
 void Havana::UpdateWorldRecursive(Transform* root)
@@ -114,6 +142,7 @@ void Havana::UpdateWorldRecursive(Transform* root)
 			if (ImGui::IsItemClicked())
 			{
 				SelectedTransform = var;
+				SelectedCore = nullptr;
 			}
 		}
 		else
@@ -122,6 +151,7 @@ void Havana::UpdateWorldRecursive(Transform* root)
 			if (ImGui::IsItemClicked())
 			{
 				SelectedTransform = var;
+				SelectedCore = nullptr;
 			}
 
 			if (node_open)
@@ -137,6 +167,29 @@ void Havana::UpdateWorldRecursive(Transform* root)
 
 void Havana::Render()
 {
+	ImGui::Begin("Game");
+	//{
+	//	const int W = 1280;
+	//	const int H = 720;
+	//	ImGui::Text("Lol");
+	//	// Get the current cursor position (where your window is)
+	//	ImVec2 pos = ImGui::GetCursorScreenPos();
+
+	//	// A boolean to allow me to stop the game rendering
+	//	// Get the texture associated to the FBO
+	//	if (Renderer->GetDevice().GetBackBufferRenderTargetView() != nullptr)
+	//	{
+	//	// Ask ImGui to draw it as an image:
+	//	// Under OpenGL the ImGUI image type is GLuint
+	//	// So make sure to use "(void *)tex" but not "&tex"
+	//	ImGui::GetWindowDrawList()->AddImage(
+	//		(void *)Renderer->GetDevice().shaderResourceViewMap, ImVec2(ImGui::GetItemRectMin().x + pos.x,
+	//			ImGui::GetItemRectMin().y + pos.y),
+	//		ImVec2(pos.x + H , pos.y + W), ImVec2(0, 1), ImVec2(1, 0));
+	//	}
+	//}
+	ImGui::End();
+
 	ImGui::Render();
 	ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 	// Update and Render additional Platform Windows

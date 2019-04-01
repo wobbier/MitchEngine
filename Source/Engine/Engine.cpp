@@ -54,6 +54,7 @@ void Engine::Init(Game* game)
 #endif
 
 	m_renderer = new Moonlight::Renderer();
+	m_renderer->WindowResized(GameWindow->GetSize());
 
 	GameWorld = std::make_shared<World>();
 
@@ -95,7 +96,6 @@ void Engine::Run()
 			m_game->End();
 			break;
 		}
-		m_renderer->WindowResized(GameWindow->GetSize());
 
 #if ME_EDITOR
 		Editor->NewFrame();

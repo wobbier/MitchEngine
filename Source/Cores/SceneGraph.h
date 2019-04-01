@@ -19,4 +19,8 @@ public:
 	virtual void OnEntityAdded(Entity& NewEntity) final;
 	void UpdateRecursively(Transform* transform);
 	Entity RootEntity;
+
+#if ME_EDITOR
+	virtual void OnEditorInspect() final;
+#endif
 };

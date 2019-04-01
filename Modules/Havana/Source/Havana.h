@@ -19,6 +19,7 @@ public:
 	static void Text(const std::string& Name, const Vector3& Vector);
 
 	class Transform* SelectedTransform = nullptr;
+	class BaseCore* SelectedCore = nullptr;
 	Moonlight::Renderer* Renderer;
 };
 
