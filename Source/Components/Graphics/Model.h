@@ -1,6 +1,7 @@
 #pragma once
 #include "ECS/Component.h"
 #include <string>
+#include "imgui.h"
 
 namespace Moonlight
 {
@@ -24,4 +25,19 @@ public:
 private:
 	FilePath ModelPath;
 	unsigned int Id;
+
+#if ME_EDITOR
+
+	virtual void OnEditorInspect() final
+	{
+		ImGui::Text("Model ID: ");
+		ImGui::SameLine();
+		ImGui::Text(std::to_string(Id).c_str());
+
+		ImGui::Text("Path:");
+		ImGui::SameLine();
+		ImGui::Text(ModelPath.LocalPath.c_str());
+	}
+
+#endif
 };
