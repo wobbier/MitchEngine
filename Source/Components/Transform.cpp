@@ -51,7 +51,7 @@ void Transform::Translate(Vector3 NewPosition)
 	SetDirty(true);
 }
 
-Vector3 Transform::GetPosition()
+Vector3& Transform::GetPosition()
 {
 	return Position;
 }

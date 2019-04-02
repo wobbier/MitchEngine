@@ -168,6 +168,11 @@ void Havana::UpdateWorldRecursive(Transform* root)
 	}
 }
 
+const bool Havana::IsGameFocused() const
+{
+	return m_isGameFocused;
+}
+
 void Havana::Render()
 {
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
@@ -175,10 +180,12 @@ void Havana::Render()
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
 	ImGui::Begin("Game");
 	{
+		m_isGameFocused = ImGui::IsWindowFocused();
+
 		RenderSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
 		ImGui::PopStyleVar(3);
 
-		if (Renderer->GetDevice().GetBackBufferRenderTargetView() != nullptr)
+		if (Renderer->GetDevice().shaderResourceViewMap != nullptr)
 		{
 			// Get the current cursor position (where your window is)
 			ImVec2 pos = ImGui::GetCursorScreenPos();
@@ -210,11 +217,17 @@ void Havana::Render()
 void Havana::Text(const std::string& Name, const Vector3& Vector)
 {
 	ImGui::Text(Name.c_str());
+
 	ImGui::Text("X: %f", Vector.X());
 	ImGui::SameLine();
 	ImGui::Text("Y: %f", Vector.Y());
 	ImGui::SameLine();
 	ImGui::Text("Z: %f", Vector.Z());
+}
+
+void Havana::EditableVector3(const std::string& Name, Vector3& Vector)
+{
+	ImGui::DragFloat3(Name.c_str(), &Vector[0], 0.005f);
 }
 
 #endif

@@ -97,31 +97,32 @@ void Engine::Run()
 			break;
 		}
 
-#if ME_EDITOR
-		Editor->NewFrame();
-		Editor->UpdateWorld(GameWorld.get(), &SceneNodes->RootEntity.GetComponent<Transform>());
-#endif
-
 		EventManager::GetInstance().FirePendingEvents();
 
 		float time = GameClock.GetTimeInMilliseconds();
 		const float deltaTime = GameClock.deltaTime = (time <= 0.0f || time >= 0.3) ? 0.0001f : time;
 
-		AccumulatedTime += deltaTime;
-		// Update our engine
-		GameWorld->Simulate();
+#if ME_EDITOR
+		Editor->NewFrame();
+		Editor->UpdateWorld(GameWorld.get(), &SceneNodes->RootEntity.GetComponent<Transform>());
+#endif
 
+		if (Editor->IsGameFocused())
 		{
-			BROFILER_CATEGORY("MainLoop::GameUpdate", Brofiler::Color::CornflowerBlue);
-			m_game->Update(deltaTime);
+			AccumulatedTime += deltaTime;
+			// Update our engine
+			GameWorld->Simulate();
+
+			{
+				BROFILER_CATEGORY("MainLoop::GameUpdate", Brofiler::Color::CornflowerBlue);
+				m_game->Update(deltaTime);
+			}
+
+			Physics->Update(deltaTime);
+
 		}
+			SceneNodes->Update(deltaTime);
 
-		Physics->Update(deltaTime);
-
-		SceneNodes->Update(deltaTime);
-
-		//if (AccumulatedTime >= 1.0f / FPS)
-		{
 			Cameras->Update(deltaTime);
 
 			ModelRenderer->Update(AccumulatedTime);
@@ -132,7 +133,6 @@ void Engine::Run()
 				Editor->Render();
 #endif
 			});
-		}
 	}
 }
 

@@ -26,7 +26,7 @@ public:
 	void SetScale(Vector3 NewScale);
 	void SetScale(float NewScale);
 	void Translate(Vector3 NewTransform);
-	Vector3 GetPosition();
+	Vector3& GetPosition();
 
 	ME_NONCOPYABLE(Transform)
 	ME_NONMOVABLE(Transform)
@@ -48,7 +48,7 @@ private:
 #if ME_EDITOR
 	virtual void OnEditorInspect() final
 	{
-		Havana::Text("Position", GetPosition());
+		Havana::EditableVector3("Position", GetPosition());
 	}
 #endif
 
