@@ -1,6 +1,7 @@
 #include "PCH.h"
 #include "Rigidbody.h"
 #include "Cores/PhysicsCore.h"
+#include "BulletDynamics/Dynamics/btDiscreteDynamicsWorld.h"
 
 Rigidbody::Rigidbody(ColliderType type)
 	: Type(type)
@@ -9,6 +10,10 @@ Rigidbody::Rigidbody(ColliderType type)
 
 Rigidbody::~Rigidbody()
 {
+	if (m_world && InternalRigidbody)
+	{
+		m_world->removeRigidBody(InternalRigidbody);
+	}
 }
 
 void Rigidbody::Init()
@@ -29,7 +34,7 @@ void Rigidbody::ApplyForce(const Vector3& direction, float force)
 	InternalRigidbody->activate();
 }
 
-void Rigidbody::CreateObject(const Vector3& Position)
+void Rigidbody::CreateObject(const Vector3& Position, btDiscreteDynamicsWorld* world)
 {
 	btCollisionShape* fallShape;
 	switch (Type)
@@ -50,5 +55,7 @@ void Rigidbody::CreateObject(const Vector3& Position)
 	fallShape->calculateLocalInertia(mass, fallInertia);
 	btRigidBody::btRigidBodyConstructionInfo fallRigidBodyCI(mass, fallMotionState, fallShape, fallInertia);
 	InternalRigidbody = new btRigidBody(fallRigidBodyCI);
+	m_world = world;
+
 	IsInitialized = true;
 }

@@ -23,6 +23,7 @@ void SceneGraph::Update(float dt)
 	BROFILER_CATEGORY("SceneGraph::Update", Brofiler::Color::Green);
 
 	// Seems O.K. for now
+	if(RootEntity.HasComponent<Transform>())
 	UpdateRecursively(&RootEntity.GetComponent<Transform>());
 }
 

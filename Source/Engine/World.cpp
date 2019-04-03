@@ -84,6 +84,51 @@ void World::Simulate()
 	EntityCache.ClearTemp();
 }
 
+void World::Destroy()
+{
+
+	for (auto& InEntity : EntityCache.Killed)
+	{
+		DestroyEntity(InEntity);
+	}
+
+	for (auto& InEntity : EntityCache.Deactivated)
+	{
+		DestroyEntity(InEntity);
+	}
+
+	for (auto& InEntity : EntityCache.Alive)
+	{
+		EntityAttributes.Storage.RemoveAllComponents(InEntity);
+
+		EntIdPool.Remove(InEntity.GetId());
+	}
+
+	EntityCache.Alive.clear();
+	EntityCache.Deactivated.clear();
+	EntityCache.Killed.clear();
+
+	EntityCache.ClearTemp();
+}
+
+void World::Cleanup()
+{
+	Destroy();
+	for (auto& core : Cores)
+	{
+		core.second->Clear();
+	}
+}
+
+void World::DestroyEntity(Entity &InEntity)
+{
+	EntityCache.Alive.erase(std::remove(EntityCache.Alive.begin(), EntityCache.Alive.end(), InEntity), EntityCache.Alive.end());
+
+	EntityAttributes.Storage.RemoveAllComponents(InEntity);
+
+	EntIdPool.Remove(InEntity.GetId());
+}
+
 void World::AddCore(BaseCore& InCore, TypeId InCoreTypeId)
 {
 	Cores[InCoreTypeId].reset(&InCore);

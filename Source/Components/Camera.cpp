@@ -10,6 +10,14 @@ Camera::Camera()
 	Front = Vector3(0.f, 0.f, -1.f);
 }
 
+Camera::~Camera()
+{
+	if (CurrentCamera == this)
+	{
+		CurrentCamera = nullptr;
+	}
+}
+
 void Camera::Init()
 {
 	if (!CurrentCamera)

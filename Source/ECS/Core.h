@@ -43,6 +43,8 @@ private:
 
 	void Remove(Entity& InEntity);
 
+	void Clear();
+
 	// The Entities that are attached to this system
 	std::vector<Entity> Entities;
 

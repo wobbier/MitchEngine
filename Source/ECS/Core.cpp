@@ -50,6 +50,11 @@ void BaseCore::Remove(Entity& InEntity)
 	Entities.erase(std::remove(Entities.begin(), Entities.end(), InEntity), Entities.end());
 }
 
+void BaseCore::Clear()
+{
+	Entities.clear();
+}
+
 #if ME_EDITOR
 
 void BaseCore::OnEditorInspect()

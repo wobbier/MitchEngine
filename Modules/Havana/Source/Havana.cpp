@@ -7,11 +7,13 @@
 #include <stack>
 #include "Components/Camera.h"
 #include "ECS/Core.h"
+#include "Engine/Engine.h"
 
 #if ME_EDITOR
 
-Havana::Havana(Moonlight::Renderer* renderer)
+Havana::Havana(Engine* GameEngine, Moonlight::Renderer* renderer)
 	: Renderer(renderer)
+	, m_engine(GameEngine)
 {
 	InitUI();
 }
@@ -38,7 +40,7 @@ void Havana::InitUI()
 }
 
 bool show_demo_window = true;
-void Havana::NewFrame()
+void Havana::NewFrame(std::function<void()> StartGameFunc, std::function<void()> PauseGameFunc, std::function<void()> StopGameFunc)
 {
 	ImGui_ImplDX11_NewFrame();
 	ImGui_ImplWin32_NewFrame();
@@ -79,6 +81,25 @@ void Havana::NewFrame()
 
 	ImGui::Checkbox("Demo Window", &show_demo_window);
 	ImGui::ShowDemoWindow(&show_demo_window);
+
+	if (ImGui::Button("Play"))
+	{
+		StartGameFunc();
+
+	}
+
+	if (m_engine->IsGameRunning())
+	{
+		if (ImGui::Button("Pause"))
+		{
+			PauseGameFunc();
+		}
+
+		if (ImGui::Button("Stop"))
+		{
+			StopGameFunc();
+		}
+	}
 
 	ImGui::Text("FPS Average: %.3f FPS: (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 	ImGui::End();
@@ -134,6 +155,8 @@ void Havana::UpdateWorld(World* world, Transform* root)
 
 void Havana::UpdateWorldRecursive(Transform* root)
 {
+	if (!root)
+		return;
 	int i = 0;
 	for (Transform* var : root->Children)
 	{
@@ -166,11 +189,6 @@ void Havana::UpdateWorldRecursive(Transform* root)
 
 		i++;
 	}
-}
-
-const bool Havana::IsGameFocused() const
-{
-	return m_isGameFocused;
 }
 
 void Havana::Render()
@@ -212,6 +230,11 @@ void Havana::Render()
 		ImGui::UpdatePlatformWindows();
 		ImGui::RenderPlatformWindowsDefault();
 	}
+}
+
+const bool Havana::IsGameFocused() const
+{
+	return m_isGameFocused;
 }
 
 void Havana::Text(const std::string& Name, const Vector3& Vector)

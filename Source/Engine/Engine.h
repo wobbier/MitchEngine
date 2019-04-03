@@ -2,6 +2,7 @@
 #include "Renderer.h"
 #include "World.h"
 #include "Dementia.h"
+#include "Clock.h"
 
 class Game;
 class IWindow;
@@ -16,6 +17,11 @@ public:
 	~Engine();
 
 	void Init(Game* game);
+
+	void InitGame();
+	void StartGame();
+	void StopGame();
+	
 	void Run();
 
 	Moonlight::Renderer& GetRenderer() const;
@@ -26,6 +32,10 @@ public:
 	const bool IsInitialized() const;
 
 	IWindow* GetWindow();
+
+	const bool IsGameRunning() const;
+
+	const bool IsGamePaused() const;
 
 	class PhysicsCore* Physics;
 	class CameraCore* Cameras;
@@ -38,11 +48,13 @@ private:
 	std::shared_ptr<World> GameWorld;
 	bool Running;
 	IWindow* GameWindow;
-	Config* EngineConfig;
+	class Config* EngineConfig;
 
 	Game* m_game;
 	float AccumulatedTime = 0.0f;
 	bool m_isInitialized = false;
+	bool m_isGameRunning = false;
+	bool m_isGamePaused = false;
 
 #if ME_EDITOR
 	std::unique_ptr<class Havana> Editor;

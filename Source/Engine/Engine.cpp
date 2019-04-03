@@ -12,7 +12,7 @@
 #include "Game.h"
 #include "Window/IWindow.h"
 #include "Input.h"
-#include "../../Havana/Source/Havana.h"
+#include "Havana.h"
 #include "Components/Transform.h"
 #include "Dementia.h"
 
@@ -59,24 +59,40 @@ void Engine::Init(Game* game)
 	GameWorld = std::make_shared<World>();
 
 	Physics = new PhysicsCore();
-	GameWorld->AddCore<PhysicsCore>(*Physics);
 
 	Cameras = new CameraCore();
-	GameWorld->AddCore<CameraCore>(*Cameras);
 
 	SceneNodes = new SceneGraph();
-	GameWorld->AddCore<SceneGraph>(*SceneNodes);
 
 	ModelRenderer = new RenderCore();
-	GameWorld->AddCore<RenderCore>(*ModelRenderer);
 
-	m_game->Initialize();
+	InitGame();
 
 #if ME_EDITOR
-	Editor = std::make_unique<Havana>(m_renderer);
+	Editor = std::make_unique<Havana>(this, m_renderer);
 #endif
 
 	m_isInitialized = true;
+}
+
+void Engine::InitGame()
+{
+	GameWorld->AddCore<PhysicsCore>(*Physics);
+	GameWorld->AddCore<CameraCore>(*Cameras);
+	GameWorld->AddCore<SceneGraph>(*SceneNodes);
+	GameWorld->AddCore<RenderCore>(*ModelRenderer);
+
+	m_game->Initialize();
+}
+
+void Engine::StartGame()
+{
+	m_isGameRunning = true;
+}
+
+void Engine::StopGame()
+{
+	m_game->End();
 }
 
 void Engine::Run()
@@ -103,15 +119,37 @@ void Engine::Run()
 		const float deltaTime = GameClock.deltaTime = (time <= 0.0f || time >= 0.3) ? 0.0001f : time;
 
 #if ME_EDITOR
-		Editor->NewFrame();
+		Editor->NewFrame([this]() {
+			if (!m_isGameRunning)
+			{
+				StartGame();
+			}
+			m_isGamePaused = false;
+		}
+		, [this]() {
+			m_isGamePaused = true;
+		}
+		, [this]() {
+			m_isGameRunning = false;
+			m_isGamePaused = false;
+
+			GameWorld->Cleanup();
+			InitGame();
+		});
+
+		GameWorld->Simulate();
+
 		Editor->UpdateWorld(GameWorld.get(), &SceneNodes->RootEntity.GetComponent<Transform>());
 #endif
-
-		if (Editor->IsGameFocused())
+		AccumulatedTime += deltaTime;
+		if (!IsGameRunning() && m_isGameRunning != IsGameRunning())
 		{
-			AccumulatedTime += deltaTime;
+		}
+
+		if (IsGameRunning() && !IsGamePaused())
+		{
+
 			// Update our engine
-			GameWorld->Simulate();
 
 			{
 				BROFILER_CATEGORY("MainLoop::GameUpdate", Brofiler::Color::CornflowerBlue);
@@ -119,8 +157,8 @@ void Engine::Run()
 			}
 
 			Physics->Update(deltaTime);
-
 		}
+
 			SceneNodes->Update(deltaTime);
 
 			Cameras->Update(deltaTime);
@@ -161,4 +199,14 @@ void Engine::Quit() { Running = false; }
 IWindow* Engine::GetWindow()
 {
 	return GameWindow;
+}
+
+const bool Engine::IsGameRunning() const
+{
+	return m_isGameRunning;
+}
+
+const bool Engine::IsGamePaused() const
+{
+	return m_isGamePaused;
 }

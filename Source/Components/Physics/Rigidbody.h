@@ -42,10 +42,11 @@ public:
 		return transform;
 	}
 private:
-	void CreateObject(const Vector3& Position);
+	void CreateObject(const Vector3& Position, class btDiscreteDynamicsWorld* world);
 	btRigidBody* InternalRigidbody;
 
 	ColliderType Type = ColliderType::Box;
 protected:
 	bool IsInitialized = false;
+	class btDiscreteDynamicsWorld* m_world;
 };

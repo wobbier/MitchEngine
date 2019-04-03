@@ -33,6 +33,11 @@ public:
 
 	void Simulate();
 
+	void Destroy();
+	void Cleanup();
+
+	void DestroyEntity(Entity &InEntity);
+
 	std::size_t GetEntityCount() const;
 	Entity* GetEntity(EntityID id);
 	World();

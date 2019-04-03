@@ -12,4 +12,6 @@ public:
 
 	// Each core must update each loop
 	virtual void Update(float dt) final;
+private:
+	class Camera* DefaultCamera;
 };
