@@ -70,6 +70,8 @@ void Engine::Init(Game* game)
 
 #if ME_EDITOR
 	Editor = std::make_unique<Havana>(this, m_renderer);
+#else
+	StartGame();
 #endif
 
 	m_isInitialized = true;
@@ -135,12 +137,13 @@ void Engine::Run()
 
 			GameWorld->Cleanup();
 			InitGame();
+			GameWorld->Simulate();
 		});
-
-		GameWorld->Simulate();
 
 		Editor->UpdateWorld(GameWorld.get(), &SceneNodes->RootEntity.lock()->GetComponent<Transform>());
 #endif
+		GameWorld->Simulate();
+
 		AccumulatedTime += deltaTime;
 
 		if (IsGameRunning() && !IsGamePaused())

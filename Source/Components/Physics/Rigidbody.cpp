@@ -2,6 +2,7 @@
 #include "Rigidbody.h"
 #include "Cores/PhysicsCore.h"
 #include "BulletDynamics/Dynamics/btDiscreteDynamicsWorld.h"
+#include "imgui.h"
 
 Rigidbody::Rigidbody(ColliderType type)
 	: Type(type)
@@ -59,3 +60,24 @@ void Rigidbody::CreateObject(const Vector3& Position, btDiscreteDynamicsWorld* w
 
 	IsInitialized = true;
 }
+
+#if ME_EDITOR
+
+void Rigidbody::OnEditorInspect()
+{
+	const char* name = "";
+	switch (Type)
+	{
+	case ColliderType::Sphere:
+		name = "Sphere";
+		break;
+	case ColliderType::Box:
+		name = "Box";
+		break;
+	}
+	ImGui::Text("Collider Type:");
+	ImGui::SameLine();
+	ImGui::Text(name);
+}
+
+#endif

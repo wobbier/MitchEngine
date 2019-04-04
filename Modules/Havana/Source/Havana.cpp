@@ -138,7 +138,7 @@ void Havana::UpdateWorld(World* world, Transform* root)
 		{
 			for (BaseComponent* comp : entity->GetAllComponents())
 			{
-				if (ImGui::CollapsingHeader(comp->GetName().c_str()))
+				if (ImGui::CollapsingHeader(comp->GetName().c_str(), ImGuiTreeNodeFlags_DefaultOpen))
 				{
 					comp->OnEditorInspect();
 				}

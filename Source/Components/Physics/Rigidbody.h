@@ -49,4 +49,10 @@ private:
 protected:
 	bool IsInitialized = false;
 	class btDiscreteDynamicsWorld* m_world;
+
+#if ME_EDITOR
+
+	virtual void OnEditorInspect() final;
+
+#endif
 };

@@ -30,7 +30,7 @@ private:
 
 	virtual void OnEditorInspect() final
 	{
-		ImGui::Text("Model ID: ");
+		ImGui::Text("Model ID:");
 		ImGui::SameLine();
 		ImGui::Text(std::to_string(Id).c_str());
 
