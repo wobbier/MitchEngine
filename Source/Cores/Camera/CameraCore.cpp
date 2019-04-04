@@ -12,8 +12,8 @@ CameraCore::~CameraCore()
 
 void CameraCore::Init()
 {
-	Entity CameraEntity = GetWorld().CreateEntity();
-	DefaultCamera = &CameraEntity.AddComponent<Camera>();
+	WeakPtr<Entity> CameraEntity = GetWorld().CreateEntity();
+	DefaultCamera = &(CameraEntity.lock()->AddComponent<Camera>());
 }
 
 void CameraCore::Update(float dt)
@@ -21,23 +21,23 @@ void CameraCore::Update(float dt)
 	BROFILER_CATEGORY("CameraCore::Update", Brofiler::Color::CornflowerBlue);
 	auto Cameras = GetEntities();
 
-	Camera* currentCam = nullptr;
-
 	for (auto& InEntity : Cameras)
 	{
 		// Get our components that our Core required
 		Camera& CameraComponent = InEntity.GetComponent<Camera>();
 		Transform& TransformComponent = InEntity.GetComponent<Transform>();
 
-		if (CameraComponent.IsCurrent())
+		if(CameraComponent.IsCurrent())
 		{
-			currentCam = &CameraComponent;
 			CameraComponent.UpdateCameraTransform(TransformComponent.GetPosition());
 		}
 	}
+}
 
-	if (currentCam == nullptr)
+void CameraCore::OnEntityAdded(Entity& NewEntity)
+{
+	if (Camera::CurrentCamera == DefaultCamera)
 	{
-		DefaultCamera->SetCurrent();
+		NewEntity.GetComponent<Camera>().SetCurrent();
 	}
 }

@@ -340,6 +340,15 @@ namespace Moonlight
 		return true;
 	}
 
+	void Renderer::ClearModels()
+	{
+		Models.clear();
+		while (!FreeCommandIndicies.empty())
+		{
+			FreeCommandIndicies.pop();
+		}
+	}
+
 	void Renderer::WindowResized(const Vector2& NewSize)
 	{
 		if (!m_device)

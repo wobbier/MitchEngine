@@ -17,7 +17,7 @@ public:
 	};
 
 	Rigidbody(ColliderType type = ColliderType::Box);
-	~Rigidbody();
+	virtual ~Rigidbody() final;
 
 	// Separate init from construction code.
 	virtual void Init() final;

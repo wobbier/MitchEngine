@@ -15,7 +15,7 @@ SceneGraph::~SceneGraph()
 void SceneGraph::Init()
 {
 	RootEntity = GetWorld().CreateEntity();
-	RootEntity.AddComponent<Transform>("Root Entity");
+	RootEntity.lock()->AddComponent<Transform>("Root Entity");
 }
 
 void SceneGraph::Update(float dt)
@@ -23,8 +23,8 @@ void SceneGraph::Update(float dt)
 	BROFILER_CATEGORY("SceneGraph::Update", Brofiler::Color::Green);
 
 	// Seems O.K. for now
-	if(RootEntity.HasComponent<Transform>())
-	UpdateRecursively(&RootEntity.GetComponent<Transform>());
+	if(RootEntity.lock()->HasComponent<Transform>())
+	UpdateRecursively(&RootEntity.lock()->GetComponent<Transform>());
 }
 
 void SceneGraph::UpdateRecursively(Transform* CurrentTransform)
@@ -46,11 +46,13 @@ void SceneGraph::UpdateRecursively(Transform* CurrentTransform)
 
 void SceneGraph::OnEntityAdded(Entity& NewEntity)
 {
+	Base::OnEntityAdded(NewEntity);
+
 	Transform& NewEntityTransform = NewEntity.GetComponent<Transform>();
 
-	if (NewEntityTransform.ParentTransform == nullptr && NewEntity != RootEntity)
+	if (NewEntityTransform.ParentTransform == nullptr && NewEntity != *RootEntity.lock().get())
 	{
-		NewEntityTransform.SetParent(RootEntity.GetComponent<Transform>());
+		NewEntityTransform.SetParent(RootEntity.lock()->GetComponent<Transform>());
 	}
 }
 

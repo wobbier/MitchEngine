@@ -10,11 +10,6 @@ BaseCore::BaseCore(const char* CompName, const ComponentFilter& Filter)
 	Name = Name.substr(Name.find(' ')+1);
 }
 
-
-void BaseCore::OnEntityAdded(Entity& NewEntity)
-{
-}
-
 World& BaseCore::GetWorld() const
 {
 	return *GameWorld;

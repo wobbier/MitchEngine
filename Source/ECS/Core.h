@@ -15,7 +15,7 @@ public:
 
 	// Each core must update each loop
 	virtual void Update(float dt) = 0;
-	virtual void OnEntityAdded(Entity& NewEntity);
+	virtual void OnEntityAdded(Entity& NewEntity) = 0;
 
 	// Get The World attached to the Core
 	World& GetWorld() const;
@@ -75,6 +75,9 @@ public:
 	static TypeId GetTypeId()
 	{
 		return ClassTypeId<BaseCore>::GetTypeId<T>();
+	}
+	virtual void OnEntityAdded(Entity& NewEntity) override
+	{
 	}
 
 #if ME_EDITOR

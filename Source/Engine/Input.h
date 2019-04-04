@@ -16,6 +16,7 @@ namespace KeyCodeDef
 	enum Type : int
 	{
 		LeftButton = 0x01,
+		RightButton = 0x02,
 		Enter = 0x0D,
 		Space = 0x20,
 		Number0 = 0x30,

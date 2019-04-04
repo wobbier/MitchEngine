@@ -18,7 +18,7 @@ public:
 		Name = Name.substr(Name.find(' ') + 1);
 	}
 
-	~BaseComponent() = default;
+	virtual ~BaseComponent() = default;
 
 	virtual void Init() = 0;
 

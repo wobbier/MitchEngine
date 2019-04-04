@@ -4,6 +4,7 @@
 #include <SDKDDKVer.h>
 
 #include "Dementia.h"
+#include "Pointers.h"
 
 #include <windows.h>
 #if ME_DIRECTX

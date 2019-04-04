@@ -43,8 +43,8 @@ void Engine::Init(Game* game)
 	EngineConfig = new Config("Assets\\Config\\Engine.cfg");
 
 	//auto WindowConfig = EngineConfig->Root["window"];
-	int WindowWidth = 1280;//WindowConfig["width"].asInt();
-	int WindowHeight = 720;//WindowConfig["height"].asInt();
+	int WindowWidth = 1920;//WindowConfig["width"].asInt();
+	int WindowHeight = 1080;//WindowConfig["height"].asInt();
 
 #if ME_PLATFORM_WIN64
 	GameWindow = new D3D12Window("MitchEngine", WindowWidth, WindowHeight);
@@ -139,12 +139,9 @@ void Engine::Run()
 
 		GameWorld->Simulate();
 
-		Editor->UpdateWorld(GameWorld.get(), &SceneNodes->RootEntity.GetComponent<Transform>());
+		Editor->UpdateWorld(GameWorld.get(), &SceneNodes->RootEntity.lock()->GetComponent<Transform>());
 #endif
 		AccumulatedTime += deltaTime;
-		if (!IsGameRunning() && m_isGameRunning != IsGameRunning())
-		{
-		}
 
 		if (IsGameRunning() && !IsGamePaused())
 		{

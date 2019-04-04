@@ -12,6 +12,9 @@ public:
 
 	// Each core must update each loop
 	virtual void Update(float dt) final;
+
+	virtual void OnEntityAdded(Entity& NewEntity) final;
+
 private:
 	class Camera* DefaultCamera;
 };
