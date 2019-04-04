@@ -8,14 +8,6 @@
 
 PhysicsCore::PhysicsCore() : Base(ComponentFilter().Requires<Transform>().Requires<Rigidbody>())
 {
-}
-
-PhysicsCore::~PhysicsCore()
-{
-}
-
-void PhysicsCore::Init()
-{
 	Gravity = btVector3(0, -9.8f, 0);
 	///collision configuration contains default setup for memory, collision setup. Advanced users can create their own configuration.
 	btDefaultCollisionConfiguration* collisionConfiguration = new btDefaultCollisionConfiguration();
@@ -39,6 +31,14 @@ void PhysicsCore::Init()
 		groundRigidBodyCI(0, groundMotionState, groundShape, btVector3(0, 0, 0));
 	btRigidBody* groundRigidBody = new btRigidBody(groundRigidBodyCI);
 	PhysicsWorld->addRigidBody(groundRigidBody);
+}
+
+PhysicsCore::~PhysicsCore()
+{
+}
+
+void PhysicsCore::Init()
+{
 }
 
 void PhysicsCore::Update(float dt)
@@ -82,7 +82,7 @@ void PhysicsCore::OnEntityAdded(Entity& NewEntity)
 	Rigidbody& RigidbodyComponent = NewEntity.GetComponent<Rigidbody>();
 	if (!RigidbodyComponent.IsRigidbodyInitialized())
 	{
-		RigidbodyComponent.CreateObject(TransformComponent.GetPosition());
+		RigidbodyComponent.CreateObject(TransformComponent.GetPosition(), PhysicsWorld);
 		PhysicsWorld->addRigidBody(RigidbodyComponent.InternalRigidbody);
 	}
 }

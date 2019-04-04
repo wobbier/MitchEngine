@@ -7,11 +7,13 @@
 #include "ECS/EntityIdPool.h"
 #include "Dementia.h"
 #include "Resource/ResourceCache.h"
+#include "Pointers.h"
 
 class World
 {
 private:
 	typedef std::vector<Entity> EntityArray;
+	typedef std::vector<SharedPtr<Entity>> MasterEntityArray;
 
 	struct CoreDeleter
 	{
@@ -29,9 +31,14 @@ public:
 
 	std::vector<BaseCore*> GetAllCores();
 
-	Entity CreateEntity();
+	WeakPtr<Entity> CreateEntity();
 
 	void Simulate();
+
+	void Destroy();
+	void Cleanup();
+
+	void DestroyEntity(Entity &InEntity);
 
 	std::size_t GetEntityCount() const;
 	Entity* GetEntity(EntityID id);
@@ -76,7 +83,7 @@ private:
 
 	struct TEntityCache
 	{
-		EntityArray Alive;
+		MasterEntityArray Alive;
 		EntityArray Killed;
 		EntityArray Activated;
 		EntityArray Deactivated;

@@ -46,6 +46,7 @@ void ComponentStorage::RemoveAllComponents(Entity& InEntity)
 	auto& ComponentData = ComponentEntries[Index];
 
 	ComponentData.Components.clear();
+	ComponentData.ComponentTypeList.reset();
 }
 
 std::vector<BaseComponent*> ComponentStorage::GetAllComponents(const Entity& InEntity)

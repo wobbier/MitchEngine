@@ -12,7 +12,7 @@
 #include "Game.h"
 #include "Window/IWindow.h"
 #include "Input.h"
-#include "../../Havana/Source/Havana.h"
+#include "Havana.h"
 #include "Components/Transform.h"
 #include "Dementia.h"
 
@@ -43,8 +43,8 @@ void Engine::Init(Game* game)
 	EngineConfig = new Config("Assets\\Config\\Engine.cfg");
 
 	//auto WindowConfig = EngineConfig->Root["window"];
-	int WindowWidth = 1280;//WindowConfig["width"].asInt();
-	int WindowHeight = 720;//WindowConfig["height"].asInt();
+	int WindowWidth = 1920;//WindowConfig["width"].asInt();
+	int WindowHeight = 1080;//WindowConfig["height"].asInt();
 
 #if ME_PLATFORM_WIN64
 	GameWindow = new D3D12Window("MitchEngine", WindowWidth, WindowHeight);
@@ -59,24 +59,40 @@ void Engine::Init(Game* game)
 	GameWorld = std::make_shared<World>();
 
 	Physics = new PhysicsCore();
-	GameWorld->AddCore<PhysicsCore>(*Physics);
 
 	Cameras = new CameraCore();
-	GameWorld->AddCore<CameraCore>(*Cameras);
 
 	SceneNodes = new SceneGraph();
-	GameWorld->AddCore<SceneGraph>(*SceneNodes);
 
 	ModelRenderer = new RenderCore();
-	GameWorld->AddCore<RenderCore>(*ModelRenderer);
 
-	m_game->Initialize();
+	InitGame();
 
 #if ME_EDITOR
-	Editor = std::make_unique<Havana>(m_renderer);
+	Editor = std::make_unique<Havana>(this, m_renderer);
 #endif
 
 	m_isInitialized = true;
+}
+
+void Engine::InitGame()
+{
+	GameWorld->AddCore<PhysicsCore>(*Physics);
+	GameWorld->AddCore<CameraCore>(*Cameras);
+	GameWorld->AddCore<SceneGraph>(*SceneNodes);
+	GameWorld->AddCore<RenderCore>(*ModelRenderer);
+
+	m_game->Initialize();
+}
+
+void Engine::StartGame()
+{
+	m_isGameRunning = true;
+}
+
+void Engine::StopGame()
+{
+	m_game->End();
 }
 
 void Engine::Run()
@@ -103,15 +119,34 @@ void Engine::Run()
 		const float deltaTime = GameClock.deltaTime = (time <= 0.0f || time >= 0.3) ? 0.0001f : time;
 
 #if ME_EDITOR
-		Editor->NewFrame();
-		Editor->UpdateWorld(GameWorld.get(), &SceneNodes->RootEntity.GetComponent<Transform>());
-#endif
+		Editor->NewFrame([this]() {
+			if (!m_isGameRunning)
+			{
+				StartGame();
+			}
+			m_isGamePaused = false;
+		}
+		, [this]() {
+			m_isGamePaused = true;
+		}
+		, [this]() {
+			m_isGameRunning = false;
+			m_isGamePaused = false;
 
-		if (Editor->IsGameFocused())
+			GameWorld->Cleanup();
+			InitGame();
+		});
+
+		GameWorld->Simulate();
+
+		Editor->UpdateWorld(GameWorld.get(), &SceneNodes->RootEntity.lock()->GetComponent<Transform>());
+#endif
+		AccumulatedTime += deltaTime;
+
+		if (IsGameRunning() && !IsGamePaused())
 		{
-			AccumulatedTime += deltaTime;
+
 			// Update our engine
-			GameWorld->Simulate();
 
 			{
 				BROFILER_CATEGORY("MainLoop::GameUpdate", Brofiler::Color::CornflowerBlue);
@@ -119,8 +154,8 @@ void Engine::Run()
 			}
 
 			Physics->Update(deltaTime);
-
 		}
+
 			SceneNodes->Update(deltaTime);
 
 			Cameras->Update(deltaTime);
@@ -161,4 +196,14 @@ void Engine::Quit() { Running = false; }
 IWindow* Engine::GetWindow()
 {
 	return GameWindow;
+}
+
+const bool Engine::IsGameRunning() const
+{
+	return m_isGameRunning;
+}
+
+const bool Engine::IsGamePaused() const
+{
+	return m_isGamePaused;
 }

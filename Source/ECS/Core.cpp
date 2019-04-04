@@ -10,11 +10,6 @@ BaseCore::BaseCore(const char* CompName, const ComponentFilter& Filter)
 	Name = Name.substr(Name.find(' ')+1);
 }
 
-
-void BaseCore::OnEntityAdded(Entity& NewEntity)
-{
-}
-
 World& BaseCore::GetWorld() const
 {
 	return *GameWorld;
@@ -48,6 +43,11 @@ BaseCore::~BaseCore()
 void BaseCore::Remove(Entity& InEntity)
 {
 	Entities.erase(std::remove(Entities.begin(), Entities.end(), InEntity), Entities.end());
+}
+
+void BaseCore::Clear()
+{
+	Entities.clear();
 }
 
 #if ME_EDITOR

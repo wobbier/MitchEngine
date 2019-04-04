@@ -50,6 +50,8 @@ namespace Moonlight
 		unsigned int PushModel(const ModelCommand& model);
 		bool PopModel(unsigned int id);
 
+		void ClearModels();
+
 		void WindowResized(const Vector2& NewSize);
 
 	private:

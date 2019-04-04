@@ -5,7 +5,8 @@
 
 #define DEFAULT_ENTITY_POOL_SIZE 50
 
-World::World() : World(DEFAULT_ENTITY_POOL_SIZE)
+World::World()
+	: World(DEFAULT_ENTITY_POOL_SIZE)
 {
 }
 
@@ -19,11 +20,10 @@ World::~World()
 {
 }
 
-Entity World::CreateEntity()
+WeakPtr<Entity> World::CreateEntity()
 {
 	CheckForResize(1);
-	EntityCache.Alive.emplace_back(*this, EntIdPool.Create());
-	EntityCache.Alive.back().SetActive(true);
+	EntityCache.Alive.emplace_back(std::make_shared<Entity>(*this, EntIdPool.Create()));
 	return EntityCache.Alive.back();
 }
 
@@ -74,19 +74,93 @@ void World::Simulate()
 
 	for (auto& InEntity : EntityCache.Killed)
 	{
-		EntityCache.Alive.erase(std::remove(EntityCache.Alive.begin(), EntityCache.Alive.end(), InEntity), EntityCache.Alive.end());
 
 		EntityAttributes.Storage.RemoveAllComponents(InEntity);
 
 		EntIdPool.Remove(InEntity.GetId());
+
+
+		for (auto i = EntityCache.Alive.begin(); i != EntityCache.Alive.end(); ++i)
+		{
+			if (*(*i).get() == InEntity)
+			{
+				EntityCache.Alive.erase(i);
+				break;
+			}
+		}
 	}
 
 	EntityCache.ClearTemp();
 }
 
+void World::Destroy()
+{
+
+	for (auto& InEntity : EntityCache.Killed)
+	{
+		DestroyEntity(InEntity);
+	}
+
+	for (auto& InEntity : EntityCache.Deactivated)
+	{
+		DestroyEntity(InEntity);
+	}
+
+	for (auto& InEntity : EntityCache.Activated)
+	{
+		DestroyEntity(InEntity);
+	}
+
+	for (auto& InEntity : EntityCache.Alive)
+	{
+		EntityAttributes.Storage.RemoveAllComponents(*InEntity);
+		auto& Attr = EntityAttributes.Attributes[(*InEntity).GetId().Index];
+		Attr.Cores.reset();
+
+		EntIdPool.Remove(InEntity->GetId());
+	}
+
+	EntityCache.Alive.clear();
+	EntityCache.Deactivated.clear();
+	EntityCache.Killed.clear();
+
+	EntityCache.ClearTemp();
+}
+
+void World::Cleanup()
+{
+	Destroy();
+	for (auto& core : Cores)
+	{
+		//auto& Attr = EntityAttributes.Attributes[InEntity.GetId().Index];
+		core.second->Clear();
+	}
+}
+
+void World::DestroyEntity(Entity &InEntity)
+{
+	EntityAttributes.Storage.RemoveAllComponents(InEntity);
+	auto& Attr = EntityAttributes.Attributes[InEntity.GetId().Index];
+	Attr.Cores.reset();
+
+	EntIdPool.Remove(InEntity.GetId());
+
+	for (auto i = EntityCache.Alive.begin(); i != EntityCache.Alive.end(); ++i)
+	{
+		if (*(*i).get() == InEntity)
+		{
+			EntityCache.Alive.erase(i);
+			break;
+		}
+	}
+}
+
 void World::AddCore(BaseCore& InCore, TypeId InCoreTypeId)
 {
-	Cores[InCoreTypeId].reset(&InCore);
+	if (!Cores[InCoreTypeId])
+	{
+		Cores[InCoreTypeId].reset(&InCore);
+	}
 	InCore.GameWorld = this;
 	InCore.Init();
 }
@@ -124,11 +198,11 @@ std::size_t World::GetEntityCount() const
 
 Entity* World::GetEntity(EntityID id)
 {
-	for (Entity& var : EntityCache.Alive)
+	for (auto& var : EntityCache.Alive)
 	{
-		if (var.Id == id)
+		if (var->Id == id)
 		{
-			return &var;
+			return var.get();
 		}
 	}
 	return nullptr;

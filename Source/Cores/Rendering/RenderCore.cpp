@@ -29,6 +29,7 @@ RenderCore::RenderCore()
 void RenderCore::Init()
 {
 	Logger::GetInstance().Log(Logger::LogType::Debug, "RenderCore Initialized...");
+	m_renderer->ClearModels();
 }
 
 void RenderCore::OnEntityAdded(Entity& NewEntity)
