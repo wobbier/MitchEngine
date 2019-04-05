@@ -11,6 +11,8 @@ public:
 
 	void InitUI();
 
+	static void ShowExampleMenuFile();
+
 	void NewFrame(std::function<void()> StartGameFunc, std::function<void()> PauseGameFunc, std::function<void()> StopGameFunc);
 	void UpdateWorld(class World* world, class Transform* root);
 	void UpdateWorldRecursive(class Transform* root);

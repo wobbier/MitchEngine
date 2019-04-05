@@ -39,5 +39,12 @@ private:
 		ImGui::Text(ModelPath.LocalPath.c_str());
 	}
 
+	virtual void Serialize(json& outJson) final
+	{
+		Component::Serialize(outJson);
+
+		outJson["ModelPath"] = ModelPath.LocalPath;
+	}
+
 #endif
 };

@@ -12,7 +12,9 @@
 class Transform :
 	public Component<Transform>
 {
+	typedef Component<Transform> Base;
 	friend class Havana;
+	friend class EditorCore;
 	friend class SceneGraph;
 	friend class PhysicsCore;
 public:
@@ -49,6 +51,14 @@ private:
 	virtual void OnEditorInspect() final
 	{
 		Havana::EditableVector3("Position", GetPosition());
+	}
+
+	virtual void Serialize(json& outJson) final
+	{
+		Component::Serialize(outJson);
+
+		outJson["Position"] = { Position.X(),Position.Y(),Position.Z() };
+		outJson["Rotation"] = { Rotation.x, Rotation.y, Rotation.z, Rotation.w };
 	}
 #endif
 

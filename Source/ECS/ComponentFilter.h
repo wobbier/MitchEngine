@@ -24,6 +24,13 @@ public:
 		RequiresOneOfComponentsList[C::GetTypeId()] = true;
 		return *this;
 	}
+	template<typename C>
+	ComponentFilter& Excludes()
+	{
+		static_assert(std::is_base_of<BaseComponent, C>(), "C doesn't inherit from Component");
+		ExcludeComponentsList[C::GetTypeId()] = true;
+		return *this;
+	}
 	bool PassFilter(const ComponentTypeArray& InComponentTypeArray) const;
 
 	void Clear();

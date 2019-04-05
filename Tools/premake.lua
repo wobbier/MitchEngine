@@ -83,7 +83,8 @@ includedirs {
   "../Modules/Havana/Source",
   "../ThirdParty/Assimp/include",
   "../ThirdParty/ImGUI",
-  "../ThirdParty/PerlinNoise"
+  "../ThirdParty/PerlinNoise",
+  "../ThirdParty/JSON/single_include"
 }
 
 if isUWP then

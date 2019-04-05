@@ -7,6 +7,11 @@
 #include "EntityID.h"
 #include "Dementia.h"
 
+#include <nlohmann/json.hpp>
+
+// for convenience
+using json = nlohmann::json;
+
 class BaseComponent
 {
 	friend class ComponentStorage;
@@ -31,6 +36,7 @@ public:
 
 #if ME_EDITOR
 	virtual void OnEditorInspect() = 0;
+	virtual void Serialize(json& outJson) = 0;
 #endif
 
 private:
@@ -61,6 +67,12 @@ public:
 	virtual void OnEditorInspect() override
 	{
 	}
+
+	virtual void Serialize(json& outJson) override
+	{
+		outJson["Type"] = GetName();
+	}
+
 #endif
 };
 

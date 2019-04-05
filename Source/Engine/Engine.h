@@ -58,5 +58,6 @@ private:
 
 #if ME_EDITOR
 	std::unique_ptr<class Havana> Editor;
+	class EditorCore* EditorSceneManager = nullptr;
 #endif
 };

@@ -15,6 +15,7 @@
 #include "Havana.h"
 #include "Components/Transform.h"
 #include "Dementia.h"
+#include "Cores/EditorCore.h"
 
 Engine::Engine()
 	: Running(true)
@@ -66,11 +67,12 @@ void Engine::Init(Game* game)
 
 	ModelRenderer = new RenderCore();
 
-	InitGame();
-
 #if ME_EDITOR
 	Editor = std::make_unique<Havana>(this, m_renderer);
+	EditorSceneManager = new EditorCore(Editor.get());
+	InitGame();
 #else
+	InitGame();
 	StartGame();
 #endif
 
@@ -83,7 +85,9 @@ void Engine::InitGame()
 	GameWorld->AddCore<CameraCore>(*Cameras);
 	GameWorld->AddCore<SceneGraph>(*SceneNodes);
 	GameWorld->AddCore<RenderCore>(*ModelRenderer);
-
+#if ME_EDITOR
+	GameWorld->AddCore<EditorCore>(*EditorSceneManager);
+#endif
 	m_game->Initialize();
 }
 
@@ -141,6 +145,8 @@ void Engine::Run()
 		});
 
 		Editor->UpdateWorld(GameWorld.get(), &SceneNodes->RootEntity.lock()->GetComponent<Transform>());
+
+		EditorSceneManager->Update(deltaTime, &SceneNodes->RootEntity.lock()->GetComponent<Transform>());
 #endif
 		GameWorld->Simulate();
 

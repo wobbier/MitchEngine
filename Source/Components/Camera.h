@@ -39,5 +39,13 @@ private:
 	{
 		Havana::Text("Front", Front);
 	}
+
+	virtual void Serialize(json& outJson) final
+	{
+		Component::Serialize(outJson);
+
+		outJson["Zoom"] = Zoom;
+		outJson["IsCurrent"] = IsCurrent();
+	}
 #endif
 };
