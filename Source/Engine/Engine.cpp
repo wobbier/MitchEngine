@@ -20,6 +20,7 @@
 Engine::Engine()
 	: Running(true)
 	, GameClock(Clock::GetInstance())
+	, CurrentLevel(FilePath("Assets/Alley.lvl"))
 {
 }
 
@@ -75,6 +76,8 @@ void Engine::Init(Game* game)
 	InitGame();
 	StartGame();
 #endif
+
+	LoadLevel();
 
 	m_isInitialized = true;
 }
@@ -139,9 +142,7 @@ void Engine::Run()
 			m_isGameRunning = false;
 			m_isGamePaused = false;
 
-			GameWorld->Cleanup();
-			InitGame();
-			GameWorld->Simulate();
+			LoadLevel();
 		});
 
 		Editor->UpdateWorld(GameWorld.get(), &SceneNodes->RootEntity.lock()->GetComponent<Transform>());
@@ -215,4 +216,56 @@ const bool Engine::IsGameRunning() const
 const bool Engine::IsGamePaused() const
 {
 	return m_isGamePaused;
+}
+
+void Engine::LoadLevel()
+{
+	GameWorld->Cleanup();
+	InitGame();
+	//InitGame();
+	CurrentLevel.Read();
+	json level;
+
+	level = json::parse(CurrentLevel.Data);
+	json& scene = level["Scene"];
+	for (json& ent : scene)
+	{
+		LoadSceneObject(ent, nullptr);
+	}
+	//ComponentFactory::GetFactory(std::string("Transform"))->Create(ent, "Transform");
+
+
+	GameWorld->Simulate();
+}
+
+void Engine::LoadSceneObject(const json& obj, class Transform* parent)
+{
+	auto newEnt = GameWorld->CreateEntity();
+
+	Transform* transComp = nullptr;
+	for (const json& comp : obj["Components"])
+	{
+		BaseComponent* addedComp = newEnt.lock()->AddComponentByName(comp["Type"]);
+		if (comp["Type"] == "Transform")
+		{
+			transComp = static_cast<Transform*>(addedComp);
+			if (parent)
+			{
+				transComp->SetParent(*parent);
+			}
+			transComp->SetName(obj["Name"]);
+		}
+		if (addedComp)
+		{
+			addedComp->Deserialize(comp);
+		}
+	}
+
+	if (obj.contains("Children"))
+	{
+		for (const json& child : obj["Children"])
+		{
+			LoadSceneObject(child, transComp);
+		}
+	}
 }

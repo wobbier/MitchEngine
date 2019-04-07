@@ -5,6 +5,7 @@
 #include <stack>
 #include "Havana.h"
 #include "HavanaEvents.h"
+#include "File.h"
 
 EditorCore::EditorCore(Havana* editor)
 	: Base(ComponentFilter().Excludes<Transform>())
@@ -93,6 +94,7 @@ void EditorCore::OnEditorInspect()
 
 void EditorCore::SaveWorld()
 {
+	File worldFile(FilePath("Assets/Alley.lvl"));
 	json world;
 
 	if (RootTransform->Children.size() > 0)
@@ -102,6 +104,7 @@ void EditorCore::SaveWorld()
 			SaveSceneRecursively(world["Scene"], Child);
 		}
 	}
+	worldFile.Write(world.dump(4));
 	std::cout << world.dump(4) << std::endl;
 }
 

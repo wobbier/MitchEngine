@@ -68,6 +68,10 @@ private:
 		{
 		}
 
+		~TEntityAttributes() {
+			//Attributes.clear();
+		}
+
 		void Resize(std::size_t InAmount)
 		{
 			Storage.Resize(InAmount);

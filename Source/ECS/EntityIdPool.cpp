@@ -35,6 +35,13 @@ void EntityIdPool::Resize(std::size_t InAmount)
 	Entities.resize(InAmount);
 }
 
+void EntityIdPool::Reset()
+{
+	Entities.clear();
+	NextId = 0;
+	FreeList.clear();
+}
+
 void EntityIdPool::Remove(EntityID InEntityId)
 {
 	auto& Counter = Entities[InEntityId.Index];

@@ -16,6 +16,7 @@ public:
 	std::size_t GetSize() const;
 
 	void Resize(std::size_t InAmount);
+	void Reset();
 
 	void Remove(EntityID InEntityId);
 protected:

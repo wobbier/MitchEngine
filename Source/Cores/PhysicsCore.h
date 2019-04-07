@@ -2,7 +2,8 @@
 #include "ECS/Core.h"
 #include <btBulletDynamicsCommon.h>
 
-class PhysicsCore : public Core<PhysicsCore>
+class PhysicsCore
+	: public Core<PhysicsCore>
 {
 	friend class Core<PhysicsCore>;
 public:

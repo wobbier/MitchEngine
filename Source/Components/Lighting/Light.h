@@ -1,5 +1,6 @@
 #pragma once
 #include "ECS/Component.h"
+#include "ECS/ComponentDetail.h"
 #include "Math/Vector3.h"
 
 class Light : public Component<Light>
@@ -14,3 +15,4 @@ public:
 
 	Vector3 Colour{ 1.f, 1.f, 1.f };
 };
+ME_REGISTER_COMPONENT(Light)

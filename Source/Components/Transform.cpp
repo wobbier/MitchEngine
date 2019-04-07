@@ -121,3 +121,8 @@ DirectX::XMMATRIX Transform::GetMatrix()
 	//DirectX::XMMatrixIdentity();
 	return mat;
 }
+
+void Transform::SetName(const std::string& name)
+{
+	Name = name;
+}

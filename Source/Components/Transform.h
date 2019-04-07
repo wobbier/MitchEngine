@@ -8,6 +8,7 @@
 #include <DirectXMath.h>
 #include "Math/Vector3.h"
 #include "Havana.h"
+#include "ECS/ComponentDetail.h"
 
 class Transform :
 	public Component<Transform>
@@ -45,13 +46,6 @@ public:
 	glm::mat4 WorldTransform;
 	std::string Name;
 	DirectX::XMMATRIX GetMatrix();
-	
-private:
-#if ME_EDITOR
-	virtual void OnEditorInspect() final
-	{
-		Havana::EditableVector3("Position", GetPosition());
-	}
 
 	virtual void Serialize(json& outJson) final
 	{
@@ -60,6 +54,20 @@ private:
 		outJson["Position"] = { Position.X(),Position.Y(),Position.Z() };
 		outJson["Rotation"] = { Rotation.x, Rotation.y, Rotation.z, Rotation.w };
 	}
+
+	virtual void Deserialize(const json& inJson) final
+	{
+		SetPosition(Vector3((float)inJson["Position"][0], (float)inJson["Position"][1], (float)inJson["Position"][2]));
+	}
+	
+	void SetName(const std::string& name);
+private:
+#if ME_EDITOR
+	virtual void OnEditorInspect() final
+	{
+		Havana::EditableVector3("Position", GetPosition());
+	}
+
 #endif
 
 	void SetWorldTransform(glm::mat4& NewWorldTransform);
@@ -68,3 +76,4 @@ private:
 	Transform* ParentTransform = nullptr;
 	std::vector<Transform*> Children;
 };
+ME_REGISTER_COMPONENT(Transform)

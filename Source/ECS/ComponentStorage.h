@@ -30,6 +30,8 @@ public:
 	std::vector<BaseComponent*> GetAllComponents(const Entity& InEntity);
 
 	void Resize(std::size_t InAmount);
+
+	void Reset();
 private:
 	typedef std::vector<std::unique_ptr<BaseComponent> > ImplComponentArray;
 

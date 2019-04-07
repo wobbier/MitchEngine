@@ -12,6 +12,10 @@ Model::Model(const std::string& path)
 {
 }
 
+Model::Model()
+{
+}
+
 Model::~Model()
 {
 }

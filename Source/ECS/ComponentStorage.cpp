@@ -23,6 +23,7 @@ void ComponentStorage::AddComponent(Entity& InEntity, BaseComponent* InComponent
 
 	ComponentData.ComponentTypeList[InComponentTypeId] = true;
 	InComponent->Parent = InEntity.GetId();
+	//InEntity.SetActive(true);
 	InComponent->Init();
 }
 
@@ -65,6 +66,11 @@ std::vector<BaseComponent*> ComponentStorage::GetAllComponents(const Entity& InE
 void ComponentStorage::Resize(std::size_t InAmount)
 {
 	ComponentEntries.resize(InAmount);
+}
+
+void ComponentStorage::Reset()
+{
+	ComponentEntries.clear();
 }
 
 BaseComponent& ComponentStorage::GetComponent(const Entity& InEntity, TypeId InTypeId)

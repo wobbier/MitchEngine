@@ -2,6 +2,7 @@
 #include <gtc/matrix_transform.hpp>
 
 #include "ECS/Component.h"
+#include "ECS/ComponentDetail.h"
 #include "Components/Transform.h"
 #include "Math/Vector3.h"
 #include "Math/Matirx4.h"
@@ -49,3 +50,4 @@ private:
 	}
 #endif
 };
+ME_REGISTER_COMPONENT(Camera)

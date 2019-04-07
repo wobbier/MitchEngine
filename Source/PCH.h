@@ -66,6 +66,8 @@
 
 #include <nlohmann/json.hpp>
 
+//#include "ECS/ComponentDetail.h"
+
 // for convenience
 using json = nlohmann::json;
 

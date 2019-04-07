@@ -130,6 +130,8 @@ void World::Destroy()
 void World::Cleanup()
 {
 	Destroy();
+	EntIdPool.Reset();
+	EntityAttributes.Storage.Reset();
 	for (auto& core : Cores)
 	{
 		//auto& Attr = EntityAttributes.Attributes[InEntity.GetId().Index];

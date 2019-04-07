@@ -1,13 +1,28 @@
 // 2018 Mitchell Andrews
 #pragma once
-#include <string>
-#include <vector>
 #include "ClassTypeId.h"
-#include <memory>
 #include "EntityID.h"
 #include "Dementia.h"
 
 #include <nlohmann/json.hpp>
+
+#define ME_REGISTER_COMPONENT(TYPE)                      \
+	namespace details {                                  \
+    namespace                                            \
+    {                                                    \
+        template<class T>                                \
+        class ComponentRegistration;                     \
+                                                         \
+        template<>                                       \
+        class ComponentRegistration<TYPE>                \
+        {                                                \
+            static const RegistryEntry<TYPE>& reg;       \
+        };                                               \
+                                                         \
+        const RegistryEntry<TYPE>&                       \
+            ComponentRegistration<TYPE>::reg =           \
+                RegistryEntry<TYPE>::Instance(#TYPE);    \
+    }}
 
 // for convenience
 using json = nlohmann::json;
@@ -18,9 +33,9 @@ class BaseComponent
 public:
 	BaseComponent() = delete;
 	BaseComponent(const char* CompName)
-		: Name(CompName)
+		: TypeName(CompName)
 	{
-		Name = Name.substr(Name.find(' ') + 1);
+		TypeName = TypeName.substr(TypeName.find(' ') + 1);
 	}
 
 	virtual ~BaseComponent() = default;
@@ -29,7 +44,7 @@ public:
 
 	const std::string& GetName() const
 	{
-		return Name;
+		return TypeName;
 	}
 
 	EntityID Parent;
@@ -37,10 +52,11 @@ public:
 #if ME_EDITOR
 	virtual void OnEditorInspect() = 0;
 	virtual void Serialize(json& outJson) = 0;
+	virtual void Deserialize(const json& inJson) = 0;
 #endif
 
 private:
-	std::string Name;
+	std::string TypeName;
 };
 
 template<typename T>
@@ -71,6 +87,10 @@ public:
 	virtual void Serialize(json& outJson) override
 	{
 		outJson["Type"] = GetName();
+	}
+
+	virtual void Deserialize(const json& inJson) override
+	{
 	}
 
 #endif

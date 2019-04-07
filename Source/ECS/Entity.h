@@ -26,6 +26,8 @@ public:
 	template <typename T>
 	T& AddComponent(T* inComponent);
 
+	BaseComponent* AddComponentByName(const std::string& inComponent);
+
 	template <typename T, typename... Args>
 	T& AddComponent(Args&&... args);
 

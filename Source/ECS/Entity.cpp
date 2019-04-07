@@ -1,6 +1,8 @@
 #include "PCH.h"
 #include "Entity.h"
 #include "Engine/World.h"
+#include "ComponentDetail.h"
+#include "Logger.h"
 
 Entity::Entity()
 {
@@ -27,6 +29,21 @@ void Entity::AddComponent(BaseComponent* inComponent, TypeId inComponentTypeId)
 {
 	GameWorld->EntityAttributes.Storage.AddComponent(*this, inComponent, inComponentTypeId);
 	SetActive(true);
+}
+
+BaseComponent* Entity::AddComponentByName(const std::string& inComponent)
+{
+	ComponentRegistry& reg = getComponentRegistry();
+	ComponentRegistry::iterator it = reg.find(inComponent);
+
+	if (it == reg.end()) {
+		Logger::GetInstance().Log(Logger::LogType::Warning, "Factory not found for component " + inComponent);
+		return nullptr;
+	}
+
+	CreateComponentFunc func = it->second;
+	SetActive(true);
+	return func(*this);
 }
 
 const EntityID& Entity::GetId() const

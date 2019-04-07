@@ -1,5 +1,6 @@
 #pragma once
 #include "ECS/Component.h"
+#include "ECS/ComponentDetail.h"
 #include <btBulletDynamicsCommon.h>
 #include "Math/Vector3.h"
 #include <DirectXMath.h>
@@ -15,8 +16,8 @@ public:
 		Box = 0,
 		Sphere
 	};
-
-	Rigidbody(ColliderType type = ColliderType::Box);
+	Rigidbody();
+	Rigidbody(ColliderType type);
 	virtual ~Rigidbody() final;
 
 	// Separate init from construction code.
@@ -56,3 +57,5 @@ protected:
 
 #endif
 };
+
+ME_REGISTER_COMPONENT(Rigidbody)

@@ -1,30 +1,33 @@
 #pragma once
 #include "ECS/Component.h"
+#include "ECS/ComponentDetail.h"
 #include <string>
 #include "imgui.h"
 
-namespace Moonlight
-{
-	class Shader;
-}
 
-class Model : public Component<Model>
+class Model
+	: public Component<Model>
 {
 	friend class RenderCore;
 public:
+	Model();
 	Model(const std::string& path);
 	~Model();
 
 	// Separate init from construction code.
 	virtual void Init() final;
 
-	std::shared_ptr<ModelResource> ModelHandle = nullptr;
-	Moonlight::Shader* ModelShader = nullptr;
+	std::shared_ptr<class ModelResource> ModelHandle = nullptr;
+	class Moonlight::Shader* ModelShader = nullptr;
 
 	unsigned int GetId();
+
+	virtual void Deserialize(const json& inJson) final {
+		ModelPath = FilePath(inJson["ModelPath"]);
+	}
 private:
 	FilePath ModelPath;
-	unsigned int Id;
+	unsigned int Id = 0;
 
 #if ME_EDITOR
 
@@ -48,3 +51,5 @@ private:
 
 #endif
 };
+
+ME_REGISTER_COMPONENT(Model)

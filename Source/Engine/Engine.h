@@ -3,6 +3,7 @@
 #include "World.h"
 #include "Dementia.h"
 #include "Clock.h"
+#include "File.h"
 
 class Game;
 class IWindow;
@@ -21,6 +22,9 @@ public:
 	void InitGame();
 	void StartGame();
 	void StopGame();
+
+	void LoadLevel();
+	void LoadSceneObject(const json& obj, class Transform* parent);
 	
 	void Run();
 
@@ -60,4 +64,6 @@ private:
 	std::unique_ptr<class Havana> Editor;
 	class EditorCore* EditorSceneManager = nullptr;
 #endif
+
+	File CurrentLevel;
 };
