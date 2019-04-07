@@ -9,12 +9,17 @@
 #include "ECS/Core.h"
 #include "Engine/Engine.h"
 #include "HavanaEvents.h"
+#include <string>
+#include <iostream>
 
 #if ME_EDITOR
+#include <filesystem>
+namespace fs = std::filesystem;
 
 Havana::Havana(Engine* GameEngine, Moonlight::Renderer* renderer)
 	: Renderer(renderer)
 	, m_engine(GameEngine)
+	, CurrentDirectory("Assets")
 {
 	InitUI();
 }
@@ -40,83 +45,6 @@ void Havana::InitUI()
 	ImGui_ImplDX11_Init(Renderer->GetDevice().GetD3DDevice(), Renderer->GetDevice().GetD3DDeviceContext());
 }
 
-
-void Havana::ShowExampleMenuFile()
-{
-	//ImGui::MenuItem("(dummy menu)", NULL, false, false);
-	if (ImGui::MenuItem("New Scene"))
-	{
-		NewSceneEvent evt;
-		evt.Fire();
-	}
-	if (ImGui::MenuItem("Open Scene", "Ctrl+O"))
-	{
-		std::string thing = "";
-	}
-	if (ImGui::BeginMenu("Open Recent"))
-	{
-		ImGui::MenuItem("fish_hat.c");
-		ImGui::MenuItem("fish_hat.inl");
-		ImGui::MenuItem("fish_hat.h");
-		if (ImGui::BeginMenu("More.."))
-		{
-			ImGui::MenuItem("Hello");
-			ImGui::MenuItem("Sailor");
-			if (ImGui::BeginMenu("Recurse.."))
-			{
-				//ShowExampleMenuFile();
-				ImGui::EndMenu();
-			}
-			ImGui::EndMenu();
-		}
-		ImGui::EndMenu();
-	}
-	if (ImGui::MenuItem("Save", "Ctrl+S"))
-	{
-		SaveSceneEvent evt;
-		evt.Fire();
-	}
-	if (ImGui::MenuItem("Save As..")) {}
-	ImGui::Separator();
-	if (ImGui::BeginMenu("Options"))
-	{
-		static bool enabled = true;
-		ImGui::MenuItem("Enabled", "", &enabled);
-		ImGui::BeginChild("child", ImVec2(0, 60), true);
-		for (int i = 0; i < 10; i++)
-			ImGui::Text("Scrolling Text %d", i);
-		ImGui::EndChild();
-		static float f = 0.5f;
-		static int n = 0;
-		static bool b = true;
-		ImGui::SliderFloat("Value", &f, 0.0f, 1.0f);
-		ImGui::InputFloat("Input", &f, 0.1f);
-		ImGui::Combo("Combo", &n, "Yes\0No\0Maybe\0\0");
-		ImGui::Checkbox("Check", &b);
-		ImGui::EndMenu();
-	}
-	if (ImGui::BeginMenu("Colors"))
-	{
-		float sz = ImGui::GetTextLineHeight();
-		for (int i = 0; i < ImGuiCol_COUNT; i++)
-		{
-			const char* name = ImGui::GetStyleColorName((ImGuiCol)i);
-			ImVec2 p = ImGui::GetCursorScreenPos();
-			ImGui::GetWindowDrawList()->AddRectFilled(p, ImVec2(p.x + sz, p.y + sz), ImGui::GetColorU32((ImGuiCol)i));
-			ImGui::Dummy(ImVec2(sz, sz));
-			ImGui::SameLine();
-			ImGui::MenuItem(name);
-		}
-		ImGui::EndMenu();
-	}
-	if (ImGui::BeginMenu("Disabled", false)) // Disabled
-	{
-		IM_ASSERT(0);
-	}
-	if (ImGui::MenuItem("Checked", NULL, true)) {}
-	if (ImGui::MenuItem("Quit", "Alt+F4")) {}
-}
-
 bool show_demo_window = true;
 void Havana::NewFrame(std::function<void()> StartGameFunc, std::function<void()> PauseGameFunc, std::function<void()> StopGameFunc)
 {
@@ -127,25 +55,8 @@ void Havana::NewFrame(std::function<void()> StartGameFunc, std::function<void()>
 	RenderSize = Vector2(io.DisplaySize.x, io.DisplaySize.y);
 	Renderer->GetDevice().SetOutputSize(RenderSize);
 
-	if (ImGui::BeginMainMenuBar())
-	{
-		if (ImGui::BeginMenu("File"))
-		{
-			ShowExampleMenuFile();
-			ImGui::EndMenu();
-		}
-		if (ImGui::BeginMenu("Edit"))
-		{
-			if (ImGui::MenuItem("Undo", "CTRL+Z")) {}
-			if (ImGui::MenuItem("Redo", "CTRL+Y", false, false)) {}  // Disabled item
-			ImGui::Separator();
-			if (ImGui::MenuItem("Cut", "CTRL+X")) {}
-			if (ImGui::MenuItem("Copy", "CTRL+C")) {}
-			if (ImGui::MenuItem("Paste", "CTRL+V")) {}
-			ImGui::EndMenu();
-		}
-		ImGui::EndMainMenuBar();
-	}
+	DrawMainMenuBar();
+	DrawOpenFilePopup();
 
 	static float f = 0.0f;
 	ImGuiViewport* viewport = ImGui::GetMainViewport();
@@ -198,12 +109,213 @@ void Havana::NewFrame(std::function<void()> StartGameFunc, std::function<void()>
 	ImGui::End();
 }
 
-void Havana::UpdateWorld(World* world, Transform* root)
+void Havana::DrawOpenFilePopup()
 {
-	ImGui::Begin("Scene View");
-	UpdateWorldRecursive(root);
-	ImGui::End();
-	ImGui::Begin("Entity Cores");
+	if (OpenScene)
+	{
+		ImGui::OpenPopup("Test");
+	}
+	if (ImGui::BeginPopupModal("Test", &OpenScene, ImGuiWindowFlags_MenuBar))
+	{
+		if (ImGui::BeginMenuBar())
+		{
+			if (ImGui::BeginMenu("File"))
+			{
+				if (ImGui::MenuItem("Dummy menu item")) {}
+				ImGui::EndMenu();
+			}
+			ImGui::EndMenuBar();
+		}
+
+		BrowseDirectory(FilePath("Assets"));
+
+		for (auto& j : AssetDirectory)
+		{
+			FilePath path(j);
+			ImGui::TreeNode(path.LocalPath.c_str());
+			if (ImGui::IsItemClicked())
+			{
+				if (!j.is_string())
+				{
+					return;
+				}
+				LoadSceneEvent evt;
+				evt.Level = path.LocalPath;
+				evt.Fire();
+				OpenScene = false;
+				ImGui::CloseCurrentPopup();
+			}
+		}
+
+		if (ImGui::Button("Close"))
+		{
+			OpenScene = false;
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::EndPopup();
+	}
+}
+
+void Havana::DrawMainMenuBar()
+{
+	if (ImGui::BeginMainMenuBar())
+	{
+		if (ImGui::BeginMenu("File"))
+		{
+			//ImGui::MenuItem("(dummy menu)", NULL, false, false);
+			if (ImGui::MenuItem("New Scene"))
+			{
+				NewSceneEvent evt;
+				evt.Queue();
+			}
+			if (ImGui::MenuItem("Open Scene", "Ctrl+O"))
+			{
+				OpenScene = true;
+			}
+
+			if (ImGui::BeginMenu("Open Recent"))
+			{
+				ImGui::MenuItem("fish_hat.c");
+				ImGui::MenuItem("fish_hat.inl");
+				ImGui::MenuItem("fish_hat.h");
+				if (ImGui::BeginMenu("More.."))
+				{
+					ImGui::MenuItem("Hello");
+					ImGui::MenuItem("Sailor");
+					if (ImGui::BeginMenu("Recurse.."))
+					{
+						//ShowExampleMenuFile();
+						ImGui::EndMenu();
+					}
+					ImGui::EndMenu();
+				}
+				ImGui::EndMenu();
+			}
+			if (ImGui::MenuItem("Save", "Ctrl+S"))
+			{
+				SaveSceneEvent evt;
+				evt.Fire();
+			}
+			if (ImGui::MenuItem("Save As..")) {}
+			ImGui::Separator();
+			if (ImGui::BeginMenu("Options"))
+			{
+				static bool enabled = true;
+				ImGui::MenuItem("Enabled", "", &enabled);
+				ImGui::BeginChild("child", ImVec2(0, 60), true);
+				for (int i = 0; i < 10; i++)
+					ImGui::Text("Scrolling Text %d", i);
+				ImGui::EndChild();
+				static float f = 0.5f;
+				static int n = 0;
+				static bool b = true;
+				ImGui::SliderFloat("Value", &f, 0.0f, 1.0f);
+				ImGui::InputFloat("Input", &f, 0.1f);
+				ImGui::Combo("Combo", &n, "Yes\0No\0Maybe\0\0");
+				ImGui::Checkbox("Check", &b);
+				ImGui::EndMenu();
+			}
+			if (ImGui::MenuItem("Quit", "Alt+F4")) {}
+			ImGui::EndMenu();
+		}
+		if (ImGui::BeginMenu("Edit"))
+		{
+			if (ImGui::MenuItem("Undo", "CTRL+Z")) {}
+			if (ImGui::MenuItem("Redo", "CTRL+Y", false, false)) {}  // Disabled item
+			ImGui::Separator();
+			if (ImGui::MenuItem("Cut", "CTRL+X")) {}
+			if (ImGui::MenuItem("Copy", "CTRL+C")) {}
+			if (ImGui::MenuItem("Paste", "CTRL+V")) {}
+			ImGui::EndMenu();
+		}
+		if (ImGui::BeginMenu("Add"))
+		{
+			if (ImGui::MenuItem("Entity"))
+			{
+				SelectedEntity = m_engine->GetWorld().lock()->CreateEntity().lock().get();
+				SelectedEntity->AddComponent<Transform>("New Entity");
+			}
+			ImGui::EndMenu();
+		}
+		ImGui::EndMainMenuBar();
+	}
+}
+
+void Havana::AddComponentPopup()
+{
+	{
+		static int selected_fish = -1;
+		const char* names[] = { "Bream", "Haddock", "Mackerel", "Pollock", "Tilefish" };
+		static bool toggles[] = { true, false, false, false, false };
+
+		// Simple selection popup
+		// (If you want to show the current selection inside the Button itself, you may want to build a string using the "###" operator to preserve a constant ID with a variable label)
+		ImGui::PushItemWidth(-100);
+		if (ImGui::Button("Add Component.."))
+		{
+			ImGui::OpenPopup("my_select_popup");
+		}
+		ImGui::PopItemWidth();
+
+		if (ImGui::BeginPopup("my_select_popup"))
+		{
+			ImGui::Text("Components");
+			ImGui::Separator();
+
+			ComponentRegistry& reg = GetComponentRegistry();
+
+			for (auto& thing : reg)
+			{
+				if (ImGui::Selectable(thing.first.c_str()))
+				{
+					if (SelectedEntity)
+					{
+						SelectedEntity->AddComponentByName(thing.first);
+					}
+					if (SelectedTransform)
+					{
+						m_engine->GetWorld().lock()->GetEntity(SelectedTransform->Parent)->AddComponentByName(thing.first);
+					}
+				}
+			}
+			ImGui::EndPopup();
+		}
+	}
+}
+
+void Havana::UpdateWorld(World * world, Transform * root, const std::vector<Entity> & ents)
+{
+	ImGui::Begin("World");
+	if (ImGui::CollapsingHeader("Scene", ImGuiTreeNodeFlags_DefaultOpen))
+	{
+		UpdateWorldRecursive(root);
+	}
+	if (ents.size() > 0)
+	{
+		if (ImGui::CollapsingHeader("Utility", ImGuiTreeNodeFlags_DefaultOpen))
+		{
+			int i = 0;
+			for (const Entity& ent : ents)
+			{
+				for (BaseComponent* comp : ent.GetAllComponents())
+				{
+					ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | (SelectedEntity == &ent ? ImGuiTreeNodeFlags_Selected : 0);
+					{
+						node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen; // ImGuiTreeNodeFlags_Bullet
+						ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, comp->GetName().c_str());
+						if (ImGui::IsItemClicked())
+						{
+							SelectedCore = nullptr;
+							SelectedTransform = nullptr;
+							SelectedEntity = &const_cast<Entity&>(ent);
+						}
+					}
+				}
+			}
+		}
+	}
+
+	if (ImGui::CollapsingHeader("Entity Cores", ImGuiTreeNodeFlags_DefaultOpen))
 	{
 		int i = 0;
 		for (BaseCore* comp : world->GetAllCores())
@@ -216,6 +328,7 @@ void Havana::UpdateWorld(World* world, Transform* root)
 				{
 					SelectedCore = comp;
 					SelectedTransform = nullptr;
+					SelectedEntity = nullptr;
 				}
 			}
 		}
@@ -224,19 +337,22 @@ void Havana::UpdateWorld(World* world, Transform* root)
 
 	ImGui::Begin("Properties");
 
+	Entity* entity = SelectedEntity;
 	if (SelectedTransform != nullptr)
 	{
-		Entity* entity = world->GetEntity(SelectedTransform->Parent);
-		if (entity)
+		entity = world->GetEntity(SelectedTransform->Parent);
+	}
+
+	if (entity)
+	{
+		for (BaseComponent* comp : entity->GetAllComponents())
 		{
-			for (BaseComponent* comp : entity->GetAllComponents())
+			if (ImGui::CollapsingHeader(comp->GetName().c_str(), ImGuiTreeNodeFlags_DefaultOpen))
 			{
-				if (ImGui::CollapsingHeader(comp->GetName().c_str(), ImGuiTreeNodeFlags_DefaultOpen))
-				{
-					comp->OnEditorInspect();
-				}
+				comp->OnEditorInspect();
 			}
 		}
+		AddComponentPopup();
 	}
 
 	if (SelectedCore != nullptr)
@@ -246,7 +362,7 @@ void Havana::UpdateWorld(World* world, Transform* root)
 	ImGui::End();
 }
 
-void Havana::UpdateWorldRecursive(Transform* root)
+void Havana::UpdateWorldRecursive(Transform * root)
 {
 	if (!root)
 		return;
@@ -262,6 +378,7 @@ void Havana::UpdateWorldRecursive(Transform* root)
 			{
 				SelectedTransform = var;
 				SelectedCore = nullptr;
+				SelectedEntity = m_engine->GetWorld().lock()->GetEntity(SelectedTransform->Parent);
 			}
 		}
 		else
@@ -271,6 +388,7 @@ void Havana::UpdateWorldRecursive(Transform* root)
 			{
 				SelectedTransform = var;
 				SelectedCore = nullptr;
+				SelectedEntity = m_engine->GetWorld().lock()->GetEntity(SelectedTransform->Parent);
 			}
 
 			if (node_open)
@@ -306,7 +424,7 @@ void Havana::Render()
 			// Under OpenGL the ImGUI image type is GLuint
 			// So make sure to use "(void *)tex" but not "&tex"
 			ImGui::GetWindowDrawList()->AddImage(
-				(void *)Renderer->GetDevice().shaderResourceViewMap,
+				(void*)Renderer->GetDevice().shaderResourceViewMap,
 				ImVec2(pos.x, pos.y),
 				ImVec2(maxPos),
 				ImVec2(0, 0),
@@ -330,7 +448,7 @@ const bool Havana::IsGameFocused() const
 	return m_isGameFocused;
 }
 
-void Havana::Text(const std::string& Name, const Vector3& Vector)
+void Havana::Text(const std::string & Name, const Vector3 & Vector)
 {
 	ImGui::Text(Name.c_str());
 
@@ -341,9 +459,28 @@ void Havana::Text(const std::string& Name, const Vector3& Vector)
 	ImGui::Text("Z: %f", Vector.Z());
 }
 
-void Havana::EditableVector3(const std::string& Name, Vector3& Vector)
+void Havana::EditableVector3(const std::string & Name, Vector3 & Vector)
 {
 	ImGui::DragFloat3(Name.c_str(), &Vector[0], 0.005f);
+}
+
+void Havana::BrowseDirectory(const FilePath & path)
+{
+	if (CurrentDirectory.FullPath == path.FullPath && !AssetDirectory.empty())
+	{
+		return;
+	}
+
+	for (const auto& entry : fs::directory_iterator(path.FullPath))
+	{
+		FilePath filePath(entry.path().string());
+
+		AssetDirectory.push_back(filePath.FullPath);
+
+		ImGui::Text(filePath.Directory.c_str());
+
+		ImGui::Text(filePath.LocalPath.c_str());
+	}
 }
 
 #endif

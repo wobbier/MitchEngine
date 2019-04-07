@@ -1,41 +1,31 @@
 #pragma once
 #include "ClassTypeId.h"
-
-class BaseEvent
-{
-public:
-	TypeId GetEventId() const
-	{
-		return id;
-	}
-protected:
-	BaseEvent(TypeId type)
-		: id(type)
-	{
-
-	}
-private:
-	TypeId id;
-};
+#include "EventManager.h"
 
 template <class T>
 class Event
 	: public BaseEvent
 {
 public:
-	Event()
-		: BaseEvent(GetEventId())
-	{
-	}
+	Event();
 
-	static TypeId GetEventId()
-	{
-		return ClassTypeId<BaseEvent>::GetTypeId<T>();
-	}
+	static TypeId GetEventId();
 
 	void Fire();
 	void Queue();
 };
+
+template <class T>
+TypeId Event<T>::GetEventId()
+{
+	return ClassTypeId<BaseEvent>::GetTypeId<T>();
+}
+
+template <class T>
+Event<T>::Event() : BaseEvent(GetEventId())
+{
+
+}
 
 template <class T>
 void Event<T>::Queue()

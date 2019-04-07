@@ -14,5 +14,8 @@ public:
 	virtual void Init() final;
 
 	Vector3 Colour{ 1.f, 1.f, 1.f };
+#if ME_EDITOR
+	virtual void OnEditorInspect() final;
+#endif
 };
 ME_REGISTER_COMPONENT(Light)

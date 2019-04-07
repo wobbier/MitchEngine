@@ -23,26 +23,29 @@ Game::~Game()
 {
 }
 
-void Game::Start()
-{
-	GetEngine().Init(this);
-}
 
 void Game::Run()
 {
+	GetEngine().Init(this);
 	GetEngine().Run();
 }
 
-void Game::Initialize()
+void Game::OnInitialize()
 {
 
 }
 
-void Game::Update(float DeltaTime)
+void Game::OnStart()
 {
+
 }
 
-void Game::End()
+void Game::OnEnd()
 {
 
+}
+
+
+void Game::OnUpdate(float DeltaTime)
+{
 }

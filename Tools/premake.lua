@@ -61,7 +61,7 @@ else
 configurations { "Debug", "Release", "Debug Editor", "Release Editor" }
 end
 platforms { "x64" }
-
+cppdialect "C++17"
 if isUWP then
   startproject (getPlatformPostfix(ProjectName .. "_EntryPoint"))
 else
@@ -230,13 +230,9 @@ if not isUWP then
 ------------------------------------------------------- Editor Project -----------------------------------------------------
 
 group "Engine/Modules"
-project (getPlatformPostfix("Havana"))
+project "Havana"
     kind "StaticLib"
   systemversion "10.0.14393.0"
-if (isUWP) then
-  system "windowsuniversal"
-  consumewinrtextension "true"
-end
 language "C++"
 targetdir "../Build/%{cfg.buildcfg}"
 location "../Modules/Havana"
@@ -291,10 +287,10 @@ end
 
 project (getPlatformPostfix("Dementia"))
 kind "StaticLib"
---if (isUWP) then
---	system "windowsuniversal"
---	consumewinrtextension "true"
---end
+if (isUWP) then
+	system "windowsuniversal"
+	consumewinrtextension "true"
+end
 systemversion "10.0.14393.0"
 language "C++"
 targetdir "../Build/%{cfg.buildcfg}"

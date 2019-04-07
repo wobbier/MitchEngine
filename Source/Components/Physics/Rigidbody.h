@@ -44,7 +44,7 @@ public:
 	}
 private:
 	void CreateObject(const Vector3& Position, class btDiscreteDynamicsWorld* world);
-	btRigidBody* InternalRigidbody;
+	btRigidBody* InternalRigidbody = nullptr;
 
 	ColliderType Type = ColliderType::Box;
 protected:

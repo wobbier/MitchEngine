@@ -37,7 +37,7 @@ public:
 	template <typename T>
 	void RemoveComponent();
 
-	std::vector<BaseComponent*> GetAllComponents();
+	std::vector<BaseComponent*> GetAllComponents() const;
 
 	const EntityID& GetId() const;
 

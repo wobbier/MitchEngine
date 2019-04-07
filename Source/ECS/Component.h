@@ -49,10 +49,11 @@ public:
 
 	EntityID Parent;
 
-#if ME_EDITOR
-	virtual void OnEditorInspect() = 0;
 	virtual void Serialize(json& outJson) = 0;
 	virtual void Deserialize(const json& inJson) = 0;
+
+#if ME_EDITOR
+	virtual void OnEditorInspect() = 0;
 #endif
 
 private:
@@ -79,17 +80,18 @@ public:
 	{
 	}
 
-#if ME_EDITOR
-	virtual void OnEditorInspect() override
-	{
-	}
-
 	virtual void Serialize(json& outJson) override
 	{
 		outJson["Type"] = GetName();
 	}
 
 	virtual void Deserialize(const json& inJson) override
+	{
+	}
+
+#if ME_EDITOR
+
+	virtual void OnEditorInspect() override
 	{
 	}
 

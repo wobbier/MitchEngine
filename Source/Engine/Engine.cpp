@@ -16,12 +16,17 @@
 #include "Components/Transform.h"
 #include "Dementia.h"
 #include "Cores/EditorCore.h"
+#include "HavanaEvents.h"
 
 Engine::Engine()
 	: Running(true)
 	, GameClock(Clock::GetInstance())
 	, CurrentLevel(FilePath("Assets/Alley.lvl"))
 {
+	std::vector<TypeId> events;
+	events.push_back(NewSceneEvent::GetEventId());
+	events.push_back(LoadSceneEvent::GetEventId());
+	EventManager::GetInstance().RegisterReceiver(this, events);
 }
 
 Engine::~Engine()
@@ -72,12 +77,13 @@ void Engine::Init(Game* game)
 	Editor = std::make_unique<Havana>(this, m_renderer);
 	EditorSceneManager = new EditorCore(Editor.get());
 	InitGame();
+	LoadLevel();
 #else
 	InitGame();
+	LoadLevel();
 	StartGame();
 #endif
 
-	LoadLevel();
 
 	m_isInitialized = true;
 }
@@ -91,17 +97,21 @@ void Engine::InitGame()
 #if ME_EDITOR
 	GameWorld->AddCore<EditorCore>(*EditorSceneManager);
 #endif
-	m_game->Initialize();
+	m_game->OnInitialize();
 }
 
 void Engine::StartGame()
 {
-	m_isGameRunning = true;
+	if (!m_isGameRunning)
+	{
+		m_isGameRunning = true;
+		m_game->OnStart();
+	}
 }
 
 void Engine::StopGame()
 {
-	m_game->End();
+	m_game->OnEnd();
 }
 
 void Engine::Run()
@@ -118,7 +128,7 @@ void Engine::Run()
 
 		if (GameWindow->ShouldClose())
 		{
-			m_game->End();
+			StopGame();
 			break;
 		}
 
@@ -145,9 +155,10 @@ void Engine::Run()
 			LoadLevel();
 		});
 
-		Editor->UpdateWorld(GameWorld.get(), &SceneNodes->RootEntity.lock()->GetComponent<Transform>());
-
 		EditorSceneManager->Update(deltaTime, &SceneNodes->RootEntity.lock()->GetComponent<Transform>());
+
+		Editor->UpdateWorld(GameWorld.get(), &SceneNodes->RootEntity.lock()->GetComponent<Transform>(), EditorSceneManager->GetEntities());
+
 #endif
 		GameWorld->Simulate();
 
@@ -160,7 +171,7 @@ void Engine::Run()
 
 			{
 				BROFILER_CATEGORY("MainLoop::GameUpdate", Brofiler::Color::CornflowerBlue);
-				m_game->Update(deltaTime);
+				m_game->OnUpdate(deltaTime);
 			}
 
 			Physics->Update(deltaTime);
@@ -179,6 +190,31 @@ void Engine::Run()
 #endif
 			});
 	}
+}
+
+bool Engine::OnEvent(const BaseEvent& evt)
+{
+	if (evt.GetEventId() == NewSceneEvent::GetEventId())
+	{
+		const NewSceneEvent& test = static_cast<const NewSceneEvent&>(evt);
+		//InputEnabled = test.Enabled;
+		GameWorld->Cleanup();
+		InitGame();
+		GameWorld->Simulate();
+
+		return true;
+	}
+
+	if (evt.GetEventId() == LoadSceneEvent::GetEventId())
+	{
+		const LoadSceneEvent& test = static_cast<const LoadSceneEvent&>(evt);
+		//InputEnabled = test.Enabled;
+		LoadLevel(test.Level);
+
+		return true;
+	}
+
+	return false;
 }
 
 Moonlight::Renderer& Engine::GetRenderer() const
@@ -220,6 +256,7 @@ const bool Engine::IsGamePaused() const
 
 void Engine::LoadLevel()
 {
+	GameWindow->SetTitle("Havana - " + CurrentLevel.Path.LocalPath);
 	GameWorld->Cleanup();
 	InitGame();
 	//InitGame();
@@ -236,6 +273,12 @@ void Engine::LoadLevel()
 
 
 	GameWorld->Simulate();
+}
+
+void Engine::LoadLevel(std::string Level)
+{
+	CurrentLevel = File(FilePath(Level));
+	LoadLevel();
 }
 
 void Engine::LoadSceneObject(const json& obj, class Transform* parent)

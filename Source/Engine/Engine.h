@@ -4,11 +4,13 @@
 #include "Dementia.h"
 #include "Clock.h"
 #include "File.h"
+#include "Events/EventReceiver.h"
 
 class Game;
 class IWindow;
 
 class Engine
+	: public EventReceiver
 {
 public:
 	const float FPS = 144.0f;
@@ -24,9 +26,11 @@ public:
 	void StopGame();
 
 	void LoadLevel();
+	void LoadLevel(std::string Level);
 	void LoadSceneObject(const json& obj, class Transform* parent);
 	
 	void Run();
+	virtual bool OnEvent(const BaseEvent& evt);
 
 	Moonlight::Renderer& GetRenderer() const;
 

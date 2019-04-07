@@ -17,6 +17,8 @@ public:
 	virtual void Swap() = 0;
 	virtual Vector2 GetSize() const = 0;
 
+	virtual void SetTitle(const std::string& title) = 0;
+
 protected:
 	bool m_windowVisible;
 };

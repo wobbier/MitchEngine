@@ -2,7 +2,6 @@
 #include <memory>
 
 #include "Device/IDevice.h"
-#include "Utils/StepTimer.h"
 #include "Singleton.h"
 #include "Resource/ResourceCache.h"
 #include "Graphics/ModelResource.h"
@@ -16,6 +15,7 @@
 #include <queue>
 #include "Math/Vector2.h"
 #include <functional>
+
 
 namespace Moonlight
 {

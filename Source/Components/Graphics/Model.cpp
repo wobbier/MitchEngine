@@ -22,9 +22,13 @@ Model::~Model()
 
 void Model::Init()
 {
-	ModelShader = new Moonlight::Shader("Assets/Shaders/SimpleVertexShader.cso", "Assets/Shaders/SimplePixelShader.cso");
 	ModelHandle = ResourceCache::GetInstance().Get<ModelResource>(ModelPath);
-	ModelHandle->SetShader(ModelShader);
+	if (ModelHandle && !IsInitialized)
+	{
+		IsInitialized = true;
+		ModelShader = new Moonlight::Shader("Assets/Shaders/SimpleVertexShader.cso", "Assets/Shaders/SimplePixelShader.cso");
+		ModelHandle->SetShader(ModelShader);
+	}
 }
 
 unsigned int Model::GetId()

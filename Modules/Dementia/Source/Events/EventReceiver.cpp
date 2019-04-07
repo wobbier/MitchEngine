@@ -1,2 +1,10 @@
-#include "PCH.h"
-#include "EventReceiver.h"
+#include "Events/EventReceiver.h"
+
+EventReceiver::EventReceiver()
+{
+}
+
+EventReceiver::~EventReceiver()
+{
+
+}

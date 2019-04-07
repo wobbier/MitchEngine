@@ -52,6 +52,11 @@ Vector2 UWPWindow::GetSize() const
 	return Vector2(WINDOW_WIDTH, WINDOW_HEIGHT);
 }
 
+void UWPWindow::SetTitle(const std::string& title)
+{
+
+}
+
 void UWPWindow::SetVisibility(bool Visible)
 {
 	m_windowVisible = Visible;

@@ -1,5 +1,5 @@
-#include "PCH.h"
-#include "EventManager.h"
+#include "Events/EventManager.h"
+#include "Events/EventReceiver.h"
 
 EventManager::EventManager()
 {
@@ -26,7 +26,7 @@ void EventManager::FireEvent(TypeId eventId, const BaseEvent& event)
 	}
 }
 
-void EventManager::QueueEvent(const BaseEvent& event)
+void EventManager::QueueEvent(BaseEvent& event)
 {
 	m_queuedEvents.push(std::move(event));
 }
@@ -36,6 +36,7 @@ void EventManager::FirePendingEvents()
 	while (!m_queuedEvents.empty())
 	{
 		const BaseEvent& event = m_queuedEvents.front();
+		m_queuedEvents.pop();
 		auto& recievers = m_eventReceivers[event.GetEventId()];
 		for (auto reciever : recievers)
 		{
@@ -44,6 +45,5 @@ void EventManager::FirePendingEvents()
 				break;
 			}
 		}
-		m_queuedEvents.pop();
 	}
 }

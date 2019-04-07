@@ -28,7 +28,7 @@ public:
 private:
 	FilePath ModelPath;
 	unsigned int Id = 0;
-
+	bool IsInitialized = false;
 #if ME_EDITOR
 
 	virtual void OnEditorInspect() final

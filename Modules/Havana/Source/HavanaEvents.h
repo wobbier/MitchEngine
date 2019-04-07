@@ -15,3 +15,15 @@ class NewSceneEvent
 public:
 	bool thing = false;
 };
+
+class LoadSceneEvent
+	: public Event<LoadSceneEvent>
+{
+public:
+	LoadSceneEvent()
+		: Event()
+	{
+	}
+
+	std::string Level;
+};

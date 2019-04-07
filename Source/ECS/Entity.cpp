@@ -33,7 +33,7 @@ void Entity::AddComponent(BaseComponent* inComponent, TypeId inComponentTypeId)
 
 BaseComponent* Entity::AddComponentByName(const std::string& inComponent)
 {
-	ComponentRegistry& reg = getComponentRegistry();
+	ComponentRegistry& reg = GetComponentRegistry();
 	ComponentRegistry::iterator it = reg.find(inComponent);
 
 	if (it == reg.end()) {
@@ -41,9 +41,7 @@ BaseComponent* Entity::AddComponentByName(const std::string& inComponent)
 		return nullptr;
 	}
 
-	CreateComponentFunc func = it->second;
-	SetActive(true);
-	return func(*this);
+	return it->second(*this);
 }
 
 const EntityID& Entity::GetId() const
@@ -71,7 +69,7 @@ void Entity::RemoveComponent(TypeId InComponentTypeId)
 	GameWorld->EntityAttributes.Storage.RemoveComponent(*this, InComponentTypeId);
 }
 
-std::vector<BaseComponent*> Entity::GetAllComponents()
+std::vector<BaseComponent*> Entity::GetAllComponents() const
 {
 	return GameWorld->EntityAttributes.Storage.GetAllComponents(*this);
 }

@@ -322,10 +322,11 @@ namespace Moonlight
 			
 			ComPtr<IDXGISwapChain1> swapChain;
 #if ME_PLATFORM_UWP
+			m_window = CoreWindow::GetForCurrentThread();
 			DX::ThrowIfFailed(
 				dxgiFactory->CreateSwapChainForCoreWindow(
 					m_d3dDevice.Get(),
-					reinterpret_cast<IUnknown*>(CoreWindow::GetForCurrentThread()),
+					reinterpret_cast<IUnknown*>(m_window),
 					&swapChainDesc,
 					nullptr,
 					&swapChain

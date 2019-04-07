@@ -104,6 +104,15 @@ void EditorCore::SaveWorld()
 			SaveSceneRecursively(world["Scene"], Child);
 		}
 	}
+
+	json& cores = world["Cores"];
+	for (auto& core : GetWorld().GetAllCores())
+	{
+		json coreDef;
+		coreDef["Type"] = (*core).GetName();
+		cores.push_back(coreDef);
+	}
+
 	worldFile.Write(world.dump(4));
 	std::cout << world.dump(4) << std::endl;
 }

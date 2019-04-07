@@ -5,14 +5,14 @@
 typedef BaseComponent* (*CreateComponentFunc)(Entity&);
 typedef std::map<std::string, CreateComponentFunc> ComponentRegistry;
 
-inline ComponentRegistry& getComponentRegistry()
+inline ComponentRegistry& GetComponentRegistry()
 {
 	static ComponentRegistry reg;
 	return reg;
 }
 
 template<class T>
-BaseComponent* createComponent(Entity& inEnt) {
+BaseComponent* AddComponent(Entity& inEnt) {
 	return &inEnt.AddComponent<T>();
 }
 
@@ -29,8 +29,8 @@ public:
 private:
 	RegistryEntry(const std::string& name)
 	{
-		ComponentRegistry& reg = getComponentRegistry();
-		CreateComponentFunc func = createComponent<T>;
+		ComponentRegistry& reg = GetComponentRegistry();
+		CreateComponentFunc func = AddComponent<T>;
 
 		std::pair<ComponentRegistry::iterator, bool> ret =
 			reg.insert(ComponentRegistry::value_type(name, func));
@@ -40,6 +40,6 @@ private:
 		}
 	}
 
-	RegistryEntry(const RegistryEntry<T>&) = delete; // C++11 feature
+	RegistryEntry(const RegistryEntry<T>&) = delete;
 	RegistryEntry& operator=(const RegistryEntry<T>&) = delete;
 };

@@ -1,10 +1,29 @@
 #pragma once
 #include <unordered_map>
 #include <queue>
+#include <vector>
 
 #include "Singleton.h"
 #include "ClassTypeId.h"
-#include "EventReceiver.h"
+
+class EventReceiver;
+
+class BaseEvent
+{
+public:
+	TypeId GetEventId() const
+	{
+		return id;
+	}
+protected:
+	BaseEvent(TypeId type)
+		: id(type)
+	{
+
+	}
+private:
+	TypeId id;
+};
 
 class EventManager
 	: public Singleton<EventManager>
@@ -17,7 +36,7 @@ public:
 	void RegisterReceiver(EventReceiver* receiver, std::vector<TypeId> events);
 
 	void FireEvent(TypeId eventId, const BaseEvent& event);
-	void QueueEvent(const BaseEvent& event);
+	void QueueEvent(BaseEvent& event);
 	void FirePendingEvents();
 
 protected:

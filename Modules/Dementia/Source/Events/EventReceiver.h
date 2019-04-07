@@ -4,8 +4,8 @@
 class EventReceiver
 {
 public:
-	EventReceiver() = default;
-	~EventReceiver() = default;
+	EventReceiver();
+	~EventReceiver();
 
 	virtual bool OnEvent(const BaseEvent& evt) = 0;
 };

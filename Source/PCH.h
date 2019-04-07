@@ -3,6 +3,7 @@
 
 #include <SDKDDKVer.h>
 
+
 #include "Dementia.h"
 #include "Pointers.h"
 
@@ -19,11 +20,11 @@
 #include <DirectXColors.h>
 #include <DirectXMath.h>
 #include <concrt.h>
+
 #endif
 #if ME_PLATFORM_UWP
 #include <agile.h>
 #endif
-
 #include "Brofiler.h"
 
 #include "Math/Vector2.h"

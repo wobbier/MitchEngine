@@ -17,6 +17,7 @@ public:
 	virtual bool ShouldClose() final;
 	virtual void ParseMessageQueue() final;
 	virtual void Swap() final;
+	virtual void SetTitle(const std::string& title) final;
 
 	Vector2 GetSize() const;
 

@@ -17,12 +17,13 @@ public:
 	ME_NONCOPYABLE(Game)
 	ME_NONMOVABLE(Game)
 
-	void Start();
 	void Run();
 
-	virtual void Initialize();
-	virtual void Update(float DeltaTime);
-	virtual void End();
+	virtual void OnInitialize();
+
+	virtual void OnStart();
+	virtual void OnUpdate(float DeltaTime);
+	virtual void OnEnd();
 
 	static Engine& GetEngine() { return m_engine; }
 private:

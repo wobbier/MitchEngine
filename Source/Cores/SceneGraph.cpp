@@ -32,7 +32,7 @@ void SceneGraph::UpdateRecursively(Transform* CurrentTransform)
 	BROFILER_CATEGORY("SceneGraph::UpdateRecursively", Brofiler::Color::DarkOrange);
 	for (Transform* Child : CurrentTransform->Children)
 	{
-		if (Child->IsDirty)
+		//if (Child->IsDirty)
 		{
 			BROFILER_CATEGORY("SceneGraph::Update::IsDirty", Brofiler::Color::DarkOrange);
 			glm::mat4 mat = glm::translate(glm::mat4(1.0f), Child->Position.GetInternalVec());

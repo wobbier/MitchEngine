@@ -59,9 +59,9 @@ public:
 		Write();
 	}
 	std::string Data;
+	FilePath Path;
 private:
 
-	FilePath Path;
 	bool IsOpen = false;
 	std::fstream FileStream;
 };

@@ -100,6 +100,11 @@ void D3D12Window::Swap()
 {
 }
 
+void D3D12Window::SetTitle(const std::string& title)
+{
+	SetWindowText(Window, s2ws(title).c_str());
+}
+
 Vector2 D3D12Window::GetSize() const
 {
 	RECT newSize;
