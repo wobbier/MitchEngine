@@ -29,6 +29,15 @@ namespace Moonlight
 			DirectX::XMMATRIX Transform;
 		};
 
+		struct CameraData
+		{
+			Vector3 Position;
+			Vector3 Front;
+			Vector3 Up;
+			Vector2 OutputSize;
+			float FOV;
+		};
+
 		void UpdateMatrix(unsigned int Id, DirectX::XMMATRIX NewTransform);
 	public:
 		Renderer();
@@ -41,7 +50,9 @@ namespace Moonlight
 		D3D12Device& GetDevice();
 
 		void Update(float dt);
-		void Render(std::function<void()> func);
+		void Render(std::function<void()> func, const CameraData& mainCamera, const CameraData& editorCamera);
+
+		void DrawScene(ID3D11DeviceContext3* context, ModelViewProjectionConstantBuffer& constantBufferSceneData, const CameraData& data);
 
 		void ReleaseDeviceDependentResources();
 		void CreateDeviceDependentResources();
@@ -54,6 +65,9 @@ namespace Moonlight
 
 		void WindowResized(const Vector2& NewSize);
 
+		class RenderTexture* RTT = nullptr;
+		class RenderTexture* RTT2 = nullptr;
+
 	private:
 		class SkyBox* Sky;
 		class Plane* Grid;
@@ -63,9 +77,9 @@ namespace Moonlight
 #if ME_DIRECTX
 		Microsoft::WRL::ComPtr<ID3D11Buffer> m_constantBuffer;
 		ModelViewProjectionConstantBuffer m_constantBufferData;
+		ModelViewProjectionConstantBuffer m_constantBufferSceneData;
 		float m_degreesPerSecond = 45.f;
 #endif
-		ID3D11SamplerState* CubesTexSamplerState;
 
 		std::vector<ModelCommand> Models;
 		std::queue<unsigned int> FreeCommandIndicies;

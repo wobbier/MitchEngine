@@ -68,9 +68,6 @@ namespace Moonlight
 		ID3D11Buffer *d2dIndexBuffer;
 		ID3D11Buffer *d2dVertBuffer;
 
-		ID3D11Texture2D* renderTargetTextureMap = nullptr;
-		ID3D11RenderTargetView1* renderTargetViewMap = nullptr;
-		ID3D11ShaderResourceView* shaderResourceViewMap = nullptr;
 		Microsoft::WRL::ComPtr<ID3D11RenderTargetView1>	m_d3dRenderTargetView;
 	private:
 		virtual void CreateFactories() final;

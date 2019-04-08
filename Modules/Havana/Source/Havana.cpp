@@ -11,9 +11,11 @@
 #include "HavanaEvents.h"
 #include <string>
 #include <iostream>
-
+#include "Graphics/RenderTexture.h"
 #if ME_EDITOR
 #include <filesystem>
+#include "Math/Vector2.h"
+#include "Mathf.h"
 namespace fs = std::filesystem;
 
 Havana::Havana(Engine* GameEngine, Moonlight::Renderer* renderer)
@@ -404,31 +406,61 @@ void Havana::UpdateWorldRecursive(Transform * root)
 
 void Havana::Render()
 {
-	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
-	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+	//ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+	//ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+	//ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
 	ImGui::Begin("Game");
 	{
 		m_isGameFocused = ImGui::IsWindowFocused();
 
-		RenderSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
-		ImGui::PopStyleVar(3);
+		//ImGui::PopStyleVar(3);
 
-		if (Renderer->GetDevice().shaderResourceViewMap != nullptr)
+		if (Renderer->RTT->shaderResourceViewMap != nullptr)
 		{
 			// Get the current cursor position (where your window is)
 			ImVec2 pos = ImGui::GetCursorScreenPos();
 			ImVec2 maxPos = ImVec2(pos.x + ImGui::GetWindowSize().x, pos.y + ImGui::GetWindowSize().y);
+			//GameRenderSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
+			GameRenderSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
 
 			// Ask ImGui to draw it as an image:
 			// Under OpenGL the ImGUI image type is GLuint
 			// So make sure to use "(void *)tex" but not "&tex"
 			ImGui::GetWindowDrawList()->AddImage(
-				(void*)Renderer->GetDevice().shaderResourceViewMap,
+				(void*)Renderer->RTT->shaderResourceViewMap,
 				ImVec2(pos.x, pos.y),
 				ImVec2(maxPos),
 				ImVec2(0, 0),
-				ImVec2(1, 1));
+				ImVec2(Mathf::Clamp(0.f, 1.0f, GameRenderSize.X() / Renderer->RTT->Size.X()), Mathf::Clamp(0.f, 1.0f, GameRenderSize.Y() / Renderer->RTT->Size.Y())));
+				//ImVec2(WorldViewRenderSize.X() / RenderSize.X(), WorldViewRenderSize.Y() / RenderSize.Y()));
+		}
+	}
+	ImGui::End();
+	//ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+	//ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+	//ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+	ImGui::Begin("World View");
+	{
+		m_isWorldViewFocused = ImGui::IsWindowFocused();
+
+		//ImGui::PopStyleVar(3);
+
+		if (Renderer->RTT2->shaderResourceViewMap != nullptr)
+		{
+			// Get the current cursor position (where your window is)
+			ImVec2 pos = ImGui::GetCursorScreenPos();
+			ImVec2 maxPos = ImVec2(pos.x + ImGui::GetWindowSize().x, pos.y + ImGui::GetWindowSize().y);
+			WorldViewRenderSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
+			// Ask ImGui to draw it as an image:
+			// Under OpenGL the ImGUI image type is GLuint
+			// So make sure to use "(void *)tex" but not "&tex"
+			ImGui::GetWindowDrawList()->AddImage(
+				(void*)Renderer->RTT2->shaderResourceViewMap,
+				ImVec2(pos.x, pos.y),
+				ImVec2(maxPos),
+				ImVec2(0, 0),
+				ImVec2(Mathf::Clamp(0.f, 1.0f, WorldViewRenderSize.X() / Renderer->RTT2->Size.X()), Mathf::Clamp(0.f, 1.0f, WorldViewRenderSize.Y() / Renderer->RTT2->Size.Y())));
+				//ImVec2(WorldViewRenderSize.X() / RenderSize.X(), WorldViewRenderSize.Y() / RenderSize.Y()));
 		}
 	}
 	ImGui::End();
@@ -446,6 +478,11 @@ void Havana::Render()
 const bool Havana::IsGameFocused() const
 {
 	return m_isGameFocused;
+}
+
+const bool Havana::IsWorldViewFocused() const
+{
+	return m_isWorldViewFocused;
 }
 
 void Havana::Text(const std::string & Name, const Vector3 & Vector)
@@ -481,6 +518,11 @@ void Havana::BrowseDirectory(const FilePath & path)
 
 		ImGui::Text(filePath.LocalPath.c_str());
 	}
+}
+
+const Vector2& Havana::GetGameOutputSize() const
+{
+	return GameRenderSize;
 }
 
 #endif

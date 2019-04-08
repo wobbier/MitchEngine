@@ -7,12 +7,14 @@
 #include "Math/Vector3.h"
 #include "Math/Matirx4.h"
 #include "Dementia.h"
+#include <imgui.h>
 
 class Camera
 	: public Component<Camera>
 {
 public:
 	static Camera* CurrentCamera;
+	static Camera* EditorCamera;
 
 	Vector3 Position;
 	Vector3 Front;
@@ -39,6 +41,11 @@ private:
 	virtual void OnEditorInspect() final
 	{
 		Havana::Text("Front", Front);
+		if (ImGui::Button("Set Current"))
+		{
+			SetCurrent();
+		}
+		ImGui::SliderFloat("Field of View", &m_FOV, 1.0f, 200.0f);
 	}
 
 	virtual void Serialize(json& outJson) final

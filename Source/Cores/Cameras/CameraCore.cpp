@@ -27,10 +27,7 @@ void CameraCore::Update(float dt)
 		Camera& CameraComponent = InEntity.GetComponent<Camera>();
 		Transform& TransformComponent = InEntity.GetComponent<Transform>();
 
-		if(CameraComponent.IsCurrent())
-		{
-			CameraComponent.UpdateCameraTransform(TransformComponent.GetPosition());
-		}
+		CameraComponent.UpdateCameraTransform(TransformComponent.GetPosition());
 	}
 }
 

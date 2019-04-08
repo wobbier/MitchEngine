@@ -6,7 +6,7 @@
 #include "Window/D3D12Window.h"
 #include "Events/EventManager.h"
 #include "Cores/PhysicsCore.h"
-#include "Cores/Camera/CameraCore.h"
+#include "Cores/Cameras/CameraCore.h"
 #include "Cores/SceneGraph.h"
 #include "Cores/Rendering/RenderCore.h"
 #include "Game.h"
@@ -17,6 +17,9 @@
 #include "Dementia.h"
 #include "Cores/EditorCore.h"
 #include "HavanaEvents.h"
+#include "Components/Camera.h"
+#include "Components/Cameras/FlyingCamera.h"
+#include "Cores/Cameras/FlyingCameraCore.h"
 
 Engine::Engine()
 	: Running(true)
@@ -73,6 +76,8 @@ void Engine::Init(Game* game)
 
 	ModelRenderer = new RenderCore();
 
+	FlyingCameraController = new FlyingCameraCore();
+
 #if ME_EDITOR
 	Editor = std::make_unique<Havana>(this, m_renderer);
 	EditorSceneManager = new EditorCore(Editor.get());
@@ -94,6 +99,8 @@ void Engine::InitGame()
 	GameWorld->AddCore<CameraCore>(*Cameras);
 	GameWorld->AddCore<SceneGraph>(*SceneNodes);
 	GameWorld->AddCore<RenderCore>(*ModelRenderer);
+
+	GameWorld->AddCore<FlyingCameraCore>(*FlyingCameraController);
 #if ME_EDITOR
 	GameWorld->AddCore<EditorCore>(*EditorSceneManager);
 #endif
@@ -176,6 +183,15 @@ void Engine::Run()
 
 			Physics->Update(deltaTime);
 		}
+		if(Editor->IsGameFocused())
+		{
+			FlyingCameraController->SetCamera(Camera::CurrentCamera);
+		}
+		else
+		{
+			FlyingCameraController->SetCamera(Camera::EditorCamera);
+		}
+		FlyingCameraController->Update(deltaTime);
 
 			SceneNodes->Update(deltaTime);
 
@@ -184,11 +200,16 @@ void Engine::Run()
 			ModelRenderer->Update(AccumulatedTime);
 
 			AccumulatedTime -= 1.0f / FPS;
+
+			Vector2 MainOutputSize = Editor->GetGameOutputSize();
+			Moonlight::Renderer::CameraData MainCamera = { Camera::CurrentCamera->Position, Camera::CurrentCamera->Front, Camera::CurrentCamera->Up, MainOutputSize, Camera::CurrentCamera->GetFOV() };
+			Moonlight::Renderer::CameraData EditorCamera = { Camera::EditorCamera->Position, Camera::EditorCamera->Front, Camera::EditorCamera->Up, Editor->WorldViewRenderSize, Camera::EditorCamera->GetFOV() };
+
 			m_renderer->Render([this]() {
 #if ME_EDITOR
 				Editor->Render();
 #endif
-			});
+			}, MainCamera, EditorCamera);
 	}
 }
 

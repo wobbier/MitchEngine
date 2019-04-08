@@ -13,6 +13,7 @@
 #include "imgui.h"
 #include "examples/imgui_impl_win32.h"
 #include "examples/imgui_impl_dx11.h"
+#include "Graphics/RenderTexture.h"
 
 using namespace DirectX;
 using namespace Windows::Foundation;
@@ -50,16 +51,6 @@ namespace Moonlight
 		Grid = new Plane("Assets/skybox.jpg", GetDevice());
 		Sky = new SkyBox("Assets/skybox.jpg");
 
-		D3D11_SAMPLER_DESC sampDesc;
-		ZeroMemory(&sampDesc, sizeof(sampDesc));
-		sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-		sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
-		sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
-		sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
-		sampDesc.ComparisonFunc = D3D11_COMPARISON_LESS;
-		sampDesc.MinLOD = 0;
-		sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
-		m_device->GetD3DDevice()->CreateSamplerState(&sampDesc, &CubesTexSamplerState);
 	}
 
 	void Renderer::SetWindow()
@@ -81,40 +72,137 @@ namespace Moonlight
 	{
 	}
 
-	void Renderer::Render(std::function<void()> func)
+	void Renderer::Render(std::function<void()> func, const CameraData& mainCamera, const CameraData& editorCamera)
 	{
 		BROFILER_CATEGORY("Renderer::Render", Brofiler::Color::CornflowerBlue);
 
-		Camera* currentCamera = Camera::CurrentCamera;
-		if (!currentCamera)
-		{
-			return;
-		}
-
 		auto context = m_device->GetD3DDeviceContext();
 
+		delete RTT;
+		delete RTT2;
+			RTT = new RenderTexture(m_device);
+			RTT2 = new RenderTexture(m_device);
 		// Reset the viewport to target the whole screen.
 		auto viewport = m_device->GetScreenViewport();
+
 		context->RSSetViewports(1, &viewport);
+
+		CD3D11_VIEWPORT m_screenViewport = CD3D11_VIEWPORT(
+			0.0f,
+			0.0f,
+			mainCamera.OutputSize.X(),
+			mainCamera.OutputSize.Y()
+		);
+
+		context->RSSetViewports(1, &m_screenViewport);
+		float darkGrey = (57.0f / 255.0f);
+		DirectX::XMVECTORF32 color = { {darkGrey, darkGrey, darkGrey, 1.0f} };
+		// Clear the back buffer and depth stencil view.
+		context->ClearRenderTargetView(m_device->GetBackBufferRenderTargetView(), color);
+		context->ClearRenderTargetView(RTT->renderTargetViewMap, color);
+		context->ClearRenderTargetView(RTT2->renderTargetViewMap, color);
+		context->ClearDepthStencilView(m_device->GetDepthStencilView(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+
+		RTT->Resize(mainCamera.OutputSize);
+		RTT2->Resize(editorCamera.OutputSize);
+		//m_device->GetD3DDeviceContext()->DiscardView1(m_device->GetDepthStencilView(), nullptr, 0);
 
 		// Reset render targets to the screen.
 #if ME_EDITOR
-		ID3D11RenderTargetView *const targets[1] = { m_device->renderTargetViewMap };//
+		ID3D11RenderTargetView *const targets[1] = { RTT->renderTargetViewMap };//
 #else
 		ID3D11RenderTargetView *const targets[1] = { m_device->GetBackBufferRenderTargetView() };//
 #endif
 		context->OMSetRenderTargets(1, targets, m_device->GetDepthStencilView());
 
-		float darkGrey = (57.0f / 255.0f);
-		DirectX::XMVECTORF32 color = { {darkGrey, darkGrey, darkGrey, 1.0f} };
-		// Clear the back buffer and depth stencil view.
-		context->ClearRenderTargetView(m_device->GetBackBufferRenderTargetView(), color);
-		context->ClearRenderTargetView(m_device->renderTargetViewMap, color);
+		DrawScene(context, m_constantBufferData, mainCamera);
+
 		context->ClearDepthStencilView(m_device->GetDepthStencilView(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
-		Vector2 outputSize = m_device->GetOutputSize();
+		CD3D11_VIEWPORT screenViewport = CD3D11_VIEWPORT(
+			0.0f,
+			0.0f,
+			editorCamera.OutputSize.X(),
+			editorCamera.OutputSize.Y()
+		);
+
+		context->RSSetViewports(1, &screenViewport);
+
+		ID3D11RenderTargetView* const targets2[1] = { RTT2->renderTargetViewMap };
+		context->OMSetRenderTargets(1, targets2, m_device->GetDepthStencilView());
+		DrawScene(context, m_constantBufferSceneData, editorCamera);
+
+
+		//UINT stride = sizeof(Vertex);
+		//UINT offset = 0;
+		//
+		// Set it to the D2D_PS so that we do not impliment lighting
+		//GetDevice().GetD3DDeviceContext()->PSSetShader(D2D_PS, 0, 0);
+
+		////Set the d2d square's Index buffer
+		//GetDevice().GetD3DDeviceContext()->IASetIndexBuffer(m_device->d2dIndexBuffer, DXGI_FORMAT_R32_UINT, 0);
+		////Set the d2d square's vertex buffer
+		//GetDevice().GetD3DDeviceContext()->IASetVertexBuffers(0, 1, &m_device->d2dVertBuffer, &stride, &offset);
+
+		//// Just set the WVP to a scale and translate, which will put the square into the bottom right corner of the screen
+		////m_constantBufferData. = XMMatrixScaling(0.5f, 0.5f, 0.0f) * XMMatrixTranslation(0.5f, -0.5f, 0.0f);
+		//XMStoreFloat4x4(&m_constantBufferData.model, XMMatrixTranspose(XMMatrixTranslation(0.5f, -0.5f, 0.0f)));
+		////XMMatrixTranspose(WVP);
+		//GetDevice().GetD3DDeviceContext()->UpdateSubresource(m_constantBuffer.Get(), 0, NULL, &m_constantBufferData, 0, 0);
+		//GetDevice().GetD3DDeviceContext()->VSSetConstantBuffers(0, 1, m_constantBuffer.GetAddressOf());
+		//GetDevice().GetD3DDeviceContext()->PSSetShaderResources(0, 1, &m_device->shaderResourceViewMap);    // Draw the map to the square
+
+		//GetDevice().GetD3DDeviceContext()->PSSetSamplers(0, 1, &CubesTexSamplerState);
+
+		////GetDevice().GetD3DDeviceContext()->RSSetState(CWcullMode);
+		////Draw the second cube
+		//GetDevice().GetD3DDeviceContext()->DrawIndexed(6, 0, 0);
+
+		// Reset the viewport to target the whole screen.
+
+		context->RSSetViewports(1, &viewport);
+#if ME_EDITOR
+		ID3D11RenderTargetView *const targets3[1] = { m_device->GetBackBufferRenderTargetView() };// , m_device->renderTargetViewMap
+			//////////////////////////// Draw the Map
+			// Make sure to set the render target back
+		GetDevice().GetD3DDeviceContext()->OMSetRenderTargets(1, targets3, m_device->GetDepthStencilView());
+
+#endif
+		func();
+		// The first argument instructs DXGI to block until VSync, putting the application
+		// to sleep until the next VSync. This ensures we don't waste any cycles rendering
+		// frames that will never be displayed to the screen.
+		DXGI_PRESENT_PARAMETERS parameters = { 0 };
+		HRESULT hr = m_device->GetSwapChain()->Present1(0, 0, &parameters);
+
+		// Discard the contents of the render target.
+		// This is a valid operation only when the existing contents will be entirely
+		// overwritten. If dirty or scroll rects are used, this call should be removed.
+		m_device->GetD3DDeviceContext()->DiscardView1(m_device->GetBackBufferRenderTargetView(), nullptr, 0);
+		m_device->GetD3DDeviceContext()->DiscardView1(RTT->shaderResourceViewMap, nullptr, 0);
+		m_device->GetD3DDeviceContext()->DiscardView1(RTT2->shaderResourceViewMap, nullptr, 0);
+
+		// Discard the contents of the depth stencil.
+		m_device->GetD3DDeviceContext()->DiscardView1(m_device->GetDepthStencilView(), nullptr, 0);
+
+		// If the device was removed either by a disconnection or a driver upgrade, we 
+		// must recreate all device resources.
+		if (hr == DXGI_ERROR_DEVICE_REMOVED || hr == DXGI_ERROR_DEVICE_RESET)
+		{
+			m_device->HandleDeviceLost();
+		}
+		else
+		{
+			DX::ThrowIfFailed(hr);
+		}
+	}
+
+
+	void Renderer::DrawScene(ID3D11DeviceContext3* context, ModelViewProjectionConstantBuffer& constantBufferSceneData, const CameraData& camera)
+	{
+		Vector2 outputSize = camera.OutputSize;
 		float aspectRatio = static_cast<float>(outputSize.X()) / static_cast<float>(outputSize.Y());
-		float fovAngleY = currentCamera->GetFOV() * XM_PI / 180.0f;
+		float fovAngleY = camera.FOV * XM_PI / 180.0f;
 
 		// This is a simple example of change that can be made when the app is in
 		// portrait or snapped view.
@@ -138,25 +226,25 @@ namespace Moonlight
 		);
 
 		XMStoreFloat4x4(
-			&m_constantBufferData.projection,
+			&constantBufferSceneData.projection,
 			XMMatrixTranspose(perspectiveMatrix)
 		);
 
-		const XMVECTORF32 eye = { currentCamera->Position.X(), currentCamera->Position.Y(), currentCamera->Position.Z(), 0 };
-		const XMVECTORF32 at = { currentCamera->Position.X() + currentCamera->Front.X(), currentCamera->Position.Y() + currentCamera->Front.Y(), currentCamera->Position.Z() + currentCamera->Front.Z(), 0.0f };
-		const XMVECTORF32 up = { currentCamera->Up.X(), currentCamera->Up.Y(), currentCamera->Up.Z(), 0 };
+		const XMVECTORF32 eye = { camera.Position.X(), camera.Position.Y(), camera.Position.Z(), 0 };
+		const XMVECTORF32 at = { camera.Position.X() + camera.Front.X(), camera.Position.Y() + camera.Front.Y(), camera.Position.Z() + camera.Front.Z(), 0.0f };
+		const XMVECTORF32 up = { camera.Up.X(), camera.Up.Y(), camera.Up.Z(), 0 };
 
 		//XMStoreFloat4x4(&m_constantBufferData.view, XMMatrixTranspose(XMMatrixIdentity()));
-		XMStoreFloat4x4(&m_constantBufferData.view, XMMatrixTranspose(XMMatrixLookAtRH(eye, at, up)));
+		XMStoreFloat4x4(&constantBufferSceneData.view, XMMatrixTranspose(XMMatrixLookAtRH(eye, at, up)));
 
 		{
-			XMStoreFloat4x4(&m_constantBufferData.model, XMMatrixTranspose(XMMatrixTranslation(eye[0], eye[1], eye[2])));
+			XMStoreFloat4x4(&constantBufferSceneData.model, XMMatrixTranspose(XMMatrixTranslation(eye[0], eye[1], eye[2])));
 			// Prepare the constant buffer to send it to the graphics device.
 			context->UpdateSubresource1(
 				m_constantBuffer.Get(),
 				0,
 				NULL,
-				&m_constantBufferData,
+				&constantBufferSceneData,
 				0,
 				0,
 				0
@@ -179,13 +267,13 @@ namespace Moonlight
 			for (const ModelCommand& model : Models)
 			{
 				BROFILER_CATEGORY("Render::ModelCommand", Brofiler::Color::OrangeRed);
-				XMStoreFloat4x4(&m_constantBufferData.model, XMMatrixTranspose(model.Transform));
+				XMStoreFloat4x4(&constantBufferSceneData.model, XMMatrixTranspose(model.Transform));
 				// Prepare the constant buffer to send it to the graphics device.
 				context->UpdateSubresource1(
 					m_constantBuffer.Get(),
 					0,
 					NULL,
-					&m_constantBufferData,
+					&constantBufferSceneData,
 					0,
 					0,
 					0
@@ -214,13 +302,13 @@ namespace Moonlight
 				}
 			}
 		}
-		XMStoreFloat4x4(&m_constantBufferData.model, XMMatrixTranspose(XMMatrixIdentity()));
+		XMStoreFloat4x4(&constantBufferSceneData.model, XMMatrixTranspose(XMMatrixIdentity()));
 		// Prepare the constant buffer to send it to the graphics device.
 		context->UpdateSubresource1(
 			m_constantBuffer.Get(),
 			0,
 			NULL,
-			&m_constantBufferData,
+			&constantBufferSceneData,
 			0,
 			0,
 			0
@@ -236,67 +324,7 @@ namespace Moonlight
 		);
 
 		Grid->Draw(GetDevice());
-
-		//UINT stride = sizeof(Vertex);
-		//UINT offset = 0;
-		//
-		// Set it to the D2D_PS so that we do not impliment lighting
-		//GetDevice().GetD3DDeviceContext()->PSSetShader(D2D_PS, 0, 0);
-
-		////Set the d2d square's Index buffer
-		//GetDevice().GetD3DDeviceContext()->IASetIndexBuffer(m_device->d2dIndexBuffer, DXGI_FORMAT_R32_UINT, 0);
-		////Set the d2d square's vertex buffer
-		//GetDevice().GetD3DDeviceContext()->IASetVertexBuffers(0, 1, &m_device->d2dVertBuffer, &stride, &offset);
-
-		//// Just set the WVP to a scale and translate, which will put the square into the bottom right corner of the screen
-		////m_constantBufferData. = XMMatrixScaling(0.5f, 0.5f, 0.0f) * XMMatrixTranslation(0.5f, -0.5f, 0.0f);
-		//XMStoreFloat4x4(&m_constantBufferData.model, XMMatrixTranspose(XMMatrixTranslation(0.5f, -0.5f, 0.0f)));
-		////XMMatrixTranspose(WVP);
-		//GetDevice().GetD3DDeviceContext()->UpdateSubresource(m_constantBuffer.Get(), 0, NULL, &m_constantBufferData, 0, 0);
-		//GetDevice().GetD3DDeviceContext()->VSSetConstantBuffers(0, 1, m_constantBuffer.GetAddressOf());
-		//GetDevice().GetD3DDeviceContext()->PSSetShaderResources(0, 1, &m_device->shaderResourceViewMap);    // Draw the map to the square
-
-		//GetDevice().GetD3DDeviceContext()->PSSetSamplers(0, 1, &CubesTexSamplerState);
-
-		////GetDevice().GetD3DDeviceContext()->RSSetState(CWcullMode);
-		////Draw the second cube
-		//GetDevice().GetD3DDeviceContext()->DrawIndexed(6, 0, 0);
-		
-#if ME_EDITOR
-		ID3D11RenderTargetView *const targets2[1] = { m_device->GetBackBufferRenderTargetView() };// , m_device->renderTargetViewMap
-			//////////////////////////// Draw the Map
-			// Make sure to set the render target back
-		GetDevice().GetD3DDeviceContext()->OMSetRenderTargets(1, targets2, m_device->GetDepthStencilView());
-
-#endif
-		func();
-		// The first argument instructs DXGI to block until VSync, putting the application
-		// to sleep until the next VSync. This ensures we don't waste any cycles rendering
-		// frames that will never be displayed to the screen.
-		DXGI_PRESENT_PARAMETERS parameters = { 0 };
-		HRESULT hr = m_device->GetSwapChain()->Present1(0, 0, &parameters);
-
-		// Discard the contents of the render target.
-		// This is a valid operation only when the existing contents will be entirely
-		// overwritten. If dirty or scroll rects are used, this call should be removed.
-		m_device->GetD3DDeviceContext()->DiscardView1(m_device->GetBackBufferRenderTargetView(), nullptr, 0);
-		m_device->GetD3DDeviceContext()->DiscardView1(m_device->shaderResourceViewMap, nullptr, 0);
-
-		// Discard the contents of the depth stencil.
-		m_device->GetD3DDeviceContext()->DiscardView1(m_device->GetDepthStencilView(), nullptr, 0);
-
-		// If the device was removed either by a disconnection or a driver upgrade, we 
-		// must recreate all device resources.
-		if (hr == DXGI_ERROR_DEVICE_REMOVED || hr == DXGI_ERROR_DEVICE_RESET)
-		{
-			m_device->HandleDeviceLost();
-		}
-		else
-		{
-			DX::ThrowIfFailed(hr);
-		}
 	}
-
 
 	void Renderer::ReleaseDeviceDependentResources()
 	{

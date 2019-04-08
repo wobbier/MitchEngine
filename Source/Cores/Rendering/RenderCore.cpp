@@ -66,11 +66,6 @@ void RenderCore::Update(float dt)
 {
 	m_renderer->Update(dt);
 	BROFILER_CATEGORY("RenderCore::Update", Brofiler::Color::CornflowerBlue)
-	Camera* CurrentCamera = Camera::CurrentCamera;
-	if (!CurrentCamera)
-	{
-		return;
-	}
 
 	auto Renderables = GetEntities();
 	for (auto& InEntity : Renderables)

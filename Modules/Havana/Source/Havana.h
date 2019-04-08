@@ -2,6 +2,7 @@
 #include "Renderer.h"
 #include <functional>
 #include "ECS/Entity.h"
+#include "Math/Vector2.h"
 
 #if ME_EDITOR
 
@@ -24,6 +25,7 @@ public:
 	void Render();
 
 	const bool IsGameFocused() const;
+	const bool IsWorldViewFocused() const;
 
 	static void Text(const std::string& Name, const Vector3& Vector);
 	static void EditableVector3(const std::string& Name, Vector3& Vector);
@@ -35,12 +37,16 @@ public:
 	class BaseCore* SelectedCore = nullptr;
 	Moonlight::Renderer* Renderer;
 	Vector2 RenderSize;
+	Vector2 GameRenderSize;
+	Vector2 WorldViewRenderSize;
 
 	void BrowseDirectory(const FilePath& path);
 
+	const Vector2& GetGameOutputSize() const;
 private:
 	class Engine* m_engine;
 	bool m_isGameFocused = false;
+	bool m_isWorldViewFocused = false;
 	bool OpenScene = false;
 
 	FilePath CurrentDirectory;

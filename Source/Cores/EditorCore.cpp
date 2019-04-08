@@ -6,6 +6,8 @@
 #include "Havana.h"
 #include "HavanaEvents.h"
 #include "File.h"
+#include "Components/Camera.h"
+#include "Components/Cameras/FlyingCamera.h"
 
 EditorCore::EditorCore(Havana* editor)
 	: Base(ComponentFilter().Excludes<Transform>())
@@ -23,6 +25,10 @@ EditorCore::~EditorCore()
 
 void EditorCore::Init()
 {
+	WeakPtr<Entity> CameraEntity = GetWorld().CreateEntity();
+	CameraEntity.lock()->AddComponent<Transform>();
+	Camera::EditorCamera = &(CameraEntity.lock()->AddComponent<Camera>());
+	CameraEntity.lock()->AddComponent<FlyingCamera>();
 }
 
 void EditorCore::Update(float dt)

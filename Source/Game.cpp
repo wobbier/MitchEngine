@@ -3,7 +3,7 @@
 #include "Logger.h"
 #include "Engine/Clock.h"
 #include "Cores/Rendering/RenderCore.h"
-#include "Cores/Camera/CameraCore.h"
+#include "Cores/Cameras/CameraCore.h"
 #include "Cores/PhysicsCore.h"
 #include "Cores/SceneGraph.h"
 #include "Graphics/Cubemap.h"

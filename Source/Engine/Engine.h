@@ -49,6 +49,7 @@ public:
 	class CameraCore* Cameras;
 	class SceneGraph* SceneNodes;
 	class RenderCore* ModelRenderer;
+	class FlyingCameraCore* FlyingCameraController;
 	Clock& GameClock;
 
 private:

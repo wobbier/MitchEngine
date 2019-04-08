@@ -2,6 +2,7 @@
 #include "Camera.h"
 
 Camera* Camera::CurrentCamera = nullptr;
+Camera* Camera::EditorCamera = nullptr;
 
 Camera::Camera()
 {
