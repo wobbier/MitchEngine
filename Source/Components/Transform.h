@@ -66,6 +66,7 @@ private:
 	virtual void OnEditorInspect() final
 	{
 		Havana::EditableVector3("Position", GetPosition());
+		Havana::EditableVector3("Scale", Scale);
 	}
 
 #endif

@@ -287,10 +287,10 @@ end
 
 project (getPlatformPostfix("Dementia"))
 kind "StaticLib"
-if (isUWP) then
-	system "windowsuniversal"
-	consumewinrtextension "true"
-end
+--if (isUWP) then
+--	system "windowsuniversal"
+--	consumewinrtextension "true"
+--end
 systemversion "10.0.14393.0"
 language "C++"
 targetdir "../Build/%{cfg.buildcfg}"

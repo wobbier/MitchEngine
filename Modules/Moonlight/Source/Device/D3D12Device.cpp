@@ -317,7 +317,7 @@ namespace Moonlight
 			DX::ThrowIfFailed(
 				dxgiFactory->CreateSwapChainForCoreWindow(
 					m_d3dDevice.Get(),
-					reinterpret_cast<IUnknown*>(m_window),
+					reinterpret_cast<IUnknown*>(m_window.Get()),
 					&swapChainDesc,
 					nullptr,
 					&swapChain

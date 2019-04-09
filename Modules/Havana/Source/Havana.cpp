@@ -34,7 +34,6 @@ void Havana::InitUI()
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 	io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
 	//io.MouseDrawCursor = true;
-	//io.ConfigFlags |= ImGuiConfigFlags_DpiEnableScaleViewports; // FIXME-DPI
 
 	ImGui::StyleColorsDark();
 	ImGuiStyle& style = ImGui::GetStyle();
@@ -54,6 +53,8 @@ void Havana::NewFrame(std::function<void()> StartGameFunc, std::function<void()>
 	ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();
 	ImGuiIO& io = ImGui::GetIO();
+
+	// Output size fix?
 	RenderSize = Vector2(io.DisplaySize.x, io.DisplaySize.y);
 	Renderer->GetDevice().SetOutputSize(RenderSize);
 
