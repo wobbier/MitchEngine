@@ -24,4 +24,9 @@ namespace Moonlight
 		return Textures[type].get();
 	}
 
+	std::vector<std::shared_ptr<Moonlight::Texture>>& Material::GetTextures()
+	{
+		return Textures;
+	}
+
 }

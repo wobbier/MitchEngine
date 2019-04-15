@@ -34,4 +34,6 @@ private:
 	void LoadMaterialTextures(Moonlight::Material* newMaterial, aiMaterial *mat, aiTextureType type, const Moonlight::TextureType& typeName);
 
 	Moonlight::Shader* ModelShader = nullptr;
+public:
+	Moonlight::Shader* GetShader() const;
 };

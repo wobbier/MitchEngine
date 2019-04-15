@@ -33,5 +33,9 @@ void Model::Init()
 
 unsigned int Model::GetId()
 {
+	if (!IsInitialized)
+	{
+		Init();
+	}
 	return Id;
 }

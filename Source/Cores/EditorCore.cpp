@@ -34,7 +34,7 @@ void EditorCore::Init()
 
 	TransformEntity = GetWorld().CreateEntity();
 	TransformEntity.lock()->AddComponent<Transform>();
-	TransformEntity.lock()->AddComponent<Model>("Assets/TransformGizmo.fbx");
+	TransformEntity.lock()->AddComponent<Model>("Assets/Models/TransformGizmo.fbx");
 }
 
 void EditorCore::Update(float dt)

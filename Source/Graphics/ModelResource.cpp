@@ -149,3 +149,8 @@ void ModelResource::LoadMaterialTextures(Moonlight::Material* newMaterial, aiMat
 		}
 	}
 }
+
+Moonlight::Shader* ModelResource::GetShader() const
+{
+	return ModelShader;
+}
