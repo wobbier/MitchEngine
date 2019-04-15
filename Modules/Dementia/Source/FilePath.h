@@ -23,13 +23,15 @@ public:
 
 		std::replace(LocalPath.begin(), LocalPath.end(), '\\', '/');
 
-		size_t path = LocalPath.find(Directory);
+		size_t path = LocalPath.find(':');
 		if (path != std::string::npos)
 		{
-			LocalPath.erase(path, Directory.length());
+			FullPath = LocalPath;
 		}
-
-		FullPath = Directory + LocalPath;
+		else
+		{
+			FullPath = Directory + LocalPath;
+		}
 
 		pos = FullPath.find_last_of("/");
 		Directory = FullPath.substr(0, pos + 1);

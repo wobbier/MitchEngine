@@ -52,6 +52,10 @@ public:
 	class FlyingCameraCore* FlyingCameraController;
 	Clock& GameClock;
 
+#if ME_EDITOR
+	std::unique_ptr<class Havana> Editor;
+	class EditorCore* EditorSceneManager = nullptr;
+#endif
 private:
 	Moonlight::Renderer* m_renderer;
 	std::shared_ptr<World> GameWorld;
@@ -61,14 +65,11 @@ private:
 
 	Game* m_game;
 	float AccumulatedTime = 0.0f;
+	float FrameTime = 0.0f;
 	bool m_isInitialized = false;
 	bool m_isGameRunning = false;
 	bool m_isGamePaused = false;
 
-#if ME_EDITOR
-	std::unique_ptr<class Havana> Editor;
-	class EditorCore* EditorSceneManager = nullptr;
-#endif
 
 	File CurrentLevel;
 };

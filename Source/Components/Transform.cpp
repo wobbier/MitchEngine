@@ -28,6 +28,10 @@ Transform::~Transform()
 
 void Transform::SetPosition(Vector3 NewPosition)
 {
+	if (NewPosition == Vector3())
+	{
+		return;
+	}
 	Position = NewPosition;
 	SetDirty(true);
 }
@@ -35,18 +39,30 @@ void Transform::SetPosition(Vector3 NewPosition)
 
 void Transform::SetScale(Vector3 NewScale)
 {
+	if (NewScale == Vector3())
+	{
+		return;
+	}
 	Scale = NewScale;
 	SetDirty(true);
 }
 
 void Transform::SetScale(float NewScale)
 {
+	if (NewScale == Scale.X() && NewScale == Scale.Y() && NewScale == Scale.Z())
+	{
+		return;
+	}
 	Scale = Vector3(NewScale);
 	SetDirty(true);
 }
 
 void Transform::Translate(Vector3 NewPosition)
 {
+	if (NewPosition == Vector3())
+	{
+		return;
+	}
 	Position += NewPosition;
 	SetDirty(true);
 }
@@ -54,6 +70,22 @@ void Transform::Translate(Vector3 NewPosition)
 Vector3& Transform::GetPosition()
 {
 	return Position;
+}
+
+Vector3 Transform::GetWorldPosition()
+{
+	return Vector3(WorldTransform[3][0], WorldTransform[3][1], WorldTransform[3][2]);
+}
+
+void Transform::SetWorldPosition(const Vector3& NewPosition)
+{
+	WorldTransform[3][0] = NewPosition[0];
+	WorldTransform[3][1] = NewPosition[1];
+	WorldTransform[3][2] = NewPosition[2];
+
+	Position += Vector3(WorldTransform[3][0] - Position[0], WorldTransform[3][1] - Position[1], WorldTransform[3][2] - Position[2]);
+
+	SetDirty(true);
 }
 
 void Transform::SetWorldTransform(glm::mat4& NewWorldTransform)

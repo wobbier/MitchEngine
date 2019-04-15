@@ -9,6 +9,11 @@ public:
 	{
 	}
 
+	Vector2(glm::vec2 vec)
+		: m_vector(vec)
+	{
+	}
+
 	Vector2(float x, float y)
 		: m_vector(x, y)
 	{
@@ -52,9 +57,5 @@ public:
 	}
 
 private:
-	Vector2(glm::vec2 vec)
-		: m_vector(vec)
-	{
-	}
 	glm::vec2 m_vector;
 };

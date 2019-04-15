@@ -23,13 +23,21 @@ public:
 	Transform(const std::string& Name);
 	virtual ~Transform();
 
+	// Local Space
 	void SetPosition(Vector3 NewPosition);
+	Vector3& GetPosition();
+
 	void SetRotation(Vector3 euler);
 	void SetRotation(glm::quat quat);
+
 	void SetScale(Vector3 NewScale);
 	void SetScale(float NewScale);
+
 	void Translate(Vector3 NewTransform);
-	Vector3& GetPosition();
+
+	//World Space
+	Vector3 GetWorldPosition();
+	void SetWorldPosition(const Vector3& NewPosition);
 
 	ME_NONCOPYABLE(Transform)
 	ME_NONMOVABLE(Transform)
@@ -67,6 +75,12 @@ private:
 	{
 		Havana::EditableVector3("Position", GetPosition());
 		Havana::EditableVector3("Scale", Scale);
+		Vector3 WorldPos = GetWorldPosition();
+		Havana::EditableVector3("World Position", WorldPos);
+		if (WorldPos != GetWorldPosition())
+		{
+			SetWorldPosition(WorldPos);
+		}
 	}
 
 #endif

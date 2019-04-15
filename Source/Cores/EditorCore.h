@@ -1,6 +1,7 @@
 #pragma once
 #include "ECS/Core.h"
 #include "Events/EventReceiver.h"
+#include "TranslationGizmo.h"
 
 class Transform;
 class Havana;
@@ -29,7 +30,8 @@ public:
 
 private:
 	Havana* m_editor = nullptr;
-
+	TranslationGizmo* gizmo;
+	WeakPtr<Entity> TransformEntity;
 #if ME_EDITOR
 	virtual void OnEditorInspect() final;
 #endif

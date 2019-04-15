@@ -28,6 +28,7 @@ public:
 	const bool IsWorldViewFocused() const;
 
 	static void Text(const std::string& Name, const Vector3& Vector);
+	static void Text(const std::string& Name, const Vector2& Vector);
 	static void EditableVector3(const std::string& Name, Vector3& Vector);
 
 	void AddComponentPopup();
@@ -39,6 +40,7 @@ public:
 	Vector2 RenderSize;
 	Vector2 GameRenderSize;
 	Vector2 WorldViewRenderSize;
+	Vector2 WorldViewRenderLocation;
 
 	void BrowseDirectory(const FilePath& path);
 

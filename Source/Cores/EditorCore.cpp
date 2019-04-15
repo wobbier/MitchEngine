@@ -8,6 +8,7 @@
 #include "File.h"
 #include "Components/Camera.h"
 #include "Components/Cameras/FlyingCamera.h"
+#include "Components/Graphics/Model.h"
 
 EditorCore::EditorCore(Havana* editor)
 	: Base(ComponentFilter().Excludes<Transform>())
@@ -17,6 +18,7 @@ EditorCore::EditorCore(Havana* editor)
 	events.push_back(SaveSceneEvent::GetEventId());
 	events.push_back(NewSceneEvent::GetEventId());
 	EventManager::GetInstance().RegisterReceiver(this, events);
+	gizmo = new TranslationGizmo();
 }
 
 EditorCore::~EditorCore()
@@ -29,6 +31,10 @@ void EditorCore::Init()
 	CameraEntity.lock()->AddComponent<Transform>();
 	Camera::EditorCamera = &(CameraEntity.lock()->AddComponent<Camera>());
 	CameraEntity.lock()->AddComponent<FlyingCamera>();
+
+	TransformEntity = GetWorld().CreateEntity();
+	TransformEntity.lock()->AddComponent<Transform>();
+	TransformEntity.lock()->AddComponent<Model>("Assets/TransformGizmo.fbx");
 }
 
 void EditorCore::Update(float dt)
@@ -39,6 +45,12 @@ void EditorCore::Update(float dt, Transform* rootTransform)
 {
 	BROFILER_CATEGORY("SceneGraph::Update", Brofiler::Color::Green);
 	RootTransform = rootTransform;
+	gizmo->Update(Game::GetEngine().Editor->SelectedTransform, Camera::EditorCamera);
+	if (Game::GetEngine().Editor->SelectedTransform)
+	{
+		auto& trans = TransformEntity.lock()->GetComponent<Transform>();
+		trans.SetPosition(Game::GetEngine().Editor->SelectedTransform->GetPosition());
+	}
 }
 
 bool EditorCore::OnEvent(const BaseEvent& evt)

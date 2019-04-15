@@ -123,6 +123,11 @@ public:
 		return Vector3(glm::cross(m_vector, other.m_vector));
 	}
 
+	const float Length() const
+	{
+		return glm::length(m_vector);
+	}
+
 	void Normalize()
 	{
 		m_vector = glm::normalize(m_vector);

@@ -131,9 +131,19 @@ void ModelResource::LoadMaterialTextures(Moonlight::Material* newMaterial, aiMat
 	{
 		aiString str;
 		mat->GetTexture(type, i, &str);
-		if (std::string(str.C_Str()) != ".")
+		std::string stdString = std::string(str.C_Str());
+		if (stdString != ".")
 		{
-			std::shared_ptr<Moonlight::Texture> texture = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path.Directory + std::string(str.C_Str()));
+			std::string& texturePath = stdString;
+			std::shared_ptr<Moonlight::Texture> texture;
+			if (stdString.find(":") != std::string::npos)
+			{
+				texture = ResourceCache::GetInstance().Get<Moonlight::Texture>(texturePath);
+			}
+			else
+			{
+				texture = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path.Directory + texturePath);
+			}
 			texture->Type = typeName;
 			newMaterial->SetTexture(typeName, texture);
 		}

@@ -116,20 +116,10 @@ void Havana::DrawOpenFilePopup()
 {
 	if (OpenScene)
 	{
-		ImGui::OpenPopup("Test");
+		ImGui::OpenPopup("Open Scene");
 	}
-	if (ImGui::BeginPopupModal("Test", &OpenScene, ImGuiWindowFlags_MenuBar))
+	if (ImGui::BeginPopupModal("Open Scene", &OpenScene, ImGuiWindowFlags_MenuBar))
 	{
-		if (ImGui::BeginMenuBar())
-		{
-			if (ImGui::BeginMenu("File"))
-			{
-				if (ImGui::MenuItem("Dummy menu item")) {}
-				ImGui::EndMenu();
-			}
-			ImGui::EndMenuBar();
-		}
-
 		BrowseDirectory(FilePath("Assets"));
 
 		for (auto& j : AssetDirectory)
@@ -439,12 +429,12 @@ void Havana::Render()
 	ImGui::End();
 	//ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
 	//ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-	//ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
 	ImGui::Begin("World View");
 	{
 		m_isWorldViewFocused = ImGui::IsWindowFocused();
 
-		//ImGui::PopStyleVar(3);
+		ImGui::PopStyleVar(1);
 
 		if (Renderer->RTT2->shaderResourceViewMap != nullptr)
 		{
@@ -452,6 +442,7 @@ void Havana::Render()
 			ImVec2 pos = ImGui::GetCursorScreenPos();
 			ImVec2 maxPos = ImVec2(pos.x + ImGui::GetWindowSize().x, pos.y + ImGui::GetWindowSize().y);
 			WorldViewRenderSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
+			WorldViewRenderLocation = Vector2(pos.x, pos.y);
 			// Ask ImGui to draw it as an image:
 			// Under OpenGL the ImGUI image type is GLuint
 			// So make sure to use "(void *)tex" but not "&tex"
@@ -497,6 +488,15 @@ void Havana::Text(const std::string & Name, const Vector3 & Vector)
 	ImGui::Text("Z: %f", Vector.Z());
 }
 
+void Havana::Text(const std::string& Name, const Vector2& Vector)
+{
+	ImGui::Text(Name.c_str());
+
+	ImGui::Text("X: %f", Vector.X());
+	ImGui::SameLine();
+	ImGui::Text("Y: %f", Vector.Y());
+}
+
 void Havana::EditableVector3(const std::string & Name, Vector3 & Vector)
 {
 	ImGui::DragFloat3(Name.c_str(), &Vector[0], 0.005f);
@@ -512,8 +512,10 @@ void Havana::BrowseDirectory(const FilePath & path)
 	for (const auto& entry : fs::directory_iterator(path.FullPath))
 	{
 		FilePath filePath(entry.path().string());
-
-		AssetDirectory.push_back(filePath.FullPath);
+		if (filePath.LocalPath.find(".lvl") != std::string::npos)
+		{
+			AssetDirectory.push_back(filePath.FullPath);
+		}
 
 		ImGui::Text(filePath.Directory.c_str());
 
