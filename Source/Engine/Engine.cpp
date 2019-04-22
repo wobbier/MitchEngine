@@ -290,13 +290,18 @@ void Engine::LoadLevel()
 	InitGame();
 	//InitGame();
 	CurrentLevel.Read();
-	json level;
 
-	level = json::parse(CurrentLevel.Data);
-	json& scene = level["Scene"];
-	for (json& ent : scene)
+	if (CurrentLevel.Data.length() > 0)
 	{
-		LoadSceneObject(ent, nullptr);
+		json level;
+
+		level = json::parse(CurrentLevel.Data);
+		json& scene = level["Scene"];
+		for (json& ent : scene)
+		{
+			LoadSceneObject(ent, nullptr);
+		}
+
 	}
 	//ComponentFactory::GetFactory(std::string("Transform"))->Create(ent, "Transform");
 
