@@ -25,8 +25,10 @@ public:
 		float t = 0.f;
 	};
 
+	class Havana* m_editor = nullptr;
 
-	TranslationGizmo()
+	TranslationGizmo(Havana* editor)
+		: m_editor(editor)
 	{
 		XAxis.Direction = glm::vec3(1, 0, 0);
 	}
@@ -42,9 +44,9 @@ public:
 			return;
 		}
 
-		const Vector2& windowLocation = Game::GetEngine().Editor->WorldViewRenderLocation;
+		const Vector2& windowLocation = m_editor->WorldViewRenderLocation;
 		glm::vec2 pos = glm::vec2(Input::GetInstance().GetMousePosition().X() - windowLocation.X(), Input::GetInstance().GetMousePosition().Y() - windowLocation.Y());
-		Vector2 outputSize = Game::GetEngine().Editor->WorldViewRenderSize;
+		Vector2 outputSize = m_editor->WorldViewRenderSize;
 		glm::vec2 n(pos.x / outputSize.X(), pos.y / outputSize.Y());
 		glm::vec2 n2 = (2.f * n) - 1.f;
 

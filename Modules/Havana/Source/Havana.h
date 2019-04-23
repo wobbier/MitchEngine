@@ -4,8 +4,6 @@
 #include "ECS/Entity.h"
 #include "Math/Vector2.h"
 
-#if ME_EDITOR
-
 class Havana
 {
 public:
@@ -54,5 +52,3 @@ private:
 	FilePath CurrentDirectory;
 	json AssetDirectory;
 };
-
-#endif

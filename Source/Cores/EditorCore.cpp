@@ -18,7 +18,7 @@ EditorCore::EditorCore(Havana* editor)
 	events.push_back(SaveSceneEvent::GetEventId());
 	events.push_back(NewSceneEvent::GetEventId());
 	EventManager::GetInstance().RegisterReceiver(this, events);
-	gizmo = new TranslationGizmo();
+	gizmo = new TranslationGizmo(m_editor);
 }
 
 EditorCore::~EditorCore()
@@ -45,11 +45,11 @@ void EditorCore::Update(float dt, Transform* rootTransform)
 {
 	BROFILER_CATEGORY("SceneGraph::Update", Brofiler::Color::Green);
 	RootTransform = rootTransform;
-	gizmo->Update(Game::GetEngine().Editor->SelectedTransform, Camera::EditorCamera);
-	if (Game::GetEngine().Editor->SelectedTransform)
+	gizmo->Update(m_editor->SelectedTransform, Camera::EditorCamera);
+	if (m_editor->SelectedTransform)
 	{
 		auto& trans = TransformEntity.lock()->GetComponent<Transform>();
-		trans.SetPosition(Game::GetEngine().Editor->SelectedTransform->GetPosition());
+		trans.SetPosition(m_editor->SelectedTransform->GetPosition());
 	}
 }
 
