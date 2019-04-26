@@ -9,7 +9,7 @@
 #include <DirectXMath.h>
 #include "Shader.h"
 #include "Game.h"
-#include "Brofiler.h"
+#include "optick.h"
 
 namespace Moonlight
 {
@@ -64,12 +64,12 @@ namespace Moonlight
 
 	void Mesh::Draw()
 	{
-		BROFILER_CATEGORY("Mesh::Draw", Brofiler::Color::DarkSlateBlue);
+		OPTICK_EVENT("Mesh::Draw", Optick::Category::Rendering);
 
 		auto context = static_cast<D3D12Device&>(Game::GetEngine().GetRenderer().GetDevice()).GetD3DDeviceContext();
 		
 		{
-			BROFILER_CATEGORY("Mesh::Draw::Setup", Brofiler::Color::DarkSlateBlue);
+			OPTICK_EVENT("Mesh::Draw::Setup");
 			// Each vertex is one instance of the VertexPositionColor struct.
 			UINT stride = sizeof(Vertex);
 			UINT offset = 0;
@@ -91,12 +91,12 @@ namespace Moonlight
 		}
 
 		{
-			BROFILER_CATEGORY("Mesh::Draw::Texture", Brofiler::Color::DarkSlateBlue);
+			OPTICK_EVENT("Mesh::Draw::Texture", Optick::Category::Rendering);
 			const Texture* diffuse = material->GetTexture(TextureType::Diffuse);
 			if (diffuse)
 			{
 				{
-					BROFILER_CATEGORY("Mesh::Draw::Texture::ShaderResources", Brofiler::Color::DarkSlateBlue);
+					OPTICK_EVENT("Mesh::Draw::Texture::ShaderResources");
 					context->PSSetShaderResources(0, 1, &diffuse->CubesTexture);
 				}
 				context->PSSetSamplers(0, 1, &diffuse->CubesTexSamplerState);
@@ -104,7 +104,7 @@ namespace Moonlight
 		}
 
 		{
-			BROFILER_CATEGORY("Mesh::Draw::DrawCall", Brofiler::Color::DarkSlateBlue);
+			OPTICK_EVENT("Mesh::Draw::DrawCall");
 			// Draw the objects.
 			context->DrawIndexed(
 				m_indexCount,

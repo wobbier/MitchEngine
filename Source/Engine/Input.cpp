@@ -17,7 +17,7 @@ void Input::KeyCallback(VirtualKey key)
 
 bool Input::IsKeyDown(KeyCode key)
 {
-	BROFILER_CATEGORY("Input::IsKeyDown", Brofiler::Color::YellowGreen);
+	OPTICK_CATEGORY("Input::IsKeyDown", Optick::Category::Input);
 #if ME_PLATFORM_WIN64
 	SHORT keyState = GetAsyncKeyState(key);
 	

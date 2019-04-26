@@ -18,7 +18,7 @@ void CameraCore::Init()
 
 void CameraCore::Update(float dt)
 {
-	BROFILER_CATEGORY("CameraCore::Update", Brofiler::Color::CornflowerBlue);
+	OPTICK_CATEGORY("CameraCore::Update", Optick::Category::Camera);
 	auto Cameras = GetEntities();
 
 	for (auto& InEntity : Cameras)

@@ -43,7 +43,7 @@ void EditorCore::Update(float dt)
 
 void EditorCore::Update(float dt, Transform* rootTransform)
 {
-	BROFILER_CATEGORY("SceneGraph::Update", Brofiler::Color::Green);
+	OPTICK_EVENT("SceneGraph::Update");
 	RootTransform = rootTransform;
 	gizmo->Update(m_editor->SelectedTransform, Camera::EditorCamera);
 	if (m_editor->SelectedTransform)
@@ -66,7 +66,7 @@ bool EditorCore::OnEvent(const BaseEvent& evt)
 
 void EditorCore::SaveSceneRecursively(json& d, Transform* CurrentTransform)
 {
-	BROFILER_CATEGORY("SceneGraph::UpdateRecursively", Brofiler::Color::DarkOrange);
+	OPTICK_EVENT("SceneGraph::UpdateRecursively");
 	json thing;
 
 	thing["Name"] = CurrentTransform->Name;

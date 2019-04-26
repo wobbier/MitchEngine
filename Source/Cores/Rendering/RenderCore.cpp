@@ -66,7 +66,7 @@ RenderCore::~RenderCore()
 void RenderCore::Update(float dt)
 {
 	m_renderer->Update(dt);
-	BROFILER_CATEGORY("RenderCore::Update", Brofiler::Color::CornflowerBlue)
+	OPTICK_CATEGORY("RenderCore::Update", Optick::Category::Rendering)
 
 	auto Renderables = GetEntities();
 	for (auto& InEntity : Renderables)
