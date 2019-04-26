@@ -25,6 +25,10 @@
 [submodule "ThirdParty/ImGui"]
 	path = ThirdParty/ImGui
 	url = https://github.com/ocornut/imgui
+	ignore = dirty
 [submodule "ThirdParty/JSON"]
 	path = ThirdParty/JSON
 	url = https://github.com/nlohmann/json
+[submodule "ThirdParty/Optick"]
+	path = ThirdParty/Optick
+	url = https://github.com/bombomby/optick
