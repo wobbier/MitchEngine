@@ -14,11 +14,6 @@
 	path = ThirdParty/OZZ
 	url = https://github.com/guillaumeblanc/ozz-animation.git
 	ignore = dirty
-[submodule "ThirdParty/Brofiler"]
-	path = ThirdParty/Brofiler
-	url = https://github.com/bombomby/brofiler
-	branch = v2.0
-	ignore = dirty
 [submodule "ThirdParty/Assimp"]
 	path = ThirdParty/Assimp
 	url = https://github.com/assimp/assimp
