@@ -7,7 +7,7 @@
 #include "Components/Camera.h"
 #include <DirectXColors.h>
 #include "Graphics/SkyBox.h"
-#include "Brofiler.h"
+#include "optick.h"
 #include "Graphics/Plane.h"
 #include <functional>
 #include "imgui.h"
@@ -74,7 +74,7 @@ namespace Moonlight
 
 	void Renderer::Render(std::function<void()> func, const CameraData& mainCamera, const CameraData& editorCamera)
 	{
-		BROFILER_CATEGORY("Renderer::Render", Brofiler::Color::CornflowerBlue);
+		OPTICK_EVENT("Renderer::Render", Optick::Category::Rendering);
 
 		auto context = m_device->GetD3DDeviceContext();
 
@@ -279,7 +279,7 @@ namespace Moonlight
 		{
 			for (const ModelCommand& model : Models)
 			{
-				BROFILER_CATEGORY("Render::ModelCommand", Brofiler::Color::OrangeRed);
+				OPTICK_EVENT("Render::ModelCommand", Optick::Category::Rendering);
 				XMStoreFloat4x4(&constantBufferSceneData.model, XMMatrixTranspose(model.Transform));
 				// Prepare the constant buffer to send it to the graphics device.
 				context->UpdateSubresource1(
@@ -303,7 +303,7 @@ namespace Moonlight
 				Shader* cachedShader = model.ModelShader;
 				for (Mesh* mesh : model.Meshes)
 				{
-					BROFILER_CATEGORY("Render::SingleMesh", Brofiler::Color::OrangeRed);
+					OPTICK_EVENT("Render::SingleMesh");
 
 					//if (model.ModelShader != cachedShader)
 					{

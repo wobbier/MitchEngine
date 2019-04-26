@@ -6,7 +6,7 @@
 
 #include <VertexTypes.h>
 #include "Texture.h"
-#include "Brofiler.h"
+#include "optick.h"
 
 inline std::vector<char> ReadToByteArray(const char* filename)
 {
@@ -107,7 +107,7 @@ namespace Moonlight
 
 	void Shader::Use()
 	{
-		BROFILER_CATEGORY("Shader::Use", Brofiler::Color::LightPink)
+		OPTICK_EVENT("Shader::Use", Optick::Category::Rendering)
 
 		if (!IsLoaded())
 		{

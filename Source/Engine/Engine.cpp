@@ -128,7 +128,7 @@ void Engine::Run()
 	// Game loop
 	forever
 	{
-		BROFILER_FRAME("MainLoop")
+		OPTICK_FRAME("MainLoop")
 
 		// Check and call events
 		GameWindow->ParseMessageQueue();
@@ -177,7 +177,7 @@ void Engine::Run()
 			// Update our engine
 
 			{
-				BROFILER_CATEGORY("MainLoop::GameUpdate", Brofiler::Color::CornflowerBlue);
+				OPTICK_CATEGORY("MainLoop::GameUpdate", Optick::Category::GameLogic);
 				m_game->OnUpdate(deltaTime);
 			}
 

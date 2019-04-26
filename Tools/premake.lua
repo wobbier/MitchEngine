@@ -77,7 +77,7 @@ includedirs {
   "../ThirdParty/Bullet/src",
   "../ThirdParty/GLM/glm",
   "C:/Program Files/RenderDoc",
-  "../ThirdParty/Brofiler/BrofilerCore",
+  "../ThirdParty/Optick/src",
   "../Modules/Moonlight/Source",
   "../Modules/Dementia/Source",
   "../Modules/Havana/Source",
@@ -98,7 +98,7 @@ libdirs {
 }
 
 links {
-  "BrofilerCore",
+  "OptickCore",
   getPlatformPostfix("Dementia"),
   "assimp-vc140-mt",
   "IrrXML"
@@ -142,13 +142,13 @@ libdirs {
 if isUWP then
   libdirs {
     "../ThirdParty/Lib/Bullet/Win64/Debug",
-    "../ThirdParty/Lib/Brofiler/UWP/Debug"
+    "../ThirdParty/Lib/Optick/Win64/Debug"
   }
 else
   libdirs {
     "../ThirdParty/Lib/Bullet/Win64/Debug",
     "../ThirdParty/Lib/GLFW/Win64/Debug",
-    "../ThirdParty/Lib/Brofiler/Win64/Debug"
+    "../ThirdParty/Lib/Optick/Win64/Debug"
   }
 end
 
@@ -172,13 +172,13 @@ libdirs {
 if isUWP then
   libdirs {
     "../ThirdParty/Lib/Bullet/Win64/Release",
-    "../ThirdParty/Lib/Brofiler/UWP/Release"
+    "../ThirdParty/Lib/Optick/Win64/Release"
   }
 else
   libdirs {
     "../ThirdParty/Lib/Bullet/Win64/Release",
     "../ThirdParty/Lib/GLFW/Win64/Release",
-    "../ThirdParty/Lib/Brofiler/Win64/Release"
+    "../ThirdParty/Lib/Optick/Win64/Release"
   }
 end
 

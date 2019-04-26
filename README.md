@@ -68,7 +68,7 @@ Third Party Libraries
 --------------------------------
 
   * [OZZ][5]
-  * [Brofiler][6]
+  * [Optick][6]
   * [Bullet Physics][7]
 
 Contributing to the Project
@@ -89,6 +89,6 @@ Contact me
 [3]: http://www.twitter.com/wobbier "Twitter"
 [4]: https://trello.com/b/QpR06bQl/mitchengine-status "Trello Board"
 [5]: https://github.com/guillaumeblanc/ozz-animation "OZZ Animation"
-[6]: https://github.com/bombomby/brofiler "Brofiler"
+[6]: https://github.com/bombomby/optick "Optick"
 [7]: https://github.com/bulletphysics/bullet3 "Bullet 3D"
 [8]: https://github.com/wobbier/MitchGame "MitchGame Example Project"

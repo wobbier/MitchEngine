@@ -20,7 +20,7 @@ void SceneGraph::Init()
 
 void SceneGraph::Update(float dt)
 {
-	BROFILER_CATEGORY("SceneGraph::Update", Brofiler::Color::Green);
+	OPTICK_EVENT("SceneGraph::Update");
 
 	// Seems O.K. for now
 	if(RootEntity.lock()->HasComponent<Transform>())
@@ -29,12 +29,12 @@ void SceneGraph::Update(float dt)
 
 void SceneGraph::UpdateRecursively(Transform* CurrentTransform)
 {
-	BROFILER_CATEGORY("SceneGraph::UpdateRecursively", Brofiler::Color::DarkOrange);
+	OPTICK_EVENT("SceneGraph::UpdateRecursively");
 	for (Transform* Child : CurrentTransform->Children)
 	{
 		if (Child->IsDirty)
 		{
-			BROFILER_CATEGORY("SceneGraph::Update::IsDirty", Brofiler::Color::DarkOrange);
+			OPTICK_EVENT("SceneGraph::Update::IsDirty");
 			glm::mat4 mat = glm::translate(glm::mat4(1.0f), Child->Position.GetInternalVec());
 			mat = glm::rotate(mat, glm::angle(Child->Rotation), glm::axis(Child->Rotation));
 			mat = glm::scale(mat, Child->Scale.GetInternalVec());
