@@ -2,6 +2,7 @@
 #include "ECS/Component.h"
 #include "ECS/ComponentDetail.h"
 #include "Math/Vector3.h"
+#include "RenderCommands.h"
 
 class Light : public Component<Light>
 {
@@ -17,5 +18,6 @@ public:
 #if ME_EDITOR
 	virtual void OnEditorInspect() final;
 #endif
+	Moonlight::LightCommand cmd;
 };
 ME_REGISTER_COMPONENT(Light)

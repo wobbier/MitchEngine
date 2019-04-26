@@ -14,6 +14,7 @@
 #include "Components/Physics/Rigidbody.h"
 #include "Resource/ResourceCache.h"
 #include "Graphics/ModelResource.h"
+#include "RenderCommands.h"
 
 RenderCore::RenderCore()
 	: Base(ComponentFilter().Requires<Transform>().RequiresOneOf<Model>().RequiresOneOf<Rigidbody>())
@@ -36,7 +37,7 @@ void RenderCore::OnEntityAdded(Entity& NewEntity)
 {
 	if (NewEntity.HasComponent<Model>())
 	{
-		Moonlight::Renderer::ModelCommand command;
+		Moonlight::ModelCommand command;
 		Model& model = NewEntity.GetComponent<Model>();
 		model.Init();
 		command.Meshes = model.ModelHandle->Meshes;
@@ -46,7 +47,7 @@ void RenderCore::OnEntityAdded(Entity& NewEntity)
 
 	if (NewEntity.HasComponent<Rigidbody>())
 	{
-		Moonlight::Renderer::ModelCommand command;
+		Moonlight::ModelCommand command;
 		Rigidbody& rigidbody = NewEntity.GetComponent<Rigidbody>();
 
 		command.Meshes = cube->Meshes;

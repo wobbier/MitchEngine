@@ -15,28 +15,13 @@
 #include <queue>
 #include "Math/Vector2.h"
 #include <functional>
-
+#include "RenderCommands.h"
 
 namespace Moonlight
 {
 	class Renderer
 	{
 	public:
-		struct ModelCommand
-		{
-			std::vector<Mesh*> Meshes;
-			Shader* ModelShader;
-			DirectX::XMMATRIX Transform;
-		};
-
-		struct CameraData
-		{
-			Vector3 Position;
-			Vector3 Front;
-			Vector3 Up;
-			Vector2 OutputSize;
-			float FOV;
-		};
 
 		void UpdateMatrix(unsigned int Id, DirectX::XMMATRIX NewTransform);
 	public:
@@ -63,6 +48,11 @@ namespace Moonlight
 
 		void ClearModels();
 
+		unsigned int PushLight(const LightCommand& NewLight);
+		bool PopLight(unsigned int id);
+
+		void ClearLights();
+
 		void WindowResized(const Vector2& NewSize);
 
 		class RenderTexture* RTT = nullptr;
@@ -76,13 +66,21 @@ namespace Moonlight
 
 #if ME_DIRECTX
 		Microsoft::WRL::ComPtr<ID3D11Buffer> m_constantBuffer;
+		Microsoft::WRL::ComPtr<ID3D11Buffer> m_perFrameBuffer;
 		ModelViewProjectionConstantBuffer m_constantBufferData;
 		ModelViewProjectionConstantBuffer m_constantBufferSceneData;
+		LightCommand light;
+
+		LightBuffer m_perFrameBufferData;
+
 		float m_degreesPerSecond = 45.f;
 #endif
 
 		std::vector<ModelCommand> Models;
 		std::queue<unsigned int> FreeCommandIndicies;
+
+		std::vector<LightCommand> Lights;
+		std::queue<unsigned int> FreeLightCommandIndicies;
 #if ME_ENABLE_RENDERDOC
 		RenderDocManager* RenderDoc;
 #endif

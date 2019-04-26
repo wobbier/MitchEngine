@@ -103,6 +103,15 @@ namespace Moonlight
 		context->ClearRenderTargetView(RTT2->renderTargetViewMap, color);
 		context->ClearDepthStencilView(m_device->GetDepthStencilView(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
+		// Prepare the constant buffer to send it to the graphics device.
+		light.dir = XMFLOAT4(0.25f, 0.5f, -1.0f, 1.0f);
+		light.ambient = XMFLOAT4(0.2f, 0.2f, 0.2f, 1.0f);
+		light.diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
+
+		//m_perFrameBufferData.light = light;
+		context->UpdateSubresource1(m_perFrameBuffer.Get(), 0, NULL, &light, 0, 0, 0);
+		context->PSSetConstantBuffers1(0, 1, m_perFrameBuffer.GetAddressOf(), nullptr, nullptr);
+
 		RTT->Resize(mainCamera.OutputSize);
 		RTT2->Resize(editorCamera.OutputSize);
 		//m_device->GetD3DDeviceContext()->DiscardView1(m_device->GetDepthStencilView(), nullptr, 0);
@@ -221,8 +230,8 @@ namespace Moonlight
 		XMMATRIX perspectiveMatrix = XMMatrixPerspectiveFovRH(
 			fovAngleY,
 			aspectRatio,
-			1.f,
-			100.0f
+			.1f,
+			1000.0f
 		);
 
 		XMStoreFloat4x4(
@@ -261,6 +270,10 @@ namespace Moonlight
 			Sky->Draw();
 
 			m_device->ResetCullingMode();
+		}
+		if (Lights.size() > 0)
+		{
+			//constantBufferSceneData.light = Lights[0];
 		}
 
 		{
@@ -329,6 +342,7 @@ namespace Moonlight
 	void Renderer::ReleaseDeviceDependentResources()
 	{
 		m_constantBuffer.Reset();
+		m_perFrameBuffer.Reset();
 	}
 
 	void Renderer::CreateDeviceDependentResources()
@@ -341,6 +355,20 @@ namespace Moonlight
 				&m_constantBuffer
 			)
 		);
+
+		CD3D11_BUFFER_DESC perFrameBufferDesc(sizeof(LightCommand), D3D11_BIND_CONSTANT_BUFFER);
+		/*CD3D11_BUFFER_DESC perFrameBufferDesc;
+		ZeroMemory(&perFrameBufferDesc, sizeof(D3D11_BUFFER_DESC));
+
+		perFrameBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+		perFrameBufferDesc.ByteWidth = sizeof(LightCommand);
+		perFrameBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+		perFrameBufferDesc.CPUAccessFlags = 0;
+		perFrameBufferDesc.MiscFlags = 0;*/
+		DX::ThrowIfFailed(
+			static_cast<D3D12Device*>(m_device)->GetD3DDevice()->CreateBuffer(&perFrameBufferDesc, nullptr, &m_perFrameBuffer)
+		);
+		//hr = d3d11Device->CreateBuffer(&cbbd, NULL, &cbPerFrameBuffer);
 	}
 
 	unsigned int Renderer::PushModel(const ModelCommand& NewModel)
@@ -374,6 +402,41 @@ namespace Moonlight
 		while (!FreeCommandIndicies.empty())
 		{
 			FreeCommandIndicies.pop();
+		}
+	}
+
+	unsigned int Renderer::PushLight(const LightCommand& NewLight)
+	{
+		if (!FreeLightCommandIndicies.empty())
+		{
+			unsigned int openIndex = FreeLightCommandIndicies.front();
+			FreeLightCommandIndicies.pop();
+			Lights[openIndex] = std::move(NewLight);
+			return openIndex;
+		}
+
+		Lights.push_back(std::move(NewLight));
+		return static_cast<unsigned int>(Lights.size() - 1);
+	}
+
+	bool Renderer::PopLight(unsigned int id)
+	{
+		if (id >= Lights.size())
+		{
+			return false;
+		}
+
+		// Reset struct
+
+		return true;
+	}
+
+	void Renderer::ClearLights()
+	{
+		Lights.clear();
+		while (!FreeLightCommandIndicies.empty())
+		{
+			FreeLightCommandIndicies.pop();
 		}
 	}
 

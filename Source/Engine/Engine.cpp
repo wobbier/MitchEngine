@@ -205,12 +205,12 @@ void Engine::Run()
 
 #if ME_EDITOR
 			Vector2 MainOutputSize = Editor->GetGameOutputSize();
-			Moonlight::Renderer::CameraData MainCamera = { Camera::CurrentCamera->Position, Camera::CurrentCamera->Front, Camera::CurrentCamera->Up, MainOutputSize, Camera::CurrentCamera->GetFOV() };
-			Moonlight::Renderer::CameraData EditorCamera = { Camera::EditorCamera->Position, Camera::EditorCamera->Front, Camera::EditorCamera->Up, Editor->WorldViewRenderSize, Camera::EditorCamera->GetFOV() };
+			Moonlight::CameraData MainCamera = { Camera::CurrentCamera->Position, Camera::CurrentCamera->Front, Camera::CurrentCamera->Up, MainOutputSize, Camera::CurrentCamera->GetFOV() };
+			Moonlight::CameraData EditorCamera = { Camera::EditorCamera->Position, Camera::EditorCamera->Front, Camera::EditorCamera->Up, Editor->WorldViewRenderSize, Camera::EditorCamera->GetFOV() };
 #else
 			Vector2 MainOutputSize = m_renderer->GetDevice().GetOutputSize();
-			Moonlight::Renderer::CameraData MainCamera = { Camera::CurrentCamera->Position, Camera::CurrentCamera->Front, Camera::CurrentCamera->Up, MainOutputSize, Camera::CurrentCamera->GetFOV() };
-			Moonlight::Renderer::CameraData& EditorCamera = MainCamera;
+			Moonlight::CameraData MainCamera = { Camera::CurrentCamera->Position, Camera::CurrentCamera->Front, Camera::CurrentCamera->Up, MainOutputSize, Camera::CurrentCamera->GetFOV() };
+			Moonlight::CameraData& EditorCamera = MainCamera;
 #endif
 
 			m_renderer->Render([this]() {
