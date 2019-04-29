@@ -1,5 +1,7 @@
 #include "Logger.h"
 
+std::vector<Logger::LogEntry> Logger::Messages;
+
 Logger::~Logger()
 {
 }
@@ -14,7 +16,7 @@ void Logger::SetLogPriority(Logger::LogType priority)
 	mPriority = priority;
 }
 
-bool Logger::Log(Logger::LogType priority, std::string message)
+bool Logger::LogMessage(Logger::LogType priority, std::string message)
 {
 	if (mPriority == LogType::None) return false;
 	if (priority < mPriority)
@@ -45,8 +47,19 @@ bool Logger::Log(Logger::LogType priority, std::string message)
 		break;
 	}
 
-	std::cout << type << message.c_str() << std::endl;
 	mLogFile << type << message.c_str() << std::endl;
+	std::cout << type << message.c_str() << std::endl;
+
+#if ME_EDITOR
+	Messages.emplace_back(LogEntry{ priority, std::move(message) });
+#else
+#endif
+
 	mLogFile.close();
 	return true;
+}
+
+bool Logger::Log(LogType priority, const std::string& message)
+{
+	return Logger::GetInstance().LogMessage(priority, message);
 }

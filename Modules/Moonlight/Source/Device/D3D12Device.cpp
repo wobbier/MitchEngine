@@ -242,6 +242,14 @@ namespace Moonlight
 	// These resources need to be recreated every time the window size is changed.
 	void D3D12Device::CreateWindowSizeDependentResources()
 	{
+		UpdateRenderTargetSize();
+
+		m_d3dRenderTargetSize = m_outputSize;
+
+		if (m_outputSize == Vector2())
+		{
+			return;
+		}
 		// Clear the previous window size specific context.
 		ID3D11RenderTargetView* nullViews[] = { nullptr };
 		m_d3dContext->OMSetRenderTargets(ARRAYSIZE(nullViews), nullViews, nullptr);
@@ -250,9 +258,6 @@ namespace Moonlight
 		m_d3dDepthStencilView = nullptr;
 		m_d3dContext->Flush1(D3D11_CONTEXT_TYPE_ALL, nullptr);
 
-		UpdateRenderTargetSize();
-
-		m_d3dRenderTargetSize = m_outputSize;
 
 		if (m_swapChain != nullptr)
 		{

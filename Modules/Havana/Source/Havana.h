@@ -3,6 +3,9 @@
 #include <functional>
 #include "ECS/Entity.h"
 #include "Math/Vector2.h"
+#include "imgui.h"
+#include "Graphics/Texture.h"
+#include "Pointers.h"
 
 class Havana
 {
@@ -16,12 +19,18 @@ public:
 	void DrawOpenFilePopup();
 
 	void DrawMainMenuBar();
+	void DrawLog();
 
 	void UpdateWorld(class World* world, class Transform* root, const std::vector<Entity> & ents);
 	void UpdateWorldRecursive(class Transform* root);
 
 	void Render();
 
+	void SetWindowTitle(const std::string& title)
+	{
+		WindowTitle = title;
+	}
+	std::string WindowTitle;
 	const bool IsGameFocused() const;
 	const bool IsWorldViewFocused() const;
 
@@ -48,7 +57,8 @@ private:
 	bool m_isGameFocused = false;
 	bool m_isWorldViewFocused = false;
 	bool OpenScene = false;
-
+	ImVec2 MainMenuSize;
 	FilePath CurrentDirectory;
 	json AssetDirectory;
+	std::unordered_map<std::string, SharedPtr<Moonlight::Texture>> Icons;
 };

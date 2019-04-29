@@ -16,6 +16,10 @@
 #include <filesystem>
 #include "Math/Vector2.h"
 #include "Mathf.h"
+#include "Logger.h"
+#include "Resource/ResourceCache.h"
+#include "Graphics/Texture.h"
+#include "Window/D3D12Window.h"
 namespace fs = std::filesystem;
 
 Havana::Havana(Engine* GameEngine, Moonlight::Renderer* renderer)
@@ -35,7 +39,50 @@ void Havana::InitUI()
 	io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
 	//io.MouseDrawCursor = true;
 
-	ImGui::StyleColorsDark();
+	ImVec4* colors = ImGui::GetStyle().Colors;
+	colors[ImGuiCol_Text] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
+	colors[ImGuiCol_TextDisabled] = ImVec4(0.50f, 0.50f, 0.50f, 1.00f);
+	colors[ImGuiCol_WindowBg] = ImVec4(0.06f, 0.06f, 0.06f, 0.94f);
+	colors[ImGuiCol_ChildBg] = ImVec4(1.00f, 1.00f, 1.00f, 0.00f);
+	colors[ImGuiCol_PopupBg] = ImVec4(0.08f, 0.08f, 0.08f, 0.94f);
+	colors[ImGuiCol_Border] = ImVec4(0.43f, 0.43f, 0.50f, 0.50f);
+	colors[ImGuiCol_BorderShadow] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+	colors[ImGuiCol_FrameBg] = ImVec4(0.20f, 0.21f, 0.22f, 0.54f);
+	colors[ImGuiCol_FrameBgHovered] = ImVec4(0.40f, 0.40f, 0.40f, 0.40f);
+	colors[ImGuiCol_FrameBgActive] = ImVec4(0.18f, 0.18f, 0.18f, 0.67f);
+	colors[ImGuiCol_TitleBg] = ImVec4(0.04f, 0.04f, 0.04f, 1.00f);
+	colors[ImGuiCol_TitleBgActive] = ImVec4(0.29f, 0.29f, 0.29f, 1.00f);
+	colors[ImGuiCol_TitleBgCollapsed] = ImVec4(0.00f, 0.00f, 0.00f, 0.51f);
+	colors[ImGuiCol_MenuBarBg] = ImVec4(0.14f, 0.14f, 0.14f, 1.00f);
+	colors[ImGuiCol_ScrollbarBg] = ImVec4(0.02f, 0.02f, 0.02f, 0.53f);
+	colors[ImGuiCol_ScrollbarGrab] = ImVec4(0.31f, 0.31f, 0.31f, 1.00f);
+	colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.41f, 0.41f, 0.41f, 1.00f);
+	colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(0.51f, 0.51f, 0.51f, 1.00f);
+	colors[ImGuiCol_CheckMark] = ImVec4(0.94f, 0.94f, 0.94f, 1.00f);
+	colors[ImGuiCol_SliderGrab] = ImVec4(0.51f, 0.51f, 0.51f, 1.00f);
+	colors[ImGuiCol_SliderGrabActive] = ImVec4(0.86f, 0.86f, 0.86f, 1.00f);
+	colors[ImGuiCol_Button] = ImVec4(0.44f, 0.44f, 0.44f, 0.40f);
+	colors[ImGuiCol_ButtonHovered] = ImVec4(0.46f, 0.47f, 0.48f, 1.00f);
+	colors[ImGuiCol_ButtonActive] = ImVec4(0.42f, 0.42f, 0.42f, 1.00f);
+	colors[ImGuiCol_Header] = ImVec4(0.70f, 0.70f, 0.70f, 0.31f);
+	colors[ImGuiCol_HeaderHovered] = ImVec4(0.70f, 0.70f, 0.70f, 0.80f);
+	colors[ImGuiCol_HeaderActive] = ImVec4(0.48f, 0.50f, 0.52f, 1.00f);
+	colors[ImGuiCol_Separator] = ImVec4(0.43f, 0.43f, 0.50f, 0.50f);
+	colors[ImGuiCol_SeparatorHovered] = ImVec4(0.72f, 0.72f, 0.72f, 0.78f);
+	colors[ImGuiCol_SeparatorActive] = ImVec4(0.51f, 0.51f, 0.51f, 1.00f);
+	colors[ImGuiCol_ResizeGrip] = ImVec4(0.91f, 0.91f, 0.91f, 0.25f);
+	colors[ImGuiCol_ResizeGripHovered] = ImVec4(0.81f, 0.81f, 0.81f, 0.67f);
+	colors[ImGuiCol_ResizeGripActive] = ImVec4(0.46f, 0.46f, 0.46f, 0.95f);
+	colors[ImGuiCol_PlotLines] = ImVec4(0.61f, 0.61f, 0.61f, 1.00f);
+	colors[ImGuiCol_PlotLinesHovered] = ImVec4(1.00f, 0.43f, 0.35f, 1.00f);
+	colors[ImGuiCol_PlotHistogram] = ImVec4(0.73f, 0.60f, 0.15f, 1.00f);
+	colors[ImGuiCol_PlotHistogramHovered] = ImVec4(1.00f, 0.60f, 0.00f, 1.00f);
+	colors[ImGuiCol_TextSelectedBg] = ImVec4(0.87f, 0.87f, 0.87f, 0.35f);
+	colors[ImGuiCol_ModalWindowDarkening] = ImVec4(0.80f, 0.80f, 0.80f, 0.35f);
+	colors[ImGuiCol_DragDropTarget] = ImVec4(1.00f, 1.00f, 0.00f, 0.90f);
+	colors[ImGuiCol_NavHighlight] = ImVec4(0.60f, 0.60f, 0.60f, 1.00f);
+	colors[ImGuiCol_NavWindowingHighlight] = ImVec4(1.00f, 1.00f, 1.00f, 0.70f);
+	//ImGui::StyleColorsDark();
 	ImGuiStyle& style = ImGui::GetStyle();
 	if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
 	{
@@ -44,9 +91,14 @@ void Havana::InitUI()
 	}
 	ImGui_ImplWin32_Init(Renderer->GetDevice().m_window);
 	ImGui_ImplDX11_Init(Renderer->GetDevice().GetD3DDevice(), Renderer->GetDevice().GetD3DDeviceContext());
+
+	Icons["Close"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(FilePath("Assets/Havana/UI/Close.png"));
+	Icons["BugReport"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(FilePath("Assets/Havana/UI/BugReport.png"));
+	Icons["Maximize"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(FilePath("Assets/Havana/UI/Maximize.png"));
 }
 
 bool show_demo_window = true;
+bool show_dockspace = true;
 void Havana::NewFrame(std::function<void()> StartGameFunc, std::function<void()> PauseGameFunc, std::function<void()> StopGameFunc)
 {
 	ImGui_ImplDX11_NewFrame();
@@ -63,8 +115,15 @@ void Havana::NewFrame(std::function<void()> StartGameFunc, std::function<void()>
 
 	static float f = 0.0f;
 	ImGuiViewport* viewport = ImGui::GetMainViewport();
-	ImGui::SetNextWindowPos(viewport->Pos);
-	ImGui::SetNextWindowSize(viewport->Size);
+	MainMenuSize.x = 0.f;
+	MainMenuSize.y = 17.f;
+	ImVec2 DockSize = viewport->Size;
+	DockSize.y = viewport->Size.y - MainMenuSize.y;
+	ImVec2 DockPos = viewport->Pos;
+	DockPos.y = viewport->Pos.y + MainMenuSize.y;
+
+	ImGui::SetNextWindowPos(DockPos);
+	ImGui::SetNextWindowSize(DockSize);
 	ImGui::SetNextWindowViewport(viewport->ID);
 	ImGui::SetNextWindowBgAlpha(0.0f);
 
@@ -75,7 +134,7 @@ void Havana::NewFrame(std::function<void()> StartGameFunc, std::function<void()>
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-	ImGui::Begin("DockSpace Demo", &show_demo_window, window_flags);
+	ImGui::Begin("DockSpace Demo", &show_dockspace, window_flags);
 	ImGui::PopStyleVar(3);
 
 	ImGuiID dockspace_id = ImGui::GetID("MyDockspace");
@@ -84,10 +143,15 @@ void Havana::NewFrame(std::function<void()> StartGameFunc, std::function<void()>
 
 	ImGui::End();
 
+	DrawLog();
+
 	ImGui::Begin("Debug Info");
 
 	ImGui::Checkbox("Demo Window", &show_demo_window);
-	ImGui::ShowDemoWindow(&show_demo_window);
+	if (show_demo_window)
+	{
+		ImGui::ShowDemoWindow(&show_demo_window);
+	}
 
 	if (ImGui::Button("Play"))
 	{
@@ -151,8 +215,13 @@ void Havana::DrawOpenFilePopup()
 
 void Havana::DrawMainMenuBar()
 {
+	ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0.0f, 12.f));
 	if (ImGui::BeginMainMenuBar())
 	{
+		MainMenuSize = ImGui::GetWindowSize();
+		//MainMenuSize.y = 25.f;
+		ImGui::SetWindowSize(MainMenuSize);
+		ImGui::PopStyleVar(1);
 		if (ImGui::BeginMenu("File"))
 		{
 			//ImGui::MenuItem("(dummy menu)", NULL, false, false);
@@ -230,8 +299,96 @@ void Havana::DrawMainMenuBar()
 			}
 			ImGui::EndMenu();
 		}
+
+		if (ImGui::BeginMenu("Help"))
+		{
+			if (ImGui::MenuItem("Show ImGui Demo"))
+			{
+				show_demo_window = !show_demo_window;
+			}
+			ImGui::EndMenu();
+		}
+
+		float endOfMenu = ImGui::GetCursorPosX();
+		float buttonWidth = 40.f;
+		float pos = (ImGui::GetMousePos().x - m_engine->GetWindow()->GetPosition().X());
+		static_cast<D3D12Window*>(m_engine->GetWindow())->CanMoveWindow((pos > endOfMenu&& pos < ImGui::GetWindowWidth() - (buttonWidth * 3.f)));
+
+		ImGui::SetCursorPosX((ImGui::GetWindowWidth() / 2.f) - (ImGui::CalcTextSize(WindowTitle.c_str()).x / 2.f));
+		ImGui::Text(WindowTitle.c_str());
+
+		ImGui::BeginGroup();
+		ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(0.0f, 0.6f, 0.6f, 0.f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)ImColor::HSV(0.f, 0.8f, 0.8f, 0.f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(0.35f, 126.f, 43.f, 1.f));
+		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 3.f));
+		if (ImGui::ImageButton(Icons["BugReport"]->CubesTexture, ImVec2(30.f, 30.f)))
+		{
+			ShellExecute(0, 0, L"https://github.com/wobbier/MitchEngine/issues", 0, 0, SW_SHOW);
+		}
+		ImGui::PopStyleColor(1);
+
+		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth*2.f));
+		if (ImGui::ImageButton(Icons["Maximize"]->CubesTexture, ImVec2(30.f, 30.f)))
+		{
+			m_engine->GetWindow()->Maximize();
+		}
+
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(1.f, 42.f, 43.f, 1.f));
+		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - buttonWidth);
+		//ImGui::SameLine(0.f);
+		if (ImGui::ImageButton(Icons["Close"]->CubesTexture, ImVec2(30.f, 30.f)))
+		{
+			m_engine->StopGame();
+		}
+		ImGui::PopStyleColor(3);
+		bool hoveringButtons = ImGui::IsMouseHoveringWindow();
+		ImGui::EndGroup();
+
 		ImGui::EndMainMenuBar();
 	}
+}
+
+void Havana::DrawLog()
+{
+	static std::unordered_map<Logger::LogType, bool> DebugFilters;
+	ImGuiWindowFlags window_flags = 0;
+	window_flags |= ImGuiWindowFlags_MenuBar;
+	bool showLog = true;
+	ImGui::Begin("Log", &showLog, window_flags);
+	// Menu
+	if (ImGui::BeginMenuBar())
+	{
+		if (ImGui::BeginMenu("Show"))
+		{
+			ImGui::Checkbox("Debug", &DebugFilters[Logger::LogType::Debug]);
+			ImGui::Checkbox("Error", &DebugFilters[Logger::LogType::Error]);
+			ImGui::Checkbox("Info", &DebugFilters[Logger::LogType::Info]);
+			ImGui::EndMenu();
+		}
+
+		if (ImGui::Button("Clear Log"))
+		{
+			Logger::Messages.clear();
+		}
+
+		ImGui::EndMenuBar();
+	}
+
+	bool showMessage = true;
+	for (auto& msg : Logger::Messages)
+	{
+		if (DebugFilters.find(msg.Type) == DebugFilters.end())
+		{
+			DebugFilters[msg.Type] = true;
+		}
+		if (DebugFilters[msg.Type])
+		{
+			ImGui::Text(msg.Message.c_str());
+		}
+	}
+
+	ImGui::End();
 }
 
 void Havana::AddComponentPopup()

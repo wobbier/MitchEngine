@@ -218,6 +218,8 @@ void Engine::Run()
 				Editor->Render();
 #endif
 			}, MainCamera, EditorCamera);
+
+			Sleep(6);
 	}
 }
 
@@ -285,7 +287,7 @@ const bool Engine::IsGamePaused() const
 
 void Engine::LoadLevel()
 {
-	GameWindow->SetTitle("Havana - " + CurrentLevel.Path.LocalPath);
+	Editor->SetWindowTitle("Havana - " + CurrentLevel.Path.LocalPath);
 	GameWorld->Cleanup();
 	InitGame();
 	//InitGame();

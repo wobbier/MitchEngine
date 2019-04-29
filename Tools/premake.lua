@@ -91,6 +91,9 @@ if isUWP then
   defines { "ME_PLATFORM_UWP" }
 else
   defines { "ME_PLATFORM_WIN64" }
+  links {
+  	  "dwmapi"
+  }
 end
 
 libdirs {

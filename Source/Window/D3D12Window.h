@@ -11,6 +11,13 @@ class D3D12Window
 	: public IWindow
 {
 public:
+	enum class Style : DWORD
+	{
+		ME_WINDOWED = WS_OVERLAPPEDWINDOW | WS_THICKFRAME | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX,
+		ME_AERO_BORDERLESS = WS_POPUP | WS_THICKFRAME | WS_CAPTION | WS_SYSMENU | WS_MAXIMIZEBOX | WS_MINIMIZEBOX,
+		ME_BASIC_BORDERLESS = WS_POPUP | WS_THICKFRAME | WS_SYSMENU | WS_MAXIMIZEBOX | WS_MINIMIZEBOX
+	};
+
 	D3D12Window(std::string title, int width = WINDOW_WIDTH, int height = WINDOW_HEIGHT);
 	~D3D12Window();
 
@@ -20,9 +27,31 @@ public:
 	virtual void SetTitle(const std::string& title) final;
 
 	Vector2 GetSize() const;
+	virtual Vector2 GetPosition() final;
 
+	void CanMoveWindow(bool CanMove);
+	void SetBorderless(bool enabled);
+
+	auto IsWindowCompositionEnabled() -> bool;
+
+	Style SelectBorderlessStyle();
+
+	void SetBorderlessShadow(bool enabled);
+	auto SetShadow(HWND handle, bool enabled) -> void;
+	auto AdjustMaximizedClientRect(HWND window, RECT& rect) -> void;
+	bool borderless = true;
+	bool borderless_shadow = true;
+	bool borderless_drag = true;
+	bool borderless_resize = true;
+
+	bool IsMaximized(HWND hwnd);
+
+	virtual void Maximize() final;
+
+	LRESULT HitTest(POINT cursor) const;
 private:
 	bool ExitRequested = false;
+	bool canMoveWindow = false;
 
 	HWND Window;
 };

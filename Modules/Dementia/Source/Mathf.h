@@ -14,4 +14,15 @@ namespace Mathf
 		}
 		return Val;
 	}
+
+	float Abs(float input)
+	{
+		if (input < 0.f)
+		{
+			input *= -1.f;
+		}
+		return input;
+	}
+
+
 }
