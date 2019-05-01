@@ -29,6 +29,20 @@ public:
 	Transform* RootTransform = nullptr;
 
 private:
+
+	float FlyingSpeed = 5.f;
+
+	float LookSensitivity = .15f;
+	float SpeedModifier = 100.f;
+	float LastX = 0.f;
+	float LastY = 0.f;
+	bool FirstUpdate = true;
+	bool InputEnabled = false;
+	bool PreviousMouseDown = false;
+
+	Transform* EditorCameraTransform = nullptr;
+	Camera* EditorCamera = nullptr;
+
 	Havana* m_editor = nullptr;
 	TranslationGizmo* gizmo;
 	WeakPtr<Entity> TransformEntity;

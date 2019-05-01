@@ -27,10 +27,9 @@ EditorCore::~EditorCore()
 
 void EditorCore::Init()
 {
-	WeakPtr<Entity> CameraEntity = GetWorld().CreateEntity();
-	CameraEntity.lock()->AddComponent<Transform>();
-	Camera::EditorCamera = &(CameraEntity.lock()->AddComponent<Camera>());
-	CameraEntity.lock()->AddComponent<FlyingCamera>();
+	EditorCameraTransform = new Transform();
+	EditorCamera = new Camera();
+	Camera::EditorCamera = EditorCamera;
 
 	TransformEntity = GetWorld().CreateEntity();
 	TransformEntity.lock()->AddComponent<Transform>();
@@ -39,11 +38,108 @@ void EditorCore::Init()
 
 void EditorCore::Update(float dt)
 {
+	OPTICK_CATEGORY("FlyingCameraCore::Update", Optick::Category::Camera);
+
+	Input& Instance = Input::GetInstance();
+	auto Animatables = GetEntities();
+	if(m_editor->IsWorldViewFocused())
+	{
+
+		{
+			if (Instance.IsKeyDown(KeyCode::RightButton))
+			{
+				if (!PreviousMouseDown)
+				{
+					FirstUpdate = true;
+					PreviousMouseDown = true;
+				}
+			}
+			else
+			{
+				PreviousMouseDown = false;
+				return;
+			}
+			float CameraSpeed = FlyingSpeed;
+			if (Instance.IsKeyDown(KeyCode::LeftShift))
+			{
+				CameraSpeed += SpeedModifier;
+			}
+			CameraSpeed *= dt;
+			if (Instance.IsKeyDown(KeyCode::W))
+			{
+				EditorCameraTransform->SetPosition((EditorCamera->Front * CameraSpeed) + EditorCameraTransform->GetPosition());
+			}
+			if (Instance.IsKeyDown(KeyCode::S))
+			{
+				EditorCameraTransform->SetPosition(EditorCameraTransform->GetPosition() - (EditorCamera->Front * CameraSpeed));
+			}
+			if (Instance.IsKeyDown(KeyCode::A))
+			{
+				EditorCameraTransform->Translate(EditorCamera->Up.Cross(EditorCamera->Front.GetInternalVec()).Normalized() * CameraSpeed);
+			}
+			if (Instance.IsKeyDown(KeyCode::D))
+			{
+				EditorCameraTransform->Translate(EditorCamera->Front.Cross(EditorCamera->Up.GetInternalVec()).Normalized() * CameraSpeed);
+			}
+			if (Instance.IsKeyDown(KeyCode::Space))
+			{
+				EditorCameraTransform->Translate(EditorCamera->Up * CameraSpeed);
+			}
+			if (Instance.IsKeyDown(KeyCode::E))
+			{
+				EditorCameraTransform->Translate(EditorCamera->Front.Cross(EditorCamera->Up).Cross(EditorCamera->Front).Normalized() * CameraSpeed);
+			}
+			if (Instance.IsKeyDown(KeyCode::Q))
+			{
+				EditorCameraTransform->Translate(EditorCamera->Front.Cross(-EditorCamera->Up).Cross(EditorCamera->Front).Normalized() * CameraSpeed);
+			}
+
+			Vector2 MousePosition = Instance.GetMousePosition();
+			if (MousePosition == Vector2(0, 0))
+			{
+				return;
+			}
+
+			if (FirstUpdate)
+			{
+				LastX = MousePosition.X();
+				LastY = MousePosition.Y();
+				FirstUpdate = false;
+			}
+
+			float XOffset = MousePosition.X() - LastX;
+			float YOffest = LastY - MousePosition.Y();
+			LastX = MousePosition.X();
+			LastY = MousePosition.Y();
+
+			XOffset *= LookSensitivity;
+			YOffest *= LookSensitivity;
+
+			const float Yaw = EditorCamera->Yaw += XOffset;
+			float Pitch = EditorCamera->Pitch += YOffest;
+
+			if (Pitch > 89.0f)
+				Pitch = 89.0f;
+			if (Pitch < -89.0f)
+				Pitch = -89.0f;
+
+			Vector3 Front;
+			Front.SetX(cos(glm::radians(Yaw)) * cos(glm::radians(Pitch)));
+			Front.SetY(sin(glm::radians(Pitch)));
+			Front.SetZ(sin(glm::radians(Yaw)) * cos(glm::radians(Pitch)));
+			EditorCamera->Front = glm::normalize(Front.GetInternalVec());
+
+			EditorCamera->UpdateCameraTransform(EditorCameraTransform->GetPosition());
+
+			return;
+		}
+	}
 }
 
 void EditorCore::Update(float dt, Transform* rootTransform)
 {
 	OPTICK_EVENT("SceneGraph::Update");
+	Update(dt);
 	RootTransform = rootTransform;
 	gizmo->Update(m_editor->SelectedTransform, Camera::EditorCamera);
 	if (m_editor->SelectedTransform)
@@ -108,6 +204,12 @@ void EditorCore::OnEntityAdded(Entity& NewEntity)
 void EditorCore::OnEditorInspect()
 {
 	BaseCore::OnEditorInspect();
+	ImGui::Text("Camera Settings");
+	ImGui::DragFloat("Flying Speed", &FlyingSpeed);
+	ImGui::DragFloat("Speed Modifier", &SpeedModifier);
+	ImGui::DragFloat("Look Sensitivity", &LookSensitivity, 0.01f);
+
+	EditorCameraTransform->OnEditorInspect();
 }
 
 void EditorCore::SaveWorld()

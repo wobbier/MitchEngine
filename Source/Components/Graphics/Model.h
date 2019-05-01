@@ -57,6 +57,10 @@ private:
 				}
 			}
 		}
+
+		if (ModelShader)
+		{
+		}
 	}
 
 	virtual void Serialize(json& outJson) final

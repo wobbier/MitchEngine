@@ -312,7 +312,7 @@ void Havana::DrawMainMenuBar()
 		float endOfMenu = ImGui::GetCursorPosX();
 		float buttonWidth = 40.f;
 		float pos = (ImGui::GetMousePos().x - m_engine->GetWindow()->GetPosition().X());
-		static_cast<D3D12Window*>(m_engine->GetWindow())->CanMoveWindow((pos > endOfMenu&& pos < ImGui::GetWindowWidth() - (buttonWidth * 3.f)));
+		static_cast<D3D12Window*>(m_engine->GetWindow())->CanMoveWindow((pos > endOfMenu && pos < ImGui::GetWindowWidth() - (buttonWidth * 3.f)));
 
 		ImGui::SetCursorPosX((ImGui::GetWindowWidth() / 2.f) - (ImGui::CalcTextSize(WindowTitle.c_str()).x / 2.f));
 		ImGui::Text(WindowTitle.c_str());
@@ -328,7 +328,7 @@ void Havana::DrawMainMenuBar()
 		}
 		ImGui::PopStyleColor(1);
 
-		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth*2.f));
+		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 2.f));
 		if (ImGui::ImageButton(Icons["Maximize"]->CubesTexture, ImVec2(30.f, 30.f)))
 		{
 			m_engine->GetWindow()->Maximize();
@@ -393,43 +393,37 @@ void Havana::DrawLog()
 
 void Havana::AddComponentPopup()
 {
+	// Simple selection popup
+	// (If you want to show the current selection inside the Button itself, you may want to build a string using the "###" operator to preserve a constant ID with a variable label)
+	ImGui::PushItemWidth(-100);
+	if (ImGui::Button("Add Component.."))
 	{
-		static int selected_fish = -1;
-		const char* names[] = { "Bream", "Haddock", "Mackerel", "Pollock", "Tilefish" };
-		static bool toggles[] = { true, false, false, false, false };
+		ImGui::OpenPopup("my_select_popup");
+	}
+	ImGui::PopItemWidth();
 
-		// Simple selection popup
-		// (If you want to show the current selection inside the Button itself, you may want to build a string using the "###" operator to preserve a constant ID with a variable label)
-		ImGui::PushItemWidth(-100);
-		if (ImGui::Button("Add Component.."))
+	if (ImGui::BeginPopup("my_select_popup"))
+	{
+		ImGui::Text("Components");
+		ImGui::Separator();
+
+		ComponentRegistry& reg = GetComponentRegistry();
+
+		for (auto& thing : reg)
 		{
-			ImGui::OpenPopup("my_select_popup");
-		}
-		ImGui::PopItemWidth();
-
-		if (ImGui::BeginPopup("my_select_popup"))
-		{
-			ImGui::Text("Components");
-			ImGui::Separator();
-
-			ComponentRegistry& reg = GetComponentRegistry();
-
-			for (auto& thing : reg)
+			if (ImGui::Selectable(thing.first.c_str()))
 			{
-				if (ImGui::Selectable(thing.first.c_str()))
+				if (SelectedEntity)
 				{
-					if (SelectedEntity)
-					{
-						SelectedEntity->AddComponentByName(thing.first);
-					}
-					if (SelectedTransform)
-					{
-						m_engine->GetWorld().lock()->GetEntity(SelectedTransform->Parent)->AddComponentByName(thing.first);
-					}
+					SelectedEntity->AddComponentByName(thing.first);
+				}
+				if (SelectedTransform)
+				{
+					m_engine->GetWorld().lock()->GetEntity(SelectedTransform->Parent)->AddComponentByName(thing.first);
 				}
 			}
-			ImGui::EndPopup();
 		}
+		ImGui::EndPopup();
 	}
 }
 
@@ -554,14 +548,13 @@ void Havana::UpdateWorldRecursive(Transform * root)
 
 void Havana::Render()
 {
-	//ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
-	//ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-	//ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
 	ImGui::Begin("Game");
 	{
 		m_isGameFocused = ImGui::IsWindowFocused();
 
-		//ImGui::PopStyleVar(3);
 
 		if (Renderer->RTT->shaderResourceViewMap != nullptr)
 		{
@@ -580,18 +573,15 @@ void Havana::Render()
 				ImVec2(maxPos),
 				ImVec2(0, 0),
 				ImVec2(Mathf::Clamp(0.f, 1.0f, GameRenderSize.X() / Renderer->RTT->Size.X()), Mathf::Clamp(0.f, 1.0f, GameRenderSize.Y() / Renderer->RTT->Size.Y())));
-				//ImVec2(WorldViewRenderSize.X() / RenderSize.X(), WorldViewRenderSize.Y() / RenderSize.Y()));
+			//ImVec2(WorldViewRenderSize.X() / RenderSize.X(), WorldViewRenderSize.Y() / RenderSize.Y()));
 		}
 	}
 	ImGui::End();
-	//ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
-	//ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+
 	ImGui::Begin("World View");
 	{
 		m_isWorldViewFocused = ImGui::IsWindowFocused();
 
-		ImGui::PopStyleVar(1);
 
 		if (Renderer->RTT2->shaderResourceViewMap != nullptr)
 		{
@@ -609,10 +599,11 @@ void Havana::Render()
 				ImVec2(maxPos),
 				ImVec2(0, 0),
 				ImVec2(Mathf::Clamp(0.f, 1.0f, WorldViewRenderSize.X() / Renderer->RTT2->Size.X()), Mathf::Clamp(0.f, 1.0f, WorldViewRenderSize.Y() / Renderer->RTT2->Size.Y())));
-				//ImVec2(WorldViewRenderSize.X() / RenderSize.X(), WorldViewRenderSize.Y() / RenderSize.Y()));
+			//ImVec2(WorldViewRenderSize.X() / RenderSize.X(), WorldViewRenderSize.Y() / RenderSize.Y()));
 		}
 	}
 	ImGui::End();
+	ImGui::PopStyleVar(3);
 
 	ImGui::Render();
 	ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
@@ -645,7 +636,7 @@ void Havana::Text(const std::string & Name, const Vector3 & Vector)
 	ImGui::Text("Z: %f", Vector.Z());
 }
 
-void Havana::Text(const std::string& Name, const Vector2& Vector)
+void Havana::Text(const std::string & Name, const Vector2 & Vector)
 {
 	ImGui::Text(Name.c_str());
 

@@ -186,13 +186,14 @@ void Engine::Run()
 #if ME_EDITOR
 		if(Editor->IsGameFocused())
 		{
-			FlyingCameraController->SetCamera(Camera::CurrentCamera);
+			//FlyingCameraController->SetCamera(Camera::CurrentCamera);
 		}
 		else
 #endif
 		{
-			FlyingCameraController->SetCamera(Camera::EditorCamera);
+			//FlyingCameraController->SetCamera(Camera::EditorCamera);
 		}
+
 		FlyingCameraController->Update(deltaTime);
 
 			SceneNodes->Update(deltaTime);
