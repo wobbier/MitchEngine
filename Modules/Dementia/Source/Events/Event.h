@@ -30,7 +30,7 @@ Event<T>::Event() : BaseEvent(GetEventId())
 template <class T>
 void Event<T>::Queue()
 {
-	EventManager::GetInstance().QueueEvent(*this);
+	EventManager::GetInstance().QueueEvent(std::move(*this));
 }
 
 template <class T>

@@ -27,3 +27,14 @@ public:
 
 	std::string Level;
 };
+
+class TestEditorEvent
+	: public Event<TestEditorEvent>
+{
+public:
+	TestEditorEvent()
+		: Event()
+	{
+	}
+	std::string Path;
+};

@@ -6,8 +6,12 @@
 #include "imgui.h"
 #include "Graphics/Texture.h"
 #include "Pointers.h"
+#include "Widgets/AssetBrowser.h"
+#include "Events/Event.h"
+#include "Events/EventReceiver.h"
 
 class Havana
+	: public EventReceiver
 {
 public:
 	Havana(class Engine* GameEngine, Moonlight::Renderer* renderer);
@@ -52,6 +56,9 @@ public:
 	void BrowseDirectory(const FilePath& path);
 
 	const Vector2& GetGameOutputSize() const;
+
+	virtual bool OnEvent(const BaseEvent& evt) override;
+
 private:
 	class Engine* m_engine;
 	bool m_isGameFocused = false;
@@ -61,4 +68,5 @@ private:
 	FilePath CurrentDirectory;
 	json AssetDirectory;
 	std::unordered_map<std::string, SharedPtr<Moonlight::Texture>> Icons;
+	AssetBrowser m_assetBrowser;
 };

@@ -20,14 +20,48 @@
 #include "Resource/ResourceCache.h"
 #include "Graphics/Texture.h"
 #include "Window/D3D12Window.h"
+#include "Widgets/AssetBrowser.h"
+#include <chrono>
+#include "Events/EventManager.h"
 namespace fs = std::filesystem;
 
 Havana::Havana(Engine* GameEngine, Moonlight::Renderer* renderer)
 	: Renderer(renderer)
 	, m_engine(GameEngine)
 	, CurrentDirectory("Assets")
+	, m_assetBrowser(FilePath("Assets").FullPath, std::chrono::milliseconds(300))
 {
 	InitUI();
+	m_assetBrowser.Start([](const std::string& path_to_watch, FileStatus status) -> void {
+		// Process only regular files, all other file types are ignored
+		if (!std::filesystem::is_regular_file(std::filesystem::path(path_to_watch)) && status != FileStatus::Deleted)
+		{
+			return;
+		}
+
+		switch (status) {
+		case FileStatus::Created:
+		{
+			Logger::GetInstance().Log(Logger::LogType::Info, "File created: " + path_to_watch);
+			TestEditorEvent evt;
+			evt.Path = std::move(path_to_watch);
+			evt.Queue();
+		}
+			break;
+		case FileStatus::Modified:
+			Logger::GetInstance().Log(Logger::LogType::Info, "File modified: " + path_to_watch);
+			break;
+		case FileStatus::Deleted:
+			Logger::GetInstance().Log(Logger::LogType::Info, "File deleted: " + path_to_watch);
+			break;
+		default:
+			Logger::GetInstance().Log(Logger::LogType::Error, "Error! Unknown file status.");
+		}
+		});
+
+	std::vector<TypeId> events;
+	events.push_back(TestEditorEvent::GetEventId());
+	EventManager::GetInstance().RegisterReceiver(this, events);
 }
 
 void Havana::InitUI()
@@ -95,6 +129,7 @@ void Havana::InitUI()
 	Icons["Close"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(FilePath("Assets/Havana/UI/Close.png"));
 	Icons["BugReport"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(FilePath("Assets/Havana/UI/BugReport.png"));
 	Icons["Maximize"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(FilePath("Assets/Havana/UI/Maximize.png"));
+
 }
 
 bool show_demo_window = true;
@@ -674,6 +709,18 @@ void Havana::BrowseDirectory(const FilePath & path)
 const Vector2& Havana::GetGameOutputSize() const
 {
 	return GameRenderSize;
+}
+
+bool Havana::OnEvent(const BaseEvent& evt)
+{
+
+	if (evt.GetEventId() == TestEditorEvent::GetEventId())
+	{
+		const TestEditorEvent& test = static_cast<const TestEditorEvent&>(evt);
+		Logger::GetInstance().Log(Logger::LogType::Info, "We did it fam" + test.Path);
+		return true;
+	}
+	return false;
 }
 
 #endif
