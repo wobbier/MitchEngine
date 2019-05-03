@@ -179,6 +179,7 @@ void Havana::NewFrame(std::function<void()> StartGameFunc, std::function<void()>
 	ImGui::End();
 
 	DrawLog();
+	m_assetBrowser.Draw();
 
 	ImGui::Begin("Debug Info");
 

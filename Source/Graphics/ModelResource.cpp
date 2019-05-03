@@ -138,11 +138,11 @@ void ModelResource::LoadMaterialTextures(Moonlight::Material* newMaterial, aiMat
 			std::shared_ptr<Moonlight::Texture> texture;
 			if (stdString.find(":") != std::string::npos)
 			{
-				texture = ResourceCache::GetInstance().Get<Moonlight::Texture>(texturePath);
+				texture = ResourceCache::GetInstance().Get<Moonlight::Texture>(FilePath(texturePath));
 			}
 			else
 			{
-				texture = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path.Directory + texturePath);
+				texture = ResourceCache::GetInstance().Get<Moonlight::Texture>(FilePath(Path.Directory + texturePath));
 			}
 			texture->Type = typeName;
 			newMaterial->SetTexture(typeName, texture);

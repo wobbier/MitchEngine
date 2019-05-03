@@ -288,7 +288,9 @@ const bool Engine::IsGamePaused() const
 
 void Engine::LoadLevel()
 {
+#if ME_EDITOR
 	Editor->SetWindowTitle("Havana - " + CurrentLevel.Path.LocalPath);
+#endif
 	GameWorld->Cleanup();
 	InitGame();
 	//InitGame();
