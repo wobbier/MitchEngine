@@ -22,7 +22,7 @@ public:
 
 	void DrawOpenFilePopup();
 
-	void DrawMainMenuBar();
+	void DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<void()> PauseGameFunc, std::function<void()> StopGameFunc);
 	void DrawLog();
 
 	void UpdateWorld(class World* world, class Transform* root, const std::vector<Entity> & ents);

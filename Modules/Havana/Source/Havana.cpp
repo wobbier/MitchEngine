@@ -23,6 +23,7 @@
 #include "Widgets/AssetBrowser.h"
 #include <chrono>
 #include "Events/EventManager.h"
+#include "Engine/Input.h"
 namespace fs = std::filesystem;
 
 Havana::Havana(Engine* GameEngine, Moonlight::Renderer* renderer)
@@ -129,10 +130,13 @@ void Havana::InitUI()
 	Icons["Close"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(FilePath("Assets/Havana/UI/Close.png"));
 	Icons["BugReport"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(FilePath("Assets/Havana/UI/BugReport.png"));
 	Icons["Maximize"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(FilePath("Assets/Havana/UI/Maximize.png"));
+	Icons["Play"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(FilePath("Assets/Havana/UI/Play.png"));
+	Icons["Pause"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(FilePath("Assets/Havana/UI/Pause.png"));
+	Icons["Stop"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(FilePath("Assets/Havana/UI/Stop.png"));
 
 }
 
-bool show_demo_window = true;
+bool show_demo_window = false;
 bool show_dockspace = true;
 void Havana::NewFrame(std::function<void()> StartGameFunc, std::function<void()> PauseGameFunc, std::function<void()> StopGameFunc)
 {
@@ -145,7 +149,7 @@ void Havana::NewFrame(std::function<void()> StartGameFunc, std::function<void()>
 	RenderSize = Vector2(io.DisplaySize.x, io.DisplaySize.y);
 	Renderer->GetDevice().SetOutputSize(RenderSize);
 
-	DrawMainMenuBar();
+	DrawMainMenuBar(StartGameFunc, PauseGameFunc, StopGameFunc);
 	DrawOpenFilePopup();
 
 	static float f = 0.0f;
@@ -180,36 +184,6 @@ void Havana::NewFrame(std::function<void()> StartGameFunc, std::function<void()>
 
 	DrawLog();
 	m_assetBrowser.Draw();
-
-	ImGui::Begin("Debug Info");
-
-	ImGui::Checkbox("Demo Window", &show_demo_window);
-	if (show_demo_window)
-	{
-		ImGui::ShowDemoWindow(&show_demo_window);
-	}
-
-	if (ImGui::Button("Play"))
-	{
-		StartGameFunc();
-
-	}
-
-	if (m_engine->IsGameRunning())
-	{
-		if (ImGui::Button("Pause"))
-		{
-			PauseGameFunc();
-		}
-
-		if (ImGui::Button("Stop"))
-		{
-			StopGameFunc();
-		}
-	}
-
-	ImGui::Text("FPS Average: %.3f FPS: (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-	ImGui::End();
 }
 
 void Havana::DrawOpenFilePopup()
@@ -249,7 +223,7 @@ void Havana::DrawOpenFilePopup()
 	}
 }
 
-void Havana::DrawMainMenuBar()
+void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<void()> PauseGameFunc, std::function<void()> StopGameFunc)
 {
 	ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0.0f, 12.f));
 	if (ImGui::BeginMainMenuBar())
@@ -345,10 +319,30 @@ void Havana::DrawMainMenuBar()
 			ImGui::EndMenu();
 		}
 
+		if (ImGui::ImageButton(Icons["Play"]->CubesTexture, ImVec2(30.f, 30.f)) || Input::GetInstance().IsKeyDown(KeyCode::F5))
+		{
+			StartGameFunc();
+		}
+
+		if (m_engine->IsGameRunning())
+		{
+			if (ImGui::ImageButton(Icons["Pause"]->CubesTexture, ImVec2(30.f, 30.f)) || Input::GetInstance().IsKeyDown(KeyCode::F10))
+			{
+				PauseGameFunc();
+			}
+
+			if (ImGui::ImageButton(Icons["Stop"]->CubesTexture, ImVec2(30.f, 30.f)) || (Input::GetInstance().IsKeyDown(KeyCode::F5) && Input::GetInstance().IsKeyDown(KeyCode::LeftShift)))
+			{
+				StopGameFunc();
+			}
+		}
+
 		float endOfMenu = ImGui::GetCursorPosX();
 		float buttonWidth = 40.f;
 		float pos = (ImGui::GetMousePos().x - m_engine->GetWindow()->GetPosition().X());
 		static_cast<D3D12Window*>(m_engine->GetWindow())->CanMoveWindow((pos > endOfMenu && pos < ImGui::GetWindowWidth() - (buttonWidth * 3.f)));
+
+		ImGui::Text("%.1f FPS", ImGui::GetIO().Framerate);
 
 		ImGui::SetCursorPosX((ImGui::GetWindowWidth() / 2.f) - (ImGui::CalcTextSize(WindowTitle.c_str()).x / 2.f));
 		ImGui::Text(WindowTitle.c_str());
