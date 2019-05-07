@@ -72,7 +72,7 @@ D3D12Window::D3D12Window(std::string title, int width, int height)
 	}
 	SetBorderless(borderless);
 	SetBorderlessShadow(borderless_shadow);
-	ShowWindow(Window, SW_SHOW);
+	ShowWindow(Window, SW_SHOWMAXIMIZED);
 }
 
 D3D12Window::~D3D12Window()
@@ -198,6 +198,16 @@ auto D3D12Window::AdjustMaximizedClientRect(HWND window, RECT& rect) -> void
 	rect = monitor_info.rcWork;
 }
 
+void D3D12Window::Minimize()
+{
+	ShowWindow(Window, SW_MINIMIZE);
+}
+
+void D3D12Window::ExitMaximize()
+{
+	ShowWindow(Window, SW_SHOWNORMAL);
+}
+
 bool D3D12Window::IsMaximized(HWND hwnd)
 {
 	WINDOWPLACEMENT placement;
@@ -206,6 +216,11 @@ bool D3D12Window::IsMaximized(HWND hwnd)
 	}
 
 	return placement.showCmd == SW_MAXIMIZE;
+}
+
+bool D3D12Window::IsMaximized()
+{
+	return IsMaximized(Window);
 }
 
 void D3D12Window::Maximize()

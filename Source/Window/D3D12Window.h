@@ -44,7 +44,10 @@ public:
 	bool borderless_drag = true;
 	bool borderless_resize = true;
 
-	bool IsMaximized(HWND hwnd);
+	virtual void Minimize() final;
+	virtual void ExitMaximize() final;
+
+	bool IsMaximized();
 
 	virtual void Maximize() final;
 
@@ -53,6 +56,7 @@ private:
 	bool ExitRequested = false;
 	bool canMoveWindow = false;
 
+	bool IsMaximized(HWND hwnd);
 	HWND Window;
 };
 

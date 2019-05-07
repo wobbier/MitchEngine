@@ -130,13 +130,15 @@ void Havana::InitUI()
 	Icons["Close"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(FilePath("Assets/Havana/UI/Close.png"));
 	Icons["BugReport"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(FilePath("Assets/Havana/UI/BugReport.png"));
 	Icons["Maximize"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(FilePath("Assets/Havana/UI/Maximize.png"));
+	Icons["ExitMaximize"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(FilePath("Assets/Havana/UI/ExitMaximize.png"));
+	Icons["Minimize"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(FilePath("Assets/Havana/UI/Minimize.png"));
 	Icons["Play"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(FilePath("Assets/Havana/UI/Play.png"));
 	Icons["Pause"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(FilePath("Assets/Havana/UI/Pause.png"));
 	Icons["Stop"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(FilePath("Assets/Havana/UI/Stop.png"));
 
 }
 
-bool show_demo_window = false;
+bool show_demo_window = true;
 bool show_dockspace = true;
 void Havana::NewFrame(std::function<void()> StartGameFunc, std::function<void()> PauseGameFunc, std::function<void()> StopGameFunc)
 {
@@ -351,17 +353,34 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 		ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(0.0f, 0.6f, 0.6f, 0.f));
 		ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)ImColor::HSV(0.f, 0.8f, 0.8f, 0.f));
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(0.35f, 126.f, 43.f, 1.f));
-		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 3.f));
+		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 4.f));
 		if (ImGui::ImageButton(Icons["BugReport"]->CubesTexture, ImVec2(30.f, 30.f)))
 		{
 			ShellExecute(0, 0, L"https://github.com/wobbier/MitchEngine/issues", 0, 0, SW_SHOW);
 		}
 		ImGui::PopStyleColor(1);
 
-		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 2.f));
-		if (ImGui::ImageButton(Icons["Maximize"]->CubesTexture, ImVec2(30.f, 30.f)))
+		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 3.f));
+		if (ImGui::ImageButton(Icons["Minimize"]->CubesTexture, ImVec2(30.f, 30.f)))
 		{
-			m_engine->GetWindow()->Maximize();
+			m_engine->GetWindow()->Minimize();
+		}
+
+		if (static_cast<D3D12Window*>(m_engine->GetWindow())->IsMaximized())
+		{
+			ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 2.f));
+			if (ImGui::ImageButton(Icons["ExitMaximize"]->CubesTexture, ImVec2(30.f, 30.f)))
+			{
+				m_engine->GetWindow()->ExitMaximize();
+			}
+		}
+		else
+		{
+			ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 2.f));
+			if (ImGui::ImageButton(Icons["Maximize"]->CubesTexture, ImVec2(30.f, 30.f)))
+			{
+				m_engine->GetWindow()->Maximize();
+			}
 		}
 
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(1.f, 42.f, 43.f, 1.f));

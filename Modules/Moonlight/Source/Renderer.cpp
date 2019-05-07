@@ -118,9 +118,9 @@ namespace Moonlight
 
 		// Reset render targets to the screen.
 #if ME_EDITOR
-		ID3D11RenderTargetView *const targets[1] = { RTT->renderTargetViewMap };//
+		ID3D11RenderTargetView *const targets[1] = { RTT->renderTargetViewMap };
 #else
-		ID3D11RenderTargetView *const targets[1] = { m_device->GetBackBufferRenderTargetView() };//
+		ID3D11RenderTargetView *const targets[1] = { m_device->GetBackBufferRenderTargetView() };
 #endif
 		context->OMSetRenderTargets(1, targets, m_device->GetDepthStencilView());
 

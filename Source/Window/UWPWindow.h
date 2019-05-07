@@ -45,6 +45,12 @@ public:
 	virtual void SetTitle(const std::string& title) final;
 
 	void SetVisibility(bool Visible);
+
+	virtual Vector2 GetPosition() final;
+	virtual void Maximize() final;
+	virtual void Minimize() final;
+	virtual void ExitMaximize() final;
+
 private:
 	bool ExitRequested = false;
 

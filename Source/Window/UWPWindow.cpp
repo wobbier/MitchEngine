@@ -62,6 +62,23 @@ void UWPWindow::SetVisibility(bool Visible)
 	m_windowVisible = Visible;
 }
 
+Vector2 UWPWindow::GetPosition()
+{
+	return Vector2(0.f, 0.f);
+}
+
+void UWPWindow::Maximize()
+{
+}
+
+void UWPWindow::Minimize()
+{
+}
+
+void UWPWindow::ExitMaximize()
+{
+}
+
 /************************************************************************/
 /*                      UWPWindowMessageHandler                         */
 /************************************************************************/

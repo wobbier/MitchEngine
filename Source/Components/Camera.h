@@ -25,7 +25,7 @@ public:
 	float Roll = 0.f;
 
 	Camera();
-	~Camera();;
+	~Camera();
 
 	virtual void Init() override;
 

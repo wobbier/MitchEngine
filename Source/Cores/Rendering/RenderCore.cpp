@@ -15,9 +15,10 @@
 #include "Resource/ResourceCache.h"
 #include "Graphics/ModelResource.h"
 #include "RenderCommands.h"
+#include "Components/Lighting/Light.h"
 
 RenderCore::RenderCore()
-	: Base(ComponentFilter().Requires<Transform>().RequiresOneOf<Model>().RequiresOneOf<Rigidbody>())
+	: Base(ComponentFilter().Requires<Transform>().RequiresOneOf<Model>().RequiresOneOf<Rigidbody>().RequiresOneOf<Light>())
 {
 	//m_sceneRenderer = std::unique_ptr<TestModelRenderer>(new TestModelRenderer(m_deviceResources));
 	m_renderer = &Game::GetEngine().GetRenderer();
