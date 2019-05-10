@@ -32,3 +32,6 @@
 [submodule "ThirdParty/Optick"]
 	path = ThirdParty/Optick
 	url = https://github.com/bombomby/optick
+[submodule "ThirdParty/ImGuizmo"]
+	path = ThirdParty/ImGuizmo
+	url = https://github.com/CedricGuillemet/ImGuizmo
