@@ -24,6 +24,7 @@ namespace Moonlight
 	public:
 
 		void UpdateMatrix(unsigned int Id, DirectX::XMMATRIX NewTransform);
+		void UpdateMeshMatrix(unsigned int Id, DirectX::XMMATRIX NewTransform);
 	public:
 		Renderer();
 		virtual ~Renderer() final;
@@ -81,8 +82,13 @@ namespace Moonlight
 
 		std::vector<LightCommand> Lights;
 		std::queue<unsigned int> FreeLightCommandIndicies;
+
 #if ME_ENABLE_RENDERDOC
 		RenderDocManager* RenderDoc;
 #endif
+	public:
+		unsigned int PushMesh(Moonlight::MeshCommand command);
+		std::vector<MeshCommand> Meshes;
+		std::queue<unsigned int> FreeMeshCommandIndicies;
 	};
 }

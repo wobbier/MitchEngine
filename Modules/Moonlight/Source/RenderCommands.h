@@ -17,6 +17,13 @@ namespace Moonlight
 		DirectX::XMMATRIX Transform;
 	};
 
+	struct MeshCommand
+	{
+		Mesh* SingleMesh;
+		Shader* MeshShader;
+		DirectX::XMMATRIX Transform;
+	};
+
 	struct CameraData
 	{
 		Vector3 Position;

@@ -40,23 +40,23 @@ private:
 		ImGui::Text("Path:");
 		ImGui::SameLine();
 		ImGui::Text(ModelPath.LocalPath.c_str());
-		if (ModelHandle)
-		{
-			for (int i = 0; i < ModelHandle->Meshes.size(); ++i)
-			{
-				if (ModelHandle->Meshes[i] && ModelHandle->Meshes[i]->material)
-				{
-					ImGui::Text("Mesh %i:", i);
-					for (auto texture : ModelHandle->Meshes[i]->material->GetTextures())
-					{
-						if (texture != nullptr)
-						{
-							ImGui::Text("Texture Path: %s", texture->Directory);
-						}
-					}
-				}
-			}
-		}
+		//if (ModelHandle)
+		//{
+		//	for (int i = 0; i < ModelHandle->Meshes.size(); ++i)
+		//	{
+		//		if (ModelHandle->Meshes[i] && ModelHandle->Meshes[i]->material)
+		//		{
+		//			ImGui::Text("Mesh %i:", i);
+		//			for (auto texture : ModelHandle->Meshes[i]->material->GetTextures())
+		//			{
+		//				if (texture != nullptr)
+		//				{
+		//					ImGui::Text("Texture Path: %s", texture->Directory);
+		//				}
+		//			}
+		//		}
+		//	}
+		//}
 
 		if (ModelShader)
 		{

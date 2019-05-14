@@ -16,9 +16,10 @@
 #include "Graphics/ModelResource.h"
 #include "RenderCommands.h"
 #include "Components/Lighting/Light.h"
+#include "Components/Graphics/MeshRef.h"
 
 RenderCore::RenderCore()
-	: Base(ComponentFilter().Requires<Transform>().RequiresOneOf<Model>().RequiresOneOf<Rigidbody>().RequiresOneOf<Light>())
+	: Base(ComponentFilter().Requires<Transform>().RequiresOneOf<Model>().RequiresOneOf<Rigidbody>().RequiresOneOf<Light>().RequiresOneOf<MeshRef>())
 {
 	//m_sceneRenderer = std::unique_ptr<TestModelRenderer>(new TestModelRenderer(m_deviceResources));
 	m_renderer = &Game::GetEngine().GetRenderer();
@@ -32,31 +33,39 @@ void RenderCore::Init()
 {
 	Logger::GetInstance().Log(Logger::LogType::Debug, "RenderCore Initialized...");
 	m_renderer->ClearModels();
+	m_renderer->Meshes.clear();
 }
 
 void RenderCore::OnEntityAdded(Entity& NewEntity)
 {
-	if (NewEntity.HasComponent<Model>())
+	/*if (NewEntity.HasComponent<Model>())
 	{
 		Moonlight::ModelCommand command;
 		Model& model = NewEntity.GetComponent<Model>();
 		model.Init();
-		command.Meshes = model.ModelHandle->Meshes;
+		command.Meshes = model.ModelHandle->GetAllMeshes();
 		command.ModelShader = model.ModelShader;
 		model.Id = Game::GetEngine().GetRenderer().PushModel(command);
-	}
-
-	if (NewEntity.HasComponent<Rigidbody>())
+	}*/
+	if (NewEntity.HasComponent<MeshRef>())
 	{
-		Moonlight::ModelCommand command;
-		Rigidbody& rigidbody = NewEntity.GetComponent<Rigidbody>();
-
-		command.Meshes = cube->Meshes;
-		command.ModelShader = shader;//model.ModelShader;
-
-		rigidbody.Id = Game::GetEngine().GetRenderer().PushModel(command);
-		//rigidbody.GetColliderType();
+		Moonlight::MeshCommand command;
+		MeshRef& model = NewEntity.GetComponent<MeshRef>();
+		command.SingleMesh = model.MeshReferece;
+		command.MeshShader = model.MeshShader;
+		model.Id = Game::GetEngine().GetRenderer().PushMesh(command);
 	}
+	//if (NewEntity.HasComponent<Rigidbody>())
+	//{
+	//	Moonlight::ModelCommand command;
+	//	Rigidbody& rigidbody = NewEntity.GetComponent<Rigidbody>();
+	//
+	//	command.Meshes = cube->Meshes;
+	//	command.ModelShader = shader;//model.ModelShader;
+	//
+	//	rigidbody.Id = Game::GetEngine().GetRenderer().PushModel(command);
+	//	//rigidbody.GetColliderType();
+	//}
 }
 
 RenderCore::~RenderCore()
@@ -77,6 +86,12 @@ void RenderCore::Update(float dt)
 		{
 			Model& model = InEntity.GetComponent<Model>();
 			m_renderer->UpdateMatrix(model.GetId(), transform.GetMatrix());
+		}
+
+		if (InEntity.HasComponent<MeshRef>())
+		{
+			MeshRef& model = InEntity.GetComponent<MeshRef>();
+			m_renderer->UpdateMeshMatrix(model.GetId(), transform.GetMatrix());
 		}
 
 		if (InEntity.HasComponent<Rigidbody>())

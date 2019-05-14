@@ -30,6 +30,16 @@ namespace Moonlight
 		Models[Id].Transform = std::move(NewTransform);
 	}
 
+	void Renderer::UpdateMeshMatrix(unsigned int Id, DirectX::XMMATRIX NewTransform)
+	{
+		if (Id >= Meshes.size())
+		{
+			return;
+		}
+
+		Meshes[Id].Transform = std::move(NewTransform);
+	}
+
 	Renderer::Renderer()
 	{
 		m_device = new D3D12Device();
@@ -315,6 +325,42 @@ namespace Moonlight
 				}
 			}
 		}
+
+		{
+			for (const MeshCommand& model : Meshes)
+			{
+				OPTICK_EVENT("Render::ModelCommand", Optick::Category::Rendering);
+				XMStoreFloat4x4(&constantBufferSceneData.model, XMMatrixTranspose(model.Transform));
+				// Prepare the constant buffer to send it to the graphics device.
+				context->UpdateSubresource1(
+					m_constantBuffer.Get(),
+					0,
+					NULL,
+					&constantBufferSceneData,
+					0,
+					0,
+					0
+				);
+
+				// Send the constant buffer to the graphics device.
+				context->VSSetConstantBuffers1(
+					0,
+					1,
+					m_constantBuffer.GetAddressOf(),
+					nullptr,
+					nullptr
+				);
+
+				{
+					OPTICK_EVENT("Render::SingleMesh");
+
+					model.MeshShader->Use();
+
+					model.SingleMesh->Draw();
+				}
+			}
+		}
+
 		XMStoreFloat4x4(&constantBufferSceneData.model, XMMatrixTranspose(XMMatrixIdentity()));
 		// Prepare the constant buffer to send it to the graphics device.
 		context->UpdateSubresource1(
@@ -336,7 +382,7 @@ namespace Moonlight
 			nullptr
 		);
 
-		Grid->Draw(GetDevice());
+		//Grid->Draw(GetDevice());
 	}
 
 	void Renderer::ReleaseDeviceDependentResources()
@@ -448,6 +494,20 @@ namespace Moonlight
 		}
 
 		m_device->WindowSizeChanged(NewSize);
+	}
+
+	unsigned int Renderer::PushMesh(Moonlight::MeshCommand command)
+	{
+		if (!FreeMeshCommandIndicies.empty())
+		{
+			unsigned int openIndex = FreeMeshCommandIndicies.front();
+			FreeMeshCommandIndicies.pop();
+			Meshes[openIndex] = std::move(command);
+			return openIndex;
+		}
+
+		Meshes.push_back(std::move(command));
+		return static_cast<unsigned int>(Meshes.size() - 1);
 	}
 
 }

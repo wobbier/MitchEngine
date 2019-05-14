@@ -18,7 +18,7 @@ namespace Moonlight
 		SkyMap = ResourceCache::GetInstance().Get<Texture>(FilePath(Path));
 		SkyShader = new Shader("Assets/Shaders/SimpleVertexShader.cso", "Assets/Shaders/SimplePixelShader.cso");
 		SkyModel = ResourceCache::GetInstance().Get<ModelResource>(FilePath("Assets/Skybox.fbx"));
-		SkyModel->Meshes[0]->material->SetTexture(TextureType::Diffuse, SkyMap);
+		SkyModel->RootNode.Nodes[0].Meshes[0]->material->SetTexture(TextureType::Diffuse, SkyMap);
 
 		auto device = static_cast<D3D12Device&>(Game::GetEngine().GetRenderer().GetDevice());
 
@@ -55,7 +55,7 @@ namespace Moonlight
 		device->OMSetDepthStencilState(NoDepth, 0);
 		device->RSSetState(RSCullNone);
 
-		SkyModel->Meshes[0]->Draw();
+		SkyModel->RootNode.Nodes[0].Meshes[0]->Draw();
 
 		device->OMSetDepthStencilState(NULL, 0);
 		return;

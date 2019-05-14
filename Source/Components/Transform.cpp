@@ -150,7 +150,6 @@ DirectX::XMMATRIX Transform::GetMatrix()
 		WorldTransform[1][0], WorldTransform[1][1], WorldTransform[1][2], WorldTransform[1][3],
 		WorldTransform[2][0], WorldTransform[2][1], WorldTransform[2][2], WorldTransform[2][3],
 		WorldTransform[3][0], WorldTransform[3][1], WorldTransform[3][2], WorldTransform[3][3]);
-	//DirectX::XMMatrixIdentity();
 	return mat;
 }
 

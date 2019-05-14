@@ -6,16 +6,17 @@
 
 SceneGraph::SceneGraph() : Base(ComponentFilter().Requires<Transform>())
 {
+	RootTransform = new Transform("Root Entity");
 }
 
 SceneGraph::~SceneGraph()
 {
+	delete RootTransform;
 }
 
 void SceneGraph::Init()
 {
-	RootEntity = GetWorld().CreateEntity();
-	RootEntity.lock()->AddComponent<Transform>("Root Entity");
+	RootTransform->Children.clear();
 }
 
 void SceneGraph::Update(float dt)
@@ -23,8 +24,7 @@ void SceneGraph::Update(float dt)
 	OPTICK_EVENT("SceneGraph::Update");
 
 	// Seems O.K. for now
-	if(RootEntity.lock()->HasComponent<Transform>())
-	UpdateRecursively(&RootEntity.lock()->GetComponent<Transform>());
+	UpdateRecursively(RootTransform);
 }
 
 void SceneGraph::UpdateRecursively(Transform* CurrentTransform)
@@ -32,10 +32,11 @@ void SceneGraph::UpdateRecursively(Transform* CurrentTransform)
 	OPTICK_EVENT("SceneGraph::UpdateRecursively");
 	for (Transform* Child : CurrentTransform->Children)
 	{
-		if (Child->IsDirty)
+		//if (Child->IsDirty)
 		{
 			OPTICK_EVENT("SceneGraph::Update::IsDirty");
-			glm::mat4 mat = glm::translate(glm::mat4(1.0f), Child->Position.GetInternalVec());
+			glm::mat4 mat = glm::mat4(1.f);
+			mat = glm::translate(mat, Child->Position.GetInternalVec());
 			mat = glm::rotate(mat, glm::angle(Child->Rotation), glm::axis(Child->Rotation));
 			mat = glm::scale(mat, Child->Scale.GetInternalVec());
 			Child->SetWorldTransform(CurrentTransform->WorldTransform * mat);
@@ -50,9 +51,9 @@ void SceneGraph::OnEntityAdded(Entity& NewEntity)
 
 	Transform& NewEntityTransform = NewEntity.GetComponent<Transform>();
 
-	if (NewEntityTransform.ParentTransform == nullptr && NewEntity != *RootEntity.lock().get())
+	if (NewEntityTransform.ParentTransform == nullptr)
 	{
-		NewEntityTransform.SetParent(RootEntity.lock()->GetComponent<Transform>());
+		NewEntityTransform.SetParent(*RootTransform);
 	}
 }
 

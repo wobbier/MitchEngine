@@ -24,8 +24,8 @@ public:
 
 	size_t GetStackSize();
 
-	template<class T>
-	std::shared_ptr<T> Get(const FilePath& InFilePath);
+	template<class T, typename... Args>
+	std::shared_ptr<T> Get(const FilePath& InFilePath, Args&& ... args);
 
 	void TryToDestroy(Resource* resource);
 
@@ -34,8 +34,8 @@ private:
 	std::vector<std::map<std::string, std::shared_ptr<Resource>>> ResourceStack;
 };
 
-template<class T>
-std::shared_ptr<T> ResourceCache::Get(const FilePath& InFilePath)
+template<class T, typename... Args>
+std::shared_ptr<T> ResourceCache::Get(const FilePath& InFilePath, Args&& ... args)
 {
 	TypeId id = ClassTypeId<Resource>::GetTypeId<T>();
 	std::map<std::string, std::shared_ptr<Resource>>::iterator I;
@@ -48,7 +48,7 @@ std::shared_ptr<T> ResourceCache::Get(const FilePath& InFilePath)
 			return Res;
 		}
 	}
-	std::shared_ptr<T> Res = std::make_shared<T>(InFilePath);
+	std::shared_ptr<T> Res = std::make_shared<T>(InFilePath, std::forward<Args>(args)...);
 	Res->Resources = this;
 	ResourceStack[ResourceStack.size() - 1][InFilePath.FullPath] = Res;
 	return Res;

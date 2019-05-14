@@ -42,7 +42,7 @@ void Rigidbody::ApplyForce(const Vector3& direction, float force)
 	InternalRigidbody->activate();
 }
 
-void Rigidbody::CreateObject(const Vector3& Position, btDiscreteDynamicsWorld* world)
+void Rigidbody::CreateObject(const Vector3& Position, glm::quat& Rotation, btDiscreteDynamicsWorld* world)
 {
 	btCollisionShape* fallShape;
 	switch (Type)
@@ -57,7 +57,7 @@ void Rigidbody::CreateObject(const Vector3& Position, btDiscreteDynamicsWorld* w
 	}
 
 	btDefaultMotionState* fallMotionState =
-		new btDefaultMotionState(btTransform(btQuaternion(0, 0, 0, 1), btVector3(Position.X(), Position.Y(), Position.Z())));
+		new btDefaultMotionState(btTransform(btQuaternion(Rotation.x, Rotation.y, Rotation.z, Rotation.w), btVector3(Position.X(), Position.Y(), Position.Z())));
 	btScalar mass = 10;
 	btVector3 fallInertia(0, 0, 0);
 	fallShape->calculateLocalInertia(mass, fallInertia);

@@ -4,16 +4,17 @@
 
 CameraCore::CameraCore() : Base(ComponentFilter().Requires<Camera>().Requires<Transform>())
 {
+	DefaultCamera = new Camera();
 }
 
 CameraCore::~CameraCore()
 {
+	delete DefaultCamera;
 }
 
 void CameraCore::Init()
 {
-	WeakPtr<Entity> CameraEntity = GetWorld().CreateEntity();
-	DefaultCamera = &(CameraEntity.lock()->AddComponent<Camera>());
+	DefaultCamera->SetCurrent();
 }
 
 void CameraCore::Update(float dt)

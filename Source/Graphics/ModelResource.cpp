@@ -13,6 +13,9 @@
 #include "Game.h"
 #include "Graphics/Material.h"
 #include "Resource/ResourceCache.h"
+#include "Graphics/Mesh.h"
+#include "Scene/Node.h"
+#include <stack>
 
 ModelResource::ModelResource(const FilePath& path)
 	: Resource(path)
@@ -35,7 +38,28 @@ void ModelResource::Load()
 		return;
 	}
 
-	ProcessNode(scene->mRootNode, scene);
+	ProcessNode(scene->mRootNode, scene, RootNode);
+}
+
+std::vector<Moonlight::Mesh*> ModelResource::GetAllMeshes()
+{
+	std::vector<Moonlight::Mesh*> meshes;
+	std::stack<Moonlight::Node*> nodes;
+	nodes.push(&RootNode);
+	while (!nodes.empty())
+	{
+		Moonlight::Node& child = *nodes.top();
+		nodes.pop();
+		for (Moonlight::Mesh* childMesh : child.Meshes)
+		{
+			meshes.push_back(childMesh);
+		}
+		for (Moonlight::Node& childNode : child.Nodes)
+		{
+			nodes.push(&childNode);
+		}
+	}
+	return meshes;
 }
 
 void ModelResource::SetShader(Moonlight::Shader* shader)
@@ -43,17 +67,17 @@ void ModelResource::SetShader(Moonlight::Shader* shader)
 	ModelShader = shader;
 }
 
-void ModelResource::ProcessNode(aiNode *node, const aiScene *scene)
+void ModelResource::ProcessNode(aiNode *node, const aiScene *scene, Moonlight::Node& parent)
 {
 	for (unsigned int i = 0; i < node->mNumMeshes; i++)
 	{
 		aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
-		Meshes.push_back(ProcessMesh(mesh, scene));
+		parent.Meshes.push_back(ProcessMesh(mesh, scene));
 	}
-
+	parent.Nodes.emplace_back();
 	for (unsigned int i = 0; i < node->mNumChildren; i++)
 	{
-		ProcessNode(node->mChildren[i], scene);
+		ProcessNode(node->mChildren[i], scene, parent.Nodes.back());
 	}
 }
 
@@ -121,8 +145,9 @@ Moonlight::Mesh* ModelResource::ProcessMesh(aiMesh *mesh, const aiScene *scene)
 	LoadMaterialTextures(newMaterial, material, aiTextureType_NORMALS, Moonlight::TextureType::Normal);
 	LoadMaterialTextures(newMaterial, material, aiTextureType_HEIGHT, Moonlight::TextureType::Height);
 	LoadMaterialTextures(newMaterial, material, aiTextureType_OPACITY, Moonlight::TextureType::Opacity);
-
-	return new Moonlight::Mesh(vertices, indices, newMaterial);
+	Moonlight::Mesh* output = new Moonlight::Mesh(vertices, indices, newMaterial);
+	output->Name = std::string(mesh->mName.C_Str());
+	return output;
 }
 
 void ModelResource::LoadMaterialTextures(Moonlight::Material* newMaterial, aiMaterial *mat, aiTextureType type, const Moonlight::TextureType& typeName)

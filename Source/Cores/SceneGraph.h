@@ -18,7 +18,7 @@ public:
 
 	virtual void OnEntityAdded(Entity& NewEntity) final;
 	void UpdateRecursively(Transform* transform);
-	WeakPtr<Entity> RootEntity;
+	Transform* RootTransform = nullptr;
 
 #if ME_EDITOR
 	virtual void OnEditorInspect() final;

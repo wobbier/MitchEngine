@@ -34,6 +34,8 @@ namespace Moonlight
 		// render the mesh
 		void Draw();
 
+		std::vector<Mesh*> Children;
+		std::string Name;
 	private:
 		// System resources for cube geometry.
 		unsigned int m_indexCount;

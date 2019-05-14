@@ -11,6 +11,9 @@
 #include "assimp/mesh.h"
 #include "assimp/scene.h"
 #include "Graphics/Shader.h"
+#include "Scene/Node.h"
+
+namespace Moonlight { class Mesh; }
 
 class ModelResource
 	: public Resource
@@ -22,12 +25,12 @@ public:
 	~ModelResource();
 
 	void SetShader(Moonlight::Shader* shader);
-
-	std::vector<Moonlight::Mesh*> Meshes;
-private:
 	void Load();
+	Moonlight::Node RootNode;
+	std::vector<Moonlight::Mesh*> GetAllMeshes();
+private:
 
-	void ProcessNode(aiNode *node, const aiScene *scene);
+	void ProcessNode(aiNode *node, const aiScene *scene, Moonlight::Node& parent);
 
 	Moonlight::Mesh* ProcessMesh(aiMesh *mesh, const aiScene *scene);
 

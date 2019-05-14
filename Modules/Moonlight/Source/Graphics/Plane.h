@@ -24,7 +24,7 @@ namespace Moonlight
 			SkyMap = ResourceCache::GetInstance().Get<Texture>(FilePath(Path));
 			SkyShader = new Shader("Assets/Shaders/GridVertexShader.cso", "Assets/Shaders/GridPixelShader.cso");
 			SkyModel = ResourceCache::GetInstance().Get<ModelResource>(FilePath("Assets/Plane.fbx"));
-			SkyModel->Meshes[0]->material->SetTexture(TextureType::Diffuse, SkyMap);
+			SkyModel->RootNode.Nodes[0].Meshes[0]->material->SetTexture(TextureType::Diffuse, SkyMap);
 			
 			D3D11_RASTERIZER_DESC cmdesc;
 
@@ -79,7 +79,7 @@ namespace Moonlight
 			context->OMSetDepthStencilState(NoDepth, 0);
 			context->RSSetState(RSCullNone);
 
-			SkyModel->Meshes[0]->Draw();
+			SkyModel->RootNode.Nodes[0].Meshes[0]->Draw();
 
 			//context->OMSetDepthStencilState(NoDepth, 0);
 		}

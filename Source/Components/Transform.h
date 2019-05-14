@@ -75,6 +75,9 @@ private:
 	{
 		Havana::EditableVector3("Position", GetPosition());
 		Havana::EditableVector3("Scale", Scale);
+		ImGui::Text("Rotation X: %f", Rotation.x);
+		ImGui::Text("Rotation Y: %f", Rotation.y);
+		ImGui::Text("Rotation Z: %f", Rotation.z);
 		Vector3 WorldPos = GetWorldPosition();
 		Havana::EditableVector3("World Position", WorldPos);
 		if (WorldPos != GetWorldPosition())

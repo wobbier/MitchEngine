@@ -82,7 +82,7 @@ void PhysicsCore::OnEntityAdded(Entity& NewEntity)
 	Rigidbody& RigidbodyComponent = NewEntity.GetComponent<Rigidbody>();
 	if (!RigidbodyComponent.IsRigidbodyInitialized())
 	{
-		RigidbodyComponent.CreateObject(TransformComponent.GetPosition(), PhysicsWorld);
+		RigidbodyComponent.CreateObject(TransformComponent.GetPosition(), TransformComponent.Rotation, PhysicsWorld);
 		PhysicsWorld->addRigidBody(RigidbodyComponent.InternalRigidbody);
 	}
 }

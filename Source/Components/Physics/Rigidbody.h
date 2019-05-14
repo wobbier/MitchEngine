@@ -43,7 +43,7 @@ public:
 		return transform;
 	}
 private:
-	void CreateObject(const Vector3& Position, class btDiscreteDynamicsWorld* world);
+	void CreateObject(const Vector3& Position, glm::quat& Rotation, class btDiscreteDynamicsWorld* world);
 	btRigidBody* InternalRigidbody = nullptr;
 
 	ColliderType Type = ColliderType::Box;

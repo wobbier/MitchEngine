@@ -162,9 +162,9 @@ void Engine::Run()
 			LoadLevel();
 		});
 
-		EditorSceneManager->Update(deltaTime, &SceneNodes->RootEntity.lock()->GetComponent<Transform>());
+		EditorSceneManager->Update(deltaTime, SceneNodes->RootTransform);
 
-		Editor->UpdateWorld(GameWorld.get(), &SceneNodes->RootEntity.lock()->GetComponent<Transform>(), EditorSceneManager->GetEntities());
+		Editor->UpdateWorld(GameWorld.get(), SceneNodes->RootTransform, EditorSceneManager->GetEntities());
 
 #endif
 		GameWorld->Simulate();
