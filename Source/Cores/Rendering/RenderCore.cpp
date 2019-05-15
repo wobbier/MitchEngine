@@ -16,10 +16,10 @@
 #include "Graphics/ModelResource.h"
 #include "RenderCommands.h"
 #include "Components/Lighting/Light.h"
-#include "Components/Graphics/MeshRef.h"
+#include "Components/Graphics/Mesh.h"
 
 RenderCore::RenderCore()
-	: Base(ComponentFilter().Requires<Transform>().RequiresOneOf<Model>().RequiresOneOf<Rigidbody>().RequiresOneOf<Light>().RequiresOneOf<MeshRef>())
+	: Base(ComponentFilter().Requires<Transform>().RequiresOneOf<Model>().RequiresOneOf<Rigidbody>().RequiresOneOf<Light>().RequiresOneOf<Mesh>())
 {
 	//m_sceneRenderer = std::unique_ptr<TestModelRenderer>(new TestModelRenderer(m_deviceResources));
 	m_renderer = &Game::GetEngine().GetRenderer();
@@ -33,7 +33,7 @@ void RenderCore::Init()
 {
 	Logger::GetInstance().Log(Logger::LogType::Debug, "RenderCore Initialized...");
 	m_renderer->ClearModels();
-	m_renderer->Meshes.clear();
+	m_renderer->ClearMeshes();
 }
 
 void RenderCore::OnEntityAdded(Entity& NewEntity)
@@ -47,10 +47,10 @@ void RenderCore::OnEntityAdded(Entity& NewEntity)
 		command.ModelShader = model.ModelShader;
 		model.Id = Game::GetEngine().GetRenderer().PushModel(command);
 	}*/
-	if (NewEntity.HasComponent<MeshRef>())
+	if (NewEntity.HasComponent<Mesh>())
 	{
 		Moonlight::MeshCommand command;
-		MeshRef& model = NewEntity.GetComponent<MeshRef>();
+		Mesh& model = NewEntity.GetComponent<Mesh>();
 		command.SingleMesh = model.MeshReferece;
 		command.MeshShader = model.MeshShader;
 		model.Id = Game::GetEngine().GetRenderer().PushMesh(command);
@@ -88,9 +88,9 @@ void RenderCore::Update(float dt)
 			m_renderer->UpdateMatrix(model.GetId(), transform.GetMatrix());
 		}
 
-		if (InEntity.HasComponent<MeshRef>())
+		if (InEntity.HasComponent<Mesh>())
 		{
-			MeshRef& model = InEntity.GetComponent<MeshRef>();
+			Mesh& model = InEntity.GetComponent<Mesh>();
 			m_renderer->UpdateMeshMatrix(model.GetId(), transform.GetMatrix());
 		}
 

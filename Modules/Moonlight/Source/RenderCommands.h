@@ -6,21 +6,21 @@
 
 namespace Moonlight { class Shader; }
 
-namespace Moonlight { class Mesh; }
+namespace Moonlight { class MeshData; }
 
 namespace Moonlight
 {
 	struct ModelCommand
 	{
-		std::vector<Mesh*> Meshes;
+		std::vector<MeshData*> Meshes;
 		Shader* ModelShader;
 		DirectX::XMMATRIX Transform;
 	};
 
 	struct MeshCommand
 	{
-		Mesh* SingleMesh;
-		Shader* MeshShader;
+		MeshData* SingleMesh = nullptr;
+		Shader* MeshShader = nullptr;
 		DirectX::XMMATRIX Transform;
 	};
 

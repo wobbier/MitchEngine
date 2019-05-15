@@ -1,16 +1,16 @@
 #pragma once
 #include "ECS/Component.h"
 #include "Dementia.h"
-#include "Graphics/Mesh.h"
+#include "Graphics/MeshData.h"
 
-class MeshRef
-	: public Component<MeshRef>
+class Mesh
+	: public Component<Mesh>
 {
 public:
-	MeshRef()
+	Mesh()
 	{
 	}
-	MeshRef(Moonlight::Mesh* mesh)
+	Mesh(Moonlight::MeshData* mesh)
 		: MeshReferece(mesh)
 	{
 	}
@@ -22,14 +22,18 @@ public:
 
 	virtual void Deserialize(const json& inJson) final
 	{
+		if (inJson.contains("test"))
+		{
+			Test = (bool)inJson["test"];
+		}
 	}
 	unsigned int Id = 0;
 	unsigned int GetId() {
 		return Id;
 	}
 
-	Moonlight::Mesh* MeshReferece;
-	Moonlight::Shader* MeshShader;
+	Moonlight::MeshData* MeshReferece = nullptr;
+	Moonlight::Shader* MeshShader = nullptr;
 private:
 #if ME_EDITOR
 	virtual void OnEditorInspect() final
@@ -51,15 +55,17 @@ private:
 		//		}
 		//	}
 		//}
-
+		ImGui::Checkbox("test", &Test);
 	}
 
 	virtual void Serialize(json& outJson) final
 	{
 		Component::Serialize(outJson);
 
+		outJson["test"] = true;
 	}
+	bool Test = false;
 #endif
 };
 
-ME_REGISTER_COMPONENT(MeshRef)
+ME_REGISTER_COMPONENT(Mesh)

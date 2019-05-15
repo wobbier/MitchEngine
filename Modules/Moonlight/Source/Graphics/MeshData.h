@@ -18,23 +18,23 @@ namespace Moonlight
 		DirectX::XMFLOAT2 TextureCoord;
 	};
 
-	class Mesh
+	class MeshData
 	{
 	public:
-		Mesh() = delete;
-		~Mesh();
+		MeshData() = delete;
+		~MeshData();
 
 		std::vector<Vertex> vertices;
 		std::vector<unsigned int> indices;
 		Material* material;
 		unsigned int VAO;
 
-		Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices, Material* newMaterial);
+		MeshData(std::vector<Vertex> vertices, std::vector<unsigned int> indices, Material* newMaterial);
 
 		// render the mesh
 		void Draw();
 
-		std::vector<Mesh*> Children;
+		std::vector<MeshData*> Children;
 		std::string Name;
 	private:
 		// System resources for cube geometry.

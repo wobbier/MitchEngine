@@ -1,7 +1,7 @@
 #pragma once
 #include <vector>
 
-namespace Moonlight { class Mesh; }
+namespace Moonlight { class MeshData; }
 
 namespace Moonlight
 {
@@ -10,6 +10,6 @@ namespace Moonlight
 	public:
 		Node() {}
 		std::vector<Node> Nodes;
-		std::vector<Moonlight::Mesh*> Meshes;
+		std::vector<Moonlight::MeshData*> Meshes;
 	};
 }

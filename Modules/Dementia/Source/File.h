@@ -5,7 +5,7 @@
 class File
 {
 public:
-
+	File() = default;
 	File(const FilePath& path)
 		: Path(path)
 	{

@@ -88,6 +88,7 @@ namespace Moonlight
 #endif
 	public:
 		unsigned int PushMesh(Moonlight::MeshCommand command);
+		void ClearMeshes();
 		std::vector<MeshCommand> Meshes;
 		std::queue<unsigned int> FreeMeshCommandIndicies;
 	};

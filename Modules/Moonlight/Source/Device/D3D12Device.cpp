@@ -5,7 +5,7 @@
 
 #include <DirectXColors.h>
 #include <CommonStates.h>
-#include "Graphics/Mesh.h"
+#include "Graphics/MeshData.h"
 
 using namespace D2D1;
 using namespace DirectX;

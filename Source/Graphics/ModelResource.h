@@ -1,9 +1,9 @@
 #pragma once 
 #include "Graphics/Texture.h"
-#include "Graphics/Mesh.h"
+#include "Graphics/MeshData.h"
 #include "Resource/Resource.h"
 #include "FilePath.h"
-#include "Graphics/Mesh.h"
+#include "Graphics/MeshData.h"
 #include <string>
 #include <vector>
 #include "Graphics/Material.h"
@@ -13,7 +13,7 @@
 #include "Graphics/Shader.h"
 #include "Scene/Node.h"
 
-namespace Moonlight { class Mesh; }
+namespace Moonlight { class MeshData; }
 
 class ModelResource
 	: public Resource
@@ -27,12 +27,12 @@ public:
 	void SetShader(Moonlight::Shader* shader);
 	void Load();
 	Moonlight::Node RootNode;
-	std::vector<Moonlight::Mesh*> GetAllMeshes();
+	std::vector<Moonlight::MeshData*> GetAllMeshes();
 private:
 
 	void ProcessNode(aiNode *node, const aiScene *scene, Moonlight::Node& parent);
 
-	Moonlight::Mesh* ProcessMesh(aiMesh *mesh, const aiScene *scene);
+	Moonlight::MeshData* ProcessMesh(aiMesh *mesh, const aiScene *scene);
 
 	void LoadMaterialTextures(Moonlight::Material* newMaterial, aiMaterial *mat, aiTextureType type, const Moonlight::TextureType& typeName);
 

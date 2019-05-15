@@ -13,7 +13,7 @@
 #include "Game.h"
 #include "Graphics/Material.h"
 #include "Resource/ResourceCache.h"
-#include "Graphics/Mesh.h"
+#include "Graphics/MeshData.h"
 #include "Scene/Node.h"
 #include <stack>
 
@@ -41,16 +41,16 @@ void ModelResource::Load()
 	ProcessNode(scene->mRootNode, scene, RootNode);
 }
 
-std::vector<Moonlight::Mesh*> ModelResource::GetAllMeshes()
+std::vector<Moonlight::MeshData*> ModelResource::GetAllMeshes()
 {
-	std::vector<Moonlight::Mesh*> meshes;
+	std::vector<Moonlight::MeshData*> meshes;
 	std::stack<Moonlight::Node*> nodes;
 	nodes.push(&RootNode);
 	while (!nodes.empty())
 	{
 		Moonlight::Node& child = *nodes.top();
 		nodes.pop();
-		for (Moonlight::Mesh* childMesh : child.Meshes)
+		for (Moonlight::MeshData* childMesh : child.Meshes)
 		{
 			meshes.push_back(childMesh);
 		}
@@ -81,7 +81,7 @@ void ModelResource::ProcessNode(aiNode *node, const aiScene *scene, Moonlight::N
 	}
 }
 
-Moonlight::Mesh* ModelResource::ProcessMesh(aiMesh *mesh, const aiScene *scene)
+Moonlight::MeshData* ModelResource::ProcessMesh(aiMesh *mesh, const aiScene *scene)
 {
 	std::vector<Moonlight::Vertex> vertices;
 	std::vector<unsigned int> indices;
@@ -145,7 +145,7 @@ Moonlight::Mesh* ModelResource::ProcessMesh(aiMesh *mesh, const aiScene *scene)
 	LoadMaterialTextures(newMaterial, material, aiTextureType_NORMALS, Moonlight::TextureType::Normal);
 	LoadMaterialTextures(newMaterial, material, aiTextureType_HEIGHT, Moonlight::TextureType::Height);
 	LoadMaterialTextures(newMaterial, material, aiTextureType_OPACITY, Moonlight::TextureType::Opacity);
-	Moonlight::Mesh* output = new Moonlight::Mesh(vertices, indices, newMaterial);
+	Moonlight::MeshData* output = new Moonlight::MeshData(vertices, indices, newMaterial);
 	output->Name = std::string(mesh->mName.C_Str());
 	return output;
 }

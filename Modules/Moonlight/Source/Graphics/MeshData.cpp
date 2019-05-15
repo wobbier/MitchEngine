@@ -1,4 +1,4 @@
-#include "Mesh.h"
+#include "MeshData.h"
 #include <iostream>
 
 #include "Content/ShaderStructures.h"
@@ -13,7 +13,7 @@
 
 namespace Moonlight
 {
-	Mesh::Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices, Material* newMaterial)
+	MeshData::MeshData(std::vector<Vertex> vertices, std::vector<unsigned int> indices, Material* newMaterial)
 		: m_indexCount(0)
 		, material(newMaterial)
 	{
@@ -23,13 +23,13 @@ namespace Moonlight
 		InitMesh();
 	}
 
-	Mesh::~Mesh()
+	MeshData::~MeshData()
 	{
 		m_vertexBuffer.Reset();
 		m_indexBuffer.Reset();
 	}
 
-	void Mesh::InitMesh()
+	void MeshData::InitMesh()
 	{
 		auto& device = static_cast<D3D12Device&>(Game::GetEngine().GetRenderer().GetDevice());
 
@@ -62,7 +62,7 @@ namespace Moonlight
 		);
 	}
 
-	void Mesh::Draw()
+	void MeshData::Draw()
 	{
 		OPTICK_EVENT("Mesh::Draw", Optick::Category::Rendering);
 

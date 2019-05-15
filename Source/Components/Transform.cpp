@@ -143,6 +143,18 @@ void Transform::RemoveChild(Transform* TargetTransform)
 	Children.erase(std::remove(Children.begin(), Children.end(), TargetTransform), Children.end());
 }
 
+Transform* Transform::GetChildByName(const std::string& Name)
+{
+	for (auto child : Children)
+	{
+		if (child->Name == Name)
+		{
+			return child;
+		}
+	}
+	return nullptr;
+}
+
 DirectX::XMMATRIX Transform::GetMatrix()
 {
 	DirectX::XMMATRIX mat = DirectX::XMMATRIX(

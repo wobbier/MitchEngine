@@ -2,7 +2,7 @@
 #include "Resource/ResourceCache.h"
 #include "Texture.h"
 #include <DirectXMath.h>
-#include "Mesh.h"
+#include "MeshData.h"
 #include "Shader.h"
 #include <WICTextureLoader.h>
 #include "Game.h"

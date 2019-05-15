@@ -7,7 +7,7 @@
 #include "Game.h"
 #include "Resource/ResourceCache.h"
 #include "Components/Transform.h"
-#include "MeshRef.h"
+#include "Mesh.h"
 
 Model::Model(const std::string& path)
 	: ModelPath(path)
@@ -24,7 +24,10 @@ Model::~Model()
 
 void Model::Init()
 {
-	ModelHandle = ResourceCache::GetInstance().Get<ModelResource>(ModelPath);
+	if (!ModelPath.FullPath.empty())
+	{
+		ModelHandle = ResourceCache::GetInstance().Get<ModelResource>(ModelPath);
+	}
 	if (ModelHandle && !IsInitialized)
 	{
 		IsInitialized = true;
@@ -35,7 +38,7 @@ void Model::Init()
 		{
 			auto ent = Game::GetEngine().GetWorld().lock()->CreateEntity();
 			Transform& trans = ent.lock()->AddComponent<Transform>(child->Name);
-			MeshRef& ref = ent.lock()->AddComponent<MeshRef>(child);
+			Mesh& ref = ent.lock()->AddComponent<Mesh>(child);
 			ref.MeshShader = ModelShader;
 			trans.SetParent(parentEnt->GetComponent<Transform>());
 		}

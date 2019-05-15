@@ -90,8 +90,8 @@ namespace Moonlight
 
 		delete RTT;
 		delete RTT2;
-			RTT = new RenderTexture(m_device);
-			RTT2 = new RenderTexture(m_device);
+		RTT = new RenderTexture(m_device);
+		RTT2 = new RenderTexture(m_device);
 		// Reset the viewport to target the whole screen.
 		auto viewport = m_device->GetScreenViewport();
 
@@ -128,9 +128,9 @@ namespace Moonlight
 
 		// Reset render targets to the screen.
 #if ME_EDITOR
-		ID3D11RenderTargetView *const targets[1] = { RTT->renderTargetViewMap };
+		ID3D11RenderTargetView * const targets[1] = { RTT->renderTargetViewMap };
 #else
-		ID3D11RenderTargetView *const targets[1] = { m_device->GetBackBufferRenderTargetView() };
+		ID3D11RenderTargetView * const targets[1] = { m_device->GetBackBufferRenderTargetView() };
 #endif
 		context->OMSetRenderTargets(1, targets, m_device->GetDepthStencilView());
 
@@ -147,7 +147,7 @@ namespace Moonlight
 
 		context->RSSetViewports(1, &screenViewport);
 
-		ID3D11RenderTargetView* const targets2[1] = { RTT2->renderTargetViewMap };
+		ID3D11RenderTargetView * const targets2[1] = { RTT2->renderTargetViewMap };
 		context->OMSetRenderTargets(1, targets2, m_device->GetDepthStencilView());
 		DrawScene(context, m_constantBufferSceneData, editorCamera);
 
@@ -181,7 +181,7 @@ namespace Moonlight
 
 		context->RSSetViewports(1, &viewport);
 #if ME_EDITOR
-		ID3D11RenderTargetView *const targets3[1] = { m_device->GetBackBufferRenderTargetView() };// , m_device->renderTargetViewMap
+		ID3D11RenderTargetView * const targets3[1] = { m_device->GetBackBufferRenderTargetView() };// , m_device->renderTargetViewMap
 			//////////////////////////// Draw the Map
 			// Make sure to set the render target back
 		GetDevice().GetD3DDeviceContext()->OMSetRenderTargets(1, targets3, m_device->GetDepthStencilView());
@@ -311,7 +311,7 @@ namespace Moonlight
 					nullptr
 				);
 				Shader* cachedShader = model.ModelShader;
-				for (Mesh* mesh : model.Meshes)
+				for (MeshData* mesh : model.Meshes)
 				{
 					OPTICK_EVENT("Render::SingleMesh");
 
@@ -329,29 +329,29 @@ namespace Moonlight
 		{
 			for (const MeshCommand& model : Meshes)
 			{
-				OPTICK_EVENT("Render::ModelCommand", Optick::Category::Rendering);
-				XMStoreFloat4x4(&constantBufferSceneData.model, XMMatrixTranspose(model.Transform));
-				// Prepare the constant buffer to send it to the graphics device.
-				context->UpdateSubresource1(
-					m_constantBuffer.Get(),
-					0,
-					NULL,
-					&constantBufferSceneData,
-					0,
-					0,
-					0
-				);
-
-				// Send the constant buffer to the graphics device.
-				context->VSSetConstantBuffers1(
-					0,
-					1,
-					m_constantBuffer.GetAddressOf(),
-					nullptr,
-					nullptr
-				);
-
+				if (model.MeshShader && model.SingleMesh)
 				{
+					OPTICK_EVENT("Render::ModelCommand", Optick::Category::Rendering);
+					XMStoreFloat4x4(&constantBufferSceneData.model, XMMatrixTranspose(model.Transform));
+					// Prepare the constant buffer to send it to the graphics device.
+					context->UpdateSubresource1(
+						m_constantBuffer.Get(),
+						0,
+						NULL,
+						&constantBufferSceneData,
+						0,
+						0,
+						0
+					);
+
+					// Send the constant buffer to the graphics device.
+					context->VSSetConstantBuffers1(
+						0,
+						1,
+						m_constantBuffer.GetAddressOf(),
+						nullptr,
+						nullptr
+					);
 					OPTICK_EVENT("Render::SingleMesh");
 
 					model.MeshShader->Use();
@@ -451,7 +451,7 @@ namespace Moonlight
 		}
 	}
 
-	unsigned int Renderer::PushLight(const LightCommand& NewLight)
+	unsigned int Renderer::PushLight(const LightCommand & NewLight)
 	{
 		if (!FreeLightCommandIndicies.empty())
 		{
@@ -486,7 +486,7 @@ namespace Moonlight
 		}
 	}
 
-	void Renderer::WindowResized(const Vector2& NewSize)
+	void Renderer::WindowResized(const Vector2 & NewSize)
 	{
 		if (!m_device)
 		{
@@ -508,6 +508,15 @@ namespace Moonlight
 
 		Meshes.push_back(std::move(command));
 		return static_cast<unsigned int>(Meshes.size() - 1);
+	}
+
+	void Renderer::ClearMeshes()
+	{
+		Meshes.clear();
+		while (!FreeMeshCommandIndicies.empty())
+		{
+			FreeMeshCommandIndicies.pop();
+		}
 	}
 
 }

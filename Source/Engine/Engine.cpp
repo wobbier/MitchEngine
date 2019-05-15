@@ -24,7 +24,6 @@
 Engine::Engine()
 	: Running(true)
 	, GameClock(Clock::GetInstance())
-	, CurrentLevel(FilePath("Assets/Alley.lvl"))
 {
 	std::vector<TypeId> events;
 	events.push_back(NewSceneEvent::GetEventId());
@@ -82,7 +81,7 @@ void Engine::Init(Game* game)
 	Editor = std::make_unique<Havana>(this, m_renderer);
 	EditorSceneManager = new EditorCore(Editor.get());
 	InitGame();
-	LoadLevel();
+	LoadScene("Assets/Alley.lvl");
 #else
 	InitGame();
 	LoadLevel();
@@ -159,7 +158,7 @@ void Engine::Run()
 			m_isGameRunning = false;
 			m_isGamePaused = false;
 
-			LoadLevel();
+			LoadScene("Assets/Alley.lvl");
 		});
 
 		EditorSceneManager->Update(deltaTime, SceneNodes->RootTransform);
@@ -184,7 +183,7 @@ void Engine::Run()
 			Physics->Update(deltaTime);
 		}
 #if ME_EDITOR
-		if(Editor->IsGameFocused())
+		if (Editor->IsGameFocused())
 		{
 			//FlyingCameraController->SetCamera(Camera::CurrentCamera);
 		}
@@ -241,7 +240,7 @@ bool Engine::OnEvent(const BaseEvent& evt)
 	{
 		const LoadSceneEvent& test = static_cast<const LoadSceneEvent&>(evt);
 		//InputEnabled = test.Enabled;
-		LoadLevel(test.Level);
+		LoadScene(test.Level);
 
 		return true;
 	}
@@ -286,68 +285,27 @@ const bool Engine::IsGamePaused() const
 	return m_isGamePaused;
 }
 
-void Engine::LoadLevel()
+void Engine::LoadScene(const std::string& SceneFile)
 {
-#if ME_EDITOR
-	Editor->SetWindowTitle("Havana - " + CurrentLevel.Path.LocalPath);
-#endif
+	//if (CurrentScene)
+	if (CurrentScene)
+	{
+		CurrentScene->UnLoad();
+		delete CurrentScene;
+	}
+
 	GameWorld->Cleanup();
+	CurrentScene = new Scene(SceneFile);
+#if ME_EDITOR
+	Editor->SetWindowTitle("Havana - " + CurrentScene->Path.LocalPath);
+#endif
 	InitGame();
 	//InitGame();
-	CurrentLevel.Read();
 
-	if (CurrentLevel.Data.length() > 0)
-	{
-		json level;
+	CurrentScene->Load(GameWorld);
 
-		level = json::parse(CurrentLevel.Data);
-		json& scene = level["Scene"];
-		for (json& ent : scene)
-		{
-			LoadSceneObject(ent, nullptr);
-		}
-
-	}
 	//ComponentFactory::GetFactory(std::string("Transform"))->Create(ent, "Transform");
 
 
 	GameWorld->Simulate();
-}
-
-void Engine::LoadLevel(std::string Level)
-{
-	CurrentLevel = File(FilePath(Level));
-	LoadLevel();
-}
-
-void Engine::LoadSceneObject(const json& obj, class Transform* parent)
-{
-	auto newEnt = GameWorld->CreateEntity();
-
-	Transform* transComp = nullptr;
-	for (const json& comp : obj["Components"])
-	{
-		BaseComponent* addedComp = newEnt.lock()->AddComponentByName(comp["Type"]);
-		if (comp["Type"] == "Transform")
-		{
-			transComp = static_cast<Transform*>(addedComp);
-			if (parent)
-			{
-				transComp->SetParent(*parent);
-			}
-			transComp->SetName(obj["Name"]);
-		}
-		if (addedComp)
-		{
-			addedComp->Deserialize(comp);
-		}
-	}
-
-	if (obj.contains("Children"))
-	{
-		for (const json& child : obj["Children"])
-		{
-			LoadSceneObject(child, transComp);
-		}
-	}
 }

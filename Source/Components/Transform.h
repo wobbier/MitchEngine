@@ -47,6 +47,7 @@ public:
 
 	void SetParent(Transform& NewParent);
 	void RemoveChild(Transform* TargetTransform);
+	Transform* GetChildByName(const std::string& Name);
 	Vector3 Position;
 	Vector3 Scale;
 	glm::quat Rotation;

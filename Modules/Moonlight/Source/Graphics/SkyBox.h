@@ -4,7 +4,7 @@
 #include <DirectXMath.h>
 #include <wrl/module.h>
 #include <wrl/client.h>
-#include "Mesh.h"
+#include "MeshData.h"
 #include "Graphics/ModelResource.h"
 
 using namespace DirectX;

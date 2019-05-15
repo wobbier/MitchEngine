@@ -5,6 +5,7 @@
 #include "Clock.h"
 #include "File.h"
 #include "Events/EventReceiver.h"
+#include "World/Scene.h"
 
 class Game;
 class IWindow;
@@ -25,9 +26,7 @@ public:
 	void StartGame();
 	void StopGame();
 
-	void LoadLevel();
-	void LoadLevel(std::string Level);
-	void LoadSceneObject(const json& obj, class Transform* parent);
+	void LoadScene(const std::string& Level);
 	
 	void Run();
 	virtual bool OnEvent(const BaseEvent& evt);
@@ -62,7 +61,7 @@ private:
 	bool Running;
 	IWindow* GameWindow;
 	class Config* EngineConfig;
-
+	Scene* CurrentScene;
 	Game* m_game;
 	float AccumulatedTime = 0.0f;
 	float FrameTime = 0.0f;
@@ -70,6 +69,4 @@ private:
 	bool m_isGameRunning = false;
 	bool m_isGamePaused = false;
 
-
-	File CurrentLevel;
 };

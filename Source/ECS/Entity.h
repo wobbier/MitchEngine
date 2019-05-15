@@ -64,6 +64,11 @@ bool Entity::HasComponent()
 template <typename T>
 T& Entity::AddComponent(T* inComponent)
 {
+	if (HasComponent(T::GetTypeId()))
+	{
+		return GetComponent<T>();
+	}
+
 	//static_assert(std::is_base_of<BaseComponent, T>(), "T is not a component, cannot add T to entity");
 	AddComponent(inComponent, T::GetTypeId());
 	return *inComponent;
@@ -79,6 +84,10 @@ T& Entity::GetComponent() const
 template <typename T, typename... Args>
 T& Entity::AddComponent(Args&&... args)
 {
+	if (HasComponent(T::GetTypeId()))
+	{
+		return GetComponent<T>();
+	}
 	return AddComponent(new T{ std::forward<Args>(args)... });
 }
 
