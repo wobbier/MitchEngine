@@ -29,6 +29,10 @@ WeakPtr<Entity> World::CreateEntity()
 
 void World::Simulate()
 {
+	if (IsLoading)
+	{
+		return;
+	}
 	OPTICK_CATEGORY("World::Simulate", Optick::Category::Scene)
 	for (auto& InEntity : EntityCache.Activated)
 	{
@@ -212,6 +216,7 @@ Entity* World::GetEntity(EntityID id)
 
 void World::ActivateEntity(Entity& InEntity, const bool InActive)
 {
+
 	if (InActive)
 	{
 		EntityCache.Activated.push_back(InEntity);

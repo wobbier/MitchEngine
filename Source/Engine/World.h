@@ -48,6 +48,7 @@ public:
 
 	ME_NONCOPYABLE(World);
 	ME_NONMOVABLE(World);
+	bool IsLoading = true;
 private:
 	CoreArray Cores;
 

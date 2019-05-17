@@ -519,4 +519,14 @@ namespace Moonlight
 		}
 	}
 
+	void Renderer::PopMesh(unsigned int Id)
+	{
+		if (Id > Meshes.size())
+		{
+			return;
+		}
+
+		FreeMeshCommandIndicies.push(Id);
+		Meshes[Id] = MeshCommand();
+	}
 }

@@ -68,6 +68,15 @@ void RenderCore::OnEntityAdded(Entity& NewEntity)
 	//}
 }
 
+void RenderCore::OnEntityRemoved(Entity& InEntity)
+{
+	if (InEntity.HasComponent<Mesh>())
+	{
+		Mesh& mesh = InEntity.GetComponent<Mesh>();
+		Game::GetEngine().GetRenderer().PopMesh(mesh.Id);
+	}
+}
+
 RenderCore::~RenderCore()
 {
 	Logger::GetInstance().Log(Logger::LogType::Debug, "RenderCore Destroyed...");

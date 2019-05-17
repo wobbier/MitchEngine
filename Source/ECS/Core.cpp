@@ -42,6 +42,7 @@ BaseCore::~BaseCore()
 
 void BaseCore::Remove(Entity& InEntity)
 {
+	OnEntityRemoved(InEntity);
 	Entities.erase(std::remove(Entities.begin(), Entities.end(), InEntity), Entities.end());
 }
 

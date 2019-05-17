@@ -35,10 +35,15 @@ public:
 		{
 			ent = GameWorld->CreateEntity().lock().get();
 		}
-
+		if (obj["Name"] == "Sponza")
+		{
+			int i = 0;
+			i++;
+		}
 		Transform* transComp = nullptr;
 		for (const json& comp : obj["Components"])
 		{
+			ent->IsLoading = true;
 			BaseComponent* addedComp = ent->AddComponentByName(comp["Type"]);
 			if (comp["Type"] == "Transform")
 			{
@@ -53,6 +58,8 @@ public:
 			{
 				addedComp->Deserialize(comp);
 			}
+			addedComp->Init();
+			ent->IsLoading = false;
 		}
 
 		if (obj.contains("Children"))
@@ -67,6 +74,7 @@ public:
 	void Load(SharedPtr<World> InWorld)
 	{
 		GameWorld = InWorld;
+		GameWorld->IsLoading = true;
 
 		CurrentLevel.Read();
 
@@ -80,8 +88,9 @@ public:
 			{
 				LoadSceneObject(ent, nullptr);
 			}
-
 		}
+
+		GameWorld->IsLoading = false;
 	}
 
 	SharedPtr<World> GameWorld;

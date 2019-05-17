@@ -6,7 +6,7 @@
 #include "Renderer.h"
 #include "Graphics/ModelResource.h"
 
-class RenderCore
+class RenderCore final
 	: public Core<RenderCore>
 	, public Moonlight::IDeviceNotify
 {
@@ -21,6 +21,7 @@ public:
 	virtual void Update(float dt) final;
 
 	virtual void OnEntityAdded(Entity& NewEntity) final;
+	virtual void OnEntityRemoved(Entity& InEntity) final;
 
 	Cubemap* SkyboxMap = nullptr;
 	Moonlight::Shader* SkyboxShader = nullptr;

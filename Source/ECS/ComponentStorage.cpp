@@ -24,7 +24,10 @@ void ComponentStorage::AddComponent(Entity& InEntity, BaseComponent* InComponent
 	ComponentData.ComponentTypeList[InComponentTypeId] = true;
 	InComponent->Parent = InEntity.GetId();
 	//InEntity.SetActive(true);
-	InComponent->Init();
+	if (!InEntity.IsLoading)
+	{
+		InComponent->Init();
+	}
 }
 
 ComponentTypeArray ComponentStorage::GetComponentTypes(const Entity& InEntity) const

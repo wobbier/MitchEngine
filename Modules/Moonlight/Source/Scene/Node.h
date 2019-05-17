@@ -11,5 +11,6 @@ namespace Moonlight
 		Node() {}
 		std::vector<Node> Nodes;
 		std::vector<Moonlight::MeshData*> Meshes;
+		Vector3 Position;
 	};
 }
