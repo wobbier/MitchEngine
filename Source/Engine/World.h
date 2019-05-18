@@ -41,7 +41,7 @@ public:
 	void DestroyEntity(Entity &InEntity);
 
 	std::size_t GetEntityCount() const;
-	Entity* GetEntity(EntityID id);
+	WeakPtr<Entity> GetEntity(EntityID id);
 	World();
 	World(std::size_t InEntityPoolSize);
 	~World();

@@ -40,7 +40,7 @@ void Model::Init()
 			Transform& trans = ent.lock()->AddComponent<Transform>(child->Name);
 			Mesh& ref = ent.lock()->AddComponent<Mesh>(child);
 			ref.MeshShader = ModelShader;
-			trans.SetParent(parentEnt->GetComponent<Transform>());
+			trans.SetParent(parentEnt.lock()->GetComponent<Transform>());
 		}
 	}
 }

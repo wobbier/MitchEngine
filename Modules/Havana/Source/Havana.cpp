@@ -468,7 +468,7 @@ void Havana::AddComponentPopup()
 				}
 				if (SelectedTransform)
 				{
-					m_engine->GetWorld().lock()->GetEntity(SelectedTransform->Parent)->AddComponentByName(thing.first);
+					m_engine->GetWorld().lock()->GetEntity(SelectedTransform->Parent).lock()->AddComponentByName(thing.first);
 				}
 			}
 		}
@@ -533,7 +533,7 @@ void Havana::UpdateWorld(World * world, Transform * root, const std::vector<Enti
 	Entity* entity = SelectedEntity;
 	if (SelectedTransform != nullptr)
 	{
-		entity = world->GetEntity(SelectedTransform->Parent);
+		entity = world->GetEntity(SelectedTransform->Parent).lock().get();
 	}
 
 	if (entity)
@@ -571,7 +571,7 @@ void Havana::UpdateWorldRecursive(Transform * root)
 			{
 				SelectedTransform = var;
 				SelectedCore = nullptr;
-				SelectedEntity = m_engine->GetWorld().lock()->GetEntity(SelectedTransform->Parent);
+				SelectedEntity = m_engine->GetWorld().lock()->GetEntity(SelectedTransform->Parent).lock().get();
 			}
 		}
 		else
@@ -581,7 +581,7 @@ void Havana::UpdateWorldRecursive(Transform * root)
 			{
 				SelectedTransform = var;
 				SelectedCore = nullptr;
-				SelectedEntity = m_engine->GetWorld().lock()->GetEntity(SelectedTransform->Parent);
+				SelectedEntity = m_engine->GetWorld().lock()->GetEntity(SelectedTransform->Parent).lock().get();
 			}
 
 			if (node_open)

@@ -20,31 +20,24 @@ public:
 
 	void LoadSceneObject(const json& obj, Transform* parent)
 	{
-		bool exists = false;
-		Entity* ent = nullptr;
+		WeakPtr<Entity> ent;
 		if (parent)
 		{
 			auto t = parent->GetChildByName(obj["Name"]);
 			if (t)
 			{
-				exists = true;
-				ent = GameWorld->GetEntity(parent->Parent);
+				ent = GameWorld->GetEntity(t->Parent);
 			}
 		}
-		if (!ent)
+		if (!ent.lock())
 		{
-			ent = GameWorld->CreateEntity().lock().get();
+			ent = GameWorld->CreateEntity();
 		}
-		if (obj["Name"] == "Sponza")
-		{
-			int i = 0;
-			i++;
-		}
+		ent.lock()->IsLoading = true;
 		Transform* transComp = nullptr;
 		for (const json& comp : obj["Components"])
 		{
-			ent->IsLoading = true;
-			BaseComponent* addedComp = ent->AddComponentByName(comp["Type"]);
+			BaseComponent* addedComp = ent.lock()->AddComponentByName(comp["Type"]);
 			if (comp["Type"] == "Transform")
 			{
 				transComp = static_cast<Transform*>(addedComp);
@@ -59,8 +52,9 @@ public:
 				addedComp->Deserialize(comp);
 			}
 			addedComp->Init();
-			ent->IsLoading = false;
 		}
+		ent.lock()->SetActive(true);
+		ent.lock()->IsLoading = false;
 
 		if (obj.contains("Children"))
 		{

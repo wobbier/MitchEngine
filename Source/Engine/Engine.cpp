@@ -80,8 +80,8 @@ void Engine::Init(Game* game)
 #if ME_EDITOR
 	Editor = std::make_unique<Havana>(this, m_renderer);
 	EditorSceneManager = new EditorCore(Editor.get());
-	InitGame();
 	LoadScene("Assets/Alley.lvl");
+	InitGame();
 #else
 	InitGame();
 	LoadLevel();
@@ -299,13 +299,7 @@ void Engine::LoadScene(const std::string& SceneFile)
 #if ME_EDITOR
 	Editor->SetWindowTitle("Havana - " + CurrentScene->Path.LocalPath);
 #endif
-	InitGame();
-	//InitGame();
 
 	CurrentScene->Load(GameWorld);
 
-	//ComponentFactory::GetFactory(std::string("Transform"))->Create(ent, "Transform");
-
-
-	GameWorld->Simulate();
 }

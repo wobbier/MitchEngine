@@ -2,6 +2,7 @@
 #include "Engine/World.h"
 #include "Components/Transform.h"
 #include <unordered_map>
+#include "Pointers.h"
 
 #define DEFAULT_ENTITY_POOL_SIZE 50
 
@@ -202,21 +203,20 @@ std::size_t World::GetEntityCount() const
 	return EntityCache.Alive.size();
 }
 
-Entity* World::GetEntity(EntityID id)
+WeakPtr<Entity> World::GetEntity(EntityID id)
 {
 	for (auto& var : EntityCache.Alive)
 	{
 		if (var->Id == id)
 		{
-			return var.get();
+			return var;
 		}
 	}
-	return nullptr;
+	return {};
 }
 
 void World::ActivateEntity(Entity& InEntity, const bool InActive)
 {
-
 	if (InActive)
 	{
 		EntityCache.Activated.push_back(InEntity);

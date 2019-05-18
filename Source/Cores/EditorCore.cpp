@@ -144,8 +144,11 @@ void EditorCore::Update(float dt, Transform* rootTransform)
 	gizmo->Update(m_editor->SelectedTransform, Camera::EditorCamera);
 	if (m_editor->SelectedTransform)
 	{
-		auto& trans = TransformEntity.lock()->GetComponent<Transform>();
-		trans.SetPosition(m_editor->SelectedTransform->GetPosition());
+		if (TransformEntity.lock())
+		{
+			auto& trans = TransformEntity.lock()->GetComponent<Transform>();
+			trans.SetPosition(m_editor->SelectedTransform->GetPosition());
+		}
 	}
 }
 
@@ -168,7 +171,7 @@ void EditorCore::SaveSceneRecursively(json& d, Transform* CurrentTransform)
 	thing["Name"] = CurrentTransform->Name;
 
 	json& componentsJson = thing["Components"];
-	Entity* ent = GetWorld().GetEntity(CurrentTransform->Parent);
+	Entity* ent = GetWorld().GetEntity(CurrentTransform->Parent).lock().get();
 
 	auto comps = ent->GetAllComponents();
 	for (auto comp : comps)
