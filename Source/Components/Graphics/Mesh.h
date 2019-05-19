@@ -2,6 +2,7 @@
 #include "ECS/Component.h"
 #include "Dementia.h"
 #include "Graphics/MeshData.h"
+#include "Graphics/Texture.h"
 
 class Mesh
 	: public Component<Mesh>
@@ -26,6 +27,11 @@ public:
 		{
 			Test = (bool)inJson["test"];
 		}
+		if (!MeshMaterial)
+		{
+			MeshMaterial = new Moonlight::Material();
+		}
+		MeshMaterial->OnDeserialize(inJson);
 	}
 	unsigned int Id = 0;
 	unsigned int GetId() {
@@ -33,35 +39,40 @@ public:
 	}
 
 	Moonlight::MeshData* MeshReferece = nullptr;
-	Moonlight::Shader* MeshShader = nullptr;
+	Moonlight::ShaderCommand* MeshShader = nullptr;
+	Moonlight::Material* MeshMaterial = nullptr;
 private:
 #if ME_EDITOR
 	virtual void OnEditorInspect() final
 	{
-		//if (ModelHandle)
-		//{
-		//	for (int i = 0; i < ModelHandle->Meshes.size(); ++i)
-		//	{
-		//		if (ModelHandle->Meshes[i] && ModelHandle->Meshes[i]->material)
-		//		{
-		//			ImGui::Text("Mesh %i:", i);
-		//			for (auto texture : ModelHandle->Meshes[i]->material->GetTextures())
-		//			{
-		//				if (texture != nullptr)
-		//				{
-		//					ImGui::Text("Texture Path: %s", texture->Directory);
-		//				}
-		//			}
-		//		}
-		//	}
-		//}
-		ImGui::Checkbox("test", &Test);
+		if (MeshShader)
+		{
+			ImGui::Text("Vertices: %i", MeshReferece->vertices.size());
+			if (ImGui::TreeNode("Material"))
+			{
+				for (auto texture : MeshMaterial->GetTextures())
+				{
+					if (texture != nullptr)
+					{
+						ImGui::Text("Texture Path: %s", texture->GetPath().LocalPath.c_str());
+
+						ImGui::ImageButton((void*)texture->CubesTexture, ImVec2(30, 30));
+						ImGui::SameLine();
+						ImGui::Text("Texture Type: %s", Moonlight::Texture::ToString(texture->Type).c_str());
+					}
+				}
+				ImGui::TreePop();
+			}
+		}
 	}
 
 	virtual void Serialize(json& outJson) final
 	{
 		Component::Serialize(outJson);
-
+		if (MeshMaterial)
+		{
+			MeshMaterial->OnSerialize(outJson);
+		}
 		outJson["test"] = true;
 	}
 	bool Test = false;

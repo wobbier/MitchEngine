@@ -32,7 +32,7 @@ namespace Moonlight
 		MeshData(std::vector<Vertex> vertices, std::vector<unsigned int> indices, Material* newMaterial);
 
 		// render the mesh
-		void Draw();
+		void Draw(class Material* mat);
 
 		std::vector<MeshData*> Children;
 		std::string Name;

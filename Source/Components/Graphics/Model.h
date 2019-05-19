@@ -18,7 +18,7 @@ public:
 	virtual void Init() final;
 
 	std::shared_ptr<class ModelResource> ModelHandle = nullptr;
-	class Moonlight::Shader* ModelShader = nullptr;
+	class Moonlight::ShaderCommand* ModelShader = nullptr;
 
 	unsigned int GetId();
 

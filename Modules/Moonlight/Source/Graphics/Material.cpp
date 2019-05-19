@@ -11,7 +11,6 @@ namespace Moonlight
 
 	Material::~Material()
 	{
-
 	}
 
 	void Material::SetTexture(const TextureType& textureType, std::shared_ptr<Moonlight::Texture> loadedTexture)
@@ -28,5 +27,4 @@ namespace Moonlight
 	{
 		return Textures;
 	}
-
 }

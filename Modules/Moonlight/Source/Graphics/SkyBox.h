@@ -17,7 +17,8 @@ namespace Moonlight
 		SkyBox(const std::string& Path);
 
 		std::shared_ptr<class Texture> SkyMap = nullptr;
-		class Shader* SkyShader = nullptr;
+		class ShaderCommand* SkyShader = nullptr;
+		class Material* SkyMaterial = nullptr;
 
 		void Draw();
 

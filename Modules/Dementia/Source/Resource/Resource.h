@@ -14,6 +14,8 @@ public:
 
 	const ResourceCache* GetResourceCache() const;
 
+	const FilePath& GetPath() const;
+
 protected:
 	Resource(const FilePath& path);
 	virtual ~Resource();

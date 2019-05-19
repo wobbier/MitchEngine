@@ -3,7 +3,7 @@
 #include "Logger.h"
 #include "Renderer.h"
 #include "Graphics/ModelResource.h"
-#include "Graphics/Shader.h"
+#include "Graphics/ShaderCommand.h"
 #include "Game.h"
 #include "Resource/ResourceCache.h"
 #include "Components/Transform.h"
@@ -31,7 +31,7 @@ void Model::Init()
 	if (ModelHandle && !IsInitialized)
 	{
 		IsInitialized = true;
-		ModelShader = new Moonlight::Shader("Assets/Shaders/SimpleVertexShader.cso", "Assets/Shaders/SimplePixelShader.cso");
+		ModelShader = new Moonlight::ShaderCommand("Assets/Shaders/SimpleVertexShader.cso", "Assets/Shaders/SimplePixelShader.cso");
 		ModelHandle->SetShader(ModelShader);
 		auto parentEnt = Game::GetEngine().GetWorld().lock()->GetEntity(Parent);
 		for (auto child : ModelHandle->RootNode.Nodes[0].Meshes)
@@ -40,6 +40,7 @@ void Model::Init()
 			Transform& trans = ent.lock()->AddComponent<Transform>(child->Name);
 			Mesh& ref = ent.lock()->AddComponent<Mesh>(child);
 			ref.MeshShader = ModelShader;
+			ref.MeshMaterial = child->material;
 			trans.SetParent(parentEnt.lock()->GetComponent<Transform>());
 		}
 	}

@@ -10,7 +10,7 @@
 #include "assimp/material.h"
 #include "assimp/mesh.h"
 #include "assimp/scene.h"
-#include "Graphics/Shader.h"
+#include "Graphics/ShaderCommand.h"
 #include "Scene/Node.h"
 
 namespace Moonlight { class MeshData; }
@@ -24,7 +24,7 @@ public:
 	ModelResource(const FilePath& path);
 	~ModelResource();
 
-	void SetShader(Moonlight::Shader* shader);
+	void SetShader(Moonlight::ShaderCommand* shader);
 	void Load();
 	Moonlight::Node RootNode;
 	std::vector<Moonlight::MeshData*> GetAllMeshes();
@@ -36,7 +36,7 @@ private:
 
 	void LoadMaterialTextures(Moonlight::Material* newMaterial, aiMaterial *mat, aiTextureType type, const Moonlight::TextureType& typeName);
 
-	Moonlight::Shader* ModelShader = nullptr;
+	Moonlight::ShaderCommand* ModelShader = nullptr;
 public:
-	Moonlight::Shader* GetShader() const;
+	Moonlight::ShaderCommand* GetShader() const;
 };

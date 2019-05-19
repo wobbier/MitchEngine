@@ -1,25 +1,22 @@
 #pragma once
 
-#include <string>
-#include <fstream>
-#include <sstream>
-#include <iostream>
 
 #include "Device/D3D12Device.h"
 #include "Math/Matirx4.h"
 #include "Math/Vector3.h"
+#include <string>
 
 namespace Moonlight
 {
-	class Shader
+	class ShaderCommand
 	{
 	public:
-		Shader() = default;
+		ShaderCommand() = default;
 
 		// Constructor generates the shader on the fly
-		Shader(const std::string& InVertexPath, const std::string& InPixelPath);
+		ShaderCommand(const std::string& InVertexPath, const std::string& InPixelPath);
 
-		~Shader();
+		~ShaderCommand();
 
 		// Uses the current shader
 		void Use();

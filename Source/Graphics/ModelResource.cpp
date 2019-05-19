@@ -16,6 +16,7 @@
 #include "Graphics/MeshData.h"
 #include "Scene/Node.h"
 #include <stack>
+#include "assimp/material.h"
 
 ModelResource::ModelResource(const FilePath& path)
 	: Resource(path)
@@ -62,7 +63,7 @@ std::vector<Moonlight::MeshData*> ModelResource::GetAllMeshes()
 	return meshes;
 }
 
-void ModelResource::SetShader(Moonlight::Shader* shader)
+void ModelResource::SetShader(Moonlight::ShaderCommand* shader)
 {
 	ModelShader = shader;
 }
@@ -140,6 +141,22 @@ Moonlight::MeshData* ModelResource::ProcessMesh(aiMesh *mesh, const aiScene *sce
 
 	aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
 
+	aiColor3D color(0.f, 0.f, 0.f);
+	aiColor3D color2(0.f, 0.f, 0.f);
+	material->Get(AI_MATKEY_COLOR_TRANSPARENT, color);
+	if (color != color2)
+	{
+		newMaterial->RenderMode = Moonlight::RenderingMode::Transparent;
+	}
+
+	aiColor3D colorDiff(0.f, 0.f, 0.f);
+	aiColor3D colorDiff2(0.f, 0.f, 0.f);
+	material->Get(AI_MATKEY_COLOR_DIFFUSE, colorDiff);
+	if (colorDiff != colorDiff2)
+	{
+		newMaterial->RenderMode = Moonlight::RenderingMode::Transparent;
+	}
+
 	LoadMaterialTextures(newMaterial, material, aiTextureType_DIFFUSE, Moonlight::TextureType::Diffuse);
 	LoadMaterialTextures(newMaterial, material, aiTextureType_SPECULAR, Moonlight::TextureType::Specular);
 	LoadMaterialTextures(newMaterial, material, aiTextureType_NORMALS, Moonlight::TextureType::Normal);
@@ -175,7 +192,7 @@ void ModelResource::LoadMaterialTextures(Moonlight::Material* newMaterial, aiMat
 	}
 }
 
-Moonlight::Shader* ModelResource::GetShader() const
+Moonlight::ShaderCommand* ModelResource::GetShader() const
 {
 	return ModelShader;
 }

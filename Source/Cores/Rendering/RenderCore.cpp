@@ -6,7 +6,7 @@
 #include "Components/Transform.h"
 #include "ECS/ComponentFilter.h"
 #include "Logger.h"
-#include "Graphics/Shader.h"
+#include "Graphics/ShaderCommand.h"
 #include "Resource/Resource.h"
 
 #include "Components/Camera.h"
@@ -26,7 +26,7 @@ RenderCore::RenderCore()
 	m_renderer->RegisterDeviceNotify(this);
 
 	cube = ResourceCache::GetInstance().Get<ModelResource>(FilePath("Assets/cube.fbx"));
-	shader = new Moonlight::Shader("Assets/Shaders/SimpleVertexShader.cso", "Assets/Shaders/SimplePixelShader.cso");
+	shader = new Moonlight::ShaderCommand("Assets/Shaders/SimpleVertexShader.cso", "Assets/Shaders/SimplePixelShader.cso");
 }
 
 void RenderCore::Init()

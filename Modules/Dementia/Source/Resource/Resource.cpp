@@ -28,3 +28,8 @@ const ResourceCache* Resource::GetResourceCache() const
 {
 	return Resources;
 }
+
+const FilePath& Resource::GetPath() const
+{
+	return Path;
+}

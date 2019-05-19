@@ -38,6 +38,27 @@ namespace Moonlight
 		// TODO: Unload textures
 	}
 
+	std::string Texture::ToString(TextureType type)
+	{
+		switch (type)
+		{
+		case Moonlight::Diffuse:
+			return "Diffuse";
+		case Moonlight::Normal:
+			return "Normal";
+		case Moonlight::Specular:
+			return "Specular";
+		case Moonlight::Height:
+			return "Height";
+		case Moonlight::Opacity:
+			return "Opacity";
+		case Moonlight::Count:
+		default:
+			Logger::GetInstance().Log(Logger::LogType::Error, "Couldn't find texture type: " + type);
+			return "";
+		}
+	}
+
 	std::wstring Texture::ToStringW(const std::string& strText)
 	{
 		std::wstring      wstrResult;

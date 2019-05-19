@@ -21,7 +21,6 @@ namespace Moonlight
 	public:
 		unsigned int Id;
 		TextureType Type;
-		std::string Directory;
 
 		int Width;
 		int Height;
@@ -36,6 +35,7 @@ namespace Moonlight
 		ID3D11SamplerState* CubesTexSamplerState;
 		ID3D11Resource* resource;
 
+		static std::string ToString(TextureType type);
 		static std::wstring ToStringW(const std::string& strText);
 	};
 }

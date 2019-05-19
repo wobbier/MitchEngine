@@ -1,4 +1,4 @@
-#include "Shader.h"
+#include "ShaderCommand.h"
 
 #include "Utils/DirectXHelper.h"
 #include "Renderer.h"
@@ -7,28 +7,34 @@
 #include <VertexTypes.h>
 #include "Texture.h"
 #include "optick.h"
-
-inline std::vector<char> ReadToByteArray(const char* filename)
-{
-	std::vector<char> data;
-	std::ifstream file(filename, std::ios::in | std::ios::binary | std::ios::ate);
-	data.resize(file.tellg());
-	file.seekg(0, std::ios::beg);
-	file.read(&data[0], data.size());
-	return data;
-}
+#include "Content/ShaderFile.h"
+#include "Resource/ResourceCache.h"
 
 namespace Moonlight
 {
-	Shader::Shader(const std::string& InVertexPath, const std::string& InPixelPath)
+	//hlsl files - ShaderFile
+	//shader asset - shader
+	//shader backend - shaderdata
+	//
+	//shader has a shader file and shader data
+	//
+	//shader has shader type
+	//
+	//editor loads mesh with default shader
+	//	shader stuff exported on mesh component
+	//
+	//mesh loads, created default shader
+	//, editor loads on top points to new shader
+
+	ShaderCommand::ShaderCommand(const std::string& InVertexPath, const std::string& InPixelPath)
 	{
 		// I should compile the hlsl at runtime in debug
 
 		// Retrieve the shader source code from paths
 		FilePath vPath(InVertexPath);
 		FilePath fPath(InPixelPath);
-		std::vector<char> VertexSource = ReadToByteArray(vPath.FullPath.c_str());
-		std::vector<char> FragSource = ReadToByteArray(fPath.FullPath.c_str());
+		std::vector<char> VertexSource = ResourceCache::GetInstance().Get<ShaderFile>(vPath)->Data;
+		std::vector<char> FragSource = ResourceCache::GetInstance().Get<ShaderFile>(fPath)->Data;
 		
 		//try
 		//{
@@ -98,14 +104,14 @@ namespace Moonlight
 		isLoaded = true;
 	}
 
-	Shader::~Shader()
+	ShaderCommand::~ShaderCommand()
 	{
 		m_vertexShader.Reset();
 		m_inputLayout.Reset();
 		m_pixelShader.Reset();
 	}
 
-	void Shader::Use()
+	void ShaderCommand::Use()
 	{
 		OPTICK_EVENT("Shader::Use", Optick::Category::Rendering)
 
@@ -130,28 +136,28 @@ namespace Moonlight
 		);
 	}
 
-	const unsigned int Shader::GetProgram() const
+	const unsigned int ShaderCommand::GetProgram() const
 	{
 		return Program;
 	}
 
-	void Shader::SetMat4(const std::string &name, const Matrix4& mat) const
+	void ShaderCommand::SetMat4(const std::string &name, const Matrix4& mat) const
 	{
 	}
 
-	void Shader::SetInt(const std::string &name, int value) const
+	void ShaderCommand::SetInt(const std::string &name, int value) const
 	{
 	}
 
-	void Shader::SetVec3(const std::string &name, const Vector3& value) const
+	void ShaderCommand::SetVec3(const std::string &name, const Vector3& value) const
 	{
 	}
 
-	void Shader::SetVec3(const std::string &name, float x, float y, float z) const
+	void ShaderCommand::SetVec3(const std::string &name, float x, float y, float z) const
 	{
 	}
 
-	void Shader::SetFloat(const std::string &name, float value) const
+	void ShaderCommand::SetFloat(const std::string &name, float value) const
 	{
 	}
 }

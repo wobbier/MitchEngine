@@ -7,15 +7,16 @@
 #include "Renderer.h"
 #include "Utils/DirectXHelper.h"
 #include <DirectXMath.h>
-#include "Shader.h"
+#include "ShaderCommand.h"
 #include "Game.h"
 #include "optick.h"
+#include "Material.h"
 
 namespace Moonlight
 {
-	MeshData::MeshData(std::vector<Vertex> vertices, std::vector<unsigned int> indices, Material* newMaterial)
+	MeshData::MeshData(std::vector<Vertex> vertices, std::vector<unsigned int> indices, Material* mat = nullptr)
 		: m_indexCount(0)
-		, material(newMaterial)
+		, material(mat)
 	{
 		this->vertices = vertices;
 		this->indices = indices;
@@ -62,7 +63,7 @@ namespace Moonlight
 		);
 	}
 
-	void MeshData::Draw()
+	void MeshData::Draw(Material* mat)
 	{
 		OPTICK_EVENT("Mesh::Draw", Optick::Category::Rendering);
 
@@ -89,10 +90,14 @@ namespace Moonlight
 
 			context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		}
-
+		if (!mat)
+		{
+			mat = material;
+		}
+		if(mat)
 		{
 			OPTICK_EVENT("Mesh::Draw::Texture", Optick::Category::Rendering);
-			const Texture* diffuse = material->GetTexture(TextureType::Diffuse);
+			const Texture* diffuse = mat->GetTexture(TextureType::Diffuse);
 			if (diffuse)
 			{
 				{

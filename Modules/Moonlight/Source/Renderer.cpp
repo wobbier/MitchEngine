@@ -310,7 +310,7 @@ namespace Moonlight
 					nullptr,
 					nullptr
 				);
-				Shader* cachedShader = model.ModelShader;
+				ShaderCommand* cachedShader = model.ModelShader;
 				for (MeshData* mesh : model.Meshes)
 				{
 					OPTICK_EVENT("Render::SingleMesh");
@@ -321,7 +321,7 @@ namespace Moonlight
 						cachedShader->Use();
 					}
 
-					mesh->Draw();
+					//mesh->Draw(model);
 				}
 			}
 		}
@@ -356,7 +356,7 @@ namespace Moonlight
 
 					model.MeshShader->Use();
 
-					model.SingleMesh->Draw();
+					model.SingleMesh->Draw(model.MeshMaterial);
 				}
 			}
 		}

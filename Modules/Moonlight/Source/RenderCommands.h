@@ -4,23 +4,25 @@
 #include "Math/Vector3.h"
 #include "Math/Vector2.h"
 
-namespace Moonlight { class Shader; }
+namespace Moonlight { class ShaderCommand; }
 
 namespace Moonlight { class MeshData; }
+namespace Moonlight { class Material; }
 
 namespace Moonlight
 {
 	struct ModelCommand
 	{
 		std::vector<MeshData*> Meshes;
-		Shader* ModelShader;
+		ShaderCommand* ModelShader;
 		DirectX::XMMATRIX Transform;
 	};
 
 	struct MeshCommand
 	{
 		MeshData* SingleMesh = nullptr;
-		Shader* MeshShader = nullptr;
+		ShaderCommand* MeshShader = nullptr;
+		Material* MeshMaterial = nullptr;
 		DirectX::XMMATRIX Transform;
 	};
 

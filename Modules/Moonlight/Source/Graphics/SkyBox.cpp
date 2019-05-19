@@ -3,9 +3,10 @@
 #include "Texture.h"
 #include <DirectXMath.h>
 #include "MeshData.h"
-#include "Shader.h"
+#include "ShaderCommand.h"
 #include <WICTextureLoader.h>
 #include "Game.h"
+#include "Material.h"
 
 using namespace DirectX;
 
@@ -16,9 +17,10 @@ namespace Moonlight
 		FilePath SystemPath(Path);
 
 		SkyMap = ResourceCache::GetInstance().Get<Texture>(FilePath(Path));
-		SkyShader = new Shader("Assets/Shaders/SimpleVertexShader.cso", "Assets/Shaders/SimplePixelShader.cso");
+		SkyShader = new ShaderCommand("Assets/Shaders/SimpleVertexShader.cso", "Assets/Shaders/SimplePixelShader.cso");
 		SkyModel = ResourceCache::GetInstance().Get<ModelResource>(FilePath("Assets/Skybox.fbx"));
-		SkyModel->RootNode.Nodes[0].Meshes[0]->material->SetTexture(TextureType::Diffuse, SkyMap);
+		SkyMaterial = new Material();
+		SkyMaterial->SetTexture(TextureType::Diffuse, SkyMap);
 
 		auto device = static_cast<D3D12Device&>(Game::GetEngine().GetRenderer().GetDevice());
 
@@ -55,7 +57,7 @@ namespace Moonlight
 		device->OMSetDepthStencilState(NoDepth, 0);
 		device->RSSetState(RSCullNone);
 
-		SkyModel->RootNode.Nodes[0].Meshes[0]->Draw();
+		SkyModel->RootNode.Nodes[0].Meshes[0]->Draw(SkyMaterial);
 
 		device->OMSetDepthStencilState(NULL, 0);
 		return;

@@ -9,6 +9,7 @@
 #include "Graphics/ModelResource.h"
 #include "Utils/DirectXHelper.h"
 #include "Texture.h"
+#include "Material.h"
 
 using namespace DirectX;
 
@@ -22,9 +23,10 @@ namespace Moonlight
 			FilePath SystemPath(Path);
 
 			SkyMap = ResourceCache::GetInstance().Get<Texture>(FilePath(Path));
-			SkyShader = new Shader("Assets/Shaders/GridVertexShader.cso", "Assets/Shaders/GridPixelShader.cso");
+			SkyShader = new ShaderCommand("Assets/Shaders/GridVertexShader.cso", "Assets/Shaders/GridPixelShader.cso");
 			SkyModel = ResourceCache::GetInstance().Get<ModelResource>(FilePath("Assets/Plane.fbx"));
-			SkyModel->RootNode.Nodes[0].Meshes[0]->material->SetTexture(TextureType::Diffuse, SkyMap);
+			SkyMaterial = new Material();
+			SkyMaterial->SetTexture(TextureType::Diffuse, SkyMap);
 			
 			D3D11_RASTERIZER_DESC cmdesc;
 
@@ -79,14 +81,15 @@ namespace Moonlight
 			context->OMSetDepthStencilState(NoDepth, 0);
 			context->RSSetState(RSCullNone);
 
-			SkyModel->RootNode.Nodes[0].Meshes[0]->Draw();
+			SkyModel->RootNode.Nodes[0].Meshes[0]->Draw(SkyMaterial);
 
 			//context->OMSetDepthStencilState(NoDepth, 0);
 		}
 
 
 		std::shared_ptr<Texture> SkyMap = nullptr;
-		class Shader* SkyShader = nullptr;
+		class ShaderCommand* SkyShader = nullptr;
+		Material* SkyMaterial = nullptr;
 
 	private:
 		ID3D11RasterizerState* CCWcullMode;

@@ -1,7 +1,7 @@
 #pragma once
 #include "ECS/Core.h"
 #include "Graphics/Cubemap.h"
-#include "Graphics/Shader.h"
+#include "Graphics/ShaderCommand.h"
 #include "Device/IDevice.h"
 #include "Renderer.h"
 #include "Graphics/ModelResource.h"
@@ -24,7 +24,7 @@ public:
 	virtual void OnEntityRemoved(Entity& InEntity) final;
 
 	Cubemap* SkyboxMap = nullptr;
-	Moonlight::Shader* SkyboxShader = nullptr;
+	Moonlight::ShaderCommand* SkyboxShader = nullptr;
 
 	virtual void OnDeviceLost() override;
 	virtual void OnDeviceRestored() override;
@@ -33,5 +33,5 @@ private:
 	
 	Moonlight::Renderer* m_renderer;
 	std::shared_ptr<ModelResource> cube;
-	Moonlight::Shader* shader;
+	Moonlight::ShaderCommand* shader;
 };
