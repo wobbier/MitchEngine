@@ -151,33 +151,6 @@ void Havana::NewFrame(std::function<void()> StartGameFunc, std::function<void()>
 	ImGui::NewFrame();
 	ImGuiIO& io = ImGui::GetIO();
 
-	ImGuizmo::BeginFrame();
-	//ImGuizmo::DrawCube(cameraView, cameraProjection, objectMatrix);
-	//ImGuizmo::DrawGrid(cameraView, cameraProjection, identityMatrix, 10.f);
-
-	//// create a window and insert the inspector
-	//ImGui::SetNextWindowPos(ImVec2(10, 10));
-	//ImGui::SetNextWindowSize(ImVec2(320, 340));
-	//ImGui::Begin("Editor");
-	//ImGui::Text("Camera");
-	//if (ImGui::RadioButton("Perspective", isPerspective)) isPerspective = true;
-	//ImGui::SameLine();
-	//if (ImGui::RadioButton("Orthographic", !isPerspective)) isPerspective = false;
-	//if (isPerspective)
-	//{
-	//	ImGui::SliderFloat("Fov", &fov, 20.f, 110.f);
-	//}
-	//else
-	//{
-	//	ImGui::SliderFloat("Ortho width", &viewWidth, 1, 20);
-	//}
-	//ImGui::SliderAngle("Camera X", &camXAngle, 0.f, 179.f);
-	//ImGui::SliderAngle("Camera Y", &camYAngle);
-	//ImGui::SliderFloat("Distance", &camDistance, 1.f, 10.f);
-	//ImGui::Text("X: %f Y: %f", io.MousePos.x, io.MousePos.y);
-	//ImGui::Separator();
-	//EditTransform(cameraView, cameraProjection, objectMatrix);
-	//ImGui::End();
 	// Output size fix?
 	RenderSize = Vector2(io.DisplaySize.x, io.DisplaySize.y);
 	Renderer->GetDevice().SetOutputSize(RenderSize);
@@ -749,7 +722,7 @@ void Havana::Render(const Moonlight::CameraData& EditorCamera)
 				ImVec2(0, 0),
 				ImVec2(Mathf::Clamp(0.f, 1.0f, WorldViewRenderSize.X() / Renderer->RTT2->Size.X()), Mathf::Clamp(0.f, 1.0f, WorldViewRenderSize.Y() / Renderer->RTT2->Size.Y())));
 
-			ImGuizmo::SetRect(pos.x, pos.y, maxPos.x, maxPos.y);
+			ImGuizmo::SetRect(pos.x, pos.y, WorldViewRenderSize.X(), WorldViewRenderSize.Y());
 			DirectX::XMMATRIX perspectiveMatrix = DirectX::XMMatrixPerspectiveFovRH(
 				EditorCamera.FOV* DirectX::XM_PI / 180.0f,
 				WorldViewRenderSize.X() / WorldViewRenderSize.Y(),
