@@ -40,6 +40,7 @@ void ModelResource::Load()
 	}
 
 	ProcessNode(scene->mRootNode, scene, RootNode);
+	importer.FreeScene();
 }
 
 std::vector<Moonlight::MeshData*> ModelResource::GetAllMeshes()
@@ -70,6 +71,7 @@ void ModelResource::SetShader(Moonlight::ShaderCommand* shader)
 
 void ModelResource::ProcessNode(aiNode *node, const aiScene *scene, Moonlight::Node& parent)
 {
+	parent.Position = Vector3(node->mTransformation[0][0]);
 	for (unsigned int i = 0; i < node->mNumMeshes; i++)
 	{
 		aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];

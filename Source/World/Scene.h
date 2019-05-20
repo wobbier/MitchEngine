@@ -15,7 +15,7 @@ public:
 
 	void UnLoad()
 	{
-
+		GameWorld = nullptr;
 	}
 
 	void LoadSceneObject(const json& obj, Transform* parent)

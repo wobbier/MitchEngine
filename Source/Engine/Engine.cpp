@@ -213,9 +213,9 @@ void Engine::Run()
 			Moonlight::CameraData& EditorCamera = MainCamera;
 #endif
 
-			m_renderer->Render([this]() {
+			m_renderer->Render([this, EditorCamera]() {
 #if ME_EDITOR
-				Editor->Render();
+				Editor->Render(EditorCamera);
 #endif
 			}, MainCamera, EditorCamera);
 

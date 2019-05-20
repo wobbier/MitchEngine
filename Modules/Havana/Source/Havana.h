@@ -9,6 +9,7 @@
 #include "Widgets/AssetBrowser.h"
 #include "Events/Event.h"
 #include "Events/EventReceiver.h"
+#include "RenderCommands.h"
 
 class Havana
 	: public EventReceiver
@@ -28,7 +29,7 @@ public:
 	void UpdateWorld(class World* world, class Transform* root, const std::vector<Entity> & ents);
 	void UpdateWorldRecursive(class Transform* root);
 
-	void Render();
+	void Render(const Moonlight::CameraData& EditorCamera);
 
 	void SetWindowTitle(const std::string& title)
 	{
@@ -42,6 +43,7 @@ public:
 	static void Text(const std::string& Name, const Vector2& Vector);
 	static void EditableVector3(const std::string& Name, Vector3& Vector);
 
+	void EditTransform(const float* cameraView, float* cameraProjection, float* matrix);
 	void AddComponentPopup();
 
 	class Entity* SelectedEntity = nullptr;
