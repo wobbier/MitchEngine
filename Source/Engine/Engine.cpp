@@ -287,7 +287,8 @@ const bool Engine::IsGamePaused() const
 
 void Engine::LoadScene(const std::string& SceneFile)
 {
-	//if (CurrentScene)
+	SceneNodes->Init();
+	Cameras->Init();
 	if (CurrentScene)
 	{
 		CurrentScene->UnLoad();

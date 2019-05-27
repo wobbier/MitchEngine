@@ -6,6 +6,7 @@
 #include "FilePath.h"
 #include "Resource/ResourceCache.h"
 #include "Graphics/Texture.h"
+#include "File.h"
 
 AssetBrowser::AssetBrowser(const std::string& pathToWatch, std::chrono::duration<int, std::milli> delay)
 	: PathToWatch(pathToWatch)
@@ -108,15 +109,15 @@ void AssetBrowser::Recursive(Directory& dir)
 	for (auto& files : dir.Files)
 	{
 		// we have a file
-		if (files.find(".png") != std::string::npos || files.find(".jpg") != std::string::npos)
+		if (files.Name.find(".png") != std::string::npos || files.Name.find(".jpg") != std::string::npos)
 		{
 			ImGui::Image(Icons["Image"]->CubesTexture, ImVec2(16, 16));
 		}
-		else if(files.find(".lvl") != std::string::npos)
+		else if (files.Name.find(".lvl") != std::string::npos)
 		{
 			ImGui::Image(Icons["World"]->CubesTexture, ImVec2(16, 16));
 		}
-		else if (files.find(".obj") != std::string::npos || files.find(".fbx") != std::string::npos)
+		else if (files.Name.find(".obj") != std::string::npos || files.Name.find(".fbx") != std::string::npos)
 		{
 			ImGui::Image(Icons["Terrain"]->CubesTexture, ImVec2(16, 16));
 		}
@@ -125,7 +126,7 @@ void AssetBrowser::Recursive(Directory& dir)
 			ImGui::Image(Icons["File"]->CubesTexture, ImVec2(16, 16));
 		}
 		ImGui::SameLine();
-		ImGui::Text(files.c_str());
+		ImGui::Text(files.Name.c_str());
 	}
 }
 
@@ -168,7 +169,16 @@ bool AssetBrowser::ProccessDirectoryRecursive(std::string& dir, Directory& dirRe
 		{
 			if (file.is_regular_file())
 			{
-				dirRef.Files.push_back(newdir);
+				if (newdir.find(".meta") != std::string::npos)
+				{
+					return false;
+				}
+				dirRef.Files.emplace_back(AssetDescriptor{ newdir, File(FilePath(file.path().string() + ".meta")) });
+				const std::string& data = dirRef.Files.back().MetaFile.Read();
+				if (data.empty())
+				{
+					dirRef.Files.back().MetaFile.Write("{}");
+				}
 				return true;
 			}
 			Directory newDirectory;
@@ -184,7 +194,7 @@ bool AssetBrowser::ProccessDirectoryRecursive(std::string& dir, Directory& dirRe
 	return false;
 }
 
-bool AssetBrowser::Contains(const std::string& key)
+bool AssetBrowser::Contains(const std::string & key)
 {
 	return Paths.find(key) != Paths.end();
 }

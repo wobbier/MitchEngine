@@ -50,7 +50,7 @@ public:
 	Transform* GetChildByName(const std::string& Name);
 	Vector3 Position;
 	Vector3 Scale;
-	glm::quat Rotation;
+	Vector3 Rotation;
 
 	glm::mat4 WorldTransform;
 	std::string Name;
@@ -61,7 +61,7 @@ public:
 		Component::Serialize(outJson);
 
 		outJson["Position"] = { Position.X(),Position.Y(),Position.Z() };
-		outJson["Rotation"] = { Rotation.x, Rotation.y, Rotation.z, Rotation.w };
+		outJson["Rotation"] = { Rotation.X(), Rotation.Y(), Rotation.Z() };
 	}
 
 	virtual void Deserialize(const json& inJson) final
@@ -89,10 +89,8 @@ private:
 	virtual void OnEditorInspect() final
 	{
 		Havana::EditableVector3("Position", GetPosition());
+		Havana::EditableVector3("Rotation", Rotation);
 		Havana::EditableVector3("Scale", Scale);
-		ImGui::Text("Rotation X: %f", Rotation.x);
-		ImGui::Text("Rotation Y: %f", Rotation.y);
-		ImGui::Text("Rotation Z: %f", Rotation.z);
 		Vector3 WorldPos = GetWorldPosition();
 		Havana::EditableVector3("World Position", WorldPos);
 		if (WorldPos != GetWorldPosition())

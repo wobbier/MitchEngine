@@ -10,6 +10,7 @@
 #include "FilePath.h"
 #include "Pointers.h"
 #include "Graphics/Texture.h"
+#include "File.h"
 
 enum class FileStatus : unsigned int
 {
@@ -20,14 +21,15 @@ enum class FileStatus : unsigned int
 
 class AssetBrowser
 {
-	class AssetDescriptor
+	struct AssetDescriptor
 	{
-
+		std::string Name;
+		File MetaFile;
 	};
 	struct Directory 
 	{
 		std::map<std::string, Directory> Directories;
-		std::vector<std::string> Files;
+		std::vector<AssetBrowser::AssetDescriptor> Files;
 		FilePath FullPath;
 	};
 public:

@@ -37,7 +37,8 @@ void SceneGraph::UpdateRecursively(Transform* CurrentTransform)
 			OPTICK_EVENT("SceneGraph::Update::IsDirty");
 			glm::mat4 mat = glm::mat4(1.f);
 			mat = glm::translate(mat, Child->Position.GetInternalVec());
-			mat = glm::rotate(mat, glm::angle(Child->Rotation), glm::axis(Child->Rotation));
+			glm::quat rot(Child->Rotation.GetInternalVec());
+			mat = glm::rotate(mat, glm::angle(rot), glm::axis(rot));
 			mat = glm::scale(mat, Child->Scale.GetInternalVec());
 			Child->SetWorldTransform(CurrentTransform->WorldTransform * mat);
 		}

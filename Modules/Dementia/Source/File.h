@@ -1,6 +1,7 @@
 #pragma once
 #include "FilePath.h"
 #include <fstream>
+#include "Logger.h"
 
 class File
 {
@@ -11,37 +12,28 @@ public:
 	{
 	}
 
-	void Open()
+	const std::string& Read()
 	{
-		if (IsOpen)
+		if (!Data.empty())
 		{
-			return;
+			return Data;
 		}
+		std::fstream FileStream;
 
 		FileStream.open(Path.FullPath.c_str(), std::ios::in);
 
 		if (!FileStream)
 		{
+			Logger::Log(Logger::LogType::Error, "File IO: Failed to load file " + Path.LocalPath);
+			return Data;
 		}
 
 		IsOpen = true;
 
 		Data.assign((std::istreambuf_iterator<char>(FileStream)), (std::istreambuf_iterator<char>()));
-	}
 
-	void Close()
-	{
-		if (IsOpen)
-		{
-			FileStream.close();
-			IsOpen = false;
-		}
-	}
-
-	const std::string& Read()
-	{
-		Open();
-		Close();
+		FileStream.close();
+		IsOpen = false;
 
 		return Data;
 	}
@@ -58,10 +50,15 @@ public:
 		Data = Contents;
 		Write();
 	}
+
+	void Reset()
+	{
+		Data.clear();
+	}
+
 	std::string Data;
 	FilePath Path;
 private:
 
 	bool IsOpen = false;
-	std::fstream FileStream;
 };

@@ -42,19 +42,19 @@ namespace Moonlight
 	{
 		switch (type)
 		{
-		case Moonlight::Diffuse:
+		case TextureType::Diffuse:
 			return "Diffuse";
-		case Moonlight::Normal:
+		case TextureType::Normal:
 			return "Normal";
-		case Moonlight::Specular:
+		case TextureType::Specular:
 			return "Specular";
-		case Moonlight::Height:
+		case TextureType::Height:
 			return "Height";
-		case Moonlight::Opacity:
+		case TextureType::Opacity:
 			return "Opacity";
-		case Moonlight::Count:
+		case TextureType::Count:
 		default:
-			Logger::GetInstance().Log(Logger::LogType::Error, "Couldn't find texture type: " + type);
+			Logger::GetInstance().Log(Logger::LogType::Error, "Couldn't find texture type: " + static_cast<unsigned int>(type));
 			return "";
 		}
 	}

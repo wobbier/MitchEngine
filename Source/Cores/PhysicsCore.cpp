@@ -61,7 +61,7 @@ void PhysicsCore::Update(float dt)
 		{
 			Vector3 transPos = TransformComponent.GetPosition();
 			trans.setOrigin(btVector3(transPos.X(), transPos.Y(), transPos.Z()));
-			trans.setRotation(btQuaternion(TransformComponent.Rotation.x, TransformComponent.Rotation.y, TransformComponent.Rotation.z, TransformComponent.Rotation.w));
+			trans.setRotation(btQuaternion(TransformComponent.Rotation.X(), TransformComponent.Rotation.Y(), TransformComponent.Rotation.Z()));
 			rigidbody->setWorldTransform(trans);
 			rigidbody->activate();
 		}

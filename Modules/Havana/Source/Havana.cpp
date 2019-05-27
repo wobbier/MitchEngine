@@ -138,8 +138,7 @@ void Havana::InitUI()
 	Icons["Play"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(FilePath("Assets/Havana/UI/Play.png"));
 	Icons["Pause"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(FilePath("Assets/Havana/UI/Pause.png"));
 	Icons["Stop"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(FilePath("Assets/Havana/UI/Stop.png"));
-
-
+	Icons["Info"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(FilePath("Assets/Havana/UI/Info.png"));
 }
 
 bool show_demo_window = true;
@@ -181,10 +180,10 @@ void Havana::NewFrame(std::function<void()> StartGameFunc, std::function<void()>
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
 	ImGui::Begin("DockSpace Demo", &show_dockspace, window_flags);
 	ImGui::PopStyleVar(3);
-
 	ImGuiID dockspace_id = ImGui::GetID("MyDockspace");
 	ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_PassthruCentralNode;
 	ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
+	ImGui::ShowDemoWindow(&show_demo_window);
 
 	ImGui::End();
 
@@ -339,6 +338,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 
 			if (ImGui::ImageButton(Icons["Stop"]->CubesTexture, ImVec2(30.f, 30.f)) || (Input::GetInstance().IsKeyDown(KeyCode::F5) && Input::GetInstance().IsKeyDown(KeyCode::LeftShift)))
 			{
+				SelectedTransform = nullptr;
 				StopGameFunc();
 			}
 		}
@@ -346,7 +346,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 		float endOfMenu = ImGui::GetCursorPosX();
 		float buttonWidth = 40.f;
 		float pos = (ImGui::GetMousePos().x - m_engine->GetWindow()->GetPosition().X());
-		static_cast<D3D12Window*>(m_engine->GetWindow())->CanMoveWindow((pos > endOfMenu && pos < ImGui::GetWindowWidth() - (buttonWidth * 3.f)));
+		static_cast<D3D12Window*>(m_engine->GetWindow())->CanMoveWindow((pos > endOfMenu && pos < ImGui::GetWindowWidth() - (buttonWidth * 5.f)));
 
 		ImGui::Text("%.1f FPS", ImGui::GetIO().Framerate);
 
@@ -356,6 +356,35 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 		ImGui::BeginGroup();
 		ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(0.0f, 0.6f, 0.6f, 0.f));
 		ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)ImColor::HSV(0.f, 0.8f, 0.8f, 0.f));
+		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 5.f));
+		if (ImGui::ImageButton(Icons["Info"]->CubesTexture, ImVec2(30.f, 30.f)))
+		{
+			ImGui::OpenPopup("help_popup");
+		}
+
+		if (ImGui::BeginPopup("help_popup"))
+		{
+			ImGui::Text("Components");
+			ImGui::Separator();
+
+			ComponentRegistry& reg = GetComponentRegistry();
+
+			for (auto& thing : reg)
+			{
+				if (ImGui::Selectable(thing.first.c_str()))
+				{
+					if (SelectedEntity)
+					{
+						SelectedEntity->AddComponentByName(thing.first);
+					}
+					if (SelectedTransform)
+					{
+						m_engine->GetWorld().lock()->GetEntity(SelectedTransform->Parent).lock()->AddComponentByName(thing.first);
+					}
+				}
+			}
+			ImGui::EndPopup();
+		}
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(0.35f, 126.f, 43.f, 1.f));
 		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 4.f));
 		if (ImGui::ImageButton(Icons["BugReport"]->CubesTexture, ImVec2(30.f, 30.f)))
@@ -669,7 +698,17 @@ void Havana::Render(const Moonlight::CameraData& EditorCamera)
 	float matrixTranslation[3], matrixRotation[3], matrixScale[3];
 	ImGuizmo::DecomposeMatrixToComponents(&objView._11, matrixTranslation, matrixRotation, matrixScale);
 	ImGui::InputFloat3("Tr", matrixTranslation, 3);
-	ImGui::InputFloat3("Rt", matrixRotation, 3);
+	if (SelectedTransform)
+	{
+		Havana::EditableVector3("RtVec", SelectedTransform->Rotation);
+		matrixRotation[0] = SelectedTransform->Rotation[0];// * DirectX::XM_PI / 180.f;
+		matrixRotation[1] = SelectedTransform->Rotation[1];// * DirectX::XM_PI / 180.f;
+		matrixRotation[2] = SelectedTransform->Rotation[2];// * DirectX::XM_PI / 180.f;
+	}
+	else
+	{
+		ImGui::InputFloat3("Rt", matrixRotation, 3);
+	}
 	ImGui::InputFloat3("Sc", matrixScale, 3);
 	ImGuizmo::RecomposeMatrixFromComponents(matrixTranslation, matrixRotation, matrixScale, objectMatrix);
 
@@ -751,11 +790,12 @@ void Havana::Render(const Moonlight::CameraData& EditorCamera)
 			//ImGuizmo::DrawCube(&fView2._11, &fView._11, &idView._11);
 			ImGuizmo::Manipulate(&fView2._11, &fView._11, mCurrentGizmoOperation, mCurrentGizmoMode, objectMatrix, NULL, useSnap ? &snap[0] : NULL);
 
-			if (SelectedTransform && ImGuizmo::IsUsing())
+			if (SelectedTransform)
 			{
 				ImGuizmo::DecomposeMatrixToComponents(objectMatrix, matrixTranslation, matrixRotation, matrixScale);
 				SelectedTransform->SetPosition(Vector3(matrixTranslation[0],matrixTranslation[1], matrixTranslation[2]));
-				//SelectedTransform->SetRotation(Vector3(matrixRotation[0], matrixRotation[1], matrixRotation[2]));
+				SelectedTransform->SetRotation(Vector3(matrixRotation[0], matrixRotation[1], matrixRotation[2]));
+				//SelectedTransform->SetRotation(Vector3(matrixRotation[0] * 180.f / DirectX::XM_PI, matrixRotation[1] * 180.f / DirectX::XM_PI, matrixRotation[2] * 180.f / DirectX::XM_PI));
 			}
 		}
 	}

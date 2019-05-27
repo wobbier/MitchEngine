@@ -7,7 +7,7 @@
 Transform::Transform()
 	: WorldTransform(1.f)
 	, Position(0.f, 0.f, 0.f)
-	, Rotation(0.f, 0.f, 0.f, 1.0f)
+	, Rotation(0.f, 0.f, 0.f)
 	, Scale(1.0f, 1.0f, 1.0f)
 {
 }
@@ -17,7 +17,7 @@ Transform::Transform(const std::string& TransformName)
 	: WorldTransform(1.f)
 	, Name(std::move(TransformName))
 	, Position(0.f, 0.f, 0.f)
-	, Rotation(0.f, 0.f, 0.f, 1.0f)
+	, Rotation(0.f, 0.f, 0.f)
 	, Scale(1.0f, 1.0f, 1.0f)
 {
 }
@@ -28,10 +28,6 @@ Transform::~Transform()
 
 void Transform::SetPosition(Vector3 NewPosition)
 {
-	if (NewPosition == Vector3())
-	{
-		return;
-	}
 	Position = NewPosition;
 	SetDirty(true);
 }
@@ -116,14 +112,14 @@ void Transform::SetDirty(bool Dirty)
 void Transform::SetRotation(Vector3 euler)
 {
 	//glm::rotate(Rotation, quat);
-	Rotation = glm::rotate(glm::quat(), euler.GetInternalVec());
+	Rotation = euler;
 	SetDirty(true);
 }
 
 void Transform::SetRotation(glm::quat quat)
 {
 	//glm::rotate(Rotation, quat);
-	Rotation = quat;
+	Rotation = glm::eulerAngles(quat);
 	SetDirty(true);
 }
 

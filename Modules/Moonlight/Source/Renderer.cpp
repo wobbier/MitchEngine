@@ -54,6 +54,8 @@ namespace Moonlight
 	Renderer::~Renderer()
 	{
 		ReleaseDeviceDependentResources();
+		delete Grid;
+		delete Sky;
 	}
 
 	void Renderer::Init()
