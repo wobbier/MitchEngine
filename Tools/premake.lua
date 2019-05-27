@@ -261,7 +261,10 @@ vpaths {
   removelinks {
 	"Havana"
   }
+  configuration "not *Editor"
+    kind "StaticLib"
 
+  configuration {}
 ------------------------------------------------------- ImGui Project ------------------------------------------------------
 
 group "Engine/ThirdParty"
@@ -485,4 +488,5 @@ function GenerateGameSolution()
   
   configuration "*Editor"
     kind "StaticLib"
+	removelinks { "Havana" }
 end

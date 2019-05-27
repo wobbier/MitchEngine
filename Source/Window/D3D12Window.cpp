@@ -283,17 +283,20 @@ LRESULT D3D12Window::HitTest(POINT cursor) const
 
 POINT prevPos;
 bool dragWindow = false;
+#if ME_EDITOR
 extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+#endif
 LRESULT CALLBACK WinProc(HWND hwnd, unsigned int msg, WPARAM wp, LPARAM lp)
 {
 	if (msg == WM_NCCREATE) {
 		auto userdata = reinterpret_cast<CREATESTRUCTW*>(lp)->lpCreateParams;
 		::SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(userdata));
 	}
-
+#if ME_EDITOR
 	if (ImGui_ImplWin32_WndProcHandler(hwnd, msg, wp, lp))
 		return true;
-	if (auto window_ptr = reinterpret_cast<D3D12Window*>(::GetWindowLongPtrW(hwnd, GWLP_USERDATA))) 
+#endif
+	if (auto window_ptr = reinterpret_cast<D3D12Window*>(::GetWindowLongPtrW(hwnd, GWLP_USERDATA)))
 	{
 		auto& window = *window_ptr;
 
