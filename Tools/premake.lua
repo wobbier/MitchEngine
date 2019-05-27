@@ -234,10 +234,10 @@ if not isUWP then
 
 group "Engine/Modules"
 project "Havana"
-    kind "StaticLib"
+    kind "ConsoleApp"
   systemversion "10.0.14393.0"
 language "C++"
-targetdir "../Build/%{cfg.buildcfg}"
+targetdir ((dirPrefix) .. "Build/%{cfg.buildcfg}")
 location "../Modules/Havana"
 includedirs {
   "../Modules/Havana/Source/",
@@ -252,8 +252,13 @@ vpaths {
   ["Source"] = "../Source/*.*"
 }
 
+  links {
+    (getPlatformPostfix("MitchEngine") .. ".lib")
+  }
+  dependson {
+    getPlatformPostfix("MitchEngine")
+  }
   removelinks {
-  	"MitchEngine",
 	"Havana"
   }
 
@@ -376,9 +381,6 @@ else
     "../Source/**/Graphics/Common/*.*",
     "../Source/**/Graphics/Content/*.*"
   }
-  links {
-    (getPlatformPostfix("Havana") .. ".lib")
-  }
   postbuildcommands {
     "fxc /T ps_4_0_level_9_3 /Fo Assets\\Shaders\\SimplePixelShader.cso Assets\\Shaders\\SimplePixelShader.hlsl",
     "fxc /T vs_4_0_level_9_3 /Fo Assets\\Shaders\\SimpleVertexShader.cso Assets\\Shaders\\SimpleVertexShader.hlsl",
@@ -445,6 +447,7 @@ function GenerateGameSolution()
     deploy "true"
   end
   project ((getPlatformPostfix(ProjectName)))
+
   if (isUWP) then
     kind "StaticLib"
     system "windowsuniversal"
@@ -452,7 +455,6 @@ function GenerateGameSolution()
   else
     kind "ConsoleApp"
   end
-
   systemversion "10.0.14393.0"
   language "C++"
   targetdir "Build/%{cfg.buildcfg}"
@@ -480,4 +482,7 @@ function GenerateGameSolution()
     "Game/Source",
     "."
   }
+  
+  configuration "*Editor"
+    kind "StaticLib"
 end

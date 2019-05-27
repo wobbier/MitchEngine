@@ -25,6 +25,8 @@ public:
 	virtual void OnUpdate(float DeltaTime);
 	virtual void OnEnd();
 
+	virtual void PostRender();
+
 	static Engine& GetEngine() { return m_engine; }
 private:
 	static Engine m_engine;

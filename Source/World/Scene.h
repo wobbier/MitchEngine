@@ -8,7 +8,7 @@ class Scene
 {
 public:
 	Scene(const std::string& SceneFilePath)
-		: Path(SceneFilePath)
+		: Path(std::move(SceneFilePath))
 	{
 		CurrentLevel = File(Path);
 	}
@@ -65,7 +65,7 @@ public:
 		}
 	}
 
-	void Load(SharedPtr<World> InWorld)
+	bool Load(SharedPtr<World> InWorld)
 	{
 		GameWorld = InWorld;
 		GameWorld->IsLoading = true;
@@ -83,8 +83,14 @@ public:
 				LoadSceneObject(ent, nullptr);
 			}
 		}
+		else
+		{
+			GameWorld->IsLoading = false;
+			return false;
+		}
 
 		GameWorld->IsLoading = false;
+		return true;
 	}
 
 	SharedPtr<World> GameWorld;

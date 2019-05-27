@@ -60,7 +60,6 @@ public:
 	const Vector2& GetGameOutputSize() const;
 
 	virtual bool OnEvent(const BaseEvent& evt) override;
-
 private:
 	class Engine* m_engine;
 	bool m_isGameFocused = false;

@@ -271,7 +271,12 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 			if (ImGui::MenuItem("Save", "Ctrl+S"))
 			{
 				SaveSceneEvent evt;
-				evt.Fire();
+				if (m_engine->CurrentScene && !std::filesystem::exists(m_engine->CurrentScene->Path.FullPath))
+				{
+					ImGui::OpenPopup("help_popup");
+				}
+				
+				//evt.Fire();
 			}
 			if (ImGui::MenuItem("Save As..")) {}
 			ImGui::Separator();
@@ -359,7 +364,10 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 5.f));
 		if (ImGui::ImageButton(Icons["Info"]->CubesTexture, ImVec2(30.f, 30.f)))
 		{
-			ImGui::OpenPopup("help_popup");
+			if (m_engine->CurrentScene && !std::filesystem::exists(m_engine->CurrentScene->Path.FullPath))
+			{
+				ImGui::OpenPopup("help_popup");
+			}
 		}
 
 		if (ImGui::BeginPopup("help_popup"))

@@ -6,6 +6,7 @@
 #include "File.h"
 #include "Events/EventReceiver.h"
 #include "World/Scene.h"
+#include "RenderCommands.h"
 
 class Game;
 class IWindow;
@@ -50,18 +51,15 @@ public:
 	class RenderCore* ModelRenderer;
 	class FlyingCameraCore* FlyingCameraController;
 	Clock& GameClock;
-
-#if ME_EDITOR
-	std::unique_ptr<class Havana> Editor;
-	class EditorCore* EditorSceneManager = nullptr;
-#endif
+	Moonlight::CameraData MainCamera;
+	Moonlight::CameraData EditorCamera;
+	Scene* CurrentScene = nullptr;
 private:
 	Moonlight::Renderer* m_renderer;
 	std::shared_ptr<World> GameWorld;
 	bool Running;
 	IWindow* GameWindow;
 	class Config* EngineConfig;
-	Scene* CurrentScene;
 	Game* m_game;
 	float AccumulatedTime = 0.0f;
 	float FrameTime = 0.0f;
