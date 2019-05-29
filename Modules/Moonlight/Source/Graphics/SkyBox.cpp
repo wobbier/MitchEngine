@@ -7,6 +7,7 @@
 #include <WICTextureLoader.h>
 #include "Game.h"
 #include "Material.h"
+#include "Engine/Engine.h"
 
 using namespace DirectX;
 
@@ -22,7 +23,7 @@ namespace Moonlight
 		SkyMaterial = new Material();
 		SkyMaterial->SetTexture(TextureType::Diffuse, SkyMap);
 
-		auto device = static_cast<D3D12Device&>(Game::GetEngine().GetRenderer().GetDevice());
+		auto device = static_cast<D3D12Device&>(GetEngine().GetRenderer().GetDevice());
 
 		D3D11_RASTERIZER_DESC cmdesc;
 
@@ -50,7 +51,7 @@ namespace Moonlight
 
 	void SkyBox::Draw()
 	{
-		auto device = static_cast<D3D12Device&>(Game::GetEngine().GetRenderer().GetDevice()).GetD3DDeviceContext();
+		auto device = static_cast<D3D12Device&>(GetEngine().GetRenderer().GetDevice()).GetD3DDeviceContext();
 
 		SkyShader->Use();
 

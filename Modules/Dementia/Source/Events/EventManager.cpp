@@ -1,9 +1,11 @@
 #include "Events/EventManager.h"
 #include "Events/EventReceiver.h"
+#include "Singleton.h"
+
+ME_SINGLETON_IMPLEMENTATION(EventManager)
 
 EventManager::EventManager()
 {
-
 }
 
 void EventManager::RegisterReceiver(EventReceiver* receiver, std::vector<TypeId> events)

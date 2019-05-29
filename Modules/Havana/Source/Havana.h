@@ -15,7 +15,7 @@ class Havana
 	: public EventReceiver
 {
 public:
-	Havana(class Engine* GameEngine, Moonlight::Renderer* renderer);
+	Havana(class Engine* GameEngine, class EditorApp* app, Moonlight::Renderer* renderer);
 
 	void InitUI();
 
@@ -39,9 +39,6 @@ public:
 	const bool IsGameFocused() const;
 	const bool IsWorldViewFocused() const;
 
-	static void Text(const std::string& Name, const Vector3& Vector);
-	static void Text(const std::string& Name, const Vector2& Vector);
-	static void EditableVector3(const std::string& Name, Vector3& Vector);
 
 	void EditTransform(const float* cameraView, float* cameraProjection, float* matrix);
 	void AddComponentPopup();
@@ -62,6 +59,7 @@ public:
 	virtual bool OnEvent(const BaseEvent& evt) override;
 private:
 	class Engine* m_engine;
+	class EditorApp* m_app;
 	bool m_isGameFocused = false;
 	bool m_isWorldViewFocused = false;
 	bool OpenScene = false;

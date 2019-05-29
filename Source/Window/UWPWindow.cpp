@@ -113,7 +113,7 @@ void UWPWindow::UWPWindowMessageHandler::OnWindowSizeChanged(CoreWindow^ sender,
 {
 	m_window->WINDOW_WIDTH = sender->Bounds.Width;
 	m_window->WINDOW_HEIGHT = sender->Bounds.Height;
-	Game::GetEngine().GetRenderer().WindowResized(Vector2(WINDOW_WIDTH, WINDOW_HEIGHT));
+	GetEngine().GetRenderer().WindowResized(Vector2(WINDOW_WIDTH, WINDOW_HEIGHT));
 }
 
 void UWPWindow::UWPWindowMessageHandler::OnVisibilityChanged(CoreWindow^ sender, VisibilityChangedEventArgs^ args)
@@ -135,7 +135,7 @@ void UWPWindow::UWPWindowMessageHandler::OnKeyDown(Windows::UI::Core::CoreWindow
 
 void UWPWindow::UWPWindowMessageHandler::OnDisplayContentsInvalidated(DisplayInformation^ sender, Object^ args)
 {
-	static_cast<Moonlight::D3D12Device&>(Game::GetEngine().GetRenderer().GetDevice()).ValidateDevice();
+	static_cast<Moonlight::D3D12Device&>(GetEngine().GetRenderer().GetDevice()).ValidateDevice();
 }
 
 #endif

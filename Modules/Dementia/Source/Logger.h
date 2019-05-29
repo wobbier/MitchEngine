@@ -10,9 +10,8 @@ A utility class for creating and managing logs for the engine. You can change th
 log file name and priority levels to control what info gets saved and where.
 */
 
-class Logger : public Singleton<Logger>
+class Logger
 {
-	friend class Singleton<Logger>;
 public:
 	~Logger();
 	/*
@@ -76,4 +75,6 @@ private:
 	std::string mLogFileLocation;
 	LogType mPriority;
 	Logger() = default;
+
+	ME_SINGLETON_DEFINITION(Logger)
 };

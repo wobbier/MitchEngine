@@ -21,6 +21,16 @@
 #include "Components/Cameras/FlyingCamera.h"
 #include "Cores/Cameras/FlyingCameraCore.h"
 
+
+Engine& GetEngine()
+{
+	if (!engineInstance)
+	{
+		engineInstance = new Engine();
+	}
+	return *engineInstance;
+}
+
 Engine::Engine()
 	: Running(true)
 	, GameClock(Clock::GetInstance())
@@ -66,7 +76,6 @@ void Engine::Init(Game* game)
 
 	GameWorld = std::make_shared<World>();
 
-	Physics = new PhysicsCore();
 
 	Cameras = new CameraCore();
 
@@ -89,7 +98,6 @@ void Engine::Init(Game* game)
 
 void Engine::InitGame()
 {
-	GameWorld->AddCore<PhysicsCore>(*Physics);
 	GameWorld->AddCore<CameraCore>(*Cameras);
 	GameWorld->AddCore<SceneGraph>(*SceneNodes);
 	GameWorld->AddCore<RenderCore>(*ModelRenderer);
@@ -97,15 +105,6 @@ void Engine::InitGame()
 	GameWorld->AddCore<FlyingCameraCore>(*FlyingCameraController);
 
 	m_game->OnInitialize();
-}
-
-void Engine::StartGame()
-{
-	if (!m_isGameRunning)
-	{
-		m_isGameRunning = true;
-		m_game->OnStart();
-	}
 }
 
 void Engine::StopGame()
@@ -144,21 +143,6 @@ void Engine::Run()
 		{
 			OPTICK_CATEGORY("MainLoop::GameUpdate", Optick::Category::GameLogic);
 			m_game->OnUpdate(deltaTime);
-		}
-
-	if (IsGameRunning() && !IsGamePaused())
-	{
-		Physics->Update(deltaTime);
-#if ME_EDITOR
-		//if (Editor->IsGameFocused())
-		{
-			//FlyingCameraController->SetCamera(Camera::CurrentCamera);
-		}
-		//else
-#endif
-			//FlyingCameraController->SetCamera(Camera::EditorCamera);
-
-		FlyingCameraController->Update(deltaTime);
 		}
 
 			SceneNodes->Update(deltaTime);
@@ -222,16 +206,6 @@ void Engine::Quit() { Running = false; }
 IWindow* Engine::GetWindow()
 {
 	return GameWindow;
-}
-
-const bool Engine::IsGameRunning() const
-{
-	return m_isGameRunning;
-}
-
-const bool Engine::IsGamePaused() const
-{
-	return m_isGamePaused;
 }
 
 void Engine::LoadScene(const std::string& SceneFile)

@@ -1,33 +1,18 @@
 // 2018 Mitchell Andrews
 #pragma once
-#include "Engine/World.h"
-#include "Resource/ResourceCache.h"
-#include "Config.h"
-#include "Engine/Clock.h"
-#include "Engine/Engine.h"
-
-class IWindow;
+#include "Dementia.h"
 
 class Game
 {
 public:
+	Game() = default;
+	virtual void OnInitialize() = 0;
 
-	Game();
-	virtual ~Game();
+	virtual void OnStart() = 0;
+	virtual void OnUpdate(float DeltaTime) = 0;
+	virtual void OnEnd() = 0;
+	virtual void PostRender() = 0;
+	class Engine* mEngine = nullptr;
 	ME_NONCOPYABLE(Game)
 	ME_NONMOVABLE(Game)
-
-	void Run();
-
-	virtual void OnInitialize();
-
-	virtual void OnStart();
-	virtual void OnUpdate(float DeltaTime);
-	virtual void OnEnd();
-
-	virtual void PostRender();
-
-	static Engine& GetEngine() { return m_engine; }
-private:
-	static Engine m_engine;
 };

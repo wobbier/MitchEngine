@@ -10,7 +10,32 @@
 
 class Game;
 class IWindow;
+#ifndef ME_SINGLETON_DEFINITION2
+#define ME_SINGLETON_DEFINITION2(T)\
+public:\
+	static T& GetInstance(void)\
+	{\
+	return *engineInstance;\
+	}\
+	static T * GetInstancePtr(void)\
+	{\
+	return engineInstance;\
+	}\
+private:\
+	T(const T&) = delete;\
+	T& operator=(const T&) = delete;\
+	T(T&&) = delete;\
+	T& operator=(T&&) = delete;
+#endif
 
+namespace {
+	Engine* engineInstance;
+}
+#ifndef COMPILING_DLL
+#define DLLEXPORT __declspec(dllexport)
+#else
+#define DLLEXPORT __declspec(dllimport)
+#endif
 class Engine
 	: public EventReceiver
 {
@@ -24,7 +49,7 @@ public:
 	void Init(Game* game);
 
 	void InitGame();
-	void StartGame();
+
 	void StopGame();
 
 	void LoadScene(const std::string& Level);
@@ -41,30 +66,25 @@ public:
 
 	IWindow* GetWindow();
 
-	const bool IsGameRunning() const;
-
-	const bool IsGamePaused() const;
-
-	class PhysicsCore* Physics;
-	class CameraCore* Cameras;
-	class SceneGraph* SceneNodes;
-	class RenderCore* ModelRenderer;
-	class FlyingCameraCore* FlyingCameraController;
+	class CameraCore* Cameras = nullptr;
+	class SceneGraph* SceneNodes = nullptr;
+	class RenderCore* ModelRenderer = nullptr;
+	class FlyingCameraCore* FlyingCameraController = nullptr;
 	Clock& GameClock;
 	Moonlight::CameraData MainCamera;
 	Moonlight::CameraData EditorCamera;
 	Scene* CurrentScene = nullptr;
 private:
-	Moonlight::Renderer* m_renderer;
+	Moonlight::Renderer* m_renderer = nullptr;
 	std::shared_ptr<World> GameWorld;
-	bool Running;
-	IWindow* GameWindow;
-	class Config* EngineConfig;
-	Game* m_game;
+	bool Running = false;
+	IWindow* GameWindow = nullptr;
+	class Config* EngineConfig = nullptr;
+	Game* m_game = nullptr;
 	float AccumulatedTime = 0.0f;
 	float FrameTime = 0.0f;
 	bool m_isInitialized = false;
-	bool m_isGameRunning = false;
-	bool m_isGamePaused = false;
 
+	ME_SINGLETON_DEFINITION2(Engine)
 };
+DLLEXPORT Engine& GetEngine();

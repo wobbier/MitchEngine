@@ -356,11 +356,11 @@ LRESULT CALLBACK WinProc(HWND hwnd, unsigned int msg, WPARAM wp, LPARAM lp)
 		//	prevPos.x = 0;
 		//	prevPos.y = 0;
 		//	ReleaseCapture();
-		//	if (Game::GetEngine().IsInitialized())
+		//	if (GetEngine().IsInitialized())
 		//	{
 		//		RECT newSize;
 		//		GetClientRect(hwnd, &newSize);
-		//		Game::GetEngine().GetRenderer().WindowResized(Vector2(static_cast<float>(newSize.right - newSize.left), static_cast<float>(newSize.bottom - newSize.top)));
+		//		GetEngine().GetRenderer().WindowResized(Vector2(static_cast<float>(newSize.right - newSize.left), static_cast<float>(newSize.bottom - newSize.top)));
 		//	}
 		//	break;
 		}

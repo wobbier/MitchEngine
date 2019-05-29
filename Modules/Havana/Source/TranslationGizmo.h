@@ -7,6 +7,7 @@
 #include "gtc/matrix_transform.hpp"
 #include "Engine/Input.h"
 #include "Havana.h"
+#include "Utils/HavanaUtils.h"
 
 class TranslationGizmo {
 public:
@@ -53,9 +54,9 @@ public:
 
 		ImGui::Begin("Window Info");
 
-		Havana::Text("Window Location", windowLocation);
-		Havana::Text("Relative Mouse Position", Vector2(pos));
-		Havana::Text("Normalized Mouse Coordinates", Vector2(n2));
+		HavanaUtils::Text("Window Location", windowLocation);
+		HavanaUtils::Text("Relative Mouse Position", Vector2(pos));
+		HavanaUtils::Text("Normalized Mouse Coordinates", Vector2(n2));
 
 		//// gives mouse pixel coordinates in the [-1, 1] range
 		//DirectX::XMFLOAT2 n(0,0);

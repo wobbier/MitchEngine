@@ -27,11 +27,13 @@
 #include "../ImGuizmo/ImGuizmo.h"
 #include <DirectXMath.h>
 #include "Math/Vector3.h"
+#include "EditorApp.h"
 namespace fs = std::filesystem;
 
-Havana::Havana(Engine* GameEngine, Moonlight::Renderer* renderer)
+Havana::Havana(Engine* GameEngine, EditorApp* app, Moonlight::Renderer* renderer)
 	: Renderer(renderer)
 	, m_engine(GameEngine)
+	, m_app(app)
 	, CurrentDirectory("Assets")
 	, m_assetBrowser(FilePath("Assets").FullPath, std::chrono::milliseconds(300))
 {
@@ -334,7 +336,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 			StartGameFunc();
 		}
 
-		if (m_engine->IsGameRunning())
+		if (m_app->IsGameRunning())
 		{
 			if (ImGui::ImageButton(Icons["Pause"]->CubesTexture, ImVec2(30.f, 30.f)) || Input::GetInstance().IsKeyDown(KeyCode::F10))
 			{
@@ -708,7 +710,7 @@ void Havana::Render(const Moonlight::CameraData& EditorCamera)
 	ImGui::InputFloat3("Tr", matrixTranslation, 3);
 	if (SelectedTransform)
 	{
-		Havana::EditableVector3("RtVec", SelectedTransform->Rotation);
+		HavanaUtils::EditableVector3("RtVec", SelectedTransform->Rotation);
 		matrixRotation[0] = SelectedTransform->Rotation[0];// * DirectX::XM_PI / 180.f;
 		matrixRotation[1] = SelectedTransform->Rotation[1];// * DirectX::XM_PI / 180.f;
 		matrixRotation[2] = SelectedTransform->Rotation[2];// * DirectX::XM_PI / 180.f;
@@ -828,31 +830,6 @@ const bool Havana::IsGameFocused() const
 const bool Havana::IsWorldViewFocused() const
 {
 	return m_isWorldViewFocused;
-}
-
-void Havana::Text(const std::string & Name, const Vector3 & Vector)
-{
-	ImGui::Text(Name.c_str());
-
-	ImGui::Text("X: %f", Vector.X());
-	ImGui::SameLine();
-	ImGui::Text("Y: %f", Vector.Y());
-	ImGui::SameLine();
-	ImGui::Text("Z: %f", Vector.Z());
-}
-
-void Havana::Text(const std::string & Name, const Vector2 & Vector)
-{
-	ImGui::Text(Name.c_str());
-
-	ImGui::Text("X: %f", Vector.X());
-	ImGui::SameLine();
-	ImGui::Text("Y: %f", Vector.Y());
-}
-
-void Havana::EditableVector3(const std::string & Name, Vector3 & Vector)
-{
-	ImGui::DragFloat3(Name.c_str(), &Vector[0], 0.005f);
 }
 
 void Havana::BrowseDirectory(const FilePath & path)

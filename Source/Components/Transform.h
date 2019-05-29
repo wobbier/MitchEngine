@@ -7,8 +7,8 @@
 #include "Dementia.h"
 #include <DirectXMath.h>
 #include "Math/Vector3.h"
-#include "Havana.h"
 #include "ECS/ComponentDetail.h"
+#include "Utils/HavanaUtils.h"
 
 class Transform :
 	public Component<Transform>
@@ -88,11 +88,11 @@ private:
 #if ME_EDITOR
 	virtual void OnEditorInspect() final
 	{
-		Havana::EditableVector3("Position", GetPosition());
-		Havana::EditableVector3("Rotation", Rotation);
-		Havana::EditableVector3("Scale", Scale);
+		HavanaUtils::EditableVector3("Position", GetPosition());
+		HavanaUtils::EditableVector3("Rotation", Rotation);
+		HavanaUtils::EditableVector3("Scale", Scale);
 		Vector3 WorldPos = GetWorldPosition();
-		Havana::EditableVector3("World Position", WorldPos);
+		HavanaUtils::EditableVector3("World Position", WorldPos);
 		if (WorldPos != GetWorldPosition())
 		{
 			SetWorldPosition(WorldPos);

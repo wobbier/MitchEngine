@@ -8,6 +8,7 @@
 #include "Math/Matirx4.h"
 #include "Dementia.h"
 #include <imgui.h>
+#include "Utils/HavanaUtils.h"
 
 class Camera
 	: public Component<Camera>
@@ -40,7 +41,7 @@ private:
 #if ME_EDITOR
 	virtual void OnEditorInspect() final
 	{
-		Havana::Text("Front", Front);
+		HavanaUtils::Text("Front", Front);
 		if (ImGui::Button("Set Current"))
 		{
 			SetCurrent();

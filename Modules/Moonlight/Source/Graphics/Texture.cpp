@@ -5,6 +5,7 @@
 #include <WICTextureLoader.h>
 #include "Game.h"
 #include "Device/D3D12Device.h"
+#include "Engine/Engine.h"
 
 using namespace DirectX;
 using namespace Microsoft::WRL;
@@ -16,7 +17,7 @@ namespace Moonlight
 		: Resource(InFilePath)
 	{
 		std::wstring filePath = ToStringW(InFilePath.FullPath);
-		auto& device = static_cast<Moonlight::D3D12Device&>(Game::GetEngine().GetRenderer().GetDevice());
+		auto& device = static_cast<Moonlight::D3D12Device&>(GetEngine().GetRenderer().GetDevice());
 		ID3D11DeviceContext* context;
 		device.GetD3DDevice()->GetImmediateContext(&context);
 

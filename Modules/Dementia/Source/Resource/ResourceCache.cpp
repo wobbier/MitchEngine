@@ -1,5 +1,7 @@
 #include "ResourceCache.h"
 
+ME_SINGLETON_IMPLEMENTATION(ResourceCache)
+
 ResourceCache::ResourceCache()
 {
 	Push();

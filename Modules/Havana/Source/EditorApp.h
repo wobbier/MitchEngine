@@ -1,9 +1,9 @@
 #pragma once
-#include <DirectXMath.h>
 #include "Game.h"
-#include <glm.hpp>
 #include "Havana.h"
 #include "Events/EventReceiver.h"
+
+class Engine;
 
 class EditorApp
 	: public Game
@@ -11,7 +11,7 @@ class EditorApp
 {
 public:
 	EditorApp();
-	virtual ~EditorApp() override;
+	~EditorApp();
 
 	virtual void OnInitialize() override;
 
@@ -21,9 +21,19 @@ public:
 
 	virtual void PostRender() override;
 
+	void StartGame();
+
+	const bool IsGameRunning() const;
+
+	const bool IsGamePaused() const;
+
 	WeakPtr<Entity> MainCamera;
 	std::unique_ptr<Havana> Editor;
 	class EditorCore* EditorSceneManager = nullptr;
 
 	virtual bool OnEvent(const BaseEvent& evt) override;
+	void LoadGameDLL();
+	Game* mGame = nullptr;
+	bool m_isGameRunning = false;
+	bool m_isGamePaused = false;
 };
