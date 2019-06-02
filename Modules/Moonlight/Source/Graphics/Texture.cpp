@@ -55,7 +55,7 @@ namespace Moonlight
 			return "Opacity";
 		case TextureType::Count:
 		default:
-			Logger::GetInstance().Log(Logger::LogType::Error, "Couldn't find texture type: " + static_cast<unsigned int>(type));
+			Logger::GetInstance().Log(Logger::LogType::Error, "Couldn't find texture type: " + std::to_string(type));
 			return "";
 		}
 	}
