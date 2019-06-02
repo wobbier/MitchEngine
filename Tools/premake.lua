@@ -141,6 +141,7 @@ libdirs {
 }
 
 if isUWP then
+  defines {"USE_OPTICK=0"}
   libdirs {
     "../ThirdParty/Lib/Bullet/Win64/Debug",
     "../ThirdParty/Lib/Optick/UWP/Debug"
@@ -202,6 +203,7 @@ systemversion "10.0.14393.0"
 language "C++"
 targetdir "../Build/%{cfg.buildcfg}"
 location "../Modules/Moonlight"
+dependson { getPlatformPostfix("Dementia") }
 includedirs {
   "../Modules/Moonlight/Source/"
 }

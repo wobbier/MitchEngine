@@ -80,15 +80,9 @@ void Engine::Init(Game* game)
 
 	ModelRenderer = new RenderCore();
 
-	FlyingCameraController = new FlyingCameraCore();
-
 	m_renderer->Init();
 
 	InitGame();
-#if !ME_EDITOR
-	LoadScene("Assets/Alley.lvl");
-	//StartGame();
-#endif
 
 	m_isInitialized = true;
 }
@@ -98,8 +92,6 @@ void Engine::InitGame()
 	GameWorld->AddCore<CameraCore>(*Cameras);
 	GameWorld->AddCore<SceneGraph>(*SceneNodes);
 	GameWorld->AddCore<RenderCore>(*ModelRenderer);
-
-	GameWorld->AddCore<FlyingCameraCore>(*FlyingCameraController);
 
 	m_game->OnInitialize();
 }
@@ -111,6 +103,8 @@ void Engine::StopGame()
 
 void Engine::Run()
 {
+	m_game->OnStart();
+
 	GameClock.Reset();
 	// Game loop
 	forever

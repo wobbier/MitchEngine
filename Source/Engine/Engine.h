@@ -44,7 +44,6 @@ public:
 	class CameraCore* Cameras = nullptr;
 	class SceneGraph* SceneNodes = nullptr;
 	class RenderCore* ModelRenderer = nullptr;
-	class FlyingCameraCore* FlyingCameraController = nullptr;
 	Clock& GameClock;
 	Moonlight::CameraData MainCamera;
 	Moonlight::CameraData EditorCamera;

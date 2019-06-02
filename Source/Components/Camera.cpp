@@ -44,7 +44,7 @@ bool Camera::IsCurrent()
 
 void Camera::SetCurrent()
 {
-	CurrentCamera = this;
+	Camera::CurrentCamera = this;
 }
 
 float Camera::GetFOV()

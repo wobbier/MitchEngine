@@ -1,25 +1,22 @@
 #pragma once
 #define ME_SINGLETON_DEFINITION(T)\
 public:\
-	static T& GetInstance(void)\
+	static T& GetInstance()\
 	{\
+	static T instance;\
 	return instance;\
 	}\
-	static T * GetInstancePtr(void)\
+	static T * GetInstancePtr()\
 	{\
-	return &instance;\
+	return &GetInstance();\
 	}\
-protected:\
-	static T instance;\
 private:\
 	T(const T&) = delete;\
 	T& operator=(const T&) = delete;\
 	T(T&&) = delete;\
 	T& operator=(T&&) = delete;
 
-#define ME_SINGLETON_IMPLEMENTATION(T)\
-		T T::instance = T();
-
+#define ME_SINGLETON_IMPLEMENTATION(T)
 
 //
 //template <class T>
