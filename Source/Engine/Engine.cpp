@@ -87,7 +87,7 @@ void Engine::Init(Game* game)
 	InitGame();
 #if !ME_EDITOR
 	LoadScene("Assets/Alley.lvl");
-	StartGame();
+	//StartGame();
 #endif
 
 	m_isInitialized = true;

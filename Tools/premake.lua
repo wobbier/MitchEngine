@@ -99,7 +99,7 @@ libdirs {
 }
 
 links {
-  "OptickCore",
+  "OptickCore.lib",
   (getPlatformPostfix("Dementia") .. ".lib"),
   "assimp-vc140-mt",
   "IrrXML"
@@ -143,7 +143,7 @@ libdirs {
 if isUWP then
   libdirs {
     "../ThirdParty/Lib/Bullet/Win64/Debug",
-    "../ThirdParty/Lib/Optick/Win64/Debug"
+    "../ThirdParty/Lib/Optick/UWP/Debug"
   }
 else
   libdirs {
@@ -173,7 +173,7 @@ libdirs {
 if isUWP then
   libdirs {
     "../ThirdParty/Lib/Bullet/Win64/Release",
-    "../ThirdParty/Lib/Optick/Win64/Release"
+    "../ThirdParty/Lib/Optick/UWP/Release"
   }
 else
   libdirs {
@@ -474,8 +474,7 @@ function GenerateGameSolution()
   }
   links {
     (getPlatformPostfix("MitchEngine") .. ".lib"),
-	"ImGui.lib",
-	"Dementia.lib"
+	(getPlatformPostfix("Dementia") .. ".lib")
   }
   dependson {
     getPlatformPostfix("MitchEngine")
@@ -494,6 +493,10 @@ function GenerateGameSolution()
     "Game/Source",
     "."
   }
+  
   configuration "*Editor" 
     kind "StaticLib"
+	links {
+	"ImGui.lib"
+	}
 end

@@ -9,6 +9,7 @@
 #include "Renderer.h"
 #include "Device/D3D12Device.h"
 #include <tchar.h>
+#include "Engine/Engine.h"
 
 using namespace Windows::UI::Core;
 using namespace Windows::UI::Input;
