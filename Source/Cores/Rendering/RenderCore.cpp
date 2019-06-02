@@ -17,12 +17,13 @@
 #include "RenderCommands.h"
 #include "Components/Lighting/Light.h"
 #include "Components/Graphics/Mesh.h"
+#include "Engine/Engine.h"
 
 RenderCore::RenderCore()
 	: Base(ComponentFilter().Requires<Transform>().RequiresOneOf<Model>().RequiresOneOf<Rigidbody>().RequiresOneOf<Light>().RequiresOneOf<Mesh>())
 {
 	//m_sceneRenderer = std::unique_ptr<TestModelRenderer>(new TestModelRenderer(m_deviceResources));
-	m_renderer = &Game::GetEngine().GetRenderer();
+	m_renderer = &GetEngine().GetRenderer();
 	m_renderer->RegisterDeviceNotify(this);
 
 	cube = ResourceCache::GetInstance().Get<ModelResource>(FilePath("Assets/cube.fbx"));
@@ -45,7 +46,7 @@ void RenderCore::OnEntityAdded(Entity& NewEntity)
 		model.Init();
 		command.Meshes = model.ModelHandle->GetAllMeshes();
 		command.ModelShader = model.ModelShader;
-		model.Id = Game::GetEngine().GetRenderer().PushModel(command);
+		model.Id = GetEngine().GetRenderer().PushModel(command);
 	}*/
 	if (NewEntity.HasComponent<Mesh>())
 	{
@@ -53,7 +54,7 @@ void RenderCore::OnEntityAdded(Entity& NewEntity)
 		Mesh& model = NewEntity.GetComponent<Mesh>();
 		command.SingleMesh = model.MeshReferece;
 		command.MeshShader = model.MeshShader;
-		model.Id = Game::GetEngine().GetRenderer().PushMesh(command);
+		model.Id = GetEngine().GetRenderer().PushMesh(command);
 	}
 	//if (NewEntity.HasComponent<Rigidbody>())
 	//{
@@ -63,7 +64,7 @@ void RenderCore::OnEntityAdded(Entity& NewEntity)
 	//	command.Meshes = cube->Meshes;
 	//	command.ModelShader = shader;//model.ModelShader;
 	//
-	//	rigidbody.Id = Game::GetEngine().GetRenderer().PushModel(command);
+	//	rigidbody.Id = GetEngine().GetRenderer().PushModel(command);
 	//	//rigidbody.GetColliderType();
 	//}
 }
@@ -73,7 +74,7 @@ void RenderCore::OnEntityRemoved(Entity& InEntity)
 	if (InEntity.HasComponent<Mesh>())
 	{
 		Mesh& mesh = InEntity.GetComponent<Mesh>();
-		Game::GetEngine().GetRenderer().PopMesh(mesh.Id);
+		GetEngine().GetRenderer().PopMesh(mesh.Id);
 	}
 }
 

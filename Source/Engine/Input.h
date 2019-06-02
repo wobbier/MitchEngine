@@ -72,9 +72,8 @@ namespace KeyCodeDef
 	};
 }
 
-class Input : public Singleton<Input>
+class Input
 {
-	friend class Singleton<Input>;
 	friend class Window;
 public:
 	struct Key
@@ -107,4 +106,5 @@ private:
 	std::map<int, Key> Keys;
 	MouseInfo Mouse;
 
+	ME_SINGLETON_DEFINITION(Input)
 };

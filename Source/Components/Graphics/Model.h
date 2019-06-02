@@ -3,7 +3,8 @@
 #include "ECS/ComponentDetail.h"
 #include <string>
 #include "imgui.h"
-
+#include "Graphics/ShaderCommand.h"
+#include "FilePath.h"
 
 class Model
 	: public Component<Model>

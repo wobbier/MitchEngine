@@ -2,6 +2,8 @@
 
 std::vector<Logger::LogEntry> Logger::Messages;
 
+ME_SINGLETON_IMPLEMENTATION(Logger)
+
 Logger::~Logger()
 {
 }

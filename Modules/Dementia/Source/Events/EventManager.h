@@ -26,12 +26,9 @@ private:
 };
 
 class EventManager
-	: public Singleton<EventManager>
 {
-	friend class Singleton<EventManager>;
 private:
 	EventManager();
-
 public:
 	void RegisterReceiver(EventReceiver* receiver, std::vector<TypeId> events);
 
@@ -43,4 +40,6 @@ protected:
 	std::unordered_map<TypeId, std::vector<EventReceiver*>> m_eventReceivers;
 
 	std::queue<BaseEvent> m_queuedEvents;
+
+	ME_SINGLETON_DEFINITION(EventManager)
 };

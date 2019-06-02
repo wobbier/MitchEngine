@@ -6,6 +6,7 @@
 #include "File.h"
 #include "Events/EventReceiver.h"
 #include "World/Scene.h"
+#include "RenderCommands.h"
 
 class Game;
 class IWindow;
@@ -23,7 +24,7 @@ public:
 	void Init(Game* game);
 
 	void InitGame();
-	void StartGame();
+
 	void StopGame();
 
 	void LoadScene(const std::string& Level);
@@ -40,33 +41,26 @@ public:
 
 	IWindow* GetWindow();
 
-	const bool IsGameRunning() const;
-
-	const bool IsGamePaused() const;
-
-	class PhysicsCore* Physics;
-	class CameraCore* Cameras;
-	class SceneGraph* SceneNodes;
-	class RenderCore* ModelRenderer;
-	class FlyingCameraCore* FlyingCameraController;
+	class CameraCore* Cameras = nullptr;
+	class SceneGraph* SceneNodes = nullptr;
+	class RenderCore* ModelRenderer = nullptr;
+	class FlyingCameraCore* FlyingCameraController = nullptr;
 	Clock& GameClock;
-
-#if ME_EDITOR
-	std::unique_ptr<class Havana> Editor;
-	class EditorCore* EditorSceneManager = nullptr;
-#endif
+	Moonlight::CameraData MainCamera;
+	Moonlight::CameraData EditorCamera;
+	Scene* CurrentScene = nullptr;
 private:
-	Moonlight::Renderer* m_renderer;
+	Moonlight::Renderer* m_renderer = nullptr;
 	std::shared_ptr<World> GameWorld;
-	bool Running;
-	IWindow* GameWindow;
-	class Config* EngineConfig;
-	Scene* CurrentScene;
-	Game* m_game;
+	bool Running = false;
+	IWindow* GameWindow = nullptr;
+	class Config* EngineConfig = nullptr;
+	Game* m_game = nullptr;
 	float AccumulatedTime = 0.0f;
 	float FrameTime = 0.0f;
 	bool m_isInitialized = false;
-	bool m_isGameRunning = false;
-	bool m_isGamePaused = false;
 
+	ME_SINGLETON_DEFINITION(Engine)
 };
+
+Engine& GetEngine();

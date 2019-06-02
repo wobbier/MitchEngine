@@ -21,18 +21,19 @@ enum class FileStatus : unsigned int
 
 class AssetBrowser
 {
+public:
 	struct AssetDescriptor
 	{
 		std::string Name;
 		File MetaFile;
+		FilePath FullPath;
 	};
-	struct Directory 
+	struct Directory
 	{
 		std::map<std::string, Directory> Directories;
 		std::vector<AssetBrowser::AssetDescriptor> Files;
 		FilePath FullPath;
 	};
-public:
 	AssetBrowser() = delete;
 	AssetBrowser(const std::string& pathToWatch, std::chrono::duration<int, std::milli> delay);
 	~AssetBrowser();

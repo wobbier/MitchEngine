@@ -11,9 +11,7 @@
 class Resource;
 
 class ResourceCache
-	: public Singleton<ResourceCache>
 {
-	friend class Singleton<ResourceCache>;
 	ResourceCache();
 	~ResourceCache();
 
@@ -32,6 +30,7 @@ public:
 private:
 
 	std::vector<std::map<std::string, std::shared_ptr<Resource>>> ResourceStack;
+	ME_SINGLETON_DEFINITION(ResourceCache)
 };
 
 template<class T, typename... Args>

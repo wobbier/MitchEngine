@@ -8,6 +8,7 @@
 #include "Resource/ResourceCache.h"
 #include "Components/Transform.h"
 #include "Mesh.h"
+#include "Engine/Engine.h"
 
 Model::Model(const std::string& path)
 	: ModelPath(path)
@@ -33,15 +34,18 @@ void Model::Init()
 		IsInitialized = true;
 		ModelShader = new Moonlight::ShaderCommand("Assets/Shaders/SimpleVertexShader.cso", "Assets/Shaders/SimplePixelShader.cso");
 		ModelHandle->SetShader(ModelShader);
-		auto parentEnt = Game::GetEngine().GetWorld().lock()->GetEntity(Parent);
-		for (auto child : ModelHandle->RootNode.Nodes[0].Meshes)
+		auto parentEnt = GetEngine().GetWorld().lock()->GetEntity(Parent);
+		if (ModelHandle->RootNode.Nodes.size() > 0)
 		{
-			auto ent = Game::GetEngine().GetWorld().lock()->CreateEntity();
-			Transform& trans = ent.lock()->AddComponent<Transform>(child->Name);
-			Mesh& ref = ent.lock()->AddComponent<Mesh>(child);
-			ref.MeshShader = ModelShader;
-			ref.MeshMaterial = child->material;
-			trans.SetParent(parentEnt.lock()->GetComponent<Transform>());
+			for (auto child : ModelHandle->RootNode.Nodes[0].Meshes)
+			{
+				auto ent = GetEngine().GetWorld().lock()->CreateEntity();
+				Transform& trans = ent.lock()->AddComponent<Transform>(child->Name);
+				Mesh& ref = ent.lock()->AddComponent<Mesh>(child);
+				ref.MeshShader = ModelShader;
+				ref.MeshMaterial = child->material;
+				trans.SetParent(parentEnt.lock()->GetComponent<Transform>());
+			}
 		}
 	}
 }

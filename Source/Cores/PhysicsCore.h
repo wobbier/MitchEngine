@@ -1,6 +1,7 @@
 #pragma once
 #include "ECS/Core.h"
 #include <btBulletDynamicsCommon.h>
+#include "Math/Vector3.h"
 
 class PhysicsCore
 	: public Core<PhysicsCore>

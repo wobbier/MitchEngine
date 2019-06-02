@@ -27,16 +27,19 @@
 #include "../ImGuizmo/ImGuizmo.h"
 #include <DirectXMath.h>
 #include "Math/Vector3.h"
+#include "EditorApp.h"
+#include "Components/Graphics/Model.h"
 namespace fs = std::filesystem;
 
-Havana::Havana(Engine* GameEngine, Moonlight::Renderer* renderer)
+Havana::Havana(Engine* GameEngine, EditorApp* app, Moonlight::Renderer* renderer)
 	: Renderer(renderer)
 	, m_engine(GameEngine)
+	, m_app(app)
 	, CurrentDirectory("Assets")
 	, m_assetBrowser(FilePath("Assets").FullPath, std::chrono::milliseconds(300))
 {
 	InitUI();
-	m_assetBrowser.Start([](const std::string& path_to_watch, FileStatus status) -> void {
+	m_assetBrowser.Start([](const std::string & path_to_watch, FileStatus status) -> void {
 		// Process only regular files, all other file types are ignored
 		if (!std::filesystem::is_regular_file(std::filesystem::path(path_to_watch)) && status != FileStatus::Deleted)
 		{
@@ -51,7 +54,7 @@ Havana::Havana(Engine* GameEngine, Moonlight::Renderer* renderer)
 			evt.Path = std::move(path_to_watch);
 			evt.Queue();
 		}
-			break;
+		break;
 		case FileStatus::Modified:
 			Logger::GetInstance().Log(Logger::LogType::Info, "File modified: " + path_to_watch);
 			break;
@@ -271,7 +274,12 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 			if (ImGui::MenuItem("Save", "Ctrl+S"))
 			{
 				SaveSceneEvent evt;
-				evt.Fire();
+				if (m_engine->CurrentScene && !std::filesystem::exists(m_engine->CurrentScene->Path.FullPath))
+				{
+					ImGui::OpenPopup("help_popup");
+				}
+
+				//evt.Fire();
 			}
 			if (ImGui::MenuItem("Save As..")) {}
 			ImGui::Separator();
@@ -329,7 +337,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 			StartGameFunc();
 		}
 
-		if (m_engine->IsGameRunning())
+		if (m_app->IsGameRunning())
 		{
 			if (ImGui::ImageButton(Icons["Pause"]->CubesTexture, ImVec2(30.f, 30.f)) || Input::GetInstance().IsKeyDown(KeyCode::F10))
 			{
@@ -359,7 +367,10 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 5.f));
 		if (ImGui::ImageButton(Icons["Info"]->CubesTexture, ImVec2(30.f, 30.f)))
 		{
-			ImGui::OpenPopup("help_popup");
+			if (m_engine->CurrentScene && !std::filesystem::exists(m_engine->CurrentScene->Path.FullPath))
+			{
+				ImGui::OpenPopup("help_popup");
+			}
 		}
 
 		if (ImGui::BeginPopup("help_popup"))
@@ -509,6 +520,13 @@ void Havana::AddComponentPopup()
 	}
 }
 
+void Havana::ClearSelection()
+{
+	SelectedTransform = nullptr;
+	SelectedEntity = nullptr;
+	SelectedCore = nullptr;
+}
+
 void Havana::UpdateWorld(World * world, Transform * root, const std::vector<Entity> & ents)
 {
 	ImGui::Begin("World");
@@ -592,6 +610,22 @@ void Havana::UpdateWorldRecursive(Transform * root)
 {
 	if (!root)
 		return;
+	if (ImGui::BeginDragDropTarget())
+	{
+		if (const ImGuiPayload * payload = ImGui::AcceptDragDropPayload("DND_DEMO_CELL"))
+		{
+			IM_ASSERT(payload->DataSize == sizeof(AssetBrowser::AssetDescriptor));
+			AssetBrowser::AssetDescriptor payload_n = *(AssetBrowser::AssetDescriptor*)payload->Data;
+
+			if (payload_n.Name.rfind(".fbx") != std::string::npos || payload_n.Name.rfind(".obj") != std::string::npos)
+			{
+				auto ent = GetEngine().GetWorld().lock()->CreateEntity();
+				ent.lock()->AddComponent<Transform>(payload_n.Name.substr(0, payload_n.Name.find_last_of('.'))).SetParent(*root);
+				ent.lock()->AddComponent<Model>((payload_n.FullPath.FullPath + "/" + payload_n.Name));
+			}
+		}
+		ImGui::EndDragDropTarget();
+	}
 	int i = 0;
 	for (Transform* var : root->Children)
 	{
@@ -628,7 +662,7 @@ void Havana::UpdateWorldRecursive(Transform * root)
 	}
 }
 
-void Havana::Render(const Moonlight::CameraData& EditorCamera)
+void Havana::Render(const Moonlight::CameraData & EditorCamera)
 {
 	auto& io = ImGui::GetIO();
 
@@ -700,7 +734,7 @@ void Havana::Render(const Moonlight::CameraData& EditorCamera)
 	ImGui::InputFloat3("Tr", matrixTranslation, 3);
 	if (SelectedTransform)
 	{
-		Havana::EditableVector3("RtVec", SelectedTransform->Rotation);
+		HavanaUtils::EditableVector3("RtVec", SelectedTransform->Rotation);
 		matrixRotation[0] = SelectedTransform->Rotation[0];// * DirectX::XM_PI / 180.f;
 		matrixRotation[1] = SelectedTransform->Rotation[1];// * DirectX::XM_PI / 180.f;
 		matrixRotation[2] = SelectedTransform->Rotation[2];// * DirectX::XM_PI / 180.f;
@@ -763,11 +797,11 @@ void Havana::Render(const Moonlight::CameraData& EditorCamera)
 
 			ImGuizmo::SetRect(pos.x, pos.y, WorldViewRenderSize.X(), WorldViewRenderSize.Y());
 			DirectX::XMMATRIX perspectiveMatrix = DirectX::XMMatrixPerspectiveFovRH(
-				EditorCamera.FOV* DirectX::XM_PI / 180.0f,
+				EditorCamera.FOV * DirectX::XM_PI / 180.0f,
 				WorldViewRenderSize.X() / WorldViewRenderSize.Y(),
 				.1f,
 				1000.0f
-			); 
+			);
 
 			DirectX::XMFLOAT4X4 fView;
 			DirectX::XMStoreFloat4x4(&fView, perspectiveMatrix);
@@ -793,7 +827,7 @@ void Havana::Render(const Moonlight::CameraData& EditorCamera)
 			if (SelectedTransform)
 			{
 				ImGuizmo::DecomposeMatrixToComponents(objectMatrix, matrixTranslation, matrixRotation, matrixScale);
-				SelectedTransform->SetPosition(Vector3(matrixTranslation[0],matrixTranslation[1], matrixTranslation[2]));
+				SelectedTransform->SetPosition(Vector3(matrixTranslation[0], matrixTranslation[1], matrixTranslation[2]));
 				SelectedTransform->SetRotation(Vector3(matrixRotation[0], matrixRotation[1], matrixRotation[2]));
 				//SelectedTransform->SetRotation(Vector3(matrixRotation[0] * 180.f / DirectX::XM_PI, matrixRotation[1] * 180.f / DirectX::XM_PI, matrixRotation[2] * 180.f / DirectX::XM_PI));
 			}
@@ -822,31 +856,6 @@ const bool Havana::IsWorldViewFocused() const
 	return m_isWorldViewFocused;
 }
 
-void Havana::Text(const std::string & Name, const Vector3 & Vector)
-{
-	ImGui::Text(Name.c_str());
-
-	ImGui::Text("X: %f", Vector.X());
-	ImGui::SameLine();
-	ImGui::Text("Y: %f", Vector.Y());
-	ImGui::SameLine();
-	ImGui::Text("Z: %f", Vector.Z());
-}
-
-void Havana::Text(const std::string & Name, const Vector2 & Vector)
-{
-	ImGui::Text(Name.c_str());
-
-	ImGui::Text("X: %f", Vector.X());
-	ImGui::SameLine();
-	ImGui::Text("Y: %f", Vector.Y());
-}
-
-void Havana::EditableVector3(const std::string & Name, Vector3 & Vector)
-{
-	ImGui::DragFloat3(Name.c_str(), &Vector[0], 0.005f);
-}
-
 void Havana::BrowseDirectory(const FilePath & path)
 {
 	if (CurrentDirectory.FullPath == path.FullPath && !AssetDirectory.empty())
@@ -873,7 +882,7 @@ const Vector2& Havana::GetGameOutputSize() const
 	return GameRenderSize;
 }
 
-bool Havana::OnEvent(const BaseEvent& evt)
+bool Havana::OnEvent(const BaseEvent & evt)
 {
 
 	if (evt.GetEventId() == TestEditorEvent::GetEventId())

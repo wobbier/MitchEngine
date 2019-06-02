@@ -1,6 +1,8 @@
 #include "PCH.h"
 #include "Clock.h"
 
+ME_SINGLETON_IMPLEMENTATION(Clock)
+
 Clock::Clock()
 {
 	Reset();

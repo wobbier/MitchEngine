@@ -21,6 +21,16 @@ public:
 	{
 	};
 
+	unsigned int Id = 0;
+	unsigned int GetId() {
+		return Id;
+	}
+
+	Moonlight::MeshData* MeshReferece = nullptr;
+	Moonlight::ShaderCommand* MeshShader = nullptr;
+	Moonlight::Material* MeshMaterial = nullptr;
+private:
+#if ME_EDITOR
 	virtual void Deserialize(const json& inJson) final
 	{
 		if (inJson.contains("test"))
@@ -33,16 +43,6 @@ public:
 		}
 		MeshMaterial->OnDeserialize(inJson);
 	}
-	unsigned int Id = 0;
-	unsigned int GetId() {
-		return Id;
-	}
-
-	Moonlight::MeshData* MeshReferece = nullptr;
-	Moonlight::ShaderCommand* MeshShader = nullptr;
-	Moonlight::Material* MeshMaterial = nullptr;
-private:
-#if ME_EDITOR
 	virtual void OnEditorInspect() final
 	{
 		if (MeshShader)

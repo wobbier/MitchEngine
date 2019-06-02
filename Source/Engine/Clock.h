@@ -9,10 +9,8 @@ A simple high precision engine clock that utilizes system cpu ticks to determine
 how much time has time has passed since the last computation.
 */
 
-class Clock : public Singleton<Clock>
+class Clock
 {
-	friend class Singleton<Clock>;
-
 public:
 	Clock();
 	~Clock();
@@ -49,4 +47,6 @@ private:
 	LARGE_INTEGER mTicks;
 	LARGE_INTEGER mTicksPerSecond;
 	bool mHighResolutionSupport;
+
+	ME_SINGLETON_DEFINITION(Clock)
 };

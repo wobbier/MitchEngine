@@ -66,9 +66,6 @@ if isUWP then
   startproject (getPlatformPostfix(ProjectName .. "_EntryPoint"))
 else
   startproject (getPlatformPostfix(ProjectName))
-  links {
-    "Havana"
-  }
 end
 
 location (dirPrefix)
@@ -83,6 +80,7 @@ includedirs {
   "../Modules/Havana/Source",
   "../ThirdParty/Assimp/include",
   "../ThirdParty/ImGUI",
+  "../Modules/ImGUI/Source",
   "../ThirdParty/PerlinNoise",
   "../ThirdParty/JSON/single_include"
 }
@@ -102,7 +100,7 @@ libdirs {
 
 links {
   "OptickCore",
-  getPlatformPostfix("Dementia"),
+  (getPlatformPostfix("Dementia") .. ".lib"),
   "assimp-vc140-mt",
   "IrrXML"
 }
@@ -229,15 +227,16 @@ else
   libdirs { (dirPrefix) .. "packages/directxtk_desktop_2015.2018.11.20.1/lib/x64/Release" }
 end
 
+
 if not isUWP then
 ------------------------------------------------------- Editor Project -----------------------------------------------------
 
-group "Engine/Modules"
+group "Editor"
 project "Havana"
-    kind "StaticLib"
+    kind "ConsoleApp"
   systemversion "10.0.14393.0"
 language "C++"
-targetdir "../Build/%{cfg.buildcfg}"
+targetdir ((dirPrefix) .. "Build/%{cfg.buildcfg}")
 location "../Modules/Havana"
 includedirs {
   "../Modules/Havana/Source/",
@@ -252,11 +251,17 @@ vpaths {
   ["Source"] = "../Source/*.*"
 }
 
-  removelinks {
-  	"MitchEngine",
-	"Havana"
+  links {
+    (getPlatformPostfix("MitchEngine") .. ".lib")
+  }
+  dependson {
+    getPlatformPostfix("MitchEngine")
   }
 
+  configuration "not *Editor"
+    kind "StaticLib"
+
+  configuration {}
 ------------------------------------------------------- ImGui Project ------------------------------------------------------
 
 group "Engine/ThirdParty"
@@ -269,7 +274,7 @@ kind "StaticLib"
 systemversion "10.0.14393.0"
 language "C++"
 targetdir "../Build/%{cfg.buildcfg}"
-location "../ThirdParty/ImGUI"
+location "../Modules/ImGUI"
 removeincludedirs "*"
 removelinks "*"
 includedirs {
@@ -277,17 +282,27 @@ includedirs {
 	"../ThirdParty/ImGUI/examples"
 }
 files {
+  "../Modules/ImGUI/Source/**.*",
   "../ThirdParty/ImGUI/*.h",
   "../ThirdParty/ImGUI/*.cpp",
-  "../ThirdParty/ImGuizmo/ImGuizmo.*",
+  "../ThirdParty/ImGuizmo/ImGuizmo.h",
+  "../ThirdParty/ImGuizmo/ImGuizmo.cpp",
   "../ThirdParty/ImGUI/**/*win32.h",
   "../ThirdParty/ImGUI/**/*win32.cpp",
-  "../ThirdParty/ImGUI/**/*dx11.*"
+  "../ThirdParty/ImGUI/**/*dx11.h",
+  "../ThirdParty/ImGUI/**/*dx11.cpp"
+}
+
+vpaths {
+  ["ImGUI"] = "../ThirdParty/ImGUI/**.*",
+  ["Source"] = "../Modules/ImGUI/Source/*.*"
 }
 
 end
 
 ------------------------------------------------------- Utility Project ------------------------------------------------------
+
+group "Engine/Modules"
 
 project (getPlatformPostfix("Dementia"))
 kind "StaticLib"
@@ -376,9 +391,6 @@ else
     "../Source/**/Graphics/Common/*.*",
     "../Source/**/Graphics/Content/*.*"
   }
-  links {
-    (getPlatformPostfix("Havana") .. ".lib")
-  }
   postbuildcommands {
     "fxc /T ps_4_0_level_9_3 /Fo Assets\\Shaders\\SimplePixelShader.cso Assets\\Shaders\\SimplePixelShader.hlsl",
     "fxc /T vs_4_0_level_9_3 /Fo Assets\\Shaders\\SimpleVertexShader.cso Assets\\Shaders\\SimpleVertexShader.hlsl",
@@ -445,6 +457,7 @@ function GenerateGameSolution()
     deploy "true"
   end
   project ((getPlatformPostfix(ProjectName)))
+
   if (isUWP) then
     kind "StaticLib"
     system "windowsuniversal"
@@ -452,7 +465,6 @@ function GenerateGameSolution()
   else
     kind "ConsoleApp"
   end
-
   systemversion "10.0.14393.0"
   language "C++"
   targetdir "Build/%{cfg.buildcfg}"
@@ -461,7 +473,9 @@ function GenerateGameSolution()
     "Game/Source"
   }
   links {
-    (getPlatformPostfix("MitchEngine") .. ".lib")
+    (getPlatformPostfix("MitchEngine") .. ".lib"),
+	"ImGui.lib",
+	"Dementia.lib"
   }
   dependson {
     getPlatformPostfix("MitchEngine")
@@ -480,4 +494,6 @@ function GenerateGameSolution()
     "Game/Source",
     "."
   }
+  configuration "*Editor" 
+    kind "StaticLib"
 end

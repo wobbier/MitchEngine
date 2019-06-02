@@ -1,0 +1,31 @@
+#pragma once
+#include <string>
+#include "Math/Vector3.h"
+#include "Math/Vector2.h"
+#include <imgui.h>
+
+namespace HavanaUtils
+{
+	static void Text(const std::string& Name, const Vector3& Vector)
+	{
+		ImGui::Text(Name.c_str());
+
+		ImGui::Text("X: %f", Vector.X());
+		ImGui::SameLine();
+		ImGui::Text("Y: %f", Vector.Y());
+		ImGui::SameLine();
+		ImGui::Text("Z: %f", Vector.Z());
+	}
+	static void Text(const std::string& Name, const Vector2& Vector)
+	{
+		ImGui::Text(Name.c_str());
+
+		ImGui::Text("X: %f", Vector.X());
+		ImGui::SameLine();
+		ImGui::Text("Y: %f", Vector.Y());
+	}
+	static void EditableVector3(const std::string& Name, Vector3& Vector)
+	{
+		ImGui::DragFloat3(Name.c_str(), &Vector[0], 0.005f);
+	}
+}

@@ -20,7 +20,6 @@ class ModelResource
 {
 	friend class RenderCore;
 public:
-	ModelResource();
 	ModelResource(const FilePath& path);
 	~ModelResource();
 

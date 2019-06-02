@@ -6,6 +6,8 @@
 #include <Windows.h>
 #include <WinUser.h>
 
+ME_SINGLETON_IMPLEMENTATION(Input)
+
 #pragma region KeyboardInput
 
 #if ME_PLATFORM_UWP
