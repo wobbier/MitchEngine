@@ -106,6 +106,7 @@ void AssetBrowser::Recursive(Directory& dir)
 			ImGui::TreePop();
 		}
 	}
+	int i = 0;
 	for (auto& files : dir.Files)
 	{
 		// we have a file
@@ -126,7 +127,27 @@ void AssetBrowser::Recursive(Directory& dir)
 			ImGui::Image(Icons["File"]->CubesTexture, ImVec2(16, 16));
 		}
 		ImGui::SameLine();
-		ImGui::Text(files.Name.c_str());
+		//ImGui::Text(files.Name.c_str());
+		int node_clicked = -1;
+		ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
+		node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen; // ImGuiTreeNodeFlags_Bullet
+		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 3));
+		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(-5, 3));
+		ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, files.Name.c_str());
+		if (ImGui::IsItemClicked())
+		{
+			node_clicked = i;
+		}
+
+		if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
+		{
+			files.FullPath = dir.FullPath;
+			ImGui::SetDragDropPayload("DND_DEMO_CELL", &files, sizeof(AssetDescriptor));
+			ImGui::Text(files.Name.c_str());
+			ImGui::EndDragDropSource();
+		}
+		ImGui::PopStyleVar(2);
+		i++;
 	}
 }
 
@@ -174,7 +195,7 @@ bool AssetBrowser::ProccessDirectoryRecursive(std::string& dir, Directory& dirRe
 					return false;
 				}
 				dirRef.Files.emplace_back(AssetDescriptor{ newdir, File(FilePath(file.path().string() + ".meta")) });
-				const std::string& data = dirRef.Files.back().MetaFile.Read();
+				const std::string & data = dirRef.Files.back().MetaFile.Read();
 				if (data.empty())
 				{
 					dirRef.Files.back().MetaFile.Write("{}");
@@ -194,7 +215,7 @@ bool AssetBrowser::ProccessDirectoryRecursive(std::string& dir, Directory& dirRe
 	return false;
 }
 
-bool AssetBrowser::Contains(const std::string & key)
+bool AssetBrowser::Contains(const std::string& key)
 {
 	return Paths.find(key) != Paths.end();
 }

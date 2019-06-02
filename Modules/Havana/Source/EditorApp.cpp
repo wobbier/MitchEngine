@@ -48,7 +48,7 @@ void EditorApp::OnUpdate(float DeltaTime)
 			, [this]() {
 			m_isGameRunning = false;
 			m_isGamePaused = false;
-			
+			Editor->ClearSelection();
 			GetEngine().LoadScene("Assets/Alley.lvl");
 		});
 
@@ -62,14 +62,11 @@ void EditorApp::OnUpdate(float DeltaTime)
 
 	if (IsGameRunning())
 	{
-		mGame->OnUpdate(DeltaTime);
 	}
 }
 
 void EditorApp::OnEnd()
 {
-
-	mGame->OnEnd();
 
 	//destroy(mGame);
 }
@@ -83,8 +80,6 @@ void EditorApp::OnInitialize()
 	}
 	GetEngine().GetWorld().lock()->AddCore<EditorCore>(*EditorSceneManager);
 	GetEngine().LoadScene("Assets/Alley.lvl");
-
-	mGame->OnInitialize();
 }
 
 void EditorApp::PostRender()
@@ -97,7 +92,6 @@ void EditorApp::StartGame()
 	if (!m_isGameRunning)
 	{
 		m_isGameRunning = true;
-		mGame->OnStart();
 	}
 }
 
@@ -124,28 +118,4 @@ bool EditorApp::OnEvent(const BaseEvent& evt)
 	}
 
 	return false;
-}
-
-void EditorApp::LoadGameDLL()
-{
-	HMODULE mod = LoadLibrary(L"Game.dll");
-	if (mod)
-	{
-		typedef Game* (*CreateGameFunc)(const char*, Engine*);
-		typedef void (*DestroyGameFunc)(Game*);
-		CreateGameFunc create = (CreateGameFunc)GetProcAddress(mod, "CreateGame");
-		DestroyGameFunc destroy = (DestroyGameFunc)GetProcAddress(mod, "DestroyGame");
-
-		if (!create || !destroy)
-		{
-			std::cout << "Couldn't find" << std::endl;
-			return;
-		}
-		mGame = create("test", &GetEngine());
-
-		if (!mGame)
-		{
-			std::cout << "Game failed to create" << std::endl;
-		}
-	}
 }

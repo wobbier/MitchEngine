@@ -12,7 +12,6 @@ public:
 	virtual void OnUpdate(float DeltaTime) = 0;
 	virtual void OnEnd() = 0;
 	virtual void PostRender() = 0;
-	class Engine* mEngine = nullptr;
 	ME_NONCOPYABLE(Game)
 	ME_NONMOVABLE(Game)
 };

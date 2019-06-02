@@ -35,14 +35,17 @@ void Model::Init()
 		ModelShader = new Moonlight::ShaderCommand("Assets/Shaders/SimpleVertexShader.cso", "Assets/Shaders/SimplePixelShader.cso");
 		ModelHandle->SetShader(ModelShader);
 		auto parentEnt = GetEngine().GetWorld().lock()->GetEntity(Parent);
-		for (auto child : ModelHandle->RootNode.Nodes[0].Meshes)
+		if (ModelHandle->RootNode.Nodes.size() > 0)
 		{
-			auto ent = GetEngine().GetWorld().lock()->CreateEntity();
-			Transform& trans = ent.lock()->AddComponent<Transform>(child->Name);
-			Mesh& ref = ent.lock()->AddComponent<Mesh>(child);
-			ref.MeshShader = ModelShader;
-			ref.MeshMaterial = child->material;
-			trans.SetParent(parentEnt.lock()->GetComponent<Transform>());
+			for (auto child : ModelHandle->RootNode.Nodes[0].Meshes)
+			{
+				auto ent = GetEngine().GetWorld().lock()->CreateEntity();
+				Transform& trans = ent.lock()->AddComponent<Transform>(child->Name);
+				Mesh& ref = ent.lock()->AddComponent<Mesh>(child);
+				ref.MeshShader = ModelShader;
+				ref.MeshMaterial = child->material;
+				trans.SetParent(parentEnt.lock()->GetComponent<Transform>());
+			}
 		}
 	}
 }

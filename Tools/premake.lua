@@ -494,8 +494,6 @@ function GenerateGameSolution()
     "Game/Source",
     "."
   }
-  
-  configuration "*Editor"
-    kind "SharedLib"
-	targetname "Game"
+  configuration "*Editor" 
+    kind "StaticLib"
 end

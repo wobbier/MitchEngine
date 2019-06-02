@@ -43,6 +43,8 @@ public:
 	void EditTransform(const float* cameraView, float* cameraProjection, float* matrix);
 	void AddComponentPopup();
 
+	void ClearSelection();
+
 	class Entity* SelectedEntity = nullptr;
 	class Transform* SelectedTransform = nullptr;
 	class BaseCore* SelectedCore = nullptr;

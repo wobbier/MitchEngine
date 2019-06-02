@@ -32,8 +32,6 @@ public:
 	class EditorCore* EditorSceneManager = nullptr;
 
 	virtual bool OnEvent(const BaseEvent& evt) override;
-	void LoadGameDLL();
-	Game* mGame = nullptr;
 	bool m_isGameRunning = false;
 	bool m_isGamePaused = false;
 };

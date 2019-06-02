@@ -10,32 +10,7 @@
 
 class Game;
 class IWindow;
-#ifndef ME_SINGLETON_DEFINITION2
-#define ME_SINGLETON_DEFINITION2(T)\
-public:\
-	static T& GetInstance(void)\
-	{\
-	return *engineInstance;\
-	}\
-	static T * GetInstancePtr(void)\
-	{\
-	return engineInstance;\
-	}\
-private:\
-	T(const T&) = delete;\
-	T& operator=(const T&) = delete;\
-	T(T&&) = delete;\
-	T& operator=(T&&) = delete;
-#endif
 
-namespace {
-	Engine* engineInstance;
-}
-#ifndef COMPILING_DLL
-#define DLLEXPORT __declspec(dllexport)
-#else
-#define DLLEXPORT __declspec(dllimport)
-#endif
 class Engine
 	: public EventReceiver
 {
@@ -85,6 +60,7 @@ private:
 	float FrameTime = 0.0f;
 	bool m_isInitialized = false;
 
-	ME_SINGLETON_DEFINITION2(Engine)
+	ME_SINGLETON_DEFINITION(Engine)
 };
-DLLEXPORT Engine& GetEngine();
+
+Engine& GetEngine();

@@ -4,7 +4,6 @@
 int main()
 {
 	EditorApp* app = new EditorApp();
-	app->LoadGameDLL();
 	GetEngine().Init(app);
 	GetEngine().Run();
 
