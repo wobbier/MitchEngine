@@ -287,8 +287,6 @@ files {
   "../Modules/ImGUI/Source/**.*",
   "../ThirdParty/ImGUI/*.h",
   "../ThirdParty/ImGUI/*.cpp",
-  "../ThirdParty/ImGuizmo/ImGuizmo.h",
-  "../ThirdParty/ImGuizmo/ImGuizmo.cpp",
   "../ThirdParty/ImGUI/**/*win32.h",
   "../ThirdParty/ImGUI/**/*win32.cpp",
   "../ThirdParty/ImGUI/**/*dx11.h",

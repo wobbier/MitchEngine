@@ -31,9 +31,9 @@ void EditorCore::Init()
 	EditorCamera = new Camera();
 	Camera::EditorCamera = EditorCamera;
 
-	TransformEntity = GetWorld().CreateEntity();
-	TransformEntity.lock()->AddComponent<Transform>();
-	TransformEntity.lock()->AddComponent<Model>("Assets/Models/TransformGizmo.fbx");
+	//TransformEntity = GetWorld().CreateEntity();
+	//TransformEntity.lock()->AddComponent<Transform>();
+	//TransformEntity.lock()->AddComponent<Model>("Assets/Models/TransformGizmo.fbx");
 }
 
 void EditorCore::Update(float dt)
@@ -44,7 +44,6 @@ void EditorCore::Update(float dt)
 	auto Animatables = GetEntities();
 	if(m_editor->IsWorldViewFocused())
 	{
-
 		{
 			if (Instance.IsKeyDown(KeyCode::RightButton))
 			{
@@ -141,15 +140,15 @@ void EditorCore::Update(float dt, Transform* rootTransform)
 	OPTICK_EVENT("SceneGraph::Update");
 	Update(dt);
 	RootTransform = rootTransform;
-	gizmo->Update(m_editor->SelectedTransform, Camera::EditorCamera);
-	if (m_editor->SelectedTransform)
-	{
-		if (TransformEntity.lock())
-		{
-			auto& trans = TransformEntity.lock()->GetComponent<Transform>();
-			trans.SetPosition(m_editor->SelectedTransform->GetPosition());
-		}
-	}
+	//gizmo->Update(m_editor->SelectedTransform, Camera::EditorCamera);
+	//if (m_editor->SelectedTransform)
+	//{
+	//	if (TransformEntity.lock())
+	//	{
+	//		auto& trans = TransformEntity.lock()->GetComponent<Transform>();
+	//		trans.SetPosition(m_editor->SelectedTransform->GetPosition());
+	//	}
+	//}
 }
 
 bool EditorCore::OnEvent(const BaseEvent& evt)

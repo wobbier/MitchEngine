@@ -49,8 +49,3 @@ void Model::Init()
 		}
 	}
 }
-
-unsigned int Model::GetId()
-{
-	return Id;
-}

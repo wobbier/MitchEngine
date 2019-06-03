@@ -24,7 +24,7 @@
 #include <chrono>
 #include "Events/EventManager.h"
 #include "Engine/Input.h"
-#include "../ImGuizmo/ImGuizmo.h"
+#include "ImGuizmo.h"
 #include <DirectXMath.h>
 #include "Math/Vector3.h"
 #include "EditorApp.h"
@@ -863,7 +863,7 @@ void Havana::BrowseDirectory(const FilePath & path)
 		return;
 	}
 
-	for (const auto& entry : fs::directory_iterator(path.FullPath))
+	for (const auto& entry : std::filesystem::directory_iterator(path.FullPath))
 	{
 		FilePath filePath(entry.path().string());
 		if (filePath.LocalPath.find(".lvl") != std::string::npos)
@@ -884,7 +884,6 @@ const Vector2& Havana::GetGameOutputSize() const
 
 bool Havana::OnEvent(const BaseEvent & evt)
 {
-
 	if (evt.GetEventId() == TestEditorEvent::GetEventId())
 	{
 		const TestEditorEvent& test = static_cast<const TestEditorEvent&>(evt);

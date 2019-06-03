@@ -32,6 +32,11 @@ public:
 		{
 			FullPath = Directory + LocalPath;
 		}
+		path = LocalPath.rfind("Assets");
+		if (path != std::string::npos)
+		{
+			LocalPath = LocalPath.substr(path, LocalPath.size());
+		}
 
 		pos = FullPath.find_last_of("/");
 		Directory = FullPath.substr(0, pos + 1);

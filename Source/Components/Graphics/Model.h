@@ -5,6 +5,7 @@
 #include "imgui.h"
 #include "Graphics/ShaderCommand.h"
 #include "FilePath.h"
+#include <filesystem>
 
 class Model
 	: public Component<Model>
@@ -21,26 +22,54 @@ public:
 	std::shared_ptr<class ModelResource> ModelHandle = nullptr;
 	class Moonlight::ShaderCommand* ModelShader = nullptr;
 
-	unsigned int GetId();
-
 	virtual void Deserialize(const json& inJson) final {
 		ModelPath = FilePath(inJson["ModelPath"]);
 	}
 private:
 	FilePath ModelPath;
-	unsigned int Id = 0;
 	bool IsInitialized = false;
 #if ME_EDITOR
 
 	virtual void OnEditorInspect() final
 	{
-		ImGui::Text("Model ID:");
-		ImGui::SameLine();
-		ImGui::Text(std::to_string(Id).c_str());
-
 		ImGui::Text("Path:");
 		ImGui::SameLine();
 		ImGui::Text(ModelPath.LocalPath.c_str());
+
+		if (!ModelHandle)
+		{
+			static std::vector<FilePath> Models;
+			FilePath path = FilePath("Assets");
+			if (Models.empty())
+			{
+				for (const auto& entry : std::filesystem::directory_iterator(path.FullPath))
+				{
+					FilePath filePath(entry.path().string());
+					if ((filePath.LocalPath.rfind(".fbx") != std::string::npos || filePath.LocalPath.rfind(".obj") != std::string::npos)
+						&& filePath.LocalPath.rfind(".meta") == std::string::npos)
+					{
+						Models.push_back(filePath);
+					}
+				}
+			}
+
+			struct FuncHolder {
+				static bool ItemGetter(void* data, int idx, const char** out_str) {
+					std::vector<FilePath>* data2 = static_cast<std::vector<FilePath>*>(data);
+					
+					*out_str = &*(data2->at(idx).LocalPath.c_str());
+
+					return true;
+				}
+			};
+			int selected_item = 0;
+			if (ImGui::Combo("Model", &selected_item, &FuncHolder::ItemGetter, &Models, Models.size()))
+			{
+				ModelPath = Models.at(selected_item);
+				Models.clear();
+				Init();
+			}
+		}
 		//if (ModelHandle)
 		//{
 		//	for (int i = 0; i < ModelHandle->Meshes.size(); ++i)

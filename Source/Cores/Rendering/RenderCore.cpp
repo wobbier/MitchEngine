@@ -92,11 +92,11 @@ void RenderCore::Update(float dt)
 	for (auto& InEntity : Renderables)
 	{
 		Transform& transform = InEntity.GetComponent<Transform>();
-		if (InEntity.HasComponent<Model>())
-		{
-			Model& model = InEntity.GetComponent<Model>();
-			m_renderer->UpdateMatrix(model.GetId(), transform.GetMatrix());
-		}
+		//if (InEntity.HasComponent<Model>())
+		//{
+		//	Model& model = InEntity.GetComponent<Model>();
+		//	m_renderer->UpdateMatrix(model.GetId(), transform.GetMatrix());
+		//}
 
 		if (InEntity.HasComponent<Mesh>())
 		{
@@ -107,7 +107,10 @@ void RenderCore::Update(float dt)
 		if (InEntity.HasComponent<Rigidbody>())
 		{
 			Rigidbody& rigidbody = InEntity.GetComponent<Rigidbody>();
-			m_renderer->UpdateMatrix(rigidbody.Id, rigidbody.GetMat());
+			if (rigidbody.IsRigidbodyInitialized())
+			{
+				m_renderer->UpdateMatrix(rigidbody.Id, rigidbody.GetMat());
+			}
 		}
 	}
 }
