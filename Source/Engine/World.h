@@ -8,6 +8,7 @@
 #include "Dementia.h"
 #include "Resource/ResourceCache.h"
 #include "Pointers.h"
+#include <vector>
 
 class World
 {
@@ -49,6 +50,7 @@ public:
 	ME_NONCOPYABLE(World);
 	ME_NONMOVABLE(World);
 	bool IsLoading = true;
+	void AddCoreByName(const std::string& core);
 private:
 	CoreArray Cores;
 

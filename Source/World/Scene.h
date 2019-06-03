@@ -3,6 +3,7 @@
 #include "FilePath.h"
 #include "Components/Transform.h"
 #include "File.h"
+#include "Engine/World.h"
 
 class Scene
 {
@@ -82,6 +83,11 @@ public:
 			{
 				LoadSceneObject(ent, nullptr);
 			}
+			json& cores = level["Cores"];
+			for (json& core : cores)
+			{
+				LoadCore(core);
+			}
 		}
 		else
 		{
@@ -92,6 +98,12 @@ public:
 		GameWorld->IsLoading = false;
 		return true;
 	}
+
+	void LoadCore(json& core)
+	{
+		GameWorld->AddCoreByName(core["Type"]);
+	}
+
 
 	SharedPtr<World> GameWorld;
 

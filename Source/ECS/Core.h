@@ -3,20 +3,39 @@
 #include "ClassTypeId.h"
 #include "ComponentFilter.h"
 #include <vector>
+#include "CoreDetail.h"
 
 class World;
+
+#define ME_REGISTER_CORE(TYPE)                      \
+	namespace details {                                  \
+    namespace                                            \
+    {                                                    \
+        template<class T>                                \
+        class CoreRegistration;                     \
+                                                         \
+        template<>                                       \
+        class CoreRegistration<TYPE>                \
+        {                                                \
+            static const CoreRegistryEntry<TYPE>& reg;       \
+        };                                               \
+                                                         \
+        const CoreRegistryEntry<TYPE>&                       \
+            CoreRegistration<TYPE>::reg =           \
+                CoreRegistryEntry<TYPE>::Instance(#TYPE);    \
+    }}
 
 class BaseCore
 {
 public:
 	BaseCore() = default;
 	BaseCore(const char* CompName, const ComponentFilter& Filter);
-	virtual ~BaseCore() = 0;
+	virtual ~BaseCore() {};
 
 	// Each core must update each loop
-	virtual void Update(float dt) = 0;
-	virtual void OnEntityAdded(Entity& NewEntity) = 0;
-	virtual void OnEntityRemoved(Entity& InEntity) = 0;
+	virtual void Update(float dt) {};
+	virtual void OnEntityAdded(Entity& NewEntity) {};
+	virtual void OnEntityRemoved(Entity& InEntity) {};
 
 	// Get The World attached to the Core
 	World& GetWorld() const;
@@ -37,7 +56,7 @@ protected:
 	class Engine* GameEngine;
 private:
 	// Separate init from construction code.
-	virtual void Init() = 0;
+	virtual void Init() {};
 
 	// Add an entity to the core
 	void Add(Entity& InEntity);

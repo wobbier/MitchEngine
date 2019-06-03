@@ -2,6 +2,7 @@
 #include "ECS/Core.h"
 #include <btBulletDynamicsCommon.h>
 #include "Math/Vector3.h"
+#include "ECS/CoreDetail.h"
 
 class PhysicsCore
 	: public Core<PhysicsCore>
@@ -33,3 +34,5 @@ public:
 
 	virtual void OnEntityAdded(Entity& NewEntity) final;
 };
+
+ME_REGISTER_CORE(PhysicsCore)

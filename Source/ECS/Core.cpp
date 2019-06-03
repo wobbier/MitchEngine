@@ -36,10 +36,6 @@ void BaseCore::Add(Entity& InEntity)
 	OnEntityAdded(InEntity);
 }
 
-BaseCore::~BaseCore()
-{
-}
-
 void BaseCore::Remove(Entity& InEntity)
 {
 	OnEntityRemoved(InEntity);

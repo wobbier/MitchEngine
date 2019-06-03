@@ -3,6 +3,8 @@
 #include "Components/Transform.h"
 #include <unordered_map>
 #include "Pointers.h"
+#include "Logger.h"
+#include "ECS/CoreDetail.h"
 
 #define DEFAULT_ENTITY_POOL_SIZE 50
 
@@ -19,6 +21,19 @@ World::World(std::size_t InEntityPoolSize) :
 
 World::~World()
 {
+}
+
+void World::AddCoreByName(const std::string& core)
+{
+	CoreRegistry& reg = GetCoreRegistry();
+	CoreRegistry::iterator it = reg.find(core);
+
+	if (it == reg.end()) {
+		Logger::GetInstance().Log(Logger::LogType::Error, "Factory not found for core " + core);
+		//return nullptr;
+	}
+	std::pair<BaseCore*, TypeId> createdCore = it->second();
+	AddCore(*createdCore.first, createdCore.second);
 }
 
 WeakPtr<Entity> World::CreateEntity()
