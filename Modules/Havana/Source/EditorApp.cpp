@@ -49,7 +49,7 @@ void EditorApp::OnUpdate(float DeltaTime)
 			m_isGameRunning = false;
 			m_isGamePaused = false;
 			Editor->ClearSelection();
-			GetEngine().LoadScene("Assets/Alley.lvl");
+			//GetEngine().LoadScene("Assets/Alley.lvl");
 		});
 
 	EditorSceneManager->Update(DeltaTime, GetEngine().SceneNodes->RootTransform);
@@ -79,7 +79,7 @@ void EditorApp::OnInitialize()
 		EditorSceneManager = new EditorCore(Editor.get());
 	}
 	GetEngine().GetWorld().lock()->AddCore<EditorCore>(*EditorSceneManager);
-	GetEngine().LoadScene("Assets/Alley.lvl");
+	//GetEngine().LoadScene("Assets/Alley.lvl");
 }
 
 void EditorApp::PostRender()
@@ -110,6 +110,7 @@ bool EditorApp::OnEvent(const BaseEvent& evt)
 	if (evt.GetEventId() == NewSceneEvent::GetEventId())
 	{
 		const NewSceneEvent& test = static_cast<const NewSceneEvent&>(evt);
+		GetEngine().LoadScene("");
 		GetEngine().GetWorld().lock()->Cleanup();
 		GetEngine().InitGame();
 		GetEngine().GetWorld().lock()->Simulate();

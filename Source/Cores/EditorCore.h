@@ -2,6 +2,7 @@
 #include "ECS/Core.h"
 #include "Events/EventReceiver.h"
 #include "TranslationGizmo.h"
+#include <string>
 
 class Transform;
 class Havana;
@@ -29,7 +30,7 @@ public:
 	Transform* RootTransform = nullptr;
 
 private:
-
+	bool TryingToSaveNewScene = false;
 	float FlyingSpeed = 5.f;
 
 	float LookSensitivity = .15f;
@@ -49,5 +50,5 @@ private:
 #if ME_EDITOR
 	virtual void OnEditorInspect() final;
 #endif
-	void SaveWorld();
+	//void SaveWorld(const std::string& path, Transform* root);
 };

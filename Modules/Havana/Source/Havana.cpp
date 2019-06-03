@@ -273,13 +273,13 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 			}
 			if (ImGui::MenuItem("Save", "Ctrl+S"))
 			{
-				SaveSceneEvent evt;
-				if (m_engine->CurrentScene && !std::filesystem::exists(m_engine->CurrentScene->Path.FullPath))
+				if (m_engine->CurrentScene/* && !std::filesystem::exists(m_engine->CurrentScene->Path.FullPath)*/)
 				{
-					ImGui::OpenPopup("help_popup");
+					SaveSceneEvent evt;
+					//ImGui::OpenPopup("help_popup");
+					evt.Fire();
 				}
 
-				//evt.Fire();
 			}
 			if (ImGui::MenuItem("Save As..")) {}
 			ImGui::Separator();
@@ -887,7 +887,7 @@ bool Havana::OnEvent(const BaseEvent & evt)
 	if (evt.GetEventId() == TestEditorEvent::GetEventId())
 	{
 		const TestEditorEvent& test = static_cast<const TestEditorEvent&>(evt);
-		Logger::GetInstance().Log(Logger::LogType::Info, "We did it fam" + test.Path);
+		//Logger::GetInstance().Log(Logger::LogType::Info, "We did it fam" + test.Path);
 		return true;
 	}
 	return false;

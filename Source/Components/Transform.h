@@ -15,6 +15,7 @@ class Transform :
 {
 	typedef Component<Transform> Base;
 	friend class Havana;
+	friend class Scene;
 	friend class EditorCore;
 	friend class SceneGraph;
 	friend class PhysicsCore;

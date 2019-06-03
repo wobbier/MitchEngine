@@ -9,6 +9,11 @@
 #include "Components/Camera.h"
 #include "Components/Cameras/FlyingCamera.h"
 #include "Components/Graphics/Model.h"
+#include "Engine/Engine.h"
+#include "FilePath.h"
+#include "nlohmann/json.hpp"
+#include "ECS/Core.h"
+#include "World/Scene.h"
 
 EditorCore::EditorCore(Havana* editor)
 	: Base(ComponentFilter().Excludes<Transform>())
@@ -42,7 +47,7 @@ void EditorCore::Update(float dt)
 
 	Input& Instance = Input::GetInstance();
 	auto Animatables = GetEntities();
-	if(m_editor->IsWorldViewFocused())
+	if (m_editor->IsWorldViewFocused())
 	{
 		{
 			if (Instance.IsKeyDown(KeyCode::RightButton))
@@ -135,11 +140,24 @@ void EditorCore::Update(float dt)
 	}
 }
 
-void EditorCore::Update(float dt, Transform* rootTransform)
+void EditorCore::Update(float dt, Transform * rootTransform)
 {
 	OPTICK_EVENT("SceneGraph::Update");
 	Update(dt);
 	RootTransform = rootTransform;
+	if (TryingToSaveNewScene)
+	{
+		ImGui::OpenPopup("SaveNewScenePopup");
+		if (ImGui::BeginPopup("SaveNewScenePopup"))
+		{
+			char output[256] = "";
+			if (ImGui::InputText("Destination", output, IM_ARRAYSIZE(output), ImGuiInputTextFlags_EnterReturnsTrue))
+			{
+				GetEngine().CurrentScene->Save(output, rootTransform);
+				TryingToSaveNewScene = false;
+			}
+		}
+	}
 	//gizmo->Update(m_editor->SelectedTransform, Camera::EditorCamera);
 	//if (m_editor->SelectedTransform)
 	//{
@@ -151,18 +169,25 @@ void EditorCore::Update(float dt, Transform* rootTransform)
 	//}
 }
 
-bool EditorCore::OnEvent(const BaseEvent& evt)
+bool EditorCore::OnEvent(const BaseEvent & evt)
 {
 	if (evt.GetEventId() == SaveSceneEvent::GetEventId())
 	{
-		SaveWorld();
+		if (GetEngine().CurrentScene->IsNewScene())
+		{
+			TryingToSaveNewScene = true;
+		}
+		else
+		{
+			GetEngine().CurrentScene->Save(GetEngine().CurrentScene->Path.LocalPath, RootTransform);
+		}
 		return true;
 	}
 
 	return false;
 }
 
-void EditorCore::SaveSceneRecursively(json& d, Transform* CurrentTransform)
+void EditorCore::SaveSceneRecursively(json & d, Transform * CurrentTransform)
 {
 	OPTICK_EVENT("SceneGraph::UpdateRecursively");
 	json thing;
@@ -189,7 +214,7 @@ void EditorCore::SaveSceneRecursively(json& d, Transform* CurrentTransform)
 	d.push_back(thing);
 }
 
-void EditorCore::OnEntityAdded(Entity& NewEntity)
+void EditorCore::OnEntityAdded(Entity & NewEntity)
 {
 	Base::OnEntityAdded(NewEntity);
 
@@ -213,30 +238,35 @@ void EditorCore::OnEditorInspect()
 
 	EditorCameraTransform->OnEditorInspect();
 }
-
-void EditorCore::SaveWorld()
-{
-	File worldFile(FilePath("Assets/Alley.lvl"));
-	json world;
-
-	if (RootTransform->Children.size() > 0)
-	{
-		for (Transform* Child : RootTransform->Children)
-		{
-			SaveSceneRecursively(world["Scene"], Child);
-		}
-	}
-
-	json& cores = world["Cores"];
-	for (auto& core : GetWorld().GetAllCores())
-	{
-		json coreDef;
-		coreDef["Type"] = (*core).GetName();
-		cores.push_back(coreDef);
-	}
-
-	worldFile.Write(world.dump(4));
-	std::cout << world.dump(4) << std::endl;
-}
+//
+//void EditorCore::SaveWorld(const std::string & path)
+//{
+//	//if (GetEngine().CurrentScene->IsNewScene())
+//	{
+//		//TryingToSaveNewScene = true;
+//
+//		File worldFile(FilePath(path));
+//		json world;
+//
+//		if (RootTransform->Children.size() > 0)
+//		{
+//			for (Transform* Child : RootTransform->Children)
+//			{
+//				SaveSceneRecursively(world["Scene"], Child);
+//			}
+//		}
+//
+//		json& cores = world["Cores"];
+//		for (auto& core : GetWorld().GetAllCores())
+//		{
+//			json coreDef;
+//			coreDef["Type"] = (*core).GetName();
+//			cores.push_back(coreDef);
+//		}
+//
+//		worldFile.Write(world.dump(4));
+//		std::cout << world.dump(4) << std::endl;
+//	}
+//}
 
 #endif
