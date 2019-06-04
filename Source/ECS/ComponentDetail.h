@@ -1,6 +1,7 @@
 #pragma once
 #include "Component.h"
 #include "Entity.h"
+#include <iostream>
 
 typedef BaseComponent* (*CreateComponentFunc)(Entity&);
 typedef std::map<std::string, CreateComponentFunc> ComponentRegistry;

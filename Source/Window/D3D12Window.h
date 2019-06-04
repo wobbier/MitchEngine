@@ -7,7 +7,7 @@
 
 #if ME_PLATFORM_WIN64
 
-class D3D12Window
+class D3D12Window final
 	: public IWindow
 {
 public:
@@ -52,6 +52,9 @@ public:
 	virtual void Maximize() final;
 
 	LRESULT HitTest(POINT cursor) const;
+
+	virtual void Exit() final;
+
 private:
 	bool ExitRequested = false;
 	bool canMoveWindow = false;

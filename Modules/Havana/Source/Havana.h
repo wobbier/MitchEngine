@@ -26,8 +26,10 @@ public:
 	void DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<void()> PauseGameFunc, std::function<void()> StopGameFunc);
 	void DrawLog();
 
-	void UpdateWorld(class World* world, class Transform* root, const std::vector<Entity> & ents);
+	void UpdateWorld(class World* world, class Transform* root, const std::vector<Entity>& ents);
 	void UpdateWorldRecursive(class Transform* root);
+
+	void DrawEntityRightClickMenu(class Transform* transform);
 
 	void Render(const Moonlight::CameraData& EditorCamera);
 
@@ -39,16 +41,19 @@ public:
 	const bool IsGameFocused() const;
 	const bool IsWorldViewFocused() const;
 
-
 	void EditTransform(const float* cameraView, float* cameraProjection, float* matrix);
 	void AddComponentPopup();
+
+	void DrawAddComponentList(class Entity* entity);
+
+	void DrawAddCoreList();
 
 	void ClearSelection();
 
 	class Entity* SelectedEntity = nullptr;
 	class Transform* SelectedTransform = nullptr;
 	class BaseCore* SelectedCore = nullptr;
-	Moonlight::Renderer* Renderer;
+	Moonlight::Renderer* Renderer = nullptr;
 	Vector2 RenderSize;
 	Vector2 GameRenderSize;
 	Vector2 WorldViewRenderSize;
@@ -60,8 +65,9 @@ public:
 
 	virtual bool OnEvent(const BaseEvent& evt) override;
 private:
-	class Engine* m_engine;
-	class EditorApp* m_app;
+	class Engine* m_engine = nullptr;
+	class EditorApp* m_app = nullptr;
+	class Transform* m_rootTransform = nullptr;
 	bool m_isGameFocused = false;
 	bool m_isWorldViewFocused = false;
 	bool OpenScene = false;

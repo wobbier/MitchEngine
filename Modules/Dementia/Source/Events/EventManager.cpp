@@ -1,8 +1,5 @@
 #include "Events/EventManager.h"
 #include "Events/EventReceiver.h"
-#include "Singleton.h"
-
-ME_SINGLETON_IMPLEMENTATION(EventManager)
 
 EventManager::EventManager()
 {

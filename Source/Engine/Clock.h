@@ -50,3 +50,5 @@ private:
 
 	ME_SINGLETON_DEFINITION(Clock)
 };
+
+Clock& GetClock();

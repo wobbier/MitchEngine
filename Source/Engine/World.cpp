@@ -32,8 +32,11 @@ void World::AddCoreByName(const std::string& core)
 		Logger::GetInstance().Log(Logger::LogType::Error, "Factory not found for core " + core);
 		//return nullptr;
 	}
-	std::pair<BaseCore*, TypeId> createdCore = it->second();
-	AddCore(*createdCore.first, createdCore.second);
+	std::pair<BaseCore*, TypeId> createdCore = it->second(false);
+	if (!HasCore(createdCore.second))
+	{
+		AddCore(*it->second(true).first, createdCore.second);
+	}
 }
 
 WeakPtr<Entity> World::CreateEntity()
@@ -185,6 +188,11 @@ void World::AddCore(BaseCore& InCore, TypeId InCoreTypeId)
 	}
 	InCore.GameWorld = this;
 	InCore.Init();
+}
+
+bool World::HasCore(TypeId InType)
+{
+	return Cores.find(InType) != Cores.end();
 }
 
 std::vector<BaseCore*> World::GetAllCores()

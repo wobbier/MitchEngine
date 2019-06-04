@@ -30,6 +30,17 @@ public:
 	template <typename TCore>
 	void AddCore(TCore& inCore);
 
+	template <typename T>
+	T& GetCore();
+
+	template <typename T, typename... Args>
+	T& AddCore(Args&& ... args);
+
+	template <typename TCore>
+	bool HasCore();
+
+	bool HasCore(TypeId InType);
+
 	std::vector<BaseCore*> GetAllCores();
 
 	WeakPtr<Entity> CreateEntity();
@@ -121,4 +132,26 @@ template<typename TCore>
 void World::AddCore(TCore& InCore)
 {
 	AddCore(InCore, TCore::GetTypeId());
+}
+
+template <typename T, typename... Args>
+T& World::AddCore(Args&& ... args)
+{
+	if (HasCore(T::GetTypeId()))
+	{
+		return GetCore<T>();
+	}
+	return AddCore(new T{ std::forward<Args>(args)... }, T::GetTypeId());
+}
+
+template <typename T>
+T& World::GetCore()
+{
+	*Cores.find(T::GetTypeId())->second.get();
+}
+
+template <typename TCore>
+bool World::HasCore()
+{
+	return Cores.find(TCore::GetTypeId()) != Cores.end();
 }

@@ -68,6 +68,7 @@ Havana::Havana(Engine* GameEngine, EditorApp* app, Moonlight::Renderer* renderer
 
 	std::vector<TypeId> events;
 	events.push_back(TestEditorEvent::GetEventId());
+	events.push_back(LoadSceneEvent::GetEventId());
 	EventManager::GetInstance().RegisterReceiver(this, events);
 }
 
@@ -332,9 +333,12 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 			ImGui::EndMenu();
 		}
 
-		if (ImGui::ImageButton(Icons["Play"]->CubesTexture, ImVec2(30.f, 30.f)) || Input::GetInstance().IsKeyDown(KeyCode::F5))
+		if (!m_app->IsGameRunning())
 		{
-			StartGameFunc();
+			if (ImGui::ImageButton(Icons["Play"]->CubesTexture, ImVec2(30.f, 30.f)) || Input::GetInstance().IsKeyDown(KeyCode::F5))
+			{
+				StartGameFunc();
+			}
 		}
 
 		if (m_app->IsGameRunning())
@@ -432,7 +436,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 		//ImGui::SameLine(0.f);
 		if (ImGui::ImageButton(Icons["Close"]->CubesTexture, ImVec2(30.f, 30.f)))
 		{
-			m_engine->StopGame();
+			m_engine->GetWindow()->Exit();
 		}
 		ImGui::PopStyleColor(3);
 		bool hoveringButtons = ImGui::IsMouseHoveringWindow();
@@ -486,8 +490,6 @@ void Havana::DrawLog()
 
 void Havana::AddComponentPopup()
 {
-	// Simple selection popup
-	// (If you want to show the current selection inside the Button itself, you may want to build a string using the "###" operator to preserve a constant ID with a variable label)
 	ImGui::PushItemWidth(-100);
 	if (ImGui::Button("Add Component.."))
 	{
@@ -497,26 +499,48 @@ void Havana::AddComponentPopup()
 
 	if (ImGui::BeginPopup("my_select_popup"))
 	{
-		ImGui::Text("Components");
-		ImGui::Separator();
+		DrawAddComponentList(SelectedEntity);
 
-		ComponentRegistry& reg = GetComponentRegistry();
-
-		for (auto& thing : reg)
-		{
-			if (ImGui::Selectable(thing.first.c_str()))
-			{
-				if (SelectedEntity)
-				{
-					SelectedEntity->AddComponentByName(thing.first);
-				}
-				if (SelectedTransform)
-				{
-					m_engine->GetWorld().lock()->GetEntity(SelectedTransform->Parent).lock()->AddComponentByName(thing.first);
-				}
-			}
-		}
 		ImGui::EndPopup();
+	}
+}
+
+void Havana::DrawAddComponentList(Entity* entity)
+{
+	ImGui::Text("Components");
+	ImGui::Separator();
+
+	ComponentRegistry& reg = GetComponentRegistry();
+
+	for (auto& thing : reg)
+	{
+		if (ImGui::Selectable(thing.first.c_str()))
+		{
+			if (entity)
+			{
+				entity->AddComponentByName(thing.first);
+			}
+			/*if (SelectedTransform)
+			{
+				m_engine->GetWorld().lock()->GetEntity(SelectedTransform->Parent).lock()->AddComponentByName(thing.first);
+			}*/
+		}
+	}
+}
+
+void Havana::DrawAddCoreList()
+{
+	ImGui::Text("Cores");
+	ImGui::Separator();
+
+	CoreRegistry& reg = GetCoreRegistry();
+
+	for (auto& thing : reg)
+	{
+		if (ImGui::Selectable(thing.first.c_str()))
+		{
+			GetEngine().GetWorld().lock()->AddCoreByName(thing.first);
+		}
 	}
 }
 
@@ -529,7 +553,32 @@ void Havana::ClearSelection()
 
 void Havana::UpdateWorld(World * world, Transform * root, const std::vector<Entity> & ents)
 {
-	ImGui::Begin("World");
+	m_rootTransform = root;
+	ImGui::Begin("World", 0, ImGuiWindowFlags_MenuBar);
+	ImGui::BeginMenuBar();
+	if (ImGui::BeginMenu("Create"))
+	{
+		if (ImGui::BeginMenu("Entity"))
+		{
+			if (ImGui::IsItemClicked())
+			{
+				SelectedEntity = m_engine->GetWorld().lock()->CreateEntity().lock().get();
+			}
+			if (ImGui::MenuItem("Entity Transform"))
+			{
+				SelectedEntity = m_engine->GetWorld().lock()->CreateEntity().lock().get();
+				SelectedEntity->AddComponent<Transform>("New Entity");
+			}
+			ImGui::EndMenu();
+		}
+		if (ImGui::BeginMenu("Core"))
+		{
+			DrawAddCoreList();
+			ImGui::EndMenu();
+		}
+		ImGui::EndMenu();
+	}
+	ImGui::EndMenuBar();
 	if (ImGui::CollapsingHeader("Scene", ImGuiTreeNodeFlags_DefaultOpen))
 	{
 		UpdateWorldRecursive(root);
@@ -629,21 +678,12 @@ void Havana::UpdateWorldRecursive(Transform * root)
 	int i = 0;
 	for (Transform* var : root->Children)
 	{
+		bool open = false;
 		ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | (SelectedTransform == var ? ImGuiTreeNodeFlags_Selected : 0);
 		if (var->Children.empty())
 		{
 			node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen; // ImGuiTreeNodeFlags_Bullet
-			ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, var->Name.c_str());
-			if (ImGui::IsItemClicked())
-			{
-				SelectedTransform = var;
-				SelectedCore = nullptr;
-				SelectedEntity = m_engine->GetWorld().lock()->GetEntity(SelectedTransform->Parent).lock().get();
-			}
-		}
-		else
-		{
-			bool node_open = ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, var->Name.c_str());
+			open = ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, var->Name.c_str());
 			if (ImGui::IsItemClicked())
 			{
 				SelectedTransform = var;
@@ -651,14 +691,60 @@ void Havana::UpdateWorldRecursive(Transform * root)
 				SelectedEntity = m_engine->GetWorld().lock()->GetEntity(SelectedTransform->Parent).lock().get();
 			}
 
-			if (node_open)
+			DrawEntityRightClickMenu(var);
+
+			//if (open)
+			//{
+			//	// your tree code stuff
+			//	ImGui::TreePop();
+			//}
+		}
+		else
+		{
+			open = ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, var->Name.c_str());
+			if (ImGui::IsItemClicked())
+			{
+				SelectedTransform = var;
+				SelectedCore = nullptr;
+				SelectedEntity = m_engine->GetWorld().lock()->GetEntity(SelectedTransform->Parent).lock().get();
+			}
+
+			DrawEntityRightClickMenu(var);
+
+			if (open)
 			{
 				UpdateWorldRecursive(var);
 				ImGui::TreePop();
+				//ImGui::TreePop();
 			}
 		}
 
 		i++;
+	}
+}
+
+void Havana::DrawEntityRightClickMenu(Transform* transform)
+{
+	if (ImGui::BeginPopupContextItem())
+	{
+		if (ImGui::MenuItem("Delete", "Del"))
+		{
+			//GetEngine().GetWorld().lock()->GetEntity(transform->Parent);
+		}
+		if (ImGui::BeginMenu("Add Component"))
+		{
+			DrawAddComponentList(GetEngine().GetWorld().lock()->GetEntity(transform->Parent).lock().get());
+			ImGui::EndMenu();
+		}
+		ImGui::MenuItem("Hello");
+		ImGui::MenuItem("Sailor");
+		if (ImGui::BeginMenu("Recurse.."))
+		{
+			//ShowExampleMenuFile();
+			ImGui::EndMenu();
+		}
+		// your popup code
+		ImGui::EndPopup();
 	}
 }
 
@@ -697,7 +783,10 @@ void Havana::Render(const Moonlight::CameraData & EditorCamera)
 	}
 	ImGui::End();
 
-	ImGui::Begin("Gizmo");
+	ImGui::Begin("World View");
+	// Get the current cursor position (where your window is)
+	ImVec2 pos = ImGui::GetCursorScreenPos();
+
 	DirectX::XMFLOAT4X4 objView;
 	if (SelectedTransform)
 	{
@@ -715,73 +804,29 @@ void Havana::Render(const Moonlight::CameraData & EditorCamera)
 	  0.f, 0.f, 1.f, 0.f,
 	  0.f, 0.f, 0.f, 1.f };
 
-	if (ImGui::IsKeyPressed(90))
-		mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
-	if (ImGui::IsKeyPressed(69))
-		mCurrentGizmoOperation = ImGuizmo::ROTATE;
-	if (ImGui::IsKeyPressed(82)) // r Key
-		mCurrentGizmoOperation = ImGuizmo::SCALE;
-	if (ImGui::RadioButton("Translate", mCurrentGizmoOperation == ImGuizmo::TRANSLATE))
-		mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
-	ImGui::SameLine();
-	if (ImGui::RadioButton("Rotate", mCurrentGizmoOperation == ImGuizmo::ROTATE))
-		mCurrentGizmoOperation = ImGuizmo::ROTATE;
-	ImGui::SameLine();
-	if (ImGui::RadioButton("Scale", mCurrentGizmoOperation == ImGuizmo::SCALE))
-		mCurrentGizmoOperation = ImGuizmo::SCALE;
 	float matrixTranslation[3], matrixRotation[3], matrixScale[3];
 	ImGuizmo::DecomposeMatrixToComponents(&objView._11, matrixTranslation, matrixRotation, matrixScale);
-	ImGui::InputFloat3("Tr", matrixTranslation, 3);
-	if (SelectedTransform)
-	{
-		HavanaUtils::EditableVector3("RtVec", SelectedTransform->Rotation);
-		matrixRotation[0] = SelectedTransform->Rotation[0];// * DirectX::XM_PI / 180.f;
-		matrixRotation[1] = SelectedTransform->Rotation[1];// * DirectX::XM_PI / 180.f;
-		matrixRotation[2] = SelectedTransform->Rotation[2];// * DirectX::XM_PI / 180.f;
-	}
-	else
-	{
-		ImGui::InputFloat3("Rt", matrixRotation, 3);
-	}
-	ImGui::InputFloat3("Sc", matrixScale, 3);
+	//ImGui::InputFloat3("Tr", matrixTranslation, 3);
+	//if (SelectedTransform)
+	//{
+	//	HavanaUtils::EditableVector3("RtVec", SelectedTransform->Rotation);
+	//	matrixRotation[0] = SelectedTransform->Rotation[0];// * DirectX::XM_PI / 180.f;
+	//	matrixRotation[1] = SelectedTransform->Rotation[1];// * DirectX::XM_PI / 180.f;
+	//	matrixRotation[2] = SelectedTransform->Rotation[2];// * DirectX::XM_PI / 180.f;
+	//}
+	//else
+	//{
+	//	ImGui::InputFloat3("Rt", matrixRotation, 3);
+	//}
+	//ImGui::InputFloat3("Sc", matrixScale, 3);
 	ImGuizmo::RecomposeMatrixFromComponents(matrixTranslation, matrixRotation, matrixScale, objectMatrix);
 
-	if (mCurrentGizmoOperation != ImGuizmo::SCALE)
-	{
-		if (ImGui::RadioButton("Local", mCurrentGizmoMode == ImGuizmo::LOCAL))
-			mCurrentGizmoMode = ImGuizmo::LOCAL;
-		ImGui::SameLine();
-		if (ImGui::RadioButton("World", mCurrentGizmoMode == ImGuizmo::WORLD))
-			mCurrentGizmoMode = ImGuizmo::WORLD;
-	}
-	if (ImGui::IsKeyPressed(83))
-		useSnap = !useSnap;
-	ImGui::Checkbox("", &useSnap);
-	ImGui::SameLine();
-
-	switch (mCurrentGizmoOperation)
-	{
-	case ImGuizmo::TRANSLATE:
-		ImGui::InputFloat3("Snap", &snap[0]);
-		break;
-	case ImGuizmo::ROTATE:
-		ImGui::InputFloat("Angle Snap", &snap[0]);
-		break;
-	case ImGuizmo::SCALE:
-		ImGui::InputFloat("Scale Snap", &snap[0]);
-		break;
-	}
-	ImGui::End();
-
-	ImGui::Begin("World View");
 	{
 		m_isWorldViewFocused = ImGui::IsWindowFocused();
 
 
 		if (Renderer->RTT2->shaderResourceViewMap != nullptr)
 		{
-			// Get the current cursor position (where your window is)
-			ImVec2 pos = ImGui::GetCursorScreenPos();
 			ImVec2 maxPos = ImVec2(pos.x + ImGui::GetWindowSize().x, pos.y + ImGui::GetWindowSize().y);
 			WorldViewRenderSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
 			WorldViewRenderLocation = Vector2(pos.x, pos.y);
@@ -833,6 +878,45 @@ void Havana::Render(const Moonlight::CameraData & EditorCamera)
 			}
 		}
 	}
+	if (ImGui::IsKeyPressed(90))
+		mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
+	if (ImGui::IsKeyPressed(69))
+		mCurrentGizmoOperation = ImGuizmo::ROTATE;
+	if (ImGui::IsKeyPressed(82)) // r Key
+		mCurrentGizmoOperation = ImGuizmo::SCALE;
+	if (ImGui::RadioButton("Translate", mCurrentGizmoOperation == ImGuizmo::TRANSLATE))
+		mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
+	ImGui::SameLine();
+	if (ImGui::RadioButton("Rotate", mCurrentGizmoOperation == ImGuizmo::ROTATE))
+		mCurrentGizmoOperation = ImGuizmo::ROTATE;
+	ImGui::SameLine();
+	if (ImGui::RadioButton("Scale", mCurrentGizmoOperation == ImGuizmo::SCALE))
+		mCurrentGizmoOperation = ImGuizmo::SCALE;
+	if (mCurrentGizmoOperation != ImGuizmo::SCALE)
+	{
+		if (ImGui::RadioButton("Local", mCurrentGizmoMode == ImGuizmo::LOCAL))
+			mCurrentGizmoMode = ImGuizmo::LOCAL;
+		ImGui::SameLine();
+		if (ImGui::RadioButton("World", mCurrentGizmoMode == ImGuizmo::WORLD))
+			mCurrentGizmoMode = ImGuizmo::WORLD;
+	}
+	//if (ImGui::IsKeyPressed(83))
+	//	useSnap = !useSnap;
+	//ImGui::Checkbox("", &useSnap);
+	//ImGui::SameLine();
+
+	//switch (mCurrentGizmoOperation)
+	//{
+	//case ImGuizmo::TRANSLATE:
+	//	ImGui::InputFloat3("Snap", &snap[0]);
+	//	break;
+	//case ImGuizmo::ROTATE:
+	//	ImGui::InputFloat("Angle Snap", &snap[0]);
+	//	break;
+	//case ImGuizmo::SCALE:
+	//	ImGui::InputFloat("Scale Snap", &snap[0]);
+	//	break;
+	//}
 	ImGui::End();
 	ImGui::PopStyleVar(3);
 
@@ -888,6 +972,12 @@ bool Havana::OnEvent(const BaseEvent & evt)
 	{
 		const TestEditorEvent& test = static_cast<const TestEditorEvent&>(evt);
 		//Logger::GetInstance().Log(Logger::LogType::Info, "We did it fam" + test.Path);
+		return true;
+	}
+	if (evt.GetEventId() == LoadSceneEvent::GetEventId())
+	{
+		const LoadSceneEvent& test = static_cast<const LoadSceneEvent&>(evt);
+		ClearSelection();
 		return true;
 	}
 	return false;

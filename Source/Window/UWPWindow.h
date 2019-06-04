@@ -51,6 +51,9 @@ public:
 	virtual void Minimize() final;
 	virtual void ExitMaximize() final;
 
+
+	virtual void Exit() override;
+
 private:
 	bool ExitRequested = false;
 

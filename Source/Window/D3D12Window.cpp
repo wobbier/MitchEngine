@@ -281,6 +281,11 @@ LRESULT D3D12Window::HitTest(POINT cursor) const
 	}
 }
 
+void D3D12Window::Exit()
+{
+	ExitRequested = true;
+}
+
 POINT prevPos;
 bool dragWindow = false;
 #if ME_EDITOR

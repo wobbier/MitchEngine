@@ -21,8 +21,6 @@
 #include "Components/Cameras/FlyingCamera.h"
 #include "Cores/Cameras/FlyingCameraCore.h"
 
-ME_SINGLETON_IMPLEMENTATION(Engine)
-
 Engine& GetEngine()
 {
 	return Engine::GetInstance();

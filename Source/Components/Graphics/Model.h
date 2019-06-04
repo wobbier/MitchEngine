@@ -62,7 +62,7 @@ private:
 					return true;
 				}
 			};
-			int selected_item = 0;
+			static int selected_item = 0;
 			if (ImGui::Combo("Model", &selected_item, &FuncHolder::ItemGetter, &Models, Models.size()))
 			{
 				ModelPath = Models.at(selected_item);

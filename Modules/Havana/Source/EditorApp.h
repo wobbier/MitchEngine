@@ -3,6 +3,8 @@
 #include "Havana.h"
 #include "Events/EventReceiver.h"
 
+// I don't like this
+#include "../../Game/Source/ComponentRegistry.h"
 class Engine;
 
 class EditorApp

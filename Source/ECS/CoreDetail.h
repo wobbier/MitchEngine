@@ -3,10 +3,11 @@
 #include <map>
 #include <utility>
 #include "ClassTypeId.h"
+#include <iostream>
 
 class BaseCore;
 
-typedef std::pair<BaseCore*, TypeId>(*CreateCoreFunc)();
+typedef std::pair<BaseCore*, TypeId>(*CreateCoreFunc)(bool);
 typedef std::map<std::string, CreateCoreFunc> CoreRegistry;
 
 inline CoreRegistry& GetCoreRegistry()
@@ -16,8 +17,12 @@ inline CoreRegistry& GetCoreRegistry()
 }
 
 template<class T>
-std::pair<BaseCore*, TypeId> CreateCore() {
-	return std::make_pair(new T(), T::GetTypeId());
+std::pair<BaseCore*, TypeId> CreateCore(bool create) {
+	if (create)
+	{
+		return std::make_pair(new T(), T::GetTypeId());
+	}
+	return std::make_pair(nullptr, T::GetTypeId());
 }
 
 template<class T>
@@ -26,6 +31,7 @@ struct CoreRegistryEntry
 public:
 	static CoreRegistryEntry<T>& Instance(const std::string& name)
 	{
+		std::cout << name.c_str();
 		static CoreRegistryEntry<T> inst(name);
 		return inst;
 	}

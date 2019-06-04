@@ -65,4 +65,6 @@ void SceneGraph::OnEditorInspect()
 	BaseCore::OnEditorInspect();
 }
 
+ME_REGISTER_CORE(SceneGraph)
+
 #endif

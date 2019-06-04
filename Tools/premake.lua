@@ -252,6 +252,9 @@ vpaths {
   ["Source"] = "../Source/**.*",
   ["Source"] = "../Source/*.*"
 }
+  libdirs {
+  	  "../../Build/%{cfg.buildcfg}"
+  }
 
   links {
     (getPlatformPostfix("MitchEngine") .. ".lib")
@@ -262,7 +265,14 @@ vpaths {
 
   configuration "not *Editor"
     kind "StaticLib"
-
+	
+  configuration "*Editor"
+  links {
+    (getPlatformPostfix(ProjectName) .. ".lib")
+  }
+  dependson {
+    getPlatformPostfix(ProjectName)
+  }
   configuration {}
 ------------------------------------------------------- ImGui Project ------------------------------------------------------
 
