@@ -760,7 +760,7 @@ void Havana::Render(const Moonlight::CameraData & EditorCamera)
 		m_isGameFocused = ImGui::IsWindowFocused();
 
 
-		if (Renderer->RTT->shaderResourceViewMap != nullptr)
+		if (Renderer->GameViewRTT->shaderResourceViewMap != nullptr)
 		{
 			// Get the current cursor position (where your window is)
 			ImVec2 pos = ImGui::GetCursorScreenPos();
@@ -772,11 +772,11 @@ void Havana::Render(const Moonlight::CameraData & EditorCamera)
 			// Under OpenGL the ImGUI image type is GLuint
 			// So make sure to use "(void *)tex" but not "&tex"
 			ImGui::GetWindowDrawList()->AddImage(
-				(void*)Renderer->RTT->shaderResourceViewMap,
+				(void*)Renderer->GameViewRTT->shaderResourceViewMap,
 				ImVec2(pos.x, pos.y),
 				ImVec2(maxPos),
 				ImVec2(0, 0),
-				ImVec2(Mathf::Clamp(0.f, 1.0f, GameRenderSize.X() / Renderer->RTT->Size.X()), Mathf::Clamp(0.f, 1.0f, GameRenderSize.Y() / Renderer->RTT->Size.Y())));
+				ImVec2(Mathf::Clamp(0.f, 1.0f, GameRenderSize.X() / Renderer->GameViewRTT->Size.X()), Mathf::Clamp(0.f, 1.0f, GameRenderSize.Y() / Renderer->GameViewRTT->Size.Y())));
 			//ImVec2(WorldViewRenderSize.X() / RenderSize.X(), WorldViewRenderSize.Y() / RenderSize.Y()));
 
 		}
@@ -825,7 +825,7 @@ void Havana::Render(const Moonlight::CameraData & EditorCamera)
 		m_isWorldViewFocused = ImGui::IsWindowFocused();
 
 
-		if (Renderer->RTT2->shaderResourceViewMap != nullptr)
+		if (Renderer->SceneViewRTT->shaderResourceViewMap != nullptr)
 		{
 			ImVec2 maxPos = ImVec2(pos.x + ImGui::GetWindowSize().x, pos.y + ImGui::GetWindowSize().y);
 			WorldViewRenderSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
@@ -834,11 +834,11 @@ void Havana::Render(const Moonlight::CameraData & EditorCamera)
 			// Under OpenGL the ImGUI image type is GLuint
 			// So make sure to use "(void *)tex" but not "&tex"
 			ImGui::GetWindowDrawList()->AddImage(
-				(void*)Renderer->RTT2->shaderResourceViewMap,
+				(void*)Renderer->SceneViewRTT->shaderResourceViewMap,
 				ImVec2(pos.x, pos.y),
 				ImVec2(maxPos),
 				ImVec2(0, 0),
-				ImVec2(Mathf::Clamp(0.f, 1.0f, WorldViewRenderSize.X() / Renderer->RTT2->Size.X()), Mathf::Clamp(0.f, 1.0f, WorldViewRenderSize.Y() / Renderer->RTT2->Size.Y())));
+				ImVec2(Mathf::Clamp(0.f, 1.0f, WorldViewRenderSize.X() / Renderer->SceneViewRTT->Size.X()), Mathf::Clamp(0.f, 1.0f, WorldViewRenderSize.Y() / Renderer->SceneViewRTT->Size.Y())));
 
 			ImGuizmo::SetRect(pos.x, pos.y, WorldViewRenderSize.X(), WorldViewRenderSize.Y());
 			DirectX::XMMATRIX perspectiveMatrix = DirectX::XMMatrixPerspectiveFovRH(

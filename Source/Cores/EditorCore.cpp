@@ -156,6 +156,7 @@ void EditorCore::Update(float dt, Transform * rootTransform)
 				GetEngine().CurrentScene->Save(output, rootTransform);
 				TryingToSaveNewScene = false;
 			}
+			ImGui::EndPopup();
 		}
 	}
 	//gizmo->Update(m_editor->SelectedTransform, Camera::EditorCamera);

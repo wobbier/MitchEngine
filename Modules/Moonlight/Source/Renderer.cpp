@@ -63,6 +63,10 @@ namespace Moonlight
 		Grid = new Plane("Assets/skybox.jpg", GetDevice());
 		Sky = new SkyBox("Assets/skybox.jpg");
 
+		// Prepare the constant buffer to send it to the graphics device.
+		Sunlight.dir = XMFLOAT4(0.25f, 0.5f, -1.0f, 1.0f);
+		Sunlight.ambient = XMFLOAT4(0.2f, 0.2f, 0.2f, 1.0f);
+		Sunlight.diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	}
 
 	void Renderer::SetWindow()
@@ -90,10 +94,10 @@ namespace Moonlight
 
 		auto context = m_device->GetD3DDeviceContext();
 
-		delete RTT;
-		delete RTT2;
-		RTT = new RenderTexture(m_device);
-		RTT2 = new RenderTexture(m_device);
+		delete GameViewRTT;
+		delete SceneViewRTT;
+		GameViewRTT = new RenderTexture(m_device);
+		SceneViewRTT = new RenderTexture(m_device);
 		// Reset the viewport to target the whole screen.
 		auto viewport = m_device->GetScreenViewport();
 
@@ -111,26 +115,22 @@ namespace Moonlight
 		DirectX::XMVECTORF32 color = { {darkGrey, darkGrey, darkGrey, 1.0f} };
 		// Clear the back buffer and depth stencil view.
 		context->ClearRenderTargetView(m_device->GetBackBufferRenderTargetView(), color);
-		context->ClearRenderTargetView(RTT->renderTargetViewMap, color);
-		context->ClearRenderTargetView(RTT2->renderTargetViewMap, color);
+		context->ClearRenderTargetView(GameViewRTT->renderTargetViewMap, color);
+		context->ClearRenderTargetView(SceneViewRTT->renderTargetViewMap, color);
 		context->ClearDepthStencilView(m_device->GetDepthStencilView(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
-		// Prepare the constant buffer to send it to the graphics device.
-		light.dir = XMFLOAT4(0.25f, 0.5f, -1.0f, 1.0f);
-		light.ambient = XMFLOAT4(0.2f, 0.2f, 0.2f, 1.0f);
-		light.diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 
 		//m_perFrameBufferData.light = light;
-		context->UpdateSubresource1(m_perFrameBuffer.Get(), 0, NULL, &light, 0, 0, 0);
+		context->UpdateSubresource1(m_perFrameBuffer.Get(), 0, NULL, &Sunlight, 0, 0, 0);
 		context->PSSetConstantBuffers1(0, 1, m_perFrameBuffer.GetAddressOf(), nullptr, nullptr);
 
-		RTT->Resize(mainCamera.OutputSize);
-		RTT2->Resize(editorCamera.OutputSize);
+		GameViewRTT->Resize(mainCamera.OutputSize);
+		SceneViewRTT->Resize(editorCamera.OutputSize);
 		//m_device->GetD3DDeviceContext()->DiscardView1(m_device->GetDepthStencilView(), nullptr, 0);
 
 		// Reset render targets to the screen.
 #if ME_EDITOR
-		ID3D11RenderTargetView * const targets[1] = { RTT->renderTargetViewMap };
+		ID3D11RenderTargetView * const targets[1] = { GameViewRTT->renderTargetViewMap };
 #else
 		ID3D11RenderTargetView * const targets[1] = { m_device->GetBackBufferRenderTargetView() };
 #endif
@@ -149,7 +149,7 @@ namespace Moonlight
 
 		context->RSSetViewports(1, &screenViewport);
 
-		ID3D11RenderTargetView * const targets2[1] = { RTT2->renderTargetViewMap };
+		ID3D11RenderTargetView * const targets2[1] = { SceneViewRTT->renderTargetViewMap };
 		context->OMSetRenderTargets(1, targets2, m_device->GetDepthStencilView());
 		DrawScene(context, m_constantBufferSceneData, editorCamera);
 
@@ -200,8 +200,8 @@ namespace Moonlight
 		// This is a valid operation only when the existing contents will be entirely
 		// overwritten. If dirty or scroll rects are used, this call should be removed.
 		m_device->GetD3DDeviceContext()->DiscardView1(m_device->GetBackBufferRenderTargetView(), nullptr, 0);
-		m_device->GetD3DDeviceContext()->DiscardView1(RTT->shaderResourceViewMap, nullptr, 0);
-		m_device->GetD3DDeviceContext()->DiscardView1(RTT2->shaderResourceViewMap, nullptr, 0);
+		m_device->GetD3DDeviceContext()->DiscardView1(GameViewRTT->shaderResourceViewMap, nullptr, 0);
+		m_device->GetD3DDeviceContext()->DiscardView1(SceneViewRTT->shaderResourceViewMap, nullptr, 0);
 
 		// Discard the contents of the depth stencil.
 		m_device->GetD3DDeviceContext()->DiscardView1(m_device->GetDepthStencilView(), nullptr, 0);

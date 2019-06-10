@@ -18,9 +18,10 @@
 #include "Components/Lighting/Light.h"
 #include "Components/Graphics/Mesh.h"
 #include "Engine/Engine.h"
+#include "Components/Lighting/DirectionalLight.h"
 
 RenderCore::RenderCore()
-	: Base(ComponentFilter().Requires<Transform>().RequiresOneOf<Model>().RequiresOneOf<Rigidbody>().RequiresOneOf<Light>().RequiresOneOf<Mesh>())
+	: Base(ComponentFilter().Requires<Transform>().RequiresOneOf<Model>().RequiresOneOf<Rigidbody>().RequiresOneOf<Light>().RequiresOneOf<Mesh>().RequiresOneOf<DirectionalLight>())
 {
 	//m_sceneRenderer = std::unique_ptr<TestModelRenderer>(new TestModelRenderer(m_deviceResources));
 	m_renderer = &GetEngine().GetRenderer();
@@ -55,6 +56,13 @@ void RenderCore::OnEntityAdded(Entity& NewEntity)
 		command.SingleMesh = model.MeshReferece;
 		command.MeshShader = model.MeshShader;
 		model.Id = GetEngine().GetRenderer().PushMesh(command);
+	}
+	if (NewEntity.HasComponent<DirectionalLight>())
+	{
+		DirectionalLight& light = NewEntity.GetComponent<DirectionalLight>();
+		GetEngine().GetRenderer().Sunlight.ambient = light.Ambient;
+		GetEngine().GetRenderer().Sunlight.diffuse = light.Diffuse;
+		GetEngine().GetRenderer().Sunlight.dir = light.Direction;
 	}
 	//if (NewEntity.HasComponent<Rigidbody>())
 	//{
@@ -111,6 +119,13 @@ void RenderCore::Update(float dt)
 			{
 				m_renderer->UpdateMatrix(rigidbody.Id, rigidbody.GetMat());
 			}
+		}
+		if (InEntity.HasComponent<DirectionalLight>())
+		{
+			DirectionalLight& light = InEntity.GetComponent<DirectionalLight>();
+			m_renderer->Sunlight.ambient = light.Ambient;
+			m_renderer->Sunlight.diffuse = light.Diffuse;
+			m_renderer->Sunlight.dir = light.Direction;
 		}
 	}
 }

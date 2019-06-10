@@ -40,17 +40,23 @@ public:
 			FullPath = ProgramPath + assetPrefix + LocalPath;
 		}
 
+		path = LocalPath.rfind("Assets");
+		if (path != std::string::npos)
+		{
+			LocalPath = LocalPath.substr(path, LocalPath.size());
+		}
+
 #if ME_EDITOR
 		if (!std::filesystem::exists(FullPath))
 		{
-			assetPrefix = assetPrefix.append("Engine/");
-			FullPath = ProgramPath + assetPrefix + LocalPath;
+			std::string tempPath = ProgramPath + assetPrefix + "Engine/" + LocalPath;
+			if (std::filesystem::exists(tempPath))
+			{
+				FullPath = std::move(tempPath);
+				assetPrefix = assetPrefix.append("Engine/");
+			}
 		}
 #endif
-		if (!std::filesystem::exists(FullPath))
-		{
-			Logger::Log(Logger::LogType::Warning, "File doesn't exist." + LocalPath);
-		}
 		if (std::filesystem::is_regular_file(FullPath))
 		{
 			IsFile = true;
@@ -61,12 +67,6 @@ public:
 		{
 			IsFolder = true;
 			Directory = FullPath;
-		}
-
-		path = LocalPath.rfind("Assets");
-		if (path != std::string::npos)
-		{
-			LocalPath = assetPrefix + LocalPath.substr(path, LocalPath.size());
 		}
 		
 #if ME_PLATFORM_UWP

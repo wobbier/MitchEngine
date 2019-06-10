@@ -56,8 +56,9 @@ namespace Moonlight
 
 		void WindowResized(const Vector2& NewSize);
 
-		class RenderTexture* RTT = nullptr;
-		class RenderTexture* RTT2 = nullptr;
+		class RenderTexture* GameViewRTT = nullptr;
+		class RenderTexture* SceneViewRTT = nullptr;
+		LightCommand Sunlight;
 
 	private:
 		class SkyBox* Sky;
@@ -70,7 +71,6 @@ namespace Moonlight
 		Microsoft::WRL::ComPtr<ID3D11Buffer> m_perFrameBuffer;
 		ModelViewProjectionConstantBuffer m_constantBufferData;
 		ModelViewProjectionConstantBuffer m_constantBufferSceneData;
-		LightCommand light;
 
 		LightBuffer m_perFrameBufferData;
 
