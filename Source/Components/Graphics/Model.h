@@ -4,7 +4,7 @@
 #include <string>
 #include "imgui.h"
 #include "Graphics/ShaderCommand.h"
-#include "FilePath.h"
+#include "Path.h"
 #include <filesystem>
 
 class Model
@@ -23,10 +23,10 @@ public:
 	class Moonlight::ShaderCommand* ModelShader = nullptr;
 
 	virtual void Deserialize(const json& inJson) final {
-		ModelPath = FilePath(inJson["ModelPath"]);
+		ModelPath = Path(inJson["ModelPath"]);
 	}
 private:
-	FilePath ModelPath;
+	Path ModelPath;
 	bool IsInitialized = false;
 #if ME_EDITOR
 
@@ -38,13 +38,13 @@ private:
 
 		if (!ModelHandle)
 		{
-			static std::vector<FilePath> Models;
-			FilePath path = FilePath("Assets");
+			static std::vector<Path> Models;
+			Path path = Path("Assets");
 			if (Models.empty())
 			{
 				for (const auto& entry : std::filesystem::directory_iterator(path.FullPath))
 				{
-					FilePath filePath(entry.path().string());
+					Path filePath(entry.path().string());
 					if ((filePath.LocalPath.rfind(".fbx") != std::string::npos || filePath.LocalPath.rfind(".obj") != std::string::npos)
 						&& filePath.LocalPath.rfind(".meta") == std::string::npos)
 					{
@@ -55,7 +55,7 @@ private:
 
 			struct FuncHolder {
 				static bool ItemGetter(void* data, int idx, const char** out_str) {
-					std::vector<FilePath>* data2 = static_cast<std::vector<FilePath>*>(data);
+					std::vector<Path>* data2 = static_cast<std::vector<Path>*>(data);
 					
 					*out_str = &*(data2->at(idx).LocalPath.c_str());
 

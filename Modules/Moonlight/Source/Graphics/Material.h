@@ -53,7 +53,7 @@ namespace Moonlight
 				{
 					if (InJson["Textures"].contains(Texture::ToString(static_cast<TextureType>(type))))
 					{
-						SetTexture(static_cast<TextureType>(type), ResourceCache::GetInstance().Get<Texture>(FilePath(InJson["Textures"][Texture::ToString(static_cast<TextureType>(type))]["Path"])));
+						SetTexture(static_cast<TextureType>(type), ResourceCache::GetInstance().Get<Texture>(Path(InJson["Textures"][Texture::ToString(static_cast<TextureType>(type))]["Path"])));
 					}
 				}
 			}

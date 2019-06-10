@@ -1,8 +1,8 @@
 #include "Resource.h"
 #include "ResourceCache.h"
 
-Resource::Resource(const FilePath& path)
-	: Path(path)
+Resource::Resource(const Path& path)
+	: FilePath(path)
 {
 }
 
@@ -29,7 +29,7 @@ const ResourceCache* Resource::GetResourceCache() const
 	return Resources;
 }
 
-const FilePath& Resource::GetPath() const
+const Path& Resource::GetPath() const
 {
-	return Path;
+	return FilePath;
 }

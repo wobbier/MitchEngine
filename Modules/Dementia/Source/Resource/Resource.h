@@ -1,7 +1,7 @@
 #pragma once
 #include "ResourceCache.h"
 #include <string>
-#include "FilePath.h"
+#include "Path.h"
 
 class Resource
 {
@@ -14,12 +14,12 @@ public:
 
 	const ResourceCache* GetResourceCache() const;
 
-	const FilePath& GetPath() const;
+	const Path& GetPath() const;
 
 protected:
-	Resource(const FilePath& path);
+	Resource(const Path& path);
 	virtual ~Resource();
-	FilePath Path;
+	Path FilePath;
 
 private:
 	ResourceCache * Resources;

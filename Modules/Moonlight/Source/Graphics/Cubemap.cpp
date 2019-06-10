@@ -3,7 +3,7 @@
 #include "Cubemap.h"
 #include "Logger.h"
 
-Cubemap::Cubemap(const FilePath& InFilePath)
+Cubemap::Cubemap(const Path& InFilePath)
 	: Resource(InFilePath)
 {
 }

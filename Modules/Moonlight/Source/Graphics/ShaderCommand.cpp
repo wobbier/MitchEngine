@@ -32,8 +32,8 @@ namespace Moonlight
 		// I should compile the hlsl at runtime in debug
 
 		// Retrieve the shader source code from paths
-		FilePath vPath(InVertexPath);
-		FilePath fPath(InPixelPath);
+		Path vPath(InVertexPath);
+		Path fPath(InPixelPath);
 		std::vector<char> VertexSource = ResourceCache::GetInstance().Get<ShaderFile>(vPath)->Data;
 		std::vector<char> FragSource = ResourceCache::GetInstance().Get<ShaderFile>(fPath)->Data;
 		

@@ -36,7 +36,7 @@ Havana::Havana(Engine* GameEngine, EditorApp* app, Moonlight::Renderer* renderer
 	, m_engine(GameEngine)
 	, m_app(app)
 	, CurrentDirectory("Assets")
-	, m_assetBrowser(FilePath("Assets").FullPath, std::chrono::milliseconds(300))
+	, m_assetBrowser(Path("Assets").FullPath, std::chrono::milliseconds(300))
 {
 	InitUI();
 	m_assetBrowser.Start([](const std::string & path_to_watch, FileStatus status) -> void {
@@ -134,15 +134,15 @@ void Havana::InitUI()
 	ImGui_ImplWin32_Init(Renderer->GetDevice().m_window);
 	ImGui_ImplDX11_Init(Renderer->GetDevice().GetD3DDevice(), Renderer->GetDevice().GetD3DDeviceContext());
 
-	Icons["Close"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(FilePath("Assets/Havana/UI/Close.png"));
-	Icons["BugReport"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(FilePath("Assets/Havana/UI/BugReport.png"));
-	Icons["Maximize"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(FilePath("Assets/Havana/UI/Maximize.png"));
-	Icons["ExitMaximize"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(FilePath("Assets/Havana/UI/ExitMaximize.png"));
-	Icons["Minimize"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(FilePath("Assets/Havana/UI/Minimize.png"));
-	Icons["Play"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(FilePath("Assets/Havana/UI/Play.png"));
-	Icons["Pause"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(FilePath("Assets/Havana/UI/Pause.png"));
-	Icons["Stop"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(FilePath("Assets/Havana/UI/Stop.png"));
-	Icons["Info"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(FilePath("Assets/Havana/UI/Info.png"));
+	Icons["Close"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Close.png"));
+	Icons["BugReport"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/BugReport.png"));
+	Icons["Maximize"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Maximize.png"));
+	Icons["ExitMaximize"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/ExitMaximize.png"));
+	Icons["Minimize"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Minimize.png"));
+	Icons["Play"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Play.png"));
+	Icons["Pause"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Pause.png"));
+	Icons["Stop"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Stop.png"));
+	Icons["Info"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Info.png"));
 }
 
 bool show_demo_window = true;
@@ -203,11 +203,11 @@ void Havana::DrawOpenFilePopup()
 	}
 	if (ImGui::BeginPopupModal("Open Scene", &OpenScene, ImGuiWindowFlags_MenuBar))
 	{
-		BrowseDirectory(FilePath("Assets"));
+		BrowseDirectory(Path("Assets"));
 
 		for (auto& j : AssetDirectory)
 		{
-			FilePath path(j);
+			Path path(j);
 			ImGui::TreeNode(path.LocalPath.c_str());
 			if (ImGui::IsItemClicked())
 			{
@@ -371,7 +371,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 5.f));
 		if (ImGui::ImageButton(Icons["Info"]->CubesTexture, ImVec2(30.f, 30.f)))
 		{
-			if (m_engine->CurrentScene && !std::filesystem::exists(m_engine->CurrentScene->Path.FullPath))
+			if (m_engine->CurrentScene && !std::filesystem::exists(m_engine->CurrentScene->FilePath.FullPath))
 			{
 				ImGui::OpenPopup("help_popup");
 			}
@@ -670,7 +670,7 @@ void Havana::UpdateWorldRecursive(Transform * root)
 			{
 				auto ent = GetEngine().GetWorld().lock()->CreateEntity();
 				ent.lock()->AddComponent<Transform>(payload_n.Name.substr(0, payload_n.Name.find_last_of('.'))).SetParent(*root);
-				ent.lock()->AddComponent<Model>((payload_n.FullPath.FullPath + "/" + payload_n.Name));
+				ent.lock()->AddComponent<Model>((payload_n.FullPath.FullPath));
 			}
 		}
 		ImGui::EndDragDropTarget();
@@ -819,7 +819,7 @@ void Havana::Render(const Moonlight::CameraData & EditorCamera)
 	//	ImGui::InputFloat3("Rt", matrixRotation, 3);
 	//}
 	//ImGui::InputFloat3("Sc", matrixScale, 3);
-	ImGuizmo::RecomposeMatrixFromComponents(matrixTranslation, matrixRotation, matrixScale, objectMatrix);
+	ImGuizmo::RecomposeMatrixFromComponents(matrixTranslation, matrixRotation, matrixScale, &objView._11);
 
 	{
 		m_isWorldViewFocused = ImGui::IsWindowFocused();
@@ -867,11 +867,11 @@ void Havana::Render(const Moonlight::CameraData & EditorCamera)
 
 			//ImGuizmo::DrawGrid(&fView2._11, &fView._11, &idView._11, 10.f);
 			//ImGuizmo::DrawCube(&fView2._11, &fView._11, &idView._11);
-			ImGuizmo::Manipulate(&fView2._11, &fView._11, mCurrentGizmoOperation, mCurrentGizmoMode, objectMatrix, NULL, useSnap ? &snap[0] : NULL);
+			ImGuizmo::Manipulate(&fView2._11, &fView._11, mCurrentGizmoOperation, mCurrentGizmoMode, &objView._11, NULL, useSnap ? &snap[0] : NULL);
 
 			if (SelectedTransform)
 			{
-				ImGuizmo::DecomposeMatrixToComponents(objectMatrix, matrixTranslation, matrixRotation, matrixScale);
+				ImGuizmo::DecomposeMatrixToComponents(&objView._11, matrixTranslation, matrixRotation, matrixScale);
 				SelectedTransform->SetPosition(Vector3(matrixTranslation[0], matrixTranslation[1], matrixTranslation[2]));
 				SelectedTransform->SetRotation(Vector3(matrixRotation[0], matrixRotation[1], matrixRotation[2]));
 				//SelectedTransform->SetRotation(Vector3(matrixRotation[0] * 180.f / DirectX::XM_PI, matrixRotation[1] * 180.f / DirectX::XM_PI, matrixRotation[2] * 180.f / DirectX::XM_PI));
@@ -940,7 +940,7 @@ const bool Havana::IsWorldViewFocused() const
 	return m_isWorldViewFocused;
 }
 
-void Havana::BrowseDirectory(const FilePath & path)
+void Havana::BrowseDirectory(const Path & path)
 {
 	if (CurrentDirectory.FullPath == path.FullPath && !AssetDirectory.empty())
 	{
@@ -949,7 +949,7 @@ void Havana::BrowseDirectory(const FilePath & path)
 
 	for (const auto& entry : std::filesystem::directory_iterator(path.FullPath))
 	{
-		FilePath filePath(entry.path().string());
+		Path filePath(entry.path().string());
 		if (filePath.LocalPath.find(".lvl") != std::string::npos)
 		{
 			AssetDirectory.push_back(filePath.FullPath);

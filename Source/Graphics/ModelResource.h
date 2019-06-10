@@ -2,7 +2,7 @@
 #include "Graphics/Texture.h"
 #include "Graphics/MeshData.h"
 #include "Resource/Resource.h"
-#include "FilePath.h"
+#include "Path.h"
 #include "Graphics/MeshData.h"
 #include <string>
 #include <vector>
@@ -20,7 +20,7 @@ class ModelResource
 {
 	friend class RenderCore;
 public:
-	ModelResource(const FilePath& path);
+	ModelResource(const Path& path);
 	~ModelResource();
 
 	void SetShader(Moonlight::ShaderCommand* shader);

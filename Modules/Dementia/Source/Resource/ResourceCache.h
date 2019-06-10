@@ -3,7 +3,7 @@
 #include <map>
 #include <string>
 #include "Resource.h"
-#include "FilePath.h"
+#include "Path.h"
 #include "Singleton.h"
 #include "ClassTypeId.h"
 #include <memory>
@@ -23,7 +23,7 @@ public:
 	size_t GetStackSize();
 
 	template<class T, typename... Args>
-	std::shared_ptr<T> Get(const FilePath& InFilePath, Args&& ... args);
+	std::shared_ptr<T> Get(const Path& InFilePath, Args&& ... args);
 
 	void TryToDestroy(Resource* resource);
 
@@ -34,7 +34,7 @@ private:
 };
 
 template<class T, typename... Args>
-std::shared_ptr<T> ResourceCache::Get(const FilePath& InFilePath, Args&& ... args)
+std::shared_ptr<T> ResourceCache::Get(const Path& InFilePath, Args&& ... args)
 {
 	TypeId id = ClassTypeId<Resource>::GetTypeId<T>();
 	std::map<std::string, std::shared_ptr<Resource>>::iterator I;

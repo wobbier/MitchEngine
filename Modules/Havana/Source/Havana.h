@@ -59,7 +59,7 @@ public:
 	Vector2 WorldViewRenderSize;
 	Vector2 WorldViewRenderLocation;
 
-	void BrowseDirectory(const FilePath& path);
+	void BrowseDirectory(const Path& path);
 
 	const Vector2& GetGameOutputSize() const;
 
@@ -72,7 +72,7 @@ private:
 	bool m_isWorldViewFocused = false;
 	bool OpenScene = false;
 	ImVec2 MainMenuSize;
-	FilePath CurrentDirectory;
+	Path CurrentDirectory;
 	json AssetDirectory;
 	std::unordered_map<std::string, SharedPtr<Moonlight::Texture>> Icons;
 	AssetBrowser m_assetBrowser;

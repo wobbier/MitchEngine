@@ -4,9 +4,9 @@
 #include "Engine/Engine.h"
 
 Scene::Scene(const std::string& SceneFilePath)
-	: Path(std::move(SceneFilePath))
+	: FilePath(std::move(SceneFilePath))
 {
-	CurrentLevel = File(Path);
+	CurrentLevel = File(FilePath);
 }
 
 void Scene::UnLoad()
@@ -101,7 +101,7 @@ void Scene::LoadCore(json& core)
 
 bool Scene::IsNewScene()
 {
-	return Path.LocalPath.empty();
+	return FilePath.LocalPath.empty();
 }
 
 void Scene::SaveSceneRecursively(json& d, Transform* CurrentTransform)
@@ -133,9 +133,9 @@ void Scene::SaveSceneRecursively(json& d, Transform* CurrentTransform)
 
 void Scene::Save(std::string fileName, Transform* root)
 {
-	Path = FilePath(fileName);
+	FilePath = Path(fileName);
 
-	File worldFile(Path);
+	File worldFile(FilePath);
 	json world;
 
 	if (root->Children.size() > 0)

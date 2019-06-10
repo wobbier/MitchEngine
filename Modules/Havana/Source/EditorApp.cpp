@@ -13,7 +13,7 @@
 
 #include <memory>
 #include "Engine/World.h"
-#include "FilePath.h"
+#include "Path.h"
 #include "Cores/EditorCore.h"
 #include "Engine/Engine.h"
 #include "Havana.h"
@@ -45,12 +45,12 @@ void EditorApp::OnUpdate(float DeltaTime)
 		, [this]() {
 			m_isGamePaused = true;
 		}
-			, [this]() {
-			m_isGameRunning = false;
-			m_isGamePaused = false;
-			Editor->ClearSelection();
-			//GetEngine().LoadScene("Assets/Alley.lvl");
-		});
+		, [this]() {
+		m_isGameRunning = false;
+		m_isGamePaused = false;
+		Editor->ClearSelection();
+		//GetEngine().LoadScene("Assets/Alley.lvl");
+	});
 
 	EditorSceneManager->Update(DeltaTime, GetEngine().SceneNodes->RootTransform);
 
@@ -77,6 +77,8 @@ void EditorApp::OnInitialize()
 	{
 		Editor = std::make_unique<Havana>(&GetEngine(), this, &GetEngine().GetRenderer());
 		EditorSceneManager = new EditorCore(Editor.get());
+		NewSceneEvent evt;
+		evt.Fire();
 	}
 	GetEngine().GetWorld().lock()->AddCore<EditorCore>(*EditorSceneManager);
 	//GetEngine().LoadScene("Assets/Alley.lvl");

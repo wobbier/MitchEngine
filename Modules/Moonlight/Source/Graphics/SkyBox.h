@@ -1,5 +1,5 @@
 #pragma once
-#include "FilePath.h"
+#include "Path.h"
 #include <d3d11.h>
 #include <DirectXMath.h>
 #include <wrl/module.h>
@@ -14,7 +14,7 @@ namespace Moonlight
 	class SkyBox
 	{
 	public:
-		SkyBox(const std::string& Path);
+		SkyBox(const std::string& InPath);
 
 		std::shared_ptr<class Texture> SkyMap = nullptr;
 		class ShaderCommand* SkyShader = nullptr;

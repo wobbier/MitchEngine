@@ -10,10 +10,10 @@ namespace Moonlight
 		: public Resource
 	{
 	public:
-		ShaderFile(const FilePath& InPath)
+		ShaderFile(const Path& InPath)
 			: Resource(InPath)
 		{
-			Data = ReadToByteArray(Path.FullPath.c_str());
+			Data = ReadToByteArray(FilePath.FullPath.c_str());
 		}
 
 		inline std::vector<char> ReadToByteArray(const char* filename)

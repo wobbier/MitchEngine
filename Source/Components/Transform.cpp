@@ -115,13 +115,13 @@ void Transform::SetRotation(Vector3 euler)
 	Rotation = euler;
 	SetDirty(true);
 }
-
-void Transform::SetRotation(glm::quat quat)
-{
-	//glm::rotate(Rotation, quat);
-	Rotation = glm::eulerAngles(quat);
-	SetDirty(true);
-}
+//
+//void Transform::SetRotation(glm::quat quat)
+//{
+//	//glm::rotate(Rotation, quat);
+//	Rotation = glm::eulerAngles(quat);
+//	SetDirty(true);
+//}
 
 void Transform::SetParent(Transform& NewParent)
 {

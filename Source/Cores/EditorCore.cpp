@@ -10,7 +10,7 @@
 #include "Components/Cameras/FlyingCamera.h"
 #include "Components/Graphics/Model.h"
 #include "Engine/Engine.h"
-#include "FilePath.h"
+#include "Path.h"
 #include "nlohmann/json.hpp"
 #include "ECS/Core.h"
 #include "World/Scene.h"
@@ -179,7 +179,7 @@ bool EditorCore::OnEvent(const BaseEvent & evt)
 		}
 		else
 		{
-			GetEngine().CurrentScene->Save(GetEngine().CurrentScene->Path.LocalPath, RootTransform);
+			GetEngine().CurrentScene->Save(GetEngine().CurrentScene->FilePath.LocalPath, RootTransform);
 		}
 		return true;
 	}

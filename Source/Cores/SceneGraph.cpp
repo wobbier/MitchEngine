@@ -32,13 +32,13 @@ void SceneGraph::UpdateRecursively(Transform* CurrentTransform)
 	OPTICK_EVENT("SceneGraph::UpdateRecursively");
 	for (Transform* Child : CurrentTransform->Children)
 	{
-		//if (Child->IsDirty)
+		if (Child->IsDirty)
 		{
 			OPTICK_EVENT("SceneGraph::Update::IsDirty");
 			glm::mat4 mat = glm::mat4(1.f);
-			mat = glm::translate(mat, Child->Position.GetInternalVec());
 			glm::quat rot(Child->Rotation.GetInternalVec());
 			mat = glm::rotate(mat, glm::angle(rot), glm::axis(rot));
+			mat = glm::translate(mat, Child->Position.GetInternalVec());
 			mat = glm::scale(mat, Child->Scale.GetInternalVec());
 			Child->SetWorldTransform(CurrentTransform->WorldTransform * mat);
 		}

@@ -7,7 +7,7 @@
 #include <thread>
 #include <stack>
 #include <map>
-#include "FilePath.h"
+#include "Path.h"
 #include "Pointers.h"
 #include "Graphics/Texture.h"
 #include "File.h"
@@ -26,13 +26,13 @@ public:
 	{
 		std::string Name;
 		File MetaFile;
-		FilePath FullPath;
+		Path FullPath;
 	};
 	struct Directory
 	{
 		std::map<std::string, Directory> Directories;
 		std::vector<AssetBrowser::AssetDescriptor> Files;
-		FilePath FullPath;
+		Path FullPath;
 	};
 	AssetBrowser() = delete;
 	AssetBrowser(const std::string& pathToWatch, std::chrono::duration<int, std::milli> delay);

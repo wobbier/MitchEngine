@@ -1,6 +1,6 @@
 #pragma once
 #include <string>
-#include "FilePath.h"
+#include "Path.h"
 #include "Components/Transform.h"
 #include "File.h"
 #include "Engine/World.h"
@@ -23,5 +23,5 @@ public:
 
 	SharedPtr<World> GameWorld;
 	File CurrentLevel;
-	FilePath Path;
+	Path FilePath;
 };

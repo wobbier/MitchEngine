@@ -25,7 +25,7 @@ namespace Moonlight
 		int Width;
 		int Height;
 
-		Texture(const FilePath& InFilePath);
+		Texture(const Path& InFilePath);
 		~Texture();
 
 		// Textures should not be copied around in memory

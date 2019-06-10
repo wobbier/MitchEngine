@@ -3,7 +3,7 @@
 #include <thread>
 #include "imgui.h"
 #include <stack>
-#include "FilePath.h"
+#include "Path.h"
 #include "Resource/ResourceCache.h"
 #include "Graphics/Texture.h"
 #include "File.h"
@@ -12,12 +12,12 @@ AssetBrowser::AssetBrowser(const std::string& pathToWatch, std::chrono::duration
 	: PathToWatch(pathToWatch)
 	, Delay(delay)
 {
-	Icons["Image"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(FilePath("Assets/Havana/UI/Image.png"));
-	Icons["File"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(FilePath("Assets/Havana/UI/File.png"));
-	Icons["Terrain"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(FilePath("Assets/Havana/UI/Terrain.png"));
-	Icons["World"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(FilePath("Assets/Havana/UI/World.png"));
+	Icons["Image"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Image.png"));
+	Icons["File"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/File.png"));
+	Icons["Terrain"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Terrain.png"));
+	Icons["World"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/World.png"));
 
-	AssetDirectory.FullPath = FilePath(PathToWatch);
+	AssetDirectory.FullPath = Path(PathToWatch);
 	for (auto& file : std::filesystem::recursive_directory_iterator(PathToWatch))
 	{
 		Paths[file.path().string()] = std::filesystem::last_write_time(file);
@@ -107,7 +107,7 @@ void AssetBrowser::Recursive(Directory& dir)
 		}
 	}
 	int i = 0;
-	for (auto& files : dir.Files)
+	for (AssetDescriptor& files : dir.Files)
 	{
 		// we have a file
 		if (files.Name.find(".png") != std::string::npos || files.Name.find(".jpg") != std::string::npos)
@@ -141,7 +141,7 @@ void AssetBrowser::Recursive(Directory& dir)
 
 		if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
 		{
-			files.FullPath = dir.FullPath;
+			//files.FullPath = dir.FullPath;
 			ImGui::SetDragDropPayload("DND_DEMO_CELL", &files, sizeof(AssetDescriptor));
 			ImGui::Text(files.Name.c_str());
 			ImGui::EndDragDropSource();
@@ -181,7 +181,7 @@ bool AssetBrowser::ProccessDirectoryRecursive(std::string& dir, Directory& dirRe
 			else
 			{
 				Directory newDirectory;
-				newDirectory.FullPath = FilePath(newdir);
+				newDirectory.FullPath = Path(newdir);
 				dirRef.Directories[foldername] = newDirectory;
 				return true;
 			}
@@ -194,7 +194,11 @@ bool AssetBrowser::ProccessDirectoryRecursive(std::string& dir, Directory& dirRe
 				{
 					return false;
 				}
-				dirRef.Files.emplace_back(AssetDescriptor{ newdir, File(FilePath(file.path().string() + ".meta")) });
+				AssetDescriptor desc;
+				desc.Name = newdir;
+				desc.MetaFile = File(Path(file.path().string() + ".meta"));
+				desc.FullPath = Path(file.path().string());
+				dirRef.Files.push_back(desc);
 				const std::string & data = dirRef.Files.back().MetaFile.Read();
 				if (data.empty())
 				{
@@ -203,14 +207,14 @@ bool AssetBrowser::ProccessDirectoryRecursive(std::string& dir, Directory& dirRe
 				return true;
 			}
 			Directory newDirectory;
-			newDirectory.FullPath = FilePath(dir);
+			newDirectory.FullPath = Path(dir);
 			dirRef.Directories[newdir] = newDirectory;
 			return true;
 		}
 	}
 
 	Directory newDirectory;
-	newDirectory.FullPath = FilePath(dir);
+	newDirectory.FullPath = Path(dir);
 	dirRef.Directories[dir] = newDirectory;
 	return false;
 }

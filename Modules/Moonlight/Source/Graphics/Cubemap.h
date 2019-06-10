@@ -14,7 +14,7 @@ public:
 	int Width;
 	int Height;
 
-	Cubemap(const FilePath& InFilePath);
+	Cubemap(const Path& InFilePath);
 	~Cubemap();
 
 	// Textures should not be copied around in memory

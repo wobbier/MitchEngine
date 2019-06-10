@@ -40,7 +40,7 @@ void ResourceCache::TryToDestroy(Resource* resource)
 	std::map<std::string, std::shared_ptr<Resource>>::iterator I;
 	for (std::size_t i = ResourceStack.size() - 1; i >= 0; i--)
 	{
-		I = ResourceStack[i].find(resource->Path.FullPath);
+		I = ResourceStack[i].find(resource->FilePath.FullPath);
 		if (I != ResourceStack[i].end())
 		{
 			ResourceStack[i].erase(I);

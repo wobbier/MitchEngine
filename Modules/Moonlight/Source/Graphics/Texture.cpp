@@ -13,7 +13,7 @@ using namespace Microsoft::WRL;
 
 namespace Moonlight
 {
-	Texture::Texture(const FilePath& InFilePath)
+	Texture::Texture(const Path& InFilePath)
 		: Resource(InFilePath)
 	{
 		std::wstring filePath = ToStringW(InFilePath.FullPath);

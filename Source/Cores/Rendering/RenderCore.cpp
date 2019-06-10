@@ -26,7 +26,7 @@ RenderCore::RenderCore()
 	m_renderer = &GetEngine().GetRenderer();
 	m_renderer->RegisterDeviceNotify(this);
 
-	cube = ResourceCache::GetInstance().Get<ModelResource>(FilePath("Assets/cube.fbx"));
+	cube = ResourceCache::GetInstance().Get<ModelResource>(Path("Assets/Skybox.fbx"));
 	shader = new Moonlight::ShaderCommand("Assets/Shaders/SimpleVertexShader.cso", "Assets/Shaders/SimplePixelShader.cso");
 }
 

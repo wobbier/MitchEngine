@@ -13,13 +13,13 @@ using namespace DirectX;
 
 namespace Moonlight
 {
-	SkyBox::SkyBox(const std::string& Path)
+	SkyBox::SkyBox(const std::string& InPath)
 	{
-		FilePath SystemPath(Path);
+		Path SystemPath(InPath);
 
-		SkyMap = ResourceCache::GetInstance().Get<Texture>(FilePath(Path));
+		SkyMap = ResourceCache::GetInstance().Get<Texture>(SystemPath);
 		SkyShader = new ShaderCommand("Assets/Shaders/UnlitVertexShader.cso", "Assets/Shaders/UnlitPixelShader.cso");
-		SkyModel = ResourceCache::GetInstance().Get<ModelResource>(FilePath("Assets/Skybox.fbx"));
+		SkyModel = ResourceCache::GetInstance().Get<ModelResource>(Path("Assets/Skybox.fbx"));
 		SkyMaterial = new Material();
 		SkyMaterial->SetTexture(TextureType::Diffuse, SkyMap);
 

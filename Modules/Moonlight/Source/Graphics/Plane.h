@@ -1,6 +1,6 @@
 #pragma once
 
-#include "FilePath.h"
+#include "Path.h"
 #include <d3d11.h>
 #include <DirectXMath.h>
 #include <wrl/module.h>
@@ -18,13 +18,13 @@ namespace Moonlight
 	class Plane
 	{
 	public:
-		Plane(const std::string& Path, const D3D12Device& device)
+		Plane(const std::string& InPath, const D3D12Device& device)
 		{
-			FilePath SystemPath(Path);
+			Path SystemPath(InPath);
 
-			SkyMap = ResourceCache::GetInstance().Get<Texture>(FilePath(Path));
+			SkyMap = ResourceCache::GetInstance().Get<Texture>(SystemPath);
 			SkyShader = new ShaderCommand("Assets/Shaders/GridVertexShader.cso", "Assets/Shaders/GridPixelShader.cso");
-			SkyModel = ResourceCache::GetInstance().Get<ModelResource>(FilePath("Assets/Plane.fbx"));
+			SkyModel = ResourceCache::GetInstance().Get<ModelResource>(Path("Assets/Plane.fbx"));
 			SkyMaterial = new Material();
 			SkyMaterial->SetTexture(TextureType::Diffuse, SkyMap);
 			

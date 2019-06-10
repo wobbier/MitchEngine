@@ -70,7 +70,7 @@ void PhysicsCore::Update(float dt)
 			btQuaternion rot;
 			trans.getBasis().getRotation(rot);
 			TransformComponent.SetPosition(Vector3(trans.getOrigin().x(), trans.getOrigin().y(), trans.getOrigin().z()));
-			TransformComponent.SetRotation(glm::quat(rot.getX(), rot.getY(), rot.getZ(), rot.getW()));
+			//TransformComponent.SetRotation(glm::quat(rot.getX(), rot.getY(), rot.getZ(), rot.getW()));
 		}
 	}
 
