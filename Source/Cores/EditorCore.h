@@ -12,6 +12,7 @@ class EditorCore
 	, public EventReceiver
 {
 public:
+	EditorCore() = default;
 	EditorCore(Havana* editor);
 	~EditorCore();
 
@@ -26,7 +27,7 @@ public:
 	void Update(float dt, Transform* rootTransform);
 
 	virtual void OnEntityAdded(Entity& NewEntity) final;
-	void SaveSceneRecursively(json& d, Transform* transform);
+
 	Transform* RootTransform = nullptr;
 
 private:
@@ -50,5 +51,4 @@ private:
 #if ME_EDITOR
 	virtual void OnEditorInspect() final;
 #endif
-	//void SaveWorld(const std::string& path, Transform* root);
 };

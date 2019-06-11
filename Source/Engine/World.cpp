@@ -30,7 +30,7 @@ void World::AddCoreByName(const std::string& core)
 
 	if (it == reg.end()) {
 		Logger::GetInstance().Log(Logger::LogType::Error, "Factory not found for core " + core);
-		//return nullptr;
+		return;
 	}
 	std::pair<BaseCore*, TypeId> createdCore = it->second(false);
 	if (!HasCore(createdCore.second))

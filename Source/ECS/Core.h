@@ -51,9 +51,10 @@ public:
 #if ME_EDITOR
 	virtual void OnEditorInspect();
 #endif
-
+	const bool CanSerialize() const;
 protected:
 	class Engine* GameEngine;
+	bool IsSerializable = true;
 private:
 	// Separate init from construction code.
 	virtual void Init() {};

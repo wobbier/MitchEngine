@@ -149,9 +149,12 @@ void Scene::Save(std::string fileName, Transform* root)
 	json& cores = world["Cores"];
 	for (auto& core : GetEngine().GetWorld().lock()->GetAllCores())
 	{
-		json coreDef;
-		coreDef["Type"] = (*core).GetName();
-		cores.push_back(coreDef);
+		if ((*core).CanSerialize())
+		{
+			json coreDef;
+			coreDef["Type"] = (*core).GetName();
+			cores.push_back(coreDef);
+		}
 	}
 
 	worldFile.Write(world.dump(4));

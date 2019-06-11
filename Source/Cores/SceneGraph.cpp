@@ -4,8 +4,10 @@
 #include "Engine/World.h"
 #include <stack>
 
-SceneGraph::SceneGraph() : Base(ComponentFilter().Requires<Transform>())
+SceneGraph::SceneGraph()
+	: Base(ComponentFilter().Requires<Transform>())
 {
+	IsSerializable = false;
 	RootTransform = new Transform("Root Entity");
 }
 
@@ -64,7 +66,5 @@ void SceneGraph::OnEditorInspect()
 {
 	BaseCore::OnEditorInspect();
 }
-
-ME_REGISTER_CORE(SceneGraph)
 
 #endif

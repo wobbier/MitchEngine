@@ -19,6 +19,7 @@ EditorCore::EditorCore(Havana* editor)
 	: Base(ComponentFilter().Excludes<Transform>())
 	, m_editor(editor)
 {
+	IsSerializable = false;
 	std::vector<TypeId> events;
 	events.push_back(SaveSceneEvent::GetEventId());
 	events.push_back(NewSceneEvent::GetEventId());
@@ -186,33 +187,6 @@ bool EditorCore::OnEvent(const BaseEvent & evt)
 	}
 
 	return false;
-}
-
-void EditorCore::SaveSceneRecursively(json & d, Transform * CurrentTransform)
-{
-	OPTICK_EVENT("SceneGraph::UpdateRecursively");
-	json thing;
-
-	thing["Name"] = CurrentTransform->Name;
-
-	json& componentsJson = thing["Components"];
-	Entity* ent = GetWorld().GetEntity(CurrentTransform->Parent).lock().get();
-
-	auto comps = ent->GetAllComponents();
-	for (auto comp : comps)
-	{
-		json compJson;
-		comp->Serialize(compJson);
-		componentsJson.push_back(compJson);
-	}
-	if (CurrentTransform->Children.size() > 0)
-	{
-		for (Transform* Child : CurrentTransform->Children)
-		{
-			SaveSceneRecursively(thing["Children"], Child);
-		}
-	}
-	d.push_back(thing);
 }
 
 void EditorCore::OnEntityAdded(Entity & NewEntity)
