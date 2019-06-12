@@ -760,7 +760,7 @@ void Havana::Render(const Moonlight::CameraData & EditorCamera)
 		m_isGameFocused = ImGui::IsWindowFocused();
 
 
-		if (Renderer->GameViewRTT->shaderResourceViewMap != nullptr)
+		if (Renderer->m_resolvebuffer && Renderer->m_resolvebuffer->ShaderResourceView != nullptr)
 		{
 			// Get the current cursor position (where your window is)
 			ImVec2 pos = ImGui::GetCursorScreenPos();
@@ -772,11 +772,11 @@ void Havana::Render(const Moonlight::CameraData & EditorCamera)
 			// Under OpenGL the ImGUI image type is GLuint
 			// So make sure to use "(void *)tex" but not "&tex"
 			ImGui::GetWindowDrawList()->AddImage(
-				(void*)Renderer->GameViewRTT->shaderResourceViewMap,
+				(void*)Renderer->m_resolvebuffer->ShaderResourceView.Get(),
 				ImVec2(pos.x, pos.y),
 				ImVec2(maxPos),
 				ImVec2(0, 0),
-				ImVec2(Mathf::Clamp(0.f, 1.0f, GameRenderSize.X() / Renderer->GameViewRTT->Size.X()), Mathf::Clamp(0.f, 1.0f, GameRenderSize.Y() / Renderer->GameViewRTT->Size.Y())));
+				ImVec2(Mathf::Clamp(0.f, 1.0f, GameRenderSize.X() / Renderer->m_resolvebuffer->Width), Mathf::Clamp(0.f, 1.0f, GameRenderSize.Y() / Renderer->m_resolvebuffer->Height)));
 			//ImVec2(WorldViewRenderSize.X() / RenderSize.X(), WorldViewRenderSize.Y() / RenderSize.Y()));
 
 		}

@@ -56,10 +56,15 @@ namespace Moonlight
 
 		void WindowResized(const Vector2& NewSize);
 
-		class RenderTexture* GameViewRTT = nullptr;
+		//class RenderTexture* GameViewRTT = nullptr;
 		class RenderTexture* SceneViewRTT = nullptr;
+		FrameBuffer* m_framebuffer;
+		FrameBuffer* m_resolvebuffer;
 		LightCommand Sunlight;
 
+		ShaderProgram m_tonemapProgram;
+		Microsoft::WRL::ComPtr<ID3D11SamplerState> m_defaultSampler;
+		Microsoft::WRL::ComPtr<ID3D11SamplerState> m_computeSampler;
 	private:
 		class SkyBox* Sky;
 		class Plane* Grid;
