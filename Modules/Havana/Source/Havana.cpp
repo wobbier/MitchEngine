@@ -825,7 +825,7 @@ void Havana::Render(const Moonlight::CameraData & EditorCamera)
 		m_isWorldViewFocused = ImGui::IsWindowFocused();
 
 
-		if (Renderer->SceneViewRTT->shaderResourceViewMap != nullptr)
+		if (Renderer->SceneResolveViewRTT && Renderer->SceneResolveViewRTT->ShaderResourceView != nullptr)
 		{
 			ImVec2 maxPos = ImVec2(pos.x + ImGui::GetWindowSize().x, pos.y + ImGui::GetWindowSize().y);
 			WorldViewRenderSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
@@ -834,13 +834,13 @@ void Havana::Render(const Moonlight::CameraData & EditorCamera)
 			// Under OpenGL the ImGUI image type is GLuint
 			// So make sure to use "(void *)tex" but not "&tex"
 			ImGui::GetWindowDrawList()->AddImage(
-				(void*)Renderer->SceneViewRTT->shaderResourceViewMap,
+				(void*)Renderer->SceneResolveViewRTT->ShaderResourceView.Get(),
 				ImVec2(pos.x, pos.y),
 				ImVec2(maxPos),
 				ImVec2(0, 0),
-				ImVec2(Mathf::Clamp(0.f, 1.0f, WorldViewRenderSize.X() / Renderer->SceneViewRTT->Size.X()), Mathf::Clamp(0.f, 1.0f, WorldViewRenderSize.Y() / Renderer->SceneViewRTT->Size.Y())));
+				ImVec2(Mathf::Clamp(0.f, 1.0f, WorldViewRenderSize.X() / Renderer->SceneResolveViewRTT->Width), Mathf::Clamp(0.f, 1.0f, WorldViewRenderSize.Y() / Renderer->SceneResolveViewRTT->Height)));
 
-			ImGuizmo::SetRect(pos.x, pos.y, WorldViewRenderSize.X(), WorldViewRenderSize.Y());
+			ImGuizmo::SetRect(WorldViewRenderLocation.X(), WorldViewRenderLocation.Y(), WorldViewRenderSize.X(), WorldViewRenderSize.Y());
 			DirectX::XMMATRIX perspectiveMatrix = DirectX::XMMatrixPerspectiveFovRH(
 				EditorCamera.FOV * DirectX::XM_PI / 180.0f,
 				WorldViewRenderSize.X() / WorldViewRenderSize.Y(),

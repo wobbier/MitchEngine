@@ -71,20 +71,34 @@ namespace Moonlight
 			m_device->CompileShader(Path("Assets/Shaders/ToneMap.hlsl"), "main_ps", "ps_5_0"),
 			nullptr
 		);
+		ResizeBuffers();
 
-		m_framebuffer = m_device->CreateFrameBuffer(m_device->GetOutputSize().X(), m_device->GetOutputSize().Y(), m_device->GetMSAASamples(), DXGI_FORMAT_R16G16B16A16_FLOAT, DXGI_FORMAT_D24_UNORM_S8_UINT);
-		if (m_device->GetMSAASamples() > 1)
-		{
-			m_resolvebuffer = m_device->CreateFrameBuffer(m_device->GetOutputSize().X(), m_device->GetOutputSize().Y(), 1, DXGI_FORMAT_R16G16B16A16_FLOAT, (DXGI_FORMAT)0);
-		}
-		else
-		{
-			m_resolvebuffer = m_framebuffer;
-		}
 		// Prepare the constant buffer to send it to the graphics device.
 		Sunlight.dir = XMFLOAT4(0.25f, 0.5f, -1.0f, 1.0f);
 		Sunlight.ambient = XMFLOAT4(0.2f, 0.2f, 0.2f, 1.0f);
 		Sunlight.diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
+	}
+
+	void Renderer::ResizeBuffers()
+	{
+		delete m_framebuffer;
+		delete m_resolvebuffer;
+		delete SceneViewRTT;
+		delete SceneResolveViewRTT;
+		m_framebuffer = m_device->CreateFrameBuffer(m_device->GetOutputSize().X(), m_device->GetOutputSize().Y(), m_device->GetMSAASamples(), DXGI_FORMAT_R16G16B16A16_FLOAT, DXGI_FORMAT_D24_UNORM_S8_UINT);
+		SceneViewRTT = m_device->CreateFrameBuffer(m_device->GetOutputSize().X(), m_device->GetOutputSize().Y(), m_device->GetMSAASamples(), DXGI_FORMAT_R16G16B16A16_FLOAT, DXGI_FORMAT_D24_UNORM_S8_UINT);
+		if (m_device->GetMSAASamples() > 1)
+		{
+			//GameViewRTT = new RenderTexture(m_device);
+
+			m_resolvebuffer = m_device->CreateFrameBuffer(m_device->GetOutputSize().X(), m_device->GetOutputSize().Y(), 1, DXGI_FORMAT_R16G16B16A16_FLOAT, (DXGI_FORMAT)0);
+			SceneResolveViewRTT = m_device->CreateFrameBuffer(m_device->GetOutputSize().X(), m_device->GetOutputSize().Y(), 1, DXGI_FORMAT_R16G16B16A16_FLOAT, (DXGI_FORMAT)0);
+		}
+		else
+		{
+			SceneResolveViewRTT = SceneViewRTT;
+			m_resolvebuffer = m_framebuffer;
+		}
 	}
 
 	void Renderer::SetWindow()
@@ -113,23 +127,9 @@ namespace Moonlight
 		auto context = m_device->GetD3DDeviceContext();
 
 		//delete GameViewRTT;
+		//ResizeBuffers();
 
-		delete m_framebuffer;
-		delete m_resolvebuffer;
-		m_framebuffer = m_device->CreateFrameBuffer(m_device->GetOutputSize().X(), m_device->GetOutputSize().Y(), m_device->GetMSAASamples(), DXGI_FORMAT_R16G16B16A16_FLOAT, DXGI_FORMAT_D24_UNORM_S8_UINT);
-		if (m_device->GetMSAASamples() > 1)
-		{
-			m_resolvebuffer = m_device->CreateFrameBuffer(m_device->GetOutputSize().X(), m_device->GetOutputSize().Y(), 1, DXGI_FORMAT_R16G16B16A16_FLOAT, (DXGI_FORMAT)0);
-		}
-		else
-		{
-			m_resolvebuffer = m_framebuffer;
-		}
-
-		delete SceneViewRTT;
-		//GameViewRTT = new RenderTexture(m_device);
-		SceneViewRTT = new RenderTexture(m_device);
-		// Reset the viewport to target the whole screen.
+// Reset the viewport to target the whole screen.
 		auto viewport = m_device->GetScreenViewport();
 
 		context->RSSetViewports(1, &viewport);
@@ -147,7 +147,7 @@ namespace Moonlight
 		// Clear the back buffer and depth stencil view.
 		context->ClearRenderTargetView(m_device->GetBackBufferRenderTargetView(), color);
 		context->ClearRenderTargetView(m_framebuffer->RenderTargetView.Get(), color);
-		//context->ClearRenderTargetView(SceneViewRTT->renderTargetViewMap, color);
+		context->ClearRenderTargetView(SceneViewRTT->RenderTargetView.Get(), color);
 		context->ClearDepthStencilView(m_framebuffer->DepthStencilView.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
 
@@ -156,7 +156,7 @@ namespace Moonlight
 		context->PSSetConstantBuffers1(0, 1, m_perFrameBuffer.GetAddressOf(), nullptr, nullptr);
 
 		//GameViewRTT->Resize(mainCamera.OutputSize);
-		SceneViewRTT->Resize(editorCamera.OutputSize);
+		//SceneViewRTT->Resize(editorCamera.OutputSize);
 		//m_device->GetD3DDeviceContext()->DiscardView1(m_device->GetDepthStencilView(), nullptr, 0);
 
 		// Reset render targets to the screen.
@@ -169,7 +169,7 @@ namespace Moonlight
 
 		DrawScene(context, m_constantBufferData, mainCamera);
 
-		context->ClearDepthStencilView(m_framebuffer->DepthStencilView.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+		context->ClearDepthStencilView(SceneViewRTT->DepthStencilView.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
 		CD3D11_VIEWPORT screenViewport = CD3D11_VIEWPORT(
 			0.0f,
@@ -180,9 +180,9 @@ namespace Moonlight
 
 		context->RSSetViewports(1, &screenViewport);
 
-		//ID3D11RenderTargetView * const targets2[1] = { SceneViewRTT->renderTargetViewMap };
-		//context->OMSetRenderTargets(1, SceneViewRTT->renderTargetViewMap, m_framebuffer->DepthStencilView.Get());
-		//DrawScene(context, m_constantBufferSceneData, editorCamera);
+		//ID3D11RenderTargetView* const targets2[1] = { SceneViewRTT->renderTargetViewMap };
+		context->OMSetRenderTargets(1, SceneViewRTT->RenderTargetView.GetAddressOf(), SceneViewRTT->DepthStencilView.Get());
+		DrawScene(context, m_constantBufferSceneData, editorCamera);
 
 
 		//UINT stride = sizeof(Vertex);
@@ -218,6 +218,10 @@ namespace Moonlight
 		{
 			context->ResolveSubresource(m_resolvebuffer->ColorTexture.Get(), 0, m_framebuffer->ColorTexture.Get(), 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
 		}
+		if (SceneViewRTT->ColorTexture != SceneResolveViewRTT->ColorTexture)
+		{
+			context->ResolveSubresource(SceneResolveViewRTT->ColorTexture.Get(), 0, SceneViewRTT->ColorTexture.Get(), 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
+		}
 #if ME_EDITOR
 			ID3D11RenderTargetView* const targets3[1] = { m_device->GetBackBufferRenderTargetView() };// , m_device->renderTargetViewMap
 				//////////////////////////// Draw the Map
@@ -247,7 +251,7 @@ namespace Moonlight
 		// overwritten. If dirty or scroll rects are used, this call should be removed.
 		m_device->GetD3DDeviceContext()->DiscardView1(m_device->GetBackBufferRenderTargetView(), nullptr, 0);
 		//m_device->GetD3DDeviceContext()->DiscardView(m_framebuffer->ShaderResourceView.Get());
-		m_device->GetD3DDeviceContext()->DiscardView1(SceneViewRTT->shaderResourceViewMap, nullptr, 0);
+		//m_device->GetD3DDeviceContext()->DiscardView1(SceneViewRTT->ShaderResourceView.Get(), nullptr, 0);
 
 		// Discard the contents of the depth stencil.
 		//m_device->GetD3DDeviceContext()->DiscardView1(m_framebuffer->DepthStencilView.Get(), nullptr, 0);
@@ -542,6 +546,7 @@ namespace Moonlight
 		}
 
 		m_device->WindowSizeChanged(NewSize);
+		ResizeBuffers();
 	}
 
 	unsigned int Renderer::PushMesh(Moonlight::MeshCommand command)
