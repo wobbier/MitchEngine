@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <gtc/matrix_transform.hpp>
 #include "Math/Vector3.h"
+#include "misc/cpp/imgui_stdlib.h"
 
 Transform::Transform()
 	: WorldTransform(1.f)
@@ -93,6 +94,21 @@ void Transform::SetWorldTransform(glm::mat4& NewWorldTransform)
 
 void Transform::Init()
 {
+}
+
+void Transform::OnEditorInspect()
+{
+	ImGui::InputText("Name", &Name);
+
+	HavanaUtils::EditableVector3("Position", GetPosition());
+	HavanaUtils::EditableVector3("Rotation", Rotation);
+	HavanaUtils::EditableVector3("Scale", Scale);
+	Vector3 WorldPos = GetWorldPosition();
+	HavanaUtils::EditableVector3("World Position", WorldPos);
+	if (WorldPos != GetWorldPosition())
+	{
+		SetWorldPosition(WorldPos);
+	}
 }
 
 void Transform::SetDirty(bool Dirty)

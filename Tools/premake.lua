@@ -300,7 +300,8 @@ files {
   "../ThirdParty/ImGUI/**/*win32.h",
   "../ThirdParty/ImGUI/**/*win32.cpp",
   "../ThirdParty/ImGUI/**/*dx11.h",
-  "../ThirdParty/ImGUI/**/*dx11.cpp"
+  "../ThirdParty/ImGUI/**/*dx11.cpp",
+  "../ThirdParty/ImGUI/**/imgui_stdlib.*"
 }
 
 vpaths {
