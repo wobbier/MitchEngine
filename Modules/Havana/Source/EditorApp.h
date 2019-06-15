@@ -19,6 +19,9 @@ public:
 
 	virtual void OnStart() override;
 	virtual void OnUpdate(float DeltaTime) override;
+
+	void UpdateCameras();
+
 	virtual void OnEnd() override;
 
 	virtual void PostRender() override;

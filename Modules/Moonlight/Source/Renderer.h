@@ -68,7 +68,6 @@ namespace Moonlight
 		Microsoft::WRL::ComPtr<ID3D11SamplerState> m_defaultSampler;
 		Microsoft::WRL::ComPtr<ID3D11SamplerState> m_computeSampler;
 	private:
-		class SkyBox* Sky;
 		class Plane* Grid;
 
 		class D3D12Device* m_device = nullptr;

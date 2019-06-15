@@ -55,13 +55,11 @@ namespace Moonlight
 	{
 		ReleaseDeviceDependentResources();
 		delete Grid;
-		delete Sky;
 	}
 
 	void Renderer::Init()
 	{
 		Grid = new Plane("Assets/skybox.jpg", GetDevice());
-		Sky = new SkyBox("Assets/skybox.jpg");
 
 		m_defaultSampler = m_device->CreateSamplerState(D3D11_FILTER_ANISOTROPIC, D3D11_TEXTURE_ADDRESS_WRAP);
 		m_computeSampler = m_device->CreateSamplerState(D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_WRAP);
@@ -229,6 +227,10 @@ namespace Moonlight
 	void Renderer::DrawScene(ID3D11DeviceContext3* context, ModelViewProjectionConstantBuffer& constantBufferSceneData, const CameraData& camera)
 	{
 		Vector2 outputSize = camera.OutputSize;
+		if (outputSize.IsZero())
+		{
+			return;
+		}
 		float aspectRatio = static_cast<float>(outputSize.X()) / static_cast<float>(outputSize.Y());
 		float fovAngleY = camera.FOV * XM_PI / 180.0f;
 
@@ -265,6 +267,7 @@ namespace Moonlight
 		//XMStoreFloat4x4(&m_constantBufferData.view, XMMatrixTranspose(XMMatrixIdentity()));
 		XMStoreFloat4x4(&constantBufferSceneData.view, XMMatrixTranspose(XMMatrixLookAtRH(eye, at, up)));
 
+		if(camera.Skybox)
 		{
 			XMStoreFloat4x4(&constantBufferSceneData.model, XMMatrixTranspose(XMMatrixTranslation(eye[0], eye[1], eye[2])));
 			// Prepare the constant buffer to send it to the graphics device.
@@ -286,7 +289,7 @@ namespace Moonlight
 				nullptr,
 				nullptr
 			);
-			Sky->Draw();
+			camera.Skybox->Draw();
 
 			m_device->ResetCullingMode();
 		}
@@ -391,7 +394,7 @@ namespace Moonlight
 			nullptr
 		);
 
-		//Grid->Draw(GetDevice());
+		Grid->Draw(GetDevice());
 	}
 
 	void Renderer::ReleaseDeviceDependentResources()

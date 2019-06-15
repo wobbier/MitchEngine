@@ -39,6 +39,12 @@ public:
 		return m_vector.y;
 	}
 
+	const bool IsZero()
+	{
+		static Vector2 Zero = Vector2(0.f, 0.f);
+		return *this == Zero;
+	}
+
 	Vector2 operator*(const Vector2& other)
 	{
 		return Vector2(m_vector * other.m_vector);
@@ -55,7 +61,6 @@ public:
 	{
 		return m_vector != other.m_vector;
 	}
-
 private:
 	glm::vec2 m_vector;
 };

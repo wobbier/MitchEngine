@@ -1,5 +1,6 @@
 #include "PCH.h"
 #include "Camera.h"
+#include "Graphics/SkyBox.h"
 
 Camera* Camera::CurrentCamera = nullptr;
 Camera* Camera::EditorCamera = nullptr;
@@ -51,3 +52,23 @@ float Camera::GetFOV()
 {
 	return m_FOV;
 }
+
+#if ME_EDITOR
+
+void Camera::OnEditorInspect()
+{
+	HavanaUtils::Text("Front", Front);
+	if (ImGui::Button("Set Current"))
+	{
+		SetCurrent();
+	}
+	ImGui::SliderFloat("Field of View", &m_FOV, 1.0f, 200.0f);
+
+	if (Skybox)
+	{
+
+		//Skybox->SkyMaterial->
+	}
+}
+
+#endif
