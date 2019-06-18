@@ -870,7 +870,7 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 					//ImGuizmo::DrawGrid(&fView2._11, &fView._11, &idView._11, 10.f);
 					//ImGuizmo::DrawCube(&fView2._11, &fView._11, &idView._11);
 					ImGuizmo::Manipulate(&fView2._11, &fView._11, mCurrentGizmoOperation, mCurrentGizmoMode, &objView._11, NULL, useSnap ? &snap[0] : NULL);
-					if (ImGui::IsWindowFocused() && ImGuizmo::IsUsing() && isMovingMouse)
+					//if (ImGui::IsWindowFocused() && ImGuizmo::IsUsing() && isMovingMouse)
 					{
 						if (SelectedTransform)
 						{

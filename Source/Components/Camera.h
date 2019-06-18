@@ -38,18 +38,25 @@ public:
 	float GetFOV();
 
 	Moonlight::SkyBox* Skybox = nullptr;
+
 private:
 	float m_FOV = 45.f;
 
 #if ME_EDITOR
 	virtual void OnEditorInspect() final;
 
+	virtual void Deserialize(const json& inJson) override;
 	virtual void Serialize(json& outJson) final
 	{
 		Component::Serialize(outJson);
 
 		outJson["Zoom"] = Zoom;
 		outJson["IsCurrent"] = IsCurrent();
+
+		if (Skybox)
+		{
+			outJson["Skybox"] = Skybox->SkyMaterial->GetTexture(Moonlight::TextureType::Diffuse)->GetPath().LocalPath;
+		}
 	}
 #endif
 };

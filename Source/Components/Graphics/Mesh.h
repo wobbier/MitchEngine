@@ -50,16 +50,54 @@ private:
 			ImGui::Text("Vertices: %i", MeshReferece->vertices.size());
 			if (ImGui::TreeNode("Material"))
 			{
+				static std::vector<Path> Textures;
+				Path path = Path("Assets");
+				if (Textures.empty())
+				{
+					Textures.push_back(Path(""));
+					for (const auto& entry : std::filesystem::recursive_directory_iterator(path.FullPath))
+					{
+						Path filePath(entry.path().string());
+						if ((filePath.LocalPath.rfind(".png") != std::string::npos || filePath.LocalPath.rfind(".jpg") != std::string::npos)
+							&& filePath.LocalPath.rfind(".meta") == std::string::npos)
+						{
+							Textures.push_back(filePath);
+						}
+					}
+				}
+
+				int i = 0;
 				for (auto texture : MeshMaterial->GetTextures())
 				{
-					if (texture != nullptr)
+					std::string label("##Texture" + std::to_string(i));
 					{
-						ImGui::Text("Texture Path: %s", texture->GetPath().LocalPath.c_str());
-
-						ImGui::ImageButton((void*)texture->CubesTexture, ImVec2(30, 30));
+						ImGui::ImageButton(((texture) ? (void*)texture->CubesTexture : nullptr), ImVec2(30, 30));
 						ImGui::SameLine();
-						ImGui::Text("Texture Type: %s", Moonlight::Texture::ToString(texture->Type).c_str());
 					}
+					if (ImGui::BeginCombo(label.c_str(), ((texture) ? texture->GetPath().LocalPath.c_str() : "")))
+					{
+						for (int n = 0; n < Textures.size(); n++)
+						{
+							if (ImGui::Selectable(Textures[n].LocalPath.c_str(), false))
+							{
+								if (!Textures[n].LocalPath.empty())
+								{
+									MeshMaterial->SetTexture(static_cast<Moonlight::TextureType>(i), ResourceCache::GetInstance().Get<Moonlight::Texture>(Textures[n]));
+								}
+								else
+								{
+									MeshMaterial->SetTexture(static_cast<Moonlight::TextureType>(i), nullptr);
+								}
+								Textures.clear();
+								break;
+							}
+						}
+						ImGui::EndCombo();
+					}
+					ImGui::SameLine();
+					ImGui::Text(Moonlight::Texture::ToString(static_cast<Moonlight::TextureType>(i)).c_str());
+
+					i++;
 				}
 				ImGui::TreePop();
 			}

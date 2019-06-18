@@ -79,6 +79,7 @@ void EditorApp::UpdateCameras()
 	EditorCamera.Up = Camera::EditorCamera->Up;
 	EditorCamera.OutputSize = Editor->WorldViewRenderSize;
 	EditorCamera.FOV = Camera::EditorCamera->GetFOV();
+	EditorCamera.Skybox = Camera::CurrentCamera->Skybox;
 	GetEngine().EditorCamera = EditorCamera;
 }
 
