@@ -785,7 +785,7 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 		ImGui::End();
 
 		ImGui::Begin("World View");
-		if (!EditorCamera.OutputSize.IsZero())
+		//if (!EditorCamera.OutputSize.IsZero())
 		{
 			// Get the current cursor position (where your window is)
 			ImVec2 pos = ImGui::GetCursorScreenPos();

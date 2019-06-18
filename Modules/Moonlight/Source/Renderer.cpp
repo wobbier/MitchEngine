@@ -180,6 +180,31 @@ namespace Moonlight
 		context->OMSetRenderTargets(1, SceneViewRTT->RenderTargetView.GetAddressOf(), SceneViewRTT->DepthStencilView.Get());
 		DrawScene(context, m_constantBufferSceneData, editorCamera);
 
+		// Scene grid
+		//{
+		//	XMStoreFloat4x4(&m_constantBufferSceneData.model, XMMatrixTranspose(XMMatrixIdentity()));
+		//	// Prepare the constant buffer to send it to the graphics device.
+		//	context->UpdateSubresource1(
+		//		m_constantBuffer.Get(),
+		//		0,
+		//		NULL,
+		//		&m_constantBufferSceneData,
+		//		0,
+		//		0,
+		//		0
+		//	);
+
+		//	// Send the constant buffer to the graphics device.
+		//	context->VSSetConstantBuffers1(
+		//		0,
+		//		1,
+		//		m_constantBuffer.GetAddressOf(),
+		//		nullptr,
+		//		nullptr
+		//	);
+
+		//	Grid->Draw(GetDevice());
+		//}
 
 		// Reset the viewport to target the whole screen.
 		auto viewport = m_device->GetScreenViewport();
@@ -290,9 +315,10 @@ namespace Moonlight
 				nullptr
 			);
 			camera.Skybox->Draw();
-
-			m_device->ResetCullingMode();
 		}
+
+		m_device->ResetCullingMode();
+
 		if (Lights.size() > 0)
 		{
 			//constantBufferSceneData.light = Lights[0];
@@ -372,29 +398,6 @@ namespace Moonlight
 				}
 			}
 		}
-
-		XMStoreFloat4x4(&constantBufferSceneData.model, XMMatrixTranspose(XMMatrixIdentity()));
-		// Prepare the constant buffer to send it to the graphics device.
-		context->UpdateSubresource1(
-			m_constantBuffer.Get(),
-			0,
-			NULL,
-			&constantBufferSceneData,
-			0,
-			0,
-			0
-		);
-
-		// Send the constant buffer to the graphics device.
-		context->VSSetConstantBuffers1(
-			0,
-			1,
-			m_constantBuffer.GetAddressOf(),
-			nullptr,
-			nullptr
-		);
-
-		Grid->Draw(GetDevice());
 	}
 
 	void Renderer::ReleaseDeviceDependentResources()

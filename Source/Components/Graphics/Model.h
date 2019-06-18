@@ -42,7 +42,7 @@ private:
 			Path path = Path("Assets");
 			if (Models.empty())
 			{
-				for (const auto& entry : std::filesystem::directory_iterator(path.FullPath))
+				for (const auto& entry : std::filesystem::recursive_directory_iterator(path.FullPath))
 				{
 					Path filePath(entry.path().string());
 					if ((filePath.LocalPath.rfind(".fbx") != std::string::npos || filePath.LocalPath.rfind(".obj") != std::string::npos)

@@ -74,11 +74,11 @@ void EditorApp::UpdateCameras()
 	GetEngine().MainCamera = MainCamera;
 
 	Moonlight::CameraData EditorCamera;
-	MainCamera.Position = Camera::EditorCamera->Position;
-	MainCamera.Front = Camera::EditorCamera->Front;
-	MainCamera.Up = Camera::EditorCamera->Up;
-	MainCamera.OutputSize = Editor->WorldViewRenderSize;
-	MainCamera.FOV = Camera::EditorCamera->GetFOV();
+	EditorCamera.Position = Camera::EditorCamera->Position;
+	EditorCamera.Front = Camera::EditorCamera->Front;
+	EditorCamera.Up = Camera::EditorCamera->Up;
+	EditorCamera.OutputSize = Editor->WorldViewRenderSize;
+	EditorCamera.FOV = Camera::EditorCamera->GetFOV();
 	GetEngine().EditorCamera = EditorCamera;
 }
 
@@ -96,9 +96,9 @@ void EditorApp::OnInitialize()
 		EditorSceneManager = new EditorCore(Editor.get());
 		NewSceneEvent evt;
 		evt.Fire();
+		GetEngine().LoadScene("Assets/Test.lvl");
 	}
 	GetEngine().GetWorld().lock()->AddCore<EditorCore>(*EditorSceneManager);
-	GetEngine().LoadScene("Assets/Test.lvl");
 }
 
 void EditorApp::PostRender()
