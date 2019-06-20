@@ -71,7 +71,7 @@ private:
 				{
 					std::string label("##Texture" + std::to_string(i));
 					{
-						ImGui::ImageButton(((texture) ? (void*)texture->CubesTexture : nullptr), ImVec2(30, 30));
+						ImGui::ImageButton(((texture) ? (void*)texture->ShaderResourceView : nullptr), ImVec2(30, 30));
 						ImGui::SameLine();
 					}
 					if (ImGui::BeginCombo(label.c_str(), ((texture) ? texture->GetPath().LocalPath.c_str() : "")))

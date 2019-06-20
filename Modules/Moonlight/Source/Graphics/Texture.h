@@ -3,6 +3,7 @@
 #include "Dementia.h"
 #include "Resource/Resource.h"
 #include <d3d11.h>
+#include <wrl/client.h>
 namespace Moonlight
 {
 	enum TextureType
@@ -31,8 +32,8 @@ namespace Moonlight
 		// Textures should not be copied around in memory
 		ME_NONCOPYABLE(Texture);
 
-		ID3D11ShaderResourceView* CubesTexture;
-		ID3D11SamplerState* CubesTexSamplerState;
+		ID3D11ShaderResourceView* ShaderResourceView;
+		Microsoft::WRL::ComPtr<ID3D11SamplerState> SamplerState;
 		ID3D11Resource* resource;
 
 		static std::string ToString(TextureType type);

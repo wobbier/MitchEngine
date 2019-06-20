@@ -103,9 +103,9 @@ namespace Moonlight
 			{
 				{
 					OPTICK_EVENT("Mesh::Draw::Texture::ShaderResources");
-					context->PSSetShaderResources(0, 1, &diffuse->CubesTexture);
+					context->PSSetShaderResources(0, 1, &diffuse->ShaderResourceView);
 				}
-				context->PSSetSamplers(0, 1, &diffuse->CubesTexSamplerState);
+				context->PSSetSamplers(0, 1, diffuse->SamplerState.GetAddressOf());
 			}
 		}
 

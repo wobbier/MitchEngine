@@ -335,7 +335,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 
 		if (!m_app->IsGameRunning())
 		{
-			if (ImGui::ImageButton(Icons["Play"]->CubesTexture, ImVec2(30.f, 30.f)) || Input::GetInstance().IsKeyDown(KeyCode::F5))
+			if (ImGui::ImageButton(Icons["Play"]->ShaderResourceView, ImVec2(30.f, 30.f)) || Input::GetInstance().IsKeyDown(KeyCode::F5))
 			{
 				StartGameFunc();
 			}
@@ -343,12 +343,12 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 
 		if (m_app->IsGameRunning())
 		{
-			if (ImGui::ImageButton(Icons["Pause"]->CubesTexture, ImVec2(30.f, 30.f)) || Input::GetInstance().IsKeyDown(KeyCode::F10))
+			if (ImGui::ImageButton(Icons["Pause"]->ShaderResourceView, ImVec2(30.f, 30.f)) || Input::GetInstance().IsKeyDown(KeyCode::F10))
 			{
 				PauseGameFunc();
 			}
 
-			if (ImGui::ImageButton(Icons["Stop"]->CubesTexture, ImVec2(30.f, 30.f)) || (Input::GetInstance().IsKeyDown(KeyCode::F5) && Input::GetInstance().IsKeyDown(KeyCode::LeftShift)))
+			if (ImGui::ImageButton(Icons["Stop"]->ShaderResourceView, ImVec2(30.f, 30.f)) || (Input::GetInstance().IsKeyDown(KeyCode::F5) && Input::GetInstance().IsKeyDown(KeyCode::LeftShift)))
 			{
 				SelectedTransform = nullptr;
 				StopGameFunc();
@@ -369,7 +369,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 		ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(0.0f, 0.6f, 0.6f, 0.f));
 		ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)ImColor::HSV(0.f, 0.8f, 0.8f, 0.f));
 		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 5.f));
-		if (ImGui::ImageButton(Icons["Info"]->CubesTexture, ImVec2(30.f, 30.f)))
+		if (ImGui::ImageButton(Icons["Info"]->ShaderResourceView, ImVec2(30.f, 30.f)))
 		{
 			if (m_engine->CurrentScene && !std::filesystem::exists(m_engine->CurrentScene->FilePath.FullPath))
 			{
@@ -402,14 +402,14 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 		}
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(0.35f, 126.f, 43.f, 1.f));
 		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 4.f));
-		if (ImGui::ImageButton(Icons["BugReport"]->CubesTexture, ImVec2(30.f, 30.f)))
+		if (ImGui::ImageButton(Icons["BugReport"]->ShaderResourceView, ImVec2(30.f, 30.f)))
 		{
 			ShellExecute(0, 0, L"https://github.com/wobbier/MitchEngine/issues", 0, 0, SW_SHOW);
 		}
 		ImGui::PopStyleColor(1);
 
 		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 3.f));
-		if (ImGui::ImageButton(Icons["Minimize"]->CubesTexture, ImVec2(30.f, 30.f)))
+		if (ImGui::ImageButton(Icons["Minimize"]->ShaderResourceView, ImVec2(30.f, 30.f)))
 		{
 			m_engine->GetWindow()->Minimize();
 		}
@@ -417,7 +417,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 		if (static_cast<D3D12Window*>(m_engine->GetWindow())->IsMaximized())
 		{
 			ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 2.f));
-			if (ImGui::ImageButton(Icons["ExitMaximize"]->CubesTexture, ImVec2(30.f, 30.f)))
+			if (ImGui::ImageButton(Icons["ExitMaximize"]->ShaderResourceView, ImVec2(30.f, 30.f)))
 			{
 				m_engine->GetWindow()->ExitMaximize();
 			}
@@ -425,7 +425,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 		else
 		{
 			ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 2.f));
-			if (ImGui::ImageButton(Icons["Maximize"]->CubesTexture, ImVec2(30.f, 30.f)))
+			if (ImGui::ImageButton(Icons["Maximize"]->ShaderResourceView, ImVec2(30.f, 30.f)))
 			{
 				m_engine->GetWindow()->Maximize();
 			}
@@ -434,7 +434,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(1.f, 42.f, 43.f, 1.f));
 		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - buttonWidth);
 		//ImGui::SameLine(0.f);
-		if (ImGui::ImageButton(Icons["Close"]->CubesTexture, ImVec2(30.f, 30.f)))
+		if (ImGui::ImageButton(Icons["Close"]->ShaderResourceView, ImVec2(30.f, 30.f)))
 		{
 			m_engine->GetWindow()->Exit();
 		}

@@ -112,19 +112,19 @@ void AssetBrowser::Recursive(Directory& dir)
 		// we have a file
 		if (files.Name.find(".png") != std::string::npos || files.Name.find(".jpg") != std::string::npos)
 		{
-			ImGui::Image(Icons["Image"]->CubesTexture, ImVec2(16, 16));
+			ImGui::Image(Icons["Image"]->ShaderResourceView, ImVec2(16, 16));
 		}
 		else if (files.Name.find(".lvl") != std::string::npos)
 		{
-			ImGui::Image(Icons["World"]->CubesTexture, ImVec2(16, 16));
+			ImGui::Image(Icons["World"]->ShaderResourceView, ImVec2(16, 16));
 		}
 		else if (files.Name.find(".obj") != std::string::npos || files.Name.find(".fbx") != std::string::npos)
 		{
-			ImGui::Image(Icons["Terrain"]->CubesTexture, ImVec2(16, 16));
+			ImGui::Image(Icons["Terrain"]->ShaderResourceView, ImVec2(16, 16));
 		}
 		else
 		{
-			ImGui::Image(Icons["File"]->CubesTexture, ImVec2(16, 16));
+			ImGui::Image(Icons["File"]->ShaderResourceView, ImVec2(16, 16));
 		}
 		ImGui::SameLine();
 		//ImGui::Text(files.Name.c_str());
