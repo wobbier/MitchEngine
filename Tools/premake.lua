@@ -82,6 +82,7 @@ includedirs {
   "../ThirdParty/ImGUI",
   "../Modules/ImGUI/Source",
   "../ThirdParty/PerlinNoise",
+  "../ThirdParty/STB",
   "../ThirdParty/JSON/single_include"
 }
 

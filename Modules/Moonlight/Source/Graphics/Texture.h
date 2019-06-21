@@ -23,11 +23,21 @@ namespace Moonlight
 		unsigned int Id;
 		TextureType Type;
 
-		int Width;
-		int Height;
+		int mWidth;
+		int mHeight;
+		int mChannels;
 
-		Texture(const Path& InFilePath);
+		Texture(const Path& InFilePath, int levels = 0);
 		~Texture();
+
+		template<typename T> static constexpr T NumMipmapLevels(T width, T height)
+		{
+			T levels = 1;
+			while ((width | height) >> levels) {
+				++levels;
+			}
+			return levels;
+		}
 
 		// Textures should not be copied around in memory
 		ME_NONCOPYABLE(Texture);
