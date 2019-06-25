@@ -27,7 +27,7 @@ namespace Moonlight
 		int mHeight;
 		int mChannels;
 
-		Texture(const Path& InFilePath, int levels = 0);
+		Texture(const Path& InFilePath, int levels = 1);
 		~Texture();
 
 		template<typename T> static constexpr T NumMipmapLevels(T width, T height)

@@ -666,7 +666,7 @@ void Havana::UpdateWorldRecursive(Transform * root)
 			IM_ASSERT(payload->DataSize == sizeof(AssetBrowser::AssetDescriptor));
 			AssetBrowser::AssetDescriptor payload_n = *(AssetBrowser::AssetDescriptor*)payload->Data;
 
-			if (payload_n.Name.rfind(".fbx") != std::string::npos || payload_n.Name.rfind(".obj") != std::string::npos)
+			if (payload_n.Type == AssetBrowser::AssetType::Model)
 			{
 				auto ent = GetEngine().GetWorld().lock()->CreateEntity();
 				ent.lock()->AddComponent<Transform>(payload_n.Name.substr(0, payload_n.Name.find_last_of('.'))).SetParent(*root);

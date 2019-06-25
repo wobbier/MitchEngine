@@ -109,23 +109,22 @@ void AssetBrowser::Recursive(Directory& dir)
 	int i = 0;
 	for (AssetDescriptor& files : dir.Files)
 	{
-		// we have a file
-		if (files.Name.find(".png") != std::string::npos || files.Name.find(".jpg") != std::string::npos)
+		switch (files.Type)
 		{
-			ImGui::Image(Icons["Image"]->ShaderResourceView, ImVec2(16, 16));
-		}
-		else if (files.Name.find(".lvl") != std::string::npos)
-		{
+		case AssetType::Level:
 			ImGui::Image(Icons["World"]->ShaderResourceView, ImVec2(16, 16));
-		}
-		else if (files.Name.find(".obj") != std::string::npos || files.Name.find(".fbx") != std::string::npos)
-		{
+			break;
+		case AssetType::Texture:
+			ImGui::Image(Icons["Image"]->ShaderResourceView, ImVec2(16, 16));
+			break;
+		case AssetType::Model:
 			ImGui::Image(Icons["Terrain"]->ShaderResourceView, ImVec2(16, 16));
-		}
-		else
-		{
+			break;
+		default:
 			ImGui::Image(Icons["File"]->ShaderResourceView, ImVec2(16, 16));
+			break;
 		}
+
 		ImGui::SameLine();
 		//ImGui::Text(files.Name.c_str());
 		int node_clicked = -1;
@@ -136,6 +135,7 @@ void AssetBrowser::Recursive(Directory& dir)
 		ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, files.Name.c_str());
 		if (ImGui::IsItemClicked())
 		{
+			SelectedAsset = &files;
 			node_clicked = i;
 		}
 
@@ -194,10 +194,27 @@ bool AssetBrowser::ProccessDirectoryRecursive(std::string& dir, Directory& dirRe
 				{
 					return false;
 				}
+				// we have a file
+
+				AssetType type = AssetType::Unknown;
+				if (newdir.find(".png") != std::string::npos || newdir.find(".jpg") != std::string::npos)
+				{
+					type = AssetType::Texture;
+				}
+				else if (newdir.find(".lvl") != std::string::npos)
+				{
+					type = AssetType::Level;
+				}
+				else if (newdir.find(".obj") != std::string::npos || newdir.find(".fbx") != std::string::npos)
+				{
+					type = AssetType::Model;
+				}
+
 				AssetDescriptor desc;
 				desc.Name = newdir;
 				desc.MetaFile = File(Path(file.path().string() + ".meta"));
 				desc.FullPath = Path(file.path().string());
+				desc.Type = type;
 				dirRef.Files.push_back(desc);
 				const std::string & data = dirRef.Files.back().MetaFile.Read();
 				if (data.empty())

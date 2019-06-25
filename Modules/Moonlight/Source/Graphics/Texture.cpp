@@ -23,56 +23,68 @@ namespace Moonlight
 		ID3D11DeviceContext* context;
 		device.GetD3DDevice()->GetImmediateContext(&context);
 
-		uint8_t* mData = stbi_load(InFilePath.FullPath.c_str(), &mWidth, &mHeight, &mChannels, STBI_rgb_alpha);
-		levels = (levels > 0) ? levels : NumMipmapLevels(mWidth, mHeight);
+		/*
+		stbi_uc* mData = stbi_load(InFilePath.FullPath.c_str(), &mWidth, &mHeight, &mChannels, STBI_rgb_alpha);
+		//levels = (levels > 0) ? levels : NumMipmapLevels(mWidth, mHeight);
 
 		D3D11_TEXTURE2D_DESC desc = {};
 		desc.Width = mWidth;
 		desc.Height = mHeight;
-		desc.MipLevels = levels;
+		desc.MipLevels = 1;
 		desc.ArraySize = 1;
 		desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 		desc.SampleDesc.Count = 1;
 		desc.Usage = D3D11_USAGE_DEFAULT;
 		desc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS;
-		if (levels == 0) {
+		//if (levels == 0) {
 			desc.BindFlags |= D3D11_BIND_RENDER_TARGET;
-			desc.MiscFlags = D3D11_RESOURCE_MISC_GENERATE_MIPS;
-		}
+			//desc.MiscFlags = D3D11_RESOURCE_MISC_GENERATE_MIPS;
+		//}
 
 		D3D11_SUBRESOURCE_DATA textureData = {};
-		textureData.pSysMem = mData;
+		textureData.pSysMem = (void*)mData;
 		textureData.SysMemPitch = (32 * mWidth) / 8;
 		textureData.SysMemSlicePitch = textureData.SysMemPitch * mHeight;
 
 		ID3D11Texture2D* tex = nullptr;
 		DX::ThrowIfFailed(device.GetD3DDevice()->CreateTexture2D(&desc, nullptr, &tex));
+		*/
 
-		/*
 				UINT bindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS;
 				UINT miscFlags = 0;
-				if (levels == 0)
+				//if (levels == 0)
 				{
 					bindFlags |= D3D11_BIND_RENDER_TARGET;
 					miscFlags = D3D11_RESOURCE_MISC_GENERATE_MIPS;
 				}
-				DX::ThrowIfFailed(CreateWICTextureFromFileEx(device.GetD3DDevice(), filePath.c_str(), 2048, D3D11_USAGE_DEFAULT, bindFlags, NULL, miscFlags, NULL, &resource, &ShaderResourceView));
-		*/
-		
+				DX::ThrowIfFailed(CreateWICTextureFromFileEx(device.GetD3DDevice(), context, filePath.c_str(), 2048, D3D11_USAGE_DEFAULT, bindFlags, NULL, miscFlags, NULL, &resource, &ShaderResourceView));
+			/*
+
 		D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 		srvDesc.Format = desc.Format;
 		srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-		srvDesc.Texture2D.MostDetailedMip = 0;
-		srvDesc.Texture2D.MipLevels = -1;
+		//srvDesc.Texture2D.MostDetailedMip = 3;
+		//srvDesc.Texture2D.MipLevels = -1;
 		DX::ThrowIfFailed(device.GetD3DDevice()->CreateShaderResourceView(tex, &srvDesc, &ShaderResourceView));
 
 		context->UpdateSubresource(tex, 0, nullptr, mData, (mWidth * (mChannels * sizeof(unsigned char))), 0);
 
-		if (levels == 0)
+		//if (levels == 0)
 		{
-			device.GetD3DDeviceContext()->GenerateMips(ShaderResourceView);
+			//device.GetD3DDeviceContext()->GenerateMips(ShaderResourceView);
 		}
 		SamplerState = device.CreateSamplerState(D3D11_FILTER_ANISOTROPIC, D3D11_TEXTURE_ADDRESS_WRAP);
+		*/
+				D3D11_SAMPLER_DESC sampDesc;
+				ZeroMemory(&sampDesc, sizeof(sampDesc));
+				sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+				sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
+				sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
+				sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+				sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+				sampDesc.MinLOD = 0;
+				sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
+				device.GetD3DDevice()->CreateSamplerState(&sampDesc, &SamplerState);
 	}
 
 	Texture::~Texture()
