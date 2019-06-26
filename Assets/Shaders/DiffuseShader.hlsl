@@ -67,6 +67,7 @@ float4 main_ps(PixelShaderInput input) : SV_TARGET
 
 	float4 diffuse = ObjTexture.Sample(ObjSamplerState, input.texcoord);
 
+	if(hasNormalMap)
 	{
 
 		float4 normalMap = ObjNormalMap.Sample(ObjSamplerState, input.texcoord);
@@ -86,6 +87,7 @@ float4 main_ps(PixelShaderInput input) : SV_TARGET
 	float3 finalColor;
 
 	finalColor = diffuse * float3(0.2, 0.2, 0.2);//light.ambient;
+	//finalColor = diffuse * float3(0.2, 0.2, 0.2);//light.ambient;
 	finalColor += saturate(dot(float4(0.25, 0.5, -1.0, 1.0), input.normal) * float4(1.0, 1.0, 1.0, 1.0) * diffuse);
 	//finalColor += saturate(dot(light.dir, input.normal) * light.diffuse * diffuse);
 

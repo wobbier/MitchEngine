@@ -16,6 +16,14 @@ namespace Moonlight
 		Count
 	};
 
+	enum WrapMode
+	{
+		Clamp,
+		Decal,
+		Wrap,
+		Mirror
+	};
+
 	class Texture
 		: public Resource
 	{
@@ -27,7 +35,7 @@ namespace Moonlight
 		int mHeight;
 		int mChannels;
 
-		Texture(const Path& InFilePath, int levels = 1);
+		Texture(const Path& InFilePath, WrapMode mode = WrapMode::Clamp);
 		~Texture();
 
 		template<typename T> static constexpr T NumMipmapLevels(T width, T height)

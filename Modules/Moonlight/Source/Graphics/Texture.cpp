@@ -15,7 +15,7 @@ using namespace Microsoft::WRL;
 
 namespace Moonlight
 {
-	Texture::Texture(const Path& InFilePath, int levels)
+	Texture::Texture(const Path& InFilePath, WrapMode mode)
 		: Resource(InFilePath)
 	{
 		std::wstring filePath = ToStringW(InFilePath.FullPath);
@@ -75,12 +75,28 @@ namespace Moonlight
 		}
 		SamplerState = device.CreateSamplerState(D3D11_FILTER_ANISOTROPIC, D3D11_TEXTURE_ADDRESS_WRAP);
 		*/
+				D3D11_TEXTURE_ADDRESS_MODE dxMode = D3D11_TEXTURE_ADDRESS_WRAP;
+				switch (mode)
+				{
+				case Moonlight::Clamp:
+				case Moonlight::Decal:
+					dxMode = D3D11_TEXTURE_ADDRESS_CLAMP;
+					break;
+				case Moonlight::Wrap:
+					dxMode = D3D11_TEXTURE_ADDRESS_WRAP;
+					break;
+				case Moonlight::Mirror:
+					dxMode = D3D11_TEXTURE_ADDRESS_MIRROR;
+					break;
+				default:
+					break;
+				}
 				D3D11_SAMPLER_DESC sampDesc;
 				ZeroMemory(&sampDesc, sizeof(sampDesc));
 				sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-				sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
-				sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
-				sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+				sampDesc.AddressU = dxMode;
+				sampDesc.AddressV = dxMode;
+				sampDesc.AddressW = dxMode;
 				sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
 				sampDesc.MinLOD = 0;
 				sampDesc.MaxLOD = D3D11_FLOAT32_MAX;

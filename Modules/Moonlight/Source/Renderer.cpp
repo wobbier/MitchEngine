@@ -325,53 +325,20 @@ namespace Moonlight
 		}
 
 		{
-			for (const ModelCommand& model : Models)
+			std::vector<MeshCommand> transparentMeshes;
+			for (const MeshCommand& mesh : Meshes)
 			{
-				OPTICK_EVENT("Render::ModelCommand", Optick::Category::Rendering);
-				XMStoreFloat4x4(&constantBufferSceneData.model, XMMatrixTranspose(model.Transform));
-				// Prepare the constant buffer to send it to the graphics device.
-				context->UpdateSubresource1(
-					m_constantBuffer.Get(),
-					0,
-					NULL,
-					&constantBufferSceneData,
-					0,
-					0,
-					0
-				);
-
-				// Send the constant buffer to the graphics device.
-				context->VSSetConstantBuffers1(
-					0,
-					1,
-					m_constantBuffer.GetAddressOf(),
-					nullptr,
-					nullptr
-				);
-				ShaderCommand* cachedShader = model.ModelShader;
-				for (MeshData* mesh : model.Meshes)
+				if (mesh.MeshMaterial && mesh.MeshMaterial->IsTransparent())
 				{
-					OPTICK_EVENT("Render::SingleMesh");
-
-					//if (model.ModelShader != cachedShader)
-					{
-						cachedShader = model.ModelShader;
-						cachedShader->Use();
-					}
-
-					//mesh->Draw(model);
+					transparentMeshes.push_back(mesh);
+					continue;
 				}
-			}
-		}
 
-		{
-			for (const MeshCommand& model : Meshes)
-			{
-				if (model.MeshShader && model.SingleMesh && model.MeshMaterial)
+				if (mesh.MeshShader && mesh.SingleMesh && mesh.MeshMaterial)
 				{
 					OPTICK_EVENT("Render::ModelCommand", Optick::Category::Rendering);
-					XMStoreFloat4x4(&constantBufferSceneData.model, XMMatrixTranspose(model.Transform));
-					if (model.MeshMaterial->GetTexture(TextureType::Normal))
+					XMStoreFloat4x4(&constantBufferSceneData.model, XMMatrixTranspose(mesh.Transform));
+					if (mesh.MeshMaterial->GetTexture(TextureType::Normal))
 					{
 						constantBufferSceneData.HasNormalMap = TRUE;
 					}
@@ -396,9 +363,45 @@ namespace Moonlight
 					);
 					OPTICK_EVENT("Render::SingleMesh");
 
-					model.MeshShader->Use();
+					mesh.MeshShader->Use();
 
-					model.SingleMesh->Draw(model.MeshMaterial);
+					mesh.SingleMesh->Draw(mesh.MeshMaterial);
+				}
+			}
+			for (const MeshCommand& mesh : transparentMeshes)
+			{
+				if (mesh.MeshShader && mesh.SingleMesh && mesh.MeshMaterial)
+				{
+					OPTICK_EVENT("Render::ModelCommand", Optick::Category::Rendering);
+					XMStoreFloat4x4(&constantBufferSceneData.model, XMMatrixTranspose(mesh.Transform));
+					if (mesh.MeshMaterial->GetTexture(TextureType::Normal))
+					{
+						constantBufferSceneData.HasNormalMap = TRUE;
+					}
+					// Prepare the constant buffer to send it to the graphics device.
+					context->UpdateSubresource1(
+						m_constantBuffer.Get(),
+						0,
+						NULL,
+						&constantBufferSceneData,
+						0,
+						0,
+						0
+					);
+
+					// Send the constant buffer to the graphics device.
+					context->VSSetConstantBuffers1(
+						0,
+						1,
+						m_constantBuffer.GetAddressOf(),
+						nullptr,
+						nullptr
+					);
+					OPTICK_EVENT("Render::SingleMesh");
+
+					mesh.MeshShader->Use();
+
+					mesh.SingleMesh->Draw(mesh.MeshMaterial);
 				}
 			}
 		}

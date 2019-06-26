@@ -170,19 +170,43 @@ bool ModelResource::LoadMaterialTextures(Moonlight::Material* newMaterial, aiMat
 	for (unsigned int i = 0; i < mat->GetTextureCount(type); i++)
 	{
 		aiString str;
-		mat->GetTexture(type, i, &str);
+		aiTextureMapping texMapping;
+		aiTextureMapMode mapMode;
+		mat->GetTexture(type, i, &str, &texMapping, nullptr, nullptr, nullptr, &mapMode);
 		std::string stdString = std::string(str.C_Str());
 		if (stdString != ".")
 		{
 			std::string& texturePath = stdString;
 			std::shared_ptr<Moonlight::Texture> texture;
+
+			Moonlight::WrapMode wrapMode = Moonlight::WrapMode::Wrap;
+			switch (mapMode)
+			{
+			case aiTextureMapMode_Wrap:
+				wrapMode = Moonlight::WrapMode::Wrap;
+				break;
+			case aiTextureMapMode_Decal:
+				wrapMode = Moonlight::WrapMode::Decal;
+				break;
+			case aiTextureMapMode_Mirror:
+				wrapMode = Moonlight::WrapMode::Mirror;
+				break;
+			case aiTextureMapMode_Clamp:
+				wrapMode = Moonlight::WrapMode::Clamp;
+				break;
+			case _aiTextureMapMode_Force32Bit:
+			default:
+				wrapMode = Moonlight::WrapMode::Wrap;
+				break;
+			}
+
 			if (stdString.find(":") != std::string::npos)
 			{
-				texture = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path(texturePath));
+				texture = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path(texturePath), wrapMode);
 			}
 			else
 			{
-				texture = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path(FilePath.Directory + texturePath));
+				texture = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path(FilePath.Directory + texturePath), wrapMode);
 			}
 			texture->Type = typeName;
 			newMaterial->SetTexture(typeName, texture);
