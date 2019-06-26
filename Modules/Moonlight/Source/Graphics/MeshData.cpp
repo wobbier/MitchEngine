@@ -69,7 +69,7 @@ namespace Moonlight
 		OPTICK_EVENT("Mesh::Draw", Optick::Category::Rendering);
 
 		auto context = static_cast<D3D12Device&>(GetEngine().GetRenderer().GetDevice()).GetD3DDeviceContext();
-		
+
 		{
 			OPTICK_EVENT("Mesh::Draw::Setup");
 			// Each vertex is one instance of the VertexPositionColor struct.
@@ -95,15 +95,17 @@ namespace Moonlight
 		{
 			mat = material;
 		}
-		if(mat)
+		if (mat)
 		{
 			OPTICK_EVENT("Mesh::Draw::Texture", Optick::Category::Rendering);
 			const Texture* diffuse = mat->GetTexture(TextureType::Diffuse);
 			if (diffuse)
 			{
+				OPTICK_EVENT("Mesh::Draw::Texture::ShaderResources");
+				context->PSSetShaderResources(0, 1, &diffuse->ShaderResourceView);
+				if (mat->GetTexture(TextureType::Normal))
 				{
-					OPTICK_EVENT("Mesh::Draw::Texture::ShaderResources");
-					context->PSSetShaderResources(0, 1, &diffuse->ShaderResourceView);
+					context->PSSetShaderResources(1, 1, &mat->GetTexture(TextureType::Normal)->ShaderResourceView);
 				}
 				context->PSSetSamplers(0, 1, diffuse->SamplerState.GetAddressOf());
 			}

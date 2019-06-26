@@ -64,11 +64,6 @@ std::vector<Moonlight::MeshData*> ModelResource::GetAllMeshes()
 	return meshes;
 }
 
-void ModelResource::SetShader(Moonlight::ShaderCommand* shader)
-{
-	ModelShader = shader;
-}
-
 void ModelResource::ProcessNode(aiNode *node, const aiScene *scene, Moonlight::Node& parent)
 {
 	parent.Position = Vector3(node->mTransformation[0][0]);
@@ -119,14 +114,14 @@ Moonlight::MeshData* ModelResource::ProcessMesh(aiMesh *mesh, const aiScene *sce
 			vector.x = mesh->mTangents[i].x;
 			vector.y = mesh->mTangents[i].y;
 			vector.z = mesh->mTangents[i].z;
-			//vertex.Tangent = vector;
+			vertex.Tangent = vector;
 		}
 		if (mesh->mBitangents)
 		{
 			vector.x = mesh->mBitangents[i].x;
 			vector.y = mesh->mBitangents[i].y;
 			vector.z = mesh->mBitangents[i].z;
-			//vertex.Bitangent = vector;
+			vertex.BiTangent = vector;
 		}
 		vertices.push_back(vertex);
 	}
@@ -164,12 +159,13 @@ Moonlight::MeshData* ModelResource::ProcessMesh(aiMesh *mesh, const aiScene *sce
 	LoadMaterialTextures(newMaterial, material, aiTextureType_NORMALS, Moonlight::TextureType::Normal);
 	LoadMaterialTextures(newMaterial, material, aiTextureType_HEIGHT, Moonlight::TextureType::Height);
 	LoadMaterialTextures(newMaterial, material, aiTextureType_OPACITY, Moonlight::TextureType::Opacity);
+
 	Moonlight::MeshData* output = new Moonlight::MeshData(vertices, indices, newMaterial);
 	output->Name = std::string(mesh->mName.C_Str());
 	return output;
 }
 
-void ModelResource::LoadMaterialTextures(Moonlight::Material* newMaterial, aiMaterial *mat, aiTextureType type, const Moonlight::TextureType& typeName)
+bool ModelResource::LoadMaterialTextures(Moonlight::Material* newMaterial, aiMaterial *mat, aiTextureType type, const Moonlight::TextureType& typeName)
 {
 	for (unsigned int i = 0; i < mat->GetTextureCount(type); i++)
 	{
@@ -190,11 +186,8 @@ void ModelResource::LoadMaterialTextures(Moonlight::Material* newMaterial, aiMat
 			}
 			texture->Type = typeName;
 			newMaterial->SetTexture(typeName, texture);
+			return true;
 		}
 	}
-}
-
-Moonlight::ShaderCommand* ModelResource::GetShader() const
-{
-	return ModelShader;
+	return false;
 }

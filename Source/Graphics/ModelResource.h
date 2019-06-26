@@ -23,7 +23,6 @@ public:
 	ModelResource(const Path& path);
 	~ModelResource();
 
-	void SetShader(Moonlight::ShaderCommand* shader);
 	void Load();
 	Moonlight::Node RootNode;
 	std::vector<Moonlight::MeshData*> GetAllMeshes();
@@ -33,9 +32,5 @@ private:
 
 	Moonlight::MeshData* ProcessMesh(aiMesh *mesh, const aiScene *scene);
 
-	void LoadMaterialTextures(Moonlight::Material* newMaterial, aiMaterial *mat, aiTextureType type, const Moonlight::TextureType& typeName);
-
-	Moonlight::ShaderCommand* ModelShader = nullptr;
-public:
-	Moonlight::ShaderCommand* GetShader() const;
+	bool LoadMaterialTextures(Moonlight::Material* newMaterial, aiMaterial *mat, aiTextureType type, const Moonlight::TextureType& typeName);
 };

@@ -5,6 +5,8 @@ cbuffer ModelViewProjectionConstantBuffer : register(b0)
 	matrix model;
 	matrix view;
 	matrix projection;
+	float3 padding;
+	bool hasNormalMap;
 };
 
 // Per-vertex data used as input to the vertex shader.

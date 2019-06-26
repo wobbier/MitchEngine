@@ -32,8 +32,8 @@ void Model::Init()
 	if (ModelHandle && !IsInitialized)
 	{
 		IsInitialized = true;
-		ModelShader = new Moonlight::ShaderCommand("Assets/Shaders/SimpleVertexShader.cso", "Assets/Shaders/SimplePixelShader.cso");
-		ModelHandle->SetShader(ModelShader);
+		ModelShader = new Moonlight::ShaderCommand("Assets/Shaders/DiffuseShader.hlsl");
+		
 		auto parentEnt = GetEngine().GetWorld().lock()->GetEntity(Parent);
 		if (ModelHandle->RootNode.Nodes.size() > 0)
 		{
@@ -41,9 +41,9 @@ void Model::Init()
 			{
 				auto ent = GetEngine().GetWorld().lock()->CreateEntity();
 				Transform& trans = ent.lock()->AddComponent<Transform>(child->Name);
-				Mesh& ref = ent.lock()->AddComponent<Mesh>(child);
-				ref.MeshShader = ModelShader;
-				ref.MeshMaterial = child->material;
+				Mesh& meshRef = ent.lock()->AddComponent<Mesh>(child);
+				meshRef.MeshShader = ModelShader;
+				meshRef.MeshMaterial = child->material;
 				trans.SetParent(parentEnt.lock()->GetComponent<Transform>());
 			}
 		}

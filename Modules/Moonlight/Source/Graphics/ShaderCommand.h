@@ -15,13 +15,14 @@ namespace Moonlight
 
 		// Constructor generates the shader on the fly
 		ShaderCommand(const std::string& InVertexPath, const std::string& InPixelPath);
+		ShaderCommand(const std::string& InShaderFile);
 
 		~ShaderCommand();
 
 		// Uses the current shader
 		void Use();
 
-		const unsigned int GetProgram() const;
+		const ShaderProgram& GetProgram() const;
 
 		void SetMat4(const std::string& name, const Matrix4& mat) const;
 		void SetInt(const std::string& name, int value) const;
@@ -31,12 +32,7 @@ namespace Moonlight
 		const bool IsLoaded() const { return isLoaded; };
 
 	private:
-#if ME_DIRECTX
-		Microsoft::WRL::ComPtr<ID3D11InputLayout>	m_inputLayout;
-		Microsoft::WRL::ComPtr<ID3D11VertexShader>	m_vertexShader;
-		Microsoft::WRL::ComPtr<ID3D11PixelShader>	m_pixelShader;
-#endif
-		unsigned int Program;
+		ShaderProgram Program;
 		bool isLoaded = false;
 	};
 }

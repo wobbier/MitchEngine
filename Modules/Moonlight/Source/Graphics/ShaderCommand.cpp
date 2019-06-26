@@ -71,7 +71,7 @@ namespace Moonlight
 				VertexSource.data(),
 				VertexSource.size(),
 				nullptr,
-				&m_vertexShader
+				&Program.VertexShader
 			)
 		);
 
@@ -89,7 +89,7 @@ namespace Moonlight
 				ARRAYSIZE(vertexDesc),
 				VertexSource.data(),
 				VertexSource.size(),
-				&m_inputLayout
+				&Program.InputLayout
 			)
 		);
 
@@ -98,18 +98,36 @@ namespace Moonlight
 				FragSource.data(),
 				FragSource.size(),
 				nullptr,
-				&m_pixelShader
+				&Program.PixelShader
 			)
 		);
 
 		isLoaded = true;
 	}
 
+	ShaderCommand::ShaderCommand(const std::string& InShaderFile)
+	{
+		auto& dxDevice = static_cast<D3D12Device&>(GetEngine().GetRenderer().GetDevice());
+
+		auto vs = dxDevice.CompileShader(Path(InShaderFile), "main_vs", "vs_5_0");
+		auto ps = dxDevice.CompileShader(Path(InShaderFile), "main_ps", "ps_5_0");
+
+		// Wrap this and subscribe to 
+		static const std::vector<D3D11_INPUT_ELEMENT_DESC> vertexDesc =
+		{
+			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,    0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+			{ "NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT,    0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+			{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,       0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+			{ "TANGENT",   0, DXGI_FORMAT_R32G32B32_FLOAT,    0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		};
+
+		Program = dxDevice.CreateShaderProgram(vs, ps, &vertexDesc);
+
+		isLoaded = true;
+	}
+
 	ShaderCommand::~ShaderCommand()
 	{
-		m_vertexShader.Reset();
-		m_inputLayout.Reset();
-		m_pixelShader.Reset();
 	}
 
 	void ShaderCommand::Use()
@@ -121,23 +139,23 @@ namespace Moonlight
 			return;
 		}
 		auto& dxDevice = static_cast<D3D12Device&>(GetEngine().GetRenderer().GetDevice());
-		dxDevice.GetD3DDeviceContext()->IASetInputLayout(m_inputLayout.Get());
+		dxDevice.GetD3DDeviceContext()->IASetInputLayout(Program.InputLayout.Get());
 
 		// Attach our vertex shader.
 		dxDevice.GetD3DDeviceContext()->VSSetShader(
-			m_vertexShader.Get(),
+			Program.VertexShader.Get(),
 			nullptr,
 			0
 		);
 		// Attach our pixel shader.
 		dxDevice.GetD3DDeviceContext()->PSSetShader(
-			m_pixelShader.Get(),
+			Program.PixelShader.Get(),
 			nullptr,
 			0
 		);
 	}
 
-	const unsigned int ShaderCommand::GetProgram() const
+	const ShaderProgram& ShaderCommand::GetProgram() const
 	{
 		return Program;
 	}

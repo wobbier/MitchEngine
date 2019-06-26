@@ -802,7 +802,7 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 			static float snap[3] = { 1.f, 1.f, 1.f };
 
 			float matrixTranslation[3], matrixRotation[3], matrixScale[3];
-			ImGuizmo::DecomposeMatrixToComponents(&objView._11, matrixTranslation, matrixRotation, matrixScale);
+			//ImGuizmo::DecomposeMatrixToComponents(&objView._11, matrixTranslation, matrixRotation, matrixScale);
 
 			bool isMovingMouse = (ImGui::GetMousePos().x != previousMousePos.x) && (ImGui::GetMousePos().y != previousMousePos.y);
 			previousMousePos = ImGui::GetMousePos();
@@ -820,7 +820,7 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 				//	ImGui::InputFloat3("Rt", matrixRotation, 3);
 				//}
 				//ImGui::InputFloat3("Sc", matrixScale, 3);
-				ImGuizmo::RecomposeMatrixFromComponents(matrixTranslation, matrixRotation, matrixScale, &objView._11);
+				//ImGuizmo::RecomposeMatrixFromComponents(matrixTranslation, matrixRotation, matrixScale, &objView._11);
 			}
 
 			{
@@ -869,7 +869,7 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 
 					//ImGuizmo::DrawGrid(&fView2._11, &fView._11, &idView._11, 10.f);
 					//ImGuizmo::DrawCube(&fView2._11, &fView._11, &idView._11);
-					ImGuizmo::Manipulate(&fView2._11, &fView._11, mCurrentGizmoOperation, mCurrentGizmoMode, &objView._11, NULL, useSnap ? &snap[0] : NULL);
+					ImGuizmo::Manipulate(&fView2._11, &fView._11, mCurrentGizmoOperation, mCurrentGizmoMode, &objView._11, &idView._11, useSnap ? &snap[0] : NULL);
 					//if (ImGui::IsWindowFocused() && ImGuizmo::IsUsing() && isMovingMouse)
 					{
 						if (SelectedTransform)
@@ -886,7 +886,7 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 							prevMatrixRotation[2] = matrixRotation[2];
 							//memcpy(matrixScale, prevMatrixScale, sizeof(float) * 3);
 							SelectedTransform->SetPosition(Vector3(matrixTranslation[0], matrixTranslation[1], matrixTranslation[2]));
-							SelectedTransform->SetRotation(Vector3(matrixRotation[0], matrixRotation[1], matrixRotation[2]));
+							//SelectedTransform->SetRotation(Vector3(matrixRotation[0], matrixRotation[1], matrixRotation[2]));
 							//SelectedTransform->SetRotation(Vector3(matrixRotation[0] * 180.f / DirectX::XM_PI, matrixRotation[1] * 180.f / DirectX::XM_PI, matrixRotation[2] * 180.f / DirectX::XM_PI));
 						}
 					}

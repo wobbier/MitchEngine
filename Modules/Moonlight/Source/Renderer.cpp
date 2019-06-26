@@ -367,10 +367,14 @@ namespace Moonlight
 		{
 			for (const MeshCommand& model : Meshes)
 			{
-				if (model.MeshShader && model.SingleMesh)
+				if (model.MeshShader && model.SingleMesh && model.MeshMaterial)
 				{
 					OPTICK_EVENT("Render::ModelCommand", Optick::Category::Rendering);
 					XMStoreFloat4x4(&constantBufferSceneData.model, XMMatrixTranspose(model.Transform));
+					if (model.MeshMaterial->GetTexture(TextureType::Normal))
+					{
+						constantBufferSceneData.HasNormalMap = TRUE;
+					}
 					// Prepare the constant buffer to send it to the graphics device.
 					context->UpdateSubresource1(
 						m_constantBuffer.Get(),

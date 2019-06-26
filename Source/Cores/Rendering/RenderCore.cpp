@@ -56,6 +56,7 @@ void RenderCore::OnEntityAdded(Entity& NewEntity)
 		Mesh& model = NewEntity.GetComponent<Mesh>();
 		command.SingleMesh = model.MeshReferece;
 		command.MeshShader = model.MeshShader;
+		command.MeshMaterial = model.MeshMaterial;
 		model.Id = GetEngine().GetRenderer().PushMesh(command);
 	}
 	if (NewEntity.HasComponent<DirectionalLight>())

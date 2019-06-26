@@ -32,6 +32,8 @@ namespace Moonlight
 		Material();
 		~Material();
 
+		const bool IsTransparent() const;
+
 		void OnSerialize(json& InJson)
 		{
 			for (auto texture : Textures)
