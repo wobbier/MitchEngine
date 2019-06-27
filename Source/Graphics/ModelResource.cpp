@@ -143,7 +143,7 @@ Moonlight::MeshData* ModelResource::ProcessMesh(aiMesh *mesh, const aiScene *sce
 	material->Get(AI_MATKEY_COLOR_TRANSPARENT, color);
 	if (color != color2)
 	{
-		newMaterial->RenderMode = Moonlight::RenderingMode::Transparent;
+		//newMaterial->RenderMode = Moonlight::RenderingMode::Transparent;
 	}
 
 	aiColor3D colorDiff(0.f, 0.f, 0.f);
@@ -151,7 +151,7 @@ Moonlight::MeshData* ModelResource::ProcessMesh(aiMesh *mesh, const aiScene *sce
 	material->Get(AI_MATKEY_COLOR_DIFFUSE, colorDiff);
 	if (colorDiff != colorDiff2)
 	{
-		newMaterial->RenderMode = Moonlight::RenderingMode::Transparent;
+		//newMaterial->RenderMode = Moonlight::RenderingMode::Transparent;
 	}
 
 	LoadMaterialTextures(newMaterial, material, aiTextureType_DIFFUSE, Moonlight::TextureType::Diffuse);

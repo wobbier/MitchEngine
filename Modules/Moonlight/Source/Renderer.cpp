@@ -259,6 +259,8 @@ namespace Moonlight
 		float aspectRatio = static_cast<float>(outputSize.X()) / static_cast<float>(outputSize.Y());
 		float fovAngleY = camera.FOV * XM_PI / 180.0f;
 
+		m_device->GetD3DDeviceContext()->OMSetBlendState(0, 0, 0xffffffff);
+
 		// This is a simple example of change that can be made when the app is in
 		// portrait or snapped view.
 		if (aspectRatio < 1.0f)
@@ -368,6 +370,9 @@ namespace Moonlight
 					mesh.SingleMesh->Draw(mesh.MeshMaterial);
 				}
 			}
+			static float blendFactor[] = { 1.f, 1.f, 1.f, 1.0f };
+			m_device->GetD3DDeviceContext()->OMSetBlendState(m_device->TransparentBlendState, blendFactor, 0xffffffff);
+
 			for (const MeshCommand& mesh : transparentMeshes)
 			{
 				if (mesh.MeshShader && mesh.SingleMesh && mesh.MeshMaterial)
@@ -405,6 +410,7 @@ namespace Moonlight
 				}
 			}
 		}
+		m_device->GetD3DDeviceContext()->OMSetBlendState(0, 0, 0xffffffff);
 	}
 
 	void Renderer::ReleaseDeviceDependentResources()
