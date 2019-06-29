@@ -22,5 +22,5 @@ protected:
 	Path FilePath;
 
 private:
-	ResourceCache * Resources;
+	ResourceCache* Resources = nullptr;
 };

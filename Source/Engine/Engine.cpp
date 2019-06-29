@@ -159,7 +159,7 @@ void Engine::Run()
 				m_game->PostRender();
 			}, MainCamera, EditorCamera);
 
-			Sleep(6);
+			Sleep(5);
 	}
 }
 

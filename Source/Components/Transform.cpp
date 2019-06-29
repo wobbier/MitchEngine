@@ -96,6 +96,7 @@ void Transform::Init()
 {
 }
 
+#if ME_EDITOR
 void Transform::OnEditorInspect()
 {
 	ImGui::InputText("Name", &Name);
@@ -115,6 +116,7 @@ void Transform::OnEditorInspect()
 		SetWorldPosition(WorldPos);
 	}
 }
+#endif
 
 void Transform::SetDirty(bool Dirty)
 {

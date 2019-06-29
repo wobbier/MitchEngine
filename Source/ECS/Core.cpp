@@ -47,16 +47,16 @@ void BaseCore::Clear()
 	Entities.clear();
 }
 
+const bool BaseCore::CanSerialize() const
+{
+	return IsSerializable;
+}
+
 #if ME_EDITOR
 
 void BaseCore::OnEditorInspect()
 {
 	ImGui::Text("Entity Count: %i", Entities.size());
-}
-
-const bool BaseCore::CanSerialize() const
-{
-	return IsSerializable;
 }
 
 #endif

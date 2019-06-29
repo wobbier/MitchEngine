@@ -42,9 +42,6 @@ public:
 private:
 	float m_FOV = 45.f;
 
-#if ME_EDITOR
-	virtual void OnEditorInspect() final;
-
 	virtual void Deserialize(const json& inJson) override;
 	virtual void Serialize(json& outJson) final
 	{
@@ -58,6 +55,9 @@ private:
 			outJson["Skybox"] = Skybox->SkyMaterial->GetTexture(Moonlight::TextureType::Diffuse)->GetPath().LocalPath;
 		}
 	}
+
+#if ME_EDITOR
+	virtual void OnEditorInspect() final;
 #endif
 };
 ME_REGISTER_COMPONENT(Camera)
