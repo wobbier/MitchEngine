@@ -141,9 +141,11 @@ namespace Moonlight
 		);
 		context->RSSetViewports(1, &gameViewport);
 
+		m_device->GetD3DDeviceContext()->OMSetBlendState(0, 0, 0xffffffff);
+
 		//m_perFrameBufferData.light = light;
 		context->UpdateSubresource1(m_perFrameBuffer.Get(), 0, NULL, &Sunlight, 0, 0, 0);
-		context->PSSetConstantBuffers1(0, 1, m_perFrameBuffer.GetAddressOf(), nullptr, nullptr);
+		context->PSSetConstantBuffers1(1, 1, m_perFrameBuffer.GetAddressOf(), nullptr, nullptr);
 
 		// Reset render targets to the screen.
 		context->OMSetRenderTargets(1, m_framebuffer->RenderTargetView.GetAddressOf(), m_framebuffer->DepthStencilView.Get());
@@ -259,7 +261,6 @@ namespace Moonlight
 		float aspectRatio = static_cast<float>(outputSize.X()) / static_cast<float>(outputSize.Y());
 		float fovAngleY = camera.FOV * XM_PI / 180.0f;
 
-		m_device->GetD3DDeviceContext()->OMSetBlendState(0, 0, 0xffffffff);
 
 		// This is a simple example of change that can be made when the app is in
 		// portrait or snapped view.
@@ -344,6 +345,12 @@ namespace Moonlight
 					{
 						constantBufferSceneData.HasNormalMap = TRUE;
 					}
+					else
+					{
+						constantBufferSceneData.HasNormalMap = FALSE;
+					}
+					constantBufferSceneData.HasAlphaMap = FALSE;
+
 					// Prepare the constant buffer to send it to the graphics device.
 					context->UpdateSubresource1(
 						m_constantBuffer.Get(),
@@ -357,6 +364,13 @@ namespace Moonlight
 
 					// Send the constant buffer to the graphics device.
 					context->VSSetConstantBuffers1(
+						0,
+						1,
+						m_constantBuffer.GetAddressOf(),
+						nullptr,
+						nullptr
+					);
+					context->PSSetConstantBuffers1(
 						0,
 						1,
 						m_constantBuffer.GetAddressOf(),
@@ -370,8 +384,8 @@ namespace Moonlight
 					mesh.SingleMesh->Draw(mesh.MeshMaterial);
 				}
 			}
-			static float blendFactor[] = { 1.f, 1.f, 1.f, 1.0f };
-			m_device->GetD3DDeviceContext()->OMSetBlendState(m_device->TransparentBlendState, blendFactor, 0xffffffff);
+			static float blendFactor[] = { 0.f, 0.f, 0.f, 0.0f };
+			m_device->GetD3DDeviceContext()->OMSetBlendState(m_device->TransparentBlendState, Colors::Black, 0xffffffff);
 
 			for (const MeshCommand& mesh : transparentMeshes)
 			{
@@ -383,6 +397,15 @@ namespace Moonlight
 					{
 						constantBufferSceneData.HasNormalMap = TRUE;
 					}
+					if (mesh.MeshMaterial->GetTexture(TextureType::Opacity))
+					{
+						constantBufferSceneData.HasAlphaMap = TRUE;
+					}
+					else
+					{
+						constantBufferSceneData.HasAlphaMap = FALSE;
+					}
+
 					// Prepare the constant buffer to send it to the graphics device.
 					context->UpdateSubresource1(
 						m_constantBuffer.Get(),
@@ -402,7 +425,14 @@ namespace Moonlight
 						nullptr,
 						nullptr
 					);
-					OPTICK_EVENT("Render::SingleMesh");
+					context->PSSetConstantBuffers1(
+						0,
+						1,
+						m_constantBuffer.GetAddressOf(),
+						nullptr,
+						nullptr
+					);
+					OPTICK_EVENT("Render::SingleAlphaMesh");
 
 					mesh.MeshShader->Use();
 

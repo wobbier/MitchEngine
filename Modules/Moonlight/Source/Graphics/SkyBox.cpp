@@ -18,7 +18,7 @@ namespace Moonlight
 		Path SystemPath(InPath);
 
 		SkyMap = ResourceCache::GetInstance().Get<Texture>(SystemPath);
-		SkyShader = new ShaderCommand("Assets/Shaders/UnlitVertexShader.cso", "Assets/Shaders/UnlitPixelShader.cso");
+		SkyShader = new ShaderCommand("Assets/Shaders/UnlitShader.hlsl");
 		SkyModel = ResourceCache::GetInstance().Get<ModelResource>(Path("Assets/Skybox.fbx"));
 		SkyMaterial = new Material();
 		SkyMaterial->SetTexture(TextureType::Diffuse, SkyMap);

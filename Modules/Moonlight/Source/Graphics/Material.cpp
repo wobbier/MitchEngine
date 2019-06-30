@@ -26,6 +26,10 @@ namespace Moonlight
 		return false;
 	}
 
+	void Material::SetRenderMode(RenderingMode newMode)
+	{
+		RenderMode = newMode;
+	}
 	void Material::SetTexture(const TextureType& textureType, std::shared_ptr<Moonlight::Texture> loadedTexture)
 	{
 		Textures[textureType] = loadedTexture;

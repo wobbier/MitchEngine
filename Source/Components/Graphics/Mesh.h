@@ -47,6 +47,16 @@ private:
 	{
 		if (MeshShader)
 		{
+			bool transparent = MeshMaterial->IsTransparent();
+			ImGui::Checkbox("Render Transparent", &transparent);
+			if (transparent)
+			{
+				MeshMaterial->SetRenderMode(Moonlight::RenderingMode::Transparent);
+			}
+			else
+			{
+				MeshMaterial->SetRenderMode(Moonlight::RenderingMode::Opaque);
+			}
 			ImGui::Text("Vertices: %i", MeshReferece->vertices.size());
 			if (ImGui::TreeNode("Material"))
 			{

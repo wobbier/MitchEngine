@@ -5,6 +5,9 @@ cbuffer ModelViewProjectionConstantBuffer : register(b0)
     matrix model;
     matrix view;
     matrix projection;
+	float2 padding;
+	bool hasNormalMap;
+	bool hasAlphaMap;
 };
 
 struct VertexShaderInput

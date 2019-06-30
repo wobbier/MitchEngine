@@ -32,6 +32,4 @@ public:
 private:
 	
 	Moonlight::Renderer* m_renderer;
-	std::shared_ptr<ModelResource> cube;
-	Moonlight::ShaderCommand* shader;
 };

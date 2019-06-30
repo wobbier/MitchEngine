@@ -70,6 +70,8 @@ namespace Moonlight
 
 		auto context = static_cast<D3D12Device&>(GetEngine().GetRenderer().GetDevice()).GetD3DDeviceContext();
 
+		context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
 		{
 			OPTICK_EVENT("Mesh::Draw::Setup");
 			// Each vertex is one instance of the VertexPositionColor struct.
@@ -88,8 +90,6 @@ namespace Moonlight
 				DXGI_FORMAT_R32_UINT, // Each index is one 16-bit unsigned integer (short).
 				0
 			);
-
-			context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		}
 		if (!mat)
 		{
@@ -107,9 +107,13 @@ namespace Moonlight
 				{
 					context->PSSetShaderResources(1, 1, &mat->GetTexture(TextureType::Normal)->ShaderResourceView);
 				}
+				if (mat->GetTexture(TextureType::Opacity))
+				{
+					context->PSSetShaderResources(2, 1, &mat->GetTexture(TextureType::Opacity)->ShaderResourceView);
+				}
 				context->PSSetSamplers(0, 1, diffuse->SamplerState.GetAddressOf());
 			}
-		}
+		}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
 
 		{
 			OPTICK_EVENT("Mesh::Draw::DrawCall");

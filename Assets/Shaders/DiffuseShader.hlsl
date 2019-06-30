@@ -1,5 +1,6 @@
-Texture2D ObjTexture;
-Texture2D ObjNormalMap;
+Texture2D ObjTexture : register(t0);
+Texture2D ObjNormalMap : register(t1);
+Texture2D ObjAlphaMap : register(t2);
 SamplerState ObjSamplerState;
 
 cbuffer ModelViewProjectionConstantBuffer : register(b0)
@@ -7,8 +8,9 @@ cbuffer ModelViewProjectionConstantBuffer : register(b0)
 	matrix model;
 	matrix view;
 	matrix projection;
-	float3 padding;
+	float2 padding;
 	bool hasNormalMap;
+	bool hasAlphaMap;
 };
 struct Light
 {
@@ -17,7 +19,7 @@ struct Light
 	float4 diffuse;
 };
 
-cbuffer LightCommand
+cbuffer LightCommand : register(b1)
 {
 	Light light;
 }
@@ -86,10 +88,14 @@ float4 main_ps(PixelShaderInput input) : SV_TARGET
 
 	float3 finalColor;
 
-	finalColor = diffuse * float3(0.2, 0.2, 0.2);//light.ambient;
-	//finalColor = diffuse * float3(0.2, 0.2, 0.2);//light.ambient;
-	finalColor += saturate(dot(float4(0.25, 0.5, -1.0, 1.0), input.normal) * float4(1.0, 1.0, 1.0, 1.0) * diffuse);
-	//finalColor += saturate(dot(light.dir, input.normal) * light.diffuse * diffuse);
+	finalColor = diffuse * light.ambient;
+	finalColor += saturate(dot(light.dir, input.normal) * light.diffuse * diffuse);
 
-	return float4(finalColor, diffuse.a);
+	float diffuseAlpha = diffuse.a;
+	if (hasAlphaMap)
+	{
+		diffuseAlpha = ObjAlphaMap.Sample(ObjSamplerState, input.texcoord).r;
+	}
+
+	return float4(finalColor, diffuseAlpha);
 }

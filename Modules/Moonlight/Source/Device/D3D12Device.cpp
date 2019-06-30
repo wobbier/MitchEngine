@@ -174,22 +174,7 @@ namespace Moonlight
 
 		CommonStatesHelper = std::make_unique<DirectX::CommonStates>(m_d3dDevice.Get());
 
-		D3D11_BLEND_DESC omDesc;
-		ZeroMemory(&omDesc, sizeof(D3D11_BLEND_DESC));
-		omDesc.AlphaToCoverageEnable = TRUE;
-		omDesc.IndependentBlendEnable = FALSE;
-		omDesc.RenderTarget[0].BlendEnable = true;
-		omDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_COLOR;
-		omDesc.RenderTarget[0].DestBlend = D3D11_BLEND_BLEND_FACTOR;
-		omDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
-		omDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
-		omDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
-		omDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_MIN;
-		omDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
-
-		DX::ThrowIfFailed(device->CreateBlendState(&omDesc, &TransparentBlendState));
-
-		//GetD3DDeviceContext()->OMSetBlendState(TransparentBlendState, 0, 0xffffffff);
+		TransparentBlendState = CommonStatesHelper->NonPremultiplied();
 
 		for (MSAASamples = MaxMSAASamples; MSAASamples > 1; MSAASamples /= 2)
 		{

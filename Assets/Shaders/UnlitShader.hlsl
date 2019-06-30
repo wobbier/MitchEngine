@@ -1,10 +1,15 @@
-// A constant buffer that stores the three basic column-major matrices for composing geometry.
+Texture2D ObjTexture;
+SamplerState ObjSamplerState;
 
+// A constant buffer that stores the three basic column-major matrices for composing geometry.
 cbuffer ModelViewProjectionConstantBuffer : register(b0)
 {
 	matrix model;
 	matrix view;
 	matrix projection;
+	float2 padding;
+	bool hasNormalMap;
+	bool hasAlphaMap;
 };
 
 // Per-vertex data used as input to the vertex shader.
@@ -13,6 +18,7 @@ struct VertexShaderInput
 	float3 pos : POSITION;
 	float3 normal : NORMAL;
 	float2 texcoord : TEXCOORD0;
+	float3 tangent : TANGENT;
 };
 
 // Per-pixel color data passed through the pixel shader.
@@ -23,8 +29,20 @@ struct PixelShaderInput
 	float2 texcoord : TEXCOORD0;
 };
 
+struct Light
+{
+	float3 dir;
+	float4 ambient;
+	float4 diffuse;
+};
+
+cbuffer LightCommand
+{
+	Light light;
+}
+
 // Simple shader to do vertex processing on the GPU.
-PixelShaderInput main(VertexShaderInput input)
+PixelShaderInput main_vs(VertexShaderInput input)
 {
 	PixelShaderInput output;
 	float4 pos = float4(input.pos, 1.0f);
@@ -41,4 +59,12 @@ PixelShaderInput main(VertexShaderInput input)
 	output.texcoord = input.texcoord;
 
 	return output;
+}
+// A pass-through function for the (interpolated) color data.
+float4 main_ps(PixelShaderInput input) : SV_TARGET
+{
+	//return ObjTexture.Sample(ObjSamplerState, input.texcoord);
+	//return float4(input.color, 1.0f);
+
+	return ObjTexture.Sample(ObjSamplerState, input.texcoord);
 }

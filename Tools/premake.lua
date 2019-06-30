@@ -389,10 +389,6 @@ vpaths {
 }
 if isUWP then
   postbuildcommands {
-    "fxc /T ps_4_0_level_9_3 /Fo Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\SimplePixelShader.cso Assets\\Shaders\\SimplePixelShader.hlsl",
-    "fxc /T vs_4_0_level_9_3 /Fo Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\SimpleVertexShader.cso Assets\\Shaders\\SimpleVertexShader.hlsl",
-    "fxc /T ps_4_0_level_9_3 /Fo Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\UnlitPixelShader.cso Assets\\Shaders\\UnlitPixelShader.hlsl",
-    "fxc /T vs_4_0_level_9_3 /Fo Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\UnlitVertexShader.cso Assets\\Shaders\\UnlitVertexShader.hlsl",
     "fxc /T vs_4_0_level_9_3 /Fo Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\GridVertexShader.cso Assets\\Shaders\\GridVertexShader.hlsl",
     "fxc /T ps_4_0_level_9_3 /Fo Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\GridPixelShader.cso Assets\\Shaders\\GridPixelShader.hlsl",
     "fxc /T vs_4_0_level_9_3 /Fo Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\DepthVertexShader.cso Assets\\Shaders\\DepthVertexShader.hlsl",
@@ -404,10 +400,6 @@ else
     "../Source/**/Graphics/Content/*.*"
   }
   postbuildcommands {
-    "fxc /T ps_4_0_level_9_3 /Fo Assets\\Shaders\\SimplePixelShader.cso Assets\\Shaders\\SimplePixelShader.hlsl",
-    "fxc /T vs_4_0_level_9_3 /Fo Assets\\Shaders\\SimpleVertexShader.cso Assets\\Shaders\\SimpleVertexShader.hlsl",
-    "fxc /T ps_4_0_level_9_3 /Fo Assets\\Shaders\\UnlitPixelShader.cso Assets\\Shaders\\UnlitPixelShader.hlsl",
-    "fxc /T vs_4_0_level_9_3 /Fo Assets\\Shaders\\UnlitVertexShader.cso Assets\\Shaders\\UnlitVertexShader.hlsl",
     "fxc /T vs_4_0_level_9_3 /Fo Assets\\Shaders\\GridVertexShader.cso Assets\\Shaders\\GridVertexShader.hlsl",
     "fxc /T ps_4_0_level_9_3 /Fo Assets\\Shaders\\GridPixelShader.cso Assets\\Shaders\\GridPixelShader.hlsl",
     "fxc /T vs_4_0_level_9_3 /Fo Assets\\Shaders\\DepthVertexShader.cso Assets\\Shaders\\DepthVertexShader.hlsl",
