@@ -13,6 +13,23 @@ namespace Moonlight
 	{
 	}
 
+	const bool Material::IsTransparent() const
+	{
+		if (RenderMode == RenderingMode::Transparent)
+		{
+			return true;
+		}
+		else if (Textures[TextureType::Opacity])
+		{
+			return true;
+		}
+		return false;
+	}
+
+	void Material::SetRenderMode(RenderingMode newMode)
+	{
+		RenderMode = newMode;
+	}
 	void Material::SetTexture(const TextureType& textureType, std::shared_ptr<Moonlight::Texture> loadedTexture)
 	{
 		Textures[textureType] = loadedTexture;
@@ -20,7 +37,11 @@ namespace Moonlight
 
 	const Moonlight::Texture* Material::GetTexture(const TextureType& type) const
 	{
-		return Textures[type].get();
+		if (Textures[type])
+		{
+			return Textures[type].get();
+		}
+		return nullptr;
 	}
 
 	std::vector<std::shared_ptr<Moonlight::Texture>>& Material::GetTextures()

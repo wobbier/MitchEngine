@@ -25,8 +25,9 @@ std::wstring s2ws(const std::string& s)
 	return r;
 };
 
-D3D12Window::D3D12Window(std::string title, int width, int height)
+D3D12Window::D3D12Window(std::string title, std::function<void(const Vector2&)> resizeFunc, int width, int height)
 	: IWindow(title, width, height)
+	, ResizeFunc(resizeFunc)
 {
 	WINDOW_HEIGHT = height;
 	WINDOW_WIDTH = width;
@@ -194,8 +195,8 @@ auto D3D12Window::AdjustMaximizedClientRect(HWND window, RECT& rect) -> void
 	if (!::GetMonitorInfoW(monitor, &monitor_info)) {
 		return;
 	}
-
 	rect = monitor_info.rcWork;
+	ResizeFunc(Vector2(static_cast<float>(rect.right - rect.left), static_cast<float>(rect.bottom - rect.top)));
 }
 
 void D3D12Window::Minimize()

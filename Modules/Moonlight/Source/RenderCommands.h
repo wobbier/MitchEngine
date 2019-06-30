@@ -8,6 +8,7 @@ namespace Moonlight { class ShaderCommand; }
 
 namespace Moonlight { class MeshData; }
 namespace Moonlight { class Material; }
+namespace Moonlight { class SkyBox; }
 
 namespace Moonlight
 {
@@ -32,7 +33,8 @@ namespace Moonlight
 		Vector3 Front;
 		Vector3 Up;
 		Vector2 OutputSize;
-		float FOV;
+		float FOV = 45.0f;
+		SkyBox* Skybox = nullptr;
 	};
 
 	struct LightCommand

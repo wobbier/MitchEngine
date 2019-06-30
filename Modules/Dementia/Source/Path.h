@@ -4,8 +4,11 @@
 #include <algorithm>
 #include "Dementia.h"
 #include <fstream>
-#include <filesystem>
 #include "Logger.h"
+
+#if ME_EDITOR
+#include <filesystem>
+#endif
 
 class Path
 {
@@ -56,7 +59,6 @@ public:
 				assetPrefix = assetPrefix.append("Engine/");
 			}
 		}
-#endif
 		if (std::filesystem::is_regular_file(FullPath))
 		{
 			IsFile = true;
@@ -68,7 +70,11 @@ public:
 			IsFolder = true;
 			Directory = FullPath;
 		}
-		
+#else
+		pos = FullPath.find_last_of("/");
+		Directory = FullPath.substr(0, pos + 1);
+#endif
+
 #if ME_PLATFORM_UWP
 		std::replace(LocalPath.begin(), LocalPath.end(), '/', '\\');
 #endif

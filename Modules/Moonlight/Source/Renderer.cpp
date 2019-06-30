@@ -55,18 +55,48 @@ namespace Moonlight
 	{
 		ReleaseDeviceDependentResources();
 		delete Grid;
-		delete Sky;
 	}
 
 	void Renderer::Init()
 	{
 		Grid = new Plane("Assets/skybox.jpg", GetDevice());
-		Sky = new SkyBox("Assets/skybox.jpg");
+
+		m_defaultSampler = m_device->CreateSamplerState(D3D11_FILTER_ANISOTROPIC, D3D11_TEXTURE_ADDRESS_WRAP);
+		m_computeSampler = m_device->CreateSamplerState(D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_WRAP);
+
+		m_tonemapProgram = m_device->CreateShaderProgram(
+			m_device->CompileShader(Path("Assets/Shaders/ToneMap.hlsl"), "main_vs", "vs_5_0"),
+			m_device->CompileShader(Path("Assets/Shaders/ToneMap.hlsl"), "main_ps", "ps_5_0"),
+			nullptr
+		);
+		ResizeBuffers();
 
 		// Prepare the constant buffer to send it to the graphics device.
 		Sunlight.dir = XMFLOAT4(0.25f, 0.5f, -1.0f, 1.0f);
 		Sunlight.ambient = XMFLOAT4(0.2f, 0.2f, 0.2f, 1.0f);
 		Sunlight.diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
+	}
+
+	void Renderer::ResizeBuffers()
+	{
+		delete m_framebuffer;
+		delete m_resolvebuffer;
+		delete SceneViewRTT;
+		delete SceneResolveViewRTT;
+		m_framebuffer = m_device->CreateFrameBuffer(m_device->GetOutputSize().X(), m_device->GetOutputSize().Y(), m_device->GetMSAASamples(), DXGI_FORMAT_R16G16B16A16_FLOAT, DXGI_FORMAT_D24_UNORM_S8_UINT);
+		SceneViewRTT = m_device->CreateFrameBuffer(m_device->GetOutputSize().X(), m_device->GetOutputSize().Y(), m_device->GetMSAASamples(), DXGI_FORMAT_R16G16B16A16_FLOAT, DXGI_FORMAT_D24_UNORM_S8_UINT);
+		if (m_device->GetMSAASamples() > 1)
+		{
+			//GameViewRTT = new RenderTexture(m_device);
+
+			m_resolvebuffer = m_device->CreateFrameBuffer(m_device->GetOutputSize().X(), m_device->GetOutputSize().Y(), 1, DXGI_FORMAT_R16G16B16A16_FLOAT, (DXGI_FORMAT)0);
+			SceneResolveViewRTT = m_device->CreateFrameBuffer(m_device->GetOutputSize().X(), m_device->GetOutputSize().Y(), 1, DXGI_FORMAT_R16G16B16A16_FLOAT, (DXGI_FORMAT)0);
+		}
+		else
+		{
+			SceneResolveViewRTT = SceneViewRTT;
+			m_resolvebuffer = m_framebuffer;
+		}
 	}
 
 	void Renderer::SetWindow()
@@ -94,52 +124,51 @@ namespace Moonlight
 
 		auto context = m_device->GetD3DDeviceContext();
 
-		delete GameViewRTT;
-		delete SceneViewRTT;
-		GameViewRTT = new RenderTexture(m_device);
-		SceneViewRTT = new RenderTexture(m_device);
-		// Reset the viewport to target the whole screen.
-		auto viewport = m_device->GetScreenViewport();
+		float darkGrey = (57.0f / 255.0f);
+		DirectX::XMVECTORF32 color = { {darkGrey, darkGrey, darkGrey, 1.0f} };
 
-		context->RSSetViewports(1, &viewport);
+		// Clear the back buffer and depth stencil view.
+		context->ClearRenderTargetView(m_device->GetBackBufferRenderTargetView(), color);
+		context->ClearRenderTargetView(m_framebuffer->RenderTargetView.Get(), color);
+		context->ClearRenderTargetView(SceneViewRTT->RenderTargetView.Get(), color);
+		context->ClearDepthStencilView(m_framebuffer->DepthStencilView.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
-		CD3D11_VIEWPORT m_screenViewport = CD3D11_VIEWPORT(
+		CD3D11_VIEWPORT gameViewport = CD3D11_VIEWPORT(
 			0.0f,
 			0.0f,
 			mainCamera.OutputSize.X(),
 			mainCamera.OutputSize.Y()
 		);
+		context->RSSetViewports(1, &gameViewport);
 
-		context->RSSetViewports(1, &m_screenViewport);
-		float darkGrey = (57.0f / 255.0f);
-		DirectX::XMVECTORF32 color = { {darkGrey, darkGrey, darkGrey, 1.0f} };
-		// Clear the back buffer and depth stencil view.
-		context->ClearRenderTargetView(m_device->GetBackBufferRenderTargetView(), color);
-		context->ClearRenderTargetView(GameViewRTT->renderTargetViewMap, color);
-		context->ClearRenderTargetView(SceneViewRTT->renderTargetViewMap, color);
-		context->ClearDepthStencilView(m_device->GetDepthStencilView(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
-
+		m_device->GetD3DDeviceContext()->OMSetBlendState(0, 0, 0xffffffff);
 
 		//m_perFrameBufferData.light = light;
 		context->UpdateSubresource1(m_perFrameBuffer.Get(), 0, NULL, &Sunlight, 0, 0, 0);
-		context->PSSetConstantBuffers1(0, 1, m_perFrameBuffer.GetAddressOf(), nullptr, nullptr);
-
-		GameViewRTT->Resize(mainCamera.OutputSize);
-		SceneViewRTT->Resize(editorCamera.OutputSize);
-		//m_device->GetD3DDeviceContext()->DiscardView1(m_device->GetDepthStencilView(), nullptr, 0);
+		context->PSSetConstantBuffers1(1, 1, m_perFrameBuffer.GetAddressOf(), nullptr, nullptr);
 
 		// Reset render targets to the screen.
-#if ME_EDITOR
-		ID3D11RenderTargetView * const targets[1] = { GameViewRTT->renderTargetViewMap };
-#else
-		ID3D11RenderTargetView * const targets[1] = { m_device->GetBackBufferRenderTargetView() };
-#endif
-		context->OMSetRenderTargets(1, targets, m_device->GetDepthStencilView());
+		context->OMSetRenderTargets(1, m_framebuffer->RenderTargetView.GetAddressOf(), m_framebuffer->DepthStencilView.Get());
 
 		DrawScene(context, m_constantBufferData, mainCamera);
 
-		context->ClearDepthStencilView(m_device->GetDepthStencilView(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+		if (m_framebuffer->ColorTexture != m_resolvebuffer->ColorTexture)
+		{
+			context->ResolveSubresource(m_resolvebuffer->ColorTexture.Get(), 0, m_framebuffer->ColorTexture.Get(), 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
+		}
 
+		// post stuff
+		context->OMSetRenderTargets(1, m_device->m_d3dRenderTargetView.GetAddressOf(), nullptr);
+		context->IASetInputLayout(nullptr);
+		context->VSSetShader(m_tonemapProgram.VertexShader.Get(), nullptr, 0);
+		context->PSSetShader(m_tonemapProgram.PixelShader.Get(), nullptr, 0);
+		context->PSSetShaderResources(0, 1, m_resolvebuffer->ShaderResourceView.GetAddressOf());
+		context->PSSetSamplers(0, 1, m_computeSampler.GetAddressOf());
+		context->Draw(3, 0);
+
+		context->ClearDepthStencilView(SceneViewRTT->DepthStencilView.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+
+#if ME_EDITOR
 		CD3D11_VIEWPORT screenViewport = CD3D11_VIEWPORT(
 			0.0f,
 			0.0f,
@@ -149,47 +178,50 @@ namespace Moonlight
 
 		context->RSSetViewports(1, &screenViewport);
 
-		ID3D11RenderTargetView * const targets2[1] = { SceneViewRTT->renderTargetViewMap };
-		context->OMSetRenderTargets(1, targets2, m_device->GetDepthStencilView());
+		//ID3D11RenderTargetView* const targets2[1] = { SceneViewRTT->renderTargetViewMap };
+		context->OMSetRenderTargets(1, SceneViewRTT->RenderTargetView.GetAddressOf(), SceneViewRTT->DepthStencilView.Get());
 		DrawScene(context, m_constantBufferSceneData, editorCamera);
 
+		// Scene grid
+		//{
+		//	XMStoreFloat4x4(&m_constantBufferSceneData.model, XMMatrixTranspose(XMMatrixIdentity()));
+		//	// Prepare the constant buffer to send it to the graphics device.
+		//	context->UpdateSubresource1(
+		//		m_constantBuffer.Get(),
+		//		0,
+		//		NULL,
+		//		&m_constantBufferSceneData,
+		//		0,
+		//		0,
+		//		0
+		//	);
 
-		//UINT stride = sizeof(Vertex);
-		//UINT offset = 0;
-		//
-		// Set it to the D2D_PS so that we do not impliment lighting
-		//GetDevice().GetD3DDeviceContext()->PSSetShader(D2D_PS, 0, 0);
+		//	// Send the constant buffer to the graphics device.
+		//	context->VSSetConstantBuffers1(
+		//		0,
+		//		1,
+		//		m_constantBuffer.GetAddressOf(),
+		//		nullptr,
+		//		nullptr
+		//	);
 
-		////Set the d2d square's Index buffer
-		//GetDevice().GetD3DDeviceContext()->IASetIndexBuffer(m_device->d2dIndexBuffer, DXGI_FORMAT_R32_UINT, 0);
-		////Set the d2d square's vertex buffer
-		//GetDevice().GetD3DDeviceContext()->IASetVertexBuffers(0, 1, &m_device->d2dVertBuffer, &stride, &offset);
-
-		//// Just set the WVP to a scale and translate, which will put the square into the bottom right corner of the screen
-		////m_constantBufferData. = XMMatrixScaling(0.5f, 0.5f, 0.0f) * XMMatrixTranslation(0.5f, -0.5f, 0.0f);
-		//XMStoreFloat4x4(&m_constantBufferData.model, XMMatrixTranspose(XMMatrixTranslation(0.5f, -0.5f, 0.0f)));
-		////XMMatrixTranspose(WVP);
-		//GetDevice().GetD3DDeviceContext()->UpdateSubresource(m_constantBuffer.Get(), 0, NULL, &m_constantBufferData, 0, 0);
-		//GetDevice().GetD3DDeviceContext()->VSSetConstantBuffers(0, 1, m_constantBuffer.GetAddressOf());
-		//GetDevice().GetD3DDeviceContext()->PSSetShaderResources(0, 1, &m_device->shaderResourceViewMap);    // Draw the map to the square
-
-		//GetDevice().GetD3DDeviceContext()->PSSetSamplers(0, 1, &CubesTexSamplerState);
-
-		////GetDevice().GetD3DDeviceContext()->RSSetState(CWcullMode);
-		////Draw the second cube
-		//GetDevice().GetD3DDeviceContext()->DrawIndexed(6, 0, 0);
+		//	Grid->Draw(GetDevice());
+		//}
 
 		// Reset the viewport to target the whole screen.
-
+		auto viewport = m_device->GetScreenViewport();
 		context->RSSetViewports(1, &viewport);
-#if ME_EDITOR
-		ID3D11RenderTargetView * const targets3[1] = { m_device->GetBackBufferRenderTargetView() };// , m_device->renderTargetViewMap
-			//////////////////////////// Draw the Map
-			// Make sure to set the render target back
-		GetDevice().GetD3DDeviceContext()->OMSetRenderTargets(1, targets3, m_device->GetDepthStencilView());
 
+		if (SceneViewRTT->ColorTexture != SceneResolveViewRTT->ColorTexture)
+		{
+			context->ResolveSubresource(SceneResolveViewRTT->ColorTexture.Get(), 0, SceneViewRTT->ColorTexture.Get(), 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
+		}
 #endif
+
+		GetDevice().GetD3DDeviceContext()->OMSetRenderTargets(1, m_device->m_d3dRenderTargetView.GetAddressOf(), nullptr);
+
 		func();
+
 		// The first argument instructs DXGI to block until VSync, putting the application
 		// to sleep until the next VSync. This ensures we don't waste any cycles rendering
 		// frames that will never be displayed to the screen.
@@ -200,11 +232,11 @@ namespace Moonlight
 		// This is a valid operation only when the existing contents will be entirely
 		// overwritten. If dirty or scroll rects are used, this call should be removed.
 		m_device->GetD3DDeviceContext()->DiscardView1(m_device->GetBackBufferRenderTargetView(), nullptr, 0);
-		m_device->GetD3DDeviceContext()->DiscardView1(GameViewRTT->shaderResourceViewMap, nullptr, 0);
-		m_device->GetD3DDeviceContext()->DiscardView1(SceneViewRTT->shaderResourceViewMap, nullptr, 0);
+		m_device->GetD3DDeviceContext()->DiscardView1(m_resolvebuffer->ShaderResourceView.Get(), nullptr, 0);
+		m_device->GetD3DDeviceContext()->DiscardView1(SceneResolveViewRTT->ShaderResourceView.Get(), nullptr, 0);
 
 		// Discard the contents of the depth stencil.
-		m_device->GetD3DDeviceContext()->DiscardView1(m_device->GetDepthStencilView(), nullptr, 0);
+		//m_device->GetD3DDeviceContext()->DiscardView1(m_framebuffer->DepthStencilView.Get(), nullptr, 0);
 
 		// If the device was removed either by a disconnection or a driver upgrade, we 
 		// must recreate all device resources.
@@ -222,8 +254,13 @@ namespace Moonlight
 	void Renderer::DrawScene(ID3D11DeviceContext3* context, ModelViewProjectionConstantBuffer& constantBufferSceneData, const CameraData& camera)
 	{
 		Vector2 outputSize = camera.OutputSize;
+		if (outputSize.IsZero())
+		{
+			return;
+		}
 		float aspectRatio = static_cast<float>(outputSize.X()) / static_cast<float>(outputSize.Y());
 		float fovAngleY = camera.FOV * XM_PI / 180.0f;
+
 
 		// This is a simple example of change that can be made when the app is in
 		// portrait or snapped view.
@@ -258,6 +295,7 @@ namespace Moonlight
 		//XMStoreFloat4x4(&m_constantBufferData.view, XMMatrixTranspose(XMMatrixIdentity()));
 		XMStoreFloat4x4(&constantBufferSceneData.view, XMMatrixTranspose(XMMatrixLookAtRH(eye, at, up)));
 
+		if(camera.Skybox)
 		{
 			XMStoreFloat4x4(&constantBufferSceneData.model, XMMatrixTranspose(XMMatrixTranslation(eye[0], eye[1], eye[2])));
 			// Prepare the constant buffer to send it to the graphics device.
@@ -279,62 +317,40 @@ namespace Moonlight
 				nullptr,
 				nullptr
 			);
-			Sky->Draw();
-
-			m_device->ResetCullingMode();
+			camera.Skybox->Draw();
 		}
+
+		m_device->ResetCullingMode();
+
 		if (Lights.size() > 0)
 		{
 			//constantBufferSceneData.light = Lights[0];
 		}
 
 		{
-			for (const ModelCommand& model : Models)
+			std::vector<MeshCommand> transparentMeshes;
+			for (const MeshCommand& mesh : Meshes)
 			{
-				OPTICK_EVENT("Render::ModelCommand", Optick::Category::Rendering);
-				XMStoreFloat4x4(&constantBufferSceneData.model, XMMatrixTranspose(model.Transform));
-				// Prepare the constant buffer to send it to the graphics device.
-				context->UpdateSubresource1(
-					m_constantBuffer.Get(),
-					0,
-					NULL,
-					&constantBufferSceneData,
-					0,
-					0,
-					0
-				);
-
-				// Send the constant buffer to the graphics device.
-				context->VSSetConstantBuffers1(
-					0,
-					1,
-					m_constantBuffer.GetAddressOf(),
-					nullptr,
-					nullptr
-				);
-				ShaderCommand* cachedShader = model.ModelShader;
-				for (MeshData* mesh : model.Meshes)
+				if (mesh.MeshMaterial && mesh.MeshMaterial->IsTransparent())
 				{
-					OPTICK_EVENT("Render::SingleMesh");
-
-					//if (model.ModelShader != cachedShader)
-					{
-						cachedShader = model.ModelShader;
-						cachedShader->Use();
-					}
-
-					//mesh->Draw(model);
+					transparentMeshes.push_back(mesh);
+					continue;
 				}
-			}
-		}
 
-		{
-			for (const MeshCommand& model : Meshes)
-			{
-				if (model.MeshShader && model.SingleMesh)
+				if (mesh.MeshShader && mesh.SingleMesh && mesh.MeshMaterial)
 				{
 					OPTICK_EVENT("Render::ModelCommand", Optick::Category::Rendering);
-					XMStoreFloat4x4(&constantBufferSceneData.model, XMMatrixTranspose(model.Transform));
+					XMStoreFloat4x4(&constantBufferSceneData.model, XMMatrixTranspose(mesh.Transform));
+					if (mesh.MeshMaterial->GetTexture(TextureType::Normal))
+					{
+						constantBufferSceneData.HasNormalMap = TRUE;
+					}
+					else
+					{
+						constantBufferSceneData.HasNormalMap = FALSE;
+					}
+					constantBufferSceneData.HasAlphaMap = FALSE;
+
 					// Prepare the constant buffer to send it to the graphics device.
 					context->UpdateSubresource1(
 						m_constantBuffer.Get(),
@@ -354,37 +370,77 @@ namespace Moonlight
 						nullptr,
 						nullptr
 					);
+					context->PSSetConstantBuffers1(
+						0,
+						1,
+						m_constantBuffer.GetAddressOf(),
+						nullptr,
+						nullptr
+					);
 					OPTICK_EVENT("Render::SingleMesh");
 
-					model.MeshShader->Use();
+					mesh.MeshShader->Use();
 
-					model.SingleMesh->Draw(model.MeshMaterial);
+					mesh.SingleMesh->Draw(mesh.MeshMaterial);
+				}
+			}
+			static float blendFactor[] = { 0.f, 0.f, 0.f, 0.0f };
+			m_device->GetD3DDeviceContext()->OMSetBlendState(m_device->TransparentBlendState, Colors::Black, 0xffffffff);
+
+			for (const MeshCommand& mesh : transparentMeshes)
+			{
+				if (mesh.MeshShader && mesh.SingleMesh && mesh.MeshMaterial)
+				{
+					OPTICK_EVENT("Render::ModelCommand", Optick::Category::Rendering);
+					XMStoreFloat4x4(&constantBufferSceneData.model, XMMatrixTranspose(mesh.Transform));
+					if (mesh.MeshMaterial->GetTexture(TextureType::Normal))
+					{
+						constantBufferSceneData.HasNormalMap = TRUE;
+					}
+					if (mesh.MeshMaterial->GetTexture(TextureType::Opacity))
+					{
+						constantBufferSceneData.HasAlphaMap = TRUE;
+					}
+					else
+					{
+						constantBufferSceneData.HasAlphaMap = FALSE;
+					}
+
+					// Prepare the constant buffer to send it to the graphics device.
+					context->UpdateSubresource1(
+						m_constantBuffer.Get(),
+						0,
+						NULL,
+						&constantBufferSceneData,
+						0,
+						0,
+						0
+					);
+
+					// Send the constant buffer to the graphics device.
+					context->VSSetConstantBuffers1(
+						0,
+						1,
+						m_constantBuffer.GetAddressOf(),
+						nullptr,
+						nullptr
+					);
+					context->PSSetConstantBuffers1(
+						0,
+						1,
+						m_constantBuffer.GetAddressOf(),
+						nullptr,
+						nullptr
+					);
+					OPTICK_EVENT("Render::SingleAlphaMesh");
+
+					mesh.MeshShader->Use();
+
+					mesh.SingleMesh->Draw(mesh.MeshMaterial);
 				}
 			}
 		}
-
-		XMStoreFloat4x4(&constantBufferSceneData.model, XMMatrixTranspose(XMMatrixIdentity()));
-		// Prepare the constant buffer to send it to the graphics device.
-		context->UpdateSubresource1(
-			m_constantBuffer.Get(),
-			0,
-			NULL,
-			&constantBufferSceneData,
-			0,
-			0,
-			0
-		);
-
-		// Send the constant buffer to the graphics device.
-		context->VSSetConstantBuffers1(
-			0,
-			1,
-			m_constantBuffer.GetAddressOf(),
-			nullptr,
-			nullptr
-		);
-
-		//Grid->Draw(GetDevice());
+		m_device->GetD3DDeviceContext()->OMSetBlendState(0, 0, 0xffffffff);
 	}
 
 	void Renderer::ReleaseDeviceDependentResources()
@@ -496,6 +552,7 @@ namespace Moonlight
 		}
 
 		m_device->WindowSizeChanged(NewSize);
+		ResizeBuffers();
 	}
 
 	unsigned int Renderer::PushMesh(Moonlight::MeshCommand command)

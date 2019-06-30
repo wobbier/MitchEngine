@@ -9,6 +9,7 @@
 #include "Dementia.h"
 #include <imgui.h>
 #include "Utils/HavanaUtils.h"
+#include "Graphics/SkyBox.h"
 
 class Camera
 	: public Component<Camera>
@@ -35,27 +36,28 @@ public:
 	bool IsCurrent();
 	void SetCurrent();
 	float GetFOV();
+
+	Moonlight::SkyBox* Skybox = nullptr;
+
 private:
 	float m_FOV = 45.f;
 
-#if ME_EDITOR
-	virtual void OnEditorInspect() final
-	{
-		HavanaUtils::Text("Front", Front);
-		if (ImGui::Button("Set Current"))
-		{
-			SetCurrent();
-		}
-		ImGui::SliderFloat("Field of View", &m_FOV, 1.0f, 200.0f);
-	}
-
+	virtual void Deserialize(const json& inJson) override;
 	virtual void Serialize(json& outJson) final
 	{
 		Component::Serialize(outJson);
 
 		outJson["Zoom"] = Zoom;
 		outJson["IsCurrent"] = IsCurrent();
+
+		if (Skybox)
+		{
+			outJson["Skybox"] = Skybox->SkyMaterial->GetTexture(Moonlight::TextureType::Diffuse)->GetPath().LocalPath;
+		}
 	}
+
+#if ME_EDITOR
+	virtual void OnEditorInspect() final;
 #endif
 };
 ME_REGISTER_COMPONENT(Camera)

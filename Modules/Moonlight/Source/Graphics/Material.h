@@ -32,6 +32,9 @@ namespace Moonlight
 		Material();
 		~Material();
 
+		const bool IsTransparent() const;
+		void SetRenderMode(RenderingMode newMode);
+
 		void OnSerialize(json& InJson)
 		{
 			for (auto texture : Textures)
@@ -62,7 +65,7 @@ namespace Moonlight
 		void SetTexture(const TextureType& textureType, std::shared_ptr<Moonlight::Texture> loadedTexture);
 		const Texture* GetTexture(const TextureType& type) const;
 		std::vector<std::shared_ptr<Texture>>& GetTextures();
-		RenderingMode RenderMode;
+		RenderingMode RenderMode = RenderingMode::Opaque;
 	private:
 		std::vector<std::shared_ptr<Texture>> Textures;
 	};

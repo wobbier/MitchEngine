@@ -64,11 +64,6 @@ std::vector<Moonlight::MeshData*> ModelResource::GetAllMeshes()
 	return meshes;
 }
 
-void ModelResource::SetShader(Moonlight::ShaderCommand* shader)
-{
-	ModelShader = shader;
-}
-
 void ModelResource::ProcessNode(aiNode *node, const aiScene *scene, Moonlight::Node& parent)
 {
 	parent.Position = Vector3(node->mTransformation[0][0]);
@@ -119,14 +114,14 @@ Moonlight::MeshData* ModelResource::ProcessMesh(aiMesh *mesh, const aiScene *sce
 			vector.x = mesh->mTangents[i].x;
 			vector.y = mesh->mTangents[i].y;
 			vector.z = mesh->mTangents[i].z;
-			//vertex.Tangent = vector;
+			vertex.Tangent = vector;
 		}
 		if (mesh->mBitangents)
 		{
 			vector.x = mesh->mBitangents[i].x;
 			vector.y = mesh->mBitangents[i].y;
 			vector.z = mesh->mBitangents[i].z;
-			//vertex.Bitangent = vector;
+			vertex.BiTangent = vector;
 		}
 		vertices.push_back(vertex);
 	}
@@ -148,7 +143,7 @@ Moonlight::MeshData* ModelResource::ProcessMesh(aiMesh *mesh, const aiScene *sce
 	material->Get(AI_MATKEY_COLOR_TRANSPARENT, color);
 	if (color != color2)
 	{
-		newMaterial->RenderMode = Moonlight::RenderingMode::Transparent;
+		//newMaterial->RenderMode = Moonlight::RenderingMode::Transparent;
 	}
 
 	aiColor3D colorDiff(0.f, 0.f, 0.f);
@@ -156,7 +151,7 @@ Moonlight::MeshData* ModelResource::ProcessMesh(aiMesh *mesh, const aiScene *sce
 	material->Get(AI_MATKEY_COLOR_DIFFUSE, colorDiff);
 	if (colorDiff != colorDiff2)
 	{
-		newMaterial->RenderMode = Moonlight::RenderingMode::Transparent;
+		//newMaterial->RenderMode = Moonlight::RenderingMode::Transparent;
 	}
 
 	LoadMaterialTextures(newMaterial, material, aiTextureType_DIFFUSE, Moonlight::TextureType::Diffuse);
@@ -164,37 +159,59 @@ Moonlight::MeshData* ModelResource::ProcessMesh(aiMesh *mesh, const aiScene *sce
 	LoadMaterialTextures(newMaterial, material, aiTextureType_NORMALS, Moonlight::TextureType::Normal);
 	LoadMaterialTextures(newMaterial, material, aiTextureType_HEIGHT, Moonlight::TextureType::Height);
 	LoadMaterialTextures(newMaterial, material, aiTextureType_OPACITY, Moonlight::TextureType::Opacity);
+
 	Moonlight::MeshData* output = new Moonlight::MeshData(vertices, indices, newMaterial);
 	output->Name = std::string(mesh->mName.C_Str());
 	return output;
 }
 
-void ModelResource::LoadMaterialTextures(Moonlight::Material* newMaterial, aiMaterial *mat, aiTextureType type, const Moonlight::TextureType& typeName)
+bool ModelResource::LoadMaterialTextures(Moonlight::Material* newMaterial, aiMaterial *mat, aiTextureType type, const Moonlight::TextureType& typeName)
 {
 	for (unsigned int i = 0; i < mat->GetTextureCount(type); i++)
 	{
 		aiString str;
-		mat->GetTexture(type, i, &str);
+		aiTextureMapping texMapping;
+		aiTextureMapMode mapMode;
+		mat->GetTexture(type, i, &str, &texMapping, nullptr, nullptr, nullptr, &mapMode);
 		std::string stdString = std::string(str.C_Str());
 		if (stdString != ".")
 		{
 			std::string& texturePath = stdString;
 			std::shared_ptr<Moonlight::Texture> texture;
+
+			Moonlight::WrapMode wrapMode = Moonlight::WrapMode::Wrap;
+			switch (mapMode)
+			{
+			case aiTextureMapMode_Wrap:
+				wrapMode = Moonlight::WrapMode::Wrap;
+				break;
+			case aiTextureMapMode_Decal:
+				wrapMode = Moonlight::WrapMode::Decal;
+				break;
+			case aiTextureMapMode_Mirror:
+				wrapMode = Moonlight::WrapMode::Mirror;
+				break;
+			case aiTextureMapMode_Clamp:
+				wrapMode = Moonlight::WrapMode::Clamp;
+				break;
+			case _aiTextureMapMode_Force32Bit:
+			default:
+				wrapMode = Moonlight::WrapMode::Wrap;
+				break;
+			}
+
 			if (stdString.find(":") != std::string::npos)
 			{
-				texture = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path(texturePath));
+				texture = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path(texturePath), wrapMode);
 			}
 			else
 			{
-				texture = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path(FilePath.Directory + texturePath));
+				texture = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path(FilePath.Directory + texturePath), wrapMode);
 			}
 			texture->Type = typeName;
 			newMaterial->SetTexture(typeName, texture);
+			return true;
 		}
 	}
-}
-
-Moonlight::ShaderCommand* ModelResource::GetShader() const
-{
-	return ModelShader;
+	return false;
 }

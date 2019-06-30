@@ -24,12 +24,8 @@ RenderCore::RenderCore()
 	: Base(ComponentFilter().Requires<Transform>().RequiresOneOf<Model>().RequiresOneOf<Rigidbody>().RequiresOneOf<Light>().RequiresOneOf<Mesh>().RequiresOneOf<DirectionalLight>())
 {
 	IsSerializable = false;
-	//m_sceneRenderer = std::unique_ptr<TestModelRenderer>(new TestModelRenderer(m_deviceResources));
 	m_renderer = &GetEngine().GetRenderer();
 	m_renderer->RegisterDeviceNotify(this);
-
-	cube = ResourceCache::GetInstance().Get<ModelResource>(Path("Assets/Skybox.fbx"));
-	shader = new Moonlight::ShaderCommand("Assets/Shaders/SimpleVertexShader.cso", "Assets/Shaders/SimplePixelShader.cso");
 }
 
 void RenderCore::Init()
@@ -41,21 +37,13 @@ void RenderCore::Init()
 
 void RenderCore::OnEntityAdded(Entity& NewEntity)
 {
-	/*if (NewEntity.HasComponent<Model>())
-	{
-		Moonlight::ModelCommand command;
-		Model& model = NewEntity.GetComponent<Model>();
-		model.Init();
-		command.Meshes = model.ModelHandle->GetAllMeshes();
-		command.ModelShader = model.ModelShader;
-		model.Id = GetEngine().GetRenderer().PushModel(command);
-	}*/
 	if (NewEntity.HasComponent<Mesh>())
 	{
 		Moonlight::MeshCommand command;
 		Mesh& model = NewEntity.GetComponent<Mesh>();
 		command.SingleMesh = model.MeshReferece;
 		command.MeshShader = model.MeshShader;
+		command.MeshMaterial = model.MeshMaterial;
 		model.Id = GetEngine().GetRenderer().PushMesh(command);
 	}
 	if (NewEntity.HasComponent<DirectionalLight>())
@@ -65,17 +53,6 @@ void RenderCore::OnEntityAdded(Entity& NewEntity)
 		GetEngine().GetRenderer().Sunlight.diffuse = light.Diffuse;
 		GetEngine().GetRenderer().Sunlight.dir = light.Direction;
 	}
-	//if (NewEntity.HasComponent<Rigidbody>())
-	//{
-	//	Moonlight::ModelCommand command;
-	//	Rigidbody& rigidbody = NewEntity.GetComponent<Rigidbody>();
-	//
-	//	command.Meshes = cube->Meshes;
-	//	command.ModelShader = shader;//model.ModelShader;
-	//
-	//	rigidbody.Id = GetEngine().GetRenderer().PushModel(command);
-	//	//rigidbody.GetColliderType();
-	//}
 }
 
 void RenderCore::OnEntityRemoved(Entity& InEntity)
@@ -101,11 +78,6 @@ void RenderCore::Update(float dt)
 	for (auto& InEntity : Renderables)
 	{
 		Transform& transform = InEntity.GetComponent<Transform>();
-		//if (InEntity.HasComponent<Model>())
-		//{
-		//	Model& model = InEntity.GetComponent<Model>();
-		//	m_renderer->UpdateMatrix(model.GetId(), transform.GetMatrix());
-		//}
 
 		if (InEntity.HasComponent<Mesh>())
 		{

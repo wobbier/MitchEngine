@@ -42,7 +42,7 @@ private:
 			Path path = Path("Assets");
 			if (Models.empty())
 			{
-				for (const auto& entry : std::filesystem::directory_iterator(path.FullPath))
+				for (const auto& entry : std::filesystem::recursive_directory_iterator(path.FullPath))
 				{
 					Path filePath(entry.path().string());
 					if ((filePath.LocalPath.rfind(".fbx") != std::string::npos || filePath.LocalPath.rfind(".obj") != std::string::npos)
@@ -53,47 +53,30 @@ private:
 				}
 			}
 
-			struct FuncHolder {
-				static bool ItemGetter(void* data, int idx, const char** out_str) {
-					std::vector<Path>* data2 = static_cast<std::vector<Path>*>(data);
-					
-					*out_str = &*(data2->at(idx).LocalPath.c_str());
-
-					return true;
-				}
-			};
-			static int selected_item = 0;
-			if (ImGui::Combo("Model", &selected_item, &FuncHolder::ItemGetter, &Models, Models.size()))
+			if (ImGui::BeginCombo("##Model", "Select a model to construct"))
 			{
-				ModelPath = Models.at(selected_item);
-				Models.clear();
-				Init();
+				for (int n = 0; n < Models.size(); n++)
+				{
+					if (ImGui::Selectable(Models[n].LocalPath.c_str(), false))
+					{
+						ModelPath = Models[n];
+						Models.clear();
+						Init();
+						break;
+					}
+				}
+				ImGui::EndCombo();
 			}
+			ImGui::SameLine();
+			ImGui::Text("Select Model");
 		}
-		//if (ModelHandle)
-		//{
-		//	for (int i = 0; i < ModelHandle->Meshes.size(); ++i)
-		//	{
-		//		if (ModelHandle->Meshes[i] && ModelHandle->Meshes[i]->material)
-		//		{
-		//			ImGui::Text("Mesh %i:", i);
-		//			for (auto texture : ModelHandle->Meshes[i]->material->GetTextures())
-		//			{
-		//				if (texture != nullptr)
-		//				{
-		//					ImGui::Text("Texture Path: %s", texture->Directory);
-		//				}
-		//			}
-		//		}
-		//	}
-		//}
 
 		if (ModelShader)
 		{
 		}
 	}
 
-	virtual void Serialize(json& outJson) final
+	virtual void Serialize(json & outJson) final
 	{
 		Component::Serialize(outJson);
 

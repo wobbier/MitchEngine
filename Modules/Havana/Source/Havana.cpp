@@ -335,7 +335,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 
 		if (!m_app->IsGameRunning())
 		{
-			if (ImGui::ImageButton(Icons["Play"]->CubesTexture, ImVec2(30.f, 30.f)) || Input::GetInstance().IsKeyDown(KeyCode::F5))
+			if (ImGui::ImageButton(Icons["Play"]->ShaderResourceView, ImVec2(30.f, 30.f)) || Input::GetInstance().IsKeyDown(KeyCode::F5))
 			{
 				StartGameFunc();
 			}
@@ -343,12 +343,12 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 
 		if (m_app->IsGameRunning())
 		{
-			if (ImGui::ImageButton(Icons["Pause"]->CubesTexture, ImVec2(30.f, 30.f)) || Input::GetInstance().IsKeyDown(KeyCode::F10))
+			if (ImGui::ImageButton(Icons["Pause"]->ShaderResourceView, ImVec2(30.f, 30.f)) || Input::GetInstance().IsKeyDown(KeyCode::F10))
 			{
 				PauseGameFunc();
 			}
 
-			if (ImGui::ImageButton(Icons["Stop"]->CubesTexture, ImVec2(30.f, 30.f)) || (Input::GetInstance().IsKeyDown(KeyCode::F5) && Input::GetInstance().IsKeyDown(KeyCode::LeftShift)))
+			if (ImGui::ImageButton(Icons["Stop"]->ShaderResourceView, ImVec2(30.f, 30.f)) || (Input::GetInstance().IsKeyDown(KeyCode::F5) && Input::GetInstance().IsKeyDown(KeyCode::LeftShift)))
 			{
 				SelectedTransform = nullptr;
 				StopGameFunc();
@@ -369,7 +369,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 		ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(0.0f, 0.6f, 0.6f, 0.f));
 		ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)ImColor::HSV(0.f, 0.8f, 0.8f, 0.f));
 		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 5.f));
-		if (ImGui::ImageButton(Icons["Info"]->CubesTexture, ImVec2(30.f, 30.f)))
+		if (ImGui::ImageButton(Icons["Info"]->ShaderResourceView, ImVec2(30.f, 30.f)))
 		{
 			if (m_engine->CurrentScene && !std::filesystem::exists(m_engine->CurrentScene->FilePath.FullPath))
 			{
@@ -402,14 +402,14 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 		}
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(0.35f, 126.f, 43.f, 1.f));
 		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 4.f));
-		if (ImGui::ImageButton(Icons["BugReport"]->CubesTexture, ImVec2(30.f, 30.f)))
+		if (ImGui::ImageButton(Icons["BugReport"]->ShaderResourceView, ImVec2(30.f, 30.f)))
 		{
 			ShellExecute(0, 0, L"https://github.com/wobbier/MitchEngine/issues", 0, 0, SW_SHOW);
 		}
 		ImGui::PopStyleColor(1);
 
 		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 3.f));
-		if (ImGui::ImageButton(Icons["Minimize"]->CubesTexture, ImVec2(30.f, 30.f)))
+		if (ImGui::ImageButton(Icons["Minimize"]->ShaderResourceView, ImVec2(30.f, 30.f)))
 		{
 			m_engine->GetWindow()->Minimize();
 		}
@@ -417,7 +417,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 		if (static_cast<D3D12Window*>(m_engine->GetWindow())->IsMaximized())
 		{
 			ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 2.f));
-			if (ImGui::ImageButton(Icons["ExitMaximize"]->CubesTexture, ImVec2(30.f, 30.f)))
+			if (ImGui::ImageButton(Icons["ExitMaximize"]->ShaderResourceView, ImVec2(30.f, 30.f)))
 			{
 				m_engine->GetWindow()->ExitMaximize();
 			}
@@ -425,7 +425,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 		else
 		{
 			ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 2.f));
-			if (ImGui::ImageButton(Icons["Maximize"]->CubesTexture, ImVec2(30.f, 30.f)))
+			if (ImGui::ImageButton(Icons["Maximize"]->ShaderResourceView, ImVec2(30.f, 30.f)))
 			{
 				m_engine->GetWindow()->Maximize();
 			}
@@ -434,7 +434,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(1.f, 42.f, 43.f, 1.f));
 		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - buttonWidth);
 		//ImGui::SameLine(0.f);
-		if (ImGui::ImageButton(Icons["Close"]->CubesTexture, ImVec2(30.f, 30.f)))
+		if (ImGui::ImageButton(Icons["Close"]->ShaderResourceView, ImVec2(30.f, 30.f)))
 		{
 			m_engine->GetWindow()->Exit();
 		}
@@ -666,7 +666,7 @@ void Havana::UpdateWorldRecursive(Transform * root)
 			IM_ASSERT(payload->DataSize == sizeof(AssetBrowser::AssetDescriptor));
 			AssetBrowser::AssetDescriptor payload_n = *(AssetBrowser::AssetDescriptor*)payload->Data;
 
-			if (payload_n.Name.rfind(".fbx") != std::string::npos || payload_n.Name.rfind(".obj") != std::string::npos)
+			if (payload_n.Type == AssetBrowser::AssetType::Model)
 			{
 				auto ent = GetEngine().GetWorld().lock()->CreateEntity();
 				ent.lock()->AddComponent<Transform>(payload_n.Name.substr(0, payload_n.Name.find_last_of('.'))).SetParent(*root);
@@ -748,177 +748,194 @@ void Havana::DrawEntityRightClickMenu(Transform* transform)
 	}
 }
 
-void Havana::Render(const Moonlight::CameraData & EditorCamera)
+void Havana::Render(Moonlight::CameraData& EditorCamera)
 {
 	auto& io = ImGui::GetIO();
-
-	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
-	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-	ImGui::Begin("Game");
 	{
-		m_isGameFocused = ImGui::IsWindowFocused();
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+
+		ImGui::Begin("Game");
+		{
+			m_isGameFocused = ImGui::IsWindowFocused();
 
 
-		if (Renderer->GameViewRTT->shaderResourceViewMap != nullptr)
+			if (Renderer->m_resolvebuffer && Renderer->m_resolvebuffer->ShaderResourceView != nullptr)
+			{
+				// Get the current cursor position (where your window is)
+				ImVec2 pos = ImGui::GetCursorScreenPos();
+				ImVec2 maxPos = ImVec2(pos.x + ImGui::GetWindowSize().x, pos.y + ImGui::GetWindowSize().y);
+				//GameRenderSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
+				GameRenderSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
+
+				// Ask ImGui to draw it as an image:
+				// Under OpenGL the ImGUI image type is GLuint
+				// So make sure to use "(void *)tex" but not "&tex"
+				ImGui::GetWindowDrawList()->AddImage(
+					(void*)Renderer->m_resolvebuffer->ShaderResourceView.Get(),
+					ImVec2(pos.x, pos.y),
+					ImVec2(maxPos),
+					ImVec2(0, 0),
+					ImVec2(Mathf::Clamp(0.f, 1.0f, GameRenderSize.X() / Renderer->m_resolvebuffer->Width), Mathf::Clamp(0.f, 1.0f, GameRenderSize.Y() / Renderer->m_resolvebuffer->Height)));
+				//ImVec2(WorldViewRenderSize.X() / RenderSize.X(), WorldViewRenderSize.Y() / RenderSize.Y()));
+
+			}
+		}
+		ImGui::End();
+
+		ImGui::Begin("World View");
+		//if (!EditorCamera.OutputSize.IsZero())
 		{
 			// Get the current cursor position (where your window is)
 			ImVec2 pos = ImGui::GetCursorScreenPos();
-			ImVec2 maxPos = ImVec2(pos.x + ImGui::GetWindowSize().x, pos.y + ImGui::GetWindowSize().y);
-			//GameRenderSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
-			GameRenderSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
 
-			// Ask ImGui to draw it as an image:
-			// Under OpenGL the ImGUI image type is GLuint
-			// So make sure to use "(void *)tex" but not "&tex"
-			ImGui::GetWindowDrawList()->AddImage(
-				(void*)Renderer->GameViewRTT->shaderResourceViewMap,
-				ImVec2(pos.x, pos.y),
-				ImVec2(maxPos),
-				ImVec2(0, 0),
-				ImVec2(Mathf::Clamp(0.f, 1.0f, GameRenderSize.X() / Renderer->GameViewRTT->Size.X()), Mathf::Clamp(0.f, 1.0f, GameRenderSize.Y() / Renderer->GameViewRTT->Size.Y())));
-			//ImVec2(WorldViewRenderSize.X() / RenderSize.X(), WorldViewRenderSize.Y() / RenderSize.Y()));
-
-		}
-	}
-	ImGui::End();
-
-	ImGui::Begin("World View");
-	// Get the current cursor position (where your window is)
-	ImVec2 pos = ImGui::GetCursorScreenPos();
-
-	DirectX::XMFLOAT4X4 objView;
-	if (SelectedTransform)
-	{
-		DirectX::XMStoreFloat4x4(&objView, SelectedTransform->GetMatrix());
-	}
-
-	static ImGuizmo::OPERATION mCurrentGizmoOperation(ImGuizmo::TRANSLATE);
-	static ImGuizmo::MODE mCurrentGizmoMode(ImGuizmo::LOCAL);
-	static bool useSnap = false;
-	static float snap[3] = { 1.f, 1.f, 1.f };
-
-	float objectMatrix[16] =
-	{ 1.f, 0.f, 0.f, 0.f,
-	  0.f, 1.f, 0.f, 0.f,
-	  0.f, 0.f, 1.f, 0.f,
-	  0.f, 0.f, 0.f, 1.f };
-
-	float matrixTranslation[3], matrixRotation[3], matrixScale[3];
-	ImGuizmo::DecomposeMatrixToComponents(&objView._11, matrixTranslation, matrixRotation, matrixScale);
-	//ImGui::InputFloat3("Tr", matrixTranslation, 3);
-	//if (SelectedTransform)
-	//{
-	//	HavanaUtils::EditableVector3("RtVec", SelectedTransform->Rotation);
-	//	matrixRotation[0] = SelectedTransform->Rotation[0];// * DirectX::XM_PI / 180.f;
-	//	matrixRotation[1] = SelectedTransform->Rotation[1];// * DirectX::XM_PI / 180.f;
-	//	matrixRotation[2] = SelectedTransform->Rotation[2];// * DirectX::XM_PI / 180.f;
-	//}
-	//else
-	//{
-	//	ImGui::InputFloat3("Rt", matrixRotation, 3);
-	//}
-	//ImGui::InputFloat3("Sc", matrixScale, 3);
-	ImGuizmo::RecomposeMatrixFromComponents(matrixTranslation, matrixRotation, matrixScale, &objView._11);
-
-	{
-		m_isWorldViewFocused = ImGui::IsWindowFocused();
-
-
-		if (Renderer->SceneViewRTT->shaderResourceViewMap != nullptr)
-		{
-			ImVec2 maxPos = ImVec2(pos.x + ImGui::GetWindowSize().x, pos.y + ImGui::GetWindowSize().y);
-			WorldViewRenderSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
-			WorldViewRenderLocation = Vector2(pos.x, pos.y);
-			// Ask ImGui to draw it as an image:
-			// Under OpenGL the ImGUI image type is GLuint
-			// So make sure to use "(void *)tex" but not "&tex"
-			ImGui::GetWindowDrawList()->AddImage(
-				(void*)Renderer->SceneViewRTT->shaderResourceViewMap,
-				ImVec2(pos.x, pos.y),
-				ImVec2(maxPos),
-				ImVec2(0, 0),
-				ImVec2(Mathf::Clamp(0.f, 1.0f, WorldViewRenderSize.X() / Renderer->SceneViewRTT->Size.X()), Mathf::Clamp(0.f, 1.0f, WorldViewRenderSize.Y() / Renderer->SceneViewRTT->Size.Y())));
-
-			ImGuizmo::SetRect(pos.x, pos.y, WorldViewRenderSize.X(), WorldViewRenderSize.Y());
-			DirectX::XMMATRIX perspectiveMatrix = DirectX::XMMatrixPerspectiveFovRH(
-				EditorCamera.FOV * DirectX::XM_PI / 180.0f,
-				WorldViewRenderSize.X() / WorldViewRenderSize.Y(),
-				.1f,
-				1000.0f
-			);
-
-			DirectX::XMFLOAT4X4 fView;
-			DirectX::XMStoreFloat4x4(&fView, perspectiveMatrix);
-			ImGuizmo::SetDrawlist();
-			ImGuizmo::SetOrthographic(false);
-
-			const DirectX::XMVECTORF32 eye = { EditorCamera.Position.X(), EditorCamera.Position.Y(), EditorCamera.Position.Z(), 0 };
-			const DirectX::XMVECTORF32 at = { EditorCamera.Position.X() + EditorCamera.Front.X(), EditorCamera.Position.Y() + EditorCamera.Front.Y(), EditorCamera.Position.Z() + EditorCamera.Front.Z(), 0.0f };
-			const DirectX::XMVECTORF32 up = { EditorCamera.Up.X(), EditorCamera.Up.Y(), EditorCamera.Up.Z(), 0 };
-
-			DirectX::XMMATRIX vec = DirectX::XMMatrixLookAtRH(eye, at, up);
-
-			DirectX::XMFLOAT4X4 fView2;
-			DirectX::XMStoreFloat4x4(&fView2, vec);
-
-			DirectX::XMFLOAT4X4 idView;
-			DirectX::XMStoreFloat4x4(&idView, DirectX::XMMatrixIdentity());
-
-			//ImGuizmo::DrawGrid(&fView2._11, &fView._11, &idView._11, 10.f);
-			//ImGuizmo::DrawCube(&fView2._11, &fView._11, &idView._11);
-			ImGuizmo::Manipulate(&fView2._11, &fView._11, mCurrentGizmoOperation, mCurrentGizmoMode, &objView._11, NULL, useSnap ? &snap[0] : NULL);
-
+			DirectX::XMFLOAT4X4 objView;
 			if (SelectedTransform)
 			{
-				ImGuizmo::DecomposeMatrixToComponents(&objView._11, matrixTranslation, matrixRotation, matrixScale);
-				SelectedTransform->SetPosition(Vector3(matrixTranslation[0], matrixTranslation[1], matrixTranslation[2]));
-				SelectedTransform->SetRotation(Vector3(matrixRotation[0], matrixRotation[1], matrixRotation[2]));
-				//SelectedTransform->SetRotation(Vector3(matrixRotation[0] * 180.f / DirectX::XM_PI, matrixRotation[1] * 180.f / DirectX::XM_PI, matrixRotation[2] * 180.f / DirectX::XM_PI));
+				DirectX::XMStoreFloat4x4(&objView, SelectedTransform->GetMatrix());
 			}
-		}
-	}
-	if (ImGui::IsKeyPressed(90))
-		mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
-	if (ImGui::IsKeyPressed(69))
-		mCurrentGizmoOperation = ImGuizmo::ROTATE;
-	if (ImGui::IsKeyPressed(82)) // r Key
-		mCurrentGizmoOperation = ImGuizmo::SCALE;
-	if (ImGui::RadioButton("Translate", mCurrentGizmoOperation == ImGuizmo::TRANSLATE))
-		mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
-	ImGui::SameLine();
-	if (ImGui::RadioButton("Rotate", mCurrentGizmoOperation == ImGuizmo::ROTATE))
-		mCurrentGizmoOperation = ImGuizmo::ROTATE;
-	ImGui::SameLine();
-	if (ImGui::RadioButton("Scale", mCurrentGizmoOperation == ImGuizmo::SCALE))
-		mCurrentGizmoOperation = ImGuizmo::SCALE;
-	if (mCurrentGizmoOperation != ImGuizmo::SCALE)
-	{
-		if (ImGui::RadioButton("Local", mCurrentGizmoMode == ImGuizmo::LOCAL))
-			mCurrentGizmoMode = ImGuizmo::LOCAL;
-		ImGui::SameLine();
-		if (ImGui::RadioButton("World", mCurrentGizmoMode == ImGuizmo::WORLD))
-			mCurrentGizmoMode = ImGuizmo::WORLD;
-	}
-	//if (ImGui::IsKeyPressed(83))
-	//	useSnap = !useSnap;
-	//ImGui::Checkbox("", &useSnap);
-	//ImGui::SameLine();
 
-	//switch (mCurrentGizmoOperation)
-	//{
-	//case ImGuizmo::TRANSLATE:
-	//	ImGui::InputFloat3("Snap", &snap[0]);
-	//	break;
-	//case ImGuizmo::ROTATE:
-	//	ImGui::InputFloat("Angle Snap", &snap[0]);
-	//	break;
-	//case ImGuizmo::SCALE:
-	//	ImGui::InputFloat("Scale Snap", &snap[0]);
-	//	break;
-	//}
-	ImGui::End();
-	ImGui::PopStyleVar(3);
+			static ImGuizmo::OPERATION mCurrentGizmoOperation(ImGuizmo::TRANSLATE);
+			static ImGuizmo::MODE mCurrentGizmoMode(ImGuizmo::LOCAL);
+			static bool useSnap = false;
+			static float snap[3] = { 1.f, 1.f, 1.f };
+
+			float matrixTranslation[3], matrixRotation[3], matrixScale[3];
+			//ImGuizmo::DecomposeMatrixToComponents(&objView._11, matrixTranslation, matrixRotation, matrixScale);
+
+			bool isMovingMouse = (ImGui::GetMousePos().x != previousMousePos.x) && (ImGui::GetMousePos().y != previousMousePos.y);
+			previousMousePos = ImGui::GetMousePos();
+			if (ImGui::IsWindowFocused() && ImGuizmo::IsUsing() && isMovingMouse) {
+				//ImGui::InputFloat3("Tr", matrixTranslation, 3);
+				if (SelectedTransform)
+				{
+					HavanaUtils::EditableVector3("RtVec", SelectedTransform->Rotation);
+					matrixRotation[0] = SelectedTransform->Rotation[0] * DirectX::XM_PI / 180.f;
+					matrixRotation[1] = SelectedTransform->Rotation[1] * DirectX::XM_PI / 180.f;
+					matrixRotation[2] = SelectedTransform->Rotation[2] * DirectX::XM_PI / 180.f;
+				}
+				//else
+				//{
+				//	ImGui::InputFloat3("Rt", matrixRotation, 3);
+				//}
+				//ImGui::InputFloat3("Sc", matrixScale, 3);
+				//ImGuizmo::RecomposeMatrixFromComponents(matrixTranslation, matrixRotation, matrixScale, &objView._11);
+			}
+
+			{
+				m_isWorldViewFocused = ImGui::IsWindowFocused();
+
+
+				if (Renderer->SceneResolveViewRTT && Renderer->SceneResolveViewRTT->ShaderResourceView != nullptr)
+				{
+					ImVec2 maxPos = ImVec2(pos.x + ImGui::GetWindowSize().x, pos.y + ImGui::GetWindowSize().y);
+					WorldViewRenderSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
+					WorldViewRenderLocation = Vector2(pos.x, pos.y);
+					// Ask ImGui to draw it as an image:
+					// Under OpenGL the ImGUI image type is GLuint
+					// So make sure to use "(void *)tex" but not "&tex"
+					ImGui::GetWindowDrawList()->AddImage(
+						(void*)Renderer->SceneResolveViewRTT->ShaderResourceView.Get(),
+						ImVec2(pos.x, pos.y),
+						ImVec2(maxPos),
+						ImVec2(0, 0),
+						ImVec2(Mathf::Clamp(0.f, 1.0f, WorldViewRenderSize.X() / Renderer->SceneResolveViewRTT->Width), Mathf::Clamp(0.f, 1.0f, WorldViewRenderSize.Y() / Renderer->SceneResolveViewRTT->Height)));
+
+					ImGuizmo::SetRect(WorldViewRenderLocation.X(), WorldViewRenderLocation.Y(), WorldViewRenderSize.X(), WorldViewRenderSize.Y());
+					DirectX::XMMATRIX perspectiveMatrix = DirectX::XMMatrixPerspectiveFovRH(
+						EditorCamera.FOV * DirectX::XM_PI / 180.0f,
+						WorldViewRenderSize.X() / WorldViewRenderSize.Y(),
+						.1f,
+						1000.0f
+					);
+
+					DirectX::XMFLOAT4X4 fView;
+					DirectX::XMStoreFloat4x4(&fView, perspectiveMatrix);
+					ImGuizmo::SetDrawlist();
+					ImGuizmo::SetOrthographic(false);
+
+					const DirectX::XMVECTORF32 eye = { EditorCamera.Position.X(), EditorCamera.Position.Y(), EditorCamera.Position.Z(), 0 };
+					const DirectX::XMVECTORF32 at = { EditorCamera.Position.X() + EditorCamera.Front.X(), EditorCamera.Position.Y() + EditorCamera.Front.Y(), EditorCamera.Position.Z() + EditorCamera.Front.Z(), 0.0f };
+					const DirectX::XMVECTORF32 up = { EditorCamera.Up.X(), EditorCamera.Up.Y(), EditorCamera.Up.Z(), 0 };
+
+					DirectX::XMMATRIX vec = DirectX::XMMatrixLookAtRH(eye, at, up);
+
+					DirectX::XMFLOAT4X4 fView2;
+					DirectX::XMStoreFloat4x4(&fView2, vec);
+
+					DirectX::XMFLOAT4X4 idView;
+					DirectX::XMStoreFloat4x4(&idView, DirectX::XMMatrixIdentity());
+
+					//ImGuizmo::DrawGrid(&fView2._11, &fView._11, &idView._11, 10.f);
+					//ImGuizmo::DrawCube(&fView2._11, &fView._11, &idView._11);
+					ImGuizmo::Manipulate(&fView2._11, &fView._11, mCurrentGizmoOperation, mCurrentGizmoMode, &objView._11, &idView._11, useSnap ? &snap[0] : NULL);
+					//if (ImGui::IsWindowFocused() && ImGuizmo::IsUsing() && isMovingMouse)
+					{
+						if (SelectedTransform)
+						{
+							ImGuizmo::DecomposeMatrixToComponents(&objView._11, matrixTranslation, matrixRotation, matrixScale);
+							if (matrixRotation[0] != prevMatrixRotation[0])
+							{
+								BRUH("Something is off");
+							}
+							//memcpy(matrixTranslation, prevMatrixTranslation, sizeof(float) * 3);
+							//memcpy(matrixRotation, prevMatrixRotation, sizeof(float) * 3);
+							prevMatrixRotation[0] = matrixRotation[0];
+							prevMatrixRotation[1] = matrixRotation[1];
+							prevMatrixRotation[2] = matrixRotation[2];
+							//memcpy(matrixScale, prevMatrixScale, sizeof(float) * 3);
+							SelectedTransform->SetPosition(Vector3(matrixTranslation[0], matrixTranslation[1], matrixTranslation[2]));
+							//SelectedTransform->SetRotation(Vector3(matrixRotation[0], matrixRotation[1], matrixRotation[2]));
+							//SelectedTransform->SetRotation(Vector3(matrixRotation[0] * 180.f / DirectX::XM_PI, matrixRotation[1] * 180.f / DirectX::XM_PI, matrixRotation[2] * 180.f / DirectX::XM_PI));
+						}
+					}
+				}
+			}
+
+			if (ImGui::IsKeyPressed(90))
+				mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
+			if (ImGui::IsKeyPressed(69))
+				mCurrentGizmoOperation = ImGuizmo::ROTATE;
+			if (ImGui::IsKeyPressed(82)) // r Key
+				mCurrentGizmoOperation = ImGuizmo::SCALE;
+			if (ImGui::RadioButton("Translate", mCurrentGizmoOperation == ImGuizmo::TRANSLATE))
+				mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
+			ImGui::SameLine();
+			if (ImGui::RadioButton("Rotate", mCurrentGizmoOperation == ImGuizmo::ROTATE))
+				mCurrentGizmoOperation = ImGuizmo::ROTATE;
+			ImGui::SameLine();
+			if (ImGui::RadioButton("Scale", mCurrentGizmoOperation == ImGuizmo::SCALE))
+				mCurrentGizmoOperation = ImGuizmo::SCALE;
+			if (mCurrentGizmoOperation != ImGuizmo::SCALE)
+			{
+				if (ImGui::RadioButton("Local", mCurrentGizmoMode == ImGuizmo::LOCAL))
+					mCurrentGizmoMode = ImGuizmo::LOCAL;
+				ImGui::SameLine();
+				if (ImGui::RadioButton("World", mCurrentGizmoMode == ImGuizmo::WORLD))
+					mCurrentGizmoMode = ImGuizmo::WORLD;
+			}
+			//if (ImGui::IsKeyPressed(83))
+			//	useSnap = !useSnap;
+			//ImGui::Checkbox("", &useSnap);
+			//ImGui::SameLine();
+
+			//switch (mCurrentGizmoOperation)
+			//{
+			//case ImGuizmo::TRANSLATE:
+			//	ImGui::InputFloat3("Snap", &snap[0]);
+			//	break;
+			//case ImGuizmo::ROTATE:
+			//	ImGui::InputFloat("Angle Snap", &snap[0]);
+			//	break;
+			//case ImGuizmo::SCALE:
+			//	ImGui::InputFloat("Scale Snap", &snap[0]);
+			//	break;
+			//}
+		}
+		ImGui::End();
+		ImGui::PopStyleVar(3);
+	}
 
 	ImGui::Render();
 	ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());

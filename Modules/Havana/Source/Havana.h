@@ -31,7 +31,7 @@ public:
 
 	void DrawEntityRightClickMenu(class Transform* transform);
 
-	void Render(const Moonlight::CameraData& EditorCamera);
+	void Render(Moonlight::CameraData& EditorCamera);
 
 	void SetWindowTitle(const std::string& title)
 	{
@@ -76,4 +76,8 @@ private:
 	json AssetDirectory;
 	std::unordered_map<std::string, SharedPtr<Moonlight::Texture>> Icons;
 	AssetBrowser m_assetBrowser;
+	float prevMatrixTranslation[3];
+	float prevMatrixRotation[3];
+	float prevMatrixScale[3];
+	ImVec2 previousMousePos;
 };

@@ -60,7 +60,14 @@ void Engine::Init(Game* game)
 	int WindowHeight = 1080;//WindowConfig["height"].asInt();
 
 #if ME_PLATFORM_WIN64
-	GameWindow = new D3D12Window("MitchEngine", WindowWidth, WindowHeight);
+	std::function<void(const Vector2&)> Func = [this](const Vector2 & NewSize)
+	{
+		if (m_renderer)
+		{
+			m_renderer->WindowResized(NewSize);
+		}
+	};
+	GameWindow = new D3D12Window("MitchEngine", Func, WindowWidth, WindowHeight);
 #endif
 #if ME_PLATFORM_UWP
 	GameWindow = new UWPWindow("MitchEngine", WindowWidth, WindowHeight);
@@ -152,7 +159,7 @@ void Engine::Run()
 				m_game->PostRender();
 			}, MainCamera, EditorCamera);
 
-			Sleep(6);
+			Sleep(5);
 	}
 }
 

@@ -10,6 +10,12 @@ A utility class for creating and managing logs for the engine. You can change th
 log file name and priority levels to control what info gets saved and where.
 */
 
+/// Looks like things fucked up
+#define YIKES(name) Logger::Log(Logger::LogType::Error, name)
+
+/// A Warning
+#define BRUH(name) Logger::Log(Logger::LogType::Warning, name)
+
 class Logger
 {
 public:

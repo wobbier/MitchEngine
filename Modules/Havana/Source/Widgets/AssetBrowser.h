@@ -22,11 +22,23 @@ enum class FileStatus : unsigned int
 class AssetBrowser
 {
 public:
+	enum class AssetType : unsigned int
+	{
+		Unknown = 0,
+		Folder,
+		Texture,
+		Model,
+		Level,
+		Shader,
+		Template,
+		Text
+	};
 	struct AssetDescriptor
 	{
 		std::string Name;
 		File MetaFile;
 		Path FullPath;
+		AssetType Type;
 	};
 	struct Directory
 	{
@@ -55,4 +67,5 @@ private:
 	std::thread fileBrowser;
 	Directory AssetDirectory;
 	std::unordered_map<std::string, SharedPtr<Moonlight::Texture>> Icons;
+	AssetDescriptor* SelectedAsset = nullptr;
 };

@@ -19,6 +19,7 @@
 #include "Havana.h"
 #include "Cores/SceneGraph.h"
 #include "HavanaEvents.h"
+#include "RenderCommands.h"
 
 EditorApp::EditorApp()
 {
@@ -33,7 +34,7 @@ EditorApp::~EditorApp()
 
 void EditorApp::OnStart()
 {
-
+	UpdateCameras();
 }
 
 void EditorApp::OnUpdate(float DeltaTime)
@@ -45,24 +46,41 @@ void EditorApp::OnUpdate(float DeltaTime)
 		, [this]() {
 			m_isGamePaused = true;
 		}
-		, [this]() {
-		m_isGameRunning = false;
-		m_isGamePaused = false;
-		Editor->ClearSelection();
-		//GetEngine().LoadScene("Assets/Alley.lvl");
-	});
+			, [this]() {
+			m_isGameRunning = false;
+			m_isGamePaused = false;
+			Editor->ClearSelection();
+			//GetEngine().LoadScene("Assets/Alley.lvl");
+		});
 
 	EditorSceneManager->Update(DeltaTime, GetEngine().SceneNodes->RootTransform);
 
 	Editor->UpdateWorld(GetEngine().GetWorld().lock().get(), GetEngine().SceneNodes->RootTransform, EditorSceneManager->GetEntities());
 
-	Vector2 MainOutputSize = Editor->GetGameOutputSize();
-	GetEngine().MainCamera = { Camera::CurrentCamera->Position, Camera::CurrentCamera->Front, Camera::CurrentCamera->Up, MainOutputSize, Camera::CurrentCamera->GetFOV() };
-	GetEngine().EditorCamera = { Camera::EditorCamera->Position, Camera::EditorCamera->Front, Camera::EditorCamera->Up, Editor->WorldViewRenderSize, Camera::EditorCamera->GetFOV() };
+	UpdateCameras();
+}
 
-	if (IsGameRunning())
-	{
-	}
+void EditorApp::UpdateCameras()
+{
+	Vector2 MainOutputSize = Editor->GetGameOutputSize();
+
+	Moonlight::CameraData MainCamera;
+	MainCamera.Position = Camera::CurrentCamera->Position;
+	MainCamera.Front = Camera::CurrentCamera->Front;
+	MainCamera.Up = Camera::CurrentCamera->Up;
+	MainCamera.OutputSize = MainOutputSize;
+	MainCamera.FOV = Camera::CurrentCamera->GetFOV();
+	MainCamera.Skybox = Camera::CurrentCamera->Skybox;
+	GetEngine().MainCamera = MainCamera;
+
+	Moonlight::CameraData EditorCamera;
+	EditorCamera.Position = Camera::EditorCamera->Position;
+	EditorCamera.Front = Camera::EditorCamera->Front;
+	EditorCamera.Up = Camera::EditorCamera->Up;
+	EditorCamera.OutputSize = Editor->WorldViewRenderSize;
+	EditorCamera.FOV = Camera::EditorCamera->GetFOV();
+	EditorCamera.Skybox = Camera::CurrentCamera->Skybox;
+	GetEngine().EditorCamera = EditorCamera;
 }
 
 void EditorApp::OnEnd()
@@ -79,13 +97,14 @@ void EditorApp::OnInitialize()
 		EditorSceneManager = new EditorCore(Editor.get());
 		NewSceneEvent evt;
 		evt.Fire();
+		GetEngine().LoadScene("Assets/Test.lvl");
 	}
 	GetEngine().GetWorld().lock()->AddCore<EditorCore>(*EditorSceneManager);
-	//GetEngine().LoadScene("Assets/Alley.lvl");
 }
 
 void EditorApp::PostRender()
 {
+	UpdateCameras();
 	Editor->Render(GetEngine().EditorCamera);
 }
 

@@ -30,6 +30,7 @@ namespace Moonlight
 		virtual ~Renderer() final;
 
 		void Init();
+
 		void SetWindow();
 		void RegisterDeviceNotify(IDeviceNotify* deviceNotify);
 
@@ -56,16 +57,22 @@ namespace Moonlight
 
 		void WindowResized(const Vector2& NewSize);
 
-		class RenderTexture* GameViewRTT = nullptr;
-		class RenderTexture* SceneViewRTT = nullptr;
+		//class RenderTexture* GameViewRTT = nullptr;
+		FrameBuffer* SceneViewRTT = nullptr;
+		FrameBuffer* SceneResolveViewRTT = nullptr;
+		FrameBuffer* m_framebuffer = nullptr;
+		FrameBuffer* m_resolvebuffer = nullptr;
 		LightCommand Sunlight;
 
+		ShaderProgram m_tonemapProgram;
+		Microsoft::WRL::ComPtr<ID3D11SamplerState> m_defaultSampler;
+		Microsoft::WRL::ComPtr<ID3D11SamplerState> m_computeSampler;
 	private:
-		class SkyBox* Sky;
 		class Plane* Grid;
 
-		class D3D12Device* m_device;
+		class D3D12Device* m_device = nullptr;
 
+		void ResizeBuffers();
 #if ME_DIRECTX
 		Microsoft::WRL::ComPtr<ID3D11Buffer> m_constantBuffer;
 		Microsoft::WRL::ComPtr<ID3D11Buffer> m_perFrameBuffer;
@@ -73,8 +80,6 @@ namespace Moonlight
 		ModelViewProjectionConstantBuffer m_constantBufferSceneData;
 
 		LightBuffer m_perFrameBufferData;
-
-		float m_degreesPerSecond = 45.f;
 #endif
 
 		std::vector<ModelCommand> Models;

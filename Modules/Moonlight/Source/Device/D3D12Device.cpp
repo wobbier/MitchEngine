@@ -6,6 +6,8 @@
 #include <DirectXColors.h>
 #include <CommonStates.h>
 #include "Graphics/MeshData.h"
+#include <d3dcompiler.h>
+#include "Utils/StringUtils.h"
 
 using namespace D2D1;
 using namespace DirectX;
@@ -172,21 +174,87 @@ namespace Moonlight
 
 		CommonStatesHelper = std::make_unique<DirectX::CommonStates>(m_d3dDevice.Get());
 
-		ID3D11BlendState* d3dBlendState;
-		D3D11_BLEND_DESC omDesc;
-		ZeroMemory(&omDesc, sizeof(D3D11_BLEND_DESC));
-		omDesc.RenderTarget[0].BlendEnable = true;
-		omDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
-		omDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
-		omDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
-		omDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
-		omDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
-		omDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
-		omDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+		TransparentBlendState = CommonStatesHelper->NonPremultiplied();
 
-		DX::ThrowIfFailed(device->CreateBlendState(&omDesc, &d3dBlendState));
+		for (MSAASamples = MaxMSAASamples; MSAASamples > 1; MSAASamples /= 2)
+		{
+			UINT ColorQuality;
+			UINT DepthStencilQuality;
+			m_d3dDevice->CheckMultisampleQualityLevels(DXGI_FORMAT_R16G16B16A16_FLOAT, MSAASamples, &ColorQuality);
+			m_d3dDevice->CheckMultisampleQualityLevels(DXGI_FORMAT_D24_UNORM_S8_UINT, MSAASamples, &DepthStencilQuality);
+			if (ColorQuality > 0 && DepthStencilQuality > 0)
+			{
+				break;
+			}
+		}
+	}
 
-		GetD3DDeviceContext()->OMSetBlendState(d3dBlendState, 0, 0xffffffff);
+	Microsoft::WRL::ComPtr<ID3DBlob> D3D12Device::CompileShader(const Path& FileName, const std::string& EntryPoint, const std::string& Profile)
+	{
+		UINT Flags = D3DCOMPILE_ENABLE_STRICTNESS;
+#if _DEBUG
+		Flags |= D3DCOMPILE_DEBUG;
+		Flags |= D3DCOMPILE_SKIP_OPTIMIZATION;
+#endif
+		Microsoft::WRL::ComPtr<ID3DBlob> Shader;
+		Microsoft::WRL::ComPtr<ID3DBlob> ErrorBlob;
+
+		DX::ThrowIfFailed(D3DCompileFromFile(ToWString(FileName.FullPath).c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, EntryPoint.c_str(), Profile.c_str(), Flags, 0, &Shader, &ErrorBlob));
+
+		return Shader;
+	}
+
+	Moonlight::ShaderProgram D3D12Device::CreateShaderProgram(const Microsoft::WRL::ComPtr<ID3DBlob>& vsBytecode, const Microsoft::WRL::ComPtr<ID3DBlob>& psBytecode, const std::vector<D3D11_INPUT_ELEMENT_DESC>* inputLayoutDesc) const
+	{
+		ShaderProgram Program;
+
+		if (FAILED(m_d3dDevice->CreateVertexShader(vsBytecode->GetBufferPointer(), vsBytecode->GetBufferSize(), nullptr, &Program.VertexShader))) {
+			throw std::runtime_error("Failed to create vertex shader from compiled bytecode");
+		}
+		if (FAILED(m_d3dDevice->CreatePixelShader(psBytecode->GetBufferPointer(), psBytecode->GetBufferSize(), nullptr, &Program.PixelShader))) {
+			throw std::runtime_error("Failed to create pixel shader from compiled bytecode");
+		}
+
+		if (inputLayoutDesc) {
+			if (FAILED(m_d3dDevice->CreateInputLayout(inputLayoutDesc->data(), (UINT)inputLayoutDesc->size(), vsBytecode->GetBufferPointer(), vsBytecode->GetBufferSize(), &Program.InputLayout))) {
+				throw std::runtime_error("Failed to create shader program input layout");
+			}
+		}
+		return Program;
+	}
+
+	Moonlight::ComputeProgram D3D12Device::CreateComputeProgram(const Microsoft::WRL::ComPtr<ID3DBlob>& csBytecode) const
+	{
+		ComputeProgram program;
+		DX::ThrowIfFailed(m_d3dDevice->CreateComputeShader(csBytecode->GetBufferPointer(), csBytecode->GetBufferSize(), nullptr, &program.ComputeShader));
+		return program;
+	}
+
+	Microsoft::WRL::ComPtr<ID3D11SamplerState> D3D12Device::CreateSamplerState(D3D11_FILTER filter, D3D11_TEXTURE_ADDRESS_MODE addressMode) const
+	{
+		D3D11_SAMPLER_DESC Desc = {};
+		Desc.Filter = filter;
+		Desc.AddressU = addressMode;
+		Desc.AddressV = addressMode;
+		Desc.AddressW = addressMode;
+		Desc.MaxAnisotropy = (filter == D3D11_FILTER_ANISOTROPIC) ? D3D11_REQ_MAXANISOTROPY : 1;
+		Desc.MinLOD = 0;
+		Desc.MaxLOD = D3D11_FLOAT32_MAX;
+
+		ComPtr<ID3D11SamplerState> samplerState;
+
+		DX::ThrowIfFailed(m_d3dDevice->CreateSamplerState(&Desc, &samplerState));
+
+		return samplerState;
+	}
+
+	void D3D12Device::SetOutputSize(Vector2 NewSize)
+	{
+		if (NewSize != m_outputSize)
+		{
+			m_outputSize = NewSize;
+			CreateWindowSizeDependentResources();
+		}
 	}
 
 	void D3D12Device::InitD2DScreenTexture()
@@ -297,8 +365,9 @@ namespace Moonlight
 			swapChainDesc.SampleDesc.Quality = 0;
 			swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
 			swapChainDesc.BufferCount = 2;									// Use double-buffering to minimize latency.
-			swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;	// All Windows Store apps must use this SwapEffect.
+			swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;	// All Windows Store apps must use (DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL) this SwapEffect.
 			swapChainDesc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
+			
 			//swapChainDesc.Scaling = DXGI_SCALING_ASPECT_RATIO_STRETCH;
 			//swapChainDesc.Windowed = TRUE;
 			//swapChainDesc.Scaling = DXGI_SCALING_NONE;
@@ -357,7 +426,7 @@ namespace Moonlight
 		DX::ThrowIfFailed(m_swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), &backBuffer));
 
 		DX::ThrowIfFailed(
-			m_d3dDevice->CreateRenderTargetView1(
+			m_d3dDevice->CreateRenderTargetView(
 				backBuffer.Get(),
 				nullptr,
 				&m_d3dRenderTargetView
@@ -414,6 +483,63 @@ namespace Moonlight
 		m_outputSize.SetX(static_cast<float>(std::fmax(static_cast<int>(m_logicalSize.X()), 1)));
 		m_outputSize.SetY(static_cast<float>(std::fmax(static_cast<int>(m_logicalSize.Y()), 1)));
 #endif
+	}
+
+	FrameBuffer* D3D12Device::CreateFrameBuffer(UINT Width, UINT Height, UINT Samples, DXGI_FORMAT ColorFormat, DXGI_FORMAT DepthStencilFormat) const
+	{
+		FrameBuffer* NewBuffer = new FrameBuffer();
+		NewBuffer->Width = Width;
+		NewBuffer->Height = Height;
+		NewBuffer->Samples = Samples;
+
+		D3D11_TEXTURE2D_DESC Desc = {};
+		Desc.Width = Width;
+		Desc.Height = Height;
+		Desc.MipLevels = 1;
+		Desc.ArraySize = 1;
+		Desc.SampleDesc.Count = Samples;
+
+		if (ColorFormat != DXGI_FORMAT_UNKNOWN)
+		{
+			Desc.Format = ColorFormat;
+			Desc.BindFlags = D3D11_BIND_RENDER_TARGET;
+			if (Samples <= 1)
+			{
+				Desc.BindFlags |= D3D11_BIND_SHADER_RESOURCE;
+			}
+
+			DX::ThrowIfFailed(m_d3dDevice->CreateTexture2D(&Desc, nullptr, &NewBuffer->ColorTexture));
+
+			D3D11_RENDER_TARGET_VIEW_DESC RenderView = {};
+			RenderView.Format = Desc.Format;
+			RenderView.ViewDimension = (Samples > 1) ? D3D11_RTV_DIMENSION_TEXTURE2DMS : D3D11_RTV_DIMENSION_TEXTURE2D;
+			DX::ThrowIfFailed(m_d3dDevice->CreateRenderTargetView(NewBuffer->ColorTexture.Get(), &RenderView, &NewBuffer->RenderTargetView));
+
+			if (Samples <= 1)
+			{
+				D3D11_SHADER_RESOURCE_VIEW_DESC ShaderView = {};
+				ShaderView.Format = Desc.Format;
+				ShaderView.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+				ShaderView.Texture2D.MostDetailedMip = 0;
+				ShaderView.Texture2D.MipLevels = 1;
+
+				DX::ThrowIfFailed(m_d3dDevice->CreateShaderResourceView(NewBuffer->ColorTexture.Get(), &ShaderView, &NewBuffer->ShaderResourceView));
+			}
+		}
+
+		if (DepthStencilFormat != DXGI_FORMAT_UNKNOWN)
+		{
+			Desc.Format = DepthStencilFormat;
+			Desc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+			DX::ThrowIfFailed(m_d3dDevice->CreateTexture2D(&Desc, nullptr, &NewBuffer->DepthStencilTexture));
+
+			D3D11_DEPTH_STENCIL_VIEW_DESC DepthStencilView = {};
+			DepthStencilView.Format = Desc.Format;
+			DepthStencilView.ViewDimension = (Samples > 1) ? D3D11_DSV_DIMENSION_TEXTURE2DMS : D3D11_DSV_DIMENSION_TEXTURE2D;
+			DX::ThrowIfFailed(m_d3dDevice->CreateDepthStencilView(NewBuffer->DepthStencilTexture.Get(), &DepthStencilView, &NewBuffer->DepthStencilView));
+		}
+		
+		return NewBuffer;
 	}
 
 	// This method is called in the event handler for the SizeChanged event.
@@ -519,6 +645,11 @@ namespace Moonlight
 		m_logicalSize = NewSize;
 		CreateWindowSizeDependentResources();
 		//m_swapChain->ResizeBuffers(0, NewSize.X(), NewSize.Y(), DXGI_FORMAT_UNKNOWN, 0);
+	}
+
+	const int D3D12Device::GetMSAASamples() const
+	{
+		return MSAASamples;
 	}
 
 	void D3D12Device::ResetCullingMode() const

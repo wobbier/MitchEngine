@@ -10,6 +10,8 @@
 #include "Utils/DirectXHelper.h"
 #include "Texture.h"
 #include "Material.h"
+#include "Scene/Node.h"
+#include <memory>
 
 using namespace DirectX;
 

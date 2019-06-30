@@ -87,18 +87,7 @@ public:
 
 private:
 #if ME_EDITOR
-	virtual void OnEditorInspect() final
-	{
-		HavanaUtils::EditableVector3("Position", GetPosition());
-		HavanaUtils::EditableVector3("Rotation", Rotation);
-		HavanaUtils::EditableVector3("Scale", Scale);
-		Vector3 WorldPos = GetWorldPosition();
-		HavanaUtils::EditableVector3("World Position", WorldPos);
-		if (WorldPos != GetWorldPosition())
-		{
-			SetWorldPosition(WorldPos);
-		}
-	}
+	virtual void OnEditorInspect() final;
 
 #endif
 
