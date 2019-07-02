@@ -65,6 +65,8 @@ namespace Moonlight
 		LightCommand Sunlight;
 
 		ShaderProgram m_tonemapProgram;
+		ShaderCommand m_depthProgram;
+		ShaderProgram m_lightingProgram;
 		Microsoft::WRL::ComPtr<ID3D11SamplerState> m_defaultSampler;
 		Microsoft::WRL::ComPtr<ID3D11SamplerState> m_computeSampler;
 	private:

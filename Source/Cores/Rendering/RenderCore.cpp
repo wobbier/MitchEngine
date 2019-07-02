@@ -1,4 +1,4 @@
-﻿#include "PCH.h"
+#include "PCH.h"
 #include "RenderCore.h"
 #include "Components/Debug/DebugCube.h"
 #include "Components/Debug/DebugCube.h"

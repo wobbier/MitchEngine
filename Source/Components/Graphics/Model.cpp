@@ -9,6 +9,7 @@
 #include "Components/Transform.h"
 #include "Mesh.h"
 #include "Engine/Engine.h"
+#include "ECS/Entity.h"
 
 Model::Model(const std::string& path)
 	: ModelPath(path)
@@ -37,15 +38,31 @@ void Model::Init()
 		auto parentEnt = GetEngine().GetWorld().lock()->GetEntity(Parent);
 		if (ModelHandle->RootNode.Nodes.size() > 0)
 		{
-			for (auto child : ModelHandle->RootNode.Nodes[0].Meshes)
+			for (auto& childNode : ModelHandle->RootNode.Nodes)
 			{
-				auto ent = GetEngine().GetWorld().lock()->CreateEntity();
-				Transform& trans = ent.lock()->AddComponent<Transform>(child->Name);
-				Mesh& meshRef = ent.lock()->AddComponent<Mesh>(child);
-				meshRef.MeshShader = ModelShader;
-				meshRef.MeshMaterial = child->material;
-				trans.SetParent(parentEnt.lock()->GetComponent<Transform>());
+				RecursiveLoadMesh(childNode, parentEnt);
 			}
 		}
+	}
+}
+
+void Model::RecursiveLoadMesh(Moonlight::Node& root, WeakPtr<Entity>& parentEnt)
+{
+	for (auto& childNode : root.Nodes)
+	{
+		auto entityNode = GetEngine().GetWorld().lock()->CreateEntity();
+		
+		entityNode.lock()->AddComponent<Transform>(childNode.Name).SetParent(parentEnt.lock()->GetComponent<Transform>());
+		RecursiveLoadMesh(childNode, entityNode);
+	}
+	for (auto child : root.Meshes)
+	{
+		auto ent = GetEngine().GetWorld().lock()->CreateEntity();
+		Transform& trans = ent.lock()->AddComponent<Transform>(child->Name);
+		Mesh& meshRef = ent.lock()->AddComponent<Mesh>(child);
+		trans.SetPosition(root.Position);
+		meshRef.MeshShader = ModelShader;
+		meshRef.MeshMaterial = child->material;
+		trans.SetParent(parentEnt.lock()->GetComponent<Transform>());
 	}
 }

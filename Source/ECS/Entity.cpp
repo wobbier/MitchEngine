@@ -60,6 +60,11 @@ void Entity::SetActive(const bool InActive)
 	GameWorld->ActivateEntity(*this, InActive);
 }
 
+void Entity::MarkForDelete()
+{
+	GameWorld->MarkEntityForDelete(*this);
+}
+
 bool Entity::operator==(const Entity& entity) const
 {
 	return Id == entity.Id && entity.GameWorld == GameWorld;

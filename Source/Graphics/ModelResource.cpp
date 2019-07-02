@@ -67,12 +67,15 @@ std::vector<Moonlight::MeshData*> ModelResource::GetAllMeshes()
 void ModelResource::ProcessNode(aiNode *node, const aiScene *scene, Moonlight::Node& parent)
 {
 	parent.Position = Vector3(node->mTransformation[0][0]);
+	/*node->mName*/
 	for (unsigned int i = 0; i < node->mNumMeshes; i++)
 	{
 		aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
 		parent.Meshes.push_back(ProcessMesh(mesh, scene));
 	}
 	parent.Nodes.emplace_back();
+	parent.Nodes.back().Name = std::string(node->mName.C_Str());
+
 	for (unsigned int i = 0; i < node->mNumChildren; i++)
 	{
 		ProcessNode(node->mChildren[i], scene, parent.Nodes.back());

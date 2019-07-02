@@ -39,7 +39,7 @@ Havana::Havana(Engine* GameEngine, EditorApp* app, Moonlight::Renderer* renderer
 	, m_assetBrowser(Path("Assets").FullPath, std::chrono::milliseconds(300))
 {
 	InitUI();
-	m_assetBrowser.Start([](const std::string & path_to_watch, FileStatus status) -> void {
+	m_assetBrowser.Start([](const std::string& path_to_watch, FileStatus status) -> void {
 		// Process only regular files, all other file types are ignored
 		if (!std::filesystem::is_regular_file(std::filesystem::path(path_to_watch)) && status != FileStatus::Deleted)
 		{
@@ -551,7 +551,7 @@ void Havana::ClearSelection()
 	SelectedCore = nullptr;
 }
 
-void Havana::UpdateWorld(World * world, Transform * root, const std::vector<Entity> & ents)
+void Havana::UpdateWorld(World* world, Transform* root, const std::vector<Entity>& ents)
 {
 	m_rootTransform = root;
 	ImGui::Begin("World", 0, ImGuiWindowFlags_MenuBar);
@@ -655,7 +655,7 @@ void Havana::UpdateWorld(World * world, Transform * root, const std::vector<Enti
 	ImGui::End();
 }
 
-void Havana::UpdateWorldRecursive(Transform * root)
+void Havana::UpdateWorldRecursive(Transform* root)
 {
 	if (!root)
 		return;
@@ -723,13 +723,28 @@ void Havana::UpdateWorldRecursive(Transform * root)
 	}
 }
 
+void RecusiveDelete(WeakPtr<Entity> ent, Transform* trans)
+{
+	if (!trans)
+	{
+		return;
+	}
+	for (auto child : trans->GetChildren())
+	{
+		RecusiveDelete(GetEngine().GetWorld().lock()->GetEntity(trans->Parent), child);
+	}
+	ent.lock()->MarkForDelete();
+};
+
 void Havana::DrawEntityRightClickMenu(Transform* transform)
 {
 	if (ImGui::BeginPopupContextItem())
 	{
 		if (ImGui::MenuItem("Delete", "Del"))
 		{
-			//GetEngine().GetWorld().lock()->GetEntity(transform->Parent);
+			RecusiveDelete(GetEngine().GetWorld().lock()->GetEntity(transform->Parent), transform);
+			GetEngine().GetWorld().lock()->Simulate();
+			ClearSelection();
 		}
 		if (ImGui::BeginMenu("Add Component"))
 		{
@@ -756,12 +771,80 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
 
-		ImGui::Begin("Game");
+		//ImGui::Begin("Game Depth");
+		//{
+		//	m_isGameFocused = ImGui::IsWindowFocused();
+
+
+		//	if (Renderer->m_resolvebuffer && Renderer->m_resolvebuffer->NormalShaderResourceView != nullptr)
+		//	{
+		//		// Get the current cursor position (where your window is)
+		//		ImVec2 pos = ImGui::GetCursorScreenPos();
+		//		ImVec2 maxPos = ImVec2(pos.x + ImGui::GetWindowSize().x, pos.y + ImGui::GetWindowSize().y);
+		//		//GameRenderSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
+		//		GameRenderSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
+
+		//		// Ask ImGui to draw it as an image:
+		//		// Under OpenGL the ImGUI image type is GLuint
+		//		// So make sure to use "(void *)tex" but not "&tex"
+		//		ImGui::GetWindowDrawList()->AddImage(
+		//			(void*)Renderer->m_resolvebuffer->NormalShaderResourceView.Get(),
+		//			ImVec2(pos.x, pos.y),
+		//			ImVec2(maxPos),
+		//			ImVec2(0, 0),
+		//			ImVec2(Mathf::Clamp(0.f, 1.0f, GameRenderSize.X() / Renderer->m_resolvebuffer->Width), Mathf::Clamp(0.f, 1.0f, GameRenderSize.Y() / Renderer->m_resolvebuffer->Height)));
+		//		//ImVec2(WorldViewRenderSize.X() / RenderSize.X(), WorldViewRenderSize.Y() / RenderSize.Y()));
+
+		//	}
+		//}
+		//ImGui::End();
+
+		ImGuiWindowFlags window_flags = 0;
+		window_flags |= ImGuiWindowFlags_MenuBar;
+		bool showGameWindow = true;
+		ImGui::Begin("Game", &showGameWindow, window_flags);
+		if (Renderer->m_resolvebuffer)
 		{
+			static auto srv = Renderer->m_resolvebuffer->ShaderResourceView;
+			static std::string RenderTextureName = "Diffuse";
+			if (ImGui::BeginMenuBar())
+			{
+				if (ImGui::BeginMenu(RenderTextureName.c_str()))
+				{
+					if (ImGui::MenuItem("Shaded", "", false))
+					{
+						RenderTextureName = "Shaded";
+
+					}
+					if (ImGui::MenuItem("Diffuse", "", false))
+					{
+						RenderTextureName = "Diffuse";
+					}
+					if (ImGui::MenuItem("Normals", "", false))
+					{
+						RenderTextureName = "Normals";
+					}
+					ImGui::EndMenu();
+				}
+
+				ImGui::EndMenuBar();
+			}
+			if (RenderTextureName == "Shaded")
+			{
+				srv = Renderer->m_resolvebuffer->ShaderResourceView;
+			}
+			else if (RenderTextureName == "Diffuse")
+			{
+				srv = Renderer->m_resolvebuffer->ColorShaderResourceView;
+			}
+			else if (RenderTextureName == "Normals")
+			{
+				srv = Renderer->m_resolvebuffer->NormalShaderResourceView;
+			}
+
 			m_isGameFocused = ImGui::IsWindowFocused();
 
-
-			if (Renderer->m_resolvebuffer && Renderer->m_resolvebuffer->ShaderResourceView != nullptr)
+			if (Renderer->m_resolvebuffer && srv != nullptr)
 			{
 				// Get the current cursor position (where your window is)
 				ImVec2 pos = ImGui::GetCursorScreenPos();
@@ -773,7 +856,7 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 				// Under OpenGL the ImGUI image type is GLuint
 				// So make sure to use "(void *)tex" but not "&tex"
 				ImGui::GetWindowDrawList()->AddImage(
-					(void*)Renderer->m_resolvebuffer->ShaderResourceView.Get(),
+					(void*)srv.Get(),
 					ImVec2(pos.x, pos.y),
 					ImVec2(maxPos),
 					ImVec2(0, 0),
@@ -784,9 +867,47 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 		}
 		ImGui::End();
 
-		ImGui::Begin("World View");
+		bool showWorldEditorWindow = true;
+		ImGui::Begin("World View", &showWorldEditorWindow, window_flags);
 		//if (!EditorCamera.OutputSize.IsZero())
+		if (Renderer->SceneResolveViewRTT)
 		{
+			static auto srv = Renderer->SceneResolveViewRTT->ShaderResourceView;
+			static std::string RenderTextureName = "Diffuse";
+			if (ImGui::BeginMenuBar())
+			{
+				if (ImGui::BeginMenu(RenderTextureName.c_str()))
+				{
+					if (ImGui::MenuItem("Shaded", "", false))
+					{
+						RenderTextureName = "Shaded";
+
+					}
+					if (ImGui::MenuItem("Diffuse", "", false))
+					{
+						RenderTextureName = "Diffuse";
+					}
+					if (ImGui::MenuItem("Normals", "", false))
+					{
+						RenderTextureName = "Normals";
+					}
+					ImGui::EndMenu();
+				}
+
+				ImGui::EndMenuBar();
+			}
+			if (RenderTextureName == "Shaded")
+			{
+				srv = Renderer->SceneResolveViewRTT->ShaderResourceView;
+			}
+			else if (RenderTextureName == "Diffuse")
+			{
+				srv = Renderer->SceneResolveViewRTT->ColorShaderResourceView;
+			}
+			else if (RenderTextureName == "Normals")
+			{
+				srv = Renderer->SceneResolveViewRTT->NormalShaderResourceView;
+			}
 			// Get the current cursor position (where your window is)
 			ImVec2 pos = ImGui::GetCursorScreenPos();
 
@@ -827,7 +948,7 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 				m_isWorldViewFocused = ImGui::IsWindowFocused();
 
 
-				if (Renderer->SceneResolveViewRTT && Renderer->SceneResolveViewRTT->ShaderResourceView != nullptr)
+				if (srv != nullptr)
 				{
 					ImVec2 maxPos = ImVec2(pos.x + ImGui::GetWindowSize().x, pos.y + ImGui::GetWindowSize().y);
 					WorldViewRenderSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
@@ -836,7 +957,7 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 					// Under OpenGL the ImGUI image type is GLuint
 					// So make sure to use "(void *)tex" but not "&tex"
 					ImGui::GetWindowDrawList()->AddImage(
-						(void*)Renderer->SceneResolveViewRTT->ShaderResourceView.Get(),
+						(void*)srv.Get(),
 						ImVec2(pos.x, pos.y),
 						ImVec2(maxPos),
 						ImVec2(0, 0),
@@ -957,7 +1078,7 @@ const bool Havana::IsWorldViewFocused() const
 	return m_isWorldViewFocused;
 }
 
-void Havana::BrowseDirectory(const Path & path)
+void Havana::BrowseDirectory(const Path& path)
 {
 	if (CurrentDirectory.FullPath == path.FullPath && !AssetDirectory.empty())
 	{
@@ -983,7 +1104,7 @@ const Vector2& Havana::GetGameOutputSize() const
 	return GameRenderSize;
 }
 
-bool Havana::OnEvent(const BaseEvent & evt)
+bool Havana::OnEvent(const BaseEvent& evt)
 {
 	if (evt.GetEventId() == TestEditorEvent::GetEventId())
 	{

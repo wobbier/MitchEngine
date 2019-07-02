@@ -68,7 +68,7 @@ private:
 					for (const auto& entry : std::filesystem::recursive_directory_iterator(path.FullPath))
 					{
 						Path filePath(entry.path().string());
-						if ((filePath.LocalPath.rfind(".png") != std::string::npos || filePath.LocalPath.rfind(".jpg") != std::string::npos)
+						if ((filePath.LocalPath.rfind(".png") != std::string::npos || filePath.LocalPath.rfind(".jpg") != std::string::npos || filePath.LocalPath.rfind(".tif") != std::string::npos)
 							&& filePath.LocalPath.rfind(".meta") == std::string::npos)
 						{
 							Textures.push_back(filePath);

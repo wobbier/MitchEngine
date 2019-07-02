@@ -69,12 +69,21 @@ namespace Moonlight
 			m_device->CompileShader(Path("Assets/Shaders/ToneMap.hlsl"), "main_ps", "ps_5_0"),
 			nullptr
 		);
+
+		m_depthProgram = ShaderCommand("Assets/Shaders/DepthPass.hlsl");
 		ResizeBuffers();
 
 		// Prepare the constant buffer to send it to the graphics device.
 		Sunlight.dir = XMFLOAT4(0.25f, 0.5f, -1.0f, 1.0f);
 		Sunlight.ambient = XMFLOAT4(0.2f, 0.2f, 0.2f, 1.0f);
 		Sunlight.diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
+
+
+		m_lightingProgram = m_device->CreateShaderProgram(
+			m_device->CompileShader(Path("Assets/Shaders/LightingPass.hlsl"), "main_vs", "vs_5_0"),
+			m_device->CompileShader(Path("Assets/Shaders/LightingPass.hlsl"), "main_ps", "ps_5_0"),
+			nullptr
+		);
 	}
 
 	void Renderer::ResizeBuffers()
@@ -130,7 +139,11 @@ namespace Moonlight
 		// Clear the back buffer and depth stencil view.
 		context->ClearRenderTargetView(m_device->GetBackBufferRenderTargetView(), color);
 		context->ClearRenderTargetView(m_framebuffer->RenderTargetView.Get(), color);
+		context->ClearRenderTargetView(m_framebuffer->ColorRenderTargetView.Get(), color);
+		context->ClearRenderTargetView(m_framebuffer->NormalRenderTargetView.Get(), color);
 		context->ClearRenderTargetView(SceneViewRTT->RenderTargetView.Get(), color);
+		context->ClearRenderTargetView(SceneViewRTT->ColorRenderTargetView.Get(), color);
+		context->ClearRenderTargetView(SceneViewRTT->NormalRenderTargetView.Get(), color);
 		context->ClearDepthStencilView(m_framebuffer->DepthStencilView.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
 		CD3D11_VIEWPORT gameViewport = CD3D11_VIEWPORT(
@@ -148,23 +161,32 @@ namespace Moonlight
 		context->PSSetConstantBuffers1(1, 1, m_perFrameBuffer.GetAddressOf(), nullptr, nullptr);
 
 		// Reset render targets to the screen.
-		context->OMSetRenderTargets(1, m_framebuffer->RenderTargetView.GetAddressOf(), m_framebuffer->DepthStencilView.Get());
+		ID3D11RenderTargetView * *arr[2] = { m_framebuffer->ColorRenderTargetView.GetAddressOf(), m_framebuffer->NormalRenderTargetView.GetAddressOf() };
+		context->OMSetRenderTargets(2, arr[0], m_framebuffer->DepthStencilView.Get());
 
 		DrawScene(context, m_constantBufferData, mainCamera);
 
+		// post stuff
+		context->OMSetRenderTargets(1, m_framebuffer->RenderTargetView.GetAddressOf(), nullptr);
+		context->IASetInputLayout(nullptr);
+		context->VSSetShader(m_lightingProgram.VertexShader.Get(), nullptr, 0);
+		context->PSSetShader(m_lightingProgram.PixelShader.Get(), nullptr, 0);
+		context->PSSetShaderResources(0, 1, m_resolvebuffer->ColorShaderResourceView.GetAddressOf());
+		context->PSSetSamplers(0, 1, m_computeSampler.GetAddressOf());
+		context->Draw(3, 0);
+
+		if (m_framebuffer->FinalTexture != m_resolvebuffer->FinalTexture)
+		{
+			context->ResolveSubresource(m_resolvebuffer->FinalTexture.Get(), 0, m_framebuffer->FinalTexture.Get(), 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
+		}
 		if (m_framebuffer->ColorTexture != m_resolvebuffer->ColorTexture)
 		{
 			context->ResolveSubresource(m_resolvebuffer->ColorTexture.Get(), 0, m_framebuffer->ColorTexture.Get(), 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
 		}
-
-		// post stuff
-		context->OMSetRenderTargets(1, m_device->m_d3dRenderTargetView.GetAddressOf(), nullptr);
-		context->IASetInputLayout(nullptr);
-		context->VSSetShader(m_tonemapProgram.VertexShader.Get(), nullptr, 0);
-		context->PSSetShader(m_tonemapProgram.PixelShader.Get(), nullptr, 0);
-		context->PSSetShaderResources(0, 1, m_resolvebuffer->ShaderResourceView.GetAddressOf());
-		context->PSSetSamplers(0, 1, m_computeSampler.GetAddressOf());
-		context->Draw(3, 0);
+		if (m_framebuffer->NormalTexture != m_resolvebuffer->NormalTexture)
+		{
+			context->ResolveSubresource(m_resolvebuffer->NormalTexture.Get(), 0, m_framebuffer->NormalTexture.Get(), 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
+		}
 
 		context->ClearDepthStencilView(SceneViewRTT->DepthStencilView.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
@@ -179,8 +201,88 @@ namespace Moonlight
 		context->RSSetViewports(1, &screenViewport);
 
 		//ID3D11RenderTargetView* const targets2[1] = { SceneViewRTT->renderTargetViewMap };
-		context->OMSetRenderTargets(1, SceneViewRTT->RenderTargetView.GetAddressOf(), SceneViewRTT->DepthStencilView.Get());
+		ID3D11RenderTargetView** targets[2] = { SceneViewRTT->ColorRenderTargetView.GetAddressOf(), SceneViewRTT->NormalRenderTargetView.GetAddressOf() };
+		context->OMSetRenderTargets(2, targets[0], SceneViewRTT->DepthStencilView.Get());
 		DrawScene(context, m_constantBufferSceneData, editorCamera);
+
+		// post stuff
+		context->OMSetRenderTargets(1, SceneViewRTT->RenderTargetView.GetAddressOf(), nullptr);
+		context->IASetInputLayout(nullptr);
+		context->VSSetShader(m_lightingProgram.VertexShader.Get(), nullptr, 0);
+		context->PSSetShader(m_lightingProgram.PixelShader.Get(), nullptr, 0);
+		context->PSSetShaderResources(0, 1, SceneResolveViewRTT->ColorShaderResourceView.GetAddressOf());
+		context->PSSetSamplers(0, 1, m_computeSampler.GetAddressOf());
+		context->Draw(3, 0);
+
+		//context->ClearRenderTargetView(SceneViewRTT->RenderTargetView.Get(), color);
+		//ID3D11RenderTargetView** arr[1] = {  };
+		//context->OMSetRenderTargets(1, m_device->m_d3dRenderTargetView.GetAddressOf(), nullptr);
+
+		//GetDevice().GetD3DDeviceContext()->OMSetRenderTargets(1, m_device->m_d3dRenderTargetView.GetAddressOf(), nullptr);
+		// Prepare the constant buffer to send it to the graphics device.
+
+
+		//// Attach our vertex shader.
+		//context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		//UINT stride = sizeof(PositionVertex);
+		//UINT offset = 0;
+		//context->IASetVertexBuffers(
+		//	0,
+		//	1,
+		//	m_vertexBuffer.GetAddressOf(),
+		//	&stride,
+		//	&offset
+		//);
+
+		//context->IASetIndexBuffer(
+		//	m_indexBuffer.Get(),
+		//	DXGI_FORMAT_R32_UINT, // Each index is one 16-bit unsigned integer (short).
+		//	0
+		//);
+		//context->VSSetShader(
+		//	m_lightingProgram.VertexShader.Get(),
+		//	nullptr,
+		//	0
+		//);
+		//// Attach our pixel shader.
+		//context->PSSetShader(
+		//	m_lightingProgram.PixelShader.Get(),
+		//	nullptr,
+		//	0
+		//);
+
+		//{
+		//	OPTICK_EVENT("Mesh::Draw::Setup");
+		//}
+		//{
+		//	{
+		//		OPTICK_EVENT("Mesh::Draw::Texture::ShaderResources");
+		//		context->PSSetShaderResources(0, 1, &SceneViewRTT->ShaderResourceView);
+		//		//if (mat->GetTexture(TextureType::Normal))
+		//		{
+		//			//context->PSSetShaderResources(1, 1, &SceneViewRTT->NormalShaderResourceView);
+		//		}
+		//		context->PSSetSamplers(0, 1, m_defaultSampler.GetAddressOf());
+		//	}
+		//}
+
+		//{
+		//	OPTICK_EVENT("Mesh::Draw::DrawCall");
+		//	// Draw the objects.
+		//	context->DrawIndexed(
+		//		6,
+		//		0,
+		//		0
+		//	);
+		//}
+
+		//context->OMSetRenderTargets(1, m_device->m_d3dRenderTargetView.GetAddressOf(), nullptr);
+		//context->IASetInputLayout(nullptr);
+		//context->VSSetShader(m_tonemapProgram.VertexShader.Get(), nullptr, 0);
+		//context->PSSetShader(m_tonemapProgram.PixelShader.Get(), nullptr, 0);
+		//context->PSSetShaderResources(0, 1, m_resolvebuffer->ShaderResourceView.GetAddressOf());
+		//context->PSSetSamplers(0, 1, m_computeSampler.GetAddressOf());
+		//context->Draw(3, 0);
 
 		// Scene grid
 		//{
@@ -216,6 +318,14 @@ namespace Moonlight
 		{
 			context->ResolveSubresource(SceneResolveViewRTT->ColorTexture.Get(), 0, SceneViewRTT->ColorTexture.Get(), 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
 		}
+		if (SceneViewRTT->FinalTexture != SceneResolveViewRTT->FinalTexture)
+		{
+			context->ResolveSubresource(SceneResolveViewRTT->FinalTexture.Get(), 0, SceneViewRTT->FinalTexture.Get(), 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
+		}
+		if (SceneViewRTT->NormalTexture != SceneResolveViewRTT->NormalTexture)
+		{
+			context->ResolveSubresource(SceneResolveViewRTT->NormalTexture.Get(), 0, SceneViewRTT->NormalTexture.Get(), 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
+		}
 #endif
 
 		GetDevice().GetD3DDeviceContext()->OMSetRenderTargets(1, m_device->m_d3dRenderTargetView.GetAddressOf(), nullptr);
@@ -233,7 +343,11 @@ namespace Moonlight
 		// overwritten. If dirty or scroll rects are used, this call should be removed.
 		m_device->GetD3DDeviceContext()->DiscardView1(m_device->GetBackBufferRenderTargetView(), nullptr, 0);
 		m_device->GetD3DDeviceContext()->DiscardView1(m_resolvebuffer->ShaderResourceView.Get(), nullptr, 0);
+		m_device->GetD3DDeviceContext()->DiscardView1(m_resolvebuffer->ColorShaderResourceView.Get(), nullptr, 0);
+		m_device->GetD3DDeviceContext()->DiscardView1(m_resolvebuffer->NormalShaderResourceView.Get(), nullptr, 0);
 		m_device->GetD3DDeviceContext()->DiscardView1(SceneResolveViewRTT->ShaderResourceView.Get(), nullptr, 0);
+		m_device->GetD3DDeviceContext()->DiscardView1(SceneResolveViewRTT->ColorShaderResourceView.Get(), nullptr, 0);
+		m_device->GetD3DDeviceContext()->DiscardView1(SceneResolveViewRTT->NormalShaderResourceView.Get(), nullptr, 0);
 
 		// Discard the contents of the depth stencil.
 		//m_device->GetD3DDeviceContext()->DiscardView1(m_framebuffer->DepthStencilView.Get(), nullptr, 0);
@@ -295,7 +409,7 @@ namespace Moonlight
 		//XMStoreFloat4x4(&m_constantBufferData.view, XMMatrixTranspose(XMMatrixIdentity()));
 		XMStoreFloat4x4(&constantBufferSceneData.view, XMMatrixTranspose(XMMatrixLookAtRH(eye, at, up)));
 
-		if(camera.Skybox)
+		if (camera.Skybox)
 		{
 			XMStoreFloat4x4(&constantBufferSceneData.model, XMMatrixTranspose(XMMatrixTranslation(eye[0], eye[1], eye[2])));
 			// Prepare the constant buffer to send it to the graphics device.

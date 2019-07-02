@@ -42,6 +42,7 @@ public:
 	const EntityID& GetId() const;
 
 	void SetActive(const bool InActive);
+	void MarkForDelete();
 	bool IsLoading = false;
 
 protected:

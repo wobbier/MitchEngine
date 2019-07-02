@@ -7,6 +7,8 @@
 #include "Resource/ResourceCache.h"
 #include "Graphics/Texture.h"
 #include "File.h"
+#include <stringapiset.h>
+#include "Utils/StringUtils.h"
 
 AssetBrowser::AssetBrowser(const std::string& pathToWatch, std::chrono::duration<int, std::milli> delay)
 	: PathToWatch(pathToWatch)
@@ -128,7 +130,7 @@ void AssetBrowser::Recursive(Directory& dir)
 		ImGui::SameLine();
 		//ImGui::Text(files.Name.c_str());
 		int node_clicked = -1;
-		ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
+		ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow;
 		node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen; // ImGuiTreeNodeFlags_Bullet
 		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 3));
 		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(-5, 3));
@@ -137,8 +139,13 @@ void AssetBrowser::Recursive(Directory& dir)
 		{
 			SelectedAsset = &files;
 			node_clicked = i;
+			if (ImGui::IsMouseDoubleClicked(0))
+			{
+#if _WIN32
+				ShellExecute(NULL, L"open", StringUtils::ToWString(SelectedAsset->FullPath.FullPath).c_str(), NULL, NULL, SW_SHOWDEFAULT);
+#endif
+			}
 		}
-
 		if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
 		{
 			//files.FullPath = dir.FullPath;
@@ -197,7 +204,7 @@ bool AssetBrowser::ProccessDirectoryRecursive(std::string& dir, Directory& dirRe
 				// we have a file
 
 				AssetType type = AssetType::Unknown;
-				if (newdir.find(".png") != std::string::npos || newdir.find(".jpg") != std::string::npos)
+				if (newdir.find(".png") != std::string::npos || newdir.find(".jpg") != std::string::npos || newdir.find(".tif") != std::string::npos)
 				{
 					type = AssetType::Texture;
 				}

@@ -22,10 +22,16 @@ namespace Moonlight
 {
 	struct FrameBuffer
 	{
+		Microsoft::WRL::ComPtr<ID3D11Texture2D> FinalTexture;
 		Microsoft::WRL::ComPtr<ID3D11Texture2D> ColorTexture;
+		Microsoft::WRL::ComPtr<ID3D11Texture2D> NormalTexture;
 		Microsoft::WRL::ComPtr<ID3D11Texture2D> DepthStencilTexture;
 		Microsoft::WRL::ComPtr<ID3D11RenderTargetView> RenderTargetView;
+		Microsoft::WRL::ComPtr<ID3D11RenderTargetView> ColorRenderTargetView;
+		Microsoft::WRL::ComPtr<ID3D11RenderTargetView> NormalRenderTargetView;
 		Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> ShaderResourceView;
+		Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> ColorShaderResourceView;
+		Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> NormalShaderResourceView;
 		Microsoft::WRL::ComPtr<ID3D11DepthStencilView> DepthStencilView;
 		UINT Width = 0;
 		UINT Height = 0;

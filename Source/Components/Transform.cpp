@@ -25,6 +25,11 @@ Transform::Transform(const std::string& TransformName)
 
 Transform::~Transform()
 {
+	if (ParentTransform)
+	{
+		ParentTransform->RemoveChild(this);
+		ParentTransform = nullptr;
+	}
 }
 
 void Transform::SetPosition(Vector3 NewPosition)
@@ -159,7 +164,10 @@ void Transform::SetParent(Transform& NewParent)
 
 void Transform::RemoveChild(Transform* TargetTransform)
 {
-	Children.erase(std::remove(Children.begin(), Children.end(), TargetTransform), Children.end());
+	if (Children.size() > 0)
+	{
+		Children.erase(std::remove(Children.begin(), Children.end(), TargetTransform), Children.end());
+	}
 }
 
 Transform* Transform::GetChildByName(const std::string& Name)

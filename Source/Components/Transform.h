@@ -49,6 +49,10 @@ public:
 	void SetParent(Transform& NewParent);
 	void RemoveChild(Transform* TargetTransform);
 	Transform* GetChildByName(const std::string& Name);
+	std::vector<Transform*> GetChildren() const
+	{
+		return Children;
+	}
 	Vector3 Position;
 	Vector3 Scale;
 	Vector3 Rotation;

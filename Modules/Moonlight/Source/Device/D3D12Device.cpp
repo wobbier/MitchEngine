@@ -199,7 +199,7 @@ namespace Moonlight
 		Microsoft::WRL::ComPtr<ID3DBlob> Shader;
 		Microsoft::WRL::ComPtr<ID3DBlob> ErrorBlob;
 
-		DX::ThrowIfFailed(D3DCompileFromFile(ToWString(FileName.FullPath).c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, EntryPoint.c_str(), Profile.c_str(), Flags, 0, &Shader, &ErrorBlob));
+		DX::ThrowIfFailed(D3DCompileFromFile(StringUtils::ToWString(FileName.FullPath).c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, EntryPoint.c_str(), Profile.c_str(), Flags, 0, &Shader, &ErrorBlob));
 
 		return Shader;
 	}
@@ -510,10 +510,14 @@ namespace Moonlight
 
 			DX::ThrowIfFailed(m_d3dDevice->CreateTexture2D(&Desc, nullptr, &NewBuffer->ColorTexture));
 
+			DX::ThrowIfFailed(m_d3dDevice->CreateTexture2D(&Desc, nullptr, &NewBuffer->NormalTexture));
+
+			DX::ThrowIfFailed(m_d3dDevice->CreateTexture2D(&Desc, nullptr, &NewBuffer->FinalTexture));
+
 			D3D11_RENDER_TARGET_VIEW_DESC RenderView = {};
 			RenderView.Format = Desc.Format;
 			RenderView.ViewDimension = (Samples > 1) ? D3D11_RTV_DIMENSION_TEXTURE2DMS : D3D11_RTV_DIMENSION_TEXTURE2D;
-			DX::ThrowIfFailed(m_d3dDevice->CreateRenderTargetView(NewBuffer->ColorTexture.Get(), &RenderView, &NewBuffer->RenderTargetView));
+			DX::ThrowIfFailed(m_d3dDevice->CreateRenderTargetView(NewBuffer->NormalTexture.Get(), &RenderView, &NewBuffer->NormalRenderTargetView));
 
 			if (Samples <= 1)
 			{
@@ -523,7 +527,37 @@ namespace Moonlight
 				ShaderView.Texture2D.MostDetailedMip = 0;
 				ShaderView.Texture2D.MipLevels = 1;
 
-				DX::ThrowIfFailed(m_d3dDevice->CreateShaderResourceView(NewBuffer->ColorTexture.Get(), &ShaderView, &NewBuffer->ShaderResourceView));
+				DX::ThrowIfFailed(m_d3dDevice->CreateShaderResourceView(NewBuffer->NormalTexture.Get(), &ShaderView, &NewBuffer->NormalShaderResourceView));
+			}
+
+			RenderView.Format = Desc.Format;
+			RenderView.ViewDimension = (Samples > 1) ? D3D11_RTV_DIMENSION_TEXTURE2DMS : D3D11_RTV_DIMENSION_TEXTURE2D;
+			DX::ThrowIfFailed(m_d3dDevice->CreateRenderTargetView(NewBuffer->ColorTexture.Get(), &RenderView, &NewBuffer->ColorRenderTargetView));
+
+			if (Samples <= 1)
+			{
+				D3D11_SHADER_RESOURCE_VIEW_DESC ShaderView = {};
+				ShaderView.Format = Desc.Format;
+				ShaderView.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+				ShaderView.Texture2D.MostDetailedMip = 0;
+				ShaderView.Texture2D.MipLevels = 1;
+
+				DX::ThrowIfFailed(m_d3dDevice->CreateShaderResourceView(NewBuffer->ColorTexture.Get(), &ShaderView, &NewBuffer->ColorShaderResourceView));
+			}
+
+			RenderView.Format = Desc.Format;
+			RenderView.ViewDimension = (Samples > 1) ? D3D11_RTV_DIMENSION_TEXTURE2DMS : D3D11_RTV_DIMENSION_TEXTURE2D;
+			DX::ThrowIfFailed(m_d3dDevice->CreateRenderTargetView(NewBuffer->FinalTexture.Get(), &RenderView, &NewBuffer->RenderTargetView));
+
+			if (Samples <= 1)
+			{
+				D3D11_SHADER_RESOURCE_VIEW_DESC ShaderView = {};
+				ShaderView.Format = Desc.Format;
+				ShaderView.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+				ShaderView.Texture2D.MostDetailedMip = 0;
+				ShaderView.Texture2D.MipLevels = 1;
+
+				DX::ThrowIfFailed(m_d3dDevice->CreateShaderResourceView(NewBuffer->FinalTexture.Get(), &ShaderView, &NewBuffer->ShaderResourceView));
 			}
 		}
 

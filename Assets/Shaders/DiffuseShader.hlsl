@@ -42,6 +42,11 @@ struct PixelShaderInput
 	float3 tangent : TANGENT;
 };
 
+struct PSOUTPUT
+{
+	float4 color : SV_TARGET0;
+	float4 normal : SV_TARGET1;
+};
 
 // Simple shader to do vertex processing on the GPU.
 PixelShaderInput main_vs(VertexShaderInput input)
@@ -63,17 +68,18 @@ PixelShaderInput main_vs(VertexShaderInput input)
 	return output;
 }
 
-float4 main_ps(PixelShaderInput input) : SV_TARGET
+PSOUTPUT main_ps(PixelShaderInput input)
 {
-	input.normal = normalize(input.normal);
+	PSOUTPUT output;
+	output.normal = float4(normalize(input.normal), 1.0f);
 
 	float4 diffuse = ObjTexture.Sample(ObjSamplerState, input.texcoord);
-
+	output.color = diffuse;
 	if(hasNormalMap)
 	{
 
 		float4 normalMap = ObjNormalMap.Sample(ObjSamplerState, input.texcoord);
-
+		//output.normal = normalMap;
 		normalMap = (2.0f * normalMap) - 1.0f;
 
 		input.tangent = normalize(input.tangent - dot(input.tangent, input.normal) * input.normal);
@@ -83,19 +89,21 @@ float4 main_ps(PixelShaderInput input) : SV_TARGET
 		float3x3 texSpace = float3x3(input.tangent, biTangent, input.normal);
 
 		input.normal = normalize(mul(normalMap, texSpace));
-
 	}
+	output.normal = float4(input.normal.xyz, 1.0f);
 
-	float3 finalColor;
 
-	finalColor = diffuse * light.ambient;
-	finalColor += saturate(dot(light.dir, input.normal) * light.diffuse * diffuse);
+	//float3 finalColor;
+
+	//finalColor = diffuse * light.ambient;
+	//finalColor += saturate(dot(light.dir, input.normal) * light.diffuse * diffuse);
 
 	float diffuseAlpha = diffuse.a;
 	if (hasAlphaMap)
 	{
 		diffuseAlpha = ObjAlphaMap.Sample(ObjSamplerState, input.texcoord).r;
 	}
-
-	return float4(finalColor, diffuseAlpha);
+	output.color.a = diffuseAlpha;
+	return output;
+	//return float4(finalColor, diffuseAlpha);
 }

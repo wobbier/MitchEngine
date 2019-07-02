@@ -49,7 +49,7 @@ void Engine::Init(Game* game)
 
 	m_game = game;
 
-	Logger::GetInstance().SetLogFile("engine.txt");
+	Logger::GetInstance().SetLogFile("Engine.txt");
 	Logger::GetInstance().SetLogPriority(Logger::LogType::Info);
 	Logger::GetInstance().Log(Logger::LogType::Info, "Starting the MitchEngine.");
 
@@ -77,7 +77,6 @@ void Engine::Init(Game* game)
 	m_renderer->WindowResized(GameWindow->GetSize());
 
 	GameWorld = std::make_shared<World>();
-
 
 	Cameras = new CameraCore();
 

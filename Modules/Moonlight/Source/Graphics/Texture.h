@@ -55,6 +55,5 @@ namespace Moonlight
 		ID3D11Resource* resource;
 
 		static std::string ToString(TextureType type);
-		static std::wstring ToStringW(const std::string& strText);
 	};
 }

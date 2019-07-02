@@ -82,7 +82,6 @@ includedirs {
   "../ThirdParty/ImGUI",
   "../Modules/ImGUI/Source",
   "../ThirdParty/PerlinNoise",
-  "../ThirdParty/STB",
   "../ThirdParty/JSON/single_include"
 }
 
@@ -390,9 +389,7 @@ vpaths {
 if isUWP then
   postbuildcommands {
     "fxc /T vs_4_0_level_9_3 /Fo Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\GridVertexShader.cso Assets\\Shaders\\GridVertexShader.hlsl",
-    "fxc /T ps_4_0_level_9_3 /Fo Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\GridPixelShader.cso Assets\\Shaders\\GridPixelShader.hlsl",
-    "fxc /T vs_4_0_level_9_3 /Fo Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\DepthVertexShader.cso Assets\\Shaders\\DepthVertexShader.hlsl",
-    "fxc /T ps_4_0_level_9_3 /Fo Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\DepthPixelShader.cso Assets\\Shaders\\DepthPixelShader.hlsl"
+    "fxc /T ps_4_0_level_9_3 /Fo Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\GridPixelShader.cso Assets\\Shaders\\GridPixelShader.hlsl"
   }
 else
   excludes {
@@ -401,9 +398,7 @@ else
   }
   postbuildcommands {
     "fxc /T vs_4_0_level_9_3 /Fo Assets\\Shaders\\GridVertexShader.cso Assets\\Shaders\\GridVertexShader.hlsl",
-    "fxc /T ps_4_0_level_9_3 /Fo Assets\\Shaders\\GridPixelShader.cso Assets\\Shaders\\GridPixelShader.hlsl",
-    "fxc /T vs_4_0_level_9_3 /Fo Assets\\Shaders\\DepthVertexShader.cso Assets\\Shaders\\DepthVertexShader.hlsl",
-    "fxc /T ps_4_0_level_9_3 /Fo Assets\\Shaders\\DepthPixelShader.cso Assets\\Shaders\\DepthPixelShader.hlsl"
+    "fxc /T ps_4_0_level_9_3 /Fo Assets\\Shaders\\GridPixelShader.cso Assets\\Shaders\\GridPixelShader.hlsl"
   }
 end
 configuration "with-renderdoc"

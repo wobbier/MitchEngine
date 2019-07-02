@@ -126,6 +126,8 @@ private:
 
 	// Access to components
 	friend class Entity;
+public:
+	void MarkEntityForDelete(Entity& EntityToDestroy);
 };
 
 template<typename TCore>

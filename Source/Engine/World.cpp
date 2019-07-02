@@ -249,3 +249,9 @@ void World::ActivateEntity(Entity& InEntity, const bool InActive)
 		EntityCache.Deactivated.push_back(InEntity);
 	}
 }
+
+void World::MarkEntityForDelete(Entity& EntityToDestroy)
+{
+	EntityCache.Deactivated.push_back(EntityToDestroy);
+	EntityCache.Killed.push_back(EntityToDestroy);
+}

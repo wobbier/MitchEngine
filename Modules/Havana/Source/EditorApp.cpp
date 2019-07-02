@@ -64,6 +64,11 @@ void EditorApp::UpdateCameras()
 {
 	Vector2 MainOutputSize = Editor->GetGameOutputSize();
 
+	if (!Camera::CurrentCamera)
+	{
+		Camera::CurrentCamera = Camera::EditorCamera;
+	}
+
 	Moonlight::CameraData MainCamera;
 	MainCamera.Position = Camera::CurrentCamera->Position;
 	MainCamera.Front = Camera::CurrentCamera->Front;

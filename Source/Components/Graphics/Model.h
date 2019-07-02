@@ -6,6 +6,10 @@
 #include "Graphics/ShaderCommand.h"
 #include "Path.h"
 #include <filesystem>
+#include "Pointers.h"
+#include "Scene/Node.h"
+
+class Entity;
 
 class Model
 	: public Component<Model>
@@ -18,6 +22,8 @@ public:
 
 	// Separate init from construction code.
 	virtual void Init() final;
+
+	void RecursiveLoadMesh(Moonlight::Node& root, WeakPtr<Entity>& parentEnt);
 
 	std::shared_ptr<class ModelResource> ModelHandle = nullptr;
 	class Moonlight::ShaderCommand* ModelShader = nullptr;
