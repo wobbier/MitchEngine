@@ -39,7 +39,7 @@ namespace Moonlight
 		void Update(float dt);
 		void Render(std::function<void()> func, const CameraData& mainCamera, const CameraData& editorCamera);
 
-		void DrawScene(ID3D11DeviceContext3* context, ModelViewProjectionConstantBuffer& constantBufferSceneData, const CameraData& data);
+		void DrawScene(ID3D11DeviceContext3* context, ModelViewProjectionConstantBuffer& constantBufferSceneData, const CameraData& data, FrameBuffer* ViewRTT, FrameBuffer* ResolveViewRTT);
 
 		void ReleaseDeviceDependentResources();
 		void CreateDeviceDependentResources();

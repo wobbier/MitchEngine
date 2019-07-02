@@ -160,79 +160,16 @@ namespace Moonlight
 		ID3D11RenderTargetView * *arr[2] = { m_framebuffer->ColorRenderTargetView.GetAddressOf(), m_framebuffer->NormalRenderTargetView.GetAddressOf() };
 		context->OMSetRenderTargets(2, arr[0], m_framebuffer->DepthStencilView.Get());
 
-		DrawScene(context, m_constantBufferData, mainCamera);
+		DrawScene(context, m_constantBufferData, mainCamera, m_framebuffer, m_resolvebuffer);
 
-		CD3D11_VIEWPORT finalGameRenderViewport = CD3D11_VIEWPORT(
-			0.0f,
-			0.0f,
-			SceneViewRTT->Width,
-			SceneViewRTT->Height
-		);
-		context->RSSetViewports(1, &finalGameRenderViewport);
-		//m_perFrameBufferData.light = light;
-		context->UpdateSubresource1(m_perFrameBuffer.Get(), 0, NULL, &Sunlight, 0, 0, 0);
-		context->PSSetConstantBuffers1(0, 1, m_perFrameBuffer.GetAddressOf(), nullptr, nullptr);
-		// post stuff
-		context->OMSetRenderTargets(1, m_framebuffer->RenderTargetView.GetAddressOf(), nullptr);
-		context->IASetInputLayout(nullptr);
-		context->VSSetShader(m_lightingProgram.VertexShader.Get(), nullptr, 0);
-		context->PSSetShader(m_lightingProgram.PixelShader.Get(), nullptr, 0);
-		context->PSSetShaderResources(0, 1, m_resolvebuffer->ColorShaderResourceView.GetAddressOf());
-		context->PSSetShaderResources(1, 1, m_resolvebuffer->NormalShaderResourceView.GetAddressOf());
-		context->PSSetSamplers(0, 1, m_computeSampler.GetAddressOf());
-		context->Draw(3, 0);
-
-		if (m_framebuffer->FinalTexture != m_resolvebuffer->FinalTexture)
-		{
-			context->ResolveSubresource(m_resolvebuffer->FinalTexture.Get(), 0, m_framebuffer->FinalTexture.Get(), 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
-		}
-		if (m_framebuffer->ColorTexture != m_resolvebuffer->ColorTexture)
-		{
-			context->ResolveSubresource(m_resolvebuffer->ColorTexture.Get(), 0, m_framebuffer->ColorTexture.Get(), 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
-		}
-		if (m_framebuffer->NormalTexture != m_resolvebuffer->NormalTexture)
-		{
-			context->ResolveSubresource(m_resolvebuffer->NormalTexture.Get(), 0, m_framebuffer->NormalTexture.Get(), 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
-		}
 
 		context->ClearDepthStencilView(SceneViewRTT->DepthStencilView.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
 #if ME_EDITOR
-		CD3D11_VIEWPORT screenViewport = CD3D11_VIEWPORT(
-			0.0f,
-			0.0f,
-			editorCamera.OutputSize.X(),
-			editorCamera.OutputSize.Y()
-		);
-
-		context->RSSetViewports(1, &screenViewport);
 
 		//ID3D11RenderTargetView* const targets2[1] = { SceneViewRTT->renderTargetViewMap };
-		ID3D11RenderTargetView** targets[2] = { SceneViewRTT->ColorRenderTargetView.GetAddressOf(), SceneViewRTT->NormalRenderTargetView.GetAddressOf() };
-		context->OMSetRenderTargets(2, targets[0], SceneViewRTT->DepthStencilView.Get());
-		DrawScene(context, m_constantBufferSceneData, editorCamera);
+		DrawScene(context, m_constantBufferSceneData, editorCamera, SceneViewRTT, SceneResolveViewRTT);
 
-		CD3D11_VIEWPORT finalEditorRenderViewport = CD3D11_VIEWPORT(
-			0.0f,
-			0.0f,
-			SceneViewRTT->Width,
-			SceneViewRTT->Height
-		);
-		m_device->GetD3DDeviceContext()->OMSetBlendState(m_device->TransparentBlendState, Colors::Black, 0xffffffff);
-
-		context->RSSetViewports(1, &finalEditorRenderViewport);
-		//m_perFrameBufferData.light = light;
-		context->UpdateSubresource1(m_perFrameBuffer.Get(), 0, NULL, &Sunlight, 0, 0, 0);
-		context->PSSetConstantBuffers1(0, 1, m_perFrameBuffer.GetAddressOf(), nullptr, nullptr);
-		// post stuff
-		context->OMSetRenderTargets(1, SceneViewRTT->RenderTargetView.GetAddressOf(), nullptr);
-		context->IASetInputLayout(nullptr);
-		context->VSSetShader(m_lightingProgram.VertexShader.Get(), nullptr, 0);
-		context->PSSetShader(m_lightingProgram.PixelShader.Get(), nullptr, 0);
-		context->PSSetShaderResources(0, 1, SceneResolveViewRTT->ColorShaderResourceView.GetAddressOf());
-		context->PSSetShaderResources(1, 1, SceneResolveViewRTT->NormalShaderResourceView.GetAddressOf());
-		context->PSSetSamplers(0, 1, m_computeSampler.GetAddressOf());
-		context->Draw(3, 0);
 
 		//context->ClearRenderTargetView(SceneViewRTT->RenderTargetView.Get(), color);
 		//ID3D11RenderTargetView** arr[1] = {  };
@@ -330,18 +267,6 @@ namespace Moonlight
 		//	Grid->Draw(GetDevice());
 		//}
 
-		if (SceneViewRTT->ColorTexture != SceneResolveViewRTT->ColorTexture)
-		{
-			context->ResolveSubresource(SceneResolveViewRTT->ColorTexture.Get(), 0, SceneViewRTT->ColorTexture.Get(), 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
-		}
-		if (SceneViewRTT->FinalTexture != SceneResolveViewRTT->FinalTexture)
-		{
-			context->ResolveSubresource(SceneResolveViewRTT->FinalTexture.Get(), 0, SceneViewRTT->FinalTexture.Get(), 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
-		}
-		if (SceneViewRTT->NormalTexture != SceneResolveViewRTT->NormalTexture)
-		{
-			context->ResolveSubresource(SceneResolveViewRTT->NormalTexture.Get(), 0, SceneViewRTT->NormalTexture.Get(), 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
-		}
 #endif
 
 		GetDevice().GetD3DDeviceContext()->OMSetRenderTargets(1, m_device->m_d3dRenderTargetView.GetAddressOf(), nullptr);
@@ -381,7 +306,7 @@ namespace Moonlight
 	}
 
 
-	void Renderer::DrawScene(ID3D11DeviceContext3* context, ModelViewProjectionConstantBuffer& constantBufferSceneData, const CameraData& camera)
+	void Renderer::DrawScene(ID3D11DeviceContext3* context, ModelViewProjectionConstantBuffer& constantBufferSceneData, const CameraData& camera, FrameBuffer* ViewRTT, FrameBuffer* ResolveViewRTT)
 	{
 		Vector2 outputSize = camera.OutputSize;
 		if (outputSize.IsZero())
@@ -421,6 +346,18 @@ namespace Moonlight
 		const XMVECTORF32 eye = { camera.Position.X(), camera.Position.Y(), camera.Position.Z(), 0 };
 		const XMVECTORF32 at = { camera.Position.X() + camera.Front.X(), camera.Position.Y() + camera.Front.Y(), camera.Position.Z() + camera.Front.Z(), 0.0f };
 		const XMVECTORF32 up = { camera.Up.X(), camera.Up.Y(), camera.Up.Z(), 0 };
+
+		ID3D11RenderTargetView** targets[2] = { ViewRTT->ColorRenderTargetView.GetAddressOf(), ViewRTT->NormalRenderTargetView.GetAddressOf() };
+		context->OMSetRenderTargets(2, targets[0], ViewRTT->DepthStencilView.Get());
+
+		CD3D11_VIEWPORT screenViewport = CD3D11_VIEWPORT(
+			0.0f,
+			0.0f,
+			camera.OutputSize.X(),
+			camera.OutputSize.Y()
+		);
+
+		context->RSSetViewports(1, &screenViewport);
 
 		//XMStoreFloat4x4(&m_constantBufferData.view, XMMatrixTranspose(XMMatrixIdentity()));
 		XMStoreFloat4x4(&constantBufferSceneData.view, XMMatrixTranspose(XMMatrixLookAtRH(eye, at, up)));
@@ -514,6 +451,8 @@ namespace Moonlight
 					mesh.SingleMesh->Draw(mesh.MeshMaterial);
 				}
 			}
+
+			context->OMSetRenderTargets(2, targets[0], nullptr);
 			static float blendFactor[] = { 0.f, 0.f, 0.f, 0.0f };
 			m_device->GetD3DDeviceContext()->OMSetBlendState(m_device->TransparentBlendState, Colors::Black, 0xffffffff);
 
@@ -571,6 +510,39 @@ namespace Moonlight
 			}
 		}
 		m_device->GetD3DDeviceContext()->OMSetBlendState(0, 0, 0xffffffff);
+
+		CD3D11_VIEWPORT finalGameRenderViewport = CD3D11_VIEWPORT(
+			0.0f,
+			0.0f,
+			ViewRTT->Width,
+			ViewRTT->Height
+		);
+		context->RSSetViewports(1, &finalGameRenderViewport);
+		//m_perFrameBufferData.light = light;
+		context->UpdateSubresource1(m_perFrameBuffer.Get(), 0, NULL, &Sunlight, 0, 0, 0);
+		context->PSSetConstantBuffers1(0, 1, m_perFrameBuffer.GetAddressOf(), nullptr, nullptr);
+		// post stuff
+		context->OMSetRenderTargets(1, ViewRTT->RenderTargetView.GetAddressOf(), nullptr);
+		context->IASetInputLayout(nullptr);
+		context->VSSetShader(m_lightingProgram.VertexShader.Get(), nullptr, 0);
+		context->PSSetShader(m_lightingProgram.PixelShader.Get(), nullptr, 0);
+		context->PSSetShaderResources(0, 1, ResolveViewRTT->ColorShaderResourceView.GetAddressOf());
+		context->PSSetShaderResources(1, 1, ResolveViewRTT->NormalShaderResourceView.GetAddressOf());
+		context->PSSetSamplers(0, 1, m_computeSampler.GetAddressOf());
+		context->Draw(3, 0);
+
+		if (ViewRTT->FinalTexture != ResolveViewRTT->FinalTexture)
+		{
+			context->ResolveSubresource(ResolveViewRTT->FinalTexture.Get(), 0, ViewRTT->FinalTexture.Get(), 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
+		}
+		if (ViewRTT->ColorTexture != ResolveViewRTT->ColorTexture)
+		{
+			context->ResolveSubresource(ResolveViewRTT->ColorTexture.Get(), 0, ViewRTT->ColorTexture.Get(), 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
+		}
+		if (ViewRTT->NormalTexture != ResolveViewRTT->NormalTexture)
+		{
+			context->ResolveSubresource(ResolveViewRTT->NormalTexture.Get(), 0, ViewRTT->NormalTexture.Get(), 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
+		}
 	}
 
 	void Renderer::ReleaseDeviceDependentResources()
