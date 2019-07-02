@@ -133,8 +133,8 @@ namespace Moonlight
 
 		auto context = m_device->GetD3DDeviceContext();
 
-		float darkGrey = (57.0f / 255.0f);
-		DirectX::XMVECTORF32 color = { {darkGrey, darkGrey, darkGrey, 1.0f} };
+		//float darkGrey = (0.0f / 255.0f);
+		DirectX::XMVECTORF32 color = Colors::Black;//{ {darkGrey, darkGrey, darkGrey, 1.0f} };
 
 		// Clear the back buffer and depth stencil view.
 		context->ClearRenderTargetView(m_device->GetBackBufferRenderTargetView(), color);
@@ -156,22 +156,29 @@ namespace Moonlight
 
 		m_device->GetD3DDeviceContext()->OMSetBlendState(0, 0, 0xffffffff);
 
-		//m_perFrameBufferData.light = light;
-		context->UpdateSubresource1(m_perFrameBuffer.Get(), 0, NULL, &Sunlight, 0, 0, 0);
-		context->PSSetConstantBuffers1(1, 1, m_perFrameBuffer.GetAddressOf(), nullptr, nullptr);
-
 		// Reset render targets to the screen.
 		ID3D11RenderTargetView * *arr[2] = { m_framebuffer->ColorRenderTargetView.GetAddressOf(), m_framebuffer->NormalRenderTargetView.GetAddressOf() };
 		context->OMSetRenderTargets(2, arr[0], m_framebuffer->DepthStencilView.Get());
 
 		DrawScene(context, m_constantBufferData, mainCamera);
 
+		CD3D11_VIEWPORT finalGameRenderViewport = CD3D11_VIEWPORT(
+			0.0f,
+			0.0f,
+			SceneViewRTT->Width,
+			SceneViewRTT->Height
+		);
+		context->RSSetViewports(1, &finalGameRenderViewport);
+		//m_perFrameBufferData.light = light;
+		context->UpdateSubresource1(m_perFrameBuffer.Get(), 0, NULL, &Sunlight, 0, 0, 0);
+		context->PSSetConstantBuffers1(0, 1, m_perFrameBuffer.GetAddressOf(), nullptr, nullptr);
 		// post stuff
 		context->OMSetRenderTargets(1, m_framebuffer->RenderTargetView.GetAddressOf(), nullptr);
 		context->IASetInputLayout(nullptr);
 		context->VSSetShader(m_lightingProgram.VertexShader.Get(), nullptr, 0);
 		context->PSSetShader(m_lightingProgram.PixelShader.Get(), nullptr, 0);
 		context->PSSetShaderResources(0, 1, m_resolvebuffer->ColorShaderResourceView.GetAddressOf());
+		context->PSSetShaderResources(1, 1, m_resolvebuffer->NormalShaderResourceView.GetAddressOf());
 		context->PSSetSamplers(0, 1, m_computeSampler.GetAddressOf());
 		context->Draw(3, 0);
 
@@ -205,12 +212,25 @@ namespace Moonlight
 		context->OMSetRenderTargets(2, targets[0], SceneViewRTT->DepthStencilView.Get());
 		DrawScene(context, m_constantBufferSceneData, editorCamera);
 
+		CD3D11_VIEWPORT finalEditorRenderViewport = CD3D11_VIEWPORT(
+			0.0f,
+			0.0f,
+			SceneViewRTT->Width,
+			SceneViewRTT->Height
+		);
+		m_device->GetD3DDeviceContext()->OMSetBlendState(m_device->TransparentBlendState, Colors::Black, 0xffffffff);
+
+		context->RSSetViewports(1, &finalEditorRenderViewport);
+		//m_perFrameBufferData.light = light;
+		context->UpdateSubresource1(m_perFrameBuffer.Get(), 0, NULL, &Sunlight, 0, 0, 0);
+		context->PSSetConstantBuffers1(0, 1, m_perFrameBuffer.GetAddressOf(), nullptr, nullptr);
 		// post stuff
 		context->OMSetRenderTargets(1, SceneViewRTT->RenderTargetView.GetAddressOf(), nullptr);
 		context->IASetInputLayout(nullptr);
 		context->VSSetShader(m_lightingProgram.VertexShader.Get(), nullptr, 0);
 		context->PSSetShader(m_lightingProgram.PixelShader.Get(), nullptr, 0);
 		context->PSSetShaderResources(0, 1, SceneResolveViewRTT->ColorShaderResourceView.GetAddressOf());
+		context->PSSetShaderResources(1, 1, SceneResolveViewRTT->NormalShaderResourceView.GetAddressOf());
 		context->PSSetSamplers(0, 1, m_computeSampler.GetAddressOf());
 		context->Draw(3, 0);
 
@@ -309,10 +329,6 @@ namespace Moonlight
 
 		//	Grid->Draw(GetDevice());
 		//}
-
-		// Reset the viewport to target the whole screen.
-		auto viewport = m_device->GetScreenViewport();
-		context->RSSetViewports(1, &viewport);
 
 		if (SceneViewRTT->ColorTexture != SceneResolveViewRTT->ColorTexture)
 		{

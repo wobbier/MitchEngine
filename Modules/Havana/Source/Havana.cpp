@@ -806,7 +806,7 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 		if (Renderer->m_resolvebuffer)
 		{
 			static auto srv = Renderer->m_resolvebuffer->ShaderResourceView;
-			static std::string RenderTextureName = "Diffuse";
+			static std::string RenderTextureName = "Shaded";
 			if (ImGui::BeginMenuBar())
 			{
 				if (ImGui::BeginMenu(RenderTextureName.c_str()))

@@ -1,4 +1,5 @@
 Texture2D ObjTexture : register(t0);
+Texture2D ObjNormalTexture : register(t1);
 SamplerState ObjSamplerState;
 
 struct PixelShaderInput
@@ -6,6 +7,18 @@ struct PixelShaderInput
 	float4 Position : SV_POSITION;
 	float2 TexCoord : TEXCOORD;
 };
+
+struct Light
+{
+	float3 dir;
+	float4 ambient;
+	float4 diffuse;
+};
+
+cbuffer LightCommand : register(b0)
+{
+	Light light;
+}
 
 PixelShaderInput main_vs(uint vertexID : SV_VertexID)
 {
@@ -29,6 +42,14 @@ PixelShaderInput main_vs(uint vertexID : SV_VertexID)
 
 float4 main_ps(PixelShaderInput input) : SV_TARGET
 {
-	float4 color = ObjTexture.Sample(ObjSamplerState, input.TexCoord);
-	return color;
+	float4 diffuse = ObjTexture.Sample(ObjSamplerState, input.TexCoord);
+	float4 normal = ObjNormalTexture.Sample(ObjSamplerState, input.TexCoord);
+
+	float3 finalColor;
+	{
+		finalColor = diffuse.xyz * light.ambient;
+		finalColor += saturate(dot(light.dir, normal.xyz) * light.diffuse * diffuse.xyz);
+	}
+	
+	return float4(finalColor, 1.0f);
 }

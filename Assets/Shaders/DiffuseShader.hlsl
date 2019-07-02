@@ -12,17 +12,6 @@ cbuffer ModelViewProjectionConstantBuffer : register(b0)
 	bool hasNormalMap;
 	bool hasAlphaMap;
 };
-struct Light
-{
-	float3 dir;
-	float4 ambient;
-	float4 diffuse;
-};
-
-cbuffer LightCommand : register(b1)
-{
-	Light light;
-}
 
 // Per-vertex data used as input to the vertex shader.
 struct VertexShaderInput
@@ -75,9 +64,17 @@ PSOUTPUT main_ps(PixelShaderInput input)
 
 	float4 diffuse = ObjTexture.Sample(ObjSamplerState, input.texcoord);
 	output.color = diffuse;
+
+
+	float diffuseAlpha = diffuse.a;
+	if (hasAlphaMap)
+	{
+		diffuseAlpha = ObjAlphaMap.Sample(ObjSamplerState, input.texcoord).r;
+	}
+	output.color.a = diffuseAlpha;
+
 	if(hasNormalMap)
 	{
-
 		float4 normalMap = ObjNormalMap.Sample(ObjSamplerState, input.texcoord);
 		//output.normal = normalMap;
 		normalMap = (2.0f * normalMap) - 1.0f;
@@ -88,22 +85,7 @@ PSOUTPUT main_ps(PixelShaderInput input)
 
 		float3x3 texSpace = float3x3(input.tangent, biTangent, input.normal);
 
-		input.normal = normalize(mul(normalMap, texSpace));
+		output.normal = float4(normalize(mul(normalMap, texSpace)), 1.0f);
 	}
-	output.normal = float4(input.normal.xyz, 1.0f);
-
-
-	//float3 finalColor;
-
-	//finalColor = diffuse * light.ambient;
-	//finalColor += saturate(dot(light.dir, input.normal) * light.diffuse * diffuse);
-
-	float diffuseAlpha = diffuse.a;
-	if (hasAlphaMap)
-	{
-		diffuseAlpha = ObjAlphaMap.Sample(ObjSamplerState, input.texcoord).r;
-	}
-	output.color.a = diffuseAlpha;
 	return output;
-	//return float4(finalColor, diffuseAlpha);
 }

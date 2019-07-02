@@ -29,18 +29,6 @@ struct PixelShaderInput
 	float2 texcoord : TEXCOORD0;
 };
 
-struct Light
-{
-	float3 dir;
-	float4 ambient;
-	float4 diffuse;
-};
-
-cbuffer LightCommand
-{
-	Light light;
-}
-
 // Simple shader to do vertex processing on the GPU.
 PixelShaderInput main_vs(VertexShaderInput input)
 {
@@ -63,8 +51,5 @@ PixelShaderInput main_vs(VertexShaderInput input)
 // A pass-through function for the (interpolated) color data.
 float4 main_ps(PixelShaderInput input) : SV_TARGET
 {
-	//return ObjTexture.Sample(ObjSamplerState, input.texcoord);
-	//return float4(input.color, 1.0f);
-
 	return ObjTexture.Sample(ObjSamplerState, input.texcoord);
 }
