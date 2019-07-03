@@ -53,3 +53,4 @@ float4 main_ps(PixelShaderInput input) : SV_TARGET
 	
 	return float4(finalColor, 1.0f);
 }
+

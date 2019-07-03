@@ -111,6 +111,10 @@ namespace Moonlight
 				{
 					context->PSSetShaderResources(2, 1, &mat->GetTexture(TextureType::Opacity)->ShaderResourceView);
 				}
+				if (mat->GetTexture(TextureType::Specular))
+				{
+					context->PSSetShaderResources(3, 1, &mat->GetTexture(TextureType::Specular)->ShaderResourceView);
+				}
 				context->PSSetSamplers(0, 1, diffuse->SamplerState.GetAddressOf());
 			}
 		}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       

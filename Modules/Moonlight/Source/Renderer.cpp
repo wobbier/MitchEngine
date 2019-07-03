@@ -141,9 +141,13 @@ namespace Moonlight
 		context->ClearRenderTargetView(m_framebuffer->RenderTargetView.Get(), color);
 		context->ClearRenderTargetView(m_framebuffer->ColorRenderTargetView.Get(), color);
 		context->ClearRenderTargetView(m_framebuffer->NormalRenderTargetView.Get(), color);
+		context->ClearRenderTargetView(m_framebuffer->SpecularRenderTargetView.Get(), color);
+
 		context->ClearRenderTargetView(SceneViewRTT->RenderTargetView.Get(), color);
 		context->ClearRenderTargetView(SceneViewRTT->ColorRenderTargetView.Get(), color);
 		context->ClearRenderTargetView(SceneViewRTT->NormalRenderTargetView.Get(), color);
+		context->ClearRenderTargetView(SceneViewRTT->SpecularRenderTargetView.Get(), color);
+
 		context->ClearDepthStencilView(m_framebuffer->DepthStencilView.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
 		CD3D11_VIEWPORT gameViewport = CD3D11_VIEWPORT(
@@ -157,8 +161,6 @@ namespace Moonlight
 		m_device->GetD3DDeviceContext()->OMSetBlendState(0, 0, 0xffffffff);
 
 		// Reset render targets to the screen.
-		ID3D11RenderTargetView * *arr[2] = { m_framebuffer->ColorRenderTargetView.GetAddressOf(), m_framebuffer->NormalRenderTargetView.GetAddressOf() };
-		context->OMSetRenderTargets(2, arr[0], m_framebuffer->DepthStencilView.Get());
 
 		DrawScene(context, m_constantBufferData, mainCamera, m_framebuffer, m_resolvebuffer);
 
@@ -286,9 +288,11 @@ namespace Moonlight
 		m_device->GetD3DDeviceContext()->DiscardView1(m_resolvebuffer->ShaderResourceView.Get(), nullptr, 0);
 		m_device->GetD3DDeviceContext()->DiscardView1(m_resolvebuffer->ColorShaderResourceView.Get(), nullptr, 0);
 		m_device->GetD3DDeviceContext()->DiscardView1(m_resolvebuffer->NormalShaderResourceView.Get(), nullptr, 0);
+		m_device->GetD3DDeviceContext()->DiscardView1(m_resolvebuffer->SpecularShaderResourceView.Get(), nullptr, 0);
 		m_device->GetD3DDeviceContext()->DiscardView1(SceneResolveViewRTT->ShaderResourceView.Get(), nullptr, 0);
 		m_device->GetD3DDeviceContext()->DiscardView1(SceneResolveViewRTT->ColorShaderResourceView.Get(), nullptr, 0);
 		m_device->GetD3DDeviceContext()->DiscardView1(SceneResolveViewRTT->NormalShaderResourceView.Get(), nullptr, 0);
+		m_device->GetD3DDeviceContext()->DiscardView1(SceneResolveViewRTT->SpecularShaderResourceView.Get(), nullptr, 0);
 
 		// Discard the contents of the depth stencil.
 		//m_device->GetD3DDeviceContext()->DiscardView1(m_framebuffer->DepthStencilView.Get(), nullptr, 0);
@@ -347,8 +351,8 @@ namespace Moonlight
 		const XMVECTORF32 at = { camera.Position.X() + camera.Front.X(), camera.Position.Y() + camera.Front.Y(), camera.Position.Z() + camera.Front.Z(), 0.0f };
 		const XMVECTORF32 up = { camera.Up.X(), camera.Up.Y(), camera.Up.Z(), 0 };
 
-		ID3D11RenderTargetView** targets[2] = { ViewRTT->ColorRenderTargetView.GetAddressOf(), ViewRTT->NormalRenderTargetView.GetAddressOf() };
-		context->OMSetRenderTargets(2, targets[0], ViewRTT->DepthStencilView.Get());
+		ID3D11RenderTargetView** targets[3] = { ViewRTT->ColorRenderTargetView.GetAddressOf(), ViewRTT->NormalRenderTargetView.GetAddressOf(), ViewRTT->SpecularRenderTargetView.GetAddressOf() };
+		context->OMSetRenderTargets(3, targets[0], ViewRTT->DepthStencilView.Get());
 
 		CD3D11_VIEWPORT screenViewport = CD3D11_VIEWPORT(
 			0.0f,
@@ -416,6 +420,14 @@ namespace Moonlight
 					{
 						constantBufferSceneData.HasNormalMap = FALSE;
 					}
+					if (mesh.MeshMaterial->GetTexture(TextureType::Specular))
+					{
+						constantBufferSceneData.HasSpecMap = TRUE;
+					}
+					else
+					{
+						constantBufferSceneData.HasSpecMap = TRUE;
+					}
 					constantBufferSceneData.HasAlphaMap = FALSE;
 
 					// Prepare the constant buffer to send it to the graphics device.
@@ -452,8 +464,6 @@ namespace Moonlight
 				}
 			}
 
-			context->OMSetRenderTargets(2, targets[0], nullptr);
-			static float blendFactor[] = { 0.f, 0.f, 0.f, 0.0f };
 			m_device->GetD3DDeviceContext()->OMSetBlendState(m_device->TransparentBlendState, Colors::Black, 0xffffffff);
 
 			for (const MeshCommand& mesh : transparentMeshes)
@@ -466,14 +476,19 @@ namespace Moonlight
 					{
 						constantBufferSceneData.HasNormalMap = TRUE;
 					}
-					if (mesh.MeshMaterial->GetTexture(TextureType::Opacity))
+					else
 					{
-						constantBufferSceneData.HasAlphaMap = TRUE;
+						constantBufferSceneData.HasNormalMap = FALSE;
+					}
+					if (mesh.MeshMaterial->GetTexture(TextureType::Specular))
+					{
+						constantBufferSceneData.HasSpecMap = TRUE;
 					}
 					else
 					{
-						constantBufferSceneData.HasAlphaMap = FALSE;
+						constantBufferSceneData.HasSpecMap = TRUE;
 					}
+					constantBufferSceneData.HasAlphaMap = TRUE;
 
 					// Prepare the constant buffer to send it to the graphics device.
 					context->UpdateSubresource1(
@@ -528,6 +543,7 @@ namespace Moonlight
 		context->PSSetShader(m_lightingProgram.PixelShader.Get(), nullptr, 0);
 		context->PSSetShaderResources(0, 1, ResolveViewRTT->ColorShaderResourceView.GetAddressOf());
 		context->PSSetShaderResources(1, 1, ResolveViewRTT->NormalShaderResourceView.GetAddressOf());
+		context->PSSetShaderResources(1, 1, ResolveViewRTT->SpecularShaderResourceView.GetAddressOf());
 		context->PSSetSamplers(0, 1, m_computeSampler.GetAddressOf());
 		context->Draw(3, 0);
 
@@ -542,6 +558,10 @@ namespace Moonlight
 		if (ViewRTT->NormalTexture != ResolveViewRTT->NormalTexture)
 		{
 			context->ResolveSubresource(ResolveViewRTT->NormalTexture.Get(), 0, ViewRTT->NormalTexture.Get(), 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
+		}
+		if (ViewRTT->SpecularTexture != ResolveViewRTT->SpecularTexture)
+		{
+			context->ResolveSubresource(ResolveViewRTT->SpecularTexture.Get(), 0, ViewRTT->SpecularTexture.Get(), 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
 		}
 	}
 

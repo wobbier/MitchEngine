@@ -1,6 +1,7 @@
 Texture2D ObjTexture : register(t0);
 Texture2D ObjNormalMap : register(t1);
 Texture2D ObjAlphaMap : register(t2);
+Texture2D ObjSpecularMap : register(t3);
 SamplerState ObjSamplerState;
 
 cbuffer ModelViewProjectionConstantBuffer : register(b0)
@@ -8,9 +9,10 @@ cbuffer ModelViewProjectionConstantBuffer : register(b0)
 	matrix model;
 	matrix view;
 	matrix projection;
-	float2 padding;
+	float padding;
 	bool hasNormalMap;
 	bool hasAlphaMap;
+	bool hasSpecMap;
 };
 
 // Per-vertex data used as input to the vertex shader.
@@ -35,6 +37,7 @@ struct PSOUTPUT
 {
 	float4 color : SV_TARGET0;
 	float4 normal : SV_TARGET1;
+	float4 spec : SV_TARGET2;
 };
 
 // Simple shader to do vertex processing on the GPU.
@@ -73,7 +76,7 @@ PSOUTPUT main_ps(PixelShaderInput input)
 	}
 	output.color.a = diffuseAlpha;
 
-	if(hasNormalMap)
+	if (hasNormalMap)
 	{
 		float4 normalMap = ObjNormalMap.Sample(ObjSamplerState, input.texcoord);
 		//output.normal = normalMap;
@@ -86,6 +89,12 @@ PSOUTPUT main_ps(PixelShaderInput input)
 		float3x3 texSpace = float3x3(input.tangent, biTangent, input.normal);
 
 		output.normal = float4(normalize(mul(normalMap, texSpace)), 1.0f);
+		//output.normal = normalMap;
+	}
+	output.spec = float4(0.0f, 0.0f, 0.0f, 0.0f);
+	if (hasSpecMap)
+	{
+		output.spec = ObjSpecularMap.Sample(ObjSamplerState, input.texcoord);
 	}
 	return output;
 }

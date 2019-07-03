@@ -10,9 +10,10 @@ struct ModelViewProjectionConstantBuffer
 	DirectX::XMFLOAT4X4 model;
 	DirectX::XMFLOAT4X4 view;
 	DirectX::XMFLOAT4X4 projection;
-	DirectX::XMFLOAT2 padding;
+	FLOAT padding;
 	BOOL HasNormalMap;
 	BOOL HasAlphaMap;
+	BOOL HasSpecMap;
 };
 
 struct LightBuffer
