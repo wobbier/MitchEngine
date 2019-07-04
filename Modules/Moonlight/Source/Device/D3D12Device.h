@@ -35,6 +35,7 @@ namespace Moonlight
 		Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> ColorShaderResourceView;
 		Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> NormalShaderResourceView;
 		Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> SpecularShaderResourceView;
+		Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> DepthShaderResourceView;
 		Microsoft::WRL::ComPtr<ID3D11DepthStencilView> DepthStencilView;
 		UINT Width = 0;
 		UINT Height = 0;

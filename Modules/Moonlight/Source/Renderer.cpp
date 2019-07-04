@@ -543,7 +543,7 @@ namespace Moonlight
 		context->PSSetShader(m_lightingProgram.PixelShader.Get(), nullptr, 0);
 		context->PSSetShaderResources(0, 1, ResolveViewRTT->ColorShaderResourceView.GetAddressOf());
 		context->PSSetShaderResources(1, 1, ResolveViewRTT->NormalShaderResourceView.GetAddressOf());
-		context->PSSetShaderResources(1, 1, ResolveViewRTT->SpecularShaderResourceView.GetAddressOf());
+		context->PSSetShaderResources(2, 1, ResolveViewRTT->SpecularShaderResourceView.GetAddressOf());
 		context->PSSetSamplers(0, 1, m_computeSampler.GetAddressOf());
 		context->Draw(3, 0);
 
@@ -562,6 +562,10 @@ namespace Moonlight
 		if (ViewRTT->SpecularTexture != ResolveViewRTT->SpecularTexture)
 		{
 			context->ResolveSubresource(ResolveViewRTT->SpecularTexture.Get(), 0, ViewRTT->SpecularTexture.Get(), 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
+		}
+		if (ViewRTT->DepthStencilTexture != ResolveViewRTT->DepthStencilTexture)
+		{
+			context->ResolveSubresource(ResolveViewRTT->DepthStencilTexture.Get(), 0, ViewRTT->DepthStencilTexture.Get(), 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
 		}
 	}
 

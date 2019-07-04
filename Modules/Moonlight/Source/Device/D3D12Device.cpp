@@ -492,15 +492,29 @@ namespace Moonlight
 		NewBuffer->Height = Height;
 		NewBuffer->Samples = Samples;
 
+		D3D11_TEXTURE2D_DESC AADesc = {};
+		AADesc.Width = Width;
+		AADesc.Height = Height;
+		AADesc.MipLevels = 1;
+		AADesc.ArraySize = 1;
+		AADesc.SampleDesc.Count = Samples;
+
 		D3D11_TEXTURE2D_DESC Desc = {};
 		Desc.Width = Width;
 		Desc.Height = Height;
 		Desc.MipLevels = 1;
 		Desc.ArraySize = 1;
-		Desc.SampleDesc.Count = Samples;
+		Desc.SampleDesc.Count = 1;
 
 		if (ColorFormat != DXGI_FORMAT_UNKNOWN)
 		{
+			AADesc.Format = ColorFormat;
+			AADesc.BindFlags = D3D11_BIND_RENDER_TARGET;
+			if (Samples <= 1)
+			{
+				AADesc.BindFlags |= D3D11_BIND_SHADER_RESOURCE;
+			}
+
 			Desc.Format = ColorFormat;
 			Desc.BindFlags = D3D11_BIND_RENDER_TARGET;
 			if (Samples <= 1)
@@ -514,11 +528,27 @@ namespace Moonlight
 
 			DX::ThrowIfFailed(m_d3dDevice->CreateTexture2D(&Desc, nullptr, &NewBuffer->SpecularTexture));
 
-			DX::ThrowIfFailed(m_d3dDevice->CreateTexture2D(&Desc, nullptr, &NewBuffer->FinalTexture));
+			DX::ThrowIfFailed(m_d3dDevice->CreateTexture2D(&AADesc, nullptr, &NewBuffer->FinalTexture));
 
 			D3D11_RENDER_TARGET_VIEW_DESC RenderView = {};
-			RenderView.Format = Desc.Format;
+
+			RenderView.Format = AADesc.Format;
 			RenderView.ViewDimension = (Samples > 1) ? D3D11_RTV_DIMENSION_TEXTURE2DMS : D3D11_RTV_DIMENSION_TEXTURE2D;
+			DX::ThrowIfFailed(m_d3dDevice->CreateRenderTargetView(NewBuffer->FinalTexture.Get(), &RenderView, &NewBuffer->RenderTargetView));
+
+			if (Samples <= 1)
+			{
+				D3D11_SHADER_RESOURCE_VIEW_DESC ShaderView = {};
+				ShaderView.Format = AADesc.Format;
+				ShaderView.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+				ShaderView.Texture2D.MostDetailedMip = 0;
+				ShaderView.Texture2D.MipLevels = 1;
+
+				DX::ThrowIfFailed(m_d3dDevice->CreateShaderResourceView(NewBuffer->FinalTexture.Get(), &ShaderView, &NewBuffer->ShaderResourceView));
+			}
+
+			RenderView.Format = Desc.Format;
+			RenderView.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
 			DX::ThrowIfFailed(m_d3dDevice->CreateRenderTargetView(NewBuffer->NormalTexture.Get(), &RenderView, &NewBuffer->NormalRenderTargetView));
 
 			if (Samples <= 1)
@@ -532,8 +562,6 @@ namespace Moonlight
 				DX::ThrowIfFailed(m_d3dDevice->CreateShaderResourceView(NewBuffer->NormalTexture.Get(), &ShaderView, &NewBuffer->NormalShaderResourceView));
 			}
 
-			RenderView.Format = Desc.Format;
-			RenderView.ViewDimension = (Samples > 1) ? D3D11_RTV_DIMENSION_TEXTURE2DMS : D3D11_RTV_DIMENSION_TEXTURE2D;
 			DX::ThrowIfFailed(m_d3dDevice->CreateRenderTargetView(NewBuffer->ColorTexture.Get(), &RenderView, &NewBuffer->ColorRenderTargetView));
 
 			if (Samples <= 1)
@@ -559,33 +587,68 @@ namespace Moonlight
 
 				DX::ThrowIfFailed(m_d3dDevice->CreateShaderResourceView(NewBuffer->SpecularTexture.Get(), &ShaderView, &NewBuffer->SpecularShaderResourceView));
 			}
-
-			RenderView.Format = Desc.Format;
-			RenderView.ViewDimension = (Samples > 1) ? D3D11_RTV_DIMENSION_TEXTURE2DMS : D3D11_RTV_DIMENSION_TEXTURE2D;
-			DX::ThrowIfFailed(m_d3dDevice->CreateRenderTargetView(NewBuffer->FinalTexture.Get(), &RenderView, &NewBuffer->RenderTargetView));
-
-			if (Samples <= 1)
-			{
-				D3D11_SHADER_RESOURCE_VIEW_DESC ShaderView = {};
-				ShaderView.Format = Desc.Format;
-				ShaderView.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-				ShaderView.Texture2D.MostDetailedMip = 0;
-				ShaderView.Texture2D.MipLevels = 1;
-
-				DX::ThrowIfFailed(m_d3dDevice->CreateShaderResourceView(NewBuffer->FinalTexture.Get(), &ShaderView, &NewBuffer->ShaderResourceView));
-			}
 		}
 
 		if (DepthStencilFormat != DXGI_FORMAT_UNKNOWN)
 		{
-			Desc.Format = DepthStencilFormat;
-			Desc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
-			DX::ThrowIfFailed(m_d3dDevice->CreateTexture2D(&Desc, nullptr, &NewBuffer->DepthStencilTexture));
+			D3D11_TEXTURE2D_DESC descDepth;
+			descDepth.Width = NewBuffer->Width;
+			descDepth.Height = NewBuffer->Height;
+			descDepth.MipLevels = 1;
+			descDepth.ArraySize = 1;
+			descDepth.Format = DXGI_FORMAT_R24G8_TYPELESS;
+			descDepth.SampleDesc.Count = 1;
+			descDepth.SampleDesc.Quality = 0;
+			descDepth.Usage = D3D11_USAGE_DEFAULT;
+			descDepth.BindFlags = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
+			descDepth.CPUAccessFlags = 0;
+			descDepth.MiscFlags = 0;
+			DX::ThrowIfFailed(m_d3dDevice->CreateTexture2D(&descDepth, nullptr, &NewBuffer->DepthStencilTexture));
 
 			D3D11_DEPTH_STENCIL_VIEW_DESC DepthStencilView = {};
-			DepthStencilView.Format = Desc.Format;
-			DepthStencilView.ViewDimension = (Samples > 1) ? D3D11_DSV_DIMENSION_TEXTURE2DMS : D3D11_DSV_DIMENSION_TEXTURE2D;
+			DepthStencilView.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+			DepthStencilView.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+			DepthStencilView.Texture2D.MipSlice = 0;
 			DX::ThrowIfFailed(m_d3dDevice->CreateDepthStencilView(NewBuffer->DepthStencilTexture.Get(), &DepthStencilView, &NewBuffer->DepthStencilView));
+
+			//if (Samples <= 1)
+			{
+				D3D11_SHADER_RESOURCE_VIEW_DESC ShaderView = {};
+				ShaderView.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+				ShaderView.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+				ShaderView.Texture2D.MostDetailedMip = 0;
+				ShaderView.Texture2D.MipLevels = 1;
+
+				DX::ThrowIfFailed(m_d3dDevice->CreateShaderResourceView(NewBuffer->DepthStencilTexture.Get(), &ShaderView, &NewBuffer->DepthShaderResourceView));
+			}
+
+			D3D11_DEPTH_STENCIL_DESC dsDesc;
+
+			// Depth test parameters
+			dsDesc.DepthEnable = true;
+			dsDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+			dsDesc.DepthFunc = D3D11_COMPARISON_LESS;
+
+			// Stencil test parameters
+			dsDesc.StencilEnable = true;
+			dsDesc.StencilReadMask = 0xFF;
+			dsDesc.StencilWriteMask = 0xFF;
+
+			// Stencil operations if pixel is front-facing
+			dsDesc.FrontFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+			dsDesc.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_INCR;
+			dsDesc.FrontFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
+			dsDesc.FrontFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+
+			// Stencil operations if pixel is back-facing
+			dsDesc.BackFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+			dsDesc.BackFace.StencilDepthFailOp = D3D11_STENCIL_OP_DECR;
+			dsDesc.BackFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
+			dsDesc.BackFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+
+			// Create depth stencil state
+			ID3D11DepthStencilState* DepthStencilState;
+			m_d3dDevice->CreateDepthStencilState(&dsDesc, &DepthStencilState);
 		}
 		
 		return NewBuffer;

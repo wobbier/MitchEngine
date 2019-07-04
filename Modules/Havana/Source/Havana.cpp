@@ -828,6 +828,10 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 					{
 						RenderTextureName = "Specular";
 					}
+					if (ImGui::MenuItem("Depth", "", false))
+					{
+						RenderTextureName = "Depth";
+					}
 					ImGui::EndMenu();
 				}
 
@@ -847,7 +851,11 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 			}
 			else if (RenderTextureName == "Specular")
 			{
-				srv = Renderer->SceneResolveViewRTT->SpecularShaderResourceView;
+				srv = Renderer->m_resolvebuffer->SpecularShaderResourceView;
+			}
+			else if (RenderTextureName == "Depth")
+			{
+				srv = Renderer->m_resolvebuffer->DepthShaderResourceView;
 			}
 			m_isGameFocused = ImGui::IsWindowFocused();
 
@@ -902,6 +910,10 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 					{
 						RenderTextureName = "Specular";
 					}
+					if (ImGui::MenuItem("Depth", "", false))
+					{
+						RenderTextureName = "Depth";
+					}
 					ImGui::EndMenu();
 				}
 
@@ -922,6 +934,10 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 			else if (RenderTextureName == "Specular")
 			{
 				srv = Renderer->SceneResolveViewRTT->SpecularShaderResourceView;
+			}
+			else if (RenderTextureName == "Depth")
+			{
+				srv = Renderer->SceneResolveViewRTT->DepthShaderResourceView;
 			}
 			// Get the current cursor position (where your window is)
 			ImVec2 pos = ImGui::GetCursorScreenPos();
