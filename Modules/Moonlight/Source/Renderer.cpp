@@ -14,6 +14,7 @@
 #include "examples/imgui_impl_win32.h"
 #include "examples/imgui_impl_dx11.h"
 #include "Graphics/RenderTexture.h"
+#include "Engine/Input.h"
 
 using namespace DirectX;
 using namespace Windows::Foundation;
@@ -565,6 +566,25 @@ namespace Moonlight
 		{
 			context->ResolveSubresource(ResolveViewRTT->SpecularTexture.Get(), 0, ViewRTT->SpecularTexture.Get(), 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
 		}
+
+		if (Input::GetInstance().IsKeyDown(KeyCode::A))
+		{
+			context->UpdateSubresource1(m_perFrameBuffer.Get(), 0, NULL, &Sunlight, 0, 0, 0);
+			context->PSSetConstantBuffers1(0, 1, m_perFrameBuffer.GetAddressOf(), nullptr, nullptr);
+			// post stuff
+			context->OMSetRenderTargets(1, ViewRTT->RenderTargetView.GetAddressOf(), nullptr);
+			context->IASetInputLayout(nullptr);
+			context->VSSetShader(m_tonemapProgram.VertexShader.Get(), nullptr, 0);
+			context->PSSetShader(m_tonemapProgram.PixelShader.Get(), nullptr, 0);
+			context->PSSetShaderResources(0, 1, ResolveViewRTT->ShaderResourceView.GetAddressOf());
+			context->PSSetSamplers(0, 1, m_computeSampler.GetAddressOf());
+			context->Draw(3, 0);
+			if (ViewRTT->FinalTexture != ResolveViewRTT->FinalTexture)
+			{
+				context->ResolveSubresource(ResolveViewRTT->FinalTexture.Get(), 0, ViewRTT->FinalTexture.Get(), 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
+			}
+		}
+
 	}
 
 	void Renderer::ReleaseDeviceDependentResources()
@@ -633,7 +653,7 @@ namespace Moonlight
 		}
 	}
 
-	unsigned int Renderer::PushLight(const LightCommand & NewLight)
+	unsigned int Renderer::PushLight(const LightCommand& NewLight)
 	{
 		if (!FreeLightCommandIndicies.empty())
 		{
@@ -668,7 +688,7 @@ namespace Moonlight
 		}
 	}
 
-	void Renderer::WindowResized(const Vector2 & NewSize)
+	void Renderer::WindowResized(const Vector2& NewSize)
 	{
 		if (!m_device)
 		{
