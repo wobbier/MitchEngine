@@ -1,5 +1,7 @@
 Texture2D ObjTexture : register(t0);
 Texture2D ObjNormalTexture : register(t1);
+Texture2D ObjSpecularMap : register(t2);
+Texture2D ObjDepthTexture : register(t3);
 SamplerState ObjSamplerState;
 
 struct PixelShaderInput
@@ -51,7 +53,13 @@ float4 main_ps(PixelShaderInput input) : SV_TARGET
 		finalColor = diffuse.xyz * light.ambient;
 		finalColor += saturate(dot(light.dir, normal.xyz) * light.diffuse * diffuse.xyz);
 	}
-	
+
+	//float z = (ObjDepthTexture.Sample(ObjSamplerState, input.TexCoord).r);
+	//float n = 1.0;                                // the near plane
+	//float f = 1000.0;                               // the far plane
+	//float c = ((2.0 * n) / (f + n - z * (f - n)));  // convert to linear values 
+	//finalColor = finalColor * c;
+
 	return float4(finalColor, 1.0f);
 }
 

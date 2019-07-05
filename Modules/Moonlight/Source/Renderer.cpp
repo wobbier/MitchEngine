@@ -534,6 +534,7 @@ namespace Moonlight
 		);
 		context->RSSetViewports(1, &finalGameRenderViewport);
 		//m_perFrameBufferData.light = light;
+		context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		context->UpdateSubresource1(m_perFrameBuffer.Get(), 0, NULL, &Sunlight, 0, 0, 0);
 		context->PSSetConstantBuffers1(0, 1, m_perFrameBuffer.GetAddressOf(), nullptr, nullptr);
 		// post stuff
@@ -544,6 +545,7 @@ namespace Moonlight
 		context->PSSetShaderResources(0, 1, ResolveViewRTT->ColorShaderResourceView.GetAddressOf());
 		context->PSSetShaderResources(1, 1, ResolveViewRTT->NormalShaderResourceView.GetAddressOf());
 		context->PSSetShaderResources(2, 1, ResolveViewRTT->SpecularShaderResourceView.GetAddressOf());
+		context->PSSetShaderResources(3, 1, ViewRTT->DepthShaderResourceView.GetAddressOf());
 		context->PSSetSamplers(0, 1, m_computeSampler.GetAddressOf());
 		context->Draw(3, 0);
 
@@ -562,10 +564,6 @@ namespace Moonlight
 		if (ViewRTT->SpecularTexture != ResolveViewRTT->SpecularTexture)
 		{
 			context->ResolveSubresource(ResolveViewRTT->SpecularTexture.Get(), 0, ViewRTT->SpecularTexture.Get(), 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
-		}
-		if (ViewRTT->DepthStencilTexture != ResolveViewRTT->DepthStencilTexture)
-		{
-			context->ResolveSubresource(ResolveViewRTT->DepthStencilTexture.Get(), 0, ViewRTT->DepthStencilTexture.Get(), 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
 		}
 	}
 

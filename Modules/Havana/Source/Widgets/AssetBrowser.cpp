@@ -149,7 +149,7 @@ void AssetBrowser::Recursive(Directory& dir)
 		if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
 		{
 			//files.FullPath = dir.FullPath;
-			ImGui::SetDragDropPayload("DND_DEMO_CELL", &files, sizeof(AssetDescriptor));
+			ImGui::SetDragDropPayload("DND_ASSET_BROWSER", &files, sizeof(AssetDescriptor));
 			ImGui::Text(files.Name.c_str());
 			ImGui::EndDragDropSource();
 		}

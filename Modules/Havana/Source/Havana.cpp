@@ -661,7 +661,7 @@ void Havana::UpdateWorldRecursive(Transform* root)
 		return;
 	if (ImGui::BeginDragDropTarget())
 	{
-		if (const ImGuiPayload * payload = ImGui::AcceptDragDropPayload("DND_DEMO_CELL"))
+		if (const ImGuiPayload * payload = ImGui::AcceptDragDropPayload("DND_ASSET_BROWSER"))
 		{
 			IM_ASSERT(payload->DataSize == sizeof(AssetBrowser::AssetDescriptor));
 			AssetBrowser::AssetDescriptor payload_n = *(AssetBrowser::AssetDescriptor*)payload->Data;
@@ -855,7 +855,7 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 			}
 			else if (RenderTextureName == "Depth")
 			{
-				srv = Renderer->m_resolvebuffer->DepthShaderResourceView;
+				srv = Renderer->m_framebuffer->DepthShaderResourceView;
 			}
 			m_isGameFocused = ImGui::IsWindowFocused();
 
@@ -884,6 +884,7 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 
 		bool showWorldEditorWindow = true;
 		ImGui::Begin("World View", &showWorldEditorWindow, window_flags);
+
 		//if (!EditorCamera.OutputSize.IsZero())
 		if (Renderer->SceneResolveViewRTT)
 		{
@@ -937,7 +938,7 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 			}
 			else if (RenderTextureName == "Depth")
 			{
-				srv = Renderer->SceneResolveViewRTT->DepthShaderResourceView;
+				srv = Renderer->SceneViewRTT->DepthShaderResourceView;
 			}
 			// Get the current cursor position (where your window is)
 			ImVec2 pos = ImGui::GetCursorScreenPos();
@@ -1067,6 +1068,7 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 				if (ImGui::RadioButton("World", mCurrentGizmoMode == ImGuizmo::WORLD))
 					mCurrentGizmoMode = ImGuizmo::WORLD;
 			}
+
 			//if (ImGui::IsKeyPressed(83))
 			//	useSnap = !useSnap;
 			//ImGui::Checkbox("", &useSnap);
