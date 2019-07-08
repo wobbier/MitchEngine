@@ -71,7 +71,7 @@ namespace Moonlight
 			nullptr
 		);
 
-		m_depthProgram = ShaderCommand("Assets/Shaders/DepthPass.hlsl");
+		//m_depthProgram = ShaderCommand("Assets/Shaders/DepthPass.hlsl");
 		ResizeBuffers();
 
 		// Prepare the constant buffer to send it to the graphics device.
@@ -79,6 +79,13 @@ namespace Moonlight
 		Sunlight.ambient = XMFLOAT4(0.2f, 0.2f, 0.2f, 1.0f);
 		Sunlight.diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 
+		static const std::vector<D3D11_INPUT_ELEMENT_DESC> vertexDesc =
+		{
+			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,    0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+			{ "NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT,    0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+			{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,       0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+			{ "TANGENT",   0, DXGI_FORMAT_R32G32B32_FLOAT,    0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		};
 
 		m_lightingProgram = m_device->CreateShaderProgram(
 			m_device->CompileShader(Path("Assets/Shaders/LightingPass.hlsl"), "main_vs", "vs_5_0"),
@@ -567,7 +574,26 @@ namespace Moonlight
 			context->ResolveSubresource(ResolveViewRTT->SpecularTexture.Get(), 0, ViewRTT->SpecularTexture.Get(), 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
 		}
 
-		if (Input::GetInstance().IsKeyDown(KeyCode::A))
+		if(false)
+		{
+			context->UpdateSubresource1(m_perFrameBuffer.Get(), 0, NULL, &Sunlight, 0, 0, 0);
+			context->PSSetConstantBuffers1(0, 1, m_perFrameBuffer.GetAddressOf(), nullptr, nullptr);
+			// post stuff
+			context->OMSetRenderTargets(1, ViewRTT->RenderTargetView.GetAddressOf(), nullptr);
+			context->IASetInputLayout(nullptr);
+			context->VSSetShader(m_dofProgram.VertexShader.Get(), nullptr, 0);
+			context->PSSetShader(m_dofProgram.PixelShader.Get(), nullptr, 0);
+			context->PSSetShaderResources(0, 1, ResolveViewRTT->ShaderResourceView.GetAddressOf());
+			context->PSSetShaderResources(1, 1, ResolveViewRTT->DepthShaderResourceView.GetAddressOf());
+			context->PSSetSamplers(0, 1, m_computeSampler.GetAddressOf());
+			context->Draw(3, 0);
+			if (ViewRTT->FinalTexture != ResolveViewRTT->FinalTexture)
+			{
+				context->ResolveSubresource(ResolveViewRTT->FinalTexture.Get(), 0, ViewRTT->FinalTexture.Get(), 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
+			}
+		}
+
+		if (false)//Input::GetInstance().IsKeyDown(KeyCode::A))
 		{
 			context->UpdateSubresource1(m_perFrameBuffer.Get(), 0, NULL, &Sunlight, 0, 0, 0);
 			context->PSSetConstantBuffers1(0, 1, m_perFrameBuffer.GetAddressOf(), nullptr, nullptr);

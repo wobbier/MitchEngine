@@ -77,6 +77,7 @@ public:
 
 #if ME_PLATFORM_UWP
 		std::replace(LocalPath.begin(), LocalPath.end(), '/', '\\');
+		FullPath = LocalPath;
 #endif
 	}
 

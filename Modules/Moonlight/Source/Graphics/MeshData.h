@@ -11,14 +11,6 @@
 
 namespace Moonlight
 {
-	struct Vertex
-	{
-		DirectX::XMFLOAT3 Position;
-		DirectX::XMFLOAT3 Normal;
-		DirectX::XMFLOAT2 TextureCoord;
-		DirectX::XMFLOAT3 Tangent;
-		DirectX::XMFLOAT3 BiTangent;
-	};
 
 	class MeshData
 	{

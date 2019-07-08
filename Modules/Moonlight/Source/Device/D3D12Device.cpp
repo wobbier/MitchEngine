@@ -8,6 +8,7 @@
 #include "Graphics/MeshData.h"
 #include <d3dcompiler.h>
 #include "Utils/StringUtils.h"
+#include "Content/ShaderStructures.h"
 
 using namespace D2D1;
 using namespace DirectX;
@@ -199,8 +200,27 @@ namespace Moonlight
 		Microsoft::WRL::ComPtr<ID3DBlob> Shader;
 		Microsoft::WRL::ComPtr<ID3DBlob> ErrorBlob;
 
-		DX::ThrowIfFailed(D3DCompileFromFile(StringUtils::ToWString(FileName.FullPath).c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, EntryPoint.c_str(), Profile.c_str(), Flags, 0, &Shader, &ErrorBlob));
+		HRESULT success = D3DCompileFromFile(StringUtils::ToWString(FileName.FullPath).c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, EntryPoint.c_str(), Profile.c_str(), Flags, 0, &Shader, &ErrorBlob);
+		if (ErrorBlob)
+		{
+			char const* message =
+				static_cast<char const*>(ErrorBlob->GetBufferPointer());
 
+			// Write the warning to the output window when the program is
+			// executing through the Microsoft Visual Studio IDE.
+			size_t const length = strlen(message);
+			std::wstring output = L"";
+			for (size_t i = 0; i < length; ++i)
+			{
+				output += static_cast<wchar_t>(message[i]);
+			}
+			output += L'\n';
+			OutputDebugString(output.c_str());
+
+			Logger::Log(Logger::LogType::Error, "D3DCompile warning: " + std::string(message));
+		}
+
+		DX::ThrowIfFailed(success);
 		return Shader;
 	}
 
@@ -260,49 +280,43 @@ namespace Moonlight
 	void D3D12Device::InitD2DScreenTexture()
 	{
 		//Create the vertex buffer
-		Vertex v[] =
+		std::vector<Vertex> vertices =
 		{
 			// Front Face
-			Vertex{{-1.0f, -1.0f, -1.0f}, {-1.0f, -1.0f, -1.0f}, {0.0f, 1.0f}},
-			Vertex{{-1.0f,  1.0f, -1.0f}, {-1.0f,  1.0f, -1.0f}, {0.0f, 0.0f}},
-			Vertex{{1.0f,  1.0f, -1.0f}, {1.0f,  1.0f, -1.0f}, {1.0f, 0.0f }},
-			Vertex{{1.0f, -1.0f, -1.0f}, {1.0f, -1.0f, -1.0f}, {1.0f, 1.0f }},
+			/* bottom left */Vertex{{-1.0f, -1.0f, -1.0f},{-1.0f, -1.0f, -1.0f}, {0.0f, 1.0f},{-1.0f, -1.0f, -1.0f},{-1.0f, -1.0f, -1.0f}},
+			/* top left */ Vertex{{-1.0f,  1.0f, -1.0f},{-1.0f, -1.0f, -1.0f}, {0.0f, 0.0f},{-1.0f, -1.0f, -1.0f},{-1.0f, -1.0f, -1.0f}},
+			/* top right */Vertex{{1.0f,  1.0f, -1.0f},{-1.0f, -1.0f, -1.0f}, {1.0f, 0.0f },{-1.0f, -1.0f, -1.0f},{-1.0f, -1.0f, -1.0f}},
+			/* bottom right */Vertex{{1.0f, -1.0f, -1.0f},{-1.0f, -1.0f, -1.0f}, {1.0f, 1.0f },{-1.0f, -1.0f, -1.0f},{-1.0f, -1.0f, -1.0f}},
 		};
 
-		DWORD indices[] = {
+		std::vector<unsigned int> indices = {
 			// Front Face
 			0,  1,  2,
 			0,  2,  3,
 		};
 
-		D3D11_BUFFER_DESC indexBufferDesc;
-		ZeroMemory(&indexBufferDesc, sizeof(indexBufferDesc));
+		unsigned int indexCount = static_cast<unsigned int>(indices.size());
 
-		indexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
-		indexBufferDesc.ByteWidth = sizeof(DWORD) * 2 * 3;
-		indexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
-		indexBufferDesc.CPUAccessFlags = 0;
-		indexBufferDesc.MiscFlags = 0;
+		D3D11_SUBRESOURCE_DATA indexBufferData = { 0 };
+		indexBufferData.pSysMem = &indices[0];
+		indexBufferData.SysMemPitch = 0;
+		indexBufferData.SysMemSlicePitch = 0;
+		CD3D11_BUFFER_DESC indexBufferDesc(sizeof(unsigned int) * indexCount, D3D11_BIND_INDEX_BUFFER);
+		DX::ThrowIfFailed(
+			GetD3DDevice()->CreateBuffer(
+				&indexBufferDesc,
+				&indexBufferData,
+				&d2dIndexBuffer
+			)
+		);
 
-		D3D11_SUBRESOURCE_DATA iinitData;
 
-		iinitData.pSysMem = indices;
-		GetD3DDevice()->CreateBuffer(&indexBufferDesc, &iinitData, &d2dIndexBuffer);
+		CD3D11_BUFFER_DESC vertexBufferDesc(static_cast<UINT>(sizeof(Vertex) * vertices.size()), D3D11_BIND_VERTEX_BUFFER);
 
-
-		D3D11_BUFFER_DESC vertexBufferDesc;
-		ZeroMemory(&vertexBufferDesc, sizeof(vertexBufferDesc));
-
-		vertexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
-		vertexBufferDesc.ByteWidth = sizeof(Vertex) * 4;
-		vertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-		vertexBufferDesc.CPUAccessFlags = 0;
-		vertexBufferDesc.MiscFlags = 0;
-
-		D3D11_SUBRESOURCE_DATA vertexBufferData;
-
-		ZeroMemory(&vertexBufferData, sizeof(vertexBufferData));
-		vertexBufferData.pSysMem = v;
+		D3D11_SUBRESOURCE_DATA vertexBufferData = { 0 };
+		vertexBufferData.pSysMem = &vertices[0];
+		vertexBufferData.SysMemPitch = 0;
+		vertexBufferData.SysMemSlicePitch = 0;
 		DX::ThrowIfFailed(GetD3DDevice()->CreateBuffer(&vertexBufferDesc, &vertexBufferData, &d2dVertBuffer));
 
 	}
@@ -367,7 +381,7 @@ namespace Moonlight
 			swapChainDesc.BufferCount = 2;									// Use double-buffering to minimize latency.
 			swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;	// All Windows Store apps must use (DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL) this SwapEffect.
 			swapChainDesc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
-			
+
 			//swapChainDesc.Scaling = DXGI_SCALING_ASPECT_RATIO_STRETCH;
 			//swapChainDesc.Windowed = TRUE;
 			//swapChainDesc.Scaling = DXGI_SCALING_NONE;
@@ -384,7 +398,7 @@ namespace Moonlight
 			DX::ThrowIfFailed(dxgiAdapter->GetParent(IID_PPV_ARGS(&dxgiFactory)));
 
 			DX::ThrowIfFailed(m_d3dDevice->GetDeviceRemovedReason());
-			
+
 			ComPtr<IDXGISwapChain1> swapChain;
 #if ME_PLATFORM_UWP
 			m_window = CoreWindow::GetForCurrentThread();
@@ -650,7 +664,7 @@ namespace Moonlight
 			ID3D11DepthStencilState* DepthStencilState;
 			m_d3dDevice->CreateDepthStencilState(&dsDesc, &DepthStencilState);
 		}
-		
+
 		return NewBuffer;
 	}
 

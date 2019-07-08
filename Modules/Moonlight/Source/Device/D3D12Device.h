@@ -103,11 +103,10 @@ namespace Moonlight
 #if ME_PLATFORM_WIN64
 		HWND m_window;
 #endif
-		ID3D11Buffer *d2dIndexBuffer;
-		ID3D11Buffer *d2dVertBuffer;
-
 		Microsoft::WRL::ComPtr<ID3D11RenderTargetView>	m_d3dRenderTargetView;
 		ID3D11BlendState* TransparentBlendState = nullptr;
+		Microsoft::WRL::ComPtr<ID3D11Buffer>		d2dVertBuffer;
+		Microsoft::WRL::ComPtr<ID3D11Buffer>		d2dIndexBuffer;
 	private:
 		virtual void CreateFactories() final;
 		virtual void CreateDeviceResources() final;
