@@ -20,6 +20,7 @@
 #include "Components/Camera.h"
 #include "Components/Cameras/FlyingCamera.h"
 #include "Cores/Cameras/FlyingCameraCore.h"
+#include "Cores/AudioCore.h"
 
 Engine& GetEngine()
 {
@@ -83,6 +84,7 @@ void Engine::Init(Game* game)
 	SceneNodes = new SceneGraph();
 
 	ModelRenderer = new RenderCore();
+	AudioThread = new AudioCore();
 
 	m_renderer->Init();
 
@@ -96,6 +98,7 @@ void Engine::InitGame()
 	GameWorld->AddCore<CameraCore>(*Cameras);
 	GameWorld->AddCore<SceneGraph>(*SceneNodes);
 	GameWorld->AddCore<RenderCore>(*ModelRenderer);
+	GameWorld->AddCore<AudioCore>(*AudioThread);
 
 	m_game->OnInitialize();
 }
@@ -143,7 +146,7 @@ void Engine::Run()
 			SceneNodes->Update(deltaTime);
 
 			Cameras->Update(deltaTime);
-
+			AudioThread->Update(deltaTime);
 			ModelRenderer->Update(AccumulatedTime);
 
 			AccumulatedTime -= 1.0f / FPS;

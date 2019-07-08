@@ -85,12 +85,16 @@ includedirs {
   "../ThirdParty/JSON/single_include"
 }
 
+
 if isUWP then
   defines { "ME_PLATFORM_UWP" }
+  includedirs { (dirPrefix) .. "packages/directxtk_uwp.2018.11.20.1/include" }
 else
+  includedirs { (dirPrefix) .. "packages/directxtk_desktop_2015.2018.11.20.1/include" }
   defines { "ME_PLATFORM_WIN64" }
   links {
-  	  "dwmapi"
+  	"dwmapi",
+	"DirectXTKAudioWin8"
   }
 end
 
@@ -102,7 +106,8 @@ links {
   "OptickCore.lib",
   (getPlatformPostfix("Dementia") .. ".lib"),
   "assimp-vc140-mt",
-  "IrrXML"
+  "IrrXML",
+  "DirectXTK"
 }
 
 -- Platform specific options
@@ -184,6 +189,22 @@ else
   }
 end
 
+configuration "Debug*"
+if (isUWP) then
+  libdirs { (dirPrefix) .. "packages/directxtk_uwp.2018.11.20.1/lib/x64/Debug" }
+else
+  libdirs { (dirPrefix) .. "packages/directxtk_desktop_2015.2018.11.20.1/lib/x64/Debug" }
+end
+
+configuration "Release*"
+if (isUWP) then
+  libdirs { (dirPrefix) .. "packages/directxtk_uwp.2018.11.20.1/lib/x64/Release" }
+else
+  libdirs { (dirPrefix) .. "packages/directxtk_desktop_2015.2018.11.20.1/lib/x64/Release" }
+end
+configuration {}
+filter {}
+
 ------------------------------------------------------- Renderer Project -----------------------------------------------------
 
 group "Engine/Modules"
@@ -192,13 +213,7 @@ kind "StaticLib"
 if (isUWP) then
   system "windowsuniversal"
   consumewinrtextension "true"
-  --nuget { "directxtk_uwp:2018.11.20.1" }
-  includedirs { (dirPrefix) .. "packages/directxtk_uwp.2018.11.20.1/include" }
-else
-  --nuget { "directxtk_desktop_2015:2018.11.20.1" }
-  includedirs { (dirPrefix) .. "packages/directxtk_desktop_2015.2018.11.20.1/include" }
 end
-links { "DirectXTK" }
 systemversion "10.0.14393.0"
 language "C++"
 targetdir "../Build/%{cfg.buildcfg}"
@@ -214,20 +229,6 @@ vpaths {
   ["Source"] = "../Source/**.*",
   ["Source"] = "../Source/*.*"
 }
-
-configuration "Debug*"
-if (isUWP) then
-  libdirs { (dirPrefix) .. "packages/directxtk_uwp.2018.11.20.1/lib/x64/Debug" }
-else
-  libdirs { (dirPrefix) .. "packages/directxtk_desktop_2015.2018.11.20.1/lib/x64/Debug" }
-end
-
-configuration "Release*"
-if (isUWP) then
-  libdirs { (dirPrefix) .. "packages/directxtk_uwp.2018.11.20.1/lib/x64/Release" }
-else
-  libdirs { (dirPrefix) .. "packages/directxtk_desktop_2015.2018.11.20.1/lib/x64/Release" }
-end
 
 
 if not isUWP then
@@ -365,6 +366,7 @@ files {
   "../Source/**.h",
   "../Source/**.cpp",
   "../Source/**.txt",
+  "../Assets/**.hlsl",
   "../Tools/*.lua"
 }
 
@@ -384,7 +386,8 @@ links {
 
 vpaths {
   ["Build"] = "../Tools/*.lua",
-  ["Source"] = "Source/**.*"
+  ["Source"] = "Source/**.*",
+  ["Shaders"] = "Assets/**.hlsl"
 }
 if isUWP then
   postbuildcommands {
@@ -414,6 +417,10 @@ postbuildcommands {
 filter "configurations:Release"
 postbuildcommands {
 }
+
+filter { "files:**.hlsl" }
+  flags {"ExcludeFromBuild"}
+
 
 filter {}
 

@@ -14,6 +14,7 @@
 #include "nlohmann/json.hpp"
 #include "ECS/Core.h"
 #include "World/Scene.h"
+#include "Components/Audio/AudioSource.h"
 
 EditorCore::EditorCore(Havana* editor)
 	: Base(ComponentFilter().Excludes<Transform>())
@@ -37,6 +38,7 @@ void EditorCore::Init()
 	EditorCamera = new Camera();
 	Camera::EditorCamera = EditorCamera;
 
+	testAudio = new AudioSource("Assets/Sounds/CONSTITUTION.wav");
 	//TransformEntity = GetWorld().CreateEntity();
 	//TransformEntity.lock()->AddComponent<Transform>();
 	//TransformEntity.lock()->AddComponent<Model>("Assets/Models/TransformGizmo.fbx");
@@ -45,6 +47,17 @@ void EditorCore::Init()
 void EditorCore::Update(float dt)
 {
 	OPTICK_CATEGORY("FlyingCameraCore::Update", Optick::Category::Camera);
+
+	if (Input::GetInstance().IsKeyDown(KeyCode::M))
+	{
+		if (testAudio)
+		{
+			// Sound file
+
+			// Goes in the component
+			testAudio->Play(false);
+		}
+	}
 
 	Input& Instance = Input::GetInstance();
 	auto Animatables = GetEntities();
