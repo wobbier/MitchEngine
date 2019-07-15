@@ -75,11 +75,6 @@ public:
 		return ClassTypeId<BaseComponent>::GetTypeId<T>();
 	}
 
-	// Each core must update each loop
-	virtual void Update(float dt)
-	{
-	}
-
 	virtual void Serialize(json& outJson) override
 	{
 		outJson["Type"] = GetName();

@@ -15,8 +15,6 @@ public:
 	void Play(const bool ShouldLoop = false);
 	bool Preload = false;
 
-	virtual void Update(float dt) override;
-
 	virtual void Serialize(json& outJson) override;
 	virtual void Deserialize(const json& inJson) override;
 

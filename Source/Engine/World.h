@@ -39,6 +39,8 @@ public:
 	template <typename TCore>
 	bool HasCore();
 
+	BaseCore* GetCore(TypeId InType);
+
 	bool HasCore(TypeId InType);
 
 	std::vector<BaseCore*> GetAllCores();
@@ -49,6 +51,8 @@ public:
 
 	void Destroy();
 	void Cleanup();
+
+	void UpdateLoadedCores(float DeltaTime);
 
 	void DestroyEntity(Entity &InEntity);
 
@@ -62,6 +66,7 @@ public:
 	ME_NONMOVABLE(World);
 	bool IsLoading = true;
 	void AddCoreByName(const std::string& core);
+	std::unordered_map<TypeId, BaseCore*> m_loadedCores;
 private:
 	CoreArray Cores;
 
@@ -116,7 +121,7 @@ private:
 
 	EntityCache;
 
-	void AddCore(BaseCore& InCore, TypeId InCoreTypeId);
+	void AddCore(BaseCore& InCore, TypeId InCoreTypeId, bool HandleUpdate = false);
 
 	void CheckForResize(std::size_t InNumEntitiesToBeAllocated);
 

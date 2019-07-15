@@ -35,7 +35,7 @@ void World::AddCoreByName(const std::string& core)
 	std::pair<BaseCore*, TypeId> createdCore = it->second(false);
 	if (!HasCore(createdCore.second))
 	{
-		AddCore(*it->second(true).first, createdCore.second);
+		AddCore(*it->second(true).first, createdCore.second, true);
 	}
 }
 
@@ -162,6 +162,17 @@ void World::Cleanup()
 	}
 }
 
+void World::UpdateLoadedCores(float DeltaTime)
+{
+	for (auto core : m_loadedCores)
+	{
+		if (core.second)
+		{
+			core.second->Update(DeltaTime);
+		}
+	}
+}
+
 void World::DestroyEntity(Entity &InEntity)
 {
 	EntityAttributes.Storage.RemoveAllComponents(InEntity);
@@ -180,7 +191,7 @@ void World::DestroyEntity(Entity &InEntity)
 	}
 }
 
-void World::AddCore(BaseCore& InCore, TypeId InCoreTypeId)
+void World::AddCore(BaseCore& InCore, TypeId InCoreTypeId, bool HandleUpdate)
 {
 	if (!Cores[InCoreTypeId])
 	{
@@ -188,11 +199,20 @@ void World::AddCore(BaseCore& InCore, TypeId InCoreTypeId)
 	}
 	InCore.GameWorld = this;
 	InCore.Init();
+	if (HandleUpdate)
+	{
+		m_loadedCores[InCoreTypeId] = Cores[InCoreTypeId].get();
+	}
 }
 
 bool World::HasCore(TypeId InType)
 {
 	return Cores.find(InType) != Cores.end();
+}
+
+BaseCore* World::GetCore(TypeId InType)
+{
+	return Cores[InType].get();
 }
 
 std::vector<BaseCore*> World::GetAllCores()

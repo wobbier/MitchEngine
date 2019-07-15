@@ -61,7 +61,7 @@ void Engine::Init(Game* game)
 	int WindowHeight = 1080;//WindowConfig["height"].asInt();
 
 #if ME_PLATFORM_WIN64
-	std::function<void(const Vector2&)> Func = [this](const Vector2 & NewSize)
+	std::function<void(const Vector2&)> Func = [this](const Vector2& NewSize)
 	{
 		if (m_renderer)
 		{
@@ -142,7 +142,7 @@ void Engine::Run()
 			OPTICK_CATEGORY("MainLoop::GameUpdate", Optick::Category::GameLogic);
 			m_game->OnUpdate(deltaTime);
 		}
-
+		GameWorld->UpdateLoadedCores(deltaTime);
 			SceneNodes->Update(deltaTime);
 
 			Cameras->Update(deltaTime);

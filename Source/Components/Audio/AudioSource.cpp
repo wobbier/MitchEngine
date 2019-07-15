@@ -37,10 +37,6 @@ void AudioSource::Play(bool ShouldLoop)
 	}
 }
 
-void AudioSource::Update(float dt)
-{
-}
-
 void AudioSource::Serialize(json& outJson)
 {
 }
