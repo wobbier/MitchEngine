@@ -48,6 +48,7 @@ public:
 	WeakPtr<Entity> CreateEntity();
 
 	void Simulate();
+	void Start();
 
 	void Destroy();
 	void Cleanup();

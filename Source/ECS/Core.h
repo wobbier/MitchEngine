@@ -27,6 +27,7 @@ class World;
 
 class BaseCore
 {
+	friend class World;
 public:
 	BaseCore() = default;
 	BaseCore(const char* CompName, const ComponentFilter& Filter);
@@ -59,6 +60,9 @@ private:
 	// Separate init from construction code.
 	virtual void Init() {};
 
+	// Separate init from construction code.
+	virtual void OnStart() {};
+
 	// Add an entity to the core
 	void Add(Entity& InEntity);
 
@@ -75,6 +79,8 @@ private:
 	ComponentFilter CompFilter;
 
 	std::string Name;
+
+	bool IsRunning = false;
 
 	friend class World;
 };

@@ -60,6 +60,10 @@ void World::Simulate()
 
 		for (auto& InCore : Cores)
 		{
+			if (!InCore.second->IsRunning)
+			{
+				continue;
+			}
 			auto CoreIndex = InCore.first;
 
 			if (InCore.second->GetComponentFilter().PassFilter(EntityAttributes.Storage.GetComponentTypes(InEntity)))
@@ -112,8 +116,18 @@ void World::Simulate()
 			}
 		}
 	}
+}
 
-	EntityCache.ClearTemp();
+void World::Start()
+{
+	for (auto& core : Cores)
+	{
+		if (!core.second->IsRunning)
+		{
+			core.second->OnStart();
+			core.second->IsRunning = true;
+		}
+	}
 }
 
 void World::Destroy()
@@ -166,7 +180,7 @@ void World::UpdateLoadedCores(float DeltaTime)
 {
 	for (auto core : m_loadedCores)
 	{
-		if (core.second)
+		if (core.second && core.second->IsRunning)
 		{
 			core.second->Update(DeltaTime);
 		}

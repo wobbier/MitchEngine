@@ -102,9 +102,14 @@ void EditorApp::OnInitialize()
 		EditorSceneManager = new EditorCore(Editor.get());
 		NewSceneEvent evt;
 		evt.Fire();
+		GetEngine().GetWorld().lock()->AddCore<EditorCore>(*EditorSceneManager);
+		GetEngine().GetWorld().lock()->Start();
 		GetEngine().LoadScene("Assets/Test.lvl");
 	}
-	GetEngine().GetWorld().lock()->AddCore<EditorCore>(*EditorSceneManager);
+	else
+	{
+		GetEngine().GetWorld().lock()->AddCore<EditorCore>(*EditorSceneManager);
+	}
 }
 
 void EditorApp::PostRender()
@@ -117,6 +122,7 @@ void EditorApp::StartGame()
 {
 	if (!m_isGameRunning)
 	{
+		GetEngine().GetWorld().lock()->Start();
 		m_isGameRunning = true;
 	}
 }
