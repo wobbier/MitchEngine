@@ -137,6 +137,12 @@ void Transform::SetDirty(bool Dirty)
 	}
 	IsDirty = Dirty;
 }
+
+Vector3 Transform::GetScale()
+{
+	return Scale;
+}
+
 void Transform::SetRotation(Vector3 euler)
 {
 	//glm::rotate(Rotation, quat);

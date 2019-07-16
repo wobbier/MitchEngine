@@ -33,6 +33,7 @@ public:
 
 	void SetScale(Vector3 NewScale);
 	void SetScale(float NewScale);
+	Vector3 GetScale();
 
 	void Translate(Vector3 NewTransform);
 
