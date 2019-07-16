@@ -76,6 +76,8 @@ private:
 					}
 				}
 
+				ImGui::ColorEdit3("Diffuse Color", &MeshMaterial->DiffuseColor[0]);
+
 				int i = 0;
 				for (auto texture : MeshMaterial->GetTextures())
 				{
@@ -106,7 +108,12 @@ private:
 					}
 					ImGui::SameLine();
 					ImGui::Text(Moonlight::Texture::ToString(static_cast<Moonlight::TextureType>(i)).c_str());
-
+					if (texture)
+					{
+						if (i == static_cast<int>(Moonlight::TextureType::Diffuse))
+						{
+						}
+					}
 					i++;
 				}
 				ImGui::TreePop();

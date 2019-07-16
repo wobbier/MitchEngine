@@ -4,6 +4,7 @@
 #include <unordered_map>
 
 #include <nlohmann/json.hpp>
+#include "Math/Vector3.h"
 
 using json = nlohmann::json;
 
@@ -66,6 +67,7 @@ namespace Moonlight
 		const Texture* GetTexture(const TextureType& type) const;
 		std::vector<std::shared_ptr<Texture>>& GetTextures();
 		RenderingMode RenderMode = RenderingMode::Opaque;
+		Vector3 DiffuseColor;
 	private:
 		std::vector<std::shared_ptr<Texture>> Textures;
 	};

@@ -6,6 +6,7 @@ namespace Moonlight
 {
 	Material::Material()
 		: Textures(TextureType::Count, nullptr)
+		, DiffuseColor(1.f, 1.f, 1.f)
 	{
 	}
 
