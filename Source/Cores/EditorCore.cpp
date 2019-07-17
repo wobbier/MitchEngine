@@ -15,6 +15,7 @@
 #include "ECS/Core.h"
 #include "World/Scene.h"
 #include "Components/Audio/AudioSource.h"
+#include "Mathf.h"
 
 EditorCore::EditorCore(Havana* editor)
 	: Base(ComponentFilter().Excludes<Transform>())
@@ -63,6 +64,22 @@ void EditorCore::Update(float dt)
 	auto Animatables = GetEntities();
 	if (m_editor->IsWorldViewFocused())
 	{
+		if (Instance.IsKeyDown(KeyCode::F))
+		{
+			IsFocusingTransform = true;
+
+			// Keep a note of the time the movement started.
+			startTime = 0.f;
+
+			// Calculate the journey length.
+			TravelDistance = (EditorCameraTransform->GetPosition() - Vector3()).Length();
+
+			totalTime = 0.f;
+		}
+
+		totalTime += dt;
+		
+		if (!IsFocusingTransform)
 		{
 			if (Instance.IsKeyDown(KeyCode::RightButton))
 			{
@@ -77,6 +94,7 @@ void EditorCore::Update(float dt)
 				PreviousMouseDown = false;
 				return;
 			}
+
 			float CameraSpeed = FlyingSpeed;
 			if (Instance.IsKeyDown(KeyCode::LeftShift))
 			{
@@ -147,14 +165,32 @@ void EditorCore::Update(float dt)
 			Front.SetZ(sin(glm::radians(Yaw)) * cos(glm::radians(Pitch)));
 			EditorCamera->Front = glm::normalize(Front.GetInternalVec());
 
-			EditorCamera->UpdateCameraTransform(EditorCameraTransform->GetPosition());
-
-			return;
 		}
+		else
+		{
+			// Distance moved = time * speed.
+			float distCovered = (totalTime - startTime) * FocusSpeed;
+
+			// Fraction of journey completed = current distance divided by total distance.
+			float fracJourney = distCovered / TravelDistance;
+
+			if (fracJourney <= .8f)
+			{
+				Vector3 lerp = Mathf::Lerp(EditorCameraTransform->GetPosition(), Vector3(), fracJourney);
+				EditorCameraTransform->SetPosition(lerp);
+			}
+			else
+			{
+				IsFocusingTransform = false;
+			}
+		}
+
+		EditorCamera->UpdateCameraTransform(EditorCameraTransform->GetPosition());
+		return;
 	}
 }
 
-void EditorCore::Update(float dt, Transform * rootTransform)
+void EditorCore::Update(float dt, Transform* rootTransform)
 {
 	OPTICK_EVENT("SceneGraph::Update");
 	Update(dt);
@@ -184,7 +220,7 @@ void EditorCore::Update(float dt, Transform * rootTransform)
 	//}
 }
 
-bool EditorCore::OnEvent(const BaseEvent & evt)
+bool EditorCore::OnEvent(const BaseEvent& evt)
 {
 	if (evt.GetEventId() == SaveSceneEvent::GetEventId())
 	{
@@ -202,7 +238,7 @@ bool EditorCore::OnEvent(const BaseEvent & evt)
 	return false;
 }
 
-void EditorCore::OnEntityAdded(Entity & NewEntity)
+void EditorCore::OnEntityAdded(Entity& NewEntity)
 {
 	Base::OnEntityAdded(NewEntity);
 
@@ -222,6 +258,7 @@ void EditorCore::OnEditorInspect()
 	ImGui::Text("Camera Settings");
 	ImGui::DragFloat("Flying Speed", &FlyingSpeed);
 	ImGui::DragFloat("Speed Modifier", &SpeedModifier);
+	ImGui::DragFloat("Focus Speed", &FocusSpeed);
 	ImGui::DragFloat("Look Sensitivity", &LookSensitivity, 0.01f);
 
 	EditorCameraTransform->OnEditorInspect();

@@ -3,6 +3,7 @@
 #include "Events/EventReceiver.h"
 #include "TranslationGizmo.h"
 #include <string>
+#include "Math/Vector3.h"
 
 class Transform;
 class Havana;
@@ -41,6 +42,11 @@ private:
 	bool FirstUpdate = true;
 	bool InputEnabled = false;
 	bool PreviousMouseDown = false;
+	bool IsFocusingTransform = false;
+	float startTime = 0.0f;
+	float totalTime = 0.0f;
+	float TravelDistance = 0.f;
+	float FocusSpeed = 10.f;
 
 	Transform* EditorCameraTransform = nullptr;
 	Camera* EditorCamera = nullptr;

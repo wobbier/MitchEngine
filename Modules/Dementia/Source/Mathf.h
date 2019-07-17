@@ -1,8 +1,9 @@
 #pragma once
+#include "Math/Vector3.h"
 
 namespace Mathf
 {
-	const float Clamp(float Min, float Max, float Val)
+	inline float Clamp(float Min, float Max, float Val)
 	{
 		if (Val < Min)
 		{
@@ -15,7 +16,7 @@ namespace Mathf
 		return Val;
 	}
 
-	float Abs(float input)
+	inline float Abs(float input)
 	{
 		if (input < 0.f)
 		{
@@ -24,5 +25,13 @@ namespace Mathf
 		return input;
 	}
 
+	inline float Lerp(float v0, float v1, float t)
+	{
+		return (1.f - t) * v0 + t * v1;
+	}
 
+	inline Vector3 Lerp(Vector3& start, Vector3& end, float percent)
+	{
+		return (start + percent * (end - start));
+	}
 }

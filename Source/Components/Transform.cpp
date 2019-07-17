@@ -106,6 +106,7 @@ void Transform::OnEditorInspect()
 {
 	ImGui::InputText("Name", &Name);
 
+
 	HavanaUtils::EditableVector3("Position", GetPosition());
 	Vector3 OldRotation = Rotation;
 	HavanaUtils::EditableVector3("Rotation", Rotation);
@@ -119,6 +120,13 @@ void Transform::OnEditorInspect()
 	if (WorldPos != GetWorldPosition())
 	{
 		SetWorldPosition(WorldPos);
+	}
+
+	if (ImGui::Button("Reset Transform"))
+	{
+		SetWorldPosition(Vector3());
+		SetRotation(Vector3());
+		SetScale(1.f);
 	}
 }
 #endif
