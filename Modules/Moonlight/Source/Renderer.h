@@ -16,6 +16,7 @@
 #include "Math/Vector2.h"
 #include <functional>
 #include "RenderCommands.h"
+#include "Camera/CameraData.h"
 
 namespace Moonlight
 {

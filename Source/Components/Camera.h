@@ -10,6 +10,7 @@
 #include <imgui.h>
 #include "Utils/HavanaUtils.h"
 #include "Graphics/SkyBox.h"
+#include "Camera/CameraData.h"
 
 class Camera
 	: public Component<Camera>
@@ -25,6 +26,7 @@ public:
 	float Yaw = -90.f;
 	float Pitch = 0.f;
 	float Roll = 0.f;
+	float OrthographicSize = 1.f;
 
 	Camera();
 	~Camera();
@@ -38,6 +40,11 @@ public:
 	float GetFOV();
 
 	Moonlight::SkyBox* Skybox = nullptr;
+	Moonlight::ProjectionType Projection = Moonlight::ProjectionType::Perspective;
+
+#if ME_EDITOR
+	virtual void OnEditorInspect() final;
+#endif
 
 private:
 	float m_FOV = 45.f;
@@ -55,9 +62,5 @@ private:
 			outJson["Skybox"] = Skybox->SkyMaterial->GetTexture(Moonlight::TextureType::Diffuse)->GetPath().LocalPath;
 		}
 	}
-
-#if ME_EDITOR
-	virtual void OnEditorInspect() final;
-#endif
 };
 ME_REGISTER_COMPONENT(Camera)

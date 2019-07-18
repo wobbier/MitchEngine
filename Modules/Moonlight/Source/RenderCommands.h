@@ -27,16 +27,6 @@ namespace Moonlight
 		DirectX::XMMATRIX Transform;
 	};
 
-	struct CameraData
-	{
-		Vector3 Position;
-		Vector3 Front;
-		Vector3 Up;
-		Vector2 OutputSize;
-		float FOV = 45.0f;
-		SkyBox* Skybox = nullptr;
-	};
-
 	struct LightCommand
 	{
 		DirectX::XMFLOAT4 dir;

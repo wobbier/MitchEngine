@@ -262,6 +262,8 @@ void EditorCore::OnEditorInspect()
 	ImGui::DragFloat("Look Sensitivity", &LookSensitivity, 0.01f);
 
 	EditorCameraTransform->OnEditorInspect();
+
+	EditorCamera->OnEditorInspect();
 }
 //
 //void EditorCore::SaveWorld(const std::string & path)

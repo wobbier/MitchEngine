@@ -11,10 +11,11 @@ namespace Moonlight
 		DirectX::XMFLOAT4X4 model;
 		DirectX::XMFLOAT4X4 view;
 		DirectX::XMFLOAT4X4 projection;
-		FLOAT padding;
+		DirectX::XMFLOAT2 padding;
 		BOOL HasNormalMap;
 		BOOL HasAlphaMap;
 		BOOL HasSpecMap;
+		DirectX::XMFLOAT3 DiffuseColor;
 	};
 
 	struct LightBuffer

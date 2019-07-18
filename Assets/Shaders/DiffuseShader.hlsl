@@ -9,10 +9,11 @@ cbuffer ModelViewProjectionConstantBuffer : register(b0)
 	matrix model;
 	matrix view;
 	matrix projection;
-	float padding;
+	float2 padding;
 	bool hasNormalMap;
 	bool hasAlphaMap;
 	bool hasSpecMap;
+    float3 DiffuseColor;
 };
 
 // Per-vertex data used as input to the vertex shader.
@@ -66,14 +67,19 @@ PSOUTPUT main_ps(PixelShaderInput input)
 	output.normal = float4(normalize(input.normal), 1.0f);
 
 	float4 diffuse = ObjTexture.Sample(ObjSamplerState, input.texcoord);
-	output.color = diffuse;
-
-
+    if(!any(diffuse))
+    {
+        diffuse = float4(1.0f, 1.0f, 1.0f, 1.0f);
+    }
 	float diffuseAlpha = diffuse.a;
+
+    output.color = diffuse;
+    output.color = float4(saturate(output.color.xyz * DiffuseColor), diffuseAlpha);
+
 	if (hasAlphaMap)
 	{
 		diffuseAlpha = ObjAlphaMap.Sample(ObjSamplerState, input.texcoord).r;
-	}
+    }
 	output.color.a = diffuseAlpha;
 
 	if (hasNormalMap)

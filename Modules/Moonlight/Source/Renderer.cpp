@@ -342,18 +342,35 @@ namespace Moonlight
 		// made to the swap chain render target. For draw calls to other targets,
 		// this transform should not be applied.
 
-		// This sample makes use of a right-handed coordinate system using row-major matrices.
-		XMMATRIX perspectiveMatrix = XMMatrixPerspectiveFovRH(
-			fovAngleY,
-			aspectRatio,
-			.1f,
-			1000.0f
-		);
+		if (camera.Projection == ProjectionType::Perspective)
+		{
+			// This sample makes use of a right-handed coordinate system using row-major matrices.
+			XMMATRIX perspectiveMatrix = XMMatrixPerspectiveFovRH(
+				fovAngleY,
+				aspectRatio,
+				.1f,
+				1000.0f
+			);
 
-		XMStoreFloat4x4(
-			&constantBufferSceneData.projection,
-			XMMatrixTranspose(perspectiveMatrix)
-		);
+			XMStoreFloat4x4(
+				&constantBufferSceneData.projection,
+				XMMatrixTranspose(perspectiveMatrix)
+			);
+		}
+		else if (camera.Projection == ProjectionType::Orthographic)
+		{
+			XMMATRIX orthographicMatrix = XMMatrixOrthographicRH(
+				camera.OrthographicSize,
+				camera.OrthographicSize,
+				.1f,
+				100.0f
+			);
+
+			XMStoreFloat4x4(
+				&constantBufferSceneData.projection,
+				XMMatrixTranspose(orthographicMatrix)
+			);
+		}
 
 		const XMVECTORF32 eye = { camera.Position.X(), camera.Position.Y(), camera.Position.Z(), 0 };
 		const XMVECTORF32 at = { camera.Position.X() + camera.Front.X(), camera.Position.Y() + camera.Front.Y(), camera.Position.Z() + camera.Front.Z(), 0.0f };
@@ -437,7 +454,7 @@ namespace Moonlight
 						constantBufferSceneData.HasSpecMap = TRUE;
 					}
 					constantBufferSceneData.HasAlphaMap = FALSE;
-
+					constantBufferSceneData.DiffuseColor = DirectX::XMFLOAT3(&mesh.MeshMaterial->DiffuseColor.GetInternalVec()[0]);
 					// Prepare the constant buffer to send it to the graphics device.
 					context->UpdateSubresource1(
 						m_constantBuffer.Get(),
@@ -497,6 +514,7 @@ namespace Moonlight
 						constantBufferSceneData.HasSpecMap = TRUE;
 					}
 					constantBufferSceneData.HasAlphaMap = TRUE;
+					constantBufferSceneData.DiffuseColor = DirectX::XMFLOAT3(&mesh.MeshMaterial->DiffuseColor.GetInternalVec()[0]);
 
 					// Prepare the constant buffer to send it to the graphics device.
 					context->UpdateSubresource1(
@@ -574,7 +592,7 @@ namespace Moonlight
 			context->ResolveSubresource(ResolveViewRTT->SpecularTexture.Get(), 0, ViewRTT->SpecularTexture.Get(), 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
 		}
 
-		if(false)
+		if (false)
 		{
 			context->UpdateSubresource1(m_perFrameBuffer.Get(), 0, NULL, &Sunlight, 0, 0, 0);
 			context->PSSetConstantBuffers1(0, 1, m_perFrameBuffer.GetAddressOf(), nullptr, nullptr);

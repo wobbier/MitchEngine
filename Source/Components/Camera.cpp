@@ -71,7 +71,28 @@ void Camera::OnEditorInspect()
 	{
 		SetCurrent();
 	}
-	ImGui::SliderFloat("Field of View", &m_FOV, 1.0f, 200.0f);
+
+	if (ImGui::BeginCombo("##Projection", ""))
+	{
+		if (ImGui::Selectable("Perspective", (Projection == Moonlight::ProjectionType::Perspective)))
+		{
+			Projection = Moonlight::ProjectionType::Perspective;
+		}
+		if (ImGui::Selectable("Orthographic", (Projection == Moonlight::ProjectionType::Orthographic)))
+		{
+			Projection = Moonlight::ProjectionType::Orthographic;
+		}
+		ImGui::EndCombo();
+	}
+
+	if (Projection == Moonlight::ProjectionType::Perspective)
+	{
+		ImGui::SliderFloat("Field of View", &m_FOV, 1.0f, 200.0f);
+	}
+	else if (Projection == Moonlight::ProjectionType::Orthographic)
+	{
+		ImGui::SliderFloat("Size", &OrthographicSize, 0.1f, 200.0f);
+	}
 
 	static std::vector<Path> Textures;
 	Path path = Path("Assets");

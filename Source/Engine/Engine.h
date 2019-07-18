@@ -6,7 +6,7 @@
 #include "File.h"
 #include "Events/EventReceiver.h"
 #include "World/Scene.h"
-#include "RenderCommands.h"
+#include "Camera/CameraData.h"
 
 class Game;
 class IWindow;
