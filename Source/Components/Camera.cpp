@@ -72,7 +72,7 @@ void Camera::OnEditorInspect()
 		SetCurrent();
 	}
 
-	if (ImGui::BeginCombo("##Projection", ""))
+	if (ImGui::BeginCombo("##Projection", (Projection == Moonlight::ProjectionType::Perspective) ? "Perspective" : "Orthographic"))
 	{
 		if (ImGui::Selectable("Perspective", (Projection == Moonlight::ProjectionType::Perspective)))
 		{

@@ -360,15 +360,15 @@ namespace Moonlight
 		else if (camera.Projection == ProjectionType::Orthographic)
 		{
 			XMMATRIX orthographicMatrix = XMMatrixOrthographicRH(
-				camera.OrthographicSize,
-				camera.OrthographicSize,
+				outputSize.X() / camera.OrthographicSize,
+				outputSize.Y() / camera.OrthographicSize,
 				.1f,
 				100.0f
 			);
 
 			XMStoreFloat4x4(
 				&constantBufferSceneData.projection,
-				XMMatrixTranspose(orthographicMatrix)
+				(orthographicMatrix)
 			);
 		}
 

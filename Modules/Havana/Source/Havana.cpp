@@ -996,15 +996,30 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 						ImVec2(Mathf::Clamp(0.f, 1.0f, WorldViewRenderSize.X() / Renderer->SceneResolveViewRTT->Width), Mathf::Clamp(0.f, 1.0f, WorldViewRenderSize.Y() / Renderer->SceneResolveViewRTT->Height)));
 
 					ImGuizmo::SetRect(WorldViewRenderLocation.X(), WorldViewRenderLocation.Y(), WorldViewRenderSize.X(), WorldViewRenderSize.Y());
-					DirectX::XMMATRIX perspectiveMatrix = DirectX::XMMatrixPerspectiveFovRH(
-						EditorCamera.FOV * DirectX::XM_PI / 180.0f,
-						WorldViewRenderSize.X() / WorldViewRenderSize.Y(),
-						.1f,
-						1000.0f
-					);
 
 					DirectX::XMFLOAT4X4 fView;
-					DirectX::XMStoreFloat4x4(&fView, perspectiveMatrix);
+					if (EditorCamera.Projection == Moonlight::ProjectionType::Perspective)
+					{
+						DirectX::XMMATRIX perspectiveMatrix = DirectX::XMMatrixPerspectiveFovRH(
+							EditorCamera.FOV * DirectX::XM_PI / 180.0f,
+							WorldViewRenderSize.X() / WorldViewRenderSize.Y(),
+							.1f,
+							1000.0f
+						);
+
+						DirectX::XMStoreFloat4x4(&fView, perspectiveMatrix);
+					}
+					else
+					{
+						DirectX::XMMATRIX perspectiveMatrix = DirectX::XMMatrixOrthographicRH(
+							EditorCamera.OutputSize.X() / EditorCamera.OrthographicSize,
+							EditorCamera.OutputSize.Y() / EditorCamera.OrthographicSize,
+							.1f,
+							100.0f
+						);
+
+						DirectX::XMStoreFloat4x4(&fView, perspectiveMatrix);
+					}
 					ImGuizmo::SetDrawlist();
 					ImGuizmo::SetOrthographic(false);
 

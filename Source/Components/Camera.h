@@ -26,7 +26,7 @@ public:
 	float Yaw = -90.f;
 	float Pitch = 0.f;
 	float Roll = 0.f;
-	float OrthographicSize = 1.f;
+	float OrthographicSize = 50.f;
 
 	Camera();
 	~Camera();
