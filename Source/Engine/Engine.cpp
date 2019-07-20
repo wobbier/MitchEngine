@@ -3,7 +3,7 @@
 #include "Logger.h"
 #include "Config.h"
 #include "Window/UWPWindow.h"
-#include "Window/D3D12Window.h"
+#include "Window/Win32Window.h"
 #include "Events/EventManager.h"
 #include "Cores/PhysicsCore.h"
 #include "Cores/Cameras/CameraCore.h"
@@ -68,7 +68,7 @@ void Engine::Init(Game* game)
 			m_renderer->WindowResized(NewSize);
 		}
 	};
-	GameWindow = new D3D12Window("MitchEngine", Func, WindowWidth, WindowHeight);
+	GameWindow = new Win32Window("MitchEngine", Func, WindowWidth, WindowHeight);
 #endif
 #if ME_PLATFORM_UWP
 	GameWindow = new UWPWindow("MitchEngine", WindowWidth, WindowHeight);

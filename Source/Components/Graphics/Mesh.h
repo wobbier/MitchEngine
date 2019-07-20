@@ -14,6 +14,7 @@ public:
 	Mesh(Moonlight::MeshData* mesh)
 		: MeshReferece(mesh)
 	{
+		MeshMaterial = new Moonlight::Material(*MeshReferece->material);
 	}
 
 	// Separate init from construction code.
@@ -45,7 +46,7 @@ private:
 	}
 	virtual void OnEditorInspect() final
 	{
-		if (MeshShader)
+		if (MeshShader && MeshMaterial)
 		{
 			bool transparent = MeshMaterial->IsTransparent();
 			ImGui::Checkbox("Render Transparent", &transparent);

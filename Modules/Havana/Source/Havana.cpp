@@ -19,7 +19,7 @@
 #include "Logger.h"
 #include "Resource/ResourceCache.h"
 #include "Graphics/Texture.h"
-#include "Window/D3D12Window.h"
+#include "Window/Win32Window.h"
 #include "Widgets/AssetBrowser.h"
 #include <chrono>
 #include "Events/EventManager.h"
@@ -358,7 +358,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 		float endOfMenu = ImGui::GetCursorPosX();
 		float buttonWidth = 40.f;
 		float pos = (ImGui::GetMousePos().x - m_engine->GetWindow()->GetPosition().X());
-		static_cast<D3D12Window*>(m_engine->GetWindow())->CanMoveWindow((pos > endOfMenu && pos < ImGui::GetWindowWidth() - (buttonWidth * 5.f)));
+		static_cast<Win32Window*>(m_engine->GetWindow())->CanMoveWindow((pos > endOfMenu && pos < ImGui::GetWindowWidth() - (buttonWidth * 5.f)));
 
 		ImGui::Text("%.1f FPS", ImGui::GetIO().Framerate);
 
@@ -414,7 +414,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 			m_engine->GetWindow()->Minimize();
 		}
 
-		if (static_cast<D3D12Window*>(m_engine->GetWindow())->IsMaximized())
+		if (static_cast<Win32Window*>(m_engine->GetWindow())->IsMaximized())
 		{
 			ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 2.f));
 			if (ImGui::ImageButton(Icons["ExitMaximize"]->ShaderResourceView, ImVec2(30.f, 30.f)))

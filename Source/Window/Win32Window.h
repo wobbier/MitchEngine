@@ -7,7 +7,7 @@
 
 #if ME_PLATFORM_WIN64
 
-class D3D12Window final
+class Win32Window final
 	: public IWindow
 {
 public:
@@ -18,14 +18,14 @@ public:
 		ME_BASIC_BORDERLESS = WS_POPUP | WS_THICKFRAME | WS_SYSMENU | WS_MAXIMIZEBOX | WS_MINIMIZEBOX
 	};
 
-	D3D12Window(std::string title, std::function<void(const Vector2&)> resizeFunc, int width = WINDOW_WIDTH, int height = WINDOW_HEIGHT);
-	~D3D12Window();
+	Win32Window(std::string title, std::function<void(const Vector2&)> resizeFunc, int width = WINDOW_WIDTH, int height = WINDOW_HEIGHT);
+	~Win32Window();
 
 	virtual bool ShouldClose() final;
 	virtual void ParseMessageQueue() final;
 	virtual void Swap() final;
 	virtual void SetTitle(const std::string& title) final;
-
+	void SetIcon(const std::string& stricon);
 	Vector2 GetSize() const;
 	virtual Vector2 GetPosition() final;
 
@@ -61,6 +61,8 @@ private:
 
 	bool IsMaximized(HWND hwnd);
 	HWND Window;
+	HICON hWindowIcon = NULL;
+	HICON hWindowIconSm = NULL;
 	std::function<void(const Vector2&)> ResizeFunc;
 };
 

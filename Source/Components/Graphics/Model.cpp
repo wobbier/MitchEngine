@@ -62,7 +62,6 @@ void Model::RecursiveLoadMesh(Moonlight::Node& root, WeakPtr<Entity>& parentEnt)
 		Mesh& meshRef = ent.lock()->AddComponent<Mesh>(child);
 		trans.SetPosition(root.Position);
 		meshRef.MeshShader = ModelShader;
-		meshRef.MeshMaterial = child->material;
 		trans.SetParent(parentEnt.lock()->GetComponent<Transform>());
 	}
 }

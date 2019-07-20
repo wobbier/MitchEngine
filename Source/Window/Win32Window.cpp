@@ -1,5 +1,5 @@
 #include "PCH.h"
-#include "Window/D3D12Window.h"
+#include "Window/Win32Window.h"
 #include "Engine/Input.h"
 #include "Logger.h"
 #include <assert.h>
@@ -10,6 +10,7 @@
 #include "Device/D3D12Device.h"
 #include <tchar.h>
 #include <dwmapi.h>
+#include "Utils/StringUtils.h"
 
 LRESULT CALLBACK WinProc(HWND Window, unsigned int msg, WPARAM wp, LPARAM lp);
 
@@ -25,14 +26,14 @@ std::wstring s2ws(const std::string& s)
 	return r;
 };
 
-D3D12Window::D3D12Window(std::string title, std::function<void(const Vector2&)> resizeFunc, int width, int height)
+Win32Window::Win32Window(std::string title, std::function<void(const Vector2&)> resizeFunc, int width, int height)
 	: IWindow(title, width, height)
 	, ResizeFunc(resizeFunc)
 {
 	WINDOW_HEIGHT = height;
 	WINDOW_WIDTH = width;
 
-	const wchar_t CLASS_NAME[] = L"D3D12Window";
+	const wchar_t CLASS_NAME[] = L"Win32Window";
 
 	std::wstring windowTitle = s2ws(title);
 
@@ -44,9 +45,21 @@ D3D12Window::D3D12Window(std::string title, std::function<void(const Vector2&)> 
 	wc.lpszClassName = CLASS_NAME;
 	wc.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1);
 	wc.hCursor = ::LoadCursorW(nullptr, IDC_ARROW);
+
+	wc.hIcon = (HICON)LoadImage(
+		NULL,
+		StringUtils::ToWString(Path("Assets/Havana/Icon.ico").FullPath).c_str(),
+		IMAGE_ICON,
+		0,
+		0,
+		LR_LOADFROMFILE |
+		LR_DEFAULTSIZE
+	);
+
 	const ATOM result = ::RegisterClassExW(&wc);
-	if (!result) {
-		Logger::Log(Logger::LogType::Error, "failed to register window class");
+	if (!result)
+	{
+		YIKES("Failed to register window class");
 	}
 
 	int w = width;
@@ -76,16 +89,16 @@ D3D12Window::D3D12Window(std::string title, std::function<void(const Vector2&)> 
 	ShowWindow(Window, SW_SHOWMAXIMIZED);
 }
 
-D3D12Window::~D3D12Window()
+Win32Window::~Win32Window()
 {
 }
 
-bool D3D12Window::ShouldClose()
+bool Win32Window::ShouldClose()
 {
 	return ExitRequested;
 }
 
-void D3D12Window::ParseMessageQueue()
+void Win32Window::ParseMessageQueue()
 {
 	MSG msg = { 0 };
 	while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
@@ -104,16 +117,16 @@ void D3D12Window::ParseMessageQueue()
 	}
 }
 
-void D3D12Window::Swap()
+void Win32Window::Swap()
 {
 }
 
-void D3D12Window::SetTitle(const std::string& title)
+void Win32Window::SetTitle(const std::string& title)
 {
 	SetWindowText(Window, s2ws(title).c_str());
 }
 
-Vector2 D3D12Window::GetSize() const
+Vector2 Win32Window::GetSize() const
 {
 	RECT newSize;
 	GetClientRect(Window, &newSize);
@@ -121,7 +134,7 @@ Vector2 D3D12Window::GetSize() const
 	return Vector2(static_cast<float>(newSize.right - newSize.left), static_cast<float>(newSize.bottom - newSize.top));
 }
 
-Vector2 D3D12Window::GetPosition()
+Vector2 Win32Window::GetPosition()
 {
 	RECT newSize;
 	GetWindowRect(Window, &newSize);
@@ -129,17 +142,18 @@ Vector2 D3D12Window::GetPosition()
 	return Vector2(static_cast<float>(newSize.left), static_cast<float>(newSize.top));
 }
 
-void D3D12Window::CanMoveWindow(bool CanMove)
+void Win32Window::CanMoveWindow(bool CanMove)
 {
 	canMoveWindow = CanMove;
 }
 
-void D3D12Window::SetBorderless(bool enabled)
+void Win32Window::SetBorderless(bool enabled)
 {
 	Style new_style = (enabled) ? SelectBorderlessStyle() : Style::ME_WINDOWED;
 	Style old_style = static_cast<Style>(::GetWindowLongPtrW(Window, GWL_STYLE));
 
-	if (new_style != old_style) {
+	if (new_style != old_style)
+	{
 		borderless = enabled;
 
 		::SetWindowLongPtrW(Window, GWL_STYLE, static_cast<LONG>(new_style));
@@ -151,19 +165,19 @@ void D3D12Window::SetBorderless(bool enabled)
 	}
 }
 
-auto D3D12Window::IsWindowCompositionEnabled() -> bool
+auto Win32Window::IsWindowCompositionEnabled() -> bool
 {
 	BOOL composition_enabled = FALSE;
 	bool success = ::DwmIsCompositionEnabled(&composition_enabled) == S_OK;
 	return composition_enabled && success;
 }
 
-D3D12Window::Style D3D12Window::SelectBorderlessStyle()
+Win32Window::Style Win32Window::SelectBorderlessStyle()
 {
 	return IsWindowCompositionEnabled() ? Style::ME_AERO_BORDERLESS : Style::ME_BASIC_BORDERLESS;
 }
 
-void D3D12Window::SetBorderlessShadow(bool enabled)
+void Win32Window::SetBorderlessShadow(bool enabled)
 {
 	if (borderless) {
 		borderless_shadow = enabled;
@@ -171,72 +185,78 @@ void D3D12Window::SetBorderlessShadow(bool enabled)
 	}
 }
 
-auto D3D12Window::SetShadow(HWND handle, bool enabled) -> void
+auto Win32Window::SetShadow(HWND handle, bool enabled) -> void
 {
-	if (IsWindowCompositionEnabled()) {
+	if (IsWindowCompositionEnabled())
+	{
 		static const MARGINS shadow_state[2]{ { 0,0,0,0 },{ 1,1,1,1 } };
 		::DwmExtendFrameIntoClientArea(handle, &shadow_state[enabled]);
 	}
 }
 
-auto D3D12Window::AdjustMaximizedClientRect(HWND window, RECT& rect) -> void
+auto Win32Window::AdjustMaximizedClientRect(HWND window, RECT& rect) -> void
 {
-	if (!IsMaximized(window)) {
+	if (!IsMaximized(window))
+	{
 		return;
 	}
 
 	auto monitor = ::MonitorFromWindow(window, MONITOR_DEFAULTTONULL);
-	if (!monitor) {
+	if (!monitor)
+	{
 		return;
 	}
 
 	MONITORINFO monitor_info{};
 	monitor_info.cbSize = sizeof(monitor_info);
-	if (!::GetMonitorInfoW(monitor, &monitor_info)) {
+	if (!::GetMonitorInfoW(monitor, &monitor_info))
+	{
 		return;
 	}
 	rect = monitor_info.rcWork;
 	ResizeFunc(Vector2(static_cast<float>(rect.right - rect.left), static_cast<float>(rect.bottom - rect.top)));
 }
 
-void D3D12Window::Minimize()
+void Win32Window::Minimize()
 {
 	ShowWindow(Window, SW_MINIMIZE);
 }
 
-void D3D12Window::ExitMaximize()
+void Win32Window::ExitMaximize()
 {
 	ShowWindow(Window, SW_SHOWNORMAL);
 }
 
-bool D3D12Window::IsMaximized(HWND hwnd)
+bool Win32Window::IsMaximized(HWND hwnd)
 {
 	WINDOWPLACEMENT placement;
-	if (!::GetWindowPlacement(hwnd, &placement)) {
+	if (!::GetWindowPlacement(hwnd, &placement))
+	{
 		return false;
 	}
 
 	return placement.showCmd == SW_MAXIMIZE;
 }
 
-bool D3D12Window::IsMaximized()
+bool Win32Window::IsMaximized()
 {
 	return IsMaximized(Window);
 }
 
-void D3D12Window::Maximize()
+void Win32Window::Maximize()
 {
 	ShowWindow(Window, SW_MAXIMIZE);
 }
 
-LRESULT D3D12Window::HitTest(POINT cursor) const
+LRESULT Win32Window::HitTest(POINT cursor) const
 {
 	const POINT border{
 		::GetSystemMetrics(SM_CXFRAME) + ::GetSystemMetrics(SM_CXPADDEDBORDER),
 		::GetSystemMetrics(SM_CYFRAME) + ::GetSystemMetrics(SM_CXPADDEDBORDER)
 	};
 	RECT window;
-	if (!::GetWindowRect(Window, &window)) {
+	if (!::GetWindowRect(Window, &window))
+	{
 		return HTNOWHERE;
 	}
 
@@ -265,7 +285,7 @@ LRESULT D3D12Window::HitTest(POINT cursor) const
 	case top | right: return borderless_resize ? HTTOPRIGHT : drag;
 	case bottom | left: return borderless_resize ? HTBOTTOMLEFT : drag;
 	case bottom | right: return borderless_resize ? HTBOTTOMRIGHT : drag;
-	case client: 
+	case client:
 	{
 		POINT position;
 		if (GetCursorPos(&position))
@@ -282,7 +302,7 @@ LRESULT D3D12Window::HitTest(POINT cursor) const
 	}
 }
 
-void D3D12Window::Exit()
+void Win32Window::Exit()
 {
 	ExitRequested = true;
 }
@@ -302,7 +322,7 @@ LRESULT CALLBACK WinProc(HWND hwnd, unsigned int msg, WPARAM wp, LPARAM lp)
 	if (ImGui_ImplWin32_WndProcHandler(hwnd, msg, wp, lp))
 		return true;
 #endif
-	if (auto window_ptr = reinterpret_cast<D3D12Window*>(::GetWindowLongPtrW(hwnd, GWLP_USERDATA)))
+	if (auto window_ptr = reinterpret_cast<Win32Window*>(::GetWindowLongPtrW(hwnd, GWLP_USERDATA)))
 	{
 		auto& window = *window_ptr;
 
@@ -356,19 +376,19 @@ LRESULT CALLBACK WinProc(HWND hwnd, unsigned int msg, WPARAM wp, LPARAM lp)
 			}
 			break;
 		}
-		//case WM_SIZE:
-		//case WM_EXITSIZEMOVE:
-		//	dragWindow = false;
-		//	prevPos.x = 0;
-		//	prevPos.y = 0;
-		//	ReleaseCapture();
-		//	if (GetEngine().IsInitialized())
-		//	{
-		//		RECT newSize;
-		//		GetClientRect(hwnd, &newSize);
-		//		GetEngine().GetRenderer().WindowResized(Vector2(static_cast<float>(newSize.right - newSize.left), static_cast<float>(newSize.bottom - newSize.top)));
-		//	}
-		//	break;
+							//case WM_SIZE:
+							//case WM_EXITSIZEMOVE:
+							//	dragWindow = false;
+							//	prevPos.x = 0;
+							//	prevPos.y = 0;
+							//	ReleaseCapture();
+							//	if (GetEngine().IsInitialized())
+							//	{
+							//		RECT newSize;
+							//		GetClientRect(hwnd, &newSize);
+							//		GetEngine().GetRenderer().WindowResized(Vector2(static_cast<float>(newSize.right - newSize.left), static_cast<float>(newSize.bottom - newSize.top)));
+							//	}
+							//	break;
 		}
 	}
 	return DefWindowProc(hwnd, msg, wp, lp);
