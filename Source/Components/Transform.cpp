@@ -113,11 +113,11 @@ void Transform::OnEditorInspect()
 {
 	ImGui::InputText("Name", &Name);
 
-
-	//HavanaUtils::EditableVector3("Position", GetPosition());
+	Vector3 OldPosition = Position;
+	HavanaUtils::EditableVector3("Position", Position);
 	Vector3 OldRotation = Rotation;
 	HavanaUtils::EditableVector3("Rotation", Rotation);
-	if (OldRotation != Rotation)
+	if (OldRotation != Rotation || OldPosition != Position)
 	{
 		SetDirty(true);
 	}
