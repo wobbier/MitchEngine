@@ -34,6 +34,7 @@ public:
 	virtual void Init() override;
 
 	Matrix4 GetViewMatrix();
+	void LookAt(const Vector3& TargetPosition);
 	void UpdateCameraTransform(Vector3 TransformComponent);
 	bool IsCurrent();
 	void SetCurrent();

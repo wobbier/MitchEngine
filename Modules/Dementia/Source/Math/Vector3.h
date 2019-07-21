@@ -44,7 +44,7 @@ public:
 		return Vector3(m_vector + other.m_vector);
 	}
 
-	Vector3 operator-(const Vector3& other)
+	Vector3 operator-(const Vector3& other) const
 	{
 		return Vector3(m_vector - other.m_vector);
 	}
@@ -133,7 +133,7 @@ public:
 		m_vector = glm::normalize(m_vector);
 	}
 
-	Vector3 Normalized()
+	Vector3 Normalized() const
 	{
 		return Vector3(glm::normalize(m_vector));
 	}

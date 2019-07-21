@@ -41,6 +41,8 @@ public:
 	Vector3 GetWorldPosition();
 	void SetWorldPosition(const Vector3& NewPosition);
 
+	void Reset();
+
 	ME_NONCOPYABLE(Transform)
 	ME_NONMOVABLE(Transform)
 

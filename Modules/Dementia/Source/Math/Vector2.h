@@ -45,6 +45,11 @@ public:
 		return *this == Zero;
 	}
 
+	glm::vec2& GetInternalVec()
+	{
+		return m_vector;
+	}
+
 	Vector2 operator*(const Vector2& other)
 	{
 		return Vector2(m_vector * other.m_vector);

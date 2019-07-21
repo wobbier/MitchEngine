@@ -90,6 +90,13 @@ void Transform::SetWorldPosition(const Vector3& NewPosition)
 	SetDirty(true);
 }
 
+void Transform::Reset()
+{
+	SetWorldPosition(Vector3());
+	SetRotation(Vector3());
+	SetScale(1.f);
+}
+
 void Transform::SetWorldTransform(glm::mat4& NewWorldTransform)
 {
 	// update local transform
@@ -107,7 +114,7 @@ void Transform::OnEditorInspect()
 	ImGui::InputText("Name", &Name);
 
 
-	HavanaUtils::EditableVector3("Position", GetPosition());
+	//HavanaUtils::EditableVector3("Position", GetPosition());
 	Vector3 OldRotation = Rotation;
 	HavanaUtils::EditableVector3("Rotation", Rotation);
 	if (OldRotation != Rotation)
@@ -124,9 +131,7 @@ void Transform::OnEditorInspect()
 
 	if (ImGui::Button("Reset Transform"))
 	{
-		SetWorldPosition(Vector3());
-		SetRotation(Vector3());
-		SetScale(1.f);
+		Reset();
 	}
 }
 #endif

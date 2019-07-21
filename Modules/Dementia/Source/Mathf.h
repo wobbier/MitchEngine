@@ -34,4 +34,9 @@ namespace Mathf
 	{
 		return (start + percent * (end - start));
 	}
+
+	inline float Round(float number)
+	{
+		return glm::round(number);
+	}
 }
