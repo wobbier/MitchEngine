@@ -2,6 +2,7 @@
 #include "Cores/PhysicsCore.h"
 #include "Components/Transform.h"
 #include "Components/Physics/Rigidbody.h"
+#include "LinearMath/btScalar.h"
 
 #define M_PI 3.14159
 #define RADIANS_TO_DEGREES(__ANGLE__) ((__ANGLE__) / M_PI * 180.0)
@@ -70,7 +71,9 @@ void PhysicsCore::Update(float dt)
 			btQuaternion rot;
 			trans.getBasis().getRotation(rot);
 			TransformComponent.SetPosition(Vector3(trans.getOrigin().x(), trans.getOrigin().y(), trans.getOrigin().z()));
-			//TransformComponent.SetRotation(glm::quat(rot.getX(), rot.getY(), rot.getZ(), rot.getW()));
+			btScalar x, y, z;
+			rot.getEulerZYX(x, y, z);
+			TransformComponent.SetRotation(Vector3(x, y, z));
 		}
 	}
 

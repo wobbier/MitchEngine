@@ -42,9 +42,17 @@ void Rigidbody::ApplyForce(const Vector3& direction, float force)
 	InternalRigidbody->activate();
 }
 
+void Rigidbody::SetScale(Vector3 InScale)
+{
+	Scale = InScale;
+	if (fallShape)
+	{
+		fallShape->setLocalScaling(btVector3(InScale[0], InScale[1], InScale[2]));
+	}
+}
+
 void Rigidbody::CreateObject(const Vector3& Position, Vector3& Rotation, btDiscreteDynamicsWorld* world)
 {
-	btCollisionShape* fallShape;
 	switch (Type)
 	{
 	case ColliderType::Sphere:
@@ -52,9 +60,10 @@ void Rigidbody::CreateObject(const Vector3& Position, Vector3& Rotation, btDiscr
 		break;
 	case ColliderType::Box:
 	default:
-		fallShape = new btBoxShape(btVector3(1.0f, 1.0f, 1.0f));
+		fallShape = new btBoxShape(btVector3(Scale[0], Scale[1], Scale[2]));
 		break;
 	}
+	//fallShape->setLocalScaling(btVector3(Scale[0], Scale[1], Scale[2]));
 
 	btDefaultMotionState* fallMotionState =
 		new btDefaultMotionState(btTransform(btQuaternion(Rotation.X(), Rotation.Y(), Rotation.Z()), btVector3(Position.X(), Position.Y(), Position.Z())));

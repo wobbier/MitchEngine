@@ -26,6 +26,7 @@ public:
 	bool IsRigidbodyInitialized();
 	void ApplyForce(const Vector3& direction, float force);
 	unsigned int Id = 0;
+	void SetScale(Vector3 InScale);
 
 	DirectX::XMMATRIX GetMat()
 	{
@@ -45,7 +46,8 @@ public:
 private:
 	void CreateObject(const Vector3& Position, Vector3& Rotation, class btDiscreteDynamicsWorld* world);
 	btRigidBody* InternalRigidbody = nullptr;
-
+	btCollisionShape* fallShape = nullptr;
+	Vector3 Scale;
 	ColliderType Type = ColliderType::Box;
 protected:
 	bool IsInitialized = false;
