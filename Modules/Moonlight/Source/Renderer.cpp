@@ -15,6 +15,7 @@
 #include "examples/imgui_impl_dx11.h"
 #include "Graphics/RenderTexture.h"
 #include "Engine/Input.h"
+#include <GeometricPrimitive.h>
 
 using namespace DirectX;
 using namespace Windows::Foundation;
@@ -23,12 +24,12 @@ namespace Moonlight
 {
 	void Renderer::UpdateMatrix(unsigned int Id, DirectX::XMMATRIX NewTransform)
 	{
-		if (Id >= Models.size())
+		if (Id >= DebugColliders.size())
 		{
 			return;
 		}
 
-		Models[Id].Transform = std::move(NewTransform);
+		DebugColliders[Id].Transform = std::move(NewTransform);
 	}
 
 	void Renderer::UpdateMeshMatrix(unsigned int Id, DirectX::XMMATRIX NewTransform)
@@ -70,6 +71,8 @@ namespace Moonlight
 			m_device->CompileShader(Path("Assets/Shaders/ToneMap.hlsl"), "main_ps", "ps_5_0"),
 			nullptr
 		);
+
+		shape = DirectX::GeometricPrimitive::CreateBox(m_device->GetD3DDeviceContext(), XMFLOAT3(1.f, 1.f, 1.f));
 
 		//m_depthProgram = ShaderCommand("Assets/Shaders/DepthPass.hlsl");
 		ResizeBuffers();
@@ -486,7 +489,14 @@ namespace Moonlight
 					mesh.MeshShader->Use();
 
 					mesh.SingleMesh->Draw(mesh.MeshMaterial);
+
+					shape->Draw(XMMatrixTranspose(XMMatrixIdentity()), DirectX::XMLoadFloat4x4(&constantBufferSceneData.view), DirectX::XMLoadFloat4x4(&constantBufferSceneData.projection), Colors::Gray, nullptr, true);
 				}
+			}
+
+			for (const DebugColliderCommand& collider : DebugColliders)
+			{
+				shape->Draw(XMMatrixTranspose(XMMatrixIdentity()), DirectX::XMLoadFloat4x4(&constantBufferSceneData.view), DirectX::XMLoadFloat4x4(&constantBufferSceneData.projection), Colors::Gray, nullptr, true);
 			}
 
 			m_device->GetD3DDeviceContext()->OMSetBlendState(m_device->TransparentBlendState, Colors::Black, 0xffffffff);
@@ -663,41 +673,41 @@ namespace Moonlight
 		//hr = d3d11Device->CreateBuffer(&cbbd, NULL, &cbPerFrameBuffer);
 	}
 
-	unsigned int Renderer::PushModel(const ModelCommand& NewModel)
+	unsigned int Renderer::PushDebugCollider(const DebugColliderCommand& NewModel)
 	{
-		if (!FreeCommandIndicies.empty())
+		if (!FreeDebugColliderCommandIndicies.empty())
 		{
-			unsigned int openIndex = FreeCommandIndicies.front();
-			FreeCommandIndicies.pop();
-			Models[openIndex] = std::move(NewModel);
+			unsigned int openIndex = FreeDebugColliderCommandIndicies.front();
+			FreeDebugColliderCommandIndicies.pop();
+			DebugColliders[openIndex] = std::move(NewModel);
 			return openIndex;
 		}
 
-		Models.push_back(std::move(NewModel));
-		return static_cast<unsigned int>(Models.size() - 1);
+		DebugColliders.push_back(std::move(NewModel));
+		return static_cast<unsigned int>(DebugColliders.size() - 1);
 	}
 
-	bool Renderer::PopModel(unsigned int id)
+	bool Renderer::PopDebugCollider(unsigned int id)
 	{
-		if (id >= Models.size())
+		if (id >= DebugColliders.size())
 		{
 			return false;
 		}
 
-		Models[id].Meshes.clear();
+		DebugColliders[id].Transform = XMMatrixIdentity();
 		return true;
 	}
 
-	void Renderer::ClearModels()
+	void Renderer::ClearDebugColliders()
 	{
-		Models.clear();
-		while (!FreeCommandIndicies.empty())
+		DebugColliders.clear();
+		while (!FreeDebugColliderCommandIndicies.empty())
 		{
-			FreeCommandIndicies.pop();
+			FreeDebugColliderCommandIndicies.pop();
 		}
 	}
 
-	unsigned int Renderer::PushLight(const LightCommand& NewLight)
+	unsigned int Renderer::PushLight(const LightCommand & NewLight)
 	{
 		if (!FreeLightCommandIndicies.empty())
 		{
@@ -732,7 +742,7 @@ namespace Moonlight
 		}
 	}
 
-	void Renderer::WindowResized(const Vector2& NewSize)
+	void Renderer::WindowResized(const Vector2 & NewSize)
 	{
 		if (!m_device)
 		{

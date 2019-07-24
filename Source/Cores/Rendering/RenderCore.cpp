@@ -31,7 +31,7 @@ RenderCore::RenderCore()
 void RenderCore::Init()
 {
 	Logger::GetInstance().Log(Logger::LogType::Debug, "RenderCore Initialized...");
-	m_renderer->ClearModels();
+	m_renderer->ClearDebugColliders();
 	m_renderer->ClearMeshes();
 }
 

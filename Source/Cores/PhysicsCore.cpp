@@ -3,6 +3,9 @@
 #include "Components/Transform.h"
 #include "Components/Physics/Rigidbody.h"
 #include "LinearMath/btScalar.h"
+#include "RenderCommands.h"
+#include "Engine/Engine.h"
+#include "glm.hpp"
 
 #define M_PI 3.14159
 #define RADIANS_TO_DEGREES(__ANGLE__) ((__ANGLE__) / M_PI * 180.0)
@@ -45,7 +48,7 @@ void PhysicsCore::Init()
 void PhysicsCore::Update(float dt)
 {
 	OPTICK_CATEGORY("PhysicsCore::Update", Optick::Category::Physics)
-	auto PhysicsEntites = GetEntities();
+		auto PhysicsEntites = GetEntities();
 
 	// Need a fixed delta probably
 	PhysicsWorld->stepSimulation(dt, 10);
@@ -57,7 +60,7 @@ void PhysicsCore::Update(float dt)
 
 		btRigidBody* rigidbody = RigidbodyComponent.InternalRigidbody;
 		btTransform& trans = rigidbody->getWorldTransform();
-		
+
 		if (TransformComponent.IsDirty)
 		{
 			Vector3 transPos = TransformComponent.GetPosition();
@@ -70,10 +73,21 @@ void PhysicsCore::Update(float dt)
 		{
 			btQuaternion rot;
 			trans.getBasis().getRotation(rot);
-			TransformComponent.SetPosition(Vector3(trans.getOrigin().x(), trans.getOrigin().y(), trans.getOrigin().z()));
+			Vector3 bulletPosition = Vector3(trans.getOrigin().x(), trans.getOrigin().y(), trans.getOrigin().z());
+			TransformComponent.SetPosition(bulletPosition);
 			btScalar x, y, z;
 			rot.getEulerZYX(x, y, z);
 			TransformComponent.SetRotation(Vector3(x, y, z));
+			Transform tempTrans;
+			tempTrans.SetPosition(bulletPosition);
+
+			glm::mat4 mat = glm::mat4(1.f);
+			glm::quat rot2(tempTrans.Rotation.GetInternalVec());
+			mat = glm::rotate(mat, glm::angle(rot2), glm::axis(rot2));
+			mat = glm::translate(mat, tempTrans.GetWorldPosition().GetInternalVec());
+			mat = glm::scale(mat, tempTrans.Scale.GetInternalVec());
+			tempTrans.SetWorldTransform(mat);
+			GetEngine().GetRenderer().UpdateMatrix(RigidbodyComponent.DebugColliderId, tempTrans.GetMatrix());
 		}
 	}
 
@@ -87,5 +101,7 @@ void PhysicsCore::OnEntityAdded(Entity& NewEntity)
 	{
 		RigidbodyComponent.CreateObject(TransformComponent.GetPosition(), TransformComponent.Rotation, PhysicsWorld);
 		PhysicsWorld->addRigidBody(RigidbodyComponent.InternalRigidbody);
+		Moonlight::DebugColliderCommand cmd;
+		RigidbodyComponent.DebugColliderId = GetEngine().GetRenderer().PushDebugCollider(cmd);
 	}
 }

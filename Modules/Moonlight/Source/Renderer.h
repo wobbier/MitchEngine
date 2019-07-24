@@ -17,6 +17,7 @@
 #include <functional>
 #include "RenderCommands.h"
 #include "Camera/CameraData.h"
+#include "GeometricPrimitive.h"
 
 namespace Moonlight
 {
@@ -46,10 +47,10 @@ namespace Moonlight
 		void CreateDeviceDependentResources();
 		void InitD2DScreenTexture();
 
-		unsigned int PushModel(const ModelCommand& model);
-		bool PopModel(unsigned int id);
+		unsigned int PushDebugCollider(const DebugColliderCommand& model);
+		bool PopDebugCollider(unsigned int id);
 
-		void ClearModels();
+		void ClearDebugColliders();
 
 		unsigned int PushLight(const LightCommand& NewLight);
 		bool PopLight(unsigned int id);
@@ -86,8 +87,8 @@ namespace Moonlight
 		LightBuffer m_perFrameBufferData;
 #endif
 
-		std::vector<ModelCommand> Models;
-		std::queue<unsigned int> FreeCommandIndicies;
+		std::vector<DebugColliderCommand> DebugColliders;
+		std::queue<unsigned int> FreeDebugColliderCommandIndicies;
 
 		std::vector<LightCommand> Lights;
 		std::queue<unsigned int> FreeLightCommandIndicies;
@@ -101,5 +102,6 @@ namespace Moonlight
 		void ClearMeshes();
 		std::vector<MeshCommand> Meshes;
 		std::queue<unsigned int> FreeMeshCommandIndicies;
+		std::unique_ptr<DirectX::GeometricPrimitive> shape;
 	};
 }

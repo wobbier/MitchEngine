@@ -19,6 +19,11 @@ namespace Moonlight
 		DirectX::XMMATRIX Transform;
 	};
 
+	struct DebugColliderCommand
+	{
+		DirectX::XMMATRIX Transform;
+	};
+
 	struct MeshCommand
 	{
 		MeshData* SingleMesh = nullptr;
