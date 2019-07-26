@@ -42,11 +42,13 @@ void EditorApp::OnUpdate(float DeltaTime)
 	Editor->NewFrame([this]() {
 		StartGame();
 		m_isGamePaused = false;
+		m_isGameRunning = true;
 		}
 		, [this]() {
 			m_isGamePaused = true;
 		}
 			, [this]() {
+			StopGame();
 			m_isGameRunning = false;
 			m_isGamePaused = false;
 			Editor->ClearSelection();
@@ -128,6 +130,15 @@ void EditorApp::StartGame()
 	{
 		GetEngine().GetWorld().lock()->Start();
 		m_isGameRunning = true;
+	}
+}
+
+void EditorApp::StopGame()
+{
+	if (m_isGameRunning)
+	{
+		GetEngine().GetWorld().lock()->Stop();
+		m_isGameRunning = false;
 	}
 }
 

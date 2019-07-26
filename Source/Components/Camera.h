@@ -1,5 +1,4 @@
 #pragma once
-#include <gtc/matrix_transform.hpp>
 
 #include "ECS/Component.h"
 #include "ECS/ComponentDetail.h"

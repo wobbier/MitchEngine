@@ -27,6 +27,7 @@ public:
 	virtual void PostRender() override;
 
 	void StartGame();
+	void StopGame();
 
 	const bool IsGameRunning() const;
 

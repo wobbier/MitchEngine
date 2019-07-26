@@ -1,5 +1,6 @@
 #pragma once
-#include <glm.hpp>
+#include <d3d11.h>
+#include <SimpleMath.h>
 
 class Vector2
 {
@@ -9,7 +10,7 @@ public:
 	{
 	}
 
-	Vector2(glm::vec2 vec)
+	Vector2(DirectX::XMFLOAT2 vec)
 		: m_vector(vec)
 	{
 	}
@@ -45,7 +46,29 @@ public:
 		return *this == Zero;
 	}
 
-	glm::vec2& GetInternalVec()
+	float& operator[](int index)
+	{
+		switch (index)
+		{
+		case 0:
+			return m_vector.x;
+		default:
+			return m_vector.y;
+		}
+	}
+
+	const float& operator[](int index) const
+	{
+		switch (index)
+		{
+		case 0:
+			return m_vector.x;
+		default:
+			return m_vector.y;
+		}
+	}
+
+	DirectX::SimpleMath::Vector2& GetInternalVec()
 	{
 		return m_vector;
 	}
@@ -67,5 +90,5 @@ public:
 		return m_vector != other.m_vector;
 	}
 private:
-	glm::vec2 m_vector;
+	DirectX::SimpleMath::Vector2 m_vector;
 };

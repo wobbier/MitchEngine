@@ -6,7 +6,7 @@
 
 void Light::Init()
 {
-	cmd.diffuse = { Colour.GetInternalVec()[0],Colour.GetInternalVec()[1],Colour.GetInternalVec()[2], 1.f };
+	cmd.diffuse = { Colour[0], Colour[1], Colour[2], 1.f };
 	//GetEngine().GetRenderer().PushLight(cmd);
 }
 

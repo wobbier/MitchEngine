@@ -62,6 +62,7 @@ private:
 
 	// Separate init from construction code.
 	virtual void OnStart() {};
+	virtual void OnStop() {};
 
 	// Add an entity to the core
 	void Add(Entity& InEntity);

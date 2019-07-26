@@ -946,7 +946,7 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 			DirectX::XMFLOAT4X4 objView;
 			if (SelectedTransform)
 			{
-				DirectX::XMStoreFloat4x4(&objView, SelectedTransform->GetMatrix());
+				DirectX::XMStoreFloat4x4(&objView, SelectedTransform->GetMatrix().GetInternalMatrix());
 			}
 
 			static ImGuizmo::OPERATION mCurrentGizmoOperation(ImGuizmo::TRANSLATE);

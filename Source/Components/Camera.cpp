@@ -31,7 +31,7 @@ void Camera::Init()
 
 Matrix4 Camera::GetViewMatrix()
 {
-	return Matrix4(glm::lookAt(Position.GetInternalVec(), Position.GetInternalVec() + Front.GetInternalVec(), Up.GetInternalVec()));
+	return Matrix4();//glm::lookAt(Position.GetInternalVec(), Position.GetInternalVec() + Front.GetInternalVec(), Up.GetInternalVec()));
 }
 
 void Camera::LookAt(const Vector3& TargetPosition)

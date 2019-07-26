@@ -82,7 +82,7 @@ void RenderCore::Update(float dt)
 		if (InEntity.HasComponent<Mesh>())
 		{
 			Mesh& model = InEntity.GetComponent<Mesh>();
-			m_renderer->UpdateMeshMatrix(model.GetId(), transform.GetMatrix());
+			m_renderer->UpdateMeshMatrix(model.GetId(), transform.GetMatrix().GetInternalMatrix());
 		}
 
 		if (InEntity.HasComponent<Rigidbody>())
@@ -90,7 +90,7 @@ void RenderCore::Update(float dt)
 			Rigidbody& rigidbody = InEntity.GetComponent<Rigidbody>();
 			if (rigidbody.IsRigidbodyInitialized())
 			{
-				m_renderer->UpdateMatrix(rigidbody.Id, rigidbody.GetMat());
+				m_renderer->UpdateMatrix(rigidbody.Id, rigidbody.GetMat().GetInternalMatrix());
 			}
 		}
 		if (InEntity.HasComponent<DirectionalLight>())
@@ -116,4 +116,10 @@ void RenderCore::OnDeviceRestored()
 	m_renderer->CreateDeviceDependentResources();
 	m_renderer->GetDevice().CreateWindowSizeDependentResources();
 #endif
+}
+
+void RenderCore::OnStop()
+{
+	m_renderer->ClearMeshes();
+	m_renderer->ClearDebugColliders();
 }

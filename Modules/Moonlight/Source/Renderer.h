@@ -25,8 +25,8 @@ namespace Moonlight
 	{
 	public:
 
-		void UpdateMatrix(unsigned int Id, DirectX::XMMATRIX NewTransform);
-		void UpdateMeshMatrix(unsigned int Id, DirectX::XMMATRIX NewTransform);
+		void UpdateMatrix(unsigned int Id, DirectX::SimpleMath::Matrix NewTransform);
+		void UpdateMeshMatrix(unsigned int Id, DirectX::SimpleMath::Matrix NewTransform);
 	public:
 		Renderer();
 		virtual ~Renderer() final;

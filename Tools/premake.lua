@@ -72,7 +72,6 @@ location (dirPrefix)
 includedirs {
   "../Source",
   "../ThirdParty/Bullet/src",
-  "../ThirdParty/GLM/glm",
   "C:/Program Files/RenderDoc",
   "../ThirdParty/Optick/src",
   "../Modules/Moonlight/Source",

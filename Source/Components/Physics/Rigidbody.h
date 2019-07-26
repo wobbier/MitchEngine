@@ -4,6 +4,7 @@
 #include <btBulletDynamicsCommon.h>
 #include "Math/Vector3.h"
 #include <DirectXMath.h>
+#include "Math/Matirx4.h"
 
 class Rigidbody
 	: public Component<Rigidbody>
@@ -28,7 +29,7 @@ public:
 	unsigned int Id = 0;
 	void SetScale(Vector3 InScale);
 
-	DirectX::XMMATRIX GetMat()
+	Matrix4 GetMat()
 	{
 		btTransform trans;
 		InternalRigidbody->getMotionState()->getWorldTransform(trans);
@@ -36,12 +37,12 @@ public:
 		float m[16];
 		trans.getOpenGLMatrix(m);
 
-		DirectX::XMMATRIX transform(m[0], m[1], m[2], 0.f,
-			m[4], m[5], m[6], 0.f,
-			m[8], m[9], m[10], 0.f,
-			m[12], m[13], m[14], 1.f);
+		DirectX::XMMATRIX transform(m[0], m[4], m[8], m[12],
+			m[1], m[5], m[9], m[13],
+			m[2], m[6], m[10], m[14],
+			m[3], m[7], m[11], m[15]);
 
-		return transform;
+		return Matrix4(transform);
 	}
 private:
 	void CreateObject(const Vector3& Position, Vector3& Rotation, class btDiscreteDynamicsWorld* world);

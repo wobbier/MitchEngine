@@ -130,6 +130,18 @@ void World::Start()
 	}
 }
 
+void World::Stop()
+{
+	for (auto& core : Cores)
+	{
+		if (core.second->IsRunning)
+		{
+			core.second->OnStop();
+			core.second->IsRunning = false;
+		}
+	}
+}
+
 void World::Destroy()
 {
 
@@ -203,6 +215,7 @@ void World::DestroyEntity(Entity &InEntity)
 			break;
 		}
 	}
+	Simulate();
 }
 
 void World::AddCore(BaseCore& InCore, TypeId InCoreTypeId, bool HandleUpdate)

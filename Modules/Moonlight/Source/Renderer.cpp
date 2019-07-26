@@ -22,24 +22,24 @@ using namespace Windows::Foundation;
 
 namespace Moonlight
 {
-	void Renderer::UpdateMatrix(unsigned int Id, DirectX::XMMATRIX NewTransform)
+	void Renderer::UpdateMatrix(unsigned int Id, DirectX::SimpleMath::Matrix NewTransform)
 	{
 		if (Id >= DebugColliders.size())
 		{
 			return;
 		}
 
-		DebugColliders[Id].Transform = std::move(NewTransform);
+		DebugColliders[Id].Transform = NewTransform;
 	}
 
-	void Renderer::UpdateMeshMatrix(unsigned int Id, DirectX::XMMATRIX NewTransform)
+	void Renderer::UpdateMeshMatrix(unsigned int Id, DirectX::SimpleMath::Matrix NewTransform)
 	{
 		if (Id >= Meshes.size())
 		{
 			return;
 		}
 
-		Meshes[Id].Transform = std::move(NewTransform);
+		Meshes[Id].Transform = NewTransform;
 	}
 
 	Renderer::Renderer()
@@ -457,7 +457,7 @@ namespace Moonlight
 						constantBufferSceneData.HasSpecMap = TRUE;
 					}
 					constantBufferSceneData.HasAlphaMap = FALSE;
-					constantBufferSceneData.DiffuseColor = DirectX::XMFLOAT3(&mesh.MeshMaterial->DiffuseColor.GetInternalVec()[0]);
+					constantBufferSceneData.DiffuseColor = mesh.MeshMaterial->DiffuseColor.GetInternalVec();
 					// Prepare the constant buffer to send it to the graphics device.
 					context->UpdateSubresource1(
 						m_constantBuffer.Get(),
@@ -490,13 +490,13 @@ namespace Moonlight
 
 					mesh.SingleMesh->Draw(mesh.MeshMaterial);
 
-					shape->Draw(XMMatrixTranspose(XMMatrixIdentity()), DirectX::XMLoadFloat4x4(&constantBufferSceneData.view), DirectX::XMLoadFloat4x4(&constantBufferSceneData.projection), Colors::Gray, nullptr, true);
+					//shape->Draw(XMMatrixTranspose(XMMatrixIdentity()), DirectX::XMLoadFloat4x4(&constantBufferSceneData.view), DirectX::XMLoadFloat4x4(&constantBufferSceneData.projection), Colors::Gray, nullptr, true);
 				}
 			}
 
 			for (const DebugColliderCommand& collider : DebugColliders)
 			{
-				shape->Draw(XMMatrixTranspose(XMMatrixIdentity()), DirectX::XMLoadFloat4x4(&constantBufferSceneData.view), DirectX::XMLoadFloat4x4(&constantBufferSceneData.projection), Colors::Gray, nullptr, true);
+				shape->Draw(collider.Transform, DirectX::XMLoadFloat4x4(&constantBufferSceneData.view), DirectX::XMLoadFloat4x4(&constantBufferSceneData.projection), Colors::Gray, nullptr, true);
 			}
 
 			m_device->GetD3DDeviceContext()->OMSetBlendState(m_device->TransparentBlendState, Colors::Black, 0xffffffff);
@@ -524,7 +524,7 @@ namespace Moonlight
 						constantBufferSceneData.HasSpecMap = TRUE;
 					}
 					constantBufferSceneData.HasAlphaMap = TRUE;
-					constantBufferSceneData.DiffuseColor = DirectX::XMFLOAT3(&mesh.MeshMaterial->DiffuseColor.GetInternalVec()[0]);
+					constantBufferSceneData.DiffuseColor = mesh.MeshMaterial->DiffuseColor.GetInternalVec();
 
 					// Prepare the constant buffer to send it to the graphics device.
 					context->UpdateSubresource1(
