@@ -42,11 +42,13 @@ void EditorApp::OnUpdate(float DeltaTime)
 	Editor->NewFrame([this]() {
 		StartGame();
 		m_isGamePaused = false;
+		m_isGameRunning = true;
 		}
 		, [this]() {
 			m_isGamePaused = true;
 		}
 			, [this]() {
+			StopGame();
 			m_isGameRunning = false;
 			m_isGamePaused = false;
 			Editor->ClearSelection();
@@ -76,6 +78,8 @@ void EditorApp::UpdateCameras()
 	MainCamera.OutputSize = MainOutputSize;
 	MainCamera.FOV = Camera::CurrentCamera->GetFOV();
 	MainCamera.Skybox = Camera::CurrentCamera->Skybox;
+	MainCamera.ClearColor = Camera::CurrentCamera->ClearColor;
+	MainCamera.ClearType = Camera::CurrentCamera->ClearType;
 	MainCamera.Projection = Camera::CurrentCamera->Projection;
 	MainCamera.OrthographicSize = Camera::CurrentCamera->OrthographicSize;
 	GetEngine().MainCamera = MainCamera;
@@ -87,6 +91,8 @@ void EditorApp::UpdateCameras()
 	EditorCamera.OutputSize = Editor->WorldViewRenderSize;
 	EditorCamera.FOV = Camera::EditorCamera->GetFOV();
 	EditorCamera.Skybox = Camera::CurrentCamera->Skybox;
+	EditorCamera.ClearColor = Camera::EditorCamera->ClearColor;
+	EditorCamera.ClearType = Camera::EditorCamera->ClearType;
 	EditorCamera.Projection = Camera::EditorCamera->Projection;
 	EditorCamera.OrthographicSize = Camera::EditorCamera->OrthographicSize;
 	GetEngine().EditorCamera = EditorCamera;
@@ -128,6 +134,15 @@ void EditorApp::StartGame()
 	{
 		GetEngine().GetWorld().lock()->Start();
 		m_isGameRunning = true;
+	}
+}
+
+void EditorApp::StopGame()
+{
+	if (m_isGameRunning)
+	{
+		GetEngine().GetWorld().lock()->Stop();
+		m_isGameRunning = false;
 	}
 }
 

@@ -1,12 +1,11 @@
 #include "PCH.h"
 #include "Transform.h"
 #include <algorithm>
-#include <gtc/matrix_transform.hpp>
 #include "Math/Vector3.h"
 #include "misc/cpp/imgui_stdlib.h"
 
 Transform::Transform()
-	: WorldTransform(1.f)
+	: WorldTransform(DirectX::XMMatrixIdentity())
 	, Position(0.f, 0.f, 0.f)
 	, Rotation(0.f, 0.f, 0.f)
 	, Scale(1.0f, 1.0f, 1.0f)
@@ -15,7 +14,7 @@ Transform::Transform()
 
 
 Transform::Transform(const std::string& TransformName)
-	: WorldTransform(1.f)
+	: WorldTransform(DirectX::XMMatrixIdentity())
 	, Name(std::move(TransformName))
 	, Position(0.f, 0.f, 0.f)
 	, Rotation(0.f, 0.f, 0.f)
@@ -34,6 +33,7 @@ Transform::~Transform()
 
 void Transform::SetPosition(Vector3 NewPosition)
 {
+	WorldTransform.GetInternalMatrix().Translation((Position - NewPosition).GetInternalVec());
 	Position = NewPosition;
 	SetDirty(true);
 }
@@ -76,16 +76,18 @@ Vector3& Transform::GetPosition()
 
 Vector3 Transform::GetWorldPosition()
 {
-	return Vector3(WorldTransform[3][0], WorldTransform[3][1], WorldTransform[3][2]);
+	return WorldTransform.GetPosition();
 }
 
 void Transform::SetWorldPosition(const Vector3& NewPosition)
 {
-	WorldTransform[3][0] = NewPosition[0];
-	WorldTransform[3][1] = NewPosition[1];
-	WorldTransform[3][2] = NewPosition[2];
+	DirectX::SimpleMath::Matrix& mat = WorldTransform.GetInternalMatrix();
 
-	Position += Vector3(WorldTransform[3][0] - Position[0], WorldTransform[3][1] - Position[1], WorldTransform[3][2] - Position[2]);
+	mat._41 = NewPosition[0];
+	mat._42 = NewPosition[1];
+	mat._43 = NewPosition[2];
+
+	Position += Vector3(mat._41 - Position[0], mat._42 - Position[1], mat._43 - Position[2]);
 
 	SetDirty(true);
 }
@@ -97,7 +99,7 @@ void Transform::Reset()
 	SetScale(1.f);
 }
 
-void Transform::SetWorldTransform(glm::mat4& NewWorldTransform)
+void Transform::SetWorldTransform(Matrix4& NewWorldTransform)
 {
 	// update local transform
 	WorldTransform = std::move(NewWorldTransform);
@@ -201,14 +203,9 @@ Transform* Transform::GetChildByName(const std::string& Name)
 	return nullptr;
 }
 
-DirectX::XMMATRIX Transform::GetMatrix()
+Matrix4 Transform::GetMatrix()
 {
-	DirectX::XMMATRIX mat = DirectX::XMMATRIX(
-		WorldTransform[0][0], WorldTransform[0][1], WorldTransform[0][2], WorldTransform[0][3],
-		WorldTransform[1][0], WorldTransform[1][1], WorldTransform[1][2], WorldTransform[1][3],
-		WorldTransform[2][0], WorldTransform[2][1], WorldTransform[2][2], WorldTransform[2][3],
-		WorldTransform[3][0], WorldTransform[3][1], WorldTransform[3][2], WorldTransform[3][3]);
-	return mat;
+	return WorldTransform;
 }
 
 void Transform::SetName(const std::string& name)

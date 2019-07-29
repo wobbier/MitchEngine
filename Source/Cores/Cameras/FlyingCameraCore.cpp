@@ -7,6 +7,7 @@
 #include "Events/EventManager.h"
 #include "optick.h"
 #include "Math/Vector3.h"
+#include "Mathf.h"
 
 FlyingCameraCore::FlyingCameraCore() : Base(ComponentFilter().Requires<FlyingCamera>().Requires<Camera>())
 {
@@ -126,10 +127,10 @@ void FlyingCameraCore::Update(float dt)
 				Pitch = -89.0f;
 
 			Vector3 Front;
-			Front.SetX(cos(glm::radians(Yaw)) * cos(glm::radians(Pitch)));
-			Front.SetY(sin(glm::radians(Pitch)));
-			Front.SetZ(sin(glm::radians(Yaw)) * cos(glm::radians(Pitch)));
-			CameraComponent.Front = glm::normalize(Front.GetInternalVec());
+			Front.SetX(cos(Mathf::Radians(Yaw)) * cos(Mathf::Radians(Pitch)));
+			Front.SetY(sin(Mathf::Radians(Pitch)));
+			Front.SetZ(sin(Mathf::Radians(Yaw)) * cos(Mathf::Radians(Pitch)));
+			CameraComponent.Front = Front.Normalized();
 			return;
 		}
 	}

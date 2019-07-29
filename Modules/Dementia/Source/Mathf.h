@@ -37,6 +37,11 @@ namespace Mathf
 
 	inline float Round(float number)
 	{
-		return glm::round(number);
+		return std::round(number);
+	}
+
+	inline float Radians(float number)
+	{
+		return DirectX::XMConvertToRadians(number);
 	}
 }

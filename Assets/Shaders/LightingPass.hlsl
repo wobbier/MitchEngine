@@ -60,6 +60,6 @@ float4 main_ps(PixelShaderInput input) : SV_TARGET
 	//float c = ((2.0 * n) / (f + n - z * (f - n)));  // convert to linear values 
 	//finalColor = finalColor * c;
 
-	return float4(finalColor, 1.0f);
+	return float4(finalColor, diffuse.a);
 }
 

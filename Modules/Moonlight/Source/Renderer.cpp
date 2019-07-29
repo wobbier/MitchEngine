@@ -22,24 +22,24 @@ using namespace Windows::Foundation;
 
 namespace Moonlight
 {
-	void Renderer::UpdateMatrix(unsigned int Id, DirectX::XMMATRIX NewTransform)
+	void Renderer::UpdateMatrix(unsigned int Id, DirectX::SimpleMath::Matrix NewTransform)
 	{
 		if (Id >= DebugColliders.size())
 		{
 			return;
 		}
 
-		DebugColliders[Id].Transform = std::move(NewTransform);
+		DebugColliders[Id].Transform = NewTransform;
 	}
 
-	void Renderer::UpdateMeshMatrix(unsigned int Id, DirectX::XMMATRIX NewTransform)
+	void Renderer::UpdateMeshMatrix(unsigned int Id, DirectX::SimpleMath::Matrix NewTransform)
 	{
 		if (Id >= Meshes.size())
 		{
 			return;
 		}
 
-		Meshes[Id].Transform = std::move(NewTransform);
+		Meshes[Id].Transform = NewTransform;
 	}
 
 	Renderer::Renderer()
@@ -145,12 +145,13 @@ namespace Moonlight
 		auto context = m_device->GetD3DDeviceContext();
 
 		//float darkGrey = (0.0f / 255.0f);
-		DirectX::XMVECTORF32 color = Colors::Black;//{ {darkGrey, darkGrey, darkGrey, 1.0f} };
+		DirectX::SimpleMath::Color clearColor = DirectX::SimpleMath::Color(mainCamera.ClearColor.GetInternalVec());//{ {darkGrey, darkGrey, darkGrey, 1.0f} };
+		DirectX::XMVECTORF32 color = DirectX::Colors::Black;// SimpleMath::Color(mainCamera.ClearColor.GetInternalVec());//{ {darkGrey, darkGrey, darkGrey, 1.0f} };
 
 		// Clear the back buffer and depth stencil view.
 		context->ClearRenderTargetView(m_device->GetBackBufferRenderTargetView(), color);
 		context->ClearRenderTargetView(m_framebuffer->RenderTargetView.Get(), color);
-		context->ClearRenderTargetView(m_framebuffer->ColorRenderTargetView.Get(), color);
+		context->ClearRenderTargetView(m_framebuffer->ColorRenderTargetView.Get(), clearColor);
 		context->ClearRenderTargetView(m_framebuffer->NormalRenderTargetView.Get(), color);
 		context->ClearRenderTargetView(m_framebuffer->SpecularRenderTargetView.Get(), color);
 
@@ -457,7 +458,7 @@ namespace Moonlight
 						constantBufferSceneData.HasSpecMap = TRUE;
 					}
 					constantBufferSceneData.HasAlphaMap = FALSE;
-					constantBufferSceneData.DiffuseColor = DirectX::XMFLOAT3(&mesh.MeshMaterial->DiffuseColor.GetInternalVec()[0]);
+					constantBufferSceneData.DiffuseColor = mesh.MeshMaterial->DiffuseColor.GetInternalVec();
 					// Prepare the constant buffer to send it to the graphics device.
 					context->UpdateSubresource1(
 						m_constantBuffer.Get(),
@@ -490,15 +491,17 @@ namespace Moonlight
 
 					mesh.SingleMesh->Draw(mesh.MeshMaterial);
 
-					shape->Draw(XMMatrixTranspose(XMMatrixIdentity()), DirectX::XMLoadFloat4x4(&constantBufferSceneData.view), DirectX::XMLoadFloat4x4(&constantBufferSceneData.projection), Colors::Gray, nullptr, true);
+					//shape->Draw(XMMatrixTranspose(XMMatrixIdentity()), DirectX::XMLoadFloat4x4(&constantBufferSceneData.view), DirectX::XMLoadFloat4x4(&constantBufferSceneData.projection), Colors::Gray, nullptr, true);
 				}
 			}
-
-			for (const DebugColliderCommand& collider : DebugColliders)
+			if (camera.Projection == ProjectionType::Perspective)
 			{
-				shape->Draw(XMMatrixTranspose(XMMatrixIdentity()), DirectX::XMLoadFloat4x4(&constantBufferSceneData.view), DirectX::XMLoadFloat4x4(&constantBufferSceneData.projection), Colors::Gray, nullptr, true);
+				for (const DebugColliderCommand& collider : DebugColliders)
+				{
+					shape->Draw(XMMatrixTranspose(collider.Transform), DirectX::XMLoadFloat4x4(&constantBufferSceneData.view), DirectX::XMLoadFloat4x4(&constantBufferSceneData.projection), Colors::Gray, nullptr, true);
+				}
 			}
-
+			m_device->ResetCullingMode();
 			m_device->GetD3DDeviceContext()->OMSetBlendState(m_device->TransparentBlendState, Colors::Black, 0xffffffff);
 
 			for (const MeshCommand& mesh : transparentMeshes)
@@ -524,7 +527,7 @@ namespace Moonlight
 						constantBufferSceneData.HasSpecMap = TRUE;
 					}
 					constantBufferSceneData.HasAlphaMap = TRUE;
-					constantBufferSceneData.DiffuseColor = DirectX::XMFLOAT3(&mesh.MeshMaterial->DiffuseColor.GetInternalVec()[0]);
+					constantBufferSceneData.DiffuseColor = mesh.MeshMaterial->DiffuseColor.GetInternalVec();
 
 					// Prepare the constant buffer to send it to the graphics device.
 					context->UpdateSubresource1(

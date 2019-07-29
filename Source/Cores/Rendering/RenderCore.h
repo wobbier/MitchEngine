@@ -29,6 +29,8 @@ public:
 	virtual void OnDeviceLost() override;
 	virtual void OnDeviceRestored() override;
 
+	virtual void OnStop() override;
+
 private:
 	
 	Moonlight::Renderer* m_renderer;

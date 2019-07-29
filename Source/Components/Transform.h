@@ -2,13 +2,13 @@
 #include "ECS/Component.h"
 
 #define GLM_ENABLE_EXPERIMENTAL 1
-#include <glm.hpp>
-#include <gtx/quaternion.hpp>
 #include "Dementia.h"
 #include <DirectXMath.h>
 #include "Math/Vector3.h"
 #include "ECS/ComponentDetail.h"
 #include "Utils/HavanaUtils.h"
+#include "Math/Quaternion.h"
+#include "Math/Matirx4.h"
 
 class Transform :
 	public Component<Transform>
@@ -60,9 +60,9 @@ public:
 	Vector3 Scale;
 	Vector3 Rotation;
 
-	glm::mat4 WorldTransform;
+	Matrix4 WorldTransform;
 	std::string Name;
-	DirectX::XMMATRIX GetMatrix();
+	Matrix4 GetMatrix();
 
 	virtual void Serialize(json& outJson) final
 	{
@@ -78,19 +78,7 @@ public:
 	}
 	
 	void SetName(const std::string& name);
-	void SetWorldTransform(glm::mat4& NewWorldTransform);
-
-	glm::mat4 Transform::GetMatrix(DirectX::XMMATRIX& Mat)
-	{
-		DirectX::XMFLOAT4X4 fView;
-		DirectX::XMStoreFloat4x4(&fView, Mat);
-		glm::mat4 mat = glm::mat4(
-			fView._11, fView._12, fView._13, fView._14,
-			fView._21, fView._22, fView._23, fView._24,
-			fView._31, fView._32, fView._33, fView._34,
-			fView._41, fView._42, fView._43, fView._44);
-		return mat;
-	}
+	void SetWorldTransform(Matrix4& NewWorldTransform);
 
 private:
 #if ME_EDITOR

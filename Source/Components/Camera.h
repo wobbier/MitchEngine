@@ -1,5 +1,4 @@
 #pragma once
-#include <gtc/matrix_transform.hpp>
 
 #include "ECS/Component.h"
 #include "ECS/ComponentDetail.h"
@@ -22,6 +21,7 @@ public:
 	Vector3 Position;
 	Vector3 Front;
 	Vector3 Up;
+	Vector3 ClearColor;
 	float Zoom = 45.0f;
 	float Yaw = -90.f;
 	float Pitch = 0.f;
@@ -42,6 +42,7 @@ public:
 
 	Moonlight::SkyBox* Skybox = nullptr;
 	Moonlight::ProjectionType Projection = Moonlight::ProjectionType::Perspective;
+	Moonlight::ClearColorType ClearType = Moonlight::ClearColorType::Color;
 
 #if ME_EDITOR
 	virtual void OnEditorInspect() final;

@@ -31,7 +31,7 @@ void Camera::Init()
 
 Matrix4 Camera::GetViewMatrix()
 {
-	return Matrix4(glm::lookAt(Position.GetInternalVec(), Position.GetInternalVec() + Front.GetInternalVec(), Up.GetInternalVec()));
+	return Matrix4();//glm::lookAt(Position.GetInternalVec(), Position.GetInternalVec() + Front.GetInternalVec(), Up.GetInternalVec()));
 }
 
 void Camera::LookAt(const Vector3& TargetPosition)
@@ -99,23 +99,37 @@ void Camera::OnEditorInspect()
 		ImGui::SliderFloat("Size", &OrthographicSize, 0.1f, 200.0f);
 	}
 
-	static std::vector<Path> Textures;
-	Path path = Path("Assets");
-	if (Textures.empty())
+	if (ImGui::BeginCombo("##ClearType", (ClearType == Moonlight::ClearColorType::Color) ? "Color" : "Skybox"))
 	{
-		Textures.push_back(Path(""));
-		for (const auto& entry : std::filesystem::recursive_directory_iterator(path.FullPath))
+		if (ImGui::Selectable("Color", (ClearType == Moonlight::ClearColorType::Color)))
 		{
-			Path filePath(entry.path().string());
-			if ((filePath.LocalPath.rfind(".png") != std::string::npos || filePath.LocalPath.rfind(".jpg") != std::string::npos)
-				&& filePath.LocalPath.rfind(".meta") == std::string::npos)
-			{
-				Textures.push_back(filePath);
-			}
+			ClearType = Moonlight::ClearColorType::Color;
 		}
+		if (ImGui::Selectable("Skybox", (ClearType == Moonlight::ClearColorType::Skybox)))
+		{
+			ClearType = Moonlight::ClearColorType::Skybox;
+		}
+		ImGui::EndCombo();
 	}
 
+	if(ClearType == Moonlight::ClearColorType::Skybox)
 	{
+		static std::vector<Path> Textures;
+		Path path = Path("Assets");
+		if (Textures.empty())
+		{
+			Textures.push_back(Path(""));
+			for (const auto& entry : std::filesystem::recursive_directory_iterator(path.FullPath))
+			{
+				Path filePath(entry.path().string());
+				if ((filePath.LocalPath.rfind(".png") != std::string::npos || filePath.LocalPath.rfind(".jpg") != std::string::npos)
+					&& filePath.LocalPath.rfind(".meta") == std::string::npos)
+				{
+					Textures.push_back(filePath);
+				}
+			}
+		}
+
 		if (ImGui::BeginCombo("##SkyboxTexture", ""))
 		{
 			for (int n = 0; n < Textures.size(); n++)
@@ -151,6 +165,10 @@ void Camera::OnEditorInspect()
 		ImGui::ImageButton(((Skybox) ? (void*)Skybox->SkyMaterial->GetTexture(Moonlight::TextureType::Diffuse)->ShaderResourceView : nullptr), ImVec2(30, 30));
 		ImGui::SameLine();
 		ImGui::Text("Skybox Texture");
+	}
+	else if (ClearType == Moonlight::ClearColorType::Color)
+	{
+		ImGui::ColorEdit3("Clear Color", &ClearColor[0]);
 	}
 }
 

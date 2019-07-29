@@ -51,6 +51,15 @@ void Rigidbody::SetScale(Vector3 InScale)
 	}
 }
 
+void Rigidbody::SetMass(float InMass)
+{
+	Mass = InMass;
+	if (InternalRigidbody)
+	{
+		InternalRigidbody->setMassProps(InMass, btVector3());
+	}
+}
+
 void Rigidbody::CreateObject(const Vector3& Position, Vector3& Rotation, btDiscreteDynamicsWorld* world)
 {
 	switch (Type)
@@ -67,10 +76,9 @@ void Rigidbody::CreateObject(const Vector3& Position, Vector3& Rotation, btDiscr
 
 	btDefaultMotionState* fallMotionState =
 		new btDefaultMotionState(btTransform(btQuaternion(Rotation.X(), Rotation.Y(), Rotation.Z()), btVector3(Position.X(), Position.Y(), Position.Z())));
-	btScalar mass = 10;
 	btVector3 fallInertia(0, 0, 0);
-	fallShape->calculateLocalInertia(mass, fallInertia);
-	btRigidBody::btRigidBodyConstructionInfo fallRigidBodyCI(mass, fallMotionState, fallShape, fallInertia);
+	fallShape->calculateLocalInertia(Mass, fallInertia);
+	btRigidBody::btRigidBodyConstructionInfo fallRigidBodyCI(Mass, fallMotionState, fallShape, fallInertia);
 	InternalRigidbody = new btRigidBody(fallRigidBodyCI);
 	m_world = world;
 

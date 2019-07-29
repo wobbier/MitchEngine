@@ -49,6 +49,7 @@ public:
 
 	void Simulate();
 	void Start();
+	void Stop();
 
 	void Destroy();
 	void Cleanup();

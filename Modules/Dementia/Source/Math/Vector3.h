@@ -1,5 +1,6 @@
 #pragma once
-#include <glm.hpp>
+#include <d3d11.h>
+#include <SimpleMath.h>
 #include "LinearMath/btVector3.h"
 
 class Vector3
@@ -22,7 +23,7 @@ public:
 	}
 
 	// #TODO Make this private
-	Vector3(const glm::vec3& other)
+	Vector3(const DirectX::SimpleMath::Vector3& other)
 		: m_vector(std::move(other))
 	{
 	}
@@ -80,70 +81,92 @@ public:
 
 	const float X() const
 	{
-		return m_vector[0];
+		return m_vector.x;
 	}
 
 	const float Y() const
 	{
-		return m_vector[1];
+		return m_vector.y;
 	}
 
 	const float Z() const
 	{
-		return m_vector[2];
+		return m_vector.z;
 	}
 
-	void SetX(float x)
+	inline void SetX(float x)
 	{
-		m_vector[0] = x;
+		m_vector.x = x;
 	}
 
-	void SetY(float y)
+	inline void SetY(float y)
 	{
-		m_vector[1] = y;
+		m_vector.y = y;
 	}
 
-	void SetZ(float z)
+	inline void SetZ(float z)
 	{
-		m_vector[2] = z;
+		m_vector.z = z;
 	}
 
 	float& operator[](int index)
 	{
-		return m_vector[index];
+		switch (index)
+		{
+		case 0:
+			return m_vector.x;
+		case 1:
+			return m_vector.y;
+		default:
+			return m_vector.z;
+		}
 	}
 
 	const float& operator[](int index) const
 	{
-		return m_vector[index];
+		switch (index)
+		{
+		case 0:
+			return m_vector.x;
+		case 1:
+			return m_vector.y;
+		default:
+			return m_vector.z;
+		}
 	}
 
 	Vector3 Cross(const Vector3& other)
 	{
-		return Vector3(glm::cross(m_vector, other.m_vector));
+		DirectX::SimpleMath::Vector3 vec = m_vector.Cross(other.GetInternalVec());
+		
+		return Vector3(vec);
 	}
 
-	const float Length() const
+	inline const float Length() const
 	{
-		return glm::length(m_vector);
+		return m_vector.Length();
 	}
 
 	void Normalize()
 	{
-		m_vector = glm::normalize(m_vector);
+		DirectX::SimpleMath::Vector3 vec;
+		m_vector.Normalize(vec);
+		m_vector = vec;
 	}
 
 	Vector3 Normalized() const
 	{
-		return Vector3(glm::normalize(m_vector));
+		DirectX::SimpleMath::Vector3 vec;
+		m_vector.Normalize(vec);
+		return Vector3(vec);
 	}
 
-	const glm::vec3& GetInternalVec() const
+	const DirectX::SimpleMath::Vector3& GetInternalVec() const
 	{
 		return m_vector;
 	}
 private:
-	glm::vec3 m_vector;
+	DirectX::SimpleMath::Vector3 m_vector;
 };
 
 inline Vector3 operator*(float lhs, const Vector3 rhs)

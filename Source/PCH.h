@@ -58,14 +58,6 @@
 #include <unordered_map>
 #include <iostream>
 
-// glm
-#define GLM_ENABLE_EXPERIMENTAL 1
-#include <glm.hpp>
-#include <gtc/matrix_transform.hpp>
-#include <gtc/type_ptr.hpp>
-#include <gtx/rotate_vector.hpp>
-#include <gtx/quaternion.hpp>
-
 #include <nlohmann/json.hpp>
 
 //#include "ECS/ComponentDetail.h"

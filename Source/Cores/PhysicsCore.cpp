@@ -5,7 +5,8 @@
 #include "LinearMath/btScalar.h"
 #include "RenderCommands.h"
 #include "Engine/Engine.h"
-#include "glm.hpp"
+#include "Math/Quaternion.h"
+#include "Math/Matirx4.h"
 
 #define M_PI 3.14159
 #define RADIANS_TO_DEGREES(__ANGLE__) ((__ANGLE__) / M_PI * 180.0)
@@ -63,31 +64,36 @@ void PhysicsCore::Update(float dt)
 
 		if (TransformComponent.IsDirty)
 		{
+			btTransform trans;
 			Vector3 transPos = TransformComponent.GetPosition();
-			trans.setOrigin(btVector3(transPos.X(), transPos.Y(), transPos.Z()));
 			trans.setRotation(btQuaternion(TransformComponent.Rotation.X(), TransformComponent.Rotation.Y(), TransformComponent.Rotation.Z()));
+			trans.setOrigin(btVector3(transPos.X(), transPos.Y(), transPos.Z()));
 			rigidbody->setWorldTransform(trans);
 			rigidbody->activate();
 		}
 		else
 		{
+			btTransform& trans = rigidbody->getWorldTransform();
 			btQuaternion rot;
 			trans.getBasis().getRotation(rot);
 			Vector3 bulletPosition = Vector3(trans.getOrigin().x(), trans.getOrigin().y(), trans.getOrigin().z());
 			TransformComponent.SetPosition(bulletPosition);
 			btScalar x, y, z;
-			rot.getEulerZYX(x, y, z);
+			rot.getEulerZYX(z, y, x);
 			TransformComponent.SetRotation(Vector3(x, y, z));
-			Transform tempTrans;
-			tempTrans.SetPosition(bulletPosition);
+			//Transform tempTrans;
+			//tempTrans.SetPosition(bulletPosition);
 
-			glm::mat4 mat = glm::mat4(1.f);
-			glm::quat rot2(tempTrans.Rotation.GetInternalVec());
-			mat = glm::rotate(mat, glm::angle(rot2), glm::axis(rot2));
-			mat = glm::translate(mat, tempTrans.GetWorldPosition().GetInternalVec());
-			mat = glm::scale(mat, tempTrans.Scale.GetInternalVec());
-			tempTrans.SetWorldTransform(mat);
-			GetEngine().GetRenderer().UpdateMatrix(RigidbodyComponent.DebugColliderId, tempTrans.GetMatrix());
+			//Matrix4 mat;
+			//Quaternion rot2(tempTrans.Rotation.GetInternalVec());
+			//mat.GetInternalMatrix().CreateWorld(tempTrans.GetPosition().GetInternalVec(), tempTrans.Rotation.GetInternalVec().Forward, tempTrans.Rotation.GetInternalVec().Up);
+			//tempTrans.SetWorldTransform(mat);
+			//DirectX::SimpleMath::Matrix id = DirectX::XMMatrixIdentity();
+			//DirectX::SimpleMath::Matrix rot = DirectX::SimpleMath::Matrix::CreateFromQuaternion(XMQuaternionRotationRollPitchYawFromVector(tempTrans.Rotation.GetInternalVec()));
+			//DirectX::SimpleMath::Matrix scale = DirectX::SimpleMath::Matrix::CreateScale(Child->GetScale().GetInternalVec());
+			//DirectX::SimpleMath::Matrix pos = XMMatrixTranslationFromVector(Child->GetPosition().GetInternalVec());
+			//Child->SetWorldTransform(Matrix4((rot * scale * pos) * CurrentTransform->WorldTransform.GetInternalMatrix()));
+			GetEngine().GetRenderer().UpdateMatrix(RigidbodyComponent.DebugColliderId, TransformComponent.GetMatrix().GetInternalMatrix());
 		}
 	}
 

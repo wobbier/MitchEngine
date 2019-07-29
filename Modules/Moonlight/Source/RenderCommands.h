@@ -3,6 +3,7 @@
 #include <DirectXMath.h>
 #include "Math/Vector3.h"
 #include "Math/Vector2.h"
+#include "Math/Matirx4.h"
 
 namespace Moonlight { class ShaderCommand; }
 
@@ -21,7 +22,7 @@ namespace Moonlight
 
 	struct DebugColliderCommand
 	{
-		DirectX::XMMATRIX Transform;
+		DirectX::SimpleMath::Matrix Transform;
 	};
 
 	struct MeshCommand
@@ -29,7 +30,7 @@ namespace Moonlight
 		MeshData* SingleMesh = nullptr;
 		ShaderCommand* MeshShader = nullptr;
 		Material* MeshMaterial = nullptr;
-		DirectX::XMMATRIX Transform;
+		DirectX::SimpleMath::Matrix Transform;
 	};
 
 	struct LightCommand
