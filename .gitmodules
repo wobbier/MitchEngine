@@ -1,7 +1,3 @@
-[submodule "ThirdParty/GLM"]
-	path = ThirdParty/GLM
-	url = https://github.com/g-truc/glm.git
-	ignore = dirty
 [submodule "ThirdParty/Bullet"]
 	path = ThirdParty/Bullet
 	url = https://github.com/bulletphysics/bullet3.git
