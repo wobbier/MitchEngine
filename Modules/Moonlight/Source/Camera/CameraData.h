@@ -12,11 +12,19 @@ namespace Moonlight
 		Orthographic
 	};
 
+	enum class ClearColorType : uint8_t
+	{
+		Color = 0,
+		Skybox
+	};
+
 	struct CameraData
 	{
 		Vector3 Position;
 		Vector3 Front;
 		Vector3 Up;
+		Vector3 ClearColor;
+		ClearColorType ClearType = ClearColorType::Color;
 		Vector2 OutputSize;
 		ProjectionType Projection = ProjectionType::Perspective;
 		float FOV = 45.0f;

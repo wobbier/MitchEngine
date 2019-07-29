@@ -79,7 +79,7 @@ void PhysicsCore::Update(float dt)
 			Vector3 bulletPosition = Vector3(trans.getOrigin().x(), trans.getOrigin().y(), trans.getOrigin().z());
 			TransformComponent.SetPosition(bulletPosition);
 			btScalar x, y, z;
-			rot.getEulerZYX(x, y, z);
+			rot.getEulerZYX(z, y, x);
 			TransformComponent.SetRotation(Vector3(x, y, z));
 			//Transform tempTrans;
 			//tempTrans.SetPosition(bulletPosition);

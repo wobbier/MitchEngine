@@ -145,12 +145,13 @@ namespace Moonlight
 		auto context = m_device->GetD3DDeviceContext();
 
 		//float darkGrey = (0.0f / 255.0f);
-		DirectX::XMVECTORF32 color = Colors::Black;//{ {darkGrey, darkGrey, darkGrey, 1.0f} };
+		DirectX::SimpleMath::Color clearColor = DirectX::SimpleMath::Color(mainCamera.ClearColor.GetInternalVec());//{ {darkGrey, darkGrey, darkGrey, 1.0f} };
+		DirectX::XMVECTORF32 color = DirectX::Colors::Black;// SimpleMath::Color(mainCamera.ClearColor.GetInternalVec());//{ {darkGrey, darkGrey, darkGrey, 1.0f} };
 
 		// Clear the back buffer and depth stencil view.
 		context->ClearRenderTargetView(m_device->GetBackBufferRenderTargetView(), color);
 		context->ClearRenderTargetView(m_framebuffer->RenderTargetView.Get(), color);
-		context->ClearRenderTargetView(m_framebuffer->ColorRenderTargetView.Get(), color);
+		context->ClearRenderTargetView(m_framebuffer->ColorRenderTargetView.Get(), clearColor);
 		context->ClearRenderTargetView(m_framebuffer->NormalRenderTargetView.Get(), color);
 		context->ClearRenderTargetView(m_framebuffer->SpecularRenderTargetView.Get(), color);
 
@@ -493,12 +494,14 @@ namespace Moonlight
 					//shape->Draw(XMMatrixTranspose(XMMatrixIdentity()), DirectX::XMLoadFloat4x4(&constantBufferSceneData.view), DirectX::XMLoadFloat4x4(&constantBufferSceneData.projection), Colors::Gray, nullptr, true);
 				}
 			}
-
-			for (const DebugColliderCommand& collider : DebugColliders)
+			if (camera.Projection == ProjectionType::Perspective)
 			{
-				shape->Draw(collider.Transform, DirectX::XMLoadFloat4x4(&constantBufferSceneData.view), DirectX::XMLoadFloat4x4(&constantBufferSceneData.projection), Colors::Gray, nullptr, true);
+				for (const DebugColliderCommand& collider : DebugColliders)
+				{
+					shape->Draw(XMMatrixTranspose(collider.Transform), DirectX::XMLoadFloat4x4(&constantBufferSceneData.view), DirectX::XMLoadFloat4x4(&constantBufferSceneData.projection), Colors::Gray, nullptr, true);
+				}
 			}
-
+			m_device->ResetCullingMode();
 			m_device->GetD3DDeviceContext()->OMSetBlendState(m_device->TransparentBlendState, Colors::Black, 0xffffffff);
 
 			for (const MeshCommand& mesh : transparentMeshes)

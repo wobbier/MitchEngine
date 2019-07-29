@@ -28,6 +28,7 @@ public:
 	void ApplyForce(const Vector3& direction, float force);
 	unsigned int Id = 0;
 	void SetScale(Vector3 InScale);
+	void SetMass(float InMass);
 
 	Matrix4 GetMat()
 	{
@@ -59,6 +60,8 @@ protected:
 	virtual void OnEditorInspect() final;
 
 #endif
+private:
+	float Mass = 10.0f;
 };
 
 ME_REGISTER_COMPONENT(Rigidbody)

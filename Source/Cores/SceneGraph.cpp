@@ -39,10 +39,10 @@ void SceneGraph::UpdateRecursively(Transform* CurrentTransform)
 			OPTICK_EVENT("SceneGraph::Update::IsDirty");
 			Quaternion quat = Quaternion(Child->Rotation);
 			DirectX::SimpleMath::Matrix id = DirectX::XMMatrixIdentity();
-			DirectX::SimpleMath::Matrix rot = DirectX::SimpleMath::Matrix::CreateFromQuaternion(XMQuaternionRotationRollPitchYawFromVector(Child->Rotation.GetInternalVec()));// , Child->Rotation.Y(), Child->Rotation.Z());
+			DirectX::SimpleMath::Matrix rot = DirectX::SimpleMath::Matrix::CreateFromQuaternion(DirectX::SimpleMath::Quaternion::CreateFromYawPitchRoll(Child->Rotation[1], Child->Rotation[0], Child->Rotation[2]));// , Child->Rotation.Y(), Child->Rotation.Z());
 			DirectX::SimpleMath::Matrix scale = DirectX::SimpleMath::Matrix::CreateScale(Child->GetScale().GetInternalVec());
 			DirectX::SimpleMath::Matrix pos = XMMatrixTranslationFromVector(Child->GetPosition().GetInternalVec());
-			Child->SetWorldTransform(Matrix4((rot * scale * pos) * CurrentTransform->WorldTransform.GetInternalMatrix()));
+			Child->SetWorldTransform(Matrix4((rot *scale* pos) * CurrentTransform->WorldTransform.GetInternalMatrix()));
 		}
 		UpdateRecursively(Child);
 	}

@@ -90,7 +90,8 @@ void RenderCore::Update(float dt)
 			Rigidbody& rigidbody = InEntity.GetComponent<Rigidbody>();
 			if (rigidbody.IsRigidbodyInitialized())
 			{
-				m_renderer->UpdateMatrix(rigidbody.Id, rigidbody.GetMat().GetInternalMatrix());
+				// TODO: Use the matrix from the rigidbody
+				m_renderer->UpdateMatrix(rigidbody.Id, transform.GetMatrix().GetInternalMatrix());
 			}
 		}
 		if (InEntity.HasComponent<DirectionalLight>())
