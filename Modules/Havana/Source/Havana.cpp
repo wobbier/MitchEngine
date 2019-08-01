@@ -820,6 +820,10 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 					{
 						RenderTextureName = "Diffuse";
 					}
+					if (ImGui::MenuItem("Position", "", false))
+					{
+						RenderTextureName = "Position";
+					}
 					if (ImGui::MenuItem("Normals", "", false))
 					{
 						RenderTextureName = "Normals";
@@ -844,6 +848,10 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 			else if (RenderTextureName == "Diffuse")
 			{
 				srv = Renderer->m_resolvebuffer->ColorShaderResourceView;
+			}
+			else if (RenderTextureName == "Position")
+			{
+				srv = Renderer->m_resolvebuffer->PositionShaderResourceView;
 			}
 			else if (RenderTextureName == "Normals")
 			{
@@ -903,6 +911,10 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 					{
 						RenderTextureName = "Diffuse";
 					}
+					if (ImGui::MenuItem("Position", "", false))
+					{
+						RenderTextureName = "Position";
+					}
 					if (ImGui::MenuItem("Normals", "", false))
 					{
 						RenderTextureName = "Normals";
@@ -927,6 +939,10 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 			else if (RenderTextureName == "Diffuse")
 			{
 				srv = Renderer->SceneResolveViewRTT->ColorShaderResourceView;
+			}
+			else if (RenderTextureName == "Position")
+			{
+				srv = Renderer->SceneResolveViewRTT->PositionShaderResourceView;
 			}
 			else if (RenderTextureName == "Normals")
 			{

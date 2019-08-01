@@ -152,11 +152,13 @@ namespace Moonlight
 		context->ClearRenderTargetView(m_device->GetBackBufferRenderTargetView(), color);
 		context->ClearRenderTargetView(m_framebuffer->RenderTargetView.Get(), color);
 		context->ClearRenderTargetView(m_framebuffer->ColorRenderTargetView.Get(), clearColor);
+		context->ClearRenderTargetView(m_framebuffer->PositionRenderTargetView.Get(), clearColor);
 		context->ClearRenderTargetView(m_framebuffer->NormalRenderTargetView.Get(), color);
 		context->ClearRenderTargetView(m_framebuffer->SpecularRenderTargetView.Get(), color);
 
 		context->ClearRenderTargetView(SceneViewRTT->RenderTargetView.Get(), color);
 		context->ClearRenderTargetView(SceneViewRTT->ColorRenderTargetView.Get(), color);
+		context->ClearRenderTargetView(SceneViewRTT->PositionRenderTargetView.Get(), color);
 		context->ClearRenderTargetView(SceneViewRTT->NormalRenderTargetView.Get(), color);
 		context->ClearRenderTargetView(SceneViewRTT->SpecularRenderTargetView.Get(), color);
 
@@ -299,10 +301,12 @@ namespace Moonlight
 		m_device->GetD3DDeviceContext()->DiscardView1(m_device->GetBackBufferRenderTargetView(), nullptr, 0);
 		m_device->GetD3DDeviceContext()->DiscardView1(m_resolvebuffer->ShaderResourceView.Get(), nullptr, 0);
 		m_device->GetD3DDeviceContext()->DiscardView1(m_resolvebuffer->ColorShaderResourceView.Get(), nullptr, 0);
+		m_device->GetD3DDeviceContext()->DiscardView1(m_resolvebuffer->PositionShaderResourceView.Get(), nullptr, 0);
 		m_device->GetD3DDeviceContext()->DiscardView1(m_resolvebuffer->NormalShaderResourceView.Get(), nullptr, 0);
 		m_device->GetD3DDeviceContext()->DiscardView1(m_resolvebuffer->SpecularShaderResourceView.Get(), nullptr, 0);
 		m_device->GetD3DDeviceContext()->DiscardView1(SceneResolveViewRTT->ShaderResourceView.Get(), nullptr, 0);
 		m_device->GetD3DDeviceContext()->DiscardView1(SceneResolveViewRTT->ColorShaderResourceView.Get(), nullptr, 0);
+		m_device->GetD3DDeviceContext()->DiscardView1(SceneResolveViewRTT->PositionShaderResourceView.Get(), nullptr, 0);
 		m_device->GetD3DDeviceContext()->DiscardView1(SceneResolveViewRTT->NormalShaderResourceView.Get(), nullptr, 0);
 		m_device->GetD3DDeviceContext()->DiscardView1(SceneResolveViewRTT->SpecularShaderResourceView.Get(), nullptr, 0);
 
@@ -380,8 +384,8 @@ namespace Moonlight
 		const XMVECTORF32 at = { camera.Position.X() + camera.Front.X(), camera.Position.Y() + camera.Front.Y(), camera.Position.Z() + camera.Front.Z(), 0.0f };
 		const XMVECTORF32 up = { camera.Up.X(), camera.Up.Y(), camera.Up.Z(), 0 };
 
-		ID3D11RenderTargetView** targets[3] = { ViewRTT->ColorRenderTargetView.GetAddressOf(), ViewRTT->NormalRenderTargetView.GetAddressOf(), ViewRTT->SpecularRenderTargetView.GetAddressOf() };
-		context->OMSetRenderTargets(3, targets[0], ViewRTT->DepthStencilView.Get());
+		ID3D11RenderTargetView** targets[4] = { ViewRTT->ColorRenderTargetView.GetAddressOf(), ViewRTT->NormalRenderTargetView.GetAddressOf(), ViewRTT->SpecularRenderTargetView.GetAddressOf(), ViewRTT->PositionRenderTargetView.GetAddressOf() };
+		context->OMSetRenderTargets(4, *targets, ViewRTT->DepthStencilView.Get());
 
 		CD3D11_VIEWPORT screenViewport = CD3D11_VIEWPORT(
 			0.0f,
@@ -455,7 +459,7 @@ namespace Moonlight
 					}
 					else
 					{
-						constantBufferSceneData.HasSpecMap = TRUE;
+						constantBufferSceneData.HasSpecMap = FALSE;
 					}
 					constantBufferSceneData.HasAlphaMap = FALSE;
 					constantBufferSceneData.DiffuseColor = mesh.MeshMaterial->DiffuseColor.GetInternalVec();
@@ -524,7 +528,7 @@ namespace Moonlight
 					}
 					else
 					{
-						constantBufferSceneData.HasSpecMap = TRUE;
+						constantBufferSceneData.HasSpecMap = FALSE;
 					}
 					constantBufferSceneData.HasAlphaMap = TRUE;
 					constantBufferSceneData.DiffuseColor = mesh.MeshMaterial->DiffuseColor.GetInternalVec();
@@ -572,7 +576,6 @@ namespace Moonlight
 			ViewRTT->Height
 		);
 		context->RSSetViewports(1, &finalGameRenderViewport);
-		//m_perFrameBufferData.light = light;
 		context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		context->UpdateSubresource1(m_perFrameBuffer.Get(), 0, NULL, &Sunlight, 0, 0, 0);
 		context->PSSetConstantBuffers1(0, 1, m_perFrameBuffer.GetAddressOf(), nullptr, nullptr);
@@ -585,6 +588,7 @@ namespace Moonlight
 		context->PSSetShaderResources(1, 1, ResolveViewRTT->NormalShaderResourceView.GetAddressOf());
 		context->PSSetShaderResources(2, 1, ResolveViewRTT->SpecularShaderResourceView.GetAddressOf());
 		context->PSSetShaderResources(3, 1, ViewRTT->DepthShaderResourceView.GetAddressOf());
+		context->PSSetShaderResources(4, 1, ResolveViewRTT->PositionShaderResourceView.GetAddressOf());
 		context->PSSetSamplers(0, 1, m_computeSampler.GetAddressOf());
 		context->Draw(3, 0);
 
@@ -603,6 +607,10 @@ namespace Moonlight
 		if (ViewRTT->SpecularTexture != ResolveViewRTT->SpecularTexture)
 		{
 			context->ResolveSubresource(ResolveViewRTT->SpecularTexture.Get(), 0, ViewRTT->SpecularTexture.Get(), 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
+		}
+		if (ViewRTT->PositionTexture != ResolveViewRTT->PositionTexture)
+		{
+			context->ResolveSubresource(ResolveViewRTT->PositionTexture.Get(), 0, ViewRTT->PositionTexture.Get(), 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
 		}
 
 		if (false)

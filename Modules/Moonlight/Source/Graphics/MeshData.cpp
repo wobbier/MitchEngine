@@ -103,17 +103,30 @@ namespace Moonlight
 			{
 				OPTICK_EVENT("Mesh::Draw::Texture::ShaderResources");
 				context->PSSetShaderResources(0, 1, &diffuse->ShaderResourceView);
+				ID3D11ShaderResourceView* nullSRV[1] = { nullptr };
 				if (mat->GetTexture(TextureType::Normal))
 				{
 					context->PSSetShaderResources(1, 1, &mat->GetTexture(TextureType::Normal)->ShaderResourceView);
+				}
+				else
+				{
+					context->PSSetShaderResources(1, 1, nullSRV);
 				}
 				if (mat->GetTexture(TextureType::Opacity))
 				{
 					context->PSSetShaderResources(2, 1, &mat->GetTexture(TextureType::Opacity)->ShaderResourceView);
 				}
+				else
+				{
+					context->PSSetShaderResources(2, 1, nullSRV);
+				}
 				if (mat->GetTexture(TextureType::Specular))
 				{
 					context->PSSetShaderResources(3, 1, &mat->GetTexture(TextureType::Specular)->ShaderResourceView);
+				}
+				else
+				{
+					context->PSSetShaderResources(3, 1, nullSRV);
 				}
 				context->PSSetSamplers(0, 1, diffuse->SamplerState.GetAddressOf());
 			}

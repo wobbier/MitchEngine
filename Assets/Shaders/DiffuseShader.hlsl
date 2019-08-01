@@ -37,8 +37,9 @@ struct PixelShaderInput
 struct PSOUTPUT
 {
     float4 color : SV_TARGET0;
-    float4 normal : SV_TARGET1;
-    float4 spec : SV_TARGET2;
+    float4 normal : SV_TARGET2;
+    float4 spec : SV_TARGET3;
+    float4 position : SV_TARGET1;
 };
 
 // Simple shader to do vertex processing on the GPU.
@@ -76,6 +77,7 @@ PSOUTPUT main_ps(PixelShaderInput input)
     output.color = diffuse;
     output.color = float4(saturate(output.color.xyz * DiffuseColor), diffuseAlpha);
 
+
     if (hasAlphaMap)
     {
         diffuseAlpha = ObjAlphaMap.Sample(ObjSamplerState, input.texcoord).r;
@@ -97,13 +99,14 @@ PSOUTPUT main_ps(PixelShaderInput input)
 
     float3x3 texSpace = float3x3(input.tangent, biTangent, input.normal);
 
-    output.normal = float4(normalize(mul(normalMap, texSpace)), 1.0f);
+    output.normal = float4(normalize(mul(normalMap.xyz, texSpace)), 1.0f);
 	//output.normal = normalMap;
 
-    output.spec = float4(0.0f, 0.0f, 0.0f, 0.0f);
+    output.spec = float4(1.0f, 1.0f, 1.0f, 1.0f);
     if (hasSpecMap)
     {
         output.spec = ObjSpecularMap.Sample(ObjSamplerState, input.texcoord);
     }
+    output.position = float4(normalize(input.pos.xyz), 1.0);
     return output;
 }

@@ -83,8 +83,6 @@ namespace Moonlight
 		Microsoft::WRL::ComPtr<ID3D11Buffer> m_perFrameBuffer;
 		ModelViewProjectionConstantBuffer m_constantBufferData;
 		ModelViewProjectionConstantBuffer m_constantBufferSceneData;
-
-		LightBuffer m_perFrameBufferData;
 #endif
 
 		std::vector<DebugColliderCommand> DebugColliders;
