@@ -1,4 +1,3 @@
-#include "PCH.h"
 #include "Cores/EditorCore.h"
 #include "Components/Transform.h"
 #include "Engine/World.h"
@@ -16,6 +15,7 @@
 #include "World/Scene.h"
 #include "Components/Audio/AudioSource.h"
 #include "Mathf.h"
+#include "optick.h"
 
 EditorCore::EditorCore(Havana* editor)
 	: Base(ComponentFilter().Excludes<Transform>())

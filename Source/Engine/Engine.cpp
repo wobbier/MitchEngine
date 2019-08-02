@@ -15,7 +15,6 @@
 #include "Havana.h"
 #include "Components/Transform.h"
 #include "Dementia.h"
-#include "Cores/EditorCore.h"
 #include "HavanaEvents.h"
 #include "Components/Camera.h"
 #include "Components/Cameras/FlyingCamera.h"
