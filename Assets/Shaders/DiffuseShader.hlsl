@@ -57,6 +57,7 @@ PixelShaderInput main_vs(VertexShaderInput input)
     output.normal = mul(input.normal, model);
 
     output.tangent = mul(input.tangent, model);
+
 	// Pass the color through without modification.
     output.texcoord = input.texcoord;
     return output;
@@ -85,22 +86,20 @@ PSOUTPUT main_ps(PixelShaderInput input)
     output.color.a = diffuseAlpha;
 
     float4 normalMap = float4(input.normal, 1.0f);
+    output.normal = normalMap;
     if (hasNormalMap)
     {
         normalMap = ObjNormalMap.Sample(ObjSamplerState, input.texcoord);
+        
+        normalMap = (2.0f * normalMap) - 1.0f;
+
+        input.tangent = normalize(input.tangent - dot(input.tangent, input.normal) * input.normal);
+
+        float3 biTangent = cross(input.normal, input.tangent);
+        float3x3 texSpace = float3x3(input.tangent, biTangent, input.normal);
+
+        output.normal = float4(normalize(mul(normalMap.xyz, texSpace)), 0.0);
     }
-
-	//output.normal = normalMap;
-    normalMap = (2.0f * normalMap) - 1.0f;
-
-    input.tangent = normalize(input.tangent - dot(input.tangent, input.normal) * input.normal);
-
-    float3 biTangent = cross(input.normal, input.tangent);
-
-    float3x3 texSpace = float3x3(input.tangent, biTangent, input.normal);
-
-    output.normal = float4(normalize(mul(normalMap.xyz, texSpace)), 1.0f);
-	//output.normal = normalMap;
 
     output.spec = float4(1.0f, 1.0f, 1.0f, 1.0f);
     if (hasSpecMap)
