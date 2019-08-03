@@ -20,8 +20,10 @@
 #include "Cores/SceneGraph.h"
 #include "HavanaEvents.h"
 #include "RenderCommands.h"
+#include "Events/Event.h"
 
 EditorApp::EditorApp()
+	: InitialLevel("Assets/Test.lvl")
 {
 	std::vector<TypeId> events;
 	events.push_back(NewSceneEvent::GetEventId());
@@ -114,7 +116,7 @@ void EditorApp::OnInitialize()
 		evt.Fire();
 		GetEngine().GetWorld().lock()->AddCore<EditorCore>(*EditorSceneManager);
 		GetEngine().GetWorld().lock()->Start();
-		GetEngine().LoadScene("Assets/Test.lvl");
+		GetEngine().LoadScene(InitialLevel);
 	}
 	else
 	{
@@ -141,7 +143,10 @@ void EditorApp::StopGame()
 {
 	if (m_isGameRunning)
 	{
-		GetEngine().GetWorld().lock()->Stop();
+		NewSceneEvent evt;
+		evt.Fire();
+		GetEngine().LoadScene(InitialLevel);
+		//GetEngine().GetWorld().lock()->Stop();
 		m_isGameRunning = false;
 	}
 }
@@ -162,11 +167,8 @@ bool EditorApp::OnEvent(const BaseEvent& evt)
 	{
 		const NewSceneEvent& test = static_cast<const NewSceneEvent&>(evt);
 		GetEngine().LoadScene("");
-		GetEngine().GetWorld().lock()->Cleanup();
 		GetEngine().InitGame();
 		GetEngine().GetWorld().lock()->Simulate();
-
-		return true;
 	}
 
 	return false;

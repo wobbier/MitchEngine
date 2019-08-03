@@ -40,4 +40,5 @@ public:
 	virtual bool OnEvent(const BaseEvent& evt) override;
 	bool m_isGameRunning = false;
 	bool m_isGamePaused = false;
+	std::string InitialLevel;
 };

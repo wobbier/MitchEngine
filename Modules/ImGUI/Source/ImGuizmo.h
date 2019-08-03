@@ -42,7 +42,7 @@
 // -------------------------------------------------------------------------------------------
 // Example 
 #if 0
-void EditTransform(const Camera& camera, matrix_t& matrix)
+void EditTransform(const Camera & camera, matrix_t & matrix)
 {
 	static ImGuizmo::OPERATION mCurrentGizmoOperation(ImGuizmo::ROTATE);
 	static ImGuizmo::MODE mCurrentGizmoMode(ImGuizmo::WORLD);
@@ -140,16 +140,16 @@ namespace ImGuizmo
 	// ImGuizmo::RecomposeMatrixFromComponents(matrixTranslation, matrixRotation, matrixScale, gizmoMatrix.m16);
 	//
 	// These functions have some numerical stability issues for now. Use with caution.
-	IMGUI_API void DecomposeMatrixToComponents(const float *matrix, float *translation, float *rotation, float *scale);
-	IMGUI_API void RecomposeMatrixFromComponents(const float *translation, const float *rotation, const float *scale, float *matrix);
+	IMGUI_API void DecomposeMatrixToComponents(const float* matrix, float* translation, float* rotation, float* scale);
+	IMGUI_API void RecomposeMatrixFromComponents(const float* translation, const float* rotation, const float* scale, float* matrix);
 
 	IMGUI_API void SetRect(float x, float y, float width, float height);
 	// default is false
 	IMGUI_API void SetOrthographic(bool isOrthographic);
 
 	// Render a cube with face color corresponding to face normal. Usefull for debug/tests
-	IMGUI_API void DrawCube(const float *view, const float *projection, const float *matrix);
-	IMGUI_API void DrawGrid(const float *view, const float *projection, const float *matrix, const float gridSize);
+	IMGUI_API void DrawCube(const float* view, const float* projection, const float* matrix);
+	IMGUI_API void DrawGrid(const float* view, const float* projection, const float* matrix, const float gridSize);
 
 	// call it when you want a gizmo
 	// Needs view and projection matrices. 
@@ -169,5 +169,5 @@ namespace ImGuizmo
 		WORLD
 	};
 
-	IMGUI_API void Manipulate(const float *view, const float *projection, OPERATION operation, MODE mode, float *matrix, float *deltaMatrix = 0, float *snap = 0, float *localBounds = NULL, float *boundsSnap = NULL);
+	IMGUI_API void Manipulate(const float* view, const float* projection, OPERATION operation, MODE mode, float* matrix, float* deltaMatrix = 0, float* snap = 0, float* localBounds = NULL, float* boundsSnap = NULL);
 };

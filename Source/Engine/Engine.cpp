@@ -112,6 +112,7 @@ void Engine::Run()
 	m_game->OnStart();
 
 	GameClock.Reset();
+	float lastTime = GameClock.GetTimeInMilliseconds();
 	// Game loop
 	forever
 	{
@@ -129,7 +130,7 @@ void Engine::Run()
 		EventManager::GetInstance().FirePendingEvents();
 
 		float time = GameClock.GetTimeInMilliseconds();
-		const float deltaTime = GameClock.deltaTime = (time <= 0.0f || time >= 0.3) ? 0.0001f : time;
+		const float deltaTime = GameClock.deltaTime = (time <= 0.0f || time >= 0.3) ? 0.0001f : time - lastTime;
 
 		GameWorld->Simulate();
 
@@ -160,7 +161,7 @@ void Engine::Run()
 				m_game->PostRender();
 			}, MainCamera, EditorCamera);
 
-			Sleep(5);
+			Sleep(4);
 	}
 }
 

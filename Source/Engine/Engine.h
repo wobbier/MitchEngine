@@ -7,6 +7,7 @@
 #include "Events/EventReceiver.h"
 #include "World/Scene.h"
 #include "Camera/CameraData.h"
+#include <string>
 
 class Game;
 class IWindow;
@@ -59,7 +60,6 @@ private:
 	float AccumulatedTime = 0.0f;
 	float FrameTime = 0.0f;
 	bool m_isInitialized = false;
-
 	ME_SINGLETON_DEFINITION(Engine)
 };
 

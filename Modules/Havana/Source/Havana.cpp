@@ -1054,7 +1054,7 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 					//ImGuizmo::DrawGrid(&fView2._11, &fView._11, &idView._11, 10.f);
 					//ImGuizmo::DrawCube(&fView2._11, &fView._11, &idView._11);
 					ImGuizmo::Manipulate(&fView2._11, &fView._11, mCurrentGizmoOperation, mCurrentGizmoMode, &objView._11, &idView._11, useSnap ? &snap[0] : NULL);
-					//if (ImGui::IsWindowFocused() && ImGuizmo::IsUsing() && isMovingMouse)
+					if (ImGui::IsWindowFocused() && ImGuizmo::IsUsing()/* && isMovingMouse*/)
 					{
 						if (SelectedTransform)
 						{
@@ -1069,7 +1069,7 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 							prevMatrixRotation[1] = matrixRotation[1];
 							prevMatrixRotation[2] = matrixRotation[2];
 							//memcpy(matrixScale, prevMatrixScale, sizeof(float) * 3);
-							//SelectedTransform->SetPosition(Vector3(matrixTranslation[0], matrixTranslation[1], matrixTranslation[2]));
+							SelectedTransform->SetPosition(Vector3(matrixTranslation[0], matrixTranslation[1], matrixTranslation[2]));
 							//SelectedTransform->SetRotation(Vector3(matrixRotation[0], matrixRotation[1], matrixRotation[2]));
 							//SelectedTransform->SetRotation(Vector3(matrixRotation[0] * 180.f / DirectX::XM_PI, matrixRotation[1] * 180.f / DirectX::XM_PI, matrixRotation[2] * 180.f / DirectX::XM_PI));
 						}
@@ -1180,7 +1180,6 @@ bool Havana::OnEvent(const BaseEvent& evt)
 	{
 		const LoadSceneEvent& test = static_cast<const LoadSceneEvent&>(evt);
 		ClearSelection();
-		return true;
 	}
 	return false;
 }

@@ -184,8 +184,15 @@ void World::Cleanup()
 	for (auto& core : Cores)
 	{
 		//auto& Attr = EntityAttributes.Attributes[InEntity.GetId().Index];
+		
 		core.second->Clear();
 	}
+	for (auto& core : m_loadedCores)
+	{
+		core.second->OnStop();
+		Cores.erase(core.first);
+	}
+	m_loadedCores.clear();
 }
 
 void World::UpdateLoadedCores(float DeltaTime)
