@@ -113,7 +113,7 @@ links {
 if withDirectX then
   defines { "ME_DIRECTX" }
   links {
-    "d2d1", "d3d11", "dxgi", "windowscodecs", "dwrite"
+    "d2d1", "d3d11", "dxgi", "windowscodecs", "dwrite", "D3DCompiler"
   }
 end
 

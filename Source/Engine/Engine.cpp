@@ -153,7 +153,17 @@ void Engine::Run()
 
 #if !ME_EDITOR
 			Vector2 MainOutputSize = m_renderer->GetDevice().GetOutputSize();
-			MainCamera = { Camera::CurrentCamera->Position, Camera::CurrentCamera->Front, Camera::CurrentCamera->Up, MainOutputSize, Camera::CurrentCamera->GetFOV() };
+			MainCamera.Position = Camera::CurrentCamera->Position;
+			MainCamera.Front = Camera::CurrentCamera->Front;
+			MainCamera.Up = Camera::CurrentCamera->Up;
+			MainCamera.OutputSize = MainOutputSize;
+			MainCamera.FOV = Camera::CurrentCamera->GetFOV();
+			MainCamera.Skybox = Camera::CurrentCamera->Skybox;
+			MainCamera.ClearColor = Camera::CurrentCamera->ClearColor;
+			MainCamera.ClearType = Camera::CurrentCamera->ClearType;
+			MainCamera.Projection = Camera::CurrentCamera->Projection;
+			MainCamera.OrthographicSize = Camera::CurrentCamera->OrthographicSize;
+
 			EditorCamera = MainCamera;
 #endif
 

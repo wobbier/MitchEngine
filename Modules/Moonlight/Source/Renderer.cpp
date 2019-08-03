@@ -179,9 +179,9 @@ namespace Moonlight
 		DrawScene(context, m_constantBufferData, mainCamera, m_framebuffer, m_resolvebuffer);
 
 
-		context->ClearDepthStencilView(SceneViewRTT->DepthStencilView.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
-
 #if ME_EDITOR
+
+		context->ClearDepthStencilView(SceneViewRTT->DepthStencilView.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
 		//ID3D11RenderTargetView* const targets2[1] = { SceneViewRTT->renderTargetViewMap };
 		DrawScene(context, m_constantBufferSceneData, editorCamera, SceneViewRTT, SceneResolveViewRTT);
@@ -283,9 +283,9 @@ namespace Moonlight
 		//	Grid->Draw(GetDevice());
 		//}
 
+		GetDevice().GetD3DDeviceContext()->OMSetRenderTargets(1, m_device->m_d3dRenderTargetView.GetAddressOf(), nullptr);
 #endif
 
-		GetDevice().GetD3DDeviceContext()->OMSetRenderTargets(1, m_device->m_d3dRenderTargetView.GetAddressOf(), nullptr);
 
 		func();
 
@@ -580,7 +580,11 @@ namespace Moonlight
 		context->UpdateSubresource1(m_perFrameBuffer.Get(), 0, NULL, &Sunlight, 0, 0, 0);
 		context->PSSetConstantBuffers1(0, 1, m_perFrameBuffer.GetAddressOf(), nullptr, nullptr);
 		// post stuff
+#if ME_EDITOR
 		context->OMSetRenderTargets(1, ViewRTT->RenderTargetView.GetAddressOf(), nullptr);
+#else
+		context->OMSetRenderTargets(1, m_device->m_d3dRenderTargetView.GetAddressOf(), nullptr);
+#endif
 		context->IASetInputLayout(nullptr);
 		context->VSSetShader(m_lightingProgram.VertexShader.Get(), nullptr, 0);
 		context->PSSetShader(m_lightingProgram.PixelShader.Get(), nullptr, 0);

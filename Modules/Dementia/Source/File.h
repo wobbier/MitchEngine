@@ -14,7 +14,7 @@ public:
 
 	const std::string& Read()
 	{
-		if (!Data.empty() || !FilePath.IsFile)
+		if (!Data.empty())
 		{
 			return Data;
 		}
