@@ -16,11 +16,7 @@ class ResourceCache
 	~ResourceCache();
 
 public:
-	void Push();
-	void Pop();
-
-
-	size_t GetStackSize();
+	size_t GetCacheSize();
 
 	template<class T, typename... Args>
 	std::shared_ptr<T> Get(const Path& InFilePath, Args&& ... args);
@@ -29,7 +25,7 @@ public:
 
 private:
 
-	std::vector<std::map<std::string, std::shared_ptr<Resource>>> ResourceStack;
+	std::map<std::string, std::shared_ptr<Resource>> ResourceStack;
 	ME_SINGLETON_DEFINITION(ResourceCache)
 };
 
@@ -37,18 +33,15 @@ template<class T, typename... Args>
 std::shared_ptr<T> ResourceCache::Get(const Path& InFilePath, Args&& ... args)
 {
 	TypeId id = ClassTypeId<Resource>::GetTypeId<T>();
-	std::map<std::string, std::shared_ptr<Resource>>::iterator I;
-	for (int i = static_cast<int>(ResourceStack.size() - 1); i >= 0; i--)
+	auto I = ResourceStack.find(InFilePath.FullPath);
+	if (I != ResourceStack.end())
 	{
-		I = ResourceStack[i].find(InFilePath.FullPath);
-		if (I != ResourceStack[i].end())
-		{
-			std::shared_ptr<T> Res = std::dynamic_pointer_cast<T>(I->second);
-			return Res;
-		}
+		std::shared_ptr<T> Res = std::dynamic_pointer_cast<T>(I->second);
+		return Res;
 	}
+
 	std::shared_ptr<T> Res = std::make_shared<T>(InFilePath, std::forward<Args>(args)...);
 	Res->Resources = this;
-	ResourceStack[ResourceStack.size() - 1][InFilePath.FullPath] = Res;
+	ResourceStack[InFilePath.FullPath] = Res;
 	return Res;
 }

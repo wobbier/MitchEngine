@@ -48,7 +48,11 @@ Win32Window::Win32Window(std::string title, std::function<void(const Vector2&)> 
 
 	wc.hIcon = (HICON)LoadImage(
 		NULL,
+#if ME_EDITOR
 		StringUtils::ToWString(Path("Assets/Havana/Icon.ico").FullPath).c_str(),
+#else
+		NULL,
+#endif
 		IMAGE_ICON,
 		0,
 		0,

@@ -1,36 +1,24 @@
 #include "ResourceCache.h"
+#include "Pointers.h"
 
 ResourceCache::ResourceCache()
 {
-	Push();
 }
 
 ResourceCache::~ResourceCache()
 {
-	Pop();
-}
-
-void ResourceCache::Push()
-{
-	ResourceStack.push_back(std::map<std::string, std::shared_ptr<Resource>>());
-}
-
-void ResourceCache::Pop()
-{
-	if (ResourceStack.empty())
+	for (auto I : ResourceStack)
 	{
-		return;
+		if (I.second)
+		{
+			I.second->Resources = nullptr;
+			I.second.reset();
+		}
 	}
-
-	auto& V = ResourceStack[ResourceStack.size() - 1];
-	for (auto I = V.begin(); I != V.end(); ++I)
-	{
-		I->second.reset();
-	}
-	ResourceStack.pop_back();
+	ResourceStack.clear();
 }
 
-size_t ResourceCache::GetStackSize()
+size_t ResourceCache::GetCacheSize()
 {
 	return ResourceStack.size();
 }
@@ -38,13 +26,10 @@ size_t ResourceCache::GetStackSize()
 void ResourceCache::TryToDestroy(Resource* resource)
 {
 	std::map<std::string, std::shared_ptr<Resource>>::iterator I;
-	for (std::size_t i = ResourceStack.size() - 1; i >= 0; i--)
+	I = ResourceStack.find(resource->FilePath.FullPath);
+	if (I != ResourceStack.end())
 	{
-		I = ResourceStack[i].find(resource->FilePath.FullPath);
-		if (I != ResourceStack[i].end())
-		{
-			ResourceStack[i].erase(I);
-			return;
-		}
+		ResourceStack.erase(I);
+		return;
 	}
 }
