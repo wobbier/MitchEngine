@@ -11,6 +11,12 @@ struct PixelShaderInput
 	float2 TexCoord : TEXCOORD;
 };
 
+struct VertexShaderInput
+{
+    float3 Position : POSITION;
+    float2 TexCoord : TEXCOORD0;
+};
+
 struct Light
 {
 	float3 dir;
@@ -23,23 +29,11 @@ cbuffer LightCommand : register(b0)
 	Light light;
 }
 
-PixelShaderInput main_vs(uint vertexID : SV_VertexID)
+PixelShaderInput main_vs(VertexShaderInput input)
 {
 	PixelShaderInput vout;
-
-	if (vertexID == 0) {
-		vout.TexCoord = float2(1.0, -1.0);
-		vout.Position = float4(1.0, 3.0, 0.0, 1.0);
-	}
-	else if (vertexID == 1) {
-		vout.TexCoord = float2(-1.0, 1.0);
-		vout.Position = float4(-3.0, -1.0, 0.0, 1.0);
-	}
-	else /* if(vertexID == 2) */ {
-		vout.TexCoord = float2(1.0, 1.0);
-		vout.Position = float4(1.0, -1.0, 0.0, 1.0);
-	}
-
+    vout.Position = float4(input.Position, 1.0f);
+    vout.TexCoord = input.TexCoord;
 	return vout;
 }
 

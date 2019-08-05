@@ -65,15 +65,15 @@ namespace Moonlight
 
 		m_defaultSampler = m_device->CreateSamplerState(D3D11_FILTER_ANISOTROPIC, D3D11_TEXTURE_ADDRESS_WRAP);
 		m_computeSampler = m_device->CreateSamplerState(D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_WRAP);
-
+/*
 		m_tonemapProgram = m_device->CreateShaderProgram(
 			m_device->CompileShader(Path("Assets/Shaders/ToneMap.hlsl"), "main_vs", "vs_5_0"),
 			m_device->CompileShader(Path("Assets/Shaders/ToneMap.hlsl"), "main_ps", "ps_5_0"),
 			nullptr
 		);
-
+*/
 		shape = DirectX::GeometricPrimitive::CreateBox(m_device->GetD3DDeviceContext(), XMFLOAT3(1.f, 1.f, 1.f));
-
+		primitiveBatch = std::make_unique<DirectX::PrimitiveBatch<VertexPositionTexCoord>>(m_device->GetD3DDeviceContext());
 		//m_depthProgram = ShaderCommand("Assets/Shaders/DepthPass.hlsl");
 		ResizeBuffers();
 
@@ -85,15 +85,13 @@ namespace Moonlight
 		static const std::vector<D3D11_INPUT_ELEMENT_DESC> vertexDesc =
 		{
 			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,    0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-			{ "NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT,    0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 			{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,       0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-			{ "TANGENT",   0, DXGI_FORMAT_R32G32B32_FLOAT,    0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 		};
 
 		m_lightingProgram = m_device->CreateShaderProgram(
-			m_device->CompileShader(Path("Assets/Shaders/LightingPass.hlsl"), "main_vs", "vs_5_0"),
-			m_device->CompileShader(Path("Assets/Shaders/LightingPass.hlsl"), "main_ps", "ps_5_0"),
-			nullptr
+			m_device->CompileShader(Path("Assets/Shaders/LightingPass.hlsl"), "main_vs", "vs_4_0"),
+			m_device->CompileShader(Path("Assets/Shaders/LightingPass.hlsl"), "main_ps", "ps_4_0"),
+			&vertexDesc
 		);
 	}
 
@@ -585,7 +583,7 @@ namespace Moonlight
 #else
 		context->OMSetRenderTargets(1, m_device->m_d3dRenderTargetView.GetAddressOf(), nullptr);
 #endif
-		context->IASetInputLayout(nullptr);
+		context->IASetInputLayout(m_lightingProgram.InputLayout.Get());
 		context->VSSetShader(m_lightingProgram.VertexShader.Get(), nullptr, 0);
 		context->PSSetShader(m_lightingProgram.PixelShader.Get(), nullptr, 0);
 		context->PSSetShaderResources(0, 1, ResolveViewRTT->ColorShaderResourceView.GetAddressOf());
@@ -594,7 +592,28 @@ namespace Moonlight
 		context->PSSetShaderResources(3, 1, ViewRTT->DepthShaderResourceView.GetAddressOf());
 		context->PSSetShaderResources(4, 1, ResolveViewRTT->PositionShaderResourceView.GetAddressOf());
 		context->PSSetSamplers(0, 1, m_computeSampler.GetAddressOf());
-		context->Draw(3, 0);
+		primitiveBatch->Begin();
+		VertexPositionTexCoord vert1{ {-1.f,1.f,0.f}, {0.f,0.f} };
+		VertexPositionTexCoord vert2{ {-1.f,-1.f,0.f}, {0.f,1.f} };
+		VertexPositionTexCoord vert3{ {1.f,1.f,0.f}, {1.f,0.f} };
+		VertexPositionTexCoord vert4{ {1.f,-1.f,0.f}, {1.f,1.f} };
+
+		VertexPositionTexCoord verts[5];
+		verts[0].Position = vert1.Position;
+		verts[1].Position = vert2.Position;
+		verts[2].Position = vert3.Position;
+		verts[3].Position = vert4.Position;
+		verts[4].Position = vert2.Position;
+
+		verts[0].TexCoord = vert1.TexCoord;
+		verts[1].TexCoord = vert2.TexCoord;
+		verts[2].TexCoord = vert3.TexCoord;
+		verts[3].TexCoord = vert4.TexCoord;
+		verts[4].TexCoord = vert2.TexCoord;
+
+		primitiveBatch->Draw(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP, verts, 5);
+
+		primitiveBatch->End();
 
 		if (ViewRTT->FinalTexture != ResolveViewRTT->FinalTexture)
 		{
@@ -722,7 +741,7 @@ namespace Moonlight
 		}
 	}
 
-	unsigned int Renderer::PushLight(const LightCommand & NewLight)
+	unsigned int Renderer::PushLight(const LightCommand& NewLight)
 	{
 		if (!FreeLightCommandIndicies.empty())
 		{
@@ -757,7 +776,7 @@ namespace Moonlight
 		}
 	}
 
-	void Renderer::WindowResized(const Vector2 & NewSize)
+	void Renderer::WindowResized(const Vector2& NewSize)
 	{
 		if (!m_device)
 		{

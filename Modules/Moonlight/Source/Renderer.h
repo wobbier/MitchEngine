@@ -18,6 +18,8 @@
 #include "RenderCommands.h"
 #include "Camera/CameraData.h"
 #include "GeometricPrimitive.h"
+#include <PrimitiveBatch.h>
+#include "Content/ShaderStructures.h"
 
 namespace Moonlight
 {
@@ -83,6 +85,7 @@ namespace Moonlight
 		Microsoft::WRL::ComPtr<ID3D11Buffer> m_perFrameBuffer;
 		ModelViewProjectionConstantBuffer m_constantBufferData;
 		ModelViewProjectionConstantBuffer m_constantBufferSceneData;
+		std::unique_ptr<DirectX::PrimitiveBatch<VertexPositionTexCoord>> primitiveBatch;
 #endif
 
 		std::vector<DebugColliderCommand> DebugColliders;
