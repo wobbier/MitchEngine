@@ -15,7 +15,7 @@
 
 namespace Moonlight
 {
-	MeshData::MeshData(std::vector<Vertex> vertices, std::vector<unsigned int> indices, Material* mat = nullptr)
+	MeshData::MeshData(std::vector<Vertex> vertices, std::vector<uint16_t> indices, Material* mat = nullptr)
 		: m_indexCount(0)
 		, material(mat)
 	{
@@ -54,7 +54,7 @@ namespace Moonlight
 		indexBufferData.pSysMem = &indices[0];
 		indexBufferData.SysMemPitch = 0;
 		indexBufferData.SysMemSlicePitch = 0;
-		CD3D11_BUFFER_DESC indexBufferDesc(sizeof(unsigned int) * m_indexCount, D3D11_BIND_INDEX_BUFFER);
+		CD3D11_BUFFER_DESC indexBufferDesc(sizeof(uint16_t) * m_indexCount, D3D11_BIND_INDEX_BUFFER);
 		DX::ThrowIfFailed(
 			device.GetD3DDevice()->CreateBuffer(
 				&indexBufferDesc,
@@ -87,7 +87,7 @@ namespace Moonlight
 
 			context->IASetIndexBuffer(
 				m_indexBuffer.Get(),
-				DXGI_FORMAT_R32_UINT, // Each index is one 16-bit unsigned integer (short).
+				DXGI_FORMAT_R16_UINT, // Each index is one 16-bit unsigned integer (short).
 				0
 			);
 		}

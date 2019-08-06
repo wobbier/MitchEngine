@@ -15,7 +15,7 @@ using namespace DirectX;
 using namespace Microsoft::WRL;
 using namespace Windows::Foundation;
 #if ME_PLATFORM_UWP
-using namespace Windows::Graphics::Display;
+//using namespace Windows::Graphics::Display;
 using namespace Windows::UI::Core;
 using namespace Windows::UI::Xaml::Controls;
 using namespace Windows::UI::Popups;
@@ -165,6 +165,7 @@ namespace Moonlight
 		ZeroMemory(&wfdesc, sizeof(D3D11_RASTERIZER_DESC));
 		wfdesc.FillMode = D3D11_FILL_SOLID;
 		wfdesc.CullMode = D3D11_CULL_FRONT;
+		wfdesc.DepthClipEnable = TRUE;
 		hr = device->CreateRasterizerState(&wfdesc, &FrontFaceCulled);
 		GetD3DDeviceContext()->RSSetState(FrontFaceCulled);
 
@@ -181,7 +182,7 @@ namespace Moonlight
 		{
 			UINT ColorQuality;
 			UINT DepthStencilQuality;
-			m_d3dDevice->CheckMultisampleQualityLevels(DXGI_FORMAT_R16G16B16A16_FLOAT, MSAASamples, &ColorQuality);
+			m_d3dDevice->CheckMultisampleQualityLevels(DXGI_FORMAT_R32G32B32A32_FLOAT, MSAASamples, &ColorQuality);
 			m_d3dDevice->CheckMultisampleQualityLevels(DXGI_FORMAT_D24_UNORM_S8_UINT, MSAASamples, &DepthStencilQuality);
 			if (ColorQuality > 0 && DepthStencilQuality > 0)
 			{
@@ -257,7 +258,7 @@ namespace Moonlight
 		Desc.AddressU = addressMode;
 		Desc.AddressV = addressMode;
 		Desc.AddressW = addressMode;
-		Desc.MaxAnisotropy = (filter == D3D11_FILTER_ANISOTROPIC) ? D3D11_REQ_MAXANISOTROPY : 1;
+		Desc.MaxAnisotropy = /*(filter == D3D11_FILTER_ANISOTROPIC) ? D3D11_REQ_MAXANISOTROPY :*/ 1;
 		Desc.MinLOD = 0;
 		Desc.MaxLOD = D3D11_FLOAT32_MAX;
 
@@ -538,8 +539,6 @@ namespace Moonlight
 
 			DX::ThrowIfFailed(m_d3dDevice->CreateTexture2D(&Desc, nullptr, &NewBuffer->ColorTexture));
 
-			DX::ThrowIfFailed(m_d3dDevice->CreateTexture2D(&Desc, nullptr, &NewBuffer->PositionTexture));
-
 			DX::ThrowIfFailed(m_d3dDevice->CreateTexture2D(&Desc, nullptr, &NewBuffer->NormalTexture));
 
 			DX::ThrowIfFailed(m_d3dDevice->CreateTexture2D(&Desc, nullptr, &NewBuffer->SpecularTexture));
@@ -589,19 +588,6 @@ namespace Moonlight
 				ShaderView.Texture2D.MipLevels = 1;
 
 				DX::ThrowIfFailed(m_d3dDevice->CreateShaderResourceView(NewBuffer->ColorTexture.Get(), &ShaderView, &NewBuffer->ColorShaderResourceView));
-			}
-
-			DX::ThrowIfFailed(m_d3dDevice->CreateRenderTargetView(NewBuffer->PositionTexture.Get(), &RenderView, &NewBuffer->PositionRenderTargetView));
-
-			if (Samples <= 1)
-			{
-				D3D11_SHADER_RESOURCE_VIEW_DESC ShaderView = {};
-				ShaderView.Format = Desc.Format;
-				ShaderView.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-				ShaderView.Texture2D.MostDetailedMip = 0;
-				ShaderView.Texture2D.MipLevels = 1;
-
-				DX::ThrowIfFailed(m_d3dDevice->CreateShaderResourceView(NewBuffer->PositionTexture.Get(), &ShaderView, &NewBuffer->PositionShaderResourceView));
 			}
 
 			DX::ThrowIfFailed(m_d3dDevice->CreateRenderTargetView(NewBuffer->SpecularTexture.Get(), &RenderView, &NewBuffer->SpecularRenderTargetView));

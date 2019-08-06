@@ -2,7 +2,6 @@ Texture2D ObjTexture : register(t0);
 Texture2D ObjNormalTexture : register(t1);
 Texture2D ObjSpecularMap : register(t2);
 Texture2D ObjDepthTexture : register(t3);
-Texture2D ObjPositionTexture : register(t4);
 SamplerState ObjSamplerState;
 
 struct PixelShaderInput
@@ -41,7 +40,6 @@ float4 main_ps(PixelShaderInput input) : SV_TARGET
 {
 	float4 diffuse = ObjTexture.Sample(ObjSamplerState, input.TexCoord);
 	float4 normal = ObjNormalTexture.Sample(ObjSamplerState, input.TexCoord);
-    float3 position = ObjPositionTexture.Sample(ObjSamplerState, input.TexCoord).xyz;
     float3 finalColor;
 
     finalColor = diffuse * light.ambient;

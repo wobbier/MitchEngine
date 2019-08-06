@@ -35,6 +35,7 @@ namespace Moonlight
 			ZeroMemory(&cmdesc, sizeof(D3D11_RASTERIZER_DESC));
 			cmdesc.FillMode = D3D11_FILL_SOLID;
 			cmdesc.CullMode = D3D11_CULL_BACK;
+			cmdesc.DepthClipEnable = TRUE;
 			cmdesc.FrontCounterClockwise = true;
 			DX::ThrowIfFailed(device.GetD3DDevice()->CreateRasterizerState(&cmdesc, &CCWcullMode));
 

@@ -48,8 +48,9 @@ void EditorCore::Init()
 void EditorCore::Update(float dt)
 {
 	OPTICK_CATEGORY("FlyingCameraCore::Update", Optick::Category::Camera);
-
-	if (Input::GetInstance().IsKeyDown(KeyCode::M))
+	auto Keyboard = Input::GetInstance().GetKeyboardState();
+	auto Mouse = Input::GetInstance().GetMouseState();
+	if (Keyboard.M)
 	{
 		if (testAudio)
 		{
@@ -60,11 +61,10 @@ void EditorCore::Update(float dt)
 		}
 	}
 
-	Input& Instance = Input::GetInstance();
 	auto Animatables = GetEntities();
 	if (m_editor->IsWorldViewFocused())
 	{
-		if (Instance.IsKeyDown(KeyCode::F))
+		if (Keyboard.F)
 		{
 			IsFocusingTransform = true;
 
@@ -81,7 +81,7 @@ void EditorCore::Update(float dt)
 		
 		if (!IsFocusingTransform)
 		{
-			if (Instance.IsKeyDown(KeyCode::RightButton))
+			if (Mouse.rightButton)
 			{
 				if (!PreviousMouseDown)
 				{
@@ -96,41 +96,41 @@ void EditorCore::Update(float dt)
 			}
 
 			float CameraSpeed = FlyingSpeed;
-			if (Instance.IsKeyDown(KeyCode::LeftShift))
+			if (Keyboard.LeftShift)
 			{
 				CameraSpeed += SpeedModifier;
 			}
 			CameraSpeed *= dt;
-			if (Instance.IsKeyDown(KeyCode::W))
+			if (Keyboard.W)
 			{
 				EditorCameraTransform->SetPosition((EditorCamera->Front * CameraSpeed) + EditorCameraTransform->GetPosition());
 			}
-			if (Instance.IsKeyDown(KeyCode::S))
+			if (Keyboard.S)
 			{
 				EditorCameraTransform->SetPosition(EditorCameraTransform->GetPosition() - (EditorCamera->Front * CameraSpeed));
 			}
-			if (Instance.IsKeyDown(KeyCode::A))
+			if (Keyboard.A)
 			{
 				EditorCameraTransform->Translate(EditorCamera->Up.Cross(EditorCamera->Front.GetInternalVec()).Normalized() * CameraSpeed);
 			}
-			if (Instance.IsKeyDown(KeyCode::D))
+			if (Keyboard.D)
 			{
 				EditorCameraTransform->Translate(EditorCamera->Front.Cross(EditorCamera->Up.GetInternalVec()).Normalized() * CameraSpeed);
 			}
-			if (Instance.IsKeyDown(KeyCode::Space))
+			if (Keyboard.Space)
 			{
 				EditorCameraTransform->Translate(EditorCamera->Up * CameraSpeed);
 			}
-			if (Instance.IsKeyDown(KeyCode::E))
+			if (Keyboard.E)
 			{
 				EditorCameraTransform->Translate(EditorCamera->Front.Cross(EditorCamera->Up).Cross(EditorCamera->Front).Normalized() * CameraSpeed);
 			}
-			if (Instance.IsKeyDown(KeyCode::Q))
+			if (Keyboard.Q)
 			{
 				EditorCameraTransform->Translate(EditorCamera->Front.Cross(-EditorCamera->Up).Cross(EditorCamera->Front).Normalized() * CameraSpeed);
 			}
 
-			Vector2 MousePosition = Instance.GetMousePosition();
+			Vector2 MousePosition = Input::GetInstance().GetMousePosition();
 			if (MousePosition == Vector2(0, 0))
 			{
 				return;

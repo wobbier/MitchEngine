@@ -9,10 +9,10 @@
 #if ME_PLATFORM_UWP
 
 using namespace Windows::UI::Core;
-using namespace Windows::UI::Input;
+//using namespace Windows::UI::Input;
 using namespace Windows::System;
 using namespace Windows::Foundation;
-using namespace Windows::Graphics::Display;
+//using namespace Windows::Graphics::Display;
 
 class UWPWindow
 	: public IWindow

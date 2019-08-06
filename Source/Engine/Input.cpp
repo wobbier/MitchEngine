@@ -8,61 +8,31 @@
 
 #pragma region KeyboardInput
 
-#if ME_PLATFORM_UWP
-void Input::KeyCallback(VirtualKey key)
-{
-	Input& Instance = GetInstance();
-}
-#endif
-
-bool Input::IsKeyDown(KeyCode key)
-{
-	OPTICK_CATEGORY("Input::IsKeyDown", Optick::Category::Input);
-#if ME_PLATFORM_WIN64
-	SHORT keyState = GetAsyncKeyState(key);
-	
-	if ((1 << 15) & keyState)
-#else
-	CoreVirtualKeyStates keyPress = Windows::UI::Core::CoreWindow::GetForCurrentThread()->GetAsyncKeyState(key);
-	if (keyPress == CoreVirtualKeyStates::Down)
-#endif
-	{
-		return true;
-	}
-	return false;
-}
-
-bool Input::IsKeyUp(KeyCode key)
-{
-	return !IsKeyDown(key);
-}
-
 #pragma endregion
 
 #pragma region MouseInput
 
 Vector2 Input::GetMousePosition()
 {
-	Vector2 newPosition = Mouse.Position;
-#if ME_PLATFORM_WIN64
-	POINT position;
-	if (GetCursorPos(&position))
-	{
-		newPosition.SetX(static_cast<float>(position.x));
-		newPosition.SetY(static_cast<float>(position.y));
-	}
-#else
-	newPosition.SetX(CoreWindow::GetForCurrentThread()->PointerPosition.X);
-	newPosition.SetY(CoreWindow::GetForCurrentThread()->PointerPosition.Y);
-#endif
-
+	Vector2 newPosition = Vector2(Mouse->GetState().x, Mouse->GetState().y);
 	return newPosition;
 }
 
 
 Vector2 Input::GetMouseScrollOffset()
 {
-	return Mouse.Scroll;
+	return Vector2();
+}
+
+Input::Input()
+{
+	Controller = std::make_unique<DirectX::GamePad>();
+	Mouse = std::make_unique<DirectX::Mouse>();
+	Keyboard = std::make_unique<DirectX::Keyboard>();
+	Controller->Resume();
+#if ME_PLATFORM_UWP
+	Mouse->SetWindow(CoreWindow::GetForCurrentThread());
+#endif
 }
 
 #pragma endregion

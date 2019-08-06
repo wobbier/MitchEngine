@@ -19,11 +19,11 @@ namespace Moonlight
 		~MeshData();
 
 		std::vector<Vertex> vertices;
-		std::vector<unsigned int> indices;
+		std::vector<uint16_t> indices;
 		Material* material;
 		unsigned int VAO;
 
-		MeshData(std::vector<Vertex> vertices, std::vector<unsigned int> indices, Material* newMaterial);
+		MeshData(std::vector<Vertex> vertices, std::vector<uint16_t> indices, Material* newMaterial);
 
 		// render the mesh
 		void Draw(class Material* mat);

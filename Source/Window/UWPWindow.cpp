@@ -12,10 +12,10 @@
 #include "Engine/Engine.h"
 
 using namespace Windows::UI::Core;
-using namespace Windows::UI::Input;
+//using namespace Windows::UI::Input;
 using namespace Windows::System;
 using namespace Windows::Foundation;
-using namespace Windows::Graphics::Display;
+//using namespace Windows::Graphics::Display;
 
 UWPWindow::UWPWindow(std::string title, int width, int height)
 	: IWindow(title, width, height)
@@ -105,10 +105,10 @@ UWPWindow::UWPWindowMessageHandler::UWPWindowMessageHandler(UWPWindow* window)
 	coreWindow->KeyDown +=
 		ref new Windows::Foundation::TypedEventHandler<Windows::UI::Core::CoreWindow ^, Windows::UI::Core::KeyEventArgs ^>(this, &UWPWindowMessageHandler::OnKeyDown);
 
-	DisplayInformation^ currentDisplayInformation = DisplayInformation::GetForCurrentView();
+	Windows::Graphics::Display::DisplayInformation^ currentDisplayInformation = Windows::Graphics::Display::DisplayInformation::GetForCurrentView();
 
-	DisplayInformation::DisplayContentsInvalidated +=
-		ref new TypedEventHandler<DisplayInformation^, Object^>(this, &UWPWindowMessageHandler::OnDisplayContentsInvalidated);
+	Windows::Graphics::Display::DisplayInformation::DisplayContentsInvalidated +=
+		ref new TypedEventHandler<Windows::Graphics::Display::DisplayInformation^, Object^>(this, &UWPWindowMessageHandler::OnDisplayContentsInvalidated);
 
 	IWindow::WINDOW_WIDTH = coreWindow->Bounds.Width;
 	IWindow::WINDOW_HEIGHT = coreWindow->Bounds.Height;
@@ -138,7 +138,7 @@ void UWPWindow::UWPWindowMessageHandler::OnKeyDown(Windows::UI::Core::CoreWindow
 
 // DisplayInformation event handlers.
 
-void UWPWindow::UWPWindowMessageHandler::OnDisplayContentsInvalidated(DisplayInformation^ sender, Object^ args)
+void UWPWindow::UWPWindowMessageHandler::OnDisplayContentsInvalidated(Windows::Graphics::Display::DisplayInformation^ sender, Object^ args)
 {
 	static_cast<Moonlight::D3D12Device&>(GetEngine().GetRenderer().GetDevice()).ValidateDevice();
 }

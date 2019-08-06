@@ -89,8 +89,8 @@ namespace Moonlight
 		};
 
 		m_lightingProgram = m_device->CreateShaderProgram(
-			m_device->CompileShader(Path("Assets/Shaders/LightingPass.hlsl"), "main_vs", "vs_4_0"),
-			m_device->CompileShader(Path("Assets/Shaders/LightingPass.hlsl"), "main_ps", "ps_4_0"),
+			m_device->CompileShader(Path("Assets/Shaders/LightingPass.hlsl"), "main_vs", "vs_4_0_level_9_3"),
+			m_device->CompileShader(Path("Assets/Shaders/LightingPass.hlsl"), "main_ps", "ps_4_0_level_9_3"),
 			&vertexDesc
 		);
 	}
@@ -101,14 +101,14 @@ namespace Moonlight
 		delete m_resolvebuffer;
 		delete SceneViewRTT;
 		delete SceneResolveViewRTT;
-		m_framebuffer = m_device->CreateFrameBuffer(m_device->GetOutputSize().X(), m_device->GetOutputSize().Y(), m_device->GetMSAASamples(), DXGI_FORMAT_R16G16B16A16_FLOAT, DXGI_FORMAT_D24_UNORM_S8_UINT);
-		SceneViewRTT = m_device->CreateFrameBuffer(m_device->GetOutputSize().X(), m_device->GetOutputSize().Y(), m_device->GetMSAASamples(), DXGI_FORMAT_R16G16B16A16_FLOAT, DXGI_FORMAT_D24_UNORM_S8_UINT);
+		m_framebuffer = m_device->CreateFrameBuffer(m_device->GetOutputSize().X(), m_device->GetOutputSize().Y(), m_device->GetMSAASamples(), DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_D24_UNORM_S8_UINT);
+		SceneViewRTT = m_device->CreateFrameBuffer(m_device->GetOutputSize().X(), m_device->GetOutputSize().Y(), m_device->GetMSAASamples(), DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_D24_UNORM_S8_UINT);
 		if (m_device->GetMSAASamples() > 1)
 		{
 			//GameViewRTT = new RenderTexture(m_device);
 
-			m_resolvebuffer = m_device->CreateFrameBuffer(m_device->GetOutputSize().X(), m_device->GetOutputSize().Y(), 1, DXGI_FORMAT_R16G16B16A16_FLOAT, (DXGI_FORMAT)0);
-			SceneResolveViewRTT = m_device->CreateFrameBuffer(m_device->GetOutputSize().X(), m_device->GetOutputSize().Y(), 1, DXGI_FORMAT_R16G16B16A16_FLOAT, (DXGI_FORMAT)0);
+			m_resolvebuffer = m_device->CreateFrameBuffer(m_device->GetOutputSize().X(), m_device->GetOutputSize().Y(), 1, DXGI_FORMAT_R8G8B8A8_UNORM, (DXGI_FORMAT)0);
+			SceneResolveViewRTT = m_device->CreateFrameBuffer(m_device->GetOutputSize().X(), m_device->GetOutputSize().Y(), 1, DXGI_FORMAT_R8G8B8A8_UNORM, (DXGI_FORMAT)0);
 		}
 		else
 		{
@@ -150,13 +150,11 @@ namespace Moonlight
 		context->ClearRenderTargetView(m_device->GetBackBufferRenderTargetView(), color);
 		context->ClearRenderTargetView(m_framebuffer->RenderTargetView.Get(), color);
 		context->ClearRenderTargetView(m_framebuffer->ColorRenderTargetView.Get(), clearColor);
-		context->ClearRenderTargetView(m_framebuffer->PositionRenderTargetView.Get(), clearColor);
 		context->ClearRenderTargetView(m_framebuffer->NormalRenderTargetView.Get(), color);
 		context->ClearRenderTargetView(m_framebuffer->SpecularRenderTargetView.Get(), color);
 
 		context->ClearRenderTargetView(SceneViewRTT->RenderTargetView.Get(), color);
 		context->ClearRenderTargetView(SceneViewRTT->ColorRenderTargetView.Get(), color);
-		context->ClearRenderTargetView(SceneViewRTT->PositionRenderTargetView.Get(), color);
 		context->ClearRenderTargetView(SceneViewRTT->NormalRenderTargetView.Get(), color);
 		context->ClearRenderTargetView(SceneViewRTT->SpecularRenderTargetView.Get(), color);
 
@@ -299,12 +297,10 @@ namespace Moonlight
 		m_device->GetD3DDeviceContext()->DiscardView1(m_device->GetBackBufferRenderTargetView(), nullptr, 0);
 		m_device->GetD3DDeviceContext()->DiscardView1(m_resolvebuffer->ShaderResourceView.Get(), nullptr, 0);
 		m_device->GetD3DDeviceContext()->DiscardView1(m_resolvebuffer->ColorShaderResourceView.Get(), nullptr, 0);
-		m_device->GetD3DDeviceContext()->DiscardView1(m_resolvebuffer->PositionShaderResourceView.Get(), nullptr, 0);
 		m_device->GetD3DDeviceContext()->DiscardView1(m_resolvebuffer->NormalShaderResourceView.Get(), nullptr, 0);
 		m_device->GetD3DDeviceContext()->DiscardView1(m_resolvebuffer->SpecularShaderResourceView.Get(), nullptr, 0);
 		m_device->GetD3DDeviceContext()->DiscardView1(SceneResolveViewRTT->ShaderResourceView.Get(), nullptr, 0);
 		m_device->GetD3DDeviceContext()->DiscardView1(SceneResolveViewRTT->ColorShaderResourceView.Get(), nullptr, 0);
-		m_device->GetD3DDeviceContext()->DiscardView1(SceneResolveViewRTT->PositionShaderResourceView.Get(), nullptr, 0);
 		m_device->GetD3DDeviceContext()->DiscardView1(SceneResolveViewRTT->NormalShaderResourceView.Get(), nullptr, 0);
 		m_device->GetD3DDeviceContext()->DiscardView1(SceneResolveViewRTT->SpecularShaderResourceView.Get(), nullptr, 0);
 
@@ -382,8 +378,8 @@ namespace Moonlight
 		const XMVECTORF32 at = { camera.Position.X() + camera.Front.X(), camera.Position.Y() + camera.Front.Y(), camera.Position.Z() + camera.Front.Z(), 0.0f };
 		const XMVECTORF32 up = { camera.Up.X(), camera.Up.Y(), camera.Up.Z(), 0 };
 
-		ID3D11RenderTargetView** targets[4] = { ViewRTT->ColorRenderTargetView.GetAddressOf(), ViewRTT->NormalRenderTargetView.GetAddressOf(), ViewRTT->SpecularRenderTargetView.GetAddressOf(), ViewRTT->PositionRenderTargetView.GetAddressOf() };
-		context->OMSetRenderTargets(4, *targets, ViewRTT->DepthStencilView.Get());
+		ID3D11RenderTargetView** targets[3] = { ViewRTT->ColorRenderTargetView.GetAddressOf(), ViewRTT->NormalRenderTargetView.GetAddressOf(), ViewRTT->SpecularRenderTargetView.GetAddressOf() };
+		context->OMSetRenderTargets(3, *targets, ViewRTT->DepthStencilView.Get());
 
 		CD3D11_VIEWPORT screenViewport = CD3D11_VIEWPORT(
 			0.0f,
@@ -590,7 +586,6 @@ namespace Moonlight
 		context->PSSetShaderResources(1, 1, ResolveViewRTT->NormalShaderResourceView.GetAddressOf());
 		context->PSSetShaderResources(2, 1, ResolveViewRTT->SpecularShaderResourceView.GetAddressOf());
 		context->PSSetShaderResources(3, 1, ViewRTT->DepthShaderResourceView.GetAddressOf());
-		context->PSSetShaderResources(4, 1, ResolveViewRTT->PositionShaderResourceView.GetAddressOf());
 		context->PSSetSamplers(0, 1, m_computeSampler.GetAddressOf());
 		primitiveBatch->Begin();
 		VertexPositionTexCoord vert1{ {-1.f,1.f,0.f}, {0.f,0.f} };
@@ -617,23 +612,19 @@ namespace Moonlight
 
 		if (ViewRTT->FinalTexture != ResolveViewRTT->FinalTexture)
 		{
-			context->ResolveSubresource(ResolveViewRTT->FinalTexture.Get(), 0, ViewRTT->FinalTexture.Get(), 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
+			context->ResolveSubresource(ResolveViewRTT->FinalTexture.Get(), 0, ViewRTT->FinalTexture.Get(), 0, DXGI_FORMAT_R8G8B8A8_UNORM);
 		}
 		if (ViewRTT->ColorTexture != ResolveViewRTT->ColorTexture)
 		{
-			context->ResolveSubresource(ResolveViewRTT->ColorTexture.Get(), 0, ViewRTT->ColorTexture.Get(), 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
+			context->ResolveSubresource(ResolveViewRTT->ColorTexture.Get(), 0, ViewRTT->ColorTexture.Get(), 0, DXGI_FORMAT_R8G8B8A8_UNORM);
 		}
 		if (ViewRTT->NormalTexture != ResolveViewRTT->NormalTexture)
 		{
-			context->ResolveSubresource(ResolveViewRTT->NormalTexture.Get(), 0, ViewRTT->NormalTexture.Get(), 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
+			context->ResolveSubresource(ResolveViewRTT->NormalTexture.Get(), 0, ViewRTT->NormalTexture.Get(), 0, DXGI_FORMAT_R8G8B8A8_UNORM);
 		}
 		if (ViewRTT->SpecularTexture != ResolveViewRTT->SpecularTexture)
 		{
-			context->ResolveSubresource(ResolveViewRTT->SpecularTexture.Get(), 0, ViewRTT->SpecularTexture.Get(), 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
-		}
-		if (ViewRTT->PositionTexture != ResolveViewRTT->PositionTexture)
-		{
-			context->ResolveSubresource(ResolveViewRTT->PositionTexture.Get(), 0, ViewRTT->PositionTexture.Get(), 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
+			context->ResolveSubresource(ResolveViewRTT->SpecularTexture.Get(), 0, ViewRTT->SpecularTexture.Get(), 0, DXGI_FORMAT_R8G8B8A8_UNORM);
 		}
 
 		if (false)

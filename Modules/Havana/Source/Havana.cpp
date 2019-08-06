@@ -332,10 +332,10 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 			}
 			ImGui::EndMenu();
 		}
-
+		auto Keyboard = Input::GetInstance().GetKeyboardState();
 		if (!m_app->IsGameRunning())
 		{
-			if (ImGui::ImageButton(Icons["Play"]->ShaderResourceView, ImVec2(30.f, 30.f)) || Input::GetInstance().IsKeyDown(KeyCode::F5))
+			if (ImGui::ImageButton(Icons["Play"]->ShaderResourceView, ImVec2(30.f, 30.f)) || Keyboard.F5)
 			{
 				StartGameFunc();
 			}
@@ -343,12 +343,12 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 
 		if (m_app->IsGameRunning())
 		{
-			if (ImGui::ImageButton(Icons["Pause"]->ShaderResourceView, ImVec2(30.f, 30.f)) || Input::GetInstance().IsKeyDown(KeyCode::F10))
+			if (ImGui::ImageButton(Icons["Pause"]->ShaderResourceView, ImVec2(30.f, 30.f)) || Keyboard.F10)
 			{
 				PauseGameFunc();
 			}
 
-			if (ImGui::ImageButton(Icons["Stop"]->ShaderResourceView, ImVec2(30.f, 30.f)) || (Input::GetInstance().IsKeyDown(KeyCode::F5) && Input::GetInstance().IsKeyDown(KeyCode::LeftShift)))
+			if (ImGui::ImageButton(Icons["Stop"]->ShaderResourceView, ImVec2(30.f, 30.f)) || (Keyboard.F5 && Keyboard.LeftShift))
 			{
 				SelectedTransform = nullptr;
 				StopGameFunc();
@@ -820,10 +820,6 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 					{
 						RenderTextureName = "Diffuse";
 					}
-					if (ImGui::MenuItem("Position", "", false))
-					{
-						RenderTextureName = "Position";
-					}
 					if (ImGui::MenuItem("Normals", "", false))
 					{
 						RenderTextureName = "Normals";
@@ -848,10 +844,6 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 			else if (RenderTextureName == "Diffuse")
 			{
 				srv = Renderer->m_resolvebuffer->ColorShaderResourceView;
-			}
-			else if (RenderTextureName == "Position")
-			{
-				srv = Renderer->m_resolvebuffer->PositionShaderResourceView;
 			}
 			else if (RenderTextureName == "Normals")
 			{
@@ -911,10 +903,6 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 					{
 						RenderTextureName = "Diffuse";
 					}
-					if (ImGui::MenuItem("Position", "", false))
-					{
-						RenderTextureName = "Position";
-					}
 					if (ImGui::MenuItem("Normals", "", false))
 					{
 						RenderTextureName = "Normals";
@@ -939,10 +927,6 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 			else if (RenderTextureName == "Diffuse")
 			{
 				srv = Renderer->SceneResolveViewRTT->ColorShaderResourceView;
-			}
-			else if (RenderTextureName == "Position")
-			{
-				srv = Renderer->SceneResolveViewRTT->PositionShaderResourceView;
 			}
 			else if (RenderTextureName == "Normals")
 			{

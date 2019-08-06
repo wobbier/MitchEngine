@@ -37,9 +37,8 @@ struct PixelShaderInput
 struct PSOUTPUT
 {
     float4 color : SV_TARGET0;
-    float4 normal : SV_TARGET2;
-    float4 spec : SV_TARGET3;
-    float4 position : SV_TARGET1;
+    float4 normal : SV_TARGET1;
+    float4 spec : SV_TARGET2;
 };
 
 // Simple shader to do vertex processing on the GPU.
@@ -106,6 +105,5 @@ PSOUTPUT main_ps(PixelShaderInput input)
     {
         output.spec = ObjSpecularMap.Sample(ObjSamplerState, input.texcoord);
     }
-    output.position = float4(normalize(input.pos.xyz), 1.0);
     return output;
 }

@@ -24,18 +24,15 @@ namespace Moonlight
 	{
 		Microsoft::WRL::ComPtr<ID3D11Texture2D> FinalTexture;
 		Microsoft::WRL::ComPtr<ID3D11Texture2D> ColorTexture;
-		Microsoft::WRL::ComPtr<ID3D11Texture2D> PositionTexture;
 		Microsoft::WRL::ComPtr<ID3D11Texture2D> NormalTexture;
 		Microsoft::WRL::ComPtr<ID3D11Texture2D> SpecularTexture;
 		Microsoft::WRL::ComPtr<ID3D11Texture2D> DepthStencilTexture;
 		Microsoft::WRL::ComPtr<ID3D11RenderTargetView> RenderTargetView;
 		Microsoft::WRL::ComPtr<ID3D11RenderTargetView> ColorRenderTargetView;
-		Microsoft::WRL::ComPtr<ID3D11RenderTargetView> PositionRenderTargetView;
 		Microsoft::WRL::ComPtr<ID3D11RenderTargetView> NormalRenderTargetView;
 		Microsoft::WRL::ComPtr<ID3D11RenderTargetView> SpecularRenderTargetView;
 		Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> ShaderResourceView;
 		Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> ColorShaderResourceView;
-		Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> PositionShaderResourceView;
 		Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> NormalShaderResourceView;
 		Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> SpecularShaderResourceView;
 		Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> DepthShaderResourceView;

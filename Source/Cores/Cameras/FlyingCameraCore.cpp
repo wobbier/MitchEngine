@@ -28,8 +28,9 @@ void FlyingCameraCore::Update(float dt)
 {
 	OPTICK_CATEGORY("FlyingCameraCore::Update", Optick::Category::Camera);
 
-	Input& Instance = Input::GetInstance();
-	if (Instance.IsKeyDown(KeyCode::Enter))
+	auto Keyboard = Input::GetInstance().GetKeyboardState();
+	auto Mouse = Input::GetInstance().GetMouseState();
+	if (Keyboard.Enter)
 	{
 		TestEvent testEvent;
 		testEvent.Enabled = !InputEnabled;
@@ -50,7 +51,7 @@ void FlyingCameraCore::Update(float dt)
 
 		if (Cam == &CameraComponent)
 		{
-			if (Instance.IsKeyDown(KeyCode::RightButton))
+			if (Mouse.rightButton)
 			{
 				if (!PreviousMouseDown)
 				{
@@ -64,41 +65,41 @@ void FlyingCameraCore::Update(float dt)
 				return;
 			}
 			float CameraSpeed = FlyingCameraComponent.FlyingSpeed;
-			if (Instance.IsKeyDown(KeyCode::LeftShift))
+			if (Keyboard.LeftShift)
 			{
 				CameraSpeed += FlyingCameraComponent.SpeedModifier;
 			}
 			CameraSpeed *= dt;
-			if (Instance.IsKeyDown(KeyCode::W))
+			if (Keyboard.W)
 			{
 				TransformComponent.SetPosition((CameraComponent.Front * CameraSpeed) + TransformComponent.GetPosition());
 			}
-			if (Instance.IsKeyDown(KeyCode::S))
+			if (Keyboard.S)
 			{
 				TransformComponent.SetPosition(TransformComponent.GetPosition() - (CameraComponent.Front * CameraSpeed));
 			}
-			if (Instance.IsKeyDown(KeyCode::A))
+			if (Keyboard.A)
 			{
 				TransformComponent.Translate(CameraComponent.Up.Cross(CameraComponent.Front.GetInternalVec()).Normalized() * CameraSpeed);
 			}
-			if (Instance.IsKeyDown(KeyCode::D))
+			if (Keyboard.D)
 			{
 				TransformComponent.Translate(CameraComponent.Front.Cross(CameraComponent.Up.GetInternalVec()).Normalized() * CameraSpeed);
 			}
-			if (Instance.IsKeyDown(KeyCode::Space))
+			if (Keyboard.Space)
 			{
 				TransformComponent.Translate(CameraComponent.Up * CameraSpeed);
 			}
-			if (Instance.IsKeyDown(KeyCode::E))
+			if (Keyboard.E)
 			{
 				TransformComponent.Translate(CameraComponent.Front.Cross(CameraComponent.Up).Cross(CameraComponent.Front).Normalized() * CameraSpeed);
 			}
-			if (Instance.IsKeyDown(KeyCode::Q))
+			if (Keyboard.Q)
 			{
 				TransformComponent.Translate(CameraComponent.Front.Cross(-CameraComponent.Up).Cross(CameraComponent.Front).Normalized() * CameraSpeed);
 			}
 
-			Vector2 MousePosition = Instance.GetMousePosition();
+			Vector2 MousePosition = Input::GetInstance().GetMousePosition();
 			if (MousePosition == Vector2(0, 0))
 			{
 				continue;

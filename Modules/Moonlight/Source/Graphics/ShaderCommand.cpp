@@ -109,8 +109,8 @@ namespace Moonlight
 	{
 		auto& dxDevice = static_cast<D3D12Device&>(GetEngine().GetRenderer().GetDevice());
 
-		auto vs = dxDevice.CompileShader(Path(InShaderFile), "main_vs", "vs_5_0");
-		auto ps = dxDevice.CompileShader(Path(InShaderFile), "main_ps", "ps_5_0");
+		auto vs = dxDevice.CompileShader(Path(InShaderFile), "main_vs", "vs_4_0_level_9_3");
+		auto ps = dxDevice.CompileShader(Path(InShaderFile), "main_ps", "ps_4_0_level_9_3");
 
 		// Wrap this and subscribe to 
 		static const std::vector<D3D11_INPUT_ELEMENT_DESC> vertexDesc =

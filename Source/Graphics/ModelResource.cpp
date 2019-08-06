@@ -85,7 +85,7 @@ void ModelResource::ProcessNode(aiNode *node, const aiScene *scene, Moonlight::N
 Moonlight::MeshData* ModelResource::ProcessMesh(aiMesh *mesh, const aiScene *scene)
 {
 	std::vector<Moonlight::Vertex> vertices;
-	std::vector<unsigned int> indices;
+	std::vector<uint16_t> indices;
 	Moonlight::Material* newMaterial = new Moonlight::Material();
 	for (unsigned int i = 0; i < mesh->mNumVertices; i++)
 	{
