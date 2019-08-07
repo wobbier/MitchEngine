@@ -28,4 +28,9 @@ namespace HavanaUtils
 	{
 		ImGui::DragFloat3(Name.c_str(), &Vector[0], 0.01f, 0.0f, 0.0f, "%.7f");
 	}
+
+	static void EditableVector(const std::string& Name, Vector2& Vector)
+	{
+		ImGui::DragFloat2(Name.c_str(), &Vector[0], 1.f, 0.0f, 0.0f, "%.1f");
+	}
 }

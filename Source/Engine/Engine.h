@@ -46,6 +46,7 @@ public:
 	class SceneGraph* SceneNodes = nullptr;
 	class RenderCore* ModelRenderer = nullptr;
 	class AudioCore* AudioThread = nullptr;
+	class UICore* UI = nullptr;
 	Clock& GameClock;
 	Moonlight::CameraData MainCamera;
 	Moonlight::CameraData EditorCamera;

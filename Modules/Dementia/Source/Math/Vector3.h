@@ -22,6 +22,11 @@ public:
 	{
 	}
 
+	Vector3(const DirectX::XMVECTOR& other)
+		: m_vector(std::move(other))
+	{
+	}
+
 	// #TODO Make this private
 	Vector3(const DirectX::SimpleMath::Vector3& other)
 		: m_vector(std::move(other))

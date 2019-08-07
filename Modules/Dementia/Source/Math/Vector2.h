@@ -10,6 +10,11 @@ public:
 	{
 	}
 
+	Vector2(const DirectX::XMVECTOR& other)
+		: m_vector(std::move(other))
+	{
+	}
+
 	Vector2(DirectX::XMFLOAT2 vec)
 		: m_vector(vec)
 	{
@@ -92,3 +97,4 @@ public:
 private:
 	DirectX::SimpleMath::Vector2 m_vector;
 };
+

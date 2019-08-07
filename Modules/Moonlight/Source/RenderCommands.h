@@ -4,6 +4,7 @@
 #include "Math/Vector3.h"
 #include "Math/Vector2.h"
 #include "Math/Matirx4.h"
+#include <string>
 
 namespace Moonlight { class ShaderCommand; }
 
@@ -31,6 +32,13 @@ namespace Moonlight
 		ShaderCommand* MeshShader = nullptr;
 		Material* MeshMaterial = nullptr;
 		DirectX::SimpleMath::Matrix Transform;
+	};
+
+	struct TextCommand
+	{
+		std::wstring SourceText;
+		Vector2 ScreenPosition;
+		Vector2 Anchor;
 	};
 
 	struct LightCommand

@@ -16,6 +16,7 @@
 #include "Graphics/RenderTexture.h"
 #include "Engine/Input.h"
 #include <GeometricPrimitive.h>
+#include "Utils/StringUtils.h"
 
 using namespace DirectX;
 using namespace Windows::Foundation;
@@ -40,6 +41,16 @@ namespace Moonlight
 		}
 
 		Meshes[Id].Transform = NewTransform;
+	}
+
+	void Renderer::UpdateText(unsigned int Id, TextCommand NewCommand)
+	{
+		if (Id >= UIText.size())
+		{
+			return;
+		}
+
+		UIText[Id] = NewCommand;
 	}
 
 	Renderer::Renderer()
@@ -72,6 +83,8 @@ namespace Moonlight
 			nullptr
 		);
 */
+		m_font = std::make_unique<DirectX::SpriteFont>(m_device->GetD3DDevice(), StringUtils::ToWString(Path("Assets/Fonts/CourierNew.spritefont").FullPath).c_str());
+		m_spriteBatch = std::make_unique<DirectX::SpriteBatch>(m_device->GetD3DDeviceContext());
 		shape = DirectX::GeometricPrimitive::CreateBox(m_device->GetD3DDeviceContext(), XMFLOAT3(1.f, 1.f, 1.f));
 		primitiveBatch = std::make_unique<DirectX::PrimitiveBatch<VertexPositionTexCoord>>(m_device->GetD3DDeviceContext());
 		//m_depthProgram = ShaderCommand("Assets/Shaders/DepthPass.hlsl");
@@ -179,79 +192,9 @@ namespace Moonlight
 
 		context->ClearDepthStencilView(SceneViewRTT->DepthStencilView.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
+		m_device->GetD3DDeviceContext()->OMSetBlendState(0, 0, 0xffffffff);
 		//ID3D11RenderTargetView* const targets2[1] = { SceneViewRTT->renderTargetViewMap };
 		DrawScene(context, m_constantBufferSceneData, editorCamera, SceneViewRTT, SceneResolveViewRTT);
-
-
-		//context->ClearRenderTargetView(SceneViewRTT->RenderTargetView.Get(), color);
-		//ID3D11RenderTargetView** arr[1] = {  };
-		//context->OMSetRenderTargets(1, m_device->m_d3dRenderTargetView.GetAddressOf(), nullptr);
-
-		//GetDevice().GetD3DDeviceContext()->OMSetRenderTargets(1, m_device->m_d3dRenderTargetView.GetAddressOf(), nullptr);
-		// Prepare the constant buffer to send it to the graphics device.
-
-
-		//// Attach our vertex shader.
-		//context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-		//UINT stride = sizeof(PositionVertex);
-		//UINT offset = 0;
-		//context->IASetVertexBuffers(
-		//	0,
-		//	1,
-		//	m_vertexBuffer.GetAddressOf(),
-		//	&stride,
-		//	&offset
-		//);
-
-		//context->IASetIndexBuffer(
-		//	m_indexBuffer.Get(),
-		//	DXGI_FORMAT_R32_UINT, // Each index is one 16-bit unsigned integer (short).
-		//	0
-		//);
-		//context->VSSetShader(
-		//	m_lightingProgram.VertexShader.Get(),
-		//	nullptr,
-		//	0
-		//);
-		//// Attach our pixel shader.
-		//context->PSSetShader(
-		//	m_lightingProgram.PixelShader.Get(),
-		//	nullptr,
-		//	0
-		//);
-
-		//{
-		//	OPTICK_EVENT("Mesh::Draw::Setup");
-		//}
-		//{
-		//	{
-		//		OPTICK_EVENT("Mesh::Draw::Texture::ShaderResources");
-		//		context->PSSetShaderResources(0, 1, &SceneViewRTT->ShaderResourceView);
-		//		//if (mat->GetTexture(TextureType::Normal))
-		//		{
-		//			//context->PSSetShaderResources(1, 1, &SceneViewRTT->NormalShaderResourceView);
-		//		}
-		//		context->PSSetSamplers(0, 1, m_defaultSampler.GetAddressOf());
-		//	}
-		//}
-
-		//{
-		//	OPTICK_EVENT("Mesh::Draw::DrawCall");
-		//	// Draw the objects.
-		//	context->DrawIndexed(
-		//		6,
-		//		0,
-		//		0
-		//	);
-		//}
-
-		//context->OMSetRenderTargets(1, m_device->m_d3dRenderTargetView.GetAddressOf(), nullptr);
-		//context->IASetInputLayout(nullptr);
-		//context->VSSetShader(m_tonemapProgram.VertexShader.Get(), nullptr, 0);
-		//context->PSSetShader(m_tonemapProgram.PixelShader.Get(), nullptr, 0);
-		//context->PSSetShaderResources(0, 1, m_resolvebuffer->ShaderResourceView.GetAddressOf());
-		//context->PSSetSamplers(0, 1, m_computeSampler.GetAddressOf());
-		//context->Draw(3, 0);
 
 		// Scene grid
 		//{
@@ -609,7 +552,16 @@ namespace Moonlight
 		primitiveBatch->Draw(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP, verts, 5);
 
 		primitiveBatch->End();
+		m_spriteBatch->Begin();
 
+		for (TextCommand command : UIText)
+		{
+			Vector2 origin = Vector2(m_font->MeasureString(command.SourceText.c_str()) / 2.f);
+
+			m_font->DrawString(m_spriteBatch.get(), command.SourceText.c_str(), command.ScreenPosition.GetInternalVec(), Colors::White, 0.f, origin.GetInternalVec());
+		}
+
+		m_spriteBatch->End();
 		if (ViewRTT->FinalTexture != ResolveViewRTT->FinalTexture)
 		{
 			context->ResolveSubresource(ResolveViewRTT->FinalTexture.Get(), 0, ViewRTT->FinalTexture.Get(), 0, DXGI_FORMAT_R8G8B8A8_UNORM);
@@ -792,15 +744,6 @@ namespace Moonlight
 		return static_cast<unsigned int>(Meshes.size() - 1);
 	}
 
-	void Renderer::ClearMeshes()
-	{
-		Meshes.clear();
-		while (!FreeMeshCommandIndicies.empty())
-		{
-			FreeMeshCommandIndicies.pop();
-		}
-	}
-
 	void Renderer::PopMesh(unsigned int Id)
 	{
 		if (Id > Meshes.size())
@@ -810,5 +753,49 @@ namespace Moonlight
 
 		FreeMeshCommandIndicies.push(Id);
 		Meshes[Id] = MeshCommand();
+	}
+
+	void Renderer::ClearMeshes()
+	{
+		Meshes.clear();
+		while (!FreeMeshCommandIndicies.empty())
+		{
+			FreeMeshCommandIndicies.pop();
+		}
+	}
+
+	unsigned int Renderer::PushUIText(Moonlight::TextCommand command)
+	{
+		if (!FreeUITextCommandIndicies.empty())
+		{
+			unsigned int openIndex = FreeUITextCommandIndicies.front();
+			FreeUITextCommandIndicies.pop();
+			UIText[openIndex] = std::move(command);
+			return openIndex;
+		}
+
+		UIText.push_back(std::move(command));
+		return static_cast<unsigned int>(UIText.size() - 1);
+
+	}
+
+	void Renderer::PopUIText(unsigned int Id)
+	{
+		if (Id > UIText.size())
+		{
+			return;
+		}
+
+		FreeUITextCommandIndicies.push(Id);
+		UIText[Id] = TextCommand();
+	}
+
+	void Renderer::ClearUIText()
+	{
+		UIText.clear();
+		while (!FreeUITextCommandIndicies.empty())
+		{
+			FreeUITextCommandIndicies.pop();
+		}
 	}
 }
