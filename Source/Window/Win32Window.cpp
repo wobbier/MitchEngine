@@ -11,6 +11,8 @@
 #include <tchar.h>
 #include <dwmapi.h>
 #include "Utils/StringUtils.h"
+#include <Keyboard.h>
+#include <Mouse.h>
 
 LRESULT CALLBACK WinProc(HWND Window, unsigned int msg, WPARAM wp, LPARAM lp);
 
@@ -369,9 +371,30 @@ LRESULT CALLBACK WinProc(HWND hwnd, unsigned int msg, WPARAM wp, LPARAM lp)
 			PostQuitMessage(0);
 			return 0;
 		}
-
+		case WM_ACTIVATEAPP:
+			DirectX::Keyboard::ProcessMessage(msg, wp, lp);
+			DirectX::Mouse::ProcessMessage(msg, wp, lp);
+			break;
+		case WM_INPUT:
+		case WM_MOUSEMOVE:
+		case WM_LBUTTONDOWN:
+		case WM_LBUTTONUP:
+		case WM_RBUTTONDOWN:
+		case WM_RBUTTONUP:
+		case WM_MBUTTONDOWN:
+		case WM_MBUTTONUP:
+		case WM_MOUSEWHEEL:
+		case WM_XBUTTONDOWN:
+		case WM_XBUTTONUP:
+		case WM_MOUSEHOVER:
+			DirectX::Mouse::ProcessMessage(msg, wp, lp);
+			break;
 		case WM_KEYDOWN:
-		case WM_SYSKEYDOWN: {
+		case WM_SYSKEYDOWN:
+		case WM_KEYUP:
+		case WM_SYSKEYUP:
+		{
+			DirectX::Keyboard::ProcessMessage(msg, wp, lp);
 			switch (wp) {
 			case VK_F8: { window.borderless_drag = !window.borderless_drag;        return 0; }
 			case VK_F9: { window.borderless_resize = !window.borderless_resize;    return 0; }

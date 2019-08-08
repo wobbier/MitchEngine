@@ -287,6 +287,7 @@ namespace Moonlight
 		// made to the swap chain render target. For draw calls to other targets,
 		// this transform should not be applied.
 
+		m_device->GetD3DDeviceContext()->OMSetDepthStencilState(m_device->DepthStencilState, 0);
 		if (camera.Projection == ProjectionType::Perspective)
 		{
 			// This sample makes use of a right-handed coordinate system using row-major matrices.

@@ -107,6 +107,8 @@ namespace Moonlight
 		ID3D11BlendState* TransparentBlendState = nullptr;
 		Microsoft::WRL::ComPtr<ID3D11Buffer>		d2dVertBuffer;
 		Microsoft::WRL::ComPtr<ID3D11Buffer>		d2dIndexBuffer;
+
+		ID3D11DepthStencilState* DepthStencilState;
 	private:
 		virtual void CreateFactories() final;
 		virtual void CreateDeviceResources() final;

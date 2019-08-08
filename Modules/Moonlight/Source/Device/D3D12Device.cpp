@@ -476,6 +476,33 @@ namespace Moonlight
 			)
 		);
 
+
+		D3D11_DEPTH_STENCIL_DESC dsDesc;
+
+		// Depth test parameters
+		dsDesc.DepthEnable = true;
+		dsDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+		dsDesc.DepthFunc = D3D11_COMPARISON_LESS;
+
+		// Stencil test parameters
+		dsDesc.StencilEnable = true;
+		dsDesc.StencilReadMask = 0xFF;
+		dsDesc.StencilWriteMask = 0xFF;
+
+		// Stencil operations if pixel is front-facing
+		dsDesc.FrontFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+		dsDesc.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_INCR;
+		dsDesc.FrontFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
+		dsDesc.FrontFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+
+		// Stencil operations if pixel is back-facing
+		dsDesc.BackFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+		dsDesc.BackFace.StencilDepthFailOp = D3D11_STENCIL_OP_DECR;
+		dsDesc.BackFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
+		dsDesc.BackFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+
+		m_d3dDevice->CreateDepthStencilState(&dsDesc, &DepthStencilState);
+
 		// Set the 3D rendering viewport to target the entire window.
 		m_screenViewport = CD3D11_VIEWPORT(
 			0.0f,
@@ -636,34 +663,6 @@ namespace Moonlight
 
 				DX::ThrowIfFailed(m_d3dDevice->CreateShaderResourceView(NewBuffer->DepthStencilTexture.Get(), &ShaderView, &NewBuffer->DepthShaderResourceView));
 			}
-
-			D3D11_DEPTH_STENCIL_DESC dsDesc;
-
-			// Depth test parameters
-			dsDesc.DepthEnable = true;
-			dsDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
-			dsDesc.DepthFunc = D3D11_COMPARISON_LESS;
-
-			// Stencil test parameters
-			dsDesc.StencilEnable = true;
-			dsDesc.StencilReadMask = 0xFF;
-			dsDesc.StencilWriteMask = 0xFF;
-
-			// Stencil operations if pixel is front-facing
-			dsDesc.FrontFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
-			dsDesc.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_INCR;
-			dsDesc.FrontFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
-			dsDesc.FrontFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
-
-			// Stencil operations if pixel is back-facing
-			dsDesc.BackFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
-			dsDesc.BackFace.StencilDepthFailOp = D3D11_STENCIL_OP_DECR;
-			dsDesc.BackFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
-			dsDesc.BackFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
-
-			// Create depth stencil state
-			ID3D11DepthStencilState* DepthStencilState;
-			m_d3dDevice->CreateDepthStencilState(&dsDesc, &DepthStencilState);
 		}
 
 		return NewBuffer;
