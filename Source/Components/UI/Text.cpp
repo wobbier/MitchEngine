@@ -19,6 +19,11 @@ void Text::Deserialize(const json& inJson)
 {
 }
 
+void Text::SetText(const std::string& NewText)
+{
+	SourceText = NewText;
+}
+
 #if ME_EDITOR
 
 void Text::OnEditorInspect()
@@ -31,11 +36,6 @@ void Text::OnEditorInspect()
 		HasChanged = true;
 	}
 	HavanaUtils::EditableVector("Anchor Position", Anchor);
-}
-
-void Text::SetText(const std::string& NewText)
-{
-	SourceText = NewText;
 }
 
 #endif
