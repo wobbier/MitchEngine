@@ -33,4 +33,9 @@ void Text::OnEditorInspect()
 	HavanaUtils::EditableVector("Anchor Position", Anchor);
 }
 
+void Text::SetText(const std::string& NewText)
+{
+	SourceText = NewText;
+}
+
 #endif

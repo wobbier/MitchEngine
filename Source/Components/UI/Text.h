@@ -17,6 +17,7 @@ public:
 #if ME_EDITOR
 	virtual void OnEditorInspect() override;
 #endif
+	void SetText(const std::string& NewText);
 
 	Vector2 Anchor;
 private:
