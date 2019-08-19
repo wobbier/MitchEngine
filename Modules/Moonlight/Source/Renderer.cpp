@@ -185,7 +185,7 @@ namespace Moonlight
 
 		// Reset render targets to the screen.
 
-		//DrawScene(context, m_constantBufferData, mainCamera, m_framebuffer, m_resolvebuffer);
+		DrawScene(context, m_constantBufferData, mainCamera, m_framebuffer, m_resolvebuffer);
 
 
 #if ME_EDITOR
@@ -194,7 +194,7 @@ namespace Moonlight
 
 		m_device->GetD3DDeviceContext()->OMSetBlendState(0, 0, 0xffffffff);
 		//ID3D11RenderTargetView* const targets2[1] = { SceneViewRTT->renderTargetViewMap };
-		//DrawScene(context, m_constantBufferSceneData, editorCamera, SceneViewRTT, SceneResolveViewRTT);
+		DrawScene(context, m_constantBufferSceneData, editorCamera, SceneViewRTT, SceneResolveViewRTT);
 
 		// Scene grid
 		//{
@@ -228,6 +228,7 @@ namespace Moonlight
 
 		func();
 
+		GetDevice().GetD3DDeviceContext()->OMSetRenderTargets(1, m_device->m_d3dRenderTargetView.GetAddressOf(), nullptr);
 		// The first argument instructs DXGI to block until VSync, putting the application
 		// to sleep until the next VSync. This ensures we don't waste any cycles rendering
 		// frames that will never be displayed to the screen.
@@ -530,6 +531,7 @@ namespace Moonlight
 		context->PSSetShaderResources(1, 1, ResolveViewRTT->NormalShaderResourceView.GetAddressOf());
 		context->PSSetShaderResources(2, 1, ResolveViewRTT->SpecularShaderResourceView.GetAddressOf());
 		context->PSSetShaderResources(3, 1, ViewRTT->DepthShaderResourceView.GetAddressOf());
+		context->PSSetShaderResources(4, 1, ResolveViewRTT->UIShaderResourceView.GetAddressOf());
 		context->PSSetSamplers(0, 1, m_computeSampler.GetAddressOf());
 		primitiveBatch->Begin();
 		VertexPositionTexCoord vert1{ {-1.f,1.f,0.f}, {0.f,0.f} };
@@ -578,6 +580,10 @@ namespace Moonlight
 		if (ViewRTT->SpecularTexture != ResolveViewRTT->SpecularTexture)
 		{
 			context->ResolveSubresource(ResolveViewRTT->SpecularTexture.Get(), 0, ViewRTT->SpecularTexture.Get(), 0, DXGI_FORMAT_R8G8B8A8_UNORM);
+		}
+		if (ViewRTT->UITexture != ResolveViewRTT->UITexture)
+		{
+			context->ResolveSubresource(ResolveViewRTT->UITexture.Get(), 0, ViewRTT->UITexture.Get(), 0, DXGI_FORMAT_R8G8B8A8_UNORM);
 		}
 
 		if (false)

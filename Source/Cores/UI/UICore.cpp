@@ -24,6 +24,7 @@
 #include "UI2/d3d11/GPUDriverD3D11.h"
 #include "UI2/d3d11/GPUContextD3D11.h"
 #include "UI/OverlayImpl.h"
+#include "File.h"
 
 UICore::UICore(IWindow* window)
 	: Base(ComponentFilter().Requires<Transform>().Requires<Text>())
@@ -85,7 +86,8 @@ void UICore::Init()
 		ultralight::Ref<ultralight::View> view = m_uiRenderer->CreateView(1280, 720, true);
 		ultralight::RefPtr<ultralight::Overlay> ref = AdoptRef(*new ultralight::OverlayImpl(*m_window.get(), view, 0, 0));//ultralight::Overlay::Create(*m_window.get(), m_window->width(), m_window->height(), 0, 0);//
 		ultralight::OverlayImpl* impl = static_cast<ultralight::OverlayImpl*>(ref.get());
-		impl->view()->LoadHTML("<center>Hello World!</center>");
+		File testFile = File(Path("Assets/UI/Test.html"));
+		impl->view()->LoadHTML(testFile.Read().c_str());
 		m_overlays.push_back(ref);
 		GetOverlayManager()->Add(m_overlays[0].get());
 	}
@@ -144,7 +146,7 @@ void UICore::Render()
 	m_driver->EndSynchronize();
 
 	// Draw any pending commands to screen
-	//if (m_driver->HasCommandsPending())
+	if (m_driver->HasCommandsPending())
 	{
 		m_context->BeginDrawing();
 		m_driver->DrawCommandList();

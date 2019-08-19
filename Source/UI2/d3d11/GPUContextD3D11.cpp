@@ -102,7 +102,7 @@ namespace ultralight {
 		return ptr;
 	}
 	IDXGISwapChain* GPUContextD3D11::swap_chain() { assert(GetEngine().GetRenderer().GetDevice().GetSwapChain()); return GetEngine().GetRenderer().GetDevice().GetSwapChain(); }
-	ID3D11RenderTargetView* GPUContextD3D11::render_target_view() { return m_renderer->GetDevice().m_d3dRenderTargetView.Get(); }
+	ID3D11RenderTargetView* GPUContextD3D11::render_target_view() { return m_renderer->m_resolvebuffer->UIRenderTargetView.Get(); }
 
 	// Scale is calculated from monitor DPI, see Application::SetScale
 	void GPUContextD3D11::set_scale(double scale) { scale_ = scale; }
@@ -199,7 +199,7 @@ namespace ultralight {
 		//  return false;
 		//}
 
-		m_renderer->GetDevice().GetD3DDeviceContext()->OMSetRenderTargets(1, m_renderer->GetDevice().m_d3dRenderTargetView.GetAddressOf(), nullptr);
+		m_renderer->GetDevice().GetD3DDeviceContext()->OMSetRenderTargets(1, m_renderer->m_resolvebuffer->UIRenderTargetView.GetAddressOf(), nullptr);
 
 		D3D11_RENDER_TARGET_BLEND_DESC rt_blend_desc;
 		ZeroMemory(&rt_blend_desc, sizeof(rt_blend_desc));

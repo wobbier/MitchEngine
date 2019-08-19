@@ -32,7 +32,7 @@ AppWin::AppWin() {
   GetModuleFileNameW(hModule, path, MAX_PATH);
   PathRemoveFileSpecW(path);
 
-  PathAppendW(path, L"assets");
+  PathAppendW(path, L"Assets/UI");
 
   file_system_.reset(new FileSystemWin(path));
   Platform::instance().set_file_system(file_system_.get());
