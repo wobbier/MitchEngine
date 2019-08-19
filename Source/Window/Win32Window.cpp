@@ -92,7 +92,7 @@ Win32Window::Win32Window(std::string title, std::function<void(const Vector2&)> 
 	}
 	SetBorderless(borderless);
 	SetBorderlessShadow(borderless_shadow);
-	ShowWindow(Window, SW_SHOWMAXIMIZED);
+	ShowWindow(Window, SW_SHOW);
 }
 
 Win32Window::~Win32Window()
@@ -311,6 +311,11 @@ LRESULT Win32Window::HitTest(POINT cursor) const
 void Win32Window::Exit()
 {
 	ExitRequested = true;
+}
+
+bool Win32Window::IsFullscreen()
+{
+	return IsMaximized();
 }
 
 POINT prevPos;

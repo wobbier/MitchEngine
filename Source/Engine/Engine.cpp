@@ -67,6 +67,10 @@ void Engine::Init(Game* game)
 		{
 			m_renderer->WindowResized(NewSize);
 		}
+		if (UI)
+		{
+			UI->OnResize(NewSize);
+		}
 	};
 	GameWindow = new Win32Window("MitchEngine", Func, WindowWidth, WindowHeight);
 #endif
@@ -88,7 +92,7 @@ void Engine::Init(Game* game)
 
 	m_renderer->Init();
 
-	UI = new UICore();
+	UI = new UICore(GameWindow);
 
 	InitGame();
 
@@ -147,35 +151,36 @@ void Engine::Run()
 			m_game->OnUpdate(deltaTime);
 		}
 		GameWorld->UpdateLoadedCores(deltaTime);
-			SceneNodes->Update(deltaTime);
+		SceneNodes->Update(deltaTime);
 
-			Cameras->Update(deltaTime);
-			AudioThread->Update(deltaTime);
-			ModelRenderer->Update(AccumulatedTime);
-			UI->Update(deltaTime);
-			AccumulatedTime -= 1.0f / FPS;
+		Cameras->Update(deltaTime);
+		AudioThread->Update(deltaTime);
+		ModelRenderer->Update(AccumulatedTime);
+		UI->Update(deltaTime);
+		AccumulatedTime -= 1.0f / FPS;
 
 #if !ME_EDITOR
-			Vector2 MainOutputSize = m_renderer->GetDevice().GetOutputSize();
-			MainCamera.Position = Camera::CurrentCamera->Position;
-			MainCamera.Front = Camera::CurrentCamera->Front;
-			MainCamera.Up = Camera::CurrentCamera->Up;
-			MainCamera.OutputSize = MainOutputSize;
-			MainCamera.FOV = Camera::CurrentCamera->GetFOV();
-			MainCamera.Skybox = Camera::CurrentCamera->Skybox;
-			MainCamera.ClearColor = Camera::CurrentCamera->ClearColor;
-			MainCamera.ClearType = Camera::CurrentCamera->ClearType;
-			MainCamera.Projection = Camera::CurrentCamera->Projection;
-			MainCamera.OrthographicSize = Camera::CurrentCamera->OrthographicSize;
+		Vector2 MainOutputSize = m_renderer->GetDevice().GetOutputSize();
+		MainCamera.Position = Camera::CurrentCamera->Position;
+		MainCamera.Front = Camera::CurrentCamera->Front;
+		MainCamera.Up = Camera::CurrentCamera->Up;
+		MainCamera.OutputSize = MainOutputSize;
+		MainCamera.FOV = Camera::CurrentCamera->GetFOV();
+		MainCamera.Skybox = Camera::CurrentCamera->Skybox;
+		MainCamera.ClearColor = Camera::CurrentCamera->ClearColor;
+		MainCamera.ClearType = Camera::CurrentCamera->ClearType;
+		MainCamera.Projection = Camera::CurrentCamera->Projection;
+		MainCamera.OrthographicSize = Camera::CurrentCamera->OrthographicSize;
 
-			EditorCamera = MainCamera;
+		EditorCamera = MainCamera;
 #endif
 
-			m_renderer->Render([this]() {
-				m_game->PostRender();
+		m_renderer->Render([this]() {
+			m_game->PostRender();
+			UI->Render();
 			}, MainCamera, EditorCamera);
 
-			Sleep(4);
+		Sleep(4);
 	}
 }
 

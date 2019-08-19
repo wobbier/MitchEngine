@@ -83,7 +83,7 @@ namespace Moonlight
 			nullptr
 		);
 */
-		m_font = std::make_unique<DirectX::SpriteFont>(m_device->GetD3DDevice(), StringUtils::ToWString(Path("Assets/Fonts/CourierNew.spritefont").FullPath).c_str());
+		m_font = std::make_unique<DirectX::SpriteFont>(m_device->GetD3DDevice(), StringUtils::ToWString(Path("Assets/Fonts/Comfortaa.spritefont").FullPath).c_str());
 		m_spriteBatch = std::make_unique<DirectX::SpriteBatch>(m_device->GetD3DDeviceContext());
 		shape = DirectX::GeometricPrimitive::CreateBox(m_device->GetD3DDeviceContext(), XMFLOAT3(1.f, 1.f, 1.f));
 		primitiveBatch = std::make_unique<DirectX::PrimitiveBatch<VertexPositionTexCoord>>(m_device->GetD3DDeviceContext());
@@ -185,7 +185,7 @@ namespace Moonlight
 
 		// Reset render targets to the screen.
 
-		DrawScene(context, m_constantBufferData, mainCamera, m_framebuffer, m_resolvebuffer);
+		//DrawScene(context, m_constantBufferData, mainCamera, m_framebuffer, m_resolvebuffer);
 
 
 #if ME_EDITOR
@@ -194,7 +194,7 @@ namespace Moonlight
 
 		m_device->GetD3DDeviceContext()->OMSetBlendState(0, 0, 0xffffffff);
 		//ID3D11RenderTargetView* const targets2[1] = { SceneViewRTT->renderTargetViewMap };
-		DrawScene(context, m_constantBufferSceneData, editorCamera, SceneViewRTT, SceneResolveViewRTT);
+		//DrawScene(context, m_constantBufferSceneData, editorCamera, SceneViewRTT, SceneResolveViewRTT);
 
 		// Scene grid
 		//{
@@ -248,8 +248,8 @@ namespace Moonlight
 		m_device->GetD3DDeviceContext()->DiscardView1(SceneResolveViewRTT->SpecularShaderResourceView.Get(), nullptr, 0);
 
 		// Discard the contents of the depth stencil.
-		//m_device->GetD3DDeviceContext()->DiscardView1(m_framebuffer->DepthStencilView.Get(), nullptr, 0);
-
+		m_device->GetD3DDeviceContext()->DiscardView1(m_framebuffer->DepthStencilView.Get(), nullptr, 0);
+		//HRESULT hr = S_OK;
 		// If the device was removed either by a disconnection or a driver upgrade, we 
 		// must recreate all device resources.
 		if (hr == DXGI_ERROR_DEVICE_REMOVED || hr == DXGI_ERROR_DEVICE_RESET)

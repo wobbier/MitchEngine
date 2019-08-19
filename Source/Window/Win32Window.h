@@ -10,6 +10,7 @@
 class Win32Window final
 	: public IWindow
 {
+	friend class UIWindow;
 public:
 	enum class Style : DWORD
 	{
@@ -49,6 +50,8 @@ public:
 
 	bool IsMaximized();
 
+	virtual bool IsFullscreen() override;
+
 	virtual void Maximize() final;
 
 	LRESULT HitTest(POINT cursor) const;
@@ -60,6 +63,7 @@ private:
 	bool canMoveWindow = false;
 
 	bool IsMaximized(HWND hwnd);
+
 	HWND Window;
 	HICON hWindowIcon = NULL;
 	HICON hWindowIconSm = NULL;

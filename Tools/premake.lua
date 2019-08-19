@@ -81,6 +81,7 @@ includedirs {
   "../ThirdParty/ImGUI",
   "../Modules/ImGUI/Source",
   "../ThirdParty/PerlinNoise",
+  "../ThirdParty/Ultralight/SDK/include",
   "../ThirdParty/JSON/single_include"
 }
 
@@ -93,12 +94,18 @@ else
   defines { "ME_PLATFORM_WIN64" }
   links {
   	"dwmapi",
-	"DirectXTKAudioWin8"
+	"DirectXTKAudioWin8",
+	"Ultralight.lib",
+	"UltralightCore.lib",
+	"WebCore.lib",
+	"AppCore.lib"
   }
 end
 
 libdirs {
-  "../Build/%{cfg.buildcfg}"
+  "../Build/%{cfg.buildcfg}",
+  "../ThirdParty/Ultralight/SDK/lib",
+  "../ThirdParty/Ultralight/SDK/bin"
 }
 
 links {
@@ -106,7 +113,9 @@ links {
   (getPlatformPostfix("Dementia") .. ".lib"),
   "assimp-vc140-mt",
   "IrrXML",
-  "DirectXTK"
+  "DirectXTK",
+  "Shlwapi.lib",
+  "Usp10.lib"
 }
 
 -- Platform specific options
@@ -122,7 +131,8 @@ linkoptions {
 }
 
 defines{
-  "NOMINMAX"
+  "NOMINMAX",
+  "ULTRALIGHT_IMPLEMENTATION"
 }
 
 configuration "*Editor"

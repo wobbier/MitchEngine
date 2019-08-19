@@ -85,16 +85,19 @@ void World::Simulate()
 	for (auto& InEntity : EntityCache.Deactivated)
 	{
 		auto& Attr = EntityAttributes.Attributes[InEntity.GetId().Index];
-		Attr.IsActive = false;
-
-		for (auto& InCore : Cores)
+		if (Attr.IsActive)
 		{
-			auto CoreIndex = InCore.first;
-			if (Attr.Cores.size() <= CoreIndex) continue;
-			if (Attr.Cores[CoreIndex])
+			Attr.IsActive = false;
+
+			for (auto& InCore : Cores)
 			{
-				InCore.second->Remove(InEntity);
-				Attr.Cores[CoreIndex] = false;
+				auto CoreIndex = InCore.first;
+				if (Attr.Cores.size() <= CoreIndex) continue;
+				if (Attr.Cores[CoreIndex])
+				{
+					InCore.second->Remove(InEntity);
+					Attr.Cores[CoreIndex] = false;
+				}
 			}
 		}
 	}

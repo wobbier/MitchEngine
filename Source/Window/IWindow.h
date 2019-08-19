@@ -18,6 +18,8 @@ public:
 	virtual Vector2 GetSize() const = 0;
 	virtual Vector2 GetPosition() = 0;
 
+	virtual bool IsFullscreen() = 0;
+
 	virtual void Maximize() = 0;
 	virtual void Minimize() = 0;
 	virtual void ExitMaximize() = 0;
