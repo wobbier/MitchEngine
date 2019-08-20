@@ -806,7 +806,7 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 		if (Renderer->m_resolvebuffer)
 		{
 			static auto srv = Renderer->m_resolvebuffer->ShaderResourceView;
-			static std::string RenderTextureName = "Shaded";
+			static std::string RenderTextureName = "UI";
 			if (ImGui::BeginMenuBar())
 			{
 				if (ImGui::BeginMenu(RenderTextureName.c_str()))
@@ -832,6 +832,10 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 					{
 						RenderTextureName = "Depth";
 					}
+					if (ImGui::MenuItem("UI", "", false))
+					{
+						RenderTextureName = "UI";
+					}
 					ImGui::EndMenu();
 				}
 
@@ -856,6 +860,10 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 			else if (RenderTextureName == "Depth")
 			{
 				srv = Renderer->m_framebuffer->DepthShaderResourceView;
+			}
+			else if (RenderTextureName == "UI")
+			{
+				srv = Renderer->m_resolvebuffer->UIShaderResourceView;
 			}
 			m_isGameFocused = ImGui::IsWindowFocused();
 
