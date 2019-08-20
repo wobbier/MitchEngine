@@ -25,9 +25,10 @@
 #include "UI2/d3d11/GPUContextD3D11.h"
 #include "UI/OverlayImpl.h"
 #include "File.h"
+#include <filesystem>
 
 UICore::UICore(IWindow* window)
-	: Base(ComponentFilter().Requires<Transform>().Requires<Text>())
+	: Base(ComponentFilter().Requires<Transform>().RequiresOneOf<Text>().RequiresOneOf<UIView>())
 	, m_uiRenderer(ultralight::Renderer::Create())
 {
 	IsSerializable = false;
@@ -56,7 +57,8 @@ UICore::UICore(IWindow* window)
 
 	UIWindow* win = static_cast<UIWindow*>(m_window.get());
 	if (!m_context->Initialize(win->hwnd(), win->width(),
-		win->height(), win->scale(), win->is_fullscreen(), true, false, 1)) {
+		win->height(), win->scale(), win->is_fullscreen(), true, false, 1))
+	{
 		MessageBoxW(NULL, (LPCWSTR)L"Failed to initialize D3D11 context", (LPCWSTR)L"Notification", MB_OK);
 		exit(-1);
 	}
@@ -78,34 +80,55 @@ UICore::~UICore()
 void UICore::Init()
 {
 	Logger::GetInstance().Log(Logger::LogType::Debug, "UICore Initialized...");
-	if(m_renderer)
+	if (m_renderer)
 		m_renderer->ClearUIText();
 	if (!IsInitialized)
 	{
 		IsInitialized = true;
-		ultralight::Ref<ultralight::View> view = m_uiRenderer->CreateView(GetEngine().MainCamera.OutputSize.X(), GetEngine().MainCamera.OutputSize.Y(), true);
-		ultralight::RefPtr<ultralight::Overlay> ref = ultralight::Overlay::Create(*m_window.get(), view, m_window->width(), m_window->height());//AdoptRef(*new ultralight::OverlayImpl(*m_window.get(), view, 0, 0));//
-		ultralight::OverlayImpl* impl = static_cast<ultralight::OverlayImpl*>(ref.get());
-		File testFile = File(Path("Assets/UI/Test.html"));
-		impl->view()->LoadHTML(testFile.Read().c_str());
-		//impl->view()->LoadURL("https://wobbier.com/");
-		m_overlays.push_back(ref);
-		GetOverlayManager()->Add(m_overlays[0].get());
+		//ultralight::Ref<ultralight::View> view = m_uiRenderer->CreateView(GetEngine().MainCamera.OutputSize.X(), GetEngine().MainCamera.OutputSize.Y(), true);
+		//ultralight::RefPtr<ultralight::Overlay> ref = ultralight::Overlay::Create(*m_window.get(), view, 0, 0);//AdoptRef(*new ultralight::OverlayImpl(*m_window.get(), view, 0, 0));//
+		//ultralight::OverlayImpl* impl = static_cast<ultralight::OverlayImpl*>(ref.get());
+		//File testFile = File(Path("Assets/UI/Test.html"));
+		//impl->view()->LoadHTML(testFile.Read().c_str());
+		////impl->view()->LoadURL("https://wobbier.com/");
+		//m_overlays.push_back(ref);
+		//GetOverlayManager()->Add(m_overlays[0].get());
 	}
 }
 
-void UICore::OnEntityAdded(Entity& NewEntity)
+void UICore::OnEntityAdded(Entity & NewEntity)
 {
-	Moonlight::TextCommand command;
-	Text& textComponent = NewEntity.GetComponent<Text>();
-	command.SourceText = StringUtils::ToWString(textComponent.SourceText);
+	if (NewEntity.HasComponent<Text>())
+	{
+		Moonlight::TextCommand command;
+		Text& textComponent = NewEntity.GetComponent<Text>();
+		command.SourceText = StringUtils::ToWString(textComponent.SourceText);
 		textComponent.RenderId = m_renderer->PushUIText(command);
+	}
+
+	if (NewEntity.HasComponent<UIView>())
+	{
+		UIView& view = NewEntity.GetComponent<UIView>();
+
+		InitUIView(view);
+	}
 }
 
-void UICore::OnEntityRemoved(Entity& InEntity)
+void UICore::OnEntityRemoved(Entity & InEntity)
 {
-	Text& textComponent = InEntity.GetComponent<Text>();
-	m_renderer->PopUIText(textComponent.RenderId);
+	if (InEntity.HasComponent<Text>())
+	{
+		Text& textComponent = InEntity.GetComponent<Text>();
+		m_renderer->PopUIText(textComponent.RenderId);
+	}
+	if (InEntity.HasComponent<UIView>())
+	{
+		UIView view = InEntity.GetComponent<UIView>();
+
+		GetOverlayManager()->Remove(m_overlays[view.Index].get());
+
+		m_overlays.erase(m_overlays.begin() + view.Index);
+	}
 }
 
 void UICore::Update(float dt)
@@ -115,19 +138,28 @@ void UICore::Update(float dt)
 
 	OPTICK_CATEGORY("UICore::Update", Optick::Category::Rendering)
 
-	auto Renderables = GetEntities();
+		auto Renderables = GetEntities();
 	for (auto& InEntity : Renderables)
 	{
 		Transform& transform = InEntity.GetComponent<Transform>();
-		Text& textComponent = InEntity.GetComponent<Text>();
 
-		Moonlight::TextCommand command;
-		//if (textComponent.HasChanged)
+		if (InEntity.HasComponent<Text>())
 		{
+			Text& textComponent = InEntity.GetComponent<Text>();
+
+			Moonlight::TextCommand command;
 			command.SourceText = StringUtils::ToWString(textComponent.SourceText);
 			command.ScreenPosition = Vector2(transform.Position.X(), transform.Position.Y());
 			command.Anchor = textComponent.Anchor;
 			m_renderer->UpdateText(textComponent.RenderId, command);
+		}
+		if (InEntity.HasComponent<UIView>())
+		{
+			UIView& view = InEntity.GetComponent<UIView>();
+			if (!view.IsInitialized)
+			{
+				InitUIView(view);
+			}
 		}
 	}
 }
@@ -170,7 +202,7 @@ ultralight::OverlayManager* UICore::GetOverlayManager()
 	return this;
 }
 
-void UICore::OnResize(const Vector2& NewSize)
+void UICore::OnResize(const Vector2 & NewSize)
 {
 	if (m_context)
 	{
@@ -181,4 +213,68 @@ void UICore::OnResize(const Vector2& NewSize)
 			overlay->Resize((int)NewSize.X(), (int)NewSize.Y());
 		}
 	}
+}
+
+void UICore::InitUIView(UIView & view)
+{
+	ultralight::Ref<ultralight::View> newView = m_uiRenderer->CreateView(GetEngine().MainCamera.OutputSize.X(), GetEngine().MainCamera.OutputSize.Y(), true);
+	ultralight::RefPtr<ultralight::Overlay> overlay = ultralight::Overlay::Create(*m_window.get(), newView, 0, 0);
+	overlay->view()->LoadHTML(view.SourceFile.Read().c_str());
+	//impl->view()->LoadURL("https://wobbier.com/");
+	m_overlays.push_back(overlay);
+	GetOverlayManager()->Add(overlay.get());
+	view.IsInitialized = true;
+	view.Index = m_overlays.size() - 1;
+}
+
+UIView::UIView()
+{
+
+}
+
+void UIView::Serialize(json & outJson)
+{
+}
+
+void UIView::Deserialize(const json & inJson)
+{
+}
+
+void UIView::OnEditorInspect()
+{
+	static std::vector<Path> Textures;
+	if (Textures.empty())
+	{
+		Path path = Path("Assets");
+		Textures.push_back(Path(""));
+		for (const auto& entry : std::filesystem::recursive_directory_iterator(path.FullPath))
+		{
+			Path filePath(entry.path().string());
+			if (filePath.LocalPath.rfind(".html") != std::string::npos && filePath.LocalPath.rfind(".meta") == std::string::npos)
+			{
+				Textures.push_back(filePath);
+			}
+		}
+	}
+
+	if (ImGui::BeginCombo("##HTMLSource", ""))
+	{
+		for (int n = 0; n < Textures.size(); n++)
+		{
+			if (ImGui::Selectable(Textures[n].LocalPath.c_str(), false))
+			{
+				FilePath = Textures[n];
+				SourceFile = File(FilePath);
+				IsInitialized = false;
+				Textures.clear();
+				break;
+			}
+		}
+		ImGui::EndCombo();
+	}
+}
+
+void UIView::Init()
+{
+	SourceFile = File(FilePath);
 }

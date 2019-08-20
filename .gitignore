@@ -18,7 +18,7 @@ x64/
 x86/
 build/
 bld/
-[Bb]in/
+#[Bb]in/
 [Oo]bj/
 [Bb]uild/
 !**/Source/**/Debug
@@ -209,3 +209,4 @@ engine.txt
 imgui.ini
 
 !ThirdParty/Lib/**/*.*
+!ThirdParty/Bin/**/*.*

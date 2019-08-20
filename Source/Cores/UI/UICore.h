@@ -6,13 +6,40 @@
 #include "Renderer.h"
 #include "Graphics/ModelResource.h"
 #include "Ultralight/Renderer.h"
-#include "Ultralight/Renderer.h"
 #include "Ultralight/RefPtr.h"
 #include "UI2/OverlayManager.h"
 #include "UI/UIWindow.h"
 #include "UI2/FileSystemWin.h"
 #include "UI2/FontLoaderWin.h"
 #include "UI2/d3d11/GPUDriverD3D11.h"
+#include "ECS/Component.h"
+#include "ECS/ComponentDetail.h"
+#include "File.h"
+#include "Path.h"
+
+class UIView
+	: public Component<UIView>
+{
+	friend class UICore;
+public:
+	UIView();
+	virtual void Serialize(json& outJson) override;
+
+
+	virtual void Deserialize(const json& inJson) override;
+
+
+	virtual void OnEditorInspect() override;
+
+
+	virtual void Init() override;
+	size_t Index;
+private:
+	bool IsInitialized = false;
+	File SourceFile;
+	Path FilePath;
+};
+ME_REGISTER_COMPONENT(UIView)
 
 class UICore final
 	: public Core<UICore>
@@ -29,6 +56,9 @@ public:
 	virtual void Update(float dt) final;
 
 	virtual void OnEntityAdded(Entity& NewEntity) final;
+
+	void InitUIView(UIView& view);
+
 	virtual void OnEntityRemoved(Entity& InEntity) final;
 
 	Cubemap* SkyboxMap = nullptr;
