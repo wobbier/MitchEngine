@@ -58,6 +58,9 @@ public:
 
 	virtual void Exit() final;
 
+	// ??
+	void Resized(const Vector2& NewSize);
+
 private:
 	bool ExitRequested = false;
 	bool canMoveWindow = false;

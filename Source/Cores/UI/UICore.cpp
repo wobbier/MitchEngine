@@ -44,7 +44,7 @@ UICore::UICore(IWindow* window)
 	GetModuleFileNameW(hModule, path, MAX_PATH);
 	PathRemoveFileSpecW(path);
 
-	PathAppendW(path, L"Assets");
+	PathAppendW(path, L"Assets/UI");
 
 	m_fs.reset(new ultralight::FileSystemWin(path));
 	m_fontLoader.reset(new ultralight::FontLoaderWin());
@@ -83,11 +83,12 @@ void UICore::Init()
 	if (!IsInitialized)
 	{
 		IsInitialized = true;
-		ultralight::Ref<ultralight::View> view = m_uiRenderer->CreateView(1280, 720, true);
-		ultralight::RefPtr<ultralight::Overlay> ref = AdoptRef(*new ultralight::OverlayImpl(*m_window.get(), view, 0, 0));//ultralight::Overlay::Create(*m_window.get(), m_window->width(), m_window->height(), 0, 0);//
+		ultralight::Ref<ultralight::View> view = m_uiRenderer->CreateView(GetEngine().MainCamera.OutputSize.X(), GetEngine().MainCamera.OutputSize.Y(), true);
+		ultralight::RefPtr<ultralight::Overlay> ref = ultralight::Overlay::Create(*m_window.get(), view, m_window->width(), m_window->height());//AdoptRef(*new ultralight::OverlayImpl(*m_window.get(), view, 0, 0));//
 		ultralight::OverlayImpl* impl = static_cast<ultralight::OverlayImpl*>(ref.get());
 		File testFile = File(Path("Assets/UI/Test.html"));
 		impl->view()->LoadHTML(testFile.Read().c_str());
+		//impl->view()->LoadURL("https://wobbier.com/");
 		m_overlays.push_back(ref);
 		GetOverlayManager()->Add(m_overlays[0].get());
 	}
@@ -159,7 +160,7 @@ void UICore::Render()
 		{
 			Draw();
 		}
-		m_context->PresentFrame();
+		//m_context->PresentFrame();
 		m_context->EndDrawing();
 	}
 }
@@ -174,5 +175,10 @@ void UICore::OnResize(const Vector2& NewSize)
 	if (m_context)
 	{
 		m_context->Resize((int)NewSize.X(), (int)NewSize.Y());
+		//m_driver->RebindBackbuffer();
+		for (auto overlay : overlays_)
+		{
+			overlay->Resize((int)NewSize.X(), (int)NewSize.Y());
+		}
 	}
 }

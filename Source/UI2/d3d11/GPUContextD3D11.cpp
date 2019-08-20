@@ -31,7 +31,18 @@ namespace ultralight {
 	}
 
 	// Inherited from GPUContext
-	void GPUContextD3D11::BeginDrawing() {}
+	void GPUContextD3D11::BeginDrawing()
+	{
+		D3D11_VIEWPORT vp;
+		ZeroMemory(&vp, sizeof(vp));
+		vp.Width = GetEngine().MainCamera.OutputSize.X();
+		vp.Height = GetEngine().MainCamera.OutputSize.Y();
+		vp.MinDepth = 0.0f;
+		vp.MaxDepth = 1.0f;
+		vp.TopLeftX = 0;
+		vp.TopLeftY = 0;
+		m_renderer->GetDevice().GetD3DDeviceContext()->RSSetViewports(1, &vp);
+	}
 	void GPUContextD3D11::EndDrawing() {}
 	void GPUContextD3D11::PresentFrame() {
 		swap_chain()->Present(enable_vsync_ ? 1 : 0, 0);

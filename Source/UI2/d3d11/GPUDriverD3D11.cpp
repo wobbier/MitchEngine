@@ -8,6 +8,7 @@
 #include "Utils/StringUtils.h"
 #include "Engine/Engine.h"
 #include "Device/D3D12Device.h"
+#include "Camera/CameraData.h"
 
 #define SHADER_PATH L".\\shaders\\hlsl\\"
 
@@ -166,13 +167,14 @@ namespace ultralight
 		srv_desc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
 		srv_desc.Texture2D.MostDetailedMip = 0;
 		srv_desc.Texture2D.MipLevels = 1;
+		if(!bitmap->IsEmpty())
 		{
-
 		hr = context_->device()->CreateShaderResourceView(
 			texture_entry.first.Get(), &srv_desc, texture_entry.second.GetAddressOf());
 		}
+		else
 		{
-			//texture_entry.second = GetEngine().GetRenderer().m_framebuffer->UIShaderResourceView;
+			texture_entry.second = GetEngine().GetRenderer().m_framebuffer->UIShaderResourceView;
 		}
 	}
 
@@ -484,6 +486,12 @@ namespace ultralight
 		}
 
 		command_list_.clear();
+	}
+
+	void GPUDriverD3D11::RebindBackbuffer()
+	{
+		textures_[0].first = GetEngine().GetRenderer().m_resolvebuffer->UITexture;
+		textures_[0].second = GetEngine().GetRenderer().m_resolvebuffer->UIShaderResourceView;
 	}
 
 	void GPUDriverD3D11::LoadShaders()

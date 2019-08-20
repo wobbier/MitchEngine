@@ -69,7 +69,7 @@ void Engine::Init(Game* game)
 		}
 		if (UI)
 		{
-			UI->OnResize(NewSize);
+			UI->OnResize(MainCamera.OutputSize);
 		}
 	};
 	GameWindow = new Win32Window("MitchEngine", Func, WindowWidth, WindowHeight);
@@ -156,6 +156,11 @@ void Engine::Run()
 		Cameras->Update(deltaTime);
 		AudioThread->Update(deltaTime);
 		ModelRenderer->Update(AccumulatedTime);
+
+		if (UI)
+		{
+			UI->OnResize(MainCamera.OutputSize);
+		}
 		UI->Update(deltaTime);
 		AccumulatedTime -= 1.0f / FPS;
 

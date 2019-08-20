@@ -73,8 +73,9 @@ public:
   virtual void DrawCommandList() override;
 
   // Public Methods
-
   int batch_count() const { return batch_count_; }
+
+  void RebindBackbuffer();
 
 protected:
   void LoadShaders();
