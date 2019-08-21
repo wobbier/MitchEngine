@@ -8,8 +8,8 @@
 #include <Ultralight/platform/Platform.h>
 #include <Ultralight/platform/Config.h>
 #include <Ultralight/platform/GPUDriver.h>
-#include "UI2/RefCountedImpl.h"
-#include "UI2/OverlayManager.h"
+#include "UI/RefCountedImpl.h"
+#include "UI/OverlayManager.h"
 #include <vector>
 #include "Cores/UI/UICore.h"
 #include "Ultralight/RefPtr.h"

@@ -7,14 +7,16 @@
 #include "Engine/Engine.h"
 #include <assert.h>
 
-namespace ultralight {
+namespace ultralight
+{
 
 	GPUContextD3D11::GPUContextD3D11(Moonlight::Renderer* renderer)
 		: m_renderer(renderer)
 	{
 	}
 
-	GPUContextD3D11::~GPUContextD3D11() {
+	GPUContextD3D11::~GPUContextD3D11()
+	{
 		if (GetEngine().GetRenderer().GetDevice().GetD3DDevice())
 			m_renderer->GetDevice().GetD3DDeviceContext()->ClearState();
 
@@ -44,11 +46,13 @@ namespace ultralight {
 		m_renderer->GetDevice().GetD3DDeviceContext()->RSSetViewports(1, &vp);
 	}
 	void GPUContextD3D11::EndDrawing() {}
-	void GPUContextD3D11::PresentFrame() {
+	void GPUContextD3D11::PresentFrame()
+	{
 		swap_chain()->Present(enable_vsync_ ? 1 : 0, 0);
 	}
 
-	void GPUContextD3D11::Resize(int width, int height) {
+	void GPUContextD3D11::Resize(int width, int height)
+	{
 		set_screen_size(width, height);
 
 		//m_renderer->GetDevice().GetD3DDeviceContext()->OMSetRenderTargets(0, 0, 0);
@@ -123,7 +127,8 @@ namespace ultralight {
 	void GPUContextD3D11::set_screen_size(uint32_t width, uint32_t height) { width_ = width; height_ = height; }
 	void GPUContextD3D11::screen_size(uint32_t& width, uint32_t& height) { width = width_; height = height_; }
 
-	bool GPUContextD3D11::Initialize(HWND hWnd, int screen_width, int screen_height, double screen_scale, bool fullscreen, bool enable_vsync, bool sRGB, int samples) {
+	bool GPUContextD3D11::Initialize(HWND hWnd, int screen_width, int screen_height, double screen_scale, bool fullscreen, bool enable_vsync, bool sRGB, int samples)
+	{
 		samples_ = samples;
 		enable_vsync_ = enable_vsync;
 		set_screen_size(screen_width, screen_height);

@@ -7,7 +7,8 @@
 #include <filesystem>
 
 AudioSource::AudioSource(const std::string& InFilePath)
-	: FilePath(InFilePath)
+	: Component("AudioSource")
+	, FilePath(InFilePath)
 {
 	if (Preload)
 	{
@@ -16,6 +17,7 @@ AudioSource::AudioSource(const std::string& InFilePath)
 }
 
 AudioSource::AudioSource()
+	: Component("AudioSource")
 {
 
 }

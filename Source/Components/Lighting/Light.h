@@ -8,7 +8,10 @@ class Light : public Component<Light>
 {
 public:
 
-	Light() = default;
+	Light()
+		: Component("Light")
+	{
+	}
 	~Light() = default;
 
 	// Separate init from construction code.

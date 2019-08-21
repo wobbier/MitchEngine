@@ -3,6 +3,7 @@
 #include "imgui.h"
 
 FlyingCamera::FlyingCamera()
+	: Component("FlyingCamera")
 {
 
 }

@@ -1,17 +1,18 @@
 #pragma once
+#include "ECS/Core.h"
 #include "ECS/Component.h"
 #include "ECS/ComponentDetail.h"
-#include <string>
+#include "File.h"
+#include "Path.h"
 
-class Text
-	: public Component<Text>
+class BasicUIView
+	: public Component<BasicUIView>
 {
 	friend class UICore;
 public:
-	Text()
-		: Component("Text")
-	{
-	}
+	BasicUIView();
+	BasicUIView(const char* Name);
+
 	virtual void Init() override;
 
 	virtual void Serialize(json& outJson) override;
@@ -20,14 +21,10 @@ public:
 #if ME_EDITOR
 	virtual void OnEditorInspect() override;
 #endif
-	void SetText(const std::string& NewText);
-
-	Vector2 Anchor;
-private:
-	unsigned int RenderId = 0;
-	bool HasChanged = false;
-
-	std::string SourceText;
+protected:
+	bool IsInitialized = false;
+	size_t Index;
+	File SourceFile;
+	Path FilePath;
 };
-
-ME_REGISTER_COMPONENT(Text)
+ME_REGISTER_COMPONENT(BasicUIView)

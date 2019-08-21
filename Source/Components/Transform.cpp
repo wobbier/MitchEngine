@@ -5,7 +5,8 @@
 #include "misc/cpp/imgui_stdlib.h"
 
 Transform::Transform()
-	: WorldTransform(DirectX::XMMatrixIdentity())
+	: Component("Transform")
+	, WorldTransform(DirectX::XMMatrixIdentity())
 	, Position(0.f, 0.f, 0.f)
 	, Rotation(0.f, 0.f, 0.f)
 	, Scale(1.0f, 1.0f, 1.0f)
@@ -14,7 +15,8 @@ Transform::Transform()
 
 
 Transform::Transform(const std::string& TransformName)
-	: WorldTransform(DirectX::XMMatrixIdentity())
+	: Component("Transform")
+	, WorldTransform(DirectX::XMMatrixIdentity())
 	, Name(std::move(TransformName))
 	, Position(0.f, 0.f, 0.f)
 	, Rotation(0.f, 0.f, 0.f)

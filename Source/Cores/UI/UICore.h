@@ -1,45 +1,21 @@
 #pragma once
 #include "ECS/Core.h"
-#include "Graphics/Cubemap.h"
-#include "Graphics/ShaderCommand.h"
-#include "Device/IDevice.h"
-#include "Renderer.h"
-#include "Graphics/ModelResource.h"
+
 #include "Ultralight/Renderer.h"
 #include "Ultralight/RefPtr.h"
-#include "UI2/OverlayManager.h"
+#include "UI/OverlayManager.h"
 #include "UI/UIWindow.h"
-#include "UI2/FileSystemWin.h"
-#include "UI2/FontLoaderWin.h"
-#include "UI2/d3d11/GPUDriverD3D11.h"
+#include "UI/FileSystemWin.h"
+#include "UI/FontLoaderWin.h"
+#include "UI/d3d11/GPUDriverD3D11.h"
+
+#include "Components/UI/BasicUIView.h"
 #include "ECS/Component.h"
 #include "ECS/ComponentDetail.h"
 #include "File.h"
 #include "Path.h"
 
-class UIView
-	: public Component<UIView>
-{
-	friend class UICore;
-public:
-	UIView();
-	virtual void Serialize(json& outJson) override;
-
-
-	virtual void Deserialize(const json& inJson) override;
-
-
-	virtual void OnEditorInspect() override;
-
-
-	virtual void Init() override;
-	size_t Index;
-private:
-	bool IsInitialized = false;
-	File SourceFile;
-	Path FilePath;
-};
-ME_REGISTER_COMPONENT(UIView)
+namespace Moonlight { class Renderer; }
 
 class UICore final
 	: public Core<UICore>
@@ -57,12 +33,9 @@ public:
 
 	virtual void OnEntityAdded(Entity& NewEntity) final;
 
-	void InitUIView(UIView& view);
+	void InitUIView(BasicUIView& view);
 
 	virtual void OnEntityRemoved(Entity& InEntity) final;
-
-	Cubemap* SkyboxMap = nullptr;
-	Moonlight::ShaderCommand* SkyboxShader = nullptr;
 
 	virtual void OnStop() override;
 	void Render();

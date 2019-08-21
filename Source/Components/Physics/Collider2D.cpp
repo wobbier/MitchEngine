@@ -2,6 +2,7 @@
 #include "Collider2D.h"
 
 Collider2D::Collider2D()
+	: Component("Collider2D")
 {
 }
 

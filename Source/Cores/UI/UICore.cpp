@@ -13,22 +13,20 @@
 #include "Components/UI/Text.h"
 #include "Utils/StringUtils.h"
 
-//#include "UI/FileSystemWin.h"
-//#include "UI/d3d11/GPUDriverD3D11.h"
 #include <Ultralight/platform/Platform.h>
 #include <Ultralight/platform/Config.h>
 #include "UI/UIWindow.h"
 #include "AppCore/Overlay.h"
-#include "UI2/FileSystemWin.h"
+#include "UI/FileSystemWin.h"
 #include <Shlwapi.h>
-#include "UI2/d3d11/GPUDriverD3D11.h"
-#include "UI2/d3d11/GPUContextD3D11.h"
+#include "UI/d3d11/GPUDriverD3D11.h"
+#include "UI/d3d11/GPUContextD3D11.h"
 #include "UI/OverlayImpl.h"
 #include "File.h"
 #include <filesystem>
 
 UICore::UICore(IWindow* window)
-	: Base(ComponentFilter().Requires<Transform>().RequiresOneOf<Text>().RequiresOneOf<UIView>())
+	: Base(ComponentFilter().Requires<Transform>().RequiresOneOf<Text>().RequiresOneOf<BasicUIView>())
 	, m_uiRenderer(ultralight::Renderer::Create())
 {
 	IsSerializable = false;
@@ -85,18 +83,10 @@ void UICore::Init()
 	if (!IsInitialized)
 	{
 		IsInitialized = true;
-		//ultralight::Ref<ultralight::View> view = m_uiRenderer->CreateView(GetEngine().MainCamera.OutputSize.X(), GetEngine().MainCamera.OutputSize.Y(), true);
-		//ultralight::RefPtr<ultralight::Overlay> ref = ultralight::Overlay::Create(*m_window.get(), view, 0, 0);//AdoptRef(*new ultralight::OverlayImpl(*m_window.get(), view, 0, 0));//
-		//ultralight::OverlayImpl* impl = static_cast<ultralight::OverlayImpl*>(ref.get());
-		//File testFile = File(Path("Assets/UI/Test.html"));
-		//impl->view()->LoadHTML(testFile.Read().c_str());
-		////impl->view()->LoadURL("https://wobbier.com/");
-		//m_overlays.push_back(ref);
-		//GetOverlayManager()->Add(m_overlays[0].get());
 	}
 }
 
-void UICore::OnEntityAdded(Entity & NewEntity)
+void UICore::OnEntityAdded(Entity& NewEntity)
 {
 	if (NewEntity.HasComponent<Text>())
 	{
@@ -106,24 +96,24 @@ void UICore::OnEntityAdded(Entity & NewEntity)
 		textComponent.RenderId = m_renderer->PushUIText(command);
 	}
 
-	if (NewEntity.HasComponent<UIView>())
+	if (NewEntity.HasComponent<BasicUIView>())
 	{
-		UIView& view = NewEntity.GetComponent<UIView>();
+		BasicUIView& view = NewEntity.GetComponent<BasicUIView>();
 
 		InitUIView(view);
 	}
 }
 
-void UICore::OnEntityRemoved(Entity & InEntity)
+void UICore::OnEntityRemoved(Entity& InEntity)
 {
 	if (InEntity.HasComponent<Text>())
 	{
 		Text& textComponent = InEntity.GetComponent<Text>();
 		m_renderer->PopUIText(textComponent.RenderId);
 	}
-	if (InEntity.HasComponent<UIView>())
+	if (InEntity.HasComponent<BasicUIView>())
 	{
-		UIView view = InEntity.GetComponent<UIView>();
+		BasicUIView view = InEntity.GetComponent<BasicUIView>();
 
 		GetOverlayManager()->Remove(m_overlays[view.Index].get());
 
@@ -153,9 +143,9 @@ void UICore::Update(float dt)
 			command.Anchor = textComponent.Anchor;
 			m_renderer->UpdateText(textComponent.RenderId, command);
 		}
-		if (InEntity.HasComponent<UIView>())
+		if (InEntity.HasComponent<BasicUIView>())
 		{
-			UIView& view = InEntity.GetComponent<UIView>();
+			BasicUIView& view = InEntity.GetComponent<BasicUIView>();
 			if (!view.IsInitialized)
 			{
 				InitUIView(view);
@@ -192,7 +182,6 @@ void UICore::Render()
 		{
 			Draw();
 		}
-		//m_context->PresentFrame();
 		m_context->EndDrawing();
 	}
 }
@@ -202,7 +191,7 @@ ultralight::OverlayManager* UICore::GetOverlayManager()
 	return this;
 }
 
-void UICore::OnResize(const Vector2 & NewSize)
+void UICore::OnResize(const Vector2& NewSize)
 {
 	if (m_context)
 	{
@@ -215,7 +204,7 @@ void UICore::OnResize(const Vector2 & NewSize)
 	}
 }
 
-void UICore::InitUIView(UIView & view)
+void UICore::InitUIView(BasicUIView& view)
 {
 	ultralight::Ref<ultralight::View> newView = m_uiRenderer->CreateView(GetEngine().MainCamera.OutputSize.X(), GetEngine().MainCamera.OutputSize.Y(), true);
 	ultralight::RefPtr<ultralight::Overlay> overlay = ultralight::Overlay::Create(*m_window.get(), newView, 0, 0);
@@ -225,56 +214,4 @@ void UICore::InitUIView(UIView & view)
 	GetOverlayManager()->Add(overlay.get());
 	view.IsInitialized = true;
 	view.Index = m_overlays.size() - 1;
-}
-
-UIView::UIView()
-{
-
-}
-
-void UIView::Serialize(json & outJson)
-{
-}
-
-void UIView::Deserialize(const json & inJson)
-{
-}
-
-void UIView::OnEditorInspect()
-{
-	static std::vector<Path> Textures;
-	if (Textures.empty())
-	{
-		Path path = Path("Assets");
-		Textures.push_back(Path(""));
-		for (const auto& entry : std::filesystem::recursive_directory_iterator(path.FullPath))
-		{
-			Path filePath(entry.path().string());
-			if (filePath.LocalPath.rfind(".html") != std::string::npos && filePath.LocalPath.rfind(".meta") == std::string::npos)
-			{
-				Textures.push_back(filePath);
-			}
-		}
-	}
-
-	if (ImGui::BeginCombo("##HTMLSource", ""))
-	{
-		for (int n = 0; n < Textures.size(); n++)
-		{
-			if (ImGui::Selectable(Textures[n].LocalPath.c_str(), false))
-			{
-				FilePath = Textures[n];
-				SourceFile = File(FilePath);
-				IsInitialized = false;
-				Textures.clear();
-				break;
-			}
-		}
-		ImGui::EndCombo();
-	}
-}
-
-void UIView::Init()
-{
-	SourceFile = File(FilePath);
 }

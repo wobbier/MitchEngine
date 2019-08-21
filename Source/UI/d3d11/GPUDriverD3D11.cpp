@@ -167,10 +167,10 @@ namespace ultralight
 		srv_desc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
 		srv_desc.Texture2D.MostDetailedMip = 0;
 		srv_desc.Texture2D.MipLevels = 1;
-		if(!bitmap->IsEmpty())
+		if (!bitmap->IsEmpty())
 		{
-		hr = context_->device()->CreateShaderResourceView(
-			texture_entry.first.Get(), &srv_desc, texture_entry.second.GetAddressOf());
+			hr = context_->device()->CreateShaderResourceView(
+				texture_entry.first.Get(), &srv_desc, texture_entry.second.GetAddressOf());
 		}
 		else
 		{

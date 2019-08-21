@@ -2,6 +2,7 @@
 #include "Animation.h"
 
 Animation::Animation()
+	: Component("Animation")
 {
 }
 

@@ -65,8 +65,8 @@ class Component
 	: public BaseComponent
 {
 public:
-	Component()
-		: BaseComponent(typeid(T).name())
+	Component(const char* Name)
+		: BaseComponent(Name)
 	{
 	}
 
