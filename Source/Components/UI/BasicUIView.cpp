@@ -3,6 +3,8 @@
 
 #include "BasicUIView.h"
 #include "imgui.h"
+#include "AppCore/JSHelpers.h"
+#include "Ultralight/View.h"
 
 BasicUIView::BasicUIView()
 	: Component("BasicUIView")
@@ -35,6 +37,30 @@ void BasicUIView::Deserialize(const json& inJson)
 	{
 
 	}
+}
+
+void BasicUIView::OnBeginLoading(ultralight::View* caller)
+{
+}
+
+void BasicUIView::OnFinishLoading(ultralight::View* caller)
+{
+}
+
+void BasicUIView::OnUpdateHistory(ultralight::View* caller)
+{
+}
+
+void BasicUIView::OnDOMReady(ultralight::View* caller)
+{
+	ultralight::SetJSContext(caller->js_context());
+	ultralight::JSObject global = ultralight::JSGlobalObject();
+
+	OnUILoad(global, caller);
+}
+
+void BasicUIView::OnUILoad(ultralight::JSObject& GlobalWindow, ultralight::View* Caller)
+{
 }
 
 #if ME_EDITOR
@@ -72,4 +98,5 @@ void BasicUIView::OnEditorInspect()
 		ImGui::EndCombo();
 	}
 }
+
 #endif

@@ -209,6 +209,7 @@ void UICore::InitUIView(BasicUIView& view)
 	ultralight::Ref<ultralight::View> newView = m_uiRenderer->CreateView(GetEngine().MainCamera.OutputSize.X(), GetEngine().MainCamera.OutputSize.Y(), true);
 	ultralight::RefPtr<ultralight::Overlay> overlay = ultralight::Overlay::Create(*m_window.get(), newView, 0, 0);
 	overlay->view()->LoadHTML(view.SourceFile.Read().c_str());
+	overlay->view()->set_load_listener(&view);
 	//impl->view()->LoadURL("https://wobbier.com/");
 	m_overlays.push_back(overlay);
 	GetOverlayManager()->Add(overlay.get());

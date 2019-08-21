@@ -4,9 +4,12 @@
 #include "ECS/ComponentDetail.h"
 #include "File.h"
 #include "Path.h"
+#include "Ultralight/Listener.h"
+#include "AppCore/JSHelpers.h"
 
 class BasicUIView
 	: public Component<BasicUIView>
+	, public ultralight::LoadListener
 {
 	friend class UICore;
 public:
@@ -21,6 +24,19 @@ public:
 #if ME_EDITOR
 	virtual void OnEditorInspect() override;
 #endif
+
+	virtual void OnBeginLoading(ultralight::View* caller) override;
+
+
+	virtual void OnFinishLoading(ultralight::View* caller) override;
+
+
+	virtual void OnUpdateHistory(ultralight::View* caller) override;
+
+	virtual void OnDOMReady(ultralight::View* caller) final;
+
+	virtual void OnUILoad(ultralight::JSObject& GlobalWindow, ultralight::View* Caller);
+
 protected:
 	bool IsInitialized = false;
 	size_t Index;
