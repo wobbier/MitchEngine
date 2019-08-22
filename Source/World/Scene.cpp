@@ -33,6 +33,10 @@ void Scene::LoadSceneObject(const json& obj, Transform* parent)
 	Transform* transComp = nullptr;
 	for (const json& comp : obj["Components"])
 	{
+		if (comp.is_null())
+		{
+			continue;
+		}
 		BaseComponent* addedComp = ent.lock()->AddComponentByName(comp["Type"]);
 		if (comp["Type"] == "Transform")
 		{

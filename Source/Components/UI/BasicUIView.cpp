@@ -3,7 +3,7 @@
 
 #include "BasicUIView.h"
 #include "imgui.h"
-#include "AppCore/JSHelpers.h"
+#include "UI/JSHelpers.h"
 #include "Ultralight/View.h"
 
 BasicUIView::BasicUIView()

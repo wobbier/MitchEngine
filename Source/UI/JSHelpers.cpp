@@ -1,5 +1,5 @@
 #include "PCH.h"
-#include <AppCore/JSHelpers.h>
+#include "JSHelpers.h"
 #include <cstring>
 #include <cassert>
 #include <vector>

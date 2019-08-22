@@ -41,10 +41,17 @@ void AudioSource::Play(bool ShouldLoop)
 
 void AudioSource::Serialize(json& outJson)
 {
+	Component::Serialize(outJson);
+
+	outJson["FilePath"] = FilePath.LocalPath;
 }
 
 void AudioSource::Deserialize(const json& inJson)
 {
+	if (inJson.contains("FilePath"))
+	{
+		FilePath = Path(inJson["FilePath"]);
+	}
 }
 
 #if ME_EDITOR
