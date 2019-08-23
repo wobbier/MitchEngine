@@ -1,13 +1,13 @@
 #include "Config.h"
 #include <iostream>
 
-Config::Config(const char* file)
+Config::Config(const Path& ConfigPath)
+	: ConfigFile(ConfigPath)
 {
-	std::ifstream ConfigFile = std::ifstream(file);
-	bool parsingSuccessful = false; // Reader.parse(ConfigFile, Root);
-	if (!parsingSuccessful)
+	Root = json::parse(ConfigFile.Read());
+	if (Root.is_null())
 	{
-		//std::cout << "Failed to parse configuration\n" << Reader.getFormattedErrorMessages();
+		YIKES("Failed to parse configuration.");
 		return;
 	}
 }
@@ -16,7 +16,16 @@ Config::~Config()
 {
 }
 
-std::string Config::GetValue(std::string value)
+std::string Config::GetValue(const std::string& value)
 {
-	return "";// Root[value].asString();
+	return Root[value];
+}
+
+const json& Config::GetObject(const std::string& value)
+{
+	if (Root.contains(value))
+	{
+		return Root[value];
+	}
+	return Root;
 }

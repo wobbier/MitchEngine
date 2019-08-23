@@ -19,7 +19,7 @@ public:
 		ME_BASIC_BORDERLESS = WS_POPUP | WS_THICKFRAME | WS_SYSMENU | WS_MAXIMIZEBOX | WS_MINIMIZEBOX
 	};
 
-	Win32Window(std::string title, std::function<void(const Vector2&)> resizeFunc, int width = WINDOW_WIDTH, int height = WINDOW_HEIGHT);
+	Win32Window(std::string title, std::function<void(const Vector2&)> resizeFunc, int X = 0, int Y = 0, int width = WINDOW_WIDTH, int height = WINDOW_HEIGHT);
 	~Win32Window();
 
 	virtual bool ShouldClose() final;

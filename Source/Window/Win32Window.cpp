@@ -28,7 +28,7 @@ std::wstring s2ws(const std::string& s)
 	return r;
 };
 
-Win32Window::Win32Window(std::string title, std::function<void(const Vector2&)> resizeFunc, int width, int height)
+Win32Window::Win32Window(std::string title, std::function<void(const Vector2&)> resizeFunc, int X, int Y, int width, int height)
 	: IWindow(title, width, height)
 	, ResizeFunc(resizeFunc)
 {
@@ -79,7 +79,7 @@ Win32Window::Win32Window(std::string title, std::function<void(const Vector2&)> 
 		windowTitle.c_str(),    // D3D12Window text
 		style,            // D3D12Window style
 		// Size and position
-		CW_USEDEFAULT, CW_USEDEFAULT, w, h,
+		X, Y, w, h,
 		nullptr,       // Parent D3D12Window    
 		nullptr,       // Menu
 		nullptr,  // Instance handle

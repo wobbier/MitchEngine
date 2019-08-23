@@ -54,11 +54,11 @@ void Engine::Init(Game* game)
 	Logger::GetInstance().SetLogPriority(Logger::LogType::Info);
 	Logger::GetInstance().Log(Logger::LogType::Info, "Starting the MitchEngine.");
 
-	EngineConfig = new Config("Assets\\Config\\Engine.cfg");
+	EngineConfig = new Config(Path("Assets\\Config\\Engine.cfg"));
 
-	//auto WindowConfig = EngineConfig->Root["window"];
-	int WindowWidth = 1920;//WindowConfig["width"].asInt();
-	int WindowHeight = 1080;//WindowConfig["height"].asInt();
+	auto WindowConfig = EngineConfig->GetObject("Window");
+	int WindowWidth = WindowConfig["Width"];
+	int WindowHeight = WindowConfig["Height"];
 
 #if ME_PLATFORM_WIN64
 	std::function<void(const Vector2&)> Func = [this](const Vector2& NewSize)
@@ -72,7 +72,7 @@ void Engine::Init(Game* game)
 			UI->OnResize(MainCamera.OutputSize);
 		}
 	};
-	GameWindow = new Win32Window("MitchEngine", Func, WindowWidth, WindowHeight);
+	GameWindow = new Win32Window(EngineConfig->GetValue("Title"), Func, 500, 300, WindowWidth, WindowHeight);
 #endif
 #if ME_PLATFORM_UWP
 	GameWindow = new UWPWindow("MitchEngine", WindowWidth, WindowHeight);
