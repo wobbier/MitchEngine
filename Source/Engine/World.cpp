@@ -104,12 +104,6 @@ void World::Simulate()
 
 	for (auto& InEntity : EntityCache.Killed)
 	{
-
-		EntityAttributes.Storage.RemoveAllComponents(InEntity);
-
-		EntIdPool.Remove(InEntity.GetId());
-
-
 		for (auto i = EntityCache.Alive.begin(); i != EntityCache.Alive.end(); ++i)
 		{
 			if (*(*i).get() == InEntity)
@@ -118,7 +112,18 @@ void World::Simulate()
 				break;
 			}
 		}
+		for (auto i = EntityCache.Deactivated.begin(); i != EntityCache.Deactivated.end(); ++i)
+		{
+			if ((*i) == InEntity)
+			{
+				EntityCache.Deactivated.erase(i);
+				break;
+			}
+		}
+		DestroyEntity(InEntity);
 	}
+
+	EntityCache.ClearTemp();
 }
 
 void World::Start()
@@ -211,6 +216,24 @@ void World::UpdateLoadedCores(float DeltaTime)
 
 void World::DestroyEntity(Entity &InEntity)
 {
+	{
+		auto& Attr = EntityAttributes.Attributes[InEntity.GetId().Index];
+		Attr.IsActive = false;
+
+		for (auto& InCore : Cores)
+		{
+			auto CoreIndex = InCore.first;
+
+			if (InCore.second->GetComponentFilter().PassFilter(EntityAttributes.Storage.GetComponentTypes(InEntity)))
+			{
+				if (Attr.Cores.size() <= CoreIndex)
+				{
+					InCore.second->Remove(InEntity);
+					Attr.Cores[CoreIndex] = false;
+				}
+			}
+		}
+	}
 	EntityAttributes.Storage.RemoveAllComponents(InEntity);
 	auto& Attr = EntityAttributes.Attributes[InEntity.GetId().Index];
 	Attr.Cores.reset();
@@ -225,7 +248,6 @@ void World::DestroyEntity(Entity &InEntity)
 			break;
 		}
 	}
-	Simulate();
 }
 
 void World::AddCore(BaseCore& InCore, TypeId InCoreTypeId, bool HandleUpdate)

@@ -26,7 +26,7 @@
 #include <filesystem>
 
 UICore::UICore(IWindow* window)
-	: Base(ComponentFilter().Requires<Transform>().RequiresOneOf<Text>().RequiresOneOf<BasicUIView>())
+	: Base(ComponentFilter().Requires<Transform>().Requires<BasicUIView>())
 	, m_uiRenderer(ultralight::Renderer::Create())
 {
 	IsSerializable = false;
@@ -45,13 +45,13 @@ UICore::UICore(IWindow* window)
 
 	PathAppendW(path, L"Assets/UI");
 
-	m_fs.reset(new ultralight::FileSystemWin(path));
+	Path fileSystemRoot = Path("Assets/UI");
+	m_fs.reset(new ultralight::FileSystemWin(StringUtils::ToWString(fileSystemRoot.FullPath).c_str()));
 	m_fontLoader.reset(new ultralight::FontLoaderWin());
 
 	m_context.reset(new ultralight::GPUContextD3D11(m_renderer));
 
 	platform.set_config(config_);
-
 
 	UIWindow* win = static_cast<UIWindow*>(m_window.get());
 	if (!m_context->Initialize(win->hwnd(), win->width(),
@@ -84,33 +84,25 @@ void UICore::Init()
 	{
 		IsInitialized = true;
 	}
+	for (auto overlay : m_overlays)
+	{
+		GetOverlayManager()->Remove(overlay.get());
+	}
+	m_overlays.clear();
 }
 
 void UICore::OnEntityAdded(Entity& NewEntity)
 {
-	if (NewEntity.HasComponent<Text>())
-	{
-		Moonlight::TextCommand command;
-		Text& textComponent = NewEntity.GetComponent<Text>();
-		command.SourceText = StringUtils::ToWString(textComponent.SourceText);
-		textComponent.RenderId = m_renderer->PushUIText(command);
-	}
-
 	if (NewEntity.HasComponent<BasicUIView>())
 	{
 		BasicUIView& view = NewEntity.GetComponent<BasicUIView>();
-
+		
 		InitUIView(view);
 	}
 }
 
 void UICore::OnEntityRemoved(Entity& InEntity)
 {
-	if (InEntity.HasComponent<Text>())
-	{
-		Text& textComponent = InEntity.GetComponent<Text>();
-		m_renderer->PopUIText(textComponent.RenderId);
-	}
 	if (InEntity.HasComponent<BasicUIView>())
 	{
 		BasicUIView view = InEntity.GetComponent<BasicUIView>();
@@ -133,16 +125,6 @@ void UICore::Update(float dt)
 	{
 		Transform& transform = InEntity.GetComponent<Transform>();
 
-		if (InEntity.HasComponent<Text>())
-		{
-			Text& textComponent = InEntity.GetComponent<Text>();
-
-			Moonlight::TextCommand command;
-			command.SourceText = StringUtils::ToWString(textComponent.SourceText);
-			command.ScreenPosition = Vector2(transform.Position.X(), transform.Position.Y());
-			command.Anchor = textComponent.Anchor;
-			m_renderer->UpdateText(textComponent.RenderId, command);
-		}
 		if (InEntity.HasComponent<BasicUIView>())
 		{
 			BasicUIView& view = InEntity.GetComponent<BasicUIView>();
@@ -156,7 +138,6 @@ void UICore::Update(float dt)
 
 void UICore::OnStop()
 {
-	m_renderer->ClearUIText();
 }
 
 void UICore::Render()
