@@ -104,22 +104,6 @@ void World::Simulate()
 
 	for (auto& InEntity : EntityCache.Killed)
 	{
-		for (auto i = EntityCache.Alive.begin(); i != EntityCache.Alive.end(); ++i)
-		{
-			if (*(*i).get() == InEntity)
-			{
-				EntityCache.Alive.erase(i);
-				break;
-			}
-		}
-		for (auto i = EntityCache.Deactivated.begin(); i != EntityCache.Deactivated.end(); ++i)
-		{
-			if ((*i) == InEntity)
-			{
-				EntityCache.Deactivated.erase(i);
-				break;
-			}
-		}
 		DestroyEntity(InEntity);
 	}
 

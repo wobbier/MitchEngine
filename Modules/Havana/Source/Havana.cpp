@@ -731,7 +731,7 @@ void RecusiveDelete(WeakPtr<Entity> ent, Transform* trans)
 	}
 	for (auto child : trans->GetChildren())
 	{
-		RecusiveDelete(GetEngine().GetWorld().lock()->GetEntity(trans->Parent), child);
+		RecusiveDelete(GetEngine().GetWorld().lock()->GetEntity(child->Parent), child);
 	}
 	ent.lock()->MarkForDelete();
 };
