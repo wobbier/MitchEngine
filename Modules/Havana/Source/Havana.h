@@ -10,6 +10,8 @@
 #include "Events/Event.h"
 #include "Events/EventReceiver.h"
 #include "RenderCommands.h"
+#include "Commands/CommandManager.h"
+#include <Keyboard.h>
 
 class Havana
 	: public EventReceiver
@@ -50,6 +52,8 @@ public:
 
 	void ClearSelection();
 
+	void DrawCommandPanel();
+
 	class Entity* SelectedEntity = nullptr;
 	class Transform* SelectedTransform = nullptr;
 	class BaseCore* SelectedCore = nullptr;
@@ -68,6 +72,9 @@ private:
 	class Engine* m_engine = nullptr;
 	class EditorApp* m_app = nullptr;
 	class Transform* m_rootTransform = nullptr;
+
+	CommandManager EditorCommands;
+
 	bool m_isGameFocused = false;
 	bool m_isWorldViewFocused = false;
 	bool OpenScene = false;
@@ -80,4 +87,6 @@ private:
 	float prevMatrixRotation[3];
 	float prevMatrixScale[3];
 	ImVec2 previousMousePos;
+
+	DirectX::Keyboard::KeyboardStateTracker tracker;
 };

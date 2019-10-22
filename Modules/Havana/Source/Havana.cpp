@@ -29,6 +29,7 @@
 #include "Math/Vector3.h"
 #include "EditorApp.h"
 #include "Components/Graphics/Model.h"
+#include "Commands/EditorCommands.h"
 namespace fs = std::filesystem;
 
 Havana::Havana(Engine* GameEngine, EditorApp* app, Moonlight::Renderer* renderer)
@@ -39,7 +40,7 @@ Havana::Havana(Engine* GameEngine, EditorApp* app, Moonlight::Renderer* renderer
 	, m_assetBrowser(Path("Assets").FullPath, std::chrono::milliseconds(300))
 {
 	InitUI();
-	m_assetBrowser.Start([](const std::string& path_to_watch, FileStatus status) -> void {
+	m_assetBrowser.Start([](const std::string & path_to_watch, FileStatus status) -> void {
 		// Process only regular files, all other file types are ignored
 		if (!std::filesystem::is_regular_file(std::filesystem::path(path_to_watch)) && status != FileStatus::Deleted)
 		{
@@ -193,6 +194,8 @@ void Havana::NewFrame(std::function<void()> StartGameFunc, std::function<void()>
 
 	DrawLog();
 	m_assetBrowser.Draw();
+
+	DrawCommandPanel();
 }
 
 void Havana::DrawOpenFilePopup()
@@ -318,8 +321,14 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 		{
 			if (ImGui::MenuItem("Entity"))
 			{
-				SelectedEntity = m_engine->GetWorld().lock()->CreateEntity().lock().get();
-				SelectedEntity->AddComponent<Transform>("New Entity");
+				CreateEntity* cmd = new CreateEntity();
+				EditorCommands.Push(cmd);
+
+				AddComponentCommand* compCmd = new AddComponentCommand("Transform", cmd->Ent);
+				EditorCommands.Push(compCmd);
+
+				Transform* transform = static_cast<Transform*>(compCmd->GetComponent());
+				transform->SetName("New Entity");
 			}
 			ImGui::EndMenu();
 		}
@@ -390,11 +399,15 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 				{
 					if (SelectedEntity)
 					{
-						SelectedEntity->AddComponentByName(thing.first);
+						WeakPtr<Entity> ent = m_engine->GetWorld().lock()->GetEntity(SelectedEntity->GetId());
+						AddComponentCommand* compCmd = new AddComponentCommand(thing.first, ent);
+						EditorCommands.Push(compCmd);
 					}
 					if (SelectedTransform)
 					{
-						m_engine->GetWorld().lock()->GetEntity(SelectedTransform->Parent).lock()->AddComponentByName(thing.first);
+						WeakPtr<Entity> ent = m_engine->GetWorld().lock()->GetEntity(SelectedTransform->Parent);
+						AddComponentCommand* compCmd = new AddComponentCommand(thing.first, ent);
+						EditorCommands.Push(compCmd);
 					}
 				}
 			}
@@ -505,7 +518,7 @@ void Havana::AddComponentPopup()
 	}
 }
 
-void Havana::DrawAddComponentList(Entity* entity)
+void Havana::DrawAddComponentList(Entity * entity)
 {
 	ImGui::Text("Components");
 	ImGui::Separator();
@@ -518,7 +531,9 @@ void Havana::DrawAddComponentList(Entity* entity)
 		{
 			if (entity)
 			{
-				entity->AddComponentByName(thing.first);
+				WeakPtr<Entity> ent = m_engine->GetWorld().lock()->GetEntity(entity->GetId());
+				AddComponentCommand* compCmd = new AddComponentCommand(thing.first, ent);
+				EditorCommands.Push(compCmd);
 			}
 			/*if (SelectedTransform)
 			{
@@ -551,7 +566,28 @@ void Havana::ClearSelection()
 	SelectedCore = nullptr;
 }
 
-void Havana::UpdateWorld(World* world, Transform* root, const std::vector<Entity>& ents)
+void Havana::DrawCommandPanel()
+{
+	auto& kb = Input::GetInstance().GetKeyboardState();
+	tracker.Update(kb);
+
+	if (kb.LeftControl && tracker.pressed.Z)
+	{
+		if (kb.LeftShift)
+		{
+			EditorCommands.Redo();
+		}
+		else
+		{
+			BRUH("UNDID THA DAMN TING");
+			EditorCommands.Undo();
+		}
+	}
+
+	EditorCommands.Draw();
+}
+
+void Havana::UpdateWorld(World * world, Transform * root, const std::vector<Entity> & ents)
 {
 	m_rootTransform = root;
 	ImGui::Begin("World", 0, ImGuiWindowFlags_MenuBar);
@@ -655,7 +691,7 @@ void Havana::UpdateWorld(World* world, Transform* root, const std::vector<Entity
 	ImGui::End();
 }
 
-void Havana::UpdateWorldRecursive(Transform* root)
+void Havana::UpdateWorldRecursive(Transform * root)
 {
 	if (!root)
 		return;
@@ -723,7 +759,7 @@ void Havana::UpdateWorldRecursive(Transform* root)
 	}
 }
 
-void RecusiveDelete(WeakPtr<Entity> ent, Transform* trans)
+void RecusiveDelete(WeakPtr<Entity> ent, Transform * trans)
 {
 	if (!trans)
 	{
@@ -736,7 +772,7 @@ void RecusiveDelete(WeakPtr<Entity> ent, Transform* trans)
 	ent.lock()->MarkForDelete();
 };
 
-void Havana::DrawEntityRightClickMenu(Transform* transform)
+void Havana::DrawEntityRightClickMenu(Transform * transform)
 {
 	if (ImGui::BeginPopupContextItem())
 	{
@@ -763,7 +799,7 @@ void Havana::DrawEntityRightClickMenu(Transform* transform)
 	}
 }
 
-void Havana::Render(Moonlight::CameraData& EditorCamera)
+void Havana::Render(Moonlight::CameraData & EditorCamera)
 {
 	auto& io = ImGui::GetIO();
 	{
@@ -1134,7 +1170,7 @@ const bool Havana::IsWorldViewFocused() const
 	return m_isWorldViewFocused;
 }
 
-void Havana::BrowseDirectory(const Path& path)
+void Havana::BrowseDirectory(const Path & path)
 {
 	if (CurrentDirectory.FullPath == path.FullPath && !AssetDirectory.empty())
 	{
@@ -1160,7 +1196,7 @@ const Vector2& Havana::GetGameOutputSize() const
 	return GameRenderSize;
 }
 
-bool Havana::OnEvent(const BaseEvent& evt)
+bool Havana::OnEvent(const BaseEvent & evt)
 {
 	if (evt.GetEventId() == TestEditorEvent::GetEventId())
 	{
