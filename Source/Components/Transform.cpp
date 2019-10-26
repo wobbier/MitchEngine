@@ -3,6 +3,7 @@
 #include <algorithm>
 #include "Math/Vector3.h"
 #include "misc/cpp/imgui_stdlib.h"
+#include "Engine/Engine.h"
 
 Transform::Transform()
 	: Component("Transform")

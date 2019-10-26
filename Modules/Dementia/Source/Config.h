@@ -17,6 +17,9 @@ public:
 	std::string GetValue(const std::string& value);
 	const json& GetObject(const std::string& value);
 
+	void SetValue(std::string& key, std::string& newVal);
+
+	void Save();
 private:
 	json Root;
 	File ConfigFile;

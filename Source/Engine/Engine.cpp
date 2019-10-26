@@ -187,6 +187,7 @@ void Engine::Run()
 
 		Sleep(4);
 	}
+	EngineConfig->Save();
 }
 
 bool Engine::OnEvent(const BaseEvent& evt)
@@ -228,6 +229,11 @@ void Engine::Quit() { Running = false; }
 IWindow* Engine::GetWindow()
 {
 	return GameWindow;
+}
+
+Config& Engine::GetConfig() const
+{
+	return *EngineConfig;
 }
 
 void Engine::LoadScene(const std::string& SceneFile)

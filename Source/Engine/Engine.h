@@ -8,6 +8,7 @@
 #include "World/Scene.h"
 #include "Camera/CameraData.h"
 #include <string>
+#include "Config.h"
 
 class Game;
 class IWindow;
@@ -41,6 +42,8 @@ public:
 	const bool IsInitialized() const;
 
 	IWindow* GetWindow();
+
+	Config& GetConfig() const;
 
 	class CameraCore* Cameras = nullptr;
 	class SceneGraph* SceneNodes = nullptr;

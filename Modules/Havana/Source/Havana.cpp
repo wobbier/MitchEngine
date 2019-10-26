@@ -40,7 +40,7 @@ Havana::Havana(Engine* GameEngine, EditorApp* app, Moonlight::Renderer* renderer
 	, m_assetBrowser(Path("Assets").FullPath, std::chrono::milliseconds(300))
 {
 	InitUI();
-	m_assetBrowser.Start([](const std::string & path_to_watch, FileStatus status) -> void {
+	m_assetBrowser.Start([](const std::string& path_to_watch, FileStatus status) -> void {
 		// Process only regular files, all other file types are ignored
 		if (!std::filesystem::is_regular_file(std::filesystem::path(path_to_watch)) && status != FileStatus::Deleted)
 		{
@@ -221,6 +221,9 @@ void Havana::DrawOpenFilePopup()
 				LoadSceneEvent evt;
 				evt.Level = path.LocalPath;
 				evt.Fire();
+
+				GetEngine().GetConfig().SetValue(std::string("CurrentScene"), GetEngine().CurrentScene->FilePath.LocalPath);
+
 				OpenScene = false;
 				ImGui::CloseCurrentPopup();
 			}
@@ -309,12 +312,23 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 		}
 		if (ImGui::BeginMenu("Edit"))
 		{
-			if (ImGui::MenuItem("Undo", "CTRL+Z")) {}
-			if (ImGui::MenuItem("Redo", "CTRL+Y", false, false)) {}  // Disabled item
-			ImGui::Separator();
+			const bool canUndo = EditorCommands.CanUndo();
+
+			if (ImGui::MenuItem("Undo", "CTRL+Z", false, canUndo))
+			{
+				EditorCommands.Undo();
+			}
+
+			const bool canRedo = EditorCommands.CanRedo();
+			if (ImGui::MenuItem("Redo", "CTRL+Y", false, canRedo))
+			{
+				EditorCommands.Redo();
+			}
+
+			/*ImGui::Separator();
 			if (ImGui::MenuItem("Cut", "CTRL+X")) {}
 			if (ImGui::MenuItem("Copy", "CTRL+C")) {}
-			if (ImGui::MenuItem("Paste", "CTRL+V")) {}
+			if (ImGui::MenuItem("Paste", "CTRL+V")) {}*/
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Add"))
@@ -367,7 +381,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 		float endOfMenu = ImGui::GetCursorPosX();
 		float buttonWidth = 40.f;
 		float pos = (ImGui::GetMousePos().x - m_engine->GetWindow()->GetPosition().X());
-		static_cast<Win32Window*>(m_engine->GetWindow())->CanMoveWindow((pos > endOfMenu && pos < ImGui::GetWindowWidth() - (buttonWidth * 5.f)));
+		static_cast<Win32Window*>(m_engine->GetWindow())->CanMoveWindow((pos > endOfMenu&& pos < ImGui::GetWindowWidth() - (buttonWidth * 5.f)));
 
 		ImGui::Text("%.1f FPS", ImGui::GetIO().Framerate);
 
@@ -518,7 +532,7 @@ void Havana::AddComponentPopup()
 	}
 }
 
-void Havana::DrawAddComponentList(Entity * entity)
+void Havana::DrawAddComponentList(Entity* entity)
 {
 	ImGui::Text("Components");
 	ImGui::Separator();
@@ -587,7 +601,7 @@ void Havana::DrawCommandPanel()
 	EditorCommands.Draw();
 }
 
-void Havana::UpdateWorld(World * world, Transform * root, const std::vector<Entity> & ents)
+void Havana::UpdateWorld(World* world, Transform* root, const std::vector<Entity>& ents)
 {
 	m_rootTransform = root;
 	ImGui::Begin("World", 0, ImGuiWindowFlags_MenuBar);
@@ -691,13 +705,13 @@ void Havana::UpdateWorld(World * world, Transform * root, const std::vector<Enti
 	ImGui::End();
 }
 
-void Havana::UpdateWorldRecursive(Transform * root)
+void Havana::UpdateWorldRecursive(Transform* root)
 {
 	if (!root)
 		return;
 	if (ImGui::BeginDragDropTarget())
 	{
-		if (const ImGuiPayload * payload = ImGui::AcceptDragDropPayload("DND_ASSET_BROWSER"))
+		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_ASSET_BROWSER"))
 		{
 			IM_ASSERT(payload->DataSize == sizeof(AssetBrowser::AssetDescriptor));
 			AssetBrowser::AssetDescriptor payload_n = *(AssetBrowser::AssetDescriptor*)payload->Data;
@@ -759,7 +773,7 @@ void Havana::UpdateWorldRecursive(Transform * root)
 	}
 }
 
-void RecusiveDelete(WeakPtr<Entity> ent, Transform * trans)
+void RecusiveDelete(WeakPtr<Entity> ent, Transform* trans)
 {
 	if (!trans)
 	{
@@ -772,7 +786,7 @@ void RecusiveDelete(WeakPtr<Entity> ent, Transform * trans)
 	ent.lock()->MarkForDelete();
 };
 
-void Havana::DrawEntityRightClickMenu(Transform * transform)
+void Havana::DrawEntityRightClickMenu(Transform* transform)
 {
 	if (ImGui::BeginPopupContextItem())
 	{
@@ -799,7 +813,7 @@ void Havana::DrawEntityRightClickMenu(Transform * transform)
 	}
 }
 
-void Havana::Render(Moonlight::CameraData & EditorCamera)
+void Havana::Render(Moonlight::CameraData& EditorCamera)
 {
 	auto& io = ImGui::GetIO();
 	{
@@ -1170,7 +1184,7 @@ const bool Havana::IsWorldViewFocused() const
 	return m_isWorldViewFocused;
 }
 
-void Havana::BrowseDirectory(const Path & path)
+void Havana::BrowseDirectory(const Path& path)
 {
 	if (CurrentDirectory.FullPath == path.FullPath && !AssetDirectory.empty())
 	{
@@ -1196,7 +1210,7 @@ const Vector2& Havana::GetGameOutputSize() const
 	return GameRenderSize;
 }
 
-bool Havana::OnEvent(const BaseEvent & evt)
+bool Havana::OnEvent(const BaseEvent& evt)
 {
 	if (evt.GetEventId() == TestEditorEvent::GetEventId())
 	{

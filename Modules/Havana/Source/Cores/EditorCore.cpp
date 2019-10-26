@@ -16,6 +16,7 @@
 #include "Components/Audio/AudioSource.h"
 #include "Mathf.h"
 #include "optick.h"
+#include "Config.h"
 
 EditorCore::EditorCore(Havana* editor)
 	: Base(ComponentFilter().Excludes<Transform>())
@@ -204,6 +205,7 @@ void EditorCore::Update(float dt, Transform* rootTransform)
 			if (ImGui::InputText("Destination", output, IM_ARRAYSIZE(output), ImGuiInputTextFlags_EnterReturnsTrue))
 			{
 				GetEngine().CurrentScene->Save(output, rootTransform);
+				GetEngine().GetConfig().SetValue(std::string("CurrentScene"), GetEngine().CurrentScene->FilePath.LocalPath);
 				TryingToSaveNewScene = false;
 			}
 			ImGui::EndPopup();
@@ -231,6 +233,7 @@ bool EditorCore::OnEvent(const BaseEvent& evt)
 		else
 		{
 			GetEngine().CurrentScene->Save(GetEngine().CurrentScene->FilePath.LocalPath, RootTransform);
+			GetEngine().GetConfig().SetValue(std::string("CurrentScene"), GetEngine().CurrentScene->FilePath.LocalPath);
 		}
 		return true;
 	}

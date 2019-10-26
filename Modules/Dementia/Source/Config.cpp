@@ -18,7 +18,11 @@ Config::~Config()
 
 std::string Config::GetValue(const std::string& value)
 {
-	return Root[value];
+	if (Root.contains(value))
+	{
+		return Root[value];
+	}
+	return "";
 }
 
 const json& Config::GetObject(const std::string& value)
@@ -28,4 +32,14 @@ const json& Config::GetObject(const std::string& value)
 		return Root[value];
 	}
 	return Root;
+}
+
+void Config::SetValue(std::string& key, std::string& newVal)
+{
+	Root[key] = newVal;
+}
+
+void Config::Save()
+{
+	ConfigFile.Write(Root.dump(4));
 }

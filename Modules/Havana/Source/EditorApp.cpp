@@ -23,7 +23,6 @@
 #include "Events/Event.h"
 
 EditorApp::EditorApp()
-	: InitialLevel("Assets/Test.lvl")
 {
 	std::vector<TypeId> events;
 	events.push_back(NewSceneEvent::GetEventId());
@@ -110,6 +109,7 @@ void EditorApp::OnInitialize()
 {
 	if (!Editor)
 	{
+		InitialLevel = GetEngine().GetConfig().GetValue("CurrentScene");
 		Editor = std::make_unique<Havana>(&GetEngine(), this, &GetEngine().GetRenderer());
 		EditorSceneManager = new EditorCore(Editor.get());
 		NewSceneEvent evt;

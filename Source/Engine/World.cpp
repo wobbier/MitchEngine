@@ -154,11 +154,10 @@ void World::Destroy()
 
 	for (auto& InEntity : EntityCache.Alive)
 	{
-		EntityAttributes.Storage.RemoveAllComponents(*InEntity);
-		auto& Attr = EntityAttributes.Attributes[(*InEntity).GetId().Index];
-		Attr.Cores.reset();
-
-		EntIdPool.Remove(InEntity->GetId());
+		if (InEntity)
+		{
+			DestroyEntity(*InEntity);
+		}
 	}
 
 	EntityCache.Alive.clear();
@@ -210,7 +209,7 @@ void World::DestroyEntity(Entity &InEntity)
 
 			if (InCore.second->GetComponentFilter().PassFilter(EntityAttributes.Storage.GetComponentTypes(InEntity)))
 			{
-				if (Attr.Cores.size() <= CoreIndex)
+				if (Attr.Cores.size() >= CoreIndex)
 				{
 					InCore.second->Remove(InEntity);
 					Attr.Cores[CoreIndex] = false;

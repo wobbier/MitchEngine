@@ -12,6 +12,9 @@ public:
 	void Redo();
 
 	void Draw();
+
+	const bool CanUndo() const;
+	const bool CanRedo() const;
 	
 private:
 	void ClearRedoStack();

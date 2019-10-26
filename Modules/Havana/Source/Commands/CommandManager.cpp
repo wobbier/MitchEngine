@@ -51,6 +51,17 @@ void CommandManager::Draw()
 	ImGui::End();
 }
 
+
+const bool CommandManager::CanUndo() const
+{
+	return Items.size() > 0;
+}
+
+const bool CommandManager::CanRedo() const
+{
+	return RedoStack.size() > 0;
+}
+
 void CommandManager::ClearRedoStack()
 {
 	for (auto ptr : RedoStack)
