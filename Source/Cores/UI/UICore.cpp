@@ -49,7 +49,7 @@ UICore::UICore(IWindow* window)
 	m_fs.reset(new ultralight::FileSystemWin(StringUtils::ToWString(fileSystemRoot.FullPath).c_str()));
 	m_fontLoader.reset(new ultralight::FontLoaderWin());
 
-	m_context.reset(new ultralight::GPUContextD3D11(m_renderer));
+	m_context.reset(new ultralight::GPUContextD3D11());
 
 	platform.set_config(config_);
 

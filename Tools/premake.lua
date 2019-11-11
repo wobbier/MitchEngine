@@ -105,9 +105,7 @@ end
 libdirs {
   "../Build/%{cfg.buildcfg}",
   "../ThirdParty/Ultralight/SDK/lib",
-  "../ThirdParty/Ultralight/SDK/bin",
-  "../ThirdParty/Lib/Ultralight",
-  "../ThirdParty/Bin/Ultralight"
+  "../ThirdParty/Ultralight/SDK/bin"
 }
 
 links {

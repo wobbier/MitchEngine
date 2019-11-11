@@ -514,6 +514,7 @@ namespace Moonlight
 			ViewRTT->Width,
 			ViewRTT->Height
 		);
+
 		context->RSSetViewports(1, &finalGameRenderViewport);
 		context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		context->UpdateSubresource1(m_perFrameBuffer.Get(), 0, NULL, &Sunlight, 0, 0, 0);
