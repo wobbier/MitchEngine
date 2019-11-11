@@ -40,10 +40,6 @@ PixelShaderInput main_vs(VertexShaderInput input)
 float4 main_ps(PixelShaderInput input) : SV_TARGET
 {
     float4 ui = ObjUITexture.Sample(ObjSamplerState, input.TexCoord);
-    if (ui.a == 1.0f)
-    {
-        return ui;
-    }
     float4 diffuse = ObjTexture.Sample(ObjSamplerState, input.TexCoord);
     float4 normal = ObjNormalTexture.Sample(ObjSamplerState, input.TexCoord);
 

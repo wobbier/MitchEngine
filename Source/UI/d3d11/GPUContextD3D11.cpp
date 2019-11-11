@@ -1,6 +1,8 @@
 #include "PCH.h"
 #include "GPUContextD3D11.h"
 #include <cassert>
+#include "Engine/Engine.h"
+#include "Renderer.h"
 
 namespace ultralight {
 
@@ -30,60 +32,71 @@ void GPUContextD3D11::PresentFrame() {
 }
 
 void GPUContextD3D11::Resize(int width, int height) {
+	if (width == 0 || height == 0)
+	{
+		return;
+	}
   set_screen_size(width, height);
 
-  immediate_context_->OMSetRenderTargets(0, 0, 0);
-  ID3D11Texture2D* back_buffer = nullptr;
-  swap_chain_->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&back_buffer);
-  back_buffer->Release();
+  //immediate_context_->OMSetRenderTargets(0, 0, 0);
+  //ID3D11Texture2D* back_buffer = nullptr;
+  //swap_chain_->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&back_buffer);
+  //back_buffer->Release();
 
-  back_buffer_view_.Reset();
+  //back_buffer_view_.Reset();
 
-  // Get the actual device width/height (may be different than screen size)
-  RECT rc;
-  ::GetClientRect(hwnd_, &rc);
-  UINT client_width = rc.right - rc.left;
-  UINT client_height = rc.bottom - rc.top;
+  //// Get the actual device width/height (may be different than screen size)
+  //RECT rc;
+  //::GetClientRect(hwnd_, &rc);
+  //UINT client_width = rc.right - rc.left;
+  //UINT client_height = rc.bottom - rc.top;
 
-  HRESULT hr;
-  hr = swap_chain_->ResizeBuffers(0, client_width, client_height, DXGI_FORMAT_UNKNOWN, 0);
-  if (FAILED(hr)) {
-    MessageBoxW(nullptr,
-      L"GPUContextD3D11::Resize, unable to resize, IDXGISwapChain::ResizeBuffers failed.", L"Error", MB_OK);
-    exit(-1);
-  }
+  //HRESULT hr;
+  //hr = swap_chain_->ResizeBuffers(0, client_width, client_height, DXGI_FORMAT_UNKNOWN, 0);
+  //if (FAILED(hr)) {
+  //  MessageBoxW(nullptr,
+  //    L"GPUContextD3D11::Resize, unable to resize, IDXGISwapChain::ResizeBuffers failed.", L"Error", MB_OK);
+  //  exit(-1);
+  //}
 
-  // Create a render target view
-  ID3D11Texture2D* pBackBuffer = nullptr;
-  hr = swap_chain_->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&pBackBuffer);
-  if (FAILED(hr))
-  {
-    MessageBoxW(nullptr,
-      L"GPUContextD3D11::Resize, unable to get back buffer.", L"Error", MB_OK);
-    exit(-1);
-  }
+  //// Create a render target view
+  //ID3D11Texture2D* pBackBuffer = nullptr;
+  //hr = swap_chain_->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&pBackBuffer);
+  //if (FAILED(hr))
+  //{
+  //  MessageBoxW(nullptr,
+  //    L"GPUContextD3D11::Resize, unable to get back buffer.", L"Error", MB_OK);
+  //  exit(-1);
+  //}
 
-  hr = device_->CreateRenderTargetView(pBackBuffer, nullptr, back_buffer_view_.GetAddressOf());
-  pBackBuffer->Release();
-  if (FAILED(hr))
-  {
-    MessageBoxW(nullptr,
-      L"GPUContextD3D11::Resize, unable to create new render target view.", L"Error", MB_OK);
-    exit(-1);
-  }
+  //hr = device_->CreateRenderTargetView(pBackBuffer, nullptr, back_buffer_view_.GetAddressOf());
+  //pBackBuffer->Release();
+  //if (FAILED(hr))
+  //{
+  //  MessageBoxW(nullptr,
+  //    L"GPUContextD3D11::Resize, unable to create new render target view.", L"Error", MB_OK);
+  //  exit(-1);
+  //}
 
-  immediate_context_->OMSetRenderTargets(1, back_buffer_view_.GetAddressOf(), nullptr);
+  //immediate_context_->OMSetRenderTargets(1, back_buffer_view_.GetAddressOf(), nullptr);
 
-  // Setup the viewport
-  D3D11_VIEWPORT vp;
-  ZeroMemory(&vp, sizeof(vp));
-  vp.Width = (float)client_width * (float)scale();
-  vp.Height = (float)client_height * (float)scale();
-  vp.MinDepth = 0.0f;
-  vp.MaxDepth = 1.0f;
-  vp.TopLeftX = 0;
-  vp.TopLeftY = 0;
-  immediate_context_->RSSetViewports(1, &vp);
+  //// Setup the viewport
+  //D3D11_VIEWPORT vp;
+  //ZeroMemory(&vp, sizeof(vp));
+  //vp.Width = (float)client_width * (float)scale();
+  //vp.Height = (float)client_height * (float)scale();
+  //vp.MinDepth = 0.0f;
+  //vp.MaxDepth = 1.0f;
+  //vp.TopLeftX = 0;
+  //vp.TopLeftY = 0;
+  //immediate_context_->RSSetViewports(1, &vp);
+
+  swap_chain_ = GetEngine().GetRenderer().GetDevice().GetSwapChain();
+  immediate_context_ = GetEngine().GetRenderer().GetDevice().GetD3DDeviceContext();
+  device_ = GetEngine().GetRenderer().GetDevice().GetD3DDevice();
+  back_buffer_view_ = GetEngine().GetRenderer().GameViewRTT->UIRenderTargetView;
+
+  //immediate_context_->OMSetRenderTargets(1, back_buffer_view_.GetAddressOf(), nullptr);
 }
 
 ID3D11Device* GPUContextD3D11::device() { assert(device_.Get()); return device_.Get(); }
@@ -160,7 +173,7 @@ bool GPUContextD3D11::Initialize(HWND hWnd, int screen_width, int screen_height,
   sd.BufferCount = 1;
   sd.BufferDesc.Width = width;
   sd.BufferDesc.Height = height;
-  sd.BufferDesc.Format = sRGB ? DXGI_FORMAT_R8G8B8A8_UNORM_SRGB : DXGI_FORMAT_R8G8B8A8_UNORM;
+  sd.BufferDesc.Format = /*sRGB ? DXGI_FORMAT_R8G8B8A8_UNORM_SRGB : */DXGI_FORMAT_R8G8B8A8_UNORM;
   sd.BufferDesc.RefreshRate.Numerator = 60;
   sd.BufferDesc.RefreshRate.Denominator = 1;
   sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
@@ -172,16 +185,19 @@ bool GPUContextD3D11::Initialize(HWND hWnd, int screen_width, int screen_height,
   sd.Windowed = !fullscreen;
   sd.Flags = fullscreen ? DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH : 0;
 
-  for (unsigned driverTypeIndex = 0; driverTypeIndex < numDriverTypes; driverTypeIndex++)
-  {
-    D3D_DRIVER_TYPE driverType = driverTypes[driverTypeIndex];
-    hr = D3D11CreateDeviceAndSwapChain(nullptr, driverType, nullptr, createDeviceFlags, featureLevels, numFeatureLevels,
-      D3D11_SDK_VERSION, &sd, swap_chain_.GetAddressOf(), device_.GetAddressOf(), &feature_level_, immediate_context_.GetAddressOf());
-    if (SUCCEEDED(hr))
-    {
-      break;
-    }
-  }
+  //for (unsigned driverTypeIndex = 0; driverTypeIndex < numDriverTypes; driverTypeIndex++)
+  //{
+  //  D3D_DRIVER_TYPE driverType = driverTypes[driverTypeIndex];
+  //  hr = D3D11CreateDeviceAndSwapChain(nullptr, driverType, nullptr, createDeviceFlags, featureLevels, numFeatureLevels,
+  //    D3D11_SDK_VERSION, &sd, swap_chain_.GetAddressOf(), device_.GetAddressOf(), &feature_level_, immediate_context_.GetAddressOf());
+  //  if (SUCCEEDED(hr))
+  //  {
+  //    break;
+  //  }
+  //}
+
+  swap_chain_ = GetEngine().GetRenderer().GetDevice().GetSwapChain();
+  immediate_context_ = GetEngine().GetRenderer().GetDevice().GetD3DDeviceContext();
   if (FAILED(hr))
   {
     MessageBoxW(NULL, (LPCWSTR)L"D3D11 Error: Unable to create device and swap chain.", (LPCWSTR)L"D3D11 Error", MB_OK);
@@ -190,23 +206,25 @@ bool GPUContextD3D11::Initialize(HWND hWnd, int screen_width, int screen_height,
   }
 
   // Create a render target view
-  ID3D11Texture2D* pBackBuffer = nullptr;
-  hr = swap_chain_->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&pBackBuffer);
-  if (FAILED(hr))
-  {
-    MessageBoxW(NULL, (LPCWSTR)L"D3D11 Error: Unable to get back buffer.", (LPCWSTR)L"D3D11 Error", MB_OK);
-    // Unable get back buffer
-    return false;
-  }
+  //ID3D11Texture2D* pBackBuffer = nullptr;
+  //hr = swap_chain_->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&pBackBuffer);
+  //if (FAILED(hr))
+  //{
+  //  MessageBoxW(NULL, (LPCWSTR)L"D3D11 Error: Unable to get back buffer.", (LPCWSTR)L"D3D11 Error", MB_OK);
+  //  // Unable get back buffer
+  //  return false;
+  //}
 
-  hr = device_->CreateRenderTargetView(pBackBuffer, nullptr, back_buffer_view_.GetAddressOf());
-  pBackBuffer->Release();
-  if (FAILED(hr))
-  {
-    MessageBoxW(NULL, (LPCWSTR)L"D3D11 Error: Unable to create RenderTargetView.", (LPCWSTR)L"D3D11 Error", MB_OK);
-    // Unable create back buffer view
-    return false;
-  }
+  //hr = device_->CreateRenderTargetView(pBackBuffer, nullptr, back_buffer_view_.GetAddressOf());
+  //pBackBuffer->Release();
+  //if (FAILED(hr))
+  //{
+  //  MessageBoxW(NULL, (LPCWSTR)L"D3D11 Error: Unable to create RenderTargetView.", (LPCWSTR)L"D3D11 Error", MB_OK);
+  //  // Unable create back buffer view
+  //  return false;
+  //}
+  device_ = GetEngine().GetRenderer().GetDevice().GetD3DDevice();
+  back_buffer_view_ = GetEngine().GetRenderer().GameViewRTT->UIRenderTargetView;
 
   immediate_context_->OMSetRenderTargets(1, back_buffer_view_.GetAddressOf(), nullptr);
 
@@ -309,7 +327,7 @@ bool GPUContextD3D11::Initialize(HWND hWnd, int screen_width, int screen_height,
   back_buffer_height_ = height;
 
   // Initialize backbuffer with white so we don't get flash of black while loading views.
-  float color[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+  float color[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
   immediate_context_->ClearRenderTargetView(render_target_view(), color);
 
   return true;

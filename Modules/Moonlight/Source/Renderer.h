@@ -66,9 +66,7 @@ namespace Moonlight
 
 		//class RenderTexture* GameViewRTT = nullptr;
 		FrameBuffer* SceneViewRTT = nullptr;
-		FrameBuffer* SceneResolveViewRTT = nullptr;
-		FrameBuffer* m_framebuffer = nullptr;
-		FrameBuffer* m_resolvebuffer = nullptr;
+		FrameBuffer* GameViewRTT = nullptr;
 		LightCommand Sunlight;
 
 		ShaderProgram m_tonemapProgram;

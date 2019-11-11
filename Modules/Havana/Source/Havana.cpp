@@ -826,7 +826,7 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 		//	m_isGameFocused = ImGui::IsWindowFocused();
 
 
-		//	if (Renderer->m_resolvebuffer && Renderer->m_resolvebuffer->NormalShaderResourceView != nullptr)
+		//	if (Renderer->GameViewRTT && Renderer->GameViewRTT->NormalShaderResourceView != nullptr)
 		//	{
 		//		// Get the current cursor position (where your window is)
 		//		ImVec2 pos = ImGui::GetCursorScreenPos();
@@ -838,11 +838,11 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 		//		// Under OpenGL the ImGUI image type is GLuint
 		//		// So make sure to use "(void *)tex" but not "&tex"
 		//		ImGui::GetWindowDrawList()->AddImage(
-		//			(void*)Renderer->m_resolvebuffer->NormalShaderResourceView.Get(),
+		//			(void*)Renderer->GameViewRTT->NormalShaderResourceView.Get(),
 		//			ImVec2(pos.x, pos.y),
 		//			ImVec2(maxPos),
 		//			ImVec2(0, 0),
-		//			ImVec2(Mathf::Clamp(0.f, 1.0f, GameRenderSize.X() / Renderer->m_resolvebuffer->Width), Mathf::Clamp(0.f, 1.0f, GameRenderSize.Y() / Renderer->m_resolvebuffer->Height)));
+		//			ImVec2(Mathf::Clamp(0.f, 1.0f, GameRenderSize.X() / Renderer->GameViewRTT->Width), Mathf::Clamp(0.f, 1.0f, GameRenderSize.Y() / Renderer->GameViewRTT->Height)));
 		//		//ImVec2(WorldViewRenderSize.X() / RenderSize.X(), WorldViewRenderSize.Y() / RenderSize.Y()));
 
 		//	}
@@ -853,9 +853,9 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 		window_flags |= ImGuiWindowFlags_MenuBar;
 		bool showGameWindow = true;
 		ImGui::Begin("Game", &showGameWindow, window_flags);
-		if (Renderer->m_resolvebuffer)
+		if (Renderer->GameViewRTT)
 		{
-			static auto srv = Renderer->m_resolvebuffer->ShaderResourceView;
+			static auto srv = Renderer->GameViewRTT->ShaderResourceView;
 			static std::string RenderTextureName = "Shaded";
 			if (ImGui::BeginMenuBar())
 			{
@@ -893,31 +893,31 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 			}
 			if (RenderTextureName == "Shaded")
 			{
-				srv = Renderer->m_resolvebuffer->ShaderResourceView;
+				srv = Renderer->GameViewRTT->ShaderResourceView;
 			}
 			else if (RenderTextureName == "Diffuse")
 			{
-				srv = Renderer->m_resolvebuffer->ColorShaderResourceView;
+				srv = Renderer->GameViewRTT->ColorShaderResourceView;
 			}
 			else if (RenderTextureName == "Normals")
 			{
-				srv = Renderer->m_resolvebuffer->NormalShaderResourceView;
+				srv = Renderer->GameViewRTT->NormalShaderResourceView;
 			}
 			else if (RenderTextureName == "Specular")
 			{
-				srv = Renderer->m_resolvebuffer->SpecularShaderResourceView;
+				srv = Renderer->GameViewRTT->SpecularShaderResourceView;
 			}
 			else if (RenderTextureName == "Depth")
 			{
-				srv = Renderer->m_framebuffer->DepthShaderResourceView;
+				srv = Renderer->GameViewRTT->DepthShaderResourceView;
 			}
 			else if (RenderTextureName == "UI")
 			{
-				srv = Renderer->m_resolvebuffer->UIShaderResourceView;
+				srv = Renderer->GameViewRTT->UIShaderResourceView;
 			}
 			m_isGameFocused = ImGui::IsWindowFocused();
 
-			if (Renderer->m_resolvebuffer && srv != nullptr)
+			if (Renderer->GameViewRTT && srv != nullptr)
 			{
 				// Get the current cursor position (where your window is)
 				ImVec2 pos = ImGui::GetCursorScreenPos();
@@ -933,7 +933,7 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 					ImVec2(pos.x, pos.y),
 					ImVec2(maxPos),
 					ImVec2(0, 0),
-					ImVec2(Mathf::Clamp(0.f, 1.0f, GameRenderSize.X() / Renderer->m_resolvebuffer->Width), Mathf::Clamp(0.f, 1.0f, GameRenderSize.Y() / Renderer->m_resolvebuffer->Height)));
+					ImVec2(Mathf::Clamp(0.f, 1.0f, GameRenderSize.X() / Renderer->GameViewRTT->Width), Mathf::Clamp(0.f, 1.0f, GameRenderSize.Y() / Renderer->GameViewRTT->Height)));
 				//ImVec2(WorldViewRenderSize.X() / RenderSize.X(), WorldViewRenderSize.Y() / RenderSize.Y()));
 
 			}
@@ -944,9 +944,9 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 		ImGui::Begin("World View", &showWorldEditorWindow, window_flags);
 
 		//if (!EditorCamera.OutputSize.IsZero())
-		if (Renderer->SceneResolveViewRTT)
+		if (Renderer->SceneViewRTT)
 		{
-			static auto srv = Renderer->SceneResolveViewRTT->ShaderResourceView;
+			static auto srv = Renderer->SceneViewRTT->ShaderResourceView;
 			static std::string RenderTextureName = "Diffuse";
 			if (ImGui::BeginMenuBar())
 			{
@@ -980,19 +980,19 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 			}
 			if (RenderTextureName == "Shaded")
 			{
-				srv = Renderer->SceneResolveViewRTT->ShaderResourceView;
+				srv = Renderer->SceneViewRTT->ShaderResourceView;
 			}
 			else if (RenderTextureName == "Diffuse")
 			{
-				srv = Renderer->SceneResolveViewRTT->ColorShaderResourceView;
+				srv = Renderer->SceneViewRTT->ColorShaderResourceView;
 			}
 			else if (RenderTextureName == "Normals")
 			{
-				srv = Renderer->SceneResolveViewRTT->NormalShaderResourceView;
+				srv = Renderer->SceneViewRTT->NormalShaderResourceView;
 			}
 			else if (RenderTextureName == "Specular")
 			{
-				srv = Renderer->SceneResolveViewRTT->SpecularShaderResourceView;
+				srv = Renderer->SceneViewRTT->SpecularShaderResourceView;
 			}
 			else if (RenderTextureName == "Depth")
 			{
@@ -1051,7 +1051,7 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 						ImVec2(pos.x, pos.y),
 						ImVec2(maxPos),
 						ImVec2(0, 0),
-						ImVec2(Mathf::Clamp(0.f, 1.0f, WorldViewRenderSize.X() / Renderer->SceneResolveViewRTT->Width), Mathf::Clamp(0.f, 1.0f, WorldViewRenderSize.Y() / Renderer->SceneResolveViewRTT->Height)));
+						ImVec2(Mathf::Clamp(0.f, 1.0f, WorldViewRenderSize.X() / Renderer->SceneViewRTT->Width), Mathf::Clamp(0.f, 1.0f, WorldViewRenderSize.Y() / Renderer->SceneViewRTT->Height)));
 
 					ImGuizmo::SetRect(WorldViewRenderLocation.X(), WorldViewRenderLocation.Y(), WorldViewRenderSize.X(), WorldViewRenderSize.Y());
 

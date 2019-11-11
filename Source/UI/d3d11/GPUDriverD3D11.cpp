@@ -336,6 +336,8 @@ void GPUDriverD3D11::BindRenderBuffer(uint32_t render_buffer_id) {
   context_->immediate_context()->PSSetShaderResources(0, 1, nullSRV);
   context_->immediate_context()->PSSetShaderResources(1, 1, nullSRV);
   context_->immediate_context()->PSSetShaderResources(2, 1, nullSRV);
+  context_->immediate_context()->PSSetShaderResources(3, 1, nullSRV);
+  context_->immediate_context()->PSSetShaderResources(4, 1, nullSRV);
   
   ID3D11RenderTargetView* target;
   if (render_buffer_id == 0) {
@@ -558,7 +560,7 @@ void GPUDriverD3D11::DrawCommandList() {
     if ( cmd.command_type == kCommandType_DrawGeometry)
       DrawGeometry(cmd.geometry_id, cmd.indices_count, cmd.indices_offset, cmd.gpu_state);
     else if (cmd.command_type == kCommandType_ClearRenderBuffer)
-      ClearRenderBuffer(cmd.gpu_state.render_buffer_id);
+		ClearRenderBuffer(cmd.gpu_state.render_buffer_id);
   }
 
   command_list_.clear();
