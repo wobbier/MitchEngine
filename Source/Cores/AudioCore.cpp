@@ -31,24 +31,30 @@ void AudioCore::Update(float dt)
 		auto AudioEntities = GetEntities();
 		for (auto& ent : AudioEntities)
 		{
-			auto& audioSource = ent.GetComponent<AudioSource>();
-			if (!audioSource.IsInitialized && !audioSource.FilePath.LocalPath.empty())
-			{
-				audioSource.SoundEffectFile = std::make_unique<DirectX::SoundEffect>(mEngine.get(), StringUtils::ToWString(audioSource.FilePath.FullPath).c_str());
-				audioSource.testSoundEffectInstance = audioSource.SoundEffectFile->CreateInstance();
-				audioSource.IsInitialized = true;
-			}
+			AudioSource& audioSource = ent.GetComponent<AudioSource>();
+			InitComponent(audioSource);
 		}
+	}
+}
+
+void AudioCore::InitComponent(AudioSource& audioSource)
+{
+	if (!audioSource.IsInitialized && !audioSource.FilePath.LocalPath.empty())
+	{
+		audioSource.SoundEffectFile = std::make_unique<DirectX::SoundEffect>(mEngine.get(), StringUtils::ToWString(audioSource.FilePath.FullPath).c_str());
+		audioSource.testSoundEffectInstance = audioSource.SoundEffectFile->CreateInstance();
+		audioSource.IsInitialized = true;
 	}
 }
 
 void AudioCore::OnEntityAdded(Entity& NewEntity)
 {
-	auto& comp = NewEntity.GetComponent<AudioSource>();
+	AudioSource& comp = NewEntity.GetComponent<AudioSource>();
 
-	// Needs to be a resource
-	comp.SoundEffectFile = std::make_unique<DirectX::SoundEffect>(mEngine.get(), StringUtils::ToWString(comp.FilePath.FullPath).c_str());
-	comp.testSoundEffectInstance = comp.SoundEffectFile->CreateInstance();
+	InitComponent(comp);
+	//// Needs to be a resource
+	//comp.SoundEffectFile = std::make_unique<DirectX::SoundEffect>(mEngine.get(), StringUtils::ToWString(comp.FilePath.FullPath).c_str());
+	//comp.testSoundEffectInstance = comp.SoundEffectFile->CreateInstance();
 }
 
 void AudioCore::Init()
