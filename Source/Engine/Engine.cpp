@@ -121,6 +121,10 @@ void Engine::Run()
 
 	GameClock.Reset();
 	float lastTime = GameClock.GetTimeInMilliseconds();
+
+	const float FramesPerSec = 144.f;
+	const float MaxDeltaTime = (1.f / FramesPerSec);
+
 	// Game loop
 	forever
 	{
@@ -137,55 +141,59 @@ void Engine::Run()
 
 		EventManager::GetInstance().FirePendingEvents();
 
-		float time = GameClock.GetTimeInMilliseconds();
-		const float deltaTime = GameClock.deltaTime = (time <= 0.0f || time >= 0.3) ? 0.0001f : time - lastTime;
+		GameClock.Update();
 
-		GameWorld->Simulate();
-
+		float deltaTime = GameClock.GetDeltaSeconds();
 		AccumulatedTime += deltaTime;
-
-		// Update our engine
-
+		if (AccumulatedTime >= MaxDeltaTime)
 		{
-			OPTICK_CATEGORY("MainLoop::GameUpdate", Optick::Category::GameLogic);
-			m_game->OnUpdate(deltaTime);
-		}
-		GameWorld->UpdateLoadedCores(deltaTime);
-		SceneNodes->Update(deltaTime);
+			deltaTime = AccumulatedTime;
 
-		Cameras->Update(deltaTime);
-		AudioThread->Update(deltaTime);
-		ModelRenderer->Update(AccumulatedTime);
+			GameWorld->Simulate();
 
-		if (UI)
-		{
-			UI->OnResize(MainCamera.OutputSize);
-		}
-		UI->Update(deltaTime);
-		AccumulatedTime -= 1.0f / FPS;
+			// Update our engine
+
+			{
+				OPTICK_CATEGORY("MainLoop::GameUpdate", Optick::Category::GameLogic);
+				m_game->OnUpdate(deltaTime);
+			}
+			GameWorld->UpdateLoadedCores(deltaTime);
+			SceneNodes->Update(deltaTime);
+
+			Cameras->Update(deltaTime);
+			AudioThread->Update(deltaTime);
+			ModelRenderer->Update(AccumulatedTime);
+
+			if (UI)
+			{
+				UI->OnResize(MainCamera.OutputSize);
+			}
+			UI->Update(deltaTime);
 
 #if !ME_EDITOR
-		Vector2 MainOutputSize = m_renderer->GetDevice().GetOutputSize();
-		MainCamera.Position = Camera::CurrentCamera->Position;
-		MainCamera.Front = Camera::CurrentCamera->Front;
-		MainCamera.Up = Camera::CurrentCamera->Up;
-		MainCamera.OutputSize = MainOutputSize;
-		MainCamera.FOV = Camera::CurrentCamera->GetFOV();
-		MainCamera.Skybox = Camera::CurrentCamera->Skybox;
-		MainCamera.ClearColor = Camera::CurrentCamera->ClearColor;
-		MainCamera.ClearType = Camera::CurrentCamera->ClearType;
-		MainCamera.Projection = Camera::CurrentCamera->Projection;
-		MainCamera.OrthographicSize = Camera::CurrentCamera->OrthographicSize;
+			Vector2 MainOutputSize = m_renderer->GetDevice().GetOutputSize();
+			MainCamera.Position = Camera::CurrentCamera->Position;
+			MainCamera.Front = Camera::CurrentCamera->Front;
+			MainCamera.Up = Camera::CurrentCamera->Up;
+			MainCamera.OutputSize = MainOutputSize;
+			MainCamera.FOV = Camera::CurrentCamera->GetFOV();
+			MainCamera.Skybox = Camera::CurrentCamera->Skybox;
+			MainCamera.ClearColor = Camera::CurrentCamera->ClearColor;
+			MainCamera.ClearType = Camera::CurrentCamera->ClearType;
+			MainCamera.Projection = Camera::CurrentCamera->Projection;
+			MainCamera.OrthographicSize = Camera::CurrentCamera->OrthographicSize;
 
-		EditorCamera = MainCamera;
+			EditorCamera = MainCamera;
 #endif
 
-		m_renderer->Render([this]() {
-			m_game->PostRender();
-			UI->Render();
-			}, MainCamera, EditorCamera);
+			m_renderer->Render([this]() {
+				m_game->PostRender();
+				UI->Render();
+				}, MainCamera, EditorCamera);
 
-		Sleep(4);
+			AccumulatedTime = std::fmod(AccumulatedTime, MaxDeltaTime);
+		}
+		Sleep(1);
 	}
 	EngineConfig->Save();
 }
