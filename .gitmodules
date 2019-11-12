@@ -28,6 +28,6 @@
 [submodule "ThirdParty/Optick"]
 	path = ThirdParty/Optick
 	url = https://github.com/bombomby/optick
-[submodule "ThirdParty/Ultralight"]
-	path = ThirdParty/Ultralight
-	url = https://github.com/ultralight-ux/Ultralight.git
+[submodule "ThirdParty/UltralightSDK"]
+	path = ThirdParty/UltralightSDK
+	url = https://github.com/wobbier/UltralightSDK

@@ -81,7 +81,7 @@ includedirs {
   "../ThirdParty/ImGUI",
   "../Modules/ImGUI/Source",
   "../ThirdParty/PerlinNoise",
-  "../ThirdParty/Ultralight/SDK/include",
+  "../ThirdParty/UltralightSDK/include",
   "../ThirdParty/JSON/single_include"
 }
 
@@ -104,8 +104,8 @@ end
 
 libdirs {
   "../Build/%{cfg.buildcfg}",
-  "../ThirdParty/Ultralight/SDK/lib",
-  "../ThirdParty/Ultralight/SDK/bin"
+  "../ThirdParty/UltralightSDK/lib",
+  "../ThirdParty/UltralightSDK/bin"
 }
 
 links {
