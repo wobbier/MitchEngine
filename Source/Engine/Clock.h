@@ -1,6 +1,5 @@
 // 2018 Mitchell Andrews
 #pragma once
-#include "Singleton.h"
 
 /*
 Clock.h
@@ -26,11 +25,8 @@ public:
 
 	const float GetDeltaMilliseconds();
 	const float GetDeltaSeconds();
+
 private:
 	float CurrentTime = 0;
 	float PreviousTime = 0;
-
-	ME_SINGLETON_DEFINITION(Clock)
 };
-
-Clock& GetClock();

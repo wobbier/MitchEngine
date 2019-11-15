@@ -50,7 +50,7 @@ public:
 	class RenderCore* ModelRenderer = nullptr;
 	class AudioCore* AudioThread = nullptr;
 	class UICore* UI = nullptr;
-	Clock& GameClock;
+	Clock GameClock;
 	Moonlight::CameraData MainCamera;
 	Moonlight::CameraData EditorCamera;
 	Scene* CurrentScene = nullptr;

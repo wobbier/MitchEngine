@@ -17,7 +17,6 @@
 #include <Ultralight/platform/Config.h>
 #include "UI/UIWindow.h"
 #include "AppCore/Overlay.h"
-#include "UI/FileSystemWin.h"
 #include <Shlwapi.h>
 #include "UI/d3d11/GPUDriverD3D11.h"
 #include "UI/d3d11/GPUContextD3D11.h"
@@ -46,8 +45,7 @@ UICore::UICore(IWindow* window)
 	PathAppendW(path, L"Assets/UI");
 
 	Path fileSystemRoot = Path("Assets/UI");
-	m_fs.reset(new ultralight::FileSystemWin(StringUtils::ToWString(fileSystemRoot.FullPath).c_str()));
-	m_fontLoader.reset(new ultralight::FontLoaderWin());
+	m_fs.reset(new ultralight::FileSystemBasic(fileSystemRoot.FullPath.c_str()));
 
 	m_context.reset(new ultralight::GPUContextD3D11());
 
@@ -65,7 +63,7 @@ UICore::UICore(IWindow* window)
 
 	platform.set_gpu_driver(m_driver.get());
 	platform.set_file_system(m_fs.get());
-	platform.set_font_loader(m_fontLoader.get());
+	//platform.set_font_loader(m_fontLoader.get());
 	//win->set_app_listener(this);
 
 }
@@ -191,7 +189,7 @@ void UICore::InitUIView(BasicUIView& view)
 	ultralight::RefPtr<ultralight::Overlay> overlay = ultralight::Overlay::Create(*m_window.get(), newView, 0, 0);
 	overlay->view()->LoadHTML(view.SourceFile.Read().c_str());
 	overlay->view()->set_load_listener(&view);
-	//impl->view()->LoadURL("https://wobbier.com/");
+	//overlay->view()->LoadURL("https://wobbier.com/");
 	m_overlays.push_back(overlay);
 	GetOverlayManager()->Add(overlay.get());
 	view.IsInitialized = true;

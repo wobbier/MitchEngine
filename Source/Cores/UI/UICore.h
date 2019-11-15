@@ -5,8 +5,6 @@
 #include "Ultralight/RefPtr.h"
 #include "UI/OverlayManager.h"
 #include "UI/UIWindow.h"
-#include "UI/FileSystemWin.h"
-#include "UI/FontLoaderWin.h"
 #include "UI/d3d11/GPUDriverD3D11.h"
 
 #include "Components/UI/BasicUIView.h"
@@ -14,6 +12,7 @@
 #include "ECS/ComponentDetail.h"
 #include "File.h"
 #include "Path.h"
+#include "UI/FileSystemBasic.h"
 
 namespace Moonlight { class Renderer; }
 
@@ -48,8 +47,7 @@ public:
 
 	Moonlight::Renderer* m_renderer;
 	ultralight::Ref<ultralight::Renderer> m_uiRenderer;
-	std::unique_ptr<ultralight::FileSystemWin> m_fs;
-	std::unique_ptr<ultralight::FontLoaderWin> m_fontLoader;
+	std::unique_ptr<ultralight::FileSystemBasic> m_fs;
 	std::unique_ptr<ultralight::GPUDriverD3D11> m_driver = nullptr;
 	std::unique_ptr<ultralight::GPUContextD3D11> m_context = nullptr;
 	ultralight::RefPtr<UIWindow> m_window = nullptr;

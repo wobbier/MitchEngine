@@ -29,7 +29,6 @@ Engine& GetEngine()
 
 Engine::Engine()
 	: Running(true)
-	, GameClock(Clock::GetInstance())
 {
 	std::vector<TypeId> events;
 	events.push_back(LoadSceneEvent::GetEventId());
@@ -143,11 +142,10 @@ void Engine::Run()
 
 		GameClock.Update();
 
-		float deltaTime = GameClock.GetDeltaSeconds();
-		AccumulatedTime += deltaTime;
+		AccumulatedTime += GameClock.GetDeltaSeconds();
 		if (AccumulatedTime >= MaxDeltaTime)
 		{
-			deltaTime = AccumulatedTime;
+			float deltaTime = AccumulatedTime;
 
 			GameWorld->Simulate();
 
@@ -162,7 +160,7 @@ void Engine::Run()
 
 			Cameras->Update(deltaTime);
 			AudioThread->Update(deltaTime);
-			ModelRenderer->Update(AccumulatedTime);
+			ModelRenderer->Update(deltaTime);
 
 			if (UI)
 			{

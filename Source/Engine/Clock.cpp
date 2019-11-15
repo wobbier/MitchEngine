@@ -2,11 +2,6 @@
 #include "Clock.h"
 #include <chrono>
 
-Clock& GetClock()
-{
-	return Clock::GetInstance();
-}
-
 Clock::Clock()
 {
 	Reset();
