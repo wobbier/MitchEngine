@@ -50,6 +50,7 @@ public:
 	virtual void Maximize() final;
 	virtual void Minimize() final;
 	virtual void ExitMaximize() final;
+	virtual bool IsFullscreen() final;
 
 
 	virtual void Exit() override;

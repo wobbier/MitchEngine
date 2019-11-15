@@ -61,7 +61,8 @@ int UIWindow::DeviceToPixels(int val) const
 
 HWND UIWindow::hwnd()
 {
-	return static_cast<Win32Window*>(m_window)->Window;
+	return NULL;
+	//return static_cast<Win32Window*>(m_window)->Window;
 }
 
 int UIWindow::PixelsToDevice(int val) const

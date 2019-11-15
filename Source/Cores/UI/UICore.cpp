@@ -37,13 +37,6 @@ UICore::UICore(IWindow* window)
 	config_.device_scale_hint = 1.0f;
 	config_.face_winding = ultralight::FaceWinding::kFaceWinding_Clockwise;
 
-	HMODULE hModule = GetModuleHandleW(NULL);
-	WCHAR path[MAX_PATH];
-	GetModuleFileNameW(hModule, path, MAX_PATH);
-	PathRemoveFileSpecW(path);
-
-	PathAppendW(path, L"Assets/UI");
-
 	Path fileSystemRoot = Path("Assets/UI");
 	m_fs.reset(new ultralight::FileSystemBasic(fileSystemRoot.FullPath.c_str()));
 
@@ -55,7 +48,7 @@ UICore::UICore(IWindow* window)
 	if (!m_context->Initialize(win->hwnd(), win->width(),
 		win->height(), win->scale(), win->is_fullscreen(), true, false, 1))
 	{
-		MessageBoxW(NULL, (LPCWSTR)L"Failed to initialize D3D11 context", (LPCWSTR)L"Notification", MB_OK);
+		//MessageBoxW(NULL, (LPCWSTR)L"Failed to initialize D3D11 context", (LPCWSTR)L"Notification", MB_OK);
 		exit(-1);
 	}
 
