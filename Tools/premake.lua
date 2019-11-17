@@ -94,11 +94,8 @@ else
   defines { "ME_PLATFORM_WIN64" }
   links {
   	"dwmapi",
-	"DirectXTKAudioWin8",
-	"Ultralight.lib",
-	"UltralightCore.lib",
-	"WebCore.lib",
-	"AppCore.lib"
+    "DirectXTKAudioWin8",
+  "Shlwapi.lib"
   }
 end
 
@@ -114,8 +111,11 @@ links {
   "assimp-vc140-mt",
   "IrrXML",
   "DirectXTK",
-  "Shlwapi.lib",
-  "Usp10.lib"
+  "Usp10.lib",
+  "Ultralight.lib",
+  "UltralightCore.lib",
+  "WebCore.lib",
+  "AppCore.lib"
 }
 
 -- Platform specific options
@@ -186,6 +186,7 @@ libdirs {
 }
 
 if isUWP then
+  defines {"USE_OPTICK=0"}
   libdirs {
     "../ThirdParty/Lib/Bullet/Win64/Release",
     "../ThirdParty/Lib/Optick/UWP/Release"

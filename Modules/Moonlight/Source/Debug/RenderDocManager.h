@@ -2,7 +2,6 @@
 
 #if ME_ENABLE_RENDERDOC
 
-#include <windows.h>
 #include <assert.h>
 #include "Dementia.h"
 

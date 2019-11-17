@@ -44,13 +44,12 @@ public:
   virtual void set_screen_size(uint32_t width, uint32_t height);
   virtual void screen_size(uint32_t& width, uint32_t& height);
 
-  bool Initialize(HWND hWnd, int screen_width, int screen_height, double screen_scale, bool fullscreen, bool enable_vsync, bool sRGB, int samples);
+  bool Initialize(int screen_width, int screen_height, double screen_scale, bool fullscreen, bool enable_vsync, bool sRGB, int samples);
 
   UINT back_buffer_width();
   UINT back_buffer_height();
 
 private:
-  HWND hwnd_;
   Microsoft::WRL::ComPtr<ID3D11Device> device_;
   Microsoft::WRL::ComPtr<ID3D11DeviceContext> immediate_context_;
   Microsoft::WRL::ComPtr<IDXGISwapChain> swap_chain_;

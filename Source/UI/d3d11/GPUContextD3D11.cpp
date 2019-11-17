@@ -126,7 +126,7 @@ double GPUContextD3D11::scale() const { return scale_; }
 void GPUContextD3D11::set_screen_size(uint32_t width, uint32_t height) { width_ = width; height_ = height; }
 void GPUContextD3D11::screen_size(uint32_t& width, uint32_t& height) { width = width_; height = height_; }
 
-bool GPUContextD3D11::Initialize(HWND hWnd, int screen_width, int screen_height, double screen_scale, bool fullscreen, bool enable_vsync, bool sRGB, int samples) {
+bool GPUContextD3D11::Initialize(int screen_width, int screen_height, double screen_scale, bool fullscreen, bool enable_vsync, bool sRGB, int samples) {
   samples_ = samples;
 #if ENABLE_MSAA
   samples_ = 4;
@@ -136,8 +136,6 @@ bool GPUContextD3D11::Initialize(HWND hWnd, int screen_width, int screen_height,
   set_scale(screen_scale);
 
   HRESULT hr = S_OK;
-
-  hwnd_ = hWnd;
 
   swap_chain_ = GetEngine().GetRenderer().GetDevice().GetSwapChain();
   immediate_context_ = GetEngine().GetRenderer().GetDevice().GetD3DDeviceContext();

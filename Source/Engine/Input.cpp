@@ -3,7 +3,6 @@
 #include "Logger.h"
 #include <string>
 #include <iostream>
-#include <Windows.h>
 #include <WinUser.h>
 
 #pragma region KeyboardInput

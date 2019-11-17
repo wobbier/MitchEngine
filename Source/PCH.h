@@ -1,13 +1,11 @@
 #pragma once
 #pragma message("[MAN] Compiling Engine PCH...")
 
+
 #include <SDKDDKVer.h>
-
-
+#include <Windows.h>
 #include "Dementia.h"
 #include "Pointers.h"
-
-#include <windows.h>
 #if ME_DIRECTX
 #include <wrl.h>
 #include <wrl/client.h>
@@ -64,6 +62,5 @@
 
 // for convenience
 using json = nlohmann::json;
-
 // core
 #include "Game.h"

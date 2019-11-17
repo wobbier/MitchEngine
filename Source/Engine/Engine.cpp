@@ -53,13 +53,12 @@ void Engine::Init(Game* game)
 	Logger::GetInstance().SetLogPriority(Logger::LogType::Info);
 	Logger::GetInstance().Log(Logger::LogType::Info, "Starting the MitchEngine.");
 
-	//EngineConfig = new Config(Path("Assets\\Config\\Engine.cfg"));
-	
-	/*auto WindowConfig = EngineConfig->GetObject("Window");
-	int WindowWidth = WindowConfig["Width"];
-	int WindowHeight = WindowConfig["Height"];*/
+	EngineConfig = new Config(Path("Assets\\Config\\Engine.cfg"));
 
 #if ME_PLATFORM_WIN64
+	const json& WindowConfig = EngineConfig->GetObject("Window");
+	int WindowWidth = WindowConfig["Width"];
+	int WindowHeight = WindowConfig["Height"];
 	std::function<void(const Vector2&)> Func = [this](const Vector2& NewSize)
 	{
 		if (m_renderer)

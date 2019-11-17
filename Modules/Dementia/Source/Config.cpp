@@ -4,7 +4,7 @@
 Config::Config(const Path& ConfigPath)
 	: ConfigFile(ConfigPath)
 {
-	Root = json::parse(ConfigFile.Read());
+	Root = nlohmann::json::parse(ConfigFile.Read());
 	if (Root.is_null())
 	{
 		YIKES("Failed to parse configuration.");
@@ -25,7 +25,7 @@ std::string Config::GetValue(const std::string& value)
 	return "";
 }
 
-const json& Config::GetObject(const std::string& value)
+const nlohmann::json& Config::GetObject(const std::string& value)
 {
 	if (Root.contains(value))
 	{

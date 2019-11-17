@@ -45,8 +45,7 @@ UICore::UICore(IWindow* window)
 	platform.set_config(config_);
 
 	UIWindow* win = static_cast<UIWindow*>(m_window.get());
-	if (!m_context->Initialize(win->hwnd(), win->width(),
-		win->height(), win->scale(), win->is_fullscreen(), true, false, 1))
+	if (!m_context->Initialize(win->width(), win->height(), win->scale(), win->is_fullscreen(), true, false, 1))
 	{
 		//MessageBoxW(NULL, (LPCWSTR)L"Failed to initialize D3D11 context", (LPCWSTR)L"Notification", MB_OK);
 		exit(-1);
@@ -58,7 +57,6 @@ UICore::UICore(IWindow* window)
 	platform.set_file_system(m_fs.get());
 	//platform.set_font_loader(m_fontLoader.get());
 	//win->set_app_listener(this);
-
 }
 
 UICore::~UICore()

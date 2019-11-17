@@ -50,8 +50,8 @@ void Scene::LoadSceneObject(const json& obj, Transform* parent)
 		if (addedComp)
 		{
 			addedComp->Deserialize(comp);
+			addedComp->Init();
 		}
-		addedComp->Init();
 	}
 	ent.lock()->SetActive(true);
 	ent.lock()->IsLoading = false;

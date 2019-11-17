@@ -5,9 +5,6 @@
 #include "Path.h"
 #include "File.h"
 
-// for convenience
-using json = nlohmann::json;
-
 class Config
 {
 public:
@@ -15,12 +12,12 @@ public:
 	~Config();
 
 	std::string GetValue(const std::string& value);
-	const json& GetObject(const std::string& value);
+	const nlohmann::json& GetObject(const std::string& value);
 
 	void SetValue(std::string& key, std::string& newVal);
 
 	void Save();
 private:
-	json Root;
+	nlohmann::json Root;
 	File ConfigFile;
 };

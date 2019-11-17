@@ -1,5 +1,6 @@
 #pragma once
-#include <windows.h>
+#include <wrl/client.h>
+
 #include <string>
 #include <algorithm>
 #include "Dementia.h"
