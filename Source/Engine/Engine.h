@@ -8,6 +8,7 @@
 #include "World/Scene.h"
 #include "Camera/CameraData.h"
 #include <string>
+#include "Config.h"
 
 class Game;
 class IWindow;
@@ -42,12 +43,14 @@ public:
 
 	IWindow* GetWindow();
 
+	Config& GetConfig() const;
+
 	class CameraCore* Cameras = nullptr;
 	class SceneGraph* SceneNodes = nullptr;
 	class RenderCore* ModelRenderer = nullptr;
 	class AudioCore* AudioThread = nullptr;
 	class UICore* UI = nullptr;
-	Clock& GameClock;
+	Clock GameClock;
 	Moonlight::CameraData MainCamera;
 	Moonlight::CameraData EditorCamera;
 	Scene* CurrentScene = nullptr;

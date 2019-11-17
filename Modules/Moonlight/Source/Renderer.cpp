@@ -83,7 +83,7 @@ namespace Moonlight
 			nullptr
 		);
 */
-		m_font = std::make_unique<DirectX::SpriteFont>(m_device->GetD3DDevice(), StringUtils::ToWString(Path("Assets/Fonts/CourierNew.spritefont").FullPath).c_str());
+		m_font = std::make_unique<DirectX::SpriteFont>(m_device->GetD3DDevice(), StringUtils::ToWString(Path("Assets/Fonts/Comfortaa.spritefont").FullPath).c_str());
 		m_spriteBatch = std::make_unique<DirectX::SpriteBatch>(m_device->GetD3DDeviceContext());
 		shape = DirectX::GeometricPrimitive::CreateBox(m_device->GetD3DDeviceContext(), XMFLOAT3(1.f, 1.f, 1.f));
 		primitiveBatch = std::make_unique<DirectX::PrimitiveBatch<VertexPositionTexCoord>>(m_device->GetD3DDeviceContext());
@@ -110,24 +110,22 @@ namespace Moonlight
 
 	void Renderer::ResizeBuffers()
 	{
-		delete m_framebuffer;
-		delete m_resolvebuffer;
+		delete GameViewRTT;
 		delete SceneViewRTT;
-		delete SceneResolveViewRTT;
-		m_framebuffer = m_device->CreateFrameBuffer(m_device->GetOutputSize().X(), m_device->GetOutputSize().Y(), m_device->GetMSAASamples(), DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_D24_UNORM_S8_UINT);
-		SceneViewRTT = m_device->CreateFrameBuffer(m_device->GetOutputSize().X(), m_device->GetOutputSize().Y(), m_device->GetMSAASamples(), DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_D24_UNORM_S8_UINT);
-		if (m_device->GetMSAASamples() > 1)
-		{
-			//GameViewRTT = new RenderTexture(m_device);
-
-			m_resolvebuffer = m_device->CreateFrameBuffer(m_device->GetOutputSize().X(), m_device->GetOutputSize().Y(), 1, DXGI_FORMAT_R8G8B8A8_UNORM, (DXGI_FORMAT)0);
-			SceneResolveViewRTT = m_device->CreateFrameBuffer(m_device->GetOutputSize().X(), m_device->GetOutputSize().Y(), 1, DXGI_FORMAT_R8G8B8A8_UNORM, (DXGI_FORMAT)0);
-		}
-		else
-		{
-			SceneResolveViewRTT = SceneViewRTT;
-			m_resolvebuffer = m_framebuffer;
-		}
+		GameViewRTT = m_device->CreateFrameBuffer(m_device->GetOutputSize().X(), m_device->GetOutputSize().Y(), 1, DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_D24_UNORM_S8_UINT);
+		SceneViewRTT = m_device->CreateFrameBuffer(m_device->GetOutputSize().X(), m_device->GetOutputSize().Y(), 1, DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_D24_UNORM_S8_UINT);
+// 		if (m_device->GetMSAASamples() > 1)
+// 		{
+// 			//GameViewRTT = new RenderTexture(m_device);
+// 
+// 			GameViewRTT = m_device->CreateFrameBuffer(m_device->GetOutputSize().X(), m_device->GetOutputSize().Y(), 1, DXGI_FORMAT_R8G8B8A8_UNORM, (DXGI_FORMAT)0);
+// 			SceneViewRTT = m_device->CreateFrameBuffer(m_device->GetOutputSize().X(), m_device->GetOutputSize().Y(), 1, DXGI_FORMAT_R8G8B8A8_UNORM, (DXGI_FORMAT)0);
+// 		}
+// 		else
+// 		{
+// 			SceneViewRTT = SceneViewRTT;
+// 			GameViewRTT = GameViewRTT;
+// 		}
 	}
 
 	void Renderer::SetWindow()
@@ -161,17 +159,17 @@ namespace Moonlight
 
 		// Clear the back buffer and depth stencil view.
 		context->ClearRenderTargetView(m_device->GetBackBufferRenderTargetView(), color);
-		context->ClearRenderTargetView(m_framebuffer->RenderTargetView.Get(), color);
-		context->ClearRenderTargetView(m_framebuffer->ColorRenderTargetView.Get(), clearColor);
-		context->ClearRenderTargetView(m_framebuffer->NormalRenderTargetView.Get(), color);
-		context->ClearRenderTargetView(m_framebuffer->SpecularRenderTargetView.Get(), color);
+		context->ClearRenderTargetView(GameViewRTT->RenderTargetView.Get(), color);
+		context->ClearRenderTargetView(GameViewRTT->ColorRenderTargetView.Get(), clearColor);
+		context->ClearRenderTargetView(GameViewRTT->NormalRenderTargetView.Get(), color);
+		context->ClearRenderTargetView(GameViewRTT->SpecularRenderTargetView.Get(), color);
 
 		context->ClearRenderTargetView(SceneViewRTT->RenderTargetView.Get(), color);
 		context->ClearRenderTargetView(SceneViewRTT->ColorRenderTargetView.Get(), color);
 		context->ClearRenderTargetView(SceneViewRTT->NormalRenderTargetView.Get(), color);
 		context->ClearRenderTargetView(SceneViewRTT->SpecularRenderTargetView.Get(), color);
 
-		context->ClearDepthStencilView(m_framebuffer->DepthStencilView.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+		context->ClearDepthStencilView(GameViewRTT->DepthStencilView.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
 		CD3D11_VIEWPORT gameViewport = CD3D11_VIEWPORT(
 			0.0f,
@@ -185,7 +183,7 @@ namespace Moonlight
 
 		// Reset render targets to the screen.
 
-		DrawScene(context, m_constantBufferData, mainCamera, m_framebuffer, m_resolvebuffer);
+		DrawScene(context, m_constantBufferData, mainCamera, GameViewRTT, GameViewRTT);
 
 
 #if ME_EDITOR
@@ -194,7 +192,7 @@ namespace Moonlight
 
 		m_device->GetD3DDeviceContext()->OMSetBlendState(0, 0, 0xffffffff);
 		//ID3D11RenderTargetView* const targets2[1] = { SceneViewRTT->renderTargetViewMap };
-		DrawScene(context, m_constantBufferSceneData, editorCamera, SceneViewRTT, SceneResolveViewRTT);
+		DrawScene(context, m_constantBufferSceneData, editorCamera, SceneViewRTT, SceneViewRTT);
 
 		// Scene grid
 		//{
@@ -228,6 +226,7 @@ namespace Moonlight
 
 		func();
 
+		GetDevice().GetD3DDeviceContext()->OMSetRenderTargets(1, m_device->m_d3dRenderTargetView.GetAddressOf(), nullptr);
 		// The first argument instructs DXGI to block until VSync, putting the application
 		// to sleep until the next VSync. This ensures we don't waste any cycles rendering
 		// frames that will never be displayed to the screen.
@@ -238,18 +237,18 @@ namespace Moonlight
 		// This is a valid operation only when the existing contents will be entirely
 		// overwritten. If dirty or scroll rects are used, this call should be removed.
 		m_device->GetD3DDeviceContext()->DiscardView1(m_device->GetBackBufferRenderTargetView(), nullptr, 0);
-		m_device->GetD3DDeviceContext()->DiscardView1(m_resolvebuffer->ShaderResourceView.Get(), nullptr, 0);
-		m_device->GetD3DDeviceContext()->DiscardView1(m_resolvebuffer->ColorShaderResourceView.Get(), nullptr, 0);
-		m_device->GetD3DDeviceContext()->DiscardView1(m_resolvebuffer->NormalShaderResourceView.Get(), nullptr, 0);
-		m_device->GetD3DDeviceContext()->DiscardView1(m_resolvebuffer->SpecularShaderResourceView.Get(), nullptr, 0);
-		m_device->GetD3DDeviceContext()->DiscardView1(SceneResolveViewRTT->ShaderResourceView.Get(), nullptr, 0);
-		m_device->GetD3DDeviceContext()->DiscardView1(SceneResolveViewRTT->ColorShaderResourceView.Get(), nullptr, 0);
-		m_device->GetD3DDeviceContext()->DiscardView1(SceneResolveViewRTT->NormalShaderResourceView.Get(), nullptr, 0);
-		m_device->GetD3DDeviceContext()->DiscardView1(SceneResolveViewRTT->SpecularShaderResourceView.Get(), nullptr, 0);
+		m_device->GetD3DDeviceContext()->DiscardView1(GameViewRTT->ShaderResourceView.Get(), nullptr, 0);
+		m_device->GetD3DDeviceContext()->DiscardView1(GameViewRTT->ColorShaderResourceView.Get(), nullptr, 0);
+		m_device->GetD3DDeviceContext()->DiscardView1(GameViewRTT->NormalShaderResourceView.Get(), nullptr, 0);
+		m_device->GetD3DDeviceContext()->DiscardView1(GameViewRTT->SpecularShaderResourceView.Get(), nullptr, 0);
+		m_device->GetD3DDeviceContext()->DiscardView1(SceneViewRTT->ShaderResourceView.Get(), nullptr, 0);
+		m_device->GetD3DDeviceContext()->DiscardView1(SceneViewRTT->ColorShaderResourceView.Get(), nullptr, 0);
+		m_device->GetD3DDeviceContext()->DiscardView1(SceneViewRTT->NormalShaderResourceView.Get(), nullptr, 0);
+		m_device->GetD3DDeviceContext()->DiscardView1(SceneViewRTT->SpecularShaderResourceView.Get(), nullptr, 0);
 
 		// Discard the contents of the depth stencil.
-		//m_device->GetD3DDeviceContext()->DiscardView1(m_framebuffer->DepthStencilView.Get(), nullptr, 0);
-
+		m_device->GetD3DDeviceContext()->DiscardView1(GameViewRTT->DepthStencilView.Get(), nullptr, 0);
+		//HRESULT hr = S_OK;
 		// If the device was removed either by a disconnection or a driver upgrade, we 
 		// must recreate all device resources.
 		if (hr == DXGI_ERROR_DEVICE_REMOVED || hr == DXGI_ERROR_DEVICE_RESET)
@@ -513,6 +512,7 @@ namespace Moonlight
 			ViewRTT->Width,
 			ViewRTT->Height
 		);
+
 		context->RSSetViewports(1, &finalGameRenderViewport);
 		context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		context->UpdateSubresource1(m_perFrameBuffer.Get(), 0, NULL, &Sunlight, 0, 0, 0);
@@ -530,6 +530,7 @@ namespace Moonlight
 		context->PSSetShaderResources(1, 1, ResolveViewRTT->NormalShaderResourceView.GetAddressOf());
 		context->PSSetShaderResources(2, 1, ResolveViewRTT->SpecularShaderResourceView.GetAddressOf());
 		context->PSSetShaderResources(3, 1, ViewRTT->DepthShaderResourceView.GetAddressOf());
+		context->PSSetShaderResources(4, 1, ResolveViewRTT->UIShaderResourceView.GetAddressOf());
 		context->PSSetSamplers(0, 1, m_computeSampler.GetAddressOf());
 		primitiveBatch->Begin();
 		VertexPositionTexCoord vert1{ {-1.f,1.f,0.f}, {0.f,0.f} };
@@ -563,7 +564,7 @@ namespace Moonlight
 		}
 
 		m_spriteBatch->End();
-		if (ViewRTT->FinalTexture != ResolveViewRTT->FinalTexture)
+		/*if (ViewRTT->FinalTexture != ResolveViewRTT->FinalTexture)
 		{
 			context->ResolveSubresource(ResolveViewRTT->FinalTexture.Get(), 0, ViewRTT->FinalTexture.Get(), 0, DXGI_FORMAT_R8G8B8A8_UNORM);
 		}
@@ -578,7 +579,11 @@ namespace Moonlight
 		if (ViewRTT->SpecularTexture != ResolveViewRTT->SpecularTexture)
 		{
 			context->ResolveSubresource(ResolveViewRTT->SpecularTexture.Get(), 0, ViewRTT->SpecularTexture.Get(), 0, DXGI_FORMAT_R8G8B8A8_UNORM);
-		}
+		}*/
+		/*if (ViewRTT->UITexture != ResolveViewRTT->UITexture)
+		{
+			context->ResolveSubresource(ResolveViewRTT->UITexture.Get(), 0, ViewRTT->UITexture.Get(), 0, DXGI_FORMAT_R8G8B8A8_UNORM);
+		}*/
 
 		if (false)
 		{

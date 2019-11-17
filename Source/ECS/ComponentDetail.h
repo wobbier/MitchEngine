@@ -4,7 +4,16 @@
 #include <iostream>
 
 typedef BaseComponent* (*CreateComponentFunc)(Entity&);
-typedef std::map<std::string, CreateComponentFunc> ComponentRegistry;
+typedef TypeId (*GetComponentType)();
+
+class ComponentInfo
+{
+public:
+	CreateComponentFunc CreateFunc;
+	GetComponentType GetTypeFunc;
+};
+
+typedef std::map<std::string, ComponentInfo> ComponentRegistry;
 
 inline ComponentRegistry& GetComponentRegistry()
 {
@@ -15,6 +24,11 @@ inline ComponentRegistry& GetComponentRegistry()
 template<class T>
 BaseComponent* AddComponent(Entity& inEnt) {
 	return &inEnt.AddComponent<T>();
+}
+
+template<class T>
+TypeId GetComponentTypeImpl() {
+	return Component<T>::GetTypeId();
 }
 
 template<class T>
@@ -32,9 +46,14 @@ private:
 	{
 		ComponentRegistry& reg = GetComponentRegistry();
 		CreateComponentFunc func = AddComponent<T>;
+		GetComponentType typeFunc = GetComponentTypeImpl<T>;
+
+		ComponentInfo info;
+		info.CreateFunc = func;
+		info.GetTypeFunc = typeFunc;
 
 		std::pair<ComponentRegistry::iterator, bool> ret =
-			reg.insert(ComponentRegistry::value_type(name, func));
+			reg.insert(ComponentRegistry::value_type(name, info));
 
 		if (ret.second == false) {
 			// Duplicate component register

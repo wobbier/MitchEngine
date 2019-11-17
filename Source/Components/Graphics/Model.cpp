@@ -12,11 +12,13 @@
 #include "ECS/Entity.h"
 
 Model::Model(const std::string& path)
-	: ModelPath(path)
+	: Component("Model")
+	, ModelPath(path)
 {
 }
 
 Model::Model()
+	: Component("Model")
 {
 }
 

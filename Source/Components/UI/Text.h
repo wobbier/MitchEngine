@@ -8,7 +8,10 @@ class Text
 {
 	friend class UICore;
 public:
-	Text() = default;
+	Text()
+		: Component("Text")
+	{
+	}
 	virtual void Init() override;
 
 	virtual void Serialize(json& outJson) override;

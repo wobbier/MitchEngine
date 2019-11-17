@@ -33,6 +33,10 @@ void Scene::LoadSceneObject(const json& obj, Transform* parent)
 	Transform* transComp = nullptr;
 	for (const json& comp : obj["Components"])
 	{
+		if (comp.is_null())
+		{
+			continue;
+		}
 		BaseComponent* addedComp = ent.lock()->AddComponentByName(comp["Type"]);
 		if (comp["Type"] == "Transform")
 		{
@@ -46,8 +50,8 @@ void Scene::LoadSceneObject(const json& obj, Transform* parent)
 		if (addedComp)
 		{
 			addedComp->Deserialize(comp);
+			addedComp->Init();
 		}
-		addedComp->Init();
 	}
 	ent.lock()->SetActive(true);
 	ent.lock()->IsLoading = false;

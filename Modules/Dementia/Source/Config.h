@@ -2,15 +2,22 @@
 #include <fstream>
 #include <string>
 #include <nlohmann/json.hpp>
-
-// for convenience
-using json = nlohmann::json;
+#include "Path.h"
+#include "File.h"
 
 class Config
 {
 public:
-	Config(const char* file);
+	Config(const Path& ConfigPath);
 	~Config();
-	std::string GetValue(std::string value);
-	json Root;
+
+	std::string GetValue(const std::string& value);
+	const nlohmann::json& GetObject(const std::string& value);
+
+	void SetValue(std::string& key, std::string& newVal);
+
+	void Save();
+private:
+	nlohmann::json Root;
+	File ConfigFile;
 };

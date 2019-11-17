@@ -5,13 +5,13 @@
 #include "imgui.h"
 
 Rigidbody::Rigidbody(ColliderType type)
-	: Component<Rigidbody>()
+	: Component("Rigidbody")
 	, Type(type)
 {
 }
 
 Rigidbody::Rigidbody()
-	: Component<Rigidbody>()
+	: Component("Rigidbody")
 	, Type(ColliderType::Box)
 {
 }

@@ -85,37 +85,29 @@ void World::Simulate()
 	for (auto& InEntity : EntityCache.Deactivated)
 	{
 		auto& Attr = EntityAttributes.Attributes[InEntity.GetId().Index];
-		Attr.IsActive = false;
-
-		for (auto& InCore : Cores)
+		if (Attr.IsActive)
 		{
-			auto CoreIndex = InCore.first;
-			if (Attr.Cores.size() <= CoreIndex) continue;
-			if (Attr.Cores[CoreIndex])
+			Attr.IsActive = false;
+
+			for (auto& InCore : Cores)
 			{
-				InCore.second->Remove(InEntity);
-				Attr.Cores[CoreIndex] = false;
+				auto CoreIndex = InCore.first;
+				if (Attr.Cores.size() <= CoreIndex) continue;
+				if (Attr.Cores[CoreIndex])
+				{
+					InCore.second->Remove(InEntity);
+					Attr.Cores[CoreIndex] = false;
+				}
 			}
 		}
 	}
 
 	for (auto& InEntity : EntityCache.Killed)
 	{
-
-		EntityAttributes.Storage.RemoveAllComponents(InEntity);
-
-		EntIdPool.Remove(InEntity.GetId());
-
-
-		for (auto i = EntityCache.Alive.begin(); i != EntityCache.Alive.end(); ++i)
-		{
-			if (*(*i).get() == InEntity)
-			{
-				EntityCache.Alive.erase(i);
-				break;
-			}
-		}
+		DestroyEntity(InEntity);
 	}
+
+	EntityCache.ClearTemp();
 }
 
 void World::Start()
@@ -162,11 +154,10 @@ void World::Destroy()
 
 	for (auto& InEntity : EntityCache.Alive)
 	{
-		EntityAttributes.Storage.RemoveAllComponents(*InEntity);
-		auto& Attr = EntityAttributes.Attributes[(*InEntity).GetId().Index];
-		Attr.Cores.reset();
-
-		EntIdPool.Remove(InEntity->GetId());
+		if (InEntity)
+		{
+			DestroyEntity(*InEntity);
+		}
 	}
 
 	EntityCache.Alive.clear();
@@ -208,6 +199,24 @@ void World::UpdateLoadedCores(float DeltaTime)
 
 void World::DestroyEntity(Entity &InEntity)
 {
+	{
+		auto& Attr = EntityAttributes.Attributes[InEntity.GetId().Index];
+		Attr.IsActive = false;
+
+		for (auto& InCore : Cores)
+		{
+			auto CoreIndex = InCore.first;
+
+			if (InCore.second->GetComponentFilter().PassFilter(EntityAttributes.Storage.GetComponentTypes(InEntity)))
+			{
+				if (Attr.Cores.size() >= CoreIndex)
+				{
+					InCore.second->Remove(InEntity);
+					Attr.Cores[CoreIndex] = false;
+				}
+			}
+		}
+	}
 	EntityAttributes.Storage.RemoveAllComponents(InEntity);
 	auto& Attr = EntityAttributes.Attributes[InEntity.GetId().Index];
 	Attr.Cores.reset();
@@ -222,7 +231,6 @@ void World::DestroyEntity(Entity &InEntity)
 			break;
 		}
 	}
-	Simulate();
 }
 
 void World::AddCore(BaseCore& InCore, TypeId InCoreTypeId, bool HandleUpdate)

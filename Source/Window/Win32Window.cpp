@@ -28,7 +28,7 @@ std::wstring s2ws(const std::string& s)
 	return r;
 };
 
-Win32Window::Win32Window(std::string title, std::function<void(const Vector2&)> resizeFunc, int width, int height)
+Win32Window::Win32Window(std::string title, std::function<void(const Vector2&)> resizeFunc, int X, int Y, int width, int height)
 	: IWindow(title, width, height)
 	, ResizeFunc(resizeFunc)
 {
@@ -79,7 +79,7 @@ Win32Window::Win32Window(std::string title, std::function<void(const Vector2&)> 
 		windowTitle.c_str(),    // D3D12Window text
 		style,            // D3D12Window style
 		// Size and position
-		CW_USEDEFAULT, CW_USEDEFAULT, w, h,
+		X, Y, w, h,
 		nullptr,       // Parent D3D12Window    
 		nullptr,       // Menu
 		nullptr,  // Instance handle
@@ -92,7 +92,7 @@ Win32Window::Win32Window(std::string title, std::function<void(const Vector2&)> 
 	}
 	SetBorderless(borderless);
 	SetBorderlessShadow(borderless_shadow);
-	ShowWindow(Window, SW_SHOWMAXIMIZED);
+	ShowWindow(Window, SW_SHOW);
 }
 
 Win32Window::~Win32Window()
@@ -185,7 +185,8 @@ Win32Window::Style Win32Window::SelectBorderlessStyle()
 
 void Win32Window::SetBorderlessShadow(bool enabled)
 {
-	if (borderless) {
+	if (borderless)
+	{
 		borderless_shadow = enabled;
 		SetShadow(Window, enabled);
 	}
@@ -268,7 +269,8 @@ LRESULT Win32Window::HitTest(POINT cursor) const
 
 	const auto drag = borderless_drag ? HTCAPTION : HTCLIENT;
 
-	enum region_mask {
+	enum region_mask
+	{
 		client = 0b0000,
 		left = 0b0001,
 		right = 0b0010,
@@ -282,7 +284,8 @@ LRESULT Win32Window::HitTest(POINT cursor) const
 		top * (cursor.y < (window.top + border.y)) |
 		bottom * (cursor.y >= (window.bottom - border.y));
 
-	switch (result) {
+	switch (result)
+	{
 	case left: return borderless_resize ? HTLEFT : drag;
 	case right: return borderless_resize ? HTRIGHT : drag;
 	case top: return borderless_resize ? HTTOP : drag;
@@ -313,6 +316,16 @@ void Win32Window::Exit()
 	ExitRequested = true;
 }
 
+bool Win32Window::IsFullscreen()
+{
+	return IsMaximized();
+}
+
+void Win32Window::Resized(const Vector2& NewSize)
+{
+	ResizeFunc(NewSize);
+}
+
 POINT prevPos;
 bool dragWindow = false;
 #if ME_EDITOR
@@ -320,7 +333,8 @@ extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam
 #endif
 LRESULT CALLBACK WinProc(HWND hwnd, unsigned int msg, WPARAM wp, LPARAM lp)
 {
-	if (msg == WM_NCCREATE) {
+	if (msg == WM_NCCREATE)
+	{
 		auto userdata = reinterpret_cast<CREATESTRUCTW*>(lp)->lpCreateParams;
 		::SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(userdata));
 	}
@@ -334,16 +348,20 @@ LRESULT CALLBACK WinProc(HWND hwnd, unsigned int msg, WPARAM wp, LPARAM lp)
 
 		switch (msg)
 		{
-		case WM_NCCALCSIZE: {
-			if (wp == TRUE && window.borderless) {
+		case WM_NCCALCSIZE:
+		{
+			if (wp == TRUE && window.borderless)
+			{
 				auto& params = *reinterpret_cast<NCCALCSIZE_PARAMS*>(lp);
 				window.AdjustMaximizedClientRect(hwnd, params.rgrc[0]);
 				return 0;
 			}
 			break;
 		}
-		case WM_NCHITTEST: {
-			if (window.borderless) {
+		case WM_NCHITTEST:
+		{
+			if (window.borderless)
+			{
 				LRESULT h = window.HitTest(POINT{
 					(int)(short)LOWORD(lp),
 					(int)(short)HIWORD(lp)
@@ -355,19 +373,23 @@ LRESULT CALLBACK WinProc(HWND hwnd, unsigned int msg, WPARAM wp, LPARAM lp)
 			}
 			break;
 		}
-		case WM_NCACTIVATE: {
-			if (!window.IsWindowCompositionEnabled()) {
+		case WM_NCACTIVATE:
+		{
+			if (!window.IsWindowCompositionEnabled())
+			{
 				return 1;
 			}
 			break;
 		}
 
-		case WM_CLOSE: {
+		case WM_CLOSE:
+		{
 			::DestroyWindow(hwnd);
 			return 0;
 		}
 
-		case WM_DESTROY: {
+		case WM_DESTROY:
+		{
 			PostQuitMessage(0);
 			return 0;
 		}
@@ -395,7 +417,8 @@ LRESULT CALLBACK WinProc(HWND hwnd, unsigned int msg, WPARAM wp, LPARAM lp)
 		case WM_SYSKEYUP:
 		{
 			DirectX::Keyboard::ProcessMessage(msg, wp, lp);
-			switch (wp) {
+			switch (wp)
+			{
 			case VK_F8: { window.borderless_drag = !window.borderless_drag;        return 0; }
 			case VK_F9: { window.borderless_resize = !window.borderless_resize;    return 0; }
 			case VK_F10: { window.SetBorderless(!window.borderless);               return 0; }
@@ -403,19 +426,13 @@ LRESULT CALLBACK WinProc(HWND hwnd, unsigned int msg, WPARAM wp, LPARAM lp)
 			}
 			break;
 		}
-							//case WM_SIZE:
-							//case WM_EXITSIZEMOVE:
-							//	dragWindow = false;
-							//	prevPos.x = 0;
-							//	prevPos.y = 0;
-							//	ReleaseCapture();
-							//	if (GetEngine().IsInitialized())
-							//	{
-							//		RECT newSize;
-							//		GetClientRect(hwnd, &newSize);
-							//		GetEngine().GetRenderer().WindowResized(Vector2(static_cast<float>(newSize.right - newSize.left), static_cast<float>(newSize.bottom - newSize.top)));
-							//	}
-							//	break;
+		//case WM_SIZE:
+		//	{
+		//		RECT newSize;
+		//		GetClientRect(hwnd, &newSize);
+		//		window.Resized(Vector2(static_cast<float>(newSize.right - newSize.left), static_cast<float>(newSize.bottom - newSize.top)));
+		//	}
+		//	break;
 		}
 	}
 	return DefWindowProc(hwnd, msg, wp, lp);

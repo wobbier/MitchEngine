@@ -9,10 +9,12 @@ class Mesh
 {
 public:
 	Mesh()
+		: Component("Mesh")
 	{
 	}
 	Mesh(Moonlight::MeshData* mesh)
-		: MeshReferece(mesh)
+		: Component("Mesh")
+		, MeshReferece(mesh)
 	{
 		MeshMaterial = new Moonlight::Material(*MeshReferece->material);
 	}

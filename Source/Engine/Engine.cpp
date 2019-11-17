@@ -29,7 +29,6 @@ Engine& GetEngine()
 
 Engine::Engine()
 	: Running(true)
-	, GameClock(Clock::GetInstance())
 {
 	std::vector<TypeId> events;
 	events.push_back(LoadSceneEvent::GetEventId());
@@ -54,24 +53,27 @@ void Engine::Init(Game* game)
 	Logger::GetInstance().SetLogPriority(Logger::LogType::Info);
 	Logger::GetInstance().Log(Logger::LogType::Info, "Starting the MitchEngine.");
 
-	EngineConfig = new Config("Assets\\Config\\Engine.cfg");
-
-	//auto WindowConfig = EngineConfig->Root["window"];
-	int WindowWidth = 1920;//WindowConfig["width"].asInt();
-	int WindowHeight = 1080;//WindowConfig["height"].asInt();
+	EngineConfig = new Config(Path("Assets\\Config\\Engine.cfg"));
 
 #if ME_PLATFORM_WIN64
+	const json& WindowConfig = EngineConfig->GetObject("Window");
+	int WindowWidth = WindowConfig["Width"];
+	int WindowHeight = WindowConfig["Height"];
 	std::function<void(const Vector2&)> Func = [this](const Vector2& NewSize)
 	{
 		if (m_renderer)
 		{
 			m_renderer->WindowResized(NewSize);
 		}
+		if (UI)
+		{
+			UI->OnResize(MainCamera.OutputSize);
+		}
 	};
-	GameWindow = new Win32Window("MitchEngine", Func, WindowWidth, WindowHeight);
+	GameWindow = new Win32Window(EngineConfig->GetValue("Title"), Func, 500, 300, WindowWidth, WindowHeight);
 #endif
 #if ME_PLATFORM_UWP
-	GameWindow = new UWPWindow("MitchEngine", WindowWidth, WindowHeight);
+	GameWindow = new UWPWindow("MitchEngine", 200, 200);
 #endif
 
 	m_renderer = new Moonlight::Renderer();
@@ -88,7 +90,7 @@ void Engine::Init(Game* game)
 
 	m_renderer->Init();
 
-	UI = new UICore();
+	UI = new UICore(GameWindow);
 
 	InitGame();
 
@@ -117,6 +119,10 @@ void Engine::Run()
 
 	GameClock.Reset();
 	float lastTime = GameClock.GetTimeInMilliseconds();
+
+	const float FramesPerSec = 144.f;
+	const float MaxDeltaTime = (1.f / FramesPerSec);
+
 	// Game loop
 	forever
 	{
@@ -133,27 +139,33 @@ void Engine::Run()
 
 		EventManager::GetInstance().FirePendingEvents();
 
-		float time = GameClock.GetTimeInMilliseconds();
-		const float deltaTime = GameClock.deltaTime = (time <= 0.0f || time >= 0.3) ? 0.0001f : time - lastTime;
+		GameClock.Update();
 
-		GameWorld->Simulate();
-
-		AccumulatedTime += deltaTime;
-
-		// Update our engine
-
+		AccumulatedTime += GameClock.GetDeltaSeconds();
+		if (AccumulatedTime >= MaxDeltaTime)
 		{
-			OPTICK_CATEGORY("MainLoop::GameUpdate", Optick::Category::GameLogic);
-			m_game->OnUpdate(deltaTime);
-		}
-		GameWorld->UpdateLoadedCores(deltaTime);
+			float deltaTime = AccumulatedTime;
+
+			GameWorld->Simulate();
+
+			// Update our engine
+
+			{
+				OPTICK_CATEGORY("MainLoop::GameUpdate", Optick::Category::GameLogic);
+				m_game->OnUpdate(deltaTime);
+			}
+			GameWorld->UpdateLoadedCores(deltaTime);
 			SceneNodes->Update(deltaTime);
 
 			Cameras->Update(deltaTime);
 			AudioThread->Update(deltaTime);
-			ModelRenderer->Update(AccumulatedTime);
+			ModelRenderer->Update(deltaTime);
+
+			if (UI)
+			{
+				UI->OnResize(MainCamera.OutputSize);
+			}
 			UI->Update(deltaTime);
-			AccumulatedTime -= 1.0f / FPS;
 
 #if !ME_EDITOR
 			Vector2 MainOutputSize = m_renderer->GetDevice().GetOutputSize();
@@ -173,10 +185,14 @@ void Engine::Run()
 
 			m_renderer->Render([this]() {
 				m_game->PostRender();
-			}, MainCamera, EditorCamera);
+				UI->Render();
+				}, MainCamera, EditorCamera);
 
-			Sleep(4);
+			AccumulatedTime = std::fmod(AccumulatedTime, MaxDeltaTime);
+		}
+		Sleep(1);
 	}
+	EngineConfig->Save();
 }
 
 bool Engine::OnEvent(const BaseEvent& evt)
@@ -218,6 +234,11 @@ void Engine::Quit() { Running = false; }
 IWindow* Engine::GetWindow()
 {
 	return GameWindow;
+}
+
+Config& Engine::GetConfig() const
+{
+	return *EngineConfig;
 }
 
 void Engine::LoadScene(const std::string& SceneFile)

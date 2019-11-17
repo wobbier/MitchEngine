@@ -42,7 +42,7 @@ BaseComponent* Entity::AddComponentByName(const std::string& inComponent)
 		return nullptr;
 	}
 
-	return it->second(*this);
+	return it->second.CreateFunc(*this);
 }
 
 const EntityID& Entity::GetId() const
@@ -73,6 +73,19 @@ bool Entity::operator==(const Entity& entity) const
 void Entity::RemoveComponent(TypeId InComponentTypeId)
 {
 	GameWorld->EntityAttributes.Storage.RemoveComponent(*this, InComponentTypeId);
+}
+
+void Entity::RemoveComponent(const std::string& Name)
+{
+	ComponentRegistry& reg = GetComponentRegistry();
+	ComponentRegistry::iterator it = reg.find(Name);
+
+	if (it == reg.end())
+	{
+		BRUH("Factory not found for component " + Name);
+	}
+
+	RemoveComponent(it->second.GetTypeFunc());
 }
 
 std::vector<BaseComponent*> Entity::GetAllComponents() const

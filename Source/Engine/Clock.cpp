@@ -1,10 +1,6 @@
 #include "PCH.h"
 #include "Clock.h"
-
-Clock& GetClock()
-{
-	return Clock::GetInstance();
-}
+#include <chrono>
 
 Clock::Clock()
 {
@@ -17,18 +13,18 @@ Clock::~Clock()
 
 void Clock::Reset()
 {
-	mTicks = GetHardwareCounterValue();
-	mHighResolutionSupport = false;
-	mHighResolutionSupport = (bool)QueryPerformanceFrequency(&mTicksPerSecond);
-	mTicksPerSecond.QuadPart /= static_cast<LONGLONG>(1000.0f);
-	deltaTime = 0.0001f;
+	const float timeStamp = GetTimeInSeconds();
+
+	CurrentTime = timeStamp;
+	PreviousTime = timeStamp;
 }
 
-LARGE_INTEGER Clock::GetHardwareCounterValue()
+void Clock::Update()
 {
-	LARGE_INTEGER v;
-	QueryPerformanceCounter(&v);
-	return v;
+	const float timeStamp = GetTimeInSeconds();
+
+	PreviousTime = CurrentTime;
+	CurrentTime = timeStamp;
 }
 
 float Clock::GetTimeInMilliseconds()
@@ -38,33 +34,22 @@ float Clock::GetTimeInMilliseconds()
 
 float Clock::GetTimeInSeconds()
 {
-	LARGE_INTEGER ticks = GetHardwareCounterValue();
-	double time = static_cast<double>((ticks.QuadPart - mTicks.QuadPart) / mTicksPerSecond.QuadPart);
-	mTicks = ticks;
-	return (float)time;
+	static auto startTime = std::chrono::high_resolution_clock::now();
+
+	const auto timeStamp = std::chrono::high_resolution_clock::now();
+	const auto totalSeconds = timeStamp - startTime;
+
+	const float DeltaSeconds = std::chrono::duration_cast<std::chrono::duration<float>>(totalSeconds).count();
+
+	return DeltaSeconds;
 }
 
-float Clock::TicksToSeconds(LARGE_INTEGER _ticks)
+const float Clock::GetDeltaMilliseconds()
 {
-	return ((float)_ticks.QuadPart - mTicks.QuadPart) / ((float)mTicksPerSecond.QuadPart);
+	return (CurrentTime - PreviousTime) / 1000.f;
 }
 
-LARGE_INTEGER Clock::GetResolution()
+const float Clock::GetDeltaSeconds()
 {
-	return mTicksPerSecond;
-}
-
-LARGE_INTEGER Clock::GetCurrentTicks()
-{
-	return GetHardwareCounterValue();
-}
-
-float Clock::GetCurrentTime()
-{
-	return TicksToSeconds(GetCurrentTicks());
-}
-
-bool Clock::Ready()
-{
-	return mHighResolutionSupport;
+	return (CurrentTime - PreviousTime);
 }

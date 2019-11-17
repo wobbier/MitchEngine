@@ -10,6 +10,7 @@
 class Win32Window final
 	: public IWindow
 {
+	friend class UIWindow;
 public:
 	enum class Style : DWORD
 	{
@@ -18,7 +19,7 @@ public:
 		ME_BASIC_BORDERLESS = WS_POPUP | WS_THICKFRAME | WS_SYSMENU | WS_MAXIMIZEBOX | WS_MINIMIZEBOX
 	};
 
-	Win32Window(std::string title, std::function<void(const Vector2&)> resizeFunc, int width = WINDOW_WIDTH, int height = WINDOW_HEIGHT);
+	Win32Window(std::string title, std::function<void(const Vector2&)> resizeFunc, int X = 0, int Y = 0, int width = WINDOW_WIDTH, int height = WINDOW_HEIGHT);
 	~Win32Window();
 
 	virtual bool ShouldClose() final;
@@ -49,17 +50,23 @@ public:
 
 	bool IsMaximized();
 
+	virtual bool IsFullscreen() override;
+
 	virtual void Maximize() final;
 
 	LRESULT HitTest(POINT cursor) const;
 
 	virtual void Exit() final;
 
+	// ??
+	void Resized(const Vector2& NewSize);
+
 private:
 	bool ExitRequested = false;
 	bool canMoveWindow = false;
 
 	bool IsMaximized(HWND hwnd);
+
 	HWND Window;
 	HICON hWindowIcon = NULL;
 	HICON hWindowIconSm = NULL;
