@@ -886,6 +886,10 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 					{
 						RenderTextureName = "UI";
 					}
+					if (ImGui::MenuItem("Position", "", false))
+					{
+						RenderTextureName = "Position";
+					}
 					ImGui::EndMenu();
 				}
 
@@ -914,6 +918,10 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 			else if (RenderTextureName == "UI")
 			{
 				srv = Renderer->GameViewRTT->UIShaderResourceView;
+			}
+			else if (RenderTextureName == "Position")
+			{
+				srv = Renderer->GameViewRTT->PositionShaderResourceView;
 			}
 			m_isGameFocused = ImGui::IsWindowFocused();
 
@@ -969,6 +977,10 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 					{
 						RenderTextureName = "Specular";
 					}
+					if (ImGui::MenuItem("Position", "", false))
+					{
+						RenderTextureName = "Position";
+					}
 					if (ImGui::MenuItem("Depth", "", false))
 					{
 						RenderTextureName = "Depth";
@@ -993,6 +1005,10 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 			else if (RenderTextureName == "Specular")
 			{
 				srv = Renderer->SceneViewRTT->SpecularShaderResourceView;
+			}
+			else if (RenderTextureName == "Position")
+			{
+				srv = Renderer->SceneViewRTT->PositionShaderResourceView;
 			}
 			else if (RenderTextureName == "Depth")
 			{

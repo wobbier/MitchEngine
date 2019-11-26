@@ -8,8 +8,6 @@ cbuffer ModelViewProjectionConstantBuffer : register(b0)
 struct VertexShaderInput
 {
 	float3 pos : POSITION;
-	float3 normal : NORMAL;
-	float2 texcoord : TEXCOORD0;
 };
 
 struct PixelShaderInput
@@ -23,12 +21,15 @@ PixelShaderInput main_vs(VertexShaderInput input)
 	PixelShaderInput output;
 	float4 pos = float4(input.pos, 1.0f);
 
+
 	pos = mul(pos, model);
+
 	pos = mul(pos, view);
 	pos = mul(pos, projection);
-	output.pos = pos;
 
 	output.vertpos = pos;
+
+	output.pos = pos;
 
 	return output;
 }
@@ -40,14 +41,7 @@ float4 main_ps(PixelShaderInput input) : SV_TARGET
 
 	depth = input.vertpos.z / input.vertpos.w;
 
-	if (depth <= 0.5)
-	{
-		color = float4(1.f, 0.f, 0.f, 1.f);
-	}
-	else
-	{
-		color = float4(0.f, 1.f, 0.f, 1.f);
-	}
+	color = float4(depth, 0.0f, 0.0f, 1.0f);
 
 	return color;
 }

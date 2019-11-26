@@ -571,6 +571,11 @@ namespace Moonlight
 			DX::ThrowIfFailed(m_d3dDevice->CreateTexture2D(&Desc, nullptr, &NewBuffer->UITexture));
 
 			DX::ThrowIfFailed(m_d3dDevice->CreateTexture2D(&Desc, nullptr, &NewBuffer->SpecularTexture));
+			DX::ThrowIfFailed(m_d3dDevice->CreateTexture2D(&Desc, nullptr, &NewBuffer->PositionTexture));
+
+			Desc.Width = 1024;
+			Desc.Height = 1024;
+			DX::ThrowIfFailed(m_d3dDevice->CreateTexture2D(&Desc, nullptr, &NewBuffer->ShadowMapTexture));
 
 			DX::ThrowIfFailed(m_d3dDevice->CreateTexture2D(&AADesc, nullptr, &NewBuffer->FinalTexture));
 
@@ -619,7 +624,33 @@ namespace Moonlight
 				DX::ThrowIfFailed(m_d3dDevice->CreateShaderResourceView(NewBuffer->UITexture.Get(), &ShaderView, &NewBuffer->UIShaderResourceView));
 			}
 
+			DX::ThrowIfFailed(m_d3dDevice->CreateRenderTargetView(NewBuffer->PositionTexture.Get(), &RenderView, &NewBuffer->PositionRenderTargetView));
+
+			if (Samples <= 1)
+			{
+				D3D11_SHADER_RESOURCE_VIEW_DESC ShaderView = {};
+				ShaderView.Format = Desc.Format;
+				ShaderView.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+				ShaderView.Texture2D.MostDetailedMip = 0;
+				ShaderView.Texture2D.MipLevels = 1;
+
+				DX::ThrowIfFailed(m_d3dDevice->CreateShaderResourceView(NewBuffer->PositionTexture.Get(), &ShaderView, &NewBuffer->PositionShaderResourceView));
+			}
+
 			DX::ThrowIfFailed(m_d3dDevice->CreateRenderTargetView(NewBuffer->UITexture.Get(), &RenderView, &NewBuffer->UIRenderTargetView));
+
+			if (Samples <= 1)
+			{
+				D3D11_SHADER_RESOURCE_VIEW_DESC ShaderView = {};
+				ShaderView.Format = Desc.Format;
+				ShaderView.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+				ShaderView.Texture2D.MostDetailedMip = 0;
+				ShaderView.Texture2D.MipLevels = 1;
+
+				DX::ThrowIfFailed(m_d3dDevice->CreateShaderResourceView(NewBuffer->UITexture.Get(), &ShaderView, &NewBuffer->ShadowMapShaderResourceView));
+			}
+
+			DX::ThrowIfFailed(m_d3dDevice->CreateRenderTargetView(NewBuffer->UITexture.Get(), &RenderView, &NewBuffer->ShadowMapRenderTargetView));
 
 			if (Samples <= 1)
 			{

@@ -3,6 +3,8 @@ Texture2D ObjNormalTexture : register(t1);
 Texture2D ObjSpecularMap : register(t2);
 Texture2D ObjDepthTexture : register(t3);
 Texture2D ObjUITexture : register(t4);
+Texture2D ObjPositionTexture : register(t5);
+Texture2D ObjShadowTexture : register(t6);
 SamplerState ObjSamplerState;
 
 struct PixelShaderInput
@@ -19,7 +21,9 @@ struct VertexShaderInput
 
 struct Light
 {
-	float3 dir;
+	float4 pos;
+	float4 dir;
+	float4 cameraPos;
 	float4 ambient;
 	float4 diffuse;
 };
@@ -27,6 +31,8 @@ struct Light
 cbuffer LightCommand : register(b0)
 {
 	Light light;
+	float2 padding;
+	matrix LightSpaceMatrix;
 }
 
 PixelShaderInput main_vs(VertexShaderInput input)
@@ -37,19 +43,45 @@ PixelShaderInput main_vs(VertexShaderInput input)
 	return vout;
 }
 
+float ShadowCalculation(float4 fragPosLightSpace)
+{
+	float3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+	projCoords = projCoords * 0.5f + 0.5f;
+
+	float closestDepth = ObjShadowTexture.Sample(ObjSamplerState, projCoords.xy).r;
+	float currentDepth = projCoords.z;
+	float shadow = currentDepth > closestDepth ? 1.0f : 0.0f;
+	return shadow;
+}
+
 float4 main_ps(PixelShaderInput input) : SV_TARGET
 {
-    float4 ui = ObjUITexture.Sample(ObjSamplerState, input.TexCoord);
-    float4 diffuse = ObjTexture.Sample(ObjSamplerState, input.TexCoord);
-    float4 normal = ObjNormalTexture.Sample(ObjSamplerState, input.TexCoord);
+	float4 ui = ObjUITexture.Sample(ObjSamplerState, input.TexCoord);
+	float4 color = ObjTexture.Sample(ObjSamplerState, input.TexCoord);
+	float4 normal = ObjNormalTexture.Sample(ObjSamplerState, input.TexCoord);
+	float4 position = ObjPositionTexture.Sample(ObjSamplerState, input.TexCoord);
 
-    float3 finalColor;
+	float3 lightColor = light.diffuse.xyz;
 
-    finalColor = diffuse * light.ambient;
-    finalColor += saturate(dot(light.dir, normalize(normal.xyz)) * light.diffuse * diffuse);
+	float3 ambient = 0.15f * color.xyz;
+	float3 lightDir = normalize(light.pos.xyz - position.xyz);
+	float diff = max(dot(lightDir, lightColor), 0.0f);
+	float3 diffuse = diff * lightColor;
 
-    finalColor = saturate(finalColor + ui.xyz);
-    
+	float3 viewDir = normalize(light.cameraPos - position.xyz);
+	float spec = 0.0f;
+
+	float3 halfwayDir = normalize(lightDir + viewDir);
+	spec = pow(max(dot(normal.xyz, halfwayDir), 0.0f), 64.0f);
+
+	float3 specular = spec * lightColor;
+	float4 lightSpaceObject = mul(LightSpaceMatrix, position);
+	float shadow = ShadowCalculation(lightSpaceObject);
+
+	float shadowInv = (1.0f - shadow);
+	float3 diffuseSpec = diffuse + specular;
+	float3 shadowDiffuseSpec = mul(diffuseSpec, shadowInv);
+	float3 finalColor = (ambient + (1.0 - shadow) * (diffuse + specular)) * color;// (ambient + shadowDiffuseSpec)* color;
 	return float4(finalColor, 1.0);
 }
 

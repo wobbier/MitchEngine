@@ -43,8 +43,17 @@ namespace Moonlight
 
 	struct LightCommand
 	{
+		DirectX::XMFLOAT4 pos;
 		DirectX::XMFLOAT4 dir;
+		DirectX::XMFLOAT4 cameraPos;
 		DirectX::XMFLOAT4 ambient;
 		DirectX::XMFLOAT4 diffuse;
+	};
+
+	struct LightingPassConstantBuffer
+	{
+		LightCommand Light;
+		DirectX::XMFLOAT2 padding;
+		DirectX::XMMATRIX LightSpaceMatrix;
 	};
 }

@@ -26,7 +26,7 @@ namespace Moonlight
 		MeshData(std::vector<Vertex> vertices, std::vector<uint16_t> indices, Material* newMaterial);
 
 		// render the mesh
-		void Draw(class Material* mat);
+		void Draw(class Material* mat, bool depthOnly = false);
 
 		std::vector<MeshData*> Children;
 		std::string Name;

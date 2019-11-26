@@ -17,6 +17,7 @@
 #include "Engine/Input.h"
 #include <GeometricPrimitive.h>
 #include "Utils/StringUtils.h"
+#include <SimpleMath.h>
 
 using namespace DirectX;
 using namespace Windows::Foundation;
@@ -91,6 +92,7 @@ namespace Moonlight
 		ResizeBuffers();
 
 		// Prepare the constant buffer to send it to the graphics device.
+		Sunlight.pos = XMFLOAT4(0.25f, 5.f, -1.0f, 1.0f);
 		Sunlight.dir = XMFLOAT4(0.25f, 0.5f, -1.0f, 1.0f);
 		Sunlight.ambient = XMFLOAT4(0.2f, 0.2f, 0.2f, 1.0f);
 		Sunlight.diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
@@ -105,6 +107,18 @@ namespace Moonlight
 			m_device->CompileShader(Path("Assets/Shaders/LightingPass.hlsl"), "main_vs", "vs_4_0_level_9_3"),
 			m_device->CompileShader(Path("Assets/Shaders/LightingPass.hlsl"), "main_ps", "ps_4_0_level_9_3"),
 			&vertexDesc
+		);
+
+
+		static const std::vector<D3D11_INPUT_ELEMENT_DESC> vertexDesc2 =
+		{
+			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,    0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		};
+
+		m_depthProgram = m_device->CreateShaderProgram(
+			m_device->CompileShader(Path("Assets/Shaders/DepthPass.hlsl"), "main_vs", "vs_4_0_level_9_3"),
+			m_device->CompileShader(Path("Assets/Shaders/DepthPass.hlsl"), "main_ps", "ps_4_0_level_9_3"),
+			&vertexDesc2
 		);
 	}
 
@@ -162,14 +176,21 @@ namespace Moonlight
 		context->ClearRenderTargetView(GameViewRTT->RenderTargetView.Get(), color);
 		context->ClearRenderTargetView(GameViewRTT->ColorRenderTargetView.Get(), clearColor);
 		context->ClearRenderTargetView(GameViewRTT->NormalRenderTargetView.Get(), color);
+		context->ClearRenderTargetView(GameViewRTT->PositionRenderTargetView.Get(), color);
 		context->ClearRenderTargetView(GameViewRTT->SpecularRenderTargetView.Get(), color);
+		context->ClearRenderTargetView(GameViewRTT->ShadowMapRenderTargetView.Get(), color);
 
 		context->ClearRenderTargetView(SceneViewRTT->RenderTargetView.Get(), color);
 		context->ClearRenderTargetView(SceneViewRTT->ColorRenderTargetView.Get(), color);
 		context->ClearRenderTargetView(SceneViewRTT->NormalRenderTargetView.Get(), color);
+		context->ClearRenderTargetView(SceneViewRTT->PositionRenderTargetView.Get(), color);
 		context->ClearRenderTargetView(SceneViewRTT->SpecularRenderTargetView.Get(), color);
+		context->ClearRenderTargetView(SceneViewRTT->ShadowMapRenderTargetView.Get(), color);
 
 		context->ClearDepthStencilView(GameViewRTT->DepthStencilView.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+		static DepthPassBuffer buf;
+		DrawDepthOnlyScene(m_device->GetD3DDeviceContext(), buf, GameViewRTT);
+		DrawDepthOnlyScene(m_device->GetD3DDeviceContext(), buf, SceneViewRTT);
 
 		CD3D11_VIEWPORT gameViewport = CD3D11_VIEWPORT(
 			0.0f,
@@ -182,7 +203,6 @@ namespace Moonlight
 		m_device->GetD3DDeviceContext()->OMSetBlendState(0, 0, 0xffffffff);
 
 		// Reset render targets to the screen.
-
 		DrawScene(context, m_constantBufferData, mainCamera, GameViewRTT, GameViewRTT);
 
 
@@ -321,8 +341,10 @@ namespace Moonlight
 		const XMVECTORF32 at = { camera.Position.X() + camera.Front.X(), camera.Position.Y() + camera.Front.Y(), camera.Position.Z() + camera.Front.Z(), 0.0f };
 		const XMVECTORF32 up = { camera.Up.X(), camera.Up.Y(), camera.Up.Z(), 0 };
 
-		ID3D11RenderTargetView** targets[3] = { ViewRTT->ColorRenderTargetView.GetAddressOf(), ViewRTT->NormalRenderTargetView.GetAddressOf(), ViewRTT->SpecularRenderTargetView.GetAddressOf() };
-		context->OMSetRenderTargets(3, *targets, ViewRTT->DepthStencilView.Get());
+		Sunlight.cameraPos = XMFLOAT4 (&eye.f[0]);
+
+		ID3D11RenderTargetView** targets[4] = { ViewRTT->ColorRenderTargetView.GetAddressOf(), ViewRTT->NormalRenderTargetView.GetAddressOf(), ViewRTT->SpecularRenderTargetView.GetAddressOf(), ViewRTT->PositionRenderTargetView.GetAddressOf() };
+		context->OMSetRenderTargets(4, *targets, ViewRTT->DepthStencilView.Get());
 
 		CD3D11_VIEWPORT screenViewport = CD3D11_VIEWPORT(
 			0.0f,
@@ -512,10 +534,10 @@ namespace Moonlight
 			ViewRTT->Width,
 			ViewRTT->Height
 		);
-
+		LightingPassBuffer.Light = Sunlight;
 		context->RSSetViewports(1, &finalGameRenderViewport);
 		context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-		context->UpdateSubresource1(m_perFrameBuffer.Get(), 0, NULL, &Sunlight, 0, 0, 0);
+		context->UpdateSubresource1(m_perFrameBuffer.Get(), 0, NULL, &LightingPassBuffer, 0, 0, 0);
 		context->PSSetConstantBuffers1(0, 1, m_perFrameBuffer.GetAddressOf(), nullptr, nullptr);
 		// post stuff
 #if ME_EDITOR
@@ -531,6 +553,8 @@ namespace Moonlight
 		context->PSSetShaderResources(2, 1, ResolveViewRTT->SpecularShaderResourceView.GetAddressOf());
 		context->PSSetShaderResources(3, 1, ViewRTT->DepthShaderResourceView.GetAddressOf());
 		context->PSSetShaderResources(4, 1, ResolveViewRTT->UIShaderResourceView.GetAddressOf());
+		context->PSSetShaderResources(5, 1, ResolveViewRTT->PositionShaderResourceView.GetAddressOf());
+		context->PSSetShaderResources(6, 1, ResolveViewRTT->ShadowMapShaderResourceView.GetAddressOf());
 		context->PSSetSamplers(0, 1, m_computeSampler.GetAddressOf());
 		primitiveBatch->Begin();
 		VertexPositionTexCoord vert1{ {-1.f,1.f,0.f}, {0.f,0.f} };
@@ -624,6 +648,135 @@ namespace Moonlight
 
 	}
 
+	void Renderer::DrawDepthOnlyScene(ID3D11DeviceContext3* context, DepthPassBuffer& constantBufferSceneData, FrameBuffer* ViewRTT)
+	{
+		Vector2 outputSize(1024,1024);
+		if (outputSize.IsZero())
+		{
+			return;
+		}
+		float aspectRatio = static_cast<float>(outputSize.X()) / static_cast<float>(outputSize.Y());
+
+		// Note that the OrientationTransform3D matrix is post-multiplied here
+		// in order to correctly orient the scene to match the display orientation.
+		// This post-multiplication step is required for any draw calls that are
+		// made to the swap chain render target. For draw calls to other targets,
+		// this transform should not be applied.
+
+
+		m_device->GetD3DDeviceContext()->OMSetDepthStencilState(m_device->DepthStencilState, 0);
+
+			XMMATRIX orthographicMatrix = XMMatrixOrthographicRH(
+				10.0f,
+				10.0f,
+				.1f,
+				10.0f
+			);
+
+			XMStoreFloat4x4(
+				&constantBufferSceneData.projection,
+				(orthographicMatrix)
+			);
+			//DirectX::SimpleMath::Matrix::CreateLookAt()
+			//CreateLookAt()
+		const XMVECTORF32 eye = { Sunlight.pos.x, Sunlight.pos.y, Sunlight.pos.z, 0 };
+		const XMVECTORF32 at = { Sunlight.dir.x, Sunlight.dir.y, Sunlight.dir.z, 0.0f };
+
+		const XMVECTOR up = DirectX::XMVector3Cross(DirectX::XMVector3Cross({ Sunlight.dir.x, Sunlight.dir.y, Sunlight.dir.z }, { 0.0f, 1.0f, 0.0f }), { Sunlight.dir.x, Sunlight.dir.y, Sunlight.dir.z });
+		//const XMVECTORF32 up = { camera.Up.X(), camera.Up.Y(), camera.Up.Z(), 0 };
+
+		ID3D11RenderTargetView** targets[1] = { ViewRTT->ShadowMapRenderTargetView.GetAddressOf() };
+		context->OMSetRenderTargets(1, *targets, nullptr);
+
+		CD3D11_VIEWPORT screenViewport = CD3D11_VIEWPORT(
+			0.0f,
+			0.0f,
+			1024,
+			1024
+		);
+
+		LightingPassBuffer.LightSpaceMatrix = orthographicMatrix * XMMatrixTranspose(XMMatrixLookAtRH(eye, at, up));
+
+		context->RSSetViewports(1, &screenViewport);
+
+		//XMStoreFloat4x4(&m_constantBufferData.view, XMMatrixTranspose(XMMatrixIdentity()));
+		XMStoreFloat4x4(&constantBufferSceneData.view, XMMatrixTranspose(XMMatrixLookAtRH(eye, at, up)));
+
+		m_device->ResetCullingMode();
+
+		if (Lights.size() > 0)
+		{
+			//constantBufferSceneData.light = Lights[0];
+		}
+
+		m_device->GetD3DDeviceContext()->IASetInputLayout(m_depthProgram.InputLayout.Get());
+
+		// Attach our vertex shader.
+		m_device->GetD3DDeviceContext()->VSSetShader(
+			m_depthProgram.VertexShader.Get(),
+			nullptr,
+			0
+		);
+		// Attach our pixel shader.
+		m_device->GetD3DDeviceContext()->PSSetShader(
+			m_depthProgram.PixelShader.Get(),
+			nullptr,
+			0
+		);
+
+		{
+			std::vector<MeshCommand> transparentMeshes;
+			for (const MeshCommand& mesh : Meshes)
+			{
+				if (mesh.MeshMaterial && mesh.MeshMaterial->IsTransparent())
+				{
+					transparentMeshes.push_back(mesh);
+					continue;
+				}
+
+				if (mesh.MeshShader && mesh.SingleMesh && mesh.MeshMaterial)
+				{
+					OPTICK_EVENT("Render::ModelCommand", Optick::Category::Rendering);
+					XMStoreFloat4x4(&constantBufferSceneData.model, XMMatrixTranspose(mesh.Transform));
+
+					// Prepare the constant buffer to send it to the graphics device.
+					context->UpdateSubresource1(
+						m_constantBuffer.Get(),
+						0,
+						NULL,
+						&constantBufferSceneData,
+						0,
+						0,
+						0
+					);
+
+					// Send the constant buffer to the graphics device.
+					context->VSSetConstantBuffers1(
+						0,
+						1,
+						m_constantBuffer.GetAddressOf(),
+						nullptr,
+						nullptr
+					);
+					context->PSSetConstantBuffers1(
+						0,
+						1,
+						m_constantBuffer.GetAddressOf(),
+						nullptr,
+						nullptr
+					);
+					OPTICK_EVENT("Render::SingleMesh");
+
+					mesh.SingleMesh->Draw(mesh.MeshMaterial, true);
+
+					//shape->Draw(XMMatrixTranspose(XMMatrixIdentity()), DirectX::XMLoadFloat4x4(&constantBufferSceneData.view), DirectX::XMLoadFloat4x4(&constantBufferSceneData.projection), Colors::Gray, nullptr, true);
+				}
+			}
+			m_device->ResetCullingMode();
+		}
+		m_device->GetD3DDeviceContext()->OMSetBlendState(0, 0, 0xffffffff);
+	}
+
 	void Renderer::ReleaseDeviceDependentResources()
 	{
 		m_constantBuffer.Reset();
@@ -641,7 +794,7 @@ namespace Moonlight
 			)
 		);
 
-		CD3D11_BUFFER_DESC perFrameBufferDesc(sizeof(LightCommand), D3D11_BIND_CONSTANT_BUFFER);
+		CD3D11_BUFFER_DESC perFrameBufferDesc(sizeof(LightingPassConstantBuffer), D3D11_BIND_CONSTANT_BUFFER);
 		/*CD3D11_BUFFER_DESC perFrameBufferDesc;
 		ZeroMemory(&perFrameBufferDesc, sizeof(D3D11_BUFFER_DESC));
 

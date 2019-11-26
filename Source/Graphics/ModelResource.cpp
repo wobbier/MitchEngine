@@ -205,7 +205,12 @@ bool ModelResource::LoadMaterialTextures(Moonlight::Material* newMaterial, aiMat
 
 			if (stdString.find(":") != std::string::npos)
 			{
-				texture = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path(texturePath), wrapMode);
+				Path filePath(texturePath);
+				if (!filePath.Exists)
+				{
+					return false;
+				}
+				texture = ResourceCache::GetInstance().Get<Moonlight::Texture>(filePath, wrapMode);
 			}
 			else
 			{

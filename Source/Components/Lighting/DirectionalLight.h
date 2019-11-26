@@ -36,6 +36,14 @@ public:
 
 		ImGui::ColorEdit4("Ambient", (float*)& Ambient.x, ImGuiColorEditFlags_Float | misc_flags);
 		ImGui::ColorEdit4("Diffuse", (float*)& Diffuse.x, ImGuiColorEditFlags_Float | misc_flags);
+
+		if (ImGui::Button("Look At World 0"))
+		{
+			auto ent = GetEngine().GetWorld().lock()->GetEntity(Parent);
+			Transform& transform = ent.lock()->GetComponent<Transform>();
+			auto dir = (Vector3() - transform.Position).Normalized();
+			Direction = {dir.X(), dir.Y(), dir.Z(), 0.0f};
+		}
 	}
 #endif
 

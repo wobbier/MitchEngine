@@ -47,6 +47,7 @@ namespace Moonlight
 		void Render(std::function<void()> func, const CameraData& mainCamera, const CameraData& editorCamera);
 
 		void DrawScene(ID3D11DeviceContext3* context, ModelViewProjectionConstantBuffer& constantBufferSceneData, const CameraData& data, FrameBuffer* ViewRTT, FrameBuffer* ResolveViewRTT);
+		void DrawDepthOnlyScene(ID3D11DeviceContext3* context, DepthPassBuffer& constantBufferSceneData, FrameBuffer* ViewRTT);
 
 		void ReleaseDeviceDependentResources();
 		void CreateDeviceDependentResources();
@@ -68,10 +69,11 @@ namespace Moonlight
 		FrameBuffer* SceneViewRTT = nullptr;
 		FrameBuffer* GameViewRTT = nullptr;
 		LightCommand Sunlight;
+		LightingPassConstantBuffer LightingPassBuffer;
 
 		ShaderProgram m_tonemapProgram;
 		ShaderProgram m_dofProgram;
-		ShaderCommand m_depthProgram;
+		ShaderProgram m_depthProgram;
 		ShaderProgram m_lightingProgram;
 		Microsoft::WRL::ComPtr<ID3D11SamplerState> m_defaultSampler;
 		Microsoft::WRL::ComPtr<ID3D11SamplerState> m_computeSampler;

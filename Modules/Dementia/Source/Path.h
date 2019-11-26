@@ -60,6 +60,11 @@ public:
 				assetPrefix = assetPrefix.append("Engine/");
 			}
 		}
+		else
+		{
+			Exists = true;
+		}
+
 		if (std::filesystem::is_regular_file(FullPath))
 		{
 			IsFile = true;
@@ -88,6 +93,7 @@ public:
 	}
 	bool IsFile = false;
 	bool IsFolder = false;
+	bool Exists = false;
 	std::string FullPath;
 	std::string LocalPath;
 	std::string Directory;
