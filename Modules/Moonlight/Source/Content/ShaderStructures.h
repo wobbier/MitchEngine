@@ -21,8 +21,7 @@ namespace Moonlight
 	struct DepthPassBuffer
 	{
 		DirectX::XMFLOAT4X4 model;
-		DirectX::XMFLOAT4X4 view;
-		DirectX::XMFLOAT4X4 projection;
+		DirectX::XMFLOAT4X4 cameraMatrix;
 	};
 
 	struct LightBuffer

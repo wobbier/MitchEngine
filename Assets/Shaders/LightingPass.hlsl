@@ -63,7 +63,7 @@ float4 main_ps(PixelShaderInput input) : SV_TARGET
 
 	float3 lightColor = light.diffuse.xyz;
 
-	float3 ambient = 0.15f * color.xyz;
+	float3 ambient = light.ambient.xyz * color.xyz;
 	float3 lightDir = normalize(light.pos.xyz - position.xyz);
 	float diff = max(dot(lightDir, lightColor), 0.0f);
 	float3 diffuse = diff * lightColor;
@@ -82,6 +82,7 @@ float4 main_ps(PixelShaderInput input) : SV_TARGET
 	float3 diffuseSpec = diffuse + specular;
 	float3 shadowDiffuseSpec = mul(diffuseSpec, shadowInv);
 	float3 finalColor = (ambient + (1.0 - shadow) * (diffuse + specular)) * color;// (ambient + shadowDiffuseSpec)* color;
+	finalColor += ui.xyz;
 	return float4(finalColor, 1.0);
 }
 

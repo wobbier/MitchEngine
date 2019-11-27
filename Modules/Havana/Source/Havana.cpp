@@ -890,6 +890,10 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 					{
 						RenderTextureName = "Position";
 					}
+					if (ImGui::MenuItem("Shadow", "", false))
+					{
+						RenderTextureName = "Shadow";
+					}
 					ImGui::EndMenu();
 				}
 
@@ -922,6 +926,10 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 			else if (RenderTextureName == "Position")
 			{
 				srv = Renderer->GameViewRTT->PositionShaderResourceView;
+			}
+			else if (RenderTextureName == "Shadow")
+			{
+				srv = Renderer->GameViewRTT->ShadowMapShaderResourceView;
 			}
 			m_isGameFocused = ImGui::IsWindowFocused();
 
@@ -985,6 +993,10 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 					{
 						RenderTextureName = "Depth";
 					}
+					if (ImGui::MenuItem("Shadow", "", false))
+					{
+						RenderTextureName = "Shadow";
+					}
 					ImGui::EndMenu();
 				}
 
@@ -1013,6 +1025,10 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 			else if (RenderTextureName == "Depth")
 			{
 				srv = Renderer->SceneViewRTT->DepthShaderResourceView;
+			}
+			else if (RenderTextureName == "Shadow")
+			{
+				srv = Renderer->SceneViewRTT->ShadowMapShaderResourceView;
 			}
 			// Get the current cursor position (where your window is)
 			ImVec2 pos = ImGui::GetCursorScreenPos();

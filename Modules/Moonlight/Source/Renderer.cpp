@@ -794,6 +794,15 @@ namespace Moonlight
 			)
 		);
 
+		CD3D11_BUFFER_DESC depthBufferDesc(sizeof(DepthPassBuffer), D3D11_BIND_CONSTANT_BUFFER);
+		DX::ThrowIfFailed(
+			static_cast<D3D12Device*>(m_device)->GetD3DDevice()->CreateBuffer(
+				&depthBufferDesc,
+				nullptr,
+				&m_depthPassBuffer
+			)
+		);
+
 		CD3D11_BUFFER_DESC perFrameBufferDesc(sizeof(LightingPassConstantBuffer), D3D11_BIND_CONSTANT_BUFFER);
 		/*CD3D11_BUFFER_DESC perFrameBufferDesc;
 		ZeroMemory(&perFrameBufferDesc, sizeof(D3D11_BUFFER_DESC));

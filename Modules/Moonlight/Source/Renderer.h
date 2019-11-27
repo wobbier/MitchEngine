@@ -86,6 +86,7 @@ namespace Moonlight
 #if ME_DIRECTX
 		Microsoft::WRL::ComPtr<ID3D11Buffer> m_constantBuffer;
 		Microsoft::WRL::ComPtr<ID3D11Buffer> m_perFrameBuffer;
+		Microsoft::WRL::ComPtr<ID3D11Buffer> m_depthPassBuffer;
 		ModelViewProjectionConstantBuffer m_constantBufferData;
 		ModelViewProjectionConstantBuffer m_constantBufferSceneData;
 		std::unique_ptr<DirectX::PrimitiveBatch<VertexPositionTexCoord>> primitiveBatch;

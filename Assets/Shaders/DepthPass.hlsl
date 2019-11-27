@@ -39,7 +39,7 @@ float4 main_ps(PixelShaderInput input) : SV_TARGET
 	float4 color;
 	float depth;
 
-	depth = input.vertpos.z / input.vertpos.w;
+	depth = input.vertpos.z/* / input.vertpos.w*/;
 
 	color = float4(depth, 0.0f, 0.0f, 1.0f);
 
