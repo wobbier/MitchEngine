@@ -2,6 +2,7 @@
 #include "AudioCore.h"
 #include <Audio.h>
 #include "Components/Audio/AudioSource.h"
+#include "Events/AudioEvents.h"
 
 AudioCore::AudioCore()
 	: Base(ComponentFilter().Requires<AudioSource>())
@@ -14,6 +15,11 @@ AudioCore::AudioCore()
 	eflags = eflags | DirectX::AudioEngine_Debug;
 #endif
 	mEngine = std::make_unique<DirectX::AudioEngine>(eflags);
+
+	std::vector<TypeId> events = {
+		PlayAudioEvent::GetEventId()
+	};
+	EventManager::GetInstance().RegisterReceiver(this, events);
 }
 
 void AudioCore::Update(float dt)
@@ -55,6 +61,25 @@ void AudioCore::OnEntityAdded(Entity& NewEntity)
 	//// Needs to be a resource
 	//comp.SoundEffectFile = std::make_unique<DirectX::SoundEffect>(mEngine.get(), StringUtils::ToWString(comp.FilePath.FullPath).c_str());
 	//comp.testSoundEffectInstance = comp.SoundEffectFile->CreateInstance();
+}
+
+bool AudioCore::OnEvent(const BaseEvent& InEvent)
+{
+	if (InEvent.GetEventId() == PlayAudioEvent::GetEventId())
+	{
+		const PlayAudioEvent& evt = static_cast<const PlayAudioEvent&>(InEvent);
+		Path soundPath = Path(evt.SourceName);
+		if (m_cachedSounds.find(soundPath.LocalPath) == m_cachedSounds.end())
+		{
+			AudioSource& source = m_cachedSounds[soundPath.LocalPath] = AudioSource(soundPath.LocalPath);
+			InitComponent(source);
+		}
+		m_cachedSounds[soundPath.LocalPath].Play(false);
+
+		return true;
+	}
+
+	return false;
 }
 
 void AudioCore::Init()

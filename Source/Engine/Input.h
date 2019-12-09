@@ -33,6 +33,11 @@ public:
 	Vector2 GetMousePosition();
 	Vector2 GetMouseScrollOffset();
 
+	DirectX::Mouse& GetMouse()
+	{
+		return *Mouse.get();
+	}
+
 private:
 	Input();
 	~Input() = default;

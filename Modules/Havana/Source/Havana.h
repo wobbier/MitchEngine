@@ -62,6 +62,7 @@ public:
 	Vector2 GameRenderSize;
 	Vector2 WorldViewRenderSize;
 	Vector2 WorldViewRenderLocation;
+	Vector2 GameViewRenderLocation;
 
 	void BrowseDirectory(const Path& path);
 

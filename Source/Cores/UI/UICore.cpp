@@ -23,6 +23,13 @@
 #include "UI/OverlayImpl.h"
 #include "File.h"
 #include <filesystem>
+#include "Engine/Input.h"
+#include "Dementia.h"
+
+#if ME_EDITOR
+#include "Havana.h"
+#include "Cores/EditorCore.h"
+#endif
 
 UICore::UICore(IWindow* window)
 	: Base(ComponentFilter().Requires<Transform>().Requires<BasicUIView>())
@@ -108,8 +115,32 @@ void UICore::Update(float dt)
 	m_uiRenderer->Update();
 
 	OPTICK_CATEGORY("UICore::Update", Optick::Category::Rendering)
+		ultralight::MouseEvent evt;
+	evt.type = ultralight::MouseEvent::kType_MouseMoved;
+#if ME_EDITOR
+	Havana* editor = static_cast<EditorCore*>(GetEngine().GetWorld().lock()->GetCore(EditorCore::GetTypeId()))->GetEditor();
+	
+	evt.x = (GetEngine().GetWindow()->GetPosition().X() + Input::GetInstance().GetMousePosition().X()) - editor->GameViewRenderLocation.X();
+	evt.y = (GetEngine().GetWindow()->GetPosition().Y() + Input::GetInstance().GetMousePosition().Y()) - editor->GameViewRenderLocation.Y();
 
-		auto Renderables = GetEntities();
+	Vector2 MousePosition = Input::GetInstance().GetMousePosition();
+	if (MousePosition == Vector2(0, 0))
+	{
+		return;
+	}
+
+#else
+	evt.x = Input::GetInstance().GetMousePosition().X();
+	evt.y = Input::GetInstance().GetMousePosition().Y();
+#endif
+	evt.button = ultralight::MouseEvent::Button::kButton_None;
+	//ultralight::View::FireMouseEvent(evt);
+		for (auto& view : m_overlays)
+		{
+			view->view()->FireMouseEvent(evt);
+		}
+
+	auto Renderables = GetEntities();
 	for (auto& InEntity : Renderables)
 	{
 		Transform& transform = InEntity.GetComponent<Transform>();
@@ -123,6 +154,7 @@ void UICore::Update(float dt)
 			}
 		}
 	}
+
 }
 
 void UICore::OnStop()

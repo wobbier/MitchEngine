@@ -31,7 +31,6 @@ struct Light
 cbuffer LightCommand : register(b0)
 {
 	Light light;
-	float2 padding;
 	matrix LightSpaceMatrix;
 }
 
@@ -45,13 +44,27 @@ PixelShaderInput main_vs(VertexShaderInput input)
 
 float ShadowCalculation(float4 fragPosLightSpace)
 {
-	float3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
-	projCoords = projCoords * 0.5f + 0.5f;
 
-	float closestDepth = ObjShadowTexture.Sample(ObjSamplerState, projCoords.xy).r;
+	float bias = 0.001f;
+
+	float3 projCoords;
+	projCoords.x = fragPosLightSpace.x / fragPosLightSpace.w / 2.0f + 0.5f;
+	projCoords.y = fragPosLightSpace.y / fragPosLightSpace.w / 2.0f + 0.5f;
+	//projCoords = projCoords * 0.5f + 0.5f;
+
 	float currentDepth = projCoords.z;
-	float shadow = currentDepth > closestDepth ? 1.0f : 0.0f;
-	return shadow;
+
+	if (saturate(projCoords.x) == projCoords.x && saturate(projCoords.y) == projCoords.y)
+	{
+		projCoords.y *= -1;
+
+		float closestDepth = ObjShadowTexture.Sample(ObjSamplerState, projCoords.xy).r;
+		float currentDepth = fragPosLightSpace.z / fragPosLightSpace.w;
+		float shadowResult = currentDepth - bias > closestDepth ? 1.0 : 0.0;
+		return shadowResult;
+	}
+
+	return 0.0f;
 }
 
 float4 main_ps(PixelShaderInput input) : SV_TARGET
@@ -60,14 +73,17 @@ float4 main_ps(PixelShaderInput input) : SV_TARGET
 	float4 color = ObjTexture.Sample(ObjSamplerState, input.TexCoord);
 	float4 normal = ObjNormalTexture.Sample(ObjSamplerState, input.TexCoord);
 	float4 position = ObjPositionTexture.Sample(ObjSamplerState, input.TexCoord);
+	float3 lightColor = light.diffuse;
 
-	float3 lightColor = light.diffuse.xyz;
-
+	// Ambient
 	float3 ambient = light.ambient.xyz * color.xyz;
+
+	// Diffuse
 	float3 lightDir = normalize(light.pos.xyz - position.xyz);
-	float diff = max(dot(lightDir, lightColor), 0.0f);
+	float diff = max(dot(lightDir, normal.xyz), 0.0f);
 	float3 diffuse = diff * lightColor;
 
+	// Specular
 	float3 viewDir = normalize(light.cameraPos - position.xyz);
 	float spec = 0.0f;
 
@@ -75,12 +91,9 @@ float4 main_ps(PixelShaderInput input) : SV_TARGET
 	spec = pow(max(dot(normal.xyz, halfwayDir), 0.0f), 64.0f);
 
 	float3 specular = spec * lightColor;
-	float4 lightSpaceObject = mul(LightSpaceMatrix, position);
+	float4 lightSpaceObject = mul(position, LightSpaceMatrix);
 	float shadow = ShadowCalculation(lightSpaceObject);
 
-	float shadowInv = (1.0f - shadow);
-	float3 diffuseSpec = diffuse + specular;
-	float3 shadowDiffuseSpec = mul(diffuseSpec, shadowInv);
 	float3 finalColor = (ambient + (1.0 - shadow) * (diffuse + specular)) * color;// (ambient + shadowDiffuseSpec)* color;
 	finalColor += ui.xyz;
 	return float4(finalColor, 1.0);

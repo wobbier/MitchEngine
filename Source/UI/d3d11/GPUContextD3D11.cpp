@@ -243,7 +243,7 @@ bool GPUContextD3D11::Initialize(int screen_width, int screen_height, double scr
   //back_buffer_height_ = height;
 
   // Initialize backbuffer with white so we don't get flash of black while loading views.
-  float color[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+  float color[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
   immediate_context_->ClearRenderTargetView(render_target_view(), color);
 
   return true;

@@ -9,6 +9,7 @@ namespace Moonlight
 	struct ModelViewProjectionConstantBuffer
 	{
 		DirectX::XMFLOAT4X4 model;
+		DirectX::XMFLOAT4X4 modelInv;
 		DirectX::XMFLOAT4X4 view;
 		DirectX::XMFLOAT4X4 projection;
 		DirectX::XMFLOAT2 padding;

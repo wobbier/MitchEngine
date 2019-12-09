@@ -42,5 +42,7 @@ protected:
 	size_t Index;
 	File SourceFile;
 	Path FilePath;
+
+	void PlaySound(const ultralight::JSObject& thisObject, const ultralight::JSArgs& args);
 };
 ME_REGISTER_COMPONENT(BasicUIView)

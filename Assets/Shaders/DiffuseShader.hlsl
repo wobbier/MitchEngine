@@ -7,7 +7,8 @@ SamplerState ObjSamplerState;
 
 cbuffer ModelViewProjectionConstantBuffer : register(b0)
 {
-    matrix model;
+	matrix model;
+	matrix modelInv;
     matrix view;
     matrix projection;
     float2 padding;
@@ -50,15 +51,16 @@ PixelShaderInput main_vs(VertexShaderInput input)
     PixelShaderInput output;
     float4 pos = float4(input.pos, 1.0f);
 	// Transform the vertex position into projected space.
-    pos = mul(pos, model);
-	output.fragPos = pos;
+	output.fragPos = mul(model, pos);
+
+    pos = mul(model, pos);
     pos = mul(pos, view);
     pos = mul(pos, projection);
     output.pos = pos;
 
-    output.normal = mul(input.normal, model);
-
-    output.tangent = mul(input.tangent, model);
+    //output.normal = mul(input.normal, model);
+	output.normal = mul(input.normal, transpose(modelInv));
+    output.tangent = mul(input.tangent, transpose(model));
 
 	// Pass the color through without modification.
     output.texcoord = input.texcoord;
@@ -94,15 +96,14 @@ PSOUTPUT main_ps(PixelShaderInput input)
     if (hasNormalMap)
     {
         normalMap = ObjNormalMap.Sample(ObjSamplerState, input.texcoord);
+        input.tangent = normalize(input.tangent - dot(input.tangent, input.normal) * input.normal);
         
+        float3 biTangent = cross(input.tangent, input.normal);
         normalMap = normalize((normalMap * 2.0f) - 1.0f);
 
-        input.tangent = normalize(input.tangent - dot(input.tangent, input.normal) * input.normal);
-
-        float3 biTangent = cross(input.normal, input.tangent);
         float3x3 texSpace = float3x3(input.tangent, biTangent, input.normal);
 
-        output.normal = float4(normalize(mul(normalMap.xyz, texSpace)), 0.0);
+        output.normal = float4(normalize(mul(normalMap.xyz, texSpace)), 1.0);
     }
 
     output.spec = float4(1.0f, 1.0f, 1.0f, 1.0f);

@@ -31,6 +31,8 @@ public:
 
 	Transform* RootTransform = nullptr;
 
+	Havana* GetEditor();
+
 private:
 	bool TryingToSaveNewScene = false;
 	float FlyingSpeed = 5.f;

@@ -53,7 +53,6 @@ namespace Moonlight
 	struct LightingPassConstantBuffer
 	{
 		LightCommand Light;
-		DirectX::XMFLOAT2 padding;
 		DirectX::XMMATRIX LightSpaceMatrix;
 	};
 }

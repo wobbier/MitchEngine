@@ -940,6 +940,7 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 				ImVec2 maxPos = ImVec2(pos.x + ImGui::GetWindowSize().x, pos.y + ImGui::GetWindowSize().y);
 				//GameRenderSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
 				GameRenderSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
+				GameViewRenderLocation = Vector2(pos.x, pos.y);
 
 				// Ask ImGui to draw it as an image:
 				// Under OpenGL the ImGUI image type is GLuint

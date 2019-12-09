@@ -5,6 +5,8 @@
 #include "imgui.h"
 #include "UI/JSHelpers.h"
 #include "Ultralight/View.h"
+#include "Events/AudioEvents.h"
+#include "Ultralight/String.h"
 
 BasicUIView::BasicUIView()
 	: Component("BasicUIView")
@@ -56,11 +58,27 @@ void BasicUIView::OnDOMReady(ultralight::View* caller)
 	ultralight::SetJSContext(caller->js_context());
 	ultralight::JSObject global = ultralight::JSGlobalObject();
 
+	global["PlaySound"] = BindJSCallback(&BasicUIView::PlaySound);
+
 	OnUILoad(global, caller);
 }
 
 void BasicUIView::OnUILoad(ultralight::JSObject& GlobalWindow, ultralight::View* Caller)
 {
+}
+
+
+void BasicUIView::PlaySound(const ultralight::JSObject& thisObject, const ultralight::JSArgs& args)
+{
+	if (args.empty() || !args[0].IsString())
+	{
+		BRUH("PlaySound(string) argument mismatch.");
+		return;
+	}
+	ultralight::String str = args[0].ToString();
+	std::string str2(str.utf8().data());
+	PlayAudioEvent evt(str2);
+	evt.Fire();
 }
 
 #if ME_EDITOR

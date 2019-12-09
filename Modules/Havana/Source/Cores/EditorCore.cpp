@@ -253,6 +253,11 @@ void EditorCore::OnEntityAdded(Entity& NewEntity)
 	}
 }
 
+Havana* EditorCore::GetEditor()
+{
+	return m_editor;
+}
+
 #if ME_EDITOR
 
 void EditorCore::OnEditorInspect()

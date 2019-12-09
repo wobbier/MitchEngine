@@ -341,7 +341,7 @@ namespace Moonlight
 		const XMVECTORF32 at = { camera.Position.X() + camera.Front.X(), camera.Position.Y() + camera.Front.Y(), camera.Position.Z() + camera.Front.Z(), 0.0f };
 		const XMVECTORF32 up = { camera.Up.X(), camera.Up.Y(), camera.Up.Z(), 0 };
 
-		Sunlight.cameraPos = XMFLOAT4 (&eye.f[0]);
+		Sunlight.cameraPos = { camera.Position.X(), camera.Position.Y(), camera.Position.Z(), 0 };
 
 		ID3D11RenderTargetView** targets[4] = { ViewRTT->ColorRenderTargetView.GetAddressOf(), ViewRTT->NormalRenderTargetView.GetAddressOf(), ViewRTT->SpecularRenderTargetView.GetAddressOf(), ViewRTT->PositionRenderTargetView.GetAddressOf() };
 		context->OMSetRenderTargets(4, *targets, ViewRTT->DepthStencilView.Get());
@@ -361,6 +361,7 @@ namespace Moonlight
 		if (camera.Skybox)
 		{
 			XMStoreFloat4x4(&constantBufferSceneData.model, XMMatrixTranspose(XMMatrixTranslation(eye[0], eye[1], eye[2])));
+			XMStoreFloat4x4(&constantBufferSceneData.modelInv, XMMatrixInverse(nullptr, XMMatrixTranslation(eye[0], eye[1], eye[2])));
 			// Prepare the constant buffer to send it to the graphics device.
 			context->UpdateSubresource1(
 				m_constantBuffer.Get(),
@@ -403,7 +404,8 @@ namespace Moonlight
 				if (mesh.MeshShader && mesh.SingleMesh && mesh.MeshMaterial)
 				{
 					OPTICK_EVENT("Render::ModelCommand", Optick::Category::Rendering);
-					XMStoreFloat4x4(&constantBufferSceneData.model, XMMatrixTranspose(mesh.Transform));
+					XMStoreFloat4x4(&constantBufferSceneData.model, mesh.Transform);
+					XMStoreFloat4x4(&constantBufferSceneData.modelInv, XMMatrixInverse(nullptr, mesh.Transform));
 					if (mesh.MeshMaterial->GetTexture(TextureType::Normal))
 					{
 						constantBufferSceneData.HasNormalMap = TRUE;
@@ -664,19 +666,19 @@ namespace Moonlight
 		// this transform should not be applied.
 
 
-		m_device->GetD3DDeviceContext()->OMSetDepthStencilState(m_device->DepthStencilState, 0);
+		m_device->GetD3DDeviceContext()->OMSetDepthStencilState(nullptr, 0);
 
 			XMMATRIX orthographicMatrix = XMMatrixOrthographicRH(
-				10.0f,
-				10.0f,
-				.1f,
-				10.0f
+				20.0f,
+				20.0f,
+				1.0f,
+				100.0f
 			);
 
-			XMStoreFloat4x4(
-				&constantBufferSceneData.projection,
-				(orthographicMatrix)
-			);
+			//XMStoreFloat4x4(
+			//	&constantBufferSceneData.projection,
+			//	(orthographicMatrix)
+			//);
 			//DirectX::SimpleMath::Matrix::CreateLookAt()
 			//CreateLookAt()
 		const XMVECTORF32 eye = { Sunlight.pos.x, Sunlight.pos.y, Sunlight.pos.z, 0 };
@@ -695,14 +697,14 @@ namespace Moonlight
 			1024
 		);
 
-		LightingPassBuffer.LightSpaceMatrix = orthographicMatrix * XMMatrixTranspose(XMMatrixLookAtRH(eye, at, up));
+		LightingPassBuffer.LightSpaceMatrix = orthographicMatrix * XMMatrixTranspose(XMMatrixLookToRH(eye, at, up));
 
 		context->RSSetViewports(1, &screenViewport);
 
 		//XMStoreFloat4x4(&m_constantBufferData.view, XMMatrixTranspose(XMMatrixIdentity()));
-		XMStoreFloat4x4(&constantBufferSceneData.view, XMMatrixTranspose(XMMatrixLookAtRH(eye, at, up)));
+		XMStoreFloat4x4(&constantBufferSceneData.cameraMatrix, LightingPassBuffer.LightSpaceMatrix);
 
-		m_device->ResetCullingMode();
+		//m_device->ResetCullingMode();
 
 		if (Lights.size() > 0)
 		{
@@ -741,7 +743,7 @@ namespace Moonlight
 
 					// Prepare the constant buffer to send it to the graphics device.
 					context->UpdateSubresource1(
-						m_constantBuffer.Get(),
+						m_depthPassBuffer.Get(),
 						0,
 						NULL,
 						&constantBufferSceneData,
@@ -754,14 +756,14 @@ namespace Moonlight
 					context->VSSetConstantBuffers1(
 						0,
 						1,
-						m_constantBuffer.GetAddressOf(),
+						m_depthPassBuffer.GetAddressOf(),
 						nullptr,
 						nullptr
 					);
 					context->PSSetConstantBuffers1(
 						0,
 						1,
-						m_constantBuffer.GetAddressOf(),
+						m_depthPassBuffer.GetAddressOf(),
 						nullptr,
 						nullptr
 					);
@@ -774,7 +776,7 @@ namespace Moonlight
 			}
 			m_device->ResetCullingMode();
 		}
-		m_device->GetD3DDeviceContext()->OMSetBlendState(0, 0, 0xffffffff);
+		//m_device->GetD3DDeviceContext()->OMSetBlendState(0, 0, 0xffffffff);
 	}
 
 	void Renderer::ReleaseDeviceDependentResources()
