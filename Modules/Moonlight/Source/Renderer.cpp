@@ -190,7 +190,7 @@ namespace Moonlight
 		context->ClearDepthStencilView(GameViewRTT->DepthStencilView.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 		static DepthPassBuffer buf;
 		DrawDepthOnlyScene(m_device->GetD3DDeviceContext(), buf, GameViewRTT);
-		DrawDepthOnlyScene(m_device->GetD3DDeviceContext(), buf, SceneViewRTT);
+		//DrawDepthOnlyScene(m_device->GetD3DDeviceContext(), buf, SceneViewRTT);
 
 		CD3D11_VIEWPORT gameViewport = CD3D11_VIEWPORT(
 			0.0f,
@@ -647,6 +647,9 @@ namespace Moonlight
 				context->ResolveSubresource(ResolveViewRTT->FinalTexture.Get(), 0, ViewRTT->FinalTexture.Get(), 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
 			}
 		}
+		ID3D11RenderTargetView* nullViews[] = { nullptr, nullptr, nullptr, nullptr };
+		context->OMSetRenderTargets(ARRAYSIZE(nullViews), nullViews, nullptr);
+		//context->OMSetRenderTargets(4, nullptr, nullptr);
 
 	}
 

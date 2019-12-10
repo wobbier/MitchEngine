@@ -37,7 +37,7 @@ void BasicUIView::Deserialize(const json& inJson)
 	Component::Deserialize(inJson);
 	if (inJson.contains("FilePath"))
 	{
-
+		FilePath = Path(inJson["FilePath"]);
 	}
 }
 
