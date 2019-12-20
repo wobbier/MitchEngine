@@ -17,6 +17,9 @@
 #include "Mathf.h"
 #include "optick.h"
 #include "Config.h"
+#include "Renderer.h"
+#include "Cores/Rendering/RenderCore.h"
+#include "Components/Graphics/Mesh.h"
 
 EditorCore::EditorCore(Havana* editor)
 	: Base(ComponentFilter().Excludes<Transform>())
@@ -26,8 +29,11 @@ EditorCore::EditorCore(Havana* editor)
 	std::vector<TypeId> events;
 	events.push_back(SaveSceneEvent::GetEventId());
 	events.push_back(NewSceneEvent::GetEventId());
+	events.push_back(Moonlight::PickingEvent::GetEventId());
 	EventManager::GetInstance().RegisterReceiver(this, events);
 	gizmo = new TranslationGizmo(m_editor);
+	EditorCameraTransform = new Transform();
+	EditorCamera = new Camera();
 }
 
 EditorCore::~EditorCore()
@@ -36,8 +42,6 @@ EditorCore::~EditorCore()
 
 void EditorCore::Init()
 {
-	EditorCameraTransform = new Transform();
-	EditorCamera = new Camera();
 	Camera::EditorCamera = EditorCamera;
 
 	testAudio = new AudioSource("Assets/Sounds/CONSTITUTION.wav");
@@ -234,6 +238,25 @@ bool EditorCore::OnEvent(const BaseEvent& evt)
 		{
 			GetEngine().CurrentScene->Save(GetEngine().CurrentScene->FilePath.LocalPath, RootTransform);
 			GetEngine().GetConfig().SetValue(std::string("CurrentScene"), GetEngine().CurrentScene->FilePath.LocalPath);
+		}
+		return true;
+	}
+	else if (evt.GetEventId() == Moonlight::PickingEvent::GetEventId())
+	{
+		const Moonlight::PickingEvent& casted = static_cast<const Moonlight::PickingEvent&>(evt);
+
+		auto ents = GetEngine().ModelRenderer->GetEntities();
+		for (auto& ent : ents)
+		{
+			if (!ent.HasComponent<Mesh>())
+			{
+				continue;
+			}
+			if (ent.GetComponent<Mesh>().Id == casted.Id)
+			{
+				m_editor->ClearSelection();
+				m_editor->SelectedTransform = &ent.GetComponent<Transform>();
+			}
 		}
 		return true;
 	}

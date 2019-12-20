@@ -64,18 +64,9 @@ public:
 	std::string Name;
 	Matrix4 GetMatrix();
 
-	virtual void Serialize(json& outJson) final
-	{
-		Component::Serialize(outJson);
+	virtual void Serialize(json& outJson) final;
 
-		outJson["Position"] = { Position.X(),Position.Y(),Position.Z() };
-		outJson["Rotation"] = { Rotation.X(), Rotation.Y(), Rotation.Z() };
-	}
-
-	virtual void Deserialize(const json& inJson) final
-	{
-		SetPosition(Vector3((float)inJson["Position"][0], (float)inJson["Position"][1], (float)inJson["Position"][2]));
-	}
+	virtual void Deserialize(const json& inJson) final;
 	
 	void SetName(const std::string& name);
 	void SetWorldTransform(Matrix4& NewWorldTransform);

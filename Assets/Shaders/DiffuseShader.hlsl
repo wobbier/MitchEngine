@@ -11,7 +11,9 @@ cbuffer ModelViewProjectionConstantBuffer : register(b0)
 	matrix modelInv;
     matrix view;
     matrix projection;
-    float2 padding;
+	matrix LightSpaceMatrix;
+	float id;
+	float padding;
     bool hasNormalMap;
     bool hasAlphaMap;
     bool hasSpecMap;

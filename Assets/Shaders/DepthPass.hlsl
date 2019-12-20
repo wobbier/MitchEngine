@@ -19,10 +19,11 @@ PixelShaderInput main_vs(VertexShaderInput input)
 {
 	PixelShaderInput output;
 	float4 pos = float4(input.pos, 1.0f);
+	pos = mul(pos, mul(model, cameraMatrix));
 
 	//pos = cameraMatrix * model * pos;
-	pos = mul(pos, model);
-	pos = mul(pos, cameraMatrix);
+	//pos = mul(pos, model);
+	//pos = mul(pos, cameraMatrix);
 
 
 	//pos = mul(pos, projection);
@@ -39,7 +40,7 @@ float4 main_ps(PixelShaderInput input) : SV_TARGET
 	float4 color;
 	float depth;
 
-	depth = input.vertpos.z / input.vertpos.w;
+	depth = input.vertpos.z;// / input.vertpos.w;
 
 	color = float4(depth, depth, depth, 1.0f);
 

@@ -18,6 +18,8 @@
 #include <GeometricPrimitive.h>
 #include "Utils/StringUtils.h"
 #include <SimpleMath.h>
+#include <wrl/client.h>
+#include "Mathf.h"
 
 using namespace DirectX;
 using namespace Windows::Foundation;
@@ -120,6 +122,12 @@ namespace Moonlight
 			m_device->CompileShader(Path("Assets/Shaders/DepthPass.hlsl"), "main_ps", "ps_4_0_level_9_3"),
 			&vertexDesc2
 		);
+
+		m_pickingShader = m_device->CreateShaderProgram(
+			m_device->CompileShader(Path("Assets/Shaders/PickingShader.hlsl"), "main_vs", "vs_4_0_level_9_3"),
+			m_device->CompileShader(Path("Assets/Shaders/PickingShader.hlsl"), "main_ps", "ps_4_0_level_9_3"),
+			&vertexDesc2
+		);
 	}
 
 	void Renderer::ResizeBuffers()
@@ -179,6 +187,7 @@ namespace Moonlight
 		context->ClearRenderTargetView(GameViewRTT->PositionRenderTargetView.Get(), color);
 		context->ClearRenderTargetView(GameViewRTT->SpecularRenderTargetView.Get(), color);
 		context->ClearRenderTargetView(GameViewRTT->ShadowMapRenderTargetView.Get(), color);
+		context->ClearRenderTargetView(GameViewRTT->PickingTargetView.Get(), color);
 
 		context->ClearRenderTargetView(SceneViewRTT->RenderTargetView.Get(), color);
 		context->ClearRenderTargetView(SceneViewRTT->ColorRenderTargetView.Get(), color);
@@ -188,8 +197,23 @@ namespace Moonlight
 		context->ClearRenderTargetView(SceneViewRTT->ShadowMapRenderTargetView.Get(), color);
 
 		context->ClearDepthStencilView(GameViewRTT->DepthStencilView.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
-		static DepthPassBuffer buf;
-		DrawDepthOnlyScene(m_device->GetD3DDeviceContext(), buf, GameViewRTT);
+
+		//ID3D11RenderTargetView* nullViews[] = { nullptr, nullptr, nullptr, nullptr };
+		//context->OMSetRenderTargets(ARRAYSIZE(nullViews), nullViews, nullptr);
+		if (m_pickingRequested)
+		{
+			context->ClearRenderTargetView(SceneViewRTT->PickingTargetView.Get(), color);
+
+			static PickingConstantBuffer buf2;
+			DrawPickingTexture(m_device->GetD3DDeviceContext(), buf2, editorCamera, SceneViewRTT);
+			SaveTextureToBmp(StringUtils::ToWString(Path("Assets/EXPORT.bmp").FullPath).c_str(), SceneViewRTT->PickingTexture.Get(), editorCamera, pickingLocation);
+
+			m_device->GetD3DDeviceContext()->DiscardView1(SceneViewRTT->PickingResourceView.Get(), nullptr, 0);
+
+			m_pickingRequested = false;
+		}
+		//static DepthPassBuffer buf;
+		//DrawDepthOnlyScene(m_device->GetD3DDeviceContext(), buf, GameViewRTT);
 		//DrawDepthOnlyScene(m_device->GetD3DDeviceContext(), buf, SceneViewRTT);
 
 		CD3D11_VIEWPORT gameViewport = CD3D11_VIEWPORT(
@@ -393,8 +417,9 @@ namespace Moonlight
 
 		{
 			std::vector<MeshCommand> transparentMeshes;
-			for (const MeshCommand& mesh : Meshes)
+			for (int i = 0; i < Meshes.size(); ++i)
 			{
+				const MeshCommand& mesh = Meshes[i];
 				if (mesh.MeshMaterial && mesh.MeshMaterial->IsTransparent())
 				{
 					transparentMeshes.push_back(mesh);
@@ -782,6 +807,157 @@ namespace Moonlight
 		//m_device->GetD3DDeviceContext()->OMSetBlendState(0, 0, 0xffffffff);
 	}
 
+	void Renderer::DrawPickingTexture(ID3D11DeviceContext3* context, PickingConstantBuffer& constantBufferSceneData, const CameraData& camera, FrameBuffer* ViewRTT)
+	{
+		Vector2 outputSize = camera.OutputSize;
+		if (outputSize.IsZero())
+		{
+			return;
+		}
+		float aspectRatio = static_cast<float>(outputSize.X()) / static_cast<float>(outputSize.Y());
+		float fovAngleY = camera.FOV * XM_PI / 180.0f;
+
+
+		// This is a simple example of change that can be made when the app is in
+		// portrait or snapped view.
+		if (aspectRatio < 1.0f)
+		{
+			fovAngleY *= 2.0f;
+		}
+
+		// Note that the OrientationTransform3D matrix is post-multiplied here
+		// in order to correctly orient the scene to match the display orientation.
+		// This post-multiplication step is required for any draw calls that are
+		// made to the swap chain render target. For draw calls to other targets,
+		// this transform should not be applied.
+
+		//m_device->GetD3DDeviceContext()->OMSetDepthStencilState(m_device->DepthStencilState, 0);
+		XMMATRIX projectionMatrix;
+		if (camera.Projection == ProjectionType::Perspective)
+		{
+			// This sample makes use of a right-handed coordinate system using row-major matrices.
+			projectionMatrix = XMMatrixPerspectiveFovRH(
+				fovAngleY,
+				aspectRatio,
+				.1f,
+				1000.0f
+			);
+
+			XMStoreFloat4x4(
+				&constantBufferSceneData.projection,
+				XMMatrixTranspose(projectionMatrix)
+			);
+		}
+		else if (camera.Projection == ProjectionType::Orthographic)
+		{
+			projectionMatrix = XMMatrixOrthographicRH(
+				outputSize.X() / camera.OrthographicSize,
+				outputSize.Y() / camera.OrthographicSize,
+				.1f,
+				100.0f
+			);
+
+			XMStoreFloat4x4(
+				&constantBufferSceneData.projection,
+				(projectionMatrix)
+			);
+		}
+
+		const XMVECTORF32 eye = { camera.Position.X(), camera.Position.Y(), camera.Position.Z(), 0 };
+		const XMVECTORF32 at = { camera.Position.X() + camera.Front.X(), camera.Position.Y() + camera.Front.Y(), camera.Position.Z() + camera.Front.Z(), 0.0f };
+		const XMVECTORF32 up = { camera.Up.X(), camera.Up.Y(), camera.Up.Z(), 0 };
+
+		Sunlight.cameraPos = { camera.Position.X(), camera.Position.Y(), camera.Position.Z(), 0 };
+
+		ID3D11RenderTargetView** targets[1] = { ViewRTT->PickingTargetView.GetAddressOf() };
+		context->OMSetRenderTargets(1, *targets, ViewRTT->DepthStencilView.Get());
+
+		CD3D11_VIEWPORT screenViewport = CD3D11_VIEWPORT(
+			0.0f,
+			0.0f,
+			camera.OutputSize.X(),
+			camera.OutputSize.Y()
+		);
+
+		context->RSSetViewports(1, &screenViewport);
+
+		m_device->ResetCullingMode();
+
+		//XMStoreFloat4x4(&constantBufferSceneData.view, XMMatrixTranspose(XMMatrixLookAtRH(eye, at, up)));
+		//XMStoreFloat4x4(&m_constantBufferData.view, XMMatrixTranspose(XMMatrixIdentity()));
+		XMStoreFloat4x4(&constantBufferSceneData.view, XMMatrixTranspose(XMMatrixLookAtRH(eye, at, up)));
+
+		//m_device->ResetCullingMode();
+
+		if (Lights.size() > 0)
+		{
+			//constantBufferSceneData.light = Lights[0];
+		}
+
+		m_device->GetD3DDeviceContext()->IASetInputLayout(m_pickingShader.InputLayout.Get());
+
+		// Attach our vertex shader.
+		m_device->GetD3DDeviceContext()->VSSetShader(
+			m_pickingShader.VertexShader.Get(),
+			nullptr,
+			0
+		);
+		// Attach our pixel shader.
+		m_device->GetD3DDeviceContext()->PSSetShader(
+			m_pickingShader.PixelShader.Get(),
+			nullptr,
+			0
+		);
+
+		{
+			std::vector<MeshCommand> transparentMeshes;
+			for (int i = 0; i < Meshes.size(); ++i)
+			{
+				const MeshCommand& mesh = Meshes[i];
+				if (mesh.MeshShader && mesh.SingleMesh && mesh.MeshMaterial)
+				{
+					OPTICK_EVENT("Render::ModelCommand", Optick::Category::Rendering);
+					XMStoreFloat4x4(&constantBufferSceneData.model, mesh.Transform);
+					XMStoreFloat(&constantBufferSceneData.id, { (FLOAT)i });
+
+					// Prepare the constant buffer to send it to the graphics device.
+					context->UpdateSubresource1(
+						m_pickingBuffer.Get(),
+						0,
+						NULL,
+						&constantBufferSceneData,
+						0,
+						0,
+						0
+					);
+
+					// Send the constant buffer to the graphics device.
+					context->VSSetConstantBuffers1(
+						0,
+						1,
+						m_pickingBuffer.GetAddressOf(),
+						nullptr,
+						nullptr
+					);
+					context->PSSetConstantBuffers1(
+						0,
+						1,
+						m_pickingBuffer.GetAddressOf(),
+						nullptr,
+						nullptr
+					);
+					OPTICK_EVENT("Render::SingleMesh");
+
+					mesh.SingleMesh->Draw(mesh.MeshMaterial, true);
+
+					//shape->Draw(XMMatrixTranspose(XMMatrixIdentity()), DirectX::XMLoadFloat4x4(&constantBufferSceneData.view), DirectX::XMLoadFloat4x4(&constantBufferSceneData.projection), Colors::Gray, nullptr, true);
+				}
+			}
+			m_device->ResetCullingMode();
+		}
+		//m_device->GetD3DDeviceContext()->OMSetBlendState(0, 0, 0xffffffff);
+	}
+
 	void Renderer::ReleaseDeviceDependentResources()
 	{
 		m_constantBuffer.Reset();
@@ -807,6 +983,16 @@ namespace Moonlight
 				&m_depthPassBuffer
 			)
 		);
+
+		CD3D11_BUFFER_DESC depthBufferDesc2(sizeof(PickingConstantBuffer), D3D11_BIND_CONSTANT_BUFFER);
+		DX::ThrowIfFailed(
+			static_cast<D3D12Device*>(m_device)->GetD3DDevice()->CreateBuffer(
+				&depthBufferDesc2,
+				nullptr,
+				&m_pickingBuffer
+			)
+		);
+
 
 		CD3D11_BUFFER_DESC perFrameBufferDesc(sizeof(LightingPassConstantBuffer), D3D11_BIND_CONSTANT_BUFFER);
 		/*CD3D11_BUFFER_DESC perFrameBufferDesc;
@@ -903,6 +1089,17 @@ namespace Moonlight
 		ResizeBuffers();
 	}
 
+	void Renderer::PickScene(const Vector2& Pos)
+	{
+		m_pickingRequested = true;
+		pickingLocation = Pos;
+		return;
+		if (SceneViewRTT)
+		{
+//			SaveTextureToBmp(StringUtils::ToWString(Path("Assets/EXPORT.bmp").FullPath).c_str(), SceneViewRTT->PickingTexture.Get(), Pos);
+		}
+	}
+
 	unsigned int Renderer::PushMesh(Moonlight::MeshCommand command)
 	{
 		if (!FreeMeshCommandIndicies.empty())
@@ -969,6 +1166,206 @@ namespace Moonlight
 		while (!FreeUITextCommandIndicies.empty())
 		{
 			FreeUITextCommandIndicies.pop();
+		}
+	}
+
+	void Renderer::SaveTextureToBmp(PCWSTR FileName, ID3D11Texture2D* Texture, const CameraData& camera, const Vector2& Pos)
+	{
+		HRESULT hr;
+
+		// First verify that we can map the texture
+		D3D11_TEXTURE2D_DESC desc;
+		Texture->GetDesc(&desc);
+
+		// translate texture format to WIC format. We support only BGRA and ARGB.
+		GUID wicFormatGuid;
+		switch (desc.Format) {
+		case DXGI_FORMAT_R8G8B8A8_UNORM:
+			wicFormatGuid = GUID_WICPixelFormat32bppRGBA;
+			break;
+		case DXGI_FORMAT_B8G8R8A8_UNORM:
+			wicFormatGuid = GUID_WICPixelFormat32bppBGRA;
+			break;
+		default:
+			YIKES("Unsupported DXGI_FORMAT: %d. Only RGBA and BGRA are supported.");
+		}
+
+		// Get the device context
+		Microsoft::WRL::ComPtr<ID3D11Device> d3dDevice;
+		Texture->GetDevice(&d3dDevice);
+		Microsoft::WRL::ComPtr<ID3D11DeviceContext> d3dContext;
+		d3dDevice->GetImmediateContext(&d3dContext);
+
+		// map the texture
+		Microsoft::WRL::ComPtr<ID3D11Texture2D> mappedTexture;
+		D3D11_MAPPED_SUBRESOURCE mapInfo;
+		mapInfo.RowPitch;
+		hr = d3dContext->Map(
+			Texture,
+			0,  // Subresource
+			D3D11_MAP_READ,
+			0,  // MapFlags
+			&mapInfo);
+
+		if (FAILED(hr)) {
+			// If we failed to map the texture, copy it to a staging resource
+			if (hr == E_INVALIDARG) {
+				D3D11_TEXTURE2D_DESC desc2;
+				desc2.Width = desc.Width;
+				desc2.Height = desc.Height;
+				desc2.MipLevels = desc.MipLevels;
+				desc2.ArraySize = desc.ArraySize;
+				desc2.Format = desc.Format;
+				desc2.SampleDesc = desc.SampleDesc;
+				desc2.Usage = D3D11_USAGE_STAGING;
+				desc2.BindFlags = 0;
+				desc2.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+				desc2.MiscFlags = 0;
+
+				Microsoft::WRL::ComPtr<ID3D11Texture2D> stagingTexture;
+				hr = d3dDevice->CreateTexture2D(&desc2, nullptr, &stagingTexture);
+				if (FAILED(hr)) {
+					//throw MyException::Make(hr, L"Failed to create staging texture");
+				}
+
+				// copy the texture to a staging resource
+				d3dContext->CopyResource(stagingTexture.Get(), Texture);
+
+				// now, map the staging resource
+				hr = d3dContext->Map(
+					stagingTexture.Get(),
+					0,
+					D3D11_MAP_READ,
+					0,
+					&mapInfo);
+				if (FAILED(hr)) {
+					//throw MyException::Make(hr, L"Failed to map staging texture");
+				}
+
+				mappedTexture = std::move(stagingTexture);
+			}
+			else {
+				//throw MyException::Make(hr, L"Failed to map texture.");
+			}
+		}
+		else {
+			mappedTexture = Texture;
+		}
+		auto unmapResource = [&] {
+			d3dContext->Unmap(mappedTexture.Get(), 0);
+		};
+
+		if (false)
+		{
+			Microsoft::WRL::ComPtr<IWICImagingFactory> wicFactory;
+			hr = CoCreateInstance(
+				CLSID_WICImagingFactory,
+				nullptr,
+				CLSCTX_INPROC_SERVER,
+				__uuidof(wicFactory),
+				reinterpret_cast<void**>(wicFactory.GetAddressOf()));
+			if (FAILED(hr)) {
+				YIKES("Failed to create instance of WICImagingFactory");
+			}
+
+			Microsoft::WRL::ComPtr<IWICBitmapEncoder> wicEncoder;
+			hr = wicFactory->CreateEncoder(
+				GUID_ContainerFormatBmp,
+				nullptr,
+				&wicEncoder);
+			if (FAILED(hr)) {
+				YIKES("Failed to create BMP encoder");
+			}
+
+			Microsoft::WRL::ComPtr<IWICStream> wicStream;
+			hr = wicFactory->CreateStream(&wicStream);
+			if (FAILED(hr)) {
+				YIKES("Failed to create IWICStream");
+			}
+
+			hr = wicStream->InitializeFromFilename(FileName, GENERIC_WRITE);
+			if (FAILED(hr)) {
+				YIKES("Failed to initialize stream from file name");
+			}
+
+			hr = wicEncoder->Initialize(wicStream.Get(), WICBitmapEncoderNoCache);
+			if (FAILED(hr)) {
+				YIKES("Failed to initialize bitmap encoder");
+			}
+
+			// Encode and commit the frame
+			{
+				Microsoft::WRL::ComPtr<IWICBitmapFrameEncode> frameEncode;
+				wicEncoder->CreateNewFrame(&frameEncode, nullptr);
+				if (FAILED(hr)) {
+					YIKES("Failed to create IWICBitmapFrameEncode");
+				}
+
+				hr = frameEncode->Initialize(nullptr);
+				if (FAILED(hr)) {
+					YIKES("Failed to initialize IWICBitmapFrameEncode");
+				}
+
+
+				hr = frameEncode->SetPixelFormat(&wicFormatGuid);
+				if (FAILED(hr)) {
+					YIKES("SetPixelFormat(%s) failed.");
+				}
+
+				hr = frameEncode->SetSize(desc.Width, desc.Height);
+				if (FAILED(hr)) {
+					YIKES("SetSize(...) failed.");
+				}
+
+				hr = frameEncode->WritePixels(
+					desc.Height,
+					mapInfo.RowPitch,
+					desc.Height * mapInfo.RowPitch,
+					reinterpret_cast<BYTE*>(mapInfo.pData));
+				if (FAILED(hr)) {
+					YIKES("frameEncode->WritePixels(...) failed.");
+				}
+
+
+				hr = frameEncode->Commit();
+				if (FAILED(hr)) {
+					YIKES("Failed to commit frameEncode");
+				}
+				//std::unique_ptr<BYTE> pBuf(new BYTE[mapInfo.RowPitch * desc.Height]);
+			}
+
+			hr = wicEncoder->Commit();
+			if (FAILED(hr)) {
+				YIKES("Failed to commit encoder");
+			}
+		}
+
+		{
+			BYTE* g_iMageBuffer = reinterpret_cast<BYTE*>(mapInfo.pData);
+			//long g_captureSize = mapInfo.RowPitch * desc.Height;
+			//g_iMageBuffer = new UCHAR[g_captureSize];
+			//g_iMageBuffer = (UCHAR*)malloc(g_captureSize);
+			////Copying to UCHAR buffer 
+			//memcpy(g_iMageBuffer, pBuf.get(), g_captureSize);
+
+			int x = Pos.X();
+			int y = Pos.Y();
+			if (x < 0.0f || y < 0.0f || x > camera.OutputSize.X() || y > camera.OutputSize.Y())
+			{
+				return;
+			}
+			x = Mathf::Clamp(0.f, camera.OutputSize.X() /*desc.Width / 4*/, x);
+			y = Mathf::Clamp(0.f, camera.OutputSize.Y(), y);
+
+			int bonusX = desc.Width - camera.OutputSize.X();
+
+			BYTE R = g_iMageBuffer[4 * (x + y * desc.Width)];
+			//BYTE G = g_iMageBuffer[1 + 4 * (x + y * desc.Width)];
+			//BYTE B = g_iMageBuffer[2 + 4 * (x + y * desc.Width)];
+
+			PickingEvent evt;
+			evt.Id = (unsigned int)R;
+			evt.Fire();
 		}
 	}
 }

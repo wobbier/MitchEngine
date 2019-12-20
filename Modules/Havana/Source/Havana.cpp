@@ -801,14 +801,6 @@ void Havana::DrawEntityRightClickMenu(Transform* transform)
 			DrawAddComponentList(GetEngine().GetWorld().lock()->GetEntity(transform->Parent).lock().get());
 			ImGui::EndMenu();
 		}
-		ImGui::MenuItem("Hello");
-		ImGui::MenuItem("Sailor");
-		if (ImGui::BeginMenu("Recurse.."))
-		{
-			//ShowExampleMenuFile();
-			ImGui::EndMenu();
-		}
-		// your popup code
 		ImGui::EndPopup();
 	}
 }
@@ -998,6 +990,10 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 					{
 						RenderTextureName = "Shadow";
 					}
+					if (ImGui::MenuItem("Pick Mask", "", false))
+					{
+						RenderTextureName = "Pick Mask";
+					}
 					ImGui::EndMenu();
 				}
 
@@ -1031,8 +1027,21 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 			{
 				srv = Renderer->SceneViewRTT->ShadowMapShaderResourceView;
 			}
+			else if (RenderTextureName == "Pick Mask")
+			{
+				srv = Renderer->SceneViewRTT->PickingResourceView;
+			}
 			// Get the current cursor position (where your window is)
 			ImVec2 pos = ImGui::GetCursorScreenPos();
+			Vector2 evt;
+			evt.SetX((GetEngine().GetWindow()->GetPosition().X() + Input::GetInstance().GetMousePosition().X()) - pos.x);
+			evt.SetY((GetEngine().GetWindow()->GetPosition().Y() + Input::GetInstance().GetMousePosition().Y()) - pos.y);
+			static bool oneTime = false;
+			if (Renderer && Input::GetInstance().GetMouseState().leftButton && !oneTime)
+			{
+				Renderer->PickScene(evt);
+				//oneTime = true;
+			}
 
 			DirectX::XMFLOAT4X4 objView;
 			if (SelectedTransform)

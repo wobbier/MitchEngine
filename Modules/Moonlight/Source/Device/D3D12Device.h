@@ -46,6 +46,11 @@ namespace Moonlight
 		Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> ShadowMapShaderResourceView;
 		Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> UIShaderResourceView;
 		Microsoft::WRL::ComPtr<ID3D11DepthStencilView> DepthStencilView;
+
+		Microsoft::WRL::ComPtr<ID3D11Texture2D> PickingTexture;
+		Microsoft::WRL::ComPtr<ID3D11RenderTargetView> PickingTargetView;
+		Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> PickingResourceView;
+
 		UINT Width = 0;
 		UINT Height = 0;
 		UINT Samples = 0;

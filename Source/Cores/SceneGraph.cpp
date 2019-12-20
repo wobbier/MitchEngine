@@ -37,7 +37,7 @@ void SceneGraph::UpdateRecursively(Transform* CurrentTransform)
 		if (Child->IsDirty)
 		{
 			OPTICK_EVENT("SceneGraph::Update::IsDirty");
-			Quaternion quat = Quaternion(Child->Rotation);
+			//Quaternion quat = Quaternion(Child->Rotation);
 			DirectX::SimpleMath::Matrix id = DirectX::XMMatrixIdentity();
 			DirectX::SimpleMath::Matrix rot = DirectX::SimpleMath::Matrix::CreateFromQuaternion(DirectX::SimpleMath::Quaternion::CreateFromYawPitchRoll(Child->Rotation[1], Child->Rotation[0], Child->Rotation[2]));// , Child->Rotation.Y(), Child->Rotation.Z());
 			DirectX::SimpleMath::Matrix scale = DirectX::SimpleMath::Matrix::CreateScale(Child->GetScale().GetInternalVec());
