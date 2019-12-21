@@ -254,8 +254,47 @@ bool EditorCore::OnEvent(const BaseEvent& evt)
 			}
 			if (ent.GetComponent<Mesh>().Id == casted.Id)
 			{
-				m_editor->ClearSelection();
-				m_editor->SelectedTransform = &ent.GetComponent<Transform>();
+				Transform* meshTransform = &ent.GetComponent<Transform>();
+				std::stack<Transform*> parentEnts;
+				parentEnts.push(meshTransform->ParentTransform);
+
+				static Transform* selectedParentObjec = nullptr;
+
+				while (parentEnts.size() > 0)
+				{
+					Transform* parent = parentEnts.top();
+					parentEnts.pop();
+					if (!parent)
+					{
+						continue;
+					}
+
+					WeakPtr<Entity> parentEnt = GetEngine().GetWorld().lock()->GetEntity(parent->Parent);
+					if (!parentEnt.expired() && parentEnt.lock()->HasComponent<Model>())
+					{
+						Transform* selectedModel = &parentEnt.lock()->GetComponent<Transform>();
+						if (m_editor->SelectedTransform == nullptr || selectedParentObjec != selectedModel)
+						{
+							m_editor->SelectedTransform = selectedModel;
+							selectedParentObjec = selectedModel;
+							break;
+						}
+
+						if (meshTransform != m_editor->SelectedTransform)
+						{
+							m_editor->SelectedTransform = meshTransform;
+						}
+						else
+						{
+							m_editor->SelectedTransform = selectedModel;
+						}
+						break;
+					}
+					else
+					{
+						parentEnts.push(parent->ParentTransform);
+					}
+				}
 			}
 		}
 		return true;

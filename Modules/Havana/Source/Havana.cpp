@@ -1037,12 +1037,15 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 			evt.SetX((GetEngine().GetWindow()->GetPosition().X() + Input::GetInstance().GetMousePosition().X()) - pos.x);
 			evt.SetY((GetEngine().GetWindow()->GetPosition().Y() + Input::GetInstance().GetMousePosition().Y()) - pos.y);
 			static bool oneTime = false;
-			if (Renderer && Input::GetInstance().GetMouseState().leftButton && !oneTime)
+			if (Renderer && Input::GetInstance().GetMouseState().leftButton && !oneTime && !ImGuizmo::IsUsing())
 			{
 				Renderer->PickScene(evt);
-				//oneTime = true;
+				oneTime = true;
 			}
-
+			if (!Input::GetInstance().GetMouseState().leftButton)
+			{
+				oneTime = false;
+			}
 			DirectX::XMFLOAT4X4 objView;
 			if (SelectedTransform)
 			{

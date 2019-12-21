@@ -202,7 +202,7 @@ namespace Moonlight
 		//context->OMSetRenderTargets(ARRAYSIZE(nullViews), nullViews, nullptr);
 		if (m_pickingRequested)
 		{
-			context->ClearRenderTargetView(SceneViewRTT->PickingTargetView.Get(), color);
+			context->ClearRenderTargetView(SceneViewRTT->PickingTargetView.Get(), DirectX::Colors::Transparent);
 
 			static PickingConstantBuffer buf2;
 			DrawPickingTexture(m_device->GetD3DDeviceContext(), buf2, editorCamera, SceneViewRTT);
@@ -499,7 +499,7 @@ namespace Moonlight
 				if (mesh.MeshShader && mesh.SingleMesh && mesh.MeshMaterial)
 				{
 					OPTICK_EVENT("Render::ModelCommand", Optick::Category::Rendering);
-					XMStoreFloat4x4(&constantBufferSceneData.model, XMMatrixTranspose(mesh.Transform));
+					XMStoreFloat4x4(&constantBufferSceneData.model, mesh.Transform);
 					if (mesh.MeshMaterial->GetTexture(TextureType::Normal))
 					{
 						constantBufferSceneData.HasNormalMap = TRUE;
@@ -1342,11 +1342,6 @@ namespace Moonlight
 
 		{
 			BYTE* g_iMageBuffer = reinterpret_cast<BYTE*>(mapInfo.pData);
-			//long g_captureSize = mapInfo.RowPitch * desc.Height;
-			//g_iMageBuffer = new UCHAR[g_captureSize];
-			//g_iMageBuffer = (UCHAR*)malloc(g_captureSize);
-			////Copying to UCHAR buffer 
-			//memcpy(g_iMageBuffer, pBuf.get(), g_captureSize);
 
 			int x = Pos.X();
 			int y = Pos.Y();
@@ -1362,10 +1357,14 @@ namespace Moonlight
 			BYTE R = g_iMageBuffer[4 * (x + y * desc.Width)];
 			//BYTE G = g_iMageBuffer[1 + 4 * (x + y * desc.Width)];
 			//BYTE B = g_iMageBuffer[2 + 4 * (x + y * desc.Width)];
+			BYTE A = g_iMageBuffer[3 + 4 * (x + y * desc.Width)];
 
-			PickingEvent evt;
-			evt.Id = (unsigned int)R;
-			evt.Fire();
+			if ((unsigned int)A > 0)
+			{
+				PickingEvent evt;
+				evt.Id = (unsigned int)R;
+				evt.Fire();
+			}
 		}
 	}
 }
