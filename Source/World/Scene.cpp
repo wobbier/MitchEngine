@@ -77,15 +77,17 @@ bool Scene::Load(SharedPtr<World> InWorld)
 		json level;
 
 		level = json::parse(CurrentLevel.Data);
-		json& scene = level["Scene"];
-		for (json& ent : scene)
-		{
-			LoadSceneObject(ent, nullptr);
-		}
+
 		json& cores = level["Cores"];
 		for (json& core : cores)
 		{
 			LoadCore(core);
+		}
+
+		json& scene = level["Scene"];
+		for (json& ent : scene)
+		{
+			LoadSceneObject(ent, nullptr);
 		}
 	}
 	else

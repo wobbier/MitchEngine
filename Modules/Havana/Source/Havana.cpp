@@ -690,9 +690,15 @@ void Havana::UpdateWorld(World* world, Transform* root, const std::vector<Entity
 	{
 		for (BaseComponent* comp : entity->GetAllComponents())
 		{
-			if (ImGui::CollapsingHeader(comp->GetName().c_str(), ImGuiTreeNodeFlags_DefaultOpen))
+			bool shouldClose = true;
+			if (ImGui::CollapsingHeader(comp->GetName().c_str(), &shouldClose, ImGuiTreeNodeFlags_DefaultOpen))
 			{
 				comp->OnEditorInspect();
+			}
+			if (!shouldClose)
+			{
+				entity->RemoveComponent(comp->GetName());
+				GetEngine().GetWorld().lock()->Simulate();
 			}
 		}
 		AddComponentPopup();
@@ -790,6 +796,13 @@ void Havana::DrawEntityRightClickMenu(Transform* transform)
 {
 	if (ImGui::BeginPopupContextItem())
 	{
+		if (ImGui::MenuItem("Add Child"))
+		{
+			WeakPtr<Entity> ent = GetEngine().GetWorld().lock()->CreateEntity();
+			ent.lock()->AddComponent<Transform>().SetParent(*transform);
+			GetEngine().GetWorld().lock()->Simulate();
+		}
+
 		if (ImGui::MenuItem("Delete", "Del"))
 		{
 			RecusiveDelete(GetEngine().GetWorld().lock()->GetEntity(transform->Parent), transform);
@@ -1156,6 +1169,7 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 							prevMatrixRotation[1] = matrixRotation[1];
 							prevMatrixRotation[2] = matrixRotation[2];
 							//memcpy(matrixScale, prevMatrixScale, sizeof(float) * 3);
+
 							SelectedTransform->SetPosition(Vector3(matrixTranslation[0], matrixTranslation[1], matrixTranslation[2]));
 							//SelectedTransform->SetRotation(Vector3(matrixRotation[0], matrixRotation[1], matrixRotation[2]));
 							//SelectedTransform->SetRotation(Vector3(matrixRotation[0] * 180.f / DirectX::XM_PI, matrixRotation[1] * 180.f / DirectX::XM_PI, matrixRotation[2] * 180.f / DirectX::XM_PI));

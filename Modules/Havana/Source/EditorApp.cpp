@@ -126,7 +126,6 @@ void EditorApp::OnInitialize()
 
 void EditorApp::PostRender()
 {
-	UpdateCameras();
 	Editor->Render(GetEngine().EditorCamera);
 }
 

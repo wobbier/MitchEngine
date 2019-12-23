@@ -39,6 +39,7 @@ void Transform::SetPosition(Vector3 NewPosition)
 	WorldTransform.GetInternalMatrix().Translation((Position - NewPosition).GetInternalVec());
 	Position = NewPosition;
 	SetDirty(true);
+	//UpdateRecursively(this);
 }
 
 
@@ -75,6 +76,25 @@ void Transform::Translate(Vector3 NewPosition)
 Vector3& Transform::GetPosition()
 {
 	return Position;
+}
+
+void Transform::UpdateRecursively(Transform* CurrentTransform)
+{
+	OPTICK_EVENT("SceneGraph::UpdateRecursively");
+	for (Transform* Child : CurrentTransform->Children)
+	{
+		//if (Child->IsDirty)
+		{
+			OPTICK_EVENT("SceneGraph::Update::IsDirty");
+			//Quaternion quat = Quaternion(Child->Rotation);
+			DirectX::SimpleMath::Matrix id = DirectX::XMMatrixIdentity();
+			DirectX::SimpleMath::Matrix rot = DirectX::SimpleMath::Matrix::CreateFromQuaternion(DirectX::SimpleMath::Quaternion::CreateFromYawPitchRoll(Child->Rotation[1], Child->Rotation[0], Child->Rotation[2]));// , Child->Rotation.Y(), Child->Rotation.Z());
+			DirectX::SimpleMath::Matrix scale = DirectX::SimpleMath::Matrix::CreateScale(Child->GetScale().GetInternalVec());
+			DirectX::SimpleMath::Matrix pos = XMMatrixTranslationFromVector(Child->GetPosition().GetInternalVec());
+			Child->SetWorldTransform(Matrix4((scale * rot * pos) * CurrentTransform->WorldTransform.GetInternalMatrix()));
+		}
+		UpdateRecursively(Child);
+	}
 }
 
 Vector3 Transform::GetWorldPosition()
@@ -145,12 +165,9 @@ void Transform::SetDirty(bool Dirty)
 {
 	if (Dirty && (Dirty != IsDirty) && Children.size())
 	{
-		for (auto Child : Children)
+		for (Transform* Child : Children)
 		{
-			if (!Child->IsDirty)
-			{
-				Child->SetDirty(Dirty);
-			}
+			Child->SetDirty(Dirty);
 		}
 	}
 	IsDirty = Dirty;

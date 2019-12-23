@@ -41,7 +41,7 @@ public:
 		{
 			auto ent = GetEngine().GetWorld().lock()->GetEntity(Parent);
 			Transform& transform = ent.lock()->GetComponent<Transform>();
-			auto dir = (Vector3() - transform.Position).Normalized();
+			auto dir = (Vector3() - transform.GetWorldPosition()).Normalized();
 			Direction = {dir.X(), dir.Y(), dir.Z(), 0.0f};
 		}
 	}

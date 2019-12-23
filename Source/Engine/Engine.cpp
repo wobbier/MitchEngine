@@ -150,14 +150,17 @@ void Engine::Run()
 
 			// Update our engine
 
+			SceneNodes->Update(deltaTime);
 			{
 				OPTICK_CATEGORY("MainLoop::GameUpdate", Optick::Category::GameLogic);
 				m_game->OnUpdate(deltaTime);
+				SceneNodes->Update(deltaTime);
 			}
 			GameWorld->UpdateLoadedCores(deltaTime);
 			SceneNodes->Update(deltaTime);
 
 			Cameras->Update(deltaTime);
+			SceneNodes->Update(deltaTime);
 			AudioThread->Update(deltaTime);
 			ModelRenderer->Update(deltaTime);
 

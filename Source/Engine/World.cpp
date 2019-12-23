@@ -62,7 +62,7 @@ void World::Simulate()
 		{
 			if (!InCore.second->IsRunning)
 			{
-				continue;
+				//continue;
 			}
 			auto CoreIndex = InCore.first;
 
@@ -245,6 +245,10 @@ void World::AddCore(BaseCore& InCore, TypeId InCoreTypeId, bool HandleUpdate)
 	{
 		m_loadedCores[InCoreTypeId] = Cores[InCoreTypeId].get();
 	}
+// 	for (auto ent : EntityCache.Alive)
+// 	{
+// 		ActivateEntity(*ent.get(), true);
+// 	}
 }
 
 bool World::HasCore(TypeId InType)

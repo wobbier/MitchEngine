@@ -28,6 +28,8 @@ public:
 	void SetPosition(Vector3 NewPosition);
 	Vector3& GetPosition();
 
+	void UpdateRecursively(Transform* CurrentTransform);
+
 	void SetRotation(Vector3 euler);
 	//void SetRotation(glm::quat quat);
 
@@ -56,9 +58,6 @@ public:
 	{
 		return Children;
 	}
-	Vector3 Position;
-	Vector3 Scale;
-	Vector3 Rotation;
 
 	Matrix4 WorldTransform;
 	std::string Name;
@@ -72,6 +71,9 @@ public:
 	void SetWorldTransform(Matrix4& NewWorldTransform);
 
 private:
+	Vector3 Position;
+	Vector3 Scale;
+	Vector3 Rotation;
 #if ME_EDITOR
 	virtual void OnEditorInspect() final;
 

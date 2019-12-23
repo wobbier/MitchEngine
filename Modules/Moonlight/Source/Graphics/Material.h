@@ -38,6 +38,7 @@ namespace Moonlight
 
 		void OnSerialize(json& InJson)
 		{
+			InJson["DiffuseColor"] = { DiffuseColor.X(),DiffuseColor.Y(),DiffuseColor.Z() };
 			for (auto texture : Textures)
 			{
 				if (texture)
@@ -51,6 +52,10 @@ namespace Moonlight
 
 		void OnDeserialize(const json& InJson)
 		{
+			if (InJson.contains("DiffuseColor"))
+			{
+				DiffuseColor = Vector3((float)InJson["DiffuseColor"][0], (float)InJson["DiffuseColor"][1], (float)InJson["DiffuseColor"][2]);
+			}
 			if (InJson.contains("Textures"))
 			{
 				for (unsigned int type = 0; type < TextureType::Count; ++type)

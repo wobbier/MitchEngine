@@ -62,7 +62,7 @@ void PhysicsCore::Update(float dt)
 		btRigidBody* rigidbody = RigidbodyComponent.InternalRigidbody;
 		btTransform& trans = rigidbody->getWorldTransform();
 
-		if (TransformComponent.IsDirty)
+		/*if (TransformComponent.IsDirty)
 		{
 			btTransform trans;
 			Vector3 transPos = TransformComponent.GetPosition();
@@ -71,7 +71,7 @@ void PhysicsCore::Update(float dt)
 			rigidbody->setWorldTransform(trans);
 			rigidbody->activate();
 		}
-		else
+		else*/
 		{
 			btTransform& trans = rigidbody->getWorldTransform();
 			btQuaternion rot;
