@@ -488,7 +488,7 @@ namespace Moonlight
 			{
 				for (const DebugColliderCommand& collider : DebugColliders)
 				{
-					shape->Draw(XMMatrixTranspose(collider.Transform), DirectX::XMLoadFloat4x4(&constantBufferSceneData.view), DirectX::XMLoadFloat4x4(&constantBufferSceneData.projection), Colors::Gray, nullptr, true);
+					shape->Draw(collider.Transform, DirectX::XMLoadFloat4x4(&constantBufferSceneData.view), DirectX::XMLoadFloat4x4(&constantBufferSceneData.projection), Colors::Gray, nullptr, true);
 				}
 			}
 			m_device->ResetCullingMode();

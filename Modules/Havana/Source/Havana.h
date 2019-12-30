@@ -16,6 +16,10 @@
 class Havana
 	: public EventReceiver
 {
+	struct ParentDescriptor
+	{
+		class Transform* Parent;
+	};
 public:
 	Havana(class Engine* GameEngine, class EditorApp* app, Moonlight::Renderer* renderer);
 
@@ -88,6 +92,7 @@ private:
 	float prevMatrixRotation[3];
 	float prevMatrixScale[3];
 	ImVec2 previousMousePos;
+	ParentDescriptor DragParentDescriptor;
 
 	DirectX::Keyboard::KeyboardStateTracker tracker;
 };

@@ -85,7 +85,7 @@ void Havana::InitUI()
 	ImVec4* colors = ImGui::GetStyle().Colors;
 	colors[ImGuiCol_Text] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
 	colors[ImGuiCol_TextDisabled] = ImVec4(0.50f, 0.50f, 0.50f, 1.00f);
-	colors[ImGuiCol_WindowBg] = ImVec4(0.06f, 0.06f, 0.06f, 0.94f);
+	colors[ImGuiCol_WindowBg] = ImVec4(0.07f, 0.07f, 0.07f, 1.0f);
 	colors[ImGuiCol_ChildBg] = ImVec4(1.00f, 1.00f, 1.00f, 0.00f);
 	colors[ImGuiCol_PopupBg] = ImVec4(0.08f, 0.08f, 0.08f, 0.94f);
 	colors[ImGuiCol_Border] = ImVec4(0.43f, 0.43f, 0.50f, 0.50f);
@@ -731,6 +731,15 @@ void Havana::UpdateWorldRecursive(Transform* root)
 		}
 		ImGui::EndDragDropTarget();
 	}
+	if (ImGui::BeginDragDropTarget())
+	{
+		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_CHILD_TRANSFORM"))
+		{
+				DragParentDescriptor.Parent->SetParent(*root);
+		}
+		ImGui::EndDragDropTarget();
+	}
+
 	int i = 0;
 	for (Transform* var : root->Children)
 	{
@@ -749,6 +758,24 @@ void Havana::UpdateWorldRecursive(Transform* root)
 
 			DrawEntityRightClickMenu(var);
 
+			if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
+			{
+				//files.FullPath = dir.FullPath;
+				DragParentDescriptor.Parent = var;
+				ImGui::SetDragDropPayload("DND_CHILD_TRANSFORM", &DragParentDescriptor, sizeof(ParentDescriptor));
+				ImGui::Text(var->GetName().c_str());
+				ImGui::EndDragDropSource();
+			}
+
+			if (ImGui::BeginDragDropTarget())
+			{
+				if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_CHILD_TRANSFORM"))
+				{
+					DragParentDescriptor.Parent->SetParent(*var);
+				}
+				ImGui::EndDragDropTarget();
+			}
+
 			//if (open)
 			//{
 			//	// your tree code stuff
@@ -766,6 +793,24 @@ void Havana::UpdateWorldRecursive(Transform* root)
 			}
 
 			DrawEntityRightClickMenu(var);
+
+			if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
+			{
+				DragParentDescriptor.Parent = var;
+				//files.FullPath = dir.FullPath;
+				ImGui::SetDragDropPayload("DND_CHILD_TRANSFORM", &DragParentDescriptor, sizeof(ParentDescriptor));
+				ImGui::Text(var->GetName().c_str());
+				ImGui::EndDragDropSource();
+			}
+
+			if (ImGui::BeginDragDropTarget())
+			{
+				if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_CHILD_TRANSFORM"))
+				{
+					DragParentDescriptor.Parent->SetParent(*var);
+				}
+				ImGui::EndDragDropTarget();
+			}
 
 			if (open)
 			{
