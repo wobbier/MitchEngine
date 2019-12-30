@@ -25,6 +25,9 @@ public:
 
 	bool IsInitialized = false;
 
+	bool PlayOnAwake = false;
+	bool Loop = false;
+
 	std::unique_ptr<DirectX::SoundEffect> SoundEffectFile;
 	std::unique_ptr<DirectX::SoundEffectInstance> testSoundEffectInstance;
 

@@ -86,3 +86,16 @@ void AudioCore::Init()
 {
 
 }
+
+void AudioCore::OnStart()
+{
+	auto AudioEntities = GetEntities();
+	for (auto& ent : AudioEntities)
+	{
+		AudioSource& audioSource = ent.GetComponent<AudioSource>();
+		if (audioSource.PlayOnAwake)
+		{
+			audioSource.Play(audioSource.Loop);
+		}
+	}
+}

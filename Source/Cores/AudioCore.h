@@ -33,6 +33,9 @@ private:
 	std::unique_ptr<DirectX::AudioEngine> mEngine;
 
 	std::map<std::string, AudioSource> m_cachedSounds;
+
+	virtual void OnStart() override;
+
 };
 
 ME_REGISTER_CORE(AudioCore);

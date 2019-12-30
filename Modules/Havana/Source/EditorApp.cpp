@@ -115,7 +115,6 @@ void EditorApp::OnInitialize()
 		NewSceneEvent evt;
 		evt.Fire();
 		GetEngine().GetWorld().lock()->AddCore<EditorCore>(*EditorSceneManager);
-		GetEngine().GetWorld().lock()->Start();
 		GetEngine().LoadScene(InitialLevel);
 	}
 	else
@@ -145,7 +144,7 @@ void EditorApp::StopGame()
 		NewSceneEvent evt;
 		evt.Fire();
 		GetEngine().LoadScene(InitialLevel);
-		//GetEngine().GetWorld().lock()->Stop();
+		GetEngine().GetWorld().lock()->Stop();
 		m_isGameRunning = false;
 	}
 }

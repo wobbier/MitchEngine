@@ -44,6 +44,8 @@ void AudioSource::Serialize(json& outJson)
 	Component::Serialize(outJson);
 
 	outJson["FilePath"] = FilePath.LocalPath;
+	outJson["PlayOnAwake"] = PlayOnAwake;
+	outJson["Loop"] = Loop;
 }
 
 void AudioSource::Deserialize(const json& inJson)
@@ -51,6 +53,14 @@ void AudioSource::Deserialize(const json& inJson)
 	if (inJson.contains("FilePath"))
 	{
 		FilePath = Path(inJson["FilePath"]);
+	}
+	if (inJson.contains("PlayOnAwake"))
+	{
+		PlayOnAwake = inJson["PlayOnAwake"];
+	}
+	if (inJson.contains("Loop"))
+	{
+		Loop = inJson["Loop"];
 	}
 }
 
@@ -104,6 +114,14 @@ void AudioSource::OnEditorInspect()
 			{
 				Play();
 			}
+		}
+
+		if (ImGui::Checkbox("Play On Awake", &PlayOnAwake))
+		{
+		}
+
+		if (ImGui::Checkbox("Loop", &Loop))
+		{
 		}
 	}
 }
