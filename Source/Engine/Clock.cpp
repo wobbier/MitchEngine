@@ -29,7 +29,7 @@ void Clock::Update()
 
 float Clock::GetTimeInMilliseconds()
 {
-	return GetTimeInSeconds() / 1000.0f;
+	return GetTimeInSeconds() * 1000.0f;
 }
 
 float Clock::GetTimeInSeconds()

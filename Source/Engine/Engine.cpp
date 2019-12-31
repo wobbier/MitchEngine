@@ -149,18 +149,15 @@ void Engine::Run()
 			GameWorld->Simulate();
 
 			// Update our engine
-
+			GameWorld->UpdateLoadedCores(deltaTime);
 			SceneNodes->Update(deltaTime);
+			Cameras->Update(0.0f);
+
 			{
 				OPTICK_CATEGORY("MainLoop::GameUpdate", Optick::Category::GameLogic);
 				m_game->OnUpdate(deltaTime);
-				SceneNodes->Update(deltaTime);
 			}
-			GameWorld->UpdateLoadedCores(deltaTime);
-			SceneNodes->Update(deltaTime);
-
-			Cameras->Update(deltaTime);
-			SceneNodes->Update(deltaTime);
+			
 			AudioThread->Update(deltaTime);
 			ModelRenderer->Update(deltaTime);
 
@@ -193,6 +190,7 @@ void Engine::Run()
 
 			AccumulatedTime = std::fmod(AccumulatedTime, MaxDeltaTime);
 		}
+
 		Sleep(1);
 	}
 	EngineConfig->Save();
