@@ -238,6 +238,19 @@ void Havana::DrawOpenFilePopup()
 	}
 }
 
+void RecusiveDelete(WeakPtr<Entity> ent, Transform* trans)
+{
+	if (!trans)
+	{
+		return;
+	}
+	for (auto child : trans->GetChildren())
+	{
+		RecusiveDelete(GetEngine().GetWorld().lock()->GetEntity(child->Parent), child);
+	}
+	ent.lock()->MarkForDelete();
+};
+
 void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<void()> PauseGameFunc, std::function<void()> StopGameFunc)
 {
 	ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0.0f, 12.f));
@@ -631,6 +644,15 @@ void Havana::UpdateWorld(World* world, Transform* root, const std::vector<Entity
 	ImGui::EndMenuBar();
 	if (ImGui::CollapsingHeader("Scene", ImGuiTreeNodeFlags_DefaultOpen))
 	{
+		if (ImGui::IsWindowFocused())
+		{
+			if (SelectedTransform && Input::GetInstance().GetKeyboardState().Delete)
+			{
+				auto ent = GetEngine().GetWorld().lock()->GetEntity(SelectedTransform->Parent);
+				RecusiveDelete(ent, SelectedTransform);
+				ClearSelection();
+			}
+		}
 		UpdateWorldRecursive(root);
 	}
 	if (ents.size() > 0)
@@ -717,25 +739,11 @@ void Havana::UpdateWorldRecursive(Transform* root)
 		return;
 	if (ImGui::BeginDragDropTarget())
 	{
-		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_ASSET_BROWSER"))
-		{
-			IM_ASSERT(payload->DataSize == sizeof(AssetBrowser::AssetDescriptor));
-			AssetBrowser::AssetDescriptor payload_n = *(AssetBrowser::AssetDescriptor*)payload->Data;
+		HandleAssetDragAndDrop(root);
 
-			if (payload_n.Type == AssetBrowser::AssetType::Model)
-			{
-				auto ent = GetEngine().GetWorld().lock()->CreateEntity();
-				ent.lock()->AddComponent<Transform>(payload_n.Name.substr(0, payload_n.Name.find_last_of('.'))).SetParent(*root);
-				ent.lock()->AddComponent<Model>((payload_n.FullPath.FullPath));
-			}
-		}
-		ImGui::EndDragDropTarget();
-	}
-	if (ImGui::BeginDragDropTarget())
-	{
 		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_CHILD_TRANSFORM"))
 		{
-				DragParentDescriptor.Parent->SetParent(*root);
+			DragParentDescriptor.Parent->SetParent(*root);
 		}
 		ImGui::EndDragDropTarget();
 	}
@@ -769,6 +777,8 @@ void Havana::UpdateWorldRecursive(Transform* root)
 
 			if (ImGui::BeginDragDropTarget())
 			{
+				HandleAssetDragAndDrop(var);
+
 				if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_CHILD_TRANSFORM"))
 				{
 					DragParentDescriptor.Parent->SetParent(*var);
@@ -805,6 +815,8 @@ void Havana::UpdateWorldRecursive(Transform* root)
 
 			if (ImGui::BeginDragDropTarget())
 			{
+				HandleAssetDragAndDrop(var);
+
 				if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_CHILD_TRANSFORM"))
 				{
 					DragParentDescriptor.Parent->SetParent(*var);
@@ -824,18 +836,25 @@ void Havana::UpdateWorldRecursive(Transform* root)
 	}
 }
 
-void RecusiveDelete(WeakPtr<Entity> ent, Transform* trans)
+void Havana::HandleAssetDragAndDrop(Transform* root)
 {
-	if (!trans)
+	if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_ASSET_BROWSER"))
 	{
-		return;
+		IM_ASSERT(payload->DataSize == sizeof(AssetBrowser::AssetDescriptor));
+		AssetBrowser::AssetDescriptor payload_n = *(AssetBrowser::AssetDescriptor*)payload->Data;
+
+		if (payload_n.Type == AssetBrowser::AssetType::Model)
+		{
+			auto ent = GetEngine().GetWorld().lock()->CreateEntity();
+			ent.lock()->AddComponent<Transform>(payload_n.Name.substr(0, payload_n.Name.find_last_of('.'))).SetParent(*root);
+			ent.lock()->AddComponent<Model>((payload_n.FullPath.FullPath));
+		}
+		if (payload_n.Type == AssetBrowser::AssetType::Prefab)
+		{
+			WeakPtr<Entity> ent = GetEngine().GetWorld().lock()->CreateFromPrefab(payload_n.FullPath.FullPath, root);
+		}
 	}
-	for (auto child : trans->GetChildren())
-	{
-		RecusiveDelete(GetEngine().GetWorld().lock()->GetEntity(child->Parent), child);
-	}
-	ent.lock()->MarkForDelete();
-};
+}
 
 void Havana::DrawEntityRightClickMenu(Transform* transform)
 {

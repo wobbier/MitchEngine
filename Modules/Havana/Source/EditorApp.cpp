@@ -26,7 +26,9 @@ EditorApp::EditorApp()
 {
 	std::vector<TypeId> events;
 	events.push_back(NewSceneEvent::GetEventId());
+	events.push_back(SceneLoadedEvent::GetEventId());
 	EventManager::GetInstance().RegisterReceiver(this, events);
+
 }
 
 EditorApp::~EditorApp()
@@ -167,6 +169,12 @@ bool EditorApp::OnEvent(const BaseEvent& evt)
 		GetEngine().LoadScene("");
 		GetEngine().InitGame();
 		GetEngine().GetWorld().lock()->Simulate();
+	}
+	else if (evt.GetEventId() == SceneLoadedEvent::GetEventId())
+	{
+		const SceneLoadedEvent& test = static_cast<const SceneLoadedEvent&>(evt);
+
+		Editor->SetWindowTitle("Havana - " + test.LoadedScene->FilePath.LocalPath);
 	}
 
 	return false;

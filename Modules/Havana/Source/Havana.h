@@ -16,11 +16,12 @@
 class Havana
 	: public EventReceiver
 {
+public:
 	struct ParentDescriptor
 	{
 		class Transform* Parent;
 	};
-public:
+
 	Havana(class Engine* GameEngine, class EditorApp* app, Moonlight::Renderer* renderer);
 
 	void InitUI();
@@ -74,6 +75,8 @@ public:
 
 	virtual bool OnEvent(const BaseEvent& evt) override;
 private:
+	void HandleAssetDragAndDrop(Transform* root);
+
 	class Engine* m_engine = nullptr;
 	class EditorApp* m_app = nullptr;
 	class Transform* m_rootTransform = nullptr;

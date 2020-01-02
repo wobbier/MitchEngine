@@ -5,6 +5,7 @@
 #include "Pointers.h"
 #include "Logger.h"
 #include "ECS/CoreDetail.h"
+#include "File.h"
 
 #define DEFAULT_ENTITY_POOL_SIZE 50
 
@@ -231,6 +232,66 @@ void World::DestroyEntity(Entity &InEntity)
 			break;
 		}
 	}
+}
+
+WeakPtr<Entity> World::CreateFromPrefab(std::string& FilePath, Transform* Parent)
+{
+	File PrefabSource = File(Path(FilePath));
+	nlohmann::json Prefab = nlohmann::json::parse(PrefabSource.Read());
+	return LoadPrefab(Prefab, Parent, Parent);
+}
+
+WeakPtr<Entity> World::LoadPrefab(const nlohmann::json& obj, Transform* parent, Transform* root)
+{
+	WeakPtr<Entity> ent;
+	World* GameWorld = this;
+	if (parent && parent != root)
+	{
+		auto t = parent->GetChildByName(obj["Name"]);
+		if (t)
+		{
+			ent = GameWorld->GetEntity(t->Parent);
+		}
+	}
+	if (!ent.lock())
+	{
+		ent = GameWorld->CreateEntity();
+	}
+	ent.lock()->IsLoading = true;
+	Transform* transComp = nullptr;
+	for (const json& comp : obj["Components"])
+	{
+		if (comp.is_null())
+		{
+			continue;
+		}
+		BaseComponent* addedComp = ent.lock()->AddComponentByName(comp["Type"]);
+		if (comp["Type"] == "Transform")
+		{
+			transComp = static_cast<Transform*>(addedComp);
+			if (parent)
+			{
+				transComp->SetParent(*parent);
+			}
+			transComp->SetName(obj["Name"]);
+		}
+		if (addedComp)
+		{
+			addedComp->Deserialize(comp);
+			addedComp->Init();
+		}
+	}
+	ent.lock()->SetActive(true);
+	ent.lock()->IsLoading = false;
+
+	if (obj.contains("Children"))
+	{
+		for (const json& child : obj["Children"])
+		{
+			LoadPrefab(child, transComp, root);
+		}
+	}
+	return ent;
 }
 
 void World::AddCore(BaseCore& InCore, TypeId InCoreTypeId, bool HandleUpdate)

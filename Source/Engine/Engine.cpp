@@ -203,8 +203,6 @@ bool Engine::OnEvent(const BaseEvent& evt)
 		const LoadSceneEvent& test = static_cast<const LoadSceneEvent&>(evt);
 		//InputEnabled = test.Enabled;
 		LoadScene(test.Level);
-
-		return true;
 	}
 
 	return false;
@@ -255,11 +253,12 @@ void Engine::LoadScene(const std::string& SceneFile)
 
 	GameWorld->Cleanup();
 	CurrentScene = new Scene(SceneFile);
-#if ME_EDITOR
-	//Editor->SetWindowTitle("Havana - " + CurrentScene->Path.LocalPath);
-#endif
 
 	if (!CurrentScene->Load(GameWorld))
 	{
 	}
+
+	SceneLoadedEvent evt;
+	evt.LoadedScene = CurrentScene;
+	evt.Fire();
 }

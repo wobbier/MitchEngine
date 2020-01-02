@@ -10,6 +10,8 @@
 #include "Pointers.h"
 #include <vector>
 
+class Transform;
+
 class World
 {
 private:
@@ -26,6 +28,9 @@ private:
 	};
 
 	typedef std::unordered_map<TypeId, std::unique_ptr<BaseCore, CoreDeleter>> CoreArray;
+
+	// Access to components
+	friend class Entity;
 public:
 	template <typename TCore>
 	void AddCore(TCore& inCore);
@@ -56,7 +61,11 @@ public:
 
 	void UpdateLoadedCores(float DeltaTime);
 
-	void DestroyEntity(Entity &InEntity);
+	void MarkEntityForDelete(Entity& EntityToDestroy);
+
+	void DestroyEntity(Entity& InEntity);
+
+	WeakPtr<Entity> CreateFromPrefab(std::string& FilePath, Transform* Parent = nullptr);
 
 	std::size_t GetEntityCount() const;
 	WeakPtr<Entity> GetEntity(EntityID id);
@@ -131,10 +140,7 @@ private:
 
 	void ActivateEntity(Entity& InEntity, const bool InActive);
 
-	// Access to components
-	friend class Entity;
-public:
-	void MarkEntityForDelete(Entity& EntityToDestroy);
+	WeakPtr<Entity> LoadPrefab(const nlohmann::json& obj, Transform* parent, Transform* root);
 };
 
 template<typename TCore>

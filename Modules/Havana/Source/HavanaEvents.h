@@ -28,6 +28,18 @@ public:
 	std::string Level;
 };
 
+class SceneLoadedEvent
+	: public Event<SceneLoadedEvent>
+{
+public:
+	SceneLoadedEvent()
+		: Event()
+	{
+	}
+
+	class Scene* LoadedScene = nullptr;
+};
+
 class TestEditorEvent
 	: public Event<TestEditorEvent>
 {

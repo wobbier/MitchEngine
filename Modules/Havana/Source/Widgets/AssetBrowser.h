@@ -11,6 +11,9 @@
 #include "Pointers.h"
 #include "Graphics/Texture.h"
 #include "File.h"
+#include "nlohmann/json.hpp"
+
+class Transform;
 
 enum class FileStatus : unsigned int
 {
@@ -27,11 +30,14 @@ public:
 		Unknown = 0,
 		Folder,
 		Texture,
+		Audio,
 		Model,
 		Level,
 		Shader,
 		Template,
-		Text
+		Text,
+		Prefab,
+		Count
 	};
 	struct AssetDescriptor
 	{
@@ -61,6 +67,8 @@ public:
 	void ProccessDirectory(const std::filesystem::directory_entry& file);
 private:
 	bool ProccessDirectoryRecursive(std::string& dir, Directory& dirRef, const std::filesystem::directory_entry& file);
+
+	void SavePrefab(nlohmann::json& d, Transform* CurrentTransform, bool IsRoot);
 	std::unordered_map<std::string, std::filesystem::file_time_type> Paths;
 	bool IsRunning = true;
 	bool Contains(const std::string& key);
