@@ -30,6 +30,7 @@
 #include "Havana.h"
 #include "Cores/EditorCore.h"
 #endif
+#include <libloaderapi.h>
 
 UICore::UICore(IWindow* window)
 	: Base(ComponentFilter().Requires<Transform>().Requires<BasicUIView>())
@@ -42,10 +43,18 @@ UICore::UICore(IWindow* window)
 	ultralight::Platform& platform = ultralight::Platform::instance();
 	ultralight::Config config_;
 	config_.device_scale_hint = 1.0f;
+	config_.enable_images = true;
 	config_.face_winding = ultralight::FaceWinding::kFaceWinding_Clockwise;
 
-	Path fileSystemRoot = Path("Assets/UI");
-	m_fs.reset(new ultralight::FileSystemBasic(fileSystemRoot.FullPath.c_str()));
+	HMODULE hModule = GetModuleHandleW(NULL);
+	WCHAR path[MAX_PATH];
+	GetModuleFileNameW(hModule, path, MAX_PATH);
+	PathRemoveFileSpecW(path);
+
+	PathAppendW(path, L"");
+
+	Path fileSystemRoot = Path("");
+	m_fs.reset(new ultralight::FileSystemBasic(fileSystemRoot.Directory.c_str()));
 
 	m_context.reset(new ultralight::GPUContextD3D11());
 
@@ -210,9 +219,10 @@ void UICore::InitUIView(BasicUIView& view)
 {
 	ultralight::Ref<ultralight::View> newView = m_uiRenderer->CreateView(GetEngine().MainCamera.OutputSize.X(), GetEngine().MainCamera.OutputSize.Y(), true);
 	ultralight::RefPtr<ultralight::Overlay> overlay = ultralight::Overlay::Create(*m_window.get(), newView, 0, 0);
-	overlay->view()->LoadHTML(view.SourceFile.Read().c_str());
+	//overlay->view()->LoadHTML(view.SourceFile.Read().c_str());
 	overlay->view()->set_load_listener(&view);
-	//overlay->view()->LoadURL("https://wobbier.com/");
+	ultralight::String str = "file:///" + ultralight::String(view.FilePath.LocalPath.c_str());
+	overlay->view()->LoadURL(str);
 	m_overlays.push_back(overlay);
 	GetOverlayManager()->Add(overlay.get());
 	view.IsInitialized = true;
