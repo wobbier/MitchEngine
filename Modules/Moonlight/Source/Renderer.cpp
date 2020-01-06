@@ -384,7 +384,7 @@ namespace Moonlight
 
 		if (camera.Skybox)
 		{
-			XMStoreFloat4x4(&constantBufferSceneData.model, XMMatrixTranspose(XMMatrixTranslation(eye[0], eye[1], eye[2])));
+			XMStoreFloat4x4(&constantBufferSceneData.model, XMMatrixTranslation(eye[0], eye[1], eye[2]));
 			XMStoreFloat4x4(&constantBufferSceneData.modelInv, XMMatrixInverse(nullptr, XMMatrixTranslation(eye[0], eye[1], eye[2])));
 			// Prepare the constant buffer to send it to the graphics device.
 			context->UpdateSubresource1(

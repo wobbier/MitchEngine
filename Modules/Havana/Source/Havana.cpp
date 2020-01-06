@@ -30,6 +30,7 @@
 #include "EditorApp.h"
 #include "Components/Graphics/Model.h"
 #include "Commands/EditorCommands.h"
+#include "optick.h"
 namespace fs = std::filesystem;
 
 Havana::Havana(Engine* GameEngine, EditorApp* app, Moonlight::Renderer* renderer)
@@ -150,6 +151,7 @@ bool show_demo_window = true;
 bool show_dockspace = true;
 void Havana::NewFrame(std::function<void()> StartGameFunc, std::function<void()> PauseGameFunc, std::function<void()> StopGameFunc)
 {
+	OPTICK_EVENT("Havana::NewFrame");
 	ImGui_ImplDX11_NewFrame();
 	ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();

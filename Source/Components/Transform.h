@@ -31,6 +31,7 @@ public:
 	void UpdateRecursively(Transform* CurrentTransform);
 
 	void SetRotation(Vector3 euler);
+	Vector3 GetRotation();
 	//void SetRotation(glm::quat quat);
 
 	void SetScale(Vector3 NewScale);

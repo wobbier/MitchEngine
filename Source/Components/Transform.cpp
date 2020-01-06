@@ -184,6 +184,12 @@ void Transform::SetRotation(Vector3 euler)
 	Rotation = euler;
 	SetDirty(true);
 }
+
+Vector3 Transform::GetRotation()
+{
+	return Rotation;
+}
+
 //
 //void Transform::SetRotation(glm::quat quat)
 //{

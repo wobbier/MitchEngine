@@ -12,6 +12,7 @@
 #include "Components/Transform.h"
 #include "Engine/Engine.h"
 #include "Havana.h"
+#include "HavanaEvents.h"
 
 AssetBrowser::AssetBrowser(const std::string& pathToWatch, std::chrono::duration<int, std::milli> delay)
 	: PathToWatch(pathToWatch)
@@ -181,9 +182,18 @@ void AssetBrowser::Recursive(Directory& dir)
 			node_clicked = i;
 			if (ImGui::IsMouseDoubleClicked(0))
 			{
+				if (files.FullPath.LocalPath.rfind(".lvl") != std::string::npos)
+				{
+					LoadSceneEvent evt;
+					evt.Level = files.FullPath.LocalPath;
+					evt.Fire();
+				}
+				else
+				{
 #if _WIN32
 				ShellExecute(NULL, L"open", StringUtils::ToWString(SelectedAsset->FullPath.FullPath).c_str(), NULL, NULL, SW_SHOWDEFAULT);
 #endif
+				}
 			}
 		}
 		if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))

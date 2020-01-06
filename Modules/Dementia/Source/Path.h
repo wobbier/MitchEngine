@@ -58,6 +58,7 @@ public:
 			{
 				FullPath = std::move(tempPath);
 				assetPrefix = assetPrefix.append("Engine/");
+				Exists = true;
 			}
 		}
 		else

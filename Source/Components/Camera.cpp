@@ -163,7 +163,15 @@ void Camera::OnEditorInspect()
 			ImGui::EndCombo();
 		}
 		ImGui::SameLine();
-		ImGui::ImageButton(((Skybox) ? (void*)Skybox->SkyMaterial->GetTexture(Moonlight::TextureType::Diffuse)->ShaderResourceView : nullptr), ImVec2(30, 30));
+		if (Skybox)
+		{
+			const Moonlight::Texture* texture = Skybox->SkyMaterial->GetTexture(Moonlight::TextureType::Diffuse);
+			ImGui::ImageButton(((texture) ? (void*)texture->ShaderResourceView : nullptr), ImVec2(30, 30));
+		}
+		else
+		{
+			ImGui::ImageButton(nullptr, ImVec2(30, 30));
+		}
 		ImGui::SameLine();
 		ImGui::Text("Skybox Texture");
 	}

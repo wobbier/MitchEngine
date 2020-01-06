@@ -1,4 +1,6 @@
 #include "Logger.h"
+#include <wtypes.h>
+#include <wincon.h>
 
 std::vector<Logger::LogEntry> Logger::Messages;
 
@@ -24,11 +26,13 @@ bool Logger::LogMessage(Logger::LogType priority, std::string message)
 
 	mLogFile.open(mLogFileLocation, std::ios_base::app);
 
+	int color = 15;
 	char* type;
 	switch (priority)
 	{
 	case LogType::Info:
 		type = "[Info]: ";
+		color = 8;
 		break;
 	case LogType::Trace:
 		type = "[Trace]: ";
@@ -38,17 +42,23 @@ bool Logger::LogMessage(Logger::LogType priority, std::string message)
 		break;
 	case LogType::Warning:
 		type = "[Warning]: ";
+		color = 14;
 		break;
 	case LogType::Error:
 		type = "[! Error !]: ";
+		color = 12;
 		break;
 	default:
 		type = "[Unknown]: ";
 		break;
 	}
+	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+	SetConsoleTextAttribute(hConsole, color);
 
 	mLogFile << type << message.c_str() << std::endl;
 	std::cout << type << message.c_str() << std::endl;
+
+	SetConsoleTextAttribute(hConsole, 15);
 
 #if ME_EDITOR
 	Messages.emplace_back(LogEntry{ priority, std::move(message) });

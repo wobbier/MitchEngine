@@ -197,7 +197,7 @@ void EditorCore::Update(float dt)
 
 void EditorCore::Update(float dt, Transform* rootTransform)
 {
-	OPTICK_EVENT("SceneGraph::Update");
+	OPTICK_EVENT("EditorCore::Update");
 	Update(dt);
 	RootTransform = rootTransform;
 	if (TryingToSaveNewScene)
