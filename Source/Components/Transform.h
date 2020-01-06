@@ -32,6 +32,7 @@ public:
 
 	void SetRotation(Vector3 euler);
 	Vector3 GetRotation();
+	Vector3 GetWorldRotation();
 	//void SetRotation(glm::quat quat);
 
 	void SetScale(Vector3 NewScale);

@@ -21,6 +21,8 @@
 #include "HavanaEvents.h"
 #include "RenderCommands.h"
 #include "Events/Event.h"
+#include <SimpleMath.h>
+#include "Math/Matirx4.h"
 
 EditorApp::EditorApp()
 {
@@ -37,7 +39,6 @@ EditorApp::~EditorApp()
 
 void EditorApp::OnStart()
 {
-	UpdateCameras();
 }
 
 void EditorApp::OnUpdate(float DeltaTime)
@@ -76,6 +77,22 @@ void EditorApp::UpdateCameras()
 
 	Moonlight::CameraData MainCamera;
 	MainCamera.Position = Camera::CurrentCamera->Position;
+	WeakPtr<Entity> ent = GetEngine().GetWorld().lock()->GetEntity(Camera::CurrentCamera->Parent);
+	if (ent.lock() && ent.lock()->HasComponent<Transform>())
+	{
+		Transform& trans = ent.lock()->GetComponent<Transform>();
+		DirectX::SimpleMath::Vector3 test;
+		trans.GetMatrix().GetInternalMatrix().Forward(test);
+		float Pitch = trans.GetWorldRotation().X();
+
+		float Yaw = trans.GetWorldRotation().Y();
+		Vector3 Front;
+		Front.SetX(cos(Yaw) * cos(Pitch));
+		Front.SetY(sin(Pitch));
+		Front.SetZ(sin(Yaw) * cos(Pitch));
+		Camera::CurrentCamera->Front = Front.Normalized();
+	}
+
 	MainCamera.Front = Camera::CurrentCamera->Front;
 	MainCamera.Up = Camera::CurrentCamera->Up;
 	MainCamera.OutputSize = MainOutputSize;

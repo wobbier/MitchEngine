@@ -190,6 +190,15 @@ Vector3 Transform::GetRotation()
 	return Rotation;
 }
 
+Vector3 Transform::GetWorldRotation()
+{
+	DirectX::SimpleMath::Quaternion quat;
+
+	WorldTransform.GetInternalMatrix().Decompose(DirectX::SimpleMath::Vector3(), quat, DirectX::SimpleMath::Vector3());
+	Quaternion quat2(quat);
+	return Vector3(quat2.GetInternalVec().x, quat2.GetInternalVec().y, quat2.GetInternalVec().z);
+}
+
 //
 //void Transform::SetRotation(glm::quat quat)
 //{

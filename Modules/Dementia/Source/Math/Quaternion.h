@@ -15,15 +15,20 @@ public:
 	{
 
 	}
+	Quaternion(const DirectX::SimpleMath::Quaternion& Quat)
+		: m_vector(Quat)
+	{
+
+	}
 	~Quaternion()
 	{
 
 	}
 
-	DirectX::SimpleMath::Vector4& GetInternalVec()
+	DirectX::SimpleMath::Quaternion& GetInternalVec()
 	{
 		return m_vector;
 	}
 private:
-	DirectX::SimpleMath::Vector4 m_vector;
+	DirectX::SimpleMath::Quaternion m_vector;
 };
