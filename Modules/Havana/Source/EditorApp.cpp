@@ -90,7 +90,7 @@ void EditorApp::UpdateCameras()
 		Front.SetX(cos(Yaw) * cos(Pitch));
 		Front.SetY(sin(Pitch));
 		Front.SetZ(sin(Yaw) * cos(Pitch));
-		Camera::CurrentCamera->Front = Front.Normalized();
+		//Camera::CurrentCamera->Front = Front.Normalized();
 	}
 
 	MainCamera.Front = Camera::CurrentCamera->Front;
