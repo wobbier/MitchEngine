@@ -7,6 +7,8 @@ class Vector3
 {
 public:
 
+	static const Vector3 Up;
+
 #pragma region Constructors
 
 	Vector3(float x, float y, float z)
@@ -173,6 +175,8 @@ public:
 private:
 	DirectX::SimpleMath::Vector3 m_vector;
 };
+
+__declspec(selectany) const Vector3 Vector3::Up = Vector3(0.f, 1.f, 0.f);
 
 inline Vector3 operator*(float lhs, const Vector3 rhs)
 {

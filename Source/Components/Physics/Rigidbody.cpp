@@ -3,6 +3,7 @@
 #include "Cores/PhysicsCore.h"
 #include "BulletDynamics/Dynamics/btDiscreteDynamicsWorld.h"
 #include "imgui.h"
+#include "Utils/HavanaUtils.h"
 
 Rigidbody::Rigidbody(ColliderType type)
 	: Component("Rigidbody")
@@ -60,6 +61,21 @@ void Rigidbody::SetMass(float InMass)
 	}
 }
 
+void Rigidbody::Serialize(json& outJson)
+{
+	Component::Serialize(outJson);
+
+	outJson["Scale"] = { Scale.X(), Scale.Y(), Scale.Z() };
+}
+
+void Rigidbody::Deserialize(const json& inJson)
+{
+	if (inJson.contains("Scale"))
+	{
+		SetScale(Vector3((float)inJson["Scale"][0], (float)inJson["Scale"][1], (float)inJson["Scale"][2]));
+	}
+}
+
 void Rigidbody::CreateObject(const Vector3& Position, Vector3& Rotation, btDiscreteDynamicsWorld* world)
 {
 	switch (Type)
@@ -102,6 +118,8 @@ void Rigidbody::OnEditorInspect()
 	ImGui::Text("Collider Type:");
 	ImGui::SameLine();
 	ImGui::Text(name);
+
+	HavanaUtils::EditableVector3("Hitbox Scale", Scale);
 }
 
 #endif

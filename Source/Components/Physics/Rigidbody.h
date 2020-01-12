@@ -45,6 +45,10 @@ public:
 
 		return Matrix4(transform);
 	}
+
+	virtual void Serialize(json& outJson) override;
+	virtual void Deserialize(const json& inJson) override;
+
 private:
 	void CreateObject(const Vector3& Position, Vector3& Rotation, class btDiscreteDynamicsWorld* world);
 	btRigidBody* InternalRigidbody = nullptr;

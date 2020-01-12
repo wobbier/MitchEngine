@@ -163,7 +163,7 @@ void Transform::OnEditorInspect()
 
 void Transform::SetDirty(bool Dirty)
 {
-	if (Dirty && (Dirty != IsDirty) && Children.size())
+	if (Dirty && (Dirty != IsDirty))
 	{
 		for (Transform* Child : Children)
 		{
@@ -196,6 +196,7 @@ Vector3 Transform::GetWorldRotation()
 
 	WorldTransform.GetInternalMatrix().Decompose(DirectX::SimpleMath::Vector3(), quat, DirectX::SimpleMath::Vector3());
 	Quaternion quat2(quat);
+
 	return Vector3(quat2.GetInternalVec().x, quat2.GetInternalVec().y, quat2.GetInternalVec().z);
 }
 
