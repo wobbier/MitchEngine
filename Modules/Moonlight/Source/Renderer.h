@@ -57,7 +57,7 @@ namespace Moonlight
 		D3D12Device& GetDevice();
 
 		void Update(float dt);
-		void Render(std::function<void()> func, const CameraData& mainCamera, const CameraData& editorCamera);
+		void Render(std::function<void()> func, std::function<void()> uiRender, const CameraData& mainCamera, const CameraData& editorCamera);
 
 		void DrawScene(ID3D11DeviceContext3* context, ModelViewProjectionConstantBuffer& constantBufferSceneData, const CameraData& data, FrameBuffer* ViewRTT, FrameBuffer* ResolveViewRTT);
 		void DrawDepthOnlyScene(ID3D11DeviceContext3* context, DepthPassBuffer& constantBufferSceneData, FrameBuffer* ViewRTT);

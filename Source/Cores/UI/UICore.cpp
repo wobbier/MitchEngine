@@ -45,7 +45,7 @@ UICore::UICore(IWindow* window)
 	config_.device_scale_hint = 1.0f;
 	config_.enable_images = true;
 	config_.face_winding = ultralight::FaceWinding::kFaceWinding_Clockwise;
-
+	config_.force_repaint = true;
 	HMODULE hModule = GetModuleHandleW(NULL);
 	WCHAR path[MAX_PATH];
 	GetModuleFileNameW(hModule, path, MAX_PATH);

@@ -95,7 +95,7 @@ float4 main_ps(PixelShaderInput input) : SV_TARGET
 	float shadow = ShadowCalculation(lightSpaceObject);
 
 	float3 finalColor = (ambient + (1.0 - shadow) * (diffuse + specular)) * color;// (ambient + shadowDiffuseSpec)* color;
-	finalColor += ui.xyz;
+	finalColor = ui.xyz * ui.a + finalColor * (1.0f - ui.a);
 	return float4(finalColor, 1.0);
 }
 

@@ -169,7 +169,7 @@ namespace Moonlight
 	{
 	}
 
-	void Renderer::Render(std::function<void()> func, const CameraData& mainCamera, const CameraData& editorCamera)
+	void Renderer::Render(std::function<void()> func, std::function<void()> uiRender, const CameraData& mainCamera, const CameraData& editorCamera)
 	{
 		OPTICK_EVENT("Renderer::Render", Optick::Category::Rendering);
 
@@ -187,6 +187,7 @@ namespace Moonlight
 		context->ClearRenderTargetView(GameViewRTT->PositionRenderTargetView.Get(), color);
 		context->ClearRenderTargetView(GameViewRTT->SpecularRenderTargetView.Get(), color);
 		context->ClearRenderTargetView(GameViewRTT->ShadowMapRenderTargetView.Get(), color);
+		context->ClearRenderTargetView(GameViewRTT->UIRenderTargetView.Get(), DirectX::Colors::Transparent);
 		context->ClearRenderTargetView(GameViewRTT->PickingTargetView.Get(), color);
 
 		context->ClearRenderTargetView(SceneViewRTT->RenderTargetView.Get(), color);
@@ -215,6 +216,8 @@ namespace Moonlight
 		//static DepthPassBuffer buf;
 		//DrawDepthOnlyScene(m_device->GetD3DDeviceContext(), buf, GameViewRTT);
 		//DrawDepthOnlyScene(m_device->GetD3DDeviceContext(), buf, SceneViewRTT);
+
+		uiRender();
 
 		CD3D11_VIEWPORT gameViewport = CD3D11_VIEWPORT(
 			0.0f,
@@ -285,6 +288,7 @@ namespace Moonlight
 		m_device->GetD3DDeviceContext()->DiscardView1(GameViewRTT->ColorShaderResourceView.Get(), nullptr, 0);
 		m_device->GetD3DDeviceContext()->DiscardView1(GameViewRTT->NormalShaderResourceView.Get(), nullptr, 0);
 		m_device->GetD3DDeviceContext()->DiscardView1(GameViewRTT->SpecularShaderResourceView.Get(), nullptr, 0);
+		m_device->GetD3DDeviceContext()->DiscardView1(GameViewRTT->UIShaderResourceView.Get(), nullptr, 0);
 		m_device->GetD3DDeviceContext()->DiscardView1(SceneViewRTT->ShaderResourceView.Get(), nullptr, 0);
 		m_device->GetD3DDeviceContext()->DiscardView1(SceneViewRTT->ColorShaderResourceView.Get(), nullptr, 0);
 		m_device->GetD3DDeviceContext()->DiscardView1(SceneViewRTT->NormalShaderResourceView.Get(), nullptr, 0);

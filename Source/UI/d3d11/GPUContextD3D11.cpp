@@ -36,59 +36,6 @@ void GPUContextD3D11::Resize(int width, int height) {
 	}
   set_screen_size(width, height);
 
-  //immediate_context_->OMSetRenderTargets(0, 0, 0);
-  //ID3D11Texture2D* back_buffer = nullptr;
-  //swap_chain_->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&back_buffer);
-  //back_buffer->Release();
-
-  //back_buffer_view_.Reset();
-
-  //// Get the actual device width/height (may be different than screen size)
-  //RECT rc;
-  //::GetClientRect(hwnd_, &rc);
-  //UINT client_width = rc.right - rc.left;
-  //UINT client_height = rc.bottom - rc.top;
-
-  //HRESULT hr;
-  //hr = swap_chain_->ResizeBuffers(0, client_width, client_height, DXGI_FORMAT_UNKNOWN, 0);
-  //if (FAILED(hr)) {
-  //  MessageBoxW(nullptr,
-  //    L"GPUContextD3D11::Resize, unable to resize, IDXGISwapChain::ResizeBuffers failed.", L"Error", MB_OK);
-  //  exit(-1);
-  //}
-
-  //// Create a render target view
-  //ID3D11Texture2D* pBackBuffer = nullptr;
-  //hr = swap_chain_->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&pBackBuffer);
-  //if (FAILED(hr))
-  //{
-  //  MessageBoxW(nullptr,
-  //    L"GPUContextD3D11::Resize, unable to get back buffer.", L"Error", MB_OK);
-  //  exit(-1);
-  //}
-
-  //hr = device_->CreateRenderTargetView(pBackBuffer, nullptr, back_buffer_view_.GetAddressOf());
-  //pBackBuffer->Release();
-  //if (FAILED(hr))
-  //{
-  //  MessageBoxW(nullptr,
-  //    L"GPUContextD3D11::Resize, unable to create new render target view.", L"Error", MB_OK);
-  //  exit(-1);
-  //}
-
-  //immediate_context_->OMSetRenderTargets(1, back_buffer_view_.GetAddressOf(), nullptr);
-
-  //// Setup the viewport
-  //D3D11_VIEWPORT vp;
-  //ZeroMemory(&vp, sizeof(vp));
-  //vp.Width = (float)client_width * (float)scale();
-  //vp.Height = (float)client_height * (float)scale();
-  //vp.MinDepth = 0.0f;
-  //vp.MaxDepth = 1.0f;
-  //vp.TopLeftX = 0;
-  //vp.TopLeftY = 0;
-  //immediate_context_->RSSetViewports(1, &vp);
-
   swap_chain_ = GetEngine().GetRenderer().GetDevice().GetSwapChain();
   immediate_context_ = GetEngine().GetRenderer().GetDevice().GetD3DDeviceContext();
   device_ = GetEngine().GetRenderer().GetDevice().GetD3DDevice();
@@ -243,7 +190,7 @@ bool GPUContextD3D11::Initialize(int screen_width, int screen_height, double scr
   //back_buffer_height_ = height;
 
   // Initialize backbuffer with white so we don't get flash of black while loading views.
-  float color[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+  float color[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
   immediate_context_->ClearRenderTargetView(render_target_view(), color);
 
   return true;

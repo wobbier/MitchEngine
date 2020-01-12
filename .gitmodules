@@ -25,9 +25,12 @@
 [submodule "ThirdParty/JSON"]
 	path = ThirdParty/JSON
 	url = https://github.com/nlohmann/json
+	ignore = dirty
 [submodule "ThirdParty/Optick"]
 	path = ThirdParty/Optick
 	url = https://github.com/bombomby/optick
+	ignore = dirty
 [submodule "ThirdParty/UltralightSDK"]
 	path = ThirdParty/UltralightSDK
 	url = https://github.com/wobbier/UltralightSDK
+	ignore = dirty

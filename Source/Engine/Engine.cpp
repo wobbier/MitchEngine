@@ -185,8 +185,9 @@ void Engine::Run()
 
 			m_renderer->Render([this]() {
 				m_game->PostRender();
+			}, [this]() {
 				UI->Render();
-				}, MainCamera, EditorCamera);
+			}, MainCamera, EditorCamera);
 
 			AccumulatedTime = std::fmod(AccumulatedTime, MaxDeltaTime);
 		}
