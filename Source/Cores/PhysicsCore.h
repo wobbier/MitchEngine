@@ -3,13 +3,15 @@
 #include <btBulletDynamicsCommon.h>
 #include "Math/Vector3.h"
 #include "ECS/CoreDetail.h"
+#include "Components/Physics/Rigidbody.h"
+#include "Components/Transform.h"
 
 class PhysicsCore
 	: public Core<PhysicsCore>
 {
 	friend class Core<PhysicsCore>;
 public:
-	btDiscreteDynamicsWorld* PhysicsWorld;
+	btDiscreteDynamicsWorld* PhysicsWorld = nullptr;
 	btVector3 Gravity;
 
 	PhysicsCore();
@@ -33,6 +35,9 @@ public:
 	virtual void Update(float dt) final;
 
 	virtual void OnEntityAdded(Entity& NewEntity) final;
+
+	void InitRigidbody(Rigidbody& RigidbodyComponent, Transform& TransformComponent);
+
 };
 
 ME_REGISTER_CORE(PhysicsCore)

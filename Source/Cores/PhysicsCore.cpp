@@ -32,12 +32,12 @@ PhysicsCore::PhysicsCore()
 
 	PhysicsWorld->setGravity(Gravity);
 
-	btCollisionShape* groundShape = new btStaticPlaneShape(btVector3(0, 1, 0), 1);
-	btDefaultMotionState* groundMotionState = new btDefaultMotionState(btTransform(btQuaternion(0, 0, 0, 1), btVector3(0, -20, 0)));
-	btRigidBody::btRigidBodyConstructionInfo
-		groundRigidBodyCI(0, groundMotionState, groundShape, btVector3(0, 0, 0));
-	btRigidBody* groundRigidBody = new btRigidBody(groundRigidBodyCI);
-	PhysicsWorld->addRigidBody(groundRigidBody);
+	//btCollisionShape* groundShape = new btStaticPlaneShape(btVector3(0, 1, 0), 1);
+	//btDefaultMotionState* groundMotionState = new btDefaultMotionState(btTransform(btQuaternion(0, 0, 0, 1), btVector3(0, -20, 0)));
+	//btRigidBody::btRigidBodyConstructionInfo
+	//	groundRigidBodyCI(0, groundMotionState, groundShape, btVector3(0, 0, 0));
+	//btRigidBody* groundRigidBody = new btRigidBody(groundRigidBodyCI);
+	//PhysicsWorld->addRigidBody(groundRigidBody);
 }
 
 PhysicsCore::~PhysicsCore()
@@ -66,6 +66,8 @@ void PhysicsCore::Update(float dt)
 
 			btRigidBody* rigidbody = RigidbodyComponent.InternalRigidbody;
 			btTransform& trans = rigidbody->getWorldTransform();
+
+			InitRigidbody(RigidbodyComponent, TransformComponent);
 
 			if (TransformComponent.IsDirty)
 			{
@@ -129,18 +131,24 @@ void PhysicsCore::OnEntityAdded(Entity& NewEntity)
 	if (NewEntity.HasComponent<Rigidbody>())
 	{
 		Rigidbody& RigidbodyComponent = NewEntity.GetComponent<Rigidbody>();
-		if (!RigidbodyComponent.IsRigidbodyInitialized())
-		{
-			RigidbodyComponent.CreateObject(TransformComponent.GetPosition(), TransformComponent.Rotation, PhysicsWorld);
-			PhysicsWorld->addRigidBody(RigidbodyComponent.InternalRigidbody);
-			Moonlight::DebugColliderCommand cmd;
-			RigidbodyComponent.DebugColliderId = GetEngine().GetRenderer().PushDebugCollider(cmd);
-		}
+		InitRigidbody(RigidbodyComponent, TransformComponent);
+
 	}
 
 	if (NewEntity.HasComponent<CharacterController>())
 	{
 		CharacterController& Controller = NewEntity.GetComponent<CharacterController>();
 		Controller.Initialize(nullptr, PhysicsWorld, TransformComponent.GetWorldPosition(), 1, 5, 5, 1);
+	}
+}
+
+void PhysicsCore::InitRigidbody(Rigidbody& RigidbodyComponent, Transform& TransformComponent)
+{
+	if (!RigidbodyComponent.IsRigidbodyInitialized())
+	{
+		RigidbodyComponent.CreateObject(TransformComponent.GetPosition(), TransformComponent.Rotation, TransformComponent.GetScale(), PhysicsWorld);
+		PhysicsWorld->addRigidBody(RigidbodyComponent.InternalRigidbody);
+		Moonlight::DebugColliderCommand cmd;
+		RigidbodyComponent.DebugColliderId = GetEngine().GetRenderer().PushDebugCollider(cmd);
 	}
 }

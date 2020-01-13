@@ -15,7 +15,8 @@ public:
 	enum class ColliderType : unsigned int
 	{
 		Box = 0,
-		Sphere
+		Sphere,
+		Count
 	};
 	Rigidbody();
 	Rigidbody(ColliderType type);
@@ -29,6 +30,8 @@ public:
 	unsigned int Id = 0;
 	void SetScale(Vector3 InScale);
 	void SetMass(float InMass);
+
+	std::string GetColliderString(ColliderType InType);
 
 	Matrix4 GetMat()
 	{
@@ -50,11 +53,13 @@ public:
 	virtual void Deserialize(const json& inJson) override;
 
 private:
-	void CreateObject(const Vector3& Position, Vector3& Rotation, class btDiscreteDynamicsWorld* world);
+	void CreateObject(const Vector3& Position, Vector3& Rotation, Vector3& InScale, class btDiscreteDynamicsWorld* world);
 	btRigidBody* InternalRigidbody = nullptr;
 	btCollisionShape* fallShape = nullptr;
 	Vector3 Scale;
 	ColliderType Type = ColliderType::Box;
+	float Mass = 10.0f;
+	bool IsDynamic = false;
 protected:
 	bool IsInitialized = false;
 	class btDiscreteDynamicsWorld* m_world;
@@ -64,8 +69,6 @@ protected:
 	virtual void OnEditorInspect() final;
 
 #endif
-private:
-	float Mass = 10.0f;
 };
 
 ME_REGISTER_COMPONENT(Rigidbody)

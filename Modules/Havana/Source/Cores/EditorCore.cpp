@@ -245,7 +245,7 @@ bool EditorCore::OnEvent(const BaseEvent& evt)
 	{
 		const Moonlight::PickingEvent& casted = static_cast<const Moonlight::PickingEvent&>(evt);
 
-		auto ents = GetEngine().ModelRenderer->GetEntities();
+		auto ents = GetEngine().GetWorld().lock()->GetCore(RenderCore::GetTypeId())->GetEntities();
 		for (auto& ent : ents)
 		{
 			if (!ent.HasComponent<Mesh>())

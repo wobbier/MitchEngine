@@ -159,6 +159,7 @@ void CharacterController::Serialize(json& outJson)
 	outJson["MaxSpeed"] = MaxSpeed;
 	outJson["Deceleration"] = Deceleration;
 	outJson["JumpRechargeTime"] = JumpRechargeTime;
+	outJson["StepHeight"] = m_stepHeight;
 }
 
 void CharacterController::Deserialize(const json& inJson)
@@ -179,6 +180,10 @@ void CharacterController::Deserialize(const json& inJson)
 	{
 		JumpRechargeTime = inJson["JumpRechargeTime"];
 	}
+	if (inJson.contains("StepHeight"))
+	{
+		m_stepHeight = inJson["StepHeight"];
+	}
 }
 
 #if ME_EDITOR
@@ -189,6 +194,8 @@ void CharacterController::OnEditorInspect()
 	ImGui::DragFloat("Max Speed", &MaxSpeed);
 	ImGui::DragFloat("Deceleration", &Deceleration);
 	ImGui::DragFloat("Jump Recharge Time", &JumpRechargeTime);
+	ImGui::DragFloat("Step Height", &m_stepHeight);
+
 }
 
 #endif
