@@ -8,6 +8,8 @@
 #include "Math/Quaternion.h"
 #include "Math/Matirx4.h"
 #include "Components/Physics/CharacterController.h"
+#include "BulletCollision/CollisionDispatch/btCollisionWorld.h"
+#include "BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
 
 #define M_PI 3.14159
 #define RADIANS_TO_DEGREES(__ANGLE__) ((__ANGLE__) / M_PI * 180.0)
@@ -151,4 +153,64 @@ void PhysicsCore::InitRigidbody(Rigidbody& RigidbodyComponent, Transform& Transf
 		Moonlight::DebugColliderCommand cmd;
 		RigidbodyComponent.DebugColliderId = GetEngine().GetRenderer().PushDebugCollider(cmd);
 	}
+}
+
+bool PhysicsCore::Raycast(const Vector3& InPosition, const Vector3& InDirection, RaycastHit& OutHit)
+{
+	btVector3 red(1, 0, 0);
+	btVector3 blue(0, 0, 1);
+
+	///all hits
+	if(false)
+	{
+		btVector3 from(InPosition.X(), InPosition.Y(), InPosition.Z());
+		btVector3 to(InDirection.X(), InDirection.Y(), InDirection.Z());
+		//PhysicsWorld->getDebugDrawer()->drawLine(from, to, btVector4(0, 0, 0, 1));
+		btCollisionWorld::AllHitsRayResultCallback allResults(from, to);
+		allResults.m_flags |= btTriangleRaycastCallback::kF_KeepUnflippedNormal;
+		//kF_UseGjkConvexRaytest flag is now enabled by default, use the faster but more approximate algorithm
+		//allResults.m_flags |= btTriangleRaycastCallback::kF_UseSubSimplexConvexCastRaytest;
+		allResults.m_flags |= btTriangleRaycastCallback::kF_UseSubSimplexConvexCastRaytest;
+
+		PhysicsWorld->rayTest(from, to, allResults);
+
+		for (int i = 0; i < allResults.m_hitFractions.size(); i++)
+		{
+			btVector3 p = from.lerp(to, allResults.m_hitFractions[i]);
+			OutHit.Position = Vector3(p.x(), p.y(), p.z());
+			btVector3& n = allResults.m_hitNormalWorld[i];
+			OutHit.Normal = Vector3(n.x(), n.y(), n.z());
+			//PhysicsWorld->getDebugDrawer()->drawSphere(p, 0.1, red);
+			//PhysicsWorld->getDebugDrawer()->drawLine(p, p + , red);
+		}
+		if (allResults.hasHit())
+		{
+			return true;
+		}
+	}
+
+	///first hit
+	{
+		btVector3 from(InPosition.X(), InPosition.Y(), InPosition.Z());
+		btVector3 to(InDirection.X(), InDirection.Y(), InDirection.Z());
+		//PhysicsWorld->getDebugDrawer()->drawLine(from, to, btVector4(0, 0, 1, 1));
+
+		btCollisionWorld::ClosestRayResultCallback	closestResults(from, to);
+		closestResults.m_flags |= btTriangleRaycastCallback::kF_FilterBackfaces;
+
+		PhysicsWorld->rayTest(from, to, closestResults);
+
+		if (closestResults.hasHit())
+		{
+
+			btVector3 p = from.lerp(to, closestResults.m_closestHitFraction);
+			OutHit.Position = Vector3(p.x(), p.y(), p.z());
+			btVector3& n = closestResults.m_hitNormalWorld;
+			OutHit.Normal = Vector3(n.x(), n.y(), n.z());
+			OutHit.What = static_cast<Rigidbody*>(closestResults.m_collisionObject->getUserPointer());
+
+			return true;
+		}
+	}
+	return false;
 }

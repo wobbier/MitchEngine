@@ -1,6 +1,7 @@
 #include "Logger.h"
 #include <wtypes.h>
 #include <wincon.h>
+#include <processenv.h>
 
 std::vector<Logger::LogEntry> Logger::Messages;
 
@@ -52,6 +53,8 @@ bool Logger::LogMessage(Logger::LogType priority, std::string message)
 		type = "[Unknown]: ";
 		break;
 	}
+
+#if ME_PLATFORM_WIN64
 	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 	SetConsoleTextAttribute(hConsole, color);
 
@@ -59,6 +62,7 @@ bool Logger::LogMessage(Logger::LogType priority, std::string message)
 	std::cout << type << message.c_str() << std::endl;
 
 	SetConsoleTextAttribute(hConsole, 15);
+#endif
 
 #if ME_EDITOR
 	Messages.emplace_back(LogEntry{ priority, std::move(message) });

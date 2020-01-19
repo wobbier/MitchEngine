@@ -46,12 +46,6 @@ UICore::UICore(IWindow* window)
 	config_.enable_images = true;
 	config_.face_winding = ultralight::FaceWinding::kFaceWinding_Clockwise;
 	config_.force_repaint = true;
-	HMODULE hModule = GetModuleHandleW(NULL);
-	WCHAR path[MAX_PATH];
-	GetModuleFileNameW(hModule, path, MAX_PATH);
-	PathRemoveFileSpecW(path);
-
-	PathAppendW(path, L"");
 
 	Path fileSystemRoot = Path("");
 	m_fs.reset(new ultralight::FileSystemBasic(fileSystemRoot.Directory.c_str()));

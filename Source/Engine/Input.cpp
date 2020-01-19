@@ -31,6 +31,7 @@ Input::Input()
 	Controller->Resume();
 #if ME_PLATFORM_UWP
 	Mouse->SetWindow(CoreWindow::GetForCurrentThread());
+	Keyboard->SetWindow(CoreWindow::GetForCurrentThread());
 #endif
 }
 

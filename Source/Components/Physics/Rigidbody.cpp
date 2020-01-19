@@ -111,6 +111,7 @@ void Rigidbody::Deserialize(const json& inJson)
 
 void Rigidbody::CreateObject(const Vector3& Position, Vector3& Rotation, Vector3& InScale, btDiscreteDynamicsWorld* world)
 {
+	m_world = world;
 	if (Scale == Vector3())
 	{
 		Scale = InScale;
@@ -137,7 +138,7 @@ void Rigidbody::CreateObject(const Vector3& Position, Vector3& Rotation, Vector3
 	}
 	btRigidBody::btRigidBodyConstructionInfo fallRigidBodyCI(Mass, fallMotionState, fallShape, fallInertia);
 	InternalRigidbody = new btRigidBody(fallRigidBodyCI);
-	m_world = world;
+	InternalRigidbody->setUserPointer(this);
 
 	IsInitialized = true;
 }

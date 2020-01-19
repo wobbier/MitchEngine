@@ -5,6 +5,7 @@
 #include "ECS/CoreDetail.h"
 #include "Components/Physics/Rigidbody.h"
 #include "Components/Transform.h"
+#include "Physics/RaycastHit.h"
 
 class PhysicsCore
 	: public Core<PhysicsCore>
@@ -37,6 +38,8 @@ public:
 	virtual void OnEntityAdded(Entity& NewEntity) final;
 
 	void InitRigidbody(Rigidbody& RigidbodyComponent, Transform& TransformComponent);
+
+	bool Raycast(const Vector3& InPosition, const Vector3& InDirection, RaycastHit& OutHit);
 
 };
 
