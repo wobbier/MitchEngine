@@ -57,7 +57,14 @@ void Input::SetMouseCapture(bool Capture)
 {
 	if (CaptureInput)
 	{
-		Mouse->SetVisible(!Capture);
+		if (Capture)
+		{
+			Mouse->SetMode(DirectX::Mouse::MODE_RELATIVE);
+		}
+		else
+		{
+			Mouse->SetMode(DirectX::Mouse::MODE_ABSOLUTE);
+		}
 		WantsToCaptureMouse = Capture;
 	}
 }
@@ -85,7 +92,7 @@ void Input::Resume()
 
 void Input::Stop()
 {
-	Mouse->SetVisible(true);
+	Mouse->SetMode(DirectX::Mouse::MODE_ABSOLUTE);
 	CaptureInput = false;
 }
 
