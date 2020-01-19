@@ -12,6 +12,7 @@
 #include "RenderCommands.h"
 #include "Commands/CommandManager.h"
 #include <Keyboard.h>
+#include "Engine/Input.h"
 
 class Havana
 	: public EventReceiver
@@ -44,7 +45,8 @@ public:
 	{
 		WindowTitle = title;
 	}
-	std::string WindowTitle;
+
+	Input& GetInput();
 	const bool IsGameFocused() const;
 	const bool IsWorldViewFocused() const;
 
@@ -80,12 +82,14 @@ private:
 	class Engine* m_engine = nullptr;
 	class EditorApp* m_app = nullptr;
 	class Transform* m_rootTransform = nullptr;
-
+	std::string WindowTitle;
 	CommandManager EditorCommands;
+	Input m_input;
 
 	bool m_isGameFocused = false;
 	bool m_isWorldViewFocused = false;
 	bool OpenScene = false;
+	bool AllowGameInput = false;
 	ImVec2 MainMenuSize;
 	Path CurrentDirectory;
 	json AssetDirectory;

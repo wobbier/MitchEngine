@@ -91,6 +91,10 @@ public:
 	{
 		return Vector2(m_vector + other.m_vector);
 	}
+	Vector2 operator/(const float& other)
+	{
+		return Vector2(m_vector.x / other, m_vector.y / other);
+	}
 	bool operator==(const Vector2& other)
 	{
 		return m_vector == other.m_vector;

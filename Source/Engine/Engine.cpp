@@ -148,6 +148,8 @@ void Engine::Run()
 
 			GameWorld->Simulate();
 
+			m_input.Update();
+
 			// Update our engine
 			GameWorld->UpdateLoadedCores(deltaTime);
 			SceneNodes->Update(deltaTime);
@@ -239,6 +241,11 @@ IWindow* Engine::GetWindow()
 Config& Engine::GetConfig() const
 {
 	return *EngineConfig;
+}
+
+Input& Engine::GetInput()
+{
+	return m_input;
 }
 
 void Engine::LoadScene(const std::string& SceneFile)

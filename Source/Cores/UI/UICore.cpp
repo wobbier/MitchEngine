@@ -123,18 +123,18 @@ void UICore::Update(float dt)
 #if ME_EDITOR
 	Havana* editor = static_cast<EditorCore*>(GetEngine().GetWorld().lock()->GetCore(EditorCore::GetTypeId()))->GetEditor();
 	
-	evt.x = (GetEngine().GetWindow()->GetPosition().X() + Input::GetInstance().GetMousePosition().X()) - editor->GameViewRenderLocation.X();
-	evt.y = (GetEngine().GetWindow()->GetPosition().Y() + Input::GetInstance().GetMousePosition().Y()) - editor->GameViewRenderLocation.Y();
+	evt.x = (GetEngine().GetWindow()->GetPosition().X() + GetEngine().GetInput().GetMousePosition().X()) - editor->GameViewRenderLocation.X();
+	evt.y = (GetEngine().GetWindow()->GetPosition().Y() + GetEngine().GetInput().GetMousePosition().Y()) - editor->GameViewRenderLocation.Y();
 
-	Vector2 MousePosition = Input::GetInstance().GetMousePosition();
+	Vector2 MousePosition = GetEngine().GetInput().GetMousePosition();
 	if (MousePosition == Vector2(0, 0))
 	{
 		return;
 	}
 
 #else
-	evt.x = Input::GetInstance().GetMousePosition().X();
-	evt.y = Input::GetInstance().GetMousePosition().Y();
+	evt.x = GetEngine().GetInput().GetMousePosition().X();
+	evt.y = GetEngine().GetInput().GetMousePosition().Y();
 #endif
 	evt.button = ultralight::MouseEvent::Button::kButton_None;
 	//ultralight::View::FireMouseEvent(evt);

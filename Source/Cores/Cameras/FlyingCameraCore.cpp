@@ -8,6 +8,7 @@
 #include "optick.h"
 #include "Math/Vector3.h"
 #include "Mathf.h"
+#include "Engine/Engine.h"
 
 FlyingCameraCore::FlyingCameraCore() : Base(ComponentFilter().Requires<FlyingCamera>().Requires<Camera>())
 {
@@ -28,8 +29,8 @@ void FlyingCameraCore::Update(float dt)
 {
 	OPTICK_CATEGORY("FlyingCameraCore::Update", Optick::Category::Camera);
 
-	auto Keyboard = Input::GetInstance().GetKeyboardState();
-	auto Mouse = Input::GetInstance().GetMouseState();
+	auto Keyboard = GetEngine().GetInput().GetKeyboardState();
+	auto Mouse = GetEngine().GetInput().GetMouseState();
 	if (Keyboard.Enter)
 	{
 		TestEvent testEvent;
@@ -99,7 +100,7 @@ void FlyingCameraCore::Update(float dt)
 				TransformComponent.Translate(CameraComponent.Front.Cross(-CameraComponent.Up).Cross(CameraComponent.Front).Normalized() * CameraSpeed);
 			}
 
-			Vector2 MousePosition = Input::GetInstance().GetMousePosition();
+			Vector2 MousePosition = GetEngine().GetInput().GetMousePosition();
 			if (MousePosition == Vector2(0, 0))
 			{
 				continue;

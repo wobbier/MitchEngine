@@ -53,8 +53,8 @@ void EditorCore::Init()
 void EditorCore::Update(float dt)
 {
 	OPTICK_CATEGORY("FlyingCameraCore::Update", Optick::Category::Camera);
-	auto Keyboard = Input::GetInstance().GetKeyboardState();
-	auto Mouse = Input::GetInstance().GetMouseState();
+	auto Keyboard = m_editor->GetInput().GetKeyboardState();
+	auto Mouse = m_editor->GetInput().GetMouseState();
 	if (Keyboard.M)
 	{
 		if (testAudio)
@@ -135,7 +135,7 @@ void EditorCore::Update(float dt)
 				EditorCameraTransform->Translate(EditorCamera->Front.Cross(-EditorCamera->Up).Cross(EditorCamera->Front).Normalized() * CameraSpeed);
 			}
 
-			Vector2 MousePosition = Input::GetInstance().GetMousePosition();
+			Vector2 MousePosition = m_editor->GetInput().GetMousePosition();
 			if (MousePosition == Vector2(0, 0))
 			{
 				return;

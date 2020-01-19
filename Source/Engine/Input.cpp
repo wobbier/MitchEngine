@@ -1,9 +1,9 @@
 #include "PCH.h"
+#include <WinUser.h>
 #include "Engine/Input.h"
 #include "Logger.h"
 #include <string>
 #include <iostream>
-#include <WinUser.h>
 
 #pragma region KeyboardInput
 
@@ -11,23 +11,95 @@
 
 #pragma region MouseInput
 
+DirectX::Keyboard::State Input::GetKeyboardState()
+{
+	return KeyboardState;
+}
+
+DirectX::Mouse::State Input::GetMouseState()
+{
+	return MouseState;
+}
+
+DirectX::GamePad::State Input::GetControllerState(unsigned int PlayerId /*= 0*/)
+{
+	return Controller->GetState(PlayerId);
+}
+
 Vector2 Input::GetMousePosition()
 {
-	Vector2 newPosition = Vector2(Mouse->GetState().x, Mouse->GetState().y);
+	Vector2 newPosition = Vector2(MouseState.x, MouseState.y);
 	return newPosition;
 }
 
+
+void Input::SetMousePosition(const Vector2& InPosition)
+{
+	if (CaptureInput)
+	{
+		Vector2 pos = Offset + InPosition;
+		SetCursorPos(pos.X(), pos.Y());
+		Update();
+	}
+}
+
+Vector2 Input::GetMouseOffset()
+{
+	return Offset;
+}
 
 Vector2 Input::GetMouseScrollOffset()
 {
 	return Vector2();
 }
 
+void Input::SetMouseCapture(bool Capture)
+{
+	if (CaptureInput)
+	{
+		Mouse->SetVisible(!Capture);
+		WantsToCaptureMouse = Capture;
+	}
+}
+
+void Input::SetMouseOffset(const Vector2& InOffset)
+{
+	Offset = InOffset;
+}
+
+DirectX::Mouse& Input::GetMouse()
+{
+	return *Mouse.get();
+}
+
+void Input::Pause()
+{
+	CaptureInput = false;
+}
+
+void Input::Resume()
+{
+	CaptureInput = true;
+	SetMouseCapture(WantsToCaptureMouse);
+}
+
+void Input::Stop()
+{
+	Mouse->SetVisible(true);
+	CaptureInput = false;
+}
+
+std::unique_ptr<DirectX::Mouse> Input::Mouse = std::make_unique<DirectX::Mouse>();
+
+std::unique_ptr<DirectX::Keyboard> Input::Keyboard = std::make_unique<DirectX::Keyboard>();
+
+std::unique_ptr<DirectX::GamePad> Input::Controller = std::make_unique<DirectX::GamePad>();
+
 Input::Input()
 {
-	Controller = std::make_unique<DirectX::GamePad>();
-	Mouse = std::make_unique<DirectX::Mouse>();
-	Keyboard = std::make_unique<DirectX::Keyboard>();
+	//Mouse = std::make_unique<DirectX::Mouse>();
+	//Controller = std::make_unique<DirectX::GamePad>();
+	//Keyboard = std::make_unique<DirectX::Keyboard>();
 	Controller->Resume();
 #if ME_PLATFORM_UWP
 	Mouse->SetWindow(CoreWindow::GetForCurrentThread());

@@ -31,6 +31,7 @@
 #include "Components/Graphics/Model.h"
 #include "Commands/EditorCommands.h"
 #include "optick.h"
+#include <winuser.h>
 namespace fs = std::filesystem;
 
 Havana::Havana(Engine* GameEngine, EditorApp* app, Moonlight::Renderer* renderer)
@@ -145,12 +146,16 @@ void Havana::InitUI()
 	Icons["Pause"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Pause.png"));
 	Icons["Stop"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Stop.png"));
 	Icons["Info"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Info.png"));
+
+	m_engine->GetInput().Stop();
+	GetInput().GetMouse().SetWindow(GetActiveWindow());
 }
 
 bool show_demo_window = true;
 bool show_dockspace = true;
 void Havana::NewFrame(std::function<void()> StartGameFunc, std::function<void()> PauseGameFunc, std::function<void()> StopGameFunc)
 {
+	m_input.Update();
 	OPTICK_EVENT("Havana::NewFrame");
 	ImGui_ImplDX11_NewFrame();
 	ImGui_ImplWin32_NewFrame();
@@ -370,11 +375,13 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 			}
 			ImGui::EndMenu();
 		}
-		auto Keyboard = Input::GetInstance().GetKeyboardState();
+		auto Keyboard = GetInput().GetKeyboardState();
 		if (!m_app->IsGameRunning())
 		{
 			if (ImGui::ImageButton(Icons["Play"]->ShaderResourceView, ImVec2(30.f, 30.f)) || Keyboard.F5)
 			{
+				ImGui::SetWindowFocus("Game");
+				m_engine->GetInput().Resume();
 				StartGameFunc();
 			}
 		}
@@ -383,6 +390,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 		{
 			if (ImGui::ImageButton(Icons["Pause"]->ShaderResourceView, ImVec2(30.f, 30.f)) || Keyboard.F10)
 			{
+				m_engine->GetInput().Pause();
 				PauseGameFunc();
 			}
 
@@ -390,6 +398,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 			{
 				SelectedTransform = nullptr;
 				StopGameFunc();
+				m_engine->GetInput().Stop();
 			}
 		}
 
@@ -597,7 +606,7 @@ void Havana::ClearSelection()
 
 void Havana::DrawCommandPanel()
 {
-	auto& kb = Input::GetInstance().GetKeyboardState();
+	auto& kb = GetInput().GetKeyboardState();
 	tracker.Update(kb);
 
 	if (kb.LeftControl && tracker.pressed.Z)
@@ -648,7 +657,7 @@ void Havana::UpdateWorld(World* world, Transform* root, const std::vector<Entity
 	{
 		if (ImGui::IsWindowFocused())
 		{
-			if (SelectedTransform && Input::GetInstance().GetKeyboardState().Delete)
+			if (SelectedTransform && GetInput().GetKeyboardState().Delete)
 			{
 				auto ent = GetEngine().GetWorld().lock()->GetEntity(SelectedTransform->Parent);
 				RecusiveDelete(ent, SelectedTransform);
@@ -858,6 +867,11 @@ void Havana::HandleAssetDragAndDrop(Transform* root)
 	}
 }
 
+Input& Havana::GetInput()
+{
+	return m_input;
+}
+
 void Havana::DrawEntityRightClickMenu(Transform* transform)
 {
 	if (ImGui::BeginPopupContextItem())
@@ -924,6 +938,19 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 		window_flags |= ImGuiWindowFlags_MenuBar;
 		bool showGameWindow = true;
 		ImGui::Begin("Game", &showGameWindow, window_flags);
+		m_engine->GetInput().SetMouseOffset(GameViewRenderLocation);
+		if (GetInput().GetKeyboardState().Escape/*  && m_app->IsGameRunning()&& AllowGameInput*/)
+		{
+			m_engine->GetInput().Stop();
+			AllowGameInput = false;
+			ImGui::SetWindowFocus("World View");
+		}
+		else if(ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows)/* && AllowGameInput*/)
+		{
+			m_engine->GetInput().Resume();
+			AllowGameInput = true;
+		}
+		//AllowGameInput = ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows);
 		if (Renderer->GameViewRTT)
 		{
 			static auto srv = Renderer->GameViewRTT->ShaderResourceView;
@@ -1012,7 +1039,7 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 				//GameRenderSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
 				GameRenderSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
 				GameViewRenderLocation = Vector2(pos.x, pos.y);
-
+				
 				// Ask ImGui to draw it as an image:
 				// Under OpenGL the ImGUI image type is GLuint
 				// So make sure to use "(void *)tex" but not "&tex"
@@ -1113,15 +1140,15 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 			// Get the current cursor position (where your window is)
 			ImVec2 pos = ImGui::GetCursorScreenPos();
 			Vector2 evt;
-			evt.SetX((GetEngine().GetWindow()->GetPosition().X() + Input::GetInstance().GetMousePosition().X()) - pos.x);
-			evt.SetY((GetEngine().GetWindow()->GetPosition().Y() + Input::GetInstance().GetMousePosition().Y()) - pos.y);
+			evt.SetX((GetEngine().GetWindow()->GetPosition().X() + GetInput().GetMousePosition().X()) - pos.x);
+			evt.SetY((GetEngine().GetWindow()->GetPosition().Y() + GetInput().GetMousePosition().Y()) - pos.y);
 			static bool oneTime = false;
-			if (Renderer && Input::GetInstance().GetMouseState().leftButton && !oneTime && !ImGuizmo::IsUsing())
+			if (Renderer && GetInput().GetMouseState().leftButton && !oneTime && !ImGuizmo::IsUsing())
 			{
 				Renderer->PickScene(evt);
 				oneTime = true;
 			}
-			if (!Input::GetInstance().GetMouseState().leftButton)
+			if (!GetInput().GetMouseState().leftButton)
 			{
 				oneTime = false;
 			}
