@@ -78,7 +78,7 @@ public:
 		}
 	}
 
-	const DirectX::SimpleMath::Vector2& GetInternalVec()
+	const DirectX::SimpleMath::Vector2& GetInternalVec() const
 	{
 		return m_vector;
 	}

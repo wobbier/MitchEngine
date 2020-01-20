@@ -11,13 +11,12 @@ cbuffer ModelViewProjectionConstantBuffer : register(b0)
 	matrix modelInv;
     matrix view;
     matrix projection;
-	matrix LightSpaceMatrix;
-	float id;
-	float padding;
-    bool hasNormalMap;
+	float2 tiling;
+	bool hasNormalMap;
     bool hasAlphaMap;
     bool hasSpecMap;
-    float3 DiffuseColor;
+	float3 DiffuseColor;
+	float4 padding;
 };
 
 // Per-vertex data used as input to the vertex shader.
@@ -65,7 +64,7 @@ PixelShaderInput main_vs(VertexShaderInput input)
     output.tangent = mul(input.tangent, transpose(model));
 
 	// Pass the color through without modification.
-    output.texcoord = input.texcoord;
+    output.texcoord = input.texcoord * tiling;
     return output;
 }
 

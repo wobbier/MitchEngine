@@ -7,6 +7,7 @@ namespace Moonlight
 	Material::Material()
 		: Textures(TextureType::Count, nullptr)
 		, DiffuseColor(1.f, 1.f, 1.f)
+		, Tiling(1.f, 1.f)
 	{
 	}
 
@@ -31,6 +32,45 @@ namespace Moonlight
 	{
 		RenderMode = newMode;
 	}
+
+	void Material::OnSerialize(json& InJson)
+	{
+		InJson["DiffuseColor"] = { DiffuseColor.X(), DiffuseColor.Y(), DiffuseColor.Z() };
+		InJson["Tiling"] = { Tiling.X(), Tiling.Y() };
+		for (unsigned int type = 0; type < TextureType::Count; ++type)
+		{
+			auto texture = Textures[type];
+			if (texture)
+			{
+				json& savedTexture = InJson["Textures"][Texture::ToString(static_cast<TextureType>(type))];
+				savedTexture["Path"] = texture->GetPath().LocalPath;
+				savedTexture["RenderMode"] = GetRenderingModeString(RenderMode);
+			}
+		}
+	}
+
+	void Material::OnDeserialize(const json& InJson)
+	{
+		if (InJson.contains("DiffuseColor"))
+		{
+			DiffuseColor = Vector3((float)InJson["DiffuseColor"][0], (float)InJson["DiffuseColor"][1], (float)InJson["DiffuseColor"][2]);
+		}
+		if (InJson.contains("Tiling"))
+		{
+			Tiling = Vector2((float)InJson["Tiling"][0], (float)InJson["Tiling"][1]);
+		}
+		if (InJson.contains("Textures"))
+		{
+			for (unsigned int type = 0; type < TextureType::Count; ++type)
+			{
+				if (InJson["Textures"].contains(Texture::ToString(static_cast<TextureType>(type))))
+				{
+					SetTexture(static_cast<TextureType>(type), ResourceCache::GetInstance().Get<Texture>(Path(InJson["Textures"][Texture::ToString(static_cast<TextureType>(type))]["Path"])));
+				}
+			}
+		}
+	}
+
 	void Material::SetTexture(const TextureType& textureType, std::shared_ptr<Moonlight::Texture> loadedTexture)
 	{
 		Textures[textureType] = loadedTexture;

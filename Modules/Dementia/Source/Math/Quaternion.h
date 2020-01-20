@@ -2,6 +2,8 @@
 #include <d3d11.h>
 #include <SimpleMath.h>
 #include "Vector3.h"
+#define _USE_MATH_DEFINES
+#include <math.h>
 
 class Quaternion
 {
@@ -24,6 +26,8 @@ public:
 	{
 
 	}
+
+	static Vector3 ToEulerAngles(Quaternion InQuat);
 
 	DirectX::SimpleMath::Quaternion& GetInternalVec()
 	{

@@ -60,6 +60,7 @@ private:
 			{
 				MeshMaterial->SetRenderMode(Moonlight::RenderingMode::Opaque);
 			}
+			HavanaUtils::EditableVector("Tiling", MeshMaterial->Tiling);
 			ImGui::Text("Vertices: %i", MeshReferece->vertices.size());
 			if (ImGui::TreeNode("Material"))
 			{

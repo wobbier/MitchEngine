@@ -453,6 +453,10 @@ namespace Moonlight
 					}
 					constantBufferSceneData.HasAlphaMap = FALSE;
 					constantBufferSceneData.DiffuseColor = mesh.MeshMaterial->DiffuseColor.GetInternalVec();
+
+					//constantBufferSceneData.Tiling = DirectX::SimpleMath::Vector2(&mesh.MeshMaterial->Tiling.GetInternalVec().x);
+					XMStoreFloat2(&constantBufferSceneData.Tiling, mesh.MeshMaterial->Tiling.GetInternalVec());
+					//constantBufferSceneData.Tiling = mesh.MeshMaterial->Tiling.GetInternalVec();
 					// Prepare the constant buffer to send it to the graphics device.
 					context->UpdateSubresource1(
 						m_constantBuffer.Get(),
@@ -490,10 +494,10 @@ namespace Moonlight
 			}
 			if (camera.Projection == ProjectionType::Perspective)
 			{
-				for (const DebugColliderCommand& collider : DebugColliders)
+				/*for (const DebugColliderCommand& collider : DebugColliders)
 				{
 					shape->Draw(collider.Transform, DirectX::XMLoadFloat4x4(&constantBufferSceneData.view), DirectX::XMLoadFloat4x4(&constantBufferSceneData.projection), Colors::Gray, nullptr, true);
-				}
+				}*/
 			}
 			m_device->ResetCullingMode();
 			m_device->GetD3DDeviceContext()->OMSetBlendState(m_device->TransparentBlendState, Colors::Black, 0xffffffff);
@@ -522,7 +526,9 @@ namespace Moonlight
 					}
 					constantBufferSceneData.HasAlphaMap = TRUE;
 					constantBufferSceneData.DiffuseColor = mesh.MeshMaterial->DiffuseColor.GetInternalVec();
-
+					//constantBufferSceneData.Tiling = DirectX::SimpleMath::Vector2(&mesh.MeshMaterial->Tiling.GetInternalVec().x);
+					//constantBufferSceneData.Tiling = mesh.MeshMaterial->Tiling.GetInternalVec();
+					XMStoreFloat2(&constantBufferSceneData.Tiling, mesh.MeshMaterial->Tiling.GetInternalVec());
 					// Prepare the constant buffer to send it to the graphics device.
 					context->UpdateSubresource1(
 						m_constantBuffer.Get(),

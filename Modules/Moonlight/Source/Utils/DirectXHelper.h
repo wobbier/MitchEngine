@@ -2,6 +2,7 @@
 #include "Dementia.h"
 
 #include <vcruntime_exception.h>
+#define _USE_MATH_DEFINES
 #include <math.h>
 
 namespace DX

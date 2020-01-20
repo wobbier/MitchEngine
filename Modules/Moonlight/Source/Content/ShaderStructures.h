@@ -12,13 +12,12 @@ namespace Moonlight
 		DirectX::XMFLOAT4X4 modelInv;
 		DirectX::XMFLOAT4X4 view;
 		DirectX::XMFLOAT4X4 projection;
-		DirectX::XMFLOAT4X4 LightSpaceMatrix;
-		FLOAT id;
-		FLOAT padding;
+		DirectX::XMFLOAT2 Tiling;
 		BOOL HasNormalMap;
 		BOOL HasAlphaMap;
 		BOOL HasSpecMap;
 		DirectX::XMFLOAT3 DiffuseColor;
+		DirectX::XMFLOAT4 padding2;
 	};
 	struct PickingConstantBuffer
 	{
