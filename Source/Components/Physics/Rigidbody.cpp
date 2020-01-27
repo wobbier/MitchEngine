@@ -61,6 +61,11 @@ void Rigidbody::SetMass(float InMass)
 	}
 }
 
+const bool Rigidbody::IsDynamic() const
+{
+	return m_isDynamic;
+}
+
 std::string Rigidbody::GetColliderString(ColliderType InType)
 {
 	switch (Type)
@@ -109,7 +114,7 @@ void Rigidbody::Deserialize(const json& inJson)
 	}
 }
 
-void Rigidbody::CreateObject(const Vector3& Position, Vector3& Rotation, Vector3& InScale, btDiscreteDynamicsWorld* world)
+void Rigidbody::CreateObject(const Vector3& Position, Quaternion& Rotation, Vector3& InScale, btDiscreteDynamicsWorld* world)
 {
 	m_world = world;
 	if (Scale == Vector3())
@@ -127,12 +132,12 @@ void Rigidbody::CreateObject(const Vector3& Position, Vector3& Rotation, Vector3
 		break;
 	}
 	//fallShape->setLocalScaling(btVector3(Scale[0], Scale[1], Scale[2]));
-	IsDynamic = (Mass != 0.f);
+	m_isDynamic = (Mass != 0.f);
 
 	btDefaultMotionState* fallMotionState =
-		new btDefaultMotionState(btTransform(btQuaternion(Rotation.Y(), Rotation.X(), Rotation.Z()), btVector3(Position.X(), Position.Y(), Position.Z())));
+		new btDefaultMotionState(btTransform(btQuaternion(Rotation.GetInternalVec().x, Rotation.GetInternalVec().y, Rotation.GetInternalVec().z, Rotation.GetInternalVec().w), btVector3(Position.X(), Position.Y(), Position.Z())));
 	btVector3 fallInertia(0, 0, 0);
-	if (IsDynamic)
+	if (m_isDynamic)
 	{
 		fallShape->calculateLocalInertia(Mass, fallInertia);
 	}
@@ -178,8 +183,8 @@ void Rigidbody::OnEditorInspect()
 
 	HavanaUtils::EditableVector3("Hitbox Scale", Scale);
 
-	bool isDynamicTemp = (Mass != 0.f);
-	ImGui::Checkbox("Is Dynamic", &isDynamicTemp);
+	bool m_isDynamicTemp = (Mass != 0.f);
+	ImGui::Checkbox("Is Dynamic", &m_isDynamicTemp);
 	ImGui::DragFloat("Mass", &Mass);
 }
 

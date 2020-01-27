@@ -20,7 +20,6 @@ public:
 
 	Vector3 Position;
 	Vector3 Front;
-	Vector3 Up;
 	Vector3 ClearColor;
 	float Zoom = 45.0f;
 	float Yaw = -90.f;

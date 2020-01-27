@@ -116,23 +116,23 @@ void EditorCore::Update(float dt)
 			}
 			if (Keyboard.A)
 			{
-				EditorCameraTransform->Translate(EditorCamera->Up.Cross(EditorCamera->Front.GetInternalVec()).Normalized() * CameraSpeed);
+				EditorCameraTransform->Translate(Vector3::Up.Cross(EditorCamera->Front.GetInternalVec()).Normalized() * CameraSpeed);
 			}
 			if (Keyboard.D)
 			{
-				EditorCameraTransform->Translate(EditorCamera->Front.Cross(EditorCamera->Up.GetInternalVec()).Normalized() * CameraSpeed);
+				EditorCameraTransform->Translate(EditorCamera->Front.Cross(Vector3::Up.GetInternalVec()).Normalized() * CameraSpeed);
 			}
 			if (Keyboard.Space)
 			{
-				EditorCameraTransform->Translate(EditorCamera->Up * CameraSpeed);
+				EditorCameraTransform->Translate(Vector3::Up * CameraSpeed);
 			}
 			if (Keyboard.E)
 			{
-				EditorCameraTransform->Translate(EditorCamera->Front.Cross(EditorCamera->Up).Cross(EditorCamera->Front).Normalized() * CameraSpeed);
+				EditorCameraTransform->Translate(EditorCamera->Front.Cross(Vector3::Up).Cross(EditorCamera->Front).Normalized() * CameraSpeed);
 			}
 			if (Keyboard.Q)
 			{
-				EditorCameraTransform->Translate(EditorCamera->Front.Cross(-EditorCamera->Up).Cross(EditorCamera->Front).Normalized() * CameraSpeed);
+				EditorCameraTransform->Translate(EditorCamera->Front.Cross(-Vector3::Up).Cross(EditorCamera->Front).Normalized() * CameraSpeed);
 			}
 
 			Vector2 MousePosition = m_editor->GetInput().GetMousePosition();

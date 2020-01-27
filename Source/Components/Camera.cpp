@@ -10,7 +10,6 @@ Camera::Camera()
 	: Component("Camera")
 {
 	Position = Vector3(0.f, 0.f, 2.f);
-	Up = Vector3(0.f, 1.f, 0.f);
 	Front = Vector3(0.f, 0.f, -1.f);
 }
 

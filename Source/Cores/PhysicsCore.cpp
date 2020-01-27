@@ -10,6 +10,8 @@
 #include "Components/Physics/CharacterController.h"
 #include "BulletCollision/CollisionDispatch/btCollisionWorld.h"
 #include "BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
+#include "Math/Line.h"
+#include "Mathf.h"
 
 #define M_PI 3.14159
 #define RADIANS_TO_DEGREES(__ANGLE__) ((__ANGLE__) / M_PI * 180.0)
@@ -75,12 +77,12 @@ void PhysicsCore::Update(float dt)
 			{
 				btTransform trans;
 				Vector3 transPos = TransformComponent.GetPosition();
-				trans.setRotation(btQuaternion(TransformComponent.Rotation.X(), TransformComponent.Rotation.Y(), TransformComponent.Rotation.Z()));
+				trans.setRotation(btQuaternion(TransformComponent.InternalRotation.GetInternalVec().x, TransformComponent.InternalRotation.GetInternalVec().y, TransformComponent.InternalRotation.GetInternalVec().z, TransformComponent.InternalRotation.GetInternalVec().w));
 				trans.setOrigin(btVector3(transPos.X(), transPos.Y(), transPos.Z()));
 				rigidbody->setWorldTransform(trans);
 				rigidbody->activate();
 			}
-			else
+			else if(RigidbodyComponent.IsDynamic())
 			{
 				btTransform& trans = rigidbody->getWorldTransform();
 				btQuaternion rot;
@@ -89,7 +91,7 @@ void PhysicsCore::Update(float dt)
 				TransformComponent.SetPosition(bulletPosition);
 				btScalar x, y, z;
 				rot.getEulerZYX(z, y, x);
-				TransformComponent.SetRotation(Vector3(x, y, z));
+				TransformComponent.SetRotation(Vector3(Mathf::Degrees(x), Mathf::Degrees(y), Mathf::Degrees(z)));
 				//Transform tempTrans;
 				//tempTrans.SetPosition(bulletPosition);
 
@@ -148,7 +150,7 @@ void PhysicsCore::InitRigidbody(Rigidbody& RigidbodyComponent, Transform& Transf
 {
 	if (!RigidbodyComponent.IsRigidbodyInitialized())
 	{
-		RigidbodyComponent.CreateObject(TransformComponent.GetPosition(), TransformComponent.Rotation, TransformComponent.GetScale(), PhysicsWorld);
+		RigidbodyComponent.CreateObject(TransformComponent.GetPosition(), TransformComponent.InternalRotation, TransformComponent.GetScale(), PhysicsWorld);
 		PhysicsWorld->addRigidBody(RigidbodyComponent.InternalRigidbody);
 		Moonlight::DebugColliderCommand cmd;
 		RigidbodyComponent.DebugColliderId = GetEngine().GetRenderer().PushDebugCollider(cmd);
@@ -208,6 +210,8 @@ bool PhysicsCore::Raycast(const Vector3& InPosition, const Vector3& InDirection,
 			btVector3& n = closestResults.m_hitNormalWorld;
 			OutHit.Normal = Vector3(n.x(), n.y(), n.z());
 			OutHit.What = static_cast<Rigidbody*>(closestResults.m_collisionObject->getUserPointer());
+			//OutHit.Ray = Line(InDirection, OutHit.What);
+
 
 			return true;
 		}

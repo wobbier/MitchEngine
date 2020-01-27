@@ -5,6 +5,7 @@
 #include "Math/Vector3.h"
 #include <DirectXMath.h>
 #include "Math/Matirx4.h"
+#include "Math/Quaternion.h"
 
 class Rigidbody
 	: public Component<Rigidbody>
@@ -31,6 +32,8 @@ public:
 	void SetScale(Vector3 InScale);
 	void SetMass(float InMass);
 
+	const bool IsDynamic() const;
+
 	std::string GetColliderString(ColliderType InType);
 
 	Matrix4 GetMat()
@@ -53,13 +56,13 @@ public:
 	virtual void Deserialize(const json& inJson) override;
 
 private:
-	void CreateObject(const Vector3& Position, Vector3& Rotation, Vector3& InScale, class btDiscreteDynamicsWorld* world);
+	void CreateObject(const Vector3& Position, Quaternion& Rotation, Vector3& InScale, class btDiscreteDynamicsWorld* world);
 	btRigidBody* InternalRigidbody = nullptr;
 	btCollisionShape* fallShape = nullptr;
 	Vector3 Scale;
 	ColliderType Type = ColliderType::Box;
 	float Mass = 10.0f;
-	bool IsDynamic = false;
+	bool m_isDynamic = false;
 protected:
 	bool IsInitialized = false;
 	class btDiscreteDynamicsWorld* m_world;

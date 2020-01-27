@@ -1234,7 +1234,7 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 
 					const DirectX::XMVECTORF32 eye = { EditorCamera.Position.X(), EditorCamera.Position.Y(), EditorCamera.Position.Z(), 0 };
 					const DirectX::XMVECTORF32 at = { EditorCamera.Position.X() + EditorCamera.Front.X(), EditorCamera.Position.Y() + EditorCamera.Front.Y(), EditorCamera.Position.Z() + EditorCamera.Front.Z(), 0.0f };
-					const DirectX::XMVECTORF32 up = { EditorCamera.Up.X(), EditorCamera.Up.Y(), EditorCamera.Up.Z(), 0 };
+					const DirectX::XMVECTORF32 up = { Vector3::Up.X(), Vector3::Up.Y(), Vector3::Up.Z(), 0 };
 
 					DirectX::XMMATRIX vec = DirectX::XMMatrixLookAtRH(eye, at, up);
 

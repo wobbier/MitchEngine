@@ -173,7 +173,6 @@ void Engine::Run()
 			Vector2 MainOutputSize = m_renderer->GetDevice().GetOutputSize();
 			MainCamera.Position = Camera::CurrentCamera->Position;
 			MainCamera.Front = Camera::CurrentCamera->Front;
-			MainCamera.Up = Camera::CurrentCamera->Up;
 			MainCamera.OutputSize = MainOutputSize;
 			MainCamera.FOV = Camera::CurrentCamera->GetFOV();
 			MainCamera.Skybox = Camera::CurrentCamera->Skybox;

@@ -81,23 +81,23 @@ void FlyingCameraCore::Update(float dt)
 			}
 			if (Keyboard.A)
 			{
-				TransformComponent.Translate(CameraComponent.Up.Cross(CameraComponent.Front.GetInternalVec()).Normalized() * CameraSpeed);
+				TransformComponent.Translate(Vector3::Up.Cross(CameraComponent.Front.GetInternalVec()).Normalized() * CameraSpeed);
 			}
 			if (Keyboard.D)
 			{
-				TransformComponent.Translate(CameraComponent.Front.Cross(CameraComponent.Up.GetInternalVec()).Normalized() * CameraSpeed);
+				TransformComponent.Translate(CameraComponent.Front.Cross(Vector3::Up.GetInternalVec()).Normalized() * CameraSpeed);
 			}
 			if (Keyboard.Space)
 			{
-				TransformComponent.Translate(CameraComponent.Up * CameraSpeed);
+				TransformComponent.Translate(Vector3::Up * CameraSpeed);
 			}
 			if (Keyboard.E)
 			{
-				TransformComponent.Translate(CameraComponent.Front.Cross(CameraComponent.Up).Cross(CameraComponent.Front).Normalized() * CameraSpeed);
+				TransformComponent.Translate(CameraComponent.Front.Cross(Vector3::Up).Cross(CameraComponent.Front).Normalized() * CameraSpeed);
 			}
 			if (Keyboard.Q)
 			{
-				TransformComponent.Translate(CameraComponent.Front.Cross(-CameraComponent.Up).Cross(CameraComponent.Front).Normalized() * CameraSpeed);
+				TransformComponent.Translate(CameraComponent.Front.Cross(-Vector3::Up).Cross(CameraComponent.Front).Normalized() * CameraSpeed);
 			}
 
 			Vector2 MousePosition = GetEngine().GetInput().GetMousePosition();

@@ -4,6 +4,7 @@
 #include "Math/Vector3.h"
 #include "misc/cpp/imgui_stdlib.h"
 #include "Engine/Engine.h"
+#include "Mathf.h"
 
 Transform::Transform()
 	: Component("Transform")
@@ -144,7 +145,7 @@ void Transform::OnEditorInspect()
 	HavanaUtils::EditableVector3("Rotation", Rotation);
 	if (OldRotation != Rotation || OldPosition != Position)
 	{
-		SetDirty(true);
+		SetRotation(Rotation);
 	}
 	HavanaUtils::EditableVector3("Scale", Scale);
 	Vector3 WorldPos = GetWorldPosition();
@@ -178,9 +179,26 @@ Vector3 Transform::GetScale()
 	return Scale;
 }
 
+void Transform::LookAt(const Vector3& InDirection)
+{
+	DirectX::SimpleMath::Matrix mat = DirectX::SimpleMath::Matrix::CreateLookAt(GetWorldPosition().GetInternalVec(), (GetWorldPosition() + InDirection).GetInternalVec(), Vector3::Up.GetInternalVec()).Transpose();
+
+	DirectX::SimpleMath::Quaternion quat;
+	mat.Decompose(DirectX::SimpleMath::Vector3(), quat, DirectX::SimpleMath::Vector3());
+
+	Quaternion quat2(quat);
+
+	Rotation = Quaternion::ToEulerAngles(quat2);
+	Rotation = Vector3(Mathf::Degrees(Rotation.X()), Mathf::Degrees(Rotation.Y()), Mathf::Degrees(Rotation.Z()));
+	InternalRotation = quat2;
+	SetDirty(true);
+}
+
 void Transform::SetRotation(Vector3 euler)
 {
-	//glm::rotate(Rotation, quat);
+	DirectX::SimpleMath::Quaternion quat2 = DirectX::SimpleMath::Quaternion::CreateFromYawPitchRoll(Mathf::Radians(euler.Y()), Mathf::Radians(euler.X()), Mathf::Radians(euler.Z()));
+	Quaternion quat(quat2);
+	InternalRotation = quat;
 	Rotation = euler;
 	SetDirty(true);
 }

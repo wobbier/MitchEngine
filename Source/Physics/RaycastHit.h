@@ -1,10 +1,12 @@
 #pragma once
-#include "Math/Vector3.h"
+#include "Math/Line.h"
 
 struct RaycastHit
 {
+	RaycastHit() = default;
 	Vector3 Position;
 	Vector3 Normal;
+	Line Ray;
 
 	class Rigidbody* What = nullptr;
 };

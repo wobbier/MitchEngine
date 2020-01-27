@@ -57,6 +57,10 @@ public:
 		return Vector3(m_vector - other.m_vector);
 	}
 
+	Vector3 operator/(const float& other) const
+	{
+		return Vector3(m_vector / other);
+	}
 
 	Vector3 operator-() const
 	{
@@ -142,7 +146,7 @@ public:
 		}
 	}
 
-	Vector3 Cross(const Vector3& other)
+	Vector3 Cross(const Vector3& other) const
 	{
 		DirectX::SimpleMath::Vector3 vec = m_vector.Cross(other.GetInternalVec());
 		
@@ -161,11 +165,26 @@ public:
 		m_vector = vec;
 	}
 
+	float Dot(const Vector3& Other)
+	{
+		return m_vector.Dot(Other.GetInternalVec());
+	}
+
+	float LengthSquared()
+	{
+		return m_vector.LengthSquared();
+	}
+
 	Vector3 Normalized() const
 	{
 		DirectX::SimpleMath::Vector3 vec;
 		m_vector.Normalize(vec);
 		return Vector3(vec);
+	}
+
+	static Vector3 DistanceSq(const Vector3& InVec1, const Vector3& InVec2)
+	{
+		return Vector3(DirectX::SimpleMath::Vector3::DistanceSquared(InVec2.GetInternalVec(), InVec2.GetInternalVec()));
 	}
 
 	const DirectX::SimpleMath::Vector3& GetInternalVec() const

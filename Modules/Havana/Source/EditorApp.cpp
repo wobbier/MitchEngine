@@ -94,7 +94,7 @@ void EditorApp::UpdateCameras()
 	}
 
 	MainCamera.Front = Camera::CurrentCamera->Front;
-	MainCamera.Up = Camera::CurrentCamera->Up;
+	MainCamera.Up = Vector3::Up;
 	MainCamera.OutputSize = MainOutputSize;
 	MainCamera.FOV = Camera::CurrentCamera->GetFOV();
 	MainCamera.Skybox = Camera::CurrentCamera->Skybox;
@@ -107,7 +107,7 @@ void EditorApp::UpdateCameras()
 	Moonlight::CameraData EditorCamera;
 	EditorCamera.Position = Camera::EditorCamera->Position;
 	EditorCamera.Front = Camera::EditorCamera->Front;
-	EditorCamera.Up = Camera::EditorCamera->Up;
+	EditorCamera.Up = Vector3::Up;
 	EditorCamera.OutputSize = Editor->WorldViewRenderSize;
 	EditorCamera.FOV = Camera::EditorCamera->GetFOV();
 	EditorCamera.Skybox = Camera::CurrentCamera->Skybox;

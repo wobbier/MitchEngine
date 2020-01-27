@@ -39,6 +39,8 @@ public:
 	void SetScale(float NewScale);
 	Vector3 GetScale();
 
+	void LookAt(const Vector3& InDirection);
+
 	void Translate(Vector3 NewTransform);
 
 	//World Space
@@ -72,10 +74,11 @@ public:
 	void SetName(const std::string& name);
 	void SetWorldTransform(Matrix4& NewWorldTransform);
 
+	Vector3 Rotation;
+	Quaternion InternalRotation;
 private:
 	Vector3 Position;
 	Vector3 Scale;
-	Vector3 Rotation;
 #if ME_EDITOR
 	virtual void OnEditorInspect() final;
 
