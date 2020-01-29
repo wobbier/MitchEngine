@@ -5,7 +5,6 @@
 #include "ECS/Entity.h"
 #include <string>
 #include "Engine/Input.h"
-#include "Components/Animation.h"
 #include "Components/Camera.h"
 #include "Components/Physics/Rigidbody.h"
 #include "Components/Graphics/Model.h"
@@ -92,6 +91,7 @@ void EditorApp::UpdateCameras()
 		Front.SetZ(sin(Yaw) * cos(Pitch));
 		//Camera::CurrentCamera->Front = Front.Normalized();
 	}
+	Camera::CurrentCamera->OutputSize = MainOutputSize;
 
 	MainCamera.Front = Camera::CurrentCamera->Front;
 	MainCamera.Up = Vector3::Up;
@@ -102,7 +102,6 @@ void EditorApp::UpdateCameras()
 	MainCamera.ClearType = Camera::CurrentCamera->ClearType;
 	MainCamera.Projection = Camera::CurrentCamera->Projection;
 	MainCamera.OrthographicSize = Camera::CurrentCamera->OrthographicSize;
-	GetEngine().MainCamera = MainCamera;
 
 	Moonlight::CameraData EditorCamera;
 	EditorCamera.Position = Camera::EditorCamera->Position;

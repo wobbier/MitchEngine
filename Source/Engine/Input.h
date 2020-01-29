@@ -39,14 +39,7 @@ public:
 	void Stop();
 
 private:
-	void Update()
-	{
-		if (CaptureInput)
-		{
-			KeyboardState = Keyboard->GetState();
-			MouseState = Mouse->GetState();
-		}
-	}
+	void Update();
 
 	bool CaptureInput = true;
 

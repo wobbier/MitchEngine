@@ -59,6 +59,16 @@ float Camera::GetFOV()
 	return m_FOV;
 }
 
+const int Camera::GetId() const
+{
+	return m_id;
+}
+
+const bool Camera::IsMain() const
+{
+	return (Camera::CurrentCamera == this);
+}
+
 void Camera::Deserialize(const json& inJson)
 {
 	if (inJson.contains("Skybox"))

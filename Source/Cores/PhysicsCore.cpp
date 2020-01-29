@@ -68,10 +68,11 @@ void PhysicsCore::Update(float dt)
 		{
 			Rigidbody& RigidbodyComponent = InEntity.GetComponent<Rigidbody>();
 
+			InitRigidbody(RigidbodyComponent, TransformComponent);
+
 			btRigidBody* rigidbody = RigidbodyComponent.InternalRigidbody;
 			btTransform& trans = rigidbody->getWorldTransform();
 
-			InitRigidbody(RigidbodyComponent, TransformComponent);
 
 			if (TransformComponent.IsDirty)
 			{

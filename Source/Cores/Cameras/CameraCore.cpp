@@ -1,6 +1,7 @@
 #include "PCH.h"
 #include "CameraCore.h"
 #include "Components/Camera.h"
+#include "Engine/Engine.h"
 
 CameraCore::CameraCore() : Base(ComponentFilter().Requires<Camera>().Requires<Transform>())
 {
@@ -30,6 +31,20 @@ void CameraCore::Update(float dt)
 		Transform& TransformComponent = InEntity.GetComponent<Transform>();
 
 		CameraComponent.UpdateCameraTransform(TransformComponent.GetWorldPosition());
+
+		Moonlight::CameraData& CamData = GetEngine().GetRenderer().GetCamera(CameraComponent.m_id);
+		CamData.Position = CameraComponent.Position;
+		CamData.Front = CameraComponent.Front;
+		CamData.Up = Vector3::Up;
+		CamData.OutputSize = CameraComponent.OutputSize;
+		CamData.FOV = CameraComponent.GetFOV();
+		CamData.Skybox = CameraComponent.Skybox;
+		CamData.ClearColor = CameraComponent.ClearColor;
+		CamData.ClearType = CameraComponent.ClearType;
+		CamData.Projection = CameraComponent.Projection;
+		CamData.OrthographicSize = CameraComponent.OrthographicSize;
+		CamData.IsMain = CameraComponent.IsMain();
+		GetEngine().GetRenderer().UpdateCamera(CameraComponent.m_id, CamData);
 	}
 }
 
@@ -39,4 +54,24 @@ void CameraCore::OnEntityAdded(Entity& NewEntity)
 	{
 		NewEntity.GetComponent<Camera>().SetCurrent();
 	}
+	NewEntity.GetComponent<Camera>().m_id = GetEngine().GetRenderer().PushCamera(CreateCameraData(NewEntity.GetComponent<Transform>(), NewEntity.GetComponent<Camera>()));
+}
+
+Moonlight::CameraData CameraCore::CreateCameraData(Transform& InTransform, Camera& InCamera)
+{
+	Moonlight::CameraData CamData;
+
+	CamData.Position = InCamera.Position;
+	CamData.Front = InCamera.Front;
+	CamData.Up = Vector3::Up;
+	CamData.OutputSize = InCamera.OutputSize;
+	CamData.FOV = InCamera.GetFOV();
+	CamData.Skybox = InCamera.Skybox;
+	CamData.ClearColor = InCamera.ClearColor;
+	CamData.ClearType = InCamera.ClearType;
+	CamData.Projection = InCamera.Projection;
+	CamData.OrthographicSize = InCamera.OrthographicSize;
+	CamData.IsMain = InCamera.IsMain();
+
+	return CamData;
 }

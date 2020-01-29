@@ -67,7 +67,10 @@ void Engine::Init(Game* game)
 		}
 		if (UI)
 		{
-			UI->OnResize(MainCamera.OutputSize);
+			if (Camera::CurrentCamera)
+			{
+				UI->OnResize(Camera::CurrentCamera->OutputSize);
+			}
 		}
 	};
 	GameWindow = new Win32Window(EngineConfig->GetValue("Title"), Func, 500, 300, WindowWidth, WindowHeight);
@@ -163,9 +166,13 @@ void Engine::Run()
 			AudioThread->Update(deltaTime);
 			ModelRenderer->Update(deltaTime);
 
+			// editor only?
 			if (UI)
 			{
-				UI->OnResize(MainCamera.OutputSize);
+				if (Camera::CurrentCamera)
+				{
+					UI->OnResize(Camera::CurrentCamera->OutputSize);
+				}
 			}
 			UI->Update(deltaTime);
 
@@ -188,7 +195,7 @@ void Engine::Run()
 				m_game->PostRender();
 			}, [this]() {
 				UI->Render();
-			}, MainCamera, EditorCamera);
+			}, EditorCamera);
 
 			AccumulatedTime = std::fmod(AccumulatedTime, MaxDeltaTime);
 		}

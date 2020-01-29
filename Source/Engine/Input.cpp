@@ -96,6 +96,15 @@ void Input::Stop()
 	CaptureInput = false;
 }
 
+void Input::Update()
+{
+	if (CaptureInput)
+	{
+		KeyboardState = Keyboard->GetState();
+		MouseState = Mouse->GetState();
+	}
+}
+
 std::unique_ptr<DirectX::Mouse> Input::Mouse = std::make_unique<DirectX::Mouse>();
 
 std::unique_ptr<DirectX::Keyboard> Input::Keyboard = std::make_unique<DirectX::Keyboard>();

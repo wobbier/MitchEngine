@@ -4,6 +4,9 @@
 #include "Resource/Resource.h"
 #include <d3d11.h>
 #include <wrl/client.h>
+
+namespace Moonlight { struct FrameBuffer; }
+
 namespace Moonlight
 {
 	enum TextureType
@@ -36,7 +39,10 @@ namespace Moonlight
 		int mChannels;
 
 		Texture(const Path& InFilePath, WrapMode mode = WrapMode::Wrap);
+		Texture(FrameBuffer* InFilePath, WrapMode mode = WrapMode::Wrap);
 		~Texture();
+
+		void UpdateBuffer(FrameBuffer* NewBuffer);
 
 		template<typename T> static constexpr T NumMipmapLevels(T width, T height)
 		{
@@ -50,9 +56,9 @@ namespace Moonlight
 		// Textures should not be copied around in memory
 		ME_NONCOPYABLE(Texture);
 
-		ID3D11ShaderResourceView* ShaderResourceView;
+		ID3D11ShaderResourceView* ShaderResourceView = nullptr;
 		Microsoft::WRL::ComPtr<ID3D11SamplerState> SamplerState;
-		ID3D11Resource* resource;
+		ID3D11Resource* resource = nullptr;
 
 		static std::string ToString(TextureType type);
 	};

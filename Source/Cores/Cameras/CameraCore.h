@@ -1,5 +1,7 @@
 #pragma once
 #include "ECS/Core.h"
+#include "Camera/CameraData.h"
+#include "Components/Camera.h"
 
 class CameraCore : public Core<CameraCore>
 {
@@ -15,6 +17,7 @@ public:
 
 	virtual void OnEntityAdded(Entity& NewEntity) final;
 
+	Moonlight::CameraData CreateCameraData(Transform& InTransform, Camera& InCamera);
 private:
 	class Camera* DefaultCamera;
 };

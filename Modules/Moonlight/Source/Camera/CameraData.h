@@ -3,6 +3,7 @@
 #include "Math/Vector2.h"
 
 namespace Moonlight { class SkyBox; }
+namespace Moonlight { class FrameBuffer; }
 
 namespace Moonlight
 {
@@ -30,5 +31,8 @@ namespace Moonlight
 		float FOV = 45.0f;
 		SkyBox* Skybox = nullptr;
 		float OrthographicSize = 1.f;
+
+		Moonlight::FrameBuffer* Buffer = nullptr;
+		bool IsMain = false;
 	};
 }

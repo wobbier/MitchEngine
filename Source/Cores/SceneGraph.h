@@ -23,4 +23,7 @@ public:
 #if ME_EDITOR
 	virtual void OnEditorInspect() final;
 #endif
+
+	void OnEntityRemoved(Entity& InEntity) override;
+
 };

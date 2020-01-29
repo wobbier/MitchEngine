@@ -44,7 +44,8 @@ namespace Moonlight
 		RenderPassType PassType = RenderPassType::Differed;
 		void UpdateMatrix(unsigned int Id, DirectX::SimpleMath::Matrix NewTransform);
 		void UpdateMeshMatrix(unsigned int Id, DirectX::SimpleMath::Matrix NewTransform);
-		void UpdateText(unsigned int Id, TextCommand NewCommand);
+		void UpdateCamera(unsigned int Id, CameraData& NewCommand);
+		Moonlight::CameraData& GetCamera(unsigned int Id);
 	public:
 		Renderer();
 		virtual ~Renderer() final;
@@ -57,7 +58,7 @@ namespace Moonlight
 		D3D12Device& GetDevice();
 
 		void Update(float dt);
-		void Render(std::function<void()> func, std::function<void()> uiRender, const CameraData& mainCamera, const CameraData& editorCamera);
+		void Render(std::function<void()> func, std::function<void()> uiRender, const CameraData& editorCamera);
 
 		void DrawScene(ID3D11DeviceContext3* context, ModelViewProjectionConstantBuffer& constantBufferSceneData, const CameraData& data, FrameBuffer* ViewRTT, FrameBuffer* ResolveViewRTT);
 		void DrawDepthOnlyScene(ID3D11DeviceContext3* context, DepthPassBuffer& constantBufferSceneData, FrameBuffer* ViewRTT);
@@ -127,8 +128,8 @@ namespace Moonlight
 		std::vector<MeshCommand> Meshes;
 		std::queue<unsigned int> FreeMeshCommandIndicies;
 
-		std::vector<TextCommand> UIText;
-		std::queue<unsigned int> FreeUITextCommandIndicies;
+		std::vector<CameraData> Cameras;
+		std::queue<unsigned int> FreeCameraCommandIndicies;
 
 #if ME_ENABLE_RENDERDOC
 		RenderDocManager* RenderDoc;
@@ -138,8 +139,8 @@ namespace Moonlight
 		void PopMesh(unsigned int Id);
 		void ClearMeshes();
 
-		unsigned int PushUIText(Moonlight::TextCommand command);
-		void PopUIText(unsigned int Id);
+		unsigned int PushCamera(Moonlight::CameraData& command);
+		void PopCamera(unsigned int Id);
 		void ClearUIText();
 
 		std::unique_ptr<DirectX::GeometricPrimitive> shape;

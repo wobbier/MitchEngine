@@ -10,7 +10,6 @@
 #include "Resource/ResourceCache.h"
 #include "RenderCommands.h"
 #include "Engine/Engine.h"
-#include "Components/UI/Text.h"
 #include "Utils/StringUtils.h"
 
 #include <Ultralight/platform/Platform.h>
@@ -211,7 +210,7 @@ void UICore::OnResize(const Vector2& NewSize)
 
 void UICore::InitUIView(BasicUIView& view)
 {
-	ultralight::Ref<ultralight::View> newView = m_uiRenderer->CreateView(GetEngine().MainCamera.OutputSize.X(), GetEngine().MainCamera.OutputSize.Y(), true);
+	ultralight::Ref<ultralight::View> newView = m_uiRenderer->CreateView(Camera::CurrentCamera->OutputSize.X(), Camera::CurrentCamera->OutputSize.Y(), true);
 	ultralight::RefPtr<ultralight::Overlay> overlay = ultralight::Overlay::Create(*m_window.get(), newView, 0, 0);
 	//overlay->view()->LoadHTML(view.SourceFile.Read().c_str());
 	overlay->view()->set_load_listener(&view);
