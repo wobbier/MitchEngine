@@ -205,6 +205,7 @@ namespace Moonlight
 				context->ClearRenderTargetView(buffer->ShadowMapRenderTargetView.Get(), color);
 				context->ClearRenderTargetView(buffer->UIRenderTargetView.Get(), DirectX::Colors::Transparent);
 				context->ClearRenderTargetView(buffer->PickingTargetView.Get(), color);
+				context->ClearDepthStencilView(buffer->DepthStencilView.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 			}
 		}
 
@@ -214,10 +215,7 @@ namespace Moonlight
 		context->ClearRenderTargetView(SceneViewRTT->PositionRenderTargetView.Get(), color);
 		context->ClearRenderTargetView(SceneViewRTT->SpecularRenderTargetView.Get(), color);
 		context->ClearRenderTargetView(SceneViewRTT->ShadowMapRenderTargetView.Get(), color);
-		if (GameViewRTT)
-		{
-			context->ClearDepthStencilView(GameViewRTT->DepthStencilView.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
-		}
+
 		//ID3D11RenderTargetView* nullViews[] = { nullptr, nullptr, nullptr, nullptr };
 		//context->OMSetRenderTargets(ARRAYSIZE(nullViews), nullViews, nullptr);
 		if (m_pickingRequested)
