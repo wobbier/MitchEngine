@@ -3,7 +3,8 @@
 #include "Camera/CameraData.h"
 #include "Components/Camera.h"
 
-class CameraCore : public Core<CameraCore>
+class CameraCore
+	: public Core<CameraCore>
 {
 public:
 	CameraCore();
@@ -18,6 +19,9 @@ public:
 	virtual void OnEntityAdded(Entity& NewEntity) final;
 
 	Moonlight::CameraData CreateCameraData(Transform& InTransform, Camera& InCamera);
+
+	void OnEntityRemoved(Entity& InEntity) override;
+
 private:
 	class Camera* DefaultCamera;
 };

@@ -3,7 +3,7 @@
 #include "Math/Vector2.h"
 
 namespace Moonlight { class SkyBox; }
-namespace Moonlight { class FrameBuffer; }
+namespace Moonlight { struct FrameBuffer; }
 
 namespace Moonlight
 {

@@ -39,7 +39,10 @@ void GPUContextD3D11::Resize(int width, int height) {
   swap_chain_ = GetEngine().GetRenderer().GetDevice().GetSwapChain();
   immediate_context_ = GetEngine().GetRenderer().GetDevice().GetD3DDeviceContext();
   device_ = GetEngine().GetRenderer().GetDevice().GetD3DDevice();
-  back_buffer_view_ = GetEngine().GetRenderer().GameViewRTT->UIRenderTargetView;
+  if (GetEngine().GetRenderer().GameViewRTT)
+  {
+	  back_buffer_view_ = GetEngine().GetRenderer().GameViewRTT->UIRenderTargetView;
+  }
 
   //immediate_context_->OMSetRenderTargets(1, back_buffer_view_.GetAddressOf(), nullptr);
 }

@@ -92,8 +92,10 @@ namespace Moonlight
 		sampDesc.MinLOD = 0;
 		sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
 		device.GetD3DDevice()->CreateSamplerState(&sampDesc, &SamplerState);
-
-		UpdateBuffer(InFilePath);
+		if (InFilePath)
+		{
+			UpdateBuffer(InFilePath);
+		}
 	}
 
 	Texture::~Texture()

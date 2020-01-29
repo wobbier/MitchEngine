@@ -41,7 +41,7 @@ public:
 	void SetCurrent();
 	float GetFOV();
 
-	const int GetId() const;
+	const int GetCameraId() const;
 
 	const bool IsMain() const;
 

@@ -59,7 +59,7 @@ float Camera::GetFOV()
 	return m_FOV;
 }
 
-const int Camera::GetId() const
+const int Camera::GetCameraId() const
 {
 	return m_id;
 }

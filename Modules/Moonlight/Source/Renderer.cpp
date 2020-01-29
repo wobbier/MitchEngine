@@ -253,7 +253,7 @@ namespace Moonlight
 
 		for (CameraData& data : Cameras)
 		{
-			//if (!data.IsMain)
+			if (!data.IsMain)
 			{
 				CD3D11_VIEWPORT gameViewport = CD3D11_VIEWPORT(
 					0.0f,
@@ -269,6 +269,27 @@ namespace Moonlight
 				DrawScene(context, m_constantBufferData, data, data.Buffer, data.Buffer);
 			}
 		}
+
+		for (CameraData& data : Cameras)
+		{
+			if (data.IsMain)
+			{
+				CD3D11_VIEWPORT gameViewport = CD3D11_VIEWPORT(
+					0.0f,
+					0.0f,
+					data.OutputSize.X(),
+					data.OutputSize.Y()
+				);
+				context->RSSetViewports(1, &gameViewport);
+
+				m_device->GetD3DDeviceContext()->OMSetBlendState(0, 0, 0xffffffff);
+
+				// Reset render targets to the screen.
+				DrawScene(context, m_constantBufferData, data, data.Buffer, data.Buffer);
+				break;
+			}
+		}
+
 
 #if ME_EDITOR
 		context->ClearDepthStencilView(SceneViewRTT->DepthStencilView.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
@@ -293,25 +314,25 @@ namespace Moonlight
 		// This is a valid operation only when the existing contents will be entirely
 		// overwritten. If dirty or scroll rects are used, this call should be removed.
 		m_device->GetD3DDeviceContext()->DiscardView1(m_device->GetBackBufferRenderTargetView(), nullptr, 0);
-		if (GameViewRTT)
+
+		for (int i = 0; i < Cameras.size(); ++i)
 		{
-			m_device->GetD3DDeviceContext()->DiscardView1(GameViewRTT->ShaderResourceView.Get(), nullptr, 0);
-			m_device->GetD3DDeviceContext()->DiscardView1(GameViewRTT->ColorShaderResourceView.Get(), nullptr, 0);
-			m_device->GetD3DDeviceContext()->DiscardView1(GameViewRTT->NormalShaderResourceView.Get(), nullptr, 0);
-			m_device->GetD3DDeviceContext()->DiscardView1(GameViewRTT->SpecularShaderResourceView.Get(), nullptr, 0);
-			m_device->GetD3DDeviceContext()->DiscardView1(GameViewRTT->UIShaderResourceView.Get(), nullptr, 0);
+			FrameBuffer* buffer = Cameras[i].Buffer;
+			if (buffer)
+			{
+				m_device->GetD3DDeviceContext()->DiscardView1(buffer->ShaderResourceView.Get(), nullptr, 0);
+				m_device->GetD3DDeviceContext()->DiscardView1(buffer->ColorShaderResourceView.Get(), nullptr, 0);
+				m_device->GetD3DDeviceContext()->DiscardView1(buffer->NormalShaderResourceView.Get(), nullptr, 0);
+				m_device->GetD3DDeviceContext()->DiscardView1(buffer->SpecularShaderResourceView.Get(), nullptr, 0);
+				m_device->GetD3DDeviceContext()->DiscardView1(buffer->UIShaderResourceView.Get(), nullptr, 0);
+				m_device->GetD3DDeviceContext()->DiscardView1(buffer->DepthStencilView.Get(), nullptr, 0);
+			}
 		}
 		m_device->GetD3DDeviceContext()->DiscardView1(SceneViewRTT->ShaderResourceView.Get(), nullptr, 0);
 		m_device->GetD3DDeviceContext()->DiscardView1(SceneViewRTT->ColorShaderResourceView.Get(), nullptr, 0);
 		m_device->GetD3DDeviceContext()->DiscardView1(SceneViewRTT->NormalShaderResourceView.Get(), nullptr, 0);
 		m_device->GetD3DDeviceContext()->DiscardView1(SceneViewRTT->SpecularShaderResourceView.Get(), nullptr, 0);
 
-		if (GameViewRTT)
-		{
-			// Discard the contents of the depth stencil.
-			m_device->GetD3DDeviceContext()->DiscardView1(GameViewRTT->DepthStencilView.Get(), nullptr, 0);
-		}
-		//HRESULT hr = S_OK;
 		// If the device was removed either by a disconnection or a driver upgrade, we 
 		// must recreate all device resources.
 		if (hr == DXGI_ERROR_DEVICE_REMOVED || hr == DXGI_ERROR_DEVICE_RESET)
@@ -1165,6 +1186,12 @@ namespace Moonlight
 		{
 			return;
 		}
+
+		if (Cameras[Id].Buffer == GameViewRTT)
+		{
+			GameViewRTT = nullptr;
+		}
+		delete Cameras[Id].Buffer;
 
 		FreeCameraCommandIndicies.push(Id);
 		Cameras[Id] = CameraData();

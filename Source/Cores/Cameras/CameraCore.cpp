@@ -2,6 +2,7 @@
 #include "CameraCore.h"
 #include "Components/Camera.h"
 #include "Engine/Engine.h"
+#include "Window/IWindow.h"
 
 CameraCore::CameraCore() : Base(ComponentFilter().Requires<Camera>().Requires<Transform>())
 {
@@ -64,6 +65,10 @@ Moonlight::CameraData CameraCore::CreateCameraData(Transform& InTransform, Camer
 	CamData.Position = InCamera.Position;
 	CamData.Front = InCamera.Front;
 	CamData.Up = Vector3::Up;
+	if (InCamera.OutputSize.IsZero())
+	{
+		InCamera.OutputSize = GetEngine().GetWindow()->GetSize();
+	}
 	CamData.OutputSize = InCamera.OutputSize;
 	CamData.FOV = InCamera.GetFOV();
 	CamData.Skybox = InCamera.Skybox;
@@ -74,4 +79,9 @@ Moonlight::CameraData CameraCore::CreateCameraData(Transform& InTransform, Camer
 	CamData.IsMain = InCamera.IsMain();
 
 	return CamData;
+}
+
+void CameraCore::OnEntityRemoved(Entity& InEntity)
+{
+	GetEngine().GetRenderer().PopCamera(InEntity.GetComponent<Camera>().m_id);
 }
