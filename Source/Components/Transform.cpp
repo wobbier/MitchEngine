@@ -74,6 +74,21 @@ void Transform::Translate(Vector3 NewPosition)
 	SetDirty(true);
 }
 
+Vector3 Transform::Front()
+{
+	Vector3 front;
+	const float& x = InternalRotation[0];
+	const float& y = InternalRotation[1];
+	const float& z = InternalRotation[2];
+	const float& w = InternalRotation[3];
+
+	front.SetX(2.f * (x * z - w * y));
+	front.SetY(2.f * (y * z + w * x));
+	front.SetZ(1.f - 2.f * (x * x + y * y));
+	
+	return front;
+}
+
 Vector3& Transform::GetPosition()
 {
 	return Position;
@@ -208,14 +223,19 @@ Vector3 Transform::GetRotation()
 	return Rotation;
 }
 
-Vector3 Transform::GetWorldRotation()
+Quaternion Transform::GetWorldRotation()
 {
 	DirectX::SimpleMath::Quaternion quat;
 
 	WorldTransform.GetInternalMatrix().Decompose(DirectX::SimpleMath::Vector3(), quat, DirectX::SimpleMath::Vector3());
 	Quaternion quat2(quat);
 
-	return Vector3(quat2.GetInternalVec().x, quat2.GetInternalVec().y, quat2.GetInternalVec().z);
+	return quat2;
+}
+
+Vector3 Transform::GetWorldRotationEuler()
+{
+	return Quaternion::ToEulerAngles(GetWorldRotation());
 }
 
 //

@@ -82,9 +82,9 @@ void EditorApp::UpdateCameras()
 		Transform& trans = ent.lock()->GetComponent<Transform>();
 		DirectX::SimpleMath::Vector3 test;
 		trans.GetMatrix().GetInternalMatrix().Forward(test);
-		float Pitch = trans.GetWorldRotation().X();
+		float Pitch = trans.GetWorldRotationEuler().X();
 
-		float Yaw = trans.GetWorldRotation().Y();
+		float Yaw = trans.GetWorldRotationEuler().Y();
 		Vector3 Front;
 		Front.SetX(cos(Yaw) * cos(Pitch));
 		Front.SetY(sin(Pitch));

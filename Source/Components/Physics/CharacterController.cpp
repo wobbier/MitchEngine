@@ -1,6 +1,7 @@
 #include "PCH.h"
 #include "CharacterController.h"
 #include <SimpleMath.h>
+#include "imgui.h"
 
 class IgnoreBodyAndGhostCast
 	: public btCollisionWorld::ClosestRayResultCallback

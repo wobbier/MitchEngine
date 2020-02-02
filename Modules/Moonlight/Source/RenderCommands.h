@@ -14,6 +14,13 @@ namespace Moonlight { class SkyBox; }
 
 namespace Moonlight
 {
+	enum MeshType
+	{
+		Model = 0,
+		Plane,
+		Cube
+	};
+
 	struct ModelCommand
 	{
 		std::vector<MeshData*> Meshes;
@@ -29,6 +36,7 @@ namespace Moonlight
 	struct MeshCommand
 	{
 		MeshData* SingleMesh = nullptr;
+		MeshType Type = MeshType::Model;
 		ShaderCommand* MeshShader = nullptr;
 		Material* MeshMaterial = nullptr;
 		DirectX::SimpleMath::Matrix Transform;

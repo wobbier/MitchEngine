@@ -20,6 +20,7 @@
 #include <SimpleMath.h>
 #include <wrl/client.h>
 #include "Mathf.h"
+#include "Graphics/MeshData.h"
 
 using namespace DirectX;
 using namespace Windows::Foundation;
@@ -138,6 +139,40 @@ namespace Moonlight
 			m_device->CompileShader(Path("Assets/Shaders/PickingShader.hlsl"), "main_ps", "ps_4_0_level_9_3"),
 			&vertexDesc2
 		);
+
+		{
+			m_planeVerticies.clear();
+			m_planeVerticies.reserve(4);
+			{
+				Vertex tex;
+				tex.Normal = Vector3::Up.GetInternalVec();
+				tex.Position = Vector3(-1.f, -1.f, 0.f).GetInternalVec();
+				m_planeVerticies.push_back(tex);
+			}
+			{
+				Vertex tex;
+				tex.Normal = Vector3::Up.GetInternalVec();
+				tex.Position = Vector3(1.f, -1.f, 0.f).GetInternalVec();
+				m_planeVerticies.push_back(tex);
+			}
+			{
+				Vertex tex;
+				tex.Normal = Vector3::Up.GetInternalVec();
+				tex.Position = Vector3(-1.f, 1.f, 0.f).GetInternalVec();
+				m_planeVerticies.push_back(tex);
+			}
+			{
+				Vertex tex;
+				tex.Normal = Vector3::Up.GetInternalVec();
+				tex.Position = Vector3(1.f, 1.f, 0.f).GetInternalVec();
+				m_planeVerticies.push_back(tex);
+			}
+
+			m_planeIndicies.clear();
+			m_planeIndicies.reserve(6);
+
+			m_planeIndicies = {0, 1, 2, 3, 1};
+		}
 	}
 
 	void Renderer::ResizeBuffers()
@@ -1120,6 +1155,18 @@ namespace Moonlight
 
 	unsigned int Renderer::PushMesh(Moonlight::MeshCommand command)
 	{
+		switch (command.Type)
+		{
+		case MeshType::Plane:
+			command.SingleMesh = new MeshData(m_planeVerticies, m_planeIndicies, command.MeshMaterial);
+			break;
+		case MeshType::Cube:
+			break;
+		case MeshType::Model:
+		default:
+			break;
+
+		}
 		if (!FreeMeshCommandIndicies.empty())
 		{
 			unsigned int openIndex = FreeMeshCommandIndicies.front();

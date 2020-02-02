@@ -170,7 +170,7 @@ public:
 		return m_vector.Dot(Other.GetInternalVec());
 	}
 
-	float LengthSquared()
+	float LengthSquared() const 
 	{
 		return m_vector.LengthSquared();
 	}

@@ -22,7 +22,7 @@ namespace Moonlight
 	struct CameraData
 	{
 		Vector3 Position;
-		Vector3 Front;
+		Vector3 Front = Vector3(0.f, 0.f, -1.f);
 		Vector3 Up;
 		Vector3 ClearColor;
 		ClearColorType ClearType = ClearColorType::Color;

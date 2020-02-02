@@ -96,10 +96,12 @@ namespace Moonlight
 		Microsoft::WRL::ComPtr<ID3D11SamplerState> m_defaultSampler;
 		Microsoft::WRL::ComPtr<ID3D11SamplerState> m_computeSampler;
 	private:
+		class MeshData* PlaneMesh = nullptr;
 		class Plane* Grid;
 
 		class D3D12Device* m_device = nullptr;
-
+		std::vector<Vertex> m_planeVerticies;
+		std::vector<uint16_t> m_planeIndicies;
 		void ResizeBuffers();
 		void SaveTextureToBmp(PCWSTR FileName, ID3D11Texture2D* Texture, const CameraData& camera, const Vector2& Pos);
 #if ME_DIRECTX
