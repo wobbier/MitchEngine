@@ -12,6 +12,7 @@
 #include "Components/Transform.h"
 #include "Engine/Engine.h"
 #include "Havana.h"
+#include "Events/SceneEvents.h"
 #include "HavanaEvents.h"
 
 AssetBrowser::AssetBrowser(const std::string& pathToWatch, std::chrono::duration<int, std::milli> delay)

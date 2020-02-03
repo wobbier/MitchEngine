@@ -2,6 +2,7 @@
 #include "Camera.h"
 #include "Graphics/SkyBox.h"
 #include "Graphics/Texture.h"
+#include "Math/Frustrum.h"
 
 Camera* Camera::CurrentCamera = nullptr;
 Camera* Camera::EditorCamera = nullptr;
@@ -11,6 +12,7 @@ Camera::Camera()
 {
 	Position = Vector3(0.f, 0.f, 2.f);
 	Front = Vector3(0.f, 0.f, -1.f);
+	CameraFrustum = new Frustum();
 }
 
 Camera::~Camera()
@@ -19,6 +21,7 @@ Camera::~Camera()
 	{
 		CurrentCamera = nullptr;
 	}
+	delete CameraFrustum;
 }
 
 void Camera::Init()
@@ -77,6 +80,19 @@ void Camera::Deserialize(const json& inJson)
 	}
 }
 
+void Camera::Serialize(json& outJson)
+{
+	Component::Serialize(outJson);
+
+	outJson["Zoom"] = Zoom;
+	outJson["IsCurrent"] = IsCurrent();
+
+	if (Skybox)
+	{
+		outJson["Skybox"] = Skybox->SkyMaterial->GetTexture(Moonlight::TextureType::Diffuse)->GetPath().LocalPath;
+	}
+}
+
 #if ME_EDITOR
 
 void Camera::OnEditorInspect()
@@ -108,6 +124,9 @@ void Camera::OnEditorInspect()
 	{
 		ImGui::SliderFloat("Size", &OrthographicSize, 0.1f, 200.0f);
 	}
+
+	ImGui::SliderFloat("Near", &Near, 0.1f, 200.0f);
+	ImGui::SliderFloat("Far", &Far, 0.2f, 2000.0f);
 
 	if (ImGui::BeginCombo("##ClearType", (ClearType == Moonlight::ClearColorType::Color) ? "Color" : "Skybox"))
 	{

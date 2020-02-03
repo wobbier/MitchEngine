@@ -20,10 +20,10 @@ public:
 	void UpdateRecursively(Transform* transform);
 	Transform* RootTransform = nullptr;
 
+	void OnEntityRemoved(Entity& InEntity) override;
+
 #if ME_EDITOR
 	virtual void OnEditorInspect() final;
 #endif
-
-	void OnEntityRemoved(Entity& InEntity) override;
 
 };

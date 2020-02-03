@@ -17,11 +17,12 @@
 #include "Engine/Engine.h"
 #include "Havana.h"
 #include "Cores/SceneGraph.h"
-#include "HavanaEvents.h"
+#include "Events/SceneEvents.h"
 #include "RenderCommands.h"
 #include "Events/Event.h"
 #include <SimpleMath.h>
 #include "Math/Matirx4.h"
+#include "Math/Frustrum.h"
 
 EditorApp::EditorApp()
 {
@@ -82,9 +83,9 @@ void EditorApp::UpdateCameras()
 		Transform& trans = ent.lock()->GetComponent<Transform>();
 		DirectX::SimpleMath::Vector3 test;
 		trans.GetMatrix().GetInternalMatrix().Forward(test);
-		float Pitch = trans.GetWorldRotationEuler().X();
+		float Pitch = trans.GetRotation().X();
 
-		float Yaw = trans.GetWorldRotationEuler().Y();
+		float Yaw = trans.GetRotation().Y();
 		Vector3 Front;
 		Front.SetX(cos(Yaw) * cos(Pitch));
 		Front.SetY(sin(Pitch));
@@ -109,11 +110,21 @@ void EditorApp::UpdateCameras()
 	EditorCamera.Up = Vector3::Up;
 	EditorCamera.OutputSize = Editor->WorldViewRenderSize;
 	EditorCamera.FOV = Camera::EditorCamera->GetFOV();
+	EditorCamera.Near = Camera::EditorCamera->Near;
+	EditorCamera.Far = Camera::EditorCamera->Far;
 	EditorCamera.Skybox = Camera::CurrentCamera->Skybox;
 	EditorCamera.ClearColor = Camera::EditorCamera->ClearColor;
 	EditorCamera.ClearType = Camera::EditorCamera->ClearType;
 	EditorCamera.Projection = Camera::EditorCamera->Projection;
 	EditorCamera.OrthographicSize = Camera::EditorCamera->OrthographicSize;
+	EditorCamera.CameraFrustum = Camera::EditorCamera->CameraFrustum;
+
+	Vector3 Right = EditorCamera.Front.Cross(Vector3::Up).Normalized();
+	Vector3 Up = EditorCamera.Front.Cross(Right).Normalized();
+
+	EditorCamera.CameraFrustum->SetCameraInternals(EditorCamera.FOV, EditorCamera.OutputSize.X() / EditorCamera.OutputSize.Y(), EditorCamera.Near, EditorCamera.Far);
+	EditorCamera.CameraFrustum->SetCameraDef(EditorCamera.Position, EditorCamera.Position + EditorCamera.Front, Up);
+
 	GetEngine().EditorCamera = EditorCamera;
 }
 

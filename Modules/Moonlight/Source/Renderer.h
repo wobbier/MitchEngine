@@ -97,7 +97,6 @@ namespace Moonlight
 		Microsoft::WRL::ComPtr<ID3D11SamplerState> m_computeSampler;
 	private:
 		class MeshData* PlaneMesh = nullptr;
-		class Plane* Grid;
 
 		class D3D12Device* m_device = nullptr;
 		std::vector<Vertex> m_planeVerticies;

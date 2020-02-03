@@ -30,6 +30,7 @@
 #include "Cores/EditorCore.h"
 #endif
 #include <libloaderapi.h>
+#include "Components/Camera.h"
 
 UICore::UICore(IWindow* window)
 	: Base(ComponentFilter().Requires<Transform>().Requires<BasicUIView>())

@@ -3,6 +3,7 @@
 #include "Components/Camera.h"
 #include "Engine/Engine.h"
 #include "Window/IWindow.h"
+#include "Math/Frustrum.h"
 
 CameraCore::CameraCore() : Base(ComponentFilter().Requires<Camera>().Requires<Transform>())
 {
@@ -39,12 +40,18 @@ void CameraCore::Update(float dt)
 		CamData.Up = Vector3::Up;
 		CamData.OutputSize = CameraComponent.OutputSize;
 		CamData.FOV = CameraComponent.GetFOV();
+		CamData.Near = CameraComponent.Near;
+		CamData.Far = CameraComponent.Far;
 		CamData.Skybox = CameraComponent.Skybox;
 		CamData.ClearColor = CameraComponent.ClearColor;
 		CamData.ClearType = CameraComponent.ClearType;
 		CamData.Projection = CameraComponent.Projection;
 		CamData.OrthographicSize = CameraComponent.OrthographicSize;
 		CamData.IsMain = CameraComponent.IsMain();
+
+		CamData.CameraFrustum->SetCameraInternals(CamData.FOV, CamData.OutputSize.X() / CamData.OutputSize.Y(), CamData.Near, CamData.Far);
+		CamData.CameraFrustum->SetCameraDef(TransformComponent.GetWorldPosition(), TransformComponent.GetWorldPosition() + CamData.Front, Vector3::Up);
+
 		GetEngine().GetRenderer().UpdateCamera(CameraComponent.m_id, CamData);
 	}
 }
@@ -71,12 +78,22 @@ Moonlight::CameraData CameraCore::CreateCameraData(Transform& InTransform, Camer
 	}
 	CamData.OutputSize = InCamera.OutputSize;
 	CamData.FOV = InCamera.GetFOV();
+	CamData.Near = InCamera.Near;
+	CamData.Far = InCamera.Far;
 	CamData.Skybox = InCamera.Skybox;
 	CamData.ClearColor = InCamera.ClearColor;
 	CamData.ClearType = InCamera.ClearType;
 	CamData.Projection = InCamera.Projection;
 	CamData.OrthographicSize = InCamera.OrthographicSize;
 	CamData.IsMain = InCamera.IsMain();
+
+	Vector3 Right = CamData.Front.Cross(Vector3::Up).Normalized();
+	Vector3 Up = CamData.Front.Cross(Right).Normalized();
+
+	InCamera.CameraFrustum->SetCameraInternals(CamData.FOV, CamData.OutputSize.X() / CamData.OutputSize.Y(), CamData.Near, CamData.Far);
+	InCamera.CameraFrustum->SetCameraDef(InTransform.GetWorldPosition(), InTransform.GetWorldPosition() + CamData.Front, Up);
+
+	CamData.CameraFrustum = InCamera.CameraFrustum;
 
 	return CamData;
 }

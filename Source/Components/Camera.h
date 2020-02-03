@@ -11,6 +11,8 @@
 #include "Graphics/SkyBox.h"
 #include "Camera/CameraData.h"
 
+class Frustum;
+
 class Camera
 	: public Component<Camera>
 {
@@ -28,6 +30,8 @@ public:
 	float Pitch = 0.f;
 	float Roll = 0.f;
 	float OrthographicSize = 50.f;
+	float Near = .1f;
+	float Far = 100.f;
 
 	Camera();
 	~Camera();
@@ -45,6 +49,7 @@ public:
 
 	const bool IsMain() const;
 
+	Frustum* CameraFrustum = nullptr;
 	Moonlight::SkyBox* Skybox = nullptr;
 	Moonlight::ProjectionType Projection = Moonlight::ProjectionType::Perspective;
 	Moonlight::ClearColorType ClearType = Moonlight::ClearColorType::Color;
@@ -57,17 +62,6 @@ private:
 	float m_FOV = 45.f;
 	unsigned int m_id = 0;
 	virtual void Deserialize(const json& inJson) override;
-	virtual void Serialize(json& outJson) final
-	{
-		Component::Serialize(outJson);
-
-		outJson["Zoom"] = Zoom;
-		outJson["IsCurrent"] = IsCurrent();
-
-		if (Skybox)
-		{
-			outJson["Skybox"] = Skybox->SkyMaterial->GetTexture(Moonlight::TextureType::Diffuse)->GetPath().LocalPath;
-		}
-	}
+	virtual void Serialize(json& outJson) final;
 };
 ME_REGISTER_COMPONENT(Camera)

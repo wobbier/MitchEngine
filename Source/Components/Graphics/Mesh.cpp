@@ -3,8 +3,15 @@
 
 #include "Graphics/MeshData.h"
 #include "Graphics/Texture.h"
+
+#if ME_EDITOR
+
 #include "Utils/HavanaUtils.h"
 #include "imgui.h"
+#include "HavanaEvents.h"
+
+#endif
+#include "RenderCommands.h"
 
 Mesh::Mesh()
 	: Component("Mesh")
@@ -12,10 +19,11 @@ Mesh::Mesh()
 
 }
 
-Mesh::Mesh(Moonlight::MeshType InType, Moonlight::Material* InMaterial)
+Mesh::Mesh(Moonlight::MeshType InType, Moonlight::Material* InMaterial, Moonlight::ShaderCommand* InShader)
 	: Component("Mesh")
 	, Type(InType)
 	, MeshMaterial(InMaterial)
+	, MeshShader(InShader)
 {
 	if (InMaterial == nullptr)
 	{
@@ -98,6 +106,21 @@ Moonlight::MeshType Mesh::GetMeshTypeFromString(const std::string& InType)
 
 void Mesh::OnEditorInspect()
 {
+	if (!MeshReferece)
+	{
+		if (ImGui::BeginCombo("Mesh Type", GetMeshTypeString(Type).c_str()))
+		{
+			for (int n = 0; n < Moonlight::MeshType::MeshCount; n++)
+			{
+				if (ImGui::Selectable(GetMeshTypeString((Moonlight::MeshType)n).c_str(), false))
+				{
+					Type = (Moonlight::MeshType)n;
+					break;
+				}
+			}
+			ImGui::EndCombo();
+		}
+	}
 	if (MeshShader && MeshMaterial)
 	{
 		bool transparent = MeshMaterial->IsTransparent();
@@ -111,8 +134,11 @@ void Mesh::OnEditorInspect()
 			MeshMaterial->SetRenderMode(Moonlight::RenderingMode::Opaque);
 		}
 		HavanaUtils::EditableVector("Tiling", MeshMaterial->Tiling);
-		ImGui::Text("Vertices: %i", MeshReferece->vertices.size());
-		if (ImGui::TreeNode("Material"))
+		if (MeshReferece)
+		{
+			ImGui::Text("Vertices: %i", MeshReferece->vertices.size());
+		}
+		if (ImGui::TreeNodeEx("Material", ImGuiTreeNodeFlags_DefaultOpen))
 		{
 			static std::vector<Path> Textures;
 			Path path = Path("Assets");
@@ -137,7 +163,38 @@ void Mesh::OnEditorInspect()
 			{
 				std::string label("##Texture" + std::to_string(i));
 				{
-					ImGui::ImageButton(((texture) ? (void*)texture->ShaderResourceView : nullptr), ImVec2(30, 30));
+					if (ImGui::ImageButton(((texture) ? (void*)texture->ShaderResourceView : nullptr), ImVec2(30, 30)))
+					{
+						PreviewResourceEvent evt;
+						evt.Subject = texture;
+						evt.Fire();
+					}
+// 					if (ImGui::BeginPopupModal("ViewTexture", &ViewTexture, ImGuiWindowFlags_MenuBar))
+// 					{
+// 						if (texture && texture->ShaderResourceView)
+// 						{
+// 							// Get the current cursor position (where your window is)
+// 							ImVec2 pos = ImGui::GetCursorScreenPos();
+// 							ImVec2 maxPos = ImVec2(pos.x + ImGui::GetWindowSize().x, pos.y + ImGui::GetWindowSize().y);
+// 							Vector2 RenderSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
+// 
+// 							// Ask ImGui to draw it as an image:
+// 							// Under OpenGL the ImGUI image type is GLuint
+// 							// So make sure to use "(void *)tex" but not "&tex"
+// 							ImGui::GetWindowDrawList()->AddImage(
+// 								(void*)texture->ShaderResourceView,
+// 								ImVec2(pos.x, pos.y),
+// 								ImVec2(maxPos));
+// 							//ImVec2(WorldViewRenderSize.X() / RenderSize.X(), WorldViewRenderSize.Y() / RenderSize.Y()));
+// 
+// 						}
+// 						if (ImGui::Button("Close"))
+// 						{
+// 							ViewTexture = false;
+// 							ImGui::CloseCurrentPopup();
+// 						}
+// 						ImGui::EndPopup();
+// 					}
 					ImGui::SameLine();
 				}
 				if (ImGui::BeginCombo(label.c_str(), ((texture) ? texture->GetPath().LocalPath.c_str() : "")))

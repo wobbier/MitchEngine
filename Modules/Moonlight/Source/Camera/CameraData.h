@@ -2,6 +2,8 @@
 #include "Math/Vector3.h"
 #include "Math/Vector2.h"
 
+class Frustum;
+
 namespace Moonlight { class SkyBox; }
 namespace Moonlight { struct FrameBuffer; }
 
@@ -29,7 +31,10 @@ namespace Moonlight
 		Vector2 OutputSize;
 		ProjectionType Projection = ProjectionType::Perspective;
 		float FOV = 45.0f;
+		float Near = 1.f;
+		float Far = 100.f;
 		SkyBox* Skybox = nullptr;
+		Frustum* CameraFrustum = nullptr;
 		float OrthographicSize = 1.f;
 
 		Moonlight::FrameBuffer* Buffer = nullptr;

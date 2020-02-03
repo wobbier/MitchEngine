@@ -36,22 +36,22 @@ float Quaternion::Angle(Quaternion& a, Quaternion& b)
 
 Quaternion Quaternion::AngleAxis(float InDegrees, const Vector3& InAxis)
 {
-	if (InAxis.LengthSquared() == 0.0f)
-		return Quaternion(DirectX::SimpleMath::Quaternion::Identity);
+	//if (InAxis.LengthSquared() == 0.0f)
+	//	return Quaternion(DirectX::SimpleMath::Quaternion::Identity);
 
-	Quaternion result = DirectX::SimpleMath::Quaternion::Identity;
-	float radians = Mathf::Radians(InDegrees);
-	radians *= 0.5f;
+	//Quaternion result = DirectX::SimpleMath::Quaternion::Identity;
+	//float radians = Mathf::Radians(InDegrees);
+	//radians *= 0.5f;
 
-	Vector3 normalizedAxis = InAxis.Normalized();
-	normalizedAxis = normalizedAxis * (float)std::sin(radians);
-	result[0] = normalizedAxis.X();
-	result[1] = normalizedAxis.Y();
-	result[2] = normalizedAxis.Z();
-	result[3] = (float)std::cos(radians);
+	//Vector3 normalizedAxis = InAxis.Normalized();
+	//normalizedAxis = normalizedAxis * (float)std::sin(radians);
+	//result[0] = normalizedAxis.X();
+	//result[1] = normalizedAxis.Y();
+	//result[2] = normalizedAxis.Z();
+	//result[3] = (float)std::cos(radians);
 
-	return result.Normalized();
-	//return Quaternion(DirectX::SimpleMath::Quaternion::CreateFromAxisAngle(InAxis.GetInternalVec(), InDegrees));
+	//return result.Normalized();
+	return Quaternion(DirectX::SimpleMath::Quaternion::CreateFromAxisAngle(InAxis.GetInternalVec(), Mathf::Radians(InDegrees)));
 }
 
 void Quaternion::Normalize()

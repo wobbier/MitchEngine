@@ -16,7 +16,8 @@ cbuffer ModelViewProjectionConstantBuffer : register(b0)
     bool hasAlphaMap;
     bool hasSpecMap;
 	float3 DiffuseColor;
-	float4 padding;
+	float2 ViewportSize;
+	float2 padding;
 };
 
 // Per-vertex data used as input to the vertex shader.

@@ -4,6 +4,7 @@
 #include <stack>
 #include "Havana.h"
 #include "HavanaEvents.h"
+#include "Events/SceneEvents.h"
 #include "File.h"
 #include "Components/Camera.h"
 #include "Components/Cameras/FlyingCamera.h"

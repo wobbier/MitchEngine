@@ -60,18 +60,18 @@ void SceneGraph::OnEntityAdded(Entity& NewEntity)
 	}
 }
 
+void SceneGraph::OnEntityRemoved(Entity& InEntity)
+{
+
+
+
+}
+
 #if ME_EDITOR
 
 void SceneGraph::OnEditorInspect()
 {
 	BaseCore::OnEditorInspect();
-}
-
-void SceneGraph::OnEntityRemoved(Entity& InEntity)
-{
-	
-
-
 }
 
 #endif

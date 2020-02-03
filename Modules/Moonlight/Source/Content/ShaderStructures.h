@@ -17,7 +17,8 @@ namespace Moonlight
 		BOOL HasAlphaMap;
 		BOOL HasSpecMap;
 		DirectX::XMFLOAT3 DiffuseColor;
-		DirectX::XMFLOAT4 padding2;
+		DirectX::XMFLOAT2 ViewportSize;
+		DirectX::XMFLOAT2 padding2;
 	};
 	struct PickingConstantBuffer
 	{

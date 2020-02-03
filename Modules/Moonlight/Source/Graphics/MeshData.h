@@ -23,7 +23,7 @@ namespace Moonlight
 		Material* material;
 		unsigned int VAO;
 
-		MeshData(std::vector<Vertex> vertices, std::vector<uint16_t> indices, Material* newMaterial);
+		MeshData(std::vector<Vertex> vertices, std::vector<uint16_t> indices, Material* newMaterial = nullptr);
 
 		// render the mesh
 		void Draw(class Material* mat, bool depthOnly = false);

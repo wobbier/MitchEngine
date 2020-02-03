@@ -8,7 +8,6 @@
 #include <DirectXColors.h>
 #include "Graphics/SkyBox.h"
 #include "optick.h"
-#include "Graphics/Plane.h"
 #include <functional>
 #include "imgui.h"
 #include "examples/imgui_impl_win32.h"
@@ -21,6 +20,8 @@
 #include <wrl/client.h>
 #include "Mathf.h"
 #include "Graphics/MeshData.h"
+#include "Math/Vector2.h"
+#include "Math/Frustrum.h"
 
 using namespace DirectX;
 using namespace Windows::Foundation;
@@ -81,13 +82,10 @@ namespace Moonlight
 	Renderer::~Renderer()
 	{
 		ReleaseDeviceDependentResources();
-		delete Grid;
 	}
 
 	void Renderer::Init()
 	{
-		Grid = new Plane("Assets/skybox.jpg", GetDevice());
-
 		m_defaultSampler = m_device->CreateSamplerState(D3D11_FILTER_ANISOTROPIC, D3D11_TEXTURE_ADDRESS_WRAP);
 		m_computeSampler = m_device->CreateSamplerState(D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_WRAP);
 /*
@@ -144,34 +142,65 @@ namespace Moonlight
 			m_planeVerticies.clear();
 			m_planeVerticies.reserve(4);
 			{
+				// top right
 				Vertex tex;
 				tex.Normal = Vector3::Up.GetInternalVec();
-				tex.Position = Vector3(-1.f, -1.f, 0.f).GetInternalVec();
+				tex.Position = Vector3(-0.5f, .5f, 0.f).GetInternalVec();
+				tex.TextureCoord = Vector2(1.f, 0.f).GetInternalVec();
 				m_planeVerticies.push_back(tex);
 			}
 			{
+				// bottom right
 				Vertex tex;
 				tex.Normal = Vector3::Up.GetInternalVec();
-				tex.Position = Vector3(1.f, -1.f, 0.f).GetInternalVec();
+				tex.Position = Vector3(.5f, .5f, 0.f).GetInternalVec();
+				tex.TextureCoord = Vector2(1.f, 1.f).GetInternalVec();
 				m_planeVerticies.push_back(tex);
 			}
 			{
+				// bottom left
 				Vertex tex;
 				tex.Normal = Vector3::Up.GetInternalVec();
-				tex.Position = Vector3(-1.f, 1.f, 0.f).GetInternalVec();
+				tex.Position = Vector3(-0.5f, .5f, 0.f).GetInternalVec();
+				tex.TextureCoord = Vector2(0.f, 1.f).GetInternalVec();
 				m_planeVerticies.push_back(tex);
 			}
 			{
+				// top left 
 				Vertex tex;
 				tex.Normal = Vector3::Up.GetInternalVec();
-				tex.Position = Vector3(1.f, 1.f, 0.f).GetInternalVec();
+				tex.Position = Vector3(-0.5f, -0.5f, 0.f).GetInternalVec();
+				tex.TextureCoord = Vector2(0.f, 0.f).GetInternalVec();
 				m_planeVerticies.push_back(tex);
 			}
 
 			m_planeIndicies.clear();
 			m_planeIndicies.reserve(6);
 
-			m_planeIndicies = {0, 1, 2, 3, 1};
+			m_planeIndicies = {0, 1, 3, 1, 2, 3};
+		}
+		{
+
+			std::vector<Vertex> vertices =
+			{
+				// Front Face
+				/* bottom left */Vertex{{-1.0f, -1.0f, -1.0f},{-1.0f, -1.0f, -1.0f}, {0.0f, 1.0f},{-1.0f, -1.0f, -1.0f},{-1.0f, -1.0f, -1.0f}},
+				/* top left */ Vertex{{-1.0f,  1.0f, -1.0f},{-1.0f, -1.0f, -1.0f}, {0.0f, 0.0f},{-1.0f, -1.0f, -1.0f},{-1.0f, -1.0f, -1.0f}},
+				/* top right */Vertex{{1.0f,  1.0f, -1.0f},{-1.0f, -1.0f, -1.0f}, {1.0f, 0.0f },{-1.0f, -1.0f, -1.0f},{-1.0f, -1.0f, -1.0f}},
+				/* bottom right */Vertex{{1.0f, -1.0f, -1.0f},{-1.0f, -1.0f, -1.0f}, {1.0f, 1.0f },{-1.0f, -1.0f, -1.0f},{-1.0f, -1.0f, -1.0f}},
+			};
+
+			m_planeVerticies = vertices;
+
+			std::vector<uint16_t> indices = {
+				// Front Face
+				0,  1,  2,
+				0,  2,  3,
+			};
+
+			m_planeIndicies = indices;
+
+			PlaneMesh = new MeshData(m_planeVerticies, m_planeIndicies);
 		}
 	}
 
@@ -414,8 +443,8 @@ namespace Moonlight
 			XMMATRIX perspectiveMatrix = XMMatrixPerspectiveFovRH(
 				fovAngleY,
 				aspectRatio,
-				.1f,
-				1000.0f
+				camera.Near,
+				camera.Far
 			);
 
 			XMStoreFloat4x4(
@@ -428,8 +457,8 @@ namespace Moonlight
 			XMMATRIX orthographicMatrix = XMMatrixOrthographicRH(
 				outputSize.X() / camera.OrthographicSize,
 				outputSize.Y() / camera.OrthographicSize,
-				.1f,
-				100.0f
+				camera.Near,
+				camera.Far
 			);
 
 			XMStoreFloat4x4(
@@ -455,6 +484,8 @@ namespace Moonlight
 		);
 
 		context->RSSetViewports(1, &screenViewport);
+
+		XMStoreFloat2(&constantBufferSceneData.ViewportSize, camera.OutputSize.GetInternalVec());
 
 		//XMStoreFloat4x4(&m_constantBufferData.view, XMMatrixTranspose(XMMatrixIdentity()));
 		XMStoreFloat4x4(&constantBufferSceneData.view, XMMatrixTranspose(XMMatrixLookToRH(eye, at, up)));
@@ -487,6 +518,8 @@ namespace Moonlight
 
 		m_device->ResetCullingMode();
 
+		camera.CameraFrustum->TransformFrustum(constantBufferSceneData.projection, constantBufferSceneData.view);
+
 		if (Lights.size() > 0)
 		{
 			//constantBufferSceneData.light = Lights[0];
@@ -496,10 +529,18 @@ namespace Moonlight
 			std::vector<MeshCommand> transparentMeshes;
 			for (int i = 0; i < Meshes.size(); ++i)
 			{
-				const MeshCommand& mesh = Meshes[i];
+				MeshCommand& mesh = Meshes[i];
 				if (mesh.MeshMaterial && mesh.MeshMaterial->IsTransparent())
 				{
 					transparentMeshes.push_back(mesh);
+					continue;
+				}
+				DirectX::SimpleMath::Vector3 position;
+				mesh.Transform.Decompose(DirectX::SimpleMath::Vector3(), DirectX::SimpleMath::Quaternion(), position);
+				//DirectX::XMMatrixDecompose(nullptr, nullptr, &position, mesh.Transform);
+
+				if (!camera.CameraFrustum->PointInFrustum(Vector3(position)))
+				{
 					continue;
 				}
 
@@ -1158,7 +1199,7 @@ namespace Moonlight
 		switch (command.Type)
 		{
 		case MeshType::Plane:
-			command.SingleMesh = new MeshData(m_planeVerticies, m_planeIndicies, command.MeshMaterial);
+			command.SingleMesh = PlaneMesh;
 			break;
 		case MeshType::Cube:
 			break;
@@ -1222,7 +1263,6 @@ namespace Moonlight
 		}
 
 		return static_cast<unsigned int>(Cameras.size() - 1);
-
 	}
 
 	void Renderer::PopCamera(unsigned int Id)

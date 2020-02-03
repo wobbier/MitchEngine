@@ -42,7 +42,7 @@ public:
 #pragma endregion
 
 #pragma region Operators
-	Vector3 operator*(const Vector3& other)
+	Vector3 operator*(const Vector3& other) const
 	{
 		return Vector3(m_vector * other.m_vector);
 	}
@@ -165,7 +165,7 @@ public:
 		m_vector = vec;
 	}
 
-	float Dot(const Vector3& Other)
+	float Dot(const Vector3& Other) const
 	{
 		return m_vector.Dot(Other.GetInternalVec());
 	}

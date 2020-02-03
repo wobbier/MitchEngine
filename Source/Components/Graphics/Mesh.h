@@ -16,7 +16,7 @@ class Mesh
 	friend class EditorCore;
 public:
 	Mesh();
-	Mesh(Moonlight::MeshType InType, Moonlight::Material* InMaterial);
+	Mesh(Moonlight::MeshType InType, Moonlight::Material* InMaterial, Moonlight::ShaderCommand* InShader);
 	Mesh(Moonlight::MeshData* mesh);
 
 	// Separate init from construction code.

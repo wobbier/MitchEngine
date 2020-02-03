@@ -15,7 +15,7 @@
 
 namespace Moonlight
 {
-	MeshData::MeshData(std::vector<Vertex> vertices, std::vector<uint16_t> indices, Material* mat = nullptr)
+	MeshData::MeshData(std::vector<Vertex> vertices, std::vector<uint16_t> indices, Material* mat)
 		: m_indexCount(0)
 		, material(mat)
 	{

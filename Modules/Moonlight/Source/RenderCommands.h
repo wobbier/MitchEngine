@@ -18,7 +18,8 @@ namespace Moonlight
 	{
 		Model = 0,
 		Plane,
-		Cube
+		Cube,
+		MeshCount
 	};
 
 	struct ModelCommand
@@ -40,6 +41,7 @@ namespace Moonlight
 		ShaderCommand* MeshShader = nullptr;
 		Material* MeshMaterial = nullptr;
 		DirectX::SimpleMath::Matrix Transform;
+		bool Visible = false;
 	};
 
 	struct TextCommand

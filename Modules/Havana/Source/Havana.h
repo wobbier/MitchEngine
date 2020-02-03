@@ -4,7 +4,6 @@
 #include "ECS/Entity.h"
 #include "Math/Vector2.h"
 #include "imgui.h"
-#include "Graphics/Texture.h"
 #include "Pointers.h"
 #include "Widgets/AssetBrowser.h"
 #include "Events/Event.h"
@@ -76,6 +75,7 @@ public:
 	const Vector2& GetGameOutputSize() const;
 
 	virtual bool OnEvent(const BaseEvent& evt) override;
+	SharedPtr<Moonlight::Texture> ViewTexture;
 private:
 	void HandleAssetDragAndDrop(Transform* root);
 
