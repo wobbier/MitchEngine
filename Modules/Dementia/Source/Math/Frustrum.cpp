@@ -1,10 +1,6 @@
 #include "Frustrum.h"
 #include "Vector3.h"
 
-#ifndef _XM_NO_INTRINSICS_
-#define _XM_NO_INTRINSICS_
-#endif
-
 #ifndef ANG2RAD
 #define ANG2RAD 3.14159265358979323846/180.0
 #endif
@@ -93,7 +89,7 @@ Frustum::Frustum()
 //	return true;
 //}
 
-void Frustum::TransformFrustum(const DirectX::XMMATRIX& proj, const DirectX::XMMATRIX& view)
+void Frustum::TransformFrustum(const DirectX::XMFLOAT4X4& proj, const DirectX::XMFLOAT4X4& view)
 {
 	double clip[4][4];
 	clip[0][0] = (view(0, 0) * proj(0, 0) + view(0, 1) * proj(1, 0) + view(0, 2) * proj(2, 0) + view(0, 3) * proj(3, 0));
@@ -116,65 +112,65 @@ void Frustum::TransformFrustum(const DirectX::XMMATRIX& proj, const DirectX::XMM
 	clip[3][2] = view(3, 0) * proj(0, 2) + view(3, 1) * proj(1, 2) + view(3, 2) * proj(2, 2) + view(3, 3) * proj(3, 2);
 	clip[3][3] = view(3, 0) * proj(0, 3) + view(3, 1) * proj(1, 3) + view(3, 2) * proj(2, 3) + view(3, 3) * proj(3, 3);
 
-	m_data[Right][0] = clip[0][3] - clip[0][0];
-	m_data[Right][1] = clip[1][3] - clip[1][0];
-	m_data[Right][2] = clip[2][3] - clip[2][0];
-	m_data[Right][3] = clip[3][3] - clip[3][0];
+	Planes[FrustumPlane::Right].x = clip[0][3] - clip[0][0];
+	Planes[FrustumPlane::Right].y = clip[1][3] - clip[1][0];
+	Planes[FrustumPlane::Right].z = clip[2][3] - clip[2][0];
+	Planes[FrustumPlane::Right].w = clip[3][3] - clip[3][0];
 	Normalize(Right);
 
-	m_data[Left][0] = clip[0][3] + clip[0][0];
-	m_data[Left][1] = clip[1][3] + clip[1][0];
-	m_data[Left][2] = clip[2][3] + clip[2][0];
-	m_data[Left][3] = clip[3][3] + clip[3][0];
+	Planes[FrustumPlane::Left].x = clip[0][3] + clip[0][0];
+	Planes[FrustumPlane::Left].y = clip[1][3] + clip[1][0];
+	Planes[FrustumPlane::Left].z = clip[2][3] + clip[2][0];
+	Planes[FrustumPlane::Left].w = clip[3][3] + clip[3][0];
 	Normalize(Left);
 
-	m_data[Bottom][0] = clip[0][3] + clip[0][1];
-	m_data[Bottom][1] = clip[1][3] + clip[1][1];
-	m_data[Bottom][2] = clip[2][3] + clip[2][1];
-	m_data[Bottom][3] = clip[3][3] + clip[3][1];
+	Planes[FrustumPlane::Bottom].x = clip[0][3] + clip[0][1];
+	Planes[FrustumPlane::Bottom].y = clip[1][3] + clip[1][1];
+	Planes[FrustumPlane::Bottom].z = clip[2][3] + clip[2][1];
+	Planes[FrustumPlane::Bottom].w = clip[3][3] + clip[3][1];
 	Normalize(Bottom);
 
-	m_data[Top][0] = clip[0][3] - clip[0][1];
-	m_data[Top][1] = clip[1][3] - clip[1][1];
-	m_data[Top][2] = clip[2][3] - clip[2][1];
-	m_data[Top][3] = clip[3][3] - clip[3][1];
+	Planes[Top].x = clip[0][3] - clip[0][1];
+	Planes[Top].y = clip[1][3] - clip[1][1];
+	Planes[Top].z = clip[2][3] - clip[2][1];
+	Planes[Top].w = clip[3][3] - clip[3][1];
 	Normalize(Top);
 
-	m_data[Front][0] = clip[0][3] - clip[0][2];
-	m_data[Front][1] = clip[1][3] - clip[1][2];
-	m_data[Front][2] = clip[2][3] - clip[2][2];
-	m_data[Front][3] = clip[3][3] - clip[3][2];
-	Normalize(Front);
+	Planes[Far].x = clip[0][3] - clip[0][2];
+	Planes[Far].y = clip[1][3] - clip[1][2];
+	Planes[Far].z = clip[2][3] - clip[2][2];
+	Planes[Far].w = clip[3][3] - clip[3][2];
+	Normalize(Far);
 
-	m_data[Back][0] = clip[0][3] + clip[0][2];
-	m_data[Back][1] = clip[1][3] + clip[1][2];
-	m_data[Back][2] = clip[2][3] + clip[2][2];
-	m_data[Back][3] = clip[3][3] + clip[3][2];
-	Normalize(Back);
+	Planes[Near].x = clip[0][3] + clip[0][2];
+	Planes[Near].y = clip[1][3] + clip[1][2];
+	Planes[Near].z = clip[2][3] + clip[2][2];
+	Planes[Near].w = clip[3][3] + clip[3][2];
+	Normalize(Near);
 }
 
 void Frustum::Normalize(FrustumPlane plane)
 {
 	double magnitude = std::sqrt(
-		m_data[plane][0] * m_data[plane][0] +
-		m_data[plane][1] * m_data[plane][1] +
-		m_data[plane][2] * m_data[plane][2]
+		Planes[plane].x * Planes[plane].x +
+		Planes[plane].y * Planes[plane].y +
+		Planes[plane].z * Planes[plane].z
 	);
 
-	m_data[plane][0] /= magnitude;
-	m_data[plane][1] /= magnitude;
-	m_data[plane][2] /= magnitude;
-	m_data[plane][3] /= magnitude;
+	Planes[plane].x /= magnitude;
+	Planes[plane].y /= magnitude;
+	Planes[plane].z /= magnitude;
+	Planes[plane].w /= magnitude;
 }
 
 bool Frustum::IsInside(const Vector3& point) const
 {
 	for (unsigned int i = 0; i < 6; i++)
 	{
-		if (m_data[i][0] * point.x +
-			m_data[i][1] * point.y +
-			m_data[i][2] * point.z +
-			m_data[i][3] <= 0) {
+		if (Planes[i].x * point[0] +
+			Planes[i].y * point[1] +
+			Planes[i].z * point[2] +
+			Planes[i].w <= 0) {
 			return false;
 		}
 	}

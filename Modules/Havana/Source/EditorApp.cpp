@@ -119,12 +119,6 @@ void EditorApp::UpdateCameras()
 	EditorCamera.OrthographicSize = Camera::EditorCamera->OrthographicSize;
 	EditorCamera.CameraFrustum = Camera::EditorCamera->CameraFrustum;
 
-	Vector3 Right = EditorCamera.Front.Cross(Vector3::Up).Normalized();
-	Vector3 Up = EditorCamera.Front.Cross(Right).Normalized();
-
-	EditorCamera.CameraFrustum->SetCameraInternals(EditorCamera.FOV, EditorCamera.OutputSize.X() / EditorCamera.OutputSize.Y(), EditorCamera.Near, EditorCamera.Far);
-	EditorCamera.CameraFrustum->SetCameraDef(EditorCamera.Position, EditorCamera.Position + EditorCamera.Front, Up);
-
 	GetEngine().EditorCamera = EditorCamera;
 }
 

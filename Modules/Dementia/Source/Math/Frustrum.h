@@ -1,5 +1,7 @@
 #pragma once
 
+#define _XM_NO_INTRINSICS_
+
 #include "Plane.h"
 
 #include <DirectXMath.h>
@@ -25,8 +27,8 @@ public:
 
 	//bool PointInFrustum(const Vector3& InPoint);
 
-	void TransformFrustum(const DirectX::XMMATRIX& proj, const DirectX::XMMATRIX& view);
-	void Normalize(DirectX::SimpleMath::Vector4 plane);
+	void TransformFrustum(const DirectX::XMFLOAT4X4& proj, const DirectX::XMFLOAT4X4& view);
+	void Normalize(FrustumPlane plane);
 	bool IsInside(const Vector3& point) const;
 
 	Vector3 NearTopLeft;

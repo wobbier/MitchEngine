@@ -37,6 +37,7 @@ struct PixelShaderInput
 	float2 texcoord : TEXCOORD0;
 	float3 tangent : TANGENT;
 	float4 fragPos : POSITION;
+	float4 fragPos2 : POSITION1;
 };
 
 struct PSOUTPUT
@@ -55,18 +56,17 @@ PixelShaderInput main_vs(VertexShaderInput input)
 	// Transform the vertex position into projected space.
 	output.fragPos = mul(model, pos);
 
-
 	pos = mul(model, pos);
 	pos = mul(pos, view);
 	pos = mul(pos, projection);
 	output.pos = pos;
-
-
+	output.fragPos2 = pos;
 	//output.normal = mul(input.normal, model);
 	output.normal = mul(input.normal, transpose(modelInv));
 	output.tangent = mul(input.tangent, transpose(model));
 
-	output.texcoord = input.texcoord;
+	output.texcoord.xy = mul(pos, float4(input.pos, 1.0f));
+
 	// Pass the color through without modification.
 	return output;
 }
@@ -79,9 +79,9 @@ PSOUTPUT main_ps(PixelShaderInput input)
 
 	output.position = input.fragPos;
 
-
 	//The correct Screen Space Texture Coordinates.
-	float2 TexCoord = input.texcoord;// / ViewportSize;
+	float2 TexCoord = input.fragPos2 / input.fragPos2.w;// input.fragPos / input.fragPos.w;
+	TexCoord = 0.5f * float2(TexCoord.x, -TexCoord.y) + 0.5f;
 
 	float4 diffuse = ObjTexture.Sample(ObjSamplerState, TexCoord);
 	if (!any(diffuse))

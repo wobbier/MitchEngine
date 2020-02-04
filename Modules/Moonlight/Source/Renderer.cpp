@@ -518,7 +518,7 @@ namespace Moonlight
 
 		m_device->ResetCullingMode();
 
-		camera.CameraFrustum->TransformFrustum(constantBufferSceneData.projection, constantBufferSceneData.view);
+		//camera.CameraFrustum->TransformFrustum(constantBufferSceneData.projection, constantBufferSceneData.view);
 
 		if (Lights.size() > 0)
 		{
@@ -538,11 +538,11 @@ namespace Moonlight
 				DirectX::SimpleMath::Vector3 position;
 				mesh.Transform.Decompose(DirectX::SimpleMath::Vector3(), DirectX::SimpleMath::Quaternion(), position);
 				//DirectX::XMMatrixDecompose(nullptr, nullptr, &position, mesh.Transform);
-
-				if (!camera.CameraFrustum->PointInFrustum(Vector3(position)))
-				{
-					continue;
-				}
+// 
+// 				if (!camera.CameraFrustum->IsInside(Vector3(position)))
+// 				{
+// 					continue;
+// 				}
 
 				if (mesh.MeshShader && mesh.SingleMesh && mesh.MeshMaterial)
 				{

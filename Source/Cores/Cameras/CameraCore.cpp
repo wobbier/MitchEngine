@@ -48,9 +48,7 @@ void CameraCore::Update(float dt)
 		CamData.Projection = CameraComponent.Projection;
 		CamData.OrthographicSize = CameraComponent.OrthographicSize;
 		CamData.IsMain = CameraComponent.IsMain();
-
-		CamData.CameraFrustum->SetCameraInternals(CamData.FOV, CamData.OutputSize.X() / CamData.OutputSize.Y(), CamData.Near, CamData.Far);
-		CamData.CameraFrustum->SetCameraDef(TransformComponent.GetWorldPosition(), TransformComponent.GetWorldPosition() + CamData.Front, Vector3::Up);
+		CamData.CameraFrustum = CameraComponent.CameraFrustum;
 
 		GetEngine().GetRenderer().UpdateCamera(CameraComponent.m_id, CamData);
 	}
@@ -89,9 +87,6 @@ Moonlight::CameraData CameraCore::CreateCameraData(Transform& InTransform, Camer
 
 	Vector3 Right = CamData.Front.Cross(Vector3::Up).Normalized();
 	Vector3 Up = CamData.Front.Cross(Right).Normalized();
-
-	InCamera.CameraFrustum->SetCameraInternals(CamData.FOV, CamData.OutputSize.X() / CamData.OutputSize.Y(), CamData.Near, CamData.Far);
-	InCamera.CameraFrustum->SetCameraDef(InTransform.GetWorldPosition(), InTransform.GetWorldPosition() + CamData.Front, Up);
 
 	CamData.CameraFrustum = InCamera.CameraFrustum;
 
