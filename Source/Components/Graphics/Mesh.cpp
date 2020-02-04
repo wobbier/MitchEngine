@@ -124,22 +124,23 @@ void Mesh::OnEditorInspect()
 	if (MeshShader && MeshMaterial)
 	{
 		bool transparent = MeshMaterial->IsTransparent();
-		ImGui::Checkbox("Render Transparent", &transparent);
-		if (transparent)
-		{
-			MeshMaterial->SetRenderMode(Moonlight::RenderingMode::Transparent);
-		}
-		else
-		{
-			MeshMaterial->SetRenderMode(Moonlight::RenderingMode::Opaque);
-		}
-		HavanaUtils::EditableVector("Tiling", MeshMaterial->Tiling);
 		if (MeshReferece)
 		{
 			ImGui::Text("Vertices: %i", MeshReferece->vertices.size());
 		}
 		if (ImGui::TreeNodeEx("Material", ImGuiTreeNodeFlags_DefaultOpen))
 		{
+			ImGui::Checkbox("Render Transparent", &transparent);
+			if (transparent)
+			{
+				MeshMaterial->SetRenderMode(Moonlight::RenderingMode::Transparent);
+			}
+			else
+			{
+				MeshMaterial->SetRenderMode(Moonlight::RenderingMode::Opaque);
+			}
+			HavanaUtils::EditableVector("Tiling", MeshMaterial->Tiling);
+
 			static std::vector<Path> Textures;
 			Path path = Path("Assets");
 			if (Textures.empty())

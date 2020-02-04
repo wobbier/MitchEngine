@@ -299,6 +299,19 @@ void Transform::Deserialize(const json& inJson)
 	{
 		SetScale(Vector3((float)inJson["Scale"][0], (float)inJson["Scale"][1], (float)inJson["Scale"][2]));
 	}
+
+	DirectX::SimpleMath::Matrix id = DirectX::XMMatrixIdentity();
+	DirectX::SimpleMath::Matrix rot = DirectX::SimpleMath::Matrix::CreateFromQuaternion(DirectX::SimpleMath::Quaternion::CreateFromYawPitchRoll(Rotation[1], Rotation[0], Rotation[2]));// , Child->Rotation.Y(), Child->Rotation.Z());
+	DirectX::SimpleMath::Matrix scale = DirectX::SimpleMath::Matrix::CreateScale(GetScale().GetInternalVec());
+	DirectX::SimpleMath::Matrix pos = XMMatrixTranslationFromVector(GetPosition().GetInternalVec());
+	if (ParentTransform)
+	{
+		SetWorldTransform(Matrix4((scale * rot * pos) * ParentTransform->WorldTransform.GetInternalMatrix()));
+	}
+	else
+	{
+		SetWorldTransform(Matrix4(scale * rot * pos));
+	}
 }
 
 void Transform::SetName(const std::string& name)

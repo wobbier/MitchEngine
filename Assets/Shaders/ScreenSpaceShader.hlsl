@@ -81,7 +81,7 @@ PSOUTPUT main_ps(PixelShaderInput input)
 
 	//The correct Screen Space Texture Coordinates.
 	float2 TexCoord = input.fragPos2 / input.fragPos2.w;// input.fragPos / input.fragPos.w;
-	TexCoord = 0.5f * float2(TexCoord.x, -TexCoord.y) + 0.5f;
+	TexCoord = (0.5f * float2(TexCoord.x, -TexCoord.y) + 0.5f) * tiling;
 
 	float4 diffuse = ObjTexture.Sample(ObjSamplerState, TexCoord);
 	if (!any(diffuse))
