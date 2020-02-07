@@ -74,7 +74,7 @@ void PhysicsCore::Update(float dt)
 			btTransform& trans = rigidbody->getWorldTransform();
 
 
-			if (TransformComponent.IsDirty)
+			if (TransformComponent.IsDirty())
 			{
 				btTransform trans;
 				Vector3 transPos = TransformComponent.GetPosition();
@@ -117,7 +117,8 @@ void PhysicsCore::Update(float dt)
 			btRigidBody* rigidbody = Controller.m_rigidbody;
 			btTransform& trans = rigidbody->getWorldTransform();
 
-			trans.setRotation(btQuaternion(TransformComponent.Rotation.X(), TransformComponent.Rotation.Y(), TransformComponent.Rotation.Z()));
+			Quaternion rotation = TransformComponent.GetWorldRotation();
+			trans.setRotation(btQuaternion(rotation[0], rotation[1], rotation[2], rotation[3]));
 			////trans.setOrigin(btVector3(transPos.X(), transPos.Y(), transPos.Z()));
 			////rigidbody->setWorldTransform(trans);
 			rigidbody->setWorldTransform(trans);

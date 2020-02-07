@@ -99,7 +99,7 @@ void Transform::UpdateRecursively(Transform* CurrentTransform)
 	OPTICK_EVENT("SceneGraph::UpdateRecursively");
 	for (Transform* Child : CurrentTransform->Children)
 	{
-		//if (Child->IsDirty)
+		if (Child->m_isDirty)
 		{
 			OPTICK_EVENT("SceneGraph::Update::IsDirty");
 			//Quaternion quat = Quaternion(Child->Rotation);
@@ -145,6 +145,16 @@ void Transform::SetWorldTransform(Matrix4& NewWorldTransform)
 	SetDirty(false);
 }
 
+const bool Transform::IsDirty() const
+{
+	return m_isDirty;
+}
+
+Transform* Transform::GetParent()
+{
+	return ParentTransform;
+}
+
 void Transform::Init()
 {
 }
@@ -179,14 +189,14 @@ void Transform::OnEditorInspect()
 
 void Transform::SetDirty(bool Dirty)
 {
-	if (Dirty && (Dirty != IsDirty))
+	if (Dirty && (Dirty != m_isDirty))
 	{
 		for (Transform* Child : Children)
 		{
 			Child->SetDirty(Dirty);
 		}
 	}
-	IsDirty = Dirty;
+	m_isDirty = Dirty;
 }
 
 Vector3 Transform::GetScale()

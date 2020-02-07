@@ -257,7 +257,7 @@ bool EditorCore::OnEvent(const BaseEvent& evt)
 			{
 				Transform* meshTransform = &ent.GetComponent<Transform>();
 				std::stack<Transform*> parentEnts;
-				parentEnts.push(meshTransform->ParentTransform);
+				parentEnts.push(meshTransform->GetParent());
 
 				static Transform* selectedParentObjec = nullptr;
 
@@ -293,7 +293,7 @@ bool EditorCore::OnEvent(const BaseEvent& evt)
 					}
 					else
 					{
-						parentEnts.push(parent->ParentTransform);
+						parentEnts.push(parent->GetParent());
 					}
 				}
 			}

@@ -127,9 +127,9 @@ void Scene::SaveSceneRecursively(json& d, Transform* CurrentTransform)
 		comp->Serialize(compJson);
 		componentsJson.push_back(compJson);
 	}
-	if (CurrentTransform->Children.size() > 0)
+	if (CurrentTransform->GetChildren().size() > 0)
 	{
-		for (Transform* Child : CurrentTransform->Children)
+		for (Transform* Child : CurrentTransform->GetChildren())
 		{
 			SaveSceneRecursively(thing["Children"], Child);
 		}
@@ -144,9 +144,9 @@ void Scene::Save(std::string fileName, Transform* root)
 	File worldFile(FilePath);
 	json world;
 
-	if (root->Children.size() > 0)
+	if (root->GetChildren().size() > 0)
 	{
-		for (Transform* Child : root->Children)
+		for (Transform* Child : root->GetChildren())
 		{
 			SaveSceneRecursively(world["Scene"], Child);
 		}

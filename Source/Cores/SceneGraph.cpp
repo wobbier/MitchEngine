@@ -34,7 +34,7 @@ void SceneGraph::UpdateRecursively(Transform* CurrentTransform)
 	OPTICK_EVENT("SceneGraph::UpdateRecursively");
 	for (Transform* Child : CurrentTransform->Children)
 	{
-		if (Child->IsDirty)
+		if (Child->IsDirty())
 		{
 			OPTICK_EVENT("SceneGraph::Update::IsDirty");
 			//Quaternion quat = Quaternion(Child->Rotation);

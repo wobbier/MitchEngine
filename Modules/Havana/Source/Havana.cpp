@@ -787,11 +787,11 @@ void Havana::UpdateWorldRecursive(Transform* root)
 	}
 
 	int i = 0;
-	for (Transform* var : root->Children)
+	for (Transform* var : root->GetChildren())
 	{
 		bool open = false;
 		ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | (SelectedTransform == var ? ImGuiTreeNodeFlags_Selected : 0);
-		if (var->Children.empty())
+		if (var->GetChildren().empty())
 		{
 			node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen; // ImGuiTreeNodeFlags_Bullet
 			open = ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, var->Name.c_str());
@@ -1199,10 +1199,10 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 				//ImGui::InputFloat3("Tr", matrixTranslation, 3);
 				if (SelectedTransform)
 				{
-					HavanaUtils::EditableVector3("RtVec", SelectedTransform->Rotation);
-					matrixRotation[0] = SelectedTransform->Rotation[0] * DirectX::XM_PI / 180.f;
-					matrixRotation[1] = SelectedTransform->Rotation[1] * DirectX::XM_PI / 180.f;
-					matrixRotation[2] = SelectedTransform->Rotation[2] * DirectX::XM_PI / 180.f;
+					//HavanaUtils::EditableVector3("RtVec", SelectedTransform->Rotation);
+					//matrixRotation[0] = SelectedTransform->Rotation[0] * DirectX::XM_PI / 180.f;
+					//matrixRotation[1] = SelectedTransform->Rotation[1] * DirectX::XM_PI / 180.f;
+					//matrixRotation[2] = SelectedTransform->Rotation[2] * DirectX::XM_PI / 180.f;
 				}
 				//else
 				//{

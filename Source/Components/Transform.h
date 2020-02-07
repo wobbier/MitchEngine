@@ -14,11 +14,7 @@ class Transform :
 	public Component<Transform>
 {
 	typedef Component<Transform> Base;
-	friend class Havana;
-	friend class Scene;
-	friend class EditorCore;
 	friend class SceneGraph;
-	friend class PhysicsCore;
 public:
 	Transform();
 	Transform(const std::string& Name);
@@ -76,18 +72,23 @@ public:
 	void SetName(const std::string& name);
 	void SetWorldTransform(Matrix4& NewWorldTransform);
 
-	Vector3 Rotation;
 	Quaternion InternalRotation;
-private:
-	Vector3 Position;
-	Vector3 Scale;
+
+	const bool IsDirty() const;
+
+	Transform* GetParent();
+
 #if ME_EDITOR
 	virtual void OnEditorInspect() final;
-
 #endif
 
+private:
+	Vector3 Rotation;
+	Vector3 Position;
+	Vector3 Scale;
+
 	void SetDirty(bool Dirty);
-	bool IsDirty = true;
+	bool m_isDirty = true;
 	Transform* ParentTransform = nullptr;
 	std::vector<Transform*> Children;
 };
