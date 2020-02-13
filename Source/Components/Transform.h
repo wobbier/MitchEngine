@@ -26,7 +26,10 @@ public:
 
 	void UpdateRecursively(Transform* CurrentTransform);
 
+	void UpdateWorldTransform();
+
 	void SetRotation(Vector3 euler);
+	void SetWorldRotation(Quaternion InRotation);
 	Vector3 GetRotation();
 	Quaternion GetWorldRotation();
 	Vector3 GetWorldRotationEuler();
@@ -70,13 +73,17 @@ public:
 	virtual void Deserialize(const json& inJson) final;
 	
 	void SetName(const std::string& name);
-	void SetWorldTransform(Matrix4& NewWorldTransform);
+	void SetWorldTransform(Matrix4& NewWorldTransform, bool InIsDirty = false);
 
 	Quaternion InternalRotation;
 
 	const bool IsDirty() const;
 
 	Transform* GetParent();
+
+	Matrix4 GetLocalToWorldMatrix();
+	Matrix4 GetWorldToLocalMatrix();
+
 
 #if ME_EDITOR
 	virtual void OnEditorInspect() final;

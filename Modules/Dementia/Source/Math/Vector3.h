@@ -8,6 +8,7 @@ class Vector3
 public:
 
 	static const Vector3 Up;
+	static const Vector3 Front;
 
 #pragma region Constructors
 
@@ -194,6 +195,8 @@ public:
 private:
 	DirectX::SimpleMath::Vector3 m_vector;
 };
+
+__declspec(selectany) const Vector3 Vector3::Front = Vector3(0.f, 0.f, -1.f);
 
 __declspec(selectany) const Vector3 Vector3::Up = Vector3(0.f, 1.f, 0.f);
 

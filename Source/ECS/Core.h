@@ -55,6 +55,7 @@ public:
 	const bool CanSerialize() const;
 protected:
 	class Engine* GameEngine;
+	World* GameWorld;
 	bool IsSerializable = true;
 private:
 	// Separate init from construction code.
@@ -75,7 +76,6 @@ private:
 	std::vector<Entity> Entities;
 
 	// The World attached to the system
-	World* GameWorld;
 
 	ComponentFilter CompFilter;
 

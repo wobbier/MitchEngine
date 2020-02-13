@@ -21,7 +21,6 @@ public:
 	static Camera* CurrentCamera;
 	static Camera* EditorCamera;
 
-	Vector3 Position;
 	Vector3 Front;
 	Vector3 ClearColor;
 	Vector2 OutputSize;
@@ -39,8 +38,6 @@ public:
 	virtual void Init() override;
 
 	Matrix4 GetViewMatrix();
-	void LookAt(const Vector3& TargetPosition);
-	void UpdateCameraTransform(Vector3 TransformComponent);
 	bool IsCurrent();
 	void SetCurrent();
 	float GetFOV();

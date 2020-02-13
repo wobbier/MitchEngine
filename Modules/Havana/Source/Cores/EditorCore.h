@@ -33,6 +33,8 @@ public:
 
 	Havana* GetEditor();
 
+	Transform* GetEditorCameraTransform() const;
+
 private:
 	bool TryingToSaveNewScene = false;
 	float FlyingSpeed = 5.f;

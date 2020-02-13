@@ -102,4 +102,5 @@ private:
 	ParentDescriptor DragParentDescriptor;
 
 	DirectX::Keyboard::KeyboardStateTracker tracker;
+	DirectX::Mouse::ButtonStateTracker mouseTracker;
 };

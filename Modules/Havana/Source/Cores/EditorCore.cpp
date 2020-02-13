@@ -109,11 +109,11 @@ void EditorCore::Update(float dt)
 			CameraSpeed *= dt;
 			if (Keyboard.W)
 			{
-				EditorCameraTransform->SetPosition((EditorCamera->Front * CameraSpeed) + EditorCameraTransform->GetPosition());
+				EditorCameraTransform->Translate(EditorCamera->Front * CameraSpeed);
 			}
 			if (Keyboard.S)
 			{
-				EditorCameraTransform->SetPosition(EditorCameraTransform->GetPosition() - (EditorCamera->Front * CameraSpeed));
+				EditorCameraTransform->Translate((EditorCamera->Front * CameraSpeed) * -1.f);
 			}
 			if (Keyboard.A)
 			{
@@ -165,11 +165,14 @@ void EditorCore::Update(float dt)
 			if (Pitch < -89.0f)
 				Pitch = -89.0f;
 
+
 			Vector3 Front;
 			Front.SetX(cos(Mathf::Radians(Yaw)) * cos(Mathf::Radians(Pitch)));
 			Front.SetY(sin(Mathf::Radians(Pitch)));
 			Front.SetZ(sin(Mathf::Radians(Yaw)) * cos(Mathf::Radians(Pitch)));
-			EditorCamera->Front = Front.Normalized();
+			//EditorCamera->Front = Front.Normalized();
+			EditorCameraTransform->LookAt(Front.Normalized());
+			EditorCamera->Front = Vector3(EditorCameraTransform->GetMatrix().GetInternalMatrix().Forward());
 
 		}
 		else
@@ -190,8 +193,6 @@ void EditorCore::Update(float dt)
 				IsFocusingTransform = false;
 			}
 		}
-
-		EditorCamera->UpdateCameraTransform(EditorCameraTransform->GetPosition());
 		return;
 	}
 }
@@ -319,6 +320,11 @@ void EditorCore::OnEntityAdded(Entity& NewEntity)
 Havana* EditorCore::GetEditor()
 {
 	return m_editor;
+}
+
+Transform* EditorCore::GetEditorCameraTransform() const
+{
+	return EditorCameraTransform;
 }
 
 #if ME_EDITOR

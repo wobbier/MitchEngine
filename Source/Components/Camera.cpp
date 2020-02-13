@@ -10,7 +10,6 @@ Camera* Camera::EditorCamera = nullptr;
 Camera::Camera()
 	: Component("Camera")
 {
-	Position = Vector3(0.f, 0.f, 2.f);
 	Front = Vector3(0.f, 0.f, -1.f);
 	CameraFrustum = new Frustum();
 }
@@ -35,16 +34,6 @@ void Camera::Init()
 Matrix4 Camera::GetViewMatrix()
 {
 	return Matrix4();//glm::lookAt(Position.GetInternalVec(), Position.GetInternalVec() + Front.GetInternalVec(), Up.GetInternalVec()));
-}
-
-void Camera::LookAt(const Vector3& TargetPosition)
-{
-	Front = (TargetPosition - Position).Normalized();
-}
-
-void Camera::UpdateCameraTransform(Vector3 NewPosition)
-{
-	Position = NewPosition;
 }
 
 bool Camera::IsCurrent()

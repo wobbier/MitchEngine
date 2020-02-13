@@ -75,37 +75,16 @@ void EditorApp::UpdateCameras()
 		Camera::CurrentCamera = Camera::EditorCamera;
 	}
 
-	Moonlight::CameraData MainCamera;
-	MainCamera.Position = Camera::CurrentCamera->Position;
 	WeakPtr<Entity> ent = GetEngine().GetWorld().lock()->GetEntity(Camera::CurrentCamera->Parent);
+	Moonlight::CameraData EditorCamera;
 	if (ent.lock() && ent.lock()->HasComponent<Transform>())
 	{
 		Transform& trans = ent.lock()->GetComponent<Transform>();
-		DirectX::SimpleMath::Vector3 test;
-		trans.GetMatrix().GetInternalMatrix().Forward(test);
-		float Pitch = trans.GetRotation().X();
-
-		float Yaw = trans.GetRotation().Y();
-		Vector3 Front;
-		Front.SetX(cos(Yaw) * cos(Pitch));
-		Front.SetY(sin(Pitch));
-		Front.SetZ(sin(Yaw) * cos(Pitch));
-		//Camera::CurrentCamera->Front = Front.Normalized();
+		EditorCamera.Position = trans.GetWorldPosition();
 	}
 	Camera::CurrentCamera->OutputSize = MainOutputSize;
 
-	MainCamera.Front = Camera::CurrentCamera->Front;
-	MainCamera.Up = Vector3::Up;
-	MainCamera.OutputSize = MainOutputSize;
-	MainCamera.FOV = Camera::CurrentCamera->GetFOV();
-	MainCamera.Skybox = Camera::CurrentCamera->Skybox;
-	MainCamera.ClearColor = Camera::CurrentCamera->ClearColor;
-	MainCamera.ClearType = Camera::CurrentCamera->ClearType;
-	MainCamera.Projection = Camera::CurrentCamera->Projection;
-	MainCamera.OrthographicSize = Camera::CurrentCamera->OrthographicSize;
-
-	Moonlight::CameraData EditorCamera;
-	EditorCamera.Position = Camera::EditorCamera->Position;
+	EditorCamera.Position = EditorSceneManager->GetEditorCameraTransform()->GetWorldPosition();
 	EditorCamera.Front = Camera::EditorCamera->Front;
 	EditorCamera.Up = Vector3::Up;
 	EditorCamera.OutputSize = Editor->WorldViewRenderSize;

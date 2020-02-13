@@ -32,10 +32,8 @@ void CameraCore::Update(float dt)
 		Camera& CameraComponent = InEntity.GetComponent<Camera>();
 		Transform& TransformComponent = InEntity.GetComponent<Transform>();
 
-		CameraComponent.UpdateCameraTransform(TransformComponent.GetWorldPosition());
-
 		Moonlight::CameraData& CamData = GetEngine().GetRenderer().GetCamera(CameraComponent.m_id);
-		CamData.Position = CameraComponent.Position;
+		CamData.Position = TransformComponent.GetWorldPosition();
 		CamData.Front = CameraComponent.Front;
 		CamData.Up = Vector3::Up;
 		CamData.OutputSize = CameraComponent.OutputSize;
@@ -67,7 +65,7 @@ Moonlight::CameraData CameraCore::CreateCameraData(Transform& InTransform, Camer
 {
 	Moonlight::CameraData CamData;
 
-	CamData.Position = InCamera.Position;
+	CamData.Position = InTransform.GetWorldPosition();
 	CamData.Front = InCamera.Front;
 	CamData.Up = Vector3::Up;
 	if (InCamera.OutputSize.IsZero())
