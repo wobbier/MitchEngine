@@ -13,7 +13,8 @@
 #include "Utils/StringUtils.h"
 #include <Keyboard.h>
 #include <Mouse.h>
-
+#include "Engine/Input.h"
+#include "Engine/Engine.h"
 LRESULT CALLBACK WinProc(HWND Window, unsigned int msg, WPARAM wp, LPARAM lp);
 
 std::wstring s2ws(const std::string& s)
@@ -90,6 +91,7 @@ Win32Window::Win32Window(std::string title, std::function<void(const Vector2&)> 
 	{
 		return;
 	}
+	GetEngine().GetInput().GetMouse().SetWindow(Window);
 	SetBorderless(borderless);
 	SetBorderlessShadow(borderless_shadow);
 	ShowWindow(Window, SW_SHOW);

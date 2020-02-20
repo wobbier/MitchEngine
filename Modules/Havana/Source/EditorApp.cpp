@@ -5,7 +5,6 @@
 #include "ECS/Entity.h"
 #include <string>
 #include "Engine/Input.h"
-#include "Components/Animation.h"
 #include "Components/Camera.h"
 #include "Components/Physics/Rigidbody.h"
 #include "Components/Graphics/Model.h"
@@ -18,15 +17,20 @@
 #include "Engine/Engine.h"
 #include "Havana.h"
 #include "Cores/SceneGraph.h"
-#include "HavanaEvents.h"
+#include "Events/SceneEvents.h"
 #include "RenderCommands.h"
 #include "Events/Event.h"
+#include <SimpleMath.h>
+#include "Math/Matirx4.h"
+#include "Math/Frustrum.h"
 
 EditorApp::EditorApp()
 {
 	std::vector<TypeId> events;
 	events.push_back(NewSceneEvent::GetEventId());
+	events.push_back(SceneLoadedEvent::GetEventId());
 	EventManager::GetInstance().RegisterReceiver(this, events);
+
 }
 
 EditorApp::~EditorApp()
@@ -35,7 +39,6 @@ EditorApp::~EditorApp()
 
 void EditorApp::OnStart()
 {
-	UpdateCameras();
 }
 
 void EditorApp::OnUpdate(float DeltaTime)
@@ -72,30 +75,23 @@ void EditorApp::UpdateCameras()
 		Camera::CurrentCamera = Camera::EditorCamera;
 	}
 
-	Moonlight::CameraData MainCamera;
-	MainCamera.Position = Camera::CurrentCamera->Position;
-	MainCamera.Front = Camera::CurrentCamera->Front;
-	MainCamera.Up = Camera::CurrentCamera->Up;
-	MainCamera.OutputSize = MainOutputSize;
-	MainCamera.FOV = Camera::CurrentCamera->GetFOV();
-	MainCamera.Skybox = Camera::CurrentCamera->Skybox;
-	MainCamera.ClearColor = Camera::CurrentCamera->ClearColor;
-	MainCamera.ClearType = Camera::CurrentCamera->ClearType;
-	MainCamera.Projection = Camera::CurrentCamera->Projection;
-	MainCamera.OrthographicSize = Camera::CurrentCamera->OrthographicSize;
-	GetEngine().MainCamera = MainCamera;
-
 	Moonlight::CameraData EditorCamera;
-	EditorCamera.Position = Camera::EditorCamera->Position;
-	EditorCamera.Front = Camera::EditorCamera->Front;
-	EditorCamera.Up = Camera::EditorCamera->Up;
+
+	Camera::CurrentCamera->OutputSize = MainOutputSize;
+	EditorCamera.Position = EditorSceneManager->GetEditorCameraTransform()->GetWorldPosition();
+	EditorCamera.Front = EditorSceneManager->GetEditorCameraTransform()->Front();
+	EditorCamera.Up = Vector3::Up;
 	EditorCamera.OutputSize = Editor->WorldViewRenderSize;
 	EditorCamera.FOV = Camera::EditorCamera->GetFOV();
+	EditorCamera.Near = Camera::EditorCamera->Near;
+	EditorCamera.Far = Camera::EditorCamera->Far;
 	EditorCamera.Skybox = Camera::CurrentCamera->Skybox;
-	EditorCamera.ClearColor = Camera::EditorCamera->ClearColor;
-	EditorCamera.ClearType = Camera::EditorCamera->ClearType;
+	EditorCamera.ClearColor = Camera::CurrentCamera->ClearColor;
+	EditorCamera.ClearType = Camera::CurrentCamera->ClearType;
 	EditorCamera.Projection = Camera::EditorCamera->Projection;
 	EditorCamera.OrthographicSize = Camera::EditorCamera->OrthographicSize;
+	EditorCamera.CameraFrustum = Camera::EditorCamera->CameraFrustum;
+
 	GetEngine().EditorCamera = EditorCamera;
 }
 
@@ -115,7 +111,6 @@ void EditorApp::OnInitialize()
 		NewSceneEvent evt;
 		evt.Fire();
 		GetEngine().GetWorld().lock()->AddCore<EditorCore>(*EditorSceneManager);
-		GetEngine().GetWorld().lock()->Start();
 		GetEngine().LoadScene(InitialLevel);
 	}
 	else
@@ -126,7 +121,6 @@ void EditorApp::OnInitialize()
 
 void EditorApp::PostRender()
 {
-	UpdateCameras();
 	Editor->Render(GetEngine().EditorCamera);
 }
 
@@ -146,7 +140,7 @@ void EditorApp::StopGame()
 		NewSceneEvent evt;
 		evt.Fire();
 		GetEngine().LoadScene(InitialLevel);
-		//GetEngine().GetWorld().lock()->Stop();
+		GetEngine().GetWorld().lock()->Stop();
 		m_isGameRunning = false;
 	}
 }
@@ -169,6 +163,12 @@ bool EditorApp::OnEvent(const BaseEvent& evt)
 		GetEngine().LoadScene("");
 		GetEngine().InitGame();
 		GetEngine().GetWorld().lock()->Simulate();
+	}
+	else if (evt.GetEventId() == SceneLoadedEvent::GetEventId())
+	{
+		const SceneLoadedEvent& test = static_cast<const SceneLoadedEvent&>(evt);
+
+		Editor->SetWindowTitle("Havana - " + test.LoadedScene->FilePath.LocalPath);
 	}
 
 	return false;

@@ -36,11 +36,13 @@ public:
 	virtual void OnDOMReady(ultralight::View* caller) final;
 
 	virtual void OnUILoad(ultralight::JSObject& GlobalWindow, ultralight::View* Caller);
+	Path FilePath;
 
 protected:
 	bool IsInitialized = false;
 	size_t Index;
 	File SourceFile;
-	Path FilePath;
+
+	void PlaySound(const ultralight::JSObject& thisObject, const ultralight::JSArgs& args);
 };
 ME_REGISTER_COMPONENT(BasicUIView)

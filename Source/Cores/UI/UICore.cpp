@@ -10,7 +10,6 @@
 #include "Resource/ResourceCache.h"
 #include "RenderCommands.h"
 #include "Engine/Engine.h"
-#include "Components/UI/Text.h"
 #include "Utils/StringUtils.h"
 
 #include <Ultralight/platform/Platform.h>
@@ -23,6 +22,15 @@
 #include "UI/OverlayImpl.h"
 #include "File.h"
 #include <filesystem>
+#include "Engine/Input.h"
+#include "Dementia.h"
+
+#if ME_EDITOR
+#include "Havana.h"
+#include "Cores/EditorCore.h"
+#endif
+#include <libloaderapi.h>
+#include "Components/Camera.h"
 
 UICore::UICore(IWindow* window)
 	: Base(ComponentFilter().Requires<Transform>().Requires<BasicUIView>())
@@ -35,10 +43,12 @@ UICore::UICore(IWindow* window)
 	ultralight::Platform& platform = ultralight::Platform::instance();
 	ultralight::Config config_;
 	config_.device_scale_hint = 1.0f;
+	config_.enable_images = true;
 	config_.face_winding = ultralight::FaceWinding::kFaceWinding_Clockwise;
+	config_.force_repaint = true;
 
-	Path fileSystemRoot = Path("Assets/UI");
-	m_fs.reset(new ultralight::FileSystemBasic(fileSystemRoot.FullPath.c_str()));
+	Path fileSystemRoot = Path("");
+	m_fs.reset(new ultralight::FileSystemBasic(fileSystemRoot.Directory.c_str()));
 
 	m_context.reset(new ultralight::GPUContextD3D11());
 
@@ -108,8 +118,32 @@ void UICore::Update(float dt)
 	m_uiRenderer->Update();
 
 	OPTICK_CATEGORY("UICore::Update", Optick::Category::Rendering)
+		ultralight::MouseEvent evt;
+	evt.type = ultralight::MouseEvent::kType_MouseMoved;
+#if ME_EDITOR
+	Havana* editor = static_cast<EditorCore*>(GetEngine().GetWorld().lock()->GetCore(EditorCore::GetTypeId()))->GetEditor();
+	
+	evt.x = (GetEngine().GetWindow()->GetPosition().X() + GetEngine().GetInput().GetMousePosition().X()) - editor->GameViewRenderLocation.X();
+	evt.y = (GetEngine().GetWindow()->GetPosition().Y() + GetEngine().GetInput().GetMousePosition().Y()) - editor->GameViewRenderLocation.Y();
 
-		auto Renderables = GetEntities();
+	Vector2 MousePosition = GetEngine().GetInput().GetMousePosition();
+	if (MousePosition == Vector2(0, 0))
+	{
+		return;
+	}
+
+#else
+	evt.x = GetEngine().GetInput().GetMousePosition().X();
+	evt.y = GetEngine().GetInput().GetMousePosition().Y();
+#endif
+	evt.button = ultralight::MouseEvent::Button::kButton_None;
+	//ultralight::View::FireMouseEvent(evt);
+		for (auto& view : m_overlays)
+		{
+			view->view()->FireMouseEvent(evt);
+		}
+
+	auto Renderables = GetEntities();
 	for (auto& InEntity : Renderables)
 	{
 		Transform& transform = InEntity.GetComponent<Transform>();
@@ -123,6 +157,7 @@ void UICore::Update(float dt)
 			}
 		}
 	}
+
 }
 
 void UICore::OnStop()
@@ -176,11 +211,12 @@ void UICore::OnResize(const Vector2& NewSize)
 
 void UICore::InitUIView(BasicUIView& view)
 {
-	ultralight::Ref<ultralight::View> newView = m_uiRenderer->CreateView(GetEngine().MainCamera.OutputSize.X(), GetEngine().MainCamera.OutputSize.Y(), true);
+	ultralight::Ref<ultralight::View> newView = m_uiRenderer->CreateView(Camera::CurrentCamera->OutputSize.X(), Camera::CurrentCamera->OutputSize.Y(), true);
 	ultralight::RefPtr<ultralight::Overlay> overlay = ultralight::Overlay::Create(*m_window.get(), newView, 0, 0);
-	overlay->view()->LoadHTML(view.SourceFile.Read().c_str());
+	//overlay->view()->LoadHTML(view.SourceFile.Read().c_str());
 	overlay->view()->set_load_listener(&view);
-	//overlay->view()->LoadURL("https://wobbier.com/");
+	ultralight::String str = "file:///" + ultralight::String(view.FilePath.LocalPath.c_str());
+	overlay->view()->LoadURL(str);
 	m_overlays.push_back(overlay);
 	GetOverlayManager()->Add(overlay.get());
 	view.IsInitialized = true;

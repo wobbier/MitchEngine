@@ -34,8 +34,16 @@ namespace Moonlight
 		// Retrieve the shader source code from paths
 		Path vPath(InVertexPath);
 		Path fPath(InPixelPath);
-		std::vector<char> VertexSource = ResourceCache::GetInstance().Get<ShaderFile>(vPath)->Data;
-		std::vector<char> FragSource = ResourceCache::GetInstance().Get<ShaderFile>(fPath)->Data;
+		SharedPtr<ShaderFile> vertShader = ResourceCache::GetInstance().Get<ShaderFile>(vPath);
+		SharedPtr<ShaderFile> fragShader = ResourceCache::GetInstance().Get<ShaderFile>(fPath);
+		if (!vertShader || !fragShader)
+		{
+			YIKES("Failed to load shader: " + vPath.LocalPath + " / " + fPath.LocalPath);
+			return;
+		}
+
+		std::vector<char> VertexSource = vertShader->Data;
+		std::vector<char> FragSource = fragShader->Data;
 		
 		//try
 		//{

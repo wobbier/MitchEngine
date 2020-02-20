@@ -44,6 +44,7 @@ void RenderCore::OnEntityAdded(Entity& NewEntity)
 		command.SingleMesh = model.MeshReferece;
 		command.MeshShader = model.MeshShader;
 		command.MeshMaterial = model.MeshMaterial;
+		command.Type = model.GetType();
 		model.Id = GetEngine().GetRenderer().PushMesh(command);
 	}
 	if (NewEntity.HasComponent<DirectionalLight>())
@@ -97,6 +98,8 @@ void RenderCore::Update(float dt)
 		if (InEntity.HasComponent<DirectionalLight>())
 		{
 			DirectionalLight& light = InEntity.GetComponent<DirectionalLight>();
+			auto pos = transform.GetWorldPosition().GetInternalVec();
+			m_renderer->Sunlight.pos = XMFLOAT4(pos.x, pos.y, pos.z, 0);
 			m_renderer->Sunlight.ambient = light.Ambient;
 			m_renderer->Sunlight.diffuse = light.Diffuse;
 			m_renderer->Sunlight.dir = light.Direction;

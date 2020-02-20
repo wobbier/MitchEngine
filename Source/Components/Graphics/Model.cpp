@@ -53,8 +53,9 @@ void Model::RecursiveLoadMesh(Moonlight::Node& root, WeakPtr<Entity>& parentEnt)
 	for (auto& childNode : root.Nodes)
 	{
 		auto entityNode = GetEngine().GetWorld().lock()->CreateEntity();
-		
-		entityNode.lock()->AddComponent<Transform>(childNode.Name).SetParent(parentEnt.lock()->GetComponent<Transform>());
+		auto& transform = entityNode.lock()->AddComponent<Transform>(childNode.Name);
+		transform.SetParent(parentEnt.lock()->GetComponent<Transform>());
+		transform.SetPosition(childNode.Position);
 		RecursiveLoadMesh(childNode, entityNode);
 	}
 	for (auto child : root.Meshes)

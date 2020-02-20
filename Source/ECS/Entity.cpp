@@ -63,6 +63,7 @@ void Entity::SetActive(const bool InActive)
 void Entity::MarkForDelete()
 {
 	GameWorld->MarkEntityForDelete(*this);
+	GameWorld = nullptr;
 }
 
 bool Entity::operator==(const Entity& entity) const

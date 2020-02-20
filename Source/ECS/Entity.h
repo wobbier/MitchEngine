@@ -19,6 +19,10 @@ public:
 	Entity& operator=(const Entity&) = default;
 	bool operator==(const Entity& entity) const;
 	bool operator!=(const Entity& entity) const { return !operator==(entity); }
+	explicit operator bool() const
+	{
+		return GameWorld != nullptr;
+	}
 
 	template <typename T>
 	bool HasComponent();
@@ -49,7 +53,7 @@ public:
 
 protected:
 private:
-	World * GameWorld = nullptr;
+	World* GameWorld = nullptr;
 	EntityID Id;
 
 	void AddComponent(BaseComponent* inComponent, TypeId inComponentTypeId);

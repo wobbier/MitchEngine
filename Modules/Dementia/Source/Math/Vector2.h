@@ -15,6 +15,11 @@ public:
 	{
 	}
 
+	Vector2(DirectX::SimpleMath::Vector2& other)
+		: m_vector(other)
+	{
+	}
+
 	Vector2(DirectX::XMFLOAT2 vec)
 		: m_vector(vec)
 	{
@@ -73,7 +78,7 @@ public:
 		}
 	}
 
-	DirectX::SimpleMath::Vector2& GetInternalVec()
+	const DirectX::SimpleMath::Vector2& GetInternalVec() const
 	{
 		return m_vector;
 	}
@@ -85,6 +90,10 @@ public:
 	Vector2 operator+(const Vector2& other)
 	{
 		return Vector2(m_vector + other.m_vector);
+	}
+	Vector2 operator/(const float& other)
+	{
+		return Vector2(m_vector.x / other, m_vector.y / other);
 	}
 	bool operator==(const Vector2& other)
 	{

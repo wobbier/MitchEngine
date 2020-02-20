@@ -7,6 +7,7 @@
 #include "Singleton.h"
 #include "ClassTypeId.h"
 #include <memory>
+#include "Logger.h"
 
 class Resource;
 
@@ -38,6 +39,11 @@ std::shared_ptr<T> ResourceCache::Get(const Path& InFilePath, Args&& ... args)
 	{
 		std::shared_ptr<T> Res = std::dynamic_pointer_cast<T>(I->second);
 		return Res;
+	}
+	if (!InFilePath.Exists)
+	{
+		YIKES("Failed to load resource: " + InFilePath.FullPath);
+		return {};
 	}
 
 	std::shared_ptr<T> Res = std::make_shared<T>(InFilePath, std::forward<Args>(args)...);

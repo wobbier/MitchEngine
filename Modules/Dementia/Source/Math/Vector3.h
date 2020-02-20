@@ -7,6 +7,9 @@ class Vector3
 {
 public:
 
+	static const Vector3 Up;
+	static const Vector3 Front;
+
 #pragma region Constructors
 
 	Vector3(float x, float y, float z)
@@ -40,7 +43,7 @@ public:
 #pragma endregion
 
 #pragma region Operators
-	Vector3 operator*(const Vector3& other)
+	Vector3 operator*(const Vector3& other) const
 	{
 		return Vector3(m_vector * other.m_vector);
 	}
@@ -55,6 +58,10 @@ public:
 		return Vector3(m_vector - other.m_vector);
 	}
 
+	Vector3 operator/(const float& other) const
+	{
+		return Vector3(m_vector / other);
+	}
 
 	Vector3 operator-() const
 	{
@@ -140,7 +147,7 @@ public:
 		}
 	}
 
-	Vector3 Cross(const Vector3& other)
+	Vector3 Cross(const Vector3& other) const
 	{
 		DirectX::SimpleMath::Vector3 vec = m_vector.Cross(other.GetInternalVec());
 		
@@ -159,11 +166,26 @@ public:
 		m_vector = vec;
 	}
 
+	float Dot(const Vector3& Other) const
+	{
+		return m_vector.Dot(Other.GetInternalVec());
+	}
+
+	float LengthSquared() const 
+	{
+		return m_vector.LengthSquared();
+	}
+
 	Vector3 Normalized() const
 	{
 		DirectX::SimpleMath::Vector3 vec;
 		m_vector.Normalize(vec);
 		return Vector3(vec);
+	}
+
+	static Vector3 DistanceSq(const Vector3& InVec1, const Vector3& InVec2)
+	{
+		return Vector3(DirectX::SimpleMath::Vector3::DistanceSquared(InVec2.GetInternalVec(), InVec2.GetInternalVec()));
 	}
 
 	const DirectX::SimpleMath::Vector3& GetInternalVec() const
@@ -173,6 +195,10 @@ public:
 private:
 	DirectX::SimpleMath::Vector3 m_vector;
 };
+
+__declspec(selectany) const Vector3 Vector3::Front = Vector3(0.f, 0.f, -1.f);
+
+__declspec(selectany) const Vector3 Vector3::Up = Vector3(0.f, 1.f, 0.f);
 
 inline Vector3 operator*(float lhs, const Vector3 rhs)
 {

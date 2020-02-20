@@ -14,11 +14,7 @@ class Transform :
 	public Component<Transform>
 {
 	typedef Component<Transform> Base;
-	friend class Havana;
-	friend class Scene;
-	friend class EditorCore;
 	friend class SceneGraph;
-	friend class PhysicsCore;
 public:
 	Transform();
 	Transform(const std::string& Name);
@@ -28,12 +24,23 @@ public:
 	void SetPosition(Vector3 NewPosition);
 	Vector3& GetPosition();
 
+	void UpdateRecursively(Transform* CurrentTransform);
+
+	void UpdateWorldTransform();
+
 	void SetRotation(Vector3 euler);
+	void SetWorldRotation(Quaternion InRotation);
+	Vector3 GetRotation();
+	Quaternion GetWorldRotation();
+	Vector3 GetWorldRotationEuler();
 	//void SetRotation(glm::quat quat);
+	Vector3 Front();
 
 	void SetScale(Vector3 NewScale);
 	void SetScale(float NewScale);
 	Vector3 GetScale();
+
+	void LookAt(const Vector3& InDirection);
 
 	void Translate(Vector3 NewTransform);
 
@@ -56,38 +63,39 @@ public:
 	{
 		return Children;
 	}
-	Vector3 Position;
-	Vector3 Scale;
-	Vector3 Rotation;
 
 	Matrix4 WorldTransform;
 	std::string Name;
 	Matrix4 GetMatrix();
 
-	virtual void Serialize(json& outJson) final
-	{
-		Component::Serialize(outJson);
+	virtual void Serialize(json& outJson) final;
 
-		outJson["Position"] = { Position.X(),Position.Y(),Position.Z() };
-		outJson["Rotation"] = { Rotation.X(), Rotation.Y(), Rotation.Z() };
-	}
-
-	virtual void Deserialize(const json& inJson) final
-	{
-		SetPosition(Vector3((float)inJson["Position"][0], (float)inJson["Position"][1], (float)inJson["Position"][2]));
-	}
+	virtual void Deserialize(const json& inJson) final;
 	
 	void SetName(const std::string& name);
-	void SetWorldTransform(Matrix4& NewWorldTransform);
+	void SetWorldTransform(Matrix4& NewWorldTransform, bool InIsDirty = false);
 
-private:
+	Quaternion InternalRotation;
+
+	const bool IsDirty() const;
+
+	Transform* GetParent();
+
+	Matrix4 GetLocalToWorldMatrix();
+	Matrix4 GetWorldToLocalMatrix();
+
+
 #if ME_EDITOR
 	virtual void OnEditorInspect() final;
-
 #endif
 
+private:
+	Vector3 Rotation;
+	Vector3 Position;
+	Vector3 Scale;
+
 	void SetDirty(bool Dirty);
-	bool IsDirty = true;
+	bool m_isDirty = true;
 	Transform* ParentTransform = nullptr;
 	std::vector<Transform*> Children;
 };

@@ -36,63 +36,13 @@ void GPUContextD3D11::Resize(int width, int height) {
 	}
   set_screen_size(width, height);
 
-  //immediate_context_->OMSetRenderTargets(0, 0, 0);
-  //ID3D11Texture2D* back_buffer = nullptr;
-  //swap_chain_->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&back_buffer);
-  //back_buffer->Release();
-
-  //back_buffer_view_.Reset();
-
-  //// Get the actual device width/height (may be different than screen size)
-  //RECT rc;
-  //::GetClientRect(hwnd_, &rc);
-  //UINT client_width = rc.right - rc.left;
-  //UINT client_height = rc.bottom - rc.top;
-
-  //HRESULT hr;
-  //hr = swap_chain_->ResizeBuffers(0, client_width, client_height, DXGI_FORMAT_UNKNOWN, 0);
-  //if (FAILED(hr)) {
-  //  MessageBoxW(nullptr,
-  //    L"GPUContextD3D11::Resize, unable to resize, IDXGISwapChain::ResizeBuffers failed.", L"Error", MB_OK);
-  //  exit(-1);
-  //}
-
-  //// Create a render target view
-  //ID3D11Texture2D* pBackBuffer = nullptr;
-  //hr = swap_chain_->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&pBackBuffer);
-  //if (FAILED(hr))
-  //{
-  //  MessageBoxW(nullptr,
-  //    L"GPUContextD3D11::Resize, unable to get back buffer.", L"Error", MB_OK);
-  //  exit(-1);
-  //}
-
-  //hr = device_->CreateRenderTargetView(pBackBuffer, nullptr, back_buffer_view_.GetAddressOf());
-  //pBackBuffer->Release();
-  //if (FAILED(hr))
-  //{
-  //  MessageBoxW(nullptr,
-  //    L"GPUContextD3D11::Resize, unable to create new render target view.", L"Error", MB_OK);
-  //  exit(-1);
-  //}
-
-  //immediate_context_->OMSetRenderTargets(1, back_buffer_view_.GetAddressOf(), nullptr);
-
-  //// Setup the viewport
-  //D3D11_VIEWPORT vp;
-  //ZeroMemory(&vp, sizeof(vp));
-  //vp.Width = (float)client_width * (float)scale();
-  //vp.Height = (float)client_height * (float)scale();
-  //vp.MinDepth = 0.0f;
-  //vp.MaxDepth = 1.0f;
-  //vp.TopLeftX = 0;
-  //vp.TopLeftY = 0;
-  //immediate_context_->RSSetViewports(1, &vp);
-
   swap_chain_ = GetEngine().GetRenderer().GetDevice().GetSwapChain();
   immediate_context_ = GetEngine().GetRenderer().GetDevice().GetD3DDeviceContext();
   device_ = GetEngine().GetRenderer().GetDevice().GetD3DDevice();
-  back_buffer_view_ = GetEngine().GetRenderer().GameViewRTT->UIRenderTargetView;
+  if (GetEngine().GetRenderer().GameViewRTT)
+  {
+	  back_buffer_view_ = GetEngine().GetRenderer().GameViewRTT->UIRenderTargetView;
+  }
 
   //immediate_context_->OMSetRenderTargets(1, back_buffer_view_.GetAddressOf(), nullptr);
 }
@@ -100,7 +50,7 @@ void GPUContextD3D11::Resize(int width, int height) {
 ID3D11Device* GPUContextD3D11::device() { assert(device_.Get()); return device_.Get(); }
 ID3D11DeviceContext* GPUContextD3D11::immediate_context() { assert(immediate_context_.Get()); return immediate_context_.Get(); }
 IDXGISwapChain* GPUContextD3D11::swap_chain() { assert(swap_chain_.Get()); return swap_chain_.Get(); }
-ID3D11RenderTargetView* GPUContextD3D11::render_target_view() { assert(back_buffer_view_.Get()); return back_buffer_view_.Get(); }
+ID3D11RenderTargetView* GPUContextD3D11::render_target_view() { return back_buffer_view_.Get(); }
 
 void GPUContextD3D11::EnableBlend() {
   immediate_context_->OMSetBlendState(blend_state_.Get(), NULL, 0xffffffff);
@@ -140,9 +90,11 @@ bool GPUContextD3D11::Initialize(int screen_width, int screen_height, double scr
   swap_chain_ = GetEngine().GetRenderer().GetDevice().GetSwapChain();
   immediate_context_ = GetEngine().GetRenderer().GetDevice().GetD3DDeviceContext();
   device_ = GetEngine().GetRenderer().GetDevice().GetD3DDevice();
-  back_buffer_view_ = GetEngine().GetRenderer().GameViewRTT->UIRenderTargetView;
-
-  immediate_context_->OMSetRenderTargets(1, back_buffer_view_.GetAddressOf(), nullptr);
+  if (back_buffer_view_)
+  {
+	back_buffer_view_ = GetEngine().GetRenderer().GameViewRTT->UIRenderTargetView;
+	immediate_context_->OMSetRenderTargets(1, back_buffer_view_.GetAddressOf(), nullptr);
+  }
 
   // Create Enabled Blend State
 
@@ -244,7 +196,11 @@ bool GPUContextD3D11::Initialize(int screen_width, int screen_height, double scr
 
   // Initialize backbuffer with white so we don't get flash of black while loading views.
   float color[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-  immediate_context_->ClearRenderTargetView(render_target_view(), color);
+  if (immediate_context_ && render_target_view())
+  {
+	immediate_context_->ClearRenderTargetView(render_target_view(), color);
+  }
+
 
   return true;
 }

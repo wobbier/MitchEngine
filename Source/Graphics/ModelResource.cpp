@@ -39,6 +39,7 @@ void ModelResource::Load()
 		return;
 	}
 
+	RootNode.Name = std::string(scene->mRootNode->mName.C_Str());
 	ProcessNode(scene->mRootNode, scene, RootNode);
 	importer.FreeScene();
 }
@@ -66,18 +67,18 @@ std::vector<Moonlight::MeshData*> ModelResource::GetAllMeshes()
 
 void ModelResource::ProcessNode(aiNode *node, const aiScene *scene, Moonlight::Node& parent)
 {
-	parent.Position = Vector3(node->mTransformation[0][0]);
-	/*node->mName*/
+	//parent.Position = Vector3(node->mTransformation[0][0]);
+	//parent.Name = node->mName;
 	for (unsigned int i = 0; i < node->mNumMeshes; i++)
 	{
 		aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
 		parent.Meshes.push_back(ProcessMesh(mesh, scene));
 	}
-	parent.Nodes.emplace_back();
-	parent.Nodes.back().Name = std::string(node->mName.C_Str());
 
 	for (unsigned int i = 0; i < node->mNumChildren; i++)
 	{
+		parent.Nodes.emplace_back();
+		parent.Nodes.back().Name = std::string(node->mChildren[i]->mName.C_Str());
 		ProcessNode(node->mChildren[i], scene, parent.Nodes.back());
 	}
 }
@@ -205,7 +206,12 @@ bool ModelResource::LoadMaterialTextures(Moonlight::Material* newMaterial, aiMat
 
 			if (stdString.find(":") != std::string::npos)
 			{
-				texture = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path(texturePath), wrapMode);
+				Path filePath(texturePath);
+				if (!filePath.Exists)
+				{
+					return false;
+				}
+				texture = ResourceCache::GetInstance().Get<Moonlight::Texture>(filePath, wrapMode);
 			}
 			else
 			{

@@ -1,32 +1,9 @@
 #pragma once
+#include "Pointers.h"
 #include "Events/EventManager.h"
 #include "Events/Event.h"
 
-class SaveSceneEvent
-	: public Event<SaveSceneEvent>
-{
-public:
-	bool thing = false;
-};
-
-class NewSceneEvent
-	: public Event<NewSceneEvent>
-{
-public:
-	bool thing = false;
-};
-
-class LoadSceneEvent
-	: public Event<LoadSceneEvent>
-{
-public:
-	LoadSceneEvent()
-		: Event()
-	{
-	}
-
-	std::string Level;
-};
+namespace Moonlight { class Texture; }
 
 class TestEditorEvent
 	: public Event<TestEditorEvent>
@@ -38,3 +15,15 @@ public:
 	}
 	std::string Path;
 };
+
+class PreviewResourceEvent
+	: public Event<PreviewResourceEvent>
+{
+public:
+	PreviewResourceEvent()
+		: Event()
+	{
+	}
+	SharedPtr<Moonlight::Texture> Subject;
+};
+

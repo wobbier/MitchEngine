@@ -9,6 +9,7 @@
 #include "ECS/Core.h"
 #include "Engine/Engine.h"
 #include "HavanaEvents.h"
+#include "Events/SceneEvents.h"
 #include <string>
 #include <iostream>
 #include "Graphics/RenderTexture.h"
@@ -30,6 +31,8 @@
 #include "EditorApp.h"
 #include "Components/Graphics/Model.h"
 #include "Commands/EditorCommands.h"
+#include "optick.h"
+#include <winuser.h>
 namespace fs = std::filesystem;
 
 Havana::Havana(Engine* GameEngine, EditorApp* app, Moonlight::Renderer* renderer)
@@ -70,6 +73,7 @@ Havana::Havana(Engine* GameEngine, EditorApp* app, Moonlight::Renderer* renderer
 	std::vector<TypeId> events;
 	events.push_back(TestEditorEvent::GetEventId());
 	events.push_back(LoadSceneEvent::GetEventId());
+	events.push_back(PreviewResourceEvent::GetEventId());
 	EventManager::GetInstance().RegisterReceiver(this, events);
 }
 
@@ -85,7 +89,7 @@ void Havana::InitUI()
 	ImVec4* colors = ImGui::GetStyle().Colors;
 	colors[ImGuiCol_Text] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
 	colors[ImGuiCol_TextDisabled] = ImVec4(0.50f, 0.50f, 0.50f, 1.00f);
-	colors[ImGuiCol_WindowBg] = ImVec4(0.06f, 0.06f, 0.06f, 0.94f);
+	colors[ImGuiCol_WindowBg] = ImVec4(0.07f, 0.07f, 0.07f, 1.0f);
 	colors[ImGuiCol_ChildBg] = ImVec4(1.00f, 1.00f, 1.00f, 0.00f);
 	colors[ImGuiCol_PopupBg] = ImVec4(0.08f, 0.08f, 0.08f, 0.94f);
 	colors[ImGuiCol_Border] = ImVec4(0.43f, 0.43f, 0.50f, 0.50f);
@@ -144,12 +148,17 @@ void Havana::InitUI()
 	Icons["Pause"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Pause.png"));
 	Icons["Stop"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Stop.png"));
 	Icons["Info"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Info.png"));
+
+	m_engine->GetInput().Stop();
+	GetInput().GetMouse().SetWindow(GetActiveWindow());
 }
 
 bool show_demo_window = true;
 bool show_dockspace = true;
 void Havana::NewFrame(std::function<void()> StartGameFunc, std::function<void()> PauseGameFunc, std::function<void()> StopGameFunc)
 {
+	m_input.Update();
+	OPTICK_EVENT("Havana::NewFrame");
 	ImGui_ImplDX11_NewFrame();
 	ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();
@@ -237,6 +246,19 @@ void Havana::DrawOpenFilePopup()
 		ImGui::EndPopup();
 	}
 }
+
+void RecusiveDelete(WeakPtr<Entity> ent, Transform* trans)
+{
+	if (!trans)
+	{
+		return;
+	}
+	for (auto child : trans->GetChildren())
+	{
+		RecusiveDelete(GetEngine().GetWorld().lock()->GetEntity(child->Parent), child);
+	}
+	ent.lock()->MarkForDelete();
+};
 
 void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<void()> PauseGameFunc, std::function<void()> StopGameFunc)
 {
@@ -355,11 +377,13 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 			}
 			ImGui::EndMenu();
 		}
-		auto Keyboard = Input::GetInstance().GetKeyboardState();
+		auto Keyboard = GetInput().GetKeyboardState();
 		if (!m_app->IsGameRunning())
 		{
 			if (ImGui::ImageButton(Icons["Play"]->ShaderResourceView, ImVec2(30.f, 30.f)) || Keyboard.F5)
 			{
+				ImGui::SetWindowFocus("Game");
+				m_engine->GetInput().Resume();
 				StartGameFunc();
 			}
 		}
@@ -368,6 +392,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 		{
 			if (ImGui::ImageButton(Icons["Pause"]->ShaderResourceView, ImVec2(30.f, 30.f)) || Keyboard.F10)
 			{
+				m_engine->GetInput().Pause();
 				PauseGameFunc();
 			}
 
@@ -375,6 +400,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 			{
 				SelectedTransform = nullptr;
 				StopGameFunc();
+				m_engine->GetInput().Stop();
 			}
 		}
 
@@ -582,7 +608,7 @@ void Havana::ClearSelection()
 
 void Havana::DrawCommandPanel()
 {
-	auto& kb = Input::GetInstance().GetKeyboardState();
+	auto& kb = GetInput().GetKeyboardState();
 	tracker.Update(kb);
 
 	if (kb.LeftControl && tracker.pressed.Z)
@@ -631,6 +657,15 @@ void Havana::UpdateWorld(World* world, Transform* root, const std::vector<Entity
 	ImGui::EndMenuBar();
 	if (ImGui::CollapsingHeader("Scene", ImGuiTreeNodeFlags_DefaultOpen))
 	{
+		if (ImGui::IsWindowFocused())
+		{
+			if (SelectedTransform && GetInput().GetKeyboardState().Delete)
+			{
+				auto ent = GetEngine().GetWorld().lock()->GetEntity(SelectedTransform->Parent);
+				RecusiveDelete(ent, SelectedTransform);
+				ClearSelection();
+			}
+		}
 		UpdateWorldRecursive(root);
 	}
 	if (ents.size() > 0)
@@ -690,9 +725,15 @@ void Havana::UpdateWorld(World* world, Transform* root, const std::vector<Entity
 	{
 		for (BaseComponent* comp : entity->GetAllComponents())
 		{
-			if (ImGui::CollapsingHeader(comp->GetName().c_str(), ImGuiTreeNodeFlags_DefaultOpen))
+			bool shouldClose = true;
+			if (ImGui::CollapsingHeader(comp->GetName().c_str(), &shouldClose, ImGuiTreeNodeFlags_DefaultOpen))
 			{
 				comp->OnEditorInspect();
+			}
+			if (!shouldClose)
+			{
+				entity->RemoveComponent(comp->GetName());
+				GetEngine().GetWorld().lock()->Simulate();
 			}
 		}
 		AddComponentPopup();
@@ -703,6 +744,31 @@ void Havana::UpdateWorld(World* world, Transform* root, const std::vector<Entity
 		SelectedCore->OnEditorInspect();
 	}
 	ImGui::End();
+
+	ImGui::Begin("Preview");
+	{
+		if (ViewTexture)
+		{
+			if (ViewTexture->ShaderResourceView)
+			{
+				// Get the current cursor position (where your window is)
+				ImVec2 pos = ImGui::GetCursorScreenPos();
+				ImVec2 maxPos = ImVec2(pos.x + ImGui::GetWindowSize().x, pos.y + ImGui::GetWindowSize().y);
+				Vector2 RenderSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
+
+				// Ask ImGui to draw it as an image:
+				// Under OpenGL the ImGUI image type is GLuint
+				// So make sure to use "(void *)tex" but not "&tex"
+				ImGui::GetWindowDrawList()->AddImage(
+					(void*)ViewTexture->ShaderResourceView,
+					ImVec2(pos.x, pos.y),
+					ImVec2(maxPos));
+				//ImVec2(WorldViewRenderSize.X() / RenderSize.X(), WorldViewRenderSize.Y() / RenderSize.Y()));
+
+			}
+		}
+	}
+	ImGui::End();
 }
 
 void Havana::UpdateWorldRecursive(Transform* root)
@@ -711,26 +777,21 @@ void Havana::UpdateWorldRecursive(Transform* root)
 		return;
 	if (ImGui::BeginDragDropTarget())
 	{
-		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_ASSET_BROWSER"))
-		{
-			IM_ASSERT(payload->DataSize == sizeof(AssetBrowser::AssetDescriptor));
-			AssetBrowser::AssetDescriptor payload_n = *(AssetBrowser::AssetDescriptor*)payload->Data;
+		HandleAssetDragAndDrop(root);
 
-			if (payload_n.Type == AssetBrowser::AssetType::Model)
-			{
-				auto ent = GetEngine().GetWorld().lock()->CreateEntity();
-				ent.lock()->AddComponent<Transform>(payload_n.Name.substr(0, payload_n.Name.find_last_of('.'))).SetParent(*root);
-				ent.lock()->AddComponent<Model>((payload_n.FullPath.FullPath));
-			}
+		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_CHILD_TRANSFORM"))
+		{
+			DragParentDescriptor.Parent->SetParent(*root);
 		}
 		ImGui::EndDragDropTarget();
 	}
+
 	int i = 0;
-	for (Transform* var : root->Children)
+	for (Transform* var : root->GetChildren())
 	{
 		bool open = false;
 		ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | (SelectedTransform == var ? ImGuiTreeNodeFlags_Selected : 0);
-		if (var->Children.empty())
+		if (var->GetChildren().empty())
 		{
 			node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen; // ImGuiTreeNodeFlags_Bullet
 			open = ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, var->Name.c_str());
@@ -742,6 +803,26 @@ void Havana::UpdateWorldRecursive(Transform* root)
 			}
 
 			DrawEntityRightClickMenu(var);
+
+			if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
+			{
+				//files.FullPath = dir.FullPath;
+				DragParentDescriptor.Parent = var;
+				ImGui::SetDragDropPayload("DND_CHILD_TRANSFORM", &DragParentDescriptor, sizeof(ParentDescriptor));
+				ImGui::Text(var->GetName().c_str());
+				ImGui::EndDragDropSource();
+			}
+
+			if (ImGui::BeginDragDropTarget())
+			{
+				HandleAssetDragAndDrop(var);
+
+				if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_CHILD_TRANSFORM"))
+				{
+					DragParentDescriptor.Parent->SetParent(*var);
+				}
+				ImGui::EndDragDropTarget();
+			}
 
 			//if (open)
 			//{
@@ -761,6 +842,26 @@ void Havana::UpdateWorldRecursive(Transform* root)
 
 			DrawEntityRightClickMenu(var);
 
+			if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
+			{
+				DragParentDescriptor.Parent = var;
+				//files.FullPath = dir.FullPath;
+				ImGui::SetDragDropPayload("DND_CHILD_TRANSFORM", &DragParentDescriptor, sizeof(ParentDescriptor));
+				ImGui::Text(var->GetName().c_str());
+				ImGui::EndDragDropSource();
+			}
+
+			if (ImGui::BeginDragDropTarget())
+			{
+				HandleAssetDragAndDrop(var);
+
+				if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_CHILD_TRANSFORM"))
+				{
+					DragParentDescriptor.Parent->SetParent(*var);
+				}
+				ImGui::EndDragDropTarget();
+			}
+
 			if (open)
 			{
 				UpdateWorldRecursive(var);
@@ -773,23 +874,42 @@ void Havana::UpdateWorldRecursive(Transform* root)
 	}
 }
 
-void RecusiveDelete(WeakPtr<Entity> ent, Transform* trans)
+void Havana::HandleAssetDragAndDrop(Transform* root)
 {
-	if (!trans)
+	if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_ASSET_BROWSER"))
 	{
-		return;
+		IM_ASSERT(payload->DataSize == sizeof(AssetBrowser::AssetDescriptor));
+		AssetBrowser::AssetDescriptor payload_n = *(AssetBrowser::AssetDescriptor*)payload->Data;
+
+		if (payload_n.Type == AssetBrowser::AssetType::Model)
+		{
+			auto ent = GetEngine().GetWorld().lock()->CreateEntity();
+			ent.lock()->AddComponent<Transform>(payload_n.Name.substr(0, payload_n.Name.find_last_of('.'))).SetParent(*root);
+			ent.lock()->AddComponent<Model>((payload_n.FullPath.FullPath));
+		}
+		if (payload_n.Type == AssetBrowser::AssetType::Prefab)
+		{
+			WeakPtr<Entity> ent = GetEngine().GetWorld().lock()->CreateFromPrefab(payload_n.FullPath.FullPath, root);
+		}
 	}
-	for (auto child : trans->GetChildren())
-	{
-		RecusiveDelete(GetEngine().GetWorld().lock()->GetEntity(child->Parent), child);
-	}
-	ent.lock()->MarkForDelete();
-};
+}
+
+Input& Havana::GetInput()
+{
+	return m_input;
+}
 
 void Havana::DrawEntityRightClickMenu(Transform* transform)
 {
 	if (ImGui::BeginPopupContextItem())
 	{
+		if (ImGui::MenuItem("Add Child"))
+		{
+			WeakPtr<Entity> ent = GetEngine().GetWorld().lock()->CreateEntity();
+			ent.lock()->AddComponent<Transform>().SetParent(*transform);
+			GetEngine().GetWorld().lock()->Simulate();
+		}
+
 		if (ImGui::MenuItem("Delete", "Del"))
 		{
 			RecusiveDelete(GetEngine().GetWorld().lock()->GetEntity(transform->Parent), transform);
@@ -801,14 +921,6 @@ void Havana::DrawEntityRightClickMenu(Transform* transform)
 			DrawAddComponentList(GetEngine().GetWorld().lock()->GetEntity(transform->Parent).lock().get());
 			ImGui::EndMenu();
 		}
-		ImGui::MenuItem("Hello");
-		ImGui::MenuItem("Sailor");
-		if (ImGui::BeginMenu("Recurse.."))
-		{
-			//ShowExampleMenuFile();
-			ImGui::EndMenu();
-		}
-		// your popup code
 		ImGui::EndPopup();
 	}
 }
@@ -853,6 +965,19 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 		window_flags |= ImGuiWindowFlags_MenuBar;
 		bool showGameWindow = true;
 		ImGui::Begin("Game", &showGameWindow, window_flags);
+		m_engine->GetInput().SetMouseOffset(GameViewRenderLocation);
+		if (GetInput().GetKeyboardState().Escape/*  && m_app->IsGameRunning()&& AllowGameInput*/)
+		{
+			m_engine->GetInput().Stop();
+			AllowGameInput = false;
+			ImGui::SetWindowFocus("World View");
+		}
+		else if(ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows)/* && AllowGameInput*/)
+		{
+			m_engine->GetInput().Resume();
+			AllowGameInput = true;
+		}
+		//AllowGameInput = ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows);
 		if (Renderer->GameViewRTT)
 		{
 			static auto srv = Renderer->GameViewRTT->ShaderResourceView;
@@ -886,6 +1011,14 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 					{
 						RenderTextureName = "UI";
 					}
+					if (ImGui::MenuItem("Position", "", false))
+					{
+						RenderTextureName = "Position";
+					}
+					if (ImGui::MenuItem("Shadow", "", false))
+					{
+						RenderTextureName = "Shadow";
+					}
 					ImGui::EndMenu();
 				}
 
@@ -915,6 +1048,14 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 			{
 				srv = Renderer->GameViewRTT->UIShaderResourceView;
 			}
+			else if (RenderTextureName == "Position")
+			{
+				srv = Renderer->GameViewRTT->PositionShaderResourceView;
+			}
+			else if (RenderTextureName == "Shadow")
+			{
+				srv = Renderer->GameViewRTT->ShadowMapShaderResourceView;
+			}
 			m_isGameFocused = ImGui::IsWindowFocused();
 
 			if (Renderer->GameViewRTT && srv != nullptr)
@@ -924,7 +1065,8 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 				ImVec2 maxPos = ImVec2(pos.x + ImGui::GetWindowSize().x, pos.y + ImGui::GetWindowSize().y);
 				//GameRenderSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
 				GameRenderSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
-
+				GameViewRenderLocation = Vector2(pos.x, pos.y);
+				
 				// Ask ImGui to draw it as an image:
 				// Under OpenGL the ImGUI image type is GLuint
 				// So make sure to use "(void *)tex" but not "&tex"
@@ -969,9 +1111,21 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 					{
 						RenderTextureName = "Specular";
 					}
+					if (ImGui::MenuItem("Position", "", false))
+					{
+						RenderTextureName = "Position";
+					}
 					if (ImGui::MenuItem("Depth", "", false))
 					{
 						RenderTextureName = "Depth";
+					}
+					if (ImGui::MenuItem("Shadow", "", false))
+					{
+						RenderTextureName = "Shadow";
+					}
+					if (ImGui::MenuItem("Pick Mask", "", false))
+					{
+						RenderTextureName = "Pick Mask";
 					}
 					ImGui::EndMenu();
 				}
@@ -994,12 +1148,32 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 			{
 				srv = Renderer->SceneViewRTT->SpecularShaderResourceView;
 			}
+			else if (RenderTextureName == "Position")
+			{
+				srv = Renderer->SceneViewRTT->PositionShaderResourceView;
+			}
 			else if (RenderTextureName == "Depth")
 			{
 				srv = Renderer->SceneViewRTT->DepthShaderResourceView;
 			}
+			else if (RenderTextureName == "Shadow")
+			{
+				srv = Renderer->SceneViewRTT->ShadowMapShaderResourceView;
+			}
+			else if (RenderTextureName == "Pick Mask")
+			{
+				srv = Renderer->SceneViewRTT->PickingResourceView;
+			}
 			// Get the current cursor position (where your window is)
 			ImVec2 pos = ImGui::GetCursorScreenPos();
+			Vector2 evt;
+			evt.SetX((GetEngine().GetWindow()->GetPosition().X() + GetInput().GetMousePosition().X()) - pos.x);
+			evt.SetY((GetEngine().GetWindow()->GetPosition().Y() + GetInput().GetMousePosition().Y()) - pos.y);
+			mouseTracker.Update(GetInput().GetMouseState());
+			if (Renderer && mouseTracker.leftButton && !ImGuizmo::IsUsing())
+			{
+				Renderer->PickScene(evt);
+			}
 
 			DirectX::XMFLOAT4X4 objView;
 			if (SelectedTransform)
@@ -1021,10 +1195,10 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 				//ImGui::InputFloat3("Tr", matrixTranslation, 3);
 				if (SelectedTransform)
 				{
-					HavanaUtils::EditableVector3("RtVec", SelectedTransform->Rotation);
-					matrixRotation[0] = SelectedTransform->Rotation[0] * DirectX::XM_PI / 180.f;
-					matrixRotation[1] = SelectedTransform->Rotation[1] * DirectX::XM_PI / 180.f;
-					matrixRotation[2] = SelectedTransform->Rotation[2] * DirectX::XM_PI / 180.f;
+					//HavanaUtils::EditableVector3("RtVec", SelectedTransform->Rotation);
+					//matrixRotation[0] = SelectedTransform->Rotation[0] * DirectX::XM_PI / 180.f;
+					//matrixRotation[1] = SelectedTransform->Rotation[1] * DirectX::XM_PI / 180.f;
+					//matrixRotation[2] = SelectedTransform->Rotation[2] * DirectX::XM_PI / 180.f;
 				}
 				//else
 				//{
@@ -1083,7 +1257,7 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 
 					const DirectX::XMVECTORF32 eye = { EditorCamera.Position.X(), EditorCamera.Position.Y(), EditorCamera.Position.Z(), 0 };
 					const DirectX::XMVECTORF32 at = { EditorCamera.Position.X() + EditorCamera.Front.X(), EditorCamera.Position.Y() + EditorCamera.Front.Y(), EditorCamera.Position.Z() + EditorCamera.Front.Z(), 0.0f };
-					const DirectX::XMVECTORF32 up = { EditorCamera.Up.X(), EditorCamera.Up.Y(), EditorCamera.Up.Z(), 0 };
+					const DirectX::XMVECTORF32 up = { Vector3::Up.X(), Vector3::Up.Y(), Vector3::Up.Z(), 0 };
 
 					DirectX::XMMATRIX vec = DirectX::XMMatrixLookAtRH(eye, at, up);
 
@@ -1111,8 +1285,9 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 							prevMatrixRotation[1] = matrixRotation[1];
 							prevMatrixRotation[2] = matrixRotation[2];
 							//memcpy(matrixScale, prevMatrixScale, sizeof(float) * 3);
+
 							SelectedTransform->SetPosition(Vector3(matrixTranslation[0], matrixTranslation[1], matrixTranslation[2]));
-							//SelectedTransform->SetRotation(Vector3(matrixRotation[0], matrixRotation[1], matrixRotation[2]));
+							SelectedTransform->SetRotation(Vector3(matrixRotation[0], matrixRotation[1], matrixRotation[2]));
 							//SelectedTransform->SetRotation(Vector3(matrixRotation[0] * 180.f / DirectX::XM_PI, matrixRotation[1] * 180.f / DirectX::XM_PI, matrixRotation[2] * 180.f / DirectX::XM_PI));
 						}
 					}
@@ -1222,6 +1397,12 @@ bool Havana::OnEvent(const BaseEvent& evt)
 	{
 		const LoadSceneEvent& test = static_cast<const LoadSceneEvent&>(evt);
 		ClearSelection();
+	}
+	if (evt.GetEventId() == PreviewResourceEvent::GetEventId())
+	{
+		const PreviewResourceEvent& test = static_cast<const PreviewResourceEvent&>(evt);
+		ViewTexture = test.Subject;
+		return true;
 	}
 	return false;
 }

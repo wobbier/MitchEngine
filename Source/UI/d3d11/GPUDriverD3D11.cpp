@@ -363,7 +363,7 @@ void GPUDriverD3D11::ClearRenderBuffer(uint32_t render_buffer_id) {
 
   if (render_buffer_id == 0) {
     context_->immediate_context()->ClearRenderTargetView(context_->render_target_view(), color);
-    return;
+	return;
   }
 
   auto i = render_targets_.find(render_buffer_id);

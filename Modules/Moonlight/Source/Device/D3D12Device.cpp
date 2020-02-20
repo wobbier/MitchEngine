@@ -559,6 +559,7 @@ namespace Moonlight
 
 			Desc.Format = ColorFormat;
 			Desc.BindFlags = D3D11_BIND_RENDER_TARGET;
+			Desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
 			if (Samples <= 1)
 			{
 				Desc.BindFlags |= D3D11_BIND_SHADER_RESOURCE;
@@ -571,6 +572,12 @@ namespace Moonlight
 			DX::ThrowIfFailed(m_d3dDevice->CreateTexture2D(&Desc, nullptr, &NewBuffer->UITexture));
 
 			DX::ThrowIfFailed(m_d3dDevice->CreateTexture2D(&Desc, nullptr, &NewBuffer->SpecularTexture));
+			DX::ThrowIfFailed(m_d3dDevice->CreateTexture2D(&Desc, nullptr, &NewBuffer->PositionTexture));
+			DX::ThrowIfFailed(m_d3dDevice->CreateTexture2D(&Desc, nullptr, &NewBuffer->PickingTexture));
+
+			Desc.Width = 1024;
+			Desc.Height = 1024;
+			DX::ThrowIfFailed(m_d3dDevice->CreateTexture2D(&Desc, nullptr, &NewBuffer->ShadowMapTexture));
 
 			DX::ThrowIfFailed(m_d3dDevice->CreateTexture2D(&AADesc, nullptr, &NewBuffer->FinalTexture));
 
@@ -616,7 +623,20 @@ namespace Moonlight
 				ShaderView.Texture2D.MostDetailedMip = 0;
 				ShaderView.Texture2D.MipLevels = 1;
 
-				DX::ThrowIfFailed(m_d3dDevice->CreateShaderResourceView(NewBuffer->UITexture.Get(), &ShaderView, &NewBuffer->UIShaderResourceView));
+				DX::ThrowIfFailed(m_d3dDevice->CreateShaderResourceView(NewBuffer->ColorTexture.Get(), &ShaderView, &NewBuffer->ColorShaderResourceView));
+			}
+
+			DX::ThrowIfFailed(m_d3dDevice->CreateRenderTargetView(NewBuffer->PositionTexture.Get(), &RenderView, &NewBuffer->PositionRenderTargetView));
+
+			if (Samples <= 1)
+			{
+				D3D11_SHADER_RESOURCE_VIEW_DESC ShaderView = {};
+				ShaderView.Format = Desc.Format;
+				ShaderView.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+				ShaderView.Texture2D.MostDetailedMip = 0;
+				ShaderView.Texture2D.MipLevels = 1;
+
+				DX::ThrowIfFailed(m_d3dDevice->CreateShaderResourceView(NewBuffer->PositionTexture.Get(), &ShaderView, &NewBuffer->PositionShaderResourceView));
 			}
 
 			DX::ThrowIfFailed(m_d3dDevice->CreateRenderTargetView(NewBuffer->UITexture.Get(), &RenderView, &NewBuffer->UIRenderTargetView));
@@ -629,8 +649,23 @@ namespace Moonlight
 				ShaderView.Texture2D.MostDetailedMip = 0;
 				ShaderView.Texture2D.MipLevels = 1;
 
-				DX::ThrowIfFailed(m_d3dDevice->CreateShaderResourceView(NewBuffer->ColorTexture.Get(), &ShaderView, &NewBuffer->ColorShaderResourceView));
+				DX::ThrowIfFailed(m_d3dDevice->CreateShaderResourceView(NewBuffer->UITexture.Get(), &ShaderView, &NewBuffer->UIShaderResourceView));
 			}
+
+			DX::ThrowIfFailed(m_d3dDevice->CreateRenderTargetView(NewBuffer->PickingTexture.Get(), &RenderView, &NewBuffer->PickingTargetView));
+
+			if (Samples <= 1)
+			{
+				D3D11_SHADER_RESOURCE_VIEW_DESC ShaderView = {};
+				ShaderView.Format = Desc.Format;
+				ShaderView.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+				ShaderView.Texture2D.MostDetailedMip = 0;
+				ShaderView.Texture2D.MipLevels = 1;
+
+				DX::ThrowIfFailed(m_d3dDevice->CreateShaderResourceView(NewBuffer->PickingTexture.Get(), &ShaderView, &NewBuffer->PickingResourceView));
+			}
+
+
 
 			DX::ThrowIfFailed(m_d3dDevice->CreateRenderTargetView(NewBuffer->SpecularTexture.Get(), &RenderView, &NewBuffer->SpecularRenderTargetView));
 
@@ -643,6 +678,19 @@ namespace Moonlight
 				ShaderView.Texture2D.MipLevels = 1;
 
 				DX::ThrowIfFailed(m_d3dDevice->CreateShaderResourceView(NewBuffer->SpecularTexture.Get(), &ShaderView, &NewBuffer->SpecularShaderResourceView));
+			}
+
+			DX::ThrowIfFailed(m_d3dDevice->CreateRenderTargetView(NewBuffer->ShadowMapTexture.Get(), &RenderView, &NewBuffer->ShadowMapRenderTargetView));
+
+			if (Samples <= 1)
+			{
+				D3D11_SHADER_RESOURCE_VIEW_DESC ShaderView = {};
+				ShaderView.Format = Desc.Format;
+				ShaderView.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+				ShaderView.Texture2D.MostDetailedMip = 0;
+				ShaderView.Texture2D.MipLevels = 1;
+
+				DX::ThrowIfFailed(m_d3dDevice->CreateShaderResourceView(NewBuffer->ShadowMapTexture.Get(), &ShaderView, &NewBuffer->ShadowMapShaderResourceView));
 			}
 		}
 

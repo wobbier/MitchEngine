@@ -14,6 +14,14 @@ namespace Moonlight { class SkyBox; }
 
 namespace Moonlight
 {
+	enum MeshType
+	{
+		Model = 0,
+		Plane,
+		Cube,
+		MeshCount
+	};
+
 	struct ModelCommand
 	{
 		std::vector<MeshData*> Meshes;
@@ -29,9 +37,11 @@ namespace Moonlight
 	struct MeshCommand
 	{
 		MeshData* SingleMesh = nullptr;
+		MeshType Type = MeshType::Model;
 		ShaderCommand* MeshShader = nullptr;
 		Material* MeshMaterial = nullptr;
 		DirectX::SimpleMath::Matrix Transform;
+		bool Visible = false;
 	};
 
 	struct TextCommand
@@ -43,8 +53,16 @@ namespace Moonlight
 
 	struct LightCommand
 	{
+		DirectX::XMFLOAT4 pos;
 		DirectX::XMFLOAT4 dir;
+		DirectX::XMFLOAT4 cameraPos;
 		DirectX::XMFLOAT4 ambient;
 		DirectX::XMFLOAT4 diffuse;
+	};
+
+	struct LightingPassConstantBuffer
+	{
+		LightCommand Light;
+		DirectX::XMMATRIX LightSpaceMatrix;
 	};
 }

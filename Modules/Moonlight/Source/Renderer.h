@@ -22,16 +22,30 @@
 #include "Content/ShaderStructures.h"
 #include <SpriteFont.h>
 #include <SpriteBatch.h>
+#include "Events/Event.h"
 
 namespace Moonlight
 {
+	class PickingEvent
+		: public Event<PickingEvent>
+	{
+	public:
+		int Id = 0;
+	};
+
 	class Renderer
 	{
 	public:
-
+		enum class RenderPassType
+		{
+			Differed,
+			Forward
+		};
+		RenderPassType PassType = RenderPassType::Differed;
 		void UpdateMatrix(unsigned int Id, DirectX::SimpleMath::Matrix NewTransform);
 		void UpdateMeshMatrix(unsigned int Id, DirectX::SimpleMath::Matrix NewTransform);
-		void UpdateText(unsigned int Id, TextCommand NewCommand);
+		void UpdateCamera(unsigned int Id, CameraData& NewCommand);
+		Moonlight::CameraData& GetCamera(unsigned int Id);
 	public:
 		Renderer();
 		virtual ~Renderer() final;
@@ -44,9 +58,11 @@ namespace Moonlight
 		D3D12Device& GetDevice();
 
 		void Update(float dt);
-		void Render(std::function<void()> func, const CameraData& mainCamera, const CameraData& editorCamera);
+		void Render(std::function<void()> func, std::function<void()> uiRender, const CameraData& editorCamera);
 
 		void DrawScene(ID3D11DeviceContext3* context, ModelViewProjectionConstantBuffer& constantBufferSceneData, const CameraData& data, FrameBuffer* ViewRTT, FrameBuffer* ResolveViewRTT);
+		void DrawDepthOnlyScene(ID3D11DeviceContext3* context, DepthPassBuffer& constantBufferSceneData, FrameBuffer* ViewRTT);
+		void DrawPickingTexture(ID3D11DeviceContext3* context, PickingConstantBuffer& constantBufferSceneData, const CameraData& camera, FrameBuffer* ViewRTT);
 
 		void ReleaseDeviceDependentResources();
 		void CreateDeviceDependentResources();
@@ -64,30 +80,40 @@ namespace Moonlight
 
 		void WindowResized(const Vector2& NewSize);
 
+		void PickScene(const Vector2& Pos);
+
 		//class RenderTexture* GameViewRTT = nullptr;
 		FrameBuffer* SceneViewRTT = nullptr;
 		FrameBuffer* GameViewRTT = nullptr;
 		LightCommand Sunlight;
+		LightingPassConstantBuffer LightingPassBuffer;
 
 		ShaderProgram m_tonemapProgram;
 		ShaderProgram m_dofProgram;
-		ShaderCommand m_depthProgram;
+		ShaderProgram m_depthProgram;
+		ShaderProgram m_pickingShader;
 		ShaderProgram m_lightingProgram;
 		Microsoft::WRL::ComPtr<ID3D11SamplerState> m_defaultSampler;
 		Microsoft::WRL::ComPtr<ID3D11SamplerState> m_computeSampler;
 	private:
-		class Plane* Grid;
+		class MeshData* PlaneMesh = nullptr;
 
 		class D3D12Device* m_device = nullptr;
-
+		std::vector<Vertex> m_planeVerticies;
+		std::vector<uint16_t> m_planeIndicies;
 		void ResizeBuffers();
+		void SaveTextureToBmp(PCWSTR FileName, ID3D11Texture2D* Texture, const CameraData& camera, const Vector2& Pos);
 #if ME_DIRECTX
 		Microsoft::WRL::ComPtr<ID3D11Buffer> m_constantBuffer;
 		Microsoft::WRL::ComPtr<ID3D11Buffer> m_perFrameBuffer;
+		Microsoft::WRL::ComPtr<ID3D11Buffer> m_depthPassBuffer;
+		Microsoft::WRL::ComPtr<ID3D11Buffer> m_pickingBuffer;
 		ModelViewProjectionConstantBuffer m_constantBufferData;
 		ModelViewProjectionConstantBuffer m_constantBufferSceneData;
 		std::unique_ptr<DirectX::PrimitiveBatch<VertexPositionTexCoord>> primitiveBatch;
 #endif
+		bool m_pickingRequested = false;
+		Vector2 pickingLocation;
 		// Text
 		std::unique_ptr<DirectX::SpriteFont> m_font;
 		DirectX::SimpleMath::Vector2 m_fontPos;
@@ -103,8 +129,8 @@ namespace Moonlight
 		std::vector<MeshCommand> Meshes;
 		std::queue<unsigned int> FreeMeshCommandIndicies;
 
-		std::vector<TextCommand> UIText;
-		std::queue<unsigned int> FreeUITextCommandIndicies;
+		std::vector<CameraData> Cameras;
+		std::queue<unsigned int> FreeCameraCommandIndicies;
 
 #if ME_ENABLE_RENDERDOC
 		RenderDocManager* RenderDoc;
@@ -114,8 +140,8 @@ namespace Moonlight
 		void PopMesh(unsigned int Id);
 		void ClearMeshes();
 
-		unsigned int PushUIText(Moonlight::TextCommand command);
-		void PopUIText(unsigned int Id);
+		unsigned int PushCamera(Moonlight::CameraData& command);
+		void PopCamera(unsigned int Id);
 		void ClearUIText();
 
 		std::unique_ptr<DirectX::GeometricPrimitive> shape;

@@ -2,18 +2,22 @@ Texture2D ObjTexture : register(t0);
 Texture2D ObjNormalMap : register(t1);
 Texture2D ObjAlphaMap : register(t2);
 Texture2D ObjSpecularMap : register(t3);
+Texture2D ObjPositionMap : register(t4);
 SamplerState ObjSamplerState;
 
 cbuffer ModelViewProjectionConstantBuffer : register(b0)
 {
-    matrix model;
+	matrix model;
+	matrix modelInv;
     matrix view;
     matrix projection;
-    float2 padding;
-    bool hasNormalMap;
+	float2 tiling;
+	bool hasNormalMap;
     bool hasAlphaMap;
     bool hasSpecMap;
-    float3 DiffuseColor;
+	float3 DiffuseColor;
+	float2 ViewportSize;
+	float2 padding;
 };
 
 // Per-vertex data used as input to the vertex shader.
@@ -31,14 +35,16 @@ struct PixelShaderInput
     float4 pos : SV_POSITION;
     float3 normal : NORMAL;
     float2 texcoord : TEXCOORD0;
-    float3 tangent : TANGENT;
+	float3 tangent : TANGENT;
+	float4 fragPos : POSITION;
 };
 
 struct PSOUTPUT
 {
     float4 color : SV_TARGET0;
     float4 normal : SV_TARGET1;
-    float4 spec : SV_TARGET2;
+	float4 spec : SV_TARGET2;
+	float4 position : SV_TARGET3;
 };
 
 // Simple shader to do vertex processing on the GPU.
@@ -46,19 +52,20 @@ PixelShaderInput main_vs(VertexShaderInput input)
 {
     PixelShaderInput output;
     float4 pos = float4(input.pos, 1.0f);
-
 	// Transform the vertex position into projected space.
-    pos = mul(pos, model);
+	output.fragPos = mul(model, pos);
+
+    pos = mul(model, pos);
     pos = mul(pos, view);
     pos = mul(pos, projection);
     output.pos = pos;
 
-    output.normal = mul(input.normal, model);
-
-    output.tangent = mul(input.tangent, model);
+    //output.normal = mul(input.normal, model);
+	output.normal = mul(input.normal, transpose(modelInv));
+    output.tangent = mul(input.tangent, transpose(model));
 
 	// Pass the color through without modification.
-    output.texcoord = input.texcoord;
+    output.texcoord = input.texcoord * tiling;
     return output;
 }
 
@@ -66,6 +73,8 @@ PSOUTPUT main_ps(PixelShaderInput input)
 {
     PSOUTPUT output;
     output.normal = float4(normalize(input.normal), 1.0f);
+
+	output.position = input.fragPos;
 
     float4 diffuse = ObjTexture.Sample(ObjSamplerState, input.texcoord);
     if (!any(diffuse))
@@ -89,15 +98,14 @@ PSOUTPUT main_ps(PixelShaderInput input)
     if (hasNormalMap)
     {
         normalMap = ObjNormalMap.Sample(ObjSamplerState, input.texcoord);
-        
-        normalMap = (2.0f * normalMap) - 1.0f;
-
         input.tangent = normalize(input.tangent - dot(input.tangent, input.normal) * input.normal);
+        
+        float3 biTangent = cross(input.tangent, input.normal);
+        normalMap = normalize((normalMap * 2.0f) - 1.0f);
 
-        float3 biTangent = cross(input.normal, input.tangent);
         float3x3 texSpace = float3x3(input.tangent, biTangent, input.normal);
 
-        output.normal = float4(normalize(mul(normalMap.xyz, texSpace)), 0.0);
+        output.normal = float4(normalize(mul(normalMap.xyz, texSpace)), 1.0);
     }
 
     output.spec = float4(1.0f, 1.0f, 1.0f, 1.0f);

@@ -4,6 +4,7 @@
 #include <stack>
 #include "Havana.h"
 #include "HavanaEvents.h"
+#include "Events/SceneEvents.h"
 #include "File.h"
 #include "Components/Camera.h"
 #include "Components/Cameras/FlyingCamera.h"
@@ -17,6 +18,9 @@
 #include "Mathf.h"
 #include "optick.h"
 #include "Config.h"
+#include "Renderer.h"
+#include "Cores/Rendering/RenderCore.h"
+#include "Components/Graphics/Mesh.h"
 
 EditorCore::EditorCore(Havana* editor)
 	: Base(ComponentFilter().Excludes<Transform>())
@@ -26,8 +30,11 @@ EditorCore::EditorCore(Havana* editor)
 	std::vector<TypeId> events;
 	events.push_back(SaveSceneEvent::GetEventId());
 	events.push_back(NewSceneEvent::GetEventId());
+	events.push_back(Moonlight::PickingEvent::GetEventId());
 	EventManager::GetInstance().RegisterReceiver(this, events);
 	gizmo = new TranslationGizmo(m_editor);
+	EditorCameraTransform = new Transform();
+	EditorCamera = new Camera();
 }
 
 EditorCore::~EditorCore()
@@ -36,8 +43,6 @@ EditorCore::~EditorCore()
 
 void EditorCore::Init()
 {
-	EditorCameraTransform = new Transform();
-	EditorCamera = new Camera();
 	Camera::EditorCamera = EditorCamera;
 
 	testAudio = new AudioSource("Assets/Sounds/CONSTITUTION.wav");
@@ -49,8 +54,8 @@ void EditorCore::Init()
 void EditorCore::Update(float dt)
 {
 	OPTICK_CATEGORY("FlyingCameraCore::Update", Optick::Category::Camera);
-	auto Keyboard = Input::GetInstance().GetKeyboardState();
-	auto Mouse = Input::GetInstance().GetMouseState();
+	auto Keyboard = m_editor->GetInput().GetKeyboardState();
+	auto Mouse = m_editor->GetInput().GetMouseState();
 	if (Keyboard.M)
 	{
 		if (testAudio)
@@ -102,36 +107,39 @@ void EditorCore::Update(float dt)
 				CameraSpeed += SpeedModifier;
 			}
 			CameraSpeed *= dt;
+
+			const Vector3& Front = EditorCameraTransform->Front();
+
 			if (Keyboard.W)
 			{
-				EditorCameraTransform->SetPosition((EditorCamera->Front * CameraSpeed) + EditorCameraTransform->GetPosition());
+				EditorCameraTransform->Translate(Front * CameraSpeed);
 			}
 			if (Keyboard.S)
 			{
-				EditorCameraTransform->SetPosition(EditorCameraTransform->GetPosition() - (EditorCamera->Front * CameraSpeed));
+				EditorCameraTransform->Translate((Front * CameraSpeed) * -1.f);
 			}
 			if (Keyboard.A)
 			{
-				EditorCameraTransform->Translate(EditorCamera->Up.Cross(EditorCamera->Front.GetInternalVec()).Normalized() * CameraSpeed);
+				EditorCameraTransform->Translate(Vector3::Up.Cross(Front).Normalized() * CameraSpeed);
 			}
 			if (Keyboard.D)
 			{
-				EditorCameraTransform->Translate(EditorCamera->Front.Cross(EditorCamera->Up.GetInternalVec()).Normalized() * CameraSpeed);
+				EditorCameraTransform->Translate(Front.Cross(Vector3::Up).Normalized() * CameraSpeed);
 			}
 			if (Keyboard.Space)
 			{
-				EditorCameraTransform->Translate(EditorCamera->Up * CameraSpeed);
+				EditorCameraTransform->Translate(Vector3::Up * CameraSpeed);
 			}
 			if (Keyboard.E)
 			{
-				EditorCameraTransform->Translate(EditorCamera->Front.Cross(EditorCamera->Up).Cross(EditorCamera->Front).Normalized() * CameraSpeed);
+				EditorCameraTransform->Translate(Front.Cross(Vector3::Up).Cross(Front).Normalized() * CameraSpeed);
 			}
 			if (Keyboard.Q)
 			{
-				EditorCameraTransform->Translate(EditorCamera->Front.Cross(-EditorCamera->Up).Cross(EditorCamera->Front).Normalized() * CameraSpeed);
+				EditorCameraTransform->Translate(Front.Cross(-Vector3::Up).Cross(Front).Normalized() * CameraSpeed);
 			}
 
-			Vector2 MousePosition = Input::GetInstance().GetMousePosition();
+			Vector2 MousePosition = m_editor->GetInput().GetMousePosition();
 			if (MousePosition == Vector2(0, 0))
 			{
 				return;
@@ -160,12 +168,13 @@ void EditorCore::Update(float dt)
 			if (Pitch < -89.0f)
 				Pitch = -89.0f;
 
-			Vector3 Front;
-			Front.SetX(cos(Mathf::Radians(Yaw)) * cos(Mathf::Radians(Pitch)));
-			Front.SetY(sin(Mathf::Radians(Pitch)));
-			Front.SetZ(sin(Mathf::Radians(Yaw)) * cos(Mathf::Radians(Pitch)));
-			EditorCamera->Front = Front.Normalized();
 
+			Vector3 newFront;
+			newFront.SetX(cos(Mathf::Radians(Yaw)) * cos(Mathf::Radians(Pitch)));
+			newFront.SetY(sin(Mathf::Radians(Pitch)));
+			newFront.SetZ(sin(Mathf::Radians(Yaw)) * cos(Mathf::Radians(Pitch)));
+
+			EditorCameraTransform->LookAt(newFront.Normalized());
 		}
 		else
 		{
@@ -185,15 +194,13 @@ void EditorCore::Update(float dt)
 				IsFocusingTransform = false;
 			}
 		}
-
-		EditorCamera->UpdateCameraTransform(EditorCameraTransform->GetPosition());
 		return;
 	}
 }
 
 void EditorCore::Update(float dt, Transform* rootTransform)
 {
-	OPTICK_EVENT("SceneGraph::Update");
+	OPTICK_EVENT("EditorCore::Update");
 	Update(dt);
 	RootTransform = rootTransform;
 	if (TryingToSaveNewScene)
@@ -237,6 +244,64 @@ bool EditorCore::OnEvent(const BaseEvent& evt)
 		}
 		return true;
 	}
+	else if (evt.GetEventId() == Moonlight::PickingEvent::GetEventId())
+	{
+		const Moonlight::PickingEvent& casted = static_cast<const Moonlight::PickingEvent&>(evt);
+
+		auto ents = GetEngine().GetWorld().lock()->GetCore(RenderCore::GetTypeId())->GetEntities();
+		for (auto& ent : ents)
+		{
+			if (!ent.HasComponent<Mesh>())
+			{
+				continue;
+			}
+			if (ent.GetComponent<Mesh>().Id == casted.Id)
+			{
+				Transform* meshTransform = &ent.GetComponent<Transform>();
+				std::stack<Transform*> parentEnts;
+				parentEnts.push(meshTransform->GetParent());
+
+				static Transform* selectedParentObjec = nullptr;
+
+				while (parentEnts.size() > 0)
+				{
+					Transform* parent = parentEnts.top();
+					parentEnts.pop();
+					if (!parent)
+					{
+						continue;
+					}
+
+					WeakPtr<Entity> parentEnt = GetEngine().GetWorld().lock()->GetEntity(parent->Parent);
+					if (!parentEnt.expired() && parentEnt.lock()->HasComponent<Model>())
+					{
+						Transform* selectedModel = &parentEnt.lock()->GetComponent<Transform>();
+						if (m_editor->SelectedTransform == nullptr || selectedParentObjec != selectedModel)
+						{
+							m_editor->SelectedTransform = selectedModel;
+							selectedParentObjec = selectedModel;
+							break;
+						}
+
+						if (meshTransform != m_editor->SelectedTransform)
+						{
+							m_editor->SelectedTransform = meshTransform;
+						}
+						else
+						{
+							m_editor->SelectedTransform = selectedModel;
+						}
+						break;
+					}
+					else
+					{
+						parentEnts.push(parent->GetParent());
+					}
+				}
+			}
+		}
+		return true;
+	}
 
 	return false;
 }
@@ -251,6 +316,16 @@ void EditorCore::OnEntityAdded(Entity& NewEntity)
 	{
 		//NewEntityTransform.SetParent(RootEntity.lock()->GetComponent<Transform>());
 	}
+}
+
+Havana* EditorCore::GetEditor()
+{
+	return m_editor;
+}
+
+Transform* EditorCore::GetEditorCameraTransform() const
+{
+	return EditorCameraTransform;
 }
 
 #if ME_EDITOR

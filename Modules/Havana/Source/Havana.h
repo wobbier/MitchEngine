@@ -4,7 +4,6 @@
 #include "ECS/Entity.h"
 #include "Math/Vector2.h"
 #include "imgui.h"
-#include "Graphics/Texture.h"
 #include "Pointers.h"
 #include "Widgets/AssetBrowser.h"
 #include "Events/Event.h"
@@ -12,11 +11,17 @@
 #include "RenderCommands.h"
 #include "Commands/CommandManager.h"
 #include <Keyboard.h>
+#include "Engine/Input.h"
 
 class Havana
 	: public EventReceiver
 {
 public:
+	struct ParentDescriptor
+	{
+		class Transform* Parent;
+	};
+
 	Havana(class Engine* GameEngine, class EditorApp* app, Moonlight::Renderer* renderer);
 
 	void InitUI();
@@ -39,7 +44,8 @@ public:
 	{
 		WindowTitle = title;
 	}
-	std::string WindowTitle;
+
+	Input& GetInput();
 	const bool IsGameFocused() const;
 	const bool IsWorldViewFocused() const;
 
@@ -62,22 +68,28 @@ public:
 	Vector2 GameRenderSize;
 	Vector2 WorldViewRenderSize;
 	Vector2 WorldViewRenderLocation;
+	Vector2 GameViewRenderLocation;
 
 	void BrowseDirectory(const Path& path);
 
 	const Vector2& GetGameOutputSize() const;
 
 	virtual bool OnEvent(const BaseEvent& evt) override;
+	SharedPtr<Moonlight::Texture> ViewTexture;
 private:
+	void HandleAssetDragAndDrop(Transform* root);
+
 	class Engine* m_engine = nullptr;
 	class EditorApp* m_app = nullptr;
 	class Transform* m_rootTransform = nullptr;
-
+	std::string WindowTitle;
 	CommandManager EditorCommands;
+	Input m_input;
 
 	bool m_isGameFocused = false;
 	bool m_isWorldViewFocused = false;
 	bool OpenScene = false;
+	bool AllowGameInput = false;
 	ImVec2 MainMenuSize;
 	Path CurrentDirectory;
 	json AssetDirectory;
@@ -87,6 +99,8 @@ private:
 	float prevMatrixRotation[3];
 	float prevMatrixScale[3];
 	ImVec2 previousMousePos;
+	ParentDescriptor DragParentDescriptor;
 
 	DirectX::Keyboard::KeyboardStateTracker tracker;
+	DirectX::Mouse::ButtonStateTracker mouseTracker;
 };

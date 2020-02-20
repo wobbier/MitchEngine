@@ -44,4 +44,9 @@ namespace Mathf
 	{
 		return DirectX::XMConvertToRadians(number);
 	}
+
+	inline float Degrees(float rads)
+	{
+		return DirectX::XMConvertToDegrees(rads);
+	}
 }

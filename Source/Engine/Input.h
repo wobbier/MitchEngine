@@ -1,7 +1,6 @@
 #pragma once
-#include "Singleton.h"
-#include <map>
 #include "Math/Vector2.h"
+
 #include <Mouse.h>
 #include <Keyboard.h>
 #include <GamePad.h>
@@ -14,32 +13,44 @@ using namespace Windows::System;
 class Input
 {
 	friend class Window;
+	friend class Engine;
+	friend class Havana;
 public:
-	DirectX::Keyboard::State GetKeyboardState()
-	{
-		return Keyboard->GetState();
-	}
-
-	DirectX::Mouse::State GetMouseState()
-	{
-		return Mouse->GetState();
-	}
-
-	DirectX::GamePad::State GetControllerState(unsigned int PlayerId = 0)
-	{
-		return Controller->GetState(PlayerId);
-	}
-
-	Vector2 GetMousePosition();
-	Vector2 GetMouseScrollOffset();
-
-private:
 	Input();
 	~Input() = default;
 
-	std::unique_ptr<DirectX::Mouse> Mouse;
-	std::unique_ptr<DirectX::Keyboard> Keyboard;
-	std::unique_ptr<DirectX::GamePad> Controller;
+	DirectX::Keyboard::State GetKeyboardState();
+	DirectX::Mouse::State GetMouseState();
+	DirectX::GamePad::State GetControllerState(unsigned int PlayerId = 0);
 
-	ME_SINGLETON_DEFINITION(Input)
+	Vector2 GetMousePosition();
+	void SetMousePosition(const Vector2& InPosition);
+	Vector2 GetMouseOffset();
+
+	Vector2 GetMouseScrollOffset();
+
+	void SetMouseCapture(bool Capture);
+	void SetMouseOffset(const Vector2& InOffset);
+
+	DirectX::Mouse& GetMouse();
+
+	void Pause();
+	void Resume();
+	void Stop();
+
+private:
+	void Update();
+
+	bool CaptureInput = true;
+
+	DirectX::Keyboard::State KeyboardState;
+	DirectX::Mouse::State MouseState;
+	DirectX::GamePad::State ControllerState;
+
+	Vector2 Offset;
+
+	static std::unique_ptr<DirectX::Mouse> Mouse;
+	static std::unique_ptr<DirectX::Keyboard> Keyboard;
+	static std::unique_ptr<DirectX::GamePad> Controller;
+	bool WantsToCaptureMouse = false;
 };

@@ -1,139 +1,46 @@
 #pragma once
+#include "ECS/ComponentDetail.h"
 #include "ECS/Component.h"
+#include "RenderCommands.h"
 #include "Dementia.h"
 #include "Graphics/MeshData.h"
 #include "Graphics/Texture.h"
+#include <string>
+#include "Graphics/Material.h"
+#include "Graphics/ShaderCommand.h"
 
 class Mesh
 	: public Component<Mesh>
 {
+	friend class RenderCore;
+	friend class EditorCore;
 public:
-	Mesh()
-		: Component("Mesh")
-	{
-	}
-	Mesh(Moonlight::MeshData* mesh)
-		: Component("Mesh")
-		, MeshReferece(mesh)
-	{
-		MeshMaterial = new Moonlight::Material(*MeshReferece->material);
-	}
+	Mesh();
+	Mesh(Moonlight::MeshType InType, Moonlight::Material* InMaterial, Moonlight::ShaderCommand* InShader);
+	Mesh(Moonlight::MeshData* mesh);
 
 	// Separate init from construction code.
-	virtual void Init() final
-	{
-	};
+	virtual void Init() final;;
 
-	unsigned int Id = 0;
-	unsigned int GetId() {
-		return Id;
-	}
+	unsigned int GetId();
 
 	Moonlight::MeshData* MeshReferece = nullptr;
 	Moonlight::ShaderCommand* MeshShader = nullptr;
 	Moonlight::Material* MeshMaterial = nullptr;
+
+	Moonlight::MeshType GetType() const;
+
+	virtual void Serialize(json& outJson) final;
+	virtual void Deserialize(const json& inJson) final;
 private:
+	unsigned int Id = 0;
+	Moonlight::MeshType Type;
+
+	std::string GetMeshTypeString(Moonlight::MeshType InType);
+	Moonlight::MeshType GetMeshTypeFromString(const std::string& InType);
+
 #if ME_EDITOR
-	virtual void Deserialize(const json& inJson) final
-	{
-		if (inJson.contains("test"))
-		{
-			Test = (bool)inJson["test"];
-		}
-		if (!MeshMaterial)
-		{
-			MeshMaterial = new Moonlight::Material();
-		}
-		MeshMaterial->OnDeserialize(inJson);
-	}
-	virtual void OnEditorInspect() final
-	{
-		if (MeshShader && MeshMaterial)
-		{
-			bool transparent = MeshMaterial->IsTransparent();
-			ImGui::Checkbox("Render Transparent", &transparent);
-			if (transparent)
-			{
-				MeshMaterial->SetRenderMode(Moonlight::RenderingMode::Transparent);
-			}
-			else
-			{
-				MeshMaterial->SetRenderMode(Moonlight::RenderingMode::Opaque);
-			}
-			ImGui::Text("Vertices: %i", MeshReferece->vertices.size());
-			if (ImGui::TreeNode("Material"))
-			{
-				static std::vector<Path> Textures;
-				Path path = Path("Assets");
-				if (Textures.empty())
-				{
-					Textures.push_back(Path(""));
-					for (const auto& entry : std::filesystem::recursive_directory_iterator(path.FullPath))
-					{
-						Path filePath(entry.path().string());
-						if ((filePath.LocalPath.rfind(".png") != std::string::npos || filePath.LocalPath.rfind(".jpg") != std::string::npos || filePath.LocalPath.rfind(".tif") != std::string::npos)
-							&& filePath.LocalPath.rfind(".meta") == std::string::npos)
-						{
-							Textures.push_back(filePath);
-						}
-					}
-				}
-
-				ImGui::ColorEdit3("Diffuse Color", &MeshMaterial->DiffuseColor[0]);
-
-				int i = 0;
-				for (auto texture : MeshMaterial->GetTextures())
-				{
-					std::string label("##Texture" + std::to_string(i));
-					{
-						ImGui::ImageButton(((texture) ? (void*)texture->ShaderResourceView : nullptr), ImVec2(30, 30));
-						ImGui::SameLine();
-					}
-					if (ImGui::BeginCombo(label.c_str(), ((texture) ? texture->GetPath().LocalPath.c_str() : "")))
-					{
-						for (int n = 0; n < Textures.size(); n++)
-						{
-							if (ImGui::Selectable(Textures[n].LocalPath.c_str(), false))
-							{
-								if (!Textures[n].LocalPath.empty())
-								{
-									MeshMaterial->SetTexture(static_cast<Moonlight::TextureType>(i), ResourceCache::GetInstance().Get<Moonlight::Texture>(Textures[n]));
-								}
-								else
-								{
-									MeshMaterial->SetTexture(static_cast<Moonlight::TextureType>(i), nullptr);
-								}
-								Textures.clear();
-								break;
-							}
-						}
-						ImGui::EndCombo();
-					}
-					ImGui::SameLine();
-					ImGui::Text(Moonlight::Texture::ToString(static_cast<Moonlight::TextureType>(i)).c_str());
-					if (texture)
-					{
-						if (i == static_cast<int>(Moonlight::TextureType::Diffuse))
-						{
-						}
-					}
-					i++;
-				}
-				ImGui::TreePop();
-			}
-		}
-	}
-
-	virtual void Serialize(json& outJson) final
-	{
-		Component::Serialize(outJson);
-		if (MeshMaterial)
-		{
-			MeshMaterial->OnSerialize(outJson);
-		}
-		outJson["test"] = true;
-	}
-	bool Test = false;
+	virtual void OnEditorInspect() final;
 #endif
 };
 

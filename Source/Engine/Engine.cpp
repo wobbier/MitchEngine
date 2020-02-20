@@ -15,7 +15,7 @@
 #include "Havana.h"
 #include "Components/Transform.h"
 #include "Dementia.h"
-#include "HavanaEvents.h"
+#include "Events/SceneEvents.h"
 #include "Components/Camera.h"
 #include "Components/Cameras/FlyingCamera.h"
 #include "Cores/Cameras/FlyingCameraCore.h"
@@ -67,7 +67,10 @@ void Engine::Init(Game* game)
 		}
 		if (UI)
 		{
-			UI->OnResize(MainCamera.OutputSize);
+			if (Camera::CurrentCamera)
+			{
+				UI->OnResize(Camera::CurrentCamera->OutputSize);
+			}
 		}
 	};
 	GameWindow = new Win32Window(EngineConfig->GetValue("Title"), Func, 500, 300, WindowWidth, WindowHeight);
@@ -148,48 +151,55 @@ void Engine::Run()
 
 			GameWorld->Simulate();
 
+			m_input.Update();
+
 			// Update our engine
+			GameWorld->UpdateLoadedCores(deltaTime);
+			SceneNodes->Update(deltaTime);
+			Cameras->Update(0.0f);
 
 			{
 				OPTICK_CATEGORY("MainLoop::GameUpdate", Optick::Category::GameLogic);
 				m_game->OnUpdate(deltaTime);
 			}
-			GameWorld->UpdateLoadedCores(deltaTime);
-			SceneNodes->Update(deltaTime);
-
-			Cameras->Update(deltaTime);
+			
 			AudioThread->Update(deltaTime);
 			ModelRenderer->Update(deltaTime);
 
+			// editor only?
 			if (UI)
 			{
-				UI->OnResize(MainCamera.OutputSize);
+				if (Camera::CurrentCamera)
+				{
+					UI->OnResize(Camera::CurrentCamera->OutputSize);
+				}
 			}
 			UI->Update(deltaTime);
-
-#if !ME_EDITOR
-			Vector2 MainOutputSize = m_renderer->GetDevice().GetOutputSize();
-			MainCamera.Position = Camera::CurrentCamera->Position;
-			MainCamera.Front = Camera::CurrentCamera->Front;
-			MainCamera.Up = Camera::CurrentCamera->Up;
-			MainCamera.OutputSize = MainOutputSize;
-			MainCamera.FOV = Camera::CurrentCamera->GetFOV();
-			MainCamera.Skybox = Camera::CurrentCamera->Skybox;
-			MainCamera.ClearColor = Camera::CurrentCamera->ClearColor;
-			MainCamera.ClearType = Camera::CurrentCamera->ClearType;
-			MainCamera.Projection = Camera::CurrentCamera->Projection;
-			MainCamera.OrthographicSize = Camera::CurrentCamera->OrthographicSize;
-
-			EditorCamera = MainCamera;
-#endif
+//
+//#if !ME_EDITOR
+//			Vector2 MainOutputSize = m_renderer->GetDevice().GetOutputSize();
+//			MainCamera.Position = Camera::CurrentCamera->Position;
+//			MainCamera.Front = Camera::CurrentCamera->Front;
+//			MainCamera.OutputSize = MainOutputSize;
+//			MainCamera.FOV = Camera::CurrentCamera->GetFOV();
+//			MainCamera.Skybox = Camera::CurrentCamera->Skybox;
+//			MainCamera.ClearColor = Camera::CurrentCamera->ClearColor;
+//			MainCamera.ClearType = Camera::CurrentCamera->ClearType;
+//			MainCamera.Projection = Camera::CurrentCamera->Projection;
+//			MainCamera.OrthographicSize = Camera::CurrentCamera->OrthographicSize;
+//
+//			EditorCamera = MainCamera;
+//#endif
 
 			m_renderer->Render([this]() {
 				m_game->PostRender();
+			}, [this]() {
 				UI->Render();
-				}, MainCamera, EditorCamera);
+			}, EditorCamera);
 
 			AccumulatedTime = std::fmod(AccumulatedTime, MaxDeltaTime);
 		}
+
 		Sleep(1);
 	}
 	EngineConfig->Save();
@@ -202,8 +212,6 @@ bool Engine::OnEvent(const BaseEvent& evt)
 		const LoadSceneEvent& test = static_cast<const LoadSceneEvent&>(evt);
 		//InputEnabled = test.Enabled;
 		LoadScene(test.Level);
-
-		return true;
 	}
 
 	return false;
@@ -241,6 +249,11 @@ Config& Engine::GetConfig() const
 	return *EngineConfig;
 }
 
+Input& Engine::GetInput()
+{
+	return m_input;
+}
+
 void Engine::LoadScene(const std::string& SceneFile)
 {
 	SceneNodes->Init();
@@ -254,11 +267,12 @@ void Engine::LoadScene(const std::string& SceneFile)
 
 	GameWorld->Cleanup();
 	CurrentScene = new Scene(SceneFile);
-#if ME_EDITOR
-	//Editor->SetWindowTitle("Havana - " + CurrentScene->Path.LocalPath);
-#endif
 
 	if (!CurrentScene->Load(GameWorld))
 	{
 	}
+
+	SceneLoadedEvent evt;
+	evt.LoadedScene = CurrentScene;
+	evt.Fire();
 }

@@ -2,6 +2,7 @@
 #include "Camera.h"
 #include "Graphics/SkyBox.h"
 #include "Graphics/Texture.h"
+#include "Math/Frustrum.h"
 
 Camera* Camera::CurrentCamera = nullptr;
 Camera* Camera::EditorCamera = nullptr;
@@ -9,9 +10,7 @@ Camera* Camera::EditorCamera = nullptr;
 Camera::Camera()
 	: Component("Camera")
 {
-	Position = Vector3(0.f, 0.f, 2.f);
-	Up = Vector3(0.f, 1.f, 0.f);
-	Front = Vector3(0.f, 0.f, -1.f);
+	CameraFrustum = new Frustum();
 }
 
 Camera::~Camera()
@@ -20,6 +19,7 @@ Camera::~Camera()
 	{
 		CurrentCamera = nullptr;
 	}
+	delete CameraFrustum;
 }
 
 void Camera::Init()
@@ -33,16 +33,6 @@ void Camera::Init()
 Matrix4 Camera::GetViewMatrix()
 {
 	return Matrix4();//glm::lookAt(Position.GetInternalVec(), Position.GetInternalVec() + Front.GetInternalVec(), Up.GetInternalVec()));
-}
-
-void Camera::LookAt(const Vector3& TargetPosition)
-{
-	Front = (TargetPosition - Position).Normalized();
-}
-
-void Camera::UpdateCameraTransform(Vector3 NewPosition)
-{
-	Position = NewPosition;
 }
 
 bool Camera::IsCurrent()
@@ -60,6 +50,16 @@ float Camera::GetFOV()
 	return m_FOV;
 }
 
+const int Camera::GetCameraId() const
+{
+	return m_id;
+}
+
+const bool Camera::IsMain() const
+{
+	return (Camera::CurrentCamera == this);
+}
+
 void Camera::Deserialize(const json& inJson)
 {
 	if (inJson.contains("Skybox"))
@@ -68,11 +68,23 @@ void Camera::Deserialize(const json& inJson)
 	}
 }
 
+void Camera::Serialize(json& outJson)
+{
+	Component::Serialize(outJson);
+
+	outJson["Zoom"] = Zoom;
+	outJson["IsCurrent"] = IsCurrent();
+
+	if (Skybox)
+	{
+		outJson["Skybox"] = Skybox->SkyMaterial->GetTexture(Moonlight::TextureType::Diffuse)->GetPath().LocalPath;
+	}
+}
+
 #if ME_EDITOR
 
 void Camera::OnEditorInspect()
 {
-	HavanaUtils::Text("Front", Front);
 	if (ImGui::Button("Set Current"))
 	{
 		SetCurrent();
@@ -99,6 +111,9 @@ void Camera::OnEditorInspect()
 	{
 		ImGui::SliderFloat("Size", &OrthographicSize, 0.1f, 200.0f);
 	}
+
+	ImGui::SliderFloat("Near", &Near, 0.1f, 200.0f);
+	ImGui::SliderFloat("Far", &Far, 0.2f, 2000.0f);
 
 	if (ImGui::BeginCombo("##ClearType", (ClearType == Moonlight::ClearColorType::Color) ? "Color" : "Skybox"))
 	{
@@ -163,7 +178,15 @@ void Camera::OnEditorInspect()
 			ImGui::EndCombo();
 		}
 		ImGui::SameLine();
-		ImGui::ImageButton(((Skybox) ? (void*)Skybox->SkyMaterial->GetTexture(Moonlight::TextureType::Diffuse)->ShaderResourceView : nullptr), ImVec2(30, 30));
+		if (Skybox)
+		{
+			const Moonlight::Texture* texture = Skybox->SkyMaterial->GetTexture(Moonlight::TextureType::Diffuse);
+			ImGui::ImageButton(((texture) ? (void*)texture->ShaderResourceView : nullptr), ImVec2(30, 30));
+		}
+		else
+		{
+			ImGui::ImageButton(nullptr, ImVec2(30, 30));
+		}
 		ImGui::SameLine();
 		ImGui::Text("Skybox Texture");
 	}

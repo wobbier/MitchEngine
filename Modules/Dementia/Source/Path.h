@@ -58,8 +58,14 @@ public:
 			{
 				FullPath = std::move(tempPath);
 				assetPrefix = assetPrefix.append("Engine/");
+				Exists = true;
 			}
 		}
+		else
+		{
+			Exists = true;
+		}
+
 		if (std::filesystem::is_regular_file(FullPath))
 		{
 			IsFile = true;
@@ -74,6 +80,9 @@ public:
 #else
 		pos = FullPath.find_last_of("/");
 		Directory = FullPath.substr(0, pos + 1);
+
+		// Rough till I look up how UWP validates files
+		Exists = true;
 #endif
 
 #if ME_PLATFORM_UWP
@@ -88,6 +97,7 @@ public:
 	}
 	bool IsFile = false;
 	bool IsFolder = false;
+	bool Exists = false;
 	std::string FullPath;
 	std::string LocalPath;
 	std::string Directory;

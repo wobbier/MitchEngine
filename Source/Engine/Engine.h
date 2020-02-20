@@ -9,6 +9,7 @@
 #include "Camera/CameraData.h"
 #include <string>
 #include "Config.h"
+#include "Input.h"
 
 class Game;
 class IWindow;
@@ -44,6 +45,7 @@ public:
 	IWindow* GetWindow();
 
 	Config& GetConfig() const;
+	Input& GetInput();
 
 	class CameraCore* Cameras = nullptr;
 	class SceneGraph* SceneNodes = nullptr;
@@ -51,10 +53,10 @@ public:
 	class AudioCore* AudioThread = nullptr;
 	class UICore* UI = nullptr;
 	Clock GameClock;
-	Moonlight::CameraData MainCamera;
 	Moonlight::CameraData EditorCamera;
 	Scene* CurrentScene = nullptr;
 private:
+	Input m_input;
 	Moonlight::Renderer* m_renderer = nullptr;
 	std::shared_ptr<World> GameWorld;
 	bool Running = false;

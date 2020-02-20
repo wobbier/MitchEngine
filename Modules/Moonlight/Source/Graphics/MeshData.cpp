@@ -15,7 +15,7 @@
 
 namespace Moonlight
 {
-	MeshData::MeshData(std::vector<Vertex> vertices, std::vector<uint16_t> indices, Material* mat = nullptr)
+	MeshData::MeshData(std::vector<Vertex> vertices, std::vector<uint16_t> indices, Material* mat)
 		: m_indexCount(0)
 		, material(mat)
 	{
@@ -64,7 +64,7 @@ namespace Moonlight
 		);
 	}
 
-	void MeshData::Draw(Material* mat)
+	void MeshData::Draw(Material* mat, bool depthOnly)
 	{
 		OPTICK_EVENT("Mesh::Draw", Optick::Category::Rendering);
 
@@ -95,7 +95,7 @@ namespace Moonlight
 		{
 			mat = material;
 		}
-		if (mat)
+		if (mat && !depthOnly)
 		{
 			OPTICK_EVENT("Mesh::Draw::Texture", Optick::Category::Rendering);
 			const Texture* diffuse = mat->GetTexture(TextureType::Diffuse);

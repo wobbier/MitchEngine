@@ -5,11 +5,16 @@ SamplerState ObjSamplerState;
 cbuffer ModelViewProjectionConstantBuffer : register(b0)
 {
 	matrix model;
+	matrix modelInv;
 	matrix view;
 	matrix projection;
-	float2 padding;
+	matrix LightSpaceMatrix;
+	float id;
+	float padding;
 	bool hasNormalMap;
 	bool hasAlphaMap;
+	bool hasSpecMap;
+	float3 DiffuseColor;
 };
 
 // Per-vertex data used as input to the vertex shader.
@@ -36,7 +41,7 @@ PixelShaderInput main_vs(VertexShaderInput input)
 	float4 pos = float4(input.pos, 1.0f);
 
 	// Transform the vertex position into projected space.
-	pos = mul(pos, model);
+	pos = mul(model, pos);
 	pos = mul(pos, view);
 	pos = mul(pos, projection);
 	output.pos = pos;
