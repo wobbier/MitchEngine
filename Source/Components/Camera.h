@@ -21,7 +21,6 @@ public:
 	static Camera* CurrentCamera;
 	static Camera* EditorCamera;
 
-	Vector3 Front;
 	Vector3 ClearColor;
 	Vector2 OutputSize;
 	float Zoom = 45.0f;

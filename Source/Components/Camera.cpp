@@ -10,7 +10,6 @@ Camera* Camera::EditorCamera = nullptr;
 Camera::Camera()
 	: Component("Camera")
 {
-	Front = Vector3(0.f, 0.f, -1.f);
 	CameraFrustum = new Frustum();
 }
 
@@ -86,7 +85,6 @@ void Camera::Serialize(json& outJson)
 
 void Camera::OnEditorInspect()
 {
-	HavanaUtils::Text("Front", Front);
 	if (ImGui::Button("Set Current"))
 	{
 		SetCurrent();

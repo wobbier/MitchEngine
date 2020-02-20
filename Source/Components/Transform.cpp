@@ -76,19 +76,9 @@ void Transform::Translate(Vector3 NewPosition)
 
 Vector3 Transform::Front()
 {
-	/*Vector3 front;
-	const float& x = InternalRotation[0];
-	const float& y = InternalRotation[1];
-	const float& z = InternalRotation[2];
-	const float& w = InternalRotation[3];
-
-	front.SetX(2.f * (x * z - w * y));
-	front.SetY(2.f * (y * z + w * x));
-	front.SetZ(1.f - 2.f * (x * x + y * y));
-	*/
-	float mat1 = WorldTransform.GetInternalMatrix()(2, 0);
-	float mat2 = WorldTransform.GetInternalMatrix()(2, 1);
-	float mat3 = WorldTransform.GetInternalMatrix()(2, 2);
+	float mat1 = -WorldTransform.GetInternalMatrix()(2, 0);
+	float mat2 = -WorldTransform.GetInternalMatrix()(2, 1);
+	float mat3 = -WorldTransform.GetInternalMatrix()(2, 2);
 	return Vector3(mat1, mat2, mat3);
 }
 

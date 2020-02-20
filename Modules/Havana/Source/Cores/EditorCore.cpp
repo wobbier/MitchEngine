@@ -107,21 +107,24 @@ void EditorCore::Update(float dt)
 				CameraSpeed += SpeedModifier;
 			}
 			CameraSpeed *= dt;
+
+			const Vector3& Front = EditorCameraTransform->Front();
+
 			if (Keyboard.W)
 			{
-				EditorCameraTransform->Translate(EditorCamera->Front * CameraSpeed);
+				EditorCameraTransform->Translate(Front * CameraSpeed);
 			}
 			if (Keyboard.S)
 			{
-				EditorCameraTransform->Translate((EditorCamera->Front * CameraSpeed) * -1.f);
+				EditorCameraTransform->Translate((Front * CameraSpeed) * -1.f);
 			}
 			if (Keyboard.A)
 			{
-				EditorCameraTransform->Translate(Vector3::Up.Cross(EditorCamera->Front.GetInternalVec()).Normalized() * CameraSpeed);
+				EditorCameraTransform->Translate(Vector3::Up.Cross(Front).Normalized() * CameraSpeed);
 			}
 			if (Keyboard.D)
 			{
-				EditorCameraTransform->Translate(EditorCamera->Front.Cross(Vector3::Up.GetInternalVec()).Normalized() * CameraSpeed);
+				EditorCameraTransform->Translate(Front.Cross(Vector3::Up).Normalized() * CameraSpeed);
 			}
 			if (Keyboard.Space)
 			{
@@ -129,11 +132,11 @@ void EditorCore::Update(float dt)
 			}
 			if (Keyboard.E)
 			{
-				EditorCameraTransform->Translate(EditorCamera->Front.Cross(Vector3::Up).Cross(EditorCamera->Front).Normalized() * CameraSpeed);
+				EditorCameraTransform->Translate(Front.Cross(Vector3::Up).Cross(Front).Normalized() * CameraSpeed);
 			}
 			if (Keyboard.Q)
 			{
-				EditorCameraTransform->Translate(EditorCamera->Front.Cross(-Vector3::Up).Cross(EditorCamera->Front).Normalized() * CameraSpeed);
+				EditorCameraTransform->Translate(Front.Cross(-Vector3::Up).Cross(Front).Normalized() * CameraSpeed);
 			}
 
 			Vector2 MousePosition = m_editor->GetInput().GetMousePosition();
@@ -166,14 +169,12 @@ void EditorCore::Update(float dt)
 				Pitch = -89.0f;
 
 
-			Vector3 Front;
-			Front.SetX(cos(Mathf::Radians(Yaw)) * cos(Mathf::Radians(Pitch)));
-			Front.SetY(sin(Mathf::Radians(Pitch)));
-			Front.SetZ(sin(Mathf::Radians(Yaw)) * cos(Mathf::Radians(Pitch)));
-			//EditorCamera->Front = Front.Normalized();
-			EditorCameraTransform->LookAt(Front.Normalized());
-			EditorCamera->Front = Vector3(EditorCameraTransform->GetMatrix().GetInternalMatrix().Forward());
+			Vector3 newFront;
+			newFront.SetX(cos(Mathf::Radians(Yaw)) * cos(Mathf::Radians(Pitch)));
+			newFront.SetY(sin(Mathf::Radians(Pitch)));
+			newFront.SetZ(sin(Mathf::Radians(Yaw)) * cos(Mathf::Radians(Pitch)));
 
+			EditorCameraTransform->LookAt(newFront.Normalized());
 		}
 		else
 		{

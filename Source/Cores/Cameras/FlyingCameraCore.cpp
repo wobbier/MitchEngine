@@ -71,21 +71,24 @@ void FlyingCameraCore::Update(float dt)
 				CameraSpeed += FlyingCameraComponent.SpeedModifier;
 			}
 			CameraSpeed *= dt;
+
+			const Vector3& Front = TransformComponent.Front();
+
 			if (Keyboard.W)
 			{
-				TransformComponent.SetPosition((CameraComponent.Front * CameraSpeed) + TransformComponent.GetPosition());
+				TransformComponent.SetPosition((Front * CameraSpeed) + TransformComponent.GetPosition());
 			}
 			if (Keyboard.S)
 			{
-				TransformComponent.SetPosition(TransformComponent.GetPosition() - (CameraComponent.Front * CameraSpeed));
+				TransformComponent.SetPosition(TransformComponent.GetPosition() - (Front * CameraSpeed));
 			}
 			if (Keyboard.A)
 			{
-				TransformComponent.Translate(Vector3::Up.Cross(CameraComponent.Front.GetInternalVec()).Normalized() * CameraSpeed);
+				TransformComponent.Translate(Vector3::Up.Cross(Front).Normalized() * CameraSpeed);
 			}
 			if (Keyboard.D)
 			{
-				TransformComponent.Translate(CameraComponent.Front.Cross(Vector3::Up.GetInternalVec()).Normalized() * CameraSpeed);
+				TransformComponent.Translate(Front.Cross(Vector3::Up).Normalized() * CameraSpeed);
 			}
 			if (Keyboard.Space)
 			{
@@ -93,11 +96,11 @@ void FlyingCameraCore::Update(float dt)
 			}
 			if (Keyboard.E)
 			{
-				TransformComponent.Translate(CameraComponent.Front.Cross(Vector3::Up).Cross(CameraComponent.Front).Normalized() * CameraSpeed);
+				TransformComponent.Translate(Front.Cross(Vector3::Up).Cross(Front).Normalized() * CameraSpeed);
 			}
 			if (Keyboard.Q)
 			{
-				TransformComponent.Translate(CameraComponent.Front.Cross(-Vector3::Up).Cross(CameraComponent.Front).Normalized() * CameraSpeed);
+				TransformComponent.Translate(Front.Cross(-Vector3::Up).Cross(Front).Normalized() * CameraSpeed);
 			}
 
 			Vector2 MousePosition = GetEngine().GetInput().GetMousePosition();
@@ -128,11 +131,12 @@ void FlyingCameraCore::Update(float dt)
 			if (Pitch < -89.0f)
 				Pitch = -89.0f;
 
-			Vector3 Front;
-			Front.SetX(cos(Mathf::Radians(Yaw)) * cos(Mathf::Radians(Pitch)));
-			Front.SetY(sin(Mathf::Radians(Pitch)));
-			Front.SetZ(sin(Mathf::Radians(Yaw)) * cos(Mathf::Radians(Pitch)));
-			CameraComponent.Front = Front.Normalized();
+			Vector3 newFront;
+			newFront.SetX(cos(Mathf::Radians(Yaw)) * cos(Mathf::Radians(Pitch)));
+			newFront.SetY(sin(Mathf::Radians(Pitch)));
+			newFront.SetZ(sin(Mathf::Radians(Yaw)) * cos(Mathf::Radians(Pitch)));
+			TransformComponent.LookAt(newFront);
+
 			return;
 		}
 	}
