@@ -22,6 +22,11 @@
 #include "Cores/AudioCore.h"
 #include "Cores/UI/UICore.h"
 
+#if ME_EDITOR
+#include "Utils/StringUtils.h"
+#include <fileapi.h>
+#endif
+
 Engine& GetEngine()
 {
 	return Engine::GetInstance();
@@ -52,8 +57,23 @@ void Engine::Init(Game* game)
 	Logger::GetInstance().SetLogFile("Engine.txt");
 	Logger::GetInstance().SetLogPriority(Logger::LogType::Info);
 	Logger::GetInstance().Log(Logger::LogType::Info, "Starting the MitchEngine.");
+	Path engineCfg("Assets\\Config\\Engine.cfg");
 
-	EngineConfig = new Config(Path("Assets\\Config\\Engine.cfg"));
+#if ME_EDITOR
+	if (engineCfg.FullPath.rfind("Engine") != -1)
+	{
+		Path gameEngineCfgPath("Assets\\Config\\Engine.cfg", true);
+		if (!gameEngineCfgPath.Exists)
+		{
+			CreateDirectory(StringUtils::ToWString(gameEngineCfgPath.Directory).c_str(), NULL);
+			File gameEngineCfg = File(engineCfg);
+			File newGameConfig(gameEngineCfgPath);
+			newGameConfig.Write(gameEngineCfg.Read());
+		}
+	}
+#endif
+
+	EngineConfig = new Config(engineCfg);
 
 #if ME_PLATFORM_WIN64
 	const json& WindowConfig = EngineConfig->GetObject("Window");

@@ -16,7 +16,7 @@ class Path
 public:
 	Path() = default;
 
-	explicit Path(const std::string& InFile)
+	explicit Path(const std::string& InFile, bool Raw = false)
 	{
 		char buf[1024];
 		GetModuleFileNameA(NULL, buf, 1024);
@@ -53,12 +53,15 @@ public:
 #if ME_EDITOR
 		if (!std::filesystem::exists(FullPath))
 		{
-			std::string tempPath = ProgramPath + assetPrefix + "Engine/" + LocalPath;
-			if (std::filesystem::exists(tempPath))
+			if (!Raw)
 			{
-				FullPath = std::move(tempPath);
-				assetPrefix = assetPrefix.append("Engine/");
-				Exists = true;
+				std::string tempPath = ProgramPath + assetPrefix + "Engine/" + LocalPath;
+				if (std::filesystem::exists(tempPath))
+				{
+					FullPath = std::move(tempPath);
+					assetPrefix = assetPrefix.append("Engine/");
+					Exists = true;
+				}
 			}
 		}
 		else
@@ -69,21 +72,18 @@ public:
 		if (std::filesystem::is_regular_file(FullPath))
 		{
 			IsFile = true;
-			pos = FullPath.find_last_of("/");
-			Directory = FullPath.substr(0, pos + 1);
 		}
 		else
 		{
 			IsFolder = true;
-			Directory = FullPath;
 		}
 #else
-		pos = FullPath.find_last_of("/");
-		Directory = FullPath.substr(0, pos + 1);
 
 		// Rough till I look up how UWP validates files
 		Exists = true;
 #endif
+		pos = FullPath.find_last_of("/");
+		Directory = FullPath.substr(0, pos + 1);
 
 #if ME_PLATFORM_UWP
 		std::replace(LocalPath.begin(), LocalPath.end(), '/', '\\');
