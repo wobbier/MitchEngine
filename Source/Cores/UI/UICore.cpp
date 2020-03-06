@@ -61,7 +61,7 @@ UICore::UICore(IWindow* window)
 		exit(-1);
 	}
 
-	m_driver.reset(new ultralight::GPUDriverD3D11(m_context.get()));
+	m_driver.reset(new ultralight::GPUDriverD3D11(m_context.get(), &GetEngine().GetRenderer().GetDevice()));
 
 	platform.set_gpu_driver(m_driver.get());
 	platform.set_file_system(m_fs.get());

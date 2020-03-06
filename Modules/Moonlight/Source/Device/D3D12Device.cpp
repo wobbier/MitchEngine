@@ -8,7 +8,8 @@
 #include "Graphics/MeshData.h"
 #include <d3dcompiler.h>
 #include "Utils/StringUtils.h"
-#include "Content/ShaderStructures.h"
+#include "Graphics/ShaderStructures.h"
+#include "FrameBuffer.h"
 
 using namespace D2D1;
 using namespace DirectX;

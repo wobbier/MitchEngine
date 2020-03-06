@@ -3,7 +3,7 @@
 #include <vector>
 
 #include "Texture.h"
-#include "Content/ShaderStructures.h"
+#include "Graphics/ShaderStructures.h"
 #include <DirectXMath.h>
 #include <wrl/event.h>
 #include <d3d11.h>

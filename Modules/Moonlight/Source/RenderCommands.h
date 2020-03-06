@@ -44,13 +44,6 @@ namespace Moonlight
 		bool Visible = false;
 	};
 
-	struct TextCommand
-	{
-		std::wstring SourceText;
-		Vector2 ScreenPosition;
-		Vector2 Anchor;
-	};
-
 	struct LightCommand
 	{
 		DirectX::XMFLOAT4 pos;
@@ -58,11 +51,5 @@ namespace Moonlight
 		DirectX::XMFLOAT4 cameraPos;
 		DirectX::XMFLOAT4 ambient;
 		DirectX::XMFLOAT4 diffuse;
-	};
-
-	struct LightingPassConstantBuffer
-	{
-		LightCommand Light;
-		DirectX::XMMATRIX LightSpaceMatrix;
 	};
 }

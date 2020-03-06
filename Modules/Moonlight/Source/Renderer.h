@@ -19,7 +19,7 @@
 #include "Camera/CameraData.h"
 #include "GeometricPrimitive.h"
 #include <PrimitiveBatch.h>
-#include "Content/ShaderStructures.h"
+#include "Graphics/ShaderStructures.h"
 #include <SpriteFont.h>
 #include <SpriteBatch.h>
 #include "Events/Event.h"

@@ -6,6 +6,10 @@
 #include <vector>
 #include <memory>
 
+namespace Moonlight { struct ShaderProgram; }
+
+namespace Moonlight { class D3D12Device; }
+
 using Microsoft::WRL::ComPtr;
 
 namespace ultralight {
@@ -17,7 +21,7 @@ class GPUContextD3D11;
  */
 class GPUDriverD3D11 : public GPUDriver {
 public:
-  GPUDriverD3D11(GPUContextD3D11* context);
+  GPUDriverD3D11(GPUContextD3D11* context, Moonlight::D3D12Device* device);
   virtual ~GPUDriverD3D11();
 
   virtual void BeginSynchronize() override;
@@ -76,12 +80,6 @@ public:
   int batch_count() const { return batch_count_; }
 
 protected:
-  void LoadVertexShader(const char* path, ID3D11VertexShader** ppVertexShader,
-    const D3D11_INPUT_ELEMENT_DESC* pInputElementDescs, UINT NumElements, ID3D11InputLayout** ppInputLayout);
-  void LoadPixelShader(const char* path, ID3D11PixelShader** ppPixelShader);
-  void LoadCompiledVertexShader(unsigned char* data, unsigned int len, ID3D11VertexShader** ppVertexShader,
-    const D3D11_INPUT_ELEMENT_DESC* pInputElementDescs, UINT NumElements, ID3D11InputLayout** ppInputLayout);
-  void LoadCompiledPixelShader(unsigned char* data, unsigned int len, ID3D11PixelShader** ppPixelShader);
   void LoadShaders();
   void BindShader(uint8_t shader);
   void BindVertexLayout(VertexBufferFormat format);
@@ -93,8 +91,7 @@ protected:
   Matrix ApplyProjection(const Matrix4x4& transform, float screen_width, float screen_height);
 
   GPUContextD3D11* context_;
-  ComPtr<ID3D11InputLayout> vertex_layout_2f_4ub_2f_;
-  ComPtr<ID3D11InputLayout> vertex_layout_2f_4ub_2f_2f_28f_;
+  Moonlight::D3D12Device* m_device;
   ComPtr<ID3D11SamplerState> sampler_state_;
   ComPtr<ID3D11Buffer> constant_buffer_;
 
@@ -128,8 +125,7 @@ protected:
   typedef std::map<uint32_t, RenderTargetEntry> RenderTargetMap;
   RenderTargetMap render_targets_;
 
-  typedef std::map<ShaderType, std::pair<ComPtr<ID3D11VertexShader>, ComPtr<ID3D11PixelShader>>> ShaderMap;
-  ShaderMap shaders_;
+  std::map<ShaderType, Moonlight::ShaderProgram> shaders_;
 
   std::vector<Command> command_list_;
   int batch_count_;

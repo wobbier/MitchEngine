@@ -1,7 +1,7 @@
 #include "MeshData.h"
 #include <iostream>
 
-#include "Content/ShaderStructures.h"
+#include "Graphics/ShaderStructures.h"
 #include "Device/D3D12Device.h"
 #include "Logger.h"
 #include "Renderer.h"

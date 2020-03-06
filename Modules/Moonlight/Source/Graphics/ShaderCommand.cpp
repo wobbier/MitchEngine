@@ -7,7 +7,7 @@
 #include <VertexTypes.h>
 #include "Texture.h"
 #include "optick.h"
-#include "Content/ShaderFile.h"
+#include "Graphics/ShaderFile.h"
 #include "Resource/ResourceCache.h"
 #include "Engine/Engine.h"
 
