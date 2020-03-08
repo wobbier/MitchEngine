@@ -10,7 +10,7 @@
 #include <AppCore/App.h>
 #include "Logger.h"
 #include "Path.h"
-#include "Device/D3D12Device.h"
+#include "Device/DX11Device.h"
 
 namespace {
 
@@ -102,7 +102,7 @@ namespace {
 
 namespace ultralight {
 
-	GPUDriverD3D11::GPUDriverD3D11(GPUContextD3D11* context, Moonlight::D3D12Device* device)
+	GPUDriverD3D11::GPUDriverD3D11(GPUContextD3D11* context, Moonlight::DX11Device* device)
 		: context_(context)
 		, m_device(device)
 	{

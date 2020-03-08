@@ -4,7 +4,7 @@
 #include "Logger.h"
 #include <WICTextureLoader.h>
 #include "Game.h"
-#include "Device/D3D12Device.h"
+#include "Device/DX11Device.h"
 #include "Engine/Engine.h"
 #include "Utils/StringUtils.h"
 
@@ -18,7 +18,7 @@ namespace Moonlight
 		: Resource(InFilePath)
 	{
 		std::wstring filePath = StringUtils::ToWString(InFilePath.FullPath);
-		auto& device = static_cast<Moonlight::D3D12Device&>(GetEngine().GetRenderer().GetDevice());
+		auto& device = static_cast<Moonlight::DX11Device&>(GetEngine().GetRenderer().GetDevice());
 		ID3D11DeviceContext* context;
 		device.GetD3DDevice()->GetImmediateContext(&context);
 
@@ -63,7 +63,7 @@ namespace Moonlight
 	Texture::Texture(Moonlight::FrameBuffer* InFilePath, WrapMode mode /*= WrapMode::Wrap*/)
 		: Resource(Path(""))
 	{
-		auto& device = static_cast<Moonlight::D3D12Device&>(GetEngine().GetRenderer().GetDevice());
+		auto& device = static_cast<Moonlight::DX11Device&>(GetEngine().GetRenderer().GetDevice());
 
 		D3D11_TEXTURE_ADDRESS_MODE dxMode = D3D11_TEXTURE_ADDRESS_WRAP;
 		switch (mode)

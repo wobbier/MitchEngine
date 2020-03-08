@@ -166,6 +166,7 @@ void UICore::OnStop()
 
 void UICore::Render()
 {
+	OPTICK_EVENT("UI Render", Optick::Category::Rendering);
 	m_driver->BeginSynchronize();
 
 	// Render all active views to command lists and dispatch calls to GPUDriver

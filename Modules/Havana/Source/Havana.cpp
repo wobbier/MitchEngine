@@ -927,6 +927,7 @@ void Havana::DrawEntityRightClickMenu(Transform* transform)
 
 void Havana::Render(Moonlight::CameraData& EditorCamera)
 {
+	OPTICK_EVENT("Editor Render", Optick::Category::Rendering);
 	auto& io = ImGui::GetIO();
 	{
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);

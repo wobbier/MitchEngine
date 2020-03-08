@@ -1,12 +1,12 @@
 #pragma once
-#include "Device/D3D12Device.h"
+#include "Device/DX11Device.h"
 
 namespace Moonlight
 {
 	class RenderTexture
 	{
 	public:
-		RenderTexture(D3D12Device* device)
+		RenderTexture(DX11Device* device)
 		{
 			D3D11_SAMPLER_DESC sampDesc;
 			ZeroMemory(&sampDesc, sizeof(sampDesc));

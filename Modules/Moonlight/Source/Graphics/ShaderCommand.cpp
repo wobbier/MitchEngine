@@ -72,7 +72,7 @@ namespace Moonlight
 		//const char* vShaderCode = VertexSource.c_str();
 		//const char * fShaderCode = FragSource.c_str();
 
-		auto& dxDevice = static_cast<D3D12Device&>(GetEngine().GetRenderer().GetDevice());
+		auto& dxDevice = static_cast<DX11Device&>(GetEngine().GetRenderer().GetDevice());
 
 		DX::ThrowIfFailed(
 			dxDevice.GetD3DDevice()->CreateVertexShader(
@@ -115,7 +115,7 @@ namespace Moonlight
 
 	ShaderCommand::ShaderCommand(const std::string& InShaderFile)
 	{
-		auto& dxDevice = static_cast<D3D12Device&>(GetEngine().GetRenderer().GetDevice());
+		auto& dxDevice = static_cast<DX11Device&>(GetEngine().GetRenderer().GetDevice());
 
 		auto vs = dxDevice.CompileShader(Path(InShaderFile), "main_vs", "vs_4_0_level_9_3");
 		auto ps = dxDevice.CompileShader(Path(InShaderFile), "main_ps", "ps_4_0_level_9_3");
@@ -146,7 +146,7 @@ namespace Moonlight
 		{
 			return;
 		}
-		auto& dxDevice = static_cast<D3D12Device&>(GetEngine().GetRenderer().GetDevice());
+		auto& dxDevice = static_cast<DX11Device&>(GetEngine().GetRenderer().GetDevice());
 		dxDevice.GetD3DDeviceContext()->IASetInputLayout(Program.InputLayout.Get());
 
 		// Attach our vertex shader.

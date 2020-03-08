@@ -8,7 +8,7 @@
 
 namespace Moonlight { struct ShaderProgram; }
 
-namespace Moonlight { class D3D12Device; }
+namespace Moonlight { class DX11Device; }
 
 using Microsoft::WRL::ComPtr;
 
@@ -21,7 +21,7 @@ class GPUContextD3D11;
  */
 class GPUDriverD3D11 : public GPUDriver {
 public:
-  GPUDriverD3D11(GPUContextD3D11* context, Moonlight::D3D12Device* device);
+  GPUDriverD3D11(GPUContextD3D11* context, Moonlight::DX11Device* device);
   virtual ~GPUDriverD3D11();
 
   virtual void BeginSynchronize() override;
@@ -91,7 +91,7 @@ protected:
   Matrix ApplyProjection(const Matrix4x4& transform, float screen_width, float screen_height);
 
   GPUContextD3D11* context_;
-  Moonlight::D3D12Device* m_device;
+  Moonlight::DX11Device* m_device;
   ComPtr<ID3D11SamplerState> sampler_state_;
   ComPtr<ID3D11Buffer> constant_buffer_;
 

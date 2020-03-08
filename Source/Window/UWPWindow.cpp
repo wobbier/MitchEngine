@@ -7,7 +7,7 @@
 #if ME_PLATFORM_UWP
 
 #include "Renderer.h"
-#include "Device/D3D12Device.h"
+#include "Device/DX11Device.h"
 #include <tchar.h>
 #include "Engine/Engine.h"
 
@@ -146,7 +146,7 @@ void UWPWindow::UWPWindowMessageHandler::OnKeyDown(Windows::UI::Core::CoreWindow
 
 void UWPWindow::UWPWindowMessageHandler::OnDisplayContentsInvalidated(Windows::Graphics::Display::DisplayInformation^ sender, Object^ args)
 {
-	static_cast<Moonlight::D3D12Device&>(GetEngine().GetRenderer().GetDevice()).ValidateDevice();
+	static_cast<Moonlight::DX11Device&>(GetEngine().GetRenderer().GetDevice()).ValidateDevice();
 }
 
 #endif

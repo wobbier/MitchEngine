@@ -55,12 +55,12 @@ namespace Moonlight
 		void SetWindow();
 		void RegisterDeviceNotify(IDeviceNotify* deviceNotify);
 
-		D3D12Device& GetDevice();
+		DX11Device& GetDevice();
 
 		void Update(float dt);
 		void Render(std::function<void()> func, std::function<void()> uiRender, const CameraData& editorCamera);
 
-		void DrawScene(ID3D11DeviceContext3* context, ModelViewProjectionConstantBuffer& constantBufferSceneData, const CameraData& data, FrameBuffer* ViewRTT, FrameBuffer* ResolveViewRTT);
+		void DrawScene(ID3D11DeviceContext3* context, ModelViewProjectionConstantBuffer& constantBufferSceneData, const CameraData& data, FrameBuffer* ViewRTT);
 		void DrawDepthOnlyScene(ID3D11DeviceContext3* context, DepthPassBuffer& constantBufferSceneData, FrameBuffer* ViewRTT);
 		void DrawPickingTexture(ID3D11DeviceContext3* context, PickingConstantBuffer& constantBufferSceneData, const CameraData& camera, FrameBuffer* ViewRTT);
 
@@ -98,7 +98,7 @@ namespace Moonlight
 	private:
 		class MeshData* PlaneMesh = nullptr;
 
-		class D3D12Device* m_device = nullptr;
+		class DX11Device* m_device = nullptr;
 		std::vector<Vertex> m_planeVerticies;
 		std::vector<uint16_t> m_planeIndicies;
 		void ResizeBuffers();

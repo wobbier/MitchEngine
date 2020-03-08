@@ -1,5 +1,5 @@
 #include "Renderer.h"
-#include "Device/D3D12Device.h"
+#include "Device/DX11Device.h"
 #include "Device/GLDevice.h"
 
 #include "Utils/DirectXHelper.h"
@@ -70,7 +70,7 @@ namespace Moonlight
 
 	Renderer::Renderer()
 	{
-		m_device = new D3D12Device();
+		m_device = new DX11Device();
 
 #if ME_ENABLE_RENDERDOC
 		RenderDoc = new RenderDocManager();
@@ -234,7 +234,7 @@ namespace Moonlight
 
 	}
 
-	D3D12Device& Renderer::GetDevice()
+	DX11Device& Renderer::GetDevice()
 	{
 		return *m_device;
 	}
@@ -328,7 +328,7 @@ namespace Moonlight
 				m_device->GetD3DDeviceContext()->OMSetBlendState(0, 0, 0xffffffff);
 
 				// Reset render targets to the screen.
-				DrawScene(context, m_constantBufferData, data, data.Buffer, data.Buffer);
+				DrawScene(context, m_constantBufferData, data, data.Buffer);
 			}
 		}
 
@@ -347,7 +347,7 @@ namespace Moonlight
 				m_device->GetD3DDeviceContext()->OMSetBlendState(0, 0, 0xffffffff);
 
 				// Reset render targets to the screen.
-				DrawScene(context, m_constantBufferData, data, data.Buffer, data.Buffer);
+				DrawScene(context, m_constantBufferData, data, data.Buffer);
 				break;
 			}
 		}
@@ -358,7 +358,7 @@ namespace Moonlight
 
 		m_device->GetD3DDeviceContext()->OMSetBlendState(0, 0, 0xffffffff);
 		//ID3D11RenderTargetView* const targets2[1] = { SceneViewRTT->renderTargetViewMap };
-		DrawScene(context, m_constantBufferSceneData, editorCamera, SceneViewRTT, SceneViewRTT);
+		DrawScene(context, m_constantBufferSceneData, editorCamera, SceneViewRTT);
 
 		GetDevice().GetD3DDeviceContext()->OMSetRenderTargets(1, m_device->m_d3dRenderTargetView.GetAddressOf(), nullptr);
 #endif
@@ -369,8 +369,13 @@ namespace Moonlight
 		// The first argument instructs DXGI to block until VSync, putting the application
 		// to sleep until the next VSync. This ensures we don't waste any cycles rendering
 		// frames that will never be displayed to the screen.
-		DXGI_PRESENT_PARAMETERS parameters = { 0 };
-		HRESULT hr = m_device->GetSwapChain()->Present1(0, 0, &parameters);
+		HRESULT hr;
+		{
+			OPTICK_EVENT("Present", Optick::Category::Rendering);
+
+			DXGI_PRESENT_PARAMETERS parameters = { 0 };
+			hr = m_device->GetSwapChain()->Present1(0, 0, &parameters);
+		}
 
 		// Discard the contents of the render target.
 		// This is a valid operation only when the existing contents will be entirely
@@ -408,7 +413,7 @@ namespace Moonlight
 	}
 
 
-	void Renderer::DrawScene(ID3D11DeviceContext3* context, ModelViewProjectionConstantBuffer& constantBufferSceneData, const CameraData& camera, FrameBuffer* ViewRTT, FrameBuffer* ResolveViewRTT)
+	void Renderer::DrawScene(ID3D11DeviceContext3* context, ModelViewProjectionConstantBuffer& constantBufferSceneData, const CameraData& camera, FrameBuffer* ViewRTT)
 	{
 		Vector2 outputSize = camera.OutputSize;
 		if (outputSize.IsZero())
@@ -699,13 +704,13 @@ namespace Moonlight
 		context->IASetInputLayout(m_lightingProgram.InputLayout.Get());
 		context->VSSetShader(m_lightingProgram.VertexShader.Get(), nullptr, 0);
 		context->PSSetShader(m_lightingProgram.PixelShader.Get(), nullptr, 0);
-		context->PSSetShaderResources(0, 1, ResolveViewRTT->ColorShaderResourceView.GetAddressOf());
-		context->PSSetShaderResources(1, 1, ResolveViewRTT->NormalShaderResourceView.GetAddressOf());
-		context->PSSetShaderResources(2, 1, ResolveViewRTT->SpecularShaderResourceView.GetAddressOf());
+		context->PSSetShaderResources(0, 1, ViewRTT->ColorShaderResourceView.GetAddressOf());
+		context->PSSetShaderResources(1, 1, ViewRTT->NormalShaderResourceView.GetAddressOf());
+		context->PSSetShaderResources(2, 1, ViewRTT->SpecularShaderResourceView.GetAddressOf());
 		context->PSSetShaderResources(3, 1, ViewRTT->DepthShaderResourceView.GetAddressOf());
-		context->PSSetShaderResources(4, 1, ResolveViewRTT->UIShaderResourceView.GetAddressOf());
-		context->PSSetShaderResources(5, 1, ResolveViewRTT->PositionShaderResourceView.GetAddressOf());
-		context->PSSetShaderResources(6, 1, ResolveViewRTT->ShadowMapShaderResourceView.GetAddressOf());
+		context->PSSetShaderResources(4, 1, ViewRTT->UIShaderResourceView.GetAddressOf());
+		context->PSSetShaderResources(5, 1, ViewRTT->PositionShaderResourceView.GetAddressOf());
+		context->PSSetShaderResources(6, 1, ViewRTT->ShadowMapShaderResourceView.GetAddressOf());
 		context->PSSetSamplers(0, 1, m_computeSampler.GetAddressOf());
 		primitiveBatch->Begin();
 		VertexPositionTexCoord vert1{ {-1.f,1.f,0.f}, {0.f,0.f} };
@@ -739,13 +744,13 @@ namespace Moonlight
 			context->IASetInputLayout(nullptr);
 			context->VSSetShader(m_dofProgram.VertexShader.Get(), nullptr, 0);
 			context->PSSetShader(m_dofProgram.PixelShader.Get(), nullptr, 0);
-			context->PSSetShaderResources(0, 1, ResolveViewRTT->ShaderResourceView.GetAddressOf());
-			context->PSSetShaderResources(1, 1, ResolveViewRTT->DepthShaderResourceView.GetAddressOf());
+			context->PSSetShaderResources(0, 1, ViewRTT->ShaderResourceView.GetAddressOf());
+			context->PSSetShaderResources(1, 1, ViewRTT->DepthShaderResourceView.GetAddressOf());
 			context->PSSetSamplers(0, 1, m_computeSampler.GetAddressOf());
 			context->Draw(3, 0);
-			if (ViewRTT->FinalTexture != ResolveViewRTT->FinalTexture)
+			if (ViewRTT->FinalTexture != ViewRTT->FinalTexture)
 			{
-				context->ResolveSubresource(ResolveViewRTT->FinalTexture.Get(), 0, ViewRTT->FinalTexture.Get(), 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
+				context->ResolveSubresource(ViewRTT->FinalTexture.Get(), 0, ViewRTT->FinalTexture.Get(), 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
 			}
 		}
 
@@ -758,12 +763,12 @@ namespace Moonlight
 			context->IASetInputLayout(nullptr);
 			context->VSSetShader(m_tonemapProgram.VertexShader.Get(), nullptr, 0);
 			context->PSSetShader(m_tonemapProgram.PixelShader.Get(), nullptr, 0);
-			context->PSSetShaderResources(0, 1, ResolveViewRTT->ShaderResourceView.GetAddressOf());
+			context->PSSetShaderResources(0, 1, ViewRTT->ShaderResourceView.GetAddressOf());
 			context->PSSetSamplers(0, 1, m_computeSampler.GetAddressOf());
 			context->Draw(3, 0);
-			if (ViewRTT->FinalTexture != ResolveViewRTT->FinalTexture)
+			if (ViewRTT->FinalTexture != ViewRTT->FinalTexture)
 			{
-				context->ResolveSubresource(ResolveViewRTT->FinalTexture.Get(), 0, ViewRTT->FinalTexture.Get(), 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
+				context->ResolveSubresource(ViewRTT->FinalTexture.Get(), 0, ViewRTT->FinalTexture.Get(), 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
 			}
 		}
 		ID3D11RenderTargetView* nullViews[] = { nullptr, nullptr, nullptr, nullptr };
@@ -1062,7 +1067,7 @@ namespace Moonlight
 	{
 		CD3D11_BUFFER_DESC constantBufferDesc(sizeof(ModelViewProjectionConstantBuffer), D3D11_BIND_CONSTANT_BUFFER);
 		DX::ThrowIfFailed(
-			static_cast<D3D12Device*>(m_device)->GetD3DDevice()->CreateBuffer(
+			static_cast<DX11Device*>(m_device)->GetD3DDevice()->CreateBuffer(
 				&constantBufferDesc,
 				nullptr,
 				&m_constantBuffer
@@ -1071,7 +1076,7 @@ namespace Moonlight
 
 		CD3D11_BUFFER_DESC depthBufferDesc(sizeof(DepthPassBuffer), D3D11_BIND_CONSTANT_BUFFER);
 		DX::ThrowIfFailed(
-			static_cast<D3D12Device*>(m_device)->GetD3DDevice()->CreateBuffer(
+			static_cast<DX11Device*>(m_device)->GetD3DDevice()->CreateBuffer(
 				&depthBufferDesc,
 				nullptr,
 				&m_depthPassBuffer
@@ -1080,7 +1085,7 @@ namespace Moonlight
 
 		CD3D11_BUFFER_DESC depthBufferDesc2(sizeof(PickingConstantBuffer), D3D11_BIND_CONSTANT_BUFFER);
 		DX::ThrowIfFailed(
-			static_cast<D3D12Device*>(m_device)->GetD3DDevice()->CreateBuffer(
+			static_cast<DX11Device*>(m_device)->GetD3DDevice()->CreateBuffer(
 				&depthBufferDesc2,
 				nullptr,
 				&m_pickingBuffer
@@ -1098,7 +1103,7 @@ namespace Moonlight
 		perFrameBufferDesc.CPUAccessFlags = 0;
 		perFrameBufferDesc.MiscFlags = 0;*/
 		DX::ThrowIfFailed(
-			static_cast<D3D12Device*>(m_device)->GetD3DDevice()->CreateBuffer(&perFrameBufferDesc, nullptr, &m_perFrameBuffer)
+			static_cast<DX11Device*>(m_device)->GetD3DDevice()->CreateBuffer(&perFrameBufferDesc, nullptr, &m_perFrameBuffer)
 		);
 		//hr = d3d11Device->CreateBuffer(&cbbd, NULL, &cbPerFrameBuffer);
 	}
