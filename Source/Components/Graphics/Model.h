@@ -8,6 +8,7 @@
 #include <filesystem>
 #include "Pointers.h"
 #include "Scene/Node.h"
+#include "ECS/EntityHandle.h"
 
 class Entity;
 
@@ -23,7 +24,7 @@ public:
 	// Separate init from construction code.
 	virtual void Init() final;
 
-	void RecursiveLoadMesh(Moonlight::Node& root, WeakPtr<Entity>& parentEnt);
+	void RecursiveLoadMesh(Moonlight::Node& root, EntityHandle& parentEnt);
 
 	std::shared_ptr<class ModelResource> ModelHandle = nullptr;
 	class Moonlight::ShaderCommand* ModelShader = nullptr;

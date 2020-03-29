@@ -272,10 +272,9 @@ bool EditorCore::OnEvent(const BaseEvent& evt)
 						continue;
 					}
 
-					WeakPtr<Entity> parentEnt = GetEngine().GetWorld().lock()->GetEntity(parent->Parent);
-					if (!parentEnt.expired() && parentEnt.lock()->HasComponent<Model>())
+					if (parent->Parent->HasComponent<Model>())
 					{
-						Transform* selectedModel = &parentEnt.lock()->GetComponent<Transform>();
+						Transform* selectedModel = &parent->Parent->GetComponent<Transform>();
 						if (m_editor->SelectedTransform == nullptr || selectedParentObjec != selectedModel)
 						{
 							m_editor->SelectedTransform = selectedModel;

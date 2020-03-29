@@ -39,8 +39,7 @@ public:
 
 		if (ImGui::Button("Look At World 0"))
 		{
-			auto ent = GetEngine().GetWorld().lock()->GetEntity(Parent);
-			Transform& transform = ent.lock()->GetComponent<Transform>();
+			Transform& transform = Parent->GetComponent<Transform>();
 			auto dir = (Vector3() - transform.GetWorldPosition()).Normalized();
 			Direction = {dir.X(), dir.Y(), dir.Z(), 0.0f};
 		}

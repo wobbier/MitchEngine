@@ -9,6 +9,9 @@
 #include "Utils/HavanaUtils.h"
 #include "imgui.h"
 #include "HavanaEvents.h"
+#include "Engine/Engine.h"
+#include "Engine/World.h"
+#include "Cores/Rendering/RenderCore.h"
 
 #endif
 #include "RenderCommands.h"
@@ -115,6 +118,9 @@ void Mesh::OnEditorInspect()
 				if (ImGui::Selectable(GetMeshTypeString((Moonlight::MeshType)n).c_str(), false))
 				{
 					Type = (Moonlight::MeshType)n;
+
+					static_cast<RenderCore*>(GetEngine().GetWorld().lock()->GetCore(RenderCore::GetTypeId()))->UpdateMesh(this);
+					
 					break;
 				}
 			}

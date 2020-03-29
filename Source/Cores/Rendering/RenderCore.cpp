@@ -127,3 +127,15 @@ void RenderCore::OnStop()
 	m_renderer->ClearMeshes();
 	m_renderer->ClearDebugColliders();
 }
+
+void RenderCore::UpdateMesh(Mesh* InMesh)
+{
+	m_renderer->PopMesh(InMesh->Id);
+
+	Moonlight::MeshCommand command;
+	command.SingleMesh = InMesh->MeshReferece;
+	command.MeshShader = InMesh->MeshShader;
+	command.MeshMaterial = InMesh->MeshMaterial;
+	command.Type = InMesh->GetType();
+	InMesh->Id = m_renderer->PushMesh(command);
+}

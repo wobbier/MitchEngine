@@ -1,9 +1,9 @@
 #pragma once
 #include "ICommand.h"
 #include "ECS/Entity.h"
-#include "Pointers.h"
 #include "Engine/Engine.h"
 #include "ECS/Component.h"
+#include "ECS/EntityHandle.h"
 
 class CreateEntity
 	: public ICommand
@@ -21,17 +21,17 @@ public:
 
 	virtual void Undo() final
 	{
-		Ent.lock()->MarkForDelete();
+		Ent->MarkForDelete();
 	}
 
-	WeakPtr<Entity> Ent;
+	EntityHandle Ent;
 };
 
 class AddComponentCommand
 	: public ICommand
 {
 public:
-	AddComponentCommand(const std::string& Type, WeakPtr<Entity> OwningEnt)
+	AddComponentCommand(const std::string& Type, EntityHandle OwningEnt)
 	{
 		Name = "Add Component: " + Type;
 		ComponentName = Type;
@@ -40,12 +40,12 @@ public:
 
 	virtual void Do() override
 	{
-		Comp = Ent.lock()->AddComponentByName(ComponentName);
+		Comp = Ent->AddComponentByName(ComponentName);
 	}
 
 	virtual void Undo() override
 	{
-		Ent.lock()->RemoveComponent(ComponentName);
+		Ent->RemoveComponent(ComponentName);
 		GetEngine().GetWorld().lock()->Simulate();
 	}
 
@@ -56,6 +56,6 @@ public:
 
 private:
 	std::string ComponentName;
-	WeakPtr<Entity> Ent;
+	EntityHandle Ent;
 	BaseComponent* Comp = nullptr;
 };

@@ -333,7 +333,7 @@ void AssetBrowser::SavePrefab(json& d, Transform* CurrentTransform, bool IsRoot)
 	newJson["Name"] = CurrentTransform->Name;
 
 	json& componentsJson = newJson["Components"];
-	Entity* ent = GetEngine().GetWorld().lock()->GetEntity(CurrentTransform->Parent).lock().get();
+	EntityHandle ent = CurrentTransform->Parent;
 
 	auto comps = ent->GetAllComponents();
 	for (auto comp : comps)

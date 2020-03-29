@@ -22,7 +22,6 @@ void ComponentStorage::AddComponent(Entity& InEntity, BaseComponent* InComponent
 	ComponentData.Components[InComponentTypeId].reset(InComponent);
 
 	ComponentData.ComponentTypeList[InComponentTypeId] = true;
-	InComponent->Parent = InEntity.GetId();
 	//InEntity.SetActive(true);
 	if (!InEntity.IsLoading)
 	{

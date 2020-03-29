@@ -40,11 +40,12 @@ void World::AddCoreByName(const std::string& core)
 	}
 }
 
-WeakPtr<Entity> World::CreateEntity()
+EntityHandle World::CreateEntity()
 {
 	CheckForResize(1);
-	EntityCache.Alive.emplace_back(std::make_shared<Entity>(*this, EntIdPool.Create()));
-	return EntityCache.Alive.back();
+	EntityID id = EntIdPool.Create();
+	EntityCache.Alive[id] = Entity(*this, id);
+	return EntityHandle(id, this);
 }
 
 void World::Simulate()
@@ -105,7 +106,7 @@ void World::Simulate()
 
 	for (auto& InEntity : EntityCache.Killed)
 	{
-		DestroyEntity(InEntity);
+		DestroyEntity(InEntity, true);
 	}
 
 	EntityCache.ClearTemp();
@@ -137,34 +138,12 @@ void World::Stop()
 
 void World::Destroy()
 {
-
-	for (auto& InEntity : EntityCache.Killed)
-	{
-		DestroyEntity(InEntity);
-	}
-
-	for (auto& InEntity : EntityCache.Deactivated)
-	{
-		DestroyEntity(InEntity);
-	}
-
-	for (auto& InEntity : EntityCache.Activated)
-	{
-		DestroyEntity(InEntity);
-	}
-
 	for (auto& InEntity : EntityCache.Alive)
 	{
-		if (InEntity)
-		{
-			DestroyEntity(*InEntity);
-		}
+		DestroyEntity(InEntity.second, false);
 	}
 
 	EntityCache.Alive.clear();
-	EntityCache.Deactivated.clear();
-	EntityCache.Killed.clear();
-
 	EntityCache.ClearTemp();
 }
 
@@ -198,7 +177,7 @@ void World::UpdateLoadedCores(float DeltaTime)
 	}
 }
 
-void World::DestroyEntity(Entity &InEntity)
+void World::DestroyEntity(Entity &InEntity, bool RemoveFromWorld)
 {
 	{
 		auto& Attr = EntityAttributes.Attributes[InEntity.GetId().Index];
@@ -224,40 +203,40 @@ void World::DestroyEntity(Entity &InEntity)
 
 	EntIdPool.Remove(InEntity.GetId());
 
-	for (auto i = EntityCache.Alive.begin(); i != EntityCache.Alive.end(); ++i)
+	if (RemoveFromWorld)
 	{
-		if (*(*i).get() == InEntity)
+		auto it = EntityCache.Alive.find(InEntity.GetId());
+		if (it != EntityCache.Alive.end())
 		{
-			EntityCache.Alive.erase(i);
-			break;
+			EntityCache.Alive.erase(it);
 		}
 	}
 }
 
-WeakPtr<Entity> World::CreateFromPrefab(std::string& FilePath, Transform* Parent)
+EntityHandle World::CreateFromPrefab(std::string& FilePath, Transform* Parent)
 {
 	File PrefabSource = File(Path(FilePath));
 	nlohmann::json Prefab = nlohmann::json::parse(PrefabSource.Read());
 	return LoadPrefab(Prefab, Parent, Parent);
 }
 
-WeakPtr<Entity> World::LoadPrefab(const nlohmann::json& obj, Transform* parent, Transform* root)
+EntityHandle World::LoadPrefab(const nlohmann::json& obj, Transform* parent, Transform* root)
 {
-	WeakPtr<Entity> ent;
+	EntityHandle ent;
 	World* GameWorld = this;
 	if (parent && parent != root)
 	{
 		auto t = parent->GetChildByName(obj["Name"]);
 		if (t)
 		{
-			ent = GameWorld->GetEntity(t->Parent);
+			ent = t->Parent;
 		}
 	}
-	if (!ent.lock())
+	if (!ent)
 	{
 		ent = GameWorld->CreateEntity();
 	}
-	ent.lock()->IsLoading = true;
+	ent->IsLoading = true;
 	Transform* transComp = nullptr;
 	for (const json& comp : obj["Components"])
 	{
@@ -265,7 +244,7 @@ WeakPtr<Entity> World::LoadPrefab(const nlohmann::json& obj, Transform* parent, 
 		{
 			continue;
 		}
-		BaseComponent* addedComp = ent.lock()->AddComponentByName(comp["Type"]);
+		BaseComponent* addedComp = ent->AddComponentByName(comp["Type"]);
 		if (comp["Type"] == "Transform")
 		{
 			transComp = static_cast<Transform*>(addedComp);
@@ -281,8 +260,8 @@ WeakPtr<Entity> World::LoadPrefab(const nlohmann::json& obj, Transform* parent, 
 			addedComp->Init();
 		}
 	}
-	ent.lock()->SetActive(true);
-	ent.lock()->IsLoading = false;
+	ent->SetActive(true);
+	ent->IsLoading = false;
 
 	if (obj.contains("Children"))
 	{
@@ -353,16 +332,32 @@ std::size_t World::GetEntityCount() const
 	return EntityCache.Alive.size();
 }
 
-WeakPtr<Entity> World::GetEntity(EntityID id)
+EntityHandle World::GetEntity(const EntityID& InEntity)
 {
-	for (auto& var : EntityCache.Alive)
+	auto it = EntityCache.Alive.find(InEntity);
+	if (it != EntityCache.Alive.end())
 	{
-		if (var->Id == id)
-		{
-			return var;
-		}
+		return EntityHandle(InEntity, this);
 	}
+
 	return {};
+}
+
+Entity* World::GetEntityRaw(const EntityID& InEntity)
+{
+	auto it = EntityCache.Alive.find(InEntity);
+	if (it != EntityCache.Alive.end())
+	{
+		return &EntityCache.Alive[InEntity];
+	}
+
+	return nullptr;
+}
+
+const bool World::EntityExists(const EntityID& InEntity) const
+{
+	auto it = EntityCache.Alive.find(InEntity);
+	return (it != EntityCache.Alive.end());
 }
 
 void World::ActivateEntity(Entity& InEntity, const bool InActive)

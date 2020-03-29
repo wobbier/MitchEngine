@@ -5,6 +5,7 @@
 #include "Dementia.h"
 
 #include <nlohmann/json.hpp>
+#include "EntityHandle.h"
 
 #define ME_REGISTER_COMPONENT(TYPE)                      \
 	namespace details {                                  \
@@ -47,7 +48,7 @@ public:
 		return TypeName;
 	}
 
-	EntityID Parent;
+	EntityHandle Parent;
 
 	virtual void Serialize(json& outJson) = 0;
 	virtual void Deserialize(const json& inJson) = 0;

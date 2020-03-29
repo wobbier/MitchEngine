@@ -58,7 +58,6 @@ private:
 	Havana* m_editor = nullptr;
 	TranslationGizmo* gizmo;
 	class AudioSource* testAudio;
-	WeakPtr<Entity> TransformEntity;
 #if ME_EDITOR
 	virtual void OnEditorInspect() final;
 #endif

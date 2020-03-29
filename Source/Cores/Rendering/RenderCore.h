@@ -6,6 +6,8 @@
 #include "Renderer.h"
 #include "Graphics/ModelResource.h"
 
+class Mesh;
+
 class RenderCore final
 	: public Core<RenderCore>
 	, public Moonlight::IDeviceNotify
@@ -30,7 +32,7 @@ public:
 	virtual void OnDeviceRestored() override;
 
 	virtual void OnStop() override;
-
+	void UpdateMesh(Mesh* InMesh);
 private:
 	
 	Moonlight::Renderer* m_renderer;

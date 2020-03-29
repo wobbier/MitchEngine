@@ -20,7 +20,7 @@ public:
 	Mesh(Moonlight::MeshData* mesh);
 
 	// Separate init from construction code.
-	virtual void Init() final;;
+	virtual void Init() final;
 
 	unsigned int GetId();
 

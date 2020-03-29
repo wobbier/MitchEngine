@@ -247,7 +247,7 @@ void Havana::DrawOpenFilePopup()
 	}
 }
 
-void RecusiveDelete(WeakPtr<Entity> ent, Transform* trans)
+void RecusiveDelete(EntityHandle ent, Transform* trans)
 {
 	if (!trans)
 	{
@@ -255,9 +255,9 @@ void RecusiveDelete(WeakPtr<Entity> ent, Transform* trans)
 	}
 	for (auto child : trans->GetChildren())
 	{
-		RecusiveDelete(GetEngine().GetWorld().lock()->GetEntity(child->Parent), child);
+		RecusiveDelete(child->Parent, child);
 	}
-	ent.lock()->MarkForDelete();
+	ent->MarkForDelete();
 };
 
 void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<void()> PauseGameFunc, std::function<void()> StopGameFunc)
@@ -357,6 +357,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 		{
 			if (ImGui::MenuItem("Entity"))
 			{
+				// The fuck is this garbage
 				CreateEntity* cmd = new CreateEntity();
 				EditorCommands.Push(cmd);
 
@@ -439,14 +440,12 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 				{
 					if (SelectedEntity)
 					{
-						WeakPtr<Entity> ent = m_engine->GetWorld().lock()->GetEntity(SelectedEntity->GetId());
-						AddComponentCommand* compCmd = new AddComponentCommand(thing.first, ent);
+						AddComponentCommand* compCmd = new AddComponentCommand(thing.first, SelectedEntity);
 						EditorCommands.Push(compCmd);
 					}
 					if (SelectedTransform)
 					{
-						WeakPtr<Entity> ent = m_engine->GetWorld().lock()->GetEntity(SelectedTransform->Parent);
-						AddComponentCommand* compCmd = new AddComponentCommand(thing.first, ent);
+						AddComponentCommand* compCmd = new AddComponentCommand(thing.first, SelectedTransform->Parent);
 						EditorCommands.Push(compCmd);
 					}
 				}
@@ -558,7 +557,7 @@ void Havana::AddComponentPopup()
 	}
 }
 
-void Havana::DrawAddComponentList(Entity* entity)
+void Havana::DrawAddComponentList(const EntityHandle& entity)
 {
 	ImGui::Text("Components");
 	ImGui::Separator();
@@ -571,8 +570,7 @@ void Havana::DrawAddComponentList(Entity* entity)
 		{
 			if (entity)
 			{
-				WeakPtr<Entity> ent = m_engine->GetWorld().lock()->GetEntity(entity->GetId());
-				AddComponentCommand* compCmd = new AddComponentCommand(thing.first, ent);
+				AddComponentCommand* compCmd = new AddComponentCommand(thing.first, entity);
 				EditorCommands.Push(compCmd);
 			}
 			/*if (SelectedTransform)
@@ -602,7 +600,7 @@ void Havana::DrawAddCoreList()
 void Havana::ClearSelection()
 {
 	SelectedTransform = nullptr;
-	SelectedEntity = nullptr;
+	SelectedEntity = EntityHandle();
 	SelectedCore = nullptr;
 }
 
@@ -638,11 +636,11 @@ void Havana::UpdateWorld(World* world, Transform* root, const std::vector<Entity
 		{
 			if (ImGui::IsItemClicked())
 			{
-				SelectedEntity = m_engine->GetWorld().lock()->CreateEntity().lock().get();
+				SelectedEntity = m_engine->GetWorld().lock()->CreateEntity();
 			}
 			if (ImGui::MenuItem("Entity Transform"))
 			{
-				SelectedEntity = m_engine->GetWorld().lock()->CreateEntity().lock().get();
+				SelectedEntity = m_engine->GetWorld().lock()->CreateEntity();
 				SelectedEntity->AddComponent<Transform>("New Entity");
 			}
 			ImGui::EndMenu();
@@ -661,8 +659,7 @@ void Havana::UpdateWorld(World* world, Transform* root, const std::vector<Entity
 		{
 			if (SelectedTransform && GetInput().GetKeyboardState().Delete)
 			{
-				auto ent = GetEngine().GetWorld().lock()->GetEntity(SelectedTransform->Parent);
-				RecusiveDelete(ent, SelectedTransform);
+				RecusiveDelete(SelectedTransform->Parent, SelectedTransform);
 				ClearSelection();
 			}
 		}
@@ -677,7 +674,7 @@ void Havana::UpdateWorld(World* world, Transform* root, const std::vector<Entity
 			{
 				for (BaseComponent* comp : ent.GetAllComponents())
 				{
-					ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | (SelectedEntity == &ent ? ImGuiTreeNodeFlags_Selected : 0);
+					ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | (SelectedEntity.Get() == &ent ? ImGuiTreeNodeFlags_Selected : 0);
 					{
 						node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen; // ImGuiTreeNodeFlags_Bullet
 						ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, comp->GetName().c_str());
@@ -685,7 +682,7 @@ void Havana::UpdateWorld(World* world, Transform* root, const std::vector<Entity
 						{
 							SelectedCore = nullptr;
 							SelectedTransform = nullptr;
-							SelectedEntity = &const_cast<Entity&>(ent);
+							SelectedEntity = EntityHandle(ent.GetId(), world);
 						}
 					}
 				}
@@ -706,7 +703,7 @@ void Havana::UpdateWorld(World* world, Transform* root, const std::vector<Entity
 				{
 					SelectedCore = comp;
 					SelectedTransform = nullptr;
-					SelectedEntity = nullptr;
+					SelectedEntity = EntityHandle();
 				}
 			}
 		}
@@ -715,10 +712,10 @@ void Havana::UpdateWorld(World* world, Transform* root, const std::vector<Entity
 
 	ImGui::Begin("Properties");
 
-	Entity* entity = SelectedEntity;
+	EntityHandle entity = SelectedEntity;
 	if (SelectedTransform != nullptr)
 	{
-		entity = world->GetEntity(SelectedTransform->Parent).lock().get();
+		entity = SelectedTransform->Parent;
 	}
 
 	if (entity)
@@ -799,7 +796,7 @@ void Havana::UpdateWorldRecursive(Transform* root)
 			{
 				SelectedTransform = var;
 				SelectedCore = nullptr;
-				SelectedEntity = m_engine->GetWorld().lock()->GetEntity(SelectedTransform->Parent).lock().get();
+				SelectedEntity = SelectedTransform->Parent;
 			}
 
 			DrawEntityRightClickMenu(var);
@@ -837,7 +834,7 @@ void Havana::UpdateWorldRecursive(Transform* root)
 			{
 				SelectedTransform = var;
 				SelectedCore = nullptr;
-				SelectedEntity = m_engine->GetWorld().lock()->GetEntity(SelectedTransform->Parent).lock().get();
+				SelectedEntity = SelectedTransform->Parent;
 			}
 
 			DrawEntityRightClickMenu(var);
@@ -884,12 +881,12 @@ void Havana::HandleAssetDragAndDrop(Transform* root)
 		if (payload_n.Type == AssetBrowser::AssetType::Model)
 		{
 			auto ent = GetEngine().GetWorld().lock()->CreateEntity();
-			ent.lock()->AddComponent<Transform>(payload_n.Name.substr(0, payload_n.Name.find_last_of('.'))).SetParent(*root);
-			ent.lock()->AddComponent<Model>((payload_n.FullPath.FullPath));
+			ent->AddComponent<Transform>(payload_n.Name.substr(0, payload_n.Name.find_last_of('.'))).SetParent(*root);
+			ent->AddComponent<Model>((payload_n.FullPath.FullPath));
 		}
 		if (payload_n.Type == AssetBrowser::AssetType::Prefab)
 		{
-			WeakPtr<Entity> ent = GetEngine().GetWorld().lock()->CreateFromPrefab(payload_n.FullPath.FullPath, root);
+			EntityHandle ent = GetEngine().GetWorld().lock()->CreateFromPrefab(payload_n.FullPath.FullPath, root);
 		}
 	}
 }
@@ -905,20 +902,20 @@ void Havana::DrawEntityRightClickMenu(Transform* transform)
 	{
 		if (ImGui::MenuItem("Add Child"))
 		{
-			WeakPtr<Entity> ent = GetEngine().GetWorld().lock()->CreateEntity();
-			ent.lock()->AddComponent<Transform>().SetParent(*transform);
+			EntityHandle ent = GetEngine().GetWorld().lock()->CreateEntity();
+			ent->AddComponent<Transform>().SetParent(*transform);
 			GetEngine().GetWorld().lock()->Simulate();
 		}
 
 		if (ImGui::MenuItem("Delete", "Del"))
 		{
-			RecusiveDelete(GetEngine().GetWorld().lock()->GetEntity(transform->Parent), transform);
+			RecusiveDelete(transform->Parent, transform);
 			GetEngine().GetWorld().lock()->Simulate();
 			ClearSelection();
 		}
 		if (ImGui::BeginMenu("Add Component"))
 		{
-			DrawAddComponentList(GetEngine().GetWorld().lock()->GetEntity(transform->Parent).lock().get());
+			DrawAddComponentList(transform->Parent);
 			ImGui::EndMenu();
 		}
 		ImGui::EndPopup();

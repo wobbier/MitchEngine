@@ -2,6 +2,7 @@
 #include <d3d11.h>
 #include <SimpleMath.h>
 #include "LinearMath/btVector3.h"
+#include <string>
 
 class Vector3
 {
@@ -183,6 +184,11 @@ public:
 		return Vector3(vec);
 	}
 
+	static Vector3 Lerp(const Vector3& Start, const Vector3& End, float Percent)
+	{
+		return Vector3(DirectX::SimpleMath::Vector3::Lerp(Start.GetInternalVec(), End.GetInternalVec(), Percent));
+	}
+
 	static Vector3 DistanceSq(const Vector3& InVec1, const Vector3& InVec2)
 	{
 		return Vector3(DirectX::SimpleMath::Vector3::DistanceSquared(InVec2.GetInternalVec(), InVec2.GetInternalVec()));
@@ -192,6 +198,13 @@ public:
 	{
 		return m_vector;
 	}
+
+	std::string ToString()
+	{
+		return std::string("(" + std::to_string(m_vector.x) + ", " + std::to_string(m_vector.y) + ", " + std::to_string(m_vector.z) + ")");
+	}
+
+
 private:
 	DirectX::SimpleMath::Vector3 m_vector;
 };

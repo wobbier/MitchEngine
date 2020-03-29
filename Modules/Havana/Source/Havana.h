@@ -2,6 +2,7 @@
 #include "Renderer.h"
 #include <functional>
 #include "ECS/Entity.h"
+#include "ECS/EntityHandle.h"
 #include "Math/Vector2.h"
 #include "imgui.h"
 #include "Pointers.h"
@@ -52,7 +53,7 @@ public:
 	void EditTransform(const float* cameraView, float* cameraProjection, float* matrix);
 	void AddComponentPopup();
 
-	void DrawAddComponentList(class Entity* entity);
+	void DrawAddComponentList(const EntityHandle& entity);
 
 	void DrawAddCoreList();
 
@@ -60,7 +61,7 @@ public:
 
 	void DrawCommandPanel();
 
-	class Entity* SelectedEntity = nullptr;
+	EntityHandle SelectedEntity;
 	class Transform* SelectedTransform = nullptr;
 	class BaseCore* SelectedCore = nullptr;
 	Moonlight::Renderer* Renderer = nullptr;

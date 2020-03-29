@@ -33,7 +33,6 @@ public:
 
 	const bool IsGamePaused() const;
 
-	WeakPtr<Entity> MainCamera;
 	std::unique_ptr<Havana> Editor;
 	class EditorCore* EditorSceneManager = nullptr;
 

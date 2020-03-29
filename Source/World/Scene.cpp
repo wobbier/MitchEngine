@@ -16,20 +16,20 @@ void Scene::UnLoad()
 
 void Scene::LoadSceneObject(const json& obj, Transform* parent)
 {
-	WeakPtr<Entity> ent;
+	EntityHandle ent;
 	if (parent)
 	{
 		auto t = parent->GetChildByName(obj["Name"]);
 		if (t)
 		{
-			ent = GameWorld->GetEntity(t->Parent);
+			ent = t->Parent;
 		}
 	}
-	if (!ent.lock())
+	if (!ent)
 	{
 		ent = GameWorld->CreateEntity();
 	}
-	ent.lock()->IsLoading = true;
+	ent->IsLoading = true;
 	Transform* transComp = nullptr;
 	for (const json& comp : obj["Components"])
 	{
@@ -37,7 +37,7 @@ void Scene::LoadSceneObject(const json& obj, Transform* parent)
 		{
 			continue;
 		}
-		BaseComponent* addedComp = ent.lock()->AddComponentByName(comp["Type"]);
+		BaseComponent* addedComp = ent->AddComponentByName(comp["Type"]);
 		if (comp["Type"] == "Transform")
 		{
 			transComp = static_cast<Transform*>(addedComp);
@@ -53,8 +53,8 @@ void Scene::LoadSceneObject(const json& obj, Transform* parent)
 			addedComp->Init();
 		}
 	}
-	ent.lock()->SetActive(true);
-	ent.lock()->IsLoading = false;
+	ent->SetActive(true);
+	ent->IsLoading = false;
 
 	if (obj.contains("Children"))
 	{
@@ -118,7 +118,7 @@ void Scene::SaveSceneRecursively(json& d, Transform* CurrentTransform)
 	thing["Name"] = CurrentTransform->Name;
 
 	json& componentsJson = thing["Components"];
-	Entity* ent = GetEngine().GetWorld().lock()->GetEntity(CurrentTransform->Parent).lock().get();
+	EntityHandle ent = CurrentTransform->Parent;
 
 	auto comps = ent->GetAllComponents();
 	for (auto comp : comps)

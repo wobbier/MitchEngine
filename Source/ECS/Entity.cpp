@@ -27,6 +27,7 @@ const bool Entity::HasComponent(TypeId inComponentType) const
 
 void Entity::AddComponent(BaseComponent* inComponent, TypeId inComponentTypeId)
 {
+	inComponent->Parent = EntityHandle(GetId(), GameWorld);
 	GameWorld->EntityAttributes.Storage.AddComponent(*this, inComponent, inComponentTypeId);
 	if(!IsLoading)
 	SetActive(true);

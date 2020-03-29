@@ -29,6 +29,11 @@ struct EntityID
 	{
 		return Value();
 	}
+	
+	bool operator==(const EntityID& other) const
+	{
+		return (Value() == other.Value());
+	}
 
 	inline IntType Value() const
 	{

@@ -1,14 +1,14 @@
 #pragma once
-#include <memory>
-#include <unordered_map>
+
+#include "Dementia.h"
+
 #include "ECS/Entity.h"
+#include "ECS/EntityHandle.h"
 #include "ECS/Core.h"
 #include "ECS/ComponentStorage.h"
 #include "ECS/EntityIdPool.h"
-#include "Dementia.h"
 #include "Resource/ResourceCache.h"
 #include "Pointers.h"
-#include <vector>
 
 class Transform;
 
@@ -16,7 +16,7 @@ class World
 {
 private:
 	typedef std::vector<Entity> EntityArray;
-	typedef std::vector<SharedPtr<Entity>> MasterEntityArray;
+	typedef std::unordered_map<EntityID, Entity, EntityIDHash> MasterEntityArray;
 
 	struct CoreDeleter
 	{
@@ -35,9 +35,6 @@ public:
 	template <typename TCore>
 	void AddCore(TCore& inCore);
 
-	template <typename T>
-	T& GetCore();
-
 	template <typename T, typename... Args>
 	T& AddCore(Args&& ... args);
 
@@ -50,7 +47,7 @@ public:
 
 	std::vector<BaseCore*> GetAllCores();
 
-	WeakPtr<Entity> CreateEntity();
+	EntityHandle CreateEntity();
 
 	void Simulate();
 	void Start();
@@ -63,12 +60,14 @@ public:
 
 	void MarkEntityForDelete(Entity& EntityToDestroy);
 
-	void DestroyEntity(Entity& InEntity);
+	void DestroyEntity(Entity& InEntity, bool RemoveFromWorld = true);
 
-	WeakPtr<Entity> CreateFromPrefab(std::string& FilePath, Transform* Parent = nullptr);
+	EntityHandle CreateFromPrefab(std::string& FilePath, Transform* Parent = nullptr);
 
 	std::size_t GetEntityCount() const;
-	WeakPtr<Entity> GetEntity(EntityID id);
+	EntityHandle GetEntity(const EntityID& id);
+	Entity* GetEntityRaw(const EntityID& id);
+	const bool EntityExists(const EntityID& InEntity) const;
 	World();
 	World(std::size_t InEntityPoolSize);
 	~World();
@@ -140,7 +139,7 @@ private:
 
 	void ActivateEntity(Entity& InEntity, const bool InActive);
 
-	WeakPtr<Entity> LoadPrefab(const nlohmann::json& obj, Transform* parent, Transform* root);
+	EntityHandle LoadPrefab(const nlohmann::json& obj, Transform* parent, Transform* root);
 };
 
 template<typename TCore>
@@ -154,15 +153,9 @@ T& World::AddCore(Args&& ... args)
 {
 	if (HasCore(T::GetTypeId()))
 	{
-		return GetCore<T>();
+		return GetCore(T::GetTypeId());
 	}
 	return AddCore(new T{ std::forward<Args>(args)... }, T::GetTypeId());
-}
-
-template <typename T>
-T& World::GetCore()
-{
-	*Cores.find(T::GetTypeId())->second.get();
 }
 
 template <typename TCore>
