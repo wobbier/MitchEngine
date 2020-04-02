@@ -54,6 +54,12 @@ void Scene::LoadSceneObject(const json& obj, Transform* parent)
 		}
 	}
 	ent->SetActive(true);
+
+	if (obj.contains("DestroyOnLoad"))
+	{
+		ent->DestroyOnLoad = obj["DestroyOnLoad"];
+	}
+
 	ent->IsLoading = false;
 
 	if (obj.contains("Children"))
@@ -113,11 +119,12 @@ bool Scene::IsNewScene()
 void Scene::SaveSceneRecursively(json& d, Transform* CurrentTransform)
 {
 	OPTICK_EVENT("SceneGraph::UpdateRecursively");
-	json thing;
+	json outEntity;
 
-	thing["Name"] = CurrentTransform->Name;
+	outEntity["Name"] = CurrentTransform->Name;
+	outEntity["DestroyOnLoad"] = CurrentTransform->Parent->DestroyOnLoad;
 
-	json& componentsJson = thing["Components"];
+	json& componentsJson = outEntity["Components"];
 	EntityHandle ent = CurrentTransform->Parent;
 
 	auto comps = ent->GetAllComponents();
@@ -131,10 +138,10 @@ void Scene::SaveSceneRecursively(json& d, Transform* CurrentTransform)
 	{
 		for (Transform* Child : CurrentTransform->GetChildren())
 		{
-			SaveSceneRecursively(thing["Children"], Child);
+			SaveSceneRecursively(outEntity["Children"], Child);
 		}
 	}
-	d.push_back(thing);
+	d.push_back(outEntity);
 }
 
 void Scene::Save(std::string fileName, Transform* root)

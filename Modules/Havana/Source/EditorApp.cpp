@@ -137,6 +137,10 @@ void EditorApp::StopGame()
 {
 	if (m_isGameRunning)
 	{
+		if (GetEngine().GetWorld().lock())
+		{
+			GetEngine().GetWorld().lock()->Destroy();
+		}
 		NewSceneEvent evt;
 		evt.Fire();
 		GetEngine().LoadScene(InitialLevel);
@@ -169,6 +173,10 @@ bool EditorApp::OnEvent(const BaseEvent& evt)
 		const SceneLoadedEvent& test = static_cast<const SceneLoadedEvent&>(evt);
 
 		Editor->SetWindowTitle("Havana - " + test.LoadedScene->FilePath.LocalPath);
+		if (m_isGameRunning)
+		{
+			GetEngine().GetWorld().lock()->Start();
+		}
 	}
 
 	return false;

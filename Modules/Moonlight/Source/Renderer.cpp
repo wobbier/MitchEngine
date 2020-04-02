@@ -1247,27 +1247,32 @@ namespace Moonlight
 
 	unsigned int Renderer::PushCamera(Moonlight::CameraData& command)
 	{
+		unsigned int index = 0;
 		if (!FreeCameraCommandIndicies.empty())
 		{
-			unsigned int openIndex = FreeCameraCommandIndicies.front();
+			index = FreeCameraCommandIndicies.front();
 			FreeCameraCommandIndicies.pop();
-			Cameras[openIndex] = std::move(command);
-			return openIndex;
-		}
-
-		Cameras.push_back(std::move(command));
-
-		delete Cameras.back().Buffer;
-		if (Cameras.back().IsMain)
-		{
-			GameViewRTT = Cameras.back().Buffer = m_device->CreateFrameBuffer(m_device->GetOutputSize().X(), m_device->GetOutputSize().Y(), 1, DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_D24_UNORM_S8_UINT);
+			Cameras[index] = std::move(command);
 		}
 		else
 		{
-			Cameras.back().Buffer = m_device->CreateFrameBuffer(m_device->GetOutputSize().X(), m_device->GetOutputSize().Y(), 1, DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_D24_UNORM_S8_UINT);
+			Cameras.push_back(std::move(command));
+			index = static_cast<unsigned int>(Cameras.size() - 1);
 		}
 
-		return static_cast<unsigned int>(Cameras.size() - 1);
+		CameraData& data = Cameras[index];
+
+		delete data.Buffer;
+		if (data.IsMain)
+		{
+			GameViewRTT = data.Buffer = m_device->CreateFrameBuffer(m_device->GetOutputSize().X(), m_device->GetOutputSize().Y(), 1, DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_D24_UNORM_S8_UINT);
+		}
+		else
+		{
+			data.Buffer = m_device->CreateFrameBuffer(m_device->GetOutputSize().X(), m_device->GetOutputSize().Y(), 1, DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_D24_UNORM_S8_UINT);
+		}
+
+		return index;
 	}
 
 	void Renderer::PopCamera(unsigned int Id)

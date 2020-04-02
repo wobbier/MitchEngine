@@ -720,6 +720,7 @@ void Havana::UpdateWorld(World* world, Transform* root, const std::vector<Entity
 
 	if (entity)
 	{
+		entity->OnEditorInspect();
 		for (BaseComponent* comp : entity->GetAllComponents())
 		{
 			bool shouldClose = true;

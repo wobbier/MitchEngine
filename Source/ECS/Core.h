@@ -82,8 +82,7 @@ private:
 	std::string Name;
 
 	bool IsRunning = false;
-
-	friend class World;
+	bool DestroyOnLoad = true;
 };
 
 // Use the CRTP patten to define custom systems

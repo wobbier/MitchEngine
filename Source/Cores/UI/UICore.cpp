@@ -136,7 +136,23 @@ void UICore::Update(float dt)
 	evt.x = GetEngine().GetInput().GetMousePosition().X();
 	evt.y = GetEngine().GetInput().GetMousePosition().Y();
 #endif
-	evt.button = ultralight::MouseEvent::Button::kButton_None;
+	static bool hasPressed = false;
+	if (GetEngine().GetInput().GetMouseState().leftButton && !hasPressed)
+	{
+		evt.button = ultralight::MouseEvent::Button::kButton_Left;
+		evt.type = ultralight::MouseEvent::kType_MouseDown;
+		hasPressed = true;
+	}
+	else if (!GetEngine().GetInput().GetMouseState().leftButton && hasPressed)
+	{
+		evt.button = ultralight::MouseEvent::Button::kButton_Left;
+		evt.type = ultralight::MouseEvent::kType_MouseUp;
+		hasPressed = false;
+	}
+	else
+	{
+		evt.button = ultralight::MouseEvent::Button::kButton_None;
+	}
 	//ultralight::View::FireMouseEvent(evt);
 		for (auto& view : m_overlays)
 		{

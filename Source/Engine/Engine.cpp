@@ -285,7 +285,7 @@ void Engine::LoadScene(const std::string& SceneFile)
 		CurrentScene = nullptr;
 	}
 
-	GameWorld->Cleanup();
+	GameWorld->Unload();
 	CurrentScene = new Scene(SceneFile);
 
 	if (!CurrentScene->Load(GameWorld))
@@ -295,4 +295,7 @@ void Engine::LoadScene(const std::string& SceneFile)
 	SceneLoadedEvent evt;
 	evt.LoadedScene = CurrentScene;
 	evt.Fire();
+#if !ME_EDITOR
+	GameWorld->Start();
+#endif
 }

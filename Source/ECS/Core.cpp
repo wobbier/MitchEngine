@@ -57,6 +57,7 @@ const bool BaseCore::CanSerialize() const
 void BaseCore::OnEditorInspect()
 {
 	ImGui::Text("Entity Count: %i", Entities.size());
+	ImGui::Checkbox("Destroy On Load", &DestroyOnLoad);
 }
 
 #endif

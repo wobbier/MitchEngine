@@ -50,8 +50,12 @@ public:
 	void SetActive(const bool InActive);
 	void MarkForDelete();
 	bool IsLoading = false;
+	bool DestroyOnLoad = true;
 
-protected:
+#if ME_EDITOR
+	void OnEditorInspect();
+#endif
+
 private:
 	World* GameWorld = nullptr;
 	EntityID Id;

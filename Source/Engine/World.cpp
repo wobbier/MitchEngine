@@ -138,24 +138,14 @@ void World::Stop()
 
 void World::Destroy()
 {
-	for (auto& InEntity : EntityCache.Alive)
+	for (auto& it : EntityCache.Alive)
 	{
-		DestroyEntity(InEntity.second, false);
+		DestroyEntity(it.second, false);
 	}
-
 	EntityCache.Alive.clear();
-	EntityCache.ClearTemp();
-}
 
-void World::Cleanup()
-{
-	Destroy();
-	EntIdPool.Reset();
-	EntityAttributes.Storage.Reset();
 	for (auto& core : Cores)
 	{
-		//auto& Attr = EntityAttributes.Attributes[InEntity.GetId().Index];
-		
 		core.second->Clear();
 	}
 	for (auto& core : m_loadedCores)
@@ -164,6 +154,34 @@ void World::Cleanup()
 		Cores.erase(core.first);
 	}
 	m_loadedCores.clear();
+	EntityCache.ClearTemp();
+}
+
+void World::Unload()
+{
+	for (auto& iter = EntityCache.Alive.begin(); iter != EntityCache.Alive.end(); )
+	{
+		if (iter->second.DestroyOnLoad)
+		{
+			DestroyEntity(iter->second, false);
+			iter = EntityCache.Alive.erase(iter);
+		}
+		else
+		{
+			++iter;
+		}
+	}
+
+	for (auto& core : m_loadedCores)
+	{
+		if (core.second->DestroyOnLoad)
+		{
+			core.second->OnStop();
+			Cores.erase(core.first);
+		}
+	}
+
+	EntityCache.ClearTemp();
 }
 
 void World::UpdateLoadedCores(float DeltaTime)

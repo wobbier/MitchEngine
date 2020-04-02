@@ -54,13 +54,12 @@ public:
 	void Stop();
 
 	void Destroy();
-	void Cleanup();
+
+	void Unload();
 
 	void UpdateLoadedCores(float DeltaTime);
 
 	void MarkEntityForDelete(Entity& EntityToDestroy);
-
-	void DestroyEntity(Entity& InEntity, bool RemoveFromWorld = true);
 
 	EntityHandle CreateFromPrefab(std::string& FilePath, Transform* Parent = nullptr);
 
@@ -130,6 +129,8 @@ private:
 	}
 
 	EntityCache;
+
+	void DestroyEntity(Entity& InEntity, bool RemoveFromWorld = true);
 
 	void AddCore(BaseCore& InCore, TypeId InCoreTypeId, bool HandleUpdate = false);
 

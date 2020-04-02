@@ -4,6 +4,10 @@
 #include "ComponentDetail.h"
 #include "Logger.h"
 
+#if ME_EDITOR
+#include "imgui.h"
+#endif
+
 Entity::Entity()
 {
 }
@@ -66,6 +70,15 @@ void Entity::MarkForDelete()
 	GameWorld->MarkEntityForDelete(*this);
 	GameWorld = nullptr;
 }
+
+#if ME_EDITOR
+
+void Entity::OnEditorInspect()
+{
+	ImGui::Checkbox("Destroy On Load", &DestroyOnLoad);
+}
+
+#endif
 
 bool Entity::operator==(const Entity& entity) const
 {
