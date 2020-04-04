@@ -205,6 +205,7 @@ void Havana::NewFrame(std::function<void()> StartGameFunc, std::function<void()>
 	m_assetBrowser.Draw();
 
 	DrawCommandPanel();
+	DrawResourceMonitor();
 }
 
 void Havana::DrawOpenFilePopup()
@@ -491,7 +492,6 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 			m_engine->GetWindow()->Exit();
 		}
 		ImGui::PopStyleColor(3);
-		bool hoveringButtons = ImGui::IsMouseHoveringWindow();
 		ImGui::EndGroup();
 
 		ImGui::EndMainMenuBar();
@@ -505,35 +505,38 @@ void Havana::DrawLog()
 	window_flags |= ImGuiWindowFlags_MenuBar;
 	bool showLog = true;
 	ImGui::Begin("Log", &showLog, window_flags);
-	// Menu
-	if (ImGui::BeginMenuBar())
+	if (ImGui::IsWindowFocused())
 	{
-		if (ImGui::BeginMenu("Show"))
+		// Menu
+		if (ImGui::BeginMenuBar())
 		{
-			ImGui::Checkbox("Debug", &DebugFilters[Logger::LogType::Debug]);
-			ImGui::Checkbox("Error", &DebugFilters[Logger::LogType::Error]);
-			ImGui::Checkbox("Info", &DebugFilters[Logger::LogType::Info]);
-			ImGui::EndMenu();
+			if (ImGui::BeginMenu("Show"))
+			{
+				ImGui::Checkbox("Debug", &DebugFilters[Logger::LogType::Debug]);
+				ImGui::Checkbox("Error", &DebugFilters[Logger::LogType::Error]);
+				ImGui::Checkbox("Info", &DebugFilters[Logger::LogType::Info]);
+				ImGui::EndMenu();
+			}
+
+			if (ImGui::Button("Clear Log"))
+			{
+				Logger::Messages.clear();
+			}
+
+			ImGui::EndMenuBar();
 		}
 
-		if (ImGui::Button("Clear Log"))
+		bool showMessage = true;
+		for (auto& msg : Logger::Messages)
 		{
-			Logger::Messages.clear();
-		}
-
-		ImGui::EndMenuBar();
-	}
-
-	bool showMessage = true;
-	for (auto& msg : Logger::Messages)
-	{
-		if (DebugFilters.find(msg.Type) == DebugFilters.end())
-		{
-			DebugFilters[msg.Type] = true;
-		}
-		if (DebugFilters[msg.Type])
-		{
-			ImGui::Text(msg.Message.c_str());
+			if (DebugFilters.find(msg.Type) == DebugFilters.end())
+			{
+				DebugFilters[msg.Type] = true;
+			}
+			if (DebugFilters[msg.Type])
+			{
+				ImGui::Text(msg.Message.c_str());
+			}
 		}
 	}
 
@@ -623,6 +626,22 @@ void Havana::DrawCommandPanel()
 	}
 
 	EditorCommands.Draw();
+}
+
+void Havana::DrawResourceMonitor()
+{
+	ImGui::Begin("Resource Monitor", 0);
+	if (ImGui::IsWindowFocused())
+	{
+		auto& resources = ResourceCache::GetInstance().GetResouceStack();
+		for (auto resource : resources)
+		{
+			ImGui::Text(resource.second->GetPath().LocalPath.c_str());
+			ImGui::Text(std::string("Use Count: " + std::to_string(resource.second.use_count())).c_str());
+		}
+
+	}
+	ImGui::End();
 }
 
 void Havana::UpdateWorld(World* world, Transform* root, const std::vector<Entity>& ents)

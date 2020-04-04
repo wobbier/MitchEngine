@@ -24,6 +24,9 @@ public:
 
 	void TryToDestroy(Resource* resource);
 
+	const std::map<std::string, std::shared_ptr<Resource>>& GetResouceStack() const;
+
+	void Dump();
 private:
 
 	std::map<std::string, std::shared_ptr<Resource>> ResourceStack;
@@ -33,7 +36,6 @@ private:
 template<class T, typename... Args>
 std::shared_ptr<T> ResourceCache::Get(const Path& InFilePath, Args&& ... args)
 {
-	TypeId id = ClassTypeId<Resource>::GetTypeId<T>();
 	auto I = ResourceStack.find(InFilePath.FullPath);
 	if (I != ResourceStack.end())
 	{
@@ -48,6 +50,8 @@ std::shared_ptr<T> ResourceCache::Get(const Path& InFilePath, Args&& ... args)
 
 	std::shared_ptr<T> Res = std::make_shared<T>(InFilePath, std::forward<Args>(args)...);
 	Res->Resources = this;
+	TypeId id = ClassTypeId<Resource>::GetTypeId<T>();
+	Res->ResourceType = static_cast<std::size_t>(id);
 	ResourceStack[InFilePath.FullPath] = Res;
 	return Res;
 }

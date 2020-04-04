@@ -61,6 +61,8 @@ public:
 
 	void DrawCommandPanel();
 
+	void DrawResourceMonitor();
+
 	EntityHandle SelectedEntity;
 	class Transform* SelectedTransform = nullptr;
 	class BaseCore* SelectedCore = nullptr;

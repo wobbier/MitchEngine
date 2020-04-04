@@ -5,6 +5,7 @@
 #include "Math/Matirx4.h"
 #include "Math/Vector3.h"
 #include <string>
+#include "Pointers.h"
 
 namespace Moonlight
 {
@@ -14,7 +15,7 @@ namespace Moonlight
 		ShaderCommand() = default;
 
 		// Constructor generates the shader on the fly
-		ShaderCommand(const std::string& InVertexPath, const std::string& InPixelPath);
+		//ShaderCommand(const std::string& InVertexPath, const std::string& InPixelPath);
 		ShaderCommand(const std::string& InShaderFile);
 
 		~ShaderCommand();

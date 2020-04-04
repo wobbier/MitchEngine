@@ -37,6 +37,7 @@ public:
 	virtual void Update(float dt) {};
 	virtual void OnEntityAdded(Entity& NewEntity) {};
 	virtual void OnEntityRemoved(Entity& InEntity) {};
+	virtual void OnEntityDestroyed(Entity& InEntity) {};
 
 	// Get The World attached to the Core
 	World& GetWorld() const;
@@ -108,6 +109,10 @@ public:
 	}
 
 	virtual void OnEntityRemoved(Entity& InEntity) override
+	{
+	}
+
+	virtual void OnEntityDestroyed(Entity& InEntity) override
 	{
 	}
 

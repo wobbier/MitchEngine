@@ -324,6 +324,7 @@ void Transform::RemoveChild(Transform* TargetTransform)
 	if (Children.size() > 0)
 	{
 		Children.erase(std::remove(Children.begin(), Children.end(), TargetTransform), Children.end());
+		TargetTransform->ParentTransform = nullptr;
 	}
 }
 

@@ -26,6 +26,7 @@
 #include "Utils/StringUtils.h"
 #include <fileapi.h>
 #endif
+#include "Resource/ResourceCache.h"
 
 Engine& GetEngine()
 {
@@ -220,6 +221,8 @@ void Engine::Run()
 			AccumulatedTime = std::fmod(AccumulatedTime, MaxDeltaTime);
 		}
 
+		ResourceCache::GetInstance().Dump();
+
 		Sleep(1);
 	}
 	EngineConfig->Save();
@@ -276,7 +279,6 @@ Input& Engine::GetInput()
 
 void Engine::LoadScene(const std::string& SceneFile)
 {
-	SceneNodes->Init();
 	Cameras->Init();
 	if (CurrentScene)
 	{

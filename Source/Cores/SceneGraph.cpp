@@ -3,12 +3,17 @@
 #include "Components/Transform.h"
 #include "Engine/World.h"
 #include <stack>
+#include "Events/SceneEvents.h"
 
 SceneGraph::SceneGraph()
 	: Base(ComponentFilter().Requires<Transform>())
 {
 	IsSerializable = false;
 	RootTransform = new Transform("Root Entity");
+
+	std::vector<TypeId> eventIds;
+	eventIds.push_back(SceneLoadedEvent::GetEventId());
+	EventManager::GetInstance().RegisterReceiver(this, eventIds);
 }
 
 SceneGraph::~SceneGraph()
@@ -18,7 +23,7 @@ SceneGraph::~SceneGraph()
 
 void SceneGraph::Init()
 {
-	RootTransform->Children.clear();
+	//RootTransform->Children.clear();
 }
 
 void SceneGraph::Update(float dt)
@@ -62,9 +67,33 @@ void SceneGraph::OnEntityAdded(Entity& NewEntity)
 
 void SceneGraph::OnEntityRemoved(Entity& InEntity)
 {
+	
+}
 
+void SceneGraph::OnEntityDestroyed(Entity& InEntity)
+{
+	Transform& transform = InEntity.GetComponent<Transform>();
+	if (transform.ParentTransform)
+	{
+		transform.ParentTransform->RemoveChild(&transform);
+	}
+}
 
-
+bool SceneGraph::OnEvent(const BaseEvent& evt)
+{
+	//if (evt.GetEventId() == SceneLoadedEvent::GetEventId())
+	//{
+	//	auto Entities = GetEntities();
+	//	for (auto& ent : Entities)
+	//	{
+	//		Transform& transform = ent.GetComponent<Transform>();
+	//		if (!transform.ParentTransform)
+	//		{
+	//			transform.SetParent(*RootTransform);
+	//		}
+	//	}
+	//}
+	return false;
 }
 
 #if ME_EDITOR

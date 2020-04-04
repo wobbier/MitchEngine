@@ -1,10 +1,12 @@
 #pragma once
 #include "ECS/Core.h"
+#include "Events/EventReceiver.h"
 
 class Transform;
 
 class SceneGraph
 	: public Core<SceneGraph>
+	, public EventReceiver
 {
 public:
 	SceneGraph();
@@ -25,5 +27,10 @@ public:
 #if ME_EDITOR
 	virtual void OnEditorInspect() final;
 #endif
+
+	void OnEntityDestroyed(Entity& InEntity) override;
+
+private:
+	bool OnEvent(const BaseEvent& evt) override;
 
 };

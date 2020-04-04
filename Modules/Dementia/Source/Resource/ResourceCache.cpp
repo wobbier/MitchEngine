@@ -29,7 +29,30 @@ void ResourceCache::TryToDestroy(Resource* resource)
 	I = ResourceStack.find(resource->FilePath.FullPath);
 	if (I != ResourceStack.end())
 	{
-		ResourceStack.erase(I);
+		if (I->second.use_count() == 1)
+		{
+			ResourceStack.erase(I);
+		}
 		return;
+	}
+}
+
+const std::map<std::string, std::shared_ptr<Resource>>& ResourceCache::GetResouceStack() const
+{
+	return ResourceStack;
+}
+
+void ResourceCache::Dump()
+{
+	for (auto& iter = ResourceStack.begin(); iter != ResourceStack.end(); )
+	{
+		if (iter->second.use_count() == 1)
+		{
+			iter = ResourceStack.erase(iter);
+		}
+		else
+		{
+			++iter;
+		}
 	}
 }

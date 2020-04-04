@@ -28,6 +28,7 @@ Model::~Model()
 
 void Model::Init()
 {
+	OPTICK_EVENT("Model::Init");
 	if (!ModelPath.FullPath.empty())
 	{
 		ModelHandle = ResourceCache::GetInstance().Get<ModelResource>(ModelPath);

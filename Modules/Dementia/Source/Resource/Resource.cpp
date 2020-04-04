@@ -33,3 +33,8 @@ const Path& Resource::GetPath() const
 {
 	return FilePath;
 }
+
+const std::size_t Resource::GetResourceType() const
+{
+	return ResourceType;
+}

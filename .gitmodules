@@ -34,3 +34,7 @@
 	path = ThirdParty/UltralightSDK
 	url = https://github.com/wobbier/UltralightSDK
 	ignore = dirty
+[submodule "ThirdParty/ImGuiTables"]
+	path = ThirdParty/ImGuiTables
+	url = https://github.com/wobbier/imgui
+	ignore = dirty

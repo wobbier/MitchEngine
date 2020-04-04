@@ -19,6 +19,9 @@
 #include "Path.h"
 #include "FrameBuffer.h"
 #include "Graphics/ShaderStructures.h"
+#include <map>
+#include <string>
+#include "Pointers.h"
 
 namespace Moonlight
 {
@@ -59,6 +62,8 @@ namespace Moonlight
 
 		Microsoft::WRL::ComPtr<ID3D11SamplerState> CreateSamplerState(D3D11_FILTER filter, D3D11_TEXTURE_ADDRESS_MODE addressMode) const;
 
+		ShaderProgram FindShader(const std::string& InPath);
+
 		// D2D Accessors.
 		IDWriteFactory3*			GetDWriteFactory() const { return m_dwriteFactory.Get(); }
 		IWICImagingFactory2*		GetWicImagingFactory() const { return m_wicFactory.Get(); }
@@ -75,13 +80,14 @@ namespace Moonlight
 		ID3D11BlendState* TransparentBlendState = nullptr;
 		Microsoft::WRL::ComPtr<ID3D11Buffer>		d2dVertBuffer;
 		Microsoft::WRL::ComPtr<ID3D11Buffer>		d2dIndexBuffer;
-
+		
 		ID3D11DepthStencilState* DepthStencilState;
 	private:
 		virtual void CreateFactories() final;
 		virtual void CreateDeviceResources() final;
 		void UpdateRenderTargetSize();
 
+		std::map<std::string, ShaderProgram> m_shaderCache;
 
 		// Direct3D objects.
 		Microsoft::WRL::ComPtr<ID3D11Device3>			m_d3dDevice;

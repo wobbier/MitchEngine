@@ -10,6 +10,10 @@
 #include "Utils/StringUtils.h"
 #include "Graphics/ShaderStructures.h"
 #include "FrameBuffer.h"
+#include "Pointers.h"
+#include "Graphics/ShaderFile.h"
+#include "Resource/ResourceCache.h"
+#include "optick.h"
 
 using namespace D2D1;
 using namespace DirectX;
@@ -194,6 +198,7 @@ namespace Moonlight
 
 	Microsoft::WRL::ComPtr<ID3DBlob> DX11Device::CompileShader(const Path& FileName, const std::string& EntryPoint, const std::string& Profile)
 	{
+		OPTICK_EVENT("CompileShader");
 		UINT Flags = D3DCOMPILE_ENABLE_STRICTNESS;
 #if _DEBUG
 		Flags |= D3DCOMPILE_DEBUG;
@@ -202,7 +207,10 @@ namespace Moonlight
 		Microsoft::WRL::ComPtr<ID3DBlob> Shader;
 		Microsoft::WRL::ComPtr<ID3DBlob> ErrorBlob;
 
-		HRESULT success = D3DCompileFromFile(StringUtils::ToWString(FileName.FullPath).c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, EntryPoint.c_str(), Profile.c_str(), Flags, 0, &Shader, &ErrorBlob);
+		SharedPtr<ShaderFile> fragShader = ResourceCache::GetInstance().Get<ShaderFile>(FileName);
+		std::vector<char> VertexSource = fragShader->Data;
+		HRESULT success = D3DCompile(fragShader->Data.data(), VertexSource.size(), nullptr, nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, EntryPoint.c_str(), Profile.c_str(), Flags, 0, &Shader, &ErrorBlob);
+		//HRESULT success = D3DCompileFromFile(StringUtils::ToWString(FileName.FullPath).c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, EntryPoint.c_str(), Profile.c_str(), Flags, 0, &Shader, &ErrorBlob);
 		if (ErrorBlob)
 		{
 			char const* message =
@@ -228,6 +236,7 @@ namespace Moonlight
 
 	Moonlight::ShaderProgram DX11Device::CreateShaderProgram(const Microsoft::WRL::ComPtr<ID3DBlob>& vsBytecode, const Microsoft::WRL::ComPtr<ID3DBlob>& psBytecode, const std::vector<D3D11_INPUT_ELEMENT_DESC>* inputLayoutDesc) const
 	{
+		OPTICK_EVENT("CreateShaderProgram");
 		ShaderProgram Program;
 
 		if (FAILED(m_d3dDevice->CreateVertexShader(vsBytecode->GetBufferPointer(), vsBytecode->GetBufferSize(), nullptr, &Program.VertexShader))) {
@@ -268,6 +277,15 @@ namespace Moonlight
 		DX::ThrowIfFailed(m_d3dDevice->CreateSamplerState(&Desc, &samplerState));
 
 		return samplerState;
+	}
+
+	ShaderProgram DX11Device::FindShader(const std::string& InPath)
+	{
+		if (m_shaderCache.find(InPath) != m_shaderCache.end())
+		{
+			return m_shaderCache[InPath];
+		}
+		return ShaderProgram();
 	}
 
 	void DX11Device::SetOutputSize(Vector2 NewSize)

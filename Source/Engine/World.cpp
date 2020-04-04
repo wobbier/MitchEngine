@@ -6,6 +6,7 @@
 #include "Logger.h"
 #include "ECS/CoreDetail.h"
 #include "File.h"
+#include "Resources/JsonResource.h"
 
 #define DEFAULT_ENTITY_POOL_SIZE 50
 
@@ -210,6 +211,7 @@ void World::DestroyEntity(Entity &InEntity, bool RemoveFromWorld)
 				if (Attr.Cores.size() >= CoreIndex)
 				{
 					InCore.second->Remove(InEntity);
+					InCore.second->OnEntityDestroyed(InEntity);
 					Attr.Cores[CoreIndex] = false;
 				}
 			}
@@ -233,9 +235,11 @@ void World::DestroyEntity(Entity &InEntity, bool RemoveFromWorld)
 
 EntityHandle World::CreateFromPrefab(std::string& FilePath, Transform* Parent)
 {
-	File PrefabSource = File(Path(FilePath));
-	nlohmann::json Prefab = nlohmann::json::parse(PrefabSource.Read());
-	return LoadPrefab(Prefab, Parent, Parent);
+	OPTICK_EVENT("World::CreateFromPrefab");
+	//File PrefabSource = File(Path(FilePath));
+	SharedPtr<JsonResource> prefabJson = ResourceCache::GetInstance().Get<JsonResource>(Path(FilePath));
+	//nlohmann::json Prefab = nlohmann::json::parse(PrefabSource.Read());
+	return LoadPrefab(prefabJson->GetJson(), Parent, Parent);
 }
 
 EntityHandle World::LoadPrefab(const nlohmann::json& obj, Transform* parent, Transform* root)

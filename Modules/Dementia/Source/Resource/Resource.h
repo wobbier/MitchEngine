@@ -16,11 +16,13 @@ public:
 
 	const Path& GetPath() const;
 
+	const std::size_t GetResourceType() const;
+
 protected:
 	Resource(const Path& path);
 	virtual ~Resource();
 	Path FilePath;
-
 private:
 	ResourceCache* Resources = nullptr;
+	std::size_t ResourceType;
 };
