@@ -79,9 +79,13 @@ Havana::Havana(Engine* GameEngine, EditorApp* app, Moonlight::Renderer* renderer
 
 void Havana::InitUI()
 {
+	EngineConfigFilePath = Path("Assets/Config/imgui.ini");
+	//ConfigFilePath = Path("Assets/Config/imgui.ini", true);
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
 	ImGuiIO& io = ImGui::GetIO(); (void)io;
+	//ImGui::LoadIniSettingsFromDisk(EngineConfigFilePath.FullPath.c_str());
+	io.IniFilename = EngineConfigFilePath.FullPath.c_str();
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 	io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
 	//io.MouseDrawCursor = true;
@@ -505,7 +509,6 @@ void Havana::DrawLog()
 	window_flags |= ImGuiWindowFlags_MenuBar;
 	bool showLog = true;
 	ImGui::Begin("Log", &showLog, window_flags);
-	if (ImGui::IsWindowFocused())
 	{
 		// Menu
 		if (ImGui::BeginMenuBar())
@@ -630,18 +633,47 @@ void Havana::DrawCommandPanel()
 
 void Havana::DrawResourceMonitor()
 {
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.f, 0.f));
 	ImGui::Begin("Resource Monitor", 0);
-	if (ImGui::IsWindowFocused())
 	{
 		auto& resources = ResourceCache::GetInstance().GetResouceStack();
+		std::vector<std::shared_ptr<Resource>> resourceList;
+		resourceList.reserve(resources.size());
+
 		for (auto resource : resources)
 		{
-			ImGui::Text(resource.second->GetPath().LocalPath.c_str());
-			ImGui::Text(std::string("Use Count: " + std::to_string(resource.second.use_count())).c_str());
+			resourceList.push_back(resource.second);
 		}
 
+		ImVec2 size = ImVec2(0, ImGui::GetWindowSize().y - ImGui::GetCursorPosY());
+		static ImGuiTableFlags flags = ImGuiTableFlags_ScrollY | ImGuiTableFlags_ScrollFreezeTopRow | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersV | ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable;
+
+		if (ImGui::BeginTable("##ResourceTable", 2, flags, size))
+		{
+			ImGui::TableSetupColumn("Resource Path", ImGuiTableColumnFlags_WidthStretch);
+			ImGui::TableSetupColumn("References", ImGuiTableColumnFlags_WidthFixed);
+			ImGui::TableAutoHeaders();
+			ImGuiListClipper clipper;
+			clipper.Begin(resourceList.size());
+			while (clipper.Step())
+			{
+				for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; row++)
+				{
+					ImGui::TableNextRow();
+
+					ImGui::TableSetColumnIndex(0);
+					ImGui::Text(resourceList[row]->GetPath().LocalPath.c_str());
+
+					ImGui::TableSetColumnIndex(1);
+					ImGui::Text(std::to_string(resourceList[row].use_count()).c_str());
+
+				}
+			}
+			ImGui::EndTable();
+		}
 	}
 	ImGui::End();
+	ImGui::PopStyleVar(1);
 }
 
 void Havana::UpdateWorld(World* world, Transform* root, const std::vector<Entity>& ents)

@@ -106,4 +106,6 @@ private:
 
 	DirectX::Keyboard::KeyboardStateTracker tracker;
 	DirectX::Mouse::ButtonStateTracker mouseTracker;
+	//Path ConfigFilePath;
+	Path EngineConfigFilePath;
 };
