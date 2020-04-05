@@ -79,7 +79,7 @@ Havana::Havana(Engine* GameEngine, EditorApp* app, Moonlight::Renderer* renderer
 
 void Havana::InitUI()
 {
-	EngineConfigFilePath = Path("Assets/Config/imgui.ini");
+	EngineConfigFilePath = Path("Assets/Config/imgui.cfg");
 	//ConfigFilePath = Path("Assets/Config/imgui.ini", true);
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
