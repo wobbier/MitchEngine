@@ -74,6 +74,8 @@ void Camera::Serialize(json& outJson)
 
 	outJson["Zoom"] = Zoom;
 	outJson["IsCurrent"] = IsCurrent();
+	outJson["Near"] = Near;
+	outJson["Far"] = Far;
 
 	if (Skybox)
 	{

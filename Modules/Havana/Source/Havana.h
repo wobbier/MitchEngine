@@ -14,6 +14,14 @@
 #include <Keyboard.h>
 #include "Engine/Input.h"
 
+class ComponentInfo;
+class FolderTest
+{
+public:
+	std::map<std::string, FolderTest> Folders;
+	std::map<std::string, ComponentInfo*> Reg;
+};
+
 class Havana
 	: public EventReceiver
 {
@@ -62,7 +70,7 @@ public:
 	void DrawCommandPanel();
 
 	void DrawResourceMonitor();
-
+	void DoComponentRecursive(const FolderTest& currentFolder, const EntityHandle& entity);
 	EntityHandle SelectedEntity;
 	class Transform* SelectedTransform = nullptr;
 	class BaseCore* SelectedCore = nullptr;

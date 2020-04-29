@@ -7,23 +7,25 @@
 #include <nlohmann/json.hpp>
 #include "EntityHandle.h"
 
-#define ME_REGISTER_COMPONENT(TYPE)                      \
-	namespace details {                                  \
-    namespace                                            \
-    {                                                    \
-        template<class T>                                \
-        class ComponentRegistration;                     \
-                                                         \
-        template<>                                       \
-        class ComponentRegistration<TYPE>                \
-        {                                                \
-            static const RegistryEntry<TYPE>& reg;       \
-        };                                               \
-                                                         \
-        const RegistryEntry<TYPE>&                       \
-            ComponentRegistration<TYPE>::reg =           \
-                RegistryEntry<TYPE>::Instance(#TYPE);    \
+
+#define ME_REGISTER_COMPONENT_FOLDER(TYPE, FOLDER)            \
+	namespace details {                                       \
+    namespace                                                 \
+    {                                                         \
+        template<class T>                                     \
+        class ComponentRegistration;                          \
+                                                              \
+        template<>                                            \
+        class ComponentRegistration<TYPE>                     \
+        {                                                     \
+            static const RegistryEntry<TYPE>& reg;            \
+        };                                                    \
+                                                              \
+        const RegistryEntry<TYPE>&                            \
+            ComponentRegistration<TYPE>::reg =                \
+                RegistryEntry<TYPE>::Instance(#TYPE, FOLDER); \
     }}
+#define ME_REGISTER_COMPONENT(TYPE) ME_REGISTER_COMPONENT_FOLDER(TYPE, "")
 
 // for convenience
 using json = nlohmann::json;

@@ -11,6 +11,10 @@ class ComponentInfo
 public:
 	CreateComponentFunc CreateFunc;
 	GetComponentType GetTypeFunc;
+	
+#if ME_EDITOR
+	std::string Folder;
+#endif
 };
 
 typedef std::map<std::string, ComponentInfo> ComponentRegistry;
@@ -35,14 +39,14 @@ template<class T>
 struct RegistryEntry
 {
 public:
-	static RegistryEntry<T>& Instance(const std::string& name)
+	static RegistryEntry<T>& Instance(const std::string& name, const std::string& folder = "")
 	{
-		static RegistryEntry<T> inst(name);
+		static RegistryEntry<T> inst(name, folder);
 		return inst;
 	}
 
 private:
-	RegistryEntry(const std::string& name)
+	RegistryEntry(const std::string& name, const std::string& folder)
 	{
 		ComponentRegistry& reg = GetComponentRegistry();
 		CreateComponentFunc func = AddComponent<T>;
@@ -51,7 +55,9 @@ private:
 		ComponentInfo info;
 		info.CreateFunc = func;
 		info.GetTypeFunc = typeFunc;
-
+#if ME_EDITOR
+		info.Folder = folder;
+#endif
 		std::pair<ComponentRegistry::iterator, bool> ret =
 			reg.insert(ComponentRegistry::value_type(name, info));
 

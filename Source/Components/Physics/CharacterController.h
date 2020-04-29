@@ -76,4 +76,4 @@ private:
 	void UpdateVelocity(float dt);
 };
 
-ME_REGISTER_COMPONENT(CharacterController)
+ME_REGISTER_COMPONENT_FOLDER(CharacterController, "Physics")

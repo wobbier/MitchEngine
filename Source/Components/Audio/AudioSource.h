@@ -34,4 +34,4 @@ public:
 	Path FilePath;
 };
 
-ME_REGISTER_COMPONENT(AudioSource)
+ME_REGISTER_COMPONENT_FOLDER(AudioSource, "Audio")

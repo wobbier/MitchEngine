@@ -23,4 +23,4 @@ public:
 #endif
 	Moonlight::LightCommand cmd;
 };
-ME_REGISTER_COMPONENT(Light)
+ME_REGISTER_COMPONENT_FOLDER(Light, "Rendering")

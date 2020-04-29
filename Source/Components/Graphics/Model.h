@@ -93,4 +93,4 @@ private:
 #endif
 };
 
-ME_REGISTER_COMPONENT(Model)
+ME_REGISTER_COMPONENT_FOLDER(Model, "Rendering")

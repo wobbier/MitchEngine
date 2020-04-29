@@ -260,7 +260,7 @@ void RecusiveDelete(EntityHandle ent, Transform* trans)
 	}
 	for (auto child : trans->GetChildren())
 	{
-		RecusiveDelete(child->Parent, child);
+		RecusiveDelete(child, &child->GetComponent<Transform>());
 	}
 	ent->MarkForDelete();
 };
@@ -371,6 +371,14 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 
 				Transform* transform = static_cast<Transform*>(compCmd->GetComponent());
 				transform->SetName("New Entity");
+			}
+			ImGui::EndMenu();
+		}
+
+		if (ImGui::BeginMenu("View"))
+		{
+			if (ImGui::MenuItem("Resource Monitor"))
+			{
 			}
 			ImGui::EndMenu();
 		}
@@ -563,20 +571,23 @@ void Havana::AddComponentPopup()
 	}
 }
 
-void Havana::DrawAddComponentList(const EntityHandle& entity)
+void Havana::DoComponentRecursive(const FolderTest& currentFolder, const EntityHandle& entity)
 {
-	ImGui::Text("Components");
-	ImGui::Separator();
-
-	ComponentRegistry& reg = GetComponentRegistry();
-
-	for (auto& thing : reg)
+	for (auto& entry : currentFolder.Folders)
 	{
-		if (ImGui::Selectable(thing.first.c_str()))
+		if (ImGui::BeginMenu(entry.first.c_str()))
+		{
+			DoComponentRecursive(entry.second, entity);
+			ImGui::EndMenu();
+		}
+	}
+	for (auto& ptr : currentFolder.Reg)
+	{
+		if (ImGui::Selectable(ptr.first.c_str()))
 		{
 			if (entity)
 			{
-				AddComponentCommand* compCmd = new AddComponentCommand(thing.first, entity);
+				AddComponentCommand* compCmd = new AddComponentCommand(ptr.first, entity);
 				EditorCommands.Push(compCmd);
 			}
 			/*if (SelectedTransform)
@@ -585,6 +596,100 @@ void Havana::DrawAddComponentList(const EntityHandle& entity)
 			}*/
 		}
 	}
+}
+
+
+void Havana::DrawAddComponentList(const EntityHandle& entity)
+{
+	ImGui::Text("Components");
+	ImGui::Separator();
+	std::map<std::string, FolderTest> folders;
+	ComponentRegistry& reg = GetComponentRegistry();
+
+	for (auto& thing : reg)
+	{
+		if (thing.second.Folder == "")
+		{
+			folders[""].Reg[thing.first] = &thing.second;
+		}
+		else
+		{
+			/*auto it = folders.at(thing.second.Folder);
+			if (it == folders.end())
+			{
+
+			}*/
+			std::string folderPath = thing.second.Folder;
+			std::size_t pos = folderPath.rfind("/");
+			if (pos == std::string::npos)
+			{
+				folders[thing.second.Folder].Reg[thing.first] = &thing.second;
+			}
+			else
+			{
+				FolderTest& test = folders[thing.second.Folder.substr(0, pos)];
+				while (pos != std::string::npos)
+				{
+					pos = folderPath.rfind("/");
+					if (pos == std::string::npos)
+					{
+						test.Folders[folderPath].Reg[thing.first] = &thing.second;
+					}
+					else
+					{
+						test = folders[folderPath.substr(0, pos)];
+						folderPath = folderPath.substr(pos + 1, folderPath.size());
+					}
+				}
+			}
+		}
+	}
+
+	for (auto& thing : folders)
+	{
+		if (thing.first != "")
+		{
+			if (ImGui::BeginMenu(thing.first.c_str()))
+			{
+				DoComponentRecursive(thing.second, entity);
+				ImGui::EndMenu();
+			}
+		}
+		else
+		{
+			for (auto& ptr : thing.second.Reg)
+			{
+				if (ImGui::Selectable(ptr.first.c_str()))
+				{
+					if (entity)
+					{
+						AddComponentCommand* compCmd = new AddComponentCommand(ptr.first, entity);
+						EditorCommands.Push(compCmd);
+					}
+					/*if (SelectedTransform)
+					{
+						m_engine->GetWorld().lock()->GetEntity(SelectedTransform->Parent).lock()->AddComponentByName(thing.first);
+					}*/
+				}
+			}
+		}
+	}
+
+	//for (auto& thing : reg)
+	//{
+	//	if (ImGui::Selectable(thing.first.c_str()))
+	//	{
+	//		if (entity)
+	//		{
+	//			AddComponentCommand* compCmd = new AddComponentCommand(thing.first, entity);
+	//			EditorCommands.Push(compCmd);
+	//		}
+	//		/*if (SelectedTransform)
+	//		{
+	//			m_engine->GetWorld().lock()->GetEntity(SelectedTransform->Parent).lock()->AddComponentByName(thing.first);
+	//		}*/
+	//	}
+	//}
 }
 
 void Havana::DrawAddCoreList()
@@ -634,7 +739,7 @@ void Havana::DrawCommandPanel()
 void Havana::DrawResourceMonitor()
 {
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.f, 0.f));
-	ImGui::Begin("Resource Monitor", 0);
+	ImGui::Begin("Resource Monitor");
 	{
 		auto& resources = ResourceCache::GetInstance().GetResouceStack();
 		std::vector<std::shared_ptr<Resource>> resourceList;
@@ -671,8 +776,8 @@ void Havana::DrawResourceMonitor()
 			}
 			ImGui::EndTable();
 		}
+		ImGui::End();
 	}
-	ImGui::End();
 	ImGui::PopStyleVar(1);
 }
 
@@ -733,7 +838,7 @@ void Havana::UpdateWorld(World* world, Transform* root, const std::vector<Entity
 						{
 							SelectedCore = nullptr;
 							SelectedTransform = nullptr;
-							SelectedEntity = EntityHandle(ent.GetId(), world);
+							SelectedEntity = EntityHandle(ent.GetId(), world->GetSharedPtr());
 						}
 					}
 				}
@@ -830,14 +935,15 @@ void Havana::UpdateWorldRecursive(Transform* root)
 
 		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_CHILD_TRANSFORM"))
 		{
-			DragParentDescriptor.Parent->SetParent(*root);
+			DragParentDescriptor.Parent->SetParent(root->Parent);
 		}
 		ImGui::EndDragDropTarget();
 	}
 
 	int i = 0;
-	for (Transform* var : root->GetChildren())
+	for (EntityHandle& child : root->GetChildren())
 	{
+		Transform* var = &child->GetComponent<Transform>();
 		bool open = false;
 		ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | (SelectedTransform == var ? ImGuiTreeNodeFlags_Selected : 0);
 		if (var->GetChildren().empty())
@@ -868,7 +974,7 @@ void Havana::UpdateWorldRecursive(Transform* root)
 
 				if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_CHILD_TRANSFORM"))
 				{
-					DragParentDescriptor.Parent->SetParent(*var);
+					DragParentDescriptor.Parent->SetParent(child);
 				}
 				ImGui::EndDragDropTarget();
 			}
@@ -906,7 +1012,7 @@ void Havana::UpdateWorldRecursive(Transform* root)
 
 				if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_CHILD_TRANSFORM"))
 				{
-					DragParentDescriptor.Parent->SetParent(*var);
+					DragParentDescriptor.Parent->SetParent(child);
 				}
 				ImGui::EndDragDropTarget();
 			}
@@ -933,7 +1039,7 @@ void Havana::HandleAssetDragAndDrop(Transform* root)
 		if (payload_n.Type == AssetBrowser::AssetType::Model)
 		{
 			auto ent = GetEngine().GetWorld().lock()->CreateEntity();
-			ent->AddComponent<Transform>(payload_n.Name.substr(0, payload_n.Name.find_last_of('.'))).SetParent(*root);
+			ent->AddComponent<Transform>(payload_n.Name.substr(0, payload_n.Name.find_last_of('.'))).SetParent(root->Parent);
 			ent->AddComponent<Model>((payload_n.FullPath.FullPath));
 		}
 		if (payload_n.Type == AssetBrowser::AssetType::Prefab)
@@ -955,7 +1061,7 @@ void Havana::DrawEntityRightClickMenu(Transform* transform)
 		if (ImGui::MenuItem("Add Child"))
 		{
 			EntityHandle ent = GetEngine().GetWorld().lock()->CreateEntity();
-			ent->AddComponent<Transform>().SetParent(*transform);
+			ent->AddComponent<Transform>().SetParent(transform->Parent);
 			GetEngine().GetWorld().lock()->Simulate();
 		}
 
@@ -1220,9 +1326,15 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 			evt.SetX((GetEngine().GetWindow()->GetPosition().X() + GetInput().GetMousePosition().X()) - pos.x);
 			evt.SetY((GetEngine().GetWindow()->GetPosition().Y() + GetInput().GetMousePosition().Y()) - pos.y);
 			mouseTracker.Update(GetInput().GetMouseState());
-			if (Renderer && mouseTracker.leftButton && !ImGuizmo::IsUsing())
+			static bool hasClicked = false;
+			if (Renderer && GetInput().GetMouseState().leftButton && !hasClicked)
 			{
 				Renderer->PickScene(evt);
+				hasClicked = true;
+			}
+			else
+			{
+				hasClicked = false;
 			}
 
 			DirectX::XMFLOAT4X4 objView;

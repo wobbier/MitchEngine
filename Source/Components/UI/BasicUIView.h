@@ -45,4 +45,4 @@ protected:
 
 	void PlaySound(const ultralight::JSObject& thisObject, const ultralight::JSArgs& args);
 };
-ME_REGISTER_COMPONENT(BasicUIView)
+ME_REGISTER_COMPONENT_FOLDER(BasicUIView, "UI")

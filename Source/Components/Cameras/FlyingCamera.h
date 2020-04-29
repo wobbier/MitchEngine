@@ -23,4 +23,4 @@ public:
 	virtual void OnEditorInspect() final;
 #endif
 };
-ME_REGISTER_COMPONENT(FlyingCamera)
+ME_REGISTER_COMPONENT_FOLDER(FlyingCamera, "Misc")

@@ -73,4 +73,4 @@ public:
 	}
 
 };
-ME_REGISTER_COMPONENT(DirectionalLight)
+ME_REGISTER_COMPONENT_FOLDER(DirectionalLight, "Rendering")

@@ -74,4 +74,4 @@ protected:
 #endif
 };
 
-ME_REGISTER_COMPONENT(Rigidbody)
+ME_REGISTER_COMPONENT_FOLDER(Rigidbody, "Physics")

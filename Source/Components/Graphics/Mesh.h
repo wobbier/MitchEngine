@@ -44,4 +44,4 @@ private:
 #endif
 };
 
-ME_REGISTER_COMPONENT(Mesh)
+ME_REGISTER_COMPONENT_FOLDER(Mesh, "Rendering")
