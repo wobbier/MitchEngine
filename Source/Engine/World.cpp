@@ -46,7 +46,7 @@ EntityHandle World::CreateEntity()
 	CheckForResize(1);
 	EntityID id = EntIdPool.Create();
 	EntityCache.Alive[id] = Entity(*this, id);
-	return EntityHandle(id, this);
+	return EntityHandle(id, GetSharedPtr());
 }
 
 void World::Simulate()
@@ -251,7 +251,7 @@ EntityHandle World::LoadPrefab(const nlohmann::json& obj, Transform* parent, Tra
 		auto t = parent->GetChildByName(obj["Name"]);
 		if (t)
 		{
-			ent = t->Parent;
+			ent = t;
 		}
 	}
 	if (!ent)
@@ -272,7 +272,7 @@ EntityHandle World::LoadPrefab(const nlohmann::json& obj, Transform* parent, Tra
 			transComp = static_cast<Transform*>(addedComp);
 			if (parent)
 			{
-				transComp->SetParent(*parent);
+				transComp->SetParent(parent->Parent);
 			}
 			transComp->SetName(obj["Name"]);
 		}
@@ -293,6 +293,11 @@ EntityHandle World::LoadPrefab(const nlohmann::json& obj, Transform* parent, Tra
 		}
 	}
 	return ent;
+}
+
+SharedPtr<World> World::GetSharedPtr()
+{
+	return shared_from_this();
 }
 
 void World::AddCore(BaseCore& InCore, TypeId InCoreTypeId, bool HandleUpdate)
@@ -359,7 +364,7 @@ EntityHandle World::GetEntity(const EntityID& InEntity)
 	auto it = EntityCache.Alive.find(InEntity);
 	if (it != EntityCache.Alive.end())
 	{
-		return EntityHandle(InEntity, this);
+		return EntityHandle(InEntity, GetSharedPtr());
 	}
 
 	return {};

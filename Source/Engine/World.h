@@ -13,6 +13,7 @@
 class Transform;
 
 class World
+	: public std::enable_shared_from_this<World>
 {
 private:
 	typedef std::vector<Entity> EntityArray;
@@ -31,7 +32,10 @@ private:
 
 	// Access to components
 	friend class Entity;
+
+
 public:
+	SharedPtr<World> GetSharedPtr();
 	template <typename TCore>
 	void AddCore(TCore& inCore);
 

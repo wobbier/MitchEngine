@@ -3,7 +3,7 @@
 #include "Entity.h"
 #include "Engine/World.h"
 
-EntityHandle::EntityHandle(EntityID InID, World* InWorld)
+EntityHandle::EntityHandle(EntityID InID, WeakPtr<World> InWorld)
 	: ID(InID)
 	, GameWorld(InWorld)
 {
@@ -12,7 +12,12 @@ EntityHandle::EntityHandle(EntityID InID, World* InWorld)
 
 EntityHandle::operator bool() const
 {
-	return GameWorld && GameWorld->EntityExists(ID);
+	return GameWorld.lock() && GameWorld.lock()->EntityExists(ID);
+}
+
+bool EntityHandle::operator==(const EntityHandle& other) const
+{
+	return ID == other.ID;
 }
 
 Entity* EntityHandle::operator->() const
@@ -22,5 +27,5 @@ Entity* EntityHandle::operator->() const
 
 Entity* EntityHandle::Get() const
 {
-	return GameWorld->GetEntityRaw(ID);
+	return GameWorld.lock() ? GameWorld.lock()->GetEntityRaw(ID) : nullptr;
 }

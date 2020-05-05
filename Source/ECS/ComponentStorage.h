@@ -33,7 +33,7 @@ public:
 
 	void Reset();
 private:
-	typedef std::vector<std::unique_ptr<BaseComponent> > ImplComponentArray;
+	typedef std::vector<std::unique_ptr<BaseComponent>> ImplComponentArray;
 
 	struct EntityComponents
 	{

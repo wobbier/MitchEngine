@@ -1,6 +1,7 @@
 #pragma once
 #include "EntityID.h"
 #include <type_traits>
+#include "Pointers.h"
 
 class World;
 class Entity;
@@ -17,14 +18,15 @@ class EntityHandle
 {
 public:
 	EntityHandle() = default;
-	EntityHandle(EntityID InID, World* InWorld);
+	EntityHandle(EntityID InID, WeakPtr<World> InWorld);
 
 	explicit operator bool() const;
+	bool operator ==(const EntityHandle& other) const;
 	Entity* operator->() const;
 
 	Entity* Get() const;
 
 private:
 	EntityID ID;
-	World* GameWorld = nullptr;
+	WeakPtr<World> GameWorld;
 };
