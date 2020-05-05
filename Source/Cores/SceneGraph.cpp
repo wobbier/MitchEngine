@@ -9,7 +9,6 @@ SceneGraph::SceneGraph()
 	: Base(ComponentFilter().Requires<Transform>())
 {
 	IsSerializable = false;
-	RootTransform = new Transform("Root Entity");
 
 	std::vector<TypeId> eventIds;
 	eventIds.push_back(SceneLoadedEvent::GetEventId());
@@ -18,7 +17,6 @@ SceneGraph::SceneGraph()
 
 SceneGraph::~SceneGraph()
 {
-	delete RootTransform;
 }
 
 void SceneGraph::Init()
@@ -31,13 +29,13 @@ void SceneGraph::Update(float dt)
 	OPTICK_EVENT("SceneGraph::Update");
 
 	// Seems O.K. for now
-	UpdateRecursively(RootTransform);
+	UpdateRecursively(GetRootTransform());
 }
 
 void SceneGraph::UpdateRecursively(Transform* CurrentTransform)
 {
 	OPTICK_EVENT("SceneGraph::UpdateRecursively");
-	for (Transform* Child : CurrentTransform->Children)
+	for (Transform* Child : CurrentTransform->GetChildren())
 	{
 		if (Child->IsDirty())
 		{
@@ -57,12 +55,26 @@ void SceneGraph::OnEntityAdded(Entity& NewEntity)
 {
 	Base::OnEntityAdded(NewEntity);
 
+	if (!RootTransform)
+	{
+		RootTransform = GameWorld->CreateEntity();
+		RootTransform->AddComponent<Transform>();
+	}
 	Transform& NewEntityTransform = NewEntity.GetComponent<Transform>();
 
-	if (NewEntityTransform.ParentTransform == nullptr)
+	if (!NewEntityTransform.ParentTransform)
 	{
-		NewEntityTransform.SetParent(*RootTransform);
+		NewEntityTransform.SetParent(*GetRootTransform());
 	}
+}
+
+Transform* SceneGraph::GetRootTransform()
+{
+	if (RootTransform)
+	{
+		return &RootTransform->GetComponent<Transform>();
+	}
+	return nullptr;
 }
 
 void SceneGraph::OnEntityRemoved(Entity& InEntity)
@@ -73,9 +85,9 @@ void SceneGraph::OnEntityRemoved(Entity& InEntity)
 void SceneGraph::OnEntityDestroyed(Entity& InEntity)
 {
 	Transform& transform = InEntity.GetComponent<Transform>();
-	if (transform.ParentTransform)
+	if (transform.ParentTransform && transform.ParentTransform->HasComponent<Transform>())
 	{
-		transform.ParentTransform->RemoveChild(&transform);
+		transform.ParentTransform->GetComponent<Transform>().RemoveChild(&transform);
 	}
 }
 

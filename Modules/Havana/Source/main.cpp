@@ -9,15 +9,6 @@ int main()
 
 	Transform childTransform;
 	Transform parentTransform;
-	parentTransform.SetPosition(Vector3(1, 0, 0));
-	childTransform.SetParent(parentTransform);
-
-	childTransform.SetPosition(Vector3(0, 10, -10));
-
-	parentTransform.UpdateWorldTransform();
-
-	childTransform.GetLocalToWorldMatrix();
-
 	Matrix4 parent;
 	if(true)
 	{

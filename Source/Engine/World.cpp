@@ -251,7 +251,7 @@ EntityHandle World::LoadPrefab(const nlohmann::json& obj, Transform* parent, Tra
 		auto t = parent->GetChildByName(obj["Name"]);
 		if (t)
 		{
-			ent = t;
+			ent = t->Parent;
 		}
 	}
 	if (!ent)
@@ -272,7 +272,7 @@ EntityHandle World::LoadPrefab(const nlohmann::json& obj, Transform* parent, Tra
 			transComp = static_cast<Transform*>(addedComp);
 			if (parent)
 			{
-				transComp->SetParent(parent->Parent);
+				transComp->SetParent(*parent);
 			}
 			transComp->SetName(obj["Name"]);
 		}

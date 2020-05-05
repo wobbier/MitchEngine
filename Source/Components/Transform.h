@@ -59,10 +59,9 @@ public:
 	void SetParent(Transform& NewParent);
 	void RemoveChild(Transform* TargetTransform);
 	Transform* GetChildByName(const std::string& Name);
-	std::vector<Transform*> GetChildren() const
-	{
-		return Children;
-	}
+	std::vector<Transform*> GetChildren() const;
+
+	Transform* GetParentTransform();
 
 	Matrix4 WorldTransform;
 	std::string Name;
@@ -96,7 +95,7 @@ private:
 
 	void SetDirty(bool Dirty);
 	bool m_isDirty = true;
-	Transform* ParentTransform = nullptr;
-	std::vector<Transform*> Children;
+	EntityHandle ParentTransform;
+	std::vector<EntityHandle> Children;
 };
 ME_REGISTER_COMPONENT(Transform)

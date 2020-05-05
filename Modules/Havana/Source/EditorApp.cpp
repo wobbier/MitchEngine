@@ -59,9 +59,9 @@ void EditorApp::OnUpdate(float DeltaTime)
 			//GetEngine().LoadScene("Assets/Alley.lvl");
 		});
 
-	EditorSceneManager->Update(DeltaTime, GetEngine().SceneNodes->RootTransform);
+	EditorSceneManager->Update(DeltaTime, GetEngine().SceneNodes->GetRootTransform());
 
-	Editor->UpdateWorld(GetEngine().GetWorld().lock().get(), GetEngine().SceneNodes->RootTransform, EditorSceneManager->GetEntities());
+	Editor->UpdateWorld(GetEngine().GetWorld().lock().get(), GetEngine().SceneNodes->GetRootTransform(), EditorSceneManager->GetEntities());
 
 	UpdateCameras();
 }

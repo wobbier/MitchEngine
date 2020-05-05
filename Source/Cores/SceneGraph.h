@@ -20,7 +20,8 @@ public:
 
 	virtual void OnEntityAdded(Entity& NewEntity) final;
 	void UpdateRecursively(Transform* transform);
-	Transform* RootTransform = nullptr;
+	EntityHandle RootTransform;
+	Transform* GetRootTransform();
 
 	void OnEntityRemoved(Entity& InEntity) override;
 

@@ -29,11 +29,6 @@ Transform::Transform(const std::string& TransformName)
 
 Transform::~Transform()
 {
-	if (ParentTransform)
-	{
-		ParentTransform->RemoveChild(this);
-		ParentTransform = nullptr;
-	}
 }
 
 void Transform::SetPosition(Vector3 NewPosition)
@@ -90,7 +85,7 @@ Vector3& Transform::GetPosition()
 void Transform::UpdateRecursively(Transform* CurrentTransform)
 {
 	OPTICK_EVENT("SceneGraph::UpdateRecursively");
-	for (Transform* Child : CurrentTransform->Children)
+	for (Transform* Child : CurrentTransform->GetChildren())
 	{
 		if (Child->m_isDirty)
 		{
@@ -169,7 +164,7 @@ const bool Transform::IsDirty() const
 
 Transform* Transform::GetParent()
 {
-	return ParentTransform;
+	return GetParentTransform();
 }
 
 Matrix4 Transform::GetLocalToWorldMatrix()
@@ -180,7 +175,7 @@ Matrix4 Transform::GetLocalToWorldMatrix()
 	DirectX::SimpleMath::Matrix pos = XMMatrixTranslationFromVector(Position.GetInternalVec());
 	if (ParentTransform)
 	{
-		return Matrix4((scale * rot * pos) * ParentTransform->WorldTransform.GetInternalMatrix());
+		return Matrix4((scale * rot * pos) * GetParentTransform()->WorldTransform.GetInternalMatrix());
 	}
 	else
 	{
@@ -231,7 +226,7 @@ void Transform::SetDirty(bool Dirty)
 {
 	if (Dirty && (Dirty != m_isDirty))
 	{
-		for (Transform* Child : Children)
+		for (Transform* Child : GetChildren())
 		{
 			Child->SetDirty(Dirty);
 		}
@@ -275,7 +270,7 @@ void Transform::SetRotation(Vector3 euler)
 
 void Transform::SetWorldRotation(Quaternion InRotation)
 {
-	InternalRotation = Quaternion(ParentTransform->GetWorldRotation().GetInternalVec() * InternalRotation.GetInternalVec());
+	InternalRotation = Quaternion(GetParentTransform()->GetWorldRotation().GetInternalVec() * InternalRotation.GetInternalVec());
 	Rotation = Quaternion::ToEulerAngles(InternalRotation);
 	SetDirty(true);
 }
@@ -312,10 +307,10 @@ void Transform::SetParent(Transform& NewParent)
 {
 	if (ParentTransform)
 	{
-		ParentTransform->RemoveChild(this);
+		GetParentTransform()->RemoveChild(this);
 	}
-	ParentTransform = &NewParent;
-	ParentTransform->Children.push_back(this);
+	ParentTransform = NewParent.Parent;
+	GetParentTransform()->Children.push_back(Parent);
 	SetDirty(true);
 }
 
@@ -323,8 +318,8 @@ void Transform::RemoveChild(Transform* TargetTransform)
 {
 	if (Children.size() > 0)
 	{
-		Children.erase(std::remove(Children.begin(), Children.end(), TargetTransform), Children.end());
-		TargetTransform->ParentTransform = nullptr;
+		Children.erase(std::remove(Children.begin(), Children.end(), TargetTransform->Parent), Children.end());
+		TargetTransform->ParentTransform = EntityHandle();
 	}
 }
 
@@ -332,10 +327,32 @@ Transform* Transform::GetChildByName(const std::string& Name)
 {
 	for (auto child : Children)
 	{
-		if (child->Name == Name)
+		if (child->GetComponent<Transform>().Name == Name)
 		{
-			return child;
+			return &child->GetComponent<Transform>();
 		}
+	}
+	return nullptr;
+}
+
+std::vector<Transform*> Transform::GetChildren() const
+{
+	std::vector<Transform*> children;
+	for (auto& child : Children)
+	{
+		if (child)
+		{
+			children.push_back(&child->GetComponent<Transform>());
+		}
+	}
+	return children;
+}
+
+Transform* Transform::GetParentTransform()
+{
+	if (ParentTransform)
+	{
+		return &ParentTransform->GetComponent<Transform>();
 	}
 	return nullptr;
 }
@@ -369,7 +386,7 @@ void Transform::Deserialize(const json& inJson)
 	DirectX::SimpleMath::Matrix pos = XMMatrixTranslationFromVector(GetPosition().GetInternalVec());
 	if (ParentTransform)
 	{
-		SetWorldTransform(Matrix4((scale * rot * pos) * ParentTransform->WorldTransform.GetInternalMatrix()), false);
+		SetWorldTransform(Matrix4((scale * rot * pos) * GetParentTransform()->WorldTransform.GetInternalMatrix()), false);
 	}
 	else
 	{

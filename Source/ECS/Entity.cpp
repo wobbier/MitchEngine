@@ -68,7 +68,6 @@ void Entity::SetActive(const bool InActive)
 void Entity::MarkForDelete()
 {
 	GameWorld->MarkEntityForDelete(*this);
-	GameWorld = nullptr;
 }
 
 #if ME_EDITOR

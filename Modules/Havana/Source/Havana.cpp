@@ -260,7 +260,7 @@ void RecusiveDelete(EntityHandle ent, Transform* trans)
 	}
 	for (auto child : trans->GetChildren())
 	{
-		RecusiveDelete(child, &child->GetComponent<Transform>());
+		RecusiveDelete(child->Parent, child);
 	}
 	ent->MarkForDelete();
 };
@@ -935,15 +935,15 @@ void Havana::UpdateWorldRecursive(Transform* root)
 
 		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_CHILD_TRANSFORM"))
 		{
-			DragParentDescriptor.Parent->SetParent(root->Parent);
+			DragParentDescriptor.Parent->SetParent(*root);
 		}
 		ImGui::EndDragDropTarget();
 	}
 
 	int i = 0;
-	for (EntityHandle& child : root->GetChildren())
+	for (Transform* child : root->GetChildren())
 	{
-		Transform* var = &child->GetComponent<Transform>();
+		Transform* var = child;
 		bool open = false;
 		ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | (SelectedTransform == var ? ImGuiTreeNodeFlags_Selected : 0);
 		if (var->GetChildren().empty())
@@ -974,7 +974,7 @@ void Havana::UpdateWorldRecursive(Transform* root)
 
 				if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_CHILD_TRANSFORM"))
 				{
-					DragParentDescriptor.Parent->SetParent(child);
+					DragParentDescriptor.Parent->SetParent(*child);
 				}
 				ImGui::EndDragDropTarget();
 			}
@@ -1012,7 +1012,7 @@ void Havana::UpdateWorldRecursive(Transform* root)
 
 				if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_CHILD_TRANSFORM"))
 				{
-					DragParentDescriptor.Parent->SetParent(child);
+					DragParentDescriptor.Parent->SetParent(*child);
 				}
 				ImGui::EndDragDropTarget();
 			}
@@ -1039,7 +1039,7 @@ void Havana::HandleAssetDragAndDrop(Transform* root)
 		if (payload_n.Type == AssetBrowser::AssetType::Model)
 		{
 			auto ent = GetEngine().GetWorld().lock()->CreateEntity();
-			ent->AddComponent<Transform>(payload_n.Name.substr(0, payload_n.Name.find_last_of('.'))).SetParent(root->Parent);
+			ent->AddComponent<Transform>(payload_n.Name.substr(0, payload_n.Name.find_last_of('.'))).SetParent(*root);
 			ent->AddComponent<Model>((payload_n.FullPath.FullPath));
 		}
 		if (payload_n.Type == AssetBrowser::AssetType::Prefab)
@@ -1061,7 +1061,7 @@ void Havana::DrawEntityRightClickMenu(Transform* transform)
 		if (ImGui::MenuItem("Add Child"))
 		{
 			EntityHandle ent = GetEngine().GetWorld().lock()->CreateEntity();
-			ent->AddComponent<Transform>().SetParent(transform->Parent);
+			ent->AddComponent<Transform>().SetParent(*transform);
 			GetEngine().GetWorld().lock()->Simulate();
 		}
 
