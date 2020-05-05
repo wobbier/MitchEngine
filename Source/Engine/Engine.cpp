@@ -288,6 +288,7 @@ void Engine::LoadScene(const std::string& SceneFile)
 	}
 
 	GameWorld->Unload();
+	SceneNodes->Init();
 	CurrentScene = new Scene(SceneFile);
 
 	if (!CurrentScene->Load(GameWorld))

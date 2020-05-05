@@ -22,6 +22,11 @@ SceneGraph::~SceneGraph()
 void SceneGraph::Init()
 {
 	//RootTransform->Children.clear();
+	if (!RootTransform)
+	{
+		RootTransform = GameWorld->CreateEntity();
+		RootTransform->AddComponent<Transform>();
+	}
 }
 
 void SceneGraph::Update(float dt)
@@ -55,14 +60,9 @@ void SceneGraph::OnEntityAdded(Entity& NewEntity)
 {
 	Base::OnEntityAdded(NewEntity);
 
-	if (!RootTransform)
-	{
-		RootTransform = GameWorld->CreateEntity();
-		RootTransform->AddComponent<Transform>();
-	}
 	Transform& NewEntityTransform = NewEntity.GetComponent<Transform>();
 
-	if (!NewEntityTransform.ParentTransform)
+	if (!NewEntityTransform.ParentTransform && !(NewEntity.GetId() == RootTransform->GetId()))
 	{
 		NewEntityTransform.SetParent(*GetRootTransform());
 	}
