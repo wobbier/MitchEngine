@@ -52,9 +52,6 @@ public:
 		return Matrix4(transform);
 	}
 
-	virtual void Serialize(json& outJson) override;
-	virtual void Deserialize(const json& inJson) override;
-
 private:
 	void CreateObject(const Vector3& Position, Quaternion& Rotation, Vector3& InScale, class btDiscreteDynamicsWorld* world);
 	btRigidBody* InternalRigidbody = nullptr;
@@ -63,6 +60,9 @@ private:
 	ColliderType Type = ColliderType::Box;
 	float Mass = 10.0f;
 	bool m_isDynamic = false;
+
+	virtual void OnSerialize(json& outJson) final;
+	virtual void OnDeserialize(const json& inJson) final;
 protected:
 	bool IsInitialized = false;
 	class btDiscreteDynamicsWorld* m_world;

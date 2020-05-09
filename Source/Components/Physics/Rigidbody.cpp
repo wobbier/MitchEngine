@@ -79,16 +79,14 @@ std::string Rigidbody::GetColliderString(ColliderType InType)
 	}
 }
 
-void Rigidbody::Serialize(json& outJson)
+void Rigidbody::OnSerialize(json& outJson)
 {
-	Component::Serialize(outJson);
-
 	outJson["Scale"] = { Scale.X(), Scale.Y(), Scale.Z() };
 	outJson["ColliderType"] = GetColliderString(Type);
 	outJson["Mass"] = Mass;
 }
 
-void Rigidbody::Deserialize(const json& inJson)
+void Rigidbody::OnDeserialize(const json& inJson)
 {
 	if (inJson.contains("Scale"))
 	{

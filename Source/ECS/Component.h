@@ -78,13 +78,15 @@ public:
 		return ClassTypeId<BaseComponent>::GetTypeId<T>();
 	}
 
-	virtual void Serialize(json& outJson) override
+	virtual void Serialize(json& outJson) final
 	{
 		outJson["Type"] = GetName();
+		OnSerialize(outJson);
 	}
 
-	virtual void Deserialize(const json& inJson) override
+	virtual void Deserialize(const json& inJson) final
 	{
+		OnDeserialize(inJson);
 	}
 
 #if ME_EDITOR
@@ -94,6 +96,9 @@ public:
 	}
 
 #endif
+private:
+	virtual void OnSerialize(json& outJson) = 0;
+	virtual void OnDeserialize(const json& inJson) = 0;
 };
 
 using ComponentArray = std::vector<std::reference_wrapper<BaseComponent>>;

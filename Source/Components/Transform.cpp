@@ -362,16 +362,14 @@ Matrix4 Transform::GetMatrix()
 	return WorldTransform;
 }
 
-void Transform::Serialize(json& outJson)
+void Transform::OnSerialize(json& outJson)
 {
-	Component::Serialize(outJson);
-
 	outJson["Position"] = { Position.X(),Position.Y(),Position.Z() };
 	outJson["Rotation"] = { Rotation.X(), Rotation.Y(), Rotation.Z() };
 	outJson["Scale"] = { Scale.X(), Scale.Y(), Scale.Z() };
 }
 
-void Transform::Deserialize(const json& inJson)
+void Transform::OnDeserialize(const json& inJson)
 {
 	SetPosition(Vector3((float)inJson["Position"][0], (float)inJson["Position"][1], (float)inJson["Position"][2]));
 	SetRotation(Vector3((float)inJson["Rotation"][0], (float)inJson["Rotation"][1], (float)inJson["Rotation"][2]));

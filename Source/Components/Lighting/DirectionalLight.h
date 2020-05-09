@@ -46,17 +46,15 @@ public:
 	}
 #endif
 
-	virtual void Serialize(json& outJson) override
+private:
+	virtual void OnSerialize(json& outJson) final
 	{
-		Component::Serialize(outJson);
-
 		outJson["Direction"] = { Direction.x, Direction.y, Direction.z };
 		outJson["Ambient"] = { Ambient.x, Ambient.y, Ambient.z };
 		outJson["Diffuse"] = { Diffuse.x, Diffuse.y, Diffuse.z };
 	}
 
-
-	virtual void Deserialize(const json& inJson) override
+	virtual void OnDeserialize(const json& inJson) final
 	{
 		if (inJson.contains("Direction"))
 		{
@@ -71,6 +69,5 @@ public:
 			Diffuse = { (float)inJson["Diffuse"][0], (float)inJson["Diffuse"][1], (float)inJson["Diffuse"][2], 1.f };
 		}
 	}
-
 };
 ME_REGISTER_COMPONENT_FOLDER(DirectionalLight, "Rendering")

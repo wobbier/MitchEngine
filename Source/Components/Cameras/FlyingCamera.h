@@ -22,5 +22,9 @@ public:
 #if ME_EDITOR
 	virtual void OnEditorInspect() final;
 #endif
+
+private:
+	void OnSerialize(json& outJson) final;
+	void OnDeserialize(const json& inJson) final;
 };
 ME_REGISTER_COMPONENT_FOLDER(FlyingCamera, "Misc")

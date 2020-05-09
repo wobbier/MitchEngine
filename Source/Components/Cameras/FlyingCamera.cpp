@@ -17,6 +17,15 @@ void FlyingCamera::Init()
 {
 
 }
+
+void FlyingCamera::OnSerialize(json& outJson)
+{
+}
+
+void FlyingCamera::OnDeserialize(const json& inJson)
+{
+}
+
 #if ME_EDITOR
 
 void FlyingCamera::OnEditorInspect()

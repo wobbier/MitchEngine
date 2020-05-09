@@ -152,10 +152,8 @@ bool CharacterController::IsOnGround() const
 	return m_isGrounded;
 }
 
-void CharacterController::Serialize(json& outJson)
+void CharacterController::OnSerialize(json& outJson)
 {
-	Component::Serialize(outJson);
-
 	outJson["JumpForce"] = JumpForce;
 	outJson["MaxSpeed"] = MaxSpeed;
 	outJson["Deceleration"] = Deceleration;
@@ -163,7 +161,7 @@ void CharacterController::Serialize(json& outJson)
 	outJson["StepHeight"] = m_stepHeight;
 }
 
-void CharacterController::Deserialize(const json& inJson)
+void CharacterController::OnDeserialize(const json& inJson)
 {
 	if (inJson.contains("JumpForce"))
 	{

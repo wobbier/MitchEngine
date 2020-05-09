@@ -57,9 +57,8 @@ Moonlight::MeshType Mesh::GetType() const
 	return Type;
 }
 
-void Mesh::Serialize(json& outJson)
+void Mesh::OnSerialize(json& outJson)
 {
-	Component::Serialize(outJson);
 	if (MeshMaterial)
 	{
 		MeshMaterial->OnSerialize(outJson);
@@ -67,7 +66,7 @@ void Mesh::Serialize(json& outJson)
 	outJson["MeshType"] = GetMeshTypeString(Type);
 }
 
-void Mesh::Deserialize(const json& inJson)
+void Mesh::OnDeserialize(const json& inJson)
 {
 	if (!MeshMaterial)
 	{

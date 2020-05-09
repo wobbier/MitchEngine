@@ -57,7 +57,7 @@ public:
 private:
 	float m_FOV = 45.f;
 	unsigned int m_id = 0;
-	virtual void Deserialize(const json& inJson) override;
-	virtual void Serialize(json& outJson) final;
+	virtual void OnDeserialize(const json& inJson) final;
+	virtual void OnSerialize(json& outJson) final;
 };
 ME_REGISTER_COMPONENT_FOLDER(Camera, "Rendering")

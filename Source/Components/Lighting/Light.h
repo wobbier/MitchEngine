@@ -4,14 +4,11 @@
 #include "Math/Vector3.h"
 #include "RenderCommands.h"
 
-class Light : public Component<Light>
+class Light
+	: public Component<Light>
 {
 public:
-
-	Light()
-		: Component("Light")
-	{
-	}
+	Light();
 	~Light() = default;
 
 	// Separate init from construction code.
@@ -22,5 +19,9 @@ public:
 	virtual void OnEditorInspect() final;
 #endif
 	Moonlight::LightCommand cmd;
+
+private:
+	void OnSerialize(json& outJson) override;
+	void OnDeserialize(const json& inJson) override;
 };
 ME_REGISTER_COMPONENT_FOLDER(Light, "Rendering")

@@ -41,11 +41,6 @@ public:
 
 	bool IsOnGround() const;
 
-	virtual void Serialize(json& outJson) override;
-
-
-	virtual void Deserialize(const json& inJson) override;
-
 #if ME_EDITOR
 	virtual void OnEditorInspect() override;
 #endif
@@ -74,6 +69,9 @@ private:
 
 	void UpdatePosition();
 	void UpdateVelocity(float dt);
+
+	virtual void OnSerialize(json& outJson) final;
+	virtual void OnDeserialize(const json& inJson) final;
 };
 
 ME_REGISTER_COMPONENT_FOLDER(CharacterController, "Physics")

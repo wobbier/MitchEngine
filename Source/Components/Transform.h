@@ -67,10 +67,6 @@ public:
 	std::string Name;
 	Matrix4 GetMatrix();
 
-	virtual void Serialize(json& outJson) final;
-
-	virtual void Deserialize(const json& inJson) final;
-	
 	void SetName(const std::string& name);
 	void SetWorldTransform(Matrix4& NewWorldTransform, bool InIsDirty = false);
 
@@ -97,5 +93,8 @@ private:
 	bool m_isDirty = true;
 	EntityHandle ParentTransform;
 	std::vector<EntityHandle> Children;
+
+	virtual void OnSerialize(json& outJson) final;
+	virtual void OnDeserialize(const json& inJson) final;
 };
 ME_REGISTER_COMPONENT(Transform)

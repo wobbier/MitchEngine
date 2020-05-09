@@ -18,8 +18,6 @@ public:
 
 	virtual void Init() override;
 
-	virtual void Serialize(json& outJson) override;
-	virtual void Deserialize(const json& inJson) override;
 
 #if ME_EDITOR
 	virtual void OnEditorInspect() override;
@@ -44,5 +42,8 @@ protected:
 	File SourceFile;
 
 	void PlaySound(const ultralight::JSObject& thisObject, const ultralight::JSArgs& args);
+private:
+	virtual void OnSerialize(json& outJson) override;
+	virtual void OnDeserialize(const json& inJson) override;
 };
 ME_REGISTER_COMPONENT_FOLDER(BasicUIView, "UI")

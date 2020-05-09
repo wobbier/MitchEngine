@@ -30,8 +30,8 @@ public:
 
 	Moonlight::MeshType GetType() const;
 
-	virtual void Serialize(json& outJson) final;
-	virtual void Deserialize(const json& inJson) final;
+	virtual void OnSerialize(json& outJson) final;
+	virtual void OnDeserialize(const json& inJson) final;
 private:
 	unsigned int Id = 0;
 	Moonlight::MeshType Type;

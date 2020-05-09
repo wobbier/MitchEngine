@@ -60,7 +60,7 @@ const bool Camera::IsMain() const
 	return (Camera::CurrentCamera == this);
 }
 
-void Camera::Deserialize(const json& inJson)
+void Camera::OnDeserialize(const json& inJson)
 {
 	if (inJson.contains("Skybox"))
 	{
@@ -68,10 +68,8 @@ void Camera::Deserialize(const json& inJson)
 	}
 }
 
-void Camera::Serialize(json& outJson)
+void Camera::OnSerialize(json& outJson)
 {
-	Component::Serialize(outJson);
-
 	outJson["Zoom"] = Zoom;
 	outJson["IsCurrent"] = IsCurrent();
 	outJson["Near"] = Near;

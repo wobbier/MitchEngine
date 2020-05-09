@@ -26,15 +26,22 @@ public:
 
 	void RecursiveLoadMesh(Moonlight::Node& root, EntityHandle& parentEnt);
 
-	std::shared_ptr<class ModelResource> ModelHandle = nullptr;
+	SharedPtr<class ModelResource> ModelHandle = nullptr;
 	class Moonlight::ShaderCommand* ModelShader = nullptr;
 
-	virtual void Deserialize(const json& inJson) final {
-		ModelPath = Path(inJson["ModelPath"]);
-	}
 private:
 	Path ModelPath;
 	bool IsInitialized = false;
+
+	virtual void OnSerialize(json& outJson) final
+	{
+		outJson["ModelPath"] = ModelPath.LocalPath;
+	}
+
+	virtual void OnDeserialize(const json& inJson) final
+	{
+		ModelPath = Path(inJson["ModelPath"]);
+	}
 #if ME_EDITOR
 
 	virtual void OnEditorInspect() final
@@ -82,14 +89,6 @@ private:
 		{
 		}
 	}
-
-	virtual void Serialize(json & outJson) final
-	{
-		Component::Serialize(outJson);
-
-		outJson["ModelPath"] = ModelPath.LocalPath;
-	}
-
 #endif
 };
 

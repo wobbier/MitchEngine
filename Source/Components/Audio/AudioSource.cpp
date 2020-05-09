@@ -39,16 +39,14 @@ void AudioSource::Play(bool ShouldLoop)
 	}
 }
 
-void AudioSource::Serialize(json& outJson)
+void AudioSource::OnSerialize(json& outJson)
 {
-	Component::Serialize(outJson);
-
 	outJson["FilePath"] = FilePath.LocalPath;
 	outJson["PlayOnAwake"] = PlayOnAwake;
 	outJson["Loop"] = Loop;
 }
 
-void AudioSource::Deserialize(const json& inJson)
+void AudioSource::OnDeserialize(const json& inJson)
 {
 	if (inJson.contains("FilePath"))
 	{

@@ -37,8 +37,10 @@ void Input::SetMousePosition(const Vector2& InPosition)
 {
 	if (CaptureInput)
 	{
+#if ME_EDITOR
 		Vector2 pos = Offset + InPosition;
 		SetCursorPos(pos.X(), pos.Y());
+#endif
 		Update();
 	}
 }

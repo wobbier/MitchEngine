@@ -15,9 +15,6 @@ public:
 	void Play(const bool ShouldLoop = false);
 	bool Preload = false;
 
-	virtual void Serialize(json& outJson) override;
-	virtual void Deserialize(const json& inJson) override;
-
 #if ME_EDITOR
 	virtual void OnEditorInspect() override;
 #endif
@@ -32,6 +29,10 @@ public:
 	std::unique_ptr<DirectX::SoundEffectInstance> testSoundEffectInstance;
 
 	Path FilePath;
+
+private:
+	virtual void OnSerialize(json& outJson) final;
+	virtual void OnDeserialize(const json& inJson) final;
 };
 
 ME_REGISTER_COMPONENT_FOLDER(AudioSource, "Audio")

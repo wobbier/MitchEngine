@@ -25,16 +25,13 @@ void BasicUIView::Init()
 	SourceFile = File(FilePath);
 }
 
-void BasicUIView::Serialize(json& outJson)
+void BasicUIView::OnSerialize(json& outJson)
 {
-	Component::Serialize(outJson);
-
 	outJson["FilePath"] = FilePath.LocalPath;
 }
 
-void BasicUIView::Deserialize(const json& inJson)
+void BasicUIView::OnDeserialize(const json& inJson)
 {
-	Component::Deserialize(inJson);
 	if (inJson.contains("FilePath"))
 	{
 		FilePath = Path(inJson["FilePath"]);
