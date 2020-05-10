@@ -152,6 +152,7 @@ void Havana::InitUI()
 	Icons["Pause"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Pause.png"));
 	Icons["Stop"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Stop.png"));
 	Icons["Info"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Info.png"));
+	Icons["Logo"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/ME-LOGO.png"));
 
 	m_engine->GetInput().Stop();
 	GetInput().GetMouse().SetWindow(GetActiveWindow());
@@ -274,6 +275,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 		//MainMenuSize.y = 25.f;
 		ImGui::SetWindowSize(MainMenuSize);
 		ImGui::PopStyleVar(1);
+		ImGui::Image(Icons["Logo"]->ShaderResourceView, ImVec2(35, 35));
 		if (ImGui::BeginMenu("File"))
 		{
 			//ImGui::MenuItem("(dummy menu)", NULL, false, false);
