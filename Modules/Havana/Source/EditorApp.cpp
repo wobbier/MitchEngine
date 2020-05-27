@@ -52,10 +52,9 @@ void EditorApp::OnUpdate(float DeltaTime)
 			m_isGamePaused = true;
 		}
 			, [this]() {
-			StopGame();
-			m_isGameRunning = false;
 			m_isGamePaused = false;
 			Editor->ClearSelection();
+			StopGame();
 			//GetEngine().LoadScene("Assets/Alley.lvl");
 		});
 
@@ -141,11 +140,11 @@ void EditorApp::StopGame()
 		{
 			GetEngine().GetWorld().lock()->Destroy();
 		}
+		m_isGameRunning = false;
 		NewSceneEvent evt;
 		evt.Fire();
 		GetEngine().LoadScene(InitialLevel);
 		GetEngine().GetWorld().lock()->Stop();
-		m_isGameRunning = false;
 	}
 }
 
