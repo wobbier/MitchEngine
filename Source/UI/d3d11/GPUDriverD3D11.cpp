@@ -564,7 +564,7 @@ namespace ultralight {
 		  { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,       0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 		};
 
-		shaders_[kShaderType_FillPath] = m_device->CreateShaderProgram(
+		shaders_[kShaderType_FillPath] = m_device->CreateShaderProgram("Assets/vs/v2f_c4f_t2f.hlsl",
 			m_device->CompileShader(Path("Assets/vs/v2f_c4f_t2f.hlsl"), "VS", "vs_4_0"),
 			m_device->CompileShader(Path("Assets/ps/fill_path.hlsl"), "PS", "ps_4_0"),
 			&layout_2f_4ub_2f
@@ -584,7 +584,7 @@ namespace ultralight {
 		  { "COLOR",    7, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 		};
 
-		shaders_[kShaderType_Fill] = m_device->CreateShaderProgram(
+		shaders_[kShaderType_Fill] = m_device->CreateShaderProgram("Assets/vs/v2f_c4f_t2f_t2f_d28f.hlsl",
 			m_device->CompileShader(Path("Assets/vs/v2f_c4f_t2f_t2f_d28f.hlsl"), "VS", "vs_4_0"),
 			m_device->CompileShader(Path("Assets/ps/fill.hlsl"), "PS", "ps_4_0"),
 			&layout_2f_4ub_2f_2f_28f

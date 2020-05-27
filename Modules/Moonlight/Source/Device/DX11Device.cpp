@@ -234,7 +234,7 @@ namespace Moonlight
 		return Shader;
 	}
 
-	Moonlight::ShaderProgram DX11Device::CreateShaderProgram(const Microsoft::WRL::ComPtr<ID3DBlob>& vsBytecode, const Microsoft::WRL::ComPtr<ID3DBlob>& psBytecode, const std::vector<D3D11_INPUT_ELEMENT_DESC>* inputLayoutDesc) const
+	Moonlight::ShaderProgram DX11Device::CreateShaderProgram(const std::string& FilePath, const Microsoft::WRL::ComPtr<ID3DBlob>& vsBytecode, const Microsoft::WRL::ComPtr<ID3DBlob>& psBytecode, const std::vector<D3D11_INPUT_ELEMENT_DESC>* inputLayoutDesc)
 	{
 		OPTICK_EVENT("CreateShaderProgram");
 		ShaderProgram Program;
@@ -251,6 +251,9 @@ namespace Moonlight
 				throw std::runtime_error("Failed to create shader program input layout");
 			}
 		}
+
+		m_shaderCache[FilePath] = Program;
+
 		return Program;
 	}
 
@@ -279,13 +282,14 @@ namespace Moonlight
 		return samplerState;
 	}
 
-	ShaderProgram DX11Device::FindShader(const std::string& InPath)
+	bool DX11Device::FindShader(const std::string& InPath, ShaderProgram& outShader)
 	{
 		if (m_shaderCache.find(InPath) != m_shaderCache.end())
 		{
-			return m_shaderCache[InPath];
+			outShader = m_shaderCache[InPath];
+			return true;
 		}
-		return ShaderProgram();
+		return false;
 	}
 
 	void DX11Device::SetOutputSize(Vector2 NewSize)

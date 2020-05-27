@@ -119,9 +119,7 @@ namespace Moonlight
 		OPTICK_EVENT("ShaderCommand(string)");
 		auto& dxDevice = static_cast<DX11Device&>(GetEngine().GetRenderer().GetDevice());
 
-		//Program = dxDevice.FindShader(InShaderFile);
-
-		//if (!Program)
+		if (!dxDevice.FindShader(InShaderFile, Program))
 		{
 			auto vs = dxDevice.CompileShader(Path(InShaderFile), "main_vs", "vs_4_0_level_9_3");
 			auto ps = dxDevice.CompileShader(Path(InShaderFile), "main_ps", "ps_4_0_level_9_3");
@@ -135,7 +133,7 @@ namespace Moonlight
 				{ "TANGENT",   0, DXGI_FORMAT_R32G32B32_FLOAT,    0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 			};
 
-			Program = dxDevice.CreateShaderProgram(vs, ps, &vertexDesc);
+			Program = dxDevice.CreateShaderProgram(InShaderFile, vs, ps, &vertexDesc);
 		}
 
 		isLoaded = true;

@@ -114,7 +114,7 @@ namespace Moonlight
 			{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,       0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 		};
 
-		m_lightingProgram = m_device->CreateShaderProgram(
+		m_lightingProgram = m_device->CreateShaderProgram("Assets/Shaders/LightingPass.hlsl",
 			m_device->CompileShader(Path("Assets/Shaders/LightingPass.hlsl"), "main_vs", "vs_4_0_level_9_3"),
 			m_device->CompileShader(Path("Assets/Shaders/LightingPass.hlsl"), "main_ps", "ps_4_0_level_9_3"),
 			&vertexDesc
@@ -126,13 +126,13 @@ namespace Moonlight
 			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,    0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 		};
 
-		m_depthProgram = m_device->CreateShaderProgram(
+		m_depthProgram = m_device->CreateShaderProgram("Assets/Shaders/DepthPass.hlsl",
 			m_device->CompileShader(Path("Assets/Shaders/DepthPass.hlsl"), "main_vs", "vs_4_0_level_9_3"),
 			m_device->CompileShader(Path("Assets/Shaders/DepthPass.hlsl"), "main_ps", "ps_4_0_level_9_3"),
 			&vertexDesc2
 		);
 
-		m_pickingShader = m_device->CreateShaderProgram(
+		m_pickingShader = m_device->CreateShaderProgram("Assets/Shaders/PickingShader.hlsl",
 			m_device->CompileShader(Path("Assets/Shaders/PickingShader.hlsl"), "main_vs", "vs_4_0_level_9_3"),
 			m_device->CompileShader(Path("Assets/Shaders/PickingShader.hlsl"), "main_ps", "ps_4_0_level_9_3"),
 			&vertexDesc2

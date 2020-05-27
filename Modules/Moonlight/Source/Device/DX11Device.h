@@ -56,13 +56,13 @@ namespace Moonlight
 		D3D11_VIEWPORT				GetScreenViewport() const { return m_screenViewport; }
 		Microsoft::WRL::ComPtr<ID3DBlob> CompileShader(const Path& FileName, const std::string& EntryPoint, const std::string& Profile);
 
-		ShaderProgram CreateShaderProgram(const Microsoft::WRL::ComPtr<ID3DBlob>& vsBytecode, const Microsoft::WRL::ComPtr<ID3DBlob>& psBytecode, const std::vector<D3D11_INPUT_ELEMENT_DESC>* inputLayoutDesc) const;
+		ShaderProgram CreateShaderProgram(const std::string& FilePath, const Microsoft::WRL::ComPtr<ID3DBlob>& vsBytecode, const Microsoft::WRL::ComPtr<ID3DBlob>& psBytecode, const std::vector<D3D11_INPUT_ELEMENT_DESC>* inputLayoutDesc);
 
 		ComputeProgram CreateComputeProgram(const Microsoft::WRL::ComPtr<ID3DBlob>& csBytecode) const;
 
 		Microsoft::WRL::ComPtr<ID3D11SamplerState> CreateSamplerState(D3D11_FILTER filter, D3D11_TEXTURE_ADDRESS_MODE addressMode) const;
 
-		ShaderProgram FindShader(const std::string& InPath);
+		bool FindShader(const std::string& InPath, ShaderProgram& outShader);
 
 		// D2D Accessors.
 		IDWriteFactory3*			GetDWriteFactory() const { return m_dwriteFactory.Get(); }
