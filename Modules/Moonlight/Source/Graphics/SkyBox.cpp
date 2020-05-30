@@ -18,9 +18,8 @@ namespace Moonlight
 		Path SystemPath(InPath);
 
 		SkyMap = ResourceCache::GetInstance().Get<Texture>(SystemPath);
-		SkyShader = new ShaderCommand("Assets/Shaders/UnlitShader.hlsl");
 		SkyModel = ResourceCache::GetInstance().Get<ModelResource>(Path("Assets/Skybox.fbx"));
-		SkyMaterial = new Material();
+		SkyMaterial = new Material("Unlit", "Assets/Shaders/UnlitShader.hlsl");
 		SkyMaterial->SetTexture(TextureType::Diffuse, SkyMap);
 
 		auto device = static_cast<DX11Device&>(GetEngine().GetRenderer().GetDevice());
@@ -54,7 +53,7 @@ namespace Moonlight
 	{
 		auto device = static_cast<DX11Device&>(GetEngine().GetRenderer().GetDevice()).GetD3DDeviceContext();
 
-		SkyShader->Use();
+		SkyMaterial->MeshShader.Use();
 
 		device->OMSetDepthStencilState(NoDepth, 0);
 		device->RSSetState(RSCullNone);

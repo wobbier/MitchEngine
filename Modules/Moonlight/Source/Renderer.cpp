@@ -549,7 +549,7 @@ namespace Moonlight
 // 					continue;
 // 				}
 
-				if (mesh.MeshShader && mesh.SingleMesh && mesh.MeshMaterial)
+				if (mesh.SingleMesh && mesh.MeshMaterial)
 				{
 					OPTICK_EVENT("Render::ModelCommand", Optick::Category::Rendering);
 					XMStoreFloat4x4(&constantBufferSceneData.model, mesh.Transform);
@@ -604,7 +604,7 @@ namespace Moonlight
 					);
 					OPTICK_EVENT("Render::SingleMesh");
 
-					mesh.MeshShader->Use();
+					mesh.MeshMaterial->MeshShader.Use();
 
 					mesh.SingleMesh->Draw(mesh.MeshMaterial);
 
@@ -623,7 +623,7 @@ namespace Moonlight
 
 			for (const MeshCommand& mesh : transparentMeshes)
 			{
-				if (mesh.MeshShader && mesh.SingleMesh && mesh.MeshMaterial)
+				if (mesh.SingleMesh && mesh.MeshMaterial)
 				{
 					OPTICK_EVENT("Render::ModelCommand", Optick::Category::Rendering);
 					XMStoreFloat4x4(&constantBufferSceneData.model, mesh.Transform);
@@ -676,7 +676,7 @@ namespace Moonlight
 					);
 					OPTICK_EVENT("Render::SingleAlphaMesh");
 
-					mesh.MeshShader->Use();
+					mesh.MeshMaterial->MeshShader.Use();
 
 					mesh.SingleMesh->Draw(mesh.MeshMaterial);
 				}
@@ -863,7 +863,7 @@ namespace Moonlight
 					continue;
 				}
 
-				if (mesh.MeshShader && mesh.SingleMesh && mesh.MeshMaterial)
+				if (mesh.SingleMesh && mesh.MeshMaterial)
 				{
 					OPTICK_EVENT("Render::ModelCommand", Optick::Category::Rendering);
 					XMStoreFloat4x4(&constantBufferSceneData.model, XMMatrixTranspose(mesh.Transform));
@@ -1013,7 +1013,7 @@ namespace Moonlight
 			for (int i = 0; i < Meshes.size(); ++i)
 			{
 				const MeshCommand& mesh = Meshes[i];
-				if (mesh.MeshShader && mesh.SingleMesh && mesh.MeshMaterial)
+				if (mesh.SingleMesh && mesh.MeshMaterial)
 				{
 					OPTICK_EVENT("Render::ModelCommand", Optick::Category::Rendering);
 					XMStoreFloat4x4(&constantBufferSceneData.model, mesh.Transform);

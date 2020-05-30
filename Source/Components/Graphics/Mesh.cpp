@@ -15,18 +15,18 @@
 
 #endif
 #include "RenderCommands.h"
+#include "Graphics/MaterialDetail.h"
+#include "Logger.h"
 
 Mesh::Mesh()
 	: Component("Mesh")
 {
-
 }
 
-Mesh::Mesh(Moonlight::MeshType InType, Moonlight::Material* InMaterial, Moonlight::ShaderCommand* InShader)
+Mesh::Mesh(Moonlight::MeshType InType, Moonlight::Material* InMaterial)
 	: Component("Mesh")
 	, Type(InType)
 	, MeshMaterial(InMaterial)
-	, MeshShader(InShader)
 {
 	if (InMaterial == nullptr)
 	{
@@ -61,18 +61,37 @@ void Mesh::OnSerialize(json& outJson)
 {
 	if (MeshMaterial)
 	{
-		MeshMaterial->OnSerialize(outJson);
+		json& mat = outJson["Material"];
+		MeshMaterial->OnSerialize(mat);
 	}
 	outJson["MeshType"] = GetMeshTypeString(Type);
 }
 
 void Mesh::OnDeserialize(const json& inJson)
 {
-	if (!MeshMaterial)
+	if (MeshMaterial)
 	{
-		MeshMaterial = new Moonlight::Material();
+		// For fixing old scenes, delete this once you update your scenes
+		if (inJson.contains("Material") && inJson["Material"].contains("Type"))
+		{
+			const std::string& matType = inJson["Material"]["Type"];
+			if (MeshMaterial->GetTypeName() != matType)
+			{
+				delete MeshMaterial;
+				MaterialRegistry& reg = GetMaterialRegistry();
+				MeshMaterial = reg[matType].CreateFunc();
+			}
+			MeshMaterial->OnDeserialize(inJson["Material"]);
+		}
+		else
+		{
+			MeshMaterial->OnDeserialize(inJson);
+		}
 	}
-	MeshMaterial->OnDeserialize(inJson);
+	else
+	{
+		BRUH("Material isn't created in OnDeserialize");
+	}
 
 	if (inJson.contains("MeshType"))
 	{
@@ -126,13 +145,97 @@ void Mesh::OnEditorInspect()
 			ImGui::EndCombo();
 		}
 	}
-	if (MeshShader && MeshMaterial)
+
+	if (MeshReferece)
+	{
+		ImGui::Text("Vertices: %i", MeshReferece->vertices.size());
+	}
+
+	std::map<std::string, MaterialTest> folders;
+	MaterialRegistry& reg = GetMaterialRegistry();
+
+	for (auto& thing : reg)
+	{
+		if (thing.second.Folder == "")
+		{
+			folders[""].Reg[thing.first] = &thing.second;
+		}
+		else
+		{
+			/*auto it = folders.at(thing.second.Folder);
+			if (it == folders.end())
+			{
+
+			}*/
+			std::string folderPath = thing.second.Folder;
+			std::size_t pos = folderPath.rfind("/");
+			if (pos == std::string::npos)
+			{
+				folders[thing.second.Folder].Reg[thing.first] = &thing.second;
+			}
+			else
+			{
+				MaterialTest& test = folders[thing.second.Folder.substr(0, pos)];
+				while (pos != std::string::npos)
+				{
+					pos = folderPath.rfind("/");
+					if (pos == std::string::npos)
+					{
+						test.Folders[folderPath].Reg[thing.first] = &thing.second;
+					}
+					else
+					{
+						test = folders[folderPath.substr(0, pos)];
+						folderPath = folderPath.substr(pos + 1, folderPath.size());
+					}
+				}
+			}
+		}
+	}
+	if (ImGui::BeginCombo("Material", (MeshMaterial) ? reg[MeshMaterial->GetTypeName()].Name.c_str() : "Selected Material"))
+	{
+		for (auto& thing : folders)
+		{
+			if (thing.first != "")
+			{
+				if (ImGui::BeginMenu(thing.first.c_str()))
+				{
+					//DoComponentRecursive(thing.second, entity);
+					ImGui::EndMenu();
+				}
+			}
+			else
+			{
+				for (auto& ptr : thing.second.Reg)
+				{
+					if (ImGui::Selectable(ptr.second->Name.c_str()))
+					{
+						std::vector<SharedPtr<Moonlight::Texture>> textures = MeshMaterial->GetTextures();
+						Vector2 tiling = MeshMaterial->Tiling;
+						Vector3 diffuse = MeshMaterial->DiffuseColor;
+						delete MeshMaterial;
+
+						MeshMaterial = reg[ptr.first].CreateFunc();
+
+						//textures
+						for (int i = 0; i < Moonlight::TextureType::Count; ++i)
+						{
+							MeshMaterial->SetTexture((Moonlight::TextureType)i, textures[i]);
+						}
+						MeshMaterial->DiffuseColor = diffuse;
+						MeshMaterial->Tiling = tiling;
+
+						static_cast<RenderCore*>(GetEngine().GetWorld().lock()->GetCore(RenderCore::GetTypeId()))->UpdateMesh(this);
+					}
+				}
+			}
+		}
+		ImGui::EndCombo();
+	}
+
+	if (MeshMaterial)
 	{
 		bool transparent = MeshMaterial->IsTransparent();
-		if (MeshReferece)
-		{
-			ImGui::Text("Vertices: %i", MeshReferece->vertices.size());
-		}
 		if (ImGui::TreeNodeEx("Material", ImGuiTreeNodeFlags_DefaultOpen))
 		{
 			ImGui::Checkbox("Render Transparent", &transparent);

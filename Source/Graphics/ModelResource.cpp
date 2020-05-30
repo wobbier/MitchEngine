@@ -17,6 +17,7 @@
 #include "Scene/Node.h"
 #include <stack>
 #include "assimp/material.h"
+#include "Materials/DiffuseMaterial.h"
 
 ModelResource::ModelResource(const Path& path)
 	: Resource(path)
@@ -87,7 +88,7 @@ Moonlight::MeshData* ModelResource::ProcessMesh(aiMesh *mesh, const aiScene *sce
 {
 	std::vector<Moonlight::Vertex> vertices;
 	std::vector<uint16_t> indices;
-	Moonlight::Material* newMaterial = new Moonlight::Material();
+	DiffuseMaterial* newMaterial = new DiffuseMaterial();
 	for (unsigned int i = 0; i < mesh->mNumVertices; i++)
 	{
 		Moonlight::Vertex vertex;

@@ -8,7 +8,13 @@
 #include <string>
 #include "Graphics/Material.h"
 #include "Graphics/ShaderCommand.h"
-
+#include "Graphics/MaterialDetail.h"
+class MaterialTest
+{
+public:
+	std::map<std::string, MaterialTest> Folders;
+	std::map<std::string, MaterialInfo*> Reg;
+};
 class Mesh
 	: public Component<Mesh>
 {
@@ -16,7 +22,7 @@ class Mesh
 	friend class EditorCore;
 public:
 	Mesh();
-	Mesh(Moonlight::MeshType InType, Moonlight::Material* InMaterial, Moonlight::ShaderCommand* InShader);
+	Mesh(Moonlight::MeshType InType, Moonlight::Material* InMaterial);
 	Mesh(Moonlight::MeshData* mesh);
 
 	// Separate init from construction code.
@@ -25,7 +31,6 @@ public:
 	unsigned int GetId();
 
 	Moonlight::MeshData* MeshReferece = nullptr;
-	Moonlight::ShaderCommand* MeshShader = nullptr;
 	Moonlight::Material* MeshMaterial = nullptr;
 
 	Moonlight::MeshType GetType() const;

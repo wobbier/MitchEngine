@@ -36,7 +36,7 @@ void Model::Init()
 	if (ModelHandle && !IsInitialized)
 	{
 		IsInitialized = true;
-		ModelShader = new Moonlight::ShaderCommand("Assets/Shaders/DiffuseShader.hlsl");
+		//ModelShader = 
 		
 		if (ModelHandle->RootNode.Nodes.size() > 0)
 		{
@@ -64,7 +64,7 @@ void Model::RecursiveLoadMesh(Moonlight::Node& root, EntityHandle& parentEnt)
 		Transform& trans = ent->AddComponent<Transform>(child->Name);
 		Mesh& meshRef = ent->AddComponent<Mesh>(child);
 		trans.SetPosition(root.Position);
-		meshRef.MeshShader = ModelShader;
+		//meshRef.MeshShader = ModelShader;
 		trans.SetParent(parentEnt->GetComponent<Transform>());
 	}
 }

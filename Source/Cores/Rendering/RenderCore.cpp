@@ -42,7 +42,6 @@ void RenderCore::OnEntityAdded(Entity& NewEntity)
 		Moonlight::MeshCommand command;
 		Mesh& model = NewEntity.GetComponent<Mesh>();
 		command.SingleMesh = model.MeshReferece;
-		command.MeshShader = model.MeshShader;
 		command.MeshMaterial = model.MeshMaterial;
 		command.Type = model.GetType();
 		model.Id = GetEngine().GetRenderer().PushMesh(command);
@@ -134,7 +133,6 @@ void RenderCore::UpdateMesh(Mesh* InMesh)
 
 	Moonlight::MeshCommand command;
 	command.SingleMesh = InMesh->MeshReferece;
-	command.MeshShader = InMesh->MeshShader;
 	command.MeshMaterial = InMesh->MeshMaterial;
 	command.Type = InMesh->GetType();
 	InMesh->Id = m_renderer->PushMesh(command);

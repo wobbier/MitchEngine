@@ -6,8 +6,30 @@
 #include <nlohmann/json.hpp>
 #include "Math/Vector3.h"
 #include "Math/Vector2.h"
+#include "ShaderCommand.h"
+#include "MaterialDetail.h"
 
 using json = nlohmann::json;
+
+#define ME_REGISTER_MATERIAL_NAME_FOLDER(TYPE, NAME, FOLDER)            \
+	namespace details {                                       \
+    namespace                                                 \
+    {                                                         \
+        template<class T>                                     \
+        class MaterialRegistration;                          \
+                                                              \
+        template<>                                            \
+        class MaterialRegistration<TYPE>                     \
+        {                                                     \
+            static const MaterialRegistryEntry<TYPE>& reg;            \
+        };                                                    \
+                                                              \
+        const MaterialRegistryEntry<TYPE>&                            \
+            MaterialRegistration<TYPE>::reg =                \
+                MaterialRegistryEntry<TYPE>::Instance(#TYPE, NAME, FOLDER); \
+    }}
+#define ME_REGISTER_MATERIAL_NAME(TYPE, NAME) ME_REGISTER_MATERIAL_NAME_FOLDER(TYPE, NAME, "")
+#define ME_REGISTER_MATERIAL(TYPE) ME_REGISTER_MATERIAL_NAME(TYPE, #TYPE)
 
 namespace Moonlight
 {
@@ -31,15 +53,16 @@ namespace Moonlight
 			}
 			return "Opaque";
 		}
-		Material();
+		Material(const std::string& MaterialTypeName, const std::string& ShaderPath);
+		Material() = delete;
 		~Material();
 
 		const bool IsTransparent() const;
 		void SetRenderMode(RenderingMode newMode);
 
-		void OnSerialize(json& InJson);
+		virtual void OnSerialize(json& OutJson);
 
-		void OnDeserialize(const json& InJson);
+		virtual void OnDeserialize(const json& InJson);
 
 		void SetTexture(const TextureType& textureType, std::shared_ptr<Moonlight::Texture> loadedTexture);
 		const Texture* GetTexture(const TextureType& type) const;
@@ -47,7 +70,11 @@ namespace Moonlight
 		RenderingMode RenderMode = RenderingMode::Opaque;
 		Vector3 DiffuseColor;
 		Vector2 Tiling;
+
+		Moonlight::ShaderCommand MeshShader;
+		const std::string& GetTypeName() const;
 	private:
 		std::vector<std::shared_ptr<Texture>> Textures;
+		std::string TypeName;
 	};
 }

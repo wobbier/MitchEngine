@@ -4,10 +4,12 @@
 
 namespace Moonlight
 {
-	Material::Material()
+	Material::Material(const std::string& MaterialTypeName, const std::string& ShaderPath)
 		: Textures(TextureType::Count, nullptr)
 		, DiffuseColor(1.f, 1.f, 1.f)
 		, Tiling(1.f, 1.f)
+		, MeshShader(ShaderPath)
+		, TypeName(MaterialTypeName)
 	{
 	}
 
@@ -33,16 +35,17 @@ namespace Moonlight
 		RenderMode = newMode;
 	}
 
-	void Material::OnSerialize(json& InJson)
+	void Material::OnSerialize(json& OutJson)
 	{
-		InJson["DiffuseColor"] = { DiffuseColor.X(), DiffuseColor.Y(), DiffuseColor.Z() };
-		InJson["Tiling"] = { Tiling.X(), Tiling.Y() };
+		OutJson["Type"] = TypeName;
+		OutJson["DiffuseColor"] = { DiffuseColor.X(), DiffuseColor.Y(), DiffuseColor.Z() };
+		OutJson["Tiling"] = { Tiling.X(), Tiling.Y() };
 		for (unsigned int type = 0; type < TextureType::Count; ++type)
 		{
 			auto texture = Textures[type];
 			if (texture)
 			{
-				json& savedTexture = InJson["Textures"][Texture::ToString(static_cast<TextureType>(type))];
+				json& savedTexture = OutJson["Textures"][Texture::ToString(static_cast<TextureType>(type))];
 				savedTexture["Path"] = texture->GetPath().LocalPath;
 				savedTexture["RenderMode"] = GetRenderingModeString(RenderMode);
 			}
@@ -51,6 +54,10 @@ namespace Moonlight
 
 	void Material::OnDeserialize(const json& InJson)
 	{
+		if (InJson.contains("Type"))
+		{
+			TypeName = InJson["Type"];
+		}
 		if (InJson.contains("DiffuseColor"))
 		{
 			DiffuseColor = Vector3((float)InJson["DiffuseColor"][0], (float)InJson["DiffuseColor"][1], (float)InJson["DiffuseColor"][2]);
@@ -89,5 +96,10 @@ namespace Moonlight
 	std::vector<std::shared_ptr<Moonlight::Texture>>& Material::GetTextures()
 	{
 		return Textures;
+	}
+
+	const std::string& Material::GetTypeName() const
+	{
+		return TypeName;
 	}
 }

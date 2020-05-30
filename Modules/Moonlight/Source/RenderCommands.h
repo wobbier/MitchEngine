@@ -38,7 +38,6 @@ namespace Moonlight
 	{
 		MeshData* SingleMesh = nullptr;
 		MeshType Type = MeshType::Model;
-		ShaderCommand* MeshShader = nullptr;
 		Material* MeshMaterial = nullptr;
 		DirectX::SimpleMath::Matrix Transform;
 		bool Visible = false;
