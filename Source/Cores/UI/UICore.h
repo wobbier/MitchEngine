@@ -13,6 +13,7 @@
 #include "File.h"
 #include "Path.h"
 #include "UI/FileSystemBasic.h"
+#include "UI/FileLogger.h"
 
 namespace Moonlight { class Renderer; }
 
@@ -46,10 +47,12 @@ public:
 	bool IsInitialized = false;
 
 	Moonlight::Renderer* m_renderer;
-	ultralight::Ref<ultralight::Renderer> m_uiRenderer;
+	ultralight::RefPtr<ultralight::Renderer> m_uiRenderer;
 	std::unique_ptr<ultralight::FileSystemBasic> m_fs;
 	std::unique_ptr<ultralight::GPUDriverD3D11> m_driver = nullptr;
 	std::unique_ptr<ultralight::GPUContextD3D11> m_context = nullptr;
+	std::unique_ptr<ultralight::FontLoader> m_fontLoader = nullptr;
+	std::unique_ptr<ultralight::FileLogger> m_logger = nullptr;
 	ultralight::RefPtr<UIWindow> m_window = nullptr;
 	std::vector<ultralight::RefPtr<ultralight::Overlay>> m_overlays;
 };

@@ -79,7 +79,7 @@ void GPUContextD3D11::screen_size(uint32_t& width, uint32_t& height) { width = w
 bool GPUContextD3D11::Initialize(int screen_width, int screen_height, double screen_scale, bool fullscreen, bool enable_vsync, bool sRGB, int samples) {
   samples_ = samples;
 #if ENABLE_MSAA
-  samples_ = 4;
+  samples_ = 8;
 #endif
   enable_vsync_ = enable_vsync;
   set_screen_size(screen_width, screen_height);

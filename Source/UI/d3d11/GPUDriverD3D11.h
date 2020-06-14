@@ -5,6 +5,7 @@
 #include <map>
 #include <vector>
 #include <memory>
+#include "UI/GPUDriverImpl.h"
 
 namespace Moonlight { struct ShaderProgram; }
 
@@ -19,40 +20,26 @@ class GPUContextD3D11;
 /**
  * GPUDriver implementation for Direct3D 11.
  */
-class GPUDriverD3D11 : public GPUDriver {
+class GPUDriverD3D11 : public GPUDriverImpl {
 public:
   GPUDriverD3D11(GPUContextD3D11* context, Moonlight::DX11Device* device);
   virtual ~GPUDriverD3D11();
 
-  virtual void BeginSynchronize() override;
+  virtual void CreateTexture(uint32_t texture_id, Ref<Bitmap> bitmap) override;
 
-  virtual void EndSynchronize() override;
+  virtual void UpdateTexture(uint32_t texture_id, Ref<Bitmap> bitmap) override;
 
-  virtual uint32_t NextTextureId() override;
-
-  virtual void CreateTexture(uint32_t texture_id,
-    Ref<Bitmap> bitmap) override;
-
-  virtual void UpdateTexture(uint32_t texture_id,
-    Ref<Bitmap> bitmap) override;
-
-  virtual void BindTexture(uint8_t texture_unit,
-    uint32_t texture_id) override;
+  virtual void BindTexture(uint8_t texture_unit, uint32_t texture_id) override;
 
   virtual void DestroyTexture(uint32_t texture_id) override;
 
-  virtual uint32_t NextRenderBufferId() override;
-
-  virtual void CreateRenderBuffer(uint32_t render_buffer_id,
-    const RenderBuffer& buffer) override;
+  virtual void CreateRenderBuffer(uint32_t render_buffer_id, const RenderBuffer& buffer) override;
 
   virtual void BindRenderBuffer(uint32_t render_buffer_id) override;
 
   virtual void ClearRenderBuffer(uint32_t render_buffer_id) override;
 
   virtual void DestroyRenderBuffer(uint32_t render_buffer_id) override;
-
-  virtual uint32_t NextGeometryId() override;
 
   virtual void CreateGeometry(uint32_t geometry_id,
     const VertexBuffer& vertices,
@@ -73,11 +60,14 @@ public:
 
   virtual bool HasCommandsPending() override { return !command_list_.empty(); }
 
-  virtual void DrawCommandList() override;
 
-  // Public Methods
+  const char* name() override;
 
-  int batch_count() const { return batch_count_; }
+
+  void BeginDrawing() override;
+
+
+  void EndDrawing() override;
 
 protected:
   void LoadShaders();
@@ -86,7 +76,7 @@ protected:
   void BindGeometry(uint32_t id);
   ComPtr<ID3D11SamplerState> GetSamplerState();
   ComPtr<ID3D11Buffer> GetConstantBuffer();
-  void SetViewport(float width, float height);
+  void SetViewport(uint32_t width, uint32_t height);
   void UpdateConstantBuffer(const GPUState& state);
   Matrix ApplyProjection(const Matrix4x4& transform, float screen_width, float screen_height);
 
@@ -94,10 +84,6 @@ protected:
   Moonlight::DX11Device* m_device;
   ComPtr<ID3D11SamplerState> sampler_state_;
   ComPtr<ID3D11Buffer> constant_buffer_;
-
-  uint32_t next_texture_id_ = 1;
-  uint32_t next_render_buffer_id_ = 1; // render buffer id 0 is reserved for default render target view.
-  uint32_t next_geometry_id_ = 1;
 
   struct GeometryEntry { VertexBufferFormat format; ComPtr<ID3D11Buffer> vertexBuffer; ComPtr<ID3D11Buffer> indexBuffer; };
   typedef std::map<uint32_t, GeometryEntry> GeometryMap;
@@ -126,9 +112,6 @@ protected:
   RenderTargetMap render_targets_;
 
   std::map<ShaderType, Moonlight::ShaderProgram> shaders_;
-
-  std::vector<Command> command_list_;
-  int batch_count_;
 };
 
 }  // namespace ultralight

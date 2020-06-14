@@ -1,9 +1,9 @@
 #pragma once
 #include <Ultralight/platform/FontLoader.h>
 #include <Ultralight/String16.h>
+#include "UI/RefCountedImpl.h"
 #include "AppCore/Window.h"
 #include "Window/IWindow.h"
-#include "UI/RefCountedImpl.h"
 
 class UIWindow
 	: public ultralight::Window
@@ -50,6 +50,7 @@ public:
 	HWND hwnd();
 
 	virtual int PixelsToDevice(int val) const override;
+
 	REF_COUNTED_IMPL(UIWindow);
 
 	virtual ultralight::OverlayManager* overlay_manager() const override;

@@ -8,10 +8,6 @@ cbuffer Uniforms : register(b0)
   matrix Clip[8];
 };
 
-float Time() { return State[0]; }
-float ScreenWidth() { return State[1]; }
-float ScreenHeight() { return State[2]; }
-float Scalar(int i) { if (i < 4) return Scalar4[0][i]; else return Scalar4[1][i - 4]; }
 float4 sRGBToLinear(float4 val) { return float4(val.xyz * (val.xyz * (val.xyz * 0.305306011 + 0.682171111) + 0.012522878), val.w); }
 
 struct VS_OUTPUT
@@ -27,7 +23,6 @@ struct VS_OUTPUT
   float4 Data5       : COLOR6;
   float4 Data6       : COLOR7;
   float2 ObjectCoord : TEXCOORD1;
-  float2 ScreenCoord : TEXCOORD2;
 };
 
 VS_OUTPUT VS(float2 Position : POSITION,

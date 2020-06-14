@@ -95,5 +95,11 @@ Overlay* OverlayManager::HitTest(int x, int y) {
   return nullptr;
 }
 
+void OverlayManager::UnfocusAll() {
+	if (focused_overlay_)
+		focused_overlay_->view()->Unfocus();
+
+	focused_overlay_ = nullptr;
+}
 
 }  // namespace ultralight

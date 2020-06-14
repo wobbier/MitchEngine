@@ -1485,8 +1485,8 @@ namespace Moonlight
 			y = Mathf::Clamp(0.f, camera.OutputSize.Y(), y);
 
 			int bonusX = desc.Width - camera.OutputSize.X();
-
-			BYTE R = g_iMageBuffer[4 * (x + y * desc.Width)];
+			int bufSize = 4 * (x + y * desc.Width);
+			BYTE R = g_iMageBuffer[bufSize];
 			//BYTE G = g_iMageBuffer[1 + 4 * (x + y * desc.Width)];
 			//BYTE B = g_iMageBuffer[2 + 4 * (x + y * desc.Width)];
 			BYTE A = g_iMageBuffer[3 + 4 * (x + y * desc.Width)];

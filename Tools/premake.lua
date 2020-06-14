@@ -89,20 +89,27 @@ includedirs {
 if isUWP then
   defines { "ME_PLATFORM_UWP" }
   includedirs { (dirPrefix) .. "packages/directxtk_uwp.2018.11.20.1/include" }
+  libdirs {
+  "../ThirdParty/UltralightSDK/lib/UWP",
+  "../ThirdParty/UltralightSDK/bin/UWP"
+  }
 else
   includedirs { (dirPrefix) .. "packages/directxtk_desktop_2015.2018.11.20.1/include" }
+  libdirs {
+  "../ThirdParty/UltralightSDK/lib/Win64",
+  "../ThirdParty/UltralightSDK/bin/Win64"
+  }
   defines { "ME_PLATFORM_WIN64" }
   links {
   	"dwmapi",
     "DirectXTKAudioWin8",
-  "Shlwapi.lib"
+  "Shlwapi.lib",
+  "AppCore.lib"
   }
 end
 
 libdirs {
   "../Build/%{cfg.buildcfg}",
-  "../ThirdParty/UltralightSDK/lib",
-  "../ThirdParty/UltralightSDK/bin"
 }
 
 links {
@@ -114,8 +121,7 @@ links {
   "Usp10.lib",
   "Ultralight.lib",
   "UltralightCore.lib",
-  "WebCore.lib",
-  "AppCore.lib"
+  "WebCore.lib"
 }
 
 -- Platform specific options

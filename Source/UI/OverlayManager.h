@@ -32,6 +32,7 @@ public:
 
   virtual bool IsOverlayFocused(Overlay* overlay) const;
 
+  void UnfocusAll();
 protected:
   Overlay* HitTest(int x, int y);
 

@@ -49,6 +49,8 @@ Model& ModelComponent = ModelEntity.AddComponent<Model>("Assets/Models/ground.fb
 Main features
 -------------
    * (ECS) Entity-Component System based design
+   * World Editor
+   * HTML UI with [Ultralight][5]
    * Language: C++
    * DirectX 11
    * Open Source Commercial Friendly(MIT): Compatible with open and closed source projects
@@ -67,7 +69,7 @@ Build Requirements
 Third Party Libraries
 --------------------------------
 
-  * [OZZ][5]
+  * [Ultralight][5]
   * [Optick][6]
   * [Bullet Physics][7]
 
@@ -88,7 +90,7 @@ Contact me
 [2]: https://github.com/wobbier/MitchEngine/issues "GitHub Issues"
 [3]: http://www.twitter.com/wobbier "Twitter"
 [4]: https://trello.com/b/QpR06bQl/mitchengine-status "Trello Board"
-[5]: https://github.com/guillaumeblanc/ozz-animation "OZZ Animation"
+[5]: https://github.com/ultralight-ux/Ultralight "Ultralight"
 [6]: https://github.com/bombomby/optick "Optick"
 [7]: https://github.com/bulletphysics/bullet3 "Bullet 3D"
 [8]: https://github.com/wobbier/MitchGame "MitchGame Example Project"

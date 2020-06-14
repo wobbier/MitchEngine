@@ -11,6 +11,7 @@
 #include "Logger.h"
 #include "Path.h"
 #include "Device/DX11Device.h"
+#include "Logger.h"
 
 namespace {
 
@@ -111,14 +112,6 @@ namespace ultralight {
 	GPUDriverD3D11::~GPUDriverD3D11() {
 	}
 
-	void GPUDriverD3D11::BeginSynchronize() {
-	}
-
-	void GPUDriverD3D11::EndSynchronize() {
-	}
-
-	uint32_t GPUDriverD3D11::NextTextureId() { return next_texture_id_++; }
-
 	void GPUDriverD3D11::CreateTexture(uint32_t texture_id,
 		Ref<Bitmap> bitmap) {
 		auto i = textures_.find(texture_id);
@@ -151,7 +144,7 @@ namespace ultralight {
 			desc.Usage = D3D11_USAGE_DEFAULT;
 			desc.CPUAccessFlags = 0;
 #if ENABLE_MSAA
-			desc.SampleDesc.Count = 4;
+			desc.SampleDesc.Count = 8;
 			desc.SampleDesc.Quality = D3D11_STANDARD_MULTISAMPLE_PATTERN;
 
 			texture_entry.is_msaa_render_target = true;
@@ -277,8 +270,6 @@ namespace ultralight {
 		}
 	}
 
-	uint32_t GPUDriverD3D11::NextRenderBufferId() { return next_render_buffer_id_++; }
-
 	void GPUDriverD3D11::CreateRenderBuffer(uint32_t render_buffer_id,
 		const RenderBuffer& buffer) {
 		if (render_buffer_id == 0) {
@@ -398,8 +389,6 @@ namespace ultralight {
 		}
 	}
 
-	uint32_t GPUDriverD3D11::NextGeometryId() { return next_geometry_id_++; }
-
 	void GPUDriverD3D11::CreateGeometry(uint32_t geometry_id,
 		const VertexBuffer& vertices,
 		const IndexBuffer& indices) {
@@ -502,10 +491,10 @@ namespace ultralight {
 		if (state.enable_scissor) {
 			context_->EnableScissor();
 			D3D11_RECT scissor_rect = {
-			  (LONG)(state.scissor_rect.left * context_->scale()),
-			  (LONG)(state.scissor_rect.top * context_->scale()),
-			  (LONG)(state.scissor_rect.right * context_->scale()),
-			  (LONG)(state.scissor_rect.bottom * context_->scale()) };
+			  (LONG)(state.scissor_rect.left),
+			  (LONG)(state.scissor_rect.top),
+			  (LONG)(state.scissor_rect.right),
+			  (LONG)(state.scissor_rect.bottom) };
 
 			immediate_ctx->RSSetScissorRects(1, &scissor_rect);
 		}
@@ -535,20 +524,17 @@ namespace ultralight {
 		}
 	}
 
-	void GPUDriverD3D11::DrawCommandList() {
-		if (command_list_.empty())
-			return;
+	const char* GPUDriverD3D11::name()
+	{
+		return "Direct3D 11";
+	}
 
-		batch_count_ = 0;
+	void GPUDriverD3D11::BeginDrawing()
+	{
+	}
 
-		for (auto& cmd : command_list_) {
-			if (cmd.command_type == kCommandType_DrawGeometry)
-				DrawGeometry(cmd.geometry_id, cmd.indices_count, cmd.indices_offset, cmd.gpu_state);
-			else if (cmd.command_type == kCommandType_ClearRenderBuffer)
-				ClearRenderBuffer(cmd.gpu_state.render_buffer_id);
-		}
-
-		command_list_.clear();
+	void GPUDriverD3D11::EndDrawing()
+	{
 	}
 
 	void GPUDriverD3D11::LoadShaders()
@@ -684,11 +670,11 @@ namespace ultralight {
 		return constant_buffer_;
 	}
 
-	void GPUDriverD3D11::SetViewport(float width, float height) {
+	void GPUDriverD3D11::SetViewport(uint32_t width, uint32_t height) {
 		D3D11_VIEWPORT vp;
 		ZeroMemory(&vp, sizeof(vp));
-		vp.Width = width * (float)context_->scale();
-		vp.Height = height * (float)context_->scale();
+		vp.Width = (float)width;
+		vp.Height = (float)height;
 		vp.MinDepth = 0.0f;
 		vp.MaxDepth = 1.0f;
 		vp.TopLeftX = 0;
@@ -701,8 +687,11 @@ namespace ultralight {
 
 		Matrix model_view_projection = ApplyProjection(state.transform, state.viewport_width, state.viewport_height);
 
+		float screen_width = (float)state.viewport_width;
+		float screen_height = (float)state.viewport_height;
+
 		Uniforms uniforms;
-		uniforms.State = { 0.0, state.viewport_width, state.viewport_height, (float)context_->scale() };
+		uniforms.State = { 0.0f, screen_width, screen_height, (float)context_->scale() };
 		uniforms.Transform = DirectX::XMMATRIX(model_view_projection.GetMatrix4x4().data);
 		uniforms.Scalar4[0] =
 		{ state.uniform_scalar[0], state.uniform_scalar[1], state.uniform_scalar[2], state.uniform_scalar[3] };

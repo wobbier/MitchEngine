@@ -25,16 +25,20 @@
 #include "Engine/Input.h"
 #include "Dementia.h"
 
+#include "UI/OverlayImpl.h"
+//#include "UI/Overlay.cpp"
+
 #if ME_EDITOR
 #include "Havana.h"
 #include "Cores/EditorCore.h"
 #endif
 #include <libloaderapi.h>
 #include "Components/Camera.h"
+#include "UI/FileLogger.h"
+#include "UI/FontLoaderWin.h"
 
 UICore::UICore(IWindow* window)
 	: Base(ComponentFilter().Requires<Transform>().Requires<BasicUIView>())
-	, m_uiRenderer(ultralight::Renderer::Create())
 {
 	IsSerializable = false;
 	m_renderer = &GetEngine().GetRenderer();
@@ -42,16 +46,30 @@ UICore::UICore(IWindow* window)
 	m_window = AdoptRef(*new UIWindow(window, GetOverlayManager()));
 	ultralight::Platform& platform = ultralight::Platform::instance();
 	ultralight::Config config_;
-	config_.device_scale_hint = 1.0f;
+	config_.device_scale = 1.0f;
 	config_.enable_images = true;
 	config_.face_winding = ultralight::FaceWinding::kFaceWinding_Clockwise;
 	config_.force_repaint = true;
+	config_.font_family_standard = "Arial";
+
+	// Generate cache path
+	//String cache_path = GetRoamingAppDataPath();
+	//cache_path = PlatformFileSystem::AppendPath(cache_path, settings_.developer_name);
+	//cache_path = PlatformFileSystem::AppendPath(cache_path, settings_.app_name);
+	//PlatformFileSystem::MakeAllDirectories(cache_path);
+
+	//String log_path = PlatformFileSystem::AppendPath(cache_path, "ultralight.log");
+
+
 
 	Path fileSystemRoot = Path("");
 	m_fs.reset(new ultralight::FileSystemBasic(fileSystemRoot.Directory.c_str()));
+	config_.resource_path = "M:\\Projects\\C++\\stack\\Engine\\Modules\\Havana\\..\\..\\..\\Build\\Debug Editor";
 
+	m_logger.reset(new ultralight::FileLogger(ultralight::String(std::string(fileSystemRoot.Directory + "ultralight.log").c_str())));
+	platform.set_logger(m_logger.get());
 	m_context.reset(new ultralight::GPUContextD3D11());
-
+	//config_.cache_path = ultralight::String16(std::string(fileSystemRoot.Directory + "ultralight.log").c_str());
 	platform.set_config(config_);
 
 	UIWindow* win = static_cast<UIWindow*>(m_window.get());
@@ -65,8 +83,11 @@ UICore::UICore(IWindow* window)
 
 	platform.set_gpu_driver(m_driver.get());
 	platform.set_file_system(m_fs.get());
-	//platform.set_font_loader(m_fontLoader.get());
+	m_fontLoader.reset(new ultralight::FontLoaderWin());
+	platform.set_font_loader(m_fontLoader.get());
 	//win->set_app_listener(this);
+	m_uiRenderer = (ultralight::Renderer::Create());
+	
 }
 
 UICore::~UICore()
@@ -228,7 +249,7 @@ void UICore::OnResize(const Vector2& NewSize)
 
 void UICore::InitUIView(BasicUIView& view)
 {
-	ultralight::Ref<ultralight::View> newView = m_uiRenderer->CreateView(Camera::CurrentCamera->OutputSize.X(), Camera::CurrentCamera->OutputSize.Y(), true);
+	ultralight::Ref<ultralight::View> newView = m_uiRenderer->CreateView(Camera::CurrentCamera->OutputSize.X(), Camera::CurrentCamera->OutputSize.Y(), true, nullptr);
 	ultralight::RefPtr<ultralight::Overlay> overlay = ultralight::Overlay::Create(*m_window.get(), newView, 0, 0);
 	//overlay->view()->LoadHTML(view.SourceFile.Read().c_str());
 	overlay->view()->set_load_listener(&view);
