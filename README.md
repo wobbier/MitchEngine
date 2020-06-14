@@ -1,4 +1,4 @@
-![Mitch Engine Banner](https://raw.githubusercontent.com/wobbier/MitchEngine/master/Docs/GitHub/me_banner.png)
+![Mitch Engine Banner](https://raw.githubusercontent.com/wobbier/MitchEngine/master/Docs/GitHub/Havana.png)
 [![Build status](https://ci.appveyor.com/api/projects/status/7x55po7se0siesdn?svg=true)](https://ci.appveyor.com/project/wobbier/mitchengine)
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/858846f643cc47258ed72f9cfddb28b2)](https://www.codacy.com/app/rastaninja77/MitchEngine?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=wobbier/MitchEngine&amp;utm_campaign=Badge_Grade)
 ![license](https://img.shields.io/github/license/wobbier/mitchengine.svg)
