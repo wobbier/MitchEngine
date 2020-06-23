@@ -6,7 +6,7 @@
 #include "Dementia.h"
 
 #include "renderdoc_app.h"
-#include "Logger.h"
+#include "CLog.h"
 
 class RenderDocManager
 {
@@ -16,11 +16,11 @@ public:
 		HMODULE mod = GetModuleHandleA("renderdoc.dll");
 		if (mod)
 		{
-			Logger::GetInstance().Log(Logger::LogType::Info, "[RenderDoc] Loading.");
+			CLog::GetInstance().Log(CLog::LogType::Info, "[RenderDoc] Loading.");
 			pRENDERDOC_GetAPI RENDERDOC_GetAPI = (pRENDERDOC_GetAPI)GetProcAddress(mod, "RENDERDOC_GetAPI");
 			int ret = RENDERDOC_GetAPI(eRENDERDOC_API_Version_1_2_0, (void **)&RenderDocApi);
 			assert(ret == 1);
-			Logger::GetInstance().Log(Logger::LogType::Info, "[RenderDoc] Loaded.");
+			CLog::GetInstance().Log(CLog::LogType::Info, "[RenderDoc] Loaded.");
 		}
 		
 	}

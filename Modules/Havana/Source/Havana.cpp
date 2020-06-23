@@ -17,7 +17,7 @@
 #include <filesystem>
 #include "Math/Vector2.h"
 #include "Mathf.h"
-#include "Logger.h"
+#include "CLog.h"
 #include "Resource/ResourceCache.h"
 #include "Graphics/Texture.h"
 #include "Window/Win32Window.h"
@@ -53,20 +53,20 @@ Havana::Havana(Engine* GameEngine, EditorApp* app, Moonlight::Renderer* renderer
 		switch (status) {
 		case FileStatus::Created:
 		{
-			Logger::GetInstance().Log(Logger::LogType::Info, "File created: " + path_to_watch);
+			CLog::GetInstance().Log(CLog::LogType::Info, "File created: " + path_to_watch);
 			TestEditorEvent evt;
 			evt.Path = std::move(path_to_watch);
 			evt.Queue();
 		}
 		break;
 		case FileStatus::Modified:
-			Logger::GetInstance().Log(Logger::LogType::Info, "File modified: " + path_to_watch);
+			CLog::GetInstance().Log(CLog::LogType::Info, "File modified: " + path_to_watch);
 			break;
 		case FileStatus::Deleted:
-			Logger::GetInstance().Log(Logger::LogType::Info, "File deleted: " + path_to_watch);
+			CLog::GetInstance().Log(CLog::LogType::Info, "File deleted: " + path_to_watch);
 			break;
 		default:
-			Logger::GetInstance().Log(Logger::LogType::Error, "Error! Unknown file status.");
+			CLog::GetInstance().Log(CLog::LogType::Error, "Error! Unknown file status.");
 		}
 		});
 
@@ -514,7 +514,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 
 void Havana::DrawLog()
 {
-	static std::unordered_map<Logger::LogType, bool> DebugFilters;
+	static std::unordered_map<CLog::LogType, bool> DebugFilters;
 	ImGuiWindowFlags window_flags = 0;
 	window_flags |= ImGuiWindowFlags_MenuBar;
 	window_flags |= ImGuiWindowFlags_NoScrollbar;
@@ -527,22 +527,22 @@ void Havana::DrawLog()
 		{
 			if (ImGui::BeginMenu("Show"))
 			{
-				ImGui::Checkbox("Debug", &DebugFilters[Logger::LogType::Debug]);
-				ImGui::Checkbox("Error", &DebugFilters[Logger::LogType::Error]);
-				ImGui::Checkbox("Info", &DebugFilters[Logger::LogType::Info]);
+				ImGui::Checkbox("Debug", &DebugFilters[CLog::LogType::Debug]);
+				ImGui::Checkbox("Error", &DebugFilters[CLog::LogType::Error]);
+				ImGui::Checkbox("Info", &DebugFilters[CLog::LogType::Info]);
 				ImGui::EndMenu();
 			}
 
 			if (ImGui::Button("Clear Log"))
 			{
-				Logger::Messages.clear();
+				CLog::Messages.clear();
 			}
 
 			ImGui::EndMenuBar();
 		}
 
 		ImGuiListClipper clipper;
-		clipper.Begin(Logger::Messages.size(), 12.f);
+		clipper.Begin(CLog::Messages.size(), 12.f);
 
 		static float currentHeight = 0.f;
 		ImVec2 size = ImVec2(0, (ImGui::GetWindowSize().y - currentHeight) - ImGui::GetCursorPosY());
@@ -583,7 +583,7 @@ void Havana::DrawLog()
 					for (int column = 0; column < 1; column++)
 					{
 						ImGui::TableSetColumnIndex(column);
-						if (ImGui::Selectable(Logger::Messages[line_no].Message.c_str(), column_selected[column], 0, ImVec2(0.f, 12.f)))
+						if (ImGui::Selectable(CLog::Messages[line_no].Message.c_str(), column_selected[column], 0, ImVec2(0.f, 12.f)))
 						{
 							selectedIndex = line_no;
 						}
@@ -599,12 +599,12 @@ void Havana::DrawLog()
 		clipper.End();
 
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(5.f, 5.f));
-		if (selectedIndex >= 0 && selectedIndex < Logger::Messages.size())
+		if (selectedIndex >= 0 && selectedIndex < CLog::Messages.size())
 		{
 			ImGuiWindowFlags window_flags = ImGuiWindowFlags_HorizontalScrollbar;
 			ImGui::BeginChild("ChildL", ImVec2(ImGui::GetWindowContentRegionWidth(), 150), false, window_flags);
 			ImGui::PushTextWrapPos(ImGui::GetWindowContentRegionWidth() - 10.f);
-			ImGui::TextWrapped(Logger::Messages[selectedIndex].Message.c_str());
+			ImGui::TextWrapped(CLog::Messages[selectedIndex].Message.c_str());
 			ImGui::PopTextWrapPos();
 			currentHeight = ImGui::GetWindowHeight();
 			ImGui::EndChild();

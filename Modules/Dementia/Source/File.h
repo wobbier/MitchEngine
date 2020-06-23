@@ -1,7 +1,7 @@
 #pragma once
 #include "Path.h"
 #include <fstream>
-#include "Logger.h"
+#include "CLog.h"
 
 class File
 {
@@ -24,7 +24,7 @@ public:
 
 		if (!FileStream)
 		{
-			Logger::Log(Logger::LogType::Error, "File IO: Failed to load file " + FilePath.LocalPath);
+			CLog::Log(CLog::LogType::Error, "File IO: Failed to load file " + FilePath.LocalPath);
 			return Data;
 		}
 

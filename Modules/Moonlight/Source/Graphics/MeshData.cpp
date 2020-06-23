@@ -3,7 +3,7 @@
 
 #include "Graphics/ShaderStructures.h"
 #include "Device/DX11Device.h"
-#include "Logger.h"
+#include "CLog.h"
 #include "Renderer.h"
 #include "Utils/DirectXHelper.h"
 #include <DirectXMath.h>

@@ -5,7 +5,7 @@
 #include <algorithm>
 #include "Dementia.h"
 #include <fstream>
-#include "Logger.h"
+#include "CLog.h"
 
 #if ME_EDITOR
 #include <filesystem>

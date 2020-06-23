@@ -227,7 +227,7 @@ namespace Moonlight
 			output += L'\n';
 			OutputDebugString(output.c_str());
 
-			Logger::Log(Logger::LogType::Error, "D3DCompile warning: " + std::string(message));
+			CLog::Log(CLog::LogType::Error, "D3DCompile warning: " + std::string(message));
 		}
 
 		DX::ThrowIfFailed(success);

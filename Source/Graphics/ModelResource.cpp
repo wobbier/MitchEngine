@@ -7,7 +7,7 @@
 
 #include <unordered_map>
 
-#include "Logger.h"
+#include "CLog.h"
 #include "Renderer.h"
 #include "Graphics/Texture.h"
 #include "Game.h"

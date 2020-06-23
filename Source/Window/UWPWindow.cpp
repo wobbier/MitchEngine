@@ -1,7 +1,7 @@
 #include "PCH.h"
 #include "Window/UWPWindow.h"
 #include "Engine/Input.h"
-#include "Logger.h"
+#include "CLog.h"
 #include <assert.h>
 
 #if ME_PLATFORM_UWP

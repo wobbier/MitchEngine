@@ -1,7 +1,7 @@
 #include <iostream>
 #include <assert.h>
 #include "Texture.h"
-#include "Logger.h"
+#include "CLog.h"
 #include <WICTextureLoader.h>
 #include "Game.h"
 #include "Device/DX11Device.h"
@@ -124,7 +124,7 @@ namespace Moonlight
 			return "Opacity";
 		case TextureType::Count:
 		default:
-			Logger::GetInstance().Log(Logger::LogType::Error, "Couldn't find texture type: " + std::to_string(type));
+			CLog::GetInstance().Log(CLog::LogType::Error, "Couldn't find texture type: " + std::to_string(type));
 			return "";
 		}
 	}

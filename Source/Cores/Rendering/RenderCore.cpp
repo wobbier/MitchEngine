@@ -5,7 +5,7 @@
 #include "Components/Graphics/Model.h"
 #include "Components/Transform.h"
 #include "ECS/ComponentFilter.h"
-#include "Logger.h"
+#include "CLog.h"
 #include "Graphics/ShaderCommand.h"
 #include "Resource/Resource.h"
 
@@ -30,7 +30,7 @@ RenderCore::RenderCore()
 
 void RenderCore::Init()
 {
-	Logger::GetInstance().Log(Logger::LogType::Debug, "RenderCore Initialized...");
+	CLog::GetInstance().Log(CLog::LogType::Debug, "RenderCore Initialized...");
 	m_renderer->ClearDebugColliders();
 	m_renderer->ClearMeshes();
 }
@@ -66,7 +66,7 @@ void RenderCore::OnEntityRemoved(Entity& InEntity)
 
 RenderCore::~RenderCore()
 {
-	Logger::GetInstance().Log(Logger::LogType::Debug, "RenderCore Destroyed...");
+	CLog::GetInstance().Log(CLog::LogType::Debug, "RenderCore Destroyed...");
 }
 
 void RenderCore::Update(float dt)

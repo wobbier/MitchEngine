@@ -11,15 +11,15 @@ log file name and priority levels to control what info gets saved and where.
 */
 
 /// Looks like things fucked up
-#define YIKES(name) Logger::Log(Logger::LogType::Error, name)
+#define YIKES(name) CLog::Log(CLog::LogType::Error, name)
 
 /// A Warning
-#define BRUH(name) Logger::Log(Logger::LogType::Warning, name)
+#define BRUH(name) CLog::Log(CLog::LogType::Warning, name)
 
-class Logger
+class CLog
 {
 public:
-	~Logger();
+	~CLog();
 	/*
 	The log priority levels.
 	Setting a priority will only allow the logger to output
@@ -58,15 +58,15 @@ public:
 	Set the logger write priority.
 	@param priority: The logger priority to change to
 	*/
-	void SetLogPriority(Logger::LogType priority);
+	void SetLogPriority(CLog::LogType priority);
 	/*
 	Write a message to the file currently set with the given priority.
 	@param priority: The logger priority to change to
 	@param message: The message to write to the file
 	@returns true if the log was written to the file else false.
 	*/
-	bool LogMessage(Logger::LogType priority, std::string message);
-	static bool Log(Logger::LogType priority, const std::string& message);
+	bool LogMessage(CLog::LogType priority, std::string message);
+	static bool Log(CLog::LogType priority, const std::string& message);
 	struct LogEntry
 	{
 		LogType Type = LogType::None;
@@ -80,7 +80,7 @@ private:
 	std::ofstream mLogFile;
 	std::string mLogFileLocation;
 	LogType mPriority;
-	Logger() = default;
+	CLog() = default;
 
-	ME_SINGLETON_DEFINITION(Logger)
+	ME_SINGLETON_DEFINITION(CLog)
 };

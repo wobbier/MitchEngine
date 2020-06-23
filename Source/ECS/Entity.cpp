@@ -2,7 +2,7 @@
 #include "Entity.h"
 #include "Engine/World.h"
 #include "ComponentDetail.h"
-#include "Logger.h"
+#include "CLog.h"
 
 #if ME_EDITOR
 #include "imgui.h"
@@ -43,7 +43,7 @@ BaseComponent* Entity::AddComponentByName(const std::string& inComponent)
 	ComponentRegistry::iterator it = reg.find(inComponent);
 
 	if (it == reg.end()) {
-		Logger::GetInstance().Log(Logger::LogType::Warning, "Factory not found for component " + inComponent);
+		CLog::GetInstance().Log(CLog::LogType::Warning, "Factory not found for component " + inComponent);
 		return nullptr;
 	}
 

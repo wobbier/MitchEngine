@@ -1,6 +1,6 @@
 #include "PCH.h"
 #include "Engine.h"
-#include "Logger.h"
+#include "CLog.h"
 #include "Config.h"
 #include "Window/UWPWindow.h"
 #include "Window/Win32Window.h"
@@ -55,9 +55,9 @@ void Engine::Init(Game* game)
 
 	m_game = game;
 
-	Logger::GetInstance().SetLogFile("Engine.txt");
-	Logger::GetInstance().SetLogPriority(Logger::LogType::Info);
-	Logger::GetInstance().Log(Logger::LogType::Info, "Starting the MitchEngine.");
+	CLog::GetInstance().SetLogFile("Engine.txt");
+	CLog::GetInstance().SetLogPriority(CLog::LogType::Info);
+	CLog::GetInstance().Log(CLog::LogType::Info, "Starting the MitchEngine.");
 	Path engineCfg("Assets\\Config\\Engine.cfg");
 
 #if ME_EDITOR

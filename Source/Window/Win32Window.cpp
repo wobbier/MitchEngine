@@ -1,7 +1,7 @@
 #include "PCH.h"
 #include "Window/Win32Window.h"
 #include "Engine/Input.h"
-#include "Logger.h"
+#include "CLog.h"
 #include <assert.h>
 
 #if ME_PLATFORM_WIN64

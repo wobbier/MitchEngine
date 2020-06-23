@@ -7,7 +7,7 @@
 #include "Singleton.h"
 #include "ClassTypeId.h"
 #include <memory>
-#include "Logger.h"
+#include "CLog.h"
 
 class Resource;
 

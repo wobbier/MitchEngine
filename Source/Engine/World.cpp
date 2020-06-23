@@ -3,7 +3,7 @@
 #include "Components/Transform.h"
 #include <unordered_map>
 #include "Pointers.h"
-#include "Logger.h"
+#include "CLog.h"
 #include "ECS/CoreDetail.h"
 #include "File.h"
 #include "Resources/JsonResource.h"
@@ -31,7 +31,7 @@ void World::AddCoreByName(const std::string& core)
 	CoreRegistry::iterator it = reg.find(core);
 
 	if (it == reg.end()) {
-		Logger::GetInstance().Log(Logger::LogType::Error, "Factory not found for core " + core);
+		CLog::GetInstance().Log(CLog::LogType::Error, "Factory not found for core " + core);
 		return;
 	}
 	std::pair<BaseCore*, TypeId> createdCore = it->second(false);

@@ -2,7 +2,7 @@
 #include "UICore.h"
 #include "Components/Transform.h"
 #include "ECS/ComponentFilter.h"
-#include "Logger.h"
+#include "CLog.h"
 #include "Graphics/ShaderCommand.h"
 #include "Resource/Resource.h"
 
@@ -92,12 +92,12 @@ UICore::UICore(IWindow* window)
 
 UICore::~UICore()
 {
-	Logger::GetInstance().Log(Logger::LogType::Debug, "UICore Destroyed...");
+	CLog::Log(CLog::LogType::Debug, "UICore Destroyed...");
 }
 
 void UICore::Init()
 {
-	Logger::GetInstance().Log(Logger::LogType::Debug, "UICore Initialized...");
+	CLog::Log(CLog::LogType::Debug, "UICore Initialized...");
 	if (m_renderer)
 		m_renderer->ClearUIText();
 	if (!IsInitialized)

@@ -1,6 +1,6 @@
 #include "PCH.h"
 #include "Model.h"
-#include "Logger.h"
+#include "CLog.h"
 #include "Renderer.h"
 #include "Graphics/ModelResource.h"
 #include "Graphics/ShaderCommand.h"

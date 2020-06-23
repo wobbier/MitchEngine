@@ -1,6 +1,6 @@
 #include "PCH.h"
 #include "IWindow.h"
-#include "Logger.h"
+#include "CLog.h"
 #include <assert.h>
 
 int IWindow::WINDOW_WIDTH = 960;

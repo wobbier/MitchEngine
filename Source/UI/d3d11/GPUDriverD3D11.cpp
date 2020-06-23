@@ -8,10 +8,10 @@
 #include <Ultralight/platform/Platform.h>
 #include <Ultralight/platform/FileSystem.h>
 #include <AppCore/App.h>
-#include "Logger.h"
+#include "CLog.h"
 #include "Path.h"
 #include "Device/DX11Device.h"
-#include "Logger.h"
+#include "CLog.h"
 
 namespace {
 

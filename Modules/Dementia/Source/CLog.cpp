@@ -1,25 +1,25 @@
-#include "Logger.h"
+#include "CLog.h"
 #include <wtypes.h>
 #include <wincon.h>
 #include <processenv.h>
 
-std::vector<Logger::LogEntry> Logger::Messages;
+std::vector<CLog::LogEntry> CLog::Messages;
 
-Logger::~Logger()
+CLog::~CLog()
 {
 }
 
-void Logger::SetLogFile(std::string filename)
+void CLog::SetLogFile(std::string filename)
 {
 	mLogFileLocation = filename;
 }
 
-void Logger::SetLogPriority(Logger::LogType priority)
+void CLog::SetLogPriority(CLog::LogType priority)
 {
 	mPriority = priority;
 }
 
-bool Logger::LogMessage(Logger::LogType priority, std::string message)
+bool CLog::LogMessage(CLog::LogType priority, std::string message)
 {
 	if (mPriority == LogType::None) return false;
 	if (priority < mPriority)
@@ -73,7 +73,7 @@ bool Logger::LogMessage(Logger::LogType priority, std::string message)
 	return true;
 }
 
-bool Logger::Log(LogType priority, const std::string& message)
+bool CLog::Log(LogType priority, const std::string& message)
 {
-	return Logger::GetInstance().LogMessage(priority, message);
+	return CLog::GetInstance().LogMessage(priority, message);
 }

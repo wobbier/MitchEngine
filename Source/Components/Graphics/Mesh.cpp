@@ -16,7 +16,7 @@
 #endif
 #include "RenderCommands.h"
 #include "Graphics/MaterialDetail.h"
-#include "Logger.h"
+#include "CLog.h"
 
 Mesh::Mesh()
 	: Component("Mesh")

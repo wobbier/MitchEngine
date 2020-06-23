@@ -1,7 +1,7 @@
 #include "PCH.h"
 #include <WinUser.h>
 #include "Engine/Input.h"
-#include "Logger.h"
+#include "CLog.h"
 #include <string>
 #include <iostream>
 
