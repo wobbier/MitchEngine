@@ -20,7 +20,7 @@ namespace Moonlight
 		class ShaderCommand* SkyShader = nullptr;
 		class Material* SkyMaterial = nullptr;
 
-		void Draw();
+		void Draw(ID3D11DeviceContext* context);
 
 	private:
 		ID3D11RasterizerState* CCWcullMode;

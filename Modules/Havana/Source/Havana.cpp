@@ -393,6 +393,24 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 			}
 			ImGui::EndMenu();
 		}
+		if (ImGui::BeginMenu("Render Mode"))
+		{
+			{
+				bool selected = m_engine->GetRenderer().GetContextType() == Moonlight::eDeviceContextType::Legacy;
+				if (ImGui::MenuItem("Legacy", nullptr, &selected))
+				{
+					m_engine->GetRenderer().SetContextType(Moonlight::eDeviceContextType::Legacy);
+				}
+			}
+			{
+				bool selected = m_engine->GetRenderer().GetContextType() == Moonlight::eDeviceContextType::MT_DefferedChunk;
+				if (ImGui::MenuItem("Multithreaded Deffered Chunk", nullptr, &selected))
+				{
+					m_engine->GetRenderer().SetContextType(Moonlight::eDeviceContextType::MT_DefferedChunk);
+				}
+			}
+			ImGui::EndMenu();
+		}
 		auto Keyboard = GetInput().GetKeyboardState();
 		if (!m_app->IsGameRunning())
 		{

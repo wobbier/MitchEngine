@@ -22,12 +22,34 @@
 #include "Graphics/MeshData.h"
 #include "Math/Vector2.h"
 #include "Math/Frustrum.h"
+#include <process.h>
+#include "Engine/Engine.h"
 
 using namespace DirectX;
 using namespace Windows::Foundation;
 
 namespace Moonlight
 {
+	typedef BOOL(WINAPI* LPFN_GLPI)(
+		PSYSTEM_LOGICAL_PROCESSOR_INFORMATION,
+		PDWORD);
+
+	inline DWORD CountBits(ULONG_PTR bitMask)
+	{
+		DWORD LSHIFT = sizeof(ULONG_PTR) * 8 - 1;
+		DWORD bitSetCount = 0;
+		ULONG_PTR bitTest = ULONG_PTR(1) << LSHIFT;
+		DWORD i;
+
+		for (i = 0; i < LSHIFT; ++i)
+		{
+			bitSetCount += ((bitMask & bitTest) ? 1 : 0);
+			bitTest /= 2;
+		}
+
+		return bitSetCount;
+	}
+
 	void Renderer::UpdateMatrix(unsigned int Id, DirectX::SimpleMath::Matrix NewTransform)
 	{
 		if (Id >= DebugColliders.size())
@@ -201,6 +223,8 @@ namespace Moonlight
 			m_planeIndicies = indices;
 
 			PlaneMesh = new MeshData(m_planeVerticies, m_planeIndicies);
+
+			InitializeWorkerThreads(m_device->GetD3DDevice());
 		}
 	}
 
@@ -234,7 +258,828 @@ namespace Moonlight
 
 	}
 
-	DX11Device& Renderer::GetDevice()
+	int Renderer::GetPhysicalProcessorCount()
+	{
+		DWORD processorCoreCount = 0;
+
+		HMODULE handle = GetModuleHandle(L"kernel32");
+
+		auto procInfo = reinterpret_cast<LPFN_GLPI>(GetProcAddress(handle, "GetLogicalProcessorInformation"));
+		if (!procInfo)
+		{
+			YIKES("Failed to get logical processor information.");
+			return processorCoreCount;
+		}
+
+		bool done = false;
+		PSYSTEM_LOGICAL_PROCESSOR_INFORMATION buffer = nullptr;
+		DWORD returnLength = 0;
+
+		while (!done)
+		{
+			BOOL rc = procInfo(buffer, &returnLength);
+			if (rc == FALSE)
+			{
+				if (GetLastError() == ERROR_INSUFFICIENT_BUFFER)
+				{
+					if (buffer)
+					{
+						free(buffer);
+					}
+
+					buffer = reinterpret_cast<PSYSTEM_LOGICAL_PROCESSOR_INFORMATION>(malloc(returnLength));
+					if (!buffer)
+					{
+						return processorCoreCount;
+					}
+				}
+				else
+				{
+					return processorCoreCount;
+				}
+			}
+			else
+			{
+				done = true;
+			}
+		}
+
+		assert(buffer);
+
+		DWORD byteOffset = 0;
+		PSYSTEM_LOGICAL_PROCESSOR_INFORMATION info = buffer;
+		while (byteOffset < returnLength)
+		{
+			if (info->Relationship == RelationProcessorCore)
+			{
+				if (info->ProcessorCore.Flags)
+				{
+					// Hyperthreading or SMT enabled.
+					processorCoreCount += 1;
+				}
+				else
+				{
+					processorCoreCount += CountBits(info->ProcessorMask);
+				}
+			}
+
+			byteOffset += sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION);
+			info++;
+		}
+
+		return processorCoreCount;
+	}
+
+
+	void Renderer::InitializeWorkerThreads(ID3D11Device* device)
+	{
+		HRESULT hr;
+
+		m_numPerChunkRenderThreads = GetPhysicalProcessorCount() - 1;
+		m_numPerChunkRenderThreads = std::min(m_numPerChunkRenderThreads, kMaxPerChunkRenderThreads);
+		m_numPerChunkRenderThreads = std::max(m_numPerChunkRenderThreads, 1);
+
+		for (int i = 0; i < m_numPerChunkRenderThreads; ++i)
+		{
+			m_perChunkThreadInstanceData[i] = i;
+
+			m_hBeginPerChunkRenderDeferredSemaphore[i] = CreateSemaphore(nullptr, 0, m_maxPendingQueueEntries, nullptr);
+			m_hEndPerChunkRenderDeferredEvent[i] = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+
+			hr = GetDevice().GetD3DDevice()->CreateDeferredContext3(0, &m_pd3dPerChunkDeferredContext[i]);
+			DX::ThrowIfFailed(hr);
+
+			m_hPerChunkRenderDeferredThread[i] = (HANDLE)_beginthreadex(nullptr, 0, &Renderer::_PerChunkRenderDeferredProc, &m_perChunkThreadInstanceData[i], CREATE_SUSPENDED, nullptr);
+
+			ResumeThread(m_hPerChunkRenderDeferredThread[i]);
+		}
+
+		if (m_numPerChunkRenderThreads > 0)
+		{
+
+		}
+	}
+
+	void Renderer::RenderSceneSetup(Renderer& renderer, ID3D11DeviceContext3* context, const CameraData& camera, FrameBuffer* ViewRTT, ID3D11Buffer* constantBuffer)
+	{
+		Vector2 outputSize = camera.OutputSize;
+		if (outputSize.IsZero())
+		{
+			return;
+		}
+
+		float aspectRatio = static_cast<float>(outputSize.X()) / static_cast<float>(outputSize.Y());
+		float fovAngleY = camera.FOV * XM_PI / 180.0f;
+
+		if (!ViewRTT)
+		{
+			return;
+		}
+
+		// This is a simple example of change that can be made when the app is in
+		// portrait or snapped view.
+		if (aspectRatio < 1.0f)
+		{
+			fovAngleY *= 2.0f;
+		}
+
+		// Note that the OrientationTransform3D matrix is post-multiplied here
+		// in order to correctly orient the scene to match the display orientation.
+		// This post-multiplication step is required for any draw calls that are
+		// made to the swap chain render target. For draw calls to other targets,
+		// this transform should not be applied.
+
+
+		// [Renderer] Could be weird accessing the same thing
+		context->OMSetDepthStencilState(renderer.GetDevice().DepthStencilState, 0);
+		if (camera.Projection == ProjectionType::Perspective)
+		{
+			// This sample makes use of a right-handed coordinate system using row-major matrices.
+			XMMATRIX perspectiveMatrix = XMMatrixPerspectiveFovRH(
+				fovAngleY,
+				aspectRatio,
+				camera.Near,
+				camera.Far
+			);
+
+			XMStoreFloat4x4(
+				&renderer.m_constantBufferSceneData.projection,
+				XMMatrixTranspose(perspectiveMatrix)
+			);
+		}
+		else if (camera.Projection == ProjectionType::Orthographic)
+		{
+			XMMATRIX orthographicMatrix = XMMatrixOrthographicRH(
+				outputSize.X() / camera.OrthographicSize,
+				outputSize.Y() / camera.OrthographicSize,
+				camera.Near,
+				camera.Far
+			);
+
+			XMStoreFloat4x4(
+				&renderer.m_constantBufferSceneData.projection,
+				(orthographicMatrix)
+			);
+		}
+
+		const XMVECTORF32 eye = { camera.Position.X(), camera.Position.Y(), camera.Position.Z(), 0 };
+		const XMVECTORF32 at = { /*camera.Position.X() + */camera.Front.X(),/* camera.Position.Y() + */camera.Front.Y(), /*camera.Position.Z() + */camera.Front.Z(), 0.0f };
+		const XMVECTORF32 up = { camera.Up.X(), camera.Up.Y(), camera.Up.Z(), 0 };
+
+		//Sunlight.cameraPos = { camera.Position.X(), camera.Position.Y(), camera.Position.Z(), 0 };
+
+		ID3D11RenderTargetView** targets[4] = { ViewRTT->ColorRenderTargetView.GetAddressOf(), ViewRTT->NormalRenderTargetView.GetAddressOf(), ViewRTT->SpecularRenderTargetView.GetAddressOf(), ViewRTT->PositionRenderTargetView.GetAddressOf() };
+		context->OMSetRenderTargets(4, *targets, ViewRTT->DepthStencilView.Get());
+
+		CD3D11_VIEWPORT screenViewport = CD3D11_VIEWPORT(
+			0.0f,
+			0.0f,
+			camera.OutputSize.X(),
+			camera.OutputSize.Y()
+		);
+
+		context->RSSetViewports(1, &screenViewport);
+
+		XMStoreFloat2(&renderer.m_constantBufferSceneData.ViewportSize, camera.OutputSize.GetInternalVec());
+
+		//XMStoreFloat4x4(&m_constantBufferData.view, XMMatrixTranspose(XMMatrixIdentity()));
+		XMStoreFloat4x4(&renderer.m_constantBufferSceneData.view, XMMatrixTranspose(XMMatrixLookToRH(eye, at, up)));
+
+		if (camera.Skybox)
+		{
+			XMStoreFloat4x4(&renderer.m_constantBufferSceneData.model, XMMatrixTranslation(eye[0], eye[1], eye[2]));
+			XMStoreFloat4x4(&renderer.m_constantBufferSceneData.modelInv, XMMatrixInverse(nullptr, XMMatrixTranslation(eye[0], eye[1], eye[2])));
+			// Prepare the constant buffer to send it to the graphics device.
+			context->UpdateSubresource1(
+				constantBuffer,
+				0,
+				NULL,
+				&renderer.m_constantBufferSceneData,
+				0,
+				0,
+				0
+			);
+
+			// Send the constant buffer to the graphics device.
+			context->VSSetConstantBuffers1(
+				0,
+				1,
+				&constantBuffer,
+				nullptr,
+				nullptr
+			);
+
+			// [Renderer] Pass in the context
+			camera.Skybox->Draw(context);
+		}
+//
+//		m_device->ResetCullingMode();
+//
+//		if (Lights.size() > 0)
+//		{
+//			//constantBufferSceneData.light = Lights[0];
+//		}
+//
+//		{
+//			std::vector<MeshCommand> transparentMeshes;
+//			for (int i = 0; i < Meshes.size(); ++i)
+//			{
+//				MeshCommand& mesh = Meshes[i];
+//				if (mesh.MeshMaterial && mesh.MeshMaterial->IsTransparent())
+//				{
+//					transparentMeshes.push_back(mesh);
+//					continue;
+//				}
+//				DirectX::SimpleMath::Vector3 position;
+//				mesh.Transform.Decompose(DirectX::SimpleMath::Vector3(), DirectX::SimpleMath::Quaternion(), position);
+//				//DirectX::XMMatrixDecompose(nullptr, nullptr, &position, mesh.Transform);
+//// 
+//// 				if (!camera.CameraFrustum->IsInside(Vector3(position)))
+//// 				{
+//// 					continue;
+//// 				}
+//
+//				if (mesh.SingleMesh && mesh.MeshMaterial)
+//				{
+//					OPTICK_EVENT("Render::ModelCommand", Optick::Category::Rendering);
+//					XMStoreFloat4x4(&constantBufferSceneData.model, mesh.Transform);
+//					XMStoreFloat4x4(&constantBufferSceneData.modelInv, XMMatrixInverse(nullptr, mesh.Transform));
+//					if (mesh.MeshMaterial->GetTexture(TextureType::Normal))
+//					{
+//						constantBufferSceneData.HasNormalMap = TRUE;
+//					}
+//					else
+//					{
+//						constantBufferSceneData.HasNormalMap = FALSE;
+//					}
+//					if (mesh.MeshMaterial->GetTexture(TextureType::Specular))
+//					{
+//						constantBufferSceneData.HasSpecMap = TRUE;
+//					}
+//					else
+//					{
+//						constantBufferSceneData.HasSpecMap = FALSE;
+//					}
+//					constantBufferSceneData.HasAlphaMap = FALSE;
+//					constantBufferSceneData.DiffuseColor = mesh.MeshMaterial->DiffuseColor.GetInternalVec();
+//
+//					//constantBufferSceneData.Tiling = DirectX::SimpleMath::Vector2(&mesh.MeshMaterial->Tiling.GetInternalVec().x);
+//					XMStoreFloat2(&constantBufferSceneData.Tiling, mesh.MeshMaterial->Tiling.GetInternalVec());
+//					//constantBufferSceneData.Tiling = mesh.MeshMaterial->Tiling.GetInternalVec();
+//					// Prepare the constant buffer to send it to the graphics device.
+//					context->UpdateSubresource1(
+//						m_constantBuffer.Get(),
+//						0,
+//						NULL,
+//						&constantBufferSceneData,
+//						0,
+//						0,
+//						0
+//					);
+//
+//					// Send the constant buffer to the graphics device.
+//					context->VSSetConstantBuffers1(
+//						0,
+//						1,
+//						m_constantBuffer.GetAddressOf(),
+//						nullptr,
+//						nullptr
+//					);
+//					context->PSSetConstantBuffers1(
+//						0,
+//						1,
+//						m_constantBuffer.GetAddressOf(),
+//						nullptr,
+//						nullptr
+//					);
+//					OPTICK_EVENT("Render::SingleMesh");
+//
+//					mesh.MeshMaterial->MeshShader.Use();
+//
+//					mesh.SingleMesh->Draw(mesh.MeshMaterial);
+//
+//					//shape->Draw(XMMatrixTranspose(XMMatrixIdentity()), DirectX::XMLoadFloat4x4(&constantBufferSceneData.view), DirectX::XMLoadFloat4x4(&constantBufferSceneData.projection), Colors::Gray, nullptr, true);
+//				}
+//			}
+//			if (camera.Projection == ProjectionType::Perspective)
+//			{
+//				/*for (const DebugColliderCommand& collider : DebugColliders)
+//				{
+//					shape->Draw(collider.Transform, DirectX::XMLoadFloat4x4(&constantBufferSceneData.view), DirectX::XMLoadFloat4x4(&constantBufferSceneData.projection), Colors::Gray, nullptr, true);
+//				}*/
+//			}
+//			m_device->ResetCullingMode();
+//			m_device->GetD3DDeviceContext()->OMSetBlendState(m_device->TransparentBlendState, Colors::Black, 0xffffffff);
+//
+//			for (const MeshCommand& mesh : transparentMeshes)
+//			{
+//				if (mesh.SingleMesh && mesh.MeshMaterial)
+//				{
+//					OPTICK_EVENT("Render::ModelCommand", Optick::Category::Rendering);
+//					XMStoreFloat4x4(&constantBufferSceneData.model, mesh.Transform);
+//					if (mesh.MeshMaterial->GetTexture(TextureType::Normal))
+//					{
+//						constantBufferSceneData.HasNormalMap = TRUE;
+//					}
+//					else
+//					{
+//						constantBufferSceneData.HasNormalMap = FALSE;
+//					}
+//					if (mesh.MeshMaterial->GetTexture(TextureType::Specular))
+//					{
+//						constantBufferSceneData.HasSpecMap = TRUE;
+//					}
+//					else
+//					{
+//						constantBufferSceneData.HasSpecMap = FALSE;
+//					}
+//					constantBufferSceneData.HasAlphaMap = TRUE;
+//					constantBufferSceneData.DiffuseColor = mesh.MeshMaterial->DiffuseColor.GetInternalVec();
+//					//constantBufferSceneData.Tiling = DirectX::SimpleMath::Vector2(&mesh.MeshMaterial->Tiling.GetInternalVec().x);
+//					//constantBufferSceneData.Tiling = mesh.MeshMaterial->Tiling.GetInternalVec();
+//					XMStoreFloat2(&constantBufferSceneData.Tiling, mesh.MeshMaterial->Tiling.GetInternalVec());
+//					// Prepare the constant buffer to send it to the graphics device.
+//					context->UpdateSubresource1(
+//						m_constantBuffer.Get(),
+//						0,
+//						NULL,
+//						&constantBufferSceneData,
+//						0,
+//						0,
+//						0
+//					);
+//
+//					// Send the constant buffer to the graphics device.
+//					context->VSSetConstantBuffers1(
+//						0,
+//						1,
+//						m_constantBuffer.GetAddressOf(),
+//						nullptr,
+//						nullptr
+//					);
+//					context->PSSetConstantBuffers1(
+//						0,
+//						1,
+//						m_constantBuffer.GetAddressOf(),
+//						nullptr,
+//						nullptr
+//					);
+//					OPTICK_EVENT("Render::SingleAlphaMesh");
+//
+//					mesh.MeshMaterial->MeshShader.Use();
+//
+//					mesh.SingleMesh->Draw(mesh.MeshMaterial);
+//				}
+//			}
+//		}
+
+
+	}
+
+	void Renderer::FinishRenderingScene(ID3D11DeviceContext3* context, const CameraData& camera, FrameBuffer* ViewRTT, ID3D11Buffer* constantBuffer)
+	{
+		context->OMSetBlendState(0, 0, 0xffffffff);
+
+		CD3D11_VIEWPORT finalGameRenderViewport = CD3D11_VIEWPORT(
+			0.0f,
+			0.0f,
+			ViewRTT->Width,
+			ViewRTT->Height
+		);
+		//LightingPassBuffer.Light = Sunlight;
+		context->RSSetViewports(1, &finalGameRenderViewport);
+		context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		context->UpdateSubresource1(m_perFrameBuffer.Get(), 0, NULL, &LightingPassBuffer, 0, 0, 0);
+		context->PSSetConstantBuffers1(0, 1, m_perFrameBuffer.GetAddressOf(), nullptr, nullptr);
+		// post stuff
+#if ME_EDITOR
+		context->OMSetRenderTargets(1, ViewRTT->RenderTargetView.GetAddressOf(), nullptr);
+#else
+		context->OMSetRenderTargets(1, GetDevice()->m_d3dRenderTargetView.GetAddressOf(), nullptr);
+#endif
+		context->IASetInputLayout(m_lightingProgram.InputLayout.Get());
+		context->VSSetShader(m_lightingProgram.VertexShader.Get(), nullptr, 0);
+		context->PSSetShader(m_lightingProgram.PixelShader.Get(), nullptr, 0);
+		context->PSSetShaderResources(0, 1, ViewRTT->ColorShaderResourceView.GetAddressOf());
+		context->PSSetShaderResources(1, 1, ViewRTT->NormalShaderResourceView.GetAddressOf());
+		context->PSSetShaderResources(2, 1, ViewRTT->SpecularShaderResourceView.GetAddressOf());
+		context->PSSetShaderResources(3, 1, ViewRTT->DepthShaderResourceView.GetAddressOf());
+		context->PSSetShaderResources(4, 1, ViewRTT->UIShaderResourceView.GetAddressOf());
+		context->PSSetShaderResources(5, 1, ViewRTT->PositionShaderResourceView.GetAddressOf());
+		context->PSSetShaderResources(6, 1, ViewRTT->ShadowMapShaderResourceView.GetAddressOf());
+		context->PSSetSamplers(0, 1, m_computeSampler.GetAddressOf());
+
+		//DirectX::PrimitiveBatch<VertexPositionTexCoord> batch = DirectX::PrimitiveBatch<VertexPositionTexCoord>(context);
+		primitiveBatch->Begin();
+		VertexPositionTexCoord vert1{ {-1.f,1.f,0.f}, {0.f,0.f} };
+		VertexPositionTexCoord vert2{ {-1.f,-1.f,0.f}, {0.f,1.f} };
+		VertexPositionTexCoord vert3{ {1.f,1.f,0.f}, {1.f,0.f} };
+		VertexPositionTexCoord vert4{ {1.f,-1.f,0.f}, {1.f,1.f} };
+
+		VertexPositionTexCoord verts[5];
+		verts[0].Position = vert1.Position;
+		verts[1].Position = vert2.Position;
+		verts[2].Position = vert3.Position;
+		verts[3].Position = vert4.Position;
+		verts[4].Position = vert2.Position;
+
+		verts[0].TexCoord = vert1.TexCoord;
+		verts[1].TexCoord = vert2.TexCoord;
+		verts[2].TexCoord = vert3.TexCoord;
+		verts[3].TexCoord = vert4.TexCoord;
+		verts[4].TexCoord = vert2.TexCoord;
+
+		primitiveBatch->Draw(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP, verts, 5);
+
+		primitiveBatch->End();
+		//
+		//		if (false)
+		//		{
+		//			context->UpdateSubresource1(m_perFrameBuffer.Get(), 0, NULL, &Sunlight, 0, 0, 0);
+		//			context->PSSetConstantBuffers1(0, 1, m_perFrameBuffer.GetAddressOf(), nullptr, nullptr);
+		//			// post stuff
+		//			context->OMSetRenderTargets(1, ViewRTT->RenderTargetView.GetAddressOf(), nullptr);
+		//			context->IASetInputLayout(nullptr);
+		//			context->VSSetShader(m_dofProgram.VertexShader.Get(), nullptr, 0);
+		//			context->PSSetShader(m_dofProgram.PixelShader.Get(), nullptr, 0);
+		//			context->PSSetShaderResources(0, 1, ViewRTT->ShaderResourceView.GetAddressOf());
+		//			context->PSSetShaderResources(1, 1, ViewRTT->DepthShaderResourceView.GetAddressOf());
+		//			context->PSSetSamplers(0, 1, m_computeSampler.GetAddressOf());
+		//			context->Draw(3, 0);
+		//			if (ViewRTT->FinalTexture != ViewRTT->FinalTexture)
+		//			{
+		//				context->ResolveSubresource(ViewRTT->FinalTexture.Get(), 0, ViewRTT->FinalTexture.Get(), 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
+		//			}
+		//		}
+		//
+		//		if (false)//Input::GetInstance().IsKeyDown(KeyCode::A))
+		//		{
+		//			context->UpdateSubresource1(m_perFrameBuffer.Get(), 0, NULL, &Sunlight, 0, 0, 0);
+		//			context->PSSetConstantBuffers1(0, 1, m_perFrameBuffer.GetAddressOf(), nullptr, nullptr);
+		//			// post stuff
+		//			context->OMSetRenderTargets(1, ViewRTT->RenderTargetView.GetAddressOf(), nullptr);
+		//			context->IASetInputLayout(nullptr);
+		//			context->VSSetShader(m_tonemapProgram.VertexShader.Get(), nullptr, 0);
+		//			context->PSSetShader(m_tonemapProgram.PixelShader.Get(), nullptr, 0);
+		//			context->PSSetShaderResources(0, 1, ViewRTT->ShaderResourceView.GetAddressOf());
+		//			context->PSSetSamplers(0, 1, m_computeSampler.GetAddressOf());
+		//			context->Draw(3, 0);
+		//			if (ViewRTT->FinalTexture != ViewRTT->FinalTexture)
+		//			{
+		//				context->ResolveSubresource(ViewRTT->FinalTexture.Get(), 0, ViewRTT->FinalTexture.Get(), 0, DXGI_FORMAT_R16G16B16A16_FLOAT);
+		//			}
+		//		}
+		ID3D11RenderTargetView* nullViews[] = { nullptr, nullptr, nullptr, nullptr };
+		context->OMSetRenderTargets(ARRAYSIZE(nullViews), nullViews, nullptr);
+	}
+
+
+	void Renderer::SetContextType(eDeviceContextType inType)
+	{
+		m_contextType = inType;
+	}
+
+	Moonlight::eDeviceContextType Renderer::GetContextType()
+	{
+		return m_contextType;
+	}
+
+	unsigned int Renderer::_PerChunkRenderDeferredProc(LPVOID lpParameter)
+	{
+
+		Renderer& renderer = GetEngine().GetInstance().GetRenderer();
+		const int instance = *(int*)lpParameter;
+		ID3D11DeviceContext3* deferredContext = renderer.m_pd3dPerChunkDeferredContext[instance];
+		ID3D11CommandList*& pd3dCommandList = renderer.g_pd3dPerChunkCommandList[instance];
+		const ChunkQueue& localQueue = renderer.m_chunkQueue[instance];
+
+		int queueOffset = 0;
+		forever
+		{
+			WaitForSingleObject(renderer.m_hBeginPerChunkRenderDeferredSemaphore[instance], INFINITE);
+			assert(queueOffset < g_iSceneQueueSizeInBytes);
+
+			auto entry = reinterpret_cast<const WorkQueueEntryBase*>(&localQueue[queueOffset]);
+			switch (entry->m_iType)
+			{
+			case WORK_QUEUE_ENTRY_TYPE_SETUP:
+			{
+				auto pSetupEntry = reinterpret_cast<const WorkQueueEntrySetup*>(entry);
+				/*if(clearstates)
+				{ }*/
+				deferredContext->ClearState();
+				RenderSceneSetup(renderer, deferredContext, *pSetupEntry->m_camera, pSetupEntry->buffer, pSetupEntry->m_constantBufferBuffer);
+
+				queueOffset += sizeof(WorkQueueEntrySetup);
+				break;
+			}
+			case WORK_QUEUE_ENTRY_TYPE_CHUNK:
+				break;
+			case WORK_QUEUE_ENTRY_TYPE_FINALIZE:
+				// DO THE BOOL
+				DX::ThrowIfFailed(deferredContext->FinishCommandList(false, &pd3dCommandList));
+
+				SetEvent(renderer.m_hEndPerChunkRenderDeferredEvent[instance]);
+				//queueOffset += sizeof(WorkQueueEntryFinalize);
+				queueOffset = 0;
+				break;
+			default:
+				assert(false);
+				break;
+
+			}
+		}
+		return 0;
+	}
+
+	void Renderer::RenderSceneDirect(ID3D11DeviceContext3* context, const ModelViewProjectionConstantBuffer& constantBufferSceneData, CameraData& camera, FrameBuffer* frameBuffer)
+	{
+		// if clear on begin
+
+		if (frameBuffer->DepthStencilView)
+		{
+			context->ClearDepthStencilView(frameBuffer->DepthStencilView.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.f, 0);
+		}
+
+		if (IsRenderMultithreadedPerChunk())
+		{
+			for (int i = 0; i < m_numPerChunkRenderThreads; ++i)
+			{
+				g_iPerChunkQueueOffset[i] = 0;
+
+				ChunkQueue& workerQueue = m_chunkQueue[i];
+				int queueOffset = g_iPerChunkQueueOffset[i];
+				HANDLE semaphore = m_hBeginPerChunkRenderDeferredSemaphore[i];
+
+				g_iPerChunkQueueOffset[i] += sizeof(WorkQueueEntrySetup);
+				assert(g_iPerChunkQueueOffset[i] < g_iSceneQueueSizeInBytes);
+
+				WorkQueueEntrySetup* entry = reinterpret_cast<WorkQueueEntrySetup*>(&workerQueue[queueOffset]);
+				entry->m_iType = WORK_QUEUE_ENTRY_TYPE_SETUP;
+				entry->buffer = frameBuffer;
+				entry->m_constantBufferBuffer = m_constantBuffer.Get();
+				entry->m_camera = &camera;
+				entry->m_constantBuffer = m_constantBufferSceneData;
+
+				ReleaseSemaphore(semaphore, 1, nullptr);
+			}
+		}
+		else if (IsRenderDeferredPerChunk())
+		{
+
+		}
+		else
+		{
+			RenderSceneSetup(*this, context, camera, frameBuffer, m_constantBuffer.Get());
+		}
+
+		if (IsRenderDeferredPerChunk())
+		{
+			if (IsRenderMultithreadedPerChunk())
+			{
+				for (int i = 0; i < m_numPerChunkRenderThreads; ++i)
+				{
+					ChunkQueue& workerQueue = m_chunkQueue[i];
+					int queueOffset = g_iPerChunkQueueOffset[i];
+					HANDLE semaphore = m_hBeginPerChunkRenderDeferredSemaphore[i];
+
+					g_iPerChunkQueueOffset[i] += sizeof(WorkQueueEntryFinalize);
+					assert(g_iPerChunkQueueOffset[i] < g_iSceneQueueSizeInBytes);
+
+					auto entry = reinterpret_cast<WorkQueueEntryFinalize*>(&workerQueue[queueOffset]);
+					entry->m_iType = WORK_QUEUE_ENTRY_TYPE_FINALIZE;
+
+					ReleaseSemaphore(semaphore, 1, nullptr);
+				}
+				WaitForMultipleObjects(m_numPerChunkRenderThreads, m_hEndPerChunkRenderDeferredEvent, TRUE, INFINITE);
+			}
+		}
+
+		FinishRenderingScene(context, camera, frameBuffer, m_constantBuffer.Get());
+	}
+
+	void Renderer::ThreadedRender(std::function<void()> func, std::function<void()> uiRender, CameraData& editorCamera)
+	{
+		if (IsLegacyRenderer())
+		{
+			Render(func, uiRender, editorCamera);
+			return;
+		}
+		OPTICK_EVENT("Renderer::ThreadedRender", Optick::Category::Rendering);
+
+		auto context = m_device->GetD3DDeviceContext();
+
+		//float darkGrey = (0.0f / 255.0f);
+		DirectX::XMVECTORF32 color = DirectX::Colors::Black;// SimpleMath::Color(mainCamera.ClearColor.GetInternalVec());//{ {darkGrey, darkGrey, darkGrey, 1.0f} };
+
+		for (int i = 0; i < Cameras.size(); ++i)
+		{
+			DirectX::SimpleMath::Color clearColor = DirectX::SimpleMath::Color(Cameras[i].ClearColor.GetInternalVec());
+			FrameBuffer* buffer = Cameras[i].Buffer;
+			if (buffer)
+			{
+				context->ClearRenderTargetView(buffer->RenderTargetView.Get(), color);
+				context->ClearRenderTargetView(buffer->ColorRenderTargetView.Get(), clearColor);
+				context->ClearRenderTargetView(buffer->NormalRenderTargetView.Get(), color);
+				context->ClearRenderTargetView(buffer->PositionRenderTargetView.Get(), color);
+				context->ClearRenderTargetView(buffer->SpecularRenderTargetView.Get(), color);
+				context->ClearRenderTargetView(buffer->ShadowMapRenderTargetView.Get(), color);
+				context->ClearRenderTargetView(buffer->UIRenderTargetView.Get(), DirectX::Colors::Transparent);
+				context->ClearRenderTargetView(buffer->PickingTargetView.Get(), color);
+				context->ClearDepthStencilView(buffer->DepthStencilView.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+			}
+		}
+
+		context->ClearRenderTargetView(SceneViewRTT->RenderTargetView.Get(), color);
+		context->ClearRenderTargetView(SceneViewRTT->ColorRenderTargetView.Get(), color);
+		context->ClearRenderTargetView(SceneViewRTT->NormalRenderTargetView.Get(), color);
+		context->ClearRenderTargetView(SceneViewRTT->PositionRenderTargetView.Get(), color);
+		context->ClearRenderTargetView(SceneViewRTT->SpecularRenderTargetView.Get(), color);
+		context->ClearRenderTargetView(SceneViewRTT->ShadowMapRenderTargetView.Get(), color);
+
+		// Clear the back buffer and depth stencil view.
+		context->ClearRenderTargetView(m_device->GetBackBufferRenderTargetView(), color);
+
+		uiRender();
+
+		if (IsRenderMultithreadedPerScene())
+		{
+
+		}
+		else if (IsRenderDeferredPerScene())
+		{
+
+		}
+		else
+		{
+			RenderSceneDirect(context, m_constantBufferSceneData, editorCamera, SceneViewRTT);
+			//FinishRenderingScene(context, m_constantBufferSceneData, editorCamera, SceneViewRTT);
+
+			for (CameraData& data : Cameras)
+			{
+				if (!data.IsMain)
+				{
+					CD3D11_VIEWPORT gameViewport = CD3D11_VIEWPORT(
+						0.0f,
+						0.0f,
+						data.OutputSize.X(),
+						data.OutputSize.Y()
+					);
+					context->RSSetViewports(1, &gameViewport);
+
+					m_device->GetD3DDeviceContext()->OMSetBlendState(0, 0, 0xffffffff);
+
+					// Reset render targets to the screen.
+					RenderSceneDirect(context, m_constantBufferData, data, data.Buffer);
+					//FinishRenderingScene(context, m_constantBufferData, data, data.Buffer);
+				}
+			}
+
+			for (CameraData& data : Cameras)
+			{
+				if (data.IsMain)
+				{
+					CD3D11_VIEWPORT gameViewport = CD3D11_VIEWPORT(
+						0.0f,
+						0.0f,
+						data.OutputSize.X(),
+						data.OutputSize.Y()
+					);
+					context->RSSetViewports(1, &gameViewport);
+
+					m_device->GetD3DDeviceContext()->OMSetBlendState(0, 0, 0xffffffff);
+
+					// Reset render targets to the screen.
+					RenderSceneDirect(context, m_constantBufferData, data, data.Buffer);
+					//FinishRenderingScene(context, m_constantBufferData, data, data.Buffer);
+					break;
+				}
+			}
+		}
+
+		if (IsRenderDeferredPerScene())
+		{
+
+		}
+		else
+		{
+			context->ClearState();
+		}
+
+
+		//if (m_pickingRequested)
+		//{
+		//	context->ClearRenderTargetView(SceneViewRTT->PickingTargetView.Get(), DirectX::Colors::Transparent);
+
+		//	static PickingConstantBuffer buf2;
+		//	DrawPickingTexture(m_device->GetD3DDeviceContext(), buf2, editorCamera, SceneViewRTT);
+		//	SaveTextureToBmp(StringUtils::ToWString(Path("Assets/EXPORT.bmp").FullPath).c_str(), SceneViewRTT->PickingTexture.Get(), editorCamera, pickingLocation);
+
+		//	m_device->GetD3DDeviceContext()->DiscardView1(SceneViewRTT->PickingResourceView.Get(), nullptr, 0);
+
+		//	m_pickingRequested = false;
+		//}
+
+
+		//for (CameraData& data : Cameras)
+		//{
+		//	if (!data.IsMain)
+		//	{
+		//		CD3D11_VIEWPORT gameViewport = CD3D11_VIEWPORT(
+		//			0.0f,
+		//			0.0f,
+		//			data.OutputSize.X(),
+		//			data.OutputSize.Y()
+		//		);
+		//		context->RSSetViewports(1, &gameViewport);
+
+		//		m_device->GetD3DDeviceContext()->OMSetBlendState(0, 0, 0xffffffff);
+
+		//		// Reset render targets to the screen.
+		//		DrawScene(context, m_constantBufferData, data, data.Buffer);
+		//	}
+		//}
+
+		//for (CameraData& data : Cameras)
+		//{
+		//	if (data.IsMain)
+		//	{
+		//		CD3D11_VIEWPORT gameViewport = CD3D11_VIEWPORT(
+		//			0.0f,
+		//			0.0f,
+		//			data.OutputSize.X(),
+		//			data.OutputSize.Y()
+		//		);
+		//		context->RSSetViewports(1, &gameViewport);
+
+		//		m_device->GetD3DDeviceContext()->OMSetBlendState(0, 0, 0xffffffff);
+
+		//		// Reset render targets to the screen.
+		//		DrawScene(context, m_constantBufferData, data, data.Buffer);
+		//		break;
+		//	}
+		//}
+
+
+#if ME_EDITOR
+		context->ClearDepthStencilView(SceneViewRTT->DepthStencilView.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+
+		//m_device->GetD3DDeviceContext()->OMSetBlendState(0, 0, 0xffffffff);
+		//DrawScene(context, m_constantBufferSceneData, editorCamera, SceneViewRTT);
+
+		GetDevice().GetD3DDeviceContext()->OMSetRenderTargets(1, m_device->m_d3dRenderTargetView.GetAddressOf(), nullptr);
+#endif
+
+		func();
+
+		GetDevice().GetD3DDeviceContext()->OMSetRenderTargets(1, m_device->m_d3dRenderTargetView.GetAddressOf(), nullptr);
+		// The first argument instructs DXGI to block until VSync, putting the application
+		// to sleep until the next VSync. This ensures we don't waste any cycles rendering
+		// frames that will never be displayed to the screen.
+		HRESULT hr;
+		{
+			OPTICK_EVENT("Present", Optick::Category::Rendering);
+
+			DXGI_PRESENT_PARAMETERS parameters = { 0 };
+			hr = m_device->GetSwapChain()->Present1(0, 0, &parameters);
+		}
+
+		// Discard the contents of the render target.
+		// This is a valid operation only when the existing contents will be entirely
+		// overwritten. If dirty or scroll rects are used, this call should be removed.
+		m_device->GetD3DDeviceContext()->DiscardView1(m_device->GetBackBufferRenderTargetView(), nullptr, 0);
+
+		for (int i = 0; i < Cameras.size(); ++i)
+		{
+			FrameBuffer* buffer = Cameras[i].Buffer;
+			if (buffer)
+			{
+				m_device->GetD3DDeviceContext()->DiscardView1(buffer->ShaderResourceView.Get(), nullptr, 0);
+				m_device->GetD3DDeviceContext()->DiscardView1(buffer->ColorShaderResourceView.Get(), nullptr, 0);
+				m_device->GetD3DDeviceContext()->DiscardView1(buffer->NormalShaderResourceView.Get(), nullptr, 0);
+				m_device->GetD3DDeviceContext()->DiscardView1(buffer->SpecularShaderResourceView.Get(), nullptr, 0);
+				m_device->GetD3DDeviceContext()->DiscardView1(buffer->UIShaderResourceView.Get(), nullptr, 0);
+				m_device->GetD3DDeviceContext()->DiscardView1(buffer->DepthStencilView.Get(), nullptr, 0);
+			}
+		}
+		m_device->GetD3DDeviceContext()->DiscardView1(SceneViewRTT->ShaderResourceView.Get(), nullptr, 0);
+		m_device->GetD3DDeviceContext()->DiscardView1(SceneViewRTT->ColorShaderResourceView.Get(), nullptr, 0);
+		m_device->GetD3DDeviceContext()->DiscardView1(SceneViewRTT->NormalShaderResourceView.Get(), nullptr, 0);
+		m_device->GetD3DDeviceContext()->DiscardView1(SceneViewRTT->SpecularShaderResourceView.Get(), nullptr, 0);
+
+		// If the device was removed either by a disconnection or a driver upgrade, we 
+		// must recreate all device resources.
+		if (hr == DXGI_ERROR_DEVICE_REMOVED || hr == DXGI_ERROR_DEVICE_RESET)
+		{
+			m_device->HandleDeviceLost();
+		}
+		else
+		{
+			DX::ThrowIfFailed(hr);
+		}
+	}
+
+	DX11Device& Renderer::GetDevice() const
 	{
 		return *m_device;
 	}
@@ -518,7 +1363,7 @@ namespace Moonlight
 				nullptr,
 				nullptr
 			);
-			camera.Skybox->Draw();
+			camera.Skybox->Draw(context);
 		}
 
 		m_device->ResetCullingMode();
@@ -604,9 +1449,9 @@ namespace Moonlight
 					);
 					OPTICK_EVENT("Render::SingleMesh");
 
-					mesh.MeshMaterial->MeshShader.Use();
+					mesh.MeshMaterial->MeshShader.Use(context);
 
-					mesh.SingleMesh->Draw(mesh.MeshMaterial);
+					mesh.SingleMesh->Draw(mesh.MeshMaterial, context);
 
 					//shape->Draw(XMMatrixTranspose(XMMatrixIdentity()), DirectX::XMLoadFloat4x4(&constantBufferSceneData.view), DirectX::XMLoadFloat4x4(&constantBufferSceneData.projection), Colors::Gray, nullptr, true);
 				}
@@ -676,9 +1521,9 @@ namespace Moonlight
 					);
 					OPTICK_EVENT("Render::SingleAlphaMesh");
 
-					mesh.MeshMaterial->MeshShader.Use();
+					mesh.MeshMaterial->MeshShader.Use(context);
 
-					mesh.SingleMesh->Draw(mesh.MeshMaterial);
+					mesh.SingleMesh->Draw(mesh.MeshMaterial, context);
 				}
 			}
 		}
@@ -896,7 +1741,7 @@ namespace Moonlight
 					);
 					OPTICK_EVENT("Render::SingleMesh");
 
-					mesh.SingleMesh->Draw(mesh.MeshMaterial, true);
+					mesh.SingleMesh->Draw(mesh.MeshMaterial, context, true);
 
 					//shape->Draw(XMMatrixTranspose(XMMatrixIdentity()), DirectX::XMLoadFloat4x4(&constantBufferSceneData.view), DirectX::XMLoadFloat4x4(&constantBufferSceneData.projection), Colors::Gray, nullptr, true);
 				}
@@ -1047,7 +1892,7 @@ namespace Moonlight
 					);
 					OPTICK_EVENT("Render::SingleMesh");
 
-					mesh.SingleMesh->Draw(mesh.MeshMaterial, true);
+					mesh.SingleMesh->Draw(mesh.MeshMaterial, context, true);
 
 					//shape->Draw(XMMatrixTranspose(XMMatrixIdentity()), DirectX::XMLoadFloat4x4(&constantBufferSceneData.view), DirectX::XMLoadFloat4x4(&constantBufferSceneData.projection), Colors::Gray, nullptr, true);
 				}

@@ -64,11 +64,9 @@ namespace Moonlight
 		);
 	}
 
-	void MeshData::Draw(Material* mat, bool depthOnly)
+	void MeshData::Draw(Material* mat, ID3D11DeviceContext* context, bool depthOnly)
 	{
 		OPTICK_EVENT("Mesh::Draw", Optick::Category::Rendering);
-
-		auto context = static_cast<DX11Device&>(GetEngine().GetRenderer().GetDevice()).GetD3DDeviceContext();
 
 		context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 

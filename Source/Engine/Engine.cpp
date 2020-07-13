@@ -212,7 +212,7 @@ void Engine::Run()
 //			EditorCamera = MainCamera;
 //#endif
 
-			m_renderer->Render([this]() {
+			m_renderer->ThreadedRender([this]() {
 				m_game->PostRender();
 			}, [this]() {
 				UI->Render();

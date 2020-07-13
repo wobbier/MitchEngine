@@ -49,18 +49,16 @@ namespace Moonlight
 		device.GetD3DDevice()->CreateDepthStencilState(&dssDesc, &NoDepth);
 	}
 
-	void SkyBox::Draw()
+	void SkyBox::Draw(ID3D11DeviceContext* context)
 	{
-		auto device = static_cast<DX11Device&>(GetEngine().GetRenderer().GetDevice()).GetD3DDeviceContext();
+		SkyMaterial->MeshShader.Use(context);
 
-		SkyMaterial->MeshShader.Use();
+		context->OMSetDepthStencilState(NoDepth, 0);
+		context->RSSetState(RSCullNone);
 
-		device->OMSetDepthStencilState(NoDepth, 0);
-		device->RSSetState(RSCullNone);
+		SkyModel->RootNode.Nodes[0].Meshes[0]->Draw(SkyMaterial, context);
 
-		SkyModel->RootNode.Nodes[0].Meshes[0]->Draw(SkyMaterial);
-
-		device->OMSetDepthStencilState(NULL, 0);
+		context->OMSetDepthStencilState(NULL, 0);
 		return;
 	}
 }

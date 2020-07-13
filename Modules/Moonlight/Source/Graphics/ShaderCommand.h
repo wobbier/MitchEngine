@@ -1,11 +1,11 @@
 #pragma once
 
-
 #include "Device/DX11Device.h"
 #include "Math/Matirx4.h"
 #include "Math/Vector3.h"
 #include <string>
 #include "Pointers.h"
+#include <d3d11.h>
 
 namespace Moonlight
 {
@@ -21,7 +21,7 @@ namespace Moonlight
 		~ShaderCommand();
 
 		// Uses the current shader
-		void Use();
+		void Use(ID3D11DeviceContext* context);
 
 		const ShaderProgram& GetProgram() const;
 

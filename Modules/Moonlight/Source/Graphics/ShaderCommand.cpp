@@ -143,7 +143,7 @@ namespace Moonlight
 	{
 	}
 
-	void ShaderCommand::Use()
+	void ShaderCommand::Use(ID3D11DeviceContext* context)
 	{
 		OPTICK_EVENT("Shader::Use", Optick::Category::Rendering)
 
@@ -151,17 +151,16 @@ namespace Moonlight
 		{
 			return;
 		}
-		auto& dxDevice = static_cast<DX11Device&>(GetEngine().GetRenderer().GetDevice());
-		dxDevice.GetD3DDeviceContext()->IASetInputLayout(Program.InputLayout.Get());
+		context->IASetInputLayout(Program.InputLayout.Get());
 
 		// Attach our vertex shader.
-		dxDevice.GetD3DDeviceContext()->VSSetShader(
+		context->VSSetShader(
 			Program.VertexShader.Get(),
 			nullptr,
 			0
 		);
 		// Attach our pixel shader.
-		dxDevice.GetD3DDeviceContext()->PSSetShader(
+		context->PSSetShader(
 			Program.PixelShader.Get(),
 			nullptr,
 			0
