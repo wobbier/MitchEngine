@@ -274,6 +274,7 @@ namespace Moonlight
 		Desc.MaxAnisotropy = /*(filter == D3D11_FILTER_ANISOTROPIC) ? D3D11_REQ_MAXANISOTROPY :*/ 1;
 		Desc.MinLOD = 0;
 		Desc.MaxLOD = D3D11_FLOAT32_MAX;
+		Desc.ComparisonFunc = D3D11_COMPARISON_ALWAYS;
 
 		ComPtr<ID3D11SamplerState> samplerState;
 

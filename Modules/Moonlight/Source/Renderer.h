@@ -114,6 +114,9 @@ namespace Moonlight
 
 		void ThreadedRender(std::function<void()> func, std::function<void()> uiRender, CameraData& editorCamera);
 		void RenderSceneDirect(ID3D11DeviceContext3* context, const ModelViewProjectionConstantBuffer& constantBufferSceneData, CameraData& camera, FrameBuffer* frameBuffer);
+
+		void RenderMeshDirect(MeshCommand& mesh, ID3D11DeviceContext3* context);
+
 		static void RenderSceneSetup(Renderer& renderer, ID3D11DeviceContext3* context, const CameraData& camera, FrameBuffer* ViewRTT, ID3D11Buffer* constantBuffer);
 		void FinishRenderingScene(ID3D11DeviceContext3* context, const CameraData& camera, FrameBuffer* ViewRTT, ID3D11Buffer* constantBuffer);
 
@@ -244,6 +247,7 @@ namespace Moonlight
 #if ME_ENABLE_RENDERDOC
 		RenderDocManager* RenderDoc;
 #endif
+		void RenderMesh(int i, ID3D11DeviceContext3* context);
 	public:
 		unsigned int PushMesh(Moonlight::MeshCommand command);
 		void PopMesh(unsigned int Id);

@@ -403,8 +403,15 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 				}
 			}
 			{
+				bool selected = m_engine->GetRenderer().GetContextType() == Moonlight::eDeviceContextType::Immediate;
+				if (ImGui::MenuItem("Immediate", nullptr, &selected))
+				{
+					m_engine->GetRenderer().SetContextType(Moonlight::eDeviceContextType::Immediate);
+				}
+			}
+			{
 				bool selected = m_engine->GetRenderer().GetContextType() == Moonlight::eDeviceContextType::MT_DefferedChunk;
-				if (ImGui::MenuItem("Multithreaded Deffered Chunk", nullptr, &selected))
+				if (ImGui::MenuItem("Multithreaded Deferred Chunk", nullptr, &selected))
 				{
 					m_engine->GetRenderer().SetContextType(Moonlight::eDeviceContextType::MT_DefferedChunk);
 				}
@@ -874,6 +881,7 @@ void Havana::DrawResourceMonitor()
 
 void Havana::UpdateWorld(World* world, Transform* root, const std::vector<Entity>& ents)
 {
+	OPTICK_CATEGORY("Havana::UpdateWorld", Optick::Category::GameLogic);
 	m_rootTransform = root;
 	ImGui::Begin("World", 0, ImGuiWindowFlags_MenuBar);
 	ImGui::BeginMenuBar();
@@ -902,6 +910,7 @@ void Havana::UpdateWorld(World* world, Transform* root, const std::vector<Entity
 	ImGui::EndMenuBar();
 	if (ImGui::CollapsingHeader("Scene", ImGuiTreeNodeFlags_DefaultOpen))
 	{
+		OPTICK_CATEGORY("UpdateWorld::Scene", Optick::Category::GameLogic);
 		if (ImGui::IsWindowFocused())
 		{
 			if (SelectedTransform && GetInput().GetKeyboardState().Delete)
@@ -986,6 +995,7 @@ void Havana::UpdateWorld(World* world, Transform* root, const std::vector<Entity
 
 	if (SelectedCore != nullptr)
 	{
+		OPTICK_CATEGORY("UpdateWorld::OnEditorInspect", Optick::Category::GameLogic);
 		SelectedCore->OnEditorInspect();
 	}
 	ImGui::End();
@@ -1018,6 +1028,7 @@ void Havana::UpdateWorld(World* world, Transform* root, const std::vector<Entity
 
 void Havana::UpdateWorldRecursive(Transform* root)
 {
+	OPTICK_CATEGORY("UpdateWorld::UpdateWorldRecursive", Optick::Category::GameLogic);
 	if (!root)
 		return;
 	if (ImGui::BeginDragDropTarget())
@@ -1034,6 +1045,7 @@ void Havana::UpdateWorldRecursive(Transform* root)
 	int i = 0;
 	for (Transform* child : root->GetChildren())
 	{
+		OPTICK_CATEGORY("UpdateWorld::UpdateWorldRecursive::Child", Optick::Category::GameLogic);
 		Transform* var = child;
 		bool open = false;
 		ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | (SelectedTransform == var ? ImGuiTreeNodeFlags_Selected : 0);
@@ -1078,6 +1090,7 @@ void Havana::UpdateWorldRecursive(Transform* root)
 		}
 		else
 		{
+			OPTICK_CATEGORY("UpdateWorld::UpdateWorldRecursive::Leaf", Optick::Category::GameLogic);
 			open = ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, var->Name.c_str());
 			if (ImGui::IsItemClicked())
 			{

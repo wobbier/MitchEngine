@@ -42,6 +42,7 @@ void SceneGraph::UpdateRecursively(Transform* CurrentTransform)
 	OPTICK_EVENT("SceneGraph::UpdateRecursively");
 	for (Transform* Child : CurrentTransform->GetChildren())
 	{
+		OPTICK_EVENT("SceneGraph::UpdateRecursively::GetChildren");
 		if (Child->IsDirty())
 		{
 			OPTICK_EVENT("SceneGraph::Update::IsDirty");
@@ -70,6 +71,7 @@ void SceneGraph::OnEntityAdded(Entity& NewEntity)
 
 Transform* SceneGraph::GetRootTransform()
 {
+	OPTICK_EVENT("Transform::GetRootTransform");
 	if (RootTransform)
 	{
 		return &RootTransform->GetComponent<Transform>();

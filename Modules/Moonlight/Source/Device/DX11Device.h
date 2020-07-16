@@ -82,6 +82,7 @@ namespace Moonlight
 		Microsoft::WRL::ComPtr<ID3D11Buffer>		d2dIndexBuffer;
 		
 		ID3D11DepthStencilState* DepthStencilState;
+		ID3D11RasterizerState* FrontFaceCulled;
 	private:
 		virtual void CreateFactories() final;
 		virtual void CreateDeviceResources() final;
@@ -94,7 +95,6 @@ namespace Moonlight
 		Microsoft::WRL::ComPtr<ID3D11DeviceContext3>	m_d3dContext;
 		Microsoft::WRL::ComPtr<IDXGISwapChain3>			m_swapChain;
 		ID3D11RasterizerState*							WireFrame;
-		ID3D11RasterizerState*							FrontFaceCulled;
 
 		// Direct3D rendering objects. Required for 3D.
 		Microsoft::WRL::ComPtr<ID3D11DepthStencilView>	m_d3dDepthStencilView;

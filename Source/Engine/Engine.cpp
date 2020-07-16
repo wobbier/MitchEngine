@@ -223,7 +223,7 @@ void Engine::Run()
 
 		ResourceCache::GetInstance().Dump();
 
-		Sleep(1);
+		//Sleep(1);
 	}
 	EngineConfig->Save();
 }

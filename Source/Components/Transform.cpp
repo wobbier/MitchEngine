@@ -139,6 +139,7 @@ void Transform::Reset()
 
 void Transform::SetWorldTransform(Matrix4& NewWorldTransform, bool InIsDirty)
 {
+	OPTICK_EVENT("Transform::SetWorldTransform");
 	WorldTransform = std::move(NewWorldTransform);
 	{
 		DirectX::SimpleMath::Quaternion quat;
@@ -224,6 +225,7 @@ void Transform::OnEditorInspect()
 
 void Transform::SetDirty(bool Dirty)
 {
+	OPTICK_EVENT("Transform::SetDirty");
 	if (Dirty && (Dirty != m_isDirty))
 	{
 		for (Transform* Child : GetChildren())
@@ -337,6 +339,7 @@ Transform* Transform::GetChildByName(const std::string& Name)
 
 std::vector<Transform*> Transform::GetChildren() const
 {
+	OPTICK_CATEGORY("Transform::GetChildren", Optick::Category::GameLogic);
 	std::vector<Transform*> children;
 	for (auto& child : Children)
 	{

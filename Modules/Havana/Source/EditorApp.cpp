@@ -23,6 +23,7 @@
 #include <SimpleMath.h>
 #include "Math/Matirx4.h"
 #include "Math/Frustrum.h"
+#include "optick.h"
 
 EditorApp::EditorApp()
 {
@@ -43,6 +44,8 @@ void EditorApp::OnStart()
 
 void EditorApp::OnUpdate(float DeltaTime)
 {
+	OPTICK_CATEGORY("EditorApp::OnUpdate", Optick::Category::GameLogic);
+
 	Editor->NewFrame([this]() {
 		StartGame();
 		m_isGamePaused = false;
