@@ -74,6 +74,7 @@ namespace Moonlight
 	struct WorkQueueEntryChunk : public WorkQueueEntryBase
 	{
 		int                         m_iMesh;
+		ModelViewProjectionConstantBuffer m_constantBuffer;
 	};
 
 	// Work item params for scene finalize
@@ -115,7 +116,7 @@ namespace Moonlight
 		void ThreadedRender(std::function<void()> func, std::function<void()> uiRender, CameraData& editorCamera);
 		void RenderSceneDirect(ID3D11DeviceContext3* context, const ModelViewProjectionConstantBuffer& constantBufferSceneData, CameraData& camera, FrameBuffer* frameBuffer);
 
-		void RenderMeshDirect(MeshCommand& mesh, ID3D11DeviceContext3* context);
+		void RenderMeshDirect(MeshCommand& mesh, const ModelViewProjectionConstantBuffer& constantBufferSceneData, ID3D11DeviceContext3* context);
 
 		static void RenderSceneSetup(Renderer& renderer, ID3D11DeviceContext3* context, const CameraData& camera, FrameBuffer* ViewRTT, ID3D11Buffer* constantBuffer);
 		void FinishRenderingScene(ID3D11DeviceContext3* context, const CameraData& camera, FrameBuffer* ViewRTT, ID3D11Buffer* constantBuffer);
@@ -194,7 +195,7 @@ namespace Moonlight
 
 	private:
 /* MULTITHREADING */
-		eDeviceContextType m_contextType = eDeviceContextType::Legacy;
+		eDeviceContextType m_contextType = eDeviceContextType::MT_DefferedChunk;
 		int m_numPerChunkRenderThreads = 0;
 		static const int kMaxPerChunkRenderThreads = 32;
 		static const int m_maxPendingQueueEntries = 1024;     // Max value of g_hBeginPerChunkRenderDeferredSemaphore
@@ -206,7 +207,7 @@ namespace Moonlight
 		ID3D11DeviceContext3* m_pd3dPerChunkDeferredContext[kMaxPerChunkRenderThreads] = { nullptr };
 		ID3D11CommandList* g_pd3dPerChunkCommandList[kMaxPerChunkRenderThreads] = { nullptr };
 		ChunkQueue m_chunkQueue[kMaxPerChunkRenderThreads];
-		/* MULTITHREADING */
+/* MULTITHREADING */
 
 		class MeshData* PlaneMesh = nullptr;
 
@@ -218,10 +219,12 @@ namespace Moonlight
 #if ME_DIRECTX
 		Microsoft::WRL::ComPtr<ID3D11Buffer> m_constantBuffer;
 		Microsoft::WRL::ComPtr<ID3D11Buffer> m_perFrameBuffer;
+		Microsoft::WRL::ComPtr<ID3D11Buffer> m_lightingBuffer;
 		Microsoft::WRL::ComPtr<ID3D11Buffer> m_depthPassBuffer;
 		Microsoft::WRL::ComPtr<ID3D11Buffer> m_pickingBuffer;
 		ModelViewProjectionConstantBuffer m_constantBufferData;
 		ModelViewProjectionConstantBuffer m_constantBufferSceneData;
+		PerFrameConstantBuffer m_perFrameConstantBuffer;
 		std::unique_ptr<DirectX::PrimitiveBatch<VertexPositionTexCoord>> primitiveBatch;
 #endif
 		bool m_pickingRequested = false;

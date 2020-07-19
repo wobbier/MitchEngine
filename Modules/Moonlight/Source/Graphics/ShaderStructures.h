@@ -5,20 +5,24 @@
 #if ME_DIRECTX
 namespace Moonlight
 {
+	struct PerFrameConstantBuffer
+	{
+		DirectX::XMFLOAT4X4 view;
+		DirectX::XMFLOAT4X4 projection;
+		DirectX::XMFLOAT2 ViewportSize;
+		DirectX::XMFLOAT2 _Padding;
+	};
 	// Constant buffer used to send MVP matrices to the vertex shader.
 	struct ModelViewProjectionConstantBuffer
 	{
 		DirectX::XMFLOAT4X4 model;
 		DirectX::XMFLOAT4X4 modelInv;
-		DirectX::XMFLOAT4X4 view;
-		DirectX::XMFLOAT4X4 projection;
 		DirectX::XMFLOAT2 Tiling;
 		BOOL HasNormalMap;
 		BOOL HasAlphaMap;
 		BOOL HasSpecMap;
 		DirectX::XMFLOAT3 DiffuseColor;
-		DirectX::XMFLOAT2 ViewportSize;
-		DirectX::XMFLOAT2 padding2;
+		DirectX::XMFLOAT4 padding2;
 	};
 
 	struct PickingConstantBuffer

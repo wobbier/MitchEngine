@@ -9,15 +9,20 @@ cbuffer ModelViewProjectionConstantBuffer : register(b0)
 {
 	matrix model;
 	matrix modelInv;
-    matrix view;
-    matrix projection;
 	float2 tiling;
 	bool hasNormalMap;
     bool hasAlphaMap;
     bool hasSpecMap;
 	float3 DiffuseColor;
+	float4 padding;
+};
+
+cbuffer PerSceneConstantBuffer : register(b1)
+{
+	matrix view;
+	matrix projection;
 	float2 ViewportSize;
-	float2 padding;
+	float2 _Padding;
 };
 
 // Per-vertex data used as input to the vertex shader.
