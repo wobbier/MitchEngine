@@ -46,6 +46,10 @@ private:
 
 #if ME_EDITOR
 	virtual void OnEditorInspect() final;
+
+	void DoMaterialRecursive(const MaterialTest& currentFolder);
+	void SelectMaterial(const std::pair<std::string, MaterialInfo*>& ptr, MaterialRegistry& reg);
+
 #endif
 };
 

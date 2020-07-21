@@ -269,23 +269,23 @@ bool AssetBrowser::ProccessDirectoryRecursive(std::string& dir, Directory& dirRe
 				// we have a file
 
 				AssetType type = AssetType::Unknown;
-				if (newdir.find(".png") != std::string::npos || newdir.find(".jpg") != std::string::npos || newdir.find(".tif") != std::string::npos)
+				if (newdir.rfind(".png") != std::string::npos || newdir.rfind(".jpg") != std::string::npos || newdir.rfind(".tif") != std::string::npos)
 				{
 					type = AssetType::Texture;
 				}
-				else if (newdir.find(".lvl") != std::string::npos)
+				else if (newdir.rfind(".lvl") != std::string::npos)
 				{
 					type = AssetType::Level;
 				}
-				else if (newdir.find(".prefab") != std::string::npos)
+				else if (newdir.rfind(".prefab") != std::string::npos)
 				{
 					type = AssetType::Prefab;
 				}
-				else if (newdir.find(".wav") != std::string::npos || newdir.find(".mp3") != std::string::npos)
+				else if (newdir.rfind(".wav") != std::string::npos || newdir.rfind(".mp3") != std::string::npos)
 				{
 					type = AssetType::Audio;
 				}
-				else if (newdir.find(".obj") != std::string::npos || newdir.find(".fbx") != std::string::npos)
+				else if (newdir.rfind(".obj") != std::string::npos || newdir.rfind(".fbx") != std::string::npos || newdir.rfind(".FBX") != std::string::npos)
 				{
 					type = AssetType::Model;
 				}

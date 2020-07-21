@@ -200,7 +200,7 @@ void Mesh::OnEditorInspect()
 			{
 				if (ImGui::BeginMenu(thing.first.c_str()))
 				{
-					//DoComponentRecursive(thing.second, entity);
+					DoMaterialRecursive(thing.second);
 					ImGui::EndMenu();
 				}
 			}
@@ -208,25 +208,7 @@ void Mesh::OnEditorInspect()
 			{
 				for (auto& ptr : thing.second.Reg)
 				{
-					if (ImGui::Selectable(ptr.second->Name.c_str()))
-					{
-						std::vector<SharedPtr<Moonlight::Texture>> textures = MeshMaterial->GetTextures();
-						Vector2 tiling = MeshMaterial->Tiling;
-						Vector3 diffuse = MeshMaterial->DiffuseColor;
-						delete MeshMaterial;
-
-						MeshMaterial = reg[ptr.first].CreateFunc();
-
-						//textures
-						for (int i = 0; i < Moonlight::TextureType::Count; ++i)
-						{
-							MeshMaterial->SetTexture((Moonlight::TextureType)i, textures[i]);
-						}
-						MeshMaterial->DiffuseColor = diffuse;
-						MeshMaterial->Tiling = tiling;
-
-						static_cast<RenderCore*>(GetEngine().GetWorld().lock()->GetCore(RenderCore::GetTypeId()))->UpdateMesh(this);
-					}
+					SelectMaterial(ptr, reg);
 				}
 			}
 		}
@@ -341,4 +323,42 @@ void Mesh::OnEditorInspect()
 	}
 }
 
+void Mesh::DoMaterialRecursive(const MaterialTest& currentFolder)
+{
+	for (auto& entry : currentFolder.Folders)
+	{
+		if (ImGui::BeginMenu(entry.first.c_str()))
+		{
+			DoMaterialRecursive(entry.second);
+			ImGui::EndMenu();
+		}
+	}
+	for (auto& ptr : currentFolder.Reg)
+	{
+		SelectMaterial(ptr, GetMaterialRegistry());
+	}
+}
+
+void Mesh::SelectMaterial(const std::pair<std::string, MaterialInfo*>& ptr, MaterialRegistry& reg)
+{
+	if (ImGui::Selectable(ptr.second->Name.c_str()) && MeshMaterial->GetTypeName() != ptr.first)
+	{
+		std::vector<SharedPtr<Moonlight::Texture>> textures = MeshMaterial->GetTextures();
+		Vector2 tiling = MeshMaterial->Tiling;
+		Vector3 diffuse = MeshMaterial->DiffuseColor;
+		delete MeshMaterial;
+
+		MeshMaterial = reg[ptr.first].CreateFunc();
+
+		//textures
+		for (int i = 0; i < Moonlight::TextureType::Count; ++i)
+		{
+			MeshMaterial->SetTexture((Moonlight::TextureType)i, textures[i]);
+		}
+		MeshMaterial->DiffuseColor = diffuse;
+		MeshMaterial->Tiling = tiling;
+
+		static_cast<RenderCore*>(GetEngine().GetWorld().lock()->GetCore(RenderCore::GetTypeId()))->UpdateMesh(this);
+	}
+}
 #endif

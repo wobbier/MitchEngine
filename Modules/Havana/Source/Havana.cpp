@@ -33,6 +33,7 @@
 #include "Commands/EditorCommands.h"
 #include "optick.h"
 #include <winuser.h>
+#include "Utils/StringUtils.h"
 namespace fs = std::filesystem;
 
 Havana::Havana(Engine* GameEngine, EditorApp* app, Moonlight::Renderer* renderer)
@@ -153,6 +154,7 @@ void Havana::InitUI()
 	Icons["Stop"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Stop.png"));
 	Icons["Info"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Info.png"));
 	Icons["Logo"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/ME-LOGO.png"));
+	Icons["Profiler"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Profiler.png"));
 
 	m_engine->GetInput().Stop();
 	GetInput().GetMouse().SetWindow(GetActiveWindow());
@@ -459,7 +461,35 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 		ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(0.0f, 0.6f, 0.6f, 0.f));
 		ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)ImColor::HSV(0.f, 0.8f, 0.8f, 0.f));
 		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 5.f));
-		if (ImGui::ImageButton(Icons["Info"]->ShaderResourceView, ImVec2(30.f, 30.f)))
+		if (ImGui::ImageButton(Icons["Profiler"]->ShaderResourceView, ImVec2(30.f, 30.f)))
+		{
+			Path optickPath = Path("Engine/Tools/");
+			// additional information
+			STARTUPINFO si;
+			PROCESS_INFORMATION pi;
+
+			// set the size of the structures
+			ZeroMemory(&si, sizeof(si));
+			si.cb = sizeof(si);
+			ZeroMemory(&pi, sizeof(pi));
+
+			// start the program up
+			CreateProcess(StringUtils::ToWString(optickPath.FullPath + "Optick.exe").c_str(),   // the path
+				L"",        // Command line
+				NULL,           // Process handle not inheritable
+				NULL,           // Thread handle not inheritable
+				FALSE,          // Set handle inheritance to FALSE
+				0,              // No creation flags
+				NULL,           // Use parent's environment block
+				NULL,           // Use parent's starting directory 
+				&si,            // Pointer to STARTUPINFO structure
+				&pi             // Pointer to PROCESS_INFORMATION structure (removed extra parentheses)
+			);
+			// Close process and thread handles. 
+			CloseHandle(pi.hProcess);
+			CloseHandle(pi.hThread);
+		}
+		/*if (ImGui::ImageButton(Icons["Info"]->ShaderResourceView, ImVec2(30.f, 30.f)))
 		{
 			if (m_engine->CurrentScene && !std::filesystem::exists(m_engine->CurrentScene->FilePath.FullPath))
 			{
@@ -491,7 +521,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 				}
 			}
 			ImGui::EndPopup();
-		}
+		}*/
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(0.35f, 126.f, 43.f, 1.f));
 		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 4.f));
 		if (ImGui::ImageButton(Icons["BugReport"]->ShaderResourceView, ImVec2(30.f, 30.f)))

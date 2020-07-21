@@ -65,7 +65,6 @@ namespace Moonlight
 		//const SceneParamsStatic* m_pSceneParamsStatic;
 		//SceneParamsDynamic          m_SceneParamsDynamic;
 		FrameBuffer* buffer;
-		ModelViewProjectionConstantBuffer m_constantBuffer;
 		CameraData* m_camera;
 		ID3D11Buffer* m_constantBufferBuffer;
 	};
@@ -74,7 +73,6 @@ namespace Moonlight
 	struct WorkQueueEntryChunk : public WorkQueueEntryBase
 	{
 		int                         m_iMesh;
-		ModelViewProjectionConstantBuffer m_constantBuffer;
 	};
 
 	// Work item params for scene finalize
@@ -108,6 +106,8 @@ namespace Moonlight
 		void SetWindow();
 		void RegisterDeviceNotify(IDeviceNotify* deviceNotify);
 
+		void ClearBuffer(ID3D11DeviceContext3* context, FrameBuffer* buffer, CameraData* camera);
+
 /* MULTITHREADING */
 		int GetPhysicalProcessorCount();
 		void InitializeWorkerThreads(ID3D11Device* device);
@@ -116,7 +116,7 @@ namespace Moonlight
 		void ThreadedRender(std::function<void()> func, std::function<void()> uiRender, CameraData& editorCamera);
 		void RenderSceneDirect(ID3D11DeviceContext3* context, const ModelViewProjectionConstantBuffer& constantBufferSceneData, CameraData& camera, FrameBuffer* frameBuffer);
 
-		void RenderMeshDirect(MeshCommand& mesh, const ModelViewProjectionConstantBuffer& constantBufferSceneData, ID3D11DeviceContext3* context);
+		void RenderMeshDirect(MeshCommand& mesh, ID3D11DeviceContext3* context);
 
 		static void RenderSceneSetup(Renderer& renderer, ID3D11DeviceContext3* context, const CameraData& camera, FrameBuffer* ViewRTT, ID3D11Buffer* constantBuffer);
 		void FinishRenderingScene(ID3D11DeviceContext3* context, const CameraData& camera, FrameBuffer* ViewRTT, ID3D11Buffer* constantBuffer);
