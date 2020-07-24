@@ -150,8 +150,6 @@ void Engine::Run()
 	// Game loop
 	forever
 	{
-		OPTICK_FRAME("MainLoop")
-
 		// Check and call events
 		GameWindow->ParseMessageQueue();
 
@@ -168,6 +166,7 @@ void Engine::Run()
 		AccumulatedTime += GameClock.GetDeltaSeconds();
 		if (AccumulatedTime >= MaxDeltaTime)
 		{
+			OPTICK_FRAME("MainLoop")
 			float deltaTime = AccumulatedTime;
 
 			GameWorld->Simulate();
@@ -299,6 +298,6 @@ void Engine::LoadScene(const std::string& SceneFile)
 	evt.LoadedScene = CurrentScene;
 	evt.Fire();
 #if !ME_EDITOR
-	GameWorld->Start();
+	//GameWorld->Start();
 #endif
 }

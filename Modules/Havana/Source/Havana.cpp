@@ -263,7 +263,7 @@ void RecusiveDelete(EntityHandle ent, Transform* trans)
 	}
 	for (auto child : trans->GetChildren())
 	{
-		RecusiveDelete(child->Parent, child);
+		RecusiveDelete(child->Parent, child.get());
 	}
 	ent->MarkForDelete();
 };
@@ -1073,10 +1073,10 @@ void Havana::UpdateWorldRecursive(Transform* root)
 	}
 
 	int i = 0;
-	for (Transform* child : root->GetChildren())
+	for (SharedPtr<Transform> child : root->GetChildren())
 	{
 		OPTICK_CATEGORY("UpdateWorld::UpdateWorldRecursive::Child", Optick::Category::GameLogic);
-		Transform* var = child;
+		Transform* var = child.get();
 		bool open = false;
 		ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | (SelectedTransform == var ? ImGuiTreeNodeFlags_Selected : 0);
 		if (var->GetChildren().empty())

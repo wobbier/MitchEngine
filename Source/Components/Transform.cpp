@@ -29,6 +29,10 @@ Transform::Transform(const std::string& TransformName)
 
 Transform::~Transform()
 {
+	if (ParentTransform)
+	{
+		ParentTransform->RemoveChild(shared_from_this().get());
+	}
 }
 
 void Transform::SetPosition(Vector3 NewPosition)
@@ -82,10 +86,10 @@ Vector3& Transform::GetPosition()
 	return Position;
 }
 
-void Transform::UpdateRecursively(Transform* CurrentTransform)
+void Transform::UpdateRecursively(SharedPtr<Transform> CurrentTransform)
 {
 	OPTICK_EVENT("SceneGraph::UpdateRecursively");
-	for (Transform* Child : CurrentTransform->GetChildren())
+	for (SharedPtr<Transform> Child : CurrentTransform->GetChildren())
 	{
 		if (Child->m_isDirty)
 		{
@@ -109,7 +113,7 @@ void Transform::UpdateWorldTransform()
 	DirectX::SimpleMath::Matrix pos = XMMatrixTranslationFromVector(GetPosition().GetInternalVec());
 	SetWorldTransform(Matrix4((scale * rot * pos)));
 
-	UpdateRecursively(this);
+	UpdateRecursively(shared_from_this());
 }
 
 Vector3 Transform::GetWorldPosition()
@@ -228,7 +232,7 @@ void Transform::SetDirty(bool Dirty)
 	OPTICK_EVENT("Transform::SetDirty");
 	if (Dirty && (Dirty != m_isDirty))
 	{
-		for (Transform* Child : GetChildren())
+		for (SharedPtr<Transform> Child : GetChildren())
 		{
 			Child->SetDirty(Dirty);
 		}
@@ -311,8 +315,9 @@ void Transform::SetParent(Transform& NewParent)
 	{
 		GetParentTransform()->RemoveChild(this);
 	}
-	ParentTransform = NewParent.Parent;
-	GetParentTransform()->Children.push_back(Parent);
+	
+	ParentTransform = NewParent.shared_from_this();
+	GetParentTransform()->Children.push_back(shared_from_this());
 	SetDirty(true);
 }
 
@@ -320,8 +325,8 @@ void Transform::RemoveChild(Transform* TargetTransform)
 {
 	if (Children.size() > 0)
 	{
-		Children.erase(std::remove(Children.begin(), Children.end(), TargetTransform->Parent), Children.end());
-		TargetTransform->ParentTransform = EntityHandle();
+		Children.erase(std::remove(Children.begin(), Children.end(), TargetTransform->shared_from_this()), Children.end());
+		TargetTransform->ParentTransform = nullptr;
 	}
 }
 
@@ -329,33 +334,35 @@ Transform* Transform::GetChildByName(const std::string& Name)
 {
 	for (auto child : Children)
 	{
-		if (child->GetComponent<Transform>().Name == Name)
+		if (child->Name == Name)
 		{
-			return &child->GetComponent<Transform>();
+			return child.get();
 		}
 	}
 	return nullptr;
 }
 
-std::vector<Transform*> Transform::GetChildren() const
+std::vector<SharedPtr<Transform>> Transform::GetChildren() const
 {
 	OPTICK_CATEGORY("Transform::GetChildren", Optick::Category::GameLogic);
-	std::vector<Transform*> children;
-	for (auto& child : Children)
-	{
-		if (child)
-		{
-			children.push_back(&child->GetComponent<Transform>());
-		}
-	}
-	return children;
+	return Children;
+
+	//std::vector<Transform*> children;
+	//for (auto& child : Children)
+	//{
+	//	if (child)
+	//	{
+	//		children.push_back(&child->GetComponent<Transform>());
+	//	}
+	//}
+	//return children;
 }
 
 Transform* Transform::GetParentTransform()
 {
 	if (ParentTransform)
 	{
-		return &ParentTransform->GetComponent<Transform>();
+		return ParentTransform.get();
 	}
 	return nullptr;
 }

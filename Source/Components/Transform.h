@@ -10,8 +10,9 @@
 #include "Math/Quaternion.h"
 #include "Math/Matirx4.h"
 
-class Transform :
-	public Component<Transform>
+class Transform
+	: public Component<Transform>
+	, public std::enable_shared_from_this<Transform>
 {
 	typedef Component<Transform> Base;
 	friend class SceneGraph;
@@ -24,7 +25,7 @@ public:
 	void SetPosition(Vector3 NewPosition);
 	Vector3& GetPosition();
 
-	void UpdateRecursively(Transform* CurrentTransform);
+	void UpdateRecursively(SharedPtr<Transform> CurrentTransform);
 
 	void UpdateWorldTransform();
 
@@ -59,7 +60,7 @@ public:
 	void SetParent(Transform& NewParent);
 	void RemoveChild(Transform* TargetTransform);
 	Transform* GetChildByName(const std::string& Name);
-	std::vector<Transform*> GetChildren() const;
+	std::vector<SharedPtr<Transform>> GetChildren() const;
 
 	Transform* GetParentTransform();
 
@@ -91,8 +92,8 @@ private:
 
 	void SetDirty(bool Dirty);
 	bool m_isDirty = true;
-	EntityHandle ParentTransform;
-	std::vector<EntityHandle> Children;
+	SharedPtr<Transform> ParentTransform;
+	std::vector<SharedPtr<Transform>> Children;
 
 	virtual void OnSerialize(json& outJson) final;
 	virtual void OnDeserialize(const json& inJson) final;

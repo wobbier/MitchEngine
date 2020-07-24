@@ -40,7 +40,7 @@ void SceneGraph::Update(float dt)
 void SceneGraph::UpdateRecursively(Transform* CurrentTransform)
 {
 	OPTICK_EVENT("SceneGraph::UpdateRecursively");
-	for (Transform* Child : CurrentTransform->GetChildren())
+	for (SharedPtr<Transform> Child : CurrentTransform->GetChildren())
 	{
 		OPTICK_EVENT("SceneGraph::UpdateRecursively::GetChildren");
 		if (Child->IsDirty())
@@ -53,7 +53,7 @@ void SceneGraph::UpdateRecursively(Transform* CurrentTransform)
 			DirectX::SimpleMath::Matrix pos = XMMatrixTranslationFromVector(Child->GetPosition().GetInternalVec());
 			Child->SetWorldTransform(Matrix4((scale* rot * pos) * CurrentTransform->WorldTransform.GetInternalMatrix()));
 		}
-		UpdateRecursively(Child);
+		UpdateRecursively(Child.get());
 	}
 }
 
@@ -87,9 +87,9 @@ void SceneGraph::OnEntityRemoved(Entity& InEntity)
 void SceneGraph::OnEntityDestroyed(Entity& InEntity)
 {
 	Transform& transform = InEntity.GetComponent<Transform>();
-	if (transform.ParentTransform && transform.ParentTransform->HasComponent<Transform>())
+	if (transform.ParentTransform)
 	{
-		transform.ParentTransform->GetComponent<Transform>().RemoveChild(&transform);
+		transform.ParentTransform->RemoveChild(&transform);
 	}
 }
 

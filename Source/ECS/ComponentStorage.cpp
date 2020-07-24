@@ -12,14 +12,14 @@ ComponentStorage::~ComponentStorage()
 {
 }
 
-void ComponentStorage::AddComponent(Entity& InEntity, BaseComponent* InComponent, TypeId InComponentTypeId)
+void ComponentStorage::AddComponent(Entity& InEntity, SharedPtr<BaseComponent> InComponent, TypeId InComponentTypeId)
 {
 	auto Index = InEntity.GetId().Index;
 
 	auto& ComponentData = ComponentEntries[Index];
 
 	CheckCapacity(ComponentData.Components, InComponentTypeId);
-	ComponentData.Components[InComponentTypeId].reset(InComponent);
+	ComponentData.Components[InComponentTypeId] = InComponent;
 
 	ComponentData.ComponentTypeList[InComponentTypeId] = true;
 	//InEntity.SetActive(true);

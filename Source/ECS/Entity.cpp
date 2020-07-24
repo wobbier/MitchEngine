@@ -29,7 +29,7 @@ const bool Entity::HasComponent(TypeId inComponentType) const
 	return ar[inComponentType] == true;
 }
 
-void Entity::AddComponent(BaseComponent* inComponent, TypeId inComponentTypeId)
+void Entity::AddComponent(SharedPtr<BaseComponent> inComponent, TypeId inComponentTypeId)
 {
 	inComponent->Parent = EntityHandle(GetId(), GameWorld->GetSharedPtr());
 	GameWorld->EntityAttributes.Storage.AddComponent(*this, inComponent, inComponentTypeId);

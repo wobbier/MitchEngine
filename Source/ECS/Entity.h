@@ -28,7 +28,7 @@ public:
 	bool HasComponent();
 
 	template <typename T>
-	T& AddComponent(T* inComponent);
+	T& AddComponent(SharedPtr<T> inComponent);
 
 	BaseComponent* AddComponentByName(const std::string& inComponent);
 
@@ -60,7 +60,7 @@ private:
 	World* GameWorld = nullptr;
 	EntityID Id;
 
-	void AddComponent(BaseComponent* inComponent, TypeId inComponentTypeId);
+	void AddComponent(SharedPtr<BaseComponent> inComponent, TypeId inComponentTypeId);
 	const bool HasComponent(TypeId inComponentType) const;
 	BaseComponent& GetComponent(TypeId InTypeId) const;
 	void RemoveComponent(TypeId InComponentTypeId);
@@ -74,7 +74,7 @@ bool Entity::HasComponent()
 }
 
 template <typename T>
-T& Entity::AddComponent(T* inComponent)
+T& Entity::AddComponent(SharedPtr<T> inComponent)
 {
 	if (HasComponent(T::GetTypeId()))
 	{
@@ -100,7 +100,8 @@ T& Entity::AddComponent(Args&&... args)
 	{
 		return GetComponent<T>();
 	}
-	return AddComponent(new T{ std::forward<Args>(args)... });
+	SharedPtr<T> t = std::make_shared<T>(std::forward<Args>(args)...);
+	return AddComponent(t);
 }
 
 template <typename T>

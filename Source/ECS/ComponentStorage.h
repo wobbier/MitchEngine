@@ -17,7 +17,7 @@ public:
 	ME_NONCOPYABLE(ComponentStorage)
 	ME_NONMOVABLE(ComponentStorage)
 
-	void AddComponent(Entity& InEntity, BaseComponent* InComponent, TypeId InComponentTypeId);
+	void AddComponent(Entity& InEntity, SharedPtr<BaseComponent> InComponent, TypeId InComponentTypeId);
 
 	BaseComponent& GetComponent(const Entity& InEntity, TypeId InTypeId);
 
@@ -33,7 +33,7 @@ public:
 
 	void Reset();
 private:
-	typedef std::vector<std::unique_ptr<BaseComponent>> ImplComponentArray;
+	typedef std::vector<std::shared_ptr<BaseComponent>> ImplComponentArray;
 
 	struct EntityComponents
 	{

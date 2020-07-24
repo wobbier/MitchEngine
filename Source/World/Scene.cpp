@@ -136,9 +136,9 @@ void Scene::SaveSceneRecursively(json& d, Transform* CurrentTransform)
 	}
 	if (CurrentTransform->GetChildren().size() > 0)
 	{
-		for (Transform* Child : CurrentTransform->GetChildren())
+		for (SharedPtr<Transform> Child : CurrentTransform->GetChildren())
 		{
-			SaveSceneRecursively(outEntity["Children"], Child);
+			SaveSceneRecursively(outEntity["Children"], Child.get());
 		}
 	}
 	d.push_back(outEntity);
@@ -153,9 +153,9 @@ void Scene::Save(std::string fileName, Transform* root)
 
 	if (root->GetChildren().size() > 0)
 	{
-		for (Transform* Child : root->GetChildren())
+		for (SharedPtr<Transform> Child : root->GetChildren())
 		{
-			SaveSceneRecursively(world["Scene"], Child);
+			SaveSceneRecursively(world["Scene"], Child.get());
 		}
 	}
 

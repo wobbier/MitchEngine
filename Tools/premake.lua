@@ -400,6 +400,8 @@ links {
   (getPlatformPostfix("Moonlight") .. ".lib")
 }
 
+defines { "_DISABLE_EXTENDED_ALIGNED_STORAGE" }
+
 vpaths {
   ["Build"] = "../Tools/*.lua",
   ["Source"] = "Source/**.*",

@@ -344,9 +344,9 @@ void AssetBrowser::SavePrefab(json& d, Transform* CurrentTransform, bool IsRoot)
 	}
 	if (CurrentTransform->GetChildren().size() > 0)
 	{
-		for (Transform* Child : CurrentTransform->GetChildren())
+		for (SharedPtr<Transform> Child : CurrentTransform->GetChildren())
 		{
-			SavePrefab(newJson["Children"], Child, false);
+			SavePrefab(newJson["Children"], Child.get(), false);
 		}
 	}
 

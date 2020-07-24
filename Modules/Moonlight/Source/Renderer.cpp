@@ -357,7 +357,7 @@ namespace Moonlight
 		m_numPerChunkRenderThreads = GetPhysicalProcessorCount() - 1;
 		m_numPerChunkRenderThreads = std::min(m_numPerChunkRenderThreads, kMaxPerChunkRenderThreads);
 		m_numPerChunkRenderThreads = std::max(m_numPerChunkRenderThreads, 1);
-		m_numPerChunkRenderThreads = 2;
+		//m_numPerChunkRenderThreads = 2;
 
 		for (int i = 0; i < m_numPerChunkRenderThreads; ++i)
 		{
@@ -768,6 +768,12 @@ namespace Moonlight
 	{
 		OPTICK_EVENT("RenderSceneDirect", Optick::Category::Rendering);
 		// if clear on begin
+
+		if (!frameBuffer)
+		{
+			return;
+		}
+
 		context->ClearState();
 
 		if (frameBuffer->DepthStencilView)
@@ -828,9 +834,9 @@ namespace Moonlight
 		{
 			RenderSceneSetup(*this, context, camera, frameBuffer, m_constantBuffer.Get());
 
-			for (int i = 0; i < Cameras.size(); ++i)
+			//for (int i = 0; i < Cameras.size(); ++i)
 			{
-				ClearBuffer(context, Cameras[i].Buffer, &Cameras[i]);
+				//ClearBuffer(context, camera.Buffer, &camera);
 			}
 		}
 		//
@@ -841,18 +847,18 @@ namespace Moonlight
 			//constantBufferSceneData.light = Lights[0];
 		}
 
-		std::vector<MeshCommand> transparentMeshes;
+		std::vector<int> transparentMeshes;
 		{
 			for (int i = 0; i < Meshes.size(); ++i)
 			{
 				MeshCommand& mesh = Meshes[i];
 				if (mesh.MeshMaterial && mesh.MeshMaterial->IsTransparent())
 				{
-					transparentMeshes.push_back(mesh);
+					transparentMeshes.push_back(i);
 					continue;
 				}
-				DirectX::SimpleMath::Vector3 position;
-				mesh.Transform.Decompose(DirectX::SimpleMath::Vector3(), DirectX::SimpleMath::Quaternion(), position);
+				//DirectX::SimpleMath::Vector3 position;
+				//mesh.Transform.Decompose(DirectX::SimpleMath::Vector3(), DirectX::SimpleMath::Quaternion(), position);
 				//DirectX::XMMatrixDecompose(nullptr, nullptr, &position, mesh.Transform);
 // 
 // 				if (!camera.CameraFrustum->IsInside(Vector3(position)))
@@ -860,6 +866,10 @@ namespace Moonlight
 // 					continue;
 // 				}
 				RenderMesh(i, context);
+			}
+			for (int i = 0; i < transparentMeshes.size(); ++i)
+			{
+				RenderMesh(transparentMeshes[i], context);
 			}
 		}
 		if (IsRenderDeferredPerChunk())
@@ -893,6 +903,15 @@ namespace Moonlight
 				}
 			}
 		}
+
+
+		//GetDevice().ResetCullingMode();
+		//context->OMSetBlendState(m_device->TransparentBlendState, Colors::Black, 0xffffffff);
+		//for (int i = 0; i < transparentMeshes.size(); ++i)
+		//{
+		//	RenderMeshDirect(Meshes[transparentMeshes[i]], context);
+		//}
+		//context->OMSetBlendState(0, 0, 0xffffffff);
 
 		FinishRenderingScene(context, camera, frameBuffer, m_constantBuffer.Get());
 	}
@@ -963,7 +982,8 @@ namespace Moonlight
 			{
 				pVSPerScene->HasSpecMap = FALSE;
 			}
-			pVSPerScene->HasAlphaMap = FALSE;
+
+			pVSPerScene->HasAlphaMap = (mesh.MeshMaterial->IsTransparent()) ? TRUE : FALSE;
 			pVSPerScene->DiffuseColor = mesh.MeshMaterial->DiffuseColor.GetInternalVec();
 
 			//constantBufferSceneData.Tiling = DirectX::SimpleMath::Vector2(&mesh.MeshMaterial->Tiling.GetInternalVec().x);
@@ -999,9 +1019,19 @@ namespace Moonlight
 			);
 			OPTICK_EVENT("Render::SingleMesh");
 
+			if (mesh.MeshMaterial->IsTransparent())
+			{
+				context->OMSetBlendState(m_device->TransparentBlendState, Colors::Black, 0xffffffff);
+			}
+
 			mesh.MeshMaterial->MeshShader.Use(context);
 
 			mesh.SingleMesh->Draw(mesh.MeshMaterial, context);
+
+			if (mesh.MeshMaterial->IsTransparent())
+			{
+				context->OMSetBlendState(0, 0, 0xffffffff);
+			}
 
 			//shape->Draw(XMMatrixTranspose(XMMatrixIdentity()), DirectX::XMLoadFloat4x4(&constantBufferSceneData.view), DirectX::XMLoadFloat4x4(&constantBufferSceneData.projection), Colors::Gray, nullptr, true);
 		}
@@ -1027,24 +1057,26 @@ namespace Moonlight
 			FrameBuffer* buffer = Cameras[i].Buffer;
 			if (buffer)
 			{
-			//	context->ClearRenderTargetView(buffer->RenderTargetView.Get(), color);
-			//	context->ClearRenderTargetView(buffer->ColorRenderTargetView.Get(), clearColor);
-			//	context->ClearRenderTargetView(buffer->NormalRenderTargetView.Get(), color);
-			//	context->ClearRenderTargetView(buffer->PositionRenderTargetView.Get(), color);
-			//	context->ClearRenderTargetView(buffer->SpecularRenderTargetView.Get(), color);
-			//	context->ClearRenderTargetView(buffer->ShadowMapRenderTargetView.Get(), color);
+				context->ClearRenderTargetView(buffer->RenderTargetView.Get(), color);
+				context->ClearRenderTargetView(buffer->ColorRenderTargetView.Get(), clearColor);
+				context->ClearRenderTargetView(buffer->NormalRenderTargetView.Get(), color);
+				context->ClearRenderTargetView(buffer->PositionRenderTargetView.Get(), color);
+				context->ClearRenderTargetView(buffer->SpecularRenderTargetView.Get(), color);
+				context->ClearRenderTargetView(buffer->ShadowMapRenderTargetView.Get(), color);
 				context->ClearRenderTargetView(buffer->UIRenderTargetView.Get(), DirectX::Colors::Transparent);
-			//	context->ClearRenderTargetView(buffer->PickingTargetView.Get(), color);
-			//	context->ClearDepthStencilView(buffer->DepthStencilView.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+				context->ClearRenderTargetView(buffer->PickingTargetView.Get(), color);
+				//context->ClearDepthStencilView(buffer->DepthStencilView.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 			}
 		}
 
+#if ME_EDITOR
 		context->ClearRenderTargetView(SceneViewRTT->RenderTargetView.Get(), color);
 		context->ClearRenderTargetView(SceneViewRTT->ColorRenderTargetView.Get(), color);
 		context->ClearRenderTargetView(SceneViewRTT->NormalRenderTargetView.Get(), color);
 		context->ClearRenderTargetView(SceneViewRTT->PositionRenderTargetView.Get(), color);
 		context->ClearRenderTargetView(SceneViewRTT->SpecularRenderTargetView.Get(), color);
 		context->ClearRenderTargetView(SceneViewRTT->ShadowMapRenderTargetView.Get(), color);
+#endif
 
 		// Clear the back buffer and depth stencil view.
 		context->ClearRenderTargetView(m_device->GetBackBufferRenderTargetView(), color);
@@ -1061,7 +1093,9 @@ namespace Moonlight
 		}
 		else
 		{
+#if ME_EDITOR
 			RenderSceneDirect(context, m_constantBufferSceneData, editorCamera, SceneViewRTT);
+#endif
 			//FinishRenderingScene(context, m_constantBufferSceneData, editorCamera, SceneViewRTT);
 
 			for (CameraData& data : Cameras)
@@ -1177,11 +1211,20 @@ namespace Moonlight
 		//DrawScene(context, m_constantBufferSceneData, editorCamera, SceneViewRTT);
 
 		GetDevice().GetD3DDeviceContext()->OMSetRenderTargets(1, m_device->m_d3dRenderTargetView.GetAddressOf(), nullptr);
+#else
+
+		//for (CameraData& data : Cameras)
+		//{
+		//	if (data.IsMain)
+		//	{
+		//		GetDevice().GetD3DDeviceContext()->OMSetRenderTargets(1, data.Buffer->RenderTargetView.GetAddressOf(), nullptr);
+		//	}
+		//}
 #endif
 
 		func();
 
-		//GetDevice().GetD3DDeviceContext()->OMSetRenderTargets(1, m_device->m_d3dRenderTargetView.GetAddressOf(), nullptr);
+		GetDevice().GetD3DDeviceContext()->OMSetRenderTargets(1, m_device->m_d3dRenderTargetView.GetAddressOf(), nullptr);
 		// The first argument instructs DXGI to block until VSync, putting the application
 		// to sleep until the next VSync. This ensures we don't waste any cycles rendering
 		// frames that will never be displayed to the screen.
@@ -1190,7 +1233,7 @@ namespace Moonlight
 			OPTICK_EVENT("Present", Optick::Category::Rendering);
 
 			DXGI_PRESENT_PARAMETERS parameters = { 0 };
-			hr = m_device->GetSwapChain()->Present1(0, 0, &parameters);
+			hr = m_device->GetSwapChain()->Present1(DXGI_SWAP_EFFECT_DISCARD, 0, &parameters);
 		}
 
 		{
