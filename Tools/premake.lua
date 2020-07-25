@@ -138,7 +138,8 @@ linkoptions {
 
 defines{
   "NOMINMAX",
-  "ULTRALIGHT_IMPLEMENTATION"
+  "ULTRALIGHT_IMPLEMENTATION",
+  "_DISABLE_EXTENDED_ALIGNED_STORAGE"
 }
 
 configuration "*Editor"
@@ -399,8 +400,6 @@ includedirs {
 links {
   (getPlatformPostfix("Moonlight") .. ".lib")
 }
-
-defines { "_DISABLE_EXTENDED_ALIGNED_STORAGE" }
 
 vpaths {
   ["Build"] = "../Tools/*.lua",
