@@ -92,6 +92,10 @@ Win32Window::Win32Window(std::string title, std::function<void(const Vector2&)> 
 		return;
 	}
 	GetEngine().GetInput().GetMouse().SetWindow(Window);
+#if ME_EDITOR
+	borderless = true;
+	borderless_shadow = true;
+#endif
 	SetBorderless(borderless);
 	SetBorderlessShadow(borderless_shadow);
 	ShowWindow(Window, SW_SHOW);
@@ -121,6 +125,7 @@ void Win32Window::ParseMessageQueue()
 		}
 		if (msg.message == WM_EXITSIZEMOVE)
 		{
+			Resized(Vector2(300,300));
 		}
 	}
 }
@@ -223,7 +228,7 @@ auto Win32Window::AdjustMaximizedClientRect(HWND window, RECT& rect) -> void
 		return;
 	}
 	rect = monitor_info.rcWork;
-	ResizeFunc(Vector2(static_cast<float>(rect.right - rect.left), static_cast<float>(rect.bottom - rect.top)));
+	Resized(Vector2(static_cast<float>(rect.right - rect.left), static_cast<float>(rect.bottom - rect.top)));
 }
 
 void Win32Window::Minimize()
@@ -325,7 +330,11 @@ bool Win32Window::IsFullscreen()
 
 void Win32Window::Resized(const Vector2& NewSize)
 {
-	ResizeFunc(NewSize);
+	if (NewSize != WindowSize)
+	{
+		ResizeFunc(NewSize);
+	}
+	WindowSize = NewSize;
 }
 
 POINT prevPos;
@@ -428,13 +437,13 @@ LRESULT CALLBACK WinProc(HWND hwnd, unsigned int msg, WPARAM wp, LPARAM lp)
 			}
 			break;
 		}
-		//case WM_SIZE:
-		//	{
-		//		RECT newSize;
-		//		GetClientRect(hwnd, &newSize);
-		//		window.Resized(Vector2(static_cast<float>(newSize.right - newSize.left), static_cast<float>(newSize.bottom - newSize.top)));
-		//	}
-		//	break;
+		case WM_EXITSIZEMOVE:
+			{
+				RECT newSize;
+				GetClientRect(hwnd, &newSize);
+				window.Resized(Vector2(static_cast<float>(newSize.right - newSize.left), static_cast<float>(newSize.bottom - newSize.top)));
+			}
+			break;
 		}
 	}
 	return DefWindowProc(hwnd, msg, wp, lp);

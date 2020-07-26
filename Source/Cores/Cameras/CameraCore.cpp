@@ -32,6 +32,14 @@ void CameraCore::Update(float dt)
 		Camera& CameraComponent = InEntity.GetComponent<Camera>();
 		Transform& TransformComponent = InEntity.GetComponent<Transform>();
 
+#if ME_EDITOR
+#else
+		if (CameraComponent.IsMain())
+		{
+			CameraComponent.OutputSize = GetEngine().GetWindow()->GetSize();
+		}
+#endif
+
 		Moonlight::CameraData& CamData = GetEngine().GetRenderer().GetCamera(CameraComponent.m_id);
 		CamData.Position = TransformComponent.GetWorldPosition();
 		CamData.Front = TransformComponent.Front();

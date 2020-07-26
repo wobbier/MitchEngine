@@ -230,8 +230,10 @@ namespace Moonlight
 
 	void Renderer::ResizeBuffers()
 	{
+#if ME_EDITOR
 		delete SceneViewRTT;
-		SceneViewRTT = m_device->CreateFrameBuffer(m_device->GetOutputSize().X(), m_device->GetOutputSize().Y(), 1, DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_D24_UNORM_S8_UINT);
+		SceneViewRTT = m_device->CreateFrameBuffer(m_device->GetLogicalSize().X(), m_device->GetLogicalSize().Y(), 1, DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_D24_UNORM_S8_UINT);
+#endif
 
 		for (CameraData& cam : Cameras)
 		{
@@ -1256,11 +1258,12 @@ namespace Moonlight
 					m_device->GetD3DDeviceContext()->DiscardView1(buffer->DepthStencilView.Get(), nullptr, 0);
 				}
 			}
+#if ME_EDITOR
 			m_device->GetD3DDeviceContext()->DiscardView1(SceneViewRTT->ShaderResourceView.Get(), nullptr, 0);
 			m_device->GetD3DDeviceContext()->DiscardView1(SceneViewRTT->ColorShaderResourceView.Get(), nullptr, 0);
 			m_device->GetD3DDeviceContext()->DiscardView1(SceneViewRTT->NormalShaderResourceView.Get(), nullptr, 0);
 			m_device->GetD3DDeviceContext()->DiscardView1(SceneViewRTT->SpecularShaderResourceView.Get(), nullptr, 0);
-
+#endif
 			// If the device was removed either by a disconnection or a driver upgrade, we 
 			// must recreate all device resources.
 			if (hr == DXGI_ERROR_DEVICE_REMOVED || hr == DXGI_ERROR_DEVICE_RESET)

@@ -40,8 +40,8 @@ public:
 	void SetBorderlessShadow(bool enabled);
 	auto SetShadow(HWND handle, bool enabled) -> void;
 	auto AdjustMaximizedClientRect(HWND window, RECT& rect) -> void;
-	bool borderless = true;
-	bool borderless_shadow = true;
+	bool borderless = false;
+	bool borderless_shadow = false;
 	bool borderless_drag = true;
 	bool borderless_resize = true;
 
@@ -70,6 +70,7 @@ private:
 	HWND Window;
 	HICON hWindowIcon = NULL;
 	HICON hWindowIconSm = NULL;
+	Vector2 WindowSize;
 	std::function<void(const Vector2&)> ResizeFunc;
 };
 

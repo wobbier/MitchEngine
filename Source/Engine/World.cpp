@@ -198,10 +198,9 @@ void World::UpdateLoadedCores(float DeltaTime)
 
 void World::DestroyEntity(Entity &InEntity, bool RemoveFromWorld)
 {
+	auto& Attr = EntityAttributes.Attributes[InEntity.GetId().Index];
+	Attr.IsActive = false;
 	{
-		auto& Attr = EntityAttributes.Attributes[InEntity.GetId().Index];
-		Attr.IsActive = false;
-
 		for (auto& InCore : Cores)
 		{
 			auto CoreIndex = InCore.first;
@@ -212,13 +211,11 @@ void World::DestroyEntity(Entity &InEntity, bool RemoveFromWorld)
 				{
 					InCore.second->Remove(InEntity);
 					InCore.second->OnEntityDestroyed(InEntity);
-					Attr.Cores[CoreIndex] = false;
 				}
 			}
 		}
 	}
 	EntityAttributes.Storage.RemoveAllComponents(InEntity);
-	auto& Attr = EntityAttributes.Attributes[InEntity.GetId().Index];
 	Attr.Cores.reset();
 
 	EntIdPool.Remove(InEntity.GetId());
