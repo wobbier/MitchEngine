@@ -117,9 +117,6 @@ namespace Moonlight
 			nullptr
 		);
 */
-		m_font = std::make_unique<DirectX::SpriteFont>(m_device->GetD3DDevice(), StringUtils::ToWString(Path("Assets/Fonts/Comfortaa.spritefont").FullPath).c_str());
-		m_spriteBatch = std::make_unique<DirectX::SpriteBatch>(m_device->GetD3DDeviceContext());
-		shape = DirectX::GeometricPrimitive::CreateBox(m_device->GetD3DDeviceContext(), XMFLOAT3(1.f, 1.f, 1.f));
 		primitiveBatch = std::make_unique<DirectX::PrimitiveBatch<VertexPositionTexCoord>>(m_device->GetD3DDeviceContext());
 		//m_depthProgram = ShaderCommand("Assets/Shaders/DepthPass.hlsl");
 		ResizeBuffers();

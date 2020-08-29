@@ -27,6 +27,8 @@
 #include <fileapi.h>
 #endif
 #include "Resource/ResourceCache.h"
+#include "optick.h"
+#include "Core/JobSystem.h"
 
 Engine& GetEngine()
 {
@@ -35,6 +37,7 @@ Engine& GetEngine()
 
 Engine::Engine()
 	: Running(true)
+	, m_jobSystem(4)
 {
 	std::vector<TypeId> events;
 	events.push_back(LoadSceneEvent::GetEventId());
@@ -43,7 +46,7 @@ Engine::Engine()
 
 Engine::~Engine()
 {
-
+	delete EngineConfig;
 }
 
 void Engine::Init(Game* game)
@@ -144,7 +147,7 @@ void Engine::Run()
 	GameClock.Reset();
 	float lastTime = GameClock.GetTimeInMilliseconds();
 
-	const float FramesPerSec = 144.f;
+	const float FramesPerSec = 240.f;
 	const float MaxDeltaTime = (1.f / FramesPerSec);
 
 	// Game loop
@@ -166,7 +169,7 @@ void Engine::Run()
 		AccumulatedTime += GameClock.GetDeltaSeconds();
 		if (AccumulatedTime >= MaxDeltaTime)
 		{
-			OPTICK_FRAME("MainLoop")
+			OPTICK_FRAME("MainLoop");
 			float deltaTime = AccumulatedTime;
 
 			GameWorld->Simulate();
@@ -247,6 +250,16 @@ Moonlight::Renderer& Engine::GetRenderer() const
 std::weak_ptr<World> Engine::GetWorld() const
 {
 	return GameWorld;
+}
+
+JobQueue& Engine::GetJobQueue()
+{
+	return m_jobSystem.GetJobQueue();
+}
+
+JobSystem& Engine::GetJobSystem()
+{
+	return m_jobSystem;
 }
 
 const bool Engine::IsInitialized() const

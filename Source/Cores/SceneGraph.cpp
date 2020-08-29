@@ -4,6 +4,7 @@
 #include "Engine/World.h"
 #include <stack>
 #include "Events/SceneEvents.h"
+#include "Engine/Engine.h"
 
 SceneGraph::SceneGraph()
 	: Base(ComponentFilter().Requires<Transform>())
@@ -35,6 +36,8 @@ void SceneGraph::Update(float dt)
 
 	// Seems O.K. for now
 	UpdateRecursively(GetRootTransform());
+
+	GetEngine().GetJobSystem().Wait();
 }
 
 void SceneGraph::UpdateRecursively(Transform* CurrentTransform)
@@ -53,7 +56,10 @@ void SceneGraph::UpdateRecursively(Transform* CurrentTransform)
 			DirectX::SimpleMath::Matrix pos = XMMatrixTranslationFromVector(Child->GetPosition().GetInternalVec());
 			Child->SetWorldTransform(Matrix4((scale* rot * pos) * CurrentTransform->WorldTransform.GetInternalMatrix()));
 		}
-		UpdateRecursively(Child.get());
+
+		GetEngine().GetJobQueue().AddJobBrad([this, Child]() {
+			UpdateRecursively(Child.get());
+		});
 	}
 }
 

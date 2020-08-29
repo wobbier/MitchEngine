@@ -437,6 +437,18 @@ LRESULT CALLBACK WinProc(HWND hwnd, unsigned int msg, WPARAM wp, LPARAM lp)
 			}
 			break;
 		}
+		case WM_SYSCOMMAND:
+		{
+			if (wp == SC_MAXIMIZE || wp == SC_RESTORE)
+			{
+				RECT newSize;
+				GetClientRect(hwnd, &newSize);
+				window.Resized(Vector2(static_cast<float>(newSize.right - newSize.left), static_cast<float>(newSize.bottom - newSize.top)));
+			}
+		}
+			break;
+		case WM_DWMWINDOWMAXIMIZEDCHANGE:
+		case WM_MDIMAXIMIZE:
 		case WM_EXITSIZEMOVE:
 			{
 				RECT newSize;

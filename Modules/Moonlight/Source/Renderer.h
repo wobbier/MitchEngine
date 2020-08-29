@@ -229,10 +229,6 @@ namespace Moonlight
 #endif
 		bool m_pickingRequested = false;
 		Vector2 pickingLocation;
-		// Text
-		std::unique_ptr<DirectX::SpriteFont> m_font;
-		DirectX::SimpleMath::Vector2 m_fontPos;
-		std::unique_ptr<DirectX::SpriteBatch> m_spriteBatch;
 
 		// Commands
 		std::vector<DebugColliderCommand> DebugColliders;

@@ -168,6 +168,7 @@ void Camera::OnEditorInspect()
 						}
 						else
 						{
+							delete Skybox;
 							Skybox = new Moonlight::SkyBox(Textures[n].LocalPath);
 						}
 					}

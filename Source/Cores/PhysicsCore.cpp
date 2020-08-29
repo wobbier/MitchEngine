@@ -60,75 +60,82 @@ void PhysicsCore::Update(float dt)
 	// Need a fixed delta probably
 	PhysicsWorld->stepSimulation(dt, 10);
 
+
+
 	for (auto& InEntity : PhysicsEntites)
 	{
-		Transform& TransformComponent = InEntity.GetComponent<Transform>();
+		auto thing = [this, &InEntity, dt]() {
+			OPTICK_CATEGORY("Job::UpdatePhysics", Optick::Category::Physics);
+			Transform& TransformComponent = InEntity.GetComponent<Transform>();
 
-		if (InEntity.HasComponent<Rigidbody>())
-		{
-			Rigidbody& RigidbodyComponent = InEntity.GetComponent<Rigidbody>();
-
-			InitRigidbody(RigidbodyComponent, TransformComponent);
-
-			btRigidBody* rigidbody = RigidbodyComponent.InternalRigidbody;
-			btTransform& trans = rigidbody->getWorldTransform();
-
-
-			if (TransformComponent.IsDirty())
+			if (InEntity.HasComponent<Rigidbody>())
 			{
-				btTransform trans;
-				Vector3 transPos = TransformComponent.GetPosition();
-				trans.setRotation(btQuaternion(TransformComponent.InternalRotation.GetInternalVec().x, TransformComponent.InternalRotation.GetInternalVec().y, TransformComponent.InternalRotation.GetInternalVec().z, TransformComponent.InternalRotation.GetInternalVec().w));
-				trans.setOrigin(btVector3(transPos.X(), transPos.Y(), transPos.Z()));
+				Rigidbody& RigidbodyComponent = InEntity.GetComponent<Rigidbody>();
+
+				InitRigidbody(RigidbodyComponent, TransformComponent);
+
+				btRigidBody* rigidbody = RigidbodyComponent.InternalRigidbody;
+				btTransform& trans = rigidbody->getWorldTransform();
+
+
+				if (TransformComponent.IsDirty())
+				{
+					btTransform trans;
+					Vector3 transPos = TransformComponent.GetPosition();
+					trans.setRotation(btQuaternion(TransformComponent.InternalRotation.GetInternalVec().x, TransformComponent.InternalRotation.GetInternalVec().y, TransformComponent.InternalRotation.GetInternalVec().z, TransformComponent.InternalRotation.GetInternalVec().w));
+					trans.setOrigin(btVector3(transPos.X(), transPos.Y(), transPos.Z()));
+					rigidbody->setWorldTransform(trans);
+					rigidbody->activate();
+				}
+				else if (RigidbodyComponent.IsDynamic())
+				{
+					btTransform& trans = rigidbody->getWorldTransform();
+					btQuaternion rot;
+					trans.getBasis().getRotation(rot);
+					Vector3 bulletPosition = Vector3(trans.getOrigin().x(), trans.getOrigin().y(), trans.getOrigin().z());
+					TransformComponent.SetPosition(bulletPosition);
+					btScalar x, y, z;
+					rot.getEulerZYX(z, y, x);
+					TransformComponent.SetRotation(Vector3(Mathf::Degrees(x), Mathf::Degrees(y), Mathf::Degrees(z)));
+					//Transform tempTrans;
+					//tempTrans.SetPosition(bulletPosition);
+
+					//Matrix4 mat;
+					//Quaternion rot2(tempTrans.Rotation.GetInternalVec());
+					//mat.GetInternalMatrix().CreateWorld(tempTrans.GetPosition().GetInternalVec(), tempTrans.Rotation.GetInternalVec().Forward, tempTrans.Rotation.GetInternalVec().Up);
+					//tempTrans.SetWorldTransform(mat);
+					//DirectX::SimpleMath::Matrix id = DirectX::XMMatrixIdentity();
+					//DirectX::SimpleMath::Matrix rot = DirectX::SimpleMath::Matrix::CreateFromQuaternion(XMQuaternionRotationRollPitchYawFromVector(tempTrans.Rotation.GetInternalVec()));
+					//DirectX::SimpleMath::Matrix scale = DirectX::SimpleMath::Matrix::CreateScale(Child->GetScale().GetInternalVec());
+					//DirectX::SimpleMath::Matrix pos = XMMatrixTranslationFromVector(Child->GetPosition().GetInternalVec());
+					//Child->SetWorldTransform(Matrix4((rot * scale * pos) * CurrentTransform->WorldTransform.GetInternalMatrix()));
+					GetEngine().GetRenderer().UpdateMatrix(RigidbodyComponent.DebugColliderId, TransformComponent.GetMatrix().GetInternalMatrix());
+				}
+			}
+
+			if (InEntity.HasComponent<CharacterController>())
+			{
+				CharacterController& Controller = InEntity.GetComponent<CharacterController>();
+
+				//
+				btRigidBody* rigidbody = Controller.m_rigidbody;
+				btTransform& trans = rigidbody->getWorldTransform();
+
+				Quaternion rotation = TransformComponent.GetWorldRotation();
+				trans.setRotation(btQuaternion(rotation[0], rotation[1], rotation[2], rotation[3]));
+				////trans.setOrigin(btVector3(transPos.X(), transPos.Y(), transPos.Z()));
+				////rigidbody->setWorldTransform(trans);
 				rigidbody->setWorldTransform(trans);
 				rigidbody->activate();
+
+				Controller.Update(dt);
+
+				TransformComponent.SetWorldPosition(Controller.GetPosition());
 			}
-			else if(RigidbodyComponent.IsDynamic())
-			{
-				btTransform& trans = rigidbody->getWorldTransform();
-				btQuaternion rot;
-				trans.getBasis().getRotation(rot);
-				Vector3 bulletPosition = Vector3(trans.getOrigin().x(), trans.getOrigin().y(), trans.getOrigin().z());
-				TransformComponent.SetPosition(bulletPosition);
-				btScalar x, y, z;
-				rot.getEulerZYX(z, y, x);
-				TransformComponent.SetRotation(Vector3(Mathf::Degrees(x), Mathf::Degrees(y), Mathf::Degrees(z)));
-				//Transform tempTrans;
-				//tempTrans.SetPosition(bulletPosition);
-
-				//Matrix4 mat;
-				//Quaternion rot2(tempTrans.Rotation.GetInternalVec());
-				//mat.GetInternalMatrix().CreateWorld(tempTrans.GetPosition().GetInternalVec(), tempTrans.Rotation.GetInternalVec().Forward, tempTrans.Rotation.GetInternalVec().Up);
-				//tempTrans.SetWorldTransform(mat);
-				//DirectX::SimpleMath::Matrix id = DirectX::XMMatrixIdentity();
-				//DirectX::SimpleMath::Matrix rot = DirectX::SimpleMath::Matrix::CreateFromQuaternion(XMQuaternionRotationRollPitchYawFromVector(tempTrans.Rotation.GetInternalVec()));
-				//DirectX::SimpleMath::Matrix scale = DirectX::SimpleMath::Matrix::CreateScale(Child->GetScale().GetInternalVec());
-				//DirectX::SimpleMath::Matrix pos = XMMatrixTranslationFromVector(Child->GetPosition().GetInternalVec());
-				//Child->SetWorldTransform(Matrix4((rot * scale * pos) * CurrentTransform->WorldTransform.GetInternalMatrix()));
-				GetEngine().GetRenderer().UpdateMatrix(RigidbodyComponent.DebugColliderId, TransformComponent.GetMatrix().GetInternalMatrix());
-			}
-		}
-
-		if (InEntity.HasComponent<CharacterController>())
-		{
-			CharacterController& Controller = InEntity.GetComponent<CharacterController>();
-
-			//
-			btRigidBody* rigidbody = Controller.m_rigidbody;
-			btTransform& trans = rigidbody->getWorldTransform();
-
-			Quaternion rotation = TransformComponent.GetWorldRotation();
-			trans.setRotation(btQuaternion(rotation[0], rotation[1], rotation[2], rotation[3]));
-			////trans.setOrigin(btVector3(transPos.X(), transPos.Y(), transPos.Z()));
-			////rigidbody->setWorldTransform(trans);
-			rigidbody->setWorldTransform(trans);
-			rigidbody->activate();
-
-			Controller.Update(dt);
-
-			TransformComponent.SetWorldPosition(Controller.GetPosition());
-		}
+		};
+		GetEngine().GetJobSystem().GetJobQueue().AddJobBrad(thing);
 	}
+	GetEngine().GetJobSystem().Wait();
 }
 
 void PhysicsCore::OnEntityAdded(Entity& NewEntity)
@@ -165,7 +172,7 @@ bool PhysicsCore::Raycast(const Vector3& InPosition, const Vector3& InDirection,
 	btVector3 blue(0, 0, 1);
 
 	///all hits
-	if(false)
+	if (false)
 	{
 		btVector3 from(InPosition.X(), InPosition.Y(), InPosition.Z());
 		btVector3 to(InDirection.X(), InDirection.Y(), InDirection.Z());

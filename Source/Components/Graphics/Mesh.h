@@ -24,6 +24,7 @@ public:
 	Mesh();
 	Mesh(Moonlight::MeshType InType, Moonlight::Material* InMaterial);
 	Mesh(Moonlight::MeshData* mesh);
+	~Mesh();
 
 	// Separate init from construction code.
 	virtual void Init() final;

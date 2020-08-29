@@ -28,6 +28,23 @@ ModelResource::ModelResource(const Path& path)
 ModelResource::~ModelResource()
 {
 	Resource::~Resource();
+
+	std::vector<Moonlight::MeshData*> meshes;
+	std::stack<Moonlight::Node*> nodes;
+	nodes.push(&RootNode);
+	while (!nodes.empty())
+	{
+		Moonlight::Node& child = *nodes.top();
+		nodes.pop();
+		for (Moonlight::MeshData* childMesh : child.Meshes)
+		{
+			delete childMesh;
+		}
+		for (Moonlight::Node& childNode : child.Nodes)
+		{
+			nodes.push(&childNode);
+		}
+	}
 }
 
 void ModelResource::Load()

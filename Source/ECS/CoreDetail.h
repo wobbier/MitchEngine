@@ -31,7 +31,6 @@ struct CoreRegistryEntry
 public:
 	static CoreRegistryEntry<T>& Instance(const std::string& name)
 	{
-		std::cout << name.c_str();
 		static CoreRegistryEntry<T> inst(name);
 		return inst;
 	}

@@ -504,8 +504,17 @@ function GenerateGameSolution()
   }
   files {
     "Game/**.h",
-    "Game/**.cpp"
+    "Game/**.cpp",
+    "Assets/**.hlsl",
+	}
+  vpaths {
+	["Shaders"] = "Assets/**.hlsl"
   }
+  
+  filter { "files:**.hlsl" }
+    flags {"ExcludeFromBuild"}
+  filter {}
+
   if (isUWP) then
     excludes {
       "Game/Source/main.cpp"

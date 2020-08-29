@@ -10,6 +10,8 @@
 #include <string>
 #include "Config.h"
 #include "Input.h"
+#include "Core/JobSystem.h"
+#include "Core/JobQueue.h"
 
 class Game;
 class IWindow;
@@ -38,6 +40,9 @@ public:
 	Moonlight::Renderer& GetRenderer() const;
 
 	std::weak_ptr<World> GetWorld() const;
+	JobQueue& GetJobQueue();
+	JobSystem& GetJobSystem();
+
 	bool IsRunning() const;
 	void Quit();
 	const bool IsInitialized() const;
@@ -59,6 +64,7 @@ private:
 	Input m_input;
 	Moonlight::Renderer* m_renderer = nullptr;
 	std::shared_ptr<World> GameWorld;
+	JobSystem m_jobSystem;
 	bool Running = false;
 	IWindow* GameWindow = nullptr;
 	class Config* EngineConfig = nullptr;

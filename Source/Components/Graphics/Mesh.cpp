@@ -42,6 +42,11 @@ Mesh::Mesh(Moonlight::MeshData* mesh)
 	MeshMaterial = new Moonlight::Material(*MeshReferece->material);
 }
 
+Mesh::~Mesh()
+{
+	delete MeshMaterial;
+}
+
 void Mesh::Init()
 {
 
