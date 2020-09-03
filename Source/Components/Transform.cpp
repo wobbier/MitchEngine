@@ -146,10 +146,10 @@ void Transform::SetWorldTransform(Matrix4& NewWorldTransform, bool InIsDirty)
 	OPTICK_EVENT("Transform::SetWorldTransform");
 	WorldTransform = std::move(NewWorldTransform);
 	{
-		DirectX::SimpleMath::Quaternion quat;
-		DirectX::SimpleMath::Vector3 pos;
-		DirectX::SimpleMath::Vector3 scale;
-		NewWorldTransform.GetInternalMatrix().Decompose(scale, quat, pos);
+		//DirectX::SimpleMath::Quaternion quat;
+		//DirectX::SimpleMath::Vector3 pos;
+		//DirectX::SimpleMath::Vector3 scale;
+		//NewWorldTransform.GetInternalMatrix().Decompose(scale, quat, pos);
 
 		//InternalRotation = Quaternion(ParentTransform->GetWorldRotation().GetInternalVec() * Quaternion(quat).GetInternalVec());
 		//Vector3 rotation = Quaternion::ToEulerAngles(Quaternion(quat));
@@ -158,7 +158,7 @@ void Transform::SetWorldTransform(Matrix4& NewWorldTransform, bool InIsDirty)
 	}
 
 	// update local transform
-	WorldTransform = std::move(NewWorldTransform);
+	//WorldTransform = std::move(NewWorldTransform);
 	SetDirty(InIsDirty);
 }
 
@@ -232,9 +232,10 @@ void Transform::SetDirty(bool Dirty)
 	OPTICK_EVENT("Transform::SetDirty");
 	if (Dirty && (Dirty != m_isDirty))
 	{
-		for (SharedPtr<Transform> Child : GetChildren())
+		//for (SharedPtr<Transform> Child : GetChildren())
+		if(ParentTransform)
 		{
-			Child->SetDirty(Dirty);
+			ParentTransform->SetDirty(Dirty);
 		}
 	}
 	m_isDirty = Dirty;
@@ -265,7 +266,7 @@ void Transform::LookAt(const Vector3& InDirection)
 	SetDirty(true);
 }
 
-void Transform::SetRotation(Vector3 euler)
+void Transform::SetRotation(const Vector3& euler)
 {
 	DirectX::SimpleMath::Quaternion quat2 = DirectX::SimpleMath::Quaternion::CreateFromYawPitchRoll(Mathf::Radians(euler.Y()), Mathf::Radians(euler.X()), Mathf::Radians(euler.Z()));
 	Quaternion quat(quat2);
@@ -281,7 +282,7 @@ void Transform::SetWorldRotation(Quaternion InRotation)
 	SetDirty(true);
 }
 
-Vector3 Transform::GetRotation()
+const Vector3& Transform::GetRotation() const
 {
 	return Rotation;
 }
@@ -342,7 +343,7 @@ Transform* Transform::GetChildByName(const std::string& Name)
 	return nullptr;
 }
 
-std::vector<SharedPtr<Transform>> Transform::GetChildren() const
+const std::vector<SharedPtr<Transform>>& Transform::GetChildren() const
 {
 	OPTICK_CATEGORY("Transform::GetChildren", Optick::Category::GameLogic);
 	return Children;

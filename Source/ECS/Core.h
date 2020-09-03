@@ -45,6 +45,9 @@ public:
 	// Get All the entities that are within the Core
 	const std::vector<Entity>& GetEntities() const;
 
+	// Get All the entities that are within the Core
+	std::vector<Entity>& GetEntities();
+
 	// Get the component filter associated with the core.
 	const ComponentFilter& GetComponentFilter() const;
 

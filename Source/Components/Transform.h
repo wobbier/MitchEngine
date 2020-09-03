@@ -29,9 +29,9 @@ public:
 
 	void UpdateWorldTransform();
 
-	void SetRotation(Vector3 euler);
+	void SetRotation(const Vector3& euler);
 	void SetWorldRotation(Quaternion InRotation);
-	Vector3 GetRotation();
+	const Vector3& GetRotation() const;
 	Quaternion GetWorldRotation();
 	Vector3 GetWorldRotationEuler();
 	//void SetRotation(glm::quat quat);
@@ -60,7 +60,7 @@ public:
 	void SetParent(Transform& NewParent);
 	void RemoveChild(Transform* TargetTransform);
 	Transform* GetChildByName(const std::string& Name);
-	std::vector<SharedPtr<Transform>> GetChildren() const;
+	const std::vector<SharedPtr<Transform>>& GetChildren() const;
 
 	Transform* GetParentTransform();
 

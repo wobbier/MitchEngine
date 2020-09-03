@@ -74,7 +74,7 @@ void RenderCore::Update(float dt)
 	m_renderer->Update(dt);
 	OPTICK_CATEGORY("RenderCore::Update", Optick::Category::Rendering)
 
-	auto Renderables = GetEntities();
+	auto& Renderables = GetEntities();
 	for (auto& InEntity : Renderables)
 	{
 		Transform& transform = InEntity.GetComponent<Transform>();

@@ -7,6 +7,7 @@
 #include "ECS/CoreDetail.h"
 #include "File.h"
 #include "Resources/JsonResource.h"
+#include "optick.h"
 
 #define DEFAULT_ENTITY_POOL_SIZE 50
 
@@ -327,12 +328,19 @@ BaseCore* World::GetCore(TypeId InType)
 
 std::vector<BaseCore*> World::GetAllCores()
 {
+	OPTICK_CATEGORY("GetAllCores", Optick::Category::Scene);
+
 	std::vector<BaseCore*> cores;
 	for (auto& core : Cores)
 	{
 		cores.push_back(core.second.get());
 	}
 	return cores;
+}
+
+const World::CoreArray& World::GetAllCoresArray()
+{
+	return Cores;
 }
 
 void World::CheckForResize(std::size_t InNumEntitiesToBeAllocated)

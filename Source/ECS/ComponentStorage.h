@@ -51,7 +51,7 @@ private:
 
 	std::vector<EntityComponents> ComponentEntries;
 
-	ImplComponentArray& GetComponents_Implementation(const Entity& E);
+	inline ImplComponentArray& GetComponents_Implementation(const Entity& E);
 
-	const ImplComponentArray& GetComponents_Implementation(const Entity& E) const;
+	inline const ImplComponentArray& GetComponents_Implementation(const Entity& E) const;
 };

@@ -60,7 +60,7 @@ namespace Moonlight
 		DebugColliders[Id].Transform = NewTransform;
 	}
 
-	void Renderer::UpdateMeshMatrix(unsigned int Id, DirectX::SimpleMath::Matrix NewTransform)
+	void Renderer::UpdateMeshMatrix(unsigned int Id, DirectX::SimpleMath::Matrix& NewTransform)
 	{
 		if (Id >= Meshes.size())
 		{

@@ -30,23 +30,13 @@ void SceneGraph::Init()
 	}
 }
 
-void SceneGraph::Update(float dt)
-{
-	OPTICK_EVENT("SceneGraph::Update");
-
-	// Seems O.K. for now
-	UpdateRecursively(GetRootTransform());
-
-	GetEngine().GetJobSystem().Wait();
-}
-
-void SceneGraph::UpdateRecursively(Transform* CurrentTransform)
+void UpdateRecursively(Transform* CurrentTransform, bool isParentDirty)
 {
 	OPTICK_EVENT("SceneGraph::UpdateRecursively");
-	for (SharedPtr<Transform> Child : CurrentTransform->GetChildren())
+	for (const SharedPtr<Transform>& Child : CurrentTransform->GetChildren())
 	{
 		OPTICK_EVENT("SceneGraph::UpdateRecursively::GetChildren");
-		if (Child->IsDirty())
+		if (isParentDirty || Child->IsDirty())
 		{
 			OPTICK_EVENT("SceneGraph::Update::IsDirty");
 			//Quaternion quat = Quaternion(Child->Rotation);
@@ -54,13 +44,30 @@ void SceneGraph::UpdateRecursively(Transform* CurrentTransform)
 			DirectX::SimpleMath::Matrix rot = DirectX::SimpleMath::Matrix::CreateFromQuaternion(Child->InternalRotation.GetInternalVec());// , Child->Rotation.Y(), Child->Rotation.Z());
 			DirectX::SimpleMath::Matrix scale = DirectX::SimpleMath::Matrix::CreateScale(Child->GetScale().GetInternalVec());
 			DirectX::SimpleMath::Matrix pos = XMMatrixTranslationFromVector(Child->GetPosition().GetInternalVec());
-			Child->SetWorldTransform(Matrix4((scale* rot * pos) * CurrentTransform->WorldTransform.GetInternalMatrix()));
+			Child->SetWorldTransform(Matrix4((scale * rot * pos) * CurrentTransform->WorldTransform.GetInternalMatrix()));
+			isParentDirty = true;
 		}
 
-		GetEngine().GetJobQueue().AddJobBrad([this, Child]() {
-			UpdateRecursively(Child.get());
-		});
+		if (!Child->GetChildren().empty())
+		{
+			//GetEngine().GetJobQueue().AddJobBrad([Child, isParentDirty]() {
+				UpdateRecursively(Child.get(), isParentDirty);
+			//});
+		}
 	}
+}
+
+
+void SceneGraph::Update(float dt)
+{
+	OPTICK_EVENT("SceneGraph::Update");
+	auto& jobSystem = GetEngine().GetJobSystem();
+	// Seems O.K. for now
+	//jobSystem.GetJobQueue().Lock();
+	UpdateRecursively(GetRootTransform(), false);
+	//jobSystem.GetJobQueue().Unlock();
+
+	//jobSystem.Wait();
 }
 
 void SceneGraph::OnEntityAdded(Entity& NewEntity)

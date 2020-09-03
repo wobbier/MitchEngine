@@ -51,6 +51,8 @@ public:
 
 	std::vector<BaseCore*> GetAllCores();
 
+	const CoreArray& GetAllCoresArray();
+
 	EntityHandle CreateEntity();
 
 	void Simulate();

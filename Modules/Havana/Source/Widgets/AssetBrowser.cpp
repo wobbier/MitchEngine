@@ -14,6 +14,7 @@
 #include "Havana.h"
 #include "Events/SceneEvents.h"
 #include "HavanaEvents.h"
+#include "optick.h"
 
 AssetBrowser::AssetBrowser(const std::string& pathToWatch, std::chrono::duration<int, std::milli> delay)
 	: PathToWatch(pathToWatch)
@@ -102,6 +103,7 @@ void AssetBrowser::ThreadStart(const std::function<void(std::string, FileStatus)
 
 void AssetBrowser::Draw()
 {
+	OPTICK_CATEGORY("Asset Browser", Optick::Category::Debug);
 	ImGui::Begin("Assets");
 
 	std::stack<std::string> directories;

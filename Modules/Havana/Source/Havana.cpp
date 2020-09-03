@@ -217,6 +217,8 @@ void Havana::NewFrame(std::function<void()> StartGameFunc, std::function<void()>
 
 void Havana::DrawOpenFilePopup()
 {
+	OPTICK_CATEGORY("File Popup", Optick::Category::Debug);
+
 	if (OpenScene)
 	{
 		ImGui::OpenPopup("Open Scene");
@@ -270,6 +272,7 @@ void RecusiveDelete(EntityHandle ent, Transform* trans)
 
 void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<void()> PauseGameFunc, std::function<void()> StopGameFunc)
 {
+	OPTICK_CATEGORY("Main Menu Bar", Optick::Category::Debug);
 	ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0.0f, 12.f));
 	if (ImGui::BeginMainMenuBar())
 	{
@@ -569,6 +572,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 
 void Havana::DrawLog()
 {
+	OPTICK_CATEGORY("Log", Optick::Category::Debug);
 	static std::unordered_map<CLog::LogType, bool> DebugFilters;
 	ImGuiWindowFlags window_flags = 0;
 	window_flags |= ImGuiWindowFlags_MenuBar;
@@ -845,6 +849,7 @@ void Havana::ClearSelection()
 
 void Havana::DrawCommandPanel()
 {
+	OPTICK_CATEGORY("Command History", Optick::Category::Debug);
 	auto& kb = GetInput().GetKeyboardState();
 	tracker.Update(kb);
 
@@ -866,6 +871,7 @@ void Havana::DrawCommandPanel()
 
 void Havana::DrawResourceMonitor()
 {
+	OPTICK_CATEGORY("Resource Monitor", Optick::Category::Debug);
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.f, 0.f));
 	ImGui::Begin("Resource Monitor");
 	{
@@ -940,7 +946,7 @@ void Havana::UpdateWorld(World* world, Transform* root, const std::vector<Entity
 	ImGui::EndMenuBar();
 	if (ImGui::CollapsingHeader("Scene", ImGuiTreeNodeFlags_DefaultOpen))
 	{
-		OPTICK_CATEGORY("UpdateWorld::Scene", Optick::Category::GameLogic);
+		OPTICK_CATEGORY("Entity List", Optick::Category::GameLogic);
 		if (ImGui::IsWindowFocused())
 		{
 			if (SelectedTransform && GetInput().GetKeyboardState().Delete)
@@ -955,6 +961,7 @@ void Havana::UpdateWorld(World* world, Transform* root, const std::vector<Entity
 	{
 		if (ImGui::CollapsingHeader("Utility", ImGuiTreeNodeFlags_DefaultOpen))
 		{
+			OPTICK_CATEGORY("Utility Entities", Optick::Category::Debug);
 			int i = 0;
 			for (const Entity& ent : ents)
 			{
@@ -978,16 +985,17 @@ void Havana::UpdateWorld(World* world, Transform* root, const std::vector<Entity
 
 	if (ImGui::CollapsingHeader("Entity Cores", ImGuiTreeNodeFlags_DefaultOpen))
 	{
+		OPTICK_CATEGORY("Entity Cores", Optick::Category::Debug);
 		int i = 0;
-		for (BaseCore* comp : world->GetAllCores())
+		for (auto& comp : world->GetAllCoresArray())
 		{
-			ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | (SelectedCore == comp ? ImGuiTreeNodeFlags_Selected : 0);
+			ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | (SelectedCore == comp.second.get() ? ImGuiTreeNodeFlags_Selected : 0);
 			{
 				node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen; // ImGuiTreeNodeFlags_Bullet
-				ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, comp->GetName().c_str());
+				ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, comp.second->GetName().c_str());
 				if (ImGui::IsItemClicked())
 				{
-					SelectedCore = comp;
+					SelectedCore = comp.second.get();
 					SelectedTransform = nullptr;
 					SelectedEntity = EntityHandle();
 				}
@@ -1006,6 +1014,7 @@ void Havana::UpdateWorld(World* world, Transform* root, const std::vector<Entity
 
 	if (entity)
 	{
+		OPTICK_CATEGORY("Inspect Entity", Optick::Category::Debug);
 		entity->OnEditorInspect();
 		for (BaseComponent* comp : entity->GetAllComponents())
 		{
@@ -1025,7 +1034,7 @@ void Havana::UpdateWorld(World* world, Transform* root, const std::vector<Entity
 
 	if (SelectedCore != nullptr)
 	{
-		OPTICK_CATEGORY("UpdateWorld::OnEditorInspect", Optick::Category::GameLogic);
+		OPTICK_CATEGORY("Core::OnEditorInspect", Optick::Category::GameLogic);
 		SelectedCore->OnEditorInspect();
 	}
 	ImGui::End();
@@ -1036,6 +1045,7 @@ void Havana::UpdateWorld(World* world, Transform* root, const std::vector<Entity
 		{
 			if (ViewTexture->ShaderResourceView)
 			{
+				OPTICK_CATEGORY("Preview Texture", Optick::Category::Debug);
 				// Get the current cursor position (where your window is)
 				ImVec2 pos = ImGui::GetCursorScreenPos();
 				ImVec2 maxPos = ImVec2(pos.x + ImGui::GetWindowSize().x, pos.y + ImGui::GetWindowSize().y);

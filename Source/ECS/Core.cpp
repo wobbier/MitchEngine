@@ -20,6 +20,11 @@ const std::vector<Entity>& BaseCore::GetEntities() const
 	return Entities;
 }
 
+std::vector<Entity>& BaseCore::GetEntities()
+{
+	return Entities;
+}
+
 const ComponentFilter& BaseCore::GetComponentFilter() const
 {
 	return CompFilter;

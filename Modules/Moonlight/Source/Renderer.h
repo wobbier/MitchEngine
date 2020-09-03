@@ -94,7 +94,7 @@ namespace Moonlight
 		};
 		RenderPassType PassType = RenderPassType::Differed;
 		void UpdateMatrix(unsigned int Id, DirectX::SimpleMath::Matrix NewTransform);
-		void UpdateMeshMatrix(unsigned int Id, DirectX::SimpleMath::Matrix NewTransform);
+		void UpdateMeshMatrix(unsigned int Id, DirectX::SimpleMath::Matrix& NewTransform);
 		void UpdateCamera(unsigned int Id, CameraData& NewCommand);
 		Moonlight::CameraData& GetCamera(unsigned int Id);
 	public:

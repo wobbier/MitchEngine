@@ -40,7 +40,7 @@ namespace Mathf
 		return std::round(number);
 	}
 
-	inline float Radians(float number)
+	inline constexpr float Radians(float number)
 	{
 		return DirectX::XMConvertToRadians(number);
 	}
