@@ -12,6 +12,7 @@
 #include "Input.h"
 #include "Core/JobSystem.h"
 #include "Core/JobQueue.h"
+#include "Work/Burst.h"
 
 class Game;
 class IWindow;
@@ -52,6 +53,8 @@ public:
 	Config& GetConfig() const;
 	Input& GetInput();
 
+	Burst& GetBurstWorker();
+
 	class CameraCore* Cameras = nullptr;
 	class SceneGraph* SceneNodes = nullptr;
 	class RenderCore* ModelRenderer = nullptr;
@@ -73,6 +76,7 @@ private:
 	float FrameTime = 0.0f;
 	bool m_isInitialized = false;
 	ME_SINGLETON_DEFINITION(Engine)
+	Burst burst;
 };
 
 Engine& GetEngine();

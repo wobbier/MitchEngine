@@ -6,6 +6,7 @@
 #include "Engine/Engine.h"
 #include "Mathf.h"
 #include <SimpleMath.h>
+#include "optick.h"
 
 Transform::Transform()
 	: Component("Transform")
@@ -75,10 +76,15 @@ void Transform::Translate(Vector3 NewPosition)
 
 Vector3 Transform::Front()
 {
-	float mat1 = -WorldTransform.GetInternalMatrix()(2, 0);
-	float mat2 = -WorldTransform.GetInternalMatrix()(2, 1);
-	float mat3 = -WorldTransform.GetInternalMatrix()(2, 2);
-	return Vector3(mat1, mat2, mat3);
+	//float mat1 = -;// 2, 0);
+	//float mat2 = -WorldTransform.GetInternalMatrix()(2, 1);
+	//float mat3 = -WorldTransform.GetInternalMatrix()(2, 2);
+	return Vector3(WorldTransform.GetInternalMatrix().Forward());
+}
+
+Vector3 Transform::Up()
+{
+	return Vector3(WorldTransform.GetInternalMatrix().Up());
 }
 
 Vector3& Transform::GetPosition()
@@ -268,6 +274,8 @@ void Transform::LookAt(const Vector3& InDirection)
 
 void Transform::SetRotation(const Vector3& euler)
 {
+	OPTICK_CATEGORY("Transform::Set Rotation", Optick::Category::Scene);
+
 	DirectX::SimpleMath::Quaternion quat2 = DirectX::SimpleMath::Quaternion::CreateFromYawPitchRoll(Mathf::Radians(euler.Y()), Mathf::Radians(euler.X()), Mathf::Radians(euler.Z()));
 	Quaternion quat(quat2);
 	InternalRotation = quat;

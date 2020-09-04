@@ -36,6 +36,7 @@ public:
 	Vector3 GetWorldRotationEuler();
 	//void SetRotation(glm::quat quat);
 	Vector3 Front();
+	Vector3 Up();
 
 	void SetScale(Vector3 NewScale);
 	void SetScale(float NewScale);

@@ -132,7 +132,7 @@ void EditorCore::Update(float dt)
 			}
 			if (Keyboard.E)
 			{
-				EditorCameraTransform->Translate(Front.Cross(Vector3::Up).Cross(Front).Normalized() * CameraSpeed);
+				EditorCameraTransform->Translate(EditorCameraTransform->Up() * CameraSpeed);
 			}
 			if (Keyboard.Q)
 			{

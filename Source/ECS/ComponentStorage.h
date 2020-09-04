@@ -21,7 +21,7 @@ public:
 
 	BaseComponent& GetComponent(const Entity& InEntity, TypeId InTypeId);
 
-	ComponentTypeArray GetComponentTypes(const Entity& InEntity) const;
+	const ComponentTypeArray& GetComponentTypes(const Entity& InEntity) const;
 
 	void RemoveComponent(const Entity& InEntity, TypeId InTypeId);
 

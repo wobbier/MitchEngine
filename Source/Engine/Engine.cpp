@@ -29,6 +29,7 @@
 #include "Resource/ResourceCache.h"
 #include "optick.h"
 #include "Core/JobSystem.h"
+#include "Work/Burst.h"
 
 Engine& GetEngine()
 {
@@ -150,6 +151,7 @@ void Engine::Run()
 	const float FramesPerSec = 240.f;
 	const float MaxDeltaTime = (1.f / FramesPerSec);
 
+	burst.InitializeWorkerThreads();
 	// Game loop
 	forever
 	{
@@ -287,6 +289,11 @@ Config& Engine::GetConfig() const
 Input& Engine::GetInput()
 {
 	return m_input;
+}
+
+Burst& Engine::GetBurstWorker()
+{
+	return burst;
 }
 
 void Engine::LoadScene(const std::string& SceneFile)

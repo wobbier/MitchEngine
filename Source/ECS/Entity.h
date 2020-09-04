@@ -45,7 +45,7 @@ public:
 
 	std::vector<BaseComponent*> GetAllComponents() const;
 
-	inline const EntityID& GetId() const;
+	const EntityID& GetId() const;
 
 	void SetActive(const bool InActive);
 	void MarkForDelete();

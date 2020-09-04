@@ -5,6 +5,7 @@
 #include <stack>
 #include "Events/SceneEvents.h"
 #include "Engine/Engine.h"
+#include "optick.h"
 
 SceneGraph::SceneGraph()
 	: Base(ComponentFilter().Requires<Transform>())
@@ -38,9 +39,10 @@ void UpdateRecursively(Transform* CurrentTransform, bool isParentDirty)
 		OPTICK_EVENT("SceneGraph::UpdateRecursively::GetChildren");
 		if (isParentDirty || Child->IsDirty())
 		{
-			OPTICK_EVENT("SceneGraph::Update::IsDirty");
+			OPTICK_CATEGORY("Update Transform", Optick::Category::Scene);
+
 			//Quaternion quat = Quaternion(Child->Rotation);
-			DirectX::SimpleMath::Matrix id = DirectX::XMMatrixIdentity();
+			//DirectX::SimpleMath::Matrix id = DirectX::XMMatrixIdentity();
 			DirectX::SimpleMath::Matrix rot = DirectX::SimpleMath::Matrix::CreateFromQuaternion(Child->InternalRotation.GetInternalVec());// , Child->Rotation.Y(), Child->Rotation.Z());
 			DirectX::SimpleMath::Matrix scale = DirectX::SimpleMath::Matrix::CreateScale(Child->GetScale().GetInternalVec());
 			DirectX::SimpleMath::Matrix pos = XMMatrixTranslationFromVector(Child->GetPosition().GetInternalVec());

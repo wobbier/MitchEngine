@@ -19,9 +19,10 @@
 #include "Components/Graphics/Mesh.h"
 #include "Engine/Engine.h"
 #include "Components/Lighting/DirectionalLight.h"
+#include "Work/Burst.h"
 
 RenderCore::RenderCore()
-	: Base(ComponentFilter().Requires<Transform>().RequiresOneOf<Model>().RequiresOneOf<Rigidbody>().RequiresOneOf<Light>().RequiresOneOf<Mesh>().RequiresOneOf<DirectionalLight>())
+	: Base(ComponentFilter().Requires<Transform>().Requires<Mesh>())
 {
 	IsSerializable = false;
 	m_renderer = &GetEngine().GetRenderer();
@@ -74,36 +75,84 @@ void RenderCore::Update(float dt)
 	m_renderer->Update(dt);
 	OPTICK_CATEGORY("RenderCore::Update", Optick::Category::Rendering)
 
+	Burst& burst = GetEngine().GetBurstWorker();
+	burst.PrepareWork();
+
 	auto& Renderables = GetEntities();
-	for (auto& InEntity : Renderables)
+	std::vector<int> batches;
+	burst.GenerateChunks(Renderables.size(), 11, batches);
+
+	for (int i = 0; i < batches.size(); i += 2)
 	{
-		Transform& transform = InEntity.GetComponent<Transform>();
+		OPTICK_CATEGORY("Burst::BatchAdd", Optick::Category::Debug);
+		Burst::LambdaWorkEntry entry;
+		int batchBegin = batches[i];
+		int batchEnd = batches[i + 1] - 1;
+		int batchSize = batchEnd - batchBegin;
 
-		if (InEntity.HasComponent<Mesh>())
-		{
-			Mesh& model = InEntity.GetComponent<Mesh>();
-			m_renderer->UpdateMeshMatrix(model.GetId(), transform.GetMatrix().GetInternalMatrix());
-		}
-
-		if (InEntity.HasComponent<Rigidbody>())
-		{
-			Rigidbody& rigidbody = InEntity.GetComponent<Rigidbody>();
-			if (rigidbody.IsRigidbodyInitialized())
+		//YIKES(std::to_string(batchBegin) + " End:" + std::to_string(batchEnd) + " Size:" + std::to_string(batchSize));
+		entry.m_callBack = [this, &Renderables, batchBegin, batchEnd, batchSize]() {
+			OPTICK_CATEGORY("B::Job", Optick::Category::Debug);
+			int count = 0;
+			if (Renderables.size() == 0)
 			{
-				// TODO: Use the matrix from the rigidbody
-				m_renderer->UpdateMatrix(rigidbody.Id, transform.GetMatrix().GetInternalMatrix());
+				return;
 			}
-		}
-		if (InEntity.HasComponent<DirectionalLight>())
-		{
-			DirectionalLight& light = InEntity.GetComponent<DirectionalLight>();
-			auto pos = transform.GetWorldPosition().GetInternalVec();
-			m_renderer->Sunlight.pos = XMFLOAT4(pos.x, pos.y, pos.z, 0);
-			m_renderer->Sunlight.ambient = light.Ambient;
-			m_renderer->Sunlight.diffuse = light.Diffuse;
-			m_renderer->Sunlight.dir = light.Direction;
-		}
+			for (int entIndex = batchBegin; entIndex < batchEnd; ++entIndex)
+			{
+				auto& InEntity = Renderables[entIndex];
+				OPTICK_CATEGORY("B::Update Mesh Matrix", Optick::Category::Debug);
+
+				Transform& transform = InEntity.GetComponent<Transform>();
+				Mesh& model = InEntity.GetComponent<Mesh>();
+
+				m_renderer->UpdateMeshMatrix(model.GetId(), transform.GetMatrix().GetInternalMatrix());
+				count++;
+
+				if (count > batchSize)
+				{
+					//YIKES("Oops");
+				}
+			}
+		};
+
+		burst.AddWork2(entry, (int)sizeof(Burst::LambdaWorkEntry));
 	}
+
+	burst.FinalizeWork();
+
+	//for (auto& InEntity : Renderables)
+	//{
+	//	//OPTICK_CATEGORY("Update Mesh", Optick::Category::Rendering);
+
+	//	Burst::LambdaWorkEntry entry;
+	//	entry.m_callBack = [this, &InEntity]() {
+	//		OPTICK_CATEGORY("Burst::TestFunc", Optick::Category::Debug);
+	//		Transform& transform = InEntity.GetComponent<Transform>();
+	//		Mesh& model = InEntity.GetComponent<Mesh>();
+
+	//		m_renderer->UpdateMeshMatrix(model.GetId(), transform.GetMatrix().GetInternalMatrix());
+	//	};
+	//	burst.AddWork2<Burst::LambdaWorkEntry>(entry, (int)sizeof(Burst::LambdaWorkEntry));
+	//	//if (InEntity.HasComponent<Rigidbody>())
+	//	//{
+	//	//	Rigidbody& rigidbody = InEntity.GetComponent<Rigidbody>();
+	//	//	if (rigidbody.IsRigidbodyInitialized())
+	//	//	{
+	//	//		// TODO: Use the matrix from the rigidbody
+	//	//		m_renderer->UpdateMatrix(rigidbody.Id, transform.GetMatrix().GetInternalMatrix());
+	//	//	}
+	//	//}
+	//	//if (InEntity.HasComponent<DirectionalLight>())
+	//	//{
+	//	//	DirectionalLight& light = InEntity.GetComponent<DirectionalLight>();
+	//	//	auto pos = transform.GetWorldPosition().GetInternalVec();
+	//	//	m_renderer->Sunlight.pos = XMFLOAT4(pos.x, pos.y, pos.z, 0);
+	//	//	m_renderer->Sunlight.ambient = light.Ambient;
+	//	//	m_renderer->Sunlight.diffuse = light.Diffuse;
+	//	//	m_renderer->Sunlight.dir = light.Direction;
+	//	//}
+	//}
 }
 
 void RenderCore::OnDeviceLost()

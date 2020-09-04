@@ -29,7 +29,7 @@ void ComponentStorage::AddComponent(Entity& InEntity, SharedPtr<BaseComponent> I
 	}
 }
 
-ComponentTypeArray ComponentStorage::GetComponentTypes(const Entity& InEntity) const
+const ComponentTypeArray& ComponentStorage::GetComponentTypes(const Entity& InEntity) const
 {
 	return ComponentEntries[InEntity.GetId().Index].ComponentTypeList;
 }

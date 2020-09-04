@@ -194,7 +194,7 @@ public:
 		return Vector3(DirectX::SimpleMath::Vector3::DistanceSquared(InVec2.GetInternalVec(), InVec2.GetInternalVec()));
 	}
 
-	const DirectX::SimpleMath::Vector3& GetInternalVec() const
+	inline const DirectX::SimpleMath::Vector3& GetInternalVec() const
 	{
 		return m_vector;
 	}
