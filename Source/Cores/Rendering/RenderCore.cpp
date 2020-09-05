@@ -93,7 +93,6 @@ void RenderCore::Update(float dt)
 		//YIKES(std::to_string(batchBegin) + " End:" + std::to_string(batchEnd) + " Size:" + std::to_string(batchSize));
 		entry.m_callBack = [this, &Renderables, batchBegin, batchEnd, batchSize]() {
 			OPTICK_CATEGORY("B::Job", Optick::Category::Debug);
-			int count = 0;
 			if (Renderables.size() == 0)
 			{
 				return;
@@ -103,16 +102,15 @@ void RenderCore::Update(float dt)
 				auto& InEntity = Renderables[entIndex];
 				OPTICK_CATEGORY("B::Update Mesh Matrix", Optick::Category::Debug);
 
-				Transform& transform = InEntity.GetComponent<Transform>();
-				Mesh& model = InEntity.GetComponent<Mesh>();
-
-				m_renderer->UpdateMeshMatrix(model.GetId(), transform.GetMatrix().GetInternalMatrix());
-				count++;
-
-				if (count > batchSize)
+				if (InEntity && !InEntity.IsLoading)
 				{
-					//YIKES("Oops");
+
+					Transform& transform = InEntity.GetComponent<Transform>();
+					Mesh& model = InEntity.GetComponent<Mesh>();
+
+					m_renderer->UpdateMeshMatrix(model.GetId(), transform.GetMatrix().GetInternalMatrix());
 				}
+				
 			}
 		};
 

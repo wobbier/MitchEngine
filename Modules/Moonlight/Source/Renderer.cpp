@@ -736,7 +736,11 @@ namespace Moonlight
 				OPTICK_EVENT("WORK_QUEUE_ENTRY_TYPE_CHUNK", Optick::Category::Rendering);
 				auto chunkEntry = reinterpret_cast<const WorkQueueEntryChunk*>(entry);
 
-				renderer.RenderMeshDirect(renderer.Meshes[chunkEntry->m_iMesh], deferredContext);
+				if (chunkEntry->m_renderMesh)
+				{
+					chunkEntry->m_renderMesh(deferredContext);
+				}
+				//renderer.RenderMeshDirect(renderer.Meshes[chunkEntry->m_iMesh], deferredContext);
 
 				queueOffset += sizeof(WorkQueueEntryChunk);
 
@@ -845,32 +849,8 @@ namespace Moonlight
 		{
 			//constantBufferSceneData.light = Lights[0];
 		}
+		RenderMeshes();
 
-		std::vector<int> transparentMeshes;
-		{
-			for (int i = 0; i < Meshes.size(); ++i)
-			{
-				MeshCommand& mesh = Meshes[i];
-				if (mesh.MeshMaterial && mesh.MeshMaterial->IsTransparent())
-				{
-					transparentMeshes.push_back(i);
-					continue;
-				}
-				//DirectX::SimpleMath::Vector3 position;
-				//mesh.Transform.Decompose(DirectX::SimpleMath::Vector3(), DirectX::SimpleMath::Quaternion(), position);
-				//DirectX::XMMatrixDecompose(nullptr, nullptr, &position, mesh.Transform);
-// 
-// 				if (!camera.CameraFrustum->IsInside(Vector3(position)))
-// 				{
-// 					continue;
-// 				}
-				RenderMesh(i, context);
-			}
-			for (int i = 0; i < transparentMeshes.size(); ++i)
-			{
-				RenderMesh(transparentMeshes[i], context);
-			}
-		}
 		if (IsRenderDeferredPerChunk())
 		{
 			if (IsRenderMultithreadedPerChunk())
@@ -913,6 +893,60 @@ namespace Moonlight
 		//context->OMSetBlendState(0, 0, 0xffffffff);
 
 		FinishRenderingScene(context, camera, frameBuffer, m_constantBuffer.Get());
+	}
+
+	void Renderer::RenderMeshes()
+	{
+		static int nextAvailableChunkQueue = 0;
+
+		Burst& burst = GetEngine().GetBurstWorker();
+		//burst.PrepareWork();
+
+		std::vector<int> batches;
+		burst.GenerateChunks(Meshes.size(), m_numPerChunkRenderThreads, batches);
+
+		for (int i = 0; i < batches.size(); i += 2)
+		{
+			OPTICK_CATEGORY("Burst::BatchAdd", Optick::Category::Debug);
+			Burst::LambdaWorkEntry entry;
+			int batchBegin = batches[i];
+			int batchEnd = batches[i + 1] - 1;
+			int batchSize = batchEnd - batchBegin;
+
+			auto func = [this, batchBegin, batchEnd](ID3D11DeviceContext3* context) {
+				OPTICK_CATEGORY("Render Mesh", Optick::Category::GPU_Scene);
+				for (int entIndex = batchBegin; entIndex < batchEnd; ++entIndex)
+				{
+					MeshCommand& mesh = Meshes[entIndex];
+					if (mesh.MeshMaterial && mesh.MeshMaterial->IsTransparent())
+					{
+						continue;
+					}
+					RenderMeshDirect(mesh, context);
+				}
+			};
+			//burst.AddWork2(entry, (int)sizeof(Burst::LambdaWorkEntry));
+
+			if (IsRenderMultithreadedPerChunk())
+			{
+				ChunkQueue& WorkerQueue = m_chunkQueue[nextAvailableChunkQueue];
+				int iQueueOffset = g_iPerChunkQueueOffset[nextAvailableChunkQueue];
+				HANDLE hSemaphore = m_hBeginPerChunkRenderDeferredSemaphore[nextAvailableChunkQueue];
+
+				g_iPerChunkQueueOffset[nextAvailableChunkQueue] += sizeof(WorkQueueEntryChunk);
+				assert(g_iPerChunkQueueOffset[nextAvailableChunkQueue] < g_iSceneQueueSizeInBytes);
+
+				auto pEntry = reinterpret_cast<WorkQueueEntryChunk*>(&WorkerQueue[iQueueOffset]);
+				pEntry->m_iType = WORK_QUEUE_ENTRY_TYPE_CHUNK;
+				pEntry->m_iMesh = i;
+				pEntry->m_renderMesh = func;
+
+				ReleaseSemaphore(hSemaphore, 1, nullptr);
+			}
+			nextAvailableChunkQueue = ++nextAvailableChunkQueue % m_numPerChunkRenderThreads;
+		}
+
+		//burst.FinalizeWork();
 	}
 
 	void Renderer::RenderMesh(int i, ID3D11DeviceContext3* context)

@@ -73,6 +73,7 @@ namespace Moonlight
 	struct WorkQueueEntryChunk : public WorkQueueEntryBase
 	{
 		int                         m_iMesh;
+		std::function<void(ID3D11DeviceContext3*)> m_renderMesh;
 	};
 
 	// Work item params for scene finalize
@@ -246,6 +247,7 @@ namespace Moonlight
 #if ME_ENABLE_RENDERDOC
 		RenderDocManager* RenderDoc;
 #endif
+		void RenderMeshes();
 		void RenderMesh(int i, ID3D11DeviceContext3* context);
 	public:
 		unsigned int PushMesh(Moonlight::MeshCommand command);

@@ -1,23 +1,13 @@
 #pragma once
 #include <cstdint>
 
-#ifdef _WIN32
-#	define MITCH_ENTITY_ID_INDEX_BIT_COUNT 20
-#	define MITCH_ENTITY_ID_COUNTER_BIT_COUNT 12
-#else
-#	define MITCH_ENTITY_ID_INDEX_BIT_COUNT 48
-#	define MITCH_ENTITY_ID_COUNTER_BIT_COUNT 16
-#endif
+// 64 Bit IDs
+#define MITCH_ENTITY_ID_INDEX_BIT_COUNT 48
+#define MITCH_ENTITY_ID_COUNTER_BIT_COUNT 16
 
 struct EntityID
 {
-	typedef
-#ifdef _WIN64
-		std::uint64_t
-#else
-		std::uint32_t
-#endif
-		IntType;
+	typedef std::uint64_t IntType;
 
 	IntType Index{ MITCH_ENTITY_ID_INDEX_BIT_COUNT };
 	IntType Counter{ MITCH_ENTITY_ID_COUNTER_BIT_COUNT };
