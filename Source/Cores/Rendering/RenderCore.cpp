@@ -79,15 +79,15 @@ void RenderCore::Update(float dt)
 	burst.PrepareWork();
 
 	auto& Renderables = GetEntities();
-	std::vector<int> batches;
+	std::vector<std::pair<int, int>> batches;
 	burst.GenerateChunks(Renderables.size(), 11, batches);
 
-	for (int i = 0; i < batches.size(); i += 2)
+	for (auto& batch : batches)
 	{
 		OPTICK_CATEGORY("Burst::BatchAdd", Optick::Category::Debug);
 		Burst::LambdaWorkEntry entry;
-		int batchBegin = batches[i];
-		int batchEnd = batches[i + 1] - 1;
+		int batchBegin = batch.first;
+		int batchEnd = batch.second;
 		int batchSize = batchEnd - batchBegin;
 
 		//YIKES(std::to_string(batchBegin) + " End:" + std::to_string(batchEnd) + " Size:" + std::to_string(batchSize));

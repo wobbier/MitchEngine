@@ -31,8 +31,8 @@ namespace Moonlight
 			// We will have our map be a square
 			// We will need to have this texture bound as a render target AND a shader resource
 			Size = device->GetOutputSize();
-			textureDesc.Width = device->GetOutputSize().X();
-			textureDesc.Height = device->GetOutputSize().Y();
+			textureDesc.Width = static_cast<UINT>(device->GetOutputSize().X());
+			textureDesc.Height = static_cast<UINT>(device->GetOutputSize().Y());
 			textureDesc.MipLevels = 1;
 			textureDesc.ArraySize = 1;
 			textureDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
@@ -84,8 +84,8 @@ namespace Moonlight
 		{
 			D3D11_TEXTURE2D_DESC desc;
 			renderTargetTextureMap->GetDesc(&desc);
-			desc.Width = newSize.X();
-			desc.Height = newSize.Y();
+			desc.Width = static_cast<UINT>(newSize.X());
+			desc.Height = static_cast<UINT>(newSize.Y());
 		}
 		Vector2 Size;
 		ID3D11SamplerState* CubesTexSamplerState;

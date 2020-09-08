@@ -229,7 +229,7 @@ namespace Moonlight
 	{
 #if ME_EDITOR
 		delete SceneViewRTT;
-		SceneViewRTT = m_device->CreateFrameBuffer(m_device->GetLogicalSize().X(), m_device->GetLogicalSize().Y(), 1, DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_D24_UNORM_S8_UINT);
+		SceneViewRTT = m_device->CreateFrameBuffer(static_cast<UINT>(m_device->GetLogicalSize().X()), static_cast<UINT>(m_device->GetLogicalSize().Y()), 1, DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_D24_UNORM_S8_UINT);
 #endif
 
 		for (CameraData& cam : Cameras)
@@ -237,11 +237,11 @@ namespace Moonlight
 			delete cam.Buffer;
 			if (cam.IsMain)
 			{
-				GameViewRTT = cam.Buffer = m_device->CreateFrameBuffer(m_device->GetOutputSize().X(), m_device->GetOutputSize().Y(), 1, DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_D24_UNORM_S8_UINT);
+				GameViewRTT = cam.Buffer = m_device->CreateFrameBuffer(static_cast<UINT>(m_device->GetOutputSize().X()), static_cast<UINT>(m_device->GetOutputSize().Y()), 1, DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_D24_UNORM_S8_UINT);
 			}
 			else
 			{
-				cam.Buffer = m_device->CreateFrameBuffer(m_device->GetOutputSize().X(), m_device->GetOutputSize().Y(), 1, DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_D24_UNORM_S8_UINT);
+				cam.Buffer = m_device->CreateFrameBuffer(static_cast<UINT>(m_device->GetOutputSize().X()), static_cast<UINT>(m_device->GetOutputSize().Y()), 1, DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_D24_UNORM_S8_UINT);
 			}
 			
 		}
@@ -597,8 +597,8 @@ namespace Moonlight
 		CD3D11_VIEWPORT finalGameRenderViewport = CD3D11_VIEWPORT(
 			0.0f,
 			0.0f,
-			ViewRTT->Width,
-			ViewRTT->Height
+			static_cast<FLOAT>(ViewRTT->Width),
+			static_cast<FLOAT>(ViewRTT->Height)
 		);
 		LightingPassBuffer.Light = Sunlight;
 		context->RSSetViewports(1, &finalGameRenderViewport);
@@ -902,15 +902,15 @@ namespace Moonlight
 		Burst& burst = GetEngine().GetBurstWorker();
 		//burst.PrepareWork();
 
-		std::vector<int> batches;
+		std::vector<std::pair<int, int>> batches;
 		burst.GenerateChunks(Meshes.size(), m_numPerChunkRenderThreads, batches);
 
-		for (int i = 0; i < batches.size(); i += 2)
+		for (auto& batch : batches)
 		{
 			OPTICK_CATEGORY("Burst::BatchAdd", Optick::Category::Debug);
 			Burst::LambdaWorkEntry entry;
-			int batchBegin = batches[i];
-			int batchEnd = batches[i + 1] - 1;
+			int batchBegin = batch.first;
+			int batchEnd = batch.second;
 			int batchSize = batchEnd - batchBegin;
 
 			auto func = [this, batchBegin, batchEnd](ID3D11DeviceContext3* context) {
@@ -937,8 +937,9 @@ namespace Moonlight
 				assert(g_iPerChunkQueueOffset[nextAvailableChunkQueue] < g_iSceneQueueSizeInBytes);
 
 				auto pEntry = reinterpret_cast<WorkQueueEntryChunk*>(&WorkerQueue[iQueueOffset]);
+
+				ZeroMemory(pEntry, sizeof(WorkQueueEntryChunk));
 				pEntry->m_iType = WORK_QUEUE_ENTRY_TYPE_CHUNK;
-				pEntry->m_iMesh = i;
 				pEntry->m_renderMesh = func;
 
 				ReleaseSemaphore(hSemaphore, 1, nullptr);
@@ -964,7 +965,6 @@ namespace Moonlight
 
 			auto pEntry = reinterpret_cast<WorkQueueEntryChunk*>(&WorkerQueue[iQueueOffset]);
 			pEntry->m_iType = WORK_QUEUE_ENTRY_TYPE_CHUNK;
-			pEntry->m_iMesh = i;
 
 			ReleaseSemaphore(hSemaphore, 1, nullptr);
 		}

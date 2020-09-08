@@ -72,7 +72,6 @@ namespace Moonlight
 	// Work item params for chunk render
 	struct WorkQueueEntryChunk : public WorkQueueEntryBase
 	{
-		int                         m_iMesh;
 		std::function<void(ID3D11DeviceContext3*)> m_renderMesh;
 	};
 
