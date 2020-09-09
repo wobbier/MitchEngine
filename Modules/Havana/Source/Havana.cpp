@@ -455,7 +455,43 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 		float pos = (ImGui::GetMousePos().x - m_engine->GetWindow()->GetPosition().X());
 		static_cast<Win32Window*>(m_engine->GetWindow())->CanMoveWindow((pos > endOfMenu&& pos < ImGui::GetWindowWidth() - (buttonWidth * 5.f)));
 
-		ImGui::Text("%.1f FPS", ImGui::GetIO().Framerate);
+		static int frameCount = 0;
+		static float frametime = 0.0f;
+		//static std::vector<float> frames;
+		//frames.resize(50, GetEngine().DeltaTime * 100);
+		//if (frameCount > 15)
+		//{
+		//	frametime = GetEngine().DeltaTime;
+		//	frameCount = 0;
+		//}
+		//else
+		//{
+		//}
+
+		// increase the counter by one
+		static int m_fpscount = 0;
+		static int fps = 0;
+		m_fpscount++;
+		++frameCount;
+
+		static float fpsTime = 0;
+		fpsTime += GetEngine().DeltaTime;
+		// one second elapsed? (= 1000 milliseconds)
+		if (fpsTime > 1.f)
+		{
+			frametime = GetEngine().DeltaTime;
+			frameCount = 0;
+
+			// save the current counter value to m_fps
+			fps = m_fpscount;
+
+			// reset the counter and the interval
+			m_fpscount = 0;
+			fpsTime -= 1.f;
+		}
+
+		ImGui::Text("%.1f ms", frametime * 1000.f);
+		ImGui::Text("%.1f fps", (float)fps);
 
 		ImGui::SetCursorPosX((ImGui::GetWindowWidth() / 2.f) - (ImGui::CalcTextSize(WindowTitle.c_str()).x / 2.f));
 		ImGui::Text(WindowTitle.c_str());

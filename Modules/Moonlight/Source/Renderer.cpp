@@ -891,7 +891,6 @@ namespace Moonlight
 		//	RenderMeshDirect(Meshes[transparentMeshes[i]], context);
 		//}
 		//context->OMSetBlendState(0, 0, 0xffffffff);
-
 		FinishRenderingScene(context, camera, frameBuffer, m_constantBuffer.Get());
 	}
 
@@ -918,7 +917,7 @@ namespace Moonlight
 				for (int entIndex = batchBegin; entIndex < batchEnd; ++entIndex)
 				{
 					MeshCommand& mesh = Meshes[entIndex];
-					if (mesh.MeshMaterial && mesh.MeshMaterial->IsTransparent())
+					if (!mesh.SingleMesh || mesh.MeshMaterial && mesh.MeshMaterial->IsTransparent())
 					{
 						continue;
 					}

@@ -63,6 +63,7 @@ public:
 	Clock GameClock;
 	Moonlight::CameraData EditorCamera;
 	Scene* CurrentScene = nullptr;
+	float DeltaTime = 0.f;
 private:
 	Input m_input;
 	Moonlight::Renderer* m_renderer = nullptr;

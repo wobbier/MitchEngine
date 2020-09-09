@@ -265,18 +265,37 @@ void Burst::SetChunkOffset(int i, int size)
 	m_iPerChunkQueueOffset[i] += size;
 }
 
-void Burst::GenerateChunks(std::size_t size, int num, std::vector<std::pair<int, int>>& OutChunks)
+void Burst::GenerateChunks(std::size_t size, std::size_t num, std::vector<std::pair<int, int>>& OutChunks)
 {
 	OPTICK_CATEGORY("GenerateChunks", Optick::Category::Rendering);
 	OutChunks.clear();
+
+	if (size <= 0)
+	{
+		return;
+	}
+
+	if (size <= num)
+	{
+		OutChunks.push_back(std::make_pair(0, size));
+		return;
+	}
+
 	OutChunks.reserve(num);
 
-	float average = size / float(num);
-	float last = 0.f;
-	while (last < size)
+	size_t length = size / num;
+	size_t remain = size % num;
+
+	size_t begin = 0;
+	size_t end = 0;
+
+	for (size_t i = 0; i < std::min(num, size); ++i)
 	{
-		OutChunks.emplace_back(std::make_pair((int)last, (int)(last + average)));
-		last += average;
+		end += (remain > 0) ? (length + !!(remain--)) : length;
+
+		OutChunks.push_back(std::make_pair(begin, end));
+
+		begin = end;
 	}
 }
 

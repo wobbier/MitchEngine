@@ -148,7 +148,7 @@ void Engine::Run()
 	GameClock.Reset();
 	float lastTime = GameClock.GetTimeInMilliseconds();
 
-	const float FramesPerSec = 240.f;
+	const float FramesPerSec = 420.f;
 	const float MaxDeltaTime = (1.f / FramesPerSec);
 
 	burst.InitializeWorkerThreads();
@@ -172,7 +172,7 @@ void Engine::Run()
 		if (AccumulatedTime >= MaxDeltaTime)
 		{
 			OPTICK_FRAME("MainLoop");
-			float deltaTime = AccumulatedTime;
+			float deltaTime = DeltaTime = AccumulatedTime;
 
 			GameWorld->Simulate();
 

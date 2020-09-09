@@ -188,6 +188,7 @@ void World::Unload()
 
 void World::UpdateLoadedCores(float DeltaTime)
 {
+	OPTICK_EVENT("UpdateLoadedCores");
 	for (auto core : m_loadedCores)
 	{
 		if (core.second && core.second->IsRunning)

@@ -65,7 +65,7 @@ public:
 
 	void SetChunkOffset(int i, int size);
 
-	void GenerateChunks(std::size_t size, int num, std::vector<std::pair<int, int>>& OutChunks);
+	void GenerateChunks(std::size_t size, std::size_t num, std::vector<std::pair<int, int>>& OutChunks);
 
 	HANDLE GetBeginSemaphore(int i);
 };
