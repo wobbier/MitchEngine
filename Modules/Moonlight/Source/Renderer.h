@@ -24,6 +24,12 @@
 #include <SpriteBatch.h>
 #include "Events/Event.h"
 
+enum class ViewportMode
+{
+	World = 0,
+	Game
+};
+
 namespace Moonlight
 {
 	class PickingEvent
@@ -107,6 +113,9 @@ namespace Moonlight
 		void RegisterDeviceNotify(IDeviceNotify* deviceNotify);
 
 		void ClearBuffer(ID3D11DeviceContext3* context, FrameBuffer* buffer, CameraData* camera);
+
+		void SetViewportMode(ViewportMode mode);
+		ViewportMode GetViewportMode();
 
 /* MULTITHREADING */
 		int GetPhysicalProcessorCount();
@@ -248,6 +257,8 @@ namespace Moonlight
 #endif
 		void RenderMeshes();
 		void RenderMesh(int i, ID3D11DeviceContext3* context);
+
+		ViewportMode m_viewportMode = ViewportMode::World;
 	public:
 		unsigned int PushMesh(Moonlight::MeshCommand command);
 		void PopMesh(unsigned int Id);

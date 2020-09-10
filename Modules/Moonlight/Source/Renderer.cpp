@@ -276,6 +276,16 @@ namespace Moonlight
 		}
 	}
 
+	void Renderer::SetViewportMode(ViewportMode mode)
+	{
+		m_viewportMode = mode;
+	}
+
+	ViewportMode Renderer::GetViewportMode()
+	{
+		return m_viewportMode;
+	}
+
 	int Renderer::GetPhysicalProcessorCount()
 	{
 		DWORD processorCoreCount = 0;
@@ -1125,9 +1135,6 @@ namespace Moonlight
 		}
 		else
 		{
-#if ME_EDITOR
-			RenderSceneDirect(context, m_constantBufferSceneData, editorCamera, SceneViewRTT);
-#endif
 			//FinishRenderingScene(context, m_constantBufferSceneData, editorCamera, SceneViewRTT);
 
 			for (CameraData& data : Cameras)
@@ -1149,25 +1156,33 @@ namespace Moonlight
 					//FinishRenderingScene(context, m_constantBufferData, data, data.Buffer);
 				}
 			}
-
-			for (CameraData& data : Cameras)
+			if (GetViewportMode() == ViewportMode::World)
 			{
-				if (data.IsMain)
+#if ME_EDITOR
+				RenderSceneDirect(context, m_constantBufferSceneData, editorCamera, GameViewRTT);
+#endif
+			}
+			else
+			{
+				for (CameraData& data : Cameras)
 				{
-					CD3D11_VIEWPORT gameViewport = CD3D11_VIEWPORT(
-						0.0f,
-						0.0f,
-						data.OutputSize.X(),
-						data.OutputSize.Y()
-					);
-					context->RSSetViewports(1, &gameViewport);
+					if (data.IsMain)
+					{
+						CD3D11_VIEWPORT gameViewport = CD3D11_VIEWPORT(
+							0.0f,
+							0.0f,
+							data.OutputSize.X(),
+							data.OutputSize.Y()
+						);
+						context->RSSetViewports(1, &gameViewport);
 
-					m_device->GetD3DDeviceContext()->OMSetBlendState(0, 0, 0xffffffff);
+						m_device->GetD3DDeviceContext()->OMSetBlendState(0, 0, 0xffffffff);
 
-					// Reset render targets to the screen.
-					RenderSceneDirect(context, m_constantBufferData, data, data.Buffer);
-					//FinishRenderingScene(context, m_constantBufferData, data, data.Buffer);
-					break;
+						// Reset render targets to the screen.
+						RenderSceneDirect(context, m_constantBufferData, data, data.Buffer);
+						//FinishRenderingScene(context, m_constantBufferData, data, data.Buffer);
+						break;
+					}
 				}
 			}
 		}

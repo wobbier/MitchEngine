@@ -1310,264 +1310,111 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 		window_flags |= ImGuiWindowFlags_MenuBar;
 		bool showGameWindow = true;
 		ImGui::Begin("Game", &showGameWindow, window_flags);
-		m_engine->GetInput().SetMouseOffset(GameViewRenderLocation);
-		if (GetInput().GetKeyboardState().Escape/*  && m_app->IsGameRunning()&& AllowGameInput*/)
+		if (m_viewportMode == ViewportMode::Game)
 		{
-			m_engine->GetInput().Stop();
-			AllowGameInput = false;
-			ImGui::SetWindowFocus("World View");
-		}
-		else if(ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows)/* && AllowGameInput*/)
-		{
-			m_engine->GetInput().Resume();
-			AllowGameInput = true;
-		}
-		//AllowGameInput = ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows);
-		if (Renderer->GameViewRTT)
-		{
-			static auto srv = Renderer->GameViewRTT->ShaderResourceView;
-			static std::string RenderTextureName = "Shaded";
-			if (ImGui::BeginMenuBar())
+			m_engine->GetInput().SetMouseOffset(GameViewRenderLocation);
+			if (GetInput().GetKeyboardState().Escape/*  && m_app->IsGameRunning()&& AllowGameInput*/)
 			{
-				if (ImGui::BeginMenu(RenderTextureName.c_str()))
+				m_engine->GetInput().Stop();
+				AllowGameInput = false;
+				ImGui::SetWindowFocus("World");
+				//Renderer->SetViewportMode(ViewportMode::World);
+			}
+			else if (ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows)/* && AllowGameInput*/)
+			{
+				m_engine->GetInput().Resume();
+				AllowGameInput = true;
+			}
+			//AllowGameInput = ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows);
+			if (Renderer->GameViewRTT)
+			{
+				static auto srv = Renderer->GameViewRTT->ShaderResourceView;
+				static std::string RenderTextureName = "Shaded";
+				if (ImGui::BeginMenuBar())
 				{
-					if (ImGui::MenuItem("Shaded", "", false))
+					if (ImGui::BeginMenu(RenderTextureName.c_str()))
 					{
-						RenderTextureName = "Shaded";
+						if (ImGui::MenuItem("Shaded", "", false))
+						{
+							RenderTextureName = "Shaded";
 
+						}
+						if (ImGui::MenuItem("Diffuse", "", false))
+						{
+							RenderTextureName = "Diffuse";
+						}
+						if (ImGui::MenuItem("Normals", "", false))
+						{
+							RenderTextureName = "Normals";
+						}
+						if (ImGui::MenuItem("Specular", "", false))
+						{
+							RenderTextureName = "Specular";
+						}
+						if (ImGui::MenuItem("Depth", "", false))
+						{
+							RenderTextureName = "Depth";
+						}
+						if (ImGui::MenuItem("UI", "", false))
+						{
+							RenderTextureName = "UI";
+						}
+						if (ImGui::MenuItem("Position", "", false))
+						{
+							RenderTextureName = "Position";
+						}
+						if (ImGui::MenuItem("Shadow", "", false))
+						{
+							RenderTextureName = "Shadow";
+						}
+						ImGui::EndMenu();
 					}
-					if (ImGui::MenuItem("Diffuse", "", false))
-					{
-						RenderTextureName = "Diffuse";
-					}
-					if (ImGui::MenuItem("Normals", "", false))
-					{
-						RenderTextureName = "Normals";
-					}
-					if (ImGui::MenuItem("Specular", "", false))
-					{
-						RenderTextureName = "Specular";
-					}
-					if (ImGui::MenuItem("Depth", "", false))
-					{
-						RenderTextureName = "Depth";
-					}
-					if (ImGui::MenuItem("UI", "", false))
-					{
-						RenderTextureName = "UI";
-					}
-					if (ImGui::MenuItem("Position", "", false))
-					{
-						RenderTextureName = "Position";
-					}
-					if (ImGui::MenuItem("Shadow", "", false))
-					{
-						RenderTextureName = "Shadow";
-					}
-					ImGui::EndMenu();
+
+					ImGui::EndMenuBar();
 				}
-
-				ImGui::EndMenuBar();
-			}
-			if (RenderTextureName == "Shaded")
-			{
-				srv = Renderer->GameViewRTT->ShaderResourceView;
-			}
-			else if (RenderTextureName == "Diffuse")
-			{
-				srv = Renderer->GameViewRTT->ColorShaderResourceView;
-			}
-			else if (RenderTextureName == "Normals")
-			{
-				srv = Renderer->GameViewRTT->NormalShaderResourceView;
-			}
-			else if (RenderTextureName == "Specular")
-			{
-				srv = Renderer->GameViewRTT->SpecularShaderResourceView;
-			}
-			else if (RenderTextureName == "Depth")
-			{
-				srv = Renderer->GameViewRTT->DepthShaderResourceView;
-			}
-			else if (RenderTextureName == "UI")
-			{
-				srv = Renderer->GameViewRTT->UIShaderResourceView;
-			}
-			else if (RenderTextureName == "Position")
-			{
-				srv = Renderer->GameViewRTT->PositionShaderResourceView;
-			}
-			else if (RenderTextureName == "Shadow")
-			{
-				srv = Renderer->GameViewRTT->ShadowMapShaderResourceView;
-			}
-			m_isGameFocused = ImGui::IsWindowFocused();
-
-			if (Renderer->GameViewRTT && srv != nullptr)
-			{
-				// Get the current cursor position (where your window is)
-				ImVec2 pos = ImGui::GetCursorScreenPos();
-				ImVec2 maxPos = ImVec2(pos.x + ImGui::GetWindowSize().x, pos.y + ImGui::GetWindowSize().y);
-				//GameRenderSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
-				GameRenderSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
-				GameViewRenderLocation = Vector2(pos.x, pos.y);
-				
-				// Ask ImGui to draw it as an image:
-				// Under OpenGL the ImGUI image type is GLuint
-				// So make sure to use "(void *)tex" but not "&tex"
-				ImGui::GetWindowDrawList()->AddImage(
-					(void*)srv.Get(),
-					ImVec2(pos.x, pos.y),
-					ImVec2(maxPos),
-					ImVec2(0, 0),
-					ImVec2(Mathf::Clamp(0.f, 1.0f, GameRenderSize.X() / Renderer->GameViewRTT->Width), Mathf::Clamp(0.f, 1.0f, GameRenderSize.Y() / Renderer->GameViewRTT->Height)));
-				//ImVec2(WorldViewRenderSize.X() / RenderSize.X(), WorldViewRenderSize.Y() / RenderSize.Y()));
-
-			}
-		}
-		ImGui::End();
-
-		bool showWorldEditorWindow = true;
-		ImGui::Begin("World View", &showWorldEditorWindow, window_flags);
-
-		//if (!EditorCamera.OutputSize.IsZero())
-		if (Renderer->SceneViewRTT)
-		{
-			static auto srv = Renderer->SceneViewRTT->ShaderResourceView;
-			static std::string RenderTextureName = "Diffuse";
-			if (ImGui::BeginMenuBar())
-			{
-				if (ImGui::BeginMenu(RenderTextureName.c_str()))
+				if (RenderTextureName == "Shaded")
 				{
-					if (ImGui::MenuItem("Shaded", "", false))
-					{
-						RenderTextureName = "Shaded";
-
-					}
-					if (ImGui::MenuItem("Diffuse", "", false))
-					{
-						RenderTextureName = "Diffuse";
-					}
-					if (ImGui::MenuItem("Normals", "", false))
-					{
-						RenderTextureName = "Normals";
-					}
-					if (ImGui::MenuItem("Specular", "", false))
-					{
-						RenderTextureName = "Specular";
-					}
-					if (ImGui::MenuItem("Position", "", false))
-					{
-						RenderTextureName = "Position";
-					}
-					if (ImGui::MenuItem("Depth", "", false))
-					{
-						RenderTextureName = "Depth";
-					}
-					if (ImGui::MenuItem("Shadow", "", false))
-					{
-						RenderTextureName = "Shadow";
-					}
-					if (ImGui::MenuItem("Pick Mask", "", false))
-					{
-						RenderTextureName = "Pick Mask";
-					}
-					ImGui::EndMenu();
+					srv = Renderer->GameViewRTT->ShaderResourceView;
 				}
-
-				ImGui::EndMenuBar();
-			}
-			if (RenderTextureName == "Shaded")
-			{
-				srv = Renderer->SceneViewRTT->ShaderResourceView;
-			}
-			else if (RenderTextureName == "Diffuse")
-			{
-				srv = Renderer->SceneViewRTT->ColorShaderResourceView;
-			}
-			else if (RenderTextureName == "Normals")
-			{
-				srv = Renderer->SceneViewRTT->NormalShaderResourceView;
-			}
-			else if (RenderTextureName == "Specular")
-			{
-				srv = Renderer->SceneViewRTT->SpecularShaderResourceView;
-			}
-			else if (RenderTextureName == "Position")
-			{
-				srv = Renderer->SceneViewRTT->PositionShaderResourceView;
-			}
-			else if (RenderTextureName == "Depth")
-			{
-				srv = Renderer->SceneViewRTT->DepthShaderResourceView;
-			}
-			else if (RenderTextureName == "Shadow")
-			{
-				srv = Renderer->SceneViewRTT->ShadowMapShaderResourceView;
-			}
-			else if (RenderTextureName == "Pick Mask")
-			{
-				srv = Renderer->SceneViewRTT->PickingResourceView;
-			}
-			// Get the current cursor position (where your window is)
-			ImVec2 pos = ImGui::GetCursorScreenPos();
-			Vector2 evt;
-			evt.SetX((GetEngine().GetWindow()->GetPosition().X() + GetInput().GetMousePosition().X()) - pos.x);
-			evt.SetY((GetEngine().GetWindow()->GetPosition().Y() + GetInput().GetMousePosition().Y()) - pos.y);
-			mouseTracker.Update(GetInput().GetMouseState());
-			static bool hasClicked = false;
-			if (Renderer && GetInput().GetMouseState().leftButton && !hasClicked)
-			{
-				Renderer->PickScene(evt);
-				hasClicked = true;
-			}
-			else
-			{
-				hasClicked = false;
-			}
-
-			DirectX::XMFLOAT4X4 objView;
-			if (SelectedTransform)
-			{
-				DirectX::XMStoreFloat4x4(&objView, SelectedTransform->GetMatrix().GetInternalMatrix());
-			}
-
-			static ImGuizmo::OPERATION mCurrentGizmoOperation(ImGuizmo::TRANSLATE);
-			static ImGuizmo::MODE mCurrentGizmoMode(ImGuizmo::LOCAL);
-			static bool useSnap = false;
-			static float snap[3] = { 1.f, 1.f, 1.f };
-
-			float matrixTranslation[3], matrixRotation[3], matrixScale[3];
-			//ImGuizmo::DecomposeMatrixToComponents(&objView._11, matrixTranslation, matrixRotation, matrixScale);
-
-			bool isMovingMouse = (ImGui::GetMousePos().x != previousMousePos.x) && (ImGui::GetMousePos().y != previousMousePos.y);
-			previousMousePos = ImGui::GetMousePos();
-			if (ImGui::IsWindowFocused() && ImGuizmo::IsUsing() && isMovingMouse) {
-				//ImGui::InputFloat3("Tr", matrixTranslation, 3);
-				if (SelectedTransform)
+				else if (RenderTextureName == "Diffuse")
 				{
-					//HavanaUtils::EditableVector3("RtVec", SelectedTransform->Rotation);
-					//matrixRotation[0] = SelectedTransform->Rotation[0] * DirectX::XM_PI / 180.f;
-					//matrixRotation[1] = SelectedTransform->Rotation[1] * DirectX::XM_PI / 180.f;
-					//matrixRotation[2] = SelectedTransform->Rotation[2] * DirectX::XM_PI / 180.f;
+					srv = Renderer->GameViewRTT->ColorShaderResourceView;
 				}
-				//else
-				//{
-				//	ImGui::InputFloat3("Rt", matrixRotation, 3);
-				//}
-				//ImGui::InputFloat3("Sc", matrixScale, 3);
-				//ImGuizmo::RecomposeMatrixFromComponents(matrixTranslation, matrixRotation, matrixScale, &objView._11);
-			}
-
-			{
-				m_isWorldViewFocused = ImGui::IsWindowFocused();
-
-
-				if (srv != nullptr)
+				else if (RenderTextureName == "Normals")
 				{
+					srv = Renderer->GameViewRTT->NormalShaderResourceView;
+				}
+				else if (RenderTextureName == "Specular")
+				{
+					srv = Renderer->GameViewRTT->SpecularShaderResourceView;
+				}
+				else if (RenderTextureName == "Depth")
+				{
+					srv = Renderer->GameViewRTT->DepthShaderResourceView;
+				}
+				else if (RenderTextureName == "UI")
+				{
+					srv = Renderer->GameViewRTT->UIShaderResourceView;
+				}
+				else if (RenderTextureName == "Position")
+				{
+					srv = Renderer->GameViewRTT->PositionShaderResourceView;
+				}
+				else if (RenderTextureName == "Shadow")
+				{
+					srv = Renderer->GameViewRTT->ShadowMapShaderResourceView;
+				}
+				m_isGameFocused = ImGui::IsWindowFocused();
+
+				if (Renderer->GameViewRTT && srv != nullptr)
+				{
+					// Get the current cursor position (where your window is)
+					ImVec2 pos = ImGui::GetCursorScreenPos();
 					ImVec2 maxPos = ImVec2(pos.x + ImGui::GetWindowSize().x, pos.y + ImGui::GetWindowSize().y);
-					WorldViewRenderSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
-					WorldViewRenderLocation = Vector2(pos.x, pos.y);
+					//GameRenderSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
+					GameRenderSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
+					GameViewRenderLocation = Vector2(pos.x, pos.y);
+
 					// Ask ImGui to draw it as an image:
 					// Under OpenGL the ImGUI image type is GLuint
 					// So make sure to use "(void *)tex" but not "&tex"
@@ -1576,115 +1423,271 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 						ImVec2(pos.x, pos.y),
 						ImVec2(maxPos),
 						ImVec2(0, 0),
-						ImVec2(Mathf::Clamp(0.f, 1.0f, WorldViewRenderSize.X() / Renderer->SceneViewRTT->Width), Mathf::Clamp(0.f, 1.0f, WorldViewRenderSize.Y() / Renderer->SceneViewRTT->Height)));
+						ImVec2(Mathf::Clamp(0.f, 1.0f, GameRenderSize.X() / Renderer->GameViewRTT->Width), Mathf::Clamp(0.f, 1.0f, GameRenderSize.Y() / Renderer->GameViewRTT->Height)));
+					//ImVec2(WorldViewRenderSize.X() / RenderSize.X(), WorldViewRenderSize.Y() / RenderSize.Y()));
 
-					ImGuizmo::SetRect(WorldViewRenderLocation.X(), WorldViewRenderLocation.Y(), WorldViewRenderSize.X(), WorldViewRenderSize.Y());
+				}
+			}
+		}
+		else
+		{
 
-					DirectX::XMFLOAT4X4 fView;
-					if (EditorCamera.Projection == Moonlight::ProjectionType::Perspective)
+			//if (!EditorCamera.OutputSize.IsZero())
+			if (Renderer->GameViewRTT)
+			{
+				static auto srv = Renderer->GameViewRTT->ShaderResourceView;
+				static std::string RenderTextureName = "Diffuse";
+				if (ImGui::BeginMenuBar())
+				{
+					if (ImGui::BeginMenu(RenderTextureName.c_str()))
 					{
-						DirectX::XMMATRIX perspectiveMatrix = DirectX::XMMatrixPerspectiveFovRH(
-							EditorCamera.FOV * DirectX::XM_PI / 180.0f,
-							WorldViewRenderSize.X() / WorldViewRenderSize.Y(),
-							.1f,
-							1000.0f
-						);
-
-						DirectX::XMStoreFloat4x4(&fView, perspectiveMatrix);
-					}
-					else
-					{
-					DirectX::XMMATRIX perspectiveMatrix = DirectX::XMMatrixOrthographicRH(
-						EditorCamera.OutputSize.X() / EditorCamera.OrthographicSize,
-						EditorCamera.OutputSize.Y() / EditorCamera.OrthographicSize,
-						.1f,
-						100.0f
-					);
-
-					DirectX::XMStoreFloat4x4(&fView, perspectiveMatrix);
-					}
-					ImGuizmo::SetDrawlist();
-					ImGuizmo::SetOrthographic(false);
-
-					const DirectX::XMVECTORF32 eye = { EditorCamera.Position.X(), EditorCamera.Position.Y(), EditorCamera.Position.Z(), 0 };
-					const DirectX::XMVECTORF32 at = { EditorCamera.Position.X() + EditorCamera.Front.X(), EditorCamera.Position.Y() + EditorCamera.Front.Y(), EditorCamera.Position.Z() + EditorCamera.Front.Z(), 0.0f };
-					const DirectX::XMVECTORF32 up = { Vector3::Up.X(), Vector3::Up.Y(), Vector3::Up.Z(), 0 };
-
-					DirectX::XMMATRIX vec = DirectX::XMMatrixLookAtRH(eye, at, up);
-
-					DirectX::XMFLOAT4X4 fView2;
-					DirectX::XMStoreFloat4x4(&fView2, vec);
-
-					DirectX::XMFLOAT4X4 idView;
-					DirectX::XMStoreFloat4x4(&idView, DirectX::XMMatrixIdentity());
-
-					//ImGuizmo::DrawGrid(&fView2._11, &fView._11, &idView._11, 10.f);
-					//ImGuizmo::DrawCube(&fView2._11, &fView._11, &idView._11);
-					ImGuizmo::Manipulate(&fView2._11, &fView._11, mCurrentGizmoOperation, mCurrentGizmoMode, &objView._11, &idView._11, useSnap ? &snap[0] : NULL);
-					if (ImGui::IsWindowFocused() && ImGuizmo::IsUsing()/* && isMovingMouse*/)
-					{
-						if (SelectedTransform)
+						if (ImGui::MenuItem("Shaded", "", false))
 						{
-							ImGuizmo::DecomposeMatrixToComponents(&objView._11, matrixTranslation, matrixRotation, matrixScale);
-							if (matrixRotation[0] != prevMatrixRotation[0])
-							{
-								BRUH("Something is off");
-							}
-							//memcpy(matrixTranslation, prevMatrixTranslation, sizeof(float) * 3);
-							//memcpy(matrixRotation, prevMatrixRotation, sizeof(float) * 3);
-							prevMatrixRotation[0] = matrixRotation[0];
-							prevMatrixRotation[1] = matrixRotation[1];
-							prevMatrixRotation[2] = matrixRotation[2];
-							//memcpy(matrixScale, prevMatrixScale, sizeof(float) * 3);
+							RenderTextureName = "Shaded";
 
-							SelectedTransform->SetPosition(Vector3(matrixTranslation[0], matrixTranslation[1], matrixTranslation[2]));
-							SelectedTransform->SetRotation(Vector3(matrixRotation[0], matrixRotation[1], matrixRotation[2]));
-							//SelectedTransform->SetRotation(Vector3(matrixRotation[0] * 180.f / DirectX::XM_PI, matrixRotation[1] * 180.f / DirectX::XM_PI, matrixRotation[2] * 180.f / DirectX::XM_PI));
+						}
+						if (ImGui::MenuItem("Diffuse", "", false))
+						{
+							RenderTextureName = "Diffuse";
+						}
+						if (ImGui::MenuItem("Normals", "", false))
+						{
+							RenderTextureName = "Normals";
+						}
+						if (ImGui::MenuItem("Specular", "", false))
+						{
+							RenderTextureName = "Specular";
+						}
+						if (ImGui::MenuItem("Position", "", false))
+						{
+							RenderTextureName = "Position";
+						}
+						if (ImGui::MenuItem("Depth", "", false))
+						{
+							RenderTextureName = "Depth";
+						}
+						if (ImGui::MenuItem("Shadow", "", false))
+						{
+							RenderTextureName = "Shadow";
+						}
+						if (ImGui::MenuItem("Pick Mask", "", false))
+						{
+							RenderTextureName = "Pick Mask";
+						}
+						ImGui::EndMenu();
+					}
+
+					ImGui::EndMenuBar();
+				}
+				if (RenderTextureName == "Shaded")
+				{
+					srv = Renderer->GameViewRTT->ShaderResourceView;
+				}
+				else if (RenderTextureName == "Diffuse")
+				{
+					srv = Renderer->GameViewRTT->ColorShaderResourceView;
+				}
+				else if (RenderTextureName == "Normals")
+				{
+					srv = Renderer->GameViewRTT->NormalShaderResourceView;
+				}
+				else if (RenderTextureName == "Specular")
+				{
+					srv = Renderer->GameViewRTT->SpecularShaderResourceView;
+				}
+				else if (RenderTextureName == "Position")
+				{
+					srv = Renderer->GameViewRTT->PositionShaderResourceView;
+				}
+				else if (RenderTextureName == "Depth")
+				{
+					srv = Renderer->GameViewRTT->DepthShaderResourceView;
+				}
+				else if (RenderTextureName == "Shadow")
+				{
+					srv = Renderer->GameViewRTT->ShadowMapShaderResourceView;
+				}
+				else if (RenderTextureName == "Pick Mask")
+				{
+					srv = Renderer->GameViewRTT->PickingResourceView;
+				}
+				// Get the current cursor position (where your window is)
+				ImVec2 pos = ImGui::GetCursorScreenPos();
+				Vector2 evt;
+				evt.SetX((GetEngine().GetWindow()->GetPosition().X() + GetInput().GetMousePosition().X()) - pos.x);
+				evt.SetY((GetEngine().GetWindow()->GetPosition().Y() + GetInput().GetMousePosition().Y()) - pos.y);
+				mouseTracker.Update(GetInput().GetMouseState());
+				static bool hasClicked = false;
+				if (Renderer && GetInput().GetMouseState().leftButton && !hasClicked)
+				{
+					Renderer->PickScene(evt);
+					hasClicked = true;
+				}
+				else
+				{
+					hasClicked = false;
+				}
+
+				DirectX::XMFLOAT4X4 objView;
+				if (SelectedTransform)
+				{
+					DirectX::XMStoreFloat4x4(&objView, SelectedTransform->GetMatrix().GetInternalMatrix());
+				}
+
+				static ImGuizmo::OPERATION mCurrentGizmoOperation(ImGuizmo::TRANSLATE);
+				static ImGuizmo::MODE mCurrentGizmoMode(ImGuizmo::LOCAL);
+				static bool useSnap = false;
+				static float snap[3] = { 1.f, 1.f, 1.f };
+
+				float matrixTranslation[3], matrixRotation[3], matrixScale[3];
+				//ImGuizmo::DecomposeMatrixToComponents(&objView._11, matrixTranslation, matrixRotation, matrixScale);
+
+				bool isMovingMouse = (ImGui::GetMousePos().x != previousMousePos.x) && (ImGui::GetMousePos().y != previousMousePos.y);
+				previousMousePos = ImGui::GetMousePos();
+				if (ImGui::IsWindowFocused() && ImGuizmo::IsUsing() && isMovingMouse) {
+					//ImGui::InputFloat3("Tr", matrixTranslation, 3);
+					if (SelectedTransform)
+					{
+						//HavanaUtils::EditableVector3("RtVec", SelectedTransform->Rotation);
+						//matrixRotation[0] = SelectedTransform->Rotation[0] * DirectX::XM_PI / 180.f;
+						//matrixRotation[1] = SelectedTransform->Rotation[1] * DirectX::XM_PI / 180.f;
+						//matrixRotation[2] = SelectedTransform->Rotation[2] * DirectX::XM_PI / 180.f;
+					}
+					//else
+					//{
+					//	ImGui::InputFloat3("Rt", matrixRotation, 3);
+					//}
+					//ImGui::InputFloat3("Sc", matrixScale, 3);
+					//ImGuizmo::RecomposeMatrixFromComponents(matrixTranslation, matrixRotation, matrixScale, &objView._11);
+				}
+
+				{
+					m_isWorldViewFocused = ImGui::IsWindowFocused();
+
+
+					if (srv != nullptr)
+					{
+						ImVec2 maxPos = ImVec2(pos.x + ImGui::GetWindowSize().x, pos.y + ImGui::GetWindowSize().y);
+						WorldViewRenderSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
+						WorldViewRenderLocation = Vector2(pos.x, pos.y);
+						// Ask ImGui to draw it as an image:
+						// Under OpenGL the ImGUI image type is GLuint
+						// So make sure to use "(void *)tex" but not "&tex"
+						ImGui::GetWindowDrawList()->AddImage(
+							(void*)srv.Get(),
+							ImVec2(pos.x, pos.y),
+							ImVec2(maxPos),
+							ImVec2(0, 0),
+							ImVec2(Mathf::Clamp(0.f, 1.0f, WorldViewRenderSize.X() / Renderer->GameViewRTT->Width), Mathf::Clamp(0.f, 1.0f, WorldViewRenderSize.Y() / Renderer->GameViewRTT->Height)));
+
+						ImGuizmo::SetRect(WorldViewRenderLocation.X(), WorldViewRenderLocation.Y(), WorldViewRenderSize.X(), WorldViewRenderSize.Y());
+
+						DirectX::XMFLOAT4X4 fView;
+						if (EditorCamera.Projection == Moonlight::ProjectionType::Perspective)
+						{
+							DirectX::XMMATRIX perspectiveMatrix = DirectX::XMMatrixPerspectiveFovRH(
+								EditorCamera.FOV * DirectX::XM_PI / 180.0f,
+								WorldViewRenderSize.X() / WorldViewRenderSize.Y(),
+								.1f,
+								1000.0f
+							);
+
+							DirectX::XMStoreFloat4x4(&fView, perspectiveMatrix);
+						}
+						else
+						{
+							DirectX::XMMATRIX perspectiveMatrix = DirectX::XMMatrixOrthographicRH(
+								EditorCamera.OutputSize.X() / EditorCamera.OrthographicSize,
+								EditorCamera.OutputSize.Y() / EditorCamera.OrthographicSize,
+								.1f,
+								100.0f
+							);
+
+							DirectX::XMStoreFloat4x4(&fView, perspectiveMatrix);
+						}
+						ImGuizmo::SetDrawlist();
+						ImGuizmo::SetOrthographic(false);
+
+						const DirectX::XMVECTORF32 eye = { EditorCamera.Position.X(), EditorCamera.Position.Y(), EditorCamera.Position.Z(), 0 };
+						const DirectX::XMVECTORF32 at = { EditorCamera.Position.X() + EditorCamera.Front.X(), EditorCamera.Position.Y() + EditorCamera.Front.Y(), EditorCamera.Position.Z() + EditorCamera.Front.Z(), 0.0f };
+						const DirectX::XMVECTORF32 up = { Vector3::Up.X(), Vector3::Up.Y(), Vector3::Up.Z(), 0 };
+
+						DirectX::XMMATRIX vec = DirectX::XMMatrixLookAtRH(eye, at, up);
+
+						DirectX::XMFLOAT4X4 fView2;
+						DirectX::XMStoreFloat4x4(&fView2, vec);
+
+						DirectX::XMFLOAT4X4 idView;
+						DirectX::XMStoreFloat4x4(&idView, DirectX::XMMatrixIdentity());
+
+						//ImGuizmo::DrawGrid(&fView2._11, &fView._11, &idView._11, 10.f);
+						//ImGuizmo::DrawCube(&fView2._11, &fView._11, &idView._11);
+						ImGuizmo::Manipulate(&fView2._11, &fView._11, mCurrentGizmoOperation, mCurrentGizmoMode, &objView._11, &idView._11, useSnap ? &snap[0] : NULL);
+						if (ImGui::IsWindowFocused() && ImGuizmo::IsUsing()/* && isMovingMouse*/)
+						{
+							if (SelectedTransform)
+							{
+								ImGuizmo::DecomposeMatrixToComponents(&objView._11, matrixTranslation, matrixRotation, matrixScale);
+								if (matrixRotation[0] != prevMatrixRotation[0])
+								{
+									BRUH("Something is off");
+								}
+								//memcpy(matrixTranslation, prevMatrixTranslation, sizeof(float) * 3);
+								//memcpy(matrixRotation, prevMatrixRotation, sizeof(float) * 3);
+								prevMatrixRotation[0] = matrixRotation[0];
+								prevMatrixRotation[1] = matrixRotation[1];
+								prevMatrixRotation[2] = matrixRotation[2];
+								//memcpy(matrixScale, prevMatrixScale, sizeof(float) * 3);
+
+								SelectedTransform->SetPosition(Vector3(matrixTranslation[0], matrixTranslation[1], matrixTranslation[2]));
+								SelectedTransform->SetRotation(Vector3(matrixRotation[0], matrixRotation[1], matrixRotation[2]));
+								//SelectedTransform->SetRotation(Vector3(matrixRotation[0] * 180.f / DirectX::XM_PI, matrixRotation[1] * 180.f / DirectX::XM_PI, matrixRotation[2] * 180.f / DirectX::XM_PI));
+							}
 						}
 					}
 				}
-			}
 
-			if (ImGui::IsKeyPressed(90))
-				mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
-			if (ImGui::IsKeyPressed(69))
-				mCurrentGizmoOperation = ImGuizmo::ROTATE;
-			if (ImGui::IsKeyPressed(82)) // r Key
-				mCurrentGizmoOperation = ImGuizmo::SCALE;
-			if (ImGui::RadioButton("Translate", mCurrentGizmoOperation == ImGuizmo::TRANSLATE))
-				mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
-			ImGui::SameLine();
-			if (ImGui::RadioButton("Rotate", mCurrentGizmoOperation == ImGuizmo::ROTATE))
-				mCurrentGizmoOperation = ImGuizmo::ROTATE;
-			ImGui::SameLine();
-			if (ImGui::RadioButton("Scale", mCurrentGizmoOperation == ImGuizmo::SCALE))
-				mCurrentGizmoOperation = ImGuizmo::SCALE;
-			if (mCurrentGizmoOperation != ImGuizmo::SCALE)
-			{
-				if (ImGui::RadioButton("Local", mCurrentGizmoMode == ImGuizmo::LOCAL))
-					mCurrentGizmoMode = ImGuizmo::LOCAL;
+				if (ImGui::IsKeyPressed(90))
+					mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
+				if (ImGui::IsKeyPressed(69))
+					mCurrentGizmoOperation = ImGuizmo::ROTATE;
+				if (ImGui::IsKeyPressed(82)) // r Key
+					mCurrentGizmoOperation = ImGuizmo::SCALE;
+				if (ImGui::RadioButton("Translate", mCurrentGizmoOperation == ImGuizmo::TRANSLATE))
+					mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
 				ImGui::SameLine();
-				if (ImGui::RadioButton("World", mCurrentGizmoMode == ImGuizmo::WORLD))
-					mCurrentGizmoMode = ImGuizmo::WORLD;
+				if (ImGui::RadioButton("Rotate", mCurrentGizmoOperation == ImGuizmo::ROTATE))
+					mCurrentGizmoOperation = ImGuizmo::ROTATE;
+				ImGui::SameLine();
+				if (ImGui::RadioButton("Scale", mCurrentGizmoOperation == ImGuizmo::SCALE))
+					mCurrentGizmoOperation = ImGuizmo::SCALE;
+				if (mCurrentGizmoOperation != ImGuizmo::SCALE)
+				{
+					if (ImGui::RadioButton("Local", mCurrentGizmoMode == ImGuizmo::LOCAL))
+						mCurrentGizmoMode = ImGuizmo::LOCAL;
+					ImGui::SameLine();
+					if (ImGui::RadioButton("World", mCurrentGizmoMode == ImGuizmo::WORLD))
+						mCurrentGizmoMode = ImGuizmo::WORLD;
+				}
+
+				//if (ImGui::IsKeyPressed(83))
+				//	useSnap = !useSnap;
+				//ImGui::Checkbox("", &useSnap);
+				//ImGui::SameLine();
+
+				//switch (mCurrentGizmoOperation)
+				//{
+				//case ImGuizmo::TRANSLATE:
+				//	ImGui::InputFloat3("Snap", &snap[0]);
+				//	break;
+				//case ImGuizmo::ROTATE:
+				//	ImGui::InputFloat("Angle Snap", &snap[0]);
+				//	break;
+				//case ImGuizmo::SCALE:
+				//	ImGui::InputFloat("Scale Snap", &snap[0]);
+				//	break;
+				//}
 			}
-
-			//if (ImGui::IsKeyPressed(83))
-			//	useSnap = !useSnap;
-			//ImGui::Checkbox("", &useSnap);
-			//ImGui::SameLine();
-
-			//switch (mCurrentGizmoOperation)
-			//{
-			//case ImGuizmo::TRANSLATE:
-			//	ImGui::InputFloat3("Snap", &snap[0]);
-			//	break;
-			//case ImGuizmo::ROTATE:
-			//	ImGui::InputFloat("Angle Snap", &snap[0]);
-			//	break;
-			//case ImGuizmo::SCALE:
-			//	ImGui::InputFloat("Scale Snap", &snap[0]);
-			//	break;
-			//}
 		}
 		ImGui::End();
 		ImGui::PopStyleVar(3);
@@ -1809,6 +1812,12 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 		ImGui::UpdatePlatformWindows();
 		ImGui::RenderPlatformWindowsDefault();
 	}
+}
+
+void Havana::SetViewportMode(ViewportMode mode)
+{
+	m_viewportMode = mode;
+	Renderer->SetViewportMode(mode);
 }
 
 const bool Havana::IsGameFocused() const

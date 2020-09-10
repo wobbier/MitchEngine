@@ -49,6 +49,8 @@ public:
 
 	void Render(Moonlight::CameraData& EditorCamera);
 
+	void SetViewportMode(ViewportMode mode);
+
 	void SetWindowTitle(const std::string& title)
 	{
 		WindowTitle = title;
@@ -111,6 +113,7 @@ private:
 	float prevMatrixScale[3];
 	ImVec2 previousMousePos;
 	ParentDescriptor DragParentDescriptor;
+	ViewportMode m_viewportMode = ViewportMode::World;
 
 	DirectX::Keyboard::KeyboardStateTracker tracker;
 	DirectX::Mouse::ButtonStateTracker mouseTracker;
