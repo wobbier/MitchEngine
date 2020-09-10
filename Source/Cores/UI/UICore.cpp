@@ -175,10 +175,15 @@ void UICore::Update(float dt)
 		evt.button = ultralight::MouseEvent::Button::kButton_None;
 	}
 	//ultralight::View::FireMouseEvent(evt);
+#if ME_EDITOR
+	if (GetEngine().GetRenderer().GetViewportMode() == ViewportMode::Game)
+#endif
+	{
 		for (auto& view : m_overlays)
 		{
 			view->view()->FireMouseEvent(evt);
 		}
+	}
 
 	auto Renderables = GetEntities();
 	for (auto& InEntity : Renderables)

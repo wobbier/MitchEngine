@@ -164,9 +164,7 @@ namespace Moonlight
 		DX11Device& GetDevice() const;
 
 		void Update(float dt);
-		void Render(std::function<void()> func, std::function<void()> uiRender, const CameraData& editorCamera);
 
-		void DrawScene(ID3D11DeviceContext3* context, ModelViewProjectionConstantBuffer& constantBufferSceneData, const CameraData& data, FrameBuffer* ViewRTT);
 		void DrawDepthOnlyScene(ID3D11DeviceContext3* context, DepthPassBuffer& constantBufferSceneData, FrameBuffer* ViewRTT);
 		void DrawPickingTexture(ID3D11DeviceContext3* context, PickingConstantBuffer& constantBufferSceneData, const CameraData& camera, FrameBuffer* ViewRTT);
 

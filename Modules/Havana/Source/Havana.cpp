@@ -164,6 +164,7 @@ void Havana::InitUI()
 	Icons["Info"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Info.png"));
 	Icons["Logo"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/ME-LOGO.png"));
 	Icons["Profiler"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Profiler.png"));
+	Icons["FlipCamera"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/FlipCamera.png"));
 
 	m_engine->GetInput().Stop();
 	GetInput().GetMouse().SetWindow(GetActiveWindow());
@@ -192,7 +193,7 @@ void Havana::NewFrame(std::function<void()> StartGameFunc, std::function<void()>
 	MainMenuSize.x = 0.f;
 	MainMenuSize.y = 17.f;
 	ImVec2 DockSize = viewport->Size;
-	DockSize.y = viewport->Size.y - MainMenuSize.y - kMinProfilerSize;
+	DockSize.y = viewport->Size.y - MainMenuSize.y - kMinProfilerSize - 2;
 	ImVec2 DockPos = viewport->Pos;
 	DockPos.y = viewport->Pos.y + MainMenuSize.y;
 
@@ -220,7 +221,7 @@ void Havana::NewFrame(std::function<void()> StartGameFunc, std::function<void()>
 	DrawLog();
 	m_assetBrowser.Draw();
 
-	DrawCommandPanel();
+	//DrawCommandPanel();
 	DrawResourceMonitor();
 }
 
@@ -407,7 +408,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 			}
 			ImGui::EndMenu();
 		}
-		if (ImGui::BeginMenu("Render Mode"))
+		/*if (ImGui::BeginMenu("Render Mode"))
 		{
 			{
 				bool selected = m_engine->GetRenderer().GetContextType() == Moonlight::eDeviceContextType::Legacy;
@@ -431,7 +432,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 				}
 			}
 			ImGui::EndMenu();
-		}
+		}*/
 		auto Keyboard = GetInput().GetKeyboardState();
 		if (!m_app->IsGameRunning())
 		{
@@ -456,6 +457,18 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 				SelectedTransform = nullptr;
 				StopGameFunc();
 				m_engine->GetInput().Stop();
+			}
+		}
+
+		if (ImGui::ImageButton(Icons["FlipCamera"]->ShaderResourceView, ImVec2(30.f, 30.f)) || (Keyboard.F5 && Keyboard.LeftShift))
+		{
+			if (m_viewportMode == ViewportMode::World)
+			{
+				SetViewportMode(ViewportMode::Game);
+			}
+			else
+			{
+				SetViewportMode(ViewportMode::World);
 			}
 		}
 
@@ -1788,7 +1801,7 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 
 				for (auto& thing : FrameProfile::GetInstance().ProfileDump)
 				{
-					ImGui::TextUnformatted(std::to_string(thing.second.GetDeltaSeconds()).c_str());
+					ImGui::TextUnformatted(std::to_string(thing.second.GetDeltaSeconds() * 1000.f).c_str());
 					ImGui::SameLine();
 					ImGui::TextUnformatted(" ms");
 				}
