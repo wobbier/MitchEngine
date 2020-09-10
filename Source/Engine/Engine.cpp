@@ -30,6 +30,7 @@
 #include "optick.h"
 #include "Core/JobSystem.h"
 #include "Work/Burst.h"
+#include "Profiling/BasicFrameProfile.h"
 
 Engine& GetEngine()
 {
@@ -184,22 +185,28 @@ void Engine::Run()
 			Cameras->Update(0.0f);
 
 			{
+				FrameProfile::GetInstance().Set(ProfileCategory::Game);
 				OPTICK_CATEGORY("MainLoop::GameUpdate", Optick::Category::GameLogic);
 				m_game->OnUpdate(deltaTime);
+				FrameProfile::GetInstance().Complete(ProfileCategory::Game);
 			}
 			
 			AudioThread->Update(deltaTime);
 			ModelRenderer->Update(deltaTime);
 
-			// editor only?
-			if (UI)
 			{
-				if (Camera::CurrentCamera)
+				FrameProfile::GetInstance().Set(ProfileCategory::UI);
+				// editor only?
+				if (UI)
 				{
-					UI->OnResize(Camera::CurrentCamera->OutputSize);
+					if (Camera::CurrentCamera)
+					{
+						UI->OnResize(Camera::CurrentCamera->OutputSize);
+					}
 				}
+				UI->Update(deltaTime);
+				FrameProfile::GetInstance().Complete(ProfileCategory::UI);
 			}
-			UI->Update(deltaTime);
 //
 //#if !ME_EDITOR
 //			Vector2 MainOutputSize = m_renderer->GetDevice().GetOutputSize();
@@ -216,7 +223,9 @@ void Engine::Run()
 //			EditorCamera = MainCamera;
 //#endif
 
+			FrameProfile::GetInstance().Set(ProfileCategory::Rendering);
 			m_renderer->ThreadedRender([this]() {
+				FrameProfile::GetInstance().Complete(ProfileCategory::Rendering);
 				m_game->PostRender();
 			}, [this]() {
 				UI->Render();

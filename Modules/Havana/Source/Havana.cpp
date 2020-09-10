@@ -34,7 +34,12 @@
 #include "optick.h"
 #include <winuser.h>
 #include "Utils/StringUtils.h"
+#include "Profiling/BasicFrameProfile.h"
 namespace fs = std::filesystem;
+
+int profilerSize = 10.f;
+const int kMinProfilerSize = 10.f;
+const int kMaxProfilerSize = 40.f;
 
 Havana::Havana(Engine* GameEngine, EditorApp* app, Moonlight::Renderer* renderer)
 	: Renderer(renderer)
@@ -141,6 +146,10 @@ void Havana::InitUI()
 		style.WindowRounding = 0.0f;
 		style.Colors[ImGuiCol_WindowBg].w = 1.0f;
 	}
+	style.WindowMinSize = ImVec2(10.f, 10.f);
+	style.WindowBorderSize = 0.f;
+	style.ScrollbarSize = 10.f;
+	style.ChildBorderSize = 0.f;
 	ImGui_ImplWin32_Init(Renderer->GetDevice().m_window);
 	ImGui_ImplDX11_Init(Renderer->GetDevice().GetD3DDevice(), Renderer->GetDevice().GetD3DDeviceContext());
 
@@ -183,7 +192,7 @@ void Havana::NewFrame(std::function<void()> StartGameFunc, std::function<void()>
 	MainMenuSize.x = 0.f;
 	MainMenuSize.y = 17.f;
 	ImVec2 DockSize = viewport->Size;
-	DockSize.y = viewport->Size.y - MainMenuSize.y;
+	DockSize.y = viewport->Size.y - MainMenuSize.y - kMinProfilerSize;
 	ImVec2 DockPos = viewport->Pos;
 	DockPos.y = viewport->Pos.y + MainMenuSize.y;
 
@@ -1585,14 +1594,14 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 					}
 					else
 					{
-						DirectX::XMMATRIX perspectiveMatrix = DirectX::XMMatrixOrthographicRH(
-							EditorCamera.OutputSize.X() / EditorCamera.OrthographicSize,
-							EditorCamera.OutputSize.Y() / EditorCamera.OrthographicSize,
-							.1f,
-							100.0f
-						);
+					DirectX::XMMATRIX perspectiveMatrix = DirectX::XMMatrixOrthographicRH(
+						EditorCamera.OutputSize.X() / EditorCamera.OrthographicSize,
+						EditorCamera.OutputSize.Y() / EditorCamera.OrthographicSize,
+						.1f,
+						100.0f
+					);
 
-						DirectX::XMStoreFloat4x4(&fView, perspectiveMatrix);
+					DirectX::XMStoreFloat4x4(&fView, perspectiveMatrix);
 					}
 					ImGuizmo::SetDrawlist();
 					ImGuizmo::SetOrthographic(false);
@@ -1680,6 +1689,117 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 		ImGui::End();
 		ImGui::PopStyleVar(3);
 	}
+
+	const ImU32 flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar /*| ImGuiWindowFlags_NoInputs*/ | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoBringToFrontOnFocus;
+//
+//#ifdef IMGUI_HAS_VIEWPORT
+//	ImGui::SetNextWindowSize(ImGui::GetMainViewport()->Size);
+//	ImGui::SetNextWindowPos(ImGui::GetMainViewport()->Pos);
+//#else
+	ImGui::SetNextWindowSize(ImVec2(ImGui::GetMainViewport()->Size.x, profilerSize));
+	auto pos = ImGui::GetMainViewport()->Pos;
+	ImGui::SetNextWindowPos(ImVec2(pos.x, pos.y + ImGui::GetMainViewport()->Size.y - (profilerSize)));
+//#endif
+
+	ImGui::PushStyleColor(ImGuiCol_WindowBg, 0);
+	ImGui::PushStyleColor(ImGuiCol_Border, 0);
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.f, 0.f));
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.f, 0.f));
+	//ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.f, 0.f, 0.f, 0.f));
+
+
+	static int frameCount = 0;
+	static float frametime = 0.0f;
+
+	// increase the counter by one
+	static int m_fpscount = 0;
+	static int fps = 0;
+	m_fpscount++;
+	++frameCount;
+
+	static float fpsTime = 0;
+	fpsTime += GetEngine().DeltaTime;
+	// one second elapsed? (= 1000 milliseconds)
+	if (fpsTime > 1.f)
+	{
+		FrameProfile::GetInstance().Dump();
+		fpsTime = 0;
+	}
+	float totalFrameTime = 0.f;
+	for (auto& thing : FrameProfile::GetInstance().ProfileDump)
+	{
+		totalFrameTime += thing.second.GetDeltaSeconds();
+	}
+
+
+	ImGui::Begin("gizmo", NULL, flags);
+	//ImDrawList* draw_list = ImGui::GetWindowDrawList();
+	{
+
+		//ImGui::Text("AYO LMAO");
+		//ImGui::SetNextWindowSize(ImVec2(350, 560), ImGuiCond_FirstUseEver);
+
+		ImDrawList* draw_list = ImGui::GetForegroundDrawList();
+
+		const ImVec2 p = ImGui::GetCursorScreenPos();
+		static ImVec4 col = ImVec4(1.0f, 1.0f, 0.4f, 1.0f);
+		static ImVec4 col2 = ImVec4(1.0f, .5f, 1.0f, 1.0f);
+		static ImVec4 col3 = ImVec4(.5f, 1.f, 1.0f, 1.0f);
+		{
+			const ImVec2 p = ImGui::GetCursorScreenPos();
+			ImU32 col32 = ImColor(col);
+			ImU32 col322 = ImColor(col2);
+			ImU32 col323 = ImColor(col3);
+			float x = p.x, y = p.y;
+
+			//float sz = 50.f;
+			//draw_list->AddRectFilled(ImVec2(x, y), ImVec2(x + ImGui::GetWindowSize().x, y + sz), col32);
+			float previousX = 0;
+			int i = 0;
+			for (auto& thing : FrameProfile::GetInstance().ProfileDump)
+			{
+				if (i == 1)
+				{
+					col32 = col322;
+				}
+				else if (i > 1)
+				{
+					col32 = col323;
+				}
+				float profileSizeX = (thing.second.GetDeltaSeconds() / totalFrameTime) * (ImGui::GetMainViewport()->Size.x);
+				draw_list->AddRectFilled(ImVec2(previousX + x, y), ImVec2(previousX + x + profileSizeX, y + profilerSize), col32);
+				ImGui::SameLine();
+				previousX = previousX + profileSizeX;
+				i++;
+			}
+
+			ImGui::PopStyleVar(3);
+			ImGui::PopStyleColor(2);
+
+			if (ImGui::IsWindowHovered())
+			{
+				profilerSize = kMaxProfilerSize;
+				ImGui::BeginTooltip();
+				ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
+
+				for (auto& thing : FrameProfile::GetInstance().ProfileDump)
+				{
+					ImGui::TextUnformatted(std::to_string(thing.second.GetDeltaSeconds()).c_str());
+					ImGui::SameLine();
+					ImGui::TextUnformatted(" ms");
+				}
+				ImGui::PopTextWrapPos();
+
+				ImGui::EndTooltip();
+			}
+			else
+			{
+				profilerSize = kMinProfilerSize;
+			}
+		}
+	}
+	ImGui::End();
 
 	ImGui::Render();
 	ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
