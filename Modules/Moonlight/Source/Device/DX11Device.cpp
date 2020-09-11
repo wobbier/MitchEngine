@@ -549,10 +549,10 @@ namespace Moonlight
 	void DX11Device::UpdateRenderTargetSize()
 	{
 		// Prevent zero size DirectX content from being created.
-#if !ME_EDITOR
+//#if !ME_EDITOR
 		m_outputSize.SetX(static_cast<float>(std::fmax(static_cast<int>(m_logicalSize.X()), 1)));
 		m_outputSize.SetY(static_cast<float>(std::fmax(static_cast<int>(m_logicalSize.Y()), 1)));
-#endif
+//#endif
 	}
 
 	FrameBuffer* DX11Device::CreateFrameBuffer(UINT Width, UINT Height, UINT Samples, DXGI_FORMAT ColorFormat, DXGI_FORMAT DepthStencilFormat) const
