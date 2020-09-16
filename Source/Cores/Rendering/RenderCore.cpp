@@ -84,7 +84,6 @@ void RenderCore::Update(float dt)
 
 	for (auto& batch : batches)
 	{
-		OPTICK_CATEGORY("Burst::BatchAdd", Optick::Category::Debug);
 		Burst::LambdaWorkEntry entry;
 		int batchBegin = batch.first;
 		int batchEnd = batch.second;
@@ -92,7 +91,6 @@ void RenderCore::Update(float dt)
 
 		//YIKES(std::to_string(batchBegin) + " End:" + std::to_string(batchEnd) + " Size:" + std::to_string(batchSize));
 		entry.m_callBack = [this, &Renderables, batchBegin, batchEnd, batchSize]() {
-			OPTICK_CATEGORY("B::Job", Optick::Category::Debug);
 			if (Renderables.size() == 0)
 			{
 				return;

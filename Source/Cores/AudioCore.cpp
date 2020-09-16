@@ -3,6 +3,7 @@
 #include <Audio.h>
 #include "Components/Audio/AudioSource.h"
 #include "Events/AudioEvents.h"
+#include "optick.h"
 
 AudioCore::AudioCore()
 	: Base(ComponentFilter().Requires<AudioSource>())
@@ -24,6 +25,8 @@ AudioCore::AudioCore()
 
 void AudioCore::Update(float dt)
 {
+	OPTICK_CATEGORY("AudioCore Update", Optick::Category::Audio);
+
 	if (!mEngine->Update())
 	{
 		// No audio device is active

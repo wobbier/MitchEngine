@@ -24,6 +24,7 @@
 #include "Math/Frustrum.h"
 #include <process.h>
 #include "Engine/Engine.h"
+#include <libloaderapi.h>
 
 using namespace DirectX;
 using namespace Windows::Foundation;
@@ -285,12 +286,24 @@ namespace Moonlight
 	{
 		return m_viewportMode;
 	}
+#if ME_PLATFORM_UWP
+	HMODULE GetKernelModule()
+	{
+		MEMORY_BASIC_INFORMATION mbi = { 0 };
+		VirtualQuery(VirtualQuery, &mbi, sizeof(mbi));
+		return reinterpret_cast<HMODULE>(mbi.AllocationBase);
+	}
+#endif
 
 	int Renderer::GetPhysicalProcessorCount()
 	{
 		DWORD processorCoreCount = 0;
 
+#if ME_PLATFORM_UWP
+		HMODULE handle = GetKernelModule();
+#else
 		HMODULE handle = GetModuleHandle(L"kernel32");
+#endif
 
 		auto procInfo = reinterpret_cast<LPFN_GLPI>(GetProcAddress(handle, "GetLogicalProcessorInformation"));
 		if (!procInfo)
@@ -1117,8 +1130,9 @@ namespace Moonlight
 
 		// Clear the back buffer and depth stencil view.
 		context->ClearRenderTargetView(m_device->GetBackBufferRenderTargetView(), color);
-
+#if ME_EDITOR
 		if (GetViewportMode() == ViewportMode::Game)
+#endif
 		{
 			uiRender();
 		}
@@ -1154,13 +1168,13 @@ namespace Moonlight
 					//FinishRenderingScene(context, m_constantBufferData, data, data.Buffer);
 				}
 			}
+#if ME_EDITOR
 			if (GetViewportMode() == ViewportMode::World)
 			{
-#if ME_EDITOR
 				RenderSceneDirect(context, m_constantBufferSceneData, editorCamera, GameViewRTT);
-#endif
 			}
 			else
+#endif
 			{
 				for (CameraData& data : Cameras)
 				{

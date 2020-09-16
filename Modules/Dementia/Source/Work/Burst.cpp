@@ -33,12 +33,22 @@ HANDLE m_hBeginPerChunkRenderDeferredSemaphore[kMaxPerChunkThreads];
 HANDLE m_hEndPerChunkRenderDeferredEvent[kMaxPerChunkThreads];
 ChunkQueue m_chunkQueue[kMaxPerChunkThreads];
 
+HMODULE GetKernelModule2()
+{
+	MEMORY_BASIC_INFORMATION mbi = { 0 };
+	VirtualQuery(VirtualQuery, &mbi, sizeof(mbi));
+	return reinterpret_cast<HMODULE>(mbi.AllocationBase);
+}
+
 int Burst::GetPhysicalProcessorCount()
 {
 	DWORD processorCoreCount = 0;
 
+#if ME_PLATFORM_UWP
+	HMODULE handle = GetKernelModule2();
+#else
 	HMODULE handle = GetModuleHandle(L"kernel32");
-
+#endif
 	auto procInfo = reinterpret_cast<LPFN_GLPI>(GetProcAddress(handle, "GetLogicalProcessorInformation"));
 	if (!procInfo)
 	{
@@ -157,7 +167,7 @@ unsigned int Burst::_PerChunkRenderDeferredProc(LPVOID lpParameter)
 		}
 		case WORK_QUEUE_ENTRY_TYPE_CHUNK:
 		{
-			OPTICK_EVENT("WORK_QUEUE_ENTRY_TYPE_CHUNK", Optick::Category::Rendering);
+			OPTICK_EVENT("B::Job", Optick::Category::Rendering);
 			auto chunkEntry = reinterpret_cast<const LambdaWorkEntry*>(entry);
 
 			if (chunkEntry->m_callBack)

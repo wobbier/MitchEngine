@@ -69,7 +69,6 @@ void PhysicsCore::Update(float dt)
 
 	for (auto& batch : batches)
 	{
-		OPTICK_CATEGORY("Burst::BatchAdd", Optick::Category::Debug);
 		Burst::LambdaWorkEntry job;
 		int batchBegin = batch.first;
 		int batchEnd = batch.second;
