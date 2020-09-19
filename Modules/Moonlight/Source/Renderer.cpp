@@ -628,7 +628,32 @@ namespace Moonlight
 			burst.AddWork2(entry, (int)sizeof(Burst::LambdaWorkEntry));
 		}
 
-		//burst.FinalizeWork();
+		burst.FinalizeWork();
+		burst.PrepareWork();
+
+		for (auto& batch : batches)
+		{
+			OPTICK_CATEGORY("Burst::BatchAdd", Optick::Category::Debug);
+			Burst::LambdaWorkEntry entry;
+			int batchBegin = batch.first;
+			int batchEnd = batch.second;
+			int batchSize = batchEnd - batchBegin;
+
+			auto func = [this, batchBegin, batchEnd](int Index) {
+				OPTICK_CATEGORY("Render Mesh", Optick::Category::GPU_Scene);
+				for (int entIndex = batchBegin; entIndex < batchEnd; ++entIndex)
+				{
+					MeshCommand& mesh = Meshes[entIndex];
+					if (!mesh.SingleMesh || mesh.MeshMaterial && !mesh.MeshMaterial->IsTransparent())
+					{
+						continue;
+					}
+					RenderMeshDirect(mesh, m_pd3dPerChunkDeferredContext[Index]);
+				}
+			};
+			entry.m_callBack = func;
+			burst.AddWork2(entry, (int)sizeof(Burst::LambdaWorkEntry));
+		}
 	}
 
 	void Renderer::RenderMeshDirect(MeshCommand& mesh, ID3D11DeviceContext3* context)

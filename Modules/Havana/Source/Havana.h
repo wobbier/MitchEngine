@@ -103,7 +103,10 @@ private:
 	bool m_isWorldViewFocused = false;
 	bool OpenScene = false;
 	bool AllowGameInput = false;
+	bool MaximizeOnPlay = false;
 	ImVec2 MainMenuSize;
+	ImVec2 DockPos;
+	ImVec2 DockSize;
 	Path CurrentDirectory;
 	json AssetDirectory;
 	std::unordered_map<std::string, SharedPtr<Moonlight::Texture>> Icons;
