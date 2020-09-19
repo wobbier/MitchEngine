@@ -27,14 +27,14 @@ inline DWORD CountBits(ULONG_PTR bitMask)
 
 	return bitSetCount;
 }
-int m_perChunkThreadInstanceData[kMaxPerChunkThreads];
+int m_perThreadInstanceData[kMaxPerChunkThreads];
 int m_iPerChunkQueueOffset[kMaxPerChunkThreads]; // next free portion of the queue to add an entry to
-HANDLE m_hPerChunkRenderDeferredThread[kMaxPerChunkThreads];
-HANDLE m_hBeginPerChunkRenderDeferredSemaphore[kMaxPerChunkThreads];
-HANDLE m_hEndPerChunkRenderDeferredEvent[kMaxPerChunkThreads];
+HANDLE g_threads[kMaxPerChunkThreads];
+HANDLE m_hBeginWorkSemaphore[kMaxPerChunkThreads];
+HANDLE m_hEndWorkEvent[kMaxPerChunkThreads];
 ChunkQueue m_chunkQueue[kMaxPerChunkThreads];
 
-HMODULE GetKernelModule2()
+HMODULE GetKernelModule()
 {
 	MEMORY_BASIC_INFORMATION mbi = { 0 };
 	VirtualQuery(VirtualQuery, &mbi, sizeof(mbi));
@@ -46,7 +46,7 @@ int Burst::GetPhysicalProcessorCount()
 	DWORD processorCoreCount = 0;
 
 #if ME_PLATFORM_UWP
-	HMODULE handle = GetKernelModule2();
+	HMODULE handle = GetKernelModule();
 #else
 	HMODULE handle = GetModuleHandle(L"kernel32");
 #endif
@@ -119,31 +119,31 @@ int Burst::GetPhysicalProcessorCount()
 
 void Burst::InitializeWorkerThreads()
 {
-	m_numPerChunkRenderThreads = GetPhysicalProcessorCount() - 1;
-	m_numPerChunkRenderThreads = std::min(m_numPerChunkRenderThreads, kMaxPerChunkThreads);
-	m_numPerChunkRenderThreads = std::max(m_numPerChunkRenderThreads, 1);
+	ThreadCount = GetPhysicalProcessorCount() - 1;
+	ThreadCount = std::min(ThreadCount, kMaxPerChunkThreads);
+	ThreadCount = std::max(ThreadCount, 1);
 	//m_numPerChunkRenderThreads = 2;
 
-	for (int i = 0; i < m_numPerChunkRenderThreads; ++i)
+	for (int i = 0; i < ThreadCount; ++i)
 	{
-		m_perChunkThreadInstanceData[i] = i;
+		m_perThreadInstanceData[i] = i;
 
-		m_hBeginPerChunkRenderDeferredSemaphore[i] = CreateSemaphore(nullptr, 0, m_maxPendingQueueEntries, nullptr);
-		m_hEndPerChunkRenderDeferredEvent[i] = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+		m_hBeginWorkSemaphore[i] = CreateSemaphore(nullptr, 0, kMaxPendingQueueEntries, nullptr);
+		m_hEndWorkEvent[i] = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 
-		m_hPerChunkRenderDeferredThread[i] = (HANDLE)_beginthreadex(nullptr, 0, &Burst::_PerChunkRenderDeferredProc, &m_perChunkThreadInstanceData[i], CREATE_SUSPENDED, nullptr);
+		g_threads[i] = (HANDLE)_beginthreadex(nullptr, 0, &Burst::_BurstThread, &m_perThreadInstanceData[i], CREATE_SUSPENDED, nullptr);
 		//PCWSTR asdasd = StringUtils::ToWString("Burst Thread " + i).c_str();
 
-		ResumeThread(m_hPerChunkRenderDeferredThread[i]);
+		ResumeThread(g_threads[i]);
 	}
 
-	if (m_numPerChunkRenderThreads > 0)
+	if (ThreadCount > 0)
 	{
 
 	}
 }
 
-unsigned int Burst::_PerChunkRenderDeferredProc(LPVOID lpParameter)
+unsigned int Burst::_BurstThread(LPVOID lpParameter)
 {
 	OPTICK_THREAD("Burst Thread");
 
@@ -153,7 +153,7 @@ unsigned int Burst::_PerChunkRenderDeferredProc(LPVOID lpParameter)
 	int queueOffset = 0;
 	forever
 	{
-		WaitForSingleObject(m_hBeginPerChunkRenderDeferredSemaphore[instance], INFINITE);
+		WaitForSingleObject(m_hBeginWorkSemaphore[instance], INFINITE);
 		assert(queueOffset < g_iSceneQueueSizeInBytes);
 
 		auto entry = reinterpret_cast<const WorkQueueEntryBase*>(&localQueue[queueOffset]);
@@ -196,7 +196,7 @@ unsigned int Burst::_PerChunkRenderDeferredProc(LPVOID lpParameter)
 				chunkEntry->m_callBack(instance);
 			}
 
-			SetEvent(m_hEndPerChunkRenderDeferredEvent[instance]);
+			SetEvent(m_hEndWorkEvent[instance]);
 
 			queueOffset = 0;
 			break;
@@ -213,13 +213,13 @@ unsigned int Burst::_PerChunkRenderDeferredProc(LPVOID lpParameter)
 void Burst::PrepareWork()
 {
 	OPTICK_CATEGORY("Burst::PrepareWork", Optick::Category::Script);
-	for (int i = 0; i < m_numPerChunkRenderThreads; ++i)
+	for (int i = 0; i < ThreadCount; ++i)
 	{
 		m_iPerChunkQueueOffset[i] = 0;
 
 		ChunkQueue& workerQueue = m_chunkQueue[i];
 		int queueOffset = m_iPerChunkQueueOffset[i];
-		HANDLE semaphore = m_hBeginPerChunkRenderDeferredSemaphore[i];
+		HANDLE semaphore = m_hBeginWorkSemaphore[i];
 
 		m_iPerChunkQueueOffset[i] += sizeof(WorkQueueEntrySetup);
 		assert(m_iPerChunkQueueOffset[i] < g_iSceneQueueSizeInBytes);
@@ -235,13 +235,13 @@ void Burst::PrepareWork()
 void Burst::PrepareWork(std::function<void(int Index)> PerThreadPrep)
 {
 	OPTICK_CATEGORY("Burst::PrepareWork", Optick::Category::Script);
-	for (int i = 0; i < m_numPerChunkRenderThreads; ++i)
+	for (int i = 0; i < ThreadCount; ++i)
 	{
 		m_iPerChunkQueueOffset[i] = 0;
 
 		ChunkQueue& workerQueue = m_chunkQueue[i];
 		int queueOffset = m_iPerChunkQueueOffset[i];
-		HANDLE semaphore = m_hBeginPerChunkRenderDeferredSemaphore[i];
+		HANDLE semaphore = m_hBeginWorkSemaphore[i];
 
 		m_iPerChunkQueueOffset[i] += sizeof(WorkQueueEntrySetup);
 		assert(m_iPerChunkQueueOffset[i] < g_iSceneQueueSizeInBytes);
@@ -272,17 +272,17 @@ void Burst::AddWork2(Burst::LambdaWorkEntry& NewWork, int InSize)
 	pEntry->m_callBack = NewWork.m_callBack;
 	ReleaseSemaphore(hSemaphore, 1, nullptr);
 
-	nextAvailableChunkQueue = ++nextAvailableChunkQueue % m_numPerChunkRenderThreads;
+	nextAvailableChunkQueue = ++nextAvailableChunkQueue % ThreadCount;
 }
 
 void Burst::FinalizeWork()
 {
 	OPTICK_CATEGORY("Burst::FinalizeWork", Optick::Category::Script);
-	for (int i = 0; i < m_numPerChunkRenderThreads; ++i)
+	for (int i = 0; i < ThreadCount; ++i)
 	{
 		ChunkQueue& workerQueue = m_chunkQueue[i];
 		int queueOffset = m_iPerChunkQueueOffset[i];
-		HANDLE semaphore = m_hBeginPerChunkRenderDeferredSemaphore[i];
+		HANDLE semaphore = m_hBeginWorkSemaphore[i];
 
 		m_iPerChunkQueueOffset[i] += sizeof(WorkQueueEntryFinalize);
 		assert(m_iPerChunkQueueOffset[i] < g_iSceneQueueSizeInBytes);
@@ -293,18 +293,18 @@ void Burst::FinalizeWork()
 
 		ReleaseSemaphore(semaphore, 1, nullptr);
 	}
-	WaitForMultipleObjects(m_numPerChunkRenderThreads, m_hEndPerChunkRenderDeferredEvent, TRUE, INFINITE);
+	WaitForMultipleObjects(ThreadCount, m_hEndWorkEvent, TRUE, INFINITE);
 
 }
 
 void Burst::FinalizeWork(std::function<void(int Index)> PerThreadFinal)
 {
 	OPTICK_CATEGORY("Burst::FinalizeWork", Optick::Category::Script);
-	for (int i = 0; i < m_numPerChunkRenderThreads; ++i)
+	for (int i = 0; i < ThreadCount; ++i)
 	{
 		ChunkQueue& workerQueue = m_chunkQueue[i];
 		int queueOffset = m_iPerChunkQueueOffset[i];
-		HANDLE semaphore = m_hBeginPerChunkRenderDeferredSemaphore[i];
+		HANDLE semaphore = m_hBeginWorkSemaphore[i];
 
 		m_iPerChunkQueueOffset[i] += sizeof(WorkQueueEntryFinalize);
 		assert(m_iPerChunkQueueOffset[i] < g_iSceneQueueSizeInBytes);
@@ -315,7 +315,7 @@ void Burst::FinalizeWork(std::function<void(int Index)> PerThreadFinal)
 
 		ReleaseSemaphore(semaphore, 1, nullptr);
 	}
-	WaitForMultipleObjects(m_numPerChunkRenderThreads, m_hEndPerChunkRenderDeferredEvent, TRUE, INFINITE);
+	WaitForMultipleObjects(ThreadCount, m_hEndWorkEvent, TRUE, INFINITE);
 }
 
 ChunkQueue& Burst::GetChunkQueue(int i)
@@ -369,5 +369,10 @@ void Burst::GenerateChunks(std::size_t size, std::size_t num, std::vector<std::p
 
 HANDLE Burst::GetBeginSemaphore(int i)
 {
-	return m_hBeginPerChunkRenderDeferredSemaphore[i];
+	return m_hBeginWorkSemaphore[i];
+}
+
+int Burst::GetNumThreads()
+{
+	return ThreadCount;
 }

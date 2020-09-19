@@ -9,13 +9,13 @@ const int                   g_iSceneQueueSizeInBytes = 16 * 1024;
 typedef unsigned char                ChunkQueue[g_iSceneQueueSizeInBytes];
 
 static const int kMaxPerChunkThreads = 32;
-static const int m_maxPendingQueueEntries = 1024;     // Max value of g_hBeginPerChunkRenderDeferredSemaphore
+static const int kMaxPendingQueueEntries = 1024;     // Max value of g_hBeginPerChunkRenderDeferredSemaphore
 
 class Burst
 {
 public:
 	// The different types of job in the per-chunk work queues
-	enum Job
+	enum JobType
 	{
 		Setup,
 		Work,
@@ -26,7 +26,7 @@ public:
 	// The contents of the work queues depend on the job type...
 	struct WorkQueueEntryBase
 	{
-		Job m_iType;
+		JobType m_iType;
 	};
 
 	struct WorkQueueEntrySetup : public WorkQueueEntryBase
@@ -48,7 +48,7 @@ public:
 
 	int GetPhysicalProcessorCount();
 	void InitializeWorkerThreads();
-	static unsigned int _PerChunkRenderDeferredProc(LPVOID lpParameter);
+	static unsigned int _BurstThread(LPVOID lpParameter);
 
 	void PrepareWork();
 	void PrepareWork(std::function<void(int Index)> PerThreadPrep);
@@ -58,7 +58,6 @@ public:
 	void FinalizeWork();
 	void FinalizeWork(std::function<void(int Index)> PerThreadFinal);
 
-	int m_numPerChunkRenderThreads = 0;
 
 	ChunkQueue& GetChunkQueue(int i);
 	int GetChunkQueueOffset(int i);
@@ -68,4 +67,10 @@ public:
 	void GenerateChunks(std::size_t size, std::size_t num, std::vector<std::pair<int, int>>& OutChunks);
 
 	HANDLE GetBeginSemaphore(int i);
+
+	int GetNumThreads();
+
+private:
+	int ThreadCount = 0;
+
 };

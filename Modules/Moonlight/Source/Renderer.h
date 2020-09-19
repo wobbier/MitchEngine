@@ -39,57 +39,6 @@ namespace Moonlight
 		int Id = 0;
 	};
 
-	enum class eDeviceContextType : int8_t
-	{
-		Immediate = 0,
-		ST_DefferedScene,
-		MT_DefferedScene,
-		ST_DefferedChunk,
-		MT_DefferedChunk,
-		Legacy
-	};
-
-	// The different types of job in the per-chunk work queues
-	enum WorkQueueEntryType
-	{
-		WORK_QUEUE_ENTRY_TYPE_SETUP,
-		WORK_QUEUE_ENTRY_TYPE_CHUNK,
-		WORK_QUEUE_ENTRY_TYPE_FINALIZE,
-
-		WORK_QUEUE_ENTRY_TYPE_COUNT
-	};
-
-	// The contents of the work queues depend on the job type...
-	struct WorkQueueEntryBase
-	{
-		WorkQueueEntryType          m_iType;
-	};
-
-	// Work item params for scene setup
-	struct WorkQueueEntrySetup : public WorkQueueEntryBase
-	{
-		//const SceneParamsStatic* m_pSceneParamsStatic;
-		//SceneParamsDynamic          m_SceneParamsDynamic;
-		FrameBuffer* buffer;
-		CameraData* m_camera;
-		ID3D11Buffer* m_constantBufferBuffer;
-	};
-
-	// Work item params for chunk render
-	struct WorkQueueEntryChunk : public WorkQueueEntryBase
-	{
-		std::function<void(ID3D11DeviceContext3*)> m_renderMesh;
-	};
-
-	// Work item params for scene finalize
-	struct WorkQueueEntryFinalize : public WorkQueueEntryBase
-	{
-	};
-
-	// The work item queue for each per-chunk worker thread
-	const int                   g_iSceneQueueSizeInBytes = 16 * 1024;
-	typedef BYTE                ChunkQueue[g_iSceneQueueSizeInBytes];
-
 	class Renderer
 	{
 	public:
@@ -118,46 +67,16 @@ namespace Moonlight
 		ViewportMode GetViewportMode();
 
 /* MULTITHREADING */
-		void InitializeWorkerThreads(ID3D11Device* device);
-		static unsigned int _PerChunkRenderDeferredProc(LPVOID lpParameter);
+		void InitializeWorkerThreads();
 
 		void ThreadedRender(std::function<void()> func, std::function<void()> uiRender, CameraData& editorCamera);
 		void RenderSceneDirect(ID3D11DeviceContext3* context, const ModelViewProjectionConstantBuffer& constantBufferSceneData, CameraData& camera, FrameBuffer* frameBuffer);
 
 		void RenderMeshDirect(MeshCommand& mesh, ID3D11DeviceContext3* context);
 
-		static void RenderSceneSetup(Renderer& renderer, ID3D11DeviceContext3* context, const CameraData& camera, FrameBuffer* ViewRTT, ID3D11Buffer* constantBuffer);
+		void RenderSceneSetup(ID3D11DeviceContext3* context, const CameraData& camera, FrameBuffer* ViewRTT, ID3D11Buffer* constantBuffer);
 		void FinishRenderingScene(ID3D11DeviceContext3* context, const CameraData& camera, FrameBuffer* ViewRTT, ID3D11Buffer* constantBuffer);
 
-		void SetContextType(eDeviceContextType inType);
-		eDeviceContextType GetContextType();
-		// Device Context Type
-		inline bool IsRenderDeferredPerScene() const
-		{
-			return m_contextType == eDeviceContextType::ST_DefferedScene || m_contextType == eDeviceContextType::MT_DefferedScene;
-		}
-
-		inline bool IsRenderMultithreadedPerScene() const
-		{
-			return m_contextType == eDeviceContextType::MT_DefferedScene;
-		}
-
-		inline bool IsRenderDeferredPerChunk() const
-		{
-			return m_contextType == eDeviceContextType::ST_DefferedChunk || m_contextType == eDeviceContextType::MT_DefferedChunk;
-		}
-
-		inline bool IsRenderMultithreadedPerChunk() const
-		{
-			return m_contextType == eDeviceContextType::MT_DefferedChunk;
-		}
-
-		bool IsLegacyRenderer()
-		{
-			return m_contextType == eDeviceContextType::Legacy;
-		}
-
-		// Device Context Type
 /* MULTITHREADING */
 
 		DX11Device& GetDevice() const;
@@ -185,8 +104,6 @@ namespace Moonlight
 
 		void PickScene(const Vector2& Pos);
 
-		//class RenderTexture* GameViewRTT = nullptr;
-		FrameBuffer* SceneViewRTT = nullptr;
 		FrameBuffer* GameViewRTT = nullptr;
 		LightCommand Sunlight;
 		LightingPassConstantBuffer LightingPassBuffer;
@@ -201,18 +118,10 @@ namespace Moonlight
 
 	private:
 /* MULTITHREADING */
-		eDeviceContextType m_contextType = eDeviceContextType::MT_DefferedChunk;
 		int m_numPerChunkRenderThreads = 0;
 		static const int kMaxPerChunkRenderThreads = 32;
-		static const int m_maxPendingQueueEntries = 1024;     // Max value of g_hBeginPerChunkRenderDeferredSemaphore
-		int m_perChunkThreadInstanceData[kMaxPerChunkRenderThreads];
-		int g_iPerChunkQueueOffset[kMaxPerChunkRenderThreads]; // next free portion of the queue to add an entry to
-		HANDLE m_hPerChunkRenderDeferredThread[kMaxPerChunkRenderThreads];
-		HANDLE m_hBeginPerChunkRenderDeferredSemaphore[kMaxPerChunkRenderThreads];
-		HANDLE m_hEndPerChunkRenderDeferredEvent[kMaxPerChunkRenderThreads];
 		ID3D11DeviceContext3* m_pd3dPerChunkDeferredContext[kMaxPerChunkRenderThreads] = { nullptr };
 		ID3D11CommandList* g_pd3dPerChunkCommandList[kMaxPerChunkRenderThreads] = { nullptr };
-		ChunkQueue m_chunkQueue[kMaxPerChunkRenderThreads];
 /* MULTITHREADING */
 
 		class MeshData* PlaneMesh = nullptr;

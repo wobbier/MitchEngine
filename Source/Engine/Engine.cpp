@@ -28,7 +28,6 @@
 #endif
 #include "Resource/ResourceCache.h"
 #include "optick.h"
-#include "Core/JobSystem.h"
 #include "Work/Burst.h"
 #include "Profiling/BasicFrameProfile.h"
 
@@ -39,7 +38,6 @@ Engine& GetEngine()
 
 Engine::Engine()
 	: Running(true)
-	, m_jobSystem(0)
 {
 	std::vector<TypeId> events;
 	events.push_back(LoadSceneEvent::GetEventId());
@@ -80,6 +78,8 @@ void Engine::Init(Game* game)
 #endif
 
 	EngineConfig = new Config(engineCfg);
+
+	burst.InitializeWorkerThreads();
 
 #if ME_PLATFORM_WIN64
 	const json& WindowConfig = EngineConfig->GetObject("Window");
@@ -151,8 +151,6 @@ void Engine::Run()
 
 	const float FramesPerSec = 420.f;
 	const float MaxDeltaTime = (1.f / FramesPerSec);
-
-	burst.InitializeWorkerThreads();
 	// Game loop
 	forever
 	{
@@ -261,16 +259,6 @@ Moonlight::Renderer& Engine::GetRenderer() const
 std::weak_ptr<World> Engine::GetWorld() const
 {
 	return GameWorld;
-}
-
-JobQueue& Engine::GetJobQueue()
-{
-	return m_jobSystem.GetJobQueue();
-}
-
-JobSystem& Engine::GetJobSystem()
-{
-	return m_jobSystem;
 }
 
 const bool Engine::IsInitialized() const
