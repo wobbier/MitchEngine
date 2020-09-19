@@ -6,6 +6,7 @@
 #include <algorithm>
 #include "Dementia.h"
 #include <process.h>
+#include "Utils/StringUtils.h"
 
 typedef BOOL(WINAPI* LPFN_GLPI)(
 	PSYSTEM_LOGICAL_PROCESSOR_INFORMATION,
@@ -131,6 +132,7 @@ void Burst::InitializeWorkerThreads()
 		m_hEndPerChunkRenderDeferredEvent[i] = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 
 		m_hPerChunkRenderDeferredThread[i] = (HANDLE)_beginthreadex(nullptr, 0, &Burst::_PerChunkRenderDeferredProc, &m_perChunkThreadInstanceData[i], CREATE_SUSPENDED, nullptr);
+		//PCWSTR asdasd = StringUtils::ToWString("Burst Thread " + i).c_str();
 
 		ResumeThread(m_hPerChunkRenderDeferredThread[i]);
 	}
@@ -157,31 +159,42 @@ unsigned int Burst::_PerChunkRenderDeferredProc(LPVOID lpParameter)
 		auto entry = reinterpret_cast<const WorkQueueEntryBase*>(&localQueue[queueOffset]);
 		switch (entry->m_iType)
 		{
-		case WORK_QUEUE_ENTRY_TYPE_SETUP:
+		case Setup:
 		{
-			OPTICK_EVENT("WORK_QUEUE_ENTRY_TYPE_SETUP", Optick::Category::Rendering);
-			auto pSetupEntry = reinterpret_cast<const WorkQueueEntrySetup*>(entry);
+			OPTICK_EVENT("B::Setup", Optick::Category::Wait);
+			auto setupEntry = reinterpret_cast<const WorkQueueEntrySetup*>(entry);
+
+			if (setupEntry->m_callBack)
+			{
+				setupEntry->m_callBack(instance);
+			}
 
 			queueOffset += sizeof(WorkQueueEntrySetup);
 			break;
 		}
-		case WORK_QUEUE_ENTRY_TYPE_CHUNK:
+		case Work:
 		{
-			OPTICK_EVENT("B::Job", Optick::Category::Rendering);
+			OPTICK_EVENT("B::Job", Optick::Category::Wait);
 			auto chunkEntry = reinterpret_cast<const LambdaWorkEntry*>(entry);
 
 			if (chunkEntry->m_callBack)
 			{
-				chunkEntry->m_callBack();
+				chunkEntry->m_callBack(instance);
 			}
 
 			queueOffset += sizeof(LambdaWorkEntry);
 
 			break;
 		}
-		case WORK_QUEUE_ENTRY_TYPE_FINALIZE:
+		case Finalize:
 		{
-			OPTICK_EVENT("WORK_QUEUE_ENTRY_TYPE_FINALIZE", Optick::Category::Rendering);
+			OPTICK_EVENT("B::Finish", Optick::Category::Wait);
+
+			auto chunkEntry = reinterpret_cast<const LambdaWorkEntry*>(entry);
+			if (chunkEntry->m_callBack)
+			{
+				chunkEntry->m_callBack(instance);
+			}
 
 			SetEvent(m_hEndPerChunkRenderDeferredEvent[instance]);
 
@@ -212,7 +225,30 @@ void Burst::PrepareWork()
 		assert(m_iPerChunkQueueOffset[i] < g_iSceneQueueSizeInBytes);
 
 		WorkQueueEntrySetup* entry = reinterpret_cast<WorkQueueEntrySetup*>(&workerQueue[queueOffset]);
-		entry->m_iType = WORK_QUEUE_ENTRY_TYPE_SETUP;
+		entry->m_iType = Setup;
+		entry->m_callBack = nullptr;
+
+		ReleaseSemaphore(semaphore, 1, nullptr);
+	}
+}
+
+void Burst::PrepareWork(std::function<void(int Index)> PerThreadPrep)
+{
+	OPTICK_CATEGORY("Burst::PrepareWork", Optick::Category::Script);
+	for (int i = 0; i < m_numPerChunkRenderThreads; ++i)
+	{
+		m_iPerChunkQueueOffset[i] = 0;
+
+		ChunkQueue& workerQueue = m_chunkQueue[i];
+		int queueOffset = m_iPerChunkQueueOffset[i];
+		HANDLE semaphore = m_hBeginPerChunkRenderDeferredSemaphore[i];
+
+		m_iPerChunkQueueOffset[i] += sizeof(WorkQueueEntrySetup);
+		assert(m_iPerChunkQueueOffset[i] < g_iSceneQueueSizeInBytes);
+
+		WorkQueueEntrySetup* entry = reinterpret_cast<WorkQueueEntrySetup*>(&workerQueue[queueOffset]);
+		entry->m_iType = Setup;
+		entry->m_callBack = PerThreadPrep;
 
 		ReleaseSemaphore(semaphore, 1, nullptr);
 	}
@@ -232,7 +268,7 @@ void Burst::AddWork2(Burst::LambdaWorkEntry& NewWork, int InSize)
 
 	auto pEntry = reinterpret_cast<Burst::LambdaWorkEntry*>(&WorkerQueue[iQueueOffset]);
 
-	pEntry->m_iType = WORK_QUEUE_ENTRY_TYPE_CHUNK;
+	pEntry->m_iType = Work;
 	pEntry->m_callBack = NewWork.m_callBack;
 	ReleaseSemaphore(hSemaphore, 1, nullptr);
 
@@ -252,12 +288,34 @@ void Burst::FinalizeWork()
 		assert(m_iPerChunkQueueOffset[i] < g_iSceneQueueSizeInBytes);
 
 		auto entry = reinterpret_cast<WorkQueueEntryFinalize*>(&workerQueue[queueOffset]);
-		entry->m_iType = WORK_QUEUE_ENTRY_TYPE_FINALIZE;
+		entry->m_iType = Finalize;
+		entry->m_callBack = nullptr;
 
 		ReleaseSemaphore(semaphore, 1, nullptr);
 	}
 	WaitForMultipleObjects(m_numPerChunkRenderThreads, m_hEndPerChunkRenderDeferredEvent, TRUE, INFINITE);
 
+}
+
+void Burst::FinalizeWork(std::function<void(int Index)> PerThreadFinal)
+{
+	OPTICK_CATEGORY("Burst::FinalizeWork", Optick::Category::Script);
+	for (int i = 0; i < m_numPerChunkRenderThreads; ++i)
+	{
+		ChunkQueue& workerQueue = m_chunkQueue[i];
+		int queueOffset = m_iPerChunkQueueOffset[i];
+		HANDLE semaphore = m_hBeginPerChunkRenderDeferredSemaphore[i];
+
+		m_iPerChunkQueueOffset[i] += sizeof(WorkQueueEntryFinalize);
+		assert(m_iPerChunkQueueOffset[i] < g_iSceneQueueSizeInBytes);
+
+		auto entry = reinterpret_cast<WorkQueueEntryFinalize*>(&workerQueue[queueOffset]);
+		entry->m_iType = Finalize;
+		entry->m_callBack = PerThreadFinal;
+
+		ReleaseSemaphore(semaphore, 1, nullptr);
+	}
+	WaitForMultipleObjects(m_numPerChunkRenderThreads, m_hEndPerChunkRenderDeferredEvent, TRUE, INFINITE);
 }
 
 ChunkQueue& Burst::GetChunkQueue(int i)

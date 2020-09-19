@@ -1144,6 +1144,10 @@ void Havana::UpdateWorldRecursive(Transform* root)
 	for (SharedPtr<Transform> child : root->GetChildren())
 	{
 		OPTICK_CATEGORY("UpdateWorld::UpdateWorldRecursive::Child", Optick::Category::GameLogic);
+		if (!child)
+		{
+			continue;
+		}
 		Transform* var = child.get();
 		bool open = false;
 		ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | (SelectedTransform == var ? ImGuiTreeNodeFlags_Selected : 0);

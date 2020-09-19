@@ -118,7 +118,6 @@ namespace Moonlight
 		ViewportMode GetViewportMode();
 
 /* MULTITHREADING */
-		int GetPhysicalProcessorCount();
 		void InitializeWorkerThreads(ID3D11Device* device);
 		static unsigned int _PerChunkRenderDeferredProc(LPVOID lpParameter);
 

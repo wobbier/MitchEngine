@@ -286,123 +286,37 @@ namespace Moonlight
 	{
 		return m_viewportMode;
 	}
-#if ME_PLATFORM_UWP
-	HMODULE GetKernelModule()
-	{
-		MEMORY_BASIC_INFORMATION mbi = { 0 };
-		VirtualQuery(VirtualQuery, &mbi, sizeof(mbi));
-		return reinterpret_cast<HMODULE>(mbi.AllocationBase);
-	}
-#endif
-
-	int Renderer::GetPhysicalProcessorCount()
-	{
-		DWORD processorCoreCount = 0;
-
-#if ME_PLATFORM_UWP
-		HMODULE handle = GetKernelModule();
-#else
-		HMODULE handle = GetModuleHandle(L"kernel32");
-#endif
-
-		auto procInfo = reinterpret_cast<LPFN_GLPI>(GetProcAddress(handle, "GetLogicalProcessorInformation"));
-		if (!procInfo)
-		{
-			YIKES("Failed to get logical processor information.");
-			return processorCoreCount;
-		}
-
-		bool done = false;
-		PSYSTEM_LOGICAL_PROCESSOR_INFORMATION buffer = nullptr;
-		DWORD returnLength = 0;
-
-		while (!done)
-		{
-			BOOL rc = procInfo(buffer, &returnLength);
-			if (rc == FALSE)
-			{
-				if (GetLastError() == ERROR_INSUFFICIENT_BUFFER)
-				{
-					if (buffer)
-					{
-						free(buffer);
-					}
-
-					buffer = reinterpret_cast<PSYSTEM_LOGICAL_PROCESSOR_INFORMATION>(malloc(returnLength));
-					if (!buffer)
-					{
-						return processorCoreCount;
-					}
-				}
-				else
-				{
-					return processorCoreCount;
-				}
-			}
-			else
-			{
-				done = true;
-			}
-		}
-
-		assert(buffer);
-
-		DWORD byteOffset = 0;
-		PSYSTEM_LOGICAL_PROCESSOR_INFORMATION info = buffer;
-		while (byteOffset < returnLength)
-		{
-			if (info->Relationship == RelationProcessorCore)
-			{
-				if (info->ProcessorCore.Flags)
-				{
-					// Hyperthreading or SMT enabled.
-					processorCoreCount += 1;
-				}
-				else
-				{
-					processorCoreCount += CountBits(info->ProcessorMask);
-				}
-			}
-
-			byteOffset += sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION);
-			info++;
-		}
-
-		return processorCoreCount;
-	}
-
 
 	void Renderer::InitializeWorkerThreads(ID3D11Device* device)
 	{
 		HRESULT hr;
 
-		m_numPerChunkRenderThreads = GetPhysicalProcessorCount() - 1;
+		m_numPerChunkRenderThreads = GetEngine().GetBurstWorker().GetPhysicalProcessorCount() - 1;
 		m_numPerChunkRenderThreads = std::min(m_numPerChunkRenderThreads, kMaxPerChunkRenderThreads);
 		m_numPerChunkRenderThreads = std::max(m_numPerChunkRenderThreads, 1);
-		//m_numPerChunkRenderThreads = 2;
 
 		for (int i = 0; i < m_numPerChunkRenderThreads; ++i)
 		{
 			m_perChunkThreadInstanceData[i] = i;
 
-			m_hBeginPerChunkRenderDeferredSemaphore[i] = CreateSemaphore(nullptr, 0, m_maxPendingQueueEntries, nullptr);
-			m_hEndPerChunkRenderDeferredEvent[i] = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+			//m_hBeginPerChunkRenderDeferredSemaphore[i] = CreateSemaphore(nullptr, 0, m_maxPendingQueueEntries, nullptr);
+			//m_hEndPerChunkRenderDeferredEvent[i] = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 
 			hr = GetDevice().GetD3DDevice()->CreateDeferredContext3(0, &m_pd3dPerChunkDeferredContext[i]);
 			DX::ThrowIfFailed(hr);
-
-			m_hPerChunkRenderDeferredThread[i] = (HANDLE)_beginthreadex(nullptr, 0, &Renderer::_PerChunkRenderDeferredProc, &m_perChunkThreadInstanceData[i], CREATE_SUSPENDED, nullptr);
-
-#if defined(PROFILE) || defined(DEBUG)
-			char threadid[16];
-			sprintf_s(threadid, sizeof(threadid), "PC %d", i);
-			if (m_pd3dPerChunkDeferredContext[i])
-			{
-				m_pd3dPerChunkDeferredContext[i]->SetPrivateData(WKPDID_D3DDebugObjectName, (UINT)strlen(threadid), threadid);
-			}
-#endif
-
-			ResumeThread(m_hPerChunkRenderDeferredThread[i]);
+//
+//			m_hPerChunkRenderDeferredThread[i] = (HANDLE)_beginthreadex(nullptr, 0, &Renderer::_PerChunkRenderDeferredProc, &m_perChunkThreadInstanceData[i], CREATE_SUSPENDED, nullptr);
+//
+//#if defined(PROFILE) || defined(DEBUG)
+//			char threadid[16];
+//			sprintf_s(threadid, sizeof(threadid), "PC %d", i);
+//			if (m_pd3dPerChunkDeferredContext[i])
+//			{
+//				m_pd3dPerChunkDeferredContext[i]->SetPrivateData(WKPDID_D3DDebugObjectName, (UINT)strlen(threadid), threadid);
+//			}
+//#endif
+//
+//			ResumeThread(m_hPerChunkRenderDeferredThread[i]);
 		}
 
 		if (m_numPerChunkRenderThreads > 0)
@@ -809,29 +723,42 @@ namespace Moonlight
 
 		if (IsRenderMultithreadedPerChunk())
 		{
-			for (int i = 0; i < m_numPerChunkRenderThreads; ++i)
-			{
-				g_iPerChunkQueueOffset[i] = 0;
+			Burst& burst = GetEngine().GetBurstWorker();
 
-				ChunkQueue& workerQueue = m_chunkQueue[i];
-				int queueOffset = g_iPerChunkQueueOffset[i];
-				HANDLE semaphore = m_hBeginPerChunkRenderDeferredSemaphore[i];
-				if (m_pd3dPerChunkDeferredContext[i] == nullptr)
-				{
-					GetDevice().GetD3DDevice()->CreateDeferredContext3(0, &m_pd3dPerChunkDeferredContext[i]);
-				}
+			burst.PrepareWork([this, camera, frameBuffer](int Index) {
 
-				g_iPerChunkQueueOffset[i] += sizeof(WorkQueueEntrySetup);
-				assert(g_iPerChunkQueueOffset[i] < g_iSceneQueueSizeInBytes);
+				ID3D11DeviceContext3* deferredContext = m_pd3dPerChunkDeferredContext[Index];
+				ID3D11CommandList*& pd3dCommandList = g_pd3dPerChunkCommandList[Index];
 
-				WorkQueueEntrySetup* entry = reinterpret_cast<WorkQueueEntrySetup*>(&workerQueue[queueOffset]);
-				entry->m_iType = WORK_QUEUE_ENTRY_TYPE_SETUP;
-				entry->buffer = frameBuffer;
-				entry->m_constantBufferBuffer = m_perFrameBuffer.Get();
-				entry->m_camera = &camera;
+				deferredContext->ClearState();
+				RenderSceneSetup(*this, m_pd3dPerChunkDeferredContext[Index], camera, frameBuffer, m_perFrameBuffer.Get());
+			});
+			//burst.FinalizeWork();
 
-				ReleaseSemaphore(semaphore, 1, nullptr);
-			}
+
+			//for (int i = 0; i < m_numPerChunkRenderThreads; ++i)
+			//{
+			//	g_iPerChunkQueueOffset[i] = 0;
+
+			//	ChunkQueue& workerQueue = m_chunkQueue[i];
+			//	int queueOffset = g_iPerChunkQueueOffset[i];
+			//	HANDLE semaphore = m_hBeginPerChunkRenderDeferredSemaphore[i];
+			//	if (m_pd3dPerChunkDeferredContext[i] == nullptr)
+			//	{
+			//		GetDevice().GetD3DDevice()->CreateDeferredContext3(0, &m_pd3dPerChunkDeferredContext[i]);
+			//	}
+
+			//	g_iPerChunkQueueOffset[i] += sizeof(WorkQueueEntrySetup);
+			//	assert(g_iPerChunkQueueOffset[i] < g_iSceneQueueSizeInBytes);
+
+			//	WorkQueueEntrySetup* entry = reinterpret_cast<WorkQueueEntrySetup*>(&workerQueue[queueOffset]);
+			//	entry->m_iType = WORK_QUEUE_ENTRY_TYPE_SETUP;
+			//	entry->buffer = frameBuffer;
+			//	entry->m_constantBufferBuffer = m_perFrameBuffer.Get();
+			//	entry->m_camera = &camera;
+
+			//	ReleaseSemaphore(semaphore, 1, nullptr);
+			//}
 
 			for (int i = 0; i < Cameras.size(); ++i)
 			{
@@ -878,21 +805,33 @@ namespace Moonlight
 		{
 			if (IsRenderMultithreadedPerChunk())
 			{
-				for (int i = 0; i < m_numPerChunkRenderThreads; ++i)
-				{
-					ChunkQueue& workerQueue = m_chunkQueue[i];
-					int queueOffset = g_iPerChunkQueueOffset[i];
-					HANDLE semaphore = m_hBeginPerChunkRenderDeferredSemaphore[i];
 
-					g_iPerChunkQueueOffset[i] += sizeof(WorkQueueEntryFinalize);
-					assert(g_iPerChunkQueueOffset[i] < g_iSceneQueueSizeInBytes);
+				Burst& burst = GetEngine().GetBurstWorker();
 
-					auto entry = reinterpret_cast<WorkQueueEntryFinalize*>(&workerQueue[queueOffset]);
-					entry->m_iType = WORK_QUEUE_ENTRY_TYPE_FINALIZE;
+				burst.FinalizeWork([this](int Index) {
 
-					ReleaseSemaphore(semaphore, 1, nullptr);
-				}
-				WaitForMultipleObjects(m_numPerChunkRenderThreads, m_hEndPerChunkRenderDeferredEvent, TRUE, INFINITE);
+					ID3D11DeviceContext3* deferredContext = m_pd3dPerChunkDeferredContext[Index];
+					ID3D11CommandList*& pd3dCommandList = g_pd3dPerChunkCommandList[Index];
+
+					HRESULT hr = deferredContext->FinishCommandList(false, &pd3dCommandList);
+				});
+				//burst.FinalizeWork();
+
+				//for (int i = 0; i < m_numPerChunkRenderThreads; ++i)
+				//{
+				//	ChunkQueue& workerQueue = m_chunkQueue[i];
+				//	int queueOffset = g_iPerChunkQueueOffset[i];
+				//	HANDLE semaphore = m_hBeginPerChunkRenderDeferredSemaphore[i];
+
+				//	g_iPerChunkQueueOffset[i] += sizeof(WorkQueueEntryFinalize);
+				//	assert(g_iPerChunkQueueOffset[i] < g_iSceneQueueSizeInBytes);
+
+				//	auto entry = reinterpret_cast<WorkQueueEntryFinalize*>(&workerQueue[queueOffset]);
+				//	entry->m_iType = WORK_QUEUE_ENTRY_TYPE_FINALIZE;
+
+				//	ReleaseSemaphore(semaphore, 1, nullptr);
+				//}
+				//WaitForMultipleObjects(m_numPerChunkRenderThreads, m_hEndPerChunkRenderDeferredEvent, TRUE, INFINITE);
 			}
 
 			for (int i = 0; i < m_numPerChunkRenderThreads; ++i)
@@ -935,7 +874,7 @@ namespace Moonlight
 			int batchEnd = batch.second;
 			int batchSize = batchEnd - batchBegin;
 
-			auto func = [this, batchBegin, batchEnd](ID3D11DeviceContext3* context) {
+			auto func = [this, batchBegin, batchEnd](int Index) {
 				OPTICK_CATEGORY("Render Mesh", Optick::Category::GPU_Scene);
 				for (int entIndex = batchBegin; entIndex < batchEnd; ++entIndex)
 				{
@@ -944,29 +883,30 @@ namespace Moonlight
 					{
 						continue;
 					}
-					RenderMeshDirect(mesh, context);
+					RenderMeshDirect(mesh, m_pd3dPerChunkDeferredContext[Index]);
 				}
 			};
-			//burst.AddWork2(entry, (int)sizeof(Burst::LambdaWorkEntry));
+			entry.m_callBack = func;
+			burst.AddWork2(entry, (int)sizeof(Burst::LambdaWorkEntry));
 
-			if (IsRenderMultithreadedPerChunk())
-			{
-				ChunkQueue& WorkerQueue = m_chunkQueue[nextAvailableChunkQueue];
-				int iQueueOffset = g_iPerChunkQueueOffset[nextAvailableChunkQueue];
-				HANDLE hSemaphore = m_hBeginPerChunkRenderDeferredSemaphore[nextAvailableChunkQueue];
+			//if (IsRenderMultithreadedPerChunk())
+			//{
+			//	ChunkQueue& WorkerQueue = m_chunkQueue[nextAvailableChunkQueue];
+			//	int iQueueOffset = g_iPerChunkQueueOffset[nextAvailableChunkQueue];
+			//	HANDLE hSemaphore = m_hBeginPerChunkRenderDeferredSemaphore[nextAvailableChunkQueue];
 
-				g_iPerChunkQueueOffset[nextAvailableChunkQueue] += sizeof(WorkQueueEntryChunk);
-				assert(g_iPerChunkQueueOffset[nextAvailableChunkQueue] < g_iSceneQueueSizeInBytes);
+			//	g_iPerChunkQueueOffset[nextAvailableChunkQueue] += sizeof(WorkQueueEntryChunk);
+			//	assert(g_iPerChunkQueueOffset[nextAvailableChunkQueue] < g_iSceneQueueSizeInBytes);
 
-				auto pEntry = reinterpret_cast<WorkQueueEntryChunk*>(&WorkerQueue[iQueueOffset]);
+			//	auto pEntry = reinterpret_cast<WorkQueueEntryChunk*>(&WorkerQueue[iQueueOffset]);
 
-				ZeroMemory(pEntry, sizeof(WorkQueueEntryChunk));
-				pEntry->m_iType = WORK_QUEUE_ENTRY_TYPE_CHUNK;
-				pEntry->m_renderMesh = func;
+			//	ZeroMemory(pEntry, sizeof(WorkQueueEntryChunk));
+			//	pEntry->m_iType = WORK_QUEUE_ENTRY_TYPE_CHUNK;
+			//	pEntry->m_renderMesh = func;
 
-				ReleaseSemaphore(hSemaphore, 1, nullptr);
-			}
-			nextAvailableChunkQueue = ++nextAvailableChunkQueue % m_numPerChunkRenderThreads;
+			//	ReleaseSemaphore(hSemaphore, 1, nullptr);
+			//}
+			//nextAvailableChunkQueue = ++nextAvailableChunkQueue % m_numPerChunkRenderThreads;
 		}
 
 		//burst.FinalizeWork();
@@ -1838,11 +1778,11 @@ namespace Moonlight
 		delete data.Buffer;
 		if (data.IsMain)
 		{
-			GameViewRTT = data.Buffer = m_device->CreateFrameBuffer(m_device->GetOutputSize().X(), m_device->GetOutputSize().Y(), 1, DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_D24_UNORM_S8_UINT);
+			GameViewRTT = data.Buffer = m_device->CreateFrameBuffer(static_cast<UINT>(m_device->GetOutputSize().X()), static_cast<UINT>(m_device->GetOutputSize().Y()), 1, DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_D24_UNORM_S8_UINT);
 		}
 		else
 		{
-			data.Buffer = m_device->CreateFrameBuffer(m_device->GetOutputSize().X(), m_device->GetOutputSize().Y(), 1, DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_D24_UNORM_S8_UINT);
+			data.Buffer = m_device->CreateFrameBuffer(static_cast<UINT>(m_device->GetOutputSize().X()), static_cast<UINT>(m_device->GetOutputSize().Y()), 1, DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_D24_UNORM_S8_UINT);
 		}
 
 		return index;
@@ -2048,8 +1988,8 @@ namespace Moonlight
 		{
 			BYTE* g_iMageBuffer = reinterpret_cast<BYTE*>(mapInfo.pData);
 
-			int x = Pos.X();
-			int y = Pos.Y();
+			int x = static_cast<int>(Pos.X());
+			int y = static_cast<int>(Pos.Y());
 			if (x < 0.0f || y < 0.0f || x > camera.OutputSize.X() || y > camera.OutputSize.Y())
 			{
 				return;

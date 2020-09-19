@@ -14,9 +14,6 @@
 #include "Mathf.h"
 #include "Work/Burst.h"
 
-#define M_PI 3.14159
-#define RADIANS_TO_DEGREES(__ANGLE__) ((__ANGLE__) / M_PI * 180.0)
-
 PhysicsCore::PhysicsCore()
 	: Base(ComponentFilter().Requires<Transform>().RequiresOneOf<Rigidbody>().RequiresOneOf<CharacterController>())
 {
@@ -75,7 +72,7 @@ void PhysicsCore::Update(float dt)
 		int batchSize = batchEnd - batchBegin;
 
 		//YIKES(std::to_string(batchBegin) + " End:" + std::to_string(batchEnd) + " Size:" + std::to_string(batchSize));
-		job.m_callBack = [this, &PhysicsEntites, batchBegin, batchEnd, batchSize, dt]() {
+		job.m_callBack = [this, &PhysicsEntites, batchBegin, batchEnd, batchSize, dt](int Index) {
 			OPTICK_CATEGORY("Job::UpdatePhysics", Optick::Category::Physics);
 
 			for (int entIndex = batchBegin; entIndex < batchEnd; ++entIndex)

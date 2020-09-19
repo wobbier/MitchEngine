@@ -62,7 +62,7 @@ void UpdateRecursively(Transform* CurrentTransform, bool isParentDirty, bool isB
 			{
 				shouldBurst = false;
 				Burst::LambdaWorkEntry entry;
-				entry.m_callBack = [Child, isParentDirty]() {
+				entry.m_callBack = [Child, isParentDirty](int Index) {
 					UpdateRecursively(Child.get(), isParentDirty, true);
 				};
 
@@ -83,7 +83,7 @@ void UpdateRecursively(Transform* CurrentTransform, bool isParentDirty, bool isB
 void SceneGraph::Update(float dt)
 {
 	OPTICK_EVENT("SceneGraph::Update");
-	auto& jobSystem = GetEngine().GetJobSystem();
+	//auto& jobSystem = GetEngine().GetJobSystem();
 	// Seems O.K. for now
 	//jobSystem.GetJobQueue().Lock();
 	GetEngine().GetBurstWorker().PrepareWork();

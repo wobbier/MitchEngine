@@ -90,7 +90,7 @@ void RenderCore::Update(float dt)
 		int batchSize = batchEnd - batchBegin;
 
 		//YIKES(std::to_string(batchBegin) + " End:" + std::to_string(batchEnd) + " Size:" + std::to_string(batchSize));
-		entry.m_callBack = [this, &Renderables, batchBegin, batchEnd, batchSize]() {
+		entry.m_callBack = [this, &Renderables, batchBegin, batchEnd, batchSize](int Index) {
 			if (Renderables.size() == 0)
 			{
 				return;

@@ -15,35 +15,33 @@ class Burst
 {
 public:
 	// The different types of job in the per-chunk work queues
-	enum WorkQueueEntryType
+	enum Job
 	{
-		WORK_QUEUE_ENTRY_TYPE_SETUP,
-		WORK_QUEUE_ENTRY_TYPE_CHUNK,
-		WORK_QUEUE_ENTRY_TYPE_FINALIZE,
-
-		WORK_QUEUE_ENTRY_TYPE_COUNT
+		Setup,
+		Work,
+		Finalize,
+		Count
 	};
 
 	// The contents of the work queues depend on the job type...
 	struct WorkQueueEntryBase
 	{
-		WorkQueueEntryType          m_iType;
+		Job m_iType;
 	};
 
-	// Work item params for scene setup
 	struct WorkQueueEntrySetup : public WorkQueueEntryBase
 	{
+		std::function<void(int Index)> m_callBack;
 	};
 
-	// Work item params for chunk render
 	struct LambdaWorkEntry : public WorkQueueEntryBase
 	{
-		std::function<void()> m_callBack;
+		std::function<void(int Index)> m_callBack;
 	};
 
-	// Work item params for scene finalize
 	struct WorkQueueEntryFinalize : public WorkQueueEntryBase
 	{
+		std::function<void(int Index)> m_callBack;
 	};
 
 	Burst() = default;
@@ -53,10 +51,12 @@ public:
 	static unsigned int _PerChunkRenderDeferredProc(LPVOID lpParameter);
 
 	void PrepareWork();
+	void PrepareWork(std::function<void(int Index)> PerThreadPrep);
 
 	void AddWork2(Burst::LambdaWorkEntry& NewWork, int InSize);
 
 	void FinalizeWork();
+	void FinalizeWork(std::function<void(int Index)> PerThreadFinal);
 
 	int m_numPerChunkRenderThreads = 0;
 
