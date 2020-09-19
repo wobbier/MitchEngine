@@ -1,6 +1,7 @@
 #pragma once
 #include "Singleton.h"
 #include "Engine/Clock.h"
+#include "Math/Vector3.h"
 
 enum class ProfileCategory
 {
@@ -24,6 +25,7 @@ public:
 
 	void Dump();
 
+	Vector3 GetCategoryColor(ProfileCategory category);
 
 	std::map<ProfileCategory, Clock> Profiles;
 	std::map<ProfileCategory, Clock> ProfileDump;

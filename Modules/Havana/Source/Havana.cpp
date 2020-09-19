@@ -582,6 +582,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 			}
 			ImGui::EndPopup();
 		}*/
+		float RightShift = 2.f;
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(0.35f, 126.f, 43.f, 1.f));
 		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 4.f));
 		if (ImGui::ImageButton(Icons["BugReport"]->ShaderResourceView, ImVec2(30.f, 30.f)))
@@ -590,7 +591,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 		}
 		ImGui::PopStyleColor(1);
 
-		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 3.f));
+		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 3.f) + RightShift);
 		if (ImGui::ImageButton(Icons["Minimize"]->ShaderResourceView, ImVec2(30.f, 30.f)))
 		{
 			m_engine->GetWindow()->Minimize();
@@ -598,7 +599,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 
 		if (static_cast<Win32Window*>(m_engine->GetWindow())->IsMaximized())
 		{
-			ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 2.f));
+			ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 2.f) + RightShift);
 			if (ImGui::ImageButton(Icons["ExitMaximize"]->ShaderResourceView, ImVec2(30.f, 30.f)))
 			{
 				m_engine->GetWindow()->ExitMaximize();
@@ -606,7 +607,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 		}
 		else
 		{
-			ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 2.f));
+			ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 2.f) + RightShift);
 			if (ImGui::ImageButton(Icons["Maximize"]->ShaderResourceView, ImVec2(30.f, 30.f)))
 			{
 				m_engine->GetWindow()->Maximize();
@@ -614,7 +615,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 		}
 
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(1.f, 42.f, 43.f, 1.f));
-		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - buttonWidth);
+		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - buttonWidth + RightShift);
 		//ImGui::SameLine(0.f);
 		if (ImGui::ImageButton(Icons["Close"]->ShaderResourceView, ImVec2(30.f, 30.f)))
 		{
