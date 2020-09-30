@@ -21,6 +21,7 @@
 #include "Renderer.h"
 #include "Cores/Rendering/RenderCore.h"
 #include "Components/Graphics/Mesh.h"
+#include "Window/IWindow.h"
 
 EditorCore::EditorCore(Havana* editor)
 	: Base(ComponentFilter().Excludes<Transform>())
@@ -154,6 +155,29 @@ void EditorCore::Update(float dt)
 
 			float XOffset = MousePosition.X() - LastX;
 			float YOffest = LastY - MousePosition.Y();
+
+			Input& editorInput = GetEditor()->GetInput();
+			Vector2 windowPos = GetEngine().GetWindow()->GetPosition();
+			Vector2 windowSize = GetEngine().GetWindow()->GetSize();
+			Vector2 offset = editorInput.GetMouseOffset();
+			if (MousePosition.X() + windowPos.X()<= windowPos.X())
+			{
+				editorInput.SetMousePosition(Vector2(windowPos.X() + windowSize.X(), MousePosition.Y() + windowPos.Y()));
+			}
+			else if (MousePosition.X() + windowPos.X() >= windowPos.X() + windowSize.X())
+			{
+				editorInput.SetMousePosition(Vector2(windowPos.X(), MousePosition.Y() + windowPos.Y()));
+			}
+
+			if (MousePosition.Y() + windowPos.Y() <= windowPos.Y())
+			{
+				editorInput.SetMousePosition(Vector2(windowPos.X() + MousePosition.X(), windowPos.Y() + windowSize.Y()));
+			}
+			else if (MousePosition.Y() + windowPos.Y() >= windowPos.Y() + windowSize.Y())
+			{
+				editorInput.SetMousePosition(Vector2(windowPos.X() + MousePosition.X(), windowPos.Y()));
+			}
+
 			LastX = MousePosition.X();
 			LastY = MousePosition.Y();
 

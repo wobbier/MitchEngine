@@ -138,8 +138,7 @@ void UICore::Update(float dt)
 	// Update internal logic (timers, event callbacks, etc.)
 	m_uiRenderer->Update();
 
-	OPTICK_CATEGORY("UICore::Update", Optick::Category::Rendering)
-		ultralight::MouseEvent evt;
+	ultralight::MouseEvent evt;
 	evt.type = ultralight::MouseEvent::kType_MouseMoved;
 #if ME_EDITOR
 	Havana* editor = static_cast<EditorCore*>(GetEngine().GetWorld().lock()->GetCore(EditorCore::GetTypeId()))->GetEditor();

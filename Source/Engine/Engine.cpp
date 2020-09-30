@@ -149,11 +149,12 @@ void Engine::Run()
 	GameClock.Reset();
 	float lastTime = GameClock.GetTimeInMilliseconds();
 
-	const float FramesPerSec = 420.f;
+	const float FramesPerSec = FPS;
 	const float MaxDeltaTime = (1.f / FramesPerSec);
 	// Game loop
 	forever
 	{
+		FrameProfile::GetInstance().Start();
 		// Check and call events
 		GameWindow->ParseMessageQueue();
 
@@ -173,27 +174,36 @@ void Engine::Run()
 			OPTICK_FRAME("MainLoop");
 			float deltaTime = DeltaTime = AccumulatedTime;
 
+			FrameProfile::GetInstance().Set("Physics", ProfileCategory::Physics);
 			GameWorld->Simulate();
 
 			m_input.Update();
 
 			// Update our engine
 			GameWorld->UpdateLoadedCores(deltaTime);
+			FrameProfile::GetInstance().Complete("Physics");
+
+			FrameProfile::GetInstance().Set("SceneNodes", ProfileCategory::UI);
 			SceneNodes->Update(deltaTime);
 			Cameras->Update(0.0f);
+			FrameProfile::GetInstance().Complete("SceneNodes");
 
 			{
-				FrameProfile::GetInstance().Set(ProfileCategory::Game);
+				FrameProfile::GetInstance().Set("Game", ProfileCategory::Game);
+				//ME_PROFILE("Game", ProfileCategory::Game);
 				OPTICK_CATEGORY("MainLoop::GameUpdate", Optick::Category::GameLogic);
 				m_game->OnUpdate(deltaTime);
-				FrameProfile::GetInstance().Complete(ProfileCategory::Game);
+				FrameProfile::GetInstance().Complete("Game");
 			}
 			
+			FrameProfile::GetInstance().Set("ModelRenderer", ProfileCategory::Rendering);
 			AudioThread->Update(deltaTime);
 			ModelRenderer->Update(deltaTime);
+			FrameProfile::GetInstance().Complete("ModelRenderer");
 
 			{
-				FrameProfile::GetInstance().Set(ProfileCategory::UI);
+				OPTICK_CATEGORY("UICore::Update", Optick::Category::Rendering)
+				FrameProfile::GetInstance().Set("UI", ProfileCategory::UI);
 				// editor only?
 				if (UI)
 				{
@@ -203,7 +213,7 @@ void Engine::Run()
 					}
 				}
 				UI->Update(deltaTime);
-				FrameProfile::GetInstance().Complete(ProfileCategory::UI);
+				FrameProfile::GetInstance().Complete("UI");
 			}
 //
 //#if !ME_EDITOR
@@ -221,19 +231,29 @@ void Engine::Run()
 //			EditorCamera = MainCamera;
 //#endif
 
-			FrameProfile::GetInstance().Set(ProfileCategory::Rendering);
+			FrameProfile::GetInstance().Set("Render", ProfileCategory::Rendering);
 			m_renderer->ThreadedRender([this]() {
-				FrameProfile::GetInstance().Complete(ProfileCategory::Rendering);
 				m_game->PostRender();
 			}, [this]() {
 				UI->Render();
 			}, EditorCamera);
+			FrameProfile::GetInstance().Complete("Render");
+
+			// This makes the profiler overview data to be delayed for a frame, but takes the renderer into account.
+			static float fpsTime = 0;
+			fpsTime += AccumulatedTime;
+			if (fpsTime > 1.f)
+			{
+				FrameProfile::GetInstance().Dump();
+				fpsTime -= 1.f;
+			}
 
 			AccumulatedTime = std::fmod(AccumulatedTime, MaxDeltaTime);
+
+			FrameProfile::GetInstance().End(AccumulatedTime);
 		}
 
 		ResourceCache::GetInstance().Dump();
-
 		//Sleep(1);
 	}
 	EngineConfig->Save();

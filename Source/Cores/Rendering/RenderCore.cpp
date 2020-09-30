@@ -72,8 +72,8 @@ RenderCore::~RenderCore()
 
 void RenderCore::Update(float dt)
 {
-	m_renderer->Update(dt);
 	OPTICK_CATEGORY("RenderCore::Update", Optick::Category::Rendering)
+	m_renderer->Update(dt);
 
 	Burst& burst = GetEngine().GetBurstWorker();
 	burst.PrepareWork();
@@ -104,9 +104,21 @@ void RenderCore::Update(float dt)
 				{
 
 					Transform& transform = InEntity.GetComponent<Transform>();
-					Mesh& model = InEntity.GetComponent<Mesh>();
+					if (InEntity.HasComponent<Mesh>())
+					{
+						Mesh& model = InEntity.GetComponent<Mesh>();
 
-					m_renderer->UpdateMeshMatrix(model.GetId(), transform.GetMatrix().GetInternalMatrix());
+						m_renderer->UpdateMeshMatrix(model.GetId(), transform.GetMatrix().GetInternalMatrix());
+					}
+					if (InEntity.HasComponent<DirectionalLight>())
+					{
+						DirectionalLight& light = InEntity.GetComponent<DirectionalLight>();
+						auto pos = transform.GetWorldPosition().GetInternalVec();
+						m_renderer->Sunlight.pos = XMFLOAT4(pos.x, pos.y, pos.z, 0);
+						m_renderer->Sunlight.ambient = light.Ambient;
+						m_renderer->Sunlight.diffuse = light.Diffuse;
+						m_renderer->Sunlight.dir = light.Direction;
+					}
 				}
 				
 			}

@@ -4,22 +4,34 @@
 
 FrameProfile::FrameProfile()
 {
-
 }
 
-void FrameProfile::Set(ProfileCategory category)
+void FrameProfile::Start()
 {
-	Profiles[category].Reset();
 }
 
-void FrameProfile::Complete(ProfileCategory category)
+void FrameProfile::End(float frameDelta)
 {
-	Profiles[category].Update();
+	MainDelta = frameDelta;
+}
+
+void FrameProfile::Set(const std::string& name, ProfileCategory category)
+{
+	Profiles[name].Category = category;
+	Profiles[name].Timer.Reset();
+}
+
+void FrameProfile::Complete(const std::string& name)
+{
+	Profiles[name].Timer.Update();
 }
 
 void FrameProfile::Dump()
 {
 	ProfileDump = Profiles;
+	//std::sort(ProfileDump.begin(), ProfileDump.end(), [](const Clock& First, const Clock& Second) {
+	//	return First.GetPreviousTime() < Second.GetPreviousTime();
+	//});
 }
 
 Vector3 FrameProfile::GetCategoryColor(ProfileCategory category)
@@ -38,6 +50,6 @@ Vector3 FrameProfile::GetCategoryColor(ProfileCategory category)
 	default:
 		break;
 	}
-	return Vector3(.1f, .1f, .1f);
+	return Vector3(.1f, .1f, 1.f);
 }
 

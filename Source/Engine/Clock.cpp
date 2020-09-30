@@ -53,3 +53,8 @@ const float Clock::GetDeltaSeconds()
 {
 	return (CurrentTime - PreviousTime);
 }
+
+float Clock::GetPreviousTime() const
+{
+	return PreviousTime;
+}

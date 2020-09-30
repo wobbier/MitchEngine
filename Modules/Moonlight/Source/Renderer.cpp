@@ -571,6 +571,53 @@ namespace Moonlight
 			ID3D11DeviceContext3* deferredContext = m_pd3dPerChunkDeferredContext[Index];
 			ID3D11CommandList*& pd3dCommandList = g_pd3dPerChunkCommandList[Index];
 
+			HRESULT hr = deferredContext->FinishCommandList(true, &pd3dCommandList);
+		});
+
+		for (int i = 0; i < m_numPerChunkRenderThreads; ++i)
+		{
+			context->ExecuteCommandList(g_pd3dPerChunkCommandList[i], false);
+			if (g_pd3dPerChunkCommandList[i])
+			{
+				g_pd3dPerChunkCommandList[i]->Release();
+				g_pd3dPerChunkCommandList[i] = nullptr;
+			}
+		}
+
+		burst.PrepareWork();
+
+		std::vector<std::pair<int, int>> batches;
+		burst.GenerateChunks(Meshes.size(), m_numPerChunkRenderThreads, batches);
+
+		for (auto& batch : batches)
+		{
+			OPTICK_CATEGORY("Burst::BatchAdd", Optick::Category::Debug);
+			Burst::LambdaWorkEntry entry;
+			int batchBegin = batch.first;
+			int batchEnd = batch.second;
+			int batchSize = batchEnd - batchBegin;
+
+			auto func = [this, batchBegin, batchEnd](int Index) {
+				OPTICK_CATEGORY("Render Mesh", Optick::Category::GPU_Scene);
+				for (int entIndex = batchBegin; entIndex < batchEnd; ++entIndex)
+				{
+					MeshCommand& mesh = Meshes[entIndex];
+					if (!mesh.SingleMesh || mesh.MeshMaterial && !mesh.MeshMaterial->IsTransparent())
+					{
+						continue;
+					}
+					RenderMeshDirect(mesh, m_pd3dPerChunkDeferredContext[Index]);
+				}
+			};
+			entry.m_callBack = func;
+			burst.AddWork2(entry, (int)sizeof(Burst::LambdaWorkEntry));
+		}
+
+		burst.FinalizeWork([this](int Index) {
+
+			ID3D11DeviceContext3* deferredContext = m_pd3dPerChunkDeferredContext[Index];
+			ID3D11CommandList*& pd3dCommandList = g_pd3dPerChunkCommandList[Index];
+
 			HRESULT hr = deferredContext->FinishCommandList(false, &pd3dCommandList);
 		});
 
@@ -583,6 +630,7 @@ namespace Moonlight
 				g_pd3dPerChunkCommandList[i] = nullptr;
 			}
 		}
+
 
 		//GetDevice().ResetCullingMode();
 		//context->OMSetBlendState(m_device->TransparentBlendState, Colors::Black, 0xffffffff);
@@ -628,32 +676,7 @@ namespace Moonlight
 			burst.AddWork2(entry, (int)sizeof(Burst::LambdaWorkEntry));
 		}
 
-		burst.FinalizeWork();
-		burst.PrepareWork();
 
-		for (auto& batch : batches)
-		{
-			OPTICK_CATEGORY("Burst::BatchAdd", Optick::Category::Debug);
-			Burst::LambdaWorkEntry entry;
-			int batchBegin = batch.first;
-			int batchEnd = batch.second;
-			int batchSize = batchEnd - batchBegin;
-
-			auto func = [this, batchBegin, batchEnd](int Index) {
-				OPTICK_CATEGORY("Render Mesh", Optick::Category::GPU_Scene);
-				for (int entIndex = batchBegin; entIndex < batchEnd; ++entIndex)
-				{
-					MeshCommand& mesh = Meshes[entIndex];
-					if (!mesh.SingleMesh || mesh.MeshMaterial && !mesh.MeshMaterial->IsTransparent())
-					{
-						continue;
-					}
-					RenderMeshDirect(mesh, m_pd3dPerChunkDeferredContext[Index]);
-				}
-			};
-			entry.m_callBack = func;
-			burst.AddWork2(entry, (int)sizeof(Burst::LambdaWorkEntry));
-		}
 	}
 
 	void Renderer::RenderMeshDirect(MeshCommand& mesh, ID3D11DeviceContext3* context)
@@ -875,7 +898,7 @@ namespace Moonlight
 			OPTICK_EVENT("Present", Optick::Category::Rendering);
 
 			DXGI_PRESENT_PARAMETERS parameters = { 0 };
-			hr = m_device->GetSwapChain()->Present1(DXGI_SWAP_EFFECT_DISCARD, 0, &parameters);
+			hr = m_device->GetSwapChain()->Present1(1, 0, &parameters);
 		}
 
 		{
@@ -888,7 +911,7 @@ namespace Moonlight
 			for (int i = 0; i < Cameras.size(); ++i)
 			{
 				FrameBuffer* buffer = Cameras[i].Buffer;
-				if (buffer)
+				if (buffer && buffer->ShaderResourceView)
 				{
 					m_device->GetD3DDeviceContext()->DiscardView1(buffer->ShaderResourceView.Get(), nullptr, 0);
 					m_device->GetD3DDeviceContext()->DiscardView1(buffer->ColorShaderResourceView.Get(), nullptr, 0);

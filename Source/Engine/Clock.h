@@ -26,6 +26,8 @@ public:
 	const float GetDeltaMilliseconds();
 	const float GetDeltaSeconds();
 
+	float GetPreviousTime() const;
+
 private:
 	float CurrentTime = 0;
 	float PreviousTime = 0;
