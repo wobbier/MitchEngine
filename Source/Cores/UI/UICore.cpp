@@ -2,6 +2,7 @@
 #include <Cores/UI/UICore.h>
 
 #include <AppCore/Overlay.h>
+#include <Components/Camera.h>
 #include <Engine/Engine.h>
 #include <UI/d3d11/GPUDriverD3D11.h>
 #include <UI/d3d11/GPUContextD3D11.h>
