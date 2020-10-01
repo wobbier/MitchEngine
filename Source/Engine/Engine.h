@@ -46,6 +46,8 @@ public:
 
 	IWindow* GetWindow();
 
+	Game* GetGame() const;
+
 	Config& GetConfig() const;
 	Input& GetInput();
 

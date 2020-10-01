@@ -119,7 +119,7 @@ void Engine::Init(Game* game)
 
 	m_renderer->Init();
 
-	UI = new UICore(GameWindow);
+	UI = new UICore(GameWindow, m_renderer);
 
 	InitGame();
 
@@ -296,6 +296,11 @@ void Engine::Quit() { Running = false; }
 IWindow* Engine::GetWindow()
 {
 	return GameWindow;
+}
+
+Game* Engine::GetGame() const
+{
+	return m_game;
 }
 
 Config& Engine::GetConfig() const

@@ -52,9 +52,14 @@ void BaseCore::Clear()
 	Entities.clear();
 }
 
-const bool BaseCore::CanSerialize() const
+const bool BaseCore::GetIsSerializable() const
 {
 	return IsSerializable;
+}
+
+void BaseCore::SetIsSerializable(bool value)
+{
+	IsSerializable = true;
 }
 
 #if ME_EDITOR

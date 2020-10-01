@@ -7,7 +7,7 @@
 
 CameraCore::CameraCore() : Base(ComponentFilter().Requires<Camera>().Requires<Transform>())
 {
-	IsSerializable = false;
+	SetIsSerializable(false);
 	DefaultCamera = new Camera();
 }
 

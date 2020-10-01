@@ -11,7 +11,7 @@
 SceneGraph::SceneGraph()
 	: Base(ComponentFilter().Requires<Transform>())
 {
-	IsSerializable = false;
+	SetIsSerializable(false);
 
 	std::vector<TypeId> eventIds;
 	eventIds.push_back(SceneLoadedEvent::GetEventId());

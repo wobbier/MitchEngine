@@ -24,7 +24,7 @@
 RenderCore::RenderCore()
 	: Base(ComponentFilter().Requires<Transform>().Requires<Mesh>())
 {
-	IsSerializable = false;
+	SetIsSerializable(false);
 	m_renderer = &GetEngine().GetRenderer();
 	m_renderer->RegisterDeviceNotify(this);
 }

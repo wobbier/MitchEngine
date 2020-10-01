@@ -27,7 +27,7 @@ EditorCore::EditorCore(Havana* editor)
 	: Base(ComponentFilter().Excludes<Transform>())
 	, m_editor(editor)
 {
-	IsSerializable = false;
+	SetIsSerializable(false);
 	std::vector<TypeId> events;
 	events.push_back(SaveSceneEvent::GetEventId());
 	events.push_back(NewSceneEvent::GetEventId());

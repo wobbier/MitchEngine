@@ -56,11 +56,14 @@ public:
 #if ME_EDITOR
 	virtual void OnEditorInspect();
 #endif
-	const bool CanSerialize() const;
+	const bool GetIsSerializable() const;
+
 protected:
+	void SetIsSerializable(bool value);
+
 	class Engine* GameEngine;
 	World* GameWorld;
-	bool IsSerializable = true;
+
 private:
 	// Separate init from construction code.
 	virtual void Init() {};
@@ -87,6 +90,7 @@ private:
 
 	bool IsRunning = false;
 	bool DestroyOnLoad = true;
+	bool IsSerializable = true;
 };
 
 // Use the CRTP patten to define custom systems

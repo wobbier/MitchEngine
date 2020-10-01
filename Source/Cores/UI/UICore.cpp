@@ -1,93 +1,65 @@
-#include "PCH.h"
-#include "UICore.h"
-#include "Components/Transform.h"
-#include "ECS/ComponentFilter.h"
-#include "CLog.h"
-#include "Graphics/ShaderCommand.h"
-#include "Resource/Resource.h"
+#include <PCH.h>
+#include <Cores/UI/UICore.h>
 
-#include <iostream>
-#include "Resource/ResourceCache.h"
-#include "RenderCommands.h"
-#include "Engine/Engine.h"
-#include "Utils/StringUtils.h"
-
+#include <AppCore/Overlay.h>
+#include <Engine/Engine.h>
+#include <UI/d3d11/GPUDriverD3D11.h>
+#include <UI/d3d11/GPUContextD3D11.h>
+#include <UI/FileSystemBasic.h>
+#include <UI/FileLogger.h>
+#include <UI/FontLoaderWin.h>
+#include <UI/UIWindow.h>
 #include <Ultralight/platform/Platform.h>
 #include <Ultralight/platform/Config.h>
-#include "UI/UIWindow.h"
-#include "AppCore/Overlay.h"
-#include <Shlwapi.h>
-#include "UI/d3d11/GPUDriverD3D11.h"
-#include "UI/d3d11/GPUContextD3D11.h"
-#include "UI/OverlayImpl.h"
-#include "File.h"
-#include <filesystem>
-#include "Engine/Input.h"
-#include "Dementia.h"
-
-#include "UI/OverlayImpl.h"
-//#include "UI/Overlay.cpp"
+#include <Ultralight/Renderer.h>
 
 #if ME_EDITOR
-#include "Havana.h"
-#include "Cores/EditorCore.h"
+
+#include <Cores/EditorCore.h>
+#include <EditorApp.h>
+#include <Havana.h>
+
 #endif
-#include <libloaderapi.h>
-#include "Components/Camera.h"
-#include "UI/FileLogger.h"
-#include "UI/FontLoaderWin.h"
 
-UICore::UICore(IWindow* window)
-	: Base(ComponentFilter().Requires<Transform>().Requires<BasicUIView>())
+UICore::UICore(IWindow* window, Moonlight::Renderer* renderer)
+	: Base(ComponentFilter().Requires<BasicUIView>())
 {
-	IsSerializable = false;
-	m_renderer = &GetEngine().GetRenderer();
+	SetIsSerializable(false);
 
+	m_renderer = renderer;
 	m_window = AdoptRef(*new UIWindow(window, GetOverlayManager()));
-	ultralight::Platform& platform = ultralight::Platform::instance();
-	ultralight::Config config_;
-	config_.device_scale = 1.0f;
-	config_.enable_images = true;
-	config_.face_winding = ultralight::FaceWinding::kFaceWinding_Clockwise;
-	config_.force_repaint = true;
-	config_.font_family_standard = "Arial";
 
-	// Generate cache path
-	//String cache_path = GetRoamingAppDataPath();
-	//cache_path = PlatformFileSystem::AppendPath(cache_path, settings_.developer_name);
-	//cache_path = PlatformFileSystem::AppendPath(cache_path, settings_.app_name);
-	//PlatformFileSystem::MakeAllDirectories(cache_path);
+	std::string fileSystemRoot = Path("").Directory;
+	m_fs.reset(new ultralight::FileSystemBasic(fileSystemRoot.c_str()));
 
-	//String log_path = PlatformFileSystem::AppendPath(cache_path, "ultralight.log");
-
-
-
-	Path fileSystemRoot = Path("");
-	m_fs.reset(new ultralight::FileSystemBasic(fileSystemRoot.Directory.c_str()));
-	config_.resource_path = "M:\\Projects\\C++\\stack\\Engine\\Modules\\Havana\\..\\..\\..\\Build\\Debug Editor";
-
-	m_logger.reset(new ultralight::FileLogger(ultralight::String(std::string(fileSystemRoot.Directory + "ultralight.log").c_str())));
-	platform.set_logger(m_logger.get());
-	m_context.reset(new ultralight::GPUContextD3D11());
+	ultralight::Config config;
+	config.device_scale = 1.0f;
+	config.enable_images = true;
+	config.face_winding = ultralight::FaceWinding::kFaceWinding_Clockwise;
+	config.force_repaint = true;
+	config.font_family_standard = "Arial";
+	// ??????
+	config.resource_path = "M:\\Projects\\C++\\stack\\Engine\\Modules\\Havana\\..\\..\\..\\Build\\Debug Editor";
 	//config_.cache_path = ultralight::String16(std::string(fileSystemRoot.Directory + "ultralight.log").c_str());
-	platform.set_config(config_);
 
-	UIWindow* win = static_cast<UIWindow*>(m_window.get());
-	if (!m_context->Initialize(win->width(), win->height(), win->scale(), win->is_fullscreen(), true, false, 1))
+	m_context.reset(new ultralight::GPUContextD3D11());
+	if (!m_context->Initialize(m_window->width(), m_window->height(), m_window->scale(), m_window->is_fullscreen(), true, false, 1))
 	{
-		//MessageBoxW(NULL, (LPCWSTR)L"Failed to initialize D3D11 context", (LPCWSTR)L"Notification", MB_OK);
-		exit(-1);
+		YIKES("Failed to initialize ultralight context");
 	}
 
-	m_driver.reset(new ultralight::GPUDriverD3D11(m_context.get(), &GetEngine().GetRenderer().GetDevice()));
-
-	platform.set_gpu_driver(m_driver.get());
-	platform.set_file_system(m_fs.get());
+	m_driver.reset(new ultralight::GPUDriverD3D11(m_context.get(), &m_renderer->GetDevice()));
+	m_logger.reset(new ultralight::FileLogger(ultralight::String(std::string(fileSystemRoot + "Ultralight.log").c_str())));
 	m_fontLoader.reset(new ultralight::FontLoaderWin());
+
+	ultralight::Platform& platform = ultralight::Platform::instance();
+	platform.set_config(config);
+	platform.set_file_system(m_fs.get());
 	platform.set_font_loader(m_fontLoader.get());
-	//win->set_app_listener(this);
-	m_uiRenderer = (ultralight::Renderer::Create());
-	
+	platform.set_gpu_driver(m_driver.get());
+	platform.set_logger(m_logger.get());
+
+	m_uiRenderer = ultralight::Renderer::Create();
 }
 
 UICore::~UICore()
@@ -98,12 +70,25 @@ UICore::~UICore()
 void UICore::Init()
 {
 	CLog::Log(CLog::LogType::Debug, "UICore Initialized...");
-	if (m_renderer)
-		m_renderer->ClearUIText();
-	if (!IsInitialized)
-	{
-		IsInitialized = true;
-	}
+}
+
+void UICore::OnEntityAdded(Entity& NewEntity)
+{
+	BasicUIView& view = NewEntity.GetComponent<BasicUIView>();
+
+	InitUIView(view);
+}
+
+void UICore::OnEntityRemoved(Entity& InEntity)
+{
+	BasicUIView& view = InEntity.GetComponent<BasicUIView>();
+
+	GetOverlayManager()->Remove(m_overlays[view.Index].get());
+	m_overlays.erase(m_overlays.begin() + view.Index);
+}
+
+void UICore::OnStop()
+{
 	for (auto overlay : m_overlays)
 	{
 		GetOverlayManager()->Remove(overlay.get());
@@ -111,98 +96,75 @@ void UICore::Init()
 	m_overlays.clear();
 }
 
-void UICore::OnEntityAdded(Entity& NewEntity)
-{
-	if (NewEntity.HasComponent<BasicUIView>())
-	{
-		BasicUIView& view = NewEntity.GetComponent<BasicUIView>();
-		
-		InitUIView(view);
-	}
-}
-
-void UICore::OnEntityRemoved(Entity& InEntity)
-{
-	if (InEntity.HasComponent<BasicUIView>())
-	{
-		BasicUIView view = InEntity.GetComponent<BasicUIView>();
-
-		GetOverlayManager()->Remove(m_overlays[view.Index].get());
-
-		m_overlays.erase(m_overlays.begin() + view.Index);
-	}
-}
-
 void UICore::Update(float dt)
 {
-	// Update internal logic (timers, event callbacks, etc.)
-	m_uiRenderer->Update();
+	auto& entities = GetEntities();
+	for (auto& InEntity : entities)
+	{
+		BasicUIView& view = InEntity.GetComponent<BasicUIView>();
+		if (!view.IsInitialized)
+		{
+			InitUIView(view);
+		}
+	}
 
-	ultralight::MouseEvent evt;
-	evt.type = ultralight::MouseEvent::kType_MouseMoved;
+	ultralight::MouseEvent mouseEvent;
+	mouseEvent.type = ultralight::MouseEvent::kType_MouseMoved;
+
+	Vector2 mousePosition = GetEngine().GetInput().GetMousePosition();
+
 #if ME_EDITOR
-	Havana* editor = static_cast<EditorCore*>(GetEngine().GetWorld().lock()->GetCore(EditorCore::GetTypeId()))->GetEditor();
-	
-	evt.x = (GetEngine().GetWindow()->GetPosition().X() + GetEngine().GetInput().GetMousePosition().X()) - editor->GameViewRenderLocation.X();
-	evt.y = (GetEngine().GetWindow()->GetPosition().Y() + GetEngine().GetInput().GetMousePosition().Y()) - editor->GameViewRenderLocation.Y();
-
-	Vector2 MousePosition = GetEngine().GetInput().GetMousePosition();
-	if (MousePosition == Vector2(0, 0))
+	if (!static_cast<EditorApp*>(GetEngine().GetGame())->IsGameRunning())
 	{
 		return;
 	}
 
+	Havana* editor = static_cast<EditorCore*>(GetEngine().GetWorld().lock()->GetCore(EditorCore::GetTypeId()))->GetEditor();
+	
+	Vector2 windowPosition = GetEngine().GetWindow()->GetPosition();
+
+	mouseEvent.x = (windowPosition.X() + mousePosition.X()) - editor->GameViewRenderLocation.X();
+	mouseEvent.y = (windowPosition.Y() + mousePosition.Y()) - editor->GameViewRenderLocation.Y();
+
+	if (mousePosition.IsZero())
+	{
+		return;
+	}
 #else
-	evt.x = GetEngine().GetInput().GetMousePosition().X();
-	evt.y = GetEngine().GetInput().GetMousePosition().Y();
+	mouseEvent.x = mousePosition.X();
+	mouseEvent.y = mousePosition.Y();
 #endif
+
 	static bool hasPressed = false;
 	if (GetEngine().GetInput().GetMouseState().leftButton && !hasPressed)
 	{
-		evt.button = ultralight::MouseEvent::Button::kButton_Left;
-		evt.type = ultralight::MouseEvent::kType_MouseDown;
+		mouseEvent.button = ultralight::MouseEvent::Button::kButton_Left;
+		mouseEvent.type = ultralight::MouseEvent::kType_MouseDown;
 		hasPressed = true;
 	}
 	else if (!GetEngine().GetInput().GetMouseState().leftButton && hasPressed)
 	{
-		evt.button = ultralight::MouseEvent::Button::kButton_Left;
-		evt.type = ultralight::MouseEvent::kType_MouseUp;
+		mouseEvent.button = ultralight::MouseEvent::Button::kButton_Left;
+		mouseEvent.type = ultralight::MouseEvent::kType_MouseUp;
 		hasPressed = false;
 	}
 	else
 	{
-		evt.button = ultralight::MouseEvent::Button::kButton_None;
+		mouseEvent.button = ultralight::MouseEvent::Button::kButton_None;
 	}
-	//ultralight::View::FireMouseEvent(evt);
+
 #if ME_EDITOR
-	if (GetEngine().GetRenderer().GetViewportMode() == ViewportMode::Game)
+	if (m_renderer->GetViewportMode() == ViewportMode::Game)
 #endif
 	{
 		for (auto& view : m_overlays)
 		{
-			view->view()->FireMouseEvent(evt);
+			view->view()->FireMouseEvent(mouseEvent);
 		}
 	}
 
-	auto Renderables = GetEntities();
-	for (auto& InEntity : Renderables)
-	{
-		Transform& transform = InEntity.GetComponent<Transform>();
-
-		if (InEntity.HasComponent<BasicUIView>())
-		{
-			BasicUIView& view = InEntity.GetComponent<BasicUIView>();
-			if (!view.IsInitialized)
-			{
-				InitUIView(view);
-			}
-		}
-	}
-
-}
-
-void UICore::OnStop()
-{
+	// Update internal logic (timers, event callbacks, etc.)
+	m_uiRenderer->Update();
 }
 
 void UICore::Render()
@@ -233,17 +195,11 @@ void UICore::Render()
 	}
 }
 
-ultralight::OverlayManager* UICore::GetOverlayManager()
-{
-	return this;
-}
-
 void UICore::OnResize(const Vector2& NewSize)
 {
 	if (m_context)
 	{
 		m_context->Resize((int)NewSize.X(), (int)NewSize.Y());
-		//m_driver->RebindBackbuffer();
 		for (auto overlay : overlays_)
 		{
 			overlay->Resize((int)NewSize.X(), (int)NewSize.Y());
@@ -254,13 +210,22 @@ void UICore::OnResize(const Vector2& NewSize)
 void UICore::InitUIView(BasicUIView& view)
 {
 	ultralight::Ref<ultralight::View> newView = m_uiRenderer->CreateView(Camera::CurrentCamera->OutputSize.X(), Camera::CurrentCamera->OutputSize.Y(), true, nullptr);
+
 	ultralight::RefPtr<ultralight::Overlay> overlay = ultralight::Overlay::Create(*m_window.get(), newView, 0, 0);
-	//overlay->view()->LoadHTML(view.SourceFile.Read().c_str());
 	overlay->view()->set_load_listener(&view);
+
+	//overlay->view()->LoadHTML(view.SourceFile.Read().c_str());
 	ultralight::String str = "file:///" + ultralight::String(view.FilePath.LocalPath.c_str());
 	overlay->view()->LoadURL(str);
+
 	m_overlays.push_back(overlay);
 	GetOverlayManager()->Add(overlay.get());
+
 	view.IsInitialized = true;
 	view.Index = m_overlays.size() - 1;
+}
+
+ultralight::OverlayManager* UICore::GetOverlayManager()
+{
+	return this;
 }

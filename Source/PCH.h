@@ -60,6 +60,8 @@
 
 //#include "ECS/ComponentDetail.h"
 
+#include <CLog.h>
+
 // for convenience
 using json = nlohmann::json;
 // core

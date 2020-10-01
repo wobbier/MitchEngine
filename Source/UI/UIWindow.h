@@ -1,5 +1,4 @@
 #pragma once
-#include <Ultralight/platform/FontLoader.h>
 #include <Ultralight/String16.h>
 #include "UI/RefCountedImpl.h"
 #include "AppCore/Window.h"

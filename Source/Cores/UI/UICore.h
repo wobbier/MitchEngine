@@ -1,58 +1,58 @@
 #pragma once
-#include "ECS/Core.h"
+#include <Components/UI/BasicUIView.h>
 
-#include "Ultralight/Renderer.h"
-#include "Ultralight/RefPtr.h"
-#include "UI/OverlayManager.h"
-#include "UI/UIWindow.h"
-#include "UI/d3d11/GPUDriverD3D11.h"
-
-#include "Components/UI/BasicUIView.h"
-#include "ECS/Component.h"
-#include "ECS/ComponentDetail.h"
-#include "File.h"
-#include "Path.h"
-#include "UI/FileSystemBasic.h"
-#include "UI/FileLogger.h"
+#include <UI/OverlayManager.h>
 
 namespace Moonlight { class Renderer; }
+
+namespace ultralight
+{ 
+	class FileLogger;
+	class FontLoader;
+	class FileSystemBasic;
+	class GPUContextD3D11;
+	class GPUDriverD3D11;
+	class Renderer;
+}
+
+class IWindow;
+class OverlayManager;
+class UIWindow;
 
 class UICore final
 	: public Core<UICore>
 	, public ultralight::OverlayManager
 {
 public:
-	UICore(IWindow* window);
+	UICore(IWindow* window, Moonlight::Renderer* renderer);
 	~UICore();
 
-	// Separate init from construction code.
 	virtual void Init() final;
-
-	// Each core must update each loop
 	virtual void Update(float dt) final;
 
 	virtual void OnEntityAdded(Entity& NewEntity) final;
-
-	void InitUIView(BasicUIView& view);
-
 	virtual void OnEntityRemoved(Entity& InEntity) final;
 
 	virtual void OnStop() override;
+
+	void InitUIView(BasicUIView& view);
+
+	void OnResize(const Vector2& NewSize);
+
 	void Render();
 
 	OverlayManager* GetOverlayManager();
-	void OnResize(const Vector2& NewSize);
-	//private:
 
-	bool IsInitialized = false;
+private:
+	std::vector<ultralight::RefPtr<ultralight::Overlay>> m_overlays;
 
 	Moonlight::Renderer* m_renderer;
-	ultralight::RefPtr<ultralight::Renderer> m_uiRenderer;
-	std::unique_ptr<ultralight::FileSystemBasic> m_fs;
-	std::unique_ptr<ultralight::GPUDriverD3D11> m_driver = nullptr;
-	std::unique_ptr<ultralight::GPUContextD3D11> m_context = nullptr;
-	std::unique_ptr<ultralight::FontLoader> m_fontLoader = nullptr;
-	std::unique_ptr<ultralight::FileLogger> m_logger = nullptr;
+
+	UniquePtr<ultralight::FileSystemBasic> m_fs;
+	UniquePtr<ultralight::GPUDriverD3D11> m_driver = nullptr;
+	UniquePtr<ultralight::GPUContextD3D11> m_context = nullptr;
+	UniquePtr<ultralight::FontLoader> m_fontLoader = nullptr;
+	UniquePtr<ultralight::FileLogger> m_logger = nullptr;
 	ultralight::RefPtr<UIWindow> m_window = nullptr;
-	std::vector<ultralight::RefPtr<ultralight::Overlay>> m_overlays;
+	ultralight::RefPtr<ultralight::Renderer> m_uiRenderer;
 };
