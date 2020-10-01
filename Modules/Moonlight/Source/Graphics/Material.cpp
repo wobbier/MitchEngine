@@ -1,6 +1,7 @@
 #include "Material.h"
 #include "optick.h"
 #include "Texture.h"
+#include "Resource/ResourceCache.h"
 
 namespace Moonlight
 {

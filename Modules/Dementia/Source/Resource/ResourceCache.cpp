@@ -1,5 +1,6 @@
-#include "ResourceCache.h"
-#include "Pointers.h"
+#include <Resource/ResourceCache.h>
+
+#include <Pointers.h>
 
 ResourceCache::ResourceCache()
 {
@@ -18,7 +19,7 @@ ResourceCache::~ResourceCache()
 	ResourceStack.clear();
 }
 
-size_t ResourceCache::GetCacheSize()
+std::size_t ResourceCache::GetCacheSize() const
 {
 	return ResourceStack.size();
 }

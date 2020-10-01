@@ -1,5 +1,6 @@
-#include "Resource.h"
-#include "ResourceCache.h"
+#include <Resource/Resource.h>
+
+#include <Resource/ResourceCache.h>
 
 Resource::Resource(const Path& path)
 	: FilePath(path)

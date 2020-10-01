@@ -3,6 +3,7 @@
 #include "Graphics/SkyBox.h"
 #include "Graphics/Texture.h"
 #include "Math/Frustrum.h"
+#include "Resource/ResourceCache.h"
 
 Camera* Camera::CurrentCamera = nullptr;
 Camera* Camera::EditorCamera = nullptr;
