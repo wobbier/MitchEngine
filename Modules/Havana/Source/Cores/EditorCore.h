@@ -1,19 +1,20 @@
 #pragma once
-#include "ECS/Core.h"
-#include "Events/EventReceiver.h"
-#include "TranslationGizmo.h"
-#include <string>
-#include "Math/Vector3.h"
+#include <ECS/Core.h>
+
+#include <Events/EventReceiver.h>
 
 class Transform;
 class Havana;
+class Camera;
+
+#if ME_EDITOR
 
 class EditorCore
 	: public Core<EditorCore>
 	, public EventReceiver
 {
 public:
-	EditorCore() = default;
+	EditorCore() = delete;
 	EditorCore(Havana* editor);
 	~EditorCore();
 
@@ -31,34 +32,31 @@ public:
 
 	Transform* RootTransform = nullptr;
 
-	Havana* GetEditor();
+	Havana* GetEditor() const;
 
 	Transform* GetEditorCameraTransform() const;
 
 private:
-	bool TryingToSaveNewScene = false;
-	float FlyingSpeed = 5.f;
+	bool m_isTryingToSaveNewScene = false;
+	float m_flyingSpeed = 5.f;
 
-	float LookSensitivity = .15f;
-	float SpeedModifier = 100.f;
+	float m_lookSensitivity = .15f;
+	float m_speedModifier = 100.f;
 	float LastX = 0.f;
 	float LastY = 0.f;
 	bool FirstUpdate = true;
-	bool InputEnabled = false;
 	bool PreviousMouseDown = false;
 	bool IsFocusingTransform = false;
 	float startTime = 0.0f;
 	float totalTime = 0.0f;
 	float TravelDistance = 0.f;
-	float FocusSpeed = 10.f;
+	float m_focusSpeed = 10.f;
 
 	Transform* EditorCameraTransform = nullptr;
 	Camera* EditorCamera = nullptr;
-
 	Havana* m_editor = nullptr;
-	TranslationGizmo* gizmo;
-	class AudioSource* testAudio;
-#if ME_EDITOR
+
 	virtual void OnEditorInspect() final;
-#endif
 };
+
+#endif

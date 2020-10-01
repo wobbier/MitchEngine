@@ -1,41 +1,35 @@
-#include "Cores/EditorCore.h"
-#include "Components/Transform.h"
-#include "Engine/World.h"
-#include <stack>
-#include "Havana.h"
-#include "HavanaEvents.h"
-#include "Events/SceneEvents.h"
-#include "File.h"
-#include "Components/Camera.h"
-#include "Components/Cameras/FlyingCamera.h"
-#include "Components/Graphics/Model.h"
-#include "Engine/Engine.h"
-#include "Path.h"
-#include "nlohmann/json.hpp"
-#include "ECS/Core.h"
-#include "World/Scene.h"
-#include "Components/Audio/AudioSource.h"
-#include "Mathf.h"
-#include "optick.h"
-#include "Config.h"
-#include "Renderer.h"
-#include "Cores/Rendering/RenderCore.h"
-#include "Components/Graphics/Mesh.h"
-#include "Window/IWindow.h"
+#include <Cores/EditorCore.h>
+
+#include <Components/Camera.h>
+#include <Components/Graphics/Mesh.h>
+#include <Components/Graphics/Model.h>
+#include <Components/Transform.h>
+#include <Cores/Rendering/RenderCore.h>
+#include <Engine/Engine.h>
+#include <Events/SceneEvents.h>
+#include <Havana.h>
+#include <HavanaEvents.h>
+#include <Mathf.h>
+#include <optick.h>
+#include <Window/IWindow.h>
+#include <World/Scene.h>
+
+#if ME_EDITOR
 
 EditorCore::EditorCore(Havana* editor)
 	: Base(ComponentFilter().Excludes<Transform>())
 	, m_editor(editor)
 {
 	SetIsSerializable(false);
+
+	EditorCameraTransform = new Transform();
+	EditorCamera = new Camera();
+
 	std::vector<TypeId> events;
 	events.push_back(SaveSceneEvent::GetEventId());
 	events.push_back(NewSceneEvent::GetEventId());
 	events.push_back(Moonlight::PickingEvent::GetEventId());
 	EventManager::GetInstance().RegisterReceiver(this, events);
-	gizmo = new TranslationGizmo(m_editor);
-	EditorCameraTransform = new Transform();
-	EditorCamera = new Camera();
 }
 
 EditorCore::~EditorCore()
@@ -45,30 +39,15 @@ EditorCore::~EditorCore()
 void EditorCore::Init()
 {
 	Camera::EditorCamera = EditorCamera;
-
-	testAudio = new AudioSource("Assets/Sounds/CONSTITUTION.wav");
-	//TransformEntity = GetWorld().CreateEntity();
-	//TransformEntity.lock()->AddComponent<Transform>();
-	//TransformEntity.lock()->AddComponent<Model>("Assets/Models/TransformGizmo.fbx");
 }
 
 void EditorCore::Update(float dt)
 {
 	OPTICK_CATEGORY("FlyingCameraCore::Update", Optick::Category::Camera);
+
 	auto Keyboard = m_editor->GetInput().GetKeyboardState();
 	auto Mouse = m_editor->GetInput().GetMouseState();
-	if (Keyboard.M)
-	{
-		if (testAudio)
-		{
-			// Sound file
 
-			// Goes in the component
-			testAudio->Play(false);
-		}
-	}
-
-	auto Animatables = GetEntities();
 	if (m_editor->IsWorldViewFocused())
 	{
 		if (Keyboard.F)
@@ -102,10 +81,10 @@ void EditorCore::Update(float dt)
 				return;
 			}
 
-			float CameraSpeed = FlyingSpeed;
+			float CameraSpeed = m_flyingSpeed;
 			if (Keyboard.LeftShift)
 			{
-				CameraSpeed += SpeedModifier;
+				CameraSpeed += m_speedModifier;
 			}
 			CameraSpeed *= dt;
 
@@ -141,7 +120,7 @@ void EditorCore::Update(float dt)
 			}
 
 			Vector2 MousePosition = m_editor->GetInput().GetMousePosition();
-			if (MousePosition == Vector2(0, 0))
+			if (MousePosition.IsZero())
 			{
 				return;
 			}
@@ -181,17 +160,20 @@ void EditorCore::Update(float dt)
 			LastX = MousePosition.X();
 			LastY = MousePosition.Y();
 
-			XOffset *= LookSensitivity;
-			YOffest *= LookSensitivity;
+			XOffset *= m_lookSensitivity;
+			YOffest *= m_lookSensitivity;
 
 			const float Yaw = EditorCamera->Yaw += XOffset;
 			float Pitch = EditorCamera->Pitch += YOffest;
 
 			if (Pitch > 89.0f)
+			{
 				Pitch = 89.0f;
+			}
 			if (Pitch < -89.0f)
+			{
 				Pitch = -89.0f;
-
+			}
 
 			Vector3 newFront;
 			newFront.SetX(cos(Mathf::Radians(Yaw)) * cos(Mathf::Radians(Pitch)));
@@ -203,7 +185,7 @@ void EditorCore::Update(float dt)
 		else
 		{
 			// Distance moved = time * speed.
-			float distCovered = (totalTime - startTime) * FocusSpeed;
+			float distCovered = (totalTime - startTime) * m_focusSpeed;
 
 			// Fraction of journey completed = current distance divided by total distance.
 			float fracJourney = distCovered / TravelDistance;
@@ -218,16 +200,18 @@ void EditorCore::Update(float dt)
 				IsFocusingTransform = false;
 			}
 		}
-		return;
 	}
 }
 
 void EditorCore::Update(float dt, Transform* rootTransform)
 {
 	OPTICK_EVENT("EditorCore::Update");
-	Update(dt);
+
 	RootTransform = rootTransform;
-	if (TryingToSaveNewScene)
+
+	Update(dt);
+
+	if (m_isTryingToSaveNewScene)
 	{
 		ImGui::OpenPopup("SaveNewScenePopup");
 		if (ImGui::BeginPopup("SaveNewScenePopup"))
@@ -237,20 +221,11 @@ void EditorCore::Update(float dt, Transform* rootTransform)
 			{
 				GetEngine().CurrentScene->Save(output, rootTransform);
 				GetEngine().GetConfig().SetValue(std::string("CurrentScene"), GetEngine().CurrentScene->FilePath.LocalPath);
-				TryingToSaveNewScene = false;
+				m_isTryingToSaveNewScene = false;
 			}
 			ImGui::EndPopup();
 		}
 	}
-	//gizmo->Update(m_editor->SelectedTransform, Camera::EditorCamera);
-	//if (m_editor->SelectedTransform)
-	//{
-	//	if (TransformEntity.lock())
-	//	{
-	//		auto& trans = TransformEntity.lock()->GetComponent<Transform>();
-	//		trans.SetPosition(m_editor->SelectedTransform->GetPosition());
-	//	}
-	//}
 }
 
 bool EditorCore::OnEvent(const BaseEvent& evt)
@@ -259,7 +234,7 @@ bool EditorCore::OnEvent(const BaseEvent& evt)
 	{
 		if (GetEngine().CurrentScene->IsNewScene())
 		{
-			TryingToSaveNewScene = true;
+			m_isTryingToSaveNewScene = true;
 		}
 		else
 		{
@@ -332,16 +307,9 @@ bool EditorCore::OnEvent(const BaseEvent& evt)
 void EditorCore::OnEntityAdded(Entity& NewEntity)
 {
 	Base::OnEntityAdded(NewEntity);
-
-	//Transform& NewEntityTransform = NewEntity.GetComponent<Transform>();
-
-	//if (NewEntityTransform.ParentTransform == nullptr && NewEntity != *RootEntity.lock().get())
-	{
-		//NewEntityTransform.SetParent(RootEntity.lock()->GetComponent<Transform>());
-	}
 }
 
-Havana* EditorCore::GetEditor()
+Havana* EditorCore::GetEditor() const
 {
 	return m_editor;
 }
@@ -351,50 +319,19 @@ Transform* EditorCore::GetEditorCameraTransform() const
 	return EditorCameraTransform;
 }
 
-#if ME_EDITOR
-
 void EditorCore::OnEditorInspect()
 {
 	BaseCore::OnEditorInspect();
+
 	ImGui::Text("Camera Settings");
-	ImGui::DragFloat("Flying Speed", &FlyingSpeed);
-	ImGui::DragFloat("Speed Modifier", &SpeedModifier);
-	ImGui::DragFloat("Focus Speed", &FocusSpeed);
-	ImGui::DragFloat("Look Sensitivity", &LookSensitivity, 0.01f);
+	ImGui::DragFloat("Flying Speed", &m_flyingSpeed);
+	ImGui::DragFloat("Speed Modifier", &m_speedModifier);
+	ImGui::DragFloat("Focus Speed", &m_focusSpeed);
+	ImGui::DragFloat("Look Sensitivity", &m_lookSensitivity, 0.01f);
 
 	EditorCameraTransform->OnEditorInspect();
 
 	EditorCamera->OnEditorInspect();
 }
-//
-//void EditorCore::SaveWorld(const std::string & path)
-//{
-//	//if (GetEngine().CurrentScene->IsNewScene())
-//	{
-//		//TryingToSaveNewScene = true;
-//
-//		File worldFile(FilePath(path));
-//		json world;
-//
-//		if (RootTransform->Children.size() > 0)
-//		{
-//			for (Transform* Child : RootTransform->Children)
-//			{
-//				SaveSceneRecursively(world["Scene"], Child);
-//			}
-//		}
-//
-//		json& cores = world["Cores"];
-//		for (auto& core : GetWorld().GetAllCores())
-//		{
-//			json coreDef;
-//			coreDef["Type"] = (*core).GetName();
-//			cores.push_back(coreDef);
-//		}
-//
-//		worldFile.Write(world.dump(4));
-//		std::cout << world.dump(4) << std::endl;
-//	}
-//}
 
 #endif
