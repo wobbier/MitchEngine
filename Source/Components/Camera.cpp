@@ -67,6 +67,34 @@ void Camera::OnDeserialize(const json& inJson)
 	{
 		Skybox = new Moonlight::SkyBox(inJson["Skybox"]);
 	}
+
+	if (inJson.contains("Zoom"))
+	{
+		Zoom = inJson["Zoom"];
+	}
+
+	if (inJson.contains("IsCurrent"))
+	{
+		if (inJson["IsCurrent"])
+		{
+			SetCurrent();
+		}
+	}
+
+	if (inJson.contains("Near"))
+	{
+		Near = inJson["Near"];
+	}
+
+	if (inJson.contains("Far"))
+	{
+		Far = inJson["Far"];
+	}
+
+	if (inJson.contains("ClearColor"))
+	{
+		ClearColor = Vector3((float)inJson["ClearColor"][0], (float)inJson["ClearColor"][1], (float)inJson["ClearColor"][2]);
+	}
 }
 
 void Camera::OnSerialize(json& outJson)
@@ -80,6 +108,8 @@ void Camera::OnSerialize(json& outJson)
 	{
 		outJson["Skybox"] = Skybox->SkyMaterial->GetTexture(Moonlight::TextureType::Diffuse)->GetPath().LocalPath;
 	}
+
+	outJson["ClearColor"] = { ClearColor.X(), ClearColor.Y(), ClearColor.Z() };
 }
 
 #if ME_EDITOR
