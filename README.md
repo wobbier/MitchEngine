@@ -19,7 +19,7 @@ The engine is:
 How to make a Mitch game
 -----------------------
 
-1. Fork the [MitchGame][8] repo and follow the README
+1. Download the [Project Setup][8] batch file and run that from your git repo root.
 2. Think of an awesome game idea.
 3. ????
 4. Profit
@@ -36,7 +36,6 @@ Camera& CameraComponent = MainCamera.AddComponent<Camera>();
 
 // Start changing some values
 CameraTransform.SetPosition(0.f, 5.f, 10.f);
-
 
 // Spawning models.
 Entity ModelEntity = GameWorld->CreateEntity();
@@ -93,4 +92,4 @@ Contact me
 [5]: https://github.com/ultralight-ux/Ultralight "Ultralight"
 [6]: https://github.com/bombomby/optick "Optick"
 [7]: https://github.com/bulletphysics/bullet3 "Bullet 3D"
-[8]: https://github.com/wobbier/MitchGame "MitchGame Example Project"
+[8]: https://raw.githubusercontent.com/wobbier/MitchEngine/master/Tools/NewProjectSetup.bat "Project Creator"
