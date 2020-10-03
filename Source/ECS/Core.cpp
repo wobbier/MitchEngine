@@ -59,7 +59,7 @@ const bool BaseCore::GetIsSerializable() const
 
 void BaseCore::SetIsSerializable(bool value)
 {
-	IsSerializable = true;
+	IsSerializable = value;
 }
 
 #if ME_EDITOR

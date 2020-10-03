@@ -1,0 +1,41 @@
+{
+    "Cores": null,
+    "Scene": [
+        {
+            "Components": [
+                {
+                    "ClearColor": [
+                        0.0756920576095581,
+                        0.38558414578437805,
+                        0.5147058963775635
+                    ],
+                    "Far": 2000.0,
+                    "IsCurrent": true,
+                    "Near": 0.10000000149011612,
+                    "Type": "Camera",
+                    "Zoom": 45.0
+                },
+                {
+                    "Position": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Rotation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "Scale": [
+                        1.0,
+                        1.0,
+                        1.0
+                    ],
+                    "Type": "Transform"
+                }
+            ],
+            "DestroyOnLoad": true,
+            "Name": "Main Camera"
+        }
+    ]
+}

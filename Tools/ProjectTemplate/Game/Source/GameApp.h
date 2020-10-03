@@ -1,14 +1,12 @@
 #pragma once
-#include "Game.h"
-#include "Pointers.h"
-#include "ECS/EntityHandle.h"
+#include <Game.h>
 
-class MitchGame
+class GameApp
 	: public Game
 {
 public:
-	MitchGame();
-	~MitchGame();
+	GameApp();
+	~GameApp();
 
 	virtual void OnInitialize() override;
 
@@ -17,9 +15,4 @@ public:
 	virtual void OnEnd() override;
 
 	virtual void PostRender() override;
-
-	class FlyingCameraCore* FlyingCameraController = nullptr;
-
-	EntityHandle MainCamera;
-	EntityHandle SecondaryCamera;
 };

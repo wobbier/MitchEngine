@@ -8,6 +8,8 @@
 AudioCore::AudioCore()
 	: Base(ComponentFilter().Requires<AudioSource>())
 {
+	SetIsSerializable(false);
+
 #if _WIN32
 	CoInitializeEx(nullptr, COINIT_MULTITHREADED);
 #endif

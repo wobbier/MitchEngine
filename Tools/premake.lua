@@ -409,7 +409,8 @@ vpaths {
 if isUWP then
   postbuildcommands {
     "fxc /T vs_4_0_level_9_3 /Fo Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\GridVertexShader.cso Assets\\Shaders\\GridVertexShader.hlsl",
-    "fxc /T ps_4_0_level_9_3 /Fo Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\GridPixelShader.cso Assets\\Shaders\\GridPixelShader.hlsl"
+    "fxc /T ps_4_0_level_9_3 /Fo Build\\%{cfg.buildcfg}\\AppX\\Assets\\Shaders\\GridPixelShader.cso Assets\\Shaders\\GridPixelShader.hlsl",
+    "xcopy /y /d  \"ThirdParty\\UltralightSDK\\bin\\UWP\\*.*\" \"..\\Build\\Release\""
   }
 else
   excludes {
@@ -418,7 +419,8 @@ else
   }
   postbuildcommands {
     "fxc /T vs_4_0_level_9_3 /Fo Assets\\Shaders\\GridVertexShader.cso Assets\\Shaders\\GridVertexShader.hlsl",
-    "fxc /T ps_4_0_level_9_3 /Fo Assets\\Shaders\\GridPixelShader.cso Assets\\Shaders\\GridPixelShader.hlsl"
+    "fxc /T ps_4_0_level_9_3 /Fo Assets\\Shaders\\GridPixelShader.cso Assets\\Shaders\\GridPixelShader.hlsl",
+    "xcopy /y /d  \"ThirdParty\\UltralightSDK\\bin\\Win64\\*.*\" \"..\\Build\\Debug Editor\""
   }
 end
 configuration "with-renderdoc"
