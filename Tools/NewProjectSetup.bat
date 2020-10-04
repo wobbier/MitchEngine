@@ -1,5 +1,9 @@
 @echo off
 
+IF NOT EXIST .git (
+git init
+)
+
 set /P id=Enter project name (Used for the .sln): 
 
 echo 2> .gitmodules
