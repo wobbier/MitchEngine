@@ -9,6 +9,11 @@ UIWindow::UIWindow(IWindow* window, ultralight::OverlayManager* manager)
 
 }
 
+UIWindow::~UIWindow()
+{
+
+}
+
 void UIWindow::set_listener(ultralight::WindowListener* listener)
 {
 }
@@ -16,6 +21,11 @@ void UIWindow::set_listener(ultralight::WindowListener* listener)
 void* UIWindow::native_handle() const
 {
 	return nullptr;
+}
+
+void UIWindow::DrawSurface(int x, int y, ultralight::Surface* surface)
+{
+	throw std::logic_error("The method or operation is not implemented.");
 }
 
 ultralight::WindowListener* UIWindow::listener()

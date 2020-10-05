@@ -3,6 +3,7 @@
 #include "UI/RefCountedImpl.h"
 #include "AppCore/Window.h"
 #include "Window/IWindow.h"
+#include "Ultralight/platform/Surface.h"
 
 class UIWindow
 	: public ultralight::Window
@@ -13,8 +14,10 @@ class UIWindow
 	friend class OverlayImpl;
 public:
 	UIWindow(IWindow* window, ultralight::OverlayManager* manager);
-	virtual ~UIWindow() = default;
+protected:
 
+	virtual ~UIWindow() override;;
+public:
 
 	virtual void set_listener(ultralight::WindowListener* listener) override;
 
@@ -55,6 +58,9 @@ public:
 	virtual ultralight::OverlayManager* overlay_manager() const override;
 
 	void* native_handle() const override;
+
+
+	void DrawSurface(int x, int y, ultralight::Surface* surface) override;
 
 protected:
 	ultralight::OverlayManager* m_overlayManager = nullptr;

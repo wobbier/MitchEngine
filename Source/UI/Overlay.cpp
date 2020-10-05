@@ -10,6 +10,8 @@
 #include "RefCountedImpl.h"
 #include "OverlayManager.h"
 #include <vector>
+#include "Engine/Engine.h"
+#include "Cores/UI/UICore.h"
 
 namespace ultralight {
 
@@ -197,7 +199,7 @@ namespace ultralight {
 
 	protected:
 		OverlayImpl(Ref<Window> window, uint32_t width, uint32_t height, int x, int y) :
-			window_(window), view_(App::instance()->renderer()->CreateView(width, height, false, nullptr)),
+			window_(window), view_(GetEngine().UI->m_uiRenderer->CreateView(width, height, false, nullptr)),
 			width_(width), height_(height), x_(x), y_(y), needs_update_(true),
 			driver_((GPUDriverImpl*)Platform::instance().gpu_driver()) {
 			window_->overlay_manager()->Add(this);
@@ -211,7 +213,7 @@ namespace ultralight {
 		}
 
 		~OverlayImpl() {
-			if (App::instance()) {
+			if (GetEngine().UI->m_uiRenderer) {
 				window_->overlay_manager()->Remove(this);
 
 				if (vertices_.size())
@@ -251,7 +253,9 @@ namespace ultralight {
 		return AdoptRef(*new OverlayImpl(window, view, x, y));
 	}
 
-	Overlay::~Overlay() {}
+	Overlay::~Overlay()
+	{
+	}
 
 
 }  // namespace ultralight
