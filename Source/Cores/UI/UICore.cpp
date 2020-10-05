@@ -39,6 +39,7 @@ UICore::UICore(IWindow* window, Moonlight::Renderer* renderer)
 	config.face_winding = ultralight::FaceWinding::kFaceWinding_Clockwise;
 	config.force_repaint = true;
 	config.font_family_standard = "Arial";
+	config.use_gpu_renderer = true;
 	// ??????
 	config.resource_path = "M:\\Projects\\C++\\stack\\Engine\\Modules\\Havana\\..\\..\\..\\Build\\Debug Editor";
 	//config_.cache_path = ultralight::String16(std::string(fileSystemRoot.Directory + "ultralight.log").c_str());
@@ -224,6 +225,7 @@ void UICore::InitUIView(BasicUIView& view)
 
 	view.IsInitialized = true;
 	view.Index = m_overlays.size() - 1;
+	view.ViewRef = overlay->view();
 }
 
 ultralight::OverlayManager* UICore::GetOverlayManager()

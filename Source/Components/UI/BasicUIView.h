@@ -23,17 +23,14 @@ public:
 	virtual void OnEditorInspect() override;
 #endif
 
-	virtual void OnBeginLoading(ultralight::View* caller) override;
-
-
-	virtual void OnFinishLoading(ultralight::View* caller) override;
-
-
 	virtual void OnUpdateHistory(ultralight::View* caller) override;
 
 	virtual void OnDOMReady(ultralight::View* caller) final;
 
 	virtual void OnUILoad(ultralight::JSObject& GlobalWindow, ultralight::View* Caller);
+
+	void ExecuteScript(const std::string& Script);
+
 	Path FilePath;
 
 protected:
@@ -45,5 +42,7 @@ protected:
 private:
 	virtual void OnSerialize(json& outJson) override;
 	virtual void OnDeserialize(const json& inJson) override;
+
+	ultralight::RefPtr<ultralight::View> ViewRef;
 };
 ME_REGISTER_COMPONENT_FOLDER(BasicUIView, "UI")

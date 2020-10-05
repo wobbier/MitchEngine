@@ -11,7 +11,11 @@ UIWindow::UIWindow(IWindow* window, ultralight::OverlayManager* manager)
 
 void UIWindow::set_listener(ultralight::WindowListener* listener)
 {
-	throw std::logic_error("The method or operation is not implemented.");
+}
+
+void* UIWindow::native_handle() const
+{
+	return nullptr;
 }
 
 ultralight::WindowListener* UIWindow::listener()

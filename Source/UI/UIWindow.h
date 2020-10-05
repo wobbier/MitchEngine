@@ -53,7 +53,11 @@ public:
 	REF_COUNTED_IMPL(UIWindow);
 
 	virtual ultralight::OverlayManager* overlay_manager() const override;
+
+	void* native_handle() const override;
+
 protected:
 	ultralight::OverlayManager* m_overlayManager = nullptr;
 	IWindow* m_window;
+	ultralight::WindowListener* listener_ = nullptr;
 };

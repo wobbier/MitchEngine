@@ -38,21 +38,14 @@ void BasicUIView::OnDeserialize(const json& inJson)
 	}
 }
 
-void BasicUIView::OnBeginLoading(ultralight::View* caller)
-{
-}
-
-void BasicUIView::OnFinishLoading(ultralight::View* caller)
-{
-}
-
 void BasicUIView::OnUpdateHistory(ultralight::View* caller)
 {
 }
 
 void BasicUIView::OnDOMReady(ultralight::View* caller)
 {
-	ultralight::SetJSContext(caller->js_context());
+	ultralight::Ref<ultralight::JSContext> context = caller->LockJSContext();
+	ultralight::SetJSContext(context.get());
 	ultralight::JSObject global = ultralight::JSGlobalObject();
 
 	global["PlaySound"] = BindJSCallback(&BasicUIView::PlaySound);
@@ -64,6 +57,11 @@ void BasicUIView::OnUILoad(ultralight::JSObject& GlobalWindow, ultralight::View*
 {
 }
 
+
+void BasicUIView::ExecuteScript(const std::string& Script)
+{
+	ViewRef->EvaluateScript(Script.c_str());
+}
 
 void BasicUIView::PlaySound(const ultralight::JSObject& thisObject, const ultralight::JSArgs& args)
 {
