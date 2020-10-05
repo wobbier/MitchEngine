@@ -43,6 +43,7 @@ public:
 
 	OverlayManager* GetOverlayManager();
 
+	ultralight::RefPtr<ultralight::Renderer> m_uiRenderer;
 private:
 	std::vector<ultralight::RefPtr<ultralight::Overlay>> m_overlays;
 
@@ -54,5 +55,4 @@ private:
 	UniquePtr<ultralight::FontLoader> m_fontLoader = nullptr;
 	UniquePtr<ultralight::FileLogger> m_logger = nullptr;
 	ultralight::RefPtr<UIWindow> m_window = nullptr;
-	ultralight::RefPtr<ultralight::Renderer> m_uiRenderer;
 };

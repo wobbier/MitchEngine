@@ -4,7 +4,11 @@
 #include <stdint.h>
 #include <Ultralight/Geometry.h>
 
+#if ME_PLATFORM_WIN64
 #define ENABLE_MSAA 1
+#else
+#define ENABLE_MSAA 0
+#endif
 
 namespace ultralight {
 
