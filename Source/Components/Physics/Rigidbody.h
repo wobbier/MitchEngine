@@ -28,35 +28,24 @@ public:
 
 	bool IsRigidbodyInitialized();
 	void ApplyForce(const Vector3& direction, float force);
-	unsigned int Id = 0;
 	void SetScale(Vector3 InScale);
 	void SetMass(float InMass);
+	void SetVelocity(Vector3 newVelocity);
 
 	const bool IsDynamic() const;
 
 	std::string GetColliderString(ColliderType InType);
 
-	Matrix4 GetMat()
-	{
-		btTransform trans;
-		InternalRigidbody->getMotionState()->getWorldTransform(trans);
+	Matrix4 GetMat();
 
-		float m[16];
-		trans.getOpenGLMatrix(m);
-
-		DirectX::XMMATRIX transform(m[0], m[4], m[8], m[12],
-			m[1], m[5], m[9], m[13],
-			m[2], m[6], m[10], m[14],
-			m[3], m[7], m[11], m[15]);
-
-		return Matrix4(transform);
-	}
+	unsigned int Id = 0;
 
 private:
 	void CreateObject(const Vector3& Position, Quaternion& Rotation, Vector3& InScale, class btDiscreteDynamicsWorld* world);
 	btRigidBody* InternalRigidbody = nullptr;
 	btCollisionShape* fallShape = nullptr;
 	Vector3 Scale;
+	Vector3 Velocity;
 	ColliderType Type = ColliderType::Box;
 	float Mass = 10.0f;
 	bool m_isDynamic = false;

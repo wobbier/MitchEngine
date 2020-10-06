@@ -38,7 +38,7 @@ bool Rigidbody::IsRigidbodyInitialized()
 
 void Rigidbody::ApplyForce(const Vector3& direction, float force)
 {
-	InternalRigidbody->setWorldTransform(btTransform::getIdentity());
+	//InternalRigidbody->setWorldTransform(btTransform::getIdentity());
 	InternalRigidbody->applyForce(PhysicsCore::ToBulletVector(direction * force), -PhysicsCore::ToBulletVector(direction));
 	InternalRigidbody->activate();
 }
@@ -61,6 +61,11 @@ void Rigidbody::SetMass(float InMass)
 	}
 }
 
+void Rigidbody::SetVelocity(Vector3 newVelocity)
+{
+	Velocity = newVelocity;
+}
+
 const bool Rigidbody::IsDynamic() const
 {
 	return m_isDynamic;
@@ -77,6 +82,22 @@ std::string Rigidbody::GetColliderString(ColliderType InType)
 	default:
 		return "Error";
 	}
+}
+
+Matrix4 Rigidbody::GetMat()
+{
+	btTransform trans;
+	InternalRigidbody->getMotionState()->getWorldTransform(trans);
+
+	float m[16];
+	trans.getOpenGLMatrix(m);
+
+	DirectX::XMMATRIX transform(m[0], m[4], m[8], m[12],
+		m[1], m[5], m[9], m[13],
+		m[2], m[6], m[10], m[14],
+		m[3], m[7], m[11], m[15]);
+
+	return Matrix4(transform);
 }
 
 void Rigidbody::OnSerialize(json& outJson)
@@ -142,7 +163,7 @@ void Rigidbody::CreateObject(const Vector3& Position, Quaternion& Rotation, Vect
 	btRigidBody::btRigidBodyConstructionInfo fallRigidBodyCI(Mass, fallMotionState, fallShape, fallInertia);
 	InternalRigidbody = new btRigidBody(fallRigidBodyCI);
 	InternalRigidbody->setUserPointer(this);
-
+	InternalRigidbody->setLinearVelocity(PhysicsCore::ToBulletVector(Velocity));
 	IsInitialized = true;
 }
 

@@ -40,9 +40,46 @@ void Model::Init()
 		
 		if (ModelHandle->RootNode.Nodes.size() > 0)
 		{
-			for (auto& childNode : ModelHandle->RootNode.Nodes)
+			if (ModelHandle->RootNode.Nodes.size() == 1)
 			{
-				RecursiveLoadMesh(childNode, Parent);
+				auto& childNode = ModelHandle->RootNode.Nodes[0];
+				{
+					//if (childNode.Nodes.size() == 1)
+					{
+						for (auto& childNodes : childNode.Nodes)
+						{
+							EntityHandle entityNode = GetEngine().GetWorld().lock()->CreateEntity();
+							auto& transform = entityNode->AddComponent<Transform>(childNodes.Name);
+							transform.SetParent(Parent->GetComponent<Transform>());
+							transform.SetPosition(childNodes.Position);
+							RecursiveLoadMesh(childNodes, entityNode);
+						}
+						for (auto child : childNode.Meshes)
+						{
+							//Transform& trans = Parent->AddComponent<Transform>(child->Name);
+							Mesh& meshRef = Parent->AddComponent<Mesh>(child);
+							//trans.SetPosition(root.Position);
+							//meshRef.MeshShader = ModelShader;
+							//trans.SetParent(parentEnt->GetComponent<Transform>());
+						}
+					}
+					//else
+					{
+						//RecursiveLoadMesh(childNode, Parent);
+					}
+				}
+				/*for (auto child : ModelHandle->RootNode.Meshes)
+				{
+					Transform& trans = Parent->GetComponent<Transform>();
+					Mesh& meshRef = Parent->AddComponent<Mesh>(child);
+				}*/
+			}
+			else
+			{
+				for (auto& childNode : ModelHandle->RootNode.Nodes)
+				{
+					RecursiveLoadMesh(childNode, Parent);
+				}
 			}
 		}
 	}

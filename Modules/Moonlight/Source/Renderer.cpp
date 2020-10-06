@@ -870,7 +870,7 @@ namespace Moonlight
 		}
 
 
-		if (m_pickingRequested || false)
+		if (m_pickingRequested && GameViewRTT)
 		{
 			context->ClearRenderTargetView(GameViewRTT->PickingTargetView.Get(), DirectX::Colors::Transparent);
 
