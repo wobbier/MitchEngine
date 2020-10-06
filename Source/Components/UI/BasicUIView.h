@@ -6,6 +6,7 @@
 #include "Path.h"
 #include "Ultralight/Listener.h"
 #include "UI/JSHelpers.h"
+#include "Ultralight/View.h"
 
 class BasicUIView
 	: public Component<BasicUIView>
