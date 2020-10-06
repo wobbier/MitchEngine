@@ -18,7 +18,6 @@ using namespace Windows::Foundation;
 //using namespace Windows::Graphics::Display;
 
 UWPWindow::UWPWindow(std::string title, int width, int height)
-	: IWindow(title, width, height)
 {
 	MessageHandler = ref new UWPWindowMessageHandler(this);
 	Size = Vector2(width, height);
@@ -35,7 +34,7 @@ bool UWPWindow::ShouldClose()
 
 void UWPWindow::ParseMessageQueue()
 {
-	if (m_windowVisible)
+	if (IsVisible)
 	{
 		CoreWindow::GetForCurrentThread()->Dispatcher->ProcessEvents(CoreProcessEventsOption::ProcessAllIfPresent);
 	}
@@ -61,7 +60,7 @@ void UWPWindow::SetTitle(const std::string& title)
 
 void UWPWindow::SetVisibility(bool Visible)
 {
-	m_windowVisible = Visible;
+	IsVisible = Visible;
 }
 
 Vector2 UWPWindow::GetPosition()

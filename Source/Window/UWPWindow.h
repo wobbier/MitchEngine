@@ -61,6 +61,7 @@ private:
 	Vector2 Size;
 
 	UWPWindowMessageHandler^ MessageHandler;
+	bool IsVisible = true;
 };
 
 #endif
