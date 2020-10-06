@@ -19,7 +19,7 @@ class Engine
 	: public EventReceiver
 {
 public:
-	const float FPS = 120.0f;
+	const float FPS = 139.0f;
 	long long FrameRate;
 
 	Engine();

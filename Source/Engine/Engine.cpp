@@ -99,10 +99,10 @@ void Engine::Init(Game* game)
 			}
 		}
 	};
-	GameWindow = new Win32Window(EngineConfig->GetValue("Title"), Func, 500, 300, WindowWidth, WindowHeight);
+	GameWindow = new Win32Window(EngineConfig->GetValue("Title"), Func, 500, 300, Vector2(WindowWidth, WindowHeight));
 #endif
 #if ME_PLATFORM_UWP
-	GameWindow = new UWPWindow("MitchEngine", 200, 200);
+	GameWindow = new UWPWindow("MitchEngine", 1920, 1080);
 #endif
 
 	m_renderer = new Moonlight::Renderer();

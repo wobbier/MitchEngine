@@ -29,13 +29,10 @@ std::wstring s2ws(const std::string& s)
 	return r;
 };
 
-Win32Window::Win32Window(std::string title, std::function<void(const Vector2&)> resizeFunc, int X, int Y, int width, int height)
-	: IWindow(title, width, height)
-	, ResizeFunc(resizeFunc)
+Win32Window::Win32Window(std::string title, std::function<void(const Vector2&)> resizeFunc, int X, int Y, Vector2 windowSize)
+	: ResizeFunc(resizeFunc)
+	, WindowSize(windowSize)
 {
-	WINDOW_HEIGHT = height;
-	WINDOW_WIDTH = width;
-
 	const wchar_t CLASS_NAME[] = L"Win32Window";
 
 	std::wstring windowTitle = s2ws(title);
@@ -69,8 +66,8 @@ Win32Window::Win32Window(std::string title, std::function<void(const Vector2&)> 
 		YIKES("Failed to register window class");
 	}
 
-	int w = width;
-	int h = height;
+	int w = windowSize.X();
+	int h = windowSize.Y();
 
 	DWORD style = (DWORD)Style::ME_BASIC_BORDERLESS;
 

@@ -35,7 +35,7 @@ class UWPWindow
 	};
 
 public:
-	UWPWindow(std::string title, int width = WINDOW_WIDTH, int height = WINDOW_HEIGHT);
+	UWPWindow(std::string title, int width, int height);
 	~UWPWindow();
 
 	virtual bool ShouldClose() final;
@@ -57,6 +57,8 @@ public:
 
 private:
 	bool ExitRequested = false;
+
+	Vector2 Size;
 
 	UWPWindowMessageHandler^ MessageHandler;
 };

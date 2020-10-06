@@ -21,6 +21,7 @@ UWPWindow::UWPWindow(std::string title, int width, int height)
 	: IWindow(title, width, height)
 {
 	MessageHandler = ref new UWPWindowMessageHandler(this);
+	Size = Vector2(width, height);
 }
 
 UWPWindow::~UWPWindow()
@@ -50,7 +51,7 @@ void UWPWindow::Swap()
 
 Vector2 UWPWindow::GetSize() const
 {
-	return Vector2(WINDOW_WIDTH, WINDOW_HEIGHT);
+	return Size;
 }
 
 void UWPWindow::SetTitle(const std::string& title)
@@ -116,15 +117,13 @@ UWPWindow::UWPWindowMessageHandler::UWPWindowMessageHandler(UWPWindow* window)
 	Windows::Graphics::Display::DisplayInformation::DisplayContentsInvalidated +=
 		ref new TypedEventHandler<Windows::Graphics::Display::DisplayInformation^, Object^>(this, &UWPWindowMessageHandler::OnDisplayContentsInvalidated);
 
-	IWindow::WINDOW_WIDTH = coreWindow->Bounds.Width;
-	IWindow::WINDOW_HEIGHT = coreWindow->Bounds.Height;
+	m_window->Size = Vector2(coreWindow->Bounds.Width, coreWindow->Bounds.Height);
 }
 
 void UWPWindow::UWPWindowMessageHandler::OnWindowSizeChanged(CoreWindow^ sender, WindowSizeChangedEventArgs^ args)
 {
-	m_window->WINDOW_WIDTH = sender->Bounds.Width;
-	m_window->WINDOW_HEIGHT = sender->Bounds.Height;
-	GetEngine().GetRenderer().WindowResized(Vector2(WINDOW_WIDTH, WINDOW_HEIGHT));
+	m_window->Size = Vector2(sender->Bounds.Width, sender->Bounds.Height);
+	GetEngine().GetRenderer().WindowResized(m_window->Size);
 }
 
 void UWPWindow::UWPWindowMessageHandler::OnVisibilityChanged(CoreWindow^ sender, VisibilityChangedEventArgs^ args)
