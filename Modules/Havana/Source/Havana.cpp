@@ -454,6 +454,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 
 			if (ImGui::ImageButton(Icons["Stop"]->ShaderResourceView, ImVec2(30.f, 30.f)) || (Keyboard.F5 && Keyboard.LeftShift))
 			{
+				MaximizeOnPlay = false;
 				SelectedTransform = nullptr;
 				StopGameFunc();
 				m_engine->GetInput().Stop();

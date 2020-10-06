@@ -26,7 +26,10 @@ public:
 
 	virtual void OnUpdateHistory(ultralight::View* caller) override;
 
-	virtual void OnDOMReady(ultralight::View* caller) final;
+	virtual void OnDOMReady(ultralight::View* caller,
+		uint64_t frame_id,
+		bool is_main_frame,
+		const ultralight::String& url) final;
 
 	virtual void OnUILoad(ultralight::JSObject& GlobalWindow, ultralight::View* Caller);
 

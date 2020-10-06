@@ -100,7 +100,7 @@ void RenderCore::Update(float dt)
 				auto& InEntity = Renderables[entIndex];
 				OPTICK_CATEGORY("B::Update Mesh Matrix", Optick::Category::Debug);
 
-				if (InEntity && !InEntity.IsLoading)
+				if (InEntity/* && !InEntity.IsLoading*/)
 				{
 
 					Transform& transform = InEntity.GetComponent<Transform>();

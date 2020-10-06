@@ -42,7 +42,10 @@ void BasicUIView::OnUpdateHistory(ultralight::View* caller)
 {
 }
 
-void BasicUIView::OnDOMReady(ultralight::View* caller)
+void BasicUIView::OnDOMReady(ultralight::View* caller,
+	uint64_t frame_id,
+	bool is_main_frame,
+	const ultralight::String& url)
 {
 	ultralight::Ref<ultralight::JSContext> context = caller->LockJSContext();
 	ultralight::SetJSContext(context.get());
@@ -56,7 +59,6 @@ void BasicUIView::OnDOMReady(ultralight::View* caller)
 void BasicUIView::OnUILoad(ultralight::JSObject& GlobalWindow, ultralight::View* Caller)
 {
 }
-
 
 void BasicUIView::ExecuteScript(const std::string& Script)
 {
