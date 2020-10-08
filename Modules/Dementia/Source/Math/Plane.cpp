@@ -6,7 +6,7 @@ Plane::Plane(const Vector3& InPoint1, const Vector3& InPoint2, const Vector3& In
 	Vector3 b = InPoint3 - InPoint1;
 
 	Normal = a.Cross(b).Normalized();
-	Determinent = -(Normal.X() * InPoint1.X() + Normal.Y() * InPoint1.Y() + Normal.Z() * InPoint1.Z());
+	Determinent = -(Normal.x * InPoint1.x + Normal.y * InPoint1.y + Normal.z * InPoint1.z);
 
 	Point = InPoint1;
 }

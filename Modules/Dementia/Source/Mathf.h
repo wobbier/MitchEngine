@@ -32,7 +32,7 @@ namespace Mathf
 
 	inline Vector3 Lerp(Vector3& start, Vector3& end, float percent)
 	{
-		return (start + percent * (end - start));
+		return (start + (end - start) * percent);
 	}
 
 	inline float Round(float number)

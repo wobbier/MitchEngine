@@ -41,7 +41,7 @@ public:
 		{
 			Transform& transform = Parent->GetComponent<Transform>();
 			auto dir = (Vector3() - transform.GetWorldPosition()).Normalized();
-			Direction = {dir.X(), dir.Y(), dir.Z(), 0.0f};
+			Direction = {dir.x, dir.y, dir.z, 0.0f};
 		}
 	}
 #endif

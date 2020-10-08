@@ -176,9 +176,9 @@ void EditorCore::Update(float dt)
 			}
 
 			Vector3 newFront;
-			newFront.SetX(cos(Mathf::Radians(Yaw)) * cos(Mathf::Radians(Pitch)));
-			newFront.SetY(sin(Mathf::Radians(Pitch)));
-			newFront.SetZ(sin(Mathf::Radians(Yaw)) * cos(Mathf::Radians(Pitch)));
+			newFront.x = (cos(Mathf::Radians(Yaw)) * cos(Mathf::Radians(Pitch)));
+			newFront.y = (sin(Mathf::Radians(Pitch)));
+			newFront.z = (sin(Mathf::Radians(Yaw)) * cos(Mathf::Radians(Pitch)));
 
 			EditorCameraTransform->LookAt(newFront.Normalized());
 		}

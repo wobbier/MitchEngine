@@ -95,7 +95,7 @@ void PhysicsCore::Update(float dt)
 						btTransform trans;
 						Vector3 transPos = TransformComponent.GetPosition();
 						trans.setRotation(btQuaternion(TransformComponent.InternalRotation.GetInternalVec().x, TransformComponent.InternalRotation.GetInternalVec().y, TransformComponent.InternalRotation.GetInternalVec().z, TransformComponent.InternalRotation.GetInternalVec().w));
-						trans.setOrigin(btVector3(transPos.X(), transPos.Y(), transPos.Z()));
+						trans.setOrigin(btVector3(transPos.x, transPos.y, transPos.z));
 						rigidbody->setWorldTransform(trans);
 						rigidbody->activate();
 					}
@@ -187,8 +187,8 @@ bool PhysicsCore::Raycast(const Vector3& InPosition, const Vector3& InDirection,
 	///all hits
 	if (false)
 	{
-		btVector3 from(InPosition.X(), InPosition.Y(), InPosition.Z());
-		btVector3 to(InDirection.X(), InDirection.Y(), InDirection.Z());
+		btVector3 from(InPosition.x, InPosition.y, InPosition.z);
+		btVector3 to(InDirection.x, InDirection.y, InDirection.z);
 		//PhysicsWorld->getDebugDrawer()->drawLine(from, to, btVector4(0, 0, 0, 1));
 		btCollisionWorld::AllHitsRayResultCallback allResults(from, to);
 		allResults.m_flags |= btTriangleRaycastCallback::kF_KeepUnflippedNormal;
@@ -215,8 +215,8 @@ bool PhysicsCore::Raycast(const Vector3& InPosition, const Vector3& InDirection,
 
 	///first hit
 	{
-		btVector3 from(InPosition.X(), InPosition.Y(), InPosition.Z());
-		btVector3 to(InDirection.X(), InDirection.Y(), InDirection.Z());
+		btVector3 from(InPosition.x, InPosition.y, InPosition.z);
+		btVector3 to(InDirection.x, InDirection.y, InDirection.z);
 		//PhysicsWorld->getDebugDrawer()->drawLine(from, to, btVector4(0, 0, 1, 1));
 
 		btCollisionWorld::ClosestRayResultCallback	closestResults(from, to);

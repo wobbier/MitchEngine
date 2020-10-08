@@ -29,7 +29,7 @@ public:
 
 	void Initialize(Scene* pScene, btDynamicsWorld* pPhysicsWorld, const Vector3 spawnPos, float radius, float height, float mass, float stepHeight);
 
-	void Walk(const Vector3 direction);
+	void Walk(const Vector3& direction);
 	void Walk(Vector2 direction);
 
 	void Update(float dt);

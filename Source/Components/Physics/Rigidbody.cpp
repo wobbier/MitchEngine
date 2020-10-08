@@ -102,7 +102,7 @@ Matrix4 Rigidbody::GetMat()
 
 void Rigidbody::OnSerialize(json& outJson)
 {
-	outJson["Scale"] = { Scale.X(), Scale.Y(), Scale.Z() };
+	outJson["Scale"] = { Scale.x, Scale.y, Scale.z };
 	outJson["ColliderType"] = GetColliderString(Type);
 	outJson["Mass"] = Mass;
 }
@@ -154,7 +154,7 @@ void Rigidbody::CreateObject(const Vector3& Position, Quaternion& Rotation, Vect
 	m_isDynamic = (Mass != 0.f);
 
 	btDefaultMotionState* fallMotionState =
-		new btDefaultMotionState(btTransform(btQuaternion(Rotation.GetInternalVec().x, Rotation.GetInternalVec().y, Rotation.GetInternalVec().z, Rotation.GetInternalVec().w), btVector3(Position.X(), Position.Y(), Position.Z())));
+		new btDefaultMotionState(btTransform(btQuaternion(Rotation.GetInternalVec().x, Rotation.GetInternalVec().y, Rotation.GetInternalVec().z, Rotation.GetInternalVec().w), btVector3(Position.x, Position.y, Position.z)));
 	btVector3 fallInertia(0, 0, 0);
 	if (m_isDynamic)
 	{

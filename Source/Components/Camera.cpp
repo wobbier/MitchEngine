@@ -109,7 +109,7 @@ void Camera::OnSerialize(json& outJson)
 		outJson["Skybox"] = Skybox->SkyMaterial->GetTexture(Moonlight::TextureType::Diffuse)->GetPath().LocalPath;
 	}
 
-	outJson["ClearColor"] = { ClearColor.X(), ClearColor.Y(), ClearColor.Z() };
+	outJson["ClearColor"] = { ClearColor.x, ClearColor.y, ClearColor.z };
 }
 
 #if ME_EDITOR

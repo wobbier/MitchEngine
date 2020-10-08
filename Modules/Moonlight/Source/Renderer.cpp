@@ -367,9 +367,9 @@ namespace Moonlight
 			);
 		}
 
-		const XMVECTORF32 eye = { camera.Position.X(), camera.Position.Y(), camera.Position.Z(), 0 };
-		const XMVECTORF32 at = { /*camera.Position.X() + */camera.Front.X(),/* camera.Position.Y() + */camera.Front.Y(), /*camera.Position.Z() + */camera.Front.Z(), 0.0f };
-		const XMVECTORF32 up = { camera.Up.X(), camera.Up.Y(), camera.Up.Z(), 0 };
+		const XMVECTORF32 eye = { camera.Position.x, camera.Position.y, camera.Position.z, 0 };
+		const XMVECTORF32 at = { /*camera.Position.X() + */camera.Front.x,/* camera.Position.Y() + */camera.Front.y, /*camera.Position.Z() + */camera.Front.z, 0.0f };
+		const XMVECTORF32 up = { camera.Up.x, camera.Up.y, camera.Up.z, 0 };
 
 		//Sunlight.cameraPos = { camera.Position.X(), camera.Position.Y(), camera.Position.Z(), 0 };
 
@@ -1129,11 +1129,11 @@ namespace Moonlight
 			);
 		}
 
-		const XMVECTORF32 eye = { camera.Position.X(), camera.Position.Y(), camera.Position.Z(), 0 };
-		const XMVECTORF32 at = { camera.Position.X() + camera.Front.X(), camera.Position.Y() + camera.Front.Y(), camera.Position.Z() + camera.Front.Z(), 0.0f };
-		const XMVECTORF32 up = { camera.Up.X(), camera.Up.Y(), camera.Up.Z(), 0 };
+		const XMVECTORF32 eye = { camera.Position.x, camera.Position.y, camera.Position.z, 0 };
+		const XMVECTORF32 at = { camera.Position.x + camera.Front.x, camera.Position.y + camera.Front.y, camera.Position.z + camera.Front.z, 0.0f };
+		const XMVECTORF32 up = { camera.Up.x, camera.Up.y, camera.Up.z, 0 };
 
-		Sunlight.cameraPos = { camera.Position.X(), camera.Position.Y(), camera.Position.Z(), 0 };
+		Sunlight.cameraPos = { camera.Position.x, camera.Position.y, camera.Position.z, 0 };
 
 		ID3D11RenderTargetView** targets[1] = { ViewRTT->PickingTargetView.GetAddressOf() };
 		context->OMSetRenderTargets(1, *targets, ViewRTT->DepthStencilView.Get());

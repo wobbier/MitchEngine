@@ -44,8 +44,8 @@ public:
 		if (determinent != 0.f)
 		{
 			float e = v.Dot(w);
-			Vector3 U = (b * e - c * d) * u;
-			Vector3 V = (a * e - b * d) * v;
+			Vector3 U = u * (b * e - c * d);
+			Vector3 V = v * (a * e - b * d);
 			return (w + (U - V) / determinent).LengthSquared();
 		}
 		else
@@ -59,7 +59,7 @@ public:
 		Vector3 u = End - Start;
 		Vector3 v = InPosition - Start;
 
-		return Start + (u.Dot(v) / u.LengthSquared()) * u;
+		return Start + u * (u.Dot(v) / u.LengthSquared());
 	}
 
 	float DistanceToPoint(const Vector3& InPoint)
@@ -72,7 +72,7 @@ public:
 		Vector3 pa = Start - InPoint;
 		Vector3 n = End - Start;
 
-		return (pa - (pa.Dot(n) / n.LengthSquared()) * n).LengthSquared();
+		return (pa - n * (pa.Dot(n) / n.LengthSquared())).LengthSquared();
 	}
 
 private:

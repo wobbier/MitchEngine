@@ -39,7 +39,7 @@ namespace Moonlight
 	void Material::OnSerialize(json& OutJson)
 	{
 		OutJson["Type"] = TypeName;
-		OutJson["DiffuseColor"] = { DiffuseColor.X(), DiffuseColor.Y(), DiffuseColor.Z() };
+		OutJson["DiffuseColor"] = { DiffuseColor.x, DiffuseColor.y, DiffuseColor.z };
 		OutJson["Tiling"] = { Tiling.X(), Tiling.Y() };
 		for (unsigned int type = 0; type < TextureType::Count; ++type)
 		{

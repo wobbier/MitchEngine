@@ -78,14 +78,14 @@ void CharacterController::Initialize(Scene* pScene, btDynamicsWorld* pPhysicsWor
 	m_world->addCollisionObject(m_ghostObject, btBroadphaseProxy::KinematicFilter, btBroadphaseProxy::StaticFilter | btBroadphaseProxy::DefaultFilter);
 }
 
-void CharacterController::Walk(const Vector3 direction)
+void CharacterController::Walk(const Vector3& direction)
 {
-	Walk(Vector2(direction.X(), direction.Z()));
+	Walk(Vector2(direction.x, direction.z));
 }
 
 void CharacterController::Walk(Vector2 direction)
 {
-	DirectX::SimpleMath::Vector2 velocityXZ = DirectX::SimpleMath::Vector2(direction.GetInternalVec() + Vector2(m_manualVelocity.X(), m_manualVelocity.Z()).GetInternalVec());
+	DirectX::SimpleMath::Vector2 velocityXZ = DirectX::SimpleMath::Vector2(direction.GetInternalVec() + Vector2(m_manualVelocity.x, m_manualVelocity.z).GetInternalVec());
 
 	float speed = velocityXZ.Length();
 
@@ -137,14 +137,12 @@ void CharacterController::Jump()
 
 Vector3 CharacterController::GetPosition() const
 {
-	btVector3 pos = m_motionTransform.getOrigin();
-	return Vector3(pos.x(), pos.y(), pos.z());
+	return Vector3(m_motionTransform.getOrigin());
 }
 
 Vector3 CharacterController::GetVelocity() const
 {
-	btVector3 vel = m_rigidbody->getLinearVelocity();
-	return Vector3(vel.x(), vel.y(), vel.z());
+	return Vector3(m_rigidbody->getLinearVelocity());
 }
 
 bool CharacterController::IsOnGround() const
@@ -300,9 +298,9 @@ void CharacterController::UpdatePosition()
 
 void CharacterController::UpdateVelocity(float dt)
 {
-	m_manualVelocity.SetY(m_rigidbody->getLinearVelocity().y());
+	m_manualVelocity.y = m_rigidbody->getLinearVelocity().y();
 
-	btVector3 velocity (m_manualVelocity.X(), m_manualVelocity.Y(), m_manualVelocity.Z());
+	btVector3 velocity (m_manualVelocity.x, m_manualVelocity.y, m_manualVelocity.z);
 
 	m_manualVelocity = m_manualVelocity - (m_manualVelocity * Deceleration * dt);
 
@@ -311,7 +309,7 @@ void CharacterController::UpdateVelocity(float dt)
 	{
 		for (unsigned int i = 0, size = m_surfaceHitNormals.size(); i < size; i++)
 		{
-			auto vec = m_manualVelocity.GetInternalVec().Dot(m_surfaceHitNormals[i].GetInternalVec());
+			auto vec = m_manualVelocity.Dot(m_surfaceHitNormals[i]);
 
 			m_manualVelocity = m_manualVelocity - (vec * 1.05f);
 		}

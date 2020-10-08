@@ -1382,7 +1382,7 @@ void Havana::RenderProfilerBar()
 			for (auto& thing : FrameProfile::GetInstance().ProfileDump)
 			{
 				Vector3 profileColor = FrameProfile::GetInstance().GetCategoryColor(thing.second.Category);
-				ImVec4 col = ImVec4(profileColor.X(), profileColor.Y(), profileColor.Z(), 1.0f);
+				ImVec4 col = ImVec4(profileColor.x, profileColor.y, profileColor.z, 1.0f);
 				ImU32 col32 = ImColor(col);
 				float maxSize = (profileSize <= windowSizeX) ? profileSize : windowSizeX ;
 				float profileSizeX = (thing.second.Timer.GetDeltaSeconds() / totalFrameTime) * maxSize;
@@ -1745,9 +1745,9 @@ void Havana::RenderMainView(Moonlight::CameraData& EditorCamera)
 					ImGuizmo::SetDrawlist();
 					ImGuizmo::SetOrthographic(false);
 
-					const DirectX::XMVECTORF32 eye = { EditorCamera.Position.X(), EditorCamera.Position.Y(), EditorCamera.Position.Z(), 0 };
-					const DirectX::XMVECTORF32 at = { EditorCamera.Position.X() + EditorCamera.Front.X(), EditorCamera.Position.Y() + EditorCamera.Front.Y(), EditorCamera.Position.Z() + EditorCamera.Front.Z(), 0.0f };
-					const DirectX::XMVECTORF32 up = { Vector3::Up.X(), Vector3::Up.Y(), Vector3::Up.Z(), 0 };
+					const DirectX::XMVECTORF32 eye = { EditorCamera.Position.x, EditorCamera.Position.y, EditorCamera.Position.z, 0 };
+					const DirectX::XMVECTORF32 at = { EditorCamera.Position.x + EditorCamera.Front.x, EditorCamera.Position.y + EditorCamera.Front.y, EditorCamera.Position.z + EditorCamera.Front.z, 0.0f };
+					const DirectX::XMVECTORF32 up = { Vector3::Up.x, Vector3::Up.y, Vector3::Up.z, 0 };
 
 					DirectX::XMMATRIX vec = DirectX::XMMatrixLookAtRH(eye, at, up);
 

@@ -10,11 +10,11 @@ namespace HavanaUtils
 	{
 		ImGui::Text(Name.c_str());
 
-		ImGui::Text("X: %f", Vector.X());
+		ImGui::Text("X: %f", Vector.x);
 		ImGui::SameLine();
-		ImGui::Text("Y: %f", Vector.Y());
+		ImGui::Text("Y: %f", Vector.y);
 		ImGui::SameLine();
-		ImGui::Text("Z: %f", Vector.Z());
+		ImGui::Text("Z: %f", Vector.z);
 	}
 	static void Text(const std::string& Name, const Vector2& Vector)
 	{

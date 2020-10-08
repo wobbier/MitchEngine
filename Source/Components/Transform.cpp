@@ -57,7 +57,7 @@ void Transform::SetScale(Vector3 NewScale)
 
 void Transform::SetScale(float NewScale)
 {
-	if (NewScale == Scale.X() && NewScale == Scale.Y() && NewScale == Scale.Z())
+	if (NewScale == Scale.x && NewScale == Scale.y && NewScale == Scale.z)
 	{
 		return;
 	}
@@ -181,7 +181,7 @@ Transform* Transform::GetParent()
 Matrix4 Transform::GetLocalToWorldMatrix()
 {
 	DirectX::SimpleMath::Matrix id = DirectX::XMMatrixIdentity();
-	DirectX::SimpleMath::Matrix rot = DirectX::SimpleMath::Matrix::CreateFromYawPitchRoll(Rotation.Y(), Rotation.X(), Rotation.Z());// , Child->Rotation.Y(), Child->Rotation.Z());
+	DirectX::SimpleMath::Matrix rot = DirectX::SimpleMath::Matrix::CreateFromYawPitchRoll(Rotation.y, Rotation.x, Rotation.z);// , Child->Rotation.Y(), Child->Rotation.Z());
 	DirectX::SimpleMath::Matrix scale = DirectX::SimpleMath::Matrix::CreateScale(Scale.GetInternalVec());
 	DirectX::SimpleMath::Matrix pos = XMMatrixTranslationFromVector(Position.GetInternalVec());
 	if (ParentTransform)
@@ -267,7 +267,7 @@ void Transform::LookAt(const Vector3& InDirection)
 	Quaternion quat2(quat);
 
 	Rotation = Quaternion::ToEulerAngles(quat2);
-	Rotation = Vector3(Mathf::Degrees(Rotation.X()), Mathf::Degrees(Rotation.Y()), Mathf::Degrees(Rotation.Z()));
+	Rotation = Vector3(Mathf::Degrees(Rotation.x), Mathf::Degrees(Rotation.y), Mathf::Degrees(Rotation.z));
 	InternalRotation = quat2;
 	SetDirty(true);
 }
@@ -276,7 +276,7 @@ void Transform::SetRotation(const Vector3& euler)
 {
 	OPTICK_CATEGORY("Transform::Set Rotation", Optick::Category::Scene);
 
-	DirectX::SimpleMath::Quaternion quat2 = DirectX::SimpleMath::Quaternion::CreateFromYawPitchRoll(Mathf::Radians(euler.Y()), Mathf::Radians(euler.X()), Mathf::Radians(euler.Z()));
+	DirectX::SimpleMath::Quaternion quat2 = DirectX::SimpleMath::Quaternion::CreateFromYawPitchRoll(Mathf::Radians(euler.y), Mathf::Radians(euler.x), Mathf::Radians(euler.z));
 	Quaternion quat(quat2);
 	InternalRotation = quat;
 	Rotation = euler;
@@ -383,9 +383,9 @@ Matrix4 Transform::GetMatrix()
 
 void Transform::OnSerialize(json& outJson)
 {
-	outJson["Position"] = { Position.X(),Position.Y(),Position.Z() };
-	outJson["Rotation"] = { Rotation.X(), Rotation.Y(), Rotation.Z() };
-	outJson["Scale"] = { Scale.X(), Scale.Y(), Scale.Z() };
+	outJson["Position"] = { Position.x, Position.y, Position.z };
+	outJson["Rotation"] = { Rotation.x, Rotation.y, Rotation.z };
+	outJson["Scale"] = { Scale.x, Scale.y, Scale.z };
 }
 
 void Transform::OnDeserialize(const json& inJson)
