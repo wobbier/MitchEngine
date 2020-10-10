@@ -205,34 +205,6 @@ void Transform::Init()
 {
 }
 
-#if ME_EDITOR
-void Transform::OnEditorInspect()
-{
-	ImGui::InputText("Name", &Name);
-
-	Vector3 OldPosition = Position;
-	HavanaUtils::EditableVector3("Position", Position);
-	Vector3 OldRotation = Rotation;
-	HavanaUtils::EditableVector3("Rotation", Rotation);
-	if (OldRotation != Rotation || OldPosition != Position)
-	{
-		SetRotation(Rotation);
-	}
-	HavanaUtils::EditableVector3("Scale", Scale);
-	Vector3 WorldPos = GetWorldPosition();
-	HavanaUtils::EditableVector3("World Position", WorldPos);
-	if (WorldPos != GetWorldPosition())
-	{
-		SetWorldPosition(WorldPos);
-	}
-
-	if (ImGui::Button("Reset Transform"))
-	{
-		Reset();
-	}
-}
-#endif
-
 void Transform::SetDirty(bool Dirty)
 {
 	OPTICK_EVENT("Transform::SetDirty");
@@ -415,3 +387,40 @@ void Transform::SetName(const std::string& name)
 {
 	Name = name;
 }
+
+#if ME_EDITOR
+
+void Transform::OnEditorInspect()
+{
+	ImGui::InputText("Name", &Name);
+
+	Vector3 OldPosition = Position;
+	HavanaUtils::EditableVector3("Position", Position);
+	Vector3 OldRotation = Rotation;
+	HavanaUtils::EditableVector3("Rotation", Rotation);
+	if (OldRotation != Rotation || OldPosition != Position)
+	{
+		SetRotation(Rotation);
+		SetPosition(Position);
+	}
+
+	Vector3 OldScale = Scale;
+	HavanaUtils::EditableVector3("Scale", Scale);
+	if (OldScale != Scale)
+	{
+		SetScale(Scale);
+	}
+	Vector3 WorldPos = GetWorldPosition();
+	HavanaUtils::EditableVector3("World Position", WorldPos);
+	if (WorldPos != GetWorldPosition())
+	{
+		SetWorldPosition(WorldPos);
+	}
+
+	if (ImGui::Button("Reset Transform"))
+	{
+		Reset();
+	}
+}
+
+#endif
