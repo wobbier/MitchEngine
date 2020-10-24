@@ -5,6 +5,7 @@
 #include "Math/Vector2.h"
 #include "Math/Matirx4.h"
 #include <string>
+#include "Pointers.h"
 
 namespace Moonlight { class ShaderCommand; }
 
@@ -38,7 +39,7 @@ namespace Moonlight
 	{
 		MeshData* SingleMesh = nullptr;
 		MeshType Type = MeshType::Model;
-		Material* MeshMaterial = nullptr;
+		SharedPtr<Material> MeshMaterial;
 		DirectX::SimpleMath::Matrix Transform;
 		bool Visible = false;
 	};

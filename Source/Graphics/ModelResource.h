@@ -32,5 +32,5 @@ private:
 
 	Moonlight::MeshData* ProcessMesh(aiMesh *mesh, const aiScene *scene);
 
-	bool LoadMaterialTextures(Moonlight::Material* newMaterial, aiMaterial *mat, aiTextureType type, const Moonlight::TextureType& typeName);
+	bool LoadMaterialTextures(SharedPtr<Moonlight::Material> newMaterial, aiMaterial *mat, aiTextureType type, const Moonlight::TextureType& typeName);
 };

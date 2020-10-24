@@ -1,8 +1,9 @@
 #pragma once
 #include <iostream>
 #include "Material.h"
+#include "Pointers.h"
 
-typedef Moonlight::Material* (*CreateMaterialFunc)();
+typedef SharedPtr<Moonlight::Material> (*CreateMaterialFunc)();
 
 class MaterialInfo
 {
@@ -24,8 +25,8 @@ inline MaterialRegistry& GetMaterialRegistry()
 }
 
 template<class T>
-Moonlight::Material* CreateMaterial() {
-	return new T();
+SharedPtr<Moonlight::Material> CreateMaterial() {
+	return std::make_shared<T>();
 }
 
 template<class T>

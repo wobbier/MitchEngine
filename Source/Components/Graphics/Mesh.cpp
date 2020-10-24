@@ -39,12 +39,12 @@ Mesh::Mesh(Moonlight::MeshData* mesh)
 	, MeshReferece(mesh)
 	, Type(Moonlight::MeshType::Model)
 {
-	MeshMaterial = new Moonlight::Material(*MeshReferece->material);
+	MeshMaterial = std::make_shared<Moonlight::Material>(*MeshReferece->material);
 }
 
 Mesh::~Mesh()
 {
-	delete MeshMaterial;
+	MeshMaterial.reset();
 }
 
 void Mesh::Init()
@@ -82,7 +82,7 @@ void Mesh::OnDeserialize(const json& inJson)
 			const std::string& matType = inJson["Material"]["Type"];
 			if (MeshMaterial->GetTypeName() != matType)
 			{
-				delete MeshMaterial;
+				MeshMaterial.reset();
 				MaterialRegistry& reg = GetMaterialRegistry();
 				MeshMaterial = reg[matType].CreateFunc();
 			}
@@ -351,7 +351,7 @@ void Mesh::SelectMaterial(const std::pair<std::string, MaterialInfo*>& ptr, Mate
 		std::vector<SharedPtr<Moonlight::Texture>> textures = MeshMaterial->GetTextures();
 		Vector2 tiling = MeshMaterial->Tiling;
 		Vector3 diffuse = MeshMaterial->DiffuseColor;
-		delete MeshMaterial;
+		MeshMaterial.reset();
 
 		MeshMaterial = reg[ptr.first].CreateFunc();
 

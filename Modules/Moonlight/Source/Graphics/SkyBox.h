@@ -11,6 +11,8 @@ using namespace DirectX;
 
 namespace Moonlight
 {
+	class Material;
+
 	class SkyBox
 	{
 	public:
@@ -18,7 +20,7 @@ namespace Moonlight
 
 		std::shared_ptr<class Texture> SkyMap = nullptr;
 		class ShaderCommand* SkyShader = nullptr;
-		class Material* SkyMaterial = nullptr;
+		SharedPtr<Material> SkyMaterial = nullptr;
 
 		void Draw(ID3D11DeviceContext* context);
 

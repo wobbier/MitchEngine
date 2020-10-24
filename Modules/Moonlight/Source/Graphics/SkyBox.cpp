@@ -19,7 +19,7 @@ namespace Moonlight
 
 		SkyMap = ResourceCache::GetInstance().Get<Texture>(SystemPath);
 		SkyModel = ResourceCache::GetInstance().Get<ModelResource>(Path("Assets/Skybox.fbx"));
-		SkyMaterial = new Material("Unlit", "Assets/Shaders/UnlitShader.hlsl");
+		SkyMaterial = std::make_shared<Material>("Unlit", "Assets/Shaders/UnlitShader.hlsl");
 		SkyMaterial->SetTexture(TextureType::Diffuse, SkyMap);
 
 		auto device = static_cast<DX11Device&>(GetEngine().GetRenderer().GetDevice());

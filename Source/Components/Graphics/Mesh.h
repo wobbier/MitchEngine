@@ -9,6 +9,7 @@
 #include "Graphics/Material.h"
 #include "Graphics/ShaderCommand.h"
 #include "Graphics/MaterialDetail.h"
+#include "Pointers.h"
 class MaterialTest
 {
 public:
@@ -32,7 +33,7 @@ public:
 	unsigned int GetId();
 
 	Moonlight::MeshData* MeshReferece = nullptr;
-	Moonlight::Material* MeshMaterial = nullptr;
+	SharedPtr<Moonlight::Material> MeshMaterial;
 
 	Moonlight::MeshType GetType() const;
 

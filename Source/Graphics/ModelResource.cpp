@@ -105,7 +105,7 @@ Moonlight::MeshData* ModelResource::ProcessMesh(aiMesh *mesh, const aiScene *sce
 {
 	std::vector<Moonlight::Vertex> vertices;
 	std::vector<uint16_t> indices;
-	DiffuseMaterial* newMaterial = new DiffuseMaterial();
+	SharedPtr<Moonlight::Material> newMaterial = std::make_shared<DiffuseMaterial>();
 	for (unsigned int i = 0; i < mesh->mNumVertices; i++)
 	{
 		Moonlight::Vertex vertex;
@@ -187,7 +187,7 @@ Moonlight::MeshData* ModelResource::ProcessMesh(aiMesh *mesh, const aiScene *sce
 	return output;
 }
 
-bool ModelResource::LoadMaterialTextures(Moonlight::Material* newMaterial, aiMaterial *mat, aiTextureType type, const Moonlight::TextureType& typeName)
+bool ModelResource::LoadMaterialTextures(SharedPtr<Moonlight::Material> newMaterial, aiMaterial *mat, aiTextureType type, const Moonlight::TextureType& typeName)
 {
 	for (unsigned int i = 0; i < mat->GetTextureCount(type); i++)
 	{
