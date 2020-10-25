@@ -149,7 +149,7 @@ void Havana::InitUI()
 	style.WindowBorderSize = 0.f;
 	style.ScrollbarSize = 10.f;
 	style.ChildBorderSize = 0.f;
-	style.WindowMenuButtonPosition = ImGuiDir_Right;
+	style.WindowMenuButtonPosition = ImGuiDir_None;
 	ImGui_ImplWin32_Init(Renderer->GetDevice().m_window);
 	ImGui_ImplDX11_Init(Renderer->GetDevice().GetD3DDevice(), Renderer->GetDevice().GetD3DDeviceContext());
 
@@ -1671,6 +1671,7 @@ void Havana::RenderMainView(Moonlight::CameraData& EditorCamera)
 				DirectX::XMStoreFloat4x4(&objView, SelectedTransform->GetMatrix().GetInternalMatrix());
 			}
 
+			ImGuizmo::BeginFrame();
 			static ImGuizmo::OPERATION mCurrentGizmoOperation(ImGuizmo::TRANSLATE);
 			static ImGuizmo::MODE mCurrentGizmoMode(ImGuizmo::LOCAL);
 			static bool useSnap = false;
@@ -1757,8 +1758,8 @@ void Havana::RenderMainView(Moonlight::CameraData& EditorCamera)
 					DirectX::XMFLOAT4X4 idView;
 					DirectX::XMStoreFloat4x4(&idView, DirectX::XMMatrixIdentity());
 
-					//ImGuizmo::DrawGrid(&fView2._11, &fView._11, &idView._11, 10.f);
-					//ImGuizmo::DrawCube(&fView2._11, &fView._11, &idView._11);
+					//ImGuizmo::DrawGrid(&fView2._11, &fView._11, &idView._11, 100.f);
+					//ImGuizmo::DrawCubes(&fView2._11, &fView._11, &idView._11, 1);
 					ImGuizmo::Manipulate(&fView2._11, &fView._11, mCurrentGizmoOperation, mCurrentGizmoMode, &objView._11, &idView._11, useSnap ? &snap[0] : NULL);
 					if (ImGui::IsWindowFocused() && ImGuizmo::IsUsing()/* && isMovingMouse*/)
 					{
@@ -1781,52 +1782,55 @@ void Havana::RenderMainView(Moonlight::CameraData& EditorCamera)
 							//SelectedTransform->SetRotation(Vector3(matrixRotation[0] * 180.f / DirectX::XM_PI, matrixRotation[1] * 180.f / DirectX::XM_PI, matrixRotation[2] * 180.f / DirectX::XM_PI));
 						}
 					}
+
+					ImGuizmo::ViewManipulate(&fView2._11, 8.f, ImVec2(WorldViewRenderLocation.X() + WorldViewRenderSize.X() - 128, WorldViewRenderLocation.Y()), ImVec2(128, 128), 0x00101010);
 				}
 			}
 
 			if (!GetInput().GetMouseState().rightButton)
 			{
-				if (ImGui::IsKeyPressed(90))
+				auto kb = GetInput().GetKeyboardState();
+				if (kb.W)
 					mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
-				if (ImGui::IsKeyPressed(69))
+				if (kb.E)
 					mCurrentGizmoOperation = ImGuizmo::ROTATE;
-				if (ImGui::IsKeyPressed(82)) // r Key
+				if (kb.R) // r Key
 					mCurrentGizmoOperation = ImGuizmo::SCALE;
-				if (ImGui::RadioButton("Translate", mCurrentGizmoOperation == ImGuizmo::TRANSLATE))
-					mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
-				ImGui::SameLine();
-				if (ImGui::RadioButton("Rotate", mCurrentGizmoOperation == ImGuizmo::ROTATE))
-					mCurrentGizmoOperation = ImGuizmo::ROTATE;
-				ImGui::SameLine();
-				if (ImGui::RadioButton("Scale", mCurrentGizmoOperation == ImGuizmo::SCALE))
-					mCurrentGizmoOperation = ImGuizmo::SCALE;
-				if (mCurrentGizmoOperation != ImGuizmo::SCALE)
-				{
-					if (ImGui::RadioButton("Local", mCurrentGizmoMode == ImGuizmo::LOCAL))
-						mCurrentGizmoMode = ImGuizmo::LOCAL;
-					ImGui::SameLine();
-					if (ImGui::RadioButton("World", mCurrentGizmoMode == ImGuizmo::WORLD))
-						mCurrentGizmoMode = ImGuizmo::WORLD;
-				}
-
-				//if (ImGui::IsKeyPressed(83))
-				//	useSnap = !useSnap;
-				//ImGui::Checkbox("", &useSnap);
-				//ImGui::SameLine();
-
-				//switch (mCurrentGizmoOperation)
-				//{
-				//case ImGuizmo::TRANSLATE:
-				//	ImGui::InputFloat3("Snap", &snap[0]);
-				//	break;
-				//case ImGuizmo::ROTATE:
-				//	ImGui::InputFloat("Angle Snap", &snap[0]);
-				//	break;
-				//case ImGuizmo::SCALE:
-				//	ImGui::InputFloat("Scale Snap", &snap[0]);
-				//	break;
-				//}
 			}
+			if (ImGui::RadioButton("Translate", mCurrentGizmoOperation == ImGuizmo::TRANSLATE))
+				mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
+			ImGui::SameLine();
+			if (ImGui::RadioButton("Rotate", mCurrentGizmoOperation == ImGuizmo::ROTATE))
+				mCurrentGizmoOperation = ImGuizmo::ROTATE;
+			ImGui::SameLine();
+			if (ImGui::RadioButton("Scale", mCurrentGizmoOperation == ImGuizmo::SCALE))
+				mCurrentGizmoOperation = ImGuizmo::SCALE;
+			if (mCurrentGizmoOperation != ImGuizmo::SCALE)
+			{
+				if (ImGui::RadioButton("Local", mCurrentGizmoMode == ImGuizmo::LOCAL))
+					mCurrentGizmoMode = ImGuizmo::LOCAL;
+				ImGui::SameLine();
+				if (ImGui::RadioButton("World", mCurrentGizmoMode == ImGuizmo::WORLD))
+					mCurrentGizmoMode = ImGuizmo::WORLD;
+			}
+
+			//if (ImGui::IsKeyPressed(83))
+			//	useSnap = !useSnap;
+			//ImGui::Checkbox("", &useSnap);
+			//ImGui::SameLine();
+
+			//switch (mCurrentGizmoOperation)
+			//{
+			//case ImGuizmo::TRANSLATE:
+			//	ImGui::InputFloat3("Snap", &snap[0]);
+			//	break;
+			//case ImGuizmo::ROTATE:
+			//	ImGui::InputFloat("Angle Snap", &snap[0]);
+			//	break;
+			//case ImGuizmo::SCALE:
+			//	ImGui::InputFloat("Scale Snap", &snap[0]);
+			//	break;
+			//}
 		}
 	}
 	ImGui::End();

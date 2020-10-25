@@ -11,7 +11,7 @@
 
 #pragma region MouseInput
 
-DirectX::Keyboard::State Input::GetKeyboardState()
+const DirectX::Keyboard::State& Input::GetKeyboardState() const
 {
 	return KeyboardState;
 }

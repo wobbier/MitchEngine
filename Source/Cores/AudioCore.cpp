@@ -53,7 +53,7 @@ void AudioCore::InitComponent(AudioSource& audioSource)
 	if (!audioSource.IsInitialized && !audioSource.FilePath.LocalPath.empty())
 	{
 		audioSource.SoundEffectFile = std::make_unique<DirectX::SoundEffect>(mEngine.get(), StringUtils::ToWString(audioSource.FilePath.FullPath).c_str());
-		audioSource.testSoundEffectInstance = audioSource.SoundEffectFile->CreateInstance();
+		audioSource.SoundInstance = audioSource.SoundEffectFile->CreateInstance();
 		audioSource.IsInitialized = true;
 	}
 }
@@ -103,4 +103,13 @@ void AudioCore::OnStart()
 			audioSource.Play(audioSource.Loop);
 		}
 	}
+}
+
+void AudioCore::OnStop()
+{
+	for (auto& audioSource : m_cachedSounds)
+	{
+		audioSource.second.Stop();
+	}
+	m_cachedSounds.clear();
 }

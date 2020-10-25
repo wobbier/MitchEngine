@@ -19,13 +19,13 @@ class AudioCore
 public:
 	AudioCore();
 
-	virtual void Update(float dt) override;
+	virtual void Update(float dt) final;
 
 	void InitComponent(AudioSource& audioSource);
 
-	virtual void OnEntityAdded(Entity& NewEntity) override;
+	virtual void OnEntityAdded(Entity& NewEntity) final;
 
-	virtual bool OnEvent(const BaseEvent& InEvent) override;
+	virtual bool OnEvent(const BaseEvent& InEvent) final;
 
 private:
 	virtual void Init() override;
@@ -34,8 +34,8 @@ private:
 
 	std::map<std::string, AudioSource> m_cachedSounds;
 
-	virtual void OnStart() override;
-
+	virtual void OnStart() final;
+	void OnStop() final;
 };
 
 ME_REGISTER_CORE(AudioCore);

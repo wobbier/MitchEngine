@@ -356,6 +356,10 @@ vpaths {
   ["Source"] = "../Source/*.*"
 }
 
+dependson {
+  "ImGui"
+}
+
 if withRenderdoc then
   defines { "ME_ENABLE_RENDERDOC" } ---, "__cplusplus_winrt"
   postbuildcommands {

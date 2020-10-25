@@ -13,6 +13,7 @@ public:
 
 	bool Load();
 	void Play(const bool ShouldLoop = false);
+	void Stop(bool immediate = true);
 	bool Preload = false;
 
 #if ME_EDITOR
@@ -26,7 +27,7 @@ public:
 	bool Loop = false;
 
 	std::unique_ptr<DirectX::SoundEffect> SoundEffectFile;
-	std::unique_ptr<DirectX::SoundEffectInstance> testSoundEffectInstance;
+	std::unique_ptr<DirectX::SoundEffectInstance> SoundInstance;
 
 	Path FilePath;
 

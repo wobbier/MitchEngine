@@ -19,7 +19,7 @@ public:
 	Input();
 	~Input() = default;
 
-	DirectX::Keyboard::State GetKeyboardState();
+	const DirectX::Keyboard::State& GetKeyboardState() const;
 	DirectX::Mouse::State GetMouseState();
 	DirectX::GamePad::State GetControllerState(unsigned int PlayerId = 0);
 

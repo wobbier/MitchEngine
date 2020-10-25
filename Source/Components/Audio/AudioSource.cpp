@@ -29,13 +29,21 @@ bool AudioSource::Load()
 
 void AudioSource::Play(bool ShouldLoop)
 {
-	if (testSoundEffectInstance)
+	if (SoundInstance)
 	{
 		//if (testSoundEffectInstance->GetState() != DirectX::SoundState::PLAYING)
 		{
-			testSoundEffectInstance->Stop(true);
+			SoundInstance->Stop(true);
 		}
-		testSoundEffectInstance->Play(ShouldLoop);
+		SoundInstance->Play(ShouldLoop);
+	}
+}
+
+void AudioSource::Stop(bool immediate)
+{
+	if (SoundInstance)
+	{
+		SoundInstance->Stop(immediate);
 	}
 }
 
@@ -93,9 +101,9 @@ void AudioSource::OnEditorInspect()
 				{
 					FilePath = SoundFiles[n];
 					IsInitialized = false;
-					if (testSoundEffectInstance && testSoundEffectInstance->GetState() == DirectX::SoundState::PLAYING)
+					if (SoundInstance && SoundInstance->GetState() == DirectX::SoundState::PLAYING)
 					{
-						testSoundEffectInstance->Stop(true);
+						SoundInstance->Stop(true);
 					}
 					SoundFiles.clear();
 					break;
@@ -106,7 +114,7 @@ void AudioSource::OnEditorInspect()
 
 		i++;
 
-		if (testSoundEffectInstance)
+		if (SoundInstance)
 		{
 			if (ImGui::Button("Play Once"))
 			{
