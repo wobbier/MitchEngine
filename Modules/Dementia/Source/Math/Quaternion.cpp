@@ -5,7 +5,7 @@
 Vector3 Quaternion::ToEulerAngles(Quaternion InQuat)
 {
 	Vector3 angles;
-	const DirectX::SimpleMath::Quaternion& q = InQuat.GetInternalVec();
+	const DirectX::SimpleMath::Quaternion q = InQuat.GetInternalVec();
 
 	// roll (x-axis rotation)
 	double sinr_cosp = 2 * (q.w * q.x + q.y * q.z);

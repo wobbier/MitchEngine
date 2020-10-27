@@ -1219,7 +1219,7 @@ namespace ImGuizmo
 
             if (gContext.mAxisFactor[i] < 0.f)
             {
-               DrawHatchedAxis(dirAxis * scaleDisplay[i]);
+               //DrawHatchedAxis(dirAxis * scaleDisplay[i]);
             }
          }
       }
@@ -2288,7 +2288,7 @@ namespace ImGuizmo
             {
                cubeFace.faceCoordsScreen[iCoord] = worldToPos(faceCoords[iCoord] * 0.5f * invert, res);
             }
-            cubeFace.color = directionColor[normalIndex] | 0x808080;
+            cubeFace.color = selectionColor[normalIndex] | 0x808080;
             
             cubeFace.z = centerPositionVP.z / centerPositionVP.w;
             cubeFaceCount++;
@@ -2485,11 +2485,11 @@ namespace ImGuizmo
 
                // draw face with lighter color
                if (iPass)
-               {
-                  gContext.mDrawList->AddConvexPolyFilled(faceCoordsScreen, 4, (directionColor[normalIndex] | 0x80808080) | (isInside ? 0x080808 : 0));
+			   {
+				   gContext.mDrawList->AddConvexPolyFilled(faceCoordsScreen, 4, (directionColor[normalIndex] /*| 0x80808080*/) | (isInside ? 0x080808 : 0));
                   if (boxes[boxCoordInt])
                   {
-                     gContext.mDrawList->AddConvexPolyFilled(faceCoordsScreen, 4, 0x8060A0F0);
+                     gContext.mDrawList->AddConvexPolyFilled(faceCoordsScreen, 4, selectionColor[normalIndex]);
 
                      if (!io.MouseDown[0] && !isDraging && isClicking)
                      {

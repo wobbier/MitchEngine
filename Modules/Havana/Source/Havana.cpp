@@ -35,6 +35,9 @@
 #include <winuser.h>
 #include "Utils/StringUtils.h"
 #include "Profiling/BasicFrameProfile.h"
+#include "Ultralight/Matrix.h"
+#include "Math/Matirx4.h"
+#include "Cores/EditorCore.h"
 
 int profilerSize = 10.f;
 const int kMinProfilerSize = 10.f;
@@ -150,6 +153,8 @@ void Havana::InitUI()
 	style.ScrollbarSize = 10.f;
 	style.ChildBorderSize = 0.f;
 	style.WindowMenuButtonPosition = ImGuiDir_None;
+	style.AntiAliasedFill = false;
+
 	ImGui_ImplWin32_Init(Renderer->GetDevice().m_window);
 	ImGui_ImplDX11_Init(Renderer->GetDevice().GetD3DDevice(), Renderer->GetDevice().GetD3DDeviceContext());
 
@@ -1752,38 +1757,57 @@ void Havana::RenderMainView(Moonlight::CameraData& EditorCamera)
 
 					DirectX::XMMATRIX vec = DirectX::XMMatrixLookAtRH(eye, at, up);
 
-					DirectX::XMFLOAT4X4 fView2;
-					DirectX::XMStoreFloat4x4(&fView2, vec);
+					DirectX::XMFLOAT4X4 lookAtView;
+					DirectX::XMStoreFloat4x4(&lookAtView, vec);
 
 					DirectX::XMFLOAT4X4 idView;
 					DirectX::XMStoreFloat4x4(&idView, DirectX::XMMatrixIdentity());
 
 					//ImGuizmo::DrawGrid(&fView2._11, &fView._11, &idView._11, 100.f);
 					//ImGuizmo::DrawCubes(&fView2._11, &fView._11, &idView._11, 1);
-					ImGuizmo::Manipulate(&fView2._11, &fView._11, mCurrentGizmoOperation, mCurrentGizmoMode, &objView._11, &idView._11, useSnap ? &snap[0] : NULL);
+					ImGuizmo::Manipulate(&lookAtView._11, &fView._11, mCurrentGizmoOperation, mCurrentGizmoMode, &objView._11, &idView._11, useSnap ? &snap[0] : NULL);
 					if (ImGui::IsWindowFocused() && ImGuizmo::IsUsing()/* && isMovingMouse*/)
 					{
 						if (SelectedTransform)
 						{
-							ImGuizmo::DecomposeMatrixToComponents(&objView._11, matrixTranslation, matrixRotation, matrixScale);
-							if (matrixRotation[0] != prevMatrixRotation[0])
-							{
-								BRUH("Something is off");
-							}
+							//ImGuizmo::DecomposeMatrixToComponents(&objView._11, matrixTranslation, matrixRotation, matrixScale);
+
+							Matrix4 m = Matrix4(objView);
+
+							DirectX::SimpleMath::Vector3 pos;
+							DirectX::SimpleMath::Quaternion rot;
+							DirectX::SimpleMath::Vector3 scale;
+							m.GetInternalMatrix().Decompose(scale, rot, pos);
 							//memcpy(matrixTranslation, prevMatrixTranslation, sizeof(float) * 3);
 							//memcpy(matrixRotation, prevMatrixRotation, sizeof(float) * 3);
 							prevMatrixRotation[0] = matrixRotation[0];
 							prevMatrixRotation[1] = matrixRotation[1];
 							prevMatrixRotation[2] = matrixRotation[2];
-							//memcpy(matrixScale, prevMatrixScale, sizeof(float) * 3);
 
-							SelectedTransform->SetPosition(Vector3(matrixTranslation[0], matrixTranslation[1], matrixTranslation[2]));
-							SelectedTransform->SetRotation(Vector3(matrixRotation[0], matrixRotation[1], matrixRotation[2]));
-							//SelectedTransform->SetRotation(Vector3(matrixRotation[0] * 180.f / DirectX::XM_PI, matrixRotation[1] * 180.f / DirectX::XM_PI, matrixRotation[2] * 180.f / DirectX::XM_PI));
+							Quaternion q = rot;// DirectX::SimpleMath::Quaternion::CreateFromRotationMatrix(objView);
+							//memcpy(matrixScale, prevMatrixScale, sizeof(float) * 3);
+							//SelectedTransform->SetWorldTransform(m, false);
+							Vector3 euler = Quaternion::ToEulerAngles(q);
+							SelectedTransform->SetPosition(Vector3(pos));
+							//SelectedTransform->SetRotation(euler);// Vector3(matrixRotation[0], matrixRotation[1], matrixRotation[2]));
+							//SelectedTransform->SetRotation(Vector3(euler.x * 180.f / DirectX::XM_PI, euler.y * 180.f / DirectX::XM_PI, euler .z * 180.f / DirectX::XM_PI));
+
+							SelectedTransform->SetScale(Vector3(scale));
+
 						}
 					}
 
-					ImGuizmo::ViewManipulate(&fView2._11, 8.f, ImVec2(WorldViewRenderLocation.X() + WorldViewRenderSize.X() - 128, WorldViewRenderLocation.Y()), ImVec2(128, 128), 0x00101010);
+					{
+
+					ImGuizmo::ViewManipulate(&lookAtView._11, 8.f, ImVec2(WorldViewRenderLocation.X() + WorldViewRenderSize.X() - 128, WorldViewRenderLocation.Y()), ImVec2(128, 128), 0x00101010);
+
+					//DirectX::SimpleMath::Vector3 pos;
+					//DirectX::SimpleMath::Quaternion rot;
+					//DirectX::SimpleMath::Vector3 scale;
+					//Matrix4(lookAtView).GetInternalMatrix().Decompose(scale, rot, pos);
+
+					//m_app->EditorSceneManager->GetEditorCameraTransform()->SetPosition(pos);
+					}
 				}
 			}
 
