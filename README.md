@@ -27,22 +27,24 @@ How to make a Mitch game
 Examples
 -----------------------
 ```cpp
+// Grab the world
+SharedPtr<World> GameWorld = GetEngine().GetWorld().lock();
+
 // Create an entity.
-Entity MainCamera = GameWorld->CreateEntity();
+EntityHandle MainCamera = GameWorld->CreateEntity();
 
 // Add some components
-Transform& CameraTransform = MainCamera.AddComponent<Transform>("Main Camera");
-Camera& CameraComponent = MainCamera.AddComponent<Camera>();
+Transform& CameraTransform = MainCamera->AddComponent<Transform>("Main Camera");
+Camera& CameraComponent = MainCamera->AddComponent<Camera>();
 
 // Start changing some values
-CameraTransform.SetPosition(0.f, 5.f, 10.f);
+CameraTransform.SetPosition(Vector3(0.f, 5.f, 10.f));
 
 // Spawning models.
-Entity ModelEntity = GameWorld->CreateEntity();
+EntityHandle ModelEntity = GameWorld->CreateEntity();
 
-// Add some components
-Transform& TransformComponent = ModelEntity.AddComponent<Transform>("Ground Model");
-Model& ModelComponent = ModelEntity.AddComponent<Model>("Assets/Models/ground.fbx", "Assets/Shaders/Albedo");
+ModelEntity->AddComponent<Transform>("Ground Model");
+ModelEntity->AddComponent<Model>("Assets/Models/SuperAwesome.fbx");
 ```
 
 Main features
