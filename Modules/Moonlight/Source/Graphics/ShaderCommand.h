@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Device/DX11Device.h"
-#include "Math/Matirx4.h"
+#include "Math/Matrix4.h"
 #include "Math/Vector3.h"
 #include <string>
 #include "Pointers.h"

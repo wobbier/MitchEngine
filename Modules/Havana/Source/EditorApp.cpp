@@ -21,7 +21,7 @@
 #include "RenderCommands.h"
 #include "Events/Event.h"
 #include <SimpleMath.h>
-#include "Math/Matirx4.h"
+#include "Math/Matrix4.h"
 #include "Math/Frustrum.h"
 #include "optick.h"
 

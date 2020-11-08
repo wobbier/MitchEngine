@@ -6,7 +6,7 @@
 #include "RenderCommands.h"
 #include "Engine/Engine.h"
 #include "Math/Quaternion.h"
-#include "Math/Matirx4.h"
+#include "Math/Matrix4.h"
 #include "Components/Physics/CharacterController.h"
 #include "BulletCollision/CollisionDispatch/btCollisionWorld.h"
 #include "BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"

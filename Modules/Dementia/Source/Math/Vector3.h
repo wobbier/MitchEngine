@@ -6,14 +6,23 @@
 
 struct Vector3
 {
-	float x = 0.f;
-	float y = 0.f;
-	float z = 0.f;
+	union
+	{
+		struct {
+			float x, y, z;
+		};
+	};
 
 	static const Vector3 Up;
 	static const Vector3 Front;
 
-	Vector3() = default;
+	Vector3()
+		: x(0.f)
+		, y(0.f)
+		, z(0.f)
+	{
+	}
+
 	Vector3(float X, float Y, float Z)
 		: x(X)
 		, y(Y)
@@ -121,10 +130,10 @@ struct Vector3
 		return Vector3(x - b.x, y - b.y, z - b.z);
 	}
 
-	//inline bool IsZero() const
-	//{
-	//	return this == Vector3();
-	//}
+	inline bool IsZero() const
+	{
+		return (x == 0.f && y == 0.f && z == 0.f);
+	}
 
 	inline float Length() const
 	{
@@ -165,7 +174,7 @@ struct Vector3
 
 	DirectX::SimpleMath::Vector3 GetInternalVec() const
 	{
-		return DirectX::SimpleMath::Vector3(x, y, z);
+		return (DirectX::SimpleMath::Vector3&)(*(&x));
 	}
 };
 

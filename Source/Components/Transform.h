@@ -8,7 +8,7 @@
 #include "ECS/ComponentDetail.h"
 #include "Utils/HavanaUtils.h"
 #include "Math/Quaternion.h"
-#include "Math/Matirx4.h"
+#include "Math/Matrix4.h"
 
 class Transform
 	: public Component<Transform>

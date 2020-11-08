@@ -4,7 +4,7 @@
 #include "ECS/ComponentDetail.h"
 #include "Components/Transform.h"
 #include "Math/Vector3.h"
-#include "Math/Matirx4.h"
+#include "Math/Matrix4.h"
 #include "Dementia.h"
 #include <imgui.h>
 #include "Utils/HavanaUtils.h"

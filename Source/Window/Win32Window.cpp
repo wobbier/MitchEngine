@@ -66,8 +66,8 @@ Win32Window::Win32Window(std::string title, std::function<void(const Vector2&)> 
 		YIKES("Failed to register window class");
 	}
 
-	int w = windowSize.X();
-	int h = windowSize.Y();
+	int w = static_cast<int>(windowSize.X());
+	int h = static_cast<int>(windowSize.Y());
 
 	DWORD style = (DWORD)Style::ME_BASIC_BORDERLESS;
 

@@ -36,7 +36,7 @@
 #include "Utils/StringUtils.h"
 #include "Profiling/BasicFrameProfile.h"
 #include "Ultralight/Matrix.h"
-#include "Math/Matirx4.h"
+#include "Math/Matrix4.h"
 #include "Cores/EditorCore.h"
 
 int profilerSize = 10.f;
