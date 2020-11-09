@@ -7,12 +7,12 @@
 #include "Mathf.h"
 #include <SimpleMath.h>
 #include "optick.h"
+#include <DirectXMath.h>
 
 Transform::Transform()
 	: Component("Transform")
 	, WorldTransform(DirectX::XMMatrixIdentity())
 	, Position(0.f, 0.f, 0.f)
-	, Rotation(0.f, 0.f, 0.f)
 	, Scale(1.0f, 1.0f, 1.0f)
 {
 }
@@ -23,7 +23,6 @@ Transform::Transform(const std::string& TransformName)
 	, WorldTransform(DirectX::XMMatrixIdentity())
 	, Name(std::move(TransformName))
 	, Position(0.f, 0.f, 0.f)
-	, Rotation(0.f, 0.f, 0.f)
 	, Scale(1.0f, 1.0f, 1.0f)
 {
 }
@@ -38,7 +37,7 @@ Transform::~Transform()
 
 void Transform::SetPosition(Vector3 NewPosition)
 {
-	WorldTransform.GetInternalMatrix().Translation((Position - NewPosition).GetInternalVec());
+	WorldTransform.GetInternalMatrix().Translation((Position - NewPosition).InternalVec);
 	Position = NewPosition;
 	SetDirty(true);
 	//UpdateRecursively(this);
@@ -102,9 +101,9 @@ void Transform::UpdateRecursively(SharedPtr<Transform> CurrentTransform)
 			OPTICK_EVENT("SceneGraph::Update::IsDirty");
 			//Quaternion quat = Quaternion(Child->Rotation);
 			DirectX::SimpleMath::Matrix id = DirectX::XMMatrixIdentity();
-			DirectX::SimpleMath::Matrix rot = DirectX::SimpleMath::Matrix::CreateFromQuaternion(DirectX::SimpleMath::Quaternion::CreateFromYawPitchRoll(Child->Rotation[1], Child->Rotation[0], Child->Rotation[2]));// , Child->Rotation.Y(), Child->Rotation.Z());
-			DirectX::SimpleMath::Matrix scale = DirectX::SimpleMath::Matrix::CreateScale(Child->GetScale().GetInternalVec());
-			DirectX::SimpleMath::Matrix pos = XMMatrixTranslationFromVector(Child->GetPosition().GetInternalVec());
+			DirectX::SimpleMath::Matrix rot = DirectX::SimpleMath::Matrix::CreateFromQuaternion(DirectX::SimpleMath::Quaternion::CreateFromYawPitchRoll(Child->LocalRotation[1], Child->LocalRotation[0], Child->LocalRotation[2]));// , Child->Rotation.Y(), Child->Rotation.Z());
+			DirectX::SimpleMath::Matrix scale = DirectX::SimpleMath::Matrix::CreateScale(Child->GetScale().InternalVec);
+			DirectX::SimpleMath::Matrix pos = XMMatrixTranslationFromVector(Child->GetPosition().InternalVec);
 			Child->SetWorldTransform(Matrix4((scale * rot * pos) * CurrentTransform->WorldTransform.GetInternalMatrix()));
 		}
 		UpdateRecursively(Child);
@@ -114,9 +113,9 @@ void Transform::UpdateRecursively(SharedPtr<Transform> CurrentTransform)
 void Transform::UpdateWorldTransform()
 {
 	DirectX::SimpleMath::Matrix id = DirectX::XMMatrixIdentity();
-	DirectX::SimpleMath::Matrix rot = DirectX::SimpleMath::Matrix::CreateFromQuaternion(DirectX::SimpleMath::Quaternion::CreateFromYawPitchRoll(Rotation[1], Rotation[0], Rotation[2]));// , Child->Rotation.Y(), Child->Rotation.Z());
-	DirectX::SimpleMath::Matrix scale = DirectX::SimpleMath::Matrix::CreateScale(GetScale().GetInternalVec());
-	DirectX::SimpleMath::Matrix pos = XMMatrixTranslationFromVector(GetPosition().GetInternalVec());
+	DirectX::SimpleMath::Matrix rot = DirectX::SimpleMath::Matrix::CreateFromQuaternion(DirectX::SimpleMath::Quaternion::CreateFromYawPitchRoll(LocalRotation[1], LocalRotation[0], LocalRotation[2]));// , Child->Rotation.Y(), Child->Rotation.Z());
+	DirectX::SimpleMath::Matrix scale = DirectX::SimpleMath::Matrix::CreateScale(GetScale().InternalVec);
+	DirectX::SimpleMath::Matrix pos = XMMatrixTranslationFromVector(GetPosition().InternalVec);
 	SetWorldTransform(Matrix4((scale * rot * pos)));
 
 	UpdateRecursively(shared_from_this());
@@ -181,9 +180,9 @@ Transform* Transform::GetParent()
 Matrix4 Transform::GetLocalToWorldMatrix()
 {
 	DirectX::SimpleMath::Matrix id = DirectX::XMMatrixIdentity();
-	DirectX::SimpleMath::Matrix rot = DirectX::SimpleMath::Matrix::CreateFromYawPitchRoll(Rotation.y, Rotation.x, Rotation.z);// , Child->Rotation.Y(), Child->Rotation.Z());
-	DirectX::SimpleMath::Matrix scale = DirectX::SimpleMath::Matrix::CreateScale(Scale.GetInternalVec());
-	DirectX::SimpleMath::Matrix pos = XMMatrixTranslationFromVector(Position.GetInternalVec());
+	DirectX::SimpleMath::Matrix rot = DirectX::SimpleMath::Matrix::CreateFromYawPitchRoll(LocalRotation.y, LocalRotation.x, LocalRotation.z);// , Child->Rotation.Y(), Child->Rotation.Z());
+	DirectX::SimpleMath::Matrix scale = DirectX::SimpleMath::Matrix::CreateScale(Scale.InternalVec);
+	DirectX::SimpleMath::Matrix pos = XMMatrixTranslationFromVector(Position.InternalVec);
 	if (ParentTransform)
 	{
 		return Matrix4((scale * rot * pos) * GetParentTransform()->WorldTransform.GetInternalMatrix());
@@ -227,7 +226,7 @@ Vector3 Transform::GetScale()
 void Transform::LookAt(const Vector3& InDirection)
 {
 	Vector3 worldPos = GetWorldPosition();
-	WorldTransform = Matrix4(DirectX::SimpleMath::Matrix::CreateLookAt(worldPos.GetInternalVec(), (GetWorldPosition() + InDirection).GetInternalVec(), Vector3::Up.GetInternalVec()).Transpose());
+	WorldTransform = Matrix4(DirectX::SimpleMath::Matrix::CreateLookAt(worldPos.InternalVec, (GetWorldPosition() + InDirection).InternalVec, Vector3::Up.InternalVec).Transpose());
 
 	WorldTransform.GetInternalMatrix()._41 = worldPos[0];
 	WorldTransform.GetInternalMatrix()._42 = worldPos[1];
@@ -240,7 +239,7 @@ void Transform::LookAt(const Vector3& InDirection)
 
 	Rotation = Quaternion::ToEulerAngles(quat2);
 	Rotation = Vector3(Mathf::Degrees(Rotation.x), Mathf::Degrees(Rotation.y), Mathf::Degrees(Rotation.z));
-	InternalRotation = quat2;
+	LocalRotation = quat2;
 	SetDirty(true);
 }
 
@@ -250,21 +249,21 @@ void Transform::SetRotation(const Vector3& euler)
 
 	DirectX::SimpleMath::Quaternion quat2 = DirectX::SimpleMath::Quaternion::CreateFromYawPitchRoll(Mathf::Radians(euler.y), Mathf::Radians(euler.x), Mathf::Radians(euler.z));
 	Quaternion quat(quat2);
-	InternalRotation = quat;
+	LocalRotation = quat;
 	Rotation = euler;
 	SetDirty(true);
 }
 
-void Transform::SetWorldRotation(Quaternion InRotation)
+void Transform::SetRotation(Quaternion InRotation)
 {
-	InternalRotation = Quaternion(GetParentTransform()->GetWorldRotation().GetInternalVec() * InternalRotation.GetInternalVec());
-	Rotation = Quaternion::ToEulerAngles(InternalRotation);
+	LocalRotation = InRotation;
+	Rotation = Quaternion::ToEulerAngles(LocalRotation);
 	SetDirty(true);
 }
 
-const Vector3& Transform::GetRotation() const
+Vector3 Transform::GetRotationEuler() const
 {
-	return Rotation;
+	return Quaternion::ToEulerAngles(LocalRotation);
 }
 
 Quaternion Transform::GetWorldRotation()
@@ -356,7 +355,7 @@ Matrix4 Transform::GetMatrix()
 void Transform::OnSerialize(json& outJson)
 {
 	outJson["Position"] = { Position.x, Position.y, Position.z };
-	outJson["Rotation"] = { Rotation.x, Rotation.y, Rotation.z };
+	outJson["Rotation"] = { LocalRotation.x, LocalRotation.y, LocalRotation.z };
 	outJson["Scale"] = { Scale.x, Scale.y, Scale.z };
 }
 
@@ -370,9 +369,9 @@ void Transform::OnDeserialize(const json& inJson)
 	}
 
 	DirectX::SimpleMath::Matrix id = DirectX::XMMatrixIdentity();
-	DirectX::SimpleMath::Matrix rot = DirectX::SimpleMath::Matrix::CreateFromQuaternion(DirectX::SimpleMath::Quaternion::CreateFromYawPitchRoll(Rotation[1], Rotation[0], Rotation[2]));// , Child->Rotation.Y(), Child->Rotation.Z());
-	DirectX::SimpleMath::Matrix scale = DirectX::SimpleMath::Matrix::CreateScale(GetScale().GetInternalVec());
-	DirectX::SimpleMath::Matrix pos = XMMatrixTranslationFromVector(GetPosition().GetInternalVec());
+	DirectX::SimpleMath::Matrix rot = DirectX::SimpleMath::Matrix::CreateFromQuaternion(DirectX::SimpleMath::Quaternion::CreateFromYawPitchRoll(LocalRotation[1], LocalRotation[0], LocalRotation[2]));// , Child->Rotation.Y(), Child->Rotation.Z());
+	DirectX::SimpleMath::Matrix scale = DirectX::SimpleMath::Matrix::CreateScale(GetScale().InternalVec);
+	DirectX::SimpleMath::Matrix pos = XMMatrixTranslationFromVector(GetPosition().InternalVec);
 	if (ParentTransform)
 	{
 		SetWorldTransform(Matrix4((scale * rot * pos) * GetParentTransform()->WorldTransform.GetInternalMatrix()), false);
@@ -396,11 +395,11 @@ void Transform::OnEditorInspect()
 
 	Vector3 OldPosition = Position;
 	HavanaUtils::EditableVector3("Position", Position);
-	Vector3 OldRotation = Rotation;
-	HavanaUtils::EditableVector3("Rotation", Rotation);
-	if (OldRotation != Rotation || OldPosition != Position)
+	Vector3 OldRotation = Quaternion::ToEulerAngles(LocalRotation);
+	HavanaUtils::EditableVector3("Rotation", OldRotation);
+	if (OldRotation != Quaternion::ToEulerAngles(LocalRotation) || OldPosition != Position)
 	{
-		SetRotation(Rotation);
+		SetRotation(OldRotation);
 		SetPosition(Position);
 	}
 

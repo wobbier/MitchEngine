@@ -45,9 +45,9 @@ void UpdateRecursively(Transform* CurrentTransform, bool isParentDirty, bool isB
 
 			//Quaternion quat = Quaternion(Child->Rotation);
 			//DirectX::SimpleMath::Matrix id = DirectX::XMMatrixIdentity();
-			DirectX::SimpleMath::Matrix rot = DirectX::SimpleMath::Matrix::CreateFromQuaternion(Child->InternalRotation.GetInternalVec());// , Child->Rotation.Y(), Child->Rotation.Z());
-			DirectX::SimpleMath::Matrix scale = DirectX::SimpleMath::Matrix::CreateScale(Child->GetScale().GetInternalVec());
-			DirectX::SimpleMath::Matrix pos = XMMatrixTranslationFromVector(Child->GetPosition().GetInternalVec());
+			DirectX::SimpleMath::Matrix rot = DirectX::SimpleMath::Matrix::CreateFromQuaternion(Child->LocalRotation.InternalQuat);// , Child->Rotation.Y(), Child->Rotation.Z());
+			DirectX::SimpleMath::Matrix scale = DirectX::SimpleMath::Matrix::CreateScale(Child->GetScale().InternalVec);
+			DirectX::SimpleMath::Matrix pos = XMMatrixTranslationFromVector(Child->GetPosition().InternalVec);
 			Child->SetWorldTransform(Matrix4((scale * rot * pos) * CurrentTransform->WorldTransform.GetInternalMatrix()));
 			isParentDirty = true;
 		}
@@ -124,7 +124,7 @@ void SceneGraph::OnEntityRemoved(Entity& InEntity)
 void SceneGraph::OnEntityDestroyed(Entity& InEntity)
 {
 	Transform& transform = InEntity.GetComponent<Transform>();
-	if (transform.ParentTransform)
+	if (transform.ParentTransform.get())
 	{
 		transform.ParentTransform->RemoveChild(&transform);
 	}

@@ -164,32 +164,32 @@ namespace Moonlight
 			{
 				// top right
 				Vertex tex;
-				tex.Normal = Vector3::Up.GetInternalVec();
-				tex.Position = Vector3(-0.5f, .5f, 0.f).GetInternalVec();
+				tex.Normal = Vector3::Up.InternalVec;
+				tex.Position = Vector3(-0.5f, .5f, 0.f).InternalVec;
 				tex.TextureCoord = Vector2(1.f, 0.f).GetInternalVec();
 				m_planeVerticies.push_back(tex);
 			}
 			{
 				// bottom right
 				Vertex tex;
-				tex.Normal = Vector3::Up.GetInternalVec();
-				tex.Position = Vector3(.5f, .5f, 0.f).GetInternalVec();
+				tex.Normal = Vector3::Up.InternalVec;
+				tex.Position = Vector3(.5f, .5f, 0.f).InternalVec;
 				tex.TextureCoord = Vector2(1.f, 1.f).GetInternalVec();
 				m_planeVerticies.push_back(tex);
 			}
 			{
 				// bottom left
 				Vertex tex;
-				tex.Normal = Vector3::Up.GetInternalVec();
-				tex.Position = Vector3(-0.5f, .5f, 0.f).GetInternalVec();
+				tex.Normal = Vector3::Up.InternalVec;
+				tex.Position = Vector3(-0.5f, .5f, 0.f).InternalVec;
 				tex.TextureCoord = Vector2(0.f, 1.f).GetInternalVec();
 				m_planeVerticies.push_back(tex);
 			}
 			{
 				// top left 
 				Vertex tex;
-				tex.Normal = Vector3::Up.GetInternalVec();
-				tex.Position = Vector3(-0.5f, -0.5f, 0.f).GetInternalVec();
+				tex.Normal = Vector3::Up.InternalVec;
+				tex.Position = Vector3(-0.5f, -0.5f, 0.f).InternalVec;
 				tex.TextureCoord = Vector2(0.f, 0.f).GetInternalVec();
 				m_planeVerticies.push_back(tex);
 			}
@@ -256,7 +256,7 @@ namespace Moonlight
 	void Renderer::ClearBuffer(ID3D11DeviceContext3* context, FrameBuffer* buffer, CameraData* camera)
 	{
 		OPTICK_EVENT("ClearBuffer", Optick::Category::Rendering);
-		DirectX::SimpleMath::Color clearColor = DirectX::SimpleMath::Color(camera->ClearColor.GetInternalVec());
+		DirectX::SimpleMath::Color clearColor = DirectX::SimpleMath::Color(camera->ClearColor.InternalVec);
 		DirectX::XMVECTORF32 color = DirectX::Colors::Black;// SimpleMath::Color(mainCamera.ClearColor.GetInternalVec());//{ {darkGrey, darkGrey, darkGrey, 1.0f} };
 		if (buffer)
 		{
@@ -715,7 +715,7 @@ namespace Moonlight
 			}
 
 			pVSPerScene->HasAlphaMap = (mesh.MeshMaterial->IsTransparent()) ? TRUE : FALSE;
-			pVSPerScene->DiffuseColor = mesh.MeshMaterial->DiffuseColor.GetInternalVec();
+			pVSPerScene->DiffuseColor = mesh.MeshMaterial->DiffuseColor.InternalVec;
 
 			//constantBufferSceneData.Tiling = DirectX::SimpleMath::Vector2(&mesh.MeshMaterial->Tiling.GetInternalVec().x);
 			XMStoreFloat2(&pVSPerScene->Tiling, mesh.MeshMaterial->Tiling.GetInternalVec());
@@ -779,7 +779,7 @@ namespace Moonlight
 
 		for (int i = 0; i < Cameras.size(); ++i)
 		{
-			DirectX::SimpleMath::Color clearColor = DirectX::SimpleMath::Color(Cameras[i].ClearColor.GetInternalVec());
+			DirectX::SimpleMath::Color clearColor = DirectX::SimpleMath::Color(Cameras[i].ClearColor.InternalVec);
 			FrameBuffer* buffer = Cameras[i].Buffer;
 			if (buffer)
 			{

@@ -154,7 +154,7 @@ void Rigidbody::CreateObject(const Vector3& Position, Quaternion& Rotation, Vect
 	m_isDynamic = (Mass != 0.f);
 
 	btDefaultMotionState* fallMotionState =
-		new btDefaultMotionState(btTransform(btQuaternion(Rotation.GetInternalVec().x, Rotation.GetInternalVec().y, Rotation.GetInternalVec().z, Rotation.GetInternalVec().w), btVector3(Position.x, Position.y, Position.z)));
+		new btDefaultMotionState(btTransform(btQuaternion(Rotation.x, Rotation.y, Rotation.z, Rotation.w), btVector3(Position.x, Position.y, Position.z)));
 	btVector3 fallInertia(0, 0, 0);
 	if (m_isDynamic)
 	{

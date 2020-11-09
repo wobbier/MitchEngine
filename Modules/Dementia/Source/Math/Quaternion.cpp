@@ -2,10 +2,27 @@
 #include <algorithm>
 #include "Mathf.h"
 
+Quaternion Quaternion::Identity = Quaternion(0.f, 0.f, 0.f, 1.f);
+
+void Quaternion::SetEuler(const Vector3& euler)
+{
+	//float cy = std::cos(Mathf::Radians(euler.z) / 2.f);
+	//float sy = std::sin(Mathf::Radians(euler.z) / 2.f);
+	//float cp = std::cos(Mathf::Radians(euler.x) / 2.f);
+	//float sp = std::sin(Mathf::Radians(euler.x) / 2.f);
+	//float cr = std::cos(Mathf::Radians(euler.y) / 2.f);
+	//float sr = std::sin(Mathf::Radians(euler.y) / 2.f);
+	auto quat = DirectX::SimpleMath::Quaternion::CreateFromYawPitchRoll(Mathf::Radians(euler.y), Mathf::Radians(euler.x), Mathf::Radians(euler.z));
+	x = quat.x; //sr * cp * cy - cr * sp * sy;
+	y = quat.y; //cr * sp * cy + sr * cp * sy;
+	z = quat.z; //cr * cp * sy - sr * sp * cy;
+	w = quat.w; //cr * cp * cy + sr * sp * sy;
+}
+
 Vector3 Quaternion::ToEulerAngles(Quaternion InQuat)
 {
 	Vector3 angles;
-	const DirectX::SimpleMath::Quaternion q = InQuat.GetInternalVec();
+	const DirectX::SimpleMath::Quaternion q = InQuat.InternalQuat;
 
 	// roll (x-axis rotation)
 	double sinr_cosp = 2 * (q.w * q.x + q.y * q.z);

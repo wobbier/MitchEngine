@@ -2,6 +2,7 @@
 #include <ECS/Core.h>
 
 #include <Events/EventReceiver.h>
+#include "Pointers.h"
 
 class Transform;
 class Havana;
@@ -34,7 +35,7 @@ public:
 
 	Havana* GetEditor() const;
 
-	Transform* GetEditorCameraTransform() const;
+	SharedPtr<Transform> GetEditorCameraTransform() const;
 
 private:
 	bool m_isTryingToSaveNewScene = false;
@@ -52,7 +53,7 @@ private:
 	float TravelDistance = 0.f;
 	float m_focusSpeed = 10.f;
 
-	Transform* EditorCameraTransform = nullptr;
+	SharedPtr<Transform> EditorCameraTransform = nullptr;
 	Camera* EditorCamera = nullptr;
 	Havana* m_editor = nullptr;
 

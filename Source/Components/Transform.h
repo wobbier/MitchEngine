@@ -1,7 +1,6 @@
 #pragma once
 #include "ECS/Component.h"
 
-#define GLM_ENABLE_EXPERIMENTAL 1
 #include "Dementia.h"
 #include <DirectXMath.h>
 #include "Math/Vector3.h"
@@ -30,8 +29,9 @@ public:
 	void UpdateWorldTransform();
 
 	void SetRotation(const Vector3& euler);
-	void SetWorldRotation(Quaternion InRotation);
-	const Vector3& GetRotation() const;
+	void SetRotation(Quaternion InRotation);
+	Vector3 GetRotationEuler() const;
+
 	Quaternion GetWorldRotation();
 	Vector3 GetWorldRotationEuler();
 	//void SetRotation(glm::quat quat);
@@ -72,7 +72,7 @@ public:
 	void SetName(const std::string& name);
 	void SetWorldTransform(Matrix4& NewWorldTransform, bool InIsDirty = false);
 
-	Quaternion InternalRotation;
+	Quaternion LocalRotation;
 
 	const bool IsDirty() const;
 

@@ -85,6 +85,7 @@ includedirs {
   "../ThirdParty/JSON/single_include"
 }
 
+--flags { "FatalWarnings" }
 
 if isUWP then
   defines { "ME_PLATFORM_UWP" }

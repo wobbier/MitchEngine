@@ -22,7 +22,7 @@ EditorCore::EditorCore(Havana* editor)
 {
 	SetIsSerializable(false);
 
-	EditorCameraTransform = new Transform();
+	EditorCameraTransform = std::make_shared<Transform>();
 	EditorCamera = new Camera();
 
 	std::vector<TypeId> events;
@@ -314,7 +314,7 @@ Havana* EditorCore::GetEditor() const
 	return m_editor;
 }
 
-Transform* EditorCore::GetEditorCameraTransform() const
+SharedPtr<Transform> EditorCore::GetEditorCameraTransform() const
 {
 	return EditorCameraTransform;
 }
