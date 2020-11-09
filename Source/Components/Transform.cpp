@@ -395,11 +395,14 @@ void Transform::OnEditorInspect()
 
 	Vector3 OldPosition = Position;
 	HavanaUtils::EditableVector3("Position", Position);
-	Vector3 OldRotation = Quaternion::ToEulerAngles(LocalRotation);
+	Vector3 OldRotation = Rotation;
 	HavanaUtils::EditableVector3("Rotation", OldRotation);
-	if (OldRotation != Quaternion::ToEulerAngles(LocalRotation) || OldPosition != Position)
+	if (OldRotation != Rotation)
 	{
 		SetRotation(OldRotation);
+	}
+	if (OldPosition != Position)
+	{
 		SetPosition(Position);
 	}
 

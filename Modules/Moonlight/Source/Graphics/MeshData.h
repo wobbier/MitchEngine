@@ -17,7 +17,7 @@ namespace Moonlight
 	class MeshData
 	{
 	public:
-		MeshData() = delete;
+		MeshData() = default;
 		~MeshData();
 
 		std::vector<Vertex> vertices;
@@ -32,10 +32,13 @@ namespace Moonlight
 
 		std::vector<MeshData*> Children;
 		std::string Name;
+
+	protected:
+		void InitMesh();
+
 	private:
 		// System resources for cube geometry.
 		unsigned int m_indexCount;
-		void InitMesh();
 
 		Microsoft::WRL::ComPtr<ID3D11Buffer>		m_vertexBuffer;
 		Microsoft::WRL::ComPtr<ID3D11Buffer>		m_indexBuffer;
