@@ -78,7 +78,7 @@ includedirs {
   "../Modules/Dementia/Source",
   "../Modules/Havana/Source",
   "../ThirdParty/Assimp/include",
-  "../ThirdParty/ImGuiTables",
+  "../ThirdParty/ImGui",
   "../Modules/ImGUI/Source",
   "../ThirdParty/PerlinNoise",
   "../ThirdParty/UltralightSDK/include",
@@ -309,22 +309,22 @@ location "../Modules/ImGUI"
 removeincludedirs "*"
 removelinks "*"
 includedirs {
-	"../ThirdParty/ImGuiTables",
-	"../ThirdParty/ImGuiTables/examples"
+	"../ThirdParty/ImGui",
+	"../ThirdParty/ImGui/backends"
 }
 files {
   "../Modules/ImGUI/Source/**.*",
-  "../ThirdParty/ImGuiTables/*.h",
-  "../ThirdParty/ImGuiTables/*.cpp",
-  "../ThirdParty/ImGuiTables/**/*win32.h",
-  "../ThirdParty/ImGuiTables/**/*win32.cpp",
-  "../ThirdParty/ImGuiTables/**/*dx11.h",
-  "../ThirdParty/ImGuiTables/**/*dx11.cpp",
-  "../ThirdParty/ImGuiTables/**/imgui_stdlib.*"
+  "../ThirdParty/ImGui/*.h",
+  "../ThirdParty/ImGui/*.cpp",
+  "../ThirdParty/ImGui/**/*win32.h",
+  "../ThirdParty/ImGui/**/*win32.cpp",
+  "../ThirdParty/ImGui/**/*dx11.h",
+  "../ThirdParty/ImGui/**/*dx11.cpp",
+  "../ThirdParty/ImGui/**/imgui_stdlib.*"
 }
 
 vpaths {
-  ["ImGUI"] = "../ThirdParty/ImGuiTables/**.*",
+  ["ImGUI"] = "../ThirdParty/ImGui/**.*",
   ["Source"] = "../Modules/ImGUI/Source/*.*"
 }
 

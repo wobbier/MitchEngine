@@ -1,7 +1,7 @@
 #include "Havana.h"
 #include "imgui.h"
-#include "examples/imgui_impl_win32.h"
-#include "examples/imgui_impl_dx11.h"
+#include "backends/imgui_impl_win32.h"
+#include "backends/imgui_impl_dx11.h"
 #include "Engine/World.h"
 #include "Components/Transform.h"
 #include <stack>
@@ -137,7 +137,7 @@ void Havana::InitUI()
 	colors[ImGuiCol_PlotHistogram] = ImVec4(0.73f, 0.60f, 0.15f, 1.00f);
 	colors[ImGuiCol_PlotHistogramHovered] = ImVec4(1.00f, 0.60f, 0.00f, 1.00f);
 	colors[ImGuiCol_TextSelectedBg] = ImVec4(0.87f, 0.87f, 0.87f, 0.35f);
-	colors[ImGuiCol_ModalWindowDarkening] = ImVec4(0.80f, 0.80f, 0.80f, 0.35f);
+	//colors[ImGuiCol_ModalWindowDarkening] = ImVec4(0.80f, 0.80f, 0.80f, 0.35f);
 	colors[ImGuiCol_DragDropTarget] = ImVec4(1.00f, 1.00f, 0.00f, 0.90f);
 	colors[ImGuiCol_NavHighlight] = ImVec4(0.60f, 0.60f, 0.60f, 1.00f);
 	colors[ImGuiCol_NavWindowingHighlight] = ImVec4(1.00f, 1.00f, 1.00f, 0.70f);
@@ -670,7 +670,7 @@ void Havana::DrawLog()
 
 		static float currentHeight = 0.f;
 		ImVec2 size = ImVec2(0, (ImGui::GetWindowSize().y - currentHeight) - ImGui::GetCursorPosY());
-		static ImGuiTableFlags flags = ImGuiTableFlags_ScrollY | ImGuiTableFlags_ScrollFreezeTopRow | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersV | ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable;
+		static ImGuiTableFlags flags = ImGuiTableFlags_ScrollY /*| ImGuiTableFlags_ScrollFreezeTopRow*/ | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersV | ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable;
 
 		const int COLUMNS_COUNT = 1;
 		static int selectedIndex = -1;
@@ -950,13 +950,13 @@ void Havana::DrawResourceMonitor()
 		}
 
 		ImVec2 size = ImVec2(0, ImGui::GetWindowSize().y - ImGui::GetCursorPosY());
-		static ImGuiTableFlags flags = ImGuiTableFlags_ScrollY | ImGuiTableFlags_ScrollFreezeTopRow | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersV | ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable;
+		static ImGuiTableFlags flags = ImGuiTableFlags_ScrollY /*| ImGuiTableFlags_ScrollFreezeTopRow*/ | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersV | ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable;
 
 		if (ImGui::BeginTable("##ResourceTable", 2, flags, size))
 		{
 			ImGui::TableSetupColumn("Resource Path", ImGuiTableColumnFlags_WidthStretch);
 			ImGui::TableSetupColumn("References", ImGuiTableColumnFlags_WidthFixed);
-			ImGui::TableAutoHeaders();
+			//ImGui::TableAutoHeaders();
 			ImGuiListClipper clipper;
 			clipper.Begin(resourceList.size());
 			while (clipper.Step())
