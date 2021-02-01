@@ -82,7 +82,12 @@ includedirs {
   "../Modules/ImGUI/Source",
   "../ThirdParty/PerlinNoise",
   "../ThirdParty/UltralightSDK/include",
-  "../ThirdParty/JSON/single_include"
+  "../ThirdParty/JSON/single_include",
+  "../ThirdParty/glm",
+  "../ThirdParty/bgfx/include",
+  "../ThirdParty/bx/include",
+  "../ThirdParty/bx/include/compat/msvc/",
+  "../ThirdParty/bimg/include"
 }
 
 --flags { "FatalWarnings" }
@@ -111,6 +116,7 @@ end
 
 libdirs {
   "../Build/%{cfg.buildcfg}",
+  "../ThirdParty/Lib/BGFX/Win64/Debug",
 }
 
 links {
@@ -122,7 +128,11 @@ links {
   "Usp10.lib",
   "Ultralight.lib",
   "UltralightCore.lib",
-  "WebCore.lib"
+  "WebCore.lib",
+  "bgfxDebug.lib",
+  "bimg_decodeDebug.lib",
+  "bimgDebug.lib",
+  "bxDebug.lib",
 }
 
 -- Platform specific options

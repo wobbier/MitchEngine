@@ -61,17 +61,19 @@ public:
 	// ??
 	void Resized(const Vector2& NewSize);
 
+	void* GetWindowPtr() final;
+
 private:
 	bool ExitRequested = false;
 	bool canMoveWindow = false;
 
 	bool IsMaximized(HWND hwnd);
 
-	HWND Window;
 	HICON hWindowIcon = NULL;
 	HICON hWindowIconSm = NULL;
 	Vector2 WindowSize;
 	std::function<void(const Vector2&)> ResizeFunc;
+	HWND Window;
 };
 
 #endif

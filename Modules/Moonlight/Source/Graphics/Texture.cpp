@@ -17,6 +17,7 @@ namespace Moonlight
 	Texture::Texture(const Path& InFilePath, WrapMode mode)
 		: Resource(InFilePath)
 	{
+		return;
 		std::wstring filePath = StringUtils::ToWString(InFilePath.FullPath);
 		auto& device = static_cast<Moonlight::DX11Device&>(GetEngine().GetRenderer().GetDevice());
 		ID3D11DeviceContext* context;
@@ -63,6 +64,7 @@ namespace Moonlight
 	Texture::Texture(Moonlight::FrameBuffer* InFilePath, WrapMode mode /*= WrapMode::Wrap*/)
 		: Resource(Path(""))
 	{
+		return;
 		auto& device = static_cast<Moonlight::DX11Device&>(GetEngine().GetRenderer().GetDevice());
 
 		D3D11_TEXTURE_ADDRESS_MODE dxMode = D3D11_TEXTURE_ADDRESS_WRAP;

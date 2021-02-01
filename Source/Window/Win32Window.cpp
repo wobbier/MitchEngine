@@ -334,6 +334,11 @@ void Win32Window::Resized(const Vector2& NewSize)
 	WindowSize = NewSize;
 }
 
+void* Win32Window::GetWindowPtr()
+{
+	return Window;
+}
+
 POINT prevPos;
 bool dragWindow = false;
 #if ME_EDITOR

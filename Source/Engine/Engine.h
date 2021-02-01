@@ -14,12 +14,13 @@
 
 class Game;
 class IWindow;
+class BGFXRenderer;
 
 class Engine
 	: public EventReceiver
 {
 public:
-	const float FPS = 139.0f;
+	const float FPS = 240.f;
 	long long FrameRate;
 
 	Engine();
@@ -75,6 +76,8 @@ private:
 	bool m_isInitialized = false;
 	ME_SINGLETON_DEFINITION(Engine)
 	Burst burst;
+
+	BGFXRenderer* NewRenderer = nullptr;
 };
 
 Engine& GetEngine();

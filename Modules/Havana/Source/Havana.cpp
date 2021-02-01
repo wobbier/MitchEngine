@@ -50,6 +50,7 @@ Havana::Havana(Engine* GameEngine, EditorApp* app, Moonlight::Renderer* renderer
 	, CurrentDirectory("Assets")
 	, m_assetBrowser(Path("Assets").FullPath, std::chrono::milliseconds(300))
 {
+	return;
 	InitUI();
 	m_assetBrowser.Start([](const std::string& path_to_watch, FileStatus status) -> void {
 		// Process only regular files, all other file types are ignored
@@ -181,14 +182,14 @@ void Havana::NewFrame(std::function<void()> StartGameFunc, std::function<void()>
 {
 	m_input.Update();
 	OPTICK_EVENT("Havana::NewFrame");
-	ImGui_ImplDX11_NewFrame();
-	ImGui_ImplWin32_NewFrame();
-	ImGui::NewFrame();
+	//ImGui_ImplDX11_NewFrame();
+	//ImGui_ImplWin32_NewFrame();
+	//ImGui::NewFrame();
 	ImGuiIO& io = ImGui::GetIO();
 
 	// Output size fix?
 	RenderSize = Vector2(io.DisplaySize.x, io.DisplaySize.y);
-	Renderer->GetDevice().SetOutputSize(RenderSize);
+	//Renderer->GetDevice().SetOutputSize(RenderSize);
 
 	DrawMainMenuBar(StartGameFunc, PauseGameFunc, StopGameFunc);
 	DrawOpenFilePopup();
@@ -295,7 +296,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 		//MainMenuSize.y = 25.f;
 		ImGui::SetWindowSize(MainMenuSize);
 		ImGui::PopStyleVar(1);
-		ImGui::Image(Icons["Logo"]->ShaderResourceView, ImVec2(35, 35));
+		//ImGui::Image(Icons["Logo"]->ShaderResourceView, ImVec2(35, 35));
 		if (ImGui::BeginMenu("File"))
 		{
 			//ImGui::MenuItem("(dummy menu)", NULL, false, false);
@@ -441,42 +442,42 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 		auto Keyboard = GetInput().GetKeyboardState();
 		if (!m_app->IsGameRunning())
 		{
-			if (ImGui::ImageButton(Icons["Play"]->ShaderResourceView, ImVec2(30.f, 30.f)) || Keyboard.F5)
-			{
-				ImGui::SetWindowFocus("Game");
-				m_engine->GetInput().Resume();
-				StartGameFunc();
-			}
+			//if (ImGui::ImageButton(Icons["Play"]->ShaderResourceView, ImVec2(30.f, 30.f)) || Keyboard.F5)
+			//{
+			//	ImGui::SetWindowFocus("Game");
+			//	m_engine->GetInput().Resume();
+			//	StartGameFunc();
+			//}
 		}
 
 		if (m_app->IsGameRunning())
 		{
-			if (ImGui::ImageButton(Icons["Pause"]->ShaderResourceView, ImVec2(30.f, 30.f)) || Keyboard.F10)
-			{
-				m_engine->GetInput().Pause();
-				PauseGameFunc();
-			}
+			//if (ImGui::ImageButton(Icons["Pause"]->ShaderResourceView, ImVec2(30.f, 30.f)) || Keyboard.F10)
+			//{
+			//	m_engine->GetInput().Pause();
+			//	PauseGameFunc();
+			//}
 
-			if (ImGui::ImageButton(Icons["Stop"]->ShaderResourceView, ImVec2(30.f, 30.f)) || (Keyboard.F5 && Keyboard.LeftShift))
-			{
-				MaximizeOnPlay = false;
-				SelectedTransform = nullptr;
-				StopGameFunc();
-				m_engine->GetInput().Stop();
-			}
+			//if (ImGui::ImageButton(Icons["Stop"]->ShaderResourceView, ImVec2(30.f, 30.f)) || (Keyboard.F5 && Keyboard.LeftShift))
+			//{
+			//	MaximizeOnPlay = false;
+			//	SelectedTransform = nullptr;
+			//	StopGameFunc();
+			//	m_engine->GetInput().Stop();
+			//}
 		}
 
-		if (ImGui::ImageButton(Icons["FlipCamera"]->ShaderResourceView, ImVec2(30.f, 30.f)) || (Keyboard.F5 && Keyboard.LeftShift))
-		{
-			if (m_viewportMode == ViewportMode::World)
-			{
-				SetViewportMode(ViewportMode::Game);
-			}
-			else
-			{
-				SetViewportMode(ViewportMode::World);
-			}
-		}
+		//if (ImGui::ImageButton(Icons["FlipCamera"]->ShaderResourceView, ImVec2(30.f, 30.f)) || (Keyboard.F5 && Keyboard.LeftShift))
+		//{
+		//	if (m_viewportMode == ViewportMode::World)
+		//	{
+		//		SetViewportMode(ViewportMode::Game);
+		//	}
+		//	else
+		//	{
+		//		SetViewportMode(ViewportMode::World);
+		//	}
+		//}
 
 		float endOfMenu = ImGui::GetCursorPosX();
 		float buttonWidth = 40.f;
@@ -528,34 +529,34 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 		ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(0.0f, 0.6f, 0.6f, 0.f));
 		ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)ImColor::HSV(0.f, 0.8f, 0.8f, 0.f));
 		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 5.f));
-		if (ImGui::ImageButton(Icons["Profiler"]->ShaderResourceView, ImVec2(30.f, 30.f)))
-		{
-			Path optickPath = Path("Engine/Tools/");
-			// additional information
-			STARTUPINFO si;
-			PROCESS_INFORMATION pi;
+		//if (ImGui::ImageButton(Icons["Profiler"]->ShaderResourceView, ImVec2(30.f, 30.f)))
+		//{
+		//	Path optickPath = Path("Engine/Tools/");
+		//	// additional information
+		//	STARTUPINFO si;
+		//	PROCESS_INFORMATION pi;
 
-			// set the size of the structures
-			ZeroMemory(&si, sizeof(si));
-			si.cb = sizeof(si);
-			ZeroMemory(&pi, sizeof(pi));
+		//	// set the size of the structures
+		//	ZeroMemory(&si, sizeof(si));
+		//	si.cb = sizeof(si);
+		//	ZeroMemory(&pi, sizeof(pi));
 
-			// start the program up
-			CreateProcess(StringUtils::ToWString(optickPath.FullPath + "Optick.exe").c_str(),   // the path
-				L"",        // Command line
-				NULL,           // Process handle not inheritable
-				NULL,           // Thread handle not inheritable
-				FALSE,          // Set handle inheritance to FALSE
-				0,              // No creation flags
-				NULL,           // Use parent's environment block
-				NULL,           // Use parent's starting directory 
-				&si,            // Pointer to STARTUPINFO structure
-				&pi             // Pointer to PROCESS_INFORMATION structure (removed extra parentheses)
-			);
-			// Close process and thread handles. 
-			CloseHandle(pi.hProcess);
-			CloseHandle(pi.hThread);
-		}
+		//	// start the program up
+		//	CreateProcess(StringUtils::ToWString(optickPath.FullPath + "Optick.exe").c_str(),   // the path
+		//		L"",        // Command line
+		//		NULL,           // Process handle not inheritable
+		//		NULL,           // Thread handle not inheritable
+		//		FALSE,          // Set handle inheritance to FALSE
+		//		0,              // No creation flags
+		//		NULL,           // Use parent's environment block
+		//		NULL,           // Use parent's starting directory 
+		//		&si,            // Pointer to STARTUPINFO structure
+		//		&pi             // Pointer to PROCESS_INFORMATION structure (removed extra parentheses)
+		//	);
+		//	// Close process and thread handles. 
+		//	CloseHandle(pi.hProcess);
+		//	CloseHandle(pi.hThread);
+		//}
 		/*if (ImGui::ImageButton(Icons["Info"]->ShaderResourceView, ImVec2(30.f, 30.f)))
 		{
 			if (m_engine->CurrentScene && !std::filesystem::exists(m_engine->CurrentScene->FilePath.FullPath))
@@ -589,45 +590,45 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 			}
 			ImGui::EndPopup();
 		}*/
-		float RightShift = 2.f;
+		//float RightShift = 2.f;
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(0.35f, 126.f, 43.f, 1.f));
 		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 4.f));
-		if (ImGui::ImageButton(Icons["BugReport"]->ShaderResourceView, ImVec2(30.f, 30.f)))
-		{
-			ShellExecute(0, 0, L"https://github.com/wobbier/MitchEngine/issues", 0, 0, SW_SHOW);
-		}
+		//if (ImGui::ImageButton(Icons["BugReport"]->ShaderResourceView, ImVec2(30.f, 30.f)))
+		//{
+		//	ShellExecute(0, 0, L"https://github.com/wobbier/MitchEngine/issues", 0, 0, SW_SHOW);
+		//}
 		ImGui::PopStyleColor(1);
 
-		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 3.f) + RightShift);
-		if (ImGui::ImageButton(Icons["Minimize"]->ShaderResourceView, ImVec2(30.f, 30.f)))
-		{
-			m_engine->GetWindow()->Minimize();
-		}
+		//ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 3.f) + RightShift);
+		//if (ImGui::ImageButton(Icons["Minimize"]->ShaderResourceView, ImVec2(30.f, 30.f)))
+		//{
+		//	m_engine->GetWindow()->Minimize();
+		//}
 
-		if (static_cast<Win32Window*>(m_engine->GetWindow())->IsMaximized())
-		{
-			ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 2.f) + RightShift);
-			if (ImGui::ImageButton(Icons["ExitMaximize"]->ShaderResourceView, ImVec2(30.f, 30.f)))
-			{
-				m_engine->GetWindow()->ExitMaximize();
-			}
-		}
-		else
-		{
-			ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 2.f) + RightShift);
-			if (ImGui::ImageButton(Icons["Maximize"]->ShaderResourceView, ImVec2(30.f, 30.f)))
-			{
-				m_engine->GetWindow()->Maximize();
-			}
-		}
+		//if (static_cast<Win32Window*>(m_engine->GetWindow())->IsMaximized())
+		//{
+		//	ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 2.f) + RightShift);
+		//	if (ImGui::ImageButton(Icons["ExitMaximize"]->ShaderResourceView, ImVec2(30.f, 30.f)))
+		//	{
+		//		m_engine->GetWindow()->ExitMaximize();
+		//	}
+		//}
+		//else
+		//{
+		//	ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 2.f) + RightShift);
+		//	if (ImGui::ImageButton(Icons["Maximize"]->ShaderResourceView, ImVec2(30.f, 30.f)))
+		//	{
+		//		m_engine->GetWindow()->Maximize();
+		//	}
+		//}
 
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(1.f, 42.f, 43.f, 1.f));
-		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - buttonWidth + RightShift);
-		//ImGui::SameLine(0.f);
-		if (ImGui::ImageButton(Icons["Close"]->ShaderResourceView, ImVec2(30.f, 30.f)))
-		{
-			m_engine->GetWindow()->Exit();
-		}
+		//ImGui::SetCursorPosX(ImGui::GetWindowWidth() - buttonWidth + RightShift);
+		////ImGui::SameLine(0.f);
+		//if (ImGui::ImageButton(Icons["Close"]->ShaderResourceView, ImVec2(30.f, 30.f)))
+		//{
+		//	m_engine->GetWindow()->Exit();
+		//}
 		ImGui::PopStyleColor(3);
 		ImGui::EndGroup();
 

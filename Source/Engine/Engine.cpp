@@ -30,6 +30,7 @@
 #include "optick.h"
 #include "Work/Burst.h"
 #include "Profiling/BasicFrameProfile.h"
+#include "BGFXRenderer.h"
 
 Engine& GetEngine()
 {
@@ -87,9 +88,9 @@ void Engine::Init(Game* game)
 	int WindowHeight = WindowConfig["Height"];
 	std::function<void(const Vector2&)> Func = [this](const Vector2& NewSize)
 	{
-		if (m_renderer)
+		if (NewRenderer)
 		{
-			m_renderer->WindowResized(NewSize);
+			NewRenderer->WindowResized(NewSize);
 		}
 		if (UI)
 		{
@@ -105,8 +106,13 @@ void Engine::Init(Game* game)
 	GameWindow = new UWPWindow("MitchEngine", 1920, 1080);
 #endif
 
-	m_renderer = new Moonlight::Renderer();
-	m_renderer->WindowResized(GameWindow->GetSize());
+	NewRenderer = new BGFXRenderer();
+	RendererCreationSettings settings;
+	settings.WindowPtr = GameWindow->GetWindowPtr();
+	NewRenderer->Create(settings);
+
+	//m_renderer = new Moonlight::Renderer();
+	//m_renderer->WindowResized(GameWindow->GetSize());
 
 	GameWorld = std::make_shared<World>();
 
@@ -117,9 +123,9 @@ void Engine::Init(Game* game)
 	ModelRenderer = new RenderCore();
 	AudioThread = new AudioCore();
 
-	m_renderer->Init();
+	//m_renderer->Init();
 
-	UI = new UICore(GameWindow, m_renderer);
+	//UI = new UICore(GameWindow, m_renderer);
 
 	InitGame();
 
@@ -132,7 +138,7 @@ void Engine::InitGame()
 	GameWorld->AddCore<SceneGraph>(*SceneNodes);
 	GameWorld->AddCore<RenderCore>(*ModelRenderer);
 	GameWorld->AddCore<AudioCore>(*AudioThread);
-	GameWorld->AddCore<UICore>(*UI);
+	//GameWorld->AddCore<UICore>(*UI);
 
 	m_game->OnInitialize();
 }
@@ -173,6 +179,7 @@ void Engine::Run()
 		{
 			OPTICK_FRAME("MainLoop");
 			float deltaTime = DeltaTime = AccumulatedTime;
+			NewRenderer->BeginFrame();
 
 			FrameProfile::GetInstance().Set("Physics", ProfileCategory::Physics);
 			GameWorld->Simulate();
@@ -211,8 +218,8 @@ void Engine::Run()
 					{
 						UI->OnResize(Camera::CurrentCamera->OutputSize);
 					}
+					UI->Update(deltaTime);
 				}
-				UI->Update(deltaTime);
 				FrameProfile::GetInstance().Complete("UI");
 			}
 //
@@ -230,14 +237,14 @@ void Engine::Run()
 //
 //			EditorCamera = MainCamera;
 //#endif
-
-			FrameProfile::GetInstance().Set("Render", ProfileCategory::Rendering);
-			m_renderer->ThreadedRender([this]() {
-				m_game->PostRender();
-			}, [this]() {
-				UI->Render();
-			}, EditorCamera);
-			FrameProfile::GetInstance().Complete("Render");
+			NewRenderer->Render();
+			//FrameProfile::GetInstance().Set("Render", ProfileCategory::Rendering);
+			//m_renderer->ThreadedRender([this]() {
+			//	m_game->PostRender();
+			//}, [this]() {
+			//	UI->Render();
+			//}, EditorCamera);
+			//FrameProfile::GetInstance().Complete("Render");
 
 			// This makes the profiler overview data to be delayed for a frame, but takes the renderer into account.
 			static float fpsTime = 0;

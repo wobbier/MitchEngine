@@ -25,15 +25,15 @@ RenderCore::RenderCore()
 	: Base(ComponentFilter().Requires<Transform>().Requires<Mesh>())
 {
 	SetIsSerializable(false);
-	m_renderer = &GetEngine().GetRenderer();
-	m_renderer->RegisterDeviceNotify(this);
+	//m_renderer = &GetEngine().GetRenderer();
+	//m_renderer->RegisterDeviceNotify(this);
 }
 
 void RenderCore::Init()
 {
 	CLog::GetInstance().Log(CLog::LogType::Debug, "RenderCore Initialized...");
-	m_renderer->ClearDebugColliders();
-	m_renderer->ClearMeshes();
+	//m_renderer->ClearDebugColliders();
+	//m_renderer->ClearMeshes();
 }
 
 void RenderCore::OnEntityAdded(Entity& NewEntity)
@@ -73,7 +73,7 @@ RenderCore::~RenderCore()
 void RenderCore::Update(float dt)
 {
 	OPTICK_CATEGORY("RenderCore::Update", Optick::Category::Rendering)
-	m_renderer->Update(dt);
+	//m_renderer->Update(dt);
 
 	Burst& burst = GetEngine().GetBurstWorker();
 	burst.PrepareWork();
@@ -108,16 +108,16 @@ void RenderCore::Update(float dt)
 					{
 						Mesh& model = InEntity.GetComponent<Mesh>();
 
-						m_renderer->UpdateMeshMatrix(model.GetId(), transform.GetMatrix().GetInternalMatrix());
+						//m_renderer->UpdateMeshMatrix(model.GetId(), transform.GetMatrix().GetInternalMatrix());
 					}
 					if (InEntity.HasComponent<DirectionalLight>())
 					{
 						DirectionalLight& light = InEntity.GetComponent<DirectionalLight>();
 						auto pos = transform.GetWorldPosition();
-						m_renderer->Sunlight.pos = XMFLOAT4(pos.x, pos.y, pos.z, 0);
-						m_renderer->Sunlight.ambient = light.Ambient;
-						m_renderer->Sunlight.diffuse = light.Diffuse;
-						m_renderer->Sunlight.dir = light.Direction;
+						//m_renderer->Sunlight.pos = XMFLOAT4(pos.x, pos.y, pos.z, 0);
+						//m_renderer->Sunlight.ambient = light.Ambient;
+						//m_renderer->Sunlight.diffuse = light.Diffuse;
+						//m_renderer->Sunlight.dir = light.Direction;
 					}
 				}
 				
@@ -166,31 +166,31 @@ void RenderCore::Update(float dt)
 void RenderCore::OnDeviceLost()
 {
 #if ME_DIRECTX
-	m_renderer->ReleaseDeviceDependentResources();
+	//m_renderer->ReleaseDeviceDependentResources();
 #endif
 }
 
 void RenderCore::OnDeviceRestored()
 {
 #if ME_DIRECTX
-	m_renderer->CreateDeviceDependentResources();
-	m_renderer->GetDevice().CreateWindowSizeDependentResources();
+	//m_renderer->CreateDeviceDependentResources();
+	//m_renderer->GetDevice().CreateWindowSizeDependentResources();
 #endif
 }
 
 void RenderCore::OnStop()
 {
-	m_renderer->ClearMeshes();
-	m_renderer->ClearDebugColliders();
+	//m_renderer->ClearMeshes();
+	//m_renderer->ClearDebugColliders();
 }
 
 void RenderCore::UpdateMesh(Mesh* InMesh)
 {
-	m_renderer->PopMesh(InMesh->Id);
+	//m_renderer->PopMesh(InMesh->Id);
 
 	Moonlight::MeshCommand command;
 	command.SingleMesh = InMesh->MeshReferece;
 	command.MeshMaterial = InMesh->MeshMaterial;
 	command.Type = InMesh->GetType();
-	InMesh->Id = m_renderer->PushMesh(command);
+	//InMesh->Id = m_renderer->PushMesh(command);
 }
