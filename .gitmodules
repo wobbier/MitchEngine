@@ -38,3 +38,15 @@
 	path = ThirdParty/ImGuiTables
 	url = https://github.com/wobbier/imgui
 	ignore = dirty
+[submodule "ThirdParty/glm"]
+	path = ThirdParty/glm
+	url = https://github.com/g-truc/glm
+[submodule "ThirdParty/bx"]
+	path = ThirdParty/bx
+	url = git://github.com/bkaradzic/bx.git
+[submodule "ThirdParty/bimg"]
+	path = ThirdParty/bimg
+	url = git://github.com/bkaradzic/bimg.git
+[submodule "ThirdParty/bgfx"]
+	path = ThirdParty/bgfx
+	url = git://github.com/bkaradzic/bgfx.git
