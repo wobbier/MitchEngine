@@ -11,6 +11,11 @@
 #include <ImGui/Resources/robotomono_regular.ttf.h>
 #include <ImGui/Resources/icons_kenney.ttf.h>
 #include <ImGui/Resources/icons_font_awesome.ttf.h>
+#include "optick.h"
+
+#define IMGUI_MBUT_LEFT   0x01
+#define IMGUI_MBUT_RIGHT  0x02
+#define IMGUI_MBUT_MIDDLE 0x04
 
 inline bool checkAvailTransientBuffers(uint32_t _numVertices, const bgfx::VertexLayout& _layout, uint32_t _numIndices)
 {
@@ -34,6 +39,7 @@ void ImGuiRenderer::Create()
 	LastScroll = 0;
 	//Last = bx::getHPCounter();
 
+	IMGUI_CHECKVERSION();
 	Context = ImGui::CreateContext();
 
 	ImGuiIO& io = ImGui::GetIO();
@@ -72,26 +78,42 @@ void ImGuiRenderer::Create()
 	);
 }
 
-void ImGuiRenderer::NewFrame()
+void ImGuiRenderer::NewFrame(Vector2& mousePosition, uint8_t mouseButton,  int32_t scroll, Vector2 outputSize, int inputChar, bgfx::ViewId viewId)
 {
-	ImGui::NewFrame();
+	ViewId = viewId;
 
-	bool yes = true;
-	ImGui::Begin("allo", &yes);
+	ImGuiIO& io = ImGui::GetIO();
+	if (inputChar >= 0)
 	{
-
+		io.AddInputCharacter(inputChar);
 	}
-	ImGui::End();
+	io.DisplaySize = ImVec2(outputSize.X(), outputSize.Y());
+
+	io.MousePos = ImVec2(mousePosition.X(), mousePosition.Y());
+	io.MouseDown[0] = (mouseButton & IMGUI_MBUT_LEFT) != 0;
+	io.MouseDown[1] = (mouseButton & IMGUI_MBUT_RIGHT) != 0;
+	io.MouseDown[2] = (mouseButton & IMGUI_MBUT_MIDDLE) != 0;
+	io.MouseWheel = (float)(scroll - LastScroll);
+	io.DeltaTime = 1.f / 60.f;
+	LastScroll = scroll;
+	ImGui::NewFrame();
 }
 
 void ImGuiRenderer::EndFrame()
 {
 	ImGui::Render();
 	Render(ImGui::GetDrawData());
+
+	if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+	{
+		ImGui::UpdatePlatformWindows();
+		ImGui::RenderPlatformWindowsDefault();
+	}
 }
 
 void ImGuiRenderer::Render(ImDrawData* drawData)
 {
+	OPTICK_EVENT("ImGuiRenderer::Render", Optick::Category::Rendering);
 	const ImGuiIO& io = ImGui::GetIO();
 	const float width = io.DisplaySize.x;
 	const float height = io.DisplaySize.y;
@@ -109,6 +131,7 @@ void ImGuiRenderer::Render(ImDrawData* drawData)
 
 	for (int i = 0; i < drawData->CmdListsCount; ++i)
 	{
+		OPTICK_EVENT("ImGuiRenderer::CommandList", Optick::Category::Rendering);
 		bgfx::TransientVertexBuffer tvb;
 		bgfx::TransientIndexBuffer tib;
 
@@ -133,6 +156,7 @@ void ImGuiRenderer::Render(ImDrawData* drawData)
 		uint32_t offset = 0;
 		for (const ImDrawCmd* cmd = drawList->CmdBuffer.begin(), *cmdEnd = drawList->CmdBuffer.end(); cmd != cmdEnd; ++cmd)
 		{
+			OPTICK_EVENT("ImGuiRenderer::Command", Optick::Category::Rendering);
 			if (cmd->UserCallback)
 			{
 				cmd->UserCallback(drawList, cmd);

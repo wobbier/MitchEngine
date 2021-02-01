@@ -1,5 +1,6 @@
 #pragma once
 #include <bgfx/bgfx.h>
+#include "Math/Vector2.h"
 
 struct ImGuiContext;
 struct ImDrawData;
@@ -11,7 +12,7 @@ public:
 
 	void Create();
 
-	void NewFrame();
+	void NewFrame(Vector2& mousePosition, uint8_t mouseButton, int32_t scroll, Vector2 outputSize, int inputChar, bgfx::ViewId viewId);
 	void EndFrame();
 
 private:

@@ -50,7 +50,6 @@ Havana::Havana(Engine* GameEngine, EditorApp* app, Moonlight::Renderer* renderer
 	, CurrentDirectory("Assets")
 	, m_assetBrowser(Path("Assets").FullPath, std::chrono::milliseconds(300))
 {
-	return;
 	InitUI();
 	m_assetBrowser.Start([](const std::string& path_to_watch, FileStatus status) -> void {
 		// Process only regular files, all other file types are ignored
@@ -90,8 +89,6 @@ void Havana::InitUI()
 {
 	EngineConfigFilePath = Path("Assets/Config/imgui.cfg");
 	//ConfigFilePath = Path("Assets/Config/imgui.ini", true);
-	IMGUI_CHECKVERSION();
-	ImGui::CreateContext();
 	ImGuiIO& io = ImGui::GetIO(); (void)io;
 	//ImGui::LoadIniSettingsFromDisk(EngineConfigFilePath.FullPath.c_str());
 	io.IniFilename = EngineConfigFilePath.FullPath.c_str();
@@ -156,9 +153,6 @@ void Havana::InitUI()
 	style.WindowMenuButtonPosition = ImGuiDir_None;
 	style.AntiAliasedFill = false;
 
-	ImGui_ImplWin32_Init(Renderer->GetDevice().m_window);
-	ImGui_ImplDX11_Init(Renderer->GetDevice().GetD3DDevice(), Renderer->GetDevice().GetD3DDeviceContext());
-
 	Icons["Close"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Close.png"));
 	Icons["BugReport"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/BugReport.png"));
 	Icons["Maximize"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Maximize.png"));
@@ -172,7 +166,7 @@ void Havana::InitUI()
 	Icons["Profiler"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Profiler.png"));
 	Icons["FlipCamera"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/FlipCamera.png"));
 
-	m_engine->GetInput().Stop();
+	//m_engine->GetInput().Stop();
 	GetInput().GetMouse().SetWindow(GetActiveWindow());
 }
 
@@ -1304,14 +1298,9 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 	RenderProfilerBar();
 
 
-	ImGui::Render();
-	ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+	//ImGui::Render();
+	//ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 	// Update and Render additional Platform Windows
-	if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
-	{
-		ImGui::UpdatePlatformWindows();
-		ImGui::RenderPlatformWindowsDefault();
-	}
 }
 
 void Havana::RenderProfilerBar()
@@ -1508,7 +1497,7 @@ void Havana::RenderMainView(Moonlight::CameraData& EditorCamera)
 			AllowGameInput = true;
 		}
 	}
-	if (Renderer->GameViewRTT)
+	if (Renderer && Renderer->GameViewRTT)
 	{
 		//AllowGameInput = ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows);
 		static auto srv = Renderer->GameViewRTT->ShaderResourceView;
@@ -1629,7 +1618,7 @@ void Havana::RenderMainView(Moonlight::CameraData& EditorCamera)
 
 		if (m_viewportMode == ViewportMode::Game)
 		{
-			if (Renderer->GameViewRTT && srv != nullptr)
+			if (Renderer && Renderer->GameViewRTT && srv != nullptr)
 			{
 				// Get the current cursor position (where your window is)
 				ImVec2 pos = ImGui::GetCursorScreenPos();
@@ -1709,7 +1698,7 @@ void Havana::RenderMainView(Moonlight::CameraData& EditorCamera)
 				m_isWorldViewFocused = ImGui::IsWindowFocused();
 
 
-				if (srv != nullptr)
+				if (Renderer && srv != nullptr)
 				{
 					ImVec2 maxPos = ImVec2(pos.x + ImGui::GetWindowSize().x, pos.y + ImGui::GetWindowSize().y);
 					WorldViewRenderSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);

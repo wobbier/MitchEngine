@@ -20,7 +20,7 @@ public:
 	void Create(const RendererCreationSettings& settings);
 	void Destroy();
 
-	void BeginFrame();
+	void BeginFrame(Vector2& mousePosition, uint8_t mouseButton, int32_t scroll, Vector2 outputSize, int inputChar, bgfx::ViewId viewId);
 	void Render();
 
 	void WindowResized(const Vector2& newSize);

@@ -179,7 +179,14 @@ void Engine::Run()
 		{
 			OPTICK_FRAME("MainLoop");
 			float deltaTime = DeltaTime = AccumulatedTime;
-			NewRenderer->BeginFrame();
+			NewRenderer->BeginFrame(m_input.GetMousePosition()
+				, (m_input.GetMouseState().leftButton ? 0x01 : 0)
+				| (m_input.GetMouseState().rightButton ? 0x02 : 0)
+				| (m_input.GetMouseState().middleButton ? 0x04 : 0)
+				, m_input.GetMouseScrollOffset().Y()
+				, GetWindow()->GetSize()
+				, -1
+				, 255);
 
 			FrameProfile::GetInstance().Set("Physics", ProfileCategory::Physics);
 			GameWorld->Simulate();
@@ -237,6 +244,7 @@ void Engine::Run()
 //
 //			EditorCamera = MainCamera;
 //#endif
+			m_game->PostRender();
 			NewRenderer->Render();
 			//FrameProfile::GetInstance().Set("Render", ProfileCategory::Rendering);
 			//m_renderer->ThreadedRender([this]() {
