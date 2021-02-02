@@ -158,7 +158,7 @@ void Havana::InitUI()
 	Icons["Maximize"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Maximize.png"));
 	Icons["ExitMaximize"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/ExitMaximize.png"));
 	Icons["Minimize"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Minimize.png"));
-	Icons["Play"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Play.png"));
+	Icons["Play"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Play.dds"));
 	Icons["Pause"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Pause.png"));
 	Icons["Stop"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Stop.png"));
 	Icons["Info"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Info.png"));
@@ -436,12 +436,12 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 		auto Keyboard = GetInput().GetKeyboardState();
 		if (!m_app->IsGameRunning())
 		{
-			//if (ImGui::ImageButton(Icons["Play"]->ShaderResourceView, ImVec2(30.f, 30.f)) || Keyboard.F5)
-			//{
-			//	ImGui::SetWindowFocus("Game");
-			//	m_engine->GetInput().Resume();
-			//	StartGameFunc();
-			//}
+			if (ImGui::ImageButton(Icons["Play"]->TexHandle, ImVec2(30.f, 30.f)) || Keyboard.F5)
+			{
+				ImGui::SetWindowFocus("Game");
+				m_engine->GetInput().Resume();
+				StartGameFunc();
+			}
 		}
 
 		if (m_app->IsGameRunning())

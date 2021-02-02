@@ -20,7 +20,7 @@ AssetBrowser::AssetBrowser(const std::string& pathToWatch, std::chrono::duration
 	: PathToWatch(pathToWatch)
 	, Delay(delay)
 {
-	Icons["Image"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Image.png"));
+	Icons["Image"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Image.dds"));
 	Icons["File"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/File.png"));
 	Icons["Terrain"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Terrain.png"));
 	Icons["World"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/World.png"));
@@ -155,7 +155,7 @@ void AssetBrowser::Recursive(Directory& dir)
 			ImGui::Image(Icons["World"]->ShaderResourceView, ImVec2(16, 16));
 			break;
 		case AssetType::Texture:
-			ImGui::Image(Icons["Image"]->ShaderResourceView, ImVec2(16, 16));
+			ImGui::Image(Icons["Image"]->TexHandle, ImVec2(16, 16));
 			break;
 		case AssetType::Model:
 			ImGui::Image(Icons["Terrain"]->ShaderResourceView, ImVec2(16, 16));

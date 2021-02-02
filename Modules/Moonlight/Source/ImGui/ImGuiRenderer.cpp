@@ -55,6 +55,12 @@ void ImGuiRenderer::Create()
 		, bgfx::createEmbeddedShader(s_embeddedShaders, renderType, "fs_ocornut_imgui")
 		, true);
 
+	ImageLODEnabled = bgfx::createUniform("u_imageLodEnabled", bgfx::UniformType::Vec4);
+	ImageProgram = bgfx::createProgram(
+		bgfx::createEmbeddedShader(s_embeddedShaders, renderType, "vs_imgui_image")
+		, bgfx::createEmbeddedShader(s_embeddedShaders, renderType, "fs_imgui_image")
+		, true);
+
 	Layout.begin()
 		.add(bgfx::Attrib::Position, 2, bgfx::AttribType::Float)
 		.add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float)
@@ -170,7 +176,25 @@ void ImGuiRenderer::Render(ImDrawData* drawData)
 
 				if (cmd->TextureId)
 				{
+					union
+					{
+						ImTextureID ptr;
+						struct  
+						{
+							bgfx::TextureHandle handle;
+							uint8_t flags;
+							uint8_t mip;
+						} s;
+					} texture = { cmd->TextureId };
 
+					state |= 0 != (0x01 & texture.s.flags) ? BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_INV_SRC_ALPHA) : BGFX_STATE_NONE;
+					textureHandle = texture.s.handle;
+					if (texture.s.mip != 0)
+					{
+						const float lodEnabled[4] = { static_cast<float>(texture.s.mip), 1.f, 0.f, 0.f };
+						bgfx::setUniform(ImageLODEnabled, lodEnabled);
+						programHandle = ImageProgram;
+					}
 				}
 				else
 				{

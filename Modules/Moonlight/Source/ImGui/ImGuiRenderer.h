@@ -22,8 +22,10 @@ private:
 	ImGuiContext* Context = nullptr;
 
 	bgfx::ProgramHandle Program;
+	bgfx::ProgramHandle ImageProgram;
 	bgfx::VertexLayout Layout;
 	bgfx::UniformHandle sTexture;
+	bgfx::UniformHandle ImageLODEnabled;
 	bgfx::TextureHandle mTexture;
 
 	void Render(ImDrawData* drawData);
