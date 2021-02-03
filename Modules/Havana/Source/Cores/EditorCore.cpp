@@ -28,7 +28,7 @@ EditorCore::EditorCore(Havana* editor)
 	std::vector<TypeId> events;
 	events.push_back(SaveSceneEvent::GetEventId());
 	events.push_back(NewSceneEvent::GetEventId());
-	events.push_back(Moonlight::PickingEvent::GetEventId());
+	//events.push_back(Moonlight::PickingEvent::GetEventId());
 	EventManager::GetInstance().RegisterReceiver(this, events);
 }
 
@@ -243,7 +243,7 @@ bool EditorCore::OnEvent(const BaseEvent& evt)
 		}
 		return true;
 	}
-	else if (evt.GetEventId() == Moonlight::PickingEvent::GetEventId())
+	/*else if (evt.GetEventId() == Moonlight::PickingEvent::GetEventId())
 	{
 		const Moonlight::PickingEvent& casted = static_cast<const Moonlight::PickingEvent&>(evt);
 
@@ -299,7 +299,7 @@ bool EditorCore::OnEvent(const BaseEvent& evt)
 			}
 		}
 		return true;
-	}
+	}*/
 
 	return false;
 }

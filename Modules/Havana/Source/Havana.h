@@ -1,5 +1,4 @@
 #pragma once
-#include "Renderer.h"
 #include <functional>
 #include "ECS/Entity.h"
 #include "ECS/EntityHandle.h"
@@ -13,6 +12,8 @@
 #include "Commands/CommandManager.h"
 #include <Keyboard.h>
 #include "Engine/Input.h"
+#include "Camera/CameraData.h"
+#include "BGFXRenderer.h"
 
 class ComponentInfo;
 class FolderTest
@@ -31,7 +32,7 @@ public:
 		class Transform* Parent;
 	};
 
-	Havana(class Engine* GameEngine, class EditorApp* app, Moonlight::Renderer* renderer);
+	Havana(class Engine* GameEngine, class EditorApp* app);
 
 	void InitUI();
 
@@ -53,7 +54,7 @@ public:
 
 	void RenderMainView(Moonlight::CameraData& EditorCamera);
 
-	void SetViewportMode(ViewportMode mode);
+	//void SetViewportMode(ViewportMode mode);
 
 	void SetWindowTitle(const std::string& title)
 	{
@@ -80,7 +81,6 @@ public:
 	EntityHandle SelectedEntity;
 	class Transform* SelectedTransform = nullptr;
 	class BaseCore* SelectedCore = nullptr;
-	Moonlight::Renderer* Renderer = nullptr;
 	Vector2 RenderSize;
 	Vector2 GameRenderSize;
 	Vector2 WorldViewRenderSize;
@@ -120,8 +120,7 @@ private:
 	float prevMatrixScale[3];
 	ImVec2 previousMousePos;
 	ParentDescriptor DragParentDescriptor;
-	ViewportMode m_viewportMode = ViewportMode::World;
-
+	ViewportMode m_viewportMode;
 	DirectX::Keyboard::KeyboardStateTracker tracker;
 	DirectX::Mouse::ButtonStateTracker mouseTracker;
 	//Path ConfigFilePath;

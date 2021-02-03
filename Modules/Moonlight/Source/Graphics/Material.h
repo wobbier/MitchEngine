@@ -64,6 +64,8 @@ namespace Moonlight
 
 		virtual void OnDeserialize(const json& InJson);
 
+		virtual void Init() = 0;
+
 		void SetTexture(const TextureType& textureType, std::shared_ptr<Moonlight::Texture> loadedTexture);
 		const Texture* GetTexture(const TextureType& type) const;
 		std::vector<std::shared_ptr<Texture>>& GetTextures();

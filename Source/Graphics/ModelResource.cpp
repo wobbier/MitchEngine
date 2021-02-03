@@ -8,7 +8,6 @@
 #include <unordered_map>
 
 #include "CLog.h"
-#include "Renderer.h"
 #include "Graphics/Texture.h"
 #include "Game.h"
 #include "Graphics/Material.h"

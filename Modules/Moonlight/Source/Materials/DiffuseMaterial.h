@@ -10,6 +10,12 @@ public:
 	{
 
 	}
+
+	void Init() override
+	{
+		throw std::logic_error("The method or operation is not implemented.");
+	}
+
 };
 
 class WhiteMaterial
@@ -21,6 +27,12 @@ public:
 	{
 
 	}
+
+	void Init() override
+	{
+		throw std::logic_error("The method or operation is not implemented.");
+	}
+
 };
 
 ME_REGISTER_MATERIAL_NAME(DiffuseMaterial, "Diffuse")

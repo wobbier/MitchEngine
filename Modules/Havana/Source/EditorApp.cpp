@@ -50,14 +50,14 @@ void EditorApp::OnUpdate(float DeltaTime)
 		StartGame();
 		m_isGamePaused = false;
 		m_isGameRunning = true;
-		Editor->SetViewportMode(ViewportMode::Game);
+		//Editor->SetViewportMode(ViewportMode::Game);
 		}
 		, [this]() {
 			m_isGamePaused = true;
 		}
 			, [this]() {
 			m_isGamePaused = false;
-			Editor->SetViewportMode(ViewportMode::World);
+			//Editor->SetViewportMode(ViewportMode::World);
 			Editor->ClearSelection();
 			StopGame();
 			//GetEngine().LoadScene("Assets/Alley.lvl");
@@ -82,7 +82,7 @@ void EditorApp::UpdateCameras()
 	Moonlight::CameraData EditorCamera;
 
 	Camera::CurrentCamera->OutputSize = MainOutputSize;
-	EditorCamera.Position = EditorSceneManager->GetEditorCameraTransform()->GetWorldPosition();
+	EditorCamera.Position = EditorSceneManager->GetEditorCameraTransform()->GetPosition();
 	EditorCamera.Front = EditorSceneManager->GetEditorCameraTransform()->Front();
 	EditorCamera.Up = Vector3::Up;
 	EditorCamera.OutputSize = Editor->WorldViewRenderSize;
@@ -110,7 +110,7 @@ void EditorApp::OnInitialize()
 	if (!Editor)
 	{
 		InitialLevel = GetEngine().GetConfig().GetValue("CurrentScene");
-		Editor = std::make_unique<Havana>(&GetEngine(), this, &GetEngine().GetRenderer());
+		Editor = std::make_unique<Havana>(&GetEngine(), this);
 		EditorSceneManager = new EditorCore(Editor.get());
 		NewSceneEvent evt;
 		evt.Fire();

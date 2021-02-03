@@ -8,6 +8,7 @@
 #include "Engine/Engine.h"
 #include "Utils/StringUtils.h"
 #include <bimg/bimg.h>
+#include "Utils/BGFXUtils.h"
 
 using namespace DirectX;
 using namespace Microsoft::WRL;
@@ -17,33 +18,6 @@ static void imageReleaseCb(void* _ptr, void* _userData)
 	BX_UNUSED(_ptr);
 	bimg::ImageContainer* imageContainer = (bimg::ImageContainer*)_userData;
 	bimg::imageFree(imageContainer);
-}
-
-void* load(bx::FileReaderI* _reader, bx::AllocatorI* _allocator, const char* _filePath, uint32_t* _size)
-{
-	if (bx::open(_reader, _filePath))
-	{
-		uint32_t size = (uint32_t)bx::getSize(_reader);
-		void* data = BX_ALLOC(_allocator, size);
-		bx::read(_reader, data, size);
-		bx::close(_reader);
-		if (nullptr != _size)
-		{
-			*_size = size;
-		}
-		return data;
-	}
-	else
-	{
-		//DBG("Failed to open: %s.", _filePath);
-	}
-
-	if (nullptr != _size)
-	{
-		*_size = 0;
-	}
-
-	return nullptr;
 }
 
 void unload(bx::AllocatorI* _allocator, void* _ptr)
@@ -100,25 +74,43 @@ namespace Moonlight
 		//}
 		//return;
 		uint64_t flags = BGFX_TEXTURE_NONE | BGFX_SAMPLER_NONE;
+
+		//D3D11_TEXTURE_ADDRESS_MODE dxMode = D3D11_TEXTURE_ADDRESS_WRAP;
+		//switch (mode)
+		//{
+		//case Moonlight::Clamp:
+		//case Moonlight::Decal:
+		//	dxMode = D3D11_TEXTURE_ADDRESS_CLAMP;
+		//	break;
+		//case Moonlight::Wrap:
+		//	dxMode = D3D11_TEXTURE_ADDRESS_WRAP;
+		//	break;
+		//case Moonlight::Mirror:
+		//	dxMode = D3D11_TEXTURE_ADDRESS_MIRROR;
+		//	break;
+		//default:
+		//	break;
+		//}
+
 		if (!s_fileReader)
 		{
 			s_fileReader = new Moonlight::FileReader();// BX_NEW(s_allocator, Moonlight::FileReader);
 		}
-			uint32_t size;
-		void* data = load(s_fileReader, getDefaultAllocator(), InFilePath.FullPath.c_str(), &size);
-
-		if (data)
+			//uint32_t size;
+		//void* data = load(s_fileReader, getDefaultAllocator(), InFilePath.FullPath.c_str(), &size);
+		const auto* memory = Moonlight::LoadMemory(s_fileReader, InFilePath.FullPath.c_str());
+		if (memory)
 		{
 			bimg::ImageContainer* imageContainerRaw = new bimg::ImageContainer();
 			bx::Error* err = nullptr;
-			if (bimg::imageParse(*imageContainerRaw, data, size, err))
+			if (bimg::imageParse(*imageContainerRaw, memory->data, memory->size, err))
 			{
 				bimg::ImageContainer* imageContainer = imageContainerRaw;
 				bgfx::TextureInfo info;
 				bgfx::calcTextureSize(info, imageContainer->m_width, imageContainer->m_height, 1, false, false, 1, bgfx::TextureFormat::Enum(imageContainer->m_format));
-				if (data != nullptr)
+				if (memory != nullptr)
 				{
-					TexHandle = bgfx::createTexture2D(imageContainer->m_width, imageContainer->m_height, false, 1, bgfx::TextureFormat::Enum(imageContainer->m_format), flags, bgfx::copy(data, info.storageSize));
+					TexHandle = bgfx::createTexture2D(imageContainer->m_width, imageContainer->m_height, false, 1, bgfx::TextureFormat::Enum(imageContainer->m_format), flags, bgfx::copy(memory->data, info.storageSize));
 				}
 				else
 				{
@@ -131,122 +123,81 @@ namespace Moonlight
 				}
 				return;
 
-				bimg::Orientation::Enum* orientation = nullptr;
-				if (imageContainer)
-				{
-					if (orientation)
-					{
-						*orientation = imageContainer->m_orientation;
-					}
+				//bimg::Orientation::Enum* orientation = nullptr;
+				//if (imageContainer)
+				//{
+				//	if (orientation)
+				//	{
+				//		*orientation = imageContainer->m_orientation;
+				//	}
 
-					const bgfx::Memory* mem = bgfx::makeRef(data, size, imageReleaseCb, imageContainer);
+				//	const bgfx::Memory* mem = bgfx::makeRef(data, size, imageReleaseCb, imageContainer);
 
-					if (imageContainer->m_cubeMap)
-					{
-						TexHandle = bgfx::createTextureCube(imageContainer->m_width, 1 < imageContainer->m_numMips, imageContainer->m_numLayers, bgfx::TextureFormat::Enum(imageContainer->m_format), flags, mem);
-					}
-					else if (1 < imageContainer->m_depth)
-					{
-						TexHandle = bgfx::createTexture3D(imageContainer->m_width, imageContainer->m_height, imageContainer->m_depth, 1 < imageContainer->m_numMips, bgfx::TextureFormat::Enum(imageContainer->m_format), flags, mem);
-					}
-					else if (bgfx::isTextureValid(0, false, imageContainer->m_numLayers, bgfx::TextureFormat::Enum(imageContainer->m_format), flags))
-					{
-						imageContainer->m_data = data;
-						imageContainer->m_size = size;
-						imageContainer->m_allocator = getDefaultAllocator();
-						TexHandle = bgfx::createTexture2D(uint16_t(imageContainer->m_width), uint16_t(imageContainer->m_height), 1 < imageContainer->m_numMips, imageContainer->m_numLayers, bgfx::TextureFormat::Enum(imageContainer->m_format), flags, mem);
-					}
+				//	if (imageContainer->m_cubeMap)
+				//	{
+				//		TexHandle = bgfx::createTextureCube(imageContainer->m_width, 1 < imageContainer->m_numMips, imageContainer->m_numLayers, bgfx::TextureFormat::Enum(imageContainer->m_format), flags, mem);
+				//	}
+				//	else if (1 < imageContainer->m_depth)
+				//	{
+				//		TexHandle = bgfx::createTexture3D(imageContainer->m_width, imageContainer->m_height, imageContainer->m_depth, 1 < imageContainer->m_numMips, bgfx::TextureFormat::Enum(imageContainer->m_format), flags, mem);
+				//	}
+				//	else if (bgfx::isTextureValid(0, false, imageContainer->m_numLayers, bgfx::TextureFormat::Enum(imageContainer->m_format), flags))
+				//	{
+				//		imageContainer->m_data = data;
+				//		imageContainer->m_size = size;
+				//		imageContainer->m_allocator = getDefaultAllocator();
+				//		TexHandle = bgfx::createTexture2D(uint16_t(imageContainer->m_width), uint16_t(imageContainer->m_height), 1 < imageContainer->m_numMips, imageContainer->m_numLayers, bgfx::TextureFormat::Enum(imageContainer->m_format), flags, mem);
+				//	}
 
-					if (bgfx::isValid(TexHandle))
-					{
-						bgfx::setName(TexHandle, InFilePath.LocalPath.c_str());
-					}
-					//unload(getDefaultAllocator(), data);
-				}
+				//	if (bgfx::isValid(TexHandle))
+				//	{
+				//		bgfx::setName(TexHandle, InFilePath.LocalPath.c_str());
+				//	}
+				//	//unload(getDefaultAllocator(), data);
+				//}
 			}
 
 		}
-		return;
-		std::wstring filePath = StringUtils::ToWString(InFilePath.FullPath);
-		auto& device = static_cast<Moonlight::DX11Device&>(GetEngine().GetRenderer().GetDevice());
-		ID3D11DeviceContext* context;
-		device.GetD3DDevice()->GetImmediateContext(&context);
-
-		UINT bindFlags = D3D11_BIND_SHADER_RESOURCE/* | D3D11_BIND_UNORDERED_ACCESS*/;
-		UINT miscFlags = 0;
-		//if (levels == 0)
-		{
-			bindFlags |= D3D11_BIND_RENDER_TARGET;
-			miscFlags = D3D11_RESOURCE_MISC_GENERATE_MIPS;
-		}
-		DX::ThrowIfFailed(CreateWICTextureFromFileEx(device.GetD3DDevice(), context, filePath.c_str(), 2048, D3D11_USAGE_DEFAULT, bindFlags, NULL, miscFlags, NULL, &resource, &ShaderResourceView));
-		
-		D3D11_TEXTURE_ADDRESS_MODE dxMode = D3D11_TEXTURE_ADDRESS_WRAP;
-		switch (mode)
-		{
-		case Moonlight::Clamp:
-		case Moonlight::Decal:
-			dxMode = D3D11_TEXTURE_ADDRESS_CLAMP;
-			break;
-		case Moonlight::Wrap:
-			dxMode = D3D11_TEXTURE_ADDRESS_WRAP;
-			break;
-		case Moonlight::Mirror:
-			dxMode = D3D11_TEXTURE_ADDRESS_MIRROR;
-			break;
-		default:
-			break;
-		}
-		
-		D3D11_SAMPLER_DESC sampDesc;
-		ZeroMemory(&sampDesc, sizeof(sampDesc));
-		sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-		sampDesc.AddressU = dxMode;
-		sampDesc.AddressV = dxMode;
-		sampDesc.AddressW = dxMode;
-		sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
-		sampDesc.MinLOD = 0;
-		sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
-		device.GetD3DDevice()->CreateSamplerState(&sampDesc, &SamplerState);
 	}
 
 	Texture::Texture(Moonlight::FrameBuffer* InFilePath, WrapMode mode /*= WrapMode::Wrap*/)
 		: Resource(Path(""))
 	{
 		return;
-		auto& device = static_cast<Moonlight::DX11Device&>(GetEngine().GetRenderer().GetDevice());
+		// #RenderTODO
+		//auto& device = static_cast<Moonlight::DX11Device&>(GetEngine().GetRenderer().GetDevice());
 
-		D3D11_TEXTURE_ADDRESS_MODE dxMode = D3D11_TEXTURE_ADDRESS_WRAP;
-		switch (mode)
-		{
-		case Moonlight::Clamp:
-		case Moonlight::Decal:
-			dxMode = D3D11_TEXTURE_ADDRESS_CLAMP;
-			break;
-		case Moonlight::Wrap:
-			dxMode = D3D11_TEXTURE_ADDRESS_WRAP;
-			break;
-		case Moonlight::Mirror:
-			dxMode = D3D11_TEXTURE_ADDRESS_MIRROR;
-			break;
-		default:
-			break;
-		}
+		//D3D11_TEXTURE_ADDRESS_MODE dxMode = D3D11_TEXTURE_ADDRESS_WRAP;
+		//switch (mode)
+		//{
+		//case Moonlight::Clamp:
+		//case Moonlight::Decal:
+		//	dxMode = D3D11_TEXTURE_ADDRESS_CLAMP;
+		//	break;
+		//case Moonlight::Wrap:
+		//	dxMode = D3D11_TEXTURE_ADDRESS_WRAP;
+		//	break;
+		//case Moonlight::Mirror:
+		//	dxMode = D3D11_TEXTURE_ADDRESS_MIRROR;
+		//	break;
+		//default:
+		//	break;
+		//}
 
-		D3D11_SAMPLER_DESC sampDesc;
-		ZeroMemory(&sampDesc, sizeof(sampDesc));
-		sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-		sampDesc.AddressU = dxMode;
-		sampDesc.AddressV = dxMode;
-		sampDesc.AddressW = dxMode;
-		sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
-		sampDesc.MinLOD = 0;
-		sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
-		device.GetD3DDevice()->CreateSamplerState(&sampDesc, &SamplerState);
-		if (InFilePath)
-		{
-			UpdateBuffer(InFilePath);
-		}
+		//D3D11_SAMPLER_DESC sampDesc;
+		//ZeroMemory(&sampDesc, sizeof(sampDesc));
+		//sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+		//sampDesc.AddressU = dxMode;
+		//sampDesc.AddressV = dxMode;
+		//sampDesc.AddressW = dxMode;
+		//sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+		//sampDesc.MinLOD = 0;
+		//sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
+		//device.GetD3DDevice()->CreateSamplerState(&sampDesc, &SamplerState);
+		//if (InFilePath)
+		//{
+		//	UpdateBuffer(InFilePath);
+		//}
 	}
 
 	Texture::~Texture()
@@ -257,16 +208,6 @@ namespace Moonlight
 	void Texture::UpdateBuffer(FrameBuffer* NewBuffer)
 	{
 		ShaderResourceView = NewBuffer->ShaderResourceView.Get();
-	}
-
-	bx::AllocatorI* Texture::getDefaultAllocator()
-	{
-		BX_PRAGMA_DIAGNOSTIC_PUSH();
-		BX_PRAGMA_DIAGNOSTIC_IGNORED_MSVC(4459); // warning C4459: declaration of 's_allocator' hides global declaration
-		BX_PRAGMA_DIAGNOSTIC_IGNORED_CLANG_GCC("-Wshadow");
-		static bx::DefaultAllocator s_allocator;
-		return &s_allocator;
-		BX_PRAGMA_DIAGNOSTIC_POP();
 	}
 
 	std::string Texture::ToString(TextureType type)

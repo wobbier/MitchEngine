@@ -50,7 +50,7 @@ UICore::UICore(IWindow* window, Moonlight::Renderer* renderer)
 		YIKES("Failed to initialize ultralight context");
 	}
 
-	m_driver.reset(new ultralight::GPUDriverD3D11(m_context.get(), &m_renderer->GetDevice()));
+	//m_driver.reset(new ultralight::GPUDriverD3D11(m_context.get(), &m_renderer->GetDevice()));
 	m_logger.reset(new ultralight::FileLogger(ultralight::String(std::string(fileSystemRoot + "Ultralight.log").c_str())));
 	m_fontLoader.reset(new ultralight::FontLoaderWin());
 
@@ -156,7 +156,7 @@ void UICore::Update(float dt)
 	}
 
 #if ME_EDITOR
-	if (m_renderer->GetViewportMode() == ViewportMode::Game)
+	//if (m_renderer->GetViewportMode() == ViewportMode::Game)
 #endif
 	{
 		for (auto& view : m_overlays)

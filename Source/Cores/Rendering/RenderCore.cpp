@@ -45,14 +45,14 @@ void RenderCore::OnEntityAdded(Entity& NewEntity)
 		command.SingleMesh = model.MeshReferece;
 		command.MeshMaterial = model.MeshMaterial;
 		command.Type = model.GetType();
-		model.Id = GetEngine().GetRenderer().PushMesh(command);
+		//model.Id = GetEngine().GetRenderer().PushMesh(command);
 	}
 	if (NewEntity.HasComponent<DirectionalLight>())
 	{
 		DirectionalLight& light = NewEntity.GetComponent<DirectionalLight>();
-		GetEngine().GetRenderer().Sunlight.ambient = light.Ambient;
-		GetEngine().GetRenderer().Sunlight.diffuse = light.Diffuse;
-		GetEngine().GetRenderer().Sunlight.dir = light.Direction;
+		//GetEngine().GetRenderer().Sunlight.ambient = light.Ambient;
+		//GetEngine().GetRenderer().Sunlight.diffuse = light.Diffuse;
+		//GetEngine().GetRenderer().Sunlight.dir = light.Direction;
 	}
 }
 
@@ -61,7 +61,7 @@ void RenderCore::OnEntityRemoved(Entity& InEntity)
 	if (InEntity.HasComponent<Mesh>())
 	{
 		Mesh& mesh = InEntity.GetComponent<Mesh>();
-		GetEngine().GetRenderer().PopMesh(mesh.Id);
+		//GetEngine().GetRenderer().PopMesh(mesh.Id);
 	}
 }
 

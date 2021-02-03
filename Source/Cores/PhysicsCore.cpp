@@ -121,7 +121,7 @@ void PhysicsCore::Update(float dt)
 						//DirectX::SimpleMath::Matrix scale = DirectX::SimpleMath::Matrix::CreateScale(Child->GetScale().GetInternalVec());
 						//DirectX::SimpleMath::Matrix pos = XMMatrixTranslationFromVector(Child->GetPosition().GetInternalVec());
 						//Child->SetWorldTransform(Matrix4((rot * scale * pos) * CurrentTransform->WorldTransform.GetInternalMatrix()));
-						GetEngine().GetRenderer().UpdateMatrix(RigidbodyComponent.DebugColliderId, TransformComponent.GetMatrix().GetInternalMatrix());
+						//GetEngine().GetRenderer().UpdateMatrix(RigidbodyComponent.DebugColliderId, TransformComponent.GetMatrix().GetInternalMatrix());
 					}
 				}
 
@@ -175,7 +175,7 @@ void PhysicsCore::InitRigidbody(Rigidbody& RigidbodyComponent, Transform& Transf
 		RigidbodyComponent.CreateObject(TransformComponent.GetPosition(), TransformComponent.LocalRotation, TransformComponent.GetScale(), PhysicsWorld);
 		PhysicsWorld->addRigidBody(RigidbodyComponent.InternalRigidbody);
 		Moonlight::DebugColliderCommand cmd;
-		RigidbodyComponent.DebugColliderId = GetEngine().GetRenderer().PushDebugCollider(cmd);
+		//RigidbodyComponent.DebugColliderId = GetEngine().GetRenderer().PushDebugCollider(cmd);
 	}
 }
 

@@ -1,5 +1,4 @@
 #pragma once
-#include "Renderer.h"
 #include "World.h"
 #include "Dementia.h"
 #include "Clock.h"
@@ -37,7 +36,7 @@ public:
 	void Run();
 	virtual bool OnEvent(const BaseEvent& evt);
 
-	Moonlight::Renderer& GetRenderer() const;
+	BGFXRenderer& GetRenderer() const;
 
 	std::weak_ptr<World> GetWorld() const;
 
@@ -65,7 +64,6 @@ public:
 	float DeltaTime = 0.f;
 private:
 	Input m_input;
-	Moonlight::Renderer* m_renderer = nullptr;
 	std::shared_ptr<World> GameWorld;
 	bool Running = false;
 	IWindow* GameWindow = nullptr;

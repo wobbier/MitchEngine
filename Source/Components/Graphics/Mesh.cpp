@@ -39,7 +39,7 @@ Mesh::Mesh(Moonlight::MeshData* mesh)
 	, MeshReferece(mesh)
 	, Type(Moonlight::MeshType::Model)
 {
-	MeshMaterial = std::make_shared<Moonlight::Material>(*MeshReferece->material);
+	MeshMaterial = MeshReferece->material;
 }
 
 Mesh::~Mesh()

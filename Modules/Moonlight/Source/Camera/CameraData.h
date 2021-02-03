@@ -1,6 +1,7 @@
 #pragma once
 #include "Math/Vector3.h"
 #include "Math/Vector2.h"
+#include "bgfx/bgfx.h"
 
 class Frustum;
 
@@ -38,6 +39,9 @@ namespace Moonlight
 		float OrthographicSize = 1.f;
 
 		Moonlight::FrameBuffer* Buffer = nullptr;
+
+		bgfx::FrameBufferHandle FrameBuffer;
+
 		bool IsMain = false;
 	};
 }

@@ -245,7 +245,7 @@ void Engine::Run()
 //			EditorCamera = MainCamera;
 //#endif
 			m_game->PostRender();
-			NewRenderer->Render();
+			NewRenderer->Render(EditorCamera);
 			//FrameProfile::GetInstance().Set("Render", ProfileCategory::Rendering);
 			//m_renderer->ThreadedRender([this]() {
 			//	m_game->PostRender();
@@ -286,9 +286,9 @@ bool Engine::OnEvent(const BaseEvent& evt)
 	return false;
 }
 
-Moonlight::Renderer& Engine::GetRenderer() const
+BGFXRenderer& Engine::GetRenderer() const
 {
-	return *m_renderer;
+	return *NewRenderer;
 }
 
 std::weak_ptr<World> Engine::GetWorld() const

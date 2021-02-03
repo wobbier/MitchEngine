@@ -1,7 +1,6 @@
 #include "ShaderCommand.h"
 
 #include "Utils/DirectXHelper.h"
-#include "Renderer.h"
 #include "Game.h"
 
 #include <VertexTypes.h>
@@ -117,24 +116,24 @@ namespace Moonlight
 	ShaderCommand::ShaderCommand(const std::string& InShaderFile)
 	{
 		OPTICK_EVENT("ShaderCommand(string)");
-		auto& dxDevice = static_cast<DX11Device&>(GetEngine().GetRenderer().GetDevice());
+		//auto& dxDevice = static_cast<DX11Device&>(GetEngine().GetRenderer().GetDevice());
 
-		if (!dxDevice.FindShader(InShaderFile, Program))
-		{
-			auto vs = dxDevice.CompileShader(Path(InShaderFile), "main_vs", "vs_4_0_level_9_3");
-			auto ps = dxDevice.CompileShader(Path(InShaderFile), "main_ps", "ps_4_0_level_9_3");
+		//if (!dxDevice.FindShader(InShaderFile, Program))
+		//{
+		//	auto vs = dxDevice.CompileShader(Path(InShaderFile), "main_vs", "vs_4_0_level_9_3");
+		//	auto ps = dxDevice.CompileShader(Path(InShaderFile), "main_ps", "ps_4_0_level_9_3");
 
-			// Wrap this and subscribe to 
-			static const std::vector<D3D11_INPUT_ELEMENT_DESC> vertexDesc =
-			{
-				{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,    0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-				{ "NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT,    0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-				{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,       0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-				{ "TANGENT",   0, DXGI_FORMAT_R32G32B32_FLOAT,    0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-			};
+		//	// Wrap this and subscribe to 
+		//	static const std::vector<D3D11_INPUT_ELEMENT_DESC> vertexDesc =
+		//	{
+		//		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,    0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		//		{ "NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT,    0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		//		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,       0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		//		{ "TANGENT",   0, DXGI_FORMAT_R32G32B32_FLOAT,    0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		//	};
 
-			Program = dxDevice.CreateShaderProgram(InShaderFile, vs, ps, &vertexDesc);
-		}
+		//	Program = dxDevice.CreateShaderProgram(InShaderFile, vs, ps, &vertexDesc);
+		//}
 
 		isLoaded = true;
 	}
@@ -151,20 +150,20 @@ namespace Moonlight
 		{
 			return;
 		}
-		context->IASetInputLayout(Program.InputLayout.Get());
+		//context->IASetInputLayout(Program.InputLayout.Get());
 
-		// Attach our vertex shader.
-		context->VSSetShader(
-			Program.VertexShader.Get(),
-			nullptr,
-			0
-		);
-		// Attach our pixel shader.
-		context->PSSetShader(
-			Program.PixelShader.Get(),
-			nullptr,
-			0
-		);
+		//// Attach our vertex shader.
+		//context->VSSetShader(
+		//	Program.VertexShader.Get(),
+		//	nullptr,
+		//	0
+		//);
+		//// Attach our pixel shader.
+		//context->PSSetShader(
+		//	Program.PixelShader.Get(),
+		//	nullptr,
+		//	0
+		//);
 	}
 
 	const ShaderProgram& ShaderCommand::GetProgram() const
