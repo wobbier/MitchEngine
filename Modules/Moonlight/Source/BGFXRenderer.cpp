@@ -9,6 +9,7 @@
 #include "bx/timer.h"
 #include "Window/IWindow.h"
 #include "Engine/Engine.h"
+#include "Widgets/AssetBrowser.h"
 
 #if BX_PLATFORM_LINUX
 #define GLFW_EXPOSE_NATIVE_X11
@@ -155,10 +156,13 @@ void BGFXRenderer::Create(const RendererCreationSettings& settings)
 		return;
 	}
 
+	bgfx::touch(kClearView);
 	bgfx::setViewClear(kClearView, BGFX_CLEAR_COLOR);
 	bgfx::setViewRect(kClearView, 0, 0, bgfx::BackbufferRatio::Equal);
 	ImGuiRender = new ImGuiRenderer();
 	ImGuiRender->Create();
+
+	mainBufferTest = new Moonlight::FrameBuffer(init.resolution.width, init.resolution.height);
 
 
 	if(true)
@@ -239,32 +243,7 @@ void BGFXRenderer::Render(Moonlight::CameraData& MainCamera)
 	ImGui::Checkbox("Show Frame Stats", &s_showStats);
 	ImGui::End();
 
-	{
-		ImGui::SetNextWindowPos(
-			ImVec2(CurrentSize.X() - CurrentSize.X() / 5.0f - 10.0f, 10.0f)
-			, ImGuiCond_FirstUseEver
-		);
-		ImGui::SetNextWindowSize(
-			ImVec2(CurrentSize.X() / 5.0f, CurrentSize.Y() / 3.5f)
-			, ImGuiCond_FirstUseEver
-		);
-		ImGui::Begin("Settings"
-			, NULL
-			, 0
-		);
 
-		ImGui::Checkbox("Write R", &m_r);
-		ImGui::Checkbox("Write G", &m_g);
-		ImGui::Checkbox("Write B", &m_b);
-		ImGui::Checkbox("Write A", &m_a);
-
-		ImGui::Text("Primitive topology:");
-		ImGui::Combo("", (int*)&m_pt, s_ptNames, BX_COUNTOF(s_ptNames));
-
-		ImGui::End();
-	}
-
-	ImGuiRender->EndFrame();
 	if (CurrentSize != PreviousSize)
 	{
 		PreviousSize = CurrentSize;
@@ -285,15 +264,19 @@ void BGFXRenderer::Render(Moonlight::CameraData& MainCamera)
 
 			float proj[16];
 			bx::mtxProj(proj, 60.0f, float(CurrentSize.X()) / float(CurrentSize.Y()), 0.1f, 100.0f, bgfx::getCaps()->homogeneousDepth);
-			bgfx::setViewTransform(1, view, proj);
+			bgfx::setViewTransform(kClearView, view, proj);
+			bgfx::setViewFrameBuffer(kClearView, mainBufferTest->Buffer);
 
 			// Set view 0 default viewport.
-			bgfx::setViewRect(1, 0, 0, uint16_t(CurrentSize.X()), uint16_t(CurrentSize.Y()));
+			bgfx::setViewRect(kClearView, 0, 0, uint16_t(mainBufferTest->Width), uint16_t(mainBufferTest->Height));
 		}
 
 		// This dummy draw call is here to make sure that view 0 is cleared
 		// if no other draw calls are submitted to view 0.
-		bgfx::touch(1);
+		bgfx::setViewClear(kClearView
+			, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH
+			, 0x303030ff, 1.0f, 0
+		);
 
 		bgfx::IndexBufferHandle ibh = m_ibh[m_pt];
 		uint64_t state = 0
@@ -330,7 +313,7 @@ void BGFXRenderer::Render(Moonlight::CameraData& MainCamera)
 				bgfx::setState(state);
 
 				// Submit primitive for rendering to view 0.
-				bgfx::submit(1, CubeProgram);
+				bgfx::submit(kClearView, CubeProgram);
 			}
 		}
 
@@ -339,9 +322,9 @@ void BGFXRenderer::Render(Moonlight::CameraData& MainCamera)
 		//bgfx::frame();
 	}
 	{
+		ImGui::Image(bgfx::getTexture(mainBufferTest->Buffer), ImVec2(500, 500));
+		ImGuiRender->EndFrame();
 
-		// This dummy draw call is here to make sure that view 0 is cleared if no other draw calls are submitted to view 0.
-		bgfx::touch(kClearView);
 		// Use debug font to print information about this example.
 		bgfx::dbgTextClear();
 		// Enable stats or debug text.

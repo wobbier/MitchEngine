@@ -3,6 +3,7 @@
 #include <Math/Vector2.h>
 #include "Camera/CameraData.h"
 #include <queue>
+#include "Device/FrameBuffer.h"
 
 class ImGuiRenderer;
 
@@ -21,8 +22,7 @@ enum class ViewportMode : uint8_t
 
 class BGFXRenderer
 {
-	const bgfx::ViewId kClearView = 0;
-
+	static constexpr bgfx::ViewId kClearView = 0;
 public:
 	BGFXRenderer() = default;
 
@@ -56,8 +56,9 @@ private:
 	int64_t m_timeOffset;
 	int32_t m_pt;
 
-	bool m_r;
-	bool m_g;
-	bool m_b;
-	bool m_a;
+	Moonlight::FrameBuffer* mainBufferTest = nullptr;
+	bool m_r = true;
+	bool m_g = true;
+	bool m_b = true;
+	bool m_a = true;
 };

@@ -207,7 +207,7 @@ namespace Moonlight
 
 	void Texture::UpdateBuffer(FrameBuffer* NewBuffer)
 	{
-		ShaderResourceView = NewBuffer->ShaderResourceView.Get();
+		//ShaderResourceView = NewBuffer->ShaderResourceView.Get();
 	}
 
 	std::string Texture::ToString(TextureType type)

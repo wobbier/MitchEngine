@@ -557,204 +557,204 @@ namespace Moonlight
 
 	FrameBuffer* DX11Device::CreateFrameBuffer(UINT Width, UINT Height, UINT Samples, DXGI_FORMAT ColorFormat, DXGI_FORMAT DepthStencilFormat) const
 	{
-		FrameBuffer* NewBuffer = new FrameBuffer();
-		NewBuffer->Width = Width;
-		NewBuffer->Height = Height;
-		NewBuffer->Samples = Samples;
+		FrameBuffer* NewBuffer = new FrameBuffer(Width, Height);
+		//NewBuffer->Width = Width;
+		//NewBuffer->Height = Height;
+		//NewBuffer->Samples = Samples;
 
-		D3D11_TEXTURE2D_DESC AADesc = {};
-		AADesc.Width = Width;
-		AADesc.Height = Height;
-		AADesc.MipLevels = 1;
-		AADesc.ArraySize = 1;
-		AADesc.SampleDesc.Count = Samples;
+		//D3D11_TEXTURE2D_DESC AADesc = {};
+		//AADesc.Width = Width;
+		//AADesc.Height = Height;
+		//AADesc.MipLevels = 1;
+		//AADesc.ArraySize = 1;
+		//AADesc.SampleDesc.Count = Samples;
 
-		D3D11_TEXTURE2D_DESC Desc = {};
-		Desc.Width = Width;
-		Desc.Height = Height;
-		Desc.MipLevels = 1;
-		Desc.ArraySize = 1;
-		Desc.SampleDesc.Count = 1;
+		//D3D11_TEXTURE2D_DESC Desc = {};
+		//Desc.Width = Width;
+		//Desc.Height = Height;
+		//Desc.MipLevels = 1;
+		//Desc.ArraySize = 1;
+		//Desc.SampleDesc.Count = 1;
 
-		if (ColorFormat != DXGI_FORMAT_UNKNOWN)
-		{
-			AADesc.Format = ColorFormat;
-			AADesc.BindFlags = D3D11_BIND_RENDER_TARGET;
-			if (Samples <= 1)
-			{
-				AADesc.BindFlags |= D3D11_BIND_SHADER_RESOURCE;
-			}
+		//if (ColorFormat != DXGI_FORMAT_UNKNOWN)
+		//{
+		//	AADesc.Format = ColorFormat;
+		//	AADesc.BindFlags = D3D11_BIND_RENDER_TARGET;
+		//	if (Samples <= 1)
+		//	{
+		//		AADesc.BindFlags |= D3D11_BIND_SHADER_RESOURCE;
+		//	}
 
-			Desc.Format = ColorFormat;
-			Desc.BindFlags = D3D11_BIND_RENDER_TARGET;
-			Desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
-			if (Samples <= 1)
-			{
-				Desc.BindFlags |= D3D11_BIND_SHADER_RESOURCE;
-			}
+		//	Desc.Format = ColorFormat;
+		//	Desc.BindFlags = D3D11_BIND_RENDER_TARGET;
+		//	Desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+		//	if (Samples <= 1)
+		//	{
+		//		Desc.BindFlags |= D3D11_BIND_SHADER_RESOURCE;
+		//	}
 
-			DX::ThrowIfFailed(m_d3dDevice->CreateTexture2D(&Desc, nullptr, &NewBuffer->ColorTexture));
+		//	DX::ThrowIfFailed(m_d3dDevice->CreateTexture2D(&Desc, nullptr, &NewBuffer->ColorTexture));
 
-			DX::ThrowIfFailed(m_d3dDevice->CreateTexture2D(&Desc, nullptr, &NewBuffer->NormalTexture));
+		//	DX::ThrowIfFailed(m_d3dDevice->CreateTexture2D(&Desc, nullptr, &NewBuffer->NormalTexture));
 
-			DX::ThrowIfFailed(m_d3dDevice->CreateTexture2D(&Desc, nullptr, &NewBuffer->UITexture));
+		//	DX::ThrowIfFailed(m_d3dDevice->CreateTexture2D(&Desc, nullptr, &NewBuffer->UITexture));
 
-			DX::ThrowIfFailed(m_d3dDevice->CreateTexture2D(&Desc, nullptr, &NewBuffer->SpecularTexture));
-			DX::ThrowIfFailed(m_d3dDevice->CreateTexture2D(&Desc, nullptr, &NewBuffer->PositionTexture));
-			DX::ThrowIfFailed(m_d3dDevice->CreateTexture2D(&Desc, nullptr, &NewBuffer->PickingTexture));
+		//	DX::ThrowIfFailed(m_d3dDevice->CreateTexture2D(&Desc, nullptr, &NewBuffer->SpecularTexture));
+		//	DX::ThrowIfFailed(m_d3dDevice->CreateTexture2D(&Desc, nullptr, &NewBuffer->PositionTexture));
+		//	DX::ThrowIfFailed(m_d3dDevice->CreateTexture2D(&Desc, nullptr, &NewBuffer->PickingTexture));
 
-			Desc.Width = 1024;
-			Desc.Height = 1024;
-			DX::ThrowIfFailed(m_d3dDevice->CreateTexture2D(&Desc, nullptr, &NewBuffer->ShadowMapTexture));
+		//	Desc.Width = 1024;
+		//	Desc.Height = 1024;
+		//	DX::ThrowIfFailed(m_d3dDevice->CreateTexture2D(&Desc, nullptr, &NewBuffer->ShadowMapTexture));
 
-			DX::ThrowIfFailed(m_d3dDevice->CreateTexture2D(&AADesc, nullptr, &NewBuffer->FinalTexture));
+		//	DX::ThrowIfFailed(m_d3dDevice->CreateTexture2D(&AADesc, nullptr, &NewBuffer->FinalTexture));
 
-			D3D11_RENDER_TARGET_VIEW_DESC RenderView = {};
+		//	D3D11_RENDER_TARGET_VIEW_DESC RenderView = {};
 
-			RenderView.Format = AADesc.Format;
-			RenderView.ViewDimension = (Samples > 1) ? D3D11_RTV_DIMENSION_TEXTURE2DMS : D3D11_RTV_DIMENSION_TEXTURE2D;
-			DX::ThrowIfFailed(m_d3dDevice->CreateRenderTargetView(NewBuffer->FinalTexture.Get(), &RenderView, &NewBuffer->RenderTargetView));
+		//	RenderView.Format = AADesc.Format;
+		//	RenderView.ViewDimension = (Samples > 1) ? D3D11_RTV_DIMENSION_TEXTURE2DMS : D3D11_RTV_DIMENSION_TEXTURE2D;
+		//	DX::ThrowIfFailed(m_d3dDevice->CreateRenderTargetView(NewBuffer->FinalTexture.Get(), &RenderView, &NewBuffer->RenderTargetView));
 
-			if (Samples <= 1)
-			{
-				D3D11_SHADER_RESOURCE_VIEW_DESC ShaderView = {};
-				ShaderView.Format = AADesc.Format;
-				ShaderView.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-				ShaderView.Texture2D.MostDetailedMip = 0;
-				ShaderView.Texture2D.MipLevels = 1;
+		//	if (Samples <= 1)
+		//	{
+		//		D3D11_SHADER_RESOURCE_VIEW_DESC ShaderView = {};
+		//		ShaderView.Format = AADesc.Format;
+		//		ShaderView.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+		//		ShaderView.Texture2D.MostDetailedMip = 0;
+		//		ShaderView.Texture2D.MipLevels = 1;
 
-				DX::ThrowIfFailed(m_d3dDevice->CreateShaderResourceView(NewBuffer->FinalTexture.Get(), &ShaderView, &NewBuffer->ShaderResourceView));
-			}
+		//		DX::ThrowIfFailed(m_d3dDevice->CreateShaderResourceView(NewBuffer->FinalTexture.Get(), &ShaderView, &NewBuffer->ShaderResourceView));
+		//	}
 
-			RenderView.Format = Desc.Format;
-			RenderView.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
-			DX::ThrowIfFailed(m_d3dDevice->CreateRenderTargetView(NewBuffer->NormalTexture.Get(), &RenderView, &NewBuffer->NormalRenderTargetView));
+		//	RenderView.Format = Desc.Format;
+		//	RenderView.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+		//	DX::ThrowIfFailed(m_d3dDevice->CreateRenderTargetView(NewBuffer->NormalTexture.Get(), &RenderView, &NewBuffer->NormalRenderTargetView));
 
-			if (Samples <= 1)
-			{
-				D3D11_SHADER_RESOURCE_VIEW_DESC ShaderView = {};
-				ShaderView.Format = Desc.Format;
-				ShaderView.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-				ShaderView.Texture2D.MostDetailedMip = 0;
-				ShaderView.Texture2D.MipLevels = 1;
+		//	if (Samples <= 1)
+		//	{
+		//		D3D11_SHADER_RESOURCE_VIEW_DESC ShaderView = {};
+		//		ShaderView.Format = Desc.Format;
+		//		ShaderView.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+		//		ShaderView.Texture2D.MostDetailedMip = 0;
+		//		ShaderView.Texture2D.MipLevels = 1;
 
-				DX::ThrowIfFailed(m_d3dDevice->CreateShaderResourceView(NewBuffer->NormalTexture.Get(), &ShaderView, &NewBuffer->NormalShaderResourceView));
-			}
+		//		DX::ThrowIfFailed(m_d3dDevice->CreateShaderResourceView(NewBuffer->NormalTexture.Get(), &ShaderView, &NewBuffer->NormalShaderResourceView));
+		//	}
 
-			DX::ThrowIfFailed(m_d3dDevice->CreateRenderTargetView(NewBuffer->ColorTexture.Get(), &RenderView, &NewBuffer->ColorRenderTargetView));
+		//	DX::ThrowIfFailed(m_d3dDevice->CreateRenderTargetView(NewBuffer->ColorTexture.Get(), &RenderView, &NewBuffer->ColorRenderTargetView));
 
-			if (Samples <= 1)
-			{
-				D3D11_SHADER_RESOURCE_VIEW_DESC ShaderView = {};
-				ShaderView.Format = Desc.Format;
-				ShaderView.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-				ShaderView.Texture2D.MostDetailedMip = 0;
-				ShaderView.Texture2D.MipLevels = 1;
+		//	if (Samples <= 1)
+		//	{
+		//		D3D11_SHADER_RESOURCE_VIEW_DESC ShaderView = {};
+		//		ShaderView.Format = Desc.Format;
+		//		ShaderView.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+		//		ShaderView.Texture2D.MostDetailedMip = 0;
+		//		ShaderView.Texture2D.MipLevels = 1;
 
-				DX::ThrowIfFailed(m_d3dDevice->CreateShaderResourceView(NewBuffer->ColorTexture.Get(), &ShaderView, &NewBuffer->ColorShaderResourceView));
-			}
+		//		DX::ThrowIfFailed(m_d3dDevice->CreateShaderResourceView(NewBuffer->ColorTexture.Get(), &ShaderView, &NewBuffer->ColorShaderResourceView));
+		//	}
 
-			DX::ThrowIfFailed(m_d3dDevice->CreateRenderTargetView(NewBuffer->PositionTexture.Get(), &RenderView, &NewBuffer->PositionRenderTargetView));
+		//	DX::ThrowIfFailed(m_d3dDevice->CreateRenderTargetView(NewBuffer->PositionTexture.Get(), &RenderView, &NewBuffer->PositionRenderTargetView));
 
-			if (Samples <= 1)
-			{
-				D3D11_SHADER_RESOURCE_VIEW_DESC ShaderView = {};
-				ShaderView.Format = Desc.Format;
-				ShaderView.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-				ShaderView.Texture2D.MostDetailedMip = 0;
-				ShaderView.Texture2D.MipLevels = 1;
+		//	if (Samples <= 1)
+		//	{
+		//		D3D11_SHADER_RESOURCE_VIEW_DESC ShaderView = {};
+		//		ShaderView.Format = Desc.Format;
+		//		ShaderView.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+		//		ShaderView.Texture2D.MostDetailedMip = 0;
+		//		ShaderView.Texture2D.MipLevels = 1;
 
-				DX::ThrowIfFailed(m_d3dDevice->CreateShaderResourceView(NewBuffer->PositionTexture.Get(), &ShaderView, &NewBuffer->PositionShaderResourceView));
-			}
+		//		DX::ThrowIfFailed(m_d3dDevice->CreateShaderResourceView(NewBuffer->PositionTexture.Get(), &ShaderView, &NewBuffer->PositionShaderResourceView));
+		//	}
 
-			DX::ThrowIfFailed(m_d3dDevice->CreateRenderTargetView(NewBuffer->UITexture.Get(), &RenderView, &NewBuffer->UIRenderTargetView));
+		//	DX::ThrowIfFailed(m_d3dDevice->CreateRenderTargetView(NewBuffer->UITexture.Get(), &RenderView, &NewBuffer->UIRenderTargetView));
 
-			if (Samples <= 1)
-			{
-				D3D11_SHADER_RESOURCE_VIEW_DESC ShaderView = {};
-				ShaderView.Format = Desc.Format;
-				ShaderView.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-				ShaderView.Texture2D.MostDetailedMip = 0;
-				ShaderView.Texture2D.MipLevels = 1;
+		//	if (Samples <= 1)
+		//	{
+		//		D3D11_SHADER_RESOURCE_VIEW_DESC ShaderView = {};
+		//		ShaderView.Format = Desc.Format;
+		//		ShaderView.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+		//		ShaderView.Texture2D.MostDetailedMip = 0;
+		//		ShaderView.Texture2D.MipLevels = 1;
 
-				DX::ThrowIfFailed(m_d3dDevice->CreateShaderResourceView(NewBuffer->UITexture.Get(), &ShaderView, &NewBuffer->UIShaderResourceView));
-			}
+		//		DX::ThrowIfFailed(m_d3dDevice->CreateShaderResourceView(NewBuffer->UITexture.Get(), &ShaderView, &NewBuffer->UIShaderResourceView));
+		//	}
 
-			DX::ThrowIfFailed(m_d3dDevice->CreateRenderTargetView(NewBuffer->PickingTexture.Get(), &RenderView, &NewBuffer->PickingTargetView));
+		//	DX::ThrowIfFailed(m_d3dDevice->CreateRenderTargetView(NewBuffer->PickingTexture.Get(), &RenderView, &NewBuffer->PickingTargetView));
 
-			if (Samples <= 1)
-			{
-				D3D11_SHADER_RESOURCE_VIEW_DESC ShaderView = {};
-				ShaderView.Format = Desc.Format;
-				ShaderView.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-				ShaderView.Texture2D.MostDetailedMip = 0;
-				ShaderView.Texture2D.MipLevels = 1;
+		//	if (Samples <= 1)
+		//	{
+		//		D3D11_SHADER_RESOURCE_VIEW_DESC ShaderView = {};
+		//		ShaderView.Format = Desc.Format;
+		//		ShaderView.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+		//		ShaderView.Texture2D.MostDetailedMip = 0;
+		//		ShaderView.Texture2D.MipLevels = 1;
 
-				DX::ThrowIfFailed(m_d3dDevice->CreateShaderResourceView(NewBuffer->PickingTexture.Get(), &ShaderView, &NewBuffer->PickingResourceView));
-			}
+		//		DX::ThrowIfFailed(m_d3dDevice->CreateShaderResourceView(NewBuffer->PickingTexture.Get(), &ShaderView, &NewBuffer->PickingResourceView));
+		//	}
 
 
 
-			DX::ThrowIfFailed(m_d3dDevice->CreateRenderTargetView(NewBuffer->SpecularTexture.Get(), &RenderView, &NewBuffer->SpecularRenderTargetView));
+		//	DX::ThrowIfFailed(m_d3dDevice->CreateRenderTargetView(NewBuffer->SpecularTexture.Get(), &RenderView, &NewBuffer->SpecularRenderTargetView));
 
-			if (Samples <= 1)
-			{
-				D3D11_SHADER_RESOURCE_VIEW_DESC ShaderView = {};
-				ShaderView.Format = Desc.Format;
-				ShaderView.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-				ShaderView.Texture2D.MostDetailedMip = 0;
-				ShaderView.Texture2D.MipLevels = 1;
+		//	if (Samples <= 1)
+		//	{
+		//		D3D11_SHADER_RESOURCE_VIEW_DESC ShaderView = {};
+		//		ShaderView.Format = Desc.Format;
+		//		ShaderView.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+		//		ShaderView.Texture2D.MostDetailedMip = 0;
+		//		ShaderView.Texture2D.MipLevels = 1;
 
-				DX::ThrowIfFailed(m_d3dDevice->CreateShaderResourceView(NewBuffer->SpecularTexture.Get(), &ShaderView, &NewBuffer->SpecularShaderResourceView));
-			}
+		//		DX::ThrowIfFailed(m_d3dDevice->CreateShaderResourceView(NewBuffer->SpecularTexture.Get(), &ShaderView, &NewBuffer->SpecularShaderResourceView));
+		//	}
 
-			DX::ThrowIfFailed(m_d3dDevice->CreateRenderTargetView(NewBuffer->ShadowMapTexture.Get(), &RenderView, &NewBuffer->ShadowMapRenderTargetView));
+		//	DX::ThrowIfFailed(m_d3dDevice->CreateRenderTargetView(NewBuffer->ShadowMapTexture.Get(), &RenderView, &NewBuffer->ShadowMapRenderTargetView));
 
-			if (Samples <= 1)
-			{
-				D3D11_SHADER_RESOURCE_VIEW_DESC ShaderView = {};
-				ShaderView.Format = Desc.Format;
-				ShaderView.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-				ShaderView.Texture2D.MostDetailedMip = 0;
-				ShaderView.Texture2D.MipLevels = 1;
+		//	if (Samples <= 1)
+		//	{
+		//		D3D11_SHADER_RESOURCE_VIEW_DESC ShaderView = {};
+		//		ShaderView.Format = Desc.Format;
+		//		ShaderView.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+		//		ShaderView.Texture2D.MostDetailedMip = 0;
+		//		ShaderView.Texture2D.MipLevels = 1;
 
-				DX::ThrowIfFailed(m_d3dDevice->CreateShaderResourceView(NewBuffer->ShadowMapTexture.Get(), &ShaderView, &NewBuffer->ShadowMapShaderResourceView));
-			}
-		}
+		//		DX::ThrowIfFailed(m_d3dDevice->CreateShaderResourceView(NewBuffer->ShadowMapTexture.Get(), &ShaderView, &NewBuffer->ShadowMapShaderResourceView));
+		//	}
+		//}
 
-		if (DepthStencilFormat != DXGI_FORMAT_UNKNOWN)
-		{
-			D3D11_TEXTURE2D_DESC descDepth;
-			descDepth.Width = NewBuffer->Width;
-			descDepth.Height = NewBuffer->Height;
-			descDepth.MipLevels = 1;
-			descDepth.ArraySize = 1;
-			descDepth.Format = DXGI_FORMAT_R24G8_TYPELESS;
-			descDepth.SampleDesc.Count = 1;
-			descDepth.SampleDesc.Quality = 0;
-			descDepth.Usage = D3D11_USAGE_DEFAULT;
-			descDepth.BindFlags = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
-			descDepth.CPUAccessFlags = 0;
-			descDepth.MiscFlags = 0;
-			DX::ThrowIfFailed(m_d3dDevice->CreateTexture2D(&descDepth, nullptr, &NewBuffer->DepthStencilTexture));
+		//if (DepthStencilFormat != DXGI_FORMAT_UNKNOWN)
+		//{
+		//	D3D11_TEXTURE2D_DESC descDepth;
+		//	descDepth.Width = NewBuffer->Width;
+		//	descDepth.Height = NewBuffer->Height;
+		//	descDepth.MipLevels = 1;
+		//	descDepth.ArraySize = 1;
+		//	descDepth.Format = DXGI_FORMAT_R24G8_TYPELESS;
+		//	descDepth.SampleDesc.Count = 1;
+		//	descDepth.SampleDesc.Quality = 0;
+		//	descDepth.Usage = D3D11_USAGE_DEFAULT;
+		//	descDepth.BindFlags = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
+		//	descDepth.CPUAccessFlags = 0;
+		//	descDepth.MiscFlags = 0;
+		//	DX::ThrowIfFailed(m_d3dDevice->CreateTexture2D(&descDepth, nullptr, &NewBuffer->DepthStencilTexture));
 
-			D3D11_DEPTH_STENCIL_VIEW_DESC DepthStencilView = {};
-			DepthStencilView.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
-			DepthStencilView.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
-			DepthStencilView.Texture2D.MipSlice = 0;
-			DX::ThrowIfFailed(m_d3dDevice->CreateDepthStencilView(NewBuffer->DepthStencilTexture.Get(), &DepthStencilView, &NewBuffer->DepthStencilView));
+		//	D3D11_DEPTH_STENCIL_VIEW_DESC DepthStencilView = {};
+		//	DepthStencilView.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+		//	DepthStencilView.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+		//	DepthStencilView.Texture2D.MipSlice = 0;
+		//	DX::ThrowIfFailed(m_d3dDevice->CreateDepthStencilView(NewBuffer->DepthStencilTexture.Get(), &DepthStencilView, &NewBuffer->DepthStencilView));
 
-			//if (Samples <= 1)
-			{
-				D3D11_SHADER_RESOURCE_VIEW_DESC ShaderView = {};
-				ShaderView.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
-				ShaderView.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-				ShaderView.Texture2D.MostDetailedMip = 0;
-				ShaderView.Texture2D.MipLevels = 1;
+		//	//if (Samples <= 1)
+		//	{
+		//		D3D11_SHADER_RESOURCE_VIEW_DESC ShaderView = {};
+		//		ShaderView.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+		//		ShaderView.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+		//		ShaderView.Texture2D.MostDetailedMip = 0;
+		//		ShaderView.Texture2D.MipLevels = 1;
 
-				DX::ThrowIfFailed(m_d3dDevice->CreateShaderResourceView(NewBuffer->DepthStencilTexture.Get(), &ShaderView, &NewBuffer->DepthShaderResourceView));
-			}
-		}
+		//		DX::ThrowIfFailed(m_d3dDevice->CreateShaderResourceView(NewBuffer->DepthStencilTexture.Get(), &ShaderView, &NewBuffer->DepthShaderResourceView));
+		//	}
+		//}
 
 		return NewBuffer;
 	}
