@@ -54,7 +54,7 @@ public:
 
 	void RenderMainView(Moonlight::CameraData& EditorCamera);
 
-	//void SetViewportMode(ViewportMode mode);
+	void SetViewportMode(ViewportMode mode);
 
 	void SetWindowTitle(const std::string& title)
 	{

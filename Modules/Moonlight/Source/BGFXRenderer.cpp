@@ -73,68 +73,14 @@ namespace
 		6, 3, 7,
 	};
 
-	static const uint16_t s_cubeTriStrip[] =
-	{
-		0, 1, 2,
-		3,
-		7,
-		1,
-		5,
-		0,
-		4,
-		2,
-		6,
-		7,
-		4,
-		5,
-	};
-
-	static const uint16_t s_cubeLineList[] =
-	{
-		0, 1,
-		0, 2,
-		0, 4,
-		1, 3,
-		1, 5,
-		2, 3,
-		2, 6,
-		3, 7,
-		4, 5,
-		4, 6,
-		5, 7,
-		6, 7,
-	};
-
-	static const uint16_t s_cubeLineStrip[] =
-	{
-		0, 2, 3, 1, 5, 7, 6, 4,
-		0, 2, 6, 4, 5, 7, 3, 1,
-		0,
-	};
-
-	static const uint16_t s_cubePoints[] =
-	{
-		0, 1, 2, 3, 4, 5, 6, 7
-	};
-
-	static const char* s_ptNames[]
-	{
-		"Triangle List",
-		"Triangle Strip",
-		"Lines",
-		"Line Strip",
-		"Points",
-	};
-
-	static const uint64_t s_ptState[]
+	/*static const uint64_t s_ptState[]
 	{
 		UINT64_C(0),
 		BGFX_STATE_PT_TRISTRIP,
 		BGFX_STATE_PT_LINES,
 		BGFX_STATE_PT_LINESTRIP,
 		BGFX_STATE_PT_POINTS,
-	};
-	BX_STATIC_ASSERT(BX_COUNTOF(s_ptState) == BX_COUNTOF(s_ptNames));
+	};*/
 }
 
 
@@ -194,30 +140,6 @@ void BGFXRenderer::Create(const RendererCreationSettings& settings)
 		m_ibh[0] = bgfx::createIndexBuffer(
 			// Static data can be passed with bgfx::makeRef
 			bgfx::makeRef(s_cubeTriList, sizeof(s_cubeTriList))
-		);
-
-		// Create static index buffer for triangle strip rendering.
-		m_ibh[1] = bgfx::createIndexBuffer(
-			// Static data can be passed with bgfx::makeRef
-			bgfx::makeRef(s_cubeTriStrip, sizeof(s_cubeTriStrip))
-		);
-
-		// Create static index buffer for line list rendering.
-		m_ibh[2] = bgfx::createIndexBuffer(
-			// Static data can be passed with bgfx::makeRef
-			bgfx::makeRef(s_cubeLineList, sizeof(s_cubeLineList))
-		);
-
-		// Create static index buffer for line strip rendering.
-		m_ibh[3] = bgfx::createIndexBuffer(
-			// Static data can be passed with bgfx::makeRef
-			bgfx::makeRef(s_cubeLineStrip, sizeof(s_cubeLineStrip))
-		);
-
-		// Create static index buffer for point list rendering.
-		m_ibh[4] = bgfx::createIndexBuffer(
-			// Static data can be passed with bgfx::makeRef
-			bgfx::makeRef(s_cubePoints, sizeof(s_cubePoints))
 		);
 
 		CubeProgram = Moonlight::LoadProgram("vs_cubes", "fs_cubes");
@@ -305,11 +227,10 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera)
 			bgfx::setViewRect(kClearView, 0, 0, uint16_t(camera.OutputSize.X()), uint16_t(camera.OutputSize.Y()));
 		}
 
-		// This dummy draw call is here to make sure that view 0 is cleared
-		// if no other draw calls are submitted to view 0.
+		uint32_t color = (uint32_t)(camera.ClearColor.x * 255.f) << 24 | (uint32_t)(camera.ClearColor.y * 255.f) << 16 | (uint32_t)(camera.ClearColor.z * 255.f) << 8 | 255;
 		bgfx::setViewClear(kClearView
 			, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH
-			, 0x303030ff, 1.0f, 0
+			, color, 1.0f, 0
 		);
 
 		bgfx::IndexBufferHandle ibh = m_ibh[m_pt];
@@ -322,7 +243,7 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera)
 			| BGFX_STATE_DEPTH_TEST_LESS
 			| BGFX_STATE_CULL_CW
 			| BGFX_STATE_MSAA
-			| s_ptState[m_pt]
+			| UINT64_C(0) // tris
 			;
 
 		// Submit 11x11 cubes.

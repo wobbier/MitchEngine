@@ -23,12 +23,7 @@
 #include <SpriteFont.h>
 #include <SpriteBatch.h>
 #include "Events/Event.h"
-
-enum class ViewportMode
-{
-	World = 0,
-	Game
-};
+#include "BGFXRenderer.h"
 
 namespace Moonlight
 {
@@ -164,7 +159,7 @@ namespace Moonlight
 		void RenderMeshes();
 		void RenderMesh(int i, ID3D11DeviceContext3* context);
 
-		ViewportMode m_viewportMode = ViewportMode::World;
+		ViewportMode m_viewportMode = ViewportMode::Game;
 	public:
 		unsigned int PushMesh(Moonlight::MeshCommand command);
 		void PopMesh(unsigned int Id);

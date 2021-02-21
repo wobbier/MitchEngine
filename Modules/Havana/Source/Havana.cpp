@@ -153,7 +153,7 @@ void Havana::InitUI()
 	style.WindowMenuButtonPosition = ImGuiDir_None;
 	style.AntiAliasedFill = false;
 
-	Icons["Close"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Close.png"));
+	Icons["Close"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Close.dds"));
 	Icons["BugReport"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/BugReport.png"));
 	Icons["Maximize"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Maximize.png"));
 	Icons["ExitMaximize"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/ExitMaximize.png"));
@@ -163,8 +163,8 @@ void Havana::InitUI()
 	Icons["Stop"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Stop.dds"));
 	Icons["Info"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Info.png"));
 	Icons["Logo"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/ME-LOGO.png"));
-	Icons["Profiler"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Profiler.png"));
-	Icons["FlipCamera"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/FlipCamera.png"));
+	Icons["Profiler"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Profiler.dds"));
+	Icons["FlipCamera"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/FlipCamera.dds"));
 
 	//m_engine->GetInput().Stop();
 	GetInput().GetMouse().SetWindow(GetActiveWindow());
@@ -461,17 +461,17 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 			}
 		}
 
-		//if (ImGui::ImageButton(Icons["FlipCamera"]->ShaderResourceView, ImVec2(30.f, 30.f)) || (Keyboard.F5 && Keyboard.LeftShift))
-		//{
-		//	if (m_viewportMode == ViewportMode::World)
-		//	{
-		//		SetViewportMode(ViewportMode::Game);
-		//	}
-		//	else
-		//	{
-		//		SetViewportMode(ViewportMode::World);
-		//	}
-		//}
+		if (ImGui::ImageButton(Icons["FlipCamera"]->TexHandle, ImVec2(30.f, 30.f)) || (Keyboard.F5 && Keyboard.LeftShift))
+		{
+			if (m_viewportMode == ViewportMode::Editor)
+			{
+				SetViewportMode(ViewportMode::Game);
+			}
+			else
+			{
+				SetViewportMode(ViewportMode::Editor);
+			}
+		}
 
 		float endOfMenu = ImGui::GetCursorPosX();
 		float buttonWidth = 40.f;
@@ -523,34 +523,34 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 		ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(0.0f, 0.6f, 0.6f, 0.f));
 		ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)ImColor::HSV(0.f, 0.8f, 0.8f, 0.f));
 		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 5.f));
-		//if (ImGui::ImageButton(Icons["Profiler"]->ShaderResourceView, ImVec2(30.f, 30.f)))
-		//{
-		//	Path optickPath = Path("Engine/Tools/");
-		//	// additional information
-		//	STARTUPINFO si;
-		//	PROCESS_INFORMATION pi;
+		if (ImGui::ImageButton(Icons["Profiler"]->TexHandle, ImVec2(30.f, 30.f)))
+		{
+			Path optickPath = Path("Engine/Tools/");
+			// additional information
+			STARTUPINFO si;
+			PROCESS_INFORMATION pi;
 
-		//	// set the size of the structures
-		//	ZeroMemory(&si, sizeof(si));
-		//	si.cb = sizeof(si);
-		//	ZeroMemory(&pi, sizeof(pi));
+			// set the size of the structures
+			ZeroMemory(&si, sizeof(si));
+			si.cb = sizeof(si);
+			ZeroMemory(&pi, sizeof(pi));
 
-		//	// start the program up
-		//	CreateProcess(StringUtils::ToWString(optickPath.FullPath + "Optick.exe").c_str(),   // the path
-		//		L"",        // Command line
-		//		NULL,           // Process handle not inheritable
-		//		NULL,           // Thread handle not inheritable
-		//		FALSE,          // Set handle inheritance to FALSE
-		//		0,              // No creation flags
-		//		NULL,           // Use parent's environment block
-		//		NULL,           // Use parent's starting directory 
-		//		&si,            // Pointer to STARTUPINFO structure
-		//		&pi             // Pointer to PROCESS_INFORMATION structure (removed extra parentheses)
-		//	);
-		//	// Close process and thread handles. 
-		//	CloseHandle(pi.hProcess);
-		//	CloseHandle(pi.hThread);
-		//}
+			// start the program up
+			CreateProcess(StringUtils::ToWString(optickPath.FullPath + "Optick.exe").c_str(),   // the path
+				L"",        // Command line
+				NULL,           // Process handle not inheritable
+				NULL,           // Thread handle not inheritable
+				FALSE,          // Set handle inheritance to FALSE
+				0,              // No creation flags
+				NULL,           // Use parent's environment block
+				NULL,           // Use parent's starting directory 
+				&si,            // Pointer to STARTUPINFO structure
+				&pi             // Pointer to PROCESS_INFORMATION structure (removed extra parentheses)
+			);
+			// Close process and thread handles. 
+			CloseHandle(pi.hProcess);
+			CloseHandle(pi.hThread);
+		}
 		/*if (ImGui::ImageButton(Icons["Info"]->ShaderResourceView, ImVec2(30.f, 30.f)))
 		{
 			if (m_engine->CurrentScene && !std::filesystem::exists(m_engine->CurrentScene->FilePath.FullPath))
@@ -584,7 +584,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 			}
 			ImGui::EndPopup();
 		}*/
-		//float RightShift = 2.f;
+		float RightShift = 2.f;
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(0.35f, 126.f, 43.f, 1.f));
 		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 4.f));
 		//if (ImGui::ImageButton(Icons["BugReport"]->ShaderResourceView, ImVec2(30.f, 30.f)))
@@ -617,12 +617,12 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 		//}
 
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(1.f, 42.f, 43.f, 1.f));
-		//ImGui::SetCursorPosX(ImGui::GetWindowWidth() - buttonWidth + RightShift);
-		////ImGui::SameLine(0.f);
-		//if (ImGui::ImageButton(Icons["Close"]->ShaderResourceView, ImVec2(30.f, 30.f)))
-		//{
-		//	m_engine->GetWindow()->Exit();
-		//}
+		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - buttonWidth + RightShift);
+		//ImGui::SameLine(0.f);
+		if (ImGui::ImageButton(Icons["Close"]->TexHandle, ImVec2(30.f, 30.f)))
+		{
+			m_engine->GetWindow()->Exit();
+		}
 		ImGui::PopStyleColor(3);
 		ImGui::EndGroup();
 
@@ -1853,6 +1853,11 @@ void Havana::RenderMainView(Moonlight::CameraData& EditorCamera)
 	}
 	ImGui::End();
 	ImGui::PopStyleVar(3);
+}
+
+void Havana::SetViewportMode(ViewportMode mode)
+{
+	m_viewportMode = mode;
 }
 
 const bool Havana::IsGameFocused() const
