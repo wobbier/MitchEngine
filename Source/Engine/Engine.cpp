@@ -101,14 +101,17 @@ void Engine::Init(Game* game)
 		}
 	};
 	GameWindow = new Win32Window(EngineConfig->GetValue("Title"), Func, 500, 300, Vector2(WindowWidth, WindowHeight));
+	Func(Vector2(1920, 1080));
 #endif
 #if ME_PLATFORM_UWP
 	GameWindow = new UWPWindow("MitchEngine", 1920, 1080);
 #endif
 
+
 	NewRenderer = new BGFXRenderer();
 	RendererCreationSettings settings;
 	settings.WindowPtr = GameWindow->GetWindowPtr();
+	settings.InitialSize = Vector2(1920.f, 1080.f);
 	NewRenderer->Create(settings);
 
 	//m_renderer = new Moonlight::Renderer();

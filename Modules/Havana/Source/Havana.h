@@ -103,6 +103,8 @@ private:
 	CommandManager EditorCommands;
 	Input m_input;
 
+	BGFXRenderer* Renderer = nullptr;
+
 	bool m_isGameFocused = false;
 	bool m_isWorldViewFocused = false;
 	bool OpenScene = false;

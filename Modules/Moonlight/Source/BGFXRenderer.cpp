@@ -162,8 +162,7 @@ void BGFXRenderer::Create(const RendererCreationSettings& settings)
 	ImGuiRender = new ImGuiRenderer();
 	ImGuiRender->Create();
 
-	mainBufferTest = new Moonlight::FrameBuffer(init.resolution.width, init.resolution.height);
-
+	EditorCameraBuffer = new Moonlight::FrameBuffer(init.resolution.width, init.resolution.height);
 
 	if(true)
 	{
@@ -250,12 +249,47 @@ void BGFXRenderer::Render(Moonlight::CameraData& MainCamera)
 		bgfx::reset((uint32_t)CurrentSize.X(), (uint32_t)CurrentSize.Y(), BGFX_RESET_VSYNC);
 		bgfx::setViewRect(kClearView, 0, 0, bgfx::BackbufferRatio::Equal);
 	}
+	for (auto& camData : Cameras)
+	{
+		//RenderCameraView(camData);
+	}
+
+	MainCamera.Buffer = EditorCameraBuffer;
+	RenderCameraView(MainCamera);
+	{
+		ImGuiRender->EndFrame();
+
+		// Use debug font to print information about this example.
+		bgfx::dbgTextClear();
+		// Enable stats or debug text.
+		bgfx::setDebug(s_showStats ? BGFX_DEBUG_STATS : BGFX_DEBUG_TEXT);
+		// Advance to next frame. Process submitted rendering primitives.
+
+		{
+			OPTICK_EVENT("Renderer::Frame", Optick::Category::Rendering);
+			bgfx::frame();
+		}
+	}
+}
+
+
+void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera)
+{
 	if (true)
 	{
+		if (CurrentSize.IsZero())
+		{
+			return;
+		}
+		if (!camera.Buffer)
+		{
+			return;
+		}
+
 		float time = (float)((bx::getHPCounter() - m_timeOffset) / double(bx::getHPFrequency()));
 
-		const bx::Vec3 eye = { MainCamera.Position.x, MainCamera.Position.y, MainCamera.Position.z };
-		const bx::Vec3 at = { MainCamera.Position.x + MainCamera.Front.x, MainCamera.Position.y + MainCamera.Front.y, MainCamera.Position.z + MainCamera.Front.z };
+		const bx::Vec3 eye = { camera.Position.x, camera.Position.y, camera.Position.z };
+		const bx::Vec3 at = { camera.Position.x + camera.Front.x, camera.Position.y + camera.Front.y, camera.Position.z + camera.Front.z };
 
 		// Set view and projection matrix for view 0.
 		{
@@ -263,12 +297,12 @@ void BGFXRenderer::Render(Moonlight::CameraData& MainCamera)
 			bx::mtxLookAt(view, eye, at);
 
 			float proj[16];
-			bx::mtxProj(proj, 60.0f, float(CurrentSize.X()) / float(CurrentSize.Y()), 0.1f, 100.0f, bgfx::getCaps()->homogeneousDepth);
+			bx::mtxProj(proj, 60.0f, float(camera.OutputSize.X()) / float(camera.OutputSize.Y()), 0.1f, 100.0f, bgfx::getCaps()->homogeneousDepth);
 			bgfx::setViewTransform(kClearView, view, proj);
-			bgfx::setViewFrameBuffer(kClearView, mainBufferTest->Buffer);
+			bgfx::setViewFrameBuffer(kClearView, camera.Buffer->Buffer);
 
 			// Set view 0 default viewport.
-			bgfx::setViewRect(kClearView, 0, 0, uint16_t(mainBufferTest->Width), uint16_t(mainBufferTest->Height));
+			bgfx::setViewRect(kClearView, 0, 0, uint16_t(camera.OutputSize.X()), uint16_t(camera.OutputSize.Y()));
 		}
 
 		// This dummy draw call is here to make sure that view 0 is cleared
@@ -321,23 +355,7 @@ void BGFXRenderer::Render(Moonlight::CameraData& MainCamera)
 		// process submitted rendering primitives.
 		//bgfx::frame();
 	}
-	{
-		ImGui::Image(bgfx::getTexture(mainBufferTest->Buffer), ImVec2(500, 500));
-		ImGuiRender->EndFrame();
-
-		// Use debug font to print information about this example.
-		bgfx::dbgTextClear();
-		// Enable stats or debug text.
-		bgfx::setDebug(s_showStats ? BGFX_DEBUG_STATS : BGFX_DEBUG_TEXT);
-		// Advance to next frame. Process submitted rendering primitives.
-
-		{
-			OPTICK_EVENT("Renderer::Frame", Optick::Category::Rendering);
-			bgfx::frame();
-		}
-	}
 }
-
 
 void BGFXRenderer::WindowResized(const Vector2& newSize)
 {
@@ -380,6 +398,9 @@ unsigned int BGFXRenderer::PushCamera(Moonlight::CameraData& command)
 	}
 
 	Moonlight::CameraData& data = Cameras[index];
+
+	delete data.Buffer;
+	data.Buffer = new Moonlight::FrameBuffer(data.OutputSize.X(), data.OutputSize.Y());
 
 	//data.FrameBuffer = bgfx::createFrameBuffer(GetEngine().GetWindow()->GetWindowPtr(), data.OutputSize.X(), data.OutputSize.Y());
 

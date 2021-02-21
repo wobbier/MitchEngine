@@ -40,8 +40,6 @@ namespace Moonlight
 
 		Moonlight::FrameBuffer* Buffer = nullptr;
 
-		bgfx::FrameBufferHandle FrameBuffer;
-
 		bool IsMain = false;
 	};
 }

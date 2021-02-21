@@ -79,7 +79,7 @@ void EditorApp::UpdateCameras()
 		Camera::CurrentCamera = Camera::EditorCamera;
 	}
 
-	Moonlight::CameraData EditorCamera;
+	Moonlight::CameraData& EditorCamera = GetEngine().EditorCamera;
 
 	Camera::CurrentCamera->OutputSize = MainOutputSize;
 	EditorCamera.Position = EditorSceneManager->GetEditorCameraTransform()->GetPosition();
