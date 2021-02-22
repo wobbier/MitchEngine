@@ -35,12 +35,12 @@ ultralight::WindowListener* UIWindow::listener()
 
 uint32_t UIWindow::width() const
 {
-	return m_window->GetSize().X();
+	return m_window->GetSize().x;
 }
 
 uint32_t UIWindow::height() const
 {
-	return m_window->GetSize().Y();
+	return m_window->GetSize().y;
 }
 
 bool UIWindow::is_fullscreen() const

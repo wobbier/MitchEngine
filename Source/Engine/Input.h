@@ -1,14 +1,11 @@
 #pragma once
 #include "Math/Vector2.h"
-
-#include <Mouse.h>
-#include <Keyboard.h>
-#include <GamePad.h>
-
-#if ME_PLATFORM_UWP
-using namespace Windows::UI::Core;
-using namespace Windows::System;
-#endif
+//
+//
+//#if ME_PLATFORM_UWP
+//using namespace Windows::UI::Core;
+//using namespace Windows::System;
+//#endif
 
 class Input
 {
@@ -19,9 +16,9 @@ public:
 	Input();
 	~Input() = default;
 
-	const DirectX::Keyboard::State& GetKeyboardState() const;
-	DirectX::Mouse::State GetMouseState();
-	DirectX::GamePad::State GetControllerState(unsigned int PlayerId = 0);
+	//const DirectX::Keyboard::State& GetKeyboardState() const;
+	//DirectX::Mouse::State GetMouseState();
+	//DirectX::GamePad::State GetControllerState(unsigned int PlayerId = 0);
 
 	Vector2 GetMousePosition();
 	void SetMousePosition(const Vector2& InPosition);
@@ -32,7 +29,7 @@ public:
 	void SetMouseCapture(bool Capture);
 	void SetMouseOffset(const Vector2& InOffset);
 
-	DirectX::Mouse& GetMouse();
+	//DirectX::Mouse& GetMouse();
 
 	void Pause();
 	void Resume();
@@ -43,14 +40,14 @@ private:
 
 	bool CaptureInput = true;
 
-	DirectX::Keyboard::State KeyboardState;
-	DirectX::Mouse::State MouseState;
-	DirectX::GamePad::State ControllerState;
+	//DirectX::Keyboard::State KeyboardState;
+	//DirectX::Mouse::State MouseState;
+	//DirectX::GamePad::State ControllerState;
 
 	Vector2 Offset;
 
-	static std::unique_ptr<DirectX::Mouse> Mouse;
-	static std::unique_ptr<DirectX::Keyboard> Keyboard;
-	static std::unique_ptr<DirectX::GamePad> Controller;
+	//static std::unique_ptr<DirectX::Mouse> Mouse;
+	//static std::unique_ptr<DirectX::Keyboard> Keyboard;
+	//static std::unique_ptr<DirectX::GamePad> Controller;
 	bool WantsToCaptureMouse = false;
 };

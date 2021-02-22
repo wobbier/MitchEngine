@@ -2,7 +2,6 @@
 #include "ECS/Component.h"
 
 #include "Dementia.h"
-#include <DirectXMath.h>
 #include "Math/Vector3.h"
 #include "ECS/ComponentDetail.h"
 #include "Utils/HavanaUtils.h"

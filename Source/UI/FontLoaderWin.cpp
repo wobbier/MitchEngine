@@ -7,6 +7,8 @@
 #include <MLang.h>
 #include <memory>
 #include "TextAnalysisSource.h"
+#include <dwrite_3.h>
+#include <unknwnbase.h>
 
 using namespace Microsoft::WRL;
 

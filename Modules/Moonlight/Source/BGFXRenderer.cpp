@@ -93,8 +93,8 @@ void BGFXRenderer::Create(const RendererCreationSettings& settings)
 	// Initialize bgfx using the native window handle and window resolution.
 	bgfx::Init init;
 	init.platformData.nwh = settings.WindowPtr;
-	init.resolution.width = static_cast<uint32_t>(PreviousSize.X());
-	init.resolution.height = static_cast<uint32_t>(PreviousSize.Y());
+	init.resolution.width = static_cast<uint32_t>(PreviousSize.x);
+	init.resolution.height = static_cast<uint32_t>(PreviousSize.y);
 	init.resolution.reset = BGFX_RESET_VSYNC;
 
 	if (!bgfx::init(init))
@@ -168,7 +168,7 @@ void BGFXRenderer::Render(Moonlight::CameraData& MainCamera)
 	if (CurrentSize != PreviousSize)
 	{
 		PreviousSize = CurrentSize;
-		bgfx::reset((uint32_t)CurrentSize.X(), (uint32_t)CurrentSize.Y(), BGFX_RESET_VSYNC);
+		bgfx::reset((uint32_t)CurrentSize.x, (uint32_t)CurrentSize.y, BGFX_RESET_VSYNC);
 		bgfx::setViewRect(kClearView, 0, 0, bgfx::BackbufferRatio::Equal);
 	}
 	for (auto& camData : Cameras)
@@ -219,12 +219,12 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera)
 			bx::mtxLookAt(view, eye, at);
 
 			float proj[16];
-			bx::mtxProj(proj, 60.0f, float(camera.OutputSize.X()) / float(camera.OutputSize.Y()), 0.1f, 100.0f, bgfx::getCaps()->homogeneousDepth);
+			bx::mtxProj(proj, 60.0f, float(camera.OutputSize.x) / float(camera.OutputSize.y), 0.1f, 100.0f, bgfx::getCaps()->homogeneousDepth);
 			bgfx::setViewTransform(kClearView, view, proj);
 			bgfx::setViewFrameBuffer(kClearView, camera.Buffer->Buffer);
 
 			// Set view 0 default viewport.
-			bgfx::setViewRect(kClearView, 0, 0, uint16_t(camera.OutputSize.X()), uint16_t(camera.OutputSize.Y()));
+			bgfx::setViewRect(kClearView, 0, 0, uint16_t(camera.OutputSize.x), uint16_t(camera.OutputSize.y));
 		}
 
 		uint32_t color = (uint32_t)(camera.ClearColor.x * 255.f) << 24 | (uint32_t)(camera.ClearColor.y * 255.f) << 16 | (uint32_t)(camera.ClearColor.z * 255.f) << 8 | 255;
@@ -235,10 +235,8 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera)
 
 		bgfx::IndexBufferHandle ibh = m_ibh[m_pt];
 		uint64_t state = 0
-			| (m_r ? BGFX_STATE_WRITE_R : 0)
-			| (m_g ? BGFX_STATE_WRITE_G : 0)
-			| (m_b ? BGFX_STATE_WRITE_B : 0)
-			| (m_a ? BGFX_STATE_WRITE_A : 0)
+			| BGFX_STATE_WRITE_RGB
+			| BGFX_STATE_WRITE_A
 			| BGFX_STATE_WRITE_Z
 			| BGFX_STATE_DEPTH_TEST_LESS
 			| BGFX_STATE_CULL_CW
@@ -321,7 +319,7 @@ unsigned int BGFXRenderer::PushCamera(Moonlight::CameraData& command)
 	Moonlight::CameraData& data = Cameras[index];
 
 	delete data.Buffer;
-	data.Buffer = new Moonlight::FrameBuffer(data.OutputSize.X(), data.OutputSize.Y());
+	data.Buffer = new Moonlight::FrameBuffer(data.OutputSize.x, data.OutputSize.y);
 
 	//data.FrameBuffer = bgfx::createFrameBuffer(GetEngine().GetWindow()->GetWindowPtr(), data.OutputSize.X(), data.OutputSize.Y());
 

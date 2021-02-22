@@ -5,13 +5,11 @@
 #include "misc/cpp/imgui_stdlib.h"
 #include "Engine/Engine.h"
 #include "Mathf.h"
-#include <SimpleMath.h>
 #include "optick.h"
-#include <DirectXMath.h>
 
 Transform::Transform()
 	: Component("Transform")
-	, WorldTransform(DirectX::XMMatrixIdentity())
+	, WorldTransform()
 	, Position(0.f, 0.f, 0.f)
 	, Scale(1.0f, 1.0f, 1.0f)
 {
@@ -20,7 +18,7 @@ Transform::Transform()
 
 Transform::Transform(const std::string& TransformName)
 	: Component("Transform")
-	, WorldTransform(DirectX::XMMatrixIdentity())
+	, WorldTransform()
 	, Name(std::move(TransformName))
 	, Position(0.f, 0.f, 0.f)
 	, Scale(1.0f, 1.0f, 1.0f)
@@ -37,7 +35,7 @@ Transform::~Transform()
 
 void Transform::SetPosition(Vector3 NewPosition)
 {
-	WorldTransform.GetInternalMatrix().Translation((Position - NewPosition).InternalVec);
+	//WorldTransform.GetInternalMatrix().Translation((Position - NewPosition).InternalVec);
 	Position = NewPosition;
 	SetDirty(true);
 	//UpdateRecursively(this);
@@ -78,12 +76,12 @@ Vector3 Transform::Front()
 	//float mat1 = -;// 2, 0);
 	//float mat2 = -WorldTransform.GetInternalMatrix()(2, 1);
 	//float mat3 = -WorldTransform.GetInternalMatrix()(2, 2);
-	return Vector3(WorldTransform.GetInternalMatrix().Forward());
+	return Vector3();// WorldTransform.GetInternalMatrix().Forward());
 }
 
 Vector3 Transform::Up()
 {
-	return Vector3(WorldTransform.GetInternalMatrix().Up());
+	return Vector3();//WorldTransform.GetInternalMatrix().Up());
 }
 
 Vector3& Transform::GetPosition()
@@ -100,11 +98,11 @@ void Transform::UpdateRecursively(SharedPtr<Transform> CurrentTransform)
 		{
 			OPTICK_EVENT("SceneGraph::Update::IsDirty");
 			//Quaternion quat = Quaternion(Child->Rotation);
-			DirectX::SimpleMath::Matrix id = DirectX::XMMatrixIdentity();
-			DirectX::SimpleMath::Matrix rot = DirectX::SimpleMath::Matrix::CreateFromQuaternion(DirectX::SimpleMath::Quaternion::CreateFromYawPitchRoll(Child->LocalRotation[1], Child->LocalRotation[0], Child->LocalRotation[2]));// , Child->Rotation.Y(), Child->Rotation.Z());
-			DirectX::SimpleMath::Matrix scale = DirectX::SimpleMath::Matrix::CreateScale(Child->GetScale().InternalVec);
-			DirectX::SimpleMath::Matrix pos = XMMatrixTranslationFromVector(Child->GetPosition().InternalVec);
-			Child->SetWorldTransform(Matrix4((scale * rot * pos) * CurrentTransform->WorldTransform.GetInternalMatrix()));
+			//DirectX::SimpleMath::Matrix id = DirectX::XMMatrixIdentity();
+			//DirectX::SimpleMath::Matrix rot = DirectX::SimpleMath::Matrix::CreateFromQuaternion(DirectX::SimpleMath::Quaternion::CreateFromYawPitchRoll(Child->LocalRotation[1], Child->LocalRotation[0], Child->LocalRotation[2]));// , Child->Rotation.Y(), Child->Rotation.Z());
+			//DirectX::SimpleMath::Matrix scale = DirectX::SimpleMath::Matrix::CreateScale(Child->GetScale().InternalVec);
+			//DirectX::SimpleMath::Matrix pos = XMMatrixTranslationFromVector(Child->GetPosition().InternalVec);
+			//Child->SetWorldTransform(Matrix4((scale * rot * pos) * CurrentTransform->WorldTransform.GetInternalMatrix()));
 		}
 		UpdateRecursively(Child);
 	}
@@ -112,11 +110,11 @@ void Transform::UpdateRecursively(SharedPtr<Transform> CurrentTransform)
 
 void Transform::UpdateWorldTransform()
 {
-	DirectX::SimpleMath::Matrix id = DirectX::XMMatrixIdentity();
-	DirectX::SimpleMath::Matrix rot = DirectX::SimpleMath::Matrix::CreateFromQuaternion(DirectX::SimpleMath::Quaternion::CreateFromYawPitchRoll(LocalRotation[1], LocalRotation[0], LocalRotation[2]));// , Child->Rotation.Y(), Child->Rotation.Z());
-	DirectX::SimpleMath::Matrix scale = DirectX::SimpleMath::Matrix::CreateScale(GetScale().InternalVec);
-	DirectX::SimpleMath::Matrix pos = XMMatrixTranslationFromVector(GetPosition().InternalVec);
-	SetWorldTransform(Matrix4((scale * rot * pos)));
+	//DirectX::SimpleMath::Matrix id = DirectX::XMMatrixIdentity();
+	//DirectX::SimpleMath::Matrix rot = DirectX::SimpleMath::Matrix::CreateFromQuaternion(DirectX::SimpleMath::Quaternion::CreateFromYawPitchRoll(LocalRotation[1], LocalRotation[0], LocalRotation[2]));// , Child->Rotation.Y(), Child->Rotation.Z());
+	//DirectX::SimpleMath::Matrix scale = DirectX::SimpleMath::Matrix::CreateScale(GetScale().InternalVec);
+	//DirectX::SimpleMath::Matrix pos = XMMatrixTranslationFromVector(GetPosition().InternalVec);
+	//SetWorldTransform(Matrix4((scale * rot * pos)));
 
 	UpdateRecursively(shared_from_this());
 }
@@ -128,13 +126,13 @@ Vector3 Transform::GetWorldPosition()
 
 void Transform::SetWorldPosition(const Vector3& NewPosition)
 {
-	DirectX::SimpleMath::Matrix& mat = WorldTransform.GetInternalMatrix();
+	/*DirectX::SimpleMath::Matrix& mat = WorldTransform.GetInternalMatrix();
 
 	mat._41 = NewPosition[0];
 	mat._42 = NewPosition[1];
 	mat._43 = NewPosition[2];
 
-	Position += Vector3(mat._41 - Position[0], mat._42 - Position[1], mat._43 - Position[2]);
+	Position += Vector3(mat._41 - Position[0], mat._42 - Position[1], mat._43 - Position[2]);*/
 
 	SetDirty(true);
 }
@@ -179,25 +177,25 @@ Transform* Transform::GetParent()
 
 Matrix4 Transform::GetLocalToWorldMatrix()
 {
-	DirectX::SimpleMath::Matrix id = DirectX::XMMatrixIdentity();
-	DirectX::SimpleMath::Matrix rot = DirectX::SimpleMath::Matrix::CreateFromYawPitchRoll(LocalRotation.y, LocalRotation.x, LocalRotation.z);// , Child->Rotation.Y(), Child->Rotation.Z());
-	DirectX::SimpleMath::Matrix scale = DirectX::SimpleMath::Matrix::CreateScale(Scale.InternalVec);
-	DirectX::SimpleMath::Matrix pos = XMMatrixTranslationFromVector(Position.InternalVec);
-	if (ParentTransform)
+	//DirectX::SimpleMath::Matrix id = DirectX::XMMatrixIdentity();
+	//DirectX::SimpleMath::Matrix rot = DirectX::SimpleMath::Matrix::CreateFromYawPitchRoll(LocalRotation.y, LocalRotation.x, LocalRotation.z);// , Child->Rotation.Y(), Child->Rotation.Z());
+	//DirectX::SimpleMath::Matrix scale = DirectX::SimpleMath::Matrix::CreateScale(Scale.InternalVec);
+	//DirectX::SimpleMath::Matrix pos = XMMatrixTranslationFromVector(Position.InternalVec);
+	//if (ParentTransform)
+	//{
+	//	return Matrix4((scale * rot * pos) * GetParentTransform()->WorldTransform.GetInternalMatrix());
+	//}
+	//else
 	{
-		return Matrix4((scale * rot * pos) * GetParentTransform()->WorldTransform.GetInternalMatrix());
-	}
-	else
-	{
-		return Matrix4(scale * rot * pos);
+		return Matrix4();// scale* rot* pos);
 	}
 }
 
 Matrix4 Transform::GetWorldToLocalMatrix()
 {
-	DirectX::SimpleMath::Matrix mat;
-	GetLocalToWorldMatrix().GetInternalMatrix().Invert(mat);
-	return Matrix4(mat);
+	/*DirectX::SimpleMath::Matrix mat;
+	GetLocalToWorldMatrix().GetInternalMatrix().Invert(mat);*/
+	return Matrix4();//mat);
 }
 
 void Transform::Init()
@@ -225,33 +223,33 @@ Vector3 Transform::GetScale()
 
 void Transform::LookAt(const Vector3& InDirection)
 {
-	Vector3 worldPos = GetWorldPosition();
-	WorldTransform = Matrix4(DirectX::SimpleMath::Matrix::CreateLookAt(worldPos.InternalVec, (GetWorldPosition() + InDirection).InternalVec, Vector3::Up.InternalVec).Transpose());
+	//Vector3 worldPos = GetWorldPosition();
+	//WorldTransform = Matrix4(DirectX::SimpleMath::Matrix::CreateLookAt(worldPos.InternalVec, (GetWorldPosition() + InDirection).InternalVec, Vector3::Up.InternalVec).Transpose());
 
-	WorldTransform.GetInternalMatrix()._41 = worldPos[0];
-	WorldTransform.GetInternalMatrix()._42 = worldPos[1];
-	WorldTransform.GetInternalMatrix()._43 = worldPos[2];
+	//WorldTransform.GetInternalMatrix()._41 = worldPos[0];
+	//WorldTransform.GetInternalMatrix()._42 = worldPos[1];
+	//WorldTransform.GetInternalMatrix()._43 = worldPos[2];
 
-	DirectX::SimpleMath::Quaternion quat;
-	WorldTransform.GetInternalMatrix().Decompose(DirectX::SimpleMath::Vector3(), quat, DirectX::SimpleMath::Vector3());
+	//DirectX::SimpleMath::Quaternion quat;
+	//WorldTransform.GetInternalMatrix().Decompose(DirectX::SimpleMath::Vector3(), quat, DirectX::SimpleMath::Vector3());
 
-	Quaternion quat2(quat);
+	//Quaternion quat2(quat);
 
-	Rotation = Quaternion::ToEulerAngles(quat2);
-	Rotation = Vector3(Mathf::Degrees(Rotation.x), Mathf::Degrees(Rotation.y), Mathf::Degrees(Rotation.z));
-	LocalRotation = quat2;
-	SetDirty(true);
+	//Rotation = Quaternion::ToEulerAngles(quat2);
+	//Rotation = Vector3(Mathf::Degrees(Rotation.x), Mathf::Degrees(Rotation.y), Mathf::Degrees(Rotation.z));
+	//LocalRotation = quat2;
+	//SetDirty(true);
 }
 
 void Transform::SetRotation(const Vector3& euler)
 {
 	OPTICK_CATEGORY("Transform::Set Rotation", Optick::Category::Scene);
 
-	DirectX::SimpleMath::Quaternion quat2 = DirectX::SimpleMath::Quaternion::CreateFromYawPitchRoll(Mathf::Radians(euler.y), Mathf::Radians(euler.x), Mathf::Radians(euler.z));
-	Quaternion quat(quat2);
-	LocalRotation = quat;
-	Rotation = euler;
-	SetDirty(true);
+	//DirectX::SimpleMath::Quaternion quat2 = DirectX::SimpleMath::Quaternion::CreateFromYawPitchRoll(Mathf::Radians(euler.y), Mathf::Radians(euler.x), Mathf::Radians(euler.z));
+	//Quaternion quat(quat2);
+	//LocalRotation = quat;
+	//Rotation = euler;
+	//SetDirty(true);
 }
 
 void Transform::SetRotation(Quaternion InRotation)
@@ -268,12 +266,12 @@ Vector3 Transform::GetRotationEuler() const
 
 Quaternion Transform::GetWorldRotation()
 {
-	DirectX::SimpleMath::Quaternion quat;
+	/*DirectX::SimpleMath::Quaternion quat;
 
 	WorldTransform.GetInternalMatrix().Decompose(DirectX::SimpleMath::Vector3(), quat, DirectX::SimpleMath::Vector3());
-	Quaternion quat2(quat);
+	Quaternion quat2(quat);*/
 
-	return quat2;
+	return Quaternion();// quat2;
 }
 
 Vector3 Transform::GetWorldRotationEuler()
@@ -368,18 +366,18 @@ void Transform::OnDeserialize(const json& inJson)
 		SetScale(Vector3((float)inJson["Scale"][0], (float)inJson["Scale"][1], (float)inJson["Scale"][2]));
 	}
 
-	DirectX::SimpleMath::Matrix id = DirectX::XMMatrixIdentity();
-	DirectX::SimpleMath::Matrix rot = DirectX::SimpleMath::Matrix::CreateFromQuaternion(DirectX::SimpleMath::Quaternion::CreateFromYawPitchRoll(LocalRotation[1], LocalRotation[0], LocalRotation[2]));// , Child->Rotation.Y(), Child->Rotation.Z());
-	DirectX::SimpleMath::Matrix scale = DirectX::SimpleMath::Matrix::CreateScale(GetScale().InternalVec);
-	DirectX::SimpleMath::Matrix pos = XMMatrixTranslationFromVector(GetPosition().InternalVec);
-	if (ParentTransform)
-	{
-		SetWorldTransform(Matrix4((scale * rot * pos) * GetParentTransform()->WorldTransform.GetInternalMatrix()), false);
-	}
-	else
-	{
-		SetWorldTransform(Matrix4(scale * rot * pos), false);
-	}
+	//DirectX::SimpleMath::Matrix id = DirectX::XMMatrixIdentity();
+	//DirectX::SimpleMath::Matrix rot = DirectX::SimpleMath::Matrix::CreateFromQuaternion(DirectX::SimpleMath::Quaternion::CreateFromYawPitchRoll(LocalRotation[1], LocalRotation[0], LocalRotation[2]));// , Child->Rotation.Y(), Child->Rotation.Z());
+	//DirectX::SimpleMath::Matrix scale = DirectX::SimpleMath::Matrix::CreateScale(GetScale().InternalVec);
+	//DirectX::SimpleMath::Matrix pos = XMMatrixTranslationFromVector(GetPosition().InternalVec);
+	//if (ParentTransform)
+	//{
+	//	SetWorldTransform(Matrix4((scale * rot * pos) * GetParentTransform()->WorldTransform.GetInternalMatrix()), false);
+	//}
+	//else
+	//{
+	//	SetWorldTransform(Matrix4(scale * rot * pos), false);
+	//}
 }
 
 void Transform::SetName(const std::string& name)

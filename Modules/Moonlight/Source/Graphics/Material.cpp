@@ -40,7 +40,7 @@ namespace Moonlight
 	{
 		OutJson["Type"] = TypeName;
 		OutJson["DiffuseColor"] = { DiffuseColor.x, DiffuseColor.y, DiffuseColor.z };
-		OutJson["Tiling"] = { Tiling.X(), Tiling.Y() };
+		OutJson["Tiling"] = { Tiling.x, Tiling.y };
 		for (unsigned int type = 0; type < TextureType::Count; ++type)
 		{
 			auto texture = Textures[type];

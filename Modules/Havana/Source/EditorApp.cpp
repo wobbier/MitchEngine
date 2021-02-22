@@ -20,7 +20,6 @@
 #include "Events/SceneEvents.h"
 #include "RenderCommands.h"
 #include "Events/Event.h"
-#include <SimpleMath.h>
 #include "Math/Matrix4.h"
 #include "Math/Frustrum.h"
 #include "optick.h"
@@ -94,7 +93,7 @@ void EditorApp::UpdateCameras()
 	EditorCamera.ClearType = Camera::CurrentCamera->ClearType;
 	EditorCamera.Projection = Camera::EditorCamera->Projection;
 	EditorCamera.OrthographicSize = Camera::EditorCamera->OrthographicSize;
-	EditorCamera.CameraFrustum = Camera::EditorCamera->CameraFrustum;
+	//EditorCamera.CameraFrustum = Camera::EditorCamera->CameraFrustum;
 
 	GetEngine().EditorCamera = EditorCamera;
 }

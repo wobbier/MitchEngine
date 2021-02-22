@@ -11,7 +11,7 @@ Camera* Camera::EditorCamera = nullptr;
 Camera::Camera()
 	: Component("Camera")
 {
-	CameraFrustum = new Frustum();
+	//CameraFrustum = new Frustum();
 }
 
 Camera::~Camera()
@@ -20,7 +20,7 @@ Camera::~Camera()
 	{
 		CurrentCamera = nullptr;
 	}
-	delete CameraFrustum;
+	//delete CameraFrustum;
 }
 
 void Camera::Init()

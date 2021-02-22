@@ -1,6 +1,5 @@
 #include "EditorApp.h"
 #include "Engine/Engine.h"
-#include <SimpleMath.h>
 
 int main()
 {

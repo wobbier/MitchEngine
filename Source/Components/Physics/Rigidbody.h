@@ -3,7 +3,6 @@
 #include "ECS/ComponentDetail.h"
 #include <btBulletDynamicsCommon.h>
 #include "Math/Vector3.h"
-#include <DirectXMath.h>
 #include "Math/Matrix4.h"
 #include "Math/Quaternion.h"
 

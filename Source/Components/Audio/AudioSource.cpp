@@ -1,6 +1,5 @@
 #include "PCH.h"
 #include "AudioSource.h"
-#include <Audio.h>
 #include "Utils/StringUtils.h"
 #include "Path.h"
 #include "imgui.h"
@@ -29,22 +28,22 @@ bool AudioSource::Load()
 
 void AudioSource::Play(bool ShouldLoop)
 {
-	if (SoundInstance)
-	{
-		//if (testSoundEffectInstance->GetState() != DirectX::SoundState::PLAYING)
-		{
-			SoundInstance->Stop(true);
-		}
-		SoundInstance->Play(ShouldLoop);
-	}
+	//if (SoundInstance)
+	//{
+	//	//if (testSoundEffectInstance->GetState() != DirectX::SoundState::PLAYING)
+	//	{
+	//		SoundInstance->Stop(true);
+	//	}
+	//	SoundInstance->Play(ShouldLoop);
+	//}
 }
 
 void AudioSource::Stop(bool immediate)
 {
-	if (SoundInstance)
-	{
-		SoundInstance->Stop(immediate);
-	}
+	//if (SoundInstance)
+	//{
+	//	SoundInstance->Stop(immediate);
+	//}
 }
 
 void AudioSource::OnSerialize(json& outJson)
@@ -101,10 +100,10 @@ void AudioSource::OnEditorInspect()
 				{
 					FilePath = SoundFiles[n];
 					IsInitialized = false;
-					if (SoundInstance && SoundInstance->GetState() == DirectX::SoundState::PLAYING)
+					/*if (SoundInstance && SoundInstance->GetState() == DirectX::SoundState::PLAYING)
 					{
 						SoundInstance->Stop(true);
-					}
+					}*/
 					SoundFiles.clear();
 					break;
 				}
@@ -114,13 +113,13 @@ void AudioSource::OnEditorInspect()
 
 		i++;
 
-		if (SoundInstance)
+		/*if (SoundInstance)
 		{
 			if (ImGui::Button("Play Once"))
 			{
 				Play();
 			}
-		}
+		}*/
 
 		if (ImGui::Checkbox("Play On Awake", &PlayOnAwake))
 		{

@@ -6,7 +6,7 @@ namespace Moonlight
 	class RenderTexture
 	{
 	public:
-		RenderTexture(DX11Device* device)
+		RenderTexture()// DX11Device* device)
 		{
 			//D3D11_SAMPLER_DESC sampDesc;
 			//ZeroMemory(&sampDesc, sizeof(sampDesc));

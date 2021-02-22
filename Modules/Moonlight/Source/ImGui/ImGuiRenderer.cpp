@@ -93,9 +93,9 @@ void ImGuiRenderer::NewFrame(Vector2& mousePosition, uint8_t mouseButton,  int32
 	{
 		io.AddInputCharacter(inputChar);
 	}
-	io.DisplaySize = ImVec2(outputSize.X(), outputSize.Y());
+	io.DisplaySize = ImVec2(outputSize.x, outputSize.y);
 
-	io.MousePos = ImVec2(mousePosition.X(), mousePosition.Y());
+	io.MousePos = ImVec2(mousePosition.x, mousePosition.y);
 	io.MouseDown[0] = (mouseButton & IMGUI_MBUT_LEFT) != 0;
 	io.MouseDown[1] = (mouseButton & IMGUI_MBUT_RIGHT) != 0;
 	io.MouseDown[2] = (mouseButton & IMGUI_MBUT_MIDDLE) != 0;

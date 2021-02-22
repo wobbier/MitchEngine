@@ -10,7 +10,6 @@
 #include "Events/EventReceiver.h"
 #include "RenderCommands.h"
 #include "Commands/CommandManager.h"
-#include <Keyboard.h>
 #include "Engine/Input.h"
 #include "Camera/CameraData.h"
 #include "BGFXRenderer.h"
@@ -123,8 +122,6 @@ private:
 	ImVec2 previousMousePos;
 	ParentDescriptor DragParentDescriptor;
 	ViewportMode m_viewportMode;
-	DirectX::Keyboard::KeyboardStateTracker tracker;
-	DirectX::Mouse::ButtonStateTracker mouseTracker;
 	//Path ConfigFilePath;
 	Path EngineConfigFilePath;
 };

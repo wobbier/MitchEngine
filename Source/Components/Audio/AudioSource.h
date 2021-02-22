@@ -1,5 +1,4 @@
 #pragma once
-#include <Audio.h>
 #include "ECS/Component.h"
 #include "ECS/ComponentDetail.h"
 #include "Path.h"
@@ -26,8 +25,8 @@ public:
 	bool PlayOnAwake = false;
 	bool Loop = false;
 
-	std::unique_ptr<DirectX::SoundEffect> SoundEffectFile;
-	std::unique_ptr<DirectX::SoundEffectInstance> SoundInstance;
+	/*std::unique_ptr<DirectX::SoundEffect> SoundEffectFile;
+	std::unique_ptr<DirectX::SoundEffectInstance> SoundInstance;*/
 
 	Path FilePath;
 

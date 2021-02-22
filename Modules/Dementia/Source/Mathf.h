@@ -42,11 +42,11 @@ namespace Mathf
 
 	inline constexpr float Radians(float number)
 	{
-		return DirectX::XMConvertToRadians(number);
+		return glm::radians(number);
 	}
 
 	inline float Degrees(float rads)
 	{
-		return DirectX::XMConvertToDegrees(rads);
+		return glm::degrees(rads);
 	}
 }

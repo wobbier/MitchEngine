@@ -1,15 +1,11 @@
 #include "SkyBox.h"
 #include "Resource/ResourceCache.h"
 #include "Texture.h"
-#include <DirectXMath.h>
 #include "MeshData.h"
 #include "ShaderCommand.h"
-#include <WICTextureLoader.h>
 #include "Game.h"
 #include "Material.h"
 #include "Engine/Engine.h"
-
-using namespace DirectX;
 
 namespace Moonlight
 {
@@ -49,15 +45,15 @@ namespace Moonlight
 		//device.GetD3DDevice()->CreateDepthStencilState(&dssDesc, &NoDepth);
 	}
 
-	void SkyBox::Draw(ID3D11DeviceContext* context)
-	{
-		//SkyMaterial->MeshShader.Use(context);
+	//void SkyBox::Draw(ID3D11DeviceContext* context)
+	//{
+	//	//SkyMaterial->MeshShader.Use(context);
 
-		//context->OMSetDepthStencilState(NoDepth, 0);
-		//context->RSSetState(RSCullNone);
+	//	//context->OMSetDepthStencilState(NoDepth, 0);
+	//	//context->RSSetState(RSCullNone);
 
-		//SkyModel->RootNode.Nodes[0].Meshes[0]->Draw(SkyMaterial, context);
+	//	//SkyModel->RootNode.Nodes[0].Meshes[0]->Draw(SkyMaterial, context);
 
-		//context->OMSetDepthStencilState(NULL, 0);
-	}
+	//	//context->OMSetDepthStencilState(NULL, 0);
+	//}
 }

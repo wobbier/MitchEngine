@@ -56,7 +56,7 @@ void CameraCore::Update(float dt)
 		CamData.Projection = CameraComponent.Projection;
 		CamData.OrthographicSize = CameraComponent.OrthographicSize;
 		CamData.IsMain = CameraComponent.IsMain();
-		CamData.CameraFrustum = CameraComponent.CameraFrustum;
+		//CamData.CameraFrustum = CameraComponent.CameraFrustum;
 
 		GetEngine().GetRenderer().UpdateCamera(CameraComponent.m_id, CamData);
 	}
@@ -96,7 +96,7 @@ Moonlight::CameraData CameraCore::CreateCameraData(Transform& InTransform, Camer
 	Vector3 Right = CamData.Front.Cross(Vector3::Up).Normalized();
 	Vector3 Up = CamData.Front.Cross(Right).Normalized();
 
-	CamData.CameraFrustum = InCamera.CameraFrustum;
+	//CamData.CameraFrustum = InCamera.CameraFrustum;
 
 	return CamData;
 }

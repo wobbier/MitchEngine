@@ -10,9 +10,9 @@ class DirectionalLight
 public:
 	DirectionalLight()
 		: Component("DirectionalLight")
-		, Direction(0.25f, 0.5f, -1.0f, 1.0f)
-		, Ambient(0.2f, 0.2f, 0.2f, 1.0f)
-		, Diffuse(1.0f, 1.0f, 1.0f, 1.0f)
+		, Direction(0.25f, 0.5f, -1.0f)
+		, Ambient(0.2f, 0.2f, 0.2f)
+		, Diffuse(1.0f, 1.0f, 1.0f)
 	{
 
 	}
@@ -23,9 +23,9 @@ public:
 	{
 	}
 
-	DirectX::XMFLOAT4 Direction = DirectX::XMFLOAT4();
-	DirectX::XMFLOAT4 Ambient;
-	DirectX::XMFLOAT4 Diffuse;
+	Vector3 Direction;
+	Vector3 Ambient;
+	Vector3 Diffuse;
 
 #if ME_EDITOR
 	virtual void OnEditorInspect() final
@@ -34,14 +34,13 @@ public:
 		bool hdr = true;
 		int misc_flags = (hdr ? ImGuiColorEditFlags_HDR : 0) | ImGuiColorEditFlags_NoDragDrop;
 
-		ImGui::ColorEdit4("Ambient", (float*)& Ambient.x, ImGuiColorEditFlags_Float | misc_flags);
-		ImGui::ColorEdit4("Diffuse", (float*)& Diffuse.x, ImGuiColorEditFlags_Float | misc_flags);
+		ImGui::ColorEdit3("Ambient", (float*)& Ambient.x, ImGuiColorEditFlags_Float | misc_flags);
+		ImGui::ColorEdit3("Diffuse", (float*)& Diffuse.x, ImGuiColorEditFlags_Float | misc_flags);
 
 		if (ImGui::Button("Look At World 0"))
 		{
 			Transform& transform = Parent->GetComponent<Transform>();
-			auto dir = (Vector3() - transform.GetWorldPosition()).Normalized();
-			Direction = {dir.x, dir.y, dir.z, 0.0f};
+			Direction = (Vector3() - transform.GetWorldPosition()).Normalized();
 		}
 	}
 #endif
@@ -58,15 +57,15 @@ private:
 	{
 		if (inJson.contains("Direction"))
 		{
-			Direction = { (float)inJson["Direction"][0], (float)inJson["Direction"][1], (float)inJson["Direction"][2], 1.f };
+			Direction = { (float)inJson["Direction"][0], (float)inJson["Direction"][1], (float)inJson["Direction"][2] };
 		}
 		if (inJson.contains("Ambient"))
 		{
-			Ambient = { (float)inJson["Ambient"][0], (float)inJson["Ambient"][1], (float)inJson["Ambient"][2], 1.f };
+			Ambient = { (float)inJson["Ambient"][0], (float)inJson["Ambient"][1], (float)inJson["Ambient"][2] };
 		}
 		if (inJson.contains("Diffuse"))
 		{
-			Diffuse = { (float)inJson["Diffuse"][0], (float)inJson["Diffuse"][1], (float)inJson["Diffuse"][2], 1.f };
+			Diffuse = { (float)inJson["Diffuse"][0], (float)inJson["Diffuse"][1], (float)inJson["Diffuse"][2] };
 		}
 	}
 };

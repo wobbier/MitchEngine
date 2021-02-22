@@ -2,7 +2,6 @@
 #include <assert.h>
 #include "Texture.h"
 #include "CLog.h"
-#include <WICTextureLoader.h>
 #include "Game.h"
 #include "Device/DX11Device.h"
 #include "Engine/Engine.h"
@@ -10,7 +9,7 @@
 #include <bimg/bimg.h>
 #include "Utils/BGFXUtils.h"
 
-using namespace DirectX;
+//using namespace DirectX;
 using namespace Microsoft::WRL;
 
 static void imageReleaseCb(void* _ptr, void* _userData)

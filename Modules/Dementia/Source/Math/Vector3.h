@@ -1,8 +1,7 @@
 #pragma once
-#include <d3d11.h>
-#include <SimpleMath.h>
 #include "LinearMath/btVector3.h"
 #include <string>
+#include <glm/glm.hpp>
 
 struct Vector3
 {
@@ -11,7 +10,7 @@ struct Vector3
 		struct {
 			float x, y, z;
 		};
-		DirectX::SimpleMath::Vector3 InternalVec;
+		glm::vec3 InternalVector;
 	};
 
 	static const Vector3 Up;
@@ -45,7 +44,7 @@ struct Vector3
 	{
 	}
 
-	Vector3(const DirectX::SimpleMath::Vector3& v)
+	Vector3(const glm::vec3& v)
 		: x(v.x)
 		, y(v.y)
 		, z(v.z)

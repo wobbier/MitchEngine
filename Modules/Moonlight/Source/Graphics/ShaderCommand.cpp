@@ -3,7 +3,6 @@
 #include "Utils/DirectXHelper.h"
 #include "Game.h"
 
-#include <VertexTypes.h>
 #include "Texture.h"
 #include "optick.h"
 #include "Graphics/ShaderFile.h"
@@ -142,29 +141,29 @@ namespace Moonlight
 	{
 	}
 
-	void ShaderCommand::Use(ID3D11DeviceContext* context)
-	{
-		OPTICK_EVENT("Shader::Use", Optick::Category::Rendering)
+	//void ShaderCommand::Use(ID3D11DeviceContext* context)
+	//{
+	//	OPTICK_EVENT("Shader::Use", Optick::Category::Rendering)
 
-		if (!IsLoaded())
-		{
-			return;
-		}
-		//context->IASetInputLayout(Program.InputLayout.Get());
+	//	if (!IsLoaded())
+	//	{
+	//		return;
+	//	}
+	//	//context->IASetInputLayout(Program.InputLayout.Get());
 
-		//// Attach our vertex shader.
-		//context->VSSetShader(
-		//	Program.VertexShader.Get(),
-		//	nullptr,
-		//	0
-		//);
-		//// Attach our pixel shader.
-		//context->PSSetShader(
-		//	Program.PixelShader.Get(),
-		//	nullptr,
-		//	0
-		//);
-	}
+	//	//// Attach our vertex shader.
+	//	//context->VSSetShader(
+	//	//	Program.VertexShader.Get(),
+	//	//	nullptr,
+	//	//	0
+	//	//);
+	//	//// Attach our pixel shader.
+	//	//context->PSSetShader(
+	//	//	Program.PixelShader.Get(),
+	//	//	nullptr,
+	//	//	0
+	//	//);
+	//}
 
 	const ShaderProgram& ShaderCommand::GetProgram() const
 	{

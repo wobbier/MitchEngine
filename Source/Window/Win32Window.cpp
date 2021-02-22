@@ -11,8 +11,6 @@
 #include <tchar.h>
 #include <dwmapi.h>
 #include "Utils/StringUtils.h"
-#include <Keyboard.h>
-#include <Mouse.h>
 #include "Engine/Input.h"
 #include "Engine/Engine.h"
 LRESULT CALLBACK WinProc(HWND Window, unsigned int msg, WPARAM wp, LPARAM lp);
@@ -66,8 +64,8 @@ Win32Window::Win32Window(std::string title, std::function<void(const Vector2&)> 
 		YIKES("Failed to register window class");
 	}
 
-	int w = static_cast<int>(windowSize.X());
-	int h = static_cast<int>(windowSize.Y());
+	int w = static_cast<int>(windowSize.x);
+	int h = static_cast<int>(windowSize.y);
 
 	DWORD style = (DWORD)Style::ME_BASIC_BORDERLESS;
 
@@ -88,7 +86,7 @@ Win32Window::Win32Window(std::string title, std::function<void(const Vector2&)> 
 	{
 		return;
 	}
-	GetEngine().GetInput().GetMouse().SetWindow(Window);
+	//GetEngine().GetInput().GetMouse().SetWindow(Window);
 #if ME_EDITOR
 	borderless = true;
 	borderless_shadow = true;
@@ -407,8 +405,8 @@ LRESULT CALLBACK WinProc(HWND hwnd, unsigned int msg, WPARAM wp, LPARAM lp)
 			return 0;
 		}
 		case WM_ACTIVATEAPP:
-			DirectX::Keyboard::ProcessMessage(msg, wp, lp);
-			DirectX::Mouse::ProcessMessage(msg, wp, lp);
+			//DirectX::Keyboard::ProcessMessage(msg, wp, lp);
+			//DirectX::Mouse::ProcessMessage(msg, wp, lp);
 			break;
 		case WM_INPUT:
 		case WM_MOUSEMOVE:
@@ -422,14 +420,14 @@ LRESULT CALLBACK WinProc(HWND hwnd, unsigned int msg, WPARAM wp, LPARAM lp)
 		case WM_XBUTTONDOWN:
 		case WM_XBUTTONUP:
 		case WM_MOUSEHOVER:
-			DirectX::Mouse::ProcessMessage(msg, wp, lp);
+			//DirectX::Mouse::ProcessMessage(msg, wp, lp);
 			break;
 		case WM_KEYDOWN:
 		case WM_SYSKEYDOWN:
 		case WM_KEYUP:
 		case WM_SYSKEYUP:
 		{
-			DirectX::Keyboard::ProcessMessage(msg, wp, lp);
+			//DirectX::Keyboard::ProcessMessage(msg, wp, lp);
 			switch (wp)
 			{
 			case VK_F8: { window.borderless_drag = !window.borderless_drag;        return 0; }

@@ -1,6 +1,5 @@
 #include "PCH.h"
 #include "CharacterController.h"
-#include <SimpleMath.h>
 #include "imgui.h"
 
 class IgnoreBodyAndGhostCast
@@ -85,7 +84,7 @@ void CharacterController::Walk(const Vector3& direction)
 
 void CharacterController::Walk(Vector2 direction)
 {
-	DirectX::SimpleMath::Vector2 velocityXZ = DirectX::SimpleMath::Vector2(direction.GetInternalVec() + Vector2(m_manualVelocity.x, m_manualVelocity.z).GetInternalVec());
+	Vector2 velocityXZ = direction + Vector2(m_manualVelocity.x, m_manualVelocity.z);
 
 	float speed = velocityXZ.Length();
 

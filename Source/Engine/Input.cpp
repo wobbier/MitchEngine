@@ -10,25 +10,25 @@
 #pragma endregion
 
 #pragma region MouseInput
-
-const DirectX::Keyboard::State& Input::GetKeyboardState() const
-{
-	return KeyboardState;
-}
-
-DirectX::Mouse::State Input::GetMouseState()
-{
-	return MouseState;
-}
-
-DirectX::GamePad::State Input::GetControllerState(unsigned int PlayerId /*= 0*/)
-{
-	return Controller->GetState(PlayerId);
-}
+//
+//const DirectX::Keyboard::State& Input::GetKeyboardState() const
+//{
+//	return KeyboardState;
+//}
+//
+//DirectX::Mouse::State Input::GetMouseState()
+//{
+//	return MouseState;
+//}
+//
+//DirectX::GamePad::State Input::GetControllerState(unsigned int PlayerId /*= 0*/)
+//{
+//	return Controller->GetState(PlayerId);
+//}
 
 Vector2 Input::GetMousePosition()
 {
-	Vector2 newPosition = Vector2(MouseState.x, MouseState.y);
+	Vector2 newPosition;// = Vector2(MouseState.x, MouseState.y);
 	return newPosition;
 }
 
@@ -39,7 +39,7 @@ void Input::SetMousePosition(const Vector2& InPosition)
 	{
 #if ME_EDITOR
 		Vector2 pos = Offset + InPosition;
-		SetCursorPos(pos.X(), pos.Y());
+		SetCursorPos(pos.x, pos.y);
 #endif
 		Update();
 	}
@@ -61,11 +61,11 @@ void Input::SetMouseCapture(bool Capture)
 	{
 		if (Capture)
 		{
-			Mouse->SetMode(DirectX::Mouse::MODE_RELATIVE);
+			//Mouse->SetMode(DirectX::Mouse::MODE_RELATIVE);
 		}
 		else
 		{
-			Mouse->SetMode(DirectX::Mouse::MODE_ABSOLUTE);
+			//Mouse->SetMode(DirectX::Mouse::MODE_ABSOLUTE);
 		}
 		WantsToCaptureMouse = Capture;
 	}
@@ -75,11 +75,11 @@ void Input::SetMouseOffset(const Vector2& InOffset)
 {
 	Offset = InOffset;
 }
-
-DirectX::Mouse& Input::GetMouse()
-{
-	return *Mouse.get();
-}
+//
+//DirectX::Mouse& Input::GetMouse()
+//{
+//	return *Mouse.get();
+//}
 
 void Input::Pause()
 {
@@ -94,7 +94,7 @@ void Input::Resume()
 
 void Input::Stop()
 {
-	Mouse->SetMode(DirectX::Mouse::MODE_ABSOLUTE);
+	//Mouse->SetMode(DirectX::Mouse::MODE_ABSOLUTE);
 	CaptureInput = false;
 }
 
@@ -102,26 +102,26 @@ void Input::Update()
 {
 	if (CaptureInput)
 	{
-		KeyboardState = Keyboard->GetState();
-		MouseState = Mouse->GetState();
+		//KeyboardState = Keyboard->GetState();
+		//MouseState = Mouse->GetState();
 	}
 }
-
-std::unique_ptr<DirectX::Mouse> Input::Mouse = std::make_unique<DirectX::Mouse>();
-
-std::unique_ptr<DirectX::Keyboard> Input::Keyboard = std::make_unique<DirectX::Keyboard>();
-
-std::unique_ptr<DirectX::GamePad> Input::Controller = std::make_unique<DirectX::GamePad>();
+//
+//std::unique_ptr<DirectX::Mouse> Input::Mouse = std::make_unique<DirectX::Mouse>();
+//
+//std::unique_ptr<DirectX::Keyboard> Input::Keyboard = std::make_unique<DirectX::Keyboard>();
+//
+//std::unique_ptr<DirectX::GamePad> Input::Controller = std::make_unique<DirectX::GamePad>();
 
 Input::Input()
 {
 	//Mouse = std::make_unique<DirectX::Mouse>();
 	//Controller = std::make_unique<DirectX::GamePad>();
 	//Keyboard = std::make_unique<DirectX::Keyboard>();
-	Controller->Resume();
+	//Controller->Resume();
 #if ME_PLATFORM_UWP
-	Mouse->SetWindow(CoreWindow::GetForCurrentThread());
-	Keyboard->SetWindow(CoreWindow::GetForCurrentThread());
+	//Mouse->SetWindow(CoreWindow::GetForCurrentThread());
+	//Keyboard->SetWindow(CoreWindow::GetForCurrentThread());
 #endif
 }
 

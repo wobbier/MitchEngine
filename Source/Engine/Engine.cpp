@@ -182,11 +182,11 @@ void Engine::Run()
 		{
 			OPTICK_FRAME("MainLoop");
 			float deltaTime = DeltaTime = AccumulatedTime;
-			NewRenderer->BeginFrame(m_input.GetMousePosition()
+			NewRenderer->BeginFrame(Vector2(0, 0), 0, 0/*m_input.GetMousePosition()
 				, (m_input.GetMouseState().leftButton ? 0x01 : 0)
 				| (m_input.GetMouseState().rightButton ? 0x02 : 0)
 				| (m_input.GetMouseState().middleButton ? 0x04 : 0)
-				, m_input.GetMouseScrollOffset().Y()
+				, m_input.GetMouseScrollOffset().Y()*/
 				, GetWindow()->GetSize()
 				, -1
 				, 255);

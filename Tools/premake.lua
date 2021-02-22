@@ -94,13 +94,13 @@ includedirs {
 
 if isUWP then
   defines { "ME_PLATFORM_UWP" }
-  includedirs { (dirPrefix) .. "packages/directxtk_uwp.2018.11.20.1/include" }
+  --includedirs { (dirPrefix) .. "packages/directxtk_uwp.2018.11.20.1/include" }
   libdirs {
   "../ThirdParty/UltralightSDK/lib/UWP",
   "../ThirdParty/UltralightSDK/bin/UWP"
   }
 else
-  includedirs { (dirPrefix) .. "packages/directxtk_desktop_2015.2018.11.20.1/include" }
+  --includedirs { (dirPrefix) .. "packages/directxtk_desktop_2015.2018.11.20.1/include" }
   libdirs {
   "../ThirdParty/UltralightSDK/lib/Win64",
   "../ThirdParty/UltralightSDK/bin/Win64"
@@ -108,7 +108,7 @@ else
   defines { "ME_PLATFORM_WIN64" }
   links {
   	"dwmapi",
-    "DirectXTKAudioWin8",
+    --"DirectXTKAudioWin8",
   "Shlwapi.lib",
   "AppCore.lib"
   }
@@ -124,7 +124,7 @@ links {
   (getPlatformPostfix("Dementia") .. ".lib"),
   "assimp-vc140-mt",
   "IrrXML",
-  "DirectXTK",
+  --"DirectXTK",
   "Usp10.lib",
   "Ultralight.lib",
   "UltralightCore.lib",
@@ -137,9 +137,9 @@ links {
 
 -- Platform specific options
 if withDirectX then
-  defines { "ME_DIRECTX" }
+  --defines { "ME_DIRECTX" }
   links {
-    "d2d1", "d3d11", "dxgi", "windowscodecs", "dwrite", "D3DCompiler"
+    "dwrite",--"d2d1", "d3d11", "dxgi", "windowscodecs",  "D3DCompiler"
   }
 end
 
@@ -219,16 +219,16 @@ end
 
 configuration "Debug*"
 if (isUWP) then
-  libdirs { (dirPrefix) .. "packages/directxtk_uwp.2018.11.20.1/lib/x64/Debug" }
+  --libdirs { (dirPrefix) .. "packages/directxtk_uwp.2018.11.20.1/lib/x64/Debug" }
 else
-  libdirs { (dirPrefix) .. "packages/directxtk_desktop_2015.2018.11.20.1/lib/x64/Debug" }
+  --libdirs { (dirPrefix) .. "packages/directxtk_desktop_2015.2018.11.20.1/lib/x64/Debug" }
 end
 
 configuration "Release*"
 if (isUWP) then
-  libdirs { (dirPrefix) .. "packages/directxtk_uwp.2018.11.20.1/lib/x64/Release" }
+  --libdirs { (dirPrefix) .. "packages/directxtk_uwp.2018.11.20.1/lib/x64/Release" }
 else
-  libdirs { (dirPrefix) .. "packages/directxtk_desktop_2015.2018.11.20.1/lib/x64/Release" }
+  --libdirs { (dirPrefix) .. "packages/directxtk_desktop_2015.2018.11.20.1/lib/x64/Release" }
 end
 configuration {}
 filter {}

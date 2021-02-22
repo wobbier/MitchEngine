@@ -44,11 +44,11 @@ UICore::UICore(IWindow* window, Moonlight::Renderer* renderer)
 	config.resource_path = "M:\\Projects\\C++\\stack\\Engine\\Modules\\Havana\\..\\..\\..\\Build\\Debug Editor";
 	//config_.cache_path = ultralight::String16(std::string(fileSystemRoot.Directory + "ultralight.log").c_str());
 
-	m_context.reset(new ultralight::GPUContextD3D11());
+	/*m_context.reset(new ultralight::GPUContextD3D11());
 	if (!m_context->Initialize(m_window->width(), m_window->height(), m_window->scale(), m_window->is_fullscreen(), true, false, 1))
 	{
 		YIKES("Failed to initialize ultralight context");
-	}
+	}*/
 
 	//m_driver.reset(new ultralight::GPUDriverD3D11(m_context.get(), &m_renderer->GetDevice()));
 	m_logger.reset(new ultralight::FileLogger(ultralight::String(std::string(fileSystemRoot + "Ultralight.log").c_str())));
@@ -58,10 +58,10 @@ UICore::UICore(IWindow* window, Moonlight::Renderer* renderer)
 	platform.set_config(config);
 	platform.set_file_system(m_fs.get());
 	platform.set_font_loader(m_fontLoader.get());
-	platform.set_gpu_driver(m_driver.get());
+	//platform.set_gpu_driver(m_driver.get());
 	platform.set_logger(m_logger.get());
 
-	m_uiRenderer = ultralight::Renderer::Create();
+	//m_uiRenderer = ultralight::Renderer::Create();
 }
 
 UICore::~UICore()
@@ -113,119 +113,119 @@ void UICore::Update(float dt)
 	ultralight::MouseEvent mouseEvent;
 	mouseEvent.type = ultralight::MouseEvent::kType_MouseMoved;
 
-	Vector2 mousePosition = GetEngine().GetInput().GetMousePosition();
-
-#if ME_EDITOR
-	if (!static_cast<EditorApp*>(GetEngine().GetGame())->IsGameRunning())
-	{
-		return;
-	}
-
-	Havana* editor = static_cast<EditorCore*>(GetEngine().GetWorld().lock()->GetCore(EditorCore::GetTypeId()))->GetEditor();
-	
-	Vector2 windowPosition = GetEngine().GetWindow()->GetPosition();
-
-	mouseEvent.x = (windowPosition.X() + mousePosition.X()) - editor->GameViewRenderLocation.X();
-	mouseEvent.y = (windowPosition.Y() + mousePosition.Y()) - editor->GameViewRenderLocation.Y();
-
-	if (mousePosition.IsZero())
-	{
-		return;
-	}
-#else
-	mouseEvent.x = mousePosition.X();
-	mouseEvent.y = mousePosition.Y();
-#endif
-
-	static bool hasPressed = false;
-	if (GetEngine().GetInput().GetMouseState().leftButton && !hasPressed)
-	{
-		mouseEvent.button = ultralight::MouseEvent::Button::kButton_Left;
-		mouseEvent.type = ultralight::MouseEvent::kType_MouseDown;
-		hasPressed = true;
-	}
-	else if (!GetEngine().GetInput().GetMouseState().leftButton && hasPressed)
-	{
-		mouseEvent.button = ultralight::MouseEvent::Button::kButton_Left;
-		mouseEvent.type = ultralight::MouseEvent::kType_MouseUp;
-		hasPressed = false;
-	}
-	else
-	{
-		mouseEvent.button = ultralight::MouseEvent::Button::kButton_None;
-	}
-
-#if ME_EDITOR
-	//if (m_renderer->GetViewportMode() == ViewportMode::Game)
-#endif
-	{
-		for (auto& view : m_overlays)
-		{
-			view->view()->FireMouseEvent(mouseEvent);
-		}
-	}
+//	Vector2 mousePosition = GetEngine().GetInput().GetMousePosition();
+//
+//#if ME_EDITOR
+//	if (!static_cast<EditorApp*>(GetEngine().GetGame())->IsGameRunning())
+//	{
+//		return;
+//	}
+//
+//	Havana* editor = static_cast<EditorCore*>(GetEngine().GetWorld().lock()->GetCore(EditorCore::GetTypeId()))->GetEditor();
+//	
+//	Vector2 windowPosition = GetEngine().GetWindow()->GetPosition();
+//
+//	mouseEvent.x = (windowPosition.X() + mousePosition.X()) - editor->GameViewRenderLocation.X();
+//	mouseEvent.y = (windowPosition.Y() + mousePosition.Y()) - editor->GameViewRenderLocation.Y();
+//
+//	if (mousePosition.IsZero())
+//	{
+//		return;
+//	}
+//#else
+//	mouseEvent.x = mousePosition.X();
+//	mouseEvent.y = mousePosition.Y();
+//#endif
+//
+//	static bool hasPressed = false;
+//	if (GetEngine().GetInput().GetMouseState().leftButton && !hasPressed)
+//	{
+//		mouseEvent.button = ultralight::MouseEvent::Button::kButton_Left;
+//		mouseEvent.type = ultralight::MouseEvent::kType_MouseDown;
+//		hasPressed = true;
+//	}
+//	else if (!GetEngine().GetInput().GetMouseState().leftButton && hasPressed)
+//	{
+//		mouseEvent.button = ultralight::MouseEvent::Button::kButton_Left;
+//		mouseEvent.type = ultralight::MouseEvent::kType_MouseUp;
+//		hasPressed = false;
+//	}
+//	else
+//	{
+//		mouseEvent.button = ultralight::MouseEvent::Button::kButton_None;
+//	}
+//
+//#if ME_EDITOR
+//	//if (m_renderer->GetViewportMode() == ViewportMode::Game)
+//#endif
+//	{
+//		for (auto& view : m_overlays)
+//		{
+//			view->view()->FireMouseEvent(mouseEvent);
+//		}
+//	}
 
 	// Update internal logic (timers, event callbacks, etc.)
-	m_uiRenderer->Update();
+	//m_uiRenderer->Update();
 }
 
 void UICore::Render()
 {
 	OPTICK_EVENT("UI Render", Optick::Category::Rendering);
-	m_driver->BeginSynchronize();
+	//m_driver->BeginSynchronize();
 
-	// Render all active views to command lists and dispatch calls to GPUDriver
-	m_uiRenderer->Render();
+	//// Render all active views to command lists and dispatch calls to GPUDriver
+	//m_uiRenderer->Render();
 
-	m_driver->EndSynchronize();
+	//m_driver->EndSynchronize();
 
-	// Draw any pending commands to screen
-	if (m_driver->HasCommandsPending())
-	{
-		m_context->BeginDrawing();
-		m_driver->DrawCommandList();
+	//// Draw any pending commands to screen
+	//if (m_driver->HasCommandsPending())
+	//{
+	//	m_context->BeginDrawing();
+	//	m_driver->DrawCommandList();
 
-		// Perform any additional drawing (Overlays) here...
-		//DrawOverlays();
+	//	// Perform any additional drawing (Overlays) here...
+	//	//DrawOverlays();
 
-		// Flip buffers here.
-		if (m_window)
-		{
-			Draw();
-		}
-		m_context->EndDrawing();
-	}
+	//	// Flip buffers here.
+	//	if (m_window)
+	//	{
+	//		Draw();
+	//	}
+	//	m_context->EndDrawing();
+	//}
 }
 
 void UICore::OnResize(const Vector2& NewSize)
 {
-	if (m_context)
+	/*if (m_context)
 	{
 		m_context->Resize((int)NewSize.X(), (int)NewSize.Y());
 		for (auto overlay : overlays_)
 		{
 			overlay->Resize((int)NewSize.X(), (int)NewSize.Y());
 		}
-	}
+	}*/
 }
 
 void UICore::InitUIView(BasicUIView& view)
 {
-	ultralight::Ref<ultralight::View> newView = m_uiRenderer->CreateView(Camera::CurrentCamera->OutputSize.X(), Camera::CurrentCamera->OutputSize.Y(), true, nullptr);
+	//ultralight::Ref<ultralight::View> newView = m_uiRenderer->CreateView(Camera::CurrentCamera->OutputSize.X(), Camera::CurrentCamera->OutputSize.Y(), true, nullptr);
 
-	ultralight::RefPtr<ultralight::Overlay> overlay = ultralight::Overlay::Create(*m_window.get(), newView, 0, 0);
-	overlay->view()->set_load_listener(&view);
+	//ultralight::RefPtr<ultralight::Overlay> overlay = ultralight::Overlay::Create(*m_window.get(), newView, 0, 0);
+	//overlay->view()->set_load_listener(&view);
 
-	//overlay->view()->LoadHTML(view.SourceFile.Read().c_str());
-	ultralight::String str = "file:///" + ultralight::String(view.FilePath.LocalPath.c_str());
-	overlay->view()->LoadURL(str);
+	////overlay->view()->LoadHTML(view.SourceFile.Read().c_str());
+	//ultralight::String str = "file:///" + ultralight::String(view.FilePath.LocalPath.c_str());
+	//overlay->view()->LoadURL(str);
 
-	m_overlays.push_back(overlay);
-	GetOverlayManager()->Add(overlay.get());
+	//m_overlays.push_back(overlay);
+	//GetOverlayManager()->Add(overlay.get());
 
-	view.IsInitialized = true;
-	view.Index = m_overlays.size() - 1;
-	view.ViewRef = overlay->view();
+	//view.IsInitialized = true;
+	//view.Index = m_overlays.size() - 1;
+	//view.ViewRef = overlay->view();
 }
 
 ultralight::OverlayManager* UICore::GetOverlayManager()

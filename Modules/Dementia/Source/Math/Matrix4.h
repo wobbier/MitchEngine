@@ -1,39 +1,38 @@
 #pragma once
-#include <d3d11.h>
-#include <DirectXMath.h>
 #include "Vector3.h"
+
+#include <glm/gtc/matrix_transform.hpp>
 
 class Matrix4
 {
 public:
 	Matrix4()
-		: m_matrix(DirectX::XMMatrixIdentity())
+		: m_matrix(1.f)
 	{
 
 	}
-	Matrix4(DirectX::SimpleMath::Matrix mat)
+	Matrix4(const glm::mat4& mat)
 		: m_matrix(mat)
 	{
 
 	}
 
-
-	DirectX::SimpleMath::Matrix& GetInternalMatrix()
+	glm::mat4& GetInternalMatrix()
 	{
 		return m_matrix;
 	}
 
 	Vector3 GetPosition()
 	{
-		return Vector3(m_matrix._41, m_matrix._42, m_matrix._43);
+		return Vector3(m_matrix[3][0]/*_41*/, m_matrix[3][1]/*._42*/, m_matrix[3][2]/*._43*/);
 	}
 
 	const std::string ToString() const
 	{
-		std::string mat = std::to_string(m_matrix(0, 0)) + ",  " + std::to_string(m_matrix(0, 1)) + ", " + std::to_string(m_matrix(0, 2)) + ", " + std::to_string(m_matrix(0, 3)) + "\n";
+		std::string mat = "Please fix this lmao"/*std::to_string(m_matrix(0, 0)) + ",  " + std::to_string(m_matrix(0, 1)) + ", " + std::to_string(m_matrix(0, 2)) + ", " + std::to_string(m_matrix(0, 3)) + "\n";
 		mat += std::to_string(m_matrix(1, 0)) + ", " + std::to_string(m_matrix(1, 1)) + ", " + std::to_string(m_matrix(1, 2)) + ", " + std::to_string(m_matrix(1, 3)) + "\n";
 		mat += std::to_string(m_matrix(2, 0)) + ", " + std::to_string(m_matrix(2, 1)) + ", " + std::to_string(m_matrix(2, 2)) + ", " + std::to_string(m_matrix(2, 3)) + "\n";
-		mat += std::to_string(m_matrix(3, 0)) + ", " + std::to_string(m_matrix(3, 1)) + ", " + std::to_string(m_matrix(3, 2)) + ", " + std::to_string(m_matrix(3, 3));
+		mat += std::to_string(m_matrix(3, 0)) + ", " + std::to_string(m_matrix(3, 1)) + ", " + std::to_string(m_matrix(3, 2)) + ", " + std::to_string(m_matrix(3, 3))*/;
 		return mat;
 	}
 
@@ -43,5 +42,5 @@ public:
 	}
 
 private:
-	DirectX::SimpleMath::Matrix m_matrix;
+	glm::mat4 m_matrix;
 };

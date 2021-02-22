@@ -26,7 +26,6 @@
 #include "Events/EventManager.h"
 #include "Engine/Input.h"
 #include "ImGuizmo.h"
-#include <DirectXMath.h>
 #include "Math/Vector3.h"
 #include "EditorApp.h"
 #include "Components/Graphics/Model.h"
@@ -167,7 +166,7 @@ void Havana::InitUI()
 	Icons["FlipCamera"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/FlipCamera.dds"));
 
 	//m_engine->GetInput().Stop();
-	GetInput().GetMouse().SetWindow(GetActiveWindow());
+	//GetInput().GetMouse().SetWindow(GetActiveWindow());
 }
 
 bool show_demo_window = true;
@@ -433,10 +432,10 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 			}
 			ImGui::EndMenu();
 		}*/
-		auto Keyboard = GetInput().GetKeyboardState();
+		//auto Keyboard = GetInput().GetKeyboardState();
 		if (!m_app->IsGameRunning())
 		{
-			if (ImGui::ImageButton(Icons["Play"]->TexHandle, ImVec2(30.f, 30.f)) || Keyboard.F5)
+			if (ImGui::ImageButton(Icons["Play"]->TexHandle, ImVec2(30.f, 30.f))/* || Keyboard.F5*/)
 			{
 				ImGui::SetWindowFocus("Game");
 				m_engine->GetInput().Resume();
@@ -452,7 +451,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 			//	PauseGameFunc();
 			//}
 
-			if (ImGui::ImageButton(Icons["Stop"]->TexHandle, ImVec2(30.f, 30.f)) || (Keyboard.F5 && Keyboard.LeftShift))
+			if (ImGui::ImageButton(Icons["Stop"]->TexHandle, ImVec2(30.f, 30.f))/* || (Keyboard.F5 && Keyboard.LeftShift)*/)
 			{
 				MaximizeOnPlay = false;
 				SelectedTransform = nullptr;
@@ -461,7 +460,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 			}
 		}
 
-		if (ImGui::ImageButton(Icons["FlipCamera"]->TexHandle, ImVec2(30.f, 30.f)) || (Keyboard.F5 && Keyboard.LeftShift))
+		if (ImGui::ImageButton(Icons["FlipCamera"]->TexHandle, ImVec2(30.f, 30.f))/* || (Keyboard.F5 && Keyboard.LeftShift)*/)
 		{
 			if (m_viewportMode == ViewportMode::Editor)
 			{
@@ -475,7 +474,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 
 		float endOfMenu = ImGui::GetCursorPosX();
 		float buttonWidth = 40.f;
-		float pos = (ImGui::GetMousePos().x - m_engine->GetWindow()->GetPosition().X());
+		float pos = (ImGui::GetMousePos().x - m_engine->GetWindow()->GetPosition().x);
 		static_cast<Win32Window*>(m_engine->GetWindow())->CanMoveWindow((pos > endOfMenu&& pos < ImGui::GetWindowWidth() - (buttonWidth * 5.f)));
 
 		static int frameCount = 0;
@@ -910,7 +909,7 @@ void Havana::ClearSelection()
 void Havana::DrawCommandPanel()
 {
 	OPTICK_CATEGORY("Command History", Optick::Category::Debug);
-	auto& kb = GetInput().GetKeyboardState();
+	/*auto& kb = GetInput().GetKeyboardState();
 	tracker.Update(kb);
 
 	if (kb.LeftControl && tracker.pressed.Z)
@@ -926,7 +925,7 @@ void Havana::DrawCommandPanel()
 		}
 	}
 
-	EditorCommands.Draw();
+	EditorCommands.Draw();*/
 }
 
 void Havana::DrawResourceMonitor()
@@ -1009,11 +1008,11 @@ void Havana::UpdateWorld(World* world, Transform* root, const std::vector<Entity
 		OPTICK_CATEGORY("Entity List", Optick::Category::GameLogic);
 		if (ImGui::IsWindowFocused())
 		{
-			if (SelectedTransform && GetInput().GetKeyboardState().Delete)
+			/*if (SelectedTransform && GetInput().GetKeyboardState().Delete)
 			{
 				RecusiveDelete(SelectedTransform->Parent, SelectedTransform);
 				ClearSelection();
-			}
+			}*/
 		}
 		UpdateWorldRecursive(root);
 	}
@@ -1484,18 +1483,18 @@ void Havana::RenderMainView(Moonlight::CameraData& EditorCamera)
 
 	if (m_viewportMode == ViewportMode::Game)
 	{
-		if (GetInput().GetKeyboardState().Escape/*  && m_app->IsGameRunning()&& AllowGameInput*/)
-		{
-			m_engine->GetInput().Stop();
-			AllowGameInput = false;
-			ImGui::SetWindowFocus("World");
-			//Renderer->SetViewportMode(ViewportMode::World);
-		}
-		else if (ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows)/* && AllowGameInput*/)
-		{
-			m_engine->GetInput().Resume();
-			AllowGameInput = true;
-		}
+		//if (GetInput().GetKeyboardState().Escape/*  && m_app->IsGameRunning()&& AllowGameInput*/)
+		//{
+		//	m_engine->GetInput().Stop();
+		//	AllowGameInput = false;
+		//	ImGui::SetWindowFocus("World");
+		//	//Renderer->SetViewportMode(ViewportMode::World);
+		//}
+		//else if (ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows)/* && AllowGameInput*/)
+		//{
+		//	m_engine->GetInput().Resume();
+		//	AllowGameInput = true;
+		//}
 	}
 
 	if (Renderer && m_engine->EditorCamera.Buffer)
@@ -1646,11 +1645,11 @@ void Havana::RenderMainView(Moonlight::CameraData& EditorCamera)
 
 			// Get the current cursor position (where your window is)
 			ImVec2 pos = ImGui::GetCursorScreenPos();
-			Vector2 evt;
+			/*Vector2 evt;
 			evt.SetX((GetEngine().GetWindow()->GetPosition().X() + GetInput().GetMousePosition().X()) - pos.x);
 			evt.SetY((GetEngine().GetWindow()->GetPosition().Y() + GetInput().GetMousePosition().Y()) - pos.y);
 			mouseTracker.Update(GetInput().GetMouseState());
-			static bool hasClicked = false;
+			static bool hasClicked = false;*/
 			/*if (Renderer && GetInput().GetMouseState().leftButton && !hasClicked)
 			{
 				Renderer->PickScene(evt);
@@ -1661,39 +1660,39 @@ void Havana::RenderMainView(Moonlight::CameraData& EditorCamera)
 				hasClicked = false;
 			}*/
 
-			DirectX::XMFLOAT4X4 objView;
-			if (SelectedTransform)
-			{
-				DirectX::XMStoreFloat4x4(&objView, SelectedTransform->GetMatrix().GetInternalMatrix());
-			}
+			//DirectX::XMFLOAT4X4 objView;
+			//if (SelectedTransform)
+			//{
+			//	DirectX::XMStoreFloat4x4(&objView, SelectedTransform->GetMatrix().GetInternalMatrix());
+			//}
 
-			ImGuizmo::BeginFrame();
+			//ImGuizmo::BeginFrame();
 			static ImGuizmo::OPERATION mCurrentGizmoOperation(ImGuizmo::TRANSLATE);
 			static ImGuizmo::MODE mCurrentGizmoMode(ImGuizmo::LOCAL);
-			static bool useSnap = false;
-			static float snap[3] = { 1.f, 1.f, 1.f };
+			//static bool useSnap = false;
+			//static float snap[3] = { 1.f, 1.f, 1.f };
 
-			float matrixTranslation[3], matrixRotation[3], matrixScale[3];
-			//ImGuizmo::DecomposeMatrixToComponents(&objView._11, matrixTranslation, matrixRotation, matrixScale);
+			//float matrixTranslation[3], matrixRotation[3], matrixScale[3];
+			////ImGuizmo::DecomposeMatrixToComponents(&objView._11, matrixTranslation, matrixRotation, matrixScale);
 
-			bool isMovingMouse = (ImGui::GetMousePos().x != previousMousePos.x) && (ImGui::GetMousePos().y != previousMousePos.y);
-			previousMousePos = ImGui::GetMousePos();
-			if (ImGui::IsWindowFocused() && ImGuizmo::IsUsing() && isMovingMouse) {
-				//ImGui::InputFloat3("Tr", matrixTranslation, 3);
-				if (SelectedTransform)
-				{
-					//HavanaUtils::EditableVector3("RtVec", SelectedTransform->Rotation);
-					//matrixRotation[0] = SelectedTransform->Rotation[0] * DirectX::XM_PI / 180.f;
-					//matrixRotation[1] = SelectedTransform->Rotation[1] * DirectX::XM_PI / 180.f;
-					//matrixRotation[2] = SelectedTransform->Rotation[2] * DirectX::XM_PI / 180.f;
-				}
-				//else
-				//{
-				//	ImGui::InputFloat3("Rt", matrixRotation, 3);
-				//}
-				//ImGui::InputFloat3("Sc", matrixScale, 3);
-				//ImGuizmo::RecomposeMatrixFromComponents(matrixTranslation, matrixRotation, matrixScale, &objView._11);
-			}
+			//bool isMovingMouse = (ImGui::GetMousePos().x != previousMousePos.x) && (ImGui::GetMousePos().y != previousMousePos.y);
+			//previousMousePos = ImGui::GetMousePos();
+			//if (ImGui::IsWindowFocused() && ImGuizmo::IsUsing() && isMovingMouse) {
+			//	//ImGui::InputFloat3("Tr", matrixTranslation, 3);
+			//	if (SelectedTransform)
+			//	{
+			//		//HavanaUtils::EditableVector3("RtVec", SelectedTransform->Rotation);
+			//		//matrixRotation[0] = SelectedTransform->Rotation[0] * DirectX::XM_PI / 180.f;
+			//		//matrixRotation[1] = SelectedTransform->Rotation[1] * DirectX::XM_PI / 180.f;
+			//		//matrixRotation[2] = SelectedTransform->Rotation[2] * DirectX::XM_PI / 180.f;
+			//	}
+			//	//else
+			//	//{
+			//	//	ImGui::InputFloat3("Rt", matrixRotation, 3);
+			//	//}
+			//	//ImGui::InputFloat3("Sc", matrixScale, 3);
+			//	//ImGuizmo::RecomposeMatrixFromComponents(matrixTranslation, matrixRotation, matrixScale, &objView._11);
+			//}
 
 			{
 				m_isWorldViewFocused = ImGui::IsWindowFocused();
@@ -1707,8 +1706,8 @@ void Havana::RenderMainView(Moonlight::CameraData& EditorCamera)
 					// Ask ImGui to draw it as an image:
 					// Under OpenGL the ImGUI image type is GLuint
 					// So make sure to use "(void *)tex" but not "&tex"
-					ImGui::Image(bgfx::getTexture(m_engine->EditorCamera.Buffer->Buffer), ImVec2(WorldViewRenderSize.X(), WorldViewRenderSize.Y()), ImVec2(0, 0),
-						ImVec2(Mathf::Clamp(0.f, 1.0f, WorldViewRenderSize.X() / m_engine->EditorCamera.Buffer->Width), Mathf::Clamp(0.f, 1.0f, WorldViewRenderSize.Y() / m_engine->EditorCamera.Buffer->Height)));
+					ImGui::Image(bgfx::getTexture(m_engine->EditorCamera.Buffer->Buffer), ImVec2(WorldViewRenderSize.x, WorldViewRenderSize.y), ImVec2(0, 0),
+						ImVec2(Mathf::Clamp(0.f, 1.0f, WorldViewRenderSize.x / m_engine->EditorCamera.Buffer->Width), Mathf::Clamp(0.f, 1.0f, WorldViewRenderSize.y / m_engine->EditorCamera.Buffer->Height)));
 					/*ImGui::GetWindowDrawList()->AddImage(
 						(void*)srv.Get(),
 						ImVec2(pos.x, pos.y),
@@ -1716,105 +1715,106 @@ void Havana::RenderMainView(Moonlight::CameraData& EditorCamera)
 						ImVec2(0, 0),
 						ImVec2(Mathf::Clamp(0.f, 1.0f, WorldViewRenderSize.X() / Renderer->GameViewRTT->Width), Mathf::Clamp(0.f, 1.0f, WorldViewRenderSize.Y() / Renderer->GameViewRTT->Height)));*/
 
-					ImGuizmo::SetRect(WorldViewRenderLocation.X(), WorldViewRenderLocation.Y(), WorldViewRenderSize.X(), WorldViewRenderSize.Y());
+					ImGuizmo::SetRect(WorldViewRenderLocation.x, WorldViewRenderLocation.y, WorldViewRenderSize.x, WorldViewRenderSize.y);
 
-					DirectX::XMFLOAT4X4 fView;
-					if (EditorCamera.Projection == Moonlight::ProjectionType::Perspective)
-					{
-						DirectX::XMMATRIX perspectiveMatrix = DirectX::XMMatrixPerspectiveFovRH(
-							EditorCamera.FOV * DirectX::XM_PI / 180.0f,
-							WorldViewRenderSize.X() / WorldViewRenderSize.Y(),
-							.1f,
-							1000.0f
-						);
+					//DirectX::XMFLOAT4X4 fView;
+					//if (EditorCamera.Projection == Moonlight::ProjectionType::Perspective)
+					//{
+					//	DirectX::XMMATRIX perspectiveMatrix = DirectX::XMMatrixPerspectiveFovRH(
+					//		EditorCamera.FOV * DirectX::XM_PI / 180.0f,
+					//		WorldViewRenderSize.X() / WorldViewRenderSize.Y(),
+					//		.1f,
+					//		1000.0f
+					//	);
 
-						DirectX::XMStoreFloat4x4(&fView, perspectiveMatrix);
-					}
-					else
-					{
-						DirectX::XMMATRIX perspectiveMatrix = DirectX::XMMatrixOrthographicRH(
-							EditorCamera.OutputSize.X() / EditorCamera.OrthographicSize,
-							EditorCamera.OutputSize.Y() / EditorCamera.OrthographicSize,
-							.1f,
-							100.0f
-						);
+					//	DirectX::XMStoreFloat4x4(&fView, perspectiveMatrix);
+					//}
+					//else
+					//{
+					//	DirectX::XMMATRIX perspectiveMatrix = DirectX::XMMatrixOrthographicRH(
+					//		EditorCamera.OutputSize.X() / EditorCamera.OrthographicSize,
+					//		EditorCamera.OutputSize.Y() / EditorCamera.OrthographicSize,
+					//		.1f,
+					//		100.0f
+					//	);
 
-						DirectX::XMStoreFloat4x4(&fView, perspectiveMatrix);
-					}
-					ImGuizmo::SetDrawlist();
-					ImGuizmo::SetOrthographic(false);
+					//	DirectX::XMStoreFloat4x4(&fView, perspectiveMatrix);
+					//}
+					//ImGuizmo::SetDrawlist();
+					//ImGuizmo::SetOrthographic(false);
 
-					const DirectX::XMVECTORF32 eye = { EditorCamera.Position.x, EditorCamera.Position.y, EditorCamera.Position.z, 0 };
-					const DirectX::XMVECTORF32 at = { EditorCamera.Position.x + EditorCamera.Front.x, EditorCamera.Position.y + EditorCamera.Front.y, EditorCamera.Position.z + EditorCamera.Front.z, 0.0f };
-					const DirectX::XMVECTORF32 up = { Vector3::Up.x, Vector3::Up.y, Vector3::Up.z, 0 };
+					//const DirectX::XMVECTORF32 eye = { EditorCamera.Position.x, EditorCamera.Position.y, EditorCamera.Position.z, 0 };
+					//const DirectX::XMVECTORF32 at = { EditorCamera.Position.x + EditorCamera.Front.x, EditorCamera.Position.y + EditorCamera.Front.y, EditorCamera.Position.z + EditorCamera.Front.z, 0.0f };
+					//const DirectX::XMVECTORF32 up = { Vector3::Up.x, Vector3::Up.y, Vector3::Up.z, 0 };
 
-					DirectX::XMMATRIX vec = DirectX::XMMatrixLookAtRH(eye, at, up);
+					//DirectX::XMMATRIX vec = DirectX::XMMatrixLookAtRH(eye, at, up);
 
-					DirectX::XMFLOAT4X4 lookAtView;
-					DirectX::XMStoreFloat4x4(&lookAtView, vec);
+					//DirectX::XMFLOAT4X4 lookAtView;
+					//DirectX::XMStoreFloat4x4(&lookAtView, vec);
 
-					DirectX::XMFLOAT4X4 idView;
-					DirectX::XMStoreFloat4x4(&idView, DirectX::XMMatrixIdentity());
+					//DirectX::XMFLOAT4X4 idView;
+					//DirectX::XMStoreFloat4x4(&idView, DirectX::XMMatrixIdentity());
 
-					//ImGuizmo::DrawGrid(&fView2._11, &fView._11, &idView._11, 100.f);
-					//ImGuizmo::DrawCubes(&fView2._11, &fView._11, &idView._11, 1);
-					ImGuizmo::Manipulate(&lookAtView._11, &fView._11, mCurrentGizmoOperation, mCurrentGizmoMode, &objView._11, &idView._11, useSnap ? &snap[0] : NULL);
-					if (ImGui::IsWindowFocused() && ImGuizmo::IsUsing()/* && isMovingMouse*/)
-					{
-						if (SelectedTransform)
-						{
-							//ImGuizmo::DecomposeMatrixToComponents(&objView._11, matrixTranslation, matrixRotation, matrixScale);
+					////ImGuizmo::DrawGrid(&fView2._11, &fView._11, &idView._11, 100.f);
+					////ImGuizmo::DrawCubes(&fView2._11, &fView._11, &idView._11, 1);
+					//ImGuizmo::Manipulate(&lookAtView._11, &fView._11, mCurrentGizmoOperation, mCurrentGizmoMode, &objView._11, &idView._11, useSnap ? &snap[0] : NULL);
+					//if (ImGui::IsWindowFocused() && ImGuizmo::IsUsing()/* && isMovingMouse*/)
+					//{
+					//	if (SelectedTransform)
+					//	{
+					//		//ImGuizmo::DecomposeMatrixToComponents(&objView._11, matrixTranslation, matrixRotation, matrixScale);
 
-							Matrix4 m = Matrix4(objView);
+					//		Matrix4 m = Matrix4(objView);
 
-							DirectX::SimpleMath::Vector3 pos;
-							DirectX::SimpleMath::Quaternion rot;
-							DirectX::SimpleMath::Vector3 scale;
-							m.GetInternalMatrix().Decompose(scale, rot, pos);
-							//memcpy(matrixTranslation, prevMatrixTranslation, sizeof(float) * 3);
-							//memcpy(matrixRotation, prevMatrixRotation, sizeof(float) * 3);
-							prevMatrixRotation[0] = matrixRotation[0];
-							prevMatrixRotation[1] = matrixRotation[1];
-							prevMatrixRotation[2] = matrixRotation[2];
+					//		DirectX::SimpleMath::Vector3 pos;
+					//		DirectX::SimpleMath::Quaternion rot;
+					//		DirectX::SimpleMath::Vector3 scale;
+					//		m.GetInternalMatrix().Decompose(scale, rot, pos);
 
-							Quaternion q = rot;// DirectX::SimpleMath::Quaternion::CreateFromRotationMatrix(objView);
-							//memcpy(matrixScale, prevMatrixScale, sizeof(float) * 3);
-							//SelectedTransform->SetWorldTransform(m, false);
-							Vector3 euler = Quaternion::ToEulerAngles(q);
-							SelectedTransform->SetPosition(Vector3(pos));
-							//SelectedTransform->SetRotation(euler);// Vector3(matrixRotation[0], matrixRotation[1], matrixRotation[2]));
-							//SelectedTransform->SetRotation(Vector3(euler.x * 180.f / DirectX::XM_PI, euler.y * 180.f / DirectX::XM_PI, euler .z * 180.f / DirectX::XM_PI));
+					//		//memcpy(matrixTranslation, prevMatrixTranslation, sizeof(float) * 3);
+					//		//memcpy(matrixRotation, prevMatrixRotation, sizeof(float) * 3);
+					//		prevMatrixRotation[0] = matrixRotation[0];
+					//		prevMatrixRotation[1] = matrixRotation[1];
+					//		prevMatrixRotation[2] = matrixRotation[2];
 
-							SelectedTransform->SetScale(Vector3(scale));
+					//		Quaternion q = rot;// DirectX::SimpleMath::Quaternion::CreateFromRotationMatrix(objView);
+					//		//memcpy(matrixScale, prevMatrixScale, sizeof(float) * 3);
+					//		//SelectedTransform->SetWorldTransform(m, false);
+					//		Vector3 euler = Quaternion::ToEulerAngles(q);
+					//		SelectedTransform->SetPosition(Vector3(pos));
+					//		//SelectedTransform->SetRotation(euler);// Vector3(matrixRotation[0], matrixRotation[1], matrixRotation[2]));
+					//		//SelectedTransform->SetRotation(Vector3(euler.x * 180.f / DirectX::XM_PI, euler.y * 180.f / DirectX::XM_PI, euler .z * 180.f / DirectX::XM_PI));
 
-						}
-					}
+					//		SelectedTransform->SetScale(Vector3(scale));
 
-					{
+					//	}
+					//}
 
-					ImGuizmo::ViewManipulate(&lookAtView._11, 8.f, ImVec2(WorldViewRenderLocation.X() + WorldViewRenderSize.X() - 128, WorldViewRenderLocation.Y()), ImVec2(128, 128), 0x00101010);
+					//{
 
-					//DirectX::SimpleMath::Vector3 pos;
-					//DirectX::SimpleMath::Quaternion rot;
-					//DirectX::SimpleMath::Vector3 scale;
-					//Matrix4(lookAtView).GetInternalMatrix().Decompose(scale, rot, pos);
+					//ImGuizmo::ViewManipulate(&lookAtView._11, 8.f, ImVec2(WorldViewRenderLocation.X() + WorldViewRenderSize.X() - 128, WorldViewRenderLocation.Y()), ImVec2(128, 128), 0x00101010);
 
-					//m_app->EditorSceneManager->GetEditorCameraTransform()->SetPosition(pos);
-					}
+					////DirectX::SimpleMath::Vector3 pos;
+					////DirectX::SimpleMath::Quaternion rot;
+					////DirectX::SimpleMath::Vector3 scale;
+					////Matrix4(lookAtView).GetInternalMatrix().Decompose(scale, rot, pos);
+
+					////m_app->EditorSceneManager->GetEditorCameraTransform()->SetPosition(pos);
+					//}
 				}
 			}
 
 			ImGui::SetCursorPos(pos);
-			if (!GetInput().GetMouseState().rightButton)
-			{
-				auto kb = GetInput().GetKeyboardState();
-				if (kb.W)
-					mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
-				if (kb.E)
-					mCurrentGizmoOperation = ImGuizmo::ROTATE;
-				if (kb.R) // r Key
-					mCurrentGizmoOperation = ImGuizmo::SCALE;
-			}
+			//if (!GetInput().GetMouseState().rightButton)
+			//{
+			//	auto kb = GetInput().GetKeyboardState();
+			//	if (kb.W)
+			//		mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
+			//	if (kb.E)
+			//		mCurrentGizmoOperation = ImGuizmo::ROTATE;
+			//	if (kb.R) // r Key
+			//		mCurrentGizmoOperation = ImGuizmo::SCALE;
+			//}
 			if (ImGui::RadioButton("Translate", mCurrentGizmoOperation == ImGuizmo::TRANSLATE))
 				mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
 			ImGui::SameLine();

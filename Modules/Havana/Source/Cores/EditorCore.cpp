@@ -45,162 +45,162 @@ void EditorCore::Update(float dt)
 {
 	OPTICK_CATEGORY("FlyingCameraCore::Update", Optick::Category::Camera);
 
-	auto Keyboard = m_editor->GetInput().GetKeyboardState();
-	auto Mouse = m_editor->GetInput().GetMouseState();
+	//auto Keyboard = m_editor->GetInput().GetKeyboardState();
+	//auto Mouse = m_editor->GetInput().GetMouseState();
 
-	if (m_editor->IsWorldViewFocused())
-	{
-		if (Keyboard.F)
-		{
-			IsFocusingTransform = true;
+	//if (m_editor->IsWorldViewFocused())
+	//{
+	//	if (Keyboard.F)
+	//	{
+	//		IsFocusingTransform = true;
 
-			// Keep a note of the time the movement started.
-			startTime = 0.f;
+	//		// Keep a note of the time the movement started.
+	//		startTime = 0.f;
 
-			// Calculate the journey length.
-			TravelDistance = (EditorCameraTransform->GetPosition() - Vector3()).Length();
+	//		// Calculate the journey length.
+	//		TravelDistance = (EditorCameraTransform->GetPosition() - Vector3()).Length();
 
-			totalTime = 0.f;
-		}
+	//		totalTime = 0.f;
+	//	}
 
-		totalTime += dt;
-		
-		if (!IsFocusingTransform)
-		{
-			if (Mouse.rightButton)
-			{
-				if (!PreviousMouseDown)
-				{
-					FirstUpdate = true;
-					PreviousMouseDown = true;
-				}
-			}
-			else
-			{
-				PreviousMouseDown = false;
-				return;
-			}
+	//	totalTime += dt;
+	//	
+	//	if (!IsFocusingTransform)
+	//	{
+	//		if (Mouse.rightButton)
+	//		{
+	//			if (!PreviousMouseDown)
+	//			{
+	//				FirstUpdate = true;
+	//				PreviousMouseDown = true;
+	//			}
+	//		}
+	//		else
+	//		{
+	//			PreviousMouseDown = false;
+	//			return;
+	//		}
 
-			float CameraSpeed = m_flyingSpeed;
-			if (Keyboard.LeftShift)
-			{
-				CameraSpeed += m_speedModifier;
-			}
-			CameraSpeed *= dt;
+	//		float CameraSpeed = m_flyingSpeed;
+	//		if (Keyboard.LeftShift)
+	//		{
+	//			CameraSpeed += m_speedModifier;
+	//		}
+	//		CameraSpeed *= dt;
 
-			const Vector3& Front = EditorCameraTransform->Front();
+	//		const Vector3& Front = EditorCameraTransform->Front();
 
-			if (Keyboard.W)
-			{
-				EditorCameraTransform->Translate(Front * CameraSpeed);
-			}
-			if (Keyboard.S)
-			{
-				EditorCameraTransform->Translate((Front * CameraSpeed) * -1.f);
-			}
-			if (Keyboard.A)
-			{
-				EditorCameraTransform->Translate(Vector3::Up.Cross(Front).Normalized() * CameraSpeed);
-			}
-			if (Keyboard.D)
-			{
-				EditorCameraTransform->Translate(Front.Cross(Vector3::Up).Normalized() * CameraSpeed);
-			}
-			if (Keyboard.Space)
-			{
-				EditorCameraTransform->Translate(Vector3::Up * CameraSpeed);
-			}
-			if (Keyboard.E)
-			{
-				EditorCameraTransform->Translate(EditorCameraTransform->Up() * CameraSpeed);
-			}
-			if (Keyboard.Q)
-			{
-				EditorCameraTransform->Translate(Front.Cross(-Vector3::Up).Cross(Front).Normalized() * CameraSpeed);
-			}
+	//		if (Keyboard.W)
+	//		{
+	//			EditorCameraTransform->Translate(Front * CameraSpeed);
+	//		}
+	//		if (Keyboard.S)
+	//		{
+	//			EditorCameraTransform->Translate((Front * CameraSpeed) * -1.f);
+	//		}
+	//		if (Keyboard.A)
+	//		{
+	//			EditorCameraTransform->Translate(Front.Cross(Vector3::Up).Normalized() * CameraSpeed);
+	//		}
+	//		if (Keyboard.D)
+	//		{
+	//			EditorCameraTransform->Translate(Vector3::Up.Cross(Front).Normalized() * CameraSpeed);
+	//		}
+	//		if (Keyboard.Space)
+	//		{
+	//			EditorCameraTransform->Translate(Vector3::Up * CameraSpeed);
+	//		}
+	//		if (Keyboard.E)
+	//		{
+	//			EditorCameraTransform->Translate(EditorCameraTransform->Up() * CameraSpeed);
+	//		}
+	//		if (Keyboard.Q)
+	//		{
+	//			EditorCameraTransform->Translate(Front.Cross(-Vector3::Up).Cross(Front).Normalized() * CameraSpeed);
+	//		}
 
-			Vector2 MousePosition = m_editor->GetInput().GetMousePosition();
-			if (MousePosition.IsZero())
-			{
-				return;
-			}
+	//		Vector2 MousePosition = m_editor->GetInput().GetMousePosition();
+	//		if (MousePosition.IsZero())
+	//		{
+	//			return;
+	//		}
 
-			if (FirstUpdate)
-			{
-				LastX = MousePosition.X();
-				LastY = MousePosition.Y();
-				FirstUpdate = false;
-			}
+	//		if (FirstUpdate)
+	//		{
+	//			LastX = MousePosition.X();
+	//			LastY = MousePosition.Y();
+	//			FirstUpdate = false;
+	//		}
 
-			float XOffset = MousePosition.X() - LastX;
-			float YOffest = LastY - MousePosition.Y();
+	//		float XOffset = MousePosition.X() - LastX;
+	//		float YOffest = LastY - MousePosition.Y();
 
-			Input& editorInput = GetEditor()->GetInput();
-			Vector2 windowPos = GetEngine().GetWindow()->GetPosition();
-			Vector2 windowSize = GetEngine().GetWindow()->GetSize();
-			Vector2 offset = editorInput.GetMouseOffset();
-			if (MousePosition.X() + windowPos.X()<= windowPos.X())
-			{
-				editorInput.SetMousePosition(Vector2(windowPos.X() + windowSize.X(), MousePosition.Y() + windowPos.Y()));
-			}
-			else if (MousePosition.X() + windowPos.X() >= windowPos.X() + windowSize.X())
-			{
-				editorInput.SetMousePosition(Vector2(windowPos.X(), MousePosition.Y() + windowPos.Y()));
-			}
+	//		Input& editorInput = GetEditor()->GetInput();
+	//		Vector2 windowPos = GetEngine().GetWindow()->GetPosition();
+	//		Vector2 windowSize = GetEngine().GetWindow()->GetSize();
+	//		Vector2 offset = editorInput.GetMouseOffset();
+	//		if (MousePosition.X() + windowPos.X()<= windowPos.X())
+	//		{
+	//			editorInput.SetMousePosition(Vector2(windowPos.X() + windowSize.X(), MousePosition.Y() + windowPos.Y()));
+	//		}
+	//		else if (MousePosition.X() + windowPos.X() >= windowPos.X() + windowSize.X())
+	//		{
+	//			editorInput.SetMousePosition(Vector2(windowPos.X(), MousePosition.Y() + windowPos.Y()));
+	//		}
 
-			if (MousePosition.Y() + windowPos.Y() <= windowPos.Y())
-			{
-				editorInput.SetMousePosition(Vector2(windowPos.X() + MousePosition.X(), windowPos.Y() + windowSize.Y()));
-			}
-			else if (MousePosition.Y() + windowPos.Y() >= windowPos.Y() + windowSize.Y())
-			{
-				editorInput.SetMousePosition(Vector2(windowPos.X() + MousePosition.X(), windowPos.Y()));
-			}
+	//		if (MousePosition.Y() + windowPos.Y() <= windowPos.Y())
+	//		{
+	//			editorInput.SetMousePosition(Vector2(windowPos.X() + MousePosition.X(), windowPos.Y() + windowSize.Y()));
+	//		}
+	//		else if (MousePosition.Y() + windowPos.Y() >= windowPos.Y() + windowSize.Y())
+	//		{
+	//			editorInput.SetMousePosition(Vector2(windowPos.X() + MousePosition.X(), windowPos.Y()));
+	//		}
 
-			LastX = MousePosition.X();
-			LastY = MousePosition.Y();
+	//		LastX = MousePosition.X();
+	//		LastY = MousePosition.Y();
 
-			XOffset *= m_lookSensitivity;
-			YOffest *= m_lookSensitivity;
+	//		XOffset *= m_lookSensitivity;
+	//		YOffest *= m_lookSensitivity;
 
-			const float Yaw = EditorCamera->Yaw += XOffset;
-			float Pitch = EditorCamera->Pitch += YOffest;
+	//		const float Yaw = EditorCamera->Yaw -= XOffset;
+	//		float Pitch = EditorCamera->Pitch += YOffest;
 
-			if (Pitch > 89.0f)
-			{
-				Pitch = 89.0f;
-			}
-			if (Pitch < -89.0f)
-			{
-				Pitch = -89.0f;
-			}
+	//		if (Pitch > 89.0f)
+	//		{
+	//			Pitch = 89.0f;
+	//		}
+	//		if (Pitch < -89.0f)
+	//		{
+	//			Pitch = -89.0f;
+	//		}
 
-			Vector3 newFront;
-			newFront.x = (cos(Mathf::Radians(Yaw)) * cos(Mathf::Radians(Pitch)));
-			newFront.y = (sin(Mathf::Radians(Pitch)));
-			newFront.z = (sin(Mathf::Radians(Yaw)) * cos(Mathf::Radians(Pitch)));
+	//		Vector3 newFront;
+	//		newFront.x = (cos(Mathf::Radians(Yaw)) * cos(Mathf::Radians(Pitch)));
+	//		newFront.y = (sin(Mathf::Radians(Pitch)));
+	//		newFront.z = (sin(Mathf::Radians(Yaw)) * cos(Mathf::Radians(Pitch)));
 
-			EditorCameraTransform->LookAt(newFront.Normalized());
-		}
-		else
-		{
-			// Distance moved = time * speed.
-			float distCovered = (totalTime - startTime) * m_focusSpeed;
+	//		EditorCameraTransform->LookAt(newFront.Normalized());
+	//	}
+	//	else
+	//	{
+	//		// Distance moved = time * speed.
+	//		float distCovered = (totalTime - startTime) * m_focusSpeed;
 
-			// Fraction of journey completed = current distance divided by total distance.
-			float fracJourney = distCovered / TravelDistance;
+	//		// Fraction of journey completed = current distance divided by total distance.
+	//		float fracJourney = distCovered / TravelDistance;
 
-			if (fracJourney <= .8f)
-			{
-				Vector3 lerp = Mathf::Lerp(EditorCameraTransform->GetPosition(), Vector3(), fracJourney);
-				EditorCameraTransform->SetPosition(lerp);
-			}
-			else
-			{
-				IsFocusingTransform = false;
-			}
-		}
-	}
+	//		if (fracJourney <= .8f)
+	//		{
+	//			Vector3 lerp = Mathf::Lerp(EditorCameraTransform->GetPosition(), Vector3(), fracJourney);
+	//			EditorCameraTransform->SetPosition(lerp);
+	//		}
+	//		else
+	//		{
+	//			IsFocusingTransform = false;
+	//		}
+	//	}
+	//}
 }
 
 void EditorCore::Update(float dt, Transform* rootTransform)
