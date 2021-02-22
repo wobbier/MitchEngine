@@ -31,6 +31,7 @@
 #include "Work/Burst.h"
 #include "Profiling/BasicFrameProfile.h"
 #include "BGFXRenderer.h"
+#include "Window/SDLWindow.h"
 
 Engine& GetEngine()
 {
@@ -100,7 +101,8 @@ void Engine::Init(Game* game)
 			}
 		}
 	};
-	GameWindow = new Win32Window(EngineConfig->GetValue("Title"), Func, 500, 300, Vector2(WindowWidth, WindowHeight));
+	//GameWindow = new Win32Window(EngineConfig->GetValue("Title"), Func, 500, 300, Vector2(WindowWidth, WindowHeight));
+	GameWindow = new SDLWindow(EngineConfig->GetValue("Title"), Func, 500, 300, Vector2(WindowWidth, WindowHeight));
 	Func(Vector2(1920, 1080));
 #endif
 #if ME_PLATFORM_UWP
@@ -181,15 +183,15 @@ void Engine::Run()
 		if (AccumulatedTime >= MaxDeltaTime)
 		{
 			OPTICK_FRAME("MainLoop");
-			float deltaTime = DeltaTime = AccumulatedTime;
-			NewRenderer->BeginFrame(Vector2(0, 0), 0, 0/*m_input.GetMousePosition()
-				, (m_input.GetMouseState().leftButton ? 0x01 : 0)
-				| (m_input.GetMouseState().rightButton ? 0x02 : 0)
-				| (m_input.GetMouseState().middleButton ? 0x04 : 0)
-				, m_input.GetMouseScrollOffset().Y()*/
-				, GetWindow()->GetSize()
-				, -1
-				, 255);
+			float deltaTime = DeltaTime = AccumulatedTime; 
+				NewRenderer->BeginFrame(m_input.GetMousePosition(), (m_input.IsMouseButtonDown(MouseButton::Left) ? 0x01 : 0)
+					//| (m_input.GetMouseState().rightButton ? 0x02 : 0)
+					//| (m_input.GetMouseState().middleButton ? 0x04 : 0), 0
+					, 0
+					//, m_input.GetMouseScrollOffset().Y()*/
+					, GameWindow->GetSize()
+					, -1
+					, 255);
 
 			FrameProfile::GetInstance().Set("Physics", ProfileCategory::Physics);
 			GameWorld->Simulate();

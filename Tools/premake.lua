@@ -87,7 +87,8 @@ includedirs {
   "../ThirdParty/bgfx/include",
   "../ThirdParty/bx/include",
   "../ThirdParty/bx/include/compat/msvc/",
-  "../ThirdParty/bimg/include"
+  "../ThirdParty/bimg/include",
+  "../ThirdParty/SDL/include"
 }
 
 --flags { "FatalWarnings" }
@@ -166,15 +167,19 @@ links {
   "BulletDynamics_Debug",
   "BulletCollision_Debug",
   "LinearMath_Debug",
-  "zlibstaticd"
+  "zlibstaticd",
+  "SDL2d"
 }
 libdirs {
-  "../ThirdParty/Lib/Assimp/Debug"
+  "../ThirdParty/Lib/Assimp/Debug",
+  "../ThirdParty/Lib/SDL/Win64/Debug"
 }
 
 if isUWP then
   defines {"USE_OPTICK=0"}
   libdirs {
+    "$(VCInstallDir)\\lib\\store\\amd64",
+    "$(VCInstallDir)\\lib\\amd64",
     "../ThirdParty/Lib/Bullet/Win64/Debug",
     "../ThirdParty/Lib/Optick/UWP/Debug"
   }
@@ -190,22 +195,22 @@ filter "configurations:Release*"
 defines { "NDEBUG" }
 optimize "On"
 libdirs {
-  "$(VCInstallDir)\\lib\\store\\amd64",
-  "$(VCInstallDir)\\lib\\amd64"
+  "../ThirdParty/Lib/SDL/Win64/Release",
+  "../ThirdParty/Lib/Assimp/Release"
 }
 links {
   "BulletDynamics_MinsizeRel",
   "BulletCollision_MinsizeRel",
   "LinearMath_MinsizeRel",
-  "zlibstatic"
-}
-libdirs {
-  "../ThirdParty/Lib/Assimp/Release"
+  "zlibstatic",
+  "SDL2"
 }
 
 if isUWP then
   defines {"USE_OPTICK=0"}
   libdirs {
+    "$(VCInstallDir)\\lib\\store\\amd64",
+    "$(VCInstallDir)\\lib\\amd64",
     "../ThirdParty/Lib/Bullet/Win64/Release",
     "../ThirdParty/Lib/Optick/UWP/Release"
   }
@@ -542,13 +547,13 @@ if isUWP then
     "xcopy /y /d  \"ThirdParty\\UltralightSDK\\bin\\UWP\\*.*\" \"..\\Build\\Release\""
   }
 else
-  configuration "Debug Editor" 
-  postbuildcommands {
-    "xcopy /y /d  \"ThirdParty\\UltralightSDK\\bin\\Win64\\*.*\" \"..\\Build\\Debug Editor\""
-  }
-  configuration "Debug" 
-  postbuildcommands {
-    "xcopy /y /d  \"ThirdParty\\UltralightSDK\\bin\\Win64\\*.*\" \"..\\Build\\Debug\""
-  }
+  --configuration "Debug Editor" 
+  --postbuildcommands {
+  --  "xcopy /y /d  \"ThirdParty\\UltralightSDK\\bin\\Win64\\*.*\" \"..\\Build\\Debug Editor\""
+  --}
+  --configuration "Debug" 
+  --postbuildcommands {
+  --  "xcopy /y /d  \"ThirdParty\\UltralightSDK\\bin\\Win64\\*.*\" \"..\\Build\\Debug\""
+  --}
 end
 end

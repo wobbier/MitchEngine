@@ -6,6 +6,9 @@
 #include "Engine/Engine.h"
 #include "Mathf.h"
 #include "optick.h"
+#include <glm/gtc/type_ptr.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/matrix_decompose.hpp>
 
 Transform::Transform()
 	: Component("Transform")
@@ -73,15 +76,23 @@ void Transform::Translate(Vector3 NewPosition)
 
 Vector3 Transform::Front()
 {
+	glm::mat4& world = WorldTransform.GetInternalMatrix();
 	//float mat1 = -;// 2, 0);
 	//float mat2 = -WorldTransform.GetInternalMatrix()(2, 1);
 	//float mat3 = -WorldTransform.GetInternalMatrix()(2, 2);
-	return Vector3();// WorldTransform.GetInternalMatrix().Forward());
+	// 20, 21, 22
+	const float* matrix = glm::value_ptr(world);
+	return Vector3(matrix[8], matrix[9], matrix[10]);// WorldTransform.GetInternalMatrix().Forward());
 }
 
 Vector3 Transform::Up()
 {
-	return Vector3();//WorldTransform.GetInternalMatrix().Up());
+	return Vector3(WorldTransform.GetInternalMatrix()[1][0], WorldTransform.GetInternalMatrix()[1][1], WorldTransform.GetInternalMatrix()[1][2]);
+}
+
+Vector3 Transform::Right()
+{
+	return Vector3(WorldTransform.GetInternalMatrix()[0][0], WorldTransform.GetInternalMatrix()[0][1], WorldTransform.GetInternalMatrix()[0][2]);
 }
 
 Vector3& Transform::GetPosition()
@@ -126,13 +137,13 @@ Vector3 Transform::GetWorldPosition()
 
 void Transform::SetWorldPosition(const Vector3& NewPosition)
 {
-	/*DirectX::SimpleMath::Matrix& mat = WorldTransform.GetInternalMatrix();
+	glm::mat4& mat = WorldTransform.GetInternalMatrix();
 
-	mat._41 = NewPosition[0];
-	mat._42 = NewPosition[1];
-	mat._43 = NewPosition[2];
+	mat[3][0] = NewPosition[0];
+	mat[3][1] = NewPosition[1];
+	mat[3][2] = NewPosition[2];
 
-	Position += Vector3(mat._41 - Position[0], mat._42 - Position[1], mat._43 - Position[2]);*/
+	Position += Vector3(mat[3][0] - Position[0], mat[3][1] - Position[1], mat[3][2] - Position[2]);
 
 	SetDirty(true);
 }
@@ -223,6 +234,17 @@ Vector3 Transform::GetScale()
 
 void Transform::LookAt(const Vector3& InDirection)
 {
+	SetWorldTransform(Matrix4(glm::transpose(glm::lookAtLH(GetWorldPosition().InternalVector, GetWorldPosition().InternalVector + InDirection.InternalVector, glm::vec3(0,1,0)))));
+
+	glm::vec3 scale;
+	glm::quat rot;
+	glm::vec3 pos;
+	glm::vec3 skeq;
+	glm::vec4 poers;
+	glm::decompose(WorldTransform.GetInternalMatrix(), scale, rot, pos, skeq, poers);
+	Rotation = Quaternion::ToEulerAngles(Quaternion(rot));
+	Rotation = Vector3(Mathf::Degrees(Rotation.x), Mathf::Degrees(Rotation.y), Mathf::Degrees(Rotation.z));
+
 	//Vector3 worldPos = GetWorldPosition();
 	//WorldTransform = Matrix4(DirectX::SimpleMath::Matrix::CreateLookAt(worldPos.InternalVec, (GetWorldPosition() + InDirection).InternalVec, Vector3::Up.InternalVec).Transpose());
 

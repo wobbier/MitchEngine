@@ -37,6 +37,7 @@
 #include "Ultralight/Matrix.h"
 #include "Math/Matrix4.h"
 #include "Cores/EditorCore.h"
+#include "Window/SDLWindow.h"
 
 int profilerSize = 10.f;
 const int kMinProfilerSize = 10.f;
@@ -475,7 +476,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 		float endOfMenu = ImGui::GetCursorPosX();
 		float buttonWidth = 40.f;
 		float pos = (ImGui::GetMousePos().x - m_engine->GetWindow()->GetPosition().x);
-		static_cast<Win32Window*>(m_engine->GetWindow())->CanMoveWindow((pos > endOfMenu&& pos < ImGui::GetWindowWidth() - (buttonWidth * 5.f)));
+		static_cast<SDLWindow*>(m_engine->GetWindow())->CanMoveWindow((pos > endOfMenu&& pos < ImGui::GetWindowWidth() - (buttonWidth * 5.f)));
 
 		static int frameCount = 0;
 		static float frametime = 0.0f;

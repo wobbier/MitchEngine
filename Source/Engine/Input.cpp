@@ -4,6 +4,7 @@
 #include "CLog.h"
 #include <string>
 #include <iostream>
+#include "SDL.h"
 
 #pragma region KeyboardInput
 
@@ -28,8 +29,7 @@
 
 Vector2 Input::GetMousePosition()
 {
-	Vector2 newPosition;// = Vector2(MouseState.x, MouseState.y);
-	return newPosition;
+	return MousePosition;
 }
 
 
@@ -61,6 +61,7 @@ void Input::SetMouseCapture(bool Capture)
 	{
 		if (Capture)
 		{
+			SDL_SCANCODE_RETURN;
 			//Mouse->SetMode(DirectX::Mouse::MODE_RELATIVE);
 		}
 		else
@@ -75,6 +76,17 @@ void Input::SetMouseOffset(const Vector2& InOffset)
 {
 	Offset = InOffset;
 }
+
+bool Input::IsMouseButtonDown(MouseButton mouseButton)
+{
+	return MouseState & SDL_BUTTON((uint32_t)mouseButton);
+}
+
+bool Input::IsKeyDown(KeyCode key)
+{
+	return KeyboardState[(uint32_t)key];
+}
+
 //
 //DirectX::Mouse& Input::GetMouse()
 //{
@@ -102,10 +114,23 @@ void Input::Update()
 {
 	if (CaptureInput)
 	{
+		SDL_PumpEvents();
+		//uint32_t state = SDL_GetMouseState(nullptr);
+		KeyboardState = SDL_GetKeyboardState(nullptr);
+		int mouseX = 0;
+		int mouseY = 0;
+		MouseState = SDL_GetMouseState(&mouseX, &mouseY);// use these params
+		MousePosition = Vector2(mouseX, mouseY);
+		if (KeyboardState)
+		{
+			int i = 0;
+			++i;
+		}
 		//KeyboardState = Keyboard->GetState();
 		//MouseState = Mouse->GetState();
 	}
 }
+
 //
 //std::unique_ptr<DirectX::Mouse> Input::Mouse = std::make_unique<DirectX::Mouse>();
 //
@@ -115,7 +140,9 @@ void Input::Update()
 
 Input::Input()
 {
-	//Mouse = std::make_unique<DirectX::Mouse>();
+	KeyboardState = SDL_GetKeyboardState(nullptr);
+	MouseState = SDL_GetMouseState(nullptr, nullptr);// use these params
+//Mouse = std::make_unique<DirectX::Mouse>();
 	//Controller = std::make_unique<DirectX::GamePad>();
 	//Keyboard = std::make_unique<DirectX::Keyboard>();
 	//Controller->Resume();

@@ -36,6 +36,7 @@ public:
 	//void SetRotation(glm::quat quat);
 	Vector3 Front();
 	Vector3 Up();
+	Vector3 Right();
 
 	void SetScale(Vector3 NewScale);
 	void SetScale(float NewScale);
