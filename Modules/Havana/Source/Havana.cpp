@@ -433,10 +433,10 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 			}
 			ImGui::EndMenu();
 		}*/
-		//auto Keyboard = GetInput().GetKeyboardState();
+		Input& editorInput = GetInput();
 		if (!m_app->IsGameRunning())
 		{
-			if (ImGui::ImageButton(Icons["Play"]->TexHandle, ImVec2(30.f, 30.f))/* || Keyboard.F5*/)
+			if (ImGui::ImageButton(Icons["Play"]->TexHandle, ImVec2(30.f, 30.f)) || editorInput.IsKeyDown(KeyCode::F5))
 			{
 				ImGui::SetWindowFocus("Game");
 				m_engine->GetInput().Resume();
@@ -452,7 +452,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 			//	PauseGameFunc();
 			//}
 
-			if (ImGui::ImageButton(Icons["Stop"]->TexHandle, ImVec2(30.f, 30.f))/* || (Keyboard.F5 && Keyboard.LeftShift)*/)
+			if (ImGui::ImageButton(Icons["Stop"]->TexHandle, ImVec2(30.f, 30.f)) || (editorInput.IsKeyDown(KeyCode::F5) && editorInput.IsKeyDown(KeyCode::LeftShift)))
 			{
 				MaximizeOnPlay = false;
 				SelectedTransform = nullptr;
@@ -1009,11 +1009,11 @@ void Havana::UpdateWorld(World* world, Transform* root, const std::vector<Entity
 		OPTICK_CATEGORY("Entity List", Optick::Category::GameLogic);
 		if (ImGui::IsWindowFocused())
 		{
-			/*if (SelectedTransform && GetInput().GetKeyboardState().Delete)
+			if (SelectedTransform && GetInput().IsKeyDown(KeyCode::Delete))
 			{
 				RecusiveDelete(SelectedTransform->Parent, SelectedTransform);
 				ClearSelection();
-			}*/
+			}
 		}
 		UpdateWorldRecursive(root);
 	}
@@ -1484,18 +1484,18 @@ void Havana::RenderMainView(Moonlight::CameraData& EditorCamera)
 
 	if (m_viewportMode == ViewportMode::Game)
 	{
-		//if (GetInput().GetKeyboardState().Escape/*  && m_app->IsGameRunning()&& AllowGameInput*/)
-		//{
-		//	m_engine->GetInput().Stop();
-		//	AllowGameInput = false;
-		//	ImGui::SetWindowFocus("World");
-		//	//Renderer->SetViewportMode(ViewportMode::World);
-		//}
-		//else if (ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows)/* && AllowGameInput*/)
-		//{
-		//	m_engine->GetInput().Resume();
-		//	AllowGameInput = true;
-		//}
+		if (GetInput().IsKeyDown(KeyCode::Escape)/*  && m_app->IsGameRunning()&& AllowGameInput*/)
+		{
+			m_engine->GetInput().Stop();
+			AllowGameInput = false;
+			ImGui::SetWindowFocus("World");
+			//Renderer->SetViewportMode(ViewportMode::World);
+		}
+		else if (ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows)/* && AllowGameInput*/)
+		{
+			m_engine->GetInput().Resume();
+			AllowGameInput = true;
+		}
 	}
 
 	if (Renderer && m_engine->EditorCamera.Buffer)
@@ -1707,7 +1707,7 @@ void Havana::RenderMainView(Moonlight::CameraData& EditorCamera)
 					// Ask ImGui to draw it as an image:
 					// Under OpenGL the ImGUI image type is GLuint
 					// So make sure to use "(void *)tex" but not "&tex"
-					ImGui::Image(bgfx::getTexture(m_engine->EditorCamera.Buffer->Buffer), ImVec2(WorldViewRenderSize.x, WorldViewRenderSize.y), ImVec2(0, 0),
+					ImGui::Image(bgfx::getTexture(m_engine->EditorCamera.Buffer->Buffer), ImVec2(WorldViewRenderSize.x, WorldViewRenderSize.y- 38.f), ImVec2(0, 0),
 						ImVec2(Mathf::Clamp(0.f, 1.0f, WorldViewRenderSize.x / m_engine->EditorCamera.Buffer->Width), Mathf::Clamp(0.f, 1.0f, WorldViewRenderSize.y / m_engine->EditorCamera.Buffer->Height)));
 					/*ImGui::GetWindowDrawList()->AddImage(
 						(void*)srv.Get(),
@@ -1805,17 +1805,16 @@ void Havana::RenderMainView(Moonlight::CameraData& EditorCamera)
 				}
 			}
 
-			ImGui::SetCursorPos(pos);
-			//if (!GetInput().GetMouseState().rightButton)
-			//{
-			//	auto kb = GetInput().GetKeyboardState();
-			//	if (kb.W)
-			//		mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
-			//	if (kb.E)
-			//		mCurrentGizmoOperation = ImGuizmo::ROTATE;
-			//	if (kb.R) // r Key
-			//		mCurrentGizmoOperation = ImGuizmo::SCALE;
-			//}
+			ImGui::SetCursorPos(ImVec2(5.f, 45.f));
+			if (!GetInput().IsMouseButtonDown(MouseButton::Right))
+			{
+				if (GetInput().IsKeyDown(KeyCode::W))
+					mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
+				if (GetInput().IsKeyDown(KeyCode::E))
+					mCurrentGizmoOperation = ImGuizmo::ROTATE;
+				if (GetInput().IsKeyDown(KeyCode::R))
+					mCurrentGizmoOperation = ImGuizmo::SCALE;
+			}
 			if (ImGui::RadioButton("Translate", mCurrentGizmoOperation == ImGuizmo::TRANSLATE))
 				mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
 			ImGui::SameLine();
@@ -1826,6 +1825,7 @@ void Havana::RenderMainView(Moonlight::CameraData& EditorCamera)
 				mCurrentGizmoOperation = ImGuizmo::SCALE;
 			if (mCurrentGizmoOperation != ImGuizmo::SCALE)
 			{
+				ImGui::SetCursorPosX(5.f);
 				if (ImGui::RadioButton("Local", mCurrentGizmoMode == ImGuizmo::LOCAL))
 					mCurrentGizmoMode = ImGuizmo::LOCAL;
 				ImGui::SameLine();

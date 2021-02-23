@@ -53,4 +53,6 @@ private:
 	std::function<void(const Vector2&)> ResizeCB;
 
 	void SetWindow(SDL_Window* window);
+
+	bool CloseRequested = false;
 };

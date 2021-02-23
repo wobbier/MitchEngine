@@ -2,12 +2,27 @@
 #include "Math/Vector2.h"
 #include <SDL_mouse.h>
 #include <SDL_scancode.h>
+#include "Events/EventReceiver.h"
 //
 //
 //#if ME_PLATFORM_UWP
 //using namespace Windows::UI::Core;
 //using namespace Windows::System;
 //#endif
+
+struct MouseScrollEvent
+	: public Event<MouseScrollEvent>
+{
+	MouseScrollEvent() = delete;
+
+	MouseScrollEvent(float x, float y)
+		: Event()
+		, Scroll(x, y)
+	{
+	}
+
+	Vector2 Scroll;
+};
 
 enum class MouseButton : uint32_t
 {
@@ -16,6 +31,11 @@ enum class MouseButton : uint32_t
 	Right = SDL_BUTTON_RIGHT,
 	X1 = SDL_BUTTON_X1,
 	X2 = SDL_BUTTON_X2
+};
+
+struct KeyboardState
+{
+
 };
 
 enum class KeyCode : uint32_t
@@ -29,55 +49,55 @@ enum class KeyCode : uint32_t
      */
     /* @{ */
 
-    SDL_SCANCODE_A = 4,
-    SDL_SCANCODE_B = 5,
-    SDL_SCANCODE_C = 6,
-    SDL_SCANCODE_D = 7,
-    SDL_SCANCODE_E = 8,
-    SDL_SCANCODE_F = 9,
-    SDL_SCANCODE_G = 10,
-    SDL_SCANCODE_H = 11,
-    SDL_SCANCODE_I = 12,
-    SDL_SCANCODE_J = 13,
-    SDL_SCANCODE_K = 14,
-    SDL_SCANCODE_L = 15,
-    SDL_SCANCODE_M = 16,
-    SDL_SCANCODE_N = 17,
-    SDL_SCANCODE_O = 18,
-    SDL_SCANCODE_P = 19,
-    SDL_SCANCODE_Q = 20,
-    SDL_SCANCODE_R = 21,
-    SDL_SCANCODE_S = 22,
-    SDL_SCANCODE_T = 23,
-    SDL_SCANCODE_U = 24,
-    SDL_SCANCODE_V = 25,
-    SDL_SCANCODE_W = 26,
-    SDL_SCANCODE_X = 27,
-    SDL_SCANCODE_Y = 28,
-    SDL_SCANCODE_Z = 29,
+    A = SDL_SCANCODE_A,
+	B = SDL_SCANCODE_B,
+	C = SDL_SCANCODE_C,
+	D = SDL_SCANCODE_D,
+	E = SDL_SCANCODE_E,
+	F = SDL_SCANCODE_F,
+	G = SDL_SCANCODE_G,
+	H = SDL_SCANCODE_H,
+	I = SDL_SCANCODE_I,
+	J = SDL_SCANCODE_J,
+	K = SDL_SCANCODE_K,
+	L = SDL_SCANCODE_L,
+	M = SDL_SCANCODE_M,
+	N = SDL_SCANCODE_N,
+	O = SDL_SCANCODE_O,
+	P = SDL_SCANCODE_P,
+	Q = SDL_SCANCODE_Q,
+	R = SDL_SCANCODE_R,
+	S = SDL_SCANCODE_S,
+	T = SDL_SCANCODE_T,
+	U = SDL_SCANCODE_U,
+	V = SDL_SCANCODE_V,
+	W = SDL_SCANCODE_W,
+	X = SDL_SCANCODE_X,
+	Y = SDL_SCANCODE_Y,
+	Z = SDL_SCANCODE_Z,
 
-    SDL_SCANCODE_1 = 30,
-    SDL_SCANCODE_2 = 31,
-    SDL_SCANCODE_3 = 32,
-    SDL_SCANCODE_4 = 33,
-    SDL_SCANCODE_5 = 34,
-    SDL_SCANCODE_6 = 35,
-    SDL_SCANCODE_7 = 36,
-    SDL_SCANCODE_8 = 37,
-    SDL_SCANCODE_9 = 38,
-    SDL_SCANCODE_0 = 39,
+	Num1 = SDL_SCANCODE_1,
+	Num2 = SDL_SCANCODE_2,
+	Num3 = SDL_SCANCODE_3,
+	Num4 = SDL_SCANCODE_4,
+	Num5 = SDL_SCANCODE_5,
+	Num6 = SDL_SCANCODE_6,
+	Num7 = SDL_SCANCODE_7,
+	Num8 = SDL_SCANCODE_8,
+	Num9 = SDL_SCANCODE_9,
+	Num0 = SDL_SCANCODE_0,
 
-    SDL_SCANCODE_RETURN = 40,
-    SDL_SCANCODE_ESCAPE = 41,
-    SDL_SCANCODE_BACKSPACE = 42,
-    SDL_SCANCODE_TAB = 43,
-    SDL_SCANCODE_SPACE = 44,
+    Enter = SDL_SCANCODE_RETURN,
+    Escape = SDL_SCANCODE_ESCAPE,
+    Backspace = SDL_SCANCODE_BACKSPACE,
+    Tab = SDL_SCANCODE_TAB,
+    Space = SDL_SCANCODE_SPACE,
 
-    SDL_SCANCODE_MINUS = 45,
-    SDL_SCANCODE_EQUALS = 46,
-    SDL_SCANCODE_LEFTBRACKET = 47,
-    SDL_SCANCODE_RIGHTBRACKET = 48,
-    SDL_SCANCODE_BACKSLASH = 49, /**< Located at the lower left of the return
+    Minus = SDL_SCANCODE_MINUS,
+    Equals = SDL_SCANCODE_EQUALS,
+    LeftBracket = SDL_SCANCODE_LEFTBRACKET,
+    RightBracket = SDL_SCANCODE_RIGHTBRACKET,
+    Backslash = SDL_SCANCODE_BACKSLASH, /**< Located at the lower left of the return
                                   *   key on ISO keyboards and at the right end
                                   *   of the QWERTY row on ANSI keyboards.
                                   *   Produces REVERSE SOLIDUS (backslash) and
@@ -91,7 +111,7 @@ enum class KeyCode : uint32_t
                                   *   layout, and ASTERISK and MICRO SIGN in a
                                   *   French Windows layout.
                                   */
-    SDL_SCANCODE_NONUSHASH = 50, /**< ISO USB keyboards actually use this code
+    NonUSHash = SDL_SCANCODE_NONUSHASH, /**< ISO USB keyboards actually use this code
                                   *   instead of 49 for the same key, but all
                                   *   OSes I've seen treat the two codes
                                   *   identically. So, as an implementor, unless
@@ -103,9 +123,9 @@ enum class KeyCode : uint32_t
                                   *   will never generate it with most (all?)
                                   *   keyboards.
                                   */
-    SDL_SCANCODE_SEMICOLON = 51,
-    SDL_SCANCODE_APOSTROPHE = 52,
-    SDL_SCANCODE_GRAVE = 53, /**< Located in the top left corner (on both ANSI
+    SemiColon = SDL_SCANCODE_SEMICOLON,
+    Apostrophe = SDL_SCANCODE_APOSTROPHE,
+    Tilde = SDL_SCANCODE_GRAVE, /**< Located in the top left corner (on both ANSI
                               *   and ISO keyboards). Produces GRAVE ACCENT and
                               *   TILDE in a US Windows layout and in US and UK
                               *   Mac layouts on ANSI keyboards, GRAVE ACCENT
@@ -128,18 +148,18 @@ enum class KeyCode : uint32_t
 
     SDL_SCANCODE_CAPSLOCK = 57,
 
-    SDL_SCANCODE_F1 = 58,
-    SDL_SCANCODE_F2 = 59,
-    SDL_SCANCODE_F3 = 60,
-    SDL_SCANCODE_F4 = 61,
-    SDL_SCANCODE_F5 = 62,
-    SDL_SCANCODE_F6 = 63,
-    SDL_SCANCODE_F7 = 64,
-    SDL_SCANCODE_F8 = 65,
-    SDL_SCANCODE_F9 = 66,
-    SDL_SCANCODE_F10 = 67,
-    SDL_SCANCODE_F11 = 68,
-    SDL_SCANCODE_F12 = 69,
+	F1 = SDL_SCANCODE_F1,
+	F2 = SDL_SCANCODE_F2,
+	F3 = SDL_SCANCODE_F3,
+	F4 = SDL_SCANCODE_F4,
+	F5 = SDL_SCANCODE_F5,
+	F6 = SDL_SCANCODE_F6,
+	F7 = SDL_SCANCODE_F7,
+	F8 = SDL_SCANCODE_F8,
+	F9 = SDL_SCANCODE_F9,
+	F10 = SDL_SCANCODE_F10,
+	F11 = SDL_SCANCODE_F11,
+	F12 = SDL_SCANCODE_F12,
 
     SDL_SCANCODE_PRINTSCREEN = 70,
     SDL_SCANCODE_SCROLLLOCK = 71,
@@ -148,7 +168,7 @@ enum class KeyCode : uint32_t
                                    does send code 73, not 117) */
     SDL_SCANCODE_HOME = 74,
     SDL_SCANCODE_PAGEUP = 75,
-    SDL_SCANCODE_DELETE = 76,
+    Delete = SDL_SCANCODE_DELETE,
     SDL_SCANCODE_END = 77,
     SDL_SCANCODE_PAGEDOWN = 78,
     SDL_SCANCODE_RIGHT = 79,
@@ -304,7 +324,7 @@ enum class KeyCode : uint32_t
     SDL_SCANCODE_KP_HEXADECIMAL = 221,
 
     SDL_SCANCODE_LCTRL = 224,
-    SDL_SCANCODE_LSHIFT = 225,
+    LeftShift = SDL_SCANCODE_LSHIFT,
     SDL_SCANCODE_LALT = 226, /**< alt, option */
     SDL_SCANCODE_LGUI = 227, /**< windows, command (apple), meta */
     SDL_SCANCODE_RCTRL = 228,
@@ -387,6 +407,7 @@ enum class KeyCode : uint32_t
 };
 
 class Input
+	: public EventReceiver
 {
 	friend class Window;
 	friend class Engine;
@@ -395,6 +416,7 @@ public:
 	Input();
 	~Input() = default;
 
+	virtual bool OnEvent(const BaseEvent& evt);
 	//const DirectX::Keyboard::State& GetKeyboardState() const;
 	//DirectX::Mouse::State GetMouseState();
 	//DirectX::GamePad::State GetControllerState(unsigned int PlayerId = 0);
@@ -404,6 +426,7 @@ public:
 	Vector2 GetMouseOffset();
 
 	Vector2 GetMouseScrollOffset();
+
 
 	void SetMouseCapture(bool Capture);
 	void SetMouseOffset(const Vector2& InOffset);
@@ -421,19 +444,14 @@ public:
 private:
 	void Update();
 
+	Vector2 MousePosition;
+	Vector2 Offset;
+
+	bool WantsToCaptureMouse = false;
 	bool CaptureInput = true;
 
-	//DirectX::Keyboard::State KeyboardState;
-	//DirectX::Mouse::State MouseState;
-	//DirectX::GamePad::State ControllerState;
-
-	Vector2 Offset;
+	Vector2 MouseScroll;
 
 	const uint8_t* KeyboardState = nullptr;
 	uint32_t MouseState = 0;
-	Vector2 MousePosition;
-	//static std::unique_ptr<DirectX::Mouse> Mouse;
-	//static std::unique_ptr<DirectX::Keyboard> Keyboard;
-	//static std::unique_ptr<DirectX::GamePad> Controller;
-	bool WantsToCaptureMouse = false;
 };

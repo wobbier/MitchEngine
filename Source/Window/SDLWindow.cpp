@@ -2,6 +2,7 @@
 #include <Window/SDLWindow.h>
 #include "bgfx/platform.h"
 #include "CLog.h"
+#include "Engine/Input.h"
 
 SDLWindow::SDLWindow(const std::string& title, std::function<void(const Vector2&)> resizeFunc, int X, int Y, Vector2 windowSize)
 	: ResizeCB(resizeFunc)
@@ -17,21 +18,31 @@ SDLWindow::SDLWindow(const std::string& title, std::function<void(const Vector2&
 
 bool SDLWindow::ShouldClose()
 {
-	return false;
+	return CloseRequested;
 }
 
 void SDLWindow::ParseMessageQueue()
 {
-	bool exit = false;
 	SDL_Event event;
-	while (SDL_PollEvent(&event)) {
-
-		switch (event.type) {
+	while (SDL_PollEvent(&event))
+	{
+		switch (event.type)
+		{
 		case SDL_QUIT:
-			exit = true;
+		{
+			CloseRequested = true;
 			break;
+		}
 
-		case SDL_WINDOWEVENT: {
+		case SDL_MOUSEWHEEL:
+		{
+			MouseScrollEvent evt(event.wheel.x, event.wheel.y);
+			evt.Fire();
+			break;
+		}
+
+		case SDL_WINDOWEVENT:
+		{
 			const SDL_WindowEvent& wev = event.window;
 			switch (wev.event) {
 			case SDL_WINDOWEVENT_RESIZED:
@@ -40,10 +51,13 @@ void SDLWindow::ParseMessageQueue()
 				break;
 
 			case SDL_WINDOWEVENT_CLOSE:
-				exit = true;
+				CloseRequested = true;
 				break;
 			}
-		} break;
+			break;
+		}
+		default:
+			break;
 		}
 	}
 }

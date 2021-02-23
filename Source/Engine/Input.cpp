@@ -11,6 +11,20 @@
 #pragma endregion
 
 #pragma region MouseInput
+
+bool Input::OnEvent(const BaseEvent& evt)
+{
+	if (CaptureInput)
+	{
+		if (evt.GetEventId() == MouseScrollEvent::GetEventId())
+		{
+			const MouseScrollEvent& event = static_cast<const MouseScrollEvent&>(evt);
+			MouseScroll = MouseScroll + event.Scroll;
+		}
+	}
+	return false;
+}
+
 //
 //const DirectX::Keyboard::State& Input::GetKeyboardState() const
 //{
@@ -52,7 +66,7 @@ Vector2 Input::GetMouseOffset()
 
 Vector2 Input::GetMouseScrollOffset()
 {
-	return Vector2();
+	return MouseScroll;
 }
 
 void Input::SetMouseCapture(bool Capture)
@@ -114,8 +128,6 @@ void Input::Update()
 {
 	if (CaptureInput)
 	{
-		SDL_PumpEvents();
-		//uint32_t state = SDL_GetMouseState(nullptr);
 		KeyboardState = SDL_GetKeyboardState(nullptr);
 		int mouseX = 0;
 		int mouseY = 0;
@@ -150,6 +162,10 @@ Input::Input()
 	//Mouse->SetWindow(CoreWindow::GetForCurrentThread());
 	//Keyboard->SetWindow(CoreWindow::GetForCurrentThread());
 #endif
+
+	std::vector<TypeId> events;
+	events.push_back(MouseScrollEvent::GetEventId());
+	EventManager::GetInstance().RegisterReceiver(this, events);
 }
 
 #pragma endregion

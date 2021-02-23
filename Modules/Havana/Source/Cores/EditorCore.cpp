@@ -49,7 +49,7 @@ void EditorCore::Update(float dt)
 
 	if (m_editor->IsWorldViewFocused())
 	{
-		if (input.IsKeyDown(KeyCode::SDL_SCANCODE_F))
+		if (input.IsKeyDown(KeyCode::F))
 		{
 			IsFocusingTransform = true;
 
@@ -81,7 +81,7 @@ void EditorCore::Update(float dt)
 			}
 
 			float CameraSpeed = m_flyingSpeed;
-			if (input.IsKeyDown(KeyCode::SDL_SCANCODE_LSHIFT))
+			if (input.IsKeyDown(KeyCode::LeftShift))
 			{
 				CameraSpeed += m_speedModifier;
 			}
@@ -89,31 +89,31 @@ void EditorCore::Update(float dt)
 
 			const Vector3& Front = EditorCameraTransform->Front();
 
-			if (input.IsKeyDown(KeyCode::SDL_SCANCODE_W))
+			if (input.IsKeyDown(KeyCode::W))
 			{
 				EditorCameraTransform->Translate(Front * CameraSpeed);
 			}
-			if (input.IsKeyDown(KeyCode::SDL_SCANCODE_S))
+			if (input.IsKeyDown(KeyCode::S))
 			{
 				EditorCameraTransform->Translate((Front * CameraSpeed) * -1.f);
 			}
-			if (input.IsKeyDown(KeyCode::SDL_SCANCODE_A))
+			if (input.IsKeyDown(KeyCode::A))
 			{
 				EditorCameraTransform->Translate(-EditorCameraTransform->Right() * CameraSpeed);
 			}
-			if (input.IsKeyDown(KeyCode::SDL_SCANCODE_D))
+			if (input.IsKeyDown(KeyCode::D))
 			{
 				EditorCameraTransform->Translate(EditorCameraTransform->Right() * CameraSpeed);
 			}
-			if (input.IsKeyDown(KeyCode::SDL_SCANCODE_SPACE))
+			if (input.IsKeyDown(KeyCode::Space))
 			{
 				EditorCameraTransform->Translate(Vector3::Up * CameraSpeed);
 			}
-			if (input.IsKeyDown(KeyCode::SDL_SCANCODE_E))
+			if (input.IsKeyDown(KeyCode::E))
 			{
 				EditorCameraTransform->Translate(EditorCameraTransform->Up() * CameraSpeed);
 			}
-			if (input.IsKeyDown(KeyCode::SDL_SCANCODE_Q))
+			if (input.IsKeyDown(KeyCode::Q))
 			{
 				EditorCameraTransform->Translate(-EditorCameraTransform->Up() * CameraSpeed);
 			}
