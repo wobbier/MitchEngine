@@ -306,7 +306,7 @@ void CharacterController::UpdateVelocity(float dt)
 	m_rigidbody->setLinearVelocity(velocity);
 	if (m_isHittingWall)
 	{
-		for (unsigned int i = 0, size = m_surfaceHitNormals.size(); i < size; i++)
+		for (size_t i = 0, size = m_surfaceHitNormals.size(); i < size; i++)
 		{
 			auto vec = m_manualVelocity.Dot(m_surfaceHitNormals[i]);
 

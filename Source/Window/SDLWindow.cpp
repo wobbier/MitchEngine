@@ -4,6 +4,61 @@
 #include "CLog.h"
 #include "Engine/Input.h"
 
+#define RESIZE_BORDER 20
+SDL_HitTestResult HitTestCallback(SDL_Window* window, const SDL_Point* area, void* data)
+{
+	SDLWindow* engineWindow = static_cast<SDLWindow*>(data);
+	if (engineWindow->CustomDragCB)
+	{
+		if (auto result = engineWindow->CustomDragCB(Vector2(area->x, area->y)))
+		{
+			return *result;
+		}
+	}
+
+	int w, h;
+	SDL_GetWindowSize(window, &w, &h);
+
+	#define REPORT_RESIZE_HIT(name) {\
+		SDL_Log("HIT-TEST: RESIZE_" #name "\n"); \
+		return SDL_HITTEST_RESIZE_##name; \
+	}
+	if (area->x < RESIZE_BORDER && area->y < RESIZE_BORDER)
+	{
+		REPORT_RESIZE_HIT(TOPLEFT);
+	}
+	else if (area->x > RESIZE_BORDER&& area->x < w - RESIZE_BORDER && area->y < RESIZE_BORDER)
+	{
+		REPORT_RESIZE_HIT(TOP);
+	}
+	else if (area->x > w - RESIZE_BORDER && area->y < RESIZE_BORDER)
+	{
+		REPORT_RESIZE_HIT(TOPRIGHT);
+	}
+	else if (area->x > w - RESIZE_BORDER && area->y > RESIZE_BORDER&& area->y < h - RESIZE_BORDER)
+	{
+		REPORT_RESIZE_HIT(RIGHT);
+	}
+	else if (area->x > w - RESIZE_BORDER && area->y > h - RESIZE_BORDER)
+	{
+		REPORT_RESIZE_HIT(BOTTOMRIGHT);
+	}
+	else if (area->x < w - RESIZE_BORDER && area->x > RESIZE_BORDER&& area->y > h - RESIZE_BORDER)
+	{
+		REPORT_RESIZE_HIT(BOTTOM);
+	}
+	else if (area->x < RESIZE_BORDER && area->y > h - RESIZE_BORDER)
+	{
+		REPORT_RESIZE_HIT(BOTTOMLEFT);
+	}
+	else if (area->x < RESIZE_BORDER && area->y < h - RESIZE_BORDER && area->y > RESIZE_BORDER)
+	{
+		REPORT_RESIZE_HIT(LEFT);
+	}
+
+	return SDL_HITTEST_NORMAL;
+}
+
 SDLWindow::SDLWindow(const std::string& title, std::function<void(const Vector2&)> resizeFunc, int X, int Y, Vector2 windowSize)
 	: ResizeCB(resizeFunc)
 {
@@ -14,6 +69,7 @@ SDLWindow::SDLWindow(const std::string& title, std::function<void(const Vector2&
 		printf("Window could not be created. SDL_Error: %s\n", SDL_GetError());
 	}
 	SetWindow(WindowHandle);
+	SDL_SetWindowHitTest(WindowHandle, HitTestCallback, this);
 }
 
 bool SDLWindow::ShouldClose()
@@ -90,10 +146,12 @@ bool SDLWindow::IsFullscreen()
 
 void SDLWindow::Maximize()
 {
+	SDL_MaximizeWindow(WindowHandle);
 }
 
 void SDLWindow::Minimize()
 {
+	SDL_MinimizeWindow(WindowHandle);
 }
 
 void SDLWindow::ExitMaximize()
@@ -117,6 +175,16 @@ void SDLWindow::CanMoveWindow(bool param1)
 {
 }
 
+void SDLWindow::SetBorderless(bool borderless)
+{
+	SDL_SetWindowBordered(WindowHandle, (SDL_bool)!borderless);
+}
+
+void SDLWindow::SetCustomDragCallback(std::function<std::optional<SDL_HitTestResult>(const Vector2&)> cb)
+{
+	CustomDragCB = cb;
+}
+
 void SDLWindow::SetWindow(SDL_Window* window)
 {
 	SDL_SysWMinfo wmi;
@@ -137,4 +205,3 @@ void SDLWindow::SetWindow(SDL_Window* window)
 
 	//bgfx::setPlatformData(PlatformInfo);
 }
-

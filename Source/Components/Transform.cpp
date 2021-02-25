@@ -47,7 +47,7 @@ void Transform::SetPosition(Vector3 NewPosition)
 
 void Transform::SetScale(Vector3 NewScale)
 {
-	if (NewScale == Vector3())
+	if (NewScale.IsZero())
 	{
 		return;
 	}
@@ -67,7 +67,7 @@ void Transform::SetScale(float NewScale)
 
 void Transform::Translate(Vector3 NewPosition)
 {
-	if (NewPosition == Vector3())
+	if (NewPosition.IsZero())
 	{
 		return;
 	}

@@ -55,6 +55,9 @@ public:
 
 	virtual void Exit() override;
 
+
+	void* GetWindowPtr() override;
+
 private:
 	bool ExitRequested = false;
 

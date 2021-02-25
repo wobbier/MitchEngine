@@ -3,7 +3,6 @@
 #include "CLog.h"
 #include "Config.h"
 #include "Window/UWPWindow.h"
-#include "Window/Win32Window.h"
 #include "Events/EventManager.h"
 #include "Cores/PhysicsCore.h"
 #include "Cores/Cameras/CameraCore.h"
@@ -32,6 +31,7 @@
 #include "Profiling/BasicFrameProfile.h"
 #include "BGFXRenderer.h"
 #include "Window/SDLWindow.h"
+#include "Path.h"
 
 Engine& GetEngine()
 {
@@ -84,7 +84,7 @@ void Engine::Init(Game* game)
 	burst.InitializeWorkerThreads();
 
 #if ME_PLATFORM_WIN64
-	const json& WindowConfig = EngineConfig->GetObject("Window");
+	const nlohmann::json& WindowConfig = EngineConfig->GetJsonObject("Window");
 	int WindowWidth = WindowConfig["Width"];
 	int WindowHeight = WindowConfig["Height"];
 	std::function<void(const Vector2&)> Func = [this](const Vector2& NewSize)

@@ -77,5 +77,15 @@ struct Vector2
 	{
 		return InternalVec != other.InternalVec;
 	}
+
+	bool operator<(const Vector2& other) const
+	{
+		return x < other.x && y < other.y;
+	}
+
+	bool operator>(const Vector2& other) const
+	{
+		return x > other.x && y > other.y;
+	}
 };
 

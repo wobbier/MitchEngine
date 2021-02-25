@@ -1,6 +1,5 @@
 #include "PCH.h"
 #include "UIWindow.h"
-#include "Window/Win32Window.h"
 
 UIWindow::UIWindow(IWindow* window, ultralight::OverlayManager* manager)
 	: m_overlayManager(manager)

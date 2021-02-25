@@ -259,12 +259,12 @@ void Mesh::OnEditorInspect()
 			{
 				std::string label("##Texture" + std::to_string(i));
 				{
-					if (ImGui::ImageButton(((texture) ? (void*)texture->ShaderResourceView : nullptr), ImVec2(30, 30)))
-					{
-						PreviewResourceEvent evt;
-						evt.Subject = texture;
-						evt.Fire();
-					}
+// 					if (ImGui::ImageButton(((texture) ? (void*)texture->ShaderResourceView : nullptr), ImVec2(30, 30)))
+// 					{
+// 						PreviewResourceEvent evt;
+// 						evt.Subject = texture;
+// 						evt.Fire();
+// 					}
 // 					if (ImGui::BeginPopupModal("ViewTexture", &ViewTexture, ImGuiWindowFlags_MenuBar))
 // 					{
 // 						if (texture && texture->ShaderResourceView)

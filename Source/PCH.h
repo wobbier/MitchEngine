@@ -53,6 +53,7 @@
 #include <map>
 #include <unordered_map>
 #include <iostream>
+#include <optional>
 
 #include <nlohmann/json.hpp>
 

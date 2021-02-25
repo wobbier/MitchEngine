@@ -20,7 +20,6 @@
 #include "CLog.h"
 #include "Resource/ResourceCache.h"
 #include "Graphics/Texture.h"
-#include "Window/Win32Window.h"
 #include "Widgets/AssetBrowser.h"
 #include <chrono>
 #include "Events/EventManager.h"
@@ -38,6 +37,8 @@
 #include "Math/Matrix4.h"
 #include "Cores/EditorCore.h"
 #include "Window/SDLWindow.h"
+#include "SDL_video.h"
+#include <optional>
 
 int profilerSize = 10.f;
 const int kMinProfilerSize = 10.f;
@@ -165,6 +166,19 @@ void Havana::InitUI()
 	Icons["Logo"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/ME-LOGO.png"));
 	Icons["Profiler"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Profiler.dds"));
 	Icons["FlipCamera"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/FlipCamera.dds"));
+
+	auto cb = [this](const Vector2& pos) -> std::optional<SDL_HitTestResult>
+	{
+		if (pos > TitleBarDragPosition && pos < TitleBarDragPosition + TitleBarDragSize)
+		{
+			return SDL_HitTestResult::SDL_HITTEST_DRAGGABLE;
+		}
+		
+		return std::nullopt;
+	};
+	auto window = static_cast<SDLWindow*>(m_engine->GetWindow());
+	window->SetBorderless(true);
+	window->SetCustomDragCallback(cb);
 
 	//m_engine->GetInput().Stop();
 	//GetInput().GetMouse().SetWindow(GetActiveWindow());
@@ -475,8 +489,14 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 
 		float endOfMenu = ImGui::GetCursorPosX();
 		float buttonWidth = 40.f;
-		float pos = (ImGui::GetMousePos().x - m_engine->GetWindow()->GetPosition().x);
-		static_cast<SDLWindow*>(m_engine->GetWindow())->CanMoveWindow((pos > endOfMenu&& pos < ImGui::GetWindowWidth() - (buttonWidth * 5.f)));
+		TitleBarDragPosition = Vector2(endOfMenu, 10);
+		TitleBarDragSize = Vector2(ImGui::GetWindowWidth() - endOfMenu - (buttonWidth * 5.f), MainMenuSize.y - 10.f);
+
+		Vector2 pos = GetInput().GetMousePosition();
+		if (ImGui::IsMouseDoubleClicked(0) && (pos > TitleBarDragPosition && pos < TitleBarDragPosition + TitleBarDragSize))
+		{
+			GetEngine().GetWindow()->Maximize();
+		}
 
 		static int frameCount = 0;
 		static float frametime = 0.0f;
@@ -1103,7 +1123,7 @@ void Havana::UpdateWorld(World* world, Transform* root, const std::vector<Entity
 	{
 		if (ViewTexture)
 		{
-			if (ViewTexture->ShaderResourceView)
+			//if (ViewTexture->TexHandle != bgfx::kInvalidHandle)
 			{
 				OPTICK_CATEGORY("Preview Texture", Optick::Category::Debug);
 				// Get the current cursor position (where your window is)
@@ -1114,10 +1134,10 @@ void Havana::UpdateWorld(World* world, Transform* root, const std::vector<Entity
 				// Ask ImGui to draw it as an image:
 				// Under OpenGL the ImGUI image type is GLuint
 				// So make sure to use "(void *)tex" but not "&tex"
-				ImGui::GetWindowDrawList()->AddImage(
-					(void*)ViewTexture->ShaderResourceView,
+				/*ImGui::GetWindowDrawList()->AddImage(
+					(void*)ViewTexture->TexHandle,
 					ImVec2(pos.x, pos.y),
-					ImVec2(maxPos));
+					ImVec2(maxPos));*/
 				//ImVec2(WorldViewRenderSize.X() / RenderSize.X(), WorldViewRenderSize.Y() / RenderSize.Y()));
 
 			}

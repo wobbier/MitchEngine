@@ -1,5 +1,4 @@
 #include "Config.h"
-#include <iostream>
 
 Config::Config(const Path& ConfigPath)
 	: ConfigFile(ConfigPath)
@@ -25,7 +24,7 @@ std::string Config::GetValue(const std::string& value)
 	return "";
 }
 
-const nlohmann::json& Config::GetObject(const std::string& value)
+const nlohmann::json& Config::GetJsonObject(const std::string& value)
 {
 	if (Root.contains(value))
 	{

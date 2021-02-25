@@ -124,4 +124,6 @@ private:
 	ViewportMode m_viewportMode;
 	//Path ConfigFilePath;
 	Path EngineConfigFilePath;
+	Vector2 TitleBarDragPosition;
+	Vector2 TitleBarDragSize;
 };

@@ -84,6 +84,11 @@ void UWPWindow::Exit()
 {
 }
 
+void* UWPWindow::GetWindowPtr()
+{
+	return nullptr;
+}
+
 bool UWPWindow::IsFullscreen()
 {
 
@@ -144,7 +149,7 @@ void UWPWindow::UWPWindowMessageHandler::OnKeyDown(Windows::UI::Core::CoreWindow
 
 void UWPWindow::UWPWindowMessageHandler::OnDisplayContentsInvalidated(Windows::Graphics::Display::DisplayInformation^ sender, Object^ args)
 {
-	static_cast<Moonlight::DX11Device&>(GetEngine().GetRenderer().GetDevice()).ValidateDevice();
+	//static_cast<Moonlight::DX11Device&>(GetEngine().GetRenderer().GetDevice()).ValidateDevice();
 }
 
 #endif

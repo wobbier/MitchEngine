@@ -1,10 +1,7 @@
 #pragma once
-#include <wrl/client.h>
-
 #include <string>
 #include <algorithm>
 #include "Dementia.h"
-#include <fstream>
 #include "CLog.h"
 
 #if ME_EDITOR
@@ -18,9 +15,8 @@ public:
 
 	explicit Path(const std::string& InFile, bool Raw = false)
 	{
-		char buf[1024];
-		GetModuleFileNameA(NULL, buf, 1024);
-		std::string ProgramPath(buf);
+		auto p = std::filesystem::current_path();
+		std::string ProgramPath(std::string(p.generic_string()));
 
 		std::replace(ProgramPath.begin(), ProgramPath.end(), '\\', '/');
 		size_t pos = ProgramPath.find_last_of("/");
