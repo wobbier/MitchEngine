@@ -32,6 +32,7 @@
 #include "BGFXRenderer.h"
 #include "Window/SDLWindow.h"
 #include "Path.h"
+#include "Window/EditorWindow.h"
 
 Engine& GetEngine()
 {
@@ -51,6 +52,8 @@ Engine::~Engine()
 	delete EngineConfig;
 }
 
+extern bool ImGui_ImplSDL2_InitForD3D(SDL_Window* window);
+extern bool ImGui_ImplWin32_Init(void* window);
 void Engine::Init(Game* game)
 {
 	if (m_isInitialized || !game)
@@ -83,11 +86,7 @@ void Engine::Init(Game* game)
 
 	burst.InitializeWorkerThreads();
 
-#if ME_PLATFORM_WIN64
-	const nlohmann::json& WindowConfig = EngineConfig->GetJsonObject("Window");
-	int WindowWidth = WindowConfig["Width"];
-	int WindowHeight = WindowConfig["Height"];
-	std::function<void(const Vector2&)> Func = [this](const Vector2& NewSize)
+	std::function<void(const Vector2&)> ResizeFunc = [this](const Vector2& NewSize)
 	{
 		if (NewRenderer)
 		{
@@ -101,14 +100,20 @@ void Engine::Init(Game* game)
 			}
 		}
 	};
-	//GameWindow = new Win32Window(EngineConfig->GetValue("Title"), Func, 500, 300, Vector2(WindowWidth, WindowHeight));
-	GameWindow = new SDLWindow(EngineConfig->GetValue("Title"), Func, 500, 300, Vector2(WindowWidth, WindowHeight));
-	Func(Vector2(1920, 1080));
+
+	const nlohmann::json& WindowConfig = EngineConfig->GetJsonObject("Window");
+	int WindowWidth = WindowConfig["Width"];
+	int WindowHeight = WindowConfig["Height"];
+#if ME_EDITOR
+	GameWindow = new EditorWindow(EngineConfig->GetValue("Title"), ResizeFunc, 500, 300, Vector2(WindowWidth, WindowHeight));
+#elif ME_PLATFORM_WIN64
+	GameWindow = new SDLWindow(EngineConfig->GetValue("Title"), ResizeFunc, 500, 300, Vector2(WindowWidth, WindowHeight));
 #endif
 #if ME_PLATFORM_UWP
 	GameWindow = new UWPWindow("MitchEngine", 1920, 1080);
 #endif
 
+	ResizeFunc(Vector2(1920, 1080));
 
 	NewRenderer = new BGFXRenderer();
 	RendererCreationSettings settings;
@@ -118,6 +123,10 @@ void Engine::Init(Game* game)
 
 	//m_renderer = new Moonlight::Renderer();
 	//m_renderer->WindowResized(GameWindow->GetSize());
+#if ME_EDITOR
+	//ImGui_ImplSDL2_InitForD3D(static_cast<SDLWindow*>(GameWindow)->WindowHandle);
+	ImGui_ImplWin32_Init(static_cast<EditorWindow*>(GameWindow)->GetWindowPtr());
+#endif
 
 	GameWorld = std::make_shared<World>();
 

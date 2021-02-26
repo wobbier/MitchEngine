@@ -77,11 +77,16 @@ bool SDLWindow::ShouldClose()
 	return CloseRequested;
 }
 
+extern bool ImGui_ImplSDL2_ProcessEvent(const SDL_Event* event);
 void SDLWindow::ParseMessageQueue()
 {
 	SDL_Event event;
 	while (SDL_PollEvent(&event))
 	{
+		if (ImGui_ImplSDL2_ProcessEvent(&event))
+		{
+			return;
+		}
 		switch (event.type)
 		{
 		case SDL_QUIT:

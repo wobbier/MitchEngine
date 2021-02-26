@@ -39,6 +39,8 @@
 #include "Window/SDLWindow.h"
 #include "SDL_video.h"
 #include <optional>
+#include "imgui_internal.h"
+#include "Window/EditorWindow.h"
 
 int profilerSize = 10.f;
 const int kMinProfilerSize = 10.f;
@@ -167,19 +169,18 @@ void Havana::InitUI()
 	Icons["Profiler"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Profiler.dds"));
 	Icons["FlipCamera"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/FlipCamera.dds"));
 
-	auto cb = [this](const Vector2& pos) -> std::optional<SDL_HitTestResult>
-	{
-		if (pos > TitleBarDragPosition && pos < TitleBarDragPosition + TitleBarDragSize)
-		{
-			return SDL_HitTestResult::SDL_HITTEST_DRAGGABLE;
-		}
-		
-		return std::nullopt;
-	};
-	auto window = static_cast<SDLWindow*>(m_engine->GetWindow());
-	window->SetBorderless(true);
-	window->SetCustomDragCallback(cb);
-
+	//auto cb = [this](const Vector2& pos) -> std::optional<SDL_HitTestResult>
+	//{
+	//	if (pos > TitleBarDragPosition && pos < TitleBarDragPosition + TitleBarDragSize)
+	//	{
+	//		return SDL_HitTestResult::SDL_HITTEST_DRAGGABLE;
+	//	}
+	//	
+	//	return std::nullopt;
+	//};
+	//auto window = static_cast<SDLWindow*>(m_engine->GetWindow());
+	/*window->SetBorderless(true);
+	window->SetCustomDragCallback(cb);*/
 	//m_engine->GetInput().Stop();
 	//GetInput().GetMouse().SetWindow(GetActiveWindow());
 }
@@ -190,9 +191,7 @@ void Havana::NewFrame(std::function<void()> StartGameFunc, std::function<void()>
 {
 	m_input.Update();
 	OPTICK_EVENT("Havana::NewFrame");
-	//ImGui_ImplDX11_NewFrame();
-	//ImGui_ImplWin32_NewFrame();
-	//ImGui::NewFrame();
+
 	ImGuiIO& io = ImGui::GetIO();
 
 	// Output size fix?
@@ -491,6 +490,10 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 		float buttonWidth = 40.f;
 		TitleBarDragPosition = Vector2(endOfMenu, 10);
 		TitleBarDragSize = Vector2(ImGui::GetWindowWidth() - endOfMenu - (buttonWidth * 5.f), MainMenuSize.y - 10.f);
+
+		auto window = static_cast<EditorWindow*>(m_engine->GetWindow());
+
+		window->SetDragBounds(TitleBarDragPosition, TitleBarDragSize);
 
 		Vector2 pos = GetInput().GetMousePosition();
 		if (ImGui::IsMouseDoubleClicked(0) && (pos > TitleBarDragPosition && pos < TitleBarDragPosition + TitleBarDragSize))

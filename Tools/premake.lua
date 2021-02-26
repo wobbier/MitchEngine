@@ -333,6 +333,8 @@ files {
   "../ThirdParty/ImGui/*.cpp",
   "../ThirdParty/ImGui/**/*win32.h",
   "../ThirdParty/ImGui/**/*win32.cpp",
+  "../ThirdParty/ImGui/**/*sdl.h",
+  "../ThirdParty/ImGui/**/*sdl.cpp",
   "../ThirdParty/ImGui/**/*dx11.h",
   "../ThirdParty/ImGui/**/*dx11.cpp",
   "../ThirdParty/ImGui/**/imgui_stdlib.*"

@@ -42,8 +42,8 @@ public:
 
 	void SetCustomDragCallback(std::function<std::optional<SDL_HitTestResult>(const Vector2&)> cb);
 	std::function<std::optional<SDL_HitTestResult>(const Vector2&)> CustomDragCB;
-private:
 	SDL_Window* WindowHandle = nullptr;
+private:
 
 	bgfx::PlatformData PlatformInfo;
 	std::function<void(const Vector2&)> ResizeCB;
