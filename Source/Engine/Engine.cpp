@@ -33,6 +33,8 @@
 #include "Window/SDLWindow.h"
 #include "Path.h"
 #include "Window/EditorWindow.h"
+#include "SDL.h"
+#include "SDL_video.h"
 
 Engine& GetEngine()
 {
@@ -82,7 +84,6 @@ void Engine::Init(Game* game)
 	}
 #endif
 
-	EngineConfig = new Config(engineCfg);
 
 	burst.InitializeWorkerThreads();
 
@@ -101,12 +102,17 @@ void Engine::Init(Game* game)
 		}
 	};
 
+#if ME_EDITOR
+	EngineConfig = new Config(engineCfg);
 	const nlohmann::json& WindowConfig = EngineConfig->GetJsonObject("Window");
 	int WindowWidth = WindowConfig["Width"];
 	int WindowHeight = WindowConfig["Height"];
-#if ME_EDITOR
 	GameWindow = new EditorWindow(EngineConfig->GetValue("Title"), ResizeFunc, 500, 300, Vector2(WindowWidth, WindowHeight));
 #elif ME_PLATFORM_WIN64
+	EngineConfig = new Config(engineCfg);
+	const nlohmann::json& WindowConfig = EngineConfig->GetJsonObject("Window");
+	int WindowWidth = WindowConfig["Width"];
+	int WindowHeight = WindowConfig["Height"];
 	GameWindow = new SDLWindow(EngineConfig->GetValue("Title"), ResizeFunc, 500, 300, Vector2(WindowWidth, WindowHeight));
 #endif
 #if ME_PLATFORM_UWP
@@ -114,6 +120,7 @@ void Engine::Init(Game* game)
 #endif
 
 	ResizeFunc(Vector2(1920, 1080));
+
 
 	NewRenderer = new BGFXRenderer();
 	RendererCreationSettings settings;
@@ -164,6 +171,14 @@ void Engine::StopGame()
 
 void Engine::Run()
 {
+//#if ME_PLATFORM_UWP
+//	SDL_SetMainReady();
+//	SDL_Init(SDL_INIT_EVENTS);
+//	SDL_Window* win = SDL_CreateWindowFrom(GameWindow->GetWindowPtr());
+//
+//	SDL_MaximizeWindow(win);
+//#endif
+	
 	m_game->OnStart();
 
 	GameClock.Reset();
@@ -259,6 +274,7 @@ void Engine::Run()
 //#endif
 			m_game->PostRender();
 			NewRenderer->Render(EditorCamera);
+			GameWindow->Swap();
 			//FrameProfile::GetInstance().Set("Render", ProfileCategory::Rendering);
 			//m_renderer->ThreadedRender([this]() {
 			//	m_game->PostRender();

@@ -10,17 +10,37 @@
 #include "Device/DX11Device.h"
 #include <tchar.h>
 #include "Engine/Engine.h"
+#include "BGFXRenderer.h"
+#include <SDL.h>
+#include <SDL_config_winrt.h>
+#include <SDL_video.h>
 
 using namespace Windows::UI::Core;
 //using namespace Windows::UI::Input;
 using namespace Windows::System;
 using namespace Windows::Foundation;
 //using namespace Windows::Graphics::Display;
-
+SDL_Renderer* renderer = NULL;
 UWPWindow::UWPWindow(std::string title, int width, int height)
 {
 	MessageHandler = ref new UWPWindowMessageHandler(this);
 	Size = Vector2(width, height);
+
+	if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
+		return;
+	}
+	SDL_Window* WindowHandle;
+	//SDL_CreateWindow(title.c_str(), width, height, SDL_WINDOW_FULLSCREEN, &WindowHandle);
+	WindowHandle = SDL_CreateWindow(title.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_UNDEFINED, width, height, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
+	//SDL_Window* WindowHandle = SDL_CreateWindowFrom(GetWindowPtr());
+	//if (WindowHandle)
+	//{
+
+	//}
+	//SDL_Window* window = NULL; 
+	//if (SDL_CreateWindowAndRenderer(width, height, SDL_WINDOW_FULLSCREEN, &window, &renderer) != 0) {
+	//	return;
+	//}
 }
 
 UWPWindow::~UWPWindow()
@@ -34,6 +54,14 @@ bool UWPWindow::ShouldClose()
 
 void UWPWindow::ParseMessageQueue()
 {
+	//SDL_Event evt;
+	//while (SDL_PollEvent(&evt)) {
+	//}
+
+	//int x = 0;
+	//int y = 0;
+	//SDL_GetMouseState(&x, &y);
+	//SDL_GetGlobalMouseState(&x, &y);
 	if (IsVisible)
 	{
 		CoreWindow::GetForCurrentThread()->Dispatcher->ProcessEvents(CoreProcessEventsOption::ProcessAllIfPresent);
@@ -46,6 +74,7 @@ void UWPWindow::ParseMessageQueue()
 
 void UWPWindow::Swap()
 {
+	//SDL_RenderPresent(renderer);
 }
 
 Vector2 UWPWindow::GetSize() const
@@ -86,7 +115,7 @@ void UWPWindow::Exit()
 
 void* UWPWindow::GetWindowPtr()
 {
-	return nullptr;
+	return reinterpret_cast<IUnknown*>(CoreWindow::GetForCurrentThread());
 }
 
 bool UWPWindow::IsFullscreen()
@@ -113,8 +142,8 @@ UWPWindow::UWPWindowMessageHandler::UWPWindowMessageHandler(UWPWindow* window)
 	coreWindow->Closed +=
 		ref new TypedEventHandler<CoreWindow^, CoreWindowEventArgs^>(this, &UWPWindowMessageHandler::OnWindowClosed);
 
-	coreWindow->KeyDown +=
-		ref new Windows::Foundation::TypedEventHandler<Windows::UI::Core::CoreWindow ^, Windows::UI::Core::KeyEventArgs ^>(this, &UWPWindowMessageHandler::OnKeyDown);
+	//coreWindow->KeyDown +=
+	//	ref new Windows::Foundation::TypedEventHandler<Windows::UI::Core::CoreWindow ^, Windows::UI::Core::KeyEventArgs ^>(this, &UWPWindowMessageHandler::OnKeyDown);
 
 	Windows::Graphics::Display::DisplayInformation^ currentDisplayInformation = Windows::Graphics::Display::DisplayInformation::GetForCurrentView();
 

@@ -4,7 +4,10 @@
 #include "Dementia.h"
 #include "CLog.h"
 
-#if ME_EDITOR
+#if ME_PLATFORM_UWP
+#include <wrl/client.h>
+#include <fstream>
+#else
 #include <filesystem>
 #endif
 
@@ -15,8 +18,14 @@ public:
 
 	explicit Path(const std::string& InFile, bool Raw = false)
 	{
+#if ME_PLATFORM_UWP
+		char buf[1024];
+		GetModuleFileNameA(NULL, buf, 1024);
+		std::string ProgramPath(buf);
+#else
 		auto p = std::filesystem::current_path();
 		std::string ProgramPath(std::string(p.generic_string()));
+#endif
 
 		std::replace(ProgramPath.begin(), ProgramPath.end(), '\\', '/');
 		size_t pos = ProgramPath.find_last_of("/");

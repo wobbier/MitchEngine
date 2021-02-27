@@ -117,7 +117,6 @@ end
 
 libdirs {
   "../Build/%{cfg.buildcfg}",
-  "../ThirdParty/Lib/BGFX/Win64/Debug",
 }
 
 links {
@@ -130,10 +129,6 @@ links {
   "Ultralight.lib",
   "UltralightCore.lib",
   "WebCore.lib",
-  "bgfxDebug.lib",
-  "bimg_decodeDebug.lib",
-  "bimgDebug.lib",
-  "bxDebug.lib",
 }
 
 -- Platform specific options
@@ -168,11 +163,13 @@ links {
   "BulletCollision_Debug",
   "LinearMath_Debug",
   "zlibstaticd",
-  "SDL2d"
+  "bgfxDebug.lib",
+  "bimg_decodeDebug.lib",
+  "bimgDebug.lib",
+  "bxDebug.lib",
 }
 libdirs {
-  "../ThirdParty/Lib/Assimp/Debug",
-  "../ThirdParty/Lib/SDL/Win64/Debug"
+  "../ThirdParty/Lib/Assimp/Debug"
 }
 
 if isUWP then
@@ -180,14 +177,24 @@ if isUWP then
   libdirs {
     "$(VCInstallDir)\\lib\\store\\amd64",
     "$(VCInstallDir)\\lib\\amd64",
+    "../ThirdParty/Lib/BGFX/UWP/Debug",
     "../ThirdParty/Lib/Bullet/Win64/Debug",
-    "../ThirdParty/Lib/Optick/UWP/Debug"
+    "../ThirdParty/Lib/Optick/UWP/Debug",
+    "../ThirdParty/Lib/SDL/UWP/Debug"
+  }
+  links {
+  "SDL2",
   }
 else
   libdirs {
     "../ThirdParty/Lib/Bullet/Win64/Debug",
     "../ThirdParty/Lib/GLFW/Win64/Debug",
-    "../ThirdParty/Lib/Optick/Win64/Debug"
+    "../ThirdParty/Lib/BGFX/Win64/Debug",
+    "../ThirdParty/Lib/Optick/Win64/Debug",
+    "../ThirdParty/Lib/SDL/Win64/Debug"
+  }
+  links {
+  "SDL2d",
   }
 end
 
@@ -203,7 +210,12 @@ links {
   "BulletCollision_MinsizeRel",
   "LinearMath_MinsizeRel",
   "zlibstatic",
-  "SDL2"
+  "SDL2",
+  "bgfxRelease.lib",
+  "bimg_decodeRelease.lib",
+  "bimgRelease.lib",
+  "bxRelease.lib",
+  "SDL2",
 }
 
 if isUWP then
@@ -211,14 +223,18 @@ if isUWP then
   libdirs {
     "$(VCInstallDir)\\lib\\store\\amd64",
     "$(VCInstallDir)\\lib\\amd64",
+    "../ThirdParty/Lib/BGFX/UWP/Release",
     "../ThirdParty/Lib/Bullet/Win64/Release",
-    "../ThirdParty/Lib/Optick/UWP/Release"
+    "../ThirdParty/Lib/Optick/UWP/Release",
+    "../ThirdParty/Lib/SDL/UWP/Release"
   }
 else
   libdirs {
     "../ThirdParty/Lib/Bullet/Win64/Release",
     "../ThirdParty/Lib/GLFW/Win64/Release",
-    "../ThirdParty/Lib/Optick/Win64/Release"
+    "../ThirdParty/Lib/BGFX/Win64/Release",
+    "../ThirdParty/Lib/Optick/Win64/Release",
+    "../ThirdParty/Lib/SDL/Win64/Release"
   }
 end
 
@@ -307,11 +323,13 @@ vpaths {
   dependson {
     getPlatformPostfix(ProjectName)
   }
+
+end
   configuration {}
 ------------------------------------------------------- ImGui Project ------------------------------------------------------
 
 group "Engine/ThirdParty"
-project (getPlatformPostfix("ImGui"))
+project ("ImGui")
 kind "StaticLib"
 --if (isUWP) then
 --	system "windowsuniversal"
@@ -344,8 +362,6 @@ vpaths {
   ["ImGUI"] = "../ThirdParty/ImGui/**.*",
   ["Source"] = "../Modules/ImGUI/Source/*.*"
 }
-
-end
 
 ------------------------------------------------------- Utility Project ------------------------------------------------------
 
@@ -453,7 +469,7 @@ group "App"
 function GenerateGameSolution()
   if (isUWP) then
     project (getPlatformPostfix(ProjectName .. "_EntryPoint"))
-    kind "ConsoleApp"
+    kind "WindowedApp"
     system "windowsuniversal"
     consumewinrtextension "true"
     systemversion "10.0.14393.0"
@@ -467,7 +483,14 @@ function GenerateGameSolution()
       "Build/%{cfg.buildcfg}"
     }
     links {
-      (getPlatformPostfix(ProjectName) .. ".lib")
+      (getPlatformPostfix(ProjectName) .. ".lib"),
+	  "D3D12.lib",
+	  "d2d1.lib",
+	  "d3d11.lib",
+	  "dxgi.lib",
+	  "windowscodecs.lib",
+	  "dwrite.lib",
+	  "D3D12.lib"
     }
     dependson {
       getPlatformPostfix(ProjectName)
@@ -505,7 +528,8 @@ function GenerateGameSolution()
   }
   links {
     (getPlatformPostfix("MitchEngine") .. ".lib"),
-	(getPlatformPostfix("Dementia") .. ".lib")
+	(getPlatformPostfix("Dementia") .. ".lib"),
+	"ImGui.lib"
   }
   dependson {
     getPlatformPostfix("MitchEngine")
@@ -519,6 +543,9 @@ function GenerateGameSolution()
 	["Shaders"] = "Assets/**.hlsl"
   }
   
+dependson {
+  "ImGui"
+}
   filter { "files:**.hlsl" }
     flags {"ExcludeFromBuild"}
   filter {}

@@ -102,6 +102,14 @@ void ImGuiRenderer::NewFrame(Vector2& mousePosition, uint8_t mouseButton,  int32
 	io.MouseWheel = (float)(scroll - LastScroll);
 	io.DeltaTime = 1.f / 60.f;
 	LastScroll = scroll;
+
+	bgfx::setViewClear(viewId
+		, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH
+		, 0x303030ff
+		, 1.0f
+		, 0
+	);
+
 	ImGui::NewFrame();
 }
 
