@@ -24,7 +24,8 @@
 #include "Math/Frustrum.h"
 #include "optick.h"
 
-EditorApp::EditorApp()
+EditorApp::EditorApp(int argc, char** argv)
+	: Game(argc, argv)
 {
 	std::vector<TypeId> events;
 	events.push_back(NewSceneEvent::GetEventId());

@@ -12,7 +12,7 @@ class EditorApp
 	, public EventReceiver
 {
 public:
-	EditorApp();
+	EditorApp(int argc, char** argv);
 	~EditorApp();
 
 	virtual void OnInitialize() override;
