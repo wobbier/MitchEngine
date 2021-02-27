@@ -35,7 +35,7 @@ class UWPWindow
 	};
 
 public:
-	UWPWindow(std::string title, int width, int height);
+	UWPWindow(std::string title, int width, int height, std::function<void(const Vector2&)> resizeCallback);
 	~UWPWindow();
 
 	virtual bool ShouldClose() final;
@@ -51,6 +51,7 @@ public:
 	virtual void Minimize() final;
 	virtual void ExitMaximize() final;
 	virtual bool IsFullscreen() final;
+	void OnWindowSizeChanged(Vector2 newSize);
 
 
 	virtual void Exit() override;
@@ -60,6 +61,8 @@ public:
 
 private:
 	bool ExitRequested = false;
+
+	std::function<void(const Vector2&)> ResizeCB;
 
 	Vector2 Size;
 

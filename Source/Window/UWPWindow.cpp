@@ -21,7 +21,8 @@ using namespace Windows::System;
 using namespace Windows::Foundation;
 //using namespace Windows::Graphics::Display;
 SDL_Renderer* renderer = NULL;
-UWPWindow::UWPWindow(std::string title, int width, int height)
+UWPWindow::UWPWindow(std::string title, int width, int height, std::function<void(const Vector2&)> resizeCallback)
+	: ResizeCB(resizeCallback)
 {
 	MessageHandler = ref new UWPWindowMessageHandler(this);
 	Size = Vector2(width, height);
@@ -54,21 +55,42 @@ bool UWPWindow::ShouldClose()
 
 void UWPWindow::ParseMessageQueue()
 {
-	//SDL_Event evt;
-	//while (SDL_PollEvent(&evt)) {
-	//}
+	SDL_Event event;
+	while (SDL_PollEvent(&event))
+	{
+		switch (event.type)
+		{
+		case SDL_QUIT:
+		{
+			ExitRequested = true;
+			break;
+		}
 
-	//int x = 0;
-	//int y = 0;
-	//SDL_GetMouseState(&x, &y);
-	//SDL_GetGlobalMouseState(&x, &y);
-	if (IsVisible)
-	{
-		CoreWindow::GetForCurrentThread()->Dispatcher->ProcessEvents(CoreProcessEventsOption::ProcessAllIfPresent);
-	}
-	else
-	{
-		CoreWindow::GetForCurrentThread()->Dispatcher->ProcessEvents(CoreProcessEventsOption::ProcessOneAndAllPending);
+		case SDL_MOUSEWHEEL:
+		{
+			MouseScrollEvent evt(event.wheel.x, event.wheel.y);
+			evt.Fire();
+			break;
+		}
+
+		case SDL_WINDOWEVENT:
+		{
+			const SDL_WindowEvent& wev = event.window;
+			switch (wev.event) {
+			case SDL_WINDOWEVENT_RESIZED:
+			case SDL_WINDOWEVENT_SIZE_CHANGED:
+				OnWindowSizeChanged(Vector2(wev.data1, wev.data2));
+				break;
+
+			case SDL_WINDOWEVENT_CLOSE:
+				ExitRequested = true;
+				break;
+			}
+			break;
+		}
+		default:
+			break;
+		}
 	}
 }
 
@@ -155,8 +177,13 @@ UWPWindow::UWPWindowMessageHandler::UWPWindowMessageHandler(UWPWindow* window)
 
 void UWPWindow::UWPWindowMessageHandler::OnWindowSizeChanged(CoreWindow^ sender, WindowSizeChangedEventArgs^ args)
 {
-	m_window->Size = Vector2(sender->Bounds.Width, sender->Bounds.Height);
-	GetEngine().GetRenderer().WindowResized(m_window->Size);
+	//m_window->OnWindowSizeChanged(Vector2(sender->Bounds.Width, sender->Bounds.Height));
+}
+
+void UWPWindow::OnWindowSizeChanged(Vector2 newSize)
+{
+	Size = newSize;
+	ResizeCB(Size);
 }
 
 void UWPWindow::UWPWindowMessageHandler::OnVisibilityChanged(CoreWindow^ sender, VisibilityChangedEventArgs^ args)

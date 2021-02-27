@@ -116,7 +116,7 @@ void Engine::Init(Game* game)
 	GameWindow = new SDLWindow(EngineConfig->GetValue("Title"), ResizeFunc, 500, 300, Vector2(WindowWidth, WindowHeight));
 #endif
 #if ME_PLATFORM_UWP
-	GameWindow = new UWPWindow("MitchEngine", 1920, 1080);
+	GameWindow = new UWPWindow("MitchEngine", 1920, 1080, ResizeFunc);
 #endif
 
 	ResizeFunc(Vector2(1920, 1080));

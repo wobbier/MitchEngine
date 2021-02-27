@@ -97,6 +97,8 @@ void BGFXRenderer::Create(const RendererCreationSettings& settings)
 	init.resolution.height = static_cast<uint32_t>(PreviousSize.y);
 	init.resolution.reset = BGFX_RESET_VSYNC;
 
+	CurrentSize = settings.InitialSize;
+
 	if (!bgfx::init(init))
 	{
 		return;
