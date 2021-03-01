@@ -121,7 +121,7 @@ libdirs {
 
 links {
   "OptickCore.lib",
-  (getPlatformPostfix("Dementia") .. ".lib"),
+  "Dementia.lib",
   "assimp-vc140-mt",
   "IrrXML",
   --"DirectXTK",
@@ -267,7 +267,8 @@ systemversion "10.0.14393.0"
 language "C++"
 targetdir "../Build/%{cfg.buildcfg}"
 location "../Modules/Moonlight"
-dependson { getPlatformPostfix("Dementia") }
+flags { "FatalWarnings" }
+dependson { "Dementia" }
 includedirs {
   "../Modules/Moonlight/Source/"
 }
@@ -278,7 +279,6 @@ vpaths {
   ["Source"] = "../Source/**.*",
   ["Source"] = "../Source/*.*"
 }
-
 
 if not isUWP then
 ------------------------------------------------------- Editor Project -----------------------------------------------------
@@ -367,7 +367,7 @@ vpaths {
 
 group "Engine/Modules"
 
-project (getPlatformPostfix("Dementia"))
+project ("Dementia")
 kind "StaticLib"
 --if (isUWP) then
 --	system "windowsuniversal"
@@ -389,7 +389,7 @@ vpaths {
   ["Source"] = "../Source/**.*",
   ["Source"] = "../Source/*.*"
 }
-
+flags { "FatalWarnings" }
 dependson {
   "ImGui"
 }
@@ -400,6 +400,7 @@ if withRenderdoc then
     "xcopy /y /d  \"C:\\Program Files\\RenderDoc\\renderdoc.dll\" \"$(ProjectDir)$(OutDir)\""
   }
 end
+filter {}
 
 ------------------------------------------------------- Engine Project -------------------------------------------------------
 
@@ -417,6 +418,7 @@ targetdir "../Build/%{cfg.buildcfg}"
 location "../"
 pchheader "PCH.h"
 pchsource "../Source/PCH.cpp"
+flags { "FatalWarnings" }
 files {
   "../Source/**.h",
   "../Source/**.cpp",
@@ -425,7 +427,6 @@ files {
   "../Tools/*.lua"
 }
 
-filter {}
 
 dependson {
   getPlatformPostfix("Moonlight")
@@ -528,7 +529,7 @@ function GenerateGameSolution()
   }
   links {
     (getPlatformPostfix("MitchEngine") .. ".lib"),
-	(getPlatformPostfix("Dementia") .. ".lib"),
+	("Dementia.lib"),
 	"ImGui.lib"
   }
   dependson {

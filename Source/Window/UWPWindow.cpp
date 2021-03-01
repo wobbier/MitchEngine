@@ -68,7 +68,7 @@ void UWPWindow::ParseMessageQueue()
 
 		case SDL_MOUSEWHEEL:
 		{
-			MouseScrollEvent evt(event.wheel.x, event.wheel.y);
+			MouseScrollEvent evt(static_cast<float>(event.wheel.x), static_cast<float>(event.wheel.y));
 			evt.Fire();
 			break;
 		}

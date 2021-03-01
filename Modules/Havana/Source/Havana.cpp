@@ -490,7 +490,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 
 		float endOfMenu = ImGui::GetCursorPosX();
 		float buttonWidth = 40.f;
-		TitleBarDragPosition = Vector2(endOfMenu, 10);
+		TitleBarDragPosition = Vector2(endOfMenu, 10.f);
 		float winWidth = ImGui::GetWindowWidth();
 		TitleBarDragSize = Vector2(winWidth - endOfMenu - (buttonWidth * 5.f), MainMenuSize.y - 10.f);
 

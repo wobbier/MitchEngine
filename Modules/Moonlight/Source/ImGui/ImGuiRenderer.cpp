@@ -140,7 +140,7 @@ void ImGuiRenderer::Render(ImDrawData* drawData)
 		float ortho[16];
 		bx::mtxOrtho(ortho, 0.f, width, height, 0.f, 0.f, 1000.f, 0.f, caps->homogeneousDepth);
 		bgfx::setViewTransform(ViewId, nullptr, ortho);
-		bgfx::setViewRect(ViewId, 0, 0, width, height);
+		bgfx::setViewRect(ViewId, 0, 0, static_cast<uint16_t>(width), static_cast<uint16_t>(height));
 	}
 
 	for (int i = 0; i < drawData->CmdListsCount; ++i)
@@ -209,9 +209,9 @@ void ImGuiRenderer::Render(ImDrawData* drawData)
 					state |= BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_INV_SRC_ALPHA);
 				}
 
-				const uint16_t xx = bx::max(cmd->ClipRect.x, 0.f);
-				const uint16_t yy = bx::max(cmd->ClipRect.y, 0.f);
-				bgfx::setScissor(xx, yy, bx::min(cmd->ClipRect.z, 65535.f) - xx, bx::min(cmd->ClipRect.w, 65535.f) - yy);
+				const uint16_t xx = static_cast<uint16_t>(bx::max(cmd->ClipRect.x, 0.f));
+				const uint16_t yy = static_cast<uint16_t>(bx::max(cmd->ClipRect.y, 0.f));
+				bgfx::setScissor(xx, yy, static_cast<uint16_t>(bx::min(cmd->ClipRect.z, 65535.f)) - xx, static_cast<uint16_t>(bx::min(cmd->ClipRect.w, 65535.f)) - yy);
 				bgfx::setState(state);
 				bgfx::setTexture(0, sTexture, textureHandle);
 				bgfx::setVertexBuffer(0, &tvb, 0, numVertices);

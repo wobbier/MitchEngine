@@ -27,6 +27,11 @@ struct Vector2
 	{
 	}
 
+	Vector2(int x, int y)
+		: InternalVec(static_cast<int>(x), static_cast<int>(y))
+	{
+	}
+
 	const bool IsZero()
 	{
 		static Vector2 Zero = Vector2(0.f, 0.f);

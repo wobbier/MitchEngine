@@ -56,7 +56,7 @@ TextAnalysisSource::GetTextBeforePosition(UINT32 textPosition,
 }
 
 DWRITE_READING_DIRECTION STDMETHODCALLTYPE
-TextAnalysisSource::GetParagraphReadingDirection()
+TextAnalysisSource::GetParagraphReadingDirection() throw()
 {
   // We support only a single reading direction.
   return mReadingDirection;

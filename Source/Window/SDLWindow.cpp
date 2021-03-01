@@ -63,7 +63,7 @@ SDLWindow::SDLWindow(const std::string& title, std::function<void(const Vector2&
 	: ResizeCB(resizeFunc)
 {
 	SDL_Init(0);
-	WindowHandle = SDL_CreateWindow(title.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_UNDEFINED, windowSize.x, windowSize.y, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
+	WindowHandle = SDL_CreateWindow(title.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_UNDEFINED, static_cast<int>(windowSize.x), static_cast<int>(windowSize.y), SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
 
 	if (WindowHandle == nullptr) {
 		printf("Window could not be created. SDL_Error: %s\n", SDL_GetError());
@@ -97,7 +97,7 @@ void SDLWindow::ParseMessageQueue()
 
 		case SDL_MOUSEWHEEL:
 		{
-			MouseScrollEvent evt(event.wheel.x, event.wheel.y);
+			MouseScrollEvent evt(static_cast<float>(event.wheel.x), static_cast<float>(event.wheel.y));
 			evt.Fire();
 			break;
 		}
