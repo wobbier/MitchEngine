@@ -446,7 +446,7 @@ vpaths {
 }
 
 configuration "with-renderdoc"
-defines { "MAN_ENABLE_RENDERDOC", "__cplusplus_winrt" }
+defines { "MAN_ENABLE_RENDERDOC" }--, "__cplusplus_winrt"
 postbuildcommands {
   "xcopy /y /d  \"C:\\Program Files\\RenderDoc\\renderdoc.dll\" \"$(ProjectDir)$(OutDir)\""
 }

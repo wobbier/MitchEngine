@@ -345,7 +345,7 @@ void Burst::GenerateChunks(std::size_t size, std::size_t num, std::vector<std::p
 
 	if (size <= num)
 	{
-		OutChunks.push_back(std::make_pair(0, size));
+		OutChunks.push_back(std::make_pair(0, static_cast<int>(size)));
 		return;
 	}
 
@@ -361,7 +361,7 @@ void Burst::GenerateChunks(std::size_t size, std::size_t num, std::vector<std::p
 	{
 		end += (remain > 0) ? (length + !!(remain--)) : length;
 
-		OutChunks.push_back(std::make_pair(begin, end));
+		OutChunks.push_back(std::make_pair(static_cast<int>(begin), static_cast<int>(end)));
 
 		begin = end;
 	}
