@@ -241,3 +241,23 @@ bool ModelResource::LoadMaterialTextures(SharedPtr<Moonlight::Material> newMater
 	}
 	return false;
 }
+
+void ModelResourceMetadata::OnSerialize(json& inJson)
+{
+}
+
+void ModelResourceMetadata::OnDeserialize(const json& inJson)
+{
+}
+
+#if ME_EDITOR
+
+void ModelResourceMetadata::OnEditorInspect()
+{
+	MetaBase::OnEditorInspect();
+
+	static bool isChecked = false;
+	ImGui::Checkbox("Model Resource Test", &isChecked);
+}
+
+#endif

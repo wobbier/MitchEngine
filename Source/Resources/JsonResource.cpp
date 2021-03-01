@@ -6,10 +6,10 @@
 JsonResource::JsonResource(const Path& InFilePath)
 	: Resource(InFilePath)
 {
-	Data = nlohmann::json::parse(File(InFilePath).Read());
+	Data = json::parse(File(InFilePath).Read());
 }
 
-const nlohmann::json& JsonResource::GetJson() const
+const json& JsonResource::GetJson() const
 {
 	return Data;
 }

@@ -156,18 +156,18 @@ void Havana::InitUI()
 	style.WindowMenuButtonPosition = ImGuiDir_None;
 	style.AntiAliasedFill = false;
 
-	Icons["Close"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Close.dds"));
+	Icons["Close"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Close.png"));
 	Icons["BugReport"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/BugReport.png"));
 	Icons["Maximize"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Maximize.png"));
 	Icons["ExitMaximize"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/ExitMaximize.png"));
 	Icons["Minimize"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Minimize.png"));
-	Icons["Play"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Play.dds"));
+	Icons["Play"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Play.png"));
 	Icons["Pause"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Pause.png"));
-	Icons["Stop"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Stop.dds"));
+	Icons["Stop"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Stop.png"));
 	Icons["Info"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Info.png"));
 	Icons["Logo"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/ME-LOGO.png"));
-	Icons["Profiler"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Profiler.dds"));
-	Icons["FlipCamera"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/FlipCamera.dds"));
+	Icons["Profiler"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Profiler.png"));
+	Icons["FlipCamera"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/FlipCamera.png"));
 
 	//auto cb = [this](const Vector2& pos) -> std::optional<SDL_HitTestResult>
 	//{
@@ -486,10 +486,13 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 			}
 		}
 
+		ImGui::Image(Icons["FlipCamera"]->TexHandle, ImVec2(36.f, 36.f));
+
 		float endOfMenu = ImGui::GetCursorPosX();
 		float buttonWidth = 40.f;
 		TitleBarDragPosition = Vector2(endOfMenu, 10);
-		TitleBarDragSize = Vector2(ImGui::GetWindowWidth() - endOfMenu - (buttonWidth * 5.f), MainMenuSize.y - 10.f);
+		float winWidth = ImGui::GetWindowWidth();
+		TitleBarDragSize = Vector2(winWidth - endOfMenu - (buttonWidth * 5.f), MainMenuSize.y - 10.f);
 
 		auto window = static_cast<EditorWindow*>(m_engine->GetWindow());
 
@@ -632,11 +635,11 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 		//}
 		//else
 		//{
-		//	ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 2.f) + RightShift);
-		//	if (ImGui::ImageButton(Icons["Maximize"]->ShaderResourceView, ImVec2(30.f, 30.f)))
-		//	{
-		//		m_engine->GetWindow()->Maximize();
-		//	}
+			ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 2.f) + RightShift);
+			if (ImGui::ImageButton(Icons["Maximize"]->TexHandle, ImVec2(30.f, 30.f)))
+			{
+				m_engine->GetWindow()->Maximize();
+			}
 		//}
 
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(1.f, 42.f, 43.f, 1.f));
@@ -985,6 +988,17 @@ void Havana::DrawResourceMonitor()
 
 					ImGui::TableSetColumnIndex(0);
 					ImGui::Text(resourceList[row]->GetPath().LocalPath.c_str());
+					if (ImGui::IsItemHovered())
+					{
+						ImGui::BeginTooltip();
+
+						if (auto metaData = resourceList[row]->GetMetadata())
+						{
+							metaData->OnEditorInspect();
+						}
+
+						ImGui::EndTooltip();
+					}
 
 					ImGui::TableSetColumnIndex(1);
 					ImGui::Text(std::to_string(resourceList[row].use_count()).c_str());

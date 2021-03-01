@@ -18,27 +18,28 @@ public:
 
 	explicit Path(const std::string& InFile, bool Raw = false)
 	{
+		size_t pos;
 #if ME_PLATFORM_UWP
 		char buf[1024];
 		GetModuleFileNameA(NULL, buf, 1024);
 		std::string ProgramPath(buf);
+		std::replace(ProgramPath.begin(), ProgramPath.end(), '\\', '/');
+		pos = ProgramPath.find_last_of("/");
+		ProgramPath = ProgramPath.substr(0, pos + 1);
 #else
 		auto p = std::filesystem::current_path();
 		std::string ProgramPath(std::string(p.generic_string()));
-#endif
-
 		std::replace(ProgramPath.begin(), ProgramPath.end(), '\\', '/');
-		size_t pos = ProgramPath.find_last_of("/");
-		ProgramPath = ProgramPath.substr(0, pos + 1);
+#endif
 
 		std::string assetPrefix;
 #if ME_EDITOR
-		assetPrefix = "../../";
+		assetPrefix = "/../../../";
 #endif
 		LocalPath = InFile;
 
 		std::replace(LocalPath.begin(), LocalPath.end(), '\\', '/');
-
+		
 		size_t path = LocalPath.find(':');
 		if (path != std::string::npos)
 		{
@@ -47,6 +48,12 @@ public:
 		else
 		{
 			FullPath = ProgramPath + assetPrefix + LocalPath;
+		}
+
+		path = LocalPath.rfind('.');
+		if (path != std::string::npos)
+		{
+			Extension = LocalPath.substr(path+1, LocalPath.size());
 		}
 
 		path = LocalPath.rfind("Assets");
@@ -65,6 +72,7 @@ public:
 				{
 					FullPath = std::move(tempPath);
 					assetPrefix = assetPrefix.append("Engine/");
+					LocalPath = "Engine/" + LocalPath;
 					Exists = true;
 				}
 			}
@@ -106,4 +114,5 @@ public:
 	std::string FullPath;
 	std::string LocalPath;
 	std::string Directory;
+	std::string Extension;
 };

@@ -8,6 +8,8 @@
 #include "bx/readerwriter.h"
 #include "bx/file.h"
 #include "bgfx/bgfx.h"
+#include <JSON.h>
+#include <Resource/MetaRegistry.h>
 
 namespace Moonlight { struct FrameBuffer; }
 
@@ -66,10 +68,24 @@ namespace Moonlight
 		// Textures should not be copied around in memory
 		ME_NONCOPYABLE(Texture);
 
-		ID3D11ShaderResourceView* ShaderResourceView = nullptr;
-		Microsoft::WRL::ComPtr<ID3D11SamplerState> SamplerState;
-		ID3D11Resource* resource = nullptr;
 		bgfx::TextureHandle TexHandle;
 		static std::string ToString(TextureType type);
 	};
 }
+
+struct TextureResourceMetadata
+	: public MetaBase
+{
+	TextureResourceMetadata(const Path& filePath) : MetaBase(filePath) {}
+
+	void OnSerialize(json& inJson) override;
+	void OnDeserialize(const json& inJson) override;
+
+#if ME_EDITOR
+	void Export() override;
+
+	virtual void OnEditorInspect() final;
+#endif
+};
+
+ME_REGISTER_METADATA("png", TextureResourceMetadata);

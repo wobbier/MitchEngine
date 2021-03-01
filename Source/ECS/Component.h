@@ -4,9 +4,8 @@
 #include "EntityID.h"
 #include "Dementia.h"
 
-#include <nlohmann/json.hpp>
 #include "EntityHandle.h"
-
+#include "JSON.h"
 
 #define ME_REGISTER_COMPONENT_FOLDER(TYPE, FOLDER)            \
 	namespace details {                                       \
@@ -26,9 +25,6 @@
                 RegistryEntry<TYPE>::Instance(#TYPE, FOLDER); \
     }}
 #define ME_REGISTER_COMPONENT(TYPE) ME_REGISTER_COMPONENT_FOLDER(TYPE, "")
-
-// for convenience
-using json = nlohmann::json;
 
 class BaseComponent
 {

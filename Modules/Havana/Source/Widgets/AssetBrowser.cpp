@@ -20,7 +20,7 @@ AssetBrowser::AssetBrowser(const std::string& pathToWatch, std::chrono::duration
 	: PathToWatch(pathToWatch)
 	, Delay(delay)
 {
-	Icons["Image"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Image.dds"));
+	Icons["Image"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Image.png"));
 	Icons["File"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/File.png"));
 	Icons["Terrain"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Terrain.png"));
 	Icons["World"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/World.png"));
@@ -132,7 +132,7 @@ void AssetBrowser::Recursive(Directory& dir)
 				IM_ASSERT(payload->DataSize == sizeof(Havana::ParentDescriptor));
 				Havana::ParentDescriptor* payload_n = (Havana::ParentDescriptor*)payload->Data;
 
-				nlohmann::json prefab;
+				json prefab;
 				SavePrefab(prefab, payload_n->Parent, true);
 
 				File(Path(directory.second.FullPath.Directory + "/" + payload_n->Parent->Name + std::string(".prefab"))).Write(prefab[0].dump(4));
@@ -152,22 +152,22 @@ void AssetBrowser::Recursive(Directory& dir)
 		switch (files.Type)
 		{
 		case AssetType::Level:
-			ImGui::Image(Icons["World"]->ShaderResourceView, ImVec2(16, 16));
+			ImGui::Image(Icons["World"]->TexHandle, ImVec2(16, 16));
 			break;
 		case AssetType::Texture:
 			ImGui::Image(Icons["Image"]->TexHandle, ImVec2(16, 16));
 			break;
 		case AssetType::Model:
-			ImGui::Image(Icons["Terrain"]->ShaderResourceView, ImVec2(16, 16));
+			ImGui::Image(Icons["Terrain"]->TexHandle, ImVec2(16, 16));
 			break;
 		case AssetType::Audio:
-			ImGui::Image(Icons["Audio"]->ShaderResourceView, ImVec2(16, 16));
+			ImGui::Image(Icons["Audio"]->TexHandle, ImVec2(16, 16));
 			break;
 		case AssetType::Prefab:
-			ImGui::Image(Icons["Prefab"]->ShaderResourceView, ImVec2(16, 16));
+			ImGui::Image(Icons["Prefab"]->TexHandle, ImVec2(16, 16));
 			break;
 		default:
-			ImGui::Image(Icons["File"]->ShaderResourceView, ImVec2(16, 16));
+			ImGui::Image(Icons["File"]->TexHandle, ImVec2(16, 16));
 			break;
 		}
 
@@ -213,7 +213,7 @@ void AssetBrowser::Recursive(Directory& dir)
 				IM_ASSERT(payload->DataSize == sizeof(Havana::ParentDescriptor));
 				Havana::ParentDescriptor* payload_n = (Havana::ParentDescriptor*)payload->Data;
 
-				nlohmann::json prefab;
+				json prefab;
 				SavePrefab(prefab, payload_n->Parent, true);
 				
 				File(Path(files.FullPath.Directory + payload_n->Parent->Name + std::string(".prefab"))).Write(prefab[0].dump(4));
@@ -294,19 +294,19 @@ bool AssetBrowser::ProccessDirectoryRecursive(std::string& dir, Directory& dirRe
 
 				AssetDescriptor desc;
 				desc.Name = newdir;
-				desc.MetaFile = File(Path(file.path().string() + ".meta"));
+				//desc.MetaFile = File(Path(file.path().string() + ".meta"));
 				desc.FullPath = Path(file.path().string());
 				desc.Type = type;
 				dirRef.Files.push_back(desc);
-				const std::string & data = dirRef.Files.back().MetaFile.Read();
-				if (data.empty())
-				{
-					dirRef.Files.back().MetaFile.Write("{}");
-				}
-				else
-				{
+				//const std::string & data = dirRef.Files.back().MetaFile.Read();
+				//if (data.empty())
+				//{
+				//	//dirRef.Files.back().MetaFile.Write("{}");
+				//}
+				//else
+				//{
 
-				}
+				//}
 				return true;
 			}
 			Directory newDirectory;

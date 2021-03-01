@@ -1,8 +1,7 @@
 #pragma once
-#include <nlohmann/json.hpp>
-
 #include <Path.h>
 #include <File.h>
+#include <JSON.h>
 
 class Config
 {
@@ -11,13 +10,13 @@ public:
 	~Config();
 
 	std::string GetValue(const std::string& value);
-	const nlohmann::json& GetJsonObject(const std::string& value);
+	const json& GetJsonObject(const std::string& value);
 
 	void SetValue(std::string& key, std::string& newVal);
 
 	void Save();
 
 private:
-	nlohmann::json Root;
+	json Root;
 	File ConfigFile;
 };

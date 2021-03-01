@@ -12,6 +12,7 @@
 #include "assimp/scene.h"
 #include "Graphics/ShaderCommand.h"
 #include "Scene/Node.h"
+#include "Resource/MetaRegistry.h"
 
 namespace Moonlight { class MeshData; }
 
@@ -34,3 +35,18 @@ private:
 
 	bool LoadMaterialTextures(SharedPtr<Moonlight::Material> newMaterial, aiMaterial *mat, aiTextureType type, const Moonlight::TextureType& typeName);
 };
+
+struct ModelResourceMetadata
+	: public MetaBase
+{
+	ModelResourceMetadata(const Path& filePath) : MetaBase(filePath) {}
+
+	void OnSerialize(json& inJson) override;
+	void OnDeserialize(const json& inJson) override;
+
+#if ME_EDITOR
+	virtual void OnEditorInspect() final;
+#endif
+};
+
+ME_REGISTER_METADATA(".fbx", ModelResourceMetadata);

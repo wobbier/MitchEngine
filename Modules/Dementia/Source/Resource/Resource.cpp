@@ -15,6 +15,11 @@ Resource::~Resource()
 	}
 }
 
+void Resource::SetMetadata(MetaBase* metadata)
+{
+	Metadata = metadata;
+}
+
 bool Resource::IsCached() const
 {
 	return Resources != nullptr;
@@ -38,4 +43,9 @@ const Path& Resource::GetPath() const
 const std::size_t Resource::GetResourceType() const
 {
 	return ResourceType;
+}
+
+MetaBase* Resource::GetMetadata()
+{
+	return Metadata;
 }

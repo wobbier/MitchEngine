@@ -17,7 +17,7 @@ const bgfx::Memory* Moonlight::LoadMemory(bx::FileReaderI* _reader, const char* 
 		return mem;
 	}
 
-	YIKES("Failed to load %s.", _filePath);
+	YIKES(std::string("Failed to load: ") + std::string( _filePath));
 	return NULL;
 }
 
@@ -46,12 +46,11 @@ bgfx::ShaderHandle Moonlight::LoadShader(const char* _name)
 		break;
 	}
 
-	bx::strCopy(filePath, BX_COUNTOF(filePath), shaderPath);
+	bx::strCopy(filePath, BX_COUNTOF(filePath), "Assets/Shaders/");
 	bx::strCat(filePath, BX_COUNTOF(filePath), _name);
-	bx::strCat(filePath, BX_COUNTOF(filePath), ".bin");
 	Path finalPath = Path(filePath);
 	SharedPtr<ShaderFile> shad = ResourceCache::GetInstance().Get<ShaderFile>(finalPath);
-	const bgfx::Memory* memm = bgfx::copy(shad->Data.data(), shad->Data.size() - 1);
+	const bgfx::Memory* memm = bgfx::copy(shad->Data.data(), static_cast<uint32_t>(shad->Data.size() - 1));
 	bgfx::ShaderHandle handle = bgfx::createShader(memm);
 	bgfx::setName(handle, _name);
 

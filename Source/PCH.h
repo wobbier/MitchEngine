@@ -55,13 +55,11 @@
 #include <iostream>
 #include <optional>
 
-#include <nlohmann/json.hpp>
+#include <JSON.h>
 
 //#include "ECS/ComponentDetail.h"
 
 #include <CLog.h>
 
-// for convenience
-using json = nlohmann::json;
 // core
 #include "Game.h"

@@ -11,7 +11,6 @@
 #include "Pointers.h"
 #include "Graphics/Texture.h"
 #include "File.h"
-#include "nlohmann/json.hpp"
 #include "imgui.h"
 
 class Transform;
@@ -154,7 +153,7 @@ public:
 private:
 	bool ProccessDirectoryRecursive(std::string& dir, Directory& dirRef, const std::filesystem::directory_entry& file);
 
-	void SavePrefab(nlohmann::json& d, Transform* CurrentTransform, bool IsRoot);
+	void SavePrefab(json& d, Transform* CurrentTransform, bool IsRoot);
 	std::unordered_map<std::string, std::filesystem::file_time_type> Paths;
 	bool IsRunning = true;
 	bool Contains(const std::string& key);

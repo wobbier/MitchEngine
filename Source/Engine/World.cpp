@@ -241,7 +241,7 @@ EntityHandle World::CreateFromPrefab(std::string& FilePath, Transform* Parent)
 	return LoadPrefab(prefabJson->GetJson(), Parent, Parent);
 }
 
-EntityHandle World::LoadPrefab(const nlohmann::json& obj, Transform* parent, Transform* root)
+EntityHandle World::LoadPrefab(const json& obj, Transform* parent, Transform* root)
 {
 	EntityHandle ent;
 	World* GameWorld = this;

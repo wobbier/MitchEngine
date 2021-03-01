@@ -104,13 +104,13 @@ void Engine::Init(Game* game)
 
 #if ME_EDITOR
 	EngineConfig = new Config(engineCfg);
-	const nlohmann::json& WindowConfig = EngineConfig->GetJsonObject("Window");
+	const json& WindowConfig = EngineConfig->GetJsonObject("Window");
 	int WindowWidth = WindowConfig["Width"];
 	int WindowHeight = WindowConfig["Height"];
 	GameWindow = new EditorWindow(EngineConfig->GetValue("Title"), ResizeFunc, 500, 300, Vector2(WindowWidth, WindowHeight));
 #elif ME_PLATFORM_WIN64
 	EngineConfig = new Config(engineCfg);
-	const nlohmann::json& WindowConfig = EngineConfig->GetJsonObject("Window");
+	const json& WindowConfig = EngineConfig->GetJsonObject("Window");
 	int WindowWidth = WindowConfig["Width"];
 	int WindowHeight = WindowConfig["Height"];
 	GameWindow = new SDLWindow(EngineConfig->GetValue("Title"), ResizeFunc, 500, 300, Vector2(WindowWidth, WindowHeight));

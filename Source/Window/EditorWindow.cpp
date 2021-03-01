@@ -259,6 +259,10 @@ bool EditorWindow::IsMaximized()
 void EditorWindow::Maximize()
 {
 	ShowWindow(Window, SW_MAXIMIZE);
+
+	RECT newSize;
+	GetClientRect(Window, &newSize);
+	Resized(Vector2(static_cast<float>(newSize.right - newSize.left), static_cast<float>(newSize.bottom - newSize.top)));
 }
 
 LRESULT EditorWindow::HitTest(POINT cursor) const
@@ -307,7 +311,7 @@ LRESULT EditorWindow::HitTest(POINT cursor) const
 		{
 			ScreenToClient(Window, &position);
 
-			if (position.x > TitleBarDragPosition.x && position.y < TitleBarDragPosition.y + TitleBarDragSize.y)
+			if (position.x > TitleBarDragPosition.x && position.x < TitleBarDragPosition.x + TitleBarDragSize.x && position.y < TitleBarDragPosition.y + TitleBarDragSize.y)
 			{
 				return drag;
 			}

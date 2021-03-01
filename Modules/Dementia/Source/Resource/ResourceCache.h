@@ -8,6 +8,7 @@
 #include <Path.h>
 #include <Pointers.h>
 #include <Singleton.h>
+#include "MetaFile.h"
 
 class Resource;
 
@@ -28,6 +29,8 @@ public:
 
 	void Dump();
 
+	MetaBase* LoadMetadata(const Path& filePath);
+
 private:
 	std::map<std::string, std::shared_ptr<Resource>> ResourceStack;
 
@@ -44,7 +47,13 @@ SharedPtr<T> ResourceCache::Get(const Path& InFilePath, Args&& ... args)
 		return Res;
 	}
 
-	if (!InFilePath.Exists)
+	MetaBase* metaFile = LoadMetadata(InFilePath);
+	if (metaFile && metaFile->FlaggedForExport)
+	{
+		metaFile->Export();
+	}
+
+	if (!InFilePath.Exists && !metaFile->FlaggedForExport)
 	{
 		YIKES("Failed to load resource: " + InFilePath.FullPath);
 		return {};
@@ -54,6 +63,7 @@ SharedPtr<T> ResourceCache::Get(const Path& InFilePath, Args&& ... args)
 	Res->Resources = this;
 	TypeId id = ClassTypeId<Resource>::GetTypeId<T>();
 	Res->ResourceType = static_cast<std::size_t>(id);
+	Res->SetMetadata(metaFile);
 	ResourceStack[InFilePath.FullPath] = Res;
 	return Res;
 }

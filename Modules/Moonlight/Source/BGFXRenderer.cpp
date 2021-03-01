@@ -144,7 +144,7 @@ void BGFXRenderer::Create(const RendererCreationSettings& settings)
 			bgfx::makeRef(s_cubeTriList, sizeof(s_cubeTriList))
 		);
 
-		CubeProgram = Moonlight::LoadProgram("vs_cubes", "fs_cubes");
+		CubeProgram = Moonlight::LoadProgram("cubes.vert", "cubes.frag");
 		m_timeOffset = bx::getHPCounter();
 	}
 }
@@ -321,7 +321,7 @@ unsigned int BGFXRenderer::PushCamera(Moonlight::CameraData& command)
 	Moonlight::CameraData& data = Cameras[index];
 
 	delete data.Buffer;
-	data.Buffer = new Moonlight::FrameBuffer(data.OutputSize.x, data.OutputSize.y);
+	data.Buffer = new Moonlight::FrameBuffer(static_cast<uint32_t>(data.OutputSize.x), static_cast<uint32_t>(data.OutputSize.y));
 
 	//data.FrameBuffer = bgfx::createFrameBuffer(GetEngine().GetWindow()->GetWindowPtr(), data.OutputSize.X(), data.OutputSize.Y());
 

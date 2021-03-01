@@ -3,13 +3,10 @@
 #include <string>
 #include <unordered_map>
 
-#include <nlohmann/json.hpp>
 #include "Math/Vector3.h"
 #include "Math/Vector2.h"
 #include "ShaderCommand.h"
 #include "MaterialDetail.h"
-
-using json = nlohmann::json;
 
 #define ME_REGISTER_MATERIAL_NAME_FOLDER(TYPE, NAME, FOLDER)            \
 	namespace details {                                       \
