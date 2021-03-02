@@ -486,8 +486,6 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 			}
 		}
 
-		ImGui::Image(Icons["FlipCamera"]->TexHandle, ImVec2(36.f, 36.f));
-
 		float endOfMenu = ImGui::GetCursorPosX();
 		float buttonWidth = 40.f;
 		TitleBarDragPosition = Vector2(endOfMenu, 10.f);
@@ -1735,17 +1733,35 @@ void Havana::RenderMainView(Moonlight::CameraData& EditorCamera)
 			{
 				m_isWorldViewFocused = ImGui::IsWindowFocused();
 
+				Moonlight::FrameBuffer* editorView = m_engine->EditorCamera.Buffer;
+				Moonlight::FrameBuffer* gameView = Renderer->GetCamera(Camera::CurrentCamera->GetCameraId()).Buffer;
+				Moonlight::FrameBuffer* currentView = (m_viewportMode == ViewportMode::Editor) ? editorView : gameView;
 
-				if (Renderer && bgfx::isValid(m_engine->EditorCamera.Buffer->Buffer))
+				if (currentView && bgfx::isValid(currentView->Buffer))
 				{
 					ImVec2 maxPos = ImVec2(pos.x + ImGui::GetWindowSize().x, pos.y + ImGui::GetWindowSize().y);
 					WorldViewRenderSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
 					WorldViewRenderLocation = Vector2(pos.x, pos.y);
+					if (m_viewportMode == ViewportMode::Game)
+					{
+						Camera::CurrentCamera->OutputSize = Vector2(WorldViewRenderSize.x, WorldViewRenderSize.y - 38.f);
+					}
 					// Ask ImGui to draw it as an image:
 					// Under OpenGL the ImGUI image type is GLuint
 					// So make sure to use "(void *)tex" but not "&tex"
-					ImGui::Image(bgfx::getTexture(m_engine->EditorCamera.Buffer->Buffer), ImVec2(WorldViewRenderSize.x, WorldViewRenderSize.y- 38.f), ImVec2(0, 0),
+					ImGui::Image(bgfx::getTexture(currentView->Buffer), ImVec2(WorldViewRenderSize.x, WorldViewRenderSize.y- 38.f), ImVec2(0, 0),
 						ImVec2(Mathf::Clamp(0.f, 1.0f, WorldViewRenderSize.x / m_engine->EditorCamera.Buffer->Width), Mathf::Clamp(0.f, 1.0f, WorldViewRenderSize.y / m_engine->EditorCamera.Buffer->Height)));
+
+					if (m_viewportMode == ViewportMode::Editor && gameView)
+					{
+						ImGui::Begin("Game Preview");
+						//ImGui::SetCursorPos(ImVec2(WorldViewRenderSize.x - 215.f, -115.f));
+						Vector2 size(gameView->Width / 4.f, gameView->Height/4.f);
+						Camera::CurrentCamera->OutputSize = size;
+						ImGui::Image(bgfx::getTexture(gameView->Buffer), ImVec2(size.x, size.y), ImVec2(0, 0),
+							ImVec2(Mathf::Clamp(0.f, 1.0f, size.x / gameView->Width), Mathf::Clamp(0.f, 1.0f, size.y / gameView->Height)));
+						ImGui::End();
+					}
 					/*ImGui::GetWindowDrawList()->AddImage(
 						(void*)srv.Get(),
 						ImVec2(pos.x, pos.y),

@@ -177,7 +177,7 @@ void BGFXRenderer::BeginFrame(Vector2& mousePosition, uint8_t mouseButton, int32
 	ImGuiRender->NewFrame(mousePosition, mouseButton, scroll, outputSize, inputChar, viewId);
 }
 
-void BGFXRenderer::Render(Moonlight::CameraData& MainCamera)
+void BGFXRenderer::Render(Moonlight::CameraData& EditorCamera)
 {
 	OPTICK_EVENT("Renderer::Render", Optick::Category::Rendering);
 	ImGui::Begin("Debug");
@@ -198,13 +198,37 @@ void BGFXRenderer::Render(Moonlight::CameraData& MainCamera)
 		bgfx::reset((uint32_t)CurrentSize.x, (uint32_t)CurrentSize.y, BGFX_RESET_VSYNC);
 		bgfx::setViewRect(kClearView, 0, 0, bgfx::BackbufferRatio::Equal);
 	}
+#if ME_EDITOR
+	bgfx::ViewId id = 1;
+
+	EditorCamera.Buffer = EditorCameraBuffer;
+	RenderCameraView(EditorCamera, id);
+	++id;
 	for (auto& camData : Cameras)
 	{
-		//RenderCameraView(camData);
+		RenderCameraView(camData, id);
+		++id;
+	}
+#else
+	bgfx::ViewId id = kClearView + 1;
+	for (auto& camData : Cameras)
+	{
+		if (!camData.IsMain)
+		{
+			RenderCameraView(camData, id);
+		}
+		++id;
 	}
 
-	MainCamera.Buffer = EditorCameraBuffer;
-	RenderCameraView(MainCamera);
+	for (auto& camData : Cameras)
+	{
+		if (camData.IsMain)
+		{
+			RenderCameraView(camData, kClearView);
+			break;
+		}
+	}
+#endif
 	{
 
 		{
@@ -215,87 +239,84 @@ void BGFXRenderer::Render(Moonlight::CameraData& MainCamera)
 }
 
 
-void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera)
+void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId id)
 {
 	if (true)
 	{
-			if (CurrentSize.IsZero())
+		if (CurrentSize.IsZero())
+		{
+			return;
+		}
+		if (!camera.Buffer)
+		{
+			return;
+		}
+
+		float time = (float)((bx::getHPCounter() - m_timeOffset) / double(bx::getHPFrequency()));
+
+		const bx::Vec3 eye = { camera.Position.x, camera.Position.y, camera.Position.z };
+		const bx::Vec3 at = { camera.Position.x + camera.Front.x, camera.Position.y + camera.Front.y, camera.Position.z + camera.Front.z };
+
+		// Set view and projection matrix for view 0.
+		{
+			float view[16];
+			bx::mtxLookAt(view, eye, at);
+
+			float proj[16];
+			bx::mtxProj(proj, camera.FOV, float(camera.OutputSize.x) / float(camera.OutputSize.y), camera.Near, camera.Far, bgfx::getCaps()->homogeneousDepth);
+			bgfx::setViewTransform(id, view, proj);
+			if (id > 0)
 			{
-				return;
-			}
-			if (!camera.Buffer)
-			{
-				return;
-			}
-
-			float time = (float)((bx::getHPCounter() - m_timeOffset) / double(bx::getHPFrequency()));
-
-			const bx::Vec3 eye = { camera.Position.x, camera.Position.y, camera.Position.z };
-			const bx::Vec3 at = { camera.Position.x + camera.Front.x, camera.Position.y + camera.Front.y, camera.Position.z + camera.Front.z };
-
-			// Set view and projection matrix for view 0.
-			{
-				float view[16];
-				bx::mtxLookAt(view, eye, at);
-
-				float proj[16];
-				bx::mtxProj(proj, 60.0f, float(camera.OutputSize.x) / float(camera.OutputSize.y), 0.1f, 100.0f, bgfx::getCaps()->homogeneousDepth);
-				bgfx::setViewTransform(kClearView, view, proj);
-#if ME_EDITOR
-				bgfx::setViewFrameBuffer(kClearView, camera.Buffer->Buffer);
-#endif
-
-				// Set view 0 default viewport.
-				bgfx::setViewRect(kClearView, 0, 0, uint16_t(camera.OutputSize.x), uint16_t(camera.OutputSize.y));
+				bgfx::setViewFrameBuffer(id, camera.Buffer->Buffer);
 			}
 
-			bgfx::touch(0);
-			uint32_t color = (uint32_t)(camera.ClearColor.x * 255.f) << 24 | (uint32_t)(camera.ClearColor.y * 255.f) << 16 | (uint32_t)(camera.ClearColor.z * 255.f) << 8 | 255;
-			bgfx::setViewClear(kClearView
-				, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH
-				, color, 1.0f, 0
-			);
+			// Set view 0 default viewport.
+			bgfx::setViewRect(id, 0, 0, uint16_t(camera.OutputSize.x), uint16_t(camera.OutputSize.y));
+		}
 
-			bgfx::touch(0);
-			uint64_t state = 0
-				| BGFX_STATE_WRITE_RGB
-				| BGFX_STATE_WRITE_A
-				| BGFX_STATE_WRITE_Z
-				| BGFX_STATE_DEPTH_TEST_LESS
-				| BGFX_STATE_CULL_CW
-				| BGFX_STATE_MSAA
-				| UINT64_C(0) // tris
-				;
+		//bgfx::touch(0);
+		uint32_t color = (uint32_t)(camera.ClearColor.x * 255.f) << 24 | (uint32_t)(camera.ClearColor.y * 255.f) << 16 | (uint32_t)(camera.ClearColor.z * 255.f) << 8 | 255;
+		bgfx::setViewClear(id
+			, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH
+			, color, 1.0f, 0
+		);
 
-			// Submit 11x11 cubes.
-			for (uint32_t yy = 0; yy < 11; ++yy)
+		bgfx::touch(id);
+		uint64_t state = 0
+			| BGFX_STATE_WRITE_RGB
+			| BGFX_STATE_WRITE_A
+			| BGFX_STATE_WRITE_Z
+			| BGFX_STATE_DEPTH_TEST_LESS
+			| BGFX_STATE_CULL_CW
+			| BGFX_STATE_MSAA
+			| UINT64_C(0) // tris
+			;
+
+		// Submit 11x11 cubes.
+		for (uint32_t yy = 0; yy < 11; ++yy)
+		{
+			for (uint32_t xx = 0; xx < 11; ++xx)
 			{
-				for (uint32_t xx = 0; xx < 11; ++xx)
-				{
-					float mtx[16];
-					bx::mtxRotateXY(mtx, time + xx * 0.21f, time + yy * 0.37f);
-					mtx[12] = -15.0f + float(xx) * 3.0f;
-					mtx[13] = -15.0f + float(yy) * 3.0f;
-					mtx[14] = 0.0f;
+				float mtx[16];
+				bx::mtxRotateXY(mtx, time + xx * 0.21f, time + yy * 0.37f);
+				mtx[12] = -15.0f + float(xx) * 3.0f;
+				mtx[13] = -15.0f + float(yy) * 3.0f;
+				mtx[14] = 0.0f;
 
-					// Set model matrix for rendering.
-					bgfx::setTransform(mtx);
+				// Set model matrix for rendering.
+				bgfx::setTransform(mtx);
 
-					// Set vertex and index buffer.
-					bgfx::setVertexBuffer(0, m_vbh);
-					bgfx::setIndexBuffer(m_ibh);
+				// Set vertex and index buffer.
+				bgfx::setVertexBuffer(0, m_vbh);
+				bgfx::setIndexBuffer(m_ibh);
 
-					// Set render states.
-					bgfx::setState(state);
+				// Set render states.
+				bgfx::setState(state);
 
-					// Submit primitive for rendering to view 0.
-					bgfx::submit(kClearView, CubeProgram);
-				}
+				// Submit primitive for rendering to view 0.
+				bgfx::submit(id, CubeProgram);
 			}
-
-		// Advance to next frame. Rendering thread will be kicked to
-		// process submitted rendering primitives.
-		//bgfx::frame();
+		}
 	}
 }
 

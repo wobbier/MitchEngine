@@ -32,7 +32,7 @@ namespace Moonlight
 		Vector2 OutputSize;
 		ProjectionType Projection = ProjectionType::Perspective;
 		float FOV = 45.0f;
-		float Near = 1.f;
+		float Near = 0.1f;
 		float Far = 100.f;
 		SkyBox* Skybox = nullptr;
 		Frustum* CameraFrustum = nullptr;
