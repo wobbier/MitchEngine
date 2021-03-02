@@ -5,20 +5,31 @@
 #include "Resource/ResourceCache.h"
 #include "Pointers.h"
 
-const bgfx::Memory* Moonlight::LoadMemory(bx::FileReaderI* _reader, const char* _filePath)
+const bgfx::Memory* Moonlight::LoadMemory(const Path& filePath)
 {
-	if (bx::open(_reader, _filePath))
+	//if (bx::open(_reader, _filePath))
+	//{
+	//	uint32_t size = (uint32_t)bx::getSize(_reader);
+	//	const bgfx::Memory* mem = bgfx::alloc(size + 1);
+	//	bx::read(_reader, mem->data, size);
+	//	bx::close(_reader);
+	//	mem->data[mem->size - 1] = '\0';
+	//	return mem;
+	//}
+
+	if (filePath.Exists)
 	{
-		uint32_t size = (uint32_t)bx::getSize(_reader);
-		const bgfx::Memory* mem = bgfx::alloc(size + 1);
-		bx::read(_reader, mem->data, size);
-		bx::close(_reader);
-		mem->data[mem->size - 1] = '\0';
-		return mem;
+		std::vector<char> data;
+		std::ifstream file(filePath.FullPath.c_str(), std::ios::in | std::ios::binary | std::ios::ate);
+		data.resize(file.tellg());
+		file.seekg(0, std::ios::beg);
+		file.read(&data[0], data.size());
+
+		return bgfx::copy(data.data(), static_cast<uint32_t>(data.size() - 1));
 	}
 
-	YIKES(std::string("Failed to load: ") + std::string( _filePath));
-	return NULL;
+	YIKES(std::string("Failed to load: ") + std::string(filePath.FullPath));
+	return nullptr;
 }
 
 bgfx::ShaderHandle Moonlight::LoadShader(const char* _name)

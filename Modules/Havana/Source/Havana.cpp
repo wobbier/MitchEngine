@@ -303,7 +303,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 		//MainMenuSize.y = 25.f;
 		ImGui::SetWindowSize(MainMenuSize);
 		ImGui::PopStyleVar(1);
-		//ImGui::Image(Icons["Logo"]->ShaderResourceView, ImVec2(35, 35));
+		ImGui::Image(Icons["Logo"]->TexHandle, ImVec2(35, 35));
 		if (ImGui::BeginMenu("File"))
 		{
 			//ImGui::MenuItem("(dummy menu)", NULL, false, false);
@@ -459,11 +459,11 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 
 		if (m_app->IsGameRunning())
 		{
-			//if (ImGui::ImageButton(Icons["Pause"]->ShaderResourceView, ImVec2(30.f, 30.f)) || Keyboard.F10)
-			//{
-			//	m_engine->GetInput().Pause();
-			//	PauseGameFunc();
-			//}
+			if (ImGui::ImageButton(Icons["Pause"]->TexHandle, ImVec2(30.f, 30.f)) || editorInput.IsKeyDown(KeyCode::F10))
+			{
+				m_engine->GetInput().Pause();
+				PauseGameFunc();
+			}
 
 			if (ImGui::ImageButton(Icons["Stop"]->TexHandle, ImVec2(30.f, 30.f)) || (editorInput.IsKeyDown(KeyCode::F5) && editorInput.IsKeyDown(KeyCode::LeftShift)))
 			{
@@ -577,70 +577,70 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 			CloseHandle(pi.hProcess);
 			CloseHandle(pi.hThread);
 		}
-		/*if (ImGui::ImageButton(Icons["Info"]->ShaderResourceView, ImVec2(30.f, 30.f)))
-		{
-			if (m_engine->CurrentScene && !std::filesystem::exists(m_engine->CurrentScene->FilePath.FullPath))
-			{
-				ImGui::OpenPopup("help_popup");
-			}
-		}
+		//if (ImGui::ImageButton(Icons["Info"]->TexHandle, ImVec2(30.f, 30.f)))
+		//{
+		//	if (m_engine->CurrentScene && !std::filesystem::exists(m_engine->CurrentScene->FilePath.FullPath))
+		//	{
+		//		ImGui::OpenPopup("help_popup");
+		//	}
+		//}
 
-		if (ImGui::BeginPopup("help_popup"))
-		{
-			ImGui::Text("Components");
-			ImGui::Separator();
+		//if (ImGui::BeginPopup("help_popup"))
+		//{
+		//	ImGui::Text("Components");
+		//	ImGui::Separator();
 
-			ComponentRegistry& reg = GetComponentRegistry();
+		//	ComponentRegistry& reg = GetComponentRegistry();
 
-			for (auto& thing : reg)
-			{
-				if (ImGui::Selectable(thing.first.c_str()))
-				{
-					if (SelectedEntity)
-					{
-						AddComponentCommand* compCmd = new AddComponentCommand(thing.first, SelectedEntity);
-						EditorCommands.Push(compCmd);
-					}
-					if (SelectedTransform)
-					{
-						AddComponentCommand* compCmd = new AddComponentCommand(thing.first, SelectedTransform->Parent);
-						EditorCommands.Push(compCmd);
-					}
-				}
-			}
-			ImGui::EndPopup();
-		}*/
+		//	for (auto& thing : reg)
+		//	{
+		//		if (ImGui::Selectable(thing.first.c_str()))
+		//		{
+		//			if (SelectedEntity)
+		//			{
+		//				AddComponentCommand* compCmd = new AddComponentCommand(thing.first, SelectedEntity);
+		//				EditorCommands.Push(compCmd);
+		//			}
+		//			if (SelectedTransform)
+		//			{
+		//				AddComponentCommand* compCmd = new AddComponentCommand(thing.first, SelectedTransform->Parent);
+		//				EditorCommands.Push(compCmd);
+		//			}
+		//		}
+		//	}
+		//	ImGui::EndPopup();
+		//}
 		float RightShift = 2.f;
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(0.35f, 126.f, 43.f, 1.f));
 		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 4.f));
-		//if (ImGui::ImageButton(Icons["BugReport"]->ShaderResourceView, ImVec2(30.f, 30.f)))
-		//{
-		//	ShellExecute(0, 0, L"https://github.com/wobbier/MitchEngine/issues", 0, 0, SW_SHOW);
-		//}
+		if (ImGui::ImageButton(Icons["BugReport"]->TexHandle, ImVec2(30.f, 30.f)))
+		{
+			ShellExecute(0, 0, L"https://github.com/wobbier/MitchEngine/issues", 0, 0, SW_SHOW);
+		}
 		ImGui::PopStyleColor(1);
 
-		//ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 3.f) + RightShift);
-		//if (ImGui::ImageButton(Icons["Minimize"]->ShaderResourceView, ImVec2(30.f, 30.f)))
-		//{
-		//	m_engine->GetWindow()->Minimize();
-		//}
+		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 3.f) + RightShift);
+		if (ImGui::ImageButton(Icons["Minimize"]->TexHandle, ImVec2(30.f, 30.f)))
+		{
+			m_engine->GetWindow()->Minimize();
+		}
 
-		//if (static_cast<Win32Window*>(m_engine->GetWindow())->IsMaximized())
-		//{
-		//	ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 2.f) + RightShift);
-		//	if (ImGui::ImageButton(Icons["ExitMaximize"]->ShaderResourceView, ImVec2(30.f, 30.f)))
-		//	{
-		//		m_engine->GetWindow()->ExitMaximize();
-		//	}
-		//}
-		//else
-		//{
+		if (static_cast<EditorWindow*>(m_engine->GetWindow())->IsMaximized())
+		{
+			ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 2.f) + RightShift);
+			if (ImGui::ImageButton(Icons["ExitMaximize"]->TexHandle, ImVec2(30.f, 30.f)))
+			{
+				m_engine->GetWindow()->ExitMaximize();
+			}
+		}
+		else
+		{
 			ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 2.f) + RightShift);
 			if (ImGui::ImageButton(Icons["Maximize"]->TexHandle, ImVec2(30.f, 30.f)))
 			{
 				m_engine->GetWindow()->Maximize();
 			}
-		//}
+		}
 
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(1.f, 42.f, 43.f, 1.f));
 		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - buttonWidth + RightShift);

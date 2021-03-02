@@ -3,6 +3,7 @@
 #include "bgfx/bgfx.h"
 #include "bx/readerwriter.h"
 #include "bx/file.h"
+#include "Path.h"
 
 namespace Moonlight
 {
@@ -41,7 +42,7 @@ namespace Moonlight
 
 	bx::AllocatorI* getDefaultAllocator();
 
-	const bgfx::Memory* LoadMemory(bx::FileReaderI* _reader, const char* _filePath);
+	const bgfx::Memory* LoadMemory(const Path& filePath);
 
 	bgfx::ShaderHandle LoadShader(const char* _name);
 	bgfx::ProgramHandle LoadProgram(const char* vsName, const char* fsName);
