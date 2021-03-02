@@ -273,6 +273,9 @@ void Engine::Run()
 //			EditorCamera = MainCamera;
 //#endif
 			m_game->PostRender();
+#if !ME_EDITOR
+			EditorCamera.OutputSize = GetWindow()->GetSize();
+#endif
 			NewRenderer->Render(EditorCamera);
 			GameWindow->Swap();
 			//FrameProfile::GetInstance().Set("Render", ProfileCategory::Rendering);

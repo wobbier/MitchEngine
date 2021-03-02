@@ -54,10 +54,9 @@ private:
 	Moonlight::FrameBuffer* EditorCameraBuffer = nullptr;
 
 	bgfx::VertexBufferHandle m_vbh;
-	bgfx::IndexBufferHandle m_ibh[5];
+	bgfx::IndexBufferHandle m_ibh;
 	bgfx::ProgramHandle CubeProgram;
 	int64_t m_timeOffset;
-	int32_t m_pt;
 
 	bool m_r = true;
 	bool m_g = true;

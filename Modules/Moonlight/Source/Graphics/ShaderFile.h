@@ -7,6 +7,8 @@
 #include <string>
 #include "Utils/StringUtils.h"
 #include <winnt.h>
+#include "Utils/BGFXUtils.h"
+#include "bx/readerwriter.h"
 
 namespace Moonlight
 {
@@ -64,16 +66,18 @@ struct ShaderFileMetadata
 		if (FilePath.Extension == "frag")
 		{
 			exportType = "fragment";
-			shaderType = "ps_5_0";
+			shaderType = "ps_4_0";
 		}
 		else if (FilePath.Extension == "vert")
 		{
 			exportType = "vertex";
-			shaderType = "vs_5_0";
+			shaderType = "vs_4_0";
 		}
 
 		std::string fileName = FilePath.LocalPath.substr(FilePath.LocalPath.rfind("/") + 1, FilePath.LocalPath.length());
 
+		// --platform windows -p vs_5_0 -O 3 --type vertex --depends -o $(@) -f $(<) --disasm
+		// 
 		std::string srtt = "-f ../../../";
 		srtt += FilePath.LocalPath;
 		srtt += " -o ../../../Assets/Shaders/dx11/" + fileName + ".bin --varyingdef ./varying.def.sc --platform windows -p " + shaderType + " --type " + exportType;
