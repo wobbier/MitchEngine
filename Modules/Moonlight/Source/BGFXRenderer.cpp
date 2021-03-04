@@ -104,7 +104,7 @@ void BGFXRenderer::Create(const RendererCreationSettings& settings)
 			bgfx::makeRef(Moonlight::s_cubeTriList, sizeof(Moonlight::s_cubeTriList))
 		);
 
-		CubeProgram = Moonlight::LoadProgram("cubes.vert", "cubes.frag");
+		CubeProgram = Moonlight::LoadProgram("Assets/Shaders/Samples/Cubes.vert", "Assets/Shaders/Samples/Cubes.frag");
 
 		//bgfx::RendererType::Enum type = bgfx::getRendererType();
 		//bgfx::ShaderHandle vsh = bgfx::createEmbeddedShader(s_embeddedShaders, type, "cubes_vert");

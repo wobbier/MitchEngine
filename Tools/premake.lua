@@ -423,8 +423,11 @@ files {
   "../Source/**.h",
   "../Source/**.cpp",
   "../Source/**.txt",
-  "../Assets/**.hlsl",
-  "../Tools/*.lua"
+  "../Tools/*.lua",
+  "../Assets/Shaders/**.frag",
+  "../Assets/Shaders/**.vert",
+  "../Assets/Shaders/**.comp",
+  "../Assets/Shaders/**.var",
 }
 
 
@@ -443,7 +446,10 @@ links {
 vpaths {
   ["Build"] = "../Tools/*.lua",
   ["Source"] = "Source/**.*",
-  ["Shaders"] = "Assets/**.hlsl"
+  ["Shaders"] = "Assets/Shaders/**.frag",
+  ["Shaders"] = "Assets/Shaders/**.vert",
+  ["Shaders"] = "Assets/Shaders/**.comp",
+  ["Shaders"] = "Assets/Shaders/**.var",
 }
 
 configuration "with-renderdoc"
@@ -538,10 +544,16 @@ function GenerateGameSolution()
   files {
     "Game/**.h",
     "Game/**.cpp",
-    "Assets/**.hlsl",
+    "Assets/Shaders/**.frag",
+    "Assets/Shaders/**.vert",
+    "Assets/Shaders/**.comp",
+    "Assets/Shaders/**.var",
 	}
   vpaths {
-	["Shaders"] = "Assets/**.hlsl"
+	["Shaders"] = "Assets/Shaders/**.frag",
+	["Shaders"] = "Assets/Shaders/**.vert",
+	["Shaders"] = "Assets/Shaders/**.comp",
+	["Shaders"] = "Assets/Shaders/**.var",
   }
   
 dependson {

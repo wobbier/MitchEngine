@@ -19,9 +19,8 @@ namespace Moonlight
 		ShaderFile(const Path& InPath)
 			: Resource(InPath)
 		{
-			std::string platformString = "dx11";
-			std::string path = FilePath.FullPath.substr(FilePath.FullPath.rfind("/"), FilePath.FullPath.length());
-			std::string fullPath = FilePath.Directory + platformString + path + ".bin";
+			std::string path = FilePath.FullPath.substr(FilePath.FullPath.rfind("/") + 1, FilePath.FullPath.length());
+			std::string fullPath = FilePath.Directory + path + "." + Moonlight::GetPlatformString() + ".bin";
 			//fullPath = fullPath.substr(0, fullPath.rfind(".")) + ".bin";
 			Data = ReadToByteArray(fullPath.c_str());
 		}
@@ -75,13 +74,14 @@ struct ShaderFileMetadata
 		}
 
 		std::string fileName = FilePath.LocalPath.substr(FilePath.LocalPath.rfind("/") + 1, FilePath.LocalPath.length());
+		std::string localFolder = FilePath.LocalPath.substr(0, FilePath.LocalPath.rfind("/") + 1);
 
 		// --platform windows -p vs_5_0 -O 3 --type vertex --depends -o $(@) -f $(<) --disasm
 		// 
-		std::string thingg = fileName.substr(0, fileName.rfind("."));
+		std::string nameNoExt = fileName.substr(0, fileName.rfind("."));
 		std::string srtt = "-f ../../../";
-		srtt += FilePath.LocalPath;
-		srtt += " -o ../../../Assets/Shaders/dx11/" + fileName + ".bin --varyingdef ../../../Assets/Shaders/" + thingg + ".var --platform windows -p " + shaderType + " --type " + exportType;
+		srtt += localFolder + fileName;
+		srtt += " -o ../../../" + localFolder + fileName + "." + Moonlight::GetPlatformString() + ".bin --varyingdef ../../../" + localFolder + nameNoExt + ".var --platform windows -p " + shaderType + " --type " + exportType;
 		SetCurrentDirectory(StringUtils::ToWString(optickPath.Directory).c_str());
 		// ./shaderc -f ../../../Assets/Shaders/vs_cubes.shader -o ../../../Assets/Shaders/dummy.bin --varyingdef ./varying.def.sc --platform windows -p vs_5_0 --type vertex
 
