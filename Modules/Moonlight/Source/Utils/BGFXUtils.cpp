@@ -32,22 +32,22 @@ const bgfx::Memory* Moonlight::LoadMemory(const Path& filePath)
 	return nullptr;
 }
 
-bgfx::ShaderHandle Moonlight::LoadShader(const char* _name)
+bgfx::ShaderHandle Moonlight::LoadShader(const std::string& _name)
 {
 	Path finalPath = Path(_name);
 	SharedPtr<ShaderFile> shad = ResourceCache::GetInstance().Get<ShaderFile>(finalPath);
 	const bgfx::Memory* memm = bgfx::copy(shad->Data.data(), static_cast<uint32_t>(shad->Data.size() - 1));
 	bgfx::ShaderHandle handle = bgfx::createShader(memm);
-	bgfx::setName(handle, _name);
+	bgfx::setName(handle, _name.c_str());
 
 	return handle;
 }
 
-bgfx::ProgramHandle Moonlight::LoadProgram(const char* vsName, const char* fsName)
+bgfx::ProgramHandle Moonlight::LoadProgram(const std::string& vsName, const std::string& fsName)
 {
 	bgfx::ShaderHandle vertexShader = LoadShader(vsName);
 	bgfx::ShaderHandle fragmentShader = BGFX_INVALID_HANDLE;
-	if (fsName)
+	if (fsName.size() > 0)
 	{
 		fragmentShader = LoadShader(fsName);
 	}

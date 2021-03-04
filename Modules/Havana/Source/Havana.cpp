@@ -42,9 +42,9 @@
 #include "imgui_internal.h"
 #include "Window/EditorWindow.h"
 
-int profilerSize = 10.f;
-const int kMinProfilerSize = 10.f;
-const int kMaxProfilerSize = 40.f;
+int profilerSize = 10;
+const int kMinProfilerSize = 10;
+const int kMaxProfilerSize = 40;
 
 Havana::Havana(Engine* GameEngine, EditorApp* app)
 	: m_engine(GameEngine)
@@ -685,7 +685,7 @@ void Havana::DrawLog()
 		}
 
 		ImGuiListClipper clipper;
-		clipper.Begin(CLog::Messages.size(), 12.f);
+		clipper.Begin(static_cast<int>(CLog::Messages.size()), 12.f);
 
 		static float currentHeight = 0.f;
 		ImVec2 size = ImVec2(0, (ImGui::GetWindowSize().y - currentHeight) - ImGui::GetCursorPosY());
@@ -977,7 +977,7 @@ void Havana::DrawResourceMonitor()
 			ImGui::TableSetupColumn("References", ImGuiTableColumnFlags_WidthFixed);
 			//ImGui::TableAutoHeaders();
 			ImGuiListClipper clipper;
-			clipper.Begin(resourceList.size());
+			clipper.Begin(static_cast<int>(resourceList.size()));
 			while (clipper.Step())
 			{
 				for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; row++)
@@ -1346,7 +1346,7 @@ void Havana::RenderProfilerBar()
 	//	ImGui::SetNextWindowSize(ImGui::GetMainViewport()->Size);
 	//	ImGui::SetNextWindowPos(ImGui::GetMainViewport()->Pos);
 	//#else
-	ImGui::SetNextWindowSize(ImVec2(ImGui::GetMainViewport()->Size.x, profilerSize));
+	ImGui::SetNextWindowSize(ImVec2(ImGui::GetMainViewport()->Size.x, static_cast<float>(profilerSize)));
 	auto pos = ImGui::GetMainViewport()->Pos;
 	ImGui::SetNextWindowPos(ImVec2(pos.x, pos.y + ImGui::GetMainViewport()->Size.y - (profilerSize)));
 	//#endif

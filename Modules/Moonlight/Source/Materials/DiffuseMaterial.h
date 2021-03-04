@@ -6,14 +6,13 @@ class DiffuseMaterial
 {
 public:
 	DiffuseMaterial()
-		: Moonlight::Material("DiffuseMaterial", "Assets/Shaders/DiffuseShader.hlsl")
+		: Moonlight::Material("DiffuseMaterial", "Assets/Shaders/Samples/Cubes")
 	{
 
 	}
 
 	void Init() override
 	{
-		throw std::logic_error("The method or operation is not implemented.");
 	}
 
 };
@@ -23,14 +22,13 @@ class WhiteMaterial
 {
 public:
 	WhiteMaterial()
-		: Moonlight::Material("WhiteMaterial", "Assets/Shaders/WhiteShader.hlsl")
+		: Moonlight::Material("WhiteMaterial", "Assets/Shaders/Samples/Cubes")
 	{
 
 	}
 
 	void Init() override
 	{
-		throw std::logic_error("The method or operation is not implemented.");
 	}
 
 };

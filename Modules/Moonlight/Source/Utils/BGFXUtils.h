@@ -44,8 +44,8 @@ namespace Moonlight
 
 	const bgfx::Memory* LoadMemory(const Path& filePath);
 
-	bgfx::ShaderHandle LoadShader(const char* _name);
-	bgfx::ProgramHandle LoadProgram(const char* vsName, const char* fsName);
+	bgfx::ShaderHandle LoadShader(const std::string& _name);
+	bgfx::ProgramHandle LoadProgram(const std::string& vsName, const std::string& fsName);
 
 	std::string GetPlatformString();
 
