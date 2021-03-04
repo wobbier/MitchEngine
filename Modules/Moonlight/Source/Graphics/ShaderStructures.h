@@ -1,73 +1,47 @@
 ﻿#pragma once
 #include "RenderCommands.h"
+#include "bgfx/bgfx.h"
 
 namespace Moonlight
 {
-	struct PerFrameConstantBuffer
+	struct PosColorVertex
 	{
-		float test;
-		//DirectX::XMFLOAT4X4 view;
-		//DirectX::XMFLOAT4X4 projection;
-		//DirectX::XMFLOAT2 ViewportSize;
-		//DirectX::XMFLOAT2 _Padding;
-	};
-	// Constant buffer used to send MVP matrices to the vertex shader.
-	struct ModelViewProjectionConstantBuffer
-	{
-		float test;
-		//DirectX::XMFLOAT4X4 model;
-		//DirectX::XMFLOAT4X4 modelInv;
-		//DirectX::XMFLOAT2 Tiling;
-		//BOOL HasNormalMap;
-		//BOOL HasAlphaMap;
-		//BOOL HasSpecMap;
-		//DirectX::XMFLOAT3 DiffuseColor;
-		//DirectX::XMFLOAT4 padding2;
+		Vector3 vec;
+		uint32_t m_abgr;
+
+		static void Init()
+		{
+			ms_layout
+				.begin()
+				.add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
+				.add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true)
+				.end();
+		};
+
+		static bgfx::VertexLayout ms_layout;
 	};
 
-	struct PickingConstantBuffer
-	{
-		float test;
-		//DirectX::XMFLOAT4X4 model;
-		//DirectX::XMFLOAT4X4 view;
-		//DirectX::XMFLOAT4X4 projection;
-		//FLOAT id;
-		//DirectX::XMFLOAT3 padding;
-	};
-
-	struct DepthPassBuffer
-	{
-		float test;
-		//DirectX::XMFLOAT4X4 model;
-		//DirectX::XMFLOAT4X4 cameraMatrix;
-	};
-
-	struct LightingPassConstantBuffer
-	{
-		LightCommand Light;
-		//DirectX::XMMATRIX LightSpaceMatrix;
-	};
-
-	// Used to send per-vertex data to the vertex shader.
-	struct VertexPositionColor
-	{
-		float test;
-		/*DirectX::XMFLOAT3 pos;
-		DirectX::XMFLOAT3 color;*/
-	};
-	struct VertexPositionTexCoord
-	{
-		float test;
-		/*DirectX::XMFLOAT3 Position;
-		DirectX::XMFLOAT2 TexCoord;*/
-	};
-	struct Vertex
+	struct PosNormTexTanBiVertex
 	{
 		Vector3 Position;
 		Vector3 Normal;
 		Vector2 TextureCoord;
 		Vector3 Tangent;
 		Vector3 BiTangent;
+
+		static void Init()
+		{
+			ms_layout
+				.begin()
+				.add(bgfx::Attrib::Position,  3, bgfx::AttribType::Float)
+				.add(bgfx::Attrib::Normal,    3, bgfx::AttribType::Float)
+				.add(bgfx::Attrib::TexCoord0, 3, bgfx::AttribType::Float)
+				.add(bgfx::Attrib::Tangent,   3, bgfx::AttribType::Float)
+				.add(bgfx::Attrib::Bitangent, 3, bgfx::AttribType::Float)
+				.end();
+		};
+
+		static bgfx::VertexLayout ms_layout;
 	};
 
 	struct ShaderProgram
@@ -76,11 +50,5 @@ namespace Moonlight
 		/*Microsoft::WRL::ComPtr<ID3D11VertexShader> VertexShader;
 		Microsoft::WRL::ComPtr<ID3D11PixelShader> PixelShader;
 		Microsoft::WRL::ComPtr<ID3D11InputLayout> InputLayout;*/
-	};
-
-	struct ComputeProgram
-	{
-		float test;
-		//Microsoft::WRL::ComPtr<ID3D11ComputeShader> ComputeShader;
 	};
 }

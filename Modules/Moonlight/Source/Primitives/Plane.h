@@ -11,25 +11,25 @@ public:
 		: Moonlight::MeshData()
 	{
 		// top left
-		Moonlight::Vertex vert1;
+		Moonlight::PosNormTexTanBiVertex vert1;
 		vert1.Position = { -1.f,0.f,-1.f };
 		vert1.TextureCoord = { 0.f,0.f };
 		vertices.push_back(vert1);
 
 		// bottom left
-		Moonlight::Vertex vert2;
+		Moonlight::PosNormTexTanBiVertex vert2;
 		vert2.Position = { -1.f, 0.f, 1.f };
 		vert2.TextureCoord = { 0.f,1.f };
 		vertices.push_back(vert2);
 
 		// top right
-		Moonlight::Vertex vert3;
+		Moonlight::PosNormTexTanBiVertex vert3;
 		vert3.Position = { 1.f, 0.f, -1.f };
 		vert3.TextureCoord = { 1.f,0.f };
 		vertices.push_back(vert3);
 
 		// bottom right
-		Moonlight::Vertex vert4;
+		Moonlight::PosNormTexTanBiVertex vert4;
 		vert4.Position = { 1.f, 0.f, 1.f };
 		vert4.TextureCoord = { 1.f,1.f };
 		vertices.push_back(vert4);

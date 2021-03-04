@@ -165,10 +165,10 @@ namespace Moonlight
 	//	//);
 	//}
 
-	const ShaderProgram& ShaderCommand::GetProgram() const
-	{
-		return Program;
-	}
+	//const ShaderProgram& ShaderCommand::GetProgram() const
+	//{
+	//	return Program;
+	//}
 
 	void ShaderCommand::SetMat4(const std::string &name, const Matrix4& mat) const
 	{

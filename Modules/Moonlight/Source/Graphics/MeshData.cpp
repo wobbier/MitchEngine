@@ -12,7 +12,7 @@
 
 namespace Moonlight
 {
-	MeshData::MeshData(std::vector<Vertex> vertices, std::vector<uint16_t> indices, SharedPtr<Moonlight::Material> mat)
+	MeshData::MeshData(std::vector<PosNormTexTanBiVertex> vertices, std::vector<uint16_t> indices, SharedPtr<Moonlight::Material> mat)
 		: m_indexCount(0)
 		, material(mat)
 	{

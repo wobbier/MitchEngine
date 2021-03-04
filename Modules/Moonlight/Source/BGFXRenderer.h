@@ -4,6 +4,7 @@
 #include "Camera/CameraData.h"
 #include <queue>
 #include "Device/FrameBuffer.h"
+#include "RenderCommands.h"
 
 class ImGuiRenderer;
 
@@ -36,12 +37,19 @@ public:
 
 	void WindowResized(const Vector2& newSize);
 
+	// Cameras
+	unsigned int PushCamera(Moonlight::CameraData& command);
 	void UpdateCamera(unsigned int Id, Moonlight::CameraData& NewCommand);
+	void PopCamera(unsigned int Id);
 	Moonlight::CameraData& GetCamera(unsigned int Id);
 
-	unsigned int PushCamera(Moonlight::CameraData& command);
-	void PopCamera(unsigned int Id);
-
+	// Meshes
+	unsigned int PushMesh(Moonlight::MeshCommand command);
+	void UpdateMesh(unsigned int Id, Moonlight::MeshCommand& NewCommand);
+	void PopMesh(unsigned int Id);
+	Moonlight::MeshCommand& GetMesh(unsigned int Id);
+	void UpdateMeshMatrix(unsigned int Id, glm::mat4& matrix);
+	void ClearMeshes();
 private:
 	Vector2 PreviousSize;
 	Vector2 CurrentSize;
@@ -51,15 +59,13 @@ private:
 	std::vector<Moonlight::CameraData> Cameras;
 	std::queue<unsigned int> FreeCameraCommandIndicies;
 
+	std::vector<Moonlight::MeshCommand> Meshes;
+	std::queue<unsigned int> FreeMeshCommandIndicies;
+
 	Moonlight::FrameBuffer* EditorCameraBuffer = nullptr;
 
 	bgfx::VertexBufferHandle m_vbh;
 	bgfx::IndexBufferHandle m_ibh;
 	bgfx::ProgramHandle CubeProgram;
 	int64_t m_timeOffset;
-
-	bool m_r = true;
-	bool m_g = true;
-	bool m_b = true;
-	bool m_a = true;
 };

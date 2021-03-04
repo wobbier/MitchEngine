@@ -38,10 +38,21 @@ namespace Moonlight
 
 	struct MeshCommand
 	{
+		MeshCommand() = default;
+		MeshCommand(const MeshCommand& other)
+		{
+			MeshMaterial = other.MeshMaterial;
+		}
+		void Reset()
+		{
+			SingleMesh = nullptr;
+			MeshMaterial = nullptr;
+			Transform = glm::mat4(1.f);
+		}
 		MeshData* SingleMesh = nullptr;
 		MeshType Type = MeshType::Model;
-		SharedPtr<Material> MeshMaterial;
-		//DirectX::SimpleMath::Matrix Transform;
+		SharedPtr<Material> MeshMaterial =nullptr;
+		glm::mat4 Transform;
 		bool Visible = false;
 	};
 

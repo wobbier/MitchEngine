@@ -20,6 +20,7 @@
 #include "Engine/Engine.h"
 #include "Components/Lighting/DirectionalLight.h"
 #include "Work/Burst.h"
+#include "BGFXRenderer.h"
 
 RenderCore::RenderCore()
 	: Base(ComponentFilter().Requires<Transform>().Requires<Mesh>())
@@ -33,7 +34,7 @@ void RenderCore::Init()
 {
 	CLog::GetInstance().Log(CLog::LogType::Debug, "RenderCore Initialized...");
 	//m_renderer->ClearDebugColliders();
-	//m_renderer->ClearMeshes();
+	GetEngine().GetRenderer().ClearMeshes();
 }
 
 void RenderCore::OnEntityAdded(Entity& NewEntity)
@@ -45,7 +46,7 @@ void RenderCore::OnEntityAdded(Entity& NewEntity)
 		command.SingleMesh = model.MeshReferece;
 		command.MeshMaterial = model.MeshMaterial;
 		command.Type = model.GetType();
-		//model.Id = GetEngine().GetRenderer().PushMesh(command);
+		model.Id = GetEngine().GetRenderer().PushMesh(command);
 	}
 	if (NewEntity.HasComponent<DirectionalLight>())
 	{
@@ -61,7 +62,7 @@ void RenderCore::OnEntityRemoved(Entity& InEntity)
 	if (InEntity.HasComponent<Mesh>())
 	{
 		Mesh& mesh = InEntity.GetComponent<Mesh>();
-		//GetEngine().GetRenderer().PopMesh(mesh.Id);
+		GetEngine().GetRenderer().PopMesh(mesh.Id);
 	}
 }
 
@@ -108,7 +109,7 @@ void RenderCore::Update(float dt)
 					{
 						Mesh& model = InEntity.GetComponent<Mesh>();
 
-						//m_renderer->UpdateMeshMatrix(model.GetId(), transform.GetMatrix().GetInternalMatrix());
+						GetEngine().GetRenderer().UpdateMeshMatrix(model.GetId(), transform.GetMatrix().GetInternalMatrix());
 					}
 					if (InEntity.HasComponent<DirectionalLight>())
 					{
@@ -180,17 +181,17 @@ void RenderCore::OnDeviceRestored()
 
 void RenderCore::OnStop()
 {
-	//m_renderer->ClearMeshes();
+	GetEngine().GetRenderer().ClearMeshes();
 	//m_renderer->ClearDebugColliders();
 }
 
 void RenderCore::UpdateMesh(Mesh* InMesh)
 {
-	//m_renderer->PopMesh(InMesh->Id);
+	GetEngine().GetRenderer().PopMesh(InMesh->Id);
 
 	Moonlight::MeshCommand command;
 	command.SingleMesh = InMesh->MeshReferece;
 	command.MeshMaterial = InMesh->MeshMaterial;
 	command.Type = InMesh->GetType();
-	//InMesh->Id = m_renderer->PushMesh(command);
+	InMesh->Id = GetEngine().GetRenderer().PushMesh(command);
 }

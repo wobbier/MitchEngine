@@ -18,12 +18,12 @@ namespace Moonlight
 		MeshData() = default;
 		~MeshData();
 
-		std::vector<Vertex> vertices;
+		std::vector<PosNormTexTanBiVertex> vertices;
 		std::vector<uint16_t> indices;
 		SharedPtr<Material> material;
 		unsigned int VAO;
 
-		MeshData(std::vector<Vertex> vertices, std::vector<uint16_t> indices, SharedPtr<Material> newMaterial = nullptr);
+		MeshData(std::vector<PosNormTexTanBiVertex> vertices, std::vector<uint16_t> indices, SharedPtr<Material> newMaterial = nullptr);
 
 		// render the mesh
 		//void Draw(SharedPtr<Material> mat, ID3D11DeviceContext* context, bool depthOnly = false);

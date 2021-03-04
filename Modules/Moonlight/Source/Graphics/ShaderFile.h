@@ -78,9 +78,10 @@ struct ShaderFileMetadata
 
 		// --platform windows -p vs_5_0 -O 3 --type vertex --depends -o $(@) -f $(<) --disasm
 		// 
+		std::string thingg = fileName.substr(0, fileName.rfind("."));
 		std::string srtt = "-f ../../../";
 		srtt += FilePath.LocalPath;
-		srtt += " -o ../../../Assets/Shaders/dx11/" + fileName + ".bin --varyingdef ./varying.def.sc --platform windows -p " + shaderType + " --type " + exportType;
+		srtt += " -o ../../../Assets/Shaders/dx11/" + fileName + ".bin --varyingdef ../../../Assets/Shaders/" + thingg + ".var --platform windows -p " + shaderType + " --type " + exportType;
 		SetCurrentDirectory(StringUtils::ToWString(optickPath.Directory).c_str());
 		// ./shaderc -f ../../../Assets/Shaders/vs_cubes.shader -o ../../../Assets/Shaders/dummy.bin --varyingdef ./varying.def.sc --platform windows -p vs_5_0 --type vertex
 
