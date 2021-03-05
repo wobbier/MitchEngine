@@ -14,73 +14,14 @@ struct MetaBase
 {
 	MetaBase() = delete;
 
-	MetaBase(const Path& filePath)
-	: FilePath(filePath)
-	{
-		struct stat fileInfo;
+	MetaBase(const Path& filePath);
 
-		if (stat(filePath.FullPath.c_str(), &fileInfo) != 0) {  // Use stat() to get the info
-			//std::cerr << "Error: " << strerror(errno) << '\n';
-		}
+	void Serialize(json& outJson);
+	void Deserialize(const json& inJson);
 
-		//std::cout << "Type:         : ";
-		//if ((fileInfo.st_mode & S_IFMT) == S_IFDIR) { // From sys/types.h
-		//	std::cout << "Directory\n";
-		//}
-		//else {
-		//	std::cout << "File\n";
-		//}
+	virtual void Export() {	}
 
-		//std::cout << "Size          : " <<
-		//	fileInfo.st_size << '\n';               // Size in bytes
-		//std::cout << "Device        : " <<
-		//	(char)(fileInfo.st_dev + 'A') << '\n';  // Device number
-		//std::cout << "Created       : " <<
-		//	std::ctime(&fileInfo.st_ctime);         // Creation time
-		//std::cout << "Modified      : " <<
-		//	std::ctime(&fileInfo.st_mtime);         // Last mod time
-
-		LastModified = static_cast<long>(fileInfo.st_mtime);
-		char str[26];
-		ctime_s(str, sizeof str, &fileInfo.st_mtime);
-		LastModifiedDebug = std::string(str);// std::ctime(&fileInfo.st_mtime);
-	}
-
-	void Serialize(json& outJson)
-	{
-		outJson["FileType"] = FilePath.Extension;
-		outJson["LastModified"] = LastModified;
-		outJson["LastModifiedDebug"] = LastModifiedDebug;
-		//outJson["LastModified"] = buffer;
-		OnSerialize(outJson);
-	}
-
-	void Deserialize(const json& inJson)
-	{
-		if (inJson.contains("FileType"))
-		{
-			FileType = inJson["FileType"];
-		}
-
-		bool wasModified = true;
-		if (inJson.contains("LastModified"))
-		{
-			long CachedLastModified = inJson["LastModified"];
-			LastModified = CachedLastModified;
-			wasModified = (LastModified != CachedLastModified);
-		}
-		FlaggedForExport = wasModified;
-
-		if (inJson.contains("LastModifiedDebug"))
-		{
-			LastModifiedDebug = inJson["LastModifiedDebug"];
-		}
-		OnDeserialize(inJson);
-	}
-
-	virtual void Export()
-	{
-	}
+	void Save();
 
 	virtual void OnSerialize(json& outJson) = 0;
 	virtual void OnDeserialize(const json& inJson) = 0;

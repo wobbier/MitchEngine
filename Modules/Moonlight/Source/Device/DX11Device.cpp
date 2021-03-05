@@ -1,5 +1,4 @@
 #include "DX11Device.h"
-#include "Utils/DirectXHelper.h"
 //
 //#if ME_DIRECTX
 //

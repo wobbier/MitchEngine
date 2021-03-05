@@ -67,5 +67,6 @@ private:
 	bgfx::VertexBufferHandle m_vbh;
 	bgfx::IndexBufferHandle m_ibh;
 	bgfx::ProgramHandle CubeProgram;
+	int32_t m_pt;
 	int64_t m_timeOffset;
 };

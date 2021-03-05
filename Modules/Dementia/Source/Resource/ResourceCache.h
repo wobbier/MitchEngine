@@ -51,6 +51,7 @@ SharedPtr<T> ResourceCache::Get(const Path& InFilePath, Args&& ... args)
 	if (metaFile && metaFile->FlaggedForExport)
 	{
 		metaFile->Export();
+		metaFile->Save();
 	}
 
 	if (!InFilePath.Exists && !metaFile->FlaggedForExport)

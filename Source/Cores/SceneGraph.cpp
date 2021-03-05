@@ -43,17 +43,9 @@ void UpdateRecursively(Transform* CurrentTransform, bool isParentDirty, bool isB
 		{
 			OPTICK_CATEGORY("Update Transform", Optick::Category::Scene);
 
-			//Quaternion quat = Quaternion(Child->Rotation);
-			//DirectX::SimpleMath::Matrix id = DirectX::XMMatrixIdentity();
-			//DirectX::SimpleMath::Matrix rot = DirectX::SimpleMath::Matrix::CreateFromQuaternion(Child->LocalRotation.InternalQuat);// , Child->Rotation.Y(), Child->Rotation.Z());
-			//DirectX::SimpleMath::Matrix scale = DirectX::SimpleMath::Matrix::CreateScale(Child->GetScale().InternalVec);
-			//DirectX::SimpleMath::Matrix pos = XMMatrixTranslationFromVector(Child->GetPosition().InternalVec);
-			//Child->SetWorldTransform(Matrix4((scale * rot * pos) * CurrentTransform->WorldTransform.GetInternalMatrix()));
-
 			glm::mat4 model = glm::mat4(1.f);
 			model = glm::translate(model, Child->GetPosition().InternalVector);
-			glm::vec3 axis = glm::axis(Child->GetWorldRotation().InternalQuat);
-			model = glm::rotate(model, glm::angle(Child->GetWorldRotation().InternalQuat), axis);
+			model = glm::rotate(model, Child->GetWorldRotation().ToAngle(), Child->GetWorldRotation().ToAxis().InternalVector);
 			model = glm::scale(model, Child->GetScale().InternalVector);
 
 			Child->SetWorldTransform(Matrix4(model * CurrentTransform->WorldTransform.GetInternalMatrix()));

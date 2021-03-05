@@ -189,6 +189,9 @@ struct Quaternion
 
 	static Vector3 ToEulerAngles(const Quaternion& InQuat);
 
+	float ToAngle() const;
+	Vector3 ToAxis() const;
+
 };
 
 //class Quaternion

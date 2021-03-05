@@ -13,6 +13,8 @@
 #include "Graphics/Material.h"
 #include "Graphics/ShaderStructures.h"
 #include "Primitives/Cube.h"
+#include "Graphics/MeshData.h"
+#include "Graphics/ShaderCommand.h"
 
 #if BX_PLATFORM_LINUX
 #define GLFW_EXPOSE_NATIVE_X11
@@ -29,7 +31,27 @@
 
 static bool s_showStats = false;
 
+namespace
+{
+	static const char* s_ptNames[]
+	{
+		"Triangle List",
+		"Triangle Strip",
+		"Lines",
+		"Line Strip",
+		"Points",
+	};
 
+	static const uint64_t s_ptState[]
+	{
+		UINT64_C(0),
+		BGFX_STATE_PT_TRISTRIP,
+		BGFX_STATE_PT_LINES,
+		BGFX_STATE_PT_LINESTRIP,
+		BGFX_STATE_PT_POINTS,
+	};
+	BX_STATIC_ASSERT(BX_COUNTOF(s_ptState) == BX_COUNTOF(s_ptNames));
+}
 
 
 //static const bgfx::EmbeddedShader s_embeddedShaders[] =
@@ -90,6 +112,7 @@ void BGFXRenderer::Create(const RendererCreationSettings& settings)
 		//);
 		// Create vertex stream declaration.
 		Moonlight::PosColorVertex::Init();
+		Moonlight::PosNormTexTanBiVertex::Init();
 
 		// Create static vertex buffer.
 		m_vbh = bgfx::createVertexBuffer(
@@ -134,6 +157,8 @@ void BGFXRenderer::Render(Moonlight::CameraData& EditorCamera)
 	OPTICK_EVENT("Renderer::Render", Optick::Category::Rendering);
 	ImGui::Begin("Debug");
 	ImGui::Checkbox("Show Frame Stats", &s_showStats);
+	ImGui::Text("Primitive topology:");
+	ImGui::Combo("Test Top", (int*)&m_pt, s_ptNames, BX_COUNTOF(s_ptNames));
 	ImGui::End();
 
 	ImGuiRender->EndFrame();
@@ -246,9 +271,9 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 			| BGFX_STATE_WRITE_A
 			| BGFX_STATE_WRITE_Z
 			| BGFX_STATE_DEPTH_TEST_LESS
-			| BGFX_STATE_CULL_CW
+			| BGFX_STATE_CULL_CCW
 			| BGFX_STATE_MSAA
-			| UINT64_C(0) // tris
+			| s_ptState[m_pt]
 			;
 
 		for (int i = 0; i < Meshes.size(); ++i)
@@ -273,6 +298,26 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 
 				// Submit primitive for rendering to view 0.
 				bgfx::submit(id, CubeProgram);
+			}
+			else if (mesh.Type == Moonlight::MeshType::Model)
+			{
+				if (!mesh.SingleMesh)
+				{
+					continue;
+				}
+
+				// Set model matrix for rendering.
+				bgfx::setTransform(&mesh.Transform);
+
+				// Set vertex and index buffer.
+				bgfx::setVertexBuffer(0, mesh.SingleMesh->m_vbh);
+				bgfx::setIndexBuffer(mesh.SingleMesh->m_ibh);
+
+				// Set render states.
+				bgfx::setState(state);
+
+				// Submit primitive for rendering to view 0.
+				bgfx::submit(id, mesh.MeshMaterial->MeshShader.Program);
 			}
 		}
 	}

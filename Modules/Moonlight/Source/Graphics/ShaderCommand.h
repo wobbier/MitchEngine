@@ -8,6 +8,7 @@ namespace Moonlight
 {
 	class ShaderCommand
 	{
+		friend class BGFXRenderer;
 	public:
 		ShaderCommand() = default;
 

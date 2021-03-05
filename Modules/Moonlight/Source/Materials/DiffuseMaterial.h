@@ -6,7 +6,7 @@ class DiffuseMaterial
 {
 public:
 	DiffuseMaterial()
-		: Moonlight::Material("DiffuseMaterial", "Assets/Shaders/Samples/Cubes")
+		: Moonlight::Material("DiffuseMaterial", "Assets/Shaders/Diffuse")
 	{
 
 	}
@@ -22,7 +22,7 @@ class WhiteMaterial
 {
 public:
 	WhiteMaterial()
-		: Moonlight::Material("WhiteMaterial", "Assets/Shaders/Samples/Cubes")
+		: Moonlight::Material("WhiteMaterial", "Assets/Shaders/Diffuse")
 	{
 
 	}

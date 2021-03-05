@@ -37,6 +37,18 @@ Vector3 Quaternion::ToEulerAngles(const Quaternion& InQuat)
 
 	return angles;
 }
+
+float Quaternion::ToAngle() const
+{
+	return glm::angle(InternalQuat);
+}
+
+Vector3 Quaternion::ToAxis() const
+{
+	glm::vec3 axis = glm::axis(InternalQuat);
+	return Vector3(axis);
+}
+
 //
 //float Quaternion::Angle(Quaternion& a, Quaternion& b)
 //{

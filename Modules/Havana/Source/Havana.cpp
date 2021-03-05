@@ -41,6 +41,7 @@
 #include <optional>
 #include "imgui_internal.h"
 #include "Window/EditorWindow.h"
+#include "Utils/ImGuiUtils.h"
 
 int profilerSize = 10;
 const int kMinProfilerSize = 10;

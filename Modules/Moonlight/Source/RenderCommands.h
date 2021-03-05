@@ -39,10 +39,6 @@ namespace Moonlight
 	struct MeshCommand
 	{
 		MeshCommand() = default;
-		MeshCommand(const MeshCommand& other)
-		{
-			MeshMaterial = other.MeshMaterial;
-		}
 		void Reset()
 		{
 			SingleMesh = nullptr;

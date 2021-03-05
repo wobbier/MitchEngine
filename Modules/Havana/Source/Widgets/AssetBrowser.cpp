@@ -15,6 +15,7 @@
 #include "Events/SceneEvents.h"
 #include "HavanaEvents.h"
 #include "optick.h"
+#include "Utils/ImGuiUtils.h"
 
 AssetBrowser::AssetBrowser(const std::string& pathToWatch, std::chrono::duration<int, std::milli> delay)
 	: PathToWatch(pathToWatch)
@@ -119,6 +120,7 @@ void AssetBrowser::Draw()
 
 void AssetBrowser::Recursive(Directory& dir)
 {
+	return;
 	for (auto& directory : dir.Directories)
 	{
 		bool node_open = ImGui::TreeNode(directory.first.c_str());
