@@ -1,4 +1,6 @@
 #pragma once
+
+#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 #include <dwrite_3.h>
 
 class TextAnalysisSource
@@ -77,3 +79,4 @@ private:
   TextAnalysisSource(const TextAnalysisSource& b) = delete;
   TextAnalysisSource& operator=(TextAnalysisSource const&) = delete;
 };
+#endif

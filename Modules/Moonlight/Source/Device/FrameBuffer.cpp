@@ -1,4 +1,3 @@
-#pragma once
 #include "FrameBuffer.h"
 
 Moonlight::FrameBuffer::FrameBuffer(uint32_t width, uint32_t height)

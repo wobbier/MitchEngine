@@ -60,7 +60,7 @@ configurations { "Debug", "Release" }
 else
 configurations { "Debug", "Release", "Debug Editor", "Release Editor" }
 end
-platforms { "x64" }
+platforms { "Win64", "UWP", "macOS" }
 cppdialect "C++17"
 if isUWP then
   startproject (getPlatformPostfix(ProjectName .. "_EntryPoint"))
@@ -91,44 +91,72 @@ includedirs {
   "../ThirdParty/SDL/include"
 }
 
+sysincludedirs {
+    "../Source",
+    "../ThirdParty/Bullet/src",
+    "../ThirdParty/Assimp/include",
+    "../Modules/Moonlight/Source",
+    "../Modules/Dementia/Source",
+    "../ThirdParty/bgfx/include",
+    "../ThirdParty/ImGui",
+    "../Modules/ImGUI/Source",
+    "../ThirdParty/bx/include",
+    "../ThirdParty/JSON/single_include",
+    "../ThirdParty/glm",
+    "../ThirdParty/UltralightSDK/include",
+    "../ThirdParty/bimg/include",
+    "../ThirdParty/SDL/include",
+}
+
 --flags { "FatalWarnings" }
 
-if isUWP then
-  defines { "ME_PLATFORM_UWP" }
-  --includedirs { (dirPrefix) .. "packages/directxtk_uwp.2018.11.20.1/include" }
-  libdirs {
-  "../ThirdParty/UltralightSDK/lib/UWP",
-  "../ThirdParty/UltralightSDK/bin/UWP"
-  }
-else
-  --includedirs { (dirPrefix) .. "packages/directxtk_desktop_2015.2018.11.20.1/include" }
-  libdirs {
-  "../ThirdParty/UltralightSDK/lib/Win64",
-  "../ThirdParty/UltralightSDK/bin/Win64"
-  }
-  defines { "ME_PLATFORM_WIN64" }
-  links {
-  	"dwmapi",
-    --"DirectXTKAudioWin8",
-  "Shlwapi.lib",
-  "AppCore.lib"
-  }
-end
+filter "action:vs*"
+    links {
+        "OptickCore",
+        "Usp10.lib",
+        "Ultralight.lib",
+        "UltralightCore.lib",
+        "WebCore.lib",
+    }
+
+filter "platforms:UWP"
+    defines { "ME_PLATFORM_UWP" }
+    --includedirs { (dirPrefix) .. "packages/directxtk_uwp.2018.11.20.1/include" }
+    libdirs {
+        "../ThirdParty/UltralightSDK/lib/UWP",
+        "../ThirdParty/UltralightSDK/bin/UWP"
+    }
+    links {
+        "assimp-vc140-mt",
+    }
+    
+filter "platforms:Win64"
+    defines { "ME_PLATFORM_UWP" }
+    --includedirs { (dirPrefix) .. "packages/directxtk_desktop_2015.2018.11.20.1/include" }
+    libdirs {
+        "../ThirdParty/UltralightSDK/lib/Win64",
+        "../ThirdParty/UltralightSDK/bin/Win64"
+    }
+    links {
+        "dwmapi",
+        "assimp-vc140-mt",
+        "Shlwapi.lib",
+        "AppCore.lib"
+    }
+
+filter "platforms:macOS"
+    defines { "ME_PLATFORM_MACOS" }
+        
+filter { }
 
 libdirs {
   "../Build/%{cfg.buildcfg}",
 }
 
 links {
-  "OptickCore.lib",
-  "Dementia.lib",
-  "assimp-vc140-mt",
+  "Dementia",
   "IrrXML",
   --"DirectXTK",
-  "Usp10.lib",
-  "Ultralight.lib",
-  "UltralightCore.lib",
-  "WebCore.lib",
 }
 
 -- Platform specific options
@@ -159,45 +187,67 @@ filter "configurations:Debug*"
 defines { "DEBUG" }
 symbols "On"
 links {
-  "BulletDynamics_Debug",
-  "BulletCollision_Debug",
-  "LinearMath_Debug",
-  "zlibstaticd",
-  "bgfxDebug.lib",
-  "bimg_decodeDebug.lib",
-  "bimgDebug.lib",
-  "bxDebug.lib",
-}
-libdirs {
-  "../ThirdParty/Lib/Assimp/Debug"
+  "bgfxDebug",
+  "bimg_decodeDebug",
+  "bimgDebug",
+  "bxDebug",
 }
 
-if isUWP then
-  defines {"USE_OPTICK=0"}
-  libdirs {
-    "$(VCInstallDir)\\lib\\store\\amd64",
-    "$(VCInstallDir)\\lib\\amd64",
-    "../ThirdParty/Lib/BGFX/UWP/Debug",
-    "../ThirdParty/Lib/Bullet/Win64/Debug",
-    "../ThirdParty/Lib/Optick/UWP/Debug",
-    "../ThirdParty/Lib/SDL/UWP/Debug"
-  }
-  links {
-  "SDL2",
-  }
-else
-  libdirs {
-    "../ThirdParty/Lib/Bullet/Win64/Debug",
-    "../ThirdParty/Lib/GLFW/Win64/Debug",
-    "../ThirdParty/Lib/BGFX/Win64/Debug",
-    "../ThirdParty/Lib/Optick/Win64/Debug",
-    "../ThirdParty/Lib/SDL/Win64/Debug"
-  }
-  links {
-  "SDL2d",
-  }
-end
+filter { "Debug*", "action:xcode*" }
+    syslibdirs {
+        "../ThirdParty/Lib/Assimp/macOS/Debug",
+        "../ThirdParty/Lib/Bullet/macOS/Debug",
+        "../ThirdParty/Lib/BGFX/macOS/Debug",
+        "../ThirdParty/Lib/Optick/macOS/Debug",
+        "../ThirdParty/Lib/SDL/macOS/Debug"
+    }
+    links {
+        "BulletDynamics",
+        "BulletCollision",
+        "LinearMath",
+        "zlibstatic",
+        "SDL2d",
+        "assimp"
+    }
 
+filter { "Debug*", "action:vs*" }
+    libdirs {
+        "../ThirdParty/Lib/Assimp/Debug"
+    }
+    links {
+        "BulletDynamics_Debug",
+        "BulletCollision_Debug",
+        "LinearMath_Debug",
+        "zlibstaticd",
+    }
+    
+filter { "Debug*", "platforms:UWP" }
+    defines {"USE_OPTICK=0"}
+    libdirs {
+        "$(VCInstallDir)\\lib\\store\\amd64",
+        "$(VCInstallDir)\\lib\\amd64",
+        "../ThirdParty/Lib/BGFX/UWP/Debug",
+        "../ThirdParty/Lib/Bullet/Win64/Debug",
+        "../ThirdParty/Lib/Optick/UWP/Debug",
+        "../ThirdParty/Lib/SDL/UWP/Debug"
+    }
+    links {
+        "SDL2",
+    }
+    
+filter { "Debug*", "platforms:Win64" }
+    libdirs {
+      "../ThirdParty/Lib/Bullet/Win64/Debug",
+      "../ThirdParty/Lib/GLFW/Win64/Debug",
+      "../ThirdParty/Lib/BGFX/Win64/Debug",
+      "../ThirdParty/Lib/Optick/Win64/Debug",
+      "../ThirdParty/Lib/SDL/Win64/Debug"
+    }
+    links {
+        "SDL2d",
+    }
+    
+----- Release -----
 filter "configurations:Release*"
 defines { "NDEBUG" }
 optimize "On"
@@ -211,7 +261,7 @@ links {
   "LinearMath_MinsizeRel",
   "zlibstatic",
   "SDL2",
-  "bgfxRelease.lib",
+  "bgfxRelease",
   "bimg_decodeRelease.lib",
   "bimgRelease.lib",
   "bxRelease.lib",
@@ -263,12 +313,21 @@ if (isUWP) then
   system "windowsuniversal"
   consumewinrtextension "true"
 end
-systemversion "10.0.14393.0"
 language "C++"
 targetdir "../Build/%{cfg.buildcfg}"
 location "../Modules/Moonlight"
 flags { "FatalWarnings" }
 dependson { "Dementia" }
+filter "platforms:Win64"
+systemversion "10.0.14393.0"
+files {
+}
+filter "system:macosx"
+excludes {
+ }
+sysincludedirs {
+}
+filter { }
 includedirs {
   "../Modules/Moonlight/Source/"
 }
@@ -308,7 +367,7 @@ vpaths {
   }
 
   links {
-    (getPlatformPostfix("MitchEngine") .. ".lib")
+    (getPlatformPostfix("MitchEngine"))
   }
   dependson {
     getPlatformPostfix("MitchEngine")
@@ -319,7 +378,7 @@ vpaths {
 	
   configuration "*Editor"
   links {
-    (getPlatformPostfix(ProjectName) .. ".lib")
+    (getPlatformPostfix(ProjectName))
   }
   dependson {
     getPlatformPostfix(ProjectName)
@@ -335,8 +394,26 @@ kind "StaticLib"
 --if (isUWP) then
 --	system "windowsuniversal"
 --	consumewinrtextension "true"
---end
+--ends
+filter "platforms:Win64"
 systemversion "10.0.14393.0"
+files {
+    "../ThirdParty/ImGui/**/*win32.h",
+    "../ThirdParty/ImGui/**/*win32.cpp",
+    "../ThirdParty/ImGui/**/*dx11.h",
+    "../ThirdParty/ImGui/**/*dx11.cpp",
+}
+filter "system:macosx"
+excludes {
+    "../ThirdParty/ImGui/**/*win32.h",
+    "../ThirdParty/ImGui/**/*win32.cpp",
+    "../ThirdParty/ImGui/**/*dx11.h",
+    "../ThirdParty/ImGui/**/*dx11.cpp",
+ }
+sysincludedirs {
+    "../ThirdParty/SDL/include"
+}
+filter { }
 language "C++"
 targetdir "../Build/%{cfg.buildcfg}"
 location "../Modules/ImGUI"
@@ -344,18 +421,14 @@ removeincludedirs "*"
 removelinks "*"
 includedirs {
 	"../ThirdParty/ImGui",
-	"../ThirdParty/ImGui/backends"
+    "../ThirdParty/ImGui/backends",
 }
 files {
   "../Modules/ImGUI/Source/**.*",
   "../ThirdParty/ImGui/*.h",
   "../ThirdParty/ImGui/*.cpp",
-  "../ThirdParty/ImGui/**/*win32.h",
-  "../ThirdParty/ImGui/**/*win32.cpp",
   "../ThirdParty/ImGui/**/*sdl.h",
   "../ThirdParty/ImGui/**/*sdl.cpp",
-  "../ThirdParty/ImGui/**/*dx11.h",
-  "../ThirdParty/ImGui/**/*dx11.cpp",
   "../ThirdParty/ImGui/**/imgui_stdlib.*"
 }
 
@@ -374,12 +447,26 @@ kind "StaticLib"
 --	system "windowsuniversal"
 --	consumewinrtextension "true"
 --end
-systemversion "10.0.14393.0"
 language "C++"
 targetdir "../Build/%{cfg.buildcfg}"
 location "../Modules/Dementia"
 removeincludedirs "*"
 removelinks "*"
+
+filter "platforms:Win64"
+systemversion "10.0.14393.0"
+files {
+}
+filter "system:macosx"
+excludes {
+ }
+sysincludedirs {
+  "../ThirdParty/glm",
+  "../ThirdParty/bgfx/include",
+  "../ThirdParty/bx/include",
+}
+filter { }
+
 includedirs {
   "../Modules/Dementia/Source/"
 }
@@ -413,12 +500,17 @@ if (isUWP) then
   system "windowsuniversal"
   consumewinrtextension "true"
 end
-systemversion "10.0.14393.0"
 language "C++"
 targetdir "../Build/%{cfg.buildcfg}"
 location "../"
-pchheader "PCH.h"
+
+filter { "action:xcode*" }
+pchheader "Source/PCH.h"
+filter { "action:vs*" }
 pchsource "../Source/PCH.cpp"
+systemversion "10.0.14393.0"
+filter { }
+
 flags { "FatalWarnings" }
 files {
   "../Source/**.h",
@@ -527,7 +619,47 @@ function GenerateGameSolution()
   else
     kind "ConsoleApp"
   end
+
+filter { "Debug*", "platforms:macOS" }
+    libdirs {
+        "Engine/Build/Debug",
+        "Engine/ThirdParty/Lib/Assimp/macOS/Debug",
+        "Engine/ThirdParty/Lib/Bullet/macOS/Debug",
+        "../ThirdParty/Lib/GLFW/Win64/Debug",
+        "Engine/ThirdParty/Lib/BGFX/macOS/Debug",
+        "Engine/ThirdParty/Lib/Optick/macOS/Debug",
+        "Engine/ThirdParty/Lib/SDL/macOS/Debug"
+    }
+
+    links {
+        (getPlatformPostfix("MitchEngine")),
+        "SDL2d",
+        "ImGui",
+        "Moonlight",
+        "Cocoa.framework",
+        "ForceFeedback.framework",
+        "IOKit.framework",
+        "CoreVideo.framework",
+        "Carbon.framework",
+        "Metal.framework",
+        "Foundation.framework",
+        "Quartz.framework",
+        "iconv",
+        "bgfxDebug",
+        "OptickCore",
+        "bimg_decodeDebug",
+        "bimgDebug",
+        "bxDebug",
+        "BulletDynamics",
+        "BulletCollision",
+        "LinearMath",
+        "zlibstatic",
+    }
+  filter { "action:vs*" }
   systemversion "10.0.14393.0"
+  filter { }
+  
+
   language "C++"
   targetdir "Build/%{cfg.buildcfg}"
   location "Game"
@@ -535,9 +667,9 @@ function GenerateGameSolution()
     "Game/Source"
   }
   links {
-    (getPlatformPostfix("MitchEngine") .. ".lib"),
-	("Dementia.lib"),
-	"ImGui.lib"
+    (getPlatformPostfix("MitchEngine")),
+	"Dementia",
+	"ImGui",
   }
   dependson {
     getPlatformPostfix("MitchEngine")

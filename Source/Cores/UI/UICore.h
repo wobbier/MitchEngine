@@ -1,6 +1,8 @@
 #pragma once
 #include <Components/UI/BasicUIView.h>
 
+#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
+
 #include <UI/OverlayManager.h>
 
 namespace Moonlight { class Renderer; }
@@ -54,5 +56,10 @@ private:
 	UniquePtr<ultralight::GPUContextD3D11> m_context = nullptr;
 	UniquePtr<ultralight::FontLoader> m_fontLoader = nullptr;
 	UniquePtr<ultralight::FileLogger> m_logger = nullptr;
+    
+#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 	ultralight::RefPtr<UIWindow> m_window = nullptr;
+#endif
 };
+
+#endif

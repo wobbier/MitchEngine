@@ -1,6 +1,8 @@
 #include "PCH.h"
 #include <filesystem>
 
+#if ME_PLATFORM_UWP || ME_PLALTFORM_WIN64
+
 #include "BasicUIView.h"
 #include "imgui.h"
 #include "UI/JSHelpers.h"
@@ -113,5 +115,7 @@ void BasicUIView::OnEditorInspect()
 		ImGui::EndCombo();
 	}
 }
+
+#endif
 
 #endif

@@ -52,7 +52,7 @@ namespace Moonlight
 		}
 		Material(const std::string& MaterialTypeName, const std::string& ShaderPath);
 		Material() = delete;
-		~Material();
+		virtual ~Material();
 
 		const bool IsTransparent() const;
 		void SetRenderMode(RenderingMode newMode);

@@ -1,6 +1,7 @@
 #include <PCH.h>
 #include <Cores/UI/UICore.h>
 
+#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 #include <AppCore/Overlay.h>
 #include <Components/Camera.h>
 #include <Engine/Engine.h>
@@ -29,7 +30,6 @@ UICore::UICore(IWindow* window, Moonlight::Renderer* renderer)
 
 	m_renderer = renderer;
 	m_window = AdoptRef(*new UIWindow(window, GetOverlayManager()));
-
 	std::string fileSystemRoot = Path("").Directory;
 	m_fs.reset(new ultralight::FileSystemBasic(fileSystemRoot.c_str()));
 
@@ -232,3 +232,5 @@ ultralight::OverlayManager* UICore::GetOverlayManager()
 {
 	return this;
 }
+
+#endif

@@ -48,7 +48,7 @@ const std::map<std::string, std::shared_ptr<Resource>>& ResourceCache::GetResouc
 
 void ResourceCache::Dump()
 {
-	for (auto& iter = ResourceStack.begin(); iter != ResourceStack.end(); )
+	for (std::map<std::string, std::shared_ptr<Resource>>::iterator iter = ResourceStack.begin(); iter != ResourceStack.end(); )
 	{
 		if (iter->second.use_count() == 1)
 		{
@@ -63,6 +63,9 @@ void ResourceCache::Dump()
 
 MetaBase* ResourceCache::LoadMetadata(const Path& filePath)
 {
+#if ME_PLATFORM_MACOS
+    return nullptr;
+#endif
 	MetaBase* metadata = nullptr;
 	MetaRegistry::iterator it = GetMetadatabase().reg.find(filePath.Extension);
 	if (it != GetMetadatabase().reg.end())

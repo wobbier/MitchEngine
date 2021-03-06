@@ -1,4 +1,6 @@
 #pragma once
+
+#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 #include <d3d11.h>
 #include <wrl/client.h>
 #include <stdint.h>
@@ -73,3 +75,4 @@ private:
 };
 
 }  // namespace ultralight
+#endif

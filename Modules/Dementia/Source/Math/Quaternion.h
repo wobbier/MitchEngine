@@ -141,7 +141,7 @@ struct Quaternion
 		}
 		else
 		{
-			float rotAngle = std::acos(dot);
+			//float rotAngle = std::acos(dot);
 			Vector3 rotAxis = Vector3::Front.Cross(forward);
 			rotAxis.Normalize();
 

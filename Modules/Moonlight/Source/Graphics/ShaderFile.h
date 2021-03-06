@@ -6,9 +6,12 @@
 #include "Resource/MetaRegistry.h"
 #include <string>
 #include "Utils/StringUtils.h"
-#include <winnt.h>
 #include "Utils/BGFXUtils.h"
 #include "bx/readerwriter.h"
+
+#if ME_PLATFORM_WIN64
+#include <winnt.h>
+#endif
 
 namespace Moonlight
 {

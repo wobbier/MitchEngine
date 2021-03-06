@@ -1,5 +1,9 @@
 #include "PCH.h"
+
+#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 #include <WinUser.h>
+#endif
+
 #include "Engine/Input.h"
 #include "CLog.h"
 #include <string>
@@ -41,7 +45,7 @@ bool Input::OnEvent(const BaseEvent& evt)
 //	return Controller->GetState(PlayerId);
 //}
 
-Vector2 Input::GetMousePosition()
+Vector2 Input::GetMousePosition() const
 {
 	return MousePosition;
 }
@@ -75,7 +79,7 @@ void Input::SetMouseCapture(bool Capture)
 	{
 		if (Capture)
 		{
-			SDL_SCANCODE_RETURN;
+			//SDL_SCANCODE_RETURN;
 			//Mouse->SetMode(DirectX::Mouse::MODE_RELATIVE);
 		}
 		else

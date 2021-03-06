@@ -85,14 +85,17 @@ void Engine::Init(Game* game)
 #endif
 
 
+#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 	burst.InitializeWorkerThreads();
-
+#endif
 	std::function<void(const Vector2&)> ResizeFunc = [this](const Vector2& NewSize)
 	{
 		if (NewRenderer)
 		{
 			NewRenderer->WindowResized(NewSize);
 		}
+        
+#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 		if (UI)
 		{
 			if (Camera::CurrentCamera)
@@ -100,6 +103,7 @@ void Engine::Init(Game* game)
 				UI->OnResize(Camera::CurrentCamera->OutputSize);
 			}
 		}
+#endif
 	};
 
 #if ME_EDITOR
@@ -108,7 +112,7 @@ void Engine::Init(Game* game)
 	int WindowWidth = WindowConfig["Width"];
 	int WindowHeight = WindowConfig["Height"];
 	GameWindow = new EditorWindow(EngineConfig->GetValue("Title"), ResizeFunc, 500, 300, Vector2(WindowWidth, WindowHeight));
-#elif ME_PLATFORM_WIN64
+#elif ME_PLATFORM_WIN64 || ME_PLATFORM_MACOS
 	EngineConfig = new Config(engineCfg);
 	const json& WindowConfig = EngineConfig->GetJsonObject("Window");
 	int WindowWidth = WindowConfig["Width"];
@@ -161,7 +165,7 @@ void Engine::InitGame()
 	GameWorld->AddCore<AudioCore>(*AudioThread);
 	//GameWorld->AddCore<UICore>(*UI);
 
-	m_game->OnInitialize();
+	//m_game->OnInitialize();
 }
 
 void Engine::StopGame()
@@ -182,10 +186,12 @@ void Engine::Run()
 	m_game->OnStart();
 
 	GameClock.Reset();
-	float lastTime = GameClock.GetTimeInMilliseconds();
+	//float lastTime = GameClock.GetTimeInMilliseconds();
 
+#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 	const float FramesPerSec = FPS;
 	const float MaxDeltaTime = (1.f / FramesPerSec);
+#endif
 	// Game loop
 	forever
 	{
@@ -204,6 +210,8 @@ void Engine::Run()
 		GameClock.Update();
 
 		AccumulatedTime += GameClock.GetDeltaSeconds();
+
+#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 		if (AccumulatedTime >= MaxDeltaTime)
 		{
 			OPTICK_FRAME("MainLoop");
@@ -247,6 +255,8 @@ void Engine::Run()
 				OPTICK_CATEGORY("UICore::Update", Optick::Category::Rendering)
 				FrameProfile::GetInstance().Set("UI", ProfileCategory::UI);
 				// editor only?
+
+#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 				if (UI)
 				{
 					if (Camera::CurrentCamera)
@@ -256,6 +266,7 @@ void Engine::Run()
 					UI->Update(deltaTime);
 				}
 				FrameProfile::GetInstance().Complete("UI");
+#endif
 			}
 //
 //#if !ME_EDITOR
@@ -299,7 +310,7 @@ void Engine::Run()
 
 			FrameProfile::GetInstance().End(AccumulatedTime);
 		}
-
+#endif
 		ResourceCache::GetInstance().Dump();
 		//Sleep(1);
 	}
@@ -360,11 +371,12 @@ Input& Engine::GetInput()
 	return m_input;
 }
 
+#if ME_PLATFORM_WIN64
 Burst& Engine::GetBurstWorker()
 {
 	return burst;
 }
-
+#endif
 void Engine::LoadScene(const std::string& SceneFile)
 {
 	Cameras->Init();

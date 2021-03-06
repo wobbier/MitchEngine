@@ -30,7 +30,7 @@ public:
 	void Create(const RendererCreationSettings& settings);
 	void Destroy();
 
-	void BeginFrame(Vector2& mousePosition, uint8_t mouseButton, int32_t scroll, Vector2 outputSize, int inputChar, bgfx::ViewId viewId);
+	void BeginFrame(const Vector2& mousePosition, uint8_t mouseButton, int32_t scroll, Vector2 outputSize, int inputChar, bgfx::ViewId viewId);
 	void Render(Moonlight::CameraData& EditorCamera);
 
 	void RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId id);

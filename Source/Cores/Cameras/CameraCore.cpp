@@ -68,7 +68,10 @@ void CameraCore::OnEntityAdded(Entity& NewEntity)
 	{
 		NewEntity.GetComponent<Camera>().SetCurrent();
 	}
+
+    #if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 	NewEntity.GetComponent<Camera>().m_id = GetEngine().GetRenderer().PushCamera(CreateCameraData(NewEntity.GetComponent<Transform>(), NewEntity.GetComponent<Camera>()));
+#endif
 }
 
 Moonlight::CameraData CameraCore::CreateCameraData(Transform& InTransform, Camera& InCamera)
@@ -93,8 +96,8 @@ Moonlight::CameraData CameraCore::CreateCameraData(Transform& InTransform, Camer
 	CamData.OrthographicSize = InCamera.OrthographicSize;
 	CamData.IsMain = InCamera.IsMain();
 
-	Vector3 Right = CamData.Front.Cross(Vector3::Up).Normalized();
-	Vector3 Up = CamData.Front.Cross(Right).Normalized();
+	//Vector3 Right = CamData.Front.Cross(Vector3::Up).Normalized();
+	//Vector3 Up = CamData.Front.Cross(Right).Normalized();
 
 	//CamData.CameraFrustum = InCamera.CameraFrustum;
 

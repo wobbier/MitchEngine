@@ -84,7 +84,7 @@ void ImGuiRenderer::Create()
 	);
 }
 
-void ImGuiRenderer::NewFrame(Vector2& mousePosition, uint8_t mouseButton,  int32_t scroll, Vector2 outputSize, int inputChar, bgfx::ViewId viewId)
+void ImGuiRenderer::NewFrame(const Vector2& mousePosition, uint8_t mouseButton,  int32_t scroll, Vector2 outputSize, int inputChar, bgfx::ViewId viewId)
 {
 	ViewId = viewId;
 

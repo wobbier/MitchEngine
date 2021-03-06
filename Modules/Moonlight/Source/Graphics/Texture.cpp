@@ -10,7 +10,6 @@
 #include "Utils/BGFXUtils.h"
 
 //using namespace DirectX;
-using namespace Microsoft::WRL;
 
 static void imageReleaseCb(void* _ptr, void* _userData)
 {

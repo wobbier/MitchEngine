@@ -58,6 +58,7 @@ void PhysicsCore::Update(float dt)
 	// Need a fixed delta probably
 	PhysicsWorld->stepSimulation(dt, 10);
 
+    #if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 	Burst& burst = GetEngine().GetBurstWorker();
 	burst.PrepareWork();
 
@@ -149,6 +150,7 @@ void PhysicsCore::Update(float dt)
 		burst.AddWork2(job, sizeof(Burst::LambdaWorkEntry));
 	}
 	burst.FinalizeWork();
+#endif
 }
 
 void PhysicsCore::OnEntityAdded(Entity& NewEntity)
@@ -172,7 +174,10 @@ void PhysicsCore::InitRigidbody(Rigidbody& RigidbodyComponent, Transform& Transf
 {
 	if (!RigidbodyComponent.IsRigidbodyInitialized())
 	{
+
+#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 		RigidbodyComponent.CreateObject(TransformComponent.GetPosition(), TransformComponent.LocalRotation, TransformComponent.GetScale(), PhysicsWorld);
+#endif
 		PhysicsWorld->addRigidBody(RigidbodyComponent.InternalRigidbody);
 		//Moonlight::DebugColliderCommand cmd;
 		//RigidbodyComponent.DebugColliderId = GetEngine().GetRenderer().PushDebugCollider(cmd);

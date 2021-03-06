@@ -126,9 +126,10 @@ void BGFXRenderer::Create(const RendererCreationSettings& settings)
 			// Static data can be passed with bgfx::makeRef
 			bgfx::makeRef(Moonlight::s_cubeTriList, sizeof(Moonlight::s_cubeTriList))
 		);
-
+        
+        #if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 		CubeProgram = Moonlight::LoadProgram("Assets/Shaders/Samples/Cubes.vert", "Assets/Shaders/Samples/Cubes.frag");
-
+#endif
 		//bgfx::RendererType::Enum type = bgfx::getRendererType();
 		//bgfx::ShaderHandle vsh = bgfx::createEmbeddedShader(s_embeddedShaders, type, "cubes_vert");
 		//bgfx::ShaderHandle fsh = bgfx::createEmbeddedShader(s_embeddedShaders, type, "cubes_frag");
@@ -147,7 +148,7 @@ void BGFXRenderer::Destroy()
 	bgfx::shutdown();
 }
 
-void BGFXRenderer::BeginFrame(Vector2& mousePosition, uint8_t mouseButton, int32_t scroll, Vector2 outputSize, int inputChar, bgfx::ViewId viewId)
+void BGFXRenderer::BeginFrame(const Vector2& mousePosition, uint8_t mouseButton, int32_t scroll, Vector2 outputSize, int inputChar, bgfx::ViewId viewId)
 {
 	ImGuiRender->NewFrame(mousePosition, mouseButton, scroll, outputSize, inputChar, viewId);
 }
@@ -229,7 +230,7 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 			return;
 		}
 
-		float time = (float)((bx::getHPCounter() - m_timeOffset) / double(bx::getHPFrequency()));
+		//float time = (float)((bx::getHPCounter() - m_timeOffset) / double(bx::getHPFrequency()));
 
 		const bx::Vec3 eye = { camera.Position.x, camera.Position.y, camera.Position.z };
 		const bx::Vec3 at = { camera.Position.x + camera.Front.x, camera.Position.y + camera.Front.y, camera.Position.z + camera.Front.z };
@@ -310,14 +311,14 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 				bgfx::setTransform(&mesh.Transform);
 
 				// Set vertex and index buffer.
-				bgfx::setVertexBuffer(0, mesh.SingleMesh->m_vbh);
-				bgfx::setIndexBuffer(mesh.SingleMesh->m_ibh);
+				bgfx::setVertexBuffer(0, mesh.SingleMesh->GetVertexBuffer());
+				bgfx::setIndexBuffer(mesh.SingleMesh->GetIndexuffer());
 
 				// Set render states.
 				bgfx::setState(state);
 
 				// Submit primitive for rendering to view 0.
-				bgfx::submit(id, mesh.MeshMaterial->MeshShader.Program);
+				bgfx::submit(id, mesh.MeshMaterial->MeshShader.GetProgram());
 			}
 		}
 	}

@@ -23,6 +23,9 @@ namespace Moonlight
 		std::vector<PosNormTexTanBiVertex> Vertices;
 		std::vector<uint16_t> Indices;
 		SharedPtr<Material> MeshMaterial;
+        
+        const bgfx::VertexBufferHandle& GetVertexBuffer() const { return m_vbh; }
+        const bgfx::IndexBufferHandle& GetIndexuffer() const { return m_ibh; }
 
 		// render the mesh
 		//void Draw(SharedPtr<Material> mat, ID3D11DeviceContext* context, bool depthOnly = false);
