@@ -55,6 +55,65 @@ function isPlatform(plat)
 	return (_OPTIONS["project-type"] == plat)
 end
 
+function macOSEntryPoints()
+    if isPlatform("macOS") then
+    filter { "Debug Editor" }
+
+        libdirs {
+            "../../../Build/Debug",
+            "../../Engine/Build/Debug",
+            "../../Engine/ThirdParty/Lib/Assimp/macOS/Debug",
+            "../../Engine/ThirdParty/Lib/Bullet/macOS/Debug",
+            "../ThirdParty/Lib/GLFW/Win64/Debug",
+            "../../Engine/ThirdParty/Lib/BGFX/macOS/Debug",
+            "../../Engine/ThirdParty/Lib/Optick/macOS/Debug",
+            "../../Engine/ThirdParty/Lib/SDL/macOS/Debug"
+        }
+
+        filter { "Debug*" }
+        libdirs {
+            "Build/Debug",
+            "../Engine/Build/Debug",
+            "Engine/ThirdParty/Lib/Assimp/macOS/Debug",
+            "Engine/ThirdParty/Lib/Bullet/macOS/Debug",
+            "../ThirdParty/Lib/GLFW/Win64/Debug",
+            "Engine/ThirdParty/Lib/BGFX/macOS/Debug",
+            "Engine/ThirdParty/Lib/Optick/macOS/Debug",
+            "Engine/ThirdParty/Lib/SDL/macOS/Debug"
+        }
+
+        links {
+            (getPlatformPostfix("MitchEngine")),
+            "SDL2d",
+            "ImGui",
+            "Moonlight",
+            "Cocoa.framework",
+            "ForceFeedback.framework",
+            "IOKit.framework",
+            "CoreVideo.framework",
+            "Carbon.framework",
+            "Metal.framework",
+            "Foundation.framework",
+            "Quartz.framework",
+            "iconv",
+            "bgfxDebug",
+            "OptickCore",
+            "bimg_decodeDebug",
+            "bimgDebug",
+            "bxDebug",
+            "BulletDynamics",
+            "BulletCollision",
+            "LinearMath",
+            "zlibstatic",
+            (getPlatformPostfix("MitchEngine")),
+            "Dementia",
+            "ImGui",
+            getPlatformPostfix(ProjectName)
+        }
+        filter {}
+    end
+end
+
 isUWP = _OPTIONS["uwp"]
 withRenderdoc = _OPTIONS["with-renderdoc"]
 withDirectX = isPlatform("Win64") or isUWP
@@ -117,6 +176,7 @@ sysincludedirs {
     "../Source",
     "../ThirdParty/Bullet/src",
     "../ThirdParty/Assimp/include",
+    "../ThirdParty/Optick/src",
     "../Modules/Moonlight/Source",
     "../Modules/Dementia/Source",
     "../ThirdParty/bgfx/include",
@@ -369,45 +429,48 @@ if not isUWP then
 group "Editor"
 project "Havana"
     kind "ConsoleApp"
-  systemversion "10.0.14393.0"
-language "C++"
-targetdir ((dirPrefix) .. "Build/%{cfg.buildcfg}")
-location "../Modules/Havana"
-flags { "FatalWarnings" }
-includedirs {
-  "../Modules/Havana/Source/",
-    "."
-}
-files {
-  "../Modules/Havana/Source/**.*"
-}
-links { "ImGui" }
-vpaths {
-  ["Source"] = "../Source/**.*",
-  ["Source"] = "../Source/*.*"
-}
-  libdirs {
-  	  "../../Build/%{cfg.buildcfg}"
-  }
+    filter "action:vs*"
+        systemversion "10.0.14393.0"
+    filter {}
+    language "C++"
+    targetdir ((dirPrefix) .. "Build/%{cfg.buildcfg}")
+    location "../Modules/Havana"
+    --flags { "FatalWarnings" }
+    includedirs {
+      "../Modules/Havana/Source/",
+        "."
+    }
+    files {
+      "../Modules/Havana/Source/**.*"
+    }
+    links { "ImGui" }
+    vpaths {
+      ["Source"] = "../Source/**.*",
+      ["Source"] = "../Source/*.*"
+    }
+      libdirs {
+          "../../Build/%{cfg.buildcfg}"
+      }
 
+    macOSEntryPoints()
+        
+      links {
+        (getPlatformPostfix("MitchEngine"))
+      }
+      dependson {
+        getPlatformPostfix("MitchEngine")
+      }
 
-  links {
-    (getPlatformPostfix("MitchEngine"))
-  }
-  dependson {
-    getPlatformPostfix("MitchEngine")
-  }
-
-  configuration "not *Editor"
-    kind "StaticLib"
-	
   configuration "*Editor"
-  links {
-    (getPlatformPostfix(ProjectName))
-  }
-  dependson {
-    getPlatformPostfix(ProjectName)
-  }
+      links {
+        (getPlatformPostfix(ProjectName))
+      }
+      dependson {
+        getPlatformPostfix(ProjectName)
+      }
+      sysincludedirs{
+          "../Modules/Havana/Source/",
+      }
 
 end
   configuration {}
@@ -439,10 +502,15 @@ excludes {
     "../ThirdParty/ImGui/**/*dx11.h",
     "../ThirdParty/ImGui/**/*dx11.cpp",
  }
+ files {
+     "../ThirdParty/ImGui/**/*osx.*",
+     --"../ThirdParty/ImGui/**/*metal.*",
+ }
 sysincludedirs {
     "../ThirdParty/SDL/include"
 }
 filter { }
+
 language "C++"
 targetdir "../Build/%{cfg.buildcfg}"
 location "../Modules/ImGUI"
@@ -541,7 +609,7 @@ pchsource "../Source/PCH.cpp"
 systemversion "10.0.14393.0"
 filter { }
 
-flags { "FatalWarnings" }
+--flags { "FatalWarnings" }
 files {
   "../Source/**.h",
   "../Source/**.cpp",
@@ -622,50 +690,7 @@ project (getPlatformPostfix(ProjectName .. "_EntryPoint"))
 		}
 	end
 
-    filter { "Debug*" }
-    ---- macOS ----
-    if isPlatform("macOS") then
-        libdirs {
-            "Build/Debug",
-            "Engine/Build/Debug",
-            "Engine/ThirdParty/Lib/Assimp/macOS/Debug",
-            "Engine/ThirdParty/Lib/Bullet/macOS/Debug",
-            "../ThirdParty/Lib/GLFW/Win64/Debug",
-            "Engine/ThirdParty/Lib/BGFX/macOS/Debug",
-            "Engine/ThirdParty/Lib/Optick/macOS/Debug",
-            "Engine/ThirdParty/Lib/SDL/macOS/Debug"
-        }
-
-        links {
-            (getPlatformPostfix("MitchEngine")),
-            "SDL2d",
-            "ImGui",
-            "Moonlight",
-            "Cocoa.framework",
-            "ForceFeedback.framework",
-            "IOKit.framework",
-            "CoreVideo.framework",
-            "Carbon.framework",
-            "Metal.framework",
-            "Foundation.framework",
-            "Quartz.framework",
-            "iconv",
-            "bgfxDebug",
-            "OptickCore",
-            "bimg_decodeDebug",
-            "bimgDebug",
-            "bxDebug",
-            "BulletDynamics",
-            "BulletCollision",
-            "LinearMath",
-            "zlibstatic",
-            (getPlatformPostfix("MitchEngine")),
-            "Dementia",
-            "ImGui",
-            getPlatformPostfix(ProjectName)
-        }
-    end
-    filter {}
+    macOSEntryPoints()
     
 	filter { "action:vs*" }
 		systemversion "10.0.14393.0"

@@ -21,7 +21,7 @@
 #include "Cores/AudioCore.h"
 #include "Cores/UI/UICore.h"
 
-#if ME_EDITOR
+#if ME_EDITOR && ME_PLATFORM_WIN64
 #include "Utils/StringUtils.h"
 #include <fileapi.h>
 #endif
@@ -35,6 +35,7 @@
 #include "Window/EditorWindow.h"
 #include "SDL.h"
 #include "SDL_video.h"
+#include <imgui.h>
 
 Engine& GetEngine()
 {
@@ -55,6 +56,7 @@ Engine::~Engine()
 }
 
 extern bool ImGui_ImplSDL2_InitForD3D(SDL_Window* window);
+extern bool ImGui_ImplSDL2_InitForMetal(SDL_Window* window);
 extern bool ImGui_ImplWin32_Init(void* window);
 void Engine::Init(Game* game)
 {
@@ -70,7 +72,7 @@ void Engine::Init(Game* game)
 	CLog::GetInstance().Log(CLog::LogType::Info, "Starting the MitchEngine.");
 	Path engineCfg("Assets\\Config\\Engine.cfg");
 
-#if ME_EDITOR
+#if ME_EDITOR && ME_PLATFORM_WIN64
 	if (engineCfg.FullPath.rfind("Engine") != -1)
 	{
 		Path gameEngineCfgPath("Assets\\Config\\Engine.cfg", true);
@@ -106,7 +108,7 @@ void Engine::Init(Game* game)
 #endif
 	};
 
-#if ME_EDITOR
+#if ME_EDITOR && ME_PLATFORM_WIN64
 	EngineConfig = new Config(engineCfg);
 	const json& WindowConfig = EngineConfig->GetJsonObject("Window");
 	int WindowWidth = WindowConfig["Width"];
@@ -134,9 +136,12 @@ void Engine::Init(Game* game)
 
 	//m_renderer = new Moonlight::Renderer();
 	//m_renderer->WindowResized(GameWindow->GetSize());
-#if ME_EDITOR
+#if ME_EDITOR && ME_PLATFORM_WIN64
 	//ImGui_ImplSDL2_InitForD3D(static_cast<SDLWindow*>(GameWindow)->WindowHandle);
 	ImGui_ImplWin32_Init(static_cast<EditorWindow*>(GameWindow)->GetWindowPtr());
+#endif
+#if ME_EDITOR && ME_PLATFORM_MACOS
+    ImGui_ImplSDL2_InitForMetal(static_cast<SDLWindow*>(GameWindow)->WindowHandle);
 #endif
 
 	GameWorld = std::make_shared<World>();

@@ -123,7 +123,7 @@ void TextureResourceMetadata::OnDeserialize(const json& inJson)
 
 }
 
-#if ME_EDITOR
+#if ME_EDITOR && ME_PLATFORM_WIN64
 
 void TextureResourceMetadata::OnEditorInspect()
 {

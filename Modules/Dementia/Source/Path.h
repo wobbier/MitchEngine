@@ -33,11 +33,15 @@ public:
 #endif
 
 		std::string assetPrefix;
-#if ME_EDITOR
+#if ME_EDITOR && ME_PLATFORM_WIN64
 		assetPrefix = "/../../../";
 #elif ME_PLATFORM_UWP
 #elif ME_PLATFORM_MACOS
+    #if ME_EDITOR
+        assetPrefix = "/../../";
+    #else
         assetPrefix = "/";
+    #endif
 #else
 		assetPrefix = "/../";
 #endif

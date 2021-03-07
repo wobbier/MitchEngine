@@ -60,7 +60,7 @@ struct ShaderFileMetadata
 	{
 	}
 
-#if ME_EDITOR
+#if ME_EDITOR && ME_PLATFORM_WIN64
 	void Export() override
 	{
 		Path optickPath = Path("Engine/Tools/Win64/shaderc.exe");

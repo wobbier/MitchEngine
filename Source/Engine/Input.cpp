@@ -55,7 +55,7 @@ void Input::SetMousePosition(const Vector2& InPosition)
 {
 	if (CaptureInput)
 	{
-#if ME_EDITOR
+#if ME_EDITOR && ME_PLATFORM_WIN64
 		Vector2 pos = Offset + InPosition;
 		SetCursorPos(static_cast<int>(pos.x), static_cast<int>(pos.y));
 #endif

@@ -178,7 +178,7 @@ void Rigidbody::OnEditorInspect()
 		for (unsigned int n = 0; n < (unsigned int)ColliderType::Count; ++n)
 		{
 			const char* name = "";
-			switch (n)
+			switch ((ColliderType)n)
 			{
 			case ColliderType::Sphere:
 				name = "Sphere";
@@ -186,6 +186,8 @@ void Rigidbody::OnEditorInspect()
 			case ColliderType::Box:
 				name = "Box";
 				break;
+            default:
+                break;
 			}
 
 			if (ImGui::Selectable(name, false))
