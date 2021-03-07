@@ -165,7 +165,10 @@ void Engine::InitGame()
 	GameWorld->AddCore<AudioCore>(*AudioThread);
 	//GameWorld->AddCore<UICore>(*UI);
 
-	//m_game->OnInitialize();
+
+#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
+	m_game->OnInitialize();
+#endif
 }
 
 void Engine::StopGame()
@@ -371,7 +374,7 @@ Input& Engine::GetInput()
 	return m_input;
 }
 
-#if ME_PLATFORM_WIN64
+#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 Burst& Engine::GetBurstWorker()
 {
 	return burst;

@@ -21,7 +21,7 @@ const bgfx::Memory* Moonlight::LoadMemory(const Path& filePath)
 	{
 		std::vector<char> data;
 		std::ifstream file(filePath.FullPath.c_str(), std::ios::in | std::ios::binary | std::ios::ate);
-		data.resize(file.tellg());
+		data.resize(static_cast<unsigned int>(file.tellg()));
 		file.seekg(0, std::ios::beg);
 		file.read(&data[0], data.size());
 

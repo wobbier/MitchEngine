@@ -7,7 +7,7 @@
 #include "Resource/ResourceCache.h"
 #include "Graphics/Texture.h"
 #include "File.h"
-#include <stringapiset.h>
+//#include <stringapiset.h>
 #include "Utils/StringUtils.h"
 #include "Components/Transform.h"
 #include "Engine/Engine.h"
@@ -195,7 +195,7 @@ void AssetBrowser::Recursive(Directory& dir)
 				}
 				else
 				{
-#if _WIN32
+#if ME_PLATFORM_WIN64
 				ShellExecute(NULL, L"open", StringUtils::ToWString(SelectedAsset->FullPath.FullPath).c_str(), NULL, NULL, SW_SHOWDEFAULT);
 #endif
 				}

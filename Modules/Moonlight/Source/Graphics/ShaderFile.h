@@ -10,6 +10,7 @@
 #include "bx/readerwriter.h"
 
 #if ME_PLATFORM_WIN64
+#include <Windows.h>
 #include <winnt.h>
 #endif
 
@@ -32,7 +33,7 @@ namespace Moonlight
 		{
 			std::vector<char> data;
 			std::ifstream file(filename, std::ios::in | std::ios::binary | std::ios::ate);
-			data.resize(file.tellg());
+			data.resize(static_cast<unsigned int>(file.tellg()));
 			file.seekg(0, std::ios::beg);
 			file.read(&data[0], data.size());
 			return data;

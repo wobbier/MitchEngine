@@ -1,7 +1,7 @@
 #include "PCH.h"
 #include <filesystem>
 
-#if ME_PLATFORM_UWP || ME_PLALTFORM_WIN64
+#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 
 #include "BasicUIView.h"
 #include "imgui.h"
@@ -101,7 +101,7 @@ void BasicUIView::OnEditorInspect()
 
 	if (ImGui::BeginCombo("##HTMLSource", FilePath.LocalPath.c_str()))
 	{
-		for (int n = 0; n < Textures.size(); n++)
+		for (size_t n = 0; n < Textures.size(); n++)
 		{
 			if (ImGui::Selectable(Textures[n].LocalPath.c_str(), false))
 			{

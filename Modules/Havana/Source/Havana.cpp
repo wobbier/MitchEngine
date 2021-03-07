@@ -743,7 +743,7 @@ void Havana::DrawLog()
 		clipper.End();
 
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(5.f, 5.f));
-		if (selectedIndex >= 0 && selectedIndex < CLog::Messages.size())
+		if (selectedIndex >= 0 && selectedIndex < static_cast<int>(CLog::Messages.size()))
 		{
 			ImGuiWindowFlags window_flags = ImGuiWindowFlags_HorizontalScrollbar;
 			ImGui::BeginChild("ChildL", ImVec2(ImGui::GetWindowContentRegionWidth(), 150), false, window_flags);

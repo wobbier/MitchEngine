@@ -4,6 +4,18 @@ dofile "premake-winrt/_preload.lua"
 require "premake-winrt/winrt"
 
 newoption {
+  trigger     = "project-type",
+  description = "Generate a UWP solution.",
+   default     = "Win64",
+   value = "Win64",
+  allowed = {
+    { "UWP",  "UWP" },
+	{ "Win64", "Win64" },
+	{ "macOS", "macOS" }
+  }
+}
+
+newoption {
   trigger     = "with-renderdoc",
   description = "Include support for RenderDoc."
 }
@@ -39,9 +51,13 @@ function getPlatformPostfix(thing)
   return thing
 end
 
+function isPlatform(plat)
+	return (_OPTIONS["project-type"] == plat)
+end
+
 isUWP = _OPTIONS["uwp"]
 withRenderdoc = _OPTIONS["with-renderdoc"]
-withDirectX = _OPTIONS["gfxapi"] == "directx" or isUWP
+withDirectX = isPlatform("Win64") or isUWP
 dirPrefix = "../";
 ProjectName = _OPTIONS["project-name"];
 
@@ -57,10 +73,15 @@ end
 workspace (getPlatformPostfix(ProjectName))
 if isUWP then
 configurations { "Debug", "Release" }
+platforms { "UWP" }
 else
 configurations { "Debug", "Release", "Debug Editor", "Release Editor" }
 end
-platforms { "Win64", "UWP", "macOS" }
+if isPlatform("Win64") then
+platforms { "Win64" }
+end
+
+architecture "x64" 
 cppdialect "C++17"
 if isUWP then
   startproject (getPlatformPostfix(ProjectName .. "_EntryPoint"))
@@ -91,6 +112,7 @@ includedirs {
   "../ThirdParty/SDL/include"
 }
 
+-- macOS
 sysincludedirs {
     "../Source",
     "../ThirdParty/Bullet/src",
@@ -110,16 +132,17 @@ sysincludedirs {
 
 --flags { "FatalWarnings" }
 
+---- Visual Studio ----
 filter "action:vs*"
     links {
-        "OptickCore",
+        "OptickCore.lib",
         "Usp10.lib",
         "Ultralight.lib",
         "UltralightCore.lib",
         "WebCore.lib",
     }
 
-filter "platforms:UWP"
+if isPlatform("UWP") then
     defines { "ME_PLATFORM_UWP" }
     --includedirs { (dirPrefix) .. "packages/directxtk_uwp.2018.11.20.1/include" }
     libdirs {
@@ -129,9 +152,9 @@ filter "platforms:UWP"
     links {
         "assimp-vc140-mt",
     }
-    
-filter "platforms:Win64"
-    defines { "ME_PLATFORM_UWP" }
+end
+if isPlatform("Win64") then
+    defines { "ME_PLATFORM_WIN64" }
     --includedirs { (dirPrefix) .. "packages/directxtk_desktop_2015.2018.11.20.1/include" }
     libdirs {
         "../ThirdParty/UltralightSDK/lib/Win64",
@@ -143,10 +166,14 @@ filter "platforms:Win64"
         "Shlwapi.lib",
         "AppCore.lib"
     }
+end
+---- Visual Studio ----
 
+---- macOS ----
 filter "platforms:macOS"
     defines { "ME_PLATFORM_MACOS" }
         
+---- macOS ----
 filter { }
 
 libdirs {
@@ -210,6 +237,7 @@ filter { "Debug*", "action:xcode*" }
         "assimp"
     }
 
+---- Debug VS ----
 filter { "Debug*", "action:vs*" }
     libdirs {
         "../ThirdParty/Lib/Assimp/Debug"
@@ -221,7 +249,7 @@ filter { "Debug*", "action:vs*" }
         "zlibstaticd",
     }
     
-filter { "Debug*", "platforms:UWP" }
+if isPlatform("UWP") then
     defines {"USE_OPTICK=0"}
     libdirs {
         "$(VCInstallDir)\\lib\\store\\amd64",
@@ -234,8 +262,9 @@ filter { "Debug*", "platforms:UWP" }
     links {
         "SDL2",
     }
-    
-filter { "Debug*", "platforms:Win64" }
+end
+
+if isPlatform("Win64") then
     libdirs {
       "../ThirdParty/Lib/Bullet/Win64/Debug",
       "../ThirdParty/Lib/GLFW/Win64/Debug",
@@ -246,7 +275,10 @@ filter { "Debug*", "platforms:Win64" }
     links {
         "SDL2d",
     }
-    
+end
+filter {}
+---- Debug VS ----
+
 ----- Release -----
 filter "configurations:Release*"
 defines { "NDEBUG" }
@@ -318,16 +350,18 @@ targetdir "../Build/%{cfg.buildcfg}"
 location "../Modules/Moonlight"
 flags { "FatalWarnings" }
 dependson { "Dementia" }
-filter "platforms:Win64"
-systemversion "10.0.14393.0"
-files {
-}
+
+filter "action:vs*"
+	systemversion "10.0.14393.0"
+filter {}
+
 filter "system:macosx"
-excludes {
- }
-sysincludedirs {
-}
-filter { }
+	excludes {
+	}
+	sysincludedirs {
+	}
+filter {}
+
 includedirs {
   "../Modules/Moonlight/Source/"
 }
@@ -395,14 +429,18 @@ kind "StaticLib"
 --	system "windowsuniversal"
 --	consumewinrtextension "true"
 --ends
-filter "platforms:Win64"
-systemversion "10.0.14393.0"
+if isPlatform("Win64") then
 files {
     "../ThirdParty/ImGui/**/*win32.h",
     "../ThirdParty/ImGui/**/*win32.cpp",
     "../ThirdParty/ImGui/**/*dx11.h",
     "../ThirdParty/ImGui/**/*dx11.cpp",
 }
+end
+
+filter "action:vs*"
+systemversion "10.0.14393.0"
+filter {}
 filter "system:macosx"
 excludes {
     "../ThirdParty/ImGui/**/*win32.h",
@@ -453,10 +491,10 @@ location "../Modules/Dementia"
 removeincludedirs "*"
 removelinks "*"
 
-filter "platforms:Win64"
+filter "action:vs*"
 systemversion "10.0.14393.0"
-files {
-}
+filter {}
+
 filter "system:macosx"
 excludes {
  }
@@ -507,6 +545,7 @@ location "../"
 filter { "action:xcode*" }
 pchheader "Source/PCH.h"
 filter { "action:vs*" }
+pchheader "PCH.h"
 pchsource "../Source/PCH.cpp"
 systemversion "10.0.14393.0"
 filter { }
@@ -654,10 +693,20 @@ filter { "Debug*", "platforms:macOS" }
         "BulletCollision",
         "LinearMath",
         "zlibstatic",
+		(getPlatformPostfix("MitchEngine")),
+		"Dementia",
+		"ImGui",
     }
-  filter { "action:vs*" }
+filter {}
+  
+filter { "action:vs*" }
   systemversion "10.0.14393.0"
-  filter { }
+  links {
+    (getPlatformPostfix("MitchEngine")) .. ".lib",
+	"Dementia.lib",
+	"ImGui.lib",
+  }
+filter {}
   
 
   language "C++"
@@ -665,11 +714,6 @@ filter { "Debug*", "platforms:macOS" }
   location "Game"
   includedirs {
     "Game/Source"
-  }
-  links {
-    (getPlatformPostfix("MitchEngine")),
-	"Dementia",
-	"ImGui",
   }
   dependson {
     getPlatformPostfix("MitchEngine")

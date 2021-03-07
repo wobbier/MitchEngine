@@ -1,7 +1,7 @@
 #pragma once
 #include "Dementia.h"
 
-#if ME_PLATFORM_WIN64
+#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 
 #include <wtypes.h>
 #include <functional>

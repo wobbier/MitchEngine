@@ -1,6 +1,6 @@
 #pragma once
 
-#if ME_PLATFORM_UWP || ME_PLALTFORM_WIN64
+#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 
 #include <AppCore/Defines.h>
 #include <JavaScriptCore/JavaScript.h>

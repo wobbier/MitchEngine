@@ -94,7 +94,7 @@ void AudioSource::OnEditorInspect()
 		std::string label("##SoundFile");
 		if (ImGui::BeginCombo(label.c_str(), FilePath.LocalPath.c_str()))
 		{
-			for (int n = 0; n < SoundFiles.size(); n++)
+			for (size_t n = 0; n < SoundFiles.size(); n++)
 			{
 				if (ImGui::Selectable(SoundFiles[n].LocalPath.c_str(), false))
 				{

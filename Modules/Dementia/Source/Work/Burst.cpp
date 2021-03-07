@@ -4,7 +4,7 @@
 #include "Dementia.h"
 #include "Utils/StringUtils.h"
 
-#if ME_PLATFORM_WIN64
+#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 #include <synchapi.h>
 #include <assert.h>
 #include <algorithm>

@@ -69,7 +69,7 @@ private:
 
 			if (ImGui::BeginCombo("##Model", "Select a model to construct"))
 			{
-				for (int n = 0; n < Models.size(); n++)
+				for (size_t n = 0; n < Models.size(); n++)
 				{
 					if (ImGui::Selectable(Models[n].LocalPath.c_str(), false))
 					{

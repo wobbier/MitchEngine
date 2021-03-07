@@ -277,7 +277,7 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 			| s_ptState[m_pt]
 			;
 
-		for (int i = 0; i < Meshes.size(); ++i)
+		for (size_t i = 0; i < Meshes.size(); ++i)
 		{
 			const Moonlight::MeshCommand& mesh = Meshes[i];
 			if (!mesh.MeshMaterial)
