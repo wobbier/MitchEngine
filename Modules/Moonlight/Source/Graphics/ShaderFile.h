@@ -26,19 +26,20 @@ namespace Moonlight
 			std::string path = FilePath.FullPath.substr(FilePath.FullPath.rfind("/") + 1, FilePath.FullPath.length());
 			std::string fullPath = FilePath.Directory + path + "." + Moonlight::GetPlatformString() + ".bin";
 			//fullPath = fullPath.substr(0, fullPath.rfind(".")) + ".bin";
-			Data = ReadToByteArray(fullPath.c_str());
+			Data = Moonlight::LoadMemory(Path(fullPath));
 		}
 
 		inline std::vector<char> ReadToByteArray(const char* filename)
 		{
 			std::vector<char> data;
 			std::ifstream file(filename, std::ios::in | std::ios::binary | std::ios::ate);
-			data.resize(static_cast<unsigned int>(file.tellg()));
+			data.resize(file.tellg());
 			file.seekg(0, std::ios::beg);
 			file.read(&data[0], data.size());
 			return data;
 		}
-		std::vector<char> Data;
+
+		const bgfx::Memory* Data = nullptr;
 	};
 }
 
@@ -69,12 +70,12 @@ struct ShaderFileMetadata
 		if (FilePath.Extension == "frag")
 		{
 			exportType = "fragment";
-			shaderType = "ps_4_0";
+			shaderType = "ps_5_0";
 		}
 		else if (FilePath.Extension == "vert")
 		{
 			exportType = "vertex";
-			shaderType = "vs_4_0";
+			shaderType = "vs_5_0";
 		}
 
 		std::string fileName = FilePath.LocalPath.substr(FilePath.LocalPath.rfind("/") + 1, FilePath.LocalPath.length());

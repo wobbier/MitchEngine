@@ -35,8 +35,9 @@ public:
 		std::string assetPrefix;
 #if ME_EDITOR
 		assetPrefix = "/../../../";
+#elif ME_PLATFORM_UWP
 #else
-        assetPrefix = "/";
+		assetPrefix = "/../";
 #endif
 		LocalPath = InFile;
 

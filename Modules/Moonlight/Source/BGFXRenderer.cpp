@@ -127,8 +127,10 @@ void BGFXRenderer::Create(const RendererCreationSettings& settings)
 			bgfx::makeRef(Moonlight::s_cubeTriList, sizeof(Moonlight::s_cubeTriList))
 		);
         
-        #if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
+#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 		CubeProgram = Moonlight::LoadProgram("Assets/Shaders/Samples/Cubes.vert", "Assets/Shaders/Samples/Cubes.frag");
+		s_texCube = bgfx::createUniform("s_texCube", bgfx::UniformType::Sampler);
+		s_diffuse = bgfx::createUniform("s_diffuse", bgfx::UniformType::Vec4);
 #endif
 		//bgfx::RendererType::Enum type = bgfx::getRendererType();
 		//bgfx::ShaderHandle vsh = bgfx::createEmbeddedShader(s_embeddedShaders, type, "cubes_vert");
@@ -313,6 +315,15 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 				// Set vertex and index buffer.
 				bgfx::setVertexBuffer(0, mesh.SingleMesh->GetVertexBuffer());
 				bgfx::setIndexBuffer(mesh.SingleMesh->GetIndexuffer());
+
+				if (const Moonlight::Texture* diffuse = mesh.MeshMaterial->GetTexture(Moonlight::TextureType::Diffuse))
+				{
+					if (bgfx::isValid(diffuse->TexHandle))
+					{
+						bgfx::setTexture(0, s_texCube, diffuse->TexHandle);
+					}
+				}
+				bgfx::setUniform(s_diffuse, &mesh.MeshMaterial->DiffuseColor.x);
 
 				// Set render states.
 				bgfx::setState(state);

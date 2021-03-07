@@ -390,6 +390,7 @@ vpaths {
   	  "../../Build/%{cfg.buildcfg}"
   }
 
+
   links {
     (getPlatformPostfix("MitchEngine"))
   }
@@ -596,15 +597,35 @@ filter {}
 
 group "App"
 function GenerateGameSolution()
-  if (isUWP) then
-    project (getPlatformPostfix(ProjectName .. "_EntryPoint"))
-    kind "WindowedApp"
-    system "windowsuniversal"
-    consumewinrtextension "true"
-    systemversion "10.0.14393.0"
-    certificatefile (CertificateFile)
-    certificatethumbprint (CertificateThumbprint)
-    defaultlanguage "en-US"
+project (getPlatformPostfix(ProjectName .. "_EntryPoint"))
+	if isPlatform("UWP") then
+		kind "WindowedApp"
+	end
+	if isPlatform("Win64") then
+		kind "ConsoleApp"
+	end
+	if (isUWP) then
+		system "windowsuniversal"
+		consumewinrtextension "true"
+		certificatefile (CertificateFile)
+		certificatethumbprint (CertificateThumbprint)
+		defaultlanguage "en-US"
+		
+		links {
+			"D3D12.lib",
+			"d2d1.lib",
+			"d3d11.lib",
+			"dxgi.lib",
+			"windowscodecs.lib",
+			"dwrite.lib",
+			"D3D12.lib"
+		}
+	end
+	
+	filter { "action:vs*" }
+		systemversion "10.0.14393.0"
+	filter {}
+
     language "C++"
     targetdir "Build/%{cfg.buildcfg}"
     location "Game_EntryPoint"
@@ -612,14 +633,7 @@ function GenerateGameSolution()
       "Build/%{cfg.buildcfg}"
     }
     links {
-      (getPlatformPostfix(ProjectName) .. ".lib"),
-	  "D3D12.lib",
-	  "d2d1.lib",
-	  "d3d11.lib",
-	  "dxgi.lib",
-	  "windowscodecs.lib",
-	  "dwrite.lib",
-	  "D3D12.lib"
+      (getPlatformPostfix(ProjectName) .. ".lib")
     }
     dependson {
       getPlatformPostfix(ProjectName)
@@ -638,16 +652,10 @@ function GenerateGameSolution()
     }
     filter { "files:Assets/*.png" }
     deploy "true"
-  end
-  project ((getPlatformPostfix(ProjectName)))
+	
+project ((getPlatformPostfix(ProjectName)))
 
-  if (isUWP) then
     kind "StaticLib"
-    system "windowsuniversal"
-    consumewinrtextension "true"
-  else
-    kind "ConsoleApp"
-  end
 
 filter { "Debug*" }
 ---- macOS ----
@@ -749,23 +757,23 @@ dependson {
 	links {
 	"ImGui.lib"
 	}
-if isUWP then
-  configuration "Release Editor" 
-  postbuildcommands {
-    "xcopy /y /d  \"ThirdParty\\UltralightSDK\\bin\\UWP\\*.*\" \"..\\Build\\Release Editor\""
-  }
-  configuration "Release" 
-  postbuildcommands {
-    "xcopy /y /d  \"ThirdParty\\UltralightSDK\\bin\\UWP\\*.*\" \"..\\Build\\Release\""
-  }
-else
-  --configuration "Debug Editor" 
-  --postbuildcommands {
-  --  "xcopy /y /d  \"ThirdParty\\UltralightSDK\\bin\\Win64\\*.*\" \"..\\Build\\Debug Editor\""
-  --}
-  --configuration "Debug" 
-  --postbuildcommands {
-  --  "xcopy /y /d  \"ThirdParty\\UltralightSDK\\bin\\Win64\\*.*\" \"..\\Build\\Debug\""
-  --}
-end
+	if isUWP then
+	  configuration "Release Editor" 
+	  postbuildcommands {
+		"xcopy /y /d  \"ThirdParty\\UltralightSDK\\bin\\UWP\\*.*\" \"..\\Build\\Release Editor\""
+	  }
+	  configuration "Release" 
+	  postbuildcommands {
+		"xcopy /y /d  \"ThirdParty\\UltralightSDK\\bin\\UWP\\*.*\" \"..\\Build\\Release\""
+	  }
+	else
+	  --configuration "Debug Editor" 
+	  --postbuildcommands {
+	  --  "xcopy /y /d  \"ThirdParty\\UltralightSDK\\bin\\Win64\\*.*\" \"..\\Build\\Debug Editor\""
+	  --}
+	  --configuration "Debug" 
+	  --postbuildcommands {
+	  --  "xcopy /y /d  \"ThirdParty\\UltralightSDK\\bin\\Win64\\*.*\" \"..\\Build\\Debug\""
+	  --}
+	end
 end
