@@ -601,7 +601,7 @@ project (getPlatformPostfix(ProjectName .. "_EntryPoint"))
 	if isPlatform("UWP") then
 		kind "WindowedApp"
 	end
-	if isPlatform("Win64") then
+	if isPlatform("Win64") or isPlatform("macOS") then
 		kind "ConsoleApp"
 	end
 	if (isUWP) then
@@ -621,9 +621,57 @@ project (getPlatformPostfix(ProjectName .. "_EntryPoint"))
 			"D3D12.lib"
 		}
 	end
-	
+
+    filter { "Debug*" }
+    ---- macOS ----
+    if isPlatform("macOS") then
+        libdirs {
+            "Build/Debug",
+            "Engine/Build/Debug",
+            "Engine/ThirdParty/Lib/Assimp/macOS/Debug",
+            "Engine/ThirdParty/Lib/Bullet/macOS/Debug",
+            "../ThirdParty/Lib/GLFW/Win64/Debug",
+            "Engine/ThirdParty/Lib/BGFX/macOS/Debug",
+            "Engine/ThirdParty/Lib/Optick/macOS/Debug",
+            "Engine/ThirdParty/Lib/SDL/macOS/Debug"
+        }
+
+        links {
+            (getPlatformPostfix("MitchEngine")),
+            "SDL2d",
+            "ImGui",
+            "Moonlight",
+            "Cocoa.framework",
+            "ForceFeedback.framework",
+            "IOKit.framework",
+            "CoreVideo.framework",
+            "Carbon.framework",
+            "Metal.framework",
+            "Foundation.framework",
+            "Quartz.framework",
+            "iconv",
+            "bgfxDebug",
+            "OptickCore",
+            "bimg_decodeDebug",
+            "bimgDebug",
+            "bxDebug",
+            "BulletDynamics",
+            "BulletCollision",
+            "LinearMath",
+            "zlibstatic",
+            (getPlatformPostfix("MitchEngine")),
+            "Dementia",
+            "ImGui",
+            getPlatformPostfix(ProjectName)
+        }
+    end
+    filter {}
+    
 	filter { "action:vs*" }
 		systemversion "10.0.14393.0"
+        links {
+          (getPlatformPostfix(ProjectName) .. ".lib")
+        }
 	filter {}
 
     language "C++"
@@ -631,9 +679,6 @@ project (getPlatformPostfix(ProjectName .. "_EntryPoint"))
     location "Game_EntryPoint"
     libdirs {
       "Build/%{cfg.buildcfg}"
-    }
-    links {
-      (getPlatformPostfix(ProjectName) .. ".lib")
     }
     dependson {
       getPlatformPostfix(ProjectName)
@@ -657,48 +702,6 @@ project ((getPlatformPostfix(ProjectName)))
 
     kind "StaticLib"
 
-filter { "Debug*" }
----- macOS ----
-if isPlatform("macOS") then
-    libdirs {
-        "Engine/Build/Debug",
-        "Engine/ThirdParty/Lib/Assimp/macOS/Debug",
-        "Engine/ThirdParty/Lib/Bullet/macOS/Debug",
-        "../ThirdParty/Lib/GLFW/Win64/Debug",
-        "Engine/ThirdParty/Lib/BGFX/macOS/Debug",
-        "Engine/ThirdParty/Lib/Optick/macOS/Debug",
-        "Engine/ThirdParty/Lib/SDL/macOS/Debug"
-    }
-
-    links {
-        (getPlatformPostfix("MitchEngine")),
-        "SDL2d",
-        "ImGui",
-        "Moonlight",
-        "Cocoa.framework",
-        "ForceFeedback.framework",
-        "IOKit.framework",
-        "CoreVideo.framework",
-        "Carbon.framework",
-        "Metal.framework",
-        "Foundation.framework",
-        "Quartz.framework",
-        "iconv",
-        "bgfxDebug",
-        "OptickCore",
-        "bimg_decodeDebug",
-        "bimgDebug",
-        "bxDebug",
-        "BulletDynamics",
-        "BulletCollision",
-        "LinearMath",
-        "zlibstatic",
-		(getPlatformPostfix("MitchEngine")),
-		"Dementia",
-		"ImGui",
-    }
-end
-filter {}
   
 filter { "action:vs*" }
   systemversion "10.0.14393.0"

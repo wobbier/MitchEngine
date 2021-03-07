@@ -36,6 +36,8 @@ public:
 #if ME_EDITOR
 		assetPrefix = "/../../../";
 #elif ME_PLATFORM_UWP
+#elif ME_PLATFORM_MACOS
+        assetPrefix = "/";
 #else
 		assetPrefix = "/../";
 #endif
