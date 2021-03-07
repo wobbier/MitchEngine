@@ -169,12 +169,13 @@ if isPlatform("Win64") then
 end
 ---- Visual Studio ----
 
----- macOS ----
-filter "platforms:macOS"
-    defines { "ME_PLATFORM_MACOS" }
-        
----- macOS ----
 filter { }
+
+---- macOS ----
+if isPlatform("macOS") then
+    defines { "ME_PLATFORM_MACOS" }
+end
+---- macOS ----
 
 libdirs {
   "../Build/%{cfg.buildcfg}",
@@ -220,7 +221,8 @@ links {
   "bxDebug",
 }
 
-filter { "Debug*", "action:xcode*" }
+---- macOS ----
+if isPlatform("macOS") then
     syslibdirs {
         "../ThirdParty/Lib/Assimp/macOS/Debug",
         "../ThirdParty/Lib/Bullet/macOS/Debug",
@@ -236,6 +238,7 @@ filter { "Debug*", "action:xcode*" }
         "SDL2d",
         "assimp"
     }
+end
 
 ---- Debug VS ----
 filter { "Debug*", "action:vs*" }
@@ -320,19 +323,6 @@ else
   }
 end
 
-configuration "Debug*"
-if (isUWP) then
-  --libdirs { (dirPrefix) .. "packages/directxtk_uwp.2018.11.20.1/lib/x64/Debug" }
-else
-  --libdirs { (dirPrefix) .. "packages/directxtk_desktop_2015.2018.11.20.1/lib/x64/Debug" }
-end
-
-configuration "Release*"
-if (isUWP) then
-  --libdirs { (dirPrefix) .. "packages/directxtk_uwp.2018.11.20.1/lib/x64/Release" }
-else
-  --libdirs { (dirPrefix) .. "packages/directxtk_desktop_2015.2018.11.20.1/lib/x64/Release" }
-end
 configuration {}
 filter {}
 
@@ -659,7 +649,9 @@ function GenerateGameSolution()
     kind "ConsoleApp"
   end
 
-filter { "Debug*", "platforms:macOS" }
+filter { "Debug*" }
+---- macOS ----
+if isPlatform("macOS") then
     libdirs {
         "Engine/Build/Debug",
         "Engine/ThirdParty/Lib/Assimp/macOS/Debug",
@@ -697,6 +689,7 @@ filter { "Debug*", "platforms:macOS" }
 		"Dementia",
 		"ImGui",
     }
+end
 filter {}
   
 filter { "action:vs*" }

@@ -191,10 +191,9 @@ void Engine::Run()
 	GameClock.Reset();
 	//float lastTime = GameClock.GetTimeInMilliseconds();
 
-#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 	const float FramesPerSec = FPS;
 	const float MaxDeltaTime = (1.f / FramesPerSec);
-#endif
+
 	// Game loop
 	forever
 	{
@@ -214,7 +213,6 @@ void Engine::Run()
 
 		AccumulatedTime += GameClock.GetDeltaSeconds();
 
-#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 		if (AccumulatedTime >= MaxDeltaTime)
 		{
 			OPTICK_FRAME("MainLoop");
@@ -234,6 +232,7 @@ void Engine::Run()
 
 			// Update our engine
 			GameWorld->UpdateLoadedCores(deltaTime);
+            #if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 			FrameProfile::GetInstance().Complete("Physics");
 
 			FrameProfile::GetInstance().Set("SceneNodes", ProfileCategory::UI);
@@ -287,6 +286,7 @@ void Engine::Run()
 //			EditorCamera = MainCamera;
 //#endif
 			m_game->PostRender();
+            #endif
 #if !ME_EDITOR
 			EditorCamera.OutputSize = GetWindow()->GetSize();
 #endif
@@ -313,7 +313,6 @@ void Engine::Run()
 
 			FrameProfile::GetInstance().End(AccumulatedTime);
 		}
-#endif
 		ResourceCache::GetInstance().Dump();
 		//Sleep(1);
 	}
