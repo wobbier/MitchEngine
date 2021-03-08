@@ -188,14 +188,14 @@ void BGFXRenderer::Render(Moonlight::CameraData& EditorCamera)
 		++id;
 	}
 #else
-	bgfx::ViewId id = kClearView + 1;
+	bgfx::ViewId id = kClearView;
 	for (auto& camData : Cameras)
 	{
 		if (!camData.IsMain)
 		{
 			RenderCameraView(camData, id);
+			++id;
 		}
-		++id;
 	}
 
 	for (auto& camData : Cameras)
@@ -241,7 +241,7 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 			bx::mtxLookAt(view, eye, at);
 
 			float proj[16];
-			if (camera.Projection == Moonlight::ProjectionType::Perspective)
+			if (camera.Projection == Moonlight::ProjectionType::Perspective || true)
 			{
 				bx::mtxProj(proj, camera.FOV, float(camera.OutputSize.x) / float(camera.OutputSize.y), camera.Near, camera.Far, bgfx::getCaps()->homogeneousDepth);
 			}

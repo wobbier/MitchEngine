@@ -409,7 +409,7 @@ void Transform::SetName(const std::string& name)
 	Name = name;
 }
 
-#if ME_EDITOR
+//#if ME_EDITOR
 
 void Transform::OnEditorInspect()
 {
@@ -447,4 +447,4 @@ void Transform::OnEditorInspect()
 	}
 }
 
-#endif
+//#endif

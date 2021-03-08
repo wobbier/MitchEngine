@@ -82,9 +82,9 @@ public:
 	Matrix4 GetWorldToLocalMatrix();
 
 
-#if ME_EDITOR
+//#if ME_EDITOR
 	virtual void OnEditorInspect() final;
-#endif
+//#endif
 
 private:
 	Vector3 Rotation;
