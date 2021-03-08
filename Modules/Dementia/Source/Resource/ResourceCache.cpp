@@ -63,9 +63,6 @@ void ResourceCache::Dump()
 
 MetaBase* ResourceCache::LoadMetadata(const Path& filePath)
 {
-#if ME_PLATFORM_MACOS
-    return nullptr;
-#endif
 	MetaBase* metadata = nullptr;
 	MetaRegistry::iterator it = GetMetadatabase().reg.find(filePath.Extension);
 	if (it != GetMetadatabase().reg.end())

@@ -79,7 +79,7 @@ struct TextureResourceMetadata
 	void OnSerialize(json& inJson) override;
 	void OnDeserialize(const json& inJson) override;
 
-#if ME_EDITOR && ME_PLATFORM_WIN64
+#if ME_EDITOR
 	void Export() override;
 
 	virtual void OnEditorInspect() final;
