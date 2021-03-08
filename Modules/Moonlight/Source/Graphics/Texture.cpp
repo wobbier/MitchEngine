@@ -27,6 +27,7 @@ namespace Moonlight
 {
 	Texture::Texture(const Path& InFilePath, WrapMode mode)
 		: Resource(InFilePath)
+        , TexHandle(BGFX_INVALID_HANDLE)
 	{
 		uint64_t flags = BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP;
 

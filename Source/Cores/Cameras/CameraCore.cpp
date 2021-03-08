@@ -69,9 +69,7 @@ void CameraCore::OnEntityAdded(Entity& NewEntity)
 		NewEntity.GetComponent<Camera>().SetCurrent();
 	}
 
-    #if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 	NewEntity.GetComponent<Camera>().m_id = GetEngine().GetRenderer().PushCamera(CreateCameraData(NewEntity.GetComponent<Transform>(), NewEntity.GetComponent<Camera>()));
-#endif
 }
 
 Moonlight::CameraData CameraCore::CreateCameraData(Transform& InTransform, Camera& InCamera)

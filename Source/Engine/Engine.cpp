@@ -170,10 +170,7 @@ void Engine::InitGame()
 	GameWorld->AddCore<AudioCore>(*AudioThread);
 	//GameWorld->AddCore<UICore>(*UI);
 
-
-#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 	m_game->OnInitialize();
-#endif
 }
 
 void Engine::StopGame()
@@ -237,7 +234,6 @@ void Engine::Run()
 
 			// Update our engine
 			GameWorld->UpdateLoadedCores(deltaTime);
-            #if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 			FrameProfile::GetInstance().Complete("Physics");
 
 			FrameProfile::GetInstance().Set("SceneNodes", ProfileCategory::UI);
@@ -257,7 +253,7 @@ void Engine::Run()
 			AudioThread->Update(deltaTime);
 			ModelRenderer->Update(deltaTime);
 			FrameProfile::GetInstance().Complete("ModelRenderer");
-
+            
 			{
 				OPTICK_CATEGORY("UICore::Update", Optick::Category::Rendering)
 				FrameProfile::GetInstance().Set("UI", ProfileCategory::UI);
@@ -291,7 +287,6 @@ void Engine::Run()
 //			EditorCamera = MainCamera;
 //#endif
 			m_game->PostRender();
-            #endif
 #if !ME_EDITOR
 			EditorCamera.OutputSize = GetWindow()->GetSize();
 #endif

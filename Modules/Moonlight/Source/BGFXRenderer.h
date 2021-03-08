@@ -38,7 +38,7 @@ public:
 	void WindowResized(const Vector2& newSize);
 
 	// Cameras
-	unsigned int PushCamera(Moonlight::CameraData& command);
+	unsigned int PushCamera(const Moonlight::CameraData& command);
 	void UpdateCamera(unsigned int Id, Moonlight::CameraData& NewCommand);
 	void PopCamera(unsigned int Id);
 	Moonlight::CameraData& GetCamera(unsigned int Id);

@@ -360,7 +360,7 @@ Moonlight::CameraData& BGFXRenderer::GetCamera(unsigned int Id)
 	return Cameras[Id];
 }
 
-unsigned int BGFXRenderer::PushCamera(Moonlight::CameraData& command)
+unsigned int BGFXRenderer::PushCamera(const Moonlight::CameraData& command)
 {
 	unsigned int index = 0;
 	if (!FreeCameraCommandIndicies.empty())
