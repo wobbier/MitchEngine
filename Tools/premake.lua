@@ -435,6 +435,7 @@ project "Havana"
     language "C++"
     targetdir ((dirPrefix) .. "Build/%{cfg.buildcfg}")
     location "../Modules/Havana"
+	
     --flags { "FatalWarnings" }
     includedirs {
       "../Modules/Havana/Source/",
@@ -453,6 +454,12 @@ project "Havana"
       }
 
     macOSEntryPoints()
+
+	filter { "action:vs*" }
+	links {
+		"Stack.lib"
+	}
+	filter {}
         
       links {
         (getPlatformPostfix("MitchEngine"))

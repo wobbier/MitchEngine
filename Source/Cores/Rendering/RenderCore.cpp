@@ -45,6 +45,7 @@ void RenderCore::OnEntityAdded(Entity& NewEntity)
 		Mesh& model = NewEntity.GetComponent<Mesh>();
 		command.SingleMesh = model.MeshReferece;
 		command.MeshMaterial = model.MeshMaterial;
+		command.Transform = NewEntity.GetComponent<Transform>().GetMatrix().GetInternalMatrix();
 		command.Type = model.GetType();
 		model.Id = GetEngine().GetRenderer().PushMesh(command);
 	}
