@@ -4,7 +4,7 @@
 class Font
 	: public Resource
 {
-	Font() = default;
+    Font() = delete;
 	Font(const Path& InFilePath);
 
 

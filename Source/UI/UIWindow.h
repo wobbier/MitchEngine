@@ -1,4 +1,7 @@
 #pragma once
+
+#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
+
 #include <Ultralight/String16.h>
 #include "UI/RefCountedImpl.h"
 #include "AppCore/Window.h"
@@ -67,3 +70,4 @@ protected:
 	IWindow* m_window;
 	ultralight::WindowListener* listener_ = nullptr;
 };
+#endif

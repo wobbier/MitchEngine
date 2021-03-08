@@ -6,7 +6,6 @@ class JsonResource
 	: public Resource
 {
 public:
-	JsonResource() = default;
 	JsonResource(const Path& InFilePath);
 
 	const json& GetJson() const;

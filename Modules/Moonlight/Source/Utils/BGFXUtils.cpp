@@ -7,26 +7,26 @@
 
 const bgfx::Memory* Moonlight::LoadMemory(const Path& filePath)
 {
-	//if (bx::open(_reader, _filePath))
-	//{
-	//	uint32_t size = (uint32_t)bx::getSize(_reader);
-	//	const bgfx::Memory* mem = bgfx::alloc(size + 1);
-	//	bx::read(_reader, mem->data, size);
-	//	bx::close(_reader);
-	//	mem->data[mem->size - 1] = '\0';
-	//	return mem;
-	//}
-
-	if (filePath.Exists)
+	if (bx::open(getDefaultReader(), filePath.FullPath.c_str()))
 	{
-		std::vector<char> data;
-		std::ifstream file(filePath.FullPath.c_str(), std::ios::in | std::ios::binary | std::ios::ate);
-		data.resize(file.tellg());
-		file.seekg(0, std::ios::beg);
-		file.read(&data[0], data.size());
-
-		return bgfx::copy(data.data(), static_cast<uint32_t>(data.size() - 1));
+		uint32_t size = (uint32_t)bx::getSize(getDefaultReader());
+		const bgfx::Memory* mem = bgfx::alloc(size + 1);
+		bx::read(getDefaultReader(), mem->data, size);
+		bx::close(getDefaultReader());
+		mem->data[mem->size - 1] = '\0';
+		return mem;
 	}
+
+	//if (filePath.Exists)
+	//{
+	//	std::vector<char> data;
+	//	std::ifstream file(filePath.FullPath.c_str(), std::ios::in | std::ios::binary | std::ios::ate);
+	//	data.resize(file.tellg());
+	//	file.seekg(0, std::ios::beg);
+	//	file.read(&data[0], data.size());
+
+	//	return bgfx::copy(data.data(), static_cast<uint32_t>(data.size() - 1));
+	//}
 
 	YIKES(std::string("Failed to load: ") + std::string(filePath.FullPath));
 	return nullptr;
@@ -36,8 +36,8 @@ bgfx::ShaderHandle Moonlight::LoadShader(const std::string& _name)
 {
 	Path finalPath = Path(_name);
 	SharedPtr<ShaderFile> shad = ResourceCache::GetInstance().Get<ShaderFile>(finalPath);
-	const bgfx::Memory* memm = bgfx::copy(shad->Data.data(), static_cast<uint32_t>(shad->Data.size() - 1));
-	bgfx::ShaderHandle handle = bgfx::createShader(memm);
+	//const bgfx::Memory* memm = bgfx::copy(shad->Data.data(), static_cast<uint32_t>(shad->Data.size()));
+	bgfx::ShaderHandle handle = bgfx::createShader(shad->Data);
 	bgfx::setName(handle, _name.c_str());
 
 	return handle;
@@ -85,5 +85,15 @@ bx::AllocatorI* Moonlight::getDefaultAllocator()
 	BX_PRAGMA_DIAGNOSTIC_IGNORED_CLANG_GCC("-Wshadow");
 	static bx::DefaultAllocator s_allocator;
 	return &s_allocator;
+	BX_PRAGMA_DIAGNOSTIC_POP();
+}
+
+bx::FileReaderI* Moonlight::getDefaultReader()
+{
+	BX_PRAGMA_DIAGNOSTIC_PUSH();
+	BX_PRAGMA_DIAGNOSTIC_IGNORED_MSVC(4459); // warning C4459: declaration of 's_allocator' hides global declaration
+	BX_PRAGMA_DIAGNOSTIC_IGNORED_CLANG_GCC("-Wshadow");
+	static bx::FileReader s_reader;
+	return &s_reader;
 	BX_PRAGMA_DIAGNOSTIC_POP();
 }

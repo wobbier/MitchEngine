@@ -1,4 +1,7 @@
 #pragma once
+
+#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
+
 #include <AppCore/Defines.h>
 #include <JavaScriptCore/JavaScript.h>
 #include <JavaScriptCore/JSStringRef.h>
@@ -413,3 +416,5 @@ JSObject JSGlobalObject();
 JSValue JSEval(const JSString& str);
 
 }  // namespace ultralight
+
+#endif

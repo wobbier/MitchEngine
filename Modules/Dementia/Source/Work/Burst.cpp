@@ -1,12 +1,14 @@
 #include "Burst.h"
 #include "CLog.h"
 #include "optick.h"
+#include "Dementia.h"
+#include "Utils/StringUtils.h"
+
+#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 #include <synchapi.h>
 #include <assert.h>
 #include <algorithm>
-#include "Dementia.h"
 #include <process.h>
-#include "Utils/StringUtils.h"
 
 typedef BOOL(WINAPI* LPFN_GLPI)(
 	PSYSTEM_LOGICAL_PROCESSOR_INFORMATION,
@@ -376,3 +378,4 @@ int Burst::GetNumThreads()
 {
 	return ThreadCount;
 }
+#endif

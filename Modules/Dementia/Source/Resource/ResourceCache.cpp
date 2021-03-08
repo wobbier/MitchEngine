@@ -48,7 +48,7 @@ const std::map<std::string, std::shared_ptr<Resource>>& ResourceCache::GetResouc
 
 void ResourceCache::Dump()
 {
-	for (auto& iter = ResourceStack.begin(); iter != ResourceStack.end(); )
+	for (std::map<std::string, std::shared_ptr<Resource>>::iterator iter = ResourceStack.begin(); iter != ResourceStack.end(); )
 	{
 		if (iter->second.use_count() == 1)
 		{

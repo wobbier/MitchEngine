@@ -10,7 +10,6 @@
 #include "Utils/BGFXUtils.h"
 
 //using namespace DirectX;
-using namespace Microsoft::WRL;
 
 static void imageReleaseCb(void* _ptr, void* _userData)
 {
@@ -28,6 +27,7 @@ namespace Moonlight
 {
 	Texture::Texture(const Path& InFilePath, WrapMode mode)
 		: Resource(InFilePath)
+        , TexHandle(BGFX_INVALID_HANDLE)
 	{
 		uint64_t flags = BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP;
 
@@ -121,7 +121,10 @@ void TextureResourceMetadata::OnSerialize(json& inJson)
 
 void TextureResourceMetadata::OnDeserialize(const json& inJson)
 {
-
+    if(!std::filesystem::exists(FilePath.FullPath + ".dds"))
+    {
+        FlaggedForExport = true;
+    }
 }
 
 #if ME_EDITOR
@@ -136,6 +139,7 @@ void TextureResourceMetadata::OnEditorInspect()
 
 void TextureResourceMetadata::Export()
 {
+#if ME_PLATFORM_WIN64
 	Path optickPath = Path("Engine/Tools/Win64/texturec.exe");
 
 	/*
@@ -204,6 +208,19 @@ rule texturec_equirect
 
 	CloseHandle(pi.hProcess);
 	CloseHandle(pi.hThread);
+#else
+    
+    Path optickPath = Path("Engine/Tools/macOS/texturec");
+    std::string exportType = " --as dds";
+
+    std::string fileName = FilePath.LocalPath.substr(FilePath.LocalPath.rfind("/") + 1, FilePath.LocalPath.length());
+    // texturec -f $in -o $out -t bc2 -m
+    std::string srtt = "\"" + optickPath.FullPath + "\" -f ../../";
+    srtt += FilePath.LocalPath;
+    srtt += " -o \"../../" + FilePath.LocalPath + ".dds\"" + exportType;
+    system(srtt.c_str());
+    
+#endif
 }
 
 #endif

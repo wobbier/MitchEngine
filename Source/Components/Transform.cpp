@@ -234,8 +234,10 @@ Vector3 Transform::GetScale()
 
 void Transform::LookAt(const Vector3& InDirection)
 {
-	SetWorldTransform(Matrix4(glm::transpose(glm::lookAtLH(GetWorldPosition().InternalVector, GetWorldPosition().InternalVector + InDirection.InternalVector, glm::vec3(0,1,0)))));
 
+#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
+	SetWorldTransform(Matrix4(glm::transpose(glm::lookAtLH(GetWorldPosition().InternalVector, GetWorldPosition().InternalVector + InDirection.InternalVector, glm::vec3(0,1,0)))));
+#endif
 	glm::vec3 scale;
 	glm::quat rot;
 	glm::vec3 pos;

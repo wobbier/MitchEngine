@@ -50,7 +50,7 @@ void RenderCore::OnEntityAdded(Entity& NewEntity)
 	}
 	if (NewEntity.HasComponent<DirectionalLight>())
 	{
-		DirectionalLight& light = NewEntity.GetComponent<DirectionalLight>();
+		//DirectionalLight& light = NewEntity.GetComponent<DirectionalLight>();
 		//GetEngine().GetRenderer().Sunlight.ambient = light.Ambient;
 		//GetEngine().GetRenderer().Sunlight.diffuse = light.Diffuse;
 		//GetEngine().GetRenderer().Sunlight.dir = light.Direction;
@@ -76,6 +76,7 @@ void RenderCore::Update(float dt)
 	OPTICK_CATEGORY("RenderCore::Update", Optick::Category::Rendering)
 	//m_renderer->Update(dt);
 
+#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 	Burst& burst = GetEngine().GetBurstWorker();
 	burst.PrepareWork();
 
@@ -113,8 +114,8 @@ void RenderCore::Update(float dt)
 					}
 					if (InEntity.HasComponent<DirectionalLight>())
 					{
-						DirectionalLight& light = InEntity.GetComponent<DirectionalLight>();
-						auto pos = transform.GetWorldPosition();
+						//DirectionalLight& light = InEntity.GetComponent<DirectionalLight>();
+						//auto pos = transform.GetWorldPosition();
 						//m_renderer->Sunlight.pos = XMFLOAT4(pos.x, pos.y, pos.z, 0);
 						//m_renderer->Sunlight.ambient = light.Ambient;
 						//m_renderer->Sunlight.diffuse = light.Diffuse;
@@ -129,7 +130,7 @@ void RenderCore::Update(float dt)
 	}
 
 	burst.FinalizeWork();
-
+#endif
 	//for (auto& InEntity : Renderables)
 	//{
 	//	//OPTICK_CATEGORY("Update Mesh", Optick::Category::Rendering);

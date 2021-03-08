@@ -421,7 +421,7 @@ public:
 	//DirectX::Mouse::State GetMouseState();
 	//DirectX::GamePad::State GetControllerState(unsigned int PlayerId = 0);
 
-	Vector2 GetMousePosition();
+	Vector2 GetMousePosition() const;
 	void SetMousePosition(const Vector2& InPosition);
 	Vector2 GetMouseOffset();
 

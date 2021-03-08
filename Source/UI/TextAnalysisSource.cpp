@@ -2,6 +2,8 @@
 
 #include "TextAnalysisSource.h"
 
+#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
+
 TextAnalysisSource::TextAnalysisSource(const wchar_t* text,
   UINT32 textLength,
   const wchar_t* localeName,
@@ -83,3 +85,4 @@ TextAnalysisSource::GetNumberSubstitution(UINT32 textPosition,
   *textLength = mTextLength - textPosition;
   return S_OK;
 }
+#endif

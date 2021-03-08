@@ -50,8 +50,10 @@ public:
 
 	Config& GetConfig() const;
 	Input& GetInput();
-
+#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 	Burst& GetBurstWorker();
+    Burst burst;
+#endif
 
 	class CameraCore* Cameras = nullptr;
 	class SceneGraph* SceneNodes = nullptr;
@@ -73,7 +75,6 @@ private:
 	float FrameTime = 0.0f;
 	bool m_isInitialized = false;
 	ME_SINGLETON_DEFINITION(Engine)
-	Burst burst;
 
 	BGFXRenderer* NewRenderer = nullptr;
 };

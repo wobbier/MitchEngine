@@ -48,7 +48,9 @@ void UpdateRecursively(Transform* CurrentTransform, bool isParentDirty, bool isB
 			model = glm::rotate(model, Child->GetWorldRotation().ToAngle(), Child->GetWorldRotation().ToAxis().InternalVector);
 			model = glm::scale(model, Child->GetScale().InternalVector);
 
+#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 			Child->SetWorldTransform(Matrix4(model * CurrentTransform->WorldTransform.GetInternalMatrix()));
+#endif
 			isParentDirty = true;
 		}
 
@@ -61,13 +63,14 @@ void UpdateRecursively(Transform* CurrentTransform, bool isParentDirty, bool isB
 			if (shouldBurst)
 			{
 				shouldBurst = false;
+#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 				Burst::LambdaWorkEntry entry;
 				entry.m_callBack = [Child, isParentDirty](int Index) {
 					UpdateRecursively(Child.get(), isParentDirty, true);
 				};
 
 				GetEngine().GetBurstWorker().AddWork2(entry, sizeof(Burst::LambdaWorkEntry));
-
+#endif
 			}
 			else
 			{
@@ -86,9 +89,12 @@ void SceneGraph::Update(float dt)
 	//auto& jobSystem = GetEngine().GetJobSystem();
 	// Seems O.K. for now
 	//jobSystem.GetJobQueue().Lock();
+
+#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 	GetEngine().GetBurstWorker().PrepareWork();
 	UpdateRecursively(GetRootTransform(), false, false);
 	GetEngine().GetBurstWorker().FinalizeWork();
+#endif
 	//jobSystem.GetJobQueue().Unlock();
 
 	//jobSystem.Wait();

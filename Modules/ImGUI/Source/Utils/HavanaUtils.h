@@ -8,7 +8,7 @@ namespace HavanaUtils
 {
 	static void Text(const std::string& Name, const Vector3& Vector)
 	{
-		ImGui::Text(Name.c_str());
+        ImGui::Text("%s", Name.c_str());
 
 		ImGui::Text("X: %f", Vector.x);
 		ImGui::SameLine();
@@ -18,7 +18,7 @@ namespace HavanaUtils
 	}
 	static void Text(const std::string& Name, const Vector2& Vector)
 	{
-		ImGui::Text(Name.c_str());
+        ImGui::Text("%s", Name.c_str());
 
 		ImGui::Text("X: %f", Vector.x);
 		ImGui::SameLine();

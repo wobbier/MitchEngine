@@ -3,8 +3,6 @@
 #include "Graphics/ShaderStructures.h"
 #include "CLog.h"
 #include "ShaderCommand.h"
-#include "Game.h"
-#include "optick.h"
 #include "Material.h"
 
 namespace Moonlight

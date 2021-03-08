@@ -21,7 +21,7 @@
 #include "Cores/AudioCore.h"
 #include "Cores/UI/UICore.h"
 
-#if ME_EDITOR
+#if ME_EDITOR && ME_PLATFORM_WIN64
 #include "Utils/StringUtils.h"
 #include <fileapi.h>
 #endif
@@ -35,6 +35,7 @@
 #include "Window/EditorWindow.h"
 #include "SDL.h"
 #include "SDL_video.h"
+#include <imgui.h>
 
 Engine& GetEngine()
 {
@@ -55,6 +56,7 @@ Engine::~Engine()
 }
 
 extern bool ImGui_ImplSDL2_InitForD3D(SDL_Window* window);
+extern bool ImGui_ImplSDL2_InitForMetal(SDL_Window* window);
 extern bool ImGui_ImplWin32_Init(void* window);
 void Engine::Init(Game* game)
 {
@@ -70,7 +72,7 @@ void Engine::Init(Game* game)
 	CLog::GetInstance().Log(CLog::LogType::Info, "Starting the MitchEngine.");
 	Path engineCfg("Assets\\Config\\Engine.cfg");
 
-#if ME_EDITOR
+#if ME_EDITOR && ME_PLATFORM_WIN64
 	if (engineCfg.FullPath.rfind("Engine") != -1)
 	{
 		Path gameEngineCfgPath("Assets\\Config\\Engine.cfg", true);
@@ -85,14 +87,17 @@ void Engine::Init(Game* game)
 #endif
 
 
+#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 	burst.InitializeWorkerThreads();
-
+#endif
 	std::function<void(const Vector2&)> ResizeFunc = [this](const Vector2& NewSize)
 	{
 		if (NewRenderer)
 		{
 			NewRenderer->WindowResized(NewSize);
 		}
+        
+#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 		if (UI)
 		{
 			if (Camera::CurrentCamera)
@@ -100,15 +105,16 @@ void Engine::Init(Game* game)
 				UI->OnResize(Camera::CurrentCamera->OutputSize);
 			}
 		}
+#endif
 	};
 
-#if ME_EDITOR
+#if ME_EDITOR && ME_PLATFORM_WIN64
 	EngineConfig = new Config(engineCfg);
 	const json& WindowConfig = EngineConfig->GetJsonObject("Window");
 	int WindowWidth = WindowConfig["Width"];
 	int WindowHeight = WindowConfig["Height"];
 	GameWindow = new EditorWindow(EngineConfig->GetValue("Title"), ResizeFunc, 500, 300, Vector2(WindowWidth, WindowHeight));
-#elif ME_PLATFORM_WIN64
+#elif ME_PLATFORM_WIN64 || ME_PLATFORM_MACOS
 	EngineConfig = new Config(engineCfg);
 	const json& WindowConfig = EngineConfig->GetJsonObject("Window");
 	int WindowWidth = WindowConfig["Width"];
@@ -130,9 +136,12 @@ void Engine::Init(Game* game)
 
 	//m_renderer = new Moonlight::Renderer();
 	//m_renderer->WindowResized(GameWindow->GetSize());
-#if ME_EDITOR
+#if ME_EDITOR && ME_PLATFORM_WIN64
 	//ImGui_ImplSDL2_InitForD3D(static_cast<SDLWindow*>(GameWindow)->WindowHandle);
 	ImGui_ImplWin32_Init(static_cast<EditorWindow*>(GameWindow)->GetWindowPtr());
+#endif
+#if ME_EDITOR && ME_PLATFORM_MACOS
+    ImGui_ImplSDL2_InitForMetal(static_cast<SDLWindow*>(GameWindow)->WindowHandle);
 #endif
 
 	GameWorld = std::make_shared<World>();
@@ -182,10 +191,11 @@ void Engine::Run()
 	m_game->OnStart();
 
 	GameClock.Reset();
-	float lastTime = GameClock.GetTimeInMilliseconds();
+	//float lastTime = GameClock.GetTimeInMilliseconds();
 
 	const float FramesPerSec = FPS;
 	const float MaxDeltaTime = (1.f / FramesPerSec);
+
 	// Game loop
 	forever
 	{
@@ -204,6 +214,7 @@ void Engine::Run()
 		GameClock.Update();
 
 		AccumulatedTime += GameClock.GetDeltaSeconds();
+
 		if (AccumulatedTime >= MaxDeltaTime)
 		{
 			OPTICK_FRAME("MainLoop");
@@ -242,11 +253,13 @@ void Engine::Run()
 			AudioThread->Update(deltaTime);
 			ModelRenderer->Update(deltaTime);
 			FrameProfile::GetInstance().Complete("ModelRenderer");
-
+            
 			{
 				OPTICK_CATEGORY("UICore::Update", Optick::Category::Rendering)
 				FrameProfile::GetInstance().Set("UI", ProfileCategory::UI);
 				// editor only?
+
+#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 				if (UI)
 				{
 					if (Camera::CurrentCamera)
@@ -256,6 +269,7 @@ void Engine::Run()
 					UI->Update(deltaTime);
 				}
 				FrameProfile::GetInstance().Complete("UI");
+#endif
 			}
 //
 //#if !ME_EDITOR
@@ -299,7 +313,6 @@ void Engine::Run()
 
 			FrameProfile::GetInstance().End(AccumulatedTime);
 		}
-
 		ResourceCache::GetInstance().Dump();
 		//Sleep(1);
 	}
@@ -360,11 +373,12 @@ Input& Engine::GetInput()
 	return m_input;
 }
 
+#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 Burst& Engine::GetBurstWorker()
 {
 	return burst;
 }
-
+#endif
 void Engine::LoadScene(const std::string& SceneFile)
 {
 	Cameras->Init();

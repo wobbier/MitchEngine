@@ -161,7 +161,7 @@ void World::Destroy()
 
 void World::Unload()
 {
-	for (auto& iter = EntityCache.Alive.begin(); iter != EntityCache.Alive.end(); )
+	for (auto iter = EntityCache.Alive.begin(); iter != EntityCache.Alive.end(); )
 	{
 		if (iter->second.DestroyOnLoad)
 		{

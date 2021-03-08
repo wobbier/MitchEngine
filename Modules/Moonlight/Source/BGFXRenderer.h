@@ -30,7 +30,7 @@ public:
 	void Create(const RendererCreationSettings& settings);
 	void Destroy();
 
-	void BeginFrame(Vector2& mousePosition, uint8_t mouseButton, int32_t scroll, Vector2 outputSize, int inputChar, bgfx::ViewId viewId);
+	void BeginFrame(const Vector2& mousePosition, uint8_t mouseButton, int32_t scroll, Vector2 outputSize, int inputChar, bgfx::ViewId viewId);
 	void Render(Moonlight::CameraData& EditorCamera);
 
 	void RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId id);
@@ -38,7 +38,7 @@ public:
 	void WindowResized(const Vector2& newSize);
 
 	// Cameras
-	unsigned int PushCamera(Moonlight::CameraData& command);
+	unsigned int PushCamera(const Moonlight::CameraData& command);
 	void UpdateCamera(unsigned int Id, Moonlight::CameraData& NewCommand);
 	void PopCamera(unsigned int Id);
 	Moonlight::CameraData& GetCamera(unsigned int Id);
@@ -67,6 +67,8 @@ private:
 	bgfx::VertexBufferHandle m_vbh;
 	bgfx::IndexBufferHandle m_ibh;
 	bgfx::ProgramHandle CubeProgram;
+	bgfx::UniformHandle s_texCube;
+	bgfx::UniformHandle s_diffuse;
 	int32_t m_pt;
 	int64_t m_timeOffset;
 };

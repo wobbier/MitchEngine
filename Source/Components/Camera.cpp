@@ -179,7 +179,7 @@ void Camera::OnEditorInspect()
 
 		if (ImGui::BeginCombo("##SkyboxTexture", ""))
 		{
-			for (int n = 0; n < Textures.size(); n++)
+			for (size_t n = 0; n < Textures.size(); n++)
 			{
 				if (ImGui::Selectable(Textures[n].LocalPath.c_str(), false))
 				{

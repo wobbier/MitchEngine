@@ -4,6 +4,7 @@
 MetaBase::MetaBase(const Path& filePath)
 	: FilePath(filePath)
 {
+#if ME_PLATFORM_WIN64 || ME_PLATFORM_UWP
 	struct stat fileInfo;
 
 	if (stat(filePath.FullPath.c_str(), &fileInfo) != 0) {  // Use stat() to get the info
@@ -31,6 +32,7 @@ MetaBase::MetaBase(const Path& filePath)
 	char str[26];
 	ctime_s(str, sizeof str, &fileInfo.st_mtime);
 	LastModifiedDebug = std::string(str);// std::ctime(&fileInfo.st_mtime);
+#endif
 }
 
 void MetaBase::Serialize(json& outJson)
@@ -56,8 +58,11 @@ void MetaBase::Deserialize(const json& inJson)
 		wasModified = (LastModified != CachedLastModified);
 		LastModified = CachedLastModified;
 	}
+    
+#if !ME_PLATFORM_MACOS
 	FlaggedForExport = wasModified;
-
+#endif
+    
 	if (inJson.contains("LastModifiedDebug"))
 	{
 		LastModifiedDebug = inJson["LastModifiedDebug"];

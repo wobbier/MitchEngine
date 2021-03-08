@@ -204,6 +204,10 @@ void SDLWindow::SetWindow(SDL_Window* window)
 	PlatformInfo.ndt = nullptr;
 	PlatformInfo.nwh = wmi.info.win.window;
 #endif
+#if ME_PLATFORM_MACOS
+    PlatformInfo.ndt = nullptr;
+    PlatformInfo.nwh = wmi.info.cocoa.window;
+#endif
 	PlatformInfo.context = nullptr;
 	PlatformInfo.backBuffer = nullptr;
 	PlatformInfo.backBufferDS = nullptr;

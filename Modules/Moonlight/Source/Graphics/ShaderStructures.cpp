@@ -1,4 +1,3 @@
-﻿#pragma once
 #include <Graphics/ShaderStructures.h>
 
 namespace Moonlight

@@ -2,8 +2,6 @@
 #include <string>
 #include "Dementia.h"
 #include "Resource/Resource.h"
-#include <d3d11.h>
-#include <wrl/client.h>
 #include "bx/allocator.h"
 #include "bx/readerwriter.h"
 #include "bx/file.h"

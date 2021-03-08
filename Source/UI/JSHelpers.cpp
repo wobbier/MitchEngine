@@ -4,6 +4,8 @@
 #include <cassert>
 #include <vector>
 
+#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
+
 namespace ultralight {
 
 static JSContextRef g_context = nullptr;
@@ -601,3 +603,5 @@ JSValue JSEval(const JSString& str) {
 }
 
 }  // namespace ultralight
+
+#endif

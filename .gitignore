@@ -210,3 +210,5 @@ imgui.ini
 
 !ThirdParty/Lib/**/*.*
 !ThirdParty/Bin/**/*.*
+
+.DS_Store

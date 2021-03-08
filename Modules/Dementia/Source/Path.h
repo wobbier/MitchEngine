@@ -33,14 +33,26 @@ public:
 #endif
 
 		std::string assetPrefix;
-#if ME_EDITOR
+#if ME_EDITOR && ME_PLATFORM_WIN64
 		assetPrefix = "/../../../";
+#elif ME_PLATFORM_UWP
+#elif ME_PLATFORM_MACOS
+    #if ME_EDITOR
+        assetPrefix = "/../../";
+    #else
+        assetPrefix = "/";
+    #endif
+#else
+		assetPrefix = "/../";
 #endif
 		LocalPath = InFile;
 
 		std::replace(LocalPath.begin(), LocalPath.end(), '\\', '/');
-		
-		size_t path = LocalPath.find(':');
+#if ME_PLATFORM_MACOS
+		size_t path = LocalPath[0] == '/' ? 0 : std::string::npos;
+#else
+        size_t path = LocalPath.find(':');
+#endif
 		if (path != std::string::npos)
 		{
 			FullPath = LocalPath;

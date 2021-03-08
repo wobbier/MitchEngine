@@ -30,7 +30,9 @@
 #include "Components/Graphics/Model.h"
 #include "Commands/EditorCommands.h"
 #include "optick.h"
+#if ME_PLATFORM_WIN64
 #include <winuser.h>
+#endif
 #include "Utils/StringUtils.h"
 #include "Profiling/BasicFrameProfile.h"
 #include "Ultralight/Matrix.h"
@@ -64,10 +66,13 @@ Havana::Havana(Engine* GameEngine, EditorApp* app)
 		switch (status) {
 		case FileStatus::Created:
 		{
+
+            #if ME_PLATFORM_WIN64
 			CLog::GetInstance().Log(CLog::LogType::Info, "File created: " + path_to_watch);
 			TestEditorEvent evt;
 			evt.Path = std::move(path_to_watch);
 			evt.Queue();
+#endif
 		}
 		break;
 		case FileStatus::Modified:
@@ -310,8 +315,11 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 			//ImGui::MenuItem("(dummy menu)", NULL, false, false);
 			if (ImGui::MenuItem("New Scene"))
 			{
+
+                #if ME_PLATFORM_WIN64
 				NewSceneEvent evt;
 				evt.Queue();
+#endif
 			}
 			if (ImGui::MenuItem("Open Scene", "Ctrl+O"))
 			{
@@ -493,10 +501,11 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 		float winWidth = ImGui::GetWindowWidth();
 		TitleBarDragSize = Vector2(winWidth - endOfMenu - (buttonWidth * 5.f), MainMenuSize.y - 10.f);
 
+#if ME_PLATFORM_WIN64
 		auto window = static_cast<EditorWindow*>(m_engine->GetWindow());
 
 		window->SetDragBounds(TitleBarDragPosition, TitleBarDragSize);
-
+#endif
 		Vector2 pos = GetInput().GetMousePosition();
 		if (ImGui::IsMouseDoubleClicked(0) && (pos > TitleBarDragPosition && pos < TitleBarDragPosition + TitleBarDragSize))
 		{
@@ -552,6 +561,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 		{
 			Path optickPath = Path("Engine/Tools/");
 			// additional information
+            #if ME_PLATFORM_WIN64
 			STARTUPINFO si;
 			PROCESS_INFORMATION pi;
 
@@ -575,6 +585,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 			// Close process and thread handles. 
 			CloseHandle(pi.hProcess);
 			CloseHandle(pi.hThread);
+#endif
 		}
 		//if (ImGui::ImageButton(Icons["Info"]->TexHandle, ImVec2(30.f, 30.f)))
 		//{
@@ -614,8 +625,10 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 4.f));
 		if (ImGui::ImageButton(Icons["BugReport"]->TexHandle, ImVec2(30.f, 30.f)))
 		{
+#if ME_PLATFORM_WIN64
 			ShellExecute(0, 0, L"https://github.com/wobbier/MitchEngine/issues", 0, 0, SW_SHOW);
-		}
+#endif
+        }
 		ImGui::PopStyleColor(1);
 
 		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 3.f) + RightShift);
@@ -624,6 +637,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 			m_engine->GetWindow()->Minimize();
 		}
 
+        #if ME_PLATFORM_WIN64
 		if (static_cast<EditorWindow*>(m_engine->GetWindow())->IsMaximized())
 		{
 			ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 2.f) + RightShift);
@@ -633,6 +647,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 			}
 		}
 		else
+#endif
 		{
 			ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 2.f) + RightShift);
 			if (ImGui::ImageButton(Icons["Maximize"]->TexHandle, ImVec2(30.f, 30.f)))
@@ -743,7 +758,7 @@ void Havana::DrawLog()
 		clipper.End();
 
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(5.f, 5.f));
-		if (selectedIndex >= 0 && selectedIndex < CLog::Messages.size())
+		if (selectedIndex >= 0 && selectedIndex < static_cast<int>(CLog::Messages.size()))
 		{
 			ImGuiWindowFlags window_flags = ImGuiWindowFlags_HorizontalScrollbar;
 			ImGui::BeginChild("ChildL", ImVec2(ImGui::GetWindowContentRegionWidth(), 150), false, window_flags);

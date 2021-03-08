@@ -16,7 +16,7 @@ namespace Moonlight
 		ShaderCommand(const std::string& InShaderFile);
 		~ShaderCommand();
 
-		const ShaderProgram& GetProgram() const;
+        const bgfx::ProgramHandle& GetProgram() const { return Program; }
 
 		const bool IsLoaded() const { return isLoaded; };
 

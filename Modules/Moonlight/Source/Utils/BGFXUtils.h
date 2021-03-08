@@ -41,6 +41,7 @@ namespace Moonlight
 	};
 
 	bx::AllocatorI* getDefaultAllocator();
+	bx::FileReaderI* getDefaultReader();
 
 	const bgfx::Memory* LoadMemory(const Path& filePath);
 

@@ -31,6 +31,12 @@ Class& operator=(Class&&) = delete;
 #define ME_PLATFORM_UWP 0
 #endif
 
+#ifdef ME_PLATFORM_MACOS
+#define ME_PLATFORM_MACOS 1
+#else
+#define ME_PLATFORM_MACOS 0
+#endif
+
 #ifdef ME_DIRECTX
 #define ME_DIRECTX 1
 #else
