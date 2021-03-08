@@ -127,11 +127,9 @@ void BGFXRenderer::Create(const RendererCreationSettings& settings)
 			bgfx::makeRef(Moonlight::s_cubeTriList, sizeof(Moonlight::s_cubeTriList))
 		);
         
-#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 		//CubeProgram = Moonlight::LoadProgram("Assets/Shaders/Samples/Cubes.vert", "Assets/Shaders/Samples/Cubes.frag");
 		s_texCube = bgfx::createUniform("s_texCube", bgfx::UniformType::Sampler);
 		s_diffuse = bgfx::createUniform("s_diffuse", bgfx::UniformType::Vec4);
-#endif
 		//bgfx::RendererType::Enum type = bgfx::getRendererType();
 		//bgfx::ShaderHandle vsh = bgfx::createEmbeddedShader(s_embeddedShaders, type, "cubes_vert");
 		//bgfx::ShaderHandle fsh = bgfx::createEmbeddedShader(s_embeddedShaders, type, "cubes_frag");

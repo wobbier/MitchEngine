@@ -86,4 +86,12 @@ struct TextureResourceMetadata
 #endif
 };
 
+struct TextureResourceMetadataJpg
+    : public TextureResourceMetadata
+{
+    TextureResourceMetadataJpg(const Path& filePath) : TextureResourceMetadata(filePath) {}
+};
+
+
 ME_REGISTER_METADATA("png", TextureResourceMetadata);
+ME_REGISTER_METADATA("jpg", TextureResourceMetadataJpg);

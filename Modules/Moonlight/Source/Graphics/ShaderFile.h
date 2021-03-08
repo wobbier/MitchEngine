@@ -129,7 +129,7 @@ struct ShaderFileMetadata
         std::string nameNoExt = fileName.substr(0, fileName.rfind("."));
         std::string srtt = "\"" + optickPath.FullPath + "\" -f ../../";
         srtt += localFolder + fileName;
-        srtt += " -o ../../" + localFolder + fileName + "." + Moonlight::GetPlatformString() + ".bin --varyingdef ../../" + localFolder + nameNoExt + ".var --platform osx -p metal --type " + exportType;
+        srtt += " -o ../../" + localFolder + fileName + "." + Moonlight::GetPlatformString() + ".bin --varyingdef ../../" + localFolder + nameNoExt + ".var --platform osx -p metal --depends -disasm --type " + exportType;
         
         
 
