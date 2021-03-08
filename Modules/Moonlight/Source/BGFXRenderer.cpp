@@ -128,7 +128,7 @@ void BGFXRenderer::Create(const RendererCreationSettings& settings)
 		);
         
 #if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
-		CubeProgram = Moonlight::LoadProgram("Assets/Shaders/Samples/Cubes.vert", "Assets/Shaders/Samples/Cubes.frag");
+		//CubeProgram = Moonlight::LoadProgram("Assets/Shaders/Samples/Cubes.vert", "Assets/Shaders/Samples/Cubes.frag");
 		s_texCube = bgfx::createUniform("s_texCube", bgfx::UniformType::Sampler);
 		s_diffuse = bgfx::createUniform("s_diffuse", bgfx::UniformType::Vec4);
 #endif

@@ -106,7 +106,7 @@ struct ShaderFileMetadata
 
 		CloseHandle(pi.hProcess);
 		CloseHandle(pi.hThread);
-#else
+#elif ME_PLATFORM_MACOS
         Path optickPath = Path("Engine/Tools/macOS/shaderc");
         
         std::string exportType;
