@@ -241,13 +241,13 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 			bx::mtxLookAt(view, eye, at);
 
 			float proj[16];
-			if (camera.Projection == Moonlight::ProjectionType::Perspective || true)
+			if (camera.Projection == Moonlight::ProjectionType::Perspective)
 			{
 				bx::mtxProj(proj, camera.FOV, float(camera.OutputSize.x) / float(camera.OutputSize.y), camera.Near, camera.Far, bgfx::getCaps()->homogeneousDepth);
 			}
 			else
 			{
-				bx::mtxOrtho(proj, 0.f, camera.OutputSize.x / camera.OrthographicSize, camera.OutputSize.y / camera.OrthographicSize, 0.f, 0.1f, camera.Far, 0.f, bgfx::getCaps()->homogeneousDepth);
+				bx::mtxOrtho(proj, -(camera.OutputSize.x / camera.OrthographicSize), (camera.OutputSize.x / camera.OrthographicSize), -(camera.OutputSize.y / camera.OrthographicSize), (camera.OutputSize.y / camera.OrthographicSize), 0.01f, camera.Far, 0.f, bgfx::getCaps()->homogeneousDepth);
 			}
 			bgfx::setViewTransform(id, view, proj);
 			if (id > 0)

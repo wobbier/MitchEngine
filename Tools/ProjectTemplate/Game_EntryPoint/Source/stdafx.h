@@ -1,6 +1,8 @@
 ﻿#pragma once
 
 #include "Game.h"
+
+#if ME_PLATFORM_UWP
 #include <wrl.h>
 #include <wrl/client.h>
 #include <dxgi1_4.h>
@@ -12,3 +14,4 @@
 #include <memory>
 #include <agile.h>
 #include <concrt.h>
+#endif
