@@ -78,8 +78,6 @@ void RenderCore::Update(float dt)
 	OPTICK_CATEGORY("RenderCore::Update", Optick::Category::Rendering)
 	//m_renderer->Update(dt);
 
-#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
-
 	auto& Renderables = GetEntities();
 	std::vector<std::pair<int, int>> batches;
 	Burst::GenerateChunks(Renderables.size(), 11, batches);
@@ -126,7 +124,6 @@ void RenderCore::Update(float dt)
 		};
 		GetEngine().GetJobSystem().AddWork(m_callBack);
 	}
-#endif
 	//for (auto& InEntity : Renderables)
 	//{
 	//	//OPTICK_CATEGORY("Update Mesh", Optick::Category::Rendering);

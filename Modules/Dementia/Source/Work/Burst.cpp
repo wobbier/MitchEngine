@@ -9,10 +9,12 @@
 #include <assert.h>
 #include <algorithm>
 #include <process.h>
+#endif
 
 namespace Burst
 {
 
+#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 	typedef BOOL(WINAPI* LPFN_GLPI)(
 		PSYSTEM_LOGICAL_PROCESSOR_INFORMATION,
 		PDWORD);
@@ -124,6 +126,7 @@ namespace Burst
 		ThreadCount = std::max(ThreadCount, 1);
 		return ThreadCount;
 	}
+#endif
 
 	void GenerateChunks(std::size_t size, std::size_t num, std::vector<std::pair<int, int>>& OutChunks)
 	{
@@ -159,5 +162,3 @@ namespace Burst
 		}
 	}
 }
-
-#endif

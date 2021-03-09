@@ -49,9 +49,9 @@ void UpdateRecursively(Transform* CurrentTransform, bool isParentDirty, bool isB
 			model = glm::rotate(model, Child->GetWorldRotation().ToAngle(), Child->GetWorldRotation().ToAxis().InternalVector);
 			model = glm::scale(model, Child->GetScale().InternalVector);
 
-#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
-			Child->SetWorldTransform(Matrix4(model * CurrentTransform->WorldTransform.GetInternalMatrix()));
-#endif
+            Matrix4 xxx = model * CurrentTransform->WorldTransform.GetInternalMatrix();
+			Child->SetWorldTransform(xxx);
+
 			isParentDirty = true;
 		}
 
@@ -83,20 +83,11 @@ void UpdateRecursively(Transform* CurrentTransform, bool isParentDirty, bool isB
 void SceneGraph::Update(float dt)
 {
 	OPTICK_EVENT("SceneGraph::Update");
-	//auto& jobSystem = GetEngine().GetJobSystem();
 	// Seems O.K. for now
-	//jobSystem.GetJobQueue().Lock();
-
-#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
-
 	GetEngine().GetJobQueue().Push([this]() {
 		UpdateRecursively(GetRootTransform(), false, false);
 	});
 	GetEngine().GetJobSystem().Wait();
-#endif
-	//jobSystem.GetJobQueue().Unlock();
-
-	//jobSystem.Wait();
 }
 
 void SceneGraph::OnEntityAdded(Entity& NewEntity)

@@ -174,10 +174,8 @@ void PhysicsCore::InitRigidbody(Rigidbody& RigidbodyComponent, Transform& Transf
 	if (!RigidbodyComponent.IsRigidbodyInitialized())
 	{
 
-#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 		RigidbodyComponent.CreateObject(TransformComponent.GetPosition(), TransformComponent.LocalRotation, TransformComponent.GetScale(), PhysicsWorld);
         PhysicsWorld->addRigidBody(RigidbodyComponent.InternalRigidbody);
-#endif
 		//Moonlight::DebugColliderCommand cmd;
 		//RigidbodyComponent.DebugColliderId = GetEngine().GetRenderer().PushDebugCollider(cmd);
 	}

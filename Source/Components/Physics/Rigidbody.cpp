@@ -133,7 +133,7 @@ void Rigidbody::OnDeserialize(const json& inJson)
 	}
 }
 
-void Rigidbody::CreateObject(const Vector3& Position, Quaternion& Rotation, Vector3& InScale, btDiscreteDynamicsWorld* world)
+void Rigidbody::CreateObject(const Vector3& Position, Quaternion& Rotation, const Vector3& InScale, btDiscreteDynamicsWorld* world)
 {
 	m_world = world;
 	if (Scale == Vector3())
