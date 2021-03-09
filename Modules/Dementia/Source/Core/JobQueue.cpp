@@ -17,7 +17,7 @@ bool JobQueue::HasWork() const
 	return !Jobs.empty();
 }
 
-void JobQueue::AddJobBrad(std::function<void()> InJob)
+void JobQueue::Push(std::function<void()> InJob)
 {
 	std::scoped_lock<std::mutex> lock(Mutex);
 	Jobs.push_back(InJob);

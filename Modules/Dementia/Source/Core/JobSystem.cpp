@@ -1,24 +1,16 @@
 #include "JobSystem.h"
-#include <synchapi.h>
-#include <wtypes.h>
 #include <mutex>
 
 JobSystem::JobSystem(std::size_t InNumThreads)
 {
 	WorkerThreads.resize(InNumThreads);
-	std::atomic_bool b = false;
-	WorkAvailableEvent = CreateEvent(NULL, TRUE, FALSE, L"SignalWorkAvailable");
-	WorkFinishedEvent = CreateEvent(NULL, TRUE, FALSE, L"WorkFinishedEvent");
 
 	std::size_t index = 0;
 	for (auto& threadInfo : WorkerThreads)
 	{
 		threadInfo.IsWorking = false;
-		threadInfo.Worker.SetJobSystem(this, index, WorkAvailableEvent);
+		threadInfo.Worker.SetJobSystem(this, index, m_isWorkAvailable);
 	}
-
-	ResetEvent(WorkAvailableEvent);
-	ResetEvent(WorkFinishedEvent);
 
 	index = 0;
 	for (auto& threadInfo : WorkerThreads)
@@ -30,7 +22,6 @@ JobSystem::JobSystem(std::size_t InNumThreads)
 
 JobSystem::~JobSystem()
 {
-
 }
 
 const JobQueue& JobSystem::GetJobQueue() const
@@ -60,27 +51,33 @@ void JobSystem::WorkerThreadSleeping(std::size_t InIndex)
 
 	if (!Queue.HasWork() && NumberOfSleepingThreads == WorkerThreads.size())
 	{
-		SetEvent(WorkFinishedEvent);
+		m_isWorkFinished = true;
 	}
 	if (!Queue.HasWork())
 	{
-		ResetEvent(WorkAvailableEvent);
+		m_isWorkAvailable = false;
 	}
 }
 
-void JobSystem::AddJobBrad(std::function<void()> func)
+void JobSystem::AddWork(std::function<void()> func, bool signalNewWork)
 {
-	GetJobQueue().AddJobBrad(func);
-	SignalWorkAvailable();
+	GetJobQueue().Push(func);
+	if (signalNewWork)
+	{
+		SignalWorkAvailable();
+	}
 }
 
 void JobSystem::SignalWorkAvailable()
 {
-	ResetEvent(WorkFinishedEvent);
-	SetEvent(WorkAvailableEvent);
+	m_isWorkFinished = false;
+
+	m_isWorkAvailable = true;
 }
 
 void JobSystem::Wait()
 {
-	WaitForSingleObject(WorkFinishedEvent, INFINITE);
+	while (!m_isWorkFinished)
+	{
+	}
 }

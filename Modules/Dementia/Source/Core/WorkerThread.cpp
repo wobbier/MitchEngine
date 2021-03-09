@@ -2,11 +2,11 @@
 #include "JobSystem.h"
 #include <optick.h>
 
-void WorkerThread::SetJobSystem(JobSystem* InJobSystem, std::size_t InIndex, HANDLE EventHandle)
+void WorkerThread::SetJobSystem(JobSystem* InJobSystem, std::size_t InIndex, const std::atomic_bool& EventHandle)
 {
 	Owner = InJobSystem;
 	Index = InIndex;
-	WorkAvailableHandle = EventHandle;
+	WorkAvailableHandle = &EventHandle;
 }
 
 void WorkerThread::Start()
@@ -41,5 +41,7 @@ void WorkerThread::Pause()
 	OPTICK_CATEGORY("Pause", Optick::Category::Wait);
 	IsPaused = true;
 
-	WaitForSingleObject(WorkAvailableHandle, INFINITE);
+	while (!(*WorkAvailableHandle))
+	{
+	}
 }

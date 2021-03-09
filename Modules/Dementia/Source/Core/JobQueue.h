@@ -11,7 +11,7 @@ public:
 
 	bool HasWork() const;
 
-	void AddJobBrad(std::function<void()> InJob);
+	void Push(std::function<void()> InJob);
 
 	std::function<void()> GetNextJob();
 

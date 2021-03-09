@@ -65,13 +65,13 @@ void UpdateRecursively(Transform* CurrentTransform, bool isParentDirty, bool isB
 			{
 				shouldBurst = false;
 				//UpdateRecursively(Child.get(), isParentDirty, true);
-				GetEngine().GetJobQueue().AddJobBrad([Child, isParentDirty]() {
+				GetEngine().GetJobQueue().Push([Child, isParentDirty]() {
 					UpdateRecursively(Child.get(), isParentDirty, true);
 				});
 			}
 			else
 			{
-				GetEngine().GetJobQueue().AddJobBrad([Child, isParentDirty]() {
+				GetEngine().GetJobQueue().Push([Child, isParentDirty]() {
 					UpdateRecursively(Child.get(), isParentDirty, false);
 				});
 			}
@@ -89,7 +89,7 @@ void SceneGraph::Update(float dt)
 
 #if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 
-	GetEngine().GetJobQueue().AddJobBrad([this]() {
+	GetEngine().GetJobQueue().Push([this]() {
 		UpdateRecursively(GetRootTransform(), false, false);
 	});
 	GetEngine().GetJobSystem().Wait();

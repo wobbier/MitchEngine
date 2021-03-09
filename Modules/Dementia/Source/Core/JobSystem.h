@@ -21,7 +21,7 @@ public:
 	void WorkerThreadActive(std::size_t InIndex);
 	void WorkerThreadSleeping(std::size_t InIndex);
 
-	void AddJobBrad(std::function<void()> func);
+	void AddWork(std::function<void()> func, bool signalNewWork = true);
 
 	void SignalWorkAvailable();
 
@@ -31,8 +31,10 @@ private:
 
 	std::vector<ThreadInfo> WorkerThreads;
 
-	HANDLE WorkAvailableEvent;
-	HANDLE WorkFinishedEvent;
+	//HANDLE WorkAvailableEvent;
+	std::atomic_bool m_isWorkAvailable = false;
+	//HANDLE WorkFinishedEvent;
+	std::atomic_bool m_isWorkFinished = false;
 
 	std::mutex FinishedMutex;
 	std::atomic_size_t NumberOfSleepingThreads = 0;

@@ -70,7 +70,7 @@ void EditorApp::OnUpdate(float DeltaTime)
 	//if (GetEngine().GetInput().IsKeyDown(KeyCode::T))
 	{
 		int lmao = 0;
-		GetEngine().GetJobSystem().AddJobBrad([&lmao]() {
+		GetEngine().GetJobSystem().AddWork([&lmao]() {
 			OPTICK_CATEGORY("TestLoop", Optick::Category::Debug);
 			while (lmao < 100)
 			{

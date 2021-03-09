@@ -145,7 +145,7 @@ void PhysicsCore::Update(float dt)
 				}
 			}
 		};
-		GetEngine().GetJobSystem().AddJobBrad(m_callBack);
+		GetEngine().GetJobSystem().AddWork(m_callBack);
 		GetEngine().GetJobSystem().Wait();
 		//burst.AddWork2(job, sizeof(Burst::LambdaWorkEntry));
 	}

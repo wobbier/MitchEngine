@@ -1,6 +1,6 @@
 #pragma once
 #include "Thread.h"
-#include <wtypes.h>
+#include <atomic>
 
 class JobSystem;
 
@@ -10,7 +10,7 @@ class WorkerThread
 public:
 	WorkerThread() = default;
 
-	void SetJobSystem(JobSystem* InJobSystem, std::size_t InIndex, HANDLE EventHandle);
+	void SetJobSystem(JobSystem* InJobSystem, std::size_t InIndex, const std::atomic_bool& EventHandle);
 
 	void Start();
 
@@ -19,7 +19,7 @@ public:
 private:
 	JobSystem* Owner = nullptr;
 	std::size_t Index = 0;
-	HANDLE WorkAvailableHandle;
+	const std::atomic_bool* WorkAvailableHandle;
 
 	bool IsPaused = false;
 };

@@ -124,7 +124,7 @@ void RenderCore::Update(float dt)
 				
 			}
 		};
-		GetEngine().GetJobSystem().AddJobBrad(m_callBack);
+		GetEngine().GetJobSystem().AddWork(m_callBack);
 	}
 #endif
 	//for (auto& InEntity : Renderables)
