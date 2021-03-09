@@ -21,6 +21,7 @@
 #include "Components/Lighting/DirectionalLight.h"
 #include "Work/Burst.h"
 #include "BGFXRenderer.h"
+#include <Core/JobSystem.h>
 
 RenderCore::RenderCore()
 	: Base(ComponentFilter().Requires<Transform>().Requires<Mesh>())
@@ -78,22 +79,19 @@ void RenderCore::Update(float dt)
 	//m_renderer->Update(dt);
 
 #if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
-	Burst& burst = GetEngine().GetBurstWorker();
-	burst.PrepareWork();
 
 	auto& Renderables = GetEntities();
 	std::vector<std::pair<int, int>> batches;
-	burst.GenerateChunks(Renderables.size(), 11, batches);
+	Burst::GenerateChunks(Renderables.size(), 11, batches);
 
 	for (auto& batch : batches)
 	{
-		Burst::LambdaWorkEntry entry;
 		int batchBegin = batch.first;
 		int batchEnd = batch.second;
 		int batchSize = batchEnd - batchBegin;
 
 		//YIKES(std::to_string(batchBegin) + " End:" + std::to_string(batchEnd) + " Size:" + std::to_string(batchSize));
-		entry.m_callBack = [this, &Renderables, batchBegin, batchEnd, batchSize](int Index) {
+		auto m_callBack = [this, &Renderables, batchBegin, batchEnd, batchSize]() {
 			if (Renderables.size() == 0)
 			{
 				return;
@@ -126,11 +124,8 @@ void RenderCore::Update(float dt)
 				
 			}
 		};
-
-		burst.AddWork2(entry, (int)sizeof(Burst::LambdaWorkEntry));
+		GetEngine().GetJobSystem().AddJobBrad(m_callBack);
 	}
-
-	burst.FinalizeWork();
 #endif
 	//for (auto& InEntity : Renderables)
 	//{

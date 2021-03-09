@@ -44,6 +44,7 @@ Engine& GetEngine()
 
 Engine::Engine()
 	: Running(true)
+	, m_jobSystem(4)
 {
 	std::vector<TypeId> events;
 	events.push_back(LoadSceneEvent::GetEventId());
@@ -87,9 +88,6 @@ void Engine::Init(Game* game)
 #endif
 
 
-#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
-	burst.InitializeWorkerThreads();
-#endif
 	std::function<void(const Vector2&)> ResizeFunc = [this](const Vector2& NewSize)
 	{
 		if (NewRenderer)
@@ -373,12 +371,16 @@ Input& Engine::GetInput()
 	return m_input;
 }
 
-#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
-Burst& Engine::GetBurstWorker()
+JobQueue& Engine::GetJobQueue()
 {
-	return burst;
+	return m_jobSystem.GetJobQueue();
 }
-#endif
+
+JobSystem& Engine::GetJobSystem()
+{
+	return m_jobSystem;
+}
+
 void Engine::LoadScene(const std::string& SceneFile)
 {
 	Cameras->Init();

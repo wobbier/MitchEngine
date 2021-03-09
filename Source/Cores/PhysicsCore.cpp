@@ -53,27 +53,25 @@ void PhysicsCore::Init()
 void PhysicsCore::Update(float dt)
 {
 	OPTICK_CATEGORY("PhysicsCore::Update", Optick::Category::Physics)
-		auto PhysicsEntites = GetEntities();
+	auto& PhysicsEntites = GetEntities();
 
 	// Need a fixed delta probably
 	PhysicsWorld->stepSimulation(dt, 10);
 
-    #if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
-	Burst& burst = GetEngine().GetBurstWorker();
-	burst.PrepareWork();
-
 	std::vector<std::pair<int, int>> batches;
-	burst.GenerateChunks(PhysicsEntites.size(), 11, batches);
-
+	Burst::GenerateChunks(PhysicsEntites.size(), 11, batches);
+	if (PhysicsEntites.size() <= 0)
+	{
+		return;
+	}
 	for (auto& batch : batches)
 	{
-		Burst::LambdaWorkEntry job;
 		int batchBegin = batch.first;
 		int batchEnd = batch.second;
 		int batchSize = batchEnd - batchBegin;
 
 		//YIKES(std::to_string(batchBegin) + " End:" + std::to_string(batchEnd) + " Size:" + std::to_string(batchSize));
-		job.m_callBack = [this, &PhysicsEntites, batchBegin, batchEnd, batchSize, dt](int Index) {
+		auto m_callBack = [this, &PhysicsEntites, batchBegin, batchEnd, batchSize, dt]() {
 			OPTICK_CATEGORY("Job::UpdatePhysics", Optick::Category::Physics);
 
 			for (int entIndex = batchBegin; entIndex < batchEnd; ++entIndex)
@@ -147,10 +145,11 @@ void PhysicsCore::Update(float dt)
 				}
 			}
 		};
-		burst.AddWork2(job, sizeof(Burst::LambdaWorkEntry));
+		GetEngine().GetJobSystem().AddJobBrad(m_callBack);
+		GetEngine().GetJobSystem().Wait();
+		//burst.AddWork2(job, sizeof(Burst::LambdaWorkEntry));
 	}
-	burst.FinalizeWork();
-#endif
+	//burst.FinalizeWork();
 }
 
 void PhysicsCore::OnEntityAdded(Entity& NewEntity)

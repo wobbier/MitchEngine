@@ -7,6 +7,7 @@
 #include "Engine/Engine.h"
 #include "optick.h"
 #include "Work/Burst.h"
+#include <Core/JobQueue.h>
 
 SceneGraph::SceneGraph()
 	: Base(ComponentFilter().Requires<Transform>())
@@ -58,25 +59,21 @@ void UpdateRecursively(Transform* CurrentTransform, bool isParentDirty, bool isB
 		{
 			if (CurrentTransform->GetChildren().size() > 5 && !isBurst)
 			{
-				shouldBurst = true;
+				//shouldBurst = true;
 			}
 			if (shouldBurst)
 			{
 				shouldBurst = false;
-#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
-				Burst::LambdaWorkEntry entry;
-				entry.m_callBack = [Child, isParentDirty](int Index) {
+				//UpdateRecursively(Child.get(), isParentDirty, true);
+				GetEngine().GetJobQueue().AddJobBrad([Child, isParentDirty]() {
 					UpdateRecursively(Child.get(), isParentDirty, true);
-				};
-
-				GetEngine().GetBurstWorker().AddWork2(entry, sizeof(Burst::LambdaWorkEntry));
-#endif
+				});
 			}
 			else
 			{
-				//GetEngine().GetJobQueue().AddJobBrad([Child, isParentDirty]() {
-				UpdateRecursively(Child.get(), isParentDirty, isBurst);
-				//});
+				GetEngine().GetJobQueue().AddJobBrad([Child, isParentDirty]() {
+					UpdateRecursively(Child.get(), isParentDirty, false);
+				});
 			}
 		}
 	}
@@ -91,9 +88,11 @@ void SceneGraph::Update(float dt)
 	//jobSystem.GetJobQueue().Lock();
 
 #if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
-	GetEngine().GetBurstWorker().PrepareWork();
-	UpdateRecursively(GetRootTransform(), false, false);
-	GetEngine().GetBurstWorker().FinalizeWork();
+
+	GetEngine().GetJobQueue().AddJobBrad([this]() {
+		UpdateRecursively(GetRootTransform(), false, false);
+	});
+	GetEngine().GetJobSystem().Wait();
 #endif
 	//jobSystem.GetJobQueue().Unlock();
 

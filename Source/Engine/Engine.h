@@ -10,6 +10,7 @@
 #include "Config.h"
 #include "Input.h"
 #include "Work/Burst.h"
+#include <Core/JobSystem.h>
 
 class Game;
 class IWindow;
@@ -50,10 +51,9 @@ public:
 
 	Config& GetConfig() const;
 	Input& GetInput();
-#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
-	Burst& GetBurstWorker();
-    Burst burst;
-#endif
+
+	JobQueue& GetJobQueue();
+	JobSystem& GetJobSystem();
 
 	class CameraCore* Cameras = nullptr;
 	class SceneGraph* SceneNodes = nullptr;
@@ -65,6 +65,7 @@ public:
 	Scene* CurrentScene = nullptr;
 	float DeltaTime = 0.f;
 private:
+	JobSystem m_jobSystem;
 	Input m_input;
 	std::shared_ptr<World> GameWorld;
 	bool Running = false;
