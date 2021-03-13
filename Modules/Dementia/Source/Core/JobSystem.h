@@ -1,5 +1,5 @@
 #pragma once
-#include "JobQueue.h"
+#include "JobQueueOld.h"
 #include "WorkerThread.h"
 #include <atomic>
 
@@ -15,8 +15,8 @@ public:
 	JobSystem(std::size_t InNumThreads);
 	~JobSystem();
 
-	const JobQueue& GetJobQueue() const;
-	JobQueue& GetJobQueue();
+	const JobQueueOld& GetJobQueue() const;
+	JobQueueOld& GetJobQueue();
 
 	void WorkerThreadActive(std::size_t InIndex);
 	void WorkerThreadSleeping(std::size_t InIndex);
@@ -27,7 +27,7 @@ public:
 
 	void Wait();
 private:
-	JobQueue Queue;
+	JobQueueOld Queue;
 
 	std::vector<ThreadInfo> WorkerThreads;
 

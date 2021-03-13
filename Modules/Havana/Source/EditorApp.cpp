@@ -23,7 +23,7 @@
 #include "Math/Matrix4.h"
 #include "Math/Frustrum.h"
 #include "optick.h"
-#include <Core/JobQueue.h>
+#include <Core/JobQueueOld.h>
 
 EditorApp::EditorApp(int argc, char** argv)
 	: Game(argc, argv)
@@ -69,15 +69,15 @@ void EditorApp::OnUpdate(float DeltaTime)
 	Editor->UpdateWorld(GetEngine().GetWorld().lock().get(), GetEngine().SceneNodes->GetRootTransform(), EditorSceneManager->GetEntities());
 	//if (GetEngine().GetInput().IsKeyDown(KeyCode::T))
 	{
-		int lmao = 0;
-		GetEngine().GetJobSystem().AddWork([&lmao]() {
-			OPTICK_CATEGORY("TestLoop", Optick::Category::Debug);
-			while (lmao < 100)
-			{
-				lmao++;
-			}
-		});
-		GetEngine().GetJobSystem().Wait();
+		//int lmao = 0;
+		//GetEngine().GetJobSystem().AddWork([&lmao]() {
+		//	OPTICK_CATEGORY("TestLoop", Optick::Category::Debug);
+		//	while (lmao < 100)
+		//	{
+		//		lmao++;
+		//	}
+		//});
+		//GetEngine().GetJobSystem().Wait();
 	}
 
 	UpdateCameras();

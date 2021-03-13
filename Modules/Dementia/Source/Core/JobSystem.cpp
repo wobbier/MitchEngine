@@ -24,12 +24,12 @@ JobSystem::~JobSystem()
 {
 }
 
-const JobQueue& JobSystem::GetJobQueue() const
+const JobQueueOld& JobSystem::GetJobQueue() const
 {
 	return Queue;
 }
 
-JobQueue& JobSystem::GetJobQueue()
+JobQueueOld& JobSystem::GetJobQueue()
 {
 	return Queue;
 }

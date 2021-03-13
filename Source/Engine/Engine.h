@@ -11,6 +11,9 @@
 #include "Input.h"
 #include "Work/Burst.h"
 #include <Core/JobSystem.h>
+#include <Work/JobEngine.h>
+#include <Work/Pool.h>
+#include <Work/Worker.h>
 
 class Game;
 class IWindow;
@@ -52,8 +55,8 @@ public:
 	Config& GetConfig() const;
 	Input& GetInput();
 
-	JobQueue& GetJobQueue();
-	JobSystem& GetJobSystem();
+	JobEngine& GetJobEngine();
+	std::tuple<Worker*, Pool&> GetJobSystemNew();
 
 	class CameraCore* Cameras = nullptr;
 	class SceneGraph* SceneNodes = nullptr;
@@ -65,7 +68,6 @@ public:
 	Scene* CurrentScene = nullptr;
 	float DeltaTime = 0.f;
 private:
-	JobSystem m_jobSystem;
 	Input m_input;
 	std::shared_ptr<World> GameWorld;
 	bool Running = false;
@@ -78,6 +80,8 @@ private:
 	ME_SINGLETON_DEFINITION(Engine)
 
 	BGFXRenderer* NewRenderer = nullptr;
+
+	JobEngine newJobSystem;
 };
 
 Engine& GetEngine();

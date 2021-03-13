@@ -44,7 +44,7 @@ Engine& GetEngine()
 
 Engine::Engine()
 	: Running(true)
-	, m_jobSystem(4)
+	, newJobSystem(2, 100000)
 {
 	std::vector<TypeId> events;
 	events.push_back(LoadSceneEvent::GetEventId());
@@ -236,6 +236,7 @@ void Engine::Run()
 
 			FrameProfile::GetInstance().Set("SceneNodes", ProfileCategory::UI);
 			SceneNodes->Update(deltaTime);
+			newJobSystem.ClearWorkerPools();
 			Cameras->Update(0.0f);
 			FrameProfile::GetInstance().Complete("SceneNodes");
 
@@ -371,14 +372,14 @@ Input& Engine::GetInput()
 	return m_input;
 }
 
-JobQueue& Engine::GetJobQueue()
+JobEngine& Engine::GetJobEngine()
 {
-	return m_jobSystem.GetJobQueue();
+	return newJobSystem;
 }
 
-JobSystem& Engine::GetJobSystem()
+std::tuple<Worker*, Pool&> Engine::GetJobSystemNew()
 {
-	return m_jobSystem;
+	return { newJobSystem.GetThreadWorker(), newJobSystem.GetThreadWorker()->GetPool() };
 }
 
 void Engine::LoadScene(const std::string& SceneFile)

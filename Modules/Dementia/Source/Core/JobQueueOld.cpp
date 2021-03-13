@@ -1,29 +1,29 @@
-#include "JobQueue.h"
+#include "JobQueueOld.h"
 #include <mutex>
 #include <functional>
 
-JobQueue::JobQueue()
+JobQueueOld::JobQueueOld()
 {
 
 }
 
-JobQueue::~JobQueue()
+JobQueueOld::~JobQueueOld()
 {
 
 }
 
-bool JobQueue::HasWork() const
+bool JobQueueOld::HasWork() const
 {
 	return !Jobs.empty();
 }
 
-void JobQueue::Push(std::function<void()> InJob)
+void JobQueueOld::Push(std::function<void()> InJob)
 {
 	std::scoped_lock<std::mutex> lock(Mutex);
 	Jobs.push_back(InJob);
 }
 
-std::function<void()> JobQueue::GetNextJob()
+std::function<void()> JobQueueOld::GetNextJob()
 {
 	std::scoped_lock<std::mutex> lock(Mutex);
 

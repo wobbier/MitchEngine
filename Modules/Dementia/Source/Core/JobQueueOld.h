@@ -3,11 +3,11 @@
 #include <mutex>
 #include <vector>
 
-class JobQueue
+class JobQueueOld
 {
 public:
-	JobQueue();
-	~JobQueue();
+	JobQueueOld();
+	~JobQueueOld();
 
 	bool HasWork() const;
 
