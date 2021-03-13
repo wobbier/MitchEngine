@@ -40,7 +40,8 @@ Mesh::Mesh(Moonlight::MeshData* mesh)
 	, MeshReferece(mesh)
 	, Type(Moonlight::MeshType::Model)
 {
-	MeshMaterial = MeshReferece->MeshMaterial;
+    MeshMaterial = MeshReferece->MeshMaterial->CreateInstance();
+    MeshMaterial->Init();
 }
 
 Mesh::~Mesh()
@@ -50,7 +51,6 @@ Mesh::~Mesh()
 
 void Mesh::Init()
 {
-
 }
 
 unsigned int Mesh::GetId()

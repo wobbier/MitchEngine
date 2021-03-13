@@ -129,7 +129,6 @@ void BGFXRenderer::Create(const RendererCreationSettings& settings)
         
 		//CubeProgram = Moonlight::LoadProgram("Assets/Shaders/Samples/Cubes.vert", "Assets/Shaders/Samples/Cubes.frag");
 		s_texCube = bgfx::createUniform("s_texCube", bgfx::UniformType::Sampler);
-		s_diffuse = bgfx::createUniform("s_diffuse", bgfx::UniformType::Vec4);
 		//bgfx::RendererType::Enum type = bgfx::getRendererType();
 		//bgfx::ShaderHandle vsh = bgfx::createEmbeddedShader(s_embeddedShaders, type, "cubes_vert");
 		//bgfx::ShaderHandle fsh = bgfx::createEmbeddedShader(s_embeddedShaders, type, "cubes_frag");
@@ -321,7 +320,7 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 						bgfx::setTexture(0, s_texCube, diffuse->TexHandle);
 					}
 				}
-				bgfx::setUniform(s_diffuse, &mesh.MeshMaterial->DiffuseColor.x);
+                mesh.MeshMaterial->Use();
 
 				// Set render states.
 				bgfx::setState(state);

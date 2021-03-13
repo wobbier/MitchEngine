@@ -10,7 +10,7 @@ namespace Moonlight
 	{
 		friend class BGFXRenderer;
 	public:
-		ShaderCommand() = default;
+		ShaderCommand();
 
 		// Constructor generates the shader on the fly
 		ShaderCommand(const std::string& InShaderFile);

@@ -68,7 +68,6 @@ private:
 	bgfx::IndexBufferHandle m_ibh;
 	bgfx::ProgramHandle CubeProgram;
 	bgfx::UniformHandle s_texCube;
-	bgfx::UniformHandle s_diffuse;
 	int32_t m_pt;
 	int64_t m_timeOffset;
 };

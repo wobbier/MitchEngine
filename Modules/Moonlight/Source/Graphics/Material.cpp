@@ -9,9 +9,12 @@ namespace Moonlight
 		: Textures(TextureType::Count, nullptr)
 		, DiffuseColor(1.f, 1.f, 1.f)
 		, Tiling(1.f, 1.f)
-		, MeshShader(ShaderPath)
 		, TypeName(MaterialTypeName)
 	{
+        if(ShaderPath.length() > 0)
+        {
+            MeshShader = ShaderCommand(ShaderPath);
+        }
 	}
 
 	Material::~Material()
@@ -79,6 +82,15 @@ namespace Moonlight
 			}
 		}
 	}
+
+    void Material::CopyValues(Material* mat)
+    {
+        DiffuseColor = mat->DiffuseColor;
+        Textures = mat->Textures;
+        RenderMode = mat->RenderMode;
+        Tiling = mat->Tiling;
+        MeshShader = mat->MeshShader;
+    }
 
 	void Material::SetTexture(const TextureType& textureType, std::shared_ptr<Moonlight::Texture> loadedTexture)
 	{

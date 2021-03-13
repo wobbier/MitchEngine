@@ -23,7 +23,7 @@ public:
 	Job* CreateJobAsChild(JobFunc InJobFunc, const Data& InData, Job* InParent);
 
 	template<typename Function>
-	Job* CreateClosureJob(Function InJobFunc, Job* InParent);
+	Job* CreateClosureJob(Function InJobFunc, Job* InParent = nullptr);
 	template<typename Function>
 	Job* CreateClosureJobAsChild(Function InJobFunc, Job* InParent);
 
@@ -47,7 +47,7 @@ Job* Pool::CreateJobAsChild(JobFunc InJobFunc, const Data& InData, Job* InParent
 }
 
 template<typename Function>
-Job* Pool::CreateClosureJob(Function InJobFunc, Job* InParent = nullptr)
+Job* Pool::CreateClosureJob(Function InJobFunc, Job* InParent)
 {
 	auto jobFunc = [](Job& job)
 	{

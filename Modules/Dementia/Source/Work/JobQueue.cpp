@@ -64,7 +64,7 @@ Job* JobQueue::Pop()
 Job* JobQueue::Steal()
 {
 	int top = Top.load(std::memory_order_seq_cst);
-	int bottom = Bottom.load(std::memory_order_seq_cst);
+	//int bottom = Bottom.load(std::memory_order_seq_cst);
 	if (Top < Bottom)
 	{
 		Job* job = Jobs[top];

@@ -79,51 +79,60 @@ void RenderCore::Update(float dt)
 	//m_renderer->Update(dt);
 
 	auto& Renderables = GetEntities();
-	std::vector<std::pair<int, int>> batches;
-	Burst::GenerateChunks(Renderables.size(), 11, batches);
+    
+    //auto [worker, pool] = GetEngine().GetJobSystemNew();
 
-	//for (auto& batch : batches)
-	//{
-	//	int batchBegin = batch.first;
-	//	int batchEnd = batch.second;
-	//	int batchSize = batchEnd - batchBegin;
+    Worker* worker = GetEngine().GetJobEngine().GetThreadWorker();
+    Job* job = worker->GetPool().CreateClosureJob([&Renderables, worker](Job& job) {
+    
+    std::vector<std::pair<int, int>> batches;
+    Burst::GenerateChunks(Renderables.size(), 11, batches);
 
-	//	//YIKES(std::to_string(batchBegin) + " End:" + std::to_string(batchEnd) + " Size:" + std::to_string(batchSize));
-	//	auto m_callBack = [this, &Renderables, batchBegin, batchEnd, batchSize]() {
-	//		if (Renderables.size() == 0)
-	//		{
-	//			return;
-	//		}
-	//		for (int entIndex = batchBegin; entIndex < batchEnd; ++entIndex)
-	//		{
-	//			auto& InEntity = Renderables[entIndex];
-	//			OPTICK_CATEGORY("B::Update Mesh Matrix", Optick::Category::Debug);
+	for (auto& batch : batches)
+	{
+		int batchBegin = batch.first;
+		int batchEnd = batch.second;
+		int batchSize = batchEnd - batchBegin;
 
-	//			if (InEntity/* && !InEntity.IsLoading*/)
-	//			{
+		//YIKES(std::to_string(batchBegin) + " End:" + std::to_string(batchEnd) + " Size:" + std::to_string(batchSize));
+		Job* burstJob = worker->GetPool().CreateClosureJobAsChild([&Renderables, batchBegin, batchEnd, worker, batchSize](Job& job) {
+			if (Renderables.size() == 0)
+			{
+				return;
+			}
+			for (int entIndex = batchBegin; entIndex < batchEnd; ++entIndex)
+			{
+				auto& InEntity = Renderables[entIndex];
+				OPTICK_CATEGORY("B::Update Mesh Matrix", Optick::Category::Debug);
 
-	//				Transform& transform = InEntity.GetComponent<Transform>();
-	//				if (InEntity.HasComponent<Mesh>())
-	//				{
-	//					Mesh& model = InEntity.GetComponent<Mesh>();
+				if (InEntity/* && !InEntity.IsLoading*/)
+				{
 
-	//					GetEngine().GetRenderer().UpdateMeshMatrix(model.GetId(), transform.GetMatrix().GetInternalMatrix());
-	//				}
-	//				if (InEntity.HasComponent<DirectionalLight>())
-	//				{
-	//					//DirectionalLight& light = InEntity.GetComponent<DirectionalLight>();
-	//					//auto pos = transform.GetWorldPosition();
-	//					//m_renderer->Sunlight.pos = XMFLOAT4(pos.x, pos.y, pos.z, 0);
-	//					//m_renderer->Sunlight.ambient = light.Ambient;
-	//					//m_renderer->Sunlight.diffuse = light.Diffuse;
-	//					//m_renderer->Sunlight.dir = light.Direction;
-	//				}
-	//			}
-	//			
-	//		}
-	//	};
-	//	GetEngine().GetJobSystem().AddWork(m_callBack);
-	//}
+					Transform& transform = InEntity.GetComponent<Transform>();
+					if (InEntity.HasComponent<Mesh>())
+					{
+						Mesh& model = InEntity.GetComponent<Mesh>();
+
+						GetEngine().GetRenderer().UpdateMeshMatrix(model.GetId(), transform.GetMatrix().GetInternalMatrix());
+					}
+					if (InEntity.HasComponent<DirectionalLight>())
+					{
+						//DirectionalLight& light = InEntity.GetComponent<DirectionalLight>();
+						//auto pos = transform.GetWorldPosition();
+						//m_renderer->Sunlight.pos = XMFLOAT4(pos.x, pos.y, pos.z, 0);
+						//m_renderer->Sunlight.ambient = light.Ambient;
+						//m_renderer->Sunlight.diffuse = light.Diffuse;
+						//m_renderer->Sunlight.dir = light.Direction;
+					}
+				}
+				
+			}
+		}, &job);
+        worker->Submit(burstJob);
+    }
+    });
+    worker->Submit(job);
+    worker->Wait(job);
 	//for (auto& InEntity : Renderables)
 	//{
 	//	//OPTICK_CATEGORY("Update Mesh", Optick::Category::Rendering);

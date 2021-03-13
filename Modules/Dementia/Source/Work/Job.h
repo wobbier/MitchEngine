@@ -21,7 +21,7 @@ private:
 	std::atomic_size_t UnfinishedJobs;
 
 	static constexpr std::size_t kPayloadSize = sizeof(JobFuntion) + sizeof(ParentJob) + sizeof(UnfinishedJobs);
-	static constexpr std::size_t kMaxPaddingSize = std::hardware_destructive_interference_size;
+    static constexpr std::size_t kMaxPaddingSize = 64;//std::hardware_destructive_interference_size;
 	static constexpr std::size_t kPaddingSize = kMaxPaddingSize - kPayloadSize;
 
 	std::array<unsigned char, kPaddingSize> Padding;

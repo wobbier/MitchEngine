@@ -18,6 +18,11 @@ namespace Moonlight
 	//
 	//mesh loads, created default shader
 	//, editor loads on top points to new shader
+    ShaderCommand::ShaderCommand()
+        : Program(BGFX_INVALID_HANDLE)
+        , isLoaded(false)
+    {
+    }
 
 	ShaderCommand::ShaderCommand(const std::string& InShaderFile)
 	{

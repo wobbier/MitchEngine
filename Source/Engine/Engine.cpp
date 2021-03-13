@@ -44,7 +44,7 @@ Engine& GetEngine()
 
 Engine::Engine()
 	: Running(true)
-	, newJobSystem(2, 100000)
+	, newJobSystem(4, 100000)
 {
 	std::vector<TypeId> events;
 	events.push_back(LoadSceneEvent::GetEventId());
@@ -236,7 +236,6 @@ void Engine::Run()
 
 			FrameProfile::GetInstance().Set("SceneNodes", ProfileCategory::UI);
 			SceneNodes->Update(deltaTime);
-			newJobSystem.ClearWorkerPools();
 			Cameras->Update(0.0f);
 			FrameProfile::GetInstance().Complete("SceneNodes");
 
@@ -311,6 +310,7 @@ void Engine::Run()
 			AccumulatedTime = std::fmod(AccumulatedTime, MaxDeltaTime);
 
 			FrameProfile::GetInstance().End(AccumulatedTime);
+            GetJobEngine().ClearWorkerPools();
 		}
 		ResourceCache::GetInstance().Dump();
 		//Sleep(1);

@@ -101,7 +101,6 @@ void SceneGraph::Update(float dt)
 		});
 		worker->Submit(root);
 		worker->Wait(root);
-		GetEngine().GetJobEngine().ClearWorkerPools();
 	}
 
 	if(true)
@@ -112,6 +111,7 @@ void SceneGraph::Update(float dt)
 		worker->Submit(job);
 		worker->Wait(job);
 	}
+    GetEngine().GetJobEngine().ClearWorkerPools();
 	// Seems O.K. for now
 	//GetEngine().GetJobQueue().Push([this]() {
 	//	UpdateRecursively(GetRootTransform(), false, false);

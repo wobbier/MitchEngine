@@ -10,11 +10,30 @@ public:
 	{
 
 	}
+    DiffuseMaterial(DiffuseMaterial* ref)
+        : Moonlight::Material("DiffuseMaterial")
+    {
+        CopyValues(ref);
+    }
 
 	void Init() override
 	{
+        s_diffuse = bgfx::createUniform("s_diffuse", bgfx::UniformType::Vec4);
 	}
-
+    
+    virtual void Use() final
+    {
+        bgfx::setUniform(s_diffuse, &DiffuseColor.x);
+    }
+    
+    SharedPtr<Material> CreateInstance() final
+    {
+        SharedPtr<DiffuseMaterial> ptr = std::make_shared<DiffuseMaterial>(this);
+        
+        return ptr;
+    }
+private:
+    bgfx::UniformHandle s_diffuse;
 };
 
 class WhiteMaterial
@@ -26,11 +45,29 @@ public:
 	{
 
 	}
+    WhiteMaterial(WhiteMaterial* ref)
+        : Moonlight::Material("WhiteMaterial")
+    {
+        CopyValues(ref);
+    }
+
 
 	void Init() override
 	{
 	}
-
+    
+    virtual void Use() final
+    {
+        
+    }
+    
+    SharedPtr<Material> CreateInstance() final
+    {
+        SharedPtr<WhiteMaterial> ptr = std::make_shared<WhiteMaterial>(this);
+        
+        return ptr;
+    }
+    
 };
 
 ME_REGISTER_MATERIAL_NAME(DiffuseMaterial, "Diffuse")

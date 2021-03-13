@@ -50,7 +50,7 @@ namespace Moonlight
 			}
 			return "Opaque";
 		}
-		Material(const std::string& MaterialTypeName, const std::string& ShaderPath);
+		Material(const std::string& MaterialTypeName, const std::string& ShaderPath = "");
 		Material() = delete;
 		virtual ~Material();
 
@@ -62,6 +62,13 @@ namespace Moonlight
 		virtual void OnDeserialize(const json& InJson);
 
 		virtual void Init() = 0;
+        virtual void Use() = 0;
+        
+        virtual SharedPtr<Material> CreateInstance() = 0;
+        
+        void CopyValues(Material* mat);
+        
+        //virtual void SetSamplers() = 0;
 
 		void SetTexture(const TextureType& textureType, std::shared_ptr<Moonlight::Texture> loadedTexture);
 		const Texture* GetTexture(const TextureType& type) const;
