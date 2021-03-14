@@ -20,9 +20,10 @@ void Worker::Start()
 	else
 	{
 		WorkerThread = std::thread([this] {
-			OPTICK_THREAD("Worker Thread");
+			OPTICK_THREAD("Burst Thread");
 			while (true)
 			{
+				OPTICK_EVENT("GetJob")
 				Job* job = GetJob();
 				if (job)
 				{
@@ -56,6 +57,7 @@ void Worker::Submit(Job* InJob)
 
 void Worker::Wait(Job* InJob)
 {
+	OPTICK_EVENT("Wait")
 	while (!InJob->IsFinished())
 	{
 		Job* job = GetJob();
@@ -76,11 +78,7 @@ Job* Worker::GetJob()
 {
 	Job* job = queue.Pop();
 
-	if (job)
-	{
-		job->Run();
-	}
-	else
+	if (job == nullptr)
 	{
 		Worker* worker = jobEngine->GetRandomWorker();
 
@@ -90,7 +88,7 @@ Job* Worker::GetJob()
 
 			if (stolenJob)
 			{
-				stolenJob->Run();
+				return stolenJob;
 			}
 			else
 			{
@@ -105,6 +103,6 @@ Job* Worker::GetJob()
 		}
 	}
 
-	return nullptr;// ?????
+	return job;
 }
 

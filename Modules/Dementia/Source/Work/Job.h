@@ -12,10 +12,12 @@ public:
 	void Run();
 	bool IsFinished() const;
 
-
+	bool IsLastJob();
+	void Finish();
 private:
 	void(*JobFuntion)(Job&);
-	void Finish();
+
+	bool DecrementUnfinishedChildrenJobs();
 
 	Job* ParentJob = nullptr;
 	std::atomic_size_t UnfinishedJobs;

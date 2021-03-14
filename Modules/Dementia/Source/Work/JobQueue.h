@@ -19,6 +19,6 @@ public:
 
 private:
 	std::vector<Job*> Jobs;
-	std::atomic<int> Top;
-	std::atomic<int> Bottom;
+	std::atomic_size_t Top;
+	std::atomic_size_t Bottom;
 };

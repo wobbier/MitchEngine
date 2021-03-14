@@ -83,10 +83,12 @@ void RenderCore::Update(float dt)
     //auto [worker, pool] = GetEngine().GetJobSystemNew();
 
     Worker* worker = GetEngine().GetJobEngine().GetThreadWorker();
-    Job* job = worker->GetPool().CreateClosureJob([&Renderables, worker](Job& job) {
+    Job* rootJob = worker->GetPool().CreateClosureJob([&Renderables, worker](Job& job) {
     
-    std::vector<std::pair<int, int>> batches;
-    Burst::GenerateChunks(Renderables.size(), 11, batches);
+    });
+
+	std::vector<std::pair<int, int>> batches;
+	Burst::GenerateChunks(Renderables.size(), 11, batches);
 
 	for (auto& batch : batches)
 	{
@@ -125,14 +127,13 @@ void RenderCore::Update(float dt)
 						//m_renderer->Sunlight.dir = light.Direction;
 					}
 				}
-				
+
 			}
-		}, &job);
-        worker->Submit(burstJob);
-    }
-    });
-    worker->Submit(job);
-    worker->Wait(job);
+		}, rootJob);
+		worker->Submit(burstJob);
+	}
+    worker->Submit(rootJob);
+    worker->Wait(rootJob);
 	//for (auto& InEntity : Renderables)
 	//{
 	//	//OPTICK_CATEGORY("Update Mesh", Optick::Category::Rendering);

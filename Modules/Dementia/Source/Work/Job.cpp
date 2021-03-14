@@ -17,27 +17,36 @@ void Job::Run()
 	if (JobFuntion)
 	{
 		JobFuntion(*this);
-	}
 
-	if (JobFuntion == jobFunc)
-	{
-		// No callback set
-		JobFuntion = nullptr;
-	}
+		if (JobFuntion == jobFunc)
+		{
+			// No callback set
+			JobFuntion = nullptr;
+		}
 
-	Finish();
+		Finish();
+	}
 }
 
 bool Job::IsFinished() const
 {
-	return UnfinishedJobs == 0;
+	return UnfinishedJobs.load(std::memory_order_seq_cst) == 0;
+}
+
+bool Job::IsLastJob()
+{
+	return UnfinishedJobs.load(std::memory_order_seq_cst) == 1;
+}
+
+bool Job::DecrementUnfinishedChildrenJobs()
+{
+	return UnfinishedJobs.fetch_sub(
+		1, std::memory_order_seq_cst) == 1;
 }
 
 void Job::Finish()
 {
-	UnfinishedJobs--;
-
-	if (IsFinished())
+	if (DecrementUnfinishedChildrenJobs())
 	{
 		if (ParentJob)
 		{

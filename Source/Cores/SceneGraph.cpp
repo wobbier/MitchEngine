@@ -35,18 +35,18 @@ void SceneGraph::Init()
 }
 bool shouldBurst = false;
 
-void UpdateRecursively(Transform* CurrentTransform, bool isParentDirty, Job* parentJob)
+void UpdateRecursively(Transform* CurrentTransform, bool isParentDirty, Job* parentJob, bool isBursting)
 {
-	auto [worker, pool] = GetEngine().GetJobSystemNew();
 	OPTICK_EVENT("SceneGraph::UpdateRecursively");
+	//auto [worker, pool] = GetEngine().GetJobSystemNew();
 	for (const SharedPtr<Transform>& Child : CurrentTransform->GetChildren())
 	{
-		OPTICK_EVENT("SceneGraph::UpdateRecursively::GetChildren");
+		OPTICK_EVENT("SceneGraph::GetChildren");
 		bool newParentDirty = isParentDirty || Child->IsDirty();
-		Job* job = pool.CreateClosureJobAsChild([&Child, newParentDirty, CurrentTransform](Job& job) {
+		//Job* job = pool.CreateClosureJobAsChild([&Child, newParentDirty, CurrentTransform](Job& job) {
+			OPTICK_CATEGORY("Update Transform", Optick::Category::Scene);
 			if (newParentDirty)
 			{
-				OPTICK_CATEGORY("Update Transform", Optick::Category::Scene);
 
 				glm::mat4 model = glm::mat4(1.f);
 				model = glm::translate(model, Child->GetPosition().InternalVector);
@@ -56,15 +56,14 @@ void UpdateRecursively(Transform* CurrentTransform, bool isParentDirty, Job* par
 				Matrix4 xxx = model * CurrentTransform->WorldTransform.GetInternalMatrix();
 				Child->SetWorldTransform(xxx);
 			}
-		}, parentJob);
 
-		worker->Submit(job);
+		//}, parentJob);
 
+		//worker->Submit(job);
 		if (!Child->GetChildren().empty())
 		{
-			UpdateRecursively(Child.get(), newParentDirty, job);// *job);
+			UpdateRecursively(Child.get(), newParentDirty, nullptr, true);// *job);
 		}
-
 	}
 }
 
@@ -75,7 +74,7 @@ void recursiveJob(Job* parent, int currentDepth)
 	{
 		Worker* worker = GetEngine().GetJobEngine().GetThreadWorker();
 		Job* root2 = worker->GetPool().CreateClosureJobAsChild([currentDepth, i](Job& job) {
-			OPTICK_CATEGORY("Child Job", Optick::Category::Debug)
+				OPTICK_EVENT("Child Job")
 				if (currentDepth < 5)
 				{
 					//std::cout << std::to_string(currentDepth) << ":" << std::to_string(i) << std::endl;
@@ -92,31 +91,48 @@ void SceneGraph::Update(float dt)
 
 	auto [worker, pool] = GetEngine().GetJobSystemNew(); 
 
-	for (int i = 0; i < 2; ++i)
+	for (int i = 0; i < 0; ++i)
 	{
-		OPTICK_FRAME("Main Loop");
+		OPTICK_CATEGORY("Submit Job", Optick::Category::Debug);
 		Job* root = worker->GetPool().CreateJob([](Job& job) {
 			OPTICK_CATEGORY("Initial Job", Optick::Category::Debug);
-			recursiveJob(&job, 0);
 		});
+		recursiveJob(root, 0);
 		worker->Submit(root);
 		worker->Wait(root);
 	}
 
 	if(true)
 	{
-		Job* job = pool.CreateClosureJob([this](Job& job) {
-			UpdateRecursively(GetRootTransform(), false, &job);
-		});
-		worker->Submit(job);
-		worker->Wait(job);
+		//Job* rootJob = pool.CreateClosureJob([this](Job& job) {
+
+		//});
+		Transform* CurrentTransform = GetRootTransform();
+		for (const SharedPtr<Transform>& Child : CurrentTransform->GetChildren())
+		{
+			OPTICK_EVENT("SceneGraph::GetChildren");
+			if (Child->IsDirty())
+			{
+				//Job* job = pool.CreateClosureJobAsChild([&Child, CurrentTransform](Job& job) {
+					OPTICK_CATEGORY("Update Transform", Optick::Category::Scene);
+					glm::mat4 model = glm::mat4(1.f);
+					model = glm::translate(model, Child->GetPosition().InternalVector);
+					model = glm::rotate(model, Child->GetWorldRotation().ToAngle(), Child->GetWorldRotation().ToAxis().InternalVector);
+					model = glm::scale(model, Child->GetScale().InternalVector);
+
+					Matrix4 xxx = model * CurrentTransform->WorldTransform.GetInternalMatrix();
+					Child->SetWorldTransform(xxx);
+					if (!Child->GetChildren().empty())
+					{
+						UpdateRecursively(Child.get(), true, nullptr, true);// *job);
+					}
+				//}, rootJob);
+				//worker->Submit(job);
+			}
+		}
+		//worker->Submit(rootJob);
+		//worker->Wait(rootJob);
 	}
-    GetEngine().GetJobEngine().ClearWorkerPools();
-	// Seems O.K. for now
-	//GetEngine().GetJobQueue().Push([this]() {
-	//	UpdateRecursively(GetRootTransform(), false, false);
-	//});
-	//GetEngine().GetJobSystem().Wait();
 }
 
 void SceneGraph::OnEntityAdded(Entity& NewEntity)
