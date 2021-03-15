@@ -246,7 +246,7 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 			}
 			else
 			{
-				bx::mtxOrtho(proj, -(camera.OutputSize.x / camera.OrthographicSize), (camera.OutputSize.x / camera.OrthographicSize), -(camera.OutputSize.y / camera.OrthographicSize), (camera.OutputSize.y / camera.OrthographicSize), 0.01f, camera.Far, 0.f, bgfx::getCaps()->homogeneousDepth);
+				bx::mtxOrtho(proj, -(camera.OutputSize.x / camera.OrthographicSize), (camera.OutputSize.x / camera.OrthographicSize), -(camera.OutputSize.y / camera.OrthographicSize), (camera.OutputSize.y / camera.OrthographicSize), camera.Near, camera.Far, 0.f, bgfx::getCaps()->homogeneousDepth);
 			}
 			bgfx::setViewTransform(id, view, proj);
 			if (id > 0)

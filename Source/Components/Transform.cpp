@@ -262,18 +262,19 @@ void Transform::LookAt(const Vector3& InDirection)
 	//Rotation = Quaternion::ToEulerAngles(quat2);
 	//Rotation = Vector3(Mathf::Degrees(Rotation.x), Mathf::Degrees(Rotation.y), Mathf::Degrees(Rotation.z));
 	//LocalRotation = quat2;
-	//SetDirty(true);
+	SetDirty(true);
 }
 
 void Transform::SetRotation(const Vector3& euler)
 {
 	OPTICK_CATEGORY("Transform::Set Rotation", Optick::Category::Scene);
 
+	LocalRotation.InternalQuat = glm::quat(glm::vec3(Mathf::Radians(euler.x), Mathf::Radians(euler.y), Mathf::Radians(euler.z)));
 	//DirectX::SimpleMath::Quaternion quat2 = DirectX::SimpleMath::Quaternion::CreateFromYawPitchRoll(Mathf::Radians(euler.y), Mathf::Radians(euler.x), Mathf::Radians(euler.z));
 	//Quaternion quat(quat2);
 	//LocalRotation = quat;
-	//Rotation = euler;
-	//SetDirty(true);
+	Rotation = euler;
+	SetDirty(true);
 }
 
 void Transform::SetRotation(Quaternion InRotation)
@@ -295,7 +296,7 @@ Quaternion Transform::GetWorldRotation()
 	WorldTransform.GetInternalMatrix().Decompose(DirectX::SimpleMath::Vector3(), quat, DirectX::SimpleMath::Vector3());
 	Quaternion quat2(quat);*/
 
-	return Quaternion();// quat2;
+	return LocalRotation;
 }
 
 Vector3 Transform::GetWorldRotationEuler()

@@ -41,6 +41,12 @@ struct Quaternion
 	{
 	}
 
+	/// Euler Angles
+	Quaternion(const Vector3& v)
+		: InternalQuat(v.InternalVector)
+	{
+	}
+
 	float& operator[](int index)
 	{
 		return (&x)[index];

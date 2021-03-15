@@ -212,7 +212,7 @@ void Havana::NewFrame(std::function<void()> StartGameFunc, std::function<void()>
 	MainMenuSize.x = 0.f;
 	MainMenuSize.y = 17.f;
 	DockSize = viewport->Size;
-	DockSize.y = viewport->Size.y - MainMenuSize.y - kMinProfilerSize - 2;
+	DockSize.y = viewport->Size.y - MainMenuSize.y - kMinProfilerSize;
 	DockPos = viewport->Pos;
 	DockPos.y = viewport->Pos.y + MainMenuSize.y;
 
@@ -1760,7 +1760,7 @@ void Havana::RenderMainView(Moonlight::CameraData& EditorCamera)
 					WorldViewRenderLocation = Vector2(pos.x, pos.y);
 					if (m_viewportMode == ViewportMode::Game)
 					{
-						Camera::CurrentCamera->OutputSize = Vector2(WorldViewRenderSize.x, WorldViewRenderSize.y - 38.f);
+						Camera::CurrentCamera->OutputSize = Vector2(WorldViewRenderSize.x, WorldViewRenderSize.y);
 					}
 					// Ask ImGui to draw it as an image:
 					// Under OpenGL the ImGUI image type is GLuint
@@ -1874,32 +1874,35 @@ void Havana::RenderMainView(Moonlight::CameraData& EditorCamera)
 				}
 			}
 
-			ImGui::SetCursorPos(ImVec2(5.f, 45.f));
-			if (!GetInput().IsMouseButtonDown(MouseButton::Right))
+			if (m_viewportMode == ViewportMode::Editor)
 			{
-				if (GetInput().IsKeyDown(KeyCode::W))
+				ImGui::SetCursorPos(ImVec2(5.f, 45.f));
+				if (!GetInput().IsMouseButtonDown(MouseButton::Right))
+				{
+					if (GetInput().IsKeyDown(KeyCode::W))
+						mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
+					if (GetInput().IsKeyDown(KeyCode::E))
+						mCurrentGizmoOperation = ImGuizmo::ROTATE;
+					if (GetInput().IsKeyDown(KeyCode::R))
+						mCurrentGizmoOperation = ImGuizmo::SCALE;
+				}
+				if (ImGui::RadioButton("Translate", mCurrentGizmoOperation == ImGuizmo::TRANSLATE))
 					mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
-				if (GetInput().IsKeyDown(KeyCode::E))
-					mCurrentGizmoOperation = ImGuizmo::ROTATE;
-				if (GetInput().IsKeyDown(KeyCode::R))
-					mCurrentGizmoOperation = ImGuizmo::SCALE;
-			}
-			if (ImGui::RadioButton("Translate", mCurrentGizmoOperation == ImGuizmo::TRANSLATE))
-				mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
-			ImGui::SameLine();
-			if (ImGui::RadioButton("Rotate", mCurrentGizmoOperation == ImGuizmo::ROTATE))
-				mCurrentGizmoOperation = ImGuizmo::ROTATE;
-			ImGui::SameLine();
-			if (ImGui::RadioButton("Scale", mCurrentGizmoOperation == ImGuizmo::SCALE))
-				mCurrentGizmoOperation = ImGuizmo::SCALE;
-			if (mCurrentGizmoOperation != ImGuizmo::SCALE)
-			{
-				ImGui::SetCursorPosX(5.f);
-				if (ImGui::RadioButton("Local", mCurrentGizmoMode == ImGuizmo::LOCAL))
-					mCurrentGizmoMode = ImGuizmo::LOCAL;
 				ImGui::SameLine();
-				if (ImGui::RadioButton("World", mCurrentGizmoMode == ImGuizmo::WORLD))
-					mCurrentGizmoMode = ImGuizmo::WORLD;
+				if (ImGui::RadioButton("Rotate", mCurrentGizmoOperation == ImGuizmo::ROTATE))
+					mCurrentGizmoOperation = ImGuizmo::ROTATE;
+				ImGui::SameLine();
+				if (ImGui::RadioButton("Scale", mCurrentGizmoOperation == ImGuizmo::SCALE))
+					mCurrentGizmoOperation = ImGuizmo::SCALE;
+				if (mCurrentGizmoOperation != ImGuizmo::SCALE)
+				{
+					ImGui::SetCursorPosX(5.f);
+					if (ImGui::RadioButton("Local", mCurrentGizmoMode == ImGuizmo::LOCAL))
+						mCurrentGizmoMode = ImGuizmo::LOCAL;
+					ImGui::SameLine();
+					if (ImGui::RadioButton("World", mCurrentGizmoMode == ImGuizmo::WORLD))
+						mCurrentGizmoMode = ImGuizmo::WORLD;
+				}
 			}
 
 			//if (ImGui::IsKeyPressed(83))
