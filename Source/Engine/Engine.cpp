@@ -287,6 +287,9 @@ void Engine::Run()
 			m_game->PostRender();
 #if !ME_EDITOR
 			EditorCamera.OutputSize = GetWindow()->GetSize();
+#if _DEBUG
+			FrameProfile::GetInstance().Render({ 0.f, GameWindow->GetSize().y - FrameProfile::kMinProfilerSize }, {GameWindow->GetSize().x, (float)FrameProfile::kMinProfilerSize });
+#endif
 #endif
 			NewRenderer->Render(EditorCamera);
 			GameWindow->Swap();

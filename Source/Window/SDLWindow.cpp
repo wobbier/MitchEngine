@@ -69,7 +69,7 @@ SDLWindow::SDLWindow(const std::string& title, std::function<void(const Vector2&
 		printf("Window could not be created. SDL_Error: %s\n", SDL_GetError());
 	}
 	SetWindow(WindowHandle);
-	SDL_SetWindowHitTest(WindowHandle, HitTestCallback, this);
+	//SDL_SetWindowHitTest(WindowHandle, HitTestCallback, this);
 }
 
 bool SDLWindow::ShouldClose()

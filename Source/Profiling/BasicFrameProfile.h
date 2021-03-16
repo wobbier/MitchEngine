@@ -26,6 +26,13 @@ class FrameProfile
 	ME_SINGLETON_DEFINITION(FrameProfile);
 
 public:
+#if ME_EDITOR
+	static constexpr int kMinProfilerSize = 12;
+#else
+	static constexpr int kMinProfilerSize = 5;
+#endif
+	static constexpr int kMaxProfilerSize = 40;
+
 	FrameProfile();
 
 	void Start();
@@ -41,6 +48,11 @@ public:
 
 	void Set(const std::string& name, ProfileCategory category);
 	void Complete(const std::string& name);
+
+	void Render(const Vector2& inPosition, const Vector2& inSize);
+private:
+	int CurrentProfilerSize = kMinProfilerSize;
+	int PreviousTooltipHeight = 0;
 };
 
 class FrameProfileObject

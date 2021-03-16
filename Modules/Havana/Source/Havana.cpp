@@ -45,9 +45,6 @@
 #include "Window/EditorWindow.h"
 #include "Utils/ImGuiUtils.h"
 
-int profilerSize = 10;
-const int kMinProfilerSize = 10;
-const int kMaxProfilerSize = 40;
 
 Havana::Havana(Engine* GameEngine, EditorApp* app)
 	: m_engine(GameEngine)
@@ -212,7 +209,8 @@ void Havana::NewFrame(std::function<void()> StartGameFunc, std::function<void()>
 	MainMenuSize.x = 0.f;
 	MainMenuSize.y = 17.f;
 	DockSize = viewport->Size;
-	DockSize.y = viewport->Size.y - MainMenuSize.y - kMinProfilerSize;
+
+	DockSize.y = viewport->Size.y - MainMenuSize.y - FrameProfile::kMinProfilerSize;
 	DockPos = viewport->Pos;
 	DockPos.y = viewport->Pos.y + MainMenuSize.y;
 
@@ -1346,144 +1344,17 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 
 	RenderMainView(EditorCamera);
 
-	RenderProfilerBar();
+	Vector2 size(ImGui::GetMainViewport()->Size.x, static_cast<float>(FrameProfile::kMinProfilerSize));
+	auto pos = ImGui::GetMainViewport()->Pos;
+	Vector2 position(pos.x, pos.y + ImGui::GetMainViewport()->Size.y - static_cast<float>(FrameProfile::kMinProfilerSize));
 
+	FrameProfile::GetInstance().Render(position, size);
 
 	//ImGui::Render();
 	//ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 	// Update and Render additional Platform Windows
 }
 
-void Havana::RenderProfilerBar()
-{
-	const ImU32 flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar /*| ImGuiWindowFlags_NoInputs*/ | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoBringToFrontOnFocus;
-	//
-	//#ifdef IMGUI_HAS_VIEWPORT
-	//	ImGui::SetNextWindowSize(ImGui::GetMainViewport()->Size);
-	//	ImGui::SetNextWindowPos(ImGui::GetMainViewport()->Pos);
-	//#else
-	ImGui::SetNextWindowSize(ImVec2(ImGui::GetMainViewport()->Size.x, static_cast<float>(profilerSize)));
-	auto pos = ImGui::GetMainViewport()->Pos;
-	ImGui::SetNextWindowPos(ImVec2(pos.x, pos.y + ImGui::GetMainViewport()->Size.y - (profilerSize)));
-	//#endif
-
-	//ImGui::PushStyleColor(ImGuiCol_WindowBg, 0);
-	ImGui::PushStyleColor(ImGuiCol_Border, 0);
-	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.f, 0.f));
-	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
-	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.f, 0.f));
-	//ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.f, 0.f, 0.f, 0.f));
-
-
-	static int frameCount = 0;
-	static float frametime = 0.0f;
-
-	// increase the counter by one
-	static int m_fpscount = 0;
-	static int fps = 0;
-	m_fpscount++;
-	++frameCount;
-
-	float totalFrameTime = 0.f;
-	for (auto& thing : FrameProfile::GetInstance().ProfileDump)
-	{
-		totalFrameTime += thing.second.Timer.GetDeltaSeconds();
-	}
-
-	//totalFrameTime = FrameProfile::GetInstance().MainDelta;
-
-	ImGui::Begin("gizmo", NULL, flags);
-	//ImDrawList* draw_list = ImGui::GetWindowDrawList();
-	{
-
-		//ImGui::Text("AYO LMAO");
-		//ImGui::SetNextWindowSize(ImVec2(350, 560), ImGuiCond_FirstUseEver);
-
-		ImDrawList* draw_list = ImGui::GetForegroundDrawList();
-
-		const ImVec2 p = ImGui::GetCursorScreenPos();
-		static ImVec4 col2 = ImVec4(1.0f, .5f, 1.0f, 1.0f);
-		static ImVec4 col3 = ImVec4(.5f, 1.f, 1.0f, 1.0f);
-		{
-			ImU32 col322 = ImColor(col2);
-			ImU32 col323 = ImColor(col3);
-			float x = p.x, y = p.y;
-
-			//float sz = 50.f;
-			//draw_list->AddRectFilled(ImVec2(x, y), ImVec2(x + ImGui::GetWindowSize().x, y + sz), col32);
-			float previousX = 0;
-			float targetFPS = (1.f / GetEngine().FPS);
-			float size = (totalFrameTime / targetFPS);
-
-			if (size >= 100.f)
-			{
-				size /= 100.f;
-			}
-
-			// Full window size
-			float windowSizeX = ImGui::GetMainViewport()->Size.x;
-
-			// How big is the whole frame UI wise
-			float profileSize = (windowSizeX * size);
-			for (auto& thing : FrameProfile::GetInstance().ProfileDump)
-			{
-				Vector3 profileColor = FrameProfile::GetInstance().GetCategoryColor(thing.second.Category);
-				ImVec4 col = ImVec4(profileColor.x, profileColor.y, profileColor.z, 1.0f);
-				ImU32 col32 = ImColor(col);
-				float maxSize = (profileSize <= windowSizeX) ? profileSize : windowSizeX ;
-				float profileSizeX = (thing.second.Timer.GetDeltaSeconds() / totalFrameTime) * maxSize;
-				draw_list->AddRectFilled(ImVec2(previousX + x, y), ImVec2(previousX + x + profileSizeX, y + profilerSize), col32);
-				ImGui::SameLine();
-				previousX = previousX + profileSizeX;
-			}
-			if (profileSize > windowSizeX)
-			{
-				ImVec4 col = ImVec4(1.f, 0.f, 0.f, 1.f);
-				ImU32 col32 = ImColor(col);
-
-				float profileSizeX =  profileSize / windowSizeX;
-				float xxxx = windowSizeX * profileSizeX;
-				draw_list->AddRectFilled(ImVec2(x + windowSizeX - (profileSize - windowSizeX), y), ImVec2((windowSizeX + xxxx), y + 10.f), col32);
-				ImGui::SameLine();
-				previousX = previousX + profileSizeX;
-			}
-			else
-			{
-				ImVec4 col = ImVec4(0.f, 1.f, 0.f, 1.f);
-				ImU32 col32 = ImColor(col);
-				//float xxxx = windowSizeX * profileSize;
-				draw_list->AddRectFilled(ImVec2(previousX + x, y), ImVec2(windowSizeX + x, y + profilerSize), col32);
-			}
-
-			ImGui::PopStyleVar(3);
-			ImGui::PopStyleColor(1);
-
-			if (ImGui::IsWindowHovered())
-			{
-				profilerSize = kMaxProfilerSize;
-				ImGui::BeginTooltip();
-				ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
-
-				for (auto& thing : FrameProfile::GetInstance().ProfileDump)
-				{
-					ImGui::TextUnformatted(thing.first.c_str());
-					ImGui::SameLine();
-					ImGui::TextUnformatted(std::to_string(thing.second.Timer.GetDeltaSeconds() * 1000.f).c_str());
-					ImGui::SameLine();
-					ImGui::TextUnformatted(" ms");
-				}
-				ImGui::PopTextWrapPos();
-
-				ImGui::EndTooltip();
-			}
-			else
-			{
-				profilerSize = kMinProfilerSize;
-			}
-		}
-	}
-	ImGui::End();
-}
 
 void Havana::RenderMainView(Moonlight::CameraData& EditorCamera)
 {
