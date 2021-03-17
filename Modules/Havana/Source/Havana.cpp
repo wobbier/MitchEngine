@@ -4,15 +4,11 @@
 #include "backends/imgui_impl_dx11.h"
 #include "Engine/World.h"
 #include "Components/Transform.h"
-#include <stack>
 #include "Components/Camera.h"
 #include "ECS/Core.h"
 #include "Engine/Engine.h"
 #include "HavanaEvents.h"
 #include "Events/SceneEvents.h"
-#include <string>
-#include <iostream>
-#include "Graphics/RenderTexture.h"
 #if ME_EDITOR
 #include <filesystem>
 #include "Math/Vector2.h"
@@ -44,10 +40,14 @@
 #include "imgui_internal.h"
 #include "Window/EditorWindow.h"
 #include "Utils/ImGuiUtils.h"
-#include "Widgets/LogWidget.h"
+#include "BGFXRenderer.h"
+
+#include <Widgets/LogWidget.h>
 #include <Widgets/MainMenuWidget.h>
 #include <Widgets/ResourceMonitorWidget.h>
+#include <Widgets/SceneHierarchyWidget.h>
 #include <Widgets/SceneViewWidget.h>
+#include <Utils/CommonUtils.h>
 
 Havana::Havana(Engine* GameEngine, EditorApp* app)
 	: m_engine(GameEngine)
@@ -100,6 +100,9 @@ Havana::Havana(Engine* GameEngine, EditorApp* app)
 	RegisteredWidgets.push_back(ResourceMonitor);
 
 	MainSceneView.reset(new SceneViewWidget("World", app));
+
+	SceneHierarchy.reset(new SceneHierarchyWidget());
+	RegisteredWidgets.push_back(SceneHierarchy);
 
 	InitUI();
 }
@@ -191,6 +194,7 @@ void Havana::InitUI()
 	LogPanel->Init();
 	ResourceMonitor->Init();
 	MainSceneView->Init();
+	SceneHierarchy->Init();
 }
 
 bool show_dockspace = true;
@@ -246,21 +250,7 @@ void Havana::NewFrame()
 	//DrawCommandPanel();
 }
 
-
-void RecusiveDelete(EntityHandle ent, Transform* trans)
-{
-	if (!trans)
-	{
-		return;
-	}
-	for (auto child : trans->GetChildren())
-	{
-		RecusiveDelete(child->Parent, child.get());
-	}
-	ent->MarkForDelete();
-};
-
-void Havana::AddComponentPopup()
+void Havana::AddComponentPopup(EntityHandle inSelectedEntity)
 {
 	ImGui::PushItemWidth(-100);
 	if (ImGui::Button("Add Component.."))
@@ -271,146 +261,9 @@ void Havana::AddComponentPopup()
 
 	if (ImGui::BeginPopup("my_select_popup"))
 	{
-		DrawAddComponentList(SelectedEntity);
+		CommonUtils::DrawAddComponentList(inSelectedEntity);
 
 		ImGui::EndPopup();
-	}
-}
-
-void Havana::DoComponentRecursive(const FolderTest& currentFolder, const EntityHandle& entity)
-{
-	for (auto& entry : currentFolder.Folders)
-	{
-		if (ImGui::BeginMenu(entry.first.c_str()))
-		{
-			DoComponentRecursive(entry.second, entity);
-			ImGui::EndMenu();
-		}
-	}
-	for (auto& ptr : currentFolder.Reg)
-	{
-		if (ImGui::Selectable(ptr.first.c_str()))
-		{
-			if (entity)
-			{
-				AddComponentCommand* compCmd = new AddComponentCommand(ptr.first, entity);
-				EditorCommands.Push(compCmd);
-			}
-			/*if (SelectedTransform)
-			{
-				m_engine->GetWorld().lock()->GetEntity(SelectedTransform->Parent).lock()->AddComponentByName(thing.first);
-			}*/
-		}
-	}
-}
-
-
-void Havana::DrawAddComponentList(const EntityHandle& entity)
-{
-	ImGui::Text("Components");
-	ImGui::Separator();
-	std::map<std::string, FolderTest> folders;
-	ComponentRegistry& reg = GetComponentRegistry();
-
-	for (auto& thing : reg)
-	{
-		if (thing.second.Folder == "")
-		{
-			folders[""].Reg[thing.first] = &thing.second;
-		}
-		else
-		{
-			/*auto it = folders.at(thing.second.Folder);
-			if (it == folders.end())
-			{
-
-			}*/
-			std::string folderPath = thing.second.Folder;
-			std::size_t pos = folderPath.rfind("/");
-			if (pos == std::string::npos)
-			{
-				folders[thing.second.Folder].Reg[thing.first] = &thing.second;
-			}
-			else
-			{
-				FolderTest& test = folders[thing.second.Folder.substr(0, pos)];
-				while (pos != std::string::npos)
-				{
-					pos = folderPath.rfind("/");
-					if (pos == std::string::npos)
-					{
-						test.Folders[folderPath].Reg[thing.first] = &thing.second;
-					}
-					else
-					{
-						test = folders[folderPath.substr(0, pos)];
-						folderPath = folderPath.substr(pos + 1, folderPath.size());
-					}
-				}
-			}
-		}
-	}
-
-	for (auto& thing : folders)
-	{
-		if (thing.first != "")
-		{
-			if (ImGui::BeginMenu(thing.first.c_str()))
-			{
-				DoComponentRecursive(thing.second, entity);
-				ImGui::EndMenu();
-			}
-		}
-		else
-		{
-			for (auto& ptr : thing.second.Reg)
-			{
-				if (ImGui::Selectable(ptr.first.c_str()))
-				{
-					if (entity)
-					{
-						AddComponentCommand* compCmd = new AddComponentCommand(ptr.first, entity);
-						EditorCommands.Push(compCmd);
-					}
-					/*if (SelectedTransform)
-					{
-						m_engine->GetWorld().lock()->GetEntity(SelectedTransform->Parent).lock()->AddComponentByName(thing.first);
-					}*/
-				}
-			}
-		}
-	}
-
-	//for (auto& thing : reg)
-	//{
-	//	if (ImGui::Selectable(thing.first.c_str()))
-	//	{
-	//		if (entity)
-	//		{
-	//			AddComponentCommand* compCmd = new AddComponentCommand(thing.first, entity);
-	//			EditorCommands.Push(compCmd);
-	//		}
-	//		/*if (SelectedTransform)
-	//		{
-	//			m_engine->GetWorld().lock()->GetEntity(SelectedTransform->Parent).lock()->AddComponentByName(thing.first);
-	//		}*/
-	//	}
-	//}
-}
-
-void Havana::DrawAddCoreList()
-{
-	ImGui::Text("Cores");
-	ImGui::Separator();
-
-	CoreRegistry& reg = GetCoreRegistry();
-
-	for (auto& thing : reg)
-	{
-		if (ImGui::Selectable(thing.first.c_str()))
-		{
-			GetEngine().GetWorld().lock()->AddCoreByName(thing.first);
-		}
 	}
 }
 
@@ -448,94 +301,10 @@ void Havana::SetGameCallbacks(std::function<void()> StartGameFunc, std::function
 	MainMenu->SetCallbacks(StartGameFunc, PauseGameFunc, StopGameFunc);
 }
 
-void Havana::UpdateWorld(World* world, Transform* root, const std::vector<Entity>& ents)
+void Havana::UpdateWorld(Transform* root, std::vector<Entity>& ents)
 {
-	OPTICK_CATEGORY("Havana::UpdateWorld", Optick::Category::GameLogic);
-	m_rootTransform = root;
-	ImGui::Begin("World", 0, ImGuiWindowFlags_MenuBar);
-	ImGui::BeginMenuBar();
-	if (ImGui::BeginMenu("Create"))
-	{
-		if (ImGui::BeginMenu("Entity"))
-		{
-			if (ImGui::IsItemClicked())
-			{
-				SelectedEntity = m_engine->GetWorld().lock()->CreateEntity();
-			}
-			if (ImGui::MenuItem("Entity Transform"))
-			{
-				SelectedEntity = m_engine->GetWorld().lock()->CreateEntity();
-				SelectedEntity->AddComponent<Transform>("New Entity");
-			}
-			ImGui::EndMenu();
-		}
-		if (ImGui::BeginMenu("Core"))
-		{
-			DrawAddCoreList();
-			ImGui::EndMenu();
-		}
-		ImGui::EndMenu();
-	}
-	ImGui::EndMenuBar();
-	if (ImGui::CollapsingHeader("Scene", ImGuiTreeNodeFlags_DefaultOpen))
-	{
-		OPTICK_CATEGORY("Entity List", Optick::Category::GameLogic);
-		if (ImGui::IsWindowFocused())
-		{
-			if (SelectedTransform && GetInput().IsKeyDown(KeyCode::Delete))
-			{
-				RecusiveDelete(SelectedTransform->Parent, SelectedTransform);
-				ClearSelection();
-			}
-		}
-		UpdateWorldRecursive(root);
-	}
-	if (ents.size() > 0)
-	{
-		if (ImGui::CollapsingHeader("Utility", ImGuiTreeNodeFlags_DefaultOpen))
-		{
-			OPTICK_CATEGORY("Utility Entities", Optick::Category::Debug);
-			int i = 0;
-			for (const Entity& ent : ents)
-			{
-				for (BaseComponent* comp : ent.GetAllComponents())
-				{
-					ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | (SelectedEntity.Get() == &ent ? ImGuiTreeNodeFlags_Selected : 0);
-					{
-						node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen; // ImGuiTreeNodeFlags_Bullet
-						ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, comp->GetName().c_str());
-						if (ImGui::IsItemClicked())
-						{
-							SelectedCore = nullptr;
-							SelectedTransform = nullptr;
-							SelectedEntity = EntityHandle(ent.GetId(), world->GetSharedPtr());
-						}
-					}
-				}
-			}
-		}
-	}
-
-	if (ImGui::CollapsingHeader("Entity Cores", ImGuiTreeNodeFlags_DefaultOpen))
-	{
-		OPTICK_CATEGORY("Entity Cores", Optick::Category::Debug);
-		int i = 0;
-		for (auto& comp : world->GetAllCoresArray())
-		{
-			ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | (SelectedCore == comp.second.get() ? ImGuiTreeNodeFlags_Selected : 0);
-			{
-				node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen; // ImGuiTreeNodeFlags_Bullet
-				ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, comp.second->GetName().c_str());
-				if (ImGui::IsItemClicked())
-				{
-					SelectedCore = comp.second.get();
-					SelectedTransform = nullptr;
-					SelectedEntity = EntityHandle();
-				}
-			}
-		}
-	}
-	ImGui::End();
+	SceneHierarchy->SetData(root, ents);
+	SceneHierarchy->Render();
 
 	ImGui::Begin("Properties");
 
@@ -562,7 +331,7 @@ void Havana::UpdateWorld(World* world, Transform* root, const std::vector<Entity
 				GetEngine().GetWorld().lock()->Simulate();
 			}
 		}
-		AddComponentPopup();
+		AddComponentPopup(SelectedEntity);
 	}
 
 	if (SelectedCore != nullptr)
@@ -591,123 +360,12 @@ void Havana::UpdateWorld(World* world, Transform* root, const std::vector<Entity
 					(void*)ViewTexture->TexHandle,
 					ImVec2(pos.x, pos.y),
 					ImVec2(maxPos));*/
-				//ImVec2(WorldViewRenderSize.X() / RenderSize.X(), WorldViewRenderSize.Y() / RenderSize.Y()));
+					//ImVec2(WorldViewRenderSize.X() / RenderSize.X(), WorldViewRenderSize.Y() / RenderSize.Y()));
 
 			}
 		}
 	}
 	ImGui::End();
-}
-
-void Havana::UpdateWorldRecursive(Transform* root)
-{
-	OPTICK_CATEGORY("UpdateWorld::UpdateWorldRecursive", Optick::Category::GameLogic);
-	if (!root)
-		return;
-	if (ImGui::BeginDragDropTarget())
-	{
-		HandleAssetDragAndDrop(root);
-
-		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_CHILD_TRANSFORM"))
-		{
-			DragParentDescriptor.Parent->SetParent(*root);
-		}
-		ImGui::EndDragDropTarget();
-	}
-
-	int i = 0;
-	for (SharedPtr<Transform> child : root->GetChildren())
-	{
-		OPTICK_CATEGORY("UpdateWorld::UpdateWorldRecursive::Child", Optick::Category::GameLogic);
-		if (!child)
-		{
-			continue;
-		}
-		Transform* var = child.get();
-		bool open = false;
-		ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | (SelectedTransform == var ? ImGuiTreeNodeFlags_Selected : 0);
-		if (var->GetChildren().empty())
-		{
-			node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen; // ImGuiTreeNodeFlags_Bullet
-			open = ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, var->Name.c_str());
-			if (ImGui::IsItemClicked())
-			{
-				SelectedTransform = var;
-				SelectedCore = nullptr;
-				SelectedEntity = SelectedTransform->Parent;
-			}
-
-			DrawEntityRightClickMenu(var);
-
-			if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
-			{
-				//files.FullPath = dir.FullPath;
-				DragParentDescriptor.Parent = var;
-				ImGui::SetDragDropPayload("DND_CHILD_TRANSFORM", &DragParentDescriptor, sizeof(ParentDescriptor));
-				ImGui::Text(var->GetName().c_str());
-				ImGui::EndDragDropSource();
-			}
-
-			if (ImGui::BeginDragDropTarget())
-			{
-				HandleAssetDragAndDrop(var);
-
-				if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_CHILD_TRANSFORM"))
-				{
-					DragParentDescriptor.Parent->SetParent(*child);
-				}
-				ImGui::EndDragDropTarget();
-			}
-
-			//if (open)
-			//{
-			//	// your tree code stuff
-			//	ImGui::TreePop();
-			//}
-		}
-		else
-		{
-			OPTICK_CATEGORY("UpdateWorld::UpdateWorldRecursive::Leaf", Optick::Category::GameLogic);
-			open = ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, var->Name.c_str());
-			if (ImGui::IsItemClicked())
-			{
-				SelectedTransform = var;
-				SelectedCore = nullptr;
-				SelectedEntity = SelectedTransform->Parent;
-			}
-
-			DrawEntityRightClickMenu(var);
-
-			if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
-			{
-				DragParentDescriptor.Parent = var;
-				//files.FullPath = dir.FullPath;
-				ImGui::SetDragDropPayload("DND_CHILD_TRANSFORM", &DragParentDescriptor, sizeof(ParentDescriptor));
-				ImGui::Text(var->GetName().c_str());
-				ImGui::EndDragDropSource();
-			}
-
-			if (ImGui::BeginDragDropTarget())
-			{
-				HandleAssetDragAndDrop(var);
-
-				if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_CHILD_TRANSFORM"))
-				{
-					DragParentDescriptor.Parent->SetParent(*child);
-				}
-				ImGui::EndDragDropTarget();
-			}
-
-			if (open)
-			{
-				UpdateWorldRecursive(var);
-				ImGui::TreePop();
-				//ImGui::TreePop();
-			}
-		}
-
-		i++;
-	}
 }
 
 void Havana::HandleAssetDragAndDrop(Transform* root)
@@ -748,13 +406,13 @@ void Havana::DrawEntityRightClickMenu(Transform* transform)
 
 		if (ImGui::MenuItem("Delete", "Del"))
 		{
-			RecusiveDelete(transform->Parent, transform);
+			CommonUtils::RecusiveDelete(transform->Parent, transform);
 			GetEngine().GetWorld().lock()->Simulate();
 			ClearSelection();
 		}
 		if (ImGui::BeginMenu("Add Component"))
 		{
-			DrawAddComponentList(transform->Parent);
+			CommonUtils::DrawAddComponentList(transform->Parent);
 			ImGui::EndMenu();
 		}
 		ImGui::EndPopup();
@@ -778,12 +436,6 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 	//ImGui::Render();
 	//ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 	// Update and Render additional Platform Windows
-}
-
-
-void Havana::RenderMainView(Moonlight::CameraData& EditorCamera)
-{
-
 }
 
 void Havana::SetViewportMode(ViewportMode mode)

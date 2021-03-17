@@ -16,6 +16,7 @@
 #include "HavanaEvents.h"
 #include "optick.h"
 #include "Utils/ImGuiUtils.h"
+#include <Utils/CommonUtils.h>
 
 AssetBrowser::AssetBrowser(const std::string& pathToWatch, std::chrono::duration<int, std::milli> delay)
 	: PathToWatch(pathToWatch)
@@ -131,8 +132,8 @@ void AssetBrowser::Recursive(Directory& dir)
 		{
 			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_CHILD_TRANSFORM"))
 			{
-				IM_ASSERT(payload->DataSize == sizeof(Havana::ParentDescriptor));
-				Havana::ParentDescriptor* payload_n = (Havana::ParentDescriptor*)payload->Data;
+				IM_ASSERT(payload->DataSize == sizeof(ParentDescriptor));
+				ParentDescriptor* payload_n = (ParentDescriptor*)payload->Data;
 
 				json prefab;
 				SavePrefab(prefab, payload_n->Parent, true);
@@ -212,8 +213,8 @@ void AssetBrowser::Recursive(Directory& dir)
 		{
 			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_CHILD_TRANSFORM"))
 			{
-				IM_ASSERT(payload->DataSize == sizeof(Havana::ParentDescriptor));
-				Havana::ParentDescriptor* payload_n = (Havana::ParentDescriptor*)payload->Data;
+				IM_ASSERT(payload->DataSize == sizeof(ParentDescriptor));
+				ParentDescriptor* payload_n = (ParentDescriptor*)payload->Data;
 
 				json prefab;
 				SavePrefab(prefab, payload_n->Parent, true);
