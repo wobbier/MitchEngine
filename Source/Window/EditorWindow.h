@@ -4,9 +4,10 @@
 #include <string>
 
 #include "IWindow.h"
-#include <SDL.h>
 
-#if ME_PLATFORM_WIN64
+#if ME_PLATFORM_WIN64 && ME_EDITOR
+
+#include <SDL.h>
 
 class EditorWindow final
 	: public IWindow

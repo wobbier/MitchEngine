@@ -125,7 +125,6 @@ void Engine::Init(Game* game)
 
 	ResizeFunc(Vector2(1920, 1080));
 
-
 	NewRenderer = new BGFXRenderer();
 	RendererCreationSettings settings;
 	settings.WindowPtr = GameWindow->GetWindowPtr();
@@ -137,8 +136,10 @@ void Engine::Init(Game* game)
 #if ME_EDITOR && ME_PLATFORM_WIN64
 	//ImGui_ImplSDL2_InitForD3D(static_cast<SDLWindow*>(GameWindow)->WindowHandle);
 	ImGui_ImplWin32_Init(static_cast<EditorWindow*>(GameWindow)->GetWindowPtr());
+#elif ME_PLATFORM_WIN64
+	ImGui_ImplSDL2_InitForD3D(static_cast<SDLWindow*>(GameWindow)->WindowHandle);
 #endif
-#if ME_EDITOR && ME_PLATFORM_MACOS
+#if ME_PLATFORM_MACOS
     ImGui_ImplSDL2_InitForMetal(static_cast<SDLWindow*>(GameWindow)->WindowHandle);
 #endif
 
@@ -215,20 +216,27 @@ void Engine::Run()
 
 		if (AccumulatedTime >= MaxDeltaTime)
 		{
-			OPTICK_FRAME("MainLoop");
-			float deltaTime = DeltaTime = AccumulatedTime; 
-				NewRenderer->BeginFrame(m_input.GetMousePosition(), (m_input.IsMouseButtonDown(MouseButton::Left) ? 0x01 : 0)
-					| (m_input.IsMouseButtonDown(MouseButton::Right) ? 0x02 : 0)
-					| (m_input.IsMouseButtonDown(MouseButton::Middle) ? 0x04 : 0)
-					, (int32_t)m_input.GetMouseScrollOffset().y
+			float deltaTime = DeltaTime = AccumulatedTime;
+			{
+#if ME_EDITOR
+				Input& input = GetEditorInput();
+#else
+				Input& input = GetInput();
+#endif
+				OPTICK_FRAME("MainLoop");
+				NewRenderer->BeginFrame(input.GetMousePosition(), (input.IsMouseButtonDown(MouseButton::Left) ? 0x01 : 0)
+					| (input.IsMouseButtonDown(MouseButton::Right) ? 0x02 : 0)
+					| (input.IsMouseButtonDown(MouseButton::Middle) ? 0x04 : 0)
+					, (int32_t)input.GetMouseScrollOffset().y
 					, GameWindow->GetSize()
 					, -1
 					, 255);
+			}
 
 			FrameProfile::GetInstance().Set("Physics", ProfileCategory::Physics);
 			GameWorld->Simulate();
 
-			m_input.Update();
+			GetInput().Update();
 
 			// Update our engine
 			GameWorld->UpdateLoadedCores(deltaTime);
@@ -410,3 +418,12 @@ void Engine::LoadScene(const std::string& SceneFile)
 	//GameWorld->Start();
 #endif
 }
+
+#if ME_EDITOR
+
+Input& Engine::GetEditorInput()
+{
+	return m_editorInput;
+}
+
+#endif

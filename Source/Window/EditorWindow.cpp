@@ -4,7 +4,7 @@
 #include "CLog.h"
 #include <assert.h>
 
-#if ME_PLATFORM_WIN64
+#if ME_PLATFORM_WIN64 && ME_EDITOR
 
 #include "Renderer.h"
 #include "Device/DX11Device.h"
@@ -14,27 +14,16 @@
 #include "Engine/Input.h"
 #include "Engine/Engine.h"
 #include "SDL.h"
-LRESULT CALLBACK WinProc(HWND Window, unsigned int msg, WPARAM wp, LPARAM lp);
 
-std::wstring s2ws(const std::string& s)
-{
-	int len;
-	int slength = (int)s.length() + 1;
-	len = MultiByteToWideChar(CP_ACP, 0, s.c_str(), slength, 0, 0);
-	wchar_t* buf = new wchar_t[len];
-	MultiByteToWideChar(CP_ACP, 0, s.c_str(), slength, buf, len);
-	std::wstring r(buf);
-	delete[] buf;
-	return r;
-};
+LRESULT CALLBACK WinProc(HWND Window, unsigned int msg, WPARAM wp, LPARAM lp);
 
 EditorWindow::EditorWindow(std::string title, std::function<void(const Vector2&)> resizeFunc, int X, int Y, Vector2 windowSize)
 	: ResizeFunc(resizeFunc)
 	, WindowSize(windowSize)
 {
-	const wchar_t CLASS_NAME[] = L"Win32Window";
+	const wchar_t CLASS_NAME[] = L"EditorWindow";
 
-	std::wstring windowTitle = s2ws(title);
+	std::wstring windowTitle = StringUtils::ToWString(title);
 
 	WNDCLASSEXW wc{};
 	wc.cbSize = sizeof(wc);
@@ -47,11 +36,7 @@ EditorWindow::EditorWindow(std::string title, std::function<void(const Vector2&)
 
 	wc.hIcon = (HICON)LoadImage(
 		NULL,
-#if ME_EDITOR
 		StringUtils::ToWString(Path("Assets/Havana/Icon.ico").FullPath).c_str(),
-#else
-		NULL,
-#endif
 		IMAGE_ICON,
 		0,
 		0,
@@ -87,11 +72,10 @@ EditorWindow::EditorWindow(std::string title, std::function<void(const Vector2&)
 	{
 		return;
 	}
-	//GetEngine().GetInput().GetMouse().SetWindow(Window);
-#if ME_EDITOR
+
 	borderless = true;
 	borderless_shadow = true;
-#endif
+
 	SetBorderless(borderless);
 	SetBorderlessShadow(borderless_shadow);
 	ShowWindow(Window, SW_SHOW);
@@ -135,7 +119,7 @@ void EditorWindow::Swap()
 
 void EditorWindow::SetTitle(const std::string& title)
 {
-	SetWindowText(Window, s2ws(title).c_str());
+	SetWindowText(Window, StringUtils::ToWString(title).c_str());
 }
 
 Vector2 EditorWindow::GetSize() const
@@ -354,9 +338,7 @@ void EditorWindow::SetDragBounds(const Vector2& DragPosition, const Vector2& Siz
 
 POINT prevPos;
 bool dragWindow = false;
-#if ME_EDITOR
 extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
-#endif
 LRESULT CALLBACK WinProc(HWND hwnd, unsigned int msg, WPARAM wp, LPARAM lp)
 {
 	if (msg == WM_NCCREATE)
@@ -364,10 +346,12 @@ LRESULT CALLBACK WinProc(HWND hwnd, unsigned int msg, WPARAM wp, LPARAM lp)
 		auto userdata = reinterpret_cast<CREATESTRUCTW*>(lp)->lpCreateParams;
 		::SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(userdata));
 	}
-#if ME_EDITOR
+
 	if (ImGui_ImplWin32_WndProcHandler(hwnd, msg, wp, lp))
+	{
 		return true;
-#endif
+	}
+
 	if (auto window_ptr = reinterpret_cast<EditorWindow*>(::GetWindowLongPtrW(hwnd, GWLP_USERDATA)))
 	{
 		auto& window = *window_ptr;
@@ -431,16 +415,20 @@ LRESULT CALLBACK WinProc(HWND hwnd, unsigned int msg, WPARAM wp, LPARAM lp)
 		case WM_RBUTTONUP:
 		case WM_MBUTTONDOWN:
 		case WM_MBUTTONUP:
-		case WM_MOUSEWHEEL:
 		case WM_XBUTTONDOWN:
 		case WM_XBUTTONUP:
 		case WM_MOUSEHOVER:
 			//DirectX::Mouse::ProcessMessage(msg, wp, lp);
 			break;
+		case WM_MOUSEWHEEL:
+		{
+			MouseScrollEvent evt;
+			evt.Scroll = Vector2(0.f, GET_WHEEL_DELTA_WPARAM(wp) / 120.f);
+			evt.Fire();
+			break;
+		}
 		case WM_KEYDOWN:
 		case WM_SYSKEYDOWN:
-		case WM_KEYUP:
-		case WM_SYSKEYUP:
 		{
 			//DirectX::Keyboard::ProcessMessage(msg, wp, lp);
 			switch (wp)
@@ -452,6 +440,9 @@ LRESULT CALLBACK WinProc(HWND hwnd, unsigned int msg, WPARAM wp, LPARAM lp)
 			}
 			break;
 		}
+		case WM_KEYUP:
+		case WM_SYSKEYUP:
+			break;
 		case WM_SYSCOMMAND:
 		{
 			if (wp == SC_MAXIMIZE || wp == SC_RESTORE)

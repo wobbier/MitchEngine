@@ -192,7 +192,7 @@ bool show_demo_window = true;
 bool show_dockspace = true;
 void Havana::NewFrame(std::function<void()> StartGameFunc, std::function<void()> PauseGameFunc, std::function<void()> StopGameFunc)
 {
-	m_input.Update();
+	GetInput().Update();
 	OPTICK_EVENT("Havana::NewFrame");
 
 	ImGuiIO& io = ImGui::GetIO();
@@ -547,6 +547,7 @@ void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<
 
 		ImGui::Text("%.1f ms", frametime * 1000.f);
 		ImGui::Text("%.1f fps", (float)fps);
+		//ImGui::Text("%.1f fps", (float)ImGui::GetIO().Framerate);
 
 		ImGui::SetCursorPosX((ImGui::GetWindowWidth() / 2.f) - (ImGui::CalcTextSize(WindowTitle.c_str()).x / 2.f));
 		ImGui::Text(WindowTitle.c_str());
@@ -1308,7 +1309,7 @@ void Havana::HandleAssetDragAndDrop(Transform* root)
 
 Input& Havana::GetInput()
 {
-	return m_input;
+	return m_engine->GetEditorInput();
 }
 
 void Havana::DrawEntityRightClickMenu(Transform* transform)

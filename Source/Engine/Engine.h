@@ -23,7 +23,7 @@ class Engine
 	: public EventReceiver
 {
 public:
-	const float FPS = 240.f;
+	const float FPS = 140.f;
 	long long FrameRate;
 
 	Engine();
@@ -82,6 +82,12 @@ private:
 	BGFXRenderer* NewRenderer = nullptr;
 
 	JobEngine newJobSystem;
+
+#if ME_EDITOR
+	Input m_editorInput;
+public:
+	Input& GetEditorInput();
+#endif
 };
 
 Engine& GetEngine();

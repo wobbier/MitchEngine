@@ -100,7 +100,6 @@ private:
 	class Transform* m_rootTransform = nullptr;
 	std::string WindowTitle;
 	CommandManager EditorCommands;
-	Input m_input;
 
 	BGFXRenderer* Renderer = nullptr;
 

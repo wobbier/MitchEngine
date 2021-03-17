@@ -10,10 +10,11 @@
 //using namespace Windows::System;
 //#endif
 
-struct MouseScrollEvent
+class MouseScrollEvent
 	: public Event<MouseScrollEvent>
 {
-	MouseScrollEvent() = delete;
+public:
+    MouseScrollEvent() = default;
 
 	MouseScrollEvent(float x, float y)
 		: Event()

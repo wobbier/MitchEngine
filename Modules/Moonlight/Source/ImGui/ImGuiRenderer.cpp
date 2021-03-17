@@ -45,7 +45,7 @@ void ImGuiRenderer::Create()
 	ImGuiIO& io = ImGui::GetIO();
 
 	io.DisplaySize = ImVec2(1280, 720);
-	io.DeltaTime = 1.f / 60.f;
+	io.DeltaTime = 1.f / 140.f;
 	io.IniFilename = nullptr;
 
 	auto renderType = bgfx::getRendererType();
@@ -100,7 +100,6 @@ void ImGuiRenderer::NewFrame(const Vector2& mousePosition, uint8_t mouseButton, 
 	io.MouseDown[1] = (mouseButton & IMGUI_MBUT_RIGHT) != 0;
 	io.MouseDown[2] = (mouseButton & IMGUI_MBUT_MIDDLE) != 0;
 	io.MouseWheel = (float)(scroll - LastScroll);
-	io.DeltaTime = 1.f / 60.f;
 	LastScroll = scroll;
 
 	//bgfx::setViewClear(viewId
