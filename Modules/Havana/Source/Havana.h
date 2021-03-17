@@ -19,6 +19,7 @@ class LogWidget;
 class ComponentInfo;
 class ResourceMonitorWidget;
 class MainMenuWidget;
+class SceneViewWidget;
 
 class FolderTest
 {
@@ -93,6 +94,11 @@ public:
 	SharedPtr<Moonlight::Texture> ViewTexture;
 
 	ViewportMode GetViewportMode() const { return m_viewportMode; }
+	ImVec2 DockPos;
+	ImVec2 DockSize;
+	bool MaximizeOnPlay = false;
+	bool m_isGameFocused = false;
+	bool m_isWorldViewFocused = false;
 
 private:
 	void HandleAssetDragAndDrop(Transform* root);
@@ -104,12 +110,6 @@ private:
 
 	BGFXRenderer* Renderer = nullptr;
 
-	bool m_isGameFocused = false;
-	bool m_isWorldViewFocused = false;
-	bool AllowGameInput = false;
-	bool MaximizeOnPlay = false;
-	ImVec2 DockPos;
-	ImVec2 DockSize;
 	std::unordered_map<std::string, SharedPtr<Moonlight::Texture>> Icons;
 	AssetBrowser m_assetBrowser;
 	float prevMatrixTranslation[3];
@@ -124,6 +124,7 @@ private:
 	SharedPtr<LogWidget> LogPanel;
 	SharedPtr<ResourceMonitorWidget> ResourceMonitor;
 	SharedPtr<MainMenuWidget> MainMenu;
+	SharedPtr<SceneViewWidget> MainSceneView;
 
 	std::vector<SharedPtr<HavanaWidget>> RegisteredWidgets;
 };

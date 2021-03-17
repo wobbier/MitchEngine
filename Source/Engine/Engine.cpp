@@ -11,7 +11,6 @@
 #include "Game.h"
 #include "Window/IWindow.h"
 #include "Input.h"
-#include "Havana.h"
 #include "Components/Transform.h"
 #include "Dementia.h"
 #include "Events/SceneEvents.h"

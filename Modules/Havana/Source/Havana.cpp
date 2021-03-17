@@ -47,6 +47,7 @@
 #include "Widgets/LogWidget.h"
 #include <Widgets/MainMenuWidget.h>
 #include <Widgets/ResourceMonitorWidget.h>
+#include <Widgets/SceneViewWidget.h>
 
 Havana::Havana(Engine* GameEngine, EditorApp* app)
 	: m_engine(GameEngine)
@@ -97,6 +98,8 @@ Havana::Havana(Engine* GameEngine, EditorApp* app)
 
 	ResourceMonitor.reset(new ResourceMonitorWidget());
 	RegisteredWidgets.push_back(ResourceMonitor);
+
+	MainSceneView.reset(new SceneViewWidget("World", app));
 
 	InitUI();
 }
@@ -187,6 +190,7 @@ void Havana::InitUI()
 	MainMenu->Init();
 	LogPanel->Init();
 	ResourceMonitor->Init();
+	MainSceneView->Init();
 }
 
 bool show_dockspace = true;
@@ -227,7 +231,7 @@ void Havana::NewFrame()
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-	ImGui::Begin("DockSpace Demo", &show_dockspace, window_flags);
+	ImGui::Begin("MainDockSpace", &show_dockspace, window_flags);
 	ImGui::PopStyleVar(3);
 	ImGuiID dockspace_id = ImGui::GetID("MyDockspace");
 	ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_PassthruCentralNode;
@@ -762,7 +766,8 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 	OPTICK_EVENT("Editor Render", Optick::Category::Rendering);
 	auto& io = ImGui::GetIO();
 
-	RenderMainView(EditorCamera);
+	MainSceneView->SetData(EditorCamera);
+	MainSceneView->Render();
 
 	Vector2 size(ImGui::GetMainViewport()->Size.x, static_cast<float>(FrameProfile::kMinProfilerSize));
 	auto pos = ImGui::GetMainViewport()->Pos;
@@ -778,445 +783,7 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 
 void Havana::RenderMainView(Moonlight::CameraData& EditorCamera)
 {
-	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
-	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
 
-	//ImGui::Begin("Game Depth");
-	//{
-	//	m_isGameFocused = ImGui::IsWindowFocused();
-
-
-	//	if (Renderer->GameViewRTT && Renderer->GameViewRTT->NormalShaderResourceView != nullptr)
-	//	{
-	//		// Get the current cursor position (where your window is)
-	//		ImVec2 pos = ImGui::GetCursorScreenPos();
-	//		ImVec2 maxPos = ImVec2(pos.x + ImGui::GetWindowSize().x, pos.y + ImGui::GetWindowSize().y);
-	//		//GameRenderSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
-	//		GameRenderSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
-
-	//		// Ask ImGui to draw it as an image:
-	//		// Under OpenGL the ImGUI image type is GLuint
-	//		// So make sure to use "(void *)tex" but not "&tex"
-	//		ImGui::GetWindowDrawList()->AddImage(
-	//			(void*)Renderer->GameViewRTT->NormalShaderResourceView.Get(),
-	//			ImVec2(pos.x, pos.y),
-	//			ImVec2(maxPos),
-	//			ImVec2(0, 0),
-	//			ImVec2(Mathf::Clamp(0.f, 1.0f, GameRenderSize.X() / Renderer->GameViewRTT->Width), Mathf::Clamp(0.f, 1.0f, GameRenderSize.Y() / Renderer->GameViewRTT->Height)));
-	//		//ImVec2(WorldViewRenderSize.X() / RenderSize.X(), WorldViewRenderSize.Y() / RenderSize.Y()));
-
-	//	}
-	//}
-	//ImGui::End();
-
-	ImGuiWindowFlags window_flags = 0;
-	window_flags |= ImGuiWindowFlags_MenuBar;
-	bool showGameWindow = true;
-	ImGui::Begin("Game", &showGameWindow, window_flags);
-
-	if (MaximizeOnPlay)
-	{
-		ImGui::End();
-		window_flags |= ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize;
-		ImGui::SetNextWindowPos(ImVec2(DockPos.x, DockPos.y + 20.f));
-		ImGui::SetNextWindowSize(ImVec2(DockSize.x, DockSize.y - 20.f));
-		ImGui::Begin("Full Screen Viewport", &MaximizeOnPlay, window_flags);
-	}
-
-	if (m_viewportMode == ViewportMode::Game)
-	{
-		if (GetInput().IsKeyDown(KeyCode::Escape)/*  && m_app->IsGameRunning()&& AllowGameInput*/)
-		{
-			m_engine->GetInput().Stop();
-			AllowGameInput = false;
-			ImGui::SetWindowFocus("World");
-			//Renderer->SetViewportMode(ViewportMode::World);
-		}
-		else if (ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows)/* && AllowGameInput*/)
-		{
-			m_engine->GetInput().Resume();
-			AllowGameInput = true;
-		}
-	}
-
-	if (Renderer && m_engine->EditorCamera.Buffer)
-	{
-	//	//AllowGameInput = ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows);
-	//	static auto srv = Renderer->GameViewRTT->ShaderResourceView;
-	//	static std::string RenderTextureSceneName = "Diffuse";
-	//	static std::string RenderTextureGameName = "Shaded";
-
-	//	static std::string* RenderTextureNamePtr = &RenderTextureSceneName;
-	//	if (m_viewportMode == ViewportMode::Game)
-	//	{
-	//		RenderTextureNamePtr = &RenderTextureGameName;
-	//	}
-	//	else
-	//	{
-	//		RenderTextureNamePtr = &RenderTextureSceneName;
-	//	}
-	//	std::string& RenderTextureName = *RenderTextureNamePtr;
-		if (ImGui::BeginMenuBar())
-		{
-	//		if (ImGui::BeginMenu(RenderTextureName.c_str()))
-	//		{
-	//			if (ImGui::MenuItem("Shaded", "", false))
-	//			{
-	//				RenderTextureName = "Shaded";
-	//			}
-	//			if (ImGui::MenuItem("Diffuse", "", false))
-	//			{
-	//				RenderTextureName = "Diffuse";
-	//			}
-	//			if (ImGui::MenuItem("Normals", "", false))
-	//			{
-	//				RenderTextureName = "Normals";
-	//			}
-	//			if (ImGui::MenuItem("Specular", "", false))
-	//			{
-	//				RenderTextureName = "Specular";
-	//			}
-	//			if (ImGui::MenuItem("Depth", "", false))
-	//			{
-	//				RenderTextureName = "Depth";
-	//			}
-
-	//			if (m_viewportMode == ViewportMode::Game)
-	//			{
-	//				if (ImGui::MenuItem("UI", "", false))
-	//				{
-	//					RenderTextureName = "UI";
-	//				}
-	//			}
-
-	//			if (ImGui::MenuItem("Position", "", false))
-	//			{
-	//				RenderTextureName = "Position";
-	//			}
-	//			if (ImGui::MenuItem("Shadow", "", false))
-	//			{
-	//				RenderTextureName = "Shadow";
-	//			}
-
-	//			if (m_viewportMode == ViewportMode::World)
-	//			{
-	//				if (ImGui::MenuItem("Pick Mask", "", false))
-	//				{
-	//					RenderTextureName = "Pick Mask";
-	//				}
-	//			}
-
-	//			ImGui::EndMenu();
-	//		}
-
-			ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 150.f);
-
-			if (ImGui::Button("Toggle Fullscreen", ImVec2(150.f, 20.f)))
-			{
-				MaximizeOnPlay = !MaximizeOnPlay;
-			}
-
-			ImGui::EndMenuBar();
-		}
-
-	//	if (RenderTextureName == "Shaded")
-	//	{
-	//		srv = Renderer->GameViewRTT->ShaderResourceView;
-	//	}
-	//	else if (RenderTextureName == "Diffuse")
-	//	{
-	//		srv = Renderer->GameViewRTT->ColorShaderResourceView;
-	//	}
-	//	else if (RenderTextureName == "Normals")
-	//	{
-	//		srv = Renderer->GameViewRTT->NormalShaderResourceView;
-	//	}
-	//	else if (RenderTextureName == "Specular")
-	//	{
-	//		srv = Renderer->GameViewRTT->SpecularShaderResourceView;
-	//	}
-	//	else if (RenderTextureName == "Depth")
-	//	{
-	//		srv = Renderer->GameViewRTT->DepthShaderResourceView;
-	//	}
-	//	else if (RenderTextureName == "UI")
-	//	{
-	//		srv = Renderer->GameViewRTT->UIShaderResourceView;
-	//	}
-	//	else if (RenderTextureName == "Position")
-	//	{
-	//		srv = Renderer->GameViewRTT->PositionShaderResourceView;
-	//	}
-	//	else if (RenderTextureName == "Shadow")
-	//	{
-	//		srv = Renderer->GameViewRTT->ShadowMapShaderResourceView;
-	//	}
-	//	else if (RenderTextureName == "Pick Mask")
-	//	{
-	//		srv = Renderer->GameViewRTT->PickingResourceView;
-	//	}
-		m_isGameFocused = ImGui::IsWindowFocused();
-
-
-	//	if (m_viewportMode == ViewportMode::Game)
-	//	{
-	//		if (Renderer && Renderer->GameViewRTT && srv != nullptr)
-	//		{
-	//			// Get the current cursor position (where your window is)
-	//			ImVec2 pos = ImGui::GetCursorScreenPos();
-	//			ImVec2 maxPos = ImVec2(pos.x + ImGui::GetWindowSize().x, pos.y + ImGui::GetWindowSize().y);
-	//			//GameRenderSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
-	//			GameRenderSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
-	//			GameViewRenderLocation = Vector2(pos.x, pos.y);
-
-	//			// Ask ImGui to draw it as an image:
-	//			// Under OpenGL the ImGUI image type is GLuint
-	//			// So make sure to use "(void *)tex" but not "&tex"
-	//			ImGui::GetWindowDrawList()->AddImage(
-	//				(void*)srv.Get(),
-	//				ImVec2(pos.x, pos.y),
-	//				ImVec2(maxPos),
-	//				ImVec2(0, 0),
-	//				ImVec2(Mathf::Clamp(0.f, 1.0f, GameRenderSize.X() / Renderer->GameViewRTT->Width), Mathf::Clamp(0.f, 1.0f, GameRenderSize.Y() / Renderer->GameViewRTT->Height)));
-	//			//ImVec2(WorldViewRenderSize.X() / RenderSize.X(), WorldViewRenderSize.Y() / RenderSize.Y()));
-
-	//		}
-	//	}
-	//	else
-	//	{
-
-			// Get the current cursor position (where your window is)
-			ImVec2 pos = ImGui::GetCursorScreenPos();
-			/*Vector2 evt;
-			evt.SetX((GetEngine().GetWindow()->GetPosition().X() + GetInput().GetMousePosition().X()) - pos.x);
-			evt.SetY((GetEngine().GetWindow()->GetPosition().Y() + GetInput().GetMousePosition().Y()) - pos.y);
-			mouseTracker.Update(GetInput().GetMouseState());
-			static bool hasClicked = false;*/
-			/*if (Renderer && GetInput().GetMouseState().leftButton && !hasClicked)
-			{
-				Renderer->PickScene(evt);
-				hasClicked = true;
-			}
-			else
-			{
-				hasClicked = false;
-			}*/
-
-			//DirectX::XMFLOAT4X4 objView;
-			//if (SelectedTransform)
-			//{
-			//	DirectX::XMStoreFloat4x4(&objView, SelectedTransform->GetMatrix().GetInternalMatrix());
-			//}
-
-			//ImGuizmo::BeginFrame();
-			static ImGuizmo::OPERATION mCurrentGizmoOperation(ImGuizmo::TRANSLATE);
-			static ImGuizmo::MODE mCurrentGizmoMode(ImGuizmo::LOCAL);
-			//static bool useSnap = false;
-			//static float snap[3] = { 1.f, 1.f, 1.f };
-
-			//float matrixTranslation[3], matrixRotation[3], matrixScale[3];
-			////ImGuizmo::DecomposeMatrixToComponents(&objView._11, matrixTranslation, matrixRotation, matrixScale);
-
-			//bool isMovingMouse = (ImGui::GetMousePos().x != previousMousePos.x) && (ImGui::GetMousePos().y != previousMousePos.y);
-			//previousMousePos = ImGui::GetMousePos();
-			//if (ImGui::IsWindowFocused() && ImGuizmo::IsUsing() && isMovingMouse) {
-			//	//ImGui::InputFloat3("Tr", matrixTranslation, 3);
-			//	if (SelectedTransform)
-			//	{
-			//		//HavanaUtils::EditableVector3("RtVec", SelectedTransform->Rotation);
-			//		//matrixRotation[0] = SelectedTransform->Rotation[0] * DirectX::XM_PI / 180.f;
-			//		//matrixRotation[1] = SelectedTransform->Rotation[1] * DirectX::XM_PI / 180.f;
-			//		//matrixRotation[2] = SelectedTransform->Rotation[2] * DirectX::XM_PI / 180.f;
-			//	}
-			//	//else
-			//	//{
-			//	//	ImGui::InputFloat3("Rt", matrixRotation, 3);
-			//	//}
-			//	//ImGui::InputFloat3("Sc", matrixScale, 3);
-			//	//ImGuizmo::RecomposeMatrixFromComponents(matrixTranslation, matrixRotation, matrixScale, &objView._11);
-			//}
-
-			{
-				m_isWorldViewFocused = ImGui::IsWindowFocused();
-
-				Moonlight::FrameBuffer* editorView = m_engine->EditorCamera.Buffer;
-				Moonlight::FrameBuffer* gameView = Renderer->GetCamera(Camera::CurrentCamera->GetCameraId()).Buffer;
-				Moonlight::FrameBuffer* currentView = (m_viewportMode == ViewportMode::Editor) ? editorView : gameView;
-
-				if (currentView && bgfx::isValid(currentView->Buffer))
-				{
-					ImVec2 maxPos = ImVec2(pos.x + ImGui::GetWindowSize().x, pos.y + ImGui::GetWindowSize().y);
-					WorldViewRenderSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
-					WorldViewRenderLocation = Vector2(pos.x, pos.y);
-					if (m_viewportMode == ViewportMode::Game)
-					{
-						Camera::CurrentCamera->OutputSize = Vector2(WorldViewRenderSize.x, WorldViewRenderSize.y);
-					}
-					// Ask ImGui to draw it as an image:
-					// Under OpenGL the ImGUI image type is GLuint
-					// So make sure to use "(void *)tex" but not "&tex"
-					ImGui::Image(bgfx::getTexture(currentView->Buffer), ImVec2(WorldViewRenderSize.x, WorldViewRenderSize.y- 38.f), ImVec2(0, 0),
-						ImVec2(Mathf::Clamp(0.f, 1.0f, WorldViewRenderSize.x / m_engine->EditorCamera.Buffer->Width), Mathf::Clamp(0.f, 1.0f, WorldViewRenderSize.y / m_engine->EditorCamera.Buffer->Height)));
-
-					if (m_viewportMode == ViewportMode::Editor && gameView)
-					{
-						ImGui::Begin("Game Preview");
-						//ImGui::SetCursorPos(ImVec2(WorldViewRenderSize.x - 215.f, -115.f));
-						Vector2 size(gameView->Width / 4.f, gameView->Height/4.f);
-						Camera::CurrentCamera->OutputSize = size;
-						ImGui::Image(bgfx::getTexture(gameView->Buffer), ImVec2(size.x, size.y), ImVec2(0, 0),
-							ImVec2(Mathf::Clamp(0.f, 1.0f, size.x / gameView->Width), Mathf::Clamp(0.f, 1.0f, size.y / gameView->Height)));
-						ImGui::End();
-					}
-					/*ImGui::GetWindowDrawList()->AddImage(
-						(void*)srv.Get(),
-						ImVec2(pos.x, pos.y),
-						ImVec2(maxPos),
-						ImVec2(0, 0),
-						ImVec2(Mathf::Clamp(0.f, 1.0f, WorldViewRenderSize.X() / Renderer->GameViewRTT->Width), Mathf::Clamp(0.f, 1.0f, WorldViewRenderSize.Y() / Renderer->GameViewRTT->Height)));*/
-
-					ImGuizmo::SetRect(WorldViewRenderLocation.x, WorldViewRenderLocation.y, WorldViewRenderSize.x, WorldViewRenderSize.y);
-
-					//DirectX::XMFLOAT4X4 fView;
-					//if (EditorCamera.Projection == Moonlight::ProjectionType::Perspective)
-					//{
-					//	DirectX::XMMATRIX perspectiveMatrix = DirectX::XMMatrixPerspectiveFovRH(
-					//		EditorCamera.FOV * DirectX::XM_PI / 180.0f,
-					//		WorldViewRenderSize.X() / WorldViewRenderSize.Y(),
-					//		.1f,
-					//		1000.0f
-					//	);
-
-					//	DirectX::XMStoreFloat4x4(&fView, perspectiveMatrix);
-					//}
-					//else
-					//{
-					//	DirectX::XMMATRIX perspectiveMatrix = DirectX::XMMatrixOrthographicRH(
-					//		EditorCamera.OutputSize.X() / EditorCamera.OrthographicSize,
-					//		EditorCamera.OutputSize.Y() / EditorCamera.OrthographicSize,
-					//		.1f,
-					//		100.0f
-					//	);
-
-					//	DirectX::XMStoreFloat4x4(&fView, perspectiveMatrix);
-					//}
-					//ImGuizmo::SetDrawlist();
-					//ImGuizmo::SetOrthographic(false);
-
-					//const DirectX::XMVECTORF32 eye = { EditorCamera.Position.x, EditorCamera.Position.y, EditorCamera.Position.z, 0 };
-					//const DirectX::XMVECTORF32 at = { EditorCamera.Position.x + EditorCamera.Front.x, EditorCamera.Position.y + EditorCamera.Front.y, EditorCamera.Position.z + EditorCamera.Front.z, 0.0f };
-					//const DirectX::XMVECTORF32 up = { Vector3::Up.x, Vector3::Up.y, Vector3::Up.z, 0 };
-
-					//DirectX::XMMATRIX vec = DirectX::XMMatrixLookAtRH(eye, at, up);
-
-					//DirectX::XMFLOAT4X4 lookAtView;
-					//DirectX::XMStoreFloat4x4(&lookAtView, vec);
-
-					//DirectX::XMFLOAT4X4 idView;
-					//DirectX::XMStoreFloat4x4(&idView, DirectX::XMMatrixIdentity());
-
-					////ImGuizmo::DrawGrid(&fView2._11, &fView._11, &idView._11, 100.f);
-					////ImGuizmo::DrawCubes(&fView2._11, &fView._11, &idView._11, 1);
-					//ImGuizmo::Manipulate(&lookAtView._11, &fView._11, mCurrentGizmoOperation, mCurrentGizmoMode, &objView._11, &idView._11, useSnap ? &snap[0] : NULL);
-					//if (ImGui::IsWindowFocused() && ImGuizmo::IsUsing()/* && isMovingMouse*/)
-					//{
-					//	if (SelectedTransform)
-					//	{
-					//		//ImGuizmo::DecomposeMatrixToComponents(&objView._11, matrixTranslation, matrixRotation, matrixScale);
-
-					//		Matrix4 m = Matrix4(objView);
-
-					//		DirectX::SimpleMath::Vector3 pos;
-					//		DirectX::SimpleMath::Quaternion rot;
-					//		DirectX::SimpleMath::Vector3 scale;
-					//		m.GetInternalMatrix().Decompose(scale, rot, pos);
-
-					//		//memcpy(matrixTranslation, prevMatrixTranslation, sizeof(float) * 3);
-					//		//memcpy(matrixRotation, prevMatrixRotation, sizeof(float) * 3);
-					//		prevMatrixRotation[0] = matrixRotation[0];
-					//		prevMatrixRotation[1] = matrixRotation[1];
-					//		prevMatrixRotation[2] = matrixRotation[2];
-
-					//		Quaternion q = rot;// DirectX::SimpleMath::Quaternion::CreateFromRotationMatrix(objView);
-					//		//memcpy(matrixScale, prevMatrixScale, sizeof(float) * 3);
-					//		//SelectedTransform->SetWorldTransform(m, false);
-					//		Vector3 euler = Quaternion::ToEulerAngles(q);
-					//		SelectedTransform->SetPosition(Vector3(pos));
-					//		//SelectedTransform->SetRotation(euler);// Vector3(matrixRotation[0], matrixRotation[1], matrixRotation[2]));
-					//		//SelectedTransform->SetRotation(Vector3(euler.x * 180.f / DirectX::XM_PI, euler.y * 180.f / DirectX::XM_PI, euler .z * 180.f / DirectX::XM_PI));
-
-					//		SelectedTransform->SetScale(Vector3(scale));
-
-					//	}
-					//}
-
-					//{
-
-					//ImGuizmo::ViewManipulate(&lookAtView._11, 8.f, ImVec2(WorldViewRenderLocation.X() + WorldViewRenderSize.X() - 128, WorldViewRenderLocation.Y()), ImVec2(128, 128), 0x00101010);
-
-					////DirectX::SimpleMath::Vector3 pos;
-					////DirectX::SimpleMath::Quaternion rot;
-					////DirectX::SimpleMath::Vector3 scale;
-					////Matrix4(lookAtView).GetInternalMatrix().Decompose(scale, rot, pos);
-
-					////m_app->EditorSceneManager->GetEditorCameraTransform()->SetPosition(pos);
-					//}
-				}
-			}
-
-			if (m_viewportMode == ViewportMode::Editor)
-			{
-				ImGui::SetCursorPos(ImVec2(5.f, 45.f));
-				if (!GetInput().IsMouseButtonDown(MouseButton::Right))
-				{
-					if (GetInput().IsKeyDown(KeyCode::W))
-						mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
-					if (GetInput().IsKeyDown(KeyCode::E))
-						mCurrentGizmoOperation = ImGuizmo::ROTATE;
-					if (GetInput().IsKeyDown(KeyCode::R))
-						mCurrentGizmoOperation = ImGuizmo::SCALE;
-				}
-				if (ImGui::RadioButton("Translate", mCurrentGizmoOperation == ImGuizmo::TRANSLATE))
-					mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
-				ImGui::SameLine();
-				if (ImGui::RadioButton("Rotate", mCurrentGizmoOperation == ImGuizmo::ROTATE))
-					mCurrentGizmoOperation = ImGuizmo::ROTATE;
-				ImGui::SameLine();
-				if (ImGui::RadioButton("Scale", mCurrentGizmoOperation == ImGuizmo::SCALE))
-					mCurrentGizmoOperation = ImGuizmo::SCALE;
-				if (mCurrentGizmoOperation != ImGuizmo::SCALE)
-				{
-					ImGui::SetCursorPosX(5.f);
-					if (ImGui::RadioButton("Local", mCurrentGizmoMode == ImGuizmo::LOCAL))
-						mCurrentGizmoMode = ImGuizmo::LOCAL;
-					ImGui::SameLine();
-					if (ImGui::RadioButton("World", mCurrentGizmoMode == ImGuizmo::WORLD))
-						mCurrentGizmoMode = ImGuizmo::WORLD;
-				}
-			}
-
-			//if (ImGui::IsKeyPressed(83))
-			//	useSnap = !useSnap;
-			//ImGui::Checkbox("", &useSnap);
-			//ImGui::SameLine();
-
-			//switch (mCurrentGizmoOperation)
-			//{
-			//case ImGuizmo::TRANSLATE:
-			//	ImGui::InputFloat3("Snap", &snap[0]);
-			//	break;
-			//case ImGuizmo::ROTATE:
-			//	ImGui::InputFloat("Angle Snap", &snap[0]);
-			//	break;
-			//case ImGuizmo::SCALE:
-			//	ImGui::InputFloat("Scale Snap", &snap[0]);
-			//	break;
-			//}
-		//}
-	}
-	ImGui::End();
-	ImGui::PopStyleVar(3);
 }
 
 void Havana::SetViewportMode(ViewportMode mode)
@@ -1238,7 +805,6 @@ const bool Havana::IsWorldViewFocused() const
 {
 	return m_isWorldViewFocused;
 }
-
 
 const Vector2& Havana::GetGameOutputSize() const
 {
