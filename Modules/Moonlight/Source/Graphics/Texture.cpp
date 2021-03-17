@@ -8,6 +8,7 @@
 #include "Utils/StringUtils.h"
 #include <bimg/bimg.h>
 #include "Utils/BGFXUtils.h"
+#include <Utils/PlatformUtils.h>
 
 //using namespace DirectX;
 
@@ -143,71 +144,42 @@ void TextureResourceMetadata::Export()
 	Path optickPath = Path("Engine/Tools/Win64/texturec.exe");
 
 	/*
-
-rule texturec_bc1
-	command = texturec -f $in -o $out -t bc1 -m
-
-rule texturec_bc2
-	command = texturec -f $in -o $out -t bc2 -m
-
-rule texturec_bc3
-	command = texturec -f $in -o $out -t bc3 -m
-
-rule texturec_bc4
-	command = texturec -f $in -o $out -t bc4 -m
-
-rule texturec_bc5
-	command = texturec -f $in -o $out -t bc5 -m
-
-rule texturec_bc7
-	command = texturec -f $in -o $out -t bc7 -m
-
-rule texturec_etc1
-	command = texturec -f $in -o $out -t etc1 -m
-
-rule texturec_etc2
-	command = texturec -f $in -o $out -t etc2 -m
-
-rule texturec_diffuse
-	command = texturec -f $in -o $out -t bc2 -m
-
-rule texturec_normal
-	command = texturec -f $in -o $out -t bc5 -m -n
-
-rule texturec_height
-	command = texturec -f $in -o $out -t r8
-
-rule texturec_equirect
-	command = texturec -f $in -o $out --max 512 -t rgba16f --equirect
-
+		rule texturec_bc1
+			command = texturec -f $in -o $out -t bc1 -m
+		rule texturec_bc2
+			command = texturec -f $in -o $out -t bc2 -m
+		rule texturec_bc3
+			command = texturec -f $in -o $out -t bc3 -m
+		rule texturec_bc4
+			command = texturec -f $in -o $out -t bc4 -m
+		rule texturec_bc5
+			command = texturec -f $in -o $out -t bc5 -m
+		rule texturec_bc7
+			command = texturec -f $in -o $out -t bc7 -m
+		rule texturec_etc1
+			command = texturec -f $in -o $out -t etc1 -m
+		rule texturec_etc2
+			command = texturec -f $in -o $out -t etc2 -m
+		rule texturec_diffuse
+			command = texturec -f $in -o $out -t bc2 -m
+		rule texturec_normal
+			command = texturec -f $in -o $out -t bc5 -m -n
+		rule texturec_height
+			command = texturec -f $in -o $out -t r8
+		rule texturec_equirect
+			command = texturec -f $in -o $out --max 512 -t rgba16f --equirect
 	*/
 
 	std::string exportType = " --as dds";
 
 	std::string fileName = FilePath.LocalPath.substr(FilePath.LocalPath.rfind("/") + 1, FilePath.LocalPath.length());
-	// texturec -f $in -o $out -t bc2 -m
-	std::string srtt = "-f ../../../";
-	srtt += FilePath.LocalPath;
-	srtt += " -o ../../../" + FilePath.LocalPath + ".dds" + exportType;
-	SetCurrentDirectory(StringUtils::ToWString(optickPath.Directory).c_str());
+
+	std::string progArgs = "-f ../../../";
+	progArgs += FilePath.LocalPath;
+	progArgs += " -o ../../../" + FilePath.LocalPath + ".dds" + exportType;
 	// ./shaderc -f ../../../Assets/Shaders/vs_cubes.shader -o ../../../Assets/Shaders/dummy.bin --varyingdef ./varying.def.sc --platform windows -p vs_5_0 --type vertex
 
-	STARTUPINFO si;
-	PROCESS_INFORMATION pi;
-	ZeroMemory(&si, sizeof(si));
-	si.cb = sizeof(si);
-	ZeroMemory(&pi, sizeof(pi));
-
-	if (!CreateProcessW(StringUtils::ToWString(optickPath.FullPath).c_str(), &StringUtils::ToWString(srtt)[0], NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
-	{
-		printf("CreateProcess failed (%d).\n", GetLastError());
-		throw std::exception("Could not create child process");
-	}
-
-	WaitForSingleObject(pi.hProcess, INFINITE);
-
-	CloseHandle(pi.hProcess);
-	CloseHandle(pi.hThread);
+	PlatformUtils::SystemCall(optickPath, progArgs);
 #else
     
     Path optickPath = Path("Engine/Tools/macOS/texturec");
@@ -215,10 +187,10 @@ rule texturec_equirect
 
     std::string fileName = FilePath.LocalPath.substr(FilePath.LocalPath.rfind("/") + 1, FilePath.LocalPath.length());
     // texturec -f $in -o $out -t bc2 -m
-    std::string srtt = "\"" + optickPath.FullPath + "\" -f ../../";
-    srtt += FilePath.LocalPath;
-    srtt += " -o \"../../" + FilePath.LocalPath + ".dds\"" + exportType;
-    system(srtt.c_str());
+    std::string progArgs = "\"" + optickPath.FullPath + "\" -f ../../";
+    progArgs += FilePath.LocalPath;
+    progArgs += " -o \"../../" + FilePath.LocalPath + ".dds\"" + exportType;
+    system(progArgs.c_str());
     
 #endif
 }

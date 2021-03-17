@@ -8,11 +8,7 @@
 #include "Utils/StringUtils.h"
 #include "Utils/BGFXUtils.h"
 #include "bx/readerwriter.h"
-
-#if ME_PLATFORM_WIN64
-#include <Windows.h>
-#include <winnt.h>
-#endif
+#include <Utils/PlatformUtils.h>
 
 namespace Moonlight
 {
@@ -63,7 +59,7 @@ struct ShaderFileMetadata
 	void Export() override
 	{
 #if ME_PLATFORM_WIN64
-		Path optickPath = Path("Engine/Tools/Win64/shaderc.exe");
+		Path shadercPath = Path("Engine/Tools/Win64/shaderc.exe");
 
 		std::string exportType;
 		std::string shaderType;
@@ -84,30 +80,15 @@ struct ShaderFileMetadata
 		// --platform windows -p vs_5_0 -O 3 --type vertex --depends -o $(@) -f $(<) --disasm
 		//
 		std::string nameNoExt = fileName.substr(0, fileName.rfind("."));
-		std::string srtt = "-f ../../../";
-		srtt += localFolder + fileName;
-		srtt += " -o ../../../" + localFolder + fileName + "." + Moonlight::GetPlatformString() + ".bin --varyingdef ../../../" + localFolder + nameNoExt + ".var --platform windows -p " + shaderType + " --type " + exportType;
-		SetCurrentDirectory(StringUtils::ToWString(optickPath.Directory).c_str());
+		std::string progArgs = "-f ../../../";
+		progArgs += localFolder + fileName;
+		progArgs += " -o ../../../" + localFolder + fileName + "." + Moonlight::GetPlatformString() + ".bin --varyingdef ../../../" + localFolder + nameNoExt + ".var --platform windows -p " + shaderType + " --type " + exportType;
 		// ./shaderc -f ../../../Assets/Shaders/vs_cubes.shader -o ../../../Assets/Shaders/dummy.bin --varyingdef ./varying.def.sc --platform windows -p vs_5_0 --type vertex
 
-		STARTUPINFO si;
-		PROCESS_INFORMATION pi;
-		ZeroMemory(&si, sizeof(si));
-		si.cb = sizeof(si);
-		ZeroMemory(&pi, sizeof(pi));
+		PlatformUtils::RunProcess(shadercPath, progArgs);
 
-		if (!CreateProcessW(StringUtils::ToWString(optickPath.FullPath).c_str(), &StringUtils::ToWString(srtt)[0], NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
-		{
-			printf("CreateProcess failed (%d).\n", GetLastError());
-			throw std::exception("Could not create child process");
-		}
-
-		WaitForSingleObject(pi.hProcess, INFINITE);
-
-		CloseHandle(pi.hProcess);
-		CloseHandle(pi.hThread);
 #elif ME_PLATFORM_MACOS
-        Path optickPath = Path("Engine/Tools/macOS/shaderc");
+        Path shadercPath = Path("Engine/Tools/macOS/shaderc");
         
         std::string exportType;
         std::string shaderType;
@@ -127,14 +108,14 @@ struct ShaderFileMetadata
         std::string localFolder = FilePath.LocalPath.substr(0, FilePath.LocalPath.rfind("/") + 1);
         
         std::string nameNoExt = fileName.substr(0, fileName.rfind("."));
-        std::string srtt = "\"" + optickPath.FullPath + "\" -f ../../";
-        srtt += localFolder + fileName;
-        srtt += " -o ../../" + localFolder + fileName + "." + Moonlight::GetPlatformString() + ".bin --varyingdef ../../" + localFolder + nameNoExt + ".var --platform osx -p metal --depends -disasm --type " + exportType;
+        std::string progArgs = "\"" + shadercPath.FullPath + "\" -f ../../";
+        progArgs += localFolder + fileName;
+        progArgs += " -o ../../" + localFolder + fileName + "." + Moonlight::GetPlatformString() + ".bin --varyingdef ../../" + localFolder + nameNoExt + ".var --platform osx -p metal --depends -disasm --type " + exportType;
         
         
 
         // texturec -f $in -o $out -t bc2 -m
-        system(srtt.c_str());
+        system(progArgs.c_str());
 #endif
 	}
 #if ME_EDITOR

@@ -9,8 +9,8 @@
 #include <Window/EditorWindow.h>
 #include <EditorApp.h>
 #include <Havana.h>
-#include <processthreadsapi.h>
 #include <Utils/StringUtils.h>
+#include <Utils/PlatformUtils.h>
 
 MainMenuWidget::MainMenuWidget()
 	: HavanaWidget("Main Menu")
@@ -315,33 +315,9 @@ void MainMenuWidget::Render()
 		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 5.f));
 		if (ImGui::ImageButton(Icons["Profiler"]->TexHandle, ImVec2(30.f, 30.f)))
 		{
-			Path optickPath = Path("Engine/Tools/");
+			Path optickPath = Path("Engine/Tools/Optick.exe");
 			// additional information
-#if ME_PLATFORM_WIN64
-			STARTUPINFO si;
-			PROCESS_INFORMATION pi;
-
-			// set the size of the structures
-			ZeroMemory(&si, sizeof(si));
-			si.cb = sizeof(si);
-			ZeroMemory(&pi, sizeof(pi));
-
-			// start the program up
-			CreateProcess(StringUtils::ToWString(optickPath.FullPath + "Optick.exe").c_str(),   // the path
-				L"",        // Command line
-				NULL,           // Process handle not inheritable
-				NULL,           // Thread handle not inheritable
-				FALSE,          // Set handle inheritance to FALSE
-				0,              // No creation flags
-				NULL,           // Use parent's environment block
-				NULL,           // Use parent's starting directory 
-				&si,            // Pointer to STARTUPINFO structure
-				&pi             // Pointer to PROCESS_INFORMATION structure (removed extra parentheses)
-			);
-			// Close process and thread handles. 
-			CloseHandle(pi.hProcess);
-			CloseHandle(pi.hThread);
-#endif
+			PlatformUtils::RunProcess(optickPath);
 		}
 		//if (ImGui::ImageButton(Icons["Info"]->TexHandle, ImVec2(30.f, 30.f)))
 		//{
