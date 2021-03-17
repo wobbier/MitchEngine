@@ -169,6 +169,7 @@ void SDLWindow::SetTitle(const std::string& title)
 
 void SDLWindow::Exit()
 {
+	CloseRequested = true;
 }
 
 void* SDLWindow::GetWindowPtr()

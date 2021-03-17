@@ -1,6 +1,5 @@
 #include "PCH.h"
 #include "Light.h"
-#include "Havana.h"
 #include "Engine/Engine.h"
 #include "Utils/HavanaUtils.h"
 

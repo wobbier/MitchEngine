@@ -361,7 +361,10 @@ bool Engine::IsRunning() const
 	return true;
 }
 
-void Engine::Quit() { Running = false; }
+void Engine::Quit()
+{
+	GameWindow->Exit();
+}
 
 IWindow* Engine::GetWindow()
 {

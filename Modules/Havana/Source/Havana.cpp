@@ -44,15 +44,15 @@
 #include "imgui_internal.h"
 #include "Window/EditorWindow.h"
 #include "Utils/ImGuiUtils.h"
-
+#include "Widgets/LogWidget.h"
+#include <Widgets/MainMenuWidget.h>
+#include <Widgets/ResourceMonitorWidget.h>
 
 Havana::Havana(Engine* GameEngine, EditorApp* app)
 	: m_engine(GameEngine)
 	, m_app(app)
-	, CurrentDirectory("Assets")
 	, m_assetBrowser(Path("Assets").FullPath, std::chrono::milliseconds(300))
 {
-	InitUI();
 	m_assetBrowser.Start([](const std::string& path_to_watch, FileStatus status) -> void {
 		// Process only regular files, all other file types are ignored
 		if (!std::filesystem::is_regular_file(std::filesystem::path(path_to_watch)) && status != FileStatus::Deleted)
@@ -63,8 +63,7 @@ Havana::Havana(Engine* GameEngine, EditorApp* app)
 		switch (status) {
 		case FileStatus::Created:
 		{
-
-            #if ME_PLATFORM_WIN64
+ #if ME_PLATFORM_WIN64
 			CLog::GetInstance().Log(CLog::LogType::Info, "File created: " + path_to_watch);
 			TestEditorEvent evt;
 			evt.Path = std::move(path_to_watch);
@@ -89,6 +88,17 @@ Havana::Havana(Engine* GameEngine, EditorApp* app)
 	events.push_back(PreviewResourceEvent::GetEventId());
 	EventManager::GetInstance().RegisterReceiver(this, events);
 	Renderer = &GameEngine->GetRenderer();
+
+	MainMenu.reset(new MainMenuWidget());
+	RegisteredWidgets.push_back(MainMenu);
+
+	LogPanel.reset(new LogWidget());
+	RegisteredWidgets.push_back(LogPanel);
+
+	ResourceMonitor.reset(new ResourceMonitorWidget());
+	RegisteredWidgets.push_back(ResourceMonitor);
+
+	InitUI();
 }
 
 void Havana::InitUI()
@@ -159,19 +169,6 @@ void Havana::InitUI()
 	style.WindowMenuButtonPosition = ImGuiDir_None;
 	style.AntiAliasedFill = false;
 
-	Icons["Close"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Close.png"));
-	Icons["BugReport"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/BugReport.png"));
-	Icons["Maximize"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Maximize.png"));
-	Icons["ExitMaximize"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/ExitMaximize.png"));
-	Icons["Minimize"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Minimize.png"));
-	Icons["Play"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Play.png"));
-	Icons["Pause"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Pause.png"));
-	Icons["Stop"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Stop.png"));
-	Icons["Info"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Info.png"));
-	Icons["Logo"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/ME-LOGO.png"));
-	Icons["Profiler"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Profiler.png"));
-	Icons["FlipCamera"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/FlipCamera.png"));
-
 	//auto cb = [this](const Vector2& pos) -> std::optional<SDL_HitTestResult>
 	//{
 	//	if (pos > TitleBarDragPosition && pos < TitleBarDragPosition + TitleBarDragSize)
@@ -186,11 +183,14 @@ void Havana::InitUI()
 	window->SetCustomDragCallback(cb);*/
 	//m_engine->GetInput().Stop();
 	//GetInput().GetMouse().SetWindow(GetActiveWindow());
+
+	MainMenu->Init();
+	LogPanel->Init();
+	ResourceMonitor->Init();
 }
 
-bool show_demo_window = true;
 bool show_dockspace = true;
-void Havana::NewFrame(std::function<void()> StartGameFunc, std::function<void()> PauseGameFunc, std::function<void()> StopGameFunc)
+void Havana::NewFrame()
 {
 	GetInput().Update();
 	OPTICK_EVENT("Havana::NewFrame");
@@ -201,11 +201,12 @@ void Havana::NewFrame(std::function<void()> StartGameFunc, std::function<void()>
 	RenderSize = Vector2(io.DisplaySize.x, io.DisplaySize.y);
 	//Renderer->GetDevice().SetOutputSize(RenderSize);
 
-	DrawMainMenuBar(StartGameFunc, PauseGameFunc, StopGameFunc);
-	DrawOpenFilePopup();
+	MainMenu->SetData(&RegisteredWidgets, m_app);
+	MainMenu->Render();
 
 	static float f = 0.0f;
 	ImGuiViewport* viewport = ImGui::GetMainViewport();
+	ImVec2 MainMenuSize;
 	MainMenuSize.x = 0.f;
 	MainMenuSize.y = 17.f;
 	DockSize = viewport->Size;
@@ -231,58 +232,16 @@ void Havana::NewFrame(std::function<void()> StartGameFunc, std::function<void()>
 	ImGuiID dockspace_id = ImGui::GetID("MyDockspace");
 	ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_PassthruCentralNode;
 	ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
-	ImGui::ShowDemoWindow(&show_demo_window);
 
 	ImGui::End();
 
-	DrawLog();
+	LogPanel->Render();
 	m_assetBrowser.Draw();
+	ResourceMonitor->Render();
 
 	//DrawCommandPanel();
-	DrawResourceMonitor();
 }
 
-void Havana::DrawOpenFilePopup()
-{
-	OPTICK_CATEGORY("File Popup", Optick::Category::Debug);
-
-	if (OpenScene)
-	{
-		ImGui::OpenPopup("Open Scene");
-	}
-	if (ImGui::BeginPopupModal("Open Scene", &OpenScene, ImGuiWindowFlags_MenuBar))
-	{
-		BrowseDirectory(Path("Assets"));
-
-		for (auto& j : AssetDirectory)
-		{
-			Path path(j);
-			ImGui::TreeNode(path.LocalPath.c_str());
-			if (ImGui::IsItemClicked())
-			{
-				if (!j.is_string())
-				{
-					return;
-				}
-				LoadSceneEvent evt;
-				evt.Level = path.LocalPath;
-				evt.Fire();
-
-				GetEngine().GetConfig().SetValue(std::string("CurrentScene"), GetEngine().CurrentScene->FilePath.LocalPath);
-
-				OpenScene = false;
-				ImGui::CloseCurrentPopup();
-			}
-		}
-
-		if (ImGui::Button("Close"))
-		{
-			OpenScene = false;
-			ImGui::CloseCurrentPopup();
-		}
-		ImGui::EndPopup();
-	}
-}
 
 void RecusiveDelete(EntityHandle ent, Transform* trans)
 {
@@ -296,494 +255,6 @@ void RecusiveDelete(EntityHandle ent, Transform* trans)
 	}
 	ent->MarkForDelete();
 };
-
-void Havana::DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<void()> PauseGameFunc, std::function<void()> StopGameFunc)
-{
-	OPTICK_CATEGORY("Main Menu Bar", Optick::Category::Debug);
-	ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0.0f, 12.f));
-	if (ImGui::BeginMainMenuBar())
-	{
-		MainMenuSize = ImGui::GetWindowSize();
-		//MainMenuSize.y = 25.f;
-		ImGui::SetWindowSize(MainMenuSize);
-		ImGui::PopStyleVar(1);
-		ImGui::Image(Icons["Logo"]->TexHandle, ImVec2(35, 35));
-		if (ImGui::BeginMenu("File"))
-		{
-			//ImGui::MenuItem("(dummy menu)", NULL, false, false);
-			if (ImGui::MenuItem("New Scene"))
-			{
-
-                #if ME_PLATFORM_WIN64
-				NewSceneEvent evt;
-				evt.Queue();
-#endif
-			}
-			if (ImGui::MenuItem("Open Scene", "Ctrl+O"))
-			{
-				OpenScene = true;
-			}
-
-			if (ImGui::BeginMenu("Open Recent"))
-			{
-				ImGui::MenuItem("fish_hat.c");
-				ImGui::MenuItem("fish_hat.inl");
-				ImGui::MenuItem("fish_hat.h");
-				if (ImGui::BeginMenu("More.."))
-				{
-					ImGui::MenuItem("Hello");
-					ImGui::MenuItem("Sailor");
-					if (ImGui::BeginMenu("Recurse.."))
-					{
-						//ShowExampleMenuFile();
-						ImGui::EndMenu();
-					}
-					ImGui::EndMenu();
-				}
-				ImGui::EndMenu();
-			}
-			if (ImGui::MenuItem("Save", "Ctrl+S"))
-			{
-				if (m_engine->CurrentScene/* && !std::filesystem::exists(m_engine->CurrentScene->Path.FullPath)*/)
-				{
-					SaveSceneEvent evt;
-					//ImGui::OpenPopup("help_popup");
-					evt.Fire();
-				}
-
-			}
-			if (ImGui::MenuItem("Save As..")) {}
-			ImGui::Separator();
-			if (ImGui::BeginMenu("Options"))
-			{
-				static bool enabled = true;
-				ImGui::MenuItem("Enabled", "", &enabled);
-				ImGui::BeginChild("child", ImVec2(0, 60), true);
-				for (int i = 0; i < 10; i++)
-					ImGui::Text("Scrolling Text %d", i);
-				ImGui::EndChild();
-				static float f = 0.5f;
-				static int n = 0;
-				static bool b = true;
-				ImGui::SliderFloat("Value", &f, 0.0f, 1.0f);
-				ImGui::InputFloat("Input", &f, 0.1f);
-				ImGui::Combo("Combo", &n, "Yes\0No\0Maybe\0\0");
-				ImGui::Checkbox("Check", &b);
-				ImGui::EndMenu();
-			}
-			if (ImGui::MenuItem("Quit", "Alt+F4")) {}
-			ImGui::EndMenu();
-		}
-		if (ImGui::BeginMenu("Edit"))
-		{
-			const bool canUndo = EditorCommands.CanUndo();
-
-			if (ImGui::MenuItem("Undo", "CTRL+Z", false, canUndo))
-			{
-				EditorCommands.Undo();
-			}
-
-			const bool canRedo = EditorCommands.CanRedo();
-			if (ImGui::MenuItem("Redo", "CTRL+Y", false, canRedo))
-			{
-				EditorCommands.Redo();
-			}
-
-			/*ImGui::Separator();
-			if (ImGui::MenuItem("Cut", "CTRL+X")) {}
-			if (ImGui::MenuItem("Copy", "CTRL+C")) {}
-			if (ImGui::MenuItem("Paste", "CTRL+V")) {}*/
-			ImGui::EndMenu();
-		}
-		if (ImGui::BeginMenu("Add"))
-		{
-			if (ImGui::MenuItem("Entity"))
-			{
-				// The fuck is this garbage
-				CreateEntity* cmd = new CreateEntity();
-				EditorCommands.Push(cmd);
-
-				AddComponentCommand* compCmd = new AddComponentCommand("Transform", cmd->Ent);
-				EditorCommands.Push(compCmd);
-
-				Transform* transform = static_cast<Transform*>(compCmd->GetComponent());
-				transform->SetName("New Entity");
-			}
-			ImGui::EndMenu();
-		}
-
-		if (ImGui::BeginMenu("View"))
-		{
-			if (ImGui::MenuItem("Resource Monitor"))
-			{
-			}
-			ImGui::EndMenu();
-		}
-
-		if (ImGui::BeginMenu("Help"))
-		{
-			if (ImGui::MenuItem("Show ImGui Demo"))
-			{
-				show_demo_window = !show_demo_window;
-			}
-			ImGui::EndMenu();
-		}
-		/*if (ImGui::BeginMenu("Render Mode"))
-		{
-			{
-				bool selected = m_engine->GetRenderer().GetContextType() == Moonlight::eDeviceContextType::Legacy;
-				if (ImGui::MenuItem("Legacy", nullptr, &selected))
-				{
-					m_engine->GetRenderer().SetContextType(Moonlight::eDeviceContextType::Legacy);
-				}
-			}
-			{
-				bool selected = m_engine->GetRenderer().GetContextType() == Moonlight::eDeviceContextType::Immediate;
-				if (ImGui::MenuItem("Immediate", nullptr, &selected))
-				{
-					m_engine->GetRenderer().SetContextType(Moonlight::eDeviceContextType::Immediate);
-				}
-			}
-			{
-				bool selected = m_engine->GetRenderer().GetContextType() == Moonlight::eDeviceContextType::MT_DefferedChunk;
-				if (ImGui::MenuItem("Multithreaded Deferred Chunk", nullptr, &selected))
-				{
-					m_engine->GetRenderer().SetContextType(Moonlight::eDeviceContextType::MT_DefferedChunk);
-				}
-			}
-			ImGui::EndMenu();
-		}*/
-		Input& editorInput = GetInput();
-		if (!m_app->IsGameRunning())
-		{
-			if (ImGui::ImageButton(Icons["Play"]->TexHandle, ImVec2(30.f, 30.f)) || editorInput.IsKeyDown(KeyCode::F5))
-			{
-				ImGui::SetWindowFocus("Game");
-				m_engine->GetInput().Resume();
-				StartGameFunc();
-			}
-		}
-
-		if (m_app->IsGameRunning())
-		{
-			if (ImGui::ImageButton(Icons["Pause"]->TexHandle, ImVec2(30.f, 30.f)) || editorInput.IsKeyDown(KeyCode::F10))
-			{
-				m_engine->GetInput().Pause();
-				PauseGameFunc();
-			}
-
-			if (ImGui::ImageButton(Icons["Stop"]->TexHandle, ImVec2(30.f, 30.f)) || (editorInput.IsKeyDown(KeyCode::F5) && editorInput.IsKeyDown(KeyCode::LeftShift)))
-			{
-				MaximizeOnPlay = false;
-				SelectedTransform = nullptr;
-				StopGameFunc();
-				m_engine->GetInput().Stop();
-			}
-		}
-
-		if (ImGui::ImageButton(Icons["FlipCamera"]->TexHandle, ImVec2(30.f, 30.f))/* || (Keyboard.F5 && Keyboard.LeftShift)*/)
-		{
-			if (m_viewportMode == ViewportMode::Editor)
-			{
-				SetViewportMode(ViewportMode::Game);
-			}
-			else
-			{
-				SetViewportMode(ViewportMode::Editor);
-			}
-		}
-
-		float endOfMenu = ImGui::GetCursorPosX();
-		float buttonWidth = 40.f;
-		TitleBarDragPosition = Vector2(endOfMenu, 10.f);
-		float winWidth = ImGui::GetWindowWidth();
-		TitleBarDragSize = Vector2(winWidth - endOfMenu - (buttonWidth * 5.f), MainMenuSize.y - 10.f);
-
-#if ME_PLATFORM_WIN64
-		auto window = static_cast<EditorWindow*>(m_engine->GetWindow());
-
-		window->SetDragBounds(TitleBarDragPosition, TitleBarDragSize);
-#endif
-		Vector2 pos = GetInput().GetMousePosition();
-		if (ImGui::IsMouseDoubleClicked(0) && (pos > TitleBarDragPosition && pos < TitleBarDragPosition + TitleBarDragSize))
-		{
-			GetEngine().GetWindow()->Maximize();
-		}
-
-		static int frameCount = 0;
-		static float frametime = 0.0f;
-		//static std::vector<float> frames;
-		//frames.resize(50, GetEngine().DeltaTime * 100);
-		//if (frameCount > 15)
-		//{
-		//	frametime = GetEngine().DeltaTime;
-		//	frameCount = 0;
-		//}
-		//else
-		//{
-		//}
-
-		// increase the counter by one
-		static int m_fpscount = 0;
-		static int fps = 0;
-		m_fpscount++;
-		++frameCount;
-
-		static float fpsTime = 0;
-		fpsTime += GetEngine().DeltaTime;
-		// one second elapsed? (= 1000 milliseconds)
-		if (fpsTime >= 1.f)
-		{
-			frametime = GetEngine().DeltaTime;
-			frameCount = 0;
-
-			// save the current counter value to m_fps
-			fps = m_fpscount;
-
-			// reset the counter and the interval
-			m_fpscount = 0;
-			fpsTime -= 1.f;
-		}
-
-		ImGui::Text("%.1f ms", frametime * 1000.f);
-		ImGui::Text("%.1f fps", (float)fps);
-		//ImGui::Text("%.1f fps", (float)ImGui::GetIO().Framerate);
-
-		ImGui::SetCursorPosX((ImGui::GetWindowWidth() / 2.f) - (ImGui::CalcTextSize(WindowTitle.c_str()).x / 2.f));
-		ImGui::Text(WindowTitle.c_str());
-
-		ImGui::BeginGroup();
-		ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(0.0f, 0.6f, 0.6f, 0.f));
-		ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)ImColor::HSV(0.f, 0.8f, 0.8f, 0.f));
-		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 5.f));
-		if (ImGui::ImageButton(Icons["Profiler"]->TexHandle, ImVec2(30.f, 30.f)))
-		{
-			Path optickPath = Path("Engine/Tools/");
-			// additional information
-            #if ME_PLATFORM_WIN64
-			STARTUPINFO si;
-			PROCESS_INFORMATION pi;
-
-			// set the size of the structures
-			ZeroMemory(&si, sizeof(si));
-			si.cb = sizeof(si);
-			ZeroMemory(&pi, sizeof(pi));
-
-			// start the program up
-			CreateProcess(StringUtils::ToWString(optickPath.FullPath + "Optick.exe").c_str(),   // the path
-				L"",        // Command line
-				NULL,           // Process handle not inheritable
-				NULL,           // Thread handle not inheritable
-				FALSE,          // Set handle inheritance to FALSE
-				0,              // No creation flags
-				NULL,           // Use parent's environment block
-				NULL,           // Use parent's starting directory 
-				&si,            // Pointer to STARTUPINFO structure
-				&pi             // Pointer to PROCESS_INFORMATION structure (removed extra parentheses)
-			);
-			// Close process and thread handles. 
-			CloseHandle(pi.hProcess);
-			CloseHandle(pi.hThread);
-#endif
-		}
-		//if (ImGui::ImageButton(Icons["Info"]->TexHandle, ImVec2(30.f, 30.f)))
-		//{
-		//	if (m_engine->CurrentScene && !std::filesystem::exists(m_engine->CurrentScene->FilePath.FullPath))
-		//	{
-		//		ImGui::OpenPopup("help_popup");
-		//	}
-		//}
-
-		//if (ImGui::BeginPopup("help_popup"))
-		//{
-		//	ImGui::Text("Components");
-		//	ImGui::Separator();
-
-		//	ComponentRegistry& reg = GetComponentRegistry();
-
-		//	for (auto& thing : reg)
-		//	{
-		//		if (ImGui::Selectable(thing.first.c_str()))
-		//		{
-		//			if (SelectedEntity)
-		//			{
-		//				AddComponentCommand* compCmd = new AddComponentCommand(thing.first, SelectedEntity);
-		//				EditorCommands.Push(compCmd);
-		//			}
-		//			if (SelectedTransform)
-		//			{
-		//				AddComponentCommand* compCmd = new AddComponentCommand(thing.first, SelectedTransform->Parent);
-		//				EditorCommands.Push(compCmd);
-		//			}
-		//		}
-		//	}
-		//	ImGui::EndPopup();
-		//}
-		float RightShift = 2.f;
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(0.35f, 126.f, 43.f, 1.f));
-		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 4.f));
-		if (ImGui::ImageButton(Icons["BugReport"]->TexHandle, ImVec2(30.f, 30.f)))
-		{
-#if ME_PLATFORM_WIN64
-			ShellExecute(0, 0, L"https://github.com/wobbier/MitchEngine/issues", 0, 0, SW_SHOW);
-#endif
-        }
-		ImGui::PopStyleColor(1);
-
-		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 3.f) + RightShift);
-		if (ImGui::ImageButton(Icons["Minimize"]->TexHandle, ImVec2(30.f, 30.f)))
-		{
-			m_engine->GetWindow()->Minimize();
-		}
-
-        #if ME_PLATFORM_WIN64
-		if (static_cast<EditorWindow*>(m_engine->GetWindow())->IsMaximized())
-		{
-			ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 2.f) + RightShift);
-			if (ImGui::ImageButton(Icons["ExitMaximize"]->TexHandle, ImVec2(30.f, 30.f)))
-			{
-				m_engine->GetWindow()->ExitMaximize();
-			}
-		}
-		else
-#endif
-		{
-			ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 2.f) + RightShift);
-			if (ImGui::ImageButton(Icons["Maximize"]->TexHandle, ImVec2(30.f, 30.f)))
-			{
-				m_engine->GetWindow()->Maximize();
-			}
-		}
-
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(1.f, 42.f, 43.f, 1.f));
-		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - buttonWidth + RightShift);
-		//ImGui::SameLine(0.f);
-		if (ImGui::ImageButton(Icons["Close"]->TexHandle, ImVec2(30.f, 30.f)))
-		{
-			m_engine->GetWindow()->Exit();
-		}
-		ImGui::PopStyleColor(3);
-		ImGui::EndGroup();
-
-		ImGui::EndMainMenuBar();
-	}
-}
-
-void Havana::DrawLog()
-{
-	OPTICK_CATEGORY("Log", Optick::Category::Debug);
-	static std::unordered_map<CLog::LogType, bool> DebugFilters;
-	ImGuiWindowFlags window_flags = 0;
-	window_flags |= ImGuiWindowFlags_MenuBar;
-	window_flags |= ImGuiWindowFlags_NoScrollbar;
-	bool showLog = true;
-	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(1.f, 0.f));
-	ImGui::Begin("Log", &showLog, window_flags);
-	{
-		// Menu
-		if (ImGui::BeginMenuBar())
-		{
-			if (ImGui::BeginMenu("Show"))
-			{
-				ImGui::Checkbox("Debug", &DebugFilters[CLog::LogType::Debug]);
-				ImGui::Checkbox("Error", &DebugFilters[CLog::LogType::Error]);
-				ImGui::Checkbox("Info", &DebugFilters[CLog::LogType::Info]);
-				ImGui::EndMenu();
-			}
-
-			if (ImGui::Button("Clear Log"))
-			{
-				CLog::Messages.clear();
-			}
-
-			ImGui::EndMenuBar();
-		}
-
-		ImGuiListClipper clipper;
-		clipper.Begin(static_cast<int>(CLog::Messages.size()), 12.f);
-
-		static float currentHeight = 0.f;
-		ImVec2 size = ImVec2(0, (ImGui::GetWindowSize().y - currentHeight) - ImGui::GetCursorPosY());
-		static ImGuiTableFlags flags = ImGuiTableFlags_ScrollY /*| ImGuiTableFlags_ScrollFreezeTopRow*/ | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersV | ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable;
-
-		const int COLUMNS_COUNT = 1;
-		static int selectedIndex = -1;
-		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.f, 0.f));
-		if (ImGui::BeginTable("##table1ss", COLUMNS_COUNT, flags, size))
-		{
-			ImGui::PopStyleVar(1);
-
-			ImGui::TableSetupColumn("Message");
-
-			// Dummy entire-column selection storage
-			// FIXME: It would be nice to actually demonstrate full-featured selection using those checkbox.
-			static bool column_selected[1] = {};
-
-			// Instead of calling TableAutoHeaders() we'll submit custom headers ourselves
-			ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
-			for (int column = 0; column < COLUMNS_COUNT; column++)
-			{
-				ImGui::TableSetColumnIndex(column);
-				const char* column_name = ImGui::TableGetColumnName(column); // Retrieve name passed to TableSetupColumn()
-				ImGui::PushID(column);
-				ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
-				ImGui::Checkbox("##checkall1", &column_selected[column]);
-				ImGui::PopStyleVar();
-				ImGui::SameLine(0.0f, ImGui::GetStyle().ItemInnerSpacing.x);
-				ImGui::TableHeader(column_name);
-				ImGui::PopID();
-			}
-			while (clipper.Step())
-			{
-				for (int line_no = clipper.DisplayStart; line_no < clipper.DisplayEnd; line_no++)
-				{
-					ImGui::TableNextRow(0, 12.f);
-					for (int column = 0; column < 1; column++)
-					{
-						ImGui::TableSetColumnIndex(column);
-						if (ImGui::Selectable(CLog::Messages[line_no].Message.c_str(), column_selected[column], 0, ImVec2(0.f, 12.f)))
-						{
-							selectedIndex = line_no;
-						}
-					}
-				}
-			}
-			ImGui::EndTable();
-		}
-		else
-		{
-			ImGui::PopStyleVar(1);
-		}
-		clipper.End();
-
-		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(5.f, 5.f));
-		if (selectedIndex >= 0 && selectedIndex < static_cast<int>(CLog::Messages.size()))
-		{
-			ImGuiWindowFlags window_flags = ImGuiWindowFlags_HorizontalScrollbar;
-			ImGui::BeginChild("ChildL", ImVec2(ImGui::GetWindowContentRegionWidth(), 150), false, window_flags);
-			ImGui::PushTextWrapPos(ImGui::GetWindowContentRegionWidth() - 10.f);
-			ImGui::TextWrapped(CLog::Messages[selectedIndex].Message.c_str());
-			ImGui::PopTextWrapPos();
-			currentHeight = ImGui::GetWindowHeight();
-			ImGui::EndChild();
-		}
-		ImGui::PopStyleVar(2);
-		//bool showMessage = true;
-		//for (auto& msg : Logger::Messages)
-		//{
-		//	if (DebugFilters.find(msg.Type) == DebugFilters.end())
-		//	{
-		//		DebugFilters[msg.Type] = true;
-		//	}
-		//	if (DebugFilters[msg.Type])
-		//	{
-		//		ImGui::Text(msg.Message.c_str());
-		//	}
-		//}
-	}
-
-	ImGui::End();
-}
 
 void Havana::AddComponentPopup()
 {
@@ -968,61 +439,9 @@ void Havana::DrawCommandPanel()
 	EditorCommands.Draw();*/
 }
 
-void Havana::DrawResourceMonitor()
+void Havana::SetGameCallbacks(std::function<void()> StartGameFunc, std::function<void()> PauseGameFunc, std::function<void()> StopGameFunc)
 {
-	OPTICK_CATEGORY("Resource Monitor", Optick::Category::Debug);
-	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.f, 0.f));
-	ImGui::Begin("Resource Monitor");
-	{
-		auto& resources = ResourceCache::GetInstance().GetResouceStack();
-		std::vector<std::shared_ptr<Resource>> resourceList;
-		resourceList.reserve(resources.size());
-
-		for (auto resource : resources)
-		{
-			resourceList.push_back(resource.second);
-		}
-
-		ImVec2 size = ImVec2(0, ImGui::GetWindowSize().y - ImGui::GetCursorPosY());
-		static ImGuiTableFlags flags = ImGuiTableFlags_ScrollY /*| ImGuiTableFlags_ScrollFreezeTopRow*/ | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersV | ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable;
-
-		if (ImGui::BeginTable("##ResourceTable", 2, flags, size))
-		{
-			ImGui::TableSetupColumn("Resource Path", ImGuiTableColumnFlags_WidthStretch);
-			ImGui::TableSetupColumn("References", ImGuiTableColumnFlags_WidthFixed);
-			//ImGui::TableAutoHeaders();
-			ImGuiListClipper clipper;
-			clipper.Begin(static_cast<int>(resourceList.size()));
-			while (clipper.Step())
-			{
-				for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; row++)
-				{
-					ImGui::TableNextRow();
-
-					ImGui::TableSetColumnIndex(0);
-					ImGui::Text(resourceList[row]->GetPath().LocalPath.c_str());
-					if (ImGui::IsItemHovered())
-					{
-						ImGui::BeginTooltip();
-
-						if (auto metaData = resourceList[row]->GetMetadata())
-						{
-							metaData->OnEditorInspect();
-						}
-
-						ImGui::EndTooltip();
-					}
-
-					ImGui::TableSetColumnIndex(1);
-					ImGui::Text(std::to_string(resourceList[row].use_count()).c_str());
-
-				}
-			}
-			ImGui::EndTable();
-		}
-		ImGui::End();
-	}
-	ImGui::PopStyleVar(1);
+	MainMenu->SetCallbacks(StartGameFunc, PauseGameFunc, StopGameFunc);
 }
 
 void Havana::UpdateWorld(World* world, Transform* root, const std::vector<Entity>& ents)
@@ -1805,6 +1224,11 @@ void Havana::SetViewportMode(ViewportMode mode)
 	m_viewportMode = mode;
 }
 
+void Havana::SetWindowTitle(const std::string& title)
+{
+	MainMenu->SetWindowTitle(title);
+}
+
 const bool Havana::IsGameFocused() const
 {
 	return m_isGameFocused;
@@ -1815,26 +1239,6 @@ const bool Havana::IsWorldViewFocused() const
 	return m_isWorldViewFocused;
 }
 
-void Havana::BrowseDirectory(const Path& path)
-{
-	if (CurrentDirectory.FullPath == path.FullPath && !AssetDirectory.empty())
-	{
-		return;
-	}
-
-	for (const auto& entry : std::filesystem::directory_iterator(path.FullPath))
-	{
-		Path filePath(entry.path().string());
-		if (filePath.LocalPath.find(".lvl") != std::string::npos)
-		{
-			AssetDirectory.push_back(filePath.FullPath);
-		}
-
-		ImGui::Text(filePath.Directory.c_str());
-
-		ImGui::Text(filePath.LocalPath.c_str());
-	}
-}
 
 const Vector2& Havana::GetGameOutputSize() const
 {

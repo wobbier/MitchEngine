@@ -16,10 +16,10 @@
 #include <Ultralight/Renderer.h>
 
 #if ME_EDITOR
-
-#include <Cores/EditorCore.h>
-#include <EditorApp.h>
-#include <Havana.h>
+//
+//#include <Cores/EditorCore.h>
+//#include <EditorApp.h>
+//#include <Havana.h>
 
 #endif
 

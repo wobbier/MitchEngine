@@ -24,6 +24,7 @@
 #include "Math/Frustrum.h"
 #include "optick.h"
 #include <Core/JobQueueOld.h>
+#include <Math/Quaternion.h>
 
 EditorApp::EditorApp(int argc, char** argv)
 	: Game(argc, argv)
@@ -47,38 +48,11 @@ void EditorApp::OnUpdate(float DeltaTime)
 {
 	OPTICK_CATEGORY("EditorApp::OnUpdate", Optick::Category::GameLogic);
 
-	Editor->NewFrame([this]() {
-		StartGame();
-		m_isGamePaused = false;
-		m_isGameRunning = true;
-		//Editor->SetViewportMode(ViewportMode::Game);
-		}
-		, [this]() {
-			m_isGamePaused = true;
-		}
-			, [this]() {
-			m_isGamePaused = false;
-			//Editor->SetViewportMode(ViewportMode::World);
-			Editor->ClearSelection();
-			StopGame();
-			//GetEngine().LoadScene("Assets/Alley.lvl");
-		});
+	Editor->NewFrame();
 
 	EditorSceneManager->Update(DeltaTime, GetEngine().SceneNodes->GetRootTransform());
 
 	Editor->UpdateWorld(GetEngine().GetWorld().lock().get(), GetEngine().SceneNodes->GetRootTransform(), EditorSceneManager->GetEntities());
-	//if (GetEngine().GetInput().IsKeyDown(KeyCode::T))
-	{
-		//int lmao = 0;
-		//GetEngine().GetJobSystem().AddWork([&lmao]() {
-		//	OPTICK_CATEGORY("TestLoop", Optick::Category::Debug);
-		//	while (lmao < 100)
-		//	{
-		//		lmao++;
-		//	}
-		//});
-		//GetEngine().GetJobSystem().Wait();
-	}
 
 	UpdateCameras();
 }
@@ -125,6 +99,24 @@ void EditorApp::OnInitialize()
 		InitialLevel = GetEngine().GetConfig().GetValue("CurrentScene");
 		Editor = std::make_unique<Havana>(&GetEngine(), this);
 		EditorSceneManager = new EditorCore(Editor.get());
+
+		Editor->SetGameCallbacks([this]() {
+			StartGame();
+			m_isGamePaused = false;
+			m_isGameRunning = true;
+			//Editor->SetViewportMode(ViewportMode::Game);
+		}
+		, [this]() {
+			m_isGamePaused = true;
+		}
+		, [this]() {
+			m_isGamePaused = false;
+			//Editor->SetViewportMode(ViewportMode::World);
+			Editor->ClearSelection();
+			StopGame();
+			//GetEngine().LoadScene("Assets/Alley.lvl");
+		});
+
 		NewSceneEvent evt;
 		evt.Fire();
 		GetEngine().GetWorld().lock()->AddCore<EditorCore>(*EditorSceneManager);

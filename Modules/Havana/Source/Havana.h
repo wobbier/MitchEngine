@@ -13,8 +13,13 @@
 #include "Engine/Input.h"
 #include "Camera/CameraData.h"
 #include "BGFXRenderer.h"
+#include <HavanaWidget.h>
 
+class LogWidget;
 class ComponentInfo;
+class ResourceMonitorWidget;
+class MainMenuWidget;
+
 class FolderTest
 {
 public:
@@ -35,12 +40,7 @@ public:
 
 	void InitUI();
 
-	void NewFrame(std::function<void()> StartGameFunc, std::function<void()> PauseGameFunc, std::function<void()> StopGameFunc);
-
-	void DrawOpenFilePopup();
-
-	void DrawMainMenuBar(std::function<void()> StartGameFunc, std::function<void()> PauseGameFunc, std::function<void()> StopGameFunc);
-	void DrawLog();
+	void NewFrame();
 
 	void UpdateWorld(class World* world, class Transform* root, const std::vector<Entity>& ents);
 	void UpdateWorldRecursive(class Transform* root);
@@ -55,10 +55,7 @@ public:
 
 	void SetViewportMode(ViewportMode mode);
 
-	void SetWindowTitle(const std::string& title)
-	{
-		WindowTitle = title;
-	}
+	void SetWindowTitle(const std::string& title);
 
 	Input& GetInput();
 	const bool IsGameFocused() const;
@@ -74,6 +71,8 @@ public:
 	void ClearSelection();
 
 	void DrawCommandPanel();
+
+	void SetGameCallbacks(std::function<void()> StartGameFunc, std::function<void()> PauseGameFunc, std::function<void()> StopGameFunc);
 
 	void DrawResourceMonitor();
 	void DoComponentRecursive(const FolderTest& currentFolder, const EntityHandle& entity);
@@ -92,27 +91,25 @@ public:
 
 	virtual bool OnEvent(const BaseEvent& evt) override;
 	SharedPtr<Moonlight::Texture> ViewTexture;
+
+	ViewportMode GetViewportMode() const { return m_viewportMode; }
+
 private:
 	void HandleAssetDragAndDrop(Transform* root);
 
 	class Engine* m_engine = nullptr;
 	class EditorApp* m_app = nullptr;
 	class Transform* m_rootTransform = nullptr;
-	std::string WindowTitle;
 	CommandManager EditorCommands;
 
 	BGFXRenderer* Renderer = nullptr;
 
 	bool m_isGameFocused = false;
 	bool m_isWorldViewFocused = false;
-	bool OpenScene = false;
 	bool AllowGameInput = false;
 	bool MaximizeOnPlay = false;
-	ImVec2 MainMenuSize;
 	ImVec2 DockPos;
 	ImVec2 DockSize;
-	Path CurrentDirectory;
-	json AssetDirectory;
 	std::unordered_map<std::string, SharedPtr<Moonlight::Texture>> Icons;
 	AssetBrowser m_assetBrowser;
 	float prevMatrixTranslation[3];
@@ -123,6 +120,10 @@ private:
 	ViewportMode m_viewportMode;
 	//Path ConfigFilePath;
 	Path EngineConfigFilePath;
-	Vector2 TitleBarDragPosition;
-	Vector2 TitleBarDragSize;
+
+	SharedPtr<LogWidget> LogPanel;
+	SharedPtr<ResourceMonitorWidget> ResourceMonitor;
+	SharedPtr<MainMenuWidget> MainMenu;
+
+	std::vector<SharedPtr<HavanaWidget>> RegisteredWidgets;
 };
