@@ -9,7 +9,7 @@
 #include <imgui.h>
 
 SceneHierarchyWidget::SceneHierarchyWidget()
-	: HavanaWidget("Scene")
+	: HavanaWidget("Hierarchy")
 {
 }
 
@@ -37,11 +37,15 @@ void SceneHierarchyWidget::Update()
 
 void SceneHierarchyWidget::Render()
 {
+	if (!IsOpen)
+	{
+		return;
+	}
+
 	auto world = GetEngine().GetWorld().lock();
 
-
 	OPTICK_CATEGORY("Havana::UpdateWorld", Optick::Category::GameLogic);
-	ImGui::Begin("World", 0, ImGuiWindowFlags_MenuBar);
+	ImGui::Begin(Name.c_str(), 0, ImGuiWindowFlags_MenuBar);
 	if (!world)
 	{
 		ImGui::End();
@@ -188,7 +192,7 @@ void SceneHierarchyWidget::UpdateWorldRecursive(Transform* root)
 				App->Editor->SelectedEntity = App->Editor->SelectedTransform->Parent;
 			}
 
-			App->Editor->DrawEntityRightClickMenu(var);
+			DrawEntityRightClickMenu(var);
 
 			if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
 			{
@@ -227,7 +231,7 @@ void SceneHierarchyWidget::UpdateWorldRecursive(Transform* root)
 				App->Editor->SelectedEntity = App->Editor->SelectedTransform->Parent;
 			}
 
-			App->Editor->DrawEntityRightClickMenu(var);
+			DrawEntityRightClickMenu(var);
 
 			if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
 			{
@@ -258,5 +262,30 @@ void SceneHierarchyWidget::UpdateWorldRecursive(Transform* root)
 		}
 
 		i++;
+	}
+}
+void SceneHierarchyWidget::DrawEntityRightClickMenu(Transform* transform)
+{
+	if (ImGui::BeginPopupContextItem())
+	{
+		if (ImGui::MenuItem("Add Child"))
+		{
+			EntityHandle ent = GetEngine().GetWorld().lock()->CreateEntity();
+			ent->AddComponent<Transform>().SetParent(*transform);
+			GetEngine().GetWorld().lock()->Simulate();
+		}
+
+		if (ImGui::MenuItem("Delete", "Del"))
+		{
+			CommonUtils::RecusiveDelete(transform->Parent, transform);
+			GetEngine().GetWorld().lock()->Simulate();
+			App->Editor->ClearSelection();
+		}
+		if (ImGui::BeginMenu("Add Component"))
+		{
+			CommonUtils::DrawAddComponentList(transform->Parent);
+			ImGui::EndMenu();
+		}
+		ImGui::EndPopup();
 	}
 }

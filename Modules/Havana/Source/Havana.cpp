@@ -99,7 +99,9 @@ Havana::Havana(Engine* GameEngine, EditorApp* app)
 	ResourceMonitor.reset(new ResourceMonitorWidget());
 	RegisteredWidgets.push_back(ResourceMonitor);
 
-	MainSceneView.reset(new SceneViewWidget("World", app));
+	MainSceneView.reset(new SceneViewWidget("World View", true));
+	GameSceneView.reset(new SceneViewWidget("Game View"));
+	RegisteredWidgets.push_back(GameSceneView);
 
 	SceneHierarchy.reset(new SceneHierarchyWidget());
 	RegisteredWidgets.push_back(SceneHierarchy);
@@ -194,6 +196,7 @@ void Havana::InitUI()
 	LogPanel->Init();
 	ResourceMonitor->Init();
 	MainSceneView->Init();
+	GameSceneView->Init();
 	SceneHierarchy->Init();
 }
 
@@ -393,32 +396,6 @@ Input& Havana::GetInput()
 	return m_engine->GetEditorInput();
 }
 
-void Havana::DrawEntityRightClickMenu(Transform* transform)
-{
-	if (ImGui::BeginPopupContextItem())
-	{
-		if (ImGui::MenuItem("Add Child"))
-		{
-			EntityHandle ent = GetEngine().GetWorld().lock()->CreateEntity();
-			ent->AddComponent<Transform>().SetParent(*transform);
-			GetEngine().GetWorld().lock()->Simulate();
-		}
-
-		if (ImGui::MenuItem("Delete", "Del"))
-		{
-			CommonUtils::RecusiveDelete(transform->Parent, transform);
-			GetEngine().GetWorld().lock()->Simulate();
-			ClearSelection();
-		}
-		if (ImGui::BeginMenu("Add Component"))
-		{
-			CommonUtils::DrawAddComponentList(transform->Parent);
-			ImGui::EndMenu();
-		}
-		ImGui::EndPopup();
-	}
-}
-
 void Havana::Render(Moonlight::CameraData& EditorCamera)
 {
 	OPTICK_EVENT("Editor Render", Optick::Category::Rendering);
@@ -426,6 +403,12 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 
 	MainSceneView->SetData(EditorCamera);
 	MainSceneView->Render();
+
+	int cameraId = Camera::CurrentCamera->GetCameraId();
+	GameSceneView->SetData(GetEngine().GetRenderer().GetCamera(cameraId));
+	GameSceneView->Render();
+
+	Camera::CurrentCamera->OutputSize = GameSceneView->SceneViewRenderSize;
 
 	Vector2 size(ImGui::GetMainViewport()->Size.x, static_cast<float>(FrameProfile::kMinProfilerSize));
 	auto pos = ImGui::GetMainViewport()->Pos;
@@ -450,17 +433,22 @@ void Havana::SetWindowTitle(const std::string& title)
 
 const bool Havana::IsGameFocused() const
 {
-	return m_isGameFocused;
+	return GameSceneView->IsFocused;
 }
 
 const bool Havana::IsWorldViewFocused() const
 {
-	return m_isWorldViewFocused;
+	return MainSceneView->IsFocused;
 }
 
 const Vector2& Havana::GetGameOutputSize() const
 {
 	return GameRenderSize;
+}
+
+Vector2 Havana::GetWorldEditorRenderSize() const
+{
+	return MainSceneView->SceneViewRenderSize;
 }
 
 bool Havana::OnEvent(const BaseEvent& evt)

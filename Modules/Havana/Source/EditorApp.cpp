@@ -72,7 +72,7 @@ void EditorApp::UpdateCameras()
 	EditorCamera.Position = EditorSceneManager->GetEditorCameraTransform()->GetPosition();
 	EditorCamera.Front = EditorSceneManager->GetEditorCameraTransform()->Front();
 	EditorCamera.Up = Vector3::Up;
-	EditorCamera.OutputSize = Editor->WorldViewRenderSize;
+	EditorCamera.OutputSize = Editor->GetWorldEditorRenderSize();
 	EditorCamera.FOV = Camera::EditorCamera->GetFOV();
 	EditorCamera.Near = Camera::EditorCamera->Near;
 	EditorCamera.Far = Camera::EditorCamera->Far;

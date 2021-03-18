@@ -25,6 +25,8 @@ public:
 	void DrawAddCoreList();
 	void UpdateWorldRecursive(Transform* root);
 
+	void DrawEntityRightClickMenu(Transform* transform);
+
 	Transform* m_rootTransform = nullptr;
 	EditorApp* App = nullptr;
 	std::vector<Entity>* Entities = nullptr;

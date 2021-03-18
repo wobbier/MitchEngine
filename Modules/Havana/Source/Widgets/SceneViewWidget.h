@@ -8,7 +8,7 @@ class SceneViewWidget
 	: public HavanaWidget
 {
 public:
-	SceneViewWidget(const std::string& inTitle, EditorApp* inApp);
+	SceneViewWidget(const std::string& inTitle, bool inSceneToolsEnabled = false);
 
 	void Init() override;
 	void Destroy() override;
@@ -17,7 +17,14 @@ public:
 	void Update() override;
 	void Render() override;
 
+	void DrawGuizmo();
+
 	Moonlight::CameraData* MainCamera = nullptr;
 	EditorApp* App = nullptr;
-	ImGuiWindowFlags window_flags = 0;
+	ImGuiWindowFlags WindowFlags = 0;
+	bool IsFocused = false;
+	bool EnableSceneTools = false;
+
+	Vector2 SceneViewRenderSize;
+	Vector2 SceneViewRenderLocation;
 };

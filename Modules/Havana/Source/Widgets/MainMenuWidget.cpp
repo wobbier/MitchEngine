@@ -32,7 +32,6 @@ void MainMenuWidget::Init()
 	Icons["Info"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Info.png"));
 	Icons["Logo"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/ME-LOGO.png"));
 	Icons["Profiler"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Profiler.png"));
-	Icons["FlipCamera"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/FlipCamera.png"));
 
 	CurrentDirectory = Path("Assets");
 }
@@ -235,18 +234,6 @@ void MainMenuWidget::Render()
 				App->Editor->ClearSelection();
 				StopGameFunc();
 				gameInput.Stop();
-			}
-		}
-
-		if (ImGui::ImageButton(Icons["FlipCamera"]->TexHandle, ImVec2(30.f, 30.f))/* || (Keyboard.F5 && Keyboard.LeftShift)*/)
-		{
-			if (App->Editor->GetViewportMode() == ViewportMode::Editor)
-			{
-				App->Editor->SetViewportMode(ViewportMode::Game);
-			}
-			else
-			{
-				App->Editor->SetViewportMode(ViewportMode::Editor);
 			}
 		}
 

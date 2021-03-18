@@ -34,9 +34,6 @@ public:
 	void NewFrame();
 
 	void UpdateWorld(class Transform* root, std::vector<Entity>& ents);
-	void UpdateWorldRecursive(class Transform* root);
-
-	void DrawEntityRightClickMenu(class Transform* transform);
 
 	void Render(Moonlight::CameraData& EditorCamera);
 
@@ -61,16 +58,14 @@ public:
 	class BaseCore* SelectedCore = nullptr;
 	Vector2 RenderSize;
 	Vector2 GameRenderSize;
-	Vector2 WorldViewRenderSize;
-	Vector2 WorldViewRenderLocation;
-	Vector2 GameViewRenderLocation;
 
 	const Vector2& GetGameOutputSize() const;
+	ViewportMode GetViewportMode() const { return m_viewportMode; }
+	Vector2 GetWorldEditorRenderSize() const;
 
 	virtual bool OnEvent(const BaseEvent& evt) override;
 	SharedPtr<Moonlight::Texture> ViewTexture;
 
-	ViewportMode GetViewportMode() const { return m_viewportMode; }
 	ImVec2 DockPos;
 	ImVec2 DockSize;
 	bool MaximizeOnPlay = false;
@@ -96,6 +91,7 @@ private:
 	SharedPtr<ResourceMonitorWidget> ResourceMonitor;
 	SharedPtr<MainMenuWidget> MainMenu;
 	SharedPtr<SceneViewWidget> MainSceneView;
+	SharedPtr<SceneViewWidget> GameSceneView;
 	SharedPtr<SceneHierarchyWidget> SceneHierarchy;
 
 	std::vector<SharedPtr<HavanaWidget>> RegisteredWidgets;
