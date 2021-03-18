@@ -1,53 +1,36 @@
 #include "Havana.h"
-#include "imgui.h"
-#include "backends/imgui_impl_win32.h"
-#include "backends/imgui_impl_dx11.h"
+#include <imgui.h>
+
 #include "Engine/World.h"
 #include "Components/Transform.h"
 #include "Components/Camera.h"
 #include "ECS/Core.h"
 #include "Engine/Engine.h"
+
 #include "HavanaEvents.h"
 #include "Events/SceneEvents.h"
 #if ME_EDITOR
 #include <filesystem>
 #include "Math/Vector2.h"
-#include "Mathf.h"
 #include "CLog.h"
-#include "Resource/ResourceCache.h"
-#include "Graphics/Texture.h"
-#include "Widgets/AssetBrowser.h"
-#include <chrono>
 #include "Events/EventManager.h"
-#include "Engine/Input.h"
-#include "ImGuizmo.h"
 #include "Math/Vector3.h"
 #include "EditorApp.h"
 #include "Components/Graphics/Model.h"
-#include "Commands/EditorCommands.h"
 #include "optick.h"
-#if ME_PLATFORM_WIN64
-#include <winuser.h>
-#endif
-#include "Utils/StringUtils.h"
-#include "Profiling/BasicFrameProfile.h"
-#include "Ultralight/Matrix.h"
-#include "Math/Matrix4.h"
-#include "Cores/EditorCore.h"
-#include "Window/SDLWindow.h"
-#include "SDL_video.h"
-#include <optional>
-#include "imgui_internal.h"
-#include "Window/EditorWindow.h"
-#include "Utils/ImGuiUtils.h"
-#include "BGFXRenderer.h"
 
+#include "Profiling/BasicFrameProfile.h"
+
+#include <Widgets/AssetBrowser.h>
 #include <Widgets/LogWidget.h>
 #include <Widgets/MainMenuWidget.h>
 #include <Widgets/ResourceMonitorWidget.h>
 #include <Widgets/SceneHierarchyWidget.h>
 #include <Widgets/SceneViewWidget.h>
 #include <Utils/CommonUtils.h>
+#include <Widgets/PropertiesWidget.h>
+#include <Widgets/AssetPreviewWidget.h>
+#include <BGFXRenderer.h>
 
 Havana::Havana(Engine* GameEngine, EditorApp* app)
 	: m_engine(GameEngine)
@@ -86,7 +69,6 @@ Havana::Havana(Engine* GameEngine, EditorApp* app)
 	std::vector<TypeId> events;
 	events.push_back(TestEditorEvent::GetEventId());
 	events.push_back(LoadSceneEvent::GetEventId());
-	events.push_back(PreviewResourceEvent::GetEventId());
 	EventManager::GetInstance().RegisterReceiver(this, events);
 	Renderer = &GameEngine->GetRenderer();
 
@@ -105,6 +87,12 @@ Havana::Havana(Engine* GameEngine, EditorApp* app)
 
 	SceneHierarchy.reset(new SceneHierarchyWidget());
 	RegisteredWidgets.push_back(SceneHierarchy);
+
+	PropertiesView.reset(new PropertiesWidget());
+	RegisteredWidgets.push_back(PropertiesView);
+
+	AssetPreview.reset(new AssetPreviewWidget());
+	RegisteredWidgets.push_back(AssetPreview);
 
 	InitUI();
 }
@@ -198,19 +186,16 @@ void Havana::InitUI()
 	MainSceneView->Init();
 	GameSceneView->Init();
 	SceneHierarchy->Init();
+	PropertiesView->Init();
+	AssetPreview->Init();
 }
 
-bool show_dockspace = true;
 void Havana::NewFrame()
 {
 	GetInput().Update();
 	OPTICK_EVENT("Havana::NewFrame");
 
 	ImGuiIO& io = ImGui::GetIO();
-
-	// Output size fix?
-	RenderSize = Vector2(io.DisplaySize.x, io.DisplaySize.y);
-	//Renderer->GetDevice().SetOutputSize(RenderSize);
 
 	MainMenu->SetData(&RegisteredWidgets, m_app);
 	MainMenu->Render();
@@ -238,6 +223,7 @@ void Havana::NewFrame()
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+	bool show_dockspace = true;
 	ImGui::Begin("MainDockSpace", &show_dockspace, window_flags);
 	ImGui::PopStyleVar(3);
 	ImGuiID dockspace_id = ImGui::GetID("MyDockspace");
@@ -249,54 +235,6 @@ void Havana::NewFrame()
 	LogPanel->Render();
 	m_assetBrowser.Draw();
 	ResourceMonitor->Render();
-
-	//DrawCommandPanel();
-}
-
-void Havana::AddComponentPopup(EntityHandle inSelectedEntity)
-{
-	ImGui::PushItemWidth(-100);
-	if (ImGui::Button("Add Component.."))
-	{
-		ImGui::OpenPopup("my_select_popup");
-	}
-	ImGui::PopItemWidth();
-
-	if (ImGui::BeginPopup("my_select_popup"))
-	{
-		CommonUtils::DrawAddComponentList(inSelectedEntity);
-
-		ImGui::EndPopup();
-	}
-}
-
-void Havana::ClearSelection()
-{
-	SelectedTransform = nullptr;
-	SelectedEntity = EntityHandle();
-	SelectedCore = nullptr;
-}
-
-void Havana::DrawCommandPanel()
-{
-	OPTICK_CATEGORY("Command History", Optick::Category::Debug);
-	/*auto& kb = GetInput().GetKeyboardState();
-	tracker.Update(kb);
-
-	if (kb.LeftControl && tracker.pressed.Z)
-	{
-		if (kb.LeftShift)
-		{
-			EditorCommands.Redo();
-		}
-		else
-		{
-			BRUH("UNDID THA DAMN TING");
-			EditorCommands.Undo();
-		}
-	}
-
-	EditorCommands.Draw();*/
 }
 
 void Havana::SetGameCallbacks(std::function<void()> StartGameFunc, std::function<void()> PauseGameFunc, std::function<void()> StopGameFunc)
@@ -309,86 +247,8 @@ void Havana::UpdateWorld(Transform* root, std::vector<Entity>& ents)
 	SceneHierarchy->SetData(root, ents);
 	SceneHierarchy->Render();
 
-	ImGui::Begin("Properties");
-
-	EntityHandle entity = SelectedEntity;
-	if (SelectedTransform != nullptr)
-	{
-		entity = SelectedTransform->Parent;
-	}
-
-	if (entity)
-	{
-		OPTICK_CATEGORY("Inspect Entity", Optick::Category::Debug);
-		entity->OnEditorInspect();
-		for (BaseComponent* comp : entity->GetAllComponents())
-		{
-			bool shouldClose = true;
-			if (ImGui::CollapsingHeader(comp->GetName().c_str(), &shouldClose, ImGuiTreeNodeFlags_DefaultOpen))
-			{
-				comp->OnEditorInspect();
-			}
-			if (!shouldClose)
-			{
-				entity->RemoveComponent(comp->GetName());
-				GetEngine().GetWorld().lock()->Simulate();
-			}
-		}
-		AddComponentPopup(SelectedEntity);
-	}
-
-	if (SelectedCore != nullptr)
-	{
-		OPTICK_CATEGORY("Core::OnEditorInspect", Optick::Category::GameLogic);
-		SelectedCore->OnEditorInspect();
-	}
-	ImGui::End();
-
-	ImGui::Begin("Preview");
-	{
-		if (ViewTexture)
-		{
-			//if (ViewTexture->TexHandle != bgfx::kInvalidHandle)
-			{
-				OPTICK_CATEGORY("Preview Texture", Optick::Category::Debug);
-				// Get the current cursor position (where your window is)
-				ImVec2 pos = ImGui::GetCursorScreenPos();
-				ImVec2 maxPos = ImVec2(pos.x + ImGui::GetWindowSize().x, pos.y + ImGui::GetWindowSize().y);
-				Vector2 RenderSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
-
-				// Ask ImGui to draw it as an image:
-				// Under OpenGL the ImGUI image type is GLuint
-				// So make sure to use "(void *)tex" but not "&tex"
-				/*ImGui::GetWindowDrawList()->AddImage(
-					(void*)ViewTexture->TexHandle,
-					ImVec2(pos.x, pos.y),
-					ImVec2(maxPos));*/
-					//ImVec2(WorldViewRenderSize.X() / RenderSize.X(), WorldViewRenderSize.Y() / RenderSize.Y()));
-
-			}
-		}
-	}
-	ImGui::End();
-}
-
-void Havana::HandleAssetDragAndDrop(Transform* root)
-{
-	if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_ASSET_BROWSER"))
-	{
-		IM_ASSERT(payload->DataSize == sizeof(AssetBrowser::AssetDescriptor));
-		AssetBrowser::AssetDescriptor payload_n = *(AssetBrowser::AssetDescriptor*)payload->Data;
-
-		if (payload_n.Type == AssetBrowser::AssetType::Model)
-		{
-			auto ent = GetEngine().GetWorld().lock()->CreateEntity();
-			ent->AddComponent<Transform>(payload_n.Name.substr(0, payload_n.Name.find_last_of('.'))).SetParent(*root);
-			ent->AddComponent<Model>((payload_n.FullPath.FullPath));
-		}
-		if (payload_n.Type == AssetBrowser::AssetType::Prefab)
-		{
-			EntityHandle ent = GetEngine().GetWorld().lock()->CreateFromPrefab(payload_n.FullPath.FullPath, root);
-		}
-	}
+	PropertiesView->Render();
+	AssetPreview->Render();
 }
 
 Input& Havana::GetInput()
@@ -399,31 +259,41 @@ Input& Havana::GetInput()
 void Havana::Render(Moonlight::CameraData& EditorCamera)
 {
 	OPTICK_EVENT("Editor Render", Optick::Category::Rendering);
-	auto& io = ImGui::GetIO();
 
-	MainSceneView->SetData(EditorCamera);
-	MainSceneView->Render();
+	// Editor Scene View
+	{
+		MainSceneView->SetData(EditorCamera);
+		MainSceneView->Render();
+	}
 
-	int cameraId = Camera::CurrentCamera->GetCameraId();
-	GameSceneView->SetData(GetEngine().GetRenderer().GetCamera(cameraId));
-	GameSceneView->Render();
+	// Game View
+	{
+		int cameraId = Camera::CurrentCamera->GetCameraId();
+		GameSceneView->SetData(GetEngine().GetRenderer().GetCamera(cameraId));
+		GameSceneView->Render();
 
-	Camera::CurrentCamera->OutputSize = GameSceneView->SceneViewRenderSize;
+		Input& gameInput = GetEngine().GetInput();
+		if (gameInput.IsKeyDown(KeyCode::Escape) && GameSceneView->IsFocused)
+		{
+			gameInput.Stop();
+			ImGui::SetWindowFocus("Hierarchy");
+		}
+		else if (GameSceneView->IsFocused)
+		{
+			gameInput.Resume();
+		}
 
-	Vector2 size(ImGui::GetMainViewport()->Size.x, static_cast<float>(FrameProfile::kMinProfilerSize));
-	auto pos = ImGui::GetMainViewport()->Pos;
-	Vector2 position(pos.x, pos.y + ImGui::GetMainViewport()->Size.y - static_cast<float>(FrameProfile::kMinProfilerSize));
+		Camera::CurrentCamera->OutputSize = GameSceneView->SceneViewRenderSize;
+	}
 
-	FrameProfile::GetInstance().Render(position, size);
+	// Frame Profiler
+	{
+		Vector2 size(ImGui::GetMainViewport()->Size.x, static_cast<float>(FrameProfile::kMinProfilerSize));
+		auto pos = ImGui::GetMainViewport()->Pos;
+		Vector2 position(pos.x, pos.y + ImGui::GetMainViewport()->Size.y - static_cast<float>(FrameProfile::kMinProfilerSize));
 
-	//ImGui::Render();
-	//ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
-	// Update and Render additional Platform Windows
-}
-
-void Havana::SetViewportMode(ViewportMode mode)
-{
-	m_viewportMode = mode;
+		FrameProfile::GetInstance().Render(position, size);
+	}
 }
 
 void Havana::SetWindowTitle(const std::string& title)
@@ -443,7 +313,7 @@ const bool Havana::IsWorldViewFocused() const
 
 const Vector2& Havana::GetGameOutputSize() const
 {
-	return GameRenderSize;
+	return GameSceneView->SceneViewRenderSize;
 }
 
 Vector2 Havana::GetWorldEditorRenderSize() const
@@ -462,14 +332,10 @@ bool Havana::OnEvent(const BaseEvent& evt)
 	if (evt.GetEventId() == LoadSceneEvent::GetEventId())
 	{
 		const LoadSceneEvent& test = static_cast<const LoadSceneEvent&>(evt);
-		ClearSelection();
+		ClearInspectEvent evt;
+		evt.Fire();
 	}
-	if (evt.GetEventId() == PreviewResourceEvent::GetEventId())
-	{
-		const PreviewResourceEvent& test = static_cast<const PreviewResourceEvent&>(evt);
-		ViewTexture = test.Subject;
-		return true;
-	}
+	
 	return false;
 }
 

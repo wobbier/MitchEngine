@@ -24,6 +24,7 @@ public:
 	ImGuiWindowFlags WindowFlags = 0;
 	bool IsFocused = false;
 	bool EnableSceneTools = false;
+	bool MaximizeOnPlay = false;
 
 	Vector2 SceneViewRenderSize;
 	Vector2 SceneViewRenderLocation;

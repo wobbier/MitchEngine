@@ -11,6 +11,7 @@
 #include <Havana.h>
 #include <Utils/StringUtils.h>
 #include <Utils/PlatformUtils.h>
+#include <HavanaEvents.h>
 
 MainMenuWidget::MainMenuWidget()
 	: HavanaWidget("Main Menu")
@@ -231,7 +232,8 @@ void MainMenuWidget::Render()
 			if (ImGui::ImageButton(Icons["Stop"]->TexHandle, ImVec2(30.f, 30.f)) || (editorInput.IsKeyDown(KeyCode::F5) && editorInput.IsKeyDown(KeyCode::LeftShift)))
 			{
 				MaximizeOnPlay = false;
-				App->Editor->ClearSelection();
+				ClearInspectEvent evt;
+				evt.Fire();
 				StopGameFunc();
 				gameInput.Stop();
 			}

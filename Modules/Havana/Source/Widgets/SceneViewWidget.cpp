@@ -3,6 +3,7 @@
 #include <Engine/Engine.h>
 #include <ImGuizmo.h>
 #include <Utils/ImGuiUtils.h>
+#include <Device/FrameBuffer.h>
 
 SceneViewWidget::SceneViewWidget(const std::string& inTitle,  bool inSceneToolsEnabled)
 	: HavanaWidget(inTitle)
@@ -46,7 +47,7 @@ void SceneViewWidget::Render()
 	Input& gameInput = GetEngine().GetInput();
 	Input& editorInput = GetEngine().GetEditorInput();
 
-	if (App->Editor->MaximizeOnPlay)
+	if (MaximizeOnPlay)
 	{
 		ImGuiWindowFlags fullScreenFlags = WindowFlags | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize;
 
@@ -59,27 +60,13 @@ void SceneViewWidget::Render()
 		ImGui::Begin(Name.c_str(), &IsOpen, WindowFlags);
 	}
 
-	if (App->Editor->GetViewportMode() == ViewportMode::Game)
-	{
-		if (gameInput.IsKeyDown(KeyCode::Escape)/*  && m_app->IsGameRunning()&& AllowGameInput*/)
-		{
-			gameInput.Stop();
-			ImGui::SetWindowFocus("World");
-			//Renderer->SetViewportMode(ViewportMode::World);
-		}
-		else if (ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows)/* && AllowGameInput*/)
-		{
-			gameInput.Resume();
-		}
-	}
-
 	if (ImGui::BeginMenuBar())
 	{
 		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 150.f);
 
 		if (ImGui::Button("Toggle Fullscreen", ImVec2(150.f, 20.f)))
 		{
-			App->Editor->MaximizeOnPlay = !App->Editor->MaximizeOnPlay;
+			MaximizeOnPlay = !MaximizeOnPlay;
 		}
 
 		ImGui::EndMenuBar();

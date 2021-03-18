@@ -2,6 +2,8 @@
 #include <HavanaWidget.h>
 #include <ECS/Entity.h>
 #include <ECS/EntityHandle.h>
+#include <Events/EventReceiver.h>
+#include <Utils/CommonUtils.h>
 
 class World;
 class Transform;
@@ -10,6 +12,7 @@ class EditorApp;
 
 class SceneHierarchyWidget
 	: public HavanaWidget
+	, public EventReceiver
 {
 public:
 	SceneHierarchyWidget();
@@ -17,6 +20,7 @@ public:
 	void Init() override;
 	void Destroy() override;
 
+	bool OnEvent(const BaseEvent& evt) override;
 	void SetData(Transform* inRoot, std::vector<Entity>& inEntities);
 
 	void Update() override;
@@ -26,8 +30,17 @@ public:
 	void UpdateWorldRecursive(Transform* root);
 
 	void DrawEntityRightClickMenu(Transform* transform);
+	void ClearSelection();
 
-	Transform* m_rootTransform = nullptr;
+	void HandleAssetDragAndDrop(Transform* root);
+
+	Transform* RootTransform = nullptr;
 	EditorApp* App = nullptr;
 	std::vector<Entity>* Entities = nullptr;
+
+	EntityHandle SelectedEntity;
+	class Transform* SelectedTransform = nullptr;
+	class BaseCore* SelectedCore = nullptr;
+
+	ParentDescriptor DragParentDescriptor;
 };

@@ -25,6 +25,7 @@
 #include "optick.h"
 #include <Core/JobQueueOld.h>
 #include <Math/Quaternion.h>
+#include "HavanaEvents.h"
 
 EditorApp::EditorApp(int argc, char** argv)
 	: Game(argc, argv)
@@ -59,8 +60,6 @@ void EditorApp::OnUpdate(float DeltaTime)
 
 void EditorApp::UpdateCameras()
 {
-	Vector2 MainOutputSize = Editor->GetGameOutputSize();
-
 	if (!Camera::CurrentCamera)
 	{
 		Camera::CurrentCamera = Camera::EditorCamera;
@@ -68,7 +67,6 @@ void EditorApp::UpdateCameras()
 
 	Moonlight::CameraData& EditorCamera = GetEngine().EditorCamera;
 
-	Camera::CurrentCamera->OutputSize = MainOutputSize;
 	EditorCamera.Position = EditorSceneManager->GetEditorCameraTransform()->GetPosition();
 	EditorCamera.Front = EditorSceneManager->GetEditorCameraTransform()->Front();
 	EditorCamera.Up = Vector3::Up;
@@ -112,7 +110,8 @@ void EditorApp::OnInitialize()
 		, [this]() {
 			m_isGamePaused = false;
 			//Editor->SetViewportMode(ViewportMode::World);
-			Editor->ClearSelection();
+			ClearInspectEvent evt;
+			evt.Fire();
 			StopGame();
 			//GetEngine().LoadScene("Assets/Alley.lvl");
 		});

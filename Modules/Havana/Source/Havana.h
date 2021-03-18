@@ -6,15 +6,11 @@
 #include "imgui.h"
 #include "Pointers.h"
 #include "Widgets/AssetBrowser.h"
-#include "Events/Event.h"
 #include "Events/EventReceiver.h"
-#include "RenderCommands.h"
-#include "Commands/CommandManager.h"
 #include "Engine/Input.h"
 #include "Camera/CameraData.h"
 #include <HavanaWidget.h>
 #include <Utils/CommonUtils.h>
-#include <BGFXRenderer.h>
 
 class LogWidget;
 class ComponentInfo;
@@ -22,6 +18,8 @@ class ResourceMonitorWidget;
 class MainMenuWidget;
 class SceneViewWidget;
 class SceneHierarchyWidget;
+class PropertiesWidget;
+class AssetPreviewWidget;
 
 class Havana
 	: public EventReceiver
@@ -30,14 +28,10 @@ public:
 	Havana(class Engine* GameEngine, class EditorApp* app);
 
 	void InitUI();
-
 	void NewFrame();
 
 	void UpdateWorld(class Transform* root, std::vector<Entity>& ents);
-
 	void Render(Moonlight::CameraData& EditorCamera);
-
-	void SetViewportMode(ViewportMode mode);
 
 	void SetWindowTitle(const std::string& title);
 
@@ -45,46 +39,22 @@ public:
 	const bool IsGameFocused() const;
 	const bool IsWorldViewFocused() const;
 
-	void AddComponentPopup(EntityHandle inSelectedEntity);
-
-	void ClearSelection();
-
-	void DrawCommandPanel();
-
 	void SetGameCallbacks(std::function<void()> StartGameFunc, std::function<void()> PauseGameFunc, std::function<void()> StopGameFunc);
 
-	EntityHandle SelectedEntity;
-	class Transform* SelectedTransform = nullptr;
-	class BaseCore* SelectedCore = nullptr;
-	Vector2 RenderSize;
-	Vector2 GameRenderSize;
-
 	const Vector2& GetGameOutputSize() const;
-	ViewportMode GetViewportMode() const { return m_viewportMode; }
 	Vector2 GetWorldEditorRenderSize() const;
 
 	virtual bool OnEvent(const BaseEvent& evt) override;
-	SharedPtr<Moonlight::Texture> ViewTexture;
 
 	ImVec2 DockPos;
 	ImVec2 DockSize;
-	bool MaximizeOnPlay = false;
-	bool m_isGameFocused = false;
-	bool m_isWorldViewFocused = false;
-
-	void HandleAssetDragAndDrop(Transform* root);
-	ParentDescriptor DragParentDescriptor;
 private:
 
 	class Engine* m_engine = nullptr;
 	class EditorApp* m_app = nullptr;
-	CommandManager EditorCommands;
-
 	class BGFXRenderer* Renderer = nullptr;
 
 	AssetBrowser m_assetBrowser;
-	ViewportMode m_viewportMode;
-	//Path ConfigFilePath;
 	Path EngineConfigFilePath;
 
 	SharedPtr<LogWidget> LogPanel;
@@ -93,6 +63,8 @@ private:
 	SharedPtr<SceneViewWidget> MainSceneView;
 	SharedPtr<SceneViewWidget> GameSceneView;
 	SharedPtr<SceneHierarchyWidget> SceneHierarchy;
+	SharedPtr<PropertiesWidget> PropertiesView;
+	SharedPtr<AssetPreviewWidget> AssetPreview;
 
 	std::vector<SharedPtr<HavanaWidget>> RegisteredWidgets;
 };
