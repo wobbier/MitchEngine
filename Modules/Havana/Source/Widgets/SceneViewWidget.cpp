@@ -4,11 +4,19 @@
 #include <ImGuizmo.h>
 #include <Utils/ImGuiUtils.h>
 #include <Device/FrameBuffer.h>
+#include "HavanaEvents.h"
+#include "ECS/EntityHandle.h"
+#include "Components/Transform.h"
+#include <Math/Matrix4.h>
+#include <bgfx/bgfx.h>
+#include <Camera/CameraData.h>
+#include <glm/gtc/matrix_transform.hpp>
 
 SceneViewWidget::SceneViewWidget(const std::string& inTitle,  bool inSceneToolsEnabled)
 	: HavanaWidget(inTitle)
 	, EnableSceneTools(inSceneToolsEnabled)
 {
+	EventManager::GetInstance().RegisterReceiver(this, { ClearInspectEvent::GetEventId(), InspectEvent::GetEventId() });
 }
 
 void SceneViewWidget::Init()
@@ -27,6 +35,29 @@ void SceneViewWidget::Destroy()
 void SceneViewWidget::SetData(Moonlight::CameraData& data)
 {
 	MainCamera = &data;
+}
+
+bool SceneViewWidget::OnEvent(const BaseEvent& evt)
+{
+	if (evt.GetEventId() == ClearInspectEvent::GetEventId())
+	{
+		SelectedTransform = nullptr;
+	}
+	else if (evt.GetEventId() == InspectEvent::GetEventId())
+	{
+		const InspectEvent& event = static_cast<const InspectEvent&>(evt);
+
+		const EntityHandle& selectedEntity = event.SelectedEntity;
+		SelectedTransform = event.SelectedTransform;
+		if (!SelectedTransform && selectedEntity)
+		{
+			if (selectedEntity->HasComponent<Transform>())
+			{
+				SelectedTransform = &selectedEntity->GetComponent<Transform>();
+			}
+		}
+	}
+	return false;
 }
 
 void SceneViewWidget::Update()
@@ -112,38 +143,89 @@ void SceneViewWidget::Render()
 void SceneViewWidget::DrawGuizmo()
 {
 	Input& editorInput = GetEngine().GetEditorInput();
-
-	ImGuizmo::SetRect(SceneViewRenderLocation.x, SceneViewRenderLocation.y, SceneViewRenderSize.x, SceneViewRenderSize.y);
-
-	static ImGuizmo::OPERATION mCurrentGizmoOperation(ImGuizmo::TRANSLATE);
-	static ImGuizmo::MODE mCurrentGizmoMode(ImGuizmo::LOCAL);
-
-
-	ImGui::SetCursorPos(ImVec2(5.f, 45.f));
-	if (!editorInput.IsMouseButtonDown(MouseButton::Right))
 	{
-		if (editorInput.IsKeyDown(KeyCode::W))
-			mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
-		if (editorInput.IsKeyDown(KeyCode::E))
-			mCurrentGizmoOperation = ImGuizmo::ROTATE;
-		if (editorInput.IsKeyDown(KeyCode::R))
-			mCurrentGizmoOperation = ImGuizmo::SCALE;
-	}
-	if (ImGui::RadioButton("Translate", mCurrentGizmoOperation == ImGuizmo::TRANSLATE))
-		mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
-	ImGui::SameLine();
-	if (ImGui::RadioButton("Rotate", mCurrentGizmoOperation == ImGuizmo::ROTATE))
-		mCurrentGizmoOperation = ImGuizmo::ROTATE;
-	ImGui::SameLine();
-	if (ImGui::RadioButton("Scale", mCurrentGizmoOperation == ImGuizmo::SCALE))
-		mCurrentGizmoOperation = ImGuizmo::SCALE;
-	if (mCurrentGizmoOperation != ImGuizmo::SCALE)
-	{
-		ImGui::SetCursorPosX(5.f);
-		if (ImGui::RadioButton("Local", mCurrentGizmoMode == ImGuizmo::LOCAL))
-			mCurrentGizmoMode = ImGuizmo::LOCAL;
+		ImGui::SetCursorPos(ImVec2(5.f, 45.f));
+
+		ImGuizmo::SetRect(SceneViewRenderLocation.x, SceneViewRenderLocation.y, SceneViewRenderSize.x, SceneViewRenderSize.y);
+
+		if (!editorInput.IsMouseButtonDown(MouseButton::Right))
+		{
+			if (editorInput.IsKeyDown(KeyCode::W))
+				CurrentGizmoOperation = ImGuizmo::TRANSLATE;
+			if (editorInput.IsKeyDown(KeyCode::E))
+				CurrentGizmoOperation = ImGuizmo::ROTATE;
+			if (editorInput.IsKeyDown(KeyCode::R))
+				CurrentGizmoOperation = ImGuizmo::SCALE;
+		}
+		if (ImGui::RadioButton("Translate", CurrentGizmoOperation == ImGuizmo::TRANSLATE))
+			CurrentGizmoOperation = ImGuizmo::TRANSLATE;
 		ImGui::SameLine();
-		if (ImGui::RadioButton("World", mCurrentGizmoMode == ImGuizmo::WORLD))
-			mCurrentGizmoMode = ImGuizmo::WORLD;
+		if (ImGui::RadioButton("Rotate", CurrentGizmoOperation == ImGuizmo::ROTATE))
+			CurrentGizmoOperation = ImGuizmo::ROTATE;
+		ImGui::SameLine();
+		if (ImGui::RadioButton("Scale", CurrentGizmoOperation == ImGuizmo::SCALE))
+			CurrentGizmoOperation = ImGuizmo::SCALE;
+		if (CurrentGizmoOperation != ImGuizmo::SCALE)
+		{
+			ImGui::SetCursorPosX(5.f);
+			if (ImGui::RadioButton("Local", CurrentGizmoMode == ImGuizmo::LOCAL))
+				CurrentGizmoMode = ImGuizmo::LOCAL;
+			ImGui::SameLine();
+			if (ImGui::RadioButton("World", CurrentGizmoMode == ImGuizmo::WORLD))
+				CurrentGizmoMode = ImGuizmo::WORLD;
+		}
+	}
+	if (SelectedTransform)
+	{
+		ImGuiIO& io = ImGui::GetIO();
+		bool isPerspective = MainCamera->Projection == Moonlight::ProjectionType::Perspective;
+
+		float cameraProjection[16];
+		if (isPerspective)
+		{
+			bx::mtxProj(cameraProjection, MainCamera->FOV, float(MainCamera->OutputSize.x) / float(MainCamera->OutputSize.y), MainCamera->Near, MainCamera->Far, bgfx::getCaps()->homogeneousDepth);
+		}
+		else
+		{
+			bx::mtxOrtho(cameraProjection, -(MainCamera->OutputSize.x / MainCamera->OrthographicSize), (MainCamera->OutputSize.x / MainCamera->OrthographicSize), -(MainCamera->OutputSize.y / MainCamera->OrthographicSize), (MainCamera->OutputSize.y / MainCamera->OrthographicSize), MainCamera->Near, MainCamera->Far, 0.f, bgfx::getCaps()->homogeneousDepth);
+		}
+
+		ImGuizmo::SetOrthographic(!isPerspective);
+		ImGuizmo::SetDrawlist();
+
+		const glm::vec3 eye = { MainCamera->Position.x, MainCamera->Position.y, MainCamera->Position.z };
+		const glm::vec3 at = { MainCamera->Position.x + MainCamera->Front.x, MainCamera->Position.y + MainCamera->Front.y, MainCamera->Position.z + MainCamera->Front.z };
+
+		auto cameraView = glm::lookAtLH(eye, at, Vector3::Up.InternalVector);
+
+		ImGuizmo::SetID(0);
+		ImGui::SetCursorPos({ 0, 0 });
+
+		float* matrix = &SelectedTransform->GetMatrix().GetInternalMatrix()[0].x;
+
+		Vector3 currentPos, currentRot, currentScale;
+		ImGuizmo::DecomposeMatrixToComponents(matrix, &currentPos.x, &currentRot.x, &currentScale.x);
+
+		float viewManipulateRight = io.DisplaySize.x;
+		float viewManipulateTop = 0;
+
+		ImGuizmo::SetRect(SceneViewRenderLocation.x, SceneViewRenderLocation.y, SceneViewRenderSize.x, SceneViewRenderSize.y);
+		ImGuizmo::Manipulate(&cameraView[0][0], cameraProjection, CurrentGizmoOperation, CurrentGizmoMode, matrix);
+		//ImGuizmo::ViewManipulate(cameraView, 8.f, ImVec2(SceneViewRenderLocation.x + SceneViewRenderSize.x - 128, SceneViewRenderLocation.y), ImVec2(128, 128), 0x00101010);
+
+		Vector3 modifiedPos, modifiedRot, modifiedScale;
+		ImGuizmo::DecomposeMatrixToComponents(matrix, &modifiedPos.x, &modifiedRot.x, &modifiedScale.x);
+		if (currentPos != modifiedPos)
+		{
+			SelectedTransform->SetWorldPosition(modifiedPos);
+		}
+		if (currentRot != modifiedRot)
+		{
+			SelectedTransform->SetRotation(modifiedRot);
+		}
+		if (currentScale != modifiedScale)
+		{
+			SelectedTransform->SetScale(modifiedScale);
+		}
 	}
 }

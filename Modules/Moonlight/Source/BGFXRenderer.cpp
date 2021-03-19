@@ -15,6 +15,7 @@
 #include "Primitives/Cube.h"
 #include "Graphics/MeshData.h"
 #include "Graphics/ShaderCommand.h"
+#include <algorithm>
 
 #if BX_PLATFORM_LINUX
 #define GLFW_EXPOSE_NATIVE_X11
@@ -242,7 +243,7 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 			float proj[16];
 			if (camera.Projection == Moonlight::ProjectionType::Perspective)
 			{
-				bx::mtxProj(proj, camera.FOV, float(camera.OutputSize.x) / float(camera.OutputSize.y), camera.Near, camera.Far, bgfx::getCaps()->homogeneousDepth);
+				bx::mtxProj(proj, camera.FOV, float(camera.OutputSize.x) / float(camera.OutputSize.y), std::max(camera.Near, 1.f), camera.Far, bgfx::getCaps()->homogeneousDepth);
 			}
 			else
 			{

@@ -195,12 +195,13 @@ void Havana::NewFrame()
 	GetInput().Update();
 	OPTICK_EVENT("Havana::NewFrame");
 
+	ImGuizmo::BeginFrame();
+
 	ImGuiIO& io = ImGui::GetIO();
 
 	MainMenu->SetData(&RegisteredWidgets, m_app);
 	MainMenu->Render();
 
-	static float f = 0.0f;
 	ImGuiViewport* viewport = ImGui::GetMainViewport();
 	ImVec2 MainMenuSize;
 	MainMenuSize.x = 0.f;
