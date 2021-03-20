@@ -326,7 +326,7 @@ enum class KeyCode : uint32_t
 
     SDL_SCANCODE_LCTRL = 224,
     LeftShift = SDL_SCANCODE_LSHIFT,
-    SDL_SCANCODE_LALT = 226, /**< alt, option */
+    LeftAlt = SDL_SCANCODE_LALT, /**< alt, option */
     SDL_SCANCODE_LGUI = 227, /**< windows, command (apple), meta */
     SDL_SCANCODE_RCTRL = 228,
     SDL_SCANCODE_RSHIFT = 229,

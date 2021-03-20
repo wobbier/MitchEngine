@@ -234,19 +234,17 @@ Vector3 Transform::GetScale()
 
 void Transform::LookAt(const Vector3& InDirection)
 {
-
-#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
-	SetWorldTransform(Matrix4(glm::transpose(glm::lookAtLH(GetWorldPosition().InternalVector, GetWorldPosition().InternalVector + InDirection.InternalVector, glm::vec3(0,1,0)))));
-#endif
+    Matrix4 worldMat(glm::transpose(glm::lookAtLH(GetWorldPosition().InternalVector, GetWorldPosition().InternalVector + InDirection.InternalVector, glm::vec3(0,1,0))));
+	SetWorldTransform(worldMat);
 	glm::vec3 scale;
 	glm::quat rot;
 	glm::vec3 pos;
 	glm::vec3 skeq;
 	glm::vec4 poers;
 	glm::decompose(WorldTransform.GetInternalMatrix(), scale, rot, pos, skeq, poers);
-	Rotation = Quaternion::ToEulerAngles(Quaternion(rot));
+    LocalRotation = Quaternion(rot);
+	Rotation = Quaternion::ToEulerAngles(LocalRotation);
 	Rotation = Vector3(Mathf::Degrees(Rotation.x), Mathf::Degrees(Rotation.y), Mathf::Degrees(Rotation.z));
-
 	//Vector3 worldPos = GetWorldPosition();
 	//WorldTransform = Matrix4(DirectX::SimpleMath::Matrix::CreateLookAt(worldPos.InternalVec, (GetWorldPosition() + InDirection).InternalVec, Vector3::Up.InternalVec).Transpose());
 

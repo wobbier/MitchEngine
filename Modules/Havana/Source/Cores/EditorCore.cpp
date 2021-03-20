@@ -66,7 +66,7 @@ void EditorCore::Update(float dt)
 		
 		if (!IsFocusingTransform)
 		{
-			if (input.IsMouseButtonDown(MouseButton::Right))
+			if (input.IsMouseButtonDown(MouseButton::Right) || (input.IsKeyDown(KeyCode::LeftAlt) && input.IsMouseButtonDown(MouseButton::Left)))
 			{
 				if (!PreviousMouseDown)
 				{

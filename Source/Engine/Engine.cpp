@@ -43,7 +43,7 @@ Engine& GetEngine()
 
 Engine::Engine()
 	: Running(true)
-	, newJobSystem(4, 100000)
+	, newJobSystem(1, 100000)
 {
 	std::vector<TypeId> events;
 	events.push_back(LoadSceneEvent::GetEventId());
