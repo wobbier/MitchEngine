@@ -9,6 +9,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/matrix_decompose.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 Transform::Transform()
 	: Component("Transform")
@@ -168,6 +169,7 @@ void Transform::Reset()
 	SetWorldPosition(Vector3());
 	SetRotation(Vector3());
 	SetScale(1.f);
+	SetWorldTransform(Matrix4(), true);
 }
 
 void Transform::SetWorldTransform(Matrix4& NewWorldTransform, bool InIsDirty)
@@ -198,25 +200,24 @@ const bool Transform::IsDirty() const
 
 Matrix4 Transform::GetLocalToWorldMatrix()
 {
-	//DirectX::SimpleMath::Matrix id = DirectX::XMMatrixIdentity();
-	//DirectX::SimpleMath::Matrix rot = DirectX::SimpleMath::Matrix::CreateFromYawPitchRoll(LocalRotation.y, LocalRotation.x, LocalRotation.z);// , Child->Rotation.Y(), Child->Rotation.Z());
-	//DirectX::SimpleMath::Matrix scale = DirectX::SimpleMath::Matrix::CreateScale(Scale.InternalVec);
-	//DirectX::SimpleMath::Matrix pos = XMMatrixTranslationFromVector(Position.InternalVec);
-	//if (ParentTransform)
-	//{
-	//	return Matrix4((scale * rot * pos) * GetParentTransform()->WorldTransform.GetInternalMatrix());
-	//}
-	//else
+	glm::mat4 id(1.f);
+	id = glm::translate(id, GetPosition().InternalVector);
+	id = glm::rotate(id, GetLocalRotation().ToAngle(), GetLocalRotation().ToAxis().InternalVector);
+	id = glm::scale(id, GetScale().InternalVector);
+
+	if (ParentTransform)
 	{
-		return Matrix4();// scale* rot* pos);
+		return Matrix4(id * GetParentTransform()->WorldTransform.GetInternalMatrix());
+	}
+	else
+	{
+		return id;
 	}
 }
 
 Matrix4 Transform::GetWorldToLocalMatrix()
 {
-	/*DirectX::SimpleMath::Matrix mat;
-	GetLocalToWorldMatrix().GetInternalMatrix().Invert(mat);*/
-	return Matrix4();//mat);
+	return GetMatrix().Inverse();
 }
 
 void Transform::Init()

@@ -33,6 +33,11 @@ public:
 		return Quaternion(glm::quat_cast(GetInternalMatrix()));
 	}
 
+	Matrix4 Inverse()
+	{
+		return glm::inverse(GetInternalMatrix());
+	}
+
 	const std::string ToString() const
 	{
 		std::string mat = "Please fix this lmao"/*std::to_string(m_matrix(0, 0)) + ",  " + std::to_string(m_matrix(0, 1)) + ", " + std::to_string(m_matrix(0, 2)) + ", " + std::to_string(m_matrix(0, 3)) + "\n";
