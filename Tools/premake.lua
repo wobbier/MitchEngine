@@ -457,7 +457,7 @@ project "Havana"
 
 	filter { "action:vs*" }
 	links {
-		"Stack.lib"
+		getPlatformPostfix(ProjectName) .. ".lib"
 	}
 	filter {}
         

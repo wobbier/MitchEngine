@@ -11,6 +11,7 @@
 #include <bgfx/bgfx.h>
 #include <Camera/CameraData.h>
 #include <glm/gtc/matrix_transform.hpp>
+#include <Mathf.h>
 
 SceneViewWidget::SceneViewWidget(const std::string& inTitle,  bool inSceneToolsEnabled)
 	: HavanaWidget(inTitle)

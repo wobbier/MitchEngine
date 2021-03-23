@@ -16,8 +16,10 @@ void Quaternion::SetEuler(const Vector3& euler)
 Vector3 Quaternion::ToEulerAngles(const Quaternion& InQuat)
 {
 	Vector3 angles;
-	angles.InternalVector = glm::eulerAngles(InQuat.InternalQuat) * 3.14159f / 180.f;
-
+	angles.InternalVector = glm::eulerAngles(InQuat.InternalQuat);
+	angles.x = Mathf::Degrees(angles.x);
+	angles.y = Mathf::Degrees(angles.y);
+	angles.z = Mathf::Degrees(angles.z);
 	return angles;
 }
 

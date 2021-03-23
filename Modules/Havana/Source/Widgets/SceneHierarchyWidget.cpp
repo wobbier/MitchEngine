@@ -208,7 +208,7 @@ void SceneHierarchyWidget::UpdateWorldRecursive(Transform* root)
 		if (var->GetChildren().empty())
 		{
 			node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen; // ImGuiTreeNodeFlags_Bullet
-			open = ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, var->Name.c_str());
+			open = ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, var->GetName().c_str());
 			if (ImGui::IsItemClicked())
 			{
 				InspectEvent evt;
@@ -248,7 +248,7 @@ void SceneHierarchyWidget::UpdateWorldRecursive(Transform* root)
 		else
 		{
 			OPTICK_CATEGORY("UpdateWorld::UpdateWorldRecursive::Leaf", Optick::Category::GameLogic);
-			open = ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, var->Name.c_str());
+			open = ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, var->GetName().c_str());
 			if (ImGui::IsItemClicked())
 			{
 				InspectEvent evt;

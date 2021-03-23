@@ -16,6 +16,7 @@ namespace HavanaUtils
 		ImGui::SameLine();
 		ImGui::Text("Z: %f", Vector.z);
 	}
+
 	static void Text(const std::string& Name, const Vector2& Vector)
 	{
         ImGui::Text("%s", Name.c_str());
@@ -24,9 +25,13 @@ namespace HavanaUtils
 		ImGui::SameLine();
 		ImGui::Text("Y: %f", Vector.y);
 	}
-	static void EditableVector3(const std::string& Name, Vector3& Vector)
+
+	static bool EditableVector3(const std::string& Name, Vector3& Vector)
 	{
+		Vector3 tempVec = Vector;
 		ImGui::DragFloat3(Name.c_str(), &Vector[0], 0.01f, 0.0f, 0.0f, "%.7f");
+		
+		return tempVec != Vector;
 	}
 
 	static void EditableVector(const std::string& Name, Vector2& Vector)

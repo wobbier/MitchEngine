@@ -2,6 +2,7 @@
 #include "Vector3.h"
 
 #include <glm/gtc/matrix_transform.hpp>
+#include "Quaternion.h"
 
 class Matrix4
 {
@@ -25,6 +26,11 @@ public:
 	Vector3 GetPosition()
 	{
 		return Vector3(m_matrix[3][0]/*_41*/, m_matrix[3][1]/*._42*/, m_matrix[3][2]/*._43*/);
+	}
+
+	Quaternion GetRotation()
+	{
+		return Quaternion(glm::quat_cast(GetInternalMatrix()));
 	}
 
 	const std::string ToString() const

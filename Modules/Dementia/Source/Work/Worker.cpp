@@ -2,6 +2,7 @@
 #include "Job.h"
 #include "JobEngine.h"
 #include <optick.h>
+#include <CLog.h>
 
 Worker::Worker(JobEngine* engine, std::size_t InMaxJobs, Mode InMode /*= Mode::Background*/)
 	: WorkPool(InMaxJobs)
@@ -58,6 +59,8 @@ void Worker::Submit(Job* InJob)
 void Worker::Wait(Job* InJob)
 {
 	OPTICK_EVENT("Wait")
+
+	float failedAttempts = 0;
 	while (!InJob->IsFinished())
 	{
 		Job* job = GetJob();
@@ -65,6 +68,17 @@ void Worker::Wait(Job* InJob)
 		if (job)
 		{
 			job->Run();
+		}
+		else
+		{
+			// I don't like this
+			failedAttempts++;
+			if (failedAttempts > 200 && InJob->IsLastJob())
+			{
+				YIKES("DEADLOCKED");
+				InJob->Run();
+				break;
+			}
 		}
 	}
 }

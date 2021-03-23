@@ -138,7 +138,7 @@ void AssetBrowser::Recursive(Directory& dir)
 				json prefab;
 				SavePrefab(prefab, payload_n->Parent, true);
 
-				File(Path(directory.second.FullPath.Directory + "/" + payload_n->Parent->Name + std::string(".prefab"))).Write(prefab[0].dump(4));
+				File(Path(directory.second.FullPath.Directory + "/" + payload_n->Parent->GetName() + std::string(".prefab"))).Write(prefab[0].dump(4));
 			}
 			ImGui::EndDragDropTarget();
 		}
@@ -219,7 +219,7 @@ void AssetBrowser::Recursive(Directory& dir)
 				json prefab;
 				SavePrefab(prefab, payload_n->Parent, true);
 				
-				File(Path(files.FullPath.Directory + payload_n->Parent->Name + std::string(".prefab"))).Write(prefab[0].dump(4));
+				File(Path(files.FullPath.Directory + payload_n->Parent->GetName() + std::string(".prefab"))).Write(prefab[0].dump(4));
 			}
 			ImGui::EndDragDropTarget();
 		}
@@ -335,7 +335,7 @@ void AssetBrowser::SavePrefab(json& d, Transform* CurrentTransform, bool IsRoot)
 		refJson = newJson;
 	}*/
 
-	newJson["Name"] = CurrentTransform->Name;
+	newJson["Name"] = CurrentTransform->GetName();
 
 	json& componentsJson = newJson["Components"];
 	EntityHandle ent = CurrentTransform->Parent;

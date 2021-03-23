@@ -43,7 +43,7 @@ Engine& GetEngine()
 
 Engine::Engine()
 	: Running(true)
-	, newJobSystem(1, 100000)
+	, newJobSystem(8, 100000)
 {
 	std::vector<TypeId> events;
 	events.push_back(LoadSceneEvent::GetEventId());
@@ -215,6 +215,7 @@ void Engine::Run()
 
 		if (AccumulatedTime >= MaxDeltaTime)
 		{
+			OPTICK_FRAME("MainLoop");
 			float deltaTime = DeltaTime = AccumulatedTime;
 			{
 #if ME_EDITOR
@@ -222,7 +223,6 @@ void Engine::Run()
 #else
 				Input& input = GetInput();
 #endif
-				OPTICK_FRAME("MainLoop");
 				NewRenderer->BeginFrame(input.GetMousePosition(), (input.IsMouseButtonDown(MouseButton::Left) ? 0x01 : 0)
 					| (input.IsMouseButtonDown(MouseButton::Right) ? 0x02 : 0)
 					| (input.IsMouseButtonDown(MouseButton::Middle) ? 0x04 : 0)

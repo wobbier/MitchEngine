@@ -8,7 +8,6 @@
 #include "Utils/BGFXUtils.h"
 #include "bx/timer.h"
 #include "Window/IWindow.h"
-#include "Engine/Engine.h"
 #include "Widgets/AssetBrowser.h"
 #include "Graphics/Material.h"
 #include "Graphics/ShaderStructures.h"
@@ -219,6 +218,7 @@ void BGFXRenderer::Render(Moonlight::CameraData& EditorCamera)
 
 void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId id)
 {
+	OPTICK_CATEGORY("Render Camera", Optick::Category::Camera)
 	if (true)
 	{
 		if (CurrentSize.IsZero())
@@ -279,6 +279,7 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 
 		for (size_t i = 0; i < Meshes.size(); ++i)
 		{
+			OPTICK_CATEGORY("Mesh", Optick::Category::GPU_Scene)
 			const Moonlight::MeshCommand& mesh = Meshes[i];
 			if (!mesh.MeshMaterial)
 			{
@@ -377,18 +378,6 @@ unsigned int BGFXRenderer::PushCamera(const Moonlight::CameraData& command)
 
 	delete data.Buffer;
 	data.Buffer = new Moonlight::FrameBuffer(static_cast<uint32_t>(data.OutputSize.x), static_cast<uint32_t>(data.OutputSize.y));
-
-	//data.FrameBuffer = bgfx::createFrameBuffer(GetEngine().GetWindow()->GetWindowPtr(), data.OutputSize.X(), data.OutputSize.Y());
-
-	//delete data.Buffer;
-	//if (data.IsMain)
-	//{
-	//	GameViewRTT = data.Buffer = m_device->CreateFrameBuffer(static_cast<UINT>(m_device->GetOutputSize().X()), static_cast<UINT>(m_device->GetOutputSize().Y()), 1, DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_D24_UNORM_S8_UINT);
-	//}
-	//else
-	//{
-	//	data.Buffer = m_device->CreateFrameBuffer(static_cast<UINT>(m_device->GetOutputSize().X()), static_cast<UINT>(m_device->GetOutputSize().Y()), 1, DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_D24_UNORM_S8_UINT);
-	//}
 
 	return index;
 }

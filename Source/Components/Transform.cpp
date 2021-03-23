@@ -13,7 +13,7 @@
 Transform::Transform()
 	: Component("Transform")
 	, WorldTransform()
-	, Position(0.f, 0.f, 0.f)
+	, LocalPosition(0.f, 0.f, 0.f)
 	, Scale(1.0f, 1.0f, 1.0f)
 {
 }
@@ -23,7 +23,7 @@ Transform::Transform(const std::string& TransformName)
 	: Component("Transform")
 	, WorldTransform()
 	, Name(std::move(TransformName))
-	, Position(0.f, 0.f, 0.f)
+	, LocalPosition(0.f, 0.f, 0.f)
 	, Scale(1.0f, 1.0f, 1.0f)
 {
 }
@@ -39,7 +39,7 @@ Transform::~Transform()
 void Transform::SetPosition(Vector3 NewPosition)
 {
 	//WorldTransform.GetInternalMatrix().Translation((Position - NewPosition).InternalVec);
-	Position = NewPosition;
+	LocalPosition = NewPosition;
 	SetDirty(true);
 	//UpdateRecursively(this);
 }
@@ -71,7 +71,22 @@ void Transform::Translate(Vector3 NewPosition)
 	{
 		return;
 	}
-	SetWorldPosition(Position + NewPosition);
+	SetWorldPosition(LocalPosition + NewPosition);
+}
+
+void Transform::Rotate(const Vector3& inDegrees, TransformSpace inRelativeTo /*= TransformSpace::Self*/)
+{
+	Quaternion eulerRot(inDegrees);
+	if (inRelativeTo == TransformSpace::World)
+	{
+		//LocalRotation = Quaternion(LocalRotation.InternalQuat * (glm::inverse(Rotation.InternalQuat) * eulerRot.InternalQuat * Rotation.InternalQuat));
+		//SetRotation(LocalRotation);
+	}
+	else
+	{
+		LocalRotation = LocalRotation * eulerRot;
+		SetRotation(LocalRotation);
+	}
 }
 
 Vector3 Transform::Front()
@@ -97,7 +112,7 @@ Vector3 Transform::Right()
 
 Vector3& Transform::GetPosition()
 {
-	return Position;
+	return LocalPosition;
 }
 
 void Transform::UpdateRecursively(SharedPtr<Transform> CurrentTransform)
@@ -143,7 +158,7 @@ void Transform::SetWorldPosition(const Vector3& NewPosition)
 	mat[3][1] = NewPosition[1];
 	mat[3][2] = NewPosition[2];
 
-	Position += Vector3(mat[3][0] - Position[0], mat[3][1] - Position[1], mat[3][2] - Position[2]);
+	LocalPosition += Vector3(mat[3][0] - LocalPosition[0], mat[3][1] - LocalPosition[1], mat[3][2] - LocalPosition[2]);
 
 	SetDirty(true);
 }
@@ -179,11 +194,6 @@ void Transform::SetWorldTransform(Matrix4& NewWorldTransform, bool InIsDirty)
 const bool Transform::IsDirty() const
 {
 	return m_isDirty;
-}
-
-Transform* Transform::GetParent()
-{
-	return GetParentTransform();
 }
 
 Matrix4 Transform::GetLocalToWorldMatrix()
@@ -243,7 +253,7 @@ void Transform::LookAt(const Vector3& InDirection)
 	glm::vec4 poers;
 	glm::decompose(WorldTransform.GetInternalMatrix(), scale, rot, pos, skeq, poers);
     LocalRotation = Quaternion(rot);
-	Rotation = Quaternion::ToEulerAngles(LocalRotation);
+	Rotation = LocalRotation;
 	Rotation = Vector3(Mathf::Degrees(Rotation.x), Mathf::Degrees(Rotation.y), Mathf::Degrees(Rotation.z));
 	//Vector3 worldPos = GetWorldPosition();
 	//WorldTransform = Matrix4(DirectX::SimpleMath::Matrix::CreateLookAt(worldPos.InternalVec, (GetWorldPosition() + InDirection).InternalVec, Vector3::Up.InternalVec).Transpose());
@@ -287,14 +297,14 @@ Vector3 Transform::GetRotationEuler() const
 	return Quaternion::ToEulerAngles(LocalRotation);
 }
 
+Quaternion Transform::GetLocalRotation() const
+{
+	return LocalRotation;
+}
+
 Quaternion Transform::GetWorldRotation()
 {
-	/*DirectX::SimpleMath::Quaternion quat;
-
-	WorldTransform.GetInternalMatrix().Decompose(DirectX::SimpleMath::Vector3(), quat, DirectX::SimpleMath::Vector3());
-	Quaternion quat2(quat);*/
-
-	return LocalRotation;
+	return WorldTransform.GetRotation();
 }
 
 Vector3 Transform::GetWorldRotationEuler()
@@ -368,14 +378,19 @@ Transform* Transform::GetParentTransform()
 	return nullptr;
 }
 
-Matrix4 Transform::GetMatrix()
+Matrix4& Transform::GetMatrix()
 {
 	return WorldTransform;
 }
 
+const std::string& Transform::GetName() const
+{
+	return Name;
+}
+
 void Transform::OnSerialize(json& outJson)
 {
-	outJson["Position"] = { Position.x, Position.y, Position.z };
+	outJson["Position"] = { LocalPosition.x, LocalPosition.y, LocalPosition.z };
 	outJson["Rotation"] = { LocalRotation.x, LocalRotation.y, LocalRotation.z };
 	outJson["Scale"] = { Scale.x, Scale.y, Scale.z };
 }
@@ -414,30 +429,34 @@ void Transform::OnEditorInspect()
 {
 	ImGui::InputText("Name", &Name);
 
-	Vector3 OldPosition = Position;
-	HavanaUtils::EditableVector3("Position", Position);
-	Vector3 OldRotation = Rotation;
-	HavanaUtils::EditableVector3("Rotation", OldRotation);
-	if (OldRotation != Rotation)
+	Vector3 OldPosition = LocalPosition;
+	if (HavanaUtils::EditableVector3("Local Position", OldPosition))
+	{
+		SetPosition(OldPosition);
+	}
+
+	Vector3 OldRotation = Quaternion::ToEulerAngles(GetLocalRotation());
+	if (HavanaUtils::EditableVector3("Local Rotation", OldRotation))
 	{
 		SetRotation(OldRotation);
 	}
-	if (OldPosition != Position)
-	{
-		SetPosition(Position);
-	}
 
 	Vector3 OldScale = Scale;
-	HavanaUtils::EditableVector3("Scale", Scale);
-	if (OldScale != Scale)
+	if (HavanaUtils::EditableVector3("Scale", OldScale))
 	{
-		SetScale(Scale);
+		SetScale(OldScale);
 	}
+
 	Vector3 WorldPos = GetWorldPosition();
-	HavanaUtils::EditableVector3("World Position", WorldPos);
-	if (WorldPos != GetWorldPosition())
+	if(HavanaUtils::EditableVector3("World Position", WorldPos))
 	{
 		SetWorldPosition(WorldPos);
+	}
+
+	Vector3 OldWorldRotation = GetWorldRotationEuler();
+	if (HavanaUtils::EditableVector3("World Rotation", OldWorldRotation))
+	{
+		//SetWorldRotation(OldRotation);
 	}
 
 	if (ImGui::Button("Reset Transform"))

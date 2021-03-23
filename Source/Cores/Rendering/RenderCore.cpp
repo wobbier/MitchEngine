@@ -79,6 +79,10 @@ void RenderCore::Update(float dt)
 	//m_renderer->Update(dt);
 
 	auto& Renderables = GetEntities();
+	if (Renderables.empty())
+	{
+		return;
+	}
     
     //auto [worker, pool] = GetEngine().GetJobSystemNew();
 
@@ -90,6 +94,7 @@ void RenderCore::Update(float dt)
 	std::vector<std::pair<int, int>> batches;
 	Burst::GenerateChunks(Renderables.size(), 11, batches);
 
+	worker->Submit(rootJob);
 	for (auto& batch : batches)
 	{
 		int batchBegin = batch.first;
@@ -97,7 +102,7 @@ void RenderCore::Update(float dt)
 		int batchSize = batchEnd - batchBegin;
 
 		//YIKES(std::to_string(batchBegin) + " End:" + std::to_string(batchEnd) + " Size:" + std::to_string(batchSize));
-		Job* burstJob = worker->GetPool().CreateClosureJobAsChild([&Renderables, batchBegin, batchEnd, worker, batchSize](Job& job) {
+		Job* burstJob = worker->GetPool().CreateClosureJobAsChild([&Renderables, batchBegin, batchEnd, batchSize](Job& job) {
 			if (Renderables.size() == 0)
 			{
 				return;
@@ -132,7 +137,6 @@ void RenderCore::Update(float dt)
 		}, rootJob);
 		worker->Submit(burstJob);
 	}
-    worker->Submit(rootJob);
     worker->Wait(rootJob);
 	//for (auto& InEntity : Renderables)
 	//{

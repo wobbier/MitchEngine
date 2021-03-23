@@ -9,6 +9,7 @@
 #include "Work/Burst.h"
 #include <Work/JobQueue.h>
 #include <Core/JobQueueOld.h>
+#include <Work/Job.h>
 
 SceneGraph::SceneGraph()
 	: Base(ComponentFilter().Requires<Transform>())
@@ -38,31 +39,37 @@ bool shouldBurst = false;
 void UpdateRecursively(Transform* CurrentTransform, bool isParentDirty, Job* parentJob, bool isBursting)
 {
 	OPTICK_EVENT("SceneGraph::UpdateRecursively");
-	//auto [worker, pool] = GetEngine().GetJobSystemNew();
-	for (const SharedPtr<Transform>& Child : CurrentTransform->GetChildren())
+	auto [worker, pool] = GetEngine().GetJobSystemNew();
+	auto& Children = CurrentTransform->GetChildren();
+	for (const SharedPtr<Transform>& Child : Children)
 	{
-		OPTICK_EVENT("SceneGraph::GetChildren");
 		bool newParentDirty = isParentDirty || Child->IsDirty();
-		//Job* job = pool.CreateClosureJobAsChild([&Child, newParentDirty, CurrentTransform](Job& job) {
+		if (newParentDirty)
+		{
 			OPTICK_CATEGORY("Update Transform", Optick::Category::Scene);
-			if (newParentDirty)
+			glm::mat4 model = glm::mat4(1.f);
 			{
+				OPTICK_CATEGORY("GLM MAT", Optick::Category::Debug);
 
-				glm::mat4 model = glm::mat4(1.f);
 				model = glm::translate(model, Child->GetPosition().InternalVector);
-				model = glm::rotate(model, Child->GetWorldRotation().ToAngle(), Child->GetWorldRotation().ToAxis().InternalVector);
+				model = glm::rotate(model, Child->GetLocalRotation().ToAngle(), Child->GetLocalRotation().ToAxis().InternalVector);
 				model = glm::scale(model, Child->GetScale().InternalVector);
+			}
+			
+			{
+				OPTICK_CATEGORY("GLM MAT MULT", Optick::Category::Debug);
 
-				Matrix4 xxx = model * CurrentTransform->WorldTransform.GetInternalMatrix();
+				Matrix4 xxx = CurrentTransform->GetMatrix().GetInternalMatrix() * model;
 				Child->SetWorldTransform(xxx);
 			}
 
-		//}, parentJob);
-
-		//worker->Submit(job);
-		if (!Child->GetChildren().empty())
-		{
-			UpdateRecursively(Child.get(), newParentDirty, nullptr, true);// *job);
+			if (!Child->GetChildren().empty())
+			{
+				Job* job = pool.CreateClosureJobAsChild([&Child, newParentDirty, CurrentTransform](Job& job) {
+					UpdateRecursively(Child.get(), newParentDirty, &job, true);// *job);
+				}, parentJob);
+				worker->Submit(job);
+			}
 		}
 	}
 }
@@ -104,34 +111,34 @@ void SceneGraph::Update(float dt)
 
 	if(true)
 	{
-		//Job* rootJob = pool.CreateClosureJob([this](Job& job) {
+		Job* rootJob = pool.CreateClosureJob([this](Job& job) {
 
-		//});
+		});
 		Transform* CurrentTransform = GetRootTransform();
 		for (const SharedPtr<Transform>& Child : CurrentTransform->GetChildren())
 		{
 			OPTICK_EVENT("SceneGraph::GetChildren");
 			if (Child->IsDirty())
 			{
-				//Job* job = pool.CreateClosureJobAsChild([&Child, CurrentTransform](Job& job) {
+				Job* job = pool.CreateClosureJobAsChild([&Child, CurrentTransform](Job& job) {
 					OPTICK_CATEGORY("Update Transform", Optick::Category::Scene);
 					glm::mat4 model = glm::mat4(1.f);
 					model = glm::translate(model, Child->GetPosition().InternalVector);
-					model = glm::rotate(model, Child->GetWorldRotation().ToAngle(), Child->GetWorldRotation().ToAxis().InternalVector);
+					model = glm::rotate(model, Child->GetLocalRotation().ToAngle(), Child->GetLocalRotation().ToAxis().InternalVector);
 					model = glm::scale(model, Child->GetScale().InternalVector);
 
-					Matrix4 xxx = model * CurrentTransform->WorldTransform.GetInternalMatrix();
+					Matrix4 xxx = CurrentTransform->GetMatrix().GetInternalMatrix() * model;
 					Child->SetWorldTransform(xxx);
 					if (!Child->GetChildren().empty())
 					{
-						UpdateRecursively(Child.get(), true, nullptr, true);// *job);
+						UpdateRecursively(Child.get(), true, &job, false);// *job);
 					}
-				//}, rootJob);
-				//worker->Submit(job);
+				}, rootJob);
+				worker->Submit(job);
 			}
 		}
-		//worker->Submit(rootJob);
-		//worker->Wait(rootJob);
+		worker->Submit(rootJob);
+		worker->Wait(rootJob);
 	}
 }
 
