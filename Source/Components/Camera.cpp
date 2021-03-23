@@ -104,7 +104,7 @@ void Camera::OnSerialize(json& outJson)
 	outJson["Near"] = Near;
 	outJson["Far"] = Far;
 
-	if (Skybox)
+	if (Skybox && Skybox->SkyMaterial)
 	{
 		outJson["Skybox"] = Skybox->SkyMaterial->GetTexture(Moonlight::TextureType::Diffuse)->GetPath().LocalPath;
 	}

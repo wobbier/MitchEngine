@@ -56,10 +56,10 @@ void Model::Init()
 						for (auto child : childNode.Meshes)
 						{
 							//Transform& trans = Parent->AddComponent<Transform>(child->Name);
-							//Mesh& meshRef =
-                            Parent->AddComponent<Mesh>(child);
+							Mesh& meshRef = Parent->AddComponent<Mesh>(child);
+							meshRef.MeshReferece = child;
 							//trans.SetPosition(root.Position);
-							//meshRef.MeshShader = ModelShader;
+							//meshRef.MeshMaterial = child->MeshMaterial->CreateInstance();
 							//trans.SetParent(parentEnt->GetComponent<Transform>());
 						}
 					}

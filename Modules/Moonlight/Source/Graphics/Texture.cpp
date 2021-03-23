@@ -9,6 +9,8 @@
 #include <bimg/bimg.h>
 #include "Utils/BGFXUtils.h"
 #include <Utils/PlatformUtils.h>
+#include <bimg/decode.h>
+#include <bx/allocator.h>
 
 //using namespace DirectX;
 
@@ -30,7 +32,7 @@ namespace Moonlight
 		: Resource(InFilePath)
         , TexHandle(BGFX_INVALID_HANDLE)
 	{
-		uint64_t flags = BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP;
+		uint64_t flags = BGFX_TEXTURE_NONE | BGFX_SAMPLER_NONE;
 
 		//D3D11_TEXTURE_ADDRESS_MODE dxMode = D3D11_TEXTURE_ADDRESS_WRAP;
 		//switch (mode)
@@ -52,16 +54,30 @@ namespace Moonlight
 		const auto* memory = Moonlight::LoadMemory(Path(InFilePath.FullPath + ".dds"));
 		if (memory)
 		{
-			bimg::ImageContainer* imageContainerRaw = new bimg::ImageContainer();
 			bx::Error* err = nullptr;
-			if (bimg::imageParse(*imageContainerRaw, memory->data, memory->size, err))
+			/*		ImageContainer* imageParse(
+						bx::AllocatorI * _allocator
+						, const void* _data
+						, uint32_t _size
+						, TextureFormat::Enum _dstFormat = TextureFormat::Count
+						, bx::Error * _err = NULL
+					);*/
+			if (bimg::ImageContainer* imageContainer = bimg::imageParse(Moonlight::getDefaultAllocator(), memory->data, memory->size))
 			{
-				bimg::ImageContainer* imageContainer = imageContainerRaw;
-				bgfx::TextureInfo info;
-				bgfx::calcTextureSize(info, imageContainer->m_width, imageContainer->m_height, 1, false, false, 1, bgfx::TextureFormat::Enum(imageContainer->m_format));
-				if (bgfx::isTextureValid(0, false, imageContainer->m_numLayers, bgfx::TextureFormat::Enum(imageContainer->m_format), flags))
+				const bgfx::Memory* mem = bgfx::makeRef(imageContainer->m_data, imageContainer->m_size, NULL, imageContainer);
+
+				BX_FREE(Moonlight::getDefaultAllocator(), (void*)memory);
+				if (imageContainer->m_cubeMap)
 				{
-					TexHandle = bgfx::createTexture2D(imageContainer->m_width, imageContainer->m_height, false, 1, bgfx::TextureFormat::Enum(imageContainer->m_format), flags, bgfx::copy(memory->data, info.storageSize));
+					YIKES("You gotta implement cubemap textures");
+				}
+				else if (1 < imageContainer->m_depth)
+				{
+					YIKES("You gotta implement 3d textures");
+				}
+				else if (bgfx::isTextureValid(0, false, imageContainer->m_numLayers, bgfx::TextureFormat::Enum(imageContainer->m_format), flags))
+				{
+					TexHandle = bgfx::createTexture2D(imageContainer->m_width, imageContainer->m_height, 1 < imageContainer->m_numMips, imageContainer->m_numLayers, bgfx::TextureFormat::Enum(imageContainer->m_format), flags, mem);
 				}
 				else
 				{
@@ -70,6 +86,17 @@ namespace Moonlight
 					//const bgfx::Memory* memory = bgfx::alloc(info.storageSize);
 					//memset(memory->data, 0, info.storageSize);
 					//bgfx::updateTexture2D(m_texture, 0, 0, 0, 0, width, height, memory, info.storageSize / height);
+				}
+				if (bgfx::isValid(TexHandle))
+				{
+					bgfx::setName(TexHandle, InFilePath.LocalPath.c_str());
+				}
+
+
+				bgfx::TextureInfo* info = nullptr;
+				if (info)
+				{
+					bgfx::calcTextureSize(*info, imageContainer->m_width, imageContainer->m_height, imageContainer->m_depth, imageContainer->m_cubeMap, imageContainer->m_numMips > 0, imageContainer->m_numLayers, bgfx::TextureFormat::Enum(imageContainer->m_format));
 				}
 			}
 

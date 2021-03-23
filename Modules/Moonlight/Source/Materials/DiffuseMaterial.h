@@ -7,14 +7,10 @@ class DiffuseMaterial
 public:
 	DiffuseMaterial()
 		: Moonlight::Material("DiffuseMaterial", "Assets/Shaders/Diffuse")
+        , s_diffuse(BGFX_INVALID_HANDLE)
 	{
 
 	}
-    DiffuseMaterial(DiffuseMaterial* ref)
-        : Moonlight::Material("DiffuseMaterial")
-    {
-        CopyValues(ref);
-    }
 
 	void Init() override
 	{
@@ -28,7 +24,7 @@ public:
     
     SharedPtr<Material> CreateInstance() final
     {
-        SharedPtr<DiffuseMaterial> ptr = std::make_shared<DiffuseMaterial>(this);
+        SharedPtr<DiffuseMaterial> ptr = std::make_shared<DiffuseMaterial>(*this);
         
         return ptr;
     }

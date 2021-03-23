@@ -73,9 +73,8 @@ void Worker::Wait(Job* InJob)
 		{
 			// I don't like this
 			failedAttempts++;
-			if (failedAttempts > 200 && InJob->IsLastJob())
+			if (failedAttempts > 50)
 			{
-				YIKES("DEADLOCKED");
 				InJob->Run();
 				break;
 			}

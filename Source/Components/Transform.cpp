@@ -392,7 +392,8 @@ const std::string& Transform::GetName() const
 void Transform::OnSerialize(json& outJson)
 {
 	outJson["Position"] = { LocalPosition.x, LocalPosition.y, LocalPosition.z };
-	outJson["Rotation"] = { LocalRotation.x, LocalRotation.y, LocalRotation.z };
+	Vector3 outRot = Quaternion::ToEulerAngles(LocalRotation);
+	outJson["Rotation"] = { outRot.x, outRot.y, outRot.z };
 	outJson["Scale"] = { Scale.x, Scale.y, Scale.z };
 }
 

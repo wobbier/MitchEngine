@@ -182,6 +182,7 @@ sysincludedirs {
     "../ThirdParty/bgfx/include",
     "../ThirdParty/ImGui",
     "../Modules/ImGUI/Source",
+    "../ThirdParty/bgfx/include",
     "../ThirdParty/bx/include",
     "../ThirdParty/JSON/single_include",
     "../ThirdParty/glm",

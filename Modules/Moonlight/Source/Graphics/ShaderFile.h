@@ -9,6 +9,7 @@
 #include "Utils/BGFXUtils.h"
 #include "bx/readerwriter.h"
 #include <Utils/PlatformUtils.h>
+#include <bgfx/bgfx.h>
 
 namespace Moonlight
 {
@@ -23,6 +24,8 @@ namespace Moonlight
 			std::string fullPath = FilePath.Directory + path + "." + Moonlight::GetPlatformString() + ".bin";
 			//fullPath = fullPath.substr(0, fullPath.rfind(".")) + ".bin";
 			Data = Moonlight::LoadMemory(Path(fullPath));
+			Handle = bgfx::createShader(Data);
+			bgfx::setName(Handle, InPath.LocalPath.c_str());
 		}
 
 		inline std::vector<char> ReadToByteArray(const char* filename)
@@ -36,6 +39,7 @@ namespace Moonlight
 		}
 
 		const bgfx::Memory* Data = nullptr;
+		bgfx::ShaderHandle Handle = BGFX_INVALID_HANDLE;
 	};
 }
 
