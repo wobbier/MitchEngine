@@ -5,6 +5,8 @@
 #include "Components/Transform.h"
 #include "ECS/Core.h"
 #include "ECS/EntityHandle.h"
+#include <Resource/MetaFile.h>
+#include <Path.h>
 
 namespace Moonlight { class Texture; }
 
@@ -42,6 +44,7 @@ public:
 	EntityHandle SelectedEntity;
 	Transform* SelectedTransform = nullptr;
 	BaseCore* SelectedCore = nullptr;
+	Path AssetBrowserPath;
 };
 
 class ClearInspectEvent

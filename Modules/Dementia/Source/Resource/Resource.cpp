@@ -49,3 +49,8 @@ MetaBase* Resource::GetMetadata()
 {
 	return Metadata;
 }
+
+void Resource::Load()
+{
+
+}

@@ -36,6 +36,8 @@ void PlatformUtils::RunProcess(const Path& inFilePath, const std::string& inArgs
 void PlatformUtils::SystemCall(const Path& inFilePath, const std::string& inArgs /*= ""*/, bool inRunFromDirectory /*= true*/)
 {
 #if ME_PLATFORM_WIN64
+	auto p = std::filesystem::current_path();
+	std::string ProgramPath(std::string(p.generic_string()));
 	if (inFilePath.IsFile && inRunFromDirectory)
 	{
 		SetCurrentDirectory(StringUtils::ToWString(inFilePath.Directory).c_str());
@@ -57,6 +59,7 @@ void PlatformUtils::SystemCall(const Path& inFilePath, const std::string& inArgs
 
 	CloseHandle(pi.hProcess);
 	CloseHandle(pi.hThread);
+	SetCurrentDirectory(StringUtils::ToWString(ProgramPath).c_str());
 #else
 	std::string progArgs = "\"" + inFilePath.FullPath + "\" " + inArgs;
 	system(progArgs.c_str());

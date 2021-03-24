@@ -52,7 +52,7 @@ void AssetBrowser::ThreadStart(const std::function<void(std::string, FileStatus)
 	while (IsRunning)
 	{
 		std::this_thread::sleep_for(Delay);
-
+		continue;
 		bool WasModified = false;
 		auto it = Paths.begin();
 		while (it != Paths.end())
@@ -121,7 +121,6 @@ void AssetBrowser::Draw()
 
 void AssetBrowser::Recursive(Directory& dir)
 {
-	return;
 	for (auto& directory : dir.Directories)
 	{
 		bool node_open = ImGui::TreeNode(directory.first.c_str());
@@ -200,6 +199,12 @@ void AssetBrowser::Recursive(Directory& dir)
 				ShellExecute(NULL, L"open", StringUtils::ToWString(SelectedAsset->FullPath.FullPath).c_str(), NULL, NULL, SW_SHOWDEFAULT);
 #endif
 				}
+			}
+			else if (ImGui::IsMouseClicked(0))
+			{
+				InspectEvent evt;
+				evt.AssetBrowserPath = Path(files.FullPath);
+				evt.Fire();
 			}
 		}
 		if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))

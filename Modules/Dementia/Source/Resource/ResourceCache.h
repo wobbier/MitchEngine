@@ -23,6 +23,8 @@ public:
 	template<class T, typename... Args>
 	SharedPtr<T> Get(const Path& InFilePath, Args&& ... args);
 
+	SharedPtr<Resource> GetCached(const Path& InFilePath);
+
 	void TryToDestroy(Resource* resource);
 
 	const std::map<std::string, std::shared_ptr<Resource>>& GetResouceStack() const;
@@ -65,6 +67,7 @@ SharedPtr<T> ResourceCache::Get(const Path& InFilePath, Args&& ... args)
 	TypeId id = ClassTypeId<Resource>::GetTypeId<T>();
 	Res->ResourceType = static_cast<std::size_t>(id);
 	Res->SetMetadata(metaFile);
+	//Res->Load();
 	ResourceStack[InFilePath.FullPath] = Res;
 	return Res;
 }

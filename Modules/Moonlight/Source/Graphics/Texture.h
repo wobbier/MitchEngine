@@ -48,6 +48,8 @@ namespace Moonlight
 		Texture(FrameBuffer* InFilePath, WrapMode mode = WrapMode::Wrap);
 		~Texture();
 
+		virtual void Load() override;
+
 		void UpdateBuffer(FrameBuffer* NewBuffer);
 
 		template<typename T> static constexpr T NumMipmapLevels(T width, T height)
@@ -74,16 +76,34 @@ namespace Moonlight
 struct TextureResourceMetadata
 	: public MetaBase
 {
-	TextureResourceMetadata(const Path& filePath) : MetaBase(filePath) {}
+	enum class OutputTextureType : uint8_t
+	{
+		Default = 0,
+		NormalMap,
+		Sprite,
+		Count
+	};
+
+	TextureResourceMetadata(const Path& filePath)
+		: MetaBase(filePath)
+	{
+	}
 
 	void OnSerialize(json& inJson) override;
 	void OnDeserialize(const json& inJson) override;
 
+	bool GenerateMIPs = true;
+	bool GenerateSpriteMIPs = false;
+	OutputTextureType OutputType = OutputTextureType::Default;
 #if ME_EDITOR
 	void Export() override;
 
 	virtual void OnEditorInspect() final;
 #endif
+
+private:
+	std::string FromEnum(OutputTextureType inType);
+	OutputTextureType ToEnum(std::string inType);
 };
 
 struct TextureResourceMetadataJpg

@@ -33,6 +33,19 @@ bool PropertiesWidget::OnEvent(const BaseEvent& evt)
 		SelectedCore = event.SelectedCore;
 		SelectedEntity = event.SelectedEntity;
 		SelectedTransform = event.SelectedTransform;
+		AssetBrowserPath = Path(event.AssetBrowserPath);
+		if (AssetBrowserPath.Exists)
+		{
+			SharedPtr<Resource> res = ResourceCache::GetInstance().GetCached(AssetBrowserPath);
+			if (res)
+			{
+				metafile = res->GetMetadata();
+			}
+			else
+			{
+				metafile = ResourceCache::GetInstance().LoadMetadata(AssetBrowserPath);
+			}
+		}
 	}
 	return false;
 }
@@ -81,6 +94,23 @@ void PropertiesWidget::Render()
 			OPTICK_CATEGORY("Core::OnEditorInspect", Optick::Category::GameLogic);
 			SelectedCore->OnEditorInspect();
 		}
+
+		if (metafile)
+		{
+			metafile->OnEditorInspect();
+
+			if (ImGui::Button("Save"))
+			{
+				metafile->Save();
+				metafile->Export();
+
+				SharedPtr<Resource> res = ResourceCache::GetInstance().GetCached(metafile->FilePath);
+				if (res)
+				{
+					res->Load();
+				}
+			}
+		}
 	}
 	ImGui::End();
 }
@@ -90,6 +120,9 @@ void PropertiesWidget::ClearSelection()
 	SelectedTransform = nullptr;
 	SelectedEntity = EntityHandle();
 	SelectedCore = nullptr;
+	AssetBrowserPath = Path();
+	delete metafile;
+	metafile = nullptr;
 }
 
 void PropertiesWidget::AddComponentPopup(EntityHandle inSelectedEntity)

@@ -27,6 +27,7 @@ bool AssetPreviewWidget::OnEvent(const BaseEvent& evt)
 		ViewTexture = event.Subject;
 		return true;
 	}
+	return false;
 }
 
 void AssetPreviewWidget::Update()

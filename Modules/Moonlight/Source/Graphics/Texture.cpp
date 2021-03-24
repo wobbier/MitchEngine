@@ -32,36 +32,38 @@ namespace Moonlight
 		: Resource(InFilePath)
         , TexHandle(BGFX_INVALID_HANDLE)
 	{
+		Load();
+	}
+
+	Texture::Texture(Moonlight::FrameBuffer* InFilePath, WrapMode mode /*= WrapMode::Wrap*/)
+		: Resource(Path(""))
+	{
+
+	}
+
+	Texture::~Texture()
+	{
+		// TODO: Unload textures
+	}
+
+	void Texture::Load()
+	{
 		uint64_t flags = BGFX_TEXTURE_NONE | BGFX_SAMPLER_NONE;
 
-		//D3D11_TEXTURE_ADDRESS_MODE dxMode = D3D11_TEXTURE_ADDRESS_WRAP;
-		//switch (mode)
-		//{
-		//case Moonlight::Clamp:
-		//case Moonlight::Decal:
-		//	dxMode = D3D11_TEXTURE_ADDRESS_CLAMP;
-		//	break;
-		//case Moonlight::Wrap:
-		//	dxMode = D3D11_TEXTURE_ADDRESS_WRAP;
-		//	break;
-		//case Moonlight::Mirror:
-		//	dxMode = D3D11_TEXTURE_ADDRESS_MIRROR;
-		//	break;
-		//default:
-		//	break;
-		//}
+		if (!FilePath.Exists)
+		{
+			return;
+		}
 
-		const auto* memory = Moonlight::LoadMemory(Path(InFilePath.FullPath + ".dds"));
+		if (bgfx::isValid(TexHandle))
+		{
+			bgfx::destroy(TexHandle);
+			TexHandle = BGFX_INVALID_HANDLE;
+		}
+
+		const auto* memory = Moonlight::LoadMemory(Path(FilePath.FullPath + ".dds"));
 		if (memory)
 		{
-			bx::Error* err = nullptr;
-			/*		ImageContainer* imageParse(
-						bx::AllocatorI * _allocator
-						, const void* _data
-						, uint32_t _size
-						, TextureFormat::Enum _dstFormat = TextureFormat::Count
-						, bx::Error * _err = NULL
-					);*/
 			if (bimg::ImageContainer* imageContainer = bimg::imageParse(Moonlight::getDefaultAllocator(), memory->data, memory->size))
 			{
 				const bgfx::Memory* mem = bgfx::makeRef(imageContainer->m_data, imageContainer->m_size, NULL, imageContainer);
@@ -79,19 +81,11 @@ namespace Moonlight
 				{
 					TexHandle = bgfx::createTexture2D(imageContainer->m_width, imageContainer->m_height, 1 < imageContainer->m_numMips, imageContainer->m_numLayers, bgfx::TextureFormat::Enum(imageContainer->m_format), flags, mem);
 				}
-				else
-				{
-					//m_texture = bgfx::createTexture2D(imageContainer->m_width, imageContainer->m_height, false, 1, format, flags);
-					
-					//const bgfx::Memory* memory = bgfx::alloc(info.storageSize);
-					//memset(memory->data, 0, info.storageSize);
-					//bgfx::updateTexture2D(m_texture, 0, 0, 0, 0, width, height, memory, info.storageSize / height);
-				}
+				
 				if (bgfx::isValid(TexHandle))
 				{
-					bgfx::setName(TexHandle, InFilePath.LocalPath.c_str());
+					bgfx::setName(TexHandle, FilePath.LocalPath.c_str());
 				}
-
 
 				bgfx::TextureInfo* info = nullptr;
 				if (info)
@@ -101,17 +95,6 @@ namespace Moonlight
 			}
 
 		}
-	}
-
-	Texture::Texture(Moonlight::FrameBuffer* InFilePath, WrapMode mode /*= WrapMode::Wrap*/)
-		: Resource(Path(""))
-	{
-
-	}
-
-	Texture::~Texture()
-	{
-		// TODO: Unload textures
 	}
 
 	void Texture::UpdateBuffer(FrameBuffer* NewBuffer)
@@ -139,12 +122,12 @@ namespace Moonlight
 			return "";
 		}
 	}
-
 }
 
-void TextureResourceMetadata::OnSerialize(json& inJson)
+void TextureResourceMetadata::OnSerialize(json& outJson)
 {
-
+	outJson["Type"] = FromEnum(OutputType);
+	outJson["MIPs"] = (OutputType == OutputTextureType::Sprite) ? GenerateSpriteMIPs : GenerateMIPs;
 }
 
 void TextureResourceMetadata::OnDeserialize(const json& inJson)
@@ -153,6 +136,23 @@ void TextureResourceMetadata::OnDeserialize(const json& inJson)
     {
         FlaggedForExport = true;
     }
+
+	if (inJson.contains("Type"))
+	{
+		OutputType = ToEnum(inJson["Type"]);
+	}
+
+	if (inJson.contains("MIPs"))
+	{
+		if (OutputType == OutputTextureType::Sprite)
+		{
+			GenerateSpriteMIPs = inJson["MIPs"];
+		}
+		else
+		{
+			GenerateMIPs = inJson["MIPs"];
+		}
+	}
 }
 
 #if ME_EDITOR
@@ -161,15 +161,69 @@ void TextureResourceMetadata::OnEditorInspect()
 {
 	MetaBase::OnEditorInspect();
 
-	static bool isChecked = false;
-	ImGui::Checkbox("Texture Resource Test", &isChecked);
+	if (ImGui::BeginCombo("Import Settings", FromEnum(OutputType).c_str()))
+	{
+		for (int n = 0; n < (int)OutputTextureType::Count; n++)
+		{
+			if (ImGui::Selectable(FromEnum((OutputTextureType)n).c_str(), false))
+			{
+				OutputType = (OutputTextureType)n;
+
+				//static_cast<RenderCore*>(GetEngine().GetWorld().lock()->GetCore(RenderCore::GetTypeId()))->UpdateMesh(this);
+
+				break;
+			}
+		}
+		ImGui::EndCombo();
+	}
+
+	bool* genMips = &GenerateMIPs;
+	if (OutputType == OutputTextureType::Sprite)
+	{
+		genMips = &GenerateSpriteMIPs;
+	}
+	ImGui::Checkbox("Generate MIPs", genMips);
+}
+
+std::string TextureResourceMetadata::FromEnum(OutputTextureType inType)
+{
+	switch (inType)
+	{
+	case OutputTextureType::NormalMap:
+		return "Normal Map";
+	case OutputTextureType::Sprite:
+		return "Sprite";
+	case OutputTextureType::Default:
+	default:
+		return "Default";
+		break;
+	}
+}
+
+TextureResourceMetadata::OutputTextureType TextureResourceMetadata::ToEnum(std::string inType)
+{
+	for (int n = 0; n < (int)OutputTextureType::Count; n++)
+	{
+		if (FromEnum((OutputTextureType)n) == inType)
+		{
+			return (OutputTextureType)n;
+		}
+	}
+
+	return OutputTextureType::Default;
 }
 
 void TextureResourceMetadata::Export()
 {
-#if ME_PLATFORM_WIN64
-	Path optickPath = Path("Engine/Tools/Win64/texturec.exe");
-
+	std::string exportType = " --as dds";
+	if ((OutputType == OutputTextureType::Sprite && GenerateSpriteMIPs) || (OutputType != OutputTextureType::Sprite && GenerateMIPs))
+	{
+		exportType += " -m";
+	}
+	if (OutputType == OutputTextureType::NormalMap)
+	{
+		exportType += " -n";
+	}
 	/*
 		rule texturec_bc1
 			command = texturec -f $in -o $out -t bc1 -m
@@ -197,7 +251,8 @@ void TextureResourceMetadata::Export()
 			command = texturec -f $in -o $out --max 512 -t rgba16f --equirect
 	*/
 
-	std::string exportType = " --as dds";
+#if ME_PLATFORM_WIN64
+	Path optickPath = Path("Engine/Tools/Win64/texturec.exe");
 
 	std::string fileName = FilePath.LocalPath.substr(FilePath.LocalPath.rfind("/") + 1, FilePath.LocalPath.length());
 
@@ -210,7 +265,6 @@ void TextureResourceMetadata::Export()
 #else
     
     Path optickPath = Path("Engine/Tools/macOS/texturec");
-    std::string exportType = " --as dds";
 
     std::string fileName = FilePath.LocalPath.substr(FilePath.LocalPath.rfind("/") + 1, FilePath.LocalPath.length());
     // texturec -f $in -o $out -t bc2 -m

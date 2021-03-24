@@ -2,6 +2,8 @@
 #include <HavanaWidget.h>
 #include "Events/EventReceiver.h"
 #include <ECS/EntityHandle.h>
+#include <Path.h>
+#include <Resource/MetaFile.h>
 
 class Transform;
 class BaseCore;
@@ -27,4 +29,6 @@ public:
 	EntityHandle SelectedEntity;
 	class Transform* SelectedTransform = nullptr;
 	class BaseCore* SelectedCore = nullptr;
+	Path AssetBrowserPath;
+	MetaBase* metafile = nullptr;
 };

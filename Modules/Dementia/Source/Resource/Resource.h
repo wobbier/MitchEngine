@@ -20,6 +20,8 @@ public:
 
 	MetaBase* GetMetadata();
 
+	virtual void Load();
+
 protected:
 	Resource(const Path& path);
 	virtual ~Resource();

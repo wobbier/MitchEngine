@@ -27,6 +27,16 @@ std::size_t ResourceCache::GetCacheSize() const
 	return ResourceStack.size();
 }
 
+SharedPtr<Resource> ResourceCache::GetCached(const Path& InFilePath)
+{
+	auto I = ResourceStack.find(InFilePath.FullPath);
+	if (I != ResourceStack.end())
+	{
+		return I->second;
+	}
+	return {};
+}
+
 void ResourceCache::TryToDestroy(Resource* resource)
 {
 	std::map<std::string, std::shared_ptr<Resource>>::iterator I;
