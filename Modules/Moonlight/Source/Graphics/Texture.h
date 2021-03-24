@@ -43,12 +43,13 @@ namespace Moonlight
 		int mWidth;
 		int mHeight;
 		int mChannels;
-
+		Texture() = delete;
 		Texture(const Path& InFilePath, WrapMode mode = WrapMode::Wrap);
 		Texture(FrameBuffer* InFilePath, WrapMode mode = WrapMode::Wrap);
 		~Texture();
 
 		virtual void Load() override;
+		virtual void Reload() override;
 
 		void UpdateBuffer(FrameBuffer* NewBuffer);
 

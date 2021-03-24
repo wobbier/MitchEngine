@@ -67,7 +67,7 @@ SharedPtr<T> ResourceCache::Get(const Path& InFilePath, Args&& ... args)
 	TypeId id = ClassTypeId<Resource>::GetTypeId<T>();
 	Res->ResourceType = static_cast<std::size_t>(id);
 	Res->SetMetadata(metaFile);
-	//Res->Load();
+	Res->Load();
 	ResourceStack[InFilePath.FullPath] = Res;
 	return Res;
 }

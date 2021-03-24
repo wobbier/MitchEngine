@@ -21,11 +21,6 @@ AudioSource::AudioSource()
 
 }
 
-bool AudioSource::Load()
-{
-	return true;
-}
-
 void AudioSource::Play(bool ShouldLoop)
 {
 	//if (SoundInstance)

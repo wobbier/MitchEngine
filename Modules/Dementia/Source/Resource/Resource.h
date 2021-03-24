@@ -21,6 +21,7 @@ public:
 	MetaBase* GetMetadata();
 
 	virtual void Load();
+	virtual void Reload();
 
 protected:
 	Resource(const Path& path);

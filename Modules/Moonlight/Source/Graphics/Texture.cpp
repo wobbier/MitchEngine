@@ -32,13 +32,12 @@ namespace Moonlight
 		: Resource(InFilePath)
         , TexHandle(BGFX_INVALID_HANDLE)
 	{
-		Load();
+		//Load();
 	}
 
 	Texture::Texture(Moonlight::FrameBuffer* InFilePath, WrapMode mode /*= WrapMode::Wrap*/)
 		: Resource(Path(""))
 	{
-
 	}
 
 	Texture::~Texture()
@@ -53,12 +52,6 @@ namespace Moonlight
 		if (!FilePath.Exists)
 		{
 			return;
-		}
-
-		if (bgfx::isValid(TexHandle))
-		{
-			bgfx::destroy(TexHandle);
-			TexHandle = BGFX_INVALID_HANDLE;
 		}
 
 		const auto* memory = Moonlight::LoadMemory(Path(FilePath.FullPath + ".dds"));
@@ -81,7 +74,7 @@ namespace Moonlight
 				{
 					TexHandle = bgfx::createTexture2D(imageContainer->m_width, imageContainer->m_height, 1 < imageContainer->m_numMips, imageContainer->m_numLayers, bgfx::TextureFormat::Enum(imageContainer->m_format), flags, mem);
 				}
-				
+
 				if (bgfx::isValid(TexHandle))
 				{
 					bgfx::setName(TexHandle, FilePath.LocalPath.c_str());
@@ -95,6 +88,16 @@ namespace Moonlight
 			}
 
 		}
+	}
+
+	void Texture::Reload()
+	{
+		if (bgfx::isValid(TexHandle))
+		{
+			bgfx::destroy(TexHandle);
+			TexHandle = BGFX_INVALID_HANDLE;
+		}
+		Load();
 	}
 
 	void Texture::UpdateBuffer(FrameBuffer* NewBuffer)

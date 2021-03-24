@@ -107,7 +107,7 @@ void PropertiesWidget::Render()
 				SharedPtr<Resource> res = ResourceCache::GetInstance().GetCached(metafile->FilePath);
 				if (res)
 				{
-					res->Load();
+					res->Reload();
 				}
 			}
 		}

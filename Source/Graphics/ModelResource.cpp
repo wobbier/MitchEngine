@@ -21,7 +21,6 @@
 ModelResource::ModelResource(const Path& path)
 	: Resource(path)
 {
-	Load();
 }
 
 ModelResource::~ModelResource()

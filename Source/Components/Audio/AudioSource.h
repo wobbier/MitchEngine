@@ -10,7 +10,6 @@ public:
 	AudioSource();
 	AudioSource(const std::string& InFilePath);
 
-	bool Load();
 	void Play(const bool ShouldLoop = false);
 	void Stop(bool immediate = true);
 	bool Preload = false;

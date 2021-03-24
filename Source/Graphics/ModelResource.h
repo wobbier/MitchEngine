@@ -24,7 +24,7 @@ public:
 	ModelResource(const Path& path);
 	~ModelResource();
 
-	void Load();
+	virtual void Load() final;
 	Moonlight::Node RootNode;
 	std::vector<Moonlight::MeshData*> GetAllMeshes();
 private:

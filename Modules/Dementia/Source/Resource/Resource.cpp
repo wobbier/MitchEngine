@@ -54,3 +54,8 @@ void Resource::Load()
 {
 
 }
+
+void Resource::Reload()
+{
+
+}
