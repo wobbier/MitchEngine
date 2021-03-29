@@ -43,7 +43,7 @@ Engine& GetEngine()
 
 Engine::Engine()
 	: Running(true)
-	, newJobSystem(8, 100000)
+	, newJobSystem(1, 100000)
 {
 	std::vector<TypeId> events;
 	events.push_back(LoadSceneEvent::GetEventId());
@@ -94,7 +94,6 @@ void Engine::Init(Game* game)
 			NewRenderer->WindowResized(NewSize);
 		}
         
-#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 		if (UI)
 		{
 			if (Camera::CurrentCamera)
@@ -102,7 +101,6 @@ void Engine::Init(Game* game)
 				UI->OnResize(Camera::CurrentCamera->OutputSize);
 			}
 		}
-#endif
 	};
 
 #if ME_EDITOR && ME_PLATFORM_WIN64
@@ -263,8 +261,6 @@ void Engine::Run()
 				OPTICK_CATEGORY("UICore::Update", Optick::Category::Rendering)
 				FrameProfile::GetInstance().Set("UI", ProfileCategory::UI);
 				// editor only?
-
-#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 				if (UI)
 				{
 					if (Camera::CurrentCamera)
@@ -274,7 +270,6 @@ void Engine::Run()
 					UI->Update(deltaTime);
 				}
 				FrameProfile::GetInstance().Complete("UI");
-#endif
 			}
 //
 //#if !ME_EDITOR

@@ -169,7 +169,8 @@ void Transform::Reset()
 	SetWorldPosition(Vector3());
 	SetRotation(Vector3());
 	SetScale(1.f);
-	SetWorldTransform(Matrix4(), true);
+    Matrix4 idMat;
+	SetWorldTransform(idMat, true);
 }
 
 void Transform::SetWorldTransform(Matrix4& NewWorldTransform, bool InIsDirty)

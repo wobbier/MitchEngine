@@ -1,23 +1,14 @@
 #include <PCH.h>
 #include <Cores/UI/UICore.h>
 
-#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 #include <AppCore/Overlay.h>
 #include <Components/Camera.h>
 #include <Engine/Engine.h>
-#include <UI/d3d11/GPUDriverD3D11.h>
-#include <UI/FileSystemBasic.h>
-#include <UI/FileLogger.h>
-#include <UI/FontLoaderWin.h>
-#include <UI/UIWindow.h>
 #include <Ultralight/platform/Platform.h>
 #include <Ultralight/platform/Config.h>
-#include <Ultralight/Renderer.h>
-#include <BGFXRenderer.h>
-#include <UI/Graphics/GPUContext.h>
-#include <UI/Graphics/GPUDriver.h>
 #include <imgui.h>
 #include <Utils/ImGuiUtils.h>
+#include <AppCore/Platform.h>
 
 #if ME_EDITOR
 //
@@ -57,8 +48,10 @@ UICore::UICore(IWindow* window, BGFXRenderer* renderer)
 
 	m_driver.reset(new GPUDriverBGFX(m_context.get()));
 	m_logger.reset(new ultralight::FileLogger(ultralight::String(std::string(fileSystemRoot + "Ultralight.log").c_str())));
-	m_fontLoader.reset(new ultralight::FontLoaderWin());
-
+//#if ME_PLATFORM_WIN64 || ME_PLATFORM_UWP
+    m_fontLoader.reset(ultralight::GetPlatformFontLoader());
+//#endif
+    
 	ultralight::Platform& platform = ultralight::Platform::instance();
 	platform.set_config(config);
 	platform.set_file_system(m_fs.get());
@@ -306,7 +299,5 @@ void UICore::OnEditorInspect()
 	Base::OnEditorInspect();
 	ImGui::Image(m_uiTexture, ImVec2(1280, 720));
 }
-
-#endif 
 
 #endif

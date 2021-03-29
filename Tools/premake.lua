@@ -67,7 +67,8 @@ function macOSEntryPoints()
             "../ThirdParty/Lib/GLFW/Win64/Debug",
             "../../Engine/ThirdParty/Lib/BGFX/macOS/Debug",
             "../../Engine/ThirdParty/Lib/Optick/macOS/Debug",
-            "../../Engine/ThirdParty/Lib/SDL/macOS/Debug"
+            "../../Engine/ThirdParty/Lib/SDL/macOS/Debug",
+            "../../Engine/ThirdParty/UltralightSDK/lib/macOS"
         }
 
         filter { "Debug*" }
@@ -79,7 +80,8 @@ function macOSEntryPoints()
             "../ThirdParty/Lib/GLFW/Win64/Debug",
             "Engine/ThirdParty/Lib/BGFX/macOS/Debug",
             "Engine/ThirdParty/Lib/Optick/macOS/Debug",
-            "Engine/ThirdParty/Lib/SDL/macOS/Debug"
+            "Engine/ThirdParty/Lib/SDL/macOS/Debug",
+            "Engine/ThirdParty/UltralightSDK/lib/macOS"
         }
 
         links {
@@ -108,6 +110,10 @@ function macOSEntryPoints()
             (getPlatformPostfix("MitchEngine")),
             "Dementia",
             "ImGui",
+            "UltralightCore",
+            "Ultralight",
+            "WebCore",
+            "AppCore",
             getPlatformPostfix(ProjectName)
         }
         filter {}

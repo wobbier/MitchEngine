@@ -42,7 +42,5 @@ public:
 private:
 	double Scale = 0.0;
 	Vector2 ScreenSize;
-	UINT back_buffer_width_;
-	UINT back_buffer_height_;
 	int samples_ = 1;
 };

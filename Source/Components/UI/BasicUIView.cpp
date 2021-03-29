@@ -1,14 +1,12 @@
 #include "PCH.h"
 #include <filesystem>
 
-#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
-
 #include "BasicUIView.h"
 #include "imgui.h"
 #include "UI/JSHelpers.h"
 #include "Ultralight/View.h"
 #include "Events/AudioEvents.h"
-#include "Ultralight/String.h"
+#include <Ultralight/String.h>
 
 BasicUIView::BasicUIView()
 	: Component("BasicUIView")
@@ -115,7 +113,5 @@ void BasicUIView::OnEditorInspect()
 		ImGui::EndCombo();
 	}
 }
-
-#endif
 
 #endif

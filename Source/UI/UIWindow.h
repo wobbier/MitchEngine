@@ -1,7 +1,5 @@
 #pragma once
 
-#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
-
 #include <Ultralight/String16.h>
 #include "UI/RefCountedImpl.h"
 #include "AppCore/Window.h"
@@ -52,7 +50,6 @@ public:
 	virtual int DeviceToPixels(int val) const override;
 
 	void set_app_listener(ultralight::WindowListener* listener) {  }
-	HWND hwnd();
 
 	virtual int PixelsToDevice(int val) const override;
 
@@ -70,4 +67,3 @@ protected:
 	IWindow* m_window;
 	ultralight::WindowListener* listener_ = nullptr;
 };
-#endif

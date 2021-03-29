@@ -5,8 +5,6 @@
 #include "File.h"
 #include "Path.h"
 
-#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
-
 #include "Ultralight/Listener.h"
 #include "UI/JSHelpers.h"
 #include "Ultralight/View.h"
@@ -53,5 +51,3 @@ private:
 	ultralight::RefPtr<ultralight::View> ViewRef;
 };
 ME_REGISTER_COMPONENT_FOLDER(BasicUIView, "UI")
-
-#endif

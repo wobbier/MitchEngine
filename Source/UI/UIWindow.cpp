@@ -1,8 +1,6 @@
 #include "PCH.h"
 #include "UIWindow.h"
 
-#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
-
 UIWindow::UIWindow(IWindow* window, ultralight::OverlayManager* manager)
 	: m_overlayManager(manager)
 	, m_window(window)
@@ -74,12 +72,6 @@ int UIWindow::DeviceToPixels(int val) const
 	return 1;
 }
 
-HWND UIWindow::hwnd()
-{
-	return NULL;
-	//return static_cast<Win32Window*>(m_window)->Window;
-}
-
 int UIWindow::PixelsToDevice(int val) const
 {
 	throw std::logic_error("The method or operation is not implemented.");
@@ -89,5 +81,3 @@ ultralight::OverlayManager* UIWindow::overlay_manager() const
 {
 	return m_overlayManager;
 }
-
-#endif

@@ -74,7 +74,7 @@ public:
 			LocalPath = LocalPath.substr(path, LocalPath.size());
 		}
 
-#if ME_EDITOR
+#if ME_EDITOR || ME_PLATFORM_MACOS
 		if (!std::filesystem::exists(FullPath))
 		{
 			if (!Raw)

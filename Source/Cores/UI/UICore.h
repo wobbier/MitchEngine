@@ -1,28 +1,19 @@
 #pragma once
 #include <Components/UI/BasicUIView.h>
 
-#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
-
-#include <UI/OverlayManager.h>
 #include <bgfx/bgfx.h>
-
-class BGFXRenderer;
-class GPUContext;
-class GPUDriverBGFX;
-
-namespace ultralight
-{ 
-	class FileLogger;
-	class FontLoader;
-	class FileSystemBasic;
-	class GPUContextD3D11;
-	//class GPUDriverD3D11;
-	class Renderer;
-}
+#include <UI/OverlayManager.h>
+#include <UI/FileSystemBasic.h>
+#include <UI/Graphics/GPUContext.h>
+#include <UI/Graphics/GPUDriver.h>
+#include <Ultralight/Renderer.h>
+#include <UI/FileLogger.h>
+#include <UI/FontLoaderWin.h>
+#include <UI/UIWindow.h>
+#include <BGFXRenderer.h>
 
 class IWindow;
 class OverlayManager;
-class UIWindow;
 
 class UICore final
 	: public Core<UICore>
@@ -67,9 +58,6 @@ private:
 	UniquePtr<GPUContext> m_context = nullptr;
 	UniquePtr<ultralight::FontLoader> m_fontLoader = nullptr;
 	UniquePtr<ultralight::FileLogger> m_logger = nullptr;
-#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 	ultralight::RefPtr<UIWindow> m_window = nullptr;
-#endif
 };
 
-#endif

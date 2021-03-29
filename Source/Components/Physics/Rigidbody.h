@@ -40,7 +40,7 @@ public:
 	unsigned int Id = 0;
 
 private:
-	void CreateObject(const Vector3& Position, Quaternion& Rotation, const Vector3& InScale, class btDiscreteDynamicsWorld* world);
+	void CreateObject(const Vector3& Position, const Quaternion& Rotation, const Vector3& InScale, class btDiscreteDynamicsWorld* world);
 	btRigidBody* InternalRigidbody = nullptr;
 	btCollisionShape* fallShape = nullptr;
 	Vector3 Scale;
