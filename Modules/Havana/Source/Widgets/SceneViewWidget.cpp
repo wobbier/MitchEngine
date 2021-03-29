@@ -66,13 +66,20 @@ void SceneViewWidget::Init()
 		params.Extents = { 1920, 1080 };
 		DisplayOptions.push_back(params);
 	}
-	//{
-	//	DisplayParams params;
-	//	params.Name = "iPhone X";
-	//	params.Type = DisplayType::Fixed;
-	//	params.Extents = { 1125, 2436 };
-	//	DisplayOptions.push_back(params);
-	//}
+	/*{
+		DisplayParams params;
+		params.Name = "iPhone X";
+		params.Type = DisplayType::Fixed;
+		params.Extents = { 1125, 2436 };
+		DisplayOptions.push_back(params);
+	}
+	{
+		DisplayParams params;
+		params.Name = "iPhone X Landscape";
+		params.Type = DisplayType::Fixed;
+		params.Extents = { 2436, 1125 };
+		DisplayOptions.push_back(params);
+	}*/
 }
 
 void SceneViewWidget::Destroy()
@@ -226,6 +233,34 @@ void SceneViewWidget::Render()
 		break;
 	}
 	case DisplayType::Ratio:
+	{
+		Vector2 ratio = CurrentDisplayParams.Extents;
+		Vector2 calculatedImageSize = viewportRenderSize;
+
+		if (ratio.x > ratio.y)
+		{
+			SceneViewRenderSize.y = availableSpace.x;
+			SceneViewRenderSize.x = availableSpace.x * (ratio.x / ratio.y);
+		}
+
+		float ri = SceneViewRenderSize.x / SceneViewRenderSize.y;
+		float rs = availableSpace.x / availableSpace.y;
+
+		if (rs > ri)
+		{
+			calculatedImageSize.x = SceneViewRenderSize.x * availableSpace.y / SceneViewRenderSize.y;
+		}
+		else
+		{
+			calculatedImageSize.y = SceneViewRenderSize.y * availableSpace.x / SceneViewRenderSize.x;
+		}
+
+		SceneViewRenderLocation.x += (viewportRenderSize.x - calculatedImageSize.x) / 2.f;
+		SceneViewRenderLocation.y += (viewportRenderSize.y - calculatedImageSize.y) / 2.f;
+		viewportRenderSize = calculatedImageSize;
+		SceneViewRenderSize = calculatedImageSize;
+		break;
+	}
 	default:
 		break;
 	}
@@ -243,18 +278,6 @@ void SceneViewWidget::Render()
 			ImVec2(viewportRenderSize.x * scale, (viewportRenderSize.y * scale)),
 			ImVec2(0, 0),
 			ImVec2(Mathf::Clamp(0.f, 1.0f, SceneViewRenderSize.x / currentView->Width), Mathf::Clamp(0.f, 1.0f, SceneViewRenderSize.y / currentView->Height)));
-
-		//if (App->Editor->GetViewportMode() == ViewportMode::Editor && gameView)
-		//{
-		//	ImGui::Begin("Game Preview");
-		//	//ImGui::SetCursorPos(ImVec2(WorldViewRenderSize.x - 215.f, -115.f));
-		//	Vector2 size(gameView->Width / 4.f, gameView->Height / 4.f);
-		//	Camera::CurrentCamera->OutputSize = size;
-		//	ImGui::Image(bgfx::getTexture(gameView->Buffer), ImVec2(size.x, size.y), ImVec2(0, 0),
-		//		ImVec2(Mathf::Clamp(0.f, 1.0f, size.x / gameView->Width), Mathf::Clamp(0.f, 1.0f, size.y / gameView->Height)));
-		//	ImGui::End();
-		//}
-
 	}
 
 	if (EnableSceneTools)
