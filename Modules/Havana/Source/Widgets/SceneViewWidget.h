@@ -6,11 +6,24 @@
 
 class EditorApp;
 class Transform;
-
 class SceneViewWidget
 	: public HavanaWidget
 	, public EventReceiver
 {
+	enum class DisplayType : uint8_t
+	{
+		FreeForm = 0,
+		Ratio,
+		Fixed
+	};
+
+	struct DisplayParams
+	{
+		std::string Name;
+		Vector2 Extents;
+		DisplayType Type = DisplayType::FreeForm;
+	};
+
 public:
 	SceneViewWidget(const std::string& inTitle, bool inSceneToolsEnabled = false);
 
@@ -35,9 +48,14 @@ public:
 
 	Transform* SelectedTransform = nullptr;
 
+	DisplayParams CurrentDisplayParams;
 private:
 	void DrawGuizmo();
 
 	ImGuizmo::OPERATION CurrentGizmoOperation = ImGuizmo::TRANSLATE;
 	ImGuizmo::MODE CurrentGizmoMode = ImGuizmo::LOCAL;
+
+	Vector2 GizmoRenderLocation;
+
+	std::vector<DisplayParams> DisplayOptions;
 };

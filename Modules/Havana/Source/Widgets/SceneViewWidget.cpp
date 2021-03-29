@@ -25,12 +25,61 @@ void SceneViewWidget::Init()
 	App = static_cast<EditorApp*>(GetEngine().GetGame());
 	WindowFlags = 0;
 	WindowFlags |= ImGuiWindowFlags_MenuBar;
+
+	{
+		CurrentDisplayParams.Name = "Freeform";
+		CurrentDisplayParams.Type = DisplayType::FreeForm;
+		DisplayOptions.push_back(CurrentDisplayParams);
+	}
+	{
+		DisplayParams params;
+		params.Name = "Widescreen";
+		params.Type = DisplayType::Ratio;
+		params.Extents = { 16, 9 };
+		DisplayOptions.push_back(params);
+	}
+	{
+		DisplayParams params;
+		params.Name = "Ultra-Wide";
+		params.Type = DisplayType::Ratio;
+		params.Extents = { 21, 9 };
+		DisplayOptions.push_back(params);
+	}
+	{
+		DisplayParams params;
+		params.Name = "Pro Gamer";
+		params.Type = DisplayType::Ratio;
+		params.Extents = { 4, 3 };
+		DisplayOptions.push_back(params);
+	}
+	{
+		DisplayParams params;
+		params.Name = "720p";
+		params.Type = DisplayType::Fixed;
+		params.Extents = { 1280, 720 };
+		DisplayOptions.push_back(params);
+	}
+	{
+		DisplayParams params;
+		params.Name = "1080p";
+		params.Type = DisplayType::Fixed;
+		params.Extents = { 1920, 1080 };
+		DisplayOptions.push_back(params);
+	}
+	//{
+	//	DisplayParams params;
+	//	params.Name = "iPhone X";
+	//	params.Type = DisplayType::Fixed;
+	//	params.Extents = { 1125, 2436 };
+	//	DisplayOptions.push_back(params);
+	//}
 }
 
 void SceneViewWidget::Destroy()
 {
 	WindowFlags = 0;
 	MainCamera = nullptr;
+	DisplayOptions.clear();
 }
 
 void SceneViewWidget::SetData(Moonlight::CameraData& data)
@@ -75,7 +124,6 @@ void SceneViewWidget::Render()
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
 
-
 	Input& gameInput = GetEngine().GetInput();
 	Input& editorInput = GetEngine().GetEditorInput();
 
@@ -94,6 +142,39 @@ void SceneViewWidget::Render()
 
 	if (ImGui::BeginMenuBar())
 	{
+		if (!EnableSceneTools)
+		{
+			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4.0f, 4.0f));
+			if (ImGui::BeginMenu(CurrentDisplayParams.Name.c_str()))
+			{
+				for (auto& params : DisplayOptions)
+				{
+					std::string label = std::to_string((int)params.Extents.x);
+					std::string postFix;
+					if (params.Type == DisplayType::Fixed)
+					{
+						label += "px, ";
+						postFix = "px";
+					}
+					else if (params.Type == DisplayType::Ratio)
+					{
+						label += ":";
+					}
+					else
+					{
+						label += " ";
+					}
+					label += std::to_string((int)params.Extents.y);
+					label += postFix;
+					if (ImGui::MenuItem(params.Name.c_str(), (params.Type == DisplayType::FreeForm) ? "" : label.c_str()))
+					{
+						CurrentDisplayParams = params;
+					}
+				}
+				ImGui::EndMenu();
+			}
+			ImGui::PopStyleVar(1);
+		}
 		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 150.f);
 
 		if (ImGui::Button("Toggle Fullscreen", ImVec2(150.f, 20.f)))
@@ -104,19 +185,63 @@ void SceneViewWidget::Render()
 		ImGui::EndMenuBar();
 	}
 
-	ImVec2 renderPosition = ImGui::GetCursorScreenPos();
+	SceneViewRenderLocation = Vector2(ImGui::GetCursorPos().x, ImGui::GetCursorPos().y);
+	GizmoRenderLocation = Vector2(ImGui::GetCursorScreenPos().x, ImGui::GetCursorScreenPos().y);
 
-	SceneViewRenderSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
-	SceneViewRenderLocation = Vector2(renderPosition.x, renderPosition.y);
+	Vector2 availableSpace = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y - 38.f);
+	Vector2 viewportRenderSize = availableSpace;
+	float scale = 1.f;
+	switch (CurrentDisplayParams.Type)
+	{
+	case DisplayType::FreeForm:
+	{
+		SceneViewRenderSize = viewportRenderSize;
+		break;
+	}
+	case DisplayType::Fixed:
+	{
+		SceneViewRenderSize = CurrentDisplayParams.Extents;
+		Vector2 calculatedImageSize = viewportRenderSize;
+
+		// rs > ri ? (wi * hs/hi, hs) : (ws, hi * ws/wi)
+
+		float ri = SceneViewRenderSize.x / SceneViewRenderSize.y;
+		float rs = availableSpace.x / availableSpace.y;
+
+		if (rs > ri)
+		{
+			calculatedImageSize.x = SceneViewRenderSize.x * availableSpace.y / SceneViewRenderSize.y;
+		}
+		else
+		{
+			calculatedImageSize.y = SceneViewRenderSize.y * availableSpace.x / SceneViewRenderSize.x;
+		}
+
+		calculatedImageSize.x = Mathf::Clamp(0.f, SceneViewRenderSize.x, calculatedImageSize.x);
+		calculatedImageSize.y = std::min(SceneViewRenderSize.y, calculatedImageSize.y);
+		SceneViewRenderLocation.x += (viewportRenderSize.x - calculatedImageSize.x) / 2.f;
+		SceneViewRenderLocation.y += (viewportRenderSize.y - calculatedImageSize.y) / 2.f;
+		viewportRenderSize = calculatedImageSize;
+
+		break;
+	}
+	case DisplayType::Ratio:
+	default:
+		break;
+	}
+	
 	IsFocused = ImGui::IsWindowFocused();
 
 	Moonlight::FrameBuffer* currentView = MainCamera->Buffer;
 
 	if (currentView && bgfx::isValid(currentView->Buffer))
 	{
-		ImVec2 maxPos = ImVec2(renderPosition.x + ImGui::GetWindowSize().x, renderPosition.y + ImGui::GetWindowSize().y);
+		ImGui::SetCursorPos(ImVec2(SceneViewRenderLocation.x, SceneViewRenderLocation.y));
+		ImVec2 maxPos = ImVec2(SceneViewRenderLocation.x + ImGui::GetWindowSize().x, SceneViewRenderLocation.y + ImGui::GetWindowSize().y);
 
-		ImGui::Image(bgfx::getTexture(currentView->Buffer), ImVec2(SceneViewRenderSize.x, SceneViewRenderSize.y - 38.f), ImVec2(0, 0),
+		ImGui::Image(bgfx::getTexture(currentView->Buffer),
+			ImVec2(viewportRenderSize.x * scale, (viewportRenderSize.y * scale)),
+			ImVec2(0, 0),
 			ImVec2(Mathf::Clamp(0.f, 1.0f, SceneViewRenderSize.x / currentView->Width), Mathf::Clamp(0.f, 1.0f, SceneViewRenderSize.y / currentView->Height)));
 
 		//if (App->Editor->GetViewportMode() == ViewportMode::Editor && gameView)
@@ -210,9 +335,9 @@ void SceneViewWidget::DrawGuizmo()
 		float viewManipulateRight = io.DisplaySize.x;
 		float viewManipulateTop = 0;
 
-		ImGuizmo::SetRect(SceneViewRenderLocation.x, SceneViewRenderLocation.y, SceneViewRenderSize.x, SceneViewRenderSize.y);
+		ImGuizmo::SetRect(GizmoRenderLocation.x, GizmoRenderLocation.y, SceneViewRenderSize.x, SceneViewRenderSize.y);
 		ImGuizmo::Manipulate(&cameraView[0][0], cameraProjection, CurrentGizmoOperation, CurrentGizmoMode, matrix);
-		//ImGuizmo::ViewManipulate(cameraView, 8.f, ImVec2(SceneViewRenderLocation.x + SceneViewRenderSize.x - 128, SceneViewRenderLocation.y), ImVec2(128, 128), 0x00101010);
+		//ImGuizmo::ViewManipulate(cameraView, 8.f, ImVec2(GizmoRenderLocation.x + SceneViewRenderSize.x - 128, GizmoRenderLocation.y), ImVec2(128, 128), 0x00101010);
 
 		Vector3 modifiedPos, modifiedRot, modifiedScale;
 		ImGuizmo::DecomposeMatrixToComponents(matrix, &modifiedPos.x, &modifiedRot.x, &modifiedScale.x);

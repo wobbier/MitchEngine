@@ -272,7 +272,11 @@ bool AssetBrowser::ProccessDirectoryRecursive(std::string& dir, Directory& dirRe
 		{
 			if (file.is_regular_file())
 			{
-				if (newdir.find(".meta") != std::string::npos)
+				if (newdir.find(".meta") != std::string::npos
+					|| newdir.find(".dds") != std::string::npos
+					|| newdir.find(".pdn") != std::string::npos
+					|| newdir.find(".blend") != std::string::npos
+					|| newdir.find(".bin") != std::string::npos)
 				{
 					return false;
 				}
