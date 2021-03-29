@@ -153,7 +153,7 @@ void Engine::Init(Game* game)
 
 	//m_renderer->Init();
 
-	//UI = new UICore(GameWindow, m_renderer);
+	UI = new UICore(GameWindow, NewRenderer);
 
 	InitGame();
 
@@ -166,7 +166,7 @@ void Engine::InitGame()
 	GameWorld->AddCore<SceneGraph>(*SceneNodes);
 	GameWorld->AddCore<RenderCore>(*ModelRenderer);
 	GameWorld->AddCore<AudioCore>(*AudioThread);
-	//GameWorld->AddCore<UICore>(*UI);
+	GameWorld->AddCore<UICore>(*UI);
 
 	m_game->OnInitialize();
 }
@@ -298,6 +298,7 @@ void Engine::Run()
 			FrameProfile::GetInstance().Render({ 0.f, GameWindow->GetSize().y - FrameProfile::kMinProfilerSize }, {GameWindow->GetSize().x, (float)FrameProfile::kMinProfilerSize });
 #endif
 #endif
+			UI->Render();
 			NewRenderer->Render(EditorCamera);
 			GameWindow->Swap();
 			//FrameProfile::GetInstance().Set("Render", ProfileCategory::Rendering);

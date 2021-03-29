@@ -12,6 +12,7 @@
 #include <Camera/CameraData.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <Mathf.h>
+#include <Cores/UI/UICore.h>
 
 SceneViewWidget::SceneViewWidget(const std::string& inTitle,  bool inSceneToolsEnabled)
 	: HavanaWidget(inTitle)
@@ -278,6 +279,16 @@ void SceneViewWidget::Render()
 			ImVec2(viewportRenderSize.x * scale, (viewportRenderSize.y * scale)),
 			ImVec2(0, 0),
 			ImVec2(Mathf::Clamp(0.f, 1.0f, SceneViewRenderSize.x / currentView->Width), Mathf::Clamp(0.f, 1.0f, SceneViewRenderSize.y / currentView->Height)));
+	}
+
+	if (!EnableSceneTools)
+	{
+		UICore* ui = GetEngine().UI;
+		ImGui::SetCursorPos(ImVec2(SceneViewRenderLocation.x, SceneViewRenderLocation.y));
+		if (bgfx::isValid(ui->m_uiTexture))
+		{
+			ImGui::Image(ui->m_uiTexture, ImVec2(viewportRenderSize.x, viewportRenderSize.y));
+		}
 	}
 
 	if (EnableSceneTools)

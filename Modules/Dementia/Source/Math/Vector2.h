@@ -33,10 +33,9 @@ struct Vector2
 	{
 	}
 
-	const bool IsZero()
+	const bool IsZero() const
 	{
-		static Vector2 Zero = Vector2(0.f, 0.f);
-		return *this == Zero;
+		return x == 0.f && y == 0.f;
 	}
 
 	inline float Length() const
