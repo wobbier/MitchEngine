@@ -389,7 +389,7 @@ Moonlight::CameraData& BGFXRenderer::GetCamera(unsigned int Id)
 {
 	if (Id >= Cameras.size())
 	{
-		return Cameras[0];
+		return DummyCameraData;
 	}
 
 	return Cameras[Id];

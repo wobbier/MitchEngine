@@ -71,4 +71,5 @@ private:
 	bgfx::UniformHandle s_texUI;
 	int32_t m_pt;
 	int64_t m_timeOffset;
+	Moonlight::CameraData DummyCameraData;
 };
