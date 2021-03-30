@@ -6,4 +6,5 @@ namespace Moonlight
 
 	bgfx::VertexLayout PosNormTexTanBiVertex::ms_layout;
 
+	bgfx::VertexLayout PosTexCoordVertex::ms_layout;
 }

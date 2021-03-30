@@ -2,6 +2,7 @@
 
 #include "BasicFrameProfile.h"
 #include <imgui.h>
+#include <Engine/Engine.h>
 
 FrameProfile::FrameProfile()
 {
@@ -54,7 +55,7 @@ void FrameProfile::Render(const Vector2& inPosition, const Vector2& inSize)
 		totalFrameTime += thing.second.Timer.GetDeltaSeconds();
 	}
 
-	//totalFrameTime = FrameProfile::GetInstance().MainDelta;
+	totalFrameTime = FrameProfile::GetInstance().MainDelta;
 
 	ImGui::Begin("FrameProfileBar", NULL, flags);
 	{
@@ -71,7 +72,7 @@ void FrameProfile::Render(const Vector2& inPosition, const Vector2& inSize)
 			float sz = 50.f;
 			draw_list->AddRectFilled(ImVec2(x, y), ImVec2(x + ImGui::GetWindowSize().x, y + sz), col322);
 			float previousX = 0;
-			float targetFPS = (1.f / 30.f);
+			float targetFPS = (1.f / GetEngine().FPS);
 			float size = (totalFrameTime / targetFPS);
 
 			if (size >= 100.f)

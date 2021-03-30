@@ -37,6 +37,7 @@ namespace Moonlight
 		SkyBox* Skybox = nullptr;
 		Frustum* CameraFrustum = nullptr;
 		float OrthographicSize = 1.f;
+		bgfx::TextureHandle UITexture = BGFX_INVALID_HANDLE;
 
 		Moonlight::FrameBuffer* Buffer = nullptr;
 

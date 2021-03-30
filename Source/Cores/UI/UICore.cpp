@@ -9,14 +9,7 @@
 #include <imgui.h>
 #include <Utils/ImGuiUtils.h>
 #include <AppCore/Platform.h>
-
-#if ME_EDITOR
-//
-//#include <Cores/EditorCore.h>
-//#include <EditorApp.h>
-//#include <Havana.h>
-
-#endif
+#include <BGFXRenderer.h>
 
 UICore::UICore(IWindow* window, BGFXRenderer* renderer)
 	: Base(ComponentFilter().Requires<BasicUIView>())
@@ -48,15 +41,16 @@ UICore::UICore(IWindow* window, BGFXRenderer* renderer)
 
 	m_driver.reset(new GPUDriverBGFX(m_context.get()));
 	m_logger.reset(new ultralight::FileLogger(ultralight::String(std::string(fileSystemRoot + "Ultralight.log").c_str())));
-//#if ME_PLATFORM_WIN64 || ME_PLATFORM_UWP
+#if ME_PLATFORM_UWP
+	m_fontLoader.reset(new ultralight::FontLoaderWin());
+#else
     m_fontLoader.reset(ultralight::GetPlatformFontLoader());
-//#endif
-    
+#endif
 	ultralight::Platform& platform = ultralight::Platform::instance();
 	platform.set_config(config);
 	platform.set_file_system(m_fs.get());
 	platform.set_font_loader(m_fontLoader.get());
-	if (config.use_gpu_renderer)
+	//if (config.use_gpu_renderer)
 	{
 		platform.set_gpu_driver(m_driver.get());
 	}
@@ -226,19 +220,22 @@ void UICore::OnResize(const Vector2& NewSize)
 		return;
 	}
 
-	if (bgfx::isValid(m_uiTexture))
+	if (NewSize != UISize)
 	{
-		bgfx::destroy(m_uiTexture);
-	}
+		if (bgfx::isValid(m_uiTexture))
+		{
+			bgfx::destroy(m_uiTexture);
+		}
 
-	m_uiTexture = bgfx::createTexture2D(NewSize.x
-		, NewSize.y
-		, false
-		, 1
-		, bgfx::TextureFormat::BGRA8
-		, BGFX_SAMPLER_MIN_POINT | BGFX_SAMPLER_MAG_POINT | BGFX_SAMPLER_MIP_POINT
-	);
-	UISize = NewSize;
+		m_uiTexture = bgfx::createTexture2D(NewSize.x
+			, NewSize.y
+			, false
+			, 1
+			, bgfx::TextureFormat::BGRA8
+			, BGFX_SAMPLER_MIN_POINT | BGFX_SAMPLER_MAG_POINT | BGFX_SAMPLER_MIP_POINT
+		);
+		UISize = NewSize;
+	}
 }
 
 void UICore::InitUIView(BasicUIView& view)
@@ -283,9 +280,10 @@ void UICore::CopyBitmapToTexture(ultralight::RefPtr<ultralight::Bitmap> bitmap)
 
 		const bgfx::Memory* mem = bgfx::makeRef(pixels, stride);
 
-		if (bgfx::isValid(m_uiTexture))
+		if (bgfx::isValid(m_uiTexture) && Camera::CurrentCamera)
 		{
 			bgfx::updateTexture2D(m_uiTexture, 0, 0, tx, ty, tw, th, mem, stride);
+			GetEngine().GetRenderer().GetCamera(Camera::CurrentCamera->GetCameraId()).UITexture = m_uiTexture;
 		}
 	}
 

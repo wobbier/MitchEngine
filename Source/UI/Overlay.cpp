@@ -207,8 +207,8 @@ namespace ultralight {
 
 		OverlayImpl(Ref<Window> window, Ref<View> view, int x, int y) :
 			window_(window), view_(view), width_(view->width()),
-			height_(view->height()), x_(x), y_(y), needs_update_(true)/*,
-			driver_((GPUDriverImpl*)Platform::instance().gpu_driver())*/ {
+			height_(view->height()), x_(x), y_(y), needs_update_(true),
+			driver_((GPUDriverImpl*)Platform::instance().gpu_driver()) {
 			window_->overlay_manager()->Add(this);
 		}
 

@@ -211,7 +211,7 @@ void Engine::Run()
 
 		AccumulatedTime += GameClock.GetDeltaSeconds();
 
-		if (AccumulatedTime >= MaxDeltaTime)
+		//if (AccumulatedTime >= MaxDeltaTime)
 		{
 			OPTICK_FRAME("MainLoop");
 			float deltaTime = DeltaTime = AccumulatedTime;
@@ -293,9 +293,13 @@ void Engine::Run()
 			FrameProfile::GetInstance().Render({ 0.f, GameWindow->GetSize().y - FrameProfile::kMinProfilerSize }, {GameWindow->GetSize().x, (float)FrameProfile::kMinProfilerSize });
 #endif
 #endif
+			FrameProfile::GetInstance().Set("UI Render", ProfileCategory::UI);
 			UI->Render();
+			FrameProfile::GetInstance().Complete("UI Render");
+			FrameProfile::GetInstance().Set("Render", ProfileCategory::Rendering);
 			NewRenderer->Render(EditorCamera);
 			GameWindow->Swap();
+			FrameProfile::GetInstance().Complete("Render");
 			//FrameProfile::GetInstance().Set("Render", ProfileCategory::Rendering);
 			//m_renderer->ThreadedRender([this]() {
 			//	m_game->PostRender();
@@ -316,6 +320,7 @@ void Engine::Run()
 			AccumulatedTime = std::fmod(AccumulatedTime, MaxDeltaTime);
 
 			FrameProfile::GetInstance().End(AccumulatedTime);
+			AccumulatedTime = 0;// std::fmod(AccumulatedTime, MaxDeltaTime);
             GetJobEngine().ClearWorkerPools();
 		}
 		ResourceCache::GetInstance().Dump();

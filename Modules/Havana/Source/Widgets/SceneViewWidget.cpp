@@ -281,16 +281,6 @@ void SceneViewWidget::Render()
 			ImVec2(Mathf::Clamp(0.f, 1.0f, SceneViewRenderSize.x / currentView->Width), Mathf::Clamp(0.f, 1.0f, SceneViewRenderSize.y / currentView->Height)));
 	}
 
-	if (!EnableSceneTools)
-	{
-		UICore* ui = GetEngine().UI;
-		ImGui::SetCursorPos(ImVec2(SceneViewRenderLocation.x, SceneViewRenderLocation.y));
-		if (bgfx::isValid(ui->m_uiTexture))
-		{
-			ImGui::Image(ui->m_uiTexture, ImVec2(viewportRenderSize.x, viewportRenderSize.y));
-		}
-	}
-
 	if (EnableSceneTools)
 	{
 		DrawGuizmo();

@@ -21,6 +21,23 @@ namespace Moonlight
 		static bgfx::VertexLayout ms_layout;
 	};
 
+	struct PosTexCoordVertex
+	{
+		Vector3 vec;
+		Vector2 coords;
+
+		static void Init()
+		{
+			ms_layout
+				.begin()
+				.add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
+				.add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float)
+				.end();
+		};
+
+		static bgfx::VertexLayout ms_layout;
+	};
+
 	struct PosNormTexTanBiVertex
 	{
 		Vector3 Position;

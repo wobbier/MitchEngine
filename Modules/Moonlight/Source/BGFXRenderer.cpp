@@ -113,6 +113,7 @@ void BGFXRenderer::Create(const RendererCreationSettings& settings)
 		// Create vertex stream declaration.
 		Moonlight::PosColorVertex::Init();
 		Moonlight::PosNormTexTanBiVertex::Init();
+		Moonlight::PosTexCoordVertex::Init();
 
 		// Create static vertex buffer.
 		m_vbh = bgfx::createVertexBuffer(
@@ -127,13 +128,9 @@ void BGFXRenderer::Create(const RendererCreationSettings& settings)
 			bgfx::makeRef(Moonlight::s_cubeTriList, sizeof(Moonlight::s_cubeTriList))
 		);
         
-		//CubeProgram = Moonlight::LoadProgram("Assets/Shaders/Samples/Cubes.vert", "Assets/Shaders/Samples/Cubes.frag");
+		UIProgram = Moonlight::LoadProgram("Assets/Shaders/UI.vert", "Assets/Shaders/UI.frag");
 		s_texCube = bgfx::createUniform("s_texCube", bgfx::UniformType::Sampler);
-		//bgfx::RendererType::Enum type = bgfx::getRendererType();
-		//bgfx::ShaderHandle vsh = bgfx::createEmbeddedShader(s_embeddedShaders, type, "cubes_vert");
-		//bgfx::ShaderHandle fsh = bgfx::createEmbeddedShader(s_embeddedShaders, type, "cubes_frag");
-		//// Create program from shaders.
-		//CubeProgram = bgfx::createProgram(vsh, fsh, true /* destroy shaders when program is destroyed */);
+		s_texUI = bgfx::createUniform("s_texUI", bgfx::UniformType::Sampler);
 
 		m_timeOffset = bx::getHPCounter();
 	}
@@ -288,18 +285,18 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 
 			if (mesh.Type == Moonlight::Cube)
 			{
-				// Set model matrix for rendering.
-				bgfx::setTransform(&mesh.Transform);
+				//// Set model matrix for rendering.
+				//bgfx::setTransform(&mesh.Transform);
 
-				// Set vertex and index buffer.
-				bgfx::setVertexBuffer(0, m_vbh);
-				bgfx::setIndexBuffer(m_ibh);
+				//// Set vertex and index buffer.
+				//bgfx::setVertexBuffer(0, m_vbh);
+				//bgfx::setIndexBuffer(m_ibh);
 
-				// Set render states.
-				bgfx::setState(state);
+				//// Set render states.
+				//bgfx::setState(state);
 
-				// Submit primitive for rendering to view 0.
-				bgfx::submit(id, CubeProgram);
+				//// Submit primitive for rendering to view 0.
+				//bgfx::submit(id, UIProgram);
 			}
 			else if (mesh.Type == Moonlight::MeshType::Model)
 			{
@@ -331,6 +328,45 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 				bgfx::submit(id, mesh.MeshMaterial->MeshShader.GetProgram());
 			}
 		}
+	}
+
+	float orthoProj[16];
+	bx::mtxOrtho(orthoProj, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, bgfx::getCaps()->homogeneousDepth);
+	{
+		// clear out transform stack
+		float identity[16];
+		bx::mtxIdentity(identity);
+		bgfx::setTransform(identity);
+	}
+
+	// Get renderer capabilities info.
+	const bgfx::RendererType::Enum renderer = bgfx::getRendererType();
+	float m_texelHalf = (bgfx::RendererType::Direct3D9 == renderer) ? 0.5f : 0.0f;
+	if (camera.IsMain && bgfx::isValid(camera.UITexture))
+	{
+		const int view = 69;
+		bgfx::setViewName(view, "ui");
+		bgfx::setViewClear(view
+			, BGFX_CLEAR_NONE
+			, 0
+			, 1.0f
+			, 0
+		);
+
+		bgfx::setViewRect(view, 0, 0, uint16_t(camera.OutputSize.x), uint16_t(camera.OutputSize.y));
+		bgfx::setViewTransform(view, NULL, orthoProj);
+		if (id > 0)
+		{
+			bgfx::setViewFrameBuffer(view, camera.Buffer->Buffer);
+		}
+		bgfx::setState(0
+			| BGFX_STATE_WRITE_RGB
+			| BGFX_STATE_BLEND_ALPHA
+			| BGFX_STATE_BLEND_DST_ALPHA
+		);
+		bgfx::setTexture(0, s_texUI, camera.UITexture);
+		Moonlight::screenSpaceQuad(camera.OutputSize.x, camera.OutputSize.y, m_texelHalf, bgfx::getCaps()->originBottomLeft);
+		bgfx::submit(view, UIProgram);
 	}
 }
 

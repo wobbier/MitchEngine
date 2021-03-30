@@ -28,10 +28,10 @@ SceneGraph::~SceneGraph()
 void SceneGraph::Init()
 {
 	//RootTransform->Children.clear();
-	if (!RootTransform)
+	if (!RootTransformEntity)
 	{
-		RootTransform = GameWorld->CreateEntity();
-		RootTransform->AddComponent<Transform>();
+		RootTransformEntity = GameWorld->CreateEntity();
+		RootTransform = &RootTransformEntity->AddComponent<Transform>();
 	}
 }
 bool shouldBurst = false;
@@ -148,7 +148,7 @@ void SceneGraph::OnEntityAdded(Entity& NewEntity)
 
 	Transform& NewEntityTransform = NewEntity.GetComponent<Transform>();
 
-	if (!NewEntityTransform.ParentTransform && !(NewEntity.GetId() == RootTransform->GetId()))
+	if (!NewEntityTransform.ParentTransform && !(NewEntity.GetId() == RootTransformEntity->GetId()))
 	{
 		NewEntityTransform.SetParent(*GetRootTransform());
 	}
@@ -157,11 +157,7 @@ void SceneGraph::OnEntityAdded(Entity& NewEntity)
 Transform* SceneGraph::GetRootTransform()
 {
 	OPTICK_EVENT("Transform::GetRootTransform");
-	if (RootTransform)
-	{
-		return &RootTransform->GetComponent<Transform>();
-	}
-	return nullptr;
+	return RootTransform;
 }
 
 void SceneGraph::OnEntityRemoved(Entity& InEntity)

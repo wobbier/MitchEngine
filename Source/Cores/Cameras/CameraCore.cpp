@@ -57,6 +57,7 @@ void CameraCore::Update(float dt)
 		CamData.OrthographicSize = CameraComponent.OrthographicSize;
 		CamData.IsMain = CameraComponent.IsMain();
 		//CamData.CameraFrustum = CameraComponent.CameraFrustum;
+		CamData.UITexture = BGFX_INVALID_HANDLE;
 
 		GetEngine().GetRenderer().UpdateCamera(CameraComponent.m_id, CamData);
 	}

@@ -202,36 +202,39 @@ void Havana::NewFrame()
 	MainMenu->SetData(&RegisteredWidgets, m_app);
 	MainMenu->Render();
 
-	ImGuiViewport* viewport = ImGui::GetMainViewport();
-	ImVec2 MainMenuSize;
-	MainMenuSize.x = 0.f;
-	MainMenuSize.y = 17.f;
-	DockSize = viewport->Size;
+	// Dockspace
+	{
+		ImGuiViewport* viewport = ImGui::GetMainViewport();
+		ImVec2 MainMenuSize;
+		MainMenuSize.x = 0.f;
+		MainMenuSize.y = 17.f;
+		DockSize = viewport->Size;
 
-	DockSize.y = viewport->Size.y - MainMenuSize.y - FrameProfile::kMinProfilerSize;
-	DockPos = viewport->Pos;
-	DockPos.y = viewport->Pos.y + MainMenuSize.y;
+		DockSize.y = viewport->Size.y - MainMenuSize.y - FrameProfile::kMinProfilerSize;
+		DockPos = viewport->Pos;
+		DockPos.y = viewport->Pos.y + MainMenuSize.y;
 
-	ImGui::SetNextWindowPos(DockPos);
-	ImGui::SetNextWindowSize(DockSize);
-	ImGui::SetNextWindowViewport(viewport->ID);
-	ImGui::SetNextWindowBgAlpha(0.0f);
+		ImGui::SetNextWindowPos(DockPos);
+		ImGui::SetNextWindowSize(DockSize);
+		ImGui::SetNextWindowViewport(viewport->ID);
+		ImGui::SetNextWindowBgAlpha(0.0f);
 
-	ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
-	window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
-	window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+		ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
+		window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
+		window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
 
-	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
-	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-	bool show_dockspace = true;
-	ImGui::Begin("MainDockSpace", &show_dockspace, window_flags);
-	ImGui::PopStyleVar(3);
-	ImGuiID dockspace_id = ImGui::GetID("MyDockspace");
-	ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_PassthruCentralNode;
-	ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+		bool show_dockspace = true;
+		ImGui::Begin("MainDockSpace", &show_dockspace, window_flags);
+		ImGui::PopStyleVar(3);
+		ImGuiID dockspace_id = ImGui::GetID("MyDockspace");
+		ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_PassthruCentralNode;
+		ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
 
-	ImGui::End();
+		ImGui::End();
+	}
 
 	LogPanel->Render();
 	m_assetBrowser.Draw();

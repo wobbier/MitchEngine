@@ -158,6 +158,34 @@ void TextureResourceMetadata::OnDeserialize(const json& inJson)
 	}
 }
 
+std::string TextureResourceMetadata::FromEnum(OutputTextureType inType)
+{
+	switch (inType)
+	{
+	case OutputTextureType::NormalMap:
+		return "Normal Map";
+	case OutputTextureType::Sprite:
+		return "Sprite";
+	case OutputTextureType::Default:
+	default:
+		return "Default";
+		break;
+	}
+}
+
+TextureResourceMetadata::OutputTextureType TextureResourceMetadata::ToEnum(std::string inType)
+{
+	for (int n = 0; n < (int)OutputTextureType::Count; n++)
+	{
+		if (FromEnum((OutputTextureType)n) == inType)
+		{
+			return (OutputTextureType)n;
+		}
+	}
+
+	return OutputTextureType::Default;
+}
+
 #if ME_EDITOR
 
 void TextureResourceMetadata::OnEditorInspect()
@@ -186,34 +214,6 @@ void TextureResourceMetadata::OnEditorInspect()
 		genMips = &GenerateSpriteMIPs;
 	}
 	ImGui::Checkbox("Generate MIPs", genMips);
-}
-
-std::string TextureResourceMetadata::FromEnum(OutputTextureType inType)
-{
-	switch (inType)
-	{
-	case OutputTextureType::NormalMap:
-		return "Normal Map";
-	case OutputTextureType::Sprite:
-		return "Sprite";
-	case OutputTextureType::Default:
-	default:
-		return "Default";
-		break;
-	}
-}
-
-TextureResourceMetadata::OutputTextureType TextureResourceMetadata::ToEnum(std::string inType)
-{
-	for (int n = 0; n < (int)OutputTextureType::Count; n++)
-	{
-		if (FromEnum((OutputTextureType)n) == inType)
-		{
-			return (OutputTextureType)n;
-		}
-	}
-
-	return OutputTextureType::Default;
 }
 
 void TextureResourceMetadata::Export()
