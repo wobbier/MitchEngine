@@ -1,11 +1,10 @@
 #pragma once
 #include <string>
+#include <memory>
 
 #if ME_PLATFORM_WIN64 || ME_PLATFORM_UWP
 #include <Windows.h>
-
 #endif
-
 
 class StringUtils
 {
