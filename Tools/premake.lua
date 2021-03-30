@@ -138,7 +138,7 @@ cppdialect "C++17"
 if isUWP then
   startproject (getPlatformPostfix(ProjectName .. "_EntryPoint"))
 else
-  startproject (getPlatformPostfix(ProjectName))
+  startproject "Havana"
 end
 
 location (dirPrefix)
@@ -412,7 +412,7 @@ vpaths {
 if not isUWP then
 ------------------------------------------------------- Editor Project -----------------------------------------------------
 
-group "Editor"
+group "Apps"
 project "Havana"
     kind "ConsoleApp"
     filter "action:vs*"
@@ -656,7 +656,7 @@ filter { "files:**.hlsl" }
 
 filter {}
 
-group "App"
+group "Apps"
 function GenerateGameSolution()
 project (getPlatformPostfix(ProjectName .. "_EntryPoint"))
 	if isPlatform("UWP") then
@@ -716,6 +716,7 @@ project (getPlatformPostfix(ProjectName .. "_EntryPoint"))
     filter { "files:Assets/*.png" }
     deploy "true"
 	
+group "Game"
 project ((getPlatformPostfix(ProjectName)))
 
     kind "StaticLib"
