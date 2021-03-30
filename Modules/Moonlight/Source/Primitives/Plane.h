@@ -11,30 +11,30 @@ public:
 		: Moonlight::MeshData()
 	{
 		// top left
-		Moonlight::Vertex vert1;
+		Moonlight::PosNormTexTanBiVertex vert1;
 		vert1.Position = { -1.f,0.f,-1.f };
 		vert1.TextureCoord = { 0.f,0.f };
-		vertices.push_back(vert1);
+		Vertices.push_back(vert1);
 
 		// bottom left
-		Moonlight::Vertex vert2;
+		Moonlight::PosNormTexTanBiVertex vert2;
 		vert2.Position = { -1.f, 0.f, 1.f };
 		vert2.TextureCoord = { 0.f,1.f };
-		vertices.push_back(vert2);
+		Vertices.push_back(vert2);
 
 		// top right
-		Moonlight::Vertex vert3;
+		Moonlight::PosNormTexTanBiVertex vert3;
 		vert3.Position = { 1.f, 0.f, -1.f };
 		vert3.TextureCoord = { 1.f,0.f };
-		vertices.push_back(vert3);
+		Vertices.push_back(vert3);
 
 		// bottom right
-		Moonlight::Vertex vert4;
+		Moonlight::PosNormTexTanBiVertex vert4;
 		vert4.Position = { 1.f, 0.f, 1.f };
 		vert4.TextureCoord = { 1.f,1.f };
-		vertices.push_back(vert4);
+		Vertices.push_back(vert4);
 
-		indices = {0, 1, 2, 2, 1, 3};
+		Indices = {0, 1, 2, 2, 1, 3};
 
 		//VertexPositionTexCoord verts[5];
 		//verts[0].Position = vert1.Position;
@@ -49,7 +49,7 @@ public:
 		//verts[3].TexCoord = vert4.TexCoord;
 		//verts[4].TexCoord = vert2.TexCoord;
 		//this->vertices.push_back()
-		material = std::make_shared<DiffuseMaterial>();
+		MeshMaterial = std::make_shared<DiffuseMaterial>();
 
 		InitMesh();
 	}

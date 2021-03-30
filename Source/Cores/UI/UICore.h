@@ -1,30 +1,26 @@
 #pragma once
 #include <Components/UI/BasicUIView.h>
 
+#include <bgfx/bgfx.h>
 #include <UI/OverlayManager.h>
-
-namespace Moonlight { class Renderer; }
-
-namespace ultralight
-{ 
-	class FileLogger;
-	class FontLoader;
-	class FileSystemBasic;
-	class GPUContextD3D11;
-	class GPUDriverD3D11;
-	class Renderer;
-}
+#include <UI/FileSystemBasic.h>
+#include <UI/Graphics/GPUContext.h>
+#include <UI/Graphics/GPUDriver.h>
+#include <Ultralight/Renderer.h>
+#include <UI/FileLogger.h>
+#include <UI/FontLoaderWin.h>
+#include <UI/UIWindow.h>
+#include <BGFXRenderer.h>
 
 class IWindow;
 class OverlayManager;
-class UIWindow;
 
 class UICore final
 	: public Core<UICore>
 	, public ultralight::OverlayManager
 {
 public:
-	UICore(IWindow* window, Moonlight::Renderer* renderer);
+	UICore(IWindow* window, BGFXRenderer* renderer);
 	~UICore();
 
 	virtual void Init() final;
@@ -44,15 +40,24 @@ public:
 	OverlayManager* GetOverlayManager();
 
 	ultralight::RefPtr<ultralight::Renderer> m_uiRenderer;
+
+#if ME_EDITOR
+	virtual void OnEditorInspect() final;
+#endif
+	bgfx::TextureHandle m_uiTexture;
+	Vector2 UISize;
 private:
 	std::vector<ultralight::RefPtr<ultralight::Overlay>> m_overlays;
 
-	Moonlight::Renderer* m_renderer;
+	BGFXRenderer* m_renderer;
+
+	void CopyBitmapToTexture(ultralight::RefPtr<ultralight::Bitmap> bitmap);
 
 	UniquePtr<ultralight::FileSystemBasic> m_fs;
-	UniquePtr<ultralight::GPUDriverD3D11> m_driver = nullptr;
-	UniquePtr<ultralight::GPUContextD3D11> m_context = nullptr;
+	UniquePtr<GPUDriverBGFX> m_driver = nullptr;
+	UniquePtr<GPUContext> m_context = nullptr;
 	UniquePtr<ultralight::FontLoader> m_fontLoader = nullptr;
 	UniquePtr<ultralight::FileLogger> m_logger = nullptr;
 	ultralight::RefPtr<UIWindow> m_window = nullptr;
 };
+

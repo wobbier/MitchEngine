@@ -1,81 +1,71 @@
 ﻿#pragma once
-#include <DirectXMath.h>
 #include "RenderCommands.h"
+#include "bgfx/bgfx.h"
 
-#if ME_DIRECTX
 namespace Moonlight
 {
-	struct PerFrameConstantBuffer
+	struct PosColorVertex
 	{
-		DirectX::XMFLOAT4X4 view;
-		DirectX::XMFLOAT4X4 projection;
-		DirectX::XMFLOAT2 ViewportSize;
-		DirectX::XMFLOAT2 _Padding;
-	};
-	// Constant buffer used to send MVP matrices to the vertex shader.
-	struct ModelViewProjectionConstantBuffer
-	{
-		DirectX::XMFLOAT4X4 model;
-		DirectX::XMFLOAT4X4 modelInv;
-		DirectX::XMFLOAT2 Tiling;
-		BOOL HasNormalMap;
-		BOOL HasAlphaMap;
-		BOOL HasSpecMap;
-		DirectX::XMFLOAT3 DiffuseColor;
-		DirectX::XMFLOAT4 padding2;
+		Vector3 vec;
+		uint32_t m_abgr;
+
+		static void Init()
+		{
+			ms_layout
+				.begin()
+				.add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
+				.add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true)
+				.end();
+		};
+
+		static bgfx::VertexLayout ms_layout;
 	};
 
-	struct PickingConstantBuffer
+	struct PosTexCoordVertex
 	{
-		DirectX::XMFLOAT4X4 model;
-		DirectX::XMFLOAT4X4 view;
-		DirectX::XMFLOAT4X4 projection;
-		FLOAT id;
-		DirectX::XMFLOAT3 padding;
+		Vector3 vec;
+		Vector2 coords;
+
+		static void Init()
+		{
+			ms_layout
+				.begin()
+				.add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
+				.add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float)
+				.end();
+		};
+
+		static bgfx::VertexLayout ms_layout;
 	};
 
-	struct DepthPassBuffer
+	struct PosNormTexTanBiVertex
 	{
-		DirectX::XMFLOAT4X4 model;
-		DirectX::XMFLOAT4X4 cameraMatrix;
-	};
+		Vector3 Position;
+		Vector3 Normal;
+		Vector2 TextureCoord;
+		Vector3 Tangent;
+		Vector3 BiTangent;
 
-	struct LightingPassConstantBuffer
-	{
-		LightCommand Light;
-		DirectX::XMMATRIX LightSpaceMatrix;
-	};
+		static void Init()
+		{
+			ms_layout
+				.begin()
+				.add(bgfx::Attrib::Position,  3, bgfx::AttribType::Float)
+				.add(bgfx::Attrib::Normal,    3, bgfx::AttribType::Float, true)
+				.add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float)
+				.add(bgfx::Attrib::Tangent,   3, bgfx::AttribType::Float)
+				.add(bgfx::Attrib::Bitangent, 3, bgfx::AttribType::Float)
+				.end();
+		};
 
-	// Used to send per-vertex data to the vertex shader.
-	struct VertexPositionColor
-	{
-		DirectX::XMFLOAT3 pos;
-		DirectX::XMFLOAT3 color;
-	};
-	struct VertexPositionTexCoord
-	{
-		DirectX::XMFLOAT3 Position;
-		DirectX::XMFLOAT2 TexCoord;
-	};
-	struct Vertex
-	{
-		DirectX::XMFLOAT3 Position;
-		DirectX::XMFLOAT3 Normal;
-		DirectX::XMFLOAT2 TextureCoord;
-		DirectX::XMFLOAT3 Tangent;
-		DirectX::XMFLOAT3 BiTangent;
+		static bgfx::VertexLayout ms_layout;
 	};
 
 	struct ShaderProgram
 	{
-		Microsoft::WRL::ComPtr<ID3D11VertexShader> VertexShader;
+		float test;
+		/*Microsoft::WRL::ComPtr<ID3D11VertexShader> VertexShader;
 		Microsoft::WRL::ComPtr<ID3D11PixelShader> PixelShader;
-		Microsoft::WRL::ComPtr<ID3D11InputLayout> InputLayout;
-	};
-
-	struct ComputeProgram
-	{
-		Microsoft::WRL::ComPtr<ID3D11ComputeShader> ComputeShader;
+		Microsoft::WRL::ComPtr<ID3D11InputLayout> InputLayout;*/
 	};
 }
-#endif

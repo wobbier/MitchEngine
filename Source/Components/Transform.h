@@ -2,12 +2,17 @@
 #include "ECS/Component.h"
 
 #include "Dementia.h"
-#include <DirectXMath.h>
 #include "Math/Vector3.h"
 #include "ECS/ComponentDetail.h"
 #include "Utils/HavanaUtils.h"
 #include "Math/Quaternion.h"
 #include "Math/Matrix4.h"
+
+enum class TransformSpace : uint8_t
+{
+	Self = 0,
+	World
+};
 
 class Transform
 	: public Component<Transform>
@@ -16,47 +21,50 @@ class Transform
 	typedef Component<Transform> Base;
 	friend class SceneGraph;
 public:
+
 	Transform();
 	Transform(const std::string& Name);
 	virtual ~Transform();
 
+	// Separate init from construction code.
+	virtual void Init() final;
+
 	// Local Space
-	void SetPosition(Vector3 NewPosition);
 	Vector3& GetPosition();
-
-	void UpdateRecursively(SharedPtr<Transform> CurrentTransform);
-
-	void UpdateWorldTransform();
-
-	void SetRotation(const Vector3& euler);
-	void SetRotation(Quaternion InRotation);
+	Quaternion GetLocalRotation() const;
 	Vector3 GetRotationEuler() const;
+	Vector3 GetScale();
 
-	Quaternion GetWorldRotation();
-	Vector3 GetWorldRotationEuler();
-	//void SetRotation(glm::quat quat);
-	Vector3 Front();
-	Vector3 Up();
+	void SetPosition(Vector3 NewPosition);
 
 	void SetScale(Vector3 NewScale);
 	void SetScale(float NewScale);
-	Vector3 GetScale();
-
-	void LookAt(const Vector3& InDirection);
-
-	void Translate(Vector3 NewTransform);
 
 	//World Space
 	Vector3 GetWorldPosition();
+	Quaternion GetWorldRotation();
+	Vector3 GetWorldRotationEuler();
+
 	void SetWorldPosition(const Vector3& NewPosition);
+	void SetRotation(const Vector3& euler);
+	void SetRotation(Quaternion InRotation);
+
+	Vector3 Front();
+	Vector3 Up();
+	Vector3 Right();
+
+	void LookAt(const Vector3& InDirection);
+	void Translate(Vector3 NewTransform);
+
+	void Rotate(const Vector3& inDegrees, TransformSpace inRelativeTo = TransformSpace::Self);
+
+	void UpdateRecursively(SharedPtr<Transform> CurrentTransform);
+	void UpdateWorldTransform();
 
 	void Reset();
 
 	ME_NONCOPYABLE(Transform)
 	ME_NONMOVABLE(Transform)
-
-	// Separate init from construction code.
-	virtual void Init() final;
 
 	void SetParent(Transform& NewParent);
 	void RemoveChild(Transform* TargetTransform);
@@ -64,32 +72,30 @@ public:
 	const std::vector<SharedPtr<Transform>>& GetChildren() const;
 
 	Transform* GetParentTransform();
+	Matrix4& GetMatrix();
 
-	Matrix4 WorldTransform;
-	std::string Name;
-	Matrix4 GetMatrix();
-
+	const std::string& GetName() const;
 	void SetName(const std::string& name);
 	void SetWorldTransform(Matrix4& NewWorldTransform, bool InIsDirty = false);
 
-	Quaternion LocalRotation;
-
 	const bool IsDirty() const;
-
-	Transform* GetParent();
 
 	Matrix4 GetLocalToWorldMatrix();
 	Matrix4 GetWorldToLocalMatrix();
 
 
-#if ME_EDITOR
+//#if ME_EDITOR
 	virtual void OnEditorInspect() final;
-#endif
+//#endif
 
 private:
-	Vector3 Rotation;
-	Vector3 Position;
+	std::string Name;
+	Quaternion LocalRotation;
+	Quaternion Rotation;
+	Vector3 LocalPosition;
 	Vector3 Scale;
+
+	Matrix4 WorldTransform;
 
 	void SetDirty(bool Dirty);
 	bool m_isDirty = true;

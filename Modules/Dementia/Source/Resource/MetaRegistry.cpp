@@ -1,0 +1,1 @@
+#include "MetaRegistry.h"

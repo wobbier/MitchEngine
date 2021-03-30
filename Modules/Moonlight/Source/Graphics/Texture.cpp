@@ -2,100 +2,42 @@
 #include <assert.h>
 #include "Texture.h"
 #include "CLog.h"
-#include <WICTextureLoader.h>
 #include "Game.h"
 #include "Device/DX11Device.h"
 #include "Engine/Engine.h"
 #include "Utils/StringUtils.h"
+#include <bimg/bimg.h>
+#include "Utils/BGFXUtils.h"
+#include <Utils/PlatformUtils.h>
+#include <bimg/decode.h>
+#include <bx/allocator.h>
 
-using namespace DirectX;
-using namespace Microsoft::WRL;
+//using namespace DirectX;
 
+static void imageReleaseCb(void* _ptr, void* _userData)
+{
+	BX_UNUSED(_ptr);
+	bimg::ImageContainer* imageContainer = (bimg::ImageContainer*)_userData;
+	bimg::imageFree(imageContainer);
+}
+
+void unload(bx::AllocatorI* _allocator, void* _ptr)
+{
+	BX_FREE(_allocator, _ptr);
+}
 
 namespace Moonlight
 {
 	Texture::Texture(const Path& InFilePath, WrapMode mode)
 		: Resource(InFilePath)
+        , TexHandle(BGFX_INVALID_HANDLE)
 	{
-		std::wstring filePath = StringUtils::ToWString(InFilePath.FullPath);
-		auto& device = static_cast<Moonlight::DX11Device&>(GetEngine().GetRenderer().GetDevice());
-		ID3D11DeviceContext* context;
-		device.GetD3DDevice()->GetImmediateContext(&context);
-
-		UINT bindFlags = D3D11_BIND_SHADER_RESOURCE/* | D3D11_BIND_UNORDERED_ACCESS*/;
-		UINT miscFlags = 0;
-		//if (levels == 0)
-		{
-			bindFlags |= D3D11_BIND_RENDER_TARGET;
-			miscFlags = D3D11_RESOURCE_MISC_GENERATE_MIPS;
-		}
-		DX::ThrowIfFailed(CreateWICTextureFromFileEx(device.GetD3DDevice(), context, filePath.c_str(), 2048, D3D11_USAGE_DEFAULT, bindFlags, NULL, miscFlags, NULL, &resource, &ShaderResourceView));
-		
-		D3D11_TEXTURE_ADDRESS_MODE dxMode = D3D11_TEXTURE_ADDRESS_WRAP;
-		switch (mode)
-		{
-		case Moonlight::Clamp:
-		case Moonlight::Decal:
-			dxMode = D3D11_TEXTURE_ADDRESS_CLAMP;
-			break;
-		case Moonlight::Wrap:
-			dxMode = D3D11_TEXTURE_ADDRESS_WRAP;
-			break;
-		case Moonlight::Mirror:
-			dxMode = D3D11_TEXTURE_ADDRESS_MIRROR;
-			break;
-		default:
-			break;
-		}
-		
-		D3D11_SAMPLER_DESC sampDesc;
-		ZeroMemory(&sampDesc, sizeof(sampDesc));
-		sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-		sampDesc.AddressU = dxMode;
-		sampDesc.AddressV = dxMode;
-		sampDesc.AddressW = dxMode;
-		sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
-		sampDesc.MinLOD = 0;
-		sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
-		device.GetD3DDevice()->CreateSamplerState(&sampDesc, &SamplerState);
+		//Load();
 	}
 
 	Texture::Texture(Moonlight::FrameBuffer* InFilePath, WrapMode mode /*= WrapMode::Wrap*/)
 		: Resource(Path(""))
 	{
-		auto& device = static_cast<Moonlight::DX11Device&>(GetEngine().GetRenderer().GetDevice());
-
-		D3D11_TEXTURE_ADDRESS_MODE dxMode = D3D11_TEXTURE_ADDRESS_WRAP;
-		switch (mode)
-		{
-		case Moonlight::Clamp:
-		case Moonlight::Decal:
-			dxMode = D3D11_TEXTURE_ADDRESS_CLAMP;
-			break;
-		case Moonlight::Wrap:
-			dxMode = D3D11_TEXTURE_ADDRESS_WRAP;
-			break;
-		case Moonlight::Mirror:
-			dxMode = D3D11_TEXTURE_ADDRESS_MIRROR;
-			break;
-		default:
-			break;
-		}
-
-		D3D11_SAMPLER_DESC sampDesc;
-		ZeroMemory(&sampDesc, sizeof(sampDesc));
-		sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-		sampDesc.AddressU = dxMode;
-		sampDesc.AddressV = dxMode;
-		sampDesc.AddressW = dxMode;
-		sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
-		sampDesc.MinLOD = 0;
-		sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
-		device.GetD3DDevice()->CreateSamplerState(&sampDesc, &SamplerState);
-		if (InFilePath)
-		{
-			UpdateBuffer(InFilePath);
-		}
 	}
 
 	Texture::~Texture()
@@ -103,9 +45,64 @@ namespace Moonlight
 		// TODO: Unload textures
 	}
 
+	void Texture::Load()
+	{
+		uint64_t flags = BGFX_TEXTURE_NONE | BGFX_SAMPLER_NONE;
+
+		if (!FilePath.Exists)
+		{
+			return;
+		}
+
+		const auto* memory = Moonlight::LoadMemory(Path(FilePath.FullPath + ".dds"));
+		if (memory)
+		{
+			if (bimg::ImageContainer* imageContainer = bimg::imageParse(Moonlight::getDefaultAllocator(), memory->data, memory->size))
+			{
+				const bgfx::Memory* mem = bgfx::makeRef(imageContainer->m_data, imageContainer->m_size, NULL, imageContainer);
+
+				BX_FREE(Moonlight::getDefaultAllocator(), (void*)memory);
+				if (imageContainer->m_cubeMap)
+				{
+					YIKES("You gotta implement cubemap textures");
+				}
+				else if (1 < imageContainer->m_depth)
+				{
+					YIKES("You gotta implement 3d textures");
+				}
+				else if (bgfx::isTextureValid(0, false, imageContainer->m_numLayers, bgfx::TextureFormat::Enum(imageContainer->m_format), flags))
+				{
+					TexHandle = bgfx::createTexture2D(imageContainer->m_width, imageContainer->m_height, 1 < imageContainer->m_numMips, imageContainer->m_numLayers, bgfx::TextureFormat::Enum(imageContainer->m_format), flags, mem);
+				}
+
+				if (bgfx::isValid(TexHandle))
+				{
+					bgfx::setName(TexHandle, FilePath.LocalPath.c_str());
+				}
+
+				bgfx::TextureInfo* info = nullptr;
+				if (info)
+				{
+					bgfx::calcTextureSize(*info, imageContainer->m_width, imageContainer->m_height, imageContainer->m_depth, imageContainer->m_cubeMap, imageContainer->m_numMips > 0, imageContainer->m_numLayers, bgfx::TextureFormat::Enum(imageContainer->m_format));
+				}
+			}
+
+		}
+	}
+
+	void Texture::Reload()
+	{
+		if (bgfx::isValid(TexHandle))
+		{
+			bgfx::destroy(TexHandle);
+			TexHandle = BGFX_INVALID_HANDLE;
+		}
+		Load();
+	}
+
 	void Texture::UpdateBuffer(FrameBuffer* NewBuffer)
 	{
-		ShaderResourceView = NewBuffer->ShaderResourceView.Get();
+		//ShaderResourceView = NewBuffer->ShaderResourceView.Get();
 	}
 
 	std::string Texture::ToString(TextureType type)
@@ -128,5 +125,158 @@ namespace Moonlight
 			return "";
 		}
 	}
-
 }
+
+void TextureResourceMetadata::OnSerialize(json& outJson)
+{
+	outJson["Type"] = FromEnum(OutputType);
+	outJson["MIPs"] = (OutputType == OutputTextureType::Sprite) ? GenerateSpriteMIPs : GenerateMIPs;
+}
+
+void TextureResourceMetadata::OnDeserialize(const json& inJson)
+{
+    if(!std::filesystem::exists(FilePath.FullPath + ".dds"))
+    {
+        FlaggedForExport = true;
+    }
+
+	if (inJson.contains("Type"))
+	{
+		OutputType = ToEnum(inJson["Type"]);
+	}
+
+	if (inJson.contains("MIPs"))
+	{
+		if (OutputType == OutputTextureType::Sprite)
+		{
+			GenerateSpriteMIPs = inJson["MIPs"];
+		}
+		else
+		{
+			GenerateMIPs = inJson["MIPs"];
+		}
+	}
+}
+
+std::string TextureResourceMetadata::FromEnum(OutputTextureType inType)
+{
+	switch (inType)
+	{
+	case OutputTextureType::NormalMap:
+		return "Normal Map";
+	case OutputTextureType::Sprite:
+		return "Sprite";
+	case OutputTextureType::Default:
+	default:
+		return "Default";
+		break;
+	}
+}
+
+TextureResourceMetadata::OutputTextureType TextureResourceMetadata::ToEnum(std::string inType)
+{
+	for (int n = 0; n < (int)OutputTextureType::Count; n++)
+	{
+		if (FromEnum((OutputTextureType)n) == inType)
+		{
+			return (OutputTextureType)n;
+		}
+	}
+
+	return OutputTextureType::Default;
+}
+
+#if ME_EDITOR
+
+void TextureResourceMetadata::OnEditorInspect()
+{
+	MetaBase::OnEditorInspect();
+
+	if (ImGui::BeginCombo("Import Settings", FromEnum(OutputType).c_str()))
+	{
+		for (int n = 0; n < (int)OutputTextureType::Count; n++)
+		{
+			if (ImGui::Selectable(FromEnum((OutputTextureType)n).c_str(), false))
+			{
+				OutputType = (OutputTextureType)n;
+
+				//static_cast<RenderCore*>(GetEngine().GetWorld().lock()->GetCore(RenderCore::GetTypeId()))->UpdateMesh(this);
+
+				break;
+			}
+		}
+		ImGui::EndCombo();
+	}
+
+	bool* genMips = &GenerateMIPs;
+	if (OutputType == OutputTextureType::Sprite)
+	{
+		genMips = &GenerateSpriteMIPs;
+	}
+	ImGui::Checkbox("Generate MIPs", genMips);
+}
+
+void TextureResourceMetadata::Export()
+{
+	std::string exportType = " --as dds";
+	if ((OutputType == OutputTextureType::Sprite && GenerateSpriteMIPs) || (OutputType != OutputTextureType::Sprite && GenerateMIPs))
+	{
+		exportType += " -m";
+	}
+	if (OutputType == OutputTextureType::NormalMap)
+	{
+		exportType += " -n";
+	}
+	/*
+		rule texturec_bc1
+			command = texturec -f $in -o $out -t bc1 -m
+		rule texturec_bc2
+			command = texturec -f $in -o $out -t bc2 -m
+		rule texturec_bc3
+			command = texturec -f $in -o $out -t bc3 -m
+		rule texturec_bc4
+			command = texturec -f $in -o $out -t bc4 -m
+		rule texturec_bc5
+			command = texturec -f $in -o $out -t bc5 -m
+		rule texturec_bc7
+			command = texturec -f $in -o $out -t bc7 -m
+		rule texturec_etc1
+			command = texturec -f $in -o $out -t etc1 -m
+		rule texturec_etc2
+			command = texturec -f $in -o $out -t etc2 -m
+		rule texturec_diffuse
+			command = texturec -f $in -o $out -t bc2 -m
+		rule texturec_normal
+			command = texturec -f $in -o $out -t bc5 -m -n
+		rule texturec_height
+			command = texturec -f $in -o $out -t r8
+		rule texturec_equirect
+			command = texturec -f $in -o $out --max 512 -t rgba16f --equirect
+	*/
+
+#if ME_PLATFORM_WIN64
+	Path optickPath = Path("Engine/Tools/Win64/texturec.exe");
+
+	std::string fileName = FilePath.LocalPath.substr(FilePath.LocalPath.rfind("/") + 1, FilePath.LocalPath.length());
+
+	std::string progArgs = "-f ../../../";
+	progArgs += FilePath.LocalPath;
+	progArgs += " -o ../../../" + FilePath.LocalPath + ".dds" + exportType;
+	// ./shaderc -f ../../../Assets/Shaders/vs_cubes.shader -o ../../../Assets/Shaders/dummy.bin --varyingdef ./varying.def.sc --platform windows -p vs_5_0 --type vertex
+
+	PlatformUtils::SystemCall(optickPath, progArgs);
+#else
+    
+    Path optickPath = Path("Engine/Tools/macOS/texturec");
+
+    std::string fileName = FilePath.LocalPath.substr(FilePath.LocalPath.rfind("/") + 1, FilePath.LocalPath.length());
+    // texturec -f $in -o $out -t bc2 -m
+    std::string progArgs = "\"" + optickPath.FullPath + "\" -f ../../";
+    progArgs += FilePath.LocalPath;
+    progArgs += " -o \"../../" + FilePath.LocalPath + ".dds\"" + exportType;
+    system(progArgs.c_str());
+    
+#endif
+}
+
+#endif

@@ -20,12 +20,15 @@
 #include "Events/SceneEvents.h"
 #include "RenderCommands.h"
 #include "Events/Event.h"
-#include <SimpleMath.h>
 #include "Math/Matrix4.h"
 #include "Math/Frustrum.h"
 #include "optick.h"
+#include <Core/JobQueueOld.h>
+#include <Math/Quaternion.h>
+#include "HavanaEvents.h"
 
-EditorApp::EditorApp()
+EditorApp::EditorApp(int argc, char** argv)
+	: Game(argc, argv)
 {
 	std::vector<TypeId> events;
 	events.push_back(NewSceneEvent::GetEventId());
@@ -46,46 +49,28 @@ void EditorApp::OnUpdate(float DeltaTime)
 {
 	OPTICK_CATEGORY("EditorApp::OnUpdate", Optick::Category::GameLogic);
 
-	Editor->NewFrame([this]() {
-		StartGame();
-		m_isGamePaused = false;
-		m_isGameRunning = true;
-		Editor->SetViewportMode(ViewportMode::Game);
-		}
-		, [this]() {
-			m_isGamePaused = true;
-		}
-			, [this]() {
-			m_isGamePaused = false;
-			Editor->SetViewportMode(ViewportMode::World);
-			Editor->ClearSelection();
-			StopGame();
-			//GetEngine().LoadScene("Assets/Alley.lvl");
-		});
+	Editor->NewFrame();
+	Transform* root = GetEngine().SceneNodes->GetRootTransform();
 
-	EditorSceneManager->Update(DeltaTime, GetEngine().SceneNodes->GetRootTransform());
-
-	Editor->UpdateWorld(GetEngine().GetWorld().lock().get(), GetEngine().SceneNodes->GetRootTransform(), EditorSceneManager->GetEntities());
+	EditorSceneManager->Update(DeltaTime, root);
+	Editor->UpdateWorld(root, EditorSceneManager->GetEntities());
 
 	UpdateCameras();
 }
 
 void EditorApp::UpdateCameras()
 {
-	Vector2 MainOutputSize = Editor->GetGameOutputSize();
-
 	if (!Camera::CurrentCamera)
 	{
 		Camera::CurrentCamera = Camera::EditorCamera;
 	}
 
-	Moonlight::CameraData EditorCamera;
+	Moonlight::CameraData& EditorCamera = GetEngine().EditorCamera;
 
-	Camera::CurrentCamera->OutputSize = MainOutputSize;
-	EditorCamera.Position = EditorSceneManager->GetEditorCameraTransform()->GetWorldPosition();
+	EditorCamera.Position = EditorSceneManager->GetEditorCameraTransform()->GetPosition();
 	EditorCamera.Front = EditorSceneManager->GetEditorCameraTransform()->Front();
 	EditorCamera.Up = Vector3::Up;
-	EditorCamera.OutputSize = Editor->WorldViewRenderSize;
+	EditorCamera.OutputSize = Editor->GetWorldEditorRenderSize();
 	EditorCamera.FOV = Camera::EditorCamera->GetFOV();
 	EditorCamera.Near = Camera::EditorCamera->Near;
 	EditorCamera.Far = Camera::EditorCamera->Far;
@@ -94,7 +79,7 @@ void EditorApp::UpdateCameras()
 	EditorCamera.ClearType = Camera::CurrentCamera->ClearType;
 	EditorCamera.Projection = Camera::EditorCamera->Projection;
 	EditorCamera.OrthographicSize = Camera::EditorCamera->OrthographicSize;
-	EditorCamera.CameraFrustum = Camera::EditorCamera->CameraFrustum;
+	//EditorCamera.CameraFrustum = Camera::EditorCamera->CameraFrustum;
 
 	GetEngine().EditorCamera = EditorCamera;
 }
@@ -110,8 +95,27 @@ void EditorApp::OnInitialize()
 	if (!Editor)
 	{
 		InitialLevel = GetEngine().GetConfig().GetValue("CurrentScene");
-		Editor = std::make_unique<Havana>(&GetEngine(), this, &GetEngine().GetRenderer());
+		Editor = std::make_unique<Havana>(&GetEngine(), this);
 		EditorSceneManager = new EditorCore(Editor.get());
+
+		Editor->SetGameCallbacks([this]() {
+			StartGame();
+			m_isGamePaused = false;
+			m_isGameRunning = true;
+			//Editor->SetViewportMode(ViewportMode::Game);
+		}
+		, [this]() {
+			m_isGamePaused = true;
+		}
+		, [this]() {
+			m_isGamePaused = false;
+			//Editor->SetViewportMode(ViewportMode::World);
+			ClearInspectEvent evt;
+			evt.Fire();
+			StopGame();
+			//GetEngine().LoadScene("Assets/Alley.lvl");
+		});
+
 		NewSceneEvent evt;
 		evt.Fire();
 		GetEngine().GetWorld().lock()->AddCore<EditorCore>(*EditorSceneManager);

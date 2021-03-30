@@ -7,7 +7,7 @@
 #include "Resource/ResourceCache.h"
 #include "Graphics/Texture.h"
 #include "File.h"
-#include <stringapiset.h>
+//#include <stringapiset.h>
 #include "Utils/StringUtils.h"
 #include "Components/Transform.h"
 #include "Engine/Engine.h"
@@ -15,6 +15,8 @@
 #include "Events/SceneEvents.h"
 #include "HavanaEvents.h"
 #include "optick.h"
+#include "Utils/ImGuiUtils.h"
+#include <Utils/CommonUtils.h>
 
 AssetBrowser::AssetBrowser(const std::string& pathToWatch, std::chrono::duration<int, std::milli> delay)
 	: PathToWatch(pathToWatch)
@@ -50,7 +52,7 @@ void AssetBrowser::ThreadStart(const std::function<void(std::string, FileStatus)
 	while (IsRunning)
 	{
 		std::this_thread::sleep_for(Delay);
-
+		continue;
 		bool WasModified = false;
 		auto it = Paths.begin();
 		while (it != Paths.end())
@@ -129,13 +131,13 @@ void AssetBrowser::Recursive(Directory& dir)
 		{
 			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_CHILD_TRANSFORM"))
 			{
-				IM_ASSERT(payload->DataSize == sizeof(Havana::ParentDescriptor));
-				Havana::ParentDescriptor* payload_n = (Havana::ParentDescriptor*)payload->Data;
+				IM_ASSERT(payload->DataSize == sizeof(ParentDescriptor));
+				ParentDescriptor* payload_n = (ParentDescriptor*)payload->Data;
 
-				nlohmann::json prefab;
+				json prefab;
 				SavePrefab(prefab, payload_n->Parent, true);
 
-				File(Path(directory.second.FullPath.Directory + "/" + payload_n->Parent->Name + std::string(".prefab"))).Write(prefab[0].dump(4));
+				File(Path(directory.second.FullPath.Directory + "/" + payload_n->Parent->GetName() + std::string(".prefab"))).Write(prefab[0].dump(4));
 			}
 			ImGui::EndDragDropTarget();
 		}
@@ -152,22 +154,22 @@ void AssetBrowser::Recursive(Directory& dir)
 		switch (files.Type)
 		{
 		case AssetType::Level:
-			ImGui::Image(Icons["World"]->ShaderResourceView, ImVec2(16, 16));
+			ImGui::Image(Icons["World"]->TexHandle, ImVec2(16, 16));
 			break;
 		case AssetType::Texture:
-			ImGui::Image(Icons["Image"]->ShaderResourceView, ImVec2(16, 16));
+			ImGui::Image(Icons["Image"]->TexHandle, ImVec2(16, 16));
 			break;
 		case AssetType::Model:
-			ImGui::Image(Icons["Terrain"]->ShaderResourceView, ImVec2(16, 16));
+			ImGui::Image(Icons["Terrain"]->TexHandle, ImVec2(16, 16));
 			break;
 		case AssetType::Audio:
-			ImGui::Image(Icons["Audio"]->ShaderResourceView, ImVec2(16, 16));
+			ImGui::Image(Icons["Audio"]->TexHandle, ImVec2(16, 16));
 			break;
 		case AssetType::Prefab:
-			ImGui::Image(Icons["Prefab"]->ShaderResourceView, ImVec2(16, 16));
+			ImGui::Image(Icons["Prefab"]->TexHandle, ImVec2(16, 16));
 			break;
 		default:
-			ImGui::Image(Icons["File"]->ShaderResourceView, ImVec2(16, 16));
+			ImGui::Image(Icons["File"]->TexHandle, ImVec2(16, 16));
 			break;
 		}
 
@@ -193,10 +195,16 @@ void AssetBrowser::Recursive(Directory& dir)
 				}
 				else
 				{
-#if _WIN32
+#if ME_PLATFORM_WIN64
 				ShellExecute(NULL, L"open", StringUtils::ToWString(SelectedAsset->FullPath.FullPath).c_str(), NULL, NULL, SW_SHOWDEFAULT);
 #endif
 				}
+			}
+			else if (ImGui::IsMouseClicked(0))
+			{
+				InspectEvent evt;
+				evt.AssetBrowserPath = Path(files.FullPath);
+				evt.Fire();
 			}
 		}
 		if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
@@ -210,13 +218,13 @@ void AssetBrowser::Recursive(Directory& dir)
 		{
 			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_CHILD_TRANSFORM"))
 			{
-				IM_ASSERT(payload->DataSize == sizeof(Havana::ParentDescriptor));
-				Havana::ParentDescriptor* payload_n = (Havana::ParentDescriptor*)payload->Data;
+				IM_ASSERT(payload->DataSize == sizeof(ParentDescriptor));
+				ParentDescriptor* payload_n = (ParentDescriptor*)payload->Data;
 
-				nlohmann::json prefab;
+				json prefab;
 				SavePrefab(prefab, payload_n->Parent, true);
 				
-				File(Path(files.FullPath.Directory + payload_n->Parent->Name + std::string(".prefab"))).Write(prefab[0].dump(4));
+				File(Path(files.FullPath.Directory + payload_n->Parent->GetName() + std::string(".prefab"))).Write(prefab[0].dump(4));
 			}
 			ImGui::EndDragDropTarget();
 		}
@@ -264,7 +272,11 @@ bool AssetBrowser::ProccessDirectoryRecursive(std::string& dir, Directory& dirRe
 		{
 			if (file.is_regular_file())
 			{
-				if (newdir.find(".meta") != std::string::npos)
+				if (newdir.find(".meta") != std::string::npos
+					|| newdir.find(".dds") != std::string::npos
+					|| newdir.find(".pdn") != std::string::npos
+					|| newdir.find(".blend") != std::string::npos
+					|| newdir.find(".bin") != std::string::npos)
 				{
 					return false;
 				}
@@ -294,19 +306,19 @@ bool AssetBrowser::ProccessDirectoryRecursive(std::string& dir, Directory& dirRe
 
 				AssetDescriptor desc;
 				desc.Name = newdir;
-				desc.MetaFile = File(Path(file.path().string() + ".meta"));
+				//desc.MetaFile = File(Path(file.path().string() + ".meta"));
 				desc.FullPath = Path(file.path().string());
 				desc.Type = type;
 				dirRef.Files.push_back(desc);
-				const std::string & data = dirRef.Files.back().MetaFile.Read();
-				if (data.empty())
-				{
-					dirRef.Files.back().MetaFile.Write("{}");
-				}
-				else
-				{
+				//const std::string & data = dirRef.Files.back().MetaFile.Read();
+				//if (data.empty())
+				//{
+				//	//dirRef.Files.back().MetaFile.Write("{}");
+				//}
+				//else
+				//{
 
-				}
+				//}
 				return true;
 			}
 			Directory newDirectory;
@@ -332,7 +344,7 @@ void AssetBrowser::SavePrefab(json& d, Transform* CurrentTransform, bool IsRoot)
 		refJson = newJson;
 	}*/
 
-	newJson["Name"] = CurrentTransform->Name;
+	newJson["Name"] = CurrentTransform->GetName();
 
 	json& componentsJson = newJson["Components"];
 	EntityHandle ent = CurrentTransform->Parent;

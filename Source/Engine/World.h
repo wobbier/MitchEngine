@@ -9,6 +9,7 @@
 #include "ECS/EntityIdPool.h"
 #include "Resource/ResourceCache.h"
 #include "Pointers.h"
+#include <JSON.h>
 
 class Transform;
 
@@ -146,7 +147,7 @@ private:
 
 	void ActivateEntity(Entity& InEntity, const bool InActive);
 
-	EntityHandle LoadPrefab(const nlohmann::json& obj, Transform* parent, Transform* root);
+	EntityHandle LoadPrefab(const json& obj, Transform* parent, Transform* root);
 };
 
 template<typename TCore>

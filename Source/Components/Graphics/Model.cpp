@@ -1,7 +1,6 @@
 #include "PCH.h"
 #include "Model.h"
 #include "CLog.h"
-#include "Renderer.h"
 #include "Graphics/ModelResource.h"
 #include "Graphics/ShaderCommand.h"
 #include "Game.h"
@@ -58,8 +57,9 @@ void Model::Init()
 						{
 							//Transform& trans = Parent->AddComponent<Transform>(child->Name);
 							Mesh& meshRef = Parent->AddComponent<Mesh>(child);
+							meshRef.MeshReferece = child;
 							//trans.SetPosition(root.Position);
-							//meshRef.MeshShader = ModelShader;
+							//meshRef.MeshMaterial = child->MeshMaterial->CreateInstance();
 							//trans.SetParent(parentEnt->GetComponent<Transform>());
 						}
 					}
@@ -99,7 +99,8 @@ void Model::RecursiveLoadMesh(Moonlight::Node& root, EntityHandle& parentEnt)
 	{
 		auto ent = GetEngine().GetWorld().lock()->CreateEntity();
 		Transform& trans = ent->AddComponent<Transform>(child->Name);
-		Mesh& meshRef = ent->AddComponent<Mesh>(child);
+        //Mesh& meshRef =
+        ent->AddComponent<Mesh>(child);
 		trans.SetPosition(root.Position);
 		//meshRef.MeshShader = ModelShader;
 		trans.SetParent(parentEnt->GetComponent<Transform>());

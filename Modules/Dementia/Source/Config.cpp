@@ -1,10 +1,9 @@
 #include "Config.h"
-#include <iostream>
 
 Config::Config(const Path& ConfigPath)
 	: ConfigFile(ConfigPath)
 {
-	Root = nlohmann::json::parse(ConfigFile.Read());
+	Root = json::parse(ConfigFile.Read());
 	if (Root.is_null())
 	{
 		YIKES("Failed to parse configuration.");
@@ -25,7 +24,7 @@ std::string Config::GetValue(const std::string& value)
 	return "";
 }
 
-const nlohmann::json& Config::GetObject(const std::string& value)
+const json& Config::GetJsonObject(const std::string& value)
 {
 	if (Root.contains(value))
 	{
@@ -34,7 +33,7 @@ const nlohmann::json& Config::GetObject(const std::string& value)
 	return Root;
 }
 
-void Config::SetValue(std::string& key, std::string& newVal)
+void Config::SetValue(const std::string& key, std::string& newVal)
 {
 	Root[key] = newVal;
 }

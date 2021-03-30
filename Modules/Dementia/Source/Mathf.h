@@ -30,7 +30,7 @@ namespace Mathf
 		return (1.f - t) * v0 + t * v1;
 	}
 
-	inline Vector3 Lerp(Vector3& start, Vector3& end, float percent)
+	inline Vector3 Lerp(const Vector3& start, const Vector3& end, float percent)
 	{
 		return (start + (end - start) * percent);
 	}
@@ -42,11 +42,11 @@ namespace Mathf
 
 	inline constexpr float Radians(float number)
 	{
-		return DirectX::XMConvertToRadians(number);
+		return glm::radians(number);
 	}
 
 	inline float Degrees(float rads)
 	{
-		return DirectX::XMConvertToDegrees(rads);
+		return glm::degrees(rads);
 	}
 }

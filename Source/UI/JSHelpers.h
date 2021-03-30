@@ -1,4 +1,5 @@
 #pragma once
+
 #include <AppCore/Defines.h>
 #include <JavaScriptCore/JavaScript.h>
 #include <JavaScriptCore/JSStringRef.h>

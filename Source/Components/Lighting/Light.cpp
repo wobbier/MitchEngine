@@ -1,6 +1,5 @@
 #include "PCH.h"
 #include "Light.h"
-#include "Havana.h"
 #include "Engine/Engine.h"
 #include "Utils/HavanaUtils.h"
 
@@ -11,7 +10,7 @@ Light::Light()
 
 void Light::Init()
 {
-	cmd.diffuse = { Colour[0], Colour[1], Colour[2], 1.f };
+	//cmd.diffuse = { Colour[0], Colour[1], Colour[2], 1.f };
 	//GetEngine().GetRenderer().PushLight(cmd);
 }
 

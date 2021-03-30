@@ -19,7 +19,7 @@ public:
 	virtual void Update(float dt) final;
 
 	virtual void OnEntityAdded(Entity& NewEntity) final;
-	EntityHandle RootTransform;
+	EntityHandle RootTransformEntity;
 	Transform* GetRootTransform();
 
 	void OnEntityRemoved(Entity& InEntity) override;
@@ -32,5 +32,7 @@ public:
 
 private:
 	bool OnEvent(const BaseEvent& evt) override;
+
+	Transform* RootTransform = nullptr;
 
 };

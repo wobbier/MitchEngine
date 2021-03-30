@@ -7,6 +7,9 @@
 #include "Engine/Engine.h"
 #include "optick.h"
 #include "Work/Burst.h"
+#include <Work/JobQueue.h>
+#include <Core/JobQueueOld.h>
+#include <Work/Job.h>
 
 SceneGraph::SceneGraph()
 	: Base(ComponentFilter().Requires<Transform>())
@@ -25,73 +28,118 @@ SceneGraph::~SceneGraph()
 void SceneGraph::Init()
 {
 	//RootTransform->Children.clear();
-	if (!RootTransform)
+	if (!RootTransformEntity)
 	{
-		RootTransform = GameWorld->CreateEntity();
-		RootTransform->AddComponent<Transform>();
+		RootTransformEntity = GameWorld->CreateEntity();
+		RootTransform = &RootTransformEntity->AddComponent<Transform>();
 	}
 }
 bool shouldBurst = false;
 
-void UpdateRecursively(Transform* CurrentTransform, bool isParentDirty, bool isBurst)
+void UpdateRecursively(Transform* CurrentTransform, bool isParentDirty, Job* parentJob, bool isBursting)
 {
 	OPTICK_EVENT("SceneGraph::UpdateRecursively");
-	for (const SharedPtr<Transform>& Child : CurrentTransform->GetChildren())
+	auto [worker, pool] = GetEngine().GetJobSystemNew();
+	auto& Children = CurrentTransform->GetChildren();
+	for (const SharedPtr<Transform>& Child : Children)
 	{
-		OPTICK_EVENT("SceneGraph::UpdateRecursively::GetChildren");
-		if (isParentDirty || Child->IsDirty())
+		bool newParentDirty = isParentDirty || Child->IsDirty();
+		if (newParentDirty)
 		{
 			OPTICK_CATEGORY("Update Transform", Optick::Category::Scene);
-
-			//Quaternion quat = Quaternion(Child->Rotation);
-			//DirectX::SimpleMath::Matrix id = DirectX::XMMatrixIdentity();
-			DirectX::SimpleMath::Matrix rot = DirectX::SimpleMath::Matrix::CreateFromQuaternion(Child->LocalRotation.InternalQuat);// , Child->Rotation.Y(), Child->Rotation.Z());
-			DirectX::SimpleMath::Matrix scale = DirectX::SimpleMath::Matrix::CreateScale(Child->GetScale().InternalVec);
-			DirectX::SimpleMath::Matrix pos = XMMatrixTranslationFromVector(Child->GetPosition().InternalVec);
-			Child->SetWorldTransform(Matrix4((scale * rot * pos) * CurrentTransform->WorldTransform.GetInternalMatrix()));
-			isParentDirty = true;
-		}
-
-		if (!Child->GetChildren().empty())
-		{
-			if (CurrentTransform->GetChildren().size() > 5 && !isBurst)
+			glm::mat4 model = glm::mat4(1.f);
 			{
-				shouldBurst = true;
+				OPTICK_CATEGORY("GLM MAT", Optick::Category::Debug);
+
+				model = glm::translate(model, Child->GetPosition().InternalVector);
+				model = glm::rotate(model, Child->GetLocalRotation().ToAngle(), Child->GetLocalRotation().ToAxis().InternalVector);
+				model = glm::scale(model, Child->GetScale().InternalVector);
 			}
-			if (shouldBurst)
+			
 			{
-				shouldBurst = false;
-				Burst::LambdaWorkEntry entry;
-				entry.m_callBack = [Child, isParentDirty](int Index) {
-					UpdateRecursively(Child.get(), isParentDirty, true);
-				};
+				OPTICK_CATEGORY("GLM MAT MULT", Optick::Category::Debug);
 
-				GetEngine().GetBurstWorker().AddWork2(entry, sizeof(Burst::LambdaWorkEntry));
-
+				Matrix4 xxx = CurrentTransform->GetMatrix().GetInternalMatrix() * model;
+				Child->SetWorldTransform(xxx);
 			}
-			else
+
+			if (!Child->GetChildren().empty())
 			{
-				//GetEngine().GetJobQueue().AddJobBrad([Child, isParentDirty]() {
-				UpdateRecursively(Child.get(), isParentDirty, isBurst);
-				//});
+				Job* job = pool.CreateClosureJobAsChild([&Child, newParentDirty, CurrentTransform](Job& job) {
+					UpdateRecursively(Child.get(), newParentDirty, &job, true);// *job);
+				}, parentJob);
+				worker->Submit(job);
 			}
 		}
 	}
 }
 
+void recursiveJob(Job* parent, int currentDepth)
+{
+	int i = 0;
+	//for (std::size_t i = 0; i < 5; ++i)
+	{
+		Worker* worker = GetEngine().GetJobEngine().GetThreadWorker();
+		Job* root2 = worker->GetPool().CreateClosureJobAsChild([currentDepth, i](Job& job) {
+				OPTICK_EVENT("Child Job")
+				if (currentDepth < 5)
+				{
+					//std::cout << std::to_string(currentDepth) << ":" << std::to_string(i) << std::endl;
+					recursiveJob(&job, currentDepth + 1);
+				}
+		}, parent);
+		worker->Submit(root2);
+	}
+}
 
 void SceneGraph::Update(float dt)
 {
 	OPTICK_EVENT("SceneGraph::Update");
-	//auto& jobSystem = GetEngine().GetJobSystem();
-	// Seems O.K. for now
-	//jobSystem.GetJobQueue().Lock();
-	GetEngine().GetBurstWorker().PrepareWork();
-	UpdateRecursively(GetRootTransform(), false, false);
-	GetEngine().GetBurstWorker().FinalizeWork();
-	//jobSystem.GetJobQueue().Unlock();
 
-	//jobSystem.Wait();
+	auto [worker, pool] = GetEngine().GetJobSystemNew(); 
+
+	for (int i = 0; i < 0; ++i)
+	{
+		OPTICK_CATEGORY("Submit Job", Optick::Category::Debug);
+		Job* root = worker->GetPool().CreateJob([](Job& job) {
+			OPTICK_CATEGORY("Initial Job", Optick::Category::Debug);
+		});
+		recursiveJob(root, 0);
+		worker->Submit(root);
+		worker->Wait(root);
+	}
+
+	if(true)
+	{
+		Job* rootJob = pool.CreateClosureJob([this](Job& job) {
+
+		});
+		Transform* CurrentTransform = GetRootTransform();
+		for (const SharedPtr<Transform>& Child : CurrentTransform->GetChildren())
+		{
+			OPTICK_EVENT("SceneGraph::GetChildren");
+			if (Child->IsDirty())
+			{
+				Job* job = pool.CreateClosureJobAsChild([&Child, CurrentTransform](Job& job) {
+					OPTICK_CATEGORY("Update Transform", Optick::Category::Scene);
+					glm::mat4 model = glm::mat4(1.f);
+					model = glm::translate(model, Child->GetPosition().InternalVector);
+					model = glm::rotate(model, Child->GetLocalRotation().ToAngle(), Child->GetLocalRotation().ToAxis().InternalVector);
+					model = glm::scale(model, Child->GetScale().InternalVector);
+
+					Matrix4 xxx = CurrentTransform->GetMatrix().GetInternalMatrix() * model;
+					Child->SetWorldTransform(xxx);
+					if (!Child->GetChildren().empty())
+					{
+						UpdateRecursively(Child.get(), true, &job, false);// *job);
+					}
+				}, rootJob);
+				worker->Submit(job);
+			}
+		}
+		worker->Submit(rootJob);
+		worker->Wait(rootJob);
+	}
 }
 
 void SceneGraph::OnEntityAdded(Entity& NewEntity)
@@ -100,7 +148,7 @@ void SceneGraph::OnEntityAdded(Entity& NewEntity)
 
 	Transform& NewEntityTransform = NewEntity.GetComponent<Transform>();
 
-	if (!NewEntityTransform.ParentTransform && !(NewEntity.GetId() == RootTransform->GetId()))
+	if (!NewEntityTransform.ParentTransform && !(NewEntity.GetId() == RootTransformEntity->GetId()))
 	{
 		NewEntityTransform.SetParent(*GetRootTransform());
 	}
@@ -109,11 +157,7 @@ void SceneGraph::OnEntityAdded(Entity& NewEntity)
 Transform* SceneGraph::GetRootTransform()
 {
 	OPTICK_EVENT("Transform::GetRootTransform");
-	if (RootTransform)
-	{
-		return &RootTransform->GetComponent<Transform>();
-	}
-	return nullptr;
+	return RootTransform;
 }
 
 void SceneGraph::OnEntityRemoved(Entity& InEntity)

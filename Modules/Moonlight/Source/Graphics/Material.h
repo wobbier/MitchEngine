@@ -3,13 +3,10 @@
 #include <string>
 #include <unordered_map>
 
-#include <nlohmann/json.hpp>
 #include "Math/Vector3.h"
 #include "Math/Vector2.h"
 #include "ShaderCommand.h"
 #include "MaterialDetail.h"
-
-using json = nlohmann::json;
 
 #define ME_REGISTER_MATERIAL_NAME_FOLDER(TYPE, NAME, FOLDER)            \
 	namespace details {                                       \
@@ -53,9 +50,9 @@ namespace Moonlight
 			}
 			return "Opaque";
 		}
-		Material(const std::string& MaterialTypeName, const std::string& ShaderPath);
+		Material(const std::string& MaterialTypeName, const std::string& ShaderPath = "");
 		Material() = delete;
-		~Material();
+		virtual ~Material();
 
 		const bool IsTransparent() const;
 		void SetRenderMode(RenderingMode newMode);
@@ -63,6 +60,15 @@ namespace Moonlight
 		virtual void OnSerialize(json& OutJson);
 
 		virtual void OnDeserialize(const json& InJson);
+
+		virtual void Init() = 0;
+        virtual void Use() = 0;
+        
+        virtual SharedPtr<Material> CreateInstance() = 0;
+        
+        void CopyValues(Material* mat);
+        
+        //virtual void SetSamplers() = 0;
 
 		void SetTexture(const TextureType& textureType, std::shared_ptr<Moonlight::Texture> loadedTexture);
 		const Texture* GetTexture(const TextureType& type) const;

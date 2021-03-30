@@ -1,9 +1,11 @@
 #pragma once
 #pragma message("[MAN] Compiling Engine PCH...")
 
-
+#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 #include <SDKDDKVer.h>
 #include <Windows.h>
+#endif
+
 #include "Dementia.h"
 #include "Pointers.h"
 #if ME_DIRECTX
@@ -15,8 +17,6 @@
 #include <d2d1effects_2.h>
 #include <dwrite_3.h>
 #include <wincodec.h>
-#include <DirectXColors.h>
-#include <DirectXMath.h>
 #include <concrt.h>
 
 #endif
@@ -55,14 +55,13 @@
 #include <map>
 #include <unordered_map>
 #include <iostream>
+#include <optional>
 
-#include <nlohmann/json.hpp>
+#include <JSON.h>
 
 //#include "ECS/ComponentDetail.h"
 
 #include <CLog.h>
 
-// for convenience
-using json = nlohmann::json;
 // core
 #include "Game.h"

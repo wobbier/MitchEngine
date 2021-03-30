@@ -92,12 +92,12 @@ Matrix4 Rigidbody::GetMat()
 	float m[16];
 	trans.getOpenGLMatrix(m);
 
-	DirectX::XMMATRIX transform(m[0], m[4], m[8], m[12],
-		m[1], m[5], m[9], m[13],
-		m[2], m[6], m[10], m[14],
-		m[3], m[7], m[11], m[15]);
+	//DirectX::XMMATRIX transform(m[0], m[4], m[8], m[12],
+	//	m[1], m[5], m[9], m[13],
+	//	m[2], m[6], m[10], m[14],
+	//	m[3], m[7], m[11], m[15]);
 
-	return Matrix4(transform);
+	return Matrix4();// transform);
 }
 
 void Rigidbody::OnSerialize(json& outJson)
@@ -133,7 +133,7 @@ void Rigidbody::OnDeserialize(const json& inJson)
 	}
 }
 
-void Rigidbody::CreateObject(const Vector3& Position, Quaternion& Rotation, Vector3& InScale, btDiscreteDynamicsWorld* world)
+void Rigidbody::CreateObject(const Vector3& Position, const Quaternion& Rotation, const Vector3& InScale, btDiscreteDynamicsWorld* world)
 {
 	m_world = world;
 	if (Scale == Vector3())
@@ -178,7 +178,7 @@ void Rigidbody::OnEditorInspect()
 		for (unsigned int n = 0; n < (unsigned int)ColliderType::Count; ++n)
 		{
 			const char* name = "";
-			switch (n)
+			switch ((ColliderType)n)
 			{
 			case ColliderType::Sphere:
 				name = "Sphere";
@@ -186,6 +186,8 @@ void Rigidbody::OnEditorInspect()
 			case ColliderType::Box:
 				name = "Box";
 				break;
+            default:
+                break;
 			}
 
 			if (ImGui::Selectable(name, false))

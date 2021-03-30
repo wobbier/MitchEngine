@@ -1,5 +1,4 @@
 #pragma once
-#include "Renderer.h"
 #include "World.h"
 #include "Dementia.h"
 #include "Clock.h"
@@ -11,15 +10,20 @@
 #include "Config.h"
 #include "Input.h"
 #include "Work/Burst.h"
+#include <Core/JobSystem.h>
+#include <Work/JobEngine.h>
+#include <Work/Pool.h>
+#include <Work/Worker.h>
 
 class Game;
 class IWindow;
+class BGFXRenderer;
 
 class Engine
 	: public EventReceiver
 {
 public:
-	const float FPS = 139.0f;
+	const float FPS = 144.f;
 	long long FrameRate;
 
 	Engine();
@@ -36,7 +40,7 @@ public:
 	void Run();
 	virtual bool OnEvent(const BaseEvent& evt);
 
-	Moonlight::Renderer& GetRenderer() const;
+	BGFXRenderer& GetRenderer() const;
 
 	std::weak_ptr<World> GetWorld() const;
 
@@ -51,7 +55,8 @@ public:
 	Config& GetConfig() const;
 	Input& GetInput();
 
-	Burst& GetBurstWorker();
+	JobEngine& GetJobEngine();
+	std::tuple<Worker*, Pool&> GetJobSystemNew();
 
 	class CameraCore* Cameras = nullptr;
 	class SceneGraph* SceneNodes = nullptr;
@@ -64,7 +69,6 @@ public:
 	float DeltaTime = 0.f;
 private:
 	Input m_input;
-	Moonlight::Renderer* m_renderer = nullptr;
 	std::shared_ptr<World> GameWorld;
 	bool Running = false;
 	IWindow* GameWindow = nullptr;
@@ -74,7 +78,16 @@ private:
 	float FrameTime = 0.0f;
 	bool m_isInitialized = false;
 	ME_SINGLETON_DEFINITION(Engine)
-	Burst burst;
+
+	BGFXRenderer* NewRenderer = nullptr;
+
+	JobEngine newJobSystem;
+
+#if ME_EDITOR
+	Input m_editorInput;
+public:
+	Input& GetEditorInput();
+#endif
 };
 
 Engine& GetEngine();

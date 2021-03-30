@@ -50,6 +50,7 @@ void DebugCube::Init()
 		-0.5f,  0.5f,  0.5f,  0.0f, 0.0f,
 		-0.5f,  0.5f, -0.5f,  0.0f, 1.0f
 	};
+    std::cout << "DebugCube" << std::to_string(vertices[0]);
 	/*
 	glGenVertexArrays(1, &VAO);
 	glGenBuffers(1, &VBO);

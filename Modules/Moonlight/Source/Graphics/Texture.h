@@ -2,13 +2,19 @@
 #include <string>
 #include "Dementia.h"
 #include "Resource/Resource.h"
-#include <d3d11.h>
-#include <wrl/client.h>
+#include "bx/allocator.h"
+#include "bx/readerwriter.h"
+#include "bx/file.h"
+#include "bgfx/bgfx.h"
+#include <JSON.h>
+#include <Resource/MetaRegistry.h>
 
 namespace Moonlight { struct FrameBuffer; }
 
 namespace Moonlight
 {
+
+
 	enum TextureType
 	{
 		Diffuse = 0,
@@ -37,10 +43,13 @@ namespace Moonlight
 		int mWidth;
 		int mHeight;
 		int mChannels;
-
+		Texture() = delete;
 		Texture(const Path& InFilePath, WrapMode mode = WrapMode::Wrap);
 		Texture(FrameBuffer* InFilePath, WrapMode mode = WrapMode::Wrap);
 		~Texture();
+
+		virtual void Load() override;
+		virtual void Reload() override;
 
 		void UpdateBuffer(FrameBuffer* NewBuffer);
 
@@ -53,13 +62,57 @@ namespace Moonlight
 			return levels;
 		}
 
+		bx::FileReaderI* s_fileReader = nullptr;
+		bx::FileWriterI* s_fileWriter = nullptr/* = BX_NEW(s_allocator, Moonlight::FileWriter)*/;
+		bx::AllocatorI* getDefaultAllocator();
+
 		// Textures should not be copied around in memory
 		ME_NONCOPYABLE(Texture);
 
-		ID3D11ShaderResourceView* ShaderResourceView = nullptr;
-		Microsoft::WRL::ComPtr<ID3D11SamplerState> SamplerState;
-		ID3D11Resource* resource = nullptr;
-
+		bgfx::TextureHandle TexHandle;
 		static std::string ToString(TextureType type);
 	};
 }
+
+struct TextureResourceMetadata
+	: public MetaBase
+{
+	enum class OutputTextureType : uint8_t
+	{
+		Default = 0,
+		NormalMap,
+		Sprite,
+		Count
+	};
+
+	TextureResourceMetadata(const Path& filePath)
+		: MetaBase(filePath)
+	{
+	}
+
+	void OnSerialize(json& inJson) override;
+	void OnDeserialize(const json& inJson) override;
+
+	bool GenerateMIPs = true;
+	bool GenerateSpriteMIPs = false;
+	OutputTextureType OutputType = OutputTextureType::Default;
+#if ME_EDITOR
+	void Export() override;
+
+	virtual void OnEditorInspect() final;
+#endif
+
+private:
+	std::string FromEnum(OutputTextureType inType);
+	OutputTextureType ToEnum(std::string inType);
+};
+
+struct TextureResourceMetadataJpg
+    : public TextureResourceMetadata
+{
+    TextureResourceMetadataJpg(const Path& filePath) : TextureResourceMetadata(filePath) {}
+};
+
+
+ME_REGISTER_METADATA("png", TextureResourceMetadata);
+ME_REGISTER_METADATA("jpg", TextureResourceMetadataJpg);

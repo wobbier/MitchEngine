@@ -4,32 +4,21 @@
 #include <AppCore/Overlay.h>
 #include <Components/Camera.h>
 #include <Engine/Engine.h>
-#include <UI/d3d11/GPUDriverD3D11.h>
-#include <UI/d3d11/GPUContextD3D11.h>
-#include <UI/FileSystemBasic.h>
-#include <UI/FileLogger.h>
-#include <UI/FontLoaderWin.h>
-#include <UI/UIWindow.h>
 #include <Ultralight/platform/Platform.h>
 #include <Ultralight/platform/Config.h>
-#include <Ultralight/Renderer.h>
+#include <imgui.h>
+#include <Utils/ImGuiUtils.h>
+#include <AppCore/Platform.h>
+#include <BGFXRenderer.h>
 
-#if ME_EDITOR
-
-#include <Cores/EditorCore.h>
-#include <EditorApp.h>
-#include <Havana.h>
-
-#endif
-
-UICore::UICore(IWindow* window, Moonlight::Renderer* renderer)
+UICore::UICore(IWindow* window, BGFXRenderer* renderer)
 	: Base(ComponentFilter().Requires<BasicUIView>())
+	, m_uiTexture(BGFX_INVALID_HANDLE)
 {
 	SetIsSerializable(false);
 
 	m_renderer = renderer;
 	m_window = AdoptRef(*new UIWindow(window, GetOverlayManager()));
-
 	std::string fileSystemRoot = Path("").Directory;
 	m_fs.reset(new ultralight::FileSystemBasic(fileSystemRoot.c_str()));
 
@@ -39,26 +28,32 @@ UICore::UICore(IWindow* window, Moonlight::Renderer* renderer)
 	config.face_winding = ultralight::FaceWinding::kFaceWinding_Clockwise;
 	config.force_repaint = true;
 	config.font_family_standard = "Arial";
-	config.use_gpu_renderer = true;
+	config.use_gpu_renderer = false;
 	// ??????
 	config.resource_path = "M:\\Projects\\C++\\stack\\Engine\\Modules\\Havana\\..\\..\\..\\Build\\Debug Editor";
 	//config_.cache_path = ultralight::String16(std::string(fileSystemRoot.Directory + "ultralight.log").c_str());
 
-	m_context.reset(new ultralight::GPUContextD3D11());
+	m_context.reset(new GPUContext());
 	if (!m_context->Initialize(m_window->width(), m_window->height(), m_window->scale(), m_window->is_fullscreen(), true, false, 1))
 	{
 		YIKES("Failed to initialize ultralight context");
 	}
 
-	m_driver.reset(new ultralight::GPUDriverD3D11(m_context.get(), &m_renderer->GetDevice()));
+	m_driver.reset(new GPUDriverBGFX(m_context.get()));
 	m_logger.reset(new ultralight::FileLogger(ultralight::String(std::string(fileSystemRoot + "Ultralight.log").c_str())));
+#if ME_PLATFORM_UWP
 	m_fontLoader.reset(new ultralight::FontLoaderWin());
-
+#else
+    m_fontLoader.reset(ultralight::GetPlatformFontLoader());
+#endif
 	ultralight::Platform& platform = ultralight::Platform::instance();
 	platform.set_config(config);
 	platform.set_file_system(m_fs.get());
 	platform.set_font_loader(m_fontLoader.get());
-	platform.set_gpu_driver(m_driver.get());
+	//if (config.use_gpu_renderer)
+	{
+		platform.set_gpu_driver(m_driver.get());
+	}
 	platform.set_logger(m_logger.get());
 
 	m_uiRenderer = ultralight::Renderer::Create();
@@ -113,57 +108,57 @@ void UICore::Update(float dt)
 	ultralight::MouseEvent mouseEvent;
 	mouseEvent.type = ultralight::MouseEvent::kType_MouseMoved;
 
-	Vector2 mousePosition = GetEngine().GetInput().GetMousePosition();
-
-#if ME_EDITOR
-	if (!static_cast<EditorApp*>(GetEngine().GetGame())->IsGameRunning())
-	{
-		return;
-	}
-
-	Havana* editor = static_cast<EditorCore*>(GetEngine().GetWorld().lock()->GetCore(EditorCore::GetTypeId()))->GetEditor();
-	
-	Vector2 windowPosition = GetEngine().GetWindow()->GetPosition();
-
-	mouseEvent.x = (windowPosition.X() + mousePosition.X()) - editor->GameViewRenderLocation.X();
-	mouseEvent.y = (windowPosition.Y() + mousePosition.Y()) - editor->GameViewRenderLocation.Y();
-
-	if (mousePosition.IsZero())
-	{
-		return;
-	}
-#else
-	mouseEvent.x = mousePosition.X();
-	mouseEvent.y = mousePosition.Y();
-#endif
-
-	static bool hasPressed = false;
-	if (GetEngine().GetInput().GetMouseState().leftButton && !hasPressed)
-	{
-		mouseEvent.button = ultralight::MouseEvent::Button::kButton_Left;
-		mouseEvent.type = ultralight::MouseEvent::kType_MouseDown;
-		hasPressed = true;
-	}
-	else if (!GetEngine().GetInput().GetMouseState().leftButton && hasPressed)
-	{
-		mouseEvent.button = ultralight::MouseEvent::Button::kButton_Left;
-		mouseEvent.type = ultralight::MouseEvent::kType_MouseUp;
-		hasPressed = false;
-	}
-	else
-	{
-		mouseEvent.button = ultralight::MouseEvent::Button::kButton_None;
-	}
-
-#if ME_EDITOR
-	if (m_renderer->GetViewportMode() == ViewportMode::Game)
-#endif
-	{
-		for (auto& view : m_overlays)
-		{
-			view->view()->FireMouseEvent(mouseEvent);
-		}
-	}
+//	Vector2 mousePosition = GetEngine().GetInput().GetMousePosition();
+//
+//#if ME_EDITOR
+//	if (!static_cast<EditorApp*>(GetEngine().GetGame())->IsGameRunning())
+//	{
+//		return;
+//	}
+//
+//	Havana* editor = static_cast<EditorCore*>(GetEngine().GetWorld().lock()->GetCore(EditorCore::GetTypeId()))->GetEditor();
+//	
+//	Vector2 windowPosition = GetEngine().GetWindow()->GetPosition();
+//
+//	mouseEvent.x = (windowPosition.X() + mousePosition.X()) - editor->GameViewRenderLocation.X();
+//	mouseEvent.y = (windowPosition.Y() + mousePosition.Y()) - editor->GameViewRenderLocation.Y();
+//
+//	if (mousePosition.IsZero())
+//	{
+//		return;
+//	}
+//#else
+//	mouseEvent.x = mousePosition.X();
+//	mouseEvent.y = mousePosition.Y();
+//#endif
+//
+//	static bool hasPressed = false;
+//	if (GetEngine().GetInput().GetMouseState().leftButton && !hasPressed)
+//	{
+//		mouseEvent.button = ultralight::MouseEvent::Button::kButton_Left;
+//		mouseEvent.type = ultralight::MouseEvent::kType_MouseDown;
+//		hasPressed = true;
+//	}
+//	else if (!GetEngine().GetInput().GetMouseState().leftButton && hasPressed)
+//	{
+//		mouseEvent.button = ultralight::MouseEvent::Button::kButton_Left;
+//		mouseEvent.type = ultralight::MouseEvent::kType_MouseUp;
+//		hasPressed = false;
+//	}
+//	else
+//	{
+//		mouseEvent.button = ultralight::MouseEvent::Button::kButton_None;
+//	}
+//
+//#if ME_EDITOR
+//	//if (m_renderer->GetViewportMode() == ViewportMode::Game)
+//#endif
+//	{
+//		for (auto& view : m_overlays)
+//		{
+//			view->view()->FireMouseEvent(mouseEvent);
+//		}
+//	}
 
 	// Update internal logic (timers, event callbacks, etc.)
 	m_uiRenderer->Update();
@@ -182,7 +177,7 @@ void UICore::Render()
 	// Draw any pending commands to screen
 	if (m_driver->HasCommandsPending())
 	{
-		m_context->BeginDrawing();
+		//m_context->BeginDrawing();
 		m_driver->DrawCommandList();
 
 		// Perform any additional drawing (Overlays) here...
@@ -193,7 +188,19 @@ void UICore::Render()
 		{
 			Draw();
 		}
-		m_context->EndDrawing();
+		//m_context->EndDrawing();
+	}
+
+	for (auto ent : GetEntities())
+	{
+		ultralight::BitmapSurface* surface = (ultralight::BitmapSurface*)(ent.GetComponent<BasicUIView>().ViewRef->surface());
+
+		if (!surface->dirty_bounds().IsEmpty())
+		{
+			CopyBitmapToTexture(surface->bitmap());
+
+			surface->ClearDirtyBounds();
+		}
 	}
 }
 
@@ -201,17 +208,39 @@ void UICore::OnResize(const Vector2& NewSize)
 {
 	if (m_context)
 	{
-		m_context->Resize((int)NewSize.X(), (int)NewSize.Y());
+		m_context->Resize(NewSize);
 		for (auto overlay : overlays_)
 		{
-			overlay->Resize((int)NewSize.X(), (int)NewSize.Y());
+			overlay->Resize((int)NewSize.x, (int)NewSize.y);
 		}
+	}
+
+	if (NewSize.IsZero())
+	{
+		return;
+	}
+
+	if (NewSize != UISize)
+	{
+		if (bgfx::isValid(m_uiTexture))
+		{
+			bgfx::destroy(m_uiTexture);
+		}
+
+		m_uiTexture = bgfx::createTexture2D(NewSize.x
+			, NewSize.y
+			, false
+			, 1
+			, bgfx::TextureFormat::BGRA8
+			, BGFX_SAMPLER_MIN_POINT | BGFX_SAMPLER_MAG_POINT | BGFX_SAMPLER_MIP_POINT
+		);
+		UISize = NewSize;
 	}
 }
 
 void UICore::InitUIView(BasicUIView& view)
 {
-	ultralight::Ref<ultralight::View> newView = m_uiRenderer->CreateView(Camera::CurrentCamera->OutputSize.X(), Camera::CurrentCamera->OutputSize.Y(), true, nullptr);
+	ultralight::Ref<ultralight::View> newView = m_uiRenderer->CreateView(Camera::CurrentCamera->OutputSize.x, Camera::CurrentCamera->OutputSize.y, true, nullptr);
 
 	ultralight::RefPtr<ultralight::Overlay> overlay = ultralight::Overlay::Create(*m_window.get(), newView, 0, 0);
 	overlay->view()->set_load_listener(&view);
@@ -232,3 +261,41 @@ ultralight::OverlayManager* UICore::GetOverlayManager()
 {
 	return this;
 }
+
+void UICore::CopyBitmapToTexture(ultralight::RefPtr<ultralight::Bitmap> bitmap)
+{
+	void* pixels = bitmap->LockPixels();
+
+	uint32_t width = bitmap->width();
+	uint32_t height = bitmap->height();
+	uint32_t stride = bitmap->row_bytes();
+
+	//bitmap->WritePNG(Path("Assets/TestUI.png").FullPath.c_str());
+
+	{
+		const uint16_t tw = bitmap->bounds().width();
+		const uint16_t th = bitmap->bounds().height();
+		const uint16_t tx = bitmap->bounds().x();
+		const uint16_t ty = bitmap->bounds().y();
+
+		const bgfx::Memory* mem = bgfx::makeRef(pixels, stride);
+
+		if (bgfx::isValid(m_uiTexture) && Camera::CurrentCamera)
+		{
+			bgfx::updateTexture2D(m_uiTexture, 0, 0, tx, ty, tw, th, mem, stride);
+			GetEngine().GetRenderer().GetCamera(Camera::CurrentCamera->GetCameraId()).UITexture = m_uiTexture;
+		}
+	}
+
+	bitmap->UnlockPixels();
+}
+
+#if ME_EDITOR
+
+void UICore::OnEditorInspect()
+{
+	Base::OnEditorInspect();
+	ImGui::Image(m_uiTexture, ImVec2(1280, 720));
+}
+
+#endif

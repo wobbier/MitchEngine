@@ -1,39 +1,27 @@
 #pragma once
-
-#include "Device/DX11Device.h"
-#include "Math/Matrix4.h"
-#include "Math/Vector3.h"
 #include <string>
-#include "Pointers.h"
-#include <d3d11.h>
+
+#include "ShaderStructures.h"
+#include "bgfx/bgfx.h"
 
 namespace Moonlight
 {
 	class ShaderCommand
 	{
+		friend class BGFXRenderer;
 	public:
-		ShaderCommand() = default;
+		ShaderCommand();
 
 		// Constructor generates the shader on the fly
-		//ShaderCommand(const std::string& InVertexPath, const std::string& InPixelPath);
 		ShaderCommand(const std::string& InShaderFile);
-
 		~ShaderCommand();
 
-		// Uses the current shader
-		void Use(ID3D11DeviceContext* context);
+        const bgfx::ProgramHandle& GetProgram() const { return Program; }
 
-		const ShaderProgram& GetProgram() const;
-
-		void SetMat4(const std::string& name, const Matrix4& mat) const;
-		void SetInt(const std::string& name, int value) const;
-		void SetVec3(const std::string& name, const Vector3& value) const;
-		void SetVec3(const std::string& name, float x, float y, float z) const;
-		void SetFloat(const std::string& name, float value) const;
 		const bool IsLoaded() const { return isLoaded; };
 
 	private:
-		ShaderProgram Program;
+		bgfx::ProgramHandle Program;
 		bool isLoaded = false;
 	};
 }

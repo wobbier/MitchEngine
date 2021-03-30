@@ -198,12 +198,12 @@ namespace ultralight {
 		REF_COUNTED_IMPL(OverlayImpl);
 
 	protected:
-		OverlayImpl(Ref<Window> window, uint32_t width, uint32_t height, int x, int y) :
-			window_(window), view_(GetEngine().UI->m_uiRenderer->CreateView(width, height, false, nullptr)),
-			width_(width), height_(height), x_(x), y_(y), needs_update_(true),
-			driver_((GPUDriverImpl*)Platform::instance().gpu_driver()) {
-			window_->overlay_manager()->Add(this);
-		}
+		//OverlayImpl(Ref<Window> window, uint32_t width, uint32_t height, int x, int y) :
+		//	window_(window), /*view_(GetEngine().UI->m_uiRenderer->CreateView(width, height, false, nullptr)),*/
+		//	width_(width), height_(height), x_(x), y_(y), needs_update_(true)/*,
+		//	driver_((GPUDriverImpl*)Platform::instance().gpu_driver())*/ {
+		//	window_->overlay_manager()->Add(this);
+		//}
 
 		OverlayImpl(Ref<Window> window, Ref<View> view, int x, int y) :
 			window_(window), view_(view), width_(view->width()),
@@ -213,12 +213,12 @@ namespace ultralight {
 		}
 
 		~OverlayImpl() {
-			if (GetEngine().UI->m_uiRenderer) {
+			/*if (GetEngine().UI->m_uiRenderer) {
 				window_->overlay_manager()->Remove(this);
 
 				if (vertices_.size())
 					driver_->DestroyGeometry(geometry_id_);
-			}
+			}*/
 		}
 
 		Ref<Window> window_;
@@ -240,14 +240,14 @@ namespace ultralight {
 		DISALLOW_COPY_AND_ASSIGN(OverlayImpl);
 	};
 
-	Ref<Overlay> Overlay::Create(Ref<Window> window, uint32_t width,
-		uint32_t height, int x, int y) {
-		// Clamp each dimension to 2
-		width = width <= 2 ? 2 : width;
-		height = height <= 2 ? 2 : height;
+	//Ref<Overlay> Overlay::Create(Ref<Window> window, uint32_t width,
+	//	uint32_t height, int x, int y) {
+	//	// Clamp each dimension to 2
+	//	width = width <= 2 ? 2 : width;
+	//	height = height <= 2 ? 2 : height;
 
-		return AdoptRef(*new OverlayImpl(window, width, height, x, y));
-	}
+	//	return AdoptRef(*new OverlayImpl(window, width, height, x, y));
+	//}
 
 	Ref<Overlay> Overlay::Create(Ref<Window> window, Ref<View> view, int x, int y) {
 		return AdoptRef(*new OverlayImpl(window, view, x, y));

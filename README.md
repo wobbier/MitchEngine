@@ -7,7 +7,7 @@ The 3D game engine so good it has my name in it.
 Mitch Engine is a simple c++ component based game engine for creating games for Xbox One, macOS, and the Windows 10 Store.
 It's a great hobby project to keep me exploring the world of c++.
 
-Check out my [Trello Board][4] to check out the current development status.
+Check out my [Notion][4] to view the current development status.
 
 |Platform|Game|
 |---|---|
@@ -23,17 +23,16 @@ The engine is:
 Main features
 -------------
    * (ECS) Entity-Component System based design
+   * Supports Windows, Xbox, and macOS
    * World Editor (Windows & macOS)
    * HTML UI with [Ultralight][5]
-   * [BGFX][9] Rendering
-   * [Optick][6] Profiling
    * Language: C++
-   * Supports Windows, Xbox, and macOS
+   * [Optick][6] Profiling
 
 How to make a Mitch game
 -----------------------
 
-1. Download the [Project Setup][8] batch file and run that from your git repo root.
+1. Download the [Project Setup][8] batch file (Windows only atm, but generates macOS .command) and run within an empty folder or your premade git repo.
 2. Think of an awesome game idea.
 3. ????
 4. Profit
@@ -78,6 +77,7 @@ Third Party Libraries
   * [Ultralight][5]
   * [Optick][6]
   * [Bullet Physics][7]
+  * [BGFX][9]
 
 Contributing to the Project
 --------------------------------
@@ -95,9 +95,9 @@ Contact me
 [1]: http://www.wobbier.com "My Portfolio"
 [2]: https://github.com/wobbier/MitchEngine/issues "GitHub Issues"
 [3]: http://www.twitter.com/wobbier "Twitter"
-[4]: https://trello.com/b/QpR06bQl/mitchengine-status "Trello Board"
+[4]: https://www.notion.so/fc1126e1f8f54a9a8e0daf2735dc59ed?v=fb36a4a955b44efa8dda9fc84d743b43 "Notion"
 [5]: https://github.com/ultralight-ux/Ultralight "Ultralight"
 [6]: https://github.com/bombomby/optick "Optick"
 [7]: https://github.com/bulletphysics/bullet3 "Bullet 3D"
-[8]: https://raw.githubusercontent.com/wobbier/MitchEngine/master/Tools/NewProjectSetup.bat "Project Creator"
+[8]: https://raw.githubusercontent.com/wobbier/MitchEngine/master/NewProjectSetup.bat "Project Creator"
 [9]: https://github.com/bkaradzic/bgfx "BGFX"

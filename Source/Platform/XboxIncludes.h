@@ -6,8 +6,6 @@
 #include <wrl.h>
 
 #include <d3d11_4.h>
-#include <DirectXMath.h>
-#include <DirectXColors.h>
 
 #include <algorithm>
 #include <exception>
@@ -30,7 +28,6 @@
 #include "Keyboard.h"
 #include "Mouse.h"
 #include "PrimitiveBatch.h"
-#include "SimpleMath.h"
 #include "SpriteBatch.h"
 #include "SpriteFont.h"
 #include "VertexTypes.h"

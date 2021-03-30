@@ -11,7 +11,7 @@
 #include "Graphics/SkyBox.h"
 #include "Camera/CameraData.h"
 
-class Frustum;
+//class Frustum;
 
 class Camera
 	: public Component<Camera>
@@ -45,7 +45,7 @@ public:
 
 	const bool IsMain() const;
 
-	Frustum* CameraFrustum = nullptr;
+	//Frustum* CameraFrustum = nullptr;
 	Moonlight::SkyBox* Skybox = nullptr;
 	Moonlight::ProjectionType Projection = Moonlight::ProjectionType::Perspective;
 	Moonlight::ClearColorType ClearType = Moonlight::ClearColorType::Color;

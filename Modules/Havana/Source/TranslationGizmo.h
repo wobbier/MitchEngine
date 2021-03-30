@@ -3,7 +3,6 @@
 #include "ECS/Entity.h"
 #include "Components/Transform.h"
 #include "Components/Camera.h"
-#include <DirectXMath.h>
 #include "Engine/Input.h"
 #include "Havana.h"
 #include "Utils/HavanaUtils.h"

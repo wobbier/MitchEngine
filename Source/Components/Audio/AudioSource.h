@@ -1,5 +1,4 @@
 #pragma once
-#include <Audio.h>
 #include "ECS/Component.h"
 #include "ECS/ComponentDetail.h"
 #include "Path.h"
@@ -11,7 +10,6 @@ public:
 	AudioSource();
 	AudioSource(const std::string& InFilePath);
 
-	bool Load();
 	void Play(const bool ShouldLoop = false);
 	void Stop(bool immediate = true);
 	bool Preload = false;
@@ -26,8 +24,8 @@ public:
 	bool PlayOnAwake = false;
 	bool Loop = false;
 
-	std::unique_ptr<DirectX::SoundEffect> SoundEffectFile;
-	std::unique_ptr<DirectX::SoundEffectInstance> SoundInstance;
+	/*std::unique_ptr<DirectX::SoundEffect> SoundEffectFile;
+	std::unique_ptr<DirectX::SoundEffectInstance> SoundInstance;*/
 
 	Path FilePath;
 

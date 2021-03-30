@@ -28,7 +28,7 @@ EditorCore::EditorCore(Havana* editor)
 	std::vector<TypeId> events;
 	events.push_back(SaveSceneEvent::GetEventId());
 	events.push_back(NewSceneEvent::GetEventId());
-	events.push_back(Moonlight::PickingEvent::GetEventId());
+	//events.push_back(Moonlight::PickingEvent::GetEventId());
 	EventManager::GetInstance().RegisterReceiver(this, events);
 }
 
@@ -45,12 +45,11 @@ void EditorCore::Update(float dt)
 {
 	OPTICK_CATEGORY("FlyingCameraCore::Update", Optick::Category::Camera);
 
-	auto Keyboard = m_editor->GetInput().GetKeyboardState();
-	auto Mouse = m_editor->GetInput().GetMouseState();
+	Input& input = m_editor->GetInput();
 
 	if (m_editor->IsWorldViewFocused())
 	{
-		if (Keyboard.F)
+		if (input.IsKeyDown(KeyCode::F))
 		{
 			IsFocusingTransform = true;
 
@@ -67,7 +66,7 @@ void EditorCore::Update(float dt)
 		
 		if (!IsFocusingTransform)
 		{
-			if (Mouse.rightButton)
+			if (input.IsMouseButtonDown(MouseButton::Right) || (input.IsKeyDown(KeyCode::LeftAlt) && input.IsMouseButtonDown(MouseButton::Left)))
 			{
 				if (!PreviousMouseDown)
 				{
@@ -82,7 +81,7 @@ void EditorCore::Update(float dt)
 			}
 
 			float CameraSpeed = m_flyingSpeed;
-			if (Keyboard.LeftShift)
+			if (input.IsKeyDown(KeyCode::LeftShift))
 			{
 				CameraSpeed += m_speedModifier;
 			}
@@ -90,33 +89,33 @@ void EditorCore::Update(float dt)
 
 			const Vector3& Front = EditorCameraTransform->Front();
 
-			if (Keyboard.W)
+			if (input.IsKeyDown(KeyCode::W))
 			{
 				EditorCameraTransform->Translate(Front * CameraSpeed);
 			}
-			if (Keyboard.S)
+			if (input.IsKeyDown(KeyCode::S))
 			{
 				EditorCameraTransform->Translate((Front * CameraSpeed) * -1.f);
 			}
-			if (Keyboard.A)
+			if (input.IsKeyDown(KeyCode::A))
 			{
-				EditorCameraTransform->Translate(Vector3::Up.Cross(Front).Normalized() * CameraSpeed);
+				EditorCameraTransform->Translate(-EditorCameraTransform->Right() * CameraSpeed);
 			}
-			if (Keyboard.D)
+			if (input.IsKeyDown(KeyCode::D))
 			{
-				EditorCameraTransform->Translate(Front.Cross(Vector3::Up).Normalized() * CameraSpeed);
+				EditorCameraTransform->Translate(EditorCameraTransform->Right() * CameraSpeed);
 			}
-			if (Keyboard.Space)
+			if (input.IsKeyDown(KeyCode::Space))
 			{
 				EditorCameraTransform->Translate(Vector3::Up * CameraSpeed);
 			}
-			if (Keyboard.E)
+			if (input.IsKeyDown(KeyCode::E))
 			{
 				EditorCameraTransform->Translate(EditorCameraTransform->Up() * CameraSpeed);
 			}
-			if (Keyboard.Q)
+			if (input.IsKeyDown(KeyCode::Q))
 			{
-				EditorCameraTransform->Translate(Front.Cross(-Vector3::Up).Cross(Front).Normalized() * CameraSpeed);
+				EditorCameraTransform->Translate(-EditorCameraTransform->Up() * CameraSpeed);
 			}
 
 			Vector2 MousePosition = m_editor->GetInput().GetMousePosition();
@@ -127,21 +126,21 @@ void EditorCore::Update(float dt)
 
 			if (FirstUpdate)
 			{
-				LastX = MousePosition.X();
-				LastY = MousePosition.Y();
+				LastX = MousePosition.x;
+				LastY = MousePosition.y;
 				FirstUpdate = false;
 			}
 
-			float XOffset = MousePosition.X() - LastX;
-			float YOffest = LastY - MousePosition.Y();
+			float XOffset = MousePosition.x - LastX;
+			float YOffest = LastY - MousePosition.y;
 
 			Input& editorInput = GetEditor()->GetInput();
 			Vector2 windowPos = GetEngine().GetWindow()->GetPosition();
 			Vector2 windowSize = GetEngine().GetWindow()->GetSize();
 			Vector2 offset = editorInput.GetMouseOffset();
-			if (MousePosition.X() + windowPos.X()<= windowPos.X())
+			/*if (MousePosition.x + windowPos.x<= windowPos.x)
 			{
-				editorInput.SetMousePosition(Vector2(windowPos.X() + windowSize.X(), MousePosition.Y() + windowPos.Y()));
+				editorInput.SetMousePosition(Vector2(windowPos.x + windowSize.x, MousePosition.y + windowPos.y));
 			}
 			else if (MousePosition.X() + windowPos.X() >= windowPos.X() + windowSize.X())
 			{
@@ -155,15 +154,15 @@ void EditorCore::Update(float dt)
 			else if (MousePosition.Y() + windowPos.Y() >= windowPos.Y() + windowSize.Y())
 			{
 				editorInput.SetMousePosition(Vector2(windowPos.X() + MousePosition.X(), windowPos.Y()));
-			}
+			}*/
 
-			LastX = MousePosition.X();
-			LastY = MousePosition.Y();
+			LastX = MousePosition.x;
+			LastY = MousePosition.y;
 
 			XOffset *= m_lookSensitivity;
 			YOffest *= m_lookSensitivity;
 
-			const float Yaw = EditorCamera->Yaw += XOffset;
+			const float Yaw = EditorCamera->Yaw -= XOffset;
 			float Pitch = EditorCamera->Pitch += YOffest;
 
 			if (Pitch > 89.0f)
@@ -243,7 +242,7 @@ bool EditorCore::OnEvent(const BaseEvent& evt)
 		}
 		return true;
 	}
-	else if (evt.GetEventId() == Moonlight::PickingEvent::GetEventId())
+	/*else if (evt.GetEventId() == Moonlight::PickingEvent::GetEventId())
 	{
 		const Moonlight::PickingEvent& casted = static_cast<const Moonlight::PickingEvent&>(evt);
 
@@ -299,7 +298,7 @@ bool EditorCore::OnEvent(const BaseEvent& evt)
 			}
 		}
 		return true;
-	}
+	}*/
 
 	return false;
 }

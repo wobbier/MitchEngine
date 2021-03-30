@@ -1,109 +1,96 @@
 #pragma once
-#include <d3d11.h>
-#include <SimpleMath.h>
+#include <glm/vec2.hpp>
+#include <cmath>
 
-class Vector2
+struct Vector2
 {
-public:
+	union
+	{
+		struct {
+			float x;
+			float y;
+		};
+		glm::vec2 InternalVec;
+	};
+
 	Vector2()
-		: m_vector(0.f, 0.f)
+		: InternalVec(0.f, 0.f)
 	{
 	}
 
-	Vector2(const DirectX::XMVECTOR& other)
-		: m_vector(std::move(other))
-	{
-	}
-
-	Vector2(DirectX::SimpleMath::Vector2& other)
-		: m_vector(other)
-	{
-	}
-
-	Vector2(DirectX::XMFLOAT2 vec)
-		: m_vector(vec)
+	Vector2(const glm::vec2& other)
+		: InternalVec(other)
 	{
 	}
 
 	Vector2(float x, float y)
-		: m_vector(x, y)
+		: InternalVec(x, y)
 	{
 	}
 
-	void SetX(float x)
+	Vector2(int x, int y)
+		: InternalVec(static_cast<int>(x), static_cast<int>(y))
 	{
-		m_vector.x = x;
 	}
 
-	const float X() const
+	const bool IsZero() const
 	{
-		return m_vector.x;
+		return x == 0.f && y == 0.f;
 	}
 
-	void SetY(float y)
+	inline float Length() const
 	{
-		m_vector.y = y;
-	}
-
-	const float Y() const
-	{
-		return m_vector.y;
-	}
-
-	const bool IsZero()
-	{
-		static Vector2 Zero = Vector2(0.f, 0.f);
-		return *this == Zero;
+		return std::sqrt(x * x + y * y);
 	}
 
 	float& operator[](int index)
 	{
-		switch (index)
-		{
-		case 0:
-			return m_vector.x;
-		default:
-			return m_vector.y;
-		}
+		return (&x)[index];
 	}
 
 	const float& operator[](int index) const
 	{
-		switch (index)
-		{
-		case 0:
-			return m_vector.x;
-		default:
-			return m_vector.y;
-		}
-	}
-
-	const DirectX::SimpleMath::Vector2& GetInternalVec() const
-	{
-		return m_vector;
+		return (&x)[index];
 	}
 
 	Vector2 operator*(const Vector2& other)
 	{
-		return Vector2(m_vector * other.m_vector);
+		return Vector2(InternalVec * other.InternalVec);
 	}
+
+	Vector2 operator*(const float& other)
+	{
+		return Vector2(InternalVec.x * other, InternalVec.y * other);
+	}
+
 	Vector2 operator+(const Vector2& other)
 	{
-		return Vector2(m_vector + other.m_vector);
+		return Vector2(InternalVec + other.InternalVec);
 	}
+
 	Vector2 operator/(const float& other)
 	{
-		return Vector2(m_vector.x / other, m_vector.y / other);
+		return Vector2(InternalVec.x / other, InternalVec.y / other);
 	}
+
 	bool operator==(const Vector2& other)
 	{
-		return m_vector == other.m_vector;
+		return InternalVec == other.InternalVec;
 	}
+
 	bool operator!=(const Vector2& other) const
 	{
-		return m_vector != other.m_vector;
+		return InternalVec != other.InternalVec;
 	}
-private:
-	DirectX::SimpleMath::Vector2 m_vector;
+
+	bool operator<(const Vector2& other) const
+	{
+		return x < other.x && y < other.y;
+	}
+
+	bool operator>(const Vector2& other) const
+	{
+		return x > other.x && y > other.y;
+	}
 };
 

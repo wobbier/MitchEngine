@@ -1,7 +1,11 @@
 #include "CLog.h"
+#include "Dementia.h"
+#include <string>
+#if ME_PLATFORM_WIN64
 #include <wtypes.h>
 #include <wincon.h>
 #include <processenv.h>
+#endif
 
 std::vector<CLog::LogEntry> CLog::Messages;
 
@@ -28,7 +32,7 @@ bool CLog::LogMessage(CLog::LogType priority, std::string message)
 	mLogFile.open(mLogFileLocation, std::ios_base::app);
 
 	int color = 15;
-	char* type;
+	std::string type;
 	switch (priority)
 	{
 	case LogType::Info:

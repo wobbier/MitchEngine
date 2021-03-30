@@ -1,9 +1,14 @@
 #include "PCH.h"
+
+#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
 #include <WinUser.h>
+#endif
+
 #include "Engine/Input.h"
 #include "CLog.h"
 #include <string>
 #include <iostream>
+#include "SDL.h"
 
 #pragma region KeyboardInput
 
@@ -11,25 +16,38 @@
 
 #pragma region MouseInput
 
-const DirectX::Keyboard::State& Input::GetKeyboardState() const
+bool Input::OnEvent(const BaseEvent& evt)
 {
-	return KeyboardState;
+	if (CaptureInput)
+	{
+		if (evt.GetEventId() == MouseScrollEvent::GetEventId())
+		{
+			const MouseScrollEvent& event = static_cast<const MouseScrollEvent&>(evt);
+			MouseScroll = MouseScroll + event.Scroll;
+		}
+	}
+	return false;
 }
 
-DirectX::Mouse::State Input::GetMouseState()
-{
-	return MouseState;
-}
+//
+//const DirectX::Keyboard::State& Input::GetKeyboardState() const
+//{
+//	return KeyboardState;
+//}
+//
+//DirectX::Mouse::State Input::GetMouseState()
+//{
+//	return MouseState;
+//}
+//
+//DirectX::GamePad::State Input::GetControllerState(unsigned int PlayerId /*= 0*/)
+//{
+//	return Controller->GetState(PlayerId);
+//}
 
-DirectX::GamePad::State Input::GetControllerState(unsigned int PlayerId /*= 0*/)
+Vector2 Input::GetMousePosition() const
 {
-	return Controller->GetState(PlayerId);
-}
-
-Vector2 Input::GetMousePosition()
-{
-	Vector2 newPosition = Vector2(MouseState.x, MouseState.y);
-	return newPosition;
+	return MousePosition;
 }
 
 
@@ -37,9 +55,9 @@ void Input::SetMousePosition(const Vector2& InPosition)
 {
 	if (CaptureInput)
 	{
-#if ME_EDITOR
+#if ME_EDITOR && ME_PLATFORM_WIN64
 		Vector2 pos = Offset + InPosition;
-		SetCursorPos(pos.X(), pos.Y());
+		SetCursorPos(static_cast<int>(pos.x), static_cast<int>(pos.y));
 #endif
 		Update();
 	}
@@ -52,7 +70,7 @@ Vector2 Input::GetMouseOffset()
 
 Vector2 Input::GetMouseScrollOffset()
 {
-	return Vector2();
+	return MouseScroll;
 }
 
 void Input::SetMouseCapture(bool Capture)
@@ -61,11 +79,12 @@ void Input::SetMouseCapture(bool Capture)
 	{
 		if (Capture)
 		{
-			Mouse->SetMode(DirectX::Mouse::MODE_RELATIVE);
+			//SDL_SCANCODE_RETURN;
+			//Mouse->SetMode(DirectX::Mouse::MODE_RELATIVE);
 		}
 		else
 		{
-			Mouse->SetMode(DirectX::Mouse::MODE_ABSOLUTE);
+			//Mouse->SetMode(DirectX::Mouse::MODE_ABSOLUTE);
 		}
 		WantsToCaptureMouse = Capture;
 	}
@@ -76,10 +95,21 @@ void Input::SetMouseOffset(const Vector2& InOffset)
 	Offset = InOffset;
 }
 
-DirectX::Mouse& Input::GetMouse()
+bool Input::IsMouseButtonDown(MouseButton mouseButton)
 {
-	return *Mouse.get();
+	return MouseState & SDL_BUTTON((uint32_t)mouseButton);
 }
+
+bool Input::IsKeyDown(KeyCode key)
+{
+	return KeyboardState[(uint32_t)key];
+}
+
+//
+//DirectX::Mouse& Input::GetMouse()
+//{
+//	return *Mouse.get();
+//}
 
 void Input::Pause()
 {
@@ -94,7 +124,7 @@ void Input::Resume()
 
 void Input::Stop()
 {
-	Mouse->SetMode(DirectX::Mouse::MODE_ABSOLUTE);
+	//Mouse->SetMode(DirectX::Mouse::MODE_ABSOLUTE);
 	CaptureInput = false;
 }
 
@@ -102,27 +132,44 @@ void Input::Update()
 {
 	if (CaptureInput)
 	{
-		KeyboardState = Keyboard->GetState();
-		MouseState = Mouse->GetState();
+		KeyboardState = SDL_GetKeyboardState(nullptr);
+		int mouseX = 0;
+		int mouseY = 0;
+		MouseState = SDL_GetMouseState(&mouseX, &mouseY);// use these params
+		MousePosition = Vector2(mouseX, mouseY);
+		if (KeyboardState)
+		{
+			int i = 0;
+			++i;
+		}
+		//KeyboardState = Keyboard->GetState();
+		//MouseState = Mouse->GetState();
 	}
 }
 
-std::unique_ptr<DirectX::Mouse> Input::Mouse = std::make_unique<DirectX::Mouse>();
-
-std::unique_ptr<DirectX::Keyboard> Input::Keyboard = std::make_unique<DirectX::Keyboard>();
-
-std::unique_ptr<DirectX::GamePad> Input::Controller = std::make_unique<DirectX::GamePad>();
+//
+//std::unique_ptr<DirectX::Mouse> Input::Mouse = std::make_unique<DirectX::Mouse>();
+//
+//std::unique_ptr<DirectX::Keyboard> Input::Keyboard = std::make_unique<DirectX::Keyboard>();
+//
+//std::unique_ptr<DirectX::GamePad> Input::Controller = std::make_unique<DirectX::GamePad>();
 
 Input::Input()
 {
-	//Mouse = std::make_unique<DirectX::Mouse>();
+	KeyboardState = SDL_GetKeyboardState(nullptr);
+	MouseState = SDL_GetMouseState(nullptr, nullptr);// use these params
+//Mouse = std::make_unique<DirectX::Mouse>();
 	//Controller = std::make_unique<DirectX::GamePad>();
 	//Keyboard = std::make_unique<DirectX::Keyboard>();
-	Controller->Resume();
+	//Controller->Resume();
 #if ME_PLATFORM_UWP
-	Mouse->SetWindow(CoreWindow::GetForCurrentThread());
-	Keyboard->SetWindow(CoreWindow::GetForCurrentThread());
+	//Mouse->SetWindow(CoreWindow::GetForCurrentThread());
+	//Keyboard->SetWindow(CoreWindow::GetForCurrentThread());
 #endif
+
+	std::vector<TypeId> events;
+	events.push_back(MouseScrollEvent::GetEventId());
+	EventManager::GetInstance().RegisterReceiver(this, events);
 }
 
 #pragma endregion

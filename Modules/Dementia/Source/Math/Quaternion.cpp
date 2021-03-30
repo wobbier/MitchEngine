@@ -1,48 +1,39 @@
 #include "Quaternion.h"
 #include <algorithm>
 #include "Mathf.h"
+#include <glm/gtc/quaternion.hpp>
+
+#define _USE_MATH_DEFINES
+#include <math.h>
 
 Quaternion Quaternion::Identity = Quaternion(0.f, 0.f, 0.f, 1.f);
 
 void Quaternion::SetEuler(const Vector3& euler)
 {
-	//float cy = std::cos(Mathf::Radians(euler.z) / 2.f);
-	//float sy = std::sin(Mathf::Radians(euler.z) / 2.f);
-	//float cp = std::cos(Mathf::Radians(euler.x) / 2.f);
-	//float sp = std::sin(Mathf::Radians(euler.x) / 2.f);
-	//float cr = std::cos(Mathf::Radians(euler.y) / 2.f);
-	//float sr = std::sin(Mathf::Radians(euler.y) / 2.f);
-	auto quat = DirectX::SimpleMath::Quaternion::CreateFromYawPitchRoll(Mathf::Radians(euler.y), Mathf::Radians(euler.x), Mathf::Radians(euler.z));
-	x = quat.x; //sr * cp * cy - cr * sp * sy;
-	y = quat.y; //cr * sp * cy + sr * cp * sy;
-	z = quat.z; //cr * cp * sy - sr * sp * cy;
-	w = quat.w; //cr * cp * cy + sr * sp * sy;
+	InternalQuat = glm::quat(Vector3(Mathf::Radians(euler.x), Mathf::Radians(euler.y), Mathf::Radians(euler.z)).InternalVector);
 }
 
-Vector3 Quaternion::ToEulerAngles(Quaternion InQuat)
+Vector3 Quaternion::ToEulerAngles(const Quaternion& InQuat)
 {
 	Vector3 angles;
-	const DirectX::SimpleMath::Quaternion q = InQuat.InternalQuat;
-
-	// roll (x-axis rotation)
-	double sinr_cosp = 2 * (q.w * q.x + q.y * q.z);
-	double cosr_cosp = 1 - 2 * (q.x * q.x + q.y * q.y);
-	angles.x = std::atan2(sinr_cosp, cosr_cosp);
-
-	// pitch (y-axis rotation)
-	double sinp = 2 * (q.w * q.y - q.z * q.x);
-	if (std::abs(sinp) >= 1)
-		angles.y = std::copysign(M_PI / 2, sinp); // use 90 degrees if out of range
-	else
-		angles.y = std::asin(sinp);
-
-	// yaw (z-axis rotation)
-	double siny_cosp = 2 * (q.w * q.z + q.x * q.y);
-	double cosy_cosp = 1 - 2 * (q.y * q.y + q.z * q.z);
-	angles.z = std::atan2(siny_cosp, cosy_cosp);
-
+	angles.InternalVector = glm::eulerAngles(InQuat.InternalQuat);
+	angles.x = Mathf::Degrees(angles.x);
+	angles.y = Mathf::Degrees(angles.y);
+	angles.z = Mathf::Degrees(angles.z);
 	return angles;
 }
+
+float Quaternion::ToAngle() const
+{
+	return glm::angle(InternalQuat);
+}
+
+Vector3 Quaternion::ToAxis() const
+{
+	glm::vec3 axis = glm::axis(InternalQuat);
+	return Vector3(axis);
+}
+
 //
 //float Quaternion::Angle(Quaternion& a, Quaternion& b)
 //{

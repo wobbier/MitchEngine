@@ -12,9 +12,9 @@ Entity::Entity()
 {
 }
 
-Entity::Entity(World& inWorld, EntityID inId) :
-	Id(inId),
-	GameWorld(&inWorld)
+Entity::Entity(World& inWorld, EntityID inId)
+	: Id(inId)
+	, GameWorld(&inWorld)
 {
 }
 

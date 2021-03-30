@@ -1,6 +1,5 @@
 #pragma once
 #include <vector>
-#include <DirectXMath.h>
 #include "Math/Vector3.h"
 #include "Math/Vector2.h"
 #include "Math/Matrix4.h"
@@ -27,29 +26,39 @@ namespace Moonlight
 	{
 		std::vector<MeshData*> Meshes;
 		ShaderCommand* ModelShader;
-		DirectX::XMMATRIX Transform;
+		Matrix4 Transform;
 	};
 
 	struct DebugColliderCommand
 	{
-		DirectX::SimpleMath::Matrix Transform;
+		float test;
+
+		//DirectX::SimpleMath::Matrix Transform;
 	};
 
 	struct MeshCommand
 	{
+		MeshCommand() = default;
+		void Reset()
+		{
+			SingleMesh = nullptr;
+			MeshMaterial = nullptr;
+			Transform = glm::mat4(1.f);
+		}
 		MeshData* SingleMesh = nullptr;
 		MeshType Type = MeshType::Model;
-		SharedPtr<Material> MeshMaterial;
-		DirectX::SimpleMath::Matrix Transform;
+		SharedPtr<Material> MeshMaterial =nullptr;
+		glm::mat4 Transform;
 		bool Visible = false;
 	};
 
 	struct LightCommand
 	{
-		DirectX::XMFLOAT4 pos;
+		float test;
+		/*DirectX::XMFLOAT4 pos;
 		DirectX::XMFLOAT4 dir;
 		DirectX::XMFLOAT4 cameraPos;
 		DirectX::XMFLOAT4 ambient;
-		DirectX::XMFLOAT4 diffuse;
+		DirectX::XMFLOAT4 diffuse;*/
 	};
 }

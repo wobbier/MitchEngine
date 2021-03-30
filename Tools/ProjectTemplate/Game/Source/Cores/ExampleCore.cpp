@@ -1,6 +1,5 @@
 #include <Cores/ExampleCore.h>
 #include <Components/Transform.h>
-#include <Components/Camera.h>
 
 ExampleCore::ExampleCore()
 	: Base(ComponentFilter().Requires<Transform>())
@@ -21,6 +20,10 @@ void ExampleCore::OnEntityRemoved(Entity& InEntity)
 
 void ExampleCore::Update(float dt)
 {
+	auto& entities = GetEntities();
+	for(auto ent : entities)
+	{
+	}
 }
 
 #if ME_EDITOR

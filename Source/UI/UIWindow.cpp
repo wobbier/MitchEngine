@@ -1,6 +1,5 @@
 #include "PCH.h"
 #include "UIWindow.h"
-#include "Window/Win32Window.h"
 
 UIWindow::UIWindow(IWindow* window, ultralight::OverlayManager* manager)
 	: m_overlayManager(manager)
@@ -35,12 +34,12 @@ ultralight::WindowListener* UIWindow::listener()
 
 uint32_t UIWindow::width() const
 {
-	return m_window->GetSize().X();
+	return static_cast<uint32_t>(m_window->GetSize().x);
 }
 
 uint32_t UIWindow::height() const
 {
-	return m_window->GetSize().Y();
+	return static_cast<uint32_t>(m_window->GetSize().y);
 }
 
 bool UIWindow::is_fullscreen() const
@@ -71,12 +70,6 @@ void UIWindow::Close()
 int UIWindow::DeviceToPixels(int val) const
 {
 	return 1;
-}
-
-HWND UIWindow::hwnd()
-{
-	return NULL;
-	//return static_cast<Win32Window*>(m_window)->Window;
 }
 
 int UIWindow::PixelsToDevice(int val) const

@@ -3,7 +3,6 @@
 #include "Graphics/Cubemap.h"
 #include "Graphics/ShaderCommand.h"
 #include "Device/IDevice.h"
-#include "Renderer.h"
 #include "Graphics/ModelResource.h"
 
 class Mesh;
@@ -35,5 +34,5 @@ public:
 	void UpdateMesh(Mesh* InMesh);
 private:
 	
-	Moonlight::Renderer* m_renderer;
+	//Moonlight::Renderer* m_renderer;
 };

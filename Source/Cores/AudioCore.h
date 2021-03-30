@@ -7,10 +7,10 @@
 #include "Events/EventReceiver.h"
 
 class AudioSource;
-
-namespace DirectX { class SoundEffectInstance; }
-namespace DirectX { class SoundEffect; }
-namespace DirectX { class AudioEngine; }
+//
+//namespace DirectX { class SoundEffectInstance; }
+//namespace DirectX { class SoundEffect; }
+//namespace DirectX { class AudioEngine; }
 
 class AudioCore
 	: public Core<AudioCore>
@@ -30,7 +30,7 @@ public:
 private:
 	virtual void Init() override;
 
-	std::unique_ptr<DirectX::AudioEngine> mEngine;
+	//std::unique_ptr<DirectX::AudioEngine> mEngine;
 
 	std::map<std::string, AudioSource> m_cachedSounds;
 

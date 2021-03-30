@@ -11,7 +11,7 @@ Camera* Camera::EditorCamera = nullptr;
 Camera::Camera()
 	: Component("Camera")
 {
-	CameraFrustum = new Frustum();
+	//CameraFrustum = new Frustum();
 }
 
 Camera::~Camera()
@@ -20,7 +20,7 @@ Camera::~Camera()
 	{
 		CurrentCamera = nullptr;
 	}
-	delete CameraFrustum;
+	//delete CameraFrustum;
 }
 
 void Camera::Init()
@@ -104,7 +104,7 @@ void Camera::OnSerialize(json& outJson)
 	outJson["Near"] = Near;
 	outJson["Far"] = Far;
 
-	if (Skybox)
+	if (Skybox && Skybox->SkyMaterial)
 	{
 		outJson["Skybox"] = Skybox->SkyMaterial->GetTexture(Moonlight::TextureType::Diffuse)->GetPath().LocalPath;
 	}
@@ -179,7 +179,7 @@ void Camera::OnEditorInspect()
 
 		if (ImGui::BeginCombo("##SkyboxTexture", ""))
 		{
-			for (int n = 0; n < Textures.size(); n++)
+			for (size_t n = 0; n < Textures.size(); n++)
 			{
 				if (ImGui::Selectable(Textures[n].LocalPath.c_str(), false))
 				{
@@ -213,7 +213,7 @@ void Camera::OnEditorInspect()
 		if (Skybox)
 		{
 			const Moonlight::Texture* texture = Skybox->SkyMaterial->GetTexture(Moonlight::TextureType::Diffuse);
-			ImGui::ImageButton(((texture) ? (void*)texture->ShaderResourceView : nullptr), ImVec2(30, 30));
+			//ImGui::ImageButton(((texture) ? (void*)texture->ShaderResourceView : nullptr), ImVec2(30, 30));
 		}
 		else
 		{

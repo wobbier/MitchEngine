@@ -4,6 +4,8 @@
 #include "Engine/Engine.h"
 #include "Window/IWindow.h"
 #include "Math/Frustrum.h"
+#include "Camera/CameraData.h"
+#include "BGFXRenderer.h"
 
 CameraCore::CameraCore() : Base(ComponentFilter().Requires<Camera>().Requires<Transform>())
 {
@@ -54,7 +56,8 @@ void CameraCore::Update(float dt)
 		CamData.Projection = CameraComponent.Projection;
 		CamData.OrthographicSize = CameraComponent.OrthographicSize;
 		CamData.IsMain = CameraComponent.IsMain();
-		CamData.CameraFrustum = CameraComponent.CameraFrustum;
+		//CamData.CameraFrustum = CameraComponent.CameraFrustum;
+		CamData.UITexture = BGFX_INVALID_HANDLE;
 
 		GetEngine().GetRenderer().UpdateCamera(CameraComponent.m_id, CamData);
 	}
@@ -66,6 +69,7 @@ void CameraCore::OnEntityAdded(Entity& NewEntity)
 	{
 		NewEntity.GetComponent<Camera>().SetCurrent();
 	}
+
 	NewEntity.GetComponent<Camera>().m_id = GetEngine().GetRenderer().PushCamera(CreateCameraData(NewEntity.GetComponent<Transform>(), NewEntity.GetComponent<Camera>()));
 }
 
@@ -91,10 +95,10 @@ Moonlight::CameraData CameraCore::CreateCameraData(Transform& InTransform, Camer
 	CamData.OrthographicSize = InCamera.OrthographicSize;
 	CamData.IsMain = InCamera.IsMain();
 
-	Vector3 Right = CamData.Front.Cross(Vector3::Up).Normalized();
-	Vector3 Up = CamData.Front.Cross(Right).Normalized();
+	//Vector3 Right = CamData.Front.Cross(Vector3::Up).Normalized();
+	//Vector3 Up = CamData.Front.Cross(Right).Normalized();
 
-	CamData.CameraFrustum = InCamera.CameraFrustum;
+	//CamData.CameraFrustum = InCamera.CameraFrustum;
 
 	return CamData;
 }

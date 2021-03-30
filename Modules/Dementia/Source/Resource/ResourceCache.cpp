@@ -1,6 +1,9 @@
 #include <Resource/ResourceCache.h>
 
 #include <Pointers.h>
+#include "MetaRegistry.h"
+#include "JSON.h"
+#include "File.h"
 
 ResourceCache::ResourceCache()
 {
@@ -24,6 +27,16 @@ std::size_t ResourceCache::GetCacheSize() const
 	return ResourceStack.size();
 }
 
+SharedPtr<Resource> ResourceCache::GetCached(const Path& InFilePath)
+{
+	auto I = ResourceStack.find(InFilePath.FullPath);
+	if (I != ResourceStack.end())
+	{
+		return I->second;
+	}
+	return {};
+}
+
 void ResourceCache::TryToDestroy(Resource* resource)
 {
 	std::map<std::string, std::shared_ptr<Resource>>::iterator I;
@@ -45,7 +58,7 @@ const std::map<std::string, std::shared_ptr<Resource>>& ResourceCache::GetResouc
 
 void ResourceCache::Dump()
 {
-	for (auto& iter = ResourceStack.begin(); iter != ResourceStack.end(); )
+	for (std::map<std::string, std::shared_ptr<Resource>>::iterator iter = ResourceStack.begin(); iter != ResourceStack.end(); )
 	{
 		if (iter->second.use_count() == 1)
 		{
@@ -56,4 +69,31 @@ void ResourceCache::Dump()
 			++iter;
 		}
 	}
+}
+
+MetaBase* ResourceCache::LoadMetadata(const Path& filePath)
+{
+	MetaBase* metadata = nullptr;
+	MetaRegistry::iterator it = GetMetadatabase().reg.find(filePath.Extension);
+	if (it != GetMetadatabase().reg.end())
+	{
+		Path metaPath = Path(filePath.FullPath + ".meta");
+		File metaFile = File(metaPath);
+		json j;
+
+		metadata = it->second(filePath);
+
+		if (metaPath.Exists)
+		{
+			j = json::parse(metaFile.Read());
+			metadata->Deserialize(j);
+		}
+		else
+		{
+			metadata->Serialize(j);
+			metaFile.Write(j.dump(4));
+			metadata->FlaggedForExport = true;
+		}
+	}
+	return metadata;
 }

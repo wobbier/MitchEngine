@@ -3,7 +3,6 @@
 #include "CLog.h"
 #include "Config.h"
 #include "Window/UWPWindow.h"
-#include "Window/Win32Window.h"
 #include "Events/EventManager.h"
 #include "Cores/PhysicsCore.h"
 #include "Cores/Cameras/CameraCore.h"
@@ -12,7 +11,6 @@
 #include "Game.h"
 #include "Window/IWindow.h"
 #include "Input.h"
-#include "Havana.h"
 #include "Components/Transform.h"
 #include "Dementia.h"
 #include "Events/SceneEvents.h"
@@ -22,7 +20,7 @@
 #include "Cores/AudioCore.h"
 #include "Cores/UI/UICore.h"
 
-#if ME_EDITOR
+#if ME_EDITOR && ME_PLATFORM_WIN64
 #include "Utils/StringUtils.h"
 #include <fileapi.h>
 #endif
@@ -30,6 +28,13 @@
 #include "optick.h"
 #include "Work/Burst.h"
 #include "Profiling/BasicFrameProfile.h"
+#include "BGFXRenderer.h"
+#include "Window/SDLWindow.h"
+#include "Path.h"
+#include "Window/EditorWindow.h"
+#include "SDL.h"
+#include "SDL_video.h"
+#include <imgui.h>
 
 Engine& GetEngine()
 {
@@ -38,6 +43,7 @@ Engine& GetEngine()
 
 Engine::Engine()
 	: Running(true)
+	, newJobSystem(1, 100000)
 {
 	std::vector<TypeId> events;
 	events.push_back(LoadSceneEvent::GetEventId());
@@ -49,6 +55,9 @@ Engine::~Engine()
 	delete EngineConfig;
 }
 
+extern bool ImGui_ImplSDL2_InitForD3D(SDL_Window* window);
+extern bool ImGui_ImplSDL2_InitForMetal(SDL_Window* window);
+extern bool ImGui_ImplWin32_Init(void* window);
 void Engine::Init(Game* game)
 {
 	if (m_isInitialized || !game)
@@ -63,7 +72,7 @@ void Engine::Init(Game* game)
 	CLog::GetInstance().Log(CLog::LogType::Info, "Starting the MitchEngine.");
 	Path engineCfg("Assets\\Config\\Engine.cfg");
 
-#if ME_EDITOR
+#if ME_EDITOR && ME_PLATFORM_WIN64
 	if (engineCfg.FullPath.rfind("Engine") != -1)
 	{
 		Path gameEngineCfgPath("Assets\\Config\\Engine.cfg", true);
@@ -77,20 +86,14 @@ void Engine::Init(Game* game)
 	}
 #endif
 
-	EngineConfig = new Config(engineCfg);
 
-	burst.InitializeWorkerThreads();
-
-#if ME_PLATFORM_WIN64
-	const json& WindowConfig = EngineConfig->GetObject("Window");
-	int WindowWidth = WindowConfig["Width"];
-	int WindowHeight = WindowConfig["Height"];
-	std::function<void(const Vector2&)> Func = [this](const Vector2& NewSize)
+	std::function<void(const Vector2&)> ResizeFunc = [this](const Vector2& NewSize)
 	{
-		if (m_renderer)
+		if (NewRenderer)
 		{
-			m_renderer->WindowResized(NewSize);
+			NewRenderer->WindowResized(NewSize);
 		}
+        
 		if (UI)
 		{
 			if (Camera::CurrentCamera)
@@ -99,14 +102,43 @@ void Engine::Init(Game* game)
 			}
 		}
 	};
-	GameWindow = new Win32Window(EngineConfig->GetValue("Title"), Func, 500, 300, Vector2(WindowWidth, WindowHeight));
+
+#if ME_EDITOR && ME_PLATFORM_WIN64
+	EngineConfig = new Config(engineCfg);
+	const json& WindowConfig = EngineConfig->GetJsonObject("Window");
+	int WindowWidth = WindowConfig["Width"];
+	int WindowHeight = WindowConfig["Height"];
+	GameWindow = new EditorWindow(EngineConfig->GetValue("Title"), ResizeFunc, 500, 300, Vector2(WindowWidth, WindowHeight));
+#elif ME_PLATFORM_WIN64 || ME_PLATFORM_MACOS
+	EngineConfig = new Config(engineCfg);
+	const json& WindowConfig = EngineConfig->GetJsonObject("Window");
+	int WindowWidth = WindowConfig["Width"];
+	int WindowHeight = WindowConfig["Height"];
+	GameWindow = new SDLWindow(EngineConfig->GetValue("Title"), ResizeFunc, 500, 300, Vector2(WindowWidth, WindowHeight));
 #endif
 #if ME_PLATFORM_UWP
-	GameWindow = new UWPWindow("MitchEngine", 1920, 1080);
+	GameWindow = new UWPWindow("MitchEngine", 1920, 1080, ResizeFunc);
 #endif
 
-	m_renderer = new Moonlight::Renderer();
-	m_renderer->WindowResized(GameWindow->GetSize());
+	ResizeFunc(Vector2(1920, 1080));
+
+	NewRenderer = new BGFXRenderer();
+	RendererCreationSettings settings;
+	settings.WindowPtr = GameWindow->GetWindowPtr();
+	settings.InitialSize = Vector2(1920.f, 1080.f);
+	NewRenderer->Create(settings);
+
+	//m_renderer = new Moonlight::Renderer();
+	//m_renderer->WindowResized(GameWindow->GetSize());
+#if ME_EDITOR && ME_PLATFORM_WIN64
+	//ImGui_ImplSDL2_InitForD3D(static_cast<SDLWindow*>(GameWindow)->WindowHandle);
+	ImGui_ImplWin32_Init(static_cast<EditorWindow*>(GameWindow)->GetWindowPtr());
+#elif ME_PLATFORM_WIN64
+	ImGui_ImplSDL2_InitForD3D(static_cast<SDLWindow*>(GameWindow)->WindowHandle);
+#endif
+#if ME_PLATFORM_MACOS
+    ImGui_ImplSDL2_InitForMetal(static_cast<SDLWindow*>(GameWindow)->WindowHandle);
+#endif
 
 	GameWorld = std::make_shared<World>();
 
@@ -117,9 +149,9 @@ void Engine::Init(Game* game)
 	ModelRenderer = new RenderCore();
 	AudioThread = new AudioCore();
 
-	m_renderer->Init();
+	//m_renderer->Init();
 
-	UI = new UICore(GameWindow, m_renderer);
+	UI = new UICore(GameWindow, NewRenderer);
 
 	InitGame();
 
@@ -144,13 +176,22 @@ void Engine::StopGame()
 
 void Engine::Run()
 {
+//#if ME_PLATFORM_UWP
+//	SDL_SetMainReady();
+//	SDL_Init(SDL_INIT_EVENTS);
+//	SDL_Window* win = SDL_CreateWindowFrom(GameWindow->GetWindowPtr());
+//
+//	SDL_MaximizeWindow(win);
+//#endif
+	
 	m_game->OnStart();
 
 	GameClock.Reset();
-	float lastTime = GameClock.GetTimeInMilliseconds();
+	//float lastTime = GameClock.GetTimeInMilliseconds();
 
 	const float FramesPerSec = FPS;
 	const float MaxDeltaTime = (1.f / FramesPerSec);
+
 	// Game loop
 	forever
 	{
@@ -169,15 +210,30 @@ void Engine::Run()
 		GameClock.Update();
 
 		AccumulatedTime += GameClock.GetDeltaSeconds();
-		if (AccumulatedTime >= MaxDeltaTime)
+
+		//if (AccumulatedTime >= MaxDeltaTime)
 		{
 			OPTICK_FRAME("MainLoop");
 			float deltaTime = DeltaTime = AccumulatedTime;
+			{
+#if ME_EDITOR
+				Input& input = GetEditorInput();
+#else
+				Input& input = GetInput();
+#endif
+				NewRenderer->BeginFrame(input.GetMousePosition(), (input.IsMouseButtonDown(MouseButton::Left) ? 0x01 : 0)
+					| (input.IsMouseButtonDown(MouseButton::Right) ? 0x02 : 0)
+					| (input.IsMouseButtonDown(MouseButton::Middle) ? 0x04 : 0)
+					, (int32_t)input.GetMouseScrollOffset().y
+					, GameWindow->GetSize()
+					, -1
+					, 255);
+			}
 
 			FrameProfile::GetInstance().Set("Physics", ProfileCategory::Physics);
 			GameWorld->Simulate();
 
-			m_input.Update();
+			GetInput().Update();
 
 			// Update our engine
 			GameWorld->UpdateLoadedCores(deltaTime);
@@ -200,7 +256,7 @@ void Engine::Run()
 			AudioThread->Update(deltaTime);
 			ModelRenderer->Update(deltaTime);
 			FrameProfile::GetInstance().Complete("ModelRenderer");
-
+            
 			{
 				OPTICK_CATEGORY("UICore::Update", Optick::Category::Rendering)
 				FrameProfile::GetInstance().Set("UI", ProfileCategory::UI);
@@ -211,8 +267,8 @@ void Engine::Run()
 					{
 						UI->OnResize(Camera::CurrentCamera->OutputSize);
 					}
+					UI->Update(deltaTime);
 				}
-				UI->Update(deltaTime);
 				FrameProfile::GetInstance().Complete("UI");
 			}
 //
@@ -230,14 +286,27 @@ void Engine::Run()
 //
 //			EditorCamera = MainCamera;
 //#endif
-
+			m_game->PostRender();
+#if !ME_EDITOR
+			EditorCamera.OutputSize = GetWindow()->GetSize();
+#if _DEBUG
+			FrameProfile::GetInstance().Render({ 0.f, GameWindow->GetSize().y - FrameProfile::kMinProfilerSize }, {GameWindow->GetSize().x, (float)FrameProfile::kMinProfilerSize });
+#endif
+#endif
+			FrameProfile::GetInstance().Set("UI Render", ProfileCategory::UI);
+			UI->Render();
+			FrameProfile::GetInstance().Complete("UI Render");
 			FrameProfile::GetInstance().Set("Render", ProfileCategory::Rendering);
-			m_renderer->ThreadedRender([this]() {
-				m_game->PostRender();
-			}, [this]() {
-				UI->Render();
-			}, EditorCamera);
+			NewRenderer->Render(EditorCamera);
+			GameWindow->Swap();
 			FrameProfile::GetInstance().Complete("Render");
+			//FrameProfile::GetInstance().Set("Render", ProfileCategory::Rendering);
+			//m_renderer->ThreadedRender([this]() {
+			//	m_game->PostRender();
+			//}, [this]() {
+			//	UI->Render();
+			//}, EditorCamera);
+			//FrameProfile::GetInstance().Complete("Render");
 
 			// This makes the profiler overview data to be delayed for a frame, but takes the renderer into account.
 			static float fpsTime = 0;
@@ -251,8 +320,9 @@ void Engine::Run()
 			AccumulatedTime = std::fmod(AccumulatedTime, MaxDeltaTime);
 
 			FrameProfile::GetInstance().End(AccumulatedTime);
+			AccumulatedTime = 0;// std::fmod(AccumulatedTime, MaxDeltaTime);
+            GetJobEngine().ClearWorkerPools();
 		}
-
 		ResourceCache::GetInstance().Dump();
 		//Sleep(1);
 	}
@@ -271,9 +341,9 @@ bool Engine::OnEvent(const BaseEvent& evt)
 	return false;
 }
 
-Moonlight::Renderer& Engine::GetRenderer() const
+BGFXRenderer& Engine::GetRenderer() const
 {
-	return *m_renderer;
+	return *NewRenderer;
 }
 
 std::weak_ptr<World> Engine::GetWorld() const
@@ -291,7 +361,10 @@ bool Engine::IsRunning() const
 	return true;
 }
 
-void Engine::Quit() { Running = false; }
+void Engine::Quit()
+{
+	GameWindow->Exit();
+}
 
 IWindow* Engine::GetWindow()
 {
@@ -313,9 +386,14 @@ Input& Engine::GetInput()
 	return m_input;
 }
 
-Burst& Engine::GetBurstWorker()
+JobEngine& Engine::GetJobEngine()
 {
-	return burst;
+	return newJobSystem;
+}
+
+std::tuple<Worker*, Pool&> Engine::GetJobSystemNew()
+{
+	return { newJobSystem.GetThreadWorker(), newJobSystem.GetThreadWorker()->GetPool() };
 }
 
 void Engine::LoadScene(const std::string& SceneFile)
@@ -343,3 +421,12 @@ void Engine::LoadScene(const std::string& SceneFile)
 	//GameWorld->Start();
 #endif
 }
+
+#if ME_EDITOR
+
+Input& Engine::GetEditorInput()
+{
+	return m_editorInput;
+}
+
+#endif

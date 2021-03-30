@@ -1,8 +1,10 @@
 #include "PCH.h"
+
+#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
+
 #include "GPUContextD3D11.h"
 #include <cassert>
 #include "Engine/Engine.h"
-#include "Renderer.h"
 
 namespace ultralight {
 
@@ -36,15 +38,14 @@ void GPUContextD3D11::Resize(int width, int height) {
 	}
   set_screen_size(width, height);
 
-  swap_chain_ = GetEngine().GetRenderer().GetDevice().GetSwapChain();
-  immediate_context_ = GetEngine().GetRenderer().GetDevice().GetD3DDeviceContext();
-  device_ = GetEngine().GetRenderer().GetDevice().GetD3DDevice();
-  if (GetEngine().GetRenderer().GameViewRTT)
-  {
-	  back_buffer_view_ = GetEngine().GetRenderer().GameViewRTT->UIRenderTargetView;
-  }
+  //swap_chain_ = GetEngine().GetRenderer().GetDevice().GetSwapChain();
+  //immediate_context_ = GetEngine().GetRenderer().GetDevice().GetD3DDeviceContext();
+  //device_ = GetEngine().GetRenderer().GetDevice().GetD3DDevice();
+  //if (GetEngine().GetRenderer().GameViewRTT)
+  //{
+	 // back_buffer_view_ = GetEngine().GetRenderer().GameViewRTT->UIRenderTargetView;
+  //}
 
-  //immediate_context_->OMSetRenderTargets(1, back_buffer_view_.GetAddressOf(), nullptr);
 }
 
 ID3D11Device* GPUContextD3D11::device() { assert(device_.Get()); return device_.Get(); }
@@ -87,12 +88,12 @@ bool GPUContextD3D11::Initialize(int screen_width, int screen_height, double scr
 
   HRESULT hr = S_OK;
 
-  swap_chain_ = GetEngine().GetRenderer().GetDevice().GetSwapChain();
-  immediate_context_ = GetEngine().GetRenderer().GetDevice().GetD3DDeviceContext();
-  device_ = GetEngine().GetRenderer().GetDevice().GetD3DDevice();
+  //swap_chain_ = GetEngine().GetRenderer().GetDevice().GetSwapChain();
+  //immediate_context_ = GetEngine().GetRenderer().GetDevice().GetD3DDeviceContext();
+  //device_ = GetEngine().GetRenderer().GetDevice().GetD3DDevice();
   if (back_buffer_view_)
   {
-	back_buffer_view_ = GetEngine().GetRenderer().GameViewRTT->UIRenderTargetView;
+	//back_buffer_view_ = GetEngine().GetRenderer().GameViewRTT->UIRenderTargetView;
 	immediate_context_->OMSetRenderTargets(1, back_buffer_view_.GetAddressOf(), nullptr);
   }
 
@@ -115,7 +116,7 @@ bool GPUContextD3D11::Initialize(int screen_width, int screen_height, double scr
   blend_desc.IndependentBlendEnable = false;
   blend_desc.RenderTarget[0] = rt_blend_desc;
 
-  device()->CreateBlendState(&blend_desc, blend_state_.GetAddressOf());
+  //device()->CreateBlendState(&blend_desc, blend_state_.GetAddressOf());
 
   // Create Disabled Blend State
 
@@ -134,7 +135,7 @@ bool GPUContextD3D11::Initialize(int screen_width, int screen_height, double scr
   blend_desc.IndependentBlendEnable = false;
   blend_desc.RenderTarget[0] = rt_blend_desc;
 
-  device()->CreateBlendState(&blend_desc, disabled_blend_state_.GetAddressOf());
+  //device()->CreateBlendState(&blend_desc, disabled_blend_state_.GetAddressOf());
 
   EnableBlend();
 
@@ -156,7 +157,7 @@ bool GPUContextD3D11::Initialize(int screen_width, int screen_height, double scr
   rasterizer_desc.AntialiasedLineEnable = false;
 #endif
 
-  device()->CreateRasterizerState(&rasterizer_desc, rasterizer_state_.GetAddressOf());
+  //device()->CreateRasterizerState(&rasterizer_desc, rasterizer_state_.GetAddressOf());
 
   D3D11_RASTERIZER_DESC scissor_rasterizer_desc;
   ZeroMemory(&scissor_rasterizer_desc, sizeof(scissor_rasterizer_desc));
@@ -176,7 +177,7 @@ bool GPUContextD3D11::Initialize(int screen_width, int screen_height, double scr
   scissor_rasterizer_desc.AntialiasedLineEnable = false;
 #endif
 
-  device()->CreateRasterizerState(&scissor_rasterizer_desc, scissored_rasterizer_state_.GetAddressOf());
+  //device()->CreateRasterizerState(&scissor_rasterizer_desc, scissored_rasterizer_state_.GetAddressOf());
 
   DisableScissor();
 
@@ -198,7 +199,7 @@ bool GPUContextD3D11::Initialize(int screen_width, int screen_height, double scr
   float color[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
   if (immediate_context_ && render_target_view())
   {
-	immediate_context_->ClearRenderTargetView(render_target_view(), color);
+	//immediate_context_->ClearRenderTargetView(render_target_view(), color);
   }
 
 
@@ -209,3 +210,5 @@ UINT GPUContextD3D11::back_buffer_width() { return back_buffer_width_; }
 UINT GPUContextD3D11::back_buffer_height() { return back_buffer_height_; }
 
 }  // namespace ultralight
+
+#endif

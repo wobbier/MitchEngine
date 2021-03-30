@@ -8,7 +8,6 @@
 #include <unordered_map>
 
 #include "CLog.h"
-#include "Renderer.h"
 #include "Graphics/Texture.h"
 #include "Game.h"
 #include "Graphics/Material.h"
@@ -22,7 +21,6 @@
 ModelResource::ModelResource(const Path& path)
 	: Resource(path)
 {
-	Load();
 }
 
 ModelResource::~ModelResource()
@@ -103,13 +101,13 @@ void ModelResource::ProcessNode(aiNode *node, const aiScene *scene, Moonlight::N
 
 Moonlight::MeshData* ModelResource::ProcessMesh(aiMesh *mesh, const aiScene *scene)
 {
-	std::vector<Moonlight::Vertex> vertices;
+	std::vector<Moonlight::PosNormTexTanBiVertex> vertices;
 	std::vector<uint16_t> indices;
 	SharedPtr<Moonlight::Material> newMaterial = std::make_shared<DiffuseMaterial>();
 	for (unsigned int i = 0; i < mesh->mNumVertices; i++)
 	{
-		Moonlight::Vertex vertex;
-		DirectX::XMFLOAT3 vector;
+		Moonlight::PosNormTexTanBiVertex vertex;
+		Vector3 vector;
 
 		vertex.Position = { mesh->mVertices[i].x,  mesh->mVertices[i].y,  mesh->mVertices[i].z };
 
@@ -120,7 +118,7 @@ Moonlight::MeshData* ModelResource::ProcessMesh(aiMesh *mesh, const aiScene *sce
 
 		if (mesh->mTextureCoords[0])
 		{
-			DirectX::XMFLOAT2 vec;
+			Vector2 vec;
 
 			// A vertex can contain up to 8 different texture coordinates. We assume that we won't use models where a vertex can have multiple texture coordinates so we always take the first set (0).
 			vec.x = mesh->mTextureCoords[0][i].x;
@@ -129,7 +127,7 @@ Moonlight::MeshData* ModelResource::ProcessMesh(aiMesh *mesh, const aiScene *sce
 		}
 		else
 		{
-			vertex.TextureCoord = DirectX::XMFLOAT2(0.0f, 0.0f);
+			vertex.TextureCoord = Vector2(0.0f, 0.0f);
 		}
 		if (mesh->mTangents)
 		{
@@ -242,3 +240,23 @@ bool ModelResource::LoadMaterialTextures(SharedPtr<Moonlight::Material> newMater
 	}
 	return false;
 }
+
+void ModelResourceMetadata::OnSerialize(json& inJson)
+{
+}
+
+void ModelResourceMetadata::OnDeserialize(const json& inJson)
+{
+}
+
+#if ME_EDITOR
+
+void ModelResourceMetadata::OnEditorInspect()
+{
+	MetaBase::OnEditorInspect();
+
+	static bool isChecked = false;
+	ImGui::Checkbox("Model Resource Test", &isChecked);
+}
+
+#endif

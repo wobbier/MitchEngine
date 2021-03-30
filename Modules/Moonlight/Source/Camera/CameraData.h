@@ -1,6 +1,7 @@
 #pragma once
 #include "Math/Vector3.h"
 #include "Math/Vector2.h"
+#include "bgfx/bgfx.h"
 
 class Frustum;
 
@@ -23,21 +24,23 @@ namespace Moonlight
 
 	struct CameraData
 	{
-		Vector3 Position;
-		Vector3 Front = Vector3(0.f, 0.f, -1.f);
-		Vector3 Up;
+		Vector3 Position = Vector3(0.f, 0.f, 0.f);
+		Vector3 Front = Vector3(0.f, 0.f, 1.f);
+		Vector3 Up = Vector3(0.f, 1.f, 0.f);
 		Vector3 ClearColor;
 		ClearColorType ClearType = ClearColorType::Color;
 		Vector2 OutputSize;
 		ProjectionType Projection = ProjectionType::Perspective;
 		float FOV = 45.0f;
-		float Near = 1.f;
+		float Near = 0.1f;
 		float Far = 100.f;
 		SkyBox* Skybox = nullptr;
 		Frustum* CameraFrustum = nullptr;
 		float OrthographicSize = 1.f;
+		bgfx::TextureHandle UITexture = BGFX_INVALID_HANDLE;
 
 		Moonlight::FrameBuffer* Buffer = nullptr;
+
 		bool IsMain = false;
 	};
 }

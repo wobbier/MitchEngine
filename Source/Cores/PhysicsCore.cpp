@@ -53,26 +53,25 @@ void PhysicsCore::Init()
 void PhysicsCore::Update(float dt)
 {
 	OPTICK_CATEGORY("PhysicsCore::Update", Optick::Category::Physics)
-		auto PhysicsEntites = GetEntities();
+	auto& PhysicsEntites = GetEntities();
 
 	// Need a fixed delta probably
 	PhysicsWorld->stepSimulation(dt, 10);
 
-	Burst& burst = GetEngine().GetBurstWorker();
-	burst.PrepareWork();
-
 	std::vector<std::pair<int, int>> batches;
-	burst.GenerateChunks(PhysicsEntites.size(), 11, batches);
-
+	Burst::GenerateChunks(PhysicsEntites.size(), 11, batches);
+	if (PhysicsEntites.size() <= 0)
+	{
+		return;
+	}
 	for (auto& batch : batches)
 	{
-		Burst::LambdaWorkEntry job;
 		int batchBegin = batch.first;
 		int batchEnd = batch.second;
 		int batchSize = batchEnd - batchBegin;
 
 		//YIKES(std::to_string(batchBegin) + " End:" + std::to_string(batchEnd) + " Size:" + std::to_string(batchSize));
-		job.m_callBack = [this, &PhysicsEntites, batchBegin, batchEnd, batchSize, dt](int Index) {
+		//auto m_callBack = [this, &PhysicsEntites, batchBegin, batchEnd, batchSize, dt]() {
 			OPTICK_CATEGORY("Job::UpdatePhysics", Optick::Category::Physics);
 
 			for (int entIndex = batchBegin; entIndex < batchEnd; ++entIndex)
@@ -94,7 +93,7 @@ void PhysicsCore::Update(float dt)
 					{
 						btTransform trans;
 						Vector3 transPos = TransformComponent.GetPosition();
-						trans.setRotation(btQuaternion(TransformComponent.LocalRotation.x, TransformComponent.LocalRotation.y, TransformComponent.LocalRotation.z, TransformComponent.LocalRotation.w));
+						trans.setRotation(btQuaternion(TransformComponent.GetLocalRotation().x, TransformComponent.GetLocalRotation().y, TransformComponent.GetLocalRotation().z, TransformComponent.GetLocalRotation().w));
 						trans.setOrigin(btVector3(transPos.x, transPos.y, transPos.z));
 						rigidbody->setWorldTransform(trans);
 						rigidbody->activate();
@@ -121,7 +120,7 @@ void PhysicsCore::Update(float dt)
 						//DirectX::SimpleMath::Matrix scale = DirectX::SimpleMath::Matrix::CreateScale(Child->GetScale().GetInternalVec());
 						//DirectX::SimpleMath::Matrix pos = XMMatrixTranslationFromVector(Child->GetPosition().GetInternalVec());
 						//Child->SetWorldTransform(Matrix4((rot * scale * pos) * CurrentTransform->WorldTransform.GetInternalMatrix()));
-						GetEngine().GetRenderer().UpdateMatrix(RigidbodyComponent.DebugColliderId, TransformComponent.GetMatrix().GetInternalMatrix());
+						//GetEngine().GetRenderer().UpdateMatrix(RigidbodyComponent.DebugColliderId, TransformComponent.GetMatrix().GetInternalMatrix());
 					}
 				}
 
@@ -145,10 +144,12 @@ void PhysicsCore::Update(float dt)
 					TransformComponent.SetWorldPosition(Controller.GetPosition());
 				}
 			}
-		};
-		burst.AddWork2(job, sizeof(Burst::LambdaWorkEntry));
+		//};
+		//GetEngine().GetJobSystem().AddWork(m_callBack);
+		//GetEngine().GetJobSystem().Wait();
+		//burst.AddWork2(job, sizeof(Burst::LambdaWorkEntry));
 	}
-	burst.FinalizeWork();
+	//burst.FinalizeWork();
 }
 
 void PhysicsCore::OnEntityAdded(Entity& NewEntity)
@@ -172,10 +173,11 @@ void PhysicsCore::InitRigidbody(Rigidbody& RigidbodyComponent, Transform& Transf
 {
 	if (!RigidbodyComponent.IsRigidbodyInitialized())
 	{
-		RigidbodyComponent.CreateObject(TransformComponent.GetPosition(), TransformComponent.LocalRotation, TransformComponent.GetScale(), PhysicsWorld);
-		PhysicsWorld->addRigidBody(RigidbodyComponent.InternalRigidbody);
-		Moonlight::DebugColliderCommand cmd;
-		RigidbodyComponent.DebugColliderId = GetEngine().GetRenderer().PushDebugCollider(cmd);
+
+		RigidbodyComponent.CreateObject(TransformComponent.GetPosition(), TransformComponent.GetLocalRotation(), TransformComponent.GetScale(), PhysicsWorld);
+        PhysicsWorld->addRigidBody(RigidbodyComponent.InternalRigidbody);
+		//Moonlight::DebugColliderCommand cmd;
+		//RigidbodyComponent.DebugColliderId = GetEngine().GetRenderer().PushDebugCollider(cmd);
 	}
 }
 

@@ -1,5 +1,7 @@
 #include "PCH.h"
 
+#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
+
 #include "FontLoaderWin.h"
 #include <dwrite_3.h>
 #include <wrl.h>
@@ -7,6 +9,8 @@
 #include <MLang.h>
 #include <memory>
 #include "TextAnalysisSource.h"
+#include <dwrite_3.h>
+#include <unknwnbase.h>
 
 using namespace Microsoft::WRL;
 
@@ -239,3 +243,5 @@ RefPtr<FontFile> FontLoaderWin::Load(const String16& family, int weight, bool it
 }
 
 }  // namespace ultralight
+
+#endif

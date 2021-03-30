@@ -6,7 +6,7 @@
 #include "UI/JSHelpers.h"
 #include "Ultralight/View.h"
 #include "Events/AudioEvents.h"
-#include "Ultralight/String.h"
+#include <Ultralight/String.h>
 
 BasicUIView::BasicUIView()
 	: Component("BasicUIView")
@@ -99,7 +99,7 @@ void BasicUIView::OnEditorInspect()
 
 	if (ImGui::BeginCombo("##HTMLSource", FilePath.LocalPath.c_str()))
 	{
-		for (int n = 0; n < Textures.size(); n++)
+		for (size_t n = 0; n < Textures.size(); n++)
 		{
 			if (ImGui::Selectable(Textures[n].LocalPath.c_str(), false))
 			{

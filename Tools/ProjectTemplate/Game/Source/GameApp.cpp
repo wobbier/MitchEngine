@@ -2,8 +2,8 @@
 #include <Engine/Engine.h>
 #include <Events/SceneEvents.h>
 
-GameApp::GameApp()
-	: Game()
+GameApp::GameApp(int argc, char** argv)
+	: Game(argc, argv)
 {
 }
 

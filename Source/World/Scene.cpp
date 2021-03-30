@@ -121,7 +121,7 @@ void Scene::SaveSceneRecursively(json& d, Transform* CurrentTransform)
 	OPTICK_EVENT("SceneGraph::UpdateRecursively");
 	json outEntity;
 
-	outEntity["Name"] = CurrentTransform->Name;
+	outEntity["Name"] = CurrentTransform->GetName();
 	outEntity["DestroyOnLoad"] = CurrentTransform->Parent->DestroyOnLoad;
 
 	json& componentsJson = outEntity["Components"];

@@ -1,16 +1,15 @@
 #pragma once
-#include "nlohmann/json.hpp"
 #include "Resource/Resource.h"
+#include "JSON.h"
 
 class JsonResource
 	: public Resource
 {
 public:
-	JsonResource() = default;
 	JsonResource(const Path& InFilePath);
 
-	const nlohmann::json& GetJson() const;
+	const json& GetJson() const;
 
 private:
-	nlohmann::json Data;
+	json Data;
 };

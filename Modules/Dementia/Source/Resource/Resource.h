@@ -2,6 +2,7 @@
 #include <Path.h>
 
 class ResourceCache;
+struct MetaBase;
 
 class Resource
 {
@@ -17,12 +18,20 @@ public:
 	const Path& GetPath() const;
 	const std::size_t GetResourceType() const;
 
+	MetaBase* GetMetadata();
+
+	virtual void Load();
+	virtual void Reload();
+
 protected:
 	Resource(const Path& path);
 	virtual ~Resource();
 	Path FilePath;
+	MetaBase* Metadata = nullptr;
 
 private:
+	void SetMetadata(MetaBase* metadata);
+
 	ResourceCache* Resources = nullptr;
 	std::size_t ResourceType;
 };

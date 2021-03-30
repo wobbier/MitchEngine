@@ -161,7 +161,7 @@ void World::Destroy()
 
 void World::Unload()
 {
-	for (auto& iter = EntityCache.Alive.begin(); iter != EntityCache.Alive.end(); )
+	for (auto iter = EntityCache.Alive.begin(); iter != EntityCache.Alive.end(); )
 	{
 		if (iter->second.DestroyOnLoad)
 		{
@@ -241,7 +241,7 @@ EntityHandle World::CreateFromPrefab(std::string& FilePath, Transform* Parent)
 	return LoadPrefab(prefabJson->GetJson(), Parent, Parent);
 }
 
-EntityHandle World::LoadPrefab(const nlohmann::json& obj, Transform* parent, Transform* root)
+EntityHandle World::LoadPrefab(const json& obj, Transform* parent, Transform* root)
 {
 	EntityHandle ent;
 	World* GameWorld = this;

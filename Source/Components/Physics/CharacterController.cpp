@@ -1,6 +1,5 @@
 #include "PCH.h"
 #include "CharacterController.h"
-#include <SimpleMath.h>
 #include "imgui.h"
 
 class IgnoreBodyAndGhostCast
@@ -85,7 +84,7 @@ void CharacterController::Walk(const Vector3& direction)
 
 void CharacterController::Walk(Vector2 direction)
 {
-	DirectX::SimpleMath::Vector2 velocityXZ = DirectX::SimpleMath::Vector2(direction.GetInternalVec() + Vector2(m_manualVelocity.x, m_manualVelocity.z).GetInternalVec());
+	Vector2 velocityXZ = direction + Vector2(m_manualVelocity.x, m_manualVelocity.z);
 
 	float speed = velocityXZ.Length();
 
@@ -307,7 +306,7 @@ void CharacterController::UpdateVelocity(float dt)
 	m_rigidbody->setLinearVelocity(velocity);
 	if (m_isHittingWall)
 	{
-		for (unsigned int i = 0, size = m_surfaceHitNormals.size(); i < size; i++)
+		for (size_t i = 0, size = m_surfaceHitNormals.size(); i < size; i++)
 		{
 			auto vec = m_manualVelocity.Dot(m_surfaceHitNormals[i]);
 

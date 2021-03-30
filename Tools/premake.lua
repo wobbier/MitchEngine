@@ -4,22 +4,20 @@ dofile "premake-winrt/_preload.lua"
 require "premake-winrt/winrt"
 
 newoption {
+  trigger     = "project-type",
+  description = "Generate a UWP solution.",
+   default     = "Win64",
+   value = "Win64",
+  allowed = {
+    { "UWP",  "UWP" },
+	{ "Win64", "Win64" },
+	{ "macOS", "macOS" }
+  }
+}
+
+newoption {
   trigger     = "with-renderdoc",
   description = "Include support for RenderDoc."
-}
-
-newoption {
-  trigger     = "uwp",
-  description = "Generate a UWP solution."
-}
-
-newoption {
-  trigger     = "gfxapi",
-  value       = "API",
-  description = "Choose a particular 3D API for rendering",
-  allowed = {
-    { "directx",  "DirectX" }
-  }
 }
 
 newoption {
@@ -32,16 +30,86 @@ CertificateFile = "";
 CertificateThumbprint = "";
 ---------------------------------------
 
-function getPlatformPostfix(thing)
-  if (_OPTIONS["uwp"]) then
-    return (thing .. "UWP")
-  end
-  return thing
+
+function isPlatform(plat)
+	return (_OPTIONS["project-type"] == plat)
 end
 
-isUWP = _OPTIONS["uwp"]
+function getPlatformPostfix(name)
+  if (isPlatform("UWP")) then
+    return (name .. "UWP")
+  end
+  return name
+end
+
+function macOSEntryPoints()
+    if isPlatform("macOS") then
+    filter { "Debug Editor" }
+
+        libdirs {
+            "../../../Build/Debug",
+            "../../Engine/Build/Debug",
+            "../../Engine/ThirdParty/Lib/Assimp/macOS/Debug",
+            "../../Engine/ThirdParty/Lib/Bullet/macOS/Debug",
+            "../ThirdParty/Lib/GLFW/Win64/Debug",
+            "../../Engine/ThirdParty/Lib/BGFX/macOS/Debug",
+            "../../Engine/ThirdParty/Lib/Optick/macOS/Debug",
+            "../../Engine/ThirdParty/Lib/SDL/macOS/Debug",
+            "../../Engine/ThirdParty/UltralightSDK/lib/macOS"
+        }
+
+        filter { "Debug*" }
+        libdirs {
+            "Build/Debug",
+            "../Engine/Build/Debug",
+            "Engine/ThirdParty/Lib/Assimp/macOS/Debug",
+            "Engine/ThirdParty/Lib/Bullet/macOS/Debug",
+            "../ThirdParty/Lib/GLFW/Win64/Debug",
+            "Engine/ThirdParty/Lib/BGFX/macOS/Debug",
+            "Engine/ThirdParty/Lib/Optick/macOS/Debug",
+            "Engine/ThirdParty/Lib/SDL/macOS/Debug",
+            "Engine/ThirdParty/UltralightSDK/lib/macOS"
+        }
+
+        links {
+            (getPlatformPostfix("MitchEngine")),
+            "SDL2d",
+            "ImGui",
+            "Moonlight",
+            "Cocoa.framework",
+            "ForceFeedback.framework",
+            "IOKit.framework",
+            "CoreVideo.framework",
+            "Carbon.framework",
+            "Metal.framework",
+            "Foundation.framework",
+            "Quartz.framework",
+            "iconv",
+            "bgfxDebug",
+            "OptickCore",
+            "bimg_decodeDebug",
+            "bimgDebug",
+            "bxDebug",
+            "BulletDynamics",
+            "BulletCollision",
+            "LinearMath",
+            "zlibstatic",
+            (getPlatformPostfix("MitchEngine")),
+            "Dementia",
+            "ImGui",
+            "UltralightCore",
+            "Ultralight",
+            "WebCore",
+            "AppCore",
+            getPlatformPostfix(ProjectName)
+        }
+        filter {}
+    end
+end
+
+isUWP = isPlatform("UWP")
 withRenderdoc = _OPTIONS["with-renderdoc"]
-withDirectX = _OPTIONS["gfxapi"] == "directx" or isUWP
+withDirectX = isPlatform("Win64") or isUWP
 dirPrefix = "../";
 ProjectName = _OPTIONS["project-name"];
 
@@ -57,15 +125,20 @@ end
 workspace (getPlatformPostfix(ProjectName))
 if isUWP then
 configurations { "Debug", "Release" }
+platforms { "UWP" }
 else
 configurations { "Debug", "Release", "Debug Editor", "Release Editor" }
 end
-platforms { "x64" }
+if isPlatform("Win64") then
+platforms { "Win64" }
+end
+
+architecture "x64" 
 cppdialect "C++17"
 if isUWP then
   startproject (getPlatformPostfix(ProjectName .. "_EntryPoint"))
 else
-  startproject (getPlatformPostfix(ProjectName))
+  startproject "Havana"
 end
 
 location (dirPrefix)
@@ -82,56 +155,91 @@ includedirs {
   "../Modules/ImGUI/Source",
   "../ThirdParty/PerlinNoise",
   "../ThirdParty/UltralightSDK/include",
-  "../ThirdParty/JSON/single_include"
+  "../ThirdParty/JSON/single_include",
+  "../ThirdParty/glm",
+  "../ThirdParty/bgfx/include",
+  "../ThirdParty/bx/include",
+  "../ThirdParty/bx/include/compat/msvc/",
+  "../ThirdParty/bimg/include",
+  "../ThirdParty/SDL/include"
+}
+
+-- macOS
+sysincludedirs {
+    "../Source",
+    "../ThirdParty/Bullet/src",
+    "../ThirdParty/Assimp/include",
+    "../ThirdParty/Optick/src",
+    "../Modules/Moonlight/Source",
+    "../Modules/Dementia/Source",
+    "../ThirdParty/bgfx/include",
+    "../ThirdParty/ImGui",
+    "../Modules/ImGUI/Source",
+    "../ThirdParty/bgfx/include",
+    "../ThirdParty/bx/include",
+    "../ThirdParty/JSON/single_include",
+    "../ThirdParty/glm",
+    "../ThirdParty/UltralightSDK/include",
+    "../ThirdParty/bimg/include",
+    "../ThirdParty/SDL/include",
 }
 
 --flags { "FatalWarnings" }
 
-if isUWP then
-  defines { "ME_PLATFORM_UWP" }
-  includedirs { (dirPrefix) .. "packages/directxtk_uwp.2018.11.20.1/include" }
-  libdirs {
-  "../ThirdParty/UltralightSDK/lib/UWP",
-  "../ThirdParty/UltralightSDK/bin/UWP"
-  }
-else
-  includedirs { (dirPrefix) .. "packages/directxtk_desktop_2015.2018.11.20.1/include" }
-  libdirs {
-  "../ThirdParty/UltralightSDK/lib/Win64",
-  "../ThirdParty/UltralightSDK/bin/Win64"
-  }
-  defines { "ME_PLATFORM_WIN64" }
-  links {
-  	"dwmapi",
-    "DirectXTKAudioWin8",
-  "Shlwapi.lib",
-  "AppCore.lib"
-  }
+---- Visual Studio ----
+filter "action:vs*"
+    links {
+        "OptickCore.lib",
+        "Usp10.lib",
+        "Ultralight.lib",
+        "UltralightCore.lib",
+        "WebCore.lib",
+    }
+
+if isPlatform("UWP") then
+    defines { "ME_PLATFORM_UWP" }
+    --includedirs { (dirPrefix) .. "packages/directxtk_uwp.2018.11.20.1/include" }
+    libdirs {
+        "../ThirdParty/UltralightSDK/lib/UWP",
+        "../ThirdParty/UltralightSDK/bin/UWP"
+    }
+    links {
+        "assimp-vc140-mt",
+    }
 end
+if isPlatform("Win64") then
+    defines { "ME_PLATFORM_WIN64" }
+    --includedirs { (dirPrefix) .. "packages/directxtk_desktop_2015.2018.11.20.1/include" }
+    libdirs {
+        "../ThirdParty/UltralightSDK/lib/Win64",
+        "../ThirdParty/UltralightSDK/bin/Win64"
+    }
+    links {
+        "dwmapi",
+        "assimp-vc140-mt",
+        "Shlwapi.lib",
+        "AppCore.lib"
+    }
+end
+---- Visual Studio ----
+
+filter { }
+
+---- macOS ----
+if isPlatform("macOS") then
+    defines { "ME_PLATFORM_MACOS" }
+end
+---- macOS ----
 
 libdirs {
   "../Build/%{cfg.buildcfg}",
 }
 
 links {
-  "OptickCore.lib",
-  (getPlatformPostfix("Dementia") .. ".lib"),
-  "assimp-vc140-mt",
+  "Dementia",
   "IrrXML",
-  "DirectXTK",
-  "Usp10.lib",
-  "Ultralight.lib",
-  "UltralightCore.lib",
-  "WebCore.lib"
+  --"DirectXTK",
 }
-
--- Platform specific options
-if withDirectX then
-  defines { "ME_DIRECTX" }
-  links {
-    "d2d1", "d3d11", "dxgi", "windowscodecs", "dwrite", "D3DCompiler"
-  }
-end
 
 linkoptions {
   "-IGNORE:4221,4006,4264,4099"
@@ -153,73 +261,114 @@ filter "configurations:Debug*"
 defines { "DEBUG" }
 symbols "On"
 links {
-  "BulletDynamics_Debug",
-  "BulletCollision_Debug",
-  "LinearMath_Debug",
-  "zlibstaticd"
-}
-libdirs {
-  "../ThirdParty/Lib/Assimp/Debug"
+  "bgfxDebug",
+  "bimg_decodeDebug",
+  "bimgDebug",
+  "bxDebug",
 }
 
-if isUWP then
-  defines {"USE_OPTICK=0"}
-  libdirs {
-    "../ThirdParty/Lib/Bullet/Win64/Debug",
-    "../ThirdParty/Lib/Optick/UWP/Debug"
-  }
-else
-  libdirs {
-    "../ThirdParty/Lib/Bullet/Win64/Debug",
-    "../ThirdParty/Lib/GLFW/Win64/Debug",
-    "../ThirdParty/Lib/Optick/Win64/Debug"
-  }
+---- macOS ----
+if isPlatform("macOS") then
+    syslibdirs {
+        "../ThirdParty/Lib/Assimp/macOS/Debug",
+        "../ThirdParty/Lib/Bullet/macOS/Debug",
+        "../ThirdParty/Lib/BGFX/macOS/Debug",
+        "../ThirdParty/Lib/Optick/macOS/Debug",
+        "../ThirdParty/Lib/SDL/macOS/Debug"
+    }
+    links {
+        "BulletDynamics",
+        "BulletCollision",
+        "LinearMath",
+        "zlibstatic",
+        "SDL2d",
+        "assimp"
+    }
 end
 
+---- Debug VS ----
+filter { "Debug*", "action:vs*" }
+    libdirs {
+        "../ThirdParty/Lib/Assimp/Debug"
+    }
+    links {
+        "BulletDynamics_Debug",
+        "BulletCollision_Debug",
+        "LinearMath_Debug",
+        "zlibstaticd",
+    }
+    
+if isPlatform("UWP") then
+    defines {"USE_OPTICK=0"}
+    libdirs {
+        "$(VCInstallDir)\\lib\\store\\amd64",
+        "$(VCInstallDir)\\lib\\amd64",
+        "../ThirdParty/Lib/BGFX/UWP/Debug",
+        "../ThirdParty/Lib/Bullet/Win64/Debug",
+        "../ThirdParty/Lib/Optick/UWP/Debug",
+        "../ThirdParty/Lib/SDL/UWP/Debug"
+    }
+    links {
+        "SDL2",
+    }
+end
+
+if isPlatform("Win64") then
+    libdirs {
+      "../ThirdParty/Lib/Bullet/Win64/Debug",
+      "../ThirdParty/Lib/GLFW/Win64/Debug",
+      "../ThirdParty/Lib/BGFX/Win64/Debug",
+      "../ThirdParty/Lib/Optick/Win64/Debug",
+      "../ThirdParty/Lib/SDL/Win64/Debug"
+    }
+    links {
+        "SDL2d",
+    }
+end
+filter {}
+---- Debug VS ----
+
+----- Release -----
 filter "configurations:Release*"
 defines { "NDEBUG" }
 optimize "On"
 libdirs {
-  "$(VCInstallDir)\\lib\\store\\amd64",
-  "$(VCInstallDir)\\lib\\amd64"
+  "../ThirdParty/Lib/SDL/Win64/Release",
+  "../ThirdParty/Lib/Assimp/Release"
 }
 links {
   "BulletDynamics_MinsizeRel",
   "BulletCollision_MinsizeRel",
   "LinearMath_MinsizeRel",
-  "zlibstatic"
-}
-libdirs {
-  "../ThirdParty/Lib/Assimp/Release"
+  "zlibstatic",
+  "SDL2",
+  "bgfxRelease",
+  "bimg_decodeRelease.lib",
+  "bimgRelease.lib",
+  "bxRelease.lib",
+  "SDL2",
 }
 
 if isUWP then
   defines {"USE_OPTICK=0"}
   libdirs {
+    "$(VCInstallDir)\\lib\\store\\amd64",
+    "$(VCInstallDir)\\lib\\amd64",
+    "../ThirdParty/Lib/BGFX/UWP/Release",
     "../ThirdParty/Lib/Bullet/Win64/Release",
-    "../ThirdParty/Lib/Optick/UWP/Release"
+    "../ThirdParty/Lib/Optick/UWP/Release",
+    "../ThirdParty/Lib/SDL/UWP/Release"
   }
 else
   libdirs {
     "../ThirdParty/Lib/Bullet/Win64/Release",
     "../ThirdParty/Lib/GLFW/Win64/Release",
-    "../ThirdParty/Lib/Optick/Win64/Release"
+    "../ThirdParty/Lib/BGFX/Win64/Release",
+    "../ThirdParty/Lib/Optick/Win64/Release",
+    "../ThirdParty/Lib/SDL/Win64/Release"
   }
 end
 
-configuration "Debug*"
-if (isUWP) then
-  libdirs { (dirPrefix) .. "packages/directxtk_uwp.2018.11.20.1/lib/x64/Debug" }
-else
-  libdirs { (dirPrefix) .. "packages/directxtk_desktop_2015.2018.11.20.1/lib/x64/Debug" }
-end
-
-configuration "Release*"
-if (isUWP) then
-  libdirs { (dirPrefix) .. "packages/directxtk_uwp.2018.11.20.1/lib/x64/Release" }
-else
-  libdirs { (dirPrefix) .. "packages/directxtk_desktop_2015.2018.11.20.1/lib/x64/Release" }
-end
 configuration {}
 filter {}
 
@@ -232,11 +381,23 @@ if (isUWP) then
   system "windowsuniversal"
   consumewinrtextension "true"
 end
-systemversion "10.0.14393.0"
 language "C++"
 targetdir "../Build/%{cfg.buildcfg}"
 location "../Modules/Moonlight"
-dependson { getPlatformPostfix("Dementia") }
+flags { "FatalWarnings" }
+dependson { "Dementia" }
+
+filter "action:vs*"
+	systemversion "10.0.14393.0"
+filter {}
+
+filter "system:macosx"
+	excludes {
+	}
+	sysincludedirs {
+	}
+filter {}
+
 includedirs {
   "../Modules/Moonlight/Source/"
 }
@@ -248,61 +409,101 @@ vpaths {
   ["Source"] = "../Source/*.*"
 }
 
-
 if not isUWP then
 ------------------------------------------------------- Editor Project -----------------------------------------------------
 
-group "Editor"
+group "Apps"
 project "Havana"
     kind "ConsoleApp"
-  systemversion "10.0.14393.0"
-language "C++"
-targetdir ((dirPrefix) .. "Build/%{cfg.buildcfg}")
-location "../Modules/Havana"
-includedirs {
-  "../Modules/Havana/Source/",
-    "."
-}
-files {
-  "../Modules/Havana/Source/**.*"
-}
-links { "ImGui" }
-vpaths {
-  ["Source"] = "../Source/**.*",
-  ["Source"] = "../Source/*.*"
-}
-  libdirs {
-  	  "../../Build/%{cfg.buildcfg}"
-  }
-
-  links {
-    (getPlatformPostfix("MitchEngine") .. ".lib")
-  }
-  dependson {
-    getPlatformPostfix("MitchEngine")
-  }
-
-  configuration "not *Editor"
-    kind "StaticLib"
+    filter "action:vs*"
+        systemversion "10.0.14393.0"
+    filter {}
+    language "C++"
+    targetdir ((dirPrefix) .. "Build/%{cfg.buildcfg}")
+    location "../Modules/Havana"
 	
+    --flags { "FatalWarnings" }
+    includedirs {
+      "../Modules/Havana/Source/",
+        "."
+    }
+    files {
+      "../Modules/Havana/Source/**.*"
+    }
+    links { "ImGui" }
+    vpaths {
+      ["Source"] = "../Source/**.*",
+      ["Source"] = "../Source/*.*"
+    }
+      libdirs {
+          "../../Build/%{cfg.buildcfg}"
+      }
+
+    macOSEntryPoints()
+
+	filter { "action:vs*" }
+	links {
+		getPlatformPostfix(ProjectName) .. ".lib"
+	}
+	filter {}
+        
+      links {
+        (getPlatformPostfix("MitchEngine"))
+      }
+      dependson {
+        getPlatformPostfix("MitchEngine")
+      }
+
   configuration "*Editor"
-  links {
-    (getPlatformPostfix(ProjectName) .. ".lib")
-  }
-  dependson {
-    getPlatformPostfix(ProjectName)
-  }
+      links {
+        (getPlatformPostfix(ProjectName))
+      }
+      dependson {
+        getPlatformPostfix(ProjectName)
+      }
+      sysincludedirs{
+          "../Modules/Havana/Source/",
+      }
+
+end
   configuration {}
 ------------------------------------------------------- ImGui Project ------------------------------------------------------
 
 group "Engine/ThirdParty"
-project (getPlatformPostfix("ImGui"))
+project ("ImGui")
 kind "StaticLib"
 --if (isUWP) then
 --	system "windowsuniversal"
 --	consumewinrtextension "true"
---end
+--ends
+if isPlatform("Win64") then
+files {
+    "../ThirdParty/ImGui/**/*win32.h",
+    "../ThirdParty/ImGui/**/*win32.cpp",
+    "../ThirdParty/ImGui/**/*dx11.h",
+    "../ThirdParty/ImGui/**/*dx11.cpp",
+}
+end
+
+filter "action:vs*"
 systemversion "10.0.14393.0"
+filter {}
+filter "system:macosx"
+excludes {
+    "../ThirdParty/ImGui/**/*win32.h",
+    "../ThirdParty/ImGui/**/*win32.cpp",
+    "../ThirdParty/ImGui/**/*dx11.h",
+    "../ThirdParty/ImGui/**/*dx11.cpp",
+ }
+ files {
+     "../ThirdParty/ImGui/**/*osx.*",
+     --"../ThirdParty/ImGui/**/*metal.*",
+ }
+sysincludedirs {
+    "../ThirdParty/SDL/include"
+}
+filter { }
+
 language "C++"
 targetdir "../Build/%{cfg.buildcfg}"
 location "../Modules/ImGUI"
@@ -310,16 +511,14 @@ removeincludedirs "*"
 removelinks "*"
 includedirs {
 	"../ThirdParty/ImGui",
-	"../ThirdParty/ImGui/backends"
+    "../ThirdParty/ImGui/backends",
 }
 files {
   "../Modules/ImGUI/Source/**.*",
   "../ThirdParty/ImGui/*.h",
   "../ThirdParty/ImGui/*.cpp",
-  "../ThirdParty/ImGui/**/*win32.h",
-  "../ThirdParty/ImGui/**/*win32.cpp",
-  "../ThirdParty/ImGui/**/*dx11.h",
-  "../ThirdParty/ImGui/**/*dx11.cpp",
+  "../ThirdParty/ImGui/**/*sdl.h",
+  "../ThirdParty/ImGui/**/*sdl.cpp",
   "../ThirdParty/ImGui/**/imgui_stdlib.*"
 }
 
@@ -328,24 +527,36 @@ vpaths {
   ["Source"] = "../Modules/ImGUI/Source/*.*"
 }
 
-end
-
 ------------------------------------------------------- Utility Project ------------------------------------------------------
 
 group "Engine/Modules"
 
-project (getPlatformPostfix("Dementia"))
+project ("Dementia")
 kind "StaticLib"
 --if (isUWP) then
 --	system "windowsuniversal"
 --	consumewinrtextension "true"
 --end
-systemversion "10.0.14393.0"
 language "C++"
 targetdir "../Build/%{cfg.buildcfg}"
 location "../Modules/Dementia"
 removeincludedirs "*"
 removelinks "*"
+
+filter "action:vs*"
+systemversion "10.0.14393.0"
+filter {}
+
+filter "system:macosx"
+excludes {
+ }
+sysincludedirs {
+  "../ThirdParty/glm",
+  "../ThirdParty/bgfx/include",
+  "../ThirdParty/bx/include",
+}
+filter { }
+
 includedirs {
   "../Modules/Dementia/Source/"
 }
@@ -356,7 +567,7 @@ vpaths {
   ["Source"] = "../Source/**.*",
   ["Source"] = "../Source/*.*"
 }
-
+flags { "FatalWarnings" }
 dependson {
   "ImGui"
 }
@@ -367,6 +578,7 @@ if withRenderdoc then
     "xcopy /y /d  \"C:\\Program Files\\RenderDoc\\renderdoc.dll\" \"$(ProjectDir)$(OutDir)\""
   }
 end
+filter {}
 
 ------------------------------------------------------- Engine Project -------------------------------------------------------
 
@@ -378,21 +590,30 @@ if (isUWP) then
   system "windowsuniversal"
   consumewinrtextension "true"
 end
-systemversion "10.0.14393.0"
 language "C++"
 targetdir "../Build/%{cfg.buildcfg}"
 location "../"
+
+filter { "action:xcode*" }
+pchheader "Source/PCH.h"
+filter { "action:vs*" }
 pchheader "PCH.h"
 pchsource "../Source/PCH.cpp"
+systemversion "10.0.14393.0"
+filter { }
+
+--flags { "FatalWarnings" }
 files {
   "../Source/**.h",
   "../Source/**.cpp",
   "../Source/**.txt",
-  "../Assets/**.hlsl",
-  "../Tools/*.lua"
+  "../Tools/*.lua",
+  "../Assets/Shaders/**.frag",
+  "../Assets/Shaders/**.vert",
+  "../Assets/Shaders/**.comp",
+  "../Assets/Shaders/**.var",
 }
 
-filter {}
 
 dependson {
   getPlatformPostfix("Moonlight")
@@ -409,11 +630,14 @@ links {
 vpaths {
   ["Build"] = "../Tools/*.lua",
   ["Source"] = "Source/**.*",
-  ["Shaders"] = "Assets/**.hlsl"
+  ["Shaders"] = "Assets/Shaders/**.frag",
+  ["Shaders"] = "Assets/Shaders/**.vert",
+  ["Shaders"] = "Assets/Shaders/**.comp",
+  ["Shaders"] = "Assets/Shaders/**.var",
 }
 
 configuration "with-renderdoc"
-defines { "MAN_ENABLE_RENDERDOC", "__cplusplus_winrt" }
+defines { "MAN_ENABLE_RENDERDOC" }--, "__cplusplus_winrt"
 postbuildcommands {
   "xcopy /y /d  \"C:\\Program Files\\RenderDoc\\renderdoc.dll\" \"$(ProjectDir)$(OutDir)\""
 }
@@ -432,25 +656,47 @@ filter { "files:**.hlsl" }
 
 filter {}
 
-group "App"
+group "Apps"
 function GenerateGameSolution()
-  if (isUWP) then
-    project (getPlatformPostfix(ProjectName .. "_EntryPoint"))
-    kind "ConsoleApp"
-    system "windowsuniversal"
-    consumewinrtextension "true"
-    systemversion "10.0.14393.0"
-    certificatefile (CertificateFile)
-    certificatethumbprint (CertificateThumbprint)
-    defaultlanguage "en-US"
+project (getPlatformPostfix(ProjectName .. "_EntryPoint"))
+	if isPlatform("UWP") then
+		kind "WindowedApp"
+	end
+	if isPlatform("Win64") or isPlatform("macOS") then
+		kind "ConsoleApp"
+	end
+	if (isUWP) then
+		system "windowsuniversal"
+		consumewinrtextension "true"
+		certificatefile (CertificateFile)
+		certificatethumbprint (CertificateThumbprint)
+		defaultlanguage "en-US"
+		
+		links {
+			"D3D12.lib",
+			"d2d1.lib",
+			"d3d11.lib",
+			"dxgi.lib",
+			"windowscodecs.lib",
+			"dwrite.lib",
+			"D3D12.lib"
+		}
+	end
+
+    macOSEntryPoints()
+    
+	filter { "action:vs*" }
+		systemversion "10.0.14393.0"
+        links {
+          (getPlatformPostfix(ProjectName) .. ".lib")
+        }
+	filter {}
+
     language "C++"
     targetdir "Build/%{cfg.buildcfg}"
     location "Game_EntryPoint"
     libdirs {
       "Build/%{cfg.buildcfg}"
-    }
-    links {
-      (getPlatformPostfix(ProjectName) .. ".lib")
     }
     dependson {
       getPlatformPostfix(ProjectName)
@@ -469,26 +715,28 @@ function GenerateGameSolution()
     }
     filter { "files:Assets/*.png" }
     deploy "true"
-  end
-  project ((getPlatformPostfix(ProjectName)))
+	
+group "Game"
+project ((getPlatformPostfix(ProjectName)))
 
-  if (isUWP) then
     kind "StaticLib"
-    system "windowsuniversal"
-    consumewinrtextension "true"
-  else
-    kind "ConsoleApp"
-  end
+
+  
+filter { "action:vs*" }
   systemversion "10.0.14393.0"
+  links {
+    (getPlatformPostfix("MitchEngine")) .. ".lib",
+	"Dementia.lib",
+	"ImGui.lib",
+  }
+filter {}
+  
+
   language "C++"
   targetdir "Build/%{cfg.buildcfg}"
   location "Game"
   includedirs {
     "Game/Source"
-  }
-  links {
-    (getPlatformPostfix("MitchEngine") .. ".lib"),
-	(getPlatformPostfix("Dementia") .. ".lib")
   }
   dependson {
     getPlatformPostfix("MitchEngine")
@@ -496,12 +744,21 @@ function GenerateGameSolution()
   files {
     "Game/**.h",
     "Game/**.cpp",
-    "Assets/**.hlsl",
+    "Assets/Shaders/**.frag",
+    "Assets/Shaders/**.vert",
+    "Assets/Shaders/**.comp",
+    "Assets/Shaders/**.var",
 	}
   vpaths {
-	["Shaders"] = "Assets/**.hlsl"
+	["Shaders"] = "Assets/Shaders/**.frag",
+	["Shaders"] = "Assets/Shaders/**.vert",
+	["Shaders"] = "Assets/Shaders/**.comp",
+	["Shaders"] = "Assets/Shaders/**.var",
   }
   
+dependson {
+  "ImGui"
+}
   filter { "files:**.hlsl" }
     flags {"ExcludeFromBuild"}
   filter {}
@@ -522,23 +779,23 @@ function GenerateGameSolution()
 	links {
 	"ImGui.lib"
 	}
-if isUWP then
-  configuration "Release Editor" 
-  postbuildcommands {
-    "xcopy /y /d  \"ThirdParty\\UltralightSDK\\bin\\UWP\\*.*\" \"..\\Build\\Release Editor\""
-  }
-  configuration "Release" 
-  postbuildcommands {
-    "xcopy /y /d  \"ThirdParty\\UltralightSDK\\bin\\UWP\\*.*\" \"..\\Build\\Release\""
-  }
-else
-  configuration "Debug Editor" 
-  postbuildcommands {
-    "xcopy /y /d  \"ThirdParty\\UltralightSDK\\bin\\Win64\\*.*\" \"..\\Build\\Debug Editor\""
-  }
-  configuration "Debug" 
-  postbuildcommands {
-    "xcopy /y /d  \"ThirdParty\\UltralightSDK\\bin\\Win64\\*.*\" \"..\\Build\\Debug\""
-  }
-end
+	if isUWP then
+	  configuration "Release Editor" 
+	  postbuildcommands {
+		"xcopy /y /d  \"ThirdParty\\UltralightSDK\\bin\\UWP\\*.*\" \"..\\Build\\Release Editor\""
+	  }
+	  configuration "Release" 
+	  postbuildcommands {
+		"xcopy /y /d  \"ThirdParty\\UltralightSDK\\bin\\UWP\\*.*\" \"..\\Build\\Release\""
+	  }
+	else
+	  --configuration "Debug Editor" 
+	  --postbuildcommands {
+	  --  "xcopy /y /d  \"ThirdParty\\UltralightSDK\\bin\\Win64\\*.*\" \"..\\Build\\Debug Editor\""
+	  --}
+	  --configuration "Debug" 
+	  --postbuildcommands {
+	  --  "xcopy /y /d  \"ThirdParty\\UltralightSDK\\bin\\Win64\\*.*\" \"..\\Build\\Debug\""
+	  --}
+	end
 end

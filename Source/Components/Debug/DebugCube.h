@@ -5,7 +5,7 @@ class DebugCube
 	: public Component<DebugCube>
 {
 public:
-	DebugCube() = default;
+    DebugCube() : Component<DebugCube>("DebugCube") {}
 	~DebugCube() = default;
 
 	virtual void Init() final;

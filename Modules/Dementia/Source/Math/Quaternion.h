@@ -1,9 +1,8 @@
 #pragma once
 #include "Vector3.h"
-#define _USE_MATH_DEFINES
-#include <math.h>
-#include <d3d11.h>
-#include <SimpleMath.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>
+#include <bx/debug.h>
 
 struct Quaternion
 {
@@ -16,7 +15,7 @@ struct Quaternion
 			float z;
 			float w;
 		};
-		DirectX::SimpleMath::Quaternion InternalQuat;
+		glm::quat InternalQuat;
 	};
 
 	const float kEpsilon = 0.000001f;
@@ -37,8 +36,14 @@ struct Quaternion
 	{
 	}
 
-	Quaternion(const DirectX::SimpleMath::Quaternion& q)
+	Quaternion(const glm::quat& q)
 		: x(q.x), y(q.y), z(q.z), w(q.w)
+	{
+	}
+
+	/// Euler Angles
+	Quaternion(const Vector3& v)
+		: InternalQuat(v.InternalVector)
 	{
 	}
 
@@ -142,11 +147,12 @@ struct Quaternion
 		}
 		else
 		{
-			float rotAngle = std::acos(dot);
+			//float rotAngle = std::acos(dot);
 			Vector3 rotAxis = Vector3::Front.Cross(forward);
 			rotAxis.Normalize();
-			
-			q = Quaternion(DirectX::XMQuaternionRotationAxis(rotAxis.InternalVec, rotAngle)/*DirectX::SimpleMath::Quaternion::CreateFromAxisAngle(rotAxis.AsXMVEC(), rotAngle)*/);
+
+			bx::debugBreak();
+			//q = Quaternion(DirectX::XMQuaternionRotationAxis(rotAxis.InternalVec, rotAngle)/*DirectX::SimpleMath::Quaternion::CreateFromAxisAngle(rotAxis.AsXMVEC(), rotAngle)*/);
 		}
 
 		x = q.x;
@@ -187,7 +193,10 @@ struct Quaternion
 	//Matrix3 GetRotationMatrix();
 	//void SetRotationMatrix(const Matrix3& m);
 
-	static Vector3 ToEulerAngles(Quaternion InQuat);
+	static Vector3 ToEulerAngles(const Quaternion& InQuat);
+
+	float ToAngle() const;
+	Vector3 ToAxis() const;
 
 };
 

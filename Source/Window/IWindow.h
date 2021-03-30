@@ -18,4 +18,5 @@ public:
 	virtual void ExitMaximize() = 0;
 	virtual void SetTitle(const std::string& title) = 0;
 	virtual void Exit() = 0;
+	virtual void* GetWindowPtr() = 0;
 };
