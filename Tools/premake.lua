@@ -21,20 +21,6 @@ newoption {
 }
 
 newoption {
-  trigger     = "uwp",
-  description = "Generate a UWP solution."
-}
-
-newoption {
-  trigger     = "gfxapi",
-  value       = "API",
-  description = "Choose a particular 3D API for rendering",
-  allowed = {
-    { "directx",  "DirectX" }
-  }
-}
-
-newoption {
   trigger     = "project-name",
   description = "Notifies premake we're generating a game solution."
 }
@@ -44,15 +30,16 @@ CertificateFile = "";
 CertificateThumbprint = "";
 ---------------------------------------
 
-function getPlatformPostfix(thing)
-  if (_OPTIONS["uwp"]) then
-    return (thing .. "UWP")
-  end
-  return thing
-end
 
 function isPlatform(plat)
 	return (_OPTIONS["project-type"] == plat)
+end
+
+function getPlatformPostfix(name)
+  if (isPlatform("UWP")) then
+    return (name .. "UWP")
+  end
+  return name
 end
 
 function macOSEntryPoints()
@@ -120,7 +107,7 @@ function macOSEntryPoints()
     end
 end
 
-isUWP = _OPTIONS["uwp"]
+isUWP = isPlatform("UWP")
 withRenderdoc = _OPTIONS["with-renderdoc"]
 withDirectX = isPlatform("Win64") or isUWP
 dirPrefix = "../";
@@ -253,14 +240,6 @@ links {
   "IrrXML",
   --"DirectXTK",
 }
-
--- Platform specific options
-if withDirectX then
-  --defines { "ME_DIRECTX" }
-  links {
-    "dwrite",--"d2d1", "d3d11", "dxgi", "windowscodecs",  "D3DCompiler"
-  }
-end
 
 linkoptions {
   "-IGNORE:4221,4006,4264,4099"

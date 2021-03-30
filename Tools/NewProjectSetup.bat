@@ -25,6 +25,9 @@ mkdir Assets
 robocopy "Engine\\Tools\\ProjectTemplate" "./" *.* /w:0 /r:1 /v /E /XC /XN /XO /log:"ProjectTemplate.log"
 
 echo 2> GenerateSolution.bat
-echo %%~dp0Engine\Tools\premake5.exe --file=premake.lua vs2017 --gfxapi=directx --project-name=%id%>> GenerateSolution.bat
+echo %%~dp0Engine\Tools\premake5.exe --file=premake.lua vs2017 --project-type=Win64 --project-name=%id%>> GenerateSolution.bat
+
+echo 2> GenerateSolution.command
+echo ./Engine/Tools/premake5 --file=premake.lua xcode4 --project-type=macOS --project-name=%id%>> GenerateSolution.command
 
 call GenerateSolution.bat

@@ -5,7 +5,7 @@ class GameApp
 	: public Game
 {
 public:
-	GameApp();
+	GameApp(int argc, char** argv);
 	~GameApp();
 
 	virtual void OnInitialize() override;
