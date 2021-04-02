@@ -4,6 +4,7 @@
 #include "Graphics/Texture.h"
 #include "Math/Frustrum.h"
 #include "Resource/ResourceCache.h"
+#include "Utils/HavanaUtils.h"
 
 Camera* Camera::CurrentCamera = nullptr;
 Camera* Camera::EditorCamera = nullptr;
@@ -120,7 +121,7 @@ void Camera::OnEditorInspect()
 	{
 		SetCurrent();
 	}
-
+	HavanaUtils::Label("Projection");
 	if (ImGui::BeginCombo("##Projection", (Projection == Moonlight::ProjectionType::Perspective) ? "Perspective" : "Orthographic"))
 	{
 		if (ImGui::Selectable("Perspective", (Projection == Moonlight::ProjectionType::Perspective)))
@@ -136,16 +137,21 @@ void Camera::OnEditorInspect()
 
 	if (Projection == Moonlight::ProjectionType::Perspective)
 	{
-		ImGui::SliderFloat("Field of View", &m_FOV, 1.0f, 200.0f);
+		HavanaUtils::Label("Field of View");
+		ImGui::SliderFloat("##Field of View", &m_FOV, 1.0f, 200.0f);
 	}
 	else if (Projection == Moonlight::ProjectionType::Orthographic)
 	{
-		ImGui::SliderFloat("Size", &OrthographicSize, 0.1f, 200.0f);
+		HavanaUtils::Label("Size");
+		ImGui::SliderFloat("##Size", &OrthographicSize, 0.1f, 200.0f);
 	}
 
-	ImGui::SliderFloat("Near", &Near, 0.1f, 200.0f);
-	ImGui::SliderFloat("Far", &Far, 0.2f, 2000.0f);
+	HavanaUtils::Label("Near");
+	ImGui::SliderFloat("##Near", &Near, 0.1f, 200.0f);
+	HavanaUtils::Label("Far");
+	ImGui::SliderFloat("##Far", &Far, 0.2f, 2000.0f);
 
+	HavanaUtils::Label("Clear Type");
 	if (ImGui::BeginCombo("##ClearType", (ClearType == Moonlight::ClearColorType::Color) ? "Color" : "Skybox"))
 	{
 		if (ImGui::Selectable("Color", (ClearType == Moonlight::ClearColorType::Color)))
@@ -224,7 +230,8 @@ void Camera::OnEditorInspect()
 	}
 	else if (ClearType == Moonlight::ClearColorType::Color)
 	{
-		ImGui::ColorEdit3("Clear Color", &ClearColor[0]);
+		HavanaUtils::Label("Clear Color");
+		ImGui::ColorEdit3("##Clear Color", &ClearColor[0]);
 	}
 }
 

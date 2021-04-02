@@ -164,6 +164,7 @@ void Havana::InitUI()
 	style.ChildBorderSize = 0.f;
 	style.WindowMenuButtonPosition = ImGuiDir_None;
 	style.AntiAliasedFill = false;
+	style.ColorButtonPosition = ImGuiDir_Left;
 
 	//auto cb = [this](const Vector2& pos) -> std::optional<SDL_HitTestResult>
 	//{

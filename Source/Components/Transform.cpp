@@ -430,7 +430,8 @@ void Transform::SetName(const std::string& name)
 
 void Transform::OnEditorInspect()
 {
-	ImGui::InputText("Name", &Name);
+	HavanaUtils::Label("Name");
+	ImGui::InputText("##Name", &Name);
 
 	Vector3 OldPosition = LocalPosition;
 	if (HavanaUtils::EditableVector3("Local Position", OldPosition))
@@ -445,7 +446,7 @@ void Transform::OnEditorInspect()
 	}
 
 	Vector3 OldScale = Scale;
-	if (HavanaUtils::EditableVector3("Scale", OldScale))
+	if (HavanaUtils::EditableVector3("Scale", OldScale, 1.f))
 	{
 		SetScale(OldScale);
 	}

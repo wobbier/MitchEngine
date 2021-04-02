@@ -80,7 +80,9 @@ void PropertiesWidget::Render()
 				bool shouldClose = true;
 				if (ImGui::CollapsingHeader(comp->GetName().c_str(), &shouldClose, ImGuiTreeNodeFlags_DefaultOpen))
 				{
+					ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0.f, GImGui->Style.ItemSpacing.y });
 					comp->OnEditorInspect();
+					ImGui::PopStyleVar();
 				}
 				if (!shouldClose)
 				{
