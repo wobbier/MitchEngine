@@ -12,7 +12,7 @@ Check out my [Notion][4] to view the current development status.
 |Platform|Game|
 |---|---|
 |UWP / Xbox|[![Build status UWP](https://ci.appveyor.com/api/projects/status/7x55po7se0siesdn?svg=true)](https://ci.appveyor.com/project/wobbier/mitchengine)|
-|macOS|[![Build Status](https://travis-ci.com/wobbier/stack.svg?branch=macOS)](https://travis-ci.com/wobbier/stack)|
+|macOS|[![Build Status](https://travis-ci.com/wobbier/stack.svg?branch=master)](https://travis-ci.com/wobbier/stack)|
 
 The engine is:
 
