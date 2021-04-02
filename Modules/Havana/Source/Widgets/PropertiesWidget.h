@@ -8,6 +8,8 @@
 class Transform;
 class BaseCore;
 
+#if ME_EDITOR
+
 class PropertiesWidget
 	: public HavanaWidget
 	, public EventReceiver
@@ -32,3 +34,5 @@ public:
 	Path AssetBrowserPath;
 	MetaBase* metafile = nullptr;
 };
+
+#endif

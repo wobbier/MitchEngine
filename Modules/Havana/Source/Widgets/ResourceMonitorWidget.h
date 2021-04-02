@@ -1,6 +1,8 @@
 #pragma once
 #include <HavanaWidget.h>
 
+#if ME_EDITOR
+
 class ResourceMonitorWidget
 	: public HavanaWidget
 {
@@ -16,3 +18,5 @@ public:
 private:
 	ImGuiWindowFlags WindowFlags = 0;
 };
+
+#endif

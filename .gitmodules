@@ -6,10 +6,6 @@
 	path = Tools/premake-winrt
 	url = https://github.com/wobbier/premake-winrt.git
 	ignore = dirty
-[submodule "ThirdParty/OZZ"]
-	path = ThirdParty/OZZ
-	url = https://github.com/guillaumeblanc/ozz-animation.git
-	ignore = dirty
 [submodule "ThirdParty/Assimp"]
 	path = ThirdParty/Assimp
 	url = https://github.com/assimp/assimp

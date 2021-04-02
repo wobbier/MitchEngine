@@ -7,6 +7,8 @@
 #include "../../Game/Source/ComponentRegistry.h"
 class Engine;
 
+#if ME_EDITOR
+
 class EditorApp
 	: public Game
 	, public EventReceiver
@@ -41,3 +43,5 @@ public:
 	bool m_isGamePaused = false;
 	std::string InitialLevel;
 };
+
+#endif

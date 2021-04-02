@@ -13,6 +13,8 @@
 #include <Utils/PlatformUtils.h>
 #include <HavanaEvents.h>
 
+#if ME_EDITOR
+
 MainMenuWidget::MainMenuWidget()
 	: HavanaWidget("Main Menu")
 {
@@ -465,3 +467,5 @@ void MainMenuWidget::SetCallbacks(std::function<void()> StartGame, std::function
 	PauseGameFunc = PauseGame;
 	StopGameFunc = StopGame;
 }
+
+#endif

@@ -6,6 +6,8 @@
 #include <Engine/World.h>
 #include <Utils/CommonUtils.h>
 
+#if ME_EDITOR
+
 PropertiesWidget::PropertiesWidget()
 	: HavanaWidget("Properties")
 {
@@ -142,4 +144,4 @@ void PropertiesWidget::AddComponentPopup(EntityHandle inSelectedEntity)
 	}
 }
 
-
+#endif

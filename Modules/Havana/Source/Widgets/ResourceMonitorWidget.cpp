@@ -3,6 +3,8 @@
 #include <Resource/ResourceCache.h>
 #include <vector>
 
+#if ME_EDITOR
+
 ResourceMonitorWidget::ResourceMonitorWidget()
 	: HavanaWidget("Resource Monitor")
 {
@@ -79,3 +81,5 @@ void ResourceMonitorWidget::Render()
 		ImGui::PopStyleVar(1);
 	}
 }
+
+#endif

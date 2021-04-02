@@ -15,6 +15,7 @@
 
 class Transform;
 
+#if ME_EDITOR
 
 enum class FileStatus : unsigned int
 {
@@ -78,3 +79,5 @@ private:
 	std::unordered_map<std::string, SharedPtr<Moonlight::Texture>> Icons;
 	AssetDescriptor* SelectedAsset = nullptr;
 };
+
+#endif

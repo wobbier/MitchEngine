@@ -6,6 +6,8 @@
 #include <Components/Transform.h>
 #include <Utils/CommonUtils.h>
 
+#if ME_EDITOR
+
 class FolderTest
 {
 public:
@@ -26,3 +28,5 @@ namespace CommonUtils
 
 	void DrawAddComponentList(const EntityHandle& entity);
 }
+
+#endif

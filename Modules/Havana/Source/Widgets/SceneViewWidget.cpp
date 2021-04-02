@@ -14,6 +14,8 @@
 #include <Mathf.h>
 #include <Cores/UI/UICore.h>
 
+#if ME_EDITOR
+
 SceneViewWidget::SceneViewWidget(const std::string& inTitle,  bool inSceneToolsEnabled)
 	: HavanaWidget(inTitle)
 	, EnableSceneTools(inSceneToolsEnabled)
@@ -379,3 +381,5 @@ void SceneViewWidget::DrawGuizmo()
 		}
 	}
 }
+
+#endif

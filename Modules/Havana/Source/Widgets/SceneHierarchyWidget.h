@@ -10,6 +10,8 @@ class Transform;
 class BaseCore;
 class EditorApp;
 
+#if ME_EDITOR
+
 class SceneHierarchyWidget
 	: public HavanaWidget
 	, public EventReceiver
@@ -44,3 +46,5 @@ public:
 
 	ParentDescriptor DragParentDescriptor;
 };
+
+#endif

@@ -18,6 +18,8 @@
 #include "Utils/ImGuiUtils.h"
 #include <Utils/CommonUtils.h>
 
+#if ME_EDITOR
+
 AssetBrowser::AssetBrowser(const std::string& pathToWatch, std::chrono::duration<int, std::milli> delay)
 	: PathToWatch(pathToWatch)
 	, Delay(delay)
@@ -372,3 +374,4 @@ bool AssetBrowser::Contains(const std::string& key)
 	return Paths.find(key) != Paths.end();
 }
 
+#endif

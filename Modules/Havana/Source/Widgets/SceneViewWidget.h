@@ -4,6 +4,8 @@
 #include "Events/EventReceiver.h"
 #include <ImGuizmo.h>
 
+#if ME_EDITOR
+
 class EditorApp;
 class Transform;
 class SceneViewWidget
@@ -59,3 +61,5 @@ private:
 
 	std::vector<DisplayParams> DisplayOptions;
 };
+
+#endif

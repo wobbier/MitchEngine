@@ -1,5 +1,7 @@
 #include <Utils/CommonUtils.h>
 
+#if ME_EDITOR
+
 void CommonUtils::RecusiveDelete(EntityHandle ent, Transform* trans)
 {
 	if (!trans)
@@ -133,3 +135,4 @@ void CommonUtils::DrawAddComponentList(const EntityHandle& entity)
 	//}
 }
 
+#endif

@@ -11,6 +11,8 @@
 #include <Events/EventManager.h>
 #include <Components/Graphics/Model.h>
 
+#if ME_EDITOR
+
 SceneHierarchyWidget::SceneHierarchyWidget()
 	: HavanaWidget("Hierarchy")
 {
@@ -343,3 +345,5 @@ void SceneHierarchyWidget::HandleAssetDragAndDrop(Transform* root)
 		}
 	}
 }
+
+#endif

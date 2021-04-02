@@ -21,6 +21,8 @@ class SceneHierarchyWidget;
 class PropertiesWidget;
 class AssetPreviewWidget;
 
+#if ME_EDITOR
+
 class Havana
 	: public EventReceiver
 {
@@ -68,3 +70,5 @@ private:
 
 	std::vector<SharedPtr<HavanaWidget>> RegisteredWidgets;
 };
+
+#endif

@@ -27,6 +27,8 @@
 #include <Math/Quaternion.h>
 #include "HavanaEvents.h"
 
+#if ME_EDITOR
+
 EditorApp::EditorApp(int argc, char** argv)
 	: Game(argc, argv)
 {
@@ -189,3 +191,5 @@ bool EditorApp::OnEvent(const BaseEvent& evt)
 
 	return false;
 }
+
+#endif
