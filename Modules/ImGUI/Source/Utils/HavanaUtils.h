@@ -34,7 +34,7 @@ namespace HavanaUtils
 		float columnWidth = 150.f;
 		ImGui::Columns(2, "", false);
 		ImGui::SetColumnWidth(0, columnWidth);
-		ImGui::Text(Name.c_str());
+		ImGui::Text("%s", Name.c_str());
 		ImGui::NextColumn();
 		ImGui::PushMultiItemsWidths(3, ImGui::GetContentRegionAvailWidth() - columnWidth);
 		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0.f, 0.f });
