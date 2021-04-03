@@ -5,6 +5,7 @@
 #include <Engine/Engine.h>
 #include <Engine/World.h>
 #include <Utils/CommonUtils.h>
+#include <Events/SceneEvents.h>
 
 #if ME_EDITOR
 
@@ -24,7 +25,7 @@ void PropertiesWidget::Destroy()
 
 bool PropertiesWidget::OnEvent(const BaseEvent& evt)
 {
-	if (evt.GetEventId() == ClearInspectEvent::GetEventId())
+	if (evt.GetEventId() == ClearInspectEvent::GetEventId() || evt.GetEventId() == NewSceneEvent::GetEventId())
 	{
 		ClearSelection();
 	}
