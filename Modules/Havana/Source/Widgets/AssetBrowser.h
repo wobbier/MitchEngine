@@ -66,7 +66,7 @@ public:
 	void Draw();
 
 	void Recursive(Directory& dir);
-	void ProccessDirectory(const std::filesystem::directory_entry& file);
+	void ProccessDirectory(const std::filesystem::directory_entry& file, Directory& dirRef);
 private:
 	bool ProccessDirectoryRecursive(std::string& dir, Directory& dirRef, const std::filesystem::directory_entry& file);
 
@@ -76,6 +76,7 @@ private:
 	bool Contains(const std::string& key);
 	std::thread fileBrowser;
 	Directory AssetDirectory;
+	Directory EngineAssetDirectory;
 	std::unordered_map<std::string, SharedPtr<Moonlight::Texture>> Icons;
 	AssetDescriptor* SelectedAsset = nullptr;
 };
