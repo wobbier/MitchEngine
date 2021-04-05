@@ -32,10 +32,16 @@ AssetBrowser::AssetBrowser(const std::string& pathToWatch, std::chrono::duration
 	Icons["Prefab"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Prefab.png"));
 
 	AssetDirectory.FullPath = Path(PathToWatch);
+	EngineAssetDirectory.FullPath = Path("Engine/Assets");
 	for (auto& file : std::filesystem::recursive_directory_iterator(PathToWatch))
 	{
 		Paths[file.path().string()] = std::filesystem::last_write_time(file);
-		ProccessDirectory(file);
+		ProccessDirectory(file, AssetDirectory);
+	}
+	for (auto& file : std::filesystem::recursive_directory_iterator(EngineAssetDirectory.FullPath.FullPath))
+	{
+		Paths[file.path().string()] = std::filesystem::last_write_time(file);
+		ProccessDirectory(file, EngineAssetDirectory);
 	}
 }
 
@@ -99,7 +105,7 @@ void AssetBrowser::ThreadStart(const std::function<void(std::string, FileStatus)
 			for (auto& file : std::filesystem::recursive_directory_iterator(PathToWatch))
 			{
 				Paths[file.path().string()] = std::filesystem::last_write_time(file);
-				ProccessDirectory(file);
+				ProccessDirectory(file, AssetDirectory);
 			}
 		}
 	}
@@ -110,12 +116,14 @@ void AssetBrowser::Draw()
 	OPTICK_CATEGORY("Asset Browser", Optick::Category::Debug);
 	ImGui::Begin("Assets");
 
-	std::stack<std::string> directories;
-	directories.push("Assets");
-
-	//if (ImGui::CollapsingHeader("Assets", ImGuiTreeNodeFlags_DefaultOpen))
+	if (ImGui::CollapsingHeader("Game", ImGuiTreeNodeFlags_DefaultOpen))
 	{
 		Recursive(AssetDirectory);
+	}
+
+	if (ImGui::CollapsingHeader("Engine"))
+	{
+		Recursive(EngineAssetDirectory);
 	}
 
 	ImGui::End();
@@ -235,15 +243,15 @@ void AssetBrowser::Recursive(Directory& dir)
 	}
 }
 
-void AssetBrowser::ProccessDirectory(const std::filesystem::directory_entry& file)
+void AssetBrowser::ProccessDirectory(const std::filesystem::directory_entry& file, Directory& dirRef)
 {
-	std::string& parentDir = AssetDirectory.FullPath.FullPath;
+	std::string& parentDir = dirRef.FullPath.FullPath;
 	std::size_t t = file.path().string().find(parentDir);
 	if (t != std::string::npos)
 	{
-		std::string dir2 = file.path().string().substr(t, file.path().string().length());
+		std::string dir2 = file.path().string().substr(parentDir.size(), file.path().string().size());
 
-		ProccessDirectoryRecursive(dir2, AssetDirectory, file);
+		ProccessDirectoryRecursive(dir2, dirRef, file);
 
 	}
 }
