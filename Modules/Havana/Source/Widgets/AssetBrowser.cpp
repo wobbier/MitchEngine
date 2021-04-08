@@ -258,11 +258,16 @@ void AssetBrowser::ProccessDirectory(const std::filesystem::directory_entry& fil
 
 bool AssetBrowser::ProccessDirectoryRecursive(std::string& dir, Directory& dirRef, const std::filesystem::directory_entry& file)
 {
-	std::size_t d = dir.find_first_of('\\');
+#if ME_PLATFORM_MACOS
+	const char slash = '/';
+#else
+	const char slash = '\\';
+#endif
+	std::size_t d = dir.find_first_of(slash);
 	if (d != std::string::npos)
 	{
 		std::string newdir = dir.substr(d + 1, dir.length());
-		std::size_t d2 = newdir.find_first_of('\\');
+		std::size_t d2 = newdir.find_first_of(slash);
 		if (d2 != std::string::npos)
 		{
 			std::string foldername = newdir.substr(0, d2);
