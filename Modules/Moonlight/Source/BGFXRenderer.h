@@ -5,6 +5,7 @@
 #include <queue>
 #include "Device/FrameBuffer.h"
 #include "RenderCommands.h"
+#include "Graphics/Texture.h"
 
 class ImGuiRenderer;
 
@@ -67,9 +68,11 @@ private:
 	bgfx::VertexBufferHandle m_vbh;
 	bgfx::IndexBufferHandle m_ibh;
 	bgfx::ProgramHandle UIProgram;
-	bgfx::UniformHandle s_texCube;
+	bgfx::UniformHandle s_texDiffuse;
+	bgfx::UniformHandle s_texAlpha;
 	bgfx::UniformHandle s_texUI;
 	int32_t m_pt;
 	int64_t m_timeOffset;
 	Moonlight::CameraData DummyCameraData;
+	SharedPtr<Moonlight::Texture> m_defaultOpacityTexture;
 };
