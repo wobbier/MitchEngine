@@ -7,6 +7,7 @@
 
 class Transform;
 class BaseCore;
+class BaseComponent;
 
 #if ME_EDITOR
 
@@ -25,6 +26,8 @@ public:
 	void Update() override;
 	void Render() override;
 
+	void DrawComponentProperties(BaseComponent* comp, EntityHandle entity);
+
 	void ClearSelection();
 	void AddComponentPopup(EntityHandle inSelectedEntity);
 
@@ -33,6 +36,7 @@ public:
 	class BaseCore* SelectedCore = nullptr;
 	Path AssetBrowserPath;
 	MetaBase* metafile = nullptr;
+	bool ShouldDelteteMetaFile = false;
 };
 
 #endif

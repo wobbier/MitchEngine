@@ -26,7 +26,7 @@ AssetBrowser::AssetBrowser(const std::string& pathToWatch, std::chrono::duration
 {
 	Icons["Image"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Image.png"));
 	Icons["File"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/File.png"));
-	Icons["Terrain"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Terrain.png"));
+	Icons["Model"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Model.png"));
 	Icons["World"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/World.png"));
 	Icons["Audio"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Audio.png"));
 	Icons["Prefab"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Prefab.png"));
@@ -47,7 +47,8 @@ AssetBrowser::AssetBrowser(const std::string& pathToWatch, std::chrono::duration
 
 AssetBrowser::~AssetBrowser()
 {
-
+	IsRunning = false;
+	fileBrowser.join();
 }
 
 void AssetBrowser::Start(const std::function<void(std::string, FileStatus)>& action)
@@ -170,7 +171,7 @@ void AssetBrowser::Recursive(Directory& dir)
 			ImGui::Image(Icons["Image"]->TexHandle, ImVec2(16, 16));
 			break;
 		case AssetType::Model:
-			ImGui::Image(Icons["Terrain"]->TexHandle, ImVec2(16, 16));
+			ImGui::Image(Icons["Model"]->TexHandle, ImVec2(16, 16));
 			break;
 		case AssetType::Audio:
 			ImGui::Image(Icons["Audio"]->TexHandle, ImVec2(16, 16));

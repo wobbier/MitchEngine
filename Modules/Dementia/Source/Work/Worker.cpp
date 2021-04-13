@@ -12,8 +12,13 @@ Worker::Worker(JobEngine* engine, std::size_t InMaxJobs, Mode InMode /*= Mode::B
 {
 }
 
+Worker::~Worker()
+{
+}
+
 void Worker::Start()
 {
+	IsThreadRunning = true;
 	if (ThreadMode.load() == Mode::Foreground)
 	{
 		ThreadId = std::this_thread::get_id();
@@ -22,7 +27,7 @@ void Worker::Start()
 	{
 		WorkerThread = std::thread([this] {
 			OPTICK_THREAD("Burst Thread");
-			while (true)
+			while (IsRunning())
 			{
 				OPTICK_EVENT("GetJob")
 				Job* job = GetJob();
@@ -38,12 +43,19 @@ void Worker::Start()
 
 void Worker::Stop()
 {
+	IsThreadRunning.store(false);
+	WorkerThread.join();
+	jobEngine = nullptr;
+}
+
+void Worker::Clear()
+{
 	queue.Clear();
 }
 
 bool Worker::IsRunning() const
 {
-	return true;
+	return IsThreadRunning.load();
 }
 
 Pool& Worker::GetPool()
@@ -95,7 +107,7 @@ Job* Worker::GetJob()
 	{
 		Worker* worker = jobEngine->GetRandomWorker();
 
-		if (worker != this)
+		if (worker && worker != this)
 		{
 			Job* stolenJob = worker->queue.Steal();
 

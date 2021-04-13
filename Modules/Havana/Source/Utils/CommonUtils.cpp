@@ -31,6 +31,7 @@ void CommonUtils::DoComponentRecursive(const FolderTest& currentFolder, const En
 		{
 			if (entity)
 			{
+				entity->AddComponentByName(ptr.first);
 				//AddComponentCommand* compCmd = new AddComponentCommand(ptr.first, entity);
 				//EditorCommands.Push(compCmd);
 			}
@@ -106,6 +107,7 @@ void CommonUtils::DrawAddComponentList(const EntityHandle& entity)
 				{
 					if (entity)
 					{
+						entity->AddComponentByName(ptr.first);
 						//AddComponentCommand* compCmd = new AddComponentCommand(ptr.first, entity);
 						//EditorCommands.Push(compCmd);
 					}

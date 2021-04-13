@@ -6,6 +6,7 @@ class JobEngine
 {
 public:
 	JobEngine(std::size_t InNumThreads, std::size_t InJobsPerThread);
+	~JobEngine();
 
 	Worker* GetRandomWorker();
 	Worker* GetThreadWorker();

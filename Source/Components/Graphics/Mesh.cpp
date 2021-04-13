@@ -273,12 +273,8 @@ void Mesh::OnEditorInspect()
 			int i = 0;
 			for (auto texture : MeshMaterial->GetTextures())
 			{
-				if (!texture)
-				{
-					continue;
-				}
 				std::string label("##Texture" + std::to_string(i));
-				if(bgfx::isValid(texture->TexHandle))
+				if(texture && bgfx::isValid(texture->TexHandle))
 				{
  					if (ImGui::ImageButton(texture->TexHandle, ImVec2(30, 30)))
  					{

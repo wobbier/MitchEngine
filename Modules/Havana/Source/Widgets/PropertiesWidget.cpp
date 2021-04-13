@@ -33,6 +33,8 @@ bool PropertiesWidget::OnEvent(const BaseEvent& evt)
 	{
 		const InspectEvent& event = static_cast<const InspectEvent&>(evt);
 
+		ClearSelection();
+
 		SelectedCore = event.SelectedCore;
 		SelectedEntity = event.SelectedEntity;
 		SelectedTransform = event.SelectedTransform;
@@ -48,6 +50,7 @@ bool PropertiesWidget::OnEvent(const BaseEvent& evt)
 			{
 				metafile = ResourceCache::GetInstance().LoadMetadata(AssetBrowserPath);
 			}
+			ShouldDelteteMetaFile = !res;
 		}
 	}
 	return false;
@@ -76,20 +79,19 @@ void PropertiesWidget::Render()
 		{
 			OPTICK_CATEGORY("Inspect Entity", Optick::Category::Debug);
 			entity->OnEditorInspect();
+			if (entity->HasComponent<Transform>())
+			{
+				SelectedTransform = &entity->GetComponent<Transform>();
+				DrawComponentProperties(SelectedTransform, entity);
+			}
+
 			for (BaseComponent* comp : entity->GetAllComponents())
 			{
-				bool shouldClose = true;
-				if (ImGui::CollapsingHeader(comp->GetName().c_str(), &shouldClose, ImGuiTreeNodeFlags_DefaultOpen))
+				if (comp != SelectedTransform)
 				{
-					ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0.f, GImGui->Style.ItemSpacing.y });
-					comp->OnEditorInspect();
-					ImGui::PopStyleVar();
+					DrawComponentProperties(comp, entity);
 				}
-				if (!shouldClose)
-				{
-					entity->RemoveComponent(comp->GetName());
-					GetEngine().GetWorld().lock()->Simulate();
-				}
+
 			}
 			AddComponentPopup(SelectedEntity);
 		}
@@ -120,13 +122,35 @@ void PropertiesWidget::Render()
 	ImGui::End();
 }
 
+void PropertiesWidget::DrawComponentProperties(BaseComponent* comp, EntityHandle entity)
+{
+	bool shouldClose = true;
+	if (ImGui::CollapsingHeader(comp->GetName().c_str(), &shouldClose, ImGuiTreeNodeFlags_DefaultOpen))
+	{
+		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0.f, GImGui->Style.ItemSpacing.y });
+		comp->OnEditorInspect();
+		ImGui::PopStyleVar();
+	}
+	if (!shouldClose)
+	{
+		entity->RemoveComponent(comp->GetName());
+		GetEngine().GetWorld().lock()->Simulate();
+	}
+}
+
 void PropertiesWidget::ClearSelection()
 {
 	SelectedTransform = nullptr;
 	SelectedEntity = EntityHandle();
 	SelectedCore = nullptr;
 	AssetBrowserPath = Path();
-	delete metafile;
+
+	if (ShouldDelteteMetaFile)
+	{
+		delete metafile;
+		ShouldDelteteMetaFile = false;
+	}
+
 	metafile = nullptr;
 }
 

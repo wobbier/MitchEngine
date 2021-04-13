@@ -56,7 +56,6 @@ void MetaBase::Deserialize(const json& inJson)
 	{
 		long CachedLastModified = inJson["LastModified"];
 		wasModified = (LastModified != CachedLastModified);
-		LastModified = CachedLastModified;
 	}
     
 #if !ME_PLATFORM_MACOS

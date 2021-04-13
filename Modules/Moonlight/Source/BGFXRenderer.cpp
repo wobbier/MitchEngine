@@ -15,6 +15,7 @@
 #include "Graphics/MeshData.h"
 #include "Graphics/ShaderCommand.h"
 #include <algorithm>
+#include "Resource/ResourceCache.h"
 
 #if BX_PLATFORM_LINUX
 #define GLFW_EXPOSE_NATIVE_X11
@@ -129,10 +130,13 @@ void BGFXRenderer::Create(const RendererCreationSettings& settings)
 		);
         
 		UIProgram = Moonlight::LoadProgram("Assets/Shaders/UI.vert", "Assets/Shaders/UI.frag");
-		s_texCube = bgfx::createUniform("s_texCube", bgfx::UniformType::Sampler);
+		s_texDiffuse = bgfx::createUniform("s_texDiffuse", bgfx::UniformType::Sampler);
+		s_texAlpha = bgfx::createUniform("s_texAlpha", bgfx::UniformType::Sampler);
 		s_texUI = bgfx::createUniform("s_texUI", bgfx::UniformType::Sampler);
 
 		m_timeOffset = bx::getHPCounter();
+
+		m_defaultOpacityTexture = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Textures/DefaultAlpha.png"));
 	}
 
 	ImGuiRender = new ImGuiRenderer();
@@ -271,6 +275,7 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 			| BGFX_STATE_DEPTH_TEST_LESS
 			| BGFX_STATE_CULL_CCW
 			| BGFX_STATE_MSAA
+			| BGFX_STATE_BLEND_ALPHA
 			| s_ptState[m_pt]
 			;
 
@@ -316,9 +321,22 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 				{
 					if (bgfx::isValid(diffuse->TexHandle))
 					{
-						bgfx::setTexture(0, s_texCube, diffuse->TexHandle);
+						bgfx::setTexture(0, s_texDiffuse, diffuse->TexHandle);
 					}
 				}
+
+				if (const Moonlight::Texture* opacity = mesh.MeshMaterial->GetTexture(Moonlight::TextureType::Opacity))
+				{
+					if (bgfx::isValid(opacity->TexHandle))
+					{
+						bgfx::setTexture(1, s_texAlpha, opacity->TexHandle);
+					}
+				}
+				else
+				{
+					bgfx::setTexture(1, s_texAlpha, m_defaultOpacityTexture->TexHandle);
+				}
+
                 mesh.MeshMaterial->Use();
 
 				// Set render states.
