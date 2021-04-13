@@ -79,20 +79,19 @@ void PropertiesWidget::Render()
 		{
 			OPTICK_CATEGORY("Inspect Entity", Optick::Category::Debug);
 			entity->OnEditorInspect();
+			if (entity->HasComponent<Transform>())
+			{
+				SelectedTransform = &entity->GetComponent<Transform>();
+				DrawComponentProperties(SelectedTransform, entity);
+			}
+
 			for (BaseComponent* comp : entity->GetAllComponents())
 			{
-				bool shouldClose = true;
-				if (ImGui::CollapsingHeader(comp->GetName().c_str(), &shouldClose, ImGuiTreeNodeFlags_DefaultOpen))
+				if (comp != SelectedTransform)
 				{
-					ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0.f, GImGui->Style.ItemSpacing.y });
-					comp->OnEditorInspect();
-					ImGui::PopStyleVar();
+					DrawComponentProperties(comp, entity);
 				}
-				if (!shouldClose)
-				{
-					entity->RemoveComponent(comp->GetName());
-					GetEngine().GetWorld().lock()->Simulate();
-				}
+
 			}
 			AddComponentPopup(SelectedEntity);
 		}
@@ -121,6 +120,22 @@ void PropertiesWidget::Render()
 		}
 	}
 	ImGui::End();
+}
+
+void PropertiesWidget::DrawComponentProperties(BaseComponent* comp, EntityHandle entity)
+{
+	bool shouldClose = true;
+	if (ImGui::CollapsingHeader(comp->GetName().c_str(), &shouldClose, ImGuiTreeNodeFlags_DefaultOpen))
+	{
+		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0.f, GImGui->Style.ItemSpacing.y });
+		comp->OnEditorInspect();
+		ImGui::PopStyleVar();
+	}
+	if (!shouldClose)
+	{
+		entity->RemoveComponent(comp->GetName());
+		GetEngine().GetWorld().lock()->Simulate();
+	}
 }
 
 void PropertiesWidget::ClearSelection()
