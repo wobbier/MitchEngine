@@ -47,7 +47,8 @@ AssetBrowser::AssetBrowser(const std::string& pathToWatch, std::chrono::duration
 
 AssetBrowser::~AssetBrowser()
 {
-
+	IsRunning = false;
+	fileBrowser.join();
 }
 
 void AssetBrowser::Start(const std::function<void(std::string, FileStatus)>& action)

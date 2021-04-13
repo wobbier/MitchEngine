@@ -19,6 +19,14 @@ JobEngine::JobEngine(std::size_t InNumThreads, std::size_t InJobsPerThread)
 	}
 }
 
+JobEngine::~JobEngine()
+{
+	for (std::size_t i = 1; i < Workers.CurrentSize(); ++i)
+	{
+		Workers[i].Stop();
+	}
+}
+
 Worker* JobEngine::GetRandomWorker()
 {
 	std::uniform_int_distribution<std::size_t> dist{ 0, Workers.CurrentSize()-1 };
@@ -44,7 +52,7 @@ void JobEngine::ClearWorkerPools()
 	for (std::size_t i = 0; i < Workers.CurrentSize(); ++i)
 	{
 		Workers[i].GetPool().Clear();
-		Workers[i].Stop();
+		Workers[i].Clear();
 	}
 }
 

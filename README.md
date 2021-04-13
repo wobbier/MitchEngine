@@ -1,5 +1,5 @@
 ![Mitch Engine Banner](https://raw.githubusercontent.com/wobbier/MitchEngine/master/Docs/GitHub/Havana.png)
-[![Codacy Badge](https://api.codacy.com/project/badge/Grade/858846f643cc47258ed72f9cfddb28b2)](https://www.codacy.com/app/rastaninja77/MitchEngine?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=wobbier/MitchEngine&amp;utm_campaign=Badge_Grade)
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/21af73bf73f049ac97afd48e1689fd33)](https://www.codacy.com/gh/wobbier/MitchEngine/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=wobbier/MitchEngine&amp;utm_campaign=Badge_Grade)
 ![license](https://img.shields.io/github/license/wobbier/mitchengine.svg)
 ======
 The 3D game engine so good it has my name in it.

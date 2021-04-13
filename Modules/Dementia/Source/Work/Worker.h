@@ -27,6 +27,7 @@ public:
 
 	void Start();
 	void Stop();
+	void Clear();
 	bool IsRunning() const;
 	Pool& GetPool();
 	void Submit(Job* InJob);
@@ -35,6 +36,7 @@ public:
 	std::thread::id GetThreadId() const;
 
 private:
+	std::atomic_bool IsThreadRunning = true;
 	Pool WorkPool;
 	class JobEngine* jobEngine;
 	JobQueue queue;

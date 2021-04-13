@@ -1,7 +1,7 @@
 {
     "FileType": "png",
-    "LastModified": 1617093930,
+    "LastModified": 1617432965,
     "LastModifiedDebug": "Mon Mar  1 00:03:00 2021\n",
-    "MIPs": true,
-    "Type": "Default"
+    "MIPs": false,
+    "Type": "Sprite"
 }
