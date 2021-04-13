@@ -33,6 +33,8 @@ bool PropertiesWidget::OnEvent(const BaseEvent& evt)
 	{
 		const InspectEvent& event = static_cast<const InspectEvent&>(evt);
 
+		ClearSelection();
+
 		SelectedCore = event.SelectedCore;
 		SelectedEntity = event.SelectedEntity;
 		SelectedTransform = event.SelectedTransform;
@@ -48,6 +50,7 @@ bool PropertiesWidget::OnEvent(const BaseEvent& evt)
 			{
 				metafile = ResourceCache::GetInstance().LoadMetadata(AssetBrowserPath);
 			}
+			ShouldDelteteMetaFile = !res;
 		}
 	}
 	return false;
@@ -126,7 +129,13 @@ void PropertiesWidget::ClearSelection()
 	SelectedEntity = EntityHandle();
 	SelectedCore = nullptr;
 	AssetBrowserPath = Path();
-	delete metafile;
+
+	if (ShouldDelteteMetaFile)
+	{
+		delete metafile;
+		ShouldDelteteMetaFile = false;
+	}
+
 	metafile = nullptr;
 }
 

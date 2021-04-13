@@ -33,6 +33,7 @@ public:
 	class BaseCore* SelectedCore = nullptr;
 	Path AssetBrowserPath;
 	MetaBase* metafile = nullptr;
+	bool ShouldDelteteMetaFile = false;
 };
 
 #endif
