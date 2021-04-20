@@ -213,7 +213,8 @@ void Mesh::OnEditorInspect()
 			}
 		}
 	}
-	if (ImGui::BeginCombo("Material", (MeshMaterial) ? reg[MeshMaterial->GetTypeName()].Name.c_str() : "Selected Material"))
+	HavanaUtils::Label("Material Type");
+	if (ImGui::BeginCombo("##Material Type", (MeshMaterial) ? reg[MeshMaterial->GetTypeName()].Name.c_str() : "Selected Material"))
 	{
 		for (auto& thing : folders)
 		{
@@ -239,9 +240,10 @@ void Mesh::OnEditorInspect()
 	if (MeshMaterial)
 	{
 		bool transparent = MeshMaterial->IsTransparent();
-		if (ImGui::TreeNodeEx("Material", ImGuiTreeNodeFlags_DefaultOpen))
+		//if (ImGui::TreeNodeEx("Material", ImGuiTreeNodeFlags_DefaultOpen))
 		{
-			ImGui::Checkbox("Render Transparent", &transparent);
+			HavanaUtils::Label("Render Transparent");
+			ImGui::Checkbox("##Render Transparent", &transparent);
 			if (transparent)
 			{
 				MeshMaterial->SetRenderMode(Moonlight::RenderingMode::Transparent);
@@ -267,12 +269,13 @@ void Mesh::OnEditorInspect()
 					}
 				}
 			}
-
-			ImGui::ColorEdit3("Diffuse Color", &MeshMaterial->DiffuseColor[0]);
+			HavanaUtils::Label("Diffuse Color");
+			ImGui::ColorEdit3("##Diffuse Color", &MeshMaterial->DiffuseColor[0]);
 
 			int i = 0;
 			for (auto texture : MeshMaterial->GetTextures())
 			{
+				HavanaUtils::Label(Moonlight::Texture::ToString(static_cast<Moonlight::TextureType>(i)));
 				std::string label("##Texture" + std::to_string(i));
 				if(texture && bgfx::isValid(texture->TexHandle))
 				{
@@ -331,8 +334,6 @@ void Mesh::OnEditorInspect()
 					}
 					ImGui::EndCombo();
 				}
-				ImGui::SameLine();
-				ImGui::Text(Moonlight::Texture::ToString(static_cast<Moonlight::TextureType>(i)).c_str());
 				if (texture)
 				{
 					if (i == static_cast<int>(Moonlight::TextureType::Diffuse))
@@ -341,7 +342,7 @@ void Mesh::OnEditorInspect()
 				}
 				i++;
 			}
-			ImGui::TreePop();
+			//ImGui::TreePop();
 		}
 	}
 }

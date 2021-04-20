@@ -132,8 +132,60 @@ namespace HavanaUtils
 		return tempVec != Vector;
 	}
 
-	static void EditableVector(const std::string& Name, Vector2& Vector)
+	static bool EditableVector(const std::string& Name, Vector2& Vector, float ResetValue = 0.f)
 	{
-		ImGui::DragFloat2(Name.c_str(), &Vector[0], 1.f, 0.0f, 0.0f, "%.1f");
+		//ImGui::DragFloat2(Name.c_str(), &Vector[0], 1.f, 0.0f, 0.0f, "%.1f");
+		ImGui::PushID(Name.c_str());
+
+		float columnWidth = 150.f;
+		Label(Name);
+
+		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0.f, 0.f });
+		ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, { 2.f, 2.f });
+
+		ImGui::BeginTable("##vec", 2);
+		ImGui::TableNextRow();
+
+		float lineHeight = GImGui->Font->FontSize + GImGui->Style.FramePadding.y * 2.f;
+		ImVec2 buttonSize = { lineHeight + 3.f, lineHeight };
+
+		Vector2 tempVec = Vector;
+		{
+			ImGui::TableSetColumnIndex(0);
+			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(1.f, 51.f / 255.f, 82.f / 255.f, .66f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.f, 51.f / 255.f, 82.f / 255.f, 1.f));
+			if (ImGui::Button("X", buttonSize))
+			{
+				Vector.x = ResetValue;
+			}
+			ImGui::PopStyleColor(2);
+			ImGui::SameLine();
+			ImGui::PushItemWidth(-1);
+			ImGui::DragFloat("##X", &Vector.x, 0.1f);
+			ImGui::PopItemWidth();
+		}
+
+		{
+			ImGui::TableSetColumnIndex(1);
+			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(139.f / 255.f, 220.f / 255.f, 0.f, .66f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(139.f / 255.f, 220.f / 255.f, 0.f, 1.f));
+			if (ImGui::Button("Y", buttonSize))
+			{
+				Vector.y = ResetValue;
+			}
+			ImGui::PopStyleColor(2);
+			ImGui::SameLine();
+			ImGui::PushItemWidth(-1);
+			ImGui::DragFloat("##Y", &Vector.y, 0.1f);
+			ImGui::PopItemWidth();
+		}
+
+		ImGui::EndTable();
+
+		ImGui::PopStyleVar(2);
+
+		ImGui::PopID();
+
+		return tempVec != Vector;
 	}
 }

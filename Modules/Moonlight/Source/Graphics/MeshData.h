@@ -22,7 +22,7 @@ namespace Moonlight
 
 		std::vector<PosNormTexTanBiVertex> Vertices;
 		std::vector<uint16_t> Indices;
-		SharedPtr<Material> MeshMaterial;
+		SharedPtr<Moonlight::Material> MeshMaterial;
         
         const bgfx::VertexBufferHandle& GetVertexBuffer() const { return m_vbh; }
         const bgfx::IndexBufferHandle& GetIndexuffer() const { return m_ibh; }

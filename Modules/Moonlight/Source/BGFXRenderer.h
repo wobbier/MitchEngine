@@ -4,7 +4,7 @@
 #include "Camera/CameraData.h"
 #include <queue>
 #include "Device/FrameBuffer.h"
-#include "RenderCommands.h"
+#include <RenderCommands.h>
 #include "Graphics/Texture.h"
 
 class ImGuiRenderer;
@@ -35,6 +35,8 @@ public:
 	void Render(Moonlight::CameraData& EditorCamera);
 
 	void RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId id);
+
+	void RenderSingleMesh(bgfx::ViewId id, const Moonlight::MeshCommand& mesh, uint64_t state);
 
 	void WindowResized(const Vector2& newSize);
 

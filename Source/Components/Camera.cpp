@@ -92,6 +92,18 @@ void Camera::OnDeserialize(const json& inJson)
 		Far = inJson["Far"];
 	}
 
+	if (inJson.contains("ClearType"))
+	{
+		if (inJson["ClearType"] == "Color")
+		{
+			ClearType = Moonlight::ClearColorType::Color;
+		}
+		else if (inJson["ClearType"] == "Skybox")
+		{
+			ClearType = Moonlight::ClearColorType::Skybox;
+		}
+	}
+
 	if (inJson.contains("ClearColor"))
 	{
 		ClearColor = Vector3((float)inJson["ClearColor"][0], (float)inJson["ClearColor"][1], (float)inJson["ClearColor"][2]);
@@ -104,6 +116,14 @@ void Camera::OnSerialize(json& outJson)
 	outJson["IsCurrent"] = IsCurrent();
 	outJson["Near"] = Near;
 	outJson["Far"] = Far;
+	if (ClearType == Moonlight::ClearColorType::Color)
+	{
+		outJson["ClearType"] = "Color";
+	}
+	else if (ClearType == Moonlight::ClearColorType::Skybox)
+	{
+		outJson["ClearType"] = "Skybox";
+	}
 
 	if (Skybox && Skybox->SkyMaterial)
 	{
@@ -183,7 +203,7 @@ void Camera::OnEditorInspect()
 			}
 		}
 
-		if (ImGui::BeginCombo("##SkyboxTexture", ""))
+		if (ImGui::BeginCombo("##SkyboxTexture", (Skybox && Skybox->SkyMaterial) ? Skybox->SkyMaterial->GetTexture(Moonlight::TextureType::Diffuse)->GetPath().LocalPath.c_str() : ""))
 		{
 			for (size_t n = 0; n < Textures.size(); n++)
 			{
@@ -199,7 +219,7 @@ void Camera::OnEditorInspect()
 					}
 					else
 					{
-						if (Skybox)
+						if (Skybox && Skybox->SkyMaterial)
 						{
 							Skybox->SkyMaterial->SetTexture(Moonlight::TextureType::Diffuse, ResourceCache::GetInstance().Get<Moonlight::Texture>(Textures[n]));
 						}
@@ -216,7 +236,7 @@ void Camera::OnEditorInspect()
 			ImGui::EndCombo();
 		}
 		ImGui::SameLine();
-		if (Skybox)
+		if (Skybox && Skybox->SkyMaterial)
 		{
 			const Moonlight::Texture* texture = Skybox->SkyMaterial->GetTexture(Moonlight::TextureType::Diffuse);
 			//ImGui::ImageButton(((texture) ? (void*)texture->ShaderResourceView : nullptr), ImVec2(30, 30));

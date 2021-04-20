@@ -10,7 +10,7 @@ uniform vec4 s_tiling;
 void main()
 {
 	vec2 uvs = v_texcoord0 * s_tiling.xy;
-	vec4 color = toLinear(texture2D(s_texDiffuse, uvs) * s_diffuse);
+	vec4 color = texture2D(s_texDiffuse, uvs) * s_diffuse;
 	color.a = toLinear(texture2D(s_texAlpha, uvs)).r;
 	gl_FragColor = color;
 }

@@ -26,6 +26,7 @@
 #include <Core/JobQueueOld.h>
 #include <Math/Quaternion.h>
 #include "HavanaEvents.h"
+#include <Utils/EditorConfig.h>
 
 #if ME_EDITOR
 
@@ -36,7 +37,6 @@ EditorApp::EditorApp(int argc, char** argv)
 	events.push_back(NewSceneEvent::GetEventId());
 	events.push_back(SceneLoadedEvent::GetEventId());
 	EventManager::GetInstance().RegisterReceiver(this, events);
-
 }
 
 EditorApp::~EditorApp()
@@ -88,6 +88,7 @@ void EditorApp::UpdateCameras()
 
 void EditorApp::OnEnd()
 {
+	EditorConfig::GetInstance().Save();
 
 	//destroy(mGame);
 }
@@ -96,6 +97,8 @@ void EditorApp::OnInitialize()
 {
 	if (!Editor)
 	{
+		EditorConfig::GetInstance().Init();
+		EditorConfig::GetInstance().Load();
 		InitialLevel = GetEngine().GetConfig().GetValue("CurrentScene");
 		Editor = std::make_unique<Havana>(&GetEngine(), this);
 		EditorSceneManager = new EditorCore(Editor.get());

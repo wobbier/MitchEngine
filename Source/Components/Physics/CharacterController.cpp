@@ -186,11 +186,20 @@ void CharacterController::OnDeserialize(const json& inJson)
 
 void CharacterController::OnEditorInspect()
 {
-	ImGui::DragFloat("Jump Force", &JumpForce);
-	ImGui::DragFloat("Max Speed", &MaxSpeed);
-	ImGui::DragFloat("Deceleration", &Deceleration);
-	ImGui::DragFloat("Jump Recharge Time", &JumpRechargeTime);
-	ImGui::DragFloat("Step Height", &m_stepHeight);
+	HavanaUtils::Label("Jump Force");
+	ImGui::DragFloat("##Jump Force", &JumpForce);
+
+	HavanaUtils::Label("Max Speed");
+	ImGui::DragFloat("##Max Speed", &MaxSpeed);
+
+	HavanaUtils::Label("Deceleration");
+	ImGui::DragFloat("##Deceleration", &Deceleration);
+
+	HavanaUtils::Label("Jump Recharge Time");
+	ImGui::DragFloat("##Jump Recharge Time", &JumpRechargeTime);
+
+	HavanaUtils::Label("Step Height");
+	ImGui::DragFloat("##Step Height", &m_stepHeight);
 
 }
 

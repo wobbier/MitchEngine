@@ -16,6 +16,8 @@
 #include "Graphics/ShaderCommand.h"
 #include <algorithm>
 #include "Resource/ResourceCache.h"
+#include <Graphics/SkyBox.h>
+#include <Math/Matrix4.h>
 
 #if BX_PLATFORM_LINUX
 #define GLFW_EXPOSE_NATIVE_X11
@@ -237,7 +239,6 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 		const bx::Vec3 at = { camera.Position.x + camera.Front.x, camera.Position.y + camera.Front.y, camera.Position.z + camera.Front.z };
 
 		// Set view and projection matrix for view 0.
-		{
 			float view[16];
 			bx::mtxLookAt(view, eye, at);
 
@@ -258,7 +259,6 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 
 			// Set view 0 default viewport.
 			bgfx::setViewRect(id, 0, 0, uint16_t(camera.OutputSize.x), uint16_t(camera.OutputSize.y));
-		}
 
 		//bgfx::touch(0);
 		uint32_t color = (uint32_t)(camera.ClearColor.x * 255.f) << 24 | (uint32_t)(camera.ClearColor.y * 255.f) << 16 | (uint32_t)(camera.ClearColor.z * 255.f) << 8 | 255;
@@ -268,17 +268,58 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 		);
 
 		bgfx::touch(id);
+
+		if (camera.Skybox)
+		{
+			uint64_t state = 0
+				| BGFX_STATE_WRITE_RGB
+				//| BGFX_STATE_WRITE_Z
+				| BGFX_STATE_DEPTH_TEST_LESS
+				| BGFX_STATE_CULL_CW
+				| BGFX_STATE_MSAA
+				| s_ptState[m_pt]
+				;
+
+			//			XMStoreFloat4x4(&m_constantBufferSceneData.model, XMMatrixTranslation(eye[0], eye[1], eye[2]));
+			//			XMStoreFloat4x4(&m_constantBufferSceneData.modelInv, XMMatrixInverse(nullptr, XMMatrixTranslation(eye[0], eye[1], eye[2])));
+			// Set model matrix for rendering.
+			glm::mat4 model = glm::mat4(1.f);
+			model = glm::translate(model, camera.Position.InternalVector);
+			model = glm::scale(model, glm::vec3(1000.f, 1000.f, 1000.f));
+
+			bgfx::setTransform(&model[0]);
+
+			// Set vertex and index buffer.
+			bgfx::setVertexBuffer(0, camera.Skybox->SkyModel->GetAllMeshes()[0]->GetVertexBuffer());
+			bgfx::setIndexBuffer(camera.Skybox->SkyModel->GetAllMeshes()[0]->GetIndexuffer());
+
+			if (const Moonlight::Texture* diffuse = camera.Skybox->SkyMaterial->GetTexture(Moonlight::TextureType::Diffuse))
+			{
+				if (bgfx::isValid(diffuse->TexHandle))
+				{
+					bgfx::setTexture(0, s_texDiffuse, diffuse->TexHandle);
+				}
+			}
+
+			//mesh.MeshMaterial->Use();
+
+			// Set render states.
+			bgfx::setState(state);
+
+			// Submit primitive for rendering to view 0.
+			bgfx::submit(id, camera.Skybox->SkyMaterial->MeshShader.GetProgram());
+		}
+
 		uint64_t state = 0
 			| BGFX_STATE_WRITE_RGB
-			| BGFX_STATE_WRITE_A
 			| BGFX_STATE_WRITE_Z
 			| BGFX_STATE_DEPTH_TEST_LESS
 			| BGFX_STATE_CULL_CCW
 			| BGFX_STATE_MSAA
-			| BGFX_STATE_BLEND_ALPHA
 			| s_ptState[m_pt]
 			;
 
+		std::stack<size_t> TransparentIndicies;
 		for (size_t i = 0; i < Meshes.size(); ++i)
 		{
 			OPTICK_CATEGORY("Mesh", Optick::Category::GPU_Scene)
@@ -288,63 +329,31 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 				continue;
 			}
 
-			if (mesh.Type == Moonlight::Cube)
+			if (mesh.MeshMaterial->IsTransparent())
 			{
-				//// Set model matrix for rendering.
-				//bgfx::setTransform(&mesh.Transform);
-
-				//// Set vertex and index buffer.
-				//bgfx::setVertexBuffer(0, m_vbh);
-				//bgfx::setIndexBuffer(m_ibh);
-
-				//// Set render states.
-				//bgfx::setState(state);
-
-				//// Submit primitive for rendering to view 0.
-				//bgfx::submit(id, UIProgram);
+				TransparentIndicies.push(i);
+				continue;
 			}
-			else if (mesh.Type == Moonlight::MeshType::Model)
-			{
-				if (!mesh.SingleMesh)
-				{
-					continue;
-				}
 
-				// Set model matrix for rendering.
-				bgfx::setTransform(&mesh.Transform);
+			RenderSingleMesh(id, mesh, state);
+		}
 
-				// Set vertex and index buffer.
-				bgfx::setVertexBuffer(0, mesh.SingleMesh->GetVertexBuffer());
-				bgfx::setIndexBuffer(mesh.SingleMesh->GetIndexuffer());
+		uint64_t transparentState = 0
+			| BGFX_STATE_WRITE_RGB
+			| BGFX_STATE_WRITE_A
+			| BGFX_STATE_WRITE_Z
+			| BGFX_STATE_DEPTH_TEST_LESS
+			| BGFX_STATE_CULL_CCW
+			| BGFX_STATE_MSAA
+			| BGFX_STATE_BLEND_ALPHA
+			| s_ptState[m_pt]
+			;
+		while (!TransparentIndicies.empty())
+		{
+			size_t index = TransparentIndicies.top();
+			TransparentIndicies.pop();
 
-				if (const Moonlight::Texture* diffuse = mesh.MeshMaterial->GetTexture(Moonlight::TextureType::Diffuse))
-				{
-					if (bgfx::isValid(diffuse->TexHandle))
-					{
-						bgfx::setTexture(0, s_texDiffuse, diffuse->TexHandle);
-					}
-				}
-
-				if (const Moonlight::Texture* opacity = mesh.MeshMaterial->GetTexture(Moonlight::TextureType::Opacity))
-				{
-					if (bgfx::isValid(opacity->TexHandle))
-					{
-						bgfx::setTexture(1, s_texAlpha, opacity->TexHandle);
-					}
-				}
-				else
-				{
-					bgfx::setTexture(1, s_texAlpha, m_defaultOpacityTexture->TexHandle);
-				}
-
-                mesh.MeshMaterial->Use();
-
-				// Set render states.
-				bgfx::setState(state);
-
-				// Submit primitive for rendering to view 0.
-				bgfx::submit(id, mesh.MeshMaterial->MeshShader.GetProgram());
-			}
+			RenderSingleMesh(id, Meshes[index], transparentState);
 		}
 	}
 
@@ -366,7 +375,7 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 		bgfx::setViewName(view, "ui");
 		bgfx::setViewClear(view
 			, BGFX_CLEAR_NONE
-			, 0
+			, 1
 			, 1.0f
 			, 0
 		);
@@ -380,11 +389,71 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 		bgfx::setState(0
 			| BGFX_STATE_WRITE_RGB
 			| BGFX_STATE_BLEND_ALPHA
-			| BGFX_STATE_BLEND_DST_ALPHA
 		);
 		bgfx::setTexture(0, s_texUI, camera.UITexture);
 		Moonlight::screenSpaceQuad(camera.OutputSize.x, camera.OutputSize.y, m_texelHalf, bgfx::getCaps()->originBottomLeft);
 		bgfx::submit(view, UIProgram);
+	}
+}
+
+void BGFXRenderer::RenderSingleMesh(bgfx::ViewId id, const Moonlight::MeshCommand& mesh, uint64_t state)
+{
+	if (mesh.Type == Moonlight::Cube)
+	{
+		//// Set model matrix for rendering.
+		//bgfx::setTransform(&mesh.Transform);
+
+		//// Set vertex and index buffer.
+		//bgfx::setVertexBuffer(0, m_vbh);
+		//bgfx::setIndexBuffer(m_ibh);
+
+		//// Set render states.
+		//bgfx::setState(state);
+
+		//// Submit primitive for rendering to view 0.
+		//bgfx::submit(id, UIProgram);
+	}
+	else if (mesh.Type == Moonlight::MeshType::Model)
+	{
+		if (!mesh.SingleMesh)
+		{
+			return;
+		}
+
+		// Set model matrix for rendering.
+		bgfx::setTransform(&mesh.Transform);
+
+		// Set vertex and index buffer.
+		bgfx::setVertexBuffer(0, mesh.SingleMesh->GetVertexBuffer());
+		bgfx::setIndexBuffer(mesh.SingleMesh->GetIndexuffer());
+
+		if (const Moonlight::Texture* diffuse = mesh.MeshMaterial->GetTexture(Moonlight::TextureType::Diffuse))
+		{
+			if (bgfx::isValid(diffuse->TexHandle))
+			{
+				bgfx::setTexture(0, s_texDiffuse, diffuse->TexHandle);
+			}
+		}
+
+		if (const Moonlight::Texture* opacity = mesh.MeshMaterial->GetTexture(Moonlight::TextureType::Opacity))
+		{
+			if (bgfx::isValid(opacity->TexHandle))
+			{
+				bgfx::setTexture(1, s_texAlpha, opacity->TexHandle);
+			}
+		}
+		else
+		{
+			bgfx::setTexture(1, s_texAlpha, m_defaultOpacityTexture->TexHandle);
+		}
+
+		mesh.MeshMaterial->Use();
+
+		// Set render states.
+		bgfx::setState(state);
+
+		// Submit primitive for rendering to view 0.
+		bgfx::submit(id, mesh.MeshMaterial->MeshShader.GetProgram());
 	}
 }
 

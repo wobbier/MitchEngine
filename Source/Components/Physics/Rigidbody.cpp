@@ -171,8 +171,7 @@ void Rigidbody::CreateObject(const Vector3& Position, const Quaternion& Rotation
 
 void Rigidbody::OnEditorInspect()
 {
-	ImGui::Text("Collider Type:");
-	ImGui::SameLine();
+	HavanaUtils::Label("Collider Type");
 	if (ImGui::BeginCombo("##ColliderType", GetColliderString(Type).c_str()))
 	{
 		for (unsigned int n = 0; n < (unsigned int)ColliderType::Count; ++n)
@@ -205,8 +204,11 @@ void Rigidbody::OnEditorInspect()
 	HavanaUtils::EditableVector3("Hitbox Scale", Scale);
 
 	bool m_isDynamicTemp = (Mass != 0.f);
-	ImGui::Checkbox("Is Dynamic", &m_isDynamicTemp);
-	ImGui::DragFloat("Mass", &Mass);
+	HavanaUtils::Label("Is Dynamic");
+	ImGui::Checkbox("##Is Dynamic", &m_isDynamicTemp);
+
+	HavanaUtils::Label("Mass");
+	ImGui::DragFloat("##Mass", &Mass);
 }
 
 #endif

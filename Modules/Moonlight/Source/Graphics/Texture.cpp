@@ -47,7 +47,7 @@ namespace Moonlight
 
 	void Texture::Load()
 	{
-		uint64_t flags = BGFX_TEXTURE_NONE | BGFX_SAMPLER_NONE;
+		uint64_t flags = BGFX_TEXTURE_NONE | BGFX_SAMPLER_W_MIRROR;
 
 		if (!FilePath.Exists)
 		{

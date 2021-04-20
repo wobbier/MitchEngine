@@ -4,6 +4,8 @@
 #include <processthreadsapi.h>
 #endif
 
+#include <filesystem>
+
 void PlatformUtils::RunProcess(const Path& inFilePath, const std::string& inArgs /*= ""*/)
 {
 #if ME_PLATFORM_WIN64
@@ -63,5 +65,12 @@ void PlatformUtils::SystemCall(const Path& inFilePath, const std::string& inArgs
 #else
 	std::string progArgs = "\"" + inFilePath.FullPath + "\" " + inArgs;
 	system(progArgs.c_str());
+#endif
+}
+
+void PlatformUtils::CreateDirectory(const Path& inFilePath)
+{
+#if ME_PLATFORM_WIN64
+	std::filesystem::create_directories(inFilePath.Directory.c_str());
 #endif
 }

@@ -13,6 +13,7 @@
 #include <optick.h>
 #include <Window/IWindow.h>
 #include <World/Scene.h>
+#include <Utils/EditorConfig.h>
 
 #if ME_EDITOR
 
@@ -39,6 +40,9 @@ EditorCore::~EditorCore()
 void EditorCore::Init()
 {
 	Camera::EditorCamera = EditorCamera;
+
+	EditorCameraTransform->SetWorldPosition(EditorConfig::GetInstance().CameraPosition);
+	EditorCameraTransform->SetRotation(EditorConfig::GetInstance().CameraRotation);
 }
 
 void EditorCore::Update(float dt)
@@ -180,6 +184,9 @@ void EditorCore::Update(float dt)
 			newFront.z = (sin(Mathf::Radians(Yaw)) * cos(Mathf::Radians(Pitch)));
 
 			EditorCameraTransform->LookAt(newFront.Normalized());
+
+			EditorConfig::GetInstance().CameraPosition = Vector3(EditorCameraTransform->GetPosition());
+			EditorConfig::GetInstance().CameraRotation = Vector3(EditorCameraTransform->GetRotationEuler());
 		}
 		else
 		{
