@@ -4,6 +4,21 @@
 
 namespace Moonlight
 {
+	struct ScreenPosVertex
+	{
+		Vector2 Position;
+
+		static void init()
+		{
+			ms_layout
+				.begin()
+				.add(bgfx::Attrib::Position, 2, bgfx::AttribType::Float)
+				.end();
+		}
+
+		static bgfx::VertexLayout ms_layout;
+	};
+
 	struct PosColorVertex
 	{
 		Vector3 vec;

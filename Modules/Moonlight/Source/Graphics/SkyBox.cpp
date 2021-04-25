@@ -19,4 +19,10 @@ namespace Moonlight
 		SkyMaterial = std::make_shared<UnlitMaterial>();
 		SkyMaterial->SetTexture(TextureType::Diffuse, SkyMap);
 	}
+
+	SkyBox::~SkyBox()
+	{
+		//bgfx::destroy(sky)
+	}
+
 }

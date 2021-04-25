@@ -14,6 +14,7 @@ namespace Moonlight
 
 		// Constructor generates the shader on the fly
 		ShaderCommand(const std::string& InShaderFile);
+		ShaderCommand(const std::string& InVertexShaderPath, const std::string& InFragShaderPath);
 		~ShaderCommand();
 
         const bgfx::ProgramHandle& GetProgram() const { return Program; }

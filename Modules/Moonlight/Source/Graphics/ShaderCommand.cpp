@@ -33,8 +33,16 @@ namespace Moonlight
 		isLoaded = bgfx::isValid(Program);
 	}
 
+	ShaderCommand::ShaderCommand(const std::string& InVertexShaderPath, const std::string& InFragShaderPath)
+	{
+		Program = Moonlight::LoadProgram(InVertexShaderPath + ".vert", InFragShaderPath + ".frag");
+
+		isLoaded = bgfx::isValid(Program);
+	}
+
 	ShaderCommand::~ShaderCommand()
 	{
+		//bgfx::destroy(Program);
 	}
 
 }

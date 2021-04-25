@@ -8,6 +8,7 @@
 #include "Graphics/Texture.h"
 
 class ImGuiRenderer;
+namespace Moonlight { class DynamicSky; }
 
 struct RendererCreationSettings
 {
@@ -77,4 +78,5 @@ private:
 	int64_t m_timeOffset;
 	Moonlight::CameraData DummyCameraData;
 	SharedPtr<Moonlight::Texture> m_defaultOpacityTexture;
+	SharedPtr<Moonlight::DynamicSky> m_dynamicSky;
 };

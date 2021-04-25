@@ -19,7 +19,8 @@ namespace Moonlight
 	enum class ClearColorType : uint8_t
 	{
 		Color = 0,
-		Skybox
+		Skybox,
+		Procedural
 	};
 
 	struct CameraData

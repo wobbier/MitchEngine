@@ -11,6 +11,7 @@ namespace Moonlight
 	{
 	public:
 		SkyBox(const std::string& InPath);
+		~SkyBox();
 
 		std::shared_ptr<class Texture> SkyMap = nullptr;
 		SharedPtr<Material> SkyMaterial = nullptr;

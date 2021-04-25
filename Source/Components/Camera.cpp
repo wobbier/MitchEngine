@@ -102,6 +102,10 @@ void Camera::OnDeserialize(const json& inJson)
 		{
 			ClearType = Moonlight::ClearColorType::Skybox;
 		}
+		else if (inJson["ClearType"] == "Procedural")
+		{
+			ClearType = Moonlight::ClearColorType::Procedural;
+		}
 	}
 
 	if (inJson.contains("ClearColor"))
@@ -123,6 +127,10 @@ void Camera::OnSerialize(json& outJson)
 	else if (ClearType == Moonlight::ClearColorType::Skybox)
 	{
 		outJson["ClearType"] = "Skybox";
+	}
+	else if (ClearType == Moonlight::ClearColorType::Procedural)
+	{
+		outJson["ClearType"] = "Procedural";
 	}
 
 	if (Skybox && Skybox->SkyMaterial)
@@ -181,6 +189,10 @@ void Camera::OnEditorInspect()
 		if (ImGui::Selectable("Skybox", (ClearType == Moonlight::ClearColorType::Skybox)))
 		{
 			ClearType = Moonlight::ClearColorType::Skybox;
+		}
+		if (ImGui::Selectable("Procedural", (ClearType == Moonlight::ClearColorType::Procedural)))
+		{
+			ClearType = Moonlight::ClearColorType::Procedural;
 		}
 		ImGui::EndCombo();
 	}

@@ -18,6 +18,7 @@
 #include "Resource/ResourceCache.h"
 #include <Graphics/SkyBox.h>
 #include <Math/Matrix4.h>
+#include <Graphics/DynamicSky.h>
 
 #if BX_PLATFORM_LINUX
 #define GLFW_EXPOSE_NATIVE_X11
@@ -138,6 +139,9 @@ void BGFXRenderer::Create(const RendererCreationSettings& settings)
 
 		m_timeOffset = bx::getHPCounter();
 
+		m_dynamicSky = std::make_shared<Moonlight::DynamicSky>(32, 32);
+
+		m_dynamicSky->m_sun.Update(0);
 		m_defaultOpacityTexture = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Textures/DefaultAlpha.png"));
 	}
 
@@ -164,7 +168,7 @@ void BGFXRenderer::Render(Moonlight::CameraData& EditorCamera)
 	ImGui::Combo("Test Top", (int*)&m_pt, s_ptNames, BX_COUNTOF(s_ptNames));
 	ImGui::End();
 
-	ImGuiRender->EndFrame();
+	m_dynamicSky->DrawImGui();
 
 	// Use debug font to print information about this example.
 	bgfx::dbgTextClear();
@@ -210,7 +214,7 @@ void BGFXRenderer::Render(Moonlight::CameraData& EditorCamera)
 	}
 #endif
 	{
-
+		ImGuiRender->EndFrame();
 		{
 			OPTICK_EVENT("Renderer::Frame", Optick::Category::Rendering);
 			bgfx::frame();
@@ -269,7 +273,12 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 
 		bgfx::touch(id);
 
-		if (camera.Skybox)
+		bgfx::setViewTransform(0, view, proj);
+		if (camera.ClearType == Moonlight::ClearColorType::Procedural)
+		{
+			m_dynamicSky->Draw(id);
+		}
+		else if (camera.Skybox)
 		{
 			uint64_t state = 0
 				| BGFX_STATE_WRITE_RGB
