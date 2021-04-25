@@ -53,7 +53,7 @@ public:
 	// Qualifier: Set the log file location to write to.
 	// Parameter: std::string filename
 	//************************************
-	void SetLogFile(std::string filename);
+	void SetLogFile(const std::string& filename);
 	/*
 	Set the logger write priority.
 	@param priority: The logger priority to change to

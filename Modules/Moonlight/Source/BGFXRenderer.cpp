@@ -168,8 +168,6 @@ void BGFXRenderer::Render(Moonlight::CameraData& EditorCamera)
 	ImGui::Combo("Test Top", (int*)&m_pt, s_ptNames, BX_COUNTOF(s_ptNames));
 	ImGui::End();
 
-	m_dynamicSky->DrawImGui();
-
 	// Use debug font to print information about this example.
 	bgfx::dbgTextClear();
 	// Enable stats or debug text.
@@ -568,6 +566,11 @@ void BGFXRenderer::ClearMeshes()
 	{
 		FreeMeshCommandIndicies.pop();
 	}
+}
+
+SharedPtr<Moonlight::DynamicSky> BGFXRenderer::GetSky()
+{
+	return m_dynamicSky;
 }
 
 unsigned int BGFXRenderer::PushMesh(Moonlight::MeshCommand command)

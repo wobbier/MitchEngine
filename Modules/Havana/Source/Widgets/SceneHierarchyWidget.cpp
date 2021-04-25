@@ -303,17 +303,23 @@ void SceneHierarchyWidget::DrawEntityRightClickMenu(Transform* transform)
 			GetEngine().GetWorld().lock()->Simulate();
 		}
 
+		if (ImGui::BeginMenu("Add Component"))
+		{
+			CommonUtils::DrawAddComponentList(transform->Parent);
+			ImGui::EndMenu();
+		}
+
+		if (ImGui::MenuItem("Duplicate"))
+		{
+			CommonUtils::DuplicateEntity(transform->Parent);
+		}
+
 		if (ImGui::MenuItem("Delete", "Del"))
 		{
 			CommonUtils::RecusiveDelete(transform->Parent, transform);
 			GetEngine().GetWorld().lock()->Simulate();
 			ClearInspectEvent evt;
 			evt.Fire();
-		}
-		if (ImGui::BeginMenu("Add Component"))
-		{
-			CommonUtils::DrawAddComponentList(transform->Parent);
-			ImGui::EndMenu();
 		}
 		ImGui::EndPopup();
 	}

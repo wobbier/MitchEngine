@@ -6,6 +6,12 @@
 #include "Resource/ResourceCache.h"
 #include "Utils/HavanaUtils.h"
 
+#if ME_EDITOR
+#include <BGFXRenderer.h>
+#include <Graphics/DynamicSky.h>
+#include <Engine/Engine.h>
+#endif
+
 Camera* Camera::CurrentCamera = nullptr;
 Camera* Camera::EditorCamera = nullptr;
 
@@ -264,6 +270,10 @@ void Camera::OnEditorInspect()
 	{
 		HavanaUtils::Label("Clear Color");
 		ImGui::ColorEdit3("##Clear Color", &ClearColor[0]);
+	}
+	else if (ClearType == Moonlight::ClearColorType::Procedural)
+	{
+		GetEngine().GetRenderer().GetSky()->DrawImGui();
 	}
 }
 

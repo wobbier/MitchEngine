@@ -2,6 +2,7 @@
 #include "ShaderCommand.h"
 #include "bx/math.h"
 #include <map>
+#include <Materials/DynamicSkyMaterial.h>
 
 namespace Moonlight
 {
@@ -121,15 +122,7 @@ namespace Moonlight
 		bgfx::VertexBufferHandle m_vbh;
 		bgfx::IndexBufferHandle m_ibh;
 
-		ShaderCommand m_sky;
-
 		// Shader stuff
-		bgfx::UniformHandle u_sunLuminance;
-		bgfx::UniformHandle u_skyLuminanceXYZ;
-		bgfx::UniformHandle u_skyLuminance;
-		bgfx::UniformHandle u_sunDirection;
-		bgfx::UniformHandle u_parameters;
-		bgfx::UniformHandle u_perezCoeff;
 		SunController m_sun;
 
 		DynamicValueController m_sunLuminanceXYZ;
@@ -138,6 +131,7 @@ namespace Moonlight
 		float m_time;
 		float m_timeScale;
 		int64_t m_timeOffset;
+		UniquePtr<DynamicSkyMaterial> m_material;
 
 		float m_turbidity;
 	};

@@ -13,7 +13,7 @@ CLog::~CLog()
 {
 }
 
-void CLog::SetLogFile(std::string filename)
+void CLog::SetLogFile(const std::string& filename)
 {
 	mLogFileLocation = filename;
 }

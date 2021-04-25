@@ -3,6 +3,7 @@
 #include <memory>
 #include <imgui.h>
 #include <bx/timer.h>
+#include "Materials/DynamicSkyMaterial.h"
 
 namespace Moonlight
 {
@@ -101,7 +102,8 @@ namespace Moonlight
 	{
 		ScreenPosVertex::init();
 
-		m_sky = ShaderCommand("Assets/Shaders/Sky/Sky");
+		m_material = std::make_unique<DynamicSkyMaterial>();
+		m_material->Init();
 
 		ScreenPosVertex* skyVerts = (ScreenPosVertex*)malloc(inWidth * inHeight * sizeof(ScreenPosVertex));
 
@@ -139,47 +141,36 @@ namespace Moonlight
 		m_skyLuminanceXYZ.SetMap(skyLuminanceXYZTable);
 
 		m_timeOffset = bx::getHPCounter();
-		m_time = 0.0f;
-		m_timeScale = 1.0f;
+		m_time = 15.0f;
+		m_timeScale = 0.0f;
 
-		u_sunLuminance = bgfx::createUniform("u_sunLuminance", bgfx::UniformType::Vec4);
-		u_skyLuminanceXYZ = bgfx::createUniform("u_skyLuminanceXYZ", bgfx::UniformType::Vec4);
-		u_skyLuminance = bgfx::createUniform("u_skyLuminance", bgfx::UniformType::Vec4);
-		u_sunDirection = bgfx::createUniform("u_sunDirection", bgfx::UniformType::Vec4);
-		u_parameters = bgfx::createUniform("u_parameters", bgfx::UniformType::Vec4);
-		u_perezCoeff = bgfx::createUniform("u_perezCoeff", bgfx::UniformType::Vec4, 5);
-		m_turbidity = 2.15f;
+		m_turbidity = 1.9f;
 	}
 
 	void DynamicSky::DrawImGui()
 	{
-		if (ImGui::Begin("ProceduralSky"))
+		ImGui::SliderFloat("Time scale", &m_timeScale, 0.0f, 1.0f);
+		ImGui::SliderFloat("Time", &m_time, 0.0f, 24.0f);
+		ImGui::SliderFloat("Latitude", &m_sun.m_latitude, -90.0f, 90.0f);
+		ImGui::SliderFloat("Turbidity", &m_turbidity, 1.9f, 10.0f);
+
+		const char* items[] =
 		{
-			ImGui::SliderFloat("Time scale", &m_timeScale, 0.0f, 1.0f);
-			ImGui::SliderFloat("Time", &m_time, 0.0f, 24.0f);
-			ImGui::SliderFloat("Latitude", &m_sun.m_latitude, -90.0f, 90.0f);
-			ImGui::SliderFloat("Turbidity", &m_turbidity, 1.9f, 10.0f);
+			"January",
+			"February",
+			"March",
+			"April",
+			"May",
+			"June",
+			"July",
+			"August",
+			"September",
+			"October",
+			"November",
+			"December"
+		};
 
-			const char* items[] =
-			{
-				"January",
-				"February",
-				"March",
-				"April",
-				"May",
-				"June",
-				"July",
-				"August",
-				"September",
-				"October",
-				"November",
-				"December"
-			};
-
-			ImGui::Combo("Month", (int*)&m_sun.m_month, items, 12);
-
-			ImGui::End();
-		}
+		ImGui::Combo("Month", (int*)&m_sun.m_month, items, 12);
 	}
 
 	void DynamicSky::Draw(uint32_t inViewId)
@@ -200,23 +191,24 @@ namespace Moonlight
 		Color skyLuminanceXYZ = m_skyLuminanceXYZ.GetValue(m_time);
 		Color skyLuminanceRGB = xyzToRgb(skyLuminanceXYZ);
 
-		bgfx::setUniform(u_sunLuminance, &sunLuminanceRGB.x);
-		bgfx::setUniform(u_skyLuminanceXYZ, &skyLuminanceXYZ.x);
-		bgfx::setUniform(u_skyLuminance, &skyLuminanceRGB.x);
+		bgfx::setUniform(m_material->u_sunLuminance, &sunLuminanceRGB.x);
+		bgfx::setUniform(m_material->u_skyLuminanceXYZ, &skyLuminanceXYZ.x);
+		bgfx::setUniform(m_material->u_skyLuminance, &skyLuminanceRGB.x);
 
-		bgfx::setUniform(u_sunDirection, &m_sun.m_sunDir.x);
+		bgfx::setUniform(m_material->u_sunDirection, &m_sun.m_sunDir.x);
 
 		float exposition[4] = { 0.02f, 3.0f, 0.1f, m_time };
-		bgfx::setUniform(u_parameters, exposition);
+		bgfx::setUniform(m_material->u_parameters, exposition);
 
 		float perezCoeff[4 * 5];
 		computePerezCoeff(m_turbidity, perezCoeff);
-		bgfx::setUniform(u_perezCoeff, perezCoeff, 5);
+		bgfx::setUniform(m_material->u_perezCoeff, perezCoeff, 5);
 
 		bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_EQUAL);
 		bgfx::setIndexBuffer(m_ibh);
 		bgfx::setVertexBuffer(0, m_vbh);
-		bgfx::submit(inViewId, m_sky.GetProgram());
+		
+		bgfx::submit(inViewId, m_material->MeshShader.GetProgram());
 	}
 
 	void DynamicSky::computePerezCoeff(float _turbidity, float* _outPerezCoeff)
@@ -231,7 +223,8 @@ namespace Moonlight
 		}
 	}
 
-	SunController::SunController() : m_latitude(50.0f)
+	SunController::SunController()
+		: m_latitude(-6.0f)
 		, m_month(June)
 		, m_eclipticObliquity(bx::toRad(23.4f))
 		, m_delta(0.0f)

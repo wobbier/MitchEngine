@@ -54,6 +54,8 @@ public:
 	Moonlight::MeshCommand& GetMesh(unsigned int Id);
 	void UpdateMeshMatrix(unsigned int Id, glm::mat4& matrix);
 	void ClearMeshes();
+	SharedPtr<Moonlight::DynamicSky> GetSky();
+
 private:
 	Vector2 PreviousSize;
 	Vector2 CurrentSize;

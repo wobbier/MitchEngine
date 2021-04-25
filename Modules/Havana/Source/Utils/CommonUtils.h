@@ -5,6 +5,9 @@
 #include <Commands/EditorCommands.h>
 #include <Components/Transform.h>
 #include <Utils/CommonUtils.h>
+#include <JSON.h>
+
+class Transform;
 
 #if ME_EDITOR
 
@@ -27,6 +30,12 @@ namespace CommonUtils
 	void DoComponentRecursive(const FolderTest& currentFolder, const EntityHandle& entity);
 
 	void DrawAddComponentList(const EntityHandle& entity);
+
+	void SerializeEntity(json& d, Transform* CurrentTransform);
+
+	EntityHandle DeserializeEntity(const json& obj, Transform* parent);
+
+	void DuplicateEntity(const EntityHandle& entity);
 }
 
 #endif

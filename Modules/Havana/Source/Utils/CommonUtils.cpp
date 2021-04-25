@@ -1,4 +1,8 @@
 #include <Utils/CommonUtils.h>
+#include <optick.h>
+#include <Engine/Engine.h>
+#include <Engine/World.h>
+#include <HavanaEvents.h>
 
 #if ME_EDITOR
 
@@ -135,6 +139,106 @@ void CommonUtils::DrawAddComponentList(const EntityHandle& entity)
 	//		}*/
 	//	}
 	//}
+}
+void CommonUtils::SerializeEntity(json& outEntity, Transform* CurrentTransform)
+{
+	OPTICK_EVENT("SceneGraph::UpdateRecursively");
+
+	outEntity["Name"] = CurrentTransform->GetName();
+	outEntity["DestroyOnLoad"] = CurrentTransform->Parent->DestroyOnLoad;
+
+	json& componentsJson = outEntity["Components"];
+	EntityHandle ent = CurrentTransform->Parent;
+
+	auto comps = ent->GetAllComponents();
+	for (auto comp : comps)
+	{
+		json compJson;
+		comp->Serialize(compJson);
+		componentsJson.push_back(compJson);
+	}
+	if (CurrentTransform->GetChildren().size() > 0)
+	{
+		for (SharedPtr<Transform> Child : CurrentTransform->GetChildren())
+		{
+			SerializeEntity(outEntity["Children"], Child.get());
+		}
+	}
+}
+
+EntityHandle CommonUtils::DeserializeEntity(const json& obj, Transform* parent)
+{
+	std::string thingg = obj.dump(4);
+	EntityHandle ent;
+	if (parent)
+	{
+		auto t = parent->GetChildByName(obj["Name"]);
+		if (t)
+		{
+			// change name cause already exists
+			//ent = t->Parent;
+		}
+	}
+	if (!ent)
+	{
+		ent = GetEngine().GetWorld().lock()->CreateEntity();
+	}
+	ent->IsLoading = true;
+	Transform* transComp = nullptr;
+	for (const json& comp : obj["Components"])
+	{
+		if (comp.is_null())
+		{
+			continue;
+		}
+		BaseComponent* addedComp = ent->AddComponentByName(comp["Type"]);
+		if (comp["Type"] == "Transform")
+		{
+			transComp = static_cast<Transform*>(addedComp);
+			if (parent)
+			{
+				transComp->SetParent(*parent);
+			}
+			transComp->SetName(obj["Name"]);
+		}
+		if (addedComp)
+		{
+			addedComp->Deserialize(comp);
+			addedComp->Init();
+		}
+	}
+	ent->SetActive(true);
+
+	if (obj.contains("DestroyOnLoad"))
+	{
+		ent->DestroyOnLoad = obj["DestroyOnLoad"];
+	}
+
+	ent->IsLoading = false;
+
+	if (obj.contains("Children"))
+	{
+		for (const json& child : obj["Children"])
+		{
+			DeserializeEntity(child, transComp);
+		}
+	}
+	return ent;
+}
+
+void CommonUtils::DuplicateEntity(const EntityHandle& entity)
+{
+	if (entity->HasComponent<Transform>())
+	{
+		json j;
+		SerializeEntity(j, &entity->GetComponent<Transform>());
+
+		EntityHandle handle = DeserializeEntity(j, nullptr);
+
+		InspectEvent evt;
+		evt.SelectedEntity = handle;
+		evt.Fire();
+	}
 }
 
 #endif
