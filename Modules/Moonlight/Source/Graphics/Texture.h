@@ -37,7 +37,6 @@ namespace Moonlight
 		: public Resource
 	{
 	public:
-		unsigned int Id;
 		TextureType Type;
 
 		int mWidth;

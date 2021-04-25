@@ -257,8 +257,6 @@ void TextureResourceMetadata::Export()
 #if ME_PLATFORM_WIN64
 	Path optickPath = Path("Engine/Tools/Win64/texturec.exe");
 
-	std::string fileName = FilePath.LocalPath.substr(FilePath.LocalPath.rfind("/") + 1, FilePath.LocalPath.length());
-
 	std::string progArgs = "-f ../../../";
 	progArgs += FilePath.LocalPath;
 	progArgs += " -o ../../../" + FilePath.LocalPath + ".dds" + exportType;
@@ -269,7 +267,6 @@ void TextureResourceMetadata::Export()
     
     Path optickPath = Path("Engine/Tools/macOS/texturec");
 
-    std::string fileName = FilePath.LocalPath.substr(FilePath.LocalPath.rfind("/") + 1, FilePath.LocalPath.length());
     // texturec -f $in -o $out -t bc2 -m
     std::string progArgs = "\"" + optickPath.FullPath + "\" -f ../../";
     progArgs += FilePath.LocalPath;

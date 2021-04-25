@@ -266,8 +266,8 @@ void UICore::CopyBitmapToTexture(ultralight::RefPtr<ultralight::Bitmap> bitmap)
 {
 	void* pixels = bitmap->LockPixels();
 
-	uint32_t width = bitmap->width();
-	uint32_t height = bitmap->height();
+	//uint32_t width = bitmap->width();
+	//uint32_t height = bitmap->height();
 	uint32_t stride = bitmap->row_bytes();
 
 	//bitmap->WritePNG(Path("Assets/TestUI.png").FullPath.c_str());

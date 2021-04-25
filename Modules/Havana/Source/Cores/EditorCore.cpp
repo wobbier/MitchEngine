@@ -138,10 +138,10 @@ void EditorCore::Update(float dt)
 			float XOffset = MousePosition.x - LastX;
 			float YOffest = LastY - MousePosition.y;
 
-			Input& editorInput = GetEditor()->GetInput();
-			Vector2 windowPos = GetEngine().GetWindow()->GetPosition();
-			Vector2 windowSize = GetEngine().GetWindow()->GetSize();
-			Vector2 offset = editorInput.GetMouseOffset();
+			//Input& editorInput = GetEditor()->GetInput();
+			//Vector2 windowPos = GetEngine().GetWindow()->GetPosition();
+			//Vector2 windowSize = GetEngine().GetWindow()->GetSize();
+			//Vector2 offset = editorInput.GetMouseOffset();
 			/*if (MousePosition.x + windowPos.x<= windowPos.x)
 			{
 				editorInput.SetMousePosition(Vector2(windowPos.x + windowSize.x, MousePosition.y + windowPos.y));

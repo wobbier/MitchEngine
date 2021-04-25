@@ -278,7 +278,7 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 		{
 			m_dynamicSky->Draw(id);
 		}
-		else if (camera.Skybox)
+		else if (camera.ClearType == Moonlight::ClearColorType::Skybox && camera.Skybox)
 		{
 			uint64_t state = 0
 				| BGFX_STATE_WRITE_RGB
