@@ -15,17 +15,6 @@ namespace Moonlight
 		-0.49853f,   0.041556f,  1.057311f,
 	};
 
-	// Converts color repesentation from CIE XYZ to RGB color-space.
-	Color xyzToRgb(const Color& xyz)
-	{
-		Color rgb;
-		rgb.x = M_XYZ2RGB[0] * xyz.x + M_XYZ2RGB[3] * xyz.y + M_XYZ2RGB[6] * xyz.z;
-		rgb.y = M_XYZ2RGB[1] * xyz.x + M_XYZ2RGB[4] * xyz.y + M_XYZ2RGB[7] * xyz.z;
-		rgb.z = M_XYZ2RGB[2] * xyz.x + M_XYZ2RGB[5] * xyz.y + M_XYZ2RGB[8] * xyz.z;
-		return rgb;
-	};
-
-
 	// Precomputed luminance of sunlight in XYZ colorspace.
 	// Computed using code from Game Engine Gems, Volume One, chapter 15. Implementation based on Dr. Richard Bird model.
 	// This table is used for piecewise linear interpolation. Transitions from and to 0.0 at sunset and sunrise are highly inaccurate
@@ -223,15 +212,24 @@ namespace Moonlight
 		}
 	}
 
+	Color DynamicSky::xyzToRgb(const Color& xyz)
+	{
+		Color rgb;
+		rgb.x = M_XYZ2RGB[0] * xyz.x + M_XYZ2RGB[3] * xyz.y + M_XYZ2RGB[6] * xyz.z;
+		rgb.y = M_XYZ2RGB[1] * xyz.x + M_XYZ2RGB[4] * xyz.y + M_XYZ2RGB[7] * xyz.z;
+		rgb.z = M_XYZ2RGB[2] * xyz.x + M_XYZ2RGB[5] * xyz.y + M_XYZ2RGB[8] * xyz.z;
+		return rgb;
+	}
+
 	SunController::SunController()
 		: m_latitude(-6.0f)
 		, m_month(June)
 		, m_eclipticObliquity(bx::toRad(23.4f))
 		, m_delta(0.0f)
+		, m_northDir({ 1.0f,  0.0f, 0.0f })
+		, m_sunDir({ 0.0f, -1.0f, 0.0f })
+		, m_upDir({ 0.0f,  1.0f, 0.0f })
 	{
-		m_northDir = { 1.0f,  0.0f, 0.0f };
-		m_sunDir = { 0.0f, -1.0f, 0.0f };
-		m_upDir = { 0.0f,  1.0f, 0.0f };
 	}
 
 	void SunController::Update(float _time)
