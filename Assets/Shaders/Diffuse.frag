@@ -1,5 +1,6 @@
 $input v_color0, v_normal, v_texcoord0
 
+
 #include "Common.sh"
 
 SAMPLER2D(s_texDiffuse, 0);
@@ -23,7 +24,7 @@ void main()
 
 	float diff = max(dot(normalize(v_normal), lightDir), 0.0);
 	float diffuseSky = 1.0 + 0.5 * dot(normalize(v_normal), skyDirection);
-	
+	diffuseSky *= 0.03;
 	vec4 diffuse = diff * s_sunDiffuse;// * color;
 	color += diffuse;
 	color += diffuseSky * u_skyLuminance;
