@@ -119,6 +119,8 @@ namespace Moonlight
 		void Draw(uint32_t inViewId);
 
 		void computePerezCoeff(float _turbidity, float* _outPerezCoeff);
+		// Converts color repesentation from CIE XYZ to RGB color-space.
+		Color xyzToRgb(const Color& xyz);;
 		bgfx::VertexBufferHandle m_vbh;
 		bgfx::IndexBufferHandle m_ibh;
 
@@ -134,5 +136,7 @@ namespace Moonlight
 		UniquePtr<DynamicSkyMaterial> m_material;
 
 		float m_turbidity;
+
+
 	};
 }

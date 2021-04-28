@@ -74,8 +74,13 @@ private:
 	bgfx::IndexBufferHandle m_ibh;
 	bgfx::ProgramHandle UIProgram;
 	bgfx::UniformHandle s_texDiffuse;
+	bgfx::UniformHandle s_texNormal;
 	bgfx::UniformHandle s_texAlpha;
 	bgfx::UniformHandle s_texUI;
+	bgfx::UniformHandle s_ambient;
+	bgfx::UniformHandle s_sunDirection;
+	bgfx::UniformHandle s_sunDiffuse;
+	bx::Vec3 m_ambient;
 	int32_t m_pt;
 	int64_t m_timeOffset;
 	Moonlight::CameraData DummyCameraData;

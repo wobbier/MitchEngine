@@ -134,8 +134,12 @@ void BGFXRenderer::Create(const RendererCreationSettings& settings)
         
 		UIProgram = Moonlight::LoadProgram("Assets/Shaders/UI.vert", "Assets/Shaders/UI.frag");
 		s_texDiffuse = bgfx::createUniform("s_texDiffuse", bgfx::UniformType::Sampler);
+		s_texNormal = bgfx::createUniform("s_texNormal", bgfx::UniformType::Sampler);
 		s_texAlpha = bgfx::createUniform("s_texAlpha", bgfx::UniformType::Sampler);
 		s_texUI = bgfx::createUniform("s_texUI", bgfx::UniformType::Sampler);
+		s_ambient = bgfx::createUniform("s_ambient", bgfx::UniformType::Vec4);
+		s_sunDirection = bgfx::createUniform("s_sunDirection", bgfx::UniformType::Vec4);
+		s_sunDiffuse = bgfx::createUniform("s_sunDiffuse", bgfx::UniformType::Vec4);
 
 		m_timeOffset = bx::getHPCounter();
 
@@ -166,6 +170,16 @@ void BGFXRenderer::Render(Moonlight::CameraData& EditorCamera)
 	ImGui::Checkbox("Show Frame Stats", &s_showStats);
 	ImGui::Text("Primitive topology:");
 	ImGui::Combo("Test Top", (int*)&m_pt, s_ptNames, BX_COUNTOF(s_ptNames));
+	ImGui::ColorEdit3("Ambient", &m_ambient.x);
+
+	bx::Vec3 sunLuminanceXYZ = m_dynamicSky->m_sunLuminanceXYZ.GetValue(m_dynamicSky->m_time);
+	bx::Vec3 sunDiffuse = m_dynamicSky->xyzToRgb(sunLuminanceXYZ);
+
+	sunDiffuse.x = sunDiffuse.x / 255.f;
+	sunDiffuse.y = sunDiffuse.y / 255.f;
+	sunDiffuse.z = sunDiffuse.z / 255.f;
+	ImGui::DragFloat3("Sun Diffuse", &sunDiffuse.x);
+	ImGui::DragFloat3("Sun Direction", &m_dynamicSky->m_sun.m_sunDir.x);
 	ImGui::End();
 
 	// Use debug font to print information about this example.
@@ -180,6 +194,9 @@ void BGFXRenderer::Render(Moonlight::CameraData& EditorCamera)
 		bgfx::reset((uint32_t)CurrentSize.x, (uint32_t)CurrentSize.y, BGFX_RESET_VSYNC);
 		bgfx::setViewRect(kClearView, 0, 0, bgfx::BackbufferRatio::Equal);
 	}
+	bgfx::setUniform(s_ambient, &m_ambient.x);
+	bgfx::setUniform(s_sunDirection, &m_dynamicSky->m_sun.m_sunDir.x);
+	bgfx::setUniform(s_sunDiffuse, &sunDiffuse.x);
 #if ME_EDITOR
 	bgfx::ViewId id = 1;
 
@@ -442,16 +459,28 @@ void BGFXRenderer::RenderSingleMesh(bgfx::ViewId id, const Moonlight::MeshComman
 			}
 		}
 
-		if (const Moonlight::Texture* opacity = mesh.MeshMaterial->GetTexture(Moonlight::TextureType::Opacity))
+		if (const Moonlight::Texture* normal = mesh.MeshMaterial->GetTexture(Moonlight::TextureType::Normal))
 		{
-			if (bgfx::isValid(opacity->TexHandle))
+			if (bgfx::isValid(normal->TexHandle))
 			{
-				bgfx::setTexture(1, s_texAlpha, opacity->TexHandle);
+				bgfx::setTexture(1, s_texNormal, normal->TexHandle);
 			}
 		}
 		else
 		{
-			bgfx::setTexture(1, s_texAlpha, m_defaultOpacityTexture->TexHandle);
+			bgfx::setTexture(1, s_texNormal, m_defaultOpacityTexture->TexHandle);
+		}
+
+		if (const Moonlight::Texture* opacity = mesh.MeshMaterial->GetTexture(Moonlight::TextureType::Opacity))
+		{
+			if (bgfx::isValid(opacity->TexHandle))
+			{
+				bgfx::setTexture(2, s_texAlpha, opacity->TexHandle);
+			}
+		}
+		else
+		{
+			bgfx::setTexture(2, s_texAlpha, m_defaultOpacityTexture->TexHandle);
 		}
 
 		mesh.MeshMaterial->Use();
