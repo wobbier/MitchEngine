@@ -42,6 +42,46 @@ function getPlatformPostfix(name)
   return name
 end
 
+function postBuildCopyCommands(dir)
+    filter { "system:windows" }
+    if isPlatform("UWP") then
+	  postbuildcommands {
+	    "xcopy /y /d  \"$(ProjectDir)" .. dir .. "Engine\\ThirdParty\\UltralightSDK\\bin\\UWP\\*.dll\" \"$(ProjectDir)$(OutDir)\"",
+	    "xcopy /y /d  \"$(ProjectDir)" .. dir .. "Engine\\ThirdParty\\UltralightSDK\\bin\\UWP\\*.dll\" \"$(ProjectDir)$(OutDir)AppX\""
+	  }
+    end
+
+    if isPlatform("Win64") then
+	  postbuildcommands {
+	    "xcopy /y /d  \"$(ProjectDir)" .. dir .. "Engine\\ThirdParty\\UltralightSDK\\bin\\Win64\\*.dll\" \"$(ProjectDir)$(OutDir)\""
+	  }
+    end
+    filter { "system:windows", "Debug*" }
+    if isPlatform("Win64") then
+	  postbuildcommands {
+	    "xcopy /y /d  \"$(ProjectDir)" .. dir .. "Engine\\ThirdParty\\Lib\\SDL\\Win64\\Debug\\*.dll\" \"$(ProjectDir)$(OutDir)\""
+	  }
+    end
+    if isPlatform("UWP") then
+	  postbuildcommands {
+	    "xcopy /y /d  \"$(ProjectDir)" .. dir .. "Engine\\ThirdParty\\Lib\\SDL\\UWP\\Debug\\*.dll\" \"$(ProjectDir)$(OutDir)\""
+      }
+    end
+    
+    filter { "system:windows", "Release*" }
+    if isPlatform("Win64") then
+	  postbuildcommands {
+	    "xcopy /y /d  \"$(ProjectDir)" .. dir .. "Engine\\ThirdParty\\Lib\\SDL\\Win64\\Release\\*.dll\" \"$(ProjectDir)$(OutDir)\""
+	  }
+    end
+    if isPlatform("UWP") then
+	  postbuildcommands {
+	    "xcopy /y /d  \"$(ProjectDir)" .. dir .. "Engine\\ThirdParty\\Lib\\SDL\\UWP\\Release\\*.dll\" \"$(ProjectDir)$(OutDir)\""
+      }
+    end
+    filter {}
+end
+
 function macOSEntryPoints()
     if isPlatform("macOS") then
     filter { "Debug Editor" }
@@ -440,6 +480,7 @@ project "Havana"
       }
 
     macOSEntryPoints()
+    postBuildCopyCommands("..\\..\\..\\")
 
 	filter { "action:vs*" }
 	links {
@@ -684,7 +725,12 @@ project (getPlatformPostfix(ProjectName .. "_EntryPoint"))
 	end
 
     macOSEntryPoints()
+    postBuildCopyCommands("..\\")
     
+    filter "*Editor"
+    kind "None"
+    filter {}
+
 	filter { "action:vs*" }
 		systemversion "10.0.14393.0"
         links {
@@ -729,9 +775,10 @@ filter { "action:vs*" }
 	"Dementia.lib",
 	"ImGui.lib",
   }
-filter {}
-  
 
+filter {}
+    postBuildCopyCommands("..\\")
+  
   language "C++"
   targetdir "Build/%{cfg.buildcfg}"
   location "Game"
@@ -756,9 +803,10 @@ filter {}
 	["Shaders"] = "Assets/Shaders/**.var",
   }
   
-dependson {
-  "ImGui"
-}
+  dependson {
+    "ImGui"
+  }
+
   filter { "files:**.hlsl" }
     flags {"ExcludeFromBuild"}
   filter {}
@@ -779,23 +827,4 @@ dependson {
 	links {
 	"ImGui.lib"
 	}
-	if isUWP then
-	  configuration "Release Editor" 
-	  postbuildcommands {
-		"xcopy /y /d  \"ThirdParty\\UltralightSDK\\bin\\UWP\\*.*\" \"..\\Build\\Release Editor\""
-	  }
-	  configuration "Release" 
-	  postbuildcommands {
-		"xcopy /y /d  \"ThirdParty\\UltralightSDK\\bin\\UWP\\*.*\" \"..\\Build\\Release\""
-	  }
-	else
-	  --configuration "Debug Editor" 
-	  --postbuildcommands {
-	  --  "xcopy /y /d  \"ThirdParty\\UltralightSDK\\bin\\Win64\\*.*\" \"..\\Build\\Debug Editor\""
-	  --}
-	  --configuration "Debug" 
-	  --postbuildcommands {
-	  --  "xcopy /y /d  \"ThirdParty\\UltralightSDK\\bin\\Win64\\*.*\" \"..\\Build\\Debug\""
-	  --}
-	end
 end
