@@ -89,7 +89,7 @@ struct ShaderFileMetadata
 		progArgs += " -o ../../../" + localFolder + fileName + "." + Moonlight::GetPlatformString() + ".bin --varyingdef ../../../" + localFolder + nameNoExt + ".var --platform windows -p " + shaderType + " --type " + exportType;
 		// ./shaderc -f ../../../Assets/Shaders/vs_cubes.shader -o ../../../Assets/Shaders/dummy.bin --varyingdef ./varying.def.sc --platform windows -p vs_5_0 --type vertex
 
-		PlatformUtils::RunProcess(shadercPath, progArgs);
+		PlatformUtils::SystemCall(shadercPath, progArgs);
 
 #elif ME_PLATFORM_MACOS
         Path shadercPath = Path("Engine/Tools/macOS/shaderc");
