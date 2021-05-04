@@ -38,10 +38,14 @@ AssetBrowser::AssetBrowser(const std::string& pathToWatch, std::chrono::duration
 		Paths[file.path().string()] = std::filesystem::last_write_time(file);
 		ProccessDirectory(file, AssetDirectory);
 	}
-	for (auto& file : std::filesystem::recursive_directory_iterator(EngineAssetDirectory.FullPath.FullPath))
+
+	if (EngineAssetDirectory.FullPath.Exists)
 	{
-		Paths[file.path().string()] = std::filesystem::last_write_time(file);
-		ProccessDirectory(file, EngineAssetDirectory);
+		for (auto& file : std::filesystem::recursive_directory_iterator(EngineAssetDirectory.FullPath.FullPath))
+		{
+			Paths[file.path().string()] = std::filesystem::last_write_time(file);
+			ProccessDirectory(file, EngineAssetDirectory);
+		}
 	}
 }
 

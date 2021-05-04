@@ -486,6 +486,7 @@ project "Havana"
 	links {
 		getPlatformPostfix(ProjectName) .. ".lib"
 	}
+    debugdir "$(SolutionDir)"
 	filter {}
         
       links {
