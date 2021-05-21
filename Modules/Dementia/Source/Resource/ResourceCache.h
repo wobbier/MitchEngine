@@ -50,11 +50,13 @@ SharedPtr<T> ResourceCache::Get(const Path& InFilePath, Args&& ... args)
 	}
 
 	MetaBase* metaFile = LoadMetadata(InFilePath);
+#if ME_EDITOR
 	if (metaFile && metaFile->FlaggedForExport)
 	{
 		metaFile->Export();
 		metaFile->Save();
 	}
+#endif
 
 	if (!InFilePath.Exists && !metaFile->FlaggedForExport)
 	{

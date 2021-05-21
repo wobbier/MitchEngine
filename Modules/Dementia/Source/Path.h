@@ -43,7 +43,7 @@ public:
         assetPrefix = "/";
     #endif
 #else
-		assetPrefix = "/../";
+		assetPrefix = "/";
 #endif
 		LocalPath = InFile;
 
