@@ -256,10 +256,21 @@ void Mesh::OnEditorInspect()
 
 			static std::vector<Path> Textures;
 			Path path = Path("Assets");
+			Path engineAssetPath = Path("Engine/Assets");
 			if (Textures.empty())
 			{
 				Textures.push_back(Path(""));
 				for (const auto& entry : std::filesystem::recursive_directory_iterator(path.FullPath))
+				{
+					Path filePath(entry.path().string());
+					if ((filePath.LocalPath.rfind(".png") != std::string::npos || filePath.LocalPath.rfind(".jpg") != std::string::npos || filePath.LocalPath.rfind(".tif") != std::string::npos)
+						&& filePath.LocalPath.rfind(".meta") == std::string::npos)
+					{
+						Textures.push_back(filePath);
+					}
+				}
+
+				for (const auto& entry : std::filesystem::recursive_directory_iterator(engineAssetPath.FullPath))
 				{
 					Path filePath(entry.path().string());
 					if ((filePath.LocalPath.rfind(".png") != std::string::npos || filePath.LocalPath.rfind(".jpg") != std::string::npos || filePath.LocalPath.rfind(".tif") != std::string::npos)
