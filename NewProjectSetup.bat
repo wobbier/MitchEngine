@@ -4,7 +4,11 @@ IF NOT EXIST .git (
 git init
 )
 
-set /P id=Enter project name (Used for the .sln): 
+set id=%1
+
+if "%1"=="" set /P id=Enter project name (Used for the .sln): 
+
+if "%id%"=="" set id=ExampleProject
 
 echo 2> .gitmodules
 
