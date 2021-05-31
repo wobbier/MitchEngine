@@ -1,5 +1,5 @@
 cd Assimp
-cmake . -G "Visual Studio 15 2017 Win64" -DBUILD_SHARED_LIBS=false
+cmake . -G "Visual Studio 15 2017 Win64" -DBUILD_SHARED_LIBS=false -DASSIMP_BUILD_ALL_IMPORTERS_BY_DEFAULT=false -DASSIMP_BUILD_FBX_IMPORTER=true -DASSIMP_BUILD_OBJ_IMPORTER=true
 cd ../Bullet
 cmake . -G "Visual Studio 15 2017 Win64" -DUSE_MSVC_RUNTIME_LIBRARY_DLL=true
 cd ../
