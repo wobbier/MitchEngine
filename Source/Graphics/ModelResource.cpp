@@ -25,8 +25,6 @@ ModelResource::ModelResource(const Path& path)
 
 ModelResource::~ModelResource()
 {
-	Resource::~Resource();
-
 	std::vector<Moonlight::MeshData*> meshes;
 	std::stack<Moonlight::Node*> nodes;
 	nodes.push(&RootNode);

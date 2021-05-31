@@ -36,8 +36,6 @@ static const bgfx::EmbeddedShader s_embeddedShaders[] =
 void ImGuiRenderer::Create()
 {
 	ViewId = 255;
-	LastScroll = 0;
-	//Last = bx::getHPCounter();
 
 	IMGUI_CHECKVERSION();
 	Context = ImGui::CreateContext();
@@ -99,15 +97,13 @@ void ImGuiRenderer::NewFrame(const Vector2& mousePosition, uint8_t mouseButton, 
 	io.MouseDown[0] = (mouseButton & IMGUI_MBUT_LEFT) != 0;
 	io.MouseDown[1] = (mouseButton & IMGUI_MBUT_RIGHT) != 0;
 	io.MouseDown[2] = (mouseButton & IMGUI_MBUT_MIDDLE) != 0;
-	io.MouseWheel = (float)(scroll - LastScroll);
-	LastScroll = scroll;
 
-	//bgfx::setViewClear(viewId
-	//	, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH
-	//	, 0x00000000
-	//	, 1.0f
-	//	, 0
-	//);
+	bgfx::setViewClear(viewId
+		, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH
+		, 0x00000000
+		, 1.0f
+		, 0
+	);
 
 	ImGui::NewFrame();
 }

@@ -85,7 +85,7 @@ void SDLWindow::ParseMessageQueue()
 	{
 		if (ImGui_ImplSDL2_ProcessEvent(&event))
 		{
-			return;
+			//return;
 		}
 		switch (event.type)
 		{
@@ -105,18 +105,44 @@ void SDLWindow::ParseMessageQueue()
 		case SDL_WINDOWEVENT:
 		{
 			const SDL_WindowEvent& wev = event.window;
-			switch (wev.event) {
-			case SDL_WINDOWEVENT_RESIZED:
-			case SDL_WINDOWEVENT_SIZE_CHANGED:
-				ResizeCB(GetSize());
-				break;
-
-			case SDL_WINDOWEVENT_CLOSE:
-				CloseRequested = true;
-				break;
-			}
-			break;
-		}
+            switch (wev.event)
+            {
+                case SDL_WINDOWEVENT_SHOWN:
+                    break;
+                case SDL_WINDOWEVENT_HIDDEN:
+                    break;
+                case SDL_WINDOWEVENT_EXPOSED:
+                    break;
+                case SDL_WINDOWEVENT_MINIMIZED:
+                    break;
+                case SDL_WINDOWEVENT_MAXIMIZED:
+                    break;
+                case SDL_WINDOWEVENT_RESTORED:
+                    break;
+                case SDL_WINDOWEVENT_ENTER:
+                    break;
+                case SDL_WINDOWEVENT_LEAVE:
+                    break;
+                case SDL_WINDOWEVENT_FOCUS_GAINED:
+                    break;
+                case SDL_WINDOWEVENT_FOCUS_LOST:
+                    break;
+                case SDL_WINDOWEVENT_TAKE_FOCUS:
+                    break;
+                case SDL_WINDOWEVENT_HIT_TEST:
+                    break;
+                case SDL_WINDOWEVENT_RESIZED:
+                case SDL_WINDOWEVENT_SIZE_CHANGED:
+                case SDL_WINDOWEVENT_MOVED:
+                    ResizeCB(GetSize());
+                break;
+                case SDL_WINDOWEVENT_CLOSE:
+                    CloseRequested = true;
+                break;
+                default:
+                    break;
+            }
+        }
 		default:
 			break;
 		}

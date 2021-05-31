@@ -296,7 +296,8 @@ bool AssetBrowser::ProccessDirectoryRecursive(std::string& dir, Directory& dirRe
 					|| newdir.find(".dds") != std::string::npos
 					|| newdir.find(".pdn") != std::string::npos
 					|| newdir.find(".blend") != std::string::npos
-					|| newdir.find(".bin") != std::string::npos)
+					|| newdir.find(".bin") != std::string::npos
+                    || newdir.find(".DS_Store") != std::string::npos)
 				{
 					return false;
 				}

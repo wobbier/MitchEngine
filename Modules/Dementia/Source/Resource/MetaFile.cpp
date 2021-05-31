@@ -58,9 +58,7 @@ void MetaBase::Deserialize(const json& inJson)
 		wasModified = (LastModified != CachedLastModified);
 	}
     
-#if !ME_PLATFORM_MACOS
 	FlaggedForExport = wasModified;
-#endif
     
 	if (inJson.contains("LastModifiedDebug"))
 	{

@@ -10,8 +10,6 @@ namespace HavanaUtils
 	static void Label(const std::string& Name)
 	{
 		ImGuiWindow* window = ImGui::GetCurrentWindow();
-		const ImVec2 lineStart = ImGui::GetCursorScreenPos();
-		const ImGuiStyle& style = ImGui::GetStyle();
 		float fullWidth = ImGui::GetContentRegionAvail().x;
 		float itemWidth = fullWidth * 0.6f;
 		ImVec2 textSize = ImGui::CalcTextSize(Name.c_str());
@@ -65,7 +63,6 @@ namespace HavanaUtils
 	{
 		ImGui::PushID(Name.c_str());
 
-		float columnWidth = 150.f;
 		Label(Name);
 
 		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0.f, 0.f });
@@ -134,10 +131,8 @@ namespace HavanaUtils
 
 	static bool EditableVector(const std::string& Name, Vector2& Vector, float ResetValue = 0.f)
 	{
-		//ImGui::DragFloat2(Name.c_str(), &Vector[0], 1.f, 0.0f, 0.0f, "%.1f");
 		ImGui::PushID(Name.c_str());
 
-		float columnWidth = 150.f;
 		Label(Name);
 
 		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0.f, 0.f });

@@ -9,10 +9,6 @@ Resource::Resource(const Path& path)
 
 Resource::~Resource()
 {
-	if (Resources)
-	{
-		Resources->TryToDestroy(this);
-	}
 }
 
 void Resource::SetMetadata(MetaBase* metadata)

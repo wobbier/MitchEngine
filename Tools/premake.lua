@@ -482,9 +482,11 @@ project "Havana"
     macOSEntryPoints()
     postBuildCopyCommands("..\\..\\..\\")
     
-    filter "not *Editor"
-    kind "None"
-    filter {}
+    if not isPlatform("macOS") then
+        filter "not *Editor"
+        kind "None"
+        filter {}
+    end
 
 	filter { "action:vs*" }
 	links {
@@ -734,9 +736,11 @@ project (getPlatformPostfix(ProjectName .. "_EntryPoint"))
 
     debugdir "$(OutDir)"
     
-    filter "*Editor"
-    kind "None"
-    filter {}
+    if not isPlatform("macOS") then
+        filter "*Editor"
+        kind "None"
+        filter {}
+    end
 
 	filter { "action:vs*" }
 		systemversion "10.0.14393.0"

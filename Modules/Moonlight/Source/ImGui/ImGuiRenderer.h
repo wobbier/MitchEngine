@@ -17,8 +17,6 @@ public:
 
 private:
 	int ViewId = 255;
-	int LastScroll = 0;
-	//int64_t Last = 0;
 	ImGuiContext* Context = nullptr;
 
 	bgfx::ProgramHandle Program;

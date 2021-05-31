@@ -30,10 +30,10 @@ struct MetaBase
 	virtual void OnEditorInspect() {
 		ImGui::Text("File Type: ");
 		ImGui::SameLine();
-		ImGui::Text(FileType.c_str());
+        ImGui::Text("%s", FileType.c_str());
 		ImGui::Text("Last Modified: ");
 		ImGui::SameLine();
-		ImGui::Text(LastModifiedDebug.c_str());
+        ImGui::Text("%s", LastModifiedDebug.c_str());
 	}
 #endif
 
