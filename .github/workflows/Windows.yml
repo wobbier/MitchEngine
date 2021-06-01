@@ -52,7 +52,7 @@ jobs:
       - name: Archive
         uses: actions/upload-artifact@v2
         with:
-          name: TestGame - ${{matrix.buildconfig}}
+          name: EmptyProject - ${{matrix.buildconfig}}
           path: |
             Build/${{matrix.buildconfig}}
             !Build/${{matrix.buildconfig}}/**/*.fbx

@@ -1,0 +1,57 @@
+name: macOS
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest]
+        buildconfig: [Debug Editor]
+        #compiler: [ g++-10 ]
+        include:
+          - os: macos-latest
+            compiler: clang
+            target: Windows
+
+    steps:
+
+      - uses: suisei-cn/actions-download-file@v1
+        id: downloadfile
+        name: Grab the project setup file
+        with:
+          url: "https://raw.githubusercontent.com/wobbier/MitchEngine/master/NewProjectSetup.command"
+          target: ./
+        
+      - name: Generate a new project
+        shell: bash
+        run: sh NewProjectSetup.command EmptyProject
+        
+      - name: Xcodebuild Action
+        uses: sersoft-gmbh/xcodebuild-action@v1.4
+        with:
+          workspace: EmptyProject.xcworkspace
+          scheme: Havana
+          destination: platform=macOS
+          action: build
+          configuration: ${{matrix.buildconfig}}
+          
+      - name: Copy Assets (Not Implemented)
+        shell: bash
+        run: echo todo
+        
+      - name: Archive
+        uses: actions/upload-artifact@v2
+        with:
+          name: EmptyProject - ${{matrix.buildconfig}}
+          path: |
+            Build/${{matrix.buildconfig}}
+            !Build/${{matrix.buildconfig}}/**/*.fbx
+            !Build/${{matrix.buildconfig}}/AppX
