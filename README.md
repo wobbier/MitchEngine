@@ -11,6 +11,7 @@ Check out my [Notion][4] to view the current development status.
 
 |Platform|Game|
 |---|---|
+|Win64|[![Build status Win64](https://github.com/wobbier/MitchEngine/actions/workflows/Windows.yml/badge.svg)](https://github.com/wobbier/MitchEngine/actions/workflows/Windows.yml)|
 |UWP / Xbox|[![Build status UWP](https://ci.appveyor.com/api/projects/status/7x55po7se0siesdn?svg=true)](https://ci.appveyor.com/project/wobbier/mitchengine)|
 |macOS|[![Build Status](https://travis-ci.com/wobbier/stack.svg?branch=master)](https://travis-ci.com/wobbier/stack)|
 

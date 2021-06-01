@@ -1,0 +1,59 @@
+name: Windows
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-2016]
+        buildconfig: [Release, Release Editor]
+        #compiler: [ g++-10 ]
+        include:
+          - os: windows-2016
+            shell: cmd
+            compiler: cl
+            target: Windows
+
+    steps:
+      - name: Add MSBuild to PATH
+        if: ${{ matrix.os == 'windows-2016' }}
+        uses: microsoft/setup-msbuild@v1.0.2
+        
+      - uses: suisei-cn/actions-download-file@v1
+        if: ${{ matrix.os == 'windows-2016' }}
+        id: downloadfile
+        name: Grab the project setup file
+        with:
+          url: "https://raw.githubusercontent.com/wobbier/MitchEngine/master/NewProjectSetup.bat"
+          target: ./
+        
+      - name: Generate a new project
+        if: ${{ matrix.os == 'windows-2016' }}
+        shell: cmd
+        run: call NewProjectSetup.bat EmptyProject
+        
+      - name: Compile Project
+        if: ${{ matrix.os == 'windows-2016' }}
+        shell: cmd
+        run: msbuild /property:Configuration="${{matrix.buildconfig}}"
+
+      - name: Copy Assets
+        shell: cmd
+        run: call CopyAssets.bat
+        
+      - name: Archive
+        uses: actions/upload-artifact@v2
+        with:
+          name: TestGame - ${{matrix.buildconfig}}
+          path: |
+            Build/${{matrix.buildconfig}}
+            !Build/${{matrix.buildconfig}}/**/*.fbx
+            !Build/${{matrix.buildconfig}}/AppX

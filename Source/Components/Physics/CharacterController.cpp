@@ -1,6 +1,7 @@
 #include "PCH.h"
 #include "CharacterController.h"
 #include "imgui.h"
+#include <Utils/HavanaUtils.h>
 
 class IgnoreBodyAndGhostCast
 	: public btCollisionWorld::ClosestRayResultCallback
@@ -41,7 +42,7 @@ void CharacterController::Init()
 {
 }
 
-void CharacterController::Initialize(Scene* pScene, btDynamicsWorld* pPhysicsWorld, const Vector3 spawnPos, float radius, float height, float mass, float stepHeight)
+void CharacterController::Initialize(btDynamicsWorld* pPhysicsWorld, const Vector3 spawnPos, float radius, float height, float mass, float stepHeight)
 {
 	m_world = pPhysicsWorld;
 	m_bottomYOffset = height / 2.f + radius;

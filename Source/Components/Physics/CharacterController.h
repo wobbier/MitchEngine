@@ -1,14 +1,15 @@
 #pragma once
+#include "ECS/ComponentDetail.h"
 #include "ECS/Component.h"
 
 #include "btBulletDynamicsCommon.h"
 #include <BulletCollision/CollisionDispatch/btGhostObject.h>
 #include "BulletDynamics/Dynamics/btDynamicsWorld.h"
-#include "World/Scene.h"
 #include "LinearMath/btDefaultMotionState.h"
 #include "BulletCollision/CollisionShapes/btCollisionShape.h"
 #include "BulletDynamics/Dynamics/btRigidBody.h"
 #include "LinearMath/btTransform.h"
+#include <Math/Vector3.h>
 
 class CharacterController
 	: public Component<CharacterController>
@@ -27,7 +28,7 @@ public:
 	// Separate init from construction code.
 	virtual void Init() final;
 
-	void Initialize(Scene* pScene, btDynamicsWorld* pPhysicsWorld, const Vector3 spawnPos, float radius, float height, float mass, float stepHeight);
+	void Initialize(btDynamicsWorld* pPhysicsWorld, const Vector3 spawnPos, float radius, float height, float mass, float stepHeight);
 
 	void Walk(const Vector3& direction);
 	void Walk(Vector2 direction);

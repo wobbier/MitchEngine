@@ -165,7 +165,7 @@ void PhysicsCore::OnEntityAdded(Entity& NewEntity)
 	if (NewEntity.HasComponent<CharacterController>())
 	{
 		CharacterController& Controller = NewEntity.GetComponent<CharacterController>();
-		Controller.Initialize(nullptr, PhysicsWorld, TransformComponent.GetWorldPosition(), 1, 5, 5, 1);
+		Controller.Initialize(PhysicsWorld, TransformComponent.GetWorldPosition(), 1, 5, 5, 1);
 	}
 }
 
