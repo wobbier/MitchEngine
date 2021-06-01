@@ -770,9 +770,11 @@ project (getPlatformPostfix(ProjectName .. "_EntryPoint"))
       "Game/Source",
       "."
     }
+    
     filter { "files:Assets/*.png" }
     deploy "true"
 	
+ ---------------------------- Game Project ------------------------------
 group "Game"
 project ((getPlatformPostfix(ProjectName)))
 
@@ -832,7 +834,9 @@ filter {}
     "Game/Source",
     "."
   }
-  
+      
+    sysincludedirs { "Game/Source" }
+    
   configuration "*Editor" 
     kind "StaticLib"
 	links {
