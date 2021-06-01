@@ -424,7 +424,7 @@ end
 language "C++"
 targetdir "../Build/%{cfg.buildcfg}"
 location "../Modules/Moonlight"
-flags { "FatalWarnings" }
+--flags { "FatalWarnings" }
 dependson { "Dementia" }
 
 filter "action:vs*"
@@ -615,7 +615,7 @@ vpaths {
   ["Source"] = "../Source/**.*",
   ["Source"] = "../Source/*.*"
 }
-flags { "FatalWarnings" }
+--flags { "FatalWarnings" }
 dependson {
   "ImGui"
 }
