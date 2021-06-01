@@ -467,6 +467,8 @@ project "Havana"
       "../Modules/Havana/Source/",
         "."
     }
+          
+    sysincludedirs { "../Modules/Havana/Source/" }
     files {
       "../Modules/Havana/Source/**.*"
     }
