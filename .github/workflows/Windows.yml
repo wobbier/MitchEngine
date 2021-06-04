@@ -72,14 +72,6 @@ jobs:
           call Havana.exe -CompileAssets
           cd ../../
 
-      - name: Archive Game Editor Folder
-        if: ${{ matrix.buildconfig == 'Release' }}
-        uses: actions/upload-artifact@v2
-        with:
-          name: EmptyProject - EditorFolder - ${{matrix.buildconfig}}
-          path: |
-            Build/Release Editor
-
       - name: Copy Cooked Assets
         if: ${{ matrix.buildconfig == 'Release' }}
         shell: cmd
@@ -96,5 +88,9 @@ jobs:
             Build/${{matrix.buildconfig}}
             Build/${{matrix.buildconfig}}/Assets
             !Build/${{matrix.buildconfig}}/AppX
-            !Build/${{matrix.buildconfig}}/Assets/**.png
-            !Build/${{matrix.buildconfig}}/Assets/**.jpg
+            !Build/${{matrix.buildconfig}}/**/*.png
+            !Build/${{matrix.buildconfig}}/**/*.jpg
+            !Build/${{matrix.buildconfig}}/**/*.frag
+            !Build/${{matrix.buildconfig}}/**/*.vert
+            !Build/${{matrix.buildconfig}}/**/*.var
+            !Build/${{matrix.buildconfig}}/**/*.sh

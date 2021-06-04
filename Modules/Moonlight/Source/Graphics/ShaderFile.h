@@ -84,14 +84,13 @@ struct ShaderFileMetadata
 		}
 
 		std::string fileName = FilePath.LocalPath.substr(FilePath.LocalPath.rfind("/") + 1, FilePath.LocalPath.length());
-		std::string localFolder = FilePath.LocalPath.substr(0, FilePath.LocalPath.rfind("/") + 1);
+		std::string localFolder = FilePath.Directory;
 
 		// --platform windows -p vs_5_0 -O 3 --type vertex --depends -o $(@) -f $(<) --disasm
 		//
 		std::string nameNoExt = fileName.substr(0, fileName.rfind("."));
-		std::string progArgs = "-f ../../../";
-		progArgs += localFolder + fileName;
-		progArgs += " -o ../../../" + localFolder + fileName + "." + GetExtension2() + " --varyingdef ../../../" + localFolder + nameNoExt + ".var --platform windows -p " + shaderType + " --type " + exportType;
+		std::string progArgs = "-f \"" + localFolder + fileName + "\"";
+		progArgs += " -o \"" + localFolder + fileName + "." + GetExtension2() + "\" --varyingdef \"" + localFolder + nameNoExt + ".var\" --platform windows -p " + shaderType + " --type " + exportType;
 		// ./shaderc -f ../../../Assets/Shaders/vs_cubes.shader -o ../../../Assets/Shaders/dummy.bin --varyingdef ./varying.def.sc --platform windows -p vs_5_0 --type vertex
 
 		PlatformUtils::SystemCall(shadercPath, progArgs);

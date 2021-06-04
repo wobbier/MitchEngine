@@ -17,6 +17,7 @@
 #include "optick.h"
 #include "Utils/ImGuiUtils.h"
 #include <Utils/CommonUtils.h>
+#include <Graphics/ShaderFile.h>
 
 #if ME_EDITOR
 
@@ -300,7 +301,7 @@ void AssetBrowser::BuildAssetsRecursive(Directory& dir)
 		case AssetType::Audio:
 			break;
 		case AssetType::Shader:
-			//ResourceCache::GetInstance().Get<Moonlight::Texture>(SelectedAsset->FullPath.LocalPath);
+			m_compiledAssets.push_back(ResourceCache::GetInstance().Get<Moonlight::ShaderFile>(files.FullPath));
 			break;
 		default:
 			break;
@@ -375,6 +376,10 @@ bool AssetBrowser::ProccessDirectoryRecursive(std::string& dir, Directory& dirRe
 				else if (newdir.rfind(".obj") != std::string::npos || newdir.rfind(".fbx") != std::string::npos || newdir.rfind(".FBX") != std::string::npos)
 				{
 					type = AssetType::Model;
+				}
+				else if (newdir.rfind(".frag") != std::string::npos || newdir.rfind(".vert") != std::string::npos)
+				{
+					type = AssetType::Shader;
 				}
 
 				AssetDescriptor desc;

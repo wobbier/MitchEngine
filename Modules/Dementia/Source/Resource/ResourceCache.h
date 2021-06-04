@@ -50,13 +50,6 @@ SharedPtr<T> ResourceCache::Get(const Path& InFilePath, Args&& ... args)
 	}
 
 	MetaBase* metaFile = LoadMetadata(InFilePath);
-#if ME_EDITOR
-	if (metaFile && metaFile->FlaggedForExport)
-	{
-		metaFile->Export();
-		metaFile->Save();
-	}
-#endif
 
 	bool compiledFileExists = true;
 	if (metaFile)
@@ -64,6 +57,15 @@ SharedPtr<T> ResourceCache::Get(const Path& InFilePath, Args&& ... args)
 		Path compiledAsset = Path(metaFile->FilePath.FullPath + "." + metaFile->GetExtension2());
 		compiledFileExists = compiledAsset.Exists;
 	}
+
+#if ME_EDITOR
+	if (metaFile && (metaFile->FlaggedForExport || !compiledFileExists))
+	{
+		metaFile->Export();
+		metaFile->Save();
+	}
+#endif
+
 	if (!InFilePath.Exists && !compiledFileExists && metaFile && !metaFile->FlaggedForExport)
 	{
 		YIKES("Failed to load resource: " + InFilePath.FullPath);
