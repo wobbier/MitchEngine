@@ -91,7 +91,7 @@ struct ShaderFileMetadata
 		std::string nameNoExt = fileName.substr(0, fileName.rfind("."));
 		std::string progArgs = "-f ../../../";
 		progArgs += localFolder + fileName;
-		progArgs += " -o ../../../" + localFolder + fileName + "." + Moonlight::GetPlatformString() + "." + GetExtension2() + " --varyingdef ../../../" + localFolder + nameNoExt + ".var --platform windows -p " + shaderType + " --type " + exportType;
+		progArgs += " -o ../../../" + localFolder + fileName + "." + GetExtension2() + " --varyingdef ../../../" + localFolder + nameNoExt + ".var --platform windows -p " + shaderType + " --type " + exportType;
 		// ./shaderc -f ../../../Assets/Shaders/vs_cubes.shader -o ../../../Assets/Shaders/dummy.bin --varyingdef ./varying.def.sc --platform windows -p vs_5_0 --type vertex
 
 		PlatformUtils::SystemCall(shadercPath, progArgs);
@@ -119,7 +119,7 @@ struct ShaderFileMetadata
         std::string nameNoExt = fileName.substr(0, fileName.rfind("."));
         std::string progArgs = "\"" + shadercPath.FullPath + "\" -f ../../";
         progArgs += localFolder + fileName;
-        progArgs += " -o ../../" + localFolder + fileName + "." + Moonlight::GetPlatformString() + "." + GetExtension2() + " --varyingdef ../../" + localFolder + nameNoExt + ".var --platform osx -p metal --depends -disasm --type " + exportType;
+        progArgs += " -o ../../" + localFolder + fileName + "." + GetExtension2() + " --varyingdef ../../" + localFolder + nameNoExt + ".var --platform osx -p metal --depends -disasm --type " + exportType;
         
         
 

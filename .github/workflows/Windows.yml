@@ -50,7 +50,6 @@ jobs:
         run: call CopyAssets.bat
 
       - name: Copy Editor Assets
-        if: ${{ matrix.buildconfig == 'Release Editor' }}
         shell: cmd
         continue-on-error: true
         run: |
@@ -61,14 +60,32 @@ jobs:
         if: ${{ matrix.buildconfig == 'Release Editor' }}
         uses: actions/upload-artifact@v2
         with:
-          name: EmptyProject - Assets
+          name: EmptyProject - Editor
           path: |
             Build/${{matrix.buildconfig}}
             !Build/${{matrix.buildconfig}}/AppX
 
       - name: Cook Assets
         shell: cmd
-        run: call "Build/Release Editor/Havana.exe" -CompileAssets
+        run: |
+          cd "Build/Release Editor/"
+          call Havana.exe -CompileAssets
+          cd ../../
+
+      - name: Archive Game Editor Folder
+        if: ${{ matrix.buildconfig == 'Release' }}
+        uses: actions/upload-artifact@v2
+        with:
+          name: EmptyProject - EditorFolder - ${{matrix.buildconfig}}
+          path: |
+            Build/Release Editor
+
+      - name: Copy Cooked Assets
+        if: ${{ matrix.buildconfig == 'Release' }}
+        shell: cmd
+        continue-on-error: true
+        run: |
+          robocopy "Build/Release Editor/Assets" "Build\\Release\\Assets" *.* /w:0 /r:1 /v /E
 
       - name: Archive Game
         if: ${{ matrix.buildconfig == 'Release' }}
@@ -77,9 +94,7 @@ jobs:
           name: EmptyProject - ${{matrix.buildconfig}}
           path: |
             Build/${{matrix.buildconfig}}
+            Build/${{matrix.buildconfig}}/Assets
             !Build/${{matrix.buildconfig}}/AppX
-            !Build/${{matrix.buildconfig}}/Assets
-            Build/Release Editor/
-            !Build/Release Editor/Assets/**.png
-            !Build/Release Editor/Assets/**.jpg
-            !Build/Release Editor/*.*
+            !Build/${{matrix.buildconfig}}/Assets/**.png
+            !Build/${{matrix.buildconfig}}/Assets/**.jpg
