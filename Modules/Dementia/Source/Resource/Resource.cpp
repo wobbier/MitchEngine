@@ -9,6 +9,8 @@ Resource::Resource(const Path& path)
 
 Resource::~Resource()
 {
+	delete Metadata;
+	Metadata = nullptr;
 }
 
 void Resource::SetMetadata(MetaBase* metadata)

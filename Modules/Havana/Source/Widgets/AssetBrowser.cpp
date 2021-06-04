@@ -52,7 +52,7 @@ AssetBrowser::AssetBrowser(const std::string& pathToWatch, std::chrono::duration
 AssetBrowser::~AssetBrowser()
 {
 	IsRunning = false;
-	fileBrowser.join();
+	//fileBrowser.join();
 }
 
 void AssetBrowser::Start(const std::function<void(std::string, FileStatus)>& action)
@@ -120,7 +120,20 @@ void AssetBrowser::Draw()
 {
 	OPTICK_CATEGORY("Asset Browser", Optick::Category::Debug);
 	ImGui::Begin("Assets");
-
+	if (m_compiledAssets.empty())
+	{
+		if (ImGui::Button("Build Assets"))
+		{
+			BuildAssets();
+		}
+	}
+	else
+	{
+		if (ImGui::Button("Clear Assets"))
+		{
+			ClearAssets();
+		}
+	}
 	if (ImGui::CollapsingHeader("Game", ImGuiTreeNodeFlags_DefaultOpen))
 	{
 		Recursive(AssetDirectory);
@@ -259,6 +272,45 @@ void AssetBrowser::ProccessDirectory(const std::filesystem::directory_entry& fil
 		ProccessDirectoryRecursive(dir2, dirRef, file);
 
 	}
+}
+
+void AssetBrowser::BuildAssets()
+{
+	BuildAssetsRecursive(EngineAssetDirectory);
+	BuildAssetsRecursive(AssetDirectory);
+}
+
+void AssetBrowser::BuildAssetsRecursive(Directory& dir)
+{
+	for (auto& directory : dir.Directories)
+	{
+		BuildAssetsRecursive(directory.second);
+	}
+	for (AssetDescriptor& files : dir.Files)
+	{
+		switch (files.Type)
+		{
+		case AssetType::Level:
+			break;
+		case AssetType::Texture:
+			m_compiledAssets.push_back(ResourceCache::GetInstance().Get<Moonlight::Texture>(files.FullPath));
+			break;
+		case AssetType::Model:
+			break;
+		case AssetType::Audio:
+			break;
+		case AssetType::Shader:
+			//ResourceCache::GetInstance().Get<Moonlight::Texture>(SelectedAsset->FullPath.LocalPath);
+			break;
+		default:
+			break;
+		}
+	}
+}
+
+void AssetBrowser::ClearAssets()
+{
+	m_compiledAssets.clear();
 }
 
 bool AssetBrowser::ProccessDirectoryRecursive(std::string& dir, Directory& dirRef, const std::filesystem::directory_entry& file)

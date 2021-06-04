@@ -2,9 +2,9 @@ name: Windows
 
 on:
   push:
-    branches: [ main ]
+    branches: [master]
   pull_request:
-    branches: [ main ]
+    branches: [master]
 
   workflow_dispatch:
 
@@ -15,7 +15,6 @@ jobs:
       matrix:
         os: [windows-2016]
         buildconfig: [Release, Release Editor]
-        #compiler: [ g++-10 ]
         include:
           - os: windows-2016
             shell: cmd
@@ -24,36 +23,56 @@ jobs:
 
     steps:
       - name: Add MSBuild to PATH
-        if: ${{ matrix.os == 'windows-2016' }}
         uses: microsoft/setup-msbuild@v1.0.2
-        
+
       - uses: suisei-cn/actions-download-file@v1
-        if: ${{ matrix.os == 'windows-2016' }}
         id: downloadfile
         name: Grab the project setup file
         with:
           url: "https://raw.githubusercontent.com/wobbier/MitchEngine/master/NewProjectSetup.bat"
           target: ./
-        
+
       - name: Generate a new project
-        if: ${{ matrix.os == 'windows-2016' }}
         shell: cmd
         run: call NewProjectSetup.bat EmptyProject
-        
+
       - name: Compile Project
-        if: ${{ matrix.os == 'windows-2016' }}
         shell: cmd
         run: msbuild /property:Configuration="${{matrix.buildconfig}}"
 
       - name: Copy Assets
         shell: cmd
         run: call CopyAssets.bat
-        
+
+      - name: \[Editor] Copy Assets
+        if: ${{ matrix.buildconfig == 'Release Editor' }}
+        shell: cmd
+        continue-on-error: true
+        run: robocopy "Build/Release/Assets" "Build\\Release Editor\\Assets" *.* /w:0 /r:1 /v /E
+
+      - name: \[Editor] Cook Assets
+        if: ${{ matrix.buildconfig == 'Release Editor' }}
+        shell: cmd
+        run: "./Build/Release Editor/Havana.exe" -CompileAssets
+
       - name: Archive
         uses: actions/upload-artifact@v2
         with:
           name: EmptyProject - ${{matrix.buildconfig}}
           path: |
             Build/${{matrix.buildconfig}}
-            !Build/${{matrix.buildconfig}}/**/*.fbx
+            !Build/${{matrix.buildconfig}}/Assets
             !Build/${{matrix.buildconfig}}/AppX
+
+      - name: Archive Assets
+        if: ${{ matrix.buildconfig == 'Release Editor' }}
+        uses: actions/upload-artifact@v2
+        with:
+          name: EmptyProject - Assets
+          path: |
+            Build/${{matrix.buildconfig}}
+            Build/${{matrix.buildconfig}}/Assets
+            Build/${{matrix.buildconfig}}/Assets/**.png
+            Build/${{matrix.buildconfig}}/Assets/**.jpg
+            !Build/${{matrix.buildconfig}}/AppX
+            !Build/${{matrix.buildconfig}}/*.*

@@ -89,6 +89,8 @@ struct TextureResourceMetadata
 	{
 	}
 
+	virtual std::string GetExtension2() const override;
+
 	void OnSerialize(json& inJson) override;
 	void OnDeserialize(const json& inJson) override;
 

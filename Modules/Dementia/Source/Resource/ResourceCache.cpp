@@ -88,12 +88,14 @@ MetaBase* ResourceCache::LoadMetadata(const Path& filePath)
 			j = json::parse(metaFile.Read());
 			metadata->Deserialize(j);
 		}
+#if ME_EDITOR
 		else
 		{
 			metadata->Serialize(j);
 			metaFile.Write(j.dump(4));
 			metadata->FlaggedForExport = true;
 		}
+#endif
 	}
 	return metadata;
 }

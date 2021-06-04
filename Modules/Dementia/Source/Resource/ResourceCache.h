@@ -58,7 +58,13 @@ SharedPtr<T> ResourceCache::Get(const Path& InFilePath, Args&& ... args)
 	}
 #endif
 
-	if (!InFilePath.Exists && !metaFile->FlaggedForExport)
+	bool compiledFileExists = true;
+	if (metaFile)
+	{
+		Path compiledAsset = Path(metaFile->FilePath.FullPath + "." + metaFile->GetExtension2());
+		compiledFileExists = compiledAsset.Exists;
+	}
+	if (!InFilePath.Exists && !compiledFileExists && metaFile && !metaFile->FlaggedForExport)
 	{
 		YIKES("Failed to load resource: " + InFilePath.FullPath);
 		return {};

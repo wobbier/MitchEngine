@@ -67,9 +67,13 @@ public:
 
 	void Recursive(Directory& dir);
 	void ProccessDirectory(const std::filesystem::directory_entry& file, Directory& dirRef);
+	void BuildAssets();
+	void ClearAssets();
 private:
 	bool ProccessDirectoryRecursive(std::string& dir, Directory& dirRef, const std::filesystem::directory_entry& file);
+	void BuildAssetsRecursive(Directory& dir);
 
+	std::vector<SharedPtr<Resource>> m_compiledAssets;
 	void SavePrefab(json& d, Transform* CurrentTransform, bool IsRoot);
 	std::unordered_map<std::string, std::filesystem::file_time_type> Paths;
 	bool IsRunning = true;

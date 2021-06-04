@@ -2,9 +2,9 @@ name: macOS
 
 on:
   push:
-    branches: [ main ]
+    branches: [master]
   pull_request:
-    branches: [ main ]
+    branches: [master]
 
   workflow_dispatch:
 
@@ -22,18 +22,17 @@ jobs:
             target: Windows
 
     steps:
-
       - uses: suisei-cn/actions-download-file@v1
         id: downloadfile
         name: Grab the project setup file
         with:
           url: "https://raw.githubusercontent.com/wobbier/MitchEngine/master/NewProjectSetup.command"
           target: ./
-        
+
       - name: Generate a new project
         shell: bash
         run: sh NewProjectSetup.command EmptyProject
-        
+
       - name: Xcodebuild Action
         uses: sersoft-gmbh/xcodebuild-action@v1.4
         with:
@@ -42,11 +41,11 @@ jobs:
           destination: platform=macOS
           action: build
           configuration: ${{matrix.buildconfig}}
-          
+
       - name: Copy Assets (Not Implemented)
         shell: bash
         run: echo todo
-        
+
       - name: Archive
         uses: actions/upload-artifact@v2
         with:

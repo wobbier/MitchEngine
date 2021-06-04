@@ -44,6 +44,8 @@ struct ModelResourceMetadata
 	void OnSerialize(json& inJson) override;
 	void OnDeserialize(const json& inJson) override;
 
+	virtual std::string GetExtension2() const override;
+
 #if ME_EDITOR
 	virtual void OnEditorInspect() final;
 #endif
