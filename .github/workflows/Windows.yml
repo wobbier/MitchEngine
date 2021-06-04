@@ -64,6 +64,13 @@ jobs:
           path: |
             Build/${{matrix.buildconfig}}
             !Build/${{matrix.buildconfig}}/AppX
+            !Build/${{matrix.buildconfig}}/Tools
+            !Build/${{matrix.buildconfig}}/*.lib
+            !Build/${{matrix.buildconfig}}/*.pdb
+            !Build/${{matrix.buildconfig}}/*.exp
+            !Build/${{matrix.buildconfig}}/*.log
+            Build/${{matrix.buildconfig}}/Tools/Optick.exe
+            Build/${{matrix.buildconfig}}/Tools/Win64
 
       - name: Cook Assets
         if: ${{ matrix.buildconfig == 'Release' }}
