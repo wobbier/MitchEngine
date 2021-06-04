@@ -262,9 +262,9 @@ void TextureResourceMetadata::Export()
 #if ME_PLATFORM_WIN64
 	Path optickPath = Path("Engine/Tools/Win64/texturec.exe");
 
-	std::string progArgs = "-f ";
+	std::string progArgs = "-f \"";
 	progArgs += FilePath.FullPath;
-	progArgs += " -o " + FilePath.FullPath + ".dds" + exportType;
+	progArgs += "\" -o \"" + FilePath.FullPath + ".dds\"" + exportType;
 	// ./shaderc -f ../../../Assets/Shaders/vs_cubes.shader -o ../../../Assets/Shaders/dummy.bin --varyingdef ./varying.def.sc --platform windows -p vs_5_0 --type vertex
 
 	PlatformUtils::SystemCall(optickPath, progArgs);
