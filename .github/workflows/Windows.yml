@@ -36,6 +36,11 @@ jobs:
         shell: cmd
         run: call NewProjectSetup.bat EmptyProject
 
+      - name: Compile Tools
+        if: ${{ matrix.buildconfig == 'Release' }}
+        shell: cmd
+        run: msbuild /property:Configuration="Release Editor"
+
       - name: Compile Project
         shell: cmd
         run: msbuild /property:Configuration="${{matrix.buildconfig}}"
@@ -44,35 +49,37 @@ jobs:
         shell: cmd
         run: call CopyAssets.bat
 
-      - name: \[Editor] Copy Assets
+      - name: Copy Editor Assets
         if: ${{ matrix.buildconfig == 'Release Editor' }}
         shell: cmd
         continue-on-error: true
-        run: robocopy "Build/Release/Assets" "Build\\Release Editor\\Assets" *.* /w:0 /r:1 /v /E
+        run: |
+          robocopy "Build/Release/Assets" "Build\\Release Editor\\Assets" *.* /w:0 /r:1 /v /E
+          robocopy "Engine/Tools" "Build\\Release Editor\\Engine\\Tools" *.* /w:0 /r:1 /v /E
 
-      - name: \[Editor] Cook Assets
-        if: ${{ matrix.buildconfig == 'Release Editor' }}
-        shell: cmd
-        run: "./Build/Release Editor/Havana.exe" -CompileAssets
-
-      - name: Archive
-        uses: actions/upload-artifact@v2
-        with:
-          name: EmptyProject - ${{matrix.buildconfig}}
-          path: |
-            Build/${{matrix.buildconfig}}
-            !Build/${{matrix.buildconfig}}/Assets
-            !Build/${{matrix.buildconfig}}/AppX
-
-      - name: Archive Assets
+      - name: Archive Editor
         if: ${{ matrix.buildconfig == 'Release Editor' }}
         uses: actions/upload-artifact@v2
         with:
           name: EmptyProject - Assets
           path: |
             Build/${{matrix.buildconfig}}
-            Build/${{matrix.buildconfig}}/Assets
-            Build/${{matrix.buildconfig}}/Assets/**.png
-            Build/${{matrix.buildconfig}}/Assets/**.jpg
             !Build/${{matrix.buildconfig}}/AppX
-            !Build/${{matrix.buildconfig}}/*.*
+
+      - name: Cook Assets
+        shell: cmd
+        run: call "Build/Release Editor/Havana.exe" -CompileAssets
+
+      - name: Archive Game
+        if: ${{ matrix.buildconfig == 'Release' }}
+        uses: actions/upload-artifact@v2
+        with:
+          name: EmptyProject - ${{matrix.buildconfig}}
+          path: |
+            Build/${{matrix.buildconfig}}
+            !Build/${{matrix.buildconfig}}/AppX
+            !Build/${{matrix.buildconfig}}/Assets
+            Build/Release Editor/
+            !Build/Release Editor/Assets/**.png
+            !Build/Release Editor/Assets/**.jpg
+            !Build/Release Editor/*.*
