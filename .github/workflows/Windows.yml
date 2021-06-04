@@ -66,6 +66,7 @@ jobs:
             !Build/${{matrix.buildconfig}}/AppX
 
       - name: Cook Assets
+        if: ${{ matrix.buildconfig == 'Release' }}
         shell: cmd
         run: |
           cd "Build/Release Editor/"
@@ -79,7 +80,7 @@ jobs:
         run: |
           robocopy "Build/Release Editor/Assets" "Build\\Release\\Assets" *.* /w:0 /r:1 /v /E
 
-      - name: Archive Game
+      - name: Archive Build
         if: ${{ matrix.buildconfig == 'Release' }}
         uses: actions/upload-artifact@v2
         with:
@@ -88,6 +89,10 @@ jobs:
             Build/${{matrix.buildconfig}}
             Build/${{matrix.buildconfig}}/Assets
             !Build/${{matrix.buildconfig}}/AppX
+            !Build/${{matrix.buildconfig}}/*.lib
+            !Build/${{matrix.buildconfig}}/*.pdb
+            !Build/${{matrix.buildconfig}}/*.exp
+            !Build/${{matrix.buildconfig}}/*.log
             !Build/${{matrix.buildconfig}}/**/*.png
             !Build/${{matrix.buildconfig}}/**/*.jpg
             !Build/${{matrix.buildconfig}}/**/*.frag
