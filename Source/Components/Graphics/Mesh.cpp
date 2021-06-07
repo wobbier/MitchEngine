@@ -264,7 +264,8 @@ void Mesh::OnEditorInspect()
 				{
 					Path filePath(entry.path().string());
 					if ((filePath.LocalPath.rfind(".png") != std::string::npos || filePath.LocalPath.rfind(".jpg") != std::string::npos || filePath.LocalPath.rfind(".tif") != std::string::npos)
-						&& filePath.LocalPath.rfind(".meta") == std::string::npos)
+						&& filePath.LocalPath.rfind(".meta") == std::string::npos
+						&& filePath.LocalPath.rfind(".dds") == std::string::npos)
 					{
 						Textures.push_back(filePath);
 					}
@@ -274,7 +275,8 @@ void Mesh::OnEditorInspect()
 				{
 					Path filePath(entry.path().string());
 					if ((filePath.LocalPath.rfind(".png") != std::string::npos || filePath.LocalPath.rfind(".jpg") != std::string::npos || filePath.LocalPath.rfind(".tif") != std::string::npos)
-						&& filePath.LocalPath.rfind(".meta") == std::string::npos)
+						&& filePath.LocalPath.rfind(".meta") == std::string::npos
+						&& filePath.LocalPath.rfind(".dds") == std::string::npos)
 					{
 						Textures.push_back(filePath);
 					}
@@ -327,8 +329,20 @@ void Mesh::OnEditorInspect()
 				}
 				if (ImGui::BeginCombo(label.c_str(), ((texture) ? texture->GetPath().LocalPath.c_str() : "")))
 				{
+					static ImGuiTextFilter filter;
+					/*ImGui::Text("Filter usage:\n"
+						"  \"\"         display all lines\n"
+						"  \"xxx\"      display lines containing \"xxx\"\n"
+						"  \"xxx,yyy\"  display lines containing \"xxx\" or \"yyy\"\n"
+						"  \"-xxx\"     hide lines containing \"xxx\"");*/
+					filter.Draw("##Filter");
 					for (size_t n = 0; n < Textures.size(); n++)
 					{
+						if (!filter.PassFilter(Textures[n].LocalPath.c_str()))
+						{
+							continue;
+						}
+
 						if (ImGui::Selectable(Textures[n].LocalPath.c_str(), false))
 						{
 							if (!Textures[n].LocalPath.empty())
