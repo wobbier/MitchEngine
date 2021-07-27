@@ -13,10 +13,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [windows-2016]
+        os: [windows-2019]
         buildconfig: [Release, Release Editor]
         include:
-          - os: windows-2016
+          - os: windows-2019
             shell: cmd
             compiler: cl
             target: Windows
@@ -64,13 +64,13 @@ jobs:
           path: |
             Build/${{matrix.buildconfig}}
             !Build/${{matrix.buildconfig}}/AppX
-            !Build/${{matrix.buildconfig}}/Tools
+            !Build/${{matrix.buildconfig}}/Tools/**/*.*
             !Build/${{matrix.buildconfig}}/*.lib
             !Build/${{matrix.buildconfig}}/*.pdb
             !Build/${{matrix.buildconfig}}/*.exp
             !Build/${{matrix.buildconfig}}/*.log
             Build/${{matrix.buildconfig}}/Tools/Optick.exe
-            Build/${{matrix.buildconfig}}/Tools/Win64
+            Build/${{matrix.buildconfig}}/Tools/Win64/*.*
 
       - name: Cook Assets
         if: ${{ matrix.buildconfig == 'Release' }}
