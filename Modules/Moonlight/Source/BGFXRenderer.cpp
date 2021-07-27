@@ -19,6 +19,7 @@
 #include <Graphics/SkyBox.h>
 #include <Math/Matrix4.h>
 #include <Graphics/DynamicSky.h>
+#include <Graphics/ModelResource.h>
 
 #if BX_PLATFORM_LINUX
 #define GLFW_EXPOSE_NATIVE_X11
@@ -97,6 +98,10 @@ void BGFXRenderer::Create(const RendererCreationSettings& settings)
 		return;
 	}
 
+#if ME_ENABLE_RENDERDOC
+	RenderDoc = new RenderDocManager();
+#endif
+
 	EditorCameraBuffer = new Moonlight::FrameBuffer(init.resolution.width, init.resolution.height);
 
 	if (true)
@@ -156,6 +161,11 @@ void BGFXRenderer::Create(const RendererCreationSettings& settings)
 void BGFXRenderer::Destroy()
 {
 	bgfx::shutdown();
+
+#if ME_ENABLE_RENDERDOC
+	delete RenderDoc;
+	RenderDoc = nullptr;
+#endif
 }
 
 void BGFXRenderer::BeginFrame(const Vector2& mousePosition, uint8_t mouseButton, int32_t scroll, Vector2 outputSize, int inputChar, bgfx::ViewId viewId)

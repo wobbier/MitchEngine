@@ -1,19 +1,22 @@
 #pragma once
 
+#include "Dementia.h"
+
 #if ME_ENABLE_RENDERDOC
 
 #include <assert.h>
-#include "Dementia.h"
 
 #include "renderdoc_app.h"
 #include "CLog.h"
+#include <Windows.h>
+#include <libloaderapi.h>
 
 class RenderDocManager
 {
 public:
 	RenderDocManager()
 	{
-		HMODULE mod = GetModuleHandleA("renderdoc.dll");
+		HMODULE mod = LoadLibrary(L"renderdoc.dll");
 		if (mod)
 		{
 			CLog::GetInstance().Log(CLog::LogType::Info, "[RenderDoc] Loading.");
@@ -22,7 +25,10 @@ public:
 			assert(ret == 1);
 			CLog::GetInstance().Log(CLog::LogType::Info, "[RenderDoc] Loaded.");
 		}
-		
+		else
+		{
+			CLog::GetInstance().Log(CLog::LogType::Error, "[RenderDoc] Failed to mount dll");
+		}
 	}
 
 	~RenderDocManager()

@@ -6,6 +6,11 @@
 #include "Device/FrameBuffer.h"
 #include <RenderCommands.h>
 #include "Graphics/Texture.h"
+#include <Dementia.h>
+
+#if ME_ENABLE_RENDERDOC
+#include <Debug/RenderDocManager.h>
+#endif
 
 class ImGuiRenderer;
 namespace Moonlight { class DynamicSky; }
@@ -86,4 +91,8 @@ private:
 	Moonlight::CameraData DummyCameraData;
 	SharedPtr<Moonlight::Texture> m_defaultOpacityTexture;
 	SharedPtr<Moonlight::DynamicSky> m_dynamicSky;
+
+#if ME_ENABLE_RENDERDOC
+		RenderDocManager* RenderDoc;
+#endif
 };

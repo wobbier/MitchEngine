@@ -3,10 +3,17 @@
 Config::Config(const Path& ConfigPath)
 	: ConfigFile(ConfigPath)
 {
-	Root = json::parse(ConfigFile.Read());
+	const std::string& configData = ConfigFile.Read();
+	if (configData.empty())
+	{
+		YIKES("[Config] Empty File: " + ConfigFile.FilePath.LocalPath);
+		return;
+	}
+
+	Root = json::parse(configData);
 	if (Root.is_null())
 	{
-		YIKES("Failed to parse configuration.");
+		YIKES("Failed to parse config: " + ConfigFile.FilePath.LocalPath);
 		return;
 	}
 }

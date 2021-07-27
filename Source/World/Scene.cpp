@@ -76,7 +76,10 @@ bool Scene::Load(SharedPtr<World> InWorld)
 	GameWorld = InWorld;
 	GameWorld->IsLoading = true;
 
-	CurrentLevel.Read();
+	if (CurrentLevel.FilePath.LocalPath.size() > 0)
+	{
+		CurrentLevel.Read();
+	}
 
 	if (CurrentLevel.Data.length() > 0)
 	{

@@ -20,13 +20,22 @@ public:
 		}
 		std::fstream FileStream;
 
+		if (!FilePath.Exists)
+		{
+			CLog::Log(CLog::LogType::Error, "[File IO] File does not exist: " + FilePath.LocalPath);
+		}
+
 		FileStream.open(FilePath.FullPath.c_str(), std::ios::in);
 
 		if (!FileStream)
 		{
-			CLog::Log(CLog::LogType::Error, "File IO: Failed to load file " + FilePath.LocalPath);
+			CLog::Log(CLog::LogType::Error, "[File IO] Failed to load file: " + FilePath.LocalPath);
+			FileStream.close();
+
 			return Data;
 		}
+
+		CLog::Log(CLog::LogType::Info, "[File IO] Loaded File: " + FilePath.LocalPath);
 
 		IsOpen = true;
 
