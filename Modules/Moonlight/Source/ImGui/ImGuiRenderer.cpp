@@ -12,16 +12,11 @@
 #include <ImGui/Resources/icons_kenney.ttf.h>
 #include <ImGui/Resources/icons_font_awesome.ttf.h>
 #include "optick.h"
+#include <Utils/BGFXUtils.h>
 
 #define IMGUI_MBUT_LEFT   0x01
 #define IMGUI_MBUT_RIGHT  0x02
 #define IMGUI_MBUT_MIDDLE 0x04
-
-inline bool checkAvailTransientBuffers(uint32_t _numVertices, const bgfx::VertexLayout& _layout, uint32_t _numIndices)
-{
-	return _numVertices == bgfx::getAvailTransientVertexBuffer(_numVertices, _layout)
-		&& (0 == _numIndices || _numIndices == bgfx::getAvailTransientIndexBuffer(_numIndices));
-}
 
 static const bgfx::EmbeddedShader s_embeddedShaders[] =
 {
@@ -149,7 +144,7 @@ void ImGuiRenderer::Render(ImDrawData* drawData)
 		int numVertices = drawList->VtxBuffer.size();
 		int numIndices = drawList->IdxBuffer.size();
 
-		if (!checkAvailTransientBuffers(numVertices, Layout, numIndices))
+		if (!Moonlight::CheckAvailTransientBuffers(numVertices, Layout, numIndices))
 		{
 			break;
 		}

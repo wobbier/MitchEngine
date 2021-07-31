@@ -50,4 +50,12 @@ namespace Moonlight
 
 	std::string GetPlatformString();
 
+
+	inline bool CheckAvailTransientBuffers(uint32_t inNumVertices, const bgfx::VertexLayout& inLayout, uint32_t inNumIndices)
+	{
+		return inNumVertices == bgfx::getAvailTransientVertexBuffer(inNumVertices, inLayout)
+			&& (0 == inNumIndices || inNumIndices == bgfx::getAvailTransientIndexBuffer(inNumIndices));
+	}
+
+
 }

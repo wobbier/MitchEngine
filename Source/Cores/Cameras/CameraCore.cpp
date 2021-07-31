@@ -42,24 +42,27 @@ void CameraCore::Update(float dt)
 		}
 #endif
 
-		Moonlight::CameraData& CamData = GetEngine().GetRenderer().GetCamera(CameraComponent.m_id);
-		CamData.Position = TransformComponent.GetWorldPosition();
-		CamData.Front = TransformComponent.Front();
-		CamData.Up = TransformComponent.Up();
-		CamData.OutputSize = CameraComponent.OutputSize;
-		CamData.FOV = CameraComponent.GetFOV();
-		CamData.Near = CameraComponent.Near;
-		CamData.Far = CameraComponent.Far;
-		CamData.Skybox = CameraComponent.Skybox;
-		CamData.ClearColor = CameraComponent.ClearColor;
-		CamData.ClearType = CameraComponent.ClearType;
-		CamData.Projection = CameraComponent.Projection;
-		CamData.OrthographicSize = CameraComponent.OrthographicSize;
-		CamData.IsMain = CameraComponent.IsMain();
-		//CamData.CameraFrustum = CameraComponent.CameraFrustum;
-		CamData.UITexture = BGFX_INVALID_HANDLE;
+		Moonlight::CameraData* CamData = GetEngine().GetRenderer().GetCameraCache().Get(CameraComponent.m_id);
+		if (CamData)
+		{
+			CamData->Position = TransformComponent.GetWorldPosition();
+			CamData->Front = TransformComponent.Front();
+			CamData->Up = TransformComponent.Up();
+			CamData->OutputSize = CameraComponent.OutputSize;
+			CamData->FOV = CameraComponent.GetFOV();
+			CamData->Near = CameraComponent.Near;
+			CamData->Far = CameraComponent.Far;
+			CamData->Skybox = CameraComponent.Skybox;
+			CamData->ClearColor = CameraComponent.ClearColor;
+			CamData->ClearType = CameraComponent.ClearType;
+			CamData->Projection = CameraComponent.Projection;
+			CamData->OrthographicSize = CameraComponent.OrthographicSize;
+			CamData->IsMain = CameraComponent.IsMain();
+			//CamData.CameraFrustum = CameraComponent.CameraFrustum;
+			CamData->UITexture = BGFX_INVALID_HANDLE;
 
-		GetEngine().GetRenderer().UpdateCamera(CameraComponent.m_id, CamData);
+			GetEngine().GetRenderer().GetCameraCache().Update(CameraComponent.m_id, *CamData);
+		}
 	}
 }
 
@@ -70,7 +73,7 @@ void CameraCore::OnEntityAdded(Entity& NewEntity)
 		NewEntity.GetComponent<Camera>().SetCurrent();
 	}
 
-	NewEntity.GetComponent<Camera>().m_id = GetEngine().GetRenderer().PushCamera(CreateCameraData(NewEntity.GetComponent<Transform>(), NewEntity.GetComponent<Camera>()));
+	NewEntity.GetComponent<Camera>().m_id = GetEngine().GetRenderer().GetCameraCache().Push(CreateCameraData(NewEntity.GetComponent<Transform>(), NewEntity.GetComponent<Camera>()));
 }
 
 Moonlight::CameraData CameraCore::CreateCameraData(Transform& InTransform, Camera& InCamera)
@@ -99,11 +102,15 @@ Moonlight::CameraData CameraCore::CreateCameraData(Transform& InTransform, Camer
 	//Vector3 Up = CamData.Front.Cross(Right).Normalized();
 
 	//CamData.CameraFrustum = InCamera.CameraFrustum;
+	CamData.Buffer = new Moonlight::FrameBuffer(static_cast<uint32_t>(CamData.OutputSize.x), static_cast<uint32_t>(CamData.OutputSize.y));
 
 	return CamData;
 }
 
 void CameraCore::OnEntityRemoved(Entity& InEntity)
 {
-	GetEngine().GetRenderer().PopCamera(InEntity.GetComponent<Camera>().m_id);
+	unsigned int id = InEntity.GetComponent<Camera>().m_id;
+	Moonlight::CameraData* camData = GetEngine().GetRenderer().GetCameraCache().Get(id);
+	delete camData->Buffer;
+	GetEngine().GetRenderer().GetCameraCache().Pop(id);
 }

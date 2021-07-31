@@ -5,6 +5,7 @@
 #include "Math/Frustrum.h"
 #include "Resource/ResourceCache.h"
 #include "Utils/HavanaUtils.h"
+#include <Graphics/Material.h>
 
 #if ME_EDITOR
 #include <BGFXRenderer.h>

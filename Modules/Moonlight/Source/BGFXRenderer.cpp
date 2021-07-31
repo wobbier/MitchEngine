@@ -20,6 +20,7 @@
 #include <Math/Matrix4.h>
 #include <Graphics/DynamicSky.h>
 #include <Graphics/ModelResource.h>
+#include <Debug/DebugDrawer.h>
 
 #if BX_PLATFORM_LINUX
 #define GLFW_EXPOSE_NATIVE_X11
@@ -103,6 +104,7 @@ void BGFXRenderer::Create(const RendererCreationSettings& settings)
 #endif
 
 	EditorCameraBuffer = new Moonlight::FrameBuffer(init.resolution.width, init.resolution.height);
+	m_debugDraw.reset(new DebugDrawer());
 
 	if (true)
 	{
@@ -213,14 +215,14 @@ void BGFXRenderer::Render(Moonlight::CameraData& EditorCamera)
 	EditorCamera.Buffer = EditorCameraBuffer;
 	RenderCameraView(EditorCamera, id);
 	++id;
-	for (auto& camData : Cameras)
+	for (auto& camData : m_cameraCache.Commands)
 	{
 		RenderCameraView(camData, id);
 		++id;
 	}
 #else
 	bgfx::ViewId id = kClearView;
-	for (auto& camData : Cameras)
+	for (auto& camData : m_cameraCache.Commands)
 	{
 		if (!camData.IsMain)
 		{
@@ -229,7 +231,7 @@ void BGFXRenderer::Render(Moonlight::CameraData& EditorCamera)
 		}
 	}
 
-	for (auto& camData : Cameras)
+	for (auto& camData : m_cameraCache.Commands)
 	{
 		if (camData.IsMain)
 		{
@@ -238,6 +240,7 @@ void BGFXRenderer::Render(Moonlight::CameraData& EditorCamera)
 		}
 	}
 #endif
+
 	{
 		ImGuiRender->EndFrame();
 		{
@@ -353,11 +356,13 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 			| s_ptState[m_pt]
 			;
 
+		m_debugDraw->Begin(id, false);
+
 		std::stack<size_t> TransparentIndicies;
-		for (size_t i = 0; i < Meshes.size(); ++i)
+		for (size_t i = 0; i < m_meshCache.Commands.size(); ++i)
 		{
 			OPTICK_CATEGORY("Mesh", Optick::Category::GPU_Scene)
-			const Moonlight::MeshCommand& mesh = Meshes[i];
+			const Moonlight::MeshCommand& mesh = m_meshCache.Commands[i];
 			if (!mesh.MeshMaterial)
 			{
 				continue;
@@ -369,6 +374,9 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 				continue;
 			}
 
+			m_debugDraw->Push();
+			m_debugDraw->Draw(&mesh.Transform[0][0]);
+			m_debugDraw->Pop();
 			RenderSingleMesh(id, mesh, state);
 		}
 
@@ -387,8 +395,13 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 			size_t index = TransparentIndicies.top();
 			TransparentIndicies.pop();
 
-			RenderSingleMesh(id, Meshes[index], transparentState);
+			m_debugDraw->Push();
+			m_debugDraw->Draw(&m_meshCache.Commands[index].Transform[0][0]);
+			m_debugDraw->Pop();
+			RenderSingleMesh(id, m_meshCache.Commands[index], transparentState);
 		}
+
+		m_debugDraw->End();
 	}
 
 	float orthoProj[16];
@@ -508,132 +521,37 @@ void BGFXRenderer::WindowResized(const Vector2& newSize)
 	CurrentSize = newSize;
 }
 
-void BGFXRenderer::UpdateCamera(unsigned int Id, Moonlight::CameraData& NewCommand)
-{
-	if (Id >= Cameras.size())
-	{
-		return;
-	}
 
-	Cameras[Id] = NewCommand;
+CommandCache<Moonlight::CameraData>& BGFXRenderer::GetCameraCache()
+{
+	return m_cameraCache;
 }
 
-Moonlight::CameraData& BGFXRenderer::GetCamera(unsigned int Id)
+CommandCache<Moonlight::MeshCommand>& BGFXRenderer::GetMeshCache()
 {
-	if (Id >= Cameras.size())
-	{
-		return DummyCameraData;
-	}
-
-	return Cameras[Id];
-}
-
-unsigned int BGFXRenderer::PushCamera(const Moonlight::CameraData& command)
-{
-	unsigned int index = 0;
-	if (!FreeCameraCommandIndicies.empty())
-	{
-		index = FreeCameraCommandIndicies.front();
-		FreeCameraCommandIndicies.pop();
-		Cameras[index] = std::move(command);
-	}
-	else
-	{
-		Cameras.push_back(std::move(command));
-		index = static_cast<unsigned int>(Cameras.size() - 1);
-	}
-
-	Moonlight::CameraData& data = Cameras[index];
-
-	delete data.Buffer;
-	data.Buffer = new Moonlight::FrameBuffer(static_cast<uint32_t>(data.OutputSize.x), static_cast<uint32_t>(data.OutputSize.y));
-
-	return index;
-}
-
-void BGFXRenderer::PopCamera(unsigned int Id)
-{
-	if (Id > Cameras.size())
-	{
-		return;
-	}
-
-	// 	if (Cameras[Id].Buffer == GameViewRTT)
-	// 	{
-	// 		//GameViewRTT = nullptr;
-	// 	}
-		//delete Cameras[Id].Buffer;
-
-	FreeCameraCommandIndicies.push(Id);
-	Cameras[Id] = Moonlight::CameraData();
-}
-
-void BGFXRenderer::UpdateMesh(unsigned int Id, Moonlight::MeshCommand& NewCommand)
-{
-	if (Id >= Meshes.size())
-	{
-		return;
-	}
-
-	Meshes[Id] = NewCommand;
-}
-
-Moonlight::MeshCommand& BGFXRenderer::GetMesh(unsigned int Id)
-{
-	if (Id >= Meshes.size())
-	{
-		return Meshes[0];
-	}
-
-	return Meshes[Id];
+	return m_meshCache;
 }
 
 void BGFXRenderer::UpdateMeshMatrix(unsigned int Id, glm::mat4& matrix)
 {
-	if (Id > Meshes.size())
+	if (Id > m_meshCache.Commands.size())
 	{
 		return;
 	}
 
-	Meshes[Id].Transform = matrix;
+	m_meshCache.Commands[Id].Transform = matrix;
 }
 
 void BGFXRenderer::ClearMeshes()
 {
-	Meshes.clear();
-	while (!FreeMeshCommandIndicies.empty())
+	m_meshCache.Commands.clear();
+	while (!m_meshCache.FreeIndicies.empty())
 	{
-		FreeMeshCommandIndicies.pop();
+		m_meshCache.FreeIndicies.pop();
 	}
 }
 
 SharedPtr<Moonlight::DynamicSky> BGFXRenderer::GetSky()
 {
 	return m_dynamicSky;
-}
-
-unsigned int BGFXRenderer::PushMesh(Moonlight::MeshCommand command)
-{
-	unsigned int index = 0;
-	if (!FreeMeshCommandIndicies.empty())
-	{
-		index = FreeMeshCommandIndicies.front();
-		FreeMeshCommandIndicies.pop();
-		Meshes[index] = std::move(command);
-
-		return index;
-	}
-	Meshes.emplace_back(std::move(command));
-	return static_cast<unsigned int>(Meshes.size() - 1);
-}
-
-void BGFXRenderer::PopMesh(unsigned int Id)
-{
-	if (Id > Meshes.size())
-	{
-		return;
-	}
-
-	FreeMeshCommandIndicies.push(Id);
-	Meshes[Id].Reset();
 }

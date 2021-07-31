@@ -48,7 +48,7 @@ void RenderCore::OnEntityAdded(Entity& NewEntity)
 		command.MeshMaterial = model.MeshMaterial;
 		command.Transform = NewEntity.GetComponent<Transform>().GetMatrix().GetInternalMatrix();
 		command.Type = model.GetType();
-		model.Id = GetEngine().GetRenderer().PushMesh(command);
+		model.Id = GetEngine().GetRenderer().GetMeshCache().Push(command);
 	}
 	if (NewEntity.HasComponent<DirectionalLight>())
 	{
@@ -64,7 +64,7 @@ void RenderCore::OnEntityRemoved(Entity& InEntity)
 	if (InEntity.HasComponent<Mesh>())
 	{
 		Mesh& mesh = InEntity.GetComponent<Mesh>();
-		GetEngine().GetRenderer().PopMesh(mesh.Id);
+		GetEngine().GetRenderer().GetMeshCache().Pop(mesh.Id);
 	}
 }
 
@@ -195,11 +195,11 @@ void RenderCore::OnStop()
 
 void RenderCore::UpdateMesh(Mesh* InMesh)
 {
-	GetEngine().GetRenderer().PopMesh(InMesh->Id);
+	GetEngine().GetRenderer().GetMeshCache().Pop(InMesh->Id);
 
 	Moonlight::MeshCommand command;
 	command.SingleMesh = InMesh->MeshReferece;
 	command.MeshMaterial = InMesh->MeshMaterial;
 	command.Type = InMesh->GetType();
-	InMesh->Id = GetEngine().GetRenderer().PushMesh(command);
+	InMesh->Id = GetEngine().GetRenderer().GetMeshCache().Push(command);
 }

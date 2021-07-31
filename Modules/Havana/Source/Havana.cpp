@@ -274,7 +274,7 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 	// Game View
 	{
 		int cameraId = Camera::CurrentCamera->GetCameraId();
-		GameSceneView->SetData(GetEngine().GetRenderer().GetCamera(cameraId));
+		GameSceneView->SetData(*GetEngine().GetRenderer().GetCameraCache().Get(cameraId));
 		GameSceneView->Render();
 
 		Input& gameInput = GetEngine().GetInput();

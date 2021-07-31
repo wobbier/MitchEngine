@@ -227,8 +227,8 @@ void UICore::OnResize(const Vector2& NewSize)
 			bgfx::destroy(m_uiTexture);
 		}
 
-		m_uiTexture = bgfx::createTexture2D(NewSize.x
-			, NewSize.y
+		m_uiTexture = bgfx::createTexture2D(static_cast<uint16_t>(NewSize.x)
+			, static_cast<uint16_t>(NewSize.y)
 			, false
 			, 1
 			, bgfx::TextureFormat::BGRA8
@@ -240,7 +240,7 @@ void UICore::OnResize(const Vector2& NewSize)
 
 void UICore::InitUIView(BasicUIView& view)
 {
-	ultralight::Ref<ultralight::View> newView = m_uiRenderer->CreateView(Camera::CurrentCamera->OutputSize.x, Camera::CurrentCamera->OutputSize.y, true, nullptr);
+	ultralight::Ref<ultralight::View> newView = m_uiRenderer->CreateView(static_cast<uint32_t>(Camera::CurrentCamera->OutputSize.x), static_cast<uint32_t>(Camera::CurrentCamera->OutputSize.y), true, nullptr);
 
 	ultralight::RefPtr<ultralight::Overlay> overlay = ultralight::Overlay::Create(*m_window.get(), newView, 0, 0);
 	overlay->view()->set_load_listener(&view);
@@ -283,7 +283,7 @@ void UICore::CopyBitmapToTexture(ultralight::RefPtr<ultralight::Bitmap> bitmap)
 		if (bgfx::isValid(m_uiTexture) && Camera::CurrentCamera)
 		{
 			bgfx::updateTexture2D(m_uiTexture, 0, 0, tx, ty, tw, th, mem, stride);
-			GetEngine().GetRenderer().GetCamera(Camera::CurrentCamera->GetCameraId()).UITexture = m_uiTexture;
+			GetEngine().GetRenderer().GetCameraCache().Get(Camera::CurrentCamera->GetCameraId())->UITexture = m_uiTexture;
 		}
 	}
 

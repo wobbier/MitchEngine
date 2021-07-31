@@ -56,6 +56,9 @@ public:
 	};
 	AssetBrowser() = delete;
 	AssetBrowser(const std::string& pathToWatch, std::chrono::duration<int, std::milli> delay);
+
+	void ReloadDirectories();
+
 	~AssetBrowser();
 	void Start(const std::function<void(std::string, FileStatus)>& action);
 	std::chrono::duration<int, std::milli> Delay;

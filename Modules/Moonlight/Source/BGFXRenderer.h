@@ -11,8 +11,11 @@
 #if ME_ENABLE_RENDERDOC
 #include <Debug/RenderDocManager.h>
 #endif
+#include <Debug/DebugDrawer.h>
+#include <Utils/CommandCache.h>
 
 class ImGuiRenderer;
+
 namespace Moonlight { class DynamicSky; }
 
 struct RendererCreationSettings
@@ -47,16 +50,10 @@ public:
 	void WindowResized(const Vector2& newSize);
 
 	// Cameras
-	unsigned int PushCamera(const Moonlight::CameraData& command);
-	void UpdateCamera(unsigned int Id, Moonlight::CameraData& NewCommand);
-	void PopCamera(unsigned int Id);
-	Moonlight::CameraData& GetCamera(unsigned int Id);
+	CommandCache<Moonlight::CameraData>& GetCameraCache();
 
 	// Meshes
-	unsigned int PushMesh(Moonlight::MeshCommand command);
-	void UpdateMesh(unsigned int Id, Moonlight::MeshCommand& NewCommand);
-	void PopMesh(unsigned int Id);
-	Moonlight::MeshCommand& GetMesh(unsigned int Id);
+	CommandCache<Moonlight::MeshCommand>& GetMeshCache();
 	void UpdateMeshMatrix(unsigned int Id, glm::mat4& matrix);
 	void ClearMeshes();
 	SharedPtr<Moonlight::DynamicSky> GetSky();
@@ -67,11 +64,8 @@ private:
 
 	ImGuiRenderer* ImGuiRender = nullptr;
 
-	std::vector<Moonlight::CameraData> Cameras;
-	std::queue<unsigned int> FreeCameraCommandIndicies;
-
-	std::vector<Moonlight::MeshCommand> Meshes;
-	std::queue<unsigned int> FreeMeshCommandIndicies;
+	CommandCache<Moonlight::CameraData> m_cameraCache;
+	CommandCache<Moonlight::MeshCommand> m_meshCache;
 
 	Moonlight::FrameBuffer* EditorCameraBuffer = nullptr;
 
@@ -92,6 +86,7 @@ private:
 	SharedPtr<Moonlight::Texture> m_defaultOpacityTexture;
 	SharedPtr<Moonlight::DynamicSky> m_dynamicSky;
 
+	UniquePtr<DebugDrawer> m_debugDraw;
 #if ME_ENABLE_RENDERDOC
 		RenderDocManager* RenderDoc;
 #endif

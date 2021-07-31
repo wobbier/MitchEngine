@@ -34,11 +34,23 @@ AssetBrowser::AssetBrowser(const std::string& pathToWatch, std::chrono::duration
 
 	AssetDirectory.FullPath = Path(PathToWatch);
 	EngineAssetDirectory.FullPath = Path("Engine/Assets");
+
+	ReloadDirectories();
+}
+
+void AssetBrowser::ReloadDirectories()
+{
+	AssetDirectory.Directories.clear();
+	AssetDirectory.Files.clear();
+
 	for (auto& file : std::filesystem::recursive_directory_iterator(PathToWatch))
 	{
 		Paths[file.path().string()] = std::filesystem::last_write_time(file);
 		ProccessDirectory(file, AssetDirectory);
 	}
+
+	EngineAssetDirectory.Directories.clear();
+	EngineAssetDirectory.Files.clear();
 
 	if (EngineAssetDirectory.FullPath.Exists)
 	{
@@ -58,7 +70,7 @@ AssetBrowser::~AssetBrowser()
 
 void AssetBrowser::Start(const std::function<void(std::string, FileStatus)>& action)
 {
-	fileBrowser = std::thread([this, action]() {ThreadStart(action); });
+	//fileBrowser = std::thread([this, action]() {ThreadStart(action); });
 }
 
 void AssetBrowser::ThreadStart(const std::function<void(std::string, FileStatus)>& action)
@@ -126,6 +138,11 @@ void AssetBrowser::Draw()
 		if (ImGui::Button("Build Assets"))
 		{
 			BuildAssets();
+		}
+		ImGui::SameLine(0.f, 10.f);
+		if (ImGui::Button("Refresh"))
+		{
+			ReloadDirectories();
 		}
 	}
 	else
