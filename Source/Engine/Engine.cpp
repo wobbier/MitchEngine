@@ -35,6 +35,7 @@
 #include "SDL.h"
 #include "SDL_video.h"
 #include <imgui.h>
+#include <Debug/DebugDrawer.h>
 
 Engine& GetEngine()
 {
@@ -152,6 +153,14 @@ void Engine::Init(Game* game)
 	//m_renderer->Init();
 
 	UI = new UICore(GameWindow, NewRenderer);
+
+	NewRenderer->SetGuizmoDrawCallback([this](DebugDrawer* drawer) {
+		std::vector<BaseCore*> cores = GetWorld().lock()->GetAllCores();
+		for (BaseCore* core : cores)
+		{
+			core->OnDrawGuizmo(drawer);
+		}
+	});
 
 	InitGame();
 

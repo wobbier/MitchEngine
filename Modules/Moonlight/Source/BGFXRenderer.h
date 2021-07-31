@@ -42,18 +42,19 @@ public:
 
 	void BeginFrame(const Vector2& mousePosition, uint8_t mouseButton, int32_t scroll, Vector2 outputSize, int inputChar, bgfx::ViewId viewId);
 	void Render(Moonlight::CameraData& EditorCamera);
-
+	void SetGuizmoDrawCallback(std::function<void(DebugDrawer*)> GuizmoDrawingFunc);
 	void RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId id);
 
 	void RenderSingleMesh(bgfx::ViewId id, const Moonlight::MeshCommand& mesh, uint64_t state);
 
 	void WindowResized(const Vector2& newSize);
 
-	// Cameras
+	// Caches
 	CommandCache<Moonlight::CameraData>& GetCameraCache();
+	CommandCache<Moonlight::MeshCommand>& GetMeshCache();
+	CommandCache<Moonlight::DebugColliderCommand>& GetDebugDrawCache();
 
 	// Meshes
-	CommandCache<Moonlight::MeshCommand>& GetMeshCache();
 	void UpdateMeshMatrix(unsigned int Id, glm::mat4& matrix);
 	void ClearMeshes();
 	SharedPtr<Moonlight::DynamicSky> GetSky();
@@ -66,9 +67,10 @@ private:
 
 	CommandCache<Moonlight::CameraData> m_cameraCache;
 	CommandCache<Moonlight::MeshCommand> m_meshCache;
+	CommandCache<Moonlight::DebugColliderCommand> m_debugDrawCache;
 
 	Moonlight::FrameBuffer* EditorCameraBuffer = nullptr;
-
+	std::function<void(DebugDrawer*)> m_guizmoCallback;
 	bgfx::VertexBufferHandle m_vbh;
 	bgfx::IndexBufferHandle m_ibh;
 	bgfx::ProgramHandle UIProgram;

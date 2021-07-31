@@ -7,6 +7,8 @@
 #include "Components/Transform.h"
 #include "Physics/RaycastHit.h"
 
+class DebugDrawer;
+
 class PhysicsCore
 	: public Core<PhysicsCore>
 {
@@ -30,6 +32,9 @@ public:
 	virtual void Update(float dt) final;
 
 	virtual void OnEntityAdded(Entity& NewEntity) final;
+	virtual void OnEntityRemoved(Entity& NewEntity) final;
+
+	virtual void OnDrawGuizmo(DebugDrawer* inDrawer) final;
 
 	void InitRigidbody(Rigidbody& RigidbodyComponent, Transform& TransformComponent);
 

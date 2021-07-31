@@ -251,6 +251,11 @@ void BGFXRenderer::Render(Moonlight::CameraData& EditorCamera)
 }
 
 
+void BGFXRenderer::SetGuizmoDrawCallback(std::function<void(DebugDrawer*)> GuizmoDrawingFunc)
+{
+	m_guizmoCallback = GuizmoDrawingFunc;
+}
+
 void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId id)
 {
 	OPTICK_CATEGORY("Render Camera", Optick::Category::Camera)
@@ -356,7 +361,7 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 			| s_ptState[m_pt]
 			;
 
-		m_debugDraw->Begin(id, false);
+		m_debugDraw->Begin(id, true);
 
 		std::stack<size_t> TransparentIndicies;
 		for (size_t i = 0; i < m_meshCache.Commands.size(); ++i)
@@ -374,9 +379,9 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 				continue;
 			}
 
-			m_debugDraw->Push();
-			m_debugDraw->Draw(&mesh.Transform[0][0]);
-			m_debugDraw->Pop();
+			//m_debugDraw->Push();
+			//m_debugDraw->Draw(&mesh.Transform[0][0]);
+			//m_debugDraw->Pop();
 			RenderSingleMesh(id, mesh, state);
 		}
 
@@ -395,10 +400,22 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 			size_t index = TransparentIndicies.top();
 			TransparentIndicies.pop();
 
-			m_debugDraw->Push();
-			m_debugDraw->Draw(&m_meshCache.Commands[index].Transform[0][0]);
-			m_debugDraw->Pop();
+			//m_debugDraw->Push();
+			//m_debugDraw->Draw(&m_meshCache.Commands[index].Transform[0][0]);
+			//m_debugDraw->Pop();
 			RenderSingleMesh(id, m_meshCache.Commands[index], transparentState);
+		}
+
+		m_guizmoCallback(m_debugDraw.get());
+
+		for (auto& debugDrawCommand : m_debugDrawCache.Commands)
+		{
+			if (debugDrawCommand.Type != Moonlight::MeshType::MeshCount)
+			{
+				m_debugDraw->Push();
+				m_debugDraw->Draw(&debugDrawCommand.Transform[0][0]);
+				m_debugDraw->Pop();
+			}
 		}
 
 		m_debugDraw->End();
@@ -530,6 +547,11 @@ CommandCache<Moonlight::CameraData>& BGFXRenderer::GetCameraCache()
 CommandCache<Moonlight::MeshCommand>& BGFXRenderer::GetMeshCache()
 {
 	return m_meshCache;
+}
+
+CommandCache<Moonlight::DebugColliderCommand>& BGFXRenderer::GetDebugDrawCache()
+{
+	return m_debugDrawCache;
 }
 
 void BGFXRenderer::UpdateMeshMatrix(unsigned int Id, glm::mat4& matrix)

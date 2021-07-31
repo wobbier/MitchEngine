@@ -6,6 +6,7 @@
 #include "CoreDetail.h"
 
 class World;
+class DebugDrawer;
 
 #define ME_REGISTER_CORE(TYPE)                      \
 	namespace details {                                  \
@@ -38,6 +39,7 @@ public:
 	virtual void OnEntityAdded(Entity& NewEntity) {};
 	virtual void OnEntityRemoved(Entity& InEntity) {};
 	virtual void OnEntityDestroyed(Entity& InEntity) {};
+	virtual void OnDrawGuizmo(DebugDrawer*) {};
 
 	// Get The World attached to the Core
 	World& GetWorld() const;

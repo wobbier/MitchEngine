@@ -222,7 +222,7 @@ void Camera::OnEditorInspect()
 			}
 		}
 
-		if (ImGui::BeginCombo("##SkyboxTexture", (Skybox && Skybox->SkyMaterial) ? Skybox->SkyMaterial->GetTexture(Moonlight::TextureType::Diffuse)->GetPath().LocalPath.c_str() : ""))
+		if (ImGui::BeginCombo("##SkyboxTexture", (Skybox && Skybox->SkyMaterial && Skybox->SkyMaterial->GetTexture(Moonlight::TextureType::Diffuse)) ? Skybox->SkyMaterial->GetTexture(Moonlight::TextureType::Diffuse)->GetPath().LocalPath.c_str() : ""))
 		{
 			for (size_t n = 0; n < Textures.size(); n++)
 			{

@@ -31,9 +31,8 @@ namespace Moonlight
 
 	struct DebugColliderCommand
 	{
-		float test;
-
-		//DirectX::SimpleMath::Matrix Transform;
+		MeshType Type = MeshType::MeshCount;
+		glm::mat4 Transform;
 	};
 
 	struct MeshCommand

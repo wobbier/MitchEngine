@@ -13,6 +13,8 @@
 #include "Math/Line.h"
 #include "Mathf.h"
 #include "Work/Burst.h"
+#include <BGFXRenderer.h>
+#include <Debug/DebugDrawer.h>
 
 PhysicsCore::PhysicsCore()
 	: Base(ComponentFilter().Requires<Transform>().RequiresOneOf<Rigidbody>().RequiresOneOf<CharacterController>())
@@ -169,15 +171,52 @@ void PhysicsCore::OnEntityAdded(Entity& NewEntity)
 	}
 }
 
+void PhysicsCore::OnEntityRemoved(Entity& NewEntity)
+{
+ 	if (NewEntity.HasComponent<Rigidbody>())
+ 	{
+ 		Rigidbody& RigidbodyComponent = NewEntity.GetComponent<Rigidbody>();
+ 
+ 		GetEngine().GetRenderer().GetDebugDrawCache().Pop(RigidbodyComponent.DebugColliderId);
+ 	}
+}
+
+void PhysicsCore::OnDrawGuizmo(DebugDrawer* inDrawer)
+{
+	auto& PhysicsEntites = GetEntities();
+
+	for (auto& InEntity : PhysicsEntites)
+	{
+		Transform& TransformComponent = InEntity.GetComponent<Transform>();
+
+		if (InEntity.HasComponent<Rigidbody>())
+		{
+			Rigidbody& RigidbodyComponent = InEntity.GetComponent<Rigidbody>();
+
+			Moonlight::DebugColliderCommand cmd;
+			cmd.Transform = TransformComponent.GetMatrix().GetInternalMatrix();
+			cmd.Transform[0][0] = RigidbodyComponent.GetScale().x;
+			cmd.Transform[1][1] = RigidbodyComponent.GetScale().y;
+			cmd.Transform[2][2] = RigidbodyComponent.GetScale().z;
+			cmd.Type = Moonlight::MeshType::Cube;
+			GetEngine().GetRenderer().GetDebugDrawCache().Update(RigidbodyComponent.DebugColliderId, cmd);
+		}
+	}
+}
+
 void PhysicsCore::InitRigidbody(Rigidbody& RigidbodyComponent, Transform& TransformComponent)
 {
 	if (!RigidbodyComponent.IsRigidbodyInitialized())
 	{
-
 		RigidbodyComponent.CreateObject(TransformComponent.GetPosition(), TransformComponent.GetLocalRotation(), TransformComponent.GetScale(), PhysicsWorld);
         PhysicsWorld->addRigidBody(RigidbodyComponent.InternalRigidbody);
-		//Moonlight::DebugColliderCommand cmd;
-		//RigidbodyComponent.DebugColliderId = GetEngine().GetRenderer().PushDebugCollider(cmd);
+		Moonlight::DebugColliderCommand cmd;
+		cmd.Type = Moonlight::Cube;
+		cmd.Transform = TransformComponent.GetMatrix().GetInternalMatrix();
+		cmd.Transform[0][0] = RigidbodyComponent.GetScale().x;
+		cmd.Transform[1][1] = RigidbodyComponent.GetScale().y;
+		cmd.Transform[2][2] = RigidbodyComponent.GetScale().z;
+		RigidbodyComponent.DebugColliderId = GetEngine().GetRenderer().GetDebugDrawCache().Push(cmd);
 	}
 }
 

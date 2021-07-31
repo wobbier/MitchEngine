@@ -135,7 +135,7 @@ void FrameProfile::Render(const Vector2& inPosition, const Vector2& inSize)
 				}
 				ImGui::PopTextWrapPos();
 
-				PreviousTooltipHeight = ImGui::GetWindowHeight();
+				PreviousTooltipHeight = static_cast<int>(ImGui::GetWindowHeight());
 				ImGui::EndTooltip();
 			}
 			else

@@ -28,6 +28,7 @@ public:
 	bool IsRigidbodyInitialized();
 	void ApplyForce(const Vector3& direction, float force);
 	void SetScale(Vector3 InScale);
+	const Vector3& GetScale() const;
 	void SetMass(float InMass);
 	void SetVelocity(Vector3 newVelocity);
 

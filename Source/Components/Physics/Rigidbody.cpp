@@ -52,6 +52,11 @@ void Rigidbody::SetScale(Vector3 InScale)
 	}
 }
 
+const Vector3& Rigidbody::GetScale() const
+{
+	return Scale;
+}
+
 void Rigidbody::SetMass(float InMass)
 {
 	Mass = InMass;
