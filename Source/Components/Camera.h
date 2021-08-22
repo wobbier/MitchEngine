@@ -21,8 +21,8 @@ public:
 	static Camera* CurrentCamera;
 	static Camera* EditorCamera;
 
-	Vector3 ClearColor;
 	Vector2 OutputSize;
+	Vector3 ClearColor;
 	float Zoom = 45.0f;
 	float Yaw = -90.f;
 	float Pitch = 0.f;

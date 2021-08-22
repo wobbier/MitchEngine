@@ -90,7 +90,7 @@ void BGFXRenderer::Create(const RendererCreationSettings& settings)
 	init.platformData.nwh = settings.WindowPtr;
 	init.resolution.width = static_cast<uint32_t>(PreviousSize.x);
 	init.resolution.height = static_cast<uint32_t>(PreviousSize.y);
-	init.resolution.reset = BGFX_RESET_VSYNC;
+	init.resolution.reset = BGFX_RESET_VSYNC | BGFX_RESET_MSAA_MASK;
 
 	CurrentSize = settings.InitialSize;
 

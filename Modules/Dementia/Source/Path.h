@@ -62,11 +62,8 @@ public:
 			FullPath = ProgramPath + assetPrefix + LocalPath;
 		}
 
-		path = LocalPath.rfind('.');
-		if (path != std::string::npos)
-		{
-			Extension = LocalPath.substr(path+1, LocalPath.size());
-		}
+		ExtensionPos = (int8_t)LocalPath.rfind('.');
+		ExtensionPos = (int8_t)(LocalPath.size() - ++ExtensionPos);
 
 		path = LocalPath.rfind("Assets");
 		if (path != std::string::npos)
@@ -120,11 +117,18 @@ public:
 	{
 
 	}
+
+	const char* GetExtension() const
+	{
+		const char* c = FullPath.c_str();
+		return &c[FullPath.size() - ExtensionPos];
+	}
+
 	bool IsFile = false;
 	bool IsFolder = false;
 	bool Exists = false;
+	int8_t ExtensionPos;
 	std::string FullPath;
 	std::string LocalPath;
 	std::string Directory;
-	std::string Extension;
 };

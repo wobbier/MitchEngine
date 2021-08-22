@@ -74,7 +74,7 @@ void ResourceCache::Dump()
 MetaBase* ResourceCache::LoadMetadata(const Path& filePath)
 {
 	MetaBase* metadata = nullptr;
-	MetaRegistry::iterator it = GetMetadatabase().reg.find(filePath.Extension);
+	MetaRegistry::iterator it = GetMetadatabase().reg.find(filePath.GetExtension());
 	if (it != GetMetadatabase().reg.end())
 	{
 		Path metaPath = Path(filePath.FullPath + ".meta");

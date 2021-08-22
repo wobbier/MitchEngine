@@ -93,6 +93,7 @@ private:
 	bool IsRunning = false;
 	bool DestroyOnLoad = true;
 	bool IsSerializable = true;
+	bool _padding[5];
 };
 
 // Use the CRTP patten to define custom systems

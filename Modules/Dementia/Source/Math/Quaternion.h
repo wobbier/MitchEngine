@@ -18,7 +18,7 @@ struct Quaternion
 		glm::quat InternalQuat;
 	};
 
-	const float kEpsilon = 0.000001f;
+	static constexpr float kEpsilon = 0.000001f;
 	static Quaternion Identity;
 
 	Quaternion()

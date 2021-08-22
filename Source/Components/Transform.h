@@ -98,9 +98,9 @@ private:
 	Matrix4 WorldTransform;
 
 	void SetDirty(bool Dirty);
-	bool m_isDirty = true;
 	SharedPtr<Transform> ParentTransform;
 	std::vector<SharedPtr<Transform>> Children;
+	bool m_isDirty = true;
 
 	virtual void OnSerialize(json& outJson) final;
 	virtual void OnDeserialize(const json& inJson) final;

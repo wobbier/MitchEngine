@@ -40,10 +40,10 @@ struct MetaBase
 #endif
 
 	std::string FileType;
-	long LastModified = 0;
 	std::string LastModifiedDebug;
 
-	bool FlaggedForExport = false;
 
 	Path FilePath;
+	long LastModified = 0;
+	bool FlaggedForExport = false;
 };

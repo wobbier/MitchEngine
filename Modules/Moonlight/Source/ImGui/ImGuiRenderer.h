@@ -16,15 +16,15 @@ public:
 	void EndFrame();
 
 private:
-	int ViewId = 255;
 	ImGuiContext* Context = nullptr;
 
+	bgfx::VertexLayout Layout;
 	bgfx::ProgramHandle Program;
 	bgfx::ProgramHandle ImageProgram;
-	bgfx::VertexLayout Layout;
 	bgfx::UniformHandle sTexture;
 	bgfx::UniformHandle ImageLODEnabled;
 	bgfx::TextureHandle mTexture;
+	int ViewId = 255;
 
 	void Render(ImDrawData* drawData);
 };

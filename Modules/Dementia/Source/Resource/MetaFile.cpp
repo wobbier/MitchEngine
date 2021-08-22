@@ -37,7 +37,7 @@ MetaBase::MetaBase(const Path& filePath)
 
 void MetaBase::Serialize(json& outJson)
 {
-	outJson["FileType"] = FilePath.Extension;
+	outJson["FileType"] = FilePath.GetExtension();
 	outJson["LastModified"] = LastModified;
 	outJson["LastModifiedDebug"] = LastModifiedDebug;
 	//outJson["LastModified"] = buffer;

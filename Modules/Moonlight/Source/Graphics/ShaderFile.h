@@ -72,12 +72,13 @@ struct ShaderFileMetadata
 
 		std::string exportType;
 		std::string shaderType;
-		if (FilePath.Extension == "frag")
+		const std::string ext = FilePath.GetExtension();
+		if (ext == "frag")
 		{
 			exportType = "fragment";
 			shaderType = "ps_4_0";
 		}
-		else if (FilePath.Extension == "vert")
+		else if (ext == "vert")
 		{
 			exportType = "vertex";
 			shaderType = "vs_4_0";
@@ -100,12 +101,13 @@ struct ShaderFileMetadata
         
         std::string exportType;
         std::string shaderType;
-        if (FilePath.Extension == "frag")
+		const char* ext = FilePath.GetExtension();
+		if (ext == "frag")
         {
             exportType = "fragment";
             shaderType = "ps_5_0";
         }
-        else if (FilePath.Extension == "vert")
+        else if (ext == "vert")
         {
             exportType = "vertex";
             shaderType = "vs_5_0";

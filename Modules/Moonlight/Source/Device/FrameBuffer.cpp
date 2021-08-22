@@ -7,7 +7,7 @@ Moonlight::FrameBuffer::FrameBuffer(uint32_t width, uint32_t height)
 	uint32_t m_reset = 128;
 	uint32_t msaa = (m_reset & BGFX_RESET_MSAA_MASK) >> BGFX_RESET_MSAA_SHIFT;
 
-	const uint64_t textureFlags = BGFX_TEXTURE_RT_WRITE_ONLY | (uint64_t(msaa + 1) << BGFX_TEXTURE_RT_MSAA_SHIFT);
+	const uint64_t textureFlags = BGFX_TEXTURE_RT_WRITE_ONLY | BGFX_TEXTURE_RT_MSAA_X16;// (uint64_t(msaa + 1) << BGFX_TEXTURE_RT_MSAA_SHIFT);
 
 	bgfx::TextureFormat::Enum depthFormat =
 		bgfx::isTextureValid(0, false, 1, bgfx::TextureFormat::D16, textureFlags) ? bgfx::TextureFormat::D16
@@ -22,7 +22,7 @@ Moonlight::FrameBuffer::FrameBuffer(uint32_t width, uint32_t height)
 				, false
 				, 1
 				, bgfx::TextureFormat::BGRA8
-				, (uint64_t(msaa + 1) << BGFX_TEXTURE_RT_MSAA_SHIFT) | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP
+				, BGFX_TEXTURE_RT_MSAA_X16 | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP
 			),
 		bgfx::createTexture2D(
 				uint16_t(Width)
