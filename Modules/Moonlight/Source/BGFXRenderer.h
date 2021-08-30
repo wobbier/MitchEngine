@@ -87,9 +87,11 @@ private:
 	Moonlight::CameraData DummyCameraData;
 	SharedPtr<Moonlight::Texture> m_defaultOpacityTexture;
 	SharedPtr<Moonlight::DynamicSky> m_dynamicSky;
-
+	bool EnableDebugDraw = false;
 	UniquePtr<DebugDrawer> m_debugDraw;
 #if ME_ENABLE_RENDERDOC
 		RenderDocManager* RenderDoc;
 #endif
+public:
+	void SetDebugDrawEnabled(bool inEnabled);
 };

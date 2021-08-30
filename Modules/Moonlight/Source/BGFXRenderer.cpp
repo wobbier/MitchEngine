@@ -270,6 +270,8 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 			return;
 		}
 
+		std::string viewName = "Game " + std::to_string(id);
+		bgfx::setViewName(id, viewName.c_str());
 		//float time = (float)((bx::getHPCounter() - m_timeOffset) / double(bx::getHPFrequency()));
 
 		const bx::Vec3 eye = { camera.Position.x, camera.Position.y, camera.Position.z };
@@ -361,7 +363,10 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 			| s_ptState[m_pt]
 			;
 
-		m_debugDraw->Begin(id, true);
+		if (EnableDebugDraw)
+		{
+			m_debugDraw->Begin(id, true);
+		}
 
 		std::stack<size_t> TransparentIndicies;
 		for (size_t i = 0; i < m_meshCache.Commands.size(); ++i)
@@ -387,7 +392,6 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 
 		uint64_t transparentState = 0
 			| BGFX_STATE_WRITE_RGB
-			| BGFX_STATE_WRITE_A
 			| BGFX_STATE_WRITE_Z
 			| BGFX_STATE_DEPTH_TEST_LESS
 			| BGFX_STATE_CULL_CCW
@@ -406,19 +410,22 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 			RenderSingleMesh(id, m_meshCache.Commands[index], transparentState);
 		}
 
-		m_guizmoCallback(m_debugDraw.get());
-
-		for (auto& debugDrawCommand : m_debugDrawCache.Commands)
+		if (EnableDebugDraw)
 		{
-			if (debugDrawCommand.Type != Moonlight::MeshType::MeshCount)
-			{
-				m_debugDraw->Push();
-				m_debugDraw->Draw(&debugDrawCommand.Transform[0][0]);
-				m_debugDraw->Pop();
-			}
-		}
+			m_guizmoCallback(m_debugDraw.get());
 
-		m_debugDraw->End();
+			for (auto& debugDrawCommand : m_debugDrawCache.Commands)
+			{
+				if (debugDrawCommand.Type != Moonlight::MeshType::MeshCount)
+				{
+					m_debugDraw->Push();
+					m_debugDraw->Draw(&debugDrawCommand.Transform[0][0]);
+					m_debugDraw->Pop();
+				}
+			}
+
+			m_debugDraw->End();
+		}
 	}
 
 	float orthoProj[16];
@@ -436,7 +443,7 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 	if (camera.IsMain && bgfx::isValid(camera.UITexture))
 	{
 		const int view = 69;
-		bgfx::setViewName(view, "ui");
+		bgfx::setViewName(view, "UI");
 		bgfx::setViewClear(view
 			, BGFX_CLEAR_NONE
 			, 1
@@ -576,4 +583,9 @@ void BGFXRenderer::ClearMeshes()
 SharedPtr<Moonlight::DynamicSky> BGFXRenderer::GetSky()
 {
 	return m_dynamicSky;
+}
+
+void BGFXRenderer::SetDebugDrawEnabled(bool inEnabled)
+{
+	EnableDebugDraw = inEnabled;
 }
