@@ -32,7 +32,12 @@ public:
 
 	virtual void OnStop() override;
 	void UpdateMesh(Mesh* InMesh);
+
+#if ME_EDITOR
+	virtual void OnEditorInspect() final;
+#endif
+
 private:
-	
+	bool EnableDebugDraw = false;
 	//Moonlight::Renderer* m_renderer;
 };

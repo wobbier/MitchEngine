@@ -66,6 +66,13 @@ void PhysicsCore::Update(float dt)
 	{
 		return;
 	}
+
+	auto [worker, pool] = GetEngine().GetJobSystemNew();
+
+	Job* rootJob = pool.CreateClosureJob([](Job& job) {
+
+		});
+
 	for (auto& batch : batches)
 	{
 		int batchBegin = batch.first;
@@ -73,7 +80,7 @@ void PhysicsCore::Update(float dt)
 		int batchSize = batchEnd - batchBegin;
 
 		//YIKES(std::to_string(batchBegin) + " End:" + std::to_string(batchEnd) + " Size:" + std::to_string(batchSize));
-		//auto m_callBack = [this, &PhysicsEntites, batchBegin, batchEnd, batchSize, dt]() {
+		Job* root2 = pool.CreateClosureJobAsChild([this, &PhysicsEntites, batchBegin, batchEnd, batchSize, dt](Job& job) {
 			OPTICK_CATEGORY("Job::UpdatePhysics", Optick::Category::Physics);
 
 			for (int entIndex = batchBegin; entIndex < batchEnd; ++entIndex)
@@ -146,11 +153,15 @@ void PhysicsCore::Update(float dt)
 					TransformComponent.SetWorldPosition(Controller.GetPosition());
 				}
 			}
-		//};
-		//GetEngine().GetJobSystem().AddWork(m_callBack);
-		//GetEngine().GetJobSystem().Wait();
+		}, rootJob);
+
+		worker->Submit(root2);
+		//GetEngine().GetJobEngine().AddWork(m_callBack);
+		//GetEngine().GetJobEngine().Wait();
 		//burst.AddWork2(job, sizeof(Burst::LambdaWorkEntry));
 	}
+	worker->Submit(rootJob);
+	worker->Wait(rootJob);
 	//burst.FinalizeWork();
 }
 

@@ -170,6 +170,9 @@ void RenderCore::Update(float dt)
 	//	//	m_renderer->Sunlight.dir = light.Direction;
 	//	//}
 	//}
+#if ME_EDITOR
+	GetEngine().GetRenderer().SetDebugDrawEnabled(EnableDebugDraw);
+#endif
 }
 
 void RenderCore::OnDeviceLost()
@@ -203,3 +206,14 @@ void RenderCore::UpdateMesh(Mesh* InMesh)
 	command.Type = InMesh->GetType();
 	InMesh->Id = GetEngine().GetRenderer().GetMeshCache().Push(command);
 }
+
+#if ME_EDITOR
+
+void RenderCore::OnEditorInspect()
+{
+	Base::OnEditorInspect();
+
+	ImGui::Checkbox("Enable Debug Draw", &EnableDebugDraw);
+}
+
+#endif

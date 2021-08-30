@@ -103,38 +103,42 @@ void SceneGraph::Update(float dt)
 		OPTICK_CATEGORY("Submit Job", Optick::Category::Debug);
 		Job* root = worker->GetPool().CreateJob([](Job& job) {
 			OPTICK_CATEGORY("Initial Job", Optick::Category::Debug);
+			recursiveJob(&job, 0);
 		});
-		recursiveJob(root, 0);
 		worker->Submit(root);
 		worker->Wait(root);
 	}
 
 	if(true)
 	{
+		Transform* CurrentTransform = GetRootTransform();
 		Job* rootJob = pool.CreateClosureJob([this](Job& job) {
 
 		});
-		Transform* CurrentTransform = GetRootTransform();
-		for (const SharedPtr<Transform>& Child : CurrentTransform->GetChildren())
-		{
-			OPTICK_EVENT("SceneGraph::GetChildren");
-			if (Child->IsDirty())
-			{
-				Job* job = pool.CreateClosureJobAsChild([&Child, CurrentTransform](Job& job) {
-					OPTICK_CATEGORY("Update Transform", Optick::Category::Scene);
-					glm::mat4 model = glm::mat4(1.f);
-					model = glm::translate(model, Child->GetPosition().InternalVector);
-					model = glm::rotate(model, Child->GetLocalRotation().ToAngle(), Child->GetLocalRotation().ToAxis().InternalVector);
-					model = glm::scale(model, Child->GetScale().InternalVector);
 
-					Matrix4 xxx = CurrentTransform->GetMatrix().GetInternalMatrix() * model;
-					Child->SetWorldTransform(xxx);
-					if (!Child->GetChildren().empty())
-					{
-						UpdateRecursively(Child.get(), true, &job, false);// *job);
-					}
-				}, rootJob);
-				worker->Submit(job);
+		{
+			OPTICK_EVENT("Transform Job Setup");
+			const auto& rootChildren = CurrentTransform->GetChildren();
+			for (const SharedPtr<Transform>& Child : rootChildren)
+			{
+				if (Child->IsDirty())
+				{
+					Job* job = pool.CreateClosureJobAsChild([&Child, CurrentTransform](Job& job) {
+						OPTICK_CATEGORY("Update Transform", Optick::Category::Scene);
+						glm::mat4 model = glm::mat4(1.f);
+						model = glm::translate(model, Child->GetPosition().InternalVector);
+						model = glm::rotate(model, Child->GetLocalRotation().ToAngle(), Child->GetLocalRotation().ToAxis().InternalVector);
+						model = glm::scale(model, Child->GetScale().InternalVector);
+
+						Matrix4 xxx = CurrentTransform->GetMatrix().GetInternalMatrix() * model;
+						Child->SetWorldTransform(xxx);
+						if (!Child->GetChildren().empty())
+						{
+							UpdateRecursively(Child.get(), true, &job, false);// *job);
+						}
+						}, rootJob);
+					worker->Submit(job);
+				}
 			}
 		}
 		worker->Submit(rootJob);

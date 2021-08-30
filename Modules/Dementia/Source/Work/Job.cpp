@@ -7,7 +7,7 @@ Job::Job(void(*jobFunction)(Job&), Job* parent /*= nullptr*/)
 {
 	if (ParentJob)
 	{
-		ParentJob->UnfinishedJobs++;
+		ParentJob->IncrementUnfinishedChildrenJobs();
 	}
 }
 
@@ -42,6 +42,11 @@ bool Job::DecrementUnfinishedChildrenJobs()
 {
 	return UnfinishedJobs.fetch_sub(
 		1, std::memory_order_seq_cst) == 1;
+}
+
+void Job::IncrementUnfinishedChildrenJobs()
+{
+	UnfinishedJobs.fetch_add(1, std::memory_order_seq_cst);
 }
 
 void Job::Finish()

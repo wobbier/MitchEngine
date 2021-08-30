@@ -18,6 +18,7 @@ private:
 	void(*JobFuntion)(Job&);
 
 	bool DecrementUnfinishedChildrenJobs();
+	void IncrementUnfinishedChildrenJobs();
 
 	Job* ParentJob = nullptr;
 	std::atomic_size_t UnfinishedJobs;
