@@ -18,6 +18,7 @@
 #include "Utils/ImGuiUtils.h"
 #include <Utils/CommonUtils.h>
 #include <Graphics/ShaderFile.h>
+#include <CLog.h>
 
 #if ME_EDITOR
 
@@ -311,6 +312,7 @@ void AssetBrowser::BuildAssetsRecursive(Directory& dir)
 		case AssetType::Level:
 			break;
 		case AssetType::Texture:
+			BRUH("Compiling: " + files.FullPath.FullPath);
 			m_compiledAssets.push_back(ResourceCache::GetInstance().Get<Moonlight::Texture>(files.FullPath));
 			break;
 		case AssetType::Model:
@@ -318,6 +320,7 @@ void AssetBrowser::BuildAssetsRecursive(Directory& dir)
 		case AssetType::Audio:
 			break;
 		case AssetType::Shader:
+			BRUH("Compiling: " + files.FullPath.FullPath);
 			m_compiledAssets.push_back(ResourceCache::GetInstance().Get<Moonlight::ShaderFile>(files.FullPath));
 			break;
 		default:
