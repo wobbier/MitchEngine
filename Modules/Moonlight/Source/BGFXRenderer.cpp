@@ -459,7 +459,9 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 		}
 		bgfx::setState(0
 			| BGFX_STATE_WRITE_RGB
-			| BGFX_STATE_BLEND_ALPHA
+			//| BGFX_STATE_BLEND_ALPHA // - Not it, creates artifacts
+			//| BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA) // - Almost there
+			| BGFX_STATE_BLEND_FUNC_SEPARATE(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA, BGFX_STATE_BLEND_INV_DST_ALPHA, BGFX_STATE_BLEND_ONE)
 		);
 		bgfx::setTexture(0, s_texUI, camera.UITexture);
 		Moonlight::screenSpaceQuad(camera.OutputSize.x, camera.OutputSize.y, m_texelHalf, bgfx::getCaps()->originBottomLeft);

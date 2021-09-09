@@ -295,7 +295,7 @@ void UICore::CopyBitmapToTexture(ultralight::RefPtr<ultralight::Bitmap> bitmap)
 void UICore::OnEditorInspect()
 {
 	Base::OnEditorInspect();
-	ImGui::Image(m_uiTexture, ImVec2(1280, 720));
+	ImGui::Image(m_uiTexture, ImVec2(UISize.x, UISize.y));
 }
 
 #endif
