@@ -186,11 +186,11 @@ void BGFXRenderer::BeginFrame(const Vector2& mousePosition, uint8_t mouseButton,
 void BGFXRenderer::Render(Moonlight::CameraData& EditorCamera)
 {
 	OPTICK_EVENT("Renderer::Render", Optick::Category::Rendering);
-	ImGui::Begin("Debug");
-	ImGui::Checkbox("Show Frame Stats", &s_showStats);
-	ImGui::Text("Primitive topology:");
-	ImGui::Combo("Test Top", (int*)&m_pt, s_ptNames, BX_COUNTOF(s_ptNames));
-	ImGui::ColorEdit3("Ambient", &m_ambient.x);
+	//ImGui::Begin("Debug");
+	//ImGui::Checkbox("Show Frame Stats", &s_showStats);
+	//ImGui::Text("Primitive topology:");
+	//ImGui::Combo("Test Top", (int*)&m_pt, s_ptNames, BX_COUNTOF(s_ptNames));
+	//ImGui::ColorEdit3("Ambient", &m_ambient.x);
 
 	bx::Vec3 sunLuminanceXYZ = m_dynamicSky->m_sunLuminanceXYZ.GetValue(m_dynamicSky->m_time);
 	bx::Vec3 sunDiffuse = m_dynamicSky->xyzToRgb(sunLuminanceXYZ);
@@ -198,9 +198,9 @@ void BGFXRenderer::Render(Moonlight::CameraData& EditorCamera)
 	sunDiffuse.x = sunDiffuse.x / 255.f;
 	sunDiffuse.y = sunDiffuse.y / 255.f;
 	sunDiffuse.z = sunDiffuse.z / 255.f;
-	ImGui::DragFloat3("Sun Diffuse", &sunDiffuse.x);
-	ImGui::DragFloat3("Sun Direction", &m_dynamicSky->m_sun.m_sunDir.x);
-	ImGui::End();
+	//ImGui::DragFloat3("Sun Diffuse", &sunDiffuse.x);
+	//ImGui::DragFloat3("Sun Direction", &m_dynamicSky->m_sun.m_sunDir.x);
+	//ImGui::End();
 
 	// Use debug font to print information about this example.
 	bgfx::dbgTextClear();
