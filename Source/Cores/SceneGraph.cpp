@@ -98,7 +98,7 @@ void SceneGraph::Update(float dt)
 
 	auto [worker, pool] = GetEngine().GetJobSystemNew(); 
 
-	for (int i = 0; i < 0; ++i)
+	/*for (int i = 0; i < 0; ++i)
 	{
 		OPTICK_CATEGORY("Submit Job", Optick::Category::Debug);
 		Job* root = worker->GetPool().CreateJob([](Job& job) {
@@ -107,7 +107,7 @@ void SceneGraph::Update(float dt)
 		});
 		worker->Submit(root);
 		worker->Wait(root);
-	}
+	}*/
 
 	if(true)
 	{

@@ -8,7 +8,7 @@
 #include "Graphics/Texture.h"
 #include <Dementia.h>
 
-#if ME_ENABLE_RENDERDOC
+#ifdef ME_ENABLE_RENDERDOC
 #include <Debug/RenderDocManager.h>
 #endif
 #include <Debug/DebugDrawer.h>
@@ -89,7 +89,7 @@ private:
 	SharedPtr<Moonlight::DynamicSky> m_dynamicSky;
 	bool EnableDebugDraw = false;
 	UniquePtr<DebugDrawer> m_debugDraw;
-#if ME_ENABLE_RENDERDOC
+#ifdef ME_ENABLE_RENDERDOC
 		RenderDocManager* RenderDoc;
 #endif
 public:

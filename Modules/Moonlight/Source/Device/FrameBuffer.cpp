@@ -1,4 +1,5 @@
 #include "FrameBuffer.h"
+#include <CLog.h>
 
 Moonlight::FrameBuffer::FrameBuffer(uint32_t width, uint32_t height)
 	: Width(width)
@@ -55,5 +56,5 @@ Moonlight::FrameBuffer::~FrameBuffer()
 
 void Moonlight::FrameBuffer::Resize(Vector2 newSize)
 {
-	
+	CLog::Log(CLog::LogType::Warning, "[TODO] Trying to resize frame buffer.");
 }

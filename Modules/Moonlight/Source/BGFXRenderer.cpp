@@ -90,16 +90,19 @@ void BGFXRenderer::Create(const RendererCreationSettings& settings)
 	init.platformData.nwh = settings.WindowPtr;
 	init.resolution.width = static_cast<uint32_t>(PreviousSize.x);
 	init.resolution.height = static_cast<uint32_t>(PreviousSize.y);
-	init.resolution.reset = BGFX_RESET_VSYNC | BGFX_RESET_MSAA_MASK;
+	init.resolution.reset = BGFX_RESET_VSYNC | BGFX_RESET_MSAA_X16;
 
 	CurrentSize = settings.InitialSize;
 
+
 	if (!bgfx::init(init))
 	{
+		CLog::Log(CLog::LogType::Error, "BGFX Failed to Init.");
+
 		return;
 	}
 
-#if ME_ENABLE_RENDERDOC
+#ifdef ME_ENABLE_RENDERDOC
 	RenderDoc = new RenderDocManager();
 #endif
 
@@ -158,13 +161,16 @@ void BGFXRenderer::Create(const RendererCreationSettings& settings)
 
 	ImGuiRender = new ImGuiRenderer();
 	ImGuiRender->Create();
+
+	bgfx::reset((uint32_t)CurrentSize.x, (uint32_t)CurrentSize.y, BGFX_RESET_VSYNC | BGFX_RESET_MSAA_X16);
+	bgfx::setViewRect(kClearView, 0, 0, bgfx::BackbufferRatio::Equal);
 }
 
 void BGFXRenderer::Destroy()
 {
 	bgfx::shutdown();
 
-#if ME_ENABLE_RENDERDOC
+#ifdef ME_ENABLE_RENDERDOC
 	delete RenderDoc;
 	RenderDoc = nullptr;
 #endif
@@ -211,7 +217,7 @@ void BGFXRenderer::Render(Moonlight::CameraData& EditorCamera)
 	if (CurrentSize != PreviousSize)
 	{
 		PreviousSize = CurrentSize;
-		bgfx::reset((uint32_t)CurrentSize.x, (uint32_t)CurrentSize.y, BGFX_RESET_VSYNC);
+		bgfx::reset((uint32_t)CurrentSize.x, (uint32_t)CurrentSize.y, BGFX_RESET_VSYNC | BGFX_RESET_MSAA_X16);
 		bgfx::setViewRect(kClearView, 0, 0, bgfx::BackbufferRatio::Equal);
 	}
 	bgfx::setUniform(s_ambient, &m_ambient.x);

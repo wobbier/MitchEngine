@@ -2,7 +2,7 @@
 
 #include "Dementia.h"
 
-#if ME_ENABLE_RENDERDOC
+#ifdef ME_ENABLE_RENDERDOC
 
 #include <assert.h>
 
@@ -16,6 +16,7 @@ class RenderDocManager
 public:
 	RenderDocManager()
 	{
+		CLog::GetInstance().Log(CLog::LogType::Info, "[RenderDoc] Loading DLL.");
 		HMODULE mod = LoadLibrary(L"renderdoc.dll");
 		if (mod)
 		{
