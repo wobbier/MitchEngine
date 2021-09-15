@@ -414,9 +414,6 @@ filter {}
 
 --if withRenderdoc then
   defines { "ME_ENABLE_RENDERDOC" } ---, "__cplusplus_winrt"
-  postbuildcommands {
-    "xcopy /y /d  \"C:\\Program Files\\RenderDoc\\renderdoc.dll\" \"$(ProjectDir)$(OutDir)\""
-  }
 --end
 
 ------------------------------------------------------- Renderer Project -----------------------------------------------------
@@ -630,6 +627,16 @@ dependson {
 }
 
 filter {}
+
+if(_OPTIONS["project-name"]) then
+    postbuildcommands {
+        "xcopy /y /d  \"$(ProjectDir)..\\..\\ThirdParty\\RenderDoc\\renderdoc.dll\" \"$(ProjectDir)..\\$(OutDir)\""
+    }
+else
+    postbuildcommands {
+        "xcopy /y /d  \"$(ProjectDir)..\\..\\ThirdParty\\RenderDoc\\renderdoc.dll\" \"$(ProjectDir)$(OutDir)\""
+    }
+end
 
 ------------------------------------------------------- Engine Project -------------------------------------------------------
 
