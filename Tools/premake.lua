@@ -183,31 +183,32 @@ end
 
 location (dirPrefix)
 includedirs {
-  "../Source",
-  "../ThirdParty/Bullet/src",
-  "C:/Program Files/RenderDoc",
-  "../ThirdParty/Optick/src",
-  "../Modules/Moonlight/Source",
-  "../Modules/Dementia/Source",
-  "../Modules/Havana/Source",
-  "../ThirdParty/Assimp/include",
-  "../ThirdParty/ImGui",
-  "../Modules/ImGUI/Source",
-  "../ThirdParty/PerlinNoise",
-  "../ThirdParty/UltralightSDK/include",
-  "../ThirdParty/JSON/single_include",
-  "../ThirdParty/glm",
-  "../ThirdParty/bgfx/include",
-  "../ThirdParty/bx/include",
-  "../ThirdParty/bx/include/compat/msvc/",
-  "../ThirdParty/bimg/include",
-  "../ThirdParty/SDL/include"
+    "../Source",
+    "../ThirdParty/Bullet/src",
+    "../ThirdParty/RenderDoc",
+    "../ThirdParty/Optick/src",
+    "../Modules/Moonlight/Source",
+    "../Modules/Dementia/Source",
+    "../Modules/Havana/Source",
+    "../ThirdParty/Assimp/include",
+    "../ThirdParty/ImGui",
+    "../Modules/ImGUI/Source",
+    "../ThirdParty/PerlinNoise",
+    "../ThirdParty/UltralightSDK/include",
+    "../ThirdParty/JSON/single_include",
+    "../ThirdParty/glm",
+    "../ThirdParty/bgfx/include",
+    "../ThirdParty/bx/include",
+    "../ThirdParty/bx/include/compat/msvc/",
+    "../ThirdParty/bimg/include",
+    "../ThirdParty/SDL/include"
 }
 
 -- macOS
 sysincludedirs {
     "../Source",
     "../ThirdParty/Bullet/src",
+    "../ThirdParty/RenderDoc",
     "../ThirdParty/Assimp/include",
     "../ThirdParty/Optick/src",
     "../Modules/Moonlight/Source",
