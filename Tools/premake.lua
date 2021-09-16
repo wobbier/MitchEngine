@@ -413,9 +413,11 @@ end
 configuration {}
 filter {}
 
+if not(isPlatform("macOS")) then
 --if withRenderdoc then
   defines { "ME_ENABLE_RENDERDOC" } ---, "__cplusplus_winrt"
 --end
+end
 
 ------------------------------------------------------- Renderer Project -----------------------------------------------------
 
@@ -629,14 +631,16 @@ dependson {
 
 filter {}
 
-if(_OPTIONS["project-name"]) then
-    postbuildcommands {
-        "xcopy /y /d  \"$(ProjectDir)..\\..\\ThirdParty\\RenderDoc\\renderdoc.dll\" \"$(ProjectDir)..\\$(OutDir)\""
-    }
-else
-    postbuildcommands {
-        "xcopy /y /d  \"$(ProjectDir)..\\..\\ThirdParty\\RenderDoc\\renderdoc.dll\" \"$(ProjectDir)$(OutDir)\""
-    }
+if not(isPlatform("macOS")) then
+    if(_OPTIONS["project-name"]) then
+        postbuildcommands {
+            "xcopy /y /d  \"$(ProjectDir)..\\..\\ThirdParty\\RenderDoc\\renderdoc.dll\" \"$(ProjectDir)..\\$(OutDir)\""
+        }
+    else
+        postbuildcommands {
+            "xcopy /y /d  \"$(ProjectDir)..\\..\\ThirdParty\\RenderDoc\\renderdoc.dll\" \"$(ProjectDir)$(OutDir)\""
+        }
+    end
 end
 
 ------------------------------------------------------- Engine Project -------------------------------------------------------

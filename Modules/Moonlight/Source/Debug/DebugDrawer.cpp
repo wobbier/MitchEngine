@@ -240,7 +240,7 @@ void DebugDrawer::End()
 
 void DebugDrawer::Draw(const float* InOBB)
 {
-	const Attrib& attrib = m_attrib[m_stack];
+	//const Attrib& attrib = m_attrib[m_stack];
 	//if (attrib.m_wireframe)
 	{
 		PushTransform(InOBB, 1);

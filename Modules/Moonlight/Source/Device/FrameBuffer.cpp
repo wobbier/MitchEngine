@@ -5,8 +5,8 @@ Moonlight::FrameBuffer::FrameBuffer(uint32_t width, uint32_t height)
 	: Width(width)
 	, Height(height)
 {
-	uint32_t m_reset = 128;
-	uint32_t msaa = (m_reset & BGFX_RESET_MSAA_MASK) >> BGFX_RESET_MSAA_SHIFT;
+	//uint32_t m_reset = 128;
+	//uint32_t msaa = (m_reset & BGFX_RESET_MSAA_MASK) >> BGFX_RESET_MSAA_SHIFT;
 
 	const uint64_t textureFlags = BGFX_TEXTURE_RT_WRITE_ONLY | BGFX_TEXTURE_RT_MSAA_X16;// (uint64_t(msaa + 1) << BGFX_TEXTURE_RT_MSAA_SHIFT);
 
