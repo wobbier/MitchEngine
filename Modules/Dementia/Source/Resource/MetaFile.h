@@ -15,6 +15,7 @@ struct MetaBase
 	MetaBase() = delete;
 
 	MetaBase(const Path& filePath);
+	virtual ~MetaBase() = default;
 
 	void Serialize(json& outJson);
 	void Deserialize(const json& inJson);

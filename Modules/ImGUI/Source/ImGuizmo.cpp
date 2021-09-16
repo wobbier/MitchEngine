@@ -680,8 +680,8 @@ namespace ImGuizmo
 
    static Context gContext;
 
-   static const float angleLimit = 0.96f;
-   static const float planeLimit = 0.2f;
+   //static const float angleLimit = 0.96f;
+   //static const float planeLimit = 0.2f;
 
    static const vec_t directionUnary[3] = { makeVect(1.f, 0.f, 0.f), makeVect(0.f, 1.f, 0.f), makeVect(0.f, 0.f, 1.f) };
    static const ImU32 directionColor[3] = { 0xAA5233FF, 0xAA00DC8B, 0xAAFD8F28 };
@@ -853,15 +853,14 @@ namespace ImGuizmo
 
    void BeginFrame()
    {
-      ImGuiIO& io = ImGui::GetIO();
-
       const ImU32 flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoBringToFrontOnFocus;
 
 #ifdef IMGUI_HAS_VIEWPORT
       ImGui::SetNextWindowSize(ImGui::GetMainViewport()->Size);
       ImGui::SetNextWindowPos(ImGui::GetMainViewport()->Pos);
 #else
-      ImGui::SetNextWindowSize(io.DisplaySize);
+	  ImGuiIO& io = ImGui::GetIO();
+	  ImGui::SetNextWindowSize(io.DisplaySize);
       ImGui::SetNextWindowPos(ImVec2(0, 0));
 #endif
 
@@ -892,7 +891,10 @@ namespace ImGuizmo
       switch (op) {
       case SCALE:       return GetScaleType()      != NONE || IsUsing();
       case ROTATE:      return GetRotateType()     != NONE || IsUsing();
-      case TRANSLATE:   return GetMoveType(NULL)   != NONE || IsUsing();
+      case TRANSLATE:   return GetMoveType(NULL) != NONE || IsUsing();
+      case BOUNDS:
+      default:
+          break;
       }
       return false;
    }
@@ -2226,9 +2228,9 @@ namespace ImGuizmo
       {
          const float* matrix = &matrices[cube * 16];
 
-         const matrix_t& model = *(matrix_t*)matrix;
+         //const matrix_t& model = *(matrix_t*)matrix;
          matrix_t res = *(matrix_t*)matrix * *(matrix_t*)view * *(matrix_t*)projection;
-         matrix_t modelView = *(matrix_t*)matrix * *(matrix_t*)view;
+         //matrix_t modelView = *(matrix_t*)matrix * *(matrix_t*)view;
 
          for (int iFace = 0; iFace < 6; iFace++)
          {
@@ -2429,10 +2431,10 @@ namespace ImGuizmo
             const vec_t indexVectorX = directionUnary[perpXIndex] * invert;
             const vec_t indexVectorY = directionUnary[perpYIndex] * invert;
             const vec_t boxOrigin = directionUnary[normalIndex] * -invert - indexVectorX - indexVectorY;
-            const vec_t faceCoords[4] = { directionUnary[normalIndex] + directionUnary[perpXIndex] + directionUnary[perpYIndex],
-                                          directionUnary[normalIndex] + directionUnary[perpXIndex] - directionUnary[perpYIndex],
-                                          directionUnary[normalIndex] - directionUnary[perpXIndex] - directionUnary[perpYIndex],
-                                          directionUnary[normalIndex] - directionUnary[perpXIndex] + directionUnary[perpYIndex] };
+            //const vec_t faceCoords[4] = { directionUnary[normalIndex] + directionUnary[perpXIndex] + directionUnary[perpYIndex],
+            //                              directionUnary[normalIndex] + directionUnary[perpXIndex] - directionUnary[perpYIndex],
+            //                              directionUnary[normalIndex] - directionUnary[perpXIndex] - directionUnary[perpYIndex],
+            //                              directionUnary[normalIndex] - directionUnary[perpXIndex] + directionUnary[perpYIndex] };
 
             // plan local space
             const vec_t n = directionUnary[normalIndex] * invert;
