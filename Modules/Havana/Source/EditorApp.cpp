@@ -135,6 +135,7 @@ void EditorApp::OnInitialize()
 void EditorApp::PostRender()
 {
 	Editor->Render(GetEngine().EditorCamera);
+	Editor->GetInput().PostUpdate();
 }
 
 void EditorApp::StartGame()

@@ -22,6 +22,8 @@
 
 #if ME_EDITOR
 
+const ImGuiTableSortSpecs* AssetBrowser::AssetDescriptor::s_current_sort_specs = NULL;
+
 AssetBrowser::AssetBrowser(const std::string& pathToWatch, std::chrono::duration<int, std::milli> delay)
 	: PathToWatch(pathToWatch)
 	, Delay(delay)
@@ -37,12 +39,17 @@ AssetBrowser::AssetBrowser(const std::string& pathToWatch, std::chrono::duration
 	EngineAssetDirectory.FullPath = Path("Engine/Assets");
 
 	ReloadDirectories();
+
+	std::vector<TypeId> events;
+	events.push_back(RequestAssetSelectionEvent::GetEventId());
+	EventManager::GetInstance().RegisterReceiver(this, events);
 }
 
 void AssetBrowser::ReloadDirectories()
 {
 	AssetDirectory.Directories.clear();
 	AssetDirectory.Files.clear();
+	MasterAssetsList.clear();
 
 	for (auto& file : std::filesystem::recursive_directory_iterator(PathToWatch))
 	{
@@ -164,6 +171,256 @@ void AssetBrowser::Draw()
 	}
 
 	ImGui::End();
+
+	if (IsBrowserOpen)
+	{
+		if (ForcedAssetFilter != AssetType::Unknown)
+		{
+			ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.f);
+			ImGui::PushStyleColor(ImGuiCol_Border, { 0.447f, .905f, .39f, .31f });
+		}
+
+		ImGui::Begin("Asset Directory", &IsBrowserOpen);
+
+		if (ForcedAssetFilter != AssetType::Unknown)
+		{
+			ImGui::PopStyleVar(1);
+			ImGui::PopStyleColor(1);
+		}
+
+		DrawAssetTable();
+
+		ImGui::End();
+	}
+	else
+	{
+		AssetSelectedCallback = nullptr;
+		ForcedAssetFilter = AssetType::Unknown;
+	}
+}
+
+void AssetBrowser::DrawAssetTable()
+{
+
+	static ImGuiTableFlags flags =
+		ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable
+		| ImGuiTableFlags_Sortable | ImGuiTableFlags_SortMulti
+		| ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders | ImGuiTableFlags_NoBordersInBody
+		| ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY
+		| ImGuiTableFlags_SizingStretchProp;
+
+	enum ContentsType { CT_Text, CT_Button, CT_SmallButton, CT_FillButton, CT_Selectable, CT_SelectableSpanRow };
+	static int contents_type = CT_SelectableSpanRow;
+	ImVec2 outer_size_value = ImVec2(-FLT_MIN, ImGui::GetFrameHeightWithSpacing() - ImGui::GetCursorPosY());
+	static float row_min_height = 16.f; // Auto
+	static float inner_width_with_scroll = 0.0f; // Auto-extend
+	static bool outer_size_enabled = true;
+	static ImGuiTextFilter filter;
+	static ImVector<int> selection;
+	static bool items_need_sort = false;
+
+	// This is awful, change the whole thing to a bitmask
+	static bool filterAudio = false;
+	static bool filterModel = false;
+	static bool filterTexture = false;
+
+	bool stringFilterChanged = filter.Draw("filter", ImGui::GetContentRegionAvailWidth());
+	bool isAssetTypeForced = ForcedAssetFilter != AssetType::Unknown;
+	
+	if (isAssetTypeForced)
+	{
+		ImGui::PushStyleColor(ImGuiCol_Header, { 0.447f, .905f, .39f, .31f });
+		ImGui::PushStyleColor(ImGuiCol_HeaderHovered, { 0.447f, .905f, .39f, .8f });
+		ImGui::PushStyleColor(ImGuiCol_HeaderActive, { .06f, .34f, .2f, 1.f });
+	}
+
+	if (ImGui::CollapsingHeader(isAssetTypeForced ? "Forced Asset Type Filter Active" : "Filters"))
+	{
+		if (ImGui::Checkbox("Audio", &filterAudio))
+		{
+			items_need_filtered = true;
+		}
+		if (ImGui::Checkbox("Model", &filterModel))
+		{
+			items_need_filtered = true;
+		}
+		if (ImGui::Checkbox("Texture", &filterTexture))
+		{
+			items_need_filtered = true;
+		}
+	}
+
+	if (isAssetTypeForced)
+	{
+		ImGui::PopStyleColor(3);
+	}
+
+	items_need_filtered = items_need_filtered || stringFilterChanged;
+	if (isAssetTypeForced)
+	{
+		filterAudio = ForcedAssetFilter == AssetType::Audio;
+		filterModel = ForcedAssetFilter == AssetType::Model;
+		filterTexture = ForcedAssetFilter == AssetType::Texture;
+		items_need_filtered = true;
+	}
+
+	bool hasNoTypeFilter = (!filterAudio && !filterModel && !filterTexture) && ForcedAssetFilter == AssetType::Unknown;
+
+	const float inner_width_to_use = (flags & ImGuiTableFlags_ScrollX) ? inner_width_with_scroll : 0.0f;
+	if (ImGui::BeginTable("##table", 3, flags, outer_size_enabled ? outer_size_value : ImVec2(0, 0), inner_width_to_use))
+	{
+		ImGui::TableSetupColumn("##ID", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoHide | ImGuiTableColumnFlags_NoResize, -1.f, MyItemColumnID_ID);
+		ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthFixed, -1.0f, MyItemColumnID_Name);
+		ImGui::TableSetupColumn("Local Path", ImGuiTableColumnFlags_WidthStretch, -1.0f, MyItemColumnID_Description);
+		ImGui::TableSetupScrollFreeze(1, 1);
+
+		ImGuiTableSortSpecs* sorts_specs = ImGui::TableGetSortSpecs();
+		if (sorts_specs && sorts_specs->SpecsDirty)
+		{
+			items_need_sort = true;
+		}
+		if (sorts_specs && items_need_sort && MasterAssetsList.size() > 1)
+		{
+			AssetDescriptor::s_current_sort_specs = sorts_specs; // Store in variable accessible by the sort function.
+			qsort(&MasterAssetsList[0], (size_t)MasterAssetsList.size(), sizeof(MasterAssetsList[0]), AssetDescriptor::CompareWithSortSpecs);
+			AssetDescriptor::s_current_sort_specs = NULL;
+			sorts_specs->SpecsDirty = false;
+			items_need_filtered = true;
+		}
+		items_need_sort = false;
+
+		if (items_need_filtered)
+		{
+			FilteredAssetList.clear();
+			for (auto& it : MasterAssetsList)
+			{
+				bool passedStringFilter = filter.PassFilter(it.Name.c_str());
+				if (passedStringFilter && hasNoTypeFilter)
+				{
+					FilteredAssetList.push_back(&it);
+				}
+				else if (passedStringFilter && !hasNoTypeFilter)
+				{
+					if (it.Type == AssetType::Audio && filterAudio)
+					{
+						FilteredAssetList.push_back(&it);
+					}
+					if (it.Type == AssetType::Model && filterModel)
+					{
+						FilteredAssetList.push_back(&it);
+					}
+					if (it.Type == AssetType::Texture && filterTexture)
+					{
+						FilteredAssetList.push_back(&it);
+					}
+				}
+			}
+			items_need_filtered = false;
+		}
+
+		ImGui::TableHeadersRow();
+
+		ImGui::PushButtonRepeat(true);
+		ImGuiListClipper clipper;
+		clipper.Begin(FilteredAssetList.size());
+		while (clipper.Step())
+		{
+			for (int row_n = clipper.DisplayStart; row_n < clipper.DisplayEnd; row_n++)
+			{
+				AssetDescriptor* item = FilteredAssetList[row_n];
+
+				const bool item_is_selected = selection.contains(item->ID);
+				ImGui::PushID(item->ID);
+				ImGui::TableNextRow(ImGuiTableRowFlags_None, row_min_height);
+				
+				if (ImGui::TableNextColumn())
+				{
+					ImGuiSelectableFlags selectable_flags = (contents_type == CT_SelectableSpanRow) ? ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowItemOverlap | ImGuiSelectableFlags_AllowDoubleClick : ImGuiSelectableFlags_None;
+					if (ImGui::Selectable("##Entry", item_is_selected, selectable_flags, ImVec2(0, row_min_height)))
+					{
+						if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && AssetSelectedCallback)
+						{
+							AssetSelectedCallback(item->FullPath);
+							RequestOverlay();
+						}
+
+						if (ImGui::GetIO().KeyCtrl)
+						{
+							if (item_is_selected)
+								selection.find_erase_unsorted(item->ID);
+							else
+								selection.push_back(item->ID);
+						}
+						else
+						{
+							selection.clear();
+							selection.push_back(item->ID);
+						}
+					}
+					ImGui::SameLine();
+					ImVec2 iconSize(16, 16);
+					switch (item->Type)
+					{
+					case AssetType::Level:
+						ImGui::Image(Icons["World"]->TexHandle, iconSize);
+						break;
+					case AssetType::Texture:
+						ImGui::Image(Icons["Image"]->TexHandle, iconSize);
+						break;
+					case AssetType::Model:
+						ImGui::Image(Icons["Model"]->TexHandle, iconSize);
+						break;
+					case AssetType::Audio:
+						ImGui::Image(Icons["Audio"]->TexHandle, iconSize);
+						break;
+					case AssetType::Prefab:
+						ImGui::Image(Icons["Prefab"]->TexHandle, iconSize);
+						break;
+					default:
+						ImGui::Image(Icons["File"]->TexHandle, iconSize);
+						break;
+					}
+				}
+
+				if (ImGui::TableNextColumn())
+					ImGui::TextUnformatted(item->Name.c_str());
+
+				if(ImGui::TableNextColumn())
+					ImGui::Text(item->FullPath.LocalPath.c_str());
+
+				ImGui::PopID();
+			}
+		}
+		ImGui::PopButtonRepeat();
+
+		ImGui::EndTable();
+	}
+
+}
+
+void AssetBrowser::RequestOverlay(const std::function<void(Path)> cb, AssetType forcedType)
+{
+	if (cb)
+	{
+		IsBrowserOpen = true;
+	}
+	else
+	{
+		IsBrowserOpen = !IsBrowserOpen;
+	}
+	ForcedAssetFilter = forcedType;
+	AssetSelectedCallback = cb;
+	items_need_filtered = IsBrowserOpen;
+}
+
+bool AssetBrowser::OnEvent(const BaseEvent& evt)
+{
+	if (evt.GetEventId() == RequestAssetSelectionEvent::GetEventId())
+	{
+		const RequestAssetSelectionEvent& event = static_cast<const RequestAssetSelectionEvent&>(evt);
+		RequestOverlay(event.Callback, event.ForcedFilter);
+	}
+	return false;
 }
 
 void AssetBrowser::Recursive(Directory& dir)
@@ -243,7 +500,7 @@ void AssetBrowser::Recursive(Directory& dir)
 				else
 				{
 #if ME_PLATFORM_WIN64
-				ShellExecute(NULL, L"open", StringUtils::ToWString(SelectedAsset->FullPath.FullPath).c_str(), NULL, NULL, SW_SHOWDEFAULT);
+					ShellExecute(NULL, L"open", StringUtils::ToWString(SelectedAsset->FullPath.FullPath).c_str(), NULL, NULL, SW_SHOWDEFAULT);
 #endif
 				}
 			}
@@ -270,7 +527,7 @@ void AssetBrowser::Recursive(Directory& dir)
 
 				json prefab;
 				SavePrefab(prefab, payload_n->Parent, true);
-				
+
 				File(Path(files.FullPath.Directory + payload_n->Parent->GetName() + std::string(".prefab"))).Write(prefab[0].dump(4));
 			}
 			ImGui::EndDragDropTarget();
@@ -370,7 +627,7 @@ bool AssetBrowser::ProccessDirectoryRecursive(std::string& dir, Directory& dirRe
 					|| newdir.find(".pdn") != std::string::npos
 					|| newdir.find(".blend") != std::string::npos
 					|| newdir.find(".bin") != std::string::npos
-                    || newdir.find(".DS_Store") != std::string::npos)
+					|| newdir.find(".DS_Store") != std::string::npos)
 				{
 					return false;
 				}
@@ -417,6 +674,8 @@ bool AssetBrowser::ProccessDirectoryRecursive(std::string& dir, Directory& dirRe
 				//{
 
 				//}
+				desc.ID = MasterAssetsList.size();
+				MasterAssetsList.push_back(desc);
 				return true;
 			}
 			Directory newDirectory;

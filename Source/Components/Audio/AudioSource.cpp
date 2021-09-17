@@ -4,6 +4,7 @@
 #include "Path.h"
 #include "imgui.h"
 #include <filesystem>
+#include <HavanaEvents.h>
 
 AudioSource::AudioSource(const std::string& InFilePath)
 	: Component("AudioSource")
@@ -67,46 +68,58 @@ void AudioSource::OnDeserialize(const json& inJson)
 #if ME_EDITOR
 void AudioSource::OnEditorInspect()
 {
+	//static std::vector<Path> SoundFiles;
+	//Path path = Path("Assets");
+	//if (SoundFiles.empty())
+	//{
+	//	SoundFiles.push_back(Path(""));
+	//	for (const auto& entry : std::filesystem::recursive_directory_iterator(path.FullPath))
+	//	{
+	//		Path filePath(entry.path().string());
+	//		if ((filePath.LocalPath.rfind(".wav") != std::string::npos || filePath.LocalPath.rfind(".mp3") != std::string::npos)
+	//			&& filePath.LocalPath.rfind(".meta") == std::string::npos)
+	//		{
+	//			SoundFiles.push_back(filePath);
+	//		}
+	//	}
+	//}
 
-	static std::vector<Path> SoundFiles;
-	Path path = Path("Assets");
-	if (SoundFiles.empty())
+	//int i = 0;
 	{
-		SoundFiles.push_back(Path(""));
-		for (const auto& entry : std::filesystem::recursive_directory_iterator(path.FullPath))
+		HavanaUtils::Label("Asset");
+		if (ImGui::Button(FilePath.LocalPath.empty() ? "Select Asset" : FilePath.LocalPath.c_str()))
 		{
-			Path filePath(entry.path().string());
-			if ((filePath.LocalPath.rfind(".wav") != std::string::npos || filePath.LocalPath.rfind(".mp3") != std::string::npos)
-				&& filePath.LocalPath.rfind(".meta") == std::string::npos)
-			{
-				SoundFiles.push_back(filePath);
-			}
-		}
-	}
-
-	int i = 0;
-	{
-		std::string label("##SoundFile");
-		if (ImGui::BeginCombo(label.c_str(), FilePath.LocalPath.c_str()))
-		{
-			for (size_t n = 0; n < SoundFiles.size(); n++)
-			{
-				if (ImGui::Selectable(SoundFiles[n].LocalPath.c_str(), false))
+			RequestAssetSelectionEvent evt([this](Path selectedAsset) {
+				FilePath = selectedAsset;
+				IsInitialized = false;
+				/*if (SoundInstance && SoundInstance->GetState() == DirectX::SoundState::PLAYING)
 				{
-					FilePath = SoundFiles[n];
-					IsInitialized = false;
-					/*if (SoundInstance && SoundInstance->GetState() == DirectX::SoundState::PLAYING)
-					{
-						SoundInstance->Stop(true);
-					}*/
-					SoundFiles.clear();
-					break;
-				}
-			}
-			ImGui::EndCombo();
+					SoundInstance->Stop(true);
+				}*/
+				}, AssetType::Audio);
+			evt.Fire();
 		}
+		//std::string label("##SoundFile");
+		//if (ImGui::BeginCombo(label.c_str(), FilePath.LocalPath.c_str()))
+		//{
+		//	for (size_t n = 0; n < SoundFiles.size(); n++)
+		//	{
+		//		if (ImGui::Selectable(SoundFiles[n].LocalPath.c_str(), false))
+		//		{
+		//			FilePath = SoundFiles[n];
+		//			IsInitialized = false;
+		//			/*if (SoundInstance && SoundInstance->GetState() == DirectX::SoundState::PLAYING)
+		//			{
+		//				SoundInstance->Stop(true);
+		//			}*/
+		//			SoundFiles.clear();
+		//			break;
+		//		}
+		//	}
+		//	ImGui::EndCombo();
+		//}
 
-		i++;
+		//i++;
 
 		/*if (SoundInstance)
 		{

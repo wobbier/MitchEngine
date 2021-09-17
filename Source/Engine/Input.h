@@ -413,38 +413,36 @@ class Input
 	friend class Window;
 	friend class Engine;
 	friend class Havana;
+	friend class EditorApp;
 public:
 	Input();
 	~Input() = default;
 
 	virtual bool OnEvent(const BaseEvent& evt);
-	//const DirectX::Keyboard::State& GetKeyboardState() const;
-	//DirectX::Mouse::State GetMouseState();
-	//DirectX::GamePad::State GetControllerState(unsigned int PlayerId = 0);
 
+	void Pause();
+	void Resume();
+	void Stop();
+
+    // Mouse
 	Vector2 GetMousePosition() const;
 	void SetMousePosition(const Vector2& InPosition);
 	Vector2 GetMouseOffset();
-
 	Vector2 GetMouseScrollOffset();
-
 
 	void SetMouseCapture(bool Capture);
 	void SetMouseOffset(const Vector2& InOffset);
 
 	bool IsMouseButtonDown(MouseButton mouseButton);
 
+    // Keyboard
 	bool IsKeyDown(KeyCode key);
-
-	//DirectX::Mouse& GetMouse();
-
-	void Pause();
-	void Resume();
-	void Stop();
+    bool WasKeyPressed(KeyCode key);
+    bool WasKeyReleased(KeyCode key);
 
 private:
 	void Update();
-
+    void PostUpdate();
 	Vector2 MousePosition;
 	Vector2 Offset;
 
@@ -455,4 +453,6 @@ private:
 
 	const uint8_t* KeyboardState = nullptr;
 	uint32_t MouseState = 0;
+	const uint8_t* PreviousKeyboardState = nullptr;
+	uint32_t PreviousMouseState = 0;
 };

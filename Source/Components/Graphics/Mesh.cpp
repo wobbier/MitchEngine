@@ -254,34 +254,34 @@ void Mesh::OnEditorInspect()
 			}
 			HavanaUtils::EditableVector("Tiling", MeshMaterial->Tiling);
 
-			static std::vector<Path> Textures;
-			Path path = Path("Assets");
-			Path engineAssetPath = Path("Engine/Assets");
-			if (Textures.empty())
-			{
-				Textures.push_back(Path(""));
-				for (const auto& entry : std::filesystem::recursive_directory_iterator(path.FullPath))
-				{
-					Path filePath(entry.path().string());
-					if ((filePath.LocalPath.rfind(".png") != std::string::npos || filePath.LocalPath.rfind(".jpg") != std::string::npos || filePath.LocalPath.rfind(".tif") != std::string::npos)
-						&& filePath.LocalPath.rfind(".meta") == std::string::npos
-						&& filePath.LocalPath.rfind(".dds") == std::string::npos)
-					{
-						Textures.push_back(filePath);
-					}
-				}
+			//static std::vector<Path> Textures;
+			//Path path = Path("Assets");
+			//Path engineAssetPath = Path("Engine/Assets");
+			//if (Textures.empty())
+			//{
+			//	Textures.push_back(Path(""));
+			//	for (const auto& entry : std::filesystem::recursive_directory_iterator(path.FullPath))
+			//	{
+			//		Path filePath(entry.path().string());
+			//		if ((filePath.LocalPath.rfind(".png") != std::string::npos || filePath.LocalPath.rfind(".jpg") != std::string::npos || filePath.LocalPath.rfind(".tif") != std::string::npos)
+			//			&& filePath.LocalPath.rfind(".meta") == std::string::npos
+			//			&& filePath.LocalPath.rfind(".dds") == std::string::npos)
+			//		{
+			//			Textures.push_back(filePath);
+			//		}
+			//	}
 
-				for (const auto& entry : std::filesystem::recursive_directory_iterator(engineAssetPath.FullPath))
-				{
-					Path filePath(entry.path().string());
-					if ((filePath.LocalPath.rfind(".png") != std::string::npos || filePath.LocalPath.rfind(".jpg") != std::string::npos || filePath.LocalPath.rfind(".tif") != std::string::npos)
-						&& filePath.LocalPath.rfind(".meta") == std::string::npos
-						&& filePath.LocalPath.rfind(".dds") == std::string::npos)
-					{
-						Textures.push_back(filePath);
-					}
-				}
-			}
+			//	for (const auto& entry : std::filesystem::recursive_directory_iterator(engineAssetPath.FullPath))
+			//	{
+			//		Path filePath(entry.path().string());
+			//		if ((filePath.LocalPath.rfind(".png") != std::string::npos || filePath.LocalPath.rfind(".jpg") != std::string::npos || filePath.LocalPath.rfind(".tif") != std::string::npos)
+			//			&& filePath.LocalPath.rfind(".meta") == std::string::npos
+			//			&& filePath.LocalPath.rfind(".dds") == std::string::npos)
+			//		{
+			//			Textures.push_back(filePath);
+			//		}
+			//	}
+			//}
 			HavanaUtils::Label("Diffuse Color");
 			ImGui::ColorEdit3("##Diffuse Color", &MeshMaterial->DiffuseColor[0]);
 
@@ -290,81 +290,105 @@ void Mesh::OnEditorInspect()
 			{
 				HavanaUtils::Label(Moonlight::Texture::ToString(static_cast<Moonlight::TextureType>(i)));
 				std::string label("##Texture" + std::to_string(i));
-				if(texture && bgfx::isValid(texture->TexHandle))
+				if (texture && bgfx::isValid(texture->TexHandle))
 				{
- 					if (ImGui::ImageButton(texture->TexHandle, ImVec2(30, 30)))
- 					{
+					if (ImGui::ImageButton(texture->TexHandle, ImVec2(30, 30)))
+					{
 						PreviewResourceEvent evt;
-							evt.Subject = texture;
-							evt.Fire();
- 					}
+						evt.Subject = texture;
+						evt.Fire();
+					}
 					static bool ViewTexture = true;
- 					if (ImGui::BeginPopupModal("ViewTexture", &ViewTexture, ImGuiWindowFlags_MenuBar))
- 					{
- 						if (texture)
- 						{
- 							// Get the current cursor position (where your window is)
- 							ImVec2 pos = ImGui::GetCursorScreenPos();
- 							ImVec2 maxPos = ImVec2(pos.x + ImGui::GetWindowSize().x, pos.y + ImGui::GetWindowSize().y);
- 							Vector2 RenderSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
- 
- 							// Ask ImGui to draw it as an image:
- 							// Under OpenGL the ImGUI image type is GLuint
- 							// So make sure to use "(void *)tex" but not "&tex"
- 							/*ImGui::GetWindowDrawList()->AddImage(
- 								(void*)texture->TexHandle,
- 								ImVec2(pos.x, pos.y),
- 								ImVec2(maxPos));*/
- 							//ImVec2(WorldViewRenderSize.X() / RenderSize.X(), WorldViewRenderSize.Y() / RenderSize.Y()));
- 
- 						}
- 						if (ImGui::Button("Close"))
- 						{
- 							ViewTexture = false;
- 							ImGui::CloseCurrentPopup();
- 						}
- 						ImGui::EndPopup();
- 					}
+					if (ImGui::BeginPopupModal("ViewTexture", &ViewTexture, ImGuiWindowFlags_MenuBar))
+					{
+						if (texture)
+						{
+							// Get the current cursor position (where your window is)
+							ImVec2 pos = ImGui::GetCursorScreenPos();
+							ImVec2 maxPos = ImVec2(pos.x + ImGui::GetWindowSize().x, pos.y + ImGui::GetWindowSize().y);
+							Vector2 RenderSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
+
+							// Ask ImGui to draw it as an image:
+							// Under OpenGL the ImGUI image type is GLuint
+							// So make sure to use "(void *)tex" but not "&tex"
+							/*ImGui::GetWindowDrawList()->AddImage(
+								(void*)texture->TexHandle,
+								ImVec2(pos.x, pos.y),
+								ImVec2(maxPos));*/
+								//ImVec2(WorldViewRenderSize.X() / RenderSize.X(), WorldViewRenderSize.Y() / RenderSize.Y()));
+
+						}
+						if (ImGui::Button("Close"))
+						{
+							ViewTexture = false;
+							ImGui::CloseCurrentPopup();
+						}
+						ImGui::EndPopup();
+					}
 					ImGui::SameLine();
 				}
-				if (ImGui::BeginCombo(label.c_str(), ((texture) ? texture->GetPath().LocalPath.c_str() : "")))
-				{
-					static ImGuiTextFilter filter;
-					/*ImGui::Text("Filter usage:\n"
-						"  \"\"         display all lines\n"
-						"  \"xxx\"      display lines containing \"xxx\"\n"
-						"  \"xxx,yyy\"  display lines containing \"xxx\" or \"yyy\"\n"
-						"  \"-xxx\"     hide lines containing \"xxx\"");*/
-					filter.Draw("##Filter");
-					for (size_t n = 0; n < Textures.size(); n++)
-					{
-						if (!filter.PassFilter(Textures[n].LocalPath.c_str()))
-						{
-							continue;
-						}
 
-						if (ImGui::Selectable(Textures[n].LocalPath.c_str(), false))
-						{
-							if (!Textures[n].LocalPath.empty())
-							{
-								MeshMaterial->SetTexture(static_cast<Moonlight::TextureType>(i), ResourceCache::GetInstance().Get<Moonlight::Texture>(Textures[n]));
-							}
-							else
-							{
-								MeshMaterial->SetTexture(static_cast<Moonlight::TextureType>(i), nullptr);
-							}
-							Textures.clear();
-							break;
-						}
-					}
-					ImGui::EndCombo();
+				ImVec2 selectorSize(-1.f, 19.f);
+
+				if (texture)
+				{
+					selectorSize = ImVec2(ImGui::GetContentRegionAvailWidth() - 19.f, 19.f);
+				}
+				ImGui::PushID(i);
+				if (ImGui::Button(((texture) ? texture->GetPath().LocalPath.c_str() : "Select Asset"), selectorSize))
+				{
+					RequestAssetSelectionEvent evt([this, i](Path selectedAsset) {
+						MeshMaterial->SetTexture(static_cast<Moonlight::TextureType>(i), ResourceCache::GetInstance().Get<Moonlight::Texture>(selectedAsset));
+						}, AssetType::Texture);
+					evt.Fire();
 				}
 				if (texture)
 				{
-					if (i == static_cast<int>(Moonlight::TextureType::Diffuse))
+					ImGui::SameLine();
+					if (ImGui::Button("X"))
 					{
+						MeshMaterial->SetTexture(static_cast<Moonlight::TextureType>(i), nullptr);
 					}
 				}
+				ImGui::PopID();
+				//if (ImGui::BeginCombo(label.c_str(), ((texture) ? texture->GetPath().LocalPath.c_str() : "")))
+				//{
+				//	static ImGuiTextFilter filter;
+				//	/*ImGui::Text("Filter usage:\n"
+				//		"  \"\"         display all lines\n"
+				//		"  \"xxx\"      display lines containing \"xxx\"\n"
+				//		"  \"xxx,yyy\"  display lines containing \"xxx\" or \"yyy\"\n"
+				//		"  \"-xxx\"     hide lines containing \"xxx\"");*/
+				//	filter.Draw("##Filter");
+				//	for (size_t n = 0; n < Textures.size(); n++)
+				//	{
+				//		if (!filter.PassFilter(Textures[n].LocalPath.c_str()))
+				//		{
+				//			continue;
+				//		}
+
+				//		if (ImGui::Selectable(Textures[n].LocalPath.c_str(), false))
+				//		{
+				//			if (!Textures[n].LocalPath.empty())
+				//			{
+				//				MeshMaterial->SetTexture(static_cast<Moonlight::TextureType>(i), ResourceCache::GetInstance().Get<Moonlight::Texture>(Textures[n]));
+				//			}
+				//			else
+				//			{
+				//				MeshMaterial->SetTexture(static_cast<Moonlight::TextureType>(i), nullptr);
+				//			}
+				//			Textures.clear();
+				//			break;
+				//		}
+				//	}
+				//	ImGui::EndCombo();
+				//}
+				//if (texture)
+				//{
+				//	if (i == static_cast<int>(Moonlight::TextureType::Diffuse))
+				//	{
+				//	}
+				//}
 				i++;
 			}
 			//ImGui::TreePop();

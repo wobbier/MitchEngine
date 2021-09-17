@@ -47,7 +47,7 @@ Havana::Havana(Engine* GameEngine, EditorApp* app)
 		switch (status) {
 		case FileStatus::Created:
 		{
- #if ME_PLATFORM_WIN64
+#if ME_PLATFORM_WIN64
 			CLog::GetInstance().Log(CLog::LogType::Info, "File created: " + path_to_watch);
 			TestEditorEvent evt;
 			evt.Path = std::move(path_to_watch);
@@ -291,6 +291,14 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 		Camera::CurrentCamera->OutputSize = GameSceneView->SceneViewRenderSize;
 	}
 
+	// Asset Browser
+	{
+		if (GetInput().WasKeyPressed(KeyCode::F2))
+		{
+			m_assetBrowser.RequestOverlay(nullptr);
+		}
+	}
+
 	// Frame Profiler
 	{
 		Vector2 size(ImGui::GetMainViewport()->Size.x, static_cast<float>(FrameProfile::kMinProfilerSize));
@@ -340,7 +348,7 @@ bool Havana::OnEvent(const BaseEvent& evt)
 		ClearInspectEvent evt;
 		evt.Fire();
 	}
-	
+
 	return false;
 }
 

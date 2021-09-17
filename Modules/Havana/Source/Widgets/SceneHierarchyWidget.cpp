@@ -10,6 +10,7 @@
 #include <HavanaEvents.h>
 #include <Events/EventManager.h>
 #include <Components/Graphics/Model.h>
+#include <Types/AssetType.h>
 
 #if ME_EDITOR
 
@@ -339,13 +340,13 @@ void SceneHierarchyWidget::HandleAssetDragAndDrop(Transform* root)
 		IM_ASSERT(payload->DataSize == sizeof(AssetBrowser::AssetDescriptor));
 		AssetBrowser::AssetDescriptor payload_n = *(AssetBrowser::AssetDescriptor*)payload->Data;
 
-		if (payload_n.Type == AssetBrowser::AssetType::Model)
+		if (payload_n.Type == AssetType::Model)
 		{
 			auto ent = GetEngine().GetWorld().lock()->CreateEntity();
 			ent->AddComponent<Transform>(payload_n.Name.substr(0, payload_n.Name.find_last_of('.'))).SetParent(*root);
 			ent->AddComponent<Model>((payload_n.FullPath.FullPath));
 		}
-		if (payload_n.Type == AssetBrowser::AssetType::Prefab)
+		if (payload_n.Type == AssetType::Prefab)
 		{
 			EntityHandle ent = GetEngine().GetWorld().lock()->CreateFromPrefab(payload_n.FullPath.FullPath, root);
 		}
