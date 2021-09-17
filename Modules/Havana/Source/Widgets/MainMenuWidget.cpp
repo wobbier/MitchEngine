@@ -64,6 +64,12 @@ void MainMenuWidget::Update()
 void MainMenuWidget::Render()
 {
 	bool RequestLoadScene = false;
+	auto& input = Editor->GetInput();
+	if ((input.IsKeyDown(KeyCode::LeftControl) || input.IsKeyDown(KeyCode::RightControl))
+		&& input.WasKeyPressed(KeyCode::O))
+	{
+		RequestLoadScene = true;
+	}
 	OPTICK_CATEGORY("Main Menu Bar", Optick::Category::Debug);
 	ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0.0f, 12.f));
 	if (ImGui::BeginMainMenuBar())
@@ -87,7 +93,7 @@ void MainMenuWidget::Render()
 				evt.Queue();
 #endif
 			}
-			if (ImGui::MenuItem("Open Scene", "Ctrl+O") || ((Editor->GetInput().IsKeyDown(KeyCode::LeftControl) || Editor->GetInput().IsKeyDown(KeyCode::RightControl)) && Editor->GetInput().WasKeyPressed(KeyCode::O)))
+			if (ImGui::MenuItem("Open Scene", "Ctrl+O"))
 			{
 				RequestLoadScene = true;
 			}

@@ -360,6 +360,14 @@ void AssetBrowserWidget::DrawAssetTable()
 							selection.clear();
 							selection.push_back(item->ID);
 						}
+
+					}
+					if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
+					{
+						//files.FullPath = dir.FullPath;
+						ImGui::SetDragDropPayload("DND_ASSET_BROWSER", item, sizeof(AssetDescriptor));
+						ImGui::Text(item->Name.c_str());
+						ImGui::EndDragDropSource();
 					}
 					ImGui::SameLine();
 					ImVec2 iconSize(16, 16);

@@ -9,7 +9,6 @@
 
 #include "CLog.h"
 #include "Graphics/Texture.h"
-#include "Game.h"
 #include "Graphics/Material.h"
 #include "Resource/ResourceCache.h"
 #include "Graphics/MeshData.h"
