@@ -129,7 +129,7 @@ private:
 	std::vector<AssetDescriptor*> FilteredAssetList;
 	AssetType ForcedAssetFilter = AssetType::Unknown;
 	bool items_need_filtered = true;
-	bool assetTypeFilters[AssetType::Count];
+	bool assetTypeFilters[static_cast<unsigned int>(AssetType::Count)];
 	};
 
 #endif

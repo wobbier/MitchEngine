@@ -43,12 +43,6 @@ Class& operator=(Class&&) = delete;
 #define ME_DIRECTX 0
 #endif
 
-#ifdef ME_ENABLE_RENDERDOC
-#define ME_ENABLE_RENDERDOC 1
-#else
-#define ME_ENABLE_RENDERDOC 0
-#endif
-
 #ifdef ME_EDITOR
 #define ME_EDITOR 1
 #else
