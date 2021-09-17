@@ -8,7 +8,6 @@
 #include "Utils/BGFXUtils.h"
 #include "bx/timer.h"
 #include "Window/IWindow.h"
-#include "Widgets/AssetBrowser.h"
 #include "Graphics/Material.h"
 #include "Graphics/ShaderStructures.h"
 #include "Primitives/Cube.h"
@@ -21,6 +20,7 @@
 #include <Graphics/DynamicSky.h>
 #include <Graphics/ModelResource.h>
 #include <Debug/DebugDrawer.h>
+#include <stack>
 
 #if BX_PLATFORM_LINUX
 #define GLFW_EXPOSE_NATIVE_X11

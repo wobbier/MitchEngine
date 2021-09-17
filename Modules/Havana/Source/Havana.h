@@ -20,6 +20,7 @@ class SceneViewWidget;
 class SceneHierarchyWidget;
 class PropertiesWidget;
 class AssetPreviewWidget;
+class AssetBrowserWidget;
 
 #if ME_EDITOR
 
@@ -56,7 +57,6 @@ private:
 	class EditorApp* m_app = nullptr;
 	class BGFXRenderer* Renderer = nullptr;
 
-	AssetBrowser m_assetBrowser;
 	Path EngineConfigFilePath;
 
 	SharedPtr<LogWidget> LogPanel;
@@ -67,6 +67,7 @@ private:
 	SharedPtr<SceneHierarchyWidget> SceneHierarchy;
 	SharedPtr<PropertiesWidget> PropertiesView;
 	SharedPtr<AssetPreviewWidget> AssetPreview;
+	SharedPtr<AssetBrowserWidget> AssetBrowser;
 
 	std::vector<SharedPtr<HavanaWidget>> RegisteredWidgets;
 };

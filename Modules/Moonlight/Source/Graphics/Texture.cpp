@@ -2,9 +2,6 @@
 #include <assert.h>
 #include "Texture.h"
 #include "CLog.h"
-#include "Game.h"
-#include "Device/DX11Device.h"
-#include "Engine/Engine.h"
 #include "Utils/StringUtils.h"
 #include <bimg/bimg.h>
 #include "Utils/BGFXUtils.h"

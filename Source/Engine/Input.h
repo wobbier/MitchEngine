@@ -324,11 +324,11 @@ enum class KeyCode : uint32_t
     SDL_SCANCODE_KP_DECIMAL = 220,
     SDL_SCANCODE_KP_HEXADECIMAL = 221,
 
-    SDL_SCANCODE_LCTRL = 224,
+    LeftControl = 224,
     LeftShift = SDL_SCANCODE_LSHIFT,
     LeftAlt = SDL_SCANCODE_LALT, /**< alt, option */
     SDL_SCANCODE_LGUI = 227, /**< windows, command (apple), meta */
-    SDL_SCANCODE_RCTRL = 228,
+    RightControl = 228,
     SDL_SCANCODE_RSHIFT = 229,
     SDL_SCANCODE_RALT = 230, /**< alt gr, option */
     SDL_SCANCODE_RGUI = 231, /**< windows, command (apple), meta */

@@ -35,36 +35,35 @@
 Havana::Havana(Engine* GameEngine, EditorApp* app)
 	: m_engine(GameEngine)
 	, m_app(app)
-	, m_assetBrowser(Path("Assets").FullPath, std::chrono::milliseconds(300))
 {
-	m_assetBrowser.Start([](const std::string& path_to_watch, FileStatus status) -> void {
-		// Process only regular files, all other file types are ignored
-		if (!std::filesystem::is_regular_file(std::filesystem::path(path_to_watch)) && status != FileStatus::Deleted)
-		{
-			return;
-		}
-
-		switch (status) {
-		case FileStatus::Created:
-		{
-#if ME_PLATFORM_WIN64
-			CLog::GetInstance().Log(CLog::LogType::Info, "File created: " + path_to_watch);
-			TestEditorEvent evt;
-			evt.Path = std::move(path_to_watch);
-			evt.Queue();
-#endif
-		}
-		break;
-		case FileStatus::Modified:
-			CLog::GetInstance().Log(CLog::LogType::Info, "File modified: " + path_to_watch);
-			break;
-		case FileStatus::Deleted:
-			CLog::GetInstance().Log(CLog::LogType::Info, "File deleted: " + path_to_watch);
-			break;
-		default:
-			CLog::GetInstance().Log(CLog::LogType::Error, "Error! Unknown file status.");
-		}
-		});
+//	m_assetBrowser.Start([](const std::string& path_to_watch, FileStatus status) -> void {
+//		// Process only regular files, all other file types are ignored
+//		if (!std::filesystem::is_regular_file(std::filesystem::path(path_to_watch)) && status != FileStatus::Deleted)
+//		{
+//			return;
+//		}
+//
+//		switch (status) {
+//		case FileStatus::Created:
+//		{
+//#if ME_PLATFORM_WIN64
+//			CLog::GetInstance().Log(CLog::LogType::Info, "File created: " + path_to_watch);
+//			TestEditorEvent evt;
+//			evt.Path = std::move(path_to_watch);
+//			evt.Queue();
+//#endif
+//		}
+//		break;
+//		case FileStatus::Modified:
+//			CLog::GetInstance().Log(CLog::LogType::Info, "File modified: " + path_to_watch);
+//			break;
+//		case FileStatus::Deleted:
+//			CLog::GetInstance().Log(CLog::LogType::Info, "File deleted: " + path_to_watch);
+//			break;
+//		default:
+//			CLog::GetInstance().Log(CLog::LogType::Error, "Error! Unknown file status.");
+//		}
+//		});
 
 	std::vector<TypeId> events;
 	events.push_back(TestEditorEvent::GetEventId());
@@ -72,8 +71,11 @@ Havana::Havana(Engine* GameEngine, EditorApp* app)
 	EventManager::GetInstance().RegisterReceiver(this, events);
 	Renderer = &GameEngine->GetRenderer();
 
-	MainMenu.reset(new MainMenuWidget());
+	MainMenu.reset(new MainMenuWidget(this));
 	RegisteredWidgets.push_back(MainMenu);
+
+	AssetBrowser.reset(new AssetBrowserWidget());
+	RegisteredWidgets.push_back(AssetBrowser);
 
 	LogPanel.reset(new LogWidget());
 	RegisteredWidgets.push_back(LogPanel);
@@ -189,6 +191,7 @@ void Havana::InitUI()
 	SceneHierarchy->Init();
 	PropertiesView->Init();
 	AssetPreview->Init();
+	AssetBrowser->Init();
 }
 
 void Havana::NewFrame()
@@ -238,7 +241,7 @@ void Havana::NewFrame()
 	}
 
 	LogPanel->Render();
-	m_assetBrowser.Draw();
+	AssetBrowser->Render();
 	ResourceMonitor->Render();
 }
 
@@ -295,7 +298,7 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 	{
 		if (GetInput().WasKeyPressed(KeyCode::F2))
 		{
-			m_assetBrowser.RequestOverlay(nullptr);
+			AssetBrowser->RequestOverlay(nullptr);
 		}
 	}
 

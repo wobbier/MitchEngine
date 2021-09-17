@@ -1,21 +1,17 @@
 #pragma once
-#include <chrono>
-#include <string>
-#include <unordered_map>
-#include <functional>
-#include <filesystem>
-#include <thread>
-#include <stack>
-#include <map>
-#include "Path.h"
-#include "Pointers.h"
-#include "Graphics/Texture.h"
-#include "File.h"
-#include "imgui.h"
 #include <Types/AssetType.h>
 #include <Events/EventReceiver.h>
+#include <HavanaWidget.h>
+#include <File.h>
+#include <map>
+#include <functional>
+#include <Pointers.h>
+#include <JSON.h>
 
 class Transform;
+class Resource;
+
+namespace Moonlight { class Texture; }
 
 #if ME_EDITOR
 enum MyItemColumnID
@@ -34,8 +30,9 @@ enum class FileStatus : unsigned int
 	Deleted
 };
 
-class AssetBrowser
-	: public EventReceiver
+class AssetBrowserWidget
+	: public HavanaWidget
+	, public EventReceiver
 {
 public:
 
@@ -89,27 +86,26 @@ public:
 	struct Directory
 	{
 		std::map<std::string, Directory> Directories;
-		std::vector<AssetBrowser::AssetDescriptor> Files;
+		std::vector<AssetBrowserWidget::AssetDescriptor> Files;
 		Path FullPath;
 	};
-	AssetBrowser() = delete;
-	AssetBrowser(const std::string& pathToWatch, std::chrono::duration<int, std::milli> delay);
+	AssetBrowserWidget();
 
 	void ReloadDirectories();
 
-	~AssetBrowser();
-	void Start(const std::function<void(std::string, FileStatus)>& action);
-	std::chrono::duration<int, std::milli> Delay;
-	std::string PathToWatch;
+	~AssetBrowserWidget();
 
-	void ThreadStart(const std::function<void(std::string, FileStatus)>& action);
+	void Init() override;
+	void Destroy() override;
 
-	void Draw();
+	bool OnEvent(const BaseEvent& evt) final;
+
+	void Update() override;
+	void Render() override;
 
 	void DrawAssetTable();
 
 	void RequestOverlay(const std::function<void(Path)> cb = nullptr, AssetType forcedType = AssetType::Unknown);
-	bool OnEvent(const BaseEvent& evt);
 	void Recursive(Directory& dir);
 	void ProccessDirectory(const std::filesystem::directory_entry& file, Directory& dirRef);
 	void BuildAssets();
@@ -123,18 +119,17 @@ private:
 	std::unordered_map<std::string, std::filesystem::file_time_type> Paths;
 	bool IsRunning = true;
 	bool Contains(const std::string& key);
-	std::thread fileBrowser;
 	Directory AssetDirectory;
 	Directory EngineAssetDirectory;
 	std::unordered_map<std::string, SharedPtr<Moonlight::Texture>> Icons;
 	AssetDescriptor* SelectedAsset = nullptr;
 
-	bool IsBrowserOpen = false;
-	std::vector<AssetBrowser::AssetDescriptor> MasterAssetsList;
+	std::vector<AssetBrowserWidget::AssetDescriptor> MasterAssetsList;
 	std::function<void(Path)> AssetSelectedCallback;
 	std::vector<AssetDescriptor*> FilteredAssetList;
 	AssetType ForcedAssetFilter = AssetType::Unknown;
 	bool items_need_filtered = true;
-};
+	bool assetTypeFilters[AssetType::Count];
+	};
 
 #endif

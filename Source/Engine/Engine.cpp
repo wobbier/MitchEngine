@@ -331,6 +331,7 @@ void Engine::Run()
 			FrameProfile::GetInstance().End(AccumulatedTime);
 			AccumulatedTime = 0;// std::fmod(AccumulatedTime, MaxDeltaTime);
             GetJobEngine().ClearWorkerPools();
+			GetInput().PostUpdate();
 		}
 		ResourceCache::GetInstance().Dump();
 		//Sleep(1);

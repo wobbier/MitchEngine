@@ -5,8 +5,9 @@
 class HavanaWidget
 {
 public:
-	HavanaWidget(const std::string& inName)
+	HavanaWidget(const std::string& inName, const std::string& inHotkey = "")
 		: Name(inName)
+		, Hotkey(inHotkey)
 	{
 	}
 
@@ -18,4 +19,5 @@ public:
 
 	bool IsOpen = true;
 	std::string Name;
+	std::string Hotkey;
 };

@@ -3,7 +3,6 @@
 #include "CLog.h"
 #include "Graphics/ModelResource.h"
 #include "Graphics/ShaderCommand.h"
-#include "Game.h"
 #include "Resource/ResourceCache.h"
 #include "Components/Transform.h"
 #include "Mesh.h"

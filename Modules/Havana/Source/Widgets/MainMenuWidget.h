@@ -10,6 +10,7 @@
 #include <JSON.h>
 
 class EditorApp;
+class Havana;
 
 namespace Moonlight { class Texture; }
 
@@ -17,7 +18,7 @@ class MainMenuWidget
 	: public HavanaWidget
 {
 public:
-	MainMenuWidget();
+	MainMenuWidget(Havana* editorApp);
 
 	void Init() final;
 	void Destroy() final;
@@ -54,6 +55,7 @@ private:
 	bool ShowDemoWindow = false;
 	Path CurrentDirectory;
 	json AssetDirectory;
+	Havana* Editor = nullptr;
 
 	void BrowseDirectory(const Path& path);
 };

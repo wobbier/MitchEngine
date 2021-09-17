@@ -1,13 +1,11 @@
 #include "AssetBrowser.h"
 #include <filesystem>
-#include <thread>
 #include "imgui.h"
 #include <stack>
 #include "Path.h"
 #include "Resource/ResourceCache.h"
 #include "Graphics/Texture.h"
 #include "File.h"
-//#include <stringapiset.h>
 #include "Utils/StringUtils.h"
 #include "Components/Transform.h"
 #include "Engine/Engine.h"
@@ -22,36 +20,27 @@
 
 #if ME_EDITOR
 
-const ImGuiTableSortSpecs* AssetBrowser::AssetDescriptor::s_current_sort_specs = NULL;
+const ImGuiTableSortSpecs* AssetBrowserWidget::AssetDescriptor::s_current_sort_specs = NULL;
 
-AssetBrowser::AssetBrowser(const std::string& pathToWatch, std::chrono::duration<int, std::milli> delay)
-	: PathToWatch(pathToWatch)
-	, Delay(delay)
+AssetBrowserWidget::AssetBrowserWidget()
+	: HavanaWidget("Asset Browser", "F2")
 {
-	Icons["Image"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Image.png"));
-	Icons["File"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/File.png"));
-	Icons["Model"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Model.png"));
-	Icons["World"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/World.png"));
-	Icons["Audio"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Audio.png"));
-	Icons["Prefab"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Prefab.png"));
+	// This class is used for command line asset exporting, so keep this clean.
 
-	AssetDirectory.FullPath = Path(PathToWatch);
+	AssetDirectory.FullPath = Path("Assets");
 	EngineAssetDirectory.FullPath = Path("Engine/Assets");
 
 	ReloadDirectories();
-
-	std::vector<TypeId> events;
-	events.push_back(RequestAssetSelectionEvent::GetEventId());
-	EventManager::GetInstance().RegisterReceiver(this, events);
+	IsOpen = false;
 }
 
-void AssetBrowser::ReloadDirectories()
+void AssetBrowserWidget::ReloadDirectories()
 {
 	AssetDirectory.Directories.clear();
 	AssetDirectory.Files.clear();
 	MasterAssetsList.clear();
 
-	for (auto& file : std::filesystem::recursive_directory_iterator(PathToWatch))
+	for (auto& file : std::filesystem::recursive_directory_iterator(AssetDirectory.FullPath.FullPath))
 	{
 		Paths[file.path().string()] = std::filesystem::last_write_time(file);
 		ProccessDirectory(file, AssetDirectory);
@@ -70,109 +59,132 @@ void AssetBrowser::ReloadDirectories()
 	}
 }
 
-AssetBrowser::~AssetBrowser()
+AssetBrowserWidget::~AssetBrowserWidget()
 {
 	IsRunning = false;
 	//fileBrowser.join();
 }
 
-void AssetBrowser::Start(const std::function<void(std::string, FileStatus)>& action)
-{
-	//fileBrowser = std::thread([this, action]() {ThreadStart(action); });
-}
+//void AssetBrowserWidget::ThreadStart(const std::function<void(std::string, FileStatus)>& action)
+//{
+//	while (IsRunning)
+//	{
+//		std::this_thread::sleep_for(Delay);
+//		continue;
+//		bool WasModified = false;
+//		auto it = Paths.begin();
+//		while (it != Paths.end())
+//		{
+//			if (!std::filesystem::exists(it->first))
+//			{
+//				action(it->first, FileStatus::Deleted);
+//				it = Paths.erase(it);
+//				WasModified = true;
+//			}
+//			else
+//			{
+//				it++;
+//			}
+//		}
+//
+//		for (auto& file : std::filesystem::recursive_directory_iterator(PathToWatch))
+//		{
+//			auto currentFileLastWriteTime = std::filesystem::last_write_time(file);
+//
+//			if (!Contains(file.path().string()))
+//			{
+//				Paths[file.path().string()] = currentFileLastWriteTime;
+//				action(file.path().string(), FileStatus::Created);
+//				WasModified = true;
+//			}
+//			else
+//			{
+//				if (Paths[file.path().string()] != currentFileLastWriteTime)
+//				{
+//					Paths[file.path().string()] = currentFileLastWriteTime;
+//					action(file.path().string(), FileStatus::Modified);
+//					WasModified = true;
+//				}
+//			}
+//		}
+//
+//		if (WasModified)
+//		{
+//			Paths.clear();
+//			AssetDirectory = Directory();
+//			for (auto& file : std::filesystem::recursive_directory_iterator(PathToWatch))
+//			{
+//				Paths[file.path().string()] = std::filesystem::last_write_time(file);
+//				ProccessDirectory(file, AssetDirectory);
+//			}
+//		}
+//	}
+//}
 
-void AssetBrowser::ThreadStart(const std::function<void(std::string, FileStatus)>& action)
+void AssetBrowserWidget::Init()
 {
-	while (IsRunning)
+	Icons["Image"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Image.png"));
+	Icons["File"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/File.png"));
+	Icons["Model"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Model.png"));
+	Icons["World"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/World.png"));
+	Icons["Audio"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Audio.png"));
+	Icons["Prefab"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Prefab.png"));
+
+	for (unsigned int i = (unsigned int)AssetType::Unknown + 1; i < (unsigned int)AssetType::Count; i++)
 	{
-		std::this_thread::sleep_for(Delay);
-		continue;
-		bool WasModified = false;
-		auto it = Paths.begin();
-		while (it != Paths.end())
-		{
-			if (!std::filesystem::exists(it->first))
-			{
-				action(it->first, FileStatus::Deleted);
-				it = Paths.erase(it);
-				WasModified = true;
-			}
-			else
-			{
-				it++;
-			}
-		}
-
-		for (auto& file : std::filesystem::recursive_directory_iterator(PathToWatch))
-		{
-			auto currentFileLastWriteTime = std::filesystem::last_write_time(file);
-
-			if (!Contains(file.path().string()))
-			{
-				Paths[file.path().string()] = currentFileLastWriteTime;
-				action(file.path().string(), FileStatus::Created);
-				WasModified = true;
-			}
-			else
-			{
-				if (Paths[file.path().string()] != currentFileLastWriteTime)
-				{
-					Paths[file.path().string()] = currentFileLastWriteTime;
-					action(file.path().string(), FileStatus::Modified);
-					WasModified = true;
-				}
-			}
-		}
-
-		if (WasModified)
-		{
-			Paths.clear();
-			AssetDirectory = Directory();
-			for (auto& file : std::filesystem::recursive_directory_iterator(PathToWatch))
-			{
-				Paths[file.path().string()] = std::filesystem::last_write_time(file);
-				ProccessDirectory(file, AssetDirectory);
-			}
-		}
+		assetTypeFilters[i] = false;
 	}
+
+	std::vector<TypeId> events;
+	events.push_back(RequestAssetSelectionEvent::GetEventId());
+	EventManager::GetInstance().RegisterReceiver(this, events);
 }
 
-void AssetBrowser::Draw()
+void AssetBrowserWidget::Destroy()
+{
+
+}
+
+void AssetBrowserWidget::Render()
 {
 	OPTICK_CATEGORY("Asset Browser", Optick::Category::Debug);
-	ImGui::Begin("Assets");
-	if (m_compiledAssets.empty())
+	if (false) // Old Way, might come back as a viewing setting
 	{
-		if (ImGui::Button("Build Assets"))
+		if (ImGui::Begin("Assets", &IsOpen))
 		{
-			BuildAssets();
+			if (m_compiledAssets.empty())
+			{
+				if (ImGui::Button("Build Assets"))
+				{
+					BuildAssets();
+				}
+				ImGui::SameLine(0.f, 10.f);
+				if (ImGui::Button("Refresh"))
+				{
+					ReloadDirectories();
+				}
+			}
+			else
+			{
+				if (ImGui::Button("Clear Assets"))
+				{
+					ClearAssets();
+				}
+			}
+			if (ImGui::CollapsingHeader("Game", ImGuiTreeNodeFlags_DefaultOpen))
+			{
+				Recursive(AssetDirectory);
+			}
+
+			if (ImGui::CollapsingHeader("Engine"))
+			{
+				Recursive(EngineAssetDirectory);
+			}
 		}
-		ImGui::SameLine(0.f, 10.f);
-		if (ImGui::Button("Refresh"))
-		{
-			ReloadDirectories();
-		}
-	}
-	else
-	{
-		if (ImGui::Button("Clear Assets"))
-		{
-			ClearAssets();
-		}
-	}
-	if (ImGui::CollapsingHeader("Game", ImGuiTreeNodeFlags_DefaultOpen))
-	{
-		Recursive(AssetDirectory);
+		ImGui::End();
 	}
 
-	if (ImGui::CollapsingHeader("Engine"))
-	{
-		Recursive(EngineAssetDirectory);
-	}
-
-	ImGui::End();
-
-	if (IsBrowserOpen)
+	if (IsOpen)
 	{
 		if (ForcedAssetFilter != AssetType::Unknown)
 		{
@@ -180,7 +192,7 @@ void AssetBrowser::Draw()
 			ImGui::PushStyleColor(ImGuiCol_Border, { 0.447f, .905f, .39f, .31f });
 		}
 
-		ImGui::Begin("Asset Directory", &IsBrowserOpen);
+		ImGui::Begin("Asset Directory", &IsOpen);
 
 		if (ForcedAssetFilter != AssetType::Unknown)
 		{
@@ -199,9 +211,8 @@ void AssetBrowser::Draw()
 	}
 }
 
-void AssetBrowser::DrawAssetTable()
+void AssetBrowserWidget::DrawAssetTable()
 {
-
 	static ImGuiTableFlags flags =
 		ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable
 		| ImGuiTableFlags_Sortable | ImGuiTableFlags_SortMulti
@@ -209,8 +220,6 @@ void AssetBrowser::DrawAssetTable()
 		| ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY
 		| ImGuiTableFlags_SizingStretchProp;
 
-	enum ContentsType { CT_Text, CT_Button, CT_SmallButton, CT_FillButton, CT_Selectable, CT_SelectableSpanRow };
-	static int contents_type = CT_SelectableSpanRow;
 	ImVec2 outer_size_value = ImVec2(-FLT_MIN, ImGui::GetFrameHeightWithSpacing() - ImGui::GetCursorPosY());
 	static float row_min_height = 16.f; // Auto
 	static float inner_width_with_scroll = 0.0f; // Auto-extend
@@ -219,10 +228,7 @@ void AssetBrowser::DrawAssetTable()
 	static ImVector<int> selection;
 	static bool items_need_sort = false;
 
-	// This is awful, change the whole thing to a bitmask
-	static bool filterAudio = false;
-	static bool filterModel = false;
-	static bool filterTexture = false;
+	assetTypeFilters[0] = false;
 
 	bool stringFilterChanged = filter.Draw("filter", ImGui::GetContentRegionAvailWidth());
 	bool isAssetTypeForced = ForcedAssetFilter != AssetType::Unknown;
@@ -236,35 +242,38 @@ void AssetBrowser::DrawAssetTable()
 
 	if (ImGui::CollapsingHeader(isAssetTypeForced ? "Forced Asset Type Filter Active" : "Filters"))
 	{
-		if (ImGui::Checkbox("Audio", &filterAudio))
+		for (int i = 1; i < (int)AssetType::Count; ++i)
 		{
-			items_need_filtered = true;
-		}
-		if (ImGui::Checkbox("Model", &filterModel))
-		{
-			items_need_filtered = true;
-		}
-		if (ImGui::Checkbox("Texture", &filterTexture))
-		{
-			items_need_filtered = true;
+			if (ImGui::Checkbox(AssetTypeToString((AssetType)i).c_str(), &assetTypeFilters[i]))
+			{
+				items_need_filtered = true;
+			}
 		}
 	}
 
 	if (isAssetTypeForced)
 	{
 		ImGui::PopStyleColor(3);
-	}
-
-	items_need_filtered = items_need_filtered || stringFilterChanged;
-	if (isAssetTypeForced)
-	{
-		filterAudio = ForcedAssetFilter == AssetType::Audio;
-		filterModel = ForcedAssetFilter == AssetType::Model;
-		filterTexture = ForcedAssetFilter == AssetType::Texture;
+		for (int i = 1; i < (int)AssetType::Count; ++i)
+		{
+			assetTypeFilters[i] = ForcedAssetFilter == (AssetType)i;
+		}
+		
 		items_need_filtered = true;
 	}
 
-	bool hasNoTypeFilter = (!filterAudio && !filterModel && !filterTexture) && ForcedAssetFilter == AssetType::Unknown;
+	bool allFiltersOff = true;
+	for (int i = 1; i < (int)AssetType::Count; ++i)
+	{
+		allFiltersOff = !assetTypeFilters[i];
+		if (!allFiltersOff)
+		{
+			break;
+		}
+	}
+	items_need_filtered = items_need_filtered || stringFilterChanged;
+
+	bool hasNoTypeFilter = allFiltersOff && ForcedAssetFilter == AssetType::Unknown;
 
 	const float inner_width_to_use = (flags & ImGuiTableFlags_ScrollX) ? inner_width_with_scroll : 0.0f;
 	if (ImGui::BeginTable("##table", 3, flags, outer_size_enabled ? outer_size_value : ImVec2(0, 0), inner_width_to_use))
@@ -301,17 +310,12 @@ void AssetBrowser::DrawAssetTable()
 				}
 				else if (passedStringFilter && !hasNoTypeFilter)
 				{
-					if (it.Type == AssetType::Audio && filterAudio)
+					for (int i = 1; i < (int)AssetType::Count; ++i)
 					{
-						FilteredAssetList.push_back(&it);
-					}
-					if (it.Type == AssetType::Model && filterModel)
-					{
-						FilteredAssetList.push_back(&it);
-					}
-					if (it.Type == AssetType::Texture && filterTexture)
-					{
-						FilteredAssetList.push_back(&it);
+						if (it.Type == (AssetType)i && assetTypeFilters[i])
+						{
+							FilteredAssetList.push_back(&it);
+						}
 					}
 				}
 			}
@@ -335,7 +339,7 @@ void AssetBrowser::DrawAssetTable()
 				
 				if (ImGui::TableNextColumn())
 				{
-					ImGuiSelectableFlags selectable_flags = (contents_type == CT_SelectableSpanRow) ? ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowItemOverlap | ImGuiSelectableFlags_AllowDoubleClick : ImGuiSelectableFlags_None;
+					ImGuiSelectableFlags selectable_flags = ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowItemOverlap | ImGuiSelectableFlags_AllowDoubleClick;
 					if (ImGui::Selectable("##Entry", item_is_selected, selectable_flags, ImVec2(0, row_min_height)))
 					{
 						if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && AssetSelectedCallback)
@@ -398,22 +402,22 @@ void AssetBrowser::DrawAssetTable()
 
 }
 
-void AssetBrowser::RequestOverlay(const std::function<void(Path)> cb, AssetType forcedType)
+void AssetBrowserWidget::RequestOverlay(const std::function<void(Path)> cb, AssetType forcedType)
 {
 	if (cb)
 	{
-		IsBrowserOpen = true;
+		IsOpen = true;
 	}
 	else
 	{
-		IsBrowserOpen = !IsBrowserOpen;
+		IsOpen = !IsOpen;
 	}
 	ForcedAssetFilter = forcedType;
 	AssetSelectedCallback = cb;
-	items_need_filtered = IsBrowserOpen;
+	items_need_filtered = IsOpen;
 }
 
-bool AssetBrowser::OnEvent(const BaseEvent& evt)
+bool AssetBrowserWidget::OnEvent(const BaseEvent& evt)
 {
 	if (evt.GetEventId() == RequestAssetSelectionEvent::GetEventId())
 	{
@@ -423,7 +427,12 @@ bool AssetBrowser::OnEvent(const BaseEvent& evt)
 	return false;
 }
 
-void AssetBrowser::Recursive(Directory& dir)
+void AssetBrowserWidget::Update()
+{
+
+}
+
+void AssetBrowserWidget::Recursive(Directory& dir)
 {
 	for (auto& directory : dir.Directories)
 	{
@@ -537,7 +546,7 @@ void AssetBrowser::Recursive(Directory& dir)
 	}
 }
 
-void AssetBrowser::ProccessDirectory(const std::filesystem::directory_entry& file, Directory& dirRef)
+void AssetBrowserWidget::ProccessDirectory(const std::filesystem::directory_entry& file, Directory& dirRef)
 {
 	std::string& parentDir = dirRef.FullPath.FullPath;
 	std::size_t t = file.path().string().find(parentDir);
@@ -550,13 +559,13 @@ void AssetBrowser::ProccessDirectory(const std::filesystem::directory_entry& fil
 	}
 }
 
-void AssetBrowser::BuildAssets()
+void AssetBrowserWidget::BuildAssets()
 {
 	BuildAssetsRecursive(EngineAssetDirectory);
 	BuildAssetsRecursive(AssetDirectory);
 }
 
-void AssetBrowser::BuildAssetsRecursive(Directory& dir)
+void AssetBrowserWidget::BuildAssetsRecursive(Directory& dir)
 {
 	for (auto& directory : dir.Directories)
 	{
@@ -586,12 +595,12 @@ void AssetBrowser::BuildAssetsRecursive(Directory& dir)
 	}
 }
 
-void AssetBrowser::ClearAssets()
+void AssetBrowserWidget::ClearAssets()
 {
 	m_compiledAssets.clear();
 }
 
-bool AssetBrowser::ProccessDirectoryRecursive(std::string& dir, Directory& dirRef, const std::filesystem::directory_entry& file)
+bool AssetBrowserWidget::ProccessDirectoryRecursive(std::string& dir, Directory& dirRef, const std::filesystem::directory_entry& file)
 {
 #if ME_PLATFORM_MACOS
 	const char slash = '/';
@@ -691,7 +700,7 @@ bool AssetBrowser::ProccessDirectoryRecursive(std::string& dir, Directory& dirRe
 	return false;
 }
 
-void AssetBrowser::SavePrefab(json& d, Transform* CurrentTransform, bool IsRoot)
+void AssetBrowserWidget::SavePrefab(json& d, Transform* CurrentTransform, bool IsRoot)
 {
 	json newJson;
 	/*json& refJson = d;
@@ -724,7 +733,7 @@ void AssetBrowser::SavePrefab(json& d, Transform* CurrentTransform, bool IsRoot)
 	d.push_back(newJson);
 }
 
-bool AssetBrowser::Contains(const std::string& key)
+bool AssetBrowserWidget::Contains(const std::string& key)
 {
 	return Paths.find(key) != Paths.end();
 }

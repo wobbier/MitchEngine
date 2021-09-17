@@ -15,8 +15,9 @@
 
 #if ME_EDITOR
 
-MainMenuWidget::MainMenuWidget()
+MainMenuWidget::MainMenuWidget(Havana* editorApp)
 	: HavanaWidget("Main Menu")
+	, Editor(editorApp)
 {
 }
 
@@ -62,6 +63,7 @@ void MainMenuWidget::Update()
 
 void MainMenuWidget::Render()
 {
+	bool RequestLoadScene = false;
 	OPTICK_CATEGORY("Main Menu Bar", Optick::Category::Debug);
 	ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0.0f, 12.f));
 	if (ImGui::BeginMainMenuBar())
@@ -85,29 +87,11 @@ void MainMenuWidget::Render()
 				evt.Queue();
 #endif
 			}
-			if (ImGui::MenuItem("Open Scene", "Ctrl+O"))
+			if (ImGui::MenuItem("Open Scene", "Ctrl+O") || ((Editor->GetInput().IsKeyDown(KeyCode::LeftControl) || Editor->GetInput().IsKeyDown(KeyCode::RightControl)) && Editor->GetInput().WasKeyPressed(KeyCode::O)))
 			{
-				OpenScene = true;
+				RequestLoadScene = true;
 			}
 
-			if (ImGui::BeginMenu("Open Recent"))
-			{
-				ImGui::MenuItem("fish_hat.c");
-				ImGui::MenuItem("fish_hat.inl");
-				ImGui::MenuItem("fish_hat.h");
-				if (ImGui::BeginMenu("More.."))
-				{
-					ImGui::MenuItem("Hello");
-					ImGui::MenuItem("Sailor");
-					if (ImGui::BeginMenu("Recurse.."))
-					{
-						//ShowExampleMenuFile();
-						ImGui::EndMenu();
-					}
-					ImGui::EndMenu();
-				}
-				ImGui::EndMenu();
-			}
 			if (ImGui::MenuItem("Save", "Ctrl+S"))
 			{
 				if (GetEngine().CurrentScene/* && !std::filesystem::exists(m_engine->CurrentScene->Path.FullPath)*/)
@@ -118,8 +102,8 @@ void MainMenuWidget::Render()
 				}
 
 			}
-			if (ImGui::MenuItem("Save As..")) {}
-			ImGui::Separator();
+			//if (ImGui::MenuItem("Save As..")) {}
+			//ImGui::Separator();
 
 			if (ImGui::MenuItem("Quit", "Alt+F4"))
 			{
@@ -127,43 +111,43 @@ void MainMenuWidget::Render()
 			}
 			ImGui::EndMenu();
 		}
-		if (ImGui::BeginMenu("Edit"))
-		{
-			const bool canUndo = EditorCommands.CanUndo();
+		//if (ImGui::BeginMenu("Edit"))
+		//{
+		//	const bool canUndo = EditorCommands.CanUndo();
 
-			if (ImGui::MenuItem("Undo", "CTRL+Z", false, canUndo))
-			{
-				EditorCommands.Undo();
-			}
+		//	if (ImGui::MenuItem("Undo", "CTRL+Z", false, canUndo))
+		//	{
+		//		EditorCommands.Undo();
+		//	}
 
-			const bool canRedo = EditorCommands.CanRedo();
-			if (ImGui::MenuItem("Redo", "CTRL+Y", false, canRedo))
-			{
-				EditorCommands.Redo();
-			}
+		//	const bool canRedo = EditorCommands.CanRedo();
+		//	if (ImGui::MenuItem("Redo", "CTRL+Y", false, canRedo))
+		//	{
+		//		EditorCommands.Redo();
+		//	}
 
-			/*ImGui::Separator();
-			if (ImGui::MenuItem("Cut", "CTRL+X")) {}
-			if (ImGui::MenuItem("Copy", "CTRL+C")) {}
-			if (ImGui::MenuItem("Paste", "CTRL+V")) {}*/
-			ImGui::EndMenu();
-		}
-		if (ImGui::BeginMenu("Add"))
-		{
-			if (ImGui::MenuItem("Entity"))
-			{
-				// The fuck is this garbage
-				CreateEntity* cmd = new CreateEntity();
-				EditorCommands.Push(cmd);
+		//	/*ImGui::Separator();
+		//	if (ImGui::MenuItem("Cut", "CTRL+X")) {}
+		//	if (ImGui::MenuItem("Copy", "CTRL+C")) {}
+		//	if (ImGui::MenuItem("Paste", "CTRL+V")) {}*/
+		//	ImGui::EndMenu();
+		//}
+		//if (ImGui::BeginMenu("Add"))
+		//{
+		//	if (ImGui::MenuItem("Entity"))
+		//	{
+		//		// The fuck is this garbage
+		//		CreateEntity* cmd = new CreateEntity();
+		//		EditorCommands.Push(cmd);
 
-				AddComponentCommand* compCmd = new AddComponentCommand("Transform", cmd->Ent);
-				EditorCommands.Push(compCmd);
+		//		AddComponentCommand* compCmd = new AddComponentCommand("Transform", cmd->Ent);
+		//		EditorCommands.Push(compCmd);
 
-				Transform* transform = static_cast<Transform*>(compCmd->GetComponent());
-				transform->SetName("New Entity");
-			}
-			ImGui::EndMenu();
-		}
+		//		Transform* transform = static_cast<Transform*>(compCmd->GetComponent());
+		//		transform->SetName("New Entity");
+		//	}
+		//	ImGui::EndMenu();
+		//}
 
 		if (ImGui::BeginMenu("View"))
 		{
@@ -172,7 +156,7 @@ void MainMenuWidget::Render()
 				std::vector<SharedPtr<HavanaWidget>>& list = *WidgetList;
 				for (int i = 0; i < list.size(); ++i)
 				{
-					if (list[i].get() != this && ImGui::MenuItem(list[i]->Name.c_str(), NULL, &list[i]->IsOpen))
+					if (list[i].get() != this && ImGui::MenuItem(list[i]->Name.c_str(), list[i]->Hotkey.c_str(), &list[i]->IsOpen))
 					{
 					}
 				}
@@ -392,72 +376,21 @@ void MainMenuWidget::Render()
 		ImGui::EndMainMenuBar();
 	}
 
-	DrawOpenFilePopup();
 	if (ShowDemoWindow)
 	{
 		ImGui::ShowDemoWindow(&ShowDemoWindow);
 	}
-}
-void MainMenuWidget::DrawOpenFilePopup()
-{
-	OPTICK_CATEGORY("File Popup", Optick::Category::Debug);
 
-	if (OpenScene)
+	if (RequestLoadScene)
 	{
-		ImGui::OpenPopup("Open Scene");
-	}
-	if (ImGui::BeginPopupModal("Open Scene", &OpenScene, ImGuiWindowFlags_MenuBar))
-	{
-		BrowseDirectory(Path("Assets"));
+		RequestAssetSelectionEvent evt([this](Path selectedAsset) {
+			LoadSceneEvent evt;
+			evt.Level = selectedAsset.LocalPath;
+			evt.Fire();
 
-		for (auto& j : AssetDirectory)
-		{
-			Path path(j);
-			ImGui::TreeNode(path.LocalPath.c_str());
-			if (ImGui::IsItemClicked())
-			{
-				if (!j.is_string())
-				{
-					return;
-				}
-				LoadSceneEvent evt;
-				evt.Level = path.LocalPath;
-				evt.Fire();
-
-				GetEngine().GetConfig().SetValue(std::string("CurrentScene"), GetEngine().CurrentScene->FilePath.LocalPath);
-
-				OpenScene = false;
-				ImGui::CloseCurrentPopup();
-			}
-		}
-
-		if (ImGui::Button("Close"))
-		{
-			OpenScene = false;
-			ImGui::CloseCurrentPopup();
-		}
-		ImGui::EndPopup();
-	}
-}
-
-void MainMenuWidget::BrowseDirectory(const Path& path)
-{
-	if (CurrentDirectory.FullPath == path.FullPath && !AssetDirectory.empty())
-	{
-		return;
-	}
-
-	for (const auto& entry : std::filesystem::directory_iterator(path.FullPath))
-	{
-		Path filePath(entry.path().string());
-		if (filePath.LocalPath.find(".lvl") != std::string::npos)
-		{
-			AssetDirectory.push_back(filePath.FullPath);
-		}
-
-		ImGui::Text(filePath.Directory.c_str());
-
-		ImGui::Text(filePath.LocalPath.c_str());
+			GetEngine().GetConfig().SetValue(std::string("CurrentScene"), GetEngine().CurrentScene->FilePath.LocalPath);
+			}, AssetType::Level);
+		evt.Fire();
 	}
 }
 
