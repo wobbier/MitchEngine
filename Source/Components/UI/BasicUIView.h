@@ -3,7 +3,6 @@
 #include "ECS/Component.h"
 #include "ECS/ComponentDetail.h"
 #include "File.h"
-#include "Path.h"
 
 #include "Ultralight/Listener.h"
 #include "UI/JSHelpers.h"

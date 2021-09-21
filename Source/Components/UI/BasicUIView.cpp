@@ -1,5 +1,4 @@
 #include "PCH.h"
-#include <filesystem>
 
 #include "BasicUIView.h"
 #include "imgui.h"
@@ -7,6 +6,7 @@
 #include "Ultralight/View.h"
 #include "Events/AudioEvents.h"
 #include <Ultralight/String.h>
+#include <HavanaEvents.h>
 
 BasicUIView::BasicUIView()
 	: Component("BasicUIView")
@@ -82,35 +82,16 @@ void BasicUIView::PlaySound(const ultralight::JSObject& thisObject, const ultral
 
 void BasicUIView::OnEditorInspect()
 {
-	static std::vector<Path> Textures;
-	if (Textures.empty())
+	ImVec2 selectorSize(-1.f, 19.f);
+	HavanaUtils::Label("Source");
+	if (ImGui::Button(((!FilePath.LocalPath.empty()) ? FilePath.LocalPath.c_str() : "Select Asset"), selectorSize))
 	{
-		Path path = Path("Assets");
-		Textures.push_back(Path(""));
-		for (const auto& entry : std::filesystem::recursive_directory_iterator(path.FullPath))
-		{
-			Path filePath(entry.path().string());
-			if (filePath.LocalPath.rfind(".html") != std::string::npos && filePath.LocalPath.rfind(".meta") == std::string::npos)
-			{
-				Textures.push_back(filePath);
-			}
-		}
-	}
-
-	if (ImGui::BeginCombo("##HTMLSource", FilePath.LocalPath.c_str()))
-	{
-		for (size_t n = 0; n < Textures.size(); n++)
-		{
-			if (ImGui::Selectable(Textures[n].LocalPath.c_str(), false))
-			{
-				FilePath = Textures[n];
-				SourceFile = File(FilePath);
-				IsInitialized = false;
-				Textures.clear();
-				break;
-			}
-		}
-		ImGui::EndCombo();
+		RequestAssetSelectionEvent evt([this](Path selectedAsset) {
+			FilePath = selectedAsset;
+			SourceFile = File(FilePath);
+			IsInitialized = false;
+			}, AssetType::UI);
+		evt.Fire();
 	}
 }
 

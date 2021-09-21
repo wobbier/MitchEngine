@@ -10,6 +10,7 @@
 
 class Transform;
 class Resource;
+struct MetaBase;
 
 namespace Moonlight { class Texture; }
 
@@ -114,6 +115,10 @@ private:
 	bool ProccessDirectoryRecursive(std::string& dir, Directory& dirRef, const std::filesystem::directory_entry& file);
 	void BuildAssetsRecursive(Directory& dir);
 
+	void RefreshMetaPanel(const Path& item);
+
+	void TryDestroyMetaFile();
+
 	std::vector<SharedPtr<Resource>> m_compiledAssets;
 	void SavePrefab(json& d, Transform* CurrentTransform, bool IsRoot);
 	std::unordered_map<std::string, std::filesystem::file_time_type> Paths;
@@ -130,6 +135,11 @@ private:
 	AssetType ForcedAssetFilter = AssetType::Unknown;
 	bool items_need_filtered = true;
 	bool assetTypeFilters[AssetType::Count];
+
+	Path AssetBrowserPath;
+	MetaBase* metafile = nullptr;
+	bool ShouldDelteteMetaFile = false;
+	bool IsMetaPanelOpen = false;
 	};
 
 #endif

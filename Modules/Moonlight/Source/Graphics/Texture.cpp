@@ -8,8 +8,7 @@
 #include <Utils/PlatformUtils.h>
 #include <bimg/decode.h>
 #include <bx/allocator.h>
-
-//using namespace DirectX;
+#include <Utils/HavanaUtils.h>
 
 static void imageReleaseCb(void* _ptr, void* _userData)
 {
@@ -194,7 +193,8 @@ void TextureResourceMetadata::OnEditorInspect()
 {
 	MetaBase::OnEditorInspect();
 
-	if (ImGui::BeginCombo("Import Settings", FromEnum(OutputType).c_str()))
+	HavanaUtils::Label("Import Settings");
+	if (ImGui::BeginCombo("##ImportSettings", FromEnum(OutputType).c_str()))
 	{
 		for (int n = 0; n < (int)OutputTextureType::Count; n++)
 		{

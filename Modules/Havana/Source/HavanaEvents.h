@@ -45,7 +45,6 @@ public:
 	EntityHandle SelectedEntity;
 	Transform* SelectedTransform = nullptr;
 	BaseCore* SelectedCore = nullptr;
-	Path AssetBrowserPath;
 };
 
 class ClearInspectEvent

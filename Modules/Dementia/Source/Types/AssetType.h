@@ -10,6 +10,7 @@ enum class AssetType : unsigned int
 	Prefab,
 	Shader,
 	Texture,
+	UI,
 	Count
 };
 
@@ -38,6 +39,9 @@ namespace {
 			break;
 		case AssetType::Prefab:
 			return "Prefab";
+			break;
+		case AssetType::UI:
+			return "UI";
 			break;
 		case AssetType::Count:
 		default:

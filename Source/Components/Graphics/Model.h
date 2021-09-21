@@ -2,10 +2,8 @@
 #include "ECS/Component.h"
 #include "ECS/ComponentDetail.h"
 #include <string>
-#include "imgui.h"
 #include "Graphics/ShaderCommand.h"
 #include "Path.h"
-#include <filesystem>
 #include "Pointers.h"
 #include "Scene/Node.h"
 #include "ECS/EntityHandle.h"
@@ -42,53 +40,9 @@ private:
 	{
 		ModelPath = Path(inJson["ModelPath"]);
 	}
+
 #if ME_EDITOR
-
-	virtual void OnEditorInspect() final
-	{
-		ImGui::Text("Path:");
-		ImGui::SameLine();
-		ImGui::Text(ModelPath.LocalPath.c_str());
-
-		if (!ModelHandle)
-		{
-			static std::vector<Path> Models;
-			Path path = Path("Assets");
-			if (Models.empty())
-			{
-				for (const auto& entry : std::filesystem::recursive_directory_iterator(path.FullPath))
-				{
-					Path filePath(entry.path().string());
-					if ((filePath.LocalPath.rfind(".fbx") != std::string::npos || filePath.LocalPath.rfind(".obj") != std::string::npos)
-						&& filePath.LocalPath.rfind(".meta") == std::string::npos)
-					{
-						Models.push_back(filePath);
-					}
-				}
-			}
-
-			if (ImGui::BeginCombo("##Model", "Select a model to construct"))
-			{
-				for (size_t n = 0; n < Models.size(); n++)
-				{
-					if (ImGui::Selectable(Models[n].LocalPath.c_str(), false))
-					{
-						ModelPath = Models[n];
-						Models.clear();
-						Init();
-						break;
-					}
-				}
-				ImGui::EndCombo();
-			}
-			ImGui::SameLine();
-			ImGui::Text("Select Model");
-		}
-
-		if (ModelShader)
-		{
-		}
-	}
+	virtual void OnEditorInspect() final;
 #endif
 };
 

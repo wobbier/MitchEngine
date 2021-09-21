@@ -8,6 +8,8 @@
 #include "Mesh.h"
 #include "Engine/Engine.h"
 #include "ECS/Entity.h"
+#include <HavanaEvents.h>
+#include "imgui.h"
 
 Model::Model(const std::string& path)
 	: Component("Model")
@@ -105,3 +107,30 @@ void Model::RecursiveLoadMesh(Moonlight::Node& root, EntityHandle& parentEnt)
 		trans.SetParent(parentEnt->GetComponent<Transform>());
 	}
 }
+
+#if ME_EDITOR
+
+void Model::OnEditorInspect()
+{
+	if (ModelHandle)
+	{
+		ImGui::Text("Loaded Path");
+		ImGui::SameLine();
+		ImGui::Text(ModelPath.LocalPath.c_str());
+	}
+	else
+	{
+		ImVec2 selectorSize(-1.f, 19.f);
+		HavanaUtils::Label("Model");
+		if (ImGui::Button(((!ModelPath.LocalPath.empty()) ? ModelPath.LocalPath.c_str() : "Select Asset"), selectorSize))
+		{
+			RequestAssetSelectionEvent evt([this](Path selectedAsset) {
+				ModelPath = selectedAsset;
+				Init();
+				}, AssetType::Model);
+			evt.Fire();
+		}
+	}
+}
+
+#endif

@@ -148,41 +148,41 @@ void AssetBrowserWidget::Destroy()
 void AssetBrowserWidget::Render()
 {
 	OPTICK_CATEGORY("Asset Browser", Optick::Category::Debug);
-	if (false) // Old Way, might come back as a viewing setting
-	{
-		if (ImGui::Begin("Assets", &IsOpen))
-		{
-			if (m_compiledAssets.empty())
-			{
-				if (ImGui::Button("Build Assets"))
-				{
-					BuildAssets();
-				}
-				ImGui::SameLine(0.f, 10.f);
-				if (ImGui::Button("Refresh"))
-				{
-					ReloadDirectories();
-				}
-			}
-			else
-			{
-				if (ImGui::Button("Clear Assets"))
-				{
-					ClearAssets();
-				}
-			}
-			if (ImGui::CollapsingHeader("Game", ImGuiTreeNodeFlags_DefaultOpen))
-			{
-				Recursive(AssetDirectory);
-			}
+	//if (false) // Old Way, might come back as a viewing setting
+	//{
+	//	if (ImGui::Begin("Assets", &IsOpen))
+	//	{
+	//		if (m_compiledAssets.empty())
+	//		{
+	//			if (ImGui::Button("Build Assets"))
+	//			{
+	//				BuildAssets();
+	//			}
+	//			ImGui::SameLine(0.f, 10.f);
+	//			if (ImGui::Button("Refresh"))
+	//			{
+	//				ReloadDirectories();
+	//			}
+	//		}
+	//		else
+	//		{
+	//			if (ImGui::Button("Clear Assets"))
+	//			{
+	//				ClearAssets();
+	//			}
+	//		}
+	//		if (ImGui::CollapsingHeader("Game", ImGuiTreeNodeFlags_DefaultOpen))
+	//		{
+	//			Recursive(AssetDirectory);
+	//		}
 
-			if (ImGui::CollapsingHeader("Engine"))
-			{
-				Recursive(EngineAssetDirectory);
-			}
-		}
-		ImGui::End();
-	}
+	//		if (ImGui::CollapsingHeader("Engine"))
+	//		{
+	//			Recursive(EngineAssetDirectory);
+	//		}
+	//	}
+	//	ImGui::End();
+	//}
 
 	if (IsOpen)
 	{
@@ -199,8 +199,59 @@ void AssetBrowserWidget::Render()
 			ImGui::PopStyleVar(1);
 			ImGui::PopStyleColor(1);
 		}
+		{
+			static float wOffset = 350.0f;
+			static float h = ImGui::GetContentRegionAvail().y;
+			float w = 0.f;
+			if (!IsMetaPanelOpen)
+			{
+				w = ImGui::GetContentRegionAvailWidth();
+			}
+			else
+			{
+				w = ImGui::GetContentRegionAvailWidth() - wOffset;
+			}
+			h = ImGui::GetContentRegionAvail().y;
+			//ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
+			ImGui::BeginChild("child1", ImVec2(w, h), true);
+			DrawAssetTable();
+			ImGui::EndChild();
 
-		DrawAssetTable();
+			if (IsMetaPanelOpen)
+			{
+				ImGui::SameLine();
+				ImGui::Button("vsplitter", ImVec2(4.0f, h));
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+				}
+				if (ImGui::IsItemActive())
+					wOffset -= ImGui::GetIO().MouseDelta.x;
+				ImGui::SameLine();
+				ImGui::BeginChild("child2", ImVec2(-1.f, h), true);
+				if (metafile)
+				{
+					metafile->OnEditorInspect();
+
+					if (ImGui::Button("Save"))
+					{
+						metafile->Save();
+						metafile->Export();
+
+						SharedPtr<Resource> res = ResourceCache::GetInstance().GetCached(metafile->FilePath);
+						if (res)
+						{
+							res->Reload();
+						}
+					}
+				}
+				ImGui::EndChild();
+			}
+			else
+			{
+				TryDestroyMetaFile();
+			}
+		}
 
 		ImGui::End();
 	}
@@ -208,6 +259,7 @@ void AssetBrowserWidget::Render()
 	{
 		AssetSelectedCallback = nullptr;
 		ForcedAssetFilter = AssetType::Unknown;
+		TryDestroyMetaFile();
 	}
 }
 
@@ -220,7 +272,6 @@ void AssetBrowserWidget::DrawAssetTable()
 		| ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY
 		| ImGuiTableFlags_SizingStretchProp;
 
-	ImVec2 outer_size_value = ImVec2(-FLT_MIN, ImGui::GetFrameHeightWithSpacing() - ImGui::GetCursorPosY());
 	static float row_min_height = 16.f; // Auto
 	static float inner_width_with_scroll = 0.0f; // Auto-extend
 	static bool outer_size_enabled = true;
@@ -229,10 +280,18 @@ void AssetBrowserWidget::DrawAssetTable()
 	static bool items_need_sort = false;
 
 	assetTypeFilters[0] = false;
-
-	bool stringFilterChanged = filter.Draw("filter", ImGui::GetContentRegionAvailWidth());
+	bool stringFilterChanged = filter.Draw("##AssetFilter", ImGui::GetContentRegionAvailWidth() - 100.f);
 	bool isAssetTypeForced = ForcedAssetFilter != AssetType::Unknown;
-	
+	ImGui::SameLine();
+	if (ImGui::Button(IsMetaPanelOpen ? "Details >" : "< Details", {100.f, 18.f}))
+	{
+		IsMetaPanelOpen = !IsMetaPanelOpen;
+		if (IsMetaPanelOpen && SelectedAsset)
+		{
+			RefreshMetaPanel(SelectedAsset->FullPath);
+		}
+	}
+
 	if (isAssetTypeForced)
 	{
 		ImGui::PushStyleColor(ImGuiCol_Header, { 0.447f, .905f, .39f, .31f });
@@ -275,6 +334,7 @@ void AssetBrowserWidget::DrawAssetTable()
 
 	bool hasNoTypeFilter = allFiltersOff && ForcedAssetFilter == AssetType::Unknown;
 
+	ImVec2 outer_size_value = ImVec2(-1.f, ImGui::GetWindowHeight() - ImGui::GetCursorPosY());
 	const float inner_width_to_use = (flags & ImGuiTableFlags_ScrollX) ? inner_width_with_scroll : 0.0f;
 	if (ImGui::BeginTable("##table", 3, flags, outer_size_enabled ? outer_size_value : ImVec2(0, 0), inner_width_to_use))
 	{
@@ -342,10 +402,18 @@ void AssetBrowserWidget::DrawAssetTable()
 					ImGuiSelectableFlags selectable_flags = ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowItemOverlap | ImGuiSelectableFlags_AllowDoubleClick;
 					if (ImGui::Selectable("##Entry", item_is_selected, selectable_flags, ImVec2(0, row_min_height)))
 					{
+						SelectedAsset = item;
 						if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && AssetSelectedCallback)
 						{
 							AssetSelectedCallback(item->FullPath);
 							RequestOverlay();
+						}
+						else
+						{
+							if (IsMetaPanelOpen)
+							{
+								RefreshMetaPanel(item->FullPath);
+							}
 						}
 
 						if (ImGui::GetIO().KeyCtrl)
@@ -408,6 +476,24 @@ void AssetBrowserWidget::DrawAssetTable()
 		ImGui::EndTable();
 	}
 
+}
+
+void AssetBrowserWidget::RefreshMetaPanel(const Path& item)
+{
+	TryDestroyMetaFile();
+	if (item.Exists)
+	{
+		SharedPtr<Resource> res = ResourceCache::GetInstance().GetCached(item);
+		if (res)
+		{
+			metafile = res->GetMetadata();
+		}
+		else
+		{
+			metafile = ResourceCache::GetInstance().LoadMetadata(item);
+		}
+		ShouldDelteteMetaFile = !res;
+	}
 }
 
 void AssetBrowserWidget::RequestOverlay(const std::function<void(Path)> cb, AssetType forcedType)
@@ -523,9 +609,9 @@ void AssetBrowserWidget::Recursive(Directory& dir)
 			}
 			else if (ImGui::IsMouseClicked(0))
 			{
-				InspectEvent evt;
-				evt.AssetBrowserPath = Path(files.FullPath);
-				evt.Fire();
+				//InspectEvent evt;
+				//evt.AssetBrowserPath = Path(files.FullPath);
+				//evt.Fire();
 			}
 		}
 		if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
@@ -603,6 +689,21 @@ void AssetBrowserWidget::BuildAssetsRecursive(Directory& dir)
 	}
 }
 
+void AssetBrowserWidget::TryDestroyMetaFile()
+{
+	if (metafile)
+	{
+		AssetBrowserPath = Path();
+
+		if (ShouldDelteteMetaFile)
+		{
+			delete metafile;
+			ShouldDelteteMetaFile = false;
+		}
+		metafile = nullptr;
+	}
+}
+
 void AssetBrowserWidget::ClearAssets()
 {
 	m_compiledAssets.clear();
@@ -674,6 +775,10 @@ bool AssetBrowserWidget::ProccessDirectoryRecursive(std::string& dir, Directory&
 				else if (newdir.rfind(".frag") != std::string::npos || newdir.rfind(".vert") != std::string::npos)
 				{
 					type = AssetType::Shader;
+				}
+				else if (newdir.rfind(".html") != std::string::npos)
+				{
+					type = AssetType::UI;
 				}
 
 				AssetDescriptor desc;

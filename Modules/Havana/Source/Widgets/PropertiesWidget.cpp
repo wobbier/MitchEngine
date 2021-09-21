@@ -38,20 +38,6 @@ bool PropertiesWidget::OnEvent(const BaseEvent& evt)
 		SelectedCore = event.SelectedCore;
 		SelectedEntity = event.SelectedEntity;
 		SelectedTransform = event.SelectedTransform;
-		AssetBrowserPath = Path(event.AssetBrowserPath);
-		if (AssetBrowserPath.Exists)
-		{
-			SharedPtr<Resource> res = ResourceCache::GetInstance().GetCached(AssetBrowserPath);
-			if (res)
-			{
-				metafile = res->GetMetadata();
-			}
-			else
-			{
-				metafile = ResourceCache::GetInstance().LoadMetadata(AssetBrowserPath);
-			}
-			ShouldDelteteMetaFile = !res;
-		}
 	}
 	return false;
 }
@@ -101,23 +87,6 @@ void PropertiesWidget::Render()
 			OPTICK_CATEGORY("Core::OnEditorInspect", Optick::Category::GameLogic);
 			SelectedCore->OnEditorInspect();
 		}
-
-		if (metafile)
-		{
-			metafile->OnEditorInspect();
-
-			if (ImGui::Button("Save"))
-			{
-				metafile->Save();
-				metafile->Export();
-
-				SharedPtr<Resource> res = ResourceCache::GetInstance().GetCached(metafile->FilePath);
-				if (res)
-				{
-					res->Reload();
-				}
-			}
-		}
 	}
 	ImGui::End();
 }
@@ -143,25 +112,17 @@ void PropertiesWidget::ClearSelection()
 	SelectedTransform = nullptr;
 	SelectedEntity = EntityHandle();
 	SelectedCore = nullptr;
-	AssetBrowserPath = Path();
-
-	if (ShouldDelteteMetaFile)
-	{
-		delete metafile;
-		ShouldDelteteMetaFile = false;
-	}
-
-	metafile = nullptr;
 }
 
 void PropertiesWidget::AddComponentPopup(EntityHandle inSelectedEntity)
 {
-	ImGui::PushItemWidth(-100);
-	if (ImGui::Button("Add Component.."))
+	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, {20.f, 10.f});
+	ImGui::Separator();
+	if (ImGui::Button("Add Component..", {-1.f, 26.f}))
 	{
 		ImGui::OpenPopup("my_select_popup");
 	}
-	ImGui::PopItemWidth();
+	ImGui::PopStyleVar();
 
 	if (ImGui::BeginPopup("my_select_popup"))
 	{
