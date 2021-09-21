@@ -1,7 +1,5 @@
 #pragma once
 
-#include "Dementia.h"
-
 #ifdef ME_ENABLE_RENDERDOC
 
 #include <assert.h>
