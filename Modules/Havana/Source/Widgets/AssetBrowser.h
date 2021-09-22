@@ -21,8 +21,8 @@ enum MyItemColumnID
 	MyItemColumnID_ID,
 	MyItemColumnID_Name,
 	MyItemColumnID_Action,
-	MyItemColumnID_Quantity,
-	MyItemColumnID_Description
+	MyItemColumnID_Description,
+	MyItemColumnID_LastModified
 };
 
 enum class FileStatus : unsigned int
@@ -46,6 +46,8 @@ public:
 		File MetaFile;
 		Path FullPath;
 		AssetType Type;
+		long LastModified = 0l;
+		std::string LastModifiedHuman;
 		// We have a problem which is affecting _only this demo_ and should not affect your code:
 		// As we don't rely on std:: or other third-party library to compile dear imgui, we only have reliable access to qsort(),
 		// however qsort doesn't allow passing user data to comparing function.
@@ -70,7 +72,7 @@ public:
 				{
 				case MyItemColumnID_ID:             delta = ((int)a->Type - (int)b->Type);                break;
 				case MyItemColumnID_Name:           delta = (strcmp(a->Name.c_str(), b->Name.c_str()));     break;
-				case MyItemColumnID_Quantity:       delta = (a->Quantity - b->Quantity);    break;
+				case MyItemColumnID_LastModified:       delta = (a->LastModified - b->LastModified);    break;
 				case MyItemColumnID_Description:    delta = (strcmp(a->Name.c_str(), b->Name.c_str()));     break;
 				default: IM_ASSERT(0); break;
 				}

@@ -156,9 +156,9 @@ void MainMenuWidget::Render()
 			if (WidgetList)
 			{
 				std::vector<SharedPtr<HavanaWidget>>& list = *WidgetList;
-				for (int i = 0; i < list.size(); ++i)
+				for (auto& i : list)
 				{
-					if (list[i].get() != this && ImGui::MenuItem(list[i]->Name.c_str(), list[i]->Hotkey.c_str(), &list[i]->IsOpen))
+					if (i.get() != this && ImGui::MenuItem(i->Name.c_str(), i->Hotkey.c_str(), &i->IsOpen))
 					{
 					}
 				}
@@ -203,18 +203,18 @@ void MainMenuWidget::Render()
 			}
 		}
 
-		float endOfMenu = ImGui::GetCursorPosX();
-		float buttonWidth = 40.f;
+		const float endOfMenu = ImGui::GetCursorPosX();
+		const float buttonWidth = 40.f;
 		TitleBarDragPosition = Vector2(endOfMenu, 10.f);
-		float winWidth = ImGui::GetWindowWidth();
+		const float winWidth = ImGui::GetWindowWidth();
 		TitleBarDragSize = Vector2(winWidth - endOfMenu - (buttonWidth * 5.f), MainMenuSize.y - 10.f);
 
 #if ME_PLATFORM_WIN64
-		auto window = static_cast<EditorWindow*>(GetEngine().GetWindow());
+		const auto window = dynamic_cast<EditorWindow*>(GetEngine().GetWindow());
 
 		window->SetDragBounds(TitleBarDragPosition, TitleBarDragSize);
 #endif
-		Vector2 pos = editorInput.GetMousePosition();
+		const Vector2 pos = editorInput.GetMousePosition();
 		if (ImGui::IsMouseDoubleClicked(0) && (pos > TitleBarDragPosition && pos < TitleBarDragPosition + TitleBarDragSize))
 		{
 			GetEngine().GetWindow()->Maximize();
@@ -256,19 +256,19 @@ void MainMenuWidget::Render()
 		}
 
 		ImGui::Text("%.1f ms", frametime * 1000.f);
-		ImGui::Text("%.1f fps", (float)fps);
+		ImGui::Text("%.1f fps", static_cast<float>(fps));
 		//ImGui::Text("%.1f fps", (float)ImGui::GetIO().Framerate);
 
 		ImGui::SetCursorPosX((ImGui::GetWindowWidth() / 2.f) - (ImGui::CalcTextSize(WindowTitle.c_str()).x / 2.f));
 		ImGui::Text(WindowTitle.c_str());
 
 		ImGui::BeginGroup();
-		ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(0.0f, 0.6f, 0.6f, 0.f));
-		ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)ImColor::HSV(0.f, 0.8f, 0.8f, 0.f));
+		ImGui::PushStyleColor(ImGuiCol_Button, static_cast<ImVec4>(ImColor::HSV(0.0f, 0.6f, 0.6f, 0.f)));
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive, static_cast<ImVec4>(ImColor::HSV(0.f, 0.8f, 0.8f, 0.f)));
 		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 5.f));
 		if (ImGui::ImageButton(Icons["Profiler"]->TexHandle, ImVec2(30.f, 30.f)))
 		{
-			Path optickPath = Path("Engine/Tools/Optick.exe");
+			const Path optickPath = Path("Engine/Tools/Optick.exe");
 			// additional information
 			PlatformUtils::RunProcess(optickPath);
 		}
@@ -305,7 +305,7 @@ void MainMenuWidget::Render()
 		//	}
 		//	ImGui::EndPopup();
 		//}
-		float RightShift = 2.f;
+		const float RightShift = 2.f;
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(0.35f, 126.f, 43.f, 1.f));
 		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 4.f));
 		if (ImGui::ImageButton(Icons["BugReport"]->TexHandle, ImVec2(30.f, 30.f)))

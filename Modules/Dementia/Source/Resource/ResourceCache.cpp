@@ -4,13 +4,16 @@
 #include "MetaRegistry.h"
 #include "JSON.h"
 #include "File.h"
+#include "AssetMetaCache.h"
 
 ResourceCache::ResourceCache()
 {
+	AssetMetaCache::GetInstance().Load();
 }
 
 ResourceCache::~ResourceCache()
 {
+	AssetMetaCache::GetInstance().Save();
 	for (auto I : ResourceStack)
 	{
 		if (I.second)
@@ -95,6 +98,8 @@ MetaBase* ResourceCache::LoadMetadata(const Path& filePath)
 			metaFile.Write(j.dump(4));
 			metadata->FlaggedForExport = true;
 		}
+		
+		metadata->FlaggedForExport = AssetMetaCache::GetInstance().WasModified(filePath, metadata) || metadata->FlaggedForExport;
 #endif
 	}
 	return metadata;

@@ -38,8 +38,8 @@ MetaBase::MetaBase(const Path& filePath)
 void MetaBase::Serialize(json& outJson)
 {
 	outJson["FileType"] = FilePath.GetExtension();
-	outJson["LastModified"] = LastModified;
-	outJson["LastModifiedDebug"] = LastModifiedDebug;
+	//outJson["LastModified"] = LastModified;
+	//outJson["LastModifiedDebug"] = LastModifiedDebug;
 	//outJson["LastModified"] = buffer;
 	OnSerialize(outJson);
 }
@@ -51,19 +51,19 @@ void MetaBase::Deserialize(const json& inJson)
 		FileType = inJson["FileType"];
 	}
 
-	bool wasModified = true;
+	/*bool wasModified = true;
 	if (inJson.contains("LastModified"))
 	{
 		long CachedLastModified = inJson["LastModified"];
 		wasModified = (LastModified != CachedLastModified);
-	}
+	}*/
     
-	FlaggedForExport = wasModified;
-    
+	//FlaggedForExport = wasModified;
+	/*
 	if (inJson.contains("LastModifiedDebug"))
 	{
 		LastModifiedDebug = inJson["LastModifiedDebug"];
-	}
+	}*/
 	OnDeserialize(inJson);
 }
 

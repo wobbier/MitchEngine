@@ -202,6 +202,27 @@ void AssetBrowserWidget::Render()
 			ImGui::PopStyleColor(1);
 		}
 		{
+			if (m_compiledAssets.empty())
+			{
+				if (ImGui::Button("Build Assets"))
+				{
+					BuildAssets();
+				}
+				ImGui::SameLine(0.f, 10.f);
+				if (ImGui::Button("Refresh"))
+				{
+					pendingAssetListRefresh = true;
+				}
+			}
+			else
+			{
+				if (ImGui::Button("Clear Assets"))
+				{
+					ClearAssets();
+				}
+			}
+		}
+		{
 			static float wOffset = 350.0f;
 			static float h = ImGui::GetContentRegionAvail().y;
 			float w = 0.f;
@@ -349,11 +370,12 @@ void AssetBrowserWidget::DrawAssetTable()
 
 	ImVec2 outer_size_value = ImVec2(-1.f, ImGui::GetWindowHeight() - ImGui::GetCursorPosY());
 	const float inner_width_to_use = (flags & ImGuiTableFlags_ScrollX) ? inner_width_with_scroll : 0.0f;
-	if (ImGui::BeginTable("##table", 3, flags, outer_size_enabled ? outer_size_value : ImVec2(0, 0), inner_width_to_use))
+	if (ImGui::BeginTable("##table", 4, flags, outer_size_enabled ? outer_size_value : ImVec2(0, 0), inner_width_to_use))
 	{
 		ImGui::TableSetupColumn("##ID", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoHide | ImGuiTableColumnFlags_NoResize, -1.f, MyItemColumnID_ID);
 		ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthFixed, -1.0f, MyItemColumnID_Name);
 		ImGui::TableSetupColumn("Local Path", ImGuiTableColumnFlags_WidthStretch, -1.0f, MyItemColumnID_Description);
+		ImGui::TableSetupColumn("Last Modified", ImGuiTableColumnFlags_WidthFixed, 15.f, MyItemColumnID_LastModified);
 		ImGui::TableSetupScrollFreeze(1, 1);
 
 		ImGuiTableSortSpecs* sorts_specs = ImGui::TableGetSortSpecs();
@@ -409,11 +431,11 @@ void AssetBrowserWidget::DrawAssetTable()
 				const bool item_is_selected = selection.contains(item->ID);
 				ImGui::PushID(item->ID);
 				ImGui::TableNextRow(ImGuiTableRowFlags_None, row_min_height);
-				bool openFolderShortcut = false;
-				bool openFileShortcut = false;
 
 				if (ImGui::TableNextColumn())
 				{
+					bool openFileShortcut = false;
+					bool openFolderShortcut = false;
 					ImGuiSelectableFlags selectable_flags = ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowItemOverlap | ImGuiSelectableFlags_AllowDoubleClick;
 					if (ImGui::Selectable("##Entry", item_is_selected, selectable_flags, ImVec2(0, row_min_height)))
 					{
@@ -529,6 +551,9 @@ void AssetBrowserWidget::DrawAssetTable()
 
 				if(ImGui::TableNextColumn())
 					ImGui::Text(item->FullPath.LocalPath.c_str());
+
+				if (ImGui::TableNextColumn())
+					ImGui::Text(item->LastModifiedHuman.c_str());
 
 				ImGui::PopID();
 			}
@@ -859,6 +884,53 @@ bool AssetBrowserWidget::ProccessDirectoryRecursive(std::string& dir, Directory&
 
 				//}
 				desc.ID = MasterAssetsList.size();
+
+#if ME_PLATFORM_WIN64
+				struct stat fileInfo;
+				if (stat(desc.FullPath.FullPath.c_str(), &fileInfo) != 0)
+				{
+					// Use stat() to get the info
+					//std::cerr << "Error: " << strerror(errno) << '\n';
+				}
+
+				desc.LastModified = static_cast<long>(fileInfo.st_mtime);
+				
+
+				{
+					struct tm* requestedTimestampData;
+					int td, tsd;
+					time_t today;
+					time(&today);
+
+					// Today's Date
+					requestedTimestampData = localtime(&today);
+					td = requestedTimestampData->tm_mday;
+
+					// Last Modified
+					std::time_t time2 = desc.LastModified;
+					requestedTimestampData = localtime(&time2);
+					tsd = requestedTimestampData->tm_mday;
+					char buffer[80];
+					if (tsd == td)
+					{
+						strftime(buffer, 80, "Today at %I:%M %p", requestedTimestampData);
+					}
+					else if (tsd == td-1)
+					{
+						strftime(buffer, 80, "Yesterday at %I:%M %p", requestedTimestampData);
+					}
+					else
+					{
+						strftime(buffer, 80, "%b %d, %Y at %I:%M", requestedTimestampData);
+					}
+					desc.LastModifiedHuman = std::string(buffer);
+					auto place = desc.LastModifiedHuman.rfind("at 0");
+					if(place != std::string::npos)
+					{
+						desc.LastModifiedHuman = desc.LastModifiedHuman.replace(place+3, 1, "");
+					}
+				}
+#endif
 				MasterAssetsList.push_back(desc);
 				return true;
 			}

@@ -9,6 +9,7 @@
 #include <Pointers.h>
 #include <Singleton.h>
 #include "MetaFile.h"
+#include "AssetMetaCache.h"
 
 class Resource;
 
@@ -63,6 +64,7 @@ SharedPtr<T> ResourceCache::Get(const Path& InFilePath, Args&& ... args)
 	{
 		metaFile->Export();
 		metaFile->Save();
+		AssetMetaCache::GetInstance().Update(InFilePath, metaFile);
 	}
 #endif
 

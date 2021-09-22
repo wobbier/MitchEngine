@@ -57,17 +57,6 @@ void ResourceMonitorWidget::Render()
 
 						ImGui::TableSetColumnIndex(0);
 						ImGui::Text(resourceList[row]->GetPath().LocalPath.c_str());
-						if (ImGui::IsItemHovered())
-						{
-							ImGui::BeginTooltip();
-
-							if (auto metaData = resourceList[row]->GetMetadata())
-							{
-								metaData->OnEditorInspect();
-							}
-
-							ImGui::EndTooltip();
-						}
 
 						ImGui::TableSetColumnIndex(1);
 						ImGui::Text(std::to_string(resourceList[row].use_count()).c_str());
