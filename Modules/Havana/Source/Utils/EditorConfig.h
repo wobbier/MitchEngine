@@ -32,6 +32,10 @@ public:
 				newGameConfig.Write(gameEngineCfg.Read());
 			}
 		}
+		else if (!gameSpecificCnfigPath.Exists)
+		{
+			Save();
+		}
 	}
 
 	void Load()

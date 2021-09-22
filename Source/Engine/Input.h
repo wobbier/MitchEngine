@@ -330,7 +330,7 @@ enum class KeyCode : uint32_t
     SDL_SCANCODE_LGUI = 227, /**< windows, command (apple), meta */
     RightControl = 228,
     SDL_SCANCODE_RSHIFT = 229,
-    SDL_SCANCODE_RALT = 230, /**< alt gr, option */
+    RightAlt = SDL_SCANCODE_RALT, /**< alt gr, option */
     SDL_SCANCODE_RGUI = 231, /**< windows, command (apple), meta */
 
     SDL_SCANCODE_MODE = 257,    /**< I'm not sure if this is really not covered

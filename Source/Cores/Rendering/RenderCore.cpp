@@ -214,6 +214,16 @@ void RenderCore::OnEditorInspect()
 	Base::OnEditorInspect();
 
 	ImGui::Checkbox("Enable Debug Draw", &EnableDebugDraw);
+	if (ImGui::Button("MSAA None"))
+	{
+		GetEngine().GetRenderer().SetMSAALevel(BGFXRenderer::MSAALevel::None);
+	}
+	if (ImGui::Button("MSAA X16"))
+	{
+		GetEngine().GetRenderer().SetMSAALevel(BGFXRenderer::MSAALevel::X16);
+	}
+
+
 }
 
 #endif

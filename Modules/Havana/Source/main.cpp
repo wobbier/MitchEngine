@@ -15,7 +15,7 @@ int main(int argc, char** argv)
 			init.resolution.reset = BGFX_RESET_VSYNC;
 
 			bgfx::init(init);
-			AssetBrowserWidget browser = AssetBrowserWidget();
+			AssetBrowserWidget browser = AssetBrowserWidget(nullptr);
 			browser.BuildAssets();
 			return 0;
 		}

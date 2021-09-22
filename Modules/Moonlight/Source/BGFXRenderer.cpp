@@ -95,7 +95,7 @@ void BGFXRenderer::Create(const RendererCreationSettings& settings)
 #else
     init.resolution.reset = BGFX_RESET_VSYNC | BGFX_RESET_MSAA_X16;
 #endif
-
+	m_resetFlags = init.resolution.reset;
 	CurrentSize = settings.InitialSize;
 
 
@@ -111,6 +111,8 @@ void BGFXRenderer::Create(const RendererCreationSettings& settings)
 #endif
 
 	EditorCameraBuffer = new Moonlight::FrameBuffer(init.resolution.width, init.resolution.height);
+	EditorCameraBuffer->ReCreate(m_resetFlags);
+
 	m_debugDraw.reset(new DebugDrawer());
 
 	if (true)
@@ -166,7 +168,7 @@ void BGFXRenderer::Create(const RendererCreationSettings& settings)
 	ImGuiRender = new ImGuiRenderer();
 	ImGuiRender->Create();
 
-	bgfx::reset((uint32_t)CurrentSize.x, (uint32_t)CurrentSize.y, init.resolution.reset);
+	bgfx::reset((uint32_t)CurrentSize.x, (uint32_t)CurrentSize.y, m_resetFlags);
 	bgfx::setViewRect(kClearView, 0, 0, bgfx::BackbufferRatio::Equal);
 }
 
@@ -218,17 +220,23 @@ void BGFXRenderer::Render(Moonlight::CameraData& EditorCamera)
 	bgfx::setDebug(s_showStats ? BGFX_DEBUG_STATS : BGFX_DEBUG_TEXT);
 	// Advance to next frame. Process submitted rendering primitives.
 
-	if (CurrentSize != PreviousSize)
+	if (CurrentSize != PreviousSize || NeedsReset)
 	{
 		PreviousSize = CurrentSize;
-#if ME_PLATFORM_MACOS
-    uint32_t flags = BGFX_RESET_VSYNC;
-#else
-    uint32_t flags = BGFX_RESET_VSYNC | BGFX_RESET_MSAA_X16;
-#endif
         
-		bgfx::reset((uint32_t)CurrentSize.x, (uint32_t)CurrentSize.y, flags);
+		bgfx::reset((uint32_t)CurrentSize.x, (uint32_t)CurrentSize.y, m_resetFlags);
 		bgfx::setViewRect(kClearView, 0, 0, bgfx::BackbufferRatio::Equal);
+		if (NeedsReset)
+		{
+			for (auto& cam : m_cameraCache.Commands)
+			{
+				if (cam.Buffer)
+				{
+					cam.Buffer->ReCreate(m_resetFlags);
+				}
+			}
+		}
+		NeedsReset = false;
 	}
 	bgfx::setUniform(s_ambient, &m_ambient.x);
 	bgfx::setUniform(s_sunDirection, &m_dynamicSky->m_sun.m_sunDir.x);
@@ -569,8 +577,17 @@ void BGFXRenderer::RenderSingleMesh(bgfx::ViewId id, const Moonlight::MeshComman
 void BGFXRenderer::WindowResized(const Vector2& newSize)
 {
 	CurrentSize = newSize;
+
+#if ME_EDITOR
+	EditorCameraBuffer->ReCreate(m_resetFlags);
+#endif
 }
 
+
+uint32_t BGFXRenderer::GetResetFlags() const
+{
+	return m_resetFlags;
+}
 
 CommandCache<Moonlight::CameraData>& BGFXRenderer::GetCameraCache()
 {
@@ -609,6 +626,37 @@ void BGFXRenderer::ClearMeshes()
 SharedPtr<Moonlight::DynamicSky> BGFXRenderer::GetSky()
 {
 	return m_dynamicSky;
+}
+
+void BGFXRenderer::RecreateFrameBuffer(uint32_t index)
+{
+	m_cameraCache.Get(index)->Buffer->ReCreate(m_resetFlags);
+}
+
+void BGFXRenderer::SetMSAALevel(MSAALevel level)
+{
+	m_resetFlags &= ~(m_resetFlags & BGFX_RESET_MSAA_MASK);
+
+	switch (level)
+	{
+	case BGFXRenderer::X2:
+		m_resetFlags |= BGFX_RESET_MSAA_X2;
+		break;
+	case BGFXRenderer::X4:
+		m_resetFlags |= BGFX_RESET_MSAA_X4;
+		break;
+	case BGFXRenderer::X8:
+		m_resetFlags |= BGFX_RESET_MSAA_X8;
+		break;
+	case BGFXRenderer::X16:
+		m_resetFlags |= BGFX_RESET_MSAA_X16;
+		break;
+	case BGFXRenderer::None:
+	default:
+		break;
+	}
+
+	NeedsReset = true;
 }
 
 void BGFXRenderer::SetDebugDrawEnabled(bool inEnabled)

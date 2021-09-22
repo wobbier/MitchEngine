@@ -11,6 +11,7 @@
 class Transform;
 class Resource;
 struct MetaBase;
+class Havana;
 
 namespace Moonlight { class Texture; }
 
@@ -90,7 +91,7 @@ public:
 		std::vector<AssetBrowserWidget::AssetDescriptor> Files;
 		Path FullPath;
 	};
-	AssetBrowserWidget();
+	AssetBrowserWidget(Havana* inEditor);
 
 	void ReloadDirectories();
 
@@ -140,6 +141,8 @@ private:
 	MetaBase* metafile = nullptr;
 	bool ShouldDelteteMetaFile = false;
 	bool IsMetaPanelOpen = false;
+	Havana* m_editor = nullptr;
+	bool pendingAssetListRefresh = false;
 	};
 
 #endif

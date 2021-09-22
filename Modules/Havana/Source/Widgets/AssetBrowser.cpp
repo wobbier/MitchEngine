@@ -17,13 +17,15 @@
 #include <Utils/CommonUtils.h>
 #include <Graphics/ShaderFile.h>
 #include <CLog.h>
+#include "Utils/PlatformUtils.h"
 
 #if ME_EDITOR
 
 const ImGuiTableSortSpecs* AssetBrowserWidget::AssetDescriptor::s_current_sort_specs = NULL;
 
-AssetBrowserWidget::AssetBrowserWidget()
+AssetBrowserWidget::AssetBrowserWidget(Havana* inEditor)
 	: HavanaWidget("Asset Browser", "F2")
+	, m_editor(inEditor)
 {
 	// This class is used for command line asset exporting, so keep this clean.
 
@@ -280,6 +282,17 @@ void AssetBrowserWidget::DrawAssetTable()
 	static bool items_need_sort = false;
 
 	assetTypeFilters[0] = false;
+
+	if (pendingAssetListRefresh)
+	{
+		ReloadDirectories();
+		items_need_filtered = true;
+		items_need_sort = true;
+		selection.clear();
+		SelectedAsset = nullptr;
+		pendingAssetListRefresh = false;
+	}
+
 	bool stringFilterChanged = filter.Draw("##AssetFilter", ImGui::GetContentRegionAvailWidth() - 100.f);
 	bool isAssetTypeForced = ForcedAssetFilter != AssetType::Unknown;
 	ImGui::SameLine();
@@ -396,17 +409,28 @@ void AssetBrowserWidget::DrawAssetTable()
 				const bool item_is_selected = selection.contains(item->ID);
 				ImGui::PushID(item->ID);
 				ImGui::TableNextRow(ImGuiTableRowFlags_None, row_min_height);
-				
+				bool openFolderShortcut = false;
+				bool openFileShortcut = false;
+
 				if (ImGui::TableNextColumn())
 				{
 					ImGuiSelectableFlags selectable_flags = ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowItemOverlap | ImGuiSelectableFlags_AllowDoubleClick;
 					if (ImGui::Selectable("##Entry", item_is_selected, selectable_flags, ImVec2(0, row_min_height)))
 					{
 						SelectedAsset = item;
-						if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && AssetSelectedCallback)
+
+						openFolderShortcut = (m_editor->GetInput().IsKeyDown(KeyCode::LeftAlt) || m_editor->GetInput().IsKeyDown(KeyCode::RightAlt));
+						if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && AssetSelectedCallback && !openFolderShortcut)
 						{
 							AssetSelectedCallback(item->FullPath);
 							RequestOverlay();
+						}
+						else if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && !AssetSelectedCallback && !openFolderShortcut)
+						{
+							openFileShortcut = true;
+						}
+						else if (openFolderShortcut)
+						{
 						}
 						else
 						{
@@ -428,8 +452,8 @@ void AssetBrowserWidget::DrawAssetTable()
 							selection.clear();
 							selection.push_back(item->ID);
 						}
-
 					}
+
 					if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
 					{
 						//files.FullPath = dir.FullPath;
@@ -437,6 +461,44 @@ void AssetBrowserWidget::DrawAssetTable()
 						ImGui::Text(item->Name.c_str());
 						ImGui::EndDragDropSource();
 					}
+
+					bool deleteFileShortcut = m_editor->GetInput().WasKeyPressed(KeyCode::Delete) && !pendingAssetListRefresh;
+					if (ImGui::BeginPopupContextItem("AssetRightClickContext"))
+					{
+						if (ImGui::MenuItem("Open"))
+						{
+							openFileShortcut = true;
+						}
+						if (ImGui::MenuItem("Open Folder", "Alt + LMB"))
+						{
+							openFolderShortcut = true;
+						}
+						ImGui::Separator();
+						if (ImGui::MenuItem("Delete", "Del"))
+						{
+							SelectedAsset = item;
+							deleteFileShortcut = true;
+						}
+						ImGui::EndPopup();
+					}
+
+					// Shortcuts
+					{
+						if (openFolderShortcut)
+						{
+							PlatformUtils::OpenFolder(item->FullPath);
+						}
+						if (openFileShortcut)
+						{
+							PlatformUtils::OpenFile(item->FullPath);
+						}
+						if (SelectedAsset && deleteFileShortcut && !pendingAssetListRefresh)
+						{
+							PlatformUtils::DeleteFile(SelectedAsset->FullPath);
+							pendingAssetListRefresh = true;
+						}
+					}
+
 					ImGui::SameLine();
 					ImVec2 iconSize(16, 16);
 					switch (item->Type)

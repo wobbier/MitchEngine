@@ -17,5 +17,7 @@ namespace Moonlight
 		bgfx::TextureHandle DepthTexture;
 		uint32_t Width = 0;
 		uint32_t Height = 0;
+		void ReCreate(uint32_t resetFlags);
+		uint32_t m_resetFlags = 0;
 	};
 }

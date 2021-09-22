@@ -49,6 +49,8 @@ public:
 
 	void WindowResized(const Vector2& newSize);
 
+	uint32_t GetResetFlags() const;
+
 	// Caches
 	CommandCache<Moonlight::CameraData>& GetCameraCache();
 	CommandCache<Moonlight::MeshCommand>& GetMeshCache();
@@ -59,9 +61,23 @@ public:
 	void ClearMeshes();
 	SharedPtr<Moonlight::DynamicSky> GetSky();
 
+	void RecreateFrameBuffer(uint32_t index);
+
+
+	// Settings
+	enum MSAALevel {
+		None,
+		X2,
+		X4,
+		X8,
+		X16
+	};
+	void SetMSAALevel(MSAALevel level);
+
 private:
 	Vector2 PreviousSize;
 	Vector2 CurrentSize;
+	uint32_t m_resetFlags = 0u;
 
 	ImGuiRenderer* ImGuiRender = nullptr;
 
@@ -92,6 +108,7 @@ private:
 #ifdef ME_ENABLE_RENDERDOC
 		RenderDocManager* RenderDoc;
 #endif
+	bool NeedsReset = false;
 public:
 	void SetDebugDrawEnabled(bool inEnabled);
 };

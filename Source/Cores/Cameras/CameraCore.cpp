@@ -72,8 +72,11 @@ void CameraCore::OnEntityAdded(Entity& NewEntity)
 	{
 		NewEntity.GetComponent<Camera>().SetCurrent();
 	}
-
-	NewEntity.GetComponent<Camera>().m_id = GetEngine().GetRenderer().GetCameraCache().Push(CreateCameraData(NewEntity.GetComponent<Transform>(), NewEntity.GetComponent<Camera>()));
+	auto& renderer = GetEngine().GetRenderer();
+	Moonlight::CameraData camData = CreateCameraData(NewEntity.GetComponent<Transform>(), NewEntity.GetComponent<Camera>());
+	unsigned int id = renderer.GetCameraCache().Push(camData);
+	NewEntity.GetComponent<Camera>().m_id = id;
+	renderer.RecreateFrameBuffer(id);
 }
 
 Moonlight::CameraData CameraCore::CreateCameraData(Transform& InTransform, Camera& InCamera)

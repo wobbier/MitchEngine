@@ -36,8 +36,6 @@ void MainMenuWidget::Init()
 	Icons["Info"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Info.png"));
 	Icons["Logo"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/ME-LOGO.png"));
 	Icons["Profiler"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Profiler.png"));
-
-	CurrentDirectory = Path("Assets");
 }
 
 void MainMenuWidget::Destroy()
@@ -84,7 +82,6 @@ void MainMenuWidget::Render()
 		ImGui::Image(Icons["Logo"]->TexHandle, ImVec2(35, 35));
 		if (ImGui::BeginMenu("File"))
 		{
-			//ImGui::MenuItem("(dummy menu)", NULL, false, false);
 			if (ImGui::MenuItem("New Scene"))
 			{
 
@@ -100,10 +97,9 @@ void MainMenuWidget::Render()
 
 			if (ImGui::MenuItem("Save", "Ctrl+S"))
 			{
-				if (GetEngine().CurrentScene/* && !std::filesystem::exists(m_engine->CurrentScene->Path.FullPath)*/)
+				if (GetEngine().CurrentScene)
 				{
 					SaveSceneEvent evt;
-					//ImGui::OpenPopup("help_popup");
 					evt.Fire();
 				}
 
@@ -178,31 +174,7 @@ void MainMenuWidget::Render()
 			}
 			ImGui::EndMenu();
 		}
-		/*if (ImGui::BeginMenu("Render Mode"))
-		{
-			{
-				bool selected = m_engine->GetRenderer().GetContextType() == Moonlight::eDeviceContextType::Legacy;
-				if (ImGui::MenuItem("Legacy", nullptr, &selected))
-				{
-					m_engine->GetRenderer().SetContextType(Moonlight::eDeviceContextType::Legacy);
-				}
-			}
-			{
-				bool selected = m_engine->GetRenderer().GetContextType() == Moonlight::eDeviceContextType::Immediate;
-				if (ImGui::MenuItem("Immediate", nullptr, &selected))
-				{
-					m_engine->GetRenderer().SetContextType(Moonlight::eDeviceContextType::Immediate);
-				}
-			}
-			{
-				bool selected = m_engine->GetRenderer().GetContextType() == Moonlight::eDeviceContextType::MT_DefferedChunk;
-				if (ImGui::MenuItem("Multithreaded Deferred Chunk", nullptr, &selected))
-				{
-					m_engine->GetRenderer().SetContextType(Moonlight::eDeviceContextType::MT_DefferedChunk);
-				}
-			}
-			ImGui::EndMenu();
-		}*/
+
 		if (!App->IsGameRunning())
 		{
 			if (ImGui::ImageButton(Icons["Play"]->TexHandle, ImVec2(30.f, 30.f)) || editorInput.IsKeyDown(KeyCode::F5))

@@ -53,7 +53,6 @@ private:
 	bool OpenScene = false;
 	CommandManager EditorCommands;
 	bool ShowDemoWindow = false;
-	Path CurrentDirectory;
 	json AssetDirectory;
 	Havana* Editor = nullptr;
 

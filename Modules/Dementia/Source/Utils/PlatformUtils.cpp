@@ -74,3 +74,22 @@ void PlatformUtils::CreateDirectory(const Path& inFilePath)
 	std::filesystem::create_directories(inFilePath.Directory.c_str());
 #endif
 }
+
+void PlatformUtils::OpenFile(const Path& inFilePath)
+{
+#if ME_PLATFORM_WIN64
+	ShellExecute(NULL, L"open", StringUtils::ToWString(inFilePath.FullPath).c_str(), NULL, NULL, SW_SHOWDEFAULT);
+#endif
+}
+
+void PlatformUtils::OpenFolder(const Path& inFolderPath)
+{
+#if ME_PLATFORM_WIN64
+	ShellExecute(NULL, L"open", StringUtils::ToWString(inFolderPath.Directory).c_str(), NULL, NULL, SW_SHOWDEFAULT);
+#endif
+}
+
+void PlatformUtils::DeleteFile(const Path& inFilePath)
+{
+	std::filesystem::remove(inFilePath.FullPath);
+}

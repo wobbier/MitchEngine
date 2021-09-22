@@ -74,7 +74,7 @@ Havana::Havana(Engine* GameEngine, EditorApp* app)
 	MainMenu.reset(new MainMenuWidget(this));
 	RegisteredWidgets.push_back(MainMenu);
 
-	AssetBrowser.reset(new AssetBrowserWidget());
+	AssetBrowser.reset(new AssetBrowserWidget(this));
 	RegisteredWidgets.push_back(AssetBrowser);
 
 	LogPanel.reset(new LogWidget());
