@@ -145,6 +145,8 @@ private:
 	bool IsMetaPanelOpen = false;
 	Havana* m_editor = nullptr;
 	bool pendingAssetListRefresh = false;
+	AssetType CurrentlyFocusedAssetType = AssetType::Unknown;
+	SharedPtr<Resource> CurrentlyFocusedAsset = nullptr;
 	};
 
 #endif

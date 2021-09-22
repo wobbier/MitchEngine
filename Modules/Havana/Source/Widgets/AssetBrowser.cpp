@@ -254,6 +254,22 @@ void AssetBrowserWidget::Render()
 				ImGui::BeginChild("child2", ImVec2(-1.f, h), true);
 				if (metafile)
 				{
+					if(!CurrentlyFocusedAsset && CurrentlyFocusedAssetType == AssetType::Texture)
+					{
+						CurrentlyFocusedAsset = ResourceCache::GetInstance().GetCached(metafile->FilePath);
+						if(!CurrentlyFocusedAsset)
+						{
+							CurrentlyFocusedAsset = ResourceCache::GetInstance().Get<Moonlight::Texture>(metafile->FilePath);
+						}
+					}
+
+					if(CurrentlyFocusedAsset)
+					{
+						const SharedPtr<Moonlight::Texture> tex = std::dynamic_pointer_cast<Moonlight::Texture>(CurrentlyFocusedAsset);
+						
+						ImGui::Image(tex->TexHandle, { ImGui::GetContentRegionAvailWidth(), ImGui::GetContentRegionAvailWidth() });
+					}
+
 					metafile->OnEditorInspect();
 
 					if (ImGui::Button("Save"))
@@ -267,6 +283,10 @@ void AssetBrowserWidget::Render()
 							res->Reload();
 						}
 					}
+				}
+				else
+				{
+					CurrentlyFocusedAsset = nullptr;
 				}
 				ImGui::EndChild();
 			}
@@ -312,6 +332,8 @@ void AssetBrowserWidget::DrawAssetTable()
 		selection.clear();
 		SelectedAsset = nullptr;
 		pendingAssetListRefresh = false;
+		CurrentlyFocusedAssetType = AssetType::Unknown;
+		CurrentlyFocusedAsset = nullptr;
 	}
 
 	bool stringFilterChanged = filter.Draw("##AssetFilter", ImGui::GetContentRegionAvailWidth() - 100.f);
@@ -440,7 +462,11 @@ void AssetBrowserWidget::DrawAssetTable()
 					if (ImGui::Selectable("##Entry", item_is_selected, selectable_flags, ImVec2(0, row_min_height)))
 					{
 						SelectedAsset = item;
-
+						CurrentlyFocusedAssetType = item->Type;
+						if(CurrentlyFocusedAsset)
+						{
+							CurrentlyFocusedAsset = nullptr;
+						}
 						openFolderShortcut = (m_editor->GetInput().IsKeyDown(KeyCode::LeftAlt) || m_editor->GetInput().IsKeyDown(KeyCode::RightAlt));
 						if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && AssetSelectedCallback && !openFolderShortcut)
 						{
