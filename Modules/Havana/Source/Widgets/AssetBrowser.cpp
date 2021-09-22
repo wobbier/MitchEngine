@@ -899,23 +899,32 @@ bool AssetBrowserWidget::ProccessDirectoryRecursive(std::string& dir, Directory&
 				{
 					struct tm* requestedTimestampData;
 					int td, tsd;
+					int tm, tsm;
+					int ty, tsy;
 					time_t today;
 					time(&today);
 
 					// Today's Date
 					requestedTimestampData = localtime(&today);
 					td = requestedTimestampData->tm_mday;
+					tm = requestedTimestampData->tm_mon;
+					ty = requestedTimestampData->tm_year;
 
 					// Last Modified
 					std::time_t time2 = desc.LastModified;
 					requestedTimestampData = localtime(&time2);
 					tsd = requestedTimestampData->tm_mday;
+					tsm = requestedTimestampData->tm_mon;
+					tsy = requestedTimestampData->tm_year;
+
+					// #Todo Yesterday format will be inaccurate on first day of the month
+					const bool isSameMonthYear = (tsm == tm) && (tsy == ty);
 					char buffer[80];
-					if (tsd == td)
+					if (tsd == td && isSameMonthYear)
 					{
 						strftime(buffer, 80, "Today at %I:%M %p", requestedTimestampData);
 					}
-					else if (tsd == td-1)
+					else if (tsd == td-1 && isSameMonthYear)
 					{
 						strftime(buffer, 80, "Yesterday at %I:%M %p", requestedTimestampData);
 					}
