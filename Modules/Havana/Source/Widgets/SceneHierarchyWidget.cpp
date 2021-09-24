@@ -11,7 +11,7 @@
 #include <Events/EventManager.h>
 #include <Components/Graphics/Model.h>
 #include <Types/AssetType.h>
-#include "AssetBrowser.h"
+#include "Editor/AssetDescriptor.h"
 
 #if ME_EDITOR
 
@@ -336,10 +336,10 @@ void SceneHierarchyWidget::ClearSelection()
 
 void SceneHierarchyWidget::HandleAssetDragAndDrop(Transform* root)
 {
-	if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_ASSET_BROWSER"))
+	if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(AssetDescriptor::kDragAndDropPayload))
 	{
-		IM_ASSERT(payload->DataSize == sizeof(AssetBrowserWidget::AssetDescriptor));
-		AssetBrowserWidget::AssetDescriptor payload_n = *(AssetBrowserWidget::AssetDescriptor*)payload->Data;
+		IM_ASSERT(payload->DataSize == sizeof(AssetDescriptor));
+		AssetDescriptor& payload_n = *(AssetDescriptor*)payload->Data;
 
 		if (payload_n.Type == AssetType::Model)
 		{

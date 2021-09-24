@@ -4,6 +4,7 @@
 #include "Path.h"
 #include "imgui.h"
 #include "HavanaEvents.h"
+#include <Editor/AssetDescriptor.h>
 
 AudioSource::AudioSource(const std::string& InFilePath)
 	: Component("AudioSource")
@@ -85,6 +86,21 @@ void AudioSource::OnEditorInspect()
 			}*/
 			}, AssetType::Audio);
 		evt.Fire();
+	}
+	if (ImGui::BeginDragDropTarget())
+	{
+		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(AssetDescriptor::kDragAndDropPayload))
+		{
+			IM_ASSERT(payload->DataSize == sizeof(AssetDescriptor));
+			AssetDescriptor& payload_n = *(AssetDescriptor*)payload->Data;
+
+			if (payload_n.Type == AssetType::Audio)
+			{
+				FilePath = payload_n.FullPath;
+				IsInitialized = false;
+			}
+		}
+		ImGui::EndDragDropTarget();
 	}
 
 	if (!FilePath.LocalPath.empty())

@@ -19,6 +19,7 @@
 #include "CLog.h"
 #include "Utils/ImGuiUtils.h"
 #include <Materials/DiffuseMaterial.h>
+#include "Editor/AssetDescriptor.h"
 
 Mesh::Mesh()
 	: Component("Mesh")
@@ -341,6 +342,21 @@ void Mesh::OnEditorInspect()
 						MeshMaterial->SetTexture(static_cast<Moonlight::TextureType>(i), ResourceCache::GetInstance().Get<Moonlight::Texture>(selectedAsset));
 						}, AssetType::Texture);
 					evt.Fire();
+				}
+
+				if (ImGui::BeginDragDropTarget())
+				{
+					if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(AssetDescriptor::kDragAndDropPayload))
+					{
+						IM_ASSERT(payload->DataSize == sizeof(AssetDescriptor));
+						AssetDescriptor& payload_n = *(AssetDescriptor*)payload->Data;
+
+						if (payload_n.Type == AssetType::Texture)
+						{
+							MeshMaterial->SetTexture(static_cast<Moonlight::TextureType>(i), ResourceCache::GetInstance().Get<Moonlight::Texture>(payload_n.FullPath));
+						}
+					}
+					ImGui::EndDragDropTarget();
 				}
 				if (texture)
 				{

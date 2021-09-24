@@ -21,7 +21,7 @@
 
 #if ME_EDITOR
 
-const ImGuiTableSortSpecs* AssetBrowserWidget::AssetDescriptor::s_current_sort_specs = NULL;
+const ImGuiTableSortSpecs* AssetBrowserWidget::s_current_sort_specs = nullptr;
 
 AssetBrowserWidget::AssetBrowserWidget(Havana* inEditor)
 	: HavanaWidget("Asset Browser", "F2")
@@ -407,9 +407,9 @@ void AssetBrowserWidget::DrawAssetTable()
 		}
 		if (sorts_specs && items_need_sort && MasterAssetsList.size() > 1)
 		{
-			AssetDescriptor::s_current_sort_specs = sorts_specs; // Store in variable accessible by the sort function.
-			qsort(&MasterAssetsList[0], (size_t)MasterAssetsList.size(), sizeof(MasterAssetsList[0]), AssetDescriptor::CompareWithSortSpecs);
-			AssetDescriptor::s_current_sort_specs = NULL;
+			s_current_sort_specs = sorts_specs; // Store in variable accessible by the sort function.
+			qsort(&MasterAssetsList[0], (size_t)MasterAssetsList.size(), sizeof(MasterAssetsList[0]), CompareWithSortSpecs);
+			s_current_sort_specs = NULL;
 			sorts_specs->SpecsDirty = false;
 			items_need_filtered = true;
 		}
@@ -504,8 +504,7 @@ void AssetBrowserWidget::DrawAssetTable()
 
 					if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
 					{
-						//files.FullPath = dir.FullPath;
-						ImGui::SetDragDropPayload("DND_ASSET_BROWSER", item, sizeof(AssetDescriptor));
+						ImGui::SetDragDropPayload(AssetDescriptor::kDragAndDropPayload, item, sizeof(AssetDescriptor));
 						ImGui::Text(item->Name.c_str());
 						ImGui::EndDragDropSource();
 					}
@@ -730,7 +729,7 @@ void AssetBrowserWidget::Recursive(Directory& dir)
 		if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
 		{
 			//files.FullPath = dir.FullPath;
-			ImGui::SetDragDropPayload("DND_ASSET_BROWSER", &files, sizeof(AssetDescriptor));
+			ImGui::SetDragDropPayload(AssetDescriptor::kDragAndDropPayload, &files, sizeof(AssetDescriptor));
 			ImGui::Text(files.Name.c_str());
 			ImGui::EndDragDropSource();
 		}
@@ -817,6 +816,35 @@ void AssetBrowserWidget::TryDestroyMetaFile()
 	}
 }
 
+int AssetBrowserWidget::CompareWithSortSpecs(const void* lhs, const void* rhs)
+{
+	const AssetDescriptor* a = (const AssetDescriptor*)lhs;
+	const AssetDescriptor* b = (const AssetDescriptor*)rhs;
+	for (int n = 0; n < s_current_sort_specs->SpecsCount; n++)
+	{
+		// Here we identify columns using the ColumnUserID value that we ourselves passed to TableSetupColumn()
+		// We could also choose to identify columns based on their index (sort_spec->ColumnIndex), which is simpler!
+		const ImGuiTableColumnSortSpecs* sort_spec = &s_current_sort_specs->Specs[n];
+		int delta = 0;
+		switch (sort_spec->ColumnUserID)
+		{
+		case MyItemColumnID_ID:             delta = ((int)a->Type - (int)b->Type);                break;
+		case MyItemColumnID_Name:           delta = (strcmp(a->Name.c_str(), b->Name.c_str()));     break;
+		case MyItemColumnID_LastModified:       delta = (a->LastModified - b->LastModified);    break;
+		case MyItemColumnID_Description:    delta = (strcmp(a->Name.c_str(), b->Name.c_str()));     break;
+		default: IM_ASSERT(0); break;
+		}
+		if (delta > 0)
+			return (sort_spec->SortDirection == ImGuiSortDirection_Ascending) ? +1 : -1;
+		if (delta < 0)
+			return (sort_spec->SortDirection == ImGuiSortDirection_Ascending) ? -1 : +1;
+	}
+
+	// qsort() is instable so always return a way to differenciate items.
+	// Your own compare function may want to avoid fallback on implicit sort specs e.g. a Name compare if it wasn't already part of the sort specs.
+	return ((int)a->Type - (int)b->Type);
+}
+
 void AssetBrowserWidget::ClearAssets()
 {
 	m_compiledAssets.clear();
@@ -853,12 +881,12 @@ bool AssetBrowserWidget::ProccessDirectoryRecursive(std::string& dir, Directory&
 		{
 			if (file.is_regular_file())
 			{
-				if (newdir.find(".meta") != std::string::npos
-					|| newdir.find(".dds") != std::string::npos
-					|| newdir.find(".pdn") != std::string::npos
-					|| newdir.find(".blend") != std::string::npos
-					|| newdir.find(".bin") != std::string::npos
-					|| newdir.find(".DS_Store") != std::string::npos)
+				if (newdir.rfind(".meta") != std::string::npos
+					|| newdir.rfind(".dds") != std::string::npos
+					|| newdir.rfind(".pdn") != std::string::npos
+					|| newdir.rfind(".blend") != std::string::npos
+					|| newdir.rfind(".bin") != std::string::npos
+					|| newdir.rfind(".DS_Store") != std::string::npos)
 				{
 					return false;
 				}
