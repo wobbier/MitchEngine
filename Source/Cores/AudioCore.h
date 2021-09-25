@@ -7,10 +7,9 @@
 #include "Events/EventReceiver.h"
 
 class AudioSource;
-//
-//namespace DirectX { class SoundEffectInstance; }
-//namespace DirectX { class SoundEffect; }
-//namespace DirectX { class AudioEngine; }
+#ifdef FMOD_ENABLED
+namespace FMOD { class System; }
+#endif
 
 class AudioCore
 	: public Core<AudioCore>
@@ -24,18 +23,22 @@ public:
 	void InitComponent(AudioSource& audioSource);
 
 	virtual void OnEntityAdded(Entity& NewEntity) final;
+	virtual void OnEntityRemoved(Entity& NewEntity) final;
 
 	virtual bool OnEvent(const BaseEvent& InEvent) final;
 
 private:
 	virtual void Init() override;
-
-	//std::unique_ptr<DirectX::AudioEngine> mEngine;
+	bool IsInitialized = false;
 
 	std::map<std::string, AudioSource> m_cachedSounds;
 
 	virtual void OnStart() final;
 	void OnStop() final;
+
+#ifdef FMOD_ENABLED
+	FMOD::System* system;
+#endif
 };
 
 ME_REGISTER_CORE(AudioCore);

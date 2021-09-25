@@ -53,8 +53,13 @@ private:
 	bool OpenScene = false;
 	CommandManager EditorCommands;
 	bool ShowDemoWindow = false;
+	bool ShowAboutWindow = false;
 	json AssetDirectory;
 	Havana* Editor = nullptr;
+
+#ifdef FMOD_ENABLED
+	SharedPtr<Moonlight::Texture> FMODImage;
+#endif
 
 	void BrowseDirectory(const Path& path);
 };

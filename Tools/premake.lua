@@ -3,6 +3,14 @@ require "vstudio"
 dofile "premake-winrt/_preload.lua"
 require "premake-winrt/winrt"
 
+-- Modify these in your game premake --
+CertificateFile = "";
+CertificateThumbprint = "";
+if(not FMODDirectory) then
+FMODDirectory = "C:\\Program Files (x86)\\FMOD SoundSystem\\FMOD Studio API Windows\\";
+end
+---------------------------------------
+
 newoption {
   trigger     = "project-type",
   description = "Generate a UWP solution.",
@@ -21,14 +29,14 @@ newoption {
 }
 
 newoption {
+  trigger     = "with-fmod",
+  description = "Include support for FMOD Audio (Must set FMODDirectory variable to installed path. ex FMODDirectory = \"C:\\Program Files (x86)\\FMOD SoundSystem\\FMOD Studio API Windows\\\""
+}
+
+newoption {
   trigger     = "project-name",
   description = "Notifies premake we're generating a game solution."
 }
-
--- Modify these in your game premake --
-CertificateFile = "";
-CertificateThumbprint = "";
----------------------------------------
 
 
 function isPlatform(plat)
@@ -149,6 +157,7 @@ end
 
 isUWP = isPlatform("UWP")
 withRenderdoc = _OPTIONS["with-renderdoc"]
+withFMOD = _OPTIONS["with-fmod"]
 withDirectX = isPlatform("Win64") or isUWP
 dirPrefix = "../";
 ProjectName = _OPTIONS["project-name"];
@@ -261,6 +270,29 @@ if isPlatform("Win64") then
         "Shlwapi.lib",
         "AppCore.lib"
     }
+    
+    if (withFMOD) then
+        defines { "FMOD_ENABLED" }
+    
+        includedirs {
+            FMODDirectory .. "api\\core\\inc\\"
+        }
+        libdirs {
+            FMODDirectory .. "api\\core\\lib\\x64\\"
+        }
+        links {
+            "fmodL_vc.lib",
+        }
+        if(_OPTIONS["project-name"]) then
+            postbuildcommands {
+                "xcopy /y /d \"" .. FMODDirectory .. "api\\core\\lib\\x64\\fmodL.dll" .. "\" \"$(ProjectDir)..\\$(OutDir)\""
+            }
+        else
+            postbuildcommands {
+                "xcopy /y /d  \"" .. FMODDirectory .. "api\\core\\lib\\x64\\fmodL.dll" .. "\" \"$(ProjectDir)$(OutDir)\""
+            }
+        end
+    end
 end
 ---- Visual Studio ----
 

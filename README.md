@@ -15,13 +15,7 @@ Check out my [Notion][4] to view the current development status.
 |UWP / Xbox|[![Build status UWP](https://ci.appveyor.com/api/projects/status/7x55po7se0siesdn?svg=true)](https://ci.appveyor.com/project/wobbier/mitchengine)|
 |macOS|[![Build Status](https://github.com/wobbier/MitchEngine/actions/workflows/macOS.yml/badge.svg)](https://github.com/wobbier/MitchEngine/actions/workflows/macOS.yml)|
 
-The engine is:
-
-  * Open source
-  * Easy to use
-  * Awesome
-
-Main features
+Main Features
 -------------
    * (ECS) Entity-Component System based design
    * Supports Windows, Xbox, and macOS
@@ -29,6 +23,7 @@ Main features
    * HTML UI with [Ultralight][5]
    * Language: C++
    * [Optick][6] Profiling
+   * Optional [FMOD][10] Audio (See Below)
 
 How to make a Mitch game
 -----------------------
@@ -64,12 +59,13 @@ ModelEntity->AddComponent<Model>("Assets/Models/SuperAwesome.fbx");
 Build Requirements
 ------------------
 
-* Windows 10
-* Visual Studio 2017
+* Windows 10 or macOS
+* Visual Studio 2019 for Windows / Xbox
 	* Desktop Development with C++
 	* Universal Windows Platform development
 	* Game development with C++
 	* C++ Universal Windows Platform tools
+* XCode for macOS
 * CMake - 3.12.0 (Required if you wish to update ThirdParty projects)
 
 Third Party Libraries
@@ -79,6 +75,17 @@ Third Party Libraries
   * [Optick][6]
   * [Bullet Physics][7]
   * [BGFX][9]
+  * [FMOD][10]
+
+Enabling FMOD
+--------------------------------
+
+* Download and install the SDK from the [FMOD][10] website.
+* Edit your project's GenerateSolution file and add the '--with-fmod' option to the command.
+* Edit your project's premake.lua to set the FMOD SDK directory variable
+	* The default value if unset: FMODDirectory = "C:\\Program Files (x86)\\FMOD SoundSystem\\FMOD Studio API Windows\\"
+	* Put this line above the first "dofile" if you wish to override the location
+* You can check the status of the FMOD plugin in the 'Help > About' menu in the editor.
 
 Contributing to the Project
 --------------------------------
@@ -102,3 +109,4 @@ Contact me
 [7]: https://github.com/bulletphysics/bullet3 "Bullet 3D"
 [8]: https://raw.githubusercontent.com/wobbier/MitchEngine/master/NewProjectSetup.bat "Project Creator"
 [9]: https://github.com/bkaradzic/bgfx "BGFX"
+[10]: https://www.fmod.com/ "FMOD Audio"

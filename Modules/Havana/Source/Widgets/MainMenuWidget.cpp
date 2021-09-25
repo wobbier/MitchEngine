@@ -172,6 +172,11 @@ void MainMenuWidget::Render()
 			{
 				ShowDemoWindow = !ShowDemoWindow;
 			}
+			ImGui::Separator();
+			if (ImGui::MenuItem("About"))
+			{
+				ShowAboutWindow = true;
+			}
 			ImGui::EndMenu();
 		}
 
@@ -353,6 +358,45 @@ void MainMenuWidget::Render()
 
 		ImGui::EndMainMenuBar();
 	}
+
+	if (ShowAboutWindow)
+	{
+		ImGui::OpenPopup("About");
+	}
+
+	ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+	ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+
+	if (ImGui::BeginPopupModal("About", &ShowAboutWindow, ImGuiWindowFlags_AlwaysAutoResize))
+	{
+		ImGui::Image(Icons["Logo"]->TexHandle, { 50.f, 50.f });
+		ImGui::SameLine();
+		ImGui::Text("\nA hobby game engine project for making simple games.\nMitch Andrews 2021\n");
+		ImGui::Separator();
+#ifdef FMOD_ENABLED
+		ImGui::Text("FMOD is set up correctly!\n\n");
+		if (!FMODImage)
+		{
+			FMODImage = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Legal/FMOD.png"));
+		}
+#endif
+
+#ifdef FMOD_ENABLED
+		ImGui::Image(FMODImage->TexHandle, { 364.f, 96.f });
+		ImGui::Text("\n");
+#else
+		ImGui::Text("FMOD is not enabled! Please refer to Engine/README.md for instructions.\n");
+#endif
+		ImGui::SetItemDefaultFocus();
+		if (ImGui::Button("Awesome!", ImVec2(-1, 0))) { ShowAboutWindow = false; ImGui::CloseCurrentPopup(); }
+		ImGui::EndPopup();
+	}
+#ifdef FMOD_ENABLED
+	else
+	{
+		FMODImage = nullptr;
+	}
+#endif
 
 	if (ShowDemoWindow)
 	{
