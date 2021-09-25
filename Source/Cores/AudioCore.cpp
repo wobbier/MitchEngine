@@ -4,10 +4,30 @@
 #include "Events/AudioEvents.h"
 #include "optick.h"
 
+#ifdef FMOD_ENABLED
+#include "fmod.hpp"
+#endif
+
 AudioCore::AudioCore()
 	: Base(ComponentFilter().Requires<AudioSource>())
 {
 	SetIsSerializable(false);
+
+#ifdef FMOD_ENABLED
+	FMOD_RESULT res;
+	res = FMOD::System_Create(&system);
+	if (res != FMOD_OK)
+	{
+		YIKES("FMOD Failed to initialize: "/* + FMOD_ErrorString(res)*/);
+	}
+	
+	res = system->init(512, FMOD_INIT_NORMAL, 0);
+	if (res != FMOD_OK)
+	{
+		YIKES("FMOD System failed to create!");
+	}
+	IsInitialized = true;
+#endif
 //
 //#if _WIN32
 //	CoInitializeEx(nullptr, COINIT_MULTITHREADED);
@@ -28,31 +48,33 @@ void AudioCore::Update(float dt)
 {
 	OPTICK_CATEGORY("AudioCore Update", Optick::Category::Audio);
 
-	//if (!mEngine->Update())
-	//{
-	//	// No audio device is active
-	//	if (mEngine->IsCriticalError())
-	//	{
-	//		// RIP
-	//	}
-	//}
-	//else
-	//{
-	//	auto AudioEntities = GetEntities();
-	//	for (auto& ent : AudioEntities)
-	//	{
-	//		AudioSource& audioSource = ent.GetComponent<AudioSource>();
-	//		InitComponent(audioSource);
-	//	}
-	//}
+#ifdef FMOD_ENABLED
+	if (system)
+	{
+		system->update();
+	}
+#endif
+	auto& AudioEntities = GetEntities();
+	for (auto& ent : AudioEntities)
+	{
+		AudioSource& audioSource = ent.GetComponent<AudioSource>();
+
+		InitComponent(audioSource);
+	}
 }
 
 void AudioCore::InitComponent(AudioSource& audioSource)
 {
 	if (!audioSource.IsInitialized && !audioSource.FilePath.LocalPath.empty())
 	{
-		//audioSource.SoundEffectFile = std::make_unique<DirectX::SoundEffect>(mEngine.get(), StringUtils::ToWString(audioSource.FilePath.FullPath).c_str());
-		//audioSource.SoundInstance = audioSource.SoundEffectFile->CreateInstance();
+#ifdef FMOD_ENABLED
+		if (system->createSound(audioSource.FilePath.FullPath.c_str(), FMOD_DEFAULT, nullptr, &audioSource.SoundInstance) != FMOD_OK)
+		{
+			YIKES("Failed to load sound");
+			audioSource.IsInitialized = true;
+			return;
+		}
+#endif
 		audioSource.IsInitialized = true;
 	}
 }
@@ -62,9 +84,13 @@ void AudioCore::OnEntityAdded(Entity& NewEntity)
 	AudioSource& comp = NewEntity.GetComponent<AudioSource>();
 
 	InitComponent(comp);
-	//// Needs to be a resource
-	//comp.SoundEffectFile = std::make_unique<DirectX::SoundEffect>(mEngine.get(), StringUtils::ToWString(comp.FilePath.FullPath).c_str());
-	//comp.testSoundEffectInstance = comp.SoundEffectFile->CreateInstance();
+}
+
+void AudioCore::OnEntityRemoved(Entity& NewEntity)
+{
+	AudioSource& comp = NewEntity.GetComponent<AudioSource>();
+
+	comp.ClearData();
 }
 
 bool AudioCore::OnEvent(const BaseEvent& InEvent)

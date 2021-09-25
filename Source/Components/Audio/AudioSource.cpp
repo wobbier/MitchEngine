@@ -6,6 +6,10 @@
 #include "HavanaEvents.h"
 #include <Editor/AssetDescriptor.h>
 
+#ifdef FMOD_ENABLED
+#include "fmod.hpp"
+#endif
+
 AudioSource::AudioSource(const std::string& InFilePath)
 	: Component("AudioSource")
 	, FilePath(InFilePath)
@@ -24,22 +28,38 @@ AudioSource::AudioSource()
 
 void AudioSource::Play(bool ShouldLoop)
 {
-	//if (SoundInstance)
-	//{
-	//	//if (testSoundEffectInstance->GetState() != DirectX::SoundState::PLAYING)
-	//	{
-	//		SoundInstance->Stop(true);
-	//	}
-	//	SoundInstance->Play(ShouldLoop);
-	//}
+#ifdef FMOD_ENABLED
+	if (SoundInstance)
+	{
+		if (IsPlaying())
+		{
+			Stop(true);
+		}
+		SoundInstance->getSystemObject(&m_owner);
+		m_owner->playSound(SoundInstance, nullptr, false, &ChannelHandle);
+	}
+#endif
 }
 
 void AudioSource::Stop(bool immediate)
 {
-	//if (SoundInstance)
-	//{
-	//	SoundInstance->Stop(immediate);
-	//}
+#ifdef FMOD_ENABLED
+	if (ChannelHandle)
+	{
+		ChannelHandle->stop();
+	}
+#endif
+}
+
+bool AudioSource::IsPlaying() const
+{
+#ifdef FMOD_ENABLED
+	FMOD_OPENSTATE mode;
+	bool isPlaying;
+	return (ChannelHandle && ChannelHandle->isPlaying(&isPlaying) == FMOD_OK && isPlaying);
+#else
+	return false;
+#endif
 }
 
 void AudioSource::OnSerialize(json& outJson)
@@ -68,6 +88,10 @@ void AudioSource::OnDeserialize(const json& inJson)
 #if ME_EDITOR
 void AudioSource::OnEditorInspect()
 {
+#ifndef FMOD_ENABLED
+	ImGui::Text("FMOD NOT ENABLED! See Help > About.");
+	return;
+#endif
 	ImVec2 selectorSize(-1.f, 19.f);
 
 	HavanaUtils::Label("Asset");
@@ -78,12 +102,8 @@ void AudioSource::OnEditorInspect()
 	if (ImGui::Button(FilePath.LocalPath.empty() ? "Select Asset" : FilePath.LocalPath.c_str(), selectorSize))
 	{
 		RequestAssetSelectionEvent evt([this](Path selectedAsset) {
+			ClearData();
 			FilePath = selectedAsset;
-			IsInitialized = false;
-			/*if (SoundInstance && SoundInstance->GetState() == DirectX::SoundState::PLAYING)
-			{
-				SoundInstance->Stop(true);
-			}*/
 			}, AssetType::Audio);
 		evt.Fire();
 	}
@@ -96,8 +116,8 @@ void AudioSource::OnEditorInspect()
 
 			if (payload_n.Type == AssetType::Audio)
 			{
+				ClearData();
 				FilePath = payload_n.FullPath;
-				IsInitialized = false;
 			}
 		}
 		ImGui::EndDragDropTarget();
@@ -108,8 +128,7 @@ void AudioSource::OnEditorInspect()
 		ImGui::SameLine();
 		if (ImGui::Button("X"))
 		{
-			FilePath = Path();
-			IsInitialized = false;
+			ClearData();
 		}
 	}
 
@@ -120,10 +139,37 @@ void AudioSource::OnEditorInspect()
 	if (ImGui::Checkbox("Loop", &Loop))
 	{
 	}
+
+	if (IsPlaying())
+	{
+		if (ImGui::Button("Stop"))
+		{
+			Stop();
+		}
+	}
+	else if (ImGui::Button("Play"))
+	{
+		Play(false);
+	}
 }
 #endif
 
 void AudioSource::Init()
 {
+}
+
+void AudioSource::ClearData()
+{
+#ifdef FMOD_ENABLED
+	if (SoundInstance)
+	{
+		SoundInstance->release();
+	}
+	SoundInstance = nullptr;
+	m_owner = nullptr;
+#endif
+
+	IsInitialized = false;
+	FilePath = Path();
 }
 
