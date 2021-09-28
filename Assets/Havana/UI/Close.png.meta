@@ -1,5 +1,5 @@
 {
     "FileType": "png",
-    "MIPs": true,
-    "Type": "Default"
+    "MIPs": false,
+    "Type": "Sprite"
 }

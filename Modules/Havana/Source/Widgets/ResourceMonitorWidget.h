@@ -1,11 +1,22 @@
 #pragma once
+#include <vector>
+
 #include <HavanaWidget.h>
+#include "Pointers.h"
 
 #if ME_EDITOR
+
+class Resource;
 
 class ResourceMonitorWidget
 	: public HavanaWidget
 {
+
+	enum ResourceSortingIDs
+	{
+		Sort_LocalPath,
+		Sort_RefCount
+	};
 public:
 	ResourceMonitorWidget();
 
@@ -17,6 +28,11 @@ public:
 
 private:
 	ImGuiWindowFlags WindowFlags = 0;
+	bool ItemsNeedSorted = true;
+	static const ImGuiTableSortSpecs* s_SortSpecs;
+
+	static int CompareWithSortSpecs(const void* lhs, const void* rhs);
+	std::vector<WeakPtr<Resource>> resourceList;
 };
 
 #endif
