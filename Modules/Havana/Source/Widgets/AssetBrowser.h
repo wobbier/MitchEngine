@@ -96,7 +96,7 @@ private:
 	bool assetTypeFilters[static_cast<unsigned int>(AssetType::Count)];
 
 	Path AssetBrowserPath;
-	MetaBase* metafile = nullptr;
+	SharedPtr<MetaBase> metafile = nullptr;
 	bool ShouldDelteteMetaFile = false;
 	bool IsMetaPanelOpen = false;
 	Havana* m_editor = nullptr;

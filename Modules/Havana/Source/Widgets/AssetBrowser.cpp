@@ -254,16 +254,7 @@ void AssetBrowserWidget::Render()
 				ImGui::BeginChild("child2", ImVec2(-1.f, h), true);
 				if (metafile)
 				{
-					if(!CurrentlyFocusedAsset && CurrentlyFocusedAssetType == AssetType::Texture)
-					{
-						CurrentlyFocusedAsset = ResourceCache::GetInstance().GetCached(metafile->FilePath);
-						if(!CurrentlyFocusedAsset)
-						{
-							CurrentlyFocusedAsset = ResourceCache::GetInstance().Get<Moonlight::Texture>(metafile->FilePath);
-						}
-					}
-
-					if(CurrentlyFocusedAsset)
+					if(CurrentlyFocusedAsset && CurrentlyFocusedAssetType == AssetType::Texture)
 					{
 						const SharedPtr<Moonlight::Texture> tex = std::dynamic_pointer_cast<Moonlight::Texture>(CurrentlyFocusedAsset);
 						
@@ -276,11 +267,9 @@ void AssetBrowserWidget::Render()
 					{
 						metafile->Save();
 						metafile->Export();
-
-						SharedPtr<Resource> res = ResourceCache::GetInstance().GetCached(metafile->FilePath);
-						if (res)
+						if (CurrentlyFocusedAsset)
 						{
-							res->Reload();
+							CurrentlyFocusedAsset->Reload();
 						}
 					}
 				}
@@ -595,16 +584,16 @@ void AssetBrowserWidget::RefreshMetaPanel(const Path& item)
 	TryDestroyMetaFile();
 	if (item.Exists)
 	{
-		SharedPtr<Resource> res = ResourceCache::GetInstance().GetCached(item);
-		if (res)
+		CurrentlyFocusedAsset = ResourceCache::GetInstance().GetCached(item);
+		if (CurrentlyFocusedAsset)
 		{
-			metafile = res->GetMetadata();
+			metafile = CurrentlyFocusedAsset->GetMetadata();
 		}
 		else
 		{
 			metafile = ResourceCache::GetInstance().LoadMetadata(item);
 		}
-		ShouldDelteteMetaFile = !res;
+		ShouldDelteteMetaFile = !CurrentlyFocusedAsset;
 	}
 }
 
@@ -621,6 +610,11 @@ void AssetBrowserWidget::RequestOverlay(const std::function<void(Path)> cb, Asse
 	ForcedAssetFilter = forcedType;
 	AssetSelectedCallback = cb;
 	items_need_filtered = IsOpen;
+
+	if(IsOpen && IsMetaPanelOpen && SelectedAsset)
+	{
+		RefreshMetaPanel(SelectedAsset->FullPath);
+	}
 }
 
 bool AssetBrowserWidget::OnEvent(const BaseEvent& evt)
@@ -809,7 +803,7 @@ void AssetBrowserWidget::TryDestroyMetaFile()
 
 		if (ShouldDelteteMetaFile)
 		{
-			delete metafile;
+			metafile.reset();
 			ShouldDelteteMetaFile = false;
 		}
 		metafile = nullptr;

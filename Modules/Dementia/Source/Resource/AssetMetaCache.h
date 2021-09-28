@@ -3,6 +3,8 @@
 #include "Singleton.h"
 #include <Path.h>
 
+#include "Pointers.h"
+
 struct MetaBase;
 
 class AssetMetaCache
@@ -13,8 +15,8 @@ public:
 
 	void Init();
 
-	bool WasModified(const Path& filePath, MetaBase* metaFile);
-	void Update(const Path& filePath, MetaBase* metaFile);
+	bool WasModified(const Path& filePath, SharedPtr<MetaBase> metaFile);
+	void Update(const Path& filePath, SharedPtr<MetaBase> metaFile);
 
 	void Load();
 	void Save();

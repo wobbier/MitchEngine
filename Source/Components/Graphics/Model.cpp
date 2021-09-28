@@ -1,8 +1,6 @@
 #include "PCH.h"
 #include "Model.h"
-#include "CLog.h"
 #include "Graphics/ModelResource.h"
-#include "Graphics/ShaderCommand.h"
 #include "Resource/ResourceCache.h"
 #include "Components/Transform.h"
 #include "Mesh.h"
@@ -10,6 +8,7 @@
 #include "ECS/Entity.h"
 #include <HavanaEvents.h>
 #include "imgui.h"
+#include "Editor/AssetDescriptor.h"
 
 Model::Model(const std::string& path)
 	: Component("Model")
@@ -129,6 +128,22 @@ void Model::OnEditorInspect()
 				Init();
 				}, AssetType::Model);
 			evt.Fire();
+		}
+
+		if (ImGui::BeginDragDropTarget())
+		{
+			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(AssetDescriptor::kDragAndDropPayload))
+			{
+				IM_ASSERT(payload->DataSize == sizeof(AssetDescriptor));
+				const AssetDescriptor& payload_n = *static_cast<AssetDescriptor*>(payload->Data);
+
+				if (payload_n.Type == AssetType::Model)
+				{
+					ModelPath = payload_n.FullPath;
+					Init();
+				}
+			}
+			ImGui::EndDragDropTarget();
 		}
 	}
 }

@@ -279,16 +279,19 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 		int cameraId = Camera::CurrentCamera->GetCameraId();
 		GameSceneView->SetData(*GetEngine().GetRenderer().GetCameraCache().Get(cameraId));
 		GameSceneView->Render();
-
-		Input& gameInput = GetEngine().GetInput();
-		if (gameInput.IsKeyDown(KeyCode::Escape) && GameSceneView->IsFocused)
+		
+		if(m_app->IsGameRunning())
 		{
-			gameInput.Stop();
-			ImGui::SetWindowFocus("Hierarchy");
-		}
-		else if (GameSceneView->IsFocused)
-		{
-			gameInput.Resume();
+			Input& gameInput = GetEngine().GetInput();
+			if (gameInput.IsKeyDown(KeyCode::Escape))
+			{
+				gameInput.Stop();
+				ImGui::SetWindowFocus("Hierarchy");
+			}
+			else if (GameSceneView->IsFocused && gameInput.IsMouseButtonDown(MouseButton::Left))
+			{
+				gameInput.Resume();
+			}
 		}
 
 		Camera::CurrentCamera->OutputSize = GameSceneView->SceneViewRenderSize;

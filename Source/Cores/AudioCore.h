@@ -31,7 +31,7 @@ private:
 	virtual void Init() override;
 	bool IsInitialized = false;
 
-	std::map<std::string, AudioSource> m_cachedSounds;
+	std::map<std::string, SharedPtr<AudioSource>> m_cachedSounds;
 
 	virtual void OnStart() final;
 	void OnStop() final;

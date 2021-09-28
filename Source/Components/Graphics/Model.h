@@ -17,7 +17,7 @@ class Model
 public:
 	Model();
 	Model(const std::string& path);
-	~Model();
+	~Model() override;
 
 	// Separate init from construction code.
 	virtual void Init() final;

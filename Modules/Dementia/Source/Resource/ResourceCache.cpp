@@ -74,9 +74,9 @@ void ResourceCache::Dump()
 	}
 }
 
-MetaBase* ResourceCache::LoadMetadata(const Path& filePath)
+SharedPtr<MetaBase> ResourceCache::LoadMetadata(const Path& filePath)
 {
-	MetaBase* metadata = nullptr;
+	SharedPtr<MetaBase> metadata = nullptr;
 	MetaRegistry::iterator it = GetMetadatabase().reg.find(filePath.GetExtension());
 	if (it != GetMetadatabase().reg.end())
 	{

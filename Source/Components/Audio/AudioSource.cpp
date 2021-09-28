@@ -6,6 +6,8 @@
 #include "HavanaEvents.h"
 #include <Editor/AssetDescriptor.h>
 
+#include "Events/AudioEvents.h"
+
 #ifdef FMOD_ENABLED
 #include "fmod.hpp"
 #endif
@@ -35,8 +37,8 @@ void AudioSource::Play(bool ShouldLoop)
 		{
 			Stop(true);
 		}
-		SoundInstance->getSystemObject(&m_owner);
-		m_owner->playSound(SoundInstance, nullptr, false, &ChannelHandle);
+		SoundInstance->Handle->getSystemObject(&m_owner);
+		m_owner->playSound(SoundInstance->Handle, nullptr, false, &ChannelHandle);
 	}
 #endif
 }
@@ -59,6 +61,41 @@ bool AudioSource::IsPlaying() const
 	return (ChannelHandle && ChannelHandle->isPlaying(&isPlaying) == FMOD_OK && isPlaying);
 #else
 	return false;
+#endif
+}
+
+unsigned int AudioSource::GetLength()
+{
+#ifdef FMOD_ENABLED
+	unsigned int isPlaying = 0;
+	if (SoundInstance && SoundInstance->Handle && SoundInstance->Handle->getLength(&isPlaying, FMOD_TIMEUNIT_MS) != FMOD_OK)
+	{
+	}
+	return isPlaying;
+#else
+	return 0.f;
+#endif
+}
+
+unsigned int AudioSource::GetPositionMs()
+{
+#ifdef FMOD_ENABLED
+	unsigned int isPlaying = 0;
+	if (ChannelHandle && ChannelHandle->getPosition(&isPlaying, FMOD_TIMEUNIT_MS) != FMOD_OK)
+	{
+	}
+	return isPlaying;
+#else
+	return 0.f;
+#endif
+}
+
+void AudioSource::SetPositionMs(unsigned int position)
+{
+#ifdef FMOD_ENABLED
+	if (ChannelHandle && ChannelHandle->setPosition(position, FMOD_TIMEUNIT_MS) != FMOD_OK)
+	{
+	}
 #endif
 }
 
@@ -161,10 +198,6 @@ void AudioSource::Init()
 void AudioSource::ClearData()
 {
 #ifdef FMOD_ENABLED
-	if (SoundInstance)
-	{
-		SoundInstance->release();
-	}
 	SoundInstance = nullptr;
 	m_owner = nullptr;
 #endif
@@ -173,3 +206,90 @@ void AudioSource::ClearData()
 	FilePath = Path();
 }
 
+std::string AudioResourceMetadata::GetExtension2() const
+{
+	return "wav";
+}
+
+void AudioResourceMetadata::OnSerialize(json& inJson)
+{
+}
+
+void AudioResourceMetadata::OnDeserialize(const json& inJson)
+{
+}
+
+void AudioResourceMetadata::Export()
+{
+	MetaBase::Export();
+}
+
+void AudioResourceMetadata::OnEditorInspect()
+{
+	MetaBase::OnEditorInspect();
+#ifndef FMOD_ENABLED
+	ImGui::Separator();
+	ImGui::Text("FMOD NOT ENABLED! See Help > About.");
+	return;
+#endif
+	static SharedPtr<AudioSource> source = nullptr;
+	if(source && source->FilePath.LocalPath != FilePath.LocalPath)
+	{
+		source->Stop();
+		source = nullptr;
+	}
+
+	if (source && source->IsPlaying())
+	{
+		if (ImGui::Button("Stop"))
+		{
+			source->Stop();
+		}
+	}
+	else if (ImGui::Button("Play"))
+	{
+		if (!source || (source && !source->IsInitialized))
+		{
+			PlayAudioEvent evt;
+			evt.SourceName = FilePath.FullPath;
+			evt.Callback = [](SharedPtr<AudioSource> loadedAudio) { source = loadedAudio; };
+			evt.Fire();
+		}
+		else
+		{
+			source->Play();
+		}
+	}
+	ImGui::SameLine();
+	float progress = 0.f;
+	if(source && source->GetLength() > 0)
+	{
+		progress = (float)source->GetPositionMs() / (float)source->GetLength();
+	}
+	ImGui::ProgressBar(progress);
+	if(ImGui::Button("Seek Half WAy") && source)
+	{
+		float half = (float)source->GetLength() / 2.f;
+
+		source->SetPositionMs(half);
+	}
+
+	/*if (ImGui::IsItemActive())
+	{
+		if (!source)
+		{
+			source->Stop();
+		}
+		
+	}*/
+	if(!source)
+	{
+		return;
+	}
+
+}
+
+std::string AudioResourceMetadataMp3::GetExtension2() const
+{
+	return "mp3";
+}

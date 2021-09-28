@@ -43,11 +43,11 @@ void AssetPreviewWidget::Render()
 
 	OPTICK_CATEGORY("Preview Texture", Optick::Category::Debug);
 
-	ImGui::Begin("Preview");
+	/*ImGui::Begin("Preview");
 	if (ViewTexture)
 	{
 		ImGui::Image(ViewTexture->TexHandle, ImVec2(300, 300));
 	}
-	ImGui::End();
+	ImGui::End();*/
 }
 

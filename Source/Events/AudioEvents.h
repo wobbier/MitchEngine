@@ -2,6 +2,8 @@
 #include "Events/EventManager.h"
 #include "Events/Event.h"
 
+class AudioSource;
+
 class PlayAudioEvent
 	: public Event<PlayAudioEvent>
 {
@@ -12,4 +14,6 @@ public:
 	{
 	}
 	std::string SourceName;
+
+	std::function<void(SharedPtr<AudioSource> sound)> Callback;
 };

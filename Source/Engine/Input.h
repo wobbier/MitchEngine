@@ -426,6 +426,7 @@ public:
 
     // Mouse
 	Vector2 GetMousePosition() const;
+	Vector2 GetRelativeMousePosition() const;
 	void SetMousePosition(const Vector2& InPosition);
 	Vector2 GetMouseOffset();
 	Vector2 GetMouseScrollOffset();
@@ -442,8 +443,9 @@ public:
 
 private:
 	void Update();
-    void PostUpdate();
+	void PostUpdate();
 	Vector2 MousePosition;
+	Vector2 RelativeMousePosition;
 	Vector2 Offset;
 
 	bool WantsToCaptureMouse = false;

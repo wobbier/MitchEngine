@@ -22,7 +22,7 @@ Input::Input()
 	EventManager::GetInstance().RegisterReceiver(this, events);
 
 	PreviousKeyboardState = static_cast<const uint8_t*>(malloc(sizeof(uint8_t) * SDL_NUM_SCANCODES));
-	KeyboardState = PreviousKeyboardState;
+	PostUpdate();
 }
 
 bool Input::OnEvent(const BaseEvent& evt)
@@ -51,7 +51,9 @@ void Input::Resume()
 
 void Input::Stop()
 {
-	//Mouse->SetMode(DirectX::Mouse::MODE_ABSOLUTE);
+	RelativeMousePosition = Vector2();
+	SDL_SetRelativeMouseMode(SDL_FALSE);
+	SDL_CaptureMouse(SDL_FALSE);
 	CaptureInput = false;
 }
 
@@ -59,11 +61,13 @@ void Input::Update()
 {
 	if (CaptureInput)
 	{
-		KeyboardState = SDL_GetKeyboardState(nullptr);
 		int mouseX = 0;
 		int mouseY = 0;
 		MouseState = SDL_GetMouseState(&mouseX, &mouseY);
 		MousePosition = Vector2(mouseX, mouseY);
+		int relativeMouse[2] = {0, 0};
+		SDL_GetRelativeMouseState(&relativeMouse[0], &relativeMouse[1]);
+		RelativeMousePosition = Vector2(relativeMouse[0], relativeMouse[1]);
 	}
 }
 
@@ -101,6 +105,11 @@ Vector2 Input::GetMousePosition() const
 	return MousePosition;
 }
 
+Vector2 Input::GetRelativeMousePosition() const
+{
+	return RelativeMousePosition;
+}
+
 void Input::SetMousePosition(const Vector2& InPosition)
 {
 	if (CaptureInput)
@@ -129,12 +138,13 @@ void Input::SetMouseCapture(bool Capture)
 	{
 		if (Capture)
 		{
-			//SDL_SCANCODE_RETURN;
-			//Mouse->SetMode(DirectX::Mouse::MODE_RELATIVE);
+			SDL_SetRelativeMouseMode(SDL_TRUE);
+			SDL_CaptureMouse(SDL_TRUE);
 		}
 		else
 		{
-			//Mouse->SetMode(DirectX::Mouse::MODE_ABSOLUTE);
+			SDL_SetRelativeMouseMode(SDL_FALSE);
+			SDL_CaptureMouse(SDL_FALSE);
 		}
 		WantsToCaptureMouse = Capture;
 	}

@@ -3,6 +3,7 @@
 #include "Components/Audio/AudioSource.h"
 #include "Events/AudioEvents.h"
 #include "optick.h"
+#include "Resource/ResourceCache.h"
 
 #ifdef FMOD_ENABLED
 #include "fmod.hpp"
@@ -68,12 +69,14 @@ void AudioCore::InitComponent(AudioSource& audioSource)
 	if (!audioSource.IsInitialized && !audioSource.FilePath.LocalPath.empty())
 	{
 #ifdef FMOD_ENABLED
-		if (system->createSound(audioSource.FilePath.FullPath.c_str(), FMOD_DEFAULT, nullptr, &audioSource.SoundInstance) != FMOD_OK)
+		SharedPtr<Sound> soundResource = ResourceCache::GetInstance().Get<Sound>(audioSource.FilePath, system);
+		if (!soundResource)
 		{
 			YIKES("Failed to load sound");
 			audioSource.IsInitialized = true;
 			return;
 		}
+		audioSource.SoundInstance = soundResource;
 #endif
 		audioSource.IsInitialized = true;
 	}
@@ -89,7 +92,7 @@ void AudioCore::OnEntityAdded(Entity& NewEntity)
 void AudioCore::OnEntityRemoved(Entity& NewEntity)
 {
 	AudioSource& comp = NewEntity.GetComponent<AudioSource>();
-
+	comp.Stop();
 	comp.ClearData();
 }
 
@@ -101,10 +104,15 @@ bool AudioCore::OnEvent(const BaseEvent& InEvent)
 		Path soundPath = Path(evt.SourceName);
 		if (m_cachedSounds.find(soundPath.LocalPath) == m_cachedSounds.end())
 		{
-			AudioSource& source = m_cachedSounds[soundPath.LocalPath] = AudioSource(soundPath.LocalPath);
-			InitComponent(source);
+			auto& source = m_cachedSounds[soundPath.LocalPath] = std::make_shared<AudioSource>(soundPath.LocalPath);
+			InitComponent(*source);
 		}
-		m_cachedSounds[soundPath.LocalPath].Play(false);
+		m_cachedSounds[soundPath.LocalPath]->Play(false);
+
+		if(evt.Callback)
+		{
+			evt.Callback(m_cachedSounds[soundPath.LocalPath]);
+		}
 
 		return true;
 	}
@@ -134,7 +142,8 @@ void AudioCore::OnStop()
 {
 	for (auto& audioSource : m_cachedSounds)
 	{
-		audioSource.second.Stop();
+		audioSource.second->Stop();
+		audioSource.second->ClearData();
 	}
 	m_cachedSounds.clear();
 }

@@ -9,11 +9,11 @@ Resource::Resource(const Path& path)
 
 Resource::~Resource()
 {
-	delete Metadata;
+	Metadata.reset();
 	Metadata = nullptr;
 }
 
-void Resource::SetMetadata(MetaBase* metadata)
+void Resource::SetMetadata(SharedPtr<MetaBase> metadata)
 {
 	Metadata = metadata;
 }
@@ -43,7 +43,7 @@ const std::size_t Resource::GetResourceType() const
 	return ResourceType;
 }
 
-MetaBase* Resource::GetMetadata()
+SharedPtr<MetaBase> Resource::GetMetadata()
 {
 	return Metadata;
 }

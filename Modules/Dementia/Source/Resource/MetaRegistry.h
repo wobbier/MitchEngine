@@ -7,8 +7,9 @@
 #include "ClassTypeId.h"
 #include <iostream>
 #include "MetaFile.h"
+#include "Pointers.h"
 
-typedef MetaBase* (*CreateMetadataFunc)(const Path& filePath);
+typedef SharedPtr<MetaBase>(*CreateMetadataFunc)(const Path& filePath);
 typedef std::map<std::string, CreateMetadataFunc> MetaRegistry;
 
 class MetaDatabase
@@ -30,8 +31,8 @@ inline MetaDatabase& GetMetadatabase()
 }
 
 template<class T>
-MetaBase* CreateMetadata(const Path& filePath) {
-	return new T(filePath);
+SharedPtr<MetaBase> CreateMetadata(const Path& filePath) {
+	return std::make_shared<T>(filePath);
 }
 
 template<class T>

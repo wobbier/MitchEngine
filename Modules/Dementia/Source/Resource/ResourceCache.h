@@ -32,7 +32,7 @@ public:
 
 	void Dump();
 
-	MetaBase* LoadMetadata(const Path& filePath);
+	SharedPtr<MetaBase> LoadMetadata(const Path& filePath);
 
 private:
 	std::map<std::string, std::shared_ptr<Resource>> ResourceStack;
@@ -50,7 +50,7 @@ SharedPtr<T> ResourceCache::Get(const Path& InFilePath, Args&& ... args)
 		return Res;
 	}
 
-	MetaBase* metaFile = LoadMetadata(InFilePath);
+	SharedPtr<MetaBase> metaFile = LoadMetadata(InFilePath);
 
 	bool compiledFileExists = true;
 	if (metaFile)
