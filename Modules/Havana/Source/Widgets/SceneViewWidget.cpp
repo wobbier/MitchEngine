@@ -16,7 +16,7 @@
 
 #if ME_EDITOR
 
-SceneViewWidget::SceneViewWidget(const std::string& inTitle,  bool inSceneToolsEnabled)
+SceneViewWidget::SceneViewWidget(const std::string& inTitle, bool inSceneToolsEnabled)
 	: HavanaWidget(inTitle)
 	, EnableSceneTools(inSceneToolsEnabled)
 {
@@ -152,6 +152,40 @@ void SceneViewWidget::Render()
 
 	if (ImGui::BeginMenuBar())
 	{
+		if (EnableSceneTools)
+		{
+			if (!editorInput.IsMouseButtonDown(MouseButton::Right))
+			{
+				if (editorInput.IsKeyDown(KeyCode::W))
+					CurrentGizmoOperation = ImGuizmo::TRANSLATE;
+				if (editorInput.IsKeyDown(KeyCode::E))
+					CurrentGizmoOperation = ImGuizmo::ROTATE;
+				if (editorInput.IsKeyDown(KeyCode::R))
+					CurrentGizmoOperation = ImGuizmo::SCALE;
+			}
+			if (ImGui::RadioButton("Translate", CurrentGizmoOperation == ImGuizmo::TRANSLATE))
+			{
+				CurrentGizmoOperation = ImGuizmo::TRANSLATE;
+			}
+			if (ImGui::RadioButton("Rotate", CurrentGizmoOperation == ImGuizmo::ROTATE))
+			{
+				CurrentGizmoOperation = ImGuizmo::ROTATE;
+			}
+			if (ImGui::RadioButton("Scale", CurrentGizmoOperation == ImGuizmo::SCALE))
+			{
+				CurrentGizmoOperation = ImGuizmo::SCALE;
+			}
+			if (CurrentGizmoOperation != ImGuizmo::SCALE)
+			{
+				float pos = ImGui::GetCursorPosX();
+				ImGui::SetCursorPosX(pos + 25.f);
+				if (ImGui::RadioButton("Local", CurrentGizmoMode == ImGuizmo::LOCAL))
+					CurrentGizmoMode = ImGuizmo::LOCAL;
+				if (ImGui::RadioButton("World", CurrentGizmoMode == ImGuizmo::WORLD))
+					CurrentGizmoMode = ImGuizmo::WORLD;
+			}
+		}
+
 		if (!EnableSceneTools)
 		{
 			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4.0f, 4.0f));
@@ -267,7 +301,7 @@ void SceneViewWidget::Render()
 	default:
 		break;
 	}
-	
+
 	IsFocused = ImGui::IsWindowFocused();
 
 	Moonlight::FrameBuffer* currentView = MainCamera->Buffer;
@@ -294,39 +328,9 @@ void SceneViewWidget::Render()
 
 void SceneViewWidget::DrawGuizmo()
 {
-	Input& editorInput = GetEngine().GetEditorInput();
-	{
-		ImGui::SetCursorPos(ImVec2(5.f, 45.f));
+	ImGui::SetCursorPos(ImVec2(5.f, 45.f));
 
-		ImGuizmo::SetRect(SceneViewRenderLocation.x, SceneViewRenderLocation.y, SceneViewRenderSize.x, SceneViewRenderSize.y);
-
-		if (!editorInput.IsMouseButtonDown(MouseButton::Right))
-		{
-			if (editorInput.IsKeyDown(KeyCode::W))
-				CurrentGizmoOperation = ImGuizmo::TRANSLATE;
-			if (editorInput.IsKeyDown(KeyCode::E))
-				CurrentGizmoOperation = ImGuizmo::ROTATE;
-			if (editorInput.IsKeyDown(KeyCode::R))
-				CurrentGizmoOperation = ImGuizmo::SCALE;
-		}
-		if (ImGui::RadioButton("Translate", CurrentGizmoOperation == ImGuizmo::TRANSLATE))
-			CurrentGizmoOperation = ImGuizmo::TRANSLATE;
-		ImGui::SameLine();
-		if (ImGui::RadioButton("Rotate", CurrentGizmoOperation == ImGuizmo::ROTATE))
-			CurrentGizmoOperation = ImGuizmo::ROTATE;
-		ImGui::SameLine();
-		if (ImGui::RadioButton("Scale", CurrentGizmoOperation == ImGuizmo::SCALE))
-			CurrentGizmoOperation = ImGuizmo::SCALE;
-		if (CurrentGizmoOperation != ImGuizmo::SCALE)
-		{
-			ImGui::SetCursorPosX(5.f);
-			if (ImGui::RadioButton("Local", CurrentGizmoMode == ImGuizmo::LOCAL))
-				CurrentGizmoMode = ImGuizmo::LOCAL;
-			ImGui::SameLine();
-			if (ImGui::RadioButton("World", CurrentGizmoMode == ImGuizmo::WORLD))
-				CurrentGizmoMode = ImGuizmo::WORLD;
-		}
-	}
+	ImGuizmo::SetRect(SceneViewRenderLocation.x, SceneViewRenderLocation.y, SceneViewRenderSize.x, SceneViewRenderSize.y);
 	if (SelectedTransform)
 	{
 		ImGuiIO& io = ImGui::GetIO();
