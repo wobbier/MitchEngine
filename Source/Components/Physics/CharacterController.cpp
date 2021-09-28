@@ -87,13 +87,11 @@ void CharacterController::Walk(Vector2 direction)
 {
 	Vector2 velocityXZ = direction + Vector2(m_manualVelocity.x, m_manualVelocity.z);
 
-	float speed = velocityXZ.Length();
+	const float speed = velocityXZ.Length();
 
 	if (speed > MaxSpeed)
 	{
-
-		velocityXZ = velocityXZ / speed;// DirectX::SimpleMath::Vector2(*MaxSpeed);
-		velocityXZ = velocityXZ * MaxSpeed;
+		velocityXZ = velocityXZ / speed * MaxSpeed;
 	}
 
 	m_manualVelocity[0] = velocityXZ.x;
@@ -121,7 +119,7 @@ void CharacterController::Update(float dt)
 
 void CharacterController::Jump()
 {
-	if (m_isGrounded * m_jumpTimer >= JumpRechargeTime)
+	if (m_isGrounded && m_jumpTimer >= JumpRechargeTime)
 	{
 		m_jumpTimer = 0.f;
 
@@ -309,11 +307,11 @@ void CharacterController::UpdateVelocity(float dt)
 {
 	m_manualVelocity.y = m_rigidbody->getLinearVelocity().y();
 
-	btVector3 velocity (m_manualVelocity.x, m_manualVelocity.y, m_manualVelocity.z);
+	const btVector3 velocity (m_manualVelocity.x, m_manualVelocity.y, m_manualVelocity.z);
+	m_rigidbody->setLinearVelocity(velocity);
 
 	m_manualVelocity = m_manualVelocity - (m_manualVelocity * Deceleration * dt);
 
-	m_rigidbody->setLinearVelocity(velocity);
 	if (m_isHittingWall)
 	{
 		for (size_t i = 0, size = m_surfaceHitNormals.size(); i < size; i++)

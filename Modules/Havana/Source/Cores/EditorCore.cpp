@@ -51,7 +51,7 @@ void EditorCore::Update(float dt)
 
 	Input& input = m_editor->GetInput();
 
-	if (m_editor->IsWorldViewFocused())
+	if (m_editor->IsWorldViewFocused() || FirstUpdate)
 	{
 		if (input.IsKeyDown(KeyCode::F))
 		{
@@ -78,7 +78,7 @@ void EditorCore::Update(float dt)
 					PreviousMouseDown = true;
 				}
 			}
-			else
+			else if(!FirstUpdate)
 			{
 				PreviousMouseDown = false;
 				return;
