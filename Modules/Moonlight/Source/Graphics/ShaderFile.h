@@ -76,12 +76,12 @@ struct ShaderFileMetadata
 		if (ext == "frag")
 		{
 			exportType = "fragment";
-			shaderType = "ps_4_0";
+			shaderType = "ps_5_0";
 		}
 		else if (ext == "vert")
 		{
 			exportType = "vertex";
-			shaderType = "vs_4_0";
+			shaderType = "vs_5_0";
 		}
 
 		std::string fileName = FilePath.LocalPath.substr(FilePath.LocalPath.rfind("/") + 1, FilePath.LocalPath.length());

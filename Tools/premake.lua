@@ -9,6 +9,9 @@ CertificateThumbprint = "";
 if(not FMODDirectory) then
 FMODDirectory = "C:\\Program Files (x86)\\FMOD SoundSystem\\FMOD Studio API Windows\\";
 end
+if(not WindowsSDKVer) then
+    WindowsSDKVer = "10.0.19041.0";
+end
 ---------------------------------------
 
 newoption {
@@ -248,7 +251,6 @@ filter "action:vs*"
 
 if isPlatform("UWP") then
     defines { "ME_PLATFORM_UWP" }
-    --includedirs { (dirPrefix) .. "packages/directxtk_uwp.2018.11.20.1/include" }
     libdirs {
         "../ThirdParty/UltralightSDK/lib/UWP",
         "../ThirdParty/UltralightSDK/bin/UWP"
@@ -259,7 +261,6 @@ if isPlatform("UWP") then
 end
 if isPlatform("Win64") then
     defines { "ME_PLATFORM_WIN64" }
-    --includedirs { (dirPrefix) .. "packages/directxtk_desktop_2015.2018.11.20.1/include" }
     libdirs {
         "../ThirdParty/UltralightSDK/lib/Win64",
         "../ThirdParty/UltralightSDK/bin/Win64"
@@ -445,10 +446,13 @@ end
 configuration {}
 filter {}
 
-if not(isPlatform("macOS")) then
---if withRenderdoc then
-  defines { "ME_ENABLE_RENDERDOC" } ---, "__cplusplus_winrt"
---end
+if isPlatform("Win64") then
+    defines { "ME_ENABLE_RENDERDOC" } ---, "__cplusplus_winrt"
+
+    configuration "with-renderdoc"
+    postbuildcommands {
+        "xcopy /y /d  \"C:\\Program Files\\RenderDoc\\renderdoc.dll\" \"$(ProjectDir)$(OutDir)\""
+    }
 end
 
 ------------------------------------------------------- Renderer Project -----------------------------------------------------
@@ -467,7 +471,7 @@ location "../Modules/Moonlight"
 dependson { "Dementia" }
 
 filter "action:vs*"
-	systemversion "10.0.14393.0"
+	systemversion (WindowsSDKVer)
 filter {}
 
 filter "system:macosx"
@@ -495,7 +499,7 @@ group "Apps"
 project "Havana"
     kind "ConsoleApp"
     filter "action:vs*"
-        systemversion "10.0.14393.0"
+        systemversion (WindowsSDKVer)
     filter {}
     language "C++"
     targetdir ((dirPrefix) .. "Build/%{cfg.buildcfg}")
@@ -575,7 +579,7 @@ files {
 end
 
 filter "action:vs*"
-systemversion "10.0.14393.0"
+systemversion (WindowsSDKVer)
 filter {}
 filter "system:macosx"
 excludes {
@@ -633,7 +637,7 @@ removeincludedirs "*"
 removelinks "*"
 
 filter "action:vs*"
-systemversion "10.0.14393.0"
+systemversion (WindowsSDKVer)
 filter {}
 
 filter "system:macosx"
@@ -694,7 +698,7 @@ pchheader "Source/PCH.h"
 filter { "action:vs*" }
 pchheader "PCH.h"
 pchsource "../Source/PCH.cpp"
-systemversion "10.0.14393.0"
+systemversion (WindowsSDKVer)
 filter { }
 
 --flags { "FatalWarnings" }
@@ -729,12 +733,6 @@ vpaths {
   ["Shaders"] = "Assets/Shaders/**.vert",
   ["Shaders"] = "Assets/Shaders/**.comp",
   ["Shaders"] = "Assets/Shaders/**.var",
-}
-
-configuration "with-renderdoc"
-defines { "MAN_ENABLE_RENDERDOC" }--, "__cplusplus_winrt"
-postbuildcommands {
-  "xcopy /y /d  \"C:\\Program Files\\RenderDoc\\renderdoc.dll\" \"$(ProjectDir)$(OutDir)\""
 }
 
 filter "configurations:Debug"
@@ -790,7 +788,7 @@ project (getPlatformPostfix(ProjectName .. "_EntryPoint"))
     end
 
 	filter { "action:vs*" }
-		systemversion "10.0.14393.0"
+		systemversion (WindowsSDKVer)
         links {
           (getPlatformPostfix(ProjectName) .. ".lib")
         }
@@ -829,7 +827,7 @@ project ((getPlatformPostfix(ProjectName)))
 
   
 filter { "action:vs*" }
-  systemversion "10.0.14393.0"
+  systemversion (WindowsSDKVer)
   links {
     (getPlatformPostfix("MitchEngine")) .. ".lib",
 	"Dementia.lib",
