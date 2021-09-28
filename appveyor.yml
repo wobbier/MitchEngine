@@ -1,5 +1,5 @@
 version: 0.0.{build}
-os: Visual Studio 2017
+os: Visual Studio 2019
     
 build:
   project: MitchEngineUWP.sln
