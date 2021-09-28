@@ -6,7 +6,7 @@
 #include "Ultralight/View.h"
 #include "Events/AudioEvents.h"
 #include <Ultralight/String.h>
-#include <HavanaEvents.h>
+#include "HavanaEvents.h"
 
 BasicUIView::BasicUIView()
 	: Component("BasicUIView")

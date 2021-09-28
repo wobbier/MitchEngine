@@ -4,6 +4,7 @@
 #include <string>
 #include "MetaFile.h"
 #include <CLog.h>
+#include <sys/stat.h>
 
 AssetMetaCache::AssetMetaCache()
 {
