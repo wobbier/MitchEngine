@@ -322,6 +322,19 @@ void SceneViewWidget::Render()
 		DrawGuizmo();
 	}
 
+	if (ImGui::BeginDragDropTarget())
+	{
+		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(AssetDescriptor::kDragAndDropPayload))
+		{
+			IM_ASSERT(payload->DataSize == sizeof(AssetDescriptor));
+			AssetDescriptor& payload_n = *(AssetDescriptor*)payload->Data;
+
+			if (payload_n.Type == AssetType::Prefab)
+			{
+			}
+		}
+		ImGui::EndDragDropTarget();
+	}
 	ImGui::End();
 	ImGui::PopStyleVar(3);
 }

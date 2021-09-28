@@ -11,6 +11,7 @@
 #ifdef FMOD_ENABLED
 #include "fmod.hpp"
 #endif
+#include "Resource/MetaFile.h"
 
 AudioSource::AudioSource(const std::string& InFilePath)
 	: Component("AudioSource")
@@ -219,6 +220,8 @@ void AudioResourceMetadata::OnDeserialize(const json& inJson)
 {
 }
 
+#if ME_EDITOR
+
 void AudioResourceMetadata::Export()
 {
 	MetaBase::Export();
@@ -288,6 +291,8 @@ void AudioResourceMetadata::OnEditorInspect()
 	}
 
 }
+
+#endif
 
 std::string AudioResourceMetadataMp3::GetExtension2() const
 {
