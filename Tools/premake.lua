@@ -18,7 +18,7 @@ if(not FMODDirectoryUWP) then
     FMODDirectoryUWP = "C:\\Program Files (x86)\\FMOD SoundSystem\\FMOD Studio API Universal Windows Platform\\";
 end
 if(not FMODDirectoryMacOS) then
-    FMODDirectoryMacOS = "~\\FMOD Programmers API\\";
+    FMODDirectoryMacOS = "/Library/Developer/FMOD Programmers API/";
 end
 if(not WindowsSDKVer) then
     WindowsSDKVer = "10.0.19041.0";
@@ -336,6 +336,23 @@ filter { }
 ---- macOS ----
 if isPlatform("macOS") then
     defines { "ME_PLATFORM_MACOS" }
+        
+    if (withFMOD) then
+        defines { "FMOD_ENABLED" }
+        includedirs {
+            (FMODDirectoryMacOS .. "api/core/inc/")
+        }
+        sysincludedirs {
+            (FMODDirectoryMacOS .. "api/core/inc/")
+        }
+        libdirs {
+            "\"" .. (FMODDirectoryMacOS .. "api/core/lib/\"")
+        }
+        links {
+            "fmodL",
+        }
+        
+    end
 end
 ---- macOS ----
 
