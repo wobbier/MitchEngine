@@ -428,7 +428,8 @@ void Engine::LoadScene(const std::string& SceneFile)
 	evt.LoadedScene = CurrentScene;
 	evt.Fire();
 #if !ME_EDITOR
-	//GameWorld->Start();
+	GameWorld->Simulate();
+	GameWorld->Start();
 #endif
 }
 

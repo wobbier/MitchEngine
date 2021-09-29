@@ -4,10 +4,21 @@ dofile "premake-winrt/_preload.lua"
 require "premake-winrt/winrt"
 
 -- Modify these in your game premake --
-CertificateFile = "";
-CertificateThumbprint = "";
-if(not FMODDirectory) then
-FMODDirectory = "C:\\Program Files (x86)\\FMOD SoundSystem\\FMOD Studio API Windows\\";
+if(not CertificateFile) then
+    CertificateFile = "";
+end
+if(not CertificateThumbprint) then
+    CertificateThumbprint = "";
+end
+                    -- FMOD Defaults --
+if(not FMODDirectoryWin64) then
+    FMODDirectoryWin64 = "C:\\Program Files (x86)\\FMOD SoundSystem\\FMOD Studio API Windows\\";
+end
+if(not FMODDirectoryUWP) then
+    FMODDirectoryUWP = "C:\\Program Files (x86)\\FMOD SoundSystem\\FMOD Studio API Universal Windows Platform\\";
+end
+if(not FMODDirectoryMacOS) then
+    FMODDirectoryMacOS = "~\\FMOD Programmers API\\";
 end
 if(not WindowsSDKVer) then
     WindowsSDKVer = "10.0.19041.0";
@@ -258,6 +269,29 @@ if isPlatform("UWP") then
     links {
         "assimp-vc140-mt",
     }
+    
+    if (withFMOD) then
+        defines { "FMOD_ENABLED" }
+    
+        includedirs {
+            FMODDirectoryUWP .. "api\\core\\inc\\"
+        }
+        libdirs {
+            FMODDirectoryUWP .. "api\\core\\lib\\x64\\"
+        }
+        links {
+            "fmodL.lib",
+        }
+        if(_OPTIONS["project-name"]) then
+            postbuildcommands {
+                "xcopy /y /d \"" .. FMODDirectoryUWP .. "api\\core\\lib\\x64\\fmodL.dll" .. "\" \"$(ProjectDir)..\\$(OutDir)\""
+            }
+        else
+            postbuildcommands {
+                "xcopy /y /d  \"" .. FMODDirectoryUWP .. "api\\core\\lib\\x64\\fmodL.dll" .. "\" \"$(ProjectDir)$(OutDir)\""
+            }
+        end
+    end
 end
 if isPlatform("Win64") then
     defines { "ME_PLATFORM_WIN64" }
@@ -276,21 +310,21 @@ if isPlatform("Win64") then
         defines { "FMOD_ENABLED" }
     
         includedirs {
-            FMODDirectory .. "api\\core\\inc\\"
+            FMODDirectoryWin64 .. "api\\core\\inc\\"
         }
         libdirs {
-            FMODDirectory .. "api\\core\\lib\\x64\\"
+            FMODDirectoryWin64 .. "api\\core\\lib\\x64\\"
         }
         links {
             "fmodL_vc.lib",
         }
         if(_OPTIONS["project-name"]) then
             postbuildcommands {
-                "xcopy /y /d \"" .. FMODDirectory .. "api\\core\\lib\\x64\\fmodL.dll" .. "\" \"$(ProjectDir)..\\$(OutDir)\""
+                "xcopy /y /d \"" .. FMODDirectoryWin64 .. "api\\core\\lib\\x64\\fmodL.dll" .. "\" \"$(ProjectDir)..\\$(OutDir)\""
             }
         else
             postbuildcommands {
-                "xcopy /y /d  \"" .. FMODDirectory .. "api\\core\\lib\\x64\\fmodL.dll" .. "\" \"$(ProjectDir)$(OutDir)\""
+                "xcopy /y /d  \"" .. FMODDirectoryWin64 .. "api\\core\\lib\\x64\\fmodL.dll" .. "\" \"$(ProjectDir)$(OutDir)\""
             }
         end
     end
@@ -415,7 +449,6 @@ links {
   "BulletCollision_MinsizeRel",
   "LinearMath_MinsizeRel",
   "zlibstatic",
-  "SDL2",
   "bgfxRelease",
   "bimg_decodeRelease.lib",
   "bimgRelease.lib",
@@ -458,12 +491,8 @@ end
 ------------------------------------------------------- Renderer Project -----------------------------------------------------
 
 group "Engine/Modules"
-project (getPlatformPostfix("Moonlight"))
+project "Moonlight"
 kind "StaticLib"
-if (isUWP) then
-  system "windowsuniversal"
-  consumewinrtextension "true"
-end
 language "C++"
 targetdir "../Build/%{cfg.buildcfg}"
 location "../Modules/Moonlight"
