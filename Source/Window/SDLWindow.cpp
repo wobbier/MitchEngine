@@ -4,7 +4,7 @@
 #include "CLog.h"
 #include "Engine/Input.h"
 
-#define RESIZE_BORDER 20
+#define RESIZE_BORDER 10
 SDL_HitTestResult HitTestCallback(SDL_Window* window, const SDL_Point* area, void* data)
 {
 	SDLWindow* engineWindow = static_cast<SDLWindow*>(data);

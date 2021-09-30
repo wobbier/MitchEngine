@@ -185,8 +185,9 @@ void MainMenuWidget::Render()
 			if (ImGui::ImageButton(Icons["Play"]->TexHandle, ImVec2(30.f, 30.f)) || editorInput.IsKeyDown(KeyCode::F5))
 			{
 				ImGui::SetWindowFocus("Game");
-				gameInput.Resume();
 				StartGameFunc();
+				gameInput.Resume();
+				Editor->GetInput().Stop();
 			}
 		}
 
@@ -205,6 +206,7 @@ void MainMenuWidget::Render()
 				evt.Fire();
 				StopGameFunc();
 				gameInput.Stop();
+				Editor->GetInput().Resume();
 			}
 		}
 

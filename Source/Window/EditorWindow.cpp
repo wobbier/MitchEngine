@@ -81,7 +81,7 @@ EditorWindow::EditorWindow(std::string title, std::function<void(const Vector2&)
 	ShowWindow(Window, SW_SHOW);
 
 	SDL_Init(SDL_INIT_EVERYTHING);
-	sdlWindow = SDL_CreateWindowFrom(Window);
+	WindowHandle = SDL_CreateWindowFrom(Window);
 }
 
 EditorWindow::~EditorWindow()

@@ -111,7 +111,8 @@ bool Scene::Load(SharedPtr<World> InWorld)
 
 void Scene::LoadCore(json& core)
 {
-	GameWorld->AddCoreByName(core["Type"]);
+	auto addedCore = GameWorld->AddCoreByName(core["Type"]);
+	addedCore->Deserialize(core);
 }
 
 bool Scene::IsNewScene()
@@ -149,6 +150,7 @@ void Scene::SaveSceneRecursively(json& d, Transform* CurrentTransform)
 
 void Scene::Save(std::string fileName, Transform* root)
 {
+#if ME_EDITOR
 	FilePath = Path(fileName);
 
 	File worldFile(FilePath);
@@ -168,12 +170,13 @@ void Scene::Save(std::string fileName, Transform* root)
 		if ((*core).GetIsSerializable())
 		{
 			json coreDef;
-			coreDef["Type"] = (*core).GetName();
+			(*core).Serialize(coreDef);
 			cores.push_back(coreDef);
 		}
 	}
 
 	worldFile.Write(world.dump(4));
 	std::cout << world.dump(4) << std::endl;
+#endif
 }
 

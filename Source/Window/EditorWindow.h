@@ -67,6 +67,7 @@ public:
 
 	void* GetWindowPtr() final;
 
+	SDL_Window* WindowHandle = nullptr;
 private:
 	bool ExitRequested = false;
 	bool canMoveWindow = false;
@@ -79,7 +80,6 @@ private:
 	std::function<void(const Vector2&)> ResizeFunc;
 	HWND Window;
 
-	SDL_Window* sdlWindow = nullptr;
 	Vector2 TitleBarDragPosition;
 	Vector2 TitleBarDragSize;
 };

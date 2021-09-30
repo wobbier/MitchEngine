@@ -29,6 +29,7 @@ public:
 private:
 	ImGuiWindowFlags WindowFlags = 0;
 	bool ItemsNeedSorted = true;
+	bool ItemsNeedGenerated = true;
 	static const ImGuiTableSortSpecs* s_SortSpecs;
 
 	static int CompareWithSortSpecs(const void* lhs, const void* rhs);

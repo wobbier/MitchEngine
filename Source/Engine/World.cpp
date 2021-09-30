@@ -26,20 +26,23 @@ World::~World()
 {
 }
 
-void World::AddCoreByName(const std::string& core)
+BaseCore* World::AddCoreByName(const std::string& core)
 {
 	CoreRegistry& reg = GetCoreRegistry();
 	CoreRegistry::iterator it = reg.find(core);
 
 	if (it == reg.end()) {
 		CLog::GetInstance().Log(CLog::LogType::Error, "Factory not found for core " + core);
-		return;
+		return nullptr;
 	}
 	std::pair<BaseCore*, TypeId> createdCore = it->second(false);
 	if (!HasCore(createdCore.second))
 	{
-		AddCore(*it->second(true).first, createdCore.second, true);
+		BaseCore* co = it->second(true).first;
+		AddCore(*co, createdCore.second, true);
+		return co;
 	}
+	return GetCore(createdCore.second);
 }
 
 EntityHandle World::CreateEntity()

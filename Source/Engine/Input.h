@@ -3,6 +3,8 @@
 #include <SDL_mouse.h>
 #include <SDL_scancode.h>
 #include "Events/EventReceiver.h"
+
+class IWindow;
 //
 //
 //#if ME_PLATFORM_UWP
@@ -457,4 +459,5 @@ private:
 	uint32_t MouseState = 0;
 	const uint8_t* PreviousKeyboardState = nullptr;
 	uint32_t PreviousMouseState = 0;
+    IWindow* GameWindow = nullptr;
 };

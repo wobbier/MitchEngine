@@ -204,6 +204,7 @@ void Havana::NewFrame()
 	ImGuiIO& io = ImGui::GetIO();
 
 	MainMenu->SetData(&RegisteredWidgets, m_app);
+	MainMenu->Update();
 	MainMenu->Render();
 
 	// Dockspace
@@ -287,10 +288,12 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 			{
 				gameInput.Stop();
 				ImGui::SetWindowFocus("Hierarchy");
+				GetInput().Resume();
 			}
-			else if (GameSceneView->IsFocused && gameInput.IsMouseButtonDown(MouseButton::Left))
+			else if (GameSceneView->IsFocused && GetInput().IsMouseButtonDown(MouseButton::Left))
 			{
 				gameInput.Resume();
+				GetInput().Stop();
 			}
 		}
 

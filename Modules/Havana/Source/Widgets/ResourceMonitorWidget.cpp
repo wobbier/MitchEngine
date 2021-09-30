@@ -34,16 +34,20 @@ void ResourceMonitorWidget::Render()
 		{
 			auto& resources = ResourceCache::GetInstance().GetResouceStack();
 
-			if(resources.size() != resourceList.size())
+			if(ItemsNeedGenerated)
 			{
 				resourceList.clear();
 				resourceList.reserve(resources.size());
 
 				for (auto& resource : resources)
 				{
-					resourceList.push_back(resource.second);
+					if (resource.second)
+					{
+						resourceList.push_back(resource.second);
+					}
 				}
 				ItemsNeedSorted = true;
+				ItemsNeedGenerated = false;
 			}
 
 			ImVec2 size = ImVec2(0, ImGui::GetWindowSize().y - ImGui::GetCursorPosY());
@@ -81,6 +85,12 @@ void ResourceMonitorWidget::Render()
 				{
 					for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; row++)
 					{
+						if (resourceList[row].expired())
+						{
+							ItemsNeedGenerated = true;
+							continue;
+						}
+
 						ImGui::TableNextRow();
 
 						ImGui::TableSetColumnIndex(0);

@@ -81,7 +81,7 @@ public:
 	ME_NONCOPYABLE(World);
 	ME_NONMOVABLE(World);
 	bool IsLoading = true;
-	void AddCoreByName(const std::string& core);
+	BaseCore* AddCoreByName(const std::string& core);
 	std::unordered_map<TypeId, BaseCore*> m_loadedCores;
 private:
 	CoreArray Cores;

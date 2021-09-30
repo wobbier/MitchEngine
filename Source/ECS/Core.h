@@ -57,7 +57,9 @@ public:
 
 #if ME_EDITOR
 	virtual void OnEditorInspect();
+	virtual void Serialize(json& outJson) = 0;
 #endif
+	virtual void Deserialize(const json& inJson) = 0;
 	const bool GetIsSerializable() const;
 
 protected:
@@ -126,9 +128,23 @@ public:
 	{
 	}
 
+	virtual void OnDeserialize(const json& inJson)
+	{
+	}
+
 #if ME_EDITOR
+	virtual void OnSerialize(json& outJson)
+	{
+	}
 	virtual void OnEditorInspect() override;
+	virtual void Serialize(json& outJson) final {
+		outJson["Type"] = GetName();
+		OnSerialize(outJson);
+	}
 #endif
+	virtual void Deserialize(const json& inJson) final {
+		OnDeserialize(inJson);
+	}
 };
 
 #if ME_EDITOR
