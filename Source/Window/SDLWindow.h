@@ -38,7 +38,9 @@ public:
 
 	void CanMoveWindow(bool param1);
 
-	void SetBorderless(bool borderless);
+	void SetBorderless(bool isBorderless) final;
+
+	bool IsMaximized() final;
 
 	void SetCustomDragCallback(std::function<std::optional<SDL_HitTestResult>(const Vector2&)> cb);
 	std::function<std::optional<SDL_HitTestResult>(const Vector2&)> CustomDragCB;
@@ -49,7 +51,10 @@ private:
 	std::function<void(const Vector2&)> ResizeCB;
 	void SetWindow(SDL_Window* window);
 
+	void HandleWindowEvent(const SDL_WindowEvent& event);
+
 	bool CloseRequested = false;
+	bool isMaximized = false;
 
 	//SDL_HitTestResult HitTestCallback(SDL_Window* window, const SDL_Point* area, void* data);
 };

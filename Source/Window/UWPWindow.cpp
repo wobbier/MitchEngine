@@ -146,6 +146,11 @@ bool UWPWindow::IsFullscreen()
 	return false;
 }
 
+bool UWPWindow::IsMaximized()
+{
+	return false;
+}
+
 /************************************************************************/
 /*                      UWPWindowMessageHandler                         */
 /************************************************************************/

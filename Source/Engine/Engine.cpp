@@ -31,7 +31,6 @@
 #include "BGFXRenderer.h"
 #include "Window/SDLWindow.h"
 #include "Path.h"
-#include "Window/EditorWindow.h"
 #include "SDL.h"
 #include "SDL_video.h"
 #include <imgui.h>
@@ -104,13 +103,7 @@ void Engine::Init(Game* game)
 		}
 	};
 
-#if ME_EDITOR && ME_PLATFORM_WIN64
-	EngineConfig = new Config(engineCfg);
-	const json& WindowConfig = EngineConfig->GetJsonObject("Window");
-	int WindowWidth = WindowConfig["Width"];
-	int WindowHeight = WindowConfig["Height"];
-	GameWindow = new EditorWindow(EngineConfig->GetValue("Title"), ResizeFunc, 500, 300, Vector2(WindowWidth, WindowHeight));
-#elif ME_PLATFORM_WIN64 || ME_PLATFORM_MACOS
+#if ME_PLATFORM_WIN64 || ME_PLATFORM_MACOS
 	EngineConfig = new Config(engineCfg);
 	const json& WindowConfig = EngineConfig->GetJsonObject("Window");
 	int WindowWidth = WindowConfig["Width"];
@@ -119,6 +112,9 @@ void Engine::Init(Game* game)
 #endif
 #if ME_PLATFORM_UWP
 	GameWindow = new UWPWindow("MitchEngine", 1920, 1080, ResizeFunc);
+#endif
+#if ME_EDITOR && ME_PLATFORM_WIN64
+	GameWindow->SetBorderless(true);
 #endif
 
 	ResizeFunc(Vector2(1920, 1080));
@@ -131,10 +127,7 @@ void Engine::Init(Game* game)
 
 	//m_renderer = new Moonlight::Renderer();
 	//m_renderer->WindowResized(GameWindow->GetSize());
-#if ME_EDITOR && ME_PLATFORM_WIN64
-	//ImGui_ImplSDL2_InitForD3D(static_cast<SDLWindow*>(GameWindow)->WindowHandle);
-	ImGui_ImplWin32_Init(static_cast<EditorWindow*>(GameWindow)->GetWindowPtr());
-#elif ME_PLATFORM_WIN64
+#if ME_PLATFORM_WIN64
 	ImGui_ImplSDL2_InitForD3D(static_cast<SDLWindow*>(GameWindow)->WindowHandle);
 #endif
 #if ME_PLATFORM_MACOS

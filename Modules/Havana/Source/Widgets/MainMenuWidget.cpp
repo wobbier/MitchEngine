@@ -6,12 +6,12 @@
 #include <Events/SceneEvents.h>
 #include <Engine/Engine.h>
 #include <Commands/EditorCommands.h>
-#include <Window/EditorWindow.h>
 #include <EditorApp.h>
 #include <Havana.h>
 #include <Utils/StringUtils.h>
 #include <Utils/PlatformUtils.h>
 #include <HavanaEvents.h>
+#include <Window/SDLWindow.h>
 
 #if ME_EDITOR
 
@@ -36,6 +36,22 @@ void MainMenuWidget::Init()
 	Icons["Info"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Info.png"));
 	Icons["Logo"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/ME-LOGO.png"));
 	Icons["Profiler"] = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Havana/UI/Profiler.png"));
+
+
+	auto cb = [this](const Vector2& pos) -> std::optional<SDL_HitTestResult>
+	{
+		if (pos > TitleBarDragPosition && pos < TitleBarDragPosition + TitleBarDragSize)
+		{
+			return SDL_HitTestResult::SDL_HITTEST_DRAGGABLE;
+		}
+
+		return std::nullopt;
+	};
+	auto window = static_cast<SDLWindow*>(GetEngine().GetWindow());
+	window->SetBorderless(true);
+	window->SetCustomDragCallback(cb);
+	//Vector2 pos = Editor->GetInput().GetMousePosition();
+	//SDL_SetWindowGrab(window->WindowHandle, (pos > TitleBarDragPosition && pos < TitleBarDragPosition + TitleBarDragSize) ? SDL_TRUE : SDL_FALSE);
 }
 
 void MainMenuWidget::Destroy()
@@ -56,7 +72,11 @@ void MainMenuWidget::SetWindowTitle(const std::string& title)
 
 void MainMenuWidget::Update()
 {
-
+	//auto window = static_cast<SDLWindow*>(GetEngine().GetWindow());
+	//window->SetBorderless(true);
+	//window->SetCustomDragCallback(cb);
+	//Vector2 pos = Editor->GetInput().GetMousePosition();
+	//SDL_SetWindowGrab(window->WindowHandle, /*(pos > TitleBarDragPosition && pos < TitleBarDragPosition + TitleBarDragSize) ?*/ SDL_TRUE /*: SDL_FALSE*/);
 }
 
 void MainMenuWidget::Render()
@@ -216,15 +236,14 @@ void MainMenuWidget::Render()
 		const float winWidth = ImGui::GetWindowWidth();
 		TitleBarDragSize = Vector2(winWidth - endOfMenu - (buttonWidth * 5.f), MainMenuSize.y - 10.f);
 
-#if ME_PLATFORM_WIN64
-		const auto window = dynamic_cast<EditorWindow*>(GetEngine().GetWindow());
-
-		window->SetDragBounds(TitleBarDragPosition, TitleBarDragSize);
-#endif
-		const Vector2 pos = editorInput.GetMousePosition();
-		if (ImGui::IsMouseDoubleClicked(0) && (pos > TitleBarDragPosition && pos < TitleBarDragPosition + TitleBarDragSize))
+		// Window Maximize
 		{
-			GetEngine().GetWindow()->Maximize();
+			const Vector2 pos = editorInput.GetMousePosition();
+			
+			if (ImGui::IsMouseDoubleClicked(0) && (pos > TitleBarDragPosition && pos < TitleBarDragPosition + TitleBarDragSize))
+			{
+				GetEngine().GetWindow()->Maximize();
+			}
 		}
 
 		static int frameCount = 0;
@@ -329,8 +348,7 @@ void MainMenuWidget::Render()
 			GetEngine().GetWindow()->Minimize();
 		}
 
-#if ME_PLATFORM_WIN64
-		if (static_cast<EditorWindow*>(GetEngine().GetWindow())->IsMaximized())
+		if (GetEngine().GetWindow()->IsMaximized())
 		{
 			ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 2.f) + RightShift);
 			if (ImGui::ImageButton(Icons["ExitMaximize"]->TexHandle, ImVec2(30.f, 30.f)))
@@ -339,7 +357,6 @@ void MainMenuWidget::Render()
 			}
 		}
 		else
-#endif
 		{
 			ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 2.f) + RightShift);
 			if (ImGui::ImageButton(Icons["Maximize"]->TexHandle, ImVec2(30.f, 30.f)))

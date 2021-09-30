@@ -51,8 +51,10 @@ public:
 	virtual void Minimize() final;
 	virtual void ExitMaximize() final;
 	virtual bool IsFullscreen() final;
+	virtual bool IsMaximized() final;
 	void OnWindowSizeChanged(Vector2 newSize);
 
+	virtual void SetBorderless(bool isBorderless) final {};
 
 	virtual void Exit() override;
 

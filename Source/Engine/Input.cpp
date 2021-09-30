@@ -12,7 +12,6 @@
 #include "Engine.h"
 #include <Window/IWindow.h>
 #include <Window/SDLWindow.h>
-#include <Window/EditorWindow.h>
 
 #pragma region Class
 
@@ -73,19 +72,6 @@ void Input::Update()
 		int relativeMouse[2] = {0, 0};
 		SDL_GetRelativeMouseState(&relativeMouse[0], &relativeMouse[1]);
 		RelativeMousePosition = Vector2(relativeMouse[0], relativeMouse[1]);
-		if (WantsToCaptureMouse)
-		{
-			if (!GameWindow)
-			{
-				GameWindow = GetEngine().GetWindow();
-			}
-#if ME_EDITOR
-			auto win = static_cast<EditorWindow*>(GameWindow)->WindowHandle;
-#else
-			auto win = static_cast<SDLWindow*>(GameWindow)->WindowHandle;
-#endif
-			SDL_WarpMouseInWindow(win, GameWindow->GetSize().x / 2.f, GameWindow->GetSize().y / 2.f);
-		}
 	}
 }
 
@@ -130,11 +116,18 @@ Vector2 Input::GetRelativeMousePosition() const
 
 void Input::SetMousePosition(const Vector2& InPosition)
 {
+	// this just needs to be redone generically, too lazy atm
 	if (CaptureInput)
 	{
 #if ME_EDITOR && ME_PLATFORM_WIN64
-		Vector2 pos = Offset + InPosition;
-		SetCursorPos(static_cast<int>(pos.x), static_cast<int>(pos.y));
+		if (!GameWindow)
+		{
+			GameWindow = GetEngine().GetWindow();
+		}
+		auto win = static_cast<SDLWindow*>(GameWindow)->WindowHandle;
+		SDL_WarpMouseInWindow(win, GameWindow->GetSize().x / 2.f, GameWindow->GetSize().y / 2.f);
+		//Vector2 pos = Offset + InPosition;
+		//SetCursorPos(static_cast<int>(pos.x), static_cast<int>(pos.y));
 #endif
 	}
 }
@@ -156,14 +149,14 @@ void Input::SetMouseCapture(bool Capture)
 		if (Capture)
 		{
 			SDL_SetRelativeMouseMode(SDL_TRUE);
-			SDL_CaptureMouse(SDL_TRUE);
-			SDL_ShowCursor(SDL_DISABLE);
+			//SDL_CaptureMouse(SDL_TRUE);
+			//SDL_ShowCursor(SDL_DISABLE);
 		}
 		else
 		{
 			SDL_SetRelativeMouseMode(SDL_FALSE);
-			SDL_CaptureMouse(SDL_FALSE);
-			SDL_ShowCursor(SDL_ENABLE);
+			//SDL_CaptureMouse(SDL_FALSE);
+			//SDL_ShowCursor(SDL_ENABLE);
 		}
 	}
 	WantsToCaptureMouse = Capture;

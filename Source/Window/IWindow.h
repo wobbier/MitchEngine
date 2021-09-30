@@ -12,6 +12,7 @@ public:
 	virtual Vector2 GetPosition() = 0;
 
 	virtual bool IsFullscreen() = 0;
+	virtual bool IsMaximized() = 0;
 
 	virtual void Maximize() = 0;
 	virtual void Minimize() = 0;
@@ -19,4 +20,6 @@ public:
 	virtual void SetTitle(const std::string& title) = 0;
 	virtual void Exit() = 0;
 	virtual void* GetWindowPtr() = 0;
+
+	virtual void SetBorderless(bool isBorderless) = 0;
 };
