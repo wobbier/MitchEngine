@@ -35,6 +35,7 @@ Transform::~Transform()
 	{
 		ParentTransform->RemoveChild(shared_from_this().get());
 	}
+	ParentTransform = nullptr;
 }
 
 void Transform::SetPosition(Vector3 NewPosition)

@@ -56,9 +56,9 @@ void PropertiesWidget::Render()
 	ImGui::Begin("Properties", &IsOpen);
 	{
 		EntityHandle entity = SelectedEntity;
-		if (SelectedTransform != nullptr)
+		if (SelectedTransform.lock())
 		{
-			entity = SelectedTransform->Parent;
+			entity = SelectedTransform.lock()->Parent;
 		}
 
 		if (entity)
@@ -67,13 +67,13 @@ void PropertiesWidget::Render()
 			entity->OnEditorInspect();
 			if (entity->HasComponent<Transform>())
 			{
-				SelectedTransform = &entity->GetComponent<Transform>();
-				DrawComponentProperties(SelectedTransform, entity);
+				SelectedTransform = entity->GetComponent<Transform>().shared_from_this();
+				DrawComponentProperties(SelectedTransform.lock().get(), entity);
 			}
 
 			for (BaseComponent* comp : entity->GetAllComponents())
 			{
-				if (comp != SelectedTransform)
+				if (comp != SelectedTransform.lock().get())
 				{
 					DrawComponentProperties(comp, entity);
 				}
@@ -109,7 +109,7 @@ void PropertiesWidget::DrawComponentProperties(BaseComponent* comp, EntityHandle
 
 void PropertiesWidget::ClearSelection()
 {
-	SelectedTransform = nullptr;
+	SelectedTransform.reset();
 	SelectedEntity = EntityHandle();
 	SelectedCore = nullptr;
 }

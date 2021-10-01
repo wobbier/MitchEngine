@@ -109,9 +109,9 @@ void SceneHierarchyWidget::Render()
 		OPTICK_CATEGORY("Entity List", Optick::Category::GameLogic);
 		if (ImGui::IsWindowFocused())
 		{
-			if (SelectedTransform && GetEngine().GetEditorInput().IsKeyDown(KeyCode::Delete))
+			if (SelectedTransform.lock() && GetEngine().GetEditorInput().IsKeyDown(KeyCode::Delete))
 			{
-				CommonUtils::RecusiveDelete(SelectedTransform->Parent, SelectedTransform);
+				CommonUtils::RecusiveDelete(SelectedTransform.lock()->Parent, SelectedTransform.lock().get());
 				ClearInspectEvent evt;
 				evt.Fire();
 			}
@@ -208,7 +208,7 @@ void SceneHierarchyWidget::UpdateWorldRecursive(Transform* root)
 		}
 		Transform* var = child.get();
 		bool open = false;
-		ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | (SelectedTransform == var ? ImGuiTreeNodeFlags_Selected : 0);
+		ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | (SelectedTransform.lock().get() == var ? ImGuiTreeNodeFlags_Selected : 0);
 		if (var->GetChildren().empty())
 		{
 			node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen; // ImGuiTreeNodeFlags_Bullet
@@ -216,7 +216,7 @@ void SceneHierarchyWidget::UpdateWorldRecursive(Transform* root)
 			if (ImGui::IsItemClicked())
 			{
 				InspectEvent evt;
-				evt.SelectedTransform = var;
+				evt.SelectedTransform = child;
 				evt.SelectedEntity = var->Parent;
 				evt.Fire();
 			}
@@ -256,7 +256,7 @@ void SceneHierarchyWidget::UpdateWorldRecursive(Transform* root)
 			if (ImGui::IsItemClicked())
 			{
 				InspectEvent evt;
-				evt.SelectedTransform = var;
+				evt.SelectedTransform = child;
 				evt.SelectedEntity = var->Parent;
 				evt.Fire();
 			}
@@ -329,7 +329,7 @@ void SceneHierarchyWidget::DrawEntityRightClickMenu(Transform* transform)
 
 void SceneHierarchyWidget::ClearSelection()
 {
-	SelectedTransform = nullptr;
+	SelectedTransform.reset();
 	SelectedEntity = EntityHandle();
 	SelectedCore = nullptr;
 }

@@ -6,7 +6,7 @@ class SaveSceneEvent
 	: public Event<SaveSceneEvent>
 {
 public:
-	bool thing = false;
+	bool SaveAs = false;
 };
 
 class NewSceneEvent

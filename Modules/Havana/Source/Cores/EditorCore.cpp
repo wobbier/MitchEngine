@@ -222,11 +222,13 @@ bool EditorCore::OnEvent(const BaseEvent& evt)
 {
 	if (evt.GetEventId() == SaveSceneEvent::GetEventId())
 	{
-		if (GetEngine().CurrentScene->IsNewScene())
+		const SaveSceneEvent& event = static_cast<const SaveSceneEvent&>(evt);
+		if (GetEngine().CurrentScene->IsNewScene() || event.SaveAs)
 		{
 			RequestAssetSelectionEvent evt([this](const Path& inPath) {
 				GetEngine().CurrentScene->Save(inPath.LocalPath, RootTransform);
-				GetEngine().GetConfig().SetValue(std::string("CurrentScene"), GetEngine().CurrentScene->FilePath.LocalPath);
+				GetEngine().GetConfig().SetValue(std::string("CurrentScene"), inPath.LocalPath);
+				GetEngine().GetConfig().Save();
 				}, AssetType::Level, true);
 			evt.Fire();
 		}
@@ -234,6 +236,7 @@ bool EditorCore::OnEvent(const BaseEvent& evt)
 		{
 			GetEngine().CurrentScene->Save(GetEngine().CurrentScene->FilePath.LocalPath, RootTransform);
 			GetEngine().GetConfig().SetValue(std::string("CurrentScene"), GetEngine().CurrentScene->FilePath.LocalPath);
+			GetEngine().GetConfig().Save();
 		}
 		return true;
 	}

@@ -12,7 +12,7 @@ public:
 	std::string GetValue(const std::string& value);
 	const json& GetJsonObject(const std::string& value);
 
-	void SetValue(const std::string& key, std::string& newVal);
+	void SetValue(const std::string& key, const std::string& newVal);
 
 	void Save();
 

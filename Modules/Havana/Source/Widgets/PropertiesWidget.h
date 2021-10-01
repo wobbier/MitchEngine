@@ -32,7 +32,7 @@ public:
 	void AddComponentPopup(EntityHandle inSelectedEntity);
 
 	EntityHandle SelectedEntity;
-	class Transform* SelectedTransform = nullptr;
+	WeakPtr<Transform> SelectedTransform;
 	class BaseCore* SelectedCore = nullptr;
 };
 

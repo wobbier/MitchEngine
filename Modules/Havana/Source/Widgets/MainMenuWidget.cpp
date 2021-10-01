@@ -82,12 +82,28 @@ void MainMenuWidget::Update()
 void MainMenuWidget::Render()
 {
 	bool RequestLoadScene = false;
+	bool RequestSaveScene = false;
+	bool RequestSaveAsScene = false;
+
 	auto& input = Editor->GetInput();
 	if ((input.IsKeyDown(KeyCode::LeftControl) || input.IsKeyDown(KeyCode::RightControl))
 		&& input.WasKeyPressed(KeyCode::O))
 	{
 		RequestLoadScene = true;
 	}
+
+	// Saving hotkeys
+	if ((input.IsKeyDown(KeyCode::LeftControl) && input.IsKeyDown(KeyCode::LeftShift))
+		&& input.WasKeyPressed(KeyCode::S))
+	{
+		RequestSaveAsScene = true;
+	}
+	else if (input.IsKeyDown(KeyCode::LeftControl)
+		&& input.WasKeyPressed(KeyCode::S))
+	{
+		RequestSaveScene = true;
+	}
+
 	OPTICK_CATEGORY("Main Menu Bar", Optick::Category::Debug);
 	ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0.0f, 12.f));
 	if (ImGui::BeginMainMenuBar())
@@ -124,8 +140,13 @@ void MainMenuWidget::Render()
 				}
 
 			}
-			//if (ImGui::MenuItem("Save As..")) {}
-			//ImGui::Separator();
+			if (ImGui::MenuItem("Save As..", "Ctrl+Shift+S"))
+			{
+				SaveSceneEvent evt;
+				evt.SaveAs = true;
+				evt.Fire();
+			}
+			ImGui::Separator();
 
 			if (ImGui::MenuItem("Quit", "Alt+F4"))
 			{
@@ -431,6 +452,19 @@ void MainMenuWidget::Render()
 
 			GetEngine().GetConfig().SetValue(std::string("CurrentScene"), GetEngine().CurrentScene->FilePath.LocalPath);
 			}, AssetType::Level);
+		evt.Fire();
+	}
+
+	if (RequestSaveScene)
+	{
+		SaveSceneEvent evt;
+		evt.Fire();
+	}
+
+	if (RequestSaveAsScene)
+	{
+		SaveSceneEvent evt;
+		evt.SaveAs = true;
 		evt.Fire();
 	}
 }

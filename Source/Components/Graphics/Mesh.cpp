@@ -34,7 +34,7 @@ Mesh::Mesh(Moonlight::MeshType InType, Moonlight::Material* InMaterial)
 {
 	if (InMaterial)
 	{
-		MeshMaterial = MeshReferece->MeshMaterial->CreateInstance();
+		MeshMaterial = InMaterial->CreateInstance();
 		MeshMaterial->Init();
 	}
 }

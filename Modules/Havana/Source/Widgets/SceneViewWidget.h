@@ -3,6 +3,7 @@
 #include <Camera/CameraData.h>
 #include "Events/EventReceiver.h"
 #include <ImGuizmo.h>
+#include <Pointers.h>
 
 #if ME_EDITOR
 
@@ -48,7 +49,7 @@ public:
 	Vector2 SceneViewRenderSize;
 	Vector2 SceneViewRenderLocation;
 
-	Transform* SelectedTransform = nullptr;
+	WeakPtr<Transform> SelectedTransform;
 
 	DisplayParams CurrentDisplayParams;
 private:

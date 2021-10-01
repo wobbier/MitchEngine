@@ -13,8 +13,6 @@ namespace Moonlight { struct FrameBuffer; }
 
 namespace Moonlight
 {
-
-
 	enum TextureType
 	{
 		Diffuse = 0,

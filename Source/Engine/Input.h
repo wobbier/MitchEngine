@@ -437,6 +437,7 @@ public:
 	void SetMouseOffset(const Vector2& InOffset);
 
 	bool IsMouseButtonDown(MouseButton mouseButton);
+	bool WasMouseButtonPressed(MouseButton mouseButton);
 
     // Keyboard
 	bool IsKeyDown(KeyCode key);

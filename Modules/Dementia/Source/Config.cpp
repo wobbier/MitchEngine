@@ -40,7 +40,7 @@ const json& Config::GetJsonObject(const std::string& value)
 	return Root;
 }
 
-void Config::SetValue(const std::string& key, std::string& newVal)
+void Config::SetValue(const std::string& key, const std::string& newVal)
 {
 	Root[key] = newVal;
 }

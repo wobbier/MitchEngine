@@ -101,7 +101,7 @@ bool SceneViewWidget::OnEvent(const BaseEvent& evt)
 {
 	if (evt.GetEventId() == ClearInspectEvent::GetEventId())
 	{
-		SelectedTransform = nullptr;
+		SelectedTransform.reset();
 	}
 	else if (evt.GetEventId() == InspectEvent::GetEventId())
 	{
@@ -109,11 +109,11 @@ bool SceneViewWidget::OnEvent(const BaseEvent& evt)
 
 		const EntityHandle& selectedEntity = event.SelectedEntity;
 		SelectedTransform = event.SelectedTransform;
-		if (!SelectedTransform && selectedEntity)
+		if (!SelectedTransform.lock() && selectedEntity)
 		{
 			if (selectedEntity->HasComponent<Transform>())
 			{
-				SelectedTransform = &selectedEntity->GetComponent<Transform>();
+				SelectedTransform = selectedEntity->GetComponent<Transform>().shared_from_this();
 			}
 		}
 	}
@@ -344,7 +344,7 @@ void SceneViewWidget::DrawGuizmo()
 	ImGui::SetCursorPos(ImVec2(5.f, 45.f));
 
 	ImGuizmo::SetRect(SceneViewRenderLocation.x, SceneViewRenderLocation.y, SceneViewRenderSize.x, SceneViewRenderSize.y);
-	if (SelectedTransform)
+	if (SelectedTransform.lock())
 	{
 		ImGuiIO& io = ImGui::GetIO();
 		bool isPerspective = MainCamera->Projection == Moonlight::ProjectionType::Perspective;
@@ -370,7 +370,7 @@ void SceneViewWidget::DrawGuizmo()
 		ImGuizmo::SetID(0);
 		ImGui::SetCursorPos({ 0, 0 });
 
-		float* matrix = &SelectedTransform->GetMatrix().GetInternalMatrix()[0].x;
+		float* matrix = &SelectedTransform.lock()->GetMatrix().GetInternalMatrix()[0].x;
 
 		Vector3 currentPos, currentRot, currentScale;
 		ImGuizmo::DecomposeMatrixToComponents(matrix, &currentPos.x, &currentRot.x, &currentScale.x);
@@ -386,15 +386,15 @@ void SceneViewWidget::DrawGuizmo()
 		ImGuizmo::DecomposeMatrixToComponents(matrix, &modifiedPos.x, &modifiedRot.x, &modifiedScale.x);
 		if (currentPos != modifiedPos)
 		{
-			SelectedTransform->SetWorldPosition(modifiedPos);
+			SelectedTransform.lock()->SetWorldPosition(modifiedPos);
 		}
 		if (currentRot != modifiedRot)
 		{
-			SelectedTransform->SetRotation(modifiedRot);
+			SelectedTransform.lock()->SetRotation(modifiedRot);
 		}
 		if (currentScale != modifiedScale)
 		{
-			SelectedTransform->SetScale(modifiedScale);
+			SelectedTransform.lock()->SetScale(modifiedScale);
 		}
 	}
 }

@@ -9,6 +9,7 @@
 #include <bimg/decode.h>
 #include <bx/allocator.h>
 #include <Utils/HavanaUtils.h>
+#include <Device/FrameBuffer.h>
 
 static void imageReleaseCb(void* _ptr, void* _userData)
 {
@@ -33,6 +34,7 @@ namespace Moonlight
 
 	Texture::Texture(Moonlight::FrameBuffer* InFilePath, WrapMode mode /*= WrapMode::Wrap*/)
 		: Resource(Path(""))
+		, TexHandle(BGFX_INVALID_HANDLE)
 	{
 	}
 
@@ -98,7 +100,7 @@ namespace Moonlight
 
 	void Texture::UpdateBuffer(FrameBuffer* NewBuffer)
 	{
-		//ShaderResourceView = NewBuffer->ShaderResourceView.Get();
+		TexHandle = NewBuffer->Texture;
 	}
 
 	std::string Texture::ToString(TextureType type)

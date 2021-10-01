@@ -172,4 +172,9 @@ bool Input::IsMouseButtonDown(MouseButton mouseButton)
 	return MouseState & SDL_BUTTON((uint32_t)mouseButton);
 }
 
+bool Input::WasMouseButtonPressed(MouseButton mouseButton)
+{
+	return IsMouseButtonDown(mouseButton) && !(PreviousMouseState & SDL_BUTTON((uint32_t)mouseButton));
+}
+
 #pragma endregion

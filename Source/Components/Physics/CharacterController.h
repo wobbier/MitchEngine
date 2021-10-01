@@ -19,9 +19,9 @@ public:
 	CharacterController();
 	~CharacterController();
 
-	float Deceleration = 0.1f;
-	float MaxSpeed = 5.f;
-	float JumpForce = 10.f;
+	float Deceleration = 7.f;
+	float MaxSpeed = 100.f;
+	float JumpForce = 20.f;
 
 	float JumpRechargeTime = 0.5f;
 
