@@ -31,6 +31,10 @@
 #include <Widgets/PropertiesWidget.h>
 #include <Widgets/AssetPreviewWidget.h>
 #include <BGFXRenderer.h>
+#include <Window/SDLWindow.h>
+#include <backends/imgui_impl_sdl.h>
+
+static SDL_Cursor* g_imgui_to_sdl_cursor[ImGuiMouseCursor_COUNT];
 
 Havana::Havana(Engine* GameEngine, EditorApp* app)
 	: m_engine(GameEngine)
@@ -99,6 +103,14 @@ Havana::Havana(Engine* GameEngine, EditorApp* app)
 	InitUI();
 }
 
+Havana::~Havana()
+{
+	for (ImGuiMouseCursor imgui_cursor = 0; imgui_cursor < ImGuiMouseCursor_COUNT; imgui_cursor++)
+	{
+		SDL_FreeCursor(g_imgui_to_sdl_cursor[imgui_cursor]);
+	}
+}
+
 void Havana::InitUI()
 {
 	EngineConfigFilePath = Path("Assets/Config/imgui.cfg");
@@ -109,6 +121,14 @@ void Havana::InitUI()
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 	io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
 	//io.MouseDrawCursor = true;
+
+	g_imgui_to_sdl_cursor[ImGuiMouseCursor_Arrow] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW);
+	g_imgui_to_sdl_cursor[ImGuiMouseCursor_TextInput] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_IBEAM);
+	g_imgui_to_sdl_cursor[ImGuiMouseCursor_Hand] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_HAND);
+	g_imgui_to_sdl_cursor[ImGuiMouseCursor_ResizeNS] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZENS);
+	g_imgui_to_sdl_cursor[ImGuiMouseCursor_ResizeEW] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZEWE);
+	g_imgui_to_sdl_cursor[ImGuiMouseCursor_ResizeNESW] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZENESW);
+	g_imgui_to_sdl_cursor[ImGuiMouseCursor_ResizeNWSE] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZENWSE);
 
 	ImVec4* colors = ImGui::GetStyle().Colors;
 	colors[ImGuiCol_Text] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
@@ -316,6 +336,9 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 
 		FrameProfile::GetInstance().Render(position, size);
 	}
+
+	SDL_Cursor* cursor = g_imgui_to_sdl_cursor[ImGui::GetMouseCursor()];
+	SDL_SetCursor(g_imgui_to_sdl_cursor[ImGui::GetMouseCursor()]);
 }
 
 void Havana::SetWindowTitle(const std::string& title)

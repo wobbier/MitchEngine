@@ -1,6 +1,7 @@
 #include "AssetBrowser.h"
 #include <filesystem>
 #include "imgui.h"
+#include "misc/cpp/imgui_stdlib.h"
 #include <stack>
 #include "Path.h"
 #include "Resource/ResourceCache.h"
@@ -224,6 +225,7 @@ void AssetBrowserWidget::Render()
 		}
 		{
 			static float wOffset = 350.0f;
+			static float hOffset = 0.f;
 			static float h = ImGui::GetContentRegionAvail().y;
 			float w = 0.f;
 			if (!IsMetaPanelOpen)
@@ -233,8 +235,9 @@ void AssetBrowserWidget::Render()
 			else
 			{
 				w = ImGui::GetContentRegionAvailWidth() - wOffset;
+				//h = ImGui::GetContentRegionAvail().y - hOffset;
 			}
-			h = ImGui::GetContentRegionAvail().y;
+			h = ImGui::GetContentRegionAvail().y - hOffset;
 			//ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
 			ImGui::BeginChild("child1", ImVec2(w, h), true);
 			DrawAssetTable();
@@ -282,6 +285,40 @@ void AssetBrowserWidget::Render()
 			else
 			{
 				TryDestroyMetaFile();
+			}
+
+			if (IsRequestingSave)
+			{
+				ImGui::InvisibleButton("##Spacer", {-1.f, 2.f});
+				hOffset = 75.f;
+				ImGui::Text("Name");
+				ImGui::SameLine();
+				ImGui::SetNextItemWidth(ImGui::GetContentRegionAvailWidth());
+				ImGui::InputText("##Name", &SavedName);
+				float buttonSize = ImGui::GetContentRegionAvailWidth() / 2.f;
+				ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(2.f / 7.0f, 0.6f, 0.6f));
+				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(2.f / 7.0f, 0.7f, 0.7f));
+				ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)ImColor::HSV(2.f / 7.0f, 0.8f, 0.8f));
+				if (ImGui::Button("Save", { buttonSize - 5.f,  26.f }))
+				{
+					AssetSelectedCallback(Path(SavedName));
+					RequestOverlay();
+				}
+				ImGui::PopStyleColor(3);
+
+				ImGui::SameLine();
+
+				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(.0f, 0.7f, 0.7f));
+				ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)ImColor::HSV(.0f, 0.8f, 0.8f));
+				if (ImGui::Button("Cancel", { buttonSize - 5.f,  26.f }))
+				{
+					RequestOverlay();
+				}
+				ImGui::PopStyleColor(2);
+			}
+			else
+			{
+				hOffset = 0.f;
 			}
 		}
 
@@ -452,6 +489,7 @@ void AssetBrowserWidget::DrawAssetTable()
 					{
 						SelectedAsset = item;
 						CurrentlyFocusedAssetType = item->Type;
+						SavedName = SelectedAsset->FullPath.LocalPath;
 						if(CurrentlyFocusedAsset)
 						{
 							CurrentlyFocusedAsset = nullptr;
@@ -597,7 +635,7 @@ void AssetBrowserWidget::RefreshMetaPanel(const Path& item)
 	}
 }
 
-void AssetBrowserWidget::RequestOverlay(const std::function<void(Path)> cb, AssetType forcedType)
+void AssetBrowserWidget::RequestOverlay(const std::function<void(Path)> cb, AssetType forcedType, bool isRequestingSave)
 {
 	if (cb)
 	{
@@ -610,7 +648,8 @@ void AssetBrowserWidget::RequestOverlay(const std::function<void(Path)> cb, Asse
 	ForcedAssetFilter = forcedType;
 	AssetSelectedCallback = cb;
 	items_need_filtered = IsOpen;
-
+	SavedName = "";
+	IsRequestingSave = isRequestingSave;
 	if(IsOpen && IsMetaPanelOpen && SelectedAsset)
 	{
 		RefreshMetaPanel(SelectedAsset->FullPath);
@@ -622,7 +661,7 @@ bool AssetBrowserWidget::OnEvent(const BaseEvent& evt)
 	if (evt.GetEventId() == RequestAssetSelectionEvent::GetEventId())
 	{
 		const RequestAssetSelectionEvent& event = static_cast<const RequestAssetSelectionEvent&>(evt);
-		RequestOverlay(event.Callback, event.ForcedFilter);
+		RequestOverlay(event.Callback, event.ForcedFilter, event.IsRequestingSave);
 	}
 	return false;
 }

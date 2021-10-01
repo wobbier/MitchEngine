@@ -62,7 +62,7 @@ public:
 
 	void DrawAssetTable();
 
-	void RequestOverlay(const std::function<void(Path)> cb = nullptr, AssetType forcedType = AssetType::Unknown);
+	void RequestOverlay(const std::function<void(Path)> cb = nullptr, AssetType forcedType = AssetType::Unknown, bool isRequestingSave = false);
 	void Recursive(Directory& dir);
 	void ProccessDirectory(const std::filesystem::directory_entry& file, Directory& dirRef);
 	void BuildAssets();
@@ -103,6 +103,8 @@ private:
 	bool pendingAssetListRefresh = false;
 	AssetType CurrentlyFocusedAssetType = AssetType::Unknown;
 	SharedPtr<Resource> CurrentlyFocusedAsset = nullptr;
+	std::string SavedName;
+	bool IsRequestingSave = false;
 	};
 
 #endif

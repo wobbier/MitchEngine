@@ -29,6 +29,7 @@ class Havana
 {
 public:
 	Havana(class Engine* GameEngine, class EditorApp* app);
+	~Havana();
 
 	void InitUI();
 	void NewFrame();

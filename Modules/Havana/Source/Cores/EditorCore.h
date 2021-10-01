@@ -38,7 +38,6 @@ public:
 	SharedPtr<Transform> GetEditorCameraTransform() const;
 
 private:
-	bool m_isTryingToSaveNewScene = false;
 	float m_flyingSpeed = 5.f;
 
 	float m_lookSensitivity = .15f;

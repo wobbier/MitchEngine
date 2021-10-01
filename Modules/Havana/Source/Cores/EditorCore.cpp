@@ -216,22 +216,6 @@ void EditorCore::Update(float dt, Transform* rootTransform)
 	RootTransform = rootTransform;
 
 	Update(dt);
-
-	if (m_isTryingToSaveNewScene)
-	{
-		ImGui::OpenPopup("SaveNewScenePopup");
-		if (ImGui::BeginPopup("SaveNewScenePopup"))
-		{
-			char output[256] = "";
-			if (ImGui::InputText("Destination", output, IM_ARRAYSIZE(output), ImGuiInputTextFlags_EnterReturnsTrue))
-			{
-				GetEngine().CurrentScene->Save(output, rootTransform);
-				GetEngine().GetConfig().SetValue(std::string("CurrentScene"), GetEngine().CurrentScene->FilePath.LocalPath);
-				m_isTryingToSaveNewScene = false;
-			}
-			ImGui::EndPopup();
-		}
-	}
 }
 
 bool EditorCore::OnEvent(const BaseEvent& evt)
@@ -240,7 +224,11 @@ bool EditorCore::OnEvent(const BaseEvent& evt)
 	{
 		if (GetEngine().CurrentScene->IsNewScene())
 		{
-			m_isTryingToSaveNewScene = true;
+			RequestAssetSelectionEvent evt([this](const Path& inPath) {
+				GetEngine().CurrentScene->Save(inPath.LocalPath, RootTransform);
+				GetEngine().GetConfig().SetValue(std::string("CurrentScene"), GetEngine().CurrentScene->FilePath.LocalPath);
+				}, AssetType::Level, true);
+			evt.Fire();
 		}
 		else
 		{
