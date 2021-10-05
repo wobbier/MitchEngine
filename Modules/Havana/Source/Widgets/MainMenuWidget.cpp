@@ -450,7 +450,7 @@ void MainMenuWidget::Render()
 			evt.Level = selectedAsset.LocalPath;
 			evt.Fire();
 
-			GetEngine().GetConfig().SetValue(std::string("CurrentScene"), GetEngine().CurrentScene->FilePath.LocalPath);
+			GetEngine().GetConfig().SetValue(std::string("CurrentScene"), selectedAsset.LocalPath);
 			}, AssetType::Level);
 		evt.Fire();
 	}

@@ -57,7 +57,6 @@ void AudioSource::Stop(bool immediate)
 bool AudioSource::IsPlaying() const
 {
 #ifdef FMOD_ENABLED
-	FMOD_OPENSTATE mode;
 	bool isPlaying;
 	return (ChannelHandle && ChannelHandle->isPlaying(&isPlaying) == FMOD_OK && isPlaying);
 #else

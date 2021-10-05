@@ -304,7 +304,7 @@ void SceneViewWidget::Render()
 
 	IsFocused = ImGui::IsWindowFocused();
 
-	Moonlight::FrameBuffer* currentView = MainCamera->Buffer;
+	Moonlight::FrameBuffer* currentView = (MainCamera) ? MainCamera->Buffer : nullptr;
 
 	if (currentView && bgfx::isValid(currentView->Buffer))
 	{

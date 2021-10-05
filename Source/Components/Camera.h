@@ -24,7 +24,7 @@ public:
 	Vector2 OutputSize;
 	Vector3 ClearColor;
 	float Zoom = 45.0f;
-	float Yaw = -90.f;
+	float Yaw = 0.f;
 	float Pitch = 0.f;
 	float Roll = 0.f;
 	float OrthographicSize = 50.f;

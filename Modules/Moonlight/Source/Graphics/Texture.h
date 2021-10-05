@@ -37,8 +37,8 @@ namespace Moonlight
 	public:
 		TextureType Type;
 
-		int mWidth;
-		int mHeight;
+		int mWidth = 1920;
+		int mHeight = 1080;
 		int mChannels;
 		Texture() = delete;
 		Texture(const Path& InFilePath, WrapMode mode = WrapMode::Wrap);

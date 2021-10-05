@@ -77,7 +77,14 @@ void Input::Update()
 
 void Input::PostUpdate()
 {
-	PreviousKeyboardState = static_cast<const uint8_t*>(memcpy((void*)PreviousKeyboardState, (void*)KeyboardState, sizeof(uint8_t) * SDL_NUM_SCANCODES));
+	if (CaptureInput)
+	{
+		PreviousKeyboardState = static_cast<const uint8_t*>(memcpy((void*)PreviousKeyboardState, (void*)KeyboardState, sizeof(uint8_t) * SDL_NUM_SCANCODES));
+	}
+	else
+	{
+		PreviousKeyboardState = static_cast<const uint8_t*>(memset((void*)PreviousKeyboardState, 0, sizeof(uint8_t) * SDL_NUM_SCANCODES));
+	}
 	PreviousMouseState = MouseState;
 }
 
@@ -87,17 +94,17 @@ void Input::PostUpdate()
 
 bool Input::IsKeyDown(KeyCode key)
 {
-	return KeyboardState[(uint32_t)key];
+	return CaptureInput && KeyboardState[(uint32_t)key];
 }
 
 bool Input::WasKeyPressed(KeyCode key)
 {
-	return !PreviousKeyboardState[(uint32_t)key] && KeyboardState[(uint32_t)key];
+	return CaptureInput && !PreviousKeyboardState[(uint32_t)key] && KeyboardState[(uint32_t)key];
 }
 
 bool Input::WasKeyReleased(KeyCode key)
 {
-	return PreviousKeyboardState[(uint32_t)key] && !KeyboardState[(uint32_t)key];
+	return CaptureInput && PreviousKeyboardState[(uint32_t)key] && !KeyboardState[(uint32_t)key];
 }
 
 #pragma endregion

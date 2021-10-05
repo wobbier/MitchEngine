@@ -167,7 +167,7 @@ struct Vector3
 	inline Vector3 Normalized() const
 	{
 		Vector3 ret(x, y, z);
-		return (ret / Length());
+		return Vector3(ret / Length());
 	}
 
 	inline float Dot(const Vector3& other) const

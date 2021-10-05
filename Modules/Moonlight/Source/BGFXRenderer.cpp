@@ -313,10 +313,11 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 
 			const bx::Vec3 eye = { camera.Position.x, camera.Position.y, camera.Position.z };
 			const bx::Vec3 at = { camera.Position.x + camera.Front.x, camera.Position.y + camera.Front.y, camera.Position.z + camera.Front.z };
+			const bx::Vec3 up = { camera.Up.x, camera.Up.y, camera.Up.z };
 
 			// Set view and projection matrix for view 0.
 			float view[16];
-			bx::mtxLookAt(view, eye, at);
+			bx::mtxLookAt(view, eye, at, up);
 
 			float proj[16];
 			if (camera.Projection == Moonlight::ProjectionType::Perspective)
@@ -508,22 +509,28 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 
 void BGFXRenderer::RenderSingleMesh(bgfx::ViewId id, const Moonlight::MeshCommand& mesh, uint64_t state)
 {
-	if (mesh.Type == Moonlight::Cube)
-	{
-		//// Set model matrix for rendering.
-		//bgfx::setTransform(&mesh.Transform);
+	//if (mesh.Type == Moonlight::Cube)
+	//{
+	//	if (mesh.MeshMaterial)
+	//	{
+	//		// Set model matrix for rendering.
+	//		bgfx::setTransform(&mesh.Transform);
 
-		//// Set vertex and index buffer.
-		//bgfx::setVertexBuffer(0, m_vbh);
-		//bgfx::setIndexBuffer(m_ibh);
+	//		// Set vertex and index buffer.
+	//		bgfx::setVertexBuffer(0, m_vbh);
+	//		bgfx::setIndexBuffer(m_ibh);
 
-		//// Set render states.
-		//bgfx::setState(state);
+	//		mesh.MeshMaterial->Use();
 
-		//// Submit primitive for rendering to view 0.
-		//bgfx::submit(id, UIProgram);
-	}
-	else if (mesh.Type == Moonlight::MeshType::Model)
+	//		// Set render states.
+	//		bgfx::setState(state);
+
+	//		// Submit primitive for rendering to view 0.
+	//		bgfx::submit(id, mesh.MeshMaterial->MeshShader.GetProgram());
+	//	}
+	//}
+	//else 
+	if (mesh.Type == Moonlight::MeshType::Model || mesh.Type == Moonlight::MeshType::Plane || mesh.Type == Moonlight::Cube)
 	{
 		if (!mesh.SingleMesh)
 		{

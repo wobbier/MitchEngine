@@ -20,6 +20,8 @@
 #include "Utils/ImGuiUtils.h"
 #include <Materials/DiffuseMaterial.h>
 #include "Editor/AssetDescriptor.h"
+#include <Primitives/Plane.h>
+#include "Primitives/Cube.h"
 
 Mesh::Mesh()
 	: Component("Mesh")
@@ -36,6 +38,22 @@ Mesh::Mesh(Moonlight::MeshType InType, Moonlight::Material* InMaterial)
 	{
 		MeshMaterial = InMaterial->CreateInstance();
 		MeshMaterial->Init();
+	}
+
+	switch (Type)
+	{
+	case Moonlight::Model:
+		break;
+	case Moonlight::Plane:
+		MeshReferece = new PlaneMesh();
+		break;
+	case Moonlight::Cube:
+		MeshReferece = new Moonlight::CubeMesh();
+		break;
+	case Moonlight::MeshCount:
+		break;
+	default:
+		break;
 	}
 }
 

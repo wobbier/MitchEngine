@@ -254,7 +254,7 @@ bool PhysicsCore::Raycast(const Vector3& InPosition, const Vector3& InDirection,
 		{
 			btVector3 p = from.lerp(to, allResults.m_hitFractions[i]);
 			OutHit.Position = Vector3(p.x(), p.y(), p.z());
-			btVector3& n = allResults.m_hitNormalWorld[i];
+			btVector3 n = allResults.m_hitNormalWorld[i];
 			OutHit.Normal = Vector3(n.x(), n.y(), n.z());
 			//PhysicsWorld->getDebugDrawer()->drawSphere(p, 0.1, red);
 			//PhysicsWorld->getDebugDrawer()->drawLine(p, p + , red);
@@ -281,7 +281,7 @@ bool PhysicsCore::Raycast(const Vector3& InPosition, const Vector3& InDirection,
 
 			btVector3 p = from.lerp(to, closestResults.m_closestHitFraction);
 			OutHit.Position = Vector3(p.x(), p.y(), p.z());
-			btVector3& n = closestResults.m_hitNormalWorld;
+			btVector3 n = closestResults.m_hitNormalWorld;
 			OutHit.Normal = Vector3(n.x(), n.y(), n.z());
 			OutHit.What = static_cast<Rigidbody*>(closestResults.m_collisionObject->getUserPointer());
 			//OutHit.Ray = Line(InDirection, OutHit.What);

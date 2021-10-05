@@ -1,6 +1,8 @@
 #pragma once
+
 #include <bgfx/bgfx.h>
 #include <Graphics/ShaderStructures.h>
+#include "Graphics/MeshData.h"
 
 namespace Moonlight
 {
@@ -32,8 +34,97 @@ namespace Moonlight
 		6, 3, 7,
 	};
 
+	class CubeMesh
+		: public Moonlight::MeshData
+	{
+	public:
+		CubeMesh()
+			: Moonlight::MeshData()
+		{
+			// top left
+			Moonlight::PosNormTexTanBiVertex vert1;
+			vert1.Position = { -1.0f,  1.0f,  1.0f };
+			vert1.TextureCoord = { 0.f,0.f };
+			Vertices.push_back(vert1);
 
-	void screenSpaceQuad(float _textureWidth, float _textureHeight, float _texelHalf, bool _originBottomLeft, float _width = 1.0f, float _height = 1.0f)
+			// bottom left
+			Moonlight::PosNormTexTanBiVertex vert2;
+			vert2.Position = { 1.0f,  1.0f,  1.0f };
+			vert2.TextureCoord = { 0.f,1.f };
+			Vertices.push_back(vert2);
+
+			// top right
+			Moonlight::PosNormTexTanBiVertex vert3;
+			vert3.Position = { -1.0f, -1.0f,  1.0f };
+			vert3.TextureCoord = { 1.f,0.f };
+			Vertices.push_back(vert3);
+
+			// bottom right
+			Moonlight::PosNormTexTanBiVertex vert4;
+			vert4.Position = { 1.0f, -1.0f,  1.0f };
+			vert4.TextureCoord = { 1.f,1.f };
+			Vertices.push_back(vert4);
+
+			{
+				Moonlight::PosNormTexTanBiVertex vert5;
+				vert5.Position = { -1.0f,  1.0f, -1.0f };
+				vert5.TextureCoord = { 1.f,1.f };
+				Vertices.push_back(vert5);
+			}
+			{
+				Moonlight::PosNormTexTanBiVertex vert5;
+				vert5.Position = { 1.0f,  1.0f, -1.0f };
+				vert5.TextureCoord = { 1.f,1.f };
+				Vertices.push_back(vert5);
+			}
+			{
+				Moonlight::PosNormTexTanBiVertex vert5;
+				vert5.Position = { -1.0f, -1.0f, -1.0f };
+				vert5.TextureCoord = { 1.f,1.f };
+				Vertices.push_back(vert5);
+			}
+			{
+				Moonlight::PosNormTexTanBiVertex vert5;
+				vert5.Position = { 1.0f, -1.0f, -1.0f };
+				vert5.TextureCoord = { 1.f,1.f };
+				Vertices.push_back(vert5);
+			}
+
+			Indices = {
+				0, 1, 2, // 0
+				1, 3, 2,
+				4, 6, 5, // 2
+				5, 6, 7,
+				0, 2, 4, // 4
+				4, 2, 6,
+				1, 5, 3, // 6
+				5, 7, 3,
+				0, 4, 1, // 8
+				4, 5, 1,
+				2, 3, 6, // 10
+				6, 3, 7,
+			};
+
+			//VertexPositionTexCoord verts[5];
+			//verts[0].Position = vert1.Position;
+			//verts[1].Position = vert2.Position;
+			//verts[2].Position = vert3.Position;
+			//verts[3].Position = vert4.Position;
+			//verts[4].Position = vert2.Position;
+
+			//verts[0].TexCoord = vert1.TexCoord;
+			//verts[1].TexCoord = vert2.TexCoord;
+			//verts[2].TexCoord = vert3.TexCoord;
+			//verts[3].TexCoord = vert4.TexCoord;
+			//verts[4].TexCoord = vert2.TexCoord;
+			//this->vertices.push_back()
+			//MeshMaterial = std::make_shared<DiffuseMaterial>();
+
+			InitMesh();
+		}
+	};
+
+	static void screenSpaceQuad(float _textureWidth, float _textureHeight, float _texelHalf, bool _originBottomLeft, float _width = 1.0f, float _height = 1.0f)
 	{
 		if (3 == bgfx::getAvailTransientVertexBuffer(3, PosTexCoordVertex::ms_layout))
 		{

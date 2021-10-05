@@ -147,12 +147,13 @@ struct Quaternion
 		}
 		else
 		{
-			//float rotAngle = std::acos(dot);
+			float rotAngle = std::acos(dot);
 			Vector3 rotAxis = Vector3::Front.Cross(forward);
 			rotAxis.Normalize();
 
 			bx::debugBreak();
-			//q = Quaternion(DirectX::XMQuaternionRotationAxis(rotAxis.InternalVec, rotAngle)/*DirectX::SimpleMath::Quaternion::CreateFromAxisAngle(rotAxis.AsXMVEC(), rotAngle)*/);
+			// This needs a func to create from axis angle
+			q = Quaternion(rotAxis, rotAngle);//DirectX::XMQuaternionRotationAxis /*DirectX::SimpleMath::Quaternion::CreateFromAxisAngle(rotAxis.AsXMVEC(), rotAngle)*/);
 		}
 
 		x = q.x;

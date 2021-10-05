@@ -203,23 +203,29 @@ const bool Transform::IsDirty() const
 Matrix4 Transform::GetLocalToWorldMatrix()
 {
 	glm::mat4 id(1.f);
-	id = glm::translate(id, GetPosition().InternalVector);
-	id = glm::rotate(id, GetLocalRotation().ToAngle(), GetLocalRotation().ToAxis().InternalVector);
-	id = glm::scale(id, GetScale().InternalVector);
-
-	if (ParentTransform)
-	{
-		return Matrix4(id * GetParentTransform()->WorldTransform.GetInternalMatrix());
-	}
-	else
-	{
-		return id;
-	}
+	glm::mat4 T = glm::translate(glm::mat4(1.0f), GetPosition().InternalVector);
+	glm::quat R = GetLocalRotation().InternalQuat;
+	glm::mat4 S = glm::scale(glm::mat4(1.0f), GetScale().InternalVector);
+	glm::mat4 P = ParentTransform ? ParentTransform->GetLocalToWorldMatrix().GetInternalMatrix() : glm::mat4(1.0f);
+	//localToWorldMatrix = P * T * toMat4(R) * S;
+	return Matrix4(P * T * glm::mat4_cast(R) * S);
+	//id = glm::scale(id, GetScale().InternalVector);
+	//id = glm::rotate(id, GetLocalRotation().ToAngle(), GetLocalRotation().ToAxis().InternalVector);
+	//id = glm::translate(id, GetPosition().InternalVector);
+	//
+	//if (ParentTransform)
+	//{
+	//	return Matrix4(GetParentTransform()->WorldTransform.GetInternalMatrix() * id);
+	//}
+	//else
+	//{
+	//	return Matrix4(id);
+	//}
 }
 
 Matrix4 Transform::GetWorldToLocalMatrix()
 {
-	return GetMatrix().Inverse();
+	return GetLocalToWorldMatrix().Inverse();
 }
 
 void Transform::Init()
