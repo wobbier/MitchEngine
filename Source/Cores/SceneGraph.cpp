@@ -10,6 +10,8 @@
 #include <Work/JobQueue.h>
 #include <Core/JobQueueOld.h>
 #include <Work/Job.h>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/quaternion.hpp>
 
 SceneGraph::SceneGraph()
 	: Base(ComponentFilter().Requires<Transform>())
@@ -51,9 +53,16 @@ void UpdateRecursively(Transform* CurrentTransform, bool isParentDirty, Job* par
 			{
 				OPTICK_CATEGORY("GLM MAT", Optick::Category::Debug);
 
-				model = glm::translate(model, Child->GetPosition().InternalVector);
-				model = glm::rotate(model, Child->GetLocalRotation().ToAngle(), Child->GetLocalRotation().ToAxis().InternalVector);
-				model = glm::scale(model, Child->GetScale().InternalVector);
+				glm::mat4 T = glm::translate(glm::mat4(1.0f), Child->GetPosition().InternalVector);
+				glm::quat R = Child->GetRotation().InternalQuat;
+				glm::mat4 S = glm::scale(glm::mat4(1.0f), Child->GetScale().InternalVector);
+				glm::mat4 P = CurrentTransform ? CurrentTransform->GetLocalToWorldMatrix().GetInternalMatrix() : glm::mat4(1.0f);
+
+				model = Matrix4(P * T * glm::toMat4(R) * S).GetInternalMatrix();
+
+				//model = glm::translate(model, Child->GetPosition().InternalVector);
+				//model = glm::rotate(model, Child->GetRotation().ToAngle(), Child->GetRotation().ToAxis().InternalVector);
+				//model = glm::scale(model, Child->GetScale().InternalVector);
 			}
 			
 			{
@@ -127,7 +136,7 @@ void SceneGraph::Update(float dt)
 						OPTICK_CATEGORY("Update Transform", Optick::Category::Scene);
 						glm::mat4 model = glm::mat4(1.f);
 						model = glm::translate(model, Child->GetPosition().InternalVector);
-						model = glm::rotate(model, Child->GetLocalRotation().ToAngle(), Child->GetLocalRotation().ToAxis().InternalVector);
+						model = glm::rotate(model, Child->GetRotation().ToAngle(), Child->GetRotation().ToAxis().InternalVector);
 						model = glm::scale(model, Child->GetScale().InternalVector);
 
 						Matrix4 xxx = CurrentTransform->GetMatrix().GetInternalMatrix() * model;

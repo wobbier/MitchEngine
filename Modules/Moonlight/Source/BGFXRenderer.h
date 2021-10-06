@@ -57,7 +57,7 @@ public:
 	CommandCache<Moonlight::DebugColliderCommand>& GetDebugDrawCache();
 
 	// Meshes
-	void UpdateMeshMatrix(unsigned int Id, glm::mat4& matrix);
+	void UpdateMeshMatrix(unsigned int Id, const glm::mat4& matrix);
 	void ClearMeshes();
 	SharedPtr<Moonlight::DynamicSky> GetSky();
 

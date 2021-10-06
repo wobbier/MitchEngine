@@ -23,6 +23,11 @@ public:
 		return m_matrix;
 	}
 
+	const glm::mat4& GetInternalMatrix() const
+	{
+		return m_matrix;
+	}
+
 	Vector3 GetPosition()
 	{
 		return Vector3(m_matrix[3][0]/*_41*/, m_matrix[3][1]/*._42*/, m_matrix[3][2]/*._43*/);
@@ -33,9 +38,21 @@ public:
 		return Quaternion(glm::quat_cast(GetInternalMatrix()));
 	}
 
-	Matrix4 Inverse()
+	Matrix4 Inverse() const
 	{
 		return glm::inverse(GetInternalMatrix());
+	}
+
+	Vector3 TransformVector(const Vector3& inPoint) const
+	{
+		glm::vec4 point = { inPoint.x, inPoint.y, inPoint.z, 0.f };
+		return glm::vec3(m_matrix * point);
+	}
+
+	Vector3 TransformPoint(const Vector3& inPoint) const
+	{
+		glm::vec4 point = {inPoint.x, inPoint.y, inPoint.z, 1.f};
+		return glm::vec3(m_matrix * point);
 	}
 
 	const std::string ToString() const

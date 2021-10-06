@@ -49,4 +49,12 @@ namespace Mathf
 	{
 		return glm::degrees(rads);
 	}
+
+	template<class T>
+	inline auto Sign(T inSign)
+	{
+		if (inSign > 0) return 1;
+		if (inSign < 0) return -1;
+		return 0;
+	}
 }

@@ -102,7 +102,7 @@ void PhysicsCore::Update(float dt)
 					{
 						btTransform trans;
 						Vector3 transPos = TransformComponent.GetPosition();
-						trans.setRotation(btQuaternion(TransformComponent.GetLocalRotation().x, TransformComponent.GetLocalRotation().y, TransformComponent.GetLocalRotation().z, TransformComponent.GetLocalRotation().w));
+						trans.setRotation(btQuaternion(TransformComponent.GetRotation().x, TransformComponent.GetRotation().y, TransformComponent.GetRotation().z, TransformComponent.GetRotation().w));
 						trans.setOrigin(btVector3(transPos.x, transPos.y, transPos.z));
 						rigidbody->setWorldTransform(trans);
 						rigidbody->activate();
@@ -219,7 +219,7 @@ void PhysicsCore::InitRigidbody(Rigidbody& RigidbodyComponent, Transform& Transf
 {
 	if (!RigidbodyComponent.IsRigidbodyInitialized())
 	{
-		RigidbodyComponent.CreateObject(TransformComponent.GetPosition(), TransformComponent.GetLocalRotation(), TransformComponent.GetScale(), PhysicsWorld);
+		RigidbodyComponent.CreateObject(TransformComponent.GetPosition(), TransformComponent.GetRotation(), TransformComponent.GetScale(), PhysicsWorld);
         PhysicsWorld->addRigidBody(RigidbodyComponent.InternalRigidbody);
 		Moonlight::DebugColliderCommand cmd;
 		cmd.Type = Moonlight::Cube;

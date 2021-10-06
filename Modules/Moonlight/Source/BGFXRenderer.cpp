@@ -21,6 +21,7 @@
 #include <Graphics/ModelResource.h>
 #include <Debug/DebugDrawer.h>
 #include <stack>
+#include <Mathf.h>
 
 #if BX_PLATFORM_LINUX
 #define GLFW_EXPOSE_NATIVE_X11
@@ -293,6 +294,48 @@ void BGFXRenderer::SetGuizmoDrawCallback(std::function<void(DebugDrawer*)> Guizm
 	m_guizmoCallback = GuizmoDrawingFunc;
 }
 
+Matrix4 CalculateObliqueMatrix(const Matrix4& projection, const glm::vec4& clipPlane)
+{
+	Matrix4 returnMat = projection.GetInternalMatrix();
+	{
+		glm::vec4 vCamera = {
+		(Mathf::Sign(clipPlane.x) + returnMat.GetInternalMatrix()[2][0]) / returnMat.GetInternalMatrix()[0][0],
+		(Mathf::Sign(clipPlane.y) + returnMat.GetInternalMatrix()[2][1]) / returnMat.GetInternalMatrix()[1][1],
+		1.f,
+		(1.f + returnMat.GetInternalMatrix()[2][2]) / returnMat.GetInternalMatrix()[3][2]
+		};
+
+		float m = 2.f / glm::dot(clipPlane, vCamera);
+		returnMat.GetInternalMatrix()[0][2] = clipPlane.x * m;
+		returnMat.GetInternalMatrix()[1][2] = clipPlane.y * m;
+		returnMat.GetInternalMatrix()[2][2] = clipPlane.z * m;
+		returnMat.GetInternalMatrix()[3][2] = clipPlane.w * m;
+	}
+	/*{
+		glm::vec4 vCamera = {
+		(Mathf::Sign(clipPlane.x) - returnMat.GetInternalMatrix()[0][2]) / returnMat.GetInternalMatrix()[0][0],
+		(Mathf::Sign(clipPlane.y) - returnMat.GetInternalMatrix()[1][2]) / returnMat.GetInternalMatrix()[1][1],
+		1.f,
+		(1.f - returnMat.GetInternalMatrix()[2][2]) / returnMat.GetInternalMatrix()[2][3]
+		};
+
+		float m = 1.f / glm::dot(clipPlane, vCamera);
+		returnMat.GetInternalMatrix()[2][0] = m * clipPlane.x;
+		returnMat.GetInternalMatrix()[2][1] = m * clipPlane.y;
+		returnMat.GetInternalMatrix()[2][2] = m * clipPlane.z;
+		returnMat.GetInternalMatrix()[2][3] = m * clipPlane.w;
+	}*/
+	//{
+	//	glm::vec4 q = projection.Inverse().GetInternalMatrix() * glm::vec4(Mathf::Sign(clipPlane.x), Mathf::Sign(clipPlane.y), 1.f, 1.f);
+	//	glm::vec4 c = clipPlane * (2.f / glm::dot(clipPlane, q));
+	//	returnMat.GetInternalMatrix()[2][0] = c.x - returnMat.GetInternalMatrix()[3][0];
+	//	returnMat.GetInternalMatrix()[2][1] = c.y - returnMat.GetInternalMatrix()[3][1];
+	//	returnMat.GetInternalMatrix()[2][2] = c.z - returnMat.GetInternalMatrix()[3][2];
+	//	returnMat.GetInternalMatrix()[2][3] = c.w - returnMat.GetInternalMatrix()[3][3];
+	//}
+	return returnMat;
+}
+
 void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId id)
 {
 	OPTICK_CATEGORY("Render Camera", Optick::Category::Camera)
@@ -316,19 +359,25 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 			const bx::Vec3 up = { camera.Up.x, camera.Up.y, camera.Up.z };
 
 			// Set view and projection matrix for view 0.
-			float view[16];
-			bx::mtxLookAt(view, eye, at, up);
+			Matrix4 view = camera.View;
+			//bx::mtxLookAt(view, eye, at, up);
 
-			float proj[16];
+			Matrix4 proj;
 			if (camera.Projection == Moonlight::ProjectionType::Perspective)
 			{
-				bx::mtxProj(proj, camera.FOV, float(camera.OutputSize.x) / float(camera.OutputSize.y), std::max(camera.Near, 1.f), camera.Far, bgfx::getCaps()->homogeneousDepth);
+				bx::mtxProj(&proj.GetInternalMatrix()[0][0], camera.FOV, float(camera.OutputSize.x) / float(camera.OutputSize.y), std::max(camera.Near, 1.f), camera.Far, bgfx::getCaps()->homogeneousDepth);
 			}
 			else
 			{
-				bx::mtxOrtho(proj, -(camera.OutputSize.x / camera.OrthographicSize), (camera.OutputSize.x / camera.OrthographicSize), -(camera.OutputSize.y / camera.OrthographicSize), (camera.OutputSize.y / camera.OrthographicSize), camera.Near, camera.Far, 0.f, bgfx::getCaps()->homogeneousDepth);
+				bx::mtxOrtho(&proj.GetInternalMatrix()[0][0], -(camera.OutputSize.x / camera.OrthographicSize), (camera.OutputSize.x / camera.OrthographicSize), -(camera.OutputSize.y / camera.OrthographicSize), (camera.OutputSize.y / camera.OrthographicSize), camera.Near, camera.Far, 0.f, bgfx::getCaps()->homogeneousDepth);
 			}
-			bgfx::setViewTransform(id, view, proj);
+
+			if (camera.IsOblique)
+			{
+				proj = CalculateObliqueMatrix(proj.GetInternalMatrix(), camera.ObliqueData);
+			}
+
+			bgfx::setViewTransform(id, &view.GetInternalMatrix()[0][0], &proj.GetInternalMatrix()[0][0]);
 			if (id > 0)
 			{
 				bgfx::setViewFrameBuffer(id, camera.Buffer->Buffer);
@@ -346,7 +395,7 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 
 			bgfx::touch(id);
 
-			bgfx::setViewTransform(0, view, proj);
+			bgfx::setViewTransform(0, &view.GetInternalMatrix()[0][0], &proj.GetInternalMatrix()[0][0]);
 			if (camera.ClearType == Moonlight::ClearColorType::Procedural)
 			{
 				m_dynamicSky->Draw(id);
@@ -616,7 +665,7 @@ CommandCache<Moonlight::DebugColliderCommand>& BGFXRenderer::GetDebugDrawCache()
 	return m_debugDrawCache;
 }
 
-void BGFXRenderer::UpdateMeshMatrix(unsigned int Id, glm::mat4& matrix)
+void BGFXRenderer::UpdateMeshMatrix(unsigned int Id, const glm::mat4& matrix)
 {
 	if (Id > m_meshCache.Commands.size())
 	{

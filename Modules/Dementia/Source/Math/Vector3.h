@@ -13,8 +13,9 @@ struct Vector3
 		glm::vec3 InternalVector;
 	};
 
-	static const Vector3 Up;
+	static const Vector3 Right;
 	static const Vector3 Front;
+	static const Vector3 Up;
 
 	Vector3()
 		: x(0.f)

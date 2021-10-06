@@ -61,6 +61,17 @@ void CameraCore::Update(float dt)
 			//CamData.CameraFrustum = CameraComponent.CameraFrustum;
 			CamData->UITexture = BGFX_INVALID_HANDLE;
 
+			Vector3 eye = { CamData->Position.x, CamData->Position.y, CamData->Position.z };
+			Vector3 at = { CamData->Position.x + CamData->Front.x, CamData->Position.y + CamData->Front.y, CamData->Position.z + CamData->Front.z };
+			Vector3 up = { CamData->Up.x, CamData->Up.y, CamData->Up.z };
+
+			bx::mtxProj(&CameraComponent.WorldToCamera.GetInternalMatrix()[0][0], CameraComponent.GetFOV(), float(CameraComponent.OutputSize.x) / float(CameraComponent.OutputSize.y), std::max(CameraComponent.Near, 1.f), CameraComponent.Far, bgfx::getCaps()->homogeneousDepth);
+			CamData->IsOblique = CameraComponent.isOblique;
+			CamData->ObliqueData = CameraComponent.ObliqueMatData;
+			CamData->View = glm::lookAtLH(eye.InternalVector, at.InternalVector, up.InternalVector);
+			CamData->ProjectionMatrix = CameraComponent.WorldToCamera;
+
+			CameraComponent.WorldToCamera = CamData->View;// CamData->ProjectionMatrix.GetInternalMatrix()* CamData->View.GetInternalMatrix();
 			GetEngine().GetRenderer().GetCameraCache().Update(CameraComponent.m_id, *CamData);
 		}
 	}
