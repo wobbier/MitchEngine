@@ -4,6 +4,7 @@
 #include "BulletDynamics/Dynamics/btDiscreteDynamicsWorld.h"
 #include "imgui.h"
 #include "Utils/HavanaUtils.h"
+#include "Physics/RigidBodyWithCollisionEvents.h"
 
 Rigidbody::Rigidbody(ColliderType type)
 	: Component("Rigidbody")
@@ -105,11 +106,21 @@ Matrix4 Rigidbody::GetMat()
 	return Matrix4();// transform);
 }
 
+void Rigidbody::SetReceiveEvents(bool inIsEventsEnabled)
+{
+	IsEventsEnabled = inIsEventsEnabled;
+	if (InternalRigidbody)
+	{
+		InternalRigidbody->setMonitorCollisions(IsEventsEnabled);
+	}
+}
+
 void Rigidbody::OnSerialize(json& outJson)
 {
 	outJson["Scale"] = { Scale.x, Scale.y, Scale.z };
 	outJson["ColliderType"] = GetColliderString(Type);
 	outJson["Mass"] = Mass;
+	outJson["IsEventsEnabled"] = IsEventsEnabled;
 }
 
 void Rigidbody::OnDeserialize(const json& inJson)
@@ -135,6 +146,11 @@ void Rigidbody::OnDeserialize(const json& inJson)
 	if (inJson.contains("Mass"))
 	{
 		Mass = inJson["Mass"];
+	}
+
+	if (inJson.contains("IsEventsEnabled"))
+	{
+		IsEventsEnabled = inJson["IsEventsEnabled"];
 	}
 }
 
@@ -166,7 +182,9 @@ void Rigidbody::CreateObject(const Vector3& Position, const Quaternion& Rotation
 		fallShape->calculateLocalInertia(Mass, fallInertia);
 	}
 	btRigidBody::btRigidBodyConstructionInfo fallRigidBodyCI(Mass, fallMotionState, fallShape, fallInertia);
-	InternalRigidbody = new btRigidBody(fallRigidBodyCI);
+	InternalRigidbody = new btRigidBodyWithEvents(fallRigidBodyCI);
+	InternalRigidbody->setMonitorCollisions(IsEventsEnabled);
+
 	InternalRigidbody->setUserPointer(this);
 	InternalRigidbody->setLinearVelocity(PhysicsCore::ToBulletVector(Velocity));
 	IsInitialized = true;
@@ -214,6 +232,14 @@ void Rigidbody::OnEditorInspect()
 
 	HavanaUtils::Label("Mass");
 	ImGui::DragFloat("##Mass", &Mass);
+
+	bool isEventsEnabledTemp = IsEventsEnabled;
+	HavanaUtils::Label("Collision Events");
+	ImGui::Checkbox("##CollisionEvents", &isEventsEnabledTemp);
+	if (isEventsEnabledTemp != IsEventsEnabled)
+	{
+		SetReceiveEvents(isEventsEnabledTemp);
+	}
 }
 
 #endif

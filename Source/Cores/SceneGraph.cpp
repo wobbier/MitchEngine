@@ -104,6 +104,7 @@ void recursiveJob(Job* parent, int currentDepth)
 void SceneGraph::Update(float dt)
 {
 	OPTICK_EVENT("SceneGraph::Update");
+	return;
 
 	auto [worker, pool] = GetEngine().GetJobSystemNew(); 
 

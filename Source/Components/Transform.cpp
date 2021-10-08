@@ -245,7 +245,7 @@ void Transform::SetWorldTransform(Matrix4& NewWorldTransform, bool InIsDirty)
 
 const bool Transform::IsDirty() const
 {
-	return m_isDirty;
+	return IsLocalToWorldDirty || IsWorldToLocalDirty;
 }
 
 const Matrix4& Transform::GetLocalToWorldMatrix()

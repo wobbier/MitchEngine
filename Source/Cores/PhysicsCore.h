@@ -6,11 +6,13 @@
 #include "Components/Physics/Rigidbody.h"
 #include "Components/Transform.h"
 #include "Physics/RaycastHit.h"
+#include "Physics/RigidBodyWithCollisionEvents.h"
 
 class DebugDrawer;
 
 class PhysicsCore
 	: public Core<PhysicsCore>
+	, public ICollisionEvents
 {
 	friend class Core<PhysicsCore>;
 public:
@@ -40,6 +42,9 @@ public:
 
 	bool Raycast(const Vector3& InPosition, const Vector3& InDirection, RaycastHit& OutHit);
 
+	virtual void OnCollisionStart(const btRigidBodyWithEventsEventDelegates* thisBodyA, const btCollisionObject* bodyB, const btVector3& localSpaceContactPoint, const btVector3& worldSpaceContactPoint, const btVector3& worldSpaceContactNormal, const btScalar penetrationDistance, const btScalar appliedImpulse);
+	virtual void OnCollisionContinue(const btRigidBodyWithEventsEventDelegates* thisBodyA, const btCollisionObject* bodyB, const btVector3& localSpaceContactPoint, const btVector3& worldSpaceContactPoint, const btVector3& worldSpaceContactNormal, const btScalar penetrationDistance, const btScalar appliedImpulse);
+	virtual void OnCollisionStop(const btRigidBodyWithEventsEventDelegates* thisBodyA, const btCollisionObject* bodyB, const btVector3& localSpaceContactPoint, const btVector3& worldSpaceContactPoint, const btVector3& worldSpaceContactNormal, const btScalar penetrationDistance, const btScalar appliedImpulse);
 };
 
 ME_REGISTER_CORE(PhysicsCore)
