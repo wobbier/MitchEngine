@@ -212,6 +212,8 @@ void Havana::InitUI()
 	PropertiesView->Init();
 	AssetPreview->Init();
 	AssetBrowser->Init();
+	Input& gameInput = GetEngine().GetInput();
+	gameInput.Stop();
 }
 
 void Havana::NewFrame()

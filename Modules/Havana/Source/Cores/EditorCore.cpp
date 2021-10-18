@@ -70,17 +70,8 @@ void EditorCore::Update(float dt)
 		
 		if (!IsFocusingTransform)
 		{
-			if (input.IsMouseButtonDown(MouseButton::Right) || (input.IsKeyDown(KeyCode::LeftAlt) && input.IsMouseButtonDown(MouseButton::Left)))
+			if (!input.IsMouseButtonDown(MouseButton::Right))
 			{
-				if (!PreviousMouseDown)
-				{
-					FirstUpdate = true;
-					PreviousMouseDown = true;
-				}
-			}
-			else if(!FirstUpdate)
-			{
-				PreviousMouseDown = false;
 				return;
 			}
 
@@ -122,52 +113,25 @@ void EditorCore::Update(float dt)
 				EditorCameraTransform->Translate(-EditorCameraTransform->Up() * CameraSpeed);
 			}
 
-			Vector2 MousePosition = m_editor->GetInput().GetMousePosition();
-			if (MousePosition.IsZero())
-			{
-				return;
-			}
+			//Vector2 MousePosition = m_editor->GetInput().GetMousePosition();
+// 			if (MousePosition.IsZero())
+// 			{
+// 				return;
+// 			}
 
-			if (FirstUpdate)
-			{
-				LastX = MousePosition.x;
-				LastY = MousePosition.y;
-				FirstUpdate = false;
-			}
+// 			if (FirstUpdate)
+// 			{
+// 				LastX = MousePosition.x;
+// 				LastY = MousePosition.y;
+// 				FirstUpdate = false;
+// 			}
 
-			float XOffset = MousePosition.x - LastX;
-			float YOffest = LastY - MousePosition.y;
-
-			//Input& editorInput = GetEditor()->GetInput();
-			//Vector2 windowPos = GetEngine().GetWindow()->GetPosition();
-			//Vector2 windowSize = GetEngine().GetWindow()->GetSize();
-			//Vector2 offset = editorInput.GetMouseOffset();
-			/*if (MousePosition.x + windowPos.x<= windowPos.x)
-			{
-				editorInput.SetMousePosition(Vector2(windowPos.x + windowSize.x, MousePosition.y + windowPos.y));
-			}
-			else if (MousePosition.X() + windowPos.X() >= windowPos.X() + windowSize.X())
-			{
-				editorInput.SetMousePosition(Vector2(windowPos.X(), MousePosition.Y() + windowPos.Y()));
-			}
-
-			if (MousePosition.Y() + windowPos.Y() <= windowPos.Y())
-			{
-				editorInput.SetMousePosition(Vector2(windowPos.X() + MousePosition.X(), windowPos.Y() + windowSize.Y()));
-			}
-			else if (MousePosition.Y() + windowPos.Y() >= windowPos.Y() + windowSize.Y())
-			{
-				editorInput.SetMousePosition(Vector2(windowPos.X() + MousePosition.X(), windowPos.Y()));
-			}*/
-
-			LastX = MousePosition.x;
-			LastY = MousePosition.y;
-
-			XOffset *= m_lookSensitivity;
-			YOffest *= m_lookSensitivity;
+			Vector2 currentState = input.GetRelativeMousePosition();
+			float XOffset = ((currentState.x) * m_lookSensitivity) * dt;
+			float YOffest = ((currentState.y) * m_lookSensitivity) * dt;
 
 			const float Yaw = EditorCamera->Yaw -= XOffset;
-			float Pitch = EditorCamera->Pitch += YOffest;
+			float Pitch = EditorCamera->Pitch + YOffest;
 
 			if (Pitch > 89.0f)
 			{
@@ -177,14 +141,16 @@ void EditorCore::Update(float dt)
 			{
 				Pitch = -89.0f;
 			}
-
-			Vector3 newFront;
-			newFront.x = (cos(Mathf::Radians(Yaw)) * cos(Mathf::Radians(Pitch)));
-			newFront.y = (sin(Mathf::Radians(Pitch)));
-			newFront.z = (sin(Mathf::Radians(Yaw)) * cos(Mathf::Radians(Pitch)));
-
-			EditorCameraTransform->LookAt(newFront.Normalized());
-
+			EditorCamera->Pitch = Pitch;
+			//Vector3 newFront;
+			//newFront.x = (cos(Mathf::Radians(Yaw)) * cos(Mathf::Radians(Pitch)));
+			//newFront.y = (sin(Mathf::Radians(Pitch)));
+			//newFront.z = (sin(Mathf::Radians(Yaw)) * cos(Mathf::Radians(Pitch)));
+			//Quaternion q(newFront);
+			//q.SetLookRotation(newFront.Normalized());
+			//EditorCameraTransform->SetRotation(q);
+			EditorCameraTransform->SetRotation(Vector3(Pitch, -Yaw, 0.0f));
+			//EditorCameraTransform->LookAt(newFront.Normalized());
 			EditorConfig::GetInstance().CameraPosition = Vector3(EditorCameraTransform->GetPosition());
 			EditorConfig::GetInstance().CameraRotation = Vector3(EditorCameraTransform->GetRotationEuler());
 		}

@@ -82,7 +82,7 @@ void EditorApp::UpdateCameras()
 	EditorCamera.Projection = Camera::EditorCamera->Projection;
 	EditorCamera.OrthographicSize = Camera::EditorCamera->OrthographicSize;
 	//EditorCamera.CameraFrustum = Camera::EditorCamera->CameraFrustum;
-
+	EditorCamera.View = EditorSceneManager->GetEditorCameraTransform()->GetWorldToLocalMatrix();
 	GetEngine().EditorCamera = EditorCamera;
 }
 
