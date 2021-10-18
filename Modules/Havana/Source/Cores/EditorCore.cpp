@@ -113,19 +113,6 @@ void EditorCore::Update(float dt)
 				EditorCameraTransform->Translate(-EditorCameraTransform->Up() * CameraSpeed);
 			}
 
-			//Vector2 MousePosition = m_editor->GetInput().GetMousePosition();
-// 			if (MousePosition.IsZero())
-// 			{
-// 				return;
-// 			}
-
-// 			if (FirstUpdate)
-// 			{
-// 				LastX = MousePosition.x;
-// 				LastY = MousePosition.y;
-// 				FirstUpdate = false;
-// 			}
-
 			Vector2 currentState = input.GetRelativeMousePosition();
 			float XOffset = ((currentState.x) * m_lookSensitivity) * dt;
 			float YOffest = ((currentState.y) * m_lookSensitivity) * dt;
@@ -142,15 +129,7 @@ void EditorCore::Update(float dt)
 				Pitch = -89.0f;
 			}
 			EditorCamera->Pitch = Pitch;
-			//Vector3 newFront;
-			//newFront.x = (cos(Mathf::Radians(Yaw)) * cos(Mathf::Radians(Pitch)));
-			//newFront.y = (sin(Mathf::Radians(Pitch)));
-			//newFront.z = (sin(Mathf::Radians(Yaw)) * cos(Mathf::Radians(Pitch)));
-			//Quaternion q(newFront);
-			//q.SetLookRotation(newFront.Normalized());
-			//EditorCameraTransform->SetRotation(q);
 			EditorCameraTransform->SetRotation(Vector3(Pitch, -Yaw, 0.0f));
-			//EditorCameraTransform->LookAt(newFront.Normalized());
 			EditorConfig::GetInstance().CameraPosition = Vector3(EditorCameraTransform->GetPosition());
 			EditorConfig::GetInstance().CameraRotation = Vector3(EditorCameraTransform->GetRotationEuler());
 		}
