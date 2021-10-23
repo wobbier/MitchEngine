@@ -152,10 +152,10 @@ void Havana::InitUI()
 	colors[ImGuiCol_CheckMark] = ImVec4(0.94f, 0.94f, 0.94f, 1.00f);
 	colors[ImGuiCol_SliderGrab] = ImVec4(0.51f, 0.51f, 0.51f, 1.00f);
 	colors[ImGuiCol_SliderGrabActive] = ImVec4(0.86f, 0.86f, 0.86f, 1.00f);
-	colors[ImGuiCol_Button] = ImVec4(0.44f, 0.44f, 0.44f, 0.40f);
+	colors[ImGuiCol_Button] = ImVec4(0.141f, 0.141f, 0.141f, 1.000f);
 	colors[ImGuiCol_ButtonHovered] = ImVec4(0.000f, 0.439f, 0.878f, 1.000f);
 	colors[ImGuiCol_ButtonActive] = ImVec4(0.055f, 0.529f, 1.000f, 1.000f);
-	colors[ImGuiCol_Header] = ImVec4(0.70f, 0.70f, 0.70f, 0.31f);
+	colors[ImGuiCol_Header] = ImVec4(0.141f, 0.141f, 0.141f, 1.000f);
 	colors[ImGuiCol_HeaderHovered] = ImVec4(0.000f, 0.439f, 0.878f, 1.000f);
 	colors[ImGuiCol_HeaderActive] = ImVec4(0.48f, 0.50f, 0.52f, 1.00f);
 	colors[ImGuiCol_Separator] = ImVec4(0.43f, 0.43f, 0.50f, 0.50f);
