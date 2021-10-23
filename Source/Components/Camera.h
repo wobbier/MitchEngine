@@ -59,7 +59,7 @@ public:
 #endif
 
 private:
-	float m_FOV = 45.f;
+	float m_FOV = 60.f;
 	unsigned int m_id = 0;
 	glm::vec4 ObliqueMatData;
 	bool isOblique = false;

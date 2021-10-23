@@ -130,7 +130,7 @@ void SceneHierarchyWidget::Render()
 				{
 					ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | (SelectedEntity.Get() == &ent ? ImGuiTreeNodeFlags_Selected : 0);
 					{
-						node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen; // ImGuiTreeNodeFlags_Bullet
+						node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_SpanAvailWidth; // ImGuiTreeNodeFlags_Bullet
 						ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, comp->GetName().c_str());
 						if (ImGui::IsItemClicked())
 						{
@@ -152,7 +152,7 @@ void SceneHierarchyWidget::Render()
 		{
 			ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | (SelectedCore == comp.second.get() ? ImGuiTreeNodeFlags_Selected : 0);
 			{
-				node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen; // ImGuiTreeNodeFlags_Bullet
+				node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_SpanAvailWidth; // ImGuiTreeNodeFlags_Bullet
 				ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, comp.second->GetName().c_str());
 				if (ImGui::IsItemClicked())
 				{
@@ -211,7 +211,7 @@ void SceneHierarchyWidget::UpdateWorldRecursive(Transform* root)
 		ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | (SelectedTransform.lock().get() == var ? ImGuiTreeNodeFlags_Selected : 0);
 		if (var->GetChildren().empty())
 		{
-			node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen; // ImGuiTreeNodeFlags_Bullet
+			node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_SpanAvailWidth; // ImGuiTreeNodeFlags_Bullet
 			open = ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, var->GetName().c_str());
 			if (ImGui::IsItemClicked())
 			{

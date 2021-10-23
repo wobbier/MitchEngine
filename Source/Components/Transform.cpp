@@ -508,11 +508,9 @@ void Transform::OnEditorInspect()
 		Reset();
 	}
 
-	ImGui::Text(GetLocalToWorldMatrix().ToString().c_str());
-	ImGui::Separator();
-
-	ImGui::Text(GetWorldToLocalMatrix().ToString().c_str());
-
+// 	ImGui::Text(GetLocalToWorldMatrix().ToString().c_str());
+// 	ImGui::Separator();
+// 	ImGui::Text(GetWorldToLocalMatrix().ToString().c_str());
 }
 
 //#endif

@@ -205,9 +205,29 @@ void PhysicsCore::OnEntityRemoved(Entity& NewEntity)
  	if (NewEntity.HasComponent<Rigidbody>())
  	{
  		Rigidbody& RigidbodyComponent = NewEntity.GetComponent<Rigidbody>();
- 
+
+		PhysicsWorld->removeRigidBody(RigidbodyComponent.InternalRigidbody);
+		RigidbodyComponent.InternalRigidbody->setUserPointer(nullptr);
+		RigidbodyComponent.InternalRigidbody->setMonitorCollisions(false);
+		delete RigidbodyComponent.InternalRigidbody;
+		RigidbodyComponent.InternalRigidbody = nullptr;
+
  		GetEngine().GetRenderer().GetDebugDrawCache().Pop(RigidbodyComponent.DebugColliderId);
  	}
+
+	if (NewEntity.HasComponent<CharacterController>())
+	{
+		CharacterController& Controller = NewEntity.GetComponent<CharacterController>();
+		PhysicsWorld->removeRigidBody(Controller.m_rigidbody);
+		PhysicsWorld->removeCollisionObject(Controller.m_ghostObject);
+		Controller.m_rigidbody->setUserPointer(nullptr);
+		Controller.m_ghostObject->setUserPointer(nullptr);
+		Controller.m_ghostObject->setMonitorCollisions(false);
+		delete Controller.m_rigidbody;
+		Controller.m_rigidbody = nullptr;
+		delete Controller.m_ghostObject;
+		Controller.m_ghostObject = nullptr;
+	}
 }
 
 void PhysicsCore::OnDrawGuizmo(DebugDrawer* inDrawer)
@@ -329,8 +349,12 @@ void PhysicsCore::OnCollisionContinue(const btRigidBodyWithEventsEventDelegates*
 
 void PhysicsCore::OnCollisionStop(const btRigidBodyWithEventsEventDelegates* thisBodyA, const btCollisionObject* bodyB, const btVector3& localSpaceContactPoint, const btVector3& worldSpaceContactPoint, const btVector3& worldSpaceContactNormal, const btScalar penetrationDistance, const btScalar appliedImpulse)
 {
-	std::string name = ((BaseComponent*)thisBodyA->self->getUserPointer())->Parent->GetComponent<Transform>().GetName();
-	std::string name2 = ((BaseComponent*)bodyB->getUserPointer())->Parent->GetComponent<Transform>().GetName();
+	BaseComponent* baseBody = (BaseComponent*)thisBodyA->self->getUserPointer();
+	if (baseBody)
+	{
+		std::string name = baseBody->Parent->GetComponent<Transform>().GetName();
+		std::string name2 = ((BaseComponent*)bodyB->getUserPointer())->Parent->GetComponent<Transform>().GetName();
 
-	YIKES(name + " Stopped Colliding with: " + name2);
+		YIKES(name + " Stopped Colliding with: " + name2);
+	}
 }

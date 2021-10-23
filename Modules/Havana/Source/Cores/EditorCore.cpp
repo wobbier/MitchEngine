@@ -67,6 +67,19 @@ void EditorCore::Update(float dt)
 		}
 
 		totalTime += dt;
+
+		if (FirstUpdate)
+		{
+			Vector3& rot = EditorConfig::GetInstance().CameraRotation;
+			EditorCameraTransform->SetPosition(EditorConfig::GetInstance().CameraPosition);
+			EditorCameraTransform->SetRotation(rot);
+			EditorCamera->Yaw = -rot.y;
+			EditorCamera->Pitch = rot.x;
+			//EditorConfig::GetInstance().CameraPosition = Vector3(EditorCameraTransform->GetPosition());
+			//EditorConfig::GetInstance().CameraRotation = Vector3(EditorCameraTransform->GetRotationEuler());
+			FirstUpdate = false;
+			return;
+		}
 		
 		if (!IsFocusingTransform)
 		{

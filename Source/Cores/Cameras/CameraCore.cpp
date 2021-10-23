@@ -6,6 +6,7 @@
 #include "Math/Frustrum.h"
 #include "Camera/CameraData.h"
 #include "BGFXRenderer.h"
+#include "Mathf.h"
 
 CameraCore::CameraCore() : Base(ComponentFilter().Requires<Camera>().Requires<Transform>())
 {
@@ -48,7 +49,8 @@ void CameraCore::Update(float dt)
 			CamData->Position = TransformComponent.GetWorldPosition();
 			CamData->Front = TransformComponent.Front();
 			CamData->Up = TransformComponent.Up();
-			CamData->OutputSize = CameraComponent.OutputSize;
+			CamData->OutputSize = { Mathf::Abs(CameraComponent.OutputSize.x), Mathf::Abs(CameraComponent.OutputSize.y) };
+			
 			CamData->FOV = CameraComponent.GetFOV();
 			CamData->Near = CameraComponent.Near;
 			CamData->Far = CameraComponent.Far;

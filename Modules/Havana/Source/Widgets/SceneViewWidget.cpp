@@ -139,10 +139,10 @@ void SceneViewWidget::Render()
 
 	if (MaximizeOnPlay)
 	{
-		ImGuiWindowFlags fullScreenFlags = WindowFlags | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize;
+		ImGuiWindowFlags fullScreenFlags = WindowFlags | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar;
 
 		ImGui::SetNextWindowPos(ImVec2(App->Editor->DockPos.x, App->Editor->DockPos.y + 20.f));
-		ImGui::SetNextWindowSize(ImVec2(App->Editor->DockSize.x, App->Editor->DockSize.y - 20.f));
+		ImGui::SetNextWindowSize(ImVec2(App->Editor->DockSize.x, App->Editor->DockSize.y));
 		ImGui::Begin("Full Screen Viewport", NULL, fullScreenFlags);
 	}
 	else
@@ -365,39 +365,41 @@ void SceneViewWidget::DrawGuizmo()
 		const glm::vec3 eye = { MainCamera->Position.x, MainCamera->Position.y, MainCamera->Position.z };
 		const glm::vec3 at = { MainCamera->Position.x + MainCamera->Front.x, MainCamera->Position.y + MainCamera->Front.y, MainCamera->Position.z + MainCamera->Front.z };
 
-		auto cameraView = glm::lookAtLH(eye, at, Vector3::Up.InternalVector);
+		auto cameraViewLH = glm::lookAtLH(eye, at, MainCamera->Up.InternalVector);
+		auto cameraViewRH = glm::lookAtRH(eye, at, MainCamera->Up.InternalVector);
 
 		ImGuizmo::SetID(0);
 		ImGui::SetCursorPos({ 0, 0 });
 
-		//{
-		//	float* matrix = &SelectedTransform.lock()->GetMatrix().GetInternalMatrix()[0].x;
-		//
-		//	Vector3 currentPos, currentRot, currentScale;
-		//	ImGuizmo::DecomposeMatrixToComponents(matrix, &currentPos.x, &currentRot.x, &currentScale.x);
-		//
-		//	float viewManipulateRight = io.DisplaySize.x;
-		//	float viewManipulateTop = 0;
-		//
-		//	ImGuizmo::SetRect(GizmoRenderLocation.x, GizmoRenderLocation.y, SceneViewRenderSize.x, SceneViewRenderSize.y);
-		//	ImGuizmo::Manipulate(&cameraView[0][0], cameraProjection, CurrentGizmoOperation, CurrentGizmoMode, matrix);
-		//	//ImGuizmo::ViewManipulate(cameraView, 8.f, ImVec2(GizmoRenderLocation.x + SceneViewRenderSize.x - 128, GizmoRenderLocation.y), ImVec2(128, 128), 0x00101010);
-		//
-		//	Vector3 modifiedPos, modifiedRot, modifiedScale;
-		//	ImGuizmo::DecomposeMatrixToComponents(matrix, &modifiedPos.x, &modifiedRot.x, &modifiedScale.x);
-		//}
-		//if (currentPos != modifiedPos)
-		//{
-		//	SelectedTransform.lock()->SetWorldPosition(modifiedPos);
-		//}
-		//if (currentRot != modifiedRot)
-		//{
-		//	SelectedTransform.lock()->SetRotation(modifiedRot);
-		//}
-		//if (currentScale != modifiedScale)
-		//{
-		//	SelectedTransform.lock()->SetScale(modifiedScale);
-		//}
+		{
+			Matrix4 newMatrix(SelectedTransform.lock()->GetMatrix());
+			float* matrix = &newMatrix.GetInternalMatrix()[0].x;
+
+			Vector3 currentPos, currentRot, currentScale;
+			ImGuizmo::DecomposeMatrixToComponents(matrix, &currentPos.x, &currentRot.x, &currentScale.x);
+
+			float viewManipulateRight = io.DisplaySize.x;
+			float viewManipulateTop = 0;
+
+			ImGuizmo::SetRect(GizmoRenderLocation.x, GizmoRenderLocation.y, SceneViewRenderSize.x, SceneViewRenderSize.y);
+			ImGuizmo::Manipulate(&cameraViewLH[0][0], cameraProjection, CurrentGizmoOperation, CurrentGizmoMode, matrix);
+			//ImGuizmo::ViewManipulate(&cameraViewRH[0][0], 8.f, ImVec2(GizmoRenderLocation.x + SceneViewRenderSize.x - 128, GizmoRenderLocation.y), ImVec2(128, 128), 0x00101010);
+
+			Vector3 modifiedPos, modifiedRot, modifiedScale;
+			ImGuizmo::DecomposeMatrixToComponents(matrix, &modifiedPos.x, &modifiedRot.x, &modifiedScale.x);
+			if (currentPos != modifiedPos)
+			{
+				SelectedTransform.lock()->SetWorldPosition(modifiedPos);
+			}
+			if (currentRot != modifiedRot)
+			{
+				SelectedTransform.lock()->SetRotation(modifiedRot);
+			}
+			if (currentScale != modifiedScale)
+			{
+				SelectedTransform.lock()->SetScale(modifiedScale);
+			}
+		}
 	}
 }
 
