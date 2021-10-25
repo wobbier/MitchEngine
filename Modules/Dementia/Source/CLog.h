@@ -72,6 +72,7 @@ public:
 		LogType Type = LogType::None;
 		std::string Message;
 	};
+	std::string TypeToName(CLog::LogType);
 
 	static std::vector<LogEntry> Messages;
 
