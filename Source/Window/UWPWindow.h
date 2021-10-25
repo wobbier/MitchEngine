@@ -40,7 +40,6 @@ public:
 
 	virtual bool ShouldClose() final;
 	virtual void ParseMessageQueue() final;
-	virtual void Swap() final;
 	virtual Vector2 GetSize() const final;
 	virtual void SetTitle(const std::string& title) final;
 

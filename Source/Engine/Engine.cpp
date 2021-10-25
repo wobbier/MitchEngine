@@ -300,7 +300,6 @@ void Engine::Run()
 			FrameProfile::GetInstance().Complete("UI Render");
 			FrameProfile::GetInstance().Set("Render", ProfileCategory::Rendering);
 			NewRenderer->Render(EditorCamera);
-			GameWindow->Swap();
 			FrameProfile::GetInstance().Complete("Render");
 			//FrameProfile::GetInstance().Set("Render", ProfileCategory::Rendering);
 			//m_renderer->ThreadedRender([this]() {

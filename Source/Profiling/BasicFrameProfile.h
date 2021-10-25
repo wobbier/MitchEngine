@@ -2,13 +2,14 @@
 #include "Singleton.h"
 #include "Engine/Clock.h"
 #include "Math/Vector3.h"
+#include "imgui.h"
 
 enum class ProfileCategory : std::size_t
 {
 	Game = 0,
 	UI,
-	Rendering,
 	Physics,
+	Rendering,
 	Count
 };
 
@@ -39,7 +40,7 @@ public:
 	void End(float frameDelta);
 	void Dump();
 
-	Vector3 GetCategoryColor(ProfileCategory category);
+	ImVec4 GetCategoryColor(ProfileCategory category);
 
 	std::map<std::string, ProfileInfo> Profiles;
 	std::map<std::string, ProfileInfo> ProfileDump;

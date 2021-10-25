@@ -3,6 +3,8 @@
 #include "BasicFrameProfile.h"
 #include <imgui.h>
 #include <Engine/Engine.h>
+#include "UI/Colors.h"
+#include <chrono>
 
 FrameProfile::FrameProfile()
 {
@@ -28,6 +30,12 @@ void FrameProfile::Complete(const std::string& name)
 	Profiles[name].Timer.Update();
 }
 
+bool sortByVal(const std::pair<std::string, ProfileInfo>& a,
+	const std::pair<std::string, ProfileInfo>& b)
+{
+	return (a.second.Category < b.second.Category);
+}
+
 void FrameProfile::Render(const Vector2& inPosition, const Vector2& inSize)
 {
 	const ImU32 flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar /*| ImGuiWindowFlags_NoInputs*/ | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoBringToFrontOnFocus;
@@ -49,11 +57,14 @@ void FrameProfile::Render(const Vector2& inPosition, const Vector2& inSize)
 	m_fpscount++;
 	++frameCount;
 
+	std::vector<std::pair<std::string, ProfileInfo>> profileShit;
 	float totalFrameTime = 0.f;
 	for (auto& thing : FrameProfile::GetInstance().ProfileDump)
 	{
 		totalFrameTime += thing.second.Timer.GetDeltaSeconds();
+		profileShit.push_back(std::make_pair(thing.first, thing.second));
 	}
+	std::sort(profileShit.begin(), profileShit.end(), sortByVal);
 
 	totalFrameTime = FrameProfile::GetInstance().MainDelta;
 
@@ -85,9 +96,9 @@ void FrameProfile::Render(const Vector2& inPosition, const Vector2& inSize)
 
 			// How big is the whole frame UI wise
 			float profileSize = (windowSizeX * size);
-			for (auto& thing : FrameProfile::GetInstance().ProfileDump)
+			for (auto& thing : profileShit)
 			{
-				Vector3 profileColor = FrameProfile::GetInstance().GetCategoryColor(thing.second.Category);
+				ImVec4 profileColor = FrameProfile::GetInstance().GetCategoryColor(thing.second.Category);
 				ImVec4 col = ImVec4(profileColor.x, profileColor.y, profileColor.z, 1.0f);
 				ImU32 col32 = ImColor(col);
 				float maxSize = (profileSize <= windowSizeX) ? profileSize : windowSizeX;
@@ -98,8 +109,7 @@ void FrameProfile::Render(const Vector2& inPosition, const Vector2& inSize)
 			}
 			if (profileSize > windowSizeX)
 			{
-				ImVec4 col = ImVec4(1.f, 0.f, 0.f, 1.f);
-				ImU32 col32 = ImColor(col);
+				ImU32 col32 = ImColor(ACCENT_RED);
 
 				float profileSizeX = profileSize / windowSizeX;
 				float xxxx = windowSizeX * profileSizeX;
@@ -109,8 +119,7 @@ void FrameProfile::Render(const Vector2& inPosition, const Vector2& inSize)
 			}
 			else
 			{
-				ImVec4 col = ImVec4(0.f, 1.f, 0.f, 1.f);
-				ImU32 col32 = ImColor(col);
+				ImU32 col32 = ImColor(ACCENT_GREEN);
 				//float xxxx = windowSizeX * profileSize;
 				draw_list->AddRectFilled(ImVec2(previousX + x, y), ImVec2(windowSizeX + x, y + CurrentProfilerSize), col32);
 			}
@@ -125,13 +134,15 @@ void FrameProfile::Render(const Vector2& inPosition, const Vector2& inSize)
 				ImGui::BeginTooltip();
 				ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
 
-				for (auto& thing : FrameProfile::GetInstance().ProfileDump)
+				for (auto& thing : profileShit)
 				{
+					ImGui::ColorEdit4("MyColor##3", (float*)&GetCategoryColor(thing.second.Category), ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel);
+					ImGui::SameLine();
 					ImGui::TextUnformatted(thing.first.c_str());
 					ImGui::SameLine();
 					ImGui::TextUnformatted(std::to_string(thing.second.Timer.GetDeltaSeconds() * 1000.f).c_str());
 					ImGui::SameLine();
-					ImGui::TextUnformatted(" ms");
+					ImGui::TextUnformatted("ms");
 				}
 				ImGui::PopTextWrapPos();
 
@@ -155,22 +166,21 @@ void FrameProfile::Dump()
 	//});
 }
 
-Vector3 FrameProfile::GetCategoryColor(ProfileCategory category)
+ImVec4 FrameProfile::GetCategoryColor(ProfileCategory category)
 {
 	switch (category)
 	{
 	case ProfileCategory::Game:
-		return Vector3(0, 175, 84) / 255.f;
-		break;
+		return ACCENT_BLUE;
 	case ProfileCategory::UI:
-		return Vector3(153, 57, 85) / 255.f;
-		break;
+		return ACCENT_PINK;
 	case ProfileCategory::Rendering:
-		return Vector3(25, 25, 35) / 255.f;
-		break;
+		return ACCENT_BLACK;
+	case ProfileCategory::Physics:
+		return ACCENT_PURPLE;
 	default:
 		break;
 	}
-	return Vector3(.1f, .1f, 1.f);
+	return ACCENT_WHITE;
 }
 

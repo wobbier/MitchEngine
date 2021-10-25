@@ -33,6 +33,7 @@
 #include <BGFXRenderer.h>
 #include <Window/SDLWindow.h>
 #include <backends/imgui_impl_sdl.h>
+#include "UI/Colors.h"
 
 static SDL_Cursor* g_imgui_to_sdl_cursor[ImGuiMouseCursor_COUNT];
 
@@ -153,11 +154,11 @@ void Havana::InitUI()
 	colors[ImGuiCol_SliderGrab] = ImVec4(0.51f, 0.51f, 0.51f, 1.00f);
 	colors[ImGuiCol_SliderGrabActive] = ImVec4(0.86f, 0.86f, 0.86f, 1.00f);
 	colors[ImGuiCol_Button] = ImVec4(0.141f, 0.141f, 0.141f, 1.000f);
-	colors[ImGuiCol_ButtonHovered] = ImVec4(0.000f, 0.439f, 0.878f, 1.000f);
-	colors[ImGuiCol_ButtonActive] = ImVec4(0.055f, 0.529f, 1.000f, 1.000f);
+	colors[ImGuiCol_ButtonHovered] = COLOR_PRIMARY_HOVER;
+	colors[ImGuiCol_ButtonActive] = COLOR_PRIMARY_PRESS;
 	colors[ImGuiCol_Header] = ImVec4(0.141f, 0.141f, 0.141f, 1.000f);
-	colors[ImGuiCol_HeaderHovered] = ImVec4(0.000f, 0.439f, 0.878f, 1.000f);
-	colors[ImGuiCol_HeaderActive] = ImVec4(0.48f, 0.50f, 0.52f, 1.00f);
+	colors[ImGuiCol_HeaderHovered] = COLOR_PRIMARY_HOVER;
+	colors[ImGuiCol_HeaderActive] = COLOR_PRIMARY_PRESS;
 	colors[ImGuiCol_Separator] = ImVec4(0.43f, 0.43f, 0.50f, 0.50f);
 	colors[ImGuiCol_SeparatorHovered] = ImVec4(0.000f, 0.439f, 0.878f, 1.000f);
 	colors[ImGuiCol_SeparatorActive] = ImVec4(0.055f, 0.529f, 1.000f, 1.000f);
@@ -174,8 +175,8 @@ void Havana::InitUI()
 	colors[ImGuiCol_NavHighlight] = ImVec4(0.60f, 0.60f, 0.60f, 1.00f);
 	colors[ImGuiCol_NavWindowingHighlight] = ImVec4(1.00f, 1.00f, 1.00f, 0.70f);
 	colors[ImGuiCol_Tab] = ImVec4(0.220f, 0.220f, 0.220f, 1.000f);
-	colors[ImGuiCol_TabHovered] = ImVec4(0.055f, 0.529f, 1.000f, 1.000f);
-	colors[ImGuiCol_TabActive] = ImVec4(0.000f, 0.439f, 0.878f, 1.000f);
+	colors[ImGuiCol_TabHovered] = COLOR_PRIMARY_HOVER;
+	colors[ImGuiCol_TabActive] = COLOR_PRIMARY;
 	colors[ImGuiCol_TabUnfocused] = ImVec4(0.110f, 0.110f, 0.110f, 1.000f);
 	colors[ImGuiCol_TabUnfocusedActive] = ImVec4(0.171f, 0.171f, 0.171f, 1.000f);
 	//ImGui::StyleColorsDark();

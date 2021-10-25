@@ -162,10 +162,6 @@ void SDLWindow::ParseMessageQueue()
 	}
 }
 
-void SDLWindow::Swap()
-{
-}
-
 Vector2 SDLWindow::GetSize() const
 {
 	int width = 0;

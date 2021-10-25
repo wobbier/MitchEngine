@@ -16,8 +16,6 @@ public:
 
 	void ParseMessageQueue() override;
 
-	void Swap() override;
-
 	Vector2 GetSize() const override;
 
 	Vector2 GetPosition() override;

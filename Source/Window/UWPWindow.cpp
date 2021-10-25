@@ -94,11 +94,6 @@ void UWPWindow::ParseMessageQueue()
 	}
 }
 
-void UWPWindow::Swap()
-{
-	//SDL_RenderPresent(renderer);
-}
-
 Vector2 UWPWindow::GetSize() const
 {
 	return Size;

@@ -12,6 +12,7 @@
 #include <Components/Graphics/Model.h>
 #include <Types/AssetType.h>
 #include "Editor/AssetDescriptor.h"
+#include "UI/Colors.h"
 
 #if ME_EDITOR
 
@@ -70,12 +71,17 @@ void SceneHierarchyWidget::Render()
 	auto world = GetEngine().GetWorld().lock();
 
 	OPTICK_CATEGORY("Havana::UpdateWorld", Optick::Category::GameLogic);
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 0.f, 0.f });
+	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0.f, 0.f });
 	ImGui::Begin(Name.c_str(), 0, ImGuiWindowFlags_MenuBar);
 	if (!world)
 	{
+		ImGui::PopStyleVar(2);
 		ImGui::End();
 		return;
 	}
+	ImGui::PopStyleVar(2);
+
 	ImGui::BeginMenuBar();
 	if (ImGui::BeginMenu("Create"))
 	{
@@ -104,6 +110,10 @@ void SceneHierarchyWidget::Render()
 		ImGui::EndMenu();
 	}
 	ImGui::EndMenuBar();
+
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 0.f, 0.f });
+	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0.f, 0.f });
+
 	if (ImGui::CollapsingHeader("Scene", ImGuiTreeNodeFlags_DefaultOpen))
 	{
 		OPTICK_CATEGORY("Entity List", Optick::Category::GameLogic);
@@ -116,12 +126,15 @@ void SceneHierarchyWidget::Render()
 				evt.Fire();
 			}
 		}
+		ImGui::PushStyleColor(ImGuiCol_Header, COLOR_PRIMARY);
 		UpdateWorldRecursive(RootTransform);
+		ImGui::PopStyleColor();
 	}
 	if (Entities->size() > 0)
 	{
 		if (ImGui::CollapsingHeader("Utility", ImGuiTreeNodeFlags_DefaultOpen))
 		{
+			ImGui::PushStyleColor(ImGuiCol_Header, COLOR_PRIMARY);
 			OPTICK_CATEGORY("Utility Entities", Optick::Category::Debug);
 			int i = 0;
 			for (const Entity& ent : *Entities)
@@ -130,7 +143,7 @@ void SceneHierarchyWidget::Render()
 				{
 					ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | (SelectedEntity.Get() == &ent ? ImGuiTreeNodeFlags_Selected : 0);
 					{
-						node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_SpanAvailWidth; // ImGuiTreeNodeFlags_Bullet
+						node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding; // ImGuiTreeNodeFlags_Bullet
 						ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, comp->GetName().c_str());
 						if (ImGui::IsItemClicked())
 						{
@@ -141,18 +154,20 @@ void SceneHierarchyWidget::Render()
 					}
 				}
 			}
+			ImGui::PopStyleColor();
 		}
 	}
 
 	if (ImGui::CollapsingHeader("Entity Cores", ImGuiTreeNodeFlags_DefaultOpen))
 	{
+		ImGui::PushStyleColor(ImGuiCol_Header, COLOR_PRIMARY);
 		OPTICK_CATEGORY("Entity Cores", Optick::Category::Debug);
 		int i = 0;
 		for (auto& comp : world->GetAllCoresArray())
 		{
 			ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | (SelectedCore == comp.second.get() ? ImGuiTreeNodeFlags_Selected : 0);
 			{
-				node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_SpanAvailWidth; // ImGuiTreeNodeFlags_Bullet
+				node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding; // ImGuiTreeNodeFlags_Bullet
 				ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, comp.second->GetName().c_str());
 				if (ImGui::IsItemClicked())
 				{
@@ -162,7 +177,9 @@ void SceneHierarchyWidget::Render()
 				}
 			}
 		}
+		ImGui::PopStyleColor();
 	}
+	ImGui::PopStyleVar(2);
 	ImGui::End();
 }
 
@@ -211,7 +228,7 @@ void SceneHierarchyWidget::UpdateWorldRecursive(Transform* root)
 		ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | (SelectedTransform.lock().get() == var ? ImGuiTreeNodeFlags_Selected : 0);
 		if (var->GetChildren().empty())
 		{
-			node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_SpanAvailWidth; // ImGuiTreeNodeFlags_Bullet
+			node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding; // ImGuiTreeNodeFlags_Bullet
 			open = ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, var->GetName().c_str());
 			if (ImGui::IsItemClicked())
 			{
