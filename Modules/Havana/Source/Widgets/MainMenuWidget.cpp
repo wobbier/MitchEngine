@@ -387,7 +387,7 @@ void MainMenuWidget::Render()
 			}
 		}
 
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(1.f, 42.f, 43.f, 1.f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ACCENT_RED);
 		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - buttonWidth + RightShift);
 		//ImGui::SameLine(0.f);
 		if (ImGui::ImageButton(Icons["Close"]->TexHandle, ImVec2(30.f, 30.f)))

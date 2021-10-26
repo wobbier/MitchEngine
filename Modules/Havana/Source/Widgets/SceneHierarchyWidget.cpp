@@ -114,7 +114,7 @@ void SceneHierarchyWidget::Render()
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 0.f, 0.f });
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0.f, 0.f });
 
-	if (ImGui::CollapsingHeader("Scene", ImGuiTreeNodeFlags_DefaultOpen))
+	if (ImGui::CollapsingHeader("Scene Root", ImGuiTreeNodeFlags_DefaultOpen))
 	{
 		OPTICK_CATEGORY("Entity List", Optick::Category::GameLogic);
 		if (ImGui::IsWindowFocused())
@@ -129,6 +129,7 @@ void SceneHierarchyWidget::Render()
 		ImGui::PushStyleColor(ImGuiCol_Header, COLOR_PRIMARY);
 		UpdateWorldRecursive(RootTransform);
 		ImGui::PopStyleColor();
+		ImGui::Text("\n");
 	}
 	if (Entities->size() > 0)
 	{
@@ -139,12 +140,12 @@ void SceneHierarchyWidget::Render()
 			int i = 0;
 			for (const Entity& ent : *Entities)
 			{
-				for (BaseComponent* comp : ent.GetAllComponents())
+				//for (BaseComponent* comp : ent.GetAllComponents())
 				{
 					ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | (SelectedEntity.Get() == &ent ? ImGuiTreeNodeFlags_Selected : 0);
 					{
 						node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding; // ImGuiTreeNodeFlags_Bullet
-						ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, comp->GetName().c_str());
+						ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, "Entity");
 						if (ImGui::IsItemClicked())
 						{
 							InspectEvent evt;
@@ -155,9 +156,9 @@ void SceneHierarchyWidget::Render()
 				}
 			}
 			ImGui::PopStyleColor();
+			ImGui::Text("\n");
 		}
 	}
-
 	if (ImGui::CollapsingHeader("Entity Cores", ImGuiTreeNodeFlags_DefaultOpen))
 	{
 		ImGui::PushStyleColor(ImGuiCol_Header, COLOR_PRIMARY);

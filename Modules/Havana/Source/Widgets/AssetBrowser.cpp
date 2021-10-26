@@ -19,6 +19,7 @@
 #include <Graphics/ShaderFile.h>
 #include <CLog.h>
 #include "Utils/PlatformUtils.h"
+#include "UI/Colors.h"
 
 #if ME_EDITOR
 
@@ -308,7 +309,8 @@ void AssetBrowserWidget::Render()
 
 				ImGui::SameLine();
 
-				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(.0f, 0.7f, 0.7f));
+				//ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(.0f, 0.7f, 0.7f));
+				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ACCENT_RED);
 				ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)ImColor::HSV(.0f, 0.8f, 0.8f));
 				if (ImGui::Button("Cancel", { buttonSize - 5.f,  26.f }))
 				{
