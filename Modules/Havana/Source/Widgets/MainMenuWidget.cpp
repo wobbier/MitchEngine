@@ -12,6 +12,7 @@
 #include <Utils/PlatformUtils.h>
 #include <HavanaEvents.h>
 #include <Window/SDLWindow.h>
+#include "UI/Colors.h"
 
 #if ME_EDITOR
 
@@ -353,7 +354,7 @@ void MainMenuWidget::Render()
 		//	ImGui::EndPopup();
 		//}
 		const float RightShift = 2.f;
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(0.35f, 126.f, 43.f, 1.f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ACCENT_GREEN);
 		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 4.f));
 		if (ImGui::ImageButton(Icons["BugReport"]->TexHandle, ImVec2(30.f, 30.f)))
 		{

@@ -225,10 +225,10 @@ void SceneHierarchyWidget::UpdateWorldRecursive(Transform* root)
 		}
 		Transform* var = child.get();
 		bool open = false;
-		ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | (SelectedTransform.lock().get() == var ? ImGuiTreeNodeFlags_Selected : 0);
+		ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding | (SelectedTransform.lock().get() == var ? ImGuiTreeNodeFlags_Selected : 0);
 		if (var->GetChildren().empty())
 		{
-			node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding; // ImGuiTreeNodeFlags_Bullet
+			node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen; // ImGuiTreeNodeFlags_Bullet
 			open = ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, var->GetName().c_str());
 			if (ImGui::IsItemClicked())
 			{
