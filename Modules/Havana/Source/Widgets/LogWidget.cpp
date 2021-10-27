@@ -26,7 +26,8 @@ void LogWidget::Render()
 	if (IsOpen)
 	{
 		OPTICK_CATEGORY("Log", Optick::Category::Debug);
-		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(1.f, 0.f));
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.f, 0.f));
+		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(12.f, ImGui::GetStyle().FramePadding.y));
 		if (ImGui::Begin("Log", &IsOpen, WindowFlags))
 		{
 			// Menu
@@ -54,8 +55,8 @@ void LogWidget::Render()
 			static ImGuiTableFlags flags =
 				ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable
 				| ImGuiTableFlags_Sortable | ImGuiTableFlags_SortMulti
-				| ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersV | ImGuiTableFlags_NoBordersInBody
-				| ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY
+				| ImGuiTableFlags_RowBg | ImGuiTableFlags_NoBordersInBody
+				| ImGuiTableFlags_ScrollY
 				| ImGuiTableFlags_SizingStretchProp;
 
 			static float wOffset = 350.0f;
@@ -139,7 +140,7 @@ void LogWidget::Render()
 			//}
 		}
 
-		ImGui::PopStyleVar(1);
+		ImGui::PopStyleVar(2);
 
 		ImGui::End();
 	}
