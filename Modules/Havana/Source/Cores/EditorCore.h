@@ -40,7 +40,7 @@ public:
 private:
 	float m_flyingSpeed = 5.f;
 
-	float m_lookSensitivity = .15f;
+	float m_lookSensitivity = 10.f;
 	float m_speedModifier = 100.f;
 	float LastX = 0.f;
 	float LastY = 0.f;

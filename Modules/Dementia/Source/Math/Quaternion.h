@@ -162,6 +162,22 @@ struct Quaternion
 		w = q.w;
 	}
 
+	Vector3 Rotate(const Vector3& inVector) const
+	{
+		float vMult = 2.f * (x * inVector.x + y * inVector.y + z * inVector.z);
+		float crossMult = 2.f * w;
+		float pMult = crossMult * w - 1.f;
+
+		return Vector3(pMult * inVector.x + vMult * x + crossMult * (y * inVector.z - z * inVector.y),
+			           pMult * inVector.y + vMult * y + crossMult * (z * inVector.x - x * inVector.z),
+			           pMult * inVector.z + vMult * z + crossMult * (x * inVector.y - y * inVector.x));
+	}
+
+	Quaternion Inverse()
+	{
+		return Quaternion(glm::inverse(InternalQuat));
+	}
+
 	const Vector3& GetVectorPart() const
 	{
 		return reinterpret_cast<const Vector3&>(x);

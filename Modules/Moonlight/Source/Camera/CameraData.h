@@ -2,6 +2,7 @@
 #include "Math/Vector3.h"
 #include "Math/Vector2.h"
 #include "bgfx/bgfx.h"
+#include <Math/Matrix4.h>
 
 class Frustum;
 
@@ -41,7 +42,10 @@ namespace Moonlight
 		bgfx::TextureHandle UITexture = BGFX_INVALID_HANDLE;
 
 		Moonlight::FrameBuffer* Buffer = nullptr;
-
+		glm::vec4 ObliqueData;
+		Matrix4 View;
+		Matrix4 ProjectionMatrix;
 		bool IsMain = false;
+		bool IsOblique = false;
 	};
 }

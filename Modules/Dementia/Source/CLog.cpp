@@ -82,3 +82,31 @@ bool CLog::Log(LogType priority, const std::string& message)
 {
 	return CLog::GetInstance().LogMessage(priority, message);
 }
+
+std::string CLog::TypeToName(LogType type)
+{
+	switch (type)
+	{
+	default:
+		return "Unknown";
+		break;
+	case LogType::None:
+		return "None";
+		break;
+	case LogType::Info:
+		return "Info";
+		break;
+	case LogType::Trace:
+		return "Trace";
+		break;
+	case LogType::Debug:
+		return "Debug";
+		break;
+	case LogType::Warning:
+		return "Warning";
+		break;
+	case LogType::Error:
+		return "Error";
+		break;
+	}
+}

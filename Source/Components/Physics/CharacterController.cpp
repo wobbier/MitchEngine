@@ -2,12 +2,13 @@
 #include "CharacterController.h"
 #include "imgui.h"
 #include <Utils/HavanaUtils.h>
+#include <Physics/RigidBodyWithCollisionEvents.h>
 
 class IgnoreBodyAndGhostCast
 	: public btCollisionWorld::ClosestRayResultCallback
 {
 public: 
-	IgnoreBodyAndGhostCast(btRigidBody* body, btPairCachingGhostObject* ghostObject)
+	IgnoreBodyAndGhostCast(btRigidBody* body, btPairCachingGhostObjectWithEvents* ghostObject)
 		: btCollisionWorld::ClosestRayResultCallback(btVector3(), btVector3())
 		, m_body(body)
 		, m_ghostObject(ghostObject)
@@ -25,7 +26,7 @@ public:
 
 private:
 	btRigidBody* m_body = nullptr;
-	btPairCachingGhostObject* m_ghostObject = nullptr;
+	btPairCachingGhostObjectWithEvents* m_ghostObject = nullptr;
 };
 
 
@@ -66,10 +67,11 @@ void CharacterController::Initialize(btDynamicsWorld* pPhysicsWorld, const Vecto
 
 	m_rigidbody->setAngularFactor(0.f);
 	m_rigidbody->setActivationState(DISABLE_DEACTIVATION);
+	m_rigidbody->setUserPointer(this);
 
 	m_world->addRigidBody(m_rigidbody);
 
-	m_ghostObject = new btPairCachingGhostObject();
+	m_ghostObject = new btPairCachingGhostObjectWithEvents();
 
 	m_ghostObject->setCollisionShape(m_shape);
 	m_ghostObject->setUserPointer(this);

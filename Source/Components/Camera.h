@@ -45,18 +45,24 @@ public:
 
 	const bool IsMain() const;
 
+	void SetObliqueMatrixData(const glm::vec4& inVec);
+
 	//Frustum* CameraFrustum = nullptr;
 	Moonlight::SkyBox* Skybox = nullptr;
 	Moonlight::ProjectionType Projection = Moonlight::ProjectionType::Perspective;
 	Moonlight::ClearColorType ClearType = Moonlight::ClearColorType::Color;
+
+	Matrix4 WorldToCamera;
 
 #if ME_EDITOR
 	virtual void OnEditorInspect() final;
 #endif
 
 private:
-	float m_FOV = 45.f;
+	float m_FOV = 60.f;
 	unsigned int m_id = 0;
+	glm::vec4 ObliqueMatData;
+	bool isOblique = false;
 	virtual void OnDeserialize(const json& inJson) final;
 	virtual void OnSerialize(json& outJson) final;
 };

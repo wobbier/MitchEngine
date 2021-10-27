@@ -10,6 +10,7 @@
 #include <Utils/ImGuiUtils.h>
 #include <AppCore/Platform.h>
 #include <BGFXRenderer.h>
+#include "Mathf.h"
 
 UICore::UICore(IWindow* window, BGFXRenderer* renderer)
 	: Base(ComponentFilter().Requires<BasicUIView>())
@@ -228,7 +229,7 @@ void UICore::OnResize(const Vector2& NewSize)
 		}
 
 		m_uiTexture = bgfx::createTexture2D(static_cast<uint16_t>(NewSize.x)
-			, static_cast<uint16_t>(NewSize.y)
+			, static_cast<uint16_t>(Mathf::Abs(NewSize.y))
 			, false
 			, 1
 			, bgfx::TextureFormat::BGRA8

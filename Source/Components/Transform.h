@@ -30,24 +30,30 @@ public:
 	virtual void Init() final;
 
 	// Local Space
-	Vector3& GetPosition();
-	Quaternion GetLocalRotation() const;
-	Vector3 GetRotationEuler() const;
+	Vector3 GetPosition() const;
+	void SetPosition(const Vector3& NewPosition);
+
+	Quaternion GetRotation() const;
+	void SetRotation(const Quaternion& InRotation);
+
 	Vector3 GetScale();
-
-	void SetPosition(Vector3 NewPosition);
-
-	void SetScale(Vector3 NewScale);
+	void SetScale(const Vector3& NewScale);
 	void SetScale(float NewScale);
 
 	//World Space
-	Vector3 GetWorldPosition();
+	Vector3 GetWorldPosition() const;
+	void SetWorldPosition(const Vector3& NewPosition);
+
 	Quaternion GetWorldRotation();
+	void SetWorldRotation(const Quaternion& inRotation);
+
+	Vector3 GetRotationEuler() const;
+
+
+
 	Vector3 GetWorldRotationEuler();
 
-	void SetWorldPosition(const Vector3& NewPosition);
 	void SetRotation(const Vector3& euler);
-	void SetRotation(Quaternion InRotation);
 
 	Vector3 Front();
 	Vector3 Up();
@@ -72,7 +78,7 @@ public:
 	const std::vector<SharedPtr<Transform>>& GetChildren() const;
 
 	Transform* GetParentTransform();
-	Matrix4& GetMatrix();
+	const Matrix4& GetMatrix();
 
 	const std::string& GetName() const;
 	void SetName(const std::string& name);
@@ -80,8 +86,8 @@ public:
 
 	const bool IsDirty() const;
 
-	Matrix4 GetLocalToWorldMatrix();
-	Matrix4 GetWorldToLocalMatrix();
+	const Matrix4& GetLocalToWorldMatrix();
+	const Matrix4& GetWorldToLocalMatrix();
 
 
 //#if ME_EDITOR
@@ -90,18 +96,22 @@ public:
 
 private:
 	std::string Name;
+
 	Quaternion LocalRotation;
-	Quaternion Rotation;
 	Vector3 LocalPosition;
-	Vector3 Scale;
+	Vector3 LocalScale;
 
-	Matrix4 WorldTransform;
+	Matrix4 LocalToWorldMatrix;
+	Matrix4 WorldToLocalMatrix;
 
-	void SetDirty(bool Dirty);
+	bool IsLocalToWorldDirty = true;
+	bool IsWorldToLocalDirty = true;
+
 	SharedPtr<Transform> ParentTransform;
 	std::vector<SharedPtr<Transform>> Children;
 	bool m_isDirty = true;
 
+	void SetDirty(bool Dirty);
 	virtual void OnSerialize(json& outJson) final;
 	virtual void OnDeserialize(const json& inJson) final;
 };

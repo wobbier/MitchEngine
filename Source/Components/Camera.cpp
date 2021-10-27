@@ -69,6 +69,12 @@ const bool Camera::IsMain() const
 	return (Camera::CurrentCamera == this);
 }
 
+void Camera::SetObliqueMatrixData(const glm::vec4& inVec)
+{
+	ObliqueMatData = inVec;
+	isOblique = true;
+}
+
 void Camera::OnDeserialize(const json& inJson)
 {
 	if (inJson.contains("Skybox"))

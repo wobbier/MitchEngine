@@ -12,6 +12,7 @@
 #include <Utils/PlatformUtils.h>
 #include <HavanaEvents.h>
 #include <Window/SDLWindow.h>
+#include "UI/Colors.h"
 
 #if ME_EDITOR
 
@@ -312,7 +313,7 @@ void MainMenuWidget::Render()
 		ImGui::BeginGroup();
 		ImGui::PushStyleColor(ImGuiCol_Button, static_cast<ImVec4>(ImColor::HSV(0.0f, 0.6f, 0.6f, 0.f)));
 		ImGui::PushStyleColor(ImGuiCol_ButtonActive, static_cast<ImVec4>(ImColor::HSV(0.f, 0.8f, 0.8f, 0.f)));
-		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 5.f));
+		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 4.25f));
 		if (ImGui::ImageButton(Icons["Profiler"]->TexHandle, ImVec2(30.f, 30.f)))
 		{
 			const Path optickPath = Path("Engine/Tools/Optick.exe");
@@ -353,15 +354,15 @@ void MainMenuWidget::Render()
 		//	ImGui::EndPopup();
 		//}
 		const float RightShift = 2.f;
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(0.35f, 126.f, 43.f, 1.f));
-		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 4.f));
-		if (ImGui::ImageButton(Icons["BugReport"]->TexHandle, ImVec2(30.f, 30.f)))
-		{
-#if ME_PLATFORM_WIN64
-			ShellExecute(0, 0, L"https://github.com/wobbier/MitchEngine/issues", 0, 0, SW_SHOW);
-#endif
-		}
-		ImGui::PopStyleColor(1);
+//		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ACCENT_GREEN);
+//		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 4.f));
+//		if (ImGui::ImageButton(Icons["BugReport"]->TexHandle, ImVec2(30.f, 30.f)))
+//		{
+//#if ME_PLATFORM_WIN64
+//			ShellExecute(0, 0, L"https://github.com/wobbier/MitchEngine/issues", 0, 0, SW_SHOW);
+//#endif
+//		}
+//		ImGui::PopStyleColor(1);
 
 		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 3.f) + RightShift);
 		if (ImGui::ImageButton(Icons["Minimize"]->TexHandle, ImVec2(30.f, 30.f)))
@@ -386,7 +387,7 @@ void MainMenuWidget::Render()
 			}
 		}
 
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(1.f, 42.f, 43.f, 1.f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ACCENT_RED);
 		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - buttonWidth + RightShift);
 		//ImGui::SameLine(0.f);
 		if (ImGui::ImageButton(Icons["Close"]->TexHandle, ImVec2(30.f, 30.f)))

@@ -30,6 +30,7 @@ void ResourceMonitorWidget::Render()
 	{
 		OPTICK_CATEGORY("Resource Monitor", Optick::Category::Debug);
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.f, 0.f));
+		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(12.f, ImGui::GetStyle().FramePadding.y));
 		ImGui::Begin("Resource Monitor", &IsOpen);
 		{
 			auto& resources = ResourceCache::GetInstance().GetResouceStack();
@@ -50,18 +51,18 @@ void ResourceMonitorWidget::Render()
 				ItemsNeedGenerated = false;
 			}
 
-			ImVec2 size = ImVec2(0, ImGui::GetWindowSize().y - ImGui::GetCursorPosY());
+			ImVec2 size = ImVec2(ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y);
 			static ImGuiTableFlags flags =
 				ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable
 				| ImGuiTableFlags_Sortable | ImGuiTableFlags_SortMulti
-				| ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders | ImGuiTableFlags_NoBordersInBody
-				| ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY
+				| ImGuiTableFlags_RowBg | ImGuiTableFlags_NoBordersInBody
+				| ImGuiTableFlags_ScrollY
 				| ImGuiTableFlags_SizingStretchProp;
 
 			if (ImGui::BeginTable("##ResourceTable", 2, flags, size))
 			{
 				ImGui::TableSetupColumn("Resource Path", ImGuiTableColumnFlags_WidthStretch, -1.f, Sort_LocalPath);
-				ImGui::TableSetupColumn("References", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 10.f, Sort_RefCount);
+				ImGui::TableSetupColumn("References", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 15.f, Sort_RefCount);
 				ImGui::TableSetupScrollFreeze(1, 1);
 				ImGui::TableHeadersRow();
 
@@ -106,7 +107,7 @@ void ResourceMonitorWidget::Render()
 			}
 			ImGui::End();
 		}
-		ImGui::PopStyleVar(1);
+		ImGui::PopStyleVar(2);
 	}
 }
 

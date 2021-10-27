@@ -26,7 +26,8 @@ void LogWidget::Render()
 	if (IsOpen)
 	{
 		OPTICK_CATEGORY("Log", Optick::Category::Debug);
-		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(1.f, 0.f));
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.f, 0.f));
+		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(12.f, ImGui::GetStyle().FramePadding.y));
 		if (ImGui::Begin("Log", &IsOpen, WindowFlags))
 		{
 			// Menu
@@ -49,48 +50,55 @@ void LogWidget::Render()
 			}
 
 			ImGuiListClipper clipper;
-			clipper.Begin(static_cast<int>(CLog::Messages.size()), 12.f);
+			clipper.Begin(static_cast<int>(CLog::Messages.size()), -1.f);
 
-			static float currentHeight = 0.f;
-			ImVec2 size = ImVec2(0, (ImGui::GetWindowSize().y - currentHeight) - ImGui::GetCursorPosY());
-			static ImGuiTableFlags flags = ImGuiTableFlags_ScrollY /*| ImGuiTableFlags_ScrollFreezeTopRow*/ | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersV | ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable;
+			static ImGuiTableFlags flags =
+				ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable
+				| ImGuiTableFlags_Sortable | ImGuiTableFlags_SortMulti
+				| ImGuiTableFlags_RowBg | ImGuiTableFlags_NoBordersInBody
+				| ImGuiTableFlags_ScrollY
+				| ImGuiTableFlags_SizingStretchProp;
 
-			const int COLUMNS_COUNT = 1;
+			static float wOffset = 350.0f;
+			static float hOffset = 30.f;
+			static float h = ImGui::GetContentRegionAvail().y;
 			static int selectedIndex = -1;
+			float w = ImGui::GetContentRegionAvailWidth();
+			if (selectedIndex >= 0 && selectedIndex < static_cast<int>(CLog::Messages.size()))
+			{
+				h = ImGui::GetContentRegionAvail().y - hOffset;
+			}
+			else
+			{
+				h = ImGui::GetContentRegionAvail().y;
+			}
+			ImVec2 size = ImVec2(w, h);
+
 			ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.f, 0.f));
-			if (ImGui::BeginTable("##table1ss", COLUMNS_COUNT, flags, size))
+			if (ImGui::BeginTable("##table1ss", 2, flags, size))
 			{
 				ImGui::PopStyleVar(1);
 
-				ImGui::TableSetupColumn("Message");
+				ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoHide | ImGuiTableColumnFlags_NoResize, -1.0f);
+				ImGui::TableSetupColumn("Message", ImGuiTableColumnFlags_WidthStretch, -1.0f);
+				ImGui::TableSetupScrollFreeze(1, 1);
+				ImGui::TableHeadersRow();
 
-				// Dummy entire-column selection storage
-				// FIXME: It would be nice to actually demonstrate full-featured selection using those checkbox.
-				static bool column_selected[1] = {};
-
-				// Instead of calling TableAutoHeaders() we'll submit custom headers ourselves
-				ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
-				for (int column = 0; column < COLUMNS_COUNT; column++)
-				{
-					ImGui::TableSetColumnIndex(column);
-					const char* column_name = ImGui::TableGetColumnName(column); // Retrieve name passed to TableSetupColumn()
-					ImGui::PushID(column);
-					ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
-					ImGui::Checkbox("##checkall1", &column_selected[column]);
-					ImGui::PopStyleVar();
-					ImGui::SameLine(0.0f, ImGui::GetStyle().ItemInnerSpacing.x);
-					ImGui::TableHeader(column_name);
-					ImGui::PopID();
-				}
 				while (clipper.Step())
 				{
 					for (int line_no = clipper.DisplayStart; line_no < clipper.DisplayEnd; line_no++)
 					{
-						ImGui::TableNextRow(0, 12.f);
-						for (int column = 0; column < 1; column++)
+						ImGui::TableNextRow(ImGuiTableRowFlags_None, 16.f);
+						if (ImGui::TableNextColumn())
 						{
-							ImGui::TableSetColumnIndex(column);
-							if (ImGui::Selectable(CLog::Messages[line_no].Message.c_str(), column_selected[column], 0, ImVec2(0.f, 12.f)))
+							ImGui::Text(CLog::GetInstance().TypeToName(CLog::Messages[line_no].Type).c_str());
+						}
+
+						if (ImGui::TableNextColumn())
+						{
+							bool selected = selectedIndex == line_no;
+							ImGuiSelectableFlags selectable_flags = ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowItemOverlap | ImGuiSelectableFlags_AllowDoubleClick;
+							if (ImGui::Selectable(CLog::Messages[line_no].Message.c_str(), &selected, selectable_flags, ImVec2(0.f, 12.f)))
 							{
 								selectedIndex = line_no;
 							}
@@ -105,18 +113,19 @@ void LogWidget::Render()
 			}
 			clipper.End();
 
-			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(5.f, 5.f));
 			if (selectedIndex >= 0 && selectedIndex < static_cast<int>(CLog::Messages.size()))
 			{
-				ImGuiWindowFlags window_flags = ImGuiWindowFlags_HorizontalScrollbar;
-				ImGui::BeginChild("ChildL", ImVec2(ImGui::GetWindowContentRegionWidth(), 150), false, window_flags);
-				ImGui::PushTextWrapPos(ImGui::GetWindowContentRegionWidth() - 10.f);
+				ImGui::Button("hsplitter", ImVec2(w, 4.f));
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNS);
+				}
+				if (ImGui::IsItemActive())
+				{
+					hOffset -= ImGui::GetIO().MouseDelta.y;
+				}
 				ImGui::TextWrapped(CLog::Messages[selectedIndex].Message.c_str());
-				ImGui::PopTextWrapPos();
-				currentHeight = ImGui::GetWindowHeight();
-				ImGui::EndChild();
 			}
-			ImGui::PopStyleVar(1);
 			//bool showMessage = true;
 			//for (auto& msg : Logger::Messages)
 			//{
@@ -131,9 +140,8 @@ void LogWidget::Render()
 			//}
 		}
 
-		ImGui::PopStyleVar(1);
+		ImGui::PopStyleVar(2);
 
 		ImGui::End();
-
 	}
 }

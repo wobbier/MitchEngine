@@ -6,6 +6,8 @@
 #include "Math/Matrix4.h"
 #include "Math/Quaternion.h"
 
+class btRigidBodyWithEvents;
+
 class Rigidbody
 	: public Component<Rigidbody>
 {
@@ -38,17 +40,20 @@ public:
 
 	Matrix4 GetMat();
 
+	void SetReceiveEvents(bool inIsEventsEnabled);
+
 	unsigned int Id = 0;
 
 private:
 	void CreateObject(const Vector3& Position, const Quaternion& Rotation, const Vector3& InScale, class btDiscreteDynamicsWorld* world);
-	btRigidBody* InternalRigidbody = nullptr;
+	btRigidBodyWithEvents* InternalRigidbody = nullptr;
 	btCollisionShape* fallShape = nullptr;
 	Vector3 Scale;
 	Vector3 Velocity;
 	ColliderType Type = ColliderType::Box;
 	float Mass = 10.0f;
 	bool m_isDynamic = false;
+	bool IsEventsEnabled = false;
 
 	virtual void OnSerialize(json& outJson) final;
 	virtual void OnDeserialize(const json& inJson) final;

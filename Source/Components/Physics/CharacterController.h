@@ -11,6 +11,8 @@
 #include "LinearMath/btTransform.h"
 #include <Math/Vector3.h>
 
+class btPairCachingGhostObjectWithEvents;
+
 class CharacterController
 	: public Component<CharacterController>
 {
@@ -50,7 +52,7 @@ private:
 	btCollisionShape* m_shape = nullptr;
 	btDefaultMotionState* m_motionState = nullptr;
 	btRigidBody* m_rigidbody = nullptr;
-	btPairCachingGhostObject* m_ghostObject = nullptr;
+	btPairCachingGhostObjectWithEvents* m_ghostObject = nullptr;
 
 	bool m_isGrounded = false;
 	bool m_isHittingWall = false;

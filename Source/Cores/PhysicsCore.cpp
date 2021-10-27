@@ -15,6 +15,7 @@
 #include "Work/Burst.h"
 #include <BGFXRenderer.h>
 #include <Debug/DebugDrawer.h>
+#include "Physics/ICollisionEventReciever.h"
 
 PhysicsCore::PhysicsCore()
 	: Base(ComponentFilter().Requires<Transform>().RequiresOneOf<Rigidbody>().RequiresOneOf<CharacterController>())
@@ -33,6 +34,7 @@ PhysicsCore::PhysicsCore()
 	btSequentialImpulseConstraintSolver* solver = new btSequentialImpulseConstraintSolver;
 
 	PhysicsWorld = new btDiscreteDynamicsWorld(dispatcher, overlappingPairCache, solver, collisionConfiguration);
+	ICollisionEvents::SetInstance(this, PhysicsWorld);
 
 	PhysicsWorld->setGravity(Gravity);
 
@@ -66,6 +68,22 @@ void PhysicsCore::Update(float dt)
 	{
 		return;
 	}
+
+	//const int manifoldCount(PhysicsWorld->getDispatcher()->getNumManifolds());
+	//for (int loop = 0; loop < manifoldCount; loop++) {
+	//	const btPersistentManifold* mf = PhysicsWorld->getDispatcher()->getManifoldByIndexInternal(loop);
+	//	const void* obja = mf->getBody0();
+	//	const void* objb = mf->getBody1();
+	//	if (obja == object || objb == object) {
+	//		// This manifold deals with the btRigidBody we are looking for.
+	//		// A manifold is a RB-RB pair containing a list of potential (predicted) contact points.
+	//		const unsigned int numContacts(mf->getNumContacts());
+	//		for (int check = 0; check < numContacts; check++) {
+	//			const btManifoldPoint& pt(mf->getContactPoint(check));
+	//			// do something here, in case you're interested.
+	//		}
+	//	}
+	//}
 
 	auto [worker, pool] = GetEngine().GetJobSystemNew();
 
@@ -101,8 +119,8 @@ void PhysicsCore::Update(float dt)
 					if (TransformComponent.IsDirty())
 					{
 						btTransform trans;
-						Vector3 transPos = TransformComponent.GetPosition();
-						trans.setRotation(btQuaternion(TransformComponent.GetLocalRotation().x, TransformComponent.GetLocalRotation().y, TransformComponent.GetLocalRotation().z, TransformComponent.GetLocalRotation().w));
+						Vector3 transPos = TransformComponent.GetWorldPosition();
+						trans.setRotation(btQuaternion(TransformComponent.GetRotation().x, TransformComponent.GetRotation().y, TransformComponent.GetRotation().z, TransformComponent.GetRotation().w));
 						trans.setOrigin(btVector3(transPos.x, transPos.y, transPos.z));
 						rigidbody->setWorldTransform(trans);
 						rigidbody->activate();
@@ -187,9 +205,29 @@ void PhysicsCore::OnEntityRemoved(Entity& NewEntity)
  	if (NewEntity.HasComponent<Rigidbody>())
  	{
  		Rigidbody& RigidbodyComponent = NewEntity.GetComponent<Rigidbody>();
- 
+
+		PhysicsWorld->removeRigidBody(RigidbodyComponent.InternalRigidbody);
+		RigidbodyComponent.InternalRigidbody->setUserPointer(nullptr);
+		RigidbodyComponent.InternalRigidbody->setMonitorCollisions(false);
+		delete RigidbodyComponent.InternalRigidbody;
+		RigidbodyComponent.InternalRigidbody = nullptr;
+
  		GetEngine().GetRenderer().GetDebugDrawCache().Pop(RigidbodyComponent.DebugColliderId);
  	}
+
+	if (NewEntity.HasComponent<CharacterController>())
+	{
+		CharacterController& Controller = NewEntity.GetComponent<CharacterController>();
+		PhysicsWorld->removeRigidBody(Controller.m_rigidbody);
+		PhysicsWorld->removeCollisionObject(Controller.m_ghostObject);
+		Controller.m_rigidbody->setUserPointer(nullptr);
+		Controller.m_ghostObject->setUserPointer(nullptr);
+		Controller.m_ghostObject->setMonitorCollisions(false);
+		delete Controller.m_rigidbody;
+		Controller.m_rigidbody = nullptr;
+		delete Controller.m_ghostObject;
+		Controller.m_ghostObject = nullptr;
+	}
 }
 
 void PhysicsCore::OnDrawGuizmo(DebugDrawer* inDrawer)
@@ -219,7 +257,7 @@ void PhysicsCore::InitRigidbody(Rigidbody& RigidbodyComponent, Transform& Transf
 {
 	if (!RigidbodyComponent.IsRigidbodyInitialized())
 	{
-		RigidbodyComponent.CreateObject(TransformComponent.GetPosition(), TransformComponent.GetLocalRotation(), TransformComponent.GetScale(), PhysicsWorld);
+		RigidbodyComponent.CreateObject(TransformComponent.GetPosition(), TransformComponent.GetRotation(), TransformComponent.GetScale(), PhysicsWorld);
         PhysicsWorld->addRigidBody(RigidbodyComponent.InternalRigidbody);
 		Moonlight::DebugColliderCommand cmd;
 		cmd.Type = Moonlight::Cube;
@@ -291,4 +329,32 @@ bool PhysicsCore::Raycast(const Vector3& InPosition, const Vector3& InDirection,
 		}
 	}
 	return false;
+}
+
+void PhysicsCore::OnCollisionStart(const btRigidBodyWithEventsEventDelegates* thisBodyA, const btCollisionObject* bodyB, const btVector3& localSpaceContactPoint, const btVector3& worldSpaceContactPoint, const btVector3& worldSpaceContactNormal, const btScalar penetrationDistance, const btScalar appliedImpulse)
+{
+	std::string name = ((BaseComponent*)thisBodyA->self->getUserPointer())->Parent->GetComponent<Transform>().GetName();
+	std::string name2 = ((BaseComponent*)bodyB->getUserPointer())->Parent->GetComponent<Transform>().GetName();
+
+	YIKES(name + " Collided with: " + name2);
+}
+
+void PhysicsCore::OnCollisionContinue(const btRigidBodyWithEventsEventDelegates* thisBodyA, const btCollisionObject* bodyB, const btVector3& localSpaceContactPoint, const btVector3& worldSpaceContactPoint, const btVector3& worldSpaceContactNormal, const btScalar penetrationDistance, const btScalar appliedImpulse)
+{
+	std::string name = ((BaseComponent*)thisBodyA->self->getUserPointer())->Parent->GetComponent<Transform>().GetName();
+	std::string name2 = ((BaseComponent*)bodyB->getUserPointer())->Parent->GetComponent<Transform>().GetName();
+
+	YIKES(name + " Colliding with: " + name2);
+}
+
+void PhysicsCore::OnCollisionStop(const btRigidBodyWithEventsEventDelegates* thisBodyA, const btCollisionObject* bodyB, const btVector3& localSpaceContactPoint, const btVector3& worldSpaceContactPoint, const btVector3& worldSpaceContactNormal, const btScalar penetrationDistance, const btScalar appliedImpulse)
+{
+	BaseComponent* baseBody = (BaseComponent*)thisBodyA->self->getUserPointer();
+	if (baseBody)
+	{
+		std::string name = baseBody->Parent->GetComponent<Transform>().GetName();
+		std::string name2 = ((BaseComponent*)bodyB->getUserPointer())->Parent->GetComponent<Transform>().GetName();
+
+		YIKES(name + " Stopped Colliding with: " + name2);
+	}
 }

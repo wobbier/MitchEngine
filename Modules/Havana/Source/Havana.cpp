@@ -33,6 +33,7 @@
 #include <BGFXRenderer.h>
 #include <Window/SDLWindow.h>
 #include <backends/imgui_impl_sdl.h>
+#include "UI/Colors.h"
 
 static SDL_Cursor* g_imgui_to_sdl_cursor[ImGuiMouseCursor_COUNT];
 
@@ -133,7 +134,7 @@ void Havana::InitUI()
 	ImVec4* colors = ImGui::GetStyle().Colors;
 	colors[ImGuiCol_Text] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
 	colors[ImGuiCol_TextDisabled] = ImVec4(0.50f, 0.50f, 0.50f, 1.00f);
-	colors[ImGuiCol_WindowBg] = ImVec4(0.07f, 0.07f, 0.07f, 1.0f);
+	colors[ImGuiCol_WindowBg] = COLOR_FOREGROUND;
 	colors[ImGuiCol_ChildBg] = ImVec4(1.00f, 1.00f, 1.00f, 0.00f);
 	colors[ImGuiCol_PopupBg] = ImVec4(0.08f, 0.08f, 0.08f, 0.94f);
 	colors[ImGuiCol_Border] = ImVec4(0.43f, 0.43f, 0.50f, 0.50f);
@@ -141,26 +142,26 @@ void Havana::InitUI()
 	colors[ImGuiCol_FrameBg] = ImVec4(0.20f, 0.21f, 0.22f, 0.54f);
 	colors[ImGuiCol_FrameBgHovered] = ImVec4(0.40f, 0.40f, 0.40f, 0.40f);
 	colors[ImGuiCol_FrameBgActive] = ImVec4(0.18f, 0.18f, 0.18f, 0.67f);
-	colors[ImGuiCol_TitleBg] = ImVec4(0.04f, 0.04f, 0.04f, 1.00f);
-	colors[ImGuiCol_TitleBgActive] = ImVec4(0.29f, 0.29f, 0.29f, 1.00f);
+	colors[ImGuiCol_TitleBg] = COLOR_BACKGROUND_BORDER;
+	colors[ImGuiCol_TitleBgActive] = COLOR_BACKGROUND_BORDER;
 	colors[ImGuiCol_TitleBgCollapsed] = ImVec4(0.00f, 0.00f, 0.00f, 0.51f);
-	colors[ImGuiCol_MenuBarBg] = ImVec4(0.14f, 0.14f, 0.14f, 1.00f);
-	colors[ImGuiCol_ScrollbarBg] = ImVec4(0.02f, 0.02f, 0.02f, 0.53f);
-	colors[ImGuiCol_ScrollbarGrab] = ImVec4(0.31f, 0.31f, 0.31f, 1.00f);
+	colors[ImGuiCol_MenuBarBg] = COLOR_BACKGROUND_BORDER;
+	colors[ImGuiCol_ScrollbarBg] = COLOR_FOREGROUND;
+	colors[ImGuiCol_ScrollbarGrab] = COLOR_WHITE_25;
 	colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.41f, 0.41f, 0.41f, 1.00f);
 	colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(0.51f, 0.51f, 0.51f, 1.00f);
 	colors[ImGuiCol_CheckMark] = ImVec4(0.94f, 0.94f, 0.94f, 1.00f);
 	colors[ImGuiCol_SliderGrab] = ImVec4(0.51f, 0.51f, 0.51f, 1.00f);
 	colors[ImGuiCol_SliderGrabActive] = ImVec4(0.86f, 0.86f, 0.86f, 1.00f);
-	colors[ImGuiCol_Button] = ImVec4(0.44f, 0.44f, 0.44f, 0.40f);
-	colors[ImGuiCol_ButtonHovered] = ImVec4(0.46f, 0.47f, 0.48f, 1.00f);
-	colors[ImGuiCol_ButtonActive] = ImVec4(0.42f, 0.42f, 0.42f, 1.00f);
-	colors[ImGuiCol_Header] = ImVec4(0.70f, 0.70f, 0.70f, 0.31f);
-	colors[ImGuiCol_HeaderHovered] = ImVec4(0.70f, 0.70f, 0.70f, 0.80f);
-	colors[ImGuiCol_HeaderActive] = ImVec4(0.48f, 0.50f, 0.52f, 1.00f);
-	colors[ImGuiCol_Separator] = ImVec4(0.43f, 0.43f, 0.50f, 0.50f);
-	colors[ImGuiCol_SeparatorHovered] = ImVec4(0.72f, 0.72f, 0.72f, 0.78f);
-	colors[ImGuiCol_SeparatorActive] = ImVec4(0.51f, 0.51f, 0.51f, 1.00f);
+	colors[ImGuiCol_Button] = ImVec4(0.141f, 0.141f, 0.141f, 1.000f);
+	colors[ImGuiCol_ButtonHovered] = COLOR_PRIMARY_HOVER;
+	colors[ImGuiCol_ButtonActive] = COLOR_PRIMARY_PRESS;
+	colors[ImGuiCol_Header] = COLOR_HEADER;
+	colors[ImGuiCol_HeaderHovered] = COLOR_PRIMARY_HOVER;
+	colors[ImGuiCol_HeaderActive] = COLOR_PRIMARY_PRESS;
+	colors[ImGuiCol_Separator] = COLOR_BACKGROUND_BORDER;
+	colors[ImGuiCol_SeparatorHovered] = COLOR_PRIMARY_HOVER;
+	colors[ImGuiCol_SeparatorActive] = COLOR_PRIMARY_PRESS;
 	colors[ImGuiCol_ResizeGrip] = ImVec4(0.91f, 0.91f, 0.91f, 0.25f);
 	colors[ImGuiCol_ResizeGripHovered] = ImVec4(0.81f, 0.81f, 0.81f, 0.67f);
 	colors[ImGuiCol_ResizeGripActive] = ImVec4(0.46f, 0.46f, 0.46f, 0.95f);
@@ -173,19 +174,28 @@ void Havana::InitUI()
 	colors[ImGuiCol_DragDropTarget] = ImVec4(1.00f, 1.00f, 0.00f, 0.90f);
 	colors[ImGuiCol_NavHighlight] = ImVec4(0.60f, 0.60f, 0.60f, 1.00f);
 	colors[ImGuiCol_NavWindowingHighlight] = ImVec4(1.00f, 1.00f, 1.00f, 0.70f);
+	colors[ImGuiCol_Tab] = ImVec4(0.220f, 0.220f, 0.220f, 1.000f);
+	colors[ImGuiCol_TabHovered] = COLOR_PRIMARY_HOVER;
+	colors[ImGuiCol_TabActive] = COLOR_PRIMARY;
+	colors[ImGuiCol_TabUnfocused] = COLOR_BACKGROUND_BORDER;
+	colors[ImGuiCol_TabUnfocusedActive] = COLOR_FOREGROUND;
+	colors[ImGuiCol_TableHeaderBg] = COLOR_HEADER;
+	colors[ImGuiCol_TableRowBg] = COLOR_FOREGROUND;
+	colors[ImGuiCol_TableRowBgAlt] = COLOR_RECESSED;
 	//ImGui::StyleColorsDark();
 	ImGuiStyle& style = ImGui::GetStyle();
 	if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
 	{
-		style.WindowRounding = 0.0f;
 		style.Colors[ImGuiCol_WindowBg].w = 1.0f;
 	}
-	style.WindowMinSize = ImVec2(10.f, 10.f);
+	style.WindowRounding = 3.0f;
+	style.WindowMinSize = ImVec2(50.f, 50.f);
 	style.WindowBorderSize = 0.f;
-	style.ScrollbarSize = 10.f;
+	style.ScrollbarSize = 14.f;
 	style.ChildBorderSize = 0.f;
 	style.WindowMenuButtonPosition = ImGuiDir_None;
 	style.AntiAliasedFill = false;
+	style.TabRounding = 2.f;
 	style.ColorButtonPosition = ImGuiDir_Left;
 
 	//auto cb = [this](const Vector2& pos) -> std::optional<SDL_HitTestResult>
@@ -212,6 +222,8 @@ void Havana::InitUI()
 	PropertiesView->Init();
 	AssetPreview->Init();
 	AssetBrowser->Init();
+	Input& gameInput = GetEngine().GetInput();
+	gameInput.Stop();
 }
 
 void Havana::NewFrame()
