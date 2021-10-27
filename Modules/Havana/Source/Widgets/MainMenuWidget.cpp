@@ -107,8 +107,10 @@ void MainMenuWidget::Render()
 
 	OPTICK_CATEGORY("Main Menu Bar", Optick::Category::Debug);
 	ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0.0f, 12.f));
+	ImGui::PushStyleColor(ImGuiCol_MenuBarBg, COLOR_BACKGROUND_BORDER);
 	if (ImGui::BeginMainMenuBar())
 	{
+		ImGui::PopStyleColor();
 		Input& editorInput = GetEngine().GetEditorInput();
 		Input& gameInput = GetEngine().GetInput();
 

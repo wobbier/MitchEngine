@@ -347,11 +347,11 @@ void Mesh::OnEditorInspect()
 					ImGui::SameLine();
 				}
 
-				ImVec2 selectorSize(-1.f, 19.f);
+				ImVec2 selectorSize(-1.f, 0.f);
 
 				if (texture)
 				{
-					selectorSize = ImVec2(ImGui::GetContentRegionAvailWidth() - 19.f, 19.f);
+					selectorSize = ImVec2(ImGui::GetContentRegionAvailWidth() - 19.f, 0.f);
 				}
 				ImGui::PushID(i);
 				if (ImGui::Button(((texture) ? texture->GetPath().LocalPath.c_str() : "Select Asset"), selectorSize))

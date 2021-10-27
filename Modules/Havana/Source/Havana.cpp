@@ -139,13 +139,13 @@ void Havana::InitUI()
 	colors[ImGuiCol_PopupBg] = ImVec4(0.08f, 0.08f, 0.08f, 0.94f);
 	colors[ImGuiCol_Border] = ImVec4(0.43f, 0.43f, 0.50f, 0.50f);
 	colors[ImGuiCol_BorderShadow] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
-	colors[ImGuiCol_FrameBg] = ImVec4(0.20f, 0.21f, 0.22f, 0.54f);
+	colors[ImGuiCol_FrameBg] = COLOR_DROPDOWN;
 	colors[ImGuiCol_FrameBgHovered] = ImVec4(0.40f, 0.40f, 0.40f, 0.40f);
 	colors[ImGuiCol_FrameBgActive] = ImVec4(0.18f, 0.18f, 0.18f, 0.67f);
 	colors[ImGuiCol_TitleBg] = COLOR_BACKGROUND_BORDER;
 	colors[ImGuiCol_TitleBgActive] = COLOR_BACKGROUND_BORDER;
 	colors[ImGuiCol_TitleBgCollapsed] = ImVec4(0.00f, 0.00f, 0.00f, 0.51f);
-	colors[ImGuiCol_MenuBarBg] = COLOR_BACKGROUND_BORDER;
+	colors[ImGuiCol_MenuBarBg] = COLOR_FOREGROUND;
 	colors[ImGuiCol_ScrollbarBg] = COLOR_FOREGROUND;
 	colors[ImGuiCol_ScrollbarGrab] = COLOR_WHITE_25;
 	colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.41f, 0.41f, 0.41f, 1.00f);
@@ -153,10 +153,10 @@ void Havana::InitUI()
 	colors[ImGuiCol_CheckMark] = ImVec4(0.94f, 0.94f, 0.94f, 1.00f);
 	colors[ImGuiCol_SliderGrab] = ImVec4(0.51f, 0.51f, 0.51f, 1.00f);
 	colors[ImGuiCol_SliderGrabActive] = ImVec4(0.86f, 0.86f, 0.86f, 1.00f);
-	colors[ImGuiCol_Button] = ImVec4(0.141f, 0.141f, 0.141f, 1.000f);
+	colors[ImGuiCol_Button] = COLOR_DROPDOWN;
 	colors[ImGuiCol_ButtonHovered] = COLOR_PRIMARY_HOVER;
 	colors[ImGuiCol_ButtonActive] = COLOR_PRIMARY_PRESS;
-	colors[ImGuiCol_Header] = COLOR_HEADER;
+	colors[ImGuiCol_Header] = COLOR_WHITE_25;
 	colors[ImGuiCol_HeaderHovered] = COLOR_PRIMARY_HOVER;
 	colors[ImGuiCol_HeaderActive] = COLOR_PRIMARY_PRESS;
 	colors[ImGuiCol_Separator] = COLOR_BACKGROUND_BORDER;
@@ -174,7 +174,7 @@ void Havana::InitUI()
 	colors[ImGuiCol_DragDropTarget] = ImVec4(1.00f, 1.00f, 0.00f, 0.90f);
 	colors[ImGuiCol_NavHighlight] = ImVec4(0.60f, 0.60f, 0.60f, 1.00f);
 	colors[ImGuiCol_NavWindowingHighlight] = ImVec4(1.00f, 1.00f, 1.00f, 0.70f);
-	colors[ImGuiCol_Tab] = ImVec4(0.220f, 0.220f, 0.220f, 1.000f);
+	colors[ImGuiCol_Tab] = COLOR_FOREGROUND;
 	colors[ImGuiCol_TabHovered] = COLOR_PRIMARY_HOVER;
 	colors[ImGuiCol_TabActive] = COLOR_PRIMARY;
 	colors[ImGuiCol_TabUnfocused] = COLOR_TITLE;
@@ -198,6 +198,7 @@ void Havana::InitUI()
 	style.TabRounding = 2.f;
 	style.ColorButtonPosition = ImGuiDir_Left;
 	style.WindowTitleAlign = { .5f, .5f };
+	//style.FramePadding = { 8.f, 3.f };
 
 	//auto cb = [this](const Vector2& pos) -> std::optional<SDL_HitTestResult>
 	//{
