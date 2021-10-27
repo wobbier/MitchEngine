@@ -1,11 +1,13 @@
 #pragma once
 
+#define COLOR_TEXT { 0.996f, 0.996f, 0.996f, 1.000f }
 #define COLOR_PRIMARY { 0.000f, 0.439f, 0.878f, 1.000f }
 #define COLOR_PRIMARY_HOVER { 0.055f, 0.529f, 1.000f, 1.000f }
 #define COLOR_PRIMARY_PRESS { 0.000f, 0.314f, 0.627f, 1.000f }
 
 #define COLOR_BACKGROUND_BORDER { 0.059f, 0.059f, 0.059f, 1.000f }
-#define COLOR_FOREGROUND { 0.082f, 0.082f, 0.082f, 1.000f }
+#define COLOR_FOREGROUND { 0.102f, 0.102f, 0.102f, 1.000f }
+#define COLOR_FOREGROUND_INVERTED { 0.102f, 0.102f, 0.102f, 1.000f }
 #define COLOR_HEADER { 0.184f, 0.184f, 0.184f, 1.000f }
 #define COLOR_TITLE { 0.082f, 0.082f, 0.082f, 1.000f }
 #define COLOR_RECESSED { 0.102f, 0.102f, 0.102f, 1.000f }

@@ -132,7 +132,7 @@ void Havana::InitUI()
 	g_imgui_to_sdl_cursor[ImGuiMouseCursor_ResizeNWSE] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZENWSE);
 
 	ImVec4* colors = ImGui::GetStyle().Colors;
-	colors[ImGuiCol_Text] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
+	colors[ImGuiCol_Text] = COLOR_TEXT;
 	colors[ImGuiCol_TextDisabled] = ImVec4(0.50f, 0.50f, 0.50f, 1.00f);
 	colors[ImGuiCol_WindowBg] = COLOR_FOREGROUND;
 	colors[ImGuiCol_ChildBg] = ImVec4(1.00f, 1.00f, 1.00f, 0.00f);
@@ -177,10 +177,10 @@ void Havana::InitUI()
 	colors[ImGuiCol_Tab] = ImVec4(0.220f, 0.220f, 0.220f, 1.000f);
 	colors[ImGuiCol_TabHovered] = COLOR_PRIMARY_HOVER;
 	colors[ImGuiCol_TabActive] = COLOR_PRIMARY;
-	colors[ImGuiCol_TabUnfocused] = COLOR_BACKGROUND_BORDER;
+	colors[ImGuiCol_TabUnfocused] = COLOR_TITLE;
 	colors[ImGuiCol_TabUnfocusedActive] = COLOR_FOREGROUND;
 	colors[ImGuiCol_TableHeaderBg] = COLOR_HEADER;
-	colors[ImGuiCol_TableRowBg] = COLOR_FOREGROUND;
+	colors[ImGuiCol_TableRowBg] = COLOR_TITLE;
 	colors[ImGuiCol_TableRowBgAlt] = COLOR_RECESSED;
 	//ImGui::StyleColorsDark();
 	ImGuiStyle& style = ImGui::GetStyle();
@@ -197,6 +197,7 @@ void Havana::InitUI()
 	style.AntiAliasedFill = false;
 	style.TabRounding = 2.f;
 	style.ColorButtonPosition = ImGuiDir_Left;
+	style.WindowTitleAlign = { .5f, .5f };
 
 	//auto cb = [this](const Vector2& pos) -> std::optional<SDL_HitTestResult>
 	//{
