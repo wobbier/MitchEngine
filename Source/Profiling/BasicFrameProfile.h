@@ -28,7 +28,7 @@ class FrameProfile
 
 public:
 #if ME_EDITOR
-	static constexpr int kMinProfilerSize = 12;
+	static constexpr int kMinProfilerSize = 6;
 #else
 	static constexpr int kMinProfilerSize = 5;
 #endif

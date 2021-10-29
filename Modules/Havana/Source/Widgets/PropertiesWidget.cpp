@@ -53,7 +53,9 @@ void PropertiesWidget::Render()
 		return;
 	}
 
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 0.f, 0.f });
 	ImGui::Begin("Properties", &IsOpen);
+	ImGui::PopStyleVar();
 	{
 		EntityHandle entity = SelectedEntity;
 		if (SelectedTransform.lock())
@@ -96,9 +98,14 @@ void PropertiesWidget::DrawComponentProperties(BaseComponent* comp, EntityHandle
 	bool shouldClose = true;
 	if (ImGui::CollapsingHeader(comp->GetName().c_str(), &shouldClose, ImGuiTreeNodeFlags_DefaultOpen))
 	{
-		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0.f, GImGui->Style.ItemSpacing.y });
+		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0.f, ImGui::GetStyle().ItemSpacing.y });
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 20.f, 0.f });
+		ImGui::BeginGroup();
+
 		comp->OnEditorInspect();
-		ImGui::PopStyleVar();
+		ImGui::EndGroup();
+		ImGui::PopStyleVar(2);
+		ImGui::Text("\n");
 	}
 	if (!shouldClose)
 	{
@@ -117,7 +124,6 @@ void PropertiesWidget::ClearSelection()
 void PropertiesWidget::AddComponentPopup(EntityHandle inSelectedEntity)
 {
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, {20.f, 10.f});
-	ImGui::Separator();
 	if (ImGui::Button("Add Component..", {-1.f, 26.f}))
 	{
 		ImGui::OpenPopup("my_select_popup");

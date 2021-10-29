@@ -248,9 +248,10 @@ void Havana::NewFrame()
 		MainMenuSize.x = 0.f;
 		MainMenuSize.y = 17.f;
 		DockSize = viewport->Size;
-
-		DockSize.y = viewport->Size.y - MainMenuSize.y - FrameProfile::kMinProfilerSize;
+		DockSize.x -= 6.f * 2.f;
+		DockSize.y = viewport->Size.y - MainMenuSize.y - (6.f * 3.f);
 		DockPos = viewport->Pos;
+		DockPos.x += 6.f;
 		DockPos.y = viewport->Pos.y + MainMenuSize.y;
 
 		ImGui::SetNextWindowPos(DockPos);
@@ -344,9 +345,9 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 
 	// Frame Profiler
 	{
-		Vector2 size(ImGui::GetMainViewport()->Size.x, static_cast<float>(FrameProfile::kMinProfilerSize));
+		Vector2 size(ImGui::GetMainViewport()->Size.x - 12.f, static_cast<float>(FrameProfile::kMinProfilerSize));
 		auto pos = ImGui::GetMainViewport()->Pos;
-		Vector2 position(pos.x, pos.y + ImGui::GetMainViewport()->Size.y - static_cast<float>(FrameProfile::kMinProfilerSize));
+		Vector2 position(pos.x + 6.f, pos.y + ImGui::GetMainViewport()->Size.y - (static_cast<float>(FrameProfile::kMinProfilerSize) * 2.f));
 
 		FrameProfile::GetInstance().Render(position, size);
 	}

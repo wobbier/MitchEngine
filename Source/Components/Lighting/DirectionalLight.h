@@ -3,6 +3,7 @@
 #include "ECS/ComponentDetail.h"
 #include "Math/Vector3.h"
 #include "RenderCommands.h"
+#include <Utils/HavanaUtils.h>
 
 class DirectionalLight
 	: public Component<DirectionalLight>
@@ -34,8 +35,8 @@ public:
 		bool hdr = true;
 		int misc_flags = (hdr ? ImGuiColorEditFlags_HDR : 0) | ImGuiColorEditFlags_NoDragDrop;
 
-		ImGui::ColorEdit3("Ambient", (float*)& Ambient.x, ImGuiColorEditFlags_Float | misc_flags);
-		ImGui::ColorEdit3("Diffuse", (float*)& Diffuse.x, ImGuiColorEditFlags_Float | misc_flags);
+		HavanaUtils::ColorButton("Ambient", Ambient);
+		HavanaUtils::ColorButton("Diffuse", Diffuse);
 
 		if (ImGui::Button("Look At World 0"))
 		{

@@ -46,7 +46,7 @@ void FrameProfile::Render(const Vector2& inPosition, const Vector2& inSize)
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.f, 0.f));
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.f, 0.f));
-
+	ImGui::PushStyleColor(ImGuiCol_WindowBg, { 0.f, 0.f, 0.f, 0.f });
 
 	static int frameCount = 0;
 	static float frametime = 0.0f;
@@ -70,7 +70,8 @@ void FrameProfile::Render(const Vector2& inPosition, const Vector2& inSize)
 
 	ImGui::Begin("FrameProfileBar", NULL, flags);
 	{
-		ImDrawList* draw_list = ImGui::GetForegroundDrawList();
+		ImGui::PopStyleColor();
+		ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
 		const ImVec2 p = ImGui::GetCursorScreenPos();
 		static ImVec4 col2 = ImVec4(1.0f, .5f, 1.0f, 1.0f);
@@ -81,7 +82,7 @@ void FrameProfile::Render(const Vector2& inPosition, const Vector2& inSize)
 			float x = p.x, y = p.y;
 
 			float sz = 50.f;
-			draw_list->AddRectFilled(ImVec2(x, y), ImVec2(x + ImGui::GetWindowSize().x, y + sz), col322);
+			//draw_list->AddRectFilled(ImVec2(x, y), ImVec2(x + ImGui::GetWindowSize().x, y + sz), col322);
 			float previousX = 0;
 			float targetFPS = (1.f / GetEngine().FPS);
 			float size = (totalFrameTime / targetFPS);
@@ -175,7 +176,7 @@ ImVec4 FrameProfile::GetCategoryColor(ProfileCategory category)
 	case ProfileCategory::UI:
 		return ACCENT_PINK;
 	case ProfileCategory::Rendering:
-		return ACCENT_BLACK;
+		return ACCENT_ORANGE;
 	case ProfileCategory::Physics:
 		return ACCENT_PURPLE;
 	default:

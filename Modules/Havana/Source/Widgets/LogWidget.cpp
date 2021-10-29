@@ -33,7 +33,7 @@ void LogWidget::Render()
 			// Menu
 			if (ImGui::BeginMenuBar())
 			{
-				if (ImGui::BeginMenu("Show"))
+				if (ImGui::BeginMenu("Filter"))
 				{
 					ImGui::Checkbox("Debug", &DebugFilters[CLog::LogType::Debug]);
 					ImGui::Checkbox("Error", &DebugFilters[CLog::LogType::Error]);
@@ -41,7 +41,8 @@ void LogWidget::Render()
 					ImGui::EndMenu();
 				}
 
-				if (ImGui::Button("Clear Log"))
+				ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 100.f);
+				if (ImGui::Button("Clear Log", { 100.f, 0.f }))
 				{
 					CLog::Messages.clear();
 				}

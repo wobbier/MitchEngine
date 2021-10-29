@@ -193,7 +193,7 @@ void BGFXRenderer::BeginFrame(const Vector2& mousePosition, uint8_t mouseButton,
 #if ME_EDITOR
 	bgfx::setViewClear(viewId
 		, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH
-		, 0x00000000
+		, 0x0f0f0fff
 		, 1.0f
 		, 0
 	);

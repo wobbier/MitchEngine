@@ -301,13 +301,12 @@ void Mesh::OnEditorInspect()
 			//		}
 			//	}
 			//}
-			HavanaUtils::Label("Diffuse Color");
-			ImGui::ColorEdit3("##Diffuse Color", &MeshMaterial->DiffuseColor[0]);
+			HavanaUtils::ColorButton("Diffuse Color", MeshMaterial->DiffuseColor);
 
 			int i = 0;
 			for (auto texture : MeshMaterial->GetTextures())
 			{
-				HavanaUtils::Label(Moonlight::Texture::ToString(static_cast<Moonlight::TextureType>(i)));
+				float widgetWidth = HavanaUtils::Label(Moonlight::Texture::ToString(static_cast<Moonlight::TextureType>(i)));
 				std::string label("##Texture" + std::to_string(i));
 				if (texture && bgfx::isValid(texture->TexHandle))
 				{
@@ -347,11 +346,11 @@ void Mesh::OnEditorInspect()
 					ImGui::SameLine();
 				}
 
-				ImVec2 selectorSize(-1.f, 0.f);
+				ImVec2 selectorSize(widgetWidth, 0.f);
 
 				if (texture)
 				{
-					selectorSize = ImVec2(ImGui::GetContentRegionAvailWidth() - 19.f, 0.f);
+					selectorSize = ImVec2(widgetWidth - 54.f, 0.f);
 				}
 				ImGui::PushID(i);
 				if (ImGui::Button(((texture) ? texture->GetPath().LocalPath.c_str() : "Select Asset"), selectorSize))
