@@ -13,6 +13,7 @@ AssetPreviewWidget::AssetPreviewWidget()
 
 void AssetPreviewWidget::Init()
 {
+	IsOpen = false;
 }
 
 void AssetPreviewWidget::Destroy()
@@ -25,6 +26,7 @@ bool AssetPreviewWidget::OnEvent(const BaseEvent& evt)
 	{
 		const PreviewResourceEvent& event = static_cast<const PreviewResourceEvent&>(evt);
 		ViewTexture = event.Subject;
+		IsOpen = true;
 		return true;
 	}
 	return false;
@@ -43,7 +45,7 @@ void AssetPreviewWidget::Render()
 
 	OPTICK_CATEGORY("Preview Texture", Optick::Category::Debug);
 
-	ImGui::Begin("Preview");
+	ImGui::Begin("Preview", &IsOpen);
 	if (ViewTexture)
 	{
 		ImGui::Image(ViewTexture->TexHandle, ImVec2(300, 300));

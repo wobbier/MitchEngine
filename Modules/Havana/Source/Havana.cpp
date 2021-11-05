@@ -246,20 +246,19 @@ void Havana::NewFrame()
 		ImGuiViewport* viewport = ImGui::GetMainViewport();
 		ImVec2 MainMenuSize;
 		MainMenuSize.x = 0.f;
-		MainMenuSize.y = 17.f;
+		MainMenuSize.y = 36.f;
 		DockSize = viewport->Size;
 		DockSize.x -= 6.f * 2.f;
 		DockSize.y = viewport->Size.y - MainMenuSize.y - (6.f * 3.f);
-		DockPos = viewport->Pos;
-		DockPos.x += 6.f;
-		DockPos.y = viewport->Pos.y + MainMenuSize.y;
+		DockPos = { 6.f, 36.f };
+		//DockPos.y = viewport->Pos.y + MainMenuSize.y;
 
 		ImGui::SetNextWindowPos(DockPos);
 		ImGui::SetNextWindowSize(DockSize);
 		ImGui::SetNextWindowViewport(viewport->ID);
 		ImGui::SetNextWindowBgAlpha(0.0f);
 
-		ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
+		ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDocking;
 		window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
 		window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
 

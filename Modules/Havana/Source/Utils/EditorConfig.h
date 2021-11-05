@@ -19,20 +19,9 @@ public:
 
 	void Init()
 	{
-		Path gameSpecificCnfigPath(kConfigPath);
+		Path configPath(kConfigPath);
 
-		if (gameSpecificCnfigPath.FullPath.rfind("Engine") != -1)
-		{
-			Path editorCfgPath(kConfigPath, true);
-			if (!editorCfgPath.Exists)
-			{
-				PlatformUtils::CreateDirectory(editorCfgPath);
-				File gameEngineCfg = File(gameSpecificCnfigPath);
-				File newGameConfig(editorCfgPath);
-				newGameConfig.Write(gameEngineCfg.Read());
-			}
-		}
-		else if (!gameSpecificCnfigPath.Exists)
+		if (!configPath.Exists)
 		{
 			Save();
 		}

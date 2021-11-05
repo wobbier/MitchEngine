@@ -80,7 +80,7 @@ private:
 
 	std::ofstream mLogFile;
 	std::string mLogFileLocation;
-	LogType mPriority;
+	LogType mPriority = LogType::None;
 	CLog() = default;
 
 	ME_SINGLETON_DEFINITION(CLog)

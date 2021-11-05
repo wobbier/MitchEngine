@@ -111,13 +111,14 @@ void MainMenuWidget::Render()
 	if (ImGui::BeginMainMenuBar())
 	{
 		ImGui::PopStyleColor();
+		ImGui::PopStyleVar(1);
+
 		Input& editorInput = GetEngine().GetEditorInput();
 		Input& gameInput = GetEngine().GetInput();
 
 		MainMenuSize = ImGui::GetWindowSize();
 		//MainMenuSize.y = 25.f;
-		ImGui::SetWindowSize(MainMenuSize);
-		ImGui::PopStyleVar(1);
+		//ImGui::SetWindowSize(MainMenuSize);
 		ImGui::Image(Icons["Logo"]->TexHandle, ImVec2(35, 35));
 		if (ImGui::BeginMenu("File"))
 		{

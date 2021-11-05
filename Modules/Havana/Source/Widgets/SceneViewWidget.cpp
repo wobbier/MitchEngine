@@ -13,6 +13,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <Mathf.h>
 #include <Cores/UI/UICore.h>
+#include "Profiling/BasicFrameProfile.h"
 
 #if ME_EDITOR
 
@@ -141,7 +142,7 @@ void SceneViewWidget::Render()
 	{
 		ImGuiWindowFlags fullScreenFlags = WindowFlags | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar;
 
-		ImGui::SetNextWindowPos(ImVec2(App->Editor->DockPos.x, App->Editor->DockPos.y + 20.f));
+		ImGui::SetNextWindowPos(ImVec2(App->Editor->DockPos.x, App->Editor->DockPos.y));
 		ImGui::SetNextWindowSize(ImVec2(App->Editor->DockSize.x, App->Editor->DockSize.y));
 		ImGui::Begin("Full Screen Viewport", NULL, fullScreenFlags);
 	}
@@ -232,7 +233,7 @@ void SceneViewWidget::Render()
 	SceneViewRenderLocation = Vector2(ImGui::GetCursorPos().x, ImGui::GetCursorPos().y);
 	GizmoRenderLocation = Vector2(ImGui::GetCursorScreenPos().x, ImGui::GetCursorScreenPos().y);
 
-	Vector2 availableSpace = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y - 38.f);
+	Vector2 availableSpace = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y - SceneViewRenderLocation.y);
 	Vector2 viewportRenderSize = availableSpace;
 	float scale = 1.f;
 	switch (CurrentDisplayParams.Type)
