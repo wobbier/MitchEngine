@@ -17,6 +17,13 @@ public:
 
 	EditorConfig() = default;
 
+	struct EditorWidgetProperties
+	{
+		bool IsVisible = false;
+	};
+
+	std::map<std::string, EditorWidgetProperties> PanelVisibility;
+
 	void Init()
 	{
 		Path configPath(kConfigPath);
@@ -47,6 +54,17 @@ public:
 			{
 				CameraRotation = Vector3((float)inJson["CameraRotation"][0], (float)inJson["CameraRotation"][1], (float)inJson["CameraRotation"][2]);
 			}
+
+			if (inJson.contains("WidgetProperties"))
+			{
+				for (auto& i : inJson["WidgetProperties"].items())
+				{
+					//if (i.contains("Name"))
+					{
+						PanelVisibility[i.key()] = { i.value()["IsVisible"] };
+					}
+				}
+			}
 		}
 	}
 
@@ -58,6 +76,14 @@ public:
 		{
 			config["CameraPosition"] = { CameraPosition.x, CameraPosition.y, CameraPosition.z };
 			config["CameraRotation"] = { CameraRotation.x, CameraRotation.y, CameraRotation.z };
+		}
+		json& son = config["WidgetProperties"] = json();
+		for (auto thing : PanelVisibility)
+		{
+			json thing2;
+			thing2["Name"] = thing.first;
+			thing2["IsVisible"] = thing.second.IsVisible;
+			son[thing.first] = thing2;
 		}
 
 		File thingg(configPath);

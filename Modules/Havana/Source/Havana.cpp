@@ -34,6 +34,7 @@
 #include <Window/SDLWindow.h>
 #include <backends/imgui_impl_sdl.h>
 #include "UI/Colors.h"
+#include <Utils/EditorConfig.h>
 
 static SDL_Cursor* g_imgui_to_sdl_cursor[ImGuiMouseCursor_COUNT];
 
@@ -69,7 +70,6 @@ Havana::Havana(Engine* GameEngine, EditorApp* app)
 //			CLog::GetInstance().Log(CLog::LogType::Error, "Error! Unknown file status.");
 //		}
 //		});
-
 	std::vector<TypeId> events;
 	events.push_back(TestEditorEvent::GetEventId());
 	events.push_back(LoadSceneEvent::GetEventId());
@@ -224,6 +224,20 @@ void Havana::InitUI()
 	PropertiesView->Init();
 	AssetPreview->Init();
 	AssetBrowser->Init();
+
+	for (auto i : RegisteredWidgets)//EditorConfig::GetInstance().PanelVisibility)
+	{
+		auto& panelData = EditorConfig::GetInstance().PanelVisibility;
+		if (panelData.find(i->Name) != panelData.end())
+		{
+			i->IsOpen = panelData[i->Name].IsVisible;
+		}
+		else
+		{
+			panelData[i->Name] = { i->IsOpen };
+		}
+	}
+
 	Input& gameInput = GetEngine().GetInput();
 	gameInput.Stop();
 }
@@ -396,6 +410,16 @@ bool Havana::OnEvent(const BaseEvent& evt)
 	}
 
 	return false;
+}
+
+void Havana::Save()
+{
+	for (auto i : RegisteredWidgets)
+	{
+		auto& panelData = EditorConfig::GetInstance().PanelVisibility;
+
+		panelData[i->Name] = { i->IsOpen };
+	}
 }
 
 #endif

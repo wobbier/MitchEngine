@@ -7,6 +7,7 @@
 #if ME_EDITOR
 #include "imgui.h"
 #endif
+#include "Utils/HavanaUtils.h"
 
 Entity::Entity()
 {
@@ -74,7 +75,8 @@ void Entity::MarkForDelete()
 
 void Entity::OnEditorInspect()
 {
-	ImGui::Checkbox("Destroy On Load", &DestroyOnLoad);
+	HavanaUtils::Label("Destroy On Load");
+	ImGui::Checkbox("##DOL", &DestroyOnLoad);
 }
 
 #endif

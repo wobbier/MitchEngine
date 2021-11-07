@@ -50,6 +50,8 @@ public:
 
 	virtual bool OnEvent(const BaseEvent& evt) override;
 
+	void Save();
+
 	ImVec2 DockPos;
 	ImVec2 DockSize;
 private:

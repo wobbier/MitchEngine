@@ -88,9 +88,8 @@ void EditorApp::UpdateCameras()
 
 void EditorApp::OnEnd()
 {
+	Editor->Save();
 	EditorConfig::GetInstance().Save();
-
-	//destroy(mGame);
 }
 
 void EditorApp::OnInitialize()

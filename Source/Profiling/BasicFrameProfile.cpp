@@ -110,7 +110,8 @@ void FrameProfile::Render(const Vector2& inPosition, const Vector2& inSize)
 			}
 			if (profileSize > windowSizeX)
 			{
-				ImU32 col32 = ImColor(ACCENT_RED);
+				ImVec4 errColor = ACCENT_RED;
+				ImU32 col32 = ImColor(errColor);
 
 				float profileSizeX = profileSize / windowSizeX;
 				float xxxx = windowSizeX * profileSizeX;
@@ -120,7 +121,8 @@ void FrameProfile::Render(const Vector2& inPosition, const Vector2& inSize)
 			}
 			else
 			{
-				ImU32 col32 = ImColor(ACCENT_GREEN);
+				ImVec4 spareColor = ACCENT_GREEN;
+				ImU32 col32 = ImColor(spareColor);
 				//float xxxx = windowSizeX * profileSize;
 				draw_list->AddRectFilled(ImVec2(previousX + x, y), ImVec2(windowSizeX + x, y + CurrentProfilerSize), col32);
 			}
@@ -137,7 +139,8 @@ void FrameProfile::Render(const Vector2& inPosition, const Vector2& inSize)
 
 				for (auto& thing : profileShit)
 				{
-					ImGui::ColorEdit4("MyColor##3", (float*)&GetCategoryColor(thing.second.Category), ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel);
+					ImVec4 color = GetCategoryColor(thing.second.Category);
+					ImGui::ColorEdit4("MyColor##3", &color.x, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel);
 					ImGui::SameLine();
 					ImGui::TextUnformatted(thing.first.c_str());
 					ImGui::SameLine();
