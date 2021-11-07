@@ -761,7 +761,7 @@ files {
 
 
 dependson {
-  getPlatformPostfix("Moonlight")
+  "Moonlight"
 }
 
 includedirs {
@@ -769,7 +769,7 @@ includedirs {
 }
 
 links {
-  (getPlatformPostfix("Moonlight") .. ".lib")
+  "Moonlight.lib"
 }
 
 vpaths {
