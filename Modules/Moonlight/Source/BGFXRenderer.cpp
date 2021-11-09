@@ -253,10 +253,23 @@ void BGFXRenderer::Render(Moonlight::CameraData& EditorCamera)
 	EditorCamera.Buffer = EditorCameraBuffer;
 	RenderCameraView(EditorCamera, id);
 	++id;
+
 	for (auto& camData : m_cameraCache.Commands)
 	{
-		RenderCameraView(camData, id);
-		++id;
+		if (!camData.IsMain)
+		{
+			RenderCameraView(camData, id);
+			++id;
+		}
+	}
+
+	for (auto& camData : m_cameraCache.Commands)
+	{
+		if (camData.IsMain)
+		{
+			RenderCameraView(camData, id);
+			break;
+		}
 	}
 #else
 	bgfx::ViewId id = kClearView;
@@ -264,8 +277,8 @@ void BGFXRenderer::Render(Moonlight::CameraData& EditorCamera)
 	{
 		if (!camData.IsMain)
 		{
-			RenderCameraView(camData, id);
 			++id;
+			RenderCameraView(camData, id);
 		}
 	}
 
@@ -531,12 +544,12 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 	{
 		const int view = 69;
 		bgfx::setViewName(view, "UI");
-		bgfx::setViewClear(view
-			, BGFX_CLEAR_NONE
-			, 1
-			, 1.0f
-			, 0
-		);
+		//bgfx::setViewClear(view
+		//	, BGFX_CLEAR_NONE
+		//	, 1
+		//	, 1.0f
+		//	, 0
+		//);
 
 		bgfx::setViewRect(view, 0, 0, uint16_t(camera.OutputSize.x), uint16_t(camera.OutputSize.y));
 		bgfx::setViewTransform(view, NULL, orthoProj);
@@ -553,6 +566,11 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 		bgfx::setTexture(0, s_texUI, camera.UITexture);
 		Moonlight::screenSpaceQuad(camera.OutputSize.x, camera.OutputSize.y, m_texelHalf, bgfx::getCaps()->originBottomLeft);
 		bgfx::submit(view, UIProgram);
+	}
+
+	//if (!camera.IsMain)
+	{
+		bgfx::blit(id, camera.Buffer->Texture, 0, 0, bgfx::getTexture(camera.Buffer->Buffer));
 	}
 }
 

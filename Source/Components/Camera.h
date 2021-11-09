@@ -46,6 +46,7 @@ public:
 	const bool IsMain() const;
 
 	void SetObliqueMatrixData(const glm::vec4& inVec);
+	void ClearObliqueMatrixData();
 
 	//Frustum* CameraFrustum = nullptr;
 	Moonlight::SkyBox* Skybox = nullptr;
