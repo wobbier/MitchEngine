@@ -232,20 +232,26 @@ void Engine::Run()
 					, 255);
 			}
 
-			FrameProfile::GetInstance().Set("Physics", ProfileCategory::Physics);
 			GameWorld->Simulate();
 
 			GetInput().Update();
 
-			// Update our engine
-			GameWorld->UpdateLoadedCores(deltaTime);
-			FrameProfile::GetInstance().Complete("Physics");
+			// Update Loaded Cores
+			{
+				FrameProfile::GetInstance().Set("Physics", ProfileCategory::Physics);
+				GameWorld->UpdateLoadedCores(deltaTime);
+				FrameProfile::GetInstance().Complete("Physics");
+			}
 
-			FrameProfile::GetInstance().Set("SceneNodes", ProfileCategory::UI);
-			SceneNodes->Update(deltaTime);
-			Cameras->Update(0.0f);
-			FrameProfile::GetInstance().Complete("SceneNodes");
+			// Update Cameras
+			{
+				FrameProfile::GetInstance().Set("SceneNodes", ProfileCategory::UI);
+				SceneNodes->Update(deltaTime);
+				Cameras->Update(0.0f);
+				FrameProfile::GetInstance().Complete("SceneNodes");
+			}
 
+			// Update Game Application
 			{
 				FrameProfile::GetInstance().Set("Game", ProfileCategory::Game);
 				//ME_PROFILE("Game", ProfileCategory::Game);
@@ -253,12 +259,21 @@ void Engine::Run()
 				m_game->OnUpdate(deltaTime);
 				FrameProfile::GetInstance().Complete("Game");
 			}
-			
-			FrameProfile::GetInstance().Set("ModelRenderer", ProfileCategory::Rendering);
-			AudioThread->Update(deltaTime);
-			ModelRenderer->Update(deltaTime);
-			FrameProfile::GetInstance().Complete("ModelRenderer");
+
+			// Update Audio
+			{
+
+				AudioThread->Update(deltaTime);
+			}
+
+			// Model Renderer Update
+			{
+				FrameProfile::GetInstance().Set("ModelRenderer", ProfileCategory::Rendering);
+				ModelRenderer->Update(deltaTime);
+				FrameProfile::GetInstance().Complete("ModelRenderer");
+			}
             
+			// UI Update
 			{
 				OPTICK_CATEGORY("UICore::Update", Optick::Category::Rendering)
 				FrameProfile::GetInstance().Set("UI", ProfileCategory::UI);
@@ -273,49 +288,43 @@ void Engine::Run()
 				}
 				FrameProfile::GetInstance().Complete("UI");
 			}
-//
-//#if !ME_EDITOR
-//			Vector2 MainOutputSize = m_renderer->GetDevice().GetOutputSize();
-//			MainCamera.Position = Camera::CurrentCamera->Position;
-//			MainCamera.Front = Camera::CurrentCamera->Front;
-//			MainCamera.OutputSize = MainOutputSize;
-//			MainCamera.FOV = Camera::CurrentCamera->GetFOV();
-//			MainCamera.Skybox = Camera::CurrentCamera->Skybox;
-//			MainCamera.ClearColor = Camera::CurrentCamera->ClearColor;
-//			MainCamera.ClearType = Camera::CurrentCamera->ClearType;
-//			MainCamera.Projection = Camera::CurrentCamera->Projection;
-//			MainCamera.OrthographicSize = Camera::CurrentCamera->OrthographicSize;
-//
-//			EditorCamera = MainCamera;
-//#endif
-			m_game->PostRender();
+
+			// Late Update	
+			{
+				GameWorld->LateUpdateLoadedCores(deltaTime);
+				SceneNodes->LateUpdate(deltaTime);
+				Cameras->LateUpdate(0.0f);
+				AudioThread->LateUpdate(deltaTime);
+				ModelRenderer->LateUpdate(deltaTime);
+				UI->LateUpdate(deltaTime);
+			}
+
+			// Render
+			{
+				m_game->PostRender();
 #if !ME_EDITOR
-			EditorCamera.OutputSize = GetWindow()->GetSize();
+				EditorCamera.OutputSize = GetWindow()->GetSize();
 #if _DEBUG
-			FrameProfile::GetInstance().Render({ 0.f, GameWindow->GetSize().y - FrameProfile::kMinProfilerSize }, {GameWindow->GetSize().x, (float)FrameProfile::kMinProfilerSize });
+				FrameProfile::GetInstance().Render({ 0.f, GameWindow->GetSize().y - FrameProfile::kMinProfilerSize }, { GameWindow->GetSize().x, (float)FrameProfile::kMinProfilerSize });
 #endif
 #endif
-			FrameProfile::GetInstance().Set("UI Render", ProfileCategory::UI);
-			UI->Render();
-			FrameProfile::GetInstance().Complete("UI Render");
-			FrameProfile::GetInstance().Set("Render", ProfileCategory::Rendering);
-			NewRenderer->Render(EditorCamera);
-			FrameProfile::GetInstance().Complete("Render");
-			//FrameProfile::GetInstance().Set("Render", ProfileCategory::Rendering);
-			//m_renderer->ThreadedRender([this]() {
-			//	m_game->PostRender();
-			//}, [this]() {
-			//	UI->Render();
-			//}, EditorCamera);
-			//FrameProfile::GetInstance().Complete("Render");
+				FrameProfile::GetInstance().Set("UI Render", ProfileCategory::UI);
+				UI->Render();
+				FrameProfile::GetInstance().Complete("UI Render");
+				FrameProfile::GetInstance().Set("Render", ProfileCategory::Rendering);
+				NewRenderer->Render(EditorCamera);
+				FrameProfile::GetInstance().Complete("Render");
+			}
 
 			// This makes the profiler overview data to be delayed for a frame, but takes the renderer into account.
-			static float fpsTime = 0;
-			fpsTime += AccumulatedTime;
-			if (fpsTime > 1.f)
 			{
-				FrameProfile::GetInstance().Dump();
-				fpsTime -= 1.f;
+				static float fpsTime = 0;
+				fpsTime += AccumulatedTime;
+				if (fpsTime > 1.f)
+				{
+					FrameProfile::GetInstance().Dump();
+					fpsTime -= 1.f;
+				}
 			}
 
 			AccumulatedTime = std::fmod(AccumulatedTime, MaxDeltaTime);

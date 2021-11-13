@@ -201,6 +201,18 @@ void World::UpdateLoadedCores(float DeltaTime)
 	}
 }
 
+void World::LateUpdateLoadedCores(float DeltaTime)
+{
+	OPTICK_EVENT("UpdateLoadedCores");
+	for (auto core : m_loadedCores)
+	{
+		if (core.second && core.second->IsRunning)
+		{
+			core.second->LateUpdate(DeltaTime);
+		}
+	}
+}
+
 void World::DestroyEntity(Entity &InEntity, bool RemoveFromWorld)
 {
 	auto& Attr = EntityAttributes.Attributes[InEntity.GetId().Index];

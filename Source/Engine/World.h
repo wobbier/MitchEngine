@@ -65,6 +65,7 @@ public:
 	void Unload();
 
 	void UpdateLoadedCores(float DeltaTime);
+	void LateUpdateLoadedCores(float DeltaTime);
 
 	void MarkEntityForDelete(Entity& EntityToDestroy);
 

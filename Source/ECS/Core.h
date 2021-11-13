@@ -36,6 +36,7 @@ public:
 
 	// Each core must update each loop
 	virtual void Update(float dt) {};
+	virtual void LateUpdate(float dt) {};
 	virtual void OnEntityAdded(Entity& NewEntity) {};
 	virtual void OnEntityRemoved(Entity& InEntity) {};
 	virtual void OnEntityDestroyed(Entity& InEntity) {};
