@@ -44,6 +44,7 @@ public:
 
 	unsigned int Id = 0;
 
+	std::vector<Rigidbody*> NewCollisions;
 private:
 	void CreateObject(const Vector3& Position, const Quaternion& Rotation, const Vector3& InScale, class btDiscreteDynamicsWorld* world);
 	btRigidBodyWithEvents* InternalRigidbody = nullptr;

@@ -10,6 +10,7 @@
 #include "BulletDynamics/Dynamics/btRigidBody.h"
 #include "LinearMath/btTransform.h"
 #include <Math/Vector3.h>
+#include "Math/Quaternion.h"
 
 class btPairCachingGhostObjectWithEvents;
 
@@ -38,6 +39,8 @@ public:
 	void Update(float dt);
 
 	void Jump();
+
+	void Teleport(const Vector3& inPosition, const Quaternion& inRotation);
 
 	Vector3 GetPosition() const;
 	Vector3 GetVelocity() const;

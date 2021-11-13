@@ -59,6 +59,11 @@ float Camera::GetFOV()
 	return m_FOV;
 }
 
+float Camera::GetAspectRatio() const
+{
+	return (OutputSize.x / OutputSize.y);
+}
+
 const int Camera::GetCameraId() const
 {
 	return m_id;
@@ -193,7 +198,7 @@ void Camera::OnEditorInspect()
 	}
 
 	HavanaUtils::Label("Near");
-	ImGui::SliderFloat("##Near", &Near, 0.1f, 200.0f);
+	ImGui::SliderFloat("##Near", &Near, 0.03f, 200.0f);
 	HavanaUtils::Label("Far");
 	ImGui::SliderFloat("##Far", &Far, 0.2f, 2000.0f);
 

@@ -115,4 +115,9 @@ namespace Moonlight
 	{
 		return TypeName;
 	}
+
+	uint64_t Material::GetRenderState(uint64_t state) const
+	{
+		return state;
+	}
 }

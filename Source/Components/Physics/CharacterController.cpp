@@ -135,6 +135,15 @@ void CharacterController::Jump()
 	}
 }
 
+void CharacterController::Teleport(const Vector3& inPosition, const Quaternion& inRotation)
+{
+	btTransform trans = m_rigidbody->getWorldTransform();
+	//Vector3 transPos = TransformComponent.GetWorldPosition();
+	trans.setRotation(btQuaternion(inRotation.x, inRotation.y, inRotation.z, inRotation.w));
+	trans.setOrigin(btVector3(inPosition.x, inPosition.y, inPosition.z));
+	m_rigidbody->setWorldTransform(trans);
+}
+
 Vector3 CharacterController::GetPosition() const
 {
 	return Vector3(m_motionTransform.getOrigin());

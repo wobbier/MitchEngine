@@ -40,6 +40,7 @@ public:
 	bool IsCurrent();
 	void SetCurrent();
 	float GetFOV();
+	float GetAspectRatio() const;
 
 	const int GetCameraId() const;
 

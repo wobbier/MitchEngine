@@ -132,6 +132,8 @@ void Transform::SetWorldRotation(const Quaternion& inRotation)
 	{
 		LocalRotation = inRotation;
 	}
+
+	SetDirty(true);
 }
 
 
@@ -292,10 +294,12 @@ void Transform::SetDirty(bool Dirty)
 	OPTICK_EVENT("Transform::SetDirty");
 	if (Dirty && (Dirty != m_isDirty))
 	{
-		//for (SharedPtr<Transform> Child : GetChildren())
-		if(ParentTransform)
+		for (SharedPtr<Transform>& Child : Children)
 		{
-			ParentTransform->SetDirty(Dirty);
+			if (Child)
+			{
+				Child->SetDirty(Dirty);
+			}
 		}
 	}
 	m_isDirty = Dirty;

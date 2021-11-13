@@ -336,6 +336,8 @@ void PhysicsCore::OnCollisionStart(const btRigidBodyWithEventsEventDelegates* th
 	std::string name = ((BaseComponent*)thisBodyA->self->getUserPointer())->Parent->GetComponent<Transform>().GetName();
 	std::string name2 = ((BaseComponent*)bodyB->getUserPointer())->Parent->GetComponent<Transform>().GetName();
 
+	Rigidbody* bodyARigidbody = static_cast<Rigidbody*>(thisBodyA->self->getUserPointer());
+	bodyARigidbody->NewCollisions.push_back(bodyARigidbody);
 	YIKES(name + " Collided with: " + name2);
 }
 
@@ -344,7 +346,15 @@ void PhysicsCore::OnCollisionContinue(const btRigidBodyWithEventsEventDelegates*
 	std::string name = ((BaseComponent*)thisBodyA->self->getUserPointer())->Parent->GetComponent<Transform>().GetName();
 	std::string name2 = ((BaseComponent*)bodyB->getUserPointer())->Parent->GetComponent<Transform>().GetName();
 
-	YIKES(name + " Colliding with: " + name2);
+	Rigidbody* bodyARigidbody = static_cast<Rigidbody*>(thisBodyA->self->getUserPointer());
+	auto it = std::find(bodyARigidbody->NewCollisions.begin(), bodyARigidbody->NewCollisions.end(), bodyARigidbody);
+	if (it != bodyARigidbody->NewCollisions.end())
+	{
+		bodyARigidbody->NewCollisions.erase(it);
+		YIKES(name + " Continuing to collide with: " + name2);
+	}
+
+	//YIKES(name + " Colliding with: " + name2);
 }
 
 void PhysicsCore::OnCollisionStop(const btRigidBodyWithEventsEventDelegates* thisBodyA, const btCollisionObject* bodyB, const btVector3& localSpaceContactPoint, const btVector3& worldSpaceContactPoint, const btVector3& worldSpaceContactNormal, const btScalar penetrationDistance, const btScalar appliedImpulse)

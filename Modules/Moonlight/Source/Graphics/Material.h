@@ -82,5 +82,7 @@ namespace Moonlight
 	private:
 		std::vector<std::shared_ptr<Texture>> Textures;
 		std::string TypeName;
+	public:
+		virtual uint64_t GetRenderState(uint64_t state) const;
 	};
 }
