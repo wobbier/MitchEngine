@@ -83,6 +83,8 @@ namespace Moonlight
 				{
 					bgfx::calcTextureSize(*info, imageContainer->m_width, imageContainer->m_height, imageContainer->m_depth, imageContainer->m_cubeMap, imageContainer->m_numMips > 0, imageContainer->m_numLayers, bgfx::TextureFormat::Enum(imageContainer->m_format));
 				}
+				mWidth = imageContainer->m_width;
+				mHeight = imageContainer->m_height;
 			}
 
 		}
@@ -220,6 +222,10 @@ void TextureResourceMetadata::OnEditorInspect()
 	ImGui::Checkbox("Generate MIPs", genMips);
 }
 
+#endif
+
+#if ME_EDITOR || defined(ME_TOOLS)
+
 void TextureResourceMetadata::Export()
 {
 	std::string exportType = " --as dds";
@@ -260,6 +266,10 @@ void TextureResourceMetadata::Export()
 
 #if ME_PLATFORM_WIN64
 	Path optickPath = Path("Engine/Tools/Win64/texturec.exe");
+	if (!optickPath.Exists)
+	{
+		optickPath = Path("texturec.exe");
+	}
 
 	std::string progArgs = "-f \"";
 	progArgs += FilePath.FullPath;

@@ -102,7 +102,7 @@ public:
 #else
 
 		// Rough till I look up how UWP validates files
-		Exists = true;
+		Exists = std::filesystem::exists(FullPath);
 #endif
 		pos = FullPath.find_last_of("/");
 		Directory = FullPath.substr(0, pos + 1);

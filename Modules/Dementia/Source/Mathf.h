@@ -1,5 +1,7 @@
 #pragma once
 #include "Math/Vector3.h"
+#include <Math/Vector2.h>
+#include <utility>
 
 namespace Mathf
 {
@@ -56,5 +58,11 @@ namespace Mathf
 		if (inSign > 0) return 1;
 		if (inSign < 0) return -1;
 		return 0;
+	}
+
+	inline Vector2 KeepAspect(const Vector2& inSize, const Vector2& inSizeConstraints)
+	{
+		const float bestRatio = std::min(inSizeConstraints.x / inSize.x, inSizeConstraints.y / inSize.y);
+		return { inSize.x * bestRatio, inSize.y * bestRatio };
 	}
 }

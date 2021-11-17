@@ -59,7 +59,7 @@ SharedPtr<T> ResourceCache::Get(const Path& InFilePath, Args&& ... args)
 		compiledFileExists = compiledAsset.Exists;
 	}
 
-#if ME_EDITOR
+#if ME_EDITOR || defined(ME_TOOLS)
 	if (metaFile && (metaFile->FlaggedForExport || !compiledFileExists))
 	{
 		metaFile->Export();

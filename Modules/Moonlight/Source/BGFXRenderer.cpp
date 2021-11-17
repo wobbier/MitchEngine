@@ -104,7 +104,6 @@ void BGFXRenderer::Create(const RendererCreationSettings& settings)
 	m_resetFlags = init.resolution.reset;
 	CurrentSize = settings.InitialSize;
 
-
 	if (!bgfx::init(init))
 	{
 		CLog::Log(CLog::LogType::Error, "BGFX Failed to Init.");
@@ -112,24 +111,23 @@ void BGFXRenderer::Create(const RendererCreationSettings& settings)
 		return;
 	}
 
-#ifdef ME_ENABLE_RENDERDOC
-	RenderDoc = new RenderDocManager();
-#endif
+	// Set view 0 clear state.
+	bgfx::setViewClear(kClearView
+		, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH
+		, 0x303030ff
+		, 1.0f
+		, 0
+	);
 
-	EditorCameraBuffer = new Moonlight::FrameBuffer(init.resolution.width, init.resolution.height);
-	EditorCameraBuffer->ReCreate(m_resetFlags);
-
-	m_debugDraw.reset(new DebugDrawer());
-
-	if (true)
+	if (settings.InitAssets)
 	{
-		// Set view 0 clear state.
-		bgfx::setViewClear(kClearView
-			, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH
-			, 0x303030ff
-			, 1.0f
-			, 0
-		);
+#ifdef ME_ENABLE_RENDERDOC
+		RenderDoc = new RenderDocManager();
+#endif
+		EditorCameraBuffer = new Moonlight::FrameBuffer(init.resolution.width, init.resolution.height);
+		EditorCameraBuffer->ReCreate(m_resetFlags);
+
+		m_debugDraw.reset(new DebugDrawer());
 		//bgfx::setViewClear(1
 		//	, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH
 		//	, 0x303030ff
@@ -204,21 +202,6 @@ void BGFXRenderer::BeginFrame(const Vector2& mousePosition, uint8_t mouseButton,
 void BGFXRenderer::Render(Moonlight::CameraData& EditorCamera)
 {
 	OPTICK_EVENT("Renderer::Render", Optick::Category::Rendering);
-	//ImGui::Begin("Debug");
-	//ImGui::Checkbox("Show Frame Stats", &s_showStats);
-	//ImGui::Text("Primitive topology:");
-	//ImGui::Combo("Test Top", (int*)&m_pt, s_ptNames, BX_COUNTOF(s_ptNames));
-	//ImGui::ColorEdit3("Ambient", &m_ambient.x);
-
-	bx::Vec3 sunLuminanceXYZ = m_dynamicSky->m_sunLuminanceXYZ.GetValue(m_dynamicSky->m_time);
-	bx::Vec3 sunDiffuse = m_dynamicSky->xyzToRgb(sunLuminanceXYZ);
-
-	sunDiffuse.x = sunDiffuse.x / 255.f;
-	sunDiffuse.y = sunDiffuse.y / 255.f;
-	sunDiffuse.z = sunDiffuse.z / 255.f;
-	//ImGui::DragFloat3("Sun Diffuse", &sunDiffuse.x);
-	//ImGui::DragFloat3("Sun Direction", &m_dynamicSky->m_sun.m_sunDir.x);
-	//ImGui::End();
 
 	// Use debug font to print information about this example.
 	bgfx::dbgTextClear();
@@ -244,9 +227,20 @@ void BGFXRenderer::Render(Moonlight::CameraData& EditorCamera)
 		}
 		NeedsReset = false;
 	}
-	bgfx::setUniform(s_ambient, &m_ambient.x);
-	bgfx::setUniform(s_sunDirection, &m_dynamicSky->m_sun.m_sunDir.x);
-	bgfx::setUniform(s_sunDiffuse, &sunDiffuse.x);
+
+	if (m_dynamicSky)
+	{
+		bx::Vec3 sunLuminanceXYZ = m_dynamicSky->m_sunLuminanceXYZ.GetValue(m_dynamicSky->m_time);
+		bx::Vec3 sunDiffuse = m_dynamicSky->xyzToRgb(sunLuminanceXYZ);
+
+		sunDiffuse.x = sunDiffuse.x / 255.f;
+		sunDiffuse.y = sunDiffuse.y / 255.f;
+		sunDiffuse.z = sunDiffuse.z / 255.f;
+		bgfx::setUniform(s_ambient, &m_ambient.x);
+		bgfx::setUniform(s_sunDirection, &m_dynamicSky->m_sun.m_sunDir.x);
+		bgfx::setUniform(s_sunDiffuse, &sunDiffuse.x);
+	}
+
 #if ME_EDITOR
 	bgfx::ViewId id = 1;
 

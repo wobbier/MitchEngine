@@ -22,6 +22,7 @@ struct RendererCreationSettings
 {
 	void* WindowPtr = nullptr;
 	Vector2 InitialSize = Vector2(1280.f, 720.f);
+	bool InitAssets = true;
 };
 
 enum class ViewportMode : uint8_t

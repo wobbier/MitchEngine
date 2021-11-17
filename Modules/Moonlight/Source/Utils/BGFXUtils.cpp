@@ -35,6 +35,11 @@ const bgfx::Memory* Moonlight::LoadMemory(const Path& filePath)
 bgfx::ShaderHandle Moonlight::LoadShader(const std::string& _name)
 {
 	Path finalPath = Path(_name);
+	if (!finalPath.Exists)
+	{
+		return BGFX_INVALID_HANDLE;
+	}
+
 	SharedPtr<ShaderFile> shad = ResourceCache::GetInstance().Get<ShaderFile>(finalPath);
 	return shad->Handle;
 }

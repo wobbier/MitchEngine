@@ -48,6 +48,11 @@ newoption {
 }
 
 newoption {
+  trigger     = "with-tools",
+  description = "Include support for building custom tools"
+}
+
+newoption {
   trigger     = "project-name",
   description = "Notifies premake we're generating a game solution."
 }
@@ -172,6 +177,7 @@ end
 isUWP = isPlatform("UWP")
 withRenderdoc = _OPTIONS["with-renderdoc"]
 withFMOD = _OPTIONS["with-fmod"]
+withTools = _OPTIONS["with-tools"]
 withDirectX = isPlatform("Win64") or isUWP
 dirPrefix = "../";
 ProjectName = _OPTIONS["project-name"];
@@ -249,6 +255,9 @@ sysincludedirs {
 }
 
 --flags { "FatalWarnings" }
+if withTools then
+    defines { "ME_TOOLS" }
+end
 
 ---- Visual Studio ----
 filter "action:vs*"
@@ -269,7 +278,7 @@ if isPlatform("UWP") then
     links {
         "assimp-vc140-mt",
     }
-    
+
     if (withFMOD) then
         defines { "FMOD_ENABLED" }
     
@@ -795,6 +804,45 @@ filter { "files:**.hlsl" }
 
 filter {}
 
+------------------------------------------------------- Tools Project -------------------------------------------------------
+if withTools then
+group "Tools2"
+project "HUB2"
+	kind "ConsoleApp"
+
+    debugdir "$(OutDir)"
+    objdir "obj/Tools/%{cfg.platform}_%{cfg.buildcfg}"
+
+    language "C++"
+    targetdir "Build/%{cfg.buildcfg}/HUB"
+    location "HUB/"
+    removeincludedirs "*"
+    removelinks "*"
+
+    libdirs {
+      "Build/Tools/%{cfg.buildcfg}"
+    }
+    dependson {
+      getPlatformPostfix(ProjectName)
+    }
+    files {
+      "../Tools/HUB/**.png",
+      "../Tools/HUB/Source/**.h",
+      "../Tools/HUB/Source/**.cpp",
+    }
+    
+    links {
+      "MitchEngine.lib",
+      "Moonlight.lib",
+      "ImGui.lib",
+      "Dementia.lib"
+    }
+
+    includedirs {
+      "."
+    }
+end
+------------------------------------------------------- Entry Point Project -------------------------------------------------------
 group "Apps"
 function GenerateGameSolution()
 project (getPlatformPostfix(ProjectName .. "_EntryPoint"))
@@ -865,7 +913,7 @@ project (getPlatformPostfix(ProjectName .. "_EntryPoint"))
     filter { "files:Assets/*.png" }
     deploy "true"
 	
- ---------------------------- Game Project ------------------------------
+------------------------------------------------------- Game Project -------------------------------------------------------
 group "Game"
 project ((getPlatformPostfix(ProjectName)))
 

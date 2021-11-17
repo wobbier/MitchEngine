@@ -444,9 +444,9 @@ public:
     bool WasKeyPressed(KeyCode key);
     bool WasKeyReleased(KeyCode key);
 
-private:
 	void Update();
 	void PostUpdate();
+private:
 	Vector2 MousePosition;
 	Vector2 RelativeMousePosition;
 	Vector2 Offset;
