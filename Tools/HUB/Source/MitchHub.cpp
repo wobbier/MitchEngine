@@ -28,6 +28,7 @@ MitchHub::MitchHub(Input* input, SDLWindow* window)
 	logo = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("LOGO.png"));
 	closeIcon = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Close.png"));
 	minimizeIcon = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Minimize.png"));
+	vsIcon = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("VS.png"));
 
 
 	ImVec4* colors = ImGui::GetStyle().Colors;
@@ -84,7 +85,7 @@ MitchHub::MitchHub(Input* input, SDLWindow* window)
 
 	Cache.Load();
 
-	{
+	/*{
 		ProjectEntry p;
 		p.BackgroundImage = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("fl.png"));
 		p.TitleImage = logo;
@@ -98,7 +99,7 @@ MitchHub::MitchHub(Input* input, SDLWindow* window)
 		p.TitleImage = logo;
 		p.Name = "Fruit Loops: Secret Department";
 		Cache.Projects.push_back(p);
-	}
+	}*/
 
 	auto cb = [this](const Vector2& pos) -> std::optional<SDL_HitTestResult>
 	{
@@ -180,6 +181,8 @@ void MitchHub::Draw()
 			}
 			ImGui::EndChild();
 
+			IsMetaPanelOpen = !Cache.Projects.empty();
+
 			if (IsMetaPanelOpen)
 			{
 				ImGui::SameLine();
@@ -195,22 +198,24 @@ void MitchHub::Draw()
 
 				ImGui::BeginChild("child2", ImVec2(-1.f, h), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar);
 				auto& bgTexture = GetActiveBackgroundTexture();
+				float windowCursorPos = ImGui::GetCursorPosX();
+				float panelWidth = ImGui::GetContentRegionAvail().x;
+				float xPos = 0.f;
+				float yPos = 0.f;
 				if (bgTexture)
 				{
-					bool contentAreaTaller = ImGui::GetContentRegionAvail().y > ImGui::GetContentRegionAvail().x;
+					bool contentAreaTaller = ImGui::GetContentRegionAvail().y > panelWidth;
 					float height = bgTexture->mHeight;
 					float width = bgTexture->mWidth;
 
-					const float maxWidth = ImGui::GetContentRegionAvail().x, maxHeight = ImGui::GetContentRegionAvail().y;
+					const float maxWidth = panelWidth, maxHeight = ImGui::GetContentRegionAvail().y;
 					const float bestRatio = std::max(maxWidth / width, maxHeight / height);
 					width *= bestRatio;
 					height *= bestRatio;
 
-					float xPos = 0.f;
-					float yPos = 0.f;
-					if (ImGui::GetContentRegionAvail().x < width)
+					if (panelWidth < width)
 					{
-						xPos = -((width - ImGui::GetContentRegionAvail().x) / 2.f);
+						xPos = -((width - panelWidth) / 2.f);
 					}
 
 					if (ImGui::GetContentRegionAvail().y < height)
@@ -239,6 +244,20 @@ void MitchHub::Draw()
 					m_window->Exit();
 				}
 				ImGui::PopStyleColor();
+
+				ImU32 top = 0x00000000;
+				ImU32 bot = 0xff000000;
+				ImDrawList* draw_list = ImGui::GetWindowDrawList();
+				draw_list->AddRectFilledMultiColor(ImVec2(wOffset, ImGui::GetWindowHeight() - 100.f), ImVec2(wOffset + panelWidth + 80.f, ImGui::GetWindowHeight()), top, top, bot, bot);
+
+				ImGui::SetCursorPos({ ImGui::GetWindowWidth() - 300.f, ImGui::GetWindowHeight() - 75.f });
+				//68217A, 104, 33, 122
+				ImGui::PushStyleColor(ImGuiCol_Button, { 104.f / 255.f, 33.f / 255.f, 122.f / 255.f, 1.f });
+				ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, {8.f, 8.f});
+				ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.f);
+				ImGui::ImageButton(vsIcon->TexHandle, { 211.f, 36.f });
+				ImGui::PopStyleColor();
+				ImGui::PopStyleVar(2);
 
 				ImGui::EndChild();
 			}

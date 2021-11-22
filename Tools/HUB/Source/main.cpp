@@ -17,7 +17,7 @@ int main(int argc, char** argv)
 		}
 	};
 
-	SDLWindow* win = new SDLWindow("lmao", ResizeFunc, 500, 300, Vector2(1280, 720));
+	SDLWindow* win = new SDLWindow("ME HUB", ResizeFunc, 500, 300, Vector2(1280, 720));
 
 	RendererCreationSettings set;
 	set.WindowPtr = win->GetWindowPtr();
@@ -46,7 +46,5 @@ int main(int argc, char** argv)
 		input.PostUpdate();
 	}
 
-	Vector2 lmao;
-	lmao.x = 2.f;
 	return 0;
 }

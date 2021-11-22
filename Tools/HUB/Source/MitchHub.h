@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 #include <Path.h>
-#include "../ProjectCache.h"
+#include "ProjectCache.h"
 #include <Math/Vector2.h>
 
 class Input;
@@ -28,6 +28,7 @@ private:
 	SharedPtr<Moonlight::Texture> logo;
 	SharedPtr<Moonlight::Texture> closeIcon;
 	SharedPtr<Moonlight::Texture> minimizeIcon;
+	SharedPtr<Moonlight::Texture> vsIcon;
 	
 	std::size_t SelectedProjectIndex = 0;
 	ProjectCache Cache;

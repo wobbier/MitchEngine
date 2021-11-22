@@ -806,13 +806,16 @@ filter {}
 
 ------------------------------------------------------- Tools Project -------------------------------------------------------
 if withTools then
-group "Tools2"
-project "HUB2"
+group "Tools"
+project "HUB"
 	kind "ConsoleApp"
 
     debugdir "$(OutDir)"
     objdir "obj/Tools/%{cfg.platform}_%{cfg.buildcfg}"
-
+    configmap {
+        ["Debug Editor"] = "Debug",
+        ["Release Editor"] = "Release",
+    }
     language "C++"
     targetdir "Build/%{cfg.buildcfg}/HUB"
     location "HUB/"
