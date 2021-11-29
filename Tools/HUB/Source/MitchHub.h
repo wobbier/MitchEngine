@@ -13,7 +13,6 @@ namespace Moonlight { class Texture; }
 
 class MitchHub
 {
-
 public:
 	MitchHub(Input* input, SDLWindow* window, ImGuiRenderer* renderer);
 

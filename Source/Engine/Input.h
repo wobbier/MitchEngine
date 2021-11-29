@@ -428,6 +428,7 @@ public:
 
     // Mouse
 	Vector2 GetMousePosition() const;
+	Vector2 GetGlobalMousePosition() const;
 	Vector2 GetRelativeMousePosition() const;
 	void SetMousePosition(const Vector2& InPosition);
 	Vector2 GetMouseOffset();

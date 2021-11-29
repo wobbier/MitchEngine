@@ -27,7 +27,7 @@ MitchHub::MitchHub(Input* input, SDLWindow* window, ImGuiRenderer* renderer)
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 	io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
 
-	io.BackendFlags |= ImGuiBackendFlags_PlatformHasViewports | ImGuiBackendFlags_RendererHasViewports;  // We can create multi-viewports on the Platform side (optional)
+	io.BackendFlags |= ImGuiBackendFlags_PlatformHasViewports | ImGuiBackendFlags_RendererHasViewports;
 
 	logo = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("LOGO.png"));
 	closeIcon = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Close.png"));
@@ -123,8 +123,6 @@ MitchHub::MitchHub(Input* input, SDLWindow* window, ImGuiRenderer* renderer)
 
 void MitchHub::Draw()
 {
-	ImGui::ShowDemoWindow();
-	//return;
 	if (m_input->WasKeyPressed(KeyCode::A))
 	{
 		ShowOpenFilePrompt();
@@ -134,7 +132,7 @@ void MitchHub::Draw()
 
 	{
 		//ImGui::SetNextWindowPos({ 0.f, 0.f });
-		ImGui::SetNextWindowSize({500, 500});// viewport->Size);
+		ImGui::SetNextWindowSize(viewport->Size);
 		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 0.f, 0.f });
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 0.f, 0.f });
 		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0.f, 0.f });
