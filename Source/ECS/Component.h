@@ -39,6 +39,7 @@ public:
 
 	virtual ~BaseComponent() = default;
 
+	// Called after Deserialize
 	virtual void Init() = 0;
 
 	const std::string& GetName() const
@@ -73,6 +74,9 @@ public:
 	{
 		return ClassTypeId<BaseComponent>::GetTypeId<T>();
 	}
+
+	// OnDeserialize guaranteed to be called before this
+	virtual void Init() override {};
 
 	virtual void Serialize(json& outJson) final
 	{

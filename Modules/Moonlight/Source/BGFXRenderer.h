@@ -75,6 +75,8 @@ public:
 	};
 	void SetMSAALevel(MSAALevel level);
 
+	ImGuiRenderer* GetImGuiRenderer() const;
+
 private:
 	Vector2 PreviousSize;
 	Vector2 CurrentSize;

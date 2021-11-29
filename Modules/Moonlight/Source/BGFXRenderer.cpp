@@ -740,6 +740,11 @@ void BGFXRenderer::SetMSAALevel(MSAALevel level)
 	NeedsReset = true;
 }
 
+ImGuiRenderer* BGFXRenderer::GetImGuiRenderer() const
+{
+	return ImGuiRender;
+}
+
 void BGFXRenderer::SetDebugDrawEnabled(bool inEnabled)
 {
 	EnableDebugDraw = inEnabled;

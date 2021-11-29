@@ -14,10 +14,12 @@
 #include <Window/SDLWindow.h>
 #include <optional>
 #include <Mathf.h>
+#include <ImGui/ImGuiRenderer.h>
 
-MitchHub::MitchHub(Input* input, SDLWindow* window)
+MitchHub::MitchHub(Input* input, SDLWindow* window, ImGuiRenderer* renderer)
 	: m_input(input)
 	, m_window(window)
+	, m_renderer(renderer)
 {
 	ImGuiIO& io = ImGui::GetIO(); (void)io;
 	Path EngineConfigFilePath = Path(".tmp/imgui.cfg");
@@ -25,11 +27,14 @@ MitchHub::MitchHub(Input* input, SDLWindow* window)
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 	io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
 
+	io.BackendFlags |= ImGuiBackendFlags_PlatformHasViewports | ImGuiBackendFlags_RendererHasViewports;  // We can create multi-viewports on the Platform side (optional)
+
 	logo = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("LOGO.png"));
 	closeIcon = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Close.png"));
 	minimizeIcon = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Minimize.png"));
 	vsIcon = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("VS.png"));
 
+	ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
 
 	ImVec4* colors = ImGui::GetStyle().Colors;
 	colors[ImGuiCol_Text] = COLOR_TEXT;
@@ -85,6 +90,8 @@ MitchHub::MitchHub(Input* input, SDLWindow* window)
 
 	Cache.Load();
 
+	InitHooks();
+
 	/*{
 		ProjectEntry p;
 		p.BackgroundImage = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("fl.png"));
@@ -116,6 +123,8 @@ MitchHub::MitchHub(Input* input, SDLWindow* window)
 
 void MitchHub::Draw()
 {
+	ImGui::ShowDemoWindow();
+	//return;
 	if (m_input->WasKeyPressed(KeyCode::A))
 	{
 		ShowOpenFilePrompt();
@@ -124,8 +133,8 @@ void MitchHub::Draw()
 	TitleBarDragSize = { viewport->Size.x - SystemButtonSize - 1.f, 50.f };
 
 	{
-		ImGui::SetNextWindowPos({ 0.f, 0.f });
-		ImGui::SetNextWindowSize(viewport->Size);
+		//ImGui::SetNextWindowPos({ 0.f, 0.f });
+		ImGui::SetNextWindowSize({500, 500});// viewport->Size);
 		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 0.f, 0.f });
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 0.f, 0.f });
 		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0.f, 0.f });
@@ -375,5 +384,10 @@ SharedPtr<Moonlight::Texture>& MitchHub::GetActiveTitleTexture()
 		Cache.Projects[SelectedProjectIndex].TitleImage = ResourceCache::GetInstance().Get<Moonlight::Texture>(titlePath);
 	}
 	return Cache.Projects[SelectedProjectIndex].TitleImage;
+}
+
+ImGuiRenderer* MitchHub::GetRenderer() const
+{
+	return m_renderer;
 }
 

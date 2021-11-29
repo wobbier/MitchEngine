@@ -127,12 +127,6 @@ void Engine::Init(Game* game)
 
 	//m_renderer = new Moonlight::Renderer();
 	//m_renderer->WindowResized(GameWindow->GetSize());
-#if ME_PLATFORM_WIN64
-	ImGui_ImplSDL2_InitForD3D(static_cast<SDLWindow*>(GameWindow)->WindowHandle);
-#endif
-#if ME_PLATFORM_MACOS
-    ImGui_ImplSDL2_InitForMetal(static_cast<SDLWindow*>(GameWindow)->WindowHandle);
-#endif
 
 	GameWorld = std::make_shared<World>();
 
@@ -169,6 +163,12 @@ void Engine::InitGame()
 	GameWorld->AddCore<UICore>(*UI);
 
 	m_game->OnInitialize();
+#if ME_PLATFORM_WIN64
+	ImGui_ImplSDL2_InitForD3D(static_cast<SDLWindow*>(GameWindow)->WindowHandle);
+#endif
+#if ME_PLATFORM_MACOS
+	ImGui_ImplSDL2_InitForMetal(static_cast<SDLWindow*>(GameWindow)->WindowHandle);
+#endif
 }
 
 void Engine::StopGame()
