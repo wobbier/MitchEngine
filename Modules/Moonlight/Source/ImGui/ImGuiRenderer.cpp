@@ -106,7 +106,7 @@ void ImGuiRenderer::EndFrame()
 		ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
 
 		// I need to bind this to the window with a framebuffer
-		Render(ImGui::GetDrawData(), ViewId - platform_io.Viewports.Size);
+		Render(ImGui::GetDrawData(), ViewId);
 
 		ImGui::UpdatePlatformWindows();
 		for (int i = 1; i < platform_io.Viewports.Size; i++)
@@ -115,7 +115,7 @@ void ImGuiRenderer::EndFrame()
 			ImGuiViewport* viewport = platform_io.Viewports[i];
 			if (viewport->Flags & ImGuiViewportFlags_Minimized)
 				continue;
-			uint16_t platformIndex = (256 - platform_io.Viewports.Size) + i;
+			uint16_t platformIndex = (254 - platform_io.Viewports.Size) + i;
 			if (platform_io.Platform_RenderWindow) platform_io.Platform_RenderWindow(viewport, &platformIndex);
 		}
 	}

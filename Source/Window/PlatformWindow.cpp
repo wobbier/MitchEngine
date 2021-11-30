@@ -36,6 +36,10 @@ void PlatformWindow::Create()
 
 void PlatformWindow::Destroy()
 {
+	if (bgfx::isValid(Buffer))
+	{
+		bgfx::destroy(Buffer);
+	}
 	//UnmapWindow(GetWindowId());
 	SDL_DestroyWindow(WindowPtr);
 	WindowPtr = nullptr;
@@ -84,7 +88,7 @@ void PlatformWindow::SetSize(const Vector2& InSize)
 	SDL_SetWindowSize(WindowPtr, InSize.x, InSize.y);
 }
 
-Vector2 PlatformWindow::GetSize()
+Vector2 PlatformWindow::GetSize() const
 {
 	int x = 0, y = 0;
 	SDL_GetWindowSize(WindowPtr, &x, &y);

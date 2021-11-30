@@ -16,8 +16,6 @@ class MitchHub
 public:
 	MitchHub(Input* input, SDLWindow* window, ImGuiRenderer* renderer);
 
-	void InitHooks();
-
 	void Draw();
 	Path ShowOpenFilePrompt();
 

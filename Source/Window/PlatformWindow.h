@@ -2,6 +2,7 @@
 #include <string>
 #include <Math/Vector2.h>
 #include <bgfx/bgfx.h>
+#include <Window/IWindow.h>
 
 struct SDL_Window;
 struct ImGuiViewport;
@@ -16,9 +17,26 @@ struct PlatformWindowParams
 };
 
 struct PlatformWindow
+	: public IWindow
 {
 	PlatformWindow() = delete;
 	PlatformWindow(PlatformWindowParams& InParams);
+
+	virtual bool ShouldClose() final { return false; }
+	virtual void ParseMessageQueue() final {}
+	Vector2 GetPosition() final;
+
+	virtual bool IsFullscreen() final { return false; }
+	virtual bool IsMaximized() final { return false; }
+
+	virtual void Maximize() final { }
+	virtual void Minimize() final { }
+	virtual void ExitMaximize() final { }
+	virtual void SetTitle(const std::string& title) final { }
+	virtual void Exit() final { }
+	virtual void* GetWindowPtr() final { return GetHWND(); }
+
+	virtual void SetBorderless(bool isBorderless) final {}
 
 	void Create();
 	void Show();
@@ -32,9 +50,8 @@ struct PlatformWindow
 	void* GetHWND();
 
 	void SetSize(const Vector2& InSize);
-	Vector2 GetSize();
+	Vector2 GetSize() const final;
 	void SetPosition(const Vector2& InPosition);
-	Vector2 GetPosition();
 
 	uint16_t GetViewId() const {
 		return ViewId;

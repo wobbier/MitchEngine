@@ -40,11 +40,12 @@ void FrameProfile::Render(const Vector2& inPosition, const Vector2& inSize)
 {
 	const ImU32 flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar /*| ImGuiWindowFlags_NoInputs*/ | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoBringToFrontOnFocus;
 	ImGui::SetNextWindowSize(ImVec2(inSize.x, (float)CurrentProfilerSize));
-	ImGui::SetNextWindowPos(ImVec2(inPosition.x, inPosition.y - ((CurrentProfilerSize == kMinProfilerSize) ? 0 : CurrentProfilerSize/2.f)));
+	ImGui::SetNextWindowPos(ImVec2(inPosition.x, inPosition.y - ((CurrentProfilerSize == kMinProfilerSize) ? 0 : CurrentProfilerSize - 6.f)));
 
 	ImGui::PushStyleColor(ImGuiCol_Border, 0);
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.f, 0.f));
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, ImVec2(2.f, 5.f));
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.f, 0.f));
 	ImGui::PushStyleColor(ImGuiCol_WindowBg, { 0.f, 0.f, 0.f, 0.f });
 
@@ -127,7 +128,7 @@ void FrameProfile::Render(const Vector2& inPosition, const Vector2& inSize)
 				draw_list->AddRectFilled(ImVec2(previousX + x, y), ImVec2(windowSizeX + x, y + CurrentProfilerSize), col32);
 			}
 
-			ImGui::PopStyleVar(3);
+			ImGui::PopStyleVar(4);
 			ImGui::PopStyleColor(1);
 
 			if (ImGui::IsWindowHovered())

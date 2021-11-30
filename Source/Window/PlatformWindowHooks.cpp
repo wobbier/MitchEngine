@@ -1,7 +1,15 @@
-#include "MitchHub.h"
-#include <Window/PlatformWindow.h>
+#include "PCH.h"
 #include <Window/SDLWindow.h>
+#include <Window/PlatformWindow.h>
 #include <imgui.h>
+
+#define SDL_HAS_CAPTURE_AND_GLOBAL_MOUSE    (SDL_VERSION_ATLEAST(2,0,4) && !defined(__EMSCRIPTEN__) && !defined(__ANDROID__) && !(defined(__APPLE__) && TARGET_OS_IOS))
+#define SDL_HAS_MOUSE_FOCUS_CLICKTHROUGH    SDL_VERSION_ATLEAST(2,0,5)
+#define SDL_HAS_WINDOW_ALPHA                SDL_VERSION_ATLEAST(2,0,5)
+#define SDL_HAS_ALWAYS_ON_TOP               SDL_VERSION_ATLEAST(2,0,5)
+#define SDL_HAS_USABLE_DISPLAY_BOUNDS       SDL_VERSION_ATLEAST(2,0,5)
+#define SDL_HAS_PER_MONITOR_DPI             SDL_VERSION_ATLEAST(2,0,4)
+#define SDL_HAS_VULKAN                      SDL_VERSION_ATLEAST(2,0,6)
 
 static void Platform_CreateWindow(ImGuiViewport* viewport)
 {
@@ -117,7 +125,12 @@ static bool Platform_GetWindowMinimized(ImGuiViewport* viewport)
 static void Platform_RenderWindow(ImGuiViewport* viewport, void* platformIndex)
 {
 	PlatformWindow& wnd = *(PlatformWindow*)viewport->PlatformUserData;
-	wnd.ViewId = *(uint16_t*)platformIndex;
+	uint16_t layer = *(uint16_t*)platformIndex;
+	if (wnd.ViewId != layer)
+	{
+		wnd.ViewId = layer;
+		wnd.Reset(true);
+	}
 	wnd.Render();
 }
 
@@ -127,38 +140,41 @@ static void Platform_SetWindowAlpha(ImGuiViewport* viewport, float alpha)
 }
 #endif
 
-void MitchHub::InitHooks()
+namespace ImGui
 {
-	ImGuiPlatformIO& io = ImGui::GetPlatformIO();
-	io.Platform_CreateWindow = Platform_CreateWindow;
-	io.Platform_DestroyWindow = Platform_DestroyWindow;
-	io.Platform_ShowWindow = Platform_ShowWindow;
-	io.Platform_SetWindowPos = Platform_SetWindowPos;
-	io.Platform_GetWindowPos = Platform_GetWindowPos;
-	io.Platform_SetWindowSize = Platform_SetWindowSize;
-	io.Platform_GetWindowSize = Platform_GetWindowSize;
-	io.Platform_SetWindowFocus = Platform_SetWindowFocus;
-	io.Platform_GetWindowFocus = Platform_GetWindowFocus;
-	io.Platform_GetWindowMinimized = Platform_GetWindowMinimized;
-	io.Platform_SetWindowTitle = Platform_SetWindowTitle;
-	io.Platform_RenderWindow = Platform_RenderWindow;
+	void InitHooks(SDLWindow* window, ImGuiRenderer* renderer)
+	{
+		ImGuiPlatformIO& io = ImGui::GetPlatformIO();
+		io.Platform_CreateWindow = Platform_CreateWindow;
+		io.Platform_DestroyWindow = Platform_DestroyWindow;
+		io.Platform_ShowWindow = Platform_ShowWindow;
+		io.Platform_SetWindowPos = Platform_SetWindowPos;
+		io.Platform_GetWindowPos = Platform_GetWindowPos;
+		io.Platform_SetWindowSize = Platform_SetWindowSize;
+		io.Platform_GetWindowSize = Platform_GetWindowSize;
+		io.Platform_SetWindowFocus = Platform_SetWindowFocus;
+		io.Platform_GetWindowFocus = Platform_GetWindowFocus;
+		io.Platform_GetWindowMinimized = Platform_GetWindowMinimized;
+		io.Platform_SetWindowTitle = Platform_SetWindowTitle;
+		io.Platform_RenderWindow = Platform_RenderWindow;
 #if SDL_HAS_WINDOW_ALPHA
-	io.Platform_SetWindowAlpha = Platform_SetWindowAlpha;
+		io.Platform_SetWindowAlpha = Platform_SetWindowAlpha;
 #endif
 
-	// Asserts on start are because of the classes being built different,
-	// move stuff to IWindow 
-	// viewport->PlatformUserData is MitchHub here, but is expected as a PlatformWindow in the callbacks
-	PlatformWindowParams p;
-	p.Name = "LMAO";
-	p.Size = { 1920, 1080 };
-	
-	PlatformWindow* win = new PlatformWindow(p);
-	win->WindowPtr = m_window->WindowHandle;
-	win->Renderer = m_renderer;
+		// Asserts on start are because of the classes being built different,
+		// move stuff to IWindow 
+		// viewport->PlatformUserData is MitchHub here, but is expected as a PlatformWindow in the callbacks
+		PlatformWindowParams p;
+		p.Name = "LMAO";
+		p.Size = { 1920, 1080 };
 
-	ImGuiViewport* viewport = ImGui::GetMainViewport();
-	viewport->PlatformUserData = win;
-	viewport->PlatformHandle = m_window->WindowHandle;
-	viewport->PlatformHandleRaw = m_window->GetWindowPtr();
+		PlatformWindow* win = new PlatformWindow(p);
+		win->WindowPtr = window->WindowHandle;
+		win->Renderer = renderer;
+
+		ImGuiViewport* viewport = ImGui::GetMainViewport();
+		viewport->PlatformUserData = win;
+		viewport->PlatformHandle = window->WindowHandle;
+		viewport->PlatformHandleRaw = window->GetWindowPtr();
+	}
 }

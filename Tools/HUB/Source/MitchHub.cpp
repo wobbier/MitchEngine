@@ -15,6 +15,7 @@
 #include <optional>
 #include <Mathf.h>
 #include <ImGui/ImGuiRenderer.h>
+#include <Window/PlatformWindowHooks.h>
 
 MitchHub::MitchHub(Input* input, SDLWindow* window, ImGuiRenderer* renderer)
 	: m_input(input)
@@ -90,7 +91,7 @@ MitchHub::MitchHub(Input* input, SDLWindow* window, ImGuiRenderer* renderer)
 
 	Cache.Load();
 
-	InitHooks();
+	ImGui::InitHooks(m_window, m_renderer);
 
 	/*{
 		ProjectEntry p;
