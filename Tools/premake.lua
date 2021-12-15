@@ -812,10 +812,10 @@ project "HUB"
 
     debugdir "$(OutDir)"
     objdir "obj/Tools/%{cfg.platform}_%{cfg.buildcfg}"
-    configmap {
-        ["Debug Editor"] = "Debug",
-        ["Release Editor"] = "Release",
-    }
+    --configmap {
+    --    ["Debug Editor"] = "Debug",
+    --    ["Release Editor"] = "Release",
+    --}
     language "C++"
     targetdir "Build/%{cfg.buildcfg}/HUB"
     location "HUB/"

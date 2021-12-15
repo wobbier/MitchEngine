@@ -8,13 +8,13 @@
 
 class Input;
 class SDLWindow;
+class ImGuiRenderer;
 namespace Moonlight { class Texture; }
 
 class MitchHub
 {
-
 public:
-	MitchHub(Input* input, SDLWindow* window);
+	MitchHub(Input* input, SDLWindow* window, ImGuiRenderer* renderer);
 
 	void Draw();
 	Path ShowOpenFilePrompt();
@@ -22,9 +22,12 @@ public:
 	SharedPtr<Moonlight::Texture>& GetActiveBackgroundTexture();
 	SharedPtr<Moonlight::Texture>& GetActiveTitleTexture();
 
+	ImGuiRenderer* GetRenderer() const;
+
 private:
 	Input* m_input = nullptr;
 	SDLWindow* m_window = nullptr;
+	ImGuiRenderer* m_renderer = nullptr;
 	SharedPtr<Moonlight::Texture> logo;
 	SharedPtr<Moonlight::Texture> closeIcon;
 	SharedPtr<Moonlight::Texture> minimizeIcon;

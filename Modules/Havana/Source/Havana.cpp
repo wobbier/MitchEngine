@@ -35,6 +35,7 @@
 #include <backends/imgui_impl_sdl.h>
 #include "UI/Colors.h"
 #include <Utils/EditorConfig.h>
+#include <Window/PlatformWindowHooks.h>
 
 static SDL_Cursor* g_imgui_to_sdl_cursor[ImGuiMouseCursor_COUNT];
 
@@ -121,6 +122,8 @@ void Havana::InitUI()
 	io.IniFilename = EngineConfigFilePath.FullPath.c_str();
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 	io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+	io.BackendFlags |= ImGuiBackendFlags_PlatformHasViewports;
+	io.BackendFlags |= ImGuiBackendFlags_RendererHasViewports;
 	//io.MouseDrawCursor = true;
 
 	g_imgui_to_sdl_cursor[ImGuiMouseCursor_Arrow] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW);
@@ -214,7 +217,7 @@ void Havana::InitUI()
 	window->SetCustomDragCallback(cb);*/
 	//m_engine->GetInput().Stop();
 	//GetInput().GetMouse().SetWindow(GetActiveWindow());
-
+	ImGui::InitHooks((SDLWindow*)m_engine->GetWindow(), Renderer->GetImGuiRenderer());
 	MainMenu->Init();
 	LogPanel->Init();
 	ResourceMonitor->Init();
@@ -264,7 +267,7 @@ void Havana::NewFrame()
 		DockSize = viewport->Size;
 		DockSize.x -= 6.f * 2.f;
 		DockSize.y = viewport->Size.y - MainMenuSize.y - (6.f * 3.f);
-		DockPos = { 6.f, 36.f };
+		DockPos = ImVec2(viewport->Pos.x + 6.f, viewport->Pos.y + 36.f );
 		//DockPos.y = viewport->Pos.y + MainMenuSize.y;
 
 		ImGui::SetNextWindowPos(DockPos);

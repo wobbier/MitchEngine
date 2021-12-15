@@ -125,14 +125,14 @@ void Engine::Init(Game* game)
 	settings.InitialSize = Vector2(1920.f, 1080.f);
 	NewRenderer->Create(settings);
 
-	//m_renderer = new Moonlight::Renderer();
-	//m_renderer->WindowResized(GameWindow->GetSize());
 #if ME_PLATFORM_WIN64
 	ImGui_ImplSDL2_InitForD3D(static_cast<SDLWindow*>(GameWindow)->WindowHandle);
 #endif
 #if ME_PLATFORM_MACOS
-    ImGui_ImplSDL2_InitForMetal(static_cast<SDLWindow*>(GameWindow)->WindowHandle);
+	ImGui_ImplSDL2_InitForMetal(static_cast<SDLWindow*>(GameWindow)->WindowHandle);
 #endif
+	//m_renderer = new Moonlight::Renderer();
+	//m_renderer->WindowResized(GameWindow->GetSize());
 
 	GameWorld = std::make_shared<World>();
 
@@ -223,7 +223,15 @@ void Engine::Run()
 #else
 				Input& input = GetInput();
 #endif
-				NewRenderer->BeginFrame(input.GetMousePosition(), (input.IsMouseButtonDown(MouseButton::Left) ? 0x01 : 0)
+
+				ImGuiIO& io = ImGui::GetIO();
+				Vector2 mousePos = input.GetMousePosition();
+				if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+				{
+					// Multi-viewport mode: mouse position in OS absolute coordinates (io.MousePos is (0,0) when the mouse is on the upper-left of the primary monitor)
+					mousePos = input.GetGlobalMousePosition();
+				}
+				NewRenderer->BeginFrame(mousePos, (input.IsMouseButtonDown(MouseButton::Left) ? 0x01 : 0)
 					| (input.IsMouseButtonDown(MouseButton::Right) ? 0x02 : 0)
 					| (input.IsMouseButtonDown(MouseButton::Middle) ? 0x04 : 0)
 					, (int32_t)input.GetMouseScrollOffset().y

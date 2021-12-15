@@ -116,6 +116,13 @@ Vector2 Input::GetMousePosition() const
 	return MousePosition;
 }
 
+Vector2 Input::GetGlobalMousePosition() const
+{
+	int mouse_x_global, mouse_y_global;
+	SDL_GetGlobalMouseState(&mouse_x_global, &mouse_y_global);
+	return { mouse_x_global, mouse_y_global };
+}
+
 Vector2 Input::GetRelativeMousePosition() const
 {
 	return RelativeMousePosition;

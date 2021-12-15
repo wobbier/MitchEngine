@@ -285,8 +285,7 @@ void Camera::OnEditorInspect()
 	}
 	else if (ClearType == Moonlight::ClearColorType::Color)
 	{
-		HavanaUtils::Label("Clear Color");
-		ImGui::ColorEdit3("##Clear Color", &ClearColor[0]);
+		HavanaUtils::ColorButton("Clear Color", ClearColor);
 	}
 	else if (ClearType == Moonlight::ClearColorType::Procedural)
 	{

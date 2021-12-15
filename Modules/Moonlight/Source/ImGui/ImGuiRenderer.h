@@ -15,6 +15,7 @@ public:
 	void NewFrame(const Vector2& mousePosition, uint8_t mouseButton, int32_t scroll, Vector2 outputSize, int inputChar, bgfx::ViewId viewId);
 	void EndFrame();
 
+	void Render(ImDrawData* drawData, int viewId = 255);
 private:
 	ImGuiContext* Context = nullptr;
 
@@ -25,6 +26,4 @@ private:
 	bgfx::UniformHandle ImageLODEnabled;
 	bgfx::TextureHandle mTexture;
 	int ViewId = 255;
-
-	void Render(ImDrawData* drawData);
 };
