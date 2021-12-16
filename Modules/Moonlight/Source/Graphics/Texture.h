@@ -106,7 +106,7 @@ struct TextureResourceMetadata
 
 private:
 	std::string FromEnum(OutputTextureType inType);
-	OutputTextureType ToEnum(std::string inType);
+	OutputTextureType ToEnum(const std::string& inType);
 };
 
 struct TextureResourceMetadataJpg

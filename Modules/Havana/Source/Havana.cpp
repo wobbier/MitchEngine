@@ -397,17 +397,17 @@ Vector2 Havana::GetWorldEditorRenderSize() const
 	return MainSceneView->SceneViewRenderSize;
 }
 
-bool Havana::OnEvent(const BaseEvent& evt)
+bool Havana::OnEvent(const BaseEvent& event)
 {
-	if (evt.GetEventId() == TestEditorEvent::GetEventId())
+	if (event.GetEventId() == TestEditorEvent::GetEventId())
 	{
-		const TestEditorEvent& test = static_cast<const TestEditorEvent&>(evt);
+		//const TestEditorEvent& test = static_cast<const TestEditorEvent&>(evt);
 		//Logger::GetInstance().Log(Logger::LogType::Info, "We did it fam" + test.Path);
 		return true;
 	}
-	if (evt.GetEventId() == LoadSceneEvent::GetEventId())
+	if (event.GetEventId() == LoadSceneEvent::GetEventId())
 	{
-		const LoadSceneEvent& test = static_cast<const LoadSceneEvent&>(evt);
+		//const LoadSceneEvent& test = static_cast<const LoadSceneEvent&>(event);
 		ClearInspectEvent evt;
 		evt.Fire();
 	}

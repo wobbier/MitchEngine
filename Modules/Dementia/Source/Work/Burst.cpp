@@ -133,7 +133,7 @@ namespace Burst
 		OPTICK_CATEGORY("GenerateChunks", Optick::Category::Rendering);
 		OutChunks.clear();
 
-		if (size <= 0)
+		if (size == 0)
 		{
 			return;
 		}

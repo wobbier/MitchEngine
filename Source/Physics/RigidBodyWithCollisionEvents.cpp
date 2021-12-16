@@ -37,8 +37,7 @@ void btRigidBodyWithEventsEventDelegates::setMonitorCollisions(bool flag) {
 
 void btRigidBodyWithEventsEventDelegates::PerformCollisionDetection(btDynamicsWorld* btWorld, bool processContactPointWithPositiveDistancesToo, bool averageAllContactPointsInDifferentManifolds) {
 	if (!btWorld || btRigidBodyWithEventsEventDelegates::monitorCollisionsBodies.size() == 0) return;
-	const btCollisionObject* objA;
-	const btCollisionObject* objB;
+
 	const btRigidBodyWithEventsEventDelegates* bodyA;
 	const btRigidBodyWithEventsEventDelegates* bodyB;
 	bool monitorA, monitorB;
@@ -52,8 +51,9 @@ void btRigidBodyWithEventsEventDelegates::PerformCollisionDetection(btDynamicsWo
 	{
 		btPersistentManifold* contactManifold = btWorld->getDispatcher()->getManifoldByIndexInternal(i);
 
-		objA = contactManifold->getBody0();
-		objB = contactManifold->getBody1();
+		const btCollisionObject* objA = contactManifold->getBody0();
+		const btCollisionObject* objB = contactManifold->getBody1();
+
 		// INFO: According to my experience btSoftBodies does not appear inside objA or objB: so collisions with them can't be monitored.
 
 		bodyA = btRigidBodyWithEventsEventDelegates::upcast(objA);

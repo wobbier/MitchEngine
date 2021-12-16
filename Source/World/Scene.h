@@ -18,7 +18,7 @@ public:
 
 	bool IsNewScene();
 
-	void Save(std::string fileName, Transform* root);
+	void Save(const std::string& fileName, Transform* root);
 	void SaveSceneRecursively(json& d, Transform* CurrentTransform);
 
 	SharedPtr<World> GameWorld;

@@ -173,7 +173,7 @@ std::string TextureResourceMetadata::FromEnum(OutputTextureType inType)
 	}
 }
 
-TextureResourceMetadata::OutputTextureType TextureResourceMetadata::ToEnum(std::string inType)
+TextureResourceMetadata::OutputTextureType TextureResourceMetadata::ToEnum(const std::string& inType)
 {
 	for (int n = 0; n < (int)OutputTextureType::Count; n++)
 	{

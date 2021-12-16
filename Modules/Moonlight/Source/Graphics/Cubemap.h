@@ -7,17 +7,17 @@ class Cubemap
 	: public Resource
 {
 public:
-	unsigned int Id;
+	unsigned int Id = 0;
 	std::string Type;
 	std::string Directory;
 
-	int Width;
-	int Height;
+	int Width = 0;
+	int Height = 0;
 
 	Cubemap(const Path& InFilePath);
 	~Cubemap();
 
 	// Textures should not be copied around in memory
 	ME_NONCOPYABLE(Cubemap);
-	int nrChannels;
+	int nrChannels = 0;
 };

@@ -177,7 +177,7 @@ namespace ultralight {
 		}
 
 		virtual void Focus() override {
-			window_->overlay_manager()->FocusOverlay((Overlay*)this);
+			window_->overlay_manager()->FocusOverlay(static_cast<Overlay*>(this));
 		}
 
 		virtual void Unfocus() override {

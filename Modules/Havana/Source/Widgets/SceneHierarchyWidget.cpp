@@ -367,7 +367,7 @@ void SceneHierarchyWidget::HandleAssetDragAndDrop(Transform* root)
 		}
 		if (payload_n.Type == AssetType::Prefab)
 		{
-			EntityHandle ent = GetEngine().GetWorld().lock()->CreateFromPrefab(payload_n.FullPath.FullPath, root);
+			/*EntityHandle ent =*/ GetEngine().GetWorld().lock()->CreateFromPrefab(payload_n.FullPath.FullPath, root);
 		}
 	}
 }

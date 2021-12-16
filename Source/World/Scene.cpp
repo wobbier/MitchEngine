@@ -148,7 +148,7 @@ void Scene::SaveSceneRecursively(json& d, Transform* CurrentTransform)
 	d.push_back(outEntity);
 }
 
-void Scene::Save(std::string fileName, Transform* root)
+void Scene::Save(const std::string& fileName, Transform* root)
 {
 #if ME_EDITOR
 	FilePath = Path(fileName);
