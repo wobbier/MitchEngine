@@ -37,6 +37,8 @@ struct PlatformWindow
 	virtual void* GetWindowPtr() final { return GetHWND(); }
 
 	virtual void SetBorderless(bool isBorderless) final {}
+	void SetWindow(SDL_Window* window);
+
 
 	void Create();
 	void Show();
@@ -62,6 +64,7 @@ struct PlatformWindow
 	ImGuiViewport* Viewport = nullptr;
 	ImGuiRenderer* Renderer = nullptr;
 	bgfx::FrameBufferHandle Buffer;
+	bgfx::PlatformData PlatformInfo;
 	uint16_t ViewId = 254;
 };
 

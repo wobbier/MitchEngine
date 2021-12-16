@@ -20,16 +20,8 @@ void PlatformWindow::Create()
 		printf("WindowBase could not be created. SDL_Error: %s\n", SDL_GetError());
 		return;
 	}
-	SDL_SysWMinfo wmi;
-	SDL_VERSION(&wmi.version);
-	if (!SDL_GetWindowWMInfo(WindowPtr, &wmi)) {
-		printf(
-			"SDL_SysWMinfo could not be retrieved. SDL_Error: %s\n",
-			SDL_GetError());
-		return;
-	}
+	SetWindow(WindowPtr);
 	Reset();
-
 	//SetWindowId(SDL_GetWindowID(WindowPtr));
 	//MapWindow(GetWindowId(), this);
 }
@@ -43,6 +35,31 @@ void PlatformWindow::Destroy()
 	//UnmapWindow(GetWindowId());
 	SDL_DestroyWindow(WindowPtr);
 	WindowPtr = nullptr;
+}
+
+void PlatformWindow::SetWindow(SDL_Window* window)
+{
+	SDL_SysWMinfo wmi;
+
+	SDL_VERSION(&wmi.version);
+	if (!SDL_GetWindowWMInfo(window, &wmi))
+	{
+		printf(
+			"SDL_SysWMinfo could not be retrieved. SDL_Error: %s\n",
+			SDL_GetError());
+	}
+
+#if ME_PLATFORM_WIN64
+	PlatformInfo.ndt = nullptr;
+	PlatformInfo.nwh = wmi.info.win.window;
+#endif
+#if ME_PLATFORM_MACOS
+	PlatformInfo.ndt = nullptr;
+	PlatformInfo.nwh = wmi.info.cocoa.window;
+#endif
+	PlatformInfo.context = nullptr;
+	PlatformInfo.backBuffer = nullptr;
+	PlatformInfo.backBufferDS = nullptr;
 }
 
 void PlatformWindow::Render()
@@ -72,15 +89,7 @@ void PlatformWindow::Reset(bool soft)
 
 void* PlatformWindow::GetHWND()
 {
-	SDL_SysWMinfo wmi;
-	SDL_VERSION(&wmi.version);
-	if (!SDL_GetWindowWMInfo(WindowPtr, &wmi)) {
-		printf(
-			"SDL_SysWMinfo could not be retrieved. SDL_Error: %s\n",
-			SDL_GetError());
-		return nullptr;
-	}
-	return wmi.info.win.window;
+	return PlatformInfo.nwh;
 }
 
 void PlatformWindow::SetSize(const Vector2& InSize)
