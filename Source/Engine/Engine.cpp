@@ -6,7 +6,7 @@
 #include "Events/EventManager.h"
 #include "Cores/PhysicsCore.h"
 #include "Cores/Cameras/CameraCore.h"
-#include "Cores/SceneGraph.h"
+#include "Cores/SceneCore.h"
 #include "Cores/Rendering/RenderCore.h"
 #include "Game.h"
 #include "Window/IWindow.h"
@@ -138,7 +138,7 @@ void Engine::Init(Game* game)
 
 	Cameras = new CameraCore();
 
-	SceneNodes = new SceneGraph();
+	SceneNodes = new SceneCore();
 
 	ModelRenderer = new RenderCore();
 	AudioThread = new AudioCore();
@@ -163,7 +163,7 @@ void Engine::Init(Game* game)
 void Engine::InitGame()
 {
 	GameWorld->AddCore<CameraCore>(*Cameras);
-	GameWorld->AddCore<SceneGraph>(*SceneNodes);
+	GameWorld->AddCore<SceneCore>(*SceneNodes);
 	GameWorld->AddCore<RenderCore>(*ModelRenderer);
 	GameWorld->AddCore<AudioCore>(*AudioThread);
 	GameWorld->AddCore<UICore>(*UI);

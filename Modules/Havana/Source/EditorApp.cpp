@@ -16,7 +16,7 @@
 #include "Cores/EditorCore.h"
 #include "Engine/Engine.h"
 #include "Havana.h"
-#include "Cores/SceneGraph.h"
+#include "Cores/SceneCore.h"
 #include "Events/SceneEvents.h"
 #include "RenderCommands.h"
 #include "Events/Event.h"

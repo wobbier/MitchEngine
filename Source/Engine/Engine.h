@@ -59,7 +59,7 @@ public:
 	std::tuple<Worker*, Pool&> GetJobSystemNew();
 
 	class CameraCore* Cameras = nullptr;
-	class SceneGraph* SceneNodes = nullptr;
+	class SceneCore* SceneNodes = nullptr;
 	class RenderCore* ModelRenderer = nullptr;
 	class AudioCore* AudioThread = nullptr;
 	class UICore* UI = nullptr;

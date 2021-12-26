@@ -19,7 +19,7 @@ class Transform
 	, public std::enable_shared_from_this<Transform>
 {
 	typedef Component<Transform> Base;
-	friend class SceneGraph;
+	friend class SceneCore;
 public:
 
 	Transform();
