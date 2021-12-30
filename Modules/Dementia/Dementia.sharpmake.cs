@@ -27,6 +27,8 @@ public class Dementia : BaseProject
         conf.IncludePaths.Add("[project.SourceRootPath]");
 
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/Lib/Optick/Win64/[target.Optimization]"));
+        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/Lib/Optick/Win64/[target.Optimization]"));
+        conf.LibraryFiles.Add("Dementia.lib");
         conf.LibraryFiles.Add("OptickCore.lib");
         //conf.IncludePaths.Add(@"[project.SharpmakeCsPath]Source");
     }

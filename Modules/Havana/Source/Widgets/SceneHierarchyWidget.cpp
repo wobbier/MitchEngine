@@ -7,7 +7,7 @@
 #include <ECS/CoreDetail.h>
 #include <Utils/CommonUtils.h>
 #include <imgui.h>
-#include <HavanaEvents.h>
+#include <Events/HavanaEvents.h>
 #include <Events/EventManager.h>
 #include <Components/Graphics/Model.h>
 #include <Types/AssetType.h>

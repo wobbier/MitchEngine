@@ -10,7 +10,7 @@
 #include <Havana.h>
 #include <Utils/StringUtils.h>
 #include <Utils/PlatformUtils.h>
-#include <HavanaEvents.h>
+#include <Events/HavanaEvents.h>
 #include <Window/SDLWindow.h>
 #include "UI/Colors.h"
 

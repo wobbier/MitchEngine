@@ -12,7 +12,7 @@
 #include "Engine/Engine.h"
 #include "Havana.h"
 #include "Events/SceneEvents.h"
-#include "HavanaEvents.h"
+#include "Events/HavanaEvents.h"
 #include "optick.h"
 #include "Utils/ImGuiUtils.h"
 #include <Utils/CommonUtils.h>

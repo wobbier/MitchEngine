@@ -1,7 +1,7 @@
 #include "PropertiesWidget.h"
 #include <optick.h>
 #include <ECS/Component.h>
-#include <HavanaEvents.h>
+#include <Events/HavanaEvents.h>
 #include <Engine/Engine.h>
 #include <Engine/World.h>
 #include <Utils/CommonUtils.h>

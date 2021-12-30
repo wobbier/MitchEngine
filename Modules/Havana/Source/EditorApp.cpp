@@ -25,7 +25,7 @@
 #include "optick.h"
 #include <Core/JobQueueOld.h>
 #include <Math/Quaternion.h>
-#include "HavanaEvents.h"
+#include "Events/HavanaEvents.h"
 #include <Utils/EditorConfig.h>
 
 #if ME_EDITOR

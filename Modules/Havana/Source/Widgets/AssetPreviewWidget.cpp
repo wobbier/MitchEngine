@@ -1,5 +1,5 @@
 #include "AssetPreviewWidget.h"
-#include <HavanaEvents.h>
+#include <Events/HavanaEvents.h>
 #include <optick.h>
 #include "Graphics/Texture.h"
 #include "Mathf.h"
