@@ -7,7 +7,6 @@
 #include "imgui.h"
 #include "Utils/BGFXUtils.h"
 #include "bx/timer.h"
-#include "Window/IWindow.h"
 #include "Graphics/Material.h"
 #include "Graphics/ShaderStructures.h"
 #include "Primitives/Cube.h"
