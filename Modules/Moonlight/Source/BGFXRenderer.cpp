@@ -163,7 +163,7 @@ void BGFXRenderer::Create(const RendererCreationSettings& settings)
 
 		m_timeOffset = bx::getHPCounter();
 
-		m_dynamicSky = std::make_shared<Moonlight::DynamicSky>(32, 32);
+		m_dynamicSky = MakeShared<Moonlight::DynamicSky>(32, 32);
 
 		m_dynamicSky->m_sun.Update(0);
 		m_defaultOpacityTexture = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Textures/DefaultAlpha.png"));

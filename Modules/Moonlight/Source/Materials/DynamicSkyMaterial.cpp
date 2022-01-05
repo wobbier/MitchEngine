@@ -28,7 +28,7 @@ void DynamicSkyMaterial::Use()
 
 SharedPtr<Moonlight::Material> DynamicSkyMaterial::CreateInstance()
 {
-	SharedPtr<DynamicSkyMaterial> ptr = std::make_shared<DynamicSkyMaterial>(*this);
+	SharedPtr<DynamicSkyMaterial> ptr = MakeShared<DynamicSkyMaterial>(*this);
 
 	return ptr;
 }

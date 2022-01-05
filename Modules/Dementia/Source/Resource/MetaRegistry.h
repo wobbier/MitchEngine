@@ -32,7 +32,7 @@ inline MetaDatabase& GetMetadatabase()
 
 template<class T>
 SharedPtr<MetaBase> CreateMetadata(const Path& filePath) {
-	return std::make_shared<T>(filePath);
+	return MakeShared<T>(filePath);
 }
 
 template<class T>

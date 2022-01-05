@@ -1,8 +1,8 @@
 #pragma once
 #include <memory>
 
-template<class T>
-using UniquePtr = std::unique_ptr<T>;
+template <typename T, typename TDeleter = std::default_delete<T>>
+using UniquePtr = std::unique_ptr<T, TDeleter>;
 
 template<class T>
 using SharedPtr = std::shared_ptr<T>;
@@ -10,28 +10,14 @@ using SharedPtr = std::shared_ptr<T>;
 template<class T>
 using WeakPtr = std::weak_ptr<T>;
 
-//
-//template<class T>
-//class WeakPtr
-//	: public std::weak_ptr<T>
-//{
-//public:
-//	T* operator->() { return get(); }
-//};
-//
-//namespace std
-//{
-//	template<class T>
-//	bool operator==(std::weak_ptr<T> left,
-//		std::weak_ptr<T> right)
-//	{
-//		return left.get() == right.get();
-//	}
-//
-//	template<class T>
-//	T* operator->() (WeakPtr<T> in)
-//	{
-//		return in.get();
-//	}
-//
-//}
+template<typename T, typename... Args>
+inline SharedPtr<T> MakeShared(Args&&... InArgs)
+{
+    return std::make_shared<T, Args...>(std::forward<Args>(InArgs)...);
+}
+
+template<typename T, typename... Args>
+inline UniquePtr<T> MakeUnique(Args&&... InArgs)
+{
+    return std::make_unique<T, Args...>(std::forward<Args>(InArgs)...);
+}

@@ -26,7 +26,7 @@ inline MaterialRegistry& GetMaterialRegistry()
 
 template<class T>
 SharedPtr<Moonlight::Material> CreateMaterial() {
-	return std::make_shared<T>();
+	return MakeShared<T>();
 }
 
 template<class T>

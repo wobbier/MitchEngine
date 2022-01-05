@@ -104,7 +104,7 @@ bool AudioCore::OnEvent(const BaseEvent& InEvent)
 		Path soundPath = Path(evt.SourceName);
 		if (m_cachedSounds.find(soundPath.LocalPath) == m_cachedSounds.end())
 		{
-			auto& source = m_cachedSounds[soundPath.LocalPath] = std::make_shared<AudioSource>(soundPath.LocalPath);
+			auto& source = m_cachedSounds[soundPath.LocalPath] = MakeShared<AudioSource>(soundPath.LocalPath);
 			InitComponent(*source);
 		}
 		m_cachedSounds[soundPath.LocalPath]->Play(false);

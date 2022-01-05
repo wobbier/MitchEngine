@@ -23,7 +23,7 @@ EditorCore::EditorCore(Havana* editor)
 {
 	SetIsSerializable(false);
 
-	EditorCameraTransform = std::make_shared<Transform>();
+	EditorCameraTransform = MakeShared<Transform>();
 	EditorCamera = new Camera();
 
 	std::vector<TypeId> events;

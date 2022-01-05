@@ -4,6 +4,7 @@
 #include <imgui.h>
 #include <bx/timer.h>
 #include "Materials/DynamicSkyMaterial.h"
+#include <Pointers.h>
 
 namespace Moonlight
 {
@@ -91,7 +92,7 @@ namespace Moonlight
 	{
 		ScreenPosVertex::init();
 
-		m_material = std::make_unique<DynamicSkyMaterial>();
+		m_material = MakeUnique<DynamicSkyMaterial>();
 		m_material->Init();
 
 		ScreenPosVertex* skyVerts = (ScreenPosVertex*)malloc(inWidth * inHeight * sizeof(ScreenPosVertex));

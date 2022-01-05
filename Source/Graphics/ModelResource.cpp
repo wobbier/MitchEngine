@@ -100,7 +100,7 @@ Moonlight::MeshData* ModelResource::ProcessMesh(aiMesh *mesh, const aiScene *sce
 {
 	std::vector<Moonlight::PosNormTexTanBiVertex> vertices;
 	std::vector<uint16_t> indices;
-	SharedPtr<Moonlight::Material> newMaterial = std::make_shared<DiffuseMaterial>();
+	SharedPtr<Moonlight::Material> newMaterial = MakeShared<DiffuseMaterial>();
 	for (unsigned int i = 0; i < mesh->mNumVertices; i++)
 	{
 		Moonlight::PosNormTexTanBiVertex vertex;

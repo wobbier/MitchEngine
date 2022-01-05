@@ -20,7 +20,7 @@ namespace Moonlight
 
 	SharedPtr<Moonlight::Material> UnlitMaterial::CreateInstance()
 	{
-		return std::make_shared<UnlitMaterial>(*this);
+		return MakeShared<UnlitMaterial>(*this);
 	}
 
 }
