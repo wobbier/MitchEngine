@@ -295,7 +295,7 @@ void AssetBrowserWidget::Render()
 				ImGui::Text("Name");
 				ImGui::SameLine();
 				ImGui::SetNextItemWidth(ImGui::GetContentRegionAvailWidth());
-				ImGui::InputText("##Name", &SavedName);
+				//ImGui::InputText("##Name", &SavedName);
 				float buttonSize = ImGui::GetContentRegionAvailWidth() / 2.f;
 				ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(2.f / 7.0f, 0.6f, 0.6f));
 				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(2.f / 7.0f, 0.7f, 0.7f));

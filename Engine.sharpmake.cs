@@ -34,7 +34,7 @@ public abstract class BaseProject : Project
         conf.VcxprojUserFile = new Configuration.VcxprojUserFileSettings();
         conf.VcxprojUserFile.LocalDebuggerWorkingDirectory = "$(SolutionDir)";
         conf.VcxprojUserFile.OverwriteExistingFile = true;
-        conf.ProjectFileName = @"[project.Name]_[target.Framework]";
+        conf.ProjectFileName = @"[project.Name]_[target.Framework]_[target.Platform]";
         conf.TargetPath = "$(SolutionDir).build/[target.Name]/";
         conf.LibraryPaths.Add("$(OutputPath)");
         conf.LibraryPaths.Add("$(SolutionDir).build/[target.Name]/");
@@ -57,7 +57,7 @@ public abstract class BaseProject : Project
                 )
         );
 
-        if(target.Optimization == Optimization.Debug)
+        if (target.Optimization == Optimization.Debug)
         {
 
             conf.Options.Add(Sharpmake.Options.Vc.Compiler.RuntimeLibrary.MultiThreadedDebugDLL);
@@ -113,9 +113,12 @@ public class Engine : BaseProject
         conf.Output = Configuration.OutputType.Lib;
         conf.SolutionFolder = "Engine";
 
+        conf.PrecompHeader = "PCH.h";
+        conf.PrecompSource = "PCH.cpp";
+
         conf.IncludePaths.Add("$(SolutionDir)Engine/Source");
         conf.IncludePaths.Add("$(SolutionDir)Engine/Modules/Singleton/Source");
-        conf.LibraryFiles.Add("Dementia.lib");
+
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/SDL/include"));
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/UltralightSDK/include"));
 
@@ -135,12 +138,18 @@ public class Engine : BaseProject
         conf.LibraryFiles.Add("bx[target.Optimization].lib");
         conf.LibraryFiles.Add("bimg[target.Optimization].lib");
         conf.LibraryFiles.Add("bimg_decode[target.Optimization].lib");
-        conf.AddPublicDependency<Dementia>(target, DependencySetting.Default);
-        conf.AddPublicDependency<ImGui>(target, DependencySetting.Default);
-        conf.AddPublicDependency<Moonlight>(target, DependencySetting.Default);
+
+        conf.AddPublicDependency<Dementia>(target);
+        conf.AddPublicDependency<ImGui>(target);
+        conf.AddPublicDependency<Moonlight>(target);
+
+        //var copyFileBuildStep = new Configuration.BuildStepCopy(
+        //    @"[conf.TargetPath]\[conf.TargetFileName].exe",
+        //    @"[conf.TargetPath]\file_copy_destination\[conf.TargetFileName].exe");
+        //conf.EventCustomPostBuildExe.Add(copyFileBuildStep);
 
         // Do a virtual method for different configs
-        if(target.Optimization == Optimization.Debug)
+        if (target.Optimization == Optimization.Debug)
         {
             conf.LibraryFiles.Add("SDL2d.lib");
             conf.LibraryFiles.Add("BulletCollision_Debug.lib");
@@ -188,7 +197,7 @@ public class SharpmakeProjectBase : CSharpProject
     public virtual void ConfigureAll(Configuration conf, CommonTarget target)
     {
         conf.Output = Configuration.OutputType.DotNetClassLibrary;
-        conf.ProjectFileName = @"[project.Name]_[target.Framework]";
+        conf.ProjectFileName = @"[project.Name]_[target.Framework]_[target.Platform]";
         conf.SolutionFolder = "Game/Tools";
 
         conf.TargetPath = "$(SolutionDir).build/Sharpmake/[target.Optimization]/";
