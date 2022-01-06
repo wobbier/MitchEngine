@@ -27,9 +27,9 @@ public abstract class BaseProject : Project
         conf.ProjectPath = Path.Combine("[project.SharpmakeCsPath]", ".tmp/project");
 
         conf.Options.Add(Options.Vc.Compiler.CppLanguageStandard.CPP17);
-        conf.Options.Add(Sharpmake.Options.Vc.Compiler.RTTI.Enable);
-        conf.Options.Add(Sharpmake.Options.Vc.General.CharacterSet.Unicode);
-        conf.Options.Add(Sharpmake.Options.Vc.Compiler.Exceptions.Enable);
+        conf.Options.Add(Options.Vc.Compiler.RTTI.Enable);
+        conf.Options.Add(Options.Vc.General.CharacterSet.Unicode);
+        conf.Options.Add(Options.Vc.Compiler.Exceptions.Enable);
         //conf.Options.Add(Sharpmake.Project.Configuration.LocalDebuggerWorkingDirectory.Vc.Compiler.Exceptions.Enable);
         conf.VcxprojUserFile = new Configuration.VcxprojUserFileSettings();
         conf.VcxprojUserFile.LocalDebuggerWorkingDirectory = "$(SolutionDir)";
@@ -83,13 +83,20 @@ public abstract class BaseGameProject : BaseProject
     {
         base.ConfigureAll(conf, target);
 
-        conf.Output = Configuration.OutputType.Lib;
+        if(target.SelectedMode == CommonTarget.Mode.Editor)
+        {
+            conf.Output = Configuration.OutputType.Lib;
+            conf.LibraryFiles.Add("[project.Name].lib");
+        }
+        else
+        {
+            conf.Output = Configuration.OutputType.Exe;
+        }
 
         conf.IncludePaths.Add("$(SolutionDir)Engine/Source");
         conf.IncludePaths.Add("$(SolutionDir)Engine/Modules/Singleton/Source");
-        conf.SolutionFolder = "Game";
+        conf.SolutionFolder = "Apps";
         conf.IncludePaths.Add("[project.SourceRootPath]");
-        conf.LibraryFiles.Add("[project.Name].lib");
 
         conf.AddPublicDependency<Dementia>(target);
         conf.AddPublicDependency<ImGui>(target);
