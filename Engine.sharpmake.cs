@@ -35,9 +35,9 @@ public abstract class BaseProject : Project
         conf.VcxprojUserFile.LocalDebuggerWorkingDirectory = "$(SolutionDir)";
         conf.VcxprojUserFile.OverwriteExistingFile = true;
         conf.ProjectFileName = @"[project.Name]_[target.Framework]_[target.Platform]";
-        conf.TargetPath = "$(SolutionDir).build/[target.Name]/";
+        conf.TargetPath = "$(SolutionDir)/.build/[target.Name]/";
         conf.LibraryPaths.Add("$(OutputPath)");
-        conf.LibraryPaths.Add("$(SolutionDir).build/[target.Name]/");
+        conf.LibraryPaths.Add("[project.SharpmakeCsPath]/.build/[target.Name]/");
         conf.LibraryFiles.Add("OptickCore.lib");
         conf.ReferencesByName.Add("OptickCore.lib");
         if (target.SelectedMode == CommonTarget.Mode.Editor)
@@ -139,14 +139,29 @@ public class Engine : BaseProject
         conf.LibraryFiles.Add("bimg[target.Optimization].lib");
         conf.LibraryFiles.Add("bimg_decode[target.Optimization].lib");
 
+        // SDL DLL
+        {
+            var copyDirBuildStep = new Configuration.BuildStepCopy(
+                @"[project.SharpmakeCsPath]/ThirdParty/Lib/SDL/Win64/[target.Optimization]",
+                Globals.RootDir + "/.build/[target.Name]");
+
+            copyDirBuildStep.IsFileCopy = false;
+            copyDirBuildStep.CopyPattern = "*.dll";
+            conf.EventPostBuildExe.Add(copyDirBuildStep);
+        }
+
+        // Ultralight DLL
+        {
+            var copyDirBuildStep = new Configuration.BuildStepCopy(
+                @"[project.SharpmakeCsPath]/ThirdParty/UltralightSDK/bin/Win64/",
+                Globals.RootDir + "/.build/[target.Name]");
+
+            conf.EventPostBuildExe.Add(copyDirBuildStep);
+        }
+
         conf.AddPublicDependency<Dementia>(target);
         conf.AddPublicDependency<ImGui>(target);
         conf.AddPublicDependency<Moonlight>(target);
-
-        //var copyFileBuildStep = new Configuration.BuildStepCopy(
-        //    @"[conf.TargetPath]\[conf.TargetFileName].exe",
-        //    @"[conf.TargetPath]\file_copy_destination\[conf.TargetFileName].exe");
-        //conf.EventCustomPostBuildExe.Add(copyFileBuildStep);
 
         // Do a virtual method for different configs
         if (target.Optimization == Optimization.Debug)
@@ -222,8 +237,9 @@ public class BaseGameSolution : Solution
     [Configure]
     public virtual void ConfigureAll(Solution.Configuration conf, CommonTarget target)
     {
-        conf.SolutionPath = @"[solution.SharpmakeCsPath]\";
+        conf.SolutionPath = @"[solution.SharpmakeCsPath]";
         conf.SolutionFileName = "[solution.Name]";
+        Globals.RootDir = Path.GetFullPath("../");
 
         conf.AddProject<Dementia>(target);
         conf.AddProject<ImGui>(target);
@@ -237,13 +253,18 @@ public class BaseGameSolution : Solution
     }
 }
 
+public class Globals
+{
+    public static string RootDir = string.Empty;
+}
+
+
 public static class Main
 {
     [Sharpmake.Main]
     public static void SharpmakeMain(Sharpmake.Arguments arguments)
     {
         KitsRootPaths.SetUseKitsRootForDevEnv(DevEnv.vs2019, KitsRootEnum.KitsRoot10, Options.Vc.General.WindowsTargetPlatformVersion.v10_0_19041_0);
-
         arguments.Generate<SharpGameSolution>();
     }
 }
