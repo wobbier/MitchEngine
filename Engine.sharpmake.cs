@@ -35,9 +35,9 @@ public abstract class BaseProject : Project
         conf.VcxprojUserFile.LocalDebuggerWorkingDirectory = "$(SolutionDir)";
         conf.VcxprojUserFile.OverwriteExistingFile = true;
         conf.ProjectFileName = @"[project.Name]_[target.Framework]_[target.Platform]";
-        conf.TargetPath = "$(SolutionDir)/.build/[target.Name]/";
+        conf.TargetPath = "[project.SharpmakeCsPath]/.build/[target.Name]/";
         conf.LibraryPaths.Add("$(OutputPath)");
-        conf.LibraryPaths.Add("[project.SharpmakeCsPath]/.build/[target.Name]/");
+        conf.LibraryPaths.Add("[project.SharpmakeCsPath].build/[target.Name]/");
         conf.LibraryFiles.Add("OptickCore.lib");
         conf.ReferencesByName.Add("OptickCore.lib");
         if (target.SelectedMode == CommonTarget.Mode.Editor)
@@ -220,7 +220,7 @@ public class SharpmakeProjectBase : CSharpProject
     {
         conf.Output = Configuration.OutputType.DotNetClassLibrary;
         conf.ProjectFileName = @"[project.Name]_[target.Framework]_[target.Platform]";
-        conf.SolutionFolder = "Game/Tools";
+        conf.SolutionFolder = "Apps/Config";
 
         conf.TargetPath = "$(SolutionDir).build/Sharpmake/[target.Optimization]/";
         conf.ProjectPath = @"[project.SharpmakeCsPath]/.tmp/project/[target.Framework]";
@@ -253,7 +253,11 @@ public class BaseGameSolution : Solution
         conf.AddProject<Moonlight>(target);
         conf.AddProject<Engine>(target);
 
-        conf.AddProject<Havana>(target);
+        if(target.SelectedMode == CommonTarget.Mode.Editor)
+        {
+            conf.AddProject<Havana>(target);
+        }
+
         conf.AddProject<UserSharpmakeProject>(target);
 
         conf.AddProject<SharpGameProject>(target);
