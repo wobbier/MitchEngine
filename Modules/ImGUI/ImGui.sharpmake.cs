@@ -10,7 +10,8 @@ public class ImGui : BaseProject
         Name = "ImGui";
         SourceRootPath = Path.Combine("[project.SharpmakeCsPath]", "Source");
 
-        SourceFiles.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/ImGui/misc/cpp/imgui_stdlib.*"));
+        SourceFiles.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/ImGui/misc/cpp/imgui_stdlib.h"));
+        SourceFiles.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/ImGui/misc/cpp/imgui_stdlib.cpp"));
         SourceFiles.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/ImGui/*.cpp"));
         SourceFiles.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/ImGui/*.h"));
         SourceFiles.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/ImGui/backends/imgui_impl_sdl.h"));

@@ -476,7 +476,7 @@ void Transform::SetName(const std::string& name)
 void Transform::OnEditorInspect()
 {
 	HavanaUtils::Label("Name");
-	//ImGui::InputText("##Name", &Name);
+	ImGui::InputText("##Name", &Name);
 
 	Vector3 OldPosition = LocalPosition;
 	if (HavanaUtils::EditableVector3("Local Position", OldPosition))
