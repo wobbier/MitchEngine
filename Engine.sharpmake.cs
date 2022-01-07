@@ -8,6 +8,8 @@ using Sharpmake;
 [module: Sharpmake.Include("Modules/Moonlight/Moonlight.sharpmake.cs")]
 [module: Sharpmake.Include("Modules/Havana/Havana.sharpmake.cs")]
 [module: Sharpmake.Include("Tools/CommonTarget.sharpmake.cs")]
+[module: Sharpmake.Include("Tools/SharpmakeProject.sharpmake.cs")]
+[module: Sharpmake.Include("Tools/HUB/MitchHub.sharpmake.cs")]
 
 public abstract class BaseProject : Project
 {
@@ -32,17 +34,16 @@ public abstract class BaseProject : Project
         conf.Options.Add(Options.Vc.Compiler.Exceptions.Enable);
         //conf.Options.Add(Sharpmake.Project.Configuration.LocalDebuggerWorkingDirectory.Vc.Compiler.Exceptions.Enable);
         conf.VcxprojUserFile = new Configuration.VcxprojUserFileSettings();
-        conf.VcxprojUserFile.LocalDebuggerWorkingDirectory = "$(SolutionDir)";
+        //conf.VcxprojUserFile.LocalDebuggerWorkingDirectory = Globals.RootDir;
         conf.VcxprojUserFile.OverwriteExistingFile = true;
-        conf.ProjectFileName = @"[project.Name]_[target.Framework]_[target.Platform]";
+        conf.ProjectFileName = @"[project.Name]_[target.Platform]";
         conf.TargetPath = "[project.SharpmakeCsPath]/.build/[target.Name]/";
-        conf.LibraryPaths.Add("$(OutputPath)");
-        conf.LibraryPaths.Add("[project.SharpmakeCsPath].build/[target.Name]/");
-        conf.LibraryFiles.Add("OptickCore.lib");
-        conf.ReferencesByName.Add("OptickCore.lib");
+        conf.LibraryPaths.Add("[project.SharpmakeCsPath]/.build/[target.Name]/");
+
         if (target.SelectedMode == CommonTarget.Mode.Editor)
         {
             conf.Defines.Add("ME_EDITOR");
+            conf.Defines.Add("ME_TOOLS");
         }
         if (target.Platform.IsPC())
         {
@@ -190,45 +191,6 @@ public class Engine : BaseProject
     }
 }
 
-public class SharpmakeProjectBase : CSharpProject
-{
-    public SharpmakeProjectBase()
-        : base(typeof(CommonTarget))
-    {
-        Name = "SharpmakeProject";
-        SourceRootPath = @"./";
-
-        ProjectSchema = CSharpProjectSchema.NetFramework;
-        string[] things = { ".xml", ".map", ".config", ".bat", ".txt", ".xsd", ".template", ".resx", ".cur" };
-        NoneExtensions.Remove(things);
-        SourceFilesExtensions = new Strings(".sharpmake.cs");
-        ContentExtension.Add("GenerateSolution.bat", "macOS.yml", "Windows.yml");
-        //SourceFilesCompileExtensions.Clear();
-        //SourceFilesCompileExtensions.Add(".cs");
-        DependenciesCopyLocal = DependenciesCopyLocalTypes.None;
-        AddTargets(CommonTarget.GetDefaultTargets());
-
-
-        //PublicResourceFiles.Clear();
-        //ContentExtension.Remove(contentExtension);
-        //ResourceFilesExtensions.Remove(contentExtension);
-        //EmbeddedResourceExtensions.Remove(contentExtension);
-    }
-
-    [Configure]
-    public virtual void ConfigureAll(Configuration conf, CommonTarget target)
-    {
-        conf.Output = Configuration.OutputType.DotNetClassLibrary;
-        conf.ProjectFileName = @"[project.Name]_[target.Framework]_[target.Platform]";
-        conf.SolutionFolder = "Apps/Config";
-
-        conf.TargetPath = "$(SolutionDir).build/Sharpmake/[target.Optimization]/";
-        conf.ProjectPath = @"[project.SharpmakeCsPath]/.tmp/project/[target.Framework]";
-        CSharpProjectExtensions.AddAspNetReferences(conf);
-        conf.ReferencesByPath.Add(@"[project.SharpmakeCsPath]/Engine/Tools/Sharpmake/Sharpmake.dll");
-    }
-}
-
 public class BaseGameSolution : Solution
 {
     public BaseGameSolution()
@@ -256,6 +218,7 @@ public class BaseGameSolution : Solution
         if(target.SelectedMode == CommonTarget.Mode.Editor)
         {
             conf.AddProject<Havana>(target);
+            conf.AddProject<MitchHubProject>(target);
         }
 
         conf.AddProject<UserSharpmakeProject>(target);

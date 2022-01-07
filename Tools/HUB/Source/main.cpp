@@ -33,7 +33,7 @@ int main(int argc, char** argv)
 
 	RendererCreationSettings set;
 	set.WindowPtr = win->GetWindowPtr();
-	set.InitAssets = false;
+	set.InitAssets = true;
 	Renderer->Create(set);
 
 	ImGui_ImplSDL2_InitForD3D(win->WindowHandle);

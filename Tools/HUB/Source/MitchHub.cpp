@@ -25,8 +25,8 @@ MitchHub::MitchHub(Input* input, SDLWindow* window, ImGuiRenderer* renderer)
 	ImGuiIO& io = ImGui::GetIO(); (void)io;
 	Path EngineConfigFilePath = Path(".tmp/imgui.cfg");
 	io.IniFilename = EngineConfigFilePath.FullPath.c_str();
-	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-	io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+	//io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+	//io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
 
 	io.BackendFlags |= ImGuiBackendFlags_PlatformHasViewports | ImGuiBackendFlags_RendererHasViewports;
 
@@ -132,7 +132,7 @@ void MitchHub::Draw()
 	TitleBarDragSize = { viewport->Size.x - SystemButtonSize - 1.f, 50.f };
 
 	{
-		//ImGui::SetNextWindowPos({ 0.f, 0.f });
+		ImGui::SetNextWindowPos({ 0.f, 0.f });
 		ImGui::SetNextWindowSize(viewport->Size);
 		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 0.f, 0.f });
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 0.f, 0.f });

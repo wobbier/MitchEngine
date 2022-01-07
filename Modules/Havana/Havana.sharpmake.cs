@@ -22,6 +22,8 @@ public class Havana : BaseProject
 
         //conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/Lib/Optick/Win64/[target.Optimization]"));
         //conf.LibraryFiles.Add("OptickCore.lib");
+        conf.VcxprojUserFile.LocalDebuggerWorkingDirectory = Globals.RootDir;
+        conf.TargetPath = Globals.RootDir + "/.build/[target.Name]/";
 
         conf.AddPublicDependency<Dementia>(target, DependencySetting.Default);
         conf.AddPublicDependency<Moonlight>(target, DependencySetting.Default);
