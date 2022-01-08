@@ -84,25 +84,52 @@ public abstract class BaseGameProject : BaseProject
     {
         base.ConfigureAll(conf, target);
 
-        if(target.SelectedMode == CommonTarget.Mode.Editor)
+        //if (target.SelectedMode == CommonTarget.Mode.Editor)
         {
             conf.Output = Configuration.OutputType.Lib;
             conf.LibraryFiles.Add("[project.Name].lib");
         }
-        else
+        //         else
+        //         {
+        //             conf.Output = Configuration.OutputType.Exe;
+        //         }
+
+        conf.SolutionFolder = "Apps/Game";
+        conf.IncludePaths.Add("[project.SourceRootPath]");
+
+        conf.AddPublicDependency<Engine>(target);
+    }
+}
+
+[Generate]
+public class EntryPointGameProject : BaseProject
+{
+    public EntryPointGameProject()
+        : base()
+    {
+        Name = "EntryPointGameProject";
+        SourceRootPath = Globals.RootDir + @"/Game_EntryPoint/Source";
+        //SourceFiles.Add(Path.Combine(Globals.RootDir + @"/Game/Source", "main.cpp"));
+    }
+
+    public override void ConfigureAll(Project.Configuration conf, CommonTarget target)
+    {
+        base.ConfigureAll(conf, target);
+        conf.SolutionFolder = "Apps";
+
+        conf.TargetPath = Globals.RootDir + "/.build/[target.Name]/";
+
+        conf.VcxprojUserFile.LocalDebuggerWorkingDirectory = "$(OutDir)";
+
+        //if (target.SelectedMode == CommonTarget.Mode.Editor)
         {
             conf.Output = Configuration.OutputType.Exe;
         }
-
-        conf.IncludePaths.Add("$(SolutionDir)Engine/Source");
-        conf.IncludePaths.Add("$(SolutionDir)Engine/Modules/Singleton/Source");
-        conf.SolutionFolder = "Apps";
-        conf.IncludePaths.Add("[project.SourceRootPath]");
-
-        conf.AddPublicDependency<Dementia>(target);
-        conf.AddPublicDependency<ImGui>(target);
-        conf.AddPublicDependency<Moonlight>(target);
-        conf.AddPublicDependency<Engine>(target);
+        //         else
+        //         {
+        //             conf.Output = Configuration.OutputType.Exe;
+        //         }
+        conf.AddPublicDependency<SharpGameProject>(target);
     }
 }
 
@@ -219,6 +246,10 @@ public class BaseGameSolution : Solution
         {
             conf.AddProject<Havana>(target);
             conf.AddProject<MitchHubProject>(target);
+        }
+        else
+        {
+            conf.AddProject<EntryPointGameProject>(target);
         }
 
         conf.AddProject<UserSharpmakeProject>(target);
