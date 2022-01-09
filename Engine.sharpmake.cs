@@ -80,22 +80,46 @@ public class Engine : BaseProject
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/SDL/include"));
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/UltralightSDK/include"));
 
-        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/Lib/BGFX/Win64/[target.Optimization]"));
+        conf.LibraryFiles.Add("MitchEngine");
+        conf.LibraryFiles.Add("AppCore");
+        conf.LibraryFiles.Add("Ultralight");
+        conf.LibraryFiles.Add("UltralightCore");
+        conf.LibraryFiles.Add("WebCore");
+
+        conf.AddPublicDependency<Dementia>(target);
+        conf.AddPublicDependency<ImGui>(target);
+        conf.AddPublicDependency<Moonlight>(target);
+    }
+    
+    public override void ConfigureWin64(Configuration conf, CommonTarget target)
+    {
+        base.ConfigureWin64(conf, target);
+
+        // Must fix this with a Globals.PlatformToFolderName                                          v
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/UltralightSDK/lib/Win64"));
+        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/Lib/Assimp/[target.Optimization]"));
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/Lib/SDL/Win64/[target.Optimization]"));
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/Lib/Bullet/Win64/[target.Optimization]"));
-        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/Lib/Assimp/[target.Optimization]"));
-        conf.LibraryFiles.Add("assimp-vc140-mt.lib");
-        conf.LibraryFiles.Add("MitchEngine");
 
-        conf.LibraryFiles.Add("AppCore.lib");
-        conf.LibraryFiles.Add("Ultralight.lib");
-        conf.LibraryFiles.Add("UltralightCore.lib");
-        conf.LibraryFiles.Add("WebCore.lib");
-        conf.LibraryFiles.Add("bgfx[target.Optimization].lib");
-        conf.LibraryFiles.Add("bx[target.Optimization].lib");
-        conf.LibraryFiles.Add("bimg[target.Optimization].lib");
-        conf.LibraryFiles.Add("bimg_decode[target.Optimization].lib");
+        conf.LibraryFiles.Add("assimp-vc140-mt.lib");
+
+        // Do a virtual method for different configs
+        if (target.Optimization == Optimization.Debug)
+        {
+            conf.LibraryFiles.Add("SDL2d.lib");
+            conf.LibraryFiles.Add("BulletCollision_Debug.lib");
+            conf.LibraryFiles.Add("BulletDynamics_Debug.lib");
+            conf.LibraryFiles.Add("LinearMath_Debug.lib");
+            conf.LibraryFiles.Add("zlibstaticd.lib");
+        }
+        else
+        {
+            conf.LibraryFiles.Add("SDL2.lib");
+            conf.LibraryFiles.Add("BulletCollision_MinsizeRel.lib");
+            conf.LibraryFiles.Add("BulletDynamics_MinsizeRel.lib");
+            conf.LibraryFiles.Add("LinearMath_MinsizeRel.lib");
+            conf.LibraryFiles.Add("zlibstatic.lib");
+        }
 
         // SDL DLL
         {
@@ -116,28 +140,24 @@ public class Engine : BaseProject
 
             conf.EventPostBuildExe.Add(copyDirBuildStep);
         }
+    }
 
-        conf.AddPublicDependency<Dementia>(target);
-        conf.AddPublicDependency<ImGui>(target);
-        conf.AddPublicDependency<Moonlight>(target);
+    public override void ConfigureMac(Configuration conf, CommonTarget target)
+    {
+        base.ConfigureMac(conf, target);
 
-        // Do a virtual method for different configs
-        if (target.Optimization == Optimization.Debug)
-        {
-            conf.LibraryFiles.Add("SDL2d.lib");
-            conf.LibraryFiles.Add("BulletCollision_Debug.lib");
-            conf.LibraryFiles.Add("BulletDynamics_Debug.lib");
-            conf.LibraryFiles.Add("LinearMath_Debug.lib");
-            conf.LibraryFiles.Add("zlibstaticd.lib");
-        }
-        else
-        {
-            conf.LibraryFiles.Add("SDL2.lib");
-            conf.LibraryFiles.Add("BulletCollision_MinsizeRel.lib");
-            conf.LibraryFiles.Add("BulletDynamics_MinsizeRel.lib");
-            conf.LibraryFiles.Add("LinearMath_MinsizeRel.lib");
-            conf.LibraryFiles.Add("zlibstatic.lib");
-        }
+        // Must fix this with a Globals.PlatformToFolderName                                          v
+        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/UltralightSDK/lib/macOS"));
+        // What the actual fuck lmao                                                                 v
+        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/Lib/Bullet/macOS/Debug"));
+        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/Lib/SDL/macOS/Debug"));
+        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/Lib/Assimp/macOS/[target.Optimization]"));
+
+        conf.LibraryFiles.Add("assimp");
+        conf.LibraryFiles.Add("BulletCollision");
+        conf.LibraryFiles.Add("BulletDynamics");
+        conf.LibraryFiles.Add("LinearMath");
+        conf.LibraryFiles.Add("SDL2d");
     }
 }
 

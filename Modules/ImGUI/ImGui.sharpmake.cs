@@ -44,7 +44,7 @@ public class ImGui : BaseProject
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/ImGui"));
         conf.IncludePaths.Add("[project.SourceRootPath]");
         conf.AddPublicDependency<Dementia>(target, DependencySetting.Default);
-        conf.LibraryFiles.Add("ImGui.lib");
+        conf.LibraryFiles.Add("ImGui");
 
         //conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/Lib/Optick/Win64/[target.Optimization]"));
         //conf.LibraryFiles.Add("OptickCore.lib");

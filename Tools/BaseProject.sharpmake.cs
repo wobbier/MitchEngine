@@ -83,6 +83,15 @@ public abstract class BaseProject : Project
         conf.Options.Add(Options.XCode.Compiler.CppLanguageStandard.GNU17);
         conf.Options.Add(Options.XCode.Compiler.RTTI.Enable);
         conf.Options.Add(Options.XCode.Compiler.Exceptions.Enable);
+        conf.Options.Add(new Options.XCode.Compiler.SystemFrameworks("Cocoa"));
+        conf.Options.Add(new Options.XCode.Compiler.SystemFrameworks("Metal"));
+        conf.Options.Add(new Options.XCode.Compiler.UserFrameworks("libiconv.tbd"));
+        conf.Options.Add(new Options.XCode.Compiler.SystemFrameworks("IOKit"));
+        conf.Options.Add(new Options.XCode.Compiler.SystemFrameworks("ForceFeedback"));
+        conf.Options.Add(new Options.XCode.Compiler.SystemFrameworks("Carbon"));
+        conf.Options.Add(new Options.XCode.Compiler.SystemFrameworks("CoreVideo"));
+        //conf.Options.Add(new Options.XCode.Compiler.SystemFrameworks("Foundation"));
+        conf.Options.Add(new Options.XCode.Compiler.SystemFrameworks("Quartz"));
 
         conf.Defines.Add("ME_PLATFORM_MACOS");
     }

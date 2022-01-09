@@ -26,6 +26,11 @@ public class Moonlight : BaseProject
 
         conf.IncludePaths.Add("[project.SourceRootPath]");
 
+        conf.LibraryFiles.Add("bgfx[target.Optimization]");
+        conf.LibraryFiles.Add("bx[target.Optimization]");
+        conf.LibraryFiles.Add("bimg[target.Optimization]");
+        conf.LibraryFiles.Add("bimg_decode[target.Optimization]");
+
         //conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/Lib/Optick/Win64/[target.Optimization]"));
         //conf.LibraryFiles.Add("OptickCore.lib");
 
@@ -40,6 +45,8 @@ public class Moonlight : BaseProject
         base.ConfigureWin64(conf, target);
 
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/bx/include/compat/msvc/"));
+
+        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/Lib/BGFX/Win64/[target.Optimization]"));
     }
 
     public override void ConfigureMac(Configuration conf, CommonTarget target)
@@ -47,5 +54,7 @@ public class Moonlight : BaseProject
         base.ConfigureMac(conf, target);
 
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/bx/include/compat/osx/"));
+
+        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/Lib/BGFX/macOS/[target.Optimization]"));
     }
 }
