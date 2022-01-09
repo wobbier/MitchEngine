@@ -13,12 +13,9 @@ public class MitchHubProject : BaseProject
     public override void ConfigureAll(Project.Configuration conf, CommonTarget target)
     {
         base.ConfigureAll(conf, target);
-
         conf.Output = Configuration.OutputType.Exe;
-
-        conf.IncludePaths.Add("$(SolutionDir)Engine/Source");
-        conf.IncludePaths.Add("$(SolutionDir)Engine/Modules/Singleton/Source");
         conf.SolutionFolder = "Tools";
+        
         conf.IncludePaths.Add("[project.SourceRootPath]");
         conf.TargetPath = Globals.RootDir + "/.build/[target.Name]/";
         conf.VcxprojUserFile.LocalDebuggerWorkingDirectory = "[project.SharpmakeCsPath]/Assets";

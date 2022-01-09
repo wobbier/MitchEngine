@@ -86,12 +86,12 @@ public class Engine : BaseProject
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/Lib/Bullet/Win64/[target.Optimization]"));
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/Lib/Assimp/[target.Optimization]"));
         conf.LibraryFiles.Add("assimp-vc140-mt.lib");
+        conf.LibraryFiles.Add("MitchEngine");
 
         conf.LibraryFiles.Add("AppCore.lib");
         conf.LibraryFiles.Add("Ultralight.lib");
         conf.LibraryFiles.Add("UltralightCore.lib");
         conf.LibraryFiles.Add("WebCore.lib");
-        conf.LibraryFiles.Add("MitchEngine.lib");
         conf.LibraryFiles.Add("bgfx[target.Optimization].lib");
         conf.LibraryFiles.Add("bx[target.Optimization].lib");
         conf.LibraryFiles.Add("bimg[target.Optimization].lib");

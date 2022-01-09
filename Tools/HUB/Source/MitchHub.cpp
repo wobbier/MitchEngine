@@ -8,9 +8,13 @@
 #include "Utils/ImGuiUtils.h"
 #include <utility>
 #include <UI/Colors.h>
+
+#if ME_PLATFORM_WIN64
 #include <Windows.h>
 #include <commdlg.h>
 #include <shlobj.h>
+#endif
+
 #include <Window/SDLWindow.h>
 #include <optional>
 #include <Mathf.h>
@@ -126,7 +130,9 @@ void MitchHub::Draw()
 {
 	if (m_input->WasKeyPressed(KeyCode::A))
 	{
+#if ME_PLATFORM_WIN64
 		ShowOpenFilePrompt();
+#endif
 	}
 	ImGuiViewport* viewport = ImGui::GetMainViewport();
 	TitleBarDragSize = { viewport->Size.x - SystemButtonSize - 1.f, 50.f };
@@ -171,6 +177,7 @@ void MitchHub::Draw()
 				}
 				if (ImGui::Button("Add Project", {-1.f, 0.f }))
 				{
+#if ME_PLATFORM_WIN64
 					Path path = ShowOpenFilePrompt();
 					if (path.Exists)
 					{
@@ -184,6 +191,7 @@ void MitchHub::Draw()
 						Cache.Projects.push_back(p);
 						Cache.Save();
 					}
+#endif
 				}
 				ImGui::PopStyleVar(2);
 			}
@@ -283,6 +291,7 @@ void MitchHub::Draw()
 	ImGui::ShowDemoWindow(&showDemo);
 }
 
+#if ME_PLATFORM_WIN64
 int CALLBACK BrowseForFolderCallback(HWND hwnd, UINT uMsg, LPARAM lp, LPARAM pData)
 {
 	char szPath[MAX_PATH];
@@ -363,6 +372,7 @@ Path MitchHub::ShowOpenFilePrompt()
 
 	return Path();
 }
+#endif
 
 SharedPtr<Moonlight::Texture>& MitchHub::GetActiveBackgroundTexture()
 {
