@@ -36,5 +36,6 @@ public class SharpmakeProjectBase : CSharpProject
         conf.ProjectPath = @"[project.SharpmakeCsPath]/.tmp/project/[target.Framework]";
         CSharpProjectExtensions.AddAspNetReferences(conf);
         conf.ReferencesByPath.Add(@"[project.SharpmakeCsPath]/Engine/Tools/Sharpmake/Sharpmake.dll");
+        conf.ReferencesByPath.Add(@"[project.SharpmakeCsPath]/Engine/Tools/Sharpmake/Sharpmake.Generators.dll");
     }
 }

@@ -38,22 +38,50 @@ public class CommonTarget : Sharpmake.ITarget
 
     public static CommonTarget[] GetDefaultTargets()
     {
-        var baseTarget = new CommonTarget(
-            Platform.win64,
-            DevEnv.vs2019,
-            Optimization.Debug | Optimization.Release,
-            DotNetFramework.v4_8,
-            dotNetOS: 0);
+        switch (Util.GetExecutingPlatform())
+        {
+            case Platform.win64:
+                {
+                    var baseTarget = new CommonTarget(
+                        Platform.win64,
+                        DevEnv.vs2019,
+                        Optimization.Debug | Optimization.Release,
+                        DotNetFramework.v4_8,
+                        dotNetOS: 0);
 
-        var editorTarget = new CommonTarget(
-            Platform.win64,
-            DevEnv.vs2019,
-            Optimization.Debug | Optimization.Release,
-            DotNetFramework.v4_8,
-            dotNetOS: 0);
-        editorTarget.SelectedMode = Mode.Editor;
+                    var editorTarget = new CommonTarget(
+                        Platform.win64,
+                        DevEnv.vs2019,
+                        Optimization.Debug | Optimization.Release,
+                        DotNetFramework.v4_8,
+                        dotNetOS: 0);
+                    editorTarget.SelectedMode = Mode.Editor;
 
-        return new[] { baseTarget, editorTarget };
+                    return new[] { baseTarget, editorTarget };
+                }
+            case Platform.mac:
+                {
+                    var macOSTarget = new CommonTarget(
+                        Platform.mac,
+                        DevEnv.xcode4ios,
+                        Optimization.Debug | Optimization.Release,
+                        DotNetFramework.v4_8,
+                        dotNetOS: 0);
+                    var macEditor = new CommonTarget(
+                        Platform.mac,
+                        DevEnv.xcode4ios,
+                        Optimization.Debug | Optimization.Release,
+                        DotNetFramework.v4_8,
+                        dotNetOS: 0);
+                    macEditor.SelectedMode = Mode.Editor;
+
+                    return new[] { macOSTarget, macEditor };
+                }
+            default:
+                {
+                    throw new NotImplementedException("The platform (" + Util.GetExecutingPlatform() + ") is not currently supported!");
+                }
+        }
     }
 
     public override string Name
