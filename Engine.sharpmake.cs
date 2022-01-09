@@ -7,70 +7,10 @@ using Sharpmake;
 [module: Sharpmake.Include("Modules/ImGui/ImGui.sharpmake.cs")]
 [module: Sharpmake.Include("Modules/Moonlight/Moonlight.sharpmake.cs")]
 [module: Sharpmake.Include("Modules/Havana/Havana.sharpmake.cs")]
+[module: Sharpmake.Include("Tools/BaseProject.sharpmake.cs")]
 [module: Sharpmake.Include("Tools/CommonTarget.sharpmake.cs")]
-[module: Sharpmake.Include("Tools/SharpmakeProject.sharpmake.cs")]
 [module: Sharpmake.Include("Tools/HUB/MitchHub.sharpmake.cs")]
-
-public abstract class BaseProject : Project
-{
-    public BaseProject()
-        : base(typeof(CommonTarget))
-    {
-        Name = "BaseProject";
-        SourceRootPath = @"Source";
-        IsFileNameToLower = false;
-        IsTargetFileNameToLower = false;
-        AddTargets(CommonTarget.GetDefaultTargets());
-    }
-
-    [Configure]
-    public virtual void ConfigureAll(Project.Configuration conf, CommonTarget target)
-    {
-        conf.ProjectPath = Path.Combine("[project.SharpmakeCsPath]", ".tmp/project");
-
-        conf.Options.Add(Options.Vc.Compiler.CppLanguageStandard.CPP17);
-        conf.Options.Add(Options.Vc.Compiler.RTTI.Enable);
-        conf.Options.Add(Options.Vc.General.CharacterSet.Unicode);
-        conf.Options.Add(Options.Vc.Compiler.Exceptions.Enable);
-        //conf.Options.Add(Sharpmake.Project.Configuration.LocalDebuggerWorkingDirectory.Vc.Compiler.Exceptions.Enable);
-        conf.VcxprojUserFile = new Configuration.VcxprojUserFileSettings();
-        //conf.VcxprojUserFile.LocalDebuggerWorkingDirectory = Globals.RootDir;
-        conf.VcxprojUserFile.OverwriteExistingFile = true;
-        conf.ProjectFileName = @"[project.Name]_[target.Platform]";
-        conf.TargetPath = "[project.SharpmakeCsPath]/.build/[target.Name]/";
-        conf.LibraryPaths.Add("[project.SharpmakeCsPath]/.build/[target.Name]/");
-
-        if (target.SelectedMode == CommonTarget.Mode.Editor)
-        {
-            conf.Defines.Add("ME_EDITOR");
-            conf.Defines.Add("ME_TOOLS");
-        }
-        if (target.Platform.IsPC())
-        {
-            conf.Defines.Add("ME_PLATFORM_WIN64");
-        }
-        conf.Defines.Add("NOMINMAX");
-
-        conf.Options.Add(
-            new Options.Vc.Compiler.DisableSpecificWarnings(
-                "4201",
-                "4100"
-                )
-        );
-
-        if (target.Optimization == Optimization.Debug)
-        {
-
-            conf.Options.Add(Sharpmake.Options.Vc.Compiler.RuntimeLibrary.MultiThreadedDebugDLL);
-        }
-        else
-        {
-
-            conf.Options.Add(Sharpmake.Options.Vc.Compiler.RuntimeLibrary.MultiThreadedDLL);
-        }
-    }
-
-}
+[module: Sharpmake.Include("Tools/SharpmakeProject.sharpmake.cs")]
 
 public abstract class BaseGameProject : BaseProject
 {
@@ -83,19 +23,11 @@ public abstract class BaseGameProject : BaseProject
     public override void ConfigureAll(Project.Configuration conf, CommonTarget target)
     {
         base.ConfigureAll(conf, target);
-
-        //if (target.SelectedMode == CommonTarget.Mode.Editor)
-        {
-            conf.Output = Configuration.OutputType.Lib;
-            conf.LibraryFiles.Add("[project.Name].lib");
-        }
-        //         else
-        //         {
-        //             conf.Output = Configuration.OutputType.Exe;
-        //         }
-
+        conf.Output = Configuration.OutputType.Lib;
         conf.SolutionFolder = "Apps/Game";
+
         conf.IncludePaths.Add("[project.SourceRootPath]");
+        conf.LibraryFiles.Add("[project.Name]");
 
         conf.AddPublicDependency<Engine>(target);
     }
@@ -109,26 +41,17 @@ public class EntryPointGameProject : BaseProject
     {
         Name = "EntryPointGameProject";
         SourceRootPath = Globals.RootDir + @"/Game_EntryPoint/Source";
-        //SourceFiles.Add(Path.Combine(Globals.RootDir + @"/Game/Source", "main.cpp"));
     }
 
     public override void ConfigureAll(Project.Configuration conf, CommonTarget target)
     {
         base.ConfigureAll(conf, target);
+        conf.Output = Configuration.OutputType.Exe;
         conf.SolutionFolder = "Apps";
 
         conf.TargetPath = Globals.RootDir + "/.build/[target.Name]/";
-
         conf.VcxprojUserFile.LocalDebuggerWorkingDirectory = "$(OutDir)";
 
-        //if (target.SelectedMode == CommonTarget.Mode.Editor)
-        {
-            conf.Output = Configuration.OutputType.Exe;
-        }
-        //         else
-        //         {
-        //             conf.Output = Configuration.OutputType.Exe;
-        //         }
         conf.AddPublicDependency<SharpGameProject>(target);
     }
 }
@@ -151,8 +74,8 @@ public class Engine : BaseProject
         conf.PrecompHeader = "PCH.h";
         conf.PrecompSource = "PCH.cpp";
 
-        conf.IncludePaths.Add("$(SolutionDir)Engine/Source");
-        conf.IncludePaths.Add("$(SolutionDir)Engine/Modules/Singleton/Source");
+        conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "Source"));
+        conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "Modules/Singleton/Source"));
 
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/SDL/include"));
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/UltralightSDK/include"));
