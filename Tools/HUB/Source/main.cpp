@@ -29,12 +29,12 @@ int main(int argc, char** argv)
 		}
 	};
 
-	SDLWindow* win = new SDLWindow("ME HUB", ResizeFunc, 500, 300, Vector2(1920, 1080));
+	SDLWindow* win = new SDLWindow("ME HUB", ResizeFunc, 500, 300, Vector2(1280, 720));
 	win->SetBorderless(true);
-    ResizeFunc(Vector2(1920, 1080));
+    ResizeFunc(Vector2(1280, 720));
 	RendererCreationSettings set;
 	set.WindowPtr = win->GetWindowPtr();
-	set.InitAssets = true;
+	set.InitAssets = false;
 	Renderer->Create(set);
 
 #if ME_PLATFORM_WIN64
