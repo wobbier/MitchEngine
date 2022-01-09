@@ -81,6 +81,9 @@ public abstract class BaseProject : Project
     {
         conf.Options.Add(Options.XCode.Compiler.OnlyActiveArch.Enable);
         conf.Options.Add(Options.XCode.Compiler.CppLanguageStandard.GNU17);
+        conf.Options.Add(Options.XCode.Compiler.RTTI.Enable);
+
+        conf.Defines.Add("ME_PLATFORM_MACOS");
     }
 
     #endregion
