@@ -34,10 +34,10 @@ MitchHub::MitchHub(Input* input, SDLWindow* window, ImGuiRenderer* renderer)
 
 	io.BackendFlags |= ImGuiBackendFlags_PlatformHasViewports | ImGuiBackendFlags_RendererHasViewports;
 
-	logo = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("LOGO.png"));
-	closeIcon = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Close.png"));
-	minimizeIcon = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Minimize.png"));
-	vsIcon = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("VS.png"));
+	logo = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/LOGO.png"));
+	closeIcon = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Close.png"));
+	minimizeIcon = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Minimize.png"));
+	vsIcon = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/VS.png"));
 
 	ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
 
