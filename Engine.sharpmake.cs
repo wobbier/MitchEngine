@@ -252,7 +252,10 @@ public class BaseGameSolution : Solution
             conf.AddProject<EntryPointGameProject>(target);
         }
 
-        conf.AddProject<UserSharpmakeProject>(target);
+        if(target.Platform == Platform.win64)
+        {
+            conf.AddProject<UserSharpmakeProject>(target);
+        }
 
         conf.AddProject<SharpGameProject>(target);
     }
