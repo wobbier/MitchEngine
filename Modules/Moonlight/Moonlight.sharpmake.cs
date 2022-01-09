@@ -22,7 +22,6 @@ public class Moonlight : BaseProject
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/bgfx/include"));
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/bimg/include"));
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/bx/include"));
-        conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/bx/include/compat/msvc/"));
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/Assimp/include"));
 
         conf.IncludePaths.Add("[project.SourceRootPath]");
@@ -34,5 +33,19 @@ public class Moonlight : BaseProject
 
         // Can probably remove this once you move the ModelResource metadata out of here.
         conf.AddPublicDependency<ImGui>(target, DependencySetting.Default);
+    }
+
+    public override void ConfigureWin64(Configuration conf, CommonTarget target)
+    {
+        base.ConfigureWin64(conf, target);
+
+        conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/bx/include/compat/msvc/"));
+    }
+
+    public override void ConfigureMac(Configuration conf, CommonTarget target)
+    {
+        base.ConfigureMac(conf, target);
+
+        conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/bx/include/compat/osx/"));
     }
 }
