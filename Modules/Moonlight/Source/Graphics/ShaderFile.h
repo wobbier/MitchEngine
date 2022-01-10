@@ -101,7 +101,7 @@ struct ShaderFileMetadata
         
         std::string exportType;
         std::string shaderType;
-		const char* ext = FilePath.GetExtension();
+		std::string ext = FilePath.GetExtension();
 		if (ext == "frag")
         {
             exportType = "fragment";
