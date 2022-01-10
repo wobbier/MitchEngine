@@ -87,18 +87,9 @@ Enabling FMOD
 	* Put this line above the first "dofile" if you wish to override the location
 * You can check the status of the FMOD plugin in the 'Help > About' menu in the editor.
 
-Contributing to the Project
+Activity
 --------------------------------
-
-Did you find a bug? Have a feature request?
-
-  * [Contribute to the engine][2]
-
-Contact me
-----------
-
-   * Website: [http://wobbier.com][1]
-   * Twitter: [http://www.twitter.com/wobbier][3]
+![Alt](https://repobeats.axiom.co/api/embed/381a3d4143660f089ee110663df36834bb7c7a62.svg "Repobeats analytics image")
 
 [1]: http://www.wobbier.com "My Portfolio"
 [2]: https://github.com/wobbier/MitchEngine/issues "GitHub Issues"
