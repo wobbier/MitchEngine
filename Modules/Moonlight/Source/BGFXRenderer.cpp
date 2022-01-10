@@ -648,9 +648,12 @@ void BGFXRenderer::WindowResized(const Vector2& newSize)
 	CurrentSize = newSize;
 
 #if ME_EDITOR
-	EditorCameraBuffer->Width = newSize.x;
-	EditorCameraBuffer->Height = newSize.y;
-	EditorCameraBuffer->ReCreate(m_resetFlags);
+	if (EditorCameraBuffer)
+	{
+		EditorCameraBuffer->Width = newSize.x;
+		EditorCameraBuffer->Height = newSize.y;
+		EditorCameraBuffer->ReCreate(m_resetFlags);
+	}
 #endif
 	for (auto cam : m_cameraCache.Commands)
 	{

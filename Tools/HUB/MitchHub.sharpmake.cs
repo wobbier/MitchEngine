@@ -18,7 +18,7 @@ public class MitchHubProject : BaseProject
 
         conf.IncludePaths.Add("[project.SourceRootPath]");
         conf.TargetPath = Globals.RootDir + "/.build/[target.Name]/";
-        conf.VcxprojUserFile.LocalDebuggerWorkingDirectory = "[project.SharpmakeCsPath]/Assets";
+        conf.VcxprojUserFile.LocalDebuggerWorkingDirectory = "[project.SharpmakeCsPath]";
 
         conf.AddPublicDependency<Dementia>(target, DependencySetting.Default);
         conf.AddPublicDependency<Moonlight>(target, DependencySetting.Default);
