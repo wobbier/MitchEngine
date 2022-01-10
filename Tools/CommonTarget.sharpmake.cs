@@ -90,8 +90,8 @@ public class CommonTarget : Sharpmake.ITarget
         {
             var nameParts = new List<string>
             {
-                Optimization.ToString(),
                 SelectedMode.ToString(),
+                Optimization.ToString(),
             };
             return string.Join("_", nameParts);
         }
