@@ -93,7 +93,7 @@ public class CommonTarget : Sharpmake.ITarget
                 Optimization.ToString(),
                 SelectedMode.ToString(),
             };
-            return string.Join(" ", nameParts);
+            return string.Join("_", nameParts);
         }
     }
 
