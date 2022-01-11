@@ -1,5 +1,6 @@
 using System.IO;
 using Sharpmake;
+using static CommonTarget;
 
 public abstract class BaseProject : Project
 {
@@ -11,6 +12,11 @@ public abstract class BaseProject : Project
         IsFileNameToLower = false;
         IsTargetFileNameToLower = false;
         AddTargets(CommonTarget.GetDefaultTargets());
+
+        if(Util.GetExecutingPlatform() == Platform.mac)
+        {
+            ResourceFiles.Add(Globals.RootDir + "Engine/ThirdParty/UltralightSDK/bin/macOS/AppCore.dylib");
+        }
     }
 
     public static class ConfigurePriorities
@@ -57,7 +63,7 @@ public abstract class BaseProject : Project
     #region Platfoms
 
     [ConfigurePriority(ConfigurePriorities.Platform)]
-    [Configure(Platform.win64)]
+    [Configure(SubPlatformType.Win64)]
     public virtual void ConfigureWin64(Configuration conf, CommonTarget target)
     {
         conf.Options.Add(Options.Vc.Compiler.CppLanguageStandard.CPP17);
@@ -76,7 +82,27 @@ public abstract class BaseProject : Project
     }
 
     [ConfigurePriority(ConfigurePriorities.Platform)]
-    [Configure(Platform.mac)]
+    [Configure(SubPlatformType.UWP)]
+    public virtual void ConfigureUWP(Configuration conf, CommonTarget target)
+    {
+        conf.Options.Add(Options.Vc.Compiler.CppLanguageStandard.CPP17);
+        conf.Options.Add(Options.Vc.Compiler.RTTI.Enable);
+        conf.Options.Add(Options.Vc.General.CharacterSet.Unicode);
+        conf.Options.Add(Options.Vc.Compiler.Exceptions.Enable);
+
+        conf.Defines.Add("ME_PLATFORM_UWP");
+        conf.Defines.Add("USE_OPTICK=0");
+        
+        conf.Options.Add(
+            new Options.Vc.Compiler.DisableSpecificWarnings(
+                "4201",
+                "4100"
+                )
+        );
+    }
+
+    [ConfigurePriority(ConfigurePriorities.Platform)]
+    [Configure(SubPlatformType.macOS)]
     public virtual void ConfigureMac(Configuration conf, CommonTarget target)
     {
         conf.Options.Add(Options.XCode.Compiler.OnlyActiveArch.Enable);

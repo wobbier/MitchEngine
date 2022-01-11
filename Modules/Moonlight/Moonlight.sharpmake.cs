@@ -31,13 +31,12 @@ public class Moonlight : BaseProject
         conf.LibraryFiles.Add("bimg[target.Optimization]");
         conf.LibraryFiles.Add("bimg_decode[target.Optimization]");
 
-        //conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/Lib/Optick/Win64/[target.Optimization]"));
-        //conf.LibraryFiles.Add("OptickCore.lib");
+        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/Lib/BGFX/[target.SubPlatform]/[target.Optimization]"));
 
-        conf.AddPublicDependency<Dementia>(target, DependencySetting.Default);
+        conf.AddPublicDependency<Dementia>(target);
 
         // Can probably remove this once you move the ModelResource metadata out of here.
-        conf.AddPublicDependency<ImGui>(target, DependencySetting.Default);
+        conf.AddPublicDependency<ImGui>(target);
     }
 
     public override void ConfigureWin64(Configuration conf, CommonTarget target)
@@ -45,8 +44,13 @@ public class Moonlight : BaseProject
         base.ConfigureWin64(conf, target);
 
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/bx/include/compat/msvc/"));
+    }
 
-        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/Lib/BGFX/Win64/[target.Optimization]"));
+    public override void ConfigureUWP(Configuration conf, CommonTarget target)
+    {
+        base.ConfigureUWP(conf, target);
+
+        conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/bx/include/compat/msvc/"));
     }
 
     public override void ConfigureMac(Configuration conf, CommonTarget target)
@@ -54,7 +58,5 @@ public class Moonlight : BaseProject
         base.ConfigureMac(conf, target);
 
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/bx/include/compat/osx/"));
-
-        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/Lib/BGFX/macOS/[target.Optimization]"));
     }
 }

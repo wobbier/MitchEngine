@@ -10,6 +10,14 @@ public class CommonTarget : Sharpmake.ITarget
     public DotNetFramework Framework;
     public DotNetOS DotNetOS;
 
+    [Fragment, Flags]
+    public enum SubPlatformType
+    {
+        Win64 = 1 << 0,
+        macOS = 1 << 1,
+        UWP   = 1 << 2,
+    }
+    public SubPlatformType SubPlatform = SubPlatformType.Win64;
 
     [Fragment, Flags]
     public enum Mode
@@ -48,6 +56,15 @@ public class CommonTarget : Sharpmake.ITarget
                         Optimization.Debug | Optimization.Release,
                         DotNetFramework.v4_8,
                         dotNetOS: 0);
+                    baseTarget.SubPlatform = SubPlatformType.Win64;
+
+                    var uwpTarget = new CommonTarget(
+                        Platform.win64,
+                        DevEnv.vs2019,
+                        Optimization.Debug | Optimization.Release,
+                        DotNetFramework.v4_8,
+                        dotNetOS: 0);
+                    uwpTarget.SubPlatform = SubPlatformType.UWP;
 
                     var editorTarget = new CommonTarget(
                         Platform.win64,
@@ -55,9 +72,10 @@ public class CommonTarget : Sharpmake.ITarget
                         Optimization.Debug | Optimization.Release,
                         DotNetFramework.v4_8,
                         dotNetOS: 0);
+                    editorTarget.SubPlatform = SubPlatformType.Win64;
                     editorTarget.SelectedMode = Mode.Editor;
 
-                    return new[] { baseTarget, editorTarget };
+                    return new[] { baseTarget, uwpTarget, editorTarget };
                 }
             case Platform.mac:
                 {
@@ -67,6 +85,7 @@ public class CommonTarget : Sharpmake.ITarget
                         Optimization.Debug | Optimization.Release,
                         DotNetFramework.v4_8,
                         dotNetOS: 0);
+                    macOSTarget.SubPlatform = SubPlatformType.macOS;
                     var macEditor = new CommonTarget(
                         Platform.mac,
                         DevEnv.xcode4ios,
@@ -74,6 +93,7 @@ public class CommonTarget : Sharpmake.ITarget
                         DotNetFramework.v4_8,
                         dotNetOS: 0);
                     macEditor.SelectedMode = Mode.Editor;
+                    macEditor.SubPlatform = SubPlatformType.macOS;
 
                     return new[] { macOSTarget, macEditor };
                 }
@@ -88,12 +108,25 @@ public class CommonTarget : Sharpmake.ITarget
     {
         get
         {
-            var nameParts = new List<string>
+            if (SelectedMode == Mode.Editor)
             {
-                SelectedMode.ToString(),
-                Optimization.ToString(),
-            };
-            return string.Join("_", nameParts);
+                var nameParts = new List<string>
+                {
+                    SelectedMode.ToString(),
+                    Optimization.ToString(),
+                };
+                return string.Join("_", nameParts);
+            }
+            else
+            {
+                var nameParts = new List<string>
+                {
+                    SelectedMode.ToString(),
+                    SubPlatform.ToString(),
+                    Optimization.ToString(),
+                };
+                return string.Join("_", nameParts);
+            }
         }
     }
 
@@ -103,7 +136,7 @@ public class CommonTarget : Sharpmake.ITarget
         {
             var dirNameParts = new List<string>()
             {
-                Platform.ToString(),
+                SubPlatform.ToString(),
                 Optimization.ToString(),
                 SelectedMode.ToString(),
             };

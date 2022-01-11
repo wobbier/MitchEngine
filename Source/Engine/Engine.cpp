@@ -120,7 +120,10 @@ void Engine::Init(Game* game)
 #endif
     
 #if ME_PLATFORM_UWP
-	GameWindow = new UWPWindow("MitchEngine", 1920, 1080, ResizeFunc);
+    int WindowWidth = 1280;
+    int WindowHeight = 720;
+    GameWindow = new SDLWindow("MitchEngine", ResizeFunc, 500, 300, Vector2(WindowWidth, WindowHeight));
+	//GameWindow = new UWPWindow("MitchEngine", 1920, 1080, ResizeFunc);
 #endif
 #if ME_EDITOR && ME_PLATFORM_WIN64
 	GameWindow->SetBorderless(true);

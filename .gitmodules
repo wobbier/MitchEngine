@@ -36,15 +36,15 @@
 	ignore = dirty
 [submodule "ThirdParty/bx"]
 	path = ThirdParty/bx
-	url = git://github.com/bkaradzic/bx.git
+	url = https://github.com/bkaradzic/bx
 	ignore = dirty
 [submodule "ThirdParty/bimg"]
 	path = ThirdParty/bimg
-	url = git://github.com/bkaradzic/bimg.git
+	url = https://github.com/bkaradzic/bimg
 	ignore = dirty
 [submodule "ThirdParty/bgfx"]
 	path = ThirdParty/bgfx
-	url = git://github.com/bkaradzic/bgfx.git
+	url = https://github.com/bkaradzic/bgfx
 	ignore = dirty
 [submodule "ThirdParty/SDL"]
 	path = ThirdParty/SDL
