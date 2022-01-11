@@ -21,7 +21,7 @@
 
 #endif
 #if ME_PLATFORM_UWP
-#include <agile.h>
+//#include <agile.h>
 #endif
 
 #include "optick.h"

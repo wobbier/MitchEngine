@@ -6,7 +6,8 @@
       "version": "5.0.0"
     },
     "configProperties": {
-      "System.Globalization.Invariant": true
+      "System.Globalization.Invariant": true,
+      "System.Reflection.Metadata.MetadataUpdater.IsSupported": false
     }
   }
 }

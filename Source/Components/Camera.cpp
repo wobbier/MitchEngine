@@ -18,6 +18,7 @@ Camera* Camera::EditorCamera = nullptr;
 
 Camera::Camera()
 	: Component("Camera")
+	, OutputSize(1280.f, 720.f)
 {
 	//CameraFrustum = new Frustum();
 }

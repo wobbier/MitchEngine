@@ -34,6 +34,12 @@ public class Dementia : BaseProject
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/Lib/Optick/Win64/[target.Optimization]"));
     }
 
+    public override void ConfigureUWP(Configuration conf, CommonTarget target)
+    {
+        base.ConfigureUWP(conf, target);
+        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/Lib/Optick/UWP/[target.Optimization]"));
+    }
+
     public override void ConfigureMac(Configuration conf, CommonTarget target)
     {
         base.ConfigureMac(conf, target);

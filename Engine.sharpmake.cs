@@ -39,7 +39,8 @@ public class EntryPointGameProject : BaseProject
     public EntryPointGameProject()
         : base()
     {
-        Name = "EntryPointGameProject";
+        Name = "Game_EntryPoint";
+        
         SourceRootPath = Globals.RootDir + @"/Game_EntryPoint/Source";
     }
 
@@ -48,11 +49,44 @@ public class EntryPointGameProject : BaseProject
         base.ConfigureAll(conf, target);
         conf.Output = Configuration.OutputType.Exe;
         conf.SolutionFolder = "Apps";
-
+        if(target.GetPlatform() == Platform.win64)
+        {
+            conf.ProjectFileName = @"[project.Name]_[target.Platform]";
+        }
         conf.TargetPath = Globals.RootDir + "/.build/[target.Name]/";
         conf.VcxprojUserFile.LocalDebuggerWorkingDirectory = "$(OutDir)";
+        if(target.SubPlatform == CommonTarget.SubPlatformType.UWP)
+        {
+            conf.ConsumeWinRTExtensions.Add("main.cpp");
+        }
 
         conf.AddPublicDependency<SharpGameProject>(target);
+    }
+}
+[Generate]
+public class EntryPointGameProjectUWP : EntryPointGameProject
+{
+    public EntryPointGameProjectUWP()
+        : base()
+    {
+        Name = "Game_EntryPoint_UWP";
+        RootPath = Globals.RootDir + "Game_EntryPoint";
+        ResourceFiles.Add(Globals.RootDir + "/Game_EntryPoint/Assets/*.*");
+        //ResourceFiles.Add();
+        //ResourceFilesExtensions.Add(".appxmanifest");
+    }
+
+    public override void ConfigureAll(Project.Configuration conf, CommonTarget target)
+    {
+        base.ConfigureAll(conf, target);
+       
+        conf.ConsumeWinRTExtensions.Add("main.cpp");
+        conf.AppxManifestFilePath = Path.Combine(Globals.RootDir, "Game_EntryPoint/Package.appxmanifest");
+        conf.NeedsAppxManifestFile = true;
+        conf.IsUniversalWindowsPlatform = true;
+        conf.PackageCertificateKeyFile = Path.Combine(Globals.RootDir, "Game_EntryPoint/Game_EntryPoint_UWP_TemporaryKey.pfx");
+        conf.PackageCertificateThumbprint = "60E3DE390F85DDE86FE881ABCB08591FB0B5D556";
+        conf.Options.Add(Options.Vc.Linker.SubSystem.Windows);
     }
 }
 
@@ -80,11 +114,15 @@ public class Engine : BaseProject
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/SDL/include"));
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/UltralightSDK/include"));
 
+        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/UltralightSDK/lib/[target.SubPlatform]"));
+
         conf.LibraryFiles.Add("MitchEngine");
-        conf.LibraryFiles.Add("AppCore");
         conf.LibraryFiles.Add("Ultralight");
         conf.LibraryFiles.Add("UltralightCore");
         conf.LibraryFiles.Add("WebCore");
+
+        conf.LibraryPaths.Add("$(VCInstallDir)\\lib\\store\\amd64");
+        conf.LibraryPaths.Add("$(VCInstallDir)\\lib\\amd64");
 
         conf.AddPublicDependency<Dementia>(target);
         conf.AddPublicDependency<ImGui>(target);
@@ -95,13 +133,12 @@ public class Engine : BaseProject
     {
         base.ConfigureWin64(conf, target);
 
-        // Must fix this with a Globals.PlatformToFolderName                                          v
-        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/UltralightSDK/lib/Win64"));
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/Lib/Assimp/[target.Optimization]"));
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/Lib/SDL/Win64/[target.Optimization]"));
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/Lib/Bullet/Win64/[target.Optimization]"));
 
         conf.LibraryFiles.Add("assimp-vc140-mt.lib");
+        conf.LibraryFiles.Add("AppCore");
 
         // Do a virtual method for different configs
         if (target.Optimization == Optimization.Debug)
@@ -142,12 +179,36 @@ public class Engine : BaseProject
         }
     }
 
+    public override void ConfigureUWP(Configuration conf, CommonTarget target)
+    {
+        base.ConfigureUWP(conf, target);
+
+        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/Lib/Assimp/[target.Optimization]"));
+        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/Lib/Bullet/Win64/[target.Optimization]"));
+        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/Lib/SDL/UWP/[target.Optimization]"));
+
+        conf.LibraryFiles.Add("assimp-vc140-mt.lib");
+        conf.LibraryFiles.Add("SDL2.lib");
+        if (target.Optimization == Optimization.Debug)
+        {
+            conf.LibraryFiles.Add("BulletCollision_Debug.lib");
+            conf.LibraryFiles.Add("BulletDynamics_Debug.lib");
+            conf.LibraryFiles.Add("LinearMath_Debug.lib");
+            conf.LibraryFiles.Add("zlibstaticd.lib");
+        }
+        else
+        {
+            conf.LibraryFiles.Add("BulletCollision_MinsizeRel.lib");
+            conf.LibraryFiles.Add("BulletDynamics_MinsizeRel.lib");
+            conf.LibraryFiles.Add("LinearMath_MinsizeRel.lib");
+            conf.LibraryFiles.Add("zlibstatic.lib");
+        }
+    }
+
     public override void ConfigureMac(Configuration conf, CommonTarget target)
     {
         base.ConfigureMac(conf, target);
 
-        // Must fix this with a Globals.PlatformToFolderName                                          v
-        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/UltralightSDK/lib/macOS"));
         // What the actual fuck lmao                                                                 v
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/Lib/Bullet/macOS/Debug"));
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/Lib/SDL/macOS/Debug"));
@@ -192,7 +253,14 @@ public class BaseGameSolution : Solution
         }
         else
         {
-            conf.AddProject<EntryPointGameProject>(target);
+            if (target.SubPlatform == CommonTarget.SubPlatformType.UWP)
+            {
+                conf.AddProject<EntryPointGameProjectUWP>(target);
+            }
+            else
+            {
+                conf.AddProject<EntryPointGameProject>(target);
+            }
         }
 
         if(target.Platform == Platform.win64)

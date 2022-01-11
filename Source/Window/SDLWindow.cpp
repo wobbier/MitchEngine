@@ -67,7 +67,7 @@ SDL_HitTestResult HitTestCallback(SDL_Window* window, const SDL_Point* area, voi
 SDLWindow::SDLWindow(const std::string& title, std::function<void(const Vector2&)> resizeFunc, int X, int Y, Vector2 windowSize)
 	: ResizeCB(resizeFunc)
 {
-	SDL_Init(0);
+	SDL_Init(SDL_INIT_EVERYTHING);
 	WindowHandle = SDL_CreateWindow(title.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_UNDEFINED, static_cast<int>(windowSize.x), static_cast<int>(windowSize.y), SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
 
 	if (WindowHandle == nullptr) {
@@ -849,6 +849,10 @@ void SDLWindow::SetWindow(SDL_Window* window)
 #if ME_PLATFORM_MACOS
     PlatformInfo.ndt = nullptr;
     PlatformInfo.nwh = wmi.info.cocoa.window;
+#endif
+#if ME_PLATFORM_UWP
+    PlatformInfo.ndt = nullptr;
+    PlatformInfo.nwh = wmi.info.win.window;
 #endif
 	PlatformInfo.context = nullptr;
 	PlatformInfo.backBuffer = nullptr;
