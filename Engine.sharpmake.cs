@@ -88,7 +88,7 @@ public class EntryPointGameProjectUWP : EntryPointGameProject
         conf.PackageCertificateThumbprint = "60E3DE390F85DDE86FE881ABCB08591FB0B5D556";
         conf.Options.Add(Options.Vc.Linker.SubSystem.Windows);
 
-        conf.Images.Add("Assets/SplashScreen.scale-200.png");
+        conf.Images.Add(Path.Combine(RootPath, "Assets/SplashScreen.scale-200.png"));
         conf.Images.Add("Assets/LockScreenLogo.scale-200.png");
         conf.Images.Add("Assets/Wide310x150Logo.scale-200.png");
     }
