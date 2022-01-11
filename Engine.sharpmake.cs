@@ -121,9 +121,6 @@ public class Engine : BaseProject
         conf.LibraryFiles.Add("UltralightCore");
         conf.LibraryFiles.Add("WebCore");
 
-        conf.LibraryPaths.Add("$(VCInstallDir)\\lib\\store\\amd64");
-        conf.LibraryPaths.Add("$(VCInstallDir)\\lib\\amd64");
-
         conf.AddPublicDependency<Dementia>(target);
         conf.AddPublicDependency<ImGui>(target);
         conf.AddPublicDependency<Moonlight>(target);
@@ -186,6 +183,9 @@ public class Engine : BaseProject
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/Lib/Assimp/[target.Optimization]"));
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/Lib/Bullet/Win64/[target.Optimization]"));
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/Lib/SDL/UWP/[target.Optimization]"));
+
+        conf.LibraryPaths.Add("$(VCInstallDir)\\lib\\store\\amd64");
+        conf.LibraryPaths.Add("$(VCInstallDir)\\lib\\amd64");
 
         conf.LibraryFiles.Add("assimp-vc140-mt.lib");
         conf.LibraryFiles.Add("SDL2.lib");
