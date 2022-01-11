@@ -247,6 +247,16 @@
             <param name="startArguments"></param>
             <param name="defines"></param>
         </member>
+        <member name="M:Sharpmake.DebugProjectGenerator.GenerateDebugSolution(System.String[],System.String,Sharpmake.Arguments,System.String,System.String[])">
+            <summary>
+            Generates debug projects and solutions
+            </summary>
+            <param name="sources"></param>
+            <param name="solutionPath"></param>
+            <param name="arguments"></param>
+            <param name="startArguments"></param>
+            <param name="defines"></param>
+        </member>
         <member name="M:Sharpmake.DebugProjectGenerator.SetupProjectOptions(Sharpmake.Project.Configuration,System.String)">
             <summary>
             Set up debug configuration in user file
