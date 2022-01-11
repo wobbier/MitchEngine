@@ -89,8 +89,12 @@ public class EntryPointGameProjectUWP : EntryPointGameProject
         conf.Options.Add(Options.Vc.Linker.SubSystem.Windows);
 
         conf.Images.Add(Path.Combine(RootPath, "Assets/SplashScreen.scale-200.png"));
-        conf.Images.Add("Assets/LockScreenLogo.scale-200.png");
-        conf.Images.Add("Assets/Wide310x150Logo.scale-200.png");
+        conf.Images.Add(Path.Combine(RootPath, "Assets/LockScreenLogo.scale-200.png"));
+        conf.Images.Add(Path.Combine(RootPath, "Assets/Wide310x150Logo.scale-200.png"));
+        conf.Images.Add(Path.Combine(RootPath, "Assets/Square44x44Logo.scale-200.png"));
+        conf.Images.Add(Path.Combine(RootPath, "Assets/Square44x44Logo.targetsize-24_altform-unplated.png"));
+        conf.Images.Add(Path.Combine(RootPath, "Assets/Square150x150Logo.scale-200.png"));
+        conf.Images.Add(Path.Combine(RootPath, "Assets/StoreLogo.png"));
     }
 }
 
