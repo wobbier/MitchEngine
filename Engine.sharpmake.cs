@@ -71,7 +71,7 @@ public class EntryPointGameProjectUWP : EntryPointGameProject
     {
         Name = "Game_EntryPoint_UWP";
         RootPath = Globals.RootDir + "Game_EntryPoint";
-        ResourceFiles.Add(Globals.RootDir + "/Game_EntryPoint/Assets/*.*");
+        //ResourceFiles.Add(Globals.RootDir + "/Game_EntryPoint/Assets/*.*");
         //ResourceFiles.Add();
         //ResourceFilesExtensions.Add(".appxmanifest");
     }
@@ -87,6 +87,10 @@ public class EntryPointGameProjectUWP : EntryPointGameProject
         conf.PackageCertificateKeyFile = Path.Combine(Globals.RootDir, "Game_EntryPoint/Game_EntryPoint_UWP_TemporaryKey.pfx");
         conf.PackageCertificateThumbprint = "60E3DE390F85DDE86FE881ABCB08591FB0B5D556";
         conf.Options.Add(Options.Vc.Linker.SubSystem.Windows);
+
+        conf.Images.Add("Assets/SplashScreen.scale-200.png");
+        conf.Images.Add("Assets/LockScreenLogo.scale-200.png");
+        conf.Images.Add("Assets/Wide310x150Logo.scale-200.png");
     }
 }
 
