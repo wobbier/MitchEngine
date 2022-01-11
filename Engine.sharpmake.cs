@@ -70,7 +70,7 @@ public class EntryPointGameProjectUWP : EntryPointGameProject
         : base()
     {
         Name = "Game_EntryPoint_UWP";
-        RootPath = Globals.RootDir + "Game_EntryPoint";
+        RootPath = Path.Combine(RootPath, "Game_EntryPoint");
         //ResourceFiles.Add(Globals.RootDir + "/Game_EntryPoint/Assets/*.*");
         //ResourceFiles.Add();
         //ResourceFilesExtensions.Add(".appxmanifest");
@@ -79,7 +79,8 @@ public class EntryPointGameProjectUWP : EntryPointGameProject
     public override void ConfigureAll(Project.Configuration conf, CommonTarget target)
     {
         base.ConfigureAll(conf, target);
-       
+        conf.ProjectPath = Path.Combine(Globals.RootDir, "Game_EntryPoint");
+
         conf.ConsumeWinRTExtensions.Add("main.cpp");
         conf.AppxManifestFilePath = Path.Combine(Globals.RootDir, "Game_EntryPoint/Package.appxmanifest");
         conf.NeedsAppxManifestFile = true;
@@ -88,13 +89,13 @@ public class EntryPointGameProjectUWP : EntryPointGameProject
         conf.PackageCertificateThumbprint = "60E3DE390F85DDE86FE881ABCB08591FB0B5D556";
         conf.Options.Add(Options.Vc.Linker.SubSystem.Windows);
 
-        conf.Images.Add(Path.Combine(RootPath, "Assets/SplashScreen.scale-200.png"));
-        conf.Images.Add(Path.Combine(RootPath, "Assets/LockScreenLogo.scale-200.png"));
-        conf.Images.Add(Path.Combine(RootPath, "Assets/Wide310x150Logo.scale-200.png"));
-        conf.Images.Add(Path.Combine(RootPath, "Assets/Square44x44Logo.scale-200.png"));
-        conf.Images.Add(Path.Combine(RootPath, "Assets/Square44x44Logo.targetsize-24_altform-unplated.png"));
-        conf.Images.Add(Path.Combine(RootPath, "Assets/Square150x150Logo.scale-200.png"));
-        conf.Images.Add(Path.Combine(RootPath, "Assets/StoreLogo.png"));
+        conf.Images.Add("Assets/SplashScreen.scale-200.png");
+        conf.Images.Add("Assets/LockScreenLogo.scale-200.png");
+        conf.Images.Add("Assets/Wide310x150Logo.scale-200.png");
+        conf.Images.Add("Assets/Square44x44Logo.scale-200.png");
+        conf.Images.Add("Assets/Square44x44Logo.targetsize-24_altform-unplated.png");
+        conf.Images.Add("Assets/Square150x150Logo.scale-200.png");
+        conf.Images.Add("Assets/StoreLogo.png");
     }
 }
 
