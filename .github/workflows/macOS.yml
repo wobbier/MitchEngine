@@ -10,16 +10,19 @@ on:
 
 jobs:
   build:
-    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-latest]
-        buildconfig: [Debug Editor]
-        #compiler: [ g++-10 ]
-        include:
-          - os: macos-latest
-            compiler: clang
-            target: Windows
+        platform:
+          - macOS
+        xcode:
+          - ^12
+        configuration:
+          - Debug
+          - Release
+        type:
+          - Editor
+          - Game_macOS
+    runs-on: macos-latest
 
     steps:
       - uses: suisei-cn/actions-download-file@v1
@@ -32,25 +35,43 @@ jobs:
       - name: Generate a new project
         shell: bash
         run: sh NewProjectSetup.command EmptyProject
-
-      - name: Xcodebuild Action
-        uses: sersoft-gmbh/xcodebuild-action@v1.4
+        
+      - name: Generate a new project
+        shell: bash
+        run: cd Project && sh GenerateSolution.command && cd ../
+          
+      - name: Build Editor
+        if: ${{ matrix.type == 'Editor' }}
+        uses: mxcl/xcodebuild@v1
         with:
-          workspace: EmptyProject.xcworkspace
-          scheme: Havana
-          destination: platform=macOS
-          action: build
-          configuration: ${{matrix.buildconfig}}
+          xcode: ${{ matrix.xcode }}
+          platform: ${{ matrix.platform }}
+          action: build # default = `test`
+          code-coverage: true # default = `false`
+          warnings-as-errors: false # default = `false`
+          configuration: ${{ matrix.type }}_${{ matrix.configuration }} # no default, ie. `xcodebuild` decides itself
+          scheme: Havana_mac
+          
+      - name: Build Game
+        if: ${{ matrix.type == 'Game_macOS' }}
+        uses: mxcl/xcodebuild@v1
+        with:
+          xcode: ${{ matrix.xcode }}
+          platform: ${{ matrix.platform }}
+          action: build # default = `test`
+          code-coverage: true # default = `false`
+          warnings-as-errors: false # default = `false`
+          configuration: ${{ matrix.type }}_${{ matrix.configuration }} # no default, ie. `xcodebuild` decides itself
+          scheme: Game_EntryPoint_mac
 
       - name: Copy Assets (Not Implemented)
         shell: bash
         run: echo todo
-
+        
       - name: Archive
         uses: actions/upload-artifact@v2
         with:
-          name: EmptyProject - ${{matrix.buildconfig}}
+          name: EmptyProject - ${{matrix.type}} - ${{matrix.buildconfig}}
           path: |
             Build/${{matrix.buildconfig}}
-            !Build/${{matrix.buildconfig}}/**/*.fbx
-            !Build/${{matrix.buildconfig}}/AppX
+
