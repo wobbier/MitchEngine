@@ -12,7 +12,7 @@ Check out my [Notion][4] to view the current development status.
 |Platform|Game|
 |---|---|
 |Win64|[![Build status Win64](https://github.com/wobbier/MitchEngine/actions/workflows/Windows.yml/badge.svg)](https://github.com/wobbier/MitchEngine/actions/workflows/Windows.yml)|
-|UWP / Xbox|[![Build status UWP](https://ci.appveyor.com/api/projects/status/7x55po7se0siesdn?svg=true)](https://ci.appveyor.com/project/wobbier/mitchengine)|
+|UWP / Xbox|[![Build status UWP](https://github.com/wobbier/MitchEngine/actions/workflows/UWP.yml/badge.svg)](https://github.com/wobbier/MitchEngine/actions/workflows/UWP.yml)|
 |macOS|[![Build Status](https://github.com/wobbier/MitchEngine/actions/workflows/macOS.yml/badge.svg)](https://github.com/wobbier/MitchEngine/actions/workflows/macOS.yml)|
 
 Main Features

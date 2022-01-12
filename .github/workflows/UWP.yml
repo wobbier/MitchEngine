@@ -1,0 +1,96 @@
+name: UWP
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-2019]
+        configuration:
+          - Debug
+          - Release
+        type:
+          - Game_UWP
+        include:
+          - os: windows-2019
+            shell: cmd
+            compiler: cl
+            target: Windows
+
+    steps:
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v1.0.2
+
+      - uses: suisei-cn/actions-download-file@v1
+        id: downloadfile
+        name: Grab the project setup file
+        with:
+          url: "https://raw.githubusercontent.com/wobbier/MitchEngine/master/NewProjectSetup.bat"
+          target: ./
+
+      - name: Generate a new project
+        shell: cmd
+        run: call NewProjectSetup.bat EmptyProject
+
+      - name: Generate a new project
+        shell: cmd
+        run: cd Project && call GenerateSolution.bat && cd ../
+
+      - name: Compile Tools
+        shell: cmd
+        run: msbuild /property:Configuration="Editor_Release"
+
+      - name: Compile Project
+        shell: cmd
+        run: msbuild /property:Configuration="${{matrix.type}}_${{matrix.configuration}}"
+
+      - name: Copy Assets
+        shell: cmd
+        run: call CopyAssets.bat
+
+      - name: Copy Editor Assets
+        shell: cmd
+        continue-on-error: true
+        run: |
+          robocopy ".build/Release/Assets" ".build\\Editor_Release\\Assets" *.* /w:0 /r:1 /v /E
+          robocopy "Engine/Tools" ".build\\Editor_Release\\Tools" Optick.exe /w:0 /r:1 /v /E
+          robocopy "Engine/Tools/Win64" ".build\\Editor_Release\\Tools\\Win64" *.* /w:0 /r:1 /v /E
+
+      - name: Cook Assets
+        shell: cmd
+        run: |
+          cd ".build/Editor_Release/"
+          call Havana.exe -CompileAssets
+          cd ../../
+
+      - name: Copy Cooked Assets
+        shell: cmd
+        continue-on-error: true
+        run: |
+          robocopy ".build/Editor_Release/Assets" ".build\\${{matrix.type}}_${{matrix.configuration}}\\Assets" *.* /w:0 /r:1 /v /E
+
+      - name: Archive Build
+        uses: actions/upload-artifact@v2
+        with:
+          name: Heap v${{github.run_number}} - ${{matrix.type}} - ${{matrix.configuration}}
+          path: |
+            .build/${{matrix.type}}_${{matrix.configuration}}
+            .build/${{matrix.type}}_${{matrix.configuration}}/Assets
+            !.build/${{matrix.type}}_${{matrix.configuration}}/*.lib
+            !.build/${{matrix.type}}_${{matrix.configuration}}/*.pdb
+            !.build/${{matrix.type}}_${{matrix.configuration}}/*.exp
+            !.build/${{matrix.type}}_${{matrix.configuration}}/*.log
+            !.build/${{matrix.type}}_${{matrix.configuration}}/**/*.png
+            !.build/${{matrix.type}}_${{matrix.configuration}}/**/*.jpg
+            !.build/${{matrix.type}}_${{matrix.configuration}}/**/*.frag
+            !.build/${{matrix.type}}_${{matrix.configuration}}/**/*.vert
+            !.build/${{matrix.type}}_${{matrix.configuration}}/**/*.var
+            !.build/${{matrix.type}}_${{matrix.configuration}}/**/*.sh
