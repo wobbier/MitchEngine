@@ -228,6 +228,7 @@ public class Engine : BaseProject
         conf.LibraryFiles.Add("BulletDynamics");
         conf.LibraryFiles.Add("LinearMath");
         conf.LibraryFiles.Add("SDL2d");
+        conf.LibraryFiles.Add("AppCore");
     }
 }
 
