@@ -7,7 +7,7 @@
 #include "ECS/Core.h"
 #include "Engine/Engine.h"
 
-#include "HavanaEvents.h"
+#include "Events/HavanaEvents.h"
 #include "Events/SceneEvents.h"
 #if ME_EDITOR
 #include <filesystem>

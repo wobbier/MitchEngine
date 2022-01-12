@@ -8,7 +8,7 @@
 #include <Engine/Engine.h>
 #include <Events/SceneEvents.h>
 #include <Havana.h>
-#include <HavanaEvents.h>
+#include <Events/HavanaEvents.h>
 #include <Mathf.h>
 #include <optick.h>
 #include <Window/IWindow.h>

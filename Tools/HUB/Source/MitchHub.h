@@ -17,8 +17,11 @@ public:
 	MitchHub(Input* input, SDLWindow* window, ImGuiRenderer* renderer);
 
 	void Draw();
+    
+#if ME_PLATFORM_WIN64
 	Path ShowOpenFilePrompt();
-
+#endif
+    
 	SharedPtr<Moonlight::Texture>& GetActiveBackgroundTexture();
 	SharedPtr<Moonlight::Texture>& GetActiveTitleTexture();
 

@@ -10,6 +10,7 @@
 #include <Singleton.h>
 #include "MetaFile.h"
 #include "AssetMetaCache.h"
+#include <memory>
 
 class Resource;
 

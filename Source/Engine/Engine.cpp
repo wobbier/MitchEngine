@@ -72,13 +72,15 @@ void Engine::Init(Game* game)
 	CLog::GetInstance().Log(CLog::LogType::Info, "Starting the MitchEngine.");
 	Path engineCfg("Assets\\Config\\Engine.cfg");
 
-#if ME_EDITOR && ME_PLATFORM_WIN64
+#if ME_EDITOR
 	if (engineCfg.FullPath.rfind("Engine") != -1)
 	{
 		Path gameEngineCfgPath("Assets\\Config\\Engine.cfg", true);
 		if (!gameEngineCfgPath.Exists)
 		{
+#if ME_PLATFORM_WIN64
 			CreateDirectory(StringUtils::ToWString(gameEngineCfgPath.Directory).c_str(), NULL);
+#endif
 			File gameEngineCfg = File(engineCfg);
 			File newGameConfig(gameEngineCfgPath);
 			newGameConfig.Write(gameEngineCfg.Read());
@@ -103,15 +105,25 @@ void Engine::Init(Game* game)
 		}
 	};
 
-#if ME_PLATFORM_WIN64 || ME_PLATFORM_MACOS
+#if ME_PLATFORM_WIN64
 	EngineConfig = new Config(engineCfg);
 	const json& WindowConfig = EngineConfig->GetJsonObject("Window");
 	int WindowWidth = WindowConfig["Width"];
 	int WindowHeight = WindowConfig["Height"];
 	GameWindow = new SDLWindow(EngineConfig->GetValue("Title"), ResizeFunc, 500, 300, Vector2(WindowWidth, WindowHeight));
 #endif
+    
+#if ME_PLATFORM_MACOS
+    int WindowWidth = 1280;
+    int WindowHeight = 720;
+    GameWindow = new SDLWindow("MitchEngine", ResizeFunc, 500, 300, Vector2(WindowWidth, WindowHeight));
+#endif
+    
 #if ME_PLATFORM_UWP
-	GameWindow = new UWPWindow("MitchEngine", 1920, 1080, ResizeFunc);
+    int WindowWidth = 1280;
+    int WindowHeight = 720;
+    GameWindow = new SDLWindow("MitchEngine", ResizeFunc, 500, 300, Vector2(WindowWidth, WindowHeight));
+	//GameWindow = new UWPWindow("MitchEngine", 1920, 1080, ResizeFunc);
 #endif
 #if ME_EDITOR && ME_PLATFORM_WIN64
 	GameWindow->SetBorderless(true);

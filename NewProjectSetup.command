@@ -35,13 +35,6 @@ cd ../../
 
 cp -a Engine/Tools/ProjectTemplate/. ./
 
-echo 2> GenerateSolution.bat
-echo %%~dp0Engine\Tools\premake5.exe --file=premake.lua vs2019 --project-type=Win64 --project-name=$id>> GenerateSolution.bat
-
-echo 2> GenerateSolutionUWP.bat
-echo %%~dp0Engine\Tools\premake5.exe --file=premake.lua vs2019 --project-type=UWP --project-name=$id>> GenerateSolutionUWP.bat
-
-echo 2> GenerateSolution.command
-echo ./Engine/Tools/premake5 --file=premake.lua xcode4 --project-type=macOS --project-name=$id>> GenerateSolution.command
-
+cd Project
 sh GenerateSolution.command
+cd ..

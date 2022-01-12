@@ -25,7 +25,7 @@
 #include "optick.h"
 #include <Core/JobQueueOld.h>
 #include <Math/Quaternion.h>
-#include "HavanaEvents.h"
+#include "Events/HavanaEvents.h"
 #include <Utils/EditorConfig.h>
 
 #if ME_EDITOR
@@ -98,7 +98,9 @@ void EditorApp::OnInitialize()
 	{
 		EditorConfig::GetInstance().Init();
 		EditorConfig::GetInstance().Load();
+#if ME_PLATFORM_WIN64
 		InitialLevel = GetEngine().GetConfig().GetValue("CurrentScene");
+#endif
 		Editor = MakeUnique<Havana>(&GetEngine(), this);
 		EditorSceneManager = new EditorCore(Editor.get());
 

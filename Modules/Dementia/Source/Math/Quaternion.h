@@ -2,7 +2,6 @@
 #include "Vector3.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
-#include <bx/debug.h>
 
 struct Quaternion
 {
@@ -151,7 +150,6 @@ struct Quaternion
 			Vector3 rotAxis = Vector3::Front.Cross(forward);
 			rotAxis.Normalize();
 
-			bx::debugBreak();
 			// This needs a func to create from axis angle
 			q = Quaternion(rotAxis, rotAngle);//DirectX::XMQuaternionRotationAxis /*DirectX::SimpleMath::Quaternion::CreateFromAxisAngle(rotAxis.AsXMVEC(), rotAngle)*/);
 		}

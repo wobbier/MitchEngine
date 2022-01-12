@@ -1,15 +1,15 @@
-mkdir Build\\Debug\\AppX\\Assets
-mkdir Build\\Release\\AppX\\Assets
+mkdir .build\\Debug\\AppX\\Assets
+mkdir .build\\Release\\AppX\\Assets
 
 
-robocopy "Engine/Assets" "Build\\Debug\\AppX\\Assets" *.* /mir /w:0 /r:1 /v /log:"Build\\Debug\\Assets.log"
-robocopy "Engine/Assets" "Build\\Debug\\Assets" *.* /mir /w:0 /r:1 /v /log:"Build\\Debug\\Assets.log"
-robocopy "Engine/Assets" "Build\\Release\\AppX\\Assets" *.* /mir /w:0 /r:1 /v /log:"Build\\Release\\Assets.log"
-robocopy "Engine/Assets" "Build\\Release\\Assets" *.* /mir /w:0 /r:1 /v /log:"Build\\Release\\Assets.log"
+robocopy "Engine/Assets" ".build\\Debug\\AppX\\Assets" *.* /mir /w:0 /r:1 /v /log:".build\\Debug\\Assets.log"
+robocopy "Engine/Assets" ".build\\Debug\\Assets" *.* /mir /w:0 /r:1 /v /log:".build\\Debug\\Assets.log"
+robocopy "Engine/Assets" ".build\\Release\\AppX\\Assets" *.* /mir /w:0 /r:1 /v /log:".build\\Release\\Assets.log"
+robocopy "Engine/Assets" ".build\\Release\\Assets" *.* /mir /w:0 /r:1 /v /log:".build\\Release\\Assets.log"
 
-robocopy "Assets" "Build\\Debug\\AppX\\Assets" *.* /w:0 /r:1 /v /E /log:"Build\\Debug\\Assets.log"
-robocopy "Assets" "Build\\Debug\\Assets" *.* /w:0 /r:1 /v /E /log:"Build\\Debug\\Assets.log"
-robocopy "Assets" "Build\\Release\\AppX\\Assets" *.* /w:0 /r:1 /v /E /log:"Build\\Release\\Assets.log"
-robocopy "Assets" "Build\\Release\\Assets" *.* /w:0 /r:1 /v /E /log:"Build\\Release\\Assets.log"
+robocopy "Assets" ".build\\Debug\\AppX\\Assets" *.* /w:0 /r:1 /v /E /log:".build\\Debug\\Assets.log"
+robocopy "Assets" ".build\\Debug\\Assets" *.* /w:0 /r:1 /v /E /log:".build\\Debug\\Assets.log"
+robocopy "Assets" ".build\\Release\\AppX\\Assets" *.* /w:0 /r:1 /v /E /log:".build\\Release\\Assets.log"
+robocopy "Assets" ".build\\Release\\Assets" *.* /w:0 /r:1 /v /E /log:".build\\Release\\Assets.log"
 
 exit 0

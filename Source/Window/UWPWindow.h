@@ -6,7 +6,7 @@
 #include "IWindow.h"
 #include "Math/Vector2.h"
 
-#if ME_PLATFORM_UWP
+#ifdef ME_PLATFORM_UWP2
 
 using namespace Windows::UI::Core;
 //using namespace Windows::UI::Input;

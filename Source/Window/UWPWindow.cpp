@@ -4,7 +4,9 @@
 #include "CLog.h"
 #include <assert.h>
 
-#if ME_PLATFORM_UWP
+#ifdef ME_PLATFORM_UWP2
+
+#include <agile.h>
 
 #include "Renderer.h"
 #include "Device/DX11Device.h"

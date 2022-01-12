@@ -1,0 +1,1 @@
+"../Engine/Tools/Sharpmake/Sharpmake.Application.exe" "/sources('../Game.sharpmake.cs')"

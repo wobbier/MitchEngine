@@ -15,6 +15,7 @@
 #define SDL_HAS_PER_MONITOR_DPI             SDL_VERSION_ATLEAST(2,0,4)
 #define SDL_HAS_VULKAN                      SDL_VERSION_ATLEAST(2,0,6)
 
+extern bool ImGui_ImplSDL2_InitForMetal(SDL_Window* window);
 extern bool ImGui_ImplSDL2_InitForD3D(SDL_Window* window);
 int main(int argc, char** argv)
 {
@@ -28,15 +29,20 @@ int main(int argc, char** argv)
 		}
 	};
 
-	SDLWindow* win = new SDLWindow("ME HUB", ResizeFunc, 500, 300, Vector2(1920, 1080));
+	SDLWindow* win = new SDLWindow("ME HUB", ResizeFunc, 500, 300, Vector2(1280, 720));
 	win->SetBorderless(true);
-
+    ResizeFunc(Vector2(1280, 720));
 	RendererCreationSettings set;
 	set.WindowPtr = win->GetWindowPtr();
 	set.InitAssets = false;
 	Renderer->Create(set);
 
-	ImGui_ImplSDL2_InitForD3D(win->WindowHandle);
+#if ME_PLATFORM_WIN64
+    ImGui_ImplSDL2_InitForD3D(static_cast<SDLWindow*>(win)->WindowHandle);
+#endif
+#if ME_PLATFORM_MACOS
+    ImGui_ImplSDL2_InitForMetal(static_cast<SDLWindow*>(win)->WindowHandle);
+#endif
 
 	Input input;
 	MitchHub hub(&input, win, Renderer->GetImGuiRenderer());

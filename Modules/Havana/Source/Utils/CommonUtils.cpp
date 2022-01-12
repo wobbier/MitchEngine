@@ -2,7 +2,7 @@
 #include <optick.h>
 #include <Engine/Engine.h>
 #include <Engine/World.h>
-#include <HavanaEvents.h>
+#include <Events/HavanaEvents.h>
 
 #if ME_EDITOR
 

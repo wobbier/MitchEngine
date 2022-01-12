@@ -8,9 +8,13 @@
 #include "Utils/ImGuiUtils.h"
 #include <utility>
 #include <UI/Colors.h>
+
+#if ME_PLATFORM_WIN64
 #include <Windows.h>
 #include <commdlg.h>
 #include <shlobj.h>
+#endif
+
 #include <Window/SDLWindow.h>
 #include <optional>
 #include <Mathf.h>
@@ -25,15 +29,15 @@ MitchHub::MitchHub(Input* input, SDLWindow* window, ImGuiRenderer* renderer)
 	ImGuiIO& io = ImGui::GetIO(); (void)io;
 	Path EngineConfigFilePath = Path(".tmp/imgui.cfg");
 	io.IniFilename = EngineConfigFilePath.FullPath.c_str();
-	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-	io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+	//io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+	//io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
 
 	io.BackendFlags |= ImGuiBackendFlags_PlatformHasViewports | ImGuiBackendFlags_RendererHasViewports;
 
-	logo = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("LOGO.png"));
-	closeIcon = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Close.png"));
-	minimizeIcon = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Minimize.png"));
-	vsIcon = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("VS.png"));
+	logo = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/LOGO.png"));
+	closeIcon = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Close.png"));
+	minimizeIcon = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Minimize.png"));
+	vsIcon = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/VS.png"));
 
 	ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
 
@@ -126,13 +130,15 @@ void MitchHub::Draw()
 {
 	if (m_input->WasKeyPressed(KeyCode::A))
 	{
+#if ME_PLATFORM_WIN64
 		ShowOpenFilePrompt();
+#endif
 	}
 	ImGuiViewport* viewport = ImGui::GetMainViewport();
 	TitleBarDragSize = { viewport->Size.x - SystemButtonSize - 1.f, 50.f };
 
 	{
-		//ImGui::SetNextWindowPos({ 0.f, 0.f });
+		ImGui::SetNextWindowPos({ 0.f, 0.f });
 		ImGui::SetNextWindowSize(viewport->Size);
 		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 0.f, 0.f });
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 0.f, 0.f });
@@ -171,6 +177,7 @@ void MitchHub::Draw()
 				}
 				if (ImGui::Button("Add Project", {-1.f, 0.f }))
 				{
+#if ME_PLATFORM_WIN64
 					Path path = ShowOpenFilePrompt();
 					if (path.Exists)
 					{
@@ -184,6 +191,7 @@ void MitchHub::Draw()
 						Cache.Projects.push_back(p);
 						Cache.Save();
 					}
+#endif
 				}
 				ImGui::PopStyleVar(2);
 			}
@@ -283,6 +291,7 @@ void MitchHub::Draw()
 	ImGui::ShowDemoWindow(&showDemo);
 }
 
+#if ME_PLATFORM_WIN64
 int CALLBACK BrowseForFolderCallback(HWND hwnd, UINT uMsg, LPARAM lp, LPARAM pData)
 {
 	char szPath[MAX_PATH];
@@ -363,6 +372,7 @@ Path MitchHub::ShowOpenFilePrompt()
 
 	return Path();
 }
+#endif
 
 SharedPtr<Moonlight::Texture>& MitchHub::GetActiveBackgroundTexture()
 {

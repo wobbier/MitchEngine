@@ -7,7 +7,6 @@
 #include "imgui.h"
 #include "Utils/BGFXUtils.h"
 #include "bx/timer.h"
-#include "Window/IWindow.h"
 #include "Graphics/Material.h"
 #include "Graphics/ShaderStructures.h"
 #include "Primitives/Cube.h"
@@ -649,9 +648,12 @@ void BGFXRenderer::WindowResized(const Vector2& newSize)
 	CurrentSize = newSize;
 
 #if ME_EDITOR
-	EditorCameraBuffer->Width = newSize.x;
-	EditorCameraBuffer->Height = newSize.y;
-	EditorCameraBuffer->ReCreate(m_resetFlags);
+	if (EditorCameraBuffer)
+	{
+		EditorCameraBuffer->Width = newSize.x;
+		EditorCameraBuffer->Height = newSize.y;
+		EditorCameraBuffer->ReCreate(m_resetFlags);
+	}
 #endif
 	for (auto cam : m_cameraCache.Commands)
 	{
