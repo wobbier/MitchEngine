@@ -1,0 +1,1 @@
+"../Engine/Tools/Sharpmake/macOS/Sharpmake.Application" "/sources('../Game.sharpmake.cs')"
