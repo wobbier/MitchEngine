@@ -146,7 +146,7 @@ void Engine::Init(Game* game)
 	//m_renderer = new Moonlight::Renderer();
 	//m_renderer->WindowResized(GameWindow->GetSize());
 
-	GameWorld = std::make_shared<World>();
+	GameWorld = MakeShared<World>();
 
 	Cameras = new CameraCore();
 

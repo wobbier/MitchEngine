@@ -26,7 +26,7 @@
 Mesh::Mesh()
 	: Component("Mesh")
 {
-	MeshMaterial = std::make_shared<DiffuseMaterial>();
+	MeshMaterial = MakeShared<DiffuseMaterial>();
 	MeshMaterial->Init();
 }
 
@@ -117,7 +117,7 @@ void Mesh::OnDeserialize(const json& inJson)
 				}
 				else
 				{
-					MeshMaterial = std::make_shared<DiffuseMaterial>();
+					MeshMaterial = MakeShared<DiffuseMaterial>();
 					MeshMaterial->Init();
 				}
 			}

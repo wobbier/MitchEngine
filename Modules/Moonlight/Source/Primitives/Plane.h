@@ -49,7 +49,7 @@ public:
 		//verts[3].TexCoord = vert4.TexCoord;
 		//verts[4].TexCoord = vert2.TexCoord;
 		//this->vertices.push_back()
-		MeshMaterial = std::make_shared<DiffuseMaterial>();
+		MeshMaterial = MakeShared<DiffuseMaterial>();
 
 		InitMesh();
 	}

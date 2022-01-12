@@ -15,7 +15,7 @@ namespace Moonlight
 
 		SkyMap = ResourceCache::GetInstance().Get<Texture>(SystemPath);
 		SkyModel = ResourceCache::GetInstance().Get<ModelResource>(Path("Assets/Skybox/Skybox.fbx"));
-		SkyMaterial = std::make_shared<UnlitMaterial>();
+		SkyMaterial = MakeShared<UnlitMaterial>();
 		SkyMaterial->SetTexture(TextureType::Diffuse, SkyMap);
 	}
 

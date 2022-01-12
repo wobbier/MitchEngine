@@ -27,7 +27,7 @@ public:
     
     SharedPtr<Material> CreateInstance() final
     {
-        SharedPtr<DiffuseMaterial> ptr = std::make_shared<DiffuseMaterial>(*this);
+        SharedPtr<DiffuseMaterial> ptr = MakeShared<DiffuseMaterial>(*this);
         
         return ptr;
     }
@@ -63,7 +63,7 @@ public:
     
     SharedPtr<Material> CreateInstance() final
     {
-        SharedPtr<WhiteMaterial> ptr = std::make_shared<WhiteMaterial>(this);
+        SharedPtr<WhiteMaterial> ptr = MakeShared<WhiteMaterial>(this);
         
         return ptr;
     }

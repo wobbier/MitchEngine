@@ -75,7 +75,7 @@ SharedPtr<T> ResourceCache::Get(const Path& InFilePath, Args&& ... args)
 		return {};
 	}
 
-	SharedPtr<T> Res = std::make_shared<T>(InFilePath, std::forward<Args>(args)...);
+	SharedPtr<T> Res = MakeShared<T>(InFilePath, std::forward<Args>(args)...);
 	Res->Resources = this;
 	TypeId id = ClassTypeId<Resource>::GetTypeId<T>();
 	Res->ResourceType = static_cast<std::size_t>(id);

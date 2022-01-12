@@ -100,7 +100,7 @@ T& Entity::AddComponent(Args&&... args)
 	{
 		return GetComponent<T>();
 	}
-	SharedPtr<T> t = std::make_shared<T>(std::forward<Args>(args)...);
+	SharedPtr<T> t = MakeShared<T>(std::forward<Args>(args)...);
 	return AddComponent(t);
 }
 
