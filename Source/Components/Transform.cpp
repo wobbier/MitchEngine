@@ -136,9 +136,6 @@ void Transform::SetWorldRotation(const Quaternion& inRotation)
 	SetDirty(true);
 }
 
-
-
-
 void Transform::Translate(Vector3 NewPosition)
 {
 	if (NewPosition.IsZero())
@@ -166,55 +163,16 @@ void Transform::Rotate(const Vector3& inDegrees, TransformSpace inRelativeTo /*=
 Vector3 Transform::Front()
 {
 	return GetWorldRotation().Rotate(Vector3::Front);
-	//const glm::mat4& world = WorldTransform.GetInternalMatrix();
-	////float mat1 = -;// 2, 0);
-	////float mat2 = -WorldTransform.GetInternalMatrix()(2, 1);
-	////float mat3 = -WorldTransform.GetInternalMatrix()(2, 2);
-	//// 20, 21, 22
-	//const float* matrix = glm::value_ptr(world);
-	//return Vector3(matrix[8], matrix[9], matrix[10]);// WorldTransform.GetInternalMatrix().Forward());
 }
 
 Vector3 Transform::Up()
 {
 	return GetWorldRotation().Rotate(Vector3::Up);
-	//return Vector3(WorldTransform.GetInternalMatrix()[1][0], WorldTransform.GetInternalMatrix()[1][1], WorldTransform.GetInternalMatrix()[1][2]);
 }
 
 Vector3 Transform::Right()
 {
 	return GetWorldRotation().Rotate(Vector3::Right);
-	//return Vector3(WorldTransform.GetInternalMatrix()[0][0], WorldTransform.GetInternalMatrix()[0][1], WorldTransform.GetInternalMatrix()[0][2]);
-}
-
-void Transform::UpdateRecursively(SharedPtr<Transform> CurrentTransform)
-{
-	OPTICK_EVENT("SceneGraph::UpdateRecursively");
-	for (SharedPtr<Transform> Child : CurrentTransform->GetChildren())
-	{
-		if (Child->m_isDirty)
-		{
-			OPTICK_EVENT("SceneGraph::Update::IsDirty");
-			//Quaternion quat = Quaternion(Child->Rotation);
-			//DirectX::SimpleMath::Matrix id = DirectX::XMMatrixIdentity();
-			//DirectX::SimpleMath::Matrix rot = DirectX::SimpleMath::Matrix::CreateFromQuaternion(DirectX::SimpleMath::Quaternion::CreateFromYawPitchRoll(Child->LocalRotation[1], Child->LocalRotation[0], Child->LocalRotation[2]));// , Child->Rotation.Y(), Child->Rotation.Z());
-			//DirectX::SimpleMath::Matrix scale = DirectX::SimpleMath::Matrix::CreateScale(Child->GetScale().InternalVec);
-			//DirectX::SimpleMath::Matrix pos = XMMatrixTranslationFromVector(Child->GetPosition().InternalVec);
-			//Child->SetWorldTransform(Matrix4((scale * rot * pos) * CurrentTransform->WorldTransform.GetInternalMatrix()));
-		}
-		UpdateRecursively(Child);
-	}
-}
-
-void Transform::UpdateWorldTransform()
-{
-	//DirectX::SimpleMath::Matrix id = DirectX::XMMatrixIdentity();
-	//DirectX::SimpleMath::Matrix rot = DirectX::SimpleMath::Matrix::CreateFromQuaternion(DirectX::SimpleMath::Quaternion::CreateFromYawPitchRoll(LocalRotation[1], LocalRotation[0], LocalRotation[2]));// , Child->Rotation.Y(), Child->Rotation.Z());
-	//DirectX::SimpleMath::Matrix scale = DirectX::SimpleMath::Matrix::CreateScale(GetScale().InternalVec);
-	//DirectX::SimpleMath::Matrix pos = XMMatrixTranslationFromVector(GetPosition().InternalVec);
-	//SetWorldTransform(Matrix4((scale * rot * pos)));
-
-	UpdateRecursively(shared_from_this());
 }
 
 void Transform::Reset()
@@ -265,18 +223,6 @@ const Matrix4& Transform::GetLocalToWorldMatrix()
 	}
 
 	return LocalToWorldMatrix;
-	//id = glm::scale(id, GetScale().InternalVector);
-	//id = glm::rotate(id, GetLocalRotation().ToAngle(), GetLocalRotation().ToAxis().InternalVector);
-	//id = glm::translate(id, GetPosition().InternalVector);
-	//
-	//if (ParentTransform)
-	//{
-	//	return Matrix4(GetParentTransform()->WorldTransform.GetInternalMatrix() * id);
-	//}
-	//else
-	//{
-	//	return Matrix4(id);
-	//}
 }
 
 const Matrix4& Transform::GetWorldToLocalMatrix()
@@ -340,12 +286,7 @@ void Transform::LookAt(const Vector3& InDirection)
 
 void Transform::SetRotation(const Vector3& euler)
 {
-	OPTICK_CATEGORY("Transform::Set Rotation", Optick::Category::Scene);
-
 	LocalRotation.InternalQuat = glm::quat(glm::vec3(Mathf::Radians(euler.x), Mathf::Radians(euler.y), Mathf::Radians(euler.z)));
-	//DirectX::SimpleMath::Quaternion quat2 = DirectX::SimpleMath::Quaternion::CreateFromYawPitchRoll(Mathf::Radians(euler.y), Mathf::Radians(euler.x), Mathf::Radians(euler.z));
-	//Quaternion quat(quat2);
-	//LocalRotation = quat;
 	SetDirty(true);
 }
 
@@ -358,14 +299,6 @@ Vector3 Transform::GetWorldRotationEuler()
 {
 	return Quaternion::ToEulerAngles(GetWorldRotation());
 }
-
-//
-//void Transform::SetRotation(glm::quat quat)
-//{
-//	//glm::rotate(Rotation, quat);
-//	Rotation = glm::eulerAngles(quat);
-//	SetDirty(true);
-//}
 
 void Transform::SetParent(Transform& NewParent)
 {
@@ -402,18 +335,7 @@ Transform* Transform::GetChildByName(const std::string& Name)
 
 const std::vector<SharedPtr<Transform>>& Transform::GetChildren() const
 {
-	OPTICK_CATEGORY("Transform::GetChildren", Optick::Category::GameLogic);
 	return Children;
-
-	//std::vector<Transform*> children;
-	//for (auto& child : Children)
-	//{
-	//	if (child)
-	//	{
-	//		children.push_back(&child->GetComponent<Transform>());
-	//	}
-	//}
-	//return children;
 }
 
 Transform* Transform::GetParentTransform()
@@ -451,27 +373,12 @@ void Transform::OnDeserialize(const json& inJson)
 	{
 		SetScale(Vector3((float)inJson["Scale"][0], (float)inJson["Scale"][1], (float)inJson["Scale"][2]));
 	}
-
-	//DirectX::SimpleMath::Matrix id = DirectX::XMMatrixIdentity();
-	//DirectX::SimpleMath::Matrix rot = DirectX::SimpleMath::Matrix::CreateFromQuaternion(DirectX::SimpleMath::Quaternion::CreateFromYawPitchRoll(LocalRotation[1], LocalRotation[0], LocalRotation[2]));// , Child->Rotation.Y(), Child->Rotation.Z());
-	//DirectX::SimpleMath::Matrix scale = DirectX::SimpleMath::Matrix::CreateScale(GetScale().InternalVec);
-	//DirectX::SimpleMath::Matrix pos = XMMatrixTranslationFromVector(GetPosition().InternalVec);
-	//if (ParentTransform)
-	//{
-	//	SetWorldTransform(Matrix4((scale * rot * pos) * GetParentTransform()->WorldTransform.GetInternalMatrix()), false);
-	//}
-	//else
-	//{
-	//	SetWorldTransform(Matrix4(scale * rot * pos), false);
-	//}
 }
 
 void Transform::SetName(const std::string& name)
 {
 	Name = name;
 }
-
-//#if ME_EDITOR
 
 void Transform::OnEditorInspect()
 {
@@ -517,5 +424,3 @@ void Transform::OnEditorInspect()
 // 	ImGui::Separator();
 // 	ImGui::Text(GetWorldToLocalMatrix().ToString().c_str());
 }
-
-//#endif

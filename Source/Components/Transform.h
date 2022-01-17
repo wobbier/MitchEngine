@@ -47,10 +47,8 @@ public:
 	Quaternion GetWorldRotation();
 	void SetWorldRotation(const Quaternion& inRotation);
 
+	// Euler
 	Vector3 GetRotationEuler() const;
-
-
-
 	Vector3 GetWorldRotationEuler();
 
 	void SetRotation(const Vector3& euler);
@@ -63,9 +61,6 @@ public:
 	void Translate(Vector3 NewTransform);
 
 	void Rotate(const Vector3& inDegrees, TransformSpace inRelativeTo = TransformSpace::Self);
-
-	void UpdateRecursively(SharedPtr<Transform> CurrentTransform);
-	void UpdateWorldTransform();
 
 	void Reset();
 
@@ -90,9 +85,7 @@ public:
 	const Matrix4& GetWorldToLocalMatrix();
 
 
-//#if ME_EDITOR
 	virtual void OnEditorInspect() final;
-//#endif
 
 private:
 	std::string Name;
@@ -115,4 +108,5 @@ private:
 	virtual void OnSerialize(json& outJson) final;
 	virtual void OnDeserialize(const json& inJson) final;
 };
+
 ME_REGISTER_COMPONENT(Transform)

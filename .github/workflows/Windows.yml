@@ -71,6 +71,7 @@ jobs:
             !.build/${{matrix.buildconfig}}/*.log
             .build/${{matrix.buildconfig}}/Tools/Optick.exe
             .build/${{matrix.buildconfig}}/Tools/Win64/*.*
+            
 
       - name: Cook Assets
         if: ${{ matrix.buildconfig == 'Game_Win64_Release' }}
@@ -106,3 +107,35 @@ jobs:
             !.build/${{matrix.buildconfig}}/**/*.vert
             !.build/${{matrix.buildconfig}}/**/*.var
             !.build/${{matrix.buildconfig}}/**/*.sh
+
+            
+
+      - name: Copy Tools Assets
+        shell: cmd
+        continue-on-error: true
+        run: |
+          robocopy "Engine/Tools/HUB/Assets" ".build\\Editor_Release\\Assets" *.* /w:0 /r:1 /v /E
+          robocopy "Engine/Tools/HUB" ".build\\Editor_Release" *.exe /w:0 /r:1 /v /E
+
+      - name: Archive Tools
+        if: ${{ matrix.buildconfig == 'Editor_Release' }}
+        uses: actions/upload-artifact@v2
+        with:
+          name: HUB v${{github.run_number}}
+          path: |
+            .build/${{matrix.buildconfig}}/HUB.exe
+            .build/${{matrix.buildconfig}}/Assets/Close.png
+            .build/${{matrix.buildconfig}}/Assets/Minimize.png
+            .build/${{matrix.buildconfig}}/Assets/VS.png
+            .build/${{matrix.buildconfig}}/Assets/LOGO.png
+            .build/${{matrix.buildconfig}}/shaderc.exe
+            .build/${{matrix.buildconfig}}/texturec.exe
+            .build/${{matrix.buildconfig}}/*.dll
+            !.build/${{matrix.buildconfig}}/AppX
+            !.build/${{matrix.buildconfig}}/Tools/**/*.*
+            !.build/${{matrix.buildconfig}}/*.lib
+            !.build/${{matrix.buildconfig}}/*.pdb
+            !.build/${{matrix.buildconfig}}/*.exp
+            !.build/${{matrix.buildconfig}}/*.log
+            .build/${{matrix.buildconfig}}/Tools/Optick.exe
+            .build/${{matrix.buildconfig}}/Tools/Win64/*.*
