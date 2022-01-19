@@ -38,7 +38,7 @@ public:
 	SharedPtr<Transform> GetEditorCameraTransform() const;
 
 private:
-	float m_flyingSpeed = 5.f;
+	float m_flyingSpeed = 25.f;
 
 	float m_lookSensitivity = 10.f;
 	float m_speedModifier = 100.f;

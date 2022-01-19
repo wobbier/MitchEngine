@@ -33,7 +33,7 @@ jobs:
         id: downloadfile
         name: Grab the project setup file
         with:
-          url: "https://raw.githubusercontent.com/wobbier/MitchEngine/master/NewProjectSetup.bat"
+          url: "https://raw.githubusercontent.com/wobbier/MitchEngine/master/Tools/NewProjectSetup.bat"
           target: ./
 
       - name: Generate a new project
