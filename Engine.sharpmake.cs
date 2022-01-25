@@ -133,6 +133,12 @@ public class Engine : BaseProject
         conf.AddPublicDependency<Dementia>(target);
         conf.AddPublicDependency<ImGui>(target);
         conf.AddPublicDependency<Moonlight>(target);
+
+        if(!string.IsNullOrEmpty(Globals.FMOD_Win64_Dir) || !string.IsNullOrEmpty(Globals.FMOD_UWP_Dir))
+        {
+            conf.Defines.Add("FMOD_ENABLED");
+            conf.Defines.Add("_DISABLE_EXTENDED_ALIGNED_STORAGE");
+        }
     }
     
     public override void ConfigureWin64(Configuration conf, CommonTarget target)
@@ -145,6 +151,25 @@ public class Engine : BaseProject
 
         conf.LibraryFiles.Add("assimp-vc140-mt.lib");
         conf.LibraryFiles.Add("AppCore");
+
+        if (!string.IsNullOrEmpty(Globals.FMOD_Win64_Dir))
+        {
+            conf.IncludePaths.Add(Path.Combine(Globals.FMOD_Win64_Dir, "api/core/inc"));
+            conf.LibraryPaths.Add(Path.Combine(Globals.FMOD_Win64_Dir, "api/core/lib/x64"));
+
+            conf.LibraryFiles.Add("fmodL_vc.lib");
+
+            // FMOD DLL
+            {
+                var copyDirBuildStep = new Configuration.BuildStepCopy(
+                    Path.Combine(Globals.FMOD_Win64_Dir, "api/core/lib/x64"),
+                    Globals.RootDir + "/.build/[target.Name]");
+
+                copyDirBuildStep.IsFileCopy = false;
+                copyDirBuildStep.CopyPattern = "*.dll";
+                conf.EventPostBuildExe.Add(copyDirBuildStep);
+            }
+        }
 
         // Do a virtual method for different configs
         if (target.Optimization == Optimization.Debug)
@@ -285,6 +310,8 @@ public class BaseGameSolution : Solution
 public class Globals
 {
     public static string RootDir = string.Empty;
+    public static string FMOD_Win64_Dir = string.Empty;
+    public static string FMOD_UWP_Dir = string.Empty;
 }
 
 
