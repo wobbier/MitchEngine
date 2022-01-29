@@ -47,14 +47,14 @@ void EditorApp::OnStart()
 {
 }
 
-void EditorApp::OnUpdate(float DeltaTime)
+void EditorApp::OnUpdate(const UpdateContext& inUpdateContext)
 {
 	OPTICK_CATEGORY("EditorApp::OnUpdate", Optick::Category::GameLogic);
 
 	Editor->NewFrame();
 	Transform* root = GetEngine().SceneNodes->GetRootTransform();
 
-	EditorSceneManager->Update(DeltaTime, root);
+	EditorSceneManager->Update(inUpdateContext, root);
 	Editor->UpdateWorld(root, EditorSceneManager->GetEntities());
 
 	UpdateCameras();

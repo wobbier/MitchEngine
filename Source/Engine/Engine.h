@@ -22,6 +22,11 @@ class BGFXRenderer;
 class Engine
 	: public EventReceiver
 {
+    class EngineUpdateContext : public UpdateContext
+    {
+        friend Engine;
+    };
+
 public:
 	const float FPS = 144.f;
 	long long FrameRate;
@@ -82,6 +87,8 @@ private:
 	BGFXRenderer* NewRenderer = nullptr;
 
 	JobEngine newJobSystem;
+
+	EngineUpdateContext updateContext;
 
 #if ME_EDITOR
 	Input m_editorInput;

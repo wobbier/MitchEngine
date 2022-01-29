@@ -100,7 +100,7 @@ void CharacterController::Walk(Vector2 direction)
 	m_manualVelocity[2] = velocityXZ.y;
 }
 
-void CharacterController::Update(float dt)
+void CharacterController::Update(const UpdateContext& inUpdateContext)
 {
 	m_ghostObject->setWorldTransform(m_rigidbody->getWorldTransform());
 
@@ -111,11 +111,11 @@ void CharacterController::Update(float dt)
 	ParseGhostContacts();
 
 	UpdatePosition();
-	UpdateVelocity(dt);
+	UpdateVelocity(inUpdateContext.GetDeltaTime());
 
 	if (m_jumpTimer < JumpRechargeTime)
 	{
-		m_jumpTimer += dt;
+		m_jumpTimer += inUpdateContext.GetDeltaTime();
 	}
 }
 

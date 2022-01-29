@@ -36,7 +36,7 @@ public:
 	void Walk(const Vector3& direction);
 	void Walk(Vector2 direction);
 
-	void Update(float dt);
+    void Update(const UpdateContext& inUpdateContext);
 
 	void Jump();
 

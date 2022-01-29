@@ -54,13 +54,13 @@ void PhysicsCore::Init()
 {
 }
 
-void PhysicsCore::Update(float dt)
+void PhysicsCore::Update(const UpdateContext& inUpdateContext)
 {
 	OPTICK_CATEGORY("PhysicsCore::Update", Optick::Category::Physics)
 	auto& PhysicsEntites = GetEntities();
 
 	// Need a fixed delta probably
-	PhysicsWorld->stepSimulation(dt, 10);
+	PhysicsWorld->stepSimulation(inUpdateContext.GetDeltaTime(), 10);
 
 	std::vector<std::pair<int, int>> batches;
 	Burst::GenerateChunks(PhysicsEntites.size(), 11, batches);
@@ -98,7 +98,7 @@ void PhysicsCore::Update(float dt)
 		int batchSize = batchEnd - batchBegin;
 
 		//YIKES(std::to_string(batchBegin) + " End:" + std::to_string(batchEnd) + " Size:" + std::to_string(batchSize));
-		Job* root2 = pool.CreateClosureJobAsChild([this, &PhysicsEntites, batchBegin, batchEnd, batchSize, dt](Job& job) {
+		Job* root2 = pool.CreateClosureJobAsChild([this, &PhysicsEntites, batchBegin, batchEnd, batchSize, inUpdateContext](Job& job) {
 			OPTICK_CATEGORY("Job::UpdatePhysics", Optick::Category::Physics);
 
 			for (int entIndex = batchBegin; entIndex < batchEnd; ++entIndex)
@@ -166,7 +166,7 @@ void PhysicsCore::Update(float dt)
 					rigidbody->setWorldTransform(trans);
 					rigidbody->activate();
 
-					Controller.Update(dt);
+					Controller.Update(inUpdateContext);
 
 					TransformComponent.SetWorldPosition(Controller.GetPosition());
 				}

@@ -1,6 +1,7 @@
 // 2018 Mitchell Andrews
 #pragma once
 #include "Dementia.h"
+#include "Core/UpdateContext.h"
 
 class Game
 {
@@ -10,7 +11,7 @@ public:
 	virtual void OnInitialize() = 0;
 
 	virtual void OnStart() = 0;
-	virtual void OnUpdate(float DeltaTime) = 0;
+	virtual void OnUpdate(const UpdateContext& inUpdateContext) = 0;
 	virtual void OnEnd() = 0;
 	virtual void PostRender() = 0;
 	ME_NONCOPYABLE(Game)

@@ -19,7 +19,7 @@ public:
 	virtual void Init() final;
 
 	// Each core must update each loop
-	virtual void Update(float dt) final;
+	virtual void Update(const UpdateContext& inUpdateContext) final;
 
 	virtual void OnEntityAdded(Entity& NewEntity) final;
 	virtual void OnEntityRemoved(Entity& InEntity) final;

@@ -23,11 +23,11 @@ public:
 	virtual void Init() final;
 
 	// Each core must update each loop
-	virtual void Update(float dt) final;
+	virtual void Update(const UpdateContext& inUpdateContext) final;
 
 	virtual bool OnEvent(const BaseEvent& evt);
 
-	void Update(float dt, Transform* rootTransform);
+	void Update(const UpdateContext& inUpdateContext, Transform* rootTransform);
 
 	virtual void OnEntityAdded(Entity& NewEntity) final;
 

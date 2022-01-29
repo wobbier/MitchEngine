@@ -73,7 +73,7 @@ RenderCore::~RenderCore()
 	CLog::GetInstance().Log(CLog::LogType::Debug, "RenderCore Destroyed...");
 }
 
-void RenderCore::Update(float dt)
+void RenderCore::Update(const UpdateContext& inUpdateContext)
 {
 	OPTICK_CATEGORY("RenderCore::Update", Optick::Category::Rendering)
 	//m_renderer->Update(dt);

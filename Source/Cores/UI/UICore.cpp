@@ -94,7 +94,7 @@ void UICore::OnStop()
 	m_overlays.clear();
 }
 
-void UICore::Update(float dt)
+void UICore::Update(const UpdateContext& inUpdateContext)
 {
 	auto& entities = GetEntities();
 	for (auto& InEntity : entities)

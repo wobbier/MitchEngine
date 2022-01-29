@@ -189,26 +189,26 @@ void World::Unload()
 	EntityCache.ClearTemp();
 }
 
-void World::UpdateLoadedCores(float DeltaTime)
+void World::UpdateLoadedCores(const UpdateContext& inUpdateContext)
 {
 	OPTICK_EVENT("UpdateLoadedCores");
 	for (auto core : m_loadedCores)
 	{
 		if (core.second && core.second->IsRunning)
 		{
-			core.second->Update(DeltaTime);
+			core.second->Update(inUpdateContext);
 		}
 	}
 }
 
-void World::LateUpdateLoadedCores(float DeltaTime)
+void World::LateUpdateLoadedCores(const UpdateContext& inUpdateContext)
 {
 	OPTICK_EVENT("UpdateLoadedCores");
 	for (auto core : m_loadedCores)
 	{
 		if (core.second && core.second->IsRunning)
 		{
-			core.second->LateUpdate(DeltaTime);
+			core.second->LateUpdate(inUpdateContext);
 		}
 	}
 }

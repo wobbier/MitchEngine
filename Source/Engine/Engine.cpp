@@ -229,6 +229,7 @@ void Engine::Run()
 		{
 			OPTICK_FRAME("MainLoop");
 			float deltaTime = DeltaTime = AccumulatedTime;
+			updateContext.UpdateDeltaTime(deltaTime);
 			{
 #if ME_EDITOR
 				Input& input = GetEditorInput();
@@ -259,15 +260,14 @@ void Engine::Run()
 			// Update Loaded Cores
 			{
 				FrameProfile::GetInstance().Set("Physics", ProfileCategory::Physics);
-				GameWorld->UpdateLoadedCores(deltaTime);
+				GameWorld->UpdateLoadedCores(updateContext);
 				FrameProfile::GetInstance().Complete("Physics");
 			}
 
 			// Update Cameras
 			{
 				FrameProfile::GetInstance().Set("SceneNodes", ProfileCategory::UI);
-				SceneNodes->Update(deltaTime);
-				Cameras->Update(0.0f);
+				SceneNodes->Update(updateContext);
 				FrameProfile::GetInstance().Complete("SceneNodes");
 			}
 
@@ -276,7 +276,7 @@ void Engine::Run()
 				FrameProfile::GetInstance().Set("Game", ProfileCategory::Game);
 				//ME_PROFILE("Game", ProfileCategory::Game);
 				OPTICK_CATEGORY("MainLoop::GameUpdate", Optick::Category::GameLogic);
-				m_game->OnUpdate(deltaTime);
+				m_game->OnUpdate(updateContext);
 				FrameProfile::GetInstance().Complete("Game");
 			}
 
@@ -289,7 +289,7 @@ void Engine::Run()
 			// Model Renderer Update
 			{
 				FrameProfile::GetInstance().Set("ModelRenderer", ProfileCategory::Rendering);
-				ModelRenderer->Update(deltaTime);
+				ModelRenderer->Update(updateContext);
 				FrameProfile::GetInstance().Complete("ModelRenderer");
 			}
             
@@ -304,19 +304,20 @@ void Engine::Run()
 					{
 						UI->OnResize(Camera::CurrentCamera->OutputSize);
 					}
-					UI->Update(deltaTime);
+					UI->Update(updateContext);
 				}
 				FrameProfile::GetInstance().Complete("UI");
 			}
 
 			// Late Update	
 			{
-				GameWorld->LateUpdateLoadedCores(deltaTime);
-				SceneNodes->LateUpdate(deltaTime);
-				Cameras->LateUpdate(0.0f);
-				AudioThread->LateUpdate(deltaTime);
-				ModelRenderer->LateUpdate(deltaTime);
-				UI->LateUpdate(deltaTime);
+				GameWorld->LateUpdateLoadedCores(updateContext);
+				Cameras->Update(updateContext);
+				SceneNodes->LateUpdate(updateContext);
+				Cameras->LateUpdate(updateContext);
+				AudioThread->LateUpdate(updateContext);
+				ModelRenderer->LateUpdate(updateContext);
+				UI->LateUpdate(updateContext);
 			}
 
 			// Render

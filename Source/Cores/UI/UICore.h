@@ -24,7 +24,7 @@ public:
 	~UICore();
 
 	virtual void Init() final;
-	virtual void Update(float dt) final;
+	virtual void Update(const UpdateContext& inUpdateContext) final;
 
 	virtual void OnEntityAdded(Entity& NewEntity) final;
 	virtual void OnEntityRemoved(Entity& InEntity) final;

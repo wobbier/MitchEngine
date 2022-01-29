@@ -24,7 +24,11 @@ void CameraCore::Init()
 	DefaultCamera->SetCurrent();
 }
 
-void CameraCore::Update(float dt)
+void CameraCore::Update(const UpdateContext& inUpdateContext)
+{
+}
+
+void CameraCore::LateUpdate(const UpdateContext& inUpdateContext)
 {
 	OPTICK_CATEGORY("CameraCore::Update", Optick::Category::Camera);
 	auto Cameras = GetEntities();

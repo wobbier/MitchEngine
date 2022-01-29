@@ -45,7 +45,7 @@ void EditorCore::Init()
 	EditorCameraTransform->SetRotation(EditorConfig::GetInstance().CameraRotation);
 }
 
-void EditorCore::Update(float dt)
+void EditorCore::Update(const UpdateContext& inUpdateContext)
 {
 	OPTICK_CATEGORY("FlyingCameraCore::Update", Optick::Category::Camera);
 
@@ -66,7 +66,7 @@ void EditorCore::Update(float dt)
 			totalTime = 0.f;
 		}
 
-		totalTime += dt;
+		totalTime += inUpdateContext.GetDeltaTime();
 
 		if (FirstUpdate)
 		{
@@ -93,7 +93,7 @@ void EditorCore::Update(float dt)
 			{
 				CameraSpeed += m_speedModifier;
 			}
-			CameraSpeed *= dt;
+			CameraSpeed *= inUpdateContext.GetDeltaTime();
 
 			const Vector3& Front = EditorCameraTransform->Front();
 
@@ -127,8 +127,8 @@ void EditorCore::Update(float dt)
 			}
 
 			Vector2 currentState = input.GetRelativeMousePosition();
-			float XOffset = ((currentState.x) * m_lookSensitivity) * dt;
-			float YOffest = ((currentState.y) * m_lookSensitivity) * dt;
+			float XOffset = ((currentState.x) * m_lookSensitivity) * inUpdateContext.GetDeltaTime();
+			float YOffest = ((currentState.y) * m_lookSensitivity) * inUpdateContext.GetDeltaTime();
 
 			const float Yaw = EditorCamera->Yaw -= XOffset;
 			float Pitch = EditorCamera->Pitch + YOffest;
@@ -167,13 +167,13 @@ void EditorCore::Update(float dt)
 	}
 }
 
-void EditorCore::Update(float dt, Transform* rootTransform)
+void EditorCore::Update(const UpdateContext& inUpdateContext, Transform* rootTransform)
 {
 	OPTICK_EVENT("EditorCore::Update");
 
 	RootTransform = rootTransform;
 
-	Update(dt);
+	Update(inUpdateContext);
 }
 
 bool EditorCore::OnEvent(const BaseEvent& evt)
