@@ -15,7 +15,7 @@ void GameApp::OnStart()
 
 }
 
-void GameApp::OnUpdate(float DeltaTime)
+void GameApp::OnUpdate(const UpdateContext& inUpdateContext)
 {
 
 }

@@ -11,7 +11,7 @@ public:
 	virtual void OnInitialize() override;
 
 	virtual void OnStart() override;
-	virtual void OnUpdate(float DeltaTime) override;
+	virtual void OnUpdate(const UpdateContext& inUpdateContext) override;
 	virtual void OnEnd() override;
 
 	virtual void PostRender() override;
