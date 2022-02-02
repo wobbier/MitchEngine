@@ -167,6 +167,10 @@ void Engine::Init(Game* game)
 		}
 	});
 
+	systemRegistry.RegisterSystem(NewRenderer);
+
+	updateContext.m_SystemRegistry = &systemRegistry;
+
 	InitGame();
 
 	m_isInitialized = true;

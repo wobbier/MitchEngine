@@ -11,6 +11,7 @@ using Sharpmake;
 [module: Sharpmake.Include("Tools/CommonTarget.sharpmake.cs")]
 [module: Sharpmake.Include("Tools/HUB/MitchHub.sharpmake.cs")]
 [module: Sharpmake.Include("Tools/SharpmakeProject.sharpmake.cs")]
+[module: Sharpmake.Include("ThirdParty/EASTL.sharpmake.cs")]
 
 public abstract class BaseGameProject : BaseProject
 {

@@ -26,8 +26,10 @@ public class Dementia : BaseProject
 
         conf.LibraryFiles.Add("Dementia");
         conf.LibraryFiles.Add("OptickCore");
+
+        conf.AddPublicDependency<EASTL>(target);
     }
-    
+
     public override void ConfigureWin64(Configuration conf, CommonTarget target)
     {
         base.ConfigureWin64(conf, target);

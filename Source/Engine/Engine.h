@@ -89,6 +89,7 @@ private:
 	JobEngine newJobSystem;
 
 	EngineUpdateContext updateContext;
+	SystemRegistry systemRegistry;
 
 #if ME_EDITOR
 	Input m_editorInput;

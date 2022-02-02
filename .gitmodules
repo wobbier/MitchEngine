@@ -50,3 +50,6 @@
 	path = ThirdParty/SDL
 	url = https://github.com/libsdl-org/SDL
 	ignore = dirty
+[submodule "ThirdParty/EASTL"]
+	path = ThirdParty/EASTL
+	url = https://github.com/electronicarts/EASTL
