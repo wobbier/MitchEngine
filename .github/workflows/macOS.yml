@@ -2,9 +2,9 @@ name: macOS
 
 on:
   push:
-    branches: [master, sandbox]
+    branches: [master]
   pull_request:
-    branches: [master, sandbox]
+    branches: [master]
 
   workflow_dispatch:
 
@@ -29,7 +29,7 @@ jobs:
         id: downloadfile
         name: Grab the project setup file
         with:
-          url: "https://raw.githubusercontent.com/wobbier/MitchEngine/${{github.head_ref}}/Tools/NewProjectSetup.command"
+          url: "https://raw.githubusercontent.com/wobbier/MitchEngine/master/Tools/NewProjectSetup.command"
           target: ./
 
       - name: Generate a new project
