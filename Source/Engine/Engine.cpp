@@ -35,6 +35,7 @@
 #include "SDL_video.h"
 #include <imgui.h>
 #include <Debug/DebugDrawer.h>
+#include "Events/PlatformEvents.h"
 
 Engine& GetEngine()
 {
@@ -103,6 +104,9 @@ void Engine::Init(Game* game)
 				UI->OnResize(Camera::CurrentCamera->OutputSize);
 			}
 		}
+		WindowResizedEvent evt;
+		evt.NewSize = NewSize;
+		evt.Fire();
 	};
 
 #if ME_PLATFORM_WIN64

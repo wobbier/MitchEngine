@@ -42,7 +42,6 @@ public class EntryPointGameProject : BaseProject
         Name = "Game_EntryPoint";
         
         SourceRootPath = Globals.RootDir + @"/Game_EntryPoint/Source";
-        NatvisFiles.Add("Engine.natvis");
     }
 
     public override void ConfigureAll(Project.Configuration conf, CommonTarget target)
@@ -107,6 +106,7 @@ public class Engine : BaseProject
         : base()
     {
         Name = "MitchEngine";
+        NatvisFiles.Add("Engine.natvis");
     }
 
     public override void ConfigureAll(Project.Configuration conf, CommonTarget target)

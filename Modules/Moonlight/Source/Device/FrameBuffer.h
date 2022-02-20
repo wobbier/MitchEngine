@@ -19,5 +19,6 @@ namespace Moonlight
 		uint32_t Height = 0;
 		void ReCreate(uint32_t resetFlags);
 		uint32_t m_resetFlags = 0;
+        bool MatchMainBufferSize = false;
 	};
 }
