@@ -103,6 +103,8 @@ namespace Moonlight
 	void Texture::UpdateBuffer(FrameBuffer* NewBuffer)
 	{
 		TexHandle = NewBuffer->Texture;
+		mWidth = NewBuffer->Width;
+		mHeight = NewBuffer->Height;
 	}
 
 	std::string Texture::ToString(TextureType type)

@@ -4,6 +4,7 @@
 #include "Graphics/Texture.h"
 #include "Mathf.h"
 #include <Utils/ImGuiUtils.h>
+#include "Components/Camera.h"
 
 AssetPreviewWidget::AssetPreviewWidget()
 	: HavanaWidget("Preview")
@@ -76,6 +77,7 @@ void AssetPreviewWidget::Render()
 
 		calculatedImageSize.x = Mathf::Clamp(0.f, SceneViewRenderSize.x, calculatedImageSize.x);
 		calculatedImageSize.y = std::min(SceneViewRenderSize.y, calculatedImageSize.y);
+		Vector2 OGCursorPos = SceneViewRenderLocation;
 		SceneViewRenderLocation.x += (viewportRenderSize.x - calculatedImageSize.x) / 2.f;
 		SceneViewRenderLocation.y += (viewportRenderSize.y - calculatedImageSize.y) / 2.f;
 		viewportRenderSize = calculatedImageSize;
@@ -92,6 +94,18 @@ void AssetPreviewWidget::Render()
 				ImVec2(viewportRenderSize.x * scale, (viewportRenderSize.y * scale)),
 				ImVec2(0, 0),
 				ImVec2(Mathf::Clamp(0.f, 1.0f, SceneViewRenderSize.x / ViewTexture->mWidth), Mathf::Clamp(0.f, 1.0f, SceneViewRenderSize.y / ViewTexture->mHeight)));
+
+            ImGui::SetCursorPos(ImVec2(OGCursorPos.x, OGCursorPos.y));
+            {
+                char sizeString[256];
+                sprintf(sizeString, "Texture Size: X: %f, Y: %f", SceneViewRenderSize.x, SceneViewRenderSize.y);
+                ImGui::Text(sizeString);
+            }
+            {
+                char sizeString[256];
+                sprintf(sizeString, "View Size: X: %f, Y: %f", Camera::CurrentCamera->OutputSize.x, Camera::CurrentCamera->OutputSize.y);
+                ImGui::Text(sizeString);
+            }
 		}
 	}
 	ImGui::End();
