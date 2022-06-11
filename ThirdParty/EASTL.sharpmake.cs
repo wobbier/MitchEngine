@@ -36,6 +36,7 @@ public class EASTL : BaseProject
         conf.Defines.Add("SCL_SECURE_NO_WARNINGS");
         conf.Defines.Add("EASTL_OPENSOURCE=1");
         conf.Defines.Add("EA_HAVE_CPP11_INITIALIZER_LIST=1");
+        conf.Defines.Add("EASTL_EABASE_DISABLED");
 
         // Disable EA's default implementation of sprintf
         conf.Defines.Add("EASTL_EASTDC_VSNPRINTF=false");
