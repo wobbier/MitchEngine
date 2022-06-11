@@ -1,5 +1,15 @@
 #pragma once
 #include <string>
+#include <algorithm>
+#include "Dementia.h"
+#include "CLog.h"
+
+#if ME_PLATFORM_UWP
+#include <wrl/client.h>
+#include <fstream>
+#else
+#include <filesystem>
+#endif
 
 class Path
 {
