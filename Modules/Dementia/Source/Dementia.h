@@ -1,4 +1,5 @@
 #pragma once
+#include "Core/Memory.h"
 
 #define ME_DISABLE_DEFAULT_CONSTRUCTOR(Class)	\
 Class() = delete;

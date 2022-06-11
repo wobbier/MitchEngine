@@ -11,6 +11,7 @@ using Sharpmake;
 [module: Sharpmake.Include("Tools/CommonTarget.sharpmake.cs")]
 [module: Sharpmake.Include("Tools/HUB/MitchHub.sharpmake.cs")]
 [module: Sharpmake.Include("Tools/SharpmakeProject.sharpmake.cs")]
+[module: Sharpmake.Include("ThirdParty/EASTL.sharpmake.cs")]
 
 public abstract class BaseGameProject : BaseProject
 {
@@ -42,7 +43,6 @@ public class EntryPointGameProject : BaseProject
         Name = "Game_EntryPoint";
         
         SourceRootPath = Globals.RootDir + @"/Game_EntryPoint/Source";
-        NatvisFiles.Add("Engine.natvis");
     }
 
     public override void ConfigureAll(Project.Configuration conf, CommonTarget target)
@@ -107,6 +107,7 @@ public class Engine : BaseProject
         : base()
     {
         Name = "MitchEngine";
+        NatvisFiles.Add("Engine.natvis");
     }
 
     public override void ConfigureAll(Project.Configuration conf, CommonTarget target)

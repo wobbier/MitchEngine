@@ -24,6 +24,7 @@ public class SharpmakeProjectBase : CSharpProject
         SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/Tools/CommonTarget.sharpmake.cs");
         SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/Tools/SharpmakeProject.sharpmake.cs");
         SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/Tools/HUB/MitchHub.sharpmake.cs");
+        SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/ThirdParty/EASTL.sharpmake.cs");
         //SourceFilesCompileExtensions.Clear();
         //SourceFilesCompileExtensions.Add(".cs");
         DependenciesCopyLocal = DependenciesCopyLocalTypes.None;

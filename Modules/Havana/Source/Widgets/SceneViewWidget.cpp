@@ -303,8 +303,6 @@ void SceneViewWidget::Render()
 		break;
 	}
 
-	IsFocused = ImGui::IsWindowFocused();
-
 	Moonlight::FrameBuffer* currentView = (MainCamera) ? MainCamera->Buffer : nullptr;
 
 	if (currentView && bgfx::isValid(currentView->Buffer))
@@ -316,6 +314,8 @@ void SceneViewWidget::Render()
 			ImVec2(viewportRenderSize.x * scale, (viewportRenderSize.y * scale)),
 			ImVec2(0, 0),
 			ImVec2(Mathf::Clamp(0.f, 1.0f, SceneViewRenderSize.x / currentView->Width), Mathf::Clamp(0.f, 1.0f, SceneViewRenderSize.y / currentView->Height)));
+
+		IsFocused = ImGui::IsItemClicked();
 	}
 
 	if (EnableSceneTools)

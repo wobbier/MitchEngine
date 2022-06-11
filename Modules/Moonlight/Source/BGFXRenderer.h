@@ -13,6 +13,7 @@
 #endif
 #include <Debug/DebugDrawer.h>
 #include <Utils/CommandCache.h>
+#include "Core/ISystem.h"
 
 class ImGuiRenderer;
 
@@ -33,9 +34,13 @@ enum class ViewportMode : uint8_t
 };
 
 class BGFXRenderer
+	: public ISystem
 {
-	static constexpr bgfx::ViewId kClearView = 0;
+    static constexpr bgfx::ViewId kClearView = 0;
 public:
+
+    ME_SYSTEM_ID(BGFXRenderer);
+
 	BGFXRenderer() = default;
 
 	void Create(const RendererCreationSettings& settings);
