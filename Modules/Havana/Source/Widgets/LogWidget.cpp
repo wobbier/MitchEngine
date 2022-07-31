@@ -53,12 +53,12 @@ void LogWidget::Render()
 			ImGuiListClipper clipper;
 			clipper.Begin(static_cast<int>(CLog::Messages.size()), -1.f);
 
-			static ImGuiTableFlags flags =
-				ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable
-				| ImGuiTableFlags_Sortable | ImGuiTableFlags_SortMulti
-				| ImGuiTableFlags_RowBg | ImGuiTableFlags_NoBordersInBody
-				| ImGuiTableFlags_ScrollY
-				| ImGuiTableFlags_SizingStretchProp;
+            static ImGuiTableFlags flags =
+                ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable
+                | ImGuiTableFlags_Sortable | ImGuiTableFlags_SortMulti
+                | ImGuiTableFlags_RowBg | ImGuiTableFlags_NoBordersInBody
+                | ImGuiTableFlags_ScrollY
+                | ImGuiTableFlags_SizingStretchProp;
 
 			static float wOffset = 350.0f;
 			static float hOffset = 30.f;
@@ -76,12 +76,12 @@ void LogWidget::Render()
 			ImVec2 size = ImVec2(w, h);
 
 			ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.f, 0.f));
-			if (ImGui::BeginTable("##table1ss", 2, flags, size))
+			if (ImGui::BeginTable("##LogWidgetTable", 2, flags, size))
 			{
 				ImGui::PopStyleVar(1);
 
-				ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoHide | ImGuiTableColumnFlags_NoResize, -1.0f);
-				ImGui::TableSetupColumn("Message", ImGuiTableColumnFlags_WidthStretch, -1.0f);
+				ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 15.f);
+				ImGui::TableSetupColumn("Message", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthStretch, 100.0f);
 				ImGui::TableSetupScrollFreeze(1, 1);
 				ImGui::TableHeadersRow();
 
@@ -89,17 +89,17 @@ void LogWidget::Render()
 				{
 					for (int line_no = clipper.DisplayStart; line_no < clipper.DisplayEnd; line_no++)
 					{
-						ImGui::TableNextRow(ImGuiTableRowFlags_None, 16.f);
-						if (ImGui::TableNextColumn())
+                        ImGui::TableNextRow(ImGuiTableRowFlags_None, 16.f);
+                        ImGui::TableSetColumnIndex(0);
 						{
 							ImGui::Text(CLog::GetInstance().TypeToName(CLog::Messages[line_no].Type).c_str());
 						}
 
-						if (ImGui::TableNextColumn())
+                        ImGui::TableSetColumnIndex(1);
 						{
 							bool selected = selectedIndex == line_no;
-							ImGuiSelectableFlags selectable_flags = ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowItemOverlap | ImGuiSelectableFlags_AllowDoubleClick;
-							if (ImGui::Selectable(CLog::Messages[line_no].Message.c_str(), &selected, selectable_flags, ImVec2(0.f, 12.f)))
+                            ImGuiSelectableFlags selectable_flags = ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowItemOverlap | ImGuiSelectableFlags_AllowDoubleClick;
+							if (ImGui::Selectable(CLog::Messages[line_no].Message.c_str(), &selected, selectable_flags, ImVec2(0.f, 15.f)))
 							{
 								selectedIndex = line_no;
 							}
