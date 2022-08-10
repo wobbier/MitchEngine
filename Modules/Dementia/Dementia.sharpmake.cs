@@ -15,7 +15,7 @@ public class Dementia : BaseProject
         base.ConfigureAll(conf, target);
         conf.Output = Configuration.OutputType.Lib;
 
-        conf.SolutionFolder = "Engine/Modules";
+        conf.SolutionFolder = "Modules";
 
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/Bullet/src"));
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/glm"));

@@ -7,10 +7,12 @@ using Sharpmake;
 [module: Sharpmake.Include("Modules/ImGui/ImGui.sharpmake.cs")]
 [module: Sharpmake.Include("Modules/Moonlight/Moonlight.sharpmake.cs")]
 [module: Sharpmake.Include("Modules/Havana/Havana.sharpmake.cs")]
+[module: Sharpmake.Include("Modules/ScriptCore/ScriptCore.sharpmake.cs")]
 [module: Sharpmake.Include("Tools/BaseProject.sharpmake.cs")]
 [module: Sharpmake.Include("Tools/CommonTarget.sharpmake.cs")]
 [module: Sharpmake.Include("Tools/HUB/MitchHub.sharpmake.cs")]
 [module: Sharpmake.Include("Tools/SharpmakeProject.sharpmake.cs")]
+[module: Sharpmake.Include("ThirdParty/Mono.sharpmake.cs")]
 
 public abstract class BaseGameProject : BaseProject
 {
@@ -18,6 +20,7 @@ public abstract class BaseGameProject : BaseProject
         : base()
     {
         SourceRootPath = @"Game/Source";
+        SourceFiles.Add(@"[project.SharpmakeCsPath]/Assets/Scripts/TestScript.cs");
     }
 
     public override void ConfigureAll(Project.Configuration conf, CommonTarget target)
@@ -30,6 +33,7 @@ public abstract class BaseGameProject : BaseProject
         conf.LibraryFiles.Add("[project.Name]");
 
         conf.AddPublicDependency<Engine>(target);
+
     }
 }
 
@@ -135,10 +139,34 @@ public class Engine : BaseProject
         conf.AddPublicDependency<ImGui>(target);
         conf.AddPublicDependency<Moonlight>(target);
 
-        if(!string.IsNullOrEmpty(Globals.FMOD_Win64_Dir) || !string.IsNullOrEmpty(Globals.FMOD_UWP_Dir))
+        // #TODO This shouldn't be a sharpmake class
+        conf.AddPublicDependency<Mono>(target, DependencySetting.Default | DependencySetting.Defines | DependencySetting.IncludePaths);
+        conf.AddPublicDependency<ScriptCore>(target);
+
+        if (!string.IsNullOrEmpty(Globals.FMOD_Win64_Dir) || !string.IsNullOrEmpty(Globals.FMOD_UWP_Dir))
         {
             conf.Defines.Add("FMOD_ENABLED");
             conf.Defines.Add("_DISABLE_EXTENDED_ALIGNED_STORAGE");
+        }
+
+        // #TODO Read path from Globals / Move to own class again
+        {
+            conf.IncludePaths.Add("C:/Program Files/Mono/include/mono-2.0");
+            conf.LibraryPaths.Add("C:/Program Files/Mono/lib");
+            conf.LibraryFiles.Add("mono-2.0-sgen");
+            conf.Defines.Add("MONO_HOME=\"C:/Program Files/Mono/\"");
+            conf.Defines.Add("MONO_PATH=\"C:/Program Files/Mono/lib/mono/4.5\"");
+
+            // MONO DLL
+            {
+                var copyDirBuildStep = new Configuration.BuildStepCopy(
+                    "C:/Program Files/Mono/lib",
+                    Globals.RootDir + "/.build/[target.Name]");
+
+                copyDirBuildStep.IsFileCopy = false;
+                copyDirBuildStep.CopyPattern = "mscorelib.dll";
+                conf.EventPostBuildExe.Add(copyDirBuildStep);
+            }
         }
     }
     
@@ -305,6 +333,7 @@ public class BaseGameSolution : Solution
         }
 
         conf.AddProject<SharpGameProject>(target);
+        conf.AddProject<ScriptCore>(target);
     }
 }
 

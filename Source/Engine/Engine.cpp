@@ -36,6 +36,7 @@
 #include <imgui.h>
 #include <Debug/DebugDrawer.h>
 #include "Events/PlatformEvents.h"
+#include "Scripting/ScriptCore.h"
 
 Engine& GetEngine()
 {

@@ -20,6 +20,7 @@
 #include <Mathf.h>
 #include <ImGui/ImGuiRenderer.h>
 #include <Window/PlatformWindowHooks.h>
+#include "Utils/PlatformUtils.h"
 
 MitchHub::MitchHub(Input* input, SDLWindow* window, ImGuiRenderer* renderer)
 	: m_input(input)
@@ -266,12 +267,21 @@ void MitchHub::Draw()
 				ImDrawList* draw_list = ImGui::GetWindowDrawList();
 				draw_list->AddRectFilledMultiColor(ImVec2(wOffset, ImGui::GetWindowHeight() - 100.f), ImVec2(wOffset + panelWidth + 80.f, ImGui::GetWindowHeight()), top, top, bot, bot);
 
-				ImGui::SetCursorPos({ ImGui::GetWindowWidth() - 300.f, ImGui::GetWindowHeight() - 75.f });
 				//68217A, 104, 33, 122
 				ImGui::PushStyleColor(ImGuiCol_Button, { 104.f / 255.f, 33.f / 255.f, 122.f / 255.f, 1.f });
 				ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, {8.f, 8.f});
-				ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.f);
+                ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.f);
+
+                ImGui::SetCursorPos({ ImGui::GetWindowWidth() - 300.f, ImGui::GetWindowHeight() - 75.f });
 				ImGui::ImageButton(vsIcon->TexHandle, { 211.f, 36.f });
+
+                ImGui::SetCursorPos({ ImGui::GetWindowWidth() - 615.f, ImGui::GetWindowHeight() - 75.f });
+				if (ImGui::ImageButton(vsIcon->TexHandle, { 211.f, 36.f }))
+				{
+					
+					PlatformUtils::SystemCall(Path(Cache.Projects[SelectedProjectIndex].ProjectPath.FullPath + std::string("/Project/GenerateSolution.bat")));
+				}
+
 				ImGui::PopStyleColor();
 				ImGui::PopStyleVar(2);
 

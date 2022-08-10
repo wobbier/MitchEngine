@@ -16,7 +16,7 @@ public class Moonlight : BaseProject
         base.ConfigureAll(conf, target);
         conf.Output = Configuration.OutputType.Lib;
 
-        conf.SolutionFolder = "Engine/Modules";
+        conf.SolutionFolder = "Modules";
 
 
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/bgfx/include"));

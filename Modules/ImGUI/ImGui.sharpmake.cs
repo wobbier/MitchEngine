@@ -33,7 +33,7 @@ public class ImGui : BaseProject
         base.ConfigureAll(conf, target);
         conf.Output = Configuration.OutputType.Lib;
 
-        conf.SolutionFolder = "Engine/Modules";
+        conf.SolutionFolder = "Modules";
 
 
 

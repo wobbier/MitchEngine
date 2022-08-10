@@ -5,6 +5,7 @@
 #endif
 
 #include <filesystem>
+#include "File.h"
 
 void PlatformUtils::RunProcess(const Path& inFilePath, const std::string& inArgs /*= ""*/)
 {
@@ -92,4 +93,34 @@ void PlatformUtils::OpenFolder(const Path& inFolderPath)
 void PlatformUtils::DeleteFile(const Path& inFilePath)
 {
 	std::filesystem::remove(inFilePath.FullPath);
+}
+
+char* PlatformUtils::ReadBytes(const Path& inFilePath, uint32_t* outSize)
+{
+    File path = File(inFilePath);
+    const std::string& p = path.Read();
+    std::ifstream stream(inFilePath.FullPath, std::ios::binary | std::ios::ate);
+
+    if (!stream)
+    {
+        // Failed to open the file
+        return nullptr;
+    }
+
+    std::streampos end = stream.tellg();
+    stream.seekg(0, std::ios::beg);
+    uint32_t size = end - stream.tellg();
+
+    if (size == 0)
+    {
+        // File is empty
+        return nullptr;
+    }
+
+    char* buffer = new char[size];
+    stream.read((char*)buffer, size);
+    stream.close();
+
+    *outSize = size;
+    return buffer;
 }

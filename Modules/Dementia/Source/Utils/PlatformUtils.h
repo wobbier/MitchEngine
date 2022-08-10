@@ -15,4 +15,7 @@ namespace PlatformUtils
 	void OpenFolder(const Path& inFolderPath);
 
 	void DeleteFile(const Path& inFilePath);
+
+
+    char* ReadBytes(const Path& inFilePath, uint32_t* outSize);
 }

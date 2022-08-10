@@ -20,10 +20,12 @@ public class SharpmakeProjectBase : CSharpProject
         SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/Modules/Havana/Havana.sharpmake.cs");
         SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/Modules/Moonlight/Moonlight.sharpmake.cs");
         SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/Modules/ImGui/ImGui.sharpmake.cs");
+        SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/Modules/ScriptCore/ScriptCore.sharpmake.cs");
         SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/Tools/BaseProject.sharpmake.cs");
         SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/Tools/CommonTarget.sharpmake.cs");
         SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/Tools/SharpmakeProject.sharpmake.cs");
         SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/Tools/HUB/MitchHub.sharpmake.cs");
+        SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/ThirdParty/Mono.sharpmake.cs");
         //SourceFilesCompileExtensions.Clear();
         //SourceFilesCompileExtensions.Add(".cs");
         DependenciesCopyLocal = DependenciesCopyLocalTypes.None;
