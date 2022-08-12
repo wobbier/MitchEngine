@@ -19,6 +19,7 @@
 #include "Cores/Cameras/FlyingCameraCore.h"
 #include "Cores/AudioCore.h"
 #include "Cores/UI/UICore.h"
+#include "Cores/Scripting/ScriptCore.h"
 
 #if ME_EDITOR && ME_PLATFORM_WIN64
 #include "Utils/StringUtils.h"
@@ -36,7 +37,7 @@
 #include <imgui.h>
 #include <Debug/DebugDrawer.h>
 #include "Events/PlatformEvents.h"
-#include "Scripting/ScriptCore.h"
+#include "Scripting/ScriptEngine.h"
 
 Engine& GetEngine()
 {
@@ -454,7 +455,8 @@ void Engine::LoadScene(const std::string& SceneFile)
 
 	SceneLoadedEvent evt;
 	evt.LoadedScene = CurrentScene;
-	evt.Fire();
+    evt.Fire();
+    ScriptEngine::sScriptData.worldPtr = GetWorld();
 #if !ME_EDITOR
 	GameWorld->Simulate();
 	GameWorld->Start();

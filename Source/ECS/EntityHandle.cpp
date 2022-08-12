@@ -29,3 +29,8 @@ Entity* EntityHandle::Get() const
 {
 	return GameWorld.lock() ? GameWorld.lock()->GetEntityRaw(ID) : nullptr;
 }
+
+EntityID EntityHandle::GetID() const
+{
+	return ID;
+}

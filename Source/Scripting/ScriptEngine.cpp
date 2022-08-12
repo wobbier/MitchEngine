@@ -1,26 +1,24 @@
 #include "PCH.h"
-#include "ScriptCore.h"
-#include "Components/Transform.h"
+#include "ScriptEngine.h"
+
 #include <mono/jit/jit.h>
 #include <mono/metadata/assembly.h>
 #include <mono/metadata/debug-helpers.h>
 #include <mono/metadata/attrdefs.h>
-
-#include "Path.h"
-#include "imgui.h"
-#include "File.h"
 #include "Utils/PlatformUtils.h"
 #include "MonoUtils.h"
+#include "Math/Vector3.h"
 
 
-struct ScriptData
-{
-    MonoDomain* RootDomain = nullptr;
-    MonoDomain* AppDomain = nullptr;
-    MonoAssembly* assembly = nullptr;
-    MonoImage* assemblyImage = nullptr;
-};
-static ScriptData sScriptData;
+ScriptEngine::ScriptData ScriptEngine::sScriptData;
+
+ScriptClass ScriptEngine::testClassInstance;
+
+MonoClassField* ScriptEngine::floatField = nullptr;
+
+std::vector<ScriptEngine::LoadedClassInfo> ScriptEngine::LoadedClasses;
+
+std::vector<ScriptEngine::LoadedClassInfo> ScriptEngine::LoadedEntityScripts;
 
 static void NativeLog( MonoString* inString, int number )
 {
@@ -44,24 +42,24 @@ static float Native_VectorLength( Vector3* inVector )
     return inVector->Length();
 }
 
+
 ScriptClass::ScriptClass( const std::string& inNameSpace, const std::string& inName )
 {
-    Class = mono_class_from_name( sScriptData.assemblyImage, inNameSpace.c_str(), inName.c_str() );
+    Class = mono_class_from_name( ScriptEngine::sScriptData.assemblyImage, inNameSpace.c_str(), inName.c_str() );
 }
 
 
 MonoObject* ScriptClass::Instantiate()
 {
-    ClassObject = mono_object_new( sScriptData.RootDomain, Class );
+    MonoObject* instance = mono_object_new( ScriptEngine::sScriptData.RootDomain, Class );
 
-    if ( !ClassObject )
+    if ( !instance )
     {
         YIKES( "mono_object_new failed" );
         return nullptr;
     }
 
-    mono_runtime_object_init( ClassObject );
-    return ClassObject;
+    return instance;
 }
 
 MonoMethod* ScriptClass::GetMethod( const std::string& inFuncName, int params ) const
@@ -76,31 +74,20 @@ MonoMethod* ScriptClass::GetMethod( const std::string& inFuncName, int params ) 
     return method;
 }
 
-void ScriptClass::InvokeMethod( MonoMethod* inMethod, void** inParams )
+void ScriptClass::InvokeMethod( MonoObject* inInstance, MonoMethod* inMethod, void** inParams )
 {
     MonoObject* exception = nullptr;
 
-    mono_runtime_invoke( inMethod, ClassObject, inParams, &exception );
-}
-
-void ScriptClass::InvokeFull( const std::string& inFuncName, int inParamCount /*= 0*/, void** inParams /*= nullptr */ )
-{
-    MonoMethod* method = GetMethod( inFuncName, inParamCount );
-    InvokeMethod( method, inParams );
-}
-
-ScriptCore::ScriptCore() : Base( ComponentFilter().Requires<Transform>() )
-{
-    SetIsSerializable( false );
-}
-
-ScriptCore::~ScriptCore()
-{
+    mono_runtime_invoke( inMethod, inInstance, inParams, &exception );
 }
 
 
-void ScriptCore::Init()
+void ScriptEngine::Init()
 {
+    if ( sScriptData.RootDomain )
+    {
+        return;
+    }
     mono_set_assemblies_path( MONO_PATH );
 
     mono_set_dirs( MONO_HOME "/lib", MONO_HOME "/etc" );
@@ -124,42 +111,21 @@ void ScriptCore::Init()
     // Tests
     Tests();
 }
-void ScriptCore::Update( const UpdateContext& inUpdateContext )
+
+void ScriptEngine::RegisterFunctions()
 {
-}
-
-void ScriptCore::LateUpdate( const UpdateContext& inUpdateContext )
-{
-
-}
-
-void ScriptCore::OnEntityAdded( Entity& NewEntity )
-{
-
-}
-
-void ScriptCore::OnEntityRemoved( Entity& InEntity )
-{
-
-}
-
-void ScriptCore::RegisterFunctions()
-{
-    mono_add_internal_call( "TestScript::CppFunc", CppFunc );
     mono_add_internal_call( "TestScript::NativeLog", NativeLog );
     mono_add_internal_call( "TestScript::NativeLog_Vector", NativeLog_Vector );
     mono_add_internal_call( "TestScript::Native_VectorLength", Native_VectorLength );
 }
 
-void ScriptCore::CppFunc()
-{
-    std::cout << "C++ FUNC" << std::endl;
-}
 
-void ScriptCore::Tests()
+void ScriptEngine::Tests()
 {
     CacheAssemblyTypes( sScriptData.assembly );
 
+    sScriptData.entityClass = ScriptClass("", "Entity");
+#if 0
     testClassInstance = ScriptClass( "", "TestScript" );
     testClassInstance.Instantiate();
 
@@ -227,10 +193,11 @@ void ScriptCore::Tests()
 
     void* data[] = { &floatValue };
     mono_property_set_value( nameProperty, testClassInstance.ClassObject, data, nullptr );
+#endif
 }
 
 
-bool ScriptCore::LoadAssembly( const Path& assemblyPath )
+bool ScriptEngine::LoadAssembly( const Path& assemblyPath )
 {
     uint32_t fileSize = 0;
     char* fileData = PlatformUtils::ReadBytes( assemblyPath, &fileSize );
@@ -267,12 +234,15 @@ bool ScriptCore::LoadAssembly( const Path& assemblyPath )
     return true;
 }
 
-void ScriptCore::CacheAssemblyTypes( MonoAssembly* assembly )
+void ScriptEngine::CacheAssemblyTypes( MonoAssembly* assembly )
 {
+    sScriptData.ClassInfo.clear();
+
     MonoImage* image = mono_assembly_get_image( assembly );
     const MonoTableInfo* typeDefinitionsTable = mono_image_get_table_info( image, MONO_TABLE_TYPEDEF );
     int32_t numTypes = mono_table_info_get_rows( typeDefinitionsTable );
 
+    MonoClass* monoBase = mono_class_from_name( image, "", "Entity" );
     for ( int32_t i = 0; i < numTypes; i++ )
     {
         uint32_t cols[MONO_TYPEDEF_SIZE];
@@ -284,21 +254,32 @@ void ScriptCore::CacheAssemblyTypes( MonoAssembly* assembly )
         LoadedClassInfo loadedClass;
         loadedClass.Namespace = std::string( nameSpace );
         loadedClass.Name = std::string( name );
+        MonoClass* monoClass = mono_class_from_name( image, nameSpace, name );
+
+        if ( monoClass != monoBase && mono_class_is_subclass_of( monoClass, monoBase, false ) )
+        {
+            std::string fullName = loadedClass.Name;
+            if ( !loadedClass.Namespace.empty() )
+            {
+                fullName = loadedClass.Namespace + "." + loadedClass.Name;
+            }
+
+            sScriptData.ClassInfo[fullName] = ScriptClass( loadedClass.Namespace, loadedClass.Name );
+            LoadedEntityScripts.push_back( loadedClass );
+        }
         LoadedClasses.push_back( std::move( loadedClass ) );
     }
 }
 
-void ScriptCore::OnEditorInspect()
+void ScriptInstance::Init( int numParams /*= 0*/, void** params /*= nullptr*/ )
 {
-    float value;
-    mono_field_get_value( testClassInstance.ClassObject, floatField, &value );
-    ImGui::DragFloat( "C# Float", &value );
-    mono_field_set_value( testClassInstance.ClassObject, floatField, &value );
-
-    testClassInstance.InvokeFull("PrintFloatVar");
-
-    for ( auto& it : LoadedClasses )
+    if ( numParams <= 0 )
     {
-        ImGui::Text( "%s %s", it.Namespace.c_str(), it.Name.c_str() );
+        mono_runtime_object_init( Instance );
+    }
+    else
+    {
+        auto method = ScriptEngine::sScriptData.entityClass.GetMethod( ".ctor", numParams );
+        ScriptRef.InvokeMethod( Instance, method, params );
     }
 }

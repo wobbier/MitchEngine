@@ -26,6 +26,8 @@ public:
 
 	Entity* Get() const;
 
+	EntityID GetID() const;
+
 private:
 	EntityID ID;
 	WeakPtr<World> GameWorld;
