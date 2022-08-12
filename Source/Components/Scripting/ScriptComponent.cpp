@@ -6,12 +6,38 @@
 #include "Scripting/ScriptEngine.h"
 #include "Components/Transform.h"
 #include <mono/metadata/loader.h>
+#include <mono/metadata/reflection.h>    // this should go
+
+static std::unordered_map<MonoType*, std::function<bool( EntityHandle )>> s_EntityHasComponentFuncs;
+
+template<typename... Component>
+static void RegisterComponent()
+{
+    ( [] ()
+    {
+        std::string_view typeName = typeid( Component ).name();
+        size_t pos = typeName.find_last_of( ' ' );
+        std::string_view structName = typeName.substr( pos + 1 );
+        std::string managedTypename( structName );
+
+        MonoType* managedType = mono_reflection_type_from_name( managedTypename.data(), ScriptEngine::GetCoreImage() );
+        if ( !managedType )
+        {
+            YIKES( "Could not find component type {}" );
+            return;
+        }
+        s_EntityHasComponentFuncs[managedType] = [] ( EntityHandle entity ) { return entity->HasComponent<Component>(); };
+    }( ), ... );
+}
 
 ScriptComponent::ScriptComponent()
     : Component( "ScriptComponent" )
 {
-    mono_add_internal_call( "Entity::Entity_GetTranslation", Entity_GetTranslation );
-    mono_add_internal_call( "Entity::Entity_SetTranslation", Entity_SetTranslation );
+    mono_add_internal_call( "Transform::Entity_GetTranslation", Transform_GetTranslation );
+    mono_add_internal_call( "Transform::Entity_SetTranslation", Transform_SetTranslation );
+
+    mono_add_internal_call( "Entity::Entity_HasComponent", Entity_HasComponent );
+    RegisterComponent<Transform>();
 }
 
 ScriptComponent::~ScriptComponent()
@@ -48,6 +74,7 @@ void ScriptComponent::OnEditorInspect()
                         // create class instance
                         Instance = new ScriptInstance( foundClass->second, Parent );
                         ScriptName = foundClass->first;
+                        Instance->OnCreate();
                     }
                     break;
                 }
@@ -71,15 +98,23 @@ void ScriptComponent::OnDeserialize( const json& inJson )
     ScriptName = inJson["ScriptName"];
 }
 
-void ScriptComponent::Entity_GetTranslation(EntityID id, Vector3* outPosition)
+void ScriptComponent::Transform_GetTranslation(EntityID id, Vector3* outPosition)
 {
     EntityHandle handle( id, ScriptEngine::sScriptData.worldPtr );
     *outPosition = handle->GetComponent<Transform>().GetPosition();
 }
 
 
-void ScriptComponent::Entity_SetTranslation( EntityID id, Vector3* inPos )
+void ScriptComponent::Transform_SetTranslation( EntityID id, Vector3* inPos )
 {
     EntityHandle handle( id, ScriptEngine::sScriptData.worldPtr );
     handle->GetComponent<Transform>().SetPosition(*inPos);
+}
+
+bool ScriptComponent::Entity_HasComponent( EntityID id, MonoReflectionType* inType )
+{
+    EntityHandle handle( id, ScriptEngine::sScriptData.worldPtr );
+
+    MonoType* managedType = mono_reflection_type_get_type( inType );
+    return s_EntityHasComponentFuncs.at(managedType)( handle );
 }

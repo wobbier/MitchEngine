@@ -8,8 +8,9 @@ public class ScriptCore : CSharpProject
         : base(typeof(CommonTarget))
     {
         Name = "ScriptCore";
-        SourceRootPath = Path.Combine(Globals.RootDir, "Assets");
+        SourceRootPath = Path.Combine(Globals.RootDir, "Engine/Modules/ScriptCore/Source");
         AdditionalSourceRootPaths.Add(Path.Combine(Globals.RootDir, "Assets"));
+
         ProjectSchema = CSharpProjectSchema.NetFramework;
 
         AddTargets(CommonTarget.GetDefaultTargets());

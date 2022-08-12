@@ -84,6 +84,7 @@ public:
     static void RegisterFunctions();
     static void Tests();
 
+    static MonoImage* GetCoreImage();
 private:
     static bool LoadAssembly( const Path& assemblyPath );
     static void CacheAssemblyTypes( MonoAssembly* assembly );

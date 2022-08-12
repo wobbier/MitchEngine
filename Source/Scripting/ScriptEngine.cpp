@@ -197,6 +197,11 @@ void ScriptEngine::Tests()
 }
 
 
+MonoImage* ScriptEngine::GetCoreImage()
+{
+    return sScriptData.assemblyImage;
+}
+
 bool ScriptEngine::LoadAssembly( const Path& assemblyPath )
 {
     uint32_t fileSize = 0;

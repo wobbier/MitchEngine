@@ -4,6 +4,9 @@
 #include "Scripting/ScriptEngine.h"
 #include "Math/Vector3.h"
 
+// TODO: this should go
+#include <mono/metadata/object.h>
+
 class ScriptComponent
     : public Component<ScriptComponent>
 {
@@ -19,8 +22,11 @@ private:
     void OnSerialize( json& outJson ) override;
     void OnDeserialize( const json& inJson ) override;
 
-    static void Entity_GetTranslation( EntityID id, Vector3* outPosition );
-    static void Entity_SetTranslation( EntityID id, Vector3* inPos );
+
+    // this should go
+    static void Transform_GetTranslation( EntityID id, Vector3* outPosition );
+    static void Transform_SetTranslation( EntityID id, Vector3* inPos );
+    static bool Entity_HasComponent( EntityID id, MonoReflectionType* inType );
 
     ScriptInstance* Instance = nullptr;
     std::string ScriptName;

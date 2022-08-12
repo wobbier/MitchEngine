@@ -57,7 +57,11 @@ void ScriptCore::LateUpdate( const UpdateContext& inUpdateContext )
 void ScriptCore::OnEntityAdded( Entity& NewEntity )
 {
     ScriptComponent& comp = NewEntity.GetComponent<ScriptComponent>();
-    comp.Instance->OnCreate();
+    if ( comp.Instance )
+    {
+        // could be possibly called before other entities are done
+        comp.Instance->OnCreate();
+    }
 }
 
 void ScriptCore::OnEntityRemoved( Entity& InEntity )
