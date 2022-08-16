@@ -6,16 +6,9 @@ class EngineConfig
     : public Config
 {
 public:
-    EngineConfig(const Path& inPath)
-        : Config(inPath)
-    {
-        std::cout << "llmfao";
-    }
+    EngineConfig(const Path& inPath);
 
-    virtual void OnSave(json& outJson) final
-    {
-
-    }
+    virtual void OnSave(json& outJson) final;
 
     virtual void OnLoad(const json& inJson) final;
 

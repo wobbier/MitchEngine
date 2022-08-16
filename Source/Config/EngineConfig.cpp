@@ -1,6 +1,17 @@
 #include "PCH.h"
 #include "EngineConfig.h"
 
+EngineConfig::EngineConfig( const Path& inPath )
+    : Config( inPath )
+{
+}
+
+void EngineConfig::OnSave( json& outJson )
+{
+    json& window = outJson["Window"];
+    window["Width"] = WindowSize.x;
+    window["Height"] = WindowSize.y;
+}
 
 void EngineConfig::OnLoad(const json& inJson)
 {

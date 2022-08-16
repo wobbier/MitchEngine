@@ -7,6 +7,7 @@
 #include "Components/Transform.h"
 #include <mono/metadata/loader.h>
 #include <mono/metadata/reflection.h>    // this should go
+#include "Engine/Engine.h"
 
 static std::unordered_map<MonoType*, std::function<bool( EntityHandle )>> s_EntityHasComponentFuncs;
 
@@ -35,6 +36,7 @@ ScriptComponent::ScriptComponent()
 {
     mono_add_internal_call( "Transform::Entity_GetTranslation", Transform_GetTranslation );
     mono_add_internal_call( "Transform::Entity_SetTranslation", Transform_SetTranslation );
+    mono_add_internal_call( "Input::IsKeyDown", Input_IsKeyDown );
 
     mono_add_internal_call( "Entity::Entity_HasComponent", Entity_HasComponent );
     RegisterComponent<Transform>();
@@ -117,4 +119,9 @@ bool ScriptComponent::Entity_HasComponent( EntityID id, MonoReflectionType* inTy
 
     MonoType* managedType = mono_reflection_type_get_type( inType );
     return s_EntityHasComponentFuncs.at(managedType)( handle );
+}
+
+bool ScriptComponent::Input_IsKeyDown( KeyCode key )
+{
+    return GetEngine().GetInput().IsKeyDown( key );
 }

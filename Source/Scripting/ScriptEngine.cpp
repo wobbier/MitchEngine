@@ -104,6 +104,8 @@ void ScriptEngine::Init()
     // todo: fix path
     Path path( ".build/editor_debug/ScriptCore.dll" );
     LoadAssembly( path );
+    Path appPath( ".build/editor_debug/Game.Script.dll" );
+    LoadAppAssembly( appPath );
 
     // Register funcs
     RegisterFunctions();
@@ -122,7 +124,7 @@ void ScriptEngine::RegisterFunctions()
 
 void ScriptEngine::Tests()
 {
-    CacheAssemblyTypes( sScriptData.assembly );
+    CacheAssemblyTypes();
 
     sScriptData.entityClass = ScriptClass("", "Entity");
 #if 0
@@ -239,27 +241,63 @@ bool ScriptEngine::LoadAssembly( const Path& assemblyPath )
     return true;
 }
 
-void ScriptEngine::CacheAssemblyTypes( MonoAssembly* assembly )
+bool ScriptEngine::LoadAppAssembly( const Path& assemblyPath )
+{
+    uint32_t fileSize = 0;
+    char* fileData = PlatformUtils::ReadBytes( assemblyPath, &fileSize );
+
+    MonoImageOpenStatus status;
+    MonoImage* image = mono_image_open_from_data_full( fileData, fileSize, 1, &status, 0 );
+
+    delete[] fileData;
+
+    if ( status != MONO_IMAGE_OK )
+    {
+        const char* errorMessage = mono_image_strerror( status );
+        YIKES( errorMessage );
+        return nullptr;
+    }
+
+    sScriptData.appAssembly = mono_assembly_load_from_full( image, assemblyPath.FullPath.c_str(), &status, 0 );
+
+    mono_image_close( image );
+
+    if ( !sScriptData.assembly )
+    {
+        YIKES( "mono_assembly_load_from_full failed" );
+        return false;
+    }
+
+    sScriptData.appAssemblyImage = mono_assembly_get_image( sScriptData.appAssembly );
+    if ( !sScriptData.appAssemblyImage )
+    {
+        YIKES( "mono_assembly_get_image failed" );
+        return false;
+    }
+
+    return true;
+}
+
+void ScriptEngine::CacheAssemblyTypes()
 {
     sScriptData.ClassInfo.clear();
 
-    MonoImage* image = mono_assembly_get_image( assembly );
-    const MonoTableInfo* typeDefinitionsTable = mono_image_get_table_info( image, MONO_TABLE_TYPEDEF );
+    const MonoTableInfo* typeDefinitionsTable = mono_image_get_table_info( sScriptData.appAssemblyImage, MONO_TABLE_TYPEDEF );
     int32_t numTypes = mono_table_info_get_rows( typeDefinitionsTable );
 
-    MonoClass* monoBase = mono_class_from_name( image, "", "Entity" );
+    MonoClass* monoBase = mono_class_from_name( sScriptData.assemblyImage, "", "Entity" );
     for ( int32_t i = 0; i < numTypes; i++ )
     {
         uint32_t cols[MONO_TYPEDEF_SIZE];
         mono_metadata_decode_row( typeDefinitionsTable, i, cols, MONO_TYPEDEF_SIZE );
 
-        const char* nameSpace = mono_metadata_string_heap( image, cols[MONO_TYPEDEF_NAMESPACE] );
-        const char* name = mono_metadata_string_heap( image, cols[MONO_TYPEDEF_NAME] );
+        const char* nameSpace = mono_metadata_string_heap( sScriptData.appAssemblyImage, cols[MONO_TYPEDEF_NAMESPACE] );
+        const char* name = mono_metadata_string_heap( sScriptData.appAssemblyImage, cols[MONO_TYPEDEF_NAME] );
 
         LoadedClassInfo loadedClass;
         loadedClass.Namespace = std::string( nameSpace );
         loadedClass.Name = std::string( name );
-        MonoClass* monoClass = mono_class_from_name( image, nameSpace, name );
+        MonoClass* monoClass = mono_class_from_name( sScriptData.appAssemblyImage, nameSpace, name );
 
         if ( monoClass != monoBase && mono_class_is_subclass_of( monoClass, monoBase, false ) )
         {

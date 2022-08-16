@@ -72,6 +72,9 @@ public:
         MonoAssembly* assembly = nullptr;
         MonoImage* assemblyImage = nullptr;
 
+        MonoAssembly* appAssembly = nullptr;
+        MonoImage* appAssemblyImage = nullptr;
+
         WeakPtr<World> worldPtr;
 
         ScriptClass entityClass;
@@ -87,7 +90,8 @@ public:
     static MonoImage* GetCoreImage();
 private:
     static bool LoadAssembly( const Path& assemblyPath );
-    static void CacheAssemblyTypes( MonoAssembly* assembly );
+    static bool LoadAppAssembly( const Path& assemblyPath );
+    static void CacheAssemblyTypes();
 
 public:
     static ScriptData sScriptData;

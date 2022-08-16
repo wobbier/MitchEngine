@@ -5,6 +5,7 @@
 #include "Math/Vector3.h"
 
 // TODO: this should go
+#include "Engine/Input.h"
 #include <mono/metadata/object.h>
 
 class ScriptComponent
@@ -27,6 +28,7 @@ private:
     static void Transform_GetTranslation( EntityID id, Vector3* outPosition );
     static void Transform_SetTranslation( EntityID id, Vector3* inPos );
     static bool Entity_HasComponent( EntityID id, MonoReflectionType* inType );
+    static bool Input_IsKeyDown( KeyCode key );
 
     ScriptInstance* Instance = nullptr;
     std::string ScriptName;

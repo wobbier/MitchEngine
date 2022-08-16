@@ -142,6 +142,7 @@ public class Engine : BaseProject
         // #TODO This shouldn't be a sharpmake class
         conf.AddPublicDependency<Mono>(target, DependencySetting.Default | DependencySetting.Defines | DependencySetting.IncludePaths);
         conf.AddPublicDependency<ScriptCore>(target);
+        conf.AddPublicDependency<UserGameScript>(target);
 
         if (!string.IsNullOrEmpty(Globals.FMOD_Win64_Dir) || !string.IsNullOrEmpty(Globals.FMOD_UWP_Dir))
         {
@@ -333,6 +334,7 @@ public class BaseGameSolution : Solution
         }
 
         conf.AddProject<SharpGameProject>(target);
+        conf.AddProject<UserGameScript>(target);
         conf.AddProject<ScriptCore>(target);
     }
 }
