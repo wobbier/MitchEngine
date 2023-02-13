@@ -21,11 +21,7 @@ class CLog
 {
 public:
 	~CLog();
-	/*
-	The log priority levels.
-	Setting a priority will only allow the logger to output
-	the set level and higher.
-	*/
+
 	enum class LogType : int
 	{
 		None = 0,
@@ -46,26 +42,9 @@ public:
 		Error = 0 << 4
 	};
 
-	//************************************
-	// Method:    SetLogFile
-	// FullName:  Logger::SetLogFile
-	// Access:    public
-	// Returns:   void
-	// Qualifier: Set the log file location to write to.
-	// Parameter: std::string filename
-	//************************************
 	void SetLogFile(const std::string& filename);
-	/*
-	Set the logger write priority.
-	@param priority: The logger priority to change to
-	*/
-	void SetLogPriority(CLog::LogType priority);
-	/*
-	Write a message to the file currently set with the given priority.
-	@param priority: The logger priority to change to
-	@param message: The message to write to the file
-	@returns true if the log was written to the file else false.
-	*/
+	void SetLogVerbosity(CLog::LogType priority);
+
 	bool LogMessage(CLog::LogType priority, std::string message);
     static bool Log( CLog::LogType priority, const std::string& message );
 

@@ -91,13 +91,125 @@ void ScriptComponent::OnEditorInspect()
         const auto& fields = Instance->GetScriptClass().m_fields;
         for (const auto& [name, field] : fields )
         {
-            if ( field.Type == MonoUtils::ScriptFieldType::Float )
+            switch ( field.Type )
             {
-                float test = Instance->GetFieldValue<float>( name );
-                if ( ImGui::DragFloat( name.c_str(), &test) )
+            case MonoUtils::ScriptFieldType::Char:
+            {
+                char value = Instance->GetFieldValue<char>( name );
+                ImGui::LabelText( name.c_str(), &value );
+
+                break;
+            }
+            case MonoUtils::ScriptFieldType::Bool:
+            {
+                bool value = Instance->GetFieldValue<bool>( name );
+                if ( ImGui::Checkbox( name.c_str(), &value ) )
                 {
-                    Instance->SetFieldValue<float>( name, test );
+                    Instance->SetFieldValue<bool>( name, value );
                 }
+                break;
+            }
+            case MonoUtils::ScriptFieldType::Long:
+            {
+                int64_t value = Instance->GetFieldValue<int64_t>( name );
+                if ( HavanaUtils::Int( name.c_str(), value ) )
+                {
+                    Instance->SetFieldValue<int64_t>( name, value );
+                }
+
+                break;
+            }
+            case MonoUtils::ScriptFieldType::ULong:
+            {
+                uint64_t value = Instance->GetFieldValue<uint64_t>( name );
+                if ( HavanaUtils::UInt( name.c_str(), value ) )
+                {
+                    Instance->SetFieldValue<uint64_t>( name, value );
+                }
+
+                break;
+            }
+            case MonoUtils::ScriptFieldType::Short:
+            {
+                int16_t value = Instance->GetFieldValue<int16_t>( name );
+                if ( HavanaUtils::Int( name.c_str(), value ) )
+                {
+                    Instance->SetFieldValue<int16_t>( name, value );
+                }
+
+                break;
+            }
+            case MonoUtils::ScriptFieldType::UShort:
+            {
+                uint16_t value = Instance->GetFieldValue<uint16_t>( name );
+                if ( HavanaUtils::UInt( name.c_str(), value ) )
+                {
+                    Instance->SetFieldValue<uint16_t>( name, value );
+                }
+
+                break;
+            }
+            case MonoUtils::ScriptFieldType::Int:
+            {
+                int value = Instance->GetFieldValue<int>( name );
+                if ( HavanaUtils::Int( name.c_str(), value ) )
+                {
+                    Instance->SetFieldValue<int>( name, value );
+                }
+
+                break;
+            }
+            case MonoUtils::ScriptFieldType::UInt:
+            {
+                unsigned int value = Instance->GetFieldValue<unsigned int>( name );
+                if ( HavanaUtils::UInt( name.c_str(), value ) )
+                {
+                    Instance->SetFieldValue<unsigned int>( name, value );
+                }
+
+                break;
+            }
+            case MonoUtils::ScriptFieldType::Double:
+            {
+                double value = Instance->GetFieldValue<double>( name );
+                if ( HavanaUtils::Double( name.c_str(), value ) )
+                {
+                    Instance->SetFieldValue<double>( name, value );
+                }
+
+                break;
+            }
+            case MonoUtils::ScriptFieldType::Float:
+            {
+                float value = Instance->GetFieldValue<float>( name );
+                if ( HavanaUtils::Float( name, value ) )
+                {
+                    Instance->SetFieldValue<float>( name, value );
+                }
+
+                break;
+            }
+            case MonoUtils::ScriptFieldType::Vector2:
+            {
+                Vector2 v2 = Instance->GetFieldValue<Vector2>( name );
+                if ( HavanaUtils::EditableVector( name, v2 ) )
+                {
+                    Instance->SetFieldValue<Vector2>( name, v2 );
+                }
+                break;
+            }
+            case MonoUtils::ScriptFieldType::Vector3:
+            {
+                Vector3 v3 = Instance->GetFieldValue<Vector3>( name );
+                if ( HavanaUtils::EditableVector3( name, v3 ) )
+                {
+                    Instance->SetFieldValue<Vector3>( name, v3 );
+                }
+                break;
+            }
+            default:
+                BRUH_FMT( "Missing entry for %s", name.c_str() );
+                break;
             }
         }
     }

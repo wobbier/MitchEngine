@@ -71,7 +71,7 @@ void Engine::Init(Game* game)
 	m_game = game;
 
 	CLog::GetInstance().SetLogFile("Engine.txt");
-	CLog::GetInstance().SetLogPriority(CLog::LogType::Info);
+	CLog::GetInstance().SetLogVerbosity(CLog::LogType::Info);
 	CLog::GetInstance().Log(CLog::LogType::Info, "Starting the MitchEngine.");
 	Path engineCfg("Assets\\Config\\Engine.cfg");
 

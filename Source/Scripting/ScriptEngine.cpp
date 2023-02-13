@@ -310,12 +310,6 @@ void ScriptEngine::CacheAssemblyTypes()
 
         if ( monoClass != monoBase && mono_class_is_subclass_of( monoClass, monoBase, false ) )
         {
-            std::string fullName = loadedClass.Name;
-            if ( !loadedClass.Namespace.empty() )
-            {
-                fullName = loadedClass.Namespace + "." + loadedClass.Name;
-            }
-
             sScriptData.ClassInfo[fullName] = ScriptClass( loadedClass.Namespace, loadedClass.Name );
             ScriptClass& scriptClass = sScriptData.ClassInfo[fullName];
             LoadedEntityScripts.push_back( loadedClass );

@@ -7,7 +7,9 @@
 #include <processenv.h>
 #endif
 
+#if ME_EDITOR
 std::vector<CLog::LogEntry> CLog::Messages;
+#endif
 
 CLog::~CLog()
 {
@@ -18,7 +20,7 @@ void CLog::SetLogFile(const std::string& filename)
 	mLogFileLocation = filename;
 }
 
-void CLog::SetLogPriority(CLog::LogType priority)
+void CLog::SetLogVerbosity(CLog::LogType priority)
 {
 	mPriority = priority;
 }
@@ -72,7 +74,6 @@ bool CLog::LogMessage(CLog::LogType priority, std::string message)
 
 #if ME_EDITOR
 	Messages.emplace_back(LogEntry{ priority, std::move(message) });
-#else
 #endif
 
 	return true;

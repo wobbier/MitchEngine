@@ -184,6 +184,102 @@ bool HavanaUtils::EditableVector(const std::string& Name, Vector2& Vector, float
 	return tempVec != Vector;
 }
 
+bool HavanaUtils::Float( const std::string& Name, float& value )
+{
+    ImGui::PushID( Name.c_str() );
+    float size = Label( Name );
+
+	bool res = ImGui::DragFloat( "##float", &value );
+
+	ImGui::PopID();
+
+	return res;
+}
+
+bool HavanaUtils::Double( const std::string& Name, double& value )
+{
+    ImGui::PushID( Name.c_str() );
+    float size = Label( Name );
+
+    bool res = ImGui::DragScalar( "##float", ImGuiDataType_Double, &value );
+
+    ImGui::PopID();
+
+    return res;
+}
+
+bool HavanaUtils::Int( const std::string& Name, int32_t& value )
+{
+    ImGui::PushID( Name.c_str() );
+    float size = Label( Name );
+
+    bool res = ImGui::DragScalar( "##int", ImGuiDataType_S32, &value );
+
+    ImGui::PopID();
+
+    return res;
+}
+
+bool HavanaUtils::Int( const std::string& Name, int16_t& value )
+{
+    ImGui::PushID( Name.c_str() );
+    float size = Label( Name );
+
+    bool res = ImGui::DragScalar( "##int", ImGuiDataType_S16, &value );
+
+    ImGui::PopID();
+
+    return res;
+}
+
+bool HavanaUtils::Int( const std::string& Name, int64_t& value )
+{
+    ImGui::PushID( Name.c_str() );
+    float size = Label( Name );
+
+    bool res = ImGui::DragScalar( "##int", ImGuiDataType_S64, &value );
+
+    ImGui::PopID();
+
+    return res;
+}
+
+bool HavanaUtils::UInt( const std::string& Name, uint32_t& value )
+{
+    ImGui::PushID( Name.c_str() );
+    float size = Label( Name );
+
+    bool res = ImGui::DragScalar( "##uint", ImGuiDataType_U32, &value );
+
+    ImGui::PopID();
+
+    return res;
+}
+
+bool HavanaUtils::UInt( const std::string& Name, uint16_t& value )
+{
+    ImGui::PushID( Name.c_str() );
+    float size = Label( Name );
+
+    bool res = ImGui::DragScalar( "##uint", ImGuiDataType_U16, &value );
+
+    ImGui::PopID();
+
+    return res;
+}
+
+bool HavanaUtils::UInt( const std::string& Name, uint64_t& value )
+{
+    ImGui::PushID( Name.c_str() );
+    float size = Label( Name );
+
+    bool res = ImGui::DragScalar( "##uint", ImGuiDataType_U64, &value );
+
+    ImGui::PopID();
+
+    return res;
+}
+
 void HavanaUtils::ColorButton(const std::string& Name, Vector3& arr)
 {
 	ImGui::PushID(Name.c_str());
