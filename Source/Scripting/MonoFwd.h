@@ -5,6 +5,7 @@ extern "C" {
     typedef struct _MonoDomain MonoDomain;
     typedef struct _MonoImage MonoImage;
     typedef struct _MonoObject MonoObject;
+    typedef struct _MonoType MonoType;
     typedef struct _MonoMethod MonoMethod;
     typedef struct _MonoClassField MonoClassField;
     typedef struct _MonoProperty MonoProperty;

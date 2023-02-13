@@ -3,9 +3,21 @@
 #include "Path.h"
 #include "ECS/EntityHandle.h"
 #include "Engine/World.h"
+#include "MonoUtils.h"
+
+
+struct ScriptField
+{
+    MonoUtils::ScriptFieldType Type;
+    std::string Name;
+
+    MonoClassField* Field;
+};
+
 
 class ScriptClass
 {
+    friend class ScriptComponent;
 public:
     ScriptClass() = default;
     ScriptClass( const std::string& inNameSpace, const std::string& inName );
@@ -16,8 +28,11 @@ public:
     MonoMethod* GetMethod( const std::string& inFuncName, int inParamCount ) const;
     void InvokeMethod( MonoObject* inInstance, MonoMethod* inMethod, void** inParams );
 
+    std::unordered_map<std::string, ScriptField> m_fields;
+
     MonoClass* Class = nullptr;
 };
+
 
 class ScriptInstance
 {
@@ -44,17 +59,49 @@ public:
         ScriptRef.InvokeMethod( Instance, OnUpdateMethod, &param );
     }
 
+    template <typename T>
+    T GetFieldValue( const std::string& name );
+
+    template <typename T>
+    void SetFieldValue( const std::string& name, T& value );
+
     MonoObject* Instance = nullptr;
     MonoMethod* OnCreateMethod = nullptr;
     MonoMethod* OnUpdateMethod = nullptr;
 
+    const ScriptClass& GetScriptClass() const
+    {
+        return ScriptRef;
+    }
+
 private:
     void Init( int numParams = 0, void** params = nullptr );
+    bool GetFieldValueInternal( const std::string& name, void* outValue );
+
+    bool SetFieldValueInternal( const std::string& name, void* inValue );
 
     ScriptClass& ScriptRef;
     EntityHandle Owner;
+    inline static char sFieldValueBuffer[8];
 };
 
+template <typename T>
+T ScriptInstance::GetFieldValue( const std::string& name )
+{
+    void* value = nullptr;
+    if ( !GetFieldValueInternal( name, sFieldValueBuffer ) )
+    {
+        return T();
+    }
+
+    return *( (T*)sFieldValueBuffer );
+}
+
+template <typename T>
+void ScriptInstance::SetFieldValue( const std::string& name, T& value )
+{
+    SetFieldValueInternal( name, &value );
+}
 
 class ScriptEngine
 {

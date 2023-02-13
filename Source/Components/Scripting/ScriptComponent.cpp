@@ -87,6 +87,19 @@ void ScriptComponent::OnEditorInspect()
     else
     {
         ImGui::Text( ScriptName.c_str() );
+
+        const auto& fields = Instance->GetScriptClass().m_fields;
+        for (const auto& [name, field] : fields )
+        {
+            if ( field.Type == MonoUtils::ScriptFieldType::Float )
+            {
+                float test = Instance->GetFieldValue<float>( name );
+                if ( ImGui::DragFloat( name.c_str(), &test) )
+                {
+                    Instance->SetFieldValue<float>( name, test );
+                }
+            }
+        }
     }
 }
 

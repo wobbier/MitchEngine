@@ -15,6 +15,7 @@ log file name and priority levels to control what info gets saved and where.
 
 /// A Warning
 #define BRUH(name) CLog::Log(CLog::LogType::Warning, name)
+#define BRUH_FMT( name, ... ) CLog::Log2( CLog::LogType::Warning, name, __VA_ARGS__ )
 
 class CLog
 {
@@ -66,7 +67,10 @@ public:
 	@returns true if the log was written to the file else false.
 	*/
 	bool LogMessage(CLog::LogType priority, std::string message);
-	static bool Log(CLog::LogType priority, const std::string& message);
+    static bool Log( CLog::LogType priority, const std::string& message );
+
+	template<typename... Args>
+    static bool Log2( CLog::LogType priority, const std::string& message, Args&&... args );
 	struct LogEntry
 	{
 		LogType Type = LogType::None;
@@ -85,3 +89,12 @@ private:
 
 	ME_SINGLETON_DEFINITION(CLog)
 };
+
+template<typename... Args>
+bool CLog::Log2( LogType priority, const std::string& message, Args&&... args )
+{
+	//std::format( message, std::forward<Args>( args )... );
+	std::printf( message.c_str(), std::forward<Args>( args )... );
+	std::cout << std::endl;
+	return true;
+}

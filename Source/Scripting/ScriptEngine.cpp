@@ -291,13 +291,22 @@ void ScriptEngine::CacheAssemblyTypes()
         uint32_t cols[MONO_TYPEDEF_SIZE];
         mono_metadata_decode_row( typeDefinitionsTable, i, cols, MONO_TYPEDEF_SIZE );
 
-        const char* nameSpace = mono_metadata_string_heap( sScriptData.appAssemblyImage, cols[MONO_TYPEDEF_NAMESPACE] );
-        const char* name = mono_metadata_string_heap( sScriptData.appAssemblyImage, cols[MONO_TYPEDEF_NAME] );
+        std::string nameSpace = mono_metadata_string_heap( sScriptData.appAssemblyImage, cols[MONO_TYPEDEF_NAMESPACE] );
+        std::string name = mono_metadata_string_heap( sScriptData.appAssemblyImage, cols[MONO_TYPEDEF_NAME] );
+        std::string fullName;
+        if ( !nameSpace.empty() )
+        {
+            fullName = std::string( nameSpace + "." + name );
+        }
+        else
+        {
+            fullName = name;
+        }
 
         LoadedClassInfo loadedClass;
-        loadedClass.Namespace = std::string( nameSpace );
-        loadedClass.Name = std::string( name );
-        MonoClass* monoClass = mono_class_from_name( sScriptData.appAssemblyImage, nameSpace, name );
+        loadedClass.Namespace = nameSpace;
+        loadedClass.Name = name;
+        MonoClass* monoClass = mono_class_from_name( sScriptData.appAssemblyImage, nameSpace.c_str(), name.c_str() );
 
         if ( monoClass != monoBase && mono_class_is_subclass_of( monoClass, monoBase, false ) )
         {
@@ -308,7 +317,22 @@ void ScriptEngine::CacheAssemblyTypes()
             }
 
             sScriptData.ClassInfo[fullName] = ScriptClass( loadedClass.Namespace, loadedClass.Name );
+            ScriptClass& scriptClass = sScriptData.ClassInfo[fullName];
             LoadedEntityScripts.push_back( loadedClass );
+            int fieldCount = mono_class_num_fields( monoClass );
+            void* it = nullptr;
+            while ( MonoClassField* field = mono_class_get_fields( monoClass, &it ) )
+            {
+                const char* fieldName = mono_field_get_name( field );
+                uint32_t flags = mono_field_get_flags( field );
+                if ( flags & MONO_FIELD_ATTR_PUBLIC )
+                {
+                    MonoType* type = mono_field_get_type( field );
+                    MonoUtils::ScriptFieldType fieldType = MonoUtils::MonoTypeToScriptFieldType( type );
+                    BRUH_FMT( "%s, %i", MonoUtils::ScriptFieldTypeToString(fieldType).c_str(), fieldType );
+                    sScriptData.ClassInfo[fullName].m_fields[fieldName] = { fieldType, fieldName, field };
+                }
+            }
         }
         LoadedClasses.push_back( std::move( loadedClass ) );
     }
@@ -325,4 +349,26 @@ void ScriptInstance::Init( int numParams /*= 0*/, void** params /*= nullptr*/ )
         auto method = ScriptEngine::sScriptData.entityClass.GetMethod( ".ctor", numParams );
         ScriptRef.InvokeMethod( Instance, method, params );
     }
+}
+
+bool ScriptInstance::GetFieldValueInternal( const std::string& name, void* outValue )
+{
+    const auto& fields = GetScriptClass().m_fields;
+    auto it = fields.find( name );
+    if ( it == fields.end() )
+        return false;
+
+    mono_field_get_value( Instance, it->second.Field, outValue );
+    return true;
+}
+
+bool ScriptInstance::SetFieldValueInternal( const std::string& name, void* inValue )
+{
+    const auto& fields = GetScriptClass().m_fields;
+    auto it = fields.find( name );
+    if ( it == fields.end() )
+        return false;
+
+    mono_field_set_value( Instance, it->second.Field, inValue );
+    return true;
 }

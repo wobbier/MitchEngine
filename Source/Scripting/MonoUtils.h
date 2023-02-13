@@ -4,6 +4,27 @@
 
 namespace MonoUtils
 {
+    enum class ScriptFieldType
+    {
+        None = 0,
+        Float,
+        Double,
+        Bool,
+        Char,
+        Byte,
+        Short,
+        Int,
+        Long,
+        UByte,
+        UShort,
+        UInt,
+        ULong,
+        Vector2,
+        Vector3,
+        Vector4,
+        Entity
+    };
+
     enum class Accessibility : uint8_t
     {
         None = 0,
@@ -12,6 +33,9 @@ namespace MonoUtils
         Protected = ( 1 << 2 ),
         Public = ( 1 << 3 )
     };
+
+    ScriptFieldType MonoTypeToScriptFieldType( MonoType* type );
+    std::string ScriptFieldTypeToString( ScriptFieldType type );
 
     // Gets the accessibility level of the given field
     uint8_t GetFieldAccessibility( MonoClassField* field );

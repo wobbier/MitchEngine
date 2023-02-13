@@ -7,6 +7,61 @@
 
 namespace MonoUtils
 {
+    static std::unordered_map<std::string, ScriptFieldType> s_scriptFieldTypeMap =
+    {
+        { "System.Single" , ScriptFieldType::Float },
+        { "System.Double" , ScriptFieldType::Double },
+        { "System.Boolean" , ScriptFieldType::Bool },
+        { "System.Char" , ScriptFieldType::Char },
+        { "System.Int16" , ScriptFieldType::Short },
+        { "System.Int32" , ScriptFieldType::Int },
+        { "System.Int64" , ScriptFieldType::Long },
+        { "System.Byte" , ScriptFieldType::Byte },
+        { "System.UInt16" , ScriptFieldType::UShort },
+        { "System.UInt32" , ScriptFieldType::UInt },
+        { "System.UInt64" , ScriptFieldType::ULong },
+        { "Vector2" , ScriptFieldType::Vector2 },
+        { "Vector3" , ScriptFieldType::Vector3 },
+        { "Vector4" , ScriptFieldType::Vector4 },
+        { "Entity" , ScriptFieldType::Entity },
+    };
+
+
+    ScriptFieldType MonoTypeToScriptFieldType( MonoType* type )
+    {
+        std::string typeName = mono_type_get_name( type );
+        if ( s_scriptFieldTypeMap.find( typeName ) == s_scriptFieldTypeMap.end() )
+            return ScriptFieldType::None;
+        return s_scriptFieldTypeMap.at( typeName );
+    }
+
+
+    std::string ScriptFieldTypeToString( ScriptFieldType type )
+    {
+        switch ( type )
+        {
+        case MonoUtils::ScriptFieldType::None: return "None";
+        case MonoUtils::ScriptFieldType::Float: return "Float";
+        case MonoUtils::ScriptFieldType::Double: return "Double";
+        case MonoUtils::ScriptFieldType::Bool: return "Bool";
+        case MonoUtils::ScriptFieldType::Char: return "Char";
+        case MonoUtils::ScriptFieldType::Byte: return "Byte";
+        case MonoUtils::ScriptFieldType::Short: return "Short";
+        case MonoUtils::ScriptFieldType::Int: return "Int";
+        case MonoUtils::ScriptFieldType::Long: return "Long";
+        case MonoUtils::ScriptFieldType::UByte: return "UByte";
+        case MonoUtils::ScriptFieldType::UShort: return "UShort";
+        case MonoUtils::ScriptFieldType::UInt: return "UInt";
+        case MonoUtils::ScriptFieldType::ULong: return "ULong";
+        case MonoUtils::ScriptFieldType::Vector2: return "Vector2";
+        case MonoUtils::ScriptFieldType::Vector3: return "Vector3";
+        case MonoUtils::ScriptFieldType::Vector4: return "Vector4";
+        case MonoUtils::ScriptFieldType::Entity: return "Entity";
+        default:
+            break;
+        }
+    }
+
     uint8_t GetFieldAccessibility( MonoClassField* field )
     {
         uint8_t accessibility = (uint8_t)Accessibility::None;
