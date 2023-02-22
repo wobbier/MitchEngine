@@ -20,60 +20,60 @@ log file name and priority levels to control what info gets saved and where.
 class CLog
 {
 public:
-	~CLog();
+    ~CLog();
 
-	enum class LogType : int
-	{
-		None = 0,
-		Info,
-		Trace,
-		Debug,
-		Warning,
-		Error
-	};
+    enum class LogType : int
+    {
+        None = 0,
+        Info,
+        Trace,
+        Debug,
+        Warning,
+        Error
+    };
 
-	enum class LogFilter : int
-	{
-		None = 0,
-		Info = 0 << 0,
-		Trace = 0 << 1,
-		Debug = 0 << 2,
-		Warning = 0 << 3,
-		Error = 0 << 4
-	};
+    enum class LogFilter : int
+    {
+        None = 0,
+        Info = 0 << 0,
+        Trace = 0 << 1,
+        Debug = 0 << 2,
+        Warning = 0 << 3,
+        Error = 0 << 4
+    };
 
-	void SetLogFile(const std::string& filename);
-	void SetLogVerbosity(CLog::LogType priority);
+    void SetLogFile( const std::string& filename );
+    void SetLogVerbosity( CLog::LogType priority );
 
-	bool LogMessage(CLog::LogType priority, std::string message);
+    bool LogMessage( CLog::LogType priority, std::string message );
     static bool Log( CLog::LogType priority, const std::string& message );
 
-	template<typename... Args>
+    template<typename... Args>
     static bool Log2( CLog::LogType priority, const std::string& message, Args&&... args );
-	struct LogEntry
-	{
-		LogType Type = LogType::None;
-		std::string Message;
-	};
-	std::string TypeToName(CLog::LogType);
+    struct LogEntry
+    {
+        LogType Type = LogType::None;
+        std::string Message;
+    };
+    std::string TypeToName( CLog::LogType );
 
-	static std::vector<LogEntry> Messages;
+    static std::vector<LogEntry> Messages;
 
 private:
 
-	std::ofstream mLogFile;
-	std::string mLogFileLocation;
-	LogType mPriority = LogType::None;
-	CLog() = default;
+    std::ofstream mLogFile;
+    std::string mLogFileLocation;
+    LogType mPriority = LogType::None;
+    CLog() = default;
 
-	ME_SINGLETON_DEFINITION(CLog)
+    ME_SINGLETON_DEFINITION( CLog )
 };
 
 template<typename... Args>
 bool CLog::Log2( LogType priority, const std::string& message, Args&&... args )
 {
-	//std::format( message, std::forward<Args>( args )... );
-	std::printf( message.c_str(), std::forward<Args>( args )... );
-	std::cout << std::endl;
-	return true;
+    //std::format( message, std::forward<Args>( args )... );
+    std::printf( message.c_str(), std::forward<Args>( args )... );
+    std::cout << std::endl;
+    return true;
 }

@@ -11,7 +11,7 @@ struct ScriptField
     MonoUtils::ScriptFieldType Type;
     std::string Name;
 
-    MonoClassField* Field;
+    MonoClassField* Field = nullptr;
 };
 
 
@@ -82,7 +82,7 @@ private:
 
     ScriptClass& ScriptRef;
     EntityHandle Owner;
-    inline static char sFieldValueBuffer[8];
+    inline static char sFieldValueBuffer[32];
 };
 
 template <typename T>

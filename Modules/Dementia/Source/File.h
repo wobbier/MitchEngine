@@ -6,68 +6,68 @@
 class File
 {
 public:
-	File() = default;
-	File(const Path& path)
-		: FilePath(path)
-	{
-	}
+    File() = default;
+    File( const Path& path )
+        : FilePath( path )
+    {
+    }
 
-	const std::string& Read()
-	{
-		if (!Data.empty())
-		{
-			return Data;
-		}
-		std::fstream FileStream;
+    const std::string& Read()
+    {
+        if ( !Data.empty() )
+        {
+            return Data;
+        }
+        std::fstream FileStream;
 
-		if (!FilePath.Exists)
-		{
-			CLog::Log(CLog::LogType::Error, "[File IO] File does not exist: " + FilePath.LocalPath);
-		}
+        if ( !FilePath.Exists )
+        {
+            CLog::Log( CLog::LogType::Error, "[File IO] File does not exist: " + FilePath.LocalPath );
+        }
 
-		FileStream.open(FilePath.FullPath.c_str(), std::ios::in);
+        FileStream.open( FilePath.FullPath.c_str(), std::ios::in );
 
-		if (!FileStream)
-		{
-			CLog::Log(CLog::LogType::Error, "[File IO] Failed to load file: " + FilePath.LocalPath);
-			FileStream.close();
+        if ( !FileStream )
+        {
+            CLog::Log( CLog::LogType::Error, "[File IO] Failed to load file: " + FilePath.LocalPath );
+            FileStream.close();
 
-			return Data;
-		}
+            return Data;
+        }
 
-		CLog::Log(CLog::LogType::Info, "[File IO] Loaded File: " + FilePath.LocalPath);
+        CLog::Log( CLog::LogType::Info, "[File IO] Loaded File: " + FilePath.LocalPath );
 
-		IsOpen = true;
+        IsOpen = true;
 
-		Data.assign((std::istreambuf_iterator<char>(FileStream)), (std::istreambuf_iterator<char>()));
+        Data.assign( ( std::istreambuf_iterator<char>( FileStream ) ), ( std::istreambuf_iterator<char>() ) );
 
-		FileStream.close();
-		IsOpen = false;
+        FileStream.close();
+        IsOpen = false;
 
-		return Data;
-	}
+        return Data;
+    }
 
-	void Write()
-	{
-		std::ofstream out(FilePath.FullPath);
-		out << Data;
-		out.close();
-	}
+    void Write()
+    {
+        std::ofstream out( FilePath.FullPath );
+        out << Data;
+        out.close();
+    }
 
-	void Write(const std::string& Contents)
-	{
-		Data = Contents;
-		Write();
-	}
+    void Write( const std::string& Contents )
+    {
+        Data = Contents;
+        Write();
+    }
 
-	void Reset()
-	{
-		Data.clear();
-	}
+    void Reset()
+    {
+        Data.clear();
+    }
 
-	std::string Data;
-	Path FilePath;
+    std::string Data;
+    Path FilePath;
 private:
 
-	bool IsOpen = false;
+    bool IsOpen = false;
 };

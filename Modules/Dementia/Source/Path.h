@@ -14,19 +14,19 @@
 class Path
 {
 public:
-	Path() = default;
+    Path() = default;
 
-	explicit Path(const std::string& InFile, bool Raw = false);
+    explicit Path( const std::string& InFile, bool Raw = false );
 
-	~Path();
+    ~Path();
 
-	const char* GetExtension() const;
+    const char* GetExtension() const;
 
-	bool IsFile = false;
-	bool IsFolder = false;
-	bool Exists = false;
-	int8_t ExtensionPos;
-	std::string FullPath;
-	std::string LocalPath;
-	std::string Directory;
+    bool IsFile = false;
+    bool IsFolder = false;
+    bool Exists = false;
+    int8_t ExtensionPos;
+    std::string FullPath;
+    std::string LocalPath;
+    std::string Directory;
 };

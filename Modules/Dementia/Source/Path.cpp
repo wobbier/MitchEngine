@@ -11,20 +11,20 @@
 #include <filesystem>
 #endif
 
-Path::Path(const std::string& InFile, bool Raw /*= false*/)
+Path::Path( const std::string& InFile, bool Raw /*= false*/ )
 {
     size_t pos;
 #if ME_PLATFORM_UWP
     char buf[1024];
-    GetModuleFileNameA(NULL, buf, 1024);
-    std::string ProgramPath(buf);
-    std::replace(ProgramPath.begin(), ProgramPath.end(), '\\', '/');
-    pos = ProgramPath.find_last_of("/");
-    ProgramPath = ProgramPath.substr(0, pos + 1);
+    GetModuleFileNameA( NULL, buf, 1024 );
+    std::string ProgramPath( buf );
+    std::replace( ProgramPath.begin(), ProgramPath.end(), '\\', '/' );
+    pos = ProgramPath.find_last_of( "/" );
+    ProgramPath = ProgramPath.substr( 0, pos + 1 );
 #else
     auto p = std::filesystem::current_path();
-    std::string ProgramPath(std::string(p.generic_string()));
-    std::replace(ProgramPath.begin(), ProgramPath.end(), '\\', '/');
+    std::string ProgramPath( std::string( p.generic_string() ) );
+    std::replace( ProgramPath.begin(), ProgramPath.end(), '\\', '/' );
 #endif
 
     std::string assetPrefix;
@@ -42,13 +42,13 @@ Path::Path(const std::string& InFile, bool Raw /*= false*/)
 #endif
     LocalPath = InFile;
 
-    std::replace(LocalPath.begin(), LocalPath.end(), '\\', '/');
+    std::replace( LocalPath.begin(), LocalPath.end(), '\\', '/' );
 #if ME_PLATFORM_MACOS
     size_t path = LocalPath[0] == '/' ? 0 : std::string::npos;
 #else
-    size_t path = LocalPath.find(':');
+    size_t path = LocalPath.find( ':' );
 #endif
-    if (path != std::string::npos)
+    if ( path != std::string::npos )
     {
         FullPath = LocalPath;
     }
@@ -57,25 +57,25 @@ Path::Path(const std::string& InFile, bool Raw /*= false*/)
         FullPath = ProgramPath + assetPrefix + LocalPath;
     }
 
-    ExtensionPos = (int8_t)LocalPath.rfind('.');
-    ExtensionPos = (int8_t)(LocalPath.size() - ++ExtensionPos);
+    ExtensionPos = (int8_t)LocalPath.rfind( '.' );
+    ExtensionPos = (int8_t)( LocalPath.size() - ++ExtensionPos );
 
-    path = LocalPath.rfind("Assets");
-    if (path != std::string::npos)
+    path = LocalPath.rfind( "Assets" );
+    if ( path != std::string::npos )
     {
-        LocalPath = LocalPath.substr(path, LocalPath.size());
+        LocalPath = LocalPath.substr( path, LocalPath.size() );
     }
 
 #if ME_EDITOR || ME_PLATFORM_MACOS
-    if (!std::filesystem::exists(FullPath))
+    if ( !std::filesystem::exists( FullPath ) )
     {
-        if (!Raw)
+        if ( !Raw )
         {
             std::string tempPath = ProgramPath + assetPrefix + "Engine/" + LocalPath;
-            if (std::filesystem::exists(tempPath))
+            if ( std::filesystem::exists( tempPath ) )
             {
-                FullPath = std::move(tempPath);
-                assetPrefix = assetPrefix.append("Engine/");
+                FullPath = std::move( tempPath );
+                assetPrefix = assetPrefix.append( "Engine/" );
                 LocalPath = "Engine/" + LocalPath;
                 Exists = true;
             }
@@ -86,7 +86,7 @@ Path::Path(const std::string& InFile, bool Raw /*= false*/)
         Exists = true;
     }
 
-    if (std::filesystem::is_regular_file(FullPath))
+    if ( std::filesystem::is_regular_file( FullPath ) )
     {
         IsFile = true;
     }
@@ -100,12 +100,12 @@ Path::Path(const std::string& InFile, bool Raw /*= false*/)
         // Rough till I look up how UWP validates files
     Exists = true;
 #else
-    Exists = std::filesystem::exists(FullPath);
+    Exists = std::filesystem::exists( FullPath );
 #endif
 
 #endif
-    pos = FullPath.find_last_of("/");
-    Directory = FullPath.substr(0, pos + 1);
+    pos = FullPath.find_last_of( "/" );
+    Directory = FullPath.substr( 0, pos + 1 );
 
 #if ME_PLATFORM_UWP
         //std::replace(LocalPath.begin(), LocalPath.end(), '/', '\\');
