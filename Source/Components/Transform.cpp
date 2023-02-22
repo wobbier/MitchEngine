@@ -321,11 +321,11 @@ void Transform::RemoveChild(Transform* TargetTransform)
 	}
 }
 
-Transform* Transform::GetChildByName(const std::string& Name)
+Transform* Transform::GetChildByName(const std::string& inName)
 {
 	for (auto child : Children)
 	{
-		if (child->Name == Name)
+		if (child->Name == inName )
 		{
 			return child.get();
 		}

@@ -30,7 +30,7 @@
 #include <Utils/CommonUtils.h>
 #include <Widgets/PropertiesWidget.h>
 #include <Widgets/AssetPreviewWidget.h>
-#include <BGFXRenderer.h>
+#include <Renderer.h>
 #include <Window/SDLWindow.h>
 #include <backends/imgui_impl_sdl.h>
 #include "UI/Colors.h"
@@ -368,7 +368,7 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 		FrameProfile::GetInstance().Render(position, size);
 	}
 
-	SDL_Cursor* cursor = g_imgui_to_sdl_cursor[ImGui::GetMouseCursor()];
+	//SDL_Cursor* cursor = g_imgui_to_sdl_cursor[ImGui::GetMouseCursor()];
 	SDL_SetCursor(g_imgui_to_sdl_cursor[ImGui::GetMouseCursor()]);
 }
 

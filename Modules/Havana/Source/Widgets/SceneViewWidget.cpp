@@ -391,9 +391,6 @@ void SceneViewWidget::DrawGuizmo()
 			Vector3 currentPos, currentRot, currentScale;
 			ImGuizmo::DecomposeMatrixToComponents(matrix, &currentPos.x, &currentRot.x, &currentScale.x);
 
-			float viewManipulateRight = io.DisplaySize.x;
-			float viewManipulateTop = 0;
-
 			ImGuizmo::SetRect(GizmoRenderLocation.x, GizmoRenderLocation.y, SceneViewRenderSize.x, SceneViewRenderSize.y);
 			ImGuizmo::Manipulate(&cameraViewLH[0][0], cameraProjection, CurrentGizmoOperation, CurrentGizmoMode, matrix);
 			//ImGuizmo::ViewManipulate(&cameraViewRH[0][0], 8.f, ImVec2(GizmoRenderLocation.x + SceneViewRenderSize.x - 128, GizmoRenderLocation.y), ImVec2(128, 128), 0x00101010);

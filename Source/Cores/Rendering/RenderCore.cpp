@@ -20,7 +20,7 @@
 #include "Engine/Engine.h"
 #include "Components/Lighting/DirectionalLight.h"
 #include "Work/Burst.h"
-#include "BGFXRenderer.h"
+#include "Renderer.h"
 #include <Core/JobSystem.h>
 
 RenderCore::RenderCore()

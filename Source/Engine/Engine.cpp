@@ -29,7 +29,7 @@
 #include "optick.h"
 #include "Work/Burst.h"
 #include "Profiling/BasicFrameProfile.h"
-#include "BGFXRenderer.h"
+#include "Renderer.h"
 #include "Window/SDLWindow.h"
 #include "Path.h"
 #include "SDL.h"

@@ -10,7 +10,7 @@
 #include <UI/FileLogger.h>
 #include <UI/FontLoaderWin.h>
 #include <UI/UIWindow.h>
-#include <BGFXRenderer.h>
+#include <Renderer.h>
 
 class IWindow;
 class OverlayManager;

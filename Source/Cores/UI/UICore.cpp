@@ -9,7 +9,7 @@
 #include <imgui.h>
 #include <Utils/ImGuiUtils.h>
 #include <AppCore/Platform.h>
-#include <BGFXRenderer.h>
+#include <Renderer.h>
 #include "Mathf.h"
 
 UICore::UICore(IWindow* window, BGFXRenderer* renderer)
@@ -274,10 +274,10 @@ void UICore::CopyBitmapToTexture(ultralight::RefPtr<ultralight::Bitmap> bitmap)
 	//bitmap->WritePNG(Path("Assets/TestUI.png").FullPath.c_str());
 
 	{
-		const uint16_t tw = bitmap->bounds().width();
-		const uint16_t th = bitmap->bounds().height();
-		const uint16_t tx = bitmap->bounds().x();
-		const uint16_t ty = bitmap->bounds().y();
+		const uint16_t tw = static_cast<uint32_t>( bitmap->bounds().width() );
+		const uint16_t th = static_cast<uint32_t>( bitmap->bounds().height() );
+		const uint16_t tx = static_cast<uint32_t>( bitmap->bounds().x() );
+		const uint16_t ty = static_cast<uint32_t>( bitmap->bounds().y() );
 
 		const bgfx::Memory* mem = bgfx::makeRef(pixels, stride);
 

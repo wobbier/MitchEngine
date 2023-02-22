@@ -13,7 +13,7 @@
 #include "Math/Line.h"
 #include "Mathf.h"
 #include "Work/Burst.h"
-#include <BGFXRenderer.h>
+#include <Renderer.h>
 #include <Debug/DebugDrawer.h>
 #include "Physics/ICollisionEventReciever.h"
 
@@ -113,7 +113,6 @@ void PhysicsCore::Update(const UpdateContext& inUpdateContext)
 					InitRigidbody(RigidbodyComponent, TransformComponent);
 
 					btRigidBody* rigidbody = RigidbodyComponent.InternalRigidbody;
-					btTransform& trans = rigidbody->getWorldTransform();
 
 
 					if (TransformComponent.IsDirty())

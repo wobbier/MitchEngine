@@ -179,7 +179,6 @@ bool EditorApp::OnEvent(const BaseEvent& evt)
 {
 	if (evt.GetEventId() == NewSceneEvent::GetEventId())
 	{
-		const NewSceneEvent& test = static_cast<const NewSceneEvent&>(evt);
 		GetEngine().LoadScene("");
 		GetEngine().InitGame();
 		GetEngine().GetWorld().lock()->Simulate();

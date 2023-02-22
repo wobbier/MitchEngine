@@ -93,7 +93,7 @@ private:
 	{
 		struct Attribute
 		{
-			bool IsActive;
+			bool IsActive = false;
 
 			std::bitset<64> Cores;
 		};

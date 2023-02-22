@@ -5,7 +5,7 @@
 #include "Window/IWindow.h"
 #include "Math/Frustrum.h"
 #include "Camera/CameraData.h"
-#include "BGFXRenderer.h"
+#include "Renderer.h"
 #include "Mathf.h"
 
 CameraCore::CameraCore() : Base(ComponentFilter().Requires<Camera>().Requires<Transform>())

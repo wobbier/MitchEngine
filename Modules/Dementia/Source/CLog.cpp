@@ -63,7 +63,7 @@ bool CLog::LogMessage( CLog::LogType priority, std::string message )
     }
 
     HANDLE hConsole = GetStdHandle( STD_OUTPUT_HANDLE );
-    SetConsoleTextAttribute( hConsole, color );
+    SetConsoleTextAttribute( hConsole, static_cast<WORD>( color ) );
 
     mLogFile << type << message.c_str() << std::endl;
     std::cout << type << message.c_str() << std::endl;

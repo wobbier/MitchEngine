@@ -8,7 +8,7 @@
 #include <Graphics/Material.h>
 
 #if ME_EDITOR
-#include <BGFXRenderer.h>
+#include <Renderer.h>
 #include <Graphics/DynamicSky.h>
 #include <Engine/Engine.h>
 #endif
