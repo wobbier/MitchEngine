@@ -8,6 +8,9 @@
 #include "Utils/PlatformUtils.h"
 #include "MonoUtils.h"
 #include "Math/Vector3.h"
+#include <mono/metadata/mono-debug.h>
+#include <mono/metadata/threads.h>
+#include "ECS/Entity.h"
 
 
 ScriptEngine::ScriptData ScriptEngine::sScriptData;
@@ -43,9 +46,9 @@ static float Native_VectorLength( Vector3* inVector )
 }
 
 
-ScriptClass::ScriptClass( const std::string& inNameSpace, const std::string& inName )
+ScriptClass::ScriptClass( const std::string& inNameSpace, const std::string& inName, bool isCore )
 {
-    Class = mono_class_from_name( ScriptEngine::sScriptData.assemblyImage, inNameSpace.c_str(), inName.c_str() );
+    Class = mono_class_from_name( isCore ? ScriptEngine::sScriptData.CoreAssemblyImage : ScriptEngine::sScriptData.AppAssemblyImage, inNameSpace.c_str(), inName.c_str() );
 }
 
 
@@ -88,18 +91,11 @@ void ScriptEngine::Init()
     {
         return;
     }
-    mono_set_assemblies_path( MONO_PATH );
 
-    mono_set_dirs( MONO_HOME "/lib", MONO_HOME "/etc" );
+    InitMono();
 
-    sScriptData.RootDomain = mono_jit_init( "MitchEngineMonoRuntime" );
-    if ( !sScriptData.RootDomain )
-    {
-        YIKES( "mono_jit_init failed" );
-    }
-
-    sScriptData.AppDomain = mono_domain_create_appdomain( "MEScriptRuntime", nullptr );
-    mono_domain_set( sScriptData.AppDomain, true );
+    // Register funcs
+    RegisterFunctions();
 
     // todo: fix path
     Path path( ".build/editor_debug/ScriptCore.dll" );
@@ -107,11 +103,41 @@ void ScriptEngine::Init()
     Path appPath( ".build/editor_debug/Game.Script.dll" );
     LoadAppAssembly( appPath );
 
-    // Register funcs
-    RegisterFunctions();
+    CacheAssemblyTypes();
+
+    sScriptData.entityClass = ScriptClass( "", "Entity", true );
 
     // Tests
     Tests();
+}
+
+void ScriptEngine::InitMono()
+{
+    mono_set_assemblies_path( MONO_PATH );
+
+    mono_set_dirs( MONO_HOME "/lib", MONO_HOME "/etc" );
+    if ( sScriptData.EnableDebugging )
+    {
+        const char* argv[2] = {
+            "--debugger-agent=transport=dt_socket,address=127.0.0.1:2550,server=y,suspend=n,loglevel=3,logfile=MonoDebugger.log",
+            "--soft-breakpoints"
+        };
+        mono_jit_parse_options( 2, (char**)argv );
+        mono_debug_init( MONO_DEBUG_FORMAT_MONO );
+    }
+
+    sScriptData.RootDomain = mono_jit_init( "MEMonoRuntime" );
+    if ( !sScriptData.RootDomain )
+    {
+        YIKES( "mono_jit_init failed" );
+    }
+
+    if ( sScriptData.EnableDebugging )
+    {
+        mono_debug_domain_create( sScriptData.RootDomain );
+    }
+
+    mono_thread_set_main( mono_thread_current() );
 }
 
 void ScriptEngine::RegisterFunctions()
@@ -124,9 +150,6 @@ void ScriptEngine::RegisterFunctions()
 
 void ScriptEngine::Tests()
 {
-    CacheAssemblyTypes();
-
-    sScriptData.entityClass = ScriptClass("", "Entity");
 #if 0
     testClassInstance = ScriptClass( "", "TestScript" );
     testClassInstance.Instantiate();
@@ -199,40 +222,37 @@ void ScriptEngine::Tests()
 }
 
 
+ScriptClass& ScriptEngine::GetEntityClass( const std::string& name )
+{
+    return sScriptData.EntityClasses.at( name );
+}
+
+const ScriptFieldMap& ScriptEngine::GetScriptFieldMap(Entity ent)
+{
+    return sScriptData.EntityScriptFields.at(ent.GetId().Value());
+}
+
 MonoImage* ScriptEngine::GetCoreImage()
 {
-    return sScriptData.assemblyImage;
+    return sScriptData.CoreAssemblyImage;
+}
+
+SharedPtr<ScriptInstance> ScriptEngine::CreateScriptInstance( ScriptClass& script, EntityHandle entity )
+{
+    sScriptData.EntityInstances[entity->GetId().Value()] = MakeShared<ScriptInstance>( script, entity );
+    return sScriptData.EntityInstances[entity->GetId().Value()];
 }
 
 bool ScriptEngine::LoadAssembly( const Path& assemblyPath )
 {
-    uint32_t fileSize = 0;
-    char* fileData = PlatformUtils::ReadBytes( assemblyPath, &fileSize );
+    sScriptData.AppDomain = mono_domain_create_appdomain( "MEScriptRuntime", nullptr );
+    mono_domain_set( sScriptData.AppDomain, true );
 
-    MonoImageOpenStatus status;
-    MonoImage* image = mono_image_open_from_data_full( fileData, fileSize, 1, &status, 0 );
+    sScriptData.CoreAssembly = MonoUtils::LoadMonoAssembly( assemblyPath, sScriptData.EnableDebugging );
+    sScriptData.CoreAssemblyFilePath = assemblyPath;
 
-    delete[] fileData;
-
-    if ( status != MONO_IMAGE_OK )
-    {
-        const char* errorMessage = mono_image_strerror( status );
-        YIKES( errorMessage );
-        return nullptr;
-    }
-
-    sScriptData.assembly = mono_assembly_load_from_full( image, assemblyPath.FullPath.c_str(), &status, 0 );
-
-    mono_image_close( image );
-
-    if ( !sScriptData.assembly )
-    {
-        YIKES( "mono_assembly_load_from_full failed" );
-        return false;
-    }
-
-    sScriptData.assemblyImage = mono_assembly_get_image( sScriptData.assembly );
-    if ( !sScriptData.assemblyImage )
+    sScriptData.CoreAssemblyImage = mono_assembly_get_image( sScriptData.CoreAssembly );
+    if ( !sScriptData.CoreAssemblyImage )
     {
         YIKES( "mono_assembly_get_image failed" );
         return false;
@@ -241,35 +261,25 @@ bool ScriptEngine::LoadAssembly( const Path& assemblyPath )
     return true;
 }
 
+void ScriptEngine::ReloadAssembly()
+{
+    mono_domain_set( mono_get_root_domain(), false );
+    mono_domain_unload( sScriptData.AppDomain );
+
+    LoadAssembly( sScriptData.CoreAssemblyFilePath );
+    LoadAppAssembly( sScriptData.AppAssemblyFilePath );
+    CacheAssemblyTypes();
+
+    sScriptData.entityClass = ScriptClass( "", "Entity", true );
+}
+
 bool ScriptEngine::LoadAppAssembly( const Path& assemblyPath )
 {
-    uint32_t fileSize = 0;
-    char* fileData = PlatformUtils::ReadBytes( assemblyPath, &fileSize );
+    sScriptData.AppAssembly = MonoUtils::LoadMonoAssembly( assemblyPath, sScriptData.EnableDebugging );
+    sScriptData.AppAssemblyFilePath = assemblyPath;
 
-    MonoImageOpenStatus status;
-    MonoImage* image = mono_image_open_from_data_full( fileData, fileSize, 1, &status, 0 );
-
-    delete[] fileData;
-
-    if ( status != MONO_IMAGE_OK )
-    {
-        const char* errorMessage = mono_image_strerror( status );
-        YIKES( errorMessage );
-        return nullptr;
-    }
-
-    sScriptData.appAssembly = mono_assembly_load_from_full( image, assemblyPath.FullPath.c_str(), &status, 0 );
-
-    mono_image_close( image );
-
-    if ( !sScriptData.assembly )
-    {
-        YIKES( "mono_assembly_load_from_full failed" );
-        return false;
-    }
-
-    sScriptData.appAssemblyImage = mono_assembly_get_image( sScriptData.appAssembly );
-    if ( !sScriptData.appAssemblyImage )
+    sScriptData.AppAssemblyImage = mono_assembly_get_image( sScriptData.AppAssembly );
+    if ( !sScriptData.AppAssemblyImage )
     {
         YIKES( "mono_assembly_get_image failed" );
         return false;
@@ -280,19 +290,19 @@ bool ScriptEngine::LoadAppAssembly( const Path& assemblyPath )
 
 void ScriptEngine::CacheAssemblyTypes()
 {
-    sScriptData.ClassInfo.clear();
+    sScriptData.EntityClasses.clear();
 
-    const MonoTableInfo* typeDefinitionsTable = mono_image_get_table_info( sScriptData.appAssemblyImage, MONO_TABLE_TYPEDEF );
+    const MonoTableInfo* typeDefinitionsTable = mono_image_get_table_info( sScriptData.AppAssemblyImage, MONO_TABLE_TYPEDEF );
     int32_t numTypes = mono_table_info_get_rows( typeDefinitionsTable );
 
-    MonoClass* monoBase = mono_class_from_name( sScriptData.assemblyImage, "", "Entity" );
+    MonoClass* monoBase = mono_class_from_name( sScriptData.CoreAssemblyImage, "", "Entity" );
     for ( int32_t i = 0; i < numTypes; i++ )
     {
         uint32_t cols[MONO_TYPEDEF_SIZE];
         mono_metadata_decode_row( typeDefinitionsTable, i, cols, MONO_TYPEDEF_SIZE );
 
-        std::string nameSpace = mono_metadata_string_heap( sScriptData.appAssemblyImage, cols[MONO_TYPEDEF_NAMESPACE] );
-        std::string name = mono_metadata_string_heap( sScriptData.appAssemblyImage, cols[MONO_TYPEDEF_NAME] );
+        std::string nameSpace = mono_metadata_string_heap( sScriptData.AppAssemblyImage, cols[MONO_TYPEDEF_NAMESPACE] );
+        std::string name = mono_metadata_string_heap( sScriptData.AppAssemblyImage, cols[MONO_TYPEDEF_NAME] );
         std::string fullName;
         if ( !nameSpace.empty() )
         {
@@ -306,12 +316,17 @@ void ScriptEngine::CacheAssemblyTypes()
         LoadedClassInfo loadedClass;
         loadedClass.Namespace = nameSpace;
         loadedClass.Name = name;
-        MonoClass* monoClass = mono_class_from_name( sScriptData.appAssemblyImage, nameSpace.c_str(), name.c_str() );
 
-        if ( monoClass != monoBase && mono_class_is_subclass_of( monoClass, monoBase, false ) )
+        MonoClass* monoClass = mono_class_from_name( sScriptData.AppAssemblyImage, nameSpace.c_str(), name.c_str() );
+        if( monoClass == monoBase )
+            continue;
+
+        bool isEntity = mono_class_is_subclass_of( monoClass, monoBase, false );
+        if( !isEntity )
+            continue;
         {
-            sScriptData.ClassInfo[fullName] = ScriptClass( loadedClass.Namespace, loadedClass.Name );
-            ScriptClass& scriptClass = sScriptData.ClassInfo[fullName];
+            sScriptData.EntityClasses[fullName] = ScriptClass( loadedClass.Namespace, loadedClass.Name );
+            ScriptClass& scriptClass = sScriptData.EntityClasses[fullName];
             LoadedEntityScripts.push_back( loadedClass );
             int fieldCount = mono_class_num_fields( monoClass );
             void* it = nullptr;
@@ -324,7 +339,7 @@ void ScriptEngine::CacheAssemblyTypes()
                     MonoType* type = mono_field_get_type( field );
                     MonoUtils::ScriptFieldType fieldType = MonoUtils::MonoTypeToScriptFieldType( type );
                     BRUH_FMT( "%s, %i", MonoUtils::ScriptFieldTypeToString(fieldType).c_str(), fieldType );
-                    sScriptData.ClassInfo[fullName].m_fields[fieldName] = { fieldType, fieldName, field };
+                    sScriptData.EntityClasses[fullName].m_fields[fieldName] = { fieldType, fieldName, field };
                 }
             }
         }

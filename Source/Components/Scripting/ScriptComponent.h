@@ -18,6 +18,7 @@ public:
 
     void Init() override;
     void OnEditorInspect() override;
+    void DrawValues( const ScriptClass& scriptClass );
 
 private:
     void OnSerialize( json& outJson ) override;
@@ -30,7 +31,7 @@ private:
     static bool Entity_HasComponent( EntityID id, MonoReflectionType* inType );
     static bool Input_IsKeyDown( KeyCode key );
 
-    ScriptInstance* Instance = nullptr;
+    SharedPtr<ScriptInstance> Instance = nullptr;
     std::string ScriptName;
 };
 

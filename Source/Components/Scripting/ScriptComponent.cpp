@@ -44,17 +44,27 @@ ScriptComponent::ScriptComponent()
 
 ScriptComponent::~ScriptComponent()
 {
-    delete Instance;
 }
 
 void ScriptComponent::Init()
 {
     if ( !Instance && !ScriptName.empty() )
     {
-        auto foundClass = ScriptEngine::sScriptData.ClassInfo.find( ScriptName );
-        if ( foundClass != ScriptEngine::sScriptData.ClassInfo.end() )
+        auto foundClass = ScriptEngine::sScriptData.EntityClasses.find( ScriptName );
+        if ( foundClass != ScriptEngine::sScriptData.EntityClasses.end() )
         {
-            Instance = new ScriptInstance( foundClass->second, Parent );
+            Instance = ScriptEngine::CreateScriptInstance( foundClass->second, Parent );
+
+            if ( ScriptEngine::sScriptData.EntityScriptFields.find( Parent.GetID().Value() ) != ScriptEngine::sScriptData.EntityScriptFields.end() )
+            {
+                const ScriptFieldMap& fieldMap = ScriptEngine::sScriptData.EntityScriptFields.at( Parent.GetID().Value() );
+                for ( const auto& [name, fieldInstance] : fieldMap )
+                {
+                    Instance->SetFieldValueInternal( name, (void*)fieldInstance.Buffer );
+                    ScriptName = foundClass->first;
+                    Instance->OnCreate();
+                }
+            }
         }
     }
 }
@@ -66,15 +76,15 @@ void ScriptComponent::OnEditorInspect()
     {
         if ( ImGui::BeginCombo( "Script Name", "" ) )
         {
-            for ( auto it : ScriptEngine::sScriptData.ClassInfo )
+            for ( auto it : ScriptEngine::sScriptData.EntityClasses )
             {
                 if ( ImGui::Selectable( it.first.c_str(), false ) )
                 {
-                    auto foundClass = ScriptEngine::sScriptData.ClassInfo.find( it.first );
-                    if ( foundClass != ScriptEngine::sScriptData.ClassInfo.end() )
+                    auto foundClass = ScriptEngine::sScriptData.EntityClasses.find( it.first );
+                    if ( foundClass != ScriptEngine::sScriptData.EntityClasses.end() )
                     {
                         // create class instance
-                        Instance = new ScriptInstance( foundClass->second, Parent );
+                        Instance = ScriptEngine::CreateScriptInstance( foundClass->second, Parent );
                         ScriptName = foundClass->first;
                         Instance->OnCreate();
                     }
@@ -88,129 +98,144 @@ void ScriptComponent::OnEditorInspect()
     {
         ImGui::Text( ScriptName.c_str() );
 
-        const auto& fields = Instance->GetScriptClass().m_fields;
-        for (const auto& [name, field] : fields )
+        // Add a inspect settings option passed in
+        if ( true )//if ( static_cast<EditorApp*>( GetEngine().GetGame() )->IsGameRunning() )
         {
-            switch ( field.Type )
-            {
-            case MonoUtils::ScriptFieldType::Char:
-            {
-                char value = Instance->GetFieldValue<char>( name );
-                ImGui::LabelText( name.c_str(), &value );
+            ScriptClass& scriptClass = ScriptEngine::GetEntityClass( ScriptName );
+            DrawValues( scriptClass );
+        }
+        else
+        {
+            DrawValues( Instance->GetScriptClass() );
+        }
+    }
+}
 
-                break;
-            }
-            case MonoUtils::ScriptFieldType::Bool:
-            {
-                bool value = Instance->GetFieldValue<bool>( name );
-                if ( ImGui::Checkbox( name.c_str(), &value ) )
-                {
-                    Instance->SetFieldValue<bool>( name, value );
-                }
-                break;
-            }
-            case MonoUtils::ScriptFieldType::Long:
-            {
-                int64_t value = Instance->GetFieldValue<int64_t>( name );
-                if ( HavanaUtils::Int( name.c_str(), value ) )
-                {
-                    Instance->SetFieldValue<int64_t>( name, value );
-                }
+void ScriptComponent::DrawValues( const ScriptClass& scriptClass )
+{
+    const auto& fields = scriptClass.m_fields;
 
-                break;
-            }
-            case MonoUtils::ScriptFieldType::ULong:
-            {
-                uint64_t value = Instance->GetFieldValue<uint64_t>( name );
-                if ( HavanaUtils::UInt( name.c_str(), value ) )
-                {
-                    Instance->SetFieldValue<uint64_t>( name, value );
-                }
+    for ( const auto& [name, field] : fields )
+    {
+        switch ( field.Type )
+        {
+        case MonoUtils::ScriptFieldType::Char:
+        {
+            char value = Instance->GetFieldValue<char>( name );
+            ImGui::LabelText( name.c_str(), &value );
 
-                break;
-            }
-            case MonoUtils::ScriptFieldType::Short:
+            break;
+        }
+        case MonoUtils::ScriptFieldType::Bool:
+        {
+            bool value = Instance->GetFieldValue<bool>( name );
+            if ( ImGui::Checkbox( name.c_str(), &value ) )
             {
-                int16_t value = Instance->GetFieldValue<int16_t>( name );
-                if ( HavanaUtils::Int( name.c_str(), value ) )
-                {
-                    Instance->SetFieldValue<int16_t>( name, value );
-                }
+                Instance->SetFieldValue<bool>( name, value );
+            }
+            break;
+        }
+        case MonoUtils::ScriptFieldType::Long:
+        {
+            int64_t value = Instance->GetFieldValue<int64_t>( name );
+            if ( HavanaUtils::Int( name.c_str(), value ) )
+            {
+                Instance->SetFieldValue<int64_t>( name, value );
+            }
 
-                break;
-            }
-            case MonoUtils::ScriptFieldType::UShort:
+            break;
+        }
+        case MonoUtils::ScriptFieldType::ULong:
+        {
+            uint64_t value = Instance->GetFieldValue<uint64_t>( name );
+            if ( HavanaUtils::UInt( name.c_str(), value ) )
             {
-                uint16_t value = Instance->GetFieldValue<uint16_t>( name );
-                if ( HavanaUtils::UInt( name.c_str(), value ) )
-                {
-                    Instance->SetFieldValue<uint16_t>( name, value );
-                }
+                Instance->SetFieldValue<uint64_t>( name, value );
+            }
 
-                break;
-            }
-            case MonoUtils::ScriptFieldType::Int:
+            break;
+        }
+        case MonoUtils::ScriptFieldType::Short:
+        {
+            int16_t value = Instance->GetFieldValue<int16_t>( name );
+            if ( HavanaUtils::Int( name.c_str(), value ) )
             {
-                int value = Instance->GetFieldValue<int>( name );
-                if ( HavanaUtils::Int( name.c_str(), value ) )
-                {
-                    Instance->SetFieldValue<int>( name, value );
-                }
+                Instance->SetFieldValue<int16_t>( name, value );
+            }
 
-                break;
-            }
-            case MonoUtils::ScriptFieldType::UInt:
+            break;
+        }
+        case MonoUtils::ScriptFieldType::UShort:
+        {
+            uint16_t value = Instance->GetFieldValue<uint16_t>( name );
+            if ( HavanaUtils::UInt( name.c_str(), value ) )
             {
-                unsigned int value = Instance->GetFieldValue<unsigned int>( name );
-                if ( HavanaUtils::UInt( name.c_str(), value ) )
-                {
-                    Instance->SetFieldValue<unsigned int>( name, value );
-                }
+                Instance->SetFieldValue<uint16_t>( name, value );
+            }
 
-                break;
-            }
-            case MonoUtils::ScriptFieldType::Double:
+            break;
+        }
+        case MonoUtils::ScriptFieldType::Int:
+        {
+            int value = Instance->GetFieldValue<int>( name );
+            if ( HavanaUtils::Int( name.c_str(), value ) )
             {
-                double value = Instance->GetFieldValue<double>( name );
-                if ( HavanaUtils::Double( name.c_str(), value ) )
-                {
-                    Instance->SetFieldValue<double>( name, value );
-                }
+                Instance->SetFieldValue<int>( name, value );
+            }
 
-                break;
-            }
-            case MonoUtils::ScriptFieldType::Float:
+            break;
+        }
+        case MonoUtils::ScriptFieldType::UInt:
+        {
+            unsigned int value = Instance->GetFieldValue<unsigned int>( name );
+            if ( HavanaUtils::UInt( name.c_str(), value ) )
             {
-                float value = Instance->GetFieldValue<float>( name );
-                if ( HavanaUtils::Float( name, value ) )
-                {
-                    Instance->SetFieldValue<float>( name, value );
-                }
+                Instance->SetFieldValue<unsigned int>( name, value );
+            }
 
-                break;
-            }
-            case MonoUtils::ScriptFieldType::Vector2:
+            break;
+        }
+        case MonoUtils::ScriptFieldType::Double:
+        {
+            double value = Instance->GetFieldValue<double>( name );
+            if ( HavanaUtils::Double( name.c_str(), value ) )
             {
-                Vector2 v2 = Instance->GetFieldValue<Vector2>( name );
-                if ( HavanaUtils::EditableVector( name, v2 ) )
-                {
-                    Instance->SetFieldValue<Vector2>( name, v2 );
-                }
-                break;
+                Instance->SetFieldValue<double>( name, value );
             }
-            case MonoUtils::ScriptFieldType::Vector3:
+
+            break;
+        }
+        case MonoUtils::ScriptFieldType::Float:
+        {
+            float value = Instance->GetFieldValue<float>( name );
+            if ( HavanaUtils::Float( name, value ) )
             {
-                Vector3 v3 = Instance->GetFieldValue<Vector3>( name );
-                if ( HavanaUtils::EditableVector3( name, v3 ) )
-                {
-                    Instance->SetFieldValue<Vector3>( name, v3 );
-                }
-                break;
+                Instance->SetFieldValue<float>( name, value );
             }
-            default:
-                BRUH_FMT( "Missing entry for %s", name.c_str() );
-                break;
+
+            break;
+        }
+        case MonoUtils::ScriptFieldType::Vector2:
+        {
+            Vector2 v2 = Instance->GetFieldValue<Vector2>( name );
+            if ( HavanaUtils::EditableVector( name, v2 ) )
+            {
+                Instance->SetFieldValue<Vector2>( name, v2 );
             }
+            break;
+        }
+        case MonoUtils::ScriptFieldType::Vector3:
+        {
+            Vector3 v3 = Instance->GetFieldValue<Vector3>( name );
+            if ( HavanaUtils::EditableVector3( name, v3 ) )
+            {
+                Instance->SetFieldValue<Vector3>( name, v3 );
+            }
+            break;
+        }
+        default:
+            BRUH_FMT( "Missing entry for %s", name.c_str() );
+            break;
         }
     }
 }
@@ -225,7 +250,7 @@ void ScriptComponent::OnDeserialize( const json& inJson )
     ScriptName = inJson["ScriptName"];
 }
 
-void ScriptComponent::Transform_GetTranslation(EntityID id, Vector3* outPosition)
+void ScriptComponent::Transform_GetTranslation( EntityID id, Vector3* outPosition )
 {
     EntityHandle handle( id, ScriptEngine::sScriptData.worldPtr );
     *outPosition = handle->GetComponent<Transform>().GetPosition();
@@ -235,7 +260,7 @@ void ScriptComponent::Transform_GetTranslation(EntityID id, Vector3* outPosition
 void ScriptComponent::Transform_SetTranslation( EntityID id, Vector3* inPos )
 {
     EntityHandle handle( id, ScriptEngine::sScriptData.worldPtr );
-    handle->GetComponent<Transform>().SetPosition(*inPos);
+    handle->GetComponent<Transform>().SetPosition( *inPos );
 }
 
 bool ScriptComponent::Entity_HasComponent( EntityID id, MonoReflectionType* inType )
@@ -243,7 +268,7 @@ bool ScriptComponent::Entity_HasComponent( EntityID id, MonoReflectionType* inTy
     EntityHandle handle( id, ScriptEngine::sScriptData.worldPtr );
 
     MonoType* managedType = mono_reflection_type_get_type( inType );
-    return s_EntityHasComponentFuncs.at(managedType)( handle );
+    return s_EntityHasComponentFuncs.at( managedType )( handle );
 }
 
 bool ScriptComponent::Input_IsKeyDown( KeyCode key )

@@ -1,6 +1,7 @@
 #pragma once
 #include "MonoFwd.h"
 #include <string>
+#include "Path.h"
 
 namespace MonoUtils
 {
@@ -46,5 +47,7 @@ namespace MonoUtils
     bool CheckMonoError( MonoError& error );
 
     std::string MonoStringToUTF8( MonoString* monoString );
+
+    MonoAssembly* LoadMonoAssembly( const Path& path, bool loadPDB );
 };
 

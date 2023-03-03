@@ -4,6 +4,7 @@
 #include "ECS/EntityHandle.h"
 #include "Engine/World.h"
 #include "MonoUtils.h"
+#include "ECS/Entity.h"
 
 
 struct ScriptField
@@ -15,12 +16,42 @@ struct ScriptField
 };
 
 
+struct ScriptFieldInstance
+{
+    ScriptField Instance;
+
+    const char* GetBuffer() const
+    {
+        return Buffer;
+    }
+
+    template <typename T>
+    T GetValue()
+    {
+        static_assert( sizeof( T ) <= 32, "Field type is too large for buffer." );
+        return *(T*)Buffer;
+    }
+
+    template <typename T>
+    void SetValue( T value )
+    {
+        static_assert( sizeof( T ) <= 32, "Field type is too large for buffer." );
+        memcpy( Buffer, value );
+    }
+
+private:
+    char Buffer[32];
+    friend class ScriptComponent;
+};
+
+using ScriptFieldMap = std::unordered_map<std::string, ScriptFieldInstance>;
+
 class ScriptClass
 {
     friend class ScriptComponent;
 public:
     ScriptClass() = default;
-    ScriptClass( const std::string& inNameSpace, const std::string& inName );
+    ScriptClass( const std::string& inNameSpace, const std::string& inName, bool isCore = false );
 
     // maybe have a create instance that returns ScriptClass
     MonoObject* Instantiate();
@@ -44,9 +75,19 @@ public:
         Instance = inClass.Instantiate();
         OnCreateMethod = inClass.GetMethod( "OnCreate", 0 );
         OnUpdateMethod = inClass.GetMethod( "OnUpdate", 1 );
-        void* entID = &inOwner.GetID();
+        void* entID = &inOwner;
         Init( 1, &entID );
+        //Owner = EntityHandle( inOwner );
     }
+
+    //explicit ScriptInstance( ScriptInstance& inClass )
+    //    : ScriptRef( inClass.ScriptRef )
+    //    , Owner( inClass.Owner )
+    //    , Instance( inClass.Instance )
+    //    , OnCreateMethod( inClass.OnCreateMethod )
+    //    , OnUpdateMethod( inClass.OnUpdateMethod )
+    //{
+    //}
 
     void OnCreate()
     {
@@ -83,6 +124,7 @@ private:
     ScriptClass& ScriptRef;
     EntityHandle Owner;
     inline static char sFieldValueBuffer[32];
+    friend class ScriptComponent;
 };
 
 template <typename T>
@@ -116,17 +158,25 @@ public:
     {
         MonoDomain* RootDomain = nullptr;
         MonoDomain* AppDomain = nullptr;
-        MonoAssembly* assembly = nullptr;
-        MonoImage* assemblyImage = nullptr;
 
-        MonoAssembly* appAssembly = nullptr;
-        MonoImage* appAssemblyImage = nullptr;
+        MonoAssembly* CoreAssembly = nullptr;
+        MonoImage* CoreAssemblyImage = nullptr;
+        Path CoreAssemblyFilePath;
+
+        MonoAssembly* AppAssembly = nullptr;
+        MonoImage* AppAssemblyImage = nullptr;
+        Path AppAssemblyFilePath;
+
+        bool EnableDebugging = true;
 
         WeakPtr<World> worldPtr;
 
         ScriptClass entityClass;
 
-        std::unordered_map<std::string, ScriptClass> ClassInfo;
+        std::unordered_map<std::string, ScriptClass> EntityClasses;
+
+        std::unordered_map<EntityID::IntType, SharedPtr<ScriptInstance>> EntityInstances;
+        std::unordered_map<EntityID::IntType, ScriptFieldMap> EntityScriptFields;
     };
 
     static void Init();
@@ -134,9 +184,16 @@ public:
     static void RegisterFunctions();
     static void Tests();
 
+    static ScriptClass& GetEntityClass( const std::string& name );
+    static const ScriptFieldMap& GetScriptFieldMap( Entity ent );
+
     static MonoImage* GetCoreImage();
+
+    static SharedPtr<ScriptInstance> CreateScriptInstance( ScriptClass& script, EntityHandle entity );
 private:
+    static void InitMono();
     static bool LoadAssembly( const Path& assemblyPath );
+    static void ReloadAssembly();
     static bool LoadAppAssembly( const Path& assemblyPath );
     static void CacheAssemblyTypes();
 
@@ -144,6 +201,10 @@ public:
     static ScriptData sScriptData;
     static ScriptClass testClassInstance;
     static MonoClassField* floatField;
+
+    // Parsed class
     static std::vector<LoadedClassInfo> LoadedClasses;
+
+    // Successful class loaded
     static std::vector<LoadedClassInfo> LoadedEntityScripts;
 };

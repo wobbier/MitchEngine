@@ -4,6 +4,10 @@
 #include <mono\metadata\class.h>
 #include <mono\metadata\attrdefs.h>
 #include <mono\metadata\object.h>
+#include "Utils\PlatformUtils.h"
+#include <mono\metadata\mono-debug.h>
+#include <mono\metadata\assembly.h>
+#include "Core\Buffer.h"
 
 namespace MonoUtils
 {
@@ -208,4 +212,44 @@ namespace MonoUtils
         return result;
     }
 
+    MonoAssembly* LoadMonoAssembly( const Path& path, bool loadPDB )
+    {
+        Buffer fileData = PlatformUtils::ReadBytes( path );
+
+        MonoImageOpenStatus status;
+        MonoImage* image = mono_image_open_from_data_full( (char*)fileData.Data, fileData.Size, 1, &status, 0 );
+
+        fileData.Release();
+
+        if ( status != MONO_IMAGE_OK )
+        {
+            const char* errorMessage = mono_image_strerror( status );
+            YIKES( errorMessage );
+            return nullptr;
+        }
+
+        if ( loadPDB )
+        {
+            std::filesystem::path pdbPath = path.FullPath;
+            pdbPath.replace_extension( ".pdb" );
+            
+            if ( std::filesystem::exists( pdbPath ) )
+            {
+                Buffer pdbBuff = PlatformUtils::ReadBytes( Path((char*)pdbPath.c_str()) );
+                mono_debug_open_image_from_memory( image, (const mono_byte*)pdbBuff.Data, pdbBuff.Size );
+            }
+        }
+
+        MonoAssembly* assembly = mono_assembly_load_from_full( image, path.FullPath.c_str(), &status, 0 );
+
+        mono_image_close( image );
+
+        if ( !assembly )
+        {
+            YIKES( "mono_assembly_load_from_full failed" );
+            return nullptr;
+        }
+
+        return assembly;
+    }
 }
