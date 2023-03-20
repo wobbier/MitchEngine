@@ -67,7 +67,7 @@ struct ShaderFileMetadata
 
 	void Export() override
 	{
-#if ME_PLATFORM_WIN64
+#if USING( ME_PLATFORM_WIN64 )
 		Path shadercPath = Path("Engine/Tools/Win64/shaderc.exe");
 
 		std::string exportType;

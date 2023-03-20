@@ -28,9 +28,9 @@ Path::Path( const std::string& InFile, bool Raw /*= false*/ )
 #endif
 
     std::string assetPrefix;
-#if ME_EDITOR && ME_PLATFORM_WIN64
+#if ME_EDITOR && USING( ME_PLATFORM_WIN64 )
     assetPrefix = "/";
-#elif ME_PLATFORM_UWP
+#elif USING( ME_PLATFORM_UWP )
 #elif USING( ME_PLATFORM_MACOS )
 #if ME_EDITOR
     assetPrefix = "/../../";

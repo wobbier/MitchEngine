@@ -4,7 +4,7 @@
 #include <Ultralight/Geometry.h>
 #include "Math/Vector2.h"
 
-#if ME_PLATFORM_WIN64
+#if USING( ME_PLATFORM_WIN64 )
 #define ENABLE_MSAA 1
 #else
 #define ENABLE_MSAA 0

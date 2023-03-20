@@ -1,6 +1,6 @@
 #include <Utils/PlatformUtils.h>
 
-#if ME_PLATFORM_WIN64
+#if USING( ME_PLATFORM_WIN64 )
 #include <processthreadsapi.h>
 #endif
 
@@ -9,7 +9,7 @@
 
 void PlatformUtils::RunProcess( const Path& inFilePath, const std::string& inArgs /*= ""*/ )
 {
-#if ME_PLATFORM_WIN64
+#if USING( ME_PLATFORM_WIN64 )
     STARTUPINFO si;
     PROCESS_INFORMATION pi;
 
@@ -38,7 +38,7 @@ void PlatformUtils::RunProcess( const Path& inFilePath, const std::string& inArg
 
 void PlatformUtils::SystemCall( const Path& inFilePath, const std::string& inArgs /*= ""*/, bool inRunFromDirectory /*= true*/ )
 {
-#if ME_PLATFORM_WIN64
+#if USING( ME_PLATFORM_WIN64 )
     auto p = std::filesystem::current_path();
     std::string ProgramPath( std::string( p.generic_string() ) );
     if ( inFilePath.IsFile && inRunFromDirectory )
@@ -71,21 +71,21 @@ void PlatformUtils::SystemCall( const Path& inFilePath, const std::string& inArg
 
 void PlatformUtils::CreateDirectory( const Path& inFilePath )
 {
-#if ME_PLATFORM_WIN64
+#if USING( ME_PLATFORM_WIN64 )
     std::filesystem::create_directories( inFilePath.Directory.c_str() );
 #endif
 }
 
 void PlatformUtils::OpenFile( const Path& inFilePath )
 {
-#if ME_PLATFORM_WIN64
+#if USING( ME_PLATFORM_WIN64 )
     ShellExecute( NULL, L"open", StringUtils::ToWString( inFilePath.FullPath ).c_str(), NULL, NULL, SW_SHOWDEFAULT );
 #endif
 }
 
 void PlatformUtils::OpenFolder( const Path& inFolderPath )
 {
-#if ME_PLATFORM_WIN64
+#if USING( ME_PLATFORM_WIN64 )
     ShellExecute( NULL, L"open", StringUtils::ToWString( inFolderPath.Directory ).c_str(), NULL, NULL, SW_SHOWDEFAULT );
 #endif
 }

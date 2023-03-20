@@ -266,7 +266,7 @@ void TextureResourceMetadata::Export()
 			command = texturec -f $in -o $out --max 512 -t rgba16f --equirect
 	*/
 
-#if ME_PLATFORM_WIN64
+#if USING( ME_PLATFORM_WIN64 )
 	Path optickPath = Path("Engine/Tools/Win64/texturec.exe");
 	if (!optickPath.Exists)
 	{

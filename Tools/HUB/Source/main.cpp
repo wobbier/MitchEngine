@@ -37,7 +37,7 @@ int main(int argc, char** argv)
 	set.InitAssets = false;
 	Renderer->Create(set);
 
-#if ME_PLATFORM_WIN64
+#if USING( ME_PLATFORM_WIN64 )
     ImGui_ImplSDL2_InitForD3D(static_cast<SDLWindow*>(win)->WindowHandle);
 #endif
 #if USING( ME_PLATFORM_MACOS )

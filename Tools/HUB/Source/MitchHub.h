@@ -18,7 +18,7 @@ public:
 
 	void Draw();
     
-#if ME_PLATFORM_WIN64
+#if USING( ME_PLATFORM_WIN64 )
 	Path ShowOpenFilePrompt();
 #endif
     

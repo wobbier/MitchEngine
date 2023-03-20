@@ -9,7 +9,7 @@
 #include <utility>
 #include <UI/Colors.h>
 
-#if ME_PLATFORM_WIN64
+#if USING( ME_PLATFORM_WIN64 )
 #include <Windows.h>
 #include <commdlg.h>
 #include <shlobj.h>
@@ -21,6 +21,7 @@
 #include <ImGui/ImGuiRenderer.h>
 #include <Window/PlatformWindowHooks.h>
 #include "Utils/PlatformUtils.h"
+#include "Dementia.h"
 
 MitchHub::MitchHub(Input* input, SDLWindow* window, ImGuiRenderer* renderer)
 	: m_input(input)
@@ -131,7 +132,7 @@ void MitchHub::Draw()
 {
 	if (m_input->WasKeyPressed(KeyCode::A))
 	{
-#if ME_PLATFORM_WIN64
+#if USING( ME_PLATFORM_WIN64 )
 		ShowOpenFilePrompt();
 #endif
 	}
@@ -178,7 +179,7 @@ void MitchHub::Draw()
 				}
 				if (ImGui::Button("Add Project", {-1.f, 0.f }))
 				{
-#if ME_PLATFORM_WIN64
+#if USING( ME_PLATFORM_WIN64 )
 					Path path = ShowOpenFilePrompt();
 					if (path.Exists)
 					{
@@ -301,7 +302,7 @@ void MitchHub::Draw()
 	ImGui::ShowDemoWindow(&showDemo);
 }
 
-#if ME_PLATFORM_WIN64
+#if USING( ME_PLATFORM_WIN64 )
 int CALLBACK BrowseForFolderCallback(HWND hwnd, UINT uMsg, LPARAM lp, LPARAM pData)
 {
 	char szPath[MAX_PATH];

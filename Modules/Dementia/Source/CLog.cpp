@@ -1,7 +1,7 @@
 #include "CLog.h"
 #include "Dementia.h"
 #include <string>
-#if ME_PLATFORM_WIN64
+#if USING( ME_PLATFORM_WIN64 )
 #include <wtypes.h>
 #include <wincon.h>
 #include <processenv.h>
@@ -32,7 +32,7 @@ bool CLog::LogMessage( CLog::LogType priority, std::string message )
         return false;
 
 
-#if ME_PLATFORM_WIN64
+#if USING( ME_PLATFORM_WIN64 )
     mLogFile.open( mLogFileLocation, std::ios_base::app );
 
     int color = 15;

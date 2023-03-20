@@ -98,7 +98,7 @@ void EditorApp::OnInitialize()
 	{
 		EditorConfig::GetInstance().Init();
 		EditorConfig::GetInstance().Load();
-#if ME_PLATFORM_WIN64
+#if USING( ME_PLATFORM_WIN64 )
 		InitialLevel = GetEngine().GetConfig().GetValue("CurrentScene");
 #endif
 		Editor = MakeUnique<Havana>(&GetEngine(), this);

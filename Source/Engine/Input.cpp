@@ -133,7 +133,7 @@ void Input::SetMousePosition(const Vector2& InPosition)
 	// this just needs to be redone generically, too lazy atm
 	if (CaptureInput)
 	{
-#if ME_EDITOR && ME_PLATFORM_WIN64
+#if ME_EDITOR && USING( ME_PLATFORM_WIN64 )
 		if (!GameWindow)
 		{
 			GameWindow = GetEngine().GetWindow();

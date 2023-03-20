@@ -125,7 +125,7 @@ void MainMenuWidget::Render()
 			if (ImGui::MenuItem("New Scene"))
 			{
 
-#if ME_PLATFORM_WIN64
+#if USING( ME_PLATFORM_WIN64 )
 				NewSceneEvent evt;
 				evt.Queue();
 #endif
@@ -361,7 +361,7 @@ void MainMenuWidget::Render()
 //		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 4.f));
 //		if (ImGui::ImageButton(Icons["BugReport"]->TexHandle, ImVec2(30.f, 30.f)))
 //		{
-//#if ME_PLATFORM_WIN64
+//#if USING( ME_PLATFORM_WIN64 )
 //			ShellExecute(0, 0, L"https://github.com/wobbier/MitchEngine/issues", 0, 0, SW_SHOW);
 //#endif
 //		}

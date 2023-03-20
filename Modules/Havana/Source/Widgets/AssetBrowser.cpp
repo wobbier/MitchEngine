@@ -749,7 +749,7 @@ void AssetBrowserWidget::Recursive( Directory& dir )
                 }
                 else
                 {
-#if ME_PLATFORM_WIN64
+#if USING( ME_PLATFORM_WIN64 )
                     ShellExecute( NULL, L"open", StringUtils::ToWString( SelectedAsset->FullPath.FullPath ).c_str(), NULL, NULL, SW_SHOWDEFAULT );
 #endif
                 }
@@ -974,7 +974,7 @@ bool AssetBrowserWidget::ProccessDirectoryRecursive( std::string& dir, Directory
                 //}
                 desc.ID = static_cast<int>( MasterAssetsList.size() );
 
-#if ME_PLATFORM_WIN64
+#if USING( ME_PLATFORM_WIN64 )
                 struct stat fileInfo;
                 if ( stat( desc.FullPath.FullPath.c_str(), &fileInfo ) != 0 )
                 {

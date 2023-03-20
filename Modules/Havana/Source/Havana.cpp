@@ -53,7 +53,7 @@ Havana::Havana(Engine* GameEngine, EditorApp* app)
 //		switch (status) {
 //		case FileStatus::Created:
 //		{
-//#if ME_PLATFORM_WIN64
+//#if USING( ME_PLATFORM_WIN64 )
 //			CLog::GetInstance().Log(CLog::LogType::Info, "File created: " + path_to_watch);
 //			TestEditorEvent evt;
 //			evt.Path = std::move(path_to_watch);

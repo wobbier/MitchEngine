@@ -36,11 +36,9 @@ Class& operator=(Class&&) = delete;
 #endif /* USING */
 
 #ifdef ME_PLATFORM_WIN64
-#define ME_PLATFORM_WIN64 1
-#define USE_ME_PLATFORM_WIN64 IN_USE
+#define ME_PLATFORM_WIN64 IN_USE
 #else
-#define ME_PLATFORM_WIN64 0
-#define USE_ME_PLATFORM_WIN64 NOT_IN_USE
+#define ME_PLATFORM_WIN64 NOT_IN_USE
 #endif
 
 #ifdef ME_PLATFORM_UWP
@@ -53,14 +51,6 @@ Class& operator=(Class&&) = delete;
 #define ME_PLATFORM_MACOS IN_USE
 #else
 #define ME_PLATFORM_MACOS NOT_IN_USE
-#endif
-
-#ifdef ME_DIRECTX
-#define ME_DIRECTX 1
-#define USE_ME_DIRECTX IN_USE
-#else
-#define ME_DIRECTX 0
-#define USE_ME_DIRECTX NOT_IN_USE
 #endif
 
 #ifdef ME_EDITOR
@@ -82,4 +72,4 @@ Class& operator=(Class&&) = delete;
 #define forever for(;;)
 //#define ME_PLATFORM_WINDOWS USING
 #define UME_TOOLS USE_IF( USE_ME_TOOLS )
-#define ME_PLATFORM_WINDOWS USE_IF( USING( USE_ME_PLATFORM_WIN64 ) || USING( ME_PLATFORM_UWP ) )
+#define ME_PLATFORM_WINDOWS USE_IF( USING( ME_PLATFORM_WIN64 ) || USING( ME_PLATFORM_UWP ) )

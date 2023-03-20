@@ -177,17 +177,10 @@ void RenderCore::Update(const UpdateContext& inUpdateContext)
 
 void RenderCore::OnDeviceLost()
 {
-#if ME_DIRECTX
-	//m_renderer->ReleaseDeviceDependentResources();
-#endif
 }
 
 void RenderCore::OnDeviceRestored()
 {
-#if ME_DIRECTX
-	//m_renderer->CreateDeviceDependentResources();
-	//m_renderer->GetDevice().CreateWindowSizeDependentResources();
-#endif
 }
 
 void RenderCore::OnStop()

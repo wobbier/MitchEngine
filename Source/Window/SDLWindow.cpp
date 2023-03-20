@@ -842,7 +842,7 @@ void SDLWindow::SetWindow(SDL_Window* window)
 		return;
 	}
 
-#if ME_PLATFORM_WIN64
+#if USING( ME_PLATFORM_WIN64 )
 	PlatformInfo.ndt = nullptr;
 	PlatformInfo.nwh = wmi.info.win.window;
 #endif

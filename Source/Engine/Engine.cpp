@@ -21,7 +21,7 @@
 #include "Cores/UI/UICore.h"
 #include "Cores/Scripting/ScriptCore.h"
 
-#if ME_EDITOR && ME_PLATFORM_WIN64
+#if ME_EDITOR && USING( ME_PLATFORM_WIN64 )
 #include "Utils/StringUtils.h"
 #include <fileapi.h>
 #endif
@@ -81,7 +81,7 @@ void Engine::Init( Game* game )
 		Path gameEngineCfgPath( "Assets\\Config\\Engine.cfg", true );
 		if ( !gameEngineCfgPath.Exists )
 		{
-#if ME_PLATFORM_WIN64
+#if USING( ME_PLATFORM_WIN64 )
 			CreateDirectory( StringUtils::ToWString( gameEngineCfgPath.Directory ).c_str(), NULL );
 #endif
 			File gameEngineCfg = File( engineCfg );
@@ -111,7 +111,7 @@ void Engine::Init( Game* game )
 		evt.Fire();
 	};
 
-#if ME_PLATFORM_WIN64
+#if USING( ME_PLATFORM_WIN64 )
 	engineConfig = new EngineConfig( engineCfg );
 	engineConfig->OnLoad( engineConfig->Root );
 	const json& WindowConfig = engineConfig->GetJsonObject( "Window" );
@@ -132,7 +132,7 @@ void Engine::Init( Game* game )
 	GameWindow = new SDLWindow( "MitchEngine", ResizeFunc, 500, 300, Vector2( WindowWidth, WindowHeight ) );
 	//GameWindow = new UWPWindow("MitchEngine", 1920, 1080, ResizeFunc);
 #endif
-#if ME_EDITOR && ME_PLATFORM_WIN64
+#if ME_EDITOR && USING( ME_PLATFORM_WIN64 )
 	GameWindow->SetBorderless( true );
 #endif
 
@@ -144,7 +144,7 @@ void Engine::Init( Game* game )
 	settings.InitialSize = Vector2( 1920.f, 1080.f );
 	NewRenderer->Create( settings );
 
-#if ME_PLATFORM_WIN64
+#if USING( ME_PLATFORM_WIN64 )
 	ImGui_ImplSDL2_InitForD3D( static_cast<SDLWindow*>( GameWindow )->WindowHandle );
 #endif
 #if USING( ME_PLATFORM_MACOS )
