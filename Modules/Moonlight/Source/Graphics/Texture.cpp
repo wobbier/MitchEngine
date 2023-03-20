@@ -226,7 +226,7 @@ void TextureResourceMetadata::OnEditorInspect()
 
 #endif
 
-#if USING( ME_EDITOR ) || defined(ME_TOOLS)
+#if USING( ME_TOOLS )
 
 void TextureResourceMetadata::Export()
 {

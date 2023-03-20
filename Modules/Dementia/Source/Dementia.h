@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+#define forever for(;;)
+
 #define ME_DISABLE_DEFAULT_CONSTRUCTOR(Class)	\
 Class() = delete;
 
@@ -60,14 +62,10 @@ Class& operator=(Class&&) = delete;
 #endif
 
 #ifdef ME_TOOLS
-#define ME_TOOLS 1
-#define USE_ME_TOOLS IN_USE
+#define ME_TOOLS USE_IF( USING( ME_EDITOR ) || USING( IN_USE ) )
 #else
-#define ME_TOOLS 0
-#define USE_ME_TOOLS NOT_IN_USE
+#define ME_TOOLS USE_IF( USING( ME_EDITOR ) || USING( NOT_IN_USE ) )
 #endif
 
-#define forever for(;;)
-//#define ME_PLATFORM_WINDOWS USING
-#define UME_TOOLS USE_IF( USE_ME_TOOLS )
 #define ME_PLATFORM_WINDOWS USE_IF( USING( ME_PLATFORM_WIN64 ) || USING( ME_PLATFORM_UWP ) )
+#define ME_EDITOR_WIN64     USE_IF( USING( ME_EDITOR ) && USING( ME_PLATFORM_WIN64 ) )

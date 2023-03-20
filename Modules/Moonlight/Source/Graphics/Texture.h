@@ -100,7 +100,7 @@ struct TextureResourceMetadata
 	virtual void OnEditorInspect() final;
 #endif
 
-#if USING( ME_EDITOR ) || defined(ME_TOOLS)
+#if USING( ME_TOOLS )
 	void Export() override;
 #endif
 

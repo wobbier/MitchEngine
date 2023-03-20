@@ -21,7 +21,7 @@
 #include "Cores/UI/UICore.h"
 #include "Cores/Scripting/ScriptCore.h"
 
-#if USING( ME_EDITOR ) && USING( ME_PLATFORM_WIN64 )
+#if USING( ME_EDITOR_WIN64 )
 #include "Utils/StringUtils.h"
 #include <fileapi.h>
 #endif
@@ -132,7 +132,7 @@ void Engine::Init( Game* game )
 	GameWindow = new SDLWindow( "MitchEngine", ResizeFunc, 500, 300, Vector2( WindowWidth, WindowHeight ) );
 	//GameWindow = new UWPWindow("MitchEngine", 1920, 1080, ResizeFunc);
 #endif
-#if USING( ME_EDITOR ) && USING( ME_PLATFORM_WIN64 )
+#if USING( ME_EDITOR_WIN64 )
 	GameWindow->SetBorderless( true );
 #endif
 
