@@ -5,12 +5,6 @@
 #include "Events/EventReceiver.h"
 
 class IWindow;
-//
-//
-//#if ME_PLATFORM_UWP
-//using namespace Windows::UI::Core;
-//using namespace Windows::System;
-//#endif
 
 class MouseScrollEvent
 	: public Event<MouseScrollEvent>

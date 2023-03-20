@@ -44,11 +44,9 @@ Class& operator=(Class&&) = delete;
 #endif
 
 #ifdef ME_PLATFORM_UWP
-#define ME_PLATFORM_UWP 1
-#define USE_ME_PLATFORM_UWP IN_USE
+#define ME_PLATFORM_UWP IN_USE
 #else
-#define ME_PLATFORM_UWP 0
-#define USE_ME_PLATFORM_UWP NOT_IN_USE
+#define ME_PLATFORM_UWP NOT_IN_USE
 #endif
 
 #ifdef ME_PLATFORM_MACOS
@@ -84,4 +82,4 @@ Class& operator=(Class&&) = delete;
 #define forever for(;;)
 //#define ME_PLATFORM_WINDOWS USING
 #define UME_TOOLS USE_IF( USE_ME_TOOLS )
-#define ME_PLATFORM_WINDOWS USE_IF( USING( USE_ME_PLATFORM_WIN64 ) || USING( USE_ME_PLATFORM_UWP ) )
+#define ME_PLATFORM_WINDOWS USE_IF( USING( USE_ME_PLATFORM_WIN64 ) || USING( ME_PLATFORM_UWP ) )

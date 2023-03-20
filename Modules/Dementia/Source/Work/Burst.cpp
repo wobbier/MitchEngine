@@ -46,7 +46,7 @@ namespace Burst
 	{
 		DWORD processorCoreCount = 0;
 
-#if ME_PLATFORM_UWP
+#if USING( ME_PLATFORM_UWP )
 		HMODULE handle = GetKernelModule();
 #else
 		HMODULE handle = GetModuleHandle(L"kernel32");

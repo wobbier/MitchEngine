@@ -21,7 +21,7 @@
 #include <concrt.h>
 
 #endif
-#if ME_PLATFORM_UWP
+#if USING( ME_PLATFORM_UWP )
 //#include <agile.h>
 #endif
 

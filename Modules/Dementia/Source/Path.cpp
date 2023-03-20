@@ -4,7 +4,7 @@
 #include "Dementia.h"
 #include "CLog.h"
 
-#if ME_PLATFORM_UWP
+#if USING( ME_PLATFORM_UWP )
 #include <wrl/client.h>
 #include <fstream>
 #else
@@ -14,7 +14,7 @@
 Path::Path( const std::string& InFile, bool Raw /*= false*/ )
 {
     size_t pos;
-#if ME_PLATFORM_UWP
+#if USING( ME_PLATFORM_UWP )
     char buf[1024];
     GetModuleFileNameA( NULL, buf, 1024 );
     std::string ProgramPath( buf );
@@ -96,7 +96,7 @@ Path::Path( const std::string& InFile, bool Raw /*= false*/ )
     }
 #else
 
-#if ME_PLATFORM_UWP
+#if USING( ME_PLATFORM_UWP )
         // Rough till I look up how UWP validates files
     Exists = true;
 #else
@@ -107,7 +107,7 @@ Path::Path( const std::string& InFile, bool Raw /*= false*/ )
     pos = FullPath.find_last_of( "/" );
     Directory = FullPath.substr( 0, pos + 1 );
 
-#if ME_PLATFORM_UWP
+#if USING( ME_PLATFORM_UWP )
         //std::replace(LocalPath.begin(), LocalPath.end(), '/', '\\');
     FullPath = LocalPath;
 #endif

@@ -126,7 +126,7 @@ void Engine::Init( Game* game )
 	GameWindow = new SDLWindow( "MitchEngine", ResizeFunc, 500, 300, Vector2( WindowWidth, WindowHeight ) );
 #endif
 
-#if ME_PLATFORM_UWP
+#if USING( ME_PLATFORM_UWP )
 	int WindowWidth = 1280;
 	int WindowHeight = 720;
 	GameWindow = new SDLWindow( "MitchEngine", ResizeFunc, 500, 300, Vector2( WindowWidth, WindowHeight ) );
@@ -198,18 +198,9 @@ void Engine::StopGame()
 
 void Engine::Run()
 {
-//#if ME_PLATFORM_UWP
-//	SDL_SetMainReady();
-//	SDL_Init(SDL_INIT_EVENTS);
-//	SDL_Window* win = SDL_CreateWindowFrom(GameWindow->GetWindowPtr());
-//
-//	SDL_MaximizeWindow(win);
-//#endif
-
 	m_game->OnStart();
 
 	GameClock.Reset();
-	//float lastTime = GameClock.GetTimeInMilliseconds();
 
 	const float FramesPerSec = FPS;
 	const float MaxDeltaTime = ( 1.f / FramesPerSec );

@@ -42,7 +42,7 @@ UICore::UICore(IWindow* window, BGFXRenderer* renderer)
 
 	m_driver.reset(new GPUDriverBGFX(m_context.get()));
 	m_logger.reset(new ultralight::FileLogger(ultralight::String(std::string(fileSystemRoot + "Ultralight.log").c_str())));
-#if ME_PLATFORM_UWP
+#if USING( ME_PLATFORM_UWP )
 	m_fontLoader.reset(new ultralight::FontLoaderWin());
 #else
     m_fontLoader.reset(ultralight::GetPlatformFontLoader());

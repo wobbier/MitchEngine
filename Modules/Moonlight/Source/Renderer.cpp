@@ -96,7 +96,7 @@ void BGFXRenderer::Create(const RendererCreationSettings& settings)
     init.resolution.reset = BGFX_RESET_VSYNC | BGFX_RESET_MSAA_X16;
 #endif
 
-#if ME_PLATFORM_UWP
+#if USING( ME_PLATFORM_UWP )
 	// Something is up with using DX12 and my shaders, so this is the fix for now.
 	init.type = bgfx::RendererType::Direct3D11;
 #endif

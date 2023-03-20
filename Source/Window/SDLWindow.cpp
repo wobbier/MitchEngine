@@ -850,7 +850,7 @@ void SDLWindow::SetWindow(SDL_Window* window)
     PlatformInfo.ndt = nullptr;
     PlatformInfo.nwh = wmi.info.cocoa.window;
 #endif
-#if ME_PLATFORM_UWP
+#if USING( ME_PLATFORM_UWP )
     PlatformInfo.ndt = nullptr;
     PlatformInfo.nwh = wmi.info.win.window;
 #endif

@@ -4,7 +4,7 @@
 #include "Dementia.h"
 #include "CLog.h"
 
-#if ME_PLATFORM_UWP
+#if USING( ME_PLATFORM_UWP )
 #include <wrl/client.h>
 #include <fstream>
 #else
