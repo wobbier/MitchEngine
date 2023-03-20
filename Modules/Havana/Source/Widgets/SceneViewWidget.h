@@ -4,8 +4,9 @@
 #include "Events/EventReceiver.h"
 #include <ImGuizmo.h>
 #include <Pointers.h>
+#include "Dementia.h"
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 class EditorApp;
 class Transform;

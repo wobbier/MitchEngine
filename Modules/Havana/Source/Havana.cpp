@@ -9,7 +9,7 @@
 
 #include "Events/HavanaEvents.h"
 #include "Events/SceneEvents.h"
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 #include <filesystem>
 #include "Math/Vector2.h"
 #include "CLog.h"

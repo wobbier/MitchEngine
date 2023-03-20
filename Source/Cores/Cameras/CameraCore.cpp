@@ -39,7 +39,7 @@ void CameraCore::LateUpdate(const UpdateContext& inUpdateContext)
 		Camera& CameraComponent = InEntity.GetComponent<Camera>();
 		Transform& TransformComponent = InEntity.GetComponent<Transform>();
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 #else
 		if (CameraComponent.IsMain())
 		{

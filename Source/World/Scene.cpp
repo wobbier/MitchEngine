@@ -150,7 +150,7 @@ void Scene::SaveSceneRecursively(json& d, Transform* CurrentTransform)
 
 void Scene::Save(const std::string& fileName, Transform* root)
 {
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 	FilePath = Path(fileName);
 
 	File worldFile(FilePath);

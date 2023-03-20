@@ -20,7 +20,7 @@ public:
 	EntityHandle RootTransformEntity;
 	Transform* GetRootTransform();
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 	virtual void OnEditorInspect() final;
 #endif
 

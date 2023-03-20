@@ -52,7 +52,7 @@ public:
 	virtual void Serialize(json& outJson) = 0;
 	virtual void Deserialize(const json& inJson) = 0;
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 	virtual void OnEditorInspect() = 0;
 #endif
 
@@ -89,7 +89,7 @@ public:
 		OnDeserialize(inJson);
 	}
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 	virtual void OnEditorInspect() override
 	{

@@ -90,7 +90,7 @@ private:
 
 	EngineUpdateContext updateContext;
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 	Input m_editorInput;
 public:
 	Input& GetEditorInput();

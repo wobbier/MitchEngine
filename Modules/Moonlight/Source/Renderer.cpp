@@ -187,7 +187,7 @@ void BGFXRenderer::Destroy()
 
 void BGFXRenderer::BeginFrame(const Vector2& mousePosition, uint8_t mouseButton, int32_t scroll, Vector2 outputSize, int inputChar, bgfx::ViewId viewId)
 {
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 	bgfx::setViewClear(viewId
 		, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH
 		, 0x0f0f0fff
@@ -240,7 +240,7 @@ void BGFXRenderer::Render(Moonlight::CameraData& EditorCamera)
 		bgfx::setUniform(s_sunDiffuse, &sunDiffuse.x);
 	}
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 	bgfx::ViewId id = 1;
 
 	EditorCamera.Buffer = EditorCameraBuffer;
@@ -647,7 +647,7 @@ void BGFXRenderer::WindowResized(const Vector2& newSize)
 {
 	CurrentSize = newSize;
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 	if (EditorCameraBuffer)
 	{
 		EditorCameraBuffer->Width = newSize.x;

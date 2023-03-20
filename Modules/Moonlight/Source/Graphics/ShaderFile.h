@@ -128,7 +128,7 @@ struct ShaderFileMetadata
         system(progArgs.c_str());
 #endif
 	}
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 	void OnEditorInspect() override
 	{
 	}

@@ -26,7 +26,7 @@ void FlyingCamera::OnDeserialize(const json& inJson)
 {
 }
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 void FlyingCamera::OnEditorInspect()
 {

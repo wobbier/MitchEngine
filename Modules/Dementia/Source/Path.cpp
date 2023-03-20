@@ -28,11 +28,11 @@ Path::Path( const std::string& InFile, bool Raw /*= false*/ )
 #endif
 
     std::string assetPrefix;
-#if ME_EDITOR && USING( ME_PLATFORM_WIN64 )
+#if USING( ME_EDITOR ) && USING( ME_PLATFORM_WIN64 )
     assetPrefix = "/";
 #elif USING( ME_PLATFORM_UWP )
 #elif USING( ME_PLATFORM_MACOS )
-#if ME_EDITOR
+#if USING( ME_EDITOR )
     assetPrefix = "/../../";
 #else
     assetPrefix = "/";
@@ -66,7 +66,7 @@ Path::Path( const std::string& InFile, bool Raw /*= false*/ )
         LocalPath = LocalPath.substr( path, LocalPath.size() );
     }
 
-#if ME_EDITOR || USING( ME_PLATFORM_MACOS )
+#if USING( ME_EDITOR ) || USING( ME_PLATFORM_MACOS )
     if ( !std::filesystem::exists( FullPath ) )
     {
         if ( !Raw )

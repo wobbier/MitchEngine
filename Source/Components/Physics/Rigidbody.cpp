@@ -190,7 +190,7 @@ void Rigidbody::CreateObject(const Vector3& Position, const Quaternion& Rotation
 	IsInitialized = true;
 }
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 void Rigidbody::OnEditorInspect()
 {

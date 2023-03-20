@@ -46,7 +46,7 @@ private:
 	std::string GetMeshTypeString(Moonlight::MeshType InType);
 	Moonlight::MeshType GetMeshTypeFromString(const std::string& InType);
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 	virtual void OnEditorInspect() final;
 
 	void DoMaterialRecursive(const MaterialTest& currentFolder);

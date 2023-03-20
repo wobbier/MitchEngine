@@ -22,7 +22,7 @@ void Light::OnDeserialize(const json& inJson)
 {
 }
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 void Light::OnEditorInspect()
 {

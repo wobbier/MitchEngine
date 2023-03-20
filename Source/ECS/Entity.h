@@ -52,7 +52,7 @@ public:
 	bool IsLoading = false;
 	bool DestroyOnLoad = true;
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 	void OnEditorInspect();
 #endif
 

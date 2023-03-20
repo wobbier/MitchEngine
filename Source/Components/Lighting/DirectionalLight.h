@@ -28,7 +28,7 @@ public:
 	Vector3 Ambient;
 	Vector3 Diffuse;
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 	virtual void OnEditorInspect() final
 	{
 		ImGui::DragFloat4("Direction", &Direction.x);

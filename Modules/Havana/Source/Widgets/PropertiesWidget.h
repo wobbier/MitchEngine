@@ -9,7 +9,7 @@ class Transform;
 class BaseCore;
 class BaseComponent;
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 class PropertiesWidget
 	: public HavanaWidget

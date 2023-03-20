@@ -62,7 +62,7 @@ void BaseCore::SetIsSerializable(bool value)
 	IsSerializable = value;
 }
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 void BaseCore::OnEditorInspect()
 {

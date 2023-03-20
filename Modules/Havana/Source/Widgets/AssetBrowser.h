@@ -16,7 +16,7 @@ class Havana;
 
 namespace Moonlight { class Texture; }
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 enum MyItemColumnID
 {

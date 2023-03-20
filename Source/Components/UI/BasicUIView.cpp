@@ -78,7 +78,7 @@ void BasicUIView::PlaySound(const ultralight::JSObject& thisObject, const ultral
 	evt.Fire();
 }
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 void BasicUIView::OnEditorInspect()
 {

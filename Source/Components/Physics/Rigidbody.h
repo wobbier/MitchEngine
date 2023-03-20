@@ -62,7 +62,7 @@ protected:
 	bool IsInitialized = false;
 	class btDiscreteDynamicsWorld* m_world;
 	int DebugColliderId = 0;
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 	virtual void OnEditorInspect() final;
 

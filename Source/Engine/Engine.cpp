@@ -21,7 +21,7 @@
 #include "Cores/UI/UICore.h"
 #include "Cores/Scripting/ScriptCore.h"
 
-#if ME_EDITOR && USING( ME_PLATFORM_WIN64 )
+#if USING( ME_EDITOR ) && USING( ME_PLATFORM_WIN64 )
 #include "Utils/StringUtils.h"
 #include <fileapi.h>
 #endif
@@ -75,7 +75,7 @@ void Engine::Init( Game* game )
 	CLog::GetInstance().Log( CLog::LogType::Info, "Starting the MitchEngine." );
 	Path engineCfg( "Assets\\Config\\Engine.cfg" );
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 	if ( engineCfg.FullPath.rfind( "Engine" ) != -1 )
 	{
 		Path gameEngineCfgPath( "Assets\\Config\\Engine.cfg", true );
@@ -132,7 +132,7 @@ void Engine::Init( Game* game )
 	GameWindow = new SDLWindow( "MitchEngine", ResizeFunc, 500, 300, Vector2( WindowWidth, WindowHeight ) );
 	//GameWindow = new UWPWindow("MitchEngine", 1920, 1080, ResizeFunc);
 #endif
-#if ME_EDITOR && USING( ME_PLATFORM_WIN64 )
+#if USING( ME_EDITOR ) && USING( ME_PLATFORM_WIN64 )
 	GameWindow->SetBorderless( true );
 #endif
 
@@ -230,7 +230,7 @@ void Engine::Run()
 			float deltaTime = DeltaTime = AccumulatedTime;
 			updateContext.UpdateDeltaTime( deltaTime );
 			{
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 				Input& input = GetEditorInput();
 #else
 				Input& input = GetInput();
@@ -322,7 +322,7 @@ void Engine::Run()
 			// Render
 			{
 				m_game->PostRender();
-#if !ME_EDITOR
+#if !USING( ME_EDITOR )
 				EditorCamera.OutputSize = GetWindow()->GetSize();
 #if _DEBUG
 				FrameProfile::GetInstance().Render( { 0.f, GameWindow->GetSize().y - FrameProfile::kMinProfilerSize }, { GameWindow->GetSize().x, (float)FrameProfile::kMinProfilerSize } );
@@ -449,13 +449,13 @@ void Engine::LoadScene( const std::string& SceneFile )
 	evt.LoadedScene = CurrentScene;
 	evt.Fire();
 	ScriptEngine::sScriptData.worldPtr = GetWorld();
-#if !ME_EDITOR
+#if !USING( ME_EDITOR )
 	GameWorld->Simulate();
 	GameWorld->Start();
 #endif
 }
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 Input& Engine::GetEditorInput()
 {

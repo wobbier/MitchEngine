@@ -14,7 +14,7 @@
 #include <Window/SDLWindow.h>
 #include "UI/Colors.h"
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 MainMenuWidget::MainMenuWidget(Havana* editorApp)
 	: HavanaWidget("Main Menu")

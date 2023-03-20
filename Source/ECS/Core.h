@@ -57,7 +57,7 @@ public:
 
 	const std::string& GetName() const;
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 	virtual void OnEditorInspect();
 	virtual void Serialize(json& outJson) = 0;
 #endif
@@ -134,7 +134,7 @@ public:
 	{
 	}
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 	virtual void OnSerialize(json& outJson)
 	{
 	}
@@ -149,7 +149,7 @@ public:
 	}
 };
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 template<typename T>
 void Core<T>::OnEditorInspect()

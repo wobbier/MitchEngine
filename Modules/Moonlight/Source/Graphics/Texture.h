@@ -96,11 +96,11 @@ struct TextureResourceMetadata
 	bool GenerateSpriteMIPs = false;
 	OutputTextureType OutputType = OutputTextureType::Default;
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 	virtual void OnEditorInspect() final;
 #endif
 
-#if ME_EDITOR || defined(ME_TOOLS)
+#if USING( ME_EDITOR ) || defined(ME_TOOLS)
 	void Export() override;
 #endif
 

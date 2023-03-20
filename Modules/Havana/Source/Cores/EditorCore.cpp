@@ -15,7 +15,7 @@
 #include <World/Scene.h>
 #include <Utils/EditorConfig.h>
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 EditorCore::EditorCore(Havana* editor)
 	: Base(ComponentFilter().Excludes<Transform>())

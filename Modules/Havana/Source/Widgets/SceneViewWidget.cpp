@@ -16,7 +16,7 @@
 #include "Profiling/BasicFrameProfile.h"
 #include "UI/Colors.h"
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 SceneViewWidget::SceneViewWidget(const std::string& inTitle, bool inSceneToolsEnabled)
 	: HavanaWidget(inTitle)

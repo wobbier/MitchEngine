@@ -7,7 +7,7 @@
 #include "Utils/HavanaUtils.h"
 #include <Graphics/Material.h>
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 #include <Renderer.h>
 #include <Graphics/DynamicSky.h>
 #include <Engine/Engine.h>
@@ -165,7 +165,7 @@ void Camera::OnSerialize(json& outJson)
 	outJson["ClearColor"] = { ClearColor.x, ClearColor.y, ClearColor.z };
 }
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 void Camera::OnEditorInspect()
 {

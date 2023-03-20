@@ -28,7 +28,7 @@
 #include "Events/HavanaEvents.h"
 #include <Utils/EditorConfig.h>
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 EditorApp::EditorApp(int argc, char** argv)
 	: Game(argc, argv)

@@ -33,7 +33,7 @@ public:
 	virtual void OnStop() override;
 	void UpdateMesh(Mesh* InMesh);
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 	virtual void OnEditorInspect() final;
 #endif
 

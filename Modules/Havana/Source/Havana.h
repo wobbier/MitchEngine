@@ -22,7 +22,7 @@ class PropertiesWidget;
 class AssetPreviewWidget;
 class AssetBrowserWidget;
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 class Havana
 	: public EventReceiver

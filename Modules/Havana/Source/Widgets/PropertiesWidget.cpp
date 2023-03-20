@@ -7,7 +7,7 @@
 #include <Utils/CommonUtils.h>
 #include <Events/SceneEvents.h>
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 PropertiesWidget::PropertiesWidget()
 	: HavanaWidget("Properties")

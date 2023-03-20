@@ -12,7 +12,7 @@ public:
 	CreateComponentFunc CreateFunc;
 	GetComponentType GetTypeFunc;
 	
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 	std::string Folder;
 #endif
 };
@@ -55,7 +55,7 @@ private:
 		ComponentInfo info;
 		info.CreateFunc = func;
 		info.GetTypeFunc = typeFunc;
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 		info.Folder = folder;
 #endif
 		std::pair<ComponentRegistry::iterator, bool> ret =

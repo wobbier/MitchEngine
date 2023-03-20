@@ -154,7 +154,7 @@ bool FlyingCameraCore::OnEvent(const BaseEvent& evt)
 	return false;
 }
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 void FlyingCameraCore::OnEditorInspect()
 {

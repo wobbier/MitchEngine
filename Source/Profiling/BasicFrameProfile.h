@@ -27,7 +27,7 @@ class FrameProfile
 	ME_SINGLETON_DEFINITION(FrameProfile);
 
 public:
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 	static constexpr int kMinProfilerSize = 6;
 #else
 	static constexpr int kMinProfilerSize = 5;

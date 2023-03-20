@@ -21,7 +21,7 @@
 #include "Utils/PlatformUtils.h"
 #include "UI/Colors.h"
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 const ImGuiTableSortSpecs* AssetBrowserWidget::s_current_sort_specs = nullptr;
 

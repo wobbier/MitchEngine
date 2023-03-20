@@ -10,7 +10,7 @@ class MaterialInfo
 public:
 	CreateMaterialFunc CreateFunc;
 	
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 	std::string Folder;
 	std::string Name;
 #endif
@@ -47,7 +47,7 @@ private:
 
 		MaterialInfo info;
 		info.CreateFunc = func;
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 		info.Folder = folder;
 		info.Name = humanName;
 #endif

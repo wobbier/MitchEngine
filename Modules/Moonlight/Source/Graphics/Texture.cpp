@@ -193,7 +193,7 @@ std::string TextureResourceMetadata::GetExtension2() const
 	return std::string("dds");
 }
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 void TextureResourceMetadata::OnEditorInspect()
 {
@@ -226,7 +226,7 @@ void TextureResourceMetadata::OnEditorInspect()
 
 #endif
 
-#if ME_EDITOR || defined(ME_TOOLS)
+#if USING( ME_EDITOR ) || defined(ME_TOOLS)
 
 void TextureResourceMetadata::Export()
 {

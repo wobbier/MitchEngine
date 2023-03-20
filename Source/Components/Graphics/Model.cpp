@@ -107,7 +107,7 @@ void Model::RecursiveLoadMesh(Moonlight::Node& root, EntityHandle& parentEnt)
 	}
 }
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 void Model::OnEditorInspect()
 {

@@ -54,11 +54,9 @@ Class& operator=(Class&&) = delete;
 #endif
 
 #ifdef ME_EDITOR
-#define ME_EDITOR 1
-#define USE_ME_EDITOR IN_USE
+#define ME_EDITOR IN_USE
 #else
-#define ME_EDITOR 0
-#define USE_ME_EDITOR NOT_IN_USE
+#define ME_EDITOR NOT_IN_USE
 #endif
 
 #ifdef ME_TOOLS

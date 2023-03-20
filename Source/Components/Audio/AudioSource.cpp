@@ -122,7 +122,7 @@ void AudioSource::OnDeserialize(const json& inJson)
 	}
 }
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 void AudioSource::OnEditorInspect()
 {
 #ifndef FMOD_ENABLED
@@ -219,7 +219,7 @@ void AudioResourceMetadata::OnDeserialize(const json& inJson)
 {
 }
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 void AudioResourceMetadata::Export()
 {

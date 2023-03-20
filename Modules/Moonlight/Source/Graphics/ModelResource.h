@@ -46,7 +46,7 @@ struct ModelResourceMetadata
 
 	virtual std::string GetExtension2() const override;
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 	virtual void OnEditorInspect() final;
 #endif
 };

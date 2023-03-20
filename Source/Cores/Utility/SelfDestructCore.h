@@ -29,7 +29,7 @@ public:
 	{
 	}
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 	virtual void OnEditorInspect() final
 	{
 		ImGui::DragFloat("Movement Speed", &Lifetime);
@@ -54,7 +54,7 @@ public:
 //
 //	virtual void OnEntityAdded(Entity& NewEntity) final;
 //	virtual void OnEntityRemoved(Entity& InEntity) final;
-//#if ME_EDITOR
+//#if USING( ME_EDITOR )
 //	virtual void OnEditorInspect() final;
 //#endif
 

@@ -8,7 +8,7 @@ class Transform;
 class Havana;
 class Camera;
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 class EditorCore
 	: public Core<EditorCore>

@@ -250,7 +250,7 @@ std::string ModelResourceMetadata::GetExtension2() const
 	return "fbx";
 }
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 void ModelResourceMetadata::OnEditorInspect()
 {

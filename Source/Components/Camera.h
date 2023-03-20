@@ -56,7 +56,7 @@ public:
 
 	Matrix4 WorldToCamera;
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 	virtual void OnEditorInspect() final;
 #endif
 

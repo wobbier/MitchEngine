@@ -41,7 +41,7 @@ private:
 		ModelPath = Path(inJson["ModelPath"]);
 	}
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 	virtual void OnEditorInspect() final;
 #endif
 };

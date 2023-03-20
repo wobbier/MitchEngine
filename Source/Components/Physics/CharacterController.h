@@ -47,7 +47,7 @@ public:
 
 	bool IsOnGround() const;
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 	virtual void OnEditorInspect() override;
 #endif
 private:

@@ -4,7 +4,7 @@
 #include "Graphics/MeshData.h"
 #include "Graphics/Texture.h"
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 #include "Utils/HavanaUtils.h"
 #include "imgui.h"
@@ -163,7 +163,7 @@ Moonlight::MeshType Mesh::GetMeshTypeFromString(const std::string& InType)
 	}
 }
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 void Mesh::OnEditorInspect()
 {

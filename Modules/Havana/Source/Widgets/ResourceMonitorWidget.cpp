@@ -3,7 +3,7 @@
 #include <Resource/ResourceCache.h>
 #include <vector>
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 const ImGuiTableSortSpecs* ResourceMonitorWidget::s_SortSpecs = nullptr;
 

@@ -53,7 +53,7 @@ void SceneCore::OnEntityDestroyed(Entity& InEntity)
 	}
 }
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 void SceneCore::OnEditorInspect()
 {

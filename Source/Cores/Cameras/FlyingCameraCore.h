@@ -33,7 +33,7 @@ private:
 	bool InputEnabled = false;
 	bool PreviousMouseDown = false;
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 	virtual void OnEditorInspect() final;
 

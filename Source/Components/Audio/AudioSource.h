@@ -28,7 +28,7 @@ public:
 	unsigned int GetPositionMs();
 	void SetPositionMs(unsigned int position);
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 	virtual void OnEditorInspect() override;
 #endif
 	virtual void Init() override;
@@ -79,7 +79,7 @@ struct AudioResourceMetadata
 	void OnSerialize(json& inJson) override;
 	void OnDeserialize(const json& inJson) override;
 	
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 	void Export() override;
 
 	virtual void OnEditorInspect() final;

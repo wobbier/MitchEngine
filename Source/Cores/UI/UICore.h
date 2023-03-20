@@ -41,7 +41,7 @@ public:
 
 	ultralight::RefPtr<ultralight::Renderer> m_uiRenderer;
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 	virtual void OnEditorInspect() final;
 #endif
 	bgfx::TextureHandle m_uiTexture;

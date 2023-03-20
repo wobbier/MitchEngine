@@ -91,7 +91,7 @@ SharedPtr<MetaBase> ResourceCache::LoadMetadata(const Path& filePath)
 			j = json::parse(metaFile.Read());
 			metadata->Deserialize(j);
 		}
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 		else
 		{
 			metadata->Serialize(j);

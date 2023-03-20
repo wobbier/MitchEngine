@@ -111,7 +111,7 @@ void UICore::Update(const UpdateContext& inUpdateContext)
 
 //	Vector2 mousePosition = GetEngine().GetInput().GetMousePosition();
 //
-//#if ME_EDITOR
+//#if USING( ME_EDITOR )
 //	if (!static_cast<EditorApp*>(GetEngine().GetGame())->IsGameRunning())
 //	{
 //		return;
@@ -151,7 +151,7 @@ void UICore::Update(const UpdateContext& inUpdateContext)
 //		mouseEvent.button = ultralight::MouseEvent::Button::kButton_None;
 //	}
 //
-//#if ME_EDITOR
+//#if USING( ME_EDITOR )
 //	//if (m_renderer->GetViewportMode() == ViewportMode::Game)
 //#endif
 //	{
@@ -291,7 +291,7 @@ void UICore::CopyBitmapToTexture(ultralight::RefPtr<ultralight::Bitmap> bitmap)
 	bitmap->UnlockPixels();
 }
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 void UICore::OnEditorInspect()
 {

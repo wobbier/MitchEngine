@@ -4,7 +4,7 @@
 #include "ComponentDetail.h"
 #include "CLog.h"
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 #include "imgui.h"
 #endif
 #include "Utils/HavanaUtils.h"
@@ -71,7 +71,7 @@ void Entity::MarkForDelete()
 	GameWorld->MarkEntityForDelete(*this);
 }
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 void Entity::OnEditorInspect()
 {

@@ -170,7 +170,7 @@ void RenderCore::Update(const UpdateContext& inUpdateContext)
 	//	//	m_renderer->Sunlight.dir = light.Direction;
 	//	//}
 	//}
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 	GetEngine().GetRenderer().SetDebugDrawEnabled(EnableDebugDraw);
 #endif
 }
@@ -200,7 +200,7 @@ void RenderCore::UpdateMesh(Mesh* InMesh)
 	InMesh->Id = GetEngine().GetRenderer().GetMeshCache().Push(command);
 }
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 void RenderCore::OnEditorInspect()
 {

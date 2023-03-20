@@ -26,7 +26,7 @@ void ExampleCore::Update(float dt)
 	}
 }
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 void ExampleCore::OnEditorInspect()
 {

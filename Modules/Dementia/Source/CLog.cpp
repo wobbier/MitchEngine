@@ -7,7 +7,7 @@
 #include <processenv.h>
 #endif
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 std::vector<CLog::LogEntry> CLog::Messages;
 #endif
 
@@ -72,7 +72,7 @@ bool CLog::LogMessage( CLog::LogType priority, std::string message )
     mLogFile.close();
 #endif
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
     Messages.emplace_back( LogEntry { priority, std::move( message ) } );
 #endif
 
