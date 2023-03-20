@@ -2,7 +2,7 @@
 
 #include "TextAnalysisSource.h"
 
-#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
+#if USING( ME_PLATFORM_WINDOWS )
 
 TextAnalysisSource::TextAnalysisSource(const wchar_t* text,
   UINT32 textLength,

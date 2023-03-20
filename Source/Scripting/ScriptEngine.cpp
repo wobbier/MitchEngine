@@ -15,10 +15,6 @@
 
 ScriptEngine::ScriptData ScriptEngine::sScriptData;
 
-ScriptClass ScriptEngine::testClassInstance;
-
-MonoClassField* ScriptEngine::floatField = nullptr;
-
 std::vector<ScriptEngine::LoadedClassInfo> ScriptEngine::LoadedClasses;
 
 std::vector<ScriptEngine::LoadedClassInfo> ScriptEngine::LoadedEntityScripts;
@@ -170,7 +166,7 @@ void ScriptEngine::Tests()
     floatField = mono_class_get_field_from_name( testingClass, "MyPublicFloatVar" );
     uint8_t floatFieldAccessibility = MonoUtils::GetFieldAccessibility( floatField );
 
-    if ( floatFieldAccessibility & (uint8_t)MonoUtils::Accessibility::Public )
+    if ( floatFieldAccessibility & MonoUtils::Accessibility::Public )
     {
         std::cout << "PUBLIC: MyPublicFloatVar" << std::endl;
     }
@@ -179,7 +175,7 @@ void ScriptEngine::Tests()
     MonoClassField* nameField = mono_class_get_field_from_name( testingClass, "m_Name" );
     uint8_t nameFieldAccessibility = MonoUtils::GetFieldAccessibility( nameField );
 
-    if ( nameFieldAccessibility & (uint8_t)MonoUtils::Accessibility::Private )
+    if ( nameFieldAccessibility & MonoUtils::Accessibility::Private )
     {
         std::cout << "PRIVATE: m_Name" << std::endl;
     }
@@ -188,7 +184,7 @@ void ScriptEngine::Tests()
     MonoProperty* nameProperty = mono_class_get_property_from_name( testingClass, "Name" );
     uint8_t namePropertyAccessibility = MonoUtils::GetPropertyAccessibility( nameProperty );
 
-    if ( namePropertyAccessibility & (uint8_t)MonoUtils::Accessibility::Public )
+    if ( namePropertyAccessibility & MonoUtils::Accessibility::Public )
     {
         std::cout << "PUBLIC: Name" << std::endl;
     }

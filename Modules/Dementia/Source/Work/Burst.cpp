@@ -4,7 +4,7 @@
 #include "Dementia.h"
 #include "Utils/StringUtils.h"
 
-#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
+#if USING( ME_PLATFORM_WINDOWS )
 #include <synchapi.h>
 #include <assert.h>
 #include <algorithm>
@@ -14,8 +14,7 @@
 
 namespace Burst
 {
-
-#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
+#if USING( ME_PLATFORM_WINDOWS )
 	typedef BOOL(WINAPI* LPFN_GLPI)(
 		PSYSTEM_LOGICAL_PROCESSOR_INFORMATION,
 		PDWORD);

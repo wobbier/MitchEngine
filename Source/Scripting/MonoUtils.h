@@ -26,7 +26,7 @@ namespace MonoUtils
         Entity
     };
 
-    enum class Accessibility : uint8_t
+    enum Accessibility : uint8_t
     {
         None = 0,
         Private = ( 1 << 0 ),

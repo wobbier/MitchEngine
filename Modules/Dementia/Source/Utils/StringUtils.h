@@ -1,15 +1,16 @@
 #pragma once
 #include <string>
 #include <memory>
+#include "Dementia.h"
 
-#if ME_PLATFORM_WIN64 || ME_PLATFORM_UWP
+#if USING( ME_PLATFORM_WINDOWS )
 #include <Windows.h>
 #endif
 
 class StringUtils
 {
 public:
-#if ME_PLATFORM_WIN64 || ME_PLATFORM_UWP
+#if USING( ME_PLATFORM_WINDOWS )
 	static std::string ToString(const std::wstring& wstr)
 	{
 		const int bufferSize = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, nullptr, 0, nullptr, nullptr);
@@ -25,5 +26,5 @@ public:
 		MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, buffer.get(), bufferSize);
 		return std::wstring(buffer.get());
 	}
-#endif // ME_PLATFORM_WIN64 || ME_PLATFORM_UWP
+#endif // #if USING( ME_PLATFORM_WINDOWS )
 };

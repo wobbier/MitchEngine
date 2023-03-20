@@ -199,8 +199,6 @@ private:
 
 public:
     static ScriptData sScriptData;
-    static ScriptClass testClassInstance;
-    static MonoClassField* floatField;
 
     // Parsed class
     static std::vector<LoadedClassInfo> LoadedClasses;

@@ -1,10 +1,11 @@
 #include "MetaFile.h"
 #include "File.h"
+#include "Dementia.h"
 
 MetaBase::MetaBase(const Path& filePath)
 	: FilePath(filePath)
 {
-#if ME_PLATFORM_WIN64 || ME_PLATFORM_UWP
+#if USING( ME_PLATFORM_WINDOWS )
 	struct stat fileInfo;
 
 	if (stat(filePath.FullPath.c_str(), &fileInfo) != 0) {  // Use stat() to get the info

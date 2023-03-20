@@ -1,6 +1,6 @@
 #include "PCH.h"
 
-#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
+#if USING( ME_PLATFORM_WINDOWS )
 #include <WinUser.h>
 #endif
 

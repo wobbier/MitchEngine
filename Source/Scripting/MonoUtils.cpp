@@ -68,41 +68,41 @@ namespace MonoUtils
 
     uint8_t GetFieldAccessibility( MonoClassField* field )
     {
-        uint8_t accessibility = (uint8_t)Accessibility::None;
+        uint8_t accessibility = Accessibility::None;
         uint32_t accessFlag = mono_field_get_flags( field ) & MONO_FIELD_ATTR_FIELD_ACCESS_MASK;
 
         switch ( accessFlag )
         {
         case MONO_FIELD_ATTR_PRIVATE:
         {
-            accessibility = (uint8_t)Accessibility::Private;
+            accessibility = Accessibility::Private;
             break;
         }
         case MONO_FIELD_ATTR_FAM_AND_ASSEM:
         {
-            accessibility |= (uint8_t)Accessibility::Protected;
-            accessibility |= (uint8_t)Accessibility::Internal;
+            accessibility |= Accessibility::Protected;
+            accessibility |= Accessibility::Internal;
             break;
         }
         case MONO_FIELD_ATTR_ASSEMBLY:
         {
-            accessibility = (uint8_t)Accessibility::Internal;
+            accessibility = Accessibility::Internal;
             break;
         }
         case MONO_FIELD_ATTR_FAMILY:
         {
-            accessibility = (uint8_t)Accessibility::Protected;
+            accessibility = Accessibility::Protected;
             break;
         }
         case MONO_FIELD_ATTR_FAM_OR_ASSEM:
         {
-            accessibility |= (uint8_t)Accessibility::Private;
-            accessibility |= (uint8_t)Accessibility::Protected;
+            accessibility |= Accessibility::Private;
+            accessibility |= Accessibility::Protected;
             break;
         }
         case MONO_FIELD_ATTR_PUBLIC:
         {
-            accessibility = (uint8_t)Accessibility::Public;
+            accessibility = Accessibility::Public;
             break;
         }
         default:
@@ -116,7 +116,7 @@ namespace MonoUtils
 
     uint8_t GetPropertyAccessibility( MonoProperty* property )
     {
-        uint8_t accessibility = (uint8_t)Accessibility::None;
+        uint8_t accessibility = Accessibility::None;
 
         // Get a reference to the property's getter method
         MonoMethod* propertyGetter = mono_property_get_get_method( property );
@@ -129,34 +129,34 @@ namespace MonoUtils
             {
             case MONO_FIELD_ATTR_PRIVATE:
             {
-                accessibility = (uint8_t)Accessibility::Private;
+                accessibility = Accessibility::Private;
                 break;
             }
             case MONO_FIELD_ATTR_FAM_AND_ASSEM:
             {
-                accessibility |= (uint8_t)Accessibility::Protected;
-                accessibility |= (uint8_t)Accessibility::Internal;
+                accessibility |= Accessibility::Protected;
+                accessibility |= Accessibility::Internal;
                 break;
             }
             case MONO_FIELD_ATTR_ASSEMBLY:
             {
-                accessibility = (uint8_t)Accessibility::Internal;
+                accessibility = Accessibility::Internal;
                 break;
             }
             case MONO_FIELD_ATTR_FAMILY:
             {
-                accessibility = (uint8_t)Accessibility::Protected;
+                accessibility = Accessibility::Protected;
                 break;
             }
             case MONO_FIELD_ATTR_FAM_OR_ASSEM:
             {
-                accessibility |= (uint8_t)Accessibility::Private;
-                accessibility |= (uint8_t)Accessibility::Protected;
+                accessibility |= Accessibility::Private;
+                accessibility |= Accessibility::Protected;
                 break;
             }
             case MONO_FIELD_ATTR_PUBLIC:
             {
-                accessibility = (uint8_t)Accessibility::Public;
+                accessibility = Accessibility::Public;
                 break;
             }
             default:
@@ -172,11 +172,11 @@ namespace MonoUtils
             // Extract the access flags from the setters flags
             uint32_t accessFlag = mono_method_get_flags( propertySetter, nullptr ) & MONO_METHOD_ATTR_ACCESS_MASK;
             if ( accessFlag != MONO_FIELD_ATTR_PUBLIC )
-                accessibility = (uint8_t)Accessibility::Private;
+                accessibility = Accessibility::Private;
         }
         else
         {
-            accessibility = (uint8_t)Accessibility::Private;
+            accessibility = Accessibility::Private;
         }
 
         return accessibility;
