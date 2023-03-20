@@ -887,7 +887,7 @@ void AssetBrowserWidget::ClearAssets()
 
 bool AssetBrowserWidget::ProccessDirectoryRecursive( std::string& dir, Directory& dirRef, const std::filesystem::directory_entry& file )
 {
-#if ME_PLATFORM_MACOS
+#if USING( ME_PLATFORM_MACOS )
     const char slash = '/';
 #else
     const char slash = '\\';

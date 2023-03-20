@@ -53,7 +53,7 @@ void PlatformWindow::SetWindow(SDL_Window* window)
 	PlatformInfo.ndt = nullptr;
 	PlatformInfo.nwh = wmi.info.win.window;
 #endif
-#if ME_PLATFORM_MACOS
+#if USING( ME_PLATFORM_MACOS )
 	PlatformInfo.ndt = nullptr;
 	PlatformInfo.nwh = wmi.info.cocoa.window;
 #endif

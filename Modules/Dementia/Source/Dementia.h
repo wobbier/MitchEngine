@@ -35,13 +35,6 @@ Class& operator=(Class&&) = delete;
 #define USING(x) (1 x 1)
 #endif /* USING */
 
-#if !defined(IN_USE)
-#define IN_USE     &&
-#define NOT_IN_USE &&!
-#define USE_IF(x)  &&((x) ? 1 : 0) &&
-#define USING (x)  (1 x 1)
-#endif
-
 #ifdef ME_PLATFORM_WIN64
 #define ME_PLATFORM_WIN64 1
 #define USE_ME_PLATFORM_WIN64 IN_USE
@@ -59,11 +52,9 @@ Class& operator=(Class&&) = delete;
 #endif
 
 #ifdef ME_PLATFORM_MACOS
-#define ME_PLATFORM_MACOS 1
-#define USE_ME_PLATFORM_MACOS IN_USE
+#define ME_PLATFORM_MACOS IN_USE
 #else
-#define ME_PLATFORM_MACOS 0
-#define USE_ME_PLATFORM_MACOS NOT_IN_USE
+#define ME_PLATFORM_MACOS NOT_IN_USE
 #endif
 
 #ifdef ME_DIRECTX

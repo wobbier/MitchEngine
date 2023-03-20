@@ -31,7 +31,7 @@ Path::Path( const std::string& InFile, bool Raw /*= false*/ )
 #if ME_EDITOR && ME_PLATFORM_WIN64
     assetPrefix = "/";
 #elif ME_PLATFORM_UWP
-#elif ME_PLATFORM_MACOS
+#elif USING( ME_PLATFORM_MACOS )
 #if ME_EDITOR
     assetPrefix = "/../../";
 #else
@@ -43,7 +43,7 @@ Path::Path( const std::string& InFile, bool Raw /*= false*/ )
     LocalPath = InFile;
 
     std::replace( LocalPath.begin(), LocalPath.end(), '\\', '/' );
-#if ME_PLATFORM_MACOS
+#if USING( ME_PLATFORM_MACOS )
     size_t path = LocalPath[0] == '/' ? 0 : std::string::npos;
 #else
     size_t path = LocalPath.find( ':' );
@@ -66,7 +66,7 @@ Path::Path( const std::string& InFile, bool Raw /*= false*/ )
         LocalPath = LocalPath.substr( path, LocalPath.size() );
     }
 
-#if ME_EDITOR || ME_PLATFORM_MACOS
+#if ME_EDITOR || USING( ME_PLATFORM_MACOS )
     if ( !std::filesystem::exists( FullPath ) )
     {
         if ( !Raw )

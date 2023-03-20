@@ -40,7 +40,7 @@ int main(int argc, char** argv)
 #if ME_PLATFORM_WIN64
     ImGui_ImplSDL2_InitForD3D(static_cast<SDLWindow*>(win)->WindowHandle);
 #endif
-#if ME_PLATFORM_MACOS
+#if USING( ME_PLATFORM_MACOS )
     ImGui_ImplSDL2_InitForMetal(static_cast<SDLWindow*>(win)->WindowHandle);
 #endif
 

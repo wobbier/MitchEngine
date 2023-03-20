@@ -96,7 +96,7 @@ struct ShaderFileMetadata
 
 		PlatformUtils::SystemCall(shadercPath, progArgs);
 
-#elif ME_PLATFORM_MACOS
+#elif USING( ME_PLATFORM_MACOS )
         Path shadercPath = Path("Engine/Tools/macOS/shaderc");
         
         std::string exportType;
