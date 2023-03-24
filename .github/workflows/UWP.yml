@@ -2,9 +2,9 @@ name: UWP
 
 on:
   push:
-    branches: [master]
+    branches: [master, sandbox]
   pull_request:
-    branches: [master]
+    branches: [master, sandbox]
 
   workflow_dispatch:
 
@@ -33,7 +33,7 @@ jobs:
         id: downloadfile
         name: Grab the project setup file
         with:
-          url: "https://raw.githubusercontent.com/wobbier/MitchEngine/master/Tools/NewProjectSetup.bat"
+          url: "https://raw.githubusercontent.com/wobbier/MitchEngine/${{github.head_ref}}/Tools/NewProjectSetup.bat"
           target: ./
 
       - name: Generate a new project
