@@ -417,7 +417,7 @@ void MainMenuWidget::Render()
 		ImGui::SameLine();
 		ImGui::Text("\nA hobby game engine project for making simple games.\nMitch Andrews 2021\n");
 		ImGui::Separator();
-#ifdef FMOD_ENABLED
+#if USING( ME_FMOD )
 		ImGui::Text("FMOD is set up correctly!\n\n");
 		if (!FMODImage)
 		{
@@ -425,7 +425,7 @@ void MainMenuWidget::Render()
 		}
 #endif
 
-#ifdef FMOD_ENABLED
+#if USING( ME_FMOD )
 		ImGui::Image(FMODImage->TexHandle, { 364.f, 96.f });
 		ImGui::Text("\n");
 #else
@@ -435,7 +435,7 @@ void MainMenuWidget::Render()
 		if (ImGui::Button("Awesome!", ImVec2(-1, 0))) { ShowAboutWindow = false; ImGui::CloseCurrentPopup(); }
 		ImGui::EndPopup();
 	}
-#ifdef FMOD_ENABLED
+#if USING( ME_FMOD )
 	else
 	{
 		FMODImage = nullptr;

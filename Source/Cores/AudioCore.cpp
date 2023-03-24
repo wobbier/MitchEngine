@@ -5,7 +5,7 @@
 #include "optick.h"
 #include "Resource/ResourceCache.h"
 
-#ifdef FMOD_ENABLED
+#if USING( ME_FMOD )
 #include "fmod.hpp"
 #endif
 
@@ -14,7 +14,7 @@ AudioCore::AudioCore()
 {
 	SetIsSerializable(false);
 
-#ifdef FMOD_ENABLED
+#if USING( ME_FMOD )
 	FMOD_RESULT res;
 	res = FMOD::System_Create(&system);
 	if (res != FMOD_OK)
@@ -49,7 +49,7 @@ void AudioCore::Update(float dt)
 {
 	OPTICK_CATEGORY("AudioCore Update", Optick::Category::Audio);
 
-#ifdef FMOD_ENABLED
+#if USING( ME_FMOD )
 	if (system)
 	{
 		system->update();
@@ -68,7 +68,7 @@ void AudioCore::InitComponent(AudioSource& audioSource)
 {
 	if (!audioSource.IsInitialized && !audioSource.FilePath.LocalPath.empty())
 	{
-#ifdef FMOD_ENABLED
+#if USING( ME_FMOD )
 		SharedPtr<Sound> soundResource = ResourceCache::GetInstance().Get<Sound>(audioSource.FilePath, system);
 		if (!soundResource)
 		{

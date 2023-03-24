@@ -7,7 +7,7 @@
 #include "Events/EventReceiver.h"
 
 class AudioSource;
-#ifdef FMOD_ENABLED
+#if USING( ME_FMOD )
 namespace FMOD { class System; }
 #endif
 
@@ -36,7 +36,7 @@ private:
 	virtual void OnStart() final;
 	void OnStop() final;
 
-#ifdef FMOD_ENABLED
+#if USING( ME_FMOD )
 	FMOD::System* system;
 #endif
 };

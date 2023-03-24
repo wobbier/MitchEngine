@@ -6,7 +6,7 @@
 #include "Resource/MetaRegistry.h"
 #include "Resources/SoundResource.h"
 
-#ifdef FMOD_ENABLED
+#if USING( ME_FMOD )
 #include "fmod.hpp"
 namespace FMOD { class System; }
 #endif
@@ -40,7 +40,7 @@ public:
 	bool PlayOnAwake = false;
 	bool Loop = false;
 
-#ifdef FMOD_ENABLED
+#if USING( ME_FMOD )
 	SharedPtr<Sound> SoundInstance = nullptr;
 	FMOD::Channel* ChannelHandle = nullptr;
 #endif
@@ -51,7 +51,7 @@ private:
 	virtual void OnSerialize(json& outJson) final;
 	virtual void OnDeserialize(const json& inJson) final;
 
-#ifdef FMOD_ENABLED
+#if USING( ME_FMOD )
 	FMOD::System* m_owner = nullptr;
 #endif
 };

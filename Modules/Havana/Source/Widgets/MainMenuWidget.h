@@ -57,7 +57,7 @@ private:
 	json AssetDirectory;
 	Havana* Editor = nullptr;
 
-#ifdef FMOD_ENABLED
+#if USING( ME_FMOD )
 	SharedPtr<Moonlight::Texture> FMODImage;
 #endif
 

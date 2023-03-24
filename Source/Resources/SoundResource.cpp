@@ -1,14 +1,14 @@
 #include "PCH.h"
 #include "SoundResource.h"
 
-#ifdef FMOD_ENABLED
+#if USING( ME_FMOD )
 #include <fmod.hpp>
 #endif
 
 Sound::Sound(const Path& path, void* fmodSystem)
 	: Resource(path)
 {
-#ifdef FMOD_ENABLED
+#if USING( ME_FMOD )
 	FMOD::System* system = static_cast<FMOD::System*>(fmodSystem);
 	if(!system)
 	{

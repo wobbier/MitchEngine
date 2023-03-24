@@ -8,7 +8,7 @@
 
 #include "Events/AudioEvents.h"
 
-#ifdef FMOD_ENABLED
+#if USING( ME_FMOD )
 #include "fmod.hpp"
 #endif
 #include "Resource/MetaFile.h"
@@ -31,7 +31,7 @@ AudioSource::AudioSource()
 
 void AudioSource::Play(bool ShouldLoop)
 {
-#ifdef FMOD_ENABLED
+#if USING( ME_FMOD )
 	if (SoundInstance)
 	{
 		if (IsPlaying())
@@ -46,7 +46,7 @@ void AudioSource::Play(bool ShouldLoop)
 
 void AudioSource::Stop(bool immediate)
 {
-#ifdef FMOD_ENABLED
+#if USING( ME_FMOD )
 	if (ChannelHandle)
 	{
 		ChannelHandle->stop();
@@ -56,7 +56,7 @@ void AudioSource::Stop(bool immediate)
 
 bool AudioSource::IsPlaying() const
 {
-#ifdef FMOD_ENABLED
+#if USING( ME_FMOD )
 	bool isPlaying;
 	return (ChannelHandle && ChannelHandle->isPlaying(&isPlaying) == FMOD_OK && isPlaying);
 #else
@@ -66,7 +66,7 @@ bool AudioSource::IsPlaying() const
 
 unsigned int AudioSource::GetLength()
 {
-#ifdef FMOD_ENABLED
+#if USING( ME_FMOD )
 	unsigned int isPlaying = 0;
 	if (SoundInstance && SoundInstance->Handle && SoundInstance->Handle->getLength(&isPlaying, FMOD_TIMEUNIT_MS) != FMOD_OK)
 	{
@@ -79,7 +79,7 @@ unsigned int AudioSource::GetLength()
 
 unsigned int AudioSource::GetPositionMs()
 {
-#ifdef FMOD_ENABLED
+#if USING( ME_FMOD )
 	unsigned int isPlaying = 0;
 	if (ChannelHandle && ChannelHandle->getPosition(&isPlaying, FMOD_TIMEUNIT_MS) != FMOD_OK)
 	{
@@ -92,7 +92,7 @@ unsigned int AudioSource::GetPositionMs()
 
 void AudioSource::SetPositionMs(unsigned int position)
 {
-#ifdef FMOD_ENABLED
+#if USING( ME_FMOD )
 	if (ChannelHandle && ChannelHandle->setPosition(position, FMOD_TIMEUNIT_MS) != FMOD_OK)
 	{
 	}
@@ -125,7 +125,7 @@ void AudioSource::OnDeserialize(const json& inJson)
 #if USING( ME_EDITOR )
 void AudioSource::OnEditorInspect()
 {
-#ifndef FMOD_ENABLED
+#if !USING( ME_FMOD )
 	ImGui::Text("FMOD NOT ENABLED! See Help > About.");
 	return;
 #endif
@@ -197,7 +197,7 @@ void AudioSource::Init()
 
 void AudioSource::ClearData()
 {
-#ifdef FMOD_ENABLED
+#if USING( ME_FMOD )
 	SoundInstance = nullptr;
 	m_owner = nullptr;
 #endif
@@ -229,7 +229,7 @@ void AudioResourceMetadata::Export()
 void AudioResourceMetadata::OnEditorInspect()
 {
 	MetaBase::OnEditorInspect();
-#ifndef FMOD_ENABLED
+#if !USING( ME_FMOD )
 	ImGui::Separator();
 	ImGui::Text("FMOD NOT ENABLED! See Help > About.");
 	return;
