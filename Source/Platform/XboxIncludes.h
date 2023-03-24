@@ -15,7 +15,7 @@
 #include <stdio.h>
 #include <pix.h>
 
-#ifdef _DEBUG
+#if USING( ME_DEBUG )
 #include <dxgidebug.h>
 #endif
 

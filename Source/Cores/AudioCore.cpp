@@ -29,15 +29,6 @@ AudioCore::AudioCore()
 	}
 	IsInitialized = true;
 #endif
-//
-//#if _WIN32
-//	CoInitializeEx(nullptr, COINIT_MULTITHREADED);
-//#endif
-//	DirectX::AUDIO_ENGINE_FLAGS eflags = DirectX::AudioEngine_Default;
-//#ifdef _DEBUG
-//	eflags = eflags | DirectX::AudioEngine_Debug;
-//#endif
-//	mEngine = std::make_unique<DirectX::AudioEngine>(eflags);
 
 	std::vector<TypeId> events = {
 		PlayAudioEvent::GetEventId()

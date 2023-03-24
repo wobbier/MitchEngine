@@ -1,6 +1,6 @@
 #pragma once
 
-#ifdef ME_ENABLE_RENDERDOC
+#if USING( ME_ENABLE_RENDERDOC )
 
 #include <assert.h>
 

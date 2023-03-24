@@ -37,6 +37,12 @@ Class& operator=(Class&&) = delete;
 #define USING(x) (1 x 1)
 #endif /* USING */
 
+#ifdef ME_HEADLESS
+#define ME_HEADLESS IN_USE
+#else
+#define ME_HEADLESS NOT_IN_USE
+#endif
+
 #ifdef ME_PLATFORM_WIN64
 #define ME_PLATFORM_WIN64 IN_USE
 #else
@@ -68,15 +74,21 @@ Class& operator=(Class&&) = delete;
 #endif
 
 #ifdef FMOD_ENABLED
-#define ME_FMOD IN_USE
+#define ME_FMOD USE_IF( USING ( IN_USE ) && !USING( ME_HEADLESS ) )
 #else
-#define ME_FMOD NOT_IN_USE
+#define ME_FMOD USE_IF( USING ( NOT_IN_USE ) && !USING( ME_HEADLESS ) )
 #endif
 
-#ifdef ME_HEADLESS
-#define ME_HEADLESS IN_USE
+#ifdef _DEBUG
+#define ME_DEBUG USING( IN_USE )
 #else
-#define ME_HEADLESS NOT_IN_USE
+#define ME_DEBUG USING( NOT_IN_USE )
+#endif
+
+#if defined( ME_ENABLE_RENDERDOC )
+#define ME_ENABLE_RENDERDOC IN_USE
+#else
+#define ME_ENABLE_RENDERDOC NOT_IN_USE
 #endif
 
 #define ME_PLATFORM_WINDOWS USE_IF( USING( ME_PLATFORM_WIN64 ) || USING( ME_PLATFORM_UWP ) )
