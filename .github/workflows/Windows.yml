@@ -34,7 +34,7 @@ jobs:
 
       - name: Generate a new project
         shell: cmd
-        run: call NewProjectSetup.bat EmptyProject
+        run: call NewProjectSetup.bat EmptyProject ${{github.ref_name}}
 
       - name: Compile Tools
         if: ${{ matrix.buildconfig == 'Game_Win64_Release' }}
