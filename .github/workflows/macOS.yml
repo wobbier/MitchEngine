@@ -32,6 +32,11 @@ jobs:
           url: "https://raw.githubusercontent.com/wobbier/MitchEngine/${{github.ref_name}}/Tools/NewProjectSetup.command"
           target: ./
 
+      - name: Setup dotnet
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: "5.0.100"
+
       - name: Generate a new project
         shell: bash
         run: sh NewProjectSetup.command EmptyProject ${{github.ref_name}}
@@ -74,4 +79,3 @@ jobs:
           name: EmptyProject - ${{matrix.type}} - ${{matrix.buildconfig}}
           path: |
             Build/${{matrix.buildconfig}}
-
