@@ -2,9 +2,9 @@ name: Windows
 
 on:
   push:
-    branches: [master]
+    branches: [master, sandbox]
   pull_request:
-    branches: [master]
+    branches: [master, sandbox]
 
   workflow_dispatch:
 
@@ -29,12 +29,12 @@ jobs:
         id: downloadfile
         name: Grab the project setup file
         with:
-          url: "https://raw.githubusercontent.com/wobbier/MitchEngine/master/Tools/NewProjectSetup.bat"
+          url: "https://raw.githubusercontent.com/wobbier/MitchEngine/${{github.ref_name}}/Tools/NewProjectSetup.bat"
           target: ./
 
       - name: Generate a new project
         shell: cmd
-        run: call NewProjectSetup.bat EmptyProject
+        run: call NewProjectSetup.bat EmptyProject ${{github.ref_name}}
 
       - name: Compile Tools
         if: ${{ matrix.buildconfig == 'Game_Win64_Release' }}
