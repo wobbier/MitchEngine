@@ -2,9 +2,9 @@ name: macOS
 
 on:
   push:
-    branches: [master, sandbox]
+    branches: [master]
   pull_request:
-    branches: [master, sandbox]
+    branches: [master]
 
   workflow_dispatch:
 
@@ -35,11 +35,11 @@ jobs:
       - name: Generate a new project
         shell: bash
         run: sh NewProjectSetup.command EmptyProject
-        
+
       - name: Generate a new project
         shell: bash
         run: cd Project && sh GenerateSolution.command && cd ../
-          
+
       - name: Build Editor
         if: ${{ matrix.type == 'Editor' }}
         uses: mxcl/xcodebuild@v1
@@ -51,7 +51,7 @@ jobs:
           warnings-as-errors: false # default = `false`
           configuration: ${{ matrix.type }}_${{ matrix.configuration }} # no default, ie. `xcodebuild` decides itself
           scheme: Havana_mac
-          
+
       - name: Build Game
         if: ${{ matrix.type == 'Game_macOS' }}
         uses: mxcl/xcodebuild@v1
@@ -67,7 +67,7 @@ jobs:
       - name: Copy Assets (Not Implemented)
         shell: bash
         run: echo todo
-        
+
       - name: Archive
         uses: actions/upload-artifact@v2
         with:

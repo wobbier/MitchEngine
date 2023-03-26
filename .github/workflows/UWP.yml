@@ -2,9 +2,9 @@ name: UWP
 
 on:
   push:
-    branches: [master, sandbox]
+    branches: [master, motivation]
   pull_request:
-    branches: [master, sandbox]
+    branches: [master, motivation]
 
   workflow_dispatch:
 
