@@ -22,7 +22,7 @@ jobs:
         type:
           - Editor
           - Game_macOS
-    runs-on: macos-latest
+    runs-on: macos-11
 
     steps:
       - uses: suisei-cn/actions-download-file@v1
