@@ -7,7 +7,7 @@
 #include "World/Scene.h"
 #include "Camera/CameraData.h"
 #include <string>
-#include "Config.h"
+#include "Config/EngineConfig.h"
 #include "Input.h"
 #include "Work/Burst.h"
 #include <Core/JobSystem.h>
@@ -57,7 +57,7 @@ public:
 
 	Game* GetGame() const;
 
-	Config& GetConfig() const;
+	EngineConfig& GetConfig() const;
 	Input& GetInput();
 
 	JobEngine& GetJobEngine();
@@ -77,7 +77,7 @@ private:
 	std::shared_ptr<World> GameWorld;
 	bool Running = false;
 	IWindow* GameWindow = nullptr;
-	class Config* EngineConfig = nullptr;
+	class EngineConfig* engineConfig = nullptr;
 	Game* m_game = nullptr;
 	float AccumulatedTime = 0.0f;
 	float FrameTime = 0.0f;

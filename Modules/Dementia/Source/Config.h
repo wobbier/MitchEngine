@@ -7,7 +7,7 @@ class Config
 {
 public:
 	Config(const Path& ConfigPath);
-	~Config();
+	virtual ~Config();
 
 	std::string GetValue(const std::string& value);
 	const json& GetJsonObject(const std::string& value);
@@ -16,7 +16,11 @@ public:
 
 	void Save();
 
-private:
+	virtual void OnSave(json& outJson) {};
+	virtual void OnLoad(const json& outJson) {};
+
+
 	json Root;
+private:
 	File ConfigFile;
 };

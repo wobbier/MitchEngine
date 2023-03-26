@@ -1,7 +1,7 @@
 #include "PCH.h"
 #include "Engine.h"
 #include "CLog.h"
-#include "Config.h"
+#include "Config/EngineConfig.h"
 #include "Window/UWPWindow.h"
 #include "Events/EventManager.h"
 #include "Cores/PhysicsCore.h"
@@ -53,7 +53,7 @@ Engine::Engine()
 
 Engine::~Engine()
 {
-	delete EngineConfig;
+	delete engineConfig;
 }
 
 extern bool ImGui_ImplSDL2_InitForD3D(SDL_Window* window);
@@ -110,11 +110,12 @@ void Engine::Init(Game* game)
 	};
 
 #if ME_PLATFORM_WIN64
-	EngineConfig = new Config(engineCfg);
-	const json& WindowConfig = EngineConfig->GetJsonObject("Window");
+	engineConfig = new EngineConfig(engineCfg);
+	engineConfig->OnLoad(engineConfig->Root);
+	const json& WindowConfig = engineConfig->GetJsonObject("Window");
 	int WindowWidth = WindowConfig["Width"];
 	int WindowHeight = WindowConfig["Height"];
-	GameWindow = new SDLWindow(EngineConfig->GetValue("Title"), ResizeFunc, 500, 300, Vector2(WindowWidth, WindowHeight));
+	GameWindow = new SDLWindow(engineConfig->GetValue("Title"), ResizeFunc, 500, 300, engineConfig->WindowSize);
 #endif
     
 #if ME_PLATFORM_MACOS
@@ -366,7 +367,7 @@ void Engine::Run()
 		ResourceCache::GetInstance().Dump();
 		//Sleep(1);
 	}
-	EngineConfig->Save();
+	engineConfig->Save();
 }
 
 bool Engine::OnEvent(const BaseEvent& evt)
@@ -416,9 +417,9 @@ Game* Engine::GetGame() const
 	return m_game;
 }
 
-Config& Engine::GetConfig() const
+EngineConfig& Engine::GetConfig() const
 {
-	return *EngineConfig;
+	return *engineConfig;
 }
 
 Input& Engine::GetInput()

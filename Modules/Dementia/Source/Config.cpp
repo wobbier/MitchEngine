@@ -11,11 +11,13 @@ Config::Config(const Path& ConfigPath)
 	}
 
 	Root = json::parse(configData);
+	OnLoad(Root);
 	if (Root.is_null())
 	{
 		YIKES("Failed to parse config: " + ConfigFile.FilePath.LocalPath);
 		return;
 	}
+
 }
 
 Config::~Config()
@@ -47,5 +49,6 @@ void Config::SetValue(const std::string& key, const std::string& newVal)
 
 void Config::Save()
 {
+	OnSave(Root);
 	ConfigFile.Write(Root.dump(4));
 }

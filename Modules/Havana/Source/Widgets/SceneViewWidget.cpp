@@ -14,6 +14,7 @@
 #include <Mathf.h>
 #include <Cores/UI/UICore.h>
 #include "Profiling/BasicFrameProfile.h"
+#include "UI/Colors.h"
 
 #if ME_EDITOR
 
@@ -47,6 +48,13 @@ void SceneViewWidget::Init()
 		params.Name = "Ultra-Wide";
 		params.Type = DisplayType::Ratio;
 		params.Extents = { 21, 9 };
+		DisplayOptions.push_back(params);
+	}
+	{
+		DisplayParams params;
+		params.Name = "Super Ultra-Wide";
+		params.Type = DisplayType::Ratio;
+		params.Extents = { 32, 9 };
 		DisplayOptions.push_back(params);
 	}
 	{
@@ -134,6 +142,8 @@ void SceneViewWidget::Render()
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+	ImGui::PushStyleColor(ImGuiCol_WindowBg, COLOR_BACKGROUND_BORDER);
+	ImGui::PushStyleColor(ImGuiCol_ChildBg, COLOR_BACKGROUND_BORDER);
 
 	Input& gameInput = GetEngine().GetInput();
 	Input& editorInput = GetEngine().GetEditorInput();
@@ -148,7 +158,8 @@ void SceneViewWidget::Render()
 	}
 	else
 	{
-		ImGui::Begin(Name.c_str(), &IsOpen, WindowFlags);
+		ImGuiWindowFlags fullScreenFlags = WindowFlags | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar;
+		ImGui::Begin(Name.c_str(), &IsOpen, fullScreenFlags);
 	}
 
 	if (ImGui::BeginMenuBar())
@@ -338,6 +349,7 @@ void SceneViewWidget::Render()
 	}
 	ImGui::End();
 	ImGui::PopStyleVar(3);
+	ImGui::PopStyleColor(2);
 }
 
 void SceneViewWidget::DrawGuizmo()
