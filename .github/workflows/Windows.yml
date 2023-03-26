@@ -2,9 +2,9 @@ name: Windows
 
 on:
   push:
-    branches: [master, sandbox]
+    branches: [master, motivation]
   pull_request:
-    branches: [master, sandbox]
+    branches: [master, motivation]
 
   workflow_dispatch:
 
@@ -71,7 +71,7 @@ jobs:
             !.build/${{matrix.buildconfig}}/*.log
             .build/${{matrix.buildconfig}}/Tools/Optick.exe
             .build/${{matrix.buildconfig}}/Tools/Win64/*.*
-            
+
 
       - name: Cook Assets
         if: ${{ matrix.buildconfig == 'Game_Win64_Release' }}
