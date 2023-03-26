@@ -33,12 +33,12 @@ jobs:
         id: downloadfile
         name: Grab the project setup file
         with:
-          url: "https://raw.githubusercontent.com/wobbier/MitchEngine/${{github.head_ref}}/Tools/NewProjectSetup.bat"
+          url: "https://raw.githubusercontent.com/wobbier/MitchEngine/${{github.ref_name}}/Tools/NewProjectSetup.bat"
           target: ./
 
       - name: Generate a new project
         shell: cmd
-        run: call NewProjectSetup.bat EmptyProject
+        run: call NewProjectSetup.bat EmptyProject ${{github.ref_name}}
 
       - name: Generate a new project
         shell: cmd

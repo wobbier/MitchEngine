@@ -34,7 +34,7 @@ jobs:
 
       - name: Generate a new project
         shell: bash
-        run: sh NewProjectSetup.command EmptyProject
+        run: sh NewProjectSetup.command EmptyProject ${{github.ref_name}}
 
       - name: Generate a new project
         shell: bash
