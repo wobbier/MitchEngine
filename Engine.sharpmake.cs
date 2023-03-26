@@ -86,7 +86,7 @@ public class EntryPointGameProjectUWP : EntryPointGameProject
         conf.NeedsAppxManifestFile = true;
         conf.IsUniversalWindowsPlatform = true;
         conf.PackageCertificateKeyFile = Path.Combine(Globals.RootDir, "Game_EntryPoint/Game_EntryPoint_UWP_TemporaryKey.pfx");
-        conf.PackageCertificateThumbprint = "60E3DE390F85DDE86FE881ABCB08591FB0B5D556";
+        conf.PackageCertificateThumbprint = "ae94a2f10501aae7d3449e789a8e7ddd7c10baaf";
         conf.Options.Add(Options.Vc.Linker.SubSystem.Windows);
 
         conf.Images.Add("Assets/SplashScreen.scale-200.png");
