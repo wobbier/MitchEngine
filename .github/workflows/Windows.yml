@@ -25,6 +25,11 @@ jobs:
       - name: Add MSBuild to PATH
         uses: microsoft/setup-msbuild@v1.0.2
 
+      - name: Setup dotnet
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: "5.0.100"
+
       - uses: suisei-cn/actions-download-file@v1
         id: downloadfile
         name: Grab the project setup file
@@ -39,11 +44,11 @@ jobs:
       - name: Compile Tools
         if: ${{ matrix.buildconfig == 'Game_Win64_Release' }}
         shell: cmd
-        run: msbuild /property:Configuration="Editor_Release"
+        run: msbuild EmptyProject.sln /property:Configuration="Editor_Release"
 
       - name: Compile Project
         shell: cmd
-        run: msbuild /property:Configuration="${{matrix.buildconfig}}"
+        run: msbuild EmptyProject.sln /property:Configuration="${{matrix.buildconfig}}"
 
       - name: Copy Assets
         shell: cmd
@@ -71,7 +76,6 @@ jobs:
             !.build/${{matrix.buildconfig}}/*.log
             .build/${{matrix.buildconfig}}/Tools/Optick.exe
             .build/${{matrix.buildconfig}}/Tools/Win64/*.*
-
 
       - name: Cook Assets
         if: ${{ matrix.buildconfig == 'Game_Win64_Release' }}
@@ -107,8 +111,6 @@ jobs:
             !.build/${{matrix.buildconfig}}/**/*.vert
             !.build/${{matrix.buildconfig}}/**/*.var
             !.build/${{matrix.buildconfig}}/**/*.sh
-
-            
 
       - name: Copy Tools Assets
         shell: cmd
