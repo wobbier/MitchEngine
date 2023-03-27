@@ -228,6 +228,8 @@ namespace MonoUtils
             return nullptr;
         }
 
+        // TODO: Write a file extension replacement function.
+#if !USING( ME_PLATFORM_UWP )
         if ( loadPDB )
         {
             std::filesystem::path pdbPath = path.FullPath;
@@ -239,6 +241,7 @@ namespace MonoUtils
                 mono_debug_open_image_from_memory( image, (const mono_byte*)pdbBuff.Data, pdbBuff.Size );
             }
         }
+#endif
 
         MonoAssembly* assembly = mono_assembly_load_from_full( image, path.FullPath.c_str(), &status, 0 );
 

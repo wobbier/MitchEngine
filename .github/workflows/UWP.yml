@@ -29,6 +29,10 @@ jobs:
       - name: Add MSBuild to PATH
         uses: microsoft/setup-msbuild@v1.0.2
 
+      - name: Install Mono
+        shell: cmd
+        run: choco install mono
+
       - name: Setup dotnet
         uses: actions/setup-dotnet@v1
         with:
@@ -51,11 +55,11 @@ jobs:
 
       - name: Compile Tools
         shell: cmd
-        run: msbuild /property:Configuration="Editor_Release"
+        run: msbuild EmptyProject.sln /property:Configuration="Editor_Release"
 
       - name: Compile Project
         shell: cmd
-        run: msbuild /property:Configuration="${{matrix.type}}_${{matrix.configuration}}"
+        run: msbuild EmptyProject.sln /property:Configuration="${{matrix.type}}_${{matrix.configuration}}"
 
       - name: Copy Assets
         shell: cmd
