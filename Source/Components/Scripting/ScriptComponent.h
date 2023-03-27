@@ -17,8 +17,12 @@ public:
     ~ScriptComponent();
 
     void Init() override;
-    void OnEditorInspect() override;
+
     void DrawValues( const ScriptClass& scriptClass );
+
+#if USING( ME_EDITOR )
+    void OnEditorInspect() override;
+#endif
 
 private:
     void OnSerialize( json& outJson ) override;

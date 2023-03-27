@@ -80,9 +80,9 @@ Class& operator=(Class&&) = delete;
 #endif
 
 #ifdef _DEBUG
-#define ME_DEBUG USING( IN_USE )
+#define ME_DEBUG IN_USE
 #else
-#define ME_DEBUG USING( NOT_IN_USE )
+#define ME_DEBUG NOT_IN_USE
 #endif
 
 #if defined( ME_ENABLE_RENDERDOC )

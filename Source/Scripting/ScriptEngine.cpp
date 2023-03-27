@@ -93,10 +93,30 @@ void ScriptEngine::Init()
     // Register funcs
     RegisterFunctions();
 
+    Path path( "ScriptCore.dll" );
+    Path appPath( "Game.Script.dll" );
     // todo: fix path
-    Path path( ".build/editor_debug/ScriptCore.dll" );
+#if USING( ME_EDITOR )
+    if ( !path.Exists )
+    {
+        path = Path( ".build/editor_debug/ScriptCore.dll" );
+    }
+    if ( !appPath.Exists )
+    {
+        appPath = Path( ".build/editor_debug/Game.Script.dll" );
+    }
+#else
+    if ( !path.Exists )
+    {
+        path = Path( ".build/editor_debug/ScriptCore.dll" );
+    }
+    if ( !appPath.Exists )
+    {
+        appPath = Path( ".build/editor_debug/Game.Script.dll" );
+    }
+#endif // else
+
     LoadAssembly( path );
-    Path appPath( ".build/editor_debug/Game.Script.dll" );
     LoadAppAssembly( appPath );
 
     CacheAssemblyTypes();

@@ -23,9 +23,9 @@ public:
     void OnEntityAdded( Entity& NewEntity ) final;
     void OnEntityRemoved( Entity& InEntity ) final;
 
+#if USING( ME_EDITOR )
     void OnEditorInspect() final;
-
-
+#endif
 
     bool OnEvent( const BaseEvent& evt ) override;
 

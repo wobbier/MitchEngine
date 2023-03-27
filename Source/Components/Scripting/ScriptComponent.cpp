@@ -69,6 +69,8 @@ void ScriptComponent::Init()
     }
 }
 
+#if USING( ME_EDITOR )
+
 void ScriptComponent::OnEditorInspect()
 {
     // Uninitialized script
@@ -110,6 +112,8 @@ void ScriptComponent::OnEditorInspect()
         }
     }
 }
+
+#endif
 
 void ScriptComponent::DrawValues( const ScriptClass& scriptClass )
 {

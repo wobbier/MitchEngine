@@ -69,6 +69,8 @@ void ScriptCore::OnEntityRemoved( Entity& InEntity )
 
 }
 
+#if USING( ME_EDITOR )
+
 void ScriptCore::OnEditorInspect()
 {
     //float value;
@@ -83,6 +85,8 @@ void ScriptCore::OnEditorInspect()
         ImGui::Text( "%s %s", it.Namespace.c_str(), it.Name.c_str() );
     }
 }
+
+#endif
 
 bool ScriptCore::OnEvent( const BaseEvent& evt )
 {
