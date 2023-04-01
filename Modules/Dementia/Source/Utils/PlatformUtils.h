@@ -2,7 +2,7 @@
 
 #include "StringUtils.h"
 #include <Path.h>
-#include "Core\Buffer.h"
+#include <Core/Buffer.h>
 
 namespace PlatformUtils
 {

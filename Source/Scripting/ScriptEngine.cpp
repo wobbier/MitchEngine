@@ -1,6 +1,8 @@
 #include "PCH.h"
 #include "ScriptEngine.h"
 
+#if USING( ME_SCRIPTING )
+
 #include <mono/jit/jit.h>
 #include <mono/metadata/assembly.h>
 #include <mono/metadata/debug-helpers.h>
@@ -397,3 +399,5 @@ bool ScriptInstance::SetFieldValueInternal( const std::string& name, void* inVal
     mono_field_set_value( Instance, it->second.Field, inValue );
     return true;
 }
+
+#endif

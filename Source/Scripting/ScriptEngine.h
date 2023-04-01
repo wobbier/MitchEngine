@@ -1,4 +1,7 @@
 #pragma once
+
+#if USING( ME_SCRIPTING )
+
 #include "Scripting/MonoFwd.h"
 #include "Path.h"
 #include "ECS/EntityHandle.h"
@@ -206,3 +209,5 @@ public:
     // Successful class loaded
     static std::vector<LoadedClassInfo> LoadedEntityScripts;
 };
+
+#endif

@@ -1,4 +1,7 @@
 #include "PCH.h"
+
+#if USING( ME_SCRIPTING )
+
 #include "ScriptCore.h"
 #include "Components/Scripting/ScriptComponent.h"
 #include <mono/jit/jit.h>
@@ -92,3 +95,5 @@ bool ScriptCore::OnEvent( const BaseEvent& evt )
 {
     return false;
 }
+
+#endif

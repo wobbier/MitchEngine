@@ -448,7 +448,9 @@ void Engine::LoadScene( const std::string& SceneFile )
 	SceneLoadedEvent evt;
 	evt.LoadedScene = CurrentScene;
 	evt.Fire();
+#if USING( ME_SCRIPTING )
 	ScriptEngine::sScriptData.worldPtr = GetWorld();
+#endif
 #if !USING( ME_EDITOR )
 	GameWorld->Simulate();
 	GameWorld->Start();

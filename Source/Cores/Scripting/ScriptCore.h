@@ -1,4 +1,7 @@
 #pragma once
+
+#if USING( ME_SCRIPTING )
+
 #include "ECS/Core.h"
 #include "Scripting/MonoFwd.h"
 #include "Path.h"
@@ -34,3 +37,5 @@ private:
 };
 
 ME_REGISTER_CORE( ScriptCore )
+
+#endif

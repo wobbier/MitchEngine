@@ -1,5 +1,7 @@
 #include "PCH.h"
 
+#if USING( ME_SCRIPTING )
+
 #include "ScriptComponent.h"
 #include "imgui.h"
 #include "Cores/Scripting/ScriptCore.h"
@@ -279,3 +281,5 @@ bool ScriptComponent::Input_IsKeyDown( KeyCode key )
 {
     return GetEngine().GetInput().IsKeyDown( key );
 }
+
+#endif

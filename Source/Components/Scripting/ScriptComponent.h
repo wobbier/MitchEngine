@@ -1,4 +1,7 @@
 #pragma once
+
+#if USING( ME_SCRIPTING )
+
 #include "ECS/ComponentDetail.h"
 #include "ECS/Component.h"
 #include "Scripting/ScriptEngine.h"
@@ -40,3 +43,5 @@ private:
 };
 
 ME_REGISTER_COMPONENT( ScriptComponent )
+
+#endif

@@ -140,9 +140,12 @@ public class Engine : BaseProject
         conf.AddPublicDependency<Moonlight>(target);
 
         // #TODO This shouldn't be a sharpmake class
-        conf.AddPublicDependency<Mono>(target, DependencySetting.Default | DependencySetting.Defines | DependencySetting.IncludePaths);
-        conf.AddPublicDependency<ScriptCore>(target);
-        conf.AddPublicDependency<UserGameScript>(target);
+        //conf.AddPublicDependency<Mono>(target, DependencySetting.Default | DependencySetting.Defines | DependencySetting.IncludePaths);
+        if (target.Platform != Platform.mac)
+        {
+            conf.AddPublicDependency<ScriptCore>(target);
+            conf.AddPublicDependency<UserGameScript>(target);
+        }
 
         if (!string.IsNullOrEmpty(Globals.FMOD_Win64_Dir) || !string.IsNullOrEmpty(Globals.FMOD_UWP_Dir))
         {
@@ -150,25 +153,6 @@ public class Engine : BaseProject
             conf.Defines.Add("_DISABLE_EXTENDED_ALIGNED_STORAGE");
         }
 
-        // #TODO Read path from Globals / Move to own class again
-        {
-            conf.IncludePaths.Add("C:/Program Files/Mono/include/mono-2.0");
-            conf.LibraryPaths.Add("C:/Program Files/Mono/lib");
-            conf.LibraryFiles.Add("mono-2.0-sgen");
-            conf.Defines.Add("MONO_HOME=\"C:/Program Files/Mono/\"");
-            conf.Defines.Add("MONO_PATH=\"C:/Program Files/Mono/lib/mono/4.5\"");
-
-            // MONO DLL
-            {
-                var copyDirBuildStep = new Configuration.BuildStepCopy(
-                    "C:/Program Files/Mono/lib",
-                    Globals.RootDir + "/.build/[target.Name]");
-
-                copyDirBuildStep.IsFileCopy = false;
-                copyDirBuildStep.CopyPattern = "mscorelib.dll";
-                conf.EventPostBuildExe.Add(copyDirBuildStep);
-            }
-        }
     }
     
     public override void ConfigureWin64(Configuration conf, CommonTarget target)
@@ -238,6 +222,26 @@ public class Engine : BaseProject
 
             conf.EventPostBuildExe.Add(copyDirBuildStep);
         }
+
+        // #TODO Read path from Globals / Move to own class again
+        {
+            conf.IncludePaths.Add("C:/Program Files/Mono/include/mono-2.0");
+            conf.LibraryPaths.Add("C:/Program Files/Mono/lib");
+            conf.LibraryFiles.Add("mono-2.0-sgen");
+            conf.Defines.Add("MONO_HOME=\"C:/Program Files/Mono/\"");
+            conf.Defines.Add("MONO_PATH=\"C:/Program Files/Mono/lib/mono/4.5\"");
+
+            // MONO DLL
+            {
+                var copyDirBuildStep = new Configuration.BuildStepCopy(
+                    "C:/Program Files/Mono/lib",
+                    Globals.RootDir + "/.build/[target.Name]");
+                // TODO: Copy mono-2.0sgen dll
+                copyDirBuildStep.IsFileCopy = false;
+                copyDirBuildStep.CopyPattern = "mscorelib.dll";
+                conf.EventPostBuildExe.Add(copyDirBuildStep);
+            }
+        }
     }
 
     public override void ConfigureUWP(Configuration conf, CommonTarget target)
@@ -267,6 +271,26 @@ public class Engine : BaseProject
             conf.LibraryFiles.Add("LinearMath_MinsizeRel.lib");
             conf.LibraryFiles.Add("zlibstatic.lib");
         }
+
+        // #TODO Read path from Globals / Move to own class again
+        {
+            conf.IncludePaths.Add("C:/Program Files/Mono/include/mono-2.0");
+            conf.LibraryPaths.Add("C:/Program Files/Mono/lib");
+            conf.LibraryFiles.Add("mono-2.0-sgen");
+            conf.Defines.Add("MONO_HOME=\"C:/Program Files/Mono/\"");
+            conf.Defines.Add("MONO_PATH=\"C:/Program Files/Mono/lib/mono/4.5\"");
+
+            // MONO DLL
+            {
+                var copyDirBuildStep = new Configuration.BuildStepCopy(
+                    "C:/Program Files/Mono/lib",
+                    Globals.RootDir + "/.build/[target.Name]");
+                // TODO: Copy mono-2.0sgen dll
+                copyDirBuildStep.IsFileCopy = false;
+                copyDirBuildStep.CopyPattern = "mscorelib.dll";
+                conf.EventPostBuildExe.Add(copyDirBuildStep);
+            }
+        }
     }
 
     public override void ConfigureMac(Configuration conf, CommonTarget target)
@@ -284,6 +308,27 @@ public class Engine : BaseProject
         conf.LibraryFiles.Add("LinearMath");
         conf.LibraryFiles.Add("SDL2d");
         conf.LibraryFiles.Add("AppCore");
+
+
+        // #TODO Read path from Globals / Move to own class again
+        {
+            //conf.IncludePaths.Add("C:/Program Files/Mono/include/mono-2.0");
+            //conf.LibraryPaths.Add("C:/Program Files/Mono/lib");
+            //conf.LibraryFiles.Add("mono-2.0-sgen");
+            //conf.Defines.Add("MONO_HOME=\"C:/Program Files/Mono/\"");
+            //conf.Defines.Add("MONO_PATH=\"C:/Program Files/Mono/lib/mono/4.5\"");
+
+            // MONO DLL
+            {
+                //var copyDirBuildStep = new Configuration.BuildStepCopy(
+                //    "C:/Program Files/Mono/lib",
+                //    Globals.RootDir + "/.build/[target.Name]");
+                //// TODO: Copy mono-2.0sgen dll
+                //copyDirBuildStep.IsFileCopy = false;
+                //copyDirBuildStep.CopyPattern = "mscorelib.dll";
+                //conf.EventPostBuildExe.Add(copyDirBuildStep);
+            }
+        }
     }
 }
 
@@ -334,8 +379,11 @@ public class BaseGameSolution : Solution
         }
 
         conf.AddProject<SharpGameProject>(target);
-        conf.AddProject<UserGameScript>(target);
-        conf.AddProject<ScriptCore>(target);
+        if (target.Platform != Platform.mac)
+        {
+            conf.AddProject<UserGameScript>(target);
+            conf.AddProject<ScriptCore>(target);
+        }
     }
 }
 

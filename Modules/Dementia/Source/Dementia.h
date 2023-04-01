@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #define forever for(;;)
 
@@ -94,3 +94,4 @@ Class& operator=(Class&&) = delete;
 #define ME_PLATFORM_WINDOWS USE_IF( USING( ME_PLATFORM_WIN64 ) || USING( ME_PLATFORM_UWP ) )
 #define ME_EDITOR_WIN64     USE_IF( USING( ME_EDITOR ) && USING( ME_PLATFORM_WIN64 ) )
 #define ME_EDITOR_MACOS     USE_IF( USING( ME_EDITOR ) && USING( ME_PLATFORM_MACOS ) )
+#define ME_SCRIPTING        USE_IF( USING( ME_PLATFORM_WINDOWS ) )

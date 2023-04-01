@@ -1,13 +1,15 @@
 #include "PCH.h"
 #include "MonoUtils.h"
 
+#if USING( ME_SCRIPTING )
+
 #include <mono\metadata\class.h>
 #include <mono\metadata\attrdefs.h>
 #include <mono\metadata\object.h>
 #include "Utils\PlatformUtils.h"
 #include <mono\metadata\mono-debug.h>
 #include <mono\metadata\assembly.h>
-#include "Core\Buffer.h"
+#include <Core\Buffer.h>
 
 namespace MonoUtils
 {
@@ -256,3 +258,5 @@ namespace MonoUtils
         return assembly;
     }
 }
+
+#endif

@@ -1,4 +1,7 @@
 #pragma once
+
+#if USING( ME_SCRIPTING )
+
 #include "MonoFwd.h"
 #include <string>
 #include "Path.h"
@@ -51,3 +54,4 @@ namespace MonoUtils
     MonoAssembly* LoadMonoAssembly( const Path& path, bool loadPDB );
 };
 
+#endif
