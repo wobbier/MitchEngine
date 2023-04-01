@@ -160,9 +160,9 @@ void ScriptEngine::InitMono()
 
 void ScriptEngine::RegisterFunctions()
 {
-    mono_add_internal_call( "TestScript::NativeLog", NativeLog );
-    mono_add_internal_call( "TestScript::NativeLog_Vector", NativeLog_Vector );
-    mono_add_internal_call( "TestScript::Native_VectorLength", Native_VectorLength );
+    mono_add_internal_call( "TestScript::NativeLog", (void*)NativeLog );
+    mono_add_internal_call( "TestScript::NativeLog_Vector", (void*)NativeLog_Vector );
+    mono_add_internal_call( "TestScript::Native_VectorLength", (void*)Native_VectorLength );
 }
 
 

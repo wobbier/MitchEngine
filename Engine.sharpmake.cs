@@ -309,14 +309,16 @@ public class Engine : BaseProject
         conf.LibraryFiles.Add("SDL2d");
         conf.LibraryFiles.Add("AppCore");
 
+        //??
+        conf.Options.Add(new Options.XCode.Compiler.UserFrameworks("Mono"));
 
         // #TODO Read path from Globals / Move to own class again
         {
-            //conf.IncludePaths.Add("C:/Program Files/Mono/include/mono-2.0");
-            //conf.LibraryPaths.Add("C:/Program Files/Mono/lib");
-            //conf.LibraryFiles.Add("mono-2.0-sgen");
-            //conf.Defines.Add("MONO_HOME=\"C:/Program Files/Mono/\"");
-            //conf.Defines.Add("MONO_PATH=\"C:/Program Files/Mono/lib/mono/4.5\"");
+            conf.IncludePaths.Add("/Library/Frameworks/Mono.framework/Headers/mono-2.0/");
+            conf.LibraryPaths.Add("/Library/Frameworks/Mono.framework/Libraries/");
+            conf.LibraryFiles.Add("monosgen-2.0");
+            conf.Defines.Add("MONO_HOME=\"/Library/Frameworks/Mono.framework/Home\"");
+            conf.Defines.Add("MONO_PATH=\"/Library/Frameworks/Mono.framework/Home/lib/mono/4.5\"");
 
             // MONO DLL
             {

@@ -36,11 +36,11 @@ static void RegisterComponent()
 ScriptComponent::ScriptComponent()
     : Component( "ScriptComponent" )
 {
-    mono_add_internal_call( "Transform::Entity_GetTranslation", Transform_GetTranslation );
-    mono_add_internal_call( "Transform::Entity_SetTranslation", Transform_SetTranslation );
-    mono_add_internal_call( "Input::IsKeyDown", Input_IsKeyDown );
+    mono_add_internal_call( "Transform::Entity_GetTranslation", (void*)Transform_GetTranslation );
+    mono_add_internal_call( "Transform::Entity_SetTranslation", (void*)Transform_SetTranslation );
+    mono_add_internal_call( "Input::IsKeyDown", (void*)Input_IsKeyDown );
 
-    mono_add_internal_call( "Entity::Entity_HasComponent", Entity_HasComponent );
+    mono_add_internal_call( "Entity::Entity_HasComponent", (void*)Entity_HasComponent );
     RegisterComponent<Transform>();
 }
 

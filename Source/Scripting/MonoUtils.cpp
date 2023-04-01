@@ -3,13 +3,13 @@
 
 #if USING( ME_SCRIPTING )
 
-#include <mono\metadata\class.h>
-#include <mono\metadata\attrdefs.h>
-#include <mono\metadata\object.h>
-#include "Utils\PlatformUtils.h"
-#include <mono\metadata\mono-debug.h>
-#include <mono\metadata\assembly.h>
-#include <Core\Buffer.h>
+#include <mono/metadata/attrdefs.h>
+#include <mono/metadata/class.h>
+#include <mono/metadata/object.h>
+#include "Utils/PlatformUtils.h"
+#include <mono/metadata/mono-debug.h>
+#include <mono/metadata/assembly.h>
+#include <Core/Buffer.h>
 
 namespace MonoUtils
 {

@@ -37,6 +37,14 @@ jobs:
         with:
           dotnet-version: "5.0.100"
 
+      - name: Install Mono
+        shell: bash
+        continue-on-error: true
+        run: |
+          ls /Library/Frameworks
+          brew update
+          brew install mono
+        
       - name: Generate a new project
         shell: bash
         run: sh NewProjectSetup.command EmptyProject ${{github.ref_name}}
