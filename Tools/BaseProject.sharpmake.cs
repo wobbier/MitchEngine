@@ -45,8 +45,8 @@ public abstract class BaseProject : Project
 
         if (target.SelectedMode == CommonTarget.Mode.Editor)
         {
-            conf.Defines.Add("ME_EDITOR");
-            conf.Defines.Add("ME_TOOLS");
+            conf.Defines.Add("DEFINE_ME_EDITOR");
+            conf.Defines.Add("DEFINE_ME_TOOLS");
         }
 
         conf.Defines.Add("NOMINMAX");
@@ -71,7 +71,7 @@ public abstract class BaseProject : Project
         conf.Options.Add(Options.Vc.General.CharacterSet.Unicode);
         conf.Options.Add(Options.Vc.Compiler.Exceptions.Enable);
 
-        conf.Defines.Add("ME_PLATFORM_WIN64");
+        conf.Defines.Add("DEFINE_ME_PLATFORM_WIN64");
 
         conf.Options.Add(
             new Options.Vc.Compiler.DisableSpecificWarnings(
@@ -90,7 +90,7 @@ public abstract class BaseProject : Project
         conf.Options.Add(Options.Vc.General.CharacterSet.Unicode);
         conf.Options.Add(Options.Vc.Compiler.Exceptions.Enable);
 
-        conf.Defines.Add("ME_PLATFORM_UWP");
+        conf.Defines.Add("DEFINE_ME_PLATFORM_UWP");
         conf.Defines.Add("USE_OPTICK=0");
         
         conf.Options.Add(
@@ -119,7 +119,7 @@ public abstract class BaseProject : Project
         //conf.Options.Add(new Options.XCode.Compiler.SystemFrameworks("Foundation"));
         conf.Options.Add(new Options.XCode.Compiler.SystemFrameworks("Quartz"));
 
-        conf.Defines.Add("ME_PLATFORM_MACOS");
+        conf.Defines.Add("DEFINE_ME_PLATFORM_MACOS");
     }
 
     #endregion

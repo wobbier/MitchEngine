@@ -43,37 +43,37 @@ Class& operator=(Class&&) = delete;
 #define ME_HEADLESS NOT_IN_USE
 #endif
 
-#ifdef ME_PLATFORM_WIN64
+#if defined( DEFINE_ME_PLATFORM_WIN64 )
 #define ME_PLATFORM_WIN64 IN_USE
 #else
 #define ME_PLATFORM_WIN64 NOT_IN_USE
 #endif
 
-#ifdef ME_PLATFORM_UWP
+#if defined( DEFINE_ME_PLATFORM_UWP )
 #define ME_PLATFORM_UWP IN_USE
 #else
 #define ME_PLATFORM_UWP NOT_IN_USE
 #endif
 
-#ifdef ME_PLATFORM_MACOS
+#if defined( ME_PLATFORM_MACOS )
 #define ME_PLATFORM_MACOS IN_USE
 #else
 #define ME_PLATFORM_MACOS NOT_IN_USE
 #endif
 
-#ifdef ME_EDITOR
+#if defined( DEFINE_ME_EDITOR )
 #define ME_EDITOR IN_USE
 #else
 #define ME_EDITOR NOT_IN_USE
 #endif
 
-#ifdef ME_TOOLS
+#if defined( DEFINE_ME_TOOLS )
 #define ME_TOOLS USE_IF( USING( ME_EDITOR ) || USING( IN_USE ) )
 #else
 #define ME_TOOLS USE_IF( USING( ME_EDITOR ) || USING( NOT_IN_USE ) )
 #endif
 
-#ifdef FMOD_ENABLED
+#if defined( FMOD_ENABLED )
 #define ME_FMOD USE_IF( USING ( IN_USE ) && !USING( ME_HEADLESS ) )
 #else
 #define ME_FMOD USE_IF( USING ( NOT_IN_USE ) && !USING( ME_HEADLESS ) )
