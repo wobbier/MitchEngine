@@ -207,7 +207,8 @@ void Engine::Run()
 
 	// Game loop
 	forever
-	{
+    {
+        OPTICK_FRAME( "MainLoop" );
 		FrameProfile::GetInstance().Start();
 		// Check and call events
 		GameWindow->ParseMessageQueue();
@@ -226,7 +227,6 @@ void Engine::Run()
 
 		//if (AccumulatedTime >= MaxDeltaTime)
 		{
-			OPTICK_FRAME( "MainLoop" );
 			float deltaTime = DeltaTime = AccumulatedTime;
 			updateContext.UpdateDeltaTime( deltaTime );
 			{
@@ -258,6 +258,7 @@ void Engine::Run()
 
 			// Update Loaded Cores
 			{
+				// TODO: This is wrong?? There's more than just physics in loaded cores...
 				FrameProfile::GetInstance().Set( "Physics", ProfileCategory::Physics );
 				GameWorld->UpdateLoadedCores( updateContext );
 				FrameProfile::GetInstance().Complete( "Physics" );
@@ -265,6 +266,7 @@ void Engine::Run()
 
 			// Update Cameras
 			{
+                OPTICK_EVENT( "SceneNodes->Update" );
 				FrameProfile::GetInstance().Set( "SceneNodes", ProfileCategory::UI );
 				SceneNodes->Update( updateContext );
 				FrameProfile::GetInstance().Complete( "SceneNodes" );

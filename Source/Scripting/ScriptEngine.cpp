@@ -46,6 +46,11 @@ static float Native_VectorLength( Vector3* inVector )
 
 ScriptClass::ScriptClass( const std::string& inNameSpace, const std::string& inName, bool isCore )
 {
+#if USING( ME_DEBUG )
+    Name = inName;
+    Namespace = inNameSpace;
+#endif
+
     Class = mono_class_from_name( isCore ? ScriptEngine::sScriptData.CoreAssemblyImage : ScriptEngine::sScriptData.AppAssemblyImage, inNameSpace.c_str(), inName.c_str() );
 }
 

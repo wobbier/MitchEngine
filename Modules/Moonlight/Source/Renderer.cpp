@@ -187,6 +187,8 @@ void BGFXRenderer::Destroy()
 
 void BGFXRenderer::BeginFrame(const Vector2& mousePosition, uint8_t mouseButton, int32_t scroll, Vector2 outputSize, int inputChar, bgfx::ViewId viewId)
 {
+    OPTICK_EVENT( "BGFXRenderer::BeginFrame" );
+
 #if USING( ME_EDITOR )
 	bgfx::setViewClear(viewId
 		, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH

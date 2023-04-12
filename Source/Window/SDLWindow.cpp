@@ -3,6 +3,7 @@
 #include "bgfx/platform.h"
 #include "CLog.h"
 #include "Engine/Input.h"
+#include "optick.h"
 
 #define RESIZE_BORDER 10
 SDL_HitTestResult HitTestCallback(SDL_Window* window, const SDL_Point* area, void* data)
@@ -726,6 +727,7 @@ bool SDLWindow::ShouldClose()
 extern bool ImGui_ImplSDL2_ProcessEvent(const SDL_Event* event);
 void SDLWindow::ParseMessageQueue()
 {
+    OPTICK_EVENT( "Window::ParseMessageQueue" );
 	SDL_Event event;
 	while (SDL_PollEvent(&event))
 	{

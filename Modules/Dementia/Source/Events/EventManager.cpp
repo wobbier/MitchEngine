@@ -1,5 +1,6 @@
 #include "Events/EventManager.h"
 #include "Events/EventReceiver.h"
+#include "optick.h"
 
 EventManager::EventManager()
 {
@@ -32,7 +33,8 @@ void EventManager::QueueEvent(BaseEvent& event)
 
 void EventManager::FirePendingEvents()
 {
-	while (!m_queuedEvents.empty())
+    OPTICK_EVENT( "EventManager::FirePendingEvents" );
+    while( !m_queuedEvents.empty() )
 	{
 		const BaseEvent& event = m_queuedEvents.front();
 		m_queuedEvents.pop();

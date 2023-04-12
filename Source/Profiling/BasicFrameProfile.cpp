@@ -21,12 +21,14 @@ void FrameProfile::End(float frameDelta)
 
 void FrameProfile::Set(const std::string& name, ProfileCategory category)
 {
+    OPTICK_EVENT( "FrameProfile::Set" );
 	Profiles[name].Category = category;
 	Profiles[name].Timer.Reset();
 }
 
 void FrameProfile::Complete(const std::string& name)
 {
+    OPTICK_EVENT( "FrameProfile::Complete" );
 	Profiles[name].Timer.Update();
 }
 

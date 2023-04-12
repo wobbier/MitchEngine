@@ -65,6 +65,11 @@ public:
     std::unordered_map<std::string, ScriptField> m_fields;
 
     MonoClass* Class = nullptr;
+
+#if USING( ME_DEBUG )
+    std::string Name;
+    std::string Namespace;
+#endif
 };
 
 
@@ -99,6 +104,9 @@ public:
 
     void OnUpdate( float deltaTime )
     {
+#if USING( ME_DEBUG )
+        OPTICK_EVENT( ScriptRef.Name.c_str() );
+#endif
         void* param = &deltaTime;
         ScriptRef.InvokeMethod( Instance, OnUpdateMethod, &param );
     }

@@ -18,6 +18,7 @@
 #include "Scripting/ScriptEngine.h"
 #include "Events/SceneEvents.h"
 #include "ECS/Core.h"
+#include "optick.h"
 
 
 
@@ -40,6 +41,7 @@ void ScriptCore::Init()
 
 void ScriptCore::Update( const UpdateContext& inUpdateContext )
 {
+    OPTICK_EVENT( "ScriptCore::Update" );
     auto& entities = GetEntities();
     for ( auto& InEntity : entities )
     {
@@ -76,6 +78,7 @@ void ScriptCore::OnEntityRemoved( Entity& InEntity )
 
 void ScriptCore::OnEditorInspect()
 {
+    OPTICK_EVENT( "ScriptCore::OnEditorInspect" );
     //float value;
     //mono_field_get_value( ScriptEngine::testClassInstance.ClassObject, ScriptEngine::floatField, &value );
     //ImGui::DragFloat( "C# Float", &value );

@@ -254,12 +254,16 @@ void Havana::NewFrame()
 
 	ImGuiIO& io = ImGui::GetIO();
 
-	MainMenu->SetData(&RegisteredWidgets, m_app);
-	MainMenu->Update();
-	MainMenu->Render();
+    {
+        OPTICK_EVENT( "MainMenu", Optick::Category::UI );
+        MainMenu->SetData( &RegisteredWidgets, m_app );
+        MainMenu->Update();
+        MainMenu->Render();
+    }
 
 	// Dockspace
-	{
+    {
+        OPTICK_EVENT( "Dockspace Setup", Optick::Category::UI );
 		ImGuiViewport* viewport = ImGui::GetMainViewport();
 		ImVec2 MainMenuSize;
 		MainMenuSize.x = 0.f;
@@ -287,9 +291,12 @@ void Havana::NewFrame()
 		ImGui::PopStyleVar(3);
 		ImGuiID dockspace_id = ImGui::GetID("MyDockspace");
 		ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_PassthruCentralNode;
-		ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
+		{
+			OPTICK_EVENT( "Dockspace Create", Optick::Category::UI );
+			ImGui::DockSpace( dockspace_id, ImVec2( 0.0f, 0.0f ), dockspace_flags );
 
-		ImGui::End();
+			ImGui::End();
+		}
 	}
 
 	LogPanel->Render();
@@ -318,16 +325,18 @@ Input& Havana::GetInput()
 
 void Havana::Render(Moonlight::CameraData& EditorCamera)
 {
-	OPTICK_EVENT("Editor Render", Optick::Category::Rendering);
+	OPTICK_EVENT("Havana::Render", Optick::Category::UI);
 
 	// Editor Scene View
-	{
+    {
+        OPTICK_EVENT( "MainSceneView", Optick::Category::UI );
 		MainSceneView->SetData(EditorCamera);
 		MainSceneView->Render();
 	}
 
 	// Game View
-	{
+    {
+        OPTICK_EVENT( "GameSceneView", Optick::Category::UI );
 		int cameraId = Camera::CurrentCamera->GetCameraId();
 		GameSceneView->SetData(*GetEngine().GetRenderer().GetCameraCache().Get(cameraId));
 		GameSceneView->Render();
@@ -360,7 +369,8 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 	}
 
 	// Frame Profiler
-	{
+    {
+        OPTICK_EVENT( "Frame Profiler", Optick::Category::UI );
 		Vector2 size(ImGui::GetMainViewport()->Size.x - 12.f, static_cast<float>(FrameProfile::kMinProfilerSize));
 		auto pos = ImGui::GetMainViewport()->Pos;
 		Vector2 position(pos.x + 6.f, pos.y + ImGui::GetMainViewport()->Size.y - (static_cast<float>(FrameProfile::kMinProfilerSize) * 2.f));

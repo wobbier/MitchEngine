@@ -47,7 +47,7 @@ void EditorCore::Init()
 
 void EditorCore::Update(const UpdateContext& inUpdateContext)
 {
-	OPTICK_CATEGORY("FlyingCameraCore::Update", Optick::Category::Camera);
+	OPTICK_CATEGORY("EditorCore::Update", Optick::Category::UI);
 
 	Input& input = m_editor->GetInput();
 

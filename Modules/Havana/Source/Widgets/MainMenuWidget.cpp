@@ -82,6 +82,7 @@ void MainMenuWidget::Update()
 
 void MainMenuWidget::Render()
 {
+    OPTICK_EVENT( "MainMenuWidget::Render", Optick::Category::UI );
 	bool RequestLoadScene = false;
 	bool RequestSaveScene = false;
 	bool RequestSaveAsScene = false;
@@ -105,7 +106,6 @@ void MainMenuWidget::Render()
 		RequestSaveScene = true;
 	}
 
-	OPTICK_CATEGORY("Main Menu Bar", Optick::Category::Debug);
 	ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0.0f, 12.f));
 	ImGui::PushStyleColor(ImGuiCol_MenuBarBg, COLOR_BACKGROUND_BORDER);
 	if (ImGui::BeginMainMenuBar())
@@ -283,32 +283,35 @@ void MainMenuWidget::Render()
 		//else
 		//{
 		//}
+        {
+            OPTICK_EVENT( "FPS", Optick::Category::UI );
 
-		// increase the counter by one
-		static int m_fpscount = 0;
-		static int fps = 0;
-		m_fpscount++;
-		++frameCount;
+            // increase the counter by one
+            static int m_fpscount = 0;
+            static int fps = 0;
+            m_fpscount++;
+            ++frameCount;
 
-		static float fpsTime = 0;
-		fpsTime += GetEngine().DeltaTime;
-		// one second elapsed? (= 1000 milliseconds)
-		if (fpsTime >= 1.f)
-		{
-			frametime = GetEngine().DeltaTime;
-			frameCount = 0;
+            static float fpsTime = 0;
+            fpsTime += GetEngine().DeltaTime;
+            // one second elapsed? (= 1000 milliseconds)
+            if( fpsTime >= 1.f )
+            {
+                frametime = GetEngine().DeltaTime;
+                frameCount = 0;
 
-			// save the current counter value to m_fps
-			fps = m_fpscount;
+                // save the current counter value to m_fps
+                fps = m_fpscount;
 
-			// reset the counter and the interval
-			m_fpscount = 0;
-			fpsTime -= 1.f;
-		}
+                // reset the counter and the interval
+                m_fpscount = 0;
+                fpsTime -= 1.f;
+            }
 
-		ImGui::Text("%.1f ms", frametime * 1000.f);
-		ImGui::Text("%.1f fps", static_cast<float>(fps));
-		//ImGui::Text("%.1f fps", (float)ImGui::GetIO().Framerate);
+            ImGui::Text( "%.1f ms", frametime * 1000.f );
+            ImGui::Text( "%.1f fps", static_cast<float>( fps ) );
+            //ImGui::Text("%.1f fps", (float)ImGui::GetIO().Framerate);
+        }
 
 		ImGui::SetCursorPosX((ImGui::GetWindowWidth() / 2.f) - (ImGui::CalcTextSize(WindowTitle.c_str()).x / 2.f));
 		ImGui::Text(WindowTitle.c_str());
