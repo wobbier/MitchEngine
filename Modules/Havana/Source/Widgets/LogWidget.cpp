@@ -64,7 +64,7 @@ void LogWidget::Render()
 			static float hOffset = 30.f;
 			static float h = ImGui::GetContentRegionAvail().y;
 			static int selectedIndex = -1;
-			float w = ImGui::GetContentRegionAvailWidth();
+			float w = ImGui::GetContentRegionAvail().x;
 			if (selectedIndex >= 0 && selectedIndex < static_cast<int>(CLog::Messages.size()))
 			{
 				h = ImGui::GetContentRegionAvail().y - hOffset;

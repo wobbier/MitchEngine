@@ -134,7 +134,7 @@ void AudioSource::OnEditorInspect()
 	HavanaUtils::Label("Asset");
 	if (!FilePath.LocalPath.empty())
 	{
-		selectorSize = ImVec2(ImGui::GetContentRegionAvailWidth() - 19.f, 19.f);
+		selectorSize = ImVec2(ImGui::GetContentRegionAvail().x - 19.f, 19.f);
 	}
 	if (ImGui::Button(FilePath.LocalPath.empty() ? "Select Asset" : FilePath.LocalPath.c_str(), selectorSize))
 	{

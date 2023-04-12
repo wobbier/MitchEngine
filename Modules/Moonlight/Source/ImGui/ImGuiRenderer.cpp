@@ -113,8 +113,10 @@ void ImGuiRenderer::EndFrame()
         {
             // Weird issue when creating / destroying windows, need to assign proper ids
             ImGuiViewport* viewport = platform_io.Viewports[i];
-            if ( viewport->Flags & ImGuiViewportFlags_Minimized )
-                continue;
+
+            // TODO: Find out why this was removed??
+            //if ( viewport->Flags & ImGuiViewportFlags_Minimized )
+            //    continue;
             uint16_t platformIndex = static_cast<uint16_t>( 254 - platform_io.Viewports.Size ) + i;
             if ( platform_io.Platform_RenderWindow ) platform_io.Platform_RenderWindow( viewport, &platformIndex );
         }

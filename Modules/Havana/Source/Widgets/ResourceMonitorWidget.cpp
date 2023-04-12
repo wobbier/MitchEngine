@@ -81,7 +81,7 @@ void ResourceMonitorWidget::Render()
 				ItemsNeedSorted = false;
 
 				ImGuiListClipper clipper;
-				clipper.Begin(static_cast<int>(resourceList.size()));
+				clipper.Begin(static_cast<int>(resourceList.size()), 17.f);
 				while (clipper.Step())
 				{
 					for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; row++)

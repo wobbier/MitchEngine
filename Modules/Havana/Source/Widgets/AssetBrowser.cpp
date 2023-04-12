@@ -231,11 +231,11 @@ void AssetBrowserWidget::Render()
             float w = 0.f;
             if ( !IsMetaPanelOpen )
             {
-                w = ImGui::GetContentRegionAvailWidth();
+                w = ImGui::GetContentRegionAvail().x;
             }
             else
             {
-                w = ImGui::GetContentRegionAvailWidth() - wOffset;
+                w = ImGui::GetContentRegionAvail().x - wOffset;
                 //h = ImGui::GetContentRegionAvail().y - hOffset;
             }
             h = ImGui::GetContentRegionAvail().y - hOffset;
@@ -262,7 +262,7 @@ void AssetBrowserWidget::Render()
                     {
                         const SharedPtr<Moonlight::Texture> tex = std::dynamic_pointer_cast<Moonlight::Texture>( CurrentlyFocusedAsset );
 
-                        ImGui::Image( tex->TexHandle, { ImGui::GetContentRegionAvailWidth(), ImGui::GetContentRegionAvailWidth() } );
+                        ImGui::Image( tex->TexHandle, { ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().x } );
                     }
 
                     metafile->OnEditorInspect();
@@ -294,9 +294,9 @@ void AssetBrowserWidget::Render()
                 hOffset = 75.f;
                 ImGui::Text( "Name" );
                 ImGui::SameLine();
-                ImGui::SetNextItemWidth( ImGui::GetContentRegionAvailWidth() );
+                ImGui::SetNextItemWidth( ImGui::GetContentRegionAvail().x);
                 ImGui::InputText( "##Name", &SavedName );
-                float buttonSize = ImGui::GetContentRegionAvailWidth() / 2.f;
+                float buttonSize = ImGui::GetContentRegionAvail().x / 2.f;
                 ImGui::PushStyleColor( ImGuiCol_Button, (ImVec4)ImColor::HSV( 2.f / 7.0f, 0.6f, 0.6f ) );
                 ImGui::PushStyleColor( ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV( 2.f / 7.0f, 0.7f, 0.7f ) );
                 ImGui::PushStyleColor( ImGuiCol_ButtonActive, (ImVec4)ImColor::HSV( 2.f / 7.0f, 0.8f, 0.8f ) );
@@ -364,7 +364,7 @@ void AssetBrowserWidget::DrawAssetTable()
         CurrentlyFocusedAsset = nullptr;
     }
 
-    bool stringFilterChanged = filter.Draw( "##AssetFilter", ImGui::GetContentRegionAvailWidth() - 100.f );
+    bool stringFilterChanged = filter.Draw( "##AssetFilter", ImGui::GetContentRegionAvail().x - 100.f );
     bool isAssetTypeForced = ForcedAssetFilter != AssetType::Unknown;
     ImGui::SameLine();
     if ( ImGui::Button( IsMetaPanelOpen ? "Details >" : "< Details", { 100.f, 18.f } ) )

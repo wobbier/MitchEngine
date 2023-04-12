@@ -32,7 +32,7 @@
 #include <Widgets/AssetPreviewWidget.h>
 #include <Renderer.h>
 #include <Window/SDLWindow.h>
-#include <backends/imgui_impl_sdl.h>
+#include <backends/imgui_impl_sdl2.h>
 #include "UI/Colors.h"
 #include <Utils/EditorConfig.h>
 #include <Window/PlatformWindowHooks.h>
