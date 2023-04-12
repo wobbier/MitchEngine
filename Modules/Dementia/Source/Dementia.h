@@ -55,7 +55,7 @@ Class& operator=(Class&&) = delete;
 #define ME_PLATFORM_UWP NOT_IN_USE
 #endif
 
-#if defined( ME_PLATFORM_MACOS )
+#if defined( DEFINE_ME_PLATFORM_MACOS )
 #define ME_PLATFORM_MACOS IN_USE
 #else
 #define ME_PLATFORM_MACOS NOT_IN_USE
