@@ -326,7 +326,7 @@ void Engine::Run()
 				m_game->PostRender();
 #if !USING( ME_EDITOR )
 				EditorCamera.OutputSize = GetWindow()->GetSize();
-#if USING( ME_DEBUG )
+#if USING( ME_PROFILING )
 				FrameProfile::GetInstance().Render( { 0.f, GameWindow->GetSize().y - FrameProfile::kMinProfilerSize }, { GameWindow->GetSize().x, (float)FrameProfile::kMinProfilerSize } );
 #endif
 #endif

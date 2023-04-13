@@ -167,7 +167,7 @@ void UICore::Update(const UpdateContext& inUpdateContext)
 
 void UICore::Render()
 {
-	OPTICK_EVENT("UI Render", Optick::Category::Rendering);
+	OPTICK_EVENT("UI Render", Optick::Category::GPU_UI);
 	m_driver->BeginSynchronize();
 
 	// Render all active views to command lists and dispatch calls to GPUDriver

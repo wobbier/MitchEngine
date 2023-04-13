@@ -74,4 +74,5 @@ public:
 	std::string m_name;
 };
 
+// TODO: do I fix this, or just remove it? ME_PROFILE vs ME_PROFILING
 #define ME_PROFILE(name, cat) FrameProfileObject(name, cat);

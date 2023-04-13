@@ -146,13 +146,6 @@ public class Engine : BaseProject
             conf.AddPublicDependency<ScriptCore>(target);
             conf.AddPublicDependency<UserGameScript>(target);
         }
-
-        if (!string.IsNullOrEmpty(Globals.FMOD_Win64_Dir) || !string.IsNullOrEmpty(Globals.FMOD_UWP_Dir))
-        {
-            conf.Defines.Add("FMOD_ENABLED");
-            conf.Defines.Add("_DISABLE_EXTENDED_ALIGNED_STORAGE");
-        }
-
     }
     
     public override void ConfigureWin64(Configuration conf, CommonTarget target)

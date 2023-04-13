@@ -14,28 +14,28 @@ ResourceCache::ResourceCache()
 ResourceCache::~ResourceCache()
 {
 	AssetMetaCache::GetInstance().Save();
-	for (auto I : ResourceStack)
+	for (auto i : m_resourceStack )
 	{
-		if (I.second)
+		if (i.second)
 		{
-			I.second->Resources = nullptr;
-			I.second.reset();
+			i.second->Resources = nullptr;
+			i.second.reset();
 		}
 	}
-	ResourceStack.clear();
+	m_resourceStack.clear();
 }
 
 std::size_t ResourceCache::GetCacheSize() const
 {
-	return ResourceStack.size();
+	return m_resourceStack.size();
 }
 
 SharedPtr<Resource> ResourceCache::GetCached(const Path& InFilePath)
 {
-	auto I = ResourceStack.find(InFilePath.FullPath);
-	if (I != ResourceStack.end())
+	auto i = m_resourceStack.find(InFilePath.FullPath);
+	if (i != m_resourceStack.end())
 	{
-		return I->second;
+		return i->second;
 	}
 	return {};
 }
@@ -43,29 +43,29 @@ SharedPtr<Resource> ResourceCache::GetCached(const Path& InFilePath)
 void ResourceCache::TryToDestroy(Resource* resource)
 {
 	std::map<std::string, std::shared_ptr<Resource>>::iterator I;
-	I = ResourceStack.find(resource->FilePath.FullPath);
-	if (I != ResourceStack.end())
+	I = m_resourceStack.find(resource->FilePath.FullPath);
+	if (I != m_resourceStack.end())
 	{
 		if (I->second.use_count() == 1)
 		{
-			ResourceStack.erase(I);
+			m_resourceStack.erase(I);
 		}
 		return;
 	}
 }
 
-const std::map<std::string, std::shared_ptr<Resource>>& ResourceCache::GetResouceStack() const
+ResourceStack& ResourceCache::GetResouceStack() const
 {
-	return ResourceStack;
+	return m_resourceStack;
 }
 
 void ResourceCache::Dump()
 {
-	for (std::map<std::string, std::shared_ptr<Resource>>::iterator iter = ResourceStack.begin(); iter != ResourceStack.end(); )
+	for ( ResourceStack::iterator iter = m_resourceStack.begin(); iter != m_resourceStack.end(); )
 	{
 		if (iter->second.use_count() == 1)
 		{
-			iter = ResourceStack.erase(iter);
+			iter = m_resourceStack.erase(iter);
 		}
 		else
 		{

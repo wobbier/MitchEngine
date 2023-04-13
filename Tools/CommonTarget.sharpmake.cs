@@ -153,7 +153,9 @@ public class CommonTarget : Sharpmake.ITarget
     public ITarget ToSpecificDotNetOSTarget(DotNetOS dotNetOS)
     {
         if (DotNetOS == 0 || DotNetOS == dotNetOS)
+        {
             return this;
+        }
 
         return Clone(dotNetOS);
     }

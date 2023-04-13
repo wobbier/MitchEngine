@@ -14,6 +14,8 @@
 
 class Resource;
 
+typedef const std::map<std::string, std::shared_ptr<Resource>> ResourceStack;
+
 class ResourceCache
 {
 	ResourceCache();
@@ -29,14 +31,14 @@ public:
 
 	void TryToDestroy(Resource* resource);
 
-	const std::map<std::string, std::shared_ptr<Resource>>& GetResouceStack() const;
+	ResourceStack& GetResouceStack() const;
 
 	void Dump();
 
 	SharedPtr<MetaBase> LoadMetadata(const Path& filePath);
 
 private:
-	std::map<std::string, std::shared_ptr<Resource>> ResourceStack;
+	std::map<std::string, std::shared_ptr<Resource>> m_resourceStack;
 
 	ME_SINGLETON_DEFINITION(ResourceCache)
 };
@@ -44,8 +46,8 @@ private:
 template<class T, typename... Args>
 SharedPtr<T> ResourceCache::Get(const Path& InFilePath, Args&& ... args)
 {
-	auto I = ResourceStack.find(InFilePath.FullPath);
-	if (I != ResourceStack.end())
+	auto I = m_resourceStack.find(InFilePath.FullPath);
+	if (I != m_resourceStack.end())
 	{
 		SharedPtr<T> Res = std::dynamic_pointer_cast<T>(I->second);
 		return Res;
@@ -81,6 +83,6 @@ SharedPtr<T> ResourceCache::Get(const Path& InFilePath, Args&& ... args)
 	Res->ResourceType = static_cast<std::size_t>(id);
 	Res->SetMetadata(metaFile);
 	Res->Load();
-	ResourceStack[InFilePath.FullPath] = Res;
+	m_resourceStack[InFilePath.FullPath] = Res;
 	return Res;
 }

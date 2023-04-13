@@ -33,7 +33,7 @@ void ResourceMonitorWidget::Render()
         ImGui::PushStyleVar( ImGuiStyleVar_FramePadding, ImVec2( 12.f, ImGui::GetStyle().FramePadding.y ) );
         ImGui::Begin( "Resource Monitor", &IsOpen );
         {
-            auto& resources = ResourceCache::GetInstance().GetResouceStack();
+            ResourceStack& resources = ResourceCache::GetInstance().GetResouceStack();
 
             if( ItemsNeedGenerated )
             {

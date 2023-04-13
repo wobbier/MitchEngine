@@ -95,3 +95,4 @@ Class& operator=(Class&&) = delete;
 #define ME_EDITOR_WIN64     USE_IF( USING( ME_EDITOR ) && USING( ME_PLATFORM_WIN64 ) )
 #define ME_EDITOR_MACOS     USE_IF( USING( ME_EDITOR ) && USING( ME_PLATFORM_MACOS ) )
 #define ME_SCRIPTING        IN_USE
+#define ME_PROFILING        USE_IF( USING( ME_DEBUG ) )
