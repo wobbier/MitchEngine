@@ -118,6 +118,7 @@ Vector2 Input::GetMousePosition() const
 
 Vector2 Input::GetGlobalMousePosition() const
 {
+	// TODO: Cache this :/
 	int mouse_x_global, mouse_y_global;
 	SDL_GetGlobalMouseState(&mouse_x_global, &mouse_y_global);
 	return { mouse_x_global, mouse_y_global };

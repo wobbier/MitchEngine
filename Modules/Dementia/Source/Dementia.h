@@ -37,6 +37,39 @@ Class& operator=(Class&&) = delete;
 #define USING(x) (1 x 1)
 #endif /* USING */
 
+#if defined( _MSC_VER )
+#define ME_COMPILER_MSVC IN_USE
+#else
+#define ME_COMPILER_MSVC NOT_IN_USE
+#endif
+
+#if defined( __clang__ )
+#define ME_COMPILER_CLANG IN_USE
+#else
+#define ME_COMPILER_CLANG NOT_IN_USE
+#endif
+
+#if defined( __GNUC__ )
+#define ME_COMPILER_GCC IN_USE
+#else
+#define ME_COMPILER_GCC NOT_IN_USE
+#endif
+
+#if USING ( ME_COMPILER_MSVC )
+#define DISABLE_OPTIMIZATION __pragma( optimize( "", off ) )
+#define ENABLE_OPTIMIZATION __pragma( optimize( "", on ) )
+#elif USING ( ME_COMPILER_GCC )
+#define DISABLE_OPTIMIZATION \
+        _Pragma( "GCC push_options" ) \
+        _Pragma( "GCC optimize (\"O0\")" )
+#define ENABLE_OPTIMIZATION _Pragma( "GCC pop_options" )
+#elif USING ( ME_COMPILER_CLANG )
+#define DISABLE_OPTIMIZATION _Pragma( "clang optimize off" )
+#define ENABLE_OPTIMIZATION _Pragma( "clang optimize on" )
+#else
+#error Unknown Compiler
+#endif
+
 #ifdef ME_HEADLESS
 #define ME_HEADLESS IN_USE
 #else

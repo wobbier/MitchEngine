@@ -209,40 +209,49 @@ void Engine::Run()
 	forever
     {
         OPTICK_FRAME( "MainLoop" );
-		FrameProfile::GetInstance().Start();
-		// Check and call events
-		GameWindow->ParseMessageQueue();
+        FrameProfile::GetInstance().Start();
+        // Check and call events
+        GameWindow->ParseMessageQueue();
 
-		if ( GameWindow->ShouldClose() )
+        if( GameWindow->ShouldClose() )
+        {
+            StopGame();
+            break;
+        }
+
 		{
-			StopGame();
-			break;
+			OPTICK_EVENT( "EventManager", Optick::Category::Cloth );
+			EventManager::GetInstance().FirePendingEvents();
 		}
 
-		EventManager::GetInstance().FirePendingEvents();
+		{
+			OPTICK_EVENT( "Clock" );
+			GameClock.Update();
 
-		GameClock.Update();
-
-		AccumulatedTime += GameClock.GetDeltaSeconds();
+			AccumulatedTime += GameClock.GetDeltaSeconds();
+		}
 
 		//if (AccumulatedTime >= MaxDeltaTime)
 		{
 			float deltaTime = DeltaTime = AccumulatedTime;
-			updateContext.UpdateDeltaTime( deltaTime );
 			{
+                updateContext.UpdateDeltaTime( deltaTime );
+
 #if USING( ME_EDITOR )
-				Input& input = GetEditorInput();
+                Input& input = GetEditorInput();
 #else
-				Input& input = GetInput();
+                Input& input = GetInput();
 #endif
 
-				ImGuiIO& io = ImGui::GetIO();
-				Vector2 mousePos = input.GetMousePosition();
-				if ( io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable )
-				{
-					// Multi-viewport mode: mouse position in OS absolute coordinates (io.MousePos is (0,0) when the mouse is on the upper-left of the primary monitor)
-					mousePos = input.GetGlobalMousePosition();
-				}
+                ImGuiIO& io = ImGui::GetIO();
+                Vector2 mousePos = input.GetMousePosition();
+                if( io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable )
+                {
+                    OPTICK_EVENT( "GetGlobalMousePosition" );
+                    // Multi-viewport mode: mouse position in OS absolute coordinates (io.MousePos is (0,0) when the mouse is on the upper-left of the primary monitor)
+                    mousePos = input.GetGlobalMousePosition();
+                }
+
 				NewRenderer->BeginFrame( mousePos, ( input.IsMouseButtonDown( MouseButton::Left ) ? 0x01 : 0 )
 					| ( input.IsMouseButtonDown( MouseButton::Right ) ? 0x02 : 0 )
 					| ( input.IsMouseButtonDown( MouseButton::Middle ) ? 0x04 : 0 )

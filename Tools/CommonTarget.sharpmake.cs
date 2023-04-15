@@ -53,7 +53,7 @@ public class CommonTarget : Sharpmake.ITarget
                     var baseTarget = new CommonTarget(
                         Platform.win64,
                         DevEnv.vs2019,
-                        Optimization.Debug | Optimization.Release,
+                        Optimization.Debug | Optimization.Release | Optimization.Retail,
                         DotNetFramework.v4_8,
                         dotNetOS: 0);
                     baseTarget.SubPlatform = SubPlatformType.Win64;

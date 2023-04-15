@@ -43,6 +43,8 @@ public abstract class BaseProject : Project
         conf.TargetPath = "[project.SharpmakeCsPath]/.build/[target.Name]/";
         conf.LibraryPaths.Add("[project.SharpmakeCsPath]/.build/[target.Name]/");
 
+        //conf.Options.Add(Options.Vc.General.TreatWarningsAsErrors.Enable);
+
         if (target.SelectedMode == CommonTarget.Mode.Editor)
         {
             conf.Defines.Add("DEFINE_ME_EDITOR");
@@ -139,6 +141,7 @@ public abstract class BaseProject : Project
         conf.DefaultOption = Options.DefaultTarget.Debug;
 
         conf.Options.Add(Sharpmake.Options.Vc.Compiler.RuntimeLibrary.MultiThreadedDebugDLL);
+        conf.Options.Add(Options.Vc.Compiler.Inline.Disable);
     }
 
     [ConfigurePriority(ConfigurePriorities.Optimization)]
@@ -147,6 +150,22 @@ public abstract class BaseProject : Project
     {
         conf.DefaultOption = Options.DefaultTarget.Release;
         conf.Options.Add(Sharpmake.Options.Vc.Compiler.RuntimeLibrary.MultiThreadedDLL);
+        conf.Options.Add(Options.Vc.Compiler.Inline.OnlyInline);
+    }
+
+
+    [ConfigurePriority(ConfigurePriorities.Optimization)]
+    [Configure(Optimization.Retail)]
+    public virtual void ConfigureRetail(Configuration conf, CommonTarget target)
+    {
+        conf.DefaultOption = Options.DefaultTarget.Release;
+
+        conf.Options.Add(Sharpmake.Options.Vc.Compiler.RuntimeLibrary.MultiThreadedDLL);
+
+        // Full inlining
+        conf.Options.Add(Options.Vc.Compiler.Inline.AnySuitable);
+        conf.Options.Add(Options.Vc.Compiler.Optimization.FullOptimization);
+        conf.Options.Add(Options.Vc.Compiler.Optimization.MaximizeSpeed);
     }
 
     #endregion
