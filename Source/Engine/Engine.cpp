@@ -283,11 +283,11 @@ void Engine::Run()
 
 			// Update Game Application
 			{
-				FrameProfile::GetInstance().Set( "Game", ProfileCategory::Game );
-				//ME_PROFILE("Game", ProfileCategory::Game);
+				//FrameProfile::GetInstance().Set( "Game", ProfileCategory::Game );
+				ME_PROFILE("Game", ProfileCategory::Game);
 				OPTICK_CATEGORY( "MainLoop::GameUpdate", Optick::Category::GameLogic );
 				m_game->OnUpdate( updateContext );
-				FrameProfile::GetInstance().Complete( "Game" );
+				//FrameProfile::GetInstance().Complete( "Game" );
 			}
 
 			// Update Audio
@@ -339,7 +339,7 @@ void Engine::Run()
 				FrameProfile::GetInstance().Render( { 0.f, GameWindow->GetSize().y - FrameProfile::kMinProfilerSize }, { GameWindow->GetSize().x, (float)FrameProfile::kMinProfilerSize } );
 #endif
 #endif
-				FrameProfile::GetInstance().Set( "UI Render", ProfileCategory::UI );
+				ME_FRAMEPROFILE_START( "UI Render", ProfileCategory::UI );
 				UI->Render();
 				FrameProfile::GetInstance().Complete( "UI Render" );
 				FrameProfile::GetInstance().Set( "Render", ProfileCategory::Rendering );

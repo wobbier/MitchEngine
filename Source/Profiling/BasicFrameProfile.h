@@ -3,6 +3,16 @@
 #include "Engine/Clock.h"
 #include "Math/Vector3.h"
 #include "imgui.h"
+#include "Dementia.h"
+
+// This should just be profiling?
+#if USING( ME_IMGUI ) || USING( ME_PROFILING )
+#define ME_FRAMEPROFILE_START( name, category ) FrameProfile::GetInstance().Set( name, category );
+#define ME_FRAMEPROFILE_STOP( name, category ) FrameProfile::GetInstance().Complete( name );
+#else
+#define ME_FRAMEPROFILE_START( name, category )
+#define ME_FRAMEPROFILE_STOP( name, category )
+#endif
 
 enum class ProfileCategory : std::size_t
 {
