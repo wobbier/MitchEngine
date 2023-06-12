@@ -41,7 +41,10 @@ public:
 	void Create(const RendererCreationSettings& settings);
 	void Destroy();
 
+#if USING( ME_IMGUI )
 	void BeginFrame(const Vector2& mousePosition, uint8_t mouseButton, int32_t scroll, Vector2 outputSize, int inputChar, bgfx::ViewId viewId);
+#endif
+
 	void Render(Moonlight::CameraData& EditorCamera);
 	void SetGuizmoDrawCallback(std::function<void(DebugDrawer*)> GuizmoDrawingFunc);
 	void RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId id);
@@ -82,8 +85,6 @@ private:
 	Vector2 CurrentSize;
 	uint32_t m_resetFlags = 0u;
 
-	ImGuiRenderer* ImGuiRender = nullptr;
-
 	CommandCache<Moonlight::CameraData> m_cameraCache;
 	CommandCache<Moonlight::MeshCommand> m_meshCache;
 	CommandCache<Moonlight::DebugColliderCommand> m_debugDrawCache;
@@ -108,10 +109,16 @@ private:
 	SharedPtr<Moonlight::DynamicSky> m_dynamicSky;
 	bool EnableDebugDraw = false;
 	UniquePtr<DebugDrawer> m_debugDraw;
+	bool NeedsReset = false;
+
 #if USING( ME_ENABLE_RENDERDOC )
 		RenderDocManager* RenderDoc;
 #endif
-	bool NeedsReset = false;
+
+#if USING( ME_IMGUI )
+    ImGuiRenderer* ImGuiRender = nullptr;
+#endif
+
 public:
 	void SetDebugDrawEnabled(bool inEnabled);
 };

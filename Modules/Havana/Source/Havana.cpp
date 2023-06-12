@@ -247,7 +247,6 @@ void Havana::InitUI()
 
 void Havana::NewFrame()
 {
-	GetInput().Update();
 	OPTICK_EVENT("Havana::NewFrame");
 
 	ImGuizmo::BeginFrame();

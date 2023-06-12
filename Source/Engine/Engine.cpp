@@ -234,9 +234,10 @@ void Engine::Run()
 		//if (AccumulatedTime >= MaxDeltaTime)
 		{
 			float deltaTime = DeltaTime = AccumulatedTime;
-			{
-                updateContext.UpdateDeltaTime( deltaTime );
+            updateContext.UpdateDeltaTime( deltaTime );
 
+#if USING( ME_IMGUI )
+            {
 #if USING( ME_EDITOR )
                 Input& input = GetEditorInput();
 #else
@@ -260,10 +261,14 @@ void Engine::Run()
 					, -1
 					, 255 );
 			}
+#endif
 
 			GameWorld->Simulate();
 
-			GetInput().Update();
+            GetInput().Update();
+#if USING( ME_EDITOR )
+            GetEditorInput().Update();
+#endif
 
 			// Update Loaded Cores
 			{
@@ -363,7 +368,10 @@ void Engine::Run()
 			FrameProfile::GetInstance().End( AccumulatedTime );
 			AccumulatedTime = 0;// std::fmod(AccumulatedTime, MaxDeltaTime);
 			GetJobEngine().ClearWorkerPools();
-			GetInput().PostUpdate();
+            GetInput().PostUpdate();
+#if USING ( ME_EDITOR )
+            GetEditorInput().PostUpdate();
+#endif
 		}
 		ResourceCache::GetInstance().Dump();
 		//Sleep(1);

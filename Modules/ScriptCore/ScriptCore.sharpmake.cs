@@ -39,7 +39,7 @@ public abstract class GameScript : CSharpProject
         : base(typeof(CommonTarget))
     {
         Name = "Game.Script";
-        SourceRootPath = @"Assets";
+        SourceRootPath = Path.Combine(Globals.RootDir, "Assets");
         //SourceFiles.Add(@"[project.SharpmakeCsPath]/Assets/Scripts/TestScript.cs");
 
         ProjectSchema = CSharpProjectSchema.NetFramework;

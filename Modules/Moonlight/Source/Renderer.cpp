@@ -185,6 +185,8 @@ void BGFXRenderer::Destroy()
 #endif
 }
 
+#if USING( ME_IMGUI )
+
 void BGFXRenderer::BeginFrame(const Vector2& mousePosition, uint8_t mouseButton, int32_t scroll, Vector2 outputSize, int inputChar, bgfx::ViewId viewId)
 {
     OPTICK_EVENT( "BGFXRenderer::BeginFrame" );
@@ -199,6 +201,8 @@ void BGFXRenderer::BeginFrame(const Vector2& mousePosition, uint8_t mouseButton,
 #endif
 	ImGuiRender->NewFrame(mousePosition, mouseButton, scroll, outputSize, inputChar, viewId);
 }
+
+#endif
 
 void BGFXRenderer::Render(Moonlight::CameraData& EditorCamera)
 {
@@ -288,7 +292,9 @@ void BGFXRenderer::Render(Moonlight::CameraData& EditorCamera)
 #endif
 
 	{
+#if USING( ME_IMGUI )
 		ImGuiRender->EndFrame();
+#endif
 		{
 			OPTICK_EVENT("Renderer::Frame", Optick::Category::Rendering);
 			bgfx::frame();
