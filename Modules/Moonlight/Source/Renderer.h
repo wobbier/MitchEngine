@@ -78,7 +78,9 @@ public:
 	};
 	void SetMSAALevel(MSAALevel level);
 
+#if USING( ME_IMGUI )
 	ImGuiRenderer* GetImGuiRenderer() const;
+#endif
 
 private:
 	Vector2 PreviousSize;

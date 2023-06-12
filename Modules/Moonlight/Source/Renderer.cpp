@@ -168,8 +168,10 @@ void BGFXRenderer::Create(const RendererCreationSettings& settings)
 		m_defaultOpacityTexture = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Textures/DefaultAlpha.png"));
 	}
 
+#if USING( ME_IMGUI )
 	ImGuiRender = new ImGuiRenderer();
 	ImGuiRender->Create();
+#endif
 
 	bgfx::reset((uint32_t)CurrentSize.x, (uint32_t)CurrentSize.y, m_resetFlags);
 	bgfx::setViewRect(kClearView, 0, 0, bgfx::BackbufferRatio::Equal);
@@ -750,10 +752,12 @@ void BGFXRenderer::SetMSAALevel(MSAALevel level)
 	NeedsReset = true;
 }
 
+#if USING( ME_IMGUI )
 ImGuiRenderer* BGFXRenderer::GetImGuiRenderer() const
 {
 	return ImGuiRender;
 }
+#endif
 
 void BGFXRenderer::SetDebugDrawEnabled(bool inEnabled)
 {
