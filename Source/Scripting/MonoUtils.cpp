@@ -221,7 +221,6 @@ namespace MonoUtils
         MonoImageOpenStatus status;
         MonoImage* image = mono_image_open_from_data_full( (char*)fileData.Data, fileData.Size, 1, &status, 0 );
 
-        fileData.Release();
 
         if ( status != MONO_IMAGE_OK )
         {
@@ -239,21 +238,23 @@ namespace MonoUtils
             
             if ( std::filesystem::exists( pdbPath ) )
             {
-                Buffer pdbBuff = PlatformUtils::ReadBytes( Path((char*)pdbPath.c_str()) );
-                mono_debug_open_image_from_memory( image, (const mono_byte*)pdbBuff.Data, pdbBuff.Size );
+                Buffer pdbBuff = PlatformUtils::ReadBytes( Path(pdbPath.generic_string()) );
+                mono_debug_open_image_from_memory( image, (mono_byte*)pdbBuff.Data, pdbBuff.Size );
+                pdbBuff.Release();
             }
         }
 #endif
 
         MonoAssembly* assembly = mono_assembly_load_from_full( image, path.FullPath.c_str(), &status, 0 );
 
-        mono_image_close( image );
-
         if ( !assembly )
         {
             YIKES( "mono_assembly_load_from_full failed" );
             return nullptr;
         }
+
+        mono_image_close( image );
+        fileData.Release();
 
         return assembly;
     }

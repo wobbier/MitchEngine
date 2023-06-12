@@ -11,6 +11,8 @@ enum class AssetType : unsigned int
 	Shader,
 	Texture,
 	UI,
+	Code,
+	CS,
 	Count
 };
 
@@ -21,32 +23,27 @@ namespace {
 		{
 		case AssetType::Unknown:
 			return "Unknown";
-			break;
 		case AssetType::Texture:
 			return "Texture";
-			break;
 		case AssetType::Audio:
 			return "Audio";
-			break;
 		case AssetType::Model:
 			return "Model";
-			break;
 		case AssetType::Level:
 			return "Level";
-			break;
 		case AssetType::Shader:
 			return "Shader";
-			break;
 		case AssetType::Prefab:
 			return "Prefab";
-			break;
 		case AssetType::UI:
 			return "UI";
-			break;
+        case AssetType::Code:
+            return "Code";
+        case AssetType::CS:
+            return "Script";
 		case AssetType::Count:
 		default:
 			return "";
-			break;
 		}
 	}
 }

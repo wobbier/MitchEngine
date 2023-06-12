@@ -129,10 +129,14 @@ void AssetBrowserWidget::Init()
 {
     Icons["Image"] = ResourceCache::GetInstance().Get<Moonlight::Texture>( Path( "Assets/Havana/UI/Image.png" ) );
     Icons["File"] = ResourceCache::GetInstance().Get<Moonlight::Texture>( Path( "Assets/Havana/UI/File.png" ) );
-    Icons["Model"] = ResourceCache::GetInstance().Get<Moonlight::Texture>( Path( "Assets/Havana/UI/Model.png" ) );
+    Icons["Model"] = ResourceCache::GetInstance().Get<Moonlight::Texture>( Path( "Assets/Havana/UI/3D.png" ) );
     Icons["World"] = ResourceCache::GetInstance().Get<Moonlight::Texture>( Path( "Assets/Havana/UI/World.png" ) );
     Icons["Audio"] = ResourceCache::GetInstance().Get<Moonlight::Texture>( Path( "Assets/Havana/UI/Audio.png" ) );
     Icons["Prefab"] = ResourceCache::GetInstance().Get<Moonlight::Texture>( Path( "Assets/Havana/UI/Prefab.png" ) );
+    Icons["Code"] = ResourceCache::GetInstance().Get<Moonlight::Texture>( Path( "Assets/Havana/UI/Code.png" ) );
+    Icons["CS"] = ResourceCache::GetInstance().Get<Moonlight::Texture>( Path( "Assets/Havana/UI/CSharp.png" ) );
+    Icons["UI"] = ResourceCache::GetInstance().Get<Moonlight::Texture>( Path( "Assets/Havana/UI/UI.png" ) );
+    Icons["Shader"] = ResourceCache::GetInstance().Get<Moonlight::Texture>( Path( "Assets/Havana/UI/Code.png" ) );
 
     for ( unsigned int i = (unsigned int)AssetType::Unknown + 1; i < (unsigned int)AssetType::Count; i++ )
     {
@@ -588,11 +592,23 @@ void AssetBrowserWidget::DrawAssetTable()
                     case AssetType::Model:
                         ImGui::Image( Icons["Model"]->TexHandle, iconSize );
                         break;
+                    case AssetType::Shader:
+                        ImGui::Image( Icons["Shader"]->TexHandle, iconSize );
+                        break;
                     case AssetType::Audio:
                         ImGui::Image( Icons["Audio"]->TexHandle, iconSize );
                         break;
                     case AssetType::Prefab:
                         ImGui::Image( Icons["Prefab"]->TexHandle, iconSize );
+                        break;
+                    case AssetType::Code:
+                        ImGui::Image( Icons["Code"]->TexHandle, iconSize );
+                        break;
+                    case AssetType::UI:
+                        ImGui::Image( Icons["UI"]->TexHandle, iconSize );
+                        break;
+                    case AssetType::CS:
+                        ImGui::Image( Icons["CS"]->TexHandle, iconSize );
                         break;
                     default:
                         ImGui::Image( Icons["File"]->TexHandle, iconSize );
@@ -716,11 +732,23 @@ void AssetBrowserWidget::Recursive( Directory& dir )
         case AssetType::Model:
             ImGui::Image( Icons["Model"]->TexHandle, ImVec2( 16, 16 ) );
             break;
+        case AssetType::Shader:
+            ImGui::Image( Icons["Shader"]->TexHandle, ImVec2( 16, 16 ) );
+            break;
         case AssetType::Audio:
             ImGui::Image( Icons["Audio"]->TexHandle, ImVec2( 16, 16 ) );
             break;
         case AssetType::Prefab:
             ImGui::Image( Icons["Prefab"]->TexHandle, ImVec2( 16, 16 ) );
+            break;
+        case AssetType::UI:
+            ImGui::Image( Icons["UI"]->TexHandle, ImVec2( 16, 16 ) );
+            break;
+        case AssetType::Code:
+            ImGui::Image( Icons["Code"]->TexHandle, ImVec2( 16, 16 ) );
+            break;
+        case AssetType::CS:
+            ImGui::Image( Icons["CS"]->TexHandle, ImVec2( 16, 16 ) );
             break;
         default:
             ImGui::Image( Icons["File"]->TexHandle, ImVec2( 16, 16 ) );
@@ -955,6 +983,14 @@ bool AssetBrowserWidget::ProccessDirectoryRecursive( std::string& dir, Directory
                 else if ( newdir.rfind( ".html" ) != std::string::npos )
                 {
                     type = AssetType::UI;
+                }
+                else if ( newdir.rfind( ".cs" ) != std::string::npos )
+                {
+                    type = AssetType::CS;
+                }
+                else if ( newdir.rfind( ".vert" ) != std::string::npos || newdir.rfind( ".frag" ) != std::string::npos || newdir.rfind( ".var" ) != std::string::npos )
+                {
+                    type = AssetType::Shader;
                 }
 
                 AssetDescriptor desc;

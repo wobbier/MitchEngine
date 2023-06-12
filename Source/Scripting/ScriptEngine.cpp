@@ -137,8 +137,7 @@ void ScriptEngine::Init()
 void ScriptEngine::InitMono()
 {
     mono_set_assemblies_path( MONO_PATH );
-
-    mono_set_dirs( MONO_HOME "/lib", MONO_HOME "/etc" );
+    
     if ( sScriptData.EnableDebugging )
     {
         const char* argv[2] = {
@@ -149,13 +148,14 @@ void ScriptEngine::InitMono()
         mono_debug_init( MONO_DEBUG_FORMAT_MONO );
     }
 
+    //mono_set_dirs( MONO_HOME "/lib", MONO_HOME "/etc" );
     sScriptData.RootDomain = mono_jit_init( "MEMonoRuntime" );
     if ( !sScriptData.RootDomain )
     {
         YIKES( "mono_jit_init failed" );
     }
 
-    if ( sScriptData.EnableDebugging )
+    if (sScriptData.EnableDebugging)
     {
         mono_debug_domain_create( sScriptData.RootDomain );
     }
@@ -308,6 +308,8 @@ bool ScriptEngine::LoadAppAssembly( const Path& assemblyPath )
         return false;
     }
 
+    //#TODO: Listen for dll changes
+
     return true;
 }
 
@@ -362,7 +364,7 @@ void ScriptEngine::CacheAssemblyTypes()
                     MonoType* type = mono_field_get_type( field );
                     MonoUtils::ScriptFieldType fieldType = MonoUtils::MonoTypeToScriptFieldType( type );
                     BRUH_FMT( "%s, %i", MonoUtils::ScriptFieldTypeToString(fieldType).c_str(), fieldType );
-                    sScriptData.EntityClasses[fullName].m_fields[fieldName] = { fieldType, fieldName, field };
+                    scriptClass.m_fields[fieldName] = { fieldType, fieldName, field };
                 }
             }
         }
