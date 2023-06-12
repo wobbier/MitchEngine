@@ -1,7 +1,5 @@
 #pragma once
 #include <Pointers.h>
-#include <string>
-#include <vector>
 #include <Path.h>
 #include "ProjectCache.h"
 #include <Math/Vector2.h>
@@ -18,13 +16,6 @@ public:
 
 	void Draw();
     
-#if USING( ME_PLATFORM_WIN64 )
-	Path ShowOpenFilePrompt();
-#endif
-    
-	SharedPtr<Moonlight::Texture>& GetActiveBackgroundTexture();
-	SharedPtr<Moonlight::Texture>& GetActiveTitleTexture();
-
 	ImGuiRenderer* GetRenderer() const;
 
 private:

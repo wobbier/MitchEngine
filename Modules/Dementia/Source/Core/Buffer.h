@@ -23,6 +23,7 @@ public:
     {
         assert( !Data );
         Data = new uint8_t[size];
+        Size = size;
     }
 
     void Release()

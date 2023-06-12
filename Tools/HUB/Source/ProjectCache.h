@@ -3,6 +3,7 @@
 #include <Path.h>
 #include <Pointers.h>
 #include <vector>
+#include "Graphics\Texture.h"
 
 namespace Moonlight { class Texture; }
 
@@ -22,6 +23,9 @@ struct ProjectCache
 
 	void Load();
 	void Save();
+
+	SharedPtr<Moonlight::Texture> GetActiveBackgroundTexture( size_t SelectedProjectIndex );
+	SharedPtr<Moonlight::Texture> GetActiveTitleTexture( size_t SelectedProjectIndex );
 
 	std::vector<ProjectEntry> Projects;
 };
