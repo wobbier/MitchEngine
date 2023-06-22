@@ -32,7 +32,7 @@ BaseComponent* AddComponent(Entity& inEnt) {
 
 template<class T>
 TypeId GetComponentTypeImpl() {
-	return Component<T>::GetTypeId();
+	return Component<T>::GetStaticTypeId();
 }
 
 template<class T>

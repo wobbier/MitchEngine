@@ -28,6 +28,8 @@
 #include "Events/HavanaEvents.h"
 #include <Utils/EditorConfig.h>
 
+#include "Editor/EditorComponentInfoCache.h"
+
 #if USING( ME_EDITOR )
 
 EditorApp::EditorApp(int argc, char** argv)
@@ -37,6 +39,16 @@ EditorApp::EditorApp(int argc, char** argv)
 	events.push_back(NewSceneEvent::GetEventId());
 	events.push_back(SceneLoadedEvent::GetEventId());
 	EventManager::GetInstance().RegisterReceiver(this, events);
+
+    // 0x0100 is the default, so we put the transform component decently high up.
+    REGISTER_EDITORCOMPONENTCACHE_ORDERDATA( Transform, 0x0F00 );
+
+    // This would be first if uncommented.
+    //REGISTER_EDITORCOMPONENTCACHE_ORDERDATA( RenderComponent, 0x000F );
+
+    // Other examples...
+    //REGISTER_EDITORCOMPONENTCACHE_ORDERDATA( EditorCameraComponent, 0x0300 );
+    //REGISTER_EDITORCOMPONENTCACHE_ORDERDATA( CameraComponent, 0x000E );
 }
 
 EditorApp::~EditorApp()

@@ -52,6 +52,8 @@ public:
 	virtual void Serialize(json& outJson) = 0;
 	virtual void Deserialize(const json& inJson) = 0;
 
+	virtual TypeId GetTypeId() const = 0;
+
 #if USING( ME_EDITOR )
 	virtual void OnEditorInspect() = 0;
 #endif
@@ -70,10 +72,15 @@ public:
 	{
 	}
 
-	static TypeId GetTypeId()
+	virtual TypeId GetTypeId() const final
 	{
 		return ClassTypeId<BaseComponent>::GetTypeId<T>();
 	}
+
+    static TypeId GetStaticTypeId()
+    {
+        return ClassTypeId<BaseComponent>::GetTypeId<T>();
+    }
 
 	// OnDeserialize guaranteed to be called before this
 	virtual void Init() override {};

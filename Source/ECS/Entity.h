@@ -70,19 +70,19 @@ template <typename T>
 bool Entity::HasComponent()
 {
 	//static_assert(std::is_base_of<BaseComponent, T>(), "T is not a component, cannot add T to entity");
-	return HasComponent(T::GetTypeId());
+	return HasComponent(T::GetStaticTypeId());
 }
 
 template <typename T>
 T& Entity::AddComponent(SharedPtr<T> inComponent)
 {
-	if (HasComponent(T::GetTypeId()))
+	if (HasComponent(T::GetStaticTypeId()))
 	{
 		return GetComponent<T>();
 	}
 
 	//static_assert(std::is_base_of<BaseComponent, T>(), "T is not a component, cannot add T to entity");
-	AddComponent(inComponent, T::GetTypeId());
+	AddComponent(inComponent, T::GetStaticTypeId());
 	return *inComponent;
 }
 
@@ -90,13 +90,13 @@ template <typename T>
 T& Entity::GetComponent() const
 {
 	//static_assert(std::is_base_of<BaseComponent, T>(), "T is not a component, cannot get T from Entity");
-	return static_cast<T&>(GetComponent(T::GetTypeId()));
+	return static_cast<T&>(GetComponent(T::GetStaticTypeId()));
 }
 
 template <typename T, typename... Args>
 T& Entity::AddComponent(Args&&... args)
 {
-	if (HasComponent(T::GetTypeId()))
+	if (HasComponent(T::GetStaticTypeId()))
 	{
 		return GetComponent<T>();
 	}
@@ -107,5 +107,5 @@ T& Entity::AddComponent(Args&&... args)
 template <typename T>
 void Entity::RemoveComponent()
 {
-	RemoveComponent(T::GetTypeId());
+	RemoveComponent(T::GetStaticTypeId());
 }

@@ -34,6 +34,10 @@ public:
 	EntityHandle SelectedEntity;
 	WeakPtr<Transform> SelectedTransform;
 	class BaseCore* SelectedCore = nullptr;
+
+private:
+    std::vector<BaseComponent*> m_components;
+	bool m_isDirty = true;
 };
 
 #endif

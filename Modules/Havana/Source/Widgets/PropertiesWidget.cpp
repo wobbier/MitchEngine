@@ -6,6 +6,7 @@
 #include <Engine/World.h>
 #include <Utils/CommonUtils.h>
 #include <Events/SceneEvents.h>
+#include "Editor/EditorComponentInfoCache.h"
 
 #if USING( ME_EDITOR )
 
@@ -38,6 +39,7 @@ bool PropertiesWidget::OnEvent(const BaseEvent& evt)
 		SelectedCore = event.SelectedCore;
 		SelectedEntity = event.SelectedEntity;
 		SelectedTransform = event.SelectedTransform;
+		m_isDirty = true;
 	}
 	return false;
 }
@@ -67,19 +69,43 @@ void PropertiesWidget::Render()
 		{
 			OPTICK_CATEGORY("Inspect Entity", Optick::Category::Debug);
 			entity->OnEditorInspect();
-			if (entity->HasComponent<Transform>())
-			{
-				SelectedTransform = entity->GetComponent<Transform>().shared_from_this();
-				DrawComponentProperties(SelectedTransform.lock().get(), entity);
-			}
 
-			for (BaseComponent* comp : entity->GetAllComponents())
-			{
-				if (comp != SelectedTransform.lock().get())
-				{
-					DrawComponentProperties(comp, entity);
-				}
+			const auto componentList = entity->GetAllComponents();
+            // Cache the component pointers if we've modified our components or we've changed the focused GameObject.
+            if( m_isDirty || entity->GetAllComponents().size() != m_components.size() )
+            {
+                m_components.reserve( componentList.size() );
+                m_components.assign( componentList.begin(), componentList.end() );
 
+                if( m_components.size() > 1 )
+                {
+                    const EditorComponentCache::ComponentInfoMap& componentData = EditorComponentCache::GetAllComponentsInfo();
+
+                    std::sort( m_components.begin(), m_components.end(), [&componentData]( const BaseComponent* a, const BaseComponent* b ) {
+                        int32_t first = EditorComponentCache::kDefaultSortingOrder;
+                        int32_t second = EditorComponentCache::kDefaultSortingOrder;
+                        bool foundFirst = componentData.find( a->GetTypeId() ) != componentData.end();
+                        if( foundFirst )
+                        {
+                            first = componentData.at( a->GetTypeId() ).Order;
+                        }
+
+                        bool foundSecond = componentData.find( b->GetTypeId() ) != componentData.end();
+                        if( foundSecond )
+                        {
+                            second = componentData.at( b->GetTypeId() ).Order;
+                        }
+
+                        return first > second;
+                        } );
+                }
+
+                m_isDirty = false;
+            }
+
+			for (BaseComponent* comp : m_components )
+			{
+				DrawComponentProperties(comp, entity);
 			}
 			AddComponentPopup(SelectedEntity);
 		}
