@@ -219,8 +219,6 @@ public class Engine : BaseProject
         // #TODO Read path from Globals / Move to own class again
         if( Directory.Exists("C:/Program Files/Mono/include/mono-2.0") )
         {
-            conf.Defines.Add("DEFINE_ME_MONO");
-
             conf.IncludePaths.Add("C:/Program Files/Mono/include/mono-2.0");
             conf.LibraryPaths.Add("C:/Program Files/Mono/lib");
             conf.LibraryFiles.Add("mono-2.0-sgen");
@@ -271,8 +269,6 @@ public class Engine : BaseProject
         // #TODO Read path from Globals / Move to own class again
         if (Directory.Exists("C:/Program Files/Mono/include/mono-2.0"))
         {
-            conf.Defines.Add("DEFINE_ME_MONO");
-
             conf.IncludePaths.Add("C:/Program Files/Mono/include/mono-2.0");
             conf.LibraryPaths.Add("C:/Program Files/Mono/lib");
             conf.LibraryFiles.Add("mono-2.0-sgen");
@@ -314,8 +310,6 @@ public class Engine : BaseProject
         // #TODO Read path from Globals / Move to own class again
         if (Directory.Exists("/Library/Frameworks/Mono.framework/Headers/mono-2.0/"))
         {
-            conf.Defines.Add("DEFINE_ME_MONO");
-
             conf.IncludePaths.Add("/Library/Frameworks/Mono.framework/Headers/mono-2.0/");
             conf.LibraryPaths.Add("/Library/Frameworks/Mono.framework/Libraries/");
             conf.LibraryFiles.Add("monosgen-2.0");

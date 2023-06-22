@@ -61,5 +61,9 @@ private:
 	SharedPtr<Moonlight::Texture> FMODImage;
 #endif
 
+#if USING( ME_SCRIPTING )
+    SharedPtr<Moonlight::Texture> MONOImage;
+#endif
+
 	void BrowseDirectory(const Path& path);
 };

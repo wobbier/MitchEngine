@@ -183,7 +183,6 @@ void ImGuiRenderer::Render( ImDrawData* drawData, bgfx::ViewId viewId )
 
         bgfx::Encoder* encoder = bgfx::begin();
 
-        uint32_t offset = 0;
         for ( const ImDrawCmd* cmd = drawList->CmdBuffer.begin(), *cmdEnd = drawList->CmdBuffer.end(); cmd != cmdEnd; ++cmd )
         {
             OPTICK_EVENT( "ImGuiRenderer::Command", Optick::Category::Rendering );
@@ -243,13 +242,11 @@ void ImGuiRenderer::Render( ImDrawData* drawData, bgfx::ViewId viewId )
 
                     encoder->setState( state );
                     encoder->setTexture( 0, sTexture, th );
-                    encoder->setVertexBuffer( 0, &tvb, 0, numVertices );
-                    encoder->setIndexBuffer( &tib, offset, cmd->ElemCount );
+                    encoder->setVertexBuffer( 0, &tvb, cmd->VtxOffset, numVertices );
+                    encoder->setIndexBuffer( &tib, cmd->IdxOffset, cmd->ElemCount );
                     encoder->submit( viewId, program );
                 }
             }
-
-            offset += cmd->ElemCount;
         }
 
         bgfx::end( encoder );
