@@ -36,7 +36,12 @@ class BGFXRenderer
 {
 	static constexpr bgfx::ViewId kClearView = 0;
 public:
-	BGFXRenderer() = default;
+	BGFXRenderer()
+	: m_ambient(bx::InitNone)
+	, m_pt(0)
+		, m_timeOffset(0)
+	{
+	}
 
 	void Create(const RendererCreationSettings& settings);
 	void Destroy();

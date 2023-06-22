@@ -20,7 +20,10 @@ static void imageReleaseCb(void* _ptr, void* _userData)
 
 void unload(bx::AllocatorI* _allocator, void* _ptr)
 {
-	BX_FREE(_allocator, _ptr);
+	if( _ptr )
+	{
+		bx::free(_allocator, _ptr);
+	}
 }
 
 namespace Moonlight
@@ -59,7 +62,7 @@ namespace Moonlight
 			{
 				const bgfx::Memory* mem = bgfx::makeRef(imageContainer->m_data, imageContainer->m_size, NULL, imageContainer);
 
-				BX_FREE(Moonlight::getDefaultAllocator(), (void*)memory);
+				bx::free(Moonlight::getDefaultAllocator(), (void*)memory);
 				if (imageContainer->m_cubeMap)
 				{
 					YIKES("You gotta implement cubemap textures");

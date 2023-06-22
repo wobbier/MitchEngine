@@ -41,6 +41,7 @@ void ImGuiRenderer::Create()
     io.DisplaySize = ImVec2( 1280, 720 );
     io.DeltaTime = 1.f / 140.f;
     io.IniFilename = nullptr;
+    //io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset;
 
     auto renderType = bgfx::getRendererType();
 
@@ -58,7 +59,8 @@ void ImGuiRenderer::Create()
     Layout.begin()
         .add( bgfx::Attrib::Position, 2, bgfx::AttribType::Float )
         .add( bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float )
-        .add( bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true );
+        .add( bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true )
+        .end();
 
     sTexture = bgfx::createUniform( "s_tex", bgfx::UniformType::Sampler );
 
@@ -183,7 +185,6 @@ void ImGuiRenderer::Render( ImDrawData* drawData, bgfx::ViewId viewId )
 
         bgfx::Encoder* encoder = bgfx::begin();
 
-        uint32_t offset = 0;
         for ( const ImDrawCmd* cmd = drawList->CmdBuffer.begin(), *cmdEnd = drawList->CmdBuffer.end(); cmd != cmdEnd; ++cmd )
         {
             OPTICK_EVENT( "ImGuiRenderer::Command", Optick::Category::Rendering );
@@ -243,13 +244,11 @@ void ImGuiRenderer::Render( ImDrawData* drawData, bgfx::ViewId viewId )
 
                     encoder->setState( state );
                     encoder->setTexture( 0, sTexture, th );
-                    encoder->setVertexBuffer( 0, &tvb, 0, numVertices );
-                    encoder->setIndexBuffer( &tib, offset, cmd->ElemCount );
+                    encoder->setVertexBuffer( 0, &tvb, cmd->VtxOffset, numVertices );
+                    encoder->setIndexBuffer( &tib, cmd->IdxOffset, cmd->ElemCount );
                     encoder->submit( viewId, program );
                 }
             }
-
-            offset += cmd->ElemCount;
         }
 
         bgfx::end( encoder );

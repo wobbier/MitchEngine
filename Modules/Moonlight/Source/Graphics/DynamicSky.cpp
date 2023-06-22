@@ -215,7 +215,7 @@ namespace Moonlight
 
 	Color DynamicSky::xyzToRgb(const Color& xyz)
 	{
-		Color rgb;
+		Color rgb(bx::InitNone);
 		rgb.x = M_XYZ2RGB[0] * xyz.x + M_XYZ2RGB[3] * xyz.y + M_XYZ2RGB[6] * xyz.z;
 		rgb.y = M_XYZ2RGB[1] * xyz.x + M_XYZ2RGB[4] * xyz.y + M_XYZ2RGB[7] * xyz.z;
 		rgb.z = M_XYZ2RGB[2] * xyz.x + M_XYZ2RGB[5] * xyz.y + M_XYZ2RGB[8] * xyz.z;
@@ -260,11 +260,11 @@ namespace Moonlight
 			bx::sin(latitude) * bx::sin(m_delta) + bx::cos(latitude) * bx::cos(m_delta) * bx::cos(hh)
 		);
 
-		const bx::Quaternion rot0 = bx::rotateAxis(m_upDir, -azimuth);
+		const bx::Quaternion rot0 = bx::fromAxisAngle(m_upDir, -azimuth);
 		const bx::Vec3 dir = bx::mul(m_northDir, rot0);
 		const bx::Vec3 uxd = bx::cross(m_upDir, dir);
 
-		const bx::Quaternion rot1 = bx::rotateAxis(uxd, altitude);
+		const bx::Quaternion rot1 = bx::fromAxisAngle(uxd, altitude);
 		m_sunDir = bx::mul(dir, rot1);
 	}
 
