@@ -2,6 +2,7 @@
 
 #include "Scene.h"
 #include "Engine/Engine.h"
+#include "CLog.h"
 
 Scene::Scene(const std::string& SceneFilePath)
 	: FilePath(std::move(SceneFilePath))
@@ -112,6 +113,11 @@ bool Scene::Load(SharedPtr<World> InWorld)
 void Scene::LoadCore(json& core)
 {
 	auto addedCore = GameWorld->AddCoreByName(core["Type"]);
+	if( !addedCore )
+	{
+		YIKES( "Core not registered, are you missing a dependency?" );
+		return;
+	}
 	addedCore->Deserialize(core);
 }
 
