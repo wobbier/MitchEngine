@@ -20,6 +20,7 @@
 #include <CLog.h>
 #include "Utils/PlatformUtils.h"
 #include "UI/Colors.h"
+#include "Mathf.h"
 
 #if USING( ME_EDITOR )
 
@@ -251,7 +252,7 @@ void AssetBrowserWidget::Render()
             if ( IsMetaPanelOpen )
             {
                 ImGui::SameLine();
-                ImGui::Button( "vsplitter", ImVec2( 4.0f, h ) );
+                ImGui::Button( "##vsplitter", ImVec2( 6.0f, h ) );
                 if ( ImGui::IsItemHovered() )
                 {
                     ImGui::SetMouseCursor( ImGuiMouseCursor_ResizeEW );
@@ -389,6 +390,17 @@ void AssetBrowserWidget::DrawAssetTable()
 
     if ( ImGui::CollapsingHeader( isAssetTypeForced ? "Forced Asset Type Filter Active" : "Filters" ) )
     {
+
+        static float wOffset = 350.0f;
+        static float hOffset = 0.f;
+        static float h = ImGui::GetContentRegionAvail().y / 4.f;
+        float w = ImGui::GetContentRegionAvail().x;
+
+        const float quaterSize = ImGui::GetContentRegionAvail().y / 4.f;
+        h = Mathf::Clamp( quaterSize, ImGui::GetContentRegionAvail().y - quaterSize, h );
+
+        ImGui::BeginChild( "filterChild", ImVec2( -1.f, h ), true );
+
         for ( int i = 1; i < (int)AssetType::Count; ++i )
         {
             if ( ImGui::Checkbox( AssetTypeToString( (AssetType)i ).c_str(), &assetTypeFilters[i] ) )
@@ -396,6 +408,15 @@ void AssetBrowserWidget::DrawAssetTable()
                 items_need_filtered = true;
             }
         }
+        ImGui::EndChild();
+
+        ImGui::Button( "##hsplitter", ImVec2( w, 6.f ) );
+        if( ImGui::IsItemHovered() )
+        {
+            ImGui::SetMouseCursor( ImGuiMouseCursor_ResizeNS );
+        }
+        if( ImGui::IsItemActive() )
+            h += ImGui::GetIO().MouseDelta.y;
     }
 
     if ( isAssetTypeForced )

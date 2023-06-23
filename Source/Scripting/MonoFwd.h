@@ -1,4 +1,7 @@
 #pragma once
+#include "Dementia.h"
+
+#if USING( ME_SCRIPTING )
 
 extern "C" {
     typedef struct _MonoClass MonoClass;
@@ -13,3 +16,5 @@ extern "C" {
     typedef union _MonoError MonoError;
     typedef struct _MonoString MonoString;
 }
+
+#endif
