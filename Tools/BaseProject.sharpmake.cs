@@ -88,7 +88,7 @@ public abstract class BaseProject : Project
                 )
         );
 
-        if (Directory.Exists("C:/Program Files/Mono/include/mono-2.0"))
+        if (Directory.Exists(Globals.MONO_Win64_Dir))
         {
             conf.Defines.Add("DEFINE_ME_MONO");
         }
@@ -113,7 +113,7 @@ public abstract class BaseProject : Project
                 )
         );
 
-        if (Directory.Exists("C:/Program Files/Mono/include/mono-2.0"))
+        if (Directory.Exists(Globals.MONO_Win64_Dir))
         {
             conf.Defines.Add("DEFINE_ME_MONO");
         }
@@ -139,7 +139,7 @@ public abstract class BaseProject : Project
 
         conf.Defines.Add("DEFINE_ME_PLATFORM_MACOS");
 
-        if (Directory.Exists("/Library/Frameworks/Mono.framework/Headers/mono-2.0/"))
+        if (Directory.Exists(Globals.MONO_macOS_Dir))
         {
             conf.Defines.Add("DEFINE_ME_MONO");
         }

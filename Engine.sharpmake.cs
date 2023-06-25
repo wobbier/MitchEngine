@@ -141,7 +141,7 @@ public class Engine : BaseProject
 
         // #TODO This shouldn't be a sharpmake class
         //conf.AddPublicDependency<Mono>(target, DependencySetting.Default | DependencySetting.Defines | DependencySetting.IncludePaths);
-        if (target.Platform != Platform.mac)
+        if (target.Platform != Platform.mac && (Directory.Exists(Globals.MONO_macOS_Dir) || Directory.Exists(Globals.MONO_Win64_Dir)))
         {
             conf.AddPublicDependency<ScriptCore>(target);
             conf.AddPublicDependency<UserGameScript>(target);
@@ -217,18 +217,18 @@ public class Engine : BaseProject
         }
 
         // #TODO Read path from Globals / Move to own class again
-        if( Directory.Exists("C:/Program Files/Mono/include/mono-2.0") )
+        if( Directory.Exists(Globals.MONO_Win64_Dir) )
         {
-            conf.IncludePaths.Add("C:/Program Files/Mono/include/mono-2.0");
-            conf.LibraryPaths.Add("C:/Program Files/Mono/lib");
+            conf.IncludePaths.Add(Path.Combine(Globals.MONO_Win64_Dir, "include/mono-2.0"));
+            conf.LibraryPaths.Add(Path.Combine(Globals.MONO_Win64_Dir, "lib"));
             conf.LibraryFiles.Add("mono-2.0-sgen");
-            conf.Defines.Add("MONO_HOME=\"C:/Program Files/Mono/\"");
-            conf.Defines.Add("MONO_PATH=\"C:/Program Files/Mono/lib/mono/4.5\"");
+            conf.Defines.Add($"MONO_HOME=\"{Globals.MONO_Win64_Dir}\"");
+            conf.Defines.Add($"MONO_PATH=\"{Globals.MONO_Win64_Dir}lib/mono/4.5\"");
 
             // MONO DLL
             {
                 var copyDirBuildStep = new Configuration.BuildStepCopy(
-                    "C:/Program Files/Mono/lib",
+                    Path.Combine(Globals.MONO_Win64_Dir, "lib"),
                     Globals.RootDir + "/.build/[target.Name]");
                 // TODO: Copy mono-2.0sgen dll
                 copyDirBuildStep.IsFileCopy = false;
@@ -267,18 +267,18 @@ public class Engine : BaseProject
         }
 
         // #TODO Read path from Globals / Move to own class again
-        if (Directory.Exists("C:/Program Files/Mono/include/mono-2.0"))
+        if (Directory.Exists(Globals.MONO_Win64_Dir))
         {
-            conf.IncludePaths.Add("C:/Program Files/Mono/include/mono-2.0");
-            conf.LibraryPaths.Add("C:/Program Files/Mono/lib");
+            conf.IncludePaths.Add(Path.Combine(Globals.MONO_Win64_Dir, "include/mono-2.0"));
+            conf.LibraryPaths.Add(Path.Combine(Globals.MONO_Win64_Dir, "lib"));
             conf.LibraryFiles.Add("mono-2.0-sgen");
-            conf.Defines.Add("MONO_HOME=\"C:/Program Files/Mono/\"");
-            conf.Defines.Add("MONO_PATH=\"C:/Program Files/Mono/lib/mono/4.5\"");
+            conf.Defines.Add($"MONO_HOME=\"{Globals.MONO_Win64_Dir}\"");
+            conf.Defines.Add($"MONO_PATH=\"{Globals.MONO_Win64_Dir}lib/mono/4.5\"");
 
             // MONO DLL
             {
                 var copyDirBuildStep = new Configuration.BuildStepCopy(
-                    "C:/Program Files/Mono/lib",
+                    Path.Combine(Globals.MONO_Win64_Dir, "lib"),
                     Globals.RootDir + "/.build/[target.Name]");
                 // TODO: Copy mono-2.0sgen dll
                 copyDirBuildStep.IsFileCopy = false;
@@ -308,13 +308,13 @@ public class Engine : BaseProject
         conf.Options.Add(new Options.XCode.Compiler.UserFrameworks("Mono"));
 
         // #TODO Read path from Globals / Move to own class again
-        if (Directory.Exists("/Library/Frameworks/Mono.framework/Headers/mono-2.0/"))
+        if (Directory.Exists(Globals.MONO_macOS_Dir))
         {
-            conf.IncludePaths.Add("/Library/Frameworks/Mono.framework/Headers/mono-2.0/");
-            conf.LibraryPaths.Add("/Library/Frameworks/Mono.framework/Libraries/");
+            conf.IncludePaths.Add($"{Globals.MONO_macOS_Dir}Headers/mono-2.0/");
+            conf.LibraryPaths.Add($"{Globals.MONO_macOS_Dir}Libraries/");
             conf.LibraryFiles.Add("monosgen-2.0");
-            conf.Defines.Add("MONO_HOME=\"/Library/Frameworks/Mono.framework/Home\"");
-            conf.Defines.Add("MONO_PATH=\"/Library/Frameworks/Mono.framework/Home/lib/mono/4.5\"");
+            conf.Defines.Add($"MONO_HOME=\"{Globals.MONO_macOS_Dir}Home\"");
+            conf.Defines.Add($"MONO_PATH=\"{Globals.MONO_macOS_Dir}Home/lib/mono/4.5\"");
 
             // MONO DLL
             {
@@ -377,7 +377,8 @@ public class BaseGameSolution : Solution
         }
 
         conf.AddProject<SharpGameProject>(target);
-        if (target.Platform != Platform.mac)
+        // Disabled on mac atm since xcode doesn't have mono support that I know of
+        if (target.Platform != Platform.mac && (Directory.Exists(Globals.MONO_macOS_Dir) || Directory.Exists(Globals.MONO_Win64_Dir)))
         {
             conf.AddProject<UserGameScript>(target);
             conf.AddProject<ScriptCore>(target);
@@ -390,6 +391,9 @@ public class Globals
     public static string RootDir = string.Empty;
     public static string FMOD_Win64_Dir = string.Empty;
     public static string FMOD_UWP_Dir = string.Empty;
+
+    public static string MONO_Win64_Dir = "C:/Program Files/Mono/";
+    public static string MONO_macOS_Dir = "/Library/Frameworks/Mono.framework/";
 }
 
 
