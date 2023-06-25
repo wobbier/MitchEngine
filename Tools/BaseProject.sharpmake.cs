@@ -53,7 +53,7 @@ public abstract class BaseProject : Project
 
         conf.Defines.Add("NOMINMAX");
 
-        if (!string.IsNullOrEmpty(Globals.FMOD_Win64_Dir) || !string.IsNullOrEmpty(Globals.FMOD_UWP_Dir))
+        if (Directory.Exists(Globals.FMOD_Win64_Dir) || Directory.Exists(Globals.FMOD_UWP_Dir))
         {
             conf.Defines.Add("FMOD_ENABLED");
             conf.Defines.Add("_DISABLE_EXTENDED_ALIGNED_STORAGE");

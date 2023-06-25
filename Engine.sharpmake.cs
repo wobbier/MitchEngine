@@ -159,7 +159,7 @@ public class Engine : BaseProject
         conf.LibraryFiles.Add("assimp-vc140-mt.lib");
         conf.LibraryFiles.Add("AppCore");
 
-        if (!string.IsNullOrEmpty(Globals.FMOD_Win64_Dir))
+        if (Directory.Exists(Globals.FMOD_Win64_Dir))
         {
             conf.IncludePaths.Add(Path.Combine(Globals.FMOD_Win64_Dir, "api/core/inc"));
             conf.LibraryPaths.Add(Path.Combine(Globals.FMOD_Win64_Dir, "api/core/lib/x64"));
