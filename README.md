@@ -24,6 +24,7 @@ Main Features
    * Language: C++
    * [Optick][6] Profiling
    * Optional [FMOD][10] Audio (See Below)
+   * Optional/Experimental [MONO][11] Scripting Support (See Below)
 
 How to make a Mitch game
 -----------------------
@@ -76,24 +77,57 @@ Third Party Libraries
   * [Bullet Physics][7]
   * [BGFX][9]
   * [FMOD][10]
+  * [MONO][11]
 
 Enabling FMOD
 --------------------------------
 
 * Download and install the SDK from the [FMOD][10] website.
-* Edit your project's GenerateSolution file and add the '--with-fmod' option to the command.
-* Edit your project's premake.lua to set the FMOD SDK directory variable
-	* The default value if unset: FMODDirectory = "C:\\Program Files (x86)\\FMOD SoundSystem\\FMOD Studio API Windows\\"
-	* Put this line above the first "dofile" if you wish to override the location
+* Edit your project's `Game.sharpmake.cs` file in the root of your project and set the global field for `Globals.FMOD_****_Dir`
+	* The default value for Windows is: `FMOD_Win64_Dir = "C:\\Program Files (x86)\\FMOD SoundSystem\\FMOD Studio API Windows\\"`
+```cpp
+[Generate]
+public class SharpGameSolution : BaseGameSolution
+{
+    public SharpGameSolution()
+        : base()
+    {
+        Name = "MyProjectName";
+        Globals.FMOD_Win64_Dir = "C:/Program Files (x86)/FMOD SoundSystem/FMOD Studio API Windows/";
+    }
+}
+```
 * You can check the status of the FMOD plugin in the 'Help > About' menu in the editor.
+
+Enabling MONO Scripting (Experimental)
+--------------------------------
+
+* Download and install the SDK from the [MONO][11] website.
+* Edit your project's `Game.sharpmake.cs` file in the root of your project and set the global field for `Globals.MONO_****_Dir`
+	* The default value for Windows is: `MONO_Win64_Dir = "C:/Program Files/Mono/"`
+	* The default value for macOS is: `MONO_macOS_Dir = "/Library/Frameworks/Mono.framework"`
+```cpp
+[Generate]
+public class SharpGameSolution : BaseGameSolution
+{
+    public SharpGameSolution()
+        : base()
+    {
+        Name = "MyProjectName";
+        Globals.MONO_Win64_Dir = "C:/Program Files/Mono/";
+	Globals.MONO_macOS_Dir = "/Library/Frameworks/Mono.framework";
+    }
+}
+```
+* You can check the status of the MONO plugin in the 'Help > About' menu in the editor.
 
 Activity
 --------------------------------
 ![Alt](https://repobeats.axiom.co/api/embed/381a3d4143660f089ee110663df36834bb7c7a62.svg "Repobeats analytics image")
 
-[1]: http://www.wobbier.com "My Portfolio"
+[1]: https://www.mitch.gg "My Portfolio"
 [2]: https://github.com/wobbier/MitchEngine/issues "GitHub Issues"
-[3]: http://www.twitter.com/wobbier "Twitter"
+[3]: https://www.twitter.com/wobbier "Twitter"
 [4]: https://www.notion.so/fc1126e1f8f54a9a8e0daf2735dc59ed?v=fb36a4a955b44efa8dda9fc84d743b43 "Notion"
 [5]: https://github.com/ultralight-ux/Ultralight "Ultralight"
 [6]: https://github.com/bombomby/optick "Optick"
@@ -101,3 +135,4 @@ Activity
 [8]: https://raw.githubusercontent.com/wobbier/MitchEngine/master/NewProjectSetup.bat "Project Creator"
 [9]: https://github.com/bkaradzic/bgfx "BGFX"
 [10]: https://www.fmod.com/ "FMOD Audio"
+[11]: https://www.mono-project.com/ "MONO Scripting"
