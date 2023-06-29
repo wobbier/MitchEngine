@@ -89,8 +89,8 @@ public class EntryPointGameProjectUWP : EntryPointGameProject
         conf.AppxManifestFilePath = Path.Combine(Globals.RootDir, "Game_EntryPoint/Package.appxmanifest");
         conf.NeedsAppxManifestFile = true;
         conf.IsUniversalWindowsPlatform = true;
-        conf.PackageCertificateKeyFile = Path.Combine(Globals.RootDir, "Game_EntryPoint/Game_EntryPoint_UWP_TemporaryKey.pfx");
-        conf.PackageCertificateThumbprint = "ae94a2f10501aae7d3449e789a8e7ddd7c10baaf";
+        conf.PackageCertificateKeyFile = Path.Combine(Globals.RootDir, $"Game_EntryPoint/{Globals.UWP_CertificateName}");
+        conf.PackageCertificateThumbprint = Globals.UWP_Thumbprint;
         conf.Options.Add(Options.Vc.Linker.SubSystem.Windows);
 
         conf.Images.Add("Assets/SplashScreen.scale-200.png");
@@ -392,6 +392,9 @@ public class Globals
 
     public static string MONO_Win64_Dir = "C:/Program Files/Mono/";
     public static string MONO_macOS_Dir = "/Library/Frameworks/Mono.framework/";
+
+    public static string UWP_Thumbprint = "ae94a2f10501aae7d3449e789a8e7ddd7c10baaf";
+    public static string UWP_CertificateName = "Game_EntryPoint_UWP_TemporaryKey.pfx";
 }
 
 
