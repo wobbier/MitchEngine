@@ -228,11 +228,10 @@ public class Engine : BaseProject
             // MONO DLL
             {
                 var copyDirBuildStep = new Configuration.BuildStepCopy(
-                    Path.Combine(Globals.MONO_Win64_Dir, "lib"),
+                    Path.Combine(Globals.MONO_Win64_Dir, "bin"),
                     Globals.RootDir + "/.build/[target.Name]");
-                // TODO: Copy mono-2.0sgen dll
                 copyDirBuildStep.IsFileCopy = false;
-                copyDirBuildStep.CopyPattern = "mscorelib.dll";
+                copyDirBuildStep.CopyPattern = "mono-2.0-sgen.dll";
                 conf.EventPostBuildExe.Add(copyDirBuildStep);
             }
         }
@@ -278,11 +277,10 @@ public class Engine : BaseProject
             // MONO DLL
             {
                 var copyDirBuildStep = new Configuration.BuildStepCopy(
-                    Path.Combine(Globals.MONO_Win64_Dir, "lib"),
+                    Path.Combine(Globals.MONO_Win64_Dir, "bin"),
                     Globals.RootDir + "/.build/[target.Name]");
-                // TODO: Copy mono-2.0sgen dll
                 copyDirBuildStep.IsFileCopy = false;
-                copyDirBuildStep.CopyPattern = "mscorelib.dll";
+                copyDirBuildStep.CopyPattern = "mono-2.0-sgen.dll";
                 conf.EventPostBuildExe.Add(copyDirBuildStep);
             }
         }

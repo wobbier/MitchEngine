@@ -114,9 +114,6 @@ void Engine::Init( Game* game )
 #if USING( ME_PLATFORM_WIN64 )
 	engineConfig = new EngineConfig( engineCfg );
 	engineConfig->OnLoad( engineConfig->Root );
-	const json& WindowConfig = engineConfig->GetJsonObject( "Window" );
-	int WindowWidth = WindowConfig["Width"];
-	int WindowHeight = WindowConfig["Height"];
 	GameWindow = new SDLWindow( engineConfig->GetValue( "Title" ), ResizeFunc, 500, 300, engineConfig->WindowSize );
 #endif
 

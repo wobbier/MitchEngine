@@ -136,4 +136,5 @@ Class& operator=(Class&&) = delete;
 #define ME_SCRIPTING        USE_IF( USING( ME_MONO ) )
 #define ME_PROFILING        USE_IF( USING( ME_DEBUG ) )
 // I'm currently using some ImGui stuff in debug for profiling, TOOLS needs it even that it's currently bundled with the editor.
-#define ME_IMGUI            USE_IF( USING( ME_EDITOR ) || USING( ME_DEBUG ) || USING( ME_TOOLS ) || USING( ME_PROFILING ) )
+// TODO #IMGUI: Make proper builds Debug/Test/Ship/Profile                                                                   v
+#define ME_IMGUI            USE_IF( USING( ME_EDITOR ) || USING( ME_DEBUG ) || USING( ME_TOOLS ) || USING( ME_PROFILING ) || USING( IN_USE ) )

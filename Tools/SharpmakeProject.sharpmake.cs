@@ -12,8 +12,8 @@ public class SharpmakeProjectBase : CSharpProject
         string[] things = { ".xml", ".map", ".config", ".bat", ".txt", ".xsd", ".h.template", ".resx", ".cur" };
         NoneExtensions.Remove(things);
         SourceFilesExtensions = new Strings("Engine.sharpmake.cs");
-        
-        ContentExtension.Add("GenerateSolution.bat", "macOS.yml", "Windows.yml");
+
+        ContentExtension.Add("GenerateSolution.bat", "macOS.yml", "Windows.yml", "UWP.yml");
 
         SourceFiles.Add(@"[project.SharpmakeCsPath]/Game.sharpmake.cs");
         SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/Modules/Dementia/Dementia.sharpmake.cs");
