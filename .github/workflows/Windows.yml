@@ -14,7 +14,11 @@ jobs:
     strategy:
       matrix:
         os: [windows-2019]
-        buildconfig: [Game_Win64_Debug, Game_Win64_Release, Game_Win64_Retail, Editor_Release]
+        buildconfig: [Game_Win64, Game_Win64, Game_Win64, Editor]
+        configuration:
+          - Debug
+          - Release
+          - Retail
         include:
           - os: windows-2019
             shell: cmd
@@ -52,7 +56,7 @@ jobs:
 
       - name: Compile Project
         shell: cmd
-        run: msbuild EmptyProject.sln /property:Configuration="${{matrix.buildconfig}}"
+        run: msbuild EmptyProject.sln /property:Configuration="${{matrix.buildconfig}}_${{matrix.configuration}}"
 
       - name: Copy Assets
         shell: cmd
@@ -71,15 +75,15 @@ jobs:
         with:
           name: EmptyProject v${{github.run_number}} - Editor
           path: |
-            .build/${{matrix.buildconfig}}
-            !.build/${{matrix.buildconfig}}/AppX
-            !.build/${{matrix.buildconfig}}/Tools/**/*.*
-            !.build/${{matrix.buildconfig}}/*.lib
-            !.build/${{matrix.buildconfig}}/*.pdb
-            !.build/${{matrix.buildconfig}}/*.exp
-            !.build/${{matrix.buildconfig}}/*.log
-            .build/${{matrix.buildconfig}}/Tools/Optick.exe
-            .build/${{matrix.buildconfig}}/Tools/Win64/*.*
+            .build/${{matrix.buildconfig}}_${{matrix.configuration}}
+            !.build/${{matrix.buildconfig}}_${{matrix.configuration}}/AppX
+            !.build${{matrix.buildconfig}}_${{matrix.configuration}}/Tools/**/*.*
+            !.build${{matrix.buildconfig}}_${{matrix.configuration}}/*.lib
+            !.build${{matrix.buildconfig}}_${{matrix.configuration}}/*.pdb
+            !.build${{matrix.buildconfig}}_${{matrix.configuration}}/*.exp
+            !.build${{matrix.buildconfig}}_${{matrix.configuration}}/*.log
+            .build/${{matrix.buildconfig}}_${{matrix.configuration}}/Tools/Optick.exe
+            .build/${{matrix.buildconfig}}_${{matrix.configuration}}/Tools/Win64/*.*
 
       - name: Cook Assets
         if: ${{ matrix.buildconfig == 'Game_Win64_Release' }}
@@ -102,19 +106,19 @@ jobs:
         with:
           name: EmptyProject v${{github.run_number}} - ${{matrix.buildconfig}}
           path: |
-            .build/${{matrix.buildconfig}}
-            .build/${{matrix.buildconfig}}/Assets
-            !.build/${{matrix.buildconfig}}/AppX
-            !.build/${{matrix.buildconfig}}/*.lib
-            !.build/${{matrix.buildconfig}}/*.pdb
-            !.build/${{matrix.buildconfig}}/*.exp
-            !.build/${{matrix.buildconfig}}/*.log
-            !.build/${{matrix.buildconfig}}/**/*.png
-            !.build/${{matrix.buildconfig}}/**/*.jpg
-            !.build/${{matrix.buildconfig}}/**/*.frag
-            !.build/${{matrix.buildconfig}}/**/*.vert
-            !.build/${{matrix.buildconfig}}/**/*.var
-            !.build/${{matrix.buildconfig}}/**/*.sh
+            .build/$${{matrix.buildconfig}}_${{matrix.configuration}}
+            .build/$${{matrix.buildconfig}}_${{matrix.configuration}}/Assets
+            !.build/$${{matrix.buildconfig}}_${{matrix.configuration}}/AppX
+            !.build/$${{matrix.buildconfig}}_${{matrix.configuration}}/*.lib
+            !.build/$${{matrix.buildconfig}}_${{matrix.configuration}}/*.pdb
+            !.build/$${{matrix.buildconfig}}_${{matrix.configuration}}/*.exp
+            !.build/$${{matrix.buildconfig}}_${{matrix.configuration}}/*.log
+            !.build/$${{matrix.buildconfig}}_${{matrix.configuration}}/**/*.png
+            !.build/$${{matrix.buildconfig}}_${{matrix.configuration}}/**/*.jpg
+            !.build/$${{matrix.buildconfig}}_${{matrix.configuration}}/**/*.frag
+            !.build/$${{matrix.buildconfig}}_${{matrix.configuration}}/**/*.vert
+            !.build/$${{matrix.buildconfig}}_${{matrix.configuration}}/**/*.var
+            !.build/$${{matrix.buildconfig}}_${{matrix.configuration}}/**/*.sh
 
       - name: Copy Tools Assets
         shell: cmd
@@ -129,19 +133,19 @@ jobs:
         with:
           name: HUB v${{github.run_number}}
           path: |
-            .build/${{matrix.buildconfig}}/HUB.exe
-            .build/${{matrix.buildconfig}}/Assets/Close.png
-            .build/${{matrix.buildconfig}}/Assets/Minimize.png
-            .build/${{matrix.buildconfig}}/Assets/VS.png
-            .build/${{matrix.buildconfig}}/Assets/LOGO.png
-            .build/${{matrix.buildconfig}}/shaderc.exe
-            .build/${{matrix.buildconfig}}/texturec.exe
-            .build/${{matrix.buildconfig}}/*.dll
-            !.build/${{matrix.buildconfig}}/AppX
-            !.build/${{matrix.buildconfig}}/Tools/**/*.*
-            !.build/${{matrix.buildconfig}}/*.lib
-            !.build/${{matrix.buildconfig}}/*.pdb
-            !.build/${{matrix.buildconfig}}/*.exp
-            !.build/${{matrix.buildconfig}}/*.log
-            .build/${{matrix.buildconfig}}/Tools/Optick.exe
-            .build/${{matrix.buildconfig}}/Tools/Win64/*.*
+            .build/${{matrix.buildconfig}}_${{matrix.configuration}}/HUB.exe
+            .build/${{matrix.buildconfig}}_${{matrix.configuration}}/Assets/Close.png
+            .build/${{matrix.buildconfig}}_${{matrix.configuration}}/Assets/Minimize.png
+            .build/${{matrix.buildconfig}}_${{matrix.configuration}}/Assets/VS.png
+            .build/${{matrix.buildconfig}}_${{matrix.configuration}}/Assets/LOGO.png
+            .build/${{matrix.buildconfig}}_${{matrix.configuration}}/shaderc.exe
+            .build/${{matrix.buildconfig}}_${{matrix.configuration}}/texturec.exe
+            .build/${{matrix.buildconfig}}_${{matrix.configuration}}/*.dll
+            !.build/${{matrix.buildconfig}}_${{matrix.configuration}}/AppX
+            !.build/${{matrix.buildconfig}}_${{matrix.configuration}}/Tools/**/*.*
+            !.build/${{matrix.buildconfig}}_${{matrix.configuration}}/*.lib
+            !.build/${{matrix.buildconfig}}_${{matrix.configuration}}/*.pdb
+            !.build/${{matrix.buildconfig}}_${{matrix.configuration}}/*.exp
+            !.build/${{matrix.buildconfig}}_${{matrix.configuration}}/*.log
+            .build/${{matrix.buildconfig}}_${{matrix.configuration}}/Tools/Optick.exe
+            .build/${{matrix.buildconfig}}_${{matrix.configuration}}/Tools/Win64/*.*

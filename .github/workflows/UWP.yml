@@ -17,6 +17,7 @@ jobs:
         configuration:
           - Debug
           - Release
+          - Retail
         type:
           - Game_UWP
         include:

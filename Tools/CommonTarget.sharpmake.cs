@@ -76,7 +76,7 @@ public class CommonTarget : Sharpmake.ITarget
                     var uwpTarget = new CommonTarget(
                         Platform.win64,
                         DevEnv.vs2019,
-                        Optimization.Debug | Optimization.Release,
+                        Optimization.Debug | Optimization.Release | Optimization.Retail,
                         DotNetFramework.v4_8,
                         dotNetOS: 0);
                     uwpTarget.SubPlatform = SubPlatformType.UWP;
@@ -84,7 +84,7 @@ public class CommonTarget : Sharpmake.ITarget
                     var editorTarget = new CommonTarget(
                         Platform.win64,
                         DevEnv.vs2019,
-                        Optimization.Debug | Optimization.Release,
+                        Optimization.Debug | Optimization.Release | Optimization.Retail,
                         DotNetFramework.v4_8,
                         dotNetOS: 0);
                     editorTarget.SubPlatform = SubPlatformType.Win64;
