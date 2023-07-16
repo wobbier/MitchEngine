@@ -68,6 +68,11 @@ struct Vector2
 		return Vector2(InternalVec + other.InternalVec);
 	}
 
+    Vector2 operator-( const Vector2& other )
+    {
+        return Vector2( InternalVec - other.InternalVec );
+    }
+
 	Vector2 operator/(const float& other)
 	{
 		return Vector2(InternalVec.x / other, InternalVec.y / other);

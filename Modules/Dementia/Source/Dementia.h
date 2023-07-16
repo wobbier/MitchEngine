@@ -2,9 +2,6 @@
 
 #define forever for(;;)
 
-#define ME_DISABLE_DEFAULT_CONSTRUCTOR(Class)	\
-Class() = delete;
-
 #define ME_DISABLE_COPY_CONSTRUCTOR(Class)		\
 Class(const Class&) = delete;
 
@@ -20,6 +17,8 @@ Class& operator=(Class&&) = delete;
 #define ME_NONCOPYABLE(Class) ME_DISABLE_COPY_CONSTRUCTOR(Class); ME_DISABLE_COPY_ASSIGNMENT(Class);
 
 #define ME_NONMOVABLE(Class) ME_DISABLE_MOVE_CONSTRUCTOR(Class); ME_DISABLE_MOVE_ASSIGNMENT(Class);
+
+#define ME_HARDSTUCK(Class) ME_NONCOPYABLE(Class); ME_NONMOVABLE(Class);
 
 #ifndef IN_USE
 #define IN_USE &&

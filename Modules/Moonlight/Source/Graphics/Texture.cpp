@@ -46,13 +46,13 @@ namespace Moonlight
 	void Texture::Load()
 	{
 		uint64_t flags = BGFX_TEXTURE_NONE | BGFX_SAMPLER_W_MIRROR;
-
-		if (!FilePath.Exists)
+		Path compiledTexture( FilePath.FullPath + ".dds" );
+		if (!compiledTexture.Exists)
 		{
 			return;
 		}
 
-		const auto* memory = Moonlight::LoadMemory(Path(FilePath.FullPath + ".dds"));
+		const auto* memory = Moonlight::LoadMemory( compiledTexture );
 		if (memory)
 		{
 			if (bimg::ImageContainer* imageContainer = bimg::imageParse(Moonlight::getDefaultAllocator(), memory->data, memory->size))

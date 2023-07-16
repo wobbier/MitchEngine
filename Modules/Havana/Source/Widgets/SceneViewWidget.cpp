@@ -15,6 +15,8 @@
 #include <Cores/UI/UICore.h>
 #include "Profiling/BasicFrameProfile.h"
 #include "UI/Colors.h"
+#include "Components/Physics/Rigidbody.h"
+#include "Physics/RigidBodyWithCollisionEvents.h"
 
 #if USING( ME_EDITOR )
 
@@ -244,7 +246,8 @@ void SceneViewWidget::Render()
 	SceneViewRenderLocation = Vector2(ImGui::GetCursorPos().x, ImGui::GetCursorPos().y);
 	GizmoRenderLocation = Vector2(ImGui::GetCursorScreenPos().x, ImGui::GetCursorScreenPos().y);
 
-	Vector2 availableSpace = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y - SceneViewRenderLocation.y);
+    Vector2 availableSpace = Vector2( ImGui::GetWindowSize().x, ImGui::GetWindowSize().y - SceneViewRenderLocation.y );
+    Vector2 heightSub = { 0.f, SceneViewRenderLocation.y };
 	Vector2 viewportRenderSize = availableSpace;
 	float scale = 1.f;
 	switch (CurrentDisplayParams.Type)
@@ -313,6 +316,7 @@ void SceneViewWidget::Render()
 	default:
 		break;
 	}
+    GetEngine().GetInput().SetMouseOffset( (GizmoRenderLocation + SceneViewRenderLocation) - heightSub );
 
 	Moonlight::FrameBuffer* currentView = (MainCamera) ? MainCamera->Buffer : nullptr;
 
@@ -414,6 +418,19 @@ void SceneViewWidget::DrawGuizmo()
 			{
 				SelectedTransform.lock()->SetScale(modifiedScale);
 			}
+
+			EntityHandle& selectedEntity = SelectedTransform.lock()->Parent;
+            if ( SelectedTransform.lock()->IsDirty() && selectedEntity->HasComponent<Rigidbody>() )
+            {
+                btTransform trans;
+				btRigidBodyWithEvents* rigidbody = selectedEntity->GetComponent<Rigidbody>().InternalRigidbody;
+                Vector3 transPos = SelectedTransform.lock()->GetWorldPosition();
+				Quaternion rotation = SelectedTransform.lock()->GetRotation();
+                trans.setRotation( btQuaternion( rotation.x, rotation.y, rotation.z, rotation.w ) );
+                trans.setOrigin( btVector3( transPos.x, transPos.y, transPos.z ) );
+                rigidbody->setWorldTransform( trans );
+                rigidbody->activate();
+            }
 		}
 	}
 }

@@ -12,6 +12,7 @@ class Rigidbody
 	: public Component<Rigidbody>
 {
 	friend class PhysicsCore;
+	friend class SceneViewWidget;
 public:
 
 	enum class ColliderType : unsigned int

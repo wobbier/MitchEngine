@@ -31,7 +31,7 @@ UICore::UICore(IWindow* window, BGFXRenderer* renderer)
 	config.font_family_standard = "Arial";
 	config.use_gpu_renderer = false;
 	// ??????
-	config.resource_path = "M:\\Projects\\C++\\stack\\Engine\\Modules\\Havana\\..\\..\\..\\Build\\Debug Editor";
+	config.resource_path = "M:\\Projects\\C++\\stack\\Engine\\Modules\\Havana\\..\\..\\..\\.build\\editor_release";
 	//config_.cache_path = ultralight::String16(std::string(fileSystemRoot.Directory + "ultralight.log").c_str());
 
 	m_context.reset(new GPUContext());
@@ -109,57 +109,57 @@ void UICore::Update(const UpdateContext& inUpdateContext)
 	ultralight::MouseEvent mouseEvent;
 	mouseEvent.type = ultralight::MouseEvent::kType_MouseMoved;
 
-//	Vector2 mousePosition = GetEngine().GetInput().GetMousePosition();
-//
-//#if USING( ME_EDITOR )
-//	if (!static_cast<EditorApp*>(GetEngine().GetGame())->IsGameRunning())
-//	{
-//		return;
-//	}
-//
-//	Havana* editor = static_cast<EditorCore*>(GetEngine().GetWorld().lock()->GetCore(EditorCore::GetTypeId()))->GetEditor();
-//	
-//	Vector2 windowPosition = GetEngine().GetWindow()->GetPosition();
-//
-//	mouseEvent.x = (windowPosition.X() + mousePosition.X()) - editor->GameViewRenderLocation.X();
-//	mouseEvent.y = (windowPosition.Y() + mousePosition.Y()) - editor->GameViewRenderLocation.Y();
-//
-//	if (mousePosition.IsZero())
-//	{
-//		return;
-//	}
-//#else
-//	mouseEvent.x = mousePosition.X();
-//	mouseEvent.y = mousePosition.Y();
-//#endif
-//
-//	static bool hasPressed = false;
-//	if (GetEngine().GetInput().GetMouseState().leftButton && !hasPressed)
-//	{
-//		mouseEvent.button = ultralight::MouseEvent::Button::kButton_Left;
-//		mouseEvent.type = ultralight::MouseEvent::kType_MouseDown;
-//		hasPressed = true;
-//	}
-//	else if (!GetEngine().GetInput().GetMouseState().leftButton && hasPressed)
-//	{
-//		mouseEvent.button = ultralight::MouseEvent::Button::kButton_Left;
-//		mouseEvent.type = ultralight::MouseEvent::kType_MouseUp;
-//		hasPressed = false;
-//	}
-//	else
-//	{
-//		mouseEvent.button = ultralight::MouseEvent::Button::kButton_None;
-//	}
-//
-//#if USING( ME_EDITOR )
-//	//if (m_renderer->GetViewportMode() == ViewportMode::Game)
-//#endif
-//	{
-//		for (auto& view : m_overlays)
-//		{
-//			view->view()->FireMouseEvent(mouseEvent);
-//		}
-//	}
+	Vector2 mousePosition = GetEngine().GetInput().GetMousePosition();
+
+#if USING( ME_EDITOR )
+    //if ( !static_cast<EditorApp*>( GetEngine().GetGame() )->IsGameRunning() )
+    //{
+    //    return;
+    //}
+
+    //Havana* editor = static_cast<EditorCore*>( GetEngine().GetWorld().lock()->GetCore( EditorCore::GetTypeId() ) )->GetEditor();
+
+    Vector2 windowPosition = GetEngine().GetWindow()->GetPosition();
+	Vector2 offset = GetEngine().GetInput().GetMouseOffset();
+    mouseEvent.x = ( windowPosition.x + mousePosition.x ) - offset.x;// + windowPosition.x  + offset.x;
+    mouseEvent.y = ( windowPosition.y + mousePosition.y ) - offset.y;// + windowPosition.y  - offset.y;
+   
+    if ( mousePosition.IsZero() )
+    {
+        return;
+    }
+#else
+	mouseEvent.x = mousePosition.x;
+	mouseEvent.y = mousePosition.y;
+#endif
+
+	static bool hasPressed = false;
+	if (GetEngine().GetInput().WasMouseButtonPressed(MouseButton::Left) && !hasPressed )
+	{
+		mouseEvent.button = ultralight::MouseEvent::Button::kButton_Left;
+		mouseEvent.type = ultralight::MouseEvent::kType_MouseDown;
+		hasPressed = true;
+	}
+	else if (!GetEngine().GetInput().WasMouseButtonPressed( MouseButton::Left ) && hasPressed)
+	{
+		mouseEvent.button = ultralight::MouseEvent::Button::kButton_Left;
+		mouseEvent.type = ultralight::MouseEvent::kType_MouseUp;
+		hasPressed = false;
+	}
+	else
+	{
+		mouseEvent.button = ultralight::MouseEvent::Button::kButton_None;
+	}
+
+#if USING( ME_EDITOR )
+	//if (m_renderer->GetViewportMode() == ViewportMode::Game)
+#endif
+	{
+		for (auto& view : m_overlays)
+		{
+			view->view()->FireMouseEvent(mouseEvent);
+		}
+	}
 
 	// Update internal logic (timers, event callbacks, etc.)
 	m_uiRenderer->Update();

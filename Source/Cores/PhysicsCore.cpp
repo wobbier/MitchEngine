@@ -98,8 +98,8 @@ void PhysicsCore::Update(const UpdateContext& inUpdateContext)
 		int batchSize = batchEnd - batchBegin;
 
 		//YIKES(std::to_string(batchBegin) + " End:" + std::to_string(batchEnd) + " Size:" + std::to_string(batchSize));
-		Job* root2 = pool.CreateClosureJobAsChild([this, &PhysicsEntites, batchBegin, batchEnd, batchSize, inUpdateContext](Job& job) {
-			OPTICK_CATEGORY("Job::UpdatePhysics", Optick::Category::Physics);
+		//Job* root2 = pool.CreateClosureJobAsChild([this, &PhysicsEntites, batchBegin, batchEnd, batchSize, inUpdateContext](Job& job) {
+		//	OPTICK_CATEGORY("Job::UpdatePhysics", Optick::Category::Physics);
 
 			for (int entIndex = batchBegin; entIndex < batchEnd; ++entIndex)
 			{
@@ -114,17 +114,16 @@ void PhysicsCore::Update(const UpdateContext& inUpdateContext)
 
 					btRigidBody* rigidbody = RigidbodyComponent.InternalRigidbody;
 
-
-					if (TransformComponent.IsDirty())
-					{
-						btTransform trans;
-						Vector3 transPos = TransformComponent.GetWorldPosition();
-						trans.setRotation(btQuaternion(TransformComponent.GetRotation().x, TransformComponent.GetRotation().y, TransformComponent.GetRotation().z, TransformComponent.GetRotation().w));
-						trans.setOrigin(btVector3(transPos.x, transPos.y, transPos.z));
-						rigidbody->setWorldTransform(trans);
-						rigidbody->activate();
-					}
-					else if (RigidbodyComponent.IsDynamic())
+					//if (TransformComponent.IsDirty())
+					//{
+					//	btTransform trans;
+					//	Vector3 transPos = TransformComponent.GetWorldPosition();
+					//	trans.setRotation(btQuaternion(TransformComponent.GetRotation().x, TransformComponent.GetRotation().y, TransformComponent.GetRotation().z, TransformComponent.GetRotation().w));
+					//	trans.setOrigin(btVector3(transPos.x, transPos.y, transPos.z));
+					//	rigidbody->setWorldTransform(trans);
+					//	rigidbody->activate();
+					//}
+					if (RigidbodyComponent.IsDynamic())
 					{
 						btTransform& trans = rigidbody->getWorldTransform();
 						btQuaternion rot;
@@ -170,9 +169,9 @@ void PhysicsCore::Update(const UpdateContext& inUpdateContext)
 					TransformComponent.SetWorldPosition(Controller.GetPosition());
 				}
 			}
-		}, rootJob);
+		//}, rootJob);
 
-		worker->Submit(root2);
+		//worker->Submit(root2);
 		//GetEngine().GetJobEngine().AddWork(m_callBack);
 		//GetEngine().GetJobEngine().Wait();
 		//burst.AddWork2(job, sizeof(Burst::LambdaWorkEntry));

@@ -79,8 +79,8 @@ public:
 	World(std::size_t InEntityPoolSize);
 	~World();
 
-	ME_NONCOPYABLE(World);
-	ME_NONMOVABLE(World);
+	ME_HARDSTUCK(World);
+
 	bool IsLoading = true;
 	BaseCore* AddCoreByName(const std::string& core);
 	std::unordered_map<TypeId, BaseCore*> m_loadedCores;

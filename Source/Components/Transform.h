@@ -64,10 +64,9 @@ public:
 
     void Reset();
 
-    ME_NONCOPYABLE( Transform )
-        ME_NONMOVABLE( Transform )
+    ME_HARDSTUCK( Transform )
 
-        void SetParent( Transform& NewParent );
+    void SetParent( Transform& NewParent );
     void RemoveChild( Transform* TargetTransform );
     Transform* GetChildByName( const std::string& inName );
     const std::vector<SharedPtr<Transform>>& GetChildren() const;
