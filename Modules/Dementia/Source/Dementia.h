@@ -117,6 +117,18 @@ Class& operator=(Class&&) = delete;
 #define ME_DEBUG NOT_IN_USE
 #endif
 
+#if defined( DEFINE_ME_RELEASE )
+#define ME_RELEASE IN_USE
+#else
+#define ME_RELEASE NOT_IN_USE
+#endif
+
+#if defined( DEFINE_ME_RETAIL )
+#define ME_RETAIL IN_USE
+#else
+#define ME_RETAIL NOT_IN_USE
+#endif
+
 #if defined( DEFINE_ME_MONO )
 #define ME_MONO IN_USE
 #else
@@ -133,7 +145,6 @@ Class& operator=(Class&&) = delete;
 #define ME_EDITOR_WIN64     USE_IF( USING( ME_EDITOR ) && USING( ME_PLATFORM_WIN64 ) )
 #define ME_EDITOR_MACOS     USE_IF( USING( ME_EDITOR ) && USING( ME_PLATFORM_MACOS ) )
 #define ME_SCRIPTING        USE_IF( USING( ME_MONO ) )
-#define ME_PROFILING        USE_IF( USING( ME_DEBUG ) )
+#define ME_PROFILING        USE_IF( USING( ME_DEBUG ) || USING( ME_RELEASE ) )
 // I'm currently using some ImGui stuff in debug for profiling, TOOLS needs it even that it's currently bundled with the editor.
-// TODO #IMGUI: Make proper builds Debug/Test/Ship/Profile                                                                   v
-#define ME_IMGUI            USE_IF( USING( ME_EDITOR ) || USING( ME_DEBUG ) || USING( ME_TOOLS ) || USING( ME_PROFILING ) || USING( IN_USE ) )
+#define ME_IMGUI            USE_IF( USING( ME_EDITOR ) || USING( ME_DEBUG ) || USING( ME_TOOLS ) || USING( ME_PROFILING ) )

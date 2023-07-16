@@ -26,12 +26,12 @@ public class Moonlight : BaseProject
 
         conf.IncludePaths.Add("[project.SourceRootPath]");
 
-        conf.LibraryFiles.Add("bgfx[target.Optimization]");
-        conf.LibraryFiles.Add("bx[target.Optimization]");
-        conf.LibraryFiles.Add("bimg[target.Optimization]");
-        conf.LibraryFiles.Add("bimg_decode[target.Optimization]");
+        conf.LibraryFiles.Add($"bgfx{CommonTarget.GetThirdPartyOptimization(target.Optimization)}");
+        conf.LibraryFiles.Add($"bx{CommonTarget.GetThirdPartyOptimization(target.Optimization)}");
+        conf.LibraryFiles.Add($"bimg{CommonTarget.GetThirdPartyOptimization(target.Optimization)}");
+        conf.LibraryFiles.Add($"bimg_decode{CommonTarget.GetThirdPartyOptimization(target.Optimization)}");
 
-        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/Lib/BGFX/[target.SubPlatform]/[target.Optimization]"));
+        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"../../ThirdParty/Lib/BGFX/[target.SubPlatform]/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
 
         conf.AddPublicDependency<Dementia>(target);
 

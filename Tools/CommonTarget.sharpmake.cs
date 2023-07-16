@@ -10,6 +10,21 @@ public class CommonTarget : Sharpmake.ITarget
     public DotNetFramework Framework;
     public DotNetOS DotNetOS;
 
+    public static Optimization GetThirdPartyOptimization(Optimization opt)
+    {
+        switch (opt)
+        {
+            case Optimization.Debug:
+                return Optimization.Debug;
+            case Optimization.Release:
+                return Optimization.Release;
+            case Optimization.Retail:
+                return Optimization.Release;
+            default:
+                return Optimization.Release;
+        }
+    }
+
     [Fragment, Flags]
     public enum SubPlatformType
     {

@@ -724,18 +724,24 @@ bool SDLWindow::ShouldClose()
 	return CloseRequested;
 }
 
+#if USING( ME_IMGUI )
 extern bool ImGui_ImplSDL2_ProcessEvent(const SDL_Event* event);
+#endif
 void SDLWindow::ParseMessageQueue()
 {
     OPTICK_EVENT( "Window::ParseMessageQueue" );
 	SDL_Event event;
 	while (SDL_PollEvent(&event))
 	{
-		if (ImGui_ImplSDL2_ProcessEvent(&event))
+
+#if USING( ME_IMGUI )
+        if ( ImGui_ImplSDL2_ProcessEvent( &event ) )
 		{
 			//return;
 		}
-		switch (event.type)
+#endif
+
+        switch ( event.type )
 		{
 		case SDL_QUIT:
 		{

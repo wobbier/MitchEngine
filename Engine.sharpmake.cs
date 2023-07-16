@@ -152,9 +152,9 @@ public class Engine : BaseProject
     {
         base.ConfigureWin64(conf, target);
 
-        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/Lib/Assimp/[target.Optimization]"));
-        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/Lib/SDL/Win64/[target.Optimization]"));
-        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/Lib/Bullet/Win64/[target.Optimization]"));
+        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/Assimp/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
+        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/SDL/Win64/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
+        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/Bullet/Win64/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
 
         conf.LibraryFiles.Add("assimp-vc140-mt.lib");
         conf.LibraryFiles.Add("AppCore");
@@ -199,7 +199,7 @@ public class Engine : BaseProject
         // SDL DLL
         {
             var copyDirBuildStep = new Configuration.BuildStepCopy(
-                @"[project.SharpmakeCsPath]/ThirdParty/Lib/SDL/Win64/[target.Optimization]",
+                $@"[project.SharpmakeCsPath]/ThirdParty/Lib/SDL/Win64/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}",
                 Globals.RootDir + "/.build/[target.Name]");
 
             copyDirBuildStep.IsFileCopy = false;
@@ -241,9 +241,9 @@ public class Engine : BaseProject
     {
         base.ConfigureUWP(conf, target);
 
-        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/Lib/Assimp/[target.Optimization]"));
-        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/Lib/Bullet/Win64/[target.Optimization]"));
-        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/Lib/SDL/UWP/[target.Optimization]"));
+        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/Assimp/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
+        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/Bullet/Win64/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
+        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/SDL/UWP/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
 
         conf.LibraryPaths.Add("$(VCInstallDir)\\lib\\store\\amd64");
         conf.LibraryPaths.Add("$(VCInstallDir)\\lib\\amd64");
@@ -293,7 +293,7 @@ public class Engine : BaseProject
         // What the actual fuck lmao                                                                 v
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/Lib/Bullet/macOS/Debug"));
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/Lib/SDL/macOS/Debug"));
-        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/Lib/Assimp/macOS/[target.Optimization]"));
+        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/Assimp/macOS/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
 
         conf.LibraryFiles.Add("assimp");
         conf.LibraryFiles.Add("BulletCollision");

@@ -14,7 +14,7 @@ jobs:
     strategy:
       matrix:
         os: [windows-2019]
-        buildconfig: [Game_Win64_Release, Editor_Release]
+        buildconfig: [Game_Win64_Debug, Game_Win64_Release, Game_Win64_Retail, Editor_Release]
         include:
           - os: windows-2019
             shell: cmd

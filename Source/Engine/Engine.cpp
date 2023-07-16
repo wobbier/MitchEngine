@@ -140,12 +140,13 @@ void Engine::Init( Game* game )
 	settings.WindowPtr = GameWindow->GetWindowPtr();
 	settings.InitialSize = Vector2( 1920.f, 1080.f );
 	NewRenderer->Create( settings );
-
+#if USING( ME_IMGUI )
 #if USING( ME_PLATFORM_WIN64 )
 	ImGui_ImplSDL2_InitForD3D( static_cast<SDLWindow*>( GameWindow )->WindowHandle );
 #endif
 #if USING( ME_PLATFORM_MACOS )
 	ImGui_ImplSDL2_InitForMetal( static_cast<SDLWindow*>( GameWindow )->WindowHandle );
+#endif
 #endif
 	//m_renderer = new Moonlight::Renderer();
 	//m_renderer->WindowResized(GameWindow->GetSize());
@@ -338,7 +339,7 @@ void Engine::Run()
 #if !USING( ME_EDITOR )
 				EditorCamera.OutputSize = GetWindow()->GetSize();
 #if USING( ME_PROFILING )
-				FrameProfile::GetInstance().Render( { 0.f, GameWindow->GetSize().y - FrameProfile::kMinProfilerSize }, { GameWindow->GetSize().x, (float)FrameProfile::kMinProfilerSize } );
+				FrameProfile::GetInstance().Render( { 10.f, (GameWindow->GetSize().y - FrameProfile::kMinProfilerSize) - 10 }, { GameWindow->GetSize().x - 20, (float)FrameProfile::kMinProfilerSize } );
 #endif
 #endif
 				ME_FRAMEPROFILE_START( "UI Render", ProfileCategory::UI );

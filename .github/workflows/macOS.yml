@@ -15,7 +15,7 @@ jobs:
         platform:
           - macOS
         xcode:
-          - ^12
+          - ^11
         configuration:
           - Debug
           - Release
