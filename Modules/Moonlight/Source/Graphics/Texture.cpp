@@ -75,7 +75,7 @@ namespace Moonlight
 
 				if (bgfx::isValid(TexHandle))
 				{
-					bgfx::setName(TexHandle, FilePath.LocalPath.c_str());
+					bgfx::setName(TexHandle, FilePath.GetLocalPath().data());
 				}
 
 				bgfx::TextureInfo* info = nullptr;

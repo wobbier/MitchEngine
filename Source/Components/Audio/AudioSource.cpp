@@ -101,7 +101,7 @@ void AudioSource::SetPositionMs(unsigned int position)
 
 void AudioSource::OnSerialize(json& outJson)
 {
-	outJson["FilePath"] = FilePath.LocalPath;
+	outJson["FilePath"] = FilePath.GetLocalPath();
 	outJson["PlayOnAwake"] = PlayOnAwake;
 	outJson["Loop"] = Loop;
 }
@@ -132,11 +132,12 @@ void AudioSource::OnEditorInspect()
 	ImVec2 selectorSize(-1.f, 19.f);
 
 	HavanaUtils::Label("Asset");
-	if (!FilePath.LocalPath.empty())
+	auto soundPath = FilePath.GetLocalPath();
+	if (!soundPath.empty())
 	{
 		selectorSize = ImVec2(ImGui::GetContentRegionAvail().x - 19.f, 19.f);
 	}
-	if (ImGui::Button(FilePath.LocalPath.empty() ? "Select Asset" : FilePath.LocalPath.c_str(), selectorSize))
+	if (ImGui::Button( soundPath.empty() ? "Select Asset" : soundPath.data(), selectorSize))
 	{
 		RequestAssetSelectionEvent evt([this](Path selectedAsset) {
 			ClearData();
@@ -160,7 +161,7 @@ void AudioSource::OnEditorInspect()
 		ImGui::EndDragDropTarget();
 	}
 
-	if (!FilePath.LocalPath.empty())
+	if (!soundPath.empty())
 	{
 		ImGui::SameLine();
 		if (ImGui::Button("X"))
@@ -235,7 +236,7 @@ void AudioResourceMetadata::OnEditorInspect()
 	return;
 #endif
 	static SharedPtr<AudioSource> source = nullptr;
-	if(source && source->FilePath.LocalPath != FilePath.LocalPath)
+	if(source && source->FilePath.GetLocalPath() != FilePath.GetLocalPath() )
 	{
 		source->Stop();
 		source = nullptr;

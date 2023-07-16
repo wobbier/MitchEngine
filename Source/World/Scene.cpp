@@ -77,7 +77,7 @@ bool Scene::Load(SharedPtr<World> InWorld)
 	GameWorld = InWorld;
 	GameWorld->IsLoading = true;
 
-	if (CurrentLevel.FilePath.LocalPath.size() > 0)
+	if (CurrentLevel.FilePath.GetLocalPath().size() > 0)
 	{
 		CurrentLevel.Read();
 	}
@@ -123,7 +123,7 @@ void Scene::LoadCore(json& core)
 
 bool Scene::IsNewScene()
 {
-	return FilePath.LocalPath.empty();
+	return FilePath.GetLocalPath().empty();
 }
 
 void Scene::SaveSceneRecursively(json& d, Transform* CurrentTransform)

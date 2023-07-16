@@ -33,7 +33,7 @@ private:
 
 	virtual void OnSerialize(json& outJson) final
 	{
-		outJson["ModelPath"] = ModelPath.LocalPath;
+		outJson["ModelPath"] = ModelPath.GetLocalPath();
 	}
 
 	virtual void OnDeserialize(const json& inJson) final

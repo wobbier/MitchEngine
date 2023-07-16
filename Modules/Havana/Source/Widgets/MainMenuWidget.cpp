@@ -474,10 +474,10 @@ void MainMenuWidget::Render()
     {
         RequestAssetSelectionEvent evt( [this]( Path selectedAsset ) {
             LoadSceneEvent evt;
-            evt.Level = selectedAsset.LocalPath;
+            evt.Level = selectedAsset.GetLocalPath();
             evt.Fire();
 
-            GetEngine().GetConfig().SetValue( std::string( "CurrentScene" ), selectedAsset.LocalPath );
+            GetEngine().GetConfig().SetValue( std::string( "CurrentScene" ), selectedAsset.GetLocalPath().data() );
             }, AssetType::Level );
         evt.Fire();
     }

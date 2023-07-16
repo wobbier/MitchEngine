@@ -16,48 +16,48 @@ class IWindow;
 class OverlayManager;
 
 class UICore final
-	: public Core<UICore>
-	, public ultralight::OverlayManager
+    : public Core<UICore>
+    , public ultralight::OverlayManager
 {
 public:
-	UICore(IWindow* window, BGFXRenderer* renderer);
-	~UICore();
+    UICore( IWindow* window, BGFXRenderer* renderer );
+    ~UICore();
 
-	virtual void Init() final;
-	virtual void Update(const UpdateContext& inUpdateContext) final;
+    virtual void Init() final;
+    virtual void Update( const UpdateContext& inUpdateContext ) final;
 
-	virtual void OnEntityAdded(Entity& NewEntity) final;
-	virtual void OnEntityRemoved(Entity& InEntity) final;
+    virtual void OnEntityAdded( Entity& NewEntity ) final;
+    virtual void OnEntityRemoved( Entity& InEntity ) final;
 
-	virtual void OnStop() override;
+    virtual void OnStop() override;
 
-	void InitUIView(BasicUIView& view);
+    void InitUIView( BasicUIView& view );
 
-	void OnResize(const Vector2& NewSize);
+    void OnResize( const Vector2& NewSize );
 
-	void Render();
+    void Render();
 
-	OverlayManager* GetOverlayManager();
+    OverlayManager* GetOverlayManager();
 
-	ultralight::RefPtr<ultralight::Renderer> m_uiRenderer;
+    ultralight::RefPtr<ultralight::Renderer> m_uiRenderer;
 
 #if USING( ME_EDITOR )
-	virtual void OnEditorInspect() final;
+    virtual void OnEditorInspect() final;
 #endif
-	bgfx::TextureHandle m_uiTexture;
-	Vector2 UISize;
+    bgfx::TextureHandle m_uiTexture;
+    Vector2 UISize;
 private:
-	std::vector<ultralight::RefPtr<ultralight::Overlay>> m_overlays;
+    std::vector<ultralight::RefPtr<ultralight::Overlay>> m_overlays;
 
-	BGFXRenderer* m_renderer;
+    BGFXRenderer* m_renderer;
 
-	void CopyBitmapToTexture(ultralight::RefPtr<ultralight::Bitmap> bitmap);
+    void CopyBitmapToTexture( ultralight::RefPtr<ultralight::Bitmap> bitmap );
 
-	UniquePtr<ultralight::FileSystemBasic> m_fs;
-	UniquePtr<GPUDriverBGFX> m_driver = nullptr;
-	UniquePtr<GPUContext> m_context = nullptr;
-	UniquePtr<ultralight::FontLoader> m_fontLoader = nullptr;
-	UniquePtr<ultralight::FileLogger> m_logger = nullptr;
-	ultralight::RefPtr<UIWindow> m_window = nullptr;
+    UniquePtr<ultralight::FileSystemBasic> m_fs;
+    UniquePtr<GPUDriverBGFX> m_driver = nullptr;
+    UniquePtr<GPUContext> m_context = nullptr;
+    UniquePtr<ultralight::FontLoader> m_fontLoader = nullptr;
+    UniquePtr<ultralight::FileLogger> m_logger = nullptr;
+    ultralight::RefPtr<UIWindow> m_window = nullptr;
 };
 

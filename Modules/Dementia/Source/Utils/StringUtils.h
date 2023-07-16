@@ -11,19 +11,19 @@ class StringUtils
 {
 public:
 #if USING( ME_PLATFORM_WINDOWS )
-	static std::string ToString(const std::wstring& wstr)
+	static std::string ToString(const std::wstring_view& wstr)
 	{
-		const int bufferSize = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, nullptr, 0, nullptr, nullptr);
+		const int bufferSize = WideCharToMultiByte(CP_UTF8, 0, wstr.data(), -1, nullptr, 0, nullptr, nullptr);
 		const std::unique_ptr<char[]> buffer(new char[bufferSize]);
-		WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, buffer.get(), bufferSize, nullptr, nullptr);
+		WideCharToMultiByte(CP_UTF8, 0, wstr.data(), -1, buffer.get(), bufferSize, nullptr, nullptr);
 		return std::string(buffer.get());
 	}
 
-	static std::wstring ToWString(const std::string& str)
+	static std::wstring ToWString(const std::string_view& str)
 	{
-		const int bufferSize = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, nullptr, 0);
+		const int bufferSize = MultiByteToWideChar(CP_UTF8, 0, str.data(), -1, nullptr, 0);
 		const std::unique_ptr<wchar_t[]> buffer(new wchar_t[bufferSize]);
-		MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, buffer.get(), bufferSize);
+		MultiByteToWideChar(CP_UTF8, 0, str.data(), -1, buffer.get(), bufferSize);
 		return std::wstring(buffer.get());
 	}
 #endif // #if USING( ME_PLATFORM_WINDOWS )

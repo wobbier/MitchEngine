@@ -13,6 +13,7 @@
 
 Path::Path( const std::string& InFile, bool Raw /*= false*/ )
 {
+    std::string LocalPath;
     size_t pos;
 #if USING( ME_PLATFORM_UWP )
     char buf[1024];
@@ -104,8 +105,8 @@ Path::Path( const std::string& InFile, bool Raw /*= false*/ )
 #endif
 
 #endif
-    pos = FullPath.find_last_of( "/" );
-    Directory = FullPath.substr( 0, pos + 1 );
+    LocalPos = FullPath.rfind( LocalPath );
+    DirectoryPos = FullPath.find_last_of( "/" ) + 1;
 
 #if USING( ME_PLATFORM_UWP )
         //std::replace(LocalPath.begin(), LocalPath.end(), '/', '\\');
@@ -122,5 +123,25 @@ const char* Path::GetExtension() const
 {
     const char* c = FullPath.c_str();
     return &c[FullPath.size() - ExtensionPos];
+}
+
+std::string_view Path::GetDirectory() const
+{
+    return std::string_view( FullPath.c_str(), DirectoryPos );
+}
+
+std::string Path::GetDirectoryString() const
+{
+    return std::string( GetDirectory() );
+}
+
+std::string_view Path::GetLocalPath() const
+{
+    return std::string_view( FullPath.c_str() + LocalPos, FullPath.size() );
+}
+
+std::string Path::GetLocalPathString() const
+{
+    return std::string( GetLocalPath() );
 }
 

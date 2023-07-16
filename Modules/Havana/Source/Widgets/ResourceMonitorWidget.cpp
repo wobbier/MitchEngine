@@ -100,7 +100,7 @@ void ResourceMonitorWidget::Render()
                             ImGui::TableSetColumnIndex( 0 );
                             {
                                 OPTICK_EVENT( "Name" );
-                                ImGui::Text( resourceList[row].lock()->GetPath().LocalPath.c_str() );
+                                ImGui::Text( resourceList[row].lock()->GetPath().GetLocalPath().data() );
                             }
 
                             ImGui::TableSetColumnIndex( 1 );
@@ -133,7 +133,7 @@ int ResourceMonitorWidget::CompareWithSortSpecs( const void* lhs, const void* rh
         int delta = 0;
         switch( sort_spec->ColumnUserID )
         {
-        case Sort_LocalPath: delta = ( strcmp( a->GetPath().LocalPath.c_str(), b->GetPath().LocalPath.c_str() ) );     break;
+        case Sort_LocalPath: delta = ( strcmp( a->GetPath().GetLocalPath().data(), b->GetPath().GetLocalPath().data() ) );     break;
         case Sort_RefCount:  delta = ( a.use_count() - b.use_count() );    break;
         default: IM_ASSERT( 0 ); break;
         }

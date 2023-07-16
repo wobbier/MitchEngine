@@ -22,20 +22,23 @@ public:
 
         if ( !FilePath.Exists )
         {
-            CLog::Log( CLog::LogType::Error, "[File IO] File does not exist: " + FilePath.LocalPath );
+            // #TODO: Perhaps having the macro for this accepts a string view?
+            CLog::Log( CLog::LogType::Error, "[File IO] File does not exist: " + FilePath.GetLocalPathString() );
         }
 
         FileStream.open( FilePath.FullPath.c_str(), std::ios::in );
 
         if ( !FileStream )
         {
-            CLog::Log( CLog::LogType::Error, "[File IO] Failed to load file: " + FilePath.LocalPath );
+            // #TODO: Perhaps having the macro for this accepts a string view?
+            CLog::Log( CLog::LogType::Error, "[File IO] Failed to load file: " + FilePath.GetLocalPathString() );
             FileStream.close();
 
             return Data;
         }
 
-        CLog::Log( CLog::LogType::Info, "[File IO] Loaded File: " + FilePath.LocalPath );
+         // #TODO: Perhaps having the macro for this accepts a string view?
+        CLog::Log( CLog::LogType::Info, "[File IO] Loaded File: " + FilePath.GetLocalPathString() );
 
         IsOpen = true;
 

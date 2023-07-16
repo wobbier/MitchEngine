@@ -22,11 +22,17 @@ public:
 
     const char* GetExtension() const;
 
+    std::string_view GetDirectory() const;
+    std::string GetDirectoryString() const;
+
+    std::string_view GetLocalPath() const;
+    std::string GetLocalPathString() const;
+
     bool IsFile = false;
     bool IsFolder = false;
     bool Exists = false;
     int8_t ExtensionPos;
+    int8_t DirectoryPos;
+    int8_t LocalPos;
     std::string FullPath;
-    std::string LocalPath;
-    std::string Directory;
 };

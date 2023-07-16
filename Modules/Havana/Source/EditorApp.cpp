@@ -32,13 +32,13 @@
 
 #if USING( ME_EDITOR )
 
-EditorApp::EditorApp(int argc, char** argv)
-	: Game(argc, argv)
+EditorApp::EditorApp( int argc, char** argv )
+    : Game( argc, argv )
 {
-	std::vector<TypeId> events;
-	events.push_back(NewSceneEvent::GetEventId());
-	events.push_back(SceneLoadedEvent::GetEventId());
-	EventManager::GetInstance().RegisterReceiver(this, events);
+    std::vector<TypeId> events;
+    events.push_back( NewSceneEvent::GetEventId() );
+    events.push_back( SceneLoadedEvent::GetEventId() );
+    EventManager::GetInstance().RegisterReceiver( this, events );
 
     // 0x0100 is the default, so we put the transform component decently high up.
     REGISTER_EDITORCOMPONENTCACHE_ORDERDATA( Transform, 0x0F00 );
@@ -59,154 +59,154 @@ void EditorApp::OnStart()
 {
 }
 
-void EditorApp::OnUpdate(const UpdateContext& inUpdateContext)
+void EditorApp::OnUpdate( const UpdateContext& inUpdateContext )
 {
-	OPTICK_CATEGORY("EditorApp::OnUpdate", Optick::Category::GameLogic);
+    OPTICK_CATEGORY( "EditorApp::OnUpdate", Optick::Category::GameLogic );
 
-	Editor->NewFrame();
-	Transform* root = GetEngine().SceneNodes->GetRootTransform();
+    Editor->NewFrame();
+    Transform* root = GetEngine().SceneNodes->GetRootTransform();
 
-	EditorSceneManager->Update(inUpdateContext, root);
-	Editor->UpdateWorld(root, EditorSceneManager->GetEntities());
+    EditorSceneManager->Update( inUpdateContext, root );
+    Editor->UpdateWorld( root, EditorSceneManager->GetEntities() );
 
-	UpdateCameras();
+    UpdateCameras();
 }
 
 void EditorApp::UpdateCameras()
 {
-	if (!Camera::CurrentCamera)
-	{
-		Camera::CurrentCamera = Camera::EditorCamera;
-	}
+    if ( !Camera::CurrentCamera )
+    {
+        Camera::CurrentCamera = Camera::EditorCamera;
+    }
 
-	Moonlight::CameraData& EditorCamera = GetEngine().EditorCamera;
+    Moonlight::CameraData& EditorCamera = GetEngine().EditorCamera;
 
-	EditorCamera.Position = EditorSceneManager->GetEditorCameraTransform()->GetPosition();
-	EditorCamera.Front = EditorSceneManager->GetEditorCameraTransform()->Front();
-	EditorCamera.Up = EditorSceneManager->GetEditorCameraTransform()->Up();
-	EditorCamera.OutputSize = Editor->GetWorldEditorRenderSize();
-	EditorCamera.FOV = Camera::EditorCamera->GetFOV();
-	EditorCamera.Near = Camera::EditorCamera->Near;
-	EditorCamera.Far = Camera::EditorCamera->Far;
-	EditorCamera.Skybox = Camera::CurrentCamera->Skybox;
-	EditorCamera.ClearColor = Camera::CurrentCamera->ClearColor;
-	EditorCamera.ClearType = Camera::CurrentCamera->ClearType;
-	EditorCamera.Projection = Camera::EditorCamera->Projection;
-	EditorCamera.OrthographicSize = Camera::EditorCamera->OrthographicSize;
-	//EditorCamera.CameraFrustum = Camera::EditorCamera->CameraFrustum;
-	EditorCamera.View = EditorSceneManager->GetEditorCameraTransform()->GetWorldToLocalMatrix();
-	GetEngine().EditorCamera = EditorCamera;
+    EditorCamera.Position = EditorSceneManager->GetEditorCameraTransform()->GetPosition();
+    EditorCamera.Front = EditorSceneManager->GetEditorCameraTransform()->Front();
+    EditorCamera.Up = EditorSceneManager->GetEditorCameraTransform()->Up();
+    EditorCamera.OutputSize = Editor->GetWorldEditorRenderSize();
+    EditorCamera.FOV = Camera::EditorCamera->GetFOV();
+    EditorCamera.Near = Camera::EditorCamera->Near;
+    EditorCamera.Far = Camera::EditorCamera->Far;
+    EditorCamera.Skybox = Camera::CurrentCamera->Skybox;
+    EditorCamera.ClearColor = Camera::CurrentCamera->ClearColor;
+    EditorCamera.ClearType = Camera::CurrentCamera->ClearType;
+    EditorCamera.Projection = Camera::EditorCamera->Projection;
+    EditorCamera.OrthographicSize = Camera::EditorCamera->OrthographicSize;
+    //EditorCamera.CameraFrustum = Camera::EditorCamera->CameraFrustum;
+    EditorCamera.View = EditorSceneManager->GetEditorCameraTransform()->GetWorldToLocalMatrix();
+    GetEngine().EditorCamera = EditorCamera;
 }
 
 void EditorApp::OnEnd()
 {
-	Editor->Save();
-	EditorConfig::GetInstance().Save();
+    Editor->Save();
+    EditorConfig::GetInstance().Save();
 }
 
 void EditorApp::OnInitialize()
 {
-	if (!Editor)
-	{
-		EditorConfig::GetInstance().Init();
-		EditorConfig::GetInstance().Load();
+    if ( !Editor )
+    {
+        EditorConfig::GetInstance().Init();
+        EditorConfig::GetInstance().Load();
 #if USING( ME_PLATFORM_WIN64 )
-		InitialLevel = GetEngine().GetConfig().GetValue("CurrentScene");
+        InitialLevel = GetEngine().GetConfig().GetValue( "CurrentScene" );
 #endif
-		Editor = MakeUnique<Havana>(&GetEngine(), this);
-		EditorSceneManager = new EditorCore(Editor.get());
+        Editor = MakeUnique<Havana>( &GetEngine(), this );
+        EditorSceneManager = new EditorCore( Editor.get() );
 
-		Editor->SetGameCallbacks([this]() {
-			StartGame();
-			m_isGamePaused = false;
-			m_isGameRunning = true;
-			//Editor->SetViewportMode(ViewportMode::Game);
-		}
-		, [this]() {
-			m_isGamePaused = true;
-		}
-		, [this]() {
-			m_isGamePaused = false;
-			//Editor->SetViewportMode(ViewportMode::World);
-			ClearInspectEvent evt;
-			evt.Fire();
-			StopGame();
-			//GetEngine().LoadScene("Assets/Alley.lvl");
-		});
+        Editor->SetGameCallbacks( [this]() {
+            StartGame();
+            m_isGamePaused = false;
+            m_isGameRunning = true;
+            //Editor->SetViewportMode(ViewportMode::Game);
+            }
+            , [this]() {
+                m_isGamePaused = true;
+            }
+                , [this]() {
+                m_isGamePaused = false;
+                //Editor->SetViewportMode(ViewportMode::World);
+                ClearInspectEvent evt;
+                evt.Fire();
+                StopGame();
+                //GetEngine().LoadScene("Assets/Alley.lvl");
+            } );
 
-		NewSceneEvent evt;
-		evt.Fire();
-		GetEngine().GetWorld().lock()->AddCore<EditorCore>(*EditorSceneManager);
-		GetEngine().LoadScene(InitialLevel);
-	}
-	else
-	{
-		GetEngine().GetWorld().lock()->AddCore<EditorCore>(*EditorSceneManager);
-	}
+        NewSceneEvent evt;
+        evt.Fire();
+        GetEngine().GetWorld().lock()->AddCore<EditorCore>( *EditorSceneManager );
+        GetEngine().LoadScene( InitialLevel );
+    }
+    else
+    {
+        GetEngine().GetWorld().lock()->AddCore<EditorCore>( *EditorSceneManager );
+    }
 }
 
 void EditorApp::PostRender()
 {
-	Editor->Render(GetEngine().EditorCamera);
-	Editor->GetInput().PostUpdate();
+    Editor->Render( GetEngine().EditorCamera );
+    Editor->GetInput().PostUpdate();
 }
 
 void EditorApp::StartGame()
 {
-	if (!m_isGameRunning)
-	{
-		GetEngine().GetWorld().lock()->Start();
-		m_isGameRunning = true;
-	}
+    if ( !m_isGameRunning )
+    {
+        GetEngine().GetWorld().lock()->Start();
+        m_isGameRunning = true;
+    }
 }
 
 void EditorApp::StopGame()
 {
-	if (m_isGameRunning)
-	{
-		if (GetEngine().GetWorld().lock())
-		{
-			GetEngine().GetWorld().lock()->Destroy();
-		}
-		m_isGameRunning = false;
-		NewSceneEvent evt;
-		evt.Fire();
-		InitialLevel = GetEngine().GetConfig().GetValue("CurrentScene");
-		GetEngine().LoadScene(InitialLevel);
-		GetEngine().GetWorld().lock()->Stop();
-	}
+    if ( m_isGameRunning )
+    {
+        if ( GetEngine().GetWorld().lock() )
+        {
+            GetEngine().GetWorld().lock()->Destroy();
+        }
+        m_isGameRunning = false;
+        NewSceneEvent evt;
+        evt.Fire();
+        InitialLevel = GetEngine().GetConfig().GetValue( "CurrentScene" );
+        GetEngine().LoadScene( InitialLevel );
+        GetEngine().GetWorld().lock()->Stop();
+    }
 }
 
 const bool EditorApp::IsGameRunning() const
 {
-	return m_isGameRunning;
+    return m_isGameRunning;
 }
 
 const bool EditorApp::IsGamePaused() const
 {
-	return m_isGamePaused;
+    return m_isGamePaused;
 }
 
-bool EditorApp::OnEvent(const BaseEvent& evt)
+bool EditorApp::OnEvent( const BaseEvent& evt )
 {
-	if (evt.GetEventId() == NewSceneEvent::GetEventId())
-	{
-		GetEngine().LoadScene("");
-		GetEngine().InitGame();
-		GetEngine().GetWorld().lock()->Simulate();
-	}
-	else if (evt.GetEventId() == SceneLoadedEvent::GetEventId())
-	{
-		const SceneLoadedEvent& test = static_cast<const SceneLoadedEvent&>(evt);
+    if ( evt.GetEventId() == NewSceneEvent::GetEventId() )
+    {
+        GetEngine().LoadScene( "" );
+        GetEngine().InitGame();
+        GetEngine().GetWorld().lock()->Simulate();
+    }
+    else if ( evt.GetEventId() == SceneLoadedEvent::GetEventId() )
+    {
+        const SceneLoadedEvent& test = static_cast<const SceneLoadedEvent&>( evt );
 
-		Editor->SetWindowTitle("Havana - " + test.LoadedScene->FilePath.LocalPath);
-		if (m_isGameRunning)
-		{
-			GetEngine().GetWorld().lock()->Start();
-		}
-	}
+        Editor->SetWindowTitle( "Havana - " + test.LoadedScene->FilePath.GetLocalPathString() );
+        if ( m_isGameRunning )
+        {
+            GetEngine().GetWorld().lock()->Start();
+        }
+    }
 
-	return false;
+    return false;
 }
 
 #endif

@@ -50,7 +50,7 @@ namespace Moonlight
 			if (texture)
 			{
 				json& savedTexture = OutJson["Textures"][Texture::ToString(static_cast<TextureType>(type))];
-				savedTexture["Path"] = texture->GetPath().LocalPath;
+				savedTexture["Path"] = texture->GetPath().GetLocalPath();
 				savedTexture["RenderMode"] = GetRenderingModeString(RenderMode);
 			}
 		}

@@ -353,7 +353,7 @@ void Mesh::OnEditorInspect()
 					selectorSize = ImVec2(widgetWidth - 54.f, 0.f);
 				}
 				ImGui::PushID(i);
-				if (ImGui::Button(((texture) ? texture->GetPath().LocalPath.c_str() : "Select Asset"), selectorSize))
+				if (ImGui::Button(((texture) ? texture->GetPath().GetLocalPath().data() : "Select Asset" ), selectorSize) )
 				{
 					RequestAssetSelectionEvent evt([this, i](Path selectedAsset) {
 						MeshMaterial->SetTexture(static_cast<Moonlight::TextureType>(i), ResourceCache::GetInstance().Get<Moonlight::Texture>(selectedAsset));

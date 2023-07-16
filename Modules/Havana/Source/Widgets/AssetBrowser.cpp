@@ -516,7 +516,7 @@ void AssetBrowserWidget::DrawAssetTable()
                     {
                         SelectedAsset = item;
                         CurrentlyFocusedAssetType = item->Type;
-                        SavedName = SelectedAsset->FullPath.LocalPath;
+                        SavedName = SelectedAsset->FullPath.GetLocalPath();
                         if ( CurrentlyFocusedAsset )
                         {
                             CurrentlyFocusedAsset = nullptr;
@@ -641,7 +641,7 @@ void AssetBrowserWidget::DrawAssetTable()
                     ImGui::TextUnformatted( item->Name.c_str() );
 
                 if ( ImGui::TableNextColumn() )
-                    ImGui::Text( item->FullPath.LocalPath.c_str() );
+                    ImGui::Text( item->FullPath.GetLocalPath().data() );
 
                 if ( ImGui::TableNextColumn() )
                     ImGui::Text( item->LastModifiedHuman.c_str() );
@@ -728,7 +728,7 @@ void AssetBrowserWidget::Recursive( Directory& dir )
                 json prefab;
                 SavePrefab( prefab, payload_n->Parent, true );
 
-                File( Path( directory.second.FullPath.Directory + "/" + payload_n->Parent->GetName() + std::string( ".prefab" ) ) ).Write( prefab[0].dump( 4 ) );
+                File( Path( std::string( directory.second.FullPath.GetDirectory() ) + "/" + payload_n->Parent->GetName() + std::string( ".prefab" ) ) ).Write( prefab[0].dump( 4 ) );
             }
             ImGui::EndDragDropTarget();
         }
@@ -790,10 +790,10 @@ void AssetBrowserWidget::Recursive( Directory& dir )
             node_clicked = i;
             if ( ImGui::IsMouseDoubleClicked( 0 ) )
             {
-                if ( files.FullPath.LocalPath.rfind( ".lvl" ) != std::string::npos )
+                if ( files.FullPath.GetLocalPath().rfind( ".lvl" ) != std::string::npos )
                 {
                     LoadSceneEvent evt;
-                    evt.Level = files.FullPath.LocalPath;
+                    evt.Level = files.FullPath.GetLocalPath();
                     evt.Fire();
                 }
                 else
@@ -827,7 +827,7 @@ void AssetBrowserWidget::Recursive( Directory& dir )
                 json prefab;
                 SavePrefab( prefab, payload_n->Parent, true );
 
-                File( Path( files.FullPath.Directory + payload_n->Parent->GetName() + std::string( ".prefab" ) ) ).Write( prefab[0].dump( 4 ) );
+                File( Path( std::string( files.FullPath.GetDirectory() ) + payload_n->Parent->GetName() + std::string( ".prefab" ) ) ).Write( prefab[0].dump( 4 ) );
             }
             ImGui::EndDragDropTarget();
         }

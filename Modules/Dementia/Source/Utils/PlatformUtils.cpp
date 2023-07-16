@@ -43,7 +43,7 @@ void PlatformUtils::SystemCall( const Path& inFilePath, const std::string& inArg
     std::string ProgramPath( std::string( p.generic_string() ) );
     if ( inFilePath.IsFile && inRunFromDirectory )
     {
-        SetCurrentDirectory( StringUtils::ToWString( inFilePath.Directory ).c_str() );
+        SetCurrentDirectory( StringUtils::ToWString( inFilePath.GetDirectory() ).c_str() );
     }
 
     STARTUPINFO si;
@@ -72,7 +72,7 @@ void PlatformUtils::SystemCall( const Path& inFilePath, const std::string& inArg
 void PlatformUtils::CreateDirectory( const Path& inFilePath )
 {
 #if USING( ME_PLATFORM_WIN64 )
-    std::filesystem::create_directories( inFilePath.Directory.c_str() );
+    std::filesystem::create_directories( inFilePath.GetDirectory() );
 #endif
 }
 
@@ -86,7 +86,7 @@ void PlatformUtils::OpenFile( const Path& inFilePath )
 void PlatformUtils::OpenFolder( const Path& inFolderPath )
 {
 #if USING( ME_PLATFORM_WIN64 )
-    ShellExecute( NULL, L"open", StringUtils::ToWString( inFolderPath.Directory ).c_str(), NULL, NULL, SW_SHOWDEFAULT );
+    ShellExecute( NULL, L"open", StringUtils::ToWString( inFolderPath.GetDirectory() ).c_str(), NULL, NULL, SW_SHOWDEFAULT );
 #endif
 }
 

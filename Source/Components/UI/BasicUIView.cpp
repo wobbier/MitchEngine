@@ -27,7 +27,7 @@ void BasicUIView::Init()
 
 void BasicUIView::OnSerialize(json& outJson)
 {
-	outJson["FilePath"] = FilePath.LocalPath;
+	outJson["FilePath"] = FilePath.GetLocalPath();
 }
 
 void BasicUIView::OnDeserialize(const json& inJson)
@@ -84,7 +84,7 @@ void BasicUIView::OnEditorInspect()
 {
 	ImVec2 selectorSize(-1.f, 19.f);
 	HavanaUtils::Label("Source");
-	if (ImGui::Button(((!FilePath.LocalPath.empty()) ? FilePath.LocalPath.c_str() : "Select Asset"), selectorSize))
+	if (ImGui::Button(((!FilePath.GetLocalPath().empty()) ? FilePath.GetLocalPath().data() : "Select Asset" ), selectorSize) )
 	{
 		RequestAssetSelectionEvent evt([this](Path selectedAsset) {
 			FilePath = selectedAsset;

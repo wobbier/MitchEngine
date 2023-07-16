@@ -26,9 +26,9 @@ void AssetMetaCache::Init()
 bool AssetMetaCache::WasModified(const Path& filePath, SharedPtr<MetaBase> metaFile)
 {
 	bool wasModified = true;
-	if (m_cachedAssets.find(filePath.LocalPath) != m_cachedAssets.end())
+	if (m_cachedAssets.find(filePath.GetLocalPath().data()) != m_cachedAssets.end())
 	{
-		wasModified = m_cachedAssets[filePath.LocalPath].LastModified != metaFile->LastModified;
+		wasModified = m_cachedAssets[filePath.GetLocalPath().data()].LastModified != metaFile->LastModified;
 	}
 	return wasModified;
 }
@@ -49,15 +49,15 @@ void AssetMetaCache::Update(const Path& filePath, SharedPtr<MetaBase> metaFile)
 
 	metaFile->LastModified = static_cast<long>(fileInfo.st_mtime);
 
-	if (m_cachedAssets.find(filePath.LocalPath) != m_cachedAssets.end())
+	if (m_cachedAssets.find(filePath.GetLocalPath().data()) != m_cachedAssets.end())
 	{
-		m_cachedAssets[filePath.LocalPath].LastModified = static_cast<long>(fileInfo.st_mtime);
+		m_cachedAssets[filePath.GetLocalPath().data()].LastModified = static_cast<long>(fileInfo.st_mtime);
 	}
 	else
 	{
 		CachedAssetInfo info;
 		info.LastModified = static_cast<long>(fileInfo.st_mtime);
-		m_cachedAssets[filePath.LocalPath] = info;
+		m_cachedAssets[filePath.GetLocalPath().data()] = info;
 	}
 
 	Save();

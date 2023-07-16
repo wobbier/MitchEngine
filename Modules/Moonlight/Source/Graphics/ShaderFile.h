@@ -21,11 +21,11 @@ namespace Moonlight
 			: Resource(InPath)
 		{
 			std::string path = FilePath.FullPath.substr(FilePath.FullPath.rfind("/") + 1, FilePath.FullPath.length());
-			std::string fullPath = FilePath.Directory + path + "." + Moonlight::GetPlatformString() + ".bin";
+			std::string fullPath = std::string( FilePath.GetDirectory() ) + path + "." + Moonlight::GetPlatformString() + ".bin";
 			//fullPath = fullPath.substr(0, fullPath.rfind(".")) + ".bin";
 			Data = Moonlight::LoadMemory(Path(fullPath));
 			Handle = bgfx::createShader(Data);
-			bgfx::setName(Handle, InPath.LocalPath.c_str());
+			bgfx::setName(Handle, InPath.GetLocalPath().data());
 		}
 
 		inline std::vector<char> ReadToByteArray(const char* filename)
@@ -84,8 +84,8 @@ struct ShaderFileMetadata
 			shaderType = "vs_5_0";
 		}
 
-		std::string fileName = FilePath.LocalPath.substr(FilePath.LocalPath.rfind("/") + 1, FilePath.LocalPath.length());
-		std::string localFolder = FilePath.Directory;
+		std::string fileName = std::string( FilePath.GetLocalPath().substr( FilePath.GetLocalPath().rfind( "/" ) + 1, FilePath.GetLocalPath().length() ) );
+		std::string localFolder = FilePath.GetDirectory().data();
 
 		// --platform windows -p vs_5_0 -O 3 --type vertex --depends -o $(@) -f $(<) --disasm
 		//
@@ -113,9 +113,9 @@ struct ShaderFileMetadata
             shaderType = "vs_5_0";
         }
 
-        std::string fileName = FilePath.LocalPath.substr(FilePath.LocalPath.rfind("/") + 1, FilePath.LocalPath.length());
+        std::string fileName = FilePath.GetLocalPath().substr(FilePath.GetLocalPath().rfind("/") + 1, FilePath.GetLocalPath().length());
         
-        std::string localFolder = FilePath.LocalPath.substr(0, FilePath.LocalPath.rfind("/") + 1);
+        std::string localFolder = FilePath.GetLocalPath().substr(0, FilePath.GetLocalPath().rfind("/") + 1);
         
         std::string nameNoExt = fileName.substr(0, fileName.rfind("."));
         std::string progArgs = "\"" + shadercPath.FullPath + "\" -f ../../";

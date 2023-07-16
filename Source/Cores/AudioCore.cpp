@@ -57,7 +57,7 @@ void AudioCore::Update(float dt)
 
 void AudioCore::InitComponent(AudioSource& audioSource)
 {
-	if (!audioSource.IsInitialized && !audioSource.FilePath.LocalPath.empty())
+	if (!audioSource.IsInitialized && !audioSource.FilePath.GetLocalPath().empty())
 	{
 #if USING( ME_FMOD )
 		SharedPtr<Sound> soundResource = ResourceCache::GetInstance().Get<Sound>(audioSource.FilePath, system);
@@ -93,16 +93,17 @@ bool AudioCore::OnEvent(const BaseEvent& InEvent)
 	{
 		const PlayAudioEvent& evt = static_cast<const PlayAudioEvent&>(InEvent);
 		Path soundPath = Path(evt.SourceName);
-		if (m_cachedSounds.find(soundPath.LocalPath) == m_cachedSounds.end())
+		auto sound = soundPath.GetLocalPath();
+		if (m_cachedSounds.find( sound.data()) == m_cachedSounds.end())
 		{
-			auto& source = m_cachedSounds[soundPath.LocalPath] = MakeShared<AudioSource>(soundPath.LocalPath);
+			auto& source = m_cachedSounds[sound.data()] = MakeShared<AudioSource>( sound.data() );
 			InitComponent(*source);
 		}
-		m_cachedSounds[soundPath.LocalPath]->Play(false);
+		m_cachedSounds[sound.data()]->Play(false);
 
 		if(evt.Callback)
 		{
-			evt.Callback(m_cachedSounds[soundPath.LocalPath]);
+			evt.Callback(m_cachedSounds[sound.data()]);
 		}
 
 		return true;

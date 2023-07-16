@@ -193,7 +193,7 @@ void MitchHub::Draw()
                     {
                         ProjectEntry p;
                         p.ProjectPath = path;
-                        p.Name = path.LocalPath;
+                        p.Name = path.GetLocalPath().data();
 
                         p.TitleImage = ResourceCache::GetInstance().Get<Moonlight::Texture>( Path( path.FullPath + "/Project/Title.png" ) );
                         p.BackgroundImage = ResourceCache::GetInstance().Get<Moonlight::Texture>( Path( path.FullPath + "/Project/Background.png" ) );

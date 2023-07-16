@@ -161,7 +161,7 @@ void Camera::OnSerialize( json& outJson )
 
     if ( Skybox && Skybox->SkyMaterial )
     {
-        outJson["Skybox"] = Skybox->SkyMaterial->GetTexture( Moonlight::TextureType::Diffuse )->GetPath().LocalPath;
+        outJson["Skybox"] = Skybox->SkyMaterial->GetTexture( Moonlight::TextureType::Diffuse )->GetPath().GetLocalPath();
     }
 
     outJson["ClearColor"] = { ClearColor.x, ClearColor.y, ClearColor.z };
@@ -273,7 +273,7 @@ void Camera::OnEditorInspect()
         //}
 
         ImVec2 selectorSize( widgetWidth, 0.f );
-        if ( ImGui::Button( ( ( skyboxTexture ) ? skyboxTexture->GetPath().LocalPath.c_str() : "Select Asset" ), selectorSize ) )
+        if ( ImGui::Button( ( ( skyboxTexture ) ? skyboxTexture->GetPath().GetLocalPath().data() : "Select Asset" ), selectorSize ) )
         {
             RequestAssetSelectionEvent evt( [this]( Path selectedAsset ) {
                 if ( !Skybox )

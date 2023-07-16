@@ -82,7 +82,7 @@ void Engine::Init( Game* game )
 		if ( !gameEngineCfgPath.Exists )
 		{
 #if USING( ME_PLATFORM_WIN64 )
-			CreateDirectory( StringUtils::ToWString( gameEngineCfgPath.Directory ).c_str(), NULL );
+			CreateDirectory( StringUtils::ToWString( std::string( gameEngineCfgPath.GetDirectory() ) ).c_str(), NULL );
 #endif
 			File gameEngineCfg = File( engineCfg );
 			File newGameConfig( gameEngineCfgPath );

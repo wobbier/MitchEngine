@@ -115,13 +115,13 @@ void Model::OnEditorInspect()
 	{
 		ImGui::Text("Loaded Path");
 		ImGui::SameLine();
-		ImGui::Text(ModelPath.LocalPath.c_str());
+		ImGui::Text(ModelPath.GetLocalPath().data());
 	}
 	else
 	{
 		ImVec2 selectorSize(-1.f, 19.f);
 		HavanaUtils::Label("Model");
-		if (ImGui::Button(((!ModelPath.LocalPath.empty()) ? ModelPath.LocalPath.c_str() : "Select Asset"), selectorSize))
+		if (ImGui::Button(((!ModelPath.GetLocalPath().empty()) ? ModelPath.GetLocalPath().data() : "Select Asset"), selectorSize))
 		{
 			RequestAssetSelectionEvent evt([this](Path selectedAsset) {
 				ModelPath = selectedAsset;
