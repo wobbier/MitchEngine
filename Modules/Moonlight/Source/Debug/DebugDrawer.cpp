@@ -1,8 +1,8 @@
 #include "DebugDrawer.h"
 #include <bgfx/bgfx.h>
 #include <bgfx/embedded_shader.h>
-#include "vs_debugdraw_lines.bin.h"
-#include "fs_debugdraw_lines.bin.h"
+#include "vs_debugdraw_lines.bin.hpp"
+#include "fs_debugdraw_lines.bin.hpp"
 #include "bx/bx.h"
 #include <bx/math.h>
 #include <Utils/BGFXUtils.h>
