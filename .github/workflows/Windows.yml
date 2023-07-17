@@ -14,7 +14,7 @@ jobs:
     strategy:
       matrix:
         os: [windows-2019]
-        buildconfig: [Game_Win64, Game_Win64, Game_Win64, Editor]
+        buildconfig: [Game_Win64, Editor]
         configuration:
           - Debug
           - Release
@@ -50,7 +50,7 @@ jobs:
         run: call NewProjectSetup.bat EmptyProject ${{github.ref_name}}
 
       - name: Compile Tools
-        if: ${{ matrix.buildconfig == 'Game_Win64_Release' }}
+        if: ${{ matrix.buildconfig == 'Game_Win64' }}
         shell: cmd
         run: msbuild EmptyProject.sln /property:Configuration="Editor_Release"
 
@@ -70,7 +70,7 @@ jobs:
           robocopy "Engine/Tools" ".build\\Editor_Release\\Engine\\Tools" *.* /w:0 /r:1 /v /E
 
       - name: Archive Editor
-        if: ${{ matrix.buildconfig == 'Editor_Release' }}
+        if: ${{ matrix.buildconfig == 'Editor' }}
         uses: actions/upload-artifact@v2
         with:
           name: EmptyProject v${{github.run_number}} - Editor
@@ -86,7 +86,7 @@ jobs:
             .build/${{matrix.buildconfig}}_${{matrix.configuration}}/Tools/Win64/*.*
 
       - name: Cook Assets
-        if: ${{ matrix.buildconfig == 'Game_Win64_Release' }}
+        if: ${{ matrix.buildconfig == 'Game_Win64' }}
         shell: cmd
         run: |
           cd ".build/Editor_Release/"
@@ -94,31 +94,31 @@ jobs:
           cd ../../
 
       - name: Copy Cooked Assets
-        if: ${{ matrix.buildconfig == 'Game_Win64_Release' }}
+        if: ${{ matrix.buildconfig == 'Game_Win64' }}
         shell: cmd
         continue-on-error: true
         run: |
-          robocopy ".build/Editor_Release/Assets" ".build\\Game_Win64_Release\\Assets" *.* /w:0 /r:1 /v /E
+          robocopy ".build/Editor_Release/Assets" ".build\\Game_Win64_${{matrix.configuration}}\\Assets" *.* /w:0 /r:1 /v /E
 
       - name: Archive Build
-        if: ${{ matrix.buildconfig == 'Game_Win64_Release' }}
+        if: ${{ matrix.buildconfig == 'Game_Win64' }}
         uses: actions/upload-artifact@v2
         with:
-          name: EmptyProject v${{github.run_number}} - ${{matrix.buildconfig}}
+          name: EmptyProject v${{github.run_number}} - ${{matrix.buildconfig}}_${{matrix.configuration}}
           path: |
-            .build/$${{matrix.buildconfig}}_${{matrix.configuration}}
-            .build/$${{matrix.buildconfig}}_${{matrix.configuration}}/Assets
-            !.build/$${{matrix.buildconfig}}_${{matrix.configuration}}/AppX
-            !.build/$${{matrix.buildconfig}}_${{matrix.configuration}}/*.lib
-            !.build/$${{matrix.buildconfig}}_${{matrix.configuration}}/*.pdb
-            !.build/$${{matrix.buildconfig}}_${{matrix.configuration}}/*.exp
-            !.build/$${{matrix.buildconfig}}_${{matrix.configuration}}/*.log
-            !.build/$${{matrix.buildconfig}}_${{matrix.configuration}}/**/*.png
-            !.build/$${{matrix.buildconfig}}_${{matrix.configuration}}/**/*.jpg
-            !.build/$${{matrix.buildconfig}}_${{matrix.configuration}}/**/*.frag
-            !.build/$${{matrix.buildconfig}}_${{matrix.configuration}}/**/*.vert
-            !.build/$${{matrix.buildconfig}}_${{matrix.configuration}}/**/*.var
-            !.build/$${{matrix.buildconfig}}_${{matrix.configuration}}/**/*.sh
+            .build/${{matrix.buildconfig}}_${{matrix.configuration}}
+            .build/${{matrix.buildconfig}}_${{matrix.configuration}}/Assets
+            !.build/${{matrix.buildconfig}}_${{matrix.configuration}}/AppX
+            !.build/${{matrix.buildconfig}}_${{matrix.configuration}}/*.lib
+            !.build/${{matrix.buildconfig}}_${{matrix.configuration}}/*.pdb
+            !.build/${{matrix.buildconfig}}_${{matrix.configuration}}/*.exp
+            !.build/${{matrix.buildconfig}}_${{matrix.configuration}}/*.log
+            !.build/${{matrix.buildconfig}}_${{matrix.configuration}}/**/*.png
+            !.build/${{matrix.buildconfig}}_${{matrix.configuration}}/**/*.jpg
+            !.build/${{matrix.buildconfig}}_${{matrix.configuration}}/**/*.frag
+            !.build/${{matrix.buildconfig}}_${{matrix.configuration}}/**/*.vert
+            !.build/${{matrix.buildconfig}}_${{matrix.configuration}}/**/*.var
+            !.build/${{matrix.buildconfig}}_${{matrix.configuration}}/**/*.sh
 
       - name: Copy Tools Assets
         shell: cmd
@@ -128,7 +128,7 @@ jobs:
           robocopy "Engine/Tools/HUB" ".build\\Editor_Release" *.exe /w:0 /r:1 /v /E
 
       - name: Archive Tools
-        if: ${{ matrix.buildconfig == 'Editor_Release' }}
+        if: ${{ matrix.buildconfig == 'Editor' }}
         uses: actions/upload-artifact@v2
         with:
           name: HUB v${{github.run_number}}
