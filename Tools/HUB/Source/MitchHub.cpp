@@ -18,6 +18,7 @@
 #include "Utils/PlatformUtils.h"
 #include "Dementia.h"
 #include "Utils/HUBUtils.h"
+#include "Config.h"
 
 MitchHub::MitchHub( Input* input, SDLWindow* window, ImGuiRenderer* renderer )
     : m_input( input )
@@ -38,6 +39,7 @@ MitchHub::MitchHub( Input* input, SDLWindow* window, ImGuiRenderer* renderer )
         closeIcon = ResourceCache::GetInstance().Get<Moonlight::Texture>( Path( "Assets/Close.png" ) );
         minimizeIcon = ResourceCache::GetInstance().Get<Moonlight::Texture>( Path( "Assets/Minimize.png" ) );
         vsIcon = ResourceCache::GetInstance().Get<Moonlight::Texture>( Path( "Assets/VS.png" ) );
+        genIcon = ResourceCache::GetInstance().Get<Moonlight::Texture>( Path( "Assets/GEN.png" ) );
 
         ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
 
@@ -193,7 +195,16 @@ void MitchHub::Draw()
                     {
                         ProjectEntry p;
                         p.ProjectPath = path;
-                        p.Name = path.GetLocalPath().data();
+                        Path projectConfig = Path( path.FullPath + "/Project/Game.meproj" );
+                        //if( projectConfig.Exists )
+                        //{
+                        //    Config cfg = Config( projectConfig );
+                        //    p.Name = cfg.GetJsonObject( "ProjectName" );
+                        //}
+                        //else
+                        //{
+                        //    p.Name = path.LocalPath;
+                        //}
 
                         p.TitleImage = ResourceCache::GetInstance().Get<Moonlight::Texture>( Path( path.FullPath + "/Project/Title.png" ) );
                         p.BackgroundImage = ResourceCache::GetInstance().Get<Moonlight::Texture>( Path( path.FullPath + "/Project/Background.png" ) );
@@ -280,12 +291,21 @@ void MitchHub::Draw()
                 ImGui::PushStyleColor( ImGuiCol_Button, { 104.f / 255.f, 33.f / 255.f, 122.f / 255.f, 1.f } );
                 ImGui::PushStyleVar( ImGuiStyleVar_FramePadding, { 8.f, 8.f } );
                 ImGui::PushStyleVar( ImGuiStyleVar_FrameRounding, 4.f );
+                {
+                    ImGui::PushID( 1 );
+                    ImGui::SetCursorPos( { ImGui::GetWindowWidth() - 275.f, ImGui::GetWindowHeight() - 75.f } );
+                    if( ImGui::ImageButton( vsIcon->TexHandle, { 211.f, 36.f } ) )
+                    {
 
-                ImGui::SetCursorPos( { ImGui::GetWindowWidth() - 300.f, ImGui::GetWindowHeight() - 75.f } );
-                ImGui::ImageButton( vsIcon->TexHandle, { 211.f, 36.f } );
-
-                ImGui::SetCursorPos( { ImGui::GetWindowWidth() - 615.f, ImGui::GetWindowHeight() - 75.f } );
-                if ( ImGui::ImageButton( vsIcon->TexHandle, { 211.f, 36.f } ) )
+                        PlatformUtils::OpenFile( Path( Cache.Projects[SelectedProjectIndex].ProjectPath.FullPath + std::string( "/" + Cache.Projects[SelectedProjectIndex].ProjectConfig.Name + ".sln" ) ) );
+                    }
+                    ImGui::PopID();
+                }
+                ImGui::PopStyleColor( 1 );
+                // 55AAFF 81 170 255
+                ImGui::PushStyleColor( ImGuiCol_Button, { 81.f / 255.f, 170.f / 255.f, 255.f / 255.f, 1.f } );
+                ImGui::SetCursorPos( { ImGui::GetWindowWidth() - 475.f, ImGui::GetWindowHeight() - 75.f } );
+                if ( ImGui::ImageButton( genIcon->TexHandle, { 168.f, 36.f } ) )
                 {
 
                     PlatformUtils::SystemCall( Path( Cache.Projects[SelectedProjectIndex].ProjectPath.FullPath + std::string( "/Project/GenerateSolution.bat" ) ) );

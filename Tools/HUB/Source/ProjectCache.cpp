@@ -2,6 +2,7 @@
 #include <JSON.h>
 #include <File.h>
 #include "Resource\ResourceCache.h"
+#include "ProjectFileConfig.h"
 
 void ProjectCache::Load()
 {
@@ -19,6 +20,7 @@ void ProjectCache::Load()
 				{
 					ProjectEntry e;
 					e.ProjectPath = Path(i["Location"]);
+					e.ProjectConfig = ProjectFileConfig(Path(std::string (e.ProjectPath.FullPath + "/Project/Game.meproj")));
 					Projects.push_back(e);
 				}
 			}

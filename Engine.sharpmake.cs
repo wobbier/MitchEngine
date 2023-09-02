@@ -381,6 +381,13 @@ public class BaseGameSolution : Solution
             conf.AddProject<UserGameScript>(target);
             conf.AddProject<ScriptCore>(target);
         }
+
+        // #TODO (mitch): Make this actual C# JSON shit, and make it not stop current configs.
+        //if (!File.Exists(Globals.RootDir + "Project/Game.meproj"))
+        {
+            // #TODO (mitch): wtf how TF do you write JSON inline with quotes?? perhaps have a C# serializable class?
+            File.WriteAllText(Globals.RootDir + "Project/Game.meproj", "{\"ProjectName\":\"" + Name + "\"}");
+        }
     }
 }
 

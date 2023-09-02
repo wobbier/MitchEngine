@@ -4,13 +4,16 @@
 #include <Pointers.h>
 #include <vector>
 #include "Graphics\Texture.h"
+#include "ProjectFileConfig.h"
 
 namespace Moonlight { class Texture; }
 
 struct ProjectEntry
 {
+	ProjectEntry() = default;
 	std::string Name;
 	Path ProjectPath;
+	ProjectFileConfig ProjectConfig;
 
 	SharedPtr<Moonlight::Texture> TitleImage;
 	SharedPtr<Moonlight::Texture> BackgroundImage;

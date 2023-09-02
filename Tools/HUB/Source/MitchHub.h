@@ -25,7 +25,8 @@ private:
 	SharedPtr<Moonlight::Texture> logo;
 	SharedPtr<Moonlight::Texture> closeIcon;
 	SharedPtr<Moonlight::Texture> minimizeIcon;
-	SharedPtr<Moonlight::Texture> vsIcon;
+    SharedPtr<Moonlight::Texture> vsIcon;
+    SharedPtr<Moonlight::Texture> genIcon;
 	
 	std::size_t SelectedProjectIndex = 0;
 	ProjectCache Cache;
