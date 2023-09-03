@@ -1,6 +1,7 @@
 #pragma once
 #include <JSON.h>
 #include "File.h"
+#include "Core\Assert.h"
 
 class ProjectFileConfig 
 {
@@ -11,6 +12,13 @@ public:
         : ConfigFile( inPath )
     {
         File j( inPath );
+        ME_ASSERT_MSG( inPath.Exists, "Failed to load project config.");
+        if( !inPath.Exists )
+        {
+            YIKES("Project file doesn't exist");
+            return;
+        }
+
         OnLoad( json::parse( j.Read() ) );
     }
 
