@@ -21,6 +21,7 @@
 #include <Debug/DebugDrawer.h>
 #include <stack>
 #include <Mathf.h>
+#include "Core/Assert.h"
 
 #if BX_PLATFORM_LINUX
 #define GLFW_EXPOSE_NATIVE_X11
@@ -167,6 +168,7 @@ void BGFXRenderer::Create(const RendererCreationSettings& settings)
 		m_dynamicSky->m_sun.Update(0);
 		m_defaultOpacityTexture = ResourceCache::GetInstance().Get<Moonlight::Texture>(Path("Assets/Textures/DefaultAlpha.png"));
 	}
+	TransparentIndicies.reserve( kMeshTransparencyTempSize );
 
 #if USING( ME_IMGUI )
 	ImGuiRender = new ImGuiRenderer();
@@ -467,9 +469,9 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 	if (EnableDebugDraw)
 	{
 		m_debugDraw->Begin(id, true);
-	}
+    }
 
-	std::stack<size_t> TransparentIndicies;
+    TransparentIndicies.clear();
 	for (size_t i = 0; i < m_meshCache.Commands.size(); ++i)
 	{
 		OPTICK_CATEGORY("Mesh", Optick::Category::GPU_Scene)
@@ -481,7 +483,7 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 
 		if (mesh.MeshMaterial->IsTransparent())
 		{
-			TransparentIndicies.push(i);
+			TransparentIndicies.push_back(i);
 			continue;
 		}
 
@@ -489,22 +491,35 @@ void BGFXRenderer::RenderCameraView(Moonlight::CameraData& camera, bgfx::ViewId 
 		//m_debugDraw->Draw(&mesh.Transform[0][0]);
 		//m_debugDraw->Pop();
 		RenderSingleMesh(id, mesh, state);
-	}
+    }
 
-	uint64_t transparentState = 0
-		| BGFX_STATE_WRITE_RGB
-		| BGFX_STATE_WRITE_Z
-		| BGFX_STATE_DEPTH_TEST_LESS
-		| BGFX_STATE_CULL_CCW
-		| BGFX_STATE_MSAA
-		| BGFX_STATE_BLEND_ALPHA
-		| s_ptState[m_pt]
-		;
-	while (!TransparentIndicies.empty())
+    {
+        OPTICK_CATEGORY( "Transparent Sorting", Optick::Category::Camera );
+        ME_ASSERT_MSG( TransparentIndicies.size() < kMeshTransparencyTempSize, "Transparent Indicies vector was resized, consider upping the cached size." );
+
+        std::sort( TransparentIndicies.begin(), TransparentIndicies.end(), [this, &camera]( auto object1, auto object2 ) {
+            glm::vec3 pos = m_meshCache.Commands[object1].Transform[3];
+            glm::vec3 pos2 = m_meshCache.Commands[object2].Transform[3];
+
+            float distancesq1 = ( pos.x - camera.Position.x ) * ( pos.x - camera.Position.x ) + ( pos.y - camera.Position.y ) * ( pos.y - camera.Position.y ) + ( pos.z - camera.Position.z ) * ( pos.z - camera.Position.z );
+            float distancesq2 = ( pos2.x - camera.Position.x ) * ( pos2.x - camera.Position.x ) + ( pos2.y - camera.Position.y ) * ( pos2.y - camera.Position.y ) + ( pos2.z - camera.Position.z ) * ( pos2.z - camera.Position.z );
+
+            return distancesq1 > distancesq2;
+            } );
+    }
+
+    uint64_t transparentState = 0
+        | BGFX_STATE_WRITE_RGB
+        //| BGFX_STATE_WRITE_Z
+        | BGFX_STATE_DEPTH_TEST_LESS
+        | BGFX_STATE_CULL_CCW
+        | BGFX_STATE_MSAA
+        | BGFX_STATE_BLEND_ALPHA
+        | s_ptState[m_pt]
+        ;
+
+	for( auto index : TransparentIndicies )
 	{
-		size_t index = TransparentIndicies.top();
-		TransparentIndicies.pop();
-
 		//m_debugDraw->Push();
 		//m_debugDraw->Draw(&m_meshCache.Commands[index].Transform[0][0]);
 		//m_debugDraw->Pop();

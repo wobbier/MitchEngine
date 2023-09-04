@@ -35,6 +35,7 @@ enum class ViewportMode : uint8_t
 class BGFXRenderer
 {
 	static constexpr bgfx::ViewId kClearView = 0;
+	static constexpr std::size_t kMeshTransparencyTempSize = 50;
 public:
 	BGFXRenderer() = default;
 
@@ -89,7 +90,8 @@ private:
 
 	CommandCache<Moonlight::CameraData> m_cameraCache;
 	CommandCache<Moonlight::MeshCommand> m_meshCache;
-	CommandCache<Moonlight::DebugColliderCommand> m_debugDrawCache;
+    CommandCache<Moonlight::DebugColliderCommand> m_debugDrawCache;
+    std::vector<size_t> TransparentIndicies;
 
 	Moonlight::FrameBuffer* EditorCameraBuffer = nullptr;
 	std::function<void(DebugDrawer*)> m_guizmoCallback;
