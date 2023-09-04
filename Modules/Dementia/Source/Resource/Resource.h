@@ -8,32 +8,32 @@ struct MetaBase;
 
 class Resource
 {
-	friend class ResourceCache;
+    friend class ResourceCache;
 public:
-	Resource() = delete;
+    Resource() = delete;
 
-	bool IsCached() const;
+    bool IsCached() const;
 
-	ResourceCache* GetResourceCache();
-	const ResourceCache* GetResourceCache() const;
+    ResourceCache* GetResourceCache();
+    const ResourceCache* GetResourceCache() const;
 
-	const Path& GetPath() const;
-	const std::size_t GetResourceType() const;
+    const Path& GetPath() const;
+    const std::size_t GetResourceType() const;
 
-	SharedPtr<MetaBase> GetMetadata();
+    SharedPtr<MetaBase> GetMetadata();
 
-	virtual void Load();
-	virtual void Reload();
+    virtual bool Load();
+    virtual void Reload();
 
 protected:
-	Resource(const Path& path);
-	virtual ~Resource();
-	Path FilePath;
-	SharedPtr<MetaBase> Metadata = nullptr;
+    Resource( const Path& path );
+    virtual ~Resource();
+    Path FilePath;
+    SharedPtr<MetaBase> Metadata = nullptr;
 
 private:
-	void SetMetadata(SharedPtr<MetaBase> metadata);
+    void SetMetadata( SharedPtr<MetaBase> metadata );
 
-	ResourceCache* Resources = nullptr;
-	std::size_t ResourceType;
+    ResourceCache* Resources = nullptr;
+    std::size_t ResourceType;
 };
