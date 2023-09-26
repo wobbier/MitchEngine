@@ -12,10 +12,18 @@ log file name and priority levels to control what info gets saved and where.
 
 /// Looks like things fucked up
 #define YIKES(name) CLog::Log(CLog::LogType::Error, name)
-
+#define YIKES_FMT( name, ... ) CLog::LogFmt( CLog::LogType::Error, \
+                                             std::string(name) + "\n\t" + __FILE__ + \
+                                             ":" + std::to_string(__LINE__) + \
+                                             "]\n\t[" + __FUNCTION__ + "]\n\t", \
+                                             __VA_ARGS__ )
 /// A Warning
 #define BRUH(name) CLog::Log(CLog::LogType::Warning, name)
-#define BRUH_FMT( name, ... ) CLog::Log2( CLog::LogType::Warning, name, __VA_ARGS__ )
+#define BRUH_FMT( name, ... ) CLog::LogFmt( CLog::LogType::Warning, \
+                                             std::string(name) + "\n\t" + __FILE__ + \
+                                             ":" + std::to_string(__LINE__) + \
+                                             "]\n\t[" + __FUNCTION__ + "]\n\t", \
+                                             __VA_ARGS__ )
 
 class CLog
 {
@@ -49,7 +57,7 @@ public:
     static bool Log( CLog::LogType priority, const std::string& message );
 
     template<typename... Args>
-    static bool Log2( CLog::LogType priority, const std::string& message, Args&&... args );
+    static bool LogFmt( CLog::LogType priority, const std::string& message, Args&&... args );
     struct LogEntry
     {
         LogType Type = LogType::None;
@@ -70,10 +78,13 @@ private:
 };
 
 template<typename... Args>
-bool CLog::Log2( LogType priority, const std::string& message, Args&&... args )
+bool CLog::LogFmt( LogType priority, const std::string& message, Args&&... args )
 {
-    //std::format( message, std::forward<Args>( args )... );
-    std::printf( message.c_str(), std::forward<Args>( args )... );
-    std::cout << std::endl;
-    return true;
+    size_t bufSize = std::snprintf( nullptr, 0, message.c_str(), std::forward<Args>( args )... ) + 1;
+
+    std::vector<char> buf( bufSize );
+    std::snprintf( buf.data(), bufSize, message.c_str(), std::forward<Args>( args )... );
+
+    std::string formattedString = std::string( buf.data() );
+    return CLog::GetInstance().LogMessage( priority, formattedString );
 }

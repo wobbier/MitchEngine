@@ -138,7 +138,7 @@ std::string Path::GetDirectoryString() const
 
 std::string_view Path::GetLocalPath() const
 {
-    return std::string_view( FullPath.c_str() + LocalPos, FullPath.size() );
+    return std::string_view( FullPath.c_str() + LocalPos );
 }
 
 std::string Path::GetLocalPathString() const

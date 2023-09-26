@@ -426,7 +426,8 @@ public:
 	Vector2 GetRelativeMousePosition() const;
 	void SetMousePosition(const Vector2& InPosition);
 	Vector2 GetMouseOffset();
-	Vector2 GetMouseScrollOffset();
+    Vector2 GetMouseScrollOffset();
+    Vector2 GetMouseScrollDelta();
 
 	void SetMouseCapture(bool Capture);
 	void SetMouseOffset(const Vector2& InOffset);
@@ -449,7 +450,8 @@ private:
 	bool WantsToCaptureMouse = false;
 	bool CaptureInput = true;
 
-	Vector2 MouseScroll;
+    Vector2 MouseScroll;
+    Vector2 PreviousMouseScroll;
 
 	const uint8_t* KeyboardState = nullptr;
 	uint32_t MouseState = 0;

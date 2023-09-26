@@ -35,6 +35,7 @@ bool Input::OnEvent(const BaseEvent& evt)
 		if (evt.GetEventId() == MouseScrollEvent::GetEventId())
 		{
 			const MouseScrollEvent& event = static_cast<const MouseScrollEvent&>(evt);
+			PreviousMouseScroll = MouseScroll;
 			MouseScroll = MouseScroll + event.Scroll;
 		}
 	}
@@ -86,6 +87,7 @@ void Input::PostUpdate()
 		PreviousKeyboardState = static_cast<const uint8_t*>(memset((void*)PreviousKeyboardState, 0, sizeof(uint8_t) * SDL_NUM_SCANCODES));
 	}
 	PreviousMouseState = MouseState;
+	PreviousMouseScroll = MouseScroll;
 }
 
 #pragma endregion
@@ -155,6 +157,11 @@ Vector2 Input::GetMouseOffset()
 Vector2 Input::GetMouseScrollOffset()
 {
 	return MouseScroll;
+}
+
+Vector2 Input::GetMouseScrollDelta()
+{
+	return MouseScroll - PreviousMouseScroll;
 }
 
 void Input::SetMouseCapture(bool Capture)

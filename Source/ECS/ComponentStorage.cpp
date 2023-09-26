@@ -2,6 +2,7 @@
 #include "ComponentStorage.h"
 #include "ComponentTypeArray.h"
 #include <iostream>
+#include "Core\Assert.h"
 
 ComponentStorage::ComponentStorage(std::size_t InEntityAmount) :
 	ComponentEntries(InEntityAmount)
@@ -38,6 +39,8 @@ void ComponentStorage::RemoveComponent(const Entity& InEntity, TypeId InTypeId)
 {
 	auto Index = InEntity.GetId().Index;
 	auto& ComponentData = ComponentEntries[Index];
+
+	ME_ASSERT( ComponentData.Components.size() < InTypeId );
 
 	ComponentData.Components[InTypeId].reset();
 	ComponentData.ComponentTypeList[InTypeId] = false;

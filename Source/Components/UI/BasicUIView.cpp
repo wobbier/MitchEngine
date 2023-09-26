@@ -62,7 +62,14 @@ void BasicUIView::OnUILoad(ultralight::JSObject& GlobalWindow, ultralight::View*
 
 void BasicUIView::ExecuteScript(const std::string& Script)
 {
-	ViewRef->EvaluateScript(Script.c_str());
+	ultralight::String excpt;
+	ViewRef->EvaluateScript(Script.c_str(), &excpt );
+	if ( !excpt.empty() )
+    {
+        std::string exceptionString( excpt.utf8().data() );
+
+		YIKES_FMT( "[UI] [%s]: %s", FilePath.GetLocalPathString().c_str(), exceptionString.c_str());
+	}
 }
 
 void BasicUIView::PlaySound(const ultralight::JSObject& thisObject, const ultralight::JSArgs& args)

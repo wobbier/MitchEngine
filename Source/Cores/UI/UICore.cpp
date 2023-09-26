@@ -97,19 +97,26 @@ void UICore::OnStop()
 void UICore::Update( const UpdateContext& inUpdateContext )
 {
     auto& entities = GetEntities();
-    for ( auto& InEntity : entities )
+    for( auto& InEntity : entities )
     {
+        if( !InEntity.HasComponent<BasicUIView>() )
+        {
+            BRUH( "Updating an entity that doesn't have a UI View." );
+            continue;
+        }
+
         BasicUIView& view = InEntity.GetComponent<BasicUIView>();
-        if ( !view.IsInitialized )
+        if( !view.IsInitialized )
         {
             InitUIView( view );
         }
     }
 
     ultralight::MouseEvent mouseEvent;
+    ultralight::ScrollEvent mouseScrollEvent;
     mouseEvent.type = ultralight::MouseEvent::kType_MouseMoved;
-
     Vector2 mousePosition = GetEngine().GetInput().GetMousePosition();
+    mouseScrollEvent.delta_y = GetEngine().GetInput().GetMouseScrollDelta().y * 100;
 
 #if USING( ME_EDITOR )
     //if ( !static_cast<EditorApp*>( GetEngine().GetGame() )->IsGameRunning() )
@@ -158,6 +165,7 @@ void UICore::Update( const UpdateContext& inUpdateContext )
         for ( auto& view : m_overlays )
         {
             view->view()->FireMouseEvent( mouseEvent );
+            view->view()->FireScrollEvent( mouseScrollEvent );
         }
     }
 
@@ -194,6 +202,13 @@ void UICore::Render()
 
     for ( auto ent : GetEntities() )
     {
+
+        if( !ent.HasComponent<BasicUIView>() )
+        {
+            BRUH( "Rendering an entity that doesn't have a UI View." );
+            continue;
+        }
+
         ultralight::BitmapSurface* surface = (ultralight::BitmapSurface*)( ent.GetComponent<BasicUIView>().ViewRef->surface() );
 
         if ( !surface->dirty_bounds().IsEmpty() )
