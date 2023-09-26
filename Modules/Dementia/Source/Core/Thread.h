@@ -5,17 +5,17 @@
 class Thread
 {
 public:
-	Thread();
+    Thread();
 
-	void Create(std::function<void()> InFunc, const std::string& InName = "");
-	void Join();
+    void Create( std::function<void()> InFunc, const std::string& InName = "" );
+    void Join();
 
-	bool IsAlive() const;
+    bool IsAlive() const;
 
 protected:
-	std::string ThreadName;
+    std::string ThreadName;
 
 private:
-	std::thread ThreadFunc;
-	bool Kill = false;
+    std::thread ThreadFunc;
+    bool Kill = false;
 };

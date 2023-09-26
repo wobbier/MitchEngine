@@ -9,28 +9,28 @@ struct MetaBase;
 
 class AssetMetaCache
 {
-	static constexpr char* kCachePath = ".tmp/MetadataCache.json";
+    static constexpr char* kCachePath = ".tmp/MetadataCache.json";
 public:
-	AssetMetaCache();
+    AssetMetaCache();
 
-	void Init();
+    void Init();
 
-	bool WasModified(const Path& filePath, SharedPtr<MetaBase> metaFile);
-	void Update(const Path& filePath, SharedPtr<MetaBase> metaFile);
+    bool WasModified( const Path& filePath, SharedPtr<MetaBase> metaFile );
+    void Update( const Path& filePath, SharedPtr<MetaBase> metaFile );
 
-	void Load();
-	void Save();
+    void Load();
+    void Save();
 
 private:
-	bool IsLoaded = false;
+    bool IsLoaded = false;
 
-	struct CachedAssetInfo
-	{
-		long LastModified = 0;
-	};
+    struct CachedAssetInfo
+    {
+        long LastModified = 0;
+    };
 
-	std::map<std::string, CachedAssetInfo> m_cachedAssets;
+    std::map<std::string, CachedAssetInfo> m_cachedAssets;
 
-	json Cache;
-	ME_SINGLETON_DEFINITION(AssetMetaCache)
+    json Cache;
+    ME_SINGLETON_DEFINITION( AssetMetaCache )
 };

@@ -41,7 +41,7 @@ void PlatformUtils::SystemCall( const Path& inFilePath, const std::string& inArg
 #if USING( ME_PLATFORM_WIN64 )
     auto p = std::filesystem::current_path();
     std::string ProgramPath( std::string( p.generic_string() ) );
-    if ( inFilePath.IsFile && inRunFromDirectory )
+    if( inFilePath.IsFile && inRunFromDirectory )
     {
         SetCurrentDirectory( StringUtils::ToWString( inFilePath.GetDirectory() ).c_str() );
     }
@@ -52,7 +52,7 @@ void PlatformUtils::SystemCall( const Path& inFilePath, const std::string& inArg
     si.cb = sizeof( si );
     ZeroMemory( &pi, sizeof( pi ) );
 
-    if ( !CreateProcessW( StringUtils::ToWString( inFilePath.FullPath ).c_str(), &StringUtils::ToWString( inArgs )[0], NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi ) )
+    if( !CreateProcessW( StringUtils::ToWString( inFilePath.FullPath ).c_str(), &StringUtils::ToWString( inArgs )[0], NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi ) )
     {
         printf( "CreateProcess failed (%d).\n", GetLastError() );
         throw std::exception( "Could not create child process" );
@@ -101,7 +101,7 @@ Buffer PlatformUtils::ReadBytes( const Path& inFilePath )
     const std::string& p = path.Read();
     std::ifstream stream( inFilePath.FullPath, std::ios::binary | std::ios::ate );
 
-    if ( !stream )
+    if( !stream )
     {
         // Failed to open the file
         return {};
@@ -111,7 +111,7 @@ Buffer PlatformUtils::ReadBytes( const Path& inFilePath )
     stream.seekg( 0, std::ios::beg );
     uint32_t size = end - stream.tellg();
 
-    if ( size == 0 )
+    if( size == 0 )
     {
         // File is empty
         return {};

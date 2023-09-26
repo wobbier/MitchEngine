@@ -27,8 +27,8 @@ void CLog::SetLogVerbosity( CLog::LogType priority )
 
 bool CLog::LogMessage( CLog::LogType priority, std::string message )
 {
-    if ( mPriority == LogType::None ) return false;
-    if ( priority < mPriority )
+    if( mPriority == LogType::None ) return false;
+    if( priority < mPriority )
         return false;
 
 
@@ -37,7 +37,7 @@ bool CLog::LogMessage( CLog::LogType priority, std::string message )
 
     int color = 15;
     std::string type;
-    switch ( priority )
+    switch( priority )
     {
     case LogType::Info:
         type = "[Info]: ";
@@ -86,7 +86,7 @@ bool CLog::Log( LogType priority, const std::string& message )
 
 std::string CLog::TypeToName( LogType type )
 {
-    switch ( type )
+    switch( type )
     {
     case LogType::None: return "None";
     case LogType::Info: return "Info";

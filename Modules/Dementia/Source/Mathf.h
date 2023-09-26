@@ -7,11 +7,11 @@ namespace Mathf
 {
     inline float Clamp( float Min, float Max, float Val )
     {
-        if ( Val < Min )
+        if( Val < Min )
         {
             return Min;
         }
-        if ( Val > Max )
+        if( Val > Max )
         {
             return Max;
         }
@@ -20,7 +20,7 @@ namespace Mathf
 
     inline float Abs( float input )
     {
-        if ( input < 0.f )
+        if( input < 0.f )
         {
             input *= -1.f;
         }
@@ -55,8 +55,8 @@ namespace Mathf
     template<class T>
     inline auto Sign( T inSign )
     {
-        if ( inSign > 0 ) return 1;
-        if ( inSign < 0 ) return -1;
+        if( inSign > 0 ) return 1;
+        if( inSign < 0 ) return -1;
         return 0;
     }
 

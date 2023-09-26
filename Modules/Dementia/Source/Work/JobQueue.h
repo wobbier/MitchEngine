@@ -7,18 +7,18 @@ class Job;
 class JobQueue
 {
 public:
-	JobQueue(std::size_t InMaxJobs);
+    JobQueue( std::size_t InMaxJobs );
 
-	bool Push(Job* InJob);
+    bool Push( Job* InJob );
 
-	Job* Pop();
-	Job* Steal();
-	std::size_t Size() const;
-	bool Empty() const;
-	void Clear();
+    Job* Pop();
+    Job* Steal();
+    std::size_t Size() const;
+    bool Empty() const;
+    void Clear();
 
 private:
-	std::vector<Job*> Jobs;
-	std::atomic_size_t Top;
-	std::atomic_size_t Bottom;
+    std::vector<Job*> Jobs;
+    std::atomic_size_t Top;
+    std::atomic_size_t Bottom;
 };

@@ -4,7 +4,7 @@ Config::Config( const Path& ConfigPath )
     : ConfigFile( ConfigPath )
 {
     const std::string& configData = ConfigFile.Read();
-    if ( configData.empty() )
+    if( configData.empty() )
     {
         YIKES( "[Config] Empty File: " + ConfigFile.FilePath.GetLocalPathString() );
         return;
@@ -12,7 +12,7 @@ Config::Config( const Path& ConfigPath )
 
     Root = json::parse( configData );
     OnLoad( Root );
-    if ( Root.is_null() )
+    if( Root.is_null() )
     {
         YIKES( "Failed to parse config: " + ConfigFile.FilePath.GetLocalPathString() );
         return;
@@ -26,7 +26,7 @@ Config::~Config()
 
 std::string Config::GetValue( const std::string& value )
 {
-    if ( Root.contains( value ) )
+    if( Root.contains( value ) )
     {
         return Root[value];
     }
@@ -35,7 +35,7 @@ std::string Config::GetValue( const std::string& value )
 
 const json& Config::GetJsonObject( const std::string& value )
 {
-    if ( Root.contains( value ) )
+    if( Root.contains( value ) )
     {
         return Root[value];
     }

@@ -14,25 +14,25 @@ JobQueueOld::~JobQueueOld()
 
 bool JobQueueOld::HasWork() const
 {
-	return !Jobs.empty();
+    return !Jobs.empty();
 }
 
-void JobQueueOld::Push(std::function<void()> InJob)
+void JobQueueOld::Push( std::function<void()> InJob )
 {
-	std::scoped_lock<std::mutex> lock(Mutex);
-	Jobs.push_back(InJob);
+    std::scoped_lock<std::mutex> lock( Mutex );
+    Jobs.push_back( InJob );
 }
 
 std::function<void()> JobQueueOld::GetNextJob()
 {
-	std::scoped_lock<std::mutex> lock(Mutex);
+    std::scoped_lock<std::mutex> lock( Mutex );
 
-	if (!Jobs.empty())
-	{
-		auto job = *Jobs.rbegin();
-		Jobs.pop_back();
-		return job;
-	}
-	return nullptr;
+    if( !Jobs.empty() )
+    {
+        auto job = *Jobs.rbegin();
+        Jobs.pop_back();
+        return job;
+    }
+    return nullptr;
 }
 

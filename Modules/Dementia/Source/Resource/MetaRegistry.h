@@ -9,58 +9,58 @@
 #include "MetaFile.h"
 #include "Pointers.h"
 
-typedef SharedPtr<MetaBase>(*CreateMetadataFunc)(const Path& filePath);
+typedef SharedPtr<MetaBase>( *CreateMetadataFunc )( const Path& filePath );
 typedef std::map<std::string, CreateMetadataFunc> MetaRegistry;
 
 class MetaDatabase
 {
 public:
 
-	MetaDatabase()
-	{
+    MetaDatabase()
+    {
 
-	}
+    }
 
-	MetaRegistry reg;
+    MetaRegistry reg;
 };
 
 inline MetaDatabase& GetMetadatabase()
 {
-	static MetaDatabase reg;
-	return reg;
+    static MetaDatabase reg;
+    return reg;
 }
 
 template<class T>
-SharedPtr<MetaBase> CreateMetadata(const Path& filePath) {
-	return MakeShared<T>(filePath);
+SharedPtr<MetaBase> CreateMetadata( const Path& filePath ) {
+    return MakeShared<T>( filePath );
 }
 
 template<class T>
 struct MetaRegistryEntry
 {
 public:
-	static MetaRegistryEntry<T>& Instance(const std::string& ext, const std::string& name)
-	{
-		static MetaRegistryEntry<T> inst(ext, name);
-		return inst;
-	}
+    static MetaRegistryEntry<T>& Instance( const std::string& ext, const std::string& name )
+    {
+        static MetaRegistryEntry<T> inst( ext, name );
+        return inst;
+    }
 
 private:
-	MetaRegistryEntry(const std::string& ext, const std::string& name)
-	{
-		MetaRegistry& reg = GetMetadatabase().reg;
-		CreateMetadataFunc func = CreateMetadata<T>;
+    MetaRegistryEntry( const std::string& ext, const std::string& name )
+    {
+        MetaRegistry& reg = GetMetadatabase().reg;
+        CreateMetadataFunc func = CreateMetadata<T>;
 
-		std::pair<MetaRegistry::iterator, bool> ret =
-			reg.insert(MetaRegistry::value_type(ext, func));
+        std::pair<MetaRegistry::iterator, bool> ret =
+            reg.insert( MetaRegistry::value_type( ext, func ) );
 
-		if (ret.second == false) {
-			// Duplicate component register
-		}
-	}
+        if( ret.second == false ) {
+            // Duplicate component register
+        }
+    }
 
-	MetaRegistryEntry(const MetaRegistryEntry<T>&) = delete;
-	MetaRegistryEntry& operator=(const MetaRegistryEntry<T>&) = delete;
+    MetaRegistryEntry( const MetaRegistryEntry<T>& ) = delete;
+    MetaRegistryEntry& operator=( const MetaRegistryEntry<T>& ) = delete;
 };
 
 #define ME_REGISTER_METADATA(EXT, TYPE)                      \

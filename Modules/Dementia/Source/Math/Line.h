@@ -6,76 +6,76 @@
 class Line
 {
 public:
-	Line() = default;
-	Line(const Vector3& InStart, const Vector3& InEnd)
-		: Start(InStart)
-		, End(InEnd)
-	{
-	}
+    Line() = default;
+    Line( const Vector3& InStart, const Vector3& InEnd )
+        : Start( InStart )
+        , End( InEnd )
+    {
+    }
 
-	Vector3 GetDirection() const
-	{
-		return End - Start;
-	}
+    Vector3 GetDirection() const
+    {
+        return End - Start;
+    }
 
-	Vector3 GetNormalizedDirection() const
-	{
-		return GetDirection().Normalized();
-	}
+    Vector3 GetNormalizedDirection() const
+    {
+        return GetDirection().Normalized();
+    }
 
-	float Distance(const Line& Line1, const Line& Line2)
-	{
-		return std::sqrt(DistanceSq(Line1, Line2));
-	}
+    float Distance( const Line& Line1, const Line& Line2 )
+    {
+        return std::sqrt( DistanceSq( Line1, Line2 ) );
+    }
 
-	float DistanceSq(const Line& Line1, const Line& Line2)
-	{
-		Vector3 u = Line1.End - Line1.Start;
-		Vector3 v = Line2.End - Line2.Start;
-		Vector3 w = Line2.Start - Line1.Start;
+    float DistanceSq( const Line& Line1, const Line& Line2 )
+    {
+        Vector3 u = Line1.End - Line1.Start;
+        Vector3 v = Line2.End - Line2.Start;
+        Vector3 w = Line2.Start - Line1.Start;
 
-		float a = u.Dot(u);
-		float b = u.Dot(v);
-		float c = v.Dot(v);
-		float d = u.Dot(w);
+        float a = u.Dot( u );
+        float b = u.Dot( v );
+        float c = v.Dot( v );
+        float d = u.Dot( w );
 
-		float determinent = a * c - b * b;
+        float determinent = a * c - b * b;
 
-		if (determinent != 0.f)
-		{
-			float e = v.Dot(w);
-			Vector3 U = u * (b * e - c * d);
-			Vector3 V = v * (a * e - b * d);
-			return (w + (U - V) / determinent).LengthSquared();
-		}
-		else
-		{
-			return 1.0f;// Vector3::DistanceSq(Line1.Start, Line2.Start + u * (d / b));
-		}
-	}
+        if( determinent != 0.f )
+        {
+            float e = v.Dot( w );
+            Vector3 U = u * ( b * e - c * d );
+            Vector3 V = v * ( a * e - b * d );
+            return ( w + ( U - V ) / determinent ).LengthSquared();
+        }
+        else
+        {
+            return 1.0f;// Vector3::DistanceSq(Line1.Start, Line2.Start + u * (d / b));
+        }
+    }
 
-	Vector3 NearestPointTo(const Vector3& InPosition)
-	{
-		Vector3 u = End - Start;
-		Vector3 v = InPosition - Start;
+    Vector3 NearestPointTo( const Vector3& InPosition )
+    {
+        Vector3 u = End - Start;
+        Vector3 v = InPosition - Start;
 
-		return Start + u * (u.Dot(v) / u.LengthSquared());
-	}
+        return Start + u * ( u.Dot( v ) / u.LengthSquared() );
+    }
 
-	float DistanceToPoint(const Vector3& InPoint)
-	{
-		return std::sqrt(DistanceSqToPoint(InPoint));
-	}
+    float DistanceToPoint( const Vector3& InPoint )
+    {
+        return std::sqrt( DistanceSqToPoint( InPoint ) );
+    }
 
-	float DistanceSqToPoint(const Vector3& InPoint)
-	{
-		Vector3 pa = Start - InPoint;
-		Vector3 n = End - Start;
+    float DistanceSqToPoint( const Vector3& InPoint )
+    {
+        Vector3 pa = Start - InPoint;
+        Vector3 n = End - Start;
 
-		return (pa - n * (pa.Dot(n) / n.LengthSquared())).LengthSquared();
-	}
+        return ( pa - n * ( pa.Dot( n ) / n.LengthSquared() ) ).LengthSquared();
+    }
 
 private:
-	Vector3 Start;
-	Vector3 End;
+    Vector3 Start;
+    Vector3 End;
 };

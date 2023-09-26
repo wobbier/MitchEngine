@@ -50,7 +50,7 @@ Path::Path( const std::string& InFile, bool Raw /*= false*/ )
 #else
     size_t path = LocalPath.find( ':' );
 #endif
-    if ( path != std::string::npos )
+    if( path != std::string::npos )
     {
         FullPath = LocalPath;
     }
@@ -63,18 +63,18 @@ Path::Path( const std::string& InFile, bool Raw /*= false*/ )
     ExtensionPos = (int8_t)( LocalPath.size() - ++ExtensionPos );
 
     path = LocalPath.rfind( "Assets" );
-    if ( path != std::string::npos )
+    if( path != std::string::npos )
     {
         LocalPath = LocalPath.substr( path, LocalPath.size() );
     }
 
 #if USING( ME_EDITOR ) || USING( ME_PLATFORM_MACOS )
-    if ( !std::filesystem::exists( FullPath ) )
+    if( !std::filesystem::exists( FullPath ) )
     {
-        if ( !Raw )
+        if( !Raw )
         {
             std::string tempPath = ProgramPath + assetPrefix + "Engine/" + LocalPath;
-            if ( std::filesystem::exists( tempPath ) )
+            if( std::filesystem::exists( tempPath ) )
             {
                 FullPath = std::move( tempPath );
                 assetPrefix = assetPrefix.append( "Engine/" );
@@ -88,7 +88,7 @@ Path::Path( const std::string& InFile, bool Raw /*= false*/ )
         Exists = true;
     }
 
-    if ( std::filesystem::is_regular_file( FullPath ) )
+    if( std::filesystem::is_regular_file( FullPath ) )
     {
         IsFile = true;
     }

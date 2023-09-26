@@ -42,7 +42,7 @@ void CustomAssertFunction( const char* expression, const char* inMessage, const 
     auto p = std::filesystem::current_path();
     std::string ProgramPath( std::string( p.generic_string() ) );
 
-    std::string fileString(file);
+    std::string fileString( file );
     std::replace( fileString.begin(), fileString.end(), '\\', '/' );
     std::replace( ProgramPath.begin(), ProgramPath.end(), '\\', '/' );
 
@@ -83,7 +83,7 @@ void CustomAssertFunction( const char* expression, const char* inMessage, const 
         {
             std::wstring thing = std::wstring( lineInfo.FileName, lineInfo.FileName + strlen( lineInfo.FileName ) );
             uint32_t slash = thing.find_last_of( '\\' );
-            std::wstring fileName = thing.substr(slash + 1, thing.length());
+            std::wstring fileName = thing.substr( slash + 1, thing.length() );
             ws << frames - i - 1 << ": " << symbol->Name << " in (" << fileName << ":" << lineInfo.LineNumber << ")\n\n";
         }
         else
@@ -105,7 +105,7 @@ void CustomAssertFunction( const char* expression, const char* inMessage, const 
 
     hHook = SetWindowsHookEx( WH_CBT, &CBTProc, 0, GetCurrentThreadId() );
 
-    std::wstring title = inMessage ? ( L"Assertion Failed: " +  StringUtils::ToWString(inMessage) ) : L"Assertion Failed";
+    std::wstring title = inMessage ? ( L"Assertion Failed: " + StringUtils::ToWString( inMessage ) ) : L"Assertion Failed";
 
     int msgboxID = MessageBox(
         NULL,

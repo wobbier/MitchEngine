@@ -4,24 +4,24 @@
 
 class Frustum
 {
-	enum FrustumPlane
-	{
-		Top = 0,
-		Bottom,
-		Left,
-		Right,
-		Near,
-		Far
-	};
+    enum FrustumPlane
+    {
+        Top = 0,
+        Bottom,
+        Left,
+        Right,
+        Near,
+        Far
+    };
 
 public:
-	Frustum();
+    Frustum();
 
-	//void SetCameraInternals(float InAngle, float InRatio, float InNearDistance, float InFarDistance);
+    //void SetCameraInternals(float InAngle, float InRatio, float InNearDistance, float InFarDistance);
 
-	//void SetCameraDef(const Vector3& InPosition, const Vector3& InLook, const Vector3& InUp);
+    //void SetCameraDef(const Vector3& InPosition, const Vector3& InLook, const Vector3& InUp);
 
-	//bool PointInFrustum(const Vector3& InPoint);
+    //bool PointInFrustum(const Vector3& InPoint);
 //
 //	void TransformFrustum(const DirectX::XMFLOAT4X4& proj, const DirectX::XMFLOAT4X4& view);
 //	void Normalize(FrustumPlane plane);

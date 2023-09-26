@@ -5,11 +5,15 @@ class UpdateContext
 {
 public:
     explicit UpdateContext() = default;
-    inline float GetDeltaTime() const { return DeltaTime; };
-    inline uint64_t GetFrameID() const { return FrameID; };
+    inline float GetDeltaTime() const {
+        return DeltaTime;
+    };
+    inline uint64_t GetFrameID() const {
+        return FrameID;
+    };
 
 protected:
-    inline void UpdateDeltaTime(float inDeltaTime)
+    inline void UpdateDeltaTime( float inDeltaTime )
     {
         DeltaTime = inDeltaTime;
         FrameID++;

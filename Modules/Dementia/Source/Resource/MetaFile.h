@@ -13,39 +13,39 @@ using namespace std::chrono_literals;
 
 struct MetaBase
 {
-	MetaBase() = delete;
+    MetaBase() = delete;
 
-	MetaBase(const Path& filePath);
-	virtual ~MetaBase() = default;
+    MetaBase( const Path& filePath );
+    virtual ~MetaBase() = default;
 
-	void Serialize(json& outJson);
-	void Deserialize(const json& inJson);
+    void Serialize( json& outJson );
+    void Deserialize( const json& inJson );
 
-	virtual void Export() {	}
+    virtual void Export() {	}
 
-	virtual std::string GetExtension2() const = 0;
+    virtual std::string GetExtension2() const = 0;
 
-	void Save();
+    void Save();
 
-	virtual void OnSerialize(json& outJson) = 0;
-	virtual void OnDeserialize(const json& inJson) = 0;
+    virtual void OnSerialize( json& outJson ) = 0;
+    virtual void OnDeserialize( const json& inJson ) = 0;
 
 #if USING( ME_EDITOR )
-	virtual void OnEditorInspect() {
-		ImGui::Text("File Type: ");
-		ImGui::SameLine();
-        ImGui::Text("%s", FileType.c_str());
-		ImGui::Text("Last Modified: ");
-		ImGui::SameLine();
-        ImGui::Text("%s", LastModifiedDebug.c_str());
-	}
+    virtual void OnEditorInspect() {
+        ImGui::Text( "File Type: " );
+        ImGui::SameLine();
+        ImGui::Text( "%s", FileType.c_str() );
+        ImGui::Text( "Last Modified: " );
+        ImGui::SameLine();
+        ImGui::Text( "%s", LastModifiedDebug.c_str() );
+    }
 #endif
 
-	std::string FileType;
-	std::string LastModifiedDebug;
+    std::string FileType;
+    std::string LastModifiedDebug;
 
 
-	Path FilePath;
-	long LastModified = 0;
-	bool FlaggedForExport = false;
+    Path FilePath;
+    long LastModified = 0;
+    bool FlaggedForExport = false;
 };
