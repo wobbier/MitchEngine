@@ -10,25 +10,25 @@ how much time has time has passed since the last computation.
 class Clock
 {
 public:
-	Clock();
-	~Clock();
+    Clock();
+    ~Clock();
 
-	void Reset();
+    void Reset();
 
-	void Update();
+    void Update();
 
-	// Converts clock ticks into milliseconds and returns it.
-	float GetTimeInMilliseconds();
+    // Converts clock ticks into milliseconds and returns it.
+    float GetTimeInMilliseconds();
 
-	// Converts clock ticks into seconds.
-	float GetTimeInSeconds();
+    // Converts clock ticks into seconds.
+    float GetTimeInSeconds();
 
-	const float GetDeltaMilliseconds();
-	const float GetDeltaSeconds();
+    const float GetDeltaMilliseconds();
+    const float GetDeltaSeconds();
 
-	float GetPreviousTime() const;
+    float GetPreviousTime() const;
 
 private:
-	float CurrentTime = 0;
-	float PreviousTime = 0;
+    float CurrentTime = 0;
+    float PreviousTime = 0;
 };

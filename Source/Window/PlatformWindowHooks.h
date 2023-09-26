@@ -5,5 +5,5 @@ class ImGuiRenderer;
 
 namespace ImGui
 {
-	void InitHooks(SDLWindow* window, ImGuiRenderer* renderer);
+    void InitHooks( SDLWindow* window, ImGuiRenderer* renderer );
 }

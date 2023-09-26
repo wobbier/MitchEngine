@@ -27,7 +27,7 @@ Camera::Camera()
 
 Camera::~Camera()
 {
-    if ( CurrentCamera == this )
+    if( CurrentCamera == this )
     {
         CurrentCamera = nullptr;
     }
@@ -36,7 +36,7 @@ Camera::~Camera()
 
 void Camera::Init()
 {
-    if ( !CurrentCamera )
+    if( !CurrentCamera )
     {
         CurrentCamera = this;
     }
@@ -90,51 +90,51 @@ void Camera::ClearObliqueMatrixData()
 
 void Camera::OnDeserialize( const json& inJson )
 {
-    if ( inJson.contains( "Skybox" ) )
+    if( inJson.contains( "Skybox" ) )
     {
         Skybox = new Moonlight::SkyBox( inJson["Skybox"] );
     }
 
-    if ( inJson.contains( "Zoom" ) )
+    if( inJson.contains( "Zoom" ) )
     {
         Zoom = inJson["Zoom"];
     }
 
-    if ( inJson.contains( "IsCurrent" ) )
+    if( inJson.contains( "IsCurrent" ) )
     {
-        if ( inJson["IsCurrent"] )
+        if( inJson["IsCurrent"] )
         {
             SetCurrent();
         }
     }
 
-    if ( inJson.contains( "Near" ) )
+    if( inJson.contains( "Near" ) )
     {
         Near = inJson["Near"];
     }
 
-    if ( inJson.contains( "Far" ) )
+    if( inJson.contains( "Far" ) )
     {
         Far = inJson["Far"];
     }
 
-    if ( inJson.contains( "ClearType" ) )
+    if( inJson.contains( "ClearType" ) )
     {
-        if ( inJson["ClearType"] == "Color" )
+        if( inJson["ClearType"] == "Color" )
         {
             ClearType = Moonlight::ClearColorType::Color;
         }
-        else if ( inJson["ClearType"] == "Skybox" )
+        else if( inJson["ClearType"] == "Skybox" )
         {
             ClearType = Moonlight::ClearColorType::Skybox;
         }
-        else if ( inJson["ClearType"] == "Procedural" )
+        else if( inJson["ClearType"] == "Procedural" )
         {
             ClearType = Moonlight::ClearColorType::Procedural;
         }
     }
 
-    if ( inJson.contains( "ClearColor" ) )
+    if( inJson.contains( "ClearColor" ) )
     {
         ClearColor = Vector3( (float)inJson["ClearColor"][0], (float)inJson["ClearColor"][1], (float)inJson["ClearColor"][2] );
     }
@@ -146,20 +146,20 @@ void Camera::OnSerialize( json& outJson )
     outJson["IsCurrent"] = IsCurrent();
     outJson["Near"] = Near;
     outJson["Far"] = Far;
-    if ( ClearType == Moonlight::ClearColorType::Color )
+    if( ClearType == Moonlight::ClearColorType::Color )
     {
         outJson["ClearType"] = "Color";
     }
-    else if ( ClearType == Moonlight::ClearColorType::Skybox )
+    else if( ClearType == Moonlight::ClearColorType::Skybox )
     {
         outJson["ClearType"] = "Skybox";
     }
-    else if ( ClearType == Moonlight::ClearColorType::Procedural )
+    else if( ClearType == Moonlight::ClearColorType::Procedural )
     {
         outJson["ClearType"] = "Procedural";
     }
 
-    if ( Skybox && Skybox->SkyMaterial )
+    if( Skybox && Skybox->SkyMaterial )
     {
         outJson["Skybox"] = Skybox->SkyMaterial->GetTexture( Moonlight::TextureType::Diffuse )->GetPath().GetLocalPath();
     }
@@ -171,30 +171,30 @@ void Camera::OnSerialize( json& outJson )
 
 void Camera::OnEditorInspect()
 {
-    if ( ImGui::Button( "Set Current" ) )
+    if( ImGui::Button( "Set Current" ) )
     {
         SetCurrent();
     }
     HavanaUtils::Label( "Projection" );
-    if ( ImGui::BeginCombo( "##Projection", ( Projection == Moonlight::ProjectionType::Perspective ) ? "Perspective" : "Orthographic" ) )
+    if( ImGui::BeginCombo( "##Projection", ( Projection == Moonlight::ProjectionType::Perspective ) ? "Perspective" : "Orthographic" ) )
     {
-        if ( ImGui::Selectable( "Perspective", ( Projection == Moonlight::ProjectionType::Perspective ) ) )
+        if( ImGui::Selectable( "Perspective", ( Projection == Moonlight::ProjectionType::Perspective ) ) )
         {
             Projection = Moonlight::ProjectionType::Perspective;
         }
-        if ( ImGui::Selectable( "Orthographic", ( Projection == Moonlight::ProjectionType::Orthographic ) ) )
+        if( ImGui::Selectable( "Orthographic", ( Projection == Moonlight::ProjectionType::Orthographic ) ) )
         {
             Projection = Moonlight::ProjectionType::Orthographic;
         }
         ImGui::EndCombo();
     }
 
-    if ( Projection == Moonlight::ProjectionType::Perspective )
+    if( Projection == Moonlight::ProjectionType::Perspective )
     {
         HavanaUtils::Label( "Field of View" );
         ImGui::SliderFloat( "##Field of View", &m_FOV, 1.0f, 200.0f );
     }
-    else if ( Projection == Moonlight::ProjectionType::Orthographic )
+    else if( Projection == Moonlight::ProjectionType::Orthographic )
     {
         HavanaUtils::Label( "Size" );
         ImGui::SliderFloat( "##Size", &OrthographicSize, 0.1f, 200.0f );
@@ -207,27 +207,27 @@ void Camera::OnEditorInspect()
 
     HavanaUtils::Label( "Clear Type" );
     // TODO: Display the proper clear type as text
-    if ( ImGui::BeginCombo( "##ClearType", ( ClearType == Moonlight::ClearColorType::Color ) ? "Color" : "Skybox" ) )
+    if( ImGui::BeginCombo( "##ClearType", ( ClearType == Moonlight::ClearColorType::Color ) ? "Color" : "Skybox" ) )
     {
-        if ( ImGui::Selectable( "Color", ( ClearType == Moonlight::ClearColorType::Color ) ) )
+        if( ImGui::Selectable( "Color", ( ClearType == Moonlight::ClearColorType::Color ) ) )
         {
             ClearType = Moonlight::ClearColorType::Color;
         }
-        if ( ImGui::Selectable( "Skybox", ( ClearType == Moonlight::ClearColorType::Skybox ) ) )
+        if( ImGui::Selectable( "Skybox", ( ClearType == Moonlight::ClearColorType::Skybox ) ) )
         {
             ClearType = Moonlight::ClearColorType::Skybox;
         }
-        if ( ImGui::Selectable( "Procedural", ( ClearType == Moonlight::ClearColorType::Procedural ) ) )
+        if( ImGui::Selectable( "Procedural", ( ClearType == Moonlight::ClearColorType::Procedural ) ) )
         {
             ClearType = Moonlight::ClearColorType::Procedural;
         }
         ImGui::EndCombo();
     }
 
-    if ( ClearType == Moonlight::ClearColorType::Skybox )
+    if( ClearType == Moonlight::ClearColorType::Skybox )
     {
         const Moonlight::Texture* skyboxTexture = nullptr;
-        if ( Skybox && Skybox->SkyMaterial )
+        if( Skybox && Skybox->SkyMaterial )
         {
             skyboxTexture = Skybox->SkyMaterial->GetTexture( Moonlight::TextureType::Diffuse );
         }
@@ -273,10 +273,10 @@ void Camera::OnEditorInspect()
         //}
 
         ImVec2 selectorSize( widgetWidth, 0.f );
-        if ( ImGui::Button( ( ( skyboxTexture ) ? skyboxTexture->GetPath().GetLocalPath().data() : "Select Asset" ), selectorSize ) )
+        if( ImGui::Button( ( ( skyboxTexture ) ? skyboxTexture->GetPath().GetLocalPath().data() : "Select Asset" ), selectorSize ) )
         {
             RequestAssetSelectionEvent evt( [this]( Path selectedAsset ) {
-                if ( !Skybox )
+                if( !Skybox )
                 {
                     Skybox = new Moonlight::SkyBox( selectedAsset.FullPath );
                 }
@@ -285,34 +285,34 @@ void Camera::OnEditorInspect()
             evt.Fire();
         }
 
-        if ( ImGui::BeginDragDropTarget() )
+        if( ImGui::BeginDragDropTarget() )
         {
-            if ( const ImGuiPayload* payload = ImGui::AcceptDragDropPayload( AssetDescriptor::kDragAndDropPayload ) )
+            if( const ImGuiPayload* payload = ImGui::AcceptDragDropPayload( AssetDescriptor::kDragAndDropPayload ) )
             {
                 IM_ASSERT( payload->DataSize == sizeof( AssetDescriptor ) );
                 AssetDescriptor& payload_n = *(AssetDescriptor*)payload->Data;
 
-                if ( payload_n.Type == AssetType::Texture )
+                if( payload_n.Type == AssetType::Texture )
                 {
                     Skybox->SkyMaterial->SetTexture( Moonlight::TextureType::Diffuse, ResourceCache::GetInstance().Get<Moonlight::Texture>( payload_n.FullPath ) );
                 }
             }
             ImGui::EndDragDropTarget();
         }
-        if ( skyboxTexture )
+        if( skyboxTexture )
         {
             ImGui::SameLine();
-            if ( ImGui::Button( "X" ) )
+            if( ImGui::Button( "X" ) )
             {
                 Skybox->SkyMaterial->SetTexture( Moonlight::TextureType::Diffuse, nullptr );
             }
         }
     }
-    else if ( ClearType == Moonlight::ClearColorType::Color )
+    else if( ClearType == Moonlight::ClearColorType::Color )
     {
         HavanaUtils::ColorButton( "Clear Color", ClearColor );
     }
-    else if ( ClearType == Moonlight::ClearColorType::Procedural )
+    else if( ClearType == Moonlight::ClearColorType::Procedural )
     {
         GetEngine().GetRenderer().GetSky()->DrawImGui();
     }

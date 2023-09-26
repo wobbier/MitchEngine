@@ -41,21 +41,21 @@
 
 Engine& GetEngine()
 {
-	return Engine::GetInstance();
+    return Engine::GetInstance();
 }
 
 Engine::Engine()
-	: Running( true )
-	, newJobSystem(1, 100000)
+    : Running( true )
+    , newJobSystem( 1, 100000 )
 {
-	std::vector<TypeId> events;
-	events.push_back( LoadSceneEvent::GetEventId() );
-	EventManager::GetInstance().RegisterReceiver( this, events );
+    std::vector<TypeId> events;
+    events.push_back( LoadSceneEvent::GetEventId() );
+    EventManager::GetInstance().RegisterReceiver( this, events );
 }
 
 Engine::~Engine()
 {
-	delete engineConfig;
+    delete engineConfig;
 }
 
 extern bool ImGui_ImplSDL2_InitForD3D( SDL_Window* window );
@@ -63,148 +63,148 @@ extern bool ImGui_ImplSDL2_InitForMetal( SDL_Window* window );
 extern bool ImGui_ImplWin32_Init( void* window );
 void Engine::Init( Game* game )
 {
-	if ( m_isInitialized || !game )
-	{
-		return;
-	}
+    if( m_isInitialized || !game )
+    {
+        return;
+    }
 
-	m_game = game;
+    m_game = game;
 
-	CLog::GetInstance().SetLogFile( "Engine.txt" );
-	CLog::GetInstance().SetLogVerbosity( CLog::LogType::Info );
-	CLog::GetInstance().Log( CLog::LogType::Info, "Starting the MitchEngine." );
-	Path engineCfg( "Assets\\Config\\Engine.cfg" );
+    CLog::GetInstance().SetLogFile( "Engine.txt" );
+    CLog::GetInstance().SetLogVerbosity( CLog::LogType::Info );
+    CLog::GetInstance().Log( CLog::LogType::Info, "Starting the MitchEngine." );
+    Path engineCfg( "Assets\\Config\\Engine.cfg" );
 
 #if USING( ME_EDITOR )
-	if ( engineCfg.FullPath.rfind( "Engine" ) != -1 )
-	{
-		Path gameEngineCfgPath( "Assets\\Config\\Engine.cfg", true );
-		if ( !gameEngineCfgPath.Exists )
-		{
+    if( engineCfg.FullPath.rfind( "Engine" ) != -1 )
+    {
+        Path gameEngineCfgPath( "Assets\\Config\\Engine.cfg", true );
+        if( !gameEngineCfgPath.Exists )
+        {
 #if USING( ME_PLATFORM_WIN64 )
-			CreateDirectory( StringUtils::ToWString( std::string( gameEngineCfgPath.GetDirectory() ) ).c_str(), NULL );
+            CreateDirectory( StringUtils::ToWString( std::string( gameEngineCfgPath.GetDirectory() ) ).c_str(), NULL );
 #endif
-			File gameEngineCfg = File( engineCfg );
-			File newGameConfig( gameEngineCfgPath );
-			newGameConfig.Write( gameEngineCfg.Read() );
-		}
-	}
+            File gameEngineCfg = File( engineCfg );
+            File newGameConfig( gameEngineCfgPath );
+            newGameConfig.Write( gameEngineCfg.Read() );
+        }
+    }
 #endif
 
 
-	std::function<void( const Vector2& )> ResizeFunc = [this] ( const Vector2& NewSize )
-	{
-		if ( NewRenderer )
-		{
-			NewRenderer->WindowResized( NewSize );
-		}
+    std::function<void( const Vector2& )> ResizeFunc = [this]( const Vector2& NewSize )
+    {
+        if( NewRenderer )
+        {
+            NewRenderer->WindowResized( NewSize );
+        }
 
-		if ( UI )
-		{
-			if ( Camera::CurrentCamera )
-			{
-				UI->OnResize( Camera::CurrentCamera->OutputSize );
-			}
-		}
-		WindowResizedEvent evt;
-		evt.NewSize = NewSize;
-		evt.Fire();
-	};
+        if( UI )
+        {
+            if( Camera::CurrentCamera )
+            {
+                UI->OnResize( Camera::CurrentCamera->OutputSize );
+            }
+        }
+        WindowResizedEvent evt;
+        evt.NewSize = NewSize;
+        evt.Fire();
+    };
 
 #if USING( ME_PLATFORM_WIN64 )
-	engineConfig = new EngineConfig( engineCfg );
-	engineConfig->OnLoad( engineConfig->Root );
-	GameWindow = new SDLWindow( engineConfig->GetValue( "Title" ), ResizeFunc, 500, 300, engineConfig->WindowSize );
+    engineConfig = new EngineConfig( engineCfg );
+    engineConfig->OnLoad( engineConfig->Root );
+    GameWindow = new SDLWindow( engineConfig->GetValue( "Title" ), ResizeFunc, 500, 300, engineConfig->WindowSize );
 #endif
 
 #if USING( ME_PLATFORM_MACOS )
-	int WindowWidth = 1280;
-	int WindowHeight = 720;
-	GameWindow = new SDLWindow( "MitchEngine", ResizeFunc, 500, 300, Vector2( WindowWidth, WindowHeight ) );
+    int WindowWidth = 1280;
+    int WindowHeight = 720;
+    GameWindow = new SDLWindow( "MitchEngine", ResizeFunc, 500, 300, Vector2( WindowWidth, WindowHeight ) );
 #endif
 
 #if USING( ME_PLATFORM_UWP )
-	int WindowWidth = 1280;
-	int WindowHeight = 720;
-	GameWindow = new SDLWindow( "MitchEngine", ResizeFunc, 500, 300, Vector2( WindowWidth, WindowHeight ) );
-	//GameWindow = new UWPWindow("MitchEngine", 1920, 1080, ResizeFunc);
+    int WindowWidth = 1280;
+    int WindowHeight = 720;
+    GameWindow = new SDLWindow( "MitchEngine", ResizeFunc, 500, 300, Vector2( WindowWidth, WindowHeight ) );
+    //GameWindow = new UWPWindow("MitchEngine", 1920, 1080, ResizeFunc);
 #endif
 #if USING( ME_EDITOR_WIN64 )
-	GameWindow->SetBorderless( true );
+    GameWindow->SetBorderless( true );
 #endif
 
-	ResizeFunc( Vector2( 1920, 1080 ) );
+    ResizeFunc( Vector2( 1920, 1080 ) );
 
-	NewRenderer = new BGFXRenderer();
-	RendererCreationSettings settings;
-	settings.WindowPtr = GameWindow->GetWindowPtr();
-	settings.InitialSize = Vector2( 1920.f, 1080.f );
-	NewRenderer->Create( settings );
+    NewRenderer = new BGFXRenderer();
+    RendererCreationSettings settings;
+    settings.WindowPtr = GameWindow->GetWindowPtr();
+    settings.InitialSize = Vector2( 1920.f, 1080.f );
+    NewRenderer->Create( settings );
 #if USING( ME_IMGUI )
 #if USING( ME_PLATFORM_WIN64 )
-	ImGui_ImplSDL2_InitForD3D( static_cast<SDLWindow*>( GameWindow )->WindowHandle );
+    ImGui_ImplSDL2_InitForD3D( static_cast<SDLWindow*>( GameWindow )->WindowHandle );
 #endif
 #if USING( ME_PLATFORM_MACOS )
-	ImGui_ImplSDL2_InitForMetal( static_cast<SDLWindow*>( GameWindow )->WindowHandle );
+    ImGui_ImplSDL2_InitForMetal( static_cast<SDLWindow*>( GameWindow )->WindowHandle );
 #endif
 #endif
-	//m_renderer = new Moonlight::Renderer();
-	//m_renderer->WindowResized(GameWindow->GetSize());
+    //m_renderer = new Moonlight::Renderer();
+    //m_renderer->WindowResized(GameWindow->GetSize());
 
-	GameWorld = MakeShared<World>();
+    GameWorld = MakeShared<World>();
 
-	Cameras = new CameraCore();
+    Cameras = new CameraCore();
 
-	SceneNodes = new SceneCore();
+    SceneNodes = new SceneCore();
 
-	ModelRenderer = new RenderCore();
-	AudioThread = new AudioCore();
+    ModelRenderer = new RenderCore();
+    AudioThread = new AudioCore();
 
-	//m_renderer->Init();
+    //m_renderer->Init();
 
-	UI = new UICore( GameWindow, NewRenderer );
+    UI = new UICore( GameWindow, NewRenderer );
 
-	NewRenderer->SetGuizmoDrawCallback( [this] ( DebugDrawer* drawer )
-	{
-		std::vector<BaseCore*> cores = GetWorld().lock()->GetAllCores();
-		for ( BaseCore* core : cores )
-		{
-			core->OnDrawGuizmo( drawer );
-		}
-	} );
+    NewRenderer->SetGuizmoDrawCallback( [this]( DebugDrawer* drawer )
+        {
+            std::vector<BaseCore*> cores = GetWorld().lock()->GetAllCores();
+            for( BaseCore* core : cores )
+            {
+                core->OnDrawGuizmo( drawer );
+            }
+        } );
 
-	InitGame();
+    InitGame();
 
-	m_isInitialized = true;
+    m_isInitialized = true;
 }
 
 void Engine::InitGame()
 {
-	GameWorld->AddCore<CameraCore>( *Cameras );
-	GameWorld->AddCore<SceneCore>( *SceneNodes );
-	GameWorld->AddCore<RenderCore>( *ModelRenderer );
-	GameWorld->AddCore<AudioCore>( *AudioThread );
-	GameWorld->AddCore<UICore>( *UI );
+    GameWorld->AddCore<CameraCore>( *Cameras );
+    GameWorld->AddCore<SceneCore>( *SceneNodes );
+    GameWorld->AddCore<RenderCore>( *ModelRenderer );
+    GameWorld->AddCore<AudioCore>( *AudioThread );
+    GameWorld->AddCore<UICore>( *UI );
 
-	m_game->OnInitialize();
+    m_game->OnInitialize();
 }
 
 void Engine::StopGame()
 {
-	m_game->OnEnd();
+    m_game->OnEnd();
 }
 
 void Engine::Run()
 {
-	m_game->OnStart();
+    m_game->OnStart();
 
-	GameClock.Reset();
+    GameClock.Reset();
 
-	const float FramesPerSec = FPS;
-	const float MaxDeltaTime = ( 1.f / FramesPerSec );
+    const float FramesPerSec = FPS;
+    const float MaxDeltaTime = ( 1.f / FramesPerSec );
 
-	// Game loop
-	forever
+    // Game loop
+    forever
     {
         OPTICK_FRAME( "MainLoop" );
         FrameProfile::GetInstance().Start();
@@ -217,21 +217,21 @@ void Engine::Run()
             break;
         }
 
-		{
-			OPTICK_EVENT( "EventManager", Optick::Category::Cloth );
-			EventManager::GetInstance().FirePendingEvents();
-		}
+        {
+            OPTICK_EVENT( "EventManager", Optick::Category::Cloth );
+            EventManager::GetInstance().FirePendingEvents();
+        }
 
-		{
-			OPTICK_EVENT( "Clock" );
-			GameClock.Update();
+        {
+            OPTICK_EVENT( "Clock" );
+            GameClock.Update();
 
-			AccumulatedTime += GameClock.GetDeltaSeconds();
-		}
+            AccumulatedTime += GameClock.GetDeltaSeconds();
+        }
 
-		//if (AccumulatedTime >= MaxDeltaTime)
-		{
-			float deltaTime = DeltaTime = AccumulatedTime;
+        //if (AccumulatedTime >= MaxDeltaTime)
+        {
+            float deltaTime = DeltaTime = AccumulatedTime;
             updateContext.UpdateDeltaTime( deltaTime );
 
 #if USING( ME_IMGUI )
@@ -251,226 +251,226 @@ void Engine::Run()
                     mousePos = input.GetGlobalMousePosition();
                 }
 
-				NewRenderer->BeginFrame( mousePos, ( input.IsMouseButtonDown( MouseButton::Left ) ? 0x01 : 0 )
-					| ( input.IsMouseButtonDown( MouseButton::Right ) ? 0x02 : 0 )
-					| ( input.IsMouseButtonDown( MouseButton::Middle ) ? 0x04 : 0 )
-					, (int32_t)input.GetMouseScrollOffset().y
-					, GameWindow->GetSize()
-					, -1
-					, 255 );
-			}
+                NewRenderer->BeginFrame( mousePos, ( input.IsMouseButtonDown( MouseButton::Left ) ? 0x01 : 0 )
+                    | ( input.IsMouseButtonDown( MouseButton::Right ) ? 0x02 : 0 )
+                    | ( input.IsMouseButtonDown( MouseButton::Middle ) ? 0x04 : 0 )
+                    , (int32_t)input.GetMouseScrollOffset().y
+                    , GameWindow->GetSize()
+                    , -1
+                    , 255 );
+            }
 #endif
 
-			GameWorld->Simulate();
+            GameWorld->Simulate();
 
             GetInput().Update();
 #if USING( ME_EDITOR )
             GetEditorInput().Update();
 #endif
 
-			// Update Loaded Cores
-			{
-				// TODO: This is wrong?? There's more than just physics in loaded cores...
-				FrameProfile::GetInstance().Set( "Physics", ProfileCategory::Physics );
-				GameWorld->UpdateLoadedCores( updateContext );
-				FrameProfile::GetInstance().Complete( "Physics" );
-			}
+            // Update Loaded Cores
+            {
+                // TODO: This is wrong?? There's more than just physics in loaded cores...
+                FrameProfile::GetInstance().Set( "Physics", ProfileCategory::Physics );
+                GameWorld->UpdateLoadedCores( updateContext );
+                FrameProfile::GetInstance().Complete( "Physics" );
+            }
 
-			// Update Cameras
-			{
+            // Update Cameras
+            {
                 OPTICK_EVENT( "SceneNodes->Update" );
-				FrameProfile::GetInstance().Set( "SceneNodes", ProfileCategory::UI );
-				SceneNodes->Update( updateContext );
-				FrameProfile::GetInstance().Complete( "SceneNodes" );
-			}
+                FrameProfile::GetInstance().Set( "SceneNodes", ProfileCategory::UI );
+                SceneNodes->Update( updateContext );
+                FrameProfile::GetInstance().Complete( "SceneNodes" );
+            }
 
-			// Update Game Application
-			{
-				//FrameProfile::GetInstance().Set( "Game", ProfileCategory::Game );
-				ME_PROFILE("Game", ProfileCategory::Game);
-				OPTICK_CATEGORY( "MainLoop::GameUpdate", Optick::Category::GameLogic );
-				m_game->OnUpdate( updateContext );
-				//FrameProfile::GetInstance().Complete( "Game" );
-			}
+            // Update Game Application
+            {
+                //FrameProfile::GetInstance().Set( "Game", ProfileCategory::Game );
+                ME_PROFILE( "Game", ProfileCategory::Game );
+                OPTICK_CATEGORY( "MainLoop::GameUpdate", Optick::Category::GameLogic );
+                m_game->OnUpdate( updateContext );
+                //FrameProfile::GetInstance().Complete( "Game" );
+            }
 
-			// Update Audio
-			{
+            // Update Audio
+            {
 
-				AudioThread->Update( deltaTime );
-			}
+                AudioThread->Update( deltaTime );
+            }
 
-			// Model Renderer Update
-			{
-				FrameProfile::GetInstance().Set( "ModelRenderer", ProfileCategory::Rendering );
-				ModelRenderer->Update( updateContext );
-				FrameProfile::GetInstance().Complete( "ModelRenderer" );
-			}
+            // Model Renderer Update
+            {
+                FrameProfile::GetInstance().Set( "ModelRenderer", ProfileCategory::Rendering );
+                ModelRenderer->Update( updateContext );
+                FrameProfile::GetInstance().Complete( "ModelRenderer" );
+            }
 
-			// UI Update
-			{
-				OPTICK_CATEGORY( "UICore::Update", Optick::Category::Rendering )
-				FrameProfile::GetInstance().Set( "UI", ProfileCategory::UI );
-				// editor only?
-				if ( UI )
-				{
-					if ( Camera::CurrentCamera )
-					{
-						UI->OnResize( Camera::CurrentCamera->OutputSize );
-					}
-					UI->Update( updateContext );
-				}
-				FrameProfile::GetInstance().Complete( "UI" );
-			}
+            // UI Update
+            {
+                OPTICK_CATEGORY( "UICore::Update", Optick::Category::Rendering )
+                FrameProfile::GetInstance().Set( "UI", ProfileCategory::UI );
+                // editor only?
+                if( UI )
+                {
+                    if( Camera::CurrentCamera )
+                    {
+                        UI->OnResize( Camera::CurrentCamera->OutputSize );
+                    }
+                    UI->Update( updateContext );
+                }
+                FrameProfile::GetInstance().Complete( "UI" );
+            }
 
-			// Late Update	
-			{
-				GameWorld->LateUpdateLoadedCores( updateContext );
-				Cameras->Update( updateContext );
-				SceneNodes->LateUpdate( updateContext );
-				Cameras->LateUpdate( updateContext );
-				AudioThread->LateUpdate( updateContext );
-				ModelRenderer->LateUpdate( updateContext );
-				UI->LateUpdate( updateContext );
-			}
+            // Late Update	
+            {
+                GameWorld->LateUpdateLoadedCores( updateContext );
+                Cameras->Update( updateContext );
+                SceneNodes->LateUpdate( updateContext );
+                Cameras->LateUpdate( updateContext );
+                AudioThread->LateUpdate( updateContext );
+                ModelRenderer->LateUpdate( updateContext );
+                UI->LateUpdate( updateContext );
+            }
 
-			// Render
-			{
-				m_game->PostRender();
+            // Render
+            {
+                m_game->PostRender();
 #if !USING( ME_EDITOR )
-				EditorCamera.OutputSize = GetWindow()->GetSize();
+                EditorCamera.OutputSize = GetWindow()->GetSize();
 #if USING( ME_PROFILING )
-				FrameProfile::GetInstance().Render( { 10.f, (GameWindow->GetSize().y - FrameProfile::kMinProfilerSize) - 10 }, { GameWindow->GetSize().x - 20, (float)FrameProfile::kMinProfilerSize } );
+                FrameProfile::GetInstance().Render( { 10.f, ( GameWindow->GetSize().y - FrameProfile::kMinProfilerSize ) - 10 }, { GameWindow->GetSize().x - 20, (float)FrameProfile::kMinProfilerSize } );
 #endif
 #endif
-				ME_FRAMEPROFILE_START( "UI Render", ProfileCategory::UI );
-				UI->Render();
-				FrameProfile::GetInstance().Complete( "UI Render" );
-				FrameProfile::GetInstance().Set( "Render", ProfileCategory::Rendering );
-				NewRenderer->Render( EditorCamera );
-				FrameProfile::GetInstance().Complete( "Render" );
-			}
+                ME_FRAMEPROFILE_START( "UI Render", ProfileCategory::UI );
+                UI->Render();
+                FrameProfile::GetInstance().Complete( "UI Render" );
+                FrameProfile::GetInstance().Set( "Render", ProfileCategory::Rendering );
+                NewRenderer->Render( EditorCamera );
+                FrameProfile::GetInstance().Complete( "Render" );
+            }
 
-			// This makes the profiler overview data to be delayed for a frame, but takes the renderer into account.
-			{
-				static float fpsTime = 0;
-				fpsTime += AccumulatedTime;
-				if ( fpsTime > 1.f )
-				{
-					FrameProfile::GetInstance().Dump();
-					fpsTime -= 1.f;
-				}
-			}
+            // This makes the profiler overview data to be delayed for a frame, but takes the renderer into account.
+            {
+                static float fpsTime = 0;
+                fpsTime += AccumulatedTime;
+                if( fpsTime > 1.f )
+                {
+                    FrameProfile::GetInstance().Dump();
+                    fpsTime -= 1.f;
+                }
+            }
 
-			AccumulatedTime = std::fmod( AccumulatedTime, MaxDeltaTime );
+            AccumulatedTime = std::fmod( AccumulatedTime, MaxDeltaTime );
 
-			FrameProfile::GetInstance().End( AccumulatedTime );
-			AccumulatedTime = 0;// std::fmod(AccumulatedTime, MaxDeltaTime);
-			GetJobEngine().ClearWorkerPools();
+            FrameProfile::GetInstance().End( AccumulatedTime );
+            AccumulatedTime = 0;// std::fmod(AccumulatedTime, MaxDeltaTime);
+            GetJobEngine().ClearWorkerPools();
             GetInput().PostUpdate();
 #if USING ( ME_EDITOR )
             GetEditorInput().PostUpdate();
 #endif
-		}
-		ResourceCache::GetInstance().Dump();
-		//Sleep(1);
-	}
-	engineConfig->Save();
+        }
+        ResourceCache::GetInstance().Dump();
+        //Sleep(1);
+    }
+    engineConfig->Save();
 }
 
 bool Engine::OnEvent( const BaseEvent& evt )
 {
-	if ( evt.GetEventId() == LoadSceneEvent::GetEventId() )
-	{
-		const LoadSceneEvent& test = static_cast<const LoadSceneEvent&>( evt );
-		//InputEnabled = test.Enabled;
-		LoadScene( test.Level );
-	}
+    if( evt.GetEventId() == LoadSceneEvent::GetEventId() )
+    {
+        const LoadSceneEvent& test = static_cast<const LoadSceneEvent&>( evt );
+        //InputEnabled = test.Enabled;
+        LoadScene( test.Level );
+    }
 
-	return false;
+    return false;
 }
 
 BGFXRenderer& Engine::GetRenderer() const
 {
-	return *NewRenderer;
+    return *NewRenderer;
 }
 
 std::weak_ptr<World> Engine::GetWorld() const
 {
-	return GameWorld;
+    return GameWorld;
 }
 
 const bool Engine::IsInitialized() const
 {
-	return m_isInitialized;
+    return m_isInitialized;
 }
 
 bool Engine::IsRunning() const
 {
-	return true;
+    return true;
 }
 
 void Engine::Quit()
 {
-	GameWindow->Exit();
+    GameWindow->Exit();
 }
 
 IWindow* Engine::GetWindow()
 {
-	return GameWindow;
+    return GameWindow;
 }
 
 Game* Engine::GetGame() const
 {
-	return m_game;
+    return m_game;
 }
 
 EngineConfig& Engine::GetConfig() const
 {
-	return *engineConfig;
+    return *engineConfig;
 }
 
 Input& Engine::GetInput()
 {
-	return m_input;
+    return m_input;
 }
 
 JobEngine& Engine::GetJobEngine()
 {
-	return newJobSystem;
+    return newJobSystem;
 }
 
 std::tuple<Worker*, Pool&> Engine::GetJobSystemNew()
 {
-	return { newJobSystem.GetThreadWorker(), newJobSystem.GetThreadWorker()->GetPool() };
+    return { newJobSystem.GetThreadWorker(), newJobSystem.GetThreadWorker()->GetPool() };
 }
 
 void Engine::LoadScene( const std::string& SceneFile )
 {
-	Cameras->Init();
-	if ( CurrentScene )
-	{
-		CurrentScene->UnLoad();
-		delete CurrentScene;
-		CurrentScene = nullptr;
-	}
+    Cameras->Init();
+    if( CurrentScene )
+    {
+        CurrentScene->UnLoad();
+        delete CurrentScene;
+        CurrentScene = nullptr;
+    }
 
-	GameWorld->Unload();
-	SceneNodes->Init();
-	CurrentScene = new Scene( SceneFile );
+    GameWorld->Unload();
+    SceneNodes->Init();
+    CurrentScene = new Scene( SceneFile );
 
-	if ( !CurrentScene->Load( GameWorld ) )
-	{
-	}
+    if( !CurrentScene->Load( GameWorld ) )
+    {
+    }
 
-	SceneLoadedEvent evt;
-	evt.LoadedScene = CurrentScene;
-	evt.Fire();
+    SceneLoadedEvent evt;
+    evt.LoadedScene = CurrentScene;
+    evt.Fire();
 #if USING( ME_SCRIPTING )
-	ScriptEngine::sScriptData.worldPtr = GetWorld();
+    ScriptEngine::sScriptData.worldPtr = GetWorld();
 #endif
 #if !USING( ME_EDITOR )
-	GameWorld->Simulate();
-	GameWorld->Start();
+    GameWorld->Simulate();
+    GameWorld->Start();
 #endif
 }
 
@@ -478,7 +478,7 @@ void Engine::LoadScene( const std::string& SceneFile )
 
 Input& Engine::GetEditorInput()
 {
-	return m_editorInput;
+    return m_editorInput;
 }
 
 #endif

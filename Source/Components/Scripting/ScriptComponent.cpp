@@ -16,21 +16,21 @@ static std::unordered_map<MonoType*, std::function<bool( EntityHandle )>> s_Enti
 template<typename... Component>
 static void RegisterComponent()
 {
-    ( [] ()
-    {
-        std::string_view typeName = typeid( Component ).name();
-        size_t pos = typeName.find_last_of( ' ' );
-        std::string_view structName = typeName.substr( pos + 1 );
-        std::string managedTypename( structName );
-
-        MonoType* managedType = mono_reflection_type_from_name( managedTypename.data(), ScriptEngine::GetCoreImage() );
-        if ( !managedType )
+    ( []()
         {
-            YIKES( "Could not find component type {}" );
-            return;
-        }
-        s_EntityHasComponentFuncs[managedType] = [] ( EntityHandle entity ) { return entity->HasComponent<Component>(); };
-    }( ), ... );
+            std::string_view typeName = typeid( Component ).name();
+            size_t pos = typeName.find_last_of( ' ' );
+            std::string_view structName = typeName.substr( pos + 1 );
+            std::string managedTypename( structName );
+
+            MonoType* managedType = mono_reflection_type_from_name( managedTypename.data(), ScriptEngine::GetCoreImage() );
+            if( !managedType )
+            {
+                YIKES( "Could not find component type {}" );
+                return;
+            }
+            s_EntityHasComponentFuncs[managedType] = []( EntityHandle entity ) { return entity->HasComponent<Component>(); };
+        }( ), ... );
 }
 
 ScriptComponent::ScriptComponent()
@@ -50,17 +50,17 @@ ScriptComponent::~ScriptComponent()
 
 void ScriptComponent::Init()
 {
-    if ( !Instance && !ScriptName.empty() )
+    if( !Instance && !ScriptName.empty() )
     {
         auto foundClass = ScriptEngine::sScriptData.EntityClasses.find( ScriptName );
-        if ( foundClass != ScriptEngine::sScriptData.EntityClasses.end() )
+        if( foundClass != ScriptEngine::sScriptData.EntityClasses.end() )
         {
             Instance = ScriptEngine::CreateScriptInstance( foundClass->second, Parent );
 
-            if ( ScriptEngine::sScriptData.EntityScriptFields.find( Parent.GetID().Value() ) != ScriptEngine::sScriptData.EntityScriptFields.end() )
+            if( ScriptEngine::sScriptData.EntityScriptFields.find( Parent.GetID().Value() ) != ScriptEngine::sScriptData.EntityScriptFields.end() )
             {
                 const ScriptFieldMap& fieldMap = ScriptEngine::sScriptData.EntityScriptFields.at( Parent.GetID().Value() );
-                for ( const auto& [name, fieldInstance] : fieldMap )
+                for( const auto& [name, fieldInstance] : fieldMap )
                 {
                     Instance->SetFieldValueInternal( name, (void*)fieldInstance.Buffer );
                     ScriptName = foundClass->first;
@@ -76,16 +76,16 @@ void ScriptComponent::Init()
 void ScriptComponent::OnEditorInspect()
 {
     // Uninitialized script
-    if ( !Instance )
+    if( !Instance )
     {
-        if ( ImGui::BeginCombo( "Script Name", "" ) )
+        if( ImGui::BeginCombo( "Script Name", "" ) )
         {
-            for ( auto it : ScriptEngine::sScriptData.EntityClasses )
+            for( auto it : ScriptEngine::sScriptData.EntityClasses )
             {
-                if ( ImGui::Selectable( it.first.c_str(), false ) )
+                if( ImGui::Selectable( it.first.c_str(), false ) )
                 {
                     auto foundClass = ScriptEngine::sScriptData.EntityClasses.find( it.first );
-                    if ( foundClass != ScriptEngine::sScriptData.EntityClasses.end() )
+                    if( foundClass != ScriptEngine::sScriptData.EntityClasses.end() )
                     {
                         // create class instance
                         Instance = ScriptEngine::CreateScriptInstance( foundClass->second, Parent );
@@ -103,7 +103,7 @@ void ScriptComponent::OnEditorInspect()
         ImGui::Text( ScriptName.c_str() );
 
         // Add a inspect settings option passed in
-        if ( true )//if ( static_cast<EditorApp*>( GetEngine().GetGame() )->IsGameRunning() )
+        if( true )//if ( static_cast<EditorApp*>( GetEngine().GetGame() )->IsGameRunning() )
         {
             ScriptClass& scriptClass = ScriptEngine::GetEntityClass( ScriptName );
             DrawValues( scriptClass );
@@ -121,9 +121,9 @@ void ScriptComponent::DrawValues( const ScriptClass& scriptClass )
 {
     const auto& fields = scriptClass.m_fields;
 
-    for ( const auto& [name, field] : fields )
+    for( const auto& [name, field] : fields )
     {
-        switch ( field.Type )
+        switch( field.Type )
         {
         case MonoUtils::ScriptFieldType::Char:
         {
@@ -135,7 +135,7 @@ void ScriptComponent::DrawValues( const ScriptClass& scriptClass )
         case MonoUtils::ScriptFieldType::Bool:
         {
             bool value = Instance->GetFieldValue<bool>( name );
-            if ( ImGui::Checkbox( name.c_str(), &value ) )
+            if( ImGui::Checkbox( name.c_str(), &value ) )
             {
                 Instance->SetFieldValue<bool>( name, value );
             }
@@ -144,7 +144,7 @@ void ScriptComponent::DrawValues( const ScriptClass& scriptClass )
         case MonoUtils::ScriptFieldType::Long:
         {
             int64_t value = Instance->GetFieldValue<int64_t>( name );
-            if ( HavanaUtils::Int( name.c_str(), value ) )
+            if( HavanaUtils::Int( name.c_str(), value ) )
             {
                 Instance->SetFieldValue<int64_t>( name, value );
             }
@@ -154,7 +154,7 @@ void ScriptComponent::DrawValues( const ScriptClass& scriptClass )
         case MonoUtils::ScriptFieldType::ULong:
         {
             uint64_t value = Instance->GetFieldValue<uint64_t>( name );
-            if ( HavanaUtils::UInt( name.c_str(), value ) )
+            if( HavanaUtils::UInt( name.c_str(), value ) )
             {
                 Instance->SetFieldValue<uint64_t>( name, value );
             }
@@ -164,7 +164,7 @@ void ScriptComponent::DrawValues( const ScriptClass& scriptClass )
         case MonoUtils::ScriptFieldType::Short:
         {
             int16_t value = Instance->GetFieldValue<int16_t>( name );
-            if ( HavanaUtils::Int( name.c_str(), value ) )
+            if( HavanaUtils::Int( name.c_str(), value ) )
             {
                 Instance->SetFieldValue<int16_t>( name, value );
             }
@@ -174,7 +174,7 @@ void ScriptComponent::DrawValues( const ScriptClass& scriptClass )
         case MonoUtils::ScriptFieldType::UShort:
         {
             uint16_t value = Instance->GetFieldValue<uint16_t>( name );
-            if ( HavanaUtils::UInt( name.c_str(), value ) )
+            if( HavanaUtils::UInt( name.c_str(), value ) )
             {
                 Instance->SetFieldValue<uint16_t>( name, value );
             }
@@ -184,7 +184,7 @@ void ScriptComponent::DrawValues( const ScriptClass& scriptClass )
         case MonoUtils::ScriptFieldType::Int:
         {
             int value = Instance->GetFieldValue<int>( name );
-            if ( HavanaUtils::Int( name.c_str(), value ) )
+            if( HavanaUtils::Int( name.c_str(), value ) )
             {
                 Instance->SetFieldValue<int>( name, value );
             }
@@ -194,7 +194,7 @@ void ScriptComponent::DrawValues( const ScriptClass& scriptClass )
         case MonoUtils::ScriptFieldType::UInt:
         {
             unsigned int value = Instance->GetFieldValue<unsigned int>( name );
-            if ( HavanaUtils::UInt( name.c_str(), value ) )
+            if( HavanaUtils::UInt( name.c_str(), value ) )
             {
                 Instance->SetFieldValue<unsigned int>( name, value );
             }
@@ -204,7 +204,7 @@ void ScriptComponent::DrawValues( const ScriptClass& scriptClass )
         case MonoUtils::ScriptFieldType::Double:
         {
             double value = Instance->GetFieldValue<double>( name );
-            if ( HavanaUtils::Double( name.c_str(), value ) )
+            if( HavanaUtils::Double( name.c_str(), value ) )
             {
                 Instance->SetFieldValue<double>( name, value );
             }
@@ -214,7 +214,7 @@ void ScriptComponent::DrawValues( const ScriptClass& scriptClass )
         case MonoUtils::ScriptFieldType::Float:
         {
             float value = Instance->GetFieldValue<float>( name );
-            if ( HavanaUtils::Float( name, value ) )
+            if( HavanaUtils::Float( name, value ) )
             {
                 Instance->SetFieldValue<float>( name, value );
             }
@@ -224,7 +224,7 @@ void ScriptComponent::DrawValues( const ScriptClass& scriptClass )
         case MonoUtils::ScriptFieldType::Vector2:
         {
             Vector2 v2 = Instance->GetFieldValue<Vector2>( name );
-            if ( HavanaUtils::EditableVector( name, v2 ) )
+            if( HavanaUtils::EditableVector( name, v2 ) )
             {
                 Instance->SetFieldValue<Vector2>( name, v2 );
             }
@@ -233,7 +233,7 @@ void ScriptComponent::DrawValues( const ScriptClass& scriptClass )
         case MonoUtils::ScriptFieldType::Vector3:
         {
             Vector3 v3 = Instance->GetFieldValue<Vector3>( name );
-            if ( HavanaUtils::EditableVector3( name, v3 ) )
+            if( HavanaUtils::EditableVector3( name, v3 ) )
             {
                 Instance->SetFieldValue<Vector3>( name, v3 );
             }

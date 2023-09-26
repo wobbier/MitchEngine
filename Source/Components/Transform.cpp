@@ -14,28 +14,28 @@
 #include "misc/cpp/imgui_stdlib.h"
 
 Transform::Transform()
-	: Component("Transform")
-	, LocalPosition(0.f, 0.f, 0.f)
-	, LocalScale(1.0f, 1.0f, 1.0f)
+    : Component( "Transform" )
+    , LocalPosition( 0.f, 0.f, 0.f )
+    , LocalScale( 1.0f, 1.0f, 1.0f )
 {
 }
 
 
-Transform::Transform(const std::string& TransformName)
-	: Component("Transform")
-	, Name(std::move(TransformName))
-	, LocalPosition(0.f, 0.f, 0.f)
-	, LocalScale(1.0f, 1.0f, 1.0f)
+Transform::Transform( const std::string& TransformName )
+    : Component( "Transform" )
+    , Name( std::move( TransformName ) )
+    , LocalPosition( 0.f, 0.f, 0.f )
+    , LocalScale( 1.0f, 1.0f, 1.0f )
 {
 }
 
 Transform::~Transform()
 {
-	if (ParentTransform)
-	{
-		ParentTransform->RemoveChild(shared_from_this().get());
-	}
-	ParentTransform = nullptr;
+    if( ParentTransform )
+    {
+        ParentTransform->RemoveChild( shared_from_this().get() );
+    }
+    ParentTransform = nullptr;
 }
 
 void Transform::Init()
@@ -44,381 +44,381 @@ void Transform::Init()
 
 Vector3 Transform::GetPosition() const
 {
-	return LocalPosition;
+    return LocalPosition;
 }
 
-void Transform::SetPosition(const Vector3& NewPosition)
+void Transform::SetPosition( const Vector3& NewPosition )
 {
-	LocalPosition = NewPosition;
-	SetDirty(true);
+    LocalPosition = NewPosition;
+    SetDirty( true );
 }
 
 Quaternion Transform::GetRotation() const
 {
-	return LocalRotation;
+    return LocalRotation;
 }
 
-void Transform::SetRotation(const Quaternion& InRotation)
+void Transform::SetRotation( const Quaternion& InRotation )
 {
-	LocalRotation = InRotation;
-	SetDirty(true);
+    LocalRotation = InRotation;
+    SetDirty( true );
 }
 
 Vector3 Transform::GetScale()
 {
-	return LocalScale;
+    return LocalScale;
 }
 
-void Transform::SetScale(const Vector3& NewScale)
+void Transform::SetScale( const Vector3& NewScale )
 {
-	if (NewScale.IsZero())
-	{
-		return;
-	}
-	LocalScale = NewScale;
-	SetDirty(true);
+    if( NewScale.IsZero() )
+    {
+        return;
+    }
+    LocalScale = NewScale;
+    SetDirty( true );
 }
 
-void Transform::SetScale(float NewScale)
+void Transform::SetScale( float NewScale )
 {
-	if (NewScale == LocalScale.x && NewScale == LocalScale.y && NewScale == LocalScale.z)
-	{
-		return;
-	}
-	LocalScale = Vector3(NewScale);
-	SetDirty(true);
+    if( NewScale == LocalScale.x && NewScale == LocalScale.y && NewScale == LocalScale.z )
+    {
+        return;
+    }
+    LocalScale = Vector3( NewScale );
+    SetDirty( true );
 }
 
 Vector3 Transform::GetWorldPosition() const
 {
-	if (ParentTransform)
-	{
-		return ParentTransform->GetLocalToWorldMatrix().TransformPoint(GetPosition());
-	}
-	return GetPosition();
+    if( ParentTransform )
+    {
+        return ParentTransform->GetLocalToWorldMatrix().TransformPoint( GetPosition() );
+    }
+    return GetPosition();
 }
 
-void Transform::SetWorldPosition(const Vector3& NewPosition)
+void Transform::SetWorldPosition( const Vector3& NewPosition )
 {
-	if (ParentTransform)
-	{
-		LocalPosition = ParentTransform->GetWorldToLocalMatrix().TransformPoint(NewPosition);
-	}
-	else
-	{
-		LocalPosition = NewPosition;
-	}
+    if( ParentTransform )
+    {
+        LocalPosition = ParentTransform->GetWorldToLocalMatrix().TransformPoint( NewPosition );
+    }
+    else
+    {
+        LocalPosition = NewPosition;
+    }
 
-	SetDirty(true);
+    SetDirty( true );
 }
 
 Quaternion Transform::GetWorldRotation()
 {
-	if (ParentTransform)
-	{
-		return ParentTransform->GetWorldRotation() * GetRotation();
-	}
+    if( ParentTransform )
+    {
+        return ParentTransform->GetWorldRotation() * GetRotation();
+    }
 
-	return GetRotation();
+    return GetRotation();
 }
 
-void Transform::SetWorldRotation(const Quaternion& inRotation)
+void Transform::SetWorldRotation( const Quaternion& inRotation )
 {
-	if (ParentTransform)
-	{
-		LocalRotation = ParentTransform->GetWorldRotation().Inverse() * inRotation;
-	}
-	else
-	{
-		LocalRotation = inRotation;
-	}
+    if( ParentTransform )
+    {
+        LocalRotation = ParentTransform->GetWorldRotation().Inverse() * inRotation;
+    }
+    else
+    {
+        LocalRotation = inRotation;
+    }
 
-	SetDirty(true);
+    SetDirty( true );
 }
 
-void Transform::Translate(Vector3 NewPosition)
+void Transform::Translate( Vector3 NewPosition )
 {
-	if (NewPosition.IsZero())
-	{
-		return;
-	}
-	SetWorldPosition(LocalPosition + NewPosition);
+    if( NewPosition.IsZero() )
+    {
+        return;
+    }
+    SetWorldPosition( LocalPosition + NewPosition );
 }
 
-void Transform::Rotate(const Vector3& inDegrees, TransformSpace inRelativeTo /*= TransformSpace::Self*/)
+void Transform::Rotate( const Vector3& inDegrees, TransformSpace inRelativeTo /*= TransformSpace::Self*/ )
 {
-	Quaternion eulerRot(inDegrees);
-	if (inRelativeTo == TransformSpace::World)
-	{
-		//LocalRotation = Quaternion(LocalRotation.InternalQuat * (glm::inverse(Rotation.InternalQuat) * eulerRot.InternalQuat * Rotation.InternalQuat));
-		//SetRotation(LocalRotation);
-	}
-	else
-	{
-		LocalRotation = LocalRotation * eulerRot;
-		SetRotation(LocalRotation);
-	}
+    Quaternion eulerRot( inDegrees );
+    if( inRelativeTo == TransformSpace::World )
+    {
+        //LocalRotation = Quaternion(LocalRotation.InternalQuat * (glm::inverse(Rotation.InternalQuat) * eulerRot.InternalQuat * Rotation.InternalQuat));
+        //SetRotation(LocalRotation);
+    }
+    else
+    {
+        LocalRotation = LocalRotation * eulerRot;
+        SetRotation( LocalRotation );
+    }
 }
 
 Vector3 Transform::Front()
 {
-	return GetWorldRotation().Rotate(Vector3::Front);
+    return GetWorldRotation().Rotate( Vector3::Front );
 }
 
 Vector3 Transform::Up()
 {
-	return GetWorldRotation().Rotate(Vector3::Up);
+    return GetWorldRotation().Rotate( Vector3::Up );
 }
 
 Vector3 Transform::Right()
 {
-	return GetWorldRotation().Rotate(Vector3::Right);
+    return GetWorldRotation().Rotate( Vector3::Right );
 }
 
 void Transform::Reset()
 {
-	SetWorldPosition(Vector3());
-	SetRotation(Vector3());
-	SetScale(1.f);
+    SetWorldPosition( Vector3() );
+    SetRotation( Vector3() );
+    SetScale( 1.f );
     Matrix4 idMat;
-	SetWorldTransform(idMat, true);
+    SetWorldTransform( idMat, true );
 }
 
-void Transform::SetWorldTransform(Matrix4& NewWorldTransform, bool InIsDirty)
+void Transform::SetWorldTransform( Matrix4& NewWorldTransform, bool InIsDirty )
 {
-	OPTICK_EVENT("Transform::SetWorldTransform");
-	{
-		//DirectX::SimpleMath::Quaternion quat;
-		//DirectX::SimpleMath::Vector3 pos;
-		//DirectX::SimpleMath::Vector3 scale;
-		//NewWorldTransform.GetInternalMatrix().Decompose(scale, quat, pos);
+    OPTICK_EVENT( "Transform::SetWorldTransform" );
+    {
+        //DirectX::SimpleMath::Quaternion quat;
+        //DirectX::SimpleMath::Vector3 pos;
+        //DirectX::SimpleMath::Vector3 scale;
+        //NewWorldTransform.GetInternalMatrix().Decompose(scale, quat, pos);
 
-		//InternalRotation = Quaternion(ParentTransform->GetWorldRotation().GetInternalVec() * Quaternion(quat).GetInternalVec());
-		//Vector3 rotation = Quaternion::ToEulerAngles(Quaternion(quat));
-		//Rotation = Vector3(Mathf::Degrees(Rotation.X()), Mathf::Degrees(Rotation.Y()), Mathf::Degrees(Rotation.Z()));
-		//Position = Vector3(pos);
-	}
+        //InternalRotation = Quaternion(ParentTransform->GetWorldRotation().GetInternalVec() * Quaternion(quat).GetInternalVec());
+        //Vector3 rotation = Quaternion::ToEulerAngles(Quaternion(quat));
+        //Rotation = Vector3(Mathf::Degrees(Rotation.X()), Mathf::Degrees(Rotation.Y()), Mathf::Degrees(Rotation.Z()));
+        //Position = Vector3(pos);
+    }
 
-	// update local transform
-	//WorldTransform = std::move(NewWorldTransform);
-	SetDirty(InIsDirty);
+    // update local transform
+    //WorldTransform = std::move(NewWorldTransform);
+    SetDirty( InIsDirty );
 }
 
 const bool Transform::IsDirty() const
 {
-	return IsLocalToWorldDirty || IsWorldToLocalDirty;
+    return IsLocalToWorldDirty || IsWorldToLocalDirty;
 }
 
 const Matrix4& Transform::GetLocalToWorldMatrix()
 {
-	if (IsLocalToWorldDirty)
-	{
-		glm::mat4 T = glm::translate(glm::mat4(1.0f), GetPosition().InternalVector);
-		glm::quat R = GetRotation().InternalQuat;
-		glm::mat4 S = glm::scale(glm::mat4(1.0f), GetScale().InternalVector);
-		glm::mat4 P = ParentTransform ? ParentTransform->GetLocalToWorldMatrix().GetInternalMatrix() : glm::mat4(1.0f);
+    if( IsLocalToWorldDirty )
+    {
+        glm::mat4 T = glm::translate( glm::mat4( 1.0f ), GetPosition().InternalVector );
+        glm::quat R = GetRotation().InternalQuat;
+        glm::mat4 S = glm::scale( glm::mat4( 1.0f ), GetScale().InternalVector );
+        glm::mat4 P = ParentTransform ? ParentTransform->GetLocalToWorldMatrix().GetInternalMatrix() : glm::mat4( 1.0f );
 
-		LocalToWorldMatrix = Matrix4(P * T * glm::toMat4(R) * S);
-		IsLocalToWorldDirty = false;
-	}
+        LocalToWorldMatrix = Matrix4( P * T * glm::toMat4( R ) * S );
+        IsLocalToWorldDirty = false;
+    }
 
-	return LocalToWorldMatrix;
+    return LocalToWorldMatrix;
 }
 
 const Matrix4& Transform::GetWorldToLocalMatrix()
 {
-	if (IsWorldToLocalDirty)
-	{
-		WorldToLocalMatrix = GetLocalToWorldMatrix().Inverse();
-		IsWorldToLocalDirty = false;
-	}
-	return WorldToLocalMatrix;
+    if( IsWorldToLocalDirty )
+    {
+        WorldToLocalMatrix = GetLocalToWorldMatrix().Inverse();
+        IsWorldToLocalDirty = false;
+    }
+    return WorldToLocalMatrix;
 }
 
-void Transform::SetDirty(bool Dirty)
+void Transform::SetDirty( bool Dirty )
 {
-	OPTICK_EVENT("Transform::SetDirty");
-	if (Dirty && (Dirty != m_isDirty))
-	{
-		for (SharedPtr<Transform>& Child : Children)
-		{
-			if (Child)
-			{
-				Child->SetDirty(Dirty);
-			}
-		}
-	}
-	m_isDirty = Dirty;
-	IsLocalToWorldDirty = true;
-	IsWorldToLocalDirty = true;
+    OPTICK_EVENT( "Transform::SetDirty" );
+    if( Dirty && ( Dirty != m_isDirty ) )
+    {
+        for( SharedPtr<Transform>& Child : Children )
+        {
+            if( Child )
+            {
+                Child->SetDirty( Dirty );
+            }
+        }
+    }
+    m_isDirty = Dirty;
+    IsLocalToWorldDirty = true;
+    IsWorldToLocalDirty = true;
 }
 
-void Transform::LookAt(const Vector3& InDirection)
+void Transform::LookAt( const Vector3& InDirection )
 {
     //Matrix4 worldMat(glm::transpose(glm::lookAtLH(GetWorldPosition().InternalVector, GetWorldPosition().InternalVector + InDirection.InternalVector, glm::vec3(0,1,0))));
-	//SetWorldTransform(worldMat);
-	//glm::vec3 scale;
-	//glm::quat rot;
-	//glm::vec3 pos;
-	//glm::vec3 skeq;
-	//glm::vec4 poers;
-	//glm::decompose(WorldTransform.GetInternalMatrix(), scale, rot, pos, skeq, poers);
+    //SetWorldTransform(worldMat);
+    //glm::vec3 scale;
+    //glm::quat rot;
+    //glm::vec3 pos;
+    //glm::vec3 skeq;
+    //glm::vec4 poers;
+    //glm::decompose(WorldTransform.GetInternalMatrix(), scale, rot, pos, skeq, poers);
     //LocalRotation = Quaternion(rot);
-	//Rotation = LocalRotation;
-	//Rotation = Vector3(Mathf::Degrees(Rotation.x), Mathf::Degrees(Rotation.y), Mathf::Degrees(Rotation.z));
-	//Vector3 worldPos = GetWorldPosition();
-	//WorldTransform = Matrix4(DirectX::SimpleMath::Matrix::CreateLookAt(worldPos.InternalVec, (GetWorldPosition() + InDirection).InternalVec, Vector3::Up.InternalVec).Transpose());
+    //Rotation = LocalRotation;
+    //Rotation = Vector3(Mathf::Degrees(Rotation.x), Mathf::Degrees(Rotation.y), Mathf::Degrees(Rotation.z));
+    //Vector3 worldPos = GetWorldPosition();
+    //WorldTransform = Matrix4(DirectX::SimpleMath::Matrix::CreateLookAt(worldPos.InternalVec, (GetWorldPosition() + InDirection).InternalVec, Vector3::Up.InternalVec).Transpose());
 
-	//WorldTransform.GetInternalMatrix()._41 = worldPos[0];
-	//WorldTransform.GetInternalMatrix()._42 = worldPos[1];
-	//WorldTransform.GetInternalMatrix()._43 = worldPos[2];
+    //WorldTransform.GetInternalMatrix()._41 = worldPos[0];
+    //WorldTransform.GetInternalMatrix()._42 = worldPos[1];
+    //WorldTransform.GetInternalMatrix()._43 = worldPos[2];
 
-	//DirectX::SimpleMath::Quaternion quat;
-	//WorldTransform.GetInternalMatrix().Decompose(DirectX::SimpleMath::Vector3(), quat, DirectX::SimpleMath::Vector3());
+    //DirectX::SimpleMath::Quaternion quat;
+    //WorldTransform.GetInternalMatrix().Decompose(DirectX::SimpleMath::Vector3(), quat, DirectX::SimpleMath::Vector3());
 
-	//Quaternion quat2(quat);
+    //Quaternion quat2(quat);
 
-	//Rotation = Quaternion::ToEulerAngles(quat2);
-	//Rotation = Vector3(Mathf::Degrees(Rotation.x), Mathf::Degrees(Rotation.y), Mathf::Degrees(Rotation.z));
-	//LocalRotation = quat2;
-	SetDirty(true);
+    //Rotation = Quaternion::ToEulerAngles(quat2);
+    //Rotation = Vector3(Mathf::Degrees(Rotation.x), Mathf::Degrees(Rotation.y), Mathf::Degrees(Rotation.z));
+    //LocalRotation = quat2;
+    SetDirty( true );
 }
 
-void Transform::SetRotation(const Vector3& euler)
+void Transform::SetRotation( const Vector3& euler )
 {
-	LocalRotation.InternalQuat = glm::quat(glm::vec3(Mathf::Radians(euler.x), Mathf::Radians(euler.y), Mathf::Radians(euler.z)));
-	SetDirty(true);
+    LocalRotation.InternalQuat = glm::quat( glm::vec3( Mathf::Radians( euler.x ), Mathf::Radians( euler.y ), Mathf::Radians( euler.z ) ) );
+    SetDirty( true );
 }
 
 Vector3 Transform::GetRotationEuler() const
 {
-	return Quaternion::ToEulerAngles(LocalRotation);
+    return Quaternion::ToEulerAngles( LocalRotation );
 }
 
 Vector3 Transform::GetWorldRotationEuler()
 {
-	return Quaternion::ToEulerAngles(GetWorldRotation());
+    return Quaternion::ToEulerAngles( GetWorldRotation() );
 }
 
-void Transform::SetParent(Transform& NewParent)
+void Transform::SetParent( Transform& NewParent )
 {
-	if (ParentTransform)
-	{
-		GetParentTransform()->RemoveChild(this);
-	}
-	
-	ParentTransform = NewParent.shared_from_this();
-	GetParentTransform()->Children.push_back(shared_from_this());
-	SetDirty(true);
+    if( ParentTransform )
+    {
+        GetParentTransform()->RemoveChild( this );
+    }
+
+    ParentTransform = NewParent.shared_from_this();
+    GetParentTransform()->Children.push_back( shared_from_this() );
+    SetDirty( true );
 }
 
-void Transform::RemoveChild(Transform* TargetTransform)
+void Transform::RemoveChild( Transform* TargetTransform )
 {
-	if (Children.size() > 0)
-	{
-		Children.erase(std::remove(Children.begin(), Children.end(), TargetTransform->shared_from_this()), Children.end());
-		TargetTransform->ParentTransform = nullptr;
-	}
+    if( Children.size() > 0 )
+    {
+        Children.erase( std::remove( Children.begin(), Children.end(), TargetTransform->shared_from_this() ), Children.end() );
+        TargetTransform->ParentTransform = nullptr;
+    }
 }
 
-Transform* Transform::GetChildByName(const std::string& inName)
+Transform* Transform::GetChildByName( const std::string& inName )
 {
-	for (auto child : Children)
-	{
-		if (child->Name == inName )
-		{
-			return child.get();
-		}
-	}
-	return nullptr;
+    for( auto child : Children )
+    {
+        if( child->Name == inName )
+        {
+            return child.get();
+        }
+    }
+    return nullptr;
 }
 
 const std::vector<SharedPtr<Transform>>& Transform::GetChildren() const
 {
-	return Children;
+    return Children;
 }
 
 Transform* Transform::GetParentTransform()
 {
-	if (ParentTransform)
-	{
-		return ParentTransform.get();
-	}
-	return nullptr;
+    if( ParentTransform )
+    {
+        return ParentTransform.get();
+    }
+    return nullptr;
 }
 
 const Matrix4& Transform::GetMatrix()
 {
-	return GetLocalToWorldMatrix();
+    return GetLocalToWorldMatrix();
 }
 
 const std::string& Transform::GetName() const
 {
-	return Name;
+    return Name;
 }
 
-void Transform::OnSerialize(json& outJson)
+void Transform::OnSerialize( json& outJson )
 {
-	outJson["Position"] = { LocalPosition.x, LocalPosition.y, LocalPosition.z };
-	Vector3 outRot = Quaternion::ToEulerAngles(LocalRotation);
-	outJson["Rotation"] = { outRot.x, outRot.y, outRot.z };
-	outJson["Scale"] = { LocalScale.x, LocalScale.y, LocalScale.z };
+    outJson["Position"] = { LocalPosition.x, LocalPosition.y, LocalPosition.z };
+    Vector3 outRot = Quaternion::ToEulerAngles( LocalRotation );
+    outJson["Rotation"] = { outRot.x, outRot.y, outRot.z };
+    outJson["Scale"] = { LocalScale.x, LocalScale.y, LocalScale.z };
 }
 
-void Transform::OnDeserialize(const json& inJson)
+void Transform::OnDeserialize( const json& inJson )
 {
-	SetPosition(Vector3((float)inJson["Position"][0], (float)inJson["Position"][1], (float)inJson["Position"][2]));
-	SetRotation(Vector3((float)inJson["Rotation"][0], (float)inJson["Rotation"][1], (float)inJson["Rotation"][2]));
-	if (inJson.find("Scale") != inJson.end())
-	{
-		SetScale(Vector3((float)inJson["Scale"][0], (float)inJson["Scale"][1], (float)inJson["Scale"][2]));
-	}
+    SetPosition( Vector3( (float)inJson["Position"][0], (float)inJson["Position"][1], (float)inJson["Position"][2] ) );
+    SetRotation( Vector3( (float)inJson["Rotation"][0], (float)inJson["Rotation"][1], (float)inJson["Rotation"][2] ) );
+    if( inJson.find( "Scale" ) != inJson.end() )
+    {
+        SetScale( Vector3( (float)inJson["Scale"][0], (float)inJson["Scale"][1], (float)inJson["Scale"][2] ) );
+    }
 }
 
-void Transform::SetName(const std::string& name)
+void Transform::SetName( const std::string& name )
 {
-	Name = name;
+    Name = name;
 }
 
 void Transform::OnEditorInspect()
 {
-	HavanaUtils::Label("Name");
-	ImGui::InputText("##Name", &Name);
+    HavanaUtils::Label( "Name" );
+    ImGui::InputText( "##Name", &Name );
 
-	Vector3 OldPosition = LocalPosition;
-	if (HavanaUtils::EditableVector3("Local Position", OldPosition))
-	{
-		SetPosition(OldPosition);
-	}
+    Vector3 OldPosition = LocalPosition;
+    if( HavanaUtils::EditableVector3( "Local Position", OldPosition ) )
+    {
+        SetPosition( OldPosition );
+    }
 
-	Vector3 OldRotation = Quaternion::ToEulerAngles(GetRotation());
-	if (HavanaUtils::EditableVector3("Local Rotation", OldRotation))
-	{
-		SetRotation(OldRotation);
-	}
+    Vector3 OldRotation = Quaternion::ToEulerAngles( GetRotation() );
+    if( HavanaUtils::EditableVector3( "Local Rotation", OldRotation ) )
+    {
+        SetRotation( OldRotation );
+    }
 
-	Vector3 OldScale = LocalScale;
-	if (HavanaUtils::EditableVector3("Scale", OldScale, 1.f))
-	{
-		SetScale(OldScale);
-	}
+    Vector3 OldScale = LocalScale;
+    if( HavanaUtils::EditableVector3( "Scale", OldScale, 1.f ) )
+    {
+        SetScale( OldScale );
+    }
 
-	Vector3 WorldPos = GetWorldPosition();
-	if(HavanaUtils::EditableVector3("World Position", WorldPos))
-	{
-		SetWorldPosition(WorldPos);
-	}
+    Vector3 WorldPos = GetWorldPosition();
+    if( HavanaUtils::EditableVector3( "World Position", WorldPos ) )
+    {
+        SetWorldPosition( WorldPos );
+    }
 
-	Vector3 OldWorldRotation = GetWorldRotationEuler();
-	if (HavanaUtils::EditableVector3("World Rotation", OldWorldRotation))
-	{
-		//SetWorldRotation(OldRotation);
-	}
+    Vector3 OldWorldRotation = GetWorldRotationEuler();
+    if( HavanaUtils::EditableVector3( "World Rotation", OldWorldRotation ) )
+    {
+        //SetWorldRotation(OldRotation);
+    }
 
-	if (ImGui::Button("Reset Transform"))
-	{
-		Reset();
-	}
+    if( ImGui::Button( "Reset Transform" ) )
+    {
+        Reset();
+    }
 
 // 	ImGui::Text(GetLocalToWorldMatrix().ToString().c_str());
 // 	ImGui::Separator();

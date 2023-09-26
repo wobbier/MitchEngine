@@ -35,7 +35,7 @@ UICore::UICore( IWindow* window, BGFXRenderer* renderer )
     //config_.cache_path = ultralight::String16(std::string(fileSystemRoot.Directory + "ultralight.log").c_str());
 
     m_context.reset( new GPUContext() );
-    if ( !m_context->Initialize( m_window->width(), m_window->height(), m_window->scale(), m_window->is_fullscreen(), true, false, 1 ) )
+    if( !m_context->Initialize( m_window->width(), m_window->height(), m_window->scale(), m_window->is_fullscreen(), true, false, 1 ) )
     {
         YIKES( "Failed to initialize ultralight context" );
     }
@@ -87,7 +87,7 @@ void UICore::OnEntityRemoved( Entity& InEntity )
 
 void UICore::OnStop()
 {
-    for ( auto overlay : m_overlays )
+    for( auto overlay : m_overlays )
     {
         GetOverlayManager()->Remove( overlay.get() );
     }
@@ -131,7 +131,7 @@ void UICore::Update( const UpdateContext& inUpdateContext )
     mouseEvent.x = ( windowPosition.x + mousePosition.x ) - offset.x;// + windowPosition.x  + offset.x;
     mouseEvent.y = ( windowPosition.y + mousePosition.y ) - offset.y;// + windowPosition.y  - offset.y;
 
-    if ( mousePosition.IsZero() )
+    if( mousePosition.IsZero() )
     {
         return;
     }
@@ -141,13 +141,13 @@ void UICore::Update( const UpdateContext& inUpdateContext )
 #endif
 
     static bool hasPressed = false;
-    if ( GetEngine().GetInput().WasMouseButtonPressed( MouseButton::Left ) && !hasPressed )
+    if( GetEngine().GetInput().WasMouseButtonPressed( MouseButton::Left ) && !hasPressed )
     {
         mouseEvent.button = ultralight::MouseEvent::Button::kButton_Left;
         mouseEvent.type = ultralight::MouseEvent::kType_MouseDown;
         hasPressed = true;
     }
-    else if ( !GetEngine().GetInput().WasMouseButtonPressed( MouseButton::Left ) && hasPressed )
+    else if( !GetEngine().GetInput().WasMouseButtonPressed( MouseButton::Left ) && hasPressed )
     {
         mouseEvent.button = ultralight::MouseEvent::Button::kButton_Left;
         mouseEvent.type = ultralight::MouseEvent::kType_MouseUp;
@@ -162,7 +162,7 @@ void UICore::Update( const UpdateContext& inUpdateContext )
     //if (m_renderer->GetViewportMode() == ViewportMode::Game)
 #endif
     {
-        for ( auto& view : m_overlays )
+        for( auto& view : m_overlays )
         {
             view->view()->FireMouseEvent( mouseEvent );
             view->view()->FireScrollEvent( mouseScrollEvent );
@@ -184,7 +184,7 @@ void UICore::Render()
     m_driver->EndSynchronize();
 
     // Draw any pending commands to screen
-    if ( m_driver->HasCommandsPending() )
+    if( m_driver->HasCommandsPending() )
     {
         //m_context->BeginDrawing();
         m_driver->DrawCommandList();
@@ -193,14 +193,14 @@ void UICore::Render()
         //DrawOverlays();
 
         // Flip buffers here.
-        if ( m_window )
+        if( m_window )
         {
             Draw();
         }
         //m_context->EndDrawing();
     }
 
-    for ( auto ent : GetEntities() )
+    for( auto ent : GetEntities() )
     {
 
         if( !ent.HasComponent<BasicUIView>() )
@@ -211,7 +211,7 @@ void UICore::Render()
 
         ultralight::BitmapSurface* surface = (ultralight::BitmapSurface*)( ent.GetComponent<BasicUIView>().ViewRef->surface() );
 
-        if ( !surface->dirty_bounds().IsEmpty() )
+        if( !surface->dirty_bounds().IsEmpty() )
         {
             CopyBitmapToTexture( surface->bitmap() );
 
@@ -222,23 +222,23 @@ void UICore::Render()
 
 void UICore::OnResize( const Vector2& NewSize )
 {
-    if ( m_context )
+    if( m_context )
     {
         m_context->Resize( NewSize );
-        for ( auto overlay : overlays_ )
+        for( auto overlay : overlays_ )
         {
             overlay->Resize( (int)NewSize.x, (int)NewSize.y );
         }
     }
 
-    if ( NewSize.IsZero() )
+    if( NewSize.IsZero() )
     {
         return;
     }
 
-    if ( NewSize != UISize )
+    if( NewSize != UISize )
     {
-        if ( bgfx::isValid( m_uiTexture ) )
+        if( bgfx::isValid( m_uiTexture ) )
         {
             bgfx::destroy( m_uiTexture );
         }
@@ -296,7 +296,7 @@ void UICore::CopyBitmapToTexture( ultralight::RefPtr<ultralight::Bitmap> bitmap 
 
         const bgfx::Memory* mem = bgfx::makeRef( pixels, stride );
 
-        if ( bgfx::isValid( m_uiTexture ) && Camera::CurrentCamera )
+        if( bgfx::isValid( m_uiTexture ) && Camera::CurrentCamera )
         {
             bgfx::updateTexture2D( m_uiTexture, 0, 0, tx, ty, tw, th, mem, stride );
             GetEngine().GetRenderer().GetCameraCache().Get( Camera::CurrentCamera->GetCameraId() )->UITexture = m_uiTexture;

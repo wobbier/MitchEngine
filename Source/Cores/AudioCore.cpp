@@ -10,106 +10,106 @@
 #endif
 
 AudioCore::AudioCore()
-	: Base(ComponentFilter().Requires<AudioSource>())
+    : Base( ComponentFilter().Requires<AudioSource>() )
 {
-	SetIsSerializable(false);
+    SetIsSerializable( false );
 
 #if USING( ME_FMOD )
-	FMOD_RESULT res;
-	res = FMOD::System_Create(&system);
-	if (res != FMOD_OK)
-	{
-		YIKES("FMOD Failed to initialize: "/* + FMOD_ErrorString(res)*/);
-	}
-	
-	res = system->init(512, FMOD_INIT_NORMAL, 0);
-	if (res != FMOD_OK)
-	{
-		YIKES("FMOD System failed to create!");
-	}
-	IsInitialized = true;
+    FMOD_RESULT res;
+    res = FMOD::System_Create( &system );
+    if( res != FMOD_OK )
+    {
+        YIKES( "FMOD Failed to initialize: "/* + FMOD_ErrorString(res)*/ );
+    }
+
+    res = system->init( 512, FMOD_INIT_NORMAL, 0 );
+    if( res != FMOD_OK )
+    {
+        YIKES( "FMOD System failed to create!" );
+    }
+    IsInitialized = true;
 #endif
 
-	std::vector<TypeId> events = {
-		PlayAudioEvent::GetEventId()
-	};
-	EventManager::GetInstance().RegisterReceiver(this, events);
+    std::vector<TypeId> events = {
+        PlayAudioEvent::GetEventId()
+    };
+    EventManager::GetInstance().RegisterReceiver( this, events );
 }
 
-void AudioCore::Update(float dt)
+void AudioCore::Update( float dt )
 {
-	OPTICK_CATEGORY("AudioCore Update", Optick::Category::Audio);
+    OPTICK_CATEGORY( "AudioCore Update", Optick::Category::Audio );
 
 #if USING( ME_FMOD )
-	if (system)
-	{
-		system->update();
-	}
+    if( system )
+    {
+        system->update();
+    }
 #endif
-	auto& AudioEntities = GetEntities();
-	for (auto& ent : AudioEntities)
-	{
-		AudioSource& audioSource = ent.GetComponent<AudioSource>();
+    auto& AudioEntities = GetEntities();
+    for( auto& ent : AudioEntities )
+    {
+        AudioSource& audioSource = ent.GetComponent<AudioSource>();
 
-		InitComponent(audioSource);
-	}
+        InitComponent( audioSource );
+    }
 }
 
-void AudioCore::InitComponent(AudioSource& audioSource)
+void AudioCore::InitComponent( AudioSource& audioSource )
 {
-	if (!audioSource.IsInitialized && !audioSource.FilePath.GetLocalPath().empty())
-	{
+    if( !audioSource.IsInitialized && !audioSource.FilePath.GetLocalPath().empty() )
+    {
 #if USING( ME_FMOD )
-		SharedPtr<Sound> soundResource = ResourceCache::GetInstance().Get<Sound>(audioSource.FilePath, system);
-		if (!soundResource)
-		{
-			YIKES("Failed to load sound");
-			audioSource.IsInitialized = true;
-			return;
-		}
-		audioSource.SoundInstance = soundResource;
+        SharedPtr<Sound> soundResource = ResourceCache::GetInstance().Get<Sound>( audioSource.FilePath, system );
+        if( !soundResource )
+        {
+            YIKES( "Failed to load sound" );
+            audioSource.IsInitialized = true;
+            return;
+        }
+        audioSource.SoundInstance = soundResource;
 #endif
-		audioSource.IsInitialized = true;
-	}
+        audioSource.IsInitialized = true;
+    }
 }
 
-void AudioCore::OnEntityAdded(Entity& NewEntity)
+void AudioCore::OnEntityAdded( Entity& NewEntity )
 {
-	AudioSource& comp = NewEntity.GetComponent<AudioSource>();
+    AudioSource& comp = NewEntity.GetComponent<AudioSource>();
 
-	InitComponent(comp);
+    InitComponent( comp );
 }
 
-void AudioCore::OnEntityRemoved(Entity& NewEntity)
+void AudioCore::OnEntityRemoved( Entity& NewEntity )
 {
-	AudioSource& comp = NewEntity.GetComponent<AudioSource>();
-	comp.Stop();
-	comp.ClearData();
+    AudioSource& comp = NewEntity.GetComponent<AudioSource>();
+    comp.Stop();
+    comp.ClearData();
 }
 
-bool AudioCore::OnEvent(const BaseEvent& InEvent)
+bool AudioCore::OnEvent( const BaseEvent& InEvent )
 {
-	if (InEvent.GetEventId() == PlayAudioEvent::GetEventId())
-	{
-		const PlayAudioEvent& evt = static_cast<const PlayAudioEvent&>(InEvent);
-		Path soundPath = Path(evt.SourceName);
-		auto sound = soundPath.GetLocalPath();
-		if (m_cachedSounds.find( sound.data()) == m_cachedSounds.end())
-		{
-			auto& source = m_cachedSounds[sound.data()] = MakeShared<AudioSource>( sound.data() );
-			InitComponent(*source);
-		}
-		m_cachedSounds[sound.data()]->Play(false);
+    if( InEvent.GetEventId() == PlayAudioEvent::GetEventId() )
+    {
+        const PlayAudioEvent& evt = static_cast<const PlayAudioEvent&>( InEvent );
+        Path soundPath = Path( evt.SourceName );
+        auto sound = soundPath.GetLocalPath();
+        if( m_cachedSounds.find( sound.data() ) == m_cachedSounds.end() )
+        {
+            auto& source = m_cachedSounds[sound.data()] = MakeShared<AudioSource>( sound.data() );
+            InitComponent( *source );
+        }
+        m_cachedSounds[sound.data()]->Play( false );
 
-		if(evt.Callback)
-		{
-			evt.Callback(m_cachedSounds[sound.data()]);
-		}
+        if( evt.Callback )
+        {
+            evt.Callback( m_cachedSounds[sound.data()] );
+        }
 
-		return true;
-	}
+        return true;
+    }
 
-	return false;
+    return false;
 }
 
 void AudioCore::Init()
@@ -119,23 +119,23 @@ void AudioCore::Init()
 
 void AudioCore::OnStart()
 {
-	auto AudioEntities = GetEntities();
-	for (auto& ent : AudioEntities)
-	{
-		AudioSource& audioSource = ent.GetComponent<AudioSource>();
-		if (audioSource.PlayOnAwake)
-		{
-			audioSource.Play(audioSource.Loop);
-		}
-	}
+    auto AudioEntities = GetEntities();
+    for( auto& ent : AudioEntities )
+    {
+        AudioSource& audioSource = ent.GetComponent<AudioSource>();
+        if( audioSource.PlayOnAwake )
+        {
+            audioSource.Play( audioSource.Loop );
+        }
+    }
 }
 
 void AudioCore::OnStop()
 {
-	for (auto& audioSource : m_cachedSounds)
-	{
-		audioSource.second->Stop();
-		audioSource.second->ClearData();
-	}
-	m_cachedSounds.clear();
+    for( auto& audioSource : m_cachedSounds )
+    {
+        audioSource.second->Stop();
+        audioSource.second->ClearData();
+    }
+    m_cachedSounds.clear();
 }

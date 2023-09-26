@@ -14,161 +14,161 @@
 class Transform;
 
 class World
-	: public std::enable_shared_from_this<World>
+    : public std::enable_shared_from_this<World>
 {
 private:
-	typedef std::vector<Entity> EntityArray;
-	typedef std::unordered_map<EntityID, Entity, EntityIDHash> MasterEntityArray;
+    typedef std::vector<Entity> EntityArray;
+    typedef std::unordered_map<EntityID, Entity, EntityIDHash> MasterEntityArray;
 
-	struct CoreDeleter
-	{
-		void operator() (BaseCore* InCore) const
-		{
-			InCore->GameWorld = nullptr;
-			InCore->Entities.clear();
-		}
-	};
+    struct CoreDeleter
+    {
+        void operator() ( BaseCore* InCore ) const
+        {
+            InCore->GameWorld = nullptr;
+            InCore->Entities.clear();
+        }
+    };
 
-	typedef std::unordered_map<TypeId, std::unique_ptr<BaseCore, CoreDeleter>> CoreArray;
+    typedef std::unordered_map<TypeId, std::unique_ptr<BaseCore, CoreDeleter>> CoreArray;
 
-	// Access to components
-	friend class Entity;
+    // Access to components
+    friend class Entity;
 
 
 public:
-	SharedPtr<World> GetSharedPtr();
-	template <typename TCore>
-	void AddCore(TCore& inCore);
+    SharedPtr<World> GetSharedPtr();
+    template <typename TCore>
+    void AddCore( TCore& inCore );
 
-	template <typename T, typename... Args>
-	T& AddCore(Args&& ... args);
+    template <typename T, typename... Args>
+    T& AddCore( Args&& ... args );
 
-	template <typename TCore>
-	bool HasCore();
+    template <typename TCore>
+    bool HasCore();
 
-	BaseCore* GetCore(TypeId InType);
+    BaseCore* GetCore( TypeId InType );
 
-	bool HasCore(TypeId InType);
+    bool HasCore( TypeId InType );
 
-	std::vector<BaseCore*> GetAllCores();
+    std::vector<BaseCore*> GetAllCores();
 
-	const CoreArray& GetAllCoresArray();
+    const CoreArray& GetAllCoresArray();
 
-	EntityHandle CreateEntity();
+    EntityHandle CreateEntity();
 
-	void Simulate();
-	void Start();
-	void Stop();
+    void Simulate();
+    void Start();
+    void Stop();
 
-	void Destroy();
+    void Destroy();
 
-	void Unload();
+    void Unload();
 
-	void UpdateLoadedCores(const UpdateContext& inUpdateContext);
-	void LateUpdateLoadedCores(const UpdateContext& inUpdateContext);
+    void UpdateLoadedCores( const UpdateContext& inUpdateContext );
+    void LateUpdateLoadedCores( const UpdateContext& inUpdateContext );
 
-	void MarkEntityForDelete(Entity& EntityToDestroy);
+    void MarkEntityForDelete( Entity& EntityToDestroy );
 
-	EntityHandle CreateFromPrefab(std::string& FilePath, Transform* Parent = nullptr);
+    EntityHandle CreateFromPrefab( std::string& FilePath, Transform* Parent = nullptr );
 
-	std::size_t GetEntityCount() const;
-	EntityHandle GetEntity(const EntityID& id);
-	Entity* GetEntityRaw(const EntityID& id);
-	const bool EntityExists(const EntityID& InEntity) const;
-	World();
-	World(std::size_t InEntityPoolSize);
-	~World();
+    std::size_t GetEntityCount() const;
+    EntityHandle GetEntity( const EntityID& id );
+    Entity* GetEntityRaw( const EntityID& id );
+    const bool EntityExists( const EntityID& InEntity ) const;
+    World();
+    World( std::size_t InEntityPoolSize );
+    ~World();
 
-	ME_HARDSTUCK(World);
+    ME_HARDSTUCK( World );
 
-	bool IsLoading = true;
-	BaseCore* AddCoreByName(const std::string& core);
-	std::unordered_map<TypeId, BaseCore*> m_loadedCores;
+    bool IsLoading = true;
+    BaseCore* AddCoreByName( const std::string& core );
+    std::unordered_map<TypeId, BaseCore*> m_loadedCores;
 private:
-	CoreArray Cores;
+    CoreArray Cores;
 
-	EntityIdPool EntIdPool;
+    EntityIdPool EntIdPool;
 
-	struct TEntityAttributes
-	{
-		struct Attribute
-		{
-			bool IsActive = false;
+    struct TEntityAttributes
+    {
+        struct Attribute
+        {
+            bool IsActive = false;
 
-			std::bitset<64> Cores;
-		};
+            std::bitset<64> Cores;
+        };
 
-		TEntityAttributes(std::size_t InEntityAmount) :
-			Storage(InEntityAmount),
-			Attributes(InEntityAmount)
-		{
-		}
+        TEntityAttributes( std::size_t InEntityAmount ) :
+            Storage( InEntityAmount ),
+            Attributes( InEntityAmount )
+        {
+        }
 
-		~TEntityAttributes() {
-			//Attributes.clear();
-		}
+        ~TEntityAttributes() {
+            //Attributes.clear();
+        }
 
-		void Resize(std::size_t InAmount)
-		{
-			Storage.Resize(InAmount);
-			Attributes.resize(InAmount);
-		}
+        void Resize( std::size_t InAmount )
+        {
+            Storage.Resize( InAmount );
+            Attributes.resize( InAmount );
+        }
 
-		ComponentStorage Storage;
+        ComponentStorage Storage;
 
-		std::vector<Attribute> Attributes;
-	}
+        std::vector<Attribute> Attributes;
+    }
 
-	EntityAttributes;
+    EntityAttributes;
 
-	struct TEntityCache
-	{
-		MasterEntityArray Alive;
-		EntityArray Killed;
-		EntityArray Activated;
-		EntityArray Deactivated;
+    struct TEntityCache
+    {
+        MasterEntityArray Alive;
+        EntityArray Killed;
+        EntityArray Activated;
+        EntityArray Deactivated;
 
-		void ClearTemp()
-		{
-			Killed.clear();
-			Activated.clear();
-			Deactivated.clear();
-		}
-	}
+        void ClearTemp()
+        {
+            Killed.clear();
+            Activated.clear();
+            Deactivated.clear();
+        }
+    }
 
-	EntityCache;
+    EntityCache;
 
-	void DestroyEntity(Entity& InEntity, bool RemoveFromWorld = true);
+    void DestroyEntity( Entity& InEntity, bool RemoveFromWorld = true );
 
-	void AddCore(BaseCore& InCore, TypeId InCoreTypeId, bool HandleUpdate = false);
+    void AddCore( BaseCore& InCore, TypeId InCoreTypeId, bool HandleUpdate = false );
 
-	void CheckForResize(std::size_t InNumEntitiesToBeAllocated);
+    void CheckForResize( std::size_t InNumEntitiesToBeAllocated );
 
-	void Resize(std::size_t InAmount);
+    void Resize( std::size_t InAmount );
 
-	void ActivateEntity(Entity& InEntity, const bool InActive);
+    void ActivateEntity( Entity& InEntity, const bool InActive );
 
-	EntityHandle LoadPrefab(const json& obj, Transform* parent, Transform* root);
+    EntityHandle LoadPrefab( const json& obj, Transform* parent, Transform* root );
 };
 
 template<typename TCore>
-void World::AddCore(TCore& InCore)
+void World::AddCore( TCore& InCore )
 {
-	AddCore(InCore, TCore::GetTypeId());
+    AddCore( InCore, TCore::GetTypeId() );
 }
 
 template <typename T, typename... Args>
-T& World::AddCore(Args&& ... args)
+T& World::AddCore( Args&& ... args )
 {
-	if (HasCore(T::GetTypeId()))
-	{
-		return GetCore(T::GetTypeId());
-	}
-	return AddCore(new T{ std::forward<Args>(args)... }, T::GetTypeId());
+    if( HasCore( T::GetTypeId() ) )
+    {
+        return GetCore( T::GetTypeId() );
+    }
+    return AddCore( new T { std::forward<Args>( args )... }, T::GetTypeId() );
 }
 
 template <typename TCore>
 bool World::HasCore()
 {
-	return Cores.find(TCore::GetTypeId()) != Cores.end();
+    return Cores.find( TCore::GetTypeId() ) != Cores.end();
 }

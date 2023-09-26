@@ -4,21 +4,21 @@
 #include "Utils/HavanaUtils.h"
 
 Light::Light()
-	: Component("Light")
+    : Component( "Light" )
 {
 }
 
 void Light::Init()
 {
-	//cmd.diffuse = { Colour[0], Colour[1], Colour[2], 1.f };
-	//GetEngine().GetRenderer().PushLight(cmd);
+    //cmd.diffuse = { Colour[0], Colour[1], Colour[2], 1.f };
+    //GetEngine().GetRenderer().PushLight(cmd);
 }
 
-void Light::OnSerialize(json& outJson)
+void Light::OnSerialize( json& outJson )
 {
 }
 
-void Light::OnDeserialize(const json& inJson)
+void Light::OnDeserialize( const json& inJson )
 {
 }
 
@@ -26,7 +26,7 @@ void Light::OnDeserialize(const json& inJson)
 
 void Light::OnEditorInspect()
 {
-	HavanaUtils::EditableVector3("Color", Colour);
+    HavanaUtils::EditableVector3( "Color", Colour );
 }
 
 #endif

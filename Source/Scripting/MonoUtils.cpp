@@ -36,7 +36,7 @@ namespace MonoUtils
     ScriptFieldType MonoTypeToScriptFieldType( MonoType* type )
     {
         std::string typeName = mono_type_get_name( type );
-        if ( s_scriptFieldTypeMap.find( typeName ) == s_scriptFieldTypeMap.end() )
+        if( s_scriptFieldTypeMap.find( typeName ) == s_scriptFieldTypeMap.end() )
             return ScriptFieldType::None;
         return s_scriptFieldTypeMap.at( typeName );
     }
@@ -44,7 +44,7 @@ namespace MonoUtils
 
     std::string ScriptFieldTypeToString( ScriptFieldType type )
     {
-        switch ( type )
+        switch( type )
         {
         case MonoUtils::ScriptFieldType::None: return "None";
         case MonoUtils::ScriptFieldType::Float: return "Float";
@@ -73,7 +73,7 @@ namespace MonoUtils
         uint8_t accessibility = Accessibility::None;
         uint32_t accessFlag = mono_field_get_flags( field ) & MONO_FIELD_ATTR_FIELD_ACCESS_MASK;
 
-        switch ( accessFlag )
+        switch( accessFlag )
         {
         case MONO_FIELD_ATTR_PRIVATE:
         {
@@ -122,12 +122,12 @@ namespace MonoUtils
 
         // Get a reference to the property's getter method
         MonoMethod* propertyGetter = mono_property_get_get_method( property );
-        if ( propertyGetter != nullptr )
+        if( propertyGetter != nullptr )
         {
             // Extract the access flags from the getters flags
             uint32_t accessFlag = mono_method_get_flags( propertyGetter, nullptr ) & MONO_METHOD_ATTR_ACCESS_MASK;
 
-            switch ( accessFlag )
+            switch( accessFlag )
             {
             case MONO_FIELD_ATTR_PRIVATE:
             {
@@ -169,11 +169,11 @@ namespace MonoUtils
 
         // Get a reference to the property's setter method
         MonoMethod* propertySetter = mono_property_get_set_method( property );
-        if ( propertySetter != nullptr )
+        if( propertySetter != nullptr )
         {
             // Extract the access flags from the setters flags
             uint32_t accessFlag = mono_method_get_flags( propertySetter, nullptr ) & MONO_METHOD_ATTR_ACCESS_MASK;
-            if ( accessFlag != MONO_FIELD_ATTR_PUBLIC )
+            if( accessFlag != MONO_FIELD_ATTR_PUBLIC )
                 accessibility = Accessibility::Private;
         }
         else
@@ -188,7 +188,7 @@ namespace MonoUtils
     bool CheckMonoError( MonoError& error )
     {
         bool hasError = !mono_error_ok( &error );
-        if ( hasError )
+        if( hasError )
         {
             unsigned short errorCode = mono_error_get_error_code( &error );
             const char* errorMessage = mono_error_get_message( &error );
@@ -202,12 +202,12 @@ namespace MonoUtils
 
     std::string MonoStringToUTF8( MonoString* monoString )
     {
-        if ( monoString == nullptr || mono_string_length( monoString ) == 0 )
+        if( monoString == nullptr || mono_string_length( monoString ) == 0 )
             return "";
 
         MonoError error;
         char* utf8 = mono_string_to_utf8_checked( monoString, &error );
-        if ( CheckMonoError( error ) )
+        if( CheckMonoError( error ) )
             return "";
         std::string result( utf8 );
         mono_free( utf8 );
@@ -222,7 +222,7 @@ namespace MonoUtils
         MonoImage* image = mono_image_open_from_data_full( (char*)fileData.Data, fileData.Size, 1, &status, 0 );
 
 
-        if ( status != MONO_IMAGE_OK )
+        if( status != MONO_IMAGE_OK )
         {
             const char* errorMessage = mono_image_strerror( status );
             YIKES( errorMessage );
@@ -231,14 +231,14 @@ namespace MonoUtils
 
         // TODO: Write a file extension replacement function.
 #if !USING( ME_PLATFORM_UWP )
-        if ( loadPDB )
+        if( loadPDB )
         {
             std::filesystem::path pdbPath = path.FullPath;
             pdbPath.replace_extension( ".pdb" );
-            
-            if ( std::filesystem::exists( pdbPath ) )
+
+            if( std::filesystem::exists( pdbPath ) )
             {
-                Buffer pdbBuff = PlatformUtils::ReadBytes( Path(pdbPath.generic_string()) );
+                Buffer pdbBuff = PlatformUtils::ReadBytes( Path( pdbPath.generic_string() ) );
                 mono_debug_open_image_from_memory( image, (mono_byte*)pdbBuff.Data, pdbBuff.Size );
                 pdbBuff.Release();
             }
@@ -247,7 +247,7 @@ namespace MonoUtils
 
         MonoAssembly* assembly = mono_assembly_load_from_full( image, path.FullPath.c_str(), &status, 0 );
 
-        if ( !assembly )
+        if( !assembly )
         {
             YIKES( "mono_assembly_load_from_full failed" );
             return nullptr;

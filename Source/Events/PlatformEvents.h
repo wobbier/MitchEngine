@@ -4,8 +4,8 @@
 #include "Math/Vector2.h"
 
 class WindowResizedEvent
-	: public Event<WindowResizedEvent>
+    : public Event<WindowResizedEvent>
 {
 public:
-	Vector2 NewSize;
+    Vector2 NewSize;
 };

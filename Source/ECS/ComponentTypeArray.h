@@ -6,10 +6,10 @@
 typedef std::bitset<64> ComponentTypeArray;
 
 template <class TContainer>
-void CheckCapacity(TContainer& InContainer, typename TContainer::size_type InIndex)
+void CheckCapacity( TContainer& InContainer, typename TContainer::size_type InIndex )
 {
-	if (InContainer.size() <= InIndex)
-	{
-		InContainer.resize(InIndex + 1);
-	}
+    if( InContainer.size() <= InIndex )
+    {
+        InContainer.resize( InIndex + 1 );
+    }
 }

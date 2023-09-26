@@ -9,69 +9,71 @@
 #include <Path.h>
 #include <Types/AssetType.h>
 
-namespace Moonlight { class Texture; }
+namespace Moonlight {
+    class Texture;
+}
 
 class TestEditorEvent
-	: public Event<TestEditorEvent>
+    : public Event<TestEditorEvent>
 {
 public:
-	TestEditorEvent()
-		: Event()
-	{
-	}
-	std::string Path;
+    TestEditorEvent()
+        : Event()
+    {
+    }
+    std::string Path;
 };
 
 class PreviewResourceEvent
-	: public Event<PreviewResourceEvent>
+    : public Event<PreviewResourceEvent>
 {
 public:
-	PreviewResourceEvent()
-		: Event()
-	{
-	}
-	SharedPtr<Moonlight::Texture> Subject;
+    PreviewResourceEvent()
+        : Event()
+    {
+    }
+    SharedPtr<Moonlight::Texture> Subject;
 };
 
 
 class InspectEvent
-	: public Event<InspectEvent>
+    : public Event<InspectEvent>
 {
 public:
-	InspectEvent()
-		: Event()
-	{
-	}
-	EntityHandle SelectedEntity;
-	WeakPtr<Transform> SelectedTransform;
-	BaseCore* SelectedCore = nullptr;
+    InspectEvent()
+        : Event()
+    {
+    }
+    EntityHandle SelectedEntity;
+    WeakPtr<Transform> SelectedTransform;
+    BaseCore* SelectedCore = nullptr;
 };
 
 class ClearInspectEvent
-	: public Event<ClearInspectEvent>
+    : public Event<ClearInspectEvent>
 {
 public:
-	ClearInspectEvent()
-		: Event()
-	{
-	}
+    ClearInspectEvent()
+        : Event()
+    {
+    }
 };
 
 class RequestAssetSelectionEvent
-	: public Event<RequestAssetSelectionEvent>
+    : public Event<RequestAssetSelectionEvent>
 {
 public:
-	RequestAssetSelectionEvent() = delete;
-	RequestAssetSelectionEvent(std::function<void(Path)> cb, AssetType forcedFilter = AssetType::Unknown, bool isRequestingSaving = false)
-		: Event()
-		, Callback(cb)
-		, ForcedFilter(forcedFilter)
-		, IsRequestingSave(isRequestingSaving)
-	{
+    RequestAssetSelectionEvent() = delete;
+    RequestAssetSelectionEvent( std::function<void( Path )> cb, AssetType forcedFilter = AssetType::Unknown, bool isRequestingSaving = false )
+        : Event()
+        , Callback( cb )
+        , ForcedFilter( forcedFilter )
+        , IsRequestingSave( isRequestingSaving )
+    {
 
-	}
+    }
 
-	std::function<void(Path)> Callback;
-	AssetType ForcedFilter;
-	bool IsRequestingSave = false;
+    std::function<void( Path )> Callback;
+    AssetType ForcedFilter;
+    bool IsRequestingSave = false;
 };

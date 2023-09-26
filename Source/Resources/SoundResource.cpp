@@ -5,19 +5,19 @@
 #include <fmod.hpp>
 #endif
 
-Sound::Sound(const Path& path, void* fmodSystem)
-	: Resource(path)
+Sound::Sound( const Path& path, void* fmodSystem )
+    : Resource( path )
 {
 #if USING( ME_FMOD )
-	FMOD::System* system = static_cast<FMOD::System*>(fmodSystem);
-	if(!system)
-	{
-		YIKES("FMOD System is not enabled.");
-	}
-	if(system->createSound(path.FullPath.c_str(), FMOD_DEFAULT, nullptr, &Handle) != FMOD_OK)
-	{
+    FMOD::System* system = static_cast<FMOD::System*>( fmodSystem );
+    if( !system )
+    {
+        YIKES( "FMOD System is not enabled." );
+    }
+    if( system->createSound( path.FullPath.c_str(), FMOD_DEFAULT, nullptr, &Handle ) != FMOD_OK )
+    {
         // #TODO: Perhaps having the macro for this accepts a string view?
         YIKES( "Failed to create sound resource." + path.GetLocalPathString() );
-	}
+    }
 #endif
 }

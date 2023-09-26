@@ -20,7 +20,7 @@ class IWindow;
 class BGFXRenderer;
 
 class Engine
-	: public EventReceiver
+    : public EventReceiver
 {
     class EngineUpdateContext : public UpdateContext
     {
@@ -28,72 +28,72 @@ class Engine
     };
 
 public:
-	const float FPS = 144.f;
-	long long FrameRate;
+    const float FPS = 144.f;
+    long long FrameRate;
 
-	Engine();
-	~Engine();
+    Engine();
+    ~Engine();
 
-	void Init(Game* game);
+    void Init( Game* game );
 
-	void InitGame();
+    void InitGame();
 
-	void StopGame();
+    void StopGame();
 
-	void LoadScene(const std::string& Level);
-	
-	void Run();
-	virtual bool OnEvent(const BaseEvent& evt);
+    void LoadScene( const std::string& Level );
 
-	BGFXRenderer& GetRenderer() const;
+    void Run();
+    virtual bool OnEvent( const BaseEvent& evt );
 
-	std::weak_ptr<World> GetWorld() const;
+    BGFXRenderer& GetRenderer() const;
 
-	bool IsRunning() const;
-	void Quit();
-	const bool IsInitialized() const;
+    std::weak_ptr<World> GetWorld() const;
 
-	IWindow* GetWindow();
+    bool IsRunning() const;
+    void Quit();
+    const bool IsInitialized() const;
 
-	Game* GetGame() const;
+    IWindow* GetWindow();
 
-	EngineConfig& GetConfig() const;
-	Input& GetInput();
+    Game* GetGame() const;
 
-	JobEngine& GetJobEngine();
-	std::tuple<Worker*, Pool&> GetJobSystemNew();
+    EngineConfig& GetConfig() const;
+    Input& GetInput();
 
-	class CameraCore* Cameras = nullptr;
-	class SceneCore* SceneNodes = nullptr;
-	class RenderCore* ModelRenderer = nullptr;
-	class AudioCore* AudioThread = nullptr;
-	class UICore* UI = nullptr;
-	Clock GameClock;
-	Moonlight::CameraData EditorCamera;
-	Scene* CurrentScene = nullptr;
-	float DeltaTime = 0.f;
+    JobEngine& GetJobEngine();
+    std::tuple<Worker*, Pool&> GetJobSystemNew();
+
+    class CameraCore* Cameras = nullptr;
+    class SceneCore* SceneNodes = nullptr;
+    class RenderCore* ModelRenderer = nullptr;
+    class AudioCore* AudioThread = nullptr;
+    class UICore* UI = nullptr;
+    Clock GameClock;
+    Moonlight::CameraData EditorCamera;
+    Scene* CurrentScene = nullptr;
+    float DeltaTime = 0.f;
 private:
-	Input m_input;
-	std::shared_ptr<World> GameWorld;
-	bool Running = false;
-	IWindow* GameWindow = nullptr;
-	class EngineConfig* engineConfig = nullptr;
-	Game* m_game = nullptr;
-	float AccumulatedTime = 0.0f;
-	float FrameTime = 0.0f;
-	bool m_isInitialized = false;
-	ME_SINGLETON_DEFINITION(Engine)
+    Input m_input;
+    std::shared_ptr<World> GameWorld;
+    bool Running = false;
+    IWindow* GameWindow = nullptr;
+    class EngineConfig* engineConfig = nullptr;
+    Game* m_game = nullptr;
+    float AccumulatedTime = 0.0f;
+    float FrameTime = 0.0f;
+    bool m_isInitialized = false;
+    ME_SINGLETON_DEFINITION( Engine )
 
-	BGFXRenderer* NewRenderer = nullptr;
+        BGFXRenderer* NewRenderer = nullptr;
 
-	JobEngine newJobSystem;
+    JobEngine newJobSystem;
 
-	EngineUpdateContext updateContext;
+    EngineUpdateContext updateContext;
 
 #if USING( ME_EDITOR )
-	Input m_editorInput;
+    Input m_editorInput;
 public:
-	Input& GetEditorInput();
+    Input& GetEditorInput();
 #endif
 };
 

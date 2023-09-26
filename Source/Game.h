@@ -6,15 +6,15 @@
 class Game
 {
 public:
-	Game() = delete;
-	Game(int argc, char** argv) {};
-	virtual void OnInitialize() = 0;
+    Game() = delete;
+    Game( int argc, char** argv ) {};
+    virtual void OnInitialize() = 0;
 
-	virtual void OnStart() = 0;
-	virtual void OnUpdate(const UpdateContext& inUpdateContext) = 0;
-	virtual void OnEnd() = 0;
-	virtual void PostRender() = 0;
-	ME_HARDSTUCK(Game)
+    virtual void OnStart() = 0;
+    virtual void OnUpdate( const UpdateContext& inUpdateContext ) = 0;
+    virtual void OnEnd() = 0;
+    virtual void PostRender() = 0;
+    ME_HARDSTUCK( Game )
 };
 
 #if USING( ME_PLATFORM_UWP )

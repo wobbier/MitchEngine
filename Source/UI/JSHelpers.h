@@ -22,224 +22,253 @@ namespace ultralight {
  *       The only things you can create without a JSContext are JSString's and
  *       the empty JSFunction constructor.
  */
-void SetJSContext(JSContextRef ctx);
+    void SetJSContext( JSContextRef ctx );
 
-/**
- * Get the current JSContext.
- */
-JSContextRef GetJSContext();
+    /**
+     * Get the current JSContext.
+     */
+    JSContextRef GetJSContext();
 
-/**
- * JSString wrapper that automatically manages lifetime
- * and provides helpful conversions.
- */
-class JSString {
-public:
-  // Create empty string
-  JSString();
+    /**
+     * JSString wrapper that automatically manages lifetime
+     * and provides helpful conversions.
+     */
+    class JSString
+    {
+    public:
+      // Create empty string
+        JSString();
 
-  // Create from C-string
-  JSString(const char* str);
+        // Create from C-string
+        JSString( const char* str );
 
-  // Create from Ultralight String
-  JSString(const String& str);
+        // Create from Ultralight String
+        JSString( const String& str );
 
-  // Take ownership of existing JSStringRef
-  JSString(JSStringRef str);
+        // Take ownership of existing JSStringRef
+        JSString( JSStringRef str );
 
-  // Copy constructor 
-  JSString(const JSString& other);
+        // Copy constructor 
+        JSString( const JSString& other );
 
-  ~JSString();
+        ~JSString();
 
-  // Assignment operator
-  JSString& operator=(const JSString& other);
+        // Assignment operator
+        JSString& operator=( const JSString& other );
 
-  // Cast to String
-  operator String();
+        // Cast to String
+        operator String();
 
-  // Cast to JSStringRef
-  operator JSStringRef() const { return instance_; }
+        // Cast to JSStringRef
+        operator JSStringRef() const {
+            return instance_;
+        }
 
-protected:
-  JSStringRef instance_;
-};
+    protected:
+        JSStringRef instance_;
+    };
 
-class JSArray;
-class JSObject;
-class JSFunction;
+    class JSArray;
+    class JSObject;
+    class JSFunction;
 
-// Used with the JSValue constructor to create "Null" types
-struct JSValueNullTag {};
+    // Used with the JSValue constructor to create "Null" types
+    struct JSValueNullTag
+    {
+    };
 
-// Used with the JSValue constructor to create "Undefined" types
-struct JSValueUndefinedTag {};
+  // Used with the JSValue constructor to create "Undefined" types
+    struct JSValueUndefinedTag
+    {
+    };
 
-/**
- * JSValue wrapper that automatically manages lifetime and
- * provides helpful conversions.
- */
-class JSValue {
-public:
-  // Create null (empty) JSValue
-  JSValue();
+  /**
+   * JSValue wrapper that automatically manages lifetime and
+   * provides helpful conversions.
+   */
+    class JSValue
+    {
+    public:
+      // Create null (empty) JSValue
+        JSValue();
 
-  // Create null JSValue explicitly
-  JSValue(JSValueNullTag);
+        // Create null JSValue explicitly
+        JSValue( JSValueNullTag );
 
-  // Create undefined JSValue
-  JSValue(JSValueUndefinedTag);
+        // Create undefined JSValue
+        JSValue( JSValueUndefinedTag );
 
-  // Create boolean JSValue
-  JSValue(bool val);
+        // Create boolean JSValue
+        JSValue( bool val );
 
-  // Create unsigned integer JSValue (aka, Number) [will be cast to double]
-  JSValue(uint32_t val);
+        // Create unsigned integer JSValue (aka, Number) [will be cast to double]
+        JSValue( uint32_t val );
 
-  // Create integer JSValue (aka, Number) [will be cast to double]
-  JSValue(int32_t val);
+        // Create integer JSValue (aka, Number) [will be cast to double]
+        JSValue( int32_t val );
 
-  // Create unsigned integer JSValue (aka, Number) [will be cast to double]
-  JSValue(uint64_t val);
+        // Create unsigned integer JSValue (aka, Number) [will be cast to double]
+        JSValue( uint64_t val );
 
-  // Create integer JSValue (aka, Number) [will be cast to double]
-  JSValue(int64_t val);
+        // Create integer JSValue (aka, Number) [will be cast to double]
+        JSValue( int64_t val );
 
-  // Create double JSValue (aka, Number)
-  JSValue(double val);
+        // Create double JSValue (aka, Number)
+        JSValue( double val );
 
-  // Create string JSValue
-  JSValue(const char* val);
+        // Create string JSValue
+        JSValue( const char* val );
 
-  // Create string JSValue
-  JSValue(const String& val);
+        // Create string JSValue
+        JSValue( const String& val );
 
-  // Create string JSValue
-  JSValue(JSString val);
+        // Create string JSValue
+        JSValue( JSString val );
 
-  // Create from existing JSValueRef
-  JSValue(JSValueRef val);
+        // Create from existing JSValueRef
+        JSValue( JSValueRef val );
 
-  // Create object JSValue
-  JSValue(JSObjectRef obj);
+        // Create object JSValue
+        JSValue( JSObjectRef obj );
 
-  // Copy constructor, a shallow copy is made, will end up pointing to same instance
-  JSValue(const JSValue& other);
+        // Copy constructor, a shallow copy is made, will end up pointing to same instance
+        JSValue( const JSValue& other );
 
-  virtual ~JSValue();
+        virtual ~JSValue();
 
-  // A shallow copy is made, will end up pointing to same instance
-  virtual JSValue& operator=(const JSValue& other);
+        // A shallow copy is made, will end up pointing to same instance
+        virtual JSValue& operator=( const JSValue& other );
 
-  bool IsNull() const;
+        bool IsNull() const;
 
-  bool IsUndefined() const;
+        bool IsUndefined() const;
 
-  bool IsBoolean() const;
+        bool IsBoolean() const;
 
-  bool IsNumber() const;
+        bool IsNumber() const;
 
-  bool IsString() const;
+        bool IsString() const;
 
-  bool IsObject() const;
+        bool IsObject() const;
 
-  bool IsArray() const;
+        bool IsArray() const;
 
-  bool IsFunction() const;
+        bool IsFunction() const;
 
-  // Convert to Boolean
-  bool ToBoolean() const;
+        // Convert to Boolean
+        bool ToBoolean() const;
 
-  // Convert to Number (Double)
-  double ToNumber() const;
+        // Convert to Number (Double)
+        double ToNumber() const;
 
-  // Convert to Number (Integer)
-  int64_t ToInteger() const { return static_cast<int64_t>(ToNumber()); }
+        // Convert to Number (Integer)
+        int64_t ToInteger() const {
+            return static_cast<int64_t>( ToNumber() );
+        }
 
-  // Convert to String
-  JSString ToString() const;
+// Convert to String
+        JSString ToString() const;
 
-  // Convert to Object (will debug assert if not an Object)
-  JSObject ToObject() const;
+        // Convert to Object (will debug assert if not an Object)
+        JSObject ToObject() const;
 
-  // Convert to Array (will debug asset if not an Array)
-  JSArray ToArray() const;
+        // Convert to Array (will debug asset if not an Array)
+        JSArray ToArray() const;
 
-  // Convert to Function (will debug asset if not a Function)
-  JSFunction ToFunction() const;
+        // Convert to Function (will debug asset if not a Function)
+        JSFunction ToFunction() const;
 
-  operator bool() const { return ToBoolean(); }
+        operator bool() const {
+            return ToBoolean();
+        }
 
-  operator double() const { return ToNumber(); }
+        operator double() const {
+            return ToNumber();
+        }
 
-  operator uint32_t() const { return static_cast<uint32_t>(ToNumber()); }
+        operator uint32_t() const {
+            return static_cast<uint32_t>( ToNumber() );
+        }
 
-  operator int32_t() const { return static_cast<uint32_t>(ToNumber()); }
+        operator int32_t() const {
+            return static_cast<uint32_t>( ToNumber() );
+        }
 
-  operator uint64_t() const { return static_cast<uint64_t>(ToNumber()); }
+        operator uint64_t() const {
+            return static_cast<uint64_t>( ToNumber() );
+        }
 
-  operator int64_t() const { return ToInteger(); }
+        operator int64_t() const {
+            return ToInteger();
+        }
 
-  operator String() const { return ToString(); }
+        operator String() const {
+            return ToString();
+        }
 
-  operator JSString() const { return ToString(); }
+        operator JSString() const {
+            return ToString();
+        }
 
-  operator JSObject() const;
+        operator JSObject() const;
 
-  operator JSObjectRef() const;
+        operator JSObjectRef() const;
 
-  operator JSArray() const;
+        operator JSArray() const;
 
-  operator JSFunction() const;
+        operator JSFunction() const;
 
-  // Get the underlying JSValueRef
-  operator JSValueRef() const { return instance(); }
+        // Get the underlying JSValueRef
+        operator JSValueRef() const {
+            return instance();
+        }
 
-protected:
-  JSValue(JSContextRef ctx);
-  JSValue(JSContextRef ctx, JSValueRef val);
-  virtual JSValueRef instance() const;
+    protected:
+        JSValue( JSContextRef ctx );
+        JSValue( JSContextRef ctx, JSValueRef val );
+        virtual JSValueRef instance() const;
 
-  JSContextRef ctx_;
-  JSValueRef instance_ = nullptr;
-  friend class JSFunction;
-};
+        JSContextRef ctx_;
+        JSValueRef instance_ = nullptr;
+        friend class JSFunction;
+    };
 
-/**
-* A vector of JSValues, used for passing around arguments in JSCallback.
-* We don't expose std::vector directly because of ABI concerns.
-*/
-class JSArgs {
-public:
-  JSArgs();
-  JSArgs(const std::initializer_list<JSValue>& values);
-  JSArgs(const JSArgs& other);
-  ~JSArgs();
+    /**
+    * A vector of JSValues, used for passing around arguments in JSCallback.
+    * We don't expose std::vector directly because of ABI concerns.
+    */
+    class JSArgs
+    {
+    public:
+        JSArgs();
+        JSArgs( const std::initializer_list<JSValue>& values );
+        JSArgs( const JSArgs& other );
+        ~JSArgs();
 
-  JSArgs& operator=(const JSArgs& other);
+        JSArgs& operator=( const JSArgs& other );
 
-  JSValue operator[](size_t pos);
-  const JSValue operator[](size_t pos) const;
+        JSValue operator[]( size_t pos );
+        const JSValue operator[]( size_t pos ) const;
 
-  bool empty() const;
+        bool empty() const;
 
-  size_t size() const;
+        size_t size() const;
 
-  void clear();
+        void clear();
 
-  void push_back(const JSValue& val);
-  void pop_back();
+        void push_back( const JSValue& val );
+        void pop_back();
 
-  JSValue* data();
-  const JSValue* data() const;
-protected:
-  void* instance_;
-};
+        JSValue* data();
+        const JSValue* data() const;
+    protected:
+        void* instance_;
+    };
 
-typedef std::function<void(const JSObject&, const JSArgs&)> JSCallback;
-typedef std::function<JSValue(const JSObject&, const JSArgs&)> JSCallbackWithRetval;
+    typedef std::function<void( const JSObject&, const JSArgs& )> JSCallback;
+    typedef std::function<JSValue( const JSObject&, const JSArgs& )> JSCallbackWithRetval;
 
-// Macro to help bind JSCallback member function to JSPropertyValue
+    // Macro to help bind JSCallback member function to JSPropertyValue
 #define BindJSCallback(fn) (ultralight::JSCallback)std::bind(fn, this, std::placeholders::_1, std::placeholders::_2)
 #define BindJSCallbackWithRetval(fn) (ultralight::JSCallbackWithRetval)std::bind(fn, this, std::placeholders::_1, std::placeholders::_2)
 
@@ -248,169 +277,179 @@ typedef std::function<JSValue(const JSObject&, const JSArgs&)> JSCallbackWithRet
  * to object property, binding C++ callbacks to object properties via function objects,
  * as well as value query via the JSValue interface.
  */
-class JSPropertyValue : public JSValue {
-public:
-  virtual ~JSPropertyValue();
+    class JSPropertyValue : public JSValue
+    {
+    public:
+        virtual ~JSPropertyValue();
 
-  // Assign a new value to the property (internally calls JSObjectSetProperty)
-  virtual JSPropertyValue& operator=(const JSValue& value);
+        // Assign a new value to the property (internally calls JSObjectSetProperty)
+        virtual JSPropertyValue& operator=( const JSValue& value );
 
-  // Bind to native C++ callback (creates a Function object that can be called from JS)
-  JSPropertyValue& operator=(const JSCallback& callback);
+        // Bind to native C++ callback (creates a Function object that can be called from JS)
+        JSPropertyValue& operator=( const JSCallback& callback );
 
-  // Bind to native C++ callback with return value (creates a Function object that can be called from JS)
-  JSPropertyValue& operator=(const JSCallbackWithRetval& callback);
+        // Bind to native C++ callback with return value (creates a Function object that can be called from JS)
+        JSPropertyValue& operator=( const JSCallbackWithRetval& callback );
 
-protected:
-  virtual JSValueRef instance() const;
-  JSPropertyValue(JSContextRef ctx, JSObjectRef proxy_obj, unsigned idx);
-  JSPropertyValue(JSContextRef ctx, JSObjectRef proxy_obj, JSString idx);
-  JSPropertyValue(const JSPropertyValue&) = default;
-  JSPropertyValue& operator=(const JSPropertyValue&) = delete;
+    protected:
+        virtual JSValueRef instance() const;
+        JSPropertyValue( JSContextRef ctx, JSObjectRef proxy_obj, unsigned idx );
+        JSPropertyValue( JSContextRef ctx, JSObjectRef proxy_obj, JSString idx );
+        JSPropertyValue( const JSPropertyValue& ) = default;
+        JSPropertyValue& operator=( const JSPropertyValue& ) = delete;
 
-  JSObject* proxyObj_;
-  bool using_numeric_idx_;
-  unsigned numeric_idx_;
-  JSString string_idx_;
-  friend class JSArray;
-  friend class JSObject;
-};
+        JSObject* proxyObj_;
+        bool using_numeric_idx_;
+        unsigned numeric_idx_;
+        JSString string_idx_;
+        friend class JSArray;
+        friend class JSObject;
+    };
 
-/**
- * JSArray wrapper that automatically manages lifetime and provides
- * convenient access to indices and Array functions.
- */
-class JSArray {
-public:
-  // Create empty Array
-  JSArray();
+    /**
+     * JSArray wrapper that automatically manages lifetime and provides
+     * convenient access to indices and Array functions.
+     */
+    class JSArray
+    {
+    public:
+      // Create empty Array
+        JSArray();
 
-  // Create Array from list of JSValues
-  JSArray(const std::initializer_list<JSValue>& values);
+        // Create Array from list of JSValues
+        JSArray( const std::initializer_list<JSValue>& values );
 
-  // Create Array from existing JSObjectRef (JavaScriptCore C API)
-  JSArray(JSObjectRef array_obj);
+        // Create Array from existing JSObjectRef (JavaScriptCore C API)
+        JSArray( JSObjectRef array_obj );
 
-  // Copy constructor (shallow copy, will point to same instance)
-  JSArray(const JSArray& other);
+        // Copy constructor (shallow copy, will point to same instance)
+        JSArray( const JSArray& other );
 
-  ~JSArray();
+        ~JSArray();
 
-  // Assignment (shallow assignment, will point to same instance)
-  JSArray& operator=(const JSArray& other);
+        // Assignment (shallow assignment, will point to same instance)
+        JSArray& operator=( const JSArray& other );
 
-  // Get number of elements in the Array
-  unsigned length();
+        // Get number of elements in the Array
+        unsigned length();
 
-  // Push an element to back of Array
-  void push(const JSValue& val);
+        // Push an element to back of Array
+        void push( const JSValue& val );
 
-  // Find the index (location) of a certain value, will return -1 if not found
-  int indexOf(const JSValue& val, int start = 0) const;
+        // Find the index (location) of a certain value, will return -1 if not found
+        int indexOf( const JSValue& val, int start = 0 ) const;
 
-  // Get a property by array index (numbering starts at 0)
-  JSPropertyValue operator[](unsigned idx) const;
+        // Get a property by array index (numbering starts at 0)
+        JSPropertyValue operator[]( unsigned idx ) const;
 
-  // Get the underlying JSObjectRef (JavaScriptCore C API)
-  operator JSObjectRef() const { return instance_; }
+        // Get the underlying JSObjectRef (JavaScriptCore C API)
+        operator JSObjectRef() const {
+            return instance_;
+        }
 
-protected:
-  JSArray(JSContextRef ctx, JSValueRef val);
+    protected:
+        JSArray( JSContextRef ctx, JSValueRef val );
 
-  JSContextRef ctx_;
-  JSObjectRef instance_;
-  friend class JSValue;
-};
+        JSContextRef ctx_;
+        JSObjectRef instance_;
+        friend class JSValue;
+    };
 
-/**
- * JSObject wrapper that automatically manages lifetime and provides
- * convenient access to properties.
- */
-class JSObject {
-public:
-  // Create empty Object
-  JSObject();
+    /**
+     * JSObject wrapper that automatically manages lifetime and provides
+     * convenient access to properties.
+     */
+    class JSObject
+    {
+    public:
+      // Create empty Object
+        JSObject();
 
-  // Create from existing JSObjectRef from JavaScriptCore C API
-  JSObject(JSObjectRef obj);
-  
-  // Copy constructor (shallow copy, will point to same instance)
-  JSObject(const JSObject& other);
+        // Create from existing JSObjectRef from JavaScriptCore C API
+        JSObject( JSObjectRef obj );
 
-  ~JSObject();
+        // Copy constructor (shallow copy, will point to same instance)
+        JSObject( const JSObject& other );
 
-  // Assignment (shallow assignment, will point to same instance)
-  JSObject& operator=(const JSObject& other);
+        ~JSObject();
 
-  // Get a property by name
-  JSPropertyValue operator[](JSString propertyName) const;
+        // Assignment (shallow assignment, will point to same instance)
+        JSObject& operator=( const JSObject& other );
 
-  // Check if a property exists
-  bool HasProperty(JSString propertyName) const;
+        // Get a property by name
+        JSPropertyValue operator[]( JSString propertyName ) const;
 
-  // Remove a property
-  bool DeleteProperty(JSString propertyName);
+        // Check if a property exists
+        bool HasProperty( JSString propertyName ) const;
 
-  // Get the underlying JSObjectRef (JavaScriptCore C API)
-  operator JSObjectRef() const { return instance_; }
+        // Remove a property
+        bool DeleteProperty( JSString propertyName );
 
-protected:
-  JSObject(JSContextRef ctx, JSValueRef val);
-  JSObject(JSContextRef ctx, JSObjectRef obj);
+        // Get the underlying JSObjectRef (JavaScriptCore C API)
+        operator JSObjectRef() const {
+            return instance_;
+        }
 
-  JSContextRef ctx_;
-  JSObjectRef instance_;
-  friend class JSValue;
-  friend class JSPropertyValue;
-};
+    protected:
+        JSObject( JSContextRef ctx, JSValueRef val );
+        JSObject( JSContextRef ctx, JSObjectRef obj );
 
-/**
-* JSFunction wrapper that automatically manages lifetime and provides
-* convenient function invocation operators.
-*/
-class JSFunction {
-public:
-  // Create an empty Function.
-  // NOTE: It is OKAY to create this without calling SetJSContext() first.
-  JSFunction();
+        JSContextRef ctx_;
+        JSObjectRef instance_;
+        friend class JSValue;
+        friend class JSPropertyValue;
+    };
 
-  // Copy constructor (shallow copy, will point to same instance)
-  JSFunction(const JSFunction& other);
+    /**
+    * JSFunction wrapper that automatically manages lifetime and provides
+    * convenient function invocation operators.
+    */
+    class JSFunction
+    {
+    public:
+      // Create an empty Function.
+      // NOTE: It is OKAY to create this without calling SetJSContext() first.
+        JSFunction();
 
-  ~JSFunction();
+        // Copy constructor (shallow copy, will point to same instance)
+        JSFunction( const JSFunction& other );
 
-  // Assignment (shallow assignment, will point to same instance)
-  JSFunction& operator=(const JSFunction& other);
+        ~JSFunction();
 
-  // Whether or not this is a valid, callable Function object.
-  bool IsValid() const;
+        // Assignment (shallow assignment, will point to same instance)
+        JSFunction& operator=( const JSFunction& other );
 
-  // Call function (using Global Object for 'this') and return the result.
-  JSValue operator()(const JSArgs& args);
+        // Whether or not this is a valid, callable Function object.
+        bool IsValid() const;
 
-  // Call function (with explicit object for 'this') and return the result
-  JSValue operator()(const JSObject& thisObject, const JSArgs& args);
+        // Call function (using Global Object for 'this') and return the result.
+        JSValue operator()( const JSArgs& args );
 
-  // Get the underlying JSObjectRef (JavaScriptCore C API)
-  operator JSObjectRef() const { return instance_; }
+        // Call function (with explicit object for 'this') and return the result
+        JSValue operator()( const JSObject& thisObject, const JSArgs& args );
 
-protected:
-  JSFunction(JSContextRef ctx, JSValueRef val);
+        // Get the underlying JSObjectRef (JavaScriptCore C API)
+        operator JSObjectRef() const {
+            return instance_;
+        }
 
-  JSContextRef ctx_;
-  JSObjectRef instance_;
-  friend class JSValue;  
-};
+    protected:
+        JSFunction( JSContextRef ctx, JSValueRef val );
 
-/**
- * Get the Global Object for the current JSContext.
- * In JavaScript, this would be equivalent to the "window" object.
- */
-JSObject JSGlobalObject();
+        JSContextRef ctx_;
+        JSObjectRef instance_;
+        friend class JSValue;
+    };
 
-/**
- * Evaluate a string of JavaScript and return a result.
- */
-JSValue JSEval(const JSString& str);
+    /**
+     * Get the Global Object for the current JSContext.
+     * In JavaScript, this would be equivalent to the "window" object.
+     */
+    JSObject JSGlobalObject();
+
+    /**
+     * Evaluate a string of JavaScript and return a result.
+     */
+    JSValue JSEval( const JSString& str );
 
 }  // namespace ultralight

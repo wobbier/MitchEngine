@@ -142,7 +142,7 @@ template <typename T>
 T ScriptInstance::GetFieldValue( const std::string& name )
 {
     void* value = nullptr;
-    if ( !GetFieldValueInternal( name, sFieldValueBuffer ) )
+    if( !GetFieldValueInternal( name, sFieldValueBuffer ) )
     {
         return T();
     }

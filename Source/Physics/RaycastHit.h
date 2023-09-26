@@ -3,10 +3,10 @@
 
 struct RaycastHit
 {
-	RaycastHit() = default;
-	Vector3 Position;
-	Vector3 Normal;
-	Line Ray;
+    RaycastHit() = default;
+    Vector3 Position;
+    Vector3 Normal;
+    Line Ray;
 
-	class Rigidbody* What = nullptr;
+    class Rigidbody* What = nullptr;
 };

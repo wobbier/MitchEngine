@@ -4,27 +4,27 @@
 #include <string>
 
 class FlyingCamera
-	: public Component<FlyingCamera>
+    : public Component<FlyingCamera>
 {
 public:
 
-	FlyingCamera();
-	~FlyingCamera();
+    FlyingCamera();
+    ~FlyingCamera();
 
-	// Separate init from construction code.
-	virtual void Init() final;
+    // Separate init from construction code.
+    virtual void Init() final;
 
-	float FlyingSpeed = 5.f;
+    float FlyingSpeed = 5.f;
 
-	float LookSensitivity = .15f;
-	float SpeedModifier = 100.f;
+    float LookSensitivity = .15f;
+    float SpeedModifier = 100.f;
 
 #if USING( ME_EDITOR )
-	virtual void OnEditorInspect() final;
+    virtual void OnEditorInspect() final;
 #endif
 
 private:
-	void OnSerialize(json& outJson) final;
-	void OnDeserialize(const json& inJson) final;
+    void OnSerialize( json& outJson ) final;
+    void OnDeserialize( const json& inJson ) final;
 };
-ME_REGISTER_COMPONENT_FOLDER(FlyingCamera, "Misc")
+ME_REGISTER_COMPONENT_FOLDER( FlyingCamera, "Misc" )

@@ -3,14 +3,14 @@
 #include "JsonResource.h"
 #include "File.h"
 
-JsonResource::JsonResource(const Path& InFilePath)
-	: Resource(InFilePath)
+JsonResource::JsonResource( const Path& InFilePath )
+    : Resource( InFilePath )
 {
-	Data = json::parse(File(InFilePath).Read());
+    Data = json::parse( File( InFilePath ).Read() );
 }
 
 const json& JsonResource::GetJson() const
 {
-	return Data;
+    return Data;
 }
 

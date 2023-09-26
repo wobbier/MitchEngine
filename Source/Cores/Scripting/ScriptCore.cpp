@@ -43,11 +43,11 @@ void ScriptCore::Update( const UpdateContext& inUpdateContext )
 {
     OPTICK_EVENT( "ScriptCore::Update" );
     auto& entities = GetEntities();
-    for ( auto& InEntity : entities )
+    for( auto& InEntity : entities )
     {
         auto& scriptComponent = InEntity.GetComponent<ScriptComponent>();
 
-        if ( scriptComponent.Instance )
+        if( scriptComponent.Instance )
         {
             scriptComponent.Instance->OnUpdate( inUpdateContext.GetDeltaTime() );
         }
@@ -62,7 +62,7 @@ void ScriptCore::LateUpdate( const UpdateContext& inUpdateContext )
 void ScriptCore::OnEntityAdded( Entity& NewEntity )
 {
     ScriptComponent& comp = NewEntity.GetComponent<ScriptComponent>();
-    if ( comp.Instance )
+    if( comp.Instance )
     {
         // could be possibly called before other entities are done
         comp.Instance->OnCreate();
@@ -86,7 +86,7 @@ void ScriptCore::OnEditorInspect()
     //
     //ScriptEngine::testClassInstance.InvokeFull("PrintFloatVar");
 
-    for ( auto& it : ScriptEngine::LoadedClasses )
+    for( auto& it : ScriptEngine::LoadedClasses )
     {
         ImGui::Text( "%s %s", it.Namespace.c_str(), it.Name.c_str() );
     }

@@ -3,39 +3,39 @@
 #include "Events/Event.h"
 
 class SaveSceneEvent
-	: public Event<SaveSceneEvent>
+    : public Event<SaveSceneEvent>
 {
 public:
-	bool SaveAs = false;
+    bool SaveAs = false;
 };
 
 class NewSceneEvent
-	: public Event<NewSceneEvent>
+    : public Event<NewSceneEvent>
 {
 public:
-	bool thing = false;
+    bool thing = false;
 };
 
 class LoadSceneEvent
-	: public Event<LoadSceneEvent>
+    : public Event<LoadSceneEvent>
 {
 public:
-	LoadSceneEvent()
-		: Event()
-	{
-	}
+    LoadSceneEvent()
+        : Event()
+    {
+    }
 
-	std::string Level;
+    std::string Level;
 };
 
 class SceneLoadedEvent
-	: public Event<SceneLoadedEvent>
+    : public Event<SceneLoadedEvent>
 {
 public:
-	SceneLoadedEvent()
-		: Event()
-	{
-	}
+    SceneLoadedEvent()
+        : Event()
+    {
+    }
 
-	class Scene* LoadedScene = nullptr;
+    class Scene* LoadedScene = nullptr;
 };

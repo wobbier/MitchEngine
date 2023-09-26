@@ -66,7 +66,7 @@ public:
 
     ME_HARDSTUCK( Transform )
 
-    void SetParent( Transform& NewParent );
+        void SetParent( Transform& NewParent );
     void RemoveChild( Transform* TargetTransform );
     Transform* GetChildByName( const std::string& inName );
     const std::vector<SharedPtr<Transform>>& GetChildren() const;

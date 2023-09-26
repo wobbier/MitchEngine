@@ -13,11 +13,11 @@ void EngineConfig::OnSave( json& outJson )
     window["Height"] = WindowSize.y;
 }
 
-void EngineConfig::OnLoad(const json& inJson)
+void EngineConfig::OnLoad( const json& inJson )
 {
-    if (inJson.contains("Window"))
+    if( inJson.contains( "Window" ) )
     {
-        const json& WindowConfig = GetJsonObject("Window");
+        const json& WindowConfig = GetJsonObject( "Window" );
 
         int WindowWidth = WindowConfig["Width"];
         int WindowHeight = WindowConfig["Height"];

@@ -17,96 +17,96 @@
 
 Input::Input()
 {
-	KeyboardState = SDL_GetKeyboardState(nullptr);
-	MouseState = SDL_GetMouseState(nullptr, nullptr);// use these params
+    KeyboardState = SDL_GetKeyboardState( nullptr );
+    MouseState = SDL_GetMouseState( nullptr, nullptr );// use these params
 
-	std::vector<TypeId> events;
-	events.push_back(MouseScrollEvent::GetEventId());
-	EventManager::GetInstance().RegisterReceiver(this, events);
+    std::vector<TypeId> events;
+    events.push_back( MouseScrollEvent::GetEventId() );
+    EventManager::GetInstance().RegisterReceiver( this, events );
 
-	PreviousKeyboardState = static_cast<const uint8_t*>(malloc(sizeof(uint8_t) * SDL_NUM_SCANCODES));
-	PostUpdate();
+    PreviousKeyboardState = static_cast<const uint8_t*>( malloc( sizeof( uint8_t ) * SDL_NUM_SCANCODES ) );
+    PostUpdate();
 }
 
-bool Input::OnEvent(const BaseEvent& evt)
+bool Input::OnEvent( const BaseEvent& evt )
 {
-	if (CaptureInput)
-	{
-		if (evt.GetEventId() == MouseScrollEvent::GetEventId())
-		{
-			const MouseScrollEvent& event = static_cast<const MouseScrollEvent&>(evt);
-			PreviousMouseScroll = MouseScroll;
-			MouseScroll = MouseScroll + event.Scroll;
-		}
-	}
-	return false;
+    if( CaptureInput )
+    {
+        if( evt.GetEventId() == MouseScrollEvent::GetEventId() )
+        {
+            const MouseScrollEvent& event = static_cast<const MouseScrollEvent&>( evt );
+            PreviousMouseScroll = MouseScroll;
+            MouseScroll = MouseScroll + event.Scroll;
+        }
+    }
+    return false;
 }
 
 void Input::Pause()
 {
-	CaptureInput = false;
+    CaptureInput = false;
 }
 
 void Input::Resume()
 {
-	CaptureInput = true;
-	SetMouseCapture(WantsToCaptureMouse);
+    CaptureInput = true;
+    SetMouseCapture( WantsToCaptureMouse );
 }
 
 void Input::Stop()
 {
-	RelativeMousePosition = Vector2();
-	//SDL_CaptureMouse(SDL_FALSE);
-	//SDL_SetRelativeMouseMode(SDL_FALSE);
-	//SDL_ShowCursor(SDL_ENABLE);
-	CaptureInput = false;
+    RelativeMousePosition = Vector2();
+    //SDL_CaptureMouse(SDL_FALSE);
+    //SDL_SetRelativeMouseMode(SDL_FALSE);
+    //SDL_ShowCursor(SDL_ENABLE);
+    CaptureInput = false;
 }
 
 void Input::Update()
 {
-	if (CaptureInput)
-	{
-		int mouseX = 0;
-		int mouseY = 0;
-		MouseState = SDL_GetMouseState(&mouseX, &mouseY);
-		MousePosition = Vector2(mouseX, mouseY);
-		int relativeMouse[2] = {0, 0};
-		SDL_GetRelativeMouseState(&relativeMouse[0], &relativeMouse[1]);
-		RelativeMousePosition = Vector2(relativeMouse[0], relativeMouse[1]);
-	}
+    if( CaptureInput )
+    {
+        int mouseX = 0;
+        int mouseY = 0;
+        MouseState = SDL_GetMouseState( &mouseX, &mouseY );
+        MousePosition = Vector2( mouseX, mouseY );
+        int relativeMouse[2] = { 0, 0 };
+        SDL_GetRelativeMouseState( &relativeMouse[0], &relativeMouse[1] );
+        RelativeMousePosition = Vector2( relativeMouse[0], relativeMouse[1] );
+    }
 }
 
 void Input::PostUpdate()
 {
-	if (CaptureInput)
-	{
-		PreviousKeyboardState = static_cast<const uint8_t*>(memcpy((void*)PreviousKeyboardState, (void*)KeyboardState, sizeof(uint8_t) * SDL_NUM_SCANCODES));
-	}
-	else
-	{
-		PreviousKeyboardState = static_cast<const uint8_t*>(memset((void*)PreviousKeyboardState, 0, sizeof(uint8_t) * SDL_NUM_SCANCODES));
-	}
-	PreviousMouseState = MouseState;
-	PreviousMouseScroll = MouseScroll;
+    if( CaptureInput )
+    {
+        PreviousKeyboardState = static_cast<const uint8_t*>( memcpy( (void*)PreviousKeyboardState, (void*)KeyboardState, sizeof( uint8_t ) * SDL_NUM_SCANCODES ) );
+    }
+    else
+    {
+        PreviousKeyboardState = static_cast<const uint8_t*>( memset( (void*)PreviousKeyboardState, 0, sizeof( uint8_t ) * SDL_NUM_SCANCODES ) );
+    }
+    PreviousMouseState = MouseState;
+    PreviousMouseScroll = MouseScroll;
 }
 
 #pragma endregion
 
 #pragma region KeyboardInput
 
-bool Input::IsKeyDown(KeyCode key)
+bool Input::IsKeyDown( KeyCode key )
 {
-	return CaptureInput && KeyboardState[(uint32_t)key];
+    return CaptureInput && KeyboardState[(uint32_t)key];
 }
 
-bool Input::WasKeyPressed(KeyCode key)
+bool Input::WasKeyPressed( KeyCode key )
 {
-	return CaptureInput && !PreviousKeyboardState[(uint32_t)key] && KeyboardState[(uint32_t)key];
+    return CaptureInput && !PreviousKeyboardState[(uint32_t)key] && KeyboardState[(uint32_t)key];
 }
 
-bool Input::WasKeyReleased(KeyCode key)
+bool Input::WasKeyReleased( KeyCode key )
 {
-	return CaptureInput && PreviousKeyboardState[(uint32_t)key] && !KeyboardState[(uint32_t)key];
+    return CaptureInput && PreviousKeyboardState[(uint32_t)key] && !KeyboardState[(uint32_t)key];
 }
 
 #pragma endregion
@@ -115,88 +115,88 @@ bool Input::WasKeyReleased(KeyCode key)
 
 Vector2 Input::GetMousePosition() const
 {
-	return MousePosition;
+    return MousePosition;
 }
 
 Vector2 Input::GetGlobalMousePosition() const
 {
-	// TODO: Cache this :/
-	int mouse_x_global, mouse_y_global;
-	SDL_GetGlobalMouseState(&mouse_x_global, &mouse_y_global);
-	return { mouse_x_global, mouse_y_global };
+    // TODO: Cache this :/
+    int mouse_x_global, mouse_y_global;
+    SDL_GetGlobalMouseState( &mouse_x_global, &mouse_y_global );
+    return { mouse_x_global, mouse_y_global };
 }
 
 Vector2 Input::GetRelativeMousePosition() const
 {
-	return RelativeMousePosition;
+    return RelativeMousePosition;
 }
 
-void Input::SetMousePosition(const Vector2& InPosition)
+void Input::SetMousePosition( const Vector2& InPosition )
 {
-	// this just needs to be redone generically, too lazy atm
-	if (CaptureInput)
-	{
+    // this just needs to be redone generically, too lazy atm
+    if( CaptureInput )
+    {
 #if USING( ME_EDITOR_WIN64 )
-		if (!GameWindow)
-		{
-			GameWindow = GetEngine().GetWindow();
-		}
-		auto win = static_cast<SDLWindow*>(GameWindow)->WindowHandle;
-		SDL_WarpMouseInWindow(win, GameWindow->GetSize().x / 2.f, GameWindow->GetSize().y / 2.f);
-		//Vector2 pos = Offset + InPosition;
-		//SetCursorPos(static_cast<int>(pos.x), static_cast<int>(pos.y));
+        if( !GameWindow )
+        {
+            GameWindow = GetEngine().GetWindow();
+        }
+        auto win = static_cast<SDLWindow*>( GameWindow )->WindowHandle;
+        SDL_WarpMouseInWindow( win, GameWindow->GetSize().x / 2.f, GameWindow->GetSize().y / 2.f );
+        //Vector2 pos = Offset + InPosition;
+        //SetCursorPos(static_cast<int>(pos.x), static_cast<int>(pos.y));
 #endif
-	}
+    }
 }
 
 Vector2 Input::GetMouseOffset()
 {
-	return Offset;
+    return Offset;
 }
 
 Vector2 Input::GetMouseScrollOffset()
 {
-	return MouseScroll;
+    return MouseScroll;
 }
 
 Vector2 Input::GetMouseScrollDelta()
 {
-	return MouseScroll - PreviousMouseScroll;
+    return MouseScroll - PreviousMouseScroll;
 }
 
-void Input::SetMouseCapture(bool Capture)
+void Input::SetMouseCapture( bool Capture )
 {
-	if (CaptureInput)
-	{
-		if (Capture)
-		{
-			SDL_SetRelativeMouseMode(SDL_TRUE);
-			//SDL_CaptureMouse(SDL_TRUE);
-			//SDL_ShowCursor(SDL_DISABLE);
-		}
-		else
-		{
-			SDL_SetRelativeMouseMode(SDL_FALSE);
-			//SDL_CaptureMouse(SDL_FALSE);
-			//SDL_ShowCursor(SDL_ENABLE);
-		}
-	}
-	WantsToCaptureMouse = Capture;
+    if( CaptureInput )
+    {
+        if( Capture )
+        {
+            SDL_SetRelativeMouseMode( SDL_TRUE );
+            //SDL_CaptureMouse(SDL_TRUE);
+            //SDL_ShowCursor(SDL_DISABLE);
+        }
+        else
+        {
+            SDL_SetRelativeMouseMode( SDL_FALSE );
+            //SDL_CaptureMouse(SDL_FALSE);
+            //SDL_ShowCursor(SDL_ENABLE);
+        }
+    }
+    WantsToCaptureMouse = Capture;
 }
 
-void Input::SetMouseOffset(const Vector2& InOffset)
+void Input::SetMouseOffset( const Vector2& InOffset )
 {
-	Offset = InOffset;
+    Offset = InOffset;
 }
 
-bool Input::IsMouseButtonDown(MouseButton mouseButton)
+bool Input::IsMouseButtonDown( MouseButton mouseButton )
 {
-	return MouseState & SDL_BUTTON((uint32_t)mouseButton);
+    return MouseState & SDL_BUTTON( (uint32_t)mouseButton );
 }
 
-bool Input::WasMouseButtonPressed(MouseButton mouseButton)
+bool Input::WasMouseButtonPressed( MouseButton mouseButton )
 {
-	return IsMouseButtonDown(mouseButton) && !(PreviousMouseState & SDL_BUTTON((uint32_t)mouseButton));
+    return IsMouseButtonDown( mouseButton ) && !( PreviousMouseState & SDL_BUTTON( (uint32_t)mouseButton ) );
 }
 
 #pragma endregion
