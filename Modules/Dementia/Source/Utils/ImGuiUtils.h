@@ -1,6 +1,7 @@
 #pragma once
 #include <bgfx/bgfx.h>
 #include <imgui.h>
+#include "Core/Assert.h"
 
 namespace ImGui
 {
@@ -73,6 +74,7 @@ namespace ImGui
         , const ImVec4& _tintCol = ImVec4( 1.0f, 1.0f, 1.0f, 1.0f )
     )
     {
+        ME_ASSERT_MSG( bgfx::isValid( _handle ), "lmao wtf");
         return ImageButton( _handle, IMGUI_FLAGS_ALPHA_BLEND, 0, _size, _uv0, _uv1, _framePadding, _bgCol, _tintCol );
     }
 

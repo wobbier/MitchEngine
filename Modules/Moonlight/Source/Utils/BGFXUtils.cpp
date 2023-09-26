@@ -7,7 +7,8 @@
 
 const bgfx::Memory* Moonlight::LoadMemory( const Path& filePath )
 {
-    if( bx::open( getDefaultReader(), filePath.FullPath.c_str() ) )
+    bx::Error* err = nullptr;
+    if( bx::open( getDefaultReader(), filePath.FullPath.c_str(), err ) )
     {
         uint32_t size = (uint32_t)bx::getSize( getDefaultReader() );
         const bgfx::Memory* mem = bgfx::alloc( size + 1 );
@@ -15,6 +16,11 @@ const bgfx::Memory* Moonlight::LoadMemory( const Path& filePath )
         bx::close( getDefaultReader() );
         mem->data[mem->size - 1] = '\0';
         return mem;
+    }
+
+    if( err && !err->isOk() )
+    {
+        YIKES_FMT( "[%s]: %s", filePath.GetLocalPathString().c_str(), err->getMessage().getPtr() );
     }
 
     //if (filePath.Exists)

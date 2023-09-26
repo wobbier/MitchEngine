@@ -41,6 +41,9 @@ MitchHub::MitchHub( Input* input, SDLWindow* window, ImGuiRenderer* renderer )
         vsIcon = ResourceCache::GetInstance().Get<Moonlight::Texture>( Path( "Assets/VS.png" ) );
         genIcon = ResourceCache::GetInstance().Get<Moonlight::Texture>( Path( "Assets/GEN.png" ) );
 
+        // TODO: Fix the HUB packaging
+        ME_ASSERT_MSG( genIcon || vsIcon || minimizeIcon || closeIcon || logo, "TODO: Missing asset for the HUB, probaly a packaging error" );
+
         ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
 
         ImVec4* colors = ImGui::GetStyle().Colors;
@@ -305,7 +308,7 @@ void MitchHub::Draw()
                 // 55AAFF 81 170 255
                 ImGui::PushStyleColor( ImGuiCol_Button, { 81.f / 255.f, 170.f / 255.f, 255.f / 255.f, 1.f } );
                 ImGui::SetCursorPos( { ImGui::GetWindowWidth() - 475.f, ImGui::GetWindowHeight() - 75.f } );
-                if ( ImGui::ImageButton( genIcon->TexHandle, { 168.f, 36.f } ) )
+                if ( genIcon && ImGui::ImageButton( genIcon->TexHandle, { 168.f, 36.f } ) )
                 {
 
                     PlatformUtils::SystemCall( Path( Cache.Projects[SelectedProjectIndex].ProjectPath.FullPath + std::string( "/Project/GenerateSolution.bat" ) ) );

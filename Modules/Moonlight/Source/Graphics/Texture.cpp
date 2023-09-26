@@ -281,7 +281,7 @@ void TextureResourceMetadata::Export()
     progArgs += FilePath.FullPath;
     progArgs += "\" -o \"" + FilePath.FullPath + ".dds\"" + exportType;
     // ./shaderc -f ../../../Assets/Shaders/vs_cubes.shader -o ../../../Assets/Shaders/dummy.bin --varyingdef ./varying.def.sc --platform windows -p vs_5_0 --type vertex
-
+    CLog::GetInstance().Log( CLog::LogType::Info, progArgs );
     PlatformUtils::SystemCall( optickPath, progArgs );
 #else
 

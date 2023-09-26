@@ -137,6 +137,7 @@ jobs:
             .build/${{matrix.buildconfig}}_${{matrix.configuration}}/Assets/Close.png
             .build/${{matrix.buildconfig}}_${{matrix.configuration}}/Assets/Minimize.png
             .build/${{matrix.buildconfig}}_${{matrix.configuration}}/Assets/VS.png
+            .build/${{matrix.buildconfig}}_${{matrix.configuration}}/Assets/GEN.png
             .build/${{matrix.buildconfig}}_${{matrix.configuration}}/Assets/LOGO.png
             .build/${{matrix.buildconfig}}_${{matrix.configuration}}/shaderc.exe
             .build/${{matrix.buildconfig}}_${{matrix.configuration}}/texturec.exe
