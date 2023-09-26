@@ -3,12 +3,12 @@
 #include "Cubemap.h"
 #include "CLog.h"
 
-Cubemap::Cubemap(const Path& InFilePath)
-	: Resource(InFilePath)
+Cubemap::Cubemap( const Path& InFilePath )
+    : Resource( InFilePath )
 {
 }
 
 Cubemap::~Cubemap()
 {
-	// TODO: Unload Cubemaps
+    // TODO: Unload Cubemaps
 }

@@ -2,25 +2,25 @@
 
 namespace Moonlight
 {
-	UnlitMaterial::UnlitMaterial()
-		: Moonlight::Material("UnlitMaterial", "Assets/Shaders/Unlit")
-	{
+    UnlitMaterial::UnlitMaterial()
+        : Moonlight::Material( "UnlitMaterial", "Assets/Shaders/Unlit" )
+    {
 
-	}
+    }
 
-	void UnlitMaterial::Init()
-	{
+    void UnlitMaterial::Init()
+    {
 
-	}
+    }
 
-	void UnlitMaterial::Use()
-	{
+    void UnlitMaterial::Use()
+    {
 
-	}
+    }
 
-	SharedPtr<Moonlight::Material> UnlitMaterial::CreateInstance()
-	{
-		return MakeShared<UnlitMaterial>(*this);
-	}
+    SharedPtr<Moonlight::Material> UnlitMaterial::CreateInstance()
+    {
+        return MakeShared<UnlitMaterial>( *this );
+    }
 
 }

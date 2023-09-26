@@ -5,65 +5,65 @@
 template<typename T>
 struct CommandCache
 {
-	unsigned int Push(const T& inCommand);
-	void Update(unsigned int Id, T& inCommand);
-	void Pop(unsigned int Id);
+    unsigned int Push( const T& inCommand );
+    void Update( unsigned int Id, T& inCommand );
+    void Pop( unsigned int Id );
 
-	T* Get(unsigned int Id);
+    T* Get( unsigned int Id );
 
-	std::vector<T> Commands;
-	std::queue<unsigned int> FreeIndicies;
+    std::vector<T> Commands;
+    std::queue<unsigned int> FreeIndicies;
 };
 
 template<typename T>
-unsigned int CommandCache<T>::Push(const T& inCommand)
+unsigned int CommandCache<T>::Push( const T& inCommand )
 {
-	unsigned int index = 0;
-	if (!FreeIndicies.empty())
-	{
-		index = FreeIndicies.front();
-		FreeIndicies.pop();
-		Commands[index] = std::move(inCommand);
-	}
-	else
-	{
-		Commands.push_back(std::move(inCommand));
-		index = static_cast<unsigned int>(Commands.size() - 1);
-	}
+    unsigned int index = 0;
+    if( !FreeIndicies.empty() )
+    {
+        index = FreeIndicies.front();
+        FreeIndicies.pop();
+        Commands[index] = std::move( inCommand );
+    }
+    else
+    {
+        Commands.push_back( std::move( inCommand ) );
+        index = static_cast<unsigned int>( Commands.size() - 1 );
+    }
 
-	return index;
+    return index;
 }
 
 template<typename T>
-void CommandCache<T>::Update(unsigned int Id, T& inCommand)
+void CommandCache<T>::Update( unsigned int Id, T& inCommand )
 {
-	if (Id >= Commands.size())
-	{
-		return;
-	}
+    if( Id >= Commands.size() )
+    {
+        return;
+    }
 
-	Commands[Id] = inCommand;
+    Commands[Id] = inCommand;
 }
 
 template<typename T>
-void CommandCache<T>::Pop(unsigned int Id)
+void CommandCache<T>::Pop( unsigned int Id )
 {
-	if (Id > Commands.size())
-	{
-		return;
-	}
+    if( Id > Commands.size() )
+    {
+        return;
+    }
 
-	FreeIndicies.push(Id);
-	Commands[Id] = T();
+    FreeIndicies.push( Id );
+    Commands[Id] = T();
 }
 
 template<typename T>
-T* CommandCache<T>::Get(unsigned int Id)
+T* CommandCache<T>::Get( unsigned int Id )
 {
-	if (Id >= Commands.size())
-	{
-		return nullptr;
-	}
+    if( Id >= Commands.size() )
+    {
+        return nullptr;
+    }
 
-	return &Commands[Id];
+    return &Commands[Id];
 }

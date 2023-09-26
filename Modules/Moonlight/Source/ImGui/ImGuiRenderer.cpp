@@ -83,7 +83,7 @@ void ImGuiRenderer::NewFrame( const Vector2& mousePosition, uint8_t mouseButton,
     ViewId = viewId;
 
     ImGuiIO& io = ImGui::GetIO();
-    if ( inputChar >= 0 )
+    if( inputChar >= 0 )
     {
         io.AddInputCharacter( inputChar );
     }
@@ -101,7 +101,7 @@ void ImGuiRenderer::EndFrame()
 {
     ImGui::Render();
 
-    if ( ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable )
+    if( ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable )
     {
         ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
 
@@ -109,7 +109,7 @@ void ImGuiRenderer::EndFrame()
         Render( ImGui::GetDrawData(), ViewId );
 
         ImGui::UpdatePlatformWindows();
-        for ( int i = 1; i < platform_io.Viewports.Size; i++ )
+        for( int i = 1; i < platform_io.Viewports.Size; i++ )
         {
             // Weird issue when creating / destroying windows, need to assign proper ids
             ImGuiViewport* viewport = platform_io.Viewports[i];
@@ -118,7 +118,7 @@ void ImGuiRenderer::EndFrame()
             //if ( viewport->Flags & ImGuiViewportFlags_Minimized )
             //    continue;
             uint16_t platformIndex = static_cast<uint16_t>( 254 - platform_io.Viewports.Size ) + i;
-            if ( platform_io.Platform_RenderWindow ) platform_io.Platform_RenderWindow( viewport, &platformIndex );
+            if( platform_io.Platform_RenderWindow ) platform_io.Platform_RenderWindow( viewport, &platformIndex );
         }
     }
     else
@@ -133,7 +133,7 @@ void ImGuiRenderer::Render( ImDrawData* drawData, bgfx::ViewId viewId )
     // Avoid rendering when minimized, scale coordinates for retina displays (screen coordinates != framebuffer coordinates)
     int fb_width = (int)( drawData->DisplaySize.x * drawData->FramebufferScale.x );
     int fb_height = (int)( drawData->DisplaySize.y * drawData->FramebufferScale.y );
-    if ( fb_width <= 0 || fb_height <= 0 ) return;
+    if( fb_width <= 0 || fb_height <= 0 ) return;
 
     bgfx::setViewName( viewId, "ImGui" );
     bgfx::setViewMode( viewId, bgfx::ViewMode::Sequential );
@@ -156,7 +156,7 @@ void ImGuiRenderer::Render( ImDrawData* drawData, bgfx::ViewId viewId )
     const ImVec2 clipScale = drawData->FramebufferScale; // (1,1) unless using retina display which are often (2,2)
 
     // Render command lists
-    for ( int32_t ii = 0, num = drawData->CmdListsCount; ii < num; ++ii )
+    for( int32_t ii = 0, num = drawData->CmdListsCount; ii < num; ++ii )
     {
         OPTICK_EVENT( "ImGuiRenderer::CommandList", Optick::Category::Rendering );
         bgfx::TransientVertexBuffer tvb;
@@ -166,7 +166,7 @@ void ImGuiRenderer::Render( ImDrawData* drawData, bgfx::ViewId viewId )
         uint32_t numVertices = (uint32_t)drawList->VtxBuffer.size();
         uint32_t numIndices = (uint32_t)drawList->IdxBuffer.size();
 
-        if ( !Moonlight::CheckAvailTransientBuffers( numVertices, Layout, numIndices ) )
+        if( !Moonlight::CheckAvailTransientBuffers( numVertices, Layout, numIndices ) )
         {
             // not enough space in transient buffer just quit drawing the rest...
             break;
@@ -183,14 +183,14 @@ void ImGuiRenderer::Render( ImDrawData* drawData, bgfx::ViewId viewId )
 
         bgfx::Encoder* encoder = bgfx::begin();
 
-        for ( const ImDrawCmd* cmd = drawList->CmdBuffer.begin(), *cmdEnd = drawList->CmdBuffer.end(); cmd != cmdEnd; ++cmd )
+        for( const ImDrawCmd* cmd = drawList->CmdBuffer.begin(), *cmdEnd = drawList->CmdBuffer.end(); cmd != cmdEnd; ++cmd )
         {
             OPTICK_EVENT( "ImGuiRenderer::Command", Optick::Category::Rendering );
-            if ( cmd->UserCallback )
+            if( cmd->UserCallback )
             {
                 cmd->UserCallback( drawList, cmd );
             }
-            else if ( cmd->ElemCount != 0 )
+            else if( cmd->ElemCount != 0 )
             {
                 uint64_t state = 0
                     | BGFX_STATE_WRITE_RGB
@@ -201,15 +201,21 @@ void ImGuiRenderer::Render( ImDrawData* drawData, bgfx::ViewId viewId )
                 bgfx::TextureHandle th = mTexture;
                 bgfx::ProgramHandle program = Program;
 
-                if ( cmd->TextureId )
+                if( cmd->TextureId )
                 {
-                    union { ImTextureID ptr; struct { bgfx::TextureHandle handle; uint8_t flags; uint8_t mip; } s; } texture = { cmd->TextureId };
+                    union
+                    {
+                        ImTextureID ptr; struct
+                        {
+                            bgfx::TextureHandle handle; uint8_t flags; uint8_t mip;
+                        } s;
+                    } texture = { cmd->TextureId };
                     state |= 0 != ( IMGUI_FLAGS_ALPHA_BLEND & texture.s.flags )
                         ? BGFX_STATE_BLEND_FUNC( BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_INV_SRC_ALPHA )
                         : BGFX_STATE_NONE
                         ;
                     th = texture.s.handle;
-                    if ( 0 != texture.s.mip )
+                    if( 0 != texture.s.mip )
                     {
                         const float lodEnabled[4] = { static_cast<float>( texture.s.mip ), 1.f, 0.f, 0.f };
                         bgfx::setUniform( ImageLODEnabled, lodEnabled );
@@ -228,7 +234,7 @@ void ImGuiRenderer::Render( ImDrawData* drawData, bgfx::ViewId viewId )
                 clipRect.z = ( cmd->ClipRect.z - clipPos.x ) * clipScale.x;
                 clipRect.w = ( cmd->ClipRect.w - clipPos.y ) * clipScale.y;
 
-                if ( clipRect.x < fb_width
+                if( clipRect.x < fb_width
                     && clipRect.y < fb_height
                     && clipRect.z >= 0.0f
                     && clipRect.w >= 0.0f )

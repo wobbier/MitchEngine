@@ -6,23 +6,27 @@
 
 namespace Moonlight
 {
-	class ShaderCommand
-	{
-		friend class BGFXRenderer;
-	public:
-		ShaderCommand();
+    class ShaderCommand
+    {
+        friend class BGFXRenderer;
+    public:
+        ShaderCommand();
 
-		// Constructor generates the shader on the fly
-		ShaderCommand(const std::string& InShaderFile);
-		ShaderCommand(const std::string& InVertexShaderPath, const std::string& InFragShaderPath);
-		~ShaderCommand();
+        // Constructor generates the shader on the fly
+        ShaderCommand( const std::string& InShaderFile );
+        ShaderCommand( const std::string& InVertexShaderPath, const std::string& InFragShaderPath );
+        ~ShaderCommand();
 
-        const bgfx::ProgramHandle& GetProgram() const { return Program; }
+        const bgfx::ProgramHandle& GetProgram() const {
+            return Program;
+        }
 
-		const bool IsLoaded() const { return isLoaded; };
+        const bool IsLoaded() const {
+            return isLoaded;
+        };
 
-	private:
-		bgfx::ProgramHandle Program;
-		bool isLoaded = false;
-	};
+    private:
+        bgfx::ProgramHandle Program;
+        bool isLoaded = false;
+    };
 }

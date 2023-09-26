@@ -7,31 +7,31 @@
 
 namespace Moonlight
 {
-	MeshData::MeshData(std::vector<PosNormTexTanBiVertex> inVerticies, std::vector<uint16_t> inIndices, SharedPtr<Moonlight::Material> inMaterial)
-		: Vertices(inVerticies)
-		, Indices(inIndices)
-		, m_indexCount(static_cast<unsigned int>(Indices.size()))
-		, MeshMaterial(inMaterial)
-	{
-		InitMesh();
-	}
+    MeshData::MeshData( std::vector<PosNormTexTanBiVertex> inVerticies, std::vector<uint16_t> inIndices, SharedPtr<Moonlight::Material> inMaterial )
+        : Vertices( inVerticies )
+        , Indices( inIndices )
+        , m_indexCount( static_cast<unsigned int>( Indices.size() ) )
+        , MeshMaterial( inMaterial )
+    {
+        InitMesh();
+    }
 
-	MeshData::~MeshData()
-	{
-		bgfx::destroy(m_vbh);
-		bgfx::destroy(m_ibh);
-	}
+    MeshData::~MeshData()
+    {
+        bgfx::destroy( m_vbh );
+        bgfx::destroy( m_ibh );
+    }
 
-	void MeshData::InitMesh()
-	{
-		m_vbh = bgfx::createVertexBuffer(bgfx::makeRef(Vertices.data(), sizeof(Moonlight::PosNormTexTanBiVertex) * static_cast<uint16_t>(Vertices.size())), Moonlight::PosNormTexTanBiVertex::ms_layout);
-		m_ibh = bgfx::createIndexBuffer(bgfx::makeRef(Indices.data(), sizeof(uint16_t) * static_cast<uint16_t>(Indices.size())));
-	}
+    void MeshData::InitMesh()
+    {
+        m_vbh = bgfx::createVertexBuffer( bgfx::makeRef( Vertices.data(), sizeof( Moonlight::PosNormTexTanBiVertex ) * static_cast<uint16_t>( Vertices.size() ) ), Moonlight::PosNormTexTanBiVertex::ms_layout );
+        m_ibh = bgfx::createIndexBuffer( bgfx::makeRef( Indices.data(), sizeof( uint16_t ) * static_cast<uint16_t>( Indices.size() ) ) );
+    }
 
-	void MeshData::Draw(SharedPtr<Material> inMaterial)
-	{
+    void MeshData::Draw( SharedPtr<Material> inMaterial )
+    {
 
-	}
+    }
 
 //	void MeshData::Draw(SharedPtr<Material> mat, ID3D11DeviceContext* context, bool depthOnly)
 //	{
