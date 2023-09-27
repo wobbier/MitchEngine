@@ -1,30 +1,16 @@
 #include "Config.h"
 
-Config::Config( const Path& ConfigPath )
-    : ConfigFile( ConfigPath )
+ConfigFile::ConfigFile( const Path& ConfigPath )
+    : m_configFile( ConfigPath )
 {
-    const std::string& configData = ConfigFile.Read();
-    if( configData.empty() )
-    {
-        YIKES( "[Config] Empty File: " + ConfigFile.FilePath.GetLocalPathString() );
-        return;
-    }
-
-    Root = json::parse( configData );
-    OnLoad( Root );
-    if( Root.is_null() )
-    {
-        YIKES( "Failed to parse config: " + ConfigFile.FilePath.GetLocalPathString() );
-        return;
-    }
-
+    Load();
 }
 
-Config::~Config()
+ConfigFile::~ConfigFile()
 {
 }
 
-std::string Config::GetValue( const std::string& value )
+std::string ConfigFile::GetValue( const std::string& value )
 {
     if( Root.contains( value ) )
     {
@@ -33,7 +19,7 @@ std::string Config::GetValue( const std::string& value )
     return "";
 }
 
-const json& Config::GetJsonObject( const std::string& value )
+const json& ConfigFile::GetJsonObject( const std::string& value )
 {
     if( Root.contains( value ) )
     {
@@ -42,13 +28,33 @@ const json& Config::GetJsonObject( const std::string& value )
     return Root;
 }
 
-void Config::SetValue( const std::string& key, const std::string& newVal )
+void ConfigFile::SetValue( const std::string& key, const std::string& newVal )
 {
     Root[key] = newVal;
 }
 
-void Config::Save()
+void ConfigFile::Save()
 {
     OnSave( Root );
-    ConfigFile.Write( Root.dump( 4 ) );
+    m_configFile.Write( Root.dump( 4 ) );
+}
+
+void ConfigFile::Load()
+{
+    const std::string& configData = m_configFile.Read();
+    if( configData.empty() )
+    {
+        YIKES( "[Config] Empty File: " + m_configFile.FilePath.GetLocalPathString() );
+        return;
+    }
+
+    Root = json::parse( configData );
+
+    if( Root.is_null() )
+    {
+        YIKES( "Failed to parse config: " + m_configFile.FilePath.GetLocalPathString() );
+        return;
+    }
+
+    OnLoadConfig( Root );
 }

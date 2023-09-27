@@ -262,4 +262,8 @@ void ModelResourceMetadata::OnEditorInspect()
     ImGui::Checkbox( "Model Resource Test", &isChecked );
 }
 
+void ModelResourceMetadata::Export()
+{
+}
+
 #endif

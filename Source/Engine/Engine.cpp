@@ -55,7 +55,6 @@ Engine::Engine()
 
 Engine::~Engine()
 {
-    delete engineConfig;
 }
 
 extern bool ImGui_ImplSDL2_InitForD3D( SDL_Window* window );
@@ -112,9 +111,9 @@ void Engine::Init( Game* game )
     };
 
 #if USING( ME_PLATFORM_WIN64 )
-    engineConfig = new EngineConfig( engineCfg );
-    engineConfig->OnLoad( engineConfig->Root );
-    GameWindow = new SDLWindow( engineConfig->GetValue( "Title" ), ResizeFunc, 500, 300, engineConfig->WindowSize );
+    engineConfig = EngineConfig( engineCfg );
+    engineConfig.OnLoadConfig( engineConfig.Root );
+    GameWindow = new SDLWindow( engineConfig.GetValue( "Title" ), ResizeFunc, 500, 300, engineConfig.WindowSize );
 #endif
 
 #if USING( ME_PLATFORM_MACOS )
@@ -374,7 +373,7 @@ void Engine::Run()
         ResourceCache::GetInstance().Dump();
         //Sleep(1);
     }
-    engineConfig->Save();
+    engineConfig.Save();
 }
 
 bool Engine::OnEvent( const BaseEvent& evt )
@@ -424,9 +423,9 @@ Game* Engine::GetGame() const
     return m_game;
 }
 
-EngineConfig& Engine::GetConfig() const
+EngineConfig& Engine::GetConfig()
 {
-    return *engineConfig;
+    return engineConfig;
 }
 
 Input& Engine::GetInput()

@@ -3,12 +3,12 @@
 #include <File.h>
 #include <JSON.h>
 
-class Config
+class ConfigFile
 {
 public:
-    Config() = default;
-    explicit Config( const Path& ConfigPath );
-    virtual ~Config();
+    ConfigFile() = default;
+    explicit ConfigFile( const Path& ConfigPath );
+    virtual ~ConfigFile();
 
     std::string GetValue( const std::string& value );
     const json& GetJsonObject( const std::string& value );
@@ -16,12 +16,13 @@ public:
     void SetValue( const std::string& key, const std::string& newVal );
 
     void Save();
+    void Load();
 
     virtual void OnSave( json& outJson ) {};
-    virtual void OnLoad( const json& outJson ) {};
+    virtual void OnLoadConfig( const json& outJson ) {};
 
     json Root;
 
 protected:
-    File ConfigFile;
+    File m_configFile;
 };

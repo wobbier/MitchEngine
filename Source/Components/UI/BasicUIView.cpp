@@ -82,6 +82,7 @@ void BasicUIView::PlaySound( const ultralight::JSObject& thisObject, const ultra
     ultralight::String str = args[0].ToString();
     std::string str2( str.utf8().data() );
     PlayAudioEvent evt( str2 );
+    evt.Callback = m_playAudioCallback;
     evt.Fire();
 }
 

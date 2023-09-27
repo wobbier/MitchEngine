@@ -230,7 +230,6 @@ void AudioResourceMetadata::OnDeserialize( const json& inJson )
 
 void AudioResourceMetadata::Export()
 {
-    MetaBase::Export();
 }
 
 void AudioResourceMetadata::OnEditorInspect()

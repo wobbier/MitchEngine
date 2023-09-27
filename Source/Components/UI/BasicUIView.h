@@ -7,6 +7,7 @@
 #include "Ultralight/Listener.h"
 #include "UI/JSHelpers.h"
 #include "Ultralight/View.h"
+#include "Components/Audio/AudioSource.h"
 
 class BasicUIView
     : public Component<BasicUIView>
@@ -41,6 +42,7 @@ protected:
     bool IsInitialized = false;
     size_t Index;
     File SourceFile;
+    std::function<void( SharedPtr<AudioSource> )> m_playAudioCallback = nullptr;
 
     void PlaySound( const ultralight::JSObject& thisObject, const ultralight::JSArgs& args );
 private:

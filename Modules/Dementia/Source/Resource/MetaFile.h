@@ -21,7 +21,7 @@ struct MetaBase
     void Serialize( json& outJson );
     void Deserialize( const json& inJson );
 
-    virtual void Export() {	}
+    virtual void Export() = 0;
 
     virtual std::string GetExtension2() const = 0;
 

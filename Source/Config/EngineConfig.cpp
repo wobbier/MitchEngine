@@ -2,7 +2,7 @@
 #include "EngineConfig.h"
 
 EngineConfig::EngineConfig( const Path& inPath )
-    : Config( inPath )
+    : ConfigFile( inPath )
 {
 }
 
@@ -13,7 +13,7 @@ void EngineConfig::OnSave( json& outJson )
     window["Height"] = WindowSize.y;
 }
 
-void EngineConfig::OnLoad( const json& inJson )
+void EngineConfig::OnLoadConfig( const json& inJson )
 {
     if( inJson.contains( "Window" ) )
     {

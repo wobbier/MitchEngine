@@ -57,7 +57,7 @@ public:
 
     Game* GetGame() const;
 
-    EngineConfig& GetConfig() const;
+    EngineConfig& GetConfig();
     Input& GetInput();
 
     JobEngine& GetJobEngine();
@@ -77,7 +77,7 @@ private:
     std::shared_ptr<World> GameWorld;
     bool Running = false;
     IWindow* GameWindow = nullptr;
-    class EngineConfig* engineConfig = nullptr;
+    EngineConfig engineConfig;
     Game* m_game = nullptr;
     float AccumulatedTime = 0.0f;
     float FrameTime = 0.0f;

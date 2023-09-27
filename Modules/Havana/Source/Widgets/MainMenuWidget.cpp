@@ -13,6 +13,7 @@
 #include <Events/HavanaEvents.h>
 #include <Window/SDLWindow.h>
 #include "UI/Colors.h"
+#include "Config.h"
 
 #if USING( ME_EDITOR )
 

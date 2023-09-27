@@ -3,14 +3,15 @@
 #include <stdio.h>
 
 class EngineConfig
-    : public Config
+    : public ConfigFile
 {
 public:
+    EngineConfig() = default;
     EngineConfig( const Path& inPath );
 
     virtual void OnSave( json& outJson ) final;
 
-    virtual void OnLoad( const json& inJson ) final;
+    virtual void OnLoadConfig( const json& inJson ) final;
 
     Vector2 WindowSize = { 1920.f, 720.f };
 };
