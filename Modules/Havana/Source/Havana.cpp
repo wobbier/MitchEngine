@@ -36,6 +36,8 @@
 #include "UI/Colors.h"
 #include <Utils/EditorConfig.h>
 #include <Window/PlatformWindowHooks.h>
+#include "HavanaWidget.h"
+#include "Editor/WidgetRegistry.h"
 
 static SDL_Cursor* g_imgui_to_sdl_cursor[ImGuiMouseCursor_COUNT];
 
@@ -218,18 +220,21 @@ void Havana::InitUI()
 	//m_engine->GetInput().Stop();
 	//GetInput().GetMouse().SetWindow(GetActiveWindow());
 	ImGui::InitHooks((SDLWindow*)m_engine->GetWindow(), Renderer->GetImGuiRenderer());
-	MainMenu->Init();
-	LogPanel->Init();
-	ResourceMonitor->Init();
-	MainSceneView->Init();
-	GameSceneView->Init();
-	SceneHierarchy->Init();
-	PropertiesView->Init();
-	AssetPreview->Init();
-	AssetBrowser->Init();
+	//MainMenu->Init();
+	//LogPanel->Init();
+	//ResourceMonitor->Init();
+	//MainSceneView->Init();
+	//GameSceneView->Init();
+	//SceneHierarchy->Init();
+	//PropertiesView->Init();
+	//AssetPreview->Init();
+	//AssetBrowser->Init();
+
+	auto registry = GetWidgetRegistry();
 
 	for (auto i : RegisteredWidgets)//EditorConfig::GetInstance().PanelVisibility)
 	{
+		i->Init();
 		auto& panelData = EditorConfig::GetInstance().PanelVisibility;
 		if (panelData.find(i->Name) != panelData.end())
 		{
@@ -239,6 +244,13 @@ void Havana::InitUI()
 		{
 			panelData[i->Name] = { i->IsOpen };
 		}
+	}
+
+	for (auto it : registry )
+	{
+		auto customWidget = it.second.CreateFunc();
+		CustomRegisteredWidgets.push_back( customWidget );
+		customWidget->Init();
 	}
 
 	Input& gameInput = GetEngine().GetInput();
@@ -255,7 +267,7 @@ void Havana::NewFrame()
 
     {
         OPTICK_EVENT( "MainMenu", Optick::Category::UI );
-        MainMenu->SetData( &RegisteredWidgets, m_app );
+        MainMenu->SetData( &RegisteredWidgets, &CustomRegisteredWidgets, m_app );
         MainMenu->Update();
         MainMenu->Render();
     }
@@ -375,6 +387,17 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 		Vector2 position(pos.x + 6.f, pos.y + ImGui::GetMainViewport()->Size.y - (static_cast<float>(FrameProfile::kMinProfilerSize) * 2.f));
 
 		FrameProfile::GetInstance().Render(position, size);
+	}
+
+	// Custom User Widgets
+	{
+        for( auto customWidget : CustomRegisteredWidgets )
+        {
+            if( customWidget->IsOpen )
+            {
+                customWidget->Render();
+            }
+        }
 	}
 
 	//SDL_Cursor* cursor = g_imgui_to_sdl_cursor[ImGui::GetMouseCursor()];

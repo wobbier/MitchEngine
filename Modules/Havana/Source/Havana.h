@@ -72,7 +72,8 @@ private:
 	SharedPtr<AssetPreviewWidget> AssetPreview;
 	SharedPtr<AssetBrowserWidget> AssetBrowser;
 
-	std::vector<SharedPtr<HavanaWidget>> RegisteredWidgets;
+    std::vector<SharedPtr<HavanaWidget>> RegisteredWidgets;
+    std::vector<SharedPtr<HavanaWidget>> CustomRegisteredWidgets;
 };
 
 #endif

@@ -61,9 +61,10 @@ void MainMenuWidget::Destroy()
     Icons.clear();
 }
 
-void MainMenuWidget::SetData( std::vector<SharedPtr<HavanaWidget>>* widgetList, EditorApp* editorApp )
+void MainMenuWidget::SetData( std::vector<SharedPtr<HavanaWidget>>* widgetList, std::vector<SharedPtr<HavanaWidget>>* customWidgetList, EditorApp* editorApp )
 {
     WidgetList = widgetList;
+    CustomWidgetList = customWidgetList;
     App = editorApp;
 }
 
@@ -199,6 +200,20 @@ void MainMenuWidget::Render()
 
         if( ImGui::BeginMenu( "View" ) )
         {
+            if( ImGui::BeginMenu( "Custom" ) )
+            {
+                if( CustomWidgetList )
+                {
+                    std::vector<SharedPtr<HavanaWidget>>& list = *CustomWidgetList;
+                    for( auto& i : list )
+                    {
+                        if( i.get() != this && ImGui::MenuItem( i->Name.c_str(), i->Hotkey.c_str(), &i->IsOpen ) )
+                        {
+                        }
+                    }
+                }
+                ImGui::EndMenu();
+            }
             if( WidgetList )
             {
                 std::vector<SharedPtr<HavanaWidget>>& list = *WidgetList;

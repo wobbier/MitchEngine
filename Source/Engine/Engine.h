@@ -84,7 +84,7 @@ private:
     bool m_isInitialized = false;
     ME_SINGLETON_DEFINITION( Engine )
 
-        BGFXRenderer* NewRenderer = nullptr;
+    BGFXRenderer* NewRenderer = nullptr;
 
     JobEngine newJobSystem;
 
