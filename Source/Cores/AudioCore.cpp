@@ -63,7 +63,7 @@ void AudioCore::InitComponent( AudioSource& audioSource )
         SharedPtr<Sound> soundResource = ResourceCache::GetInstance().Get<Sound>( audioSource.FilePath, system );
         if( !soundResource )
         {
-            YIKES( "Failed to load sound" );
+            YIKES_FMT( "Failed to load sound: %s", audioSource.FilePath.GetLocalPathString().c_str() );
             audioSource.IsInitialized = true;
             return;
         }
