@@ -22,6 +22,7 @@ Input::Input()
 
     std::vector<TypeId> events;
     events.push_back( MouseScrollEvent::GetEventId() );
+    events.push_back( KeyPressEvent::GetEventId() );
     EventManager::GetInstance().RegisterReceiver( this, events );
 
     PreviousKeyboardState = static_cast<const uint8_t*>( malloc( sizeof( uint8_t ) * SDL_NUM_SCANCODES ) );
@@ -38,7 +39,13 @@ bool Input::OnEvent( const BaseEvent& evt )
             PreviousMouseScroll = MouseScroll;
             MouseScroll = MouseScroll + event.Scroll;
         }
+        if( evt.GetEventId() == KeyPressEvent::GetEventId() )
+        {
+            const KeyPressEvent& event = static_cast<const KeyPressEvent&>( evt );
+            LastKeyPressed = (KeyCode)event.Key;
+        }
     }
+    
     return false;
 }
 
@@ -162,6 +169,16 @@ Vector2 Input::GetMouseScrollOffset()
 Vector2 Input::GetMouseScrollDelta()
 {
     return MouseScroll - PreviousMouseScroll;
+}
+
+const char* Input::GetKeyCodeName( KeyCode inKey )
+{
+    return SDL_GetScancodeName( (SDL_Scancode)inKey );
+}
+
+KeyCode Input::GetLastKeyPressed()
+{
+    return LastKeyPressed;
 }
 
 void Input::SetMouseCapture( bool Capture )

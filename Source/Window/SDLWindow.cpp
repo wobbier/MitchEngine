@@ -749,6 +749,13 @@ void SDLWindow::ParseMessageQueue()
             break;
         }
 
+        case SDL_KEYDOWN:
+        {
+            KeyPressEvent evt( event.key.keysym.scancode );
+            evt.Fire();
+            break;
+        }
+
         case SDL_MOUSEWHEEL:
         {
             MouseScrollEvent evt( static_cast<float>( event.wheel.x ), static_cast<float>( event.wheel.y ) );

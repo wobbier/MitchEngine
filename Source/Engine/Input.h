@@ -21,6 +21,21 @@ public:
     Vector2 Scroll;
 };
 
+class KeyPressEvent
+    : public Event<KeyPressEvent>
+{
+public:
+    KeyPressEvent() = default;
+
+    KeyPressEvent( uint32_t inKey )
+        : Event()
+        , Key( inKey )
+    {
+    }
+
+    uint32_t Key;
+};
+
 enum class MouseButton : uint32_t
 {
     Left = SDL_BUTTON_LEFT,
@@ -429,6 +444,11 @@ public:
     Vector2 GetMouseScrollOffset();
     Vector2 GetMouseScrollDelta();
 
+    const char* GetKeyCodeName( KeyCode inKey );
+
+    // I hate this
+    KeyCode GetLastKeyPressed();
+
     void SetMouseCapture( bool Capture );
     void SetMouseOffset( const Vector2& InOffset );
 
@@ -457,5 +477,6 @@ private:
     uint32_t MouseState = 0;
     const uint8_t* PreviousKeyboardState = nullptr;
     uint32_t PreviousMouseState = 0;
+    KeyCode LastKeyPressed = (KeyCode)SDL_NUM_SCANCODES;
     IWindow* GameWindow = nullptr;
 };

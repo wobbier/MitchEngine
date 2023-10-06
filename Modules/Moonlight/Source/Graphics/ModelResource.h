@@ -50,10 +50,9 @@ struct ModelResourceMetadata
 
 #if USING( ME_EDITOR )
     virtual void OnEditorInspect() final;
-#endif
 
     void Export() override;
-
+#endif
 };
 
 ME_REGISTER_METADATA( ".fbx", ModelResourceMetadata );
