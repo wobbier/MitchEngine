@@ -18,6 +18,8 @@ public:
     void Save();
     void Load();
 
+    void Clear();
+
     virtual void OnSave( json& outJson ) {};
     virtual void OnLoadConfig( const json& outJson ) {};
 

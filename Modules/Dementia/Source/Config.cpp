@@ -58,3 +58,8 @@ void ConfigFile::Load()
 
     OnLoadConfig( Root );
 }
+
+void ConfigFile::Clear()
+{
+    Root.clear();
+}

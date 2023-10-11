@@ -50,6 +50,26 @@ void AudioSource::Play( bool ShouldLoop )
 #endif
 }
 
+void AudioSource::Pause()
+{
+#if USING( ME_FMOD )
+    if( SoundInstance )
+    {
+        ChannelHandle->setPaused( true );
+    }
+#endif
+}
+
+void AudioSource::Resume()
+{
+#if USING( ME_FMOD )
+    if( SoundInstance )
+    {
+        ChannelHandle->setPaused( false );
+    }
+#endif
+}
+
 void AudioSource::Stop( bool immediate )
 {
 #if USING( ME_FMOD )
@@ -65,6 +85,16 @@ bool AudioSource::IsPlaying() const
 #if USING( ME_FMOD )
     bool isPlaying;
     return ( ChannelHandle && ChannelHandle->isPlaying( &isPlaying ) == FMOD_OK && isPlaying );
+#else
+    return false;
+#endif
+}
+
+bool AudioSource::IsPaused() const
+{
+#if USING( ME_FMOD )
+    bool isPaused;
+    return ( ChannelHandle && ChannelHandle->getPaused( &isPaused ) == FMOD_OK && isPaused );
 #else
     return false;
 #endif

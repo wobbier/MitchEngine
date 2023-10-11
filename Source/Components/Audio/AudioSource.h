@@ -21,10 +21,13 @@ public:
     AudioSource( const std::string& InFilePath );
 
     void Play( const bool ShouldLoop = false );
+    void Pause();
+    void Resume();
     void Stop( bool immediate = true );
     bool Preload = false;
 
     bool IsPlaying() const;
+    bool IsPaused() const;
 
     unsigned int GetLength();
     unsigned int GetPositionMs();
