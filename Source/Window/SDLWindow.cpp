@@ -4,6 +4,7 @@
 #include "CLog.h"
 #include "Engine/Input.h"
 #include "optick.h"
+#include "Events/PlatformEvents.h"
 
 #define RESIZE_BORDER 10
 SDL_HitTestResult HitTestCallback( SDL_Window* window, const SDL_Point* area, void* data )
@@ -69,7 +70,9 @@ SDLWindow::SDLWindow( const std::string& title, std::function<void( const Vector
     : ResizeCB( resizeFunc )
 {
     SDL_Init( SDL_INIT_EVERYTHING );
-    WindowHandle = SDL_CreateWindow( title.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_UNDEFINED, static_cast<int>( windowSize.x ), static_cast<int>( windowSize.y ), SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE );
+    int xPos = ( X == 0 ) ? SDL_WINDOWPOS_CENTERED : X;
+    int yPos = ( Y == 0 ) ? SDL_WINDOWPOS_UNDEFINED : Y;
+    WindowHandle = SDL_CreateWindow( title.c_str(), xPos, yPos, static_cast<int>( windowSize.x ), static_cast<int>( windowSize.y ), SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE );
 
     if( WindowHandle == nullptr ) {
         printf( "Window could not be created. SDL_Error: %s\n", SDL_GetError() );
@@ -892,11 +895,17 @@ void SDLWindow::HandleWindowEvent( const SDL_WindowEvent& event )
         //SDL_Log("Window %d exposed", event.windowID);
         break;
     case SDL_WINDOWEVENT_MOVED:
-        //SDL_Log("Window %d moved to %d,%d",
-        //	event.windowID, event.data1,
-        //	event.data2);
+    {
+        SDL_Log( "Window %d moved to %d,%d",
+            event.windowID, event.data1,
+            event.data2 );
+        WindowMovedEvent evt;
+        evt.NewPosition = { event.data1, event.data2 };
+        evt.Fire();
         break;
+    }
     case SDL_WINDOWEVENT_RESIZED:
+        // Remove this CB
         ResizeCB( GetSize() );
         SDL_Log( "Window %d resized to %dx%d",
             event.windowID, event.data1,

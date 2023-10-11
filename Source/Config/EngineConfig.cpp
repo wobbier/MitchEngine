@@ -11,6 +11,8 @@ void EngineConfig::OnSave( json& outJson )
     json& window = outJson["Window"];
     window["Width"] = WindowSize.x;
     window["Height"] = WindowSize.y;
+    window["X"] = WindowPosition.x;
+    window["Y"] = WindowPosition.y;
 }
 
 void EngineConfig::OnLoadConfig( const json& inJson )
@@ -22,6 +24,20 @@ void EngineConfig::OnLoadConfig( const json& inJson )
         int WindowWidth = WindowConfig["Width"];
         int WindowHeight = WindowConfig["Height"];
 
+        int WindowX = 0;
+        int WindowY = 0;
+
+        if( WindowConfig.contains( "X" ) )
+        {
+            WindowX = WindowConfig["X"];
+        }
+
+        if( WindowConfig.contains( "Y" ) )
+        {
+            WindowY = WindowConfig["Y"];
+        }
+
+        WindowPosition = { WindowX, WindowY };
         WindowSize = { WindowWidth, WindowHeight };
     }
 }

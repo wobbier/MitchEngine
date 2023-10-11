@@ -50,6 +50,7 @@ Engine::Engine()
 {
     std::vector<TypeId> events;
     events.push_back( LoadSceneEvent::GetEventId() );
+    events.push_back( WindowMovedEvent::GetEventId() );
     EventManager::GetInstance().RegisterReceiver( this, events );
 }
 
@@ -97,7 +98,6 @@ void Engine::Init( Game* game )
         {
             NewRenderer->WindowResized( NewSize );
         }
-
         if( UI )
         {
             if( Camera::CurrentCamera )
@@ -105,15 +105,16 @@ void Engine::Init( Game* game )
                 UI->OnResize( Camera::CurrentCamera->OutputSize );
             }
         }
+        engineConfig.WindowSize = NewSize;
         WindowResizedEvent evt;
         evt.NewSize = NewSize;
         evt.Fire();
     };
 
-#if USING( ME_PLATFORM_WIN64 )
     engineConfig = EngineConfig( engineCfg );
     engineConfig.OnLoadConfig( engineConfig.Root );
-    GameWindow = new SDLWindow( engineConfig.GetValue( "Title" ), ResizeFunc, 500, 300, engineConfig.WindowSize );
+#if USING( ME_PLATFORM_WIN64 )
+    GameWindow = new SDLWindow( engineConfig.GetValue( "Title" ), ResizeFunc, engineConfig.WindowPosition.x, engineConfig.WindowPosition.y, engineConfig.WindowSize );
 #endif
 
 #if USING( ME_PLATFORM_MACOS )
@@ -132,12 +133,10 @@ void Engine::Init( Game* game )
     GameWindow->SetBorderless( true );
 #endif
 
-    ResizeFunc( Vector2( 1920, 1080 ) );
-
     NewRenderer = new BGFXRenderer();
     RendererCreationSettings settings;
     settings.WindowPtr = GameWindow->GetWindowPtr();
-    settings.InitialSize = Vector2( 1920.f, 1080.f );
+    settings.InitialSize = engineConfig.WindowSize;
     NewRenderer->Create( settings );
 #if USING( ME_IMGUI )
 #if USING( ME_PLATFORM_WIN64 )
@@ -173,6 +172,8 @@ void Engine::Init( Game* game )
         } );
 
     InitGame();
+
+    ResizeFunc( engineConfig.WindowSize );
 
     m_isInitialized = true;
 }
@@ -383,6 +384,12 @@ bool Engine::OnEvent( const BaseEvent& evt )
         const LoadSceneEvent& test = static_cast<const LoadSceneEvent&>( evt );
         //InputEnabled = test.Enabled;
         LoadScene( test.Level );
+    }
+
+    if( evt.GetEventId() == WindowMovedEvent::GetEventId() )
+    {
+        const WindowMovedEvent& test = static_cast<const WindowMovedEvent&>( evt );
+        engineConfig.WindowPosition = test.NewPosition;
     }
 
     return false;

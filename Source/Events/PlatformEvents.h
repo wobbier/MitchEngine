@@ -9,3 +9,12 @@ class WindowResizedEvent
 public:
     Vector2 NewSize;
 };
+
+
+class WindowMovedEvent
+    : public Event<WindowMovedEvent>
+{
+public:
+    Vector2 NewPosition;
+};
+
