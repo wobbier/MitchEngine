@@ -203,6 +203,21 @@ void AssetBrowserWidget::Render()
 
         ImGui::Begin( "Asset Directory", &IsOpen );
 
+        if( ImGui::BeginDragDropTarget() )
+        {
+            if( const ImGuiPayload* payload = ImGui::AcceptDragDropPayload( "DND_CHILD_TRANSFORM" ) )
+            {
+                IM_ASSERT( payload->DataSize == sizeof( ParentDescriptor ) );
+                ParentDescriptor* payload_n = (ParentDescriptor*)payload->Data;
+
+                json prefab;
+                SavePrefab( prefab, payload_n->Parent, true );
+
+                File( Path( Path("Assets").FullPath + payload_n->Parent->GetName() + std::string(".prefab"))).Write(prefab[0].dump(4));
+            }
+            ImGui::EndDragDropTarget();
+        }
+
         if( ImagePreviewActive && CurrentlyFocusedAssetType == AssetType::Texture )
         {
             const SharedPtr<Moonlight::Texture> tex = std::dynamic_pointer_cast<Moonlight::Texture>( CurrentlyFocusedAsset );
