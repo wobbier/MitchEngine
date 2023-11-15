@@ -96,6 +96,7 @@ void UICore::OnStop()
 
 void UICore::Update( const UpdateContext& inUpdateContext )
 {
+    OPTICK_EVENT( "UI Update", Optick::Category::UI );
     auto& entities = GetEntities();
     for( auto& InEntity : entities )
     {
@@ -111,12 +112,12 @@ void UICore::Update( const UpdateContext& inUpdateContext )
             InitUIView( view );
         }
     }
-
+    Input& gameInput = GetEngine().GetInput();
     ultralight::MouseEvent mouseEvent;
     ultralight::ScrollEvent mouseScrollEvent;
     mouseEvent.type = ultralight::MouseEvent::kType_MouseMoved;
-    Vector2 mousePosition = GetEngine().GetInput().GetMousePosition();
-    mouseScrollEvent.delta_y = GetEngine().GetInput().GetMouseScrollDelta().y * 100;
+    Vector2 mousePosition = gameInput.GetMousePosition();
+    mouseScrollEvent.delta_y = gameInput.GetMouseScrollDelta().y * 100;
 
 #if USING( ME_EDITOR )
     //if ( !static_cast<EditorApp*>( GetEngine().GetGame() )->IsGameRunning() )
@@ -127,7 +128,7 @@ void UICore::Update( const UpdateContext& inUpdateContext )
     //Havana* editor = static_cast<EditorCore*>( GetEngine().GetWorld().lock()->GetCore( EditorCore::GetTypeId() ) )->GetEditor();
 
     Vector2 windowPosition = GetEngine().GetWindow()->GetPosition();
-    Vector2 offset = GetEngine().GetInput().GetMouseOffset();
+    Vector2 offset = gameInput.GetMouseOffset();
     mouseEvent.x = ( windowPosition.x + mousePosition.x ) - offset.x;// + windowPosition.x  + offset.x;
     mouseEvent.y = ( windowPosition.y + mousePosition.y ) - offset.y;// + windowPosition.y  - offset.y;
 
@@ -141,13 +142,13 @@ void UICore::Update( const UpdateContext& inUpdateContext )
 #endif
 
     static bool hasPressed = false;
-    if( GetEngine().GetInput().WasMouseButtonPressed( MouseButton::Left ) && !hasPressed )
+    if( gameInput.WasMouseButtonPressed( MouseButton::Left ) && !hasPressed )
     {
         mouseEvent.button = ultralight::MouseEvent::Button::kButton_Left;
         mouseEvent.type = ultralight::MouseEvent::kType_MouseDown;
         hasPressed = true;
     }
-    else if( !GetEngine().GetInput().WasMouseButtonPressed( MouseButton::Left ) && hasPressed )
+    else if( !gameInput.WasMouseButtonPressed( MouseButton::Left ) && hasPressed )
     {
         mouseEvent.button = ultralight::MouseEvent::Button::kButton_Left;
         mouseEvent.type = ultralight::MouseEvent::kType_MouseUp;
@@ -162,6 +163,7 @@ void UICore::Update( const UpdateContext& inUpdateContext )
     //if (m_renderer->GetViewportMode() == ViewportMode::Game)
 #endif
     {
+        OPTICK_EVENT( "UI Input Update", Optick::Category::UI );
         for( auto& view : m_overlays )
         {
             view->view()->FireMouseEvent( mouseEvent );
@@ -170,7 +172,10 @@ void UICore::Update( const UpdateContext& inUpdateContext )
     }
 
     // Update internal logic (timers, event callbacks, etc.)
-    m_uiRenderer->Update();
+    {
+        OPTICK_EVENT( "UI Widget Update", Optick::Category::UI );
+        m_uiRenderer->Update();
+    }
 }
 
 void UICore::Render()

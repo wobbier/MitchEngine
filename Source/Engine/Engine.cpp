@@ -287,7 +287,7 @@ void Engine::Run()
             // Update Game Application
             {
                 //FrameProfile::GetInstance().Set( "Game", ProfileCategory::Game );
-                ME_PROFILE( "Game", ProfileCategory::Game );
+                ME_FRAMEPROFILE_SCOPED( "Game", ProfileCategory::Game );
                 OPTICK_CATEGORY( "MainLoop::GameUpdate", Optick::Category::GameLogic );
                 m_game->OnUpdate( updateContext );
                 //FrameProfile::GetInstance().Complete( "Game" );
@@ -338,13 +338,13 @@ void Engine::Run()
                 m_game->PostRender();
 #if !USING( ME_EDITOR )
                 EditorCamera.OutputSize = GetWindow()->GetSize();
-#if USING( ME_PROFILING )
+#if USING( ME_BASIC_PROFILER )
                 FrameProfile::GetInstance().Render( { 10.f, ( GameWindow->GetSize().y - FrameProfile::kMinProfilerSize ) - 10 }, { GameWindow->GetSize().x - 20, (float)FrameProfile::kMinProfilerSize } );
 #endif
 #endif
                 ME_FRAMEPROFILE_START( "UI Render", ProfileCategory::UI );
                 UI->Render();
-                FrameProfile::GetInstance().Complete( "UI Render" );
+                ME_FRAMEPROFILE_STOP( "UI Render" );
                 FrameProfile::GetInstance().Set( "Render", ProfileCategory::Rendering );
                 NewRenderer->Render( EditorCamera );
                 FrameProfile::GetInstance().Complete( "Render" );

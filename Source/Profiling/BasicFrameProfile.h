@@ -6,7 +6,7 @@
 #include "Dementia.h"
 
 // This should just be profiling?
-#if USING( ME_IMGUI ) || USING( ME_PROFILING )
+#if USING( ME_BASIC_PROFILER )
 #define ME_FRAMEPROFILE_START( name, category ) FrameProfile::GetInstance().Set( name, category );
 #define ME_FRAMEPROFILE_STOP( name, category ) FrameProfile::GetInstance().Complete( name );
 #else
@@ -84,5 +84,8 @@ public:
     std::string m_name;
 };
 
-// TODO: do I fix this, or just remove it? ME_PROFILE vs ME_PROFILING
-#define ME_PROFILE(name, cat) FrameProfileObject(name, cat);
+#if USING( ME_BASIC_PROFILER )
+#define ME_FRAMEPROFILE_SCOPED(name, cat) FrameProfileObject(name, cat);
+#else
+#define ME_FRAMEPROFILE_SCOPED(name, cat)
+#endif

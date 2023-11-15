@@ -391,6 +391,7 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 
 	// Custom User Widgets
 	{
+        OPTICK_CATEGORY( "Custom User Widgets", Optick::Category::UI );
         for( auto customWidget : CustomRegisteredWidgets )
         {
             if( customWidget->IsOpen )

@@ -10,9 +10,11 @@
 #else
 #include <filesystem>
 #endif
+#include "optick.h"
 
 Path::Path( const std::string& InFile, bool Raw /*= false*/ )
 {
+    OPTICK_CATEGORY( "Path", Optick::Category::IO);
     std::string LocalPath;
     size_t pos;
 #if USING( ME_PLATFORM_UWP )

@@ -1,6 +1,8 @@
 #include "PCH.h"
-
 #include "BasicFrameProfile.h"
+
+#if USING( ME_BASIC_PROFILER )
+
 #include <imgui.h>
 #include <Engine/Engine.h>
 #include "UI/Colors.h"
@@ -191,3 +193,4 @@ ImVec4 FrameProfile::GetCategoryColor( ProfileCategory category )
     return ACCENT_WHITE;
 }
 
+#endif
