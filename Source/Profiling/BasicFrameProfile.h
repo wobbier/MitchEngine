@@ -23,6 +23,8 @@ enum class ProfileCategory : std::size_t
     Count
 };
 
+#if USING( ME_BASIC_PROFILER )
+
 class ProfileInfo
 {
 public:
@@ -83,6 +85,8 @@ public:
     ProfileCategory m_cat;
     std::string m_name;
 };
+
+#endif
 
 #if USING( ME_BASIC_PROFILER )
 #define ME_FRAMEPROFILE_SCOPED(name, cat) FrameProfileObject(name, cat);

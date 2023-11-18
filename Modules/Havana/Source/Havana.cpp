@@ -379,6 +379,7 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 		}
 	}
 
+#if USING( ME_BASIC_PROFILER )
 	// Frame Profiler
     {
         OPTICK_EVENT( "Frame Profiler", Optick::Category::UI );
@@ -388,6 +389,7 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 
 		FrameProfile::GetInstance().Render(position, size);
 	}
+#endif
 
 	// Custom User Widgets
 	{

@@ -207,7 +207,9 @@ void Engine::Run()
     forever
     {
         OPTICK_FRAME( "MainLoop" );
+#if USING( ME_BASIC_PROFILER )
         FrameProfile::GetInstance().Start();
+#endif
         // Check and call events
         GameWindow->ParseMessageQueue();
 
@@ -271,26 +273,22 @@ void Engine::Run()
             // Update Loaded Cores
             {
                 // TODO: This is wrong?? There's more than just physics in loaded cores...
-                FrameProfile::GetInstance().Set( "Physics", ProfileCategory::Physics );
+                ME_FRAMEPROFILE_SCOPED( "Physics", ProfileCategory::Physics );
                 GameWorld->UpdateLoadedCores( updateContext );
-                FrameProfile::GetInstance().Complete( "Physics" );
             }
 
             // Update Cameras
             {
                 OPTICK_EVENT( "SceneNodes->Update" );
-                FrameProfile::GetInstance().Set( "SceneNodes", ProfileCategory::UI );
+                ME_FRAMEPROFILE_SCOPED( "SceneNodes", ProfileCategory::UI );
                 SceneNodes->Update( updateContext );
-                FrameProfile::GetInstance().Complete( "SceneNodes" );
             }
 
             // Update Game Application
             {
-                //FrameProfile::GetInstance().Set( "Game", ProfileCategory::Game );
                 ME_FRAMEPROFILE_SCOPED( "Game", ProfileCategory::Game );
                 OPTICK_CATEGORY( "MainLoop::GameUpdate", Optick::Category::GameLogic );
                 m_game->OnUpdate( updateContext );
-                //FrameProfile::GetInstance().Complete( "Game" );
             }
 
             // Update Audio
@@ -301,15 +299,14 @@ void Engine::Run()
 
             // Model Renderer Update
             {
-                FrameProfile::GetInstance().Set( "ModelRenderer", ProfileCategory::Rendering );
+                ME_FRAMEPROFILE_SCOPED( "ModelRenderer", ProfileCategory::Rendering );
                 ModelRenderer->Update( updateContext );
-                FrameProfile::GetInstance().Complete( "ModelRenderer" );
             }
 
             // UI Update
             {
                 OPTICK_CATEGORY( "UICore::Update", Optick::Category::Rendering )
-                FrameProfile::GetInstance().Set( "UI", ProfileCategory::UI );
+                ME_FRAMEPROFILE_SCOPED( "UI", ProfileCategory::UI );
                 // editor only?
                 if( UI )
                 {
@@ -319,7 +316,6 @@ void Engine::Run()
                     }
                     UI->Update( updateContext );
                 }
-                FrameProfile::GetInstance().Complete( "UI" );
             }
 
             // Late Update	
@@ -345,11 +341,13 @@ void Engine::Run()
                 ME_FRAMEPROFILE_START( "UI Render", ProfileCategory::UI );
                 UI->Render();
                 ME_FRAMEPROFILE_STOP( "UI Render" );
-                FrameProfile::GetInstance().Set( "Render", ProfileCategory::Rendering );
+                ME_FRAMEPROFILE_START( "Render", ProfileCategory::Rendering );
                 NewRenderer->Render( EditorCamera );
-                FrameProfile::GetInstance().Complete( "Render" );
+                ME_FRAMEPROFILE_STOP( "Render" );
             }
 
+
+#if USING( ME_BASIC_PROFILER )
             // This makes the profiler overview data to be delayed for a frame, but takes the renderer into account.
             {
                 static float fpsTime = 0;
@@ -360,10 +358,13 @@ void Engine::Run()
                     fpsTime -= 1.f;
                 }
             }
+#endif
 
             AccumulatedTime = std::fmod( AccumulatedTime, MaxDeltaTime );
 
+#if USING( ME_BASIC_PROFILER )
             FrameProfile::GetInstance().End( AccumulatedTime );
+#endif
             AccumulatedTime = 0;// std::fmod(AccumulatedTime, MaxDeltaTime);
             GetJobEngine().ClearWorkerPools();
             GetInput().PostUpdate();
