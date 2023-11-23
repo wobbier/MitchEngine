@@ -213,6 +213,7 @@ void UICore::Render()
             BRUH( "Rendering an entity that doesn't have a UI View." );
             continue;
         }
+        OPTICK_EVENT( "UI View Render", Optick::Category::GPU_UI );
 
         ultralight::BitmapSurface* surface = (ultralight::BitmapSurface*)( ent.GetComponent<BasicUIView>().ViewRef->surface() );
 
