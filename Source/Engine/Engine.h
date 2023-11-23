@@ -72,6 +72,7 @@ public:
     Moonlight::CameraData EditorCamera;
     Scene* CurrentScene = nullptr;
     float DeltaTime = 0.f;
+    JobSystem m_jobSystem;
 private:
     Input m_input;
     std::shared_ptr<World> GameWorld;

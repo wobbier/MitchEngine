@@ -25,10 +25,12 @@ void WorkerThread::Start()
             auto job = queue.GetNextJob();
             if( job )
             {
+                OPTICK_CATEGORY( "Running Job", Optick::Category::Wait );
                 job();
             }
             else
             {
+                OPTICK_CATEGORY( "Setting Sleeping Job", Optick::Category::Wait );
                 Owner->WorkerThreadSleeping( Index );
                 Pause();
             }
@@ -43,5 +45,6 @@ void WorkerThread::Pause()
 
     while( !( *WorkAvailableHandle ) )
     {
+        //std::this_thread::sleep_for( std::chrono::microseconds( 100 ) );
     }
 }

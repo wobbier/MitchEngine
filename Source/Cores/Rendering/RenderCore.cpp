@@ -86,23 +86,23 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
 
     //auto [worker, pool] = GetEngine().GetJobSystemNew();
 
-    Worker* worker = GetEngine().GetJobEngine().GetThreadWorker();
-    Job* rootJob = worker->GetPool().CreateClosureJob( [&Renderables, worker]( Job& job ) {
-
-        } );
+    //Worker* worker = GetEngine().GetJobEngine().GetThreadWorker();
+    //Job* rootJob = worker->GetPool().CreateClosureJob( [&Renderables, worker]( Job& job ) {
+    //
+    //    } );
 
     std::vector<std::pair<int, int>> batches;
-    Burst::GenerateChunks( Renderables.size(), 11, batches );
+    Burst::GenerateChunks( Renderables.size(), 44, batches );
 
-    worker->Submit( rootJob );
+    //worker->Submit( rootJob );
     for( auto& batch : batches )
     {
+        OPTICK_CATEGORY( "Create Render Jobs", Optick::Category::Debug );
         int batchBegin = batch.first;
         int batchEnd = batch.second;
         int batchSize = batchEnd - batchBegin;
 
-        //YIKES(std::to_string(batchBegin) + " End:" + std::to_string(batchEnd) + " Size:" + std::to_string(batchSize));
-        Job* burstJob = worker->GetPool().CreateClosureJobAsChild( [&Renderables, batchBegin, batchEnd, batchSize]( Job& job ) {
+        auto meshJob = [&Renderables, batchBegin, batchEnd, batchSize]( ) {
             if( Renderables.size() == 0 )
             {
                 return;
@@ -134,10 +134,17 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                 }
 
             }
-            }, rootJob );
-        worker->Submit( burstJob );
+        };
+        //YIKES(std::to_string(batchBegin) + " End:" + std::to_string(batchEnd) + " Size:" + std::to_string(batchSize));
+        GetEngine().m_jobSystem.AddWork( meshJob, false );
+        GetEngine().m_jobSystem.SignalWorkAvailable();
+
+        //meshJob();
+            //Job* burstJob = worker->GetPool().CreateClosureJobAsChild( meshJob, rootJob );
+        //worker->Submit( burstJob );
     }
-    worker->Wait( rootJob );
+    GetEngine().m_jobSystem.Wait();
+    //worker->Wait( rootJob );
     //for (auto& InEntity : Renderables)
     //{
     //	//OPTICK_CATEGORY("Update Mesh", Optick::Category::Rendering);

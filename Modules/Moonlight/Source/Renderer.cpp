@@ -94,7 +94,7 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
 #if USING( ME_PLATFORM_MACOS )
     init.resolution.reset = BGFX_RESET_VSYNC;
 #else
-    init.resolution.reset = BGFX_RESET_VSYNC | BGFX_RESET_MSAA_X16;
+    init.resolution.reset =/* BGFX_RESET_VSYNC |*/ BGFX_RESET_MSAA_X16;
 #endif
 
 #if USING( ME_PLATFORM_UWP )

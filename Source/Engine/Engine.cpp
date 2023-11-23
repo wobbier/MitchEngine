@@ -47,7 +47,9 @@ Engine& GetEngine()
 Engine::Engine()
     : Running( true )
     , newJobSystem( 1, 100000 )
+    , m_jobSystem( 12 )
 {
+
     std::vector<TypeId> events;
     events.push_back( LoadSceneEvent::GetEventId() );
     events.push_back( WindowMovedEvent::GetEventId() );
