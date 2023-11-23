@@ -97,8 +97,9 @@ void PlatformUtils::DeleteFile( const Path& inFilePath )
 
 Buffer PlatformUtils::ReadBytes( const Path& inFilePath )
 {
-    File path = File( inFilePath );
-    const std::string& p = path.Read();
+    // Maybe swap to use file in the future?
+    //File path = File( inFilePath );
+    //const std::string& p = path.Read();
     std::ifstream stream( inFilePath.FullPath, std::ios::binary | std::ios::ate );
 
     if( !stream )
@@ -109,7 +110,7 @@ Buffer PlatformUtils::ReadBytes( const Path& inFilePath )
 
     std::streampos end = stream.tellg();
     stream.seekg( 0, std::ios::beg );
-    uint32_t size = end - stream.tellg();
+    uint32_t size = static_cast<uint32_t>( end - stream.tellg() );
 
     if( size == 0 )
     {

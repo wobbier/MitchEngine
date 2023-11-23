@@ -82,7 +82,7 @@ void CustomAssertFunction( const char* expression, const char* inMessage, const 
         if( SymGetLineFromAddr64( process, address, &dwDisplacement, &lineInfo ) )
         {
             std::wstring thing = std::wstring( lineInfo.FileName, lineInfo.FileName + strlen( lineInfo.FileName ) );
-            uint32_t slash = thing.find_last_of( '\\' );
+            std::size_t slash = thing.find_last_of( '\\' );
             std::wstring fileName = thing.substr( slash + 1, thing.length() );
             ws << frames - i - 1 << ": " << symbol->Name << " in (" << fileName << ":" << lineInfo.LineNumber << ")\n\n";
         }

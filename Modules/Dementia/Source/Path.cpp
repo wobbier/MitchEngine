@@ -16,8 +16,8 @@ Path::Path( const std::string& InFile, bool Raw /*= false*/ )
 {
     OPTICK_CATEGORY( "Path", Optick::Category::IO);
     std::string LocalPath;
-    size_t pos;
 #if USING( ME_PLATFORM_UWP )
+    size_t pos;
     char buf[1024];
     GetModuleFileNameA( NULL, buf, 1024 );
     std::string ProgramPath( buf );
@@ -108,8 +108,8 @@ Path::Path( const std::string& InFile, bool Raw /*= false*/ )
 #endif
 
 #endif
-    LocalPos = FullPath.rfind( LocalPath );
-    DirectoryPos = FullPath.find_last_of( "/" ) + 1;
+    LocalPos = static_cast<int8_t>( FullPath.rfind( LocalPath ) );
+    DirectoryPos = static_cast<int8_t>( FullPath.find_last_of( "/" ) + 1 );
 
 #if USING( ME_PLATFORM_UWP )
         //std::replace(LocalPath.begin(), LocalPath.end(), '/', '\\');
