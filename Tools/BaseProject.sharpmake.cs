@@ -104,7 +104,6 @@ public abstract class BaseProject : Project
         conf.Options.Add(Options.Vc.Compiler.Exceptions.Enable);
 
         conf.Defines.Add("DEFINE_ME_PLATFORM_UWP");
-        conf.Defines.Add("USE_OPTICK=0");
         
         conf.Options.Add(
             new Options.Vc.Compiler.DisableSpecificWarnings(
@@ -158,6 +157,7 @@ public abstract class BaseProject : Project
         conf.Options.Add(Sharpmake.Options.Vc.Compiler.RuntimeLibrary.MultiThreadedDebugDLL);
         conf.Options.Add(Options.Vc.Compiler.Inline.Disable);
         conf.Defines.Add("DEFINE_ME_DEBUG");
+        conf.Defines.Add("USE_OPTICK");
     }
 
     [ConfigurePriority(ConfigurePriorities.Optimization)]
@@ -168,6 +168,7 @@ public abstract class BaseProject : Project
         conf.Options.Add(Sharpmake.Options.Vc.Compiler.RuntimeLibrary.MultiThreadedDLL);
         conf.Options.Add(Options.Vc.Compiler.Inline.OnlyInline);
         conf.Defines.Add("DEFINE_ME_RELEASE");
+        conf.Defines.Add("USE_OPTICK");
     }
 
 
@@ -181,11 +182,9 @@ public abstract class BaseProject : Project
 
         // Full inlining
         conf.Options.Add(Options.Vc.Compiler.Inline.AnySuitable);
-        conf.Options.Add(Options.Vc.Compiler.Optimization.FullOptimization);
         conf.Options.Add(Options.Vc.Compiler.Optimization.MaximizeSpeed);
 
         conf.Options.Add(Options.Vc.Compiler.Exceptions.EnableWithSEH);
-        //conf.Options.Add(Options.Vc.General.TreatWarningsAsErrors.Enable);
         conf.Options.Add(Options.Vc.Compiler.EnhancedInstructionSet.AdvancedVectorExtensions2);
         conf.Defines.Add("DEFINE_ME_RETAIL");
     }
