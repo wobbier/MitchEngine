@@ -141,7 +141,7 @@ Class& operator=(Class&&) = delete;
 #define ME_MONO NOT_IN_USE
 #endif
 
-#if defined( ME_ENABLE_RENDERDOC )
+#if defined( DEFINE_ME_RENDERDOC )
 #define ME_ENABLE_RENDERDOC IN_USE
 #else
 #define ME_ENABLE_RENDERDOC NOT_IN_USE

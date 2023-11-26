@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using Sharpmake;
 using static CommonTarget;
 
@@ -13,7 +13,7 @@ public abstract class BaseProject : Project
         IsTargetFileNameToLower = false;
         AddTargets(CommonTarget.GetDefaultTargets());
 
-        if(Util.GetExecutingPlatform() == Platform.mac)
+        if (Util.GetExecutingPlatform() == Platform.mac)
         {
             ResourceFiles.Add(Globals.RootDir + "Engine/ThirdParty/UltralightSDK/bin/macOS/AppCore.dylib");
         }
@@ -42,6 +42,23 @@ public abstract class BaseProject : Project
         conf.ProjectFileName = @"[project.Name]_[target.Platform]";
         conf.TargetPath = "[project.SharpmakeCsPath]/.build/[target.Name]/";
         conf.LibraryPaths.Add("[project.SharpmakeCsPath]/.build/[target.Name]/");
+
+        // RenderDoc DLL
+        // TODO: Is this a chocolatey package? cross platform?
+        // Shitty detection atm, but it works without this?
+        if (File.Exists("C:/Program Files/RenderDoc/renderdoc.dll"))
+        {
+            conf.Defines.Add("DEFINE_ME_RENDERDOC");
+            conf.IncludePaths.Add("C:/Program Files/RenderDoc/");
+            // If we have RenderDoc installed, it better be the same version 😤
+            var copyDirBuildStep = new Configuration.BuildStepCopy(
+                $@"[project.SharpmakeCsPath]/ThirdParty/RenderDoc",
+                Globals.RootDir + "/.build/[target.Name]");
+
+            copyDirBuildStep.IsFileCopy = false;
+            copyDirBuildStep.CopyPattern = "*.dll";
+            conf.EventPostBuildExe.Add(copyDirBuildStep);
+        }
 
         //conf.Options.Add(Options.Vc.General.TreatWarningsAsErrors.Enable);
 
@@ -104,7 +121,7 @@ public abstract class BaseProject : Project
         conf.Options.Add(Options.Vc.Compiler.Exceptions.Enable);
 
         conf.Defines.Add("DEFINE_ME_PLATFORM_UWP");
-        
+
         conf.Options.Add(
             new Options.Vc.Compiler.DisableSpecificWarnings(
                 "4201",
