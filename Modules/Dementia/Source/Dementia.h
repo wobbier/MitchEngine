@@ -111,7 +111,7 @@ Class& operator=(Class&&) = delete;
 #define ME_TOOLS USE_IF( USING( ME_EDITOR ) || USING( NOT_IN_USE ) )
 #endif
 
-#if defined( FMOD_ENABLED )
+#if defined( DEFINE_ME_FMOD )
 #define ME_FMOD USE_IF( USING ( IN_USE ) && !USING( ME_HEADLESS ) )
 #else
 #define ME_FMOD USE_IF( USING ( NOT_IN_USE ) && !USING( ME_HEADLESS ) )
@@ -153,5 +153,5 @@ Class& operator=(Class&&) = delete;
 #define ME_SCRIPTING        USE_IF( USING( ME_MONO ) )
 #define ME_PROFILING        USE_IF( USING( ME_DEBUG ) || USING( ME_RELEASE ) )
 // I'm currently using some ImGui stuff in debug for profiling, TOOLS needs it even that it's currently bundled with the editor.
-#define ME_IMGUI            USE_IF( USING( ME_EDITOR ) || USING( ME_DEBUG ) || USING( ME_TOOLS ) || USING( ME_PROFILING ) )
+#define ME_IMGUI            USE_IF( USING( ME_EDITOR ) || USING( ME_TOOLS ) || USING( ME_PROFILING ) )
 #define ME_BASIC_PROFILER   USE_IF( USING( ME_IMGUI ) && USING( ME_PROFILING ) )

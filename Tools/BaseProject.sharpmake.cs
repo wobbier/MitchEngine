@@ -72,7 +72,6 @@ public abstract class BaseProject : Project
 
         if (Directory.Exists(Globals.FMOD_Win64_Dir) || Directory.Exists(Globals.FMOD_UWP_Dir))
         {
-            conf.Defines.Add("FMOD_ENABLED");
             conf.Defines.Add("_DISABLE_EXTENDED_ALIGNED_STORAGE");
         }
 
@@ -105,6 +104,10 @@ public abstract class BaseProject : Project
                 )
         );
 
+        if (Directory.Exists(Globals.FMOD_Win64_Dir))
+        {
+            conf.Defines.Add("DEFINE_ME_FMOD");
+        }
         if (Directory.Exists(Globals.MONO_Win64_Dir))
         {
             conf.Defines.Add("DEFINE_ME_MONO");
@@ -121,6 +124,7 @@ public abstract class BaseProject : Project
         conf.Options.Add(Options.Vc.Compiler.Exceptions.Enable);
 
         conf.Defines.Add("DEFINE_ME_PLATFORM_UWP");
+        conf.Defines.Add("USE_OPTICK=0");
 
         conf.Options.Add(
             new Options.Vc.Compiler.DisableSpecificWarnings(
@@ -129,6 +133,10 @@ public abstract class BaseProject : Project
                 )
         );
 
+        if (Directory.Exists(Globals.FMOD_UWP_Dir))
+        {
+            conf.Defines.Add("DEFINE_ME_FMOD");
+        }
         if (Directory.Exists(Globals.MONO_Win64_Dir))
         {
             conf.Defines.Add("DEFINE_ME_MONO");
@@ -174,7 +182,6 @@ public abstract class BaseProject : Project
         conf.Options.Add(Sharpmake.Options.Vc.Compiler.RuntimeLibrary.MultiThreadedDebugDLL);
         conf.Options.Add(Options.Vc.Compiler.Inline.Disable);
         conf.Defines.Add("DEFINE_ME_DEBUG");
-        conf.Defines.Add("USE_OPTICK");
     }
 
     [ConfigurePriority(ConfigurePriorities.Optimization)]
@@ -185,7 +192,6 @@ public abstract class BaseProject : Project
         conf.Options.Add(Sharpmake.Options.Vc.Compiler.RuntimeLibrary.MultiThreadedDLL);
         conf.Options.Add(Options.Vc.Compiler.Inline.OnlyInline);
         conf.Defines.Add("DEFINE_ME_RELEASE");
-        conf.Defines.Add("USE_OPTICK");
     }
 
 
