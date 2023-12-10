@@ -33,7 +33,7 @@ public:
     void RegisterReceiver( EventReceiver* receiver, std::vector<TypeId> events );
 
     void FireEvent( TypeId eventId, const BaseEvent& event );
-    void QueueEvent( BaseEvent& event );
+    void QueueEvent( BaseEvent&& event );
     void FirePendingEvents();
 
 protected:

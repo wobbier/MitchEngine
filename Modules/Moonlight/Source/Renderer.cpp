@@ -472,25 +472,28 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId
     }
 
     TransparentIndicies.clear();
-    for( size_t i = 0; i < m_meshCache.Commands.size(); ++i )
     {
-        OPTICK_CATEGORY( "Mesh", Optick::Category::GPU_Scene )
+        OPTICK_CATEGORY( "Meshes", Optick::Category::GPU_Scene );
+
+        for( size_t i = 0; i < m_meshCache.Commands.size(); ++i )
+        {
             const Moonlight::MeshCommand& mesh = m_meshCache.Commands[i];
-        if( !mesh.MeshMaterial )
-        {
-            continue;
-        }
+            if( !mesh.MeshMaterial )
+            {
+                continue;
+            }
 
-        if( mesh.MeshMaterial->IsTransparent() )
-        {
-            TransparentIndicies.push_back( i );
-            continue;
-        }
+            if( mesh.MeshMaterial->IsTransparent() )
+            {
+                TransparentIndicies.push_back( i );
+                continue;
+            }
 
-        //m_debugDraw->Push();
-        //m_debugDraw->Draw(&mesh.Transform[0][0]);
-        //m_debugDraw->Pop();
-        RenderSingleMesh( id, mesh, state );
+            //m_debugDraw->Push();
+            //m_debugDraw->Draw(&mesh.Transform[0][0]);
+            //m_debugDraw->Pop();
+            RenderSingleMesh( id, mesh, state );
+        }
     }
 
     {
@@ -518,12 +521,16 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId
         | s_ptState[m_pt]
         ;
 
-    for( auto index : TransparentIndicies )
     {
-        //m_debugDraw->Push();
-        //m_debugDraw->Draw(&m_meshCache.Commands[index].Transform[0][0]);
-        //m_debugDraw->Pop();
-        RenderSingleMesh( id, m_meshCache.Commands[index], transparentState );
+        OPTICK_CATEGORY( "Transparent Meshes", Optick::Category::GPU_Scene )
+
+        for( auto index : TransparentIndicies )
+        {
+            //m_debugDraw->Push();
+            //m_debugDraw->Draw(&m_meshCache.Commands[index].Transform[0][0]);
+            //m_debugDraw->Pop();
+            RenderSingleMesh( id, m_meshCache.Commands[index], transparentState );
+        }
     }
 
     if( EnableDebugDraw )

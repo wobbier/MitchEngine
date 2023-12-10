@@ -4,7 +4,7 @@
 
 struct AssetDescriptor
 {
-    static constexpr char* kDragAndDropPayload = "DND_ASSET_BROWSER";
+    static constexpr const char* kDragAndDropPayload = "DND_ASSET_BROWSER";
 
     std::string Name;
     File MetaFile;

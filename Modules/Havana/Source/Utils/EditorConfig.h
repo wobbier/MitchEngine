@@ -9,7 +9,7 @@
 
 class EditorConfig
 {
-	static constexpr char* kConfigPath = ".tmp/Havana.cfg";
+	static constexpr const char* kConfigPath = ".tmp/Havana.cfg";
 
 public:
 	Vector3 CameraPosition;

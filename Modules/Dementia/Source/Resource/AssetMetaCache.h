@@ -9,7 +9,7 @@ struct MetaBase;
 
 class AssetMetaCache
 {
-    static constexpr char* kCachePath = ".tmp/MetadataCache.json";
+    static constexpr const char* kCachePath = ".tmp/MetadataCache.json";
 public:
     AssetMetaCache();
 

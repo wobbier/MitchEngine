@@ -3,6 +3,7 @@
 
 EngineConfig::EngineConfig( const Path& inPath )
     : ConfigFile( inPath )
+    , WindowTitle("MitchEngine")
 {
 }
 
@@ -13,6 +14,7 @@ void EngineConfig::OnSave( json& outJson )
     window["Height"] = WindowSize.y;
     window["X"] = WindowPosition.x;
     window["Y"] = WindowPosition.y;
+    window["Title"] = WindowTitle;
 }
 
 void EngineConfig::OnLoadConfig( const json& inJson )
@@ -21,23 +23,29 @@ void EngineConfig::OnLoadConfig( const json& inJson )
     {
         const json& WindowConfig = GetJsonObject( "Window" );
 
-        int WindowWidth = WindowConfig["Width"];
-        int WindowHeight = WindowConfig["Height"];
-
-        int WindowX = 0;
-        int WindowY = 0;
-
         if( WindowConfig.contains( "X" ) )
         {
-            WindowX = WindowConfig["X"];
+            WindowPosition.x = WindowConfig["X"];
         }
 
         if( WindowConfig.contains( "Y" ) )
         {
-            WindowY = WindowConfig["Y"];
+            WindowPosition.y = WindowConfig["Y"];
         }
 
-        WindowPosition = { WindowX, WindowY };
-        WindowSize = { WindowWidth, WindowHeight };
+        if( WindowConfig.contains( "Width" ) )
+        {
+            WindowSize.x = WindowConfig["Width"];
+        }
+
+        if( WindowConfig.contains( "Height" ) )
+        {
+            WindowSize.y = WindowConfig["Height"];
+        }
+
+        if( WindowConfig.contains( "Title" ) )
+        {
+            WindowTitle = WindowConfig["Title"];
+        }
     }
 }

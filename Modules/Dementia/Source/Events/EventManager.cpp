@@ -26,7 +26,7 @@ void EventManager::FireEvent( TypeId eventId, const BaseEvent& event )
     }
 }
 
-void EventManager::QueueEvent( BaseEvent& event )
+void EventManager::QueueEvent( BaseEvent&& event )
 {
     m_queuedEvents.push( std::move( event ) );
 }

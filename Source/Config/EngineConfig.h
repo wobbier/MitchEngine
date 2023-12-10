@@ -13,6 +13,7 @@ public:
 
     virtual void OnLoadConfig( const json& inJson ) final;
 
-    Vector2 WindowSize = { 1920.f, 720.f };
+    Vector2 WindowSize = { 1280.f, 720.f };
     Vector2 WindowPosition = { 0.f, 0.f };
+    std::string WindowTitle;
 };

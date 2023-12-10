@@ -237,7 +237,7 @@ void MitchHub::Draw()
 
 
                 ImGui::BeginChild( "child2", ImVec2( -1.f, h ), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar );
-                auto& bgTexture = Cache.GetActiveBackgroundTexture( SelectedProjectIndex );
+                auto bgTexture = Cache.GetActiveBackgroundTexture( SelectedProjectIndex );
                 float windowCursorPos = ImGui::GetCursorPosX();
                 float panelWidth = ImGui::GetContentRegionAvail().x;
                 float xPos = 0.f;
@@ -268,7 +268,7 @@ void MitchHub::Draw()
                     ImGui::Image( bgTexture->TexHandle, { width, height } );
                 }
 
-                auto& titleTexture = Cache.GetActiveTitleTexture( SelectedProjectIndex );
+                auto titleTexture = Cache.GetActiveTitleTexture( SelectedProjectIndex );
                 if ( titleTexture )
                 {
                     Vector2 size = Mathf::KeepAspect( { titleTexture->mWidth, titleTexture->mHeight }, { 400, 200 } );

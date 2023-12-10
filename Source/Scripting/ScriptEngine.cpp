@@ -268,7 +268,8 @@ SharedPtr<ScriptInstance> ScriptEngine::CreateScriptInstance( ScriptClass& scrip
 
 bool ScriptEngine::LoadAssembly( const Path& assemblyPath )
 {
-    sScriptData.AppDomain = mono_domain_create_appdomain( "MEScriptRuntime", nullptr );
+    char name[30] = "MEScriptRuntime\n";
+    sScriptData.AppDomain = mono_domain_create_appdomain( &name[0], nullptr);
     mono_domain_set( sScriptData.AppDomain, true );
 
     sScriptData.CoreAssembly = MonoUtils::LoadMonoAssembly( assemblyPath, sScriptData.EnableDebugging );
