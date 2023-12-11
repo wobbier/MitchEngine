@@ -265,6 +265,25 @@ public class Engine : BaseProject
             conf.LibraryFiles.Add("zlibstatic.lib");
         }
 
+        if (Directory.Exists(Globals.FMOD_UWP_Dir))
+        {
+            conf.IncludePaths.Add(Path.Combine(Globals.FMOD_UWP_Dir, "api/core/inc"));
+            conf.LibraryPaths.Add(Path.Combine(Globals.FMOD_UWP_Dir, "api/core/lib/x64"));
+
+            conf.LibraryFiles.Add("fmodL_vc.lib");
+
+            // FMOD DLL
+            {
+                var copyDirBuildStep = new Configuration.BuildStepCopy(
+                    Path.Combine(Globals.FMOD_UWP_Dir, "api/core/lib/x64"),
+                    Globals.RootDir + "/.build/[target.Name]");
+
+                copyDirBuildStep.IsFileCopy = false;
+                copyDirBuildStep.CopyPattern = "*.dll";
+                conf.EventPostBuildExe.Add(copyDirBuildStep);
+            }
+        }
+
         // #TODO Read path from Globals / Move to own class again
         if (Directory.Exists(Globals.MONO_Win64_Dir))
         {
