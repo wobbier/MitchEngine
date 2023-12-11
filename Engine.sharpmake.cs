@@ -270,7 +270,7 @@ public class Engine : BaseProject
             conf.IncludePaths.Add(Path.Combine(Globals.FMOD_UWP_Dir, "api/core/inc"));
             conf.LibraryPaths.Add(Path.Combine(Globals.FMOD_UWP_Dir, "api/core/lib/x64"));
 
-            conf.LibraryFiles.Add("fmodL_vc.lib");
+            conf.LibraryFiles.Add("fmodL.lib");
 
             // FMOD DLL
             {
@@ -429,7 +429,7 @@ public static class Main
     [Sharpmake.Main]
     public static void SharpmakeMain(Sharpmake.Arguments arguments)
     {
-        KitsRootPaths.SetUseKitsRootForDevEnv(DevEnv.vs2019, KitsRootEnum.KitsRoot10, Options.Vc.General.WindowsTargetPlatformVersion.v10_0_19041_0);
+        KitsRootPaths.SetUseKitsRootForDevEnv(DevEnv.vs2022, KitsRootEnum.KitsRoot10, Options.Vc.General.WindowsTargetPlatformVersion.v10_0_19041_0);
         arguments.Generate<SharpGameSolution>();
     }
 }

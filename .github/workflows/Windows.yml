@@ -13,14 +13,14 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [windows-2019]
+        os: [windows-2022]
         buildconfig: [Game_Win64, Editor]
         configuration:
           - Debug
           - Release
           - Retail
         include:
-          - os: windows-2019
+          - os: windows-2022
             shell: cmd
             compiler: cl
             target: Windows

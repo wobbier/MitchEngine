@@ -67,7 +67,7 @@ public class CommonTarget : Sharpmake.ITarget
                 {
                     var baseTarget = new CommonTarget(
                         Platform.win64,
-                        DevEnv.vs2019,
+                        DevEnv.vs2022,
                         Optimization.Debug | Optimization.Release | Optimization.Retail,
                         DotNetFramework.v4_8,
                         dotNetOS: 0);
@@ -75,7 +75,7 @@ public class CommonTarget : Sharpmake.ITarget
 
                     var uwpTarget = new CommonTarget(
                         Platform.win64,
-                        DevEnv.vs2019,
+                        DevEnv.vs2022,
                         Optimization.Debug | Optimization.Release | Optimization.Retail,
                         DotNetFramework.v4_8,
                         dotNetOS: 0);
@@ -83,7 +83,7 @@ public class CommonTarget : Sharpmake.ITarget
 
                     var editorTarget = new CommonTarget(
                         Platform.win64,
-                        DevEnv.vs2019,
+                        DevEnv.vs2022,
                         Optimization.Debug | Optimization.Release | Optimization.Retail,
                         DotNetFramework.v4_8,
                         dotNetOS: 0);

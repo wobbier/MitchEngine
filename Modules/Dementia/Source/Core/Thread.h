@@ -1,6 +1,7 @@
 #pragma once
 #include <functional>
 #include <thread>
+#include <string>
 
 class Thread
 {
