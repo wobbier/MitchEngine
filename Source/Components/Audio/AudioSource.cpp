@@ -46,6 +46,9 @@ void AudioSource::Play( bool ShouldLoop )
         }
         SoundInstance->Handle->getSystemObject( &m_owner );
         m_owner->playSound( SoundInstance->Handle, nullptr, false, &ChannelHandle );
+        if( ChannelHandle && ChannelHandle->getFrequency( &Frequency ) != FMOD_OK )
+        {
+        }
     }
 #endif
 }
@@ -133,6 +136,21 @@ void AudioSource::SetPositionMs( unsigned int position )
     {
     }
 #endif
+}
+
+void AudioSource::SetPlaybackSpeed( float inSpeed )
+{
+    PlaybackSpeed = inSpeed;
+#if USING( ME_FMOD )
+    if( ChannelHandle && ChannelHandle->setFrequency( Frequency * PlaybackSpeed ) != FMOD_OK )
+    {
+    }
+#endif
+}
+
+float AudioSource::GetPlaybackSpeed()
+{
+    return PlaybackSpeed;
 }
 
 void AudioSource::OnSerialize( json& outJson )

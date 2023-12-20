@@ -211,7 +211,7 @@ const bool Transform::IsDirty() const
 
 const Matrix4& Transform::GetLocalToWorldMatrix()
 {
-    if( IsLocalToWorldDirty )
+    //if( IsLocalToWorldDirty )
     {
         glm::mat4 T = glm::translate( glm::mat4( 1.0f ), GetPosition().InternalVector );
         glm::quat R = GetRotation().InternalQuat;
@@ -227,7 +227,7 @@ const Matrix4& Transform::GetLocalToWorldMatrix()
 
 const Matrix4& Transform::GetWorldToLocalMatrix()
 {
-    if( IsWorldToLocalDirty )
+    //if( IsWorldToLocalDirty )
     {
         WorldToLocalMatrix = GetLocalToWorldMatrix().Inverse();
         IsWorldToLocalDirty = false;

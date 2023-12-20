@@ -32,6 +32,8 @@ public:
     unsigned int GetLength();
     unsigned int GetPositionMs();
     void SetPositionMs( unsigned int position );
+    void SetPlaybackSpeed( float inSpeed );
+    float GetPlaybackSpeed();
 
 #if USING( ME_EDITOR )
     virtual void OnEditorInspect() override;
@@ -55,6 +57,9 @@ public:
 private:
     virtual void OnSerialize( json& outJson ) final;
     virtual void OnDeserialize( const json& inJson ) final;
+
+    float PlaybackSpeed = 1.f;
+    float Frequency = 1.f;
 
 #if USING( ME_FMOD )
     FMOD::System* m_owner = nullptr;
