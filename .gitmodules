@@ -7,9 +7,6 @@
 	url = https://github.com/assimp/assimp
 	tag = v4.1.0
 	ignore = dirty
-[submodule "ThirdParty/PerlinNoise"]
-	path = ThirdParty/PerlinNoise
-	url = https://github.com/Reputeless/PerlinNoise.git
 [submodule "ThirdParty/ImGui"]
 	path = ThirdParty/ImGui
 	url = https://github.com/ocornut/imgui
