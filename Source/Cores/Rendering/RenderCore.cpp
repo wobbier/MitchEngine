@@ -95,7 +95,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                 Transform& transform = InEntity.GetComponent<Transform>();
                 Mesh& model = InEntity.GetComponent<Mesh>();
 
-                OPTICK_EVENT_DYNAMIC( transform.GetName().c_str(), Optick::Category::Scene );
+                OPTICK_EVENT_DYNAMIC( transform.GetName().c_str() );
                 renderer.UpdateMeshMatrix( model.GetId(), transform.GetMatrix().GetInternalMatrix() );
             }
         };

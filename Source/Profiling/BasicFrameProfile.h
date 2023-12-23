@@ -8,10 +8,10 @@
 // This should just be profiling?
 #if USING( ME_BASIC_PROFILER )
 #define ME_FRAMEPROFILE_START( name, category ) FrameProfile::GetInstance().Set( name, category );
-#define ME_FRAMEPROFILE_STOP( name, category ) FrameProfile::GetInstance().Complete( name );
+#define ME_FRAMEPROFILE_STOP( name ) FrameProfile::GetInstance().Complete( name );
 #else
 #define ME_FRAMEPROFILE_START( name, category )
-#define ME_FRAMEPROFILE_STOP( name, category )
+#define ME_FRAMEPROFILE_STOP( name )
 #endif
 
 enum class ProfileCategory : std::size_t

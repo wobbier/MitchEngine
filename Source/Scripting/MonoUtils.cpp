@@ -64,7 +64,7 @@ namespace MonoUtils
         case MonoUtils::ScriptFieldType::Vector4: return "Vector4";
         case MonoUtils::ScriptFieldType::Entity: return "Entity";
         default:
-            break;
+            return "None";
         }
     }
 

@@ -59,9 +59,13 @@ public abstract class BaseProject : Project
             copyDirBuildStep.CopyPattern = "*.dll";
             conf.EventPostBuildExe.Add(copyDirBuildStep);
         }
-
+        conf.Options.Add(
+            new Options.Vc.Compiler.DisableSpecificWarnings(
+                "4267",
+                "4244"
+                )
+        );
         //conf.Options.Add(Options.Vc.General.TreatWarningsAsErrors.Enable);
-
         if (target.SelectedMode == CommonTarget.Mode.Editor)
         {
             conf.Defines.Add("DEFINE_ME_EDITOR");
@@ -82,6 +86,10 @@ public abstract class BaseProject : Project
         {
 
         }
+
+
+        conf.Options.Add(Options.Vc.General.WarningLevel.Level3);
+        conf.Options.Add(Options.Vc.General.TreatWarningsAsErrors.Enable);
     }
 
     #region Platfoms
@@ -191,6 +199,7 @@ public abstract class BaseProject : Project
         conf.DefaultOption = Options.DefaultTarget.Release;
         conf.Options.Add(Sharpmake.Options.Vc.Compiler.RuntimeLibrary.MultiThreadedDLL);
         conf.Options.Add(Options.Vc.Compiler.Inline.OnlyInline);
+        conf.AdditionalCompilerOptions.Add("/Zi");
         conf.Defines.Add("DEFINE_ME_RELEASE");
     }
 

@@ -9,6 +9,7 @@
 #include "Events/HavanaEvents.h"
 #include "Events/SceneEvents.h"
 #include "Core/Assert.h"
+#include "Engine/Engine.h"
 
 BasicUIView::BasicUIView()
     : Component( "BasicUIView" )
@@ -55,6 +56,7 @@ void BasicUIView::OnDOMReady( ultralight::View* caller,
 
     GlobalWindow["PlaySound"] = BindJSCallback( &BasicUIView::PlaySound );
     GlobalWindow["LoadScene"] = BindJSCallback( &BasicUIView::LoadScene );
+    GlobalWindow["Quit"] = BindJSCallback( &BasicUIView::Quit );
 
     OnUILoad( GlobalWindow, caller );
 }
@@ -99,6 +101,10 @@ void BasicUIView::LoadScene( const ultralight::JSObject& thisObject, const ultra
     EventManager::GetInstance().QueueEvent( evt );
 }
 
+void BasicUIView::Quit( const ultralight::JSObject& thisObject, const ultralight::JSArgs& args )
+{
+    GetEngine().Quit();
+}
 
 #if USING( ME_EDITOR )
 

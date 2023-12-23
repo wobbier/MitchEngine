@@ -10,7 +10,7 @@
 #if USING( ME_PLATFORM_WIN64 )
 int CALLBACK BrowseForFolderCallback( HWND hwnd, UINT uMsg, LPARAM lp, LPARAM pData )
 {
-    char szPath[MAX_PATH];
+    //char szPath[MAX_PATH];
 
     switch ( uMsg )
     {
