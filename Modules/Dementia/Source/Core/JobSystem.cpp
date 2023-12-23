@@ -26,6 +26,24 @@ JobSystem::JobSystem( std::size_t InNumThreads )
 
 JobSystem::~JobSystem()
 {
+    while( true )
+    {
+        bool working = true;
+        for( auto& it : WorkerThreads )
+        {
+            working = working && it.IsWorking;
+        }
+        if( !working && !m_isWorkAvailable && m_isWorkFinished )
+        {
+            for( auto& it : WorkerThreads )
+            {
+                it.Worker.SignalShutdown();
+                it.Worker.Join();
+            }
+            Wait();
+            return;
+        }
+    }
 }
 
 const JobQueueOld& JobSystem::GetJobQueue() const

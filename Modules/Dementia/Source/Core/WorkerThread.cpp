@@ -43,8 +43,8 @@ void WorkerThread::Pause()
     OPTICK_CATEGORY( "Pause", Optick::Category::Wait );
     IsPaused = true;
 
-    while( !( *WorkAvailableHandle ) )
+    while( !( *WorkAvailableHandle ) && IsAlive() )
     {
-        //std::this_thread::sleep_for( std::chrono::microseconds( 100 ) );
+        std::this_thread::yield();
     }
 }

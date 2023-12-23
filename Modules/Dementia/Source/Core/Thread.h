@@ -10,6 +10,7 @@ public:
 
     void Create( std::function<void()> InFunc, const std::string& InName = "" );
     void Join();
+    void SignalShutdown();
 
     bool IsAlive() const;
 
@@ -18,5 +19,7 @@ protected:
 
 private:
     std::thread ThreadFunc;
+
+    // Does this need to be an atomic?
     bool Kill = false;
 };

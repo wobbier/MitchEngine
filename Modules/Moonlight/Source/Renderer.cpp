@@ -726,6 +726,8 @@ void BGFXRenderer::UpdateMeshMatrix( unsigned int Id, const glm::mat4& matrix )
         return;
     }
 
+    OPTICK_CATEGORY( "UpdateMeshMatrix", Optick::Category::Rendering);
+
     m_meshCache.Commands[Id].Transform = matrix;
 }
 

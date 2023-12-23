@@ -12,6 +12,7 @@
 #include <glm/gtx/quaternion.hpp>
 #include "imgui.h"
 #include "misc/cpp/imgui_stdlib.h"
+#include "Core/Assert.h"
 
 Transform::Transform()
     : Component( "Transform" )
@@ -211,6 +212,7 @@ const bool Transform::IsDirty() const
 
 const Matrix4& Transform::GetLocalToWorldMatrix()
 {
+    OPTICK_CATEGORY( "GetLocalToWorldMatrix", Optick::Category::Scene );
     //if( IsLocalToWorldDirty )
     {
         glm::mat4 T = glm::translate( glm::mat4( 1.0f ), GetPosition().InternalVector );
@@ -227,6 +229,7 @@ const Matrix4& Transform::GetLocalToWorldMatrix()
 
 const Matrix4& Transform::GetWorldToLocalMatrix()
 {
+    OPTICK_CATEGORY( "GetWorldToLocalMatrix", Optick::Category::Scene );
     //if( IsWorldToLocalDirty )
     {
         WorldToLocalMatrix = GetLocalToWorldMatrix().Inverse();
@@ -281,6 +284,7 @@ void Transform::LookAt( const Vector3& InDirection )
     //Rotation = Quaternion::ToEulerAngles(quat2);
     //Rotation = Vector3(Mathf::Degrees(Rotation.x), Mathf::Degrees(Rotation.y), Mathf::Degrees(Rotation.z));
     //LocalRotation = quat2;
+    ME_ASSERT_MSG( false, "Unused Transform::LookAt" );
     SetDirty( true );
 }
 

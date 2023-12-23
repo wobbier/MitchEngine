@@ -47,7 +47,7 @@ Engine& GetEngine()
 Engine::Engine()
     : Running( true )
     , newJobSystem( 1, 100000 )
-    , m_jobSystem( 12 )
+    , m_jobSystem( 4 )
 {
 
     std::vector<TypeId> events;

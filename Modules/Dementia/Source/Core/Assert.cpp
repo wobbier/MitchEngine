@@ -1,6 +1,6 @@
 #include "Assert.h"
 
-#if USING( ME_PLATFORM_WINDOWS )
+#if USING( ME_PLATFORM_WINDOWS ) && !USING( ME_RETAIL )
 
 #include <windows.h>
 #include <DbgHelp.h>
