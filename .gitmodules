@@ -2,10 +2,6 @@
 	path = ThirdParty/Bullet
 	url = https://github.com/bulletphysics/bullet3.git
 	ignore = dirty
-[submodule "Tools/premake-winrt"]
-	path = Tools/premake-winrt
-	url = https://github.com/wobbier/premake-winrt.git
-	ignore = dirty
 [submodule "ThirdParty/Assimp"]
 	path = ThirdParty/Assimp
 	url = https://github.com/assimp/assimp
