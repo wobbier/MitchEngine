@@ -2,6 +2,7 @@
 #include "Core.h"
 #include <imgui.h>
 #include <string>
+#include "Core/Assert.h"
 
 BaseCore::BaseCore( const char* CompName, const ComponentFilter& Filter )
     : Name( CompName )
@@ -12,6 +13,7 @@ BaseCore::BaseCore( const char* CompName, const ComponentFilter& Filter )
 
 World& BaseCore::GetWorld() const
 {
+    ME_ASSERT_MSG( GameWorld, "World is null." );
     return *GameWorld;
 }
 

@@ -169,11 +169,11 @@ void EditorApp::StopGame()
             GetEngine().GetWorld().lock()->Destroy();
         }
         m_isGameRunning = false;
+        GetEngine().GetWorld().lock()->Stop();
         NewSceneEvent evt;
         evt.Fire();
         InitialLevel = GetEngine().GetConfig().GetValue( "CurrentScene" );
         GetEngine().LoadScene( InitialLevel );
-        GetEngine().GetWorld().lock()->Stop();
     }
 }
 

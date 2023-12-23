@@ -52,6 +52,7 @@ public:
     void SetActive( const bool InActive );
     void MarkForDelete();
     bool IsLoading = false;
+    // not a fan tbh
     bool DestroyOnLoad = true;
 
 #if USING( ME_EDITOR )

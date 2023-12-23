@@ -8,6 +8,7 @@
 #include "File.h"
 #include "Resources/JsonResource.h"
 #include "optick.h"
+#include "Core/Assert.h"
 
 #define DEFAULT_ENTITY_POOL_SIZE 50
 
@@ -143,6 +144,8 @@ void World::Stop()
 
 void World::Destroy()
 {
+    //sus entities are maybe alive?
+
     for( auto& it : EntityCache.Alive )
     {
         DestroyEntity( it.second, false );
@@ -156,6 +159,7 @@ void World::Destroy()
     for( auto& core : m_loadedCores )
     {
         core.second->OnStop();
+        core.second->OnRemovedFromWorld();
         Cores.erase( core.first );
     }
     m_loadedCores.clear();
@@ -182,10 +186,15 @@ void World::Unload()
         if( core.second->DestroyOnLoad )
         {
             core.second->OnStop();
+
+            core.second->OnRemovedFromWorld();
+
+            m_loadedCores.erase( core.first );
             Cores.erase( core.first );
         }
     }
 
+    // Do I need this?
     EntityCache.ClearTemp();
 }
 
@@ -261,6 +270,7 @@ EntityHandle World::LoadPrefab( const json& obj, Transform* parent, Transform* r
 {
     EntityHandle ent;
     World* GameWorld = this;
+    ME_ASSERT_MSG( GameWorld, "Trying to load a Prefab into a null world." );
     if( parent && parent != root )
     {
         auto t = parent->GetChildByName( obj["Name"] );
@@ -327,10 +337,11 @@ void World::AddCore( BaseCore& InCore, TypeId InCoreTypeId, bool HandleUpdate )
     {
         m_loadedCores[InCoreTypeId] = Cores[InCoreTypeId].get();
     }
-// 	for (auto ent : EntityCache.Alive)
-// 	{
-// 		ActivateEntity(*ent.get(), true);
-// 	}
+    InCore.OnAddedToWorld();
+    // 	for (auto ent : EntityCache.Alive)
+    // 	{
+    // 		ActivateEntity(*ent.get(), true);
+    // 	}
 }
 
 bool World::HasCore( TypeId InType )

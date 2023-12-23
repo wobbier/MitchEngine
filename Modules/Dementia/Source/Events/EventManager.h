@@ -5,6 +5,7 @@
 
 #include "Singleton.h"
 #include "ClassTypeId.h"
+#include "Pointers.h"
 
 class EventReceiver;
 
@@ -31,15 +32,16 @@ private:
     EventManager();
 public:
     void RegisterReceiver( EventReceiver* receiver, std::vector<TypeId> events );
+    void DeRegisterReciever( EventReceiver* receiver );
 
     void FireEvent( TypeId eventId, const BaseEvent& event );
-    void QueueEvent( BaseEvent&& event );
+    void QueueEvent( SharedPtr<BaseEvent> event );
     void FirePendingEvents();
 
 protected:
     std::unordered_map<TypeId, std::vector<EventReceiver*>> m_eventReceivers;
 
-    std::queue<BaseEvent> m_queuedEvents;
+    std::queue<SharedPtr<BaseEvent>> m_queuedEvents;
 
     ME_SINGLETON_DEFINITION( EventManager )
 };

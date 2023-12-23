@@ -38,6 +38,7 @@
 #include <Debug/DebugDrawer.h>
 #include "Events/PlatformEvents.h"
 #include "Scripting/ScriptEngine.h"
+#include "Core/Assert.h"
 
 Engine& GetEngine()
 {
@@ -467,16 +468,22 @@ void Engine::LoadScene( const std::string& SceneFile )
     SceneNodes->Init();
     CurrentScene = new Scene( SceneFile );
 
-    if( !CurrentScene->Load( GameWorld ) )
+    if( !CurrentScene->Load( GameWorld ) && !CurrentScene->IsNewScene() )
     {
+        ME_ASSERT_MSG( false, "Failed to load scene." );
     }
+
+#if USING( ME_SCRIPTING )
+    ScriptEngine::sScriptData.worldPtr = GetWorld();
+#endif
+    GameWorld->AddCore<UICore>(*UI);
+
+    GameWorld->Simulate();
 
     SceneLoadedEvent evt;
     evt.LoadedScene = CurrentScene;
     evt.Fire();
-#if USING( ME_SCRIPTING )
-    ScriptEngine::sScriptData.worldPtr = GetWorld();
-#endif
+
 #if !USING( ME_EDITOR )
     GameWorld->Simulate();
     GameWorld->Start();

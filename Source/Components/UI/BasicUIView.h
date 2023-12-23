@@ -45,6 +45,8 @@ protected:
     std::function<void( SharedPtr<AudioSource> )> m_playAudioCallback = nullptr;
 
     void PlaySound( const ultralight::JSObject& thisObject, const ultralight::JSArgs& args );
+    void LoadScene( const ultralight::JSObject& thisObject, const ultralight::JSArgs& args );
+
 private:
     virtual void OnSerialize( json& outJson ) override;
     virtual void OnDeserialize( const json& inJson ) override;

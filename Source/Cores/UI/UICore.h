@@ -11,6 +11,7 @@
 #include <UI/FontLoaderWin.h>
 #include <UI/UIWindow.h>
 #include <Renderer.h>
+#include "Events/EventReceiver.h"
 
 class IWindow;
 class OverlayManager;
@@ -18,6 +19,7 @@ class OverlayManager;
 class UICore final
     : public Core<UICore>
     , public ultralight::OverlayManager
+    , public EventReceiver
 {
 public:
     UICore( IWindow* window, BGFXRenderer* renderer );
@@ -52,6 +54,8 @@ private:
     BGFXRenderer* m_renderer;
 
     void CopyBitmapToTexture( ultralight::RefPtr<ultralight::Bitmap> bitmap );
+
+    bool OnEvent( const BaseEvent& evt ) override;
 
     UniquePtr<ultralight::FileSystemBasic> m_fs;
     UniquePtr<GPUDriverBGFX> m_driver = nullptr;

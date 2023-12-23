@@ -42,6 +42,8 @@ public:
     virtual void OnEntityRemoved( Entity& InEntity ) {};
     virtual void OnEntityDestroyed( Entity& InEntity ) {};
     virtual void OnDrawGuizmo( DebugDrawer* ) {};
+    virtual void OnAddedToWorld() {};
+    virtual void OnRemovedFromWorld() {};
 
     // Get The World attached to the Core
     World& GetWorld() const;
@@ -69,6 +71,7 @@ protected:
 
     class Engine* GameEngine;
     World* GameWorld;
+    bool DestroyOnLoad = true;
 
 private:
     // Separate init from construction code.
@@ -95,7 +98,6 @@ private:
     std::string Name;
 
     bool IsRunning = false;
-    bool DestroyOnLoad = true;
     bool IsSerializable = true;
     bool _padding[5];
 };

@@ -11,12 +11,20 @@
 #include <AppCore/Platform.h>
 #include <Renderer.h>
 #include "Mathf.h"
+#include "Dementia.h"
+#include "Events/SceneEvents.h"
+DISABLE_OPTIMIZATION;
 
 UICore::UICore( IWindow* window, BGFXRenderer* renderer )
     : Base( ComponentFilter().Requires<BasicUIView>() )
     , m_uiTexture( BGFX_INVALID_HANDLE )
 {
     SetIsSerializable( false );
+    ///DestroyOnLoad = false;
+
+    std::vector<TypeId> events;
+    events.push_back( SceneLoadedEvent::GetEventId() );
+    EventManager::GetInstance().RegisterReceiver( this, events );
 
     m_renderer = renderer;
     m_window = AdoptRef( *new UIWindow( window, GetOverlayManager() ) );
@@ -63,6 +71,9 @@ UICore::UICore( IWindow* window, BGFXRenderer* renderer )
 UICore::~UICore()
 {
     CLog::Log( CLog::LogType::Debug, "UICore Destroyed..." );
+    EventManager::GetInstance().DeRegisterReciever( this );
+    // Am I leaking? or am I just dreaming?
+    m_overlays.clear();
 }
 
 void UICore::Init()
@@ -80,9 +91,12 @@ void UICore::OnEntityAdded( Entity& NewEntity )
 void UICore::OnEntityRemoved( Entity& InEntity )
 {
     BasicUIView& view = InEntity.GetComponent<BasicUIView>();
+    view.IsInitialized = false;
 
-    GetOverlayManager()->Remove( m_overlays[view.Index].get() );
-    m_overlays.erase( m_overlays.begin() + view.Index );
+    auto overlay = m_overlays[view.Index];
+    GetOverlayManager()->Remove( overlay.get() );
+    m_overlays.erase( std::remove( m_overlays.begin(), m_overlays.end(), overlay ), m_overlays.end() );
+    //m_overlays.erase( m_overlays.begin() + view.Index );
 }
 
 void UICore::OnStop()
@@ -310,6 +324,17 @@ void UICore::CopyBitmapToTexture( ultralight::RefPtr<ultralight::Bitmap> bitmap 
     }
 
     bitmap->UnlockPixels();
+}
+
+bool UICore::OnEvent( const BaseEvent& evt )
+{
+    if( evt.GetEventId() == SceneLoadedEvent::GetEventId() )
+    {
+        const SceneLoadedEvent& event = static_cast<const SceneLoadedEvent&>( evt );
+        //m_overlays.clear();
+        // O_O
+    }
+    return false;
 }
 
 #if USING( ME_EDITOR )
