@@ -14,6 +14,8 @@ public:
     {
     }
     std::string SourceName;
+    float Volume = 1.f;
+    float StartPercent = 0.f;
 
     std::function<void( SharedPtr<AudioSource> sound )> Callback;
 };

@@ -32,8 +32,11 @@ public:
     unsigned int GetLength();
     unsigned int GetPositionMs();
     void SetPositionMs( unsigned int position );
+    void SetPositionPercent( unsigned int position );
     void SetPlaybackSpeed( float inSpeed );
     float GetPlaybackSpeed();
+
+    void SetVolume( float inVolumePercent );
 
 #if USING( ME_EDITOR )
     virtual void OnEditorInspect() override;

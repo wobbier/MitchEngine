@@ -99,7 +99,10 @@ bool AudioCore::OnEvent( const BaseEvent& InEvent )
             auto& source = m_cachedSounds[sound.data()] = MakeShared<AudioSource>( sound.data() );
             InitComponent( *source );
         }
-        m_cachedSounds[sound.data()]->Play( false );
+        auto& cachedSound = m_cachedSounds[sound.data()];
+        cachedSound->Play( false );
+        cachedSound->SetVolume( evt.Volume );
+        cachedSound->SetPositionMs( cachedSound->GetLength() * evt.StartPercent );
 
         if( evt.Callback )
         {

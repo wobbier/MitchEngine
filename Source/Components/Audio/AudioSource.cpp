@@ -12,6 +12,7 @@
 #include "fmod.hpp"
 #endif
 #include "Resource/MetaFile.h"
+#include "Core/Assert.h"
 
 AudioSource::AudioSource( const std::string& InFilePath )
     : Component( "AudioSource" )
@@ -138,6 +139,15 @@ void AudioSource::SetPositionMs( unsigned int position )
 #endif
 }
 
+void AudioSource::SetPositionPercent( unsigned int positionPercent )
+{
+#if USING( ME_FMOD )
+    if( ChannelHandle && ChannelHandle->setPosition( GetLength() * positionPercent, FMOD_TIMEUNIT_MS ) != FMOD_OK )
+    {
+    }
+#endif
+}
+
 void AudioSource::SetPlaybackSpeed( float inSpeed )
 {
     PlaybackSpeed = inSpeed;
@@ -151,6 +161,16 @@ void AudioSource::SetPlaybackSpeed( float inSpeed )
 float AudioSource::GetPlaybackSpeed()
 {
     return PlaybackSpeed;
+}
+
+void AudioSource::SetVolume( float inVolumePercent )
+{
+#if USING( ME_FMOD )
+    if( ChannelHandle && ChannelHandle->setVolume( inVolumePercent ) != FMOD_OK )
+    {
+        ME_ASSERT_MSG( false, "Failed to set volume" );
+    }
+#endif
 }
 
 void AudioSource::OnSerialize( json& outJson )
