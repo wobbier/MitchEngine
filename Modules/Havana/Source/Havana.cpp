@@ -368,7 +368,7 @@ void Havana::Render(Moonlight::CameraData& EditorCamera)
 			}
 		}
 
-		Camera::CurrentCamera->OutputSize = GameSceneView->SceneViewRenderSize;
+		Camera::CurrentCamera->OutputSize = GetGameOutputSize();
 	}
 
 	// Asset Browser

@@ -181,16 +181,20 @@ void World::Unload()
         }
     }
 
-    for( auto& core : m_loadedCores )
+    for( auto it = m_loadedCores.begin(); it != m_loadedCores.end(); /* no increment here */ )
     {
-        if( core.second->DestroyOnLoad )
+        if( it->second->DestroyOnLoad )
         {
-            core.second->OnStop();
+            it->second->OnStop();
 
-            core.second->OnRemovedFromWorld();
+            it->second->OnRemovedFromWorld();
 
-            m_loadedCores.erase( core.first );
-            Cores.erase( core.first );
+            Cores.erase( it->first );
+            it = m_loadedCores.erase( it );
+        }
+        else
+        {
+            ++it;
         }
     }
 

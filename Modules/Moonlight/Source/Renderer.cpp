@@ -677,6 +677,10 @@ void BGFXRenderer::RenderSingleMesh( bgfx::ViewId id, const Moonlight::MeshComma
 
 void BGFXRenderer::WindowResized( const Vector2& newSize )
 {
+    if (CurrentSize == newSize)
+    {
+        return;
+    }
     CurrentSize = newSize;
 
 #if USING( ME_EDITOR )
