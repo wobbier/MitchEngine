@@ -10,6 +10,7 @@
 #include "bx/readerwriter.h"
 #include <Utils/PlatformUtils.h>
 #include <bgfx/bgfx.h>
+#include "Core/Assert.h"
 
 namespace Moonlight
 {
@@ -21,9 +22,11 @@ namespace Moonlight
             : Resource( InPath )
         {
             std::string path = FilePath.FullPath.substr( FilePath.FullPath.rfind( "/" ) + 1, FilePath.FullPath.length() );
-            std::string fullPath = std::string( FilePath.GetDirectory() ) + path + "." + Moonlight::GetPlatformString() + ".bin";
+            Path fullPath = Path(std::string( FilePath.GetDirectory() ) + path + "." + Moonlight::GetPlatformString() + ".bin");
+            
             //fullPath = fullPath.substr(0, fullPath.rfind(".")) + ".bin";
-            Data = Moonlight::LoadMemory( Path( fullPath ) );
+            ME_ASSERT_MSG( fullPath.Exists, "Shader doesn't exist." );
+            Data = Moonlight::LoadMemory( fullPath );
             Handle = bgfx::createShader( Data );
             bgfx::setName( Handle, InPath.GetLocalPath().data() );
         }
