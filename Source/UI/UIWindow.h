@@ -46,12 +46,11 @@ public:
 
     virtual void Close() override;
 
-
-    virtual int DeviceToPixels( int val ) const override;
+    virtual int ScreenToPixels( int val ) const override;
 
     void set_app_listener( ultralight::WindowListener* listener ) {  }
 
-    virtual int PixelsToDevice( int val ) const override;
+    virtual int PixelsToScreen( int val ) const override;
 
     REF_COUNTED_IMPL( UIWindow );
 

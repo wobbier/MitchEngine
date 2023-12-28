@@ -5,6 +5,7 @@
 #include <memory>
 #include "UI/GPUDriverImpl.h"
 #include <Graphics/ShaderStructures.h>
+/*
 
 class GPUContext;
 
@@ -97,3 +98,4 @@ protected:
 
     std::map<ultralight::ShaderType, Moonlight::ShaderProgram> shaders_;
 };
+*/

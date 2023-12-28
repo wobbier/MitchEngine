@@ -18,7 +18,6 @@ class OverlayManager;
 
 class UICore final
     : public Core<UICore>
-    , public ultralight::OverlayManager
     , public EventReceiver
 {
 public:
@@ -39,7 +38,7 @@ public:
 
     void Render();
 
-    OverlayManager* GetOverlayManager();
+    //OverlayManager* GetOverlayManager();
 
     ultralight::RefPtr<ultralight::Renderer> m_uiRenderer;
 
@@ -49,7 +48,7 @@ public:
     bgfx::TextureHandle m_uiTexture;
     Vector2 UISize;
 private:
-    std::vector<ultralight::RefPtr<ultralight::Overlay>> m_overlays;
+    std::vector<ultralight::RefPtr<ultralight::View>> m_views;
 
     BGFXRenderer* m_renderer;
 
@@ -58,7 +57,6 @@ private:
     bool OnEvent( const BaseEvent& evt ) override;
 
     UniquePtr<ultralight::FileSystemBasic> m_fs;
-    UniquePtr<GPUDriverBGFX> m_driver = nullptr;
     UniquePtr<GPUContext> m_context = nullptr;
     UniquePtr<ultralight::FontLoader> m_fontLoader = nullptr;
     UniquePtr<ultralight::FileLogger> m_logger = nullptr;

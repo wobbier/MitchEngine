@@ -50,8 +50,8 @@ void BasicUIView::OnDOMReady( ultralight::View* caller,
     bool is_main_frame,
     const ultralight::String& url )
 {
-    ultralight::Ref<ultralight::JSContext> context = caller->LockJSContext();
-    ultralight::SetJSContext( context.get() );
+    ultralight::RefPtr<ultralight::JSContext> context = caller->LockJSContext();
+    ultralight::SetJSContext( context->ctx() );
     ultralight::JSObject GlobalWindow = ultralight::JSGlobalObject();
 
     GlobalWindow["PlaySound"] = BindJSCallback( &BasicUIView::PlaySound );

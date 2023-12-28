@@ -3,6 +3,7 @@
 
 #include "GPUContext.h"
 
+/*
 GPUDriverBGFX::GPUDriverBGFX( GPUContext* inContext )
     : Context( inContext )
 {
@@ -134,3 +135,4 @@ ultralight::Matrix GPUDriverBGFX::ApplyProjection( const ultralight::Matrix4x4& 
 
     return result;
 }
+*/

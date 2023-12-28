@@ -27,45 +27,85 @@ UICore::UICore( IWindow* window, BGFXRenderer* renderer )
     EventManager::GetInstance().RegisterReceiver( this, events );
 
     m_renderer = renderer;
-    m_window = AdoptRef( *new UIWindow( window, GetOverlayManager() ) );
-    std::string fileSystemRoot = Path( "" ).GetDirectory().data();
-    m_fs.reset( new ultralight::FileSystemBasic( fileSystemRoot.c_str() ) );
+
+
 
     ultralight::Config config;
-    config.device_scale = 1.0f;
-    config.enable_images = true;
-    config.face_winding = ultralight::FaceWinding::kFaceWinding_Clockwise;
+
+    ///
+    /// Let's set some custom global CSS to make our background
+    /// purple by default.
+    ///
+    config.user_stylesheet = "body { background: purple; }";
     config.force_repaint = true;
-    config.font_family_standard = "Arial";
-    config.use_gpu_renderer = false;
-    // ??????
-    config.resource_path = "M:\\Projects\\C++\\stack\\Engine\\Modules\\Havana\\..\\..\\..\\.build\\editor_release";
-    //config_.cache_path = ultralight::String16(std::string(fileSystemRoot.Directory + "ultralight.log").c_str());
+    config.face_winding = ultralight::FaceWinding::Clockwise;
 
-    m_context.reset( new GPUContext() );
-    if( !m_context->Initialize( m_window->width(), m_window->height(), m_window->scale(), m_window->is_fullscreen(), true, false, 1 ) )
-    {
-        YIKES( "Failed to initialize ultralight context" );
-    }
+    ///
+    /// Pass our configuration to the Platform singleton so that
+    /// the library can use it.
+    ///
+    ultralight::Platform::instance().set_config( config );
 
-    m_driver.reset( new GPUDriverBGFX( m_context.get() ) );
-    m_logger.reset( new ultralight::FileLogger( ultralight::String( std::string( fileSystemRoot + "Ultralight.log" ).c_str() ) ) );
-#if USING( ME_PLATFORM_UWP )
-    m_fontLoader.reset( new ultralight::FontLoaderWin() );
-#else
-    m_fontLoader.reset( ultralight::GetPlatformFontLoader() );
-#endif
-    ultralight::Platform& platform = ultralight::Platform::instance();
-    platform.set_config( config );
-    platform.set_file_system( m_fs.get() );
-    platform.set_font_loader( m_fontLoader.get() );
-    //if (config.use_gpu_renderer)
-    {
-        platform.set_gpu_driver( m_driver.get() );
-    }
-    platform.set_logger( m_logger.get() );
+    ///
+    /// Use the OS's native font loader
+    ///
+    ultralight::Platform::instance().set_font_loader( ultralight::GetPlatformFontLoader() );
+
+    ///
+    /// Use the OS's native file loader, with a base directory of "."
+    /// All file:/// URLs will load relative to this base directory.
+    ///
+    ultralight::Platform::instance().set_file_system( ultralight::GetPlatformFileSystem( "." ) );
+
+    ///
+    /// Use the default logger (writes to a log file)
+    ///
+    ultralight::Platform::instance().set_logger( ultralight::GetDefaultLogger( "ultralight.log" ) );
+
 
     m_uiRenderer = ultralight::Renderer::Create();
+
+//
+//
+//    m_window = AdoptRef( *new UIWindow( window, GetOverlayManager() ) );
+//    std::string fileSystemRoot = Path( "" ).GetDirectory().data();
+//    m_fs.reset( new ultralight::FileSystemBasic( fileSystemRoot.c_str() ) );
+//
+//    ultralight::Config config;
+//    config.device_scale = 1.0f;
+//    config.enable_images = true;
+//    config.face_winding = ultralight::FaceWinding::kFaceWinding_Clockwise;
+//    config.force_repaint = true;
+//    config.font_family_standard = "Arial";
+//    config.use_gpu_renderer = false;
+//    // ??????
+//    config.resource_path = "M:\\Projects\\C++\\stack\\Engine\\Modules\\Havana\\..\\..\\..\\.build\\editor_release";
+//    //config_.cache_path = ultralight::String16(std::string(fileSystemRoot.Directory + "ultralight.log").c_str());
+//
+//    m_context.reset( new GPUContext() );
+//    if( !m_context->Initialize( m_window->width(), m_window->height(), m_window->scale(), m_window->is_fullscreen(), true, false, 1 ) )
+//    {
+//        YIKES( "Failed to initialize ultralight context" );
+//    }
+//
+//    m_driver.reset( new GPUDriverBGFX( m_context.get() ) );
+//    m_logger.reset( new ultralight::FileLogger( ultralight::String( std::string( fileSystemRoot + "Ultralight.log" ).c_str() ) ) );
+//#if USING( ME_PLATFORM_UWP )
+//    m_fontLoader.reset( new ultralight::FontLoaderWin() );
+//#else
+//    m_fontLoader.reset( ultralight::GetPlatformFontLoader() );
+//#endif
+//    ultralight::Platform& platform = ultralight::Platform::instance();
+//    platform.set_config( config );
+//    platform.set_file_system( m_fs.get() );
+//    platform.set_font_loader( m_fontLoader.get() );
+//    //if (config.use_gpu_renderer)
+//    {
+//        platform.set_gpu_driver( m_driver.get() );
+//    }
+//    platform.set_logger( m_logger.get() );
+//
+//    m_uiRenderer = ultralight::Renderer::Create();
 }
 
 UICore::~UICore()
@@ -73,7 +113,7 @@ UICore::~UICore()
     CLog::Log( CLog::LogType::Debug, "UICore Destroyed..." );
     EventManager::GetInstance().DeRegisterReciever( this );
     // Am I leaking? or am I just dreaming?
-    m_overlays.clear();
+    //m_overlays.clear();
 }
 
 void UICore::Init()
@@ -93,19 +133,19 @@ void UICore::OnEntityRemoved( Entity& InEntity )
     BasicUIView& view = InEntity.GetComponent<BasicUIView>();
     view.IsInitialized = false;
 
-    auto overlay = m_overlays[view.Index];
-    GetOverlayManager()->Remove( overlay.get() );
-    m_overlays.erase( std::remove( m_overlays.begin(), m_overlays.end(), overlay ), m_overlays.end() );
-    //m_overlays.erase( m_overlays.begin() + view.Index );
+    //auto overlay = m_overlays[view.Index];
+    //GetOverlayManager()->Remove( overlay.get() );
+    //m_overlays.erase( std::remove( m_overlays.begin(), m_overlays.end(), overlay ), m_overlays.end() );
+    ////m_overlays.erase( m_overlays.begin() + view.Index );
 }
 
 void UICore::OnStop()
 {
-    for( auto overlay : m_overlays )
-    {
-        GetOverlayManager()->Remove( overlay.get() );
-    }
-    m_overlays.clear();
+    //for( auto overlay : m_overlays )
+    //{
+    //    GetOverlayManager()->Remove( overlay.get() );
+    //}
+    //m_overlays.clear();
 }
 
 void UICore::Update( const UpdateContext& inUpdateContext )
@@ -178,10 +218,10 @@ void UICore::Update( const UpdateContext& inUpdateContext )
 #endif
     {
         OPTICK_EVENT( "UI Input Update", Optick::Category::UI );
-        for( auto& view : m_overlays )
+        for( auto& view : m_views )
         {
-            view->view()->FireMouseEvent( mouseEvent );
-            view->view()->FireScrollEvent( mouseScrollEvent );
+            view->FireMouseEvent( mouseEvent );
+            view->FireScrollEvent( mouseScrollEvent );
         }
     }
 
@@ -195,29 +235,10 @@ void UICore::Update( const UpdateContext& inUpdateContext )
 void UICore::Render()
 {
     OPTICK_EVENT( "UI Render", Optick::Category::GPU_UI );
-    m_driver->BeginSynchronize();
-
-    // Render all active views to command lists and dispatch calls to GPUDriver
+    ///
+    /// Render all active Views (this updates the Surface for each View).
+    ///
     m_uiRenderer->Render();
-
-    m_driver->EndSynchronize();
-
-    // Draw any pending commands to screen
-    if( m_driver->HasCommandsPending() )
-    {
-        //m_context->BeginDrawing();
-        m_driver->DrawCommandList();
-
-        // Perform any additional drawing (Overlays) here...
-        //DrawOverlays();
-
-        // Flip buffers here.
-        if( m_window )
-        {
-            Draw();
-        }
-        //m_context->EndDrawing();
-    }
 
     for( auto ent : GetEntities() )
     {
@@ -244,8 +265,8 @@ void UICore::OnResize( const Vector2& NewSize )
 {
     if( m_context )
     {
-        m_context->Resize( NewSize );
-        for( auto overlay : overlays_ )
+        //m_context->Resize( NewSize );
+        for( auto overlay : m_views )
         {
             overlay->Resize( (int)NewSize.x, (int)NewSize.y );
         }
@@ -276,43 +297,63 @@ void UICore::OnResize( const Vector2& NewSize )
 
 void UICore::InitUIView( BasicUIView& view )
 {
-    ultralight::Ref<ultralight::View> newView = m_uiRenderer->CreateView( static_cast<uint32_t>( Camera::CurrentCamera->OutputSize.x ), static_cast<uint32_t>( Camera::CurrentCamera->OutputSize.y ), true, nullptr );
+    ///
+    /// Configure our View, make sure it uses the CPU renderer by
+    /// disabling acceleration.
+    ///
+    ultralight::ViewConfig view_config;
+    view_config.is_accelerated = false;
+    view_config.is_transparent = true;
 
-    ultralight::RefPtr<ultralight::Overlay> overlay = ultralight::Overlay::Create( *m_window.get(), newView, 0, 0 );
-    overlay->view()->set_load_listener( &view );
+    ultralight::RefPtr<ultralight::View> newView;
+    ///
+    /// Create an HTML view, 500 by 500 pixels large.
+    ///
+    newView = m_uiRenderer->CreateView( static_cast<uint32_t>( Camera::CurrentCamera->OutputSize.x - 100 ), static_cast<uint32_t>( Camera::CurrentCamera->OutputSize.y - 100 ), view_config, nullptr );
 
-    //overlay->view()->LoadHTML(view.SourceFile.Read().c_str());
+    ///
+    /// Load a raw string of HTML asynchronously into the View.
+    ///
+    //newView->LoadHTML( "<h1>Hello World!</h1>" );
+    // 
+    //ultralight::Ref<ultralight::View> newView = m_uiRenderer->CreateView( static_cast<uint32_t>( Camera::CurrentCamera->OutputSize.x ), static_cast<uint32_t>( Camera::CurrentCamera->OutputSize.y ), true, nullptr );
+
+    //ultralight::RefPtr<ultralight::Overlay> overlay = ultralight::Overlay::Create( *m_window.get(), newView, 0, 0 );
+    newView->set_load_listener( &view );
+
+    ////overlay->view()->LoadHTML(view.SourceFile.Read().c_str());
     ultralight::String str = "file:///" + ultralight::String( view.FilePath.GetLocalPath().data() );
-    overlay->view()->LoadURL( str );
+    newView->LoadURL( str );
 
-    m_overlays.push_back( overlay );
-    GetOverlayManager()->Add( overlay.get() );
+    //m_overlays.push_back( overlay );
+    //GetOverlayManager()->Add( overlay.get() );
+    m_views.push_back( newView );
 
     view.IsInitialized = true;
-    view.Index = m_overlays.size() - 1;
-    view.ViewRef = overlay->view();
+    view.Index = m_views.size() - 1;
+    view.ViewRef = newView;
 }
-
-ultralight::OverlayManager* UICore::GetOverlayManager()
-{
-    return this;
-}
+//
+//ultralight::OverlayManager* UICore::GetOverlayManager()
+//{
+//    return this;
+//}
 
 void UICore::CopyBitmapToTexture( ultralight::RefPtr<ultralight::Bitmap> bitmap )
 {
     void* pixels = bitmap->LockPixels();
 
-    //uint32_t width = bitmap->width();
-    //uint32_t height = bitmap->height();
+    uint32_t width = bitmap->width();
+    uint32_t height = bitmap->height();
     uint32_t stride = bitmap->row_bytes();
 
     //bitmap->WritePNG(Path("Assets/TestUI.png").FullPath.c_str());
 
     {
-        const uint16_t tw = static_cast<uint32_t>( bitmap->bounds().width() );
-        const uint16_t th = static_cast<uint32_t>( bitmap->bounds().height() );
-        const uint16_t tx = static_cast<uint32_t>( bitmap->bounds().x() );
-        const uint16_t ty = static_cast<uint32_t>( bitmap->bounds().y() );
+        const uint16_t tw = static_cast<uint32_t>( bitmap->width() );
+        const uint16_t th = static_cast<uint32_t>( bitmap->height() );
+        const uint16_t tx = 0;
+        const uint16_t ty = 0;
 
         const bgfx::Memory* mem = bgfx::makeRef( pixels, stride );
 

@@ -3,6 +3,7 @@
 #include <Ultralight/platform/GPUDriver.h>
 #include <vector>
 
+/*
 namespace ultralight {
 
     class GPUDriverImpl : public GPUDriver
@@ -57,3 +58,4 @@ namespace ultralight {
     };
 
 }  // namespace ultralight
+*/
