@@ -81,10 +81,11 @@ public abstract class BaseProject : Project
 
         if (target.Optimization == Optimization.Debug)
         {
+            conf.Defines.Add("BX_CONFIG_DEBUG=1");
         }
         else
         {
-
+            conf.Defines.Add("BX_CONFIG_DEBUG=0");
         }
 
 

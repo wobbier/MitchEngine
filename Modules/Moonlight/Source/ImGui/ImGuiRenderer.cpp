@@ -41,6 +41,7 @@ void ImGuiRenderer::Create()
     io.DisplaySize = ImVec2( 1280, 720 );
     io.DeltaTime = 1.f / 140.f;
     io.IniFilename = nullptr;
+    //io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset;
 
     auto renderType = bgfx::getRendererType();
 
@@ -58,7 +59,8 @@ void ImGuiRenderer::Create()
     Layout.begin()
         .add( bgfx::Attrib::Position, 2, bgfx::AttribType::Float )
         .add( bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float )
-        .add( bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true );
+        .add( bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true )
+        .end();
 
     sTexture = bgfx::createUniform( "s_tex", bgfx::UniformType::Sampler );
 
