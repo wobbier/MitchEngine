@@ -32,7 +32,7 @@ public:
     unsigned int GetLength();
     unsigned int GetPositionMs();
     void SetPositionMs( unsigned int position );
-    void SetPositionPercent( unsigned int position );
+    void SetPositionPercent( float positionPercent );
     void SetPlaybackSpeed( float inSpeed );
     float GetPlaybackSpeed();
 

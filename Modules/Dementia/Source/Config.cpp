@@ -3,7 +3,10 @@
 ConfigFile::ConfigFile( const Path& ConfigPath )
     : m_configFile( ConfigPath )
 {
-    Load();
+    if( ConfigPath.Exists )
+    {
+        Load();
+    }
 }
 
 ConfigFile::~ConfigFile()

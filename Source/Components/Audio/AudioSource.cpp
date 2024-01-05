@@ -139,7 +139,7 @@ void AudioSource::SetPositionMs( unsigned int position )
 #endif
 }
 
-void AudioSource::SetPositionPercent( unsigned int positionPercent )
+void AudioSource::SetPositionPercent( float positionPercent )
 {
 #if USING( ME_FMOD )
     if( ChannelHandle && ChannelHandle->setPosition( GetLength() * positionPercent, FMOD_TIMEUNIT_MS ) != FMOD_OK )
