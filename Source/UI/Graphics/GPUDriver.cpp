@@ -10,7 +10,15 @@
 
 UIDriver::UIDriver()
 {
+    m_stateUniform = bgfx::createUniform( "State", bgfx::UniformType::Vec4 );
+    m_transformUniform = bgfx::createUniform( "Transform", bgfx::UniformType::Mat4 );
 
+    m_scalar4Uniform = bgfx::createUniform( "Scalar4", bgfx::UniformType::Vec4, 2 );//[2]
+    m_vectorUniform = bgfx::createUniform( "Vector", bgfx::UniformType::Vec4, 8 );//[8]
+    m_clipSizeUniform = bgfx::createUniform( "ClipSize", bgfx::UniformType::Vec4 );//uint?
+    m_clipUniform = bgfx::createUniform( "Clip", bgfx::UniformType::Mat4, 8 );//[8]
+
+    m_fillPathProgram = Moonlight::LoadProgram( "Assets/Shaders/UIFillPath.vert", "Assets/Shaders/UIFillPath.frag" );
 }
 
 void UIDriver::BeginSynchronize()
@@ -171,5 +179,18 @@ void UIDriver::UpdateCommandList( const CommandList& list )
     {
         m_renderCommands.resize( list.size );
         memcpy( &m_renderCommands[0], list.commands, sizeof( ultralight::Command ) * list.size );
+    }
+
+    // Move this
+    for (auto& command : m_renderCommands)
+    {
+        switch (command.command_type)
+        {
+        case CommandType::ClearRenderBuffer:
+            bgfx::setViewClear( kViewId, 0 );
+            continue;
+        case CommandType::DrawGeometry:
+            continue;
+        }
     }
 }

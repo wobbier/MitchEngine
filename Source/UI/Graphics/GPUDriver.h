@@ -10,6 +10,7 @@ using namespace ultralight;
 class UIDriver
     : public ultralight::GPUDriver
 {
+    bgfx::ViewId kViewId = 100;
 public:
     UIDriver();
     void BeginSynchronize() override;
@@ -54,4 +55,15 @@ private:
     std::map<uint32_t, GeometryEntry> m_geometry;
 
     std::vector<ultralight::Command> m_renderCommands;
+
+    // Uniforms
+    bgfx::UniformHandle m_stateUniform;
+    bgfx::UniformHandle m_transformUniform;
+    bgfx::UniformHandle m_scalar4Uniform;
+    bgfx::UniformHandle m_vectorUniform;
+    bgfx::UniformHandle m_clipSizeUniform;
+    bgfx::UniformHandle m_clipUniform;
+
+    // Shaders
+    bgfx::ProgramHandle m_fillPathProgram;
 };
