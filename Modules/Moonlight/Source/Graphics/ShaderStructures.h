@@ -83,4 +83,60 @@ namespace Moonlight
         Microsoft::WRL::ComPtr<ID3D11PixelShader> PixelShader;
         Microsoft::WRL::ComPtr<ID3D11InputLayout> InputLayout;*/
     };
+
+    // Ultralight
+    struct Vertex_2f_4ub_2f
+    {
+        Vector2 pos;
+        uint8_t color[4];
+        Vector2 obj;
+
+        static void Init()
+        {
+            ms_layout
+                .begin()
+                .add( bgfx::Attrib::Position, 2, bgfx::AttribType::Float )
+                .add( bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true )
+                .add( bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float )
+                .end();
+        };
+
+        static bgfx::VertexLayout ms_layout;
+    };
+
+    struct Vertex_2f_4ub_2f_2f_28f
+    {
+        Vector2 pos;
+        uint8_t color[4];
+        Vector2 tex;
+        Vector2 obj;
+        float data_0[4];
+        float data_1[4];
+        float data_2[4];
+        float data_3[4];
+        float data_4[4];
+        float data_5[4];
+        float data_6[4];
+
+        static void Init()
+        {
+            ms_layout
+                .begin()
+                .add( bgfx::Attrib::Position, 2, bgfx::AttribType::Float )
+                .add( bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true )
+                .add( bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float )
+                .add( bgfx::Attrib::TexCoord1, 2, bgfx::AttribType::Float )
+
+                .add( bgfx::Attrib::TexCoord2, 4, bgfx::AttribType::Float )
+                .add( bgfx::Attrib::TexCoord3, 4, bgfx::AttribType::Float )
+                .add( bgfx::Attrib::TexCoord4, 4, bgfx::AttribType::Float )
+                .add( bgfx::Attrib::TexCoord5, 4, bgfx::AttribType::Float )
+                .add( bgfx::Attrib::TexCoord6, 4, bgfx::AttribType::Float )
+                .add( bgfx::Attrib::TexCoord7, 4, bgfx::AttribType::Float )
+                .add( bgfx::Attrib::Color1, 4, bgfx::AttribType::Float )
+                .end();
+        };
+
+        static bgfx::VertexLayout ms_layout;
+    };
 }

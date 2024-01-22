@@ -13,6 +13,7 @@
 #include "Mathf.h"
 #include "Dementia.h"
 #include "Events/SceneEvents.h"
+#include "CLog.h"
 DISABLE_OPTIMIZATION;
 
 UICore::UICore( IWindow* window, BGFXRenderer* renderer )
@@ -49,7 +50,7 @@ UICore::UICore( IWindow* window, BGFXRenderer* renderer )
     ///
     /// Use the OS's native font loader
     ///
-    ultralight::Platform::instance().set_font_loader( ultralight::GetPlatformFontLoader() );
+    ultralight::Platform::instance().set_font_loader( new FontLoaderWin() );
 
     ///
     /// Use the OS's native file loader, with a base directory of "."
@@ -62,50 +63,9 @@ UICore::UICore( IWindow* window, BGFXRenderer* renderer )
     ///
     ultralight::Platform::instance().set_logger( ultralight::GetDefaultLogger( "ultralight.log" ) );
 
+    ultralight::Platform::instance().set_gpu_driver( new UIDriver() );
 
     m_uiRenderer = ultralight::Renderer::Create();
-
-//
-//
-//    m_window = AdoptRef( *new UIWindow( window, GetOverlayManager() ) );
-//    std::string fileSystemRoot = Path( "" ).GetDirectory().data();
-//    m_fs.reset( new ultralight::FileSystemBasic( fileSystemRoot.c_str() ) );
-//
-//    ultralight::Config config;
-//    config.device_scale = 1.0f;
-//    config.enable_images = true;
-//    config.face_winding = ultralight::FaceWinding::kFaceWinding_Clockwise;
-//    config.force_repaint = true;
-//    config.font_family_standard = "Arial";
-//    config.use_gpu_renderer = false;
-//    // ??????
-//    config.resource_path = "M:\\Projects\\C++\\stack\\Engine\\Modules\\Havana\\..\\..\\..\\.build\\editor_release";
-//    //config_.cache_path = ultralight::String16(std::string(fileSystemRoot.Directory + "ultralight.log").c_str());
-//
-//    m_context.reset( new GPUContext() );
-//    if( !m_context->Initialize( m_window->width(), m_window->height(), m_window->scale(), m_window->is_fullscreen(), true, false, 1 ) )
-//    {
-//        YIKES( "Failed to initialize ultralight context" );
-//    }
-//
-//    m_driver.reset( new GPUDriverBGFX( m_context.get() ) );
-//    m_logger.reset( new ultralight::FileLogger( ultralight::String( std::string( fileSystemRoot + "Ultralight.log" ).c_str() ) ) );
-//#if USING( ME_PLATFORM_UWP )
-//    m_fontLoader.reset( new ultralight::FontLoaderWin() );
-//#else
-//    m_fontLoader.reset( ultralight::GetPlatformFontLoader() );
-//#endif
-//    ultralight::Platform& platform = ultralight::Platform::instance();
-//    platform.set_config( config );
-//    platform.set_file_system( m_fs.get() );
-//    platform.set_font_loader( m_fontLoader.get() );
-//    //if (config.use_gpu_renderer)
-//    {
-//        platform.set_gpu_driver( m_driver.get() );
-//    }
-//    platform.set_logger( m_logger.get() );
-//
-//    m_uiRenderer = ultralight::Renderer::Create();
 }
 
 UICore::~UICore()
@@ -238,7 +198,18 @@ void UICore::Render()
     ///
     /// Render all active Views (this updates the Surface for each View).
     ///
-    m_uiRenderer->Render();
+    try
+    {
+         m_uiRenderer->Render();
+    }
+    catch( const std::exception& e ) {
+     // Catch exceptions derived from std::exception
+        std::cerr << "Caught standard exception: " << e.what() << std::endl;
+    }
+    catch( ... ) {
+     // Catch any other exceptions
+        std::cerr << "Caught an unknown exception" << std::endl;
+    }
 
     for( auto ent : GetEntities() )
     {
@@ -252,7 +223,7 @@ void UICore::Render()
 
         ultralight::BitmapSurface* surface = (ultralight::BitmapSurface*)( ent.GetComponent<BasicUIView>().ViewRef->surface() );
 
-        if( !surface->dirty_bounds().IsEmpty() )
+        if( surface && !surface->dirty_bounds().IsEmpty() )
         {
             CopyBitmapToTexture( surface->bitmap() );
 
@@ -292,6 +263,10 @@ void UICore::OnResize( const Vector2& NewSize )
                 overlay->Resize( (int)NewSize.x, (int)NewSize.y );
             }
         }
+
+#if USING ( ME_DEBUG )
+        BRUH_FMT( "%i, %s", m_uiTexture.idx, "UI Tex" );
+#endif
     }
 }
 
@@ -302,8 +277,9 @@ void UICore::InitUIView( BasicUIView& view )
     /// disabling acceleration.
     ///
     ultralight::ViewConfig view_config;
-    view_config.is_accelerated = false;
+    view_config.is_accelerated = true;
     view_config.is_transparent = true;
+    view_config.enable_javascript = true;
 
     ultralight::RefPtr<ultralight::View> newView;
     ///

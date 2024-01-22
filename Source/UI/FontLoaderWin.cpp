@@ -1,14 +1,15 @@
 #include "PCH.h"
 
 #if USING( ME_PLATFORM_WINDOWS )
-
 #include "FontLoaderWin.h"
-#include <dwrite_3.h>
 #include <wrl.h>
 #include <wrl/client.h>
 #include <MLang.h>
 #include <memory>
 #include "TextAnalysisSource.h"
+#include <dwrite.h>
+#include <dwrite_2.h>
+#include <dwrite_3.h>
 
 using namespace Microsoft::WRL;
 
@@ -94,7 +95,7 @@ namespace ultralight {
         hr = pFamilyNames->FindLocaleName( localeName, &index, &exists );
 
         if( SUCCEEDED( hr ) && !exists ) {
-            // If we didn't find a match, try again with US English
+          // If we didn't find a match, try again with US English
             hr = pFamilyNames->FindLocaleName( L"en-us", &index, &exists );
         }
 
@@ -249,6 +250,5 @@ namespace ultralight {
     }
 
 }  // namespace ultralight
-
 
 #endif

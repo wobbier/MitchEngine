@@ -138,6 +138,8 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
         Moonlight::PosColorVertex::Init();
         Moonlight::PosNormTexTanBiVertex::Init();
         Moonlight::PosTexCoordVertex::Init();
+        Moonlight::Vertex_2f_4ub_2f::Init();
+        Moonlight::Vertex_2f_4ub_2f_2f_28f::Init();
 
         // Create static vertex buffer.
         m_vbh = bgfx::createVertexBuffer(

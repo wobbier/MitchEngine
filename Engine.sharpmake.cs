@@ -128,12 +128,13 @@ public class Engine : BaseProject
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/SDL/include"));
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/UltralightSDK/include"));
 
-        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/UltralightSDK/lib/[target.SubPlatform]"));
+        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $@"ThirdParty/UltralightSDK/lib/[target.SubPlatform]/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
 
         conf.LibraryFiles.Add("MitchEngine");
         conf.LibraryFiles.Add("Ultralight");
         conf.LibraryFiles.Add("UltralightCore");
         conf.LibraryFiles.Add("WebCore");
+        conf.LibraryFiles.Add("Dwrite");
 
         conf.AddPublicDependency<Dementia>(target);
         conf.AddPublicDependency<ImGui>(target);
@@ -210,7 +211,7 @@ public class Engine : BaseProject
         // Ultralight DLL
         {
             var copyDirBuildStep = new Configuration.BuildStepCopy(
-                @"[project.SharpmakeCsPath]/ThirdParty/UltralightSDK/bin/Win64/",
+                $@"[project.SharpmakeCsPath]/ThirdParty/UltralightSDK/bin/Win64/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}",
                 Globals.RootDir + "/.build/[target.Name]");
 
             conf.EventPostBuildExe.Add(copyDirBuildStep);

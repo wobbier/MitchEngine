@@ -4,10 +4,11 @@
 
 namespace ultralight {
 
-    /**
-     * FontLoader implementation for Windows.
-     */
-    class FontLoaderWin : public FontLoader {
+/**
+ * FontLoader implementation for Windows.
+ */
+    class FontLoaderWin : public FontLoader
+    {
     public:
         FontLoaderWin() {}
         virtual ~FontLoaderWin() {}
