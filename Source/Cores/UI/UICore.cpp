@@ -263,15 +263,6 @@ void UICore::Render()
 
 void UICore::OnResize( const Vector2& NewSize )
 {
-    if( m_context )
-    {
-        //m_context->Resize( NewSize );
-        for( auto overlay : m_views )
-        {
-            overlay->Resize( (int)NewSize.x, (int)NewSize.y );
-        }
-    }
-
     if( NewSize.IsZero() )
     {
         return;
@@ -292,6 +283,15 @@ void UICore::OnResize( const Vector2& NewSize )
             , BGFX_SAMPLER_MIN_POINT | BGFX_SAMPLER_MAG_POINT | BGFX_SAMPLER_MIP_POINT
         );
         UISize = NewSize;
+
+    //if( m_context )
+        {
+            //m_context->Resize( NewSize );
+            for( auto overlay : m_views )
+            {
+                overlay->Resize( (int)NewSize.x, (int)NewSize.y );
+            }
+        }
     }
 }
 
@@ -309,7 +309,7 @@ void UICore::InitUIView( BasicUIView& view )
     ///
     /// Create an HTML view, 500 by 500 pixels large.
     ///
-    newView = m_uiRenderer->CreateView( static_cast<uint32_t>( Camera::CurrentCamera->OutputSize.x - 100 ), static_cast<uint32_t>( Camera::CurrentCamera->OutputSize.y - 100 ), view_config, nullptr );
+    newView = m_uiRenderer->CreateView( static_cast<uint32_t>( Camera::CurrentCamera->OutputSize.x ), static_cast<uint32_t>( Camera::CurrentCamera->OutputSize.y ), view_config, nullptr );
 
     ///
     /// Load a raw string of HTML asynchronously into the View.

@@ -87,6 +87,9 @@ namespace Moonlight
                 mWidth = imageContainer->m_width;
                 mHeight = imageContainer->m_height;
 
+#if USING ( ME_DEBUG )
+                BRUH_FMT( "%i, %s", TexHandle.idx, compiledTexture.FullPath.c_str() );
+#endif
                 return true;
             }
         }
