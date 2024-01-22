@@ -89,7 +89,7 @@ namespace Moonlight
     {
         Vector2 pos;
         uint8_t color[4];
-        Vector2 obj;
+        Vector2 objCoord;
 
         static void Init()
         {
@@ -108,8 +108,8 @@ namespace Moonlight
     {
         Vector2 pos;
         uint8_t color[4];
-        Vector2 tex;
-        Vector2 obj;
+        Vector2 texCoord;
+        Vector2 objCoord;
         float data_0[4];
         float data_1[4];
         float data_2[4];

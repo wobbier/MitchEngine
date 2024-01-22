@@ -66,4 +66,5 @@ private:
 
     // Shaders
     bgfx::ProgramHandle m_fillPathProgram;
+    bgfx::ProgramHandle m_fillProgram;
 };
