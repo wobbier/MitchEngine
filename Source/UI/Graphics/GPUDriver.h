@@ -2,15 +2,20 @@
 #include "bgfx/bgfx.h"
 #include <unordered_map>
 #include "Core/Buffer.h"
+#include "Math/Matrix4.h"
+#include <stack>
 
-namespace Moonlight { struct FrameBuffer; }
+namespace Moonlight {
+    struct FrameBuffer;
+}
 
 using namespace ultralight;
 
 class UIDriver
     : public ultralight::GPUDriver
 {
-    bgfx::ViewId kViewId = 100;
+    friend class UICore;
+    static const constexpr bgfx::ViewId kViewId = 100;
 public:
     UIDriver();
     void BeginSynchronize() override;
@@ -38,18 +43,36 @@ public:
     void UpdateCommandList( const CommandList& list ) override;
 
 private:
+    void UpdateConstantBuffer( const ultralight::GPUState& inState );
+    void RenderCommandList();
+
     uint32_t m_textureCount = 0;
-    std::unordered_map<uint32_t, bgfx::TextureHandle> m_storedTextures;
+    struct UITexture
+    {
+        bgfx::TextureHandle Handle;
+        uint32_t Width = 1.f;
+        uint32_t Height = 1.f;
+        bool IsRenderTexture = false;
+    };
+    std::unordered_map<uint32_t, UITexture> m_storedTextures;
 
     // maybe I store unused indices in another vector
+    struct UIBuffer
+    {
+        bgfx::FrameBufferHandle BufferHandle;
+        bgfx::TextureHandle TexHandle;
+        uint32_t FrameBufferTexture = 0;
+        uint32_t RenderViewId = kViewId;
+    };
+    std::stack<uint32_t> m_unusedBuffers;
     uint32_t m_bufferCount = 0;
-    std::unordered_map<uint32_t, bgfx::FrameBufferHandle> m_buffers;
+    std::unordered_map<uint32_t, UIBuffer> m_buffers;
 
     struct GeometryEntry
     {
         ultralight::VertexBufferFormat format;
-        bgfx::VertexBufferHandle m_vbh;
-        bgfx::IndexBufferHandle m_ibh;
+        bgfx::DynamicVertexBufferHandle m_vbh;
+        bgfx::DynamicIndexBufferHandle m_ibh;
     };
     uint32_t m_geometryCount = 0;
     std::map<uint32_t, GeometryEntry> m_geometry;
@@ -64,7 +87,24 @@ private:
     bgfx::UniformHandle m_clipSizeUniform;
     bgfx::UniformHandle m_clipUniform;
 
+    // Uniform State
+    struct UIUniform
+    {
+        float State[4];
+        Matrix4 Transform;
+        glm::vec4 Scalar4[2];
+        glm::vec4 Vector[8];
+        float ClipSize[4];
+        Matrix4 Clip[8];
+    };
+    UIUniform m_uniform;
+
     // Shaders
     bgfx::ProgramHandle m_fillPathProgram;
     bgfx::ProgramHandle m_fillProgram;
+
+    // Textures
+    bgfx::UniformHandle s_texture0;
+    bgfx::UniformHandle s_texture1;
+
 };

@@ -15,6 +15,7 @@
 
 class IWindow;
 class OverlayManager;
+class UIDriver;
 
 class UICore final
     : public Core<UICore>
@@ -61,5 +62,6 @@ private:
     UniquePtr<ultralight::FontLoader> m_fontLoader = nullptr;
     UniquePtr<ultralight::FileLogger> m_logger = nullptr;
     ultralight::RefPtr<UIWindow> m_window = nullptr;
+    UIDriver* m_driver = nullptr;
 };
 

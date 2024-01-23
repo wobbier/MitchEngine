@@ -38,8 +38,9 @@ UICore::UICore( IWindow* window, BGFXRenderer* renderer )
     /// purple by default.
     ///
     config.user_stylesheet = "body { background: purple; }";
+    config.bitmap_alignment = 0;
     config.force_repaint = true;
-    config.face_winding = ultralight::FaceWinding::Clockwise;
+    config.face_winding = ultralight::FaceWinding::CounterClockwise;
 
     ///
     /// Pass our configuration to the Platform singleton so that
@@ -63,9 +64,11 @@ UICore::UICore( IWindow* window, BGFXRenderer* renderer )
     ///
     ultralight::Platform::instance().set_logger( ultralight::GetDefaultLogger( "ultralight.log" ) );
 
-    ultralight::Platform::instance().set_gpu_driver( new UIDriver() );
+    m_driver = new UIDriver();
+    ultralight::Platform::instance().set_gpu_driver( m_driver );
 
     m_uiRenderer = ultralight::Renderer::Create();
+
 }
 
 UICore::~UICore()
@@ -74,6 +77,7 @@ UICore::~UICore()
     EventManager::GetInstance().DeRegisterReciever( this );
     // Am I leaking? or am I just dreaming?
     //m_overlays.clear();
+    delete m_driver;
 }
 
 void UICore::Init()
@@ -198,19 +202,19 @@ void UICore::Render()
     ///
     /// Render all active Views (this updates the Surface for each View).
     ///
-    try
+    //try
     {
          m_uiRenderer->Render();
     }
-    catch( const std::exception& e ) {
-     // Catch exceptions derived from std::exception
-        std::cerr << "Caught standard exception: " << e.what() << std::endl;
-    }
-    catch( ... ) {
-     // Catch any other exceptions
-        std::cerr << "Caught an unknown exception" << std::endl;
-    }
-
+    //catch( const std::exception& e ) {
+    // // Catch exceptions derived from std::exception
+    //    std::cerr << "Caught standard exception: " << e.what() << std::endl;
+    //}
+    //catch( ... ) {
+    // // Catch any other exceptions
+    //    std::cerr << "Caught an unknown exception" << std::endl;
+    //}
+    m_driver->RenderCommandList();
     for( auto ent : GetEntities() )
     {
 
@@ -221,13 +225,16 @@ void UICore::Render()
         }
         OPTICK_EVENT( "UI View Render", Optick::Category::GPU_UI );
 
-        ultralight::BitmapSurface* surface = (ultralight::BitmapSurface*)( ent.GetComponent<BasicUIView>().ViewRef->surface() );
+        ultralight::RenderTarget surface = (ultralight::RenderTarget)( ent.GetComponent<BasicUIView>().ViewRef->render_target() );
 
-        if( surface && !surface->dirty_bounds().IsEmpty() )
+        if( !surface.is_empty )//&& !surface->dirty_bounds().IsEmpty() )
         {
-            CopyBitmapToTexture( surface->bitmap() );
+            bgfx::blit( m_driver->kViewId + surface.render_buffer_id, m_driver->m_storedTextures[surface.texture_id].Handle, 0, 0, bgfx::getTexture( m_driver->m_buffers[surface.render_buffer_id].BufferHandle ) );
 
-            surface->ClearDirtyBounds();
+            //CopyBitmapToTexture( surface->bitmap() );
+            GetEngine().GetRenderer().GetCameraCache().Get( Camera::CurrentCamera->GetCameraId() )->UITexture = m_driver->m_storedTextures[surface.texture_id].Handle;
+
+            //surface->ClearDirtyBounds();
         }
     }
 }
@@ -279,7 +286,6 @@ void UICore::InitUIView( BasicUIView& view )
     ultralight::ViewConfig view_config;
     view_config.is_accelerated = true;
     view_config.is_transparent = true;
-    view_config.enable_javascript = true;
 
     ultralight::RefPtr<ultralight::View> newView;
     ///
@@ -359,7 +365,31 @@ bool UICore::OnEvent( const BaseEvent& evt )
 void UICore::OnEditorInspect()
 {
     Base::OnEditorInspect();
-    ImGui::Image( m_uiTexture, ImVec2( UISize.x, UISize.y ) );
+    if( ImGui::CollapsingHeader( "Main UI Texture", ImGuiTreeNodeFlags_DefaultOpen ) )
+    {
+        ImGui::Image( m_uiTexture, ImVec2( UISize.x, UISize.y ) );
+    }
+
+    if( ImGui::CollapsingHeader( "UI Buffers", ImGuiTreeNodeFlags_DefaultOpen ) )
+    {
+        for( auto& buffer : m_driver->m_buffers )
+        {
+            ImGui::Text( std::string( "Frame Buffer: " + std::to_string( buffer.first ) + ", " + std::to_string( buffer.second.FrameBufferTexture ) ).c_str() );
+            ImGui::Image( buffer.second.TexHandle, ImVec2( m_driver->m_storedTextures[buffer.second.FrameBufferTexture].Width, m_driver->m_storedTextures[buffer.second.FrameBufferTexture].Height ) );
+        }
+    }
+
+    if( ImGui::CollapsingHeader( "UI Textures", ImGuiTreeNodeFlags_DefaultOpen ) )
+    {
+        for( auto& buffer : m_driver->m_storedTextures )
+        {
+            if( !buffer.second.IsRenderTexture )
+            {
+                ImGui::Text( std::string( "Texture: " + std::to_string( buffer.first ) ).c_str() );
+                ImGui::Image( buffer.second.Handle, ImVec2( buffer.second.Width, buffer.second.Height ) );
+            }
+        }
+    }
 }
 
 #endif
