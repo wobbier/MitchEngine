@@ -8,6 +8,7 @@
 #include "Graphics\ShaderStructures.h"
 #include <DirectXMath.h>
 #include <glm/glm.hpp>
+#include "assimp\Compiler\pstdint.h"
 
 
 UIDriver::UIDriver()
@@ -40,6 +41,13 @@ void UIDriver::EndSynchronize()
 
 uint32_t UIDriver::NextTextureId()
 {
+    if( !m_unusedTextures.empty() )
+    {
+        uint32_t texture_id = m_unusedTextures.top();
+        m_unusedTextures.pop();
+        return texture_id;
+    }
+
     return m_textureCount++;
 }
 
@@ -93,7 +101,7 @@ void UIDriver::CreateTexture( uint32_t texture_id, RefPtr<Bitmap> bitmap )
             const uint16_t th = static_cast<uint32_t>( bitmap->height() );
             const uint16_t tx = 0;
             const uint16_t ty = 0;
-            uint64_t flags = BGFX_TEXTURE_NONE | BGFX_SAMPLER_W_MIRROR;
+            uint64_t flags = BGFX_TEXTURE_NONE | BGFX_SAMPLER_W_MIRROR | BGFX_CAPS_FORMAT_TEXTURE_2D;
 
             const bgfx::Memory* mem = bgfx::makeRef( pixels, width * height * ( format == bgfx::TextureFormat::A8 ? 1 : 4 ) );
             newTex.Handle = bgfx::createTexture2D(
@@ -143,6 +151,7 @@ void UIDriver::DestroyTexture( uint32_t texture_id )
 {
     bgfx::destroy( m_storedTextures[texture_id].Handle );
     m_storedTextures.erase( texture_id );
+    m_unusedTextures.push( texture_id );
 }
 
 uint32_t UIDriver::NextRenderBufferId()
@@ -193,15 +202,38 @@ void UIDriver::CreateGeometry( uint32_t geometry_id, const VertexBuffer& vertice
     {
         m_geometry[geometry_id].m_vbh = bgfx::createDynamicVertexBuffer(
             bgfx::makeRef( vertices.data, vertices.size )
-            , Moonlight::Vertex_2f_4ub_2f::ms_layout );
+            , Moonlight::Vertex_2f_4ub_2f::ms_layout, BGFX_BUFFER_ALLOW_RESIZE );
     }
     else if( vertices.format == VertexBufferFormat::_2f_4ub_2f_2f_28f )
     {
         m_geometry[geometry_id].m_vbh = bgfx::createDynamicVertexBuffer(
             bgfx::makeRef( vertices.data, vertices.size )
-            , Moonlight::Vertex_2f_4ub_2f_2f_28f::ms_layout );
+            , Moonlight::Vertex_2f_4ub_2f_2f_28f::ms_layout, BGFX_BUFFER_ALLOW_RESIZE );
+        int size = sizeof( Vertex_2f_4ub_2f_2f_28f ) / vertices.size;
+        Vertex_2f_4ub_2f_2f_28f* verticesCast = reinterpret_cast<Vertex_2f_4ub_2f_2f_28f*>( vertices.data );
+        for( size_t i = 0; i < vertices.size; ++i ) {
+            const Vertex_2f_4ub_2f_2f_28f* vertex = verticesCast + sizeof(Vertex_2f_4ub_2f_2f_28f) * i;
+
+            if( vertex->pos[0] > 1 )
+            {
+                //break;
+            }
+
+            //BRUH_FMT( "Pos: %f, %f", vertex.pos[0], vertex.pos[1] );
+            // Debugging: print out or inspect the vertex data
+            // Example: std::cout << "Vertex " << i << ": Pos(" << vertex.pos[0] << ", " << vertex.pos[1] << ")\n";
+        }
     }
-    m_geometry[geometry_id].m_ibh = bgfx::createDynamicIndexBuffer( bgfx::makeRef( indices.data, indices.size ) );
+
+    uint32_t* indicesCast = reinterpret_cast<uint32_t*>( indices.data );
+    for( size_t i = 0; i < indices.size / sizeof(uint32_t); ++i ) {
+        const uint32_t* vertex = indicesCast + sizeof( uint32_t ) * i;
+        if( indices.size > 0 )
+        {
+
+        }
+    }
+    m_geometry[geometry_id].m_ibh = bgfx::createDynamicIndexBuffer( bgfx::makeRef( indices.data, indices.size ), BGFX_BUFFER_ALLOW_RESIZE | BGFX_BUFFER_INDEX32 );
 }
 
 void UIDriver::UpdateGeometry( uint32_t geometry_id, const VertexBuffer& vertices, const IndexBuffer& indices )
@@ -247,7 +279,7 @@ void UIDriver::UpdateConstantBuffer( const ultralight::GPUState& inState )
         //m_uniform.Clip[i] = Matrix4( myMatrix );
 
         float orthoSize = 40.f;
-        bx::mtxOrtho( &transform[0][0], -screen_width / 2.5f, screen_width / 2.5f, -screen_height / 2.5f, screen_height / 2.5f, 1.f, 100.f, 0.f, bgfx::getCaps()->homogeneousDepth );
+        bx::mtxOrtho( &transform[0][0], -screen_width / 2.5f, screen_width / 2.5f, -screen_height / 2.5f, screen_height / 2.5f, 0.f, 1.f, 0.f, bgfx::getCaps()->homogeneousDepth );
         transform = transform * myMatrix;
     }
     glm::mat4 pos( 1.f );
@@ -348,13 +380,19 @@ void UIDriver::RenderCommandList()
                 bgfx::setTexture( 1, s_texture1, m_storedTextures[command.gpu_state.texture_2_id].Handle );
             }
 
+            if( command.gpu_state.enable_scissor )
+            {
+                bgfx::setScissor( command.gpu_state.scissor_rect.left, command.gpu_state.scissor_rect.right, command.gpu_state.scissor_rect.bottom, command.gpu_state.scissor_rect.top );
+            }
+
             if( command.gpu_state.shader_type == ShaderType::Fill )
             {
 
             }
             bgfx::setState( 0
                 | BGFX_STATE_WRITE_RGB
-                //| BGFX_STATE_BLEND_ALPHA // - Not it, creates artifacts
+                | BGFX_STATE_CULL_CW
+                | BGFX_STATE_BLEND_ALPHA // - Not it, creates artifacts
                 //| BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA) // - Almost there
                 | BGFX_STATE_BLEND_FUNC_SEPARATE( BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA, BGFX_STATE_BLEND_INV_DST_ALPHA, BGFX_STATE_BLEND_ONE )
             );

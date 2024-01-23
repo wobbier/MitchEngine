@@ -47,6 +47,7 @@ private:
     void RenderCommandList();
 
     uint32_t m_textureCount = 0;
+    std::stack<uint32_t> m_unusedTextures;
     struct UITexture
     {
         bgfx::TextureHandle Handle;

@@ -1,18 +1,18 @@
-$input v_position, v_color0, v_texcoord0, v_texcoord1, v_texcoord2, v_texcoord3, v_texcoord4, v_texcoord5, v_texcoord6, v_texcoord7, v_color1
+$input v_position, v_color0, v_color1, v_color2, v_texcoord0, v_texcoord1, v_texcoord2, v_texcoord3, v_texcoord4, v_texcoord5, v_texcoord6
 
 struct VS_OUTPUT
 {
-  float4 Position    : POSITION;
+  float2 Position    : POSITION;
   float4 Color       : COLOR0;
-  float2 TexCoord    : TEXCOORD0;
-  float4 Data0       : COLOR1;
-  float4 Data1       : COLOR2;
-  float4 Data2       : COLOR3;
-  float4 Data3       : COLOR4;
-  float4 Data4       : COLOR5;
-  float4 Data5       : COLOR6;
-  float4 Data6       : COLOR7;
-  float2 ObjectCoord : TEXCOORD1;
+  float2 TexCoord    : COLOR1;
+  float2 ObjectCoord : COLOR2;
+  float4 Data0       : TEXCOORD0;
+  float4 Data1       : TEXCOORD1;
+  float4 Data2       : TEXCOORD2;
+  float4 Data3       : TEXCOORD3;
+  float4 Data4       : TEXCOORD4;
+  float4 Data5       : TEXCOORD5;
+  float4 Data6       : TEXCOORD6;
 };
 
 #include "Common.sh"
@@ -23,7 +23,7 @@ uniform vec4 Scalar4[2];
 uniform vec4 Vector[8];
 uniform vec4 ClipSize;
 uniform mat4 Clip[8];
-
+// t
 SAMPLER2D(s_texture0, 0);
 SAMPLER2D(s_texture1, 1);
 //Texture2D texture0 : register(t0);
@@ -512,7 +512,7 @@ float4 GetCol(in matrix m, uint i) { return float4(m[0][i], m[1][i], m[2][i], m[
 #define VISUALIZE_CLIP 0
 
 void applyClip(VS_OUTPUT input, inout float4 outColor) {
-  for (uint i = 0; i < ClipSize[0]; i++) {
+  for (uint i = 0; i < (uint)ClipSize.x; i++) {
     matrix data = Clip[i];
     float2 origin = GetCol(data, 0).xy;
     float2 size = GetCol(data, 0).zw;
@@ -551,15 +551,15 @@ void main()
 	//ununsed
 	//input.Position = v_position;
 	input.Color = v_color0;
-	input.TexCoord = v_texcoord0;
-	input.ObjectCoord = v_texcoord1;
-	input.Data0 = v_texcoord2;
-	input.Data1 = v_texcoord3;
-	input.Data2 = v_texcoord4;
-	input.Data3 = v_texcoord5;
-	input.Data4 = v_texcoord6;
-	input.Data5 = v_texcoord7;
-	input.Data6 = v_color1;
+	input.TexCoord = v_color1;
+	input.ObjectCoord = v_color2;
+	input.Data0 = v_texcoord0;
+	input.Data1 = v_texcoord1;
+	input.Data2 = v_texcoord2;
+	input.Data3 = v_texcoord3;
+	input.Data4 = v_texcoord4;
+	input.Data5 = v_texcoord5;
+	input.Data6 = v_texcoord6;
 
 
   const uint FillType_Solid = 0u;

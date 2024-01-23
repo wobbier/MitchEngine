@@ -9,7 +9,7 @@ uniform vec4 Scalar4[2];
 uniform vec4 Vector[8];
 uniform vec4 ClipSize;
 uniform mat4 Clip[8];
-
+// main
 void main()
 {
 	//gl_Position = mul(u_modelViewProj, vec4(a_position.xyz, 1.0));

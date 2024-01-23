@@ -106,10 +106,10 @@ namespace Moonlight
 
     struct Vertex_2f_4ub_2f_2f_28f
     {
-        Vector2 pos;
+        float pos[2];
         uint8_t color[4];
-        Vector2 texCoord;
-        Vector2 objCoord;
+        float texCoord[2];
+        float objCoord[2];
         float data_0[4];
         float data_1[4];
         float data_2[4];
@@ -124,15 +124,15 @@ namespace Moonlight
                 .begin()
                 .add( bgfx::Attrib::Position, 2, bgfx::AttribType::Float )
                 .add( bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, false )
-                .add( bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float )
-                .add( bgfx::Attrib::TexCoord1, 2, bgfx::AttribType::Float )
+                .add( bgfx::Attrib::Color1, 2, bgfx::AttribType::Float, false )
+                .add( bgfx::Attrib::Color2, 2, bgfx::AttribType::Float, false )
+                .add( bgfx::Attrib::TexCoord0, 4, bgfx::AttribType::Float )
+                .add( bgfx::Attrib::TexCoord1, 4, bgfx::AttribType::Float )
                 .add( bgfx::Attrib::TexCoord2, 4, bgfx::AttribType::Float )
                 .add( bgfx::Attrib::TexCoord3, 4, bgfx::AttribType::Float )
                 .add( bgfx::Attrib::TexCoord4, 4, bgfx::AttribType::Float )
                 .add( bgfx::Attrib::TexCoord5, 4, bgfx::AttribType::Float )
                 .add( bgfx::Attrib::TexCoord6, 4, bgfx::AttribType::Float )
-                .add( bgfx::Attrib::TexCoord7, 4, bgfx::AttribType::Float )
-                .add( bgfx::Attrib::Color1, 4, bgfx::AttribType::Float, false )
                 .end();
         };
 
