@@ -14,6 +14,8 @@
 #include "Dementia.h"
 #include "Events/SceneEvents.h"
 #include "CLog.h"
+#include "Utils/BGFXUtils.h"
+#include "Primitives/Cube.h"
 DISABLE_OPTIMIZATION;
 
 UICore::UICore( IWindow* window, BGFXRenderer* renderer )
@@ -29,7 +31,8 @@ UICore::UICore( IWindow* window, BGFXRenderer* renderer )
 
     m_renderer = renderer;
 
-
+    UIProgram = Moonlight::LoadProgram( "Assets/Shaders/UI.vert", "Assets/Shaders/UI.frag" );
+    s_texUI = bgfx::createUniform( "s_texUI", bgfx::UniformType::Sampler );
 
     ultralight::Config config;
 
@@ -38,9 +41,9 @@ UICore::UICore( IWindow* window, BGFXRenderer* renderer )
     /// purple by default.
     ///
     config.user_stylesheet = "body { background: purple; }";
-    config.bitmap_alignment = 0;
+    //config.bitmap_alignment = 0;
     config.force_repaint = true;
-    config.face_winding = ultralight::FaceWinding::CounterClockwise;
+    config.face_winding = ultralight::FaceWinding::Clockwise;
 
     ///
     /// Pass our configuration to the Platform singleton so that
@@ -227,12 +230,41 @@ void UICore::Render()
 
         ultralight::RenderTarget surface = (ultralight::RenderTarget)( ent.GetComponent<BasicUIView>().ViewRef->render_target() );
 
+        bgfx::ViewId view = 150;
+        {
+            bgfx::setViewName( view, "UI BLIT" );
+            const bgfx::RendererType::Enum renderer = bgfx::getRendererType();
+            float m_texelHalf = ( bgfx::RendererType::Direct3D9 == renderer ) ? 0.5f : 0.0f;
+            float orthoProj[16];
+            bx::mtxOrtho( orthoProj, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, bgfx::getCaps()->homogeneousDepth );
+            {
+                // clear out transform stack
+                float identity[16];
+                bx::mtxIdentity( identity );
+                bgfx::setTransform( identity );
+            }
+
+            bgfx::setViewRect( view, 0, 0, uint16_t( surface.texture_width ), uint16_t( surface.texture_height ) );
+            bgfx::setViewTransform( view, NULL, orthoProj );
+            bgfx::setViewFrameBuffer( view, m_driver->m_buffers[surface.render_buffer_id].BufferHandle );
+            bgfx::setState( 0
+                | BGFX_STATE_WRITE_RGB
+                //| BGFX_STATE_BLEND_ALPHA // - Not it, creates artifacts
+                //| BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA) // - Almost there
+                | BGFX_STATE_BLEND_FUNC_SEPARATE( BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA, BGFX_STATE_BLEND_INV_DST_ALPHA, BGFX_STATE_BLEND_ONE )
+            );
+            bgfx::setTexture( 0, s_texUI, m_driver->m_buffers[surface.render_buffer_id].TexHandle );
+            Moonlight::screenSpaceQuad( surface.texture_width, surface.texture_height, m_texelHalf, bgfx::getCaps()->originBottomLeft );
+            bgfx::submit( view, UIProgram );
+            bgfx::blit( view, m_uiTexture, 0, 0, m_driver->m_buffers[surface.render_buffer_id].TexHandle );
+        }
         if( !surface.is_empty )//&& !surface->dirty_bounds().IsEmpty() )
         {
-            bgfx::blit( m_driver->kViewId + surface.render_buffer_id, m_driver->m_storedTextures[surface.texture_id].Handle, 0, 0, bgfx::getTexture( m_driver->m_buffers[surface.render_buffer_id].BufferHandle ) );
+            //m_driver->m_storedTextures[surface.texture_id].Handle
+            //bgfx::blit( m_driver->kViewId + surface.render_buffer_id, m_uiTexture, 0, 0, m_driver->m_buffers[surface.render_buffer_id].TexHandle);
 
             //CopyBitmapToTexture( surface->bitmap() );
-            GetEngine().GetRenderer().GetCameraCache().Get( Camera::CurrentCamera->GetCameraId() )->UITexture = m_driver->m_storedTextures[surface.texture_id].Handle;
+            GetEngine().GetRenderer().GetCameraCache().Get( Camera::CurrentCamera->GetCameraId() )->UITexture = m_uiTexture;// m_driver->m_storedTextures[surface.texture_id].Handle;
 
             //surface->ClearDirtyBounds();
         }
@@ -258,7 +290,7 @@ void UICore::OnResize( const Vector2& NewSize )
             , false
             , 1
             , bgfx::TextureFormat::BGRA8
-            , BGFX_SAMPLER_MIN_POINT | BGFX_SAMPLER_MAG_POINT | BGFX_SAMPLER_MIP_POINT
+            , BGFX_SAMPLER_MIN_POINT | BGFX_SAMPLER_MAG_POINT | BGFX_SAMPLER_MIP_POINT | BGFX_TEXTURE_BLIT_DST
         );
         UISize = NewSize;
 

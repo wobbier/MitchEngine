@@ -63,5 +63,8 @@ private:
     UniquePtr<ultralight::FileLogger> m_logger = nullptr;
     ultralight::RefPtr<UIWindow> m_window = nullptr;
     UIDriver* m_driver = nullptr;
+
+    bgfx::ProgramHandle UIProgram;
+    bgfx::UniformHandle s_texUI;
 };
 

@@ -4,6 +4,7 @@
 #include "Core/Buffer.h"
 #include "Math/Matrix4.h"
 #include <stack>
+#include "Ultralight/Matrix.h"
 
 namespace Moonlight {
     struct FrameBuffer;
@@ -74,6 +75,8 @@ private:
         ultralight::VertexBufferFormat format;
         bgfx::DynamicVertexBufferHandle m_vbh;
         bgfx::DynamicIndexBufferHandle m_ibh;
+        uint32_t m_vertexSize = 0;
+        uint32_t m_indexSize = 0;
     };
     uint32_t m_geometryCount = 0;
     std::map<uint32_t, GeometryEntry> m_geometry;
@@ -92,11 +95,11 @@ private:
     struct UIUniform
     {
         float State[4];
-        Matrix4 Transform;
+        ultralight::Matrix Transform;
         glm::vec4 Scalar4[2];
         glm::vec4 Vector[8];
         float ClipSize[4];
-        Matrix4 Clip[8];
+        ultralight::Matrix Clip[8];
     };
     UIUniform m_uniform;
 

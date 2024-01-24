@@ -8,7 +8,6 @@
 #include "Graphics\ShaderStructures.h"
 #include <DirectXMath.h>
 #include <glm/glm.hpp>
-#include "assimp\Compiler\pstdint.h"
 
 
 UIDriver::UIDriver()
@@ -196,52 +195,37 @@ uint32_t UIDriver::NextGeometryId()
 
 void UIDriver::CreateGeometry( uint32_t geometry_id, const VertexBuffer& vertices, const IndexBuffer& indices )
 {
-    m_geometry[geometry_id].format = vertices.format;
+    auto& geo = m_geometry[geometry_id];
+    geo.format = vertices.format;
     // I think this uint16 shit is gonna blow up on me
     if( vertices.format == VertexBufferFormat::_2f_4ub_2f )
     {
-        m_geometry[geometry_id].m_vbh = bgfx::createDynamicVertexBuffer(
+        geo.m_vbh = bgfx::createDynamicVertexBuffer(
             bgfx::makeRef( vertices.data, vertices.size )
             , Moonlight::Vertex_2f_4ub_2f::ms_layout, BGFX_BUFFER_ALLOW_RESIZE );
     }
     else if( vertices.format == VertexBufferFormat::_2f_4ub_2f_2f_28f )
     {
-        m_geometry[geometry_id].m_vbh = bgfx::createDynamicVertexBuffer(
+        geo.m_vbh = bgfx::createDynamicVertexBuffer(
             bgfx::makeRef( vertices.data, vertices.size )
             , Moonlight::Vertex_2f_4ub_2f_2f_28f::ms_layout, BGFX_BUFFER_ALLOW_RESIZE );
-        int size = sizeof( Vertex_2f_4ub_2f_2f_28f ) / vertices.size;
-        Vertex_2f_4ub_2f_2f_28f* verticesCast = reinterpret_cast<Vertex_2f_4ub_2f_2f_28f*>( vertices.data );
-        for( size_t i = 0; i < vertices.size; ++i ) {
-            const Vertex_2f_4ub_2f_2f_28f* vertex = verticesCast + sizeof(Vertex_2f_4ub_2f_2f_28f) * i;
-
-            if( vertex->pos[0] > 1 )
-            {
-                //break;
-            }
-
-            //BRUH_FMT( "Pos: %f, %f", vertex.pos[0], vertex.pos[1] );
-            // Debugging: print out or inspect the vertex data
-            // Example: std::cout << "Vertex " << i << ": Pos(" << vertex.pos[0] << ", " << vertex.pos[1] << ")\n";
-        }
     }
 
-    uint32_t* indicesCast = reinterpret_cast<uint32_t*>( indices.data );
-    for( size_t i = 0; i < indices.size / sizeof(uint32_t); ++i ) {
-        const uint32_t* vertex = indicesCast + sizeof( uint32_t ) * i;
-        if( indices.size > 0 )
-        {
+    geo.m_ibh = bgfx::createDynamicIndexBuffer( bgfx::makeRef( indices.data, indices.size ), BGFX_BUFFER_ALLOW_RESIZE | BGFX_BUFFER_INDEX32 );
 
-        }
-    }
-    m_geometry[geometry_id].m_ibh = bgfx::createDynamicIndexBuffer( bgfx::makeRef( indices.data, indices.size ), BGFX_BUFFER_ALLOW_RESIZE | BGFX_BUFFER_INDEX32 );
+    geo.m_vertexSize = vertices.size;
+    geo.m_indexSize = indices.size;
 }
 
 void UIDriver::UpdateGeometry( uint32_t geometry_id, const VertexBuffer& vertices, const IndexBuffer& indices )
 {
     m_geometry[geometry_id].format = vertices.format;
+    auto& geo = m_geometry[geometry_id];
     // I think this uint16 shit is gonna blow up on me
-    bgfx::update( m_geometry[geometry_id].m_vbh, 0, bgfx::makeRef( vertices.data, vertices.size ) );
-    bgfx::update( m_geometry[geometry_id].m_ibh, 0, bgfx::makeRef( indices.data, indices.size ) );
+    bgfx::update( geo.m_vbh, 0, bgfx::makeRef( vertices.data, vertices.size ) );
+    bgfx::update( geo.m_ibh, 0, bgfx::makeRef( indices.data, indices.size ) );
+    geo.m_vertexSize = vertices.size;
+    geo.m_indexSize = indices.size;
 }
 
 void UIDriver::DestroyGeometry( uint32_t geometry_id )
@@ -261,36 +245,36 @@ void UIDriver::UpdateCommandList( const CommandList& list )
 
 }
 
+Matrix ApplyProjection( const Matrix4x4& transform,
+    float screen_width,
+    float screen_height ) {
+    Matrix transform_mat;
+    transform_mat.Set( transform );
+
+    Matrix result;
+    result.SetOrthographicProjection( screen_width, screen_height, false );
+    result.Transform( transform_mat );
+
+    return result;
+}
+
 void UIDriver::UpdateConstantBuffer( const ultralight::GPUState& inState )
 {
     //bgfx_set_state( state, 0 );
     float screen_width = (float)inState.viewport_width;
     float screen_height = (float)inState.viewport_height;
+    //glm::mat4 pos( 1.f );
+    //pos = glm::translate( pos, { screen_width / 2.0f, screen_height / 2.0f, 0.0f } );
+    //pos = glm::scale( pos, { screen_width / 2.0f, screen_height / 2.0f, 1.0f } );
+    //pos = glm::rotate( pos, glm::pi<float>(), {0.f, 0.f, 1.f});
+    //pos = glm::rotate( pos, glm::pi<float>(), { 0.f, 1.f, 0.f } );
 
-    glm::mat4 transform( 1.f );
-    {
-        auto& myArray = inState.transform.data;
-        glm::mat4 myMatrix = glm::mat4(
-            myArray[0], myArray[1], myArray[2], myArray[3],
-            myArray[4], myArray[5], myArray[6], myArray[7],
-            myArray[8], myArray[9], myArray[10], myArray[11],
-            myArray[12], myArray[13], myArray[14], myArray[15]
-        );
-        //m_uniform.Clip[i] = Matrix4( myMatrix );
 
-        float orthoSize = 40.f;
-        bx::mtxOrtho( &transform[0][0], -screen_width / 2.5f, screen_width / 2.5f, -screen_height / 2.5f, screen_height / 2.5f, 0.f, 1.f, 0.f, bgfx::getCaps()->homogeneousDepth );
-        transform = transform * myMatrix;
-    }
-    glm::mat4 pos( 1.f );
-    pos = glm::translate( pos, { screen_width / 2.0f, screen_height / 2.0f, 0.0f } );
-    pos = glm::scale( pos, { screen_width / 2.0f, screen_height / 2.0f, 1.0f } );
-    pos = glm::rotate( pos, glm::pi<float>(), {0.f, 0.f, 1.f});
-    pos = glm::rotate( pos, glm::pi<float>(), { 0.f, 1.f, 0.f } );
+    
+    //ultralight::Matrix transform = inState.transform.SetOrthographicProjection( command.gpu_state.viewport_width, command.gpu_state.viewport_height, true );
+    m_uniform.Transform = ApplyProjection( inState.transform, screen_width, screen_height );
+    bgfx::setTransform( &m_uniform.Transform.data, 1 );
 
-    bgfx::setTransform( &pos[0], 1 );
-
-    m_uniform.Transform = Matrix4( transform );
     m_uniform.State[0] = 0.0f;
     m_uniform.State[1] = screen_width;
     m_uniform.State[2] = screen_height;
@@ -314,21 +298,14 @@ void UIDriver::UpdateConstantBuffer( const ultralight::GPUState& inState )
     m_uniform.ClipSize[0] = inState.clip_size;
     for( size_t i = 0; i < inState.clip_size; ++i )
     {
-        auto& myArray = inState.clip[i].data;
-        glm::mat4 myMatrix = glm::mat4(
-            myArray[0], myArray[1], myArray[2], myArray[3],
-            myArray[4], myArray[5], myArray[6], myArray[7],
-            myArray[8], myArray[9], myArray[10], myArray[11],
-            myArray[12], myArray[13], myArray[14], myArray[15]
-        );
-        m_uniform.Clip[i] = Matrix4( myMatrix );
+        m_uniform.Clip[i].Set( inState.clip[i] );
     }
-    bgfx::setUniform( m_stateUniform, &m_uniform.State );
+    bgfx::setUniform( m_stateUniform, &m_uniform.State[0]);
     bgfx::setUniform( m_transformUniform, &m_uniform.Transform );
-    bgfx::setUniform( m_scalar4Uniform, &m_uniform.Scalar4 );
-    bgfx::setUniform( m_vectorUniform, &m_uniform.Vector );
-    bgfx::setUniform( m_clipSizeUniform, &m_uniform.ClipSize );
-    bgfx::setUniform( m_clipUniform, &m_uniform.Clip );
+    bgfx::setUniform( m_scalar4Uniform, &m_uniform.Scalar4[0]);
+    bgfx::setUniform( m_vectorUniform, &m_uniform.Vector[0]);
+    bgfx::setUniform( m_clipSizeUniform, &m_uniform.ClipSize[0]);
+    bgfx::setUniform( m_clipUniform, &m_uniform.Clip[0]);
 }
 
 void UIDriver::RenderCommandList()
@@ -339,7 +316,19 @@ void UIDriver::RenderCommandList()
         switch( command.command_type )
         {
         case CommandType::ClearRenderBuffer:
-            bgfx::setViewClear( kViewId + command.gpu_state.render_buffer_id, 0 );
+        {
+            uint32_t color = (uint32_t)( 0.f * 255.f ) << 24  // Alpha channel (0.5 opacity)
+                | (uint32_t)( 0.f * 255.f ) << 16      // Red channel
+                | (uint32_t)( 0.f * 255.f ) << 8       // Green channel
+                | (uint32_t)( 1.f * 255.f );           // Blue channel
+
+            bgfx::setViewClear( kViewId + command.gpu_state.render_buffer_id
+                , BGFX_CLEAR_COLOR
+                , color, 1.0f, 0
+            );
+            bgfx::touch( kViewId + command.gpu_state.render_buffer_id );
+        }
+            //bgfx::setViewClear( kViewId + command.gpu_state.render_buffer_id, 0xf00f );
             continue;
         case CommandType::DrawGeometry:
         {
@@ -366,9 +355,9 @@ void UIDriver::RenderCommandList()
             bgfx::setViewFrameBuffer( bufferId, m_buffers[command.gpu_state.render_buffer_id].BufferHandle );
 
             // Set vertex and index buffer.
-            bgfx::setVertexBuffer( 0, m_geometry[command.geometry_id].m_vbh );
-            bgfx::setIndexBuffer( m_geometry[command.geometry_id].m_ibh, command.indices_offset, command.indices_count );
-            //command.gpu_state.texture_1_id
+            auto& geo = m_geometry[command.geometry_id];
+            bgfx::setVertexBuffer( 0, geo.m_vbh, 0, geo.m_vertexSize / sizeof( Moonlight::Vertex_2f_4ub_2f_2f_28f ) );
+            bgfx::setIndexBuffer( geo.m_ibh, command.indices_offset, command.indices_count );
 
             if( bgfx::isValid( m_storedTextures[command.gpu_state.texture_1_id].Handle ) )
             {
@@ -382,20 +371,23 @@ void UIDriver::RenderCommandList()
 
             if( command.gpu_state.enable_scissor )
             {
-                bgfx::setScissor( command.gpu_state.scissor_rect.left, command.gpu_state.scissor_rect.right, command.gpu_state.scissor_rect.bottom, command.gpu_state.scissor_rect.top );
+                bgfx::setScissor( command.gpu_state.scissor_rect.left, command.gpu_state.scissor_rect.top, command.gpu_state.scissor_rect.right, command.gpu_state.scissor_rect.bottom );
             }
 
             if( command.gpu_state.shader_type == ShaderType::Fill )
             {
 
             }
-            bgfx::setState( 0
+            uint64_t state = 0
                 | BGFX_STATE_WRITE_RGB
-                | BGFX_STATE_CULL_CW
-                | BGFX_STATE_BLEND_ALPHA // - Not it, creates artifacts
-                //| BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA) // - Almost there
-                | BGFX_STATE_BLEND_FUNC_SEPARATE( BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA, BGFX_STATE_BLEND_INV_DST_ALPHA, BGFX_STATE_BLEND_ONE )
-            );
+                | BGFX_STATE_WRITE_A
+                | BGFX_STATE_DEPTH_TEST_NEVER
+                ;
+            if( command.gpu_state.enable_blend ) {
+                state = state | BGFX_STATE_BLEND_EQUATION_ADD;
+                state = state | BGFX_STATE_BLEND_FUNC_SEPARATE( BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA, BGFX_STATE_BLEND_INV_DST_ALPHA, BGFX_STATE_BLEND_ONE );
+            }
+            bgfx::setState( state, 0 );
             // Set uniform values here using GPUDriverD3D11::UpdateConstantBuffer
             //mesh.MeshMaterial->Use();
             UpdateConstantBuffer( command.gpu_state );
@@ -409,5 +401,5 @@ void UIDriver::RenderCommandList()
         continue;
         }
     }
-    //m_renderCommands.clear();
+    m_renderCommands.clear();
 }

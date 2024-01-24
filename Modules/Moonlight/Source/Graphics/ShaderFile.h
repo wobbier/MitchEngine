@@ -79,12 +79,12 @@ struct ShaderFileMetadata
         if( ext == "frag" )
         {
             exportType = "fragment";
-            shaderType = "ps_5_0";
+            shaderType = "s_5_0";
         }
         else if( ext == "vert" )
         {
             exportType = "vertex";
-            shaderType = "vs_5_0";
+            shaderType = "s_5_0";
         }
 
         std::string fileName = std::string( FilePath.GetLocalPath().substr( FilePath.GetLocalPath().rfind( "/" ) + 1, FilePath.GetLocalPath().length() ) );
@@ -102,17 +102,15 @@ struct ShaderFileMetadata
         Path shadercPath = Path( "Engine/Tools/macOS/shaderc" );
 
         std::string exportType;
-        std::string shaderType;
+        std::string shaderType = "ps_5_0";
         std::string ext = FilePath.GetExtension();
         if( ext == "frag" )
         {
             exportType = "fragment";
-            shaderType = "ps_5_0";
         }
         else if( ext == "vert" )
         {
             exportType = "vertex";
-            shaderType = "vs_5_0";
         }
 
         std::string fileName = FilePath.GetLocalPath().substr( FilePath.GetLocalPath().rfind( "/" ) + 1, FilePath.GetLocalPath().length() );

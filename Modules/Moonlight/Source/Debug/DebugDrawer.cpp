@@ -132,7 +132,7 @@ void DebugDrawer::Init( bgfx::Encoder* InEncoder )
 
 void DebugDrawer::Begin( uint16_t InViewId, bool InDepthTestLess /*= true*/ )
 {
-    BX_ASSERT( State::Count == m_state );
+    BX_ASSERT( State::Count == m_state, "" );
 
     m_viewId = InViewId;
     m_state = State::None;
@@ -166,14 +166,14 @@ void DebugDrawer::Begin( uint16_t InViewId, bool InDepthTestLess /*= true*/ )
 
 void DebugDrawer::Push()
 {
-    BX_ASSERT( State::Count != m_state );
+    BX_ASSERT( State::Count != m_state, "");
     ++m_stack;
     m_attrib[m_stack] = m_attrib[m_stack - 1];
 }
 
 void DebugDrawer::Pop()
 {
-    BX_ASSERT( State::Count != m_state );
+    BX_ASSERT( State::Count != m_state, "" );
     const Attrib& curr = m_attrib[m_stack];
     const Attrib& prev = m_attrib[m_stack - 1];
     if( curr.m_stipple != prev.m_stipple
@@ -280,7 +280,7 @@ void DebugDrawer::Draw( const float* InOBB )
 void DebugDrawer::PushTransform( const void* _mtx, uint16_t _num, bool _flush /*= true*/ )
 {
     BX_ASSERT( m_mtxStackCurrent < BX_COUNTOF( m_mtxStack ), "Out of matrix stack!" );
-    BX_ASSERT( State::Count != m_state );
+    BX_ASSERT( State::Count != m_state, "" );
     if( _flush )
     {
         Flush();
@@ -310,7 +310,7 @@ void DebugDrawer::PushTransform( const void* _mtx, uint16_t _num, bool _flush /*
 
 void DebugDrawer::PopTransform( bool _flush /*= true*/ )
 {
-    BX_ASSERT( State::Count != m_state );
+    BX_ASSERT( State::Count != m_state, "" );
     if( _flush )
     {
         Flush();
@@ -321,7 +321,7 @@ void DebugDrawer::PopTransform( bool _flush /*= true*/ )
 
 void DebugDrawer::SetTransform( const void* _mtx, uint16_t _num /*= 1*/, bool _flush /*= true*/ )
 {
-    BX_ASSERT( State::Count != m_state );
+    BX_ASSERT( State::Count != m_state, "" );
     if( _flush )
     {
         Flush();
@@ -344,7 +344,7 @@ void DebugDrawer::SetTransform( const void* _mtx, uint16_t _num /*= 1*/, bool _f
 
 void DebugDrawer::moveTo( float _x, float _y, float _z /*= 0.0f*/ )
 {
-    BX_ASSERT( State::Count != m_state );
+    BX_ASSERT( State::Count != m_state, "" );
 
     SoftFlush();
 
@@ -364,7 +364,7 @@ void DebugDrawer::moveTo( float _x, float _y, float _z /*= 0.0f*/ )
 
 void DebugDrawer::lineTo( float _x, float _y, float _z /*= 0.0f*/ )
 {
-    BX_ASSERT( State::Count != m_state );
+    BX_ASSERT( State::Count != m_state, "" );
     if( State::None == m_state )
     {
         moveTo( _x, _y, _z );
@@ -417,7 +417,7 @@ void DebugDrawer::lineTo( float _x, float _y, float _z /*= 0.0f*/ )
 
 void DebugDrawer::close()
 {
-    BX_ASSERT( State::Count != m_state );
+    BX_ASSERT( State::Count != m_state, "" );
     DebugVertex& vertex = m_cache[m_vertexPos];
     lineTo( vertex.m_x, vertex.m_y, vertex.m_z );
 

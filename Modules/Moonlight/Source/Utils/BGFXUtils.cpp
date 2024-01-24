@@ -12,7 +12,8 @@ const bgfx::Memory* Moonlight::LoadMemory( const Path& filePath )
     {
         uint32_t size = (uint32_t)bx::getSize( getDefaultReader() );
         const bgfx::Memory* mem = bgfx::alloc( size + 1 );
-        bx::read( getDefaultReader(), mem->data, size );
+		bx::Error err2;
+		bx::read(getDefaultReader(), mem->data, size, &err2);
         bx::close( getDefaultReader() );
         mem->data[mem->size - 1] = '\0';
         return mem;
