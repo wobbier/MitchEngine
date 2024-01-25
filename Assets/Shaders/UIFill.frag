@@ -1,4 +1,4 @@
-$input v_position, v_color0, v_color1, v_color2, v_texcoord0, v_texcoord1, v_texcoord2, v_texcoord3, v_texcoord4, v_texcoord5, v_texcoord6
+$input gl_Position, v_color0, v_color1, v_color2, v_texcoord0, v_texcoord1, v_texcoord2, v_texcoord3, v_texcoord4, v_texcoord5, v_texcoord6
 
 struct VS_OUTPUT
 {
@@ -549,7 +549,7 @@ void main()
 {
 	VS_OUTPUT input;
 	//ununsed
-	//input.Position = v_position;
+	//input.Position = gl_Position;
 	input.Color = v_color0;
 	input.TexCoord = v_color1;
 	input.ObjectCoord = v_color2;

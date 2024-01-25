@@ -73,8 +73,11 @@ private:
     struct GeometryEntry
     {
         ultralight::VertexBufferFormat format;
+        bgfx::VertexLayoutHandle m_vbhLayout;
         bgfx::DynamicVertexBufferHandle m_vbh;
         bgfx::DynamicIndexBufferHandle m_ibh;
+        void* m_vertexBuffer = nullptr;
+        void* m_indexBuffer = nullptr;
         uint32_t m_vertexSize = 0;
         uint32_t m_indexSize = 0;
     };
@@ -111,4 +114,12 @@ private:
     bgfx::UniformHandle s_texture0;
     bgfx::UniformHandle s_texture1;
 
+
+
+
+    //test
+    GeometryEntry m_testEntry;
+    bgfx::VertexBufferHandle m_testVertexBuffer;
+    bgfx::IndexBufferHandle m_testIndexBuffer;
+    uint32_t m_testIndexSize = 0;
 };

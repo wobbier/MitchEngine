@@ -1,4 +1,4 @@
-$input v_position, v_color0, v_texcoord0
+$input gl_Position, v_color0, v_texcoord0
 
 #include "Common.sh"
 
@@ -143,7 +143,7 @@ float4 GetCol(in matrix m, uint i) { return float4(m[0][i], m[1][i], m[2][i], m[
 #define VISUALIZE_CLIP 0
 
 void applyClip(vec2 texCoord0, inout float4 outColor) {
-  for (uint i = 0; i < ClipSize[0]; i++) {
+  for (uint i = 0; i < ClipSize.x; i++) {
     matrix data = Clip[i];
     float2 origin = GetCol(data, 0).xy;
     float2 size = GetCol(data, 0).zw;
