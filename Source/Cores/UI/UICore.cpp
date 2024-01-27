@@ -234,7 +234,7 @@ void UICore::Render()
         {
             bgfx::setViewName( view, "UI BLIT" );
             const bgfx::RendererType::Enum renderer = bgfx::getRendererType();
-            float m_texelHalf = ( bgfx::RendererType::Direct3D9 == renderer ) ? 0.5f : 0.0f;
+            float m_texelHalf = 0.0f;
             float orthoProj[16];
             bx::mtxOrtho( orthoProj, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, bgfx::getCaps()->homogeneousDepth );
             {
@@ -397,6 +397,9 @@ bool UICore::OnEvent( const BaseEvent& evt )
 void UICore::OnEditorInspect()
 {
     Base::OnEditorInspect();
+    ImGui::Text( "Clear Calls %i", m_driver->m_uiDrawInfo.m_numClearCalls );
+    ImGui::Text( "Fill Calls %i", m_driver->m_uiDrawInfo.m_numDrawFillCalls );
+    ImGui::Text( "Fill Path Calls %i", m_driver->m_uiDrawInfo.m_numDrawFillPathCalls );
     if( ImGui::CollapsingHeader( "Main UI Texture", ImGuiTreeNodeFlags_DefaultOpen ) )
     {
         ImGui::Image( m_uiTexture, ImVec2( UISize.x, UISize.y ) );

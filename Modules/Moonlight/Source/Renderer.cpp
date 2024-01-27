@@ -563,7 +563,7 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId
 
     // Get renderer capabilities info.
     const bgfx::RendererType::Enum renderer = bgfx::getRendererType();
-    float m_texelHalf = ( bgfx::RendererType::Direct3D9 == renderer ) ? 0.5f : 0.0f;
+    float m_texelHalf = 0.0f;
     if( camera.IsMain && bgfx::isValid( camera.UITexture ) )
     {
         const int view = 69;

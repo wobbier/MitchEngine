@@ -44,7 +44,7 @@ public:
     void UpdateCommandList( const CommandList& list ) override;
 
 private:
-    void UpdateConstantBuffer( const ultralight::GPUState& inState );
+    void UpdateConstantBuffer( const ultralight::GPUState& inState, uint32_t geoId );
     void RenderCommandList();
 
     uint32_t m_textureCount = 0;
@@ -70,6 +70,18 @@ private:
     uint32_t m_bufferCount = 0;
     std::unordered_map<uint32_t, UIBuffer> m_buffers;
 
+    // Uniform State
+    struct UIUniform
+    {
+        glm::vec4 State;
+        glm::vec4 m_testVector;
+        ultralight::Matrix4x4 Transform;
+        glm::vec4 Scalar4[2];
+        glm::vec4 Vector[8];
+        float ClipSize[4];
+        ultralight::Matrix4x4 Clip[8];
+    };
+
     struct GeometryEntry
     {
         ultralight::VertexBufferFormat format;
@@ -80,6 +92,7 @@ private:
         void* m_indexBuffer = nullptr;
         uint32_t m_vertexSize = 0;
         uint32_t m_indexSize = 0;
+        UIUniform m_uniform;
     };
     uint32_t m_geometryCount = 0;
     std::map<uint32_t, GeometryEntry> m_geometry;
@@ -94,17 +107,6 @@ private:
     bgfx::UniformHandle m_clipSizeUniform;
     bgfx::UniformHandle m_clipUniform;
 
-    // Uniform State
-    struct UIUniform
-    {
-        float State[4];
-        ultralight::Matrix Transform;
-        glm::vec4 Scalar4[2];
-        glm::vec4 Vector[8];
-        float ClipSize[4];
-        ultralight::Matrix Clip[8];
-    };
-    UIUniform m_uniform;
 
     // Shaders
     bgfx::ProgramHandle m_fillPathProgram;
@@ -114,7 +116,16 @@ private:
     bgfx::UniformHandle s_texture0;
     bgfx::UniformHandle s_texture1;
 
+    struct UIDrawInfo
+    {
+        uint32_t m_numClearCalls = 0;
+        uint32_t m_numDrawFillCalls = 0;
+        uint32_t m_numDrawFillPathCalls = 0;
+    };
+    UIDrawInfo m_uiDrawInfo;
 
+
+    ultralight::Matrix m_identityMatrix;
 
 
     //test
@@ -122,4 +133,6 @@ private:
     bgfx::VertexBufferHandle m_testVertexBuffer;
     bgfx::IndexBufferHandle m_testIndexBuffer;
     uint32_t m_testIndexSize = 0;
+
+    bgfx::UniformHandle m_testUniform;
 };

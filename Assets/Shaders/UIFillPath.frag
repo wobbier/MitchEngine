@@ -3,6 +3,7 @@ $input gl_Position, v_color0, v_texcoord0
 #include "Common.sh"
 
 uniform vec4 State;
+uniform vec4 u_testUniform;
 uniform mat4 Transform;
 uniform vec4 Scalar4[2];
 uniform vec4 Vector[8];

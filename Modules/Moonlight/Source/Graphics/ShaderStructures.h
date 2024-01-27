@@ -87,16 +87,16 @@ namespace Moonlight
     // Ultralight
     struct Vertex_2f_4ub_2f
     {
-        Vector2 pos;
+        float pos[2];
         uint8_t color[4];
-        Vector2 objCoord;
+        float objCoord[2];
 
         static void Init()
         {
             ms_layout
                 .begin()
                 .add( bgfx::Attrib::Position, 2, bgfx::AttribType::Float )
-                .add( bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, false )
+                .add( bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true )
                 .add( bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float )
                 .end();
         };
@@ -123,7 +123,7 @@ namespace Moonlight
             ms_layout
                 .begin()
                 .add( bgfx::Attrib::Position, 2, bgfx::AttribType::Float )
-                .add( bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, false )
+                .add( bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true )
                 .add( bgfx::Attrib::Color1, 2, bgfx::AttribType::Float, false )
                 .add( bgfx::Attrib::Color2, 2, bgfx::AttribType::Float, false )
                 .add( bgfx::Attrib::TexCoord0, 4, bgfx::AttribType::Float )

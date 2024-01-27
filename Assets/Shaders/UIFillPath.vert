@@ -4,16 +4,16 @@ $output gl_Position, v_color0, v_texcoord0
 #include "Common.sh"
 
 uniform vec4 State;
+uniform vec4 u_testUniform;
 uniform mat4 Transform;
 uniform vec4 Scalar4[2];
 uniform vec4 Vector[8];
 uniform vec4 ClipSize;
 uniform mat4 Clip[8];
-// main
+// mains
 void main()
 {
-	//gl_Position = mul(u_modelViewProj, vec4(a_position.xyz, 1.0));
 	gl_Position = mul(Transform, vec4(a_position.x, a_position.y, 0.0, 1.0));
-	v_color0 = vec4(a_color0) / 255.0;
+	v_color0 = a_color0;
 	v_texcoord0 = a_texcoord0;
 }

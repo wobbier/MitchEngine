@@ -18,6 +18,7 @@ struct VS_OUTPUT
 #include "Common.sh"
 
 uniform vec4 State;
+uniform vec4 u_testUniform;
 uniform mat4 Transform;
 uniform vec4 Scalar4[2];
 uniform vec4 Vector[8];
