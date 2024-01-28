@@ -27,6 +27,7 @@ UIDriver::UIDriver()
     s_texture0 = bgfx::createUniform( "s_texture0", bgfx::UniformType::Sampler );
     s_texture1 = bgfx::createUniform( "s_texture1", bgfx::UniformType::Sampler );
     //memset( &m_uniform, 0, sizeof( UIUniform ) );
+    memset( &m_commandList, 0, sizeof( ultralight::CommandList ) );
 
     // Shaders
     m_fillPathProgram = Moonlight::LoadProgram( "Assets/Shaders/UIFillPath.vert", "Assets/Shaders/UIFillPath.frag" ); // Vertex_2f_4ub_2f
@@ -108,6 +109,8 @@ void UIDriver::CreateTexture( uint32_t texture_id, RefPtr<Bitmap> bitmap )
     else
     {
         newTex.IsRenderTexture = false;
+        //UpdateTexture( texture_id, bitmap );
+        //return;
 
         void* pixels = bitmap->LockPixels();
 
@@ -127,7 +130,7 @@ void UIDriver::CreateTexture( uint32_t texture_id, RefPtr<Bitmap> bitmap )
             const uint16_t ty = 0;
             uint64_t flags = BGFX_TEXTURE_NONE | BGFX_SAMPLER_W_MIRROR | BGFX_CAPS_FORMAT_TEXTURE_2D;
 
-            const bgfx::Memory* mem = bgfx::makeRef( pixels, width * height * ( format == bgfx::TextureFormat::A8 ? 1 : 4 ) );
+            const bgfx::Memory* mem = bgfx::copy( pixels, bitmap->size() );
             newTex.Handle = bgfx::createTexture2D(
                 width
                 , height
@@ -150,7 +153,11 @@ void UIDriver::CreateTexture( uint32_t texture_id, RefPtr<Bitmap> bitmap )
 
 void UIDriver::UpdateTexture( uint32_t texture_id, RefPtr<Bitmap> bitmap )
 {
+    DestroyTexture( texture_id );
+    CreateTexture( texture_id, bitmap );
+    return;
     void* pixels = bitmap->LockPixels();
+    ME_ASSERT( !bitmap->IsEmpty() );
 
     uint32_t width = bitmap->width();
     uint32_t height = bitmap->height();
@@ -164,8 +171,8 @@ void UIDriver::UpdateTexture( uint32_t texture_id, RefPtr<Bitmap> bitmap )
         const uint16_t tx = 0;
         const uint16_t ty = 0;
 
-        const bgfx::Memory* mem = bgfx::makeRef( pixels, width * height * 4 );
-        bgfx::updateTexture2D( m_storedTextures[texture_id].Handle, 0, 0, tx, ty, tw, th, mem, stride );
+        const bgfx::Memory* mem = bgfx::copy( pixels, bitmap->size() );
+        bgfx::updateTexture2D( m_storedTextures[texture_id].Handle, 0, 0, tx, ty, tw, th, mem );
     }
 
     bitmap->UnlockPixels();
@@ -175,7 +182,7 @@ void UIDriver::DestroyTexture( uint32_t texture_id )
 {
     bgfx::destroy( m_storedTextures[texture_id].Handle );
     m_storedTextures.erase( texture_id );
-    m_unusedTextures.push( texture_id );
+    //m_unusedTextures.push( texture_id );
 }
 
 uint32_t UIDriver::NextRenderBufferId()
@@ -200,7 +207,7 @@ void UIDriver::CreateRenderBuffer( uint32_t render_buffer_id, const RenderBuffer
         m_storedTextures[buffer.texture_id].Handle
     };
     // do I need to destroy textures here?
-    m_buffers[render_buffer_id].BufferHandle = bgfx::createFrameBuffer( BX_COUNTOF( fbtextures ), fbtextures, true );
+    m_buffers[render_buffer_id].BufferHandle = bgfx::createFrameBuffer( BX_COUNTOF( fbtextures ), fbtextures, false );
     m_buffers[render_buffer_id].TexHandle = m_storedTextures[buffer.texture_id].Handle;
     m_buffers[render_buffer_id].FrameBufferTexture = buffer.texture_id;
     m_buffers[render_buffer_id].RenderViewId = kViewId + render_buffer_id;
@@ -278,6 +285,7 @@ void UIDriver::UpdateCommandList( const CommandList& list )
     {
         m_renderCommands.resize( list.size );
         memcpy( &m_renderCommands[0], list.commands, sizeof( ultralight::Command ) * list.size );
+        m_commandList = list;
     }
 
 }
@@ -359,11 +367,23 @@ void UIDriver::UpdateConstantBuffer( const ultralight::GPUState& inState, uint32
 void UIDriver::RenderCommandList()
 {
     memset( &m_uiDrawInfo, 0, sizeof(UIDrawInfo) );
+    bool hasCleared = false;
+    std::sort( m_renderCommands.begin(), m_renderCommands.end(), [](auto& first, auto& second) {
+        return first.command_type < second.command_type;
+        } );
     // Move this
     for( ultralight::Command& command : m_renderCommands )
+    //for( uint32_t i = 0; i < m_commandList.size; ++i )
     {
-        if( command.command_type == CommandType::ClearRenderBuffer )
+        //auto& command = m_commandList.commands[i];
+        if( command.command_type == CommandType::ClearRenderBuffer && !hasCleared )
         {
+            if( hasCleared )
+            {
+                //continue;
+            }
+            //hasCleared = true;
+
             uint32_t color = (uint32_t)( 0.f * 255.f ) << 24  // Alpha channel (0.5 opacity)
                 | (uint32_t)( 0.f * 255.f ) << 16      // Red channel
                 | (uint32_t)( 0.f * 255.f ) << 8       // Green channel

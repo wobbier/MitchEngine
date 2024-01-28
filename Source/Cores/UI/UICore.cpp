@@ -40,7 +40,7 @@ UICore::UICore( IWindow* window, BGFXRenderer* renderer )
     /// Let's set some custom global CSS to make our background
     /// purple by default.
     ///
-    config.user_stylesheet = "body { background: purple; }";
+    //config.user_stylesheet = "body { background: purple; }";
     //config.bitmap_alignment = 0;
     config.force_repaint = true;
     config.face_winding = ultralight::FaceWinding::Clockwise;
@@ -318,6 +318,7 @@ void UICore::InitUIView( BasicUIView& view )
     ultralight::ViewConfig view_config;
     view_config.is_accelerated = true;
     view_config.is_transparent = true;
+    view_config.font_family_standard = "Arial";
 
     ultralight::RefPtr<ultralight::View> newView;
     ///

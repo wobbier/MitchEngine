@@ -16,7 +16,7 @@ class UIDriver
     : public ultralight::GPUDriver
 {
     friend class UICore;
-    static const constexpr bgfx::ViewId kViewId = 100;
+    static const constexpr bgfx::ViewId kViewId = 40;
 public:
     UIDriver();
     void BeginSynchronize() override;
@@ -47,7 +47,7 @@ private:
     void UpdateConstantBuffer( const ultralight::GPUState& inState, uint32_t geoId );
     void RenderCommandList();
 
-    uint32_t m_textureCount = 0;
+    uint32_t m_textureCount = 1;
     std::stack<uint32_t> m_unusedTextures;
     struct UITexture
     {
@@ -67,7 +67,7 @@ private:
         uint32_t RenderViewId = kViewId;
     };
     std::stack<uint32_t> m_unusedBuffers;
-    uint32_t m_bufferCount = 0;
+    uint32_t m_bufferCount = 1;
     std::unordered_map<uint32_t, UIBuffer> m_buffers;
 
     // Uniform State
@@ -94,10 +94,11 @@ private:
         uint32_t m_indexSize = 0;
         UIUniform m_uniform;
     };
-    uint32_t m_geometryCount = 0;
+    uint32_t m_geometryCount = 1;
     std::map<uint32_t, GeometryEntry> m_geometry;
 
     std::vector<ultralight::Command> m_renderCommands;
+    ultralight::CommandList m_commandList;
 
     // Uniforms
     bgfx::UniformHandle m_stateUniform;
