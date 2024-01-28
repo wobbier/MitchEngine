@@ -13,7 +13,6 @@
 UIDriver::UIDriver()
 {
     m_stateUniform = bgfx::createUniform( "State", bgfx::UniformType::Vec4 );
-    m_testUniform = bgfx::createUniform( "u_testUniform", bgfx::UniformType::Vec4 );
     m_transformUniform = bgfx::createUniform( "Transform", bgfx::UniformType::Mat4 );
 
     m_scalar4Uniform = bgfx::createUniform( "Scalar4", bgfx::UniformType::Vec4, 2 );//[2]
@@ -21,39 +20,13 @@ UIDriver::UIDriver()
     m_clipSizeUniform = bgfx::createUniform( "ClipSize", bgfx::UniformType::Vec4 );//originally just a uint, can I do that?
     m_clipUniform = bgfx::createUniform( "Clip", bgfx::UniformType::Mat4, 8 );//[8]
 
-
-
     // Textures
     s_texture0 = bgfx::createUniform( "s_texture0", bgfx::UniformType::Sampler );
     s_texture1 = bgfx::createUniform( "s_texture1", bgfx::UniformType::Sampler );
-    //memset( &m_uniform, 0, sizeof( UIUniform ) );
-    memset( &m_commandList, 0, sizeof( ultralight::CommandList ) );
 
     // Shaders
     m_fillPathProgram = Moonlight::LoadProgram( "Assets/Shaders/UIFillPath.vert", "Assets/Shaders/UIFillPath.frag" ); // Vertex_2f_4ub_2f
     m_fillProgram = Moonlight::LoadProgram( "Assets/Shaders/UIFill.vert", "Assets/Shaders/UIFill.frag" ); // Vertex_2f_4ub_2f_2f_28f
-    {
-        uint32_t bufSize = sizeof( Moonlight::Vertex_2f_4ub_2f_2f_28f ) * 4;
-        Moonlight::Vertex_2f_4ub_2f_2f_28f* testBuf = static_cast<Moonlight::Vertex_2f_4ub_2f_2f_28f*>( malloc( bufSize ) );
-        memset( testBuf, 0, bufSize );
-        testBuf[0].data_6[0] = 69;
-        testBuf[1].data_6[0] = 69;
-        testBuf[2].data_6[0] = 69;
-        testBuf[3].data_6[0] = 69;
-        m_testVertexBuffer = bgfx::createVertexBuffer( bgfx::makeRef( testBuf, bufSize ), Moonlight::Vertex_2f_4ub_2f_2f_28f::ms_layout );
-    }
-
-
-    {
-        uint32_t indSize = sizeof( uint32_t ) * 4;
-        uint32_t* testBuf = static_cast<uint32_t*>( malloc( indSize ) );
-        memset( testBuf, 0, indSize );
-        testBuf[0] = 0;
-        testBuf[1] = 1;
-        testBuf[2] = 2;
-        testBuf[3] = 3;
-        m_testIndexBuffer = bgfx::createIndexBuffer( bgfx::makeRef( testBuf, indSize ), BGFX_BUFFER_INDEX32 );
-    }
 }
 
 void UIDriver::BeginSynchronize()
@@ -96,7 +69,6 @@ void UIDriver::CreateTexture( uint32_t texture_id, RefPtr<Bitmap> bitmap )
 
         const uint64_t textureFlags = BGFX_TEXTURE_RT_WRITE_ONLY | ( uint64_t( msaa + 1 ) << BGFX_TEXTURE_RT_MSAA_SHIFT );
 
-
         newTex.Handle = bgfx::createTexture2D(
             bitmap->width()
             , bitmap->height()
@@ -109,8 +81,6 @@ void UIDriver::CreateTexture( uint32_t texture_id, RefPtr<Bitmap> bitmap )
     else
     {
         newTex.IsRenderTexture = false;
-        //UpdateTexture( texture_id, bitmap );
-        //return;
 
         void* pixels = bitmap->LockPixels();
 
@@ -118,10 +88,6 @@ void UIDriver::CreateTexture( uint32_t texture_id, RefPtr<Bitmap> bitmap )
         uint32_t height = bitmap->height();
         uint32_t stride = bitmap->row_bytes();
         bgfx::TextureFormat::Enum format = bitmap->format() == ultralight::BitmapFormat::BGRA8_UNORM_SRGB ? bgfx::TextureFormat::BGRA8 : bgfx::TextureFormat::A8;
-
-
-        //std::string outputTest = "Assets/TestUI" + std::to_string( texture_id ) + ".png";
-        //bitmap->WritePNG( Path( outputTest ).FullPath.c_str() );
 
         {
             const uint16_t tw = static_cast<uint32_t>( bitmap->width() );
@@ -139,12 +105,6 @@ void UIDriver::CreateTexture( uint32_t texture_id, RefPtr<Bitmap> bitmap )
                 , format
                 , flags /*BGFX_SAMPLER_MIN_POINT | BGFX_SAMPLER_MAG_POINT | BGFX_SAMPLER_MIP_POINT*/
                 , mem );
-
-            //if( bgfx::isValid( m_uiTexture ) && Camera::CurrentCamera )
-            //{
-            //    bgfx::updateTexture2D( m_uiTexture, 0, 0, tx, ty, tw, th, mem, stride );
-            //    GetEngine().GetRenderer().GetCameraCache().Get( Camera::CurrentCamera->GetCameraId() )->UITexture = m_uiTexture;
-            //}
         }
 
         bitmap->UnlockPixels();
@@ -206,7 +166,7 @@ void UIDriver::CreateRenderBuffer( uint32_t render_buffer_id, const RenderBuffer
     {
         m_storedTextures[buffer.texture_id].Handle
     };
-    // do I need to destroy textures here?
+
     m_buffers[render_buffer_id].BufferHandle = bgfx::createFrameBuffer( BX_COUNTOF( fbtextures ), fbtextures, false );
     m_buffers[render_buffer_id].TexHandle = m_storedTextures[buffer.texture_id].Handle;
     m_buffers[render_buffer_id].FrameBufferTexture = buffer.texture_id;
@@ -235,7 +195,7 @@ void UIDriver::CreateGeometry( uint32_t geometry_id, const VertexBuffer& vertice
     geo.m_indexBuffer = malloc( indices.size );
     memcpy( geo.m_vertexBuffer, vertices.data, vertices.size );
     memcpy( geo.m_indexBuffer, indices.data, indices.size );
-    // I think this uint16 shit is gonna blow up on me
+
     if( vertices.format == VertexBufferFormat::_2f_4ub_2f )
     {
         geo.m_vbh = bgfx::createDynamicVertexBuffer(
@@ -285,9 +245,7 @@ void UIDriver::UpdateCommandList( const CommandList& list )
     {
         m_renderCommands.resize( list.size );
         memcpy( &m_renderCommands[0], list.commands, sizeof( ultralight::Command ) * list.size );
-        m_commandList = list;
     }
-
 }
 
 ultralight::Matrix ApplyProjection( const Matrix4x4& transform,
@@ -305,27 +263,16 @@ ultralight::Matrix ApplyProjection( const Matrix4x4& transform,
 
 void UIDriver::UpdateConstantBuffer( const ultralight::GPUState& inState, uint32_t geoId )
 {
-    //bgfx_set_state( state, 0 );
     float screen_width = (float)inState.viewport_width;
     float screen_height = (float)inState.viewport_height;
-    //glm::mat4 pos( 1.f );
-    //pos = glm::translate( pos, { screen_width / 2.0f, screen_height / 2.0f, 0.0f } );
-    //pos = glm::scale( pos, { screen_width / 2.0f, screen_height / 2.0f, 1.0f } );
-    //pos = glm::rotate( pos, glm::pi<float>(), {0.f, 0.f, 1.f});
-    //pos = glm::rotate( pos, glm::pi<float>(), { 0.f, 1.f, 0.f } );
 
     ME_ASSERT( sizeof( ultralight::Vertex_2f_4ub_2f_2f_28f ) == sizeof( Moonlight::Vertex_2f_4ub_2f_2f_28f ) );
     ME_ASSERT( sizeof( ultralight::Vertex_2f_4ub_2f ) == sizeof( Moonlight::Vertex_2f_4ub_2f ) );
 
     UIUniform& m_uniform = m_geometry[geoId].m_uniform;
     
-    //ultralight::Matrix transform = inState.transform.SetOrthographicProjection( command.gpu_state.viewport_width, command.gpu_state.viewport_height, true );
     m_uniform.Transform = ApplyProjection( inState.transform, screen_width, screen_height ).GetMatrix4x4();
-    //m_uniform.Transform.Set( 0, 0, 0, 0
-    //    , 0, 0, 0, 0
-    //    , 0, 0, 0, 0
-    //    , 0, 0, 0, 0 );
-    //m_uniform.Transform.SetIdentity();
+
     m_identityMatrix.SetIdentity();
     bgfx::setTransform( &m_identityMatrix.data, 1);
 
@@ -341,10 +288,6 @@ void UIDriver::UpdateConstantBuffer( const ultralight::GPUState& inState, uint32
 
     for( size_t i = 0; i < 8; ++i )
     {
-        //m_uniform.Vector[i] = inState.uniform_vector[i].x;
-        //m_uniform.Vector[i] = inState.uniform_vector[i].y;
-        //m_uniform.Vector[i] = inState.uniform_vector[i].z;
-        //m_uniform.Vector[i] = inState.uniform_vector[i].w;
         m_uniform.Vector[i] = glm::vec4( inState.uniform_vector[i].x, inState.uniform_vector[i].y,
             inState.uniform_vector[i].z, inState.uniform_vector[i].w );
     }
@@ -360,41 +303,26 @@ void UIDriver::UpdateConstantBuffer( const ultralight::GPUState& inState, uint32
     bgfx::setUniform( m_vectorUniform, &m_uniform.Vector, UINT16_MAX );
     bgfx::setUniform( m_clipSizeUniform, &m_uniform.ClipSize, UINT16_MAX );
     bgfx::setUniform( m_clipUniform, &m_uniform.Clip, UINT16_MAX );
-    m_uniform.m_testVector.x = 69.f;
-    bgfx::setUniform( m_testUniform, &m_uniform.m_testVector.x );
 }
 
 void UIDriver::RenderCommandList()
 {
     memset( &m_uiDrawInfo, 0, sizeof(UIDrawInfo) );
-    bool hasCleared = false;
-    std::sort( m_renderCommands.begin(), m_renderCommands.end(), [](auto& first, auto& second) {
-        return first.command_type < second.command_type;
-        } );
     // Move this
     for( ultralight::Command& command : m_renderCommands )
-    //for( uint32_t i = 0; i < m_commandList.size; ++i )
     {
-        //auto& command = m_commandList.commands[i];
-        if( command.command_type == CommandType::ClearRenderBuffer && !hasCleared )
+        if( command.command_type == CommandType::ClearRenderBuffer )
         {
-            if( hasCleared )
-            {
-                //continue;
-            }
-            //hasCleared = true;
-
-            uint32_t color = (uint32_t)( 0.f * 255.f ) << 24  // Alpha channel (0.5 opacity)
-                | (uint32_t)( 0.f * 255.f ) << 16      // Red channel
-                | (uint32_t)( 0.f * 255.f ) << 8       // Green channel
-                | (uint32_t)( 0.f * 255.f );           // Blue channel
+            uint32_t color = (uint32_t)( 0.f * 255.f ) << 24
+                | (uint32_t)( 0.f * 255.f ) << 16
+                | (uint32_t)( 0.f * 255.f ) << 8
+                | (uint32_t)( 0.f * 255.f ); // Alpha channel (0 opacity)
             
             bgfx::touch( kViewId + command.gpu_state.render_buffer_id );
             bgfx::setViewClear( kViewId + command.gpu_state.render_buffer_id
                 , BGFX_CLEAR_COLOR
                 , color, 1.0f, 0
             );
-            //bgfx::setViewClear( kViewId + command.gpu_state.render_buffer_id, BGFX_CLEAR_COLOR );
             m_uiDrawInfo.m_numClearCalls++;
             bgfx::setViewMode( kViewId + command.gpu_state.render_buffer_id, bgfx::ViewMode::Sequential );
             continue;
@@ -410,8 +338,8 @@ void UIDriver::RenderCommandList()
             bgfx::setViewFrameBuffer( bufferId, m_buffers[command.gpu_state.render_buffer_id].BufferHandle );
             // Set vertex and index buffer.
             auto& geo = m_geometry[command.geometry_id];
-           // uint32_t vertCount = geo.format == VertexBufferFormat::_2f_4ub_2f ? geo.m_vertexSize / sizeof( Moonlight::Vertex_2f_4ub_2f ) : geo.m_vertexSize / sizeof( Moonlight::Vertex_2f_4ub_2f_2f_28f );
-            bgfx::setVertexBuffer( 0, geo.m_vbh );// , 0, vertCount, geo.m_vbhLayout );//  );
+
+            bgfx::setVertexBuffer( 0, geo.m_vbh );
             bgfx::setIndexBuffer( geo.m_ibh, command.indices_offset, command.indices_count );
 
             if( bgfx::isValid( m_storedTextures[command.gpu_state.texture_1_id].Handle ) )
@@ -433,16 +361,6 @@ void UIDriver::RenderCommandList()
                 bgfx::setScissor();
             }
 
-
-            //if( command.gpu_state.shader_type == ShaderType::Fill )
-            //{
-            //    ME_ASSERT( command.gpu_state.shader_type == ShaderType::Fill && geo.format == VertexBufferFormat::_2f_4ub_2f_2f_28f );
-            //}
-            //else
-            //{
-            //    ME_ASSERT( command.gpu_state.shader_type == ShaderType::FillPath && geo.format == VertexBufferFormat::_2f_4ub_2f );
-            //}
-
             UpdateConstantBuffer( command.gpu_state, command.geometry_id );
             
             uint64_t state = 0
@@ -455,17 +373,8 @@ void UIDriver::RenderCommandList()
                 state = state | BGFX_STATE_BLEND_FUNC_SEPARATE( BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA, BGFX_STATE_BLEND_INV_DST_ALPHA, BGFX_STATE_BLEND_ONE );
                 //state = state | BGFX_STATE_BLEND_ALPHA;
             }
-            //if( command.gpu_state.enable_blend ) {
-            //    state = state | BGFX_STATE_BLEND_FUNC( BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_INV_SRC_ALPHA );
-            //    state = state | BGFX_STATE_BLEND_ADD;
-            //    state = state | BGFX_STATE_BLEND_ONE;
-            //}
             bgfx::setState( state, 0 );
-            // Set uniform values here using GPUDriverD3D11::UpdateConstantBuffer
-            //mesh.MeshMaterial->Use();
 
-            // Set render states?
-            //bgfx::setState( mesh.MeshMaterial->GetRenderState( state ) );
             if( command.gpu_state.shader_type == ShaderType::Fill )
             {
                 m_uiDrawInfo.m_numDrawFillCalls++;
@@ -475,16 +384,7 @@ void UIDriver::RenderCommandList()
                 m_uiDrawInfo.m_numDrawFillPathCalls++;
             }
 
-            // Submit primitive for rendering to view 0.
             bgfx::submit( bufferId, ( command.gpu_state.shader_type == ShaderType::Fill ) ? m_fillProgram : m_fillPathProgram );
-
-            // why is it not fucked if it's dynamic?
-            //{
-            //    auto& geo2 = m_geometry[command.geometry_id];
-            //    bgfx::setVertexBuffer( 0, m_testVertexBuffer, 0, 4 );//  );
-            //    bgfx::setIndexBuffer( m_testIndexBuffer, 0, 4 );
-            //    bgfx::submit( bufferId, m_fillProgram );
-            //}
         }
     }
     m_renderCommands.clear();

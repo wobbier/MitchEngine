@@ -16,7 +16,6 @@
 #include "CLog.h"
 #include "Utils/BGFXUtils.h"
 #include "Primitives/Cube.h"
-DISABLE_OPTIMIZATION;
 
 UICore::UICore( IWindow* window, BGFXRenderer* renderer )
     : Base( ComponentFilter().Requires<BasicUIView>() )
@@ -35,43 +34,18 @@ UICore::UICore( IWindow* window, BGFXRenderer* renderer )
     s_texUI = bgfx::createUniform( "s_texUI", bgfx::UniformType::Sampler );
 
     ultralight::Config config;
-
-    ///
-    /// Let's set some custom global CSS to make our background
-    /// purple by default.
-    ///
-    //config.user_stylesheet = "body { background: purple; }";
-    //config.bitmap_alignment = 0;
     config.force_repaint = true;
     config.face_winding = ultralight::FaceWinding::Clockwise;
 
-    ///
-    /// Pass our configuration to the Platform singleton so that
-    /// the library can use it.
-    ///
     ultralight::Platform::instance().set_config( config );
-
-    ///
-    /// Use the OS's native font loader
-    ///
     ultralight::Platform::instance().set_font_loader( new FontLoaderWin() );
-
-    ///
-    /// Use the OS's native file loader, with a base directory of "."
-    /// All file:/// URLs will load relative to this base directory.
-    ///
     ultralight::Platform::instance().set_file_system( ultralight::GetPlatformFileSystem( "." ) );
-
-    ///
-    /// Use the default logger (writes to a log file)
-    ///
     ultralight::Platform::instance().set_logger( ultralight::GetDefaultLogger( "ultralight.log" ) );
 
     m_driver = new UIDriver();
     ultralight::Platform::instance().set_gpu_driver( m_driver );
 
     m_uiRenderer = ultralight::Renderer::Create();
-
 }
 
 UICore::~UICore()
@@ -202,25 +176,12 @@ void UICore::Update( const UpdateContext& inUpdateContext )
 void UICore::Render()
 {
     OPTICK_EVENT( "UI Render", Optick::Category::GPU_UI );
-    ///
-    /// Render all active Views (this updates the Surface for each View).
-    ///
-    //try
-    {
-         m_uiRenderer->Render();
-    }
-    //catch( const std::exception& e ) {
-    // // Catch exceptions derived from std::exception
-    //    std::cerr << "Caught standard exception: " << e.what() << std::endl;
-    //}
-    //catch( ... ) {
-    // // Catch any other exceptions
-    //    std::cerr << "Caught an unknown exception" << std::endl;
-    //}
+
+    m_uiRenderer->Render();
     m_driver->RenderCommandList();
+
     for( auto ent : GetEntities() )
     {
-
         if( !ent.HasComponent<BasicUIView>() )
         {
             BRUH( "Rendering an entity that doesn't have a UI View." );
@@ -311,26 +272,14 @@ void UICore::OnResize( const Vector2& NewSize )
 
 void UICore::InitUIView( BasicUIView& view )
 {
-    ///
-    /// Configure our View, make sure it uses the CPU renderer by
-    /// disabling acceleration.
-    ///
     ultralight::ViewConfig view_config;
     view_config.is_accelerated = true;
     view_config.is_transparent = true;
     view_config.font_family_standard = "Arial";
 
     ultralight::RefPtr<ultralight::View> newView;
-    ///
-    /// Create an HTML view, 500 by 500 pixels large.
-    ///
     newView = m_uiRenderer->CreateView( static_cast<uint32_t>( Camera::CurrentCamera->OutputSize.x ), static_cast<uint32_t>( Camera::CurrentCamera->OutputSize.y ), view_config, nullptr );
 
-    ///
-    /// Load a raw string of HTML asynchronously into the View.
-    ///
-    //newView->LoadHTML( "<h1>Hello World!</h1>" );
-    // 
     //ultralight::Ref<ultralight::View> newView = m_uiRenderer->CreateView( static_cast<uint32_t>( Camera::CurrentCamera->OutputSize.x ), static_cast<uint32_t>( Camera::CurrentCamera->OutputSize.y ), true, nullptr );
 
     //ultralight::RefPtr<ultralight::Overlay> overlay = ultralight::Overlay::Create( *m_window.get(), newView, 0, 0 );

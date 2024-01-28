@@ -28,7 +28,6 @@ public:
     void UpdateTexture( uint32_t texture_id, RefPtr<Bitmap> bitmap ) override;
     void DestroyTexture( uint32_t texture_id ) override;
 
-
     uint32_t NextRenderBufferId() override;
 
     void CreateRenderBuffer( uint32_t render_buffer_id, const RenderBuffer& buffer ) override;
@@ -58,7 +57,6 @@ private:
     };
     std::unordered_map<uint32_t, UITexture> m_storedTextures;
 
-    // maybe I store unused indices in another vector
     struct UIBuffer
     {
         bgfx::FrameBufferHandle BufferHandle;
@@ -94,6 +92,7 @@ private:
         uint32_t m_indexSize = 0;
         UIUniform m_uniform;
     };
+    // maybe I store unused indices in another vector
     uint32_t m_geometryCount = 1;
     std::map<uint32_t, GeometryEntry> m_geometry;
 
@@ -107,7 +106,6 @@ private:
     bgfx::UniformHandle m_vectorUniform;
     bgfx::UniformHandle m_clipSizeUniform;
     bgfx::UniformHandle m_clipUniform;
-
 
     // Shaders
     bgfx::ProgramHandle m_fillPathProgram;
@@ -125,15 +123,5 @@ private:
     };
     UIDrawInfo m_uiDrawInfo;
 
-
     ultralight::Matrix m_identityMatrix;
-
-
-    //test
-    GeometryEntry m_testEntry;
-    bgfx::VertexBufferHandle m_testVertexBuffer;
-    bgfx::IndexBufferHandle m_testIndexBuffer;
-    uint32_t m_testIndexSize = 0;
-
-    bgfx::UniformHandle m_testUniform;
 };
