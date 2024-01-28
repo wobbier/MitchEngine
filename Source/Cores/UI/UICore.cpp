@@ -191,7 +191,7 @@ void UICore::Render()
 
         ultralight::RenderTarget surface = (ultralight::RenderTarget)( ent.GetComponent<BasicUIView>().ViewRef->render_target() );
 
-        bgfx::ViewId view = 150;
+        bgfx::ViewId view = 68;
         {
             bgfx::setViewName( view, "UI BLIT" );
             const bgfx::RendererType::Enum renderer = bgfx::getRendererType();

@@ -115,7 +115,10 @@ void UIDriver::UpdateTexture( uint32_t texture_id, RefPtr<Bitmap> bitmap )
 {
     DestroyTexture( texture_id );
     CreateTexture( texture_id, bitmap );
+    NextTextureId();
     return;
+    // Some weird shit is happening when updating the texture data, just recreating the textures for now.
+    // address = row_bytes * y + ( x * bpp )
     void* pixels = bitmap->LockPixels();
     ME_ASSERT( !bitmap->IsEmpty() );
 
@@ -142,7 +145,7 @@ void UIDriver::DestroyTexture( uint32_t texture_id )
 {
     bgfx::destroy( m_storedTextures[texture_id].Handle );
     m_storedTextures.erase( texture_id );
-    //m_unusedTextures.push( texture_id );
+    m_unusedTextures.push( texture_id );
 }
 
 uint32_t UIDriver::NextRenderBufferId()
