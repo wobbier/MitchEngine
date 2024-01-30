@@ -44,7 +44,7 @@ public class EntryPointGameProject : BaseProject
         : base()
     {
         Name = "Game_EntryPoint";
-        
+
         SourceRootPath = Globals.RootDir + @"/Game_EntryPoint/Source";
     }
 
@@ -53,13 +53,13 @@ public class EntryPointGameProject : BaseProject
         base.ConfigureAll(conf, target);
         conf.Output = Configuration.OutputType.Exe;
         conf.SolutionFolder = "Apps";
-        if(target.GetPlatform() == Platform.win64)
+        if (target.GetPlatform() == Platform.win64)
         {
             conf.ProjectFileName = @"[project.Name]_[target.Platform]";
         }
         conf.TargetPath = Globals.RootDir + "/.build/[target.Name]/";
         conf.VcxprojUserFile.LocalDebuggerWorkingDirectory = "$(OutDir)";
-        if(target.SubPlatform == CommonTarget.SubPlatformType.UWP)
+        if (target.SubPlatform == CommonTarget.SubPlatformType.UWP)
         {
             conf.ConsumeWinRTExtensions.Add("main.cpp");
         }
@@ -148,7 +148,7 @@ public class Engine : BaseProject
             conf.AddPublicDependency<UserGameScript>(target);
         }
     }
-    
+
     public override void ConfigureWin64(Configuration conf, CommonTarget target)
     {
         base.ConfigureWin64(conf, target);
@@ -218,7 +218,7 @@ public class Engine : BaseProject
         }
 
         // #TODO Read path from Globals / Move to own class again
-        if( Directory.Exists(Globals.MONO_Win64_Dir) )
+        if (Directory.Exists(Globals.MONO_Win64_Dir))
         {
             conf.IncludePaths.Add(Path.Combine(Globals.MONO_Win64_Dir, "include/mono-2.0"));
             conf.LibraryPaths.Add(Path.Combine(Globals.MONO_Win64_Dir, "lib"));
@@ -372,7 +372,7 @@ public class BaseGameSolution : Solution
         conf.AddProject<Moonlight>(target);
         conf.AddProject<Engine>(target);
 
-        if(target.SelectedMode == CommonTarget.Mode.Editor)
+        if (target.SelectedMode == CommonTarget.Mode.Editor)
         {
             conf.AddProject<Havana>(target);
             conf.AddProject<MitchHubProject>(target);
@@ -389,7 +389,7 @@ public class BaseGameSolution : Solution
             }
         }
 
-        if(target.Platform == Platform.win64)
+        if (target.Platform == Platform.win64)
         {
             conf.AddProject<UserSharpmakeProject>(target);
         }
@@ -407,6 +407,35 @@ public class BaseGameSolution : Solution
         {
             // #TODO (mitch): wtf how TF do you write JSON inline with quotes?? perhaps have a C# serializable class?
             File.WriteAllText(Globals.RootDir + "Project/Game.meproj", "{\"ProjectName\":\"" + Name + "\"}");
+        }
+    }
+}
+
+[Generate]
+public class BaseScriptSolution : Solution
+{
+    public BaseScriptSolution()
+        : base(typeof(CommonTarget))
+    {
+        Name = "BaseScriptSolution";
+
+        AddTargets(CommonTarget.GetDefaultTargets());
+
+        IsFileNameToLower = false;
+    }
+
+    [Configure]
+    public virtual void ConfigureAll(Solution.Configuration conf, CommonTarget target)
+    {
+        conf.SolutionPath = Globals.RootDir;
+        conf.SolutionFileName = "GameScript";
+        //Globals.RootDir = Path.GetFullPath("../../");
+
+        // Disabled on mac atm since xcode doesn't have mono support that I know of
+        if (target.Platform != Platform.mac && (Directory.Exists(Globals.MONO_macOS_Dir) || Directory.Exists(Globals.MONO_Win64_Dir)))
+        {
+            conf.AddProject<UserGameScript>(target);
+            conf.AddProject<ScriptCore>(target);
         }
     }
 }
@@ -432,5 +461,6 @@ public static class Main
     {
         KitsRootPaths.SetUseKitsRootForDevEnv(DevEnv.vs2022, KitsRootEnum.KitsRoot10, Options.Vc.General.WindowsTargetPlatformVersion.v10_0_19041_0);
         arguments.Generate<SharpGameSolution>();
+        arguments.Generate<BaseScriptSolution>();
     }
 }

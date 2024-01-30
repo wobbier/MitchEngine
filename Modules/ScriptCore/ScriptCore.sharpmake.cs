@@ -11,6 +11,11 @@ public class ScriptCore : CSharpProject
         SourceRootPath = Path.Combine(Globals.RootDir, "Engine/Modules/ScriptCore/Source");
         AdditionalSourceRootPaths.Add(Path.Combine(Globals.RootDir, "Assets"));
 
+        string[] ignoredAssets = { ".xml", ".map", ".config", ".bat", ".txt", ".xsd", ".h.template", ".resx", ".cur" };
+        NoneExtensions.Remove(ignoredAssets);
+
+        SourceFilesExtensions = new Strings("cs");
+
         ProjectSchema = CSharpProjectSchema.NetFramework;
 
         AddTargets(CommonTarget.GetDefaultTargets());
@@ -41,6 +46,12 @@ public abstract class GameScript : CSharpProject
         Name = "Game.Script";
         SourceRootPath = Path.Combine(Globals.RootDir, "Assets");
         //SourceFiles.Add(@"[project.SharpmakeCsPath]/Assets/Scripts/TestScript.cs");
+        string[] ignoredAssets = { ".xml", ".map", ".config", ".bat", ".txt", ".xsd", ".h.template", ".resx", ".cur" };
+        NoneExtensions.Remove(ignoredAssets);
+
+        SourceFilesExtensions = new Strings("cs");
+
+        ContentExtension.Add("GenerateSolution.bat", "macOS.yml", "Windows.yml", "UWP.yml");
 
         ProjectSchema = CSharpProjectSchema.NetFramework;
         AddTargets(CommonTarget.GetDefaultTargets());
