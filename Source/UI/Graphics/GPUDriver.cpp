@@ -9,6 +9,7 @@
 #include <DirectXMath.h>
 #include <glm/glm.hpp>
 
+#if USING( ME_UI )
 
 UIDriver::UIDriver()
 {
@@ -392,3 +393,5 @@ void UIDriver::RenderCommandList()
     }
     m_renderCommands.clear();
 }
+
+#endif

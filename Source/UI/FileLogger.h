@@ -1,4 +1,6 @@
 #pragma once
+
+#if USING( ME_UI )
 #include <AppCore/Defines.h>
 #include <Ultralight/platform/Logger.h>
 #include <Ultralight/String.h>
@@ -17,3 +19,5 @@ namespace ultralight {
     };
 
 }  // namespace ultralight
+
+#endif

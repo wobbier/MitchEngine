@@ -1,5 +1,8 @@
 #include "PCH.h"
 #include "JSHelpers.h"
+
+#if USING( ME_UI )
+
 #include <cstring>
 #include <cassert>
 #include <vector>
@@ -637,3 +640,5 @@ namespace ultralight {
     }
 
 }  // namespace ultralight
+
+#endif

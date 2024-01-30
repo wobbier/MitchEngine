@@ -126,14 +126,20 @@ public class Engine : BaseProject
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "Modules/Singleton/Source"));
 
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/SDL/include"));
-        conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/UltralightSDK/include"));
 
-        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $@"ThirdParty/UltralightSDK/lib/[target.SubPlatform]/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
+        // TODO: Fix other API's
+        if (target.SubPlatform == CommonTarget.SubPlatformType.Win64 || target.SubPlatform == CommonTarget.SubPlatformType.macOS)
+        {
+            conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/UltralightSDK/include"));
+            conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $@"ThirdParty/UltralightSDK/lib/[target.SubPlatform]/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
+
+            conf.LibraryFiles.Add("Ultralight");
+            conf.LibraryFiles.Add("UltralightCore");
+            conf.LibraryFiles.Add("WebCore");
+            conf.Defines.Add("DEFINE_ME_ULTRALIGHT");
+        }
 
         conf.LibraryFiles.Add("MitchEngine");
-        conf.LibraryFiles.Add("Ultralight");
-        conf.LibraryFiles.Add("UltralightCore");
-        conf.LibraryFiles.Add("WebCore");
         conf.LibraryFiles.Add("Dwrite");
 
         conf.AddPublicDependency<Dementia>(target);
@@ -209,6 +215,8 @@ public class Engine : BaseProject
         }
 
         // Ultralight DLL
+        // TODO: Fix other API's
+        if (target.SubPlatform == CommonTarget.SubPlatformType.Win64 || target.SubPlatform == CommonTarget.SubPlatformType.macOS)
         {
             var copyDirBuildStep = new Configuration.BuildStepCopy(
                 $@"[project.SharpmakeCsPath]/ThirdParty/UltralightSDK/bin/Win64/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}",

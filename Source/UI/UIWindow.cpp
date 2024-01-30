@@ -1,6 +1,8 @@
 #include "PCH.h"
 #include "UIWindow.h"
 
+#if USING( ME_UI )
+
 UIWindow::UIWindow( IWindow* window, ultralight::OverlayManager* manager )
     : m_overlayManager( manager )
     , m_window( window )
@@ -81,3 +83,5 @@ ultralight::OverlayManager* UIWindow::overlay_manager() const
 {
     return m_overlayManager;
 }
+
+#endif

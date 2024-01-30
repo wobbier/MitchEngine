@@ -1,4 +1,7 @@
 #pragma once
+
+#if USING( ME_UI )
+
 #include <AppCore/Defines.h>
 #include <Ultralight/platform/GPUDriver.h>
 #include <vector>
@@ -59,3 +62,5 @@ namespace ultralight {
 
 }  // namespace ultralight
 */
+
+#endif

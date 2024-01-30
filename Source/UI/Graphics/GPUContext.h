@@ -1,5 +1,7 @@
 #pragma once
 
+#if USING( ME_UI )
+
 #include <stdint.h>
 #include <Ultralight/Geometry.h>
 #include "Math/Vector2.h"
@@ -44,3 +46,5 @@ private:
     Vector2 ScreenSize;
     int samples_ = 1;
 };
+
+#endif

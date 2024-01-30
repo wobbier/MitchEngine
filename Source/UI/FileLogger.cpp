@@ -1,6 +1,8 @@
 #include "PCH.h"
-
 #include "FileLogger.h"
+
+#if USING( ME_UI )
+
 #include <iostream>
 
 namespace ultralight {
@@ -23,3 +25,5 @@ namespace ultralight {
     }
 
 }  // namespace ultralight
+
+#endif

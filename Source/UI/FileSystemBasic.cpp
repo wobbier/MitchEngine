@@ -1,5 +1,8 @@
 #include "PCH.h"
 #include "FileSystemBasic.h"
+
+#if USING( ME_UI )
+
 #include <Ultralight/String.h>
 #include <fstream>
 #include <memory>
@@ -719,3 +722,5 @@ const char* FileExtensionToMimeType( const char* ext ) {
 
     return "application/octet-stream";
 }
+
+#endif

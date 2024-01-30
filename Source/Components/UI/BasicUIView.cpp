@@ -2,10 +2,14 @@
 
 #include "BasicUIView.h"
 #include "imgui.h"
+
+#if USING( ME_UI )
 #include "UI/JSHelpers.h"
 #include "Ultralight/View.h"
-#include "Events/AudioEvents.h"
 #include <Ultralight/String.h>
+#endif
+
+#include "Events/AudioEvents.h"
 #include "Events/HavanaEvents.h"
 #include "Events/SceneEvents.h"
 #include "Core/Assert.h"
@@ -41,6 +45,8 @@ void BasicUIView::OnDeserialize( const json& inJson )
     }
 }
 
+#if USING( ME_UI )
+
 void BasicUIView::OnUpdateHistory( ultralight::View* caller )
 {
 }
@@ -65,8 +71,11 @@ void BasicUIView::OnUILoad( ultralight::JSObject& GlobalWindow, ultralight::View
 {
 }
 
+#endif
+
 void BasicUIView::ExecuteScript( const std::string& Script )
 {
+#if USING( ME_UI )
     ultralight::String excpt;
     ViewRef->EvaluateScript( Script.c_str(), &excpt );
     if( !excpt.empty() )
@@ -75,8 +84,10 @@ void BasicUIView::ExecuteScript( const std::string& Script )
 
         YIKES_FMT( "[UI] [%s]: %s", FilePath.GetLocalPathString().c_str(), exceptionString.c_str() );
     }
+#endif
 }
 
+#if USING( ME_UI )
 void BasicUIView::PlaySound( const ultralight::JSObject& thisObject, const ultralight::JSArgs& args )
 {
     if( args.empty() || !args[0].IsString() )
@@ -105,6 +116,7 @@ void BasicUIView::Quit( const ultralight::JSObject& thisObject, const ultralight
 {
     GetEngine().Quit();
 }
+#endif
 
 #if USING( ME_EDITOR )
 

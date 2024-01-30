@@ -1,3 +1,5 @@
+#if USING( ME_UI )
+
 #include <Ultralight/platform/GPUDriver.h>
 #include "bgfx/bgfx.h"
 #include <unordered_map>
@@ -125,3 +127,5 @@ private:
 
     ultralight::Matrix m_identityMatrix;
 };
+
+#endif

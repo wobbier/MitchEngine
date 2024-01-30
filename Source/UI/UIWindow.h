@@ -1,5 +1,7 @@
 #pragma once
 
+#if USING( ME_UI )
+
 #include <Ultralight/String16.h>
 #include "UI/RefCountedImpl.h"
 #include "AppCore/Window.h"
@@ -17,7 +19,7 @@ public:
     UIWindow( IWindow* window, ultralight::OverlayManager* manager );
 protected:
 
-    virtual ~UIWindow() override;;
+    virtual ~UIWindow() override;
 public:
 
     virtual void set_listener( ultralight::WindowListener* listener ) override;
@@ -66,3 +68,5 @@ protected:
     IWindow* m_window;
     ultralight::WindowListener* listener_ = nullptr;
 };
+
+#endif

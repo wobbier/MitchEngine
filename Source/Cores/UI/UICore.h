@@ -1,6 +1,7 @@
 #pragma once
 #include <Components/UI/BasicUIView.h>
 
+#if USING( ME_UI )
 #include <bgfx/bgfx.h>
 #include <UI/OverlayManager.h>
 #include <UI/FileSystemBasic.h>
@@ -10,6 +11,8 @@
 #include <UI/FileLogger.h>
 #include <UI/FontLoaderWin.h>
 #include <UI/UIWindow.h>
+#endif
+
 #include <Renderer.h>
 #include "Events/EventReceiver.h"
 
@@ -40,8 +43,10 @@ public:
     void Render();
 
     //OverlayManager* GetOverlayManager();
+#if USING( ME_UI )
 
     ultralight::RefPtr<ultralight::Renderer> m_uiRenderer;
+#endif
 
 #if USING( ME_EDITOR )
     virtual void OnEditorInspect() final;
@@ -49,13 +54,18 @@ public:
     bgfx::TextureHandle m_uiTexture;
     Vector2 UISize;
 private:
+
+#if USING( ME_UI )
     std::vector<ultralight::RefPtr<ultralight::View>> m_views;
+#endif
 
     BGFXRenderer* m_renderer;
 
-    void CopyBitmapToTexture( ultralight::RefPtr<ultralight::Bitmap> bitmap );
-
     bool OnEvent( const BaseEvent& evt ) override;
+
+
+#if USING( ME_UI )
+    void CopyBitmapToTexture( ultralight::RefPtr<ultralight::Bitmap> bitmap );
 
     UniquePtr<ultralight::FileSystemBasic> m_fs;
     UniquePtr<GPUContext> m_context = nullptr;
@@ -63,6 +73,7 @@ private:
     UniquePtr<ultralight::FileLogger> m_logger = nullptr;
     ultralight::RefPtr<UIWindow> m_window = nullptr;
     UIDriver* m_driver = nullptr;
+#endif
 
     bgfx::ProgramHandle UIProgram;
     bgfx::UniformHandle s_texUI;

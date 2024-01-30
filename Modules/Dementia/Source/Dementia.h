@@ -147,6 +147,12 @@ Class& operator=(Class&&) = delete;
 #define ME_ENABLE_RENDERDOC NOT_IN_USE
 #endif
 
+#if defined( DEFINE_ME_ULTRALIGHT )
+#define ME_UI IN_USE
+#else
+#define ME_UI NOT_IN_USE
+#endif
+
 #define ME_PLATFORM_WINDOWS USE_IF( USING( ME_PLATFORM_WIN64 ) || USING( ME_PLATFORM_UWP ) )
 #define ME_EDITOR_WIN64     USE_IF( USING( ME_EDITOR ) && USING( ME_PLATFORM_WIN64 ) )
 #define ME_EDITOR_MACOS     USE_IF( USING( ME_EDITOR ) && USING( ME_PLATFORM_MACOS ) )

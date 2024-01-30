@@ -1,14 +1,18 @@
 #include <PCH.h>
 #include <Cores/UI/UICore.h>
 
-#include <AppCore/Overlay.h>
 #include <Components/Camera.h>
 #include <Engine/Engine.h>
+
+#if USING( ME_UI )
+#include <AppCore/Overlay.h>
+#include <AppCore/Platform.h>
 #include <Ultralight/platform/Platform.h>
 #include <Ultralight/platform/Config.h>
+#endif
+
 #include <imgui.h>
 #include <Utils/ImGuiUtils.h>
-#include <AppCore/Platform.h>
 #include <Renderer.h>
 #include "Mathf.h"
 #include "Dementia.h"
@@ -33,6 +37,8 @@ UICore::UICore( IWindow* window, BGFXRenderer* renderer )
     UIProgram = Moonlight::LoadProgram( "Assets/Shaders/UI.vert", "Assets/Shaders/UI.frag" );
     s_texUI = bgfx::createUniform( "s_texUI", bgfx::UniformType::Sampler );
 
+#if USING( ME_UI )
+
     ultralight::Config config;
     config.force_repaint = true;
     config.face_winding = ultralight::FaceWinding::Clockwise;
@@ -46,6 +52,7 @@ UICore::UICore( IWindow* window, BGFXRenderer* renderer )
     ultralight::Platform::instance().set_gpu_driver( m_driver );
 
     m_uiRenderer = ultralight::Renderer::Create();
+#endif
 }
 
 UICore::~UICore()
@@ -54,7 +61,10 @@ UICore::~UICore()
     EventManager::GetInstance().DeRegisterReciever( this );
     // Am I leaking? or am I just dreaming?
     //m_overlays.clear();
+
+#if USING( ME_UI )
     delete m_driver;
+#endif
 }
 
 void UICore::Init()
@@ -107,6 +117,7 @@ void UICore::Update( const UpdateContext& inUpdateContext )
             InitUIView( view );
         }
     }
+#if USING( ME_UI )
     Input& gameInput = GetEngine().GetInput();
     ultralight::MouseEvent mouseEvent;
     ultralight::ScrollEvent mouseScrollEvent;
@@ -171,11 +182,14 @@ void UICore::Update( const UpdateContext& inUpdateContext )
         OPTICK_EVENT( "UI Widget Update", Optick::Category::UI );
         m_uiRenderer->Update();
     }
+#endif
 }
 
 void UICore::Render()
 {
     OPTICK_EVENT( "UI Render", Optick::Category::GPU_UI );
+
+#if USING( ME_UI )
 
     m_uiRenderer->Render();
     m_driver->RenderCommandList();
@@ -230,6 +244,7 @@ void UICore::Render()
             //surface->ClearDirtyBounds();
         }
     }
+#endif
 }
 
 void UICore::OnResize( const Vector2& NewSize )
@@ -255,6 +270,7 @@ void UICore::OnResize( const Vector2& NewSize )
         );
         UISize = NewSize;
 
+#if USING( ME_UI )
     //if( m_context )
         {
             //m_context->Resize( NewSize );
@@ -263,6 +279,7 @@ void UICore::OnResize( const Vector2& NewSize )
                 overlay->Resize( (int)NewSize.x, (int)NewSize.y );
             }
         }
+#endif
 
 #if USING ( ME_DEBUG )
         BRUH_FMT( "%i, %s", m_uiTexture.idx, "UI Tex" );
@@ -272,6 +289,7 @@ void UICore::OnResize( const Vector2& NewSize )
 
 void UICore::InitUIView( BasicUIView& view )
 {
+#if USING( ME_UI )
     ultralight::ViewConfig view_config;
     view_config.is_accelerated = true;
     view_config.is_transparent = true;
@@ -296,12 +314,15 @@ void UICore::InitUIView( BasicUIView& view )
     view.IsInitialized = true;
     view.Index = m_views.size() - 1;
     view.ViewRef = newView;
+#endif
 }
 //
 //ultralight::OverlayManager* UICore::GetOverlayManager()
 //{
 //    return this;
 //}
+
+#if USING( ME_UI )
 
 void UICore::CopyBitmapToTexture( ultralight::RefPtr<ultralight::Bitmap> bitmap )
 {
@@ -330,6 +351,8 @@ void UICore::CopyBitmapToTexture( ultralight::RefPtr<ultralight::Bitmap> bitmap 
 
     bitmap->UnlockPixels();
 }
+
+#endif
 
 bool UICore::OnEvent( const BaseEvent& evt )
 {

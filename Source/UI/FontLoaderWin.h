@@ -1,4 +1,7 @@
 #pragma once
+
+#if USING( ME_UI )
+
 #include <Ultralight/platform/FontLoader.h>
 #include <map>
 
@@ -20,3 +23,5 @@ namespace ultralight {
     };
 
 }  // namespace ultralight
+
+#endif

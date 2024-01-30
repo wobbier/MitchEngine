@@ -1,5 +1,8 @@
 #include "PCH.h"
 #include "OverlayManager.h"
+
+#if USING( ME_UI )
+
 #include <algorithm>
 #include <AppCore/Overlay.h>
 #include <AppCore/App.h>
@@ -158,3 +161,5 @@ namespace ultralight {
 
 
 }  // namespace ultralight*/
+
+#endif

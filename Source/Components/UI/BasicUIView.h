@@ -3,15 +3,21 @@
 #include "ECS/Component.h"
 #include "ECS/ComponentDetail.h"
 #include "File.h"
+#include "Dementia.h"
 
+#if USING( ME_UI )
 #include "Ultralight/Listener.h"
 #include "UI/JSHelpers.h"
 #include "Ultralight/View.h"
+#endif
+
 #include "Components/Audio/AudioSource.h"
 
 class BasicUIView
     : public Component<BasicUIView>
+#if USING( ME_UI )
     , public ultralight::LoadListener
+#endif
 {
     friend class UICore;
 public:
@@ -25,6 +31,7 @@ public:
     virtual void OnEditorInspect() override;
 #endif
 
+#if USING( ME_UI )
     virtual void OnUpdateHistory( ultralight::View* caller ) override;
 
     virtual void OnDOMReady( ultralight::View* caller,
@@ -33,6 +40,7 @@ public:
         const ultralight::String& url ) final;
 
     virtual void OnUILoad( ultralight::JSObject& GlobalWindow, ultralight::View* Caller );
+#endif
 
     void ExecuteScript( const std::string& Script );
 
@@ -44,14 +52,18 @@ protected:
     File SourceFile;
     std::function<void( SharedPtr<AudioSource> )> m_playAudioCallback = nullptr;
 
+#if USING( ME_UI )
     void PlaySound( const ultralight::JSObject& thisObject, const ultralight::JSArgs& args );
     void LoadScene( const ultralight::JSObject& thisObject, const ultralight::JSArgs& args );
     void Quit( const ultralight::JSObject& thisObject, const ultralight::JSArgs& args );
+#endif
 
 private:
     virtual void OnSerialize( json& outJson ) override;
     virtual void OnDeserialize( const json& inJson ) override;
 
+#if USING( ME_UI )
     ultralight::RefPtr<ultralight::View> ViewRef;
+#endif
 };
 ME_REGISTER_COMPONENT_FOLDER( BasicUIView, "UI" )

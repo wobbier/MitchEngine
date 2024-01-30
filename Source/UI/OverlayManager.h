@@ -1,4 +1,6 @@
 #pragma once
+
+#if USING( ME_UI )
 #include <AppCore/Defines.h>
 #include <Ultralight/KeyEvent.h>
 #include <Ultralight/MouseEvent.h>
@@ -55,3 +57,4 @@ namespace ultralight {
 
 }  // namespace ultralight
 */
+#endif

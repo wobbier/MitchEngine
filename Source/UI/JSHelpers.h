@@ -1,5 +1,7 @@
 #pragma once
 
+#if USING( ME_UI )
+
 #include <AppCore/Defines.h>
 #include <JavaScriptCore/JavaScript.h>
 #include <JavaScriptCore/JSStringRef.h>
@@ -453,3 +455,5 @@ namespace ultralight {
     JSValue JSEval( const JSString& str );
 
 }  // namespace ultralight
+
+#endif

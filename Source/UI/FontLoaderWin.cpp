@@ -1,6 +1,9 @@
 #include "PCH.h"
 
 #if USING( ME_PLATFORM_WINDOWS )
+
+#if USING( ME_UI )
+
 #include "FontLoaderWin.h"
 #include <wrl.h>
 #include <wrl/client.h>
@@ -250,5 +253,7 @@ namespace ultralight {
     }
 
 }  // namespace ultralight
+
+#endif
 
 #endif

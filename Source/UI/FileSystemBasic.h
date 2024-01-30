@@ -1,4 +1,7 @@
 #pragma once
+
+#if USING( ME_UI )
+
 #include <Ultralight/platform/FileSystem.h>
 #include <string>
 
@@ -26,3 +29,5 @@ namespace ultralight {
     };
 
 }  // namespace ultralight
+
+#endif

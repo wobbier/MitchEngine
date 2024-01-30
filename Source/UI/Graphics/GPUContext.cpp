@@ -1,6 +1,8 @@
 #include "PCH.h"
 #include "GPUContext.h"
 
+#if USING( ME_UI )
+
 GPUContext::GPUContext()
 {
 }
@@ -65,3 +67,5 @@ bool GPUContext::Initialize( int screen_width, int screen_height, double screen_
 
     return true;
 }
+
+#endif
