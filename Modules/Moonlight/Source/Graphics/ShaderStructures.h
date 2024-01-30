@@ -83,4 +83,59 @@ namespace Moonlight
         Microsoft::WRL::ComPtr<ID3D11PixelShader> PixelShader;
         Microsoft::WRL::ComPtr<ID3D11InputLayout> InputLayout;*/
     };
+
+    // Ultralight
+    struct Vertex_2f_4ub_2f
+    {
+        float pos[2];
+        uint8_t color[4];
+        float objCoord[2];
+
+        static void Init()
+        {
+            ms_layout
+                .begin()
+                .add( bgfx::Attrib::Position, 2, bgfx::AttribType::Float )
+                .add( bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true )
+                .add( bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float )
+                .end();
+        };
+
+        static bgfx::VertexLayout ms_layout;
+    };
+
+    struct Vertex_2f_4ub_2f_2f_28f
+    {
+        float pos[2];
+        uint8_t color[4];
+        float texCoord[2];
+        float objCoord[2];
+        float data_0[4];
+        float data_1[4];
+        float data_2[4];
+        float data_3[4];
+        float data_4[4];
+        float data_5[4];
+        float data_6[4];
+
+        static void Init()
+        {
+            ms_layout
+                .begin()
+                .add( bgfx::Attrib::Position, 2, bgfx::AttribType::Float )
+                .add( bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true )
+                .add( bgfx::Attrib::Color1, 2, bgfx::AttribType::Float, false )
+                .add( bgfx::Attrib::Color2, 2, bgfx::AttribType::Float, false )
+                .add( bgfx::Attrib::TexCoord0, 4, bgfx::AttribType::Float )
+                .add( bgfx::Attrib::TexCoord1, 4, bgfx::AttribType::Float )
+                .add( bgfx::Attrib::TexCoord2, 4, bgfx::AttribType::Float )
+                .add( bgfx::Attrib::TexCoord3, 4, bgfx::AttribType::Float )
+                .add( bgfx::Attrib::TexCoord4, 4, bgfx::AttribType::Float )
+                .add( bgfx::Attrib::TexCoord5, 4, bgfx::AttribType::Float )
+                .add( bgfx::Attrib::TexCoord6, 4, bgfx::AttribType::Float )
+                .end();
+        };
+
+        static bgfx::VertexLayout ms_layout;
+    };
 }

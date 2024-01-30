@@ -10,9 +10,9 @@ class UIWindow
     : public ultralight::Window
     , public ultralight::RefCountedImpl<UIWindow>
 {
-    friend class OverlayImpl;
-    friend class Window;
-    friend class OverlayImpl;
+    friend class ultralight::OverlayImpl;
+    friend class ultralight::Window;
+    friend class ultralight::OverlayImpl;
 public:
     UIWindow( IWindow* window, ultralight::OverlayManager* manager );
 protected:
@@ -46,12 +46,11 @@ public:
 
     virtual void Close() override;
 
-
-    virtual int DeviceToPixels( int val ) const override;
+    virtual int ScreenToPixels( int val ) const override;
 
     void set_app_listener( ultralight::WindowListener* listener ) {  }
 
-    virtual int PixelsToDevice( int val ) const override;
+    virtual int PixelsToScreen( int val ) const override;
 
     REF_COUNTED_IMPL( UIWindow );
 

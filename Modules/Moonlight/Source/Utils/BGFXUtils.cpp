@@ -12,7 +12,8 @@ const bgfx::Memory* Moonlight::LoadMemory( const Path& filePath )
     {
         uint32_t size = (uint32_t)bx::getSize( getDefaultReader() );
         const bgfx::Memory* mem = bgfx::alloc( size + 1 );
-        bx::read( getDefaultReader(), mem->data, size );
+		bx::Error err2;
+		bx::read(getDefaultReader(), mem->data, size, &err2);
         bx::close( getDefaultReader() );
         mem->data[mem->size - 1] = '\0';
         return mem;
@@ -62,7 +63,6 @@ std::string Moonlight::GetPlatformString()
     switch( bgfx::getRendererType() )
     {
     case bgfx::RendererType::Noop:
-    case bgfx::RendererType::Direct3D9:  return "dx9";
     case bgfx::RendererType::Direct3D11:
     case bgfx::RendererType::Direct3D12: return "dx11";
     case bgfx::RendererType::Gnm:        return "pssl";
@@ -70,8 +70,7 @@ std::string Moonlight::GetPlatformString()
     case bgfx::RendererType::Nvn:        return "nvn";
     case bgfx::RendererType::OpenGL:     return "glsl";
     case bgfx::RendererType::OpenGLES:   return "essl";
-    case bgfx::RendererType::Vulkan:
-    case bgfx::RendererType::WebGPU:     return "spirv";
+    case bgfx::RendererType::Vulkan:     return "spirv";
 
     case bgfx::RendererType::Count:
         BX_ASSERT( false, "You should not be here!" );

@@ -2,6 +2,8 @@
 #include "FileSystemBasic.h"
 #include <Ultralight/String.h>
 #include <fstream>
+#include <memory>
+#include <vector>
 #include <cstring>
 
 static const char* FileExtensionToMimeType( const char* ext );
@@ -27,7 +29,7 @@ namespace ultralight {
         }
     }
 
-    std::string FileSystemBasic::getRelative( const String16& path ) {
+    std::string FileSystemBasic::getRelative( const String& path ) {
         if( path.empty() )
             return baseDir_;
 
@@ -42,64 +44,62 @@ namespace ultralight {
         return baseDir_ + relPath;
     }
 
-    bool FileSystemBasic::FileExists( const String16& path ) {
+    bool FileSystemBasic::FileExists( const String& path ) {
         std::ifstream filestream( getRelative( path ) );
         return filestream.good();
     }
 
-    bool FileSystemBasic::GetFileSize( FileHandle handle, int64_t& result ) {
-        auto i = open_files_.find( handle );
-        if( i != open_files_.end() ) {
-            auto& file = i->second;
-            file->seekg( 0, file->end );
-            result = (int64_t)file->tellg();
-            return true;
-        }
-
-        return false;
-    }
-
-    bool FileSystemBasic::GetFileMimeType( const String16& path, String16& result ) {
-        String8 utf8 = String( path ).utf8();
+    String FileSystemBasic::GetFileMimeType( const String& file_path ) {
+        String8 utf8 = file_path.utf8();
         std::string filepath( utf8.data(), utf8.length() );
         std::string ext = filepath.substr( filepath.find_last_of( "." ) + 1 );
-        result = String16( FileExtensionToMimeType( ext.c_str() ) );
-        return true;
+        return String( FileExtensionToMimeType( ext.c_str() ) );
     }
 
-    FileHandle FileSystemBasic::OpenFile( const String16& path, bool open_for_writing ) {
-        std::unique_ptr<std::ifstream> file( new std::ifstream( getRelative( path ), std::ifstream::ate | std::ifstream::binary ) );
+    String FileSystemBasic::GetFileCharset( const String& file_path ) {
+        return "utf-8";
+    }
+
+    struct FileSystemBasic_BufferData {
+        std::unique_ptr<std::ifstream> file_handle;
+        int64_t file_size;
+        std::unique_ptr<std::vector<char>> file_contents;
+    };
+
+    void FileSystemBasic_DestroyBufferCallback( void* user_data, void* data ) {
+        FileSystemBasic_BufferData* buffer_data = reinterpret_cast<FileSystemBasic_BufferData*>( user_data );
+        buffer_data->file_contents.reset();
+        buffer_data->file_handle.reset();
+        delete buffer_data;
+    }
+
+    RefPtr<Buffer> FileSystemBasic::OpenFile( const String& file_path ) {
+        std::unique_ptr<std::ifstream> file( new std::ifstream( getRelative( file_path ), std::ifstream::ate | std::ifstream::binary ) );
         if( !file->good() )
-            return invalidFileHandle;
+            return nullptr;
 
-        FileHandle handle = next_handle_++;
-        open_files_[handle] = std::move( file );
-        return handle;
+        file->seekg( 0, file->end );
+        int64_t file_size = (int64_t)file->tellg();
+
+        if( file_size <= 0 )
+            return nullptr;
+
+        std::unique_ptr<std::vector<char>> buffer( new std::vector<char>( file_size ) );
+
+        file->seekg( 0, file->beg );
+        file->read( buffer->data(), (std::streamsize)file_size );
+
+        FileSystemBasic_BufferData* buffer_data = new FileSystemBasic_BufferData();
+        buffer_data->file_handle = std::move( file );
+        buffer_data->file_size = file_size;
+        buffer_data->file_contents = std::move( buffer );
+
+        return Buffer::Create( buffer_data->file_contents->data(), buffer_data->file_size,
+            buffer_data, FileSystemBasic_DestroyBufferCallback );
     }
 
-    void FileSystemBasic::CloseFile( FileHandle& handle ) {
-        open_files_.erase( handle );
-        handle = invalidFileHandle;
-    }
-
-    int64_t FileSystemBasic::ReadFromFile( FileHandle handle, char* data, int64_t length ) {
-        auto i = open_files_.find( handle );
-        if( i != open_files_.end() ) {
-            auto& file = i->second;
-            file->seekg( 0, file->beg );
-            file->read( data, (std::streamsize)length );
-            return (int64_t)file->gcount();
-        }
-
-        return 0;
-    }
-
-}  // namespace ultralight
-
-namespace framework {
-
-    ultralight::FileSystem* CreatePlatformFileSystem( const char* baseDir ) {
-        return new ultralight::FileSystemBasic( baseDir );
+    FileSystem* CreatePlatformFileSystem( const String& baseDir ) {
+        return new ultralight::FileSystemBasic( baseDir.utf8().data() );
     }
 
 }  // namespace ultralight

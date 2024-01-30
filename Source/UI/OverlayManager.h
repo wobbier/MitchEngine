@@ -4,22 +4,29 @@
 #include <Ultralight/MouseEvent.h>
 #include <Ultralight/ScrollEvent.h>
 #include <vector>
-
+/*
 namespace ultralight {
 
     class Overlay;
 
-    class OverlayManager
-    {
+    class OverlayManager {
     public:
         OverlayManager();
-        ~OverlayManager();
+        virtual ~OverlayManager();
 
         virtual void Add( Overlay* overlay );
 
         virtual void Remove( Overlay* overlay );
 
-        virtual void Draw();
+        // Render all active Views.
+        virtual void Render();
+
+        // Repaint overlays
+        virtual void Paint();
+
+        virtual void SetWindowFocused( bool focused );
+
+        virtual void SetWindowScale( double scale );
 
         virtual void FireKeyEvent( const ultralight::KeyEvent& evt );
 
@@ -29,11 +36,12 @@ namespace ultralight {
 
         virtual void FocusOverlay( Overlay* overlay );
 
-        virtual void UnfocusOverlay( Overlay* overlay );
+        virtual void UnfocusAll();
 
         virtual bool IsOverlayFocused( Overlay* overlay ) const;
 
-        void UnfocusAll();
+        virtual bool NeedsRepaint();
+
     protected:
         Overlay* HitTest( int x, int y );
 
@@ -41,6 +49,9 @@ namespace ultralight {
         Overlay* focused_overlay_ = nullptr;
         Overlay* hovered_overlay_ = nullptr;
         bool is_dragging_ = false;
+        bool window_focused_ = false;
+        double window_scale_ = 1.0;
     };
 
 }  // namespace ultralight
+*/

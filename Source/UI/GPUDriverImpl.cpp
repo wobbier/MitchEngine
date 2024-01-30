@@ -1,6 +1,7 @@
 #include "PCH.h"
 #include "GPUDriverImpl.h"
 
+/*
 namespace ultralight {
 
     GPUDriverImpl::GPUDriverImpl() : batch_count_( 0 ) {}
@@ -56,3 +57,4 @@ namespace ultralight {
     }
 
 }  // namespace ultralight
+*/

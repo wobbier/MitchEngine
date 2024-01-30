@@ -67,12 +67,12 @@ void UIWindow::Close()
     throw std::logic_error( "The method or operation is not implemented." );
 }
 
-int UIWindow::DeviceToPixels( int val ) const
+int UIWindow::ScreenToPixels( int val ) const
 {
     return 1;
 }
 
-int UIWindow::PixelsToDevice( int val ) const
+int UIWindow::PixelsToScreen( int val ) const
 {
     throw std::logic_error( "The method or operation is not implemented." );
 }

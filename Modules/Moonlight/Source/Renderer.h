@@ -39,7 +39,12 @@ class BGFXRenderer
     static constexpr bgfx::ViewId kClearView = 0;
     static constexpr std::size_t kMeshTransparencyTempSize = 50;
 public:
-    BGFXRenderer() = default;
+	BGFXRenderer()
+	: m_ambient(bx::InitNone)
+	, m_pt(0)
+		, m_timeOffset(0)
+	{
+	}
 
     void Create( const RendererCreationSettings& settings );
     void Destroy();

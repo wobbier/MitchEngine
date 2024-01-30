@@ -1,16 +1,15 @@
 #include "PCH.h"
 
 #if USING( ME_PLATFORM_WINDOWS )
-
 #include "FontLoaderWin.h"
-#include <dwrite_3.h>
 #include <wrl.h>
 #include <wrl/client.h>
 #include <MLang.h>
 #include <memory>
 #include "TextAnalysisSource.h"
+#include <dwrite.h>
+#include <dwrite_2.h>
 #include <dwrite_3.h>
-#include <unknwnbase.h>
 
 using namespace Microsoft::WRL;
 
@@ -39,17 +38,14 @@ static DWRITE_FONT_WEIGHT toDWriteFontWeight( LONG fontWeight )
     return DWRITE_FONT_WEIGHT_EXTRA_BLACK;
 }
 
-namespace ultralight
-{
+namespace ultralight {
 
-    String16 FontLoaderWin::fallback_font() const
-    {
+    String FontLoaderWin::fallback_font() const {
         return "Arial";
     }
 
-    String16 FontLoaderWin::fallback_font_for_characters( const String16& characters,
-        int weight, bool italic ) const
-    {
+    String FontLoaderWin::fallback_font_for_characters( const String& characters,
+        int weight, bool italic ) const {
         ComPtr<IDWriteFactory2> pDWriteFactory;
 
         HRESULT hr = DWriteCreateFactory(
@@ -69,12 +65,15 @@ namespace ultralight
 
         if( FAILED( hr ) ) return fallback_font();
 
-        TextAnalysisSource source( characters.data(), (UINT32)characters.length(), localeName, DWRITE_READING_DIRECTION_LEFT_TO_RIGHT );
+        String16 characters16 = characters.utf16();
+
+        TextAnalysisSource source( characters16.data(), (UINT32)characters16.length(), localeName,
+            DWRITE_READING_DIRECTION_LEFT_TO_RIGHT );
 
         UINT32 mappedLength;
         ComPtr<IDWriteFont> pMappedFont;
         FLOAT fontScale = 1.0f;
-        hr = pFontFallback->MapCharacters( &source, 0, (UINT32)characters.length(), nullptr, nullptr,
+        hr = pFontFallback->MapCharacters( &source, 0, (UINT32)characters16.length(), nullptr, nullptr,
             toDWriteFontWeight( weight ), italic ? DWRITE_FONT_STYLE_ITALIC : DWRITE_FONT_STYLE_NORMAL,
             DWRITE_FONT_STRETCH_NORMAL, &mappedLength, &pMappedFont, &fontScale );
 
@@ -95,9 +94,8 @@ namespace ultralight
         BOOL exists = false;
         hr = pFamilyNames->FindLocaleName( localeName, &index, &exists );
 
-        if( SUCCEEDED( hr ) && !exists )
-        {
-// If we didn't find a match, try again with US English
+        if( SUCCEEDED( hr ) && !exists ) {
+          // If we didn't find a match, try again with US English
             hr = pFamilyNames->FindLocaleName( L"en-us", &index, &exists );
         }
 
@@ -118,8 +116,7 @@ namespace ultralight
         return String16( (const ultralight::Char16*)name.get(), nameLength );
     }
 
-    static RefPtr<FontFile> LoadFont( const String16& family, int weight, bool italic )
-    {
+    static RefPtr<FontFile> LoadFont( const String16& family, int weight, bool italic ) {
         ComPtr<IDWriteFactory> pDWriteFactory;
 
         HRESULT hr = DWriteCreateFactory(
@@ -205,19 +202,18 @@ namespace ultralight
         // to avoid loading the file into memory.
         IDWriteLocalFontFileLoader* localFileLoader = NULL;
         hr = pFontFileLoader->QueryInterface( __uuidof( IDWriteLocalFontFileLoader ), (void**)&localFileLoader );
-        if( SUCCEEDED( hr ) )
-        {
+        if( SUCCEEDED( hr ) ) {
             UINT32 pathLength = 0;
             hr = localFileLoader->GetFilePathLengthFromKey( referenceKey, refKeySize, &pathLength );
 
             if( FAILED( hr ) ) return nullptr;
 
-            WCHAR* path = new WCHAR[pathLength + 1];
+            std::unique_ptr<WCHAR[]> path( new WCHAR[(size_t)pathLength + 1] );
 
-            hr = localFileLoader->GetFilePathFromKey( referenceKey, refKeySize, path, pathLength + 1 );
+            hr = localFileLoader->GetFilePathFromKey( referenceKey, refKeySize, path.get(), pathLength + 1 );
             if( FAILED( hr ) ) return nullptr;
 
-            ultralight::String16 pathStr( path, pathLength );
+            ultralight::String16 pathStr( path.get(), pathLength );
             return FontFile::Create( pathStr );
         }
 
@@ -237,16 +233,20 @@ namespace ultralight
 
         if( FAILED( hr ) ) return nullptr;
 
-        Ref<Buffer> result = Buffer::Create( fragmentStart, (size_t)fileSize );
+        RefPtr<Buffer> result = Buffer::CreateFromCopy( fragmentStart, (size_t)fileSize );
 
         pFontFileStream->ReleaseFileFragment( context );
 
         return FontFile::Create( result );
     }
 
-    RefPtr<FontFile> FontLoaderWin::Load( const String16& family, int weight, bool italic )
-    {
-        return LoadFont( family, weight, italic );
+    RefPtr<FontFile> FontLoaderWin::Load( const String& family, int weight, bool italic ) {
+        return LoadFont( family.utf16(), weight, italic );
+    }
+
+    // Called from Platform.cpp
+    FontLoader* CreatePlatformFontLoader() {
+        return new FontLoaderWin();
     }
 
 }  // namespace ultralight
