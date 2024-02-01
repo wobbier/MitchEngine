@@ -21,6 +21,7 @@
 #include "Utils/BGFXUtils.h"
 #include "Primitives/Cube.h"
 #include "UI/FileLogger.h"
+#include "UI/FileSystemBasic.h"
 
 UICore::UICore( IWindow* window, BGFXRenderer* renderer )
     : Base( ComponentFilter().Requires<BasicUIView>() )
@@ -50,7 +51,7 @@ UICore::UICore( IWindow* window, BGFXRenderer* renderer )
     // #TODO: Implement UWP compatible classes
     //"class ultralight::FileSystem * __cdecl ultralight::GetPlatformFileSystem(class ultralight::String const &)"
     //"class ultralight::Logger * __cdecl ultralight::GetDefaultLogger(class ultralight::String const &)"
-    ultralight::Platform::instance().set_file_system( ultralight::GetPlatformFileSystem( "." ) );
+    ultralight::Platform::instance().set_file_system( new FileSystemBasic( "." ) );
     ultralight::Platform::instance().set_logger( new FileLogger( "ultralight.log" ) );
 
     m_driver = new UIDriver();

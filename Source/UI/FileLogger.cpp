@@ -4,6 +4,7 @@
 #if USING( ME_UI )
 
 #include <iostream>
+#include "CLog.h"
 
 namespace ultralight {
 
@@ -22,6 +23,21 @@ namespace ultralight {
             return;
 
         log_file_ << "> " << String( message ).utf8().data() << std::endl << std::endl;
+
+        switch( log_level )
+        {
+        case ultralight::LogLevel::Error:
+            YIKES( message.utf8().data() );
+            break;
+        case ultralight::LogLevel::Warning:
+            BRUH( message.utf8().data() );
+            break;
+        case ultralight::LogLevel::Info:
+            CLog::Log( CLog::LogType::Info, message.utf8().data() );
+            break;
+        default:
+            break;
+        }
     }
 
 }  // namespace ultralight
