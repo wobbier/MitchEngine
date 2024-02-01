@@ -20,6 +20,7 @@
 #include "CLog.h"
 #include "Utils/BGFXUtils.h"
 #include "Primitives/Cube.h"
+#include "UI/FileLogger.h"
 
 UICore::UICore( IWindow* window, BGFXRenderer* renderer )
     : Base( ComponentFilter().Requires<BasicUIView>() )
@@ -43,10 +44,14 @@ UICore::UICore( IWindow* window, BGFXRenderer* renderer )
     config.force_repaint = true;
     config.face_winding = ultralight::FaceWinding::Clockwise;
 
+
     ultralight::Platform::instance().set_config( config );
     ultralight::Platform::instance().set_font_loader( new FontLoaderWin() );
+    // #TODO: Implement UWP compatible classes
+    //"class ultralight::FileSystem * __cdecl ultralight::GetPlatformFileSystem(class ultralight::String const &)"
+    //"class ultralight::Logger * __cdecl ultralight::GetDefaultLogger(class ultralight::String const &)"
     ultralight::Platform::instance().set_file_system( ultralight::GetPlatformFileSystem( "." ) );
-    ultralight::Platform::instance().set_logger( ultralight::GetDefaultLogger( "ultralight.log" ) );
+    ultralight::Platform::instance().set_logger( new FileLogger( "ultralight.log" ) );
 
     m_driver = new UIDriver();
     ultralight::Platform::instance().set_gpu_driver( m_driver );
