@@ -43,6 +43,3 @@
 	path = ThirdParty/SDL
 	url = https://github.com/libsdl-org/SDL
 	ignore = dirty
-[submodule "ThirdParty/rtmidi"]
-	path = ThirdParty/rtmidi
-	url = https://github.com/thestk/rtmidi
