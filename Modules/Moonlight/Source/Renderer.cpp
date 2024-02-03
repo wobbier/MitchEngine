@@ -566,7 +566,7 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId
     float m_texelHalf = 0.0f;
     if( camera.IsMain && bgfx::isValid( camera.UITexture ) )
     {
-        const int view = 69;
+        const int view = 9;
         bgfx::setViewName( view, "UI" );
         //bgfx::setViewClear(view
         //	, BGFX_CLEAR_NONE

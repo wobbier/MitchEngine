@@ -88,6 +88,7 @@ void UIDriver::CreateTexture( uint32_t texture_id, RefPtr<Bitmap> bitmap )
         uint32_t width = bitmap->width();
         uint32_t height = bitmap->height();
         uint32_t stride = bitmap->row_bytes();
+        uint32_t bpp = bitmap->bpp();
         bgfx::TextureFormat::Enum format = bitmap->format() == ultralight::BitmapFormat::BGRA8_UNORM_SRGB ? bgfx::TextureFormat::BGRA8 : bgfx::TextureFormat::A8;
 
         {
@@ -97,7 +98,9 @@ void UIDriver::CreateTexture( uint32_t texture_id, RefPtr<Bitmap> bitmap )
             const uint16_t ty = 0;
             uint64_t flags = BGFX_TEXTURE_NONE | BGFX_SAMPLER_W_MIRROR | BGFX_CAPS_FORMAT_TEXTURE_2D;
 
-            const bgfx::Memory* mem = bgfx::copy( pixels, bitmap->size() );
+            uint32_t calcSize = stride * th + ( tw * bpp );
+            uint32_t guesstimations = ( tw * bpp ) * th;
+            const bgfx::Memory* mem = bgfx::copy( pixels, guesstimations );
             newTex.Handle = bgfx::createTexture2D(
                 width
                 , height
@@ -179,7 +182,10 @@ void UIDriver::CreateRenderBuffer( uint32_t render_buffer_id, const RenderBuffer
 
 void UIDriver::DestroyRenderBuffer( uint32_t render_buffer_id )
 {
-    bgfx::destroy( m_buffers[render_buffer_id].BufferHandle );
+    if( bgfx::isValid( m_buffers[render_buffer_id].BufferHandle ) )
+    {
+        bgfx::destroy( m_buffers[render_buffer_id].BufferHandle );
+    }
     m_buffers.erase( render_buffer_id );
     m_unusedBuffers.push( render_buffer_id );
 }

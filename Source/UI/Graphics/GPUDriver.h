@@ -18,7 +18,7 @@ class UIDriver
     : public ultralight::GPUDriver
 {
     friend class UICore;
-    static const constexpr bgfx::ViewId kViewId = 40;
+    static const constexpr bgfx::ViewId kViewId = 11;
 public:
     UIDriver();
     void BeginSynchronize() override;

@@ -44,6 +44,8 @@ UICore::UICore( IWindow* window, BGFXRenderer* renderer )
     ultralight::Config config;
     config.force_repaint = true;
     config.face_winding = ultralight::FaceWinding::Clockwise;
+    config.animation_timer_delay = 1.0 / 144.0;
+    config.recycle_delay = 1.0;
 
 
     ultralight::Platform::instance().set_config( config );
@@ -215,7 +217,7 @@ void UICore::Render()
 
         ultralight::RenderTarget surface = (ultralight::RenderTarget)( ent.GetComponent<BasicUIView>().ViewRef->render_target() );
 
-        bgfx::ViewId view = 68;
+        bgfx::ViewId view = 10;
         {
             bgfx::setViewName( view, "UI BLIT" );
             const bgfx::RendererType::Enum renderer = bgfx::getRendererType();
