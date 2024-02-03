@@ -267,6 +267,7 @@ ultralight::Matrix ApplyProjection( const Matrix4x4& transform,
 
 void UIDriver::UpdateConstantBuffer( const ultralight::GPUState& inState, uint32_t geoId )
 {
+    OPTICK_EVENT( "UI Constant Buffer Update", Optick::Category::GPU_UI );
     float screen_width = (float)inState.viewport_width;
     float screen_height = (float)inState.viewport_height;
 
@@ -311,12 +312,14 @@ void UIDriver::UpdateConstantBuffer( const ultralight::GPUState& inState, uint32
 
 void UIDriver::RenderCommandList()
 {
+    OPTICK_EVENT( "UI CommandList", Optick::Category::GPU_UI );
     memset( &m_uiDrawInfo, 0, sizeof(UIDrawInfo) );
     // Move this
     for( ultralight::Command& command : m_renderCommands )
     {
         if( command.command_type == CommandType::ClearRenderBuffer )
         {
+            OPTICK_EVENT( "UI Clear Command", Optick::Category::GPU_UI );
             uint32_t color = (uint32_t)( 0.f * 255.f ) << 24
                 | (uint32_t)( 0.f * 255.f ) << 16
                 | (uint32_t)( 0.f * 255.f ) << 8
@@ -332,6 +335,7 @@ void UIDriver::RenderCommandList()
             continue;
         }
         {
+            OPTICK_EVENT( "UI Geometry Command", Optick::Category::GPU_UI );
             UIBuffer& view = m_buffers[command.gpu_state.render_buffer_id];
             bgfx::ViewId bufferId = view.RenderViewId;
             std::string viewName = "UI " + std::to_string( bufferId );

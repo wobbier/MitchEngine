@@ -130,6 +130,7 @@ void UICore::Update( const UpdateContext& inUpdateContext )
     mouseEvent.type = ultralight::MouseEvent::kType_MouseMoved;
     Vector2 mousePosition = gameInput.GetMousePosition();
     mouseScrollEvent.delta_y = gameInput.GetMouseScrollDelta().y * 100;
+    mouseScrollEvent.delta_x = 0;
 
 #if USING( ME_EDITOR )
     //if ( !static_cast<EditorApp*>( GetEngine().GetGame() )->IsGameRunning() )
@@ -197,7 +198,10 @@ void UICore::Render()
 
 #if USING( ME_UI )
 
+    {
+        OPTICK_EVENT( "Ultralight Render", Optick::Category::UI );
     m_uiRenderer->Render();
+    }
     m_driver->RenderCommandList();
 
     for( auto ent : GetEntities() )

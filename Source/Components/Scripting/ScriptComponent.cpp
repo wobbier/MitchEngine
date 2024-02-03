@@ -1,16 +1,18 @@
 #include "PCH.h"
 
 #if USING( ME_SCRIPTING )
+#include <mono/metadata/loader.h>
+#include <mono/metadata/reflection.h>    // this should go
+#endif
 
 #include "ScriptComponent.h"
 #include "imgui.h"
 #include "Cores/Scripting/ScriptCore.h"
 #include "Scripting/ScriptEngine.h"
 #include "Components/Transform.h"
-#include <mono/metadata/loader.h>
-#include <mono/metadata/reflection.h>    // this should go
 #include "Engine/Engine.h"
 
+#if USING( ME_SCRIPTING )
 static std::unordered_map<MonoType*, std::function<bool( EntityHandle )>> s_EntityHasComponentFuncs;
 
 template<typename... Component>
@@ -32,16 +34,20 @@ static void RegisterComponent()
             s_EntityHasComponentFuncs[managedType] = []( EntityHandle entity ) { return entity->HasComponent<Component>(); };
         }( ), ... );
 }
+#endif
 
 ScriptComponent::ScriptComponent()
     : Component( "ScriptComponent" )
 {
+#if USING( ME_SCRIPTING )
+    // Did you update your bgfx .hpp shaders at all??
     mono_add_internal_call( "Transform::Entity_GetTranslation", (void*)Transform_GetTranslation );
     mono_add_internal_call( "Transform::Entity_SetTranslation", (void*)Transform_SetTranslation );
     mono_add_internal_call( "Input::IsKeyDown", (void*)Input_IsKeyDown );
 
     mono_add_internal_call( "Entity::Entity_HasComponent", (void*)Entity_HasComponent );
     RegisterComponent<Transform>();
+#endif
 }
 
 ScriptComponent::~ScriptComponent()
@@ -50,6 +56,7 @@ ScriptComponent::~ScriptComponent()
 
 void ScriptComponent::Init()
 {
+#if USING( ME_SCRIPTING )
     if( !Instance && !ScriptName.empty() )
     {
         auto foundClass = ScriptEngine::sScriptData.EntityClasses.find( ScriptName );
@@ -69,12 +76,14 @@ void ScriptComponent::Init()
             }
         }
     }
+#endif
 }
 
 #if USING( ME_EDITOR )
 
 void ScriptComponent::OnEditorInspect()
 {
+#if USING( ME_SCRIPTING )
     // Uninitialized script
     if( !Instance )
     {
@@ -113,9 +122,12 @@ void ScriptComponent::OnEditorInspect()
             DrawValues( Instance->GetScriptClass() );
         }
     }
+#endif
 }
 
 #endif
+
+#if USING( ME_SCRIPTING )
 
 void ScriptComponent::DrawValues( const ScriptClass& scriptClass )
 {
@@ -245,6 +257,7 @@ void ScriptComponent::DrawValues( const ScriptClass& scriptClass )
         }
     }
 }
+#endif
 
 void ScriptComponent::OnSerialize( json& outJson )
 {
@@ -255,6 +268,8 @@ void ScriptComponent::OnDeserialize( const json& inJson )
 {
     ScriptName = inJson["ScriptName"];
 }
+
+#if USING( ME_SCRIPTING )
 
 void ScriptComponent::Transform_GetTranslation( EntityID id, Vector3* outPosition )
 {

@@ -1,13 +1,15 @@
 #include "PCH.h"
 
-#if USING( ME_SCRIPTING )
-
 #include "ScriptCore.h"
 #include "Components/Scripting/ScriptComponent.h"
+
+#if USING( ME_SCRIPTING )
 #include <mono/jit/jit.h>
 #include <mono/metadata/assembly.h>
 #include <mono/metadata/debug-helpers.h>
 #include <mono/metadata/attrdefs.h>
+#endif
+
 #include "Math/Vector3.h"
 
 #include "Path.h"
@@ -27,7 +29,10 @@ ScriptCore::ScriptCore()
 {
     SetIsSerializable( true );
     EventManager::GetInstance().RegisterReceiver( this, { SceneLoadedEvent::GetEventId() } );
+
+#if USING( ME_SCRIPTING )
     ScriptEngine::Init();
+#endif
 }
 
 ScriptCore::~ScriptCore()
@@ -41,6 +46,7 @@ void ScriptCore::Init()
 
 void ScriptCore::Update( const UpdateContext& inUpdateContext )
 {
+#if USING( ME_SCRIPTING )
     OPTICK_EVENT( "ScriptCore::Update" );
     auto& entities = GetEntities();
     for( auto& InEntity : entities )
@@ -52,6 +58,7 @@ void ScriptCore::Update( const UpdateContext& inUpdateContext )
             scriptComponent.Instance->OnUpdate( inUpdateContext.GetDeltaTime() );
         }
     }
+#endif
 }
 
 void ScriptCore::LateUpdate( const UpdateContext& inUpdateContext )
@@ -61,12 +68,14 @@ void ScriptCore::LateUpdate( const UpdateContext& inUpdateContext )
 
 void ScriptCore::OnEntityAdded( Entity& NewEntity )
 {
+#if USING( ME_SCRIPTING )
     ScriptComponent& comp = NewEntity.GetComponent<ScriptComponent>();
     if( comp.Instance )
     {
         // could be possibly called before other entities are done
         comp.Instance->OnCreate();
     }
+#endif
 }
 
 void ScriptCore::OnEntityRemoved( Entity& InEntity )
@@ -78,6 +87,7 @@ void ScriptCore::OnEntityRemoved( Entity& InEntity )
 
 void ScriptCore::OnEditorInspect()
 {
+#if USING( ME_SCRIPTING )
     OPTICK_EVENT( "ScriptCore::OnEditorInspect" );
     //float value;
     //mono_field_get_value( ScriptEngine::testClassInstance.ClassObject, ScriptEngine::floatField, &value );
@@ -90,6 +100,7 @@ void ScriptCore::OnEditorInspect()
     {
         ImGui::Text( "%s %s", it.Namespace.c_str(), it.Name.c_str() );
     }
+#endif
 }
 
 #endif
@@ -99,4 +110,3 @@ bool ScriptCore::OnEvent( const BaseEvent& evt )
     return false;
 }
 
-#endif
