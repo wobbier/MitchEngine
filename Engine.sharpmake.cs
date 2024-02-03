@@ -136,7 +136,6 @@ public class Engine : BaseProject
             conf.LibraryFiles.Add("Ultralight");
             conf.LibraryFiles.Add("UltralightCore");
             conf.LibraryFiles.Add("WebCore");
-            conf.Defines.Add("DEFINE_ME_ULTRALIGHT");
         }
 
         conf.LibraryFiles.Add("MitchEngine");
@@ -216,10 +215,9 @@ public class Engine : BaseProject
 
         // Ultralight DLL
         // TODO: Fix other API's
-        if (target.SubPlatform == CommonTarget.SubPlatformType.Win64 || target.SubPlatform == CommonTarget.SubPlatformType.macOS)
         {
             var copyDirBuildStep = new Configuration.BuildStepCopy(
-                $@"[project.SharpmakeCsPath]/ThirdParty/UltralightSDK/bin/Win64/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}",
+                $@"[project.SharpmakeCsPath]/ThirdParty/UltralightSDK/bin/[target.SubPlatform]/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}",
                 Globals.RootDir + "/.build/[target.Name]");
 
             conf.EventPostBuildExe.Add(copyDirBuildStep);
@@ -272,6 +270,15 @@ public class Engine : BaseProject
             conf.LibraryFiles.Add("BulletDynamics_MinsizeRel.lib");
             conf.LibraryFiles.Add("LinearMath_MinsizeRel.lib");
             conf.LibraryFiles.Add("zlibstatic.lib");
+        }
+
+        // Ultralight
+        {
+            var copyDirBuildStep = new Configuration.BuildStepCopy(
+                $@"[project.SharpmakeCsPath]/ThirdParty/UltralightSDK/bin/Win64/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}",
+                Globals.RootDir + "/.build/[target.Name]");
+
+            conf.EventPostBuildExe.Add(copyDirBuildStep);
         }
 
         if (Directory.Exists(Globals.FMOD_UWP_Dir))

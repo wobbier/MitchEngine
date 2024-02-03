@@ -43,6 +43,8 @@ public abstract class BaseProject : Project
         conf.TargetPath = "[project.SharpmakeCsPath]/.build/[target.Name]/";
         conf.LibraryPaths.Add("[project.SharpmakeCsPath]/.build/[target.Name]/");
 
+        conf.Defines.Add("DEFINE_ME_ULTRALIGHT");
+
         // RenderDoc DLL
         // TODO: Is this a chocolatey package? cross platform?
         // Shitty detection atm, but it works without this?
