@@ -44,7 +44,7 @@ UICore::UICore( IWindow* window, BGFXRenderer* renderer )
     ultralight::Config config;
     config.force_repaint = true;
     config.face_winding = ultralight::FaceWinding::Clockwise;
-    config.animation_timer_delay = 1.0 / 144.0;
+    config.animation_timer_delay = 1.0 / 60.0;
     config.recycle_delay = 1.0;
 
 
@@ -92,19 +92,12 @@ void UICore::OnEntityRemoved( Entity& InEntity )
     BasicUIView& view = InEntity.GetComponent<BasicUIView>();
     view.IsInitialized = false;
 
-    //auto overlay = m_overlays[view.Index];
-    //GetOverlayManager()->Remove( overlay.get() );
-    //m_overlays.erase( std::remove( m_overlays.begin(), m_overlays.end(), overlay ), m_overlays.end() );
-    ////m_overlays.erase( m_overlays.begin() + view.Index );
+    m_views.erase( std::remove( m_views.begin(), m_views.end(), m_views[view.Index] ), m_views.end() );
 }
 
 void UICore::OnStop()
 {
-    //for( auto overlay : m_overlays )
-    //{
-    //    GetOverlayManager()->Remove( overlay.get() );
-    //}
-    //m_overlays.clear();
+    m_views.clear();
 }
 
 void UICore::Update( const UpdateContext& inUpdateContext )
