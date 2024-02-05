@@ -46,6 +46,12 @@ UICore::UICore( IWindow* window, BGFXRenderer* renderer )
     config.face_winding = ultralight::FaceWinding::Clockwise;
     config.animation_timer_delay = 1.0 / 60.0;
     config.recycle_delay = 1.0;
+#if USING( ME_EDITOR )
+    config.resource_path_prefix = "Assets/UI/";
+#else
+    config.resource_path_prefix = "Assets/UI";
+#endif
+
 
 
     ultralight::Platform::instance().set_config( config );
@@ -54,6 +60,7 @@ UICore::UICore( IWindow* window, BGFXRenderer* renderer )
     //"class ultralight::FileSystem * __cdecl ultralight::GetPlatformFileSystem(class ultralight::String const &)"
     //"class ultralight::Logger * __cdecl ultralight::GetDefaultLogger(class ultralight::String const &)"
     ultralight::Platform::instance().set_file_system( new FileSystemBasic( "." ) );
+    ultralight::Platform::instance().set_file_system( new FileSystemBasic( Path("/").FullPath.c_str() ) );
     ultralight::Platform::instance().set_logger( new FileLogger( "ultralight.log" ) );
 
     m_driver = new UIDriver();

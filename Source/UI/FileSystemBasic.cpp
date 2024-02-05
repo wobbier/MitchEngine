@@ -8,6 +8,7 @@
 #include <memory>
 #include <vector>
 #include <cstring>
+#include "Path.h"
 
 static const char* FileExtensionToMimeType( const char* ext );
 
@@ -38,6 +39,7 @@ namespace ultralight {
 
         String8 utf8 = String( path ).utf8();
         std::string relPath( utf8.data(), utf8.length() );
+        relPath = Path( relPath ).GetLocalPathString();
 
         NormalizePath( relPath );
         // Strip any slash from beginning of path:
