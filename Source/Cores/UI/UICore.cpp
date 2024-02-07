@@ -49,7 +49,7 @@ UICore::UICore( IWindow* window, BGFXRenderer* renderer )
 #if USING( ME_EDITOR )
     config.resource_path_prefix = "Assets/UI/";
 #else
-    config.resource_path_prefix = "Assets/UI";
+    config.resource_path_prefix = "Assets/UI/";
 #endif
 
 
