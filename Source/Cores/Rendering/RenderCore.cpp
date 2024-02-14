@@ -88,15 +88,21 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
         int batchEnd = batch.second;
         int batchSize = batchEnd - batchBegin;
 
-        auto meshJob = [&renderer, &Renderables, batchBegin, batchEnd, batchSize]( ) {
+        auto meshJob = [&renderer, &Renderables, batchBegin, batchEnd, batchSize]() {
             for( int entIndex = batchBegin; entIndex < batchEnd; ++entIndex )
             {
+                OPTICK_CATEGORY( "Update Transform", Optick::Category::Debug );
                 auto& InEntity = Renderables[entIndex];
-                Transform& transform = InEntity.GetComponent<Transform>();
-                Mesh& model = InEntity.GetComponent<Mesh>();
+                {
+                    Transform& transform = InEntity.GetComponent<Transform>();
+                    Mesh& model = InEntity.GetComponent<Mesh>();
 
-                OPTICK_EVENT_DYNAMIC( transform.GetName().c_str() );
-                renderer.UpdateMeshMatrix( model.GetId(), transform.GetMatrix().GetInternalMatrix() );
+                    {
+                        // This is hella expensive on FPS
+                        //OPTICK_EVENT_DYNAMIC( transform.GetName().c_str() );
+                        renderer.UpdateMeshMatrix( model.GetId(), transform.GetLocalToWorldMatrix().GetInternalMatrix() );
+                    }
+                }
             }
         };
         jobSystem.AddWork( meshJob, false );

@@ -382,6 +382,12 @@ public class BaseGameSolution : Solution
         conf.SolutionFileName = "[solution.Name]";
         Globals.RootDir = Path.GetFullPath("../");
 
+        // Build Machine
+        if (!Directory.Exists(Globals.FMOD_Win64_Dir) && Directory.Exists(Path.Combine(Globals.RootDir, $"Engine/ThirdParty/FMOD")))
+        {
+            Globals.FMOD_Win64_Dir = Path.Combine(Globals.RootDir, $"Engine/ThirdParty/FMOD");
+        }
+
         conf.AddProject<Dementia>(target);
         conf.AddProject<ImGui>(target);
         conf.AddProject<Moonlight>(target);

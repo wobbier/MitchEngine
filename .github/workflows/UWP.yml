@@ -32,7 +32,7 @@ jobs:
 
       - name: Install Mono
         shell: cmd
-        run: choco install mono
+        run: choco install mono --ignore-checksums
 
       - name: Setup dotnet
         uses: actions/setup-dotnet@v1

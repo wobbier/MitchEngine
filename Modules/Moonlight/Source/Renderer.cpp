@@ -491,10 +491,14 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId
                 continue;
             }
 
-            //m_debugDraw->Push();
-            //m_debugDraw->Draw(&mesh.Transform[0][0]);
-            //m_debugDraw->Pop();
-            RenderSingleMesh( id, mesh, state );
+            float dist = glm::distance( camera.Position.InternalVector, glm::vec3( mesh.Transform[3] ) );
+            if( dist <= camera.Far )
+            {
+                //m_debugDraw->Push();
+                //m_debugDraw->Draw(&mesh.Transform[0][0]);
+                //m_debugDraw->Pop();
+                RenderSingleMesh( id, mesh, state );
+            }
         }
     }
 

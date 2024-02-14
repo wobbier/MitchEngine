@@ -19,6 +19,8 @@ void SceneCore::Init()
     {
         RootTransformEntity = GameWorld->CreateEntity();
         RootTransform = &RootTransformEntity->AddComponent<Transform>();
+        RootTransform->SetDirty( false );
+        RootTransform->Name = "RootTransform";
     }
 }
 

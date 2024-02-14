@@ -17,7 +17,7 @@ Sound::Sound( const Path& path, void* fmodSystem )
     if( system->createSound( path.FullPath.c_str(), FMOD_DEFAULT, nullptr, &Handle ) != FMOD_OK )
     {
         // #TODO: Perhaps having the macro for this accepts a string view?
-        YIKES( "Failed to create sound resource." + path.GetLocalPathString() );
+        YIKES( "Failed to create sound resource: " + path.FullPath );
     }
 #endif
 }
