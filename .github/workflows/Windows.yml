@@ -27,18 +27,20 @@ jobs:
 
     steps:
       - name: Add MSBuild to PATH
-        uses: microsoft/setup-msbuild@v1.0.2
+        uses: microsoft/setup-msbuild@v2
+        with:
+          msbuild-architecture: x64
 
       - name: Install Mono
         shell: cmd
         run: choco install mono --ignore-checksums
 
       - name: Setup dotnet
-        uses: actions/setup-dotnet@v1
+        uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "5.0.100"
 
-      - uses: suisei-cn/actions-download-file@v1
+      - uses: suisei-cn/actions-download-file@818d6b7dc8fe73f2f924b6241f2b1134ca1377d9 # 1.6.0
         id: downloadfile
         name: Grab the project setup file
         with:
@@ -63,17 +65,17 @@ jobs:
         run: call CopyAssets.bat
 
       - name: Copy Editor Assets
-        shell: cmd
+        shell: pwsh
         continue-on-error: true
         run: |
-          robocopy ".build/Release/Assets" ".build\\Editor_Release\\Assets" *.* /w:0 /r:1 /v /E
-          robocopy "Engine/Tools" ".build\\Editor_Release\\Engine\\Tools" *.* /w:0 /r:1 /v /E
+          robocopy ".build/Release/Assets" ".build\\Editor_Release\\Assets" *.* /w:0 /r:1 /v /E ; if ($lastexitcode -lt 8) { $global:LASTEXITCODE = $null }
+          robocopy "Engine/Tools" ".build\\Editor_Release\\Engine\\Tools" *.* /w:0 /r:1 /v /E ; if ($lastexitcode -lt 8) { $global:LASTEXITCODE = $null }
 
       - name: Archive Editor
         if: ${{ matrix.buildconfig == 'Editor' }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
-          name: EmptyProject v${{github.run_number}} - Editor
+          name: EmptyProject v${{github.run_number}} - Editor ${{ matrix.configuration }}
           path: |
             .build/${{matrix.buildconfig}}_${{matrix.configuration}}
             !.build/${{matrix.buildconfig}}_${{matrix.configuration}}/AppX
@@ -95,14 +97,14 @@ jobs:
 
       - name: Copy Cooked Assets
         if: ${{ matrix.buildconfig == 'Game_Win64' }}
-        shell: cmd
+        shell: pwsh
         continue-on-error: true
         run: |
-          robocopy ".build/Editor_Release/Assets" ".build\\Game_Win64_${{matrix.configuration}}\\Assets" *.* /w:0 /r:1 /v /E
+          robocopy ".build/Editor_Release/Assets" ".build\\Game_Win64_${{matrix.configuration}}\\Assets" *.* /w:0 /r:1 /v /E ; if ($lastexitcode -lt 8) { $global:LASTEXITCODE = $null }
 
       - name: Archive Build
         if: ${{ matrix.buildconfig == 'Game_Win64' }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: EmptyProject v${{github.run_number}} - ${{matrix.buildconfig}}_${{matrix.configuration}}
           path: |
@@ -121,17 +123,17 @@ jobs:
             !.build/${{matrix.buildconfig}}_${{matrix.configuration}}/**/*.sh
 
       - name: Copy Tools Assets
-        shell: cmd
+        shell: pwsh
         continue-on-error: true
         run: |
-          robocopy "Engine/Tools/HUB/Assets" ".build\\Editor_Release\\Assets" *.* /w:0 /r:1 /v /E
-          robocopy "Engine/Tools/HUB" ".build\\Editor_Release" *.exe /w:0 /r:1 /v /E
+          robocopy "Engine/Tools/HUB/Assets" ".build\\Editor_Release\\Assets" *.* /w:0 /r:1 /v /E ; if ($lastexitcode -lt 8) { $global:LASTEXITCODE = $null }
+          robocopy "Engine/Tools/HUB" ".build\\Editor_Release" *.exe /w:0 /r:1 /v /E ; if ($lastexitcode -lt 8) { $global:LASTEXITCODE = $null }
 
       - name: Archive Tools
         if: ${{ matrix.buildconfig == 'Editor' }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
-          name: HUB v${{github.run_number}}
+          name: HUB v${{github.run_number}} ${{ matrix.configuration }}
           path: |
             .build/${{matrix.buildconfig}}_${{matrix.configuration}}/HUB.exe
             .build/${{matrix.buildconfig}}_${{matrix.configuration}}/Assets/Close.png
