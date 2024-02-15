@@ -190,6 +190,9 @@ void UICore::Update( const UpdateContext& inUpdateContext )
     {
         OPTICK_EVENT( "UI Widget Update", Optick::Category::UI );
         m_uiRenderer->Update();
+
+        // #TODO: This should be called after vsync is done.
+        m_uiRenderer->RefreshDisplay( 0 );
     }
 #endif
 }
