@@ -8,7 +8,6 @@
 #include <AppCore/Overlay.h>
 #include <AppCore/Platform.h>
 #include <Ultralight/platform/Platform.h>
-#include <Ultralight/platform/Config.h>
 #endif
 
 #include <imgui.h>
@@ -40,27 +39,24 @@ UICore::UICore( IWindow* window, BGFXRenderer* renderer )
     s_texUI = bgfx::createUniform( "s_texUI", bgfx::UniformType::Sampler );
 
 #if USING( ME_UI )
-
-    ultralight::Config config;
-    config.force_repaint = true;
-    config.face_winding = ultralight::FaceWinding::Clockwise;
-    config.animation_timer_delay = 1.0 / 60.0;
-    config.recycle_delay = 1.0;
+    m_config.force_repaint = false;
+    m_config.face_winding = ultralight::FaceWinding::Clockwise;
+    m_config.animation_timer_delay = 1.0 / 60.0;
+    m_config.recycle_delay = 1.0;
 #if USING( ME_EDITOR )
-    config.resource_path_prefix = "Assets/UI/";
+    m_config.resource_path_prefix = "Assets/UI/";
 #else
-    config.resource_path_prefix = "Assets/UI/";
+    m_config.resource_path_prefix = "Assets/UI/";
 #endif
 
 
-
-    ultralight::Platform::instance().set_config( config );
+    ultralight::Platform::instance().set_config( m_config );
     ultralight::Platform::instance().set_font_loader( new FontLoaderWin() );
     // #TODO: Implement UWP compatible classes
     //"class ultralight::FileSystem * __cdecl ultralight::GetPlatformFileSystem(class ultralight::String const &)"
     //"class ultralight::Logger * __cdecl ultralight::GetDefaultLogger(class ultralight::String const &)"
     ultralight::Platform::instance().set_file_system( new FileSystemBasic( "." ) );
-    ultralight::Platform::instance().set_file_system( new FileSystemBasic( Path("/").FullPath.c_str() ) );
+    ultralight::Platform::instance().set_file_system( new FileSystemBasic( Path( "/" ).FullPath.c_str() ) );
     ultralight::Platform::instance().set_logger( new FileLogger( "ultralight.log" ) );
 
     m_driver = new UIDriver();
@@ -205,7 +201,7 @@ void UICore::Render()
 
     {
         OPTICK_EVENT( "Ultralight Render", Optick::Category::UI );
-    m_uiRenderer->Render();
+        m_uiRenderer->Render();
     }
     m_driver->RenderCommandList();
 
@@ -388,7 +384,15 @@ void UICore::OnEditorInspect()
     ImGui::Text( "Clear Calls %i", m_driver->m_uiDrawInfo.m_numClearCalls );
     ImGui::Text( "Fill Calls %i", m_driver->m_uiDrawInfo.m_numDrawFillCalls );
     ImGui::Text( "Fill Path Calls %i", m_driver->m_uiDrawInfo.m_numDrawFillPathCalls );
-    if( ImGui::CollapsingHeader( "Main UI Texture", ImGuiTreeNodeFlags_DefaultOpen ) )
+    if( ImGui::CollapsingHeader( "Settings", ImGuiTreeNodeFlags_DefaultOpen ) )
+    {
+        if( ImGui::Checkbox( "Force Repaint", &m_config.force_repaint ) )
+        {
+            ultralight::Platform::instance().set_config( m_config );
+        }
+    }
+
+    if( ImGui::CollapsingHeader( "Final UI Texture", ImGuiTreeNodeFlags_DefaultOpen ) )
     {
         ImGui::Image( m_uiTexture, ImVec2( UISize.x, UISize.y ) );
     }

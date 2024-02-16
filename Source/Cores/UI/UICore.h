@@ -8,6 +8,7 @@
 #include <UI/Graphics/GPUContext.h>
 #include <UI/Graphics/GPUDriver.h>
 #include <Ultralight/Renderer.h>
+#include <Ultralight/platform/Config.h>
 #include <UI/FileLogger.h>
 #include <UI/FontLoaderWin.h>
 #include <UI/UIWindow.h>
@@ -73,6 +74,8 @@ private:
     UniquePtr<ultralight::FileLogger> m_logger = nullptr;
     ultralight::RefPtr<UIWindow> m_window = nullptr;
     UIDriver* m_driver = nullptr;
+
+    ultralight::Config m_config;
 #endif
 
     bgfx::ProgramHandle UIProgram;
