@@ -29,7 +29,7 @@ public:
     float Roll = 0.f;
     float OrthographicSize = 50.f;
     float Near = .1f;
-    float Far = 2000.f;
+    float Far = 1000.f;
 
     Camera();
     ~Camera();

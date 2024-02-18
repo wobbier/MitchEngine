@@ -137,10 +137,6 @@ void SceneViewWidget::Update()
 
 void SceneViewWidget::Render()
 {
-	if (!IsOpen)
-	{
-		return;
-	}
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
@@ -149,20 +145,25 @@ void SceneViewWidget::Render()
 
 	Input& gameInput = GetEngine().GetInput();
 	Input& editorInput = GetEngine().GetEditorInput();
-
+	bool shouldRender = false;
 	if (MaximizeOnPlay)
 	{
 		ImGuiWindowFlags fullScreenFlags = WindowFlags | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar;
 
 		ImGui::SetNextWindowPos(ImVec2(App->Editor->DockPos.x, App->Editor->DockPos.y));
 		ImGui::SetNextWindowSize(ImVec2(App->Editor->DockSize.x, App->Editor->DockSize.y));
-		ImGui::Begin("Full Screen Viewport", NULL, fullScreenFlags);
+		shouldRender = ImGui::Begin("Full Screen Viewport", NULL, fullScreenFlags);
 	}
 	else
 	{
 		ImGuiWindowFlags fullScreenFlags = WindowFlags | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar;
-		ImGui::Begin(Name.c_str(), &IsOpen, fullScreenFlags);
+		shouldRender = ImGui::Begin(Name.c_str(), &IsOpen, fullScreenFlags);
 	}
+
+    if( MainCamera )
+    {
+        MainCamera->ShouldRender = shouldRender && !ImGui::IsWindowCollapsed();
+    }
 
 	if (ImGui::BeginMenuBar())
 	{

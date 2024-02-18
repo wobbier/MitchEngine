@@ -21,6 +21,7 @@
 #include "Primitives/Cube.h"
 #include "UI/FileLogger.h"
 #include "UI/FileSystemBasic.h"
+#include "UI/UIUtils.h"
 
 UICore::UICore( IWindow* window, BGFXRenderer* renderer )
     : Base( ComponentFilter().Requires<BasicUIView>() )
@@ -129,6 +130,41 @@ void UICore::Update( const UpdateContext& inUpdateContext )
     Vector2 mousePosition = gameInput.GetMousePosition();
     mouseScrollEvent.delta_y = gameInput.GetMouseScrollDelta().y * 100;
     mouseScrollEvent.delta_x = 0;
+
+    {
+        OPTICK_EVENT( "UI Keyboard Update", Optick::Category::UI );
+        for( auto& inputEvent : gameInput.m_keyEventsThisFrame )
+        {
+            ultralight::KeyEvent keyEvent;
+            bool isCharacterEvent = UIUtils::ConvertToUL( (KeyCode)inputEvent.Key, keyEvent.virtual_key_code );
+            keyEvent.native_key_code = inputEvent.Key;
+
+            // #TODO: Modifiers / Keypad detection
+            keyEvent.is_system_key = false;
+            keyEvent.is_keypad = false;
+            keyEvent.modifiers = 0;
+            keyEvent.is_auto_repeat = inputEvent.State == KeyState::Held;
+
+            ultralight::KeyEvent::Type keyEventType = KeyEvent::kType_RawKeyDown;
+
+            if( isCharacterEvent && inputEvent.State != KeyState::Released )
+            {
+                keyEventType = KeyEvent::kType_Char;
+                GetKeyFromVirtualKeyCode( keyEvent.virtual_key_code, false, keyEvent.text );
+            }
+            else
+            {
+                if( inputEvent.State == KeyState::Released )
+                    keyEventType = KeyEvent::kType_KeyUp;
+            }
+
+            keyEvent.type = keyEventType;
+            for( auto& view : m_views )
+            {
+                view->FireKeyEvent( keyEvent );
+            }
+        }
+    }
 
 #if USING( ME_EDITOR )
     //if ( !static_cast<EditorApp*>( GetEngine().GetGame() )->IsGameRunning() )

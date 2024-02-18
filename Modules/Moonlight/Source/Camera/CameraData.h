@@ -51,5 +51,6 @@ namespace Moonlight
         Matrix4 ProjectionMatrix;
         bool IsMain = false;
         bool IsOblique = false;
+        bool ShouldRender = true;
     };
 }

@@ -35,17 +35,26 @@ bool Input::OnEvent( const BaseEvent& evt )
     {
         if( evt.GetEventId() == MouseScrollEvent::GetEventId() )
         {
-            const MouseScrollEvent& event = static_cast<const MouseScrollEvent&>( evt );
-            PreviousMouseScroll = MouseScroll;
-            MouseScroll = MouseScroll + event.Scroll;
+            if( CaptureInput )
+            {
+                const MouseScrollEvent& event = static_cast<const MouseScrollEvent&>( evt );
+                PreviousMouseScroll = MouseScroll;
+                MouseScroll = MouseScroll + event.Scroll;
+            }
         }
         if( evt.GetEventId() == KeyPressEvent::GetEventId() )
         {
-            const KeyPressEvent& event = static_cast<const KeyPressEvent&>( evt );
-            LastKeyPressed = (KeyCode)event.Key;
+            if( CaptureInput )
+            {
+                const KeyPressEvent& event = static_cast<const KeyPressEvent&>( evt );
+                LastKeyPressed = (KeyCode)event.Key;
+
+                //BRUH_FMT( "KeyEvent: Key %i, State %i", event.Key, event.State );
+                m_keyEventsThisFrame.push_back( event );
+            }
         }
     }
-    
+
     return false;
 }
 
@@ -95,6 +104,7 @@ void Input::PostUpdate()
     }
     PreviousMouseState = MouseState;
     PreviousMouseScroll = MouseScroll;
+    m_keyEventsThisFrame.clear();
 }
 
 #pragma endregion
@@ -114,6 +124,23 @@ bool Input::WasKeyPressed( KeyCode key )
 bool Input::WasKeyReleased( KeyCode key )
 {
     return CaptureInput && PreviousKeyboardState[(uint32_t)key] && !KeyboardState[(uint32_t)key];
+}
+
+KeyState Input::GetKeyCodeState( KeyCode key )
+{
+    if( !CaptureInput )
+        return KeyState::None;
+
+    if( WasKeyPressed( key ) )
+        return KeyState::Pressed;
+
+    if( PreviousKeyboardState[(uint32_t)key] && KeyboardState[(uint32_t)key] )
+        return KeyState::Held;
+
+    if( WasKeyReleased( key ) )
+        return KeyState::Released;
+
+    return KeyState::None;
 }
 
 #pragma endregion

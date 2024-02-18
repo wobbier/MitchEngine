@@ -256,12 +256,15 @@ void BGFXRenderer::Render( Moonlight::CameraData& EditorCamera )
     bgfx::ViewId id = 1;
 
     EditorCamera.Buffer = EditorCameraBuffer;
-    RenderCameraView( EditorCamera, id );
-    ++id;
+    if( EditorCamera.ShouldRender )
+    {
+        RenderCameraView( EditorCamera, id );
+        ++id;
+    }
 
     for( auto& camData : m_cameraCache.Commands )
     {
-        if( !camData.IsMain )
+        if( !camData.IsMain && camData.ShouldRender )
         {
             RenderCameraView( camData, id );
             ++id;
@@ -270,7 +273,7 @@ void BGFXRenderer::Render( Moonlight::CameraData& EditorCamera )
 
     for( auto& camData : m_cameraCache.Commands )
     {
-        if( camData.IsMain )
+        if( camData.IsMain && camData.ShouldRender )
         {
             RenderCameraView( camData, id );
             break;

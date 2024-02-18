@@ -26,6 +26,7 @@ public:
     }
 
     std::string Level;
+    std::function<void()> Callback;
 };
 
 class SceneLoadedEvent

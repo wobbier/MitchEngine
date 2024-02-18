@@ -751,10 +751,22 @@ void SDLWindow::ParseMessageQueue()
             CloseRequested = true;
             break;
         }
-
         case SDL_KEYDOWN:
         {
-            KeyPressEvent evt( event.key.keysym.scancode );
+            KeyState keyState = KeyState::Pressed;
+            if( event.key.repeat > 0 )
+            {
+                keyState = KeyState::Held;
+            }
+            KeyPressEvent evt( event.key.keysym.scancode, keyState );
+            evt.Fire();
+
+            break;
+        }
+
+        case SDL_KEYUP:
+        {
+            KeyPressEvent evt( event.key.keysym.scancode, KeyState::Released );
             evt.Fire();
             break;
         }

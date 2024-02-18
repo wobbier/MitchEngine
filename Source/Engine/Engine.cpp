@@ -385,9 +385,13 @@ bool Engine::OnEvent( const BaseEvent& evt )
 {
     if( evt.GetEventId() == LoadSceneEvent::GetEventId() )
     {
-        const LoadSceneEvent& test = static_cast<const LoadSceneEvent&>( evt );
+        const LoadSceneEvent& loadSceneEvent = static_cast<const LoadSceneEvent&>( evt );
         //InputEnabled = test.Enabled;
-        LoadScene( test.Level );
+        LoadScene( loadSceneEvent.Level );
+        if( loadSceneEvent.Callback )
+        {
+            loadSceneEvent.Callback();
+        }
     }
 
     if( evt.GetEventId() == WindowMovedEvent::GetEventId() )
