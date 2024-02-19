@@ -5,6 +5,8 @@
 #include <Math/Matrix4.h>
 #include "Math/Frustrum.h"
 
+#include <vector>
+
 namespace Moonlight {
     class SkyBox;
 }
@@ -51,5 +53,8 @@ namespace Moonlight
         bool IsMain = false;
         bool IsOblique = false;
         bool ShouldRender = true;
+
+
+        std::vector<bool> VisibleFlags;
     };
 }

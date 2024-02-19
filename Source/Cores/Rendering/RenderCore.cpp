@@ -22,6 +22,7 @@
 #include "Work/Burst.h"
 #include "Renderer.h"
 #include <Core/JobSystem.h>
+#include "Camera/CameraData.h"
 
 RenderCore::RenderCore()
     : Base( ComponentFilter().Requires<Transform>().Requires<Mesh>() )
@@ -42,13 +43,7 @@ void RenderCore::OnEntityAdded( Entity& NewEntity )
 {
     if( NewEntity.HasComponent<Mesh>() )
     {
-        Moonlight::MeshCommand command;
-        Mesh& model = NewEntity.GetComponent<Mesh>();
-        command.SingleMesh = model.MeshReferece;
-        command.MeshMaterial = model.MeshMaterial;
-        command.Transform = NewEntity.GetComponent<Transform>().GetMatrix().GetInternalMatrix();
-        command.Type = model.GetType();
-        model.Id = GetEngine().GetRenderer().GetMeshCache().Push( command );
+
     }
 }
 
@@ -56,8 +51,8 @@ void RenderCore::OnEntityRemoved( Entity& InEntity )
 {
     if( InEntity.HasComponent<Mesh>() )
     {
-        Mesh& mesh = InEntity.GetComponent<Mesh>();
-        GetEngine().GetRenderer().GetMeshCache().Pop( mesh.Id );
+        //Mesh& mesh = InEntity.GetComponent<Mesh>();
+        //GetEngine().GetRenderer().GetMeshCache().Pop( mesh.Id );
     }
 }
 
@@ -70,6 +65,16 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
 {
     OPTICK_CATEGORY( "RenderCore::Update", Optick::Category::Rendering );
     auto& Renderables = GetEntities();
+    Engine& engine = GetEngine();
+    BGFXRenderer& renderer = engine.GetRenderer();
+    
+    // Clear Render Commands
+    renderer.GetMeshCache().Commands.clear();
+    while( !renderer.GetMeshCache().FreeIndicies.empty() )
+    {
+        renderer.GetMeshCache().FreeIndicies.pop();
+    }
+    
     if( Renderables.empty() )
     {
         return;
@@ -78,9 +83,16 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
     std::vector<std::pair<int, int>> batches;
     Burst::GenerateChunks( Renderables.size(), 44, batches );
 
-    Engine& engine = GetEngine();
     JobSystem& jobSystem = engine.m_jobSystem;
-    BGFXRenderer& renderer = engine.GetRenderer();
+    auto& cameras = renderer.GetCameraCache();
+
+    // Resize visible flag vector
+    engine.EditorCamera.VisibleFlags.resize( Renderables.size() );
+    for( Moonlight::CameraData& cam : cameras.Commands )
+    {
+        cam.VisibleFlags.resize( Renderables.size() );
+    }
+
     for( auto& batch : batches )
     {
         OPTICK_CATEGORY( "Create Render Jobs", Optick::Category::Debug );
@@ -88,7 +100,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
         int batchEnd = batch.second;
         int batchSize = batchEnd - batchBegin;
 
-        auto meshJob = [&renderer, &Renderables, batchBegin, batchEnd, batchSize]() {
+        auto meshJob = [&renderer, &Renderables, &cameras, batchBegin, batchEnd, batchSize]() {
             for( int entIndex = batchBegin; entIndex < batchEnd; ++entIndex )
             {
                 OPTICK_CATEGORY( "Update Transform", Optick::Category::Debug );
@@ -96,15 +108,32 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                 {
                     Transform& transform = InEntity.GetComponent<Transform>();
                     Mesh& model = InEntity.GetComponent<Mesh>();
+                    bool isVisible = false;
+                    const glm::mat4& meshMatrix = transform.GetLocalToWorldMatrix().GetInternalMatrix();
 
+                    for( Moonlight::CameraData& cam : cameras.Commands )
                     {
-                        // This is hella expensive on FPS
-                        //OPTICK_EVENT_DYNAMIC( transform.GetName().c_str() );
-                        renderer.UpdateMeshMatrix( model.GetId(), transform.GetLocalToWorldMatrix().GetInternalMatrix() );
+                        if( cam.ViewFrustum.IsPointInFrustum( glm::vec4(meshMatrix[3] ) ) )
+                        {
+                            isVisible = true;
+                            cam.VisibleFlags[entIndex] = true;
+                        }
+                    }
+
+                    if( isVisible )
+                    {
+                        Moonlight::MeshCommand command;
+                        command.SingleMesh = model.MeshReferece;
+                        command.MeshMaterial = model.MeshMaterial;
+                        command.Transform = meshMatrix;
+                        command.Type = model.GetType();
+                        command.VisibilityIndex = entIndex;
+                        model.Id = renderer.GetMeshCache().Push( command );
                     }
                 }
             }
-        };
+            };
+        //meshJob();
         jobSystem.AddWork( meshJob, false );
         jobSystem.SignalWorkAvailable();
     }
@@ -131,13 +160,13 @@ void RenderCore::OnStop()
 
 void RenderCore::UpdateMesh( Mesh* InMesh )
 {
-    GetEngine().GetRenderer().GetMeshCache().Pop( InMesh->Id );
-
-    Moonlight::MeshCommand command;
-    command.SingleMesh = InMesh->MeshReferece;
-    command.MeshMaterial = InMesh->MeshMaterial;
-    command.Type = InMesh->GetType();
-    InMesh->Id = GetEngine().GetRenderer().GetMeshCache().Push( command );
+    //GetEngine().GetRenderer().GetMeshCache().Pop( InMesh->Id );
+    //
+    //Moonlight::MeshCommand command;
+    //command.SingleMesh = InMesh->MeshReferece;
+    //command.MeshMaterial = InMesh->MeshMaterial;
+    //command.Type = InMesh->GetType();
+    //InMesh->Id = GetEngine().GetRenderer().GetMeshCache().Push( command );
 }
 
 #if USING( ME_EDITOR )

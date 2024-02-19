@@ -56,6 +56,7 @@ namespace Moonlight
         SharedPtr<Material> MeshMaterial = nullptr;
         glm::mat4 Transform;
         MeshType Type = MeshType::Model;
+        int VisibilityIndex = 0;
         bool Visible = false;
     };
 

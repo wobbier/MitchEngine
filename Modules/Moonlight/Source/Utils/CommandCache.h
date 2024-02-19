@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <queue>
+#include <mutex>
 
 template<typename T>
 struct CommandCache
@@ -13,11 +14,13 @@ struct CommandCache
 
     std::vector<T> Commands;
     std::queue<unsigned int> FreeIndicies;
+    std::mutex CommandMutex;
 };
 
 template<typename T>
 unsigned int CommandCache<T>::Push( const T& inCommand )
 {
+    std::lock_guard<std::mutex> lock( CommandMutex );
     unsigned int index = 0;
     if( !FreeIndicies.empty() )
     {

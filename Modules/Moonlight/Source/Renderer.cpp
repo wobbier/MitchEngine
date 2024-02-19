@@ -480,7 +480,11 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId
         for( size_t i = 0; i < m_meshCache.Commands.size(); ++i )
         {
             const Moonlight::MeshCommand& mesh = m_meshCache.Commands[i];
-            if( camera.ViewFrustum.IsPointInFrustum( glm::vec4( mesh.Transform[3] ) ) )
+            if( !camera.VisibleFlags[mesh.VisibilityIndex] )
+            {
+                continue;
+            }
+
             {
                 if( !mesh.MeshMaterial )
                 {

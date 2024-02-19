@@ -73,7 +73,7 @@ void Frustum::Update( Matrix4& inProjectionMatrix, Matrix4& inViewMatrix, float 
 
 bool Frustum::IsPointInFrustum( glm::vec4& inPoint )
 {
-    OPTICK_CATEGORY( "Culling", Optick::Category::Visibility );
+    //OPTICK_CATEGORY( "Culling", Optick::Category::Visibility );
     for( const auto& plane : Planes )
     {
         if( !IsOnPositiveSide( plane, inPoint ) )
