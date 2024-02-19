@@ -361,11 +361,11 @@ Matrix4 CalculateObliqueMatrix( const Matrix4& projection, const glm::vec4& clip
 
 void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId id )
 {
-    OPTICK_CATEGORY( "Render Camera", Optick::Category::Camera )
-        if( CurrentSize.IsZero() )
-        {
-            return;
-        }
+    OPTICK_CATEGORY( "Render Camera", Optick::Category::Camera );
+    if( CurrentSize.IsZero() )
+    {
+        return;
+    }
     if( !camera.Buffer )
     {
         return;
@@ -373,16 +373,12 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId
 
     std::string viewName = "Game " + std::to_string( id );
     bgfx::setViewName( id, viewName.c_str() );
-    //float time = (float)((bx::getHPCounter() - m_timeOffset) / double(bx::getHPFrequency()));
-
-    const bx::Vec3 eye = { camera.Position.x, camera.Position.y, camera.Position.z };
-    const bx::Vec3 at = { camera.Position.x + camera.Front.x, camera.Position.y + camera.Front.y, camera.Position.z + camera.Front.z };
-    const bx::Vec3 up = { camera.Up.x, camera.Up.y, camera.Up.z };
 
     // Set view and projection matrix for view 0.
     Matrix4 view = camera.View;
     //bx::mtxLookAt(view, eye, at, up);
 
+    // #TODO: remove this custom code and rely on camera data
     Matrix4 proj;
     if( camera.Projection == Moonlight::ProjectionType::Perspective )
     {
@@ -398,7 +394,7 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId
         proj = CalculateObliqueMatrix( proj.GetInternalMatrix(), camera.ObliqueData );
     }
 
-    bgfx::setViewTransform( id, &view.GetInternalMatrix()[0][0], &proj.GetInternalMatrix()[0][0] );
+    bgfx::setViewTransform( id, &camera.View.GetInternalMatrix()[0][0], &proj.GetInternalMatrix()[0][0] );
     if( id > 0 )
     {
         bgfx::setViewFrameBuffer( id, camera.Buffer->Buffer );
@@ -416,7 +412,8 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId
 
     bgfx::touch( id );
 
-    bgfx::setViewTransform( 0, &view.GetInternalMatrix()[0][0], &proj.GetInternalMatrix()[0][0] );
+    //bgfx::setViewTransform( id, &camera.View.GetInternalMatrix()[0][0], &camera.ProjectionMatrix.GetInternalMatrix()[0][0] );
+    //bgfx::setViewTransform( 0, &view.GetInternalMatrix()[0][0], &proj.GetInternalMatrix()[0][0] );
     if( camera.ClearType == Moonlight::ClearColorType::Procedural )
     {
         m_dynamicSky->Draw( id );
@@ -483,23 +480,24 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId
         for( size_t i = 0; i < m_meshCache.Commands.size(); ++i )
         {
             const Moonlight::MeshCommand& mesh = m_meshCache.Commands[i];
-            if( !mesh.MeshMaterial )
+            if( camera.ViewFrustum.IsPointInFrustum( glm::vec4( mesh.Transform[3] ) ) )
             {
-                continue;
-            }
+                if( !mesh.MeshMaterial )
+                {
+                    continue;
+                }
 
-            if( mesh.MeshMaterial->IsTransparent() )
-            {
-                TransparentIndicies.push_back( i );
-                continue;
-            }
+                if( mesh.MeshMaterial->IsTransparent() )
+                {
+                    TransparentIndicies.push_back( i );
+                    continue;
+                }
 
-            float dist = glm::distance( camera.Position.InternalVector, glm::vec3( mesh.Transform[3] ) );
-            if( dist <= camera.Far )
-            {
-                //m_debugDraw->Push();
-                //m_debugDraw->Draw(&mesh.Transform[0][0]);
-                //m_debugDraw->Pop();
+                //float dist = glm::distance( camera.Position.InternalVector, glm::vec3( mesh.Transform[3] ) );
+                //if( dist <= camera.Far )
+                    //m_debugDraw->Push();
+                    //m_debugDraw->Draw(&mesh.Transform[0][0]);
+                    //m_debugDraw->Pop();
                 RenderSingleMesh( id, mesh, state );
             }
         }
@@ -533,13 +531,13 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId
     {
         OPTICK_CATEGORY( "Transparent Meshes", Optick::Category::GPU_Scene )
 
-        for( auto index : TransparentIndicies )
-        {
-            //m_debugDraw->Push();
-            //m_debugDraw->Draw(&m_meshCache.Commands[index].Transform[0][0]);
-            //m_debugDraw->Pop();
-            RenderSingleMesh( id, m_meshCache.Commands[index], transparentState );
-        }
+            for( auto index : TransparentIndicies )
+            {
+                //m_debugDraw->Push();
+                //m_debugDraw->Draw(&m_meshCache.Commands[index].Transform[0][0]);
+                //m_debugDraw->Pop();
+                RenderSingleMesh( id, m_meshCache.Commands[index], transparentState );
+            }
     }
 
     if( EnableDebugDraw )
@@ -607,7 +605,8 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId
 
 void BGFXRenderer::RenderSingleMesh( bgfx::ViewId id, const Moonlight::MeshCommand& mesh, uint64_t state )
 {
-    //if (mesh.Type == Moonlight::Cube)
+    OPTICK_CATEGORY( "Mesh", Optick::Category::Rendering );
+//if (mesh.Type == Moonlight::Cube)
     //{
     //	if (mesh.MeshMaterial)
     //	{
@@ -686,7 +685,7 @@ void BGFXRenderer::RenderSingleMesh( bgfx::ViewId id, const Moonlight::MeshComma
 
 void BGFXRenderer::WindowResized( const Vector2& newSize )
 {
-    if (CurrentSize == newSize)
+    if( CurrentSize == newSize )
     {
         return;
     }
@@ -739,7 +738,7 @@ void BGFXRenderer::UpdateMeshMatrix( unsigned int Id, const glm::mat4& matrix )
         return;
     }
 
-    OPTICK_CATEGORY( "UpdateMeshMatrix", Optick::Category::Rendering);
+    OPTICK_CATEGORY( "UpdateMeshMatrix", Optick::Category::Rendering );
 
     m_meshCache.Commands[Id].Transform = matrix;
 }

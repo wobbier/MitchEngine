@@ -3,8 +3,7 @@
 #include "Math/Vector2.h"
 #include "bgfx/bgfx.h"
 #include <Math/Matrix4.h>
-
-class Frustum;
+#include "Math/Frustrum.h"
 
 namespace Moonlight {
     class SkyBox;
@@ -41,7 +40,6 @@ namespace Moonlight
         float Near = 0.1f;
         float Far = 100.f;
         SkyBox* Skybox = nullptr;
-        Frustum* CameraFrustum = nullptr;
         float OrthographicSize = 1.f;
         bgfx::TextureHandle UITexture = BGFX_INVALID_HANDLE;
 
@@ -49,6 +47,7 @@ namespace Moonlight
         glm::vec4 ObliqueData;
         Matrix4 View;
         Matrix4 ProjectionMatrix;
+        Frustum ViewFrustum;
         bool IsMain = false;
         bool IsOblique = false;
         bool ShouldRender = true;

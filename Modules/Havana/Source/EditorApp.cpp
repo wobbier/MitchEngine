@@ -29,6 +29,7 @@
 #include <Utils/EditorConfig.h>
 
 #include "Editor/EditorComponentInfoCache.h"
+#include "bx/math.h"
 
 #if USING( ME_EDITOR )
 
@@ -93,8 +94,23 @@ void EditorApp::UpdateCameras()
     EditorCamera.ClearType = Camera::CurrentCamera->ClearType;
     EditorCamera.Projection = Camera::EditorCamera->Projection;
     EditorCamera.OrthographicSize = Camera::EditorCamera->OrthographicSize;
-    //EditorCamera.CameraFrustum = Camera::EditorCamera->CameraFrustum;
-    EditorCamera.View = EditorSceneManager->GetEditorCameraTransform()->GetWorldToLocalMatrix();
+
+    // #TODO: Clean this up
+    Vector3 eye = { EditorCamera.Position.x, EditorCamera.Position.y, EditorCamera.Position.z };
+    Vector3 at = { EditorCamera.Position.x + EditorCamera.Front.x, EditorCamera.Position.y + EditorCamera.Front.y, EditorCamera.Position.z + EditorCamera.Front.z };
+    Vector3 up = { EditorCamera.Up.x, EditorCamera.Up.y, EditorCamera.Up.z };
+
+    EditorCamera.View = glm::lookAtLH( eye.InternalVector, at.InternalVector, up.InternalVector );
+    Frustum& camFrustum = Camera::EditorCamera->CameraFrustum;
+
+
+    Matrix4 testMatrix;
+    bx::mtxProj( &testMatrix.GetInternalMatrix()[0][0], EditorCamera.FOV, float( EditorCamera.OutputSize.x ) / float( EditorCamera.OutputSize.y ), std::max( EditorCamera.Near, 0.01f ), EditorCamera.Far, bgfx::getCaps()->homogeneousDepth );
+    camFrustum.Update( testMatrix, EditorCamera.View, EditorCamera.FOV, EditorCamera.OutputSize, EditorCamera.Near, EditorCamera.Far );
+    EditorCamera.ProjectionMatrix = testMatrix;
+
+    EditorCamera.ViewFrustum = Camera::EditorCamera->CameraFrustum;
+
     GetEngine().EditorCamera = EditorCamera;
 }
 

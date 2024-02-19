@@ -233,6 +233,7 @@ void Camera::OnEditorInspect()
         }
 
         float widgetWidth = HavanaUtils::Label( "Skybox Texture" );
+        // #TODO: fix this tf?
         //std::string label( "##Texture" );
         //if ( texture && bgfx::isValid( texture->TexHandle ) )
         //{

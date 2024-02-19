@@ -71,11 +71,26 @@ void CameraCore::LateUpdate( const UpdateContext& inUpdateContext )
             Vector3 at = { CamData->Position.x + CamData->Front.x, CamData->Position.y + CamData->Front.y, CamData->Position.z + CamData->Front.z };
             Vector3 up = { CamData->Up.x, CamData->Up.y, CamData->Up.z };
 
-            bx::mtxProj( &CameraComponent.WorldToCamera.GetInternalMatrix()[0][0], CameraComponent.GetFOV(), float( CameraComponent.OutputSize.x ) / float( CameraComponent.OutputSize.y ), std::max( CameraComponent.Near, 1.f ), CameraComponent.Far, bgfx::getCaps()->homogeneousDepth );
+            Frustum& camFrustum = CameraComponent.CameraFrustum;
+            //bx::mtxProj( &CameraComponent.WorldToCamera.GetInternalMatrix()[0][0], CameraComponent.GetFOV(), float( CameraComponent.OutputSize.x ) / float( CameraComponent.OutputSize.y ), std::max( CameraComponent.Near, 1.f ), CameraComponent.Far, bgfx::getCaps()->homogeneousDepth );
             CamData->IsOblique = CameraComponent.isOblique;
             CamData->ObliqueData = CameraComponent.ObliqueMatData;
             CamData->View = glm::lookAtLH( eye.InternalVector, at.InternalVector, up.InternalVector );
-            CamData->ProjectionMatrix = CameraComponent.WorldToCamera;
+
+
+            Matrix4 testMatrix;
+            bx::mtxProj( &testMatrix.GetInternalMatrix()[0][0], CamData->FOV, float( CamData->OutputSize.x ) / float( CamData->OutputSize.y ), std::max( CamData->Near, 0.01f ), CamData->Far, bgfx::getCaps()->homogeneousDepth );
+            camFrustum.Update( testMatrix, CamData->View, CamData->FOV, CamData->OutputSize, CamData->Near, CamData->Far );
+            CamData->ProjectionMatrix = testMatrix;
+            CamData->ViewFrustum = camFrustum;
+
+
+            //Matrix4 testMatrix;
+            //camFrustum.Update( testMatrix, CamData->View, CameraComponent.GetFOV(), CameraComponent.OutputSize, CameraComponent.Near, CameraComponent.Far );
+            //CamData->ViewFrustum = camFrustum;
+            //CamData->ProjectionMatrix = testMatrix;
+
+
 
             CameraComponent.WorldToCamera = CamData->View;// CamData->ProjectionMatrix.GetInternalMatrix()* CamData->View.GetInternalMatrix();
             GetEngine().GetRenderer().GetCameraCache().Update( CameraComponent.m_id, *CamData );

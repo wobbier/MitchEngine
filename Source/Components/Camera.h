@@ -10,6 +10,7 @@
 #include "Utils/HavanaUtils.h"
 #include "Graphics/SkyBox.h"
 #include "Camera/CameraData.h"
+#include "Math/Frustrum.h"
 
 //class Frustum;
 
@@ -49,7 +50,7 @@ public:
     void SetObliqueMatrixData( const glm::vec4& inVec );
     void ClearObliqueMatrixData();
 
-    //Frustum* CameraFrustum = nullptr;
+    Frustum CameraFrustum;
     Moonlight::SkyBox* Skybox = nullptr;
     Moonlight::ProjectionType Projection = Moonlight::ProjectionType::Perspective;
     Moonlight::ClearColorType ClearType = Moonlight::ClearColorType::Color;
