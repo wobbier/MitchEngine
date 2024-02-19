@@ -51,7 +51,7 @@ Vector3 Transform::GetPosition() const
 void Transform::SetPosition( const Vector3& NewPosition )
 {
     LocalPosition = NewPosition;
-    SetDirty( true );
+    IsLocalToWorldDirty = true;
 }
 
 Quaternion Transform::GetRotation() const
@@ -62,7 +62,7 @@ Quaternion Transform::GetRotation() const
 void Transform::SetRotation( const Quaternion& InRotation )
 {
     LocalRotation = InRotation;
-    SetDirty( true );
+    IsLocalToWorldDirty = true;
 }
 
 Vector3 Transform::GetScale()
@@ -77,7 +77,7 @@ void Transform::SetScale( const Vector3& NewScale )
         return;
     }
     LocalScale = NewScale;
-    SetDirty( true );
+    IsLocalToWorldDirty = true;
 }
 
 void Transform::SetScale( float NewScale )
@@ -103,14 +103,14 @@ void Transform::SetWorldPosition( const Vector3& NewPosition )
 {
     if( ParentTransform )
     {
-        LocalPosition = ParentTransform->GetWorldToLocalMatrix().TransformPoint( NewPosition );
+        SetPosition( ParentTransform->GetWorldToLocalMatrix().TransformPoint( NewPosition ) );
     }
     else
     {
-        LocalPosition = NewPosition;
+        SetPosition( NewPosition );
     }
 
-    SetDirty( true );
+    IsWorldToLocalDirty = true;
 }
 
 Quaternion Transform::GetWorldRotation()
@@ -127,14 +127,13 @@ void Transform::SetWorldRotation( const Quaternion& inRotation )
 {
     if( ParentTransform )
     {
-        LocalRotation = ParentTransform->GetWorldRotation().Inverse() * inRotation;
+        SetRotation( ParentTransform->GetWorldRotation().Inverse() * inRotation );
     }
     else
     {
-        LocalRotation = inRotation;
+        SetRotation( inRotation );
     }
-
-    SetDirty( true );
+    IsWorldToLocalDirty = true;
 }
 
 void Transform::Translate( Vector3 NewPosition )
@@ -202,7 +201,7 @@ void Transform::SetWorldTransform( Matrix4& NewWorldTransform, bool InIsDirty )
 
     // update local transform
     //WorldTransform = std::move(NewWorldTransform);
-    SetDirty( InIsDirty );
+    IsWorldToLocalDirty = true;
 }
 
 const bool Transform::IsDirty() const
@@ -213,7 +212,7 @@ const bool Transform::IsDirty() const
 const Matrix4& Transform::GetLocalToWorldMatrix()
 {
     OPTICK_CATEGORY( "GetLocalToWorldMatrix", Optick::Category::Scene );
-    //if( IsLocalToWorldDirty )
+    if( FuncIsLocalToWorldDirty() )
     {
         glm::mat4 T = glm::translate( glm::mat4( 1.0f ), GetPosition().InternalVector );
         glm::quat R = GetRotation().InternalQuat;
@@ -226,11 +225,15 @@ const Matrix4& Transform::GetLocalToWorldMatrix()
 
     return LocalToWorldMatrix;
 }
+bool Transform::FuncIsLocalToWorldDirty()
+{
+    return IsLocalToWorldDirty || ( ParentTransform && ParentTransform->FuncIsLocalToWorldDirty() );
+}
 
 const Matrix4& Transform::GetWorldToLocalMatrix()
 {
     OPTICK_CATEGORY( "GetWorldToLocalMatrix", Optick::Category::Scene );
-    //if( IsWorldToLocalDirty )
+    if( IsWorldToLocalDirty )
     {
         WorldToLocalMatrix = GetLocalToWorldMatrix().Inverse();
         IsWorldToLocalDirty = false;
@@ -240,20 +243,18 @@ const Matrix4& Transform::GetWorldToLocalMatrix()
 
 void Transform::SetDirty( bool Dirty )
 {
-    OPTICK_EVENT( "Transform::SetDirty" );
-    if( Dirty && ( Dirty != m_isDirty ) )
-    {
-        for( SharedPtr<Transform>& Child : Children )
-        {
-            if( Child )
-            {
-                Child->SetDirty( Dirty );
-            }
-        }
-    }
-    m_isDirty = Dirty;
-    IsLocalToWorldDirty = true;
-    IsWorldToLocalDirty = true;
+    //OPTICK_EVENT( "Transform::SetDirty" );
+    //if( Dirty && ( Dirty != m_isDirty ) )
+    //{
+    //    for( SharedPtr<Transform>& Child : Children )
+    //    {
+    //        if( Child )
+    //        {
+    //            Child->SetDirty( Dirty );
+    //        }
+    //    }
+    //}
+    //m_isDirty = Dirty;
 }
 
 void Transform::LookAt( const Vector3& InDirection )

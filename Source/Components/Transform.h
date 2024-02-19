@@ -82,7 +82,7 @@ public:
 
     const Matrix4& GetLocalToWorldMatrix();
     const Matrix4& GetWorldToLocalMatrix();
-
+    bool FuncIsLocalToWorldDirty();
 
     virtual void OnEditorInspect() final;
 
@@ -96,8 +96,8 @@ private:
     Matrix4 LocalToWorldMatrix;
     Matrix4 WorldToLocalMatrix;
 
-    bool IsLocalToWorldDirty = true;
-    bool IsWorldToLocalDirty = true;
+    bool IsLocalToWorldDirty = false;
+    bool IsWorldToLocalDirty = false;
 
     SharedPtr<Transform> ParentTransform;
     std::vector<SharedPtr<Transform>> Children;
