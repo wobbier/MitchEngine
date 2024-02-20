@@ -39,13 +39,10 @@ void CameraCore::LateUpdate( const UpdateContext& inUpdateContext )
         Camera& CameraComponent = InEntity.GetComponent<Camera>();
         Transform& TransformComponent = InEntity.GetComponent<Transform>();
 
-#if USING( ME_EDITOR )
-#else
         if( CameraComponent.IsMain() )
         {
             CameraComponent.OutputSize = GetEngine().GetWindow()->GetSize();
         }
-#endif
 
         Moonlight::CameraData* CamData = GetEngine().GetRenderer().GetCameraCache().Get( CameraComponent.m_id );
         if( CamData )

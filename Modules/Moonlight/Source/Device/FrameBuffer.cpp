@@ -19,6 +19,10 @@ Moonlight::FrameBuffer::~FrameBuffer()
 void Moonlight::FrameBuffer::Resize( Vector2 newSize )
 {
     CLog::Log( CLog::LogType::Warning, "[TODO] Trying to resize frame buffer." );
+
+    Width = newSize.x;
+    Height = newSize.y;
+    ReCreate( m_resetFlags );
 }
 
 void Moonlight::FrameBuffer::ReCreate( uint32_t resetFlags )
