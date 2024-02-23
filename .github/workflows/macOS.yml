@@ -47,7 +47,7 @@ jobs:
 
       - name: Build Editor
         if: ${{ matrix.type == 'Editor' }}
-        uses: mxcl/xcodebuild@v1
+        uses: mxcl/xcodebuild@v2
         with:
           xcode: ${{ matrix.xcode }}
           platform: ${{ matrix.platform }}
@@ -59,7 +59,7 @@ jobs:
 
       - name: Build Game
         if: ${{ matrix.type == 'Game_macOS' }}
-        uses: mxcl/xcodebuild@v1
+        uses: mxcl/xcodebuild@v2
         with:
           xcode: ${{ matrix.xcode }}
           platform: ${{ matrix.platform }}
