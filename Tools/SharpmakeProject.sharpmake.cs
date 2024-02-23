@@ -12,18 +12,20 @@ public class SharpmakeProjectBase : CSharpProject
         string[] things = { ".xml", ".map", ".config", ".bat", ".txt", ".xsd", ".h.template", ".resx", ".cur" };
         NoneExtensions.Remove(things);
         SourceFilesExtensions = new Strings("Engine.sharpmake.cs");
-        
-        ContentExtension.Add("GenerateSolution.bat", "macOS.yml", "Windows.yml");
+
+        ContentExtension.Add("GenerateSolution.bat", "macOS.yml", "Windows.yml", "UWP.yml");
 
         SourceFiles.Add(@"[project.SharpmakeCsPath]/Game.sharpmake.cs");
         SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/Modules/Dementia/Dementia.sharpmake.cs");
         SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/Modules/Havana/Havana.sharpmake.cs");
         SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/Modules/Moonlight/Moonlight.sharpmake.cs");
         SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/Modules/ImGui/ImGui.sharpmake.cs");
+        SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/Modules/ScriptCore/ScriptCore.sharpmake.cs");
         SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/Tools/BaseProject.sharpmake.cs");
         SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/Tools/CommonTarget.sharpmake.cs");
         SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/Tools/SharpmakeProject.sharpmake.cs");
         SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/Tools/HUB/MitchHub.sharpmake.cs");
+        SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/ThirdParty/Mono.sharpmake.cs");
         //SourceFilesCompileExtensions.Clear();
         //SourceFilesCompileExtensions.Add(".cs");
         DependenciesCopyLocal = DependenciesCopyLocalTypes.None;

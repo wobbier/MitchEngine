@@ -1,6 +1,8 @@
 #include "ProjectCache.h"
 #include <JSON.h>
 #include <File.h>
+#include "Resource\ResourceCache.h"
+#include "ProjectFileConfig.h"
 
 void ProjectCache::Load()
 {
@@ -18,6 +20,7 @@ void ProjectCache::Load()
 				{
 					ProjectEntry e;
 					e.ProjectPath = Path(i["Location"]);
+					e.ProjectConfig = ProjectFileConfig(Path(std::string (e.ProjectPath.FullPath + "/Project/Game.meproj")));
 					Projects.push_back(e);
 				}
 			}
@@ -39,4 +42,26 @@ void ProjectCache::Save()
 		}
 	}
 	File(Path(kCachePath)).Write(j.dump());
+}
+
+
+SharedPtr<Moonlight::Texture> ProjectCache::GetActiveBackgroundTexture( size_t SelectedProjectIndex )
+{
+    if ( !Projects[SelectedProjectIndex].BackgroundImage )
+    {
+        Path bgPath( Projects[SelectedProjectIndex].ProjectPath.FullPath + "/Project/Background.png" );
+        Projects[SelectedProjectIndex].BackgroundImage = ResourceCache::GetInstance().Get<Moonlight::Texture>( bgPath );
+    }
+    return Projects[SelectedProjectIndex].BackgroundImage;
+}
+
+
+SharedPtr<Moonlight::Texture> ProjectCache::GetActiveTitleTexture( size_t SelectedProjectIndex )
+{
+    if ( !Projects[SelectedProjectIndex].TitleImage )
+    {
+        Path titlePath( Projects[SelectedProjectIndex].ProjectPath.FullPath + "/Project/Title.png" );
+        Projects[SelectedProjectIndex].TitleImage = ResourceCache::GetInstance().Get<Moonlight::Texture>( titlePath );
+    }
+    return Projects[SelectedProjectIndex].TitleImage;
 }

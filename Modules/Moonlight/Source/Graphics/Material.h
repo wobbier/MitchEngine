@@ -30,59 +30,59 @@
 
 namespace Moonlight
 {
-	enum class RenderingMode : unsigned int
-	{
-		Opaque = 0,
-		Transparent
-	};
-	class Material
-	{
-	public:
-		std::string GetRenderingModeString(RenderingMode mode)
-		{
-			switch (mode)
-			{
-			case RenderingMode::Transparent:
-				return "Transparent";
-			case RenderingMode::Opaque:
-			default:
-				return "Opaque";
-			}
-			return "Opaque";
-		}
-		Material(const std::string& MaterialTypeName, const std::string& ShaderPath = "");
-		Material() = delete;
-		virtual ~Material();
+    enum class RenderingMode : unsigned int
+    {
+        Opaque = 0,
+        Transparent
+    };
+    class Material
+    {
+    public:
+        std::string GetRenderingModeString( RenderingMode mode )
+        {
+            switch( mode )
+            {
+            case RenderingMode::Transparent:
+                return "Transparent";
+            case RenderingMode::Opaque:
+            default:
+                return "Opaque";
+            }
+            return "Opaque";
+        }
+        Material( const std::string& MaterialTypeName, const std::string& ShaderPath = "" );
+        Material() = delete;
+        virtual ~Material();
 
-		const bool IsTransparent() const;
-		void SetRenderMode(RenderingMode newMode);
+        const bool IsTransparent() const;
+        void SetRenderMode( RenderingMode newMode );
 
-		virtual void OnSerialize(json& OutJson);
+        virtual void OnSerialize( json& OutJson );
 
-		virtual void OnDeserialize(const json& InJson);
+        virtual void OnDeserialize( const json& InJson );
 
-		virtual void Init() = 0;
+        virtual void Init() = 0;
         virtual void Use() = 0;
-        
+
         virtual SharedPtr<Material> CreateInstance() = 0;
-        
-        void CopyValues(Material* mat);
-        
+
+        void CopyValues( Material* mat );
+
         //virtual void SetSamplers() = 0;
 
-		void SetTexture(const TextureType& textureType, std::shared_ptr<Moonlight::Texture> loadedTexture);
-		const Texture* GetTexture(const TextureType& type) const;
-		std::vector<std::shared_ptr<Texture>>& GetTextures();
-		RenderingMode RenderMode = RenderingMode::Opaque;
-		Vector3 DiffuseColor;
-		Vector2 Tiling;
+        void SetTexture( const TextureType& textureType, std::shared_ptr<Moonlight::Texture> loadedTexture );
+        const Texture* GetTexture( const TextureType& type ) const;
+        std::vector<std::shared_ptr<Texture>>& GetTextures();
+        RenderingMode RenderMode = RenderingMode::Opaque;
+        Vector3 DiffuseColor;
+        Vector2 Tiling;
 
-		Moonlight::ShaderCommand MeshShader;
-		const std::string& GetTypeName() const;
-	private:
-		std::vector<std::shared_ptr<Texture>> Textures;
-		std::string TypeName;
-	public:
-		virtual uint64_t GetRenderState(uint64_t state) const;
-	};
+        Moonlight::ShaderCommand MeshShader;
+        const std::string& GetTypeName() const;
+    private:
+        std::vector<std::shared_ptr<Texture>> Textures;
+        std::string TypeName;
+    public:
+        virtual uint64_t GetRenderState( uint64_t state ) const;
+    };
 }

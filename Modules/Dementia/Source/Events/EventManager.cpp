@@ -1,48 +1,60 @@
 #include "Events/EventManager.h"
 #include "Events/EventReceiver.h"
+#include "optick.h"
+#include "Dementia.h"
 
 EventManager::EventManager()
 {
 }
 
-void EventManager::RegisterReceiver(EventReceiver* receiver, std::vector<TypeId> events)
+void EventManager::RegisterReceiver( EventReceiver* receiver, std::vector<TypeId> events )
 {
-	for (auto type : events)
-	{
-		m_eventReceivers[type].push_back(receiver);
-	}
+    for( auto type : events )
+    {
+        m_eventReceivers[type].push_back( receiver );
+    }
 }
 
-void EventManager::FireEvent(TypeId eventId, const BaseEvent& event)
+void EventManager::DeRegisterReciever( EventReceiver* receiver )
 {
-	auto& recievers = m_eventReceivers[eventId];
-	for (auto reciever : recievers)
-	{
-		if (reciever->OnEvent(event))
-		{
-			return;
-		}
-	}
+    for( auto& mapEntry : m_eventReceivers )
+    {
+        auto& vec = mapEntry.second;
+        vec.erase( std::remove( vec.begin(), vec.end(), receiver ), vec.end() );
+    }
 }
 
-void EventManager::QueueEvent(BaseEvent& event)
+void EventManager::FireEvent( TypeId eventId, const BaseEvent& event )
 {
-	m_queuedEvents.push(std::move(event));
+    auto& recievers = m_eventReceivers[eventId];
+    for( auto reciever : recievers )
+    {
+        if( reciever->OnEvent( event ) )
+        {
+            return;
+        }
+    }
+}
+
+void EventManager::QueueEvent( SharedPtr<BaseEvent> event )
+{
+    m_queuedEvents.push( event );
 }
 
 void EventManager::FirePendingEvents()
 {
-	while (!m_queuedEvents.empty())
-	{
-		const BaseEvent& event = m_queuedEvents.front();
-		m_queuedEvents.pop();
-		auto& recievers = m_eventReceivers[event.GetEventId()];
-		for (auto reciever : recievers)
-		{
-			if (reciever->OnEvent(event))
-			{
-				break;
-			}
-		}
-	}
+    OPTICK_EVENT( "EventManager::FirePendingEvents" );
+    while( !m_queuedEvents.empty() )
+    {
+        SharedPtr<BaseEvent> event = m_queuedEvents.front();
+        m_queuedEvents.pop();
+        auto& recievers = m_eventReceivers[event->GetEventId()];
+        for( auto reciever : recievers )
+        {
+            if( reciever->OnEvent( *event.get() ) )
+            {
+                break;
+            }
+        }
+    }
 }

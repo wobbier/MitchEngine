@@ -6,26 +6,25 @@
 class EntityIdPool
 {
 public:
-	EntityIdPool(std::size_t InPoolSize);
+    EntityIdPool( std::size_t InPoolSize );
 
-	ME_NONCOPYABLE(EntityIdPool);
-	ME_NONMOVABLE(EntityIdPool);
+    ME_HARDSTUCK( EntityIdPool );
 
-	EntityID Create();
+    EntityID Create();
 
-	std::size_t GetSize() const;
+    std::size_t GetSize() const;
 
-	void Resize(std::size_t InAmount);
-	void Reset();
+    void Resize( std::size_t InAmount );
+    void Reset();
 
-	void Remove(EntityID InEntityId);
+    void Remove( EntityID InEntityId );
 protected:
 private:
-	std::size_t DefaultPoolSize;
+    std::size_t DefaultPoolSize;
 
-	std::size_t NextId;
+    std::size_t NextId;
 
-	std::vector<EntityID> FreeList;
+    std::vector<EntityID> FreeList;
 
-	std::vector<EntityID::IntType> Entities;
+    std::vector<EntityID::IntType> Entities;
 };

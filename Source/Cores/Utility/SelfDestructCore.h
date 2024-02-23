@@ -5,64 +5,58 @@
 #include "ECS/Component.h"
 #include "ECS/ComponentDetail.h"
 #include "imgui.h"
+#include "Utils/HavanaUtils.h"
 
 class SelfDestruct final
-	: public Component<SelfDestruct>
+    : public Component<SelfDestruct>
 {
 public:
-	SelfDestruct()
-		: Component("SelfDestruct")
-	{
-	}
+    float Lifetime = 5.0f;
 
-	SelfDestruct(float InLifetime)
-		: Component("SelfDestruct")
-		, Lifetime(InLifetime)
-	{
-	}
+    SelfDestruct()
+        : Component( "SelfDestruct" )
+    {
+    }
 
-	virtual void OnSerialize(json& outJson) final
-	{
-	}
+    SelfDestruct( float InLifetime )
+        : Component( "SelfDestruct" )
+        , Lifetime( InLifetime )
+    {
+    }
 
-	virtual void OnDeserialize(const json& inJson) final
-	{
-	}
+    virtual void OnSerialize( json& outJson ) final
+    {
+    }
 
-#if ME_EDITOR
-	virtual void OnEditorInspect() final
-	{
-		ImGui::DragFloat("Movement Speed", &Lifetime);
-	}
+    virtual void OnDeserialize( const json& inJson ) final
+    {
+    }
+
+#if USING( ME_EDITOR )
+    virtual void OnEditorInspect() final
+    {
+        HavanaUtils::Label( "Lifetime" );
+        ImGui::DragFloat( "##Lifetime", &Lifetime );
+    }
 #endif
-	virtual void Init() final
-	{
-	}
 
-	float Lifetime = 5.0f;
+    virtual void Init() final
+    {
+    }
 };
-ME_REGISTER_COMPONENT(SelfDestruct)
+
+ME_REGISTER_COMPONENT( SelfDestruct )
 
 class SelfDestructor
-	: public Core<SelfDestructor>
+    : public Core<SelfDestructor>
 {
 public:
-	SelfDestructor()
-		: Base(ComponentFilter().Requires<SelfDestruct>())
-	{
-	}
-//
-//	virtual void OnEntityAdded(Entity& NewEntity) final;
-//	virtual void OnEntityRemoved(Entity& InEntity) final;
-//#if ME_EDITOR
-//	virtual void OnEditorInspect() final;
-//#endif
+    SelfDestructor()
+        : Base( ComponentFilter().Requires<SelfDestruct>() )
+    {
+    }
 
-	virtual void Update(float dt) final;
-
-//private:
-//	virtual void Init() final;
-//	virtual void OnStart() override;
-//	virtual void OnStop() override;
+    virtual void Update( const UpdateContext& context ) final;
 };
-ME_REGISTER_CORE(SelfDestructor)
+
+ME_REGISTER_CORE( SelfDestructor )

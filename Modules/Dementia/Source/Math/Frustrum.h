@@ -1,50 +1,34 @@
 #pragma once
 
 #include "Plane.h"
+#include "Vector2.h"
+
+#include "Matrix4.h"
+#include "glm\detail\type_vec.hpp"
 
 class Frustum
 {
-	enum FrustumPlane
-	{
-		Top = 0,
-		Bottom,
-		Left,
-		Right,
-		Near,
-		Far
-	};
+    enum FrustumPlane
+    {
+        Top = 0,
+        Bottom,
+        Left,
+        Right,
+        Near,
+        Far,
+        Count
+    };
 
 public:
-	Frustum();
+    Frustum();
 
-	//void SetCameraInternals(float InAngle, float InRatio, float InNearDistance, float InFarDistance);
+    void Update( Matrix4& inProjectionMatrix, Matrix4& inViewMatrix, float inFOV, Vector2& inOutputSize, float inNear, float inFar );
 
-	//void SetCameraDef(const Vector3& InPosition, const Vector3& InLook, const Vector3& InUp);
+    bool IsPointInFrustum( glm::vec4& inPoint );
 
-	//bool PointInFrustum(const Vector3& InPoint);
-//
-//	void TransformFrustum(const DirectX::XMFLOAT4X4& proj, const DirectX::XMFLOAT4X4& view);
-//	void Normalize(FrustumPlane plane);
-//	bool IsInside(const Vector3& point) const;
-//
-//	Vector3 NearTopLeft;
-//	Vector3 NearTopRight;
-//	Vector3 NearBottomLeft;
-//	Vector3 NearBottomRight;
-//	Vector3 FarTopLeft;
-//	Vector3 FarTopRight;
-//	Vector3 FarBottomLeft;
-//	Vector3 FarBottomRight;
-//	float NearDistance;
-//	float FarDistance;
-//	float Ratio;
-//	float Angle;
-//	float Tang;
-//	float NearWidth;
-//	float NearHeight;
-//	float FarWidth;
-//	float FarHeight;
-//private:
-//	DirectX::SimpleMath::Vector4 Planes[6];
+private:
+    bool IsOnPositiveSide( const glm::vec4& inPlane, const glm::vec3& inPoint );
+
+    glm::vec4 Planes[FrustumPlane::Count];
 };
 

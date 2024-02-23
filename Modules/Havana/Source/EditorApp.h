@@ -7,7 +7,7 @@
 #include "../../Game/Source/ComponentRegistry.h"
 class Engine;
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 class EditorApp
 	: public Game

@@ -5,16 +5,16 @@
 class JobEngine
 {
 public:
-	JobEngine(std::size_t InNumThreads, std::size_t InJobsPerThread);
-	~JobEngine();
+    JobEngine( std::size_t InNumThreads, std::size_t InJobsPerThread );
+    ~JobEngine();
 
-	Worker* GetRandomWorker();
-	Worker* GetThreadWorker();
+    Worker* GetRandomWorker();
+    Worker* GetThreadWorker();
 
-	void ClearWorkerPools();
+    void ClearWorkerPools();
 
 private:
-	StaticVector<Worker> Workers;
+    StaticVector<Worker> Workers;
 
-	Worker* FindThreadWorker(const std::thread::id InThreadId);
+    Worker* FindThreadWorker( const std::thread::id InThreadId );
 };

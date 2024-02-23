@@ -6,17 +6,17 @@
 class JobQueueOld
 {
 public:
-	JobQueueOld();
-	~JobQueueOld();
+    JobQueueOld();
+    ~JobQueueOld();
 
-	bool HasWork() const;
+    bool HasWork() const;
 
-	void Push(std::function<void()> InJob);
+    void Push( std::function<void()> InJob );
 
-	std::function<void()> GetNextJob();
+    std::function<void()> GetNextJob();
 
 private:
-	std::vector<std::function<void()>> Jobs;
+    std::vector<std::function<void()>> Jobs;
 
-	std::mutex Mutex;
+    std::mutex Mutex;
 };

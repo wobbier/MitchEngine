@@ -1,7 +1,7 @@
 #include "Font.h"
 
-Font::Font(const Path& InFilePath)
-	: Resource(InFilePath)
+Font::Font( const Path& InFilePath )
+    : Resource( InFilePath )
 {
 
 }

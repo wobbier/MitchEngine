@@ -10,7 +10,7 @@ class Transform;
 class BaseCore;
 class EditorApp;
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 class SceneHierarchyWidget
 	: public HavanaWidget

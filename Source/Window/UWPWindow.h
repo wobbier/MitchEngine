@@ -15,60 +15,60 @@ using namespace Windows::Foundation;
 //using namespace Windows::Graphics::Display;
 
 class UWPWindow
-	: public IWindow
+    : public IWindow
 {
-	ref class UWPWindowMessageHandler
-	{
-	internal:
-		UWPWindowMessageHandler(UWPWindow* window);
-	public:
-		void OnWindowSizeChanged(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::WindowSizeChangedEventArgs^ args);
-		void OnVisibilityChanged(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::VisibilityChangedEventArgs^ args);
-		void OnWindowClosed(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::CoreWindowEventArgs^ args);
-		void OnKeyDown(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::KeyEventArgs^ args);
+    ref class UWPWindowMessageHandler
+    {
+    internal:
+        UWPWindowMessageHandler( UWPWindow* window );
+    public:
+        void OnWindowSizeChanged( Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::WindowSizeChangedEventArgs^ args );
+        void OnVisibilityChanged( Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::VisibilityChangedEventArgs^ args );
+        void OnWindowClosed( Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::CoreWindowEventArgs^ args );
+        void OnKeyDown( Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::KeyEventArgs^ args );
 
-		void OnDpiChanged(Windows::Graphics::Display::DisplayInformation^ sender, Platform::Object^ args);
-		void OnDisplayContentsInvalidated(Windows::Graphics::Display::DisplayInformation^ sender, Platform::Object^ args);
+        void OnDpiChanged( Windows::Graphics::Display::DisplayInformation^ sender, Platform::Object^ args );
+        void OnDisplayContentsInvalidated( Windows::Graphics::Display::DisplayInformation^ sender, Platform::Object^ args );
 
-	private:
-		UWPWindow* m_window;
-	};
+    private:
+        UWPWindow* m_window;
+    };
 
 public:
-	UWPWindow(std::string title, int width, int height, std::function<void(const Vector2&)> resizeCallback);
-	~UWPWindow();
+    UWPWindow( std::string title, int width, int height, std::function<void( const Vector2& )> resizeCallback );
+    ~UWPWindow();
 
-	virtual bool ShouldClose() final;
-	virtual void ParseMessageQueue() final;
-	virtual Vector2 GetSize() const final;
-	virtual void SetTitle(const std::string& title) final;
+    virtual bool ShouldClose() final;
+    virtual void ParseMessageQueue() final;
+    virtual Vector2 GetSize() const final;
+    virtual void SetTitle( const std::string& title ) final;
 
-	void SetVisibility(bool Visible);
+    void SetVisibility( bool Visible );
 
-	virtual Vector2 GetPosition() final;
-	virtual void Maximize() final;
-	virtual void Minimize() final;
-	virtual void ExitMaximize() final;
-	virtual bool IsFullscreen() final;
-	virtual bool IsMaximized() final;
-	void OnWindowSizeChanged(Vector2 newSize);
+    virtual Vector2 GetPosition() final;
+    virtual void Maximize() final;
+    virtual void Minimize() final;
+    virtual void ExitMaximize() final;
+    virtual bool IsFullscreen() final;
+    virtual bool IsMaximized() final;
+    void OnWindowSizeChanged( Vector2 newSize );
 
-	virtual void SetBorderless(bool isBorderless) final {};
+    virtual void SetBorderless( bool isBorderless ) final {};
 
-	virtual void Exit() override;
+    virtual void Exit() override;
 
 
-	void* GetWindowPtr() override;
+    void* GetWindowPtr() override;
 
 private:
-	bool ExitRequested = false;
+    bool ExitRequested = false;
 
-	std::function<void(const Vector2&)> ResizeCB;
+    std::function<void( const Vector2& )> ResizeCB;
 
-	Vector2 Size;
+    Vector2 Size;
 
-	UWPWindowMessageHandler^ MessageHandler;
-	bool IsVisible = true;
+    UWPWindowMessageHandler^ MessageHandler;
+    bool IsVisible = true;
 };
 
 #endif

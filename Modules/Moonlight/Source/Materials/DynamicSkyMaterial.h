@@ -2,23 +2,23 @@
 #include "Graphics/Material.h"
 
 class DynamicSkyMaterial
-	: public Moonlight::Material
+    : public Moonlight::Material
 {
 public:
-	DynamicSkyMaterial();
+    DynamicSkyMaterial();
 
-	void Init() override;
+    void Init() override;
 
-	virtual void Use() final;
+    virtual void Use() final;
 
-	SharedPtr<Material> CreateInstance() final;
+    SharedPtr<Material> CreateInstance() final;
 
-	bgfx::UniformHandle u_sunLuminance;
-	bgfx::UniformHandle u_skyLuminanceXYZ;
-	bgfx::UniformHandle u_skyLuminance;
-	bgfx::UniformHandle u_sunDirection;
-	bgfx::UniformHandle u_parameters;
-	bgfx::UniformHandle u_perezCoeff;
+    bgfx::UniformHandle u_sunLuminance;
+    bgfx::UniformHandle u_skyLuminanceXYZ;
+    bgfx::UniformHandle u_skyLuminance;
+    bgfx::UniformHandle u_sunDirection;
+    bgfx::UniformHandle u_parameters;
+    bgfx::UniformHandle u_perezCoeff;
 };
 
-ME_REGISTER_MATERIAL_NAME(DynamicSkyMaterial, "DynamicSky")
+ME_REGISTER_MATERIAL_NAME( DynamicSkyMaterial, "DynamicSky" )

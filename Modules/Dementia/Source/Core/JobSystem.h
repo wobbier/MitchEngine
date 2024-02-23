@@ -5,37 +5,37 @@
 
 struct ThreadInfo
 {
-	WorkerThread Worker;
-	bool IsWorking = false;
+    WorkerThread Worker;
+    bool IsWorking = false;
 };
 
 class JobSystem
 {
 public:
-	JobSystem(std::size_t InNumThreads);
-	~JobSystem();
+    JobSystem( std::size_t InNumThreads );
+    ~JobSystem();
 
-	const JobQueueOld& GetJobQueue() const;
-	JobQueueOld& GetJobQueue();
+    const JobQueueOld& GetJobQueue() const;
+    JobQueueOld& GetJobQueue();
 
-	void WorkerThreadActive(std::size_t InIndex);
-	void WorkerThreadSleeping(std::size_t InIndex);
+    void WorkerThreadActive( std::size_t InIndex );
+    void WorkerThreadSleeping( std::size_t InIndex );
 
-	void AddWork(std::function<void()> func, bool signalNewWork = true);
+    void AddWork( std::function<void()> func, bool signalNewWork = true );
 
-	void SignalWorkAvailable();
+    void SignalWorkAvailable();
 
-	void Wait();
+    void Wait();
 private:
-	JobQueueOld Queue;
+    JobQueueOld Queue;
 
-	std::vector<ThreadInfo> WorkerThreads;
+    std::vector<ThreadInfo> WorkerThreads;
 
-	//HANDLE WorkAvailableEvent;
-	std::atomic_bool m_isWorkAvailable = false;
-	//HANDLE WorkFinishedEvent;
-	std::atomic_bool m_isWorkFinished = false;
+    //HANDLE WorkAvailableEvent;
+    std::atomic_bool m_isWorkAvailable = false;
+    //HANDLE WorkFinishedEvent;
+    std::atomic_bool m_isWorkFinished = false;
 
-	std::mutex FinishedMutex;
-	std::atomic_size_t NumberOfSleepingThreads = 0;
+    std::mutex FinishedMutex;
+    std::atomic_size_t NumberOfSleepingThreads = 0;
 };

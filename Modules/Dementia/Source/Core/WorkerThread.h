@@ -5,21 +5,21 @@
 class JobSystem;
 
 class WorkerThread
-	: public Thread
+    : public Thread
 {
 public:
-	WorkerThread() = default;
+    WorkerThread() = default;
 
-	void SetJobSystem(JobSystem* InJobSystem, std::size_t InIndex, const std::atomic_bool& EventHandle);
+    void SetJobSystem( JobSystem* InJobSystem, std::size_t InIndex, const std::atomic_bool& EventHandle );
 
-	void Start();
+    void Start();
 
-	void Pause();
+    void Pause();
 
 private:
-	JobSystem* Owner = nullptr;
-	std::size_t Index = 0;
-	const std::atomic_bool* WorkAvailableHandle;
+    JobSystem* Owner = nullptr;
+    std::size_t Index = 0;
+    const std::atomic_bool* WorkAvailableHandle;
 
-	bool IsPaused = false;
+    bool IsPaused = false;
 };

@@ -5,45 +5,58 @@
 #include "Events/EventReceiver.h"
 
 class IWindow;
-//
-//
-//#if ME_PLATFORM_UWP
-//using namespace Windows::UI::Core;
-//using namespace Windows::System;
-//#endif
 
 class MouseScrollEvent
-	: public Event<MouseScrollEvent>
+    : public Event<MouseScrollEvent>
 {
 public:
     MouseScrollEvent() = default;
 
-	MouseScrollEvent(float x, float y)
-		: Event()
-		, Scroll(x, y)
-	{
-	}
+    MouseScrollEvent( float x, float y )
+        : Event()
+        , Scroll( x, y )
+    {
+    }
 
-	Vector2 Scroll;
+    Vector2 Scroll;
+};
+
+enum class KeyState : uint32_t
+{
+    None = 0,
+    Pressed,
+    Held,
+    Released
+};
+
+class KeyPressEvent
+    : public Event<KeyPressEvent>
+{
+public:
+    KeyPressEvent() = default;
+
+    KeyPressEvent( uint32_t inKey, KeyState inState )
+        : Event()
+        , Key( inKey )
+        , State( inState )
+    {
+    }
+    uint32_t Key;
+    KeyState State;
 };
 
 enum class MouseButton : uint32_t
 {
-	Left = SDL_BUTTON_LEFT,
-	Middle = SDL_BUTTON_MIDDLE,
-	Right = SDL_BUTTON_RIGHT,
-	X1 = SDL_BUTTON_X1,
-	X2 = SDL_BUTTON_X2
-};
-
-struct KeyboardState
-{
-
+    Left = SDL_BUTTON_LEFT,
+    Middle = SDL_BUTTON_MIDDLE,
+    Right = SDL_BUTTON_RIGHT,
+    X1 = SDL_BUTTON_X1,
+    X2 = SDL_BUTTON_X2
 };
 
 enum class KeyCode : uint32_t
 {
-	Unknown = SDL_SCANCODE_UNKNOWN,
+    Unknown = SDL_SCANCODE_UNKNOWN,
 
     /**
      *  \name Usage page 0x07
@@ -53,42 +66,42 @@ enum class KeyCode : uint32_t
     /* @{ */
 
     A = SDL_SCANCODE_A,
-	B = SDL_SCANCODE_B,
-	C = SDL_SCANCODE_C,
-	D = SDL_SCANCODE_D,
-	E = SDL_SCANCODE_E,
-	F = SDL_SCANCODE_F,
-	G = SDL_SCANCODE_G,
-	H = SDL_SCANCODE_H,
-	I = SDL_SCANCODE_I,
-	J = SDL_SCANCODE_J,
-	K = SDL_SCANCODE_K,
-	L = SDL_SCANCODE_L,
-	M = SDL_SCANCODE_M,
-	N = SDL_SCANCODE_N,
-	O = SDL_SCANCODE_O,
-	P = SDL_SCANCODE_P,
-	Q = SDL_SCANCODE_Q,
-	R = SDL_SCANCODE_R,
-	S = SDL_SCANCODE_S,
-	T = SDL_SCANCODE_T,
-	U = SDL_SCANCODE_U,
-	V = SDL_SCANCODE_V,
-	W = SDL_SCANCODE_W,
-	X = SDL_SCANCODE_X,
-	Y = SDL_SCANCODE_Y,
-	Z = SDL_SCANCODE_Z,
+    B = SDL_SCANCODE_B,
+    C = SDL_SCANCODE_C,
+    D = SDL_SCANCODE_D,
+    E = SDL_SCANCODE_E,
+    F = SDL_SCANCODE_F,
+    G = SDL_SCANCODE_G,
+    H = SDL_SCANCODE_H,
+    I = SDL_SCANCODE_I,
+    J = SDL_SCANCODE_J,
+    K = SDL_SCANCODE_K,
+    L = SDL_SCANCODE_L,
+    M = SDL_SCANCODE_M,
+    N = SDL_SCANCODE_N,
+    O = SDL_SCANCODE_O,
+    P = SDL_SCANCODE_P,
+    Q = SDL_SCANCODE_Q,
+    R = SDL_SCANCODE_R,
+    S = SDL_SCANCODE_S,
+    T = SDL_SCANCODE_T,
+    U = SDL_SCANCODE_U,
+    V = SDL_SCANCODE_V,
+    W = SDL_SCANCODE_W,
+    X = SDL_SCANCODE_X,
+    Y = SDL_SCANCODE_Y,
+    Z = SDL_SCANCODE_Z,
 
-	Num1 = SDL_SCANCODE_1,
-	Num2 = SDL_SCANCODE_2,
-	Num3 = SDL_SCANCODE_3,
-	Num4 = SDL_SCANCODE_4,
-	Num5 = SDL_SCANCODE_5,
-	Num6 = SDL_SCANCODE_6,
-	Num7 = SDL_SCANCODE_7,
-	Num8 = SDL_SCANCODE_8,
-	Num9 = SDL_SCANCODE_9,
-	Num0 = SDL_SCANCODE_0,
+    Num1 = SDL_SCANCODE_1,
+    Num2 = SDL_SCANCODE_2,
+    Num3 = SDL_SCANCODE_3,
+    Num4 = SDL_SCANCODE_4,
+    Num5 = SDL_SCANCODE_5,
+    Num6 = SDL_SCANCODE_6,
+    Num7 = SDL_SCANCODE_7,
+    Num8 = SDL_SCANCODE_8,
+    Num9 = SDL_SCANCODE_9,
+    Num0 = SDL_SCANCODE_0,
 
     Enter = SDL_SCANCODE_RETURN,
     Escape = SDL_SCANCODE_ESCAPE,
@@ -151,18 +164,18 @@ enum class KeyCode : uint32_t
 
     SDL_SCANCODE_CAPSLOCK = 57,
 
-	F1 = SDL_SCANCODE_F1,
-	F2 = SDL_SCANCODE_F2,
-	F3 = SDL_SCANCODE_F3,
-	F4 = SDL_SCANCODE_F4,
-	F5 = SDL_SCANCODE_F5,
-	F6 = SDL_SCANCODE_F6,
-	F7 = SDL_SCANCODE_F7,
-	F8 = SDL_SCANCODE_F8,
-	F9 = SDL_SCANCODE_F9,
-	F10 = SDL_SCANCODE_F10,
-	F11 = SDL_SCANCODE_F11,
-	F12 = SDL_SCANCODE_F12,
+    F1 = SDL_SCANCODE_F1,
+    F2 = SDL_SCANCODE_F2,
+    F3 = SDL_SCANCODE_F3,
+    F4 = SDL_SCANCODE_F4,
+    F5 = SDL_SCANCODE_F5,
+    F6 = SDL_SCANCODE_F6,
+    F7 = SDL_SCANCODE_F7,
+    F8 = SDL_SCANCODE_F8,
+    F9 = SDL_SCANCODE_F9,
+    F10 = SDL_SCANCODE_F10,
+    F11 = SDL_SCANCODE_F11,
+    F12 = SDL_SCANCODE_F12,
 
     SDL_SCANCODE_PRINTSCREEN = 70,
     SDL_SCANCODE_SCROLLLOCK = 71,
@@ -243,11 +256,11 @@ enum class KeyCode : uint32_t
 /*     SDL_SCANCODE_LOCKINGCAPSLOCK = 130,  */
 /*     SDL_SCANCODE_LOCKINGNUMLOCK = 131, */
 /*     SDL_SCANCODE_LOCKINGSCROLLLOCK = 132, */
-    SDL_SCANCODE_KP_COMMA = 133,
-    SDL_SCANCODE_KP_EQUALSAS400 = 134,
+SDL_SCANCODE_KP_COMMA = 133,
+SDL_SCANCODE_KP_EQUALSAS400 = 134,
 
-    SDL_SCANCODE_INTERNATIONAL1 = 135, /**< used on Asian keyboards, see
-                                            footnotes in USB doc */
+SDL_SCANCODE_INTERNATIONAL1 = 135, /**< used on Asian keyboards, see
+                                        footnotes in USB doc */
     SDL_SCANCODE_INTERNATIONAL2 = 136,
     SDL_SCANCODE_INTERNATIONAL3 = 137, /**< Yen */
     SDL_SCANCODE_INTERNATIONAL4 = 138,
@@ -410,56 +423,67 @@ enum class KeyCode : uint32_t
 };
 
 class Input
-	: public EventReceiver
+    : public EventReceiver
 {
-	friend class Window;
-	friend class Engine;
-	friend class Havana;
-	friend class EditorApp;
+    friend class Window;
+    friend class Engine;
+    friend class Havana;
+    friend class EditorApp;
 public:
-	Input();
-	~Input() = default;
+    Input();
+    ~Input() = default;
 
-	virtual bool OnEvent(const BaseEvent& evt);
+    virtual bool OnEvent( const BaseEvent& evt );
 
-	void Pause();
-	void Resume();
-	void Stop();
+    void Pause();
+    void Resume();
+    void Stop();
 
     // Mouse
-	Vector2 GetMousePosition() const;
-	Vector2 GetGlobalMousePosition() const;
-	Vector2 GetRelativeMousePosition() const;
-	void SetMousePosition(const Vector2& InPosition);
-	Vector2 GetMouseOffset();
-	Vector2 GetMouseScrollOffset();
+    Vector2 GetMousePosition() const;
+    Vector2 GetGlobalMousePosition() const;
+    Vector2 GetRelativeMousePosition() const;
+    void SetMousePosition( const Vector2& InPosition );
+    Vector2 GetMouseOffset();
+    Vector2 GetMouseScrollOffset();
+    Vector2 GetMouseScrollDelta();
 
-	void SetMouseCapture(bool Capture);
-	void SetMouseOffset(const Vector2& InOffset);
+    const char* GetKeyCodeName( KeyCode inKey );
 
-	bool IsMouseButtonDown(MouseButton mouseButton);
-	bool WasMouseButtonPressed(MouseButton mouseButton);
+    // I hate this
+    KeyCode GetLastKeyPressed();
+
+    void SetMouseCapture( bool Capture );
+    void SetMouseOffset( const Vector2& InOffset );
+
+    bool IsMouseButtonDown( MouseButton mouseButton );
+    bool WasMouseButtonPressed( MouseButton mouseButton );
 
     // Keyboard
-	bool IsKeyDown(KeyCode key);
-    bool WasKeyPressed(KeyCode key);
-    bool WasKeyReleased(KeyCode key);
+    bool IsKeyDown( KeyCode key );
+    bool WasKeyPressed( KeyCode key );
+    bool WasKeyReleased( KeyCode key );
+    KeyState GetKeyCodeState( KeyCode key );
 
-	void Update();
-	void PostUpdate();
+    void Update();
+    void PostUpdate();
+    std::vector<KeyPressEvent> m_keyEventsThisFrame;
 private:
-	Vector2 MousePosition;
-	Vector2 RelativeMousePosition;
-	Vector2 Offset;
+    Vector2 MousePosition;
+    Vector2 RelativeMousePosition;
+    Vector2 Offset;
 
-	bool WantsToCaptureMouse = false;
-	bool CaptureInput = true;
+    bool WantsToCaptureMouse = false;
+    bool CaptureInput = true;
 
-	Vector2 MouseScroll;
+    Vector2 MouseScroll;
+    Vector2 PreviousMouseScroll;
 
-	const uint8_t* KeyboardState = nullptr;
-	uint32_t MouseState = 0;
-	const uint8_t* PreviousKeyboardState = nullptr;
-	uint32_t PreviousMouseState = 0;
+    const uint8_t* KeyboardState = nullptr;
+    uint32_t MouseState = 0;
+    const uint8_t* PreviousKeyboardState = nullptr;
+    uint32_t PreviousMouseState = 0;
+    KeyCode LastKeyPressed = (KeyCode)SDL_NUM_SCANCODES;
     IWindow* GameWindow = nullptr;
+
 };

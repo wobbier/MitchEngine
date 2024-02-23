@@ -9,7 +9,7 @@
 
 class Transform;
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 class FolderTest
 {

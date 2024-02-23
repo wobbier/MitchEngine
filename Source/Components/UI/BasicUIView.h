@@ -3,50 +3,67 @@
 #include "ECS/Component.h"
 #include "ECS/ComponentDetail.h"
 #include "File.h"
+#include "Dementia.h"
 
+#if USING( ME_UI )
 #include "Ultralight/Listener.h"
 #include "UI/JSHelpers.h"
 #include "Ultralight/View.h"
-
-class BasicUIView
-	: public Component<BasicUIView>
-	, public ultralight::LoadListener
-{
-	friend class UICore;
-public:
-	BasicUIView();
-	BasicUIView(const char* Name);
-
-	virtual void Init() override;
-
-
-#if ME_EDITOR
-	virtual void OnEditorInspect() override;
 #endif
 
-	virtual void OnUpdateHistory(ultralight::View* caller) override;
+#include "Components/Audio/AudioSource.h"
 
-	virtual void OnDOMReady(ultralight::View* caller,
-		uint64_t frame_id,
-		bool is_main_frame,
-		const ultralight::String& url) final;
+class BasicUIView
+    : public Component<BasicUIView>
+#if USING( ME_UI )
+    , public ultralight::LoadListener
+#endif
+{
+    friend class UICore;
+public:
+    BasicUIView();
+    BasicUIView( const char* Name );
 
-	virtual void OnUILoad(ultralight::JSObject& GlobalWindow, ultralight::View* Caller);
+    virtual void Init() override;
 
-	void ExecuteScript(const std::string& Script);
 
-	Path FilePath;
+#if USING( ME_EDITOR )
+    virtual void OnEditorInspect() override;
+#endif
+
+#if USING( ME_UI )
+    virtual void OnUpdateHistory( ultralight::View* caller ) override;
+
+    virtual void OnDOMReady( ultralight::View* caller,
+        uint64_t frame_id,
+        bool is_main_frame,
+        const ultralight::String& url ) final;
+
+    virtual void OnUILoad( ultralight::JSObject& GlobalWindow, ultralight::View* Caller );
+#endif
+
+    void ExecuteScript( const std::string& Script );
+
+    Path FilePath;
 
 protected:
-	bool IsInitialized = false;
-	size_t Index;
-	File SourceFile;
+    bool IsInitialized = false;
+    size_t Index;
+    File SourceFile;
+    std::function<void( SharedPtr<AudioSource> )> m_playAudioCallback = nullptr;
 
-	void PlaySound(const ultralight::JSObject& thisObject, const ultralight::JSArgs& args);
+#if USING( ME_UI )
+    void PlaySound( const ultralight::JSObject& thisObject, const ultralight::JSArgs& args );
+    void LoadScene( const ultralight::JSObject& thisObject, const ultralight::JSArgs& args );
+    void Quit( const ultralight::JSObject& thisObject, const ultralight::JSArgs& args );
+#endif
+
 private:
-	virtual void OnSerialize(json& outJson) override;
-	virtual void OnDeserialize(const json& inJson) override;
+    virtual void OnSerialize( json& outJson ) override;
+    virtual void OnDeserialize( const json& inJson ) override;
 
-	ultralight::RefPtr<ultralight::View> ViewRef;
+#if USING( ME_UI )
+    ultralight::RefPtr<ultralight::View> ViewRef;
+#endif
 };
-ME_REGISTER_COMPONENT_FOLDER(BasicUIView, "UI")
+ME_REGISTER_COMPONENT_FOLDER( BasicUIView, "UI" )

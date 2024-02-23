@@ -13,28 +13,33 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [windows-2019]
+        os: [windows-2022]
         configuration:
           - Debug
           - Release
+          - Retail
         type:
           - Game_UWP
         include:
-          - os: windows-2019
+          - os: windows-2022
             shell: cmd
             compiler: cl
             target: Windows
 
     steps:
       - name: Add MSBuild to PATH
-        uses: microsoft/setup-msbuild@v1.0.2
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Install Mono
+        shell: cmd
+        run: choco install mono --ignore-checksums
 
       - name: Setup dotnet
-        uses: actions/setup-dotnet@v1
+        uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "5.0.100"
 
-      - uses: suisei-cn/actions-download-file@v1
+      - uses: suisei-cn/actions-download-file@818d6b7dc8fe73f2f924b6241f2b1134ca1377d9 # 1.6.0
         id: downloadfile
         name: Grab the project setup file
         with:
@@ -51,23 +56,23 @@ jobs:
 
       - name: Compile Tools
         shell: cmd
-        run: msbuild /property:Configuration="Editor_Release"
+        run: msbuild EmptyProject.sln /property:Configuration="Editor_Release"
 
       - name: Compile Project
         shell: cmd
-        run: msbuild /property:Configuration="${{matrix.type}}_${{matrix.configuration}}"
+        run: msbuild EmptyProject.sln /property:Configuration="${{matrix.type}}_${{matrix.configuration}}"
 
       - name: Copy Assets
         shell: cmd
         run: call CopyAssets.bat
 
       - name: Copy Editor Assets
-        shell: cmd
+        shell: pwsh
         continue-on-error: true
         run: |
-          robocopy ".build/Release/Assets" ".build\\Editor_Release\\Assets" *.* /w:0 /r:1 /v /E
-          robocopy "Engine/Tools" ".build\\Editor_Release\\Tools" Optick.exe /w:0 /r:1 /v /E
-          robocopy "Engine/Tools/Win64" ".build\\Editor_Release\\Tools\\Win64" *.* /w:0 /r:1 /v /E
+          robocopy ".build/Release/Assets" ".build\\Editor_Release\\Assets" *.* /w:0 /r:1 /v /E ; if ($lastexitcode -lt 8) { $global:LASTEXITCODE = $null }
+          robocopy "Engine/Tools" ".build\\Editor_Release\\Tools" Optick.exe /w:0 /r:1 /v /E ; if ($lastexitcode -lt 8) { $global:LASTEXITCODE = $null }
+          robocopy "Engine/Tools/Win64" ".build\\Editor_Release\\Tools\\Win64" *.* /w:0 /r:1 /v /E ; if ($lastexitcode -lt 8) { $global:LASTEXITCODE = $null }
 
       - name: Cook Assets
         shell: cmd
@@ -77,13 +82,13 @@ jobs:
           cd ../../
 
       - name: Copy Cooked Assets
-        shell: cmd
+        shell: pwsh
         continue-on-error: true
         run: |
-          robocopy ".build/Editor_Release/Assets" ".build\\${{matrix.type}}_${{matrix.configuration}}\\Assets" *.* /w:0 /r:1 /v /E
+          robocopy ".build/Editor_Release/Assets" ".build\\${{matrix.type}}_${{matrix.configuration}}\\Assets" *.* /w:0 /r:1 /v /E ; if ($lastexitcode -lt 8) { $global:LASTEXITCODE = $null }
 
       - name: Archive Build
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: Heap v${{github.run_number}} - ${{matrix.type}} - ${{matrix.configuration}}
           path: |

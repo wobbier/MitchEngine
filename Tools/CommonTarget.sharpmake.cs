@@ -10,6 +10,21 @@ public class CommonTarget : Sharpmake.ITarget
     public DotNetFramework Framework;
     public DotNetOS DotNetOS;
 
+    public static Optimization GetThirdPartyOptimization(Optimization opt)
+    {
+        switch (opt)
+        {
+            case Optimization.Debug:
+                return Optimization.Debug;
+            case Optimization.Release:
+                return Optimization.Release;
+            case Optimization.Retail:
+                return Optimization.Release;
+            default:
+                return Optimization.Release;
+        }
+    }
+
     [Fragment, Flags]
     public enum SubPlatformType
     {
@@ -52,24 +67,24 @@ public class CommonTarget : Sharpmake.ITarget
                 {
                     var baseTarget = new CommonTarget(
                         Platform.win64,
-                        DevEnv.vs2019,
-                        Optimization.Debug | Optimization.Release,
+                        DevEnv.vs2022,
+                        Optimization.Debug | Optimization.Release | Optimization.Retail,
                         DotNetFramework.v4_8,
                         dotNetOS: 0);
                     baseTarget.SubPlatform = SubPlatformType.Win64;
 
                     var uwpTarget = new CommonTarget(
                         Platform.win64,
-                        DevEnv.vs2019,
-                        Optimization.Debug | Optimization.Release,
+                        DevEnv.vs2022,
+                        Optimization.Debug | Optimization.Release | Optimization.Retail,
                         DotNetFramework.v4_8,
                         dotNetOS: 0);
                     uwpTarget.SubPlatform = SubPlatformType.UWP;
 
                     var editorTarget = new CommonTarget(
                         Platform.win64,
-                        DevEnv.vs2019,
-                        Optimization.Debug | Optimization.Release,
+                        DevEnv.vs2022,
+                        Optimization.Debug | Optimization.Release | Optimization.Retail,
                         DotNetFramework.v4_8,
                         dotNetOS: 0);
                     editorTarget.SubPlatform = SubPlatformType.Win64;
@@ -153,7 +168,9 @@ public class CommonTarget : Sharpmake.ITarget
     public ITarget ToSpecificDotNetOSTarget(DotNetOS dotNetOS)
     {
         if (DotNetOS == 0 || DotNetOS == dotNetOS)
+        {
             return this;
+        }
 
         return Clone(dotNetOS);
     }

@@ -6,32 +6,32 @@
 #define _USE_MATH_DEFINES
 #include <math.h>
 
-Quaternion Quaternion::Identity = Quaternion(0.f, 0.f, 0.f, 1.f);
+Quaternion Quaternion::Identity = Quaternion( 0.f, 0.f, 0.f, 1.f );
 
-void Quaternion::SetEuler(const Vector3& euler)
+void Quaternion::SetEuler( const Vector3& euler )
 {
-	InternalQuat = glm::quat(Vector3(Mathf::Radians(euler.x), Mathf::Radians(euler.y), Mathf::Radians(euler.z)).InternalVector);
+    InternalQuat = glm::quat( Vector3( Mathf::Radians( euler.x ), Mathf::Radians( euler.y ), Mathf::Radians( euler.z ) ).InternalVector );
 }
 
-Vector3 Quaternion::ToEulerAngles(const Quaternion& InQuat)
+Vector3 Quaternion::ToEulerAngles( const Quaternion& InQuat )
 {
-	Vector3 angles;
-	angles.InternalVector = glm::eulerAngles(InQuat.InternalQuat);
-	angles.x = Mathf::Degrees(angles.x);
-	angles.y = Mathf::Degrees(angles.y);
-	angles.z = Mathf::Degrees(angles.z);
-	return angles;
+    Vector3 angles;
+    angles.InternalVector = glm::eulerAngles( InQuat.InternalQuat );
+    angles.x = Mathf::Degrees( angles.x );
+    angles.y = Mathf::Degrees( angles.y );
+    angles.z = Mathf::Degrees( angles.z );
+    return angles;
 }
 
 float Quaternion::ToAngle() const
 {
-	return glm::angle(InternalQuat);
+    return glm::angle( InternalQuat );
 }
 
 Vector3 Quaternion::ToAxis() const
 {
-	glm::vec3 axis = glm::axis(InternalQuat);
-	return Vector3(axis);
+    glm::vec3 axis = glm::axis( InternalQuat );
+    return Vector3( axis );
 }
 
 //

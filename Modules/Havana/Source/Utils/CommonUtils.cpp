@@ -4,7 +4,7 @@
 #include <Engine/World.h>
 #include <Events/HavanaEvents.h>
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 void CommonUtils::RecusiveDelete(EntityHandle ent, Transform* trans)
 {

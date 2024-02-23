@@ -9,7 +9,7 @@ class Transform;
 class BaseCore;
 class BaseComponent;
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 class PropertiesWidget
 	: public HavanaWidget
@@ -34,6 +34,10 @@ public:
 	EntityHandle SelectedEntity;
 	WeakPtr<Transform> SelectedTransform;
 	class BaseCore* SelectedCore = nullptr;
+
+private:
+    std::vector<BaseComponent*> m_components;
+	bool m_isDirty = true;
 };
 
 #endif

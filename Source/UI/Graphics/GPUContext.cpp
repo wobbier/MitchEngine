@@ -1,6 +1,8 @@
 #include "PCH.h"
 #include "GPUContext.h"
 
+#if USING( ME_UI )
+
 GPUContext::GPUContext()
 {
 }
@@ -9,13 +11,13 @@ GPUContext::~GPUContext()
 {
 }
 
-void GPUContext::Resize(const Vector2& inSize)
+void GPUContext::Resize( const Vector2& inSize )
 {
-	if (inSize.IsZero())
-	{
-		return;
-	}
-	SetScreenSize(inSize);
+    if( inSize.IsZero() )
+    {
+        return;
+    }
+    SetScreenSize( inSize );
 }
 
 void GPUContext::EnableBlend()
@@ -38,30 +40,32 @@ void GPUContext::DisableScissor()
 
 }
 
-void GPUContext::SetScale(double inScale)
+void GPUContext::SetScale( double inScale )
 {
-	Scale = inScale;
+    Scale = inScale;
 }
 
 double GPUContext::GetScale() const
 {
-	return Scale;
+    return Scale;
 }
 
-void GPUContext::SetScreenSize(const Vector2& inSize)
+void GPUContext::SetScreenSize( const Vector2& inSize )
 {
-	ScreenSize = inSize;
+    ScreenSize = inSize;
 }
 
 Vector2 GPUContext::GetScreenSize()
 {
-	return ScreenSize;
+    return ScreenSize;
 }
 
-bool GPUContext::Initialize(int screen_width, int screen_height, double screen_scale, bool fullscreen, bool enable_vsync, bool sRGB, int samples)
+bool GPUContext::Initialize( int screen_width, int screen_height, double screen_scale, bool fullscreen, bool enable_vsync, bool sRGB, int samples )
 {
-	SetScreenSize({ screen_width, screen_height });
-	Scale = screen_scale;
+    SetScreenSize( { screen_width, screen_height } );
+    Scale = screen_scale;
 
-	return true;
+    return true;
 }
+
+#endif

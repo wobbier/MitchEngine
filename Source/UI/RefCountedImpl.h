@@ -5,34 +5,35 @@
 
 namespace ultralight {
 
-template <class T>
-class RefCountedImpl {
-public:
-  RefCountedImpl()
-    : ref_count_(1)
-  {
-  }
+    template <class T>
+    class RefCountedImpl
+    {
+    public:
+        RefCountedImpl()
+            : ref_count_( 1 )
+        {
+        }
 
-  virtual ~RefCountedImpl() {
-  }
+        virtual ~RefCountedImpl() {
+        }
 
-  virtual void AddRef() const {
-    ++ref_count_;
-  }
+        virtual void AddRef() const {
+            ++ref_count_;
+        }
 
-  virtual void Release() const {
-    if (--ref_count_ == 0) {
-      delete static_cast<const T*>(this);
-    }
-  }
+        virtual void Release() const {
+            if( --ref_count_ == 0 ) {
+                delete static_cast<const T*>( this );
+            }
+        }
 
-  virtual int ref_count() const {
-    return ref_count_;
-  }
+        virtual int ref_count() const {
+            return ref_count_;
+        }
 
-private:
-  mutable int ref_count_;
-};
+    private:
+        mutable int ref_count_;
+    };
 
 }  // namespace ultralight
 

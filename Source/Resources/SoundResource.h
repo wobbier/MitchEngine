@@ -3,15 +3,15 @@
 
 namespace FMOD
 {
-	class Sound;
-	class System;
+    class Sound;
+    class System;
 }
 
 class Sound
-	: public Resource
+    : public Resource
 {
 public:
-	Sound(const Path& path, void* fmodSystem = nullptr);
+    Sound( const Path& path, void* fmodSystem = nullptr );
 
-	FMOD::Sound* Handle = nullptr;
+    FMOD::Sound* Handle = nullptr;
 };

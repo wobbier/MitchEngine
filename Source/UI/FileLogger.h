@@ -1,4 +1,6 @@
 #pragma once
+
+#if USING( ME_UI )
 #include <AppCore/Defines.h>
 #include <Ultralight/platform/Logger.h>
 #include <Ultralight/String.h>
@@ -6,13 +8,16 @@
 
 namespace ultralight {
 
-class FileLogger : public Logger {
-  std::ofstream log_file_;
-public:
-  FileLogger(const String& log_path);
-  virtual ~FileLogger();
+    class FileLogger : public Logger
+    {
+        std::ofstream log_file_;
+    public:
+        FileLogger( const String& log_path );
+        virtual ~FileLogger();
 
-  virtual void LogMessage(LogLevel log_level, const String16& message) override;
-};
+        virtual void LogMessage( LogLevel log_level, const String& message ) override;
+    };
 
 }  // namespace ultralight
+
+#endif

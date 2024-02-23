@@ -8,20 +8,20 @@
 class Scene
 {
 public:
-	Scene(const std::string& SceneFilePath);
+    Scene( const std::string& SceneFilePath );
 
-	void UnLoad();
+    void UnLoad();
 
-	void LoadSceneObject(const json& obj, Transform* parent);
-	bool Load(SharedPtr<World> InWorld);
-	void LoadCore(json& core);
+    void LoadSceneObject( const json& obj, Transform* parent );
+    bool Load( SharedPtr<World> InWorld );
+    void LoadCore( json& core );
 
-	bool IsNewScene();
+    bool IsNewScene();
 
-	void Save(const std::string& fileName, Transform* root);
-	void SaveSceneRecursively(json& d, Transform* CurrentTransform);
+    void Save( const std::string& fileName, Transform* root );
+    void SaveSceneRecursively( json& d, Transform* CurrentTransform );
 
-	SharedPtr<World> GameWorld;
-	File CurrentLevel;
-	Path FilePath;
+    SharedPtr<World> GameWorld;
+    File CurrentLevel;
+    Path FilePath;
 };

@@ -1,16 +1,51 @@
 #include "PCH.h"
 #include "EngineConfig.h"
 
-
-void EngineConfig::OnLoad(const json& inJson)
+EngineConfig::EngineConfig( const Path& inPath )
+    : ConfigFile( inPath )
+    , WindowTitle("MitchEngine")
 {
-    if (inJson.contains("Window"))
+}
+
+void EngineConfig::OnSave( json& outJson )
+{
+    json& window = outJson["Window"];
+    window["Width"] = WindowSize.x;
+    window["Height"] = WindowSize.y;
+    window["X"] = WindowPosition.x;
+    window["Y"] = WindowPosition.y;
+    window["Title"] = WindowTitle;
+}
+
+void EngineConfig::OnLoadConfig( const json& inJson )
+{
+    if( inJson.contains( "Window" ) )
     {
-        const json& WindowConfig = GetJsonObject("Window");
+        const json& WindowConfig = GetJsonObject( "Window" );
 
-        int WindowWidth = WindowConfig["Width"];
-        int WindowHeight = WindowConfig["Height"];
+        if( WindowConfig.contains( "X" ) )
+        {
+            WindowPosition.x = WindowConfig["X"];
+        }
 
-        WindowSize = { WindowWidth, WindowHeight };
+        if( WindowConfig.contains( "Y" ) )
+        {
+            WindowPosition.y = WindowConfig["Y"];
+        }
+
+        if( WindowConfig.contains( "Width" ) )
+        {
+            WindowSize.x = WindowConfig["Width"];
+        }
+
+        if( WindowConfig.contains( "Height" ) )
+        {
+            WindowSize.y = WindowConfig["Height"];
+        }
+
+        if( WindowConfig.contains( "Title" ) )
+        {
+            WindowTitle = WindowConfig["Title"];
+        }
     }
 }

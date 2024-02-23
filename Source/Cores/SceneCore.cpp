@@ -4,9 +4,9 @@
 #include "Engine/World.h"
 
 SceneCore::SceneCore()
-	: Base(ComponentFilter().Requires<Transform>())
+    : Base( ComponentFilter().Requires<Transform>() )
 {
-	SetIsSerializable(false);
+    SetIsSerializable( false );
 }
 
 SceneCore::~SceneCore()
@@ -15,49 +15,51 @@ SceneCore::~SceneCore()
 
 void SceneCore::Init()
 {
-	if (!RootTransformEntity)
-	{
-		RootTransformEntity = GameWorld->CreateEntity();
-		RootTransform = &RootTransformEntity->AddComponent<Transform>();
-	}
+    if( !RootTransformEntity )
+    {
+        RootTransformEntity = GameWorld->CreateEntity();
+        RootTransform = &RootTransformEntity->AddComponent<Transform>();
+        RootTransform->SetDirty( false );
+        RootTransform->Name = "RootTransform";
+    }
 }
 
-void SceneCore::OnEntityAdded(Entity& NewEntity)
+void SceneCore::OnEntityAdded( Entity& NewEntity )
 {
-	Base::OnEntityAdded(NewEntity);
+    Base::OnEntityAdded( NewEntity );
 
-	Transform& NewEntityTransform = NewEntity.GetComponent<Transform>();
+    Transform& NewEntityTransform = NewEntity.GetComponent<Transform>();
 
-	if (!NewEntityTransform.ParentTransform && !(NewEntity.GetId() == RootTransformEntity->GetId()))
-	{
-		NewEntityTransform.SetParent(*GetRootTransform());
-	}
+    if( !NewEntityTransform.ParentTransform && !( NewEntity.GetId() == RootTransformEntity->GetId() ) )
+    {
+        NewEntityTransform.SetParent( *GetRootTransform() );
+    }
 }
 
 Transform* SceneCore::GetRootTransform()
 {
-	return RootTransform;
+    return RootTransform;
 }
 
-void SceneCore::OnEntityRemoved(Entity& InEntity)
+void SceneCore::OnEntityRemoved( Entity& InEntity )
 {
-	
+
 }
 
-void SceneCore::OnEntityDestroyed(Entity& InEntity)
+void SceneCore::OnEntityDestroyed( Entity& InEntity )
 {
-	Transform& transform = InEntity.GetComponent<Transform>();
-	if (transform.ParentTransform.get())
-	{
-		transform.ParentTransform->RemoveChild(&transform);
-	}
+    Transform& transform = InEntity.GetComponent<Transform>();
+    if( transform.ParentTransform.get() )
+    {
+        transform.ParentTransform->RemoveChild( &transform );
+    }
 }
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 void SceneCore::OnEditorInspect()
 {
-	BaseCore::OnEditorInspect();
+    BaseCore::OnEditorInspect();
 }
 
 #endif

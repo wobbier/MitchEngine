@@ -7,38 +7,40 @@
 #include "Events/EventReceiver.h"
 
 class AudioSource;
-#ifdef FMOD_ENABLED
-namespace FMOD { class System; }
+#if USING( ME_FMOD )
+namespace FMOD {
+    class System;
+}
 #endif
 
 class AudioCore
-	: public Core<AudioCore>
-	, public EventReceiver
+    : public Core<AudioCore>
+    , public EventReceiver
 {
 public:
-	AudioCore();
+    AudioCore();
 
-	virtual void Update(float dt) final;
+    virtual void Update( float dt ) final;
 
-	void InitComponent(AudioSource& audioSource);
+    void InitComponent( AudioSource& audioSource );
 
-	virtual void OnEntityAdded(Entity& NewEntity) final;
-	virtual void OnEntityRemoved(Entity& NewEntity) final;
+    virtual void OnEntityAdded( Entity& NewEntity ) final;
+    virtual void OnEntityRemoved( Entity& NewEntity ) final;
 
-	virtual bool OnEvent(const BaseEvent& InEvent) final;
+    virtual bool OnEvent( const BaseEvent& InEvent ) final;
 
 private:
-	virtual void Init() override;
-	bool IsInitialized = false;
+    virtual void Init() override;
+    bool IsInitialized = false;
 
-	std::map<std::string, SharedPtr<AudioSource>> m_cachedSounds;
+    std::map<std::string, SharedPtr<AudioSource>> m_cachedSounds;
 
-	virtual void OnStart() final;
-	void OnStop() final;
+    virtual void OnStart() final;
+    void OnStop() final;
 
-#ifdef FMOD_ENABLED
-	FMOD::System* system;
+#if USING( ME_FMOD )
+    FMOD::System* system;
 #endif
 };
 
-ME_REGISTER_CORE(AudioCore);
+ME_REGISTER_CORE( AudioCore );

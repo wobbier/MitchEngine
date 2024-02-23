@@ -13,24 +13,34 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [windows-2019]
-        buildconfig: [Game_Win64_Release, Editor_Release]
+        os: [windows-2022]
+        buildconfig: [Game_Win64, Editor]
+        configuration:
+          - Debug
+          - Release
+          - Retail
         include:
-          - os: windows-2019
+          - os: windows-2022
             shell: cmd
             compiler: cl
             target: Windows
 
     steps:
       - name: Add MSBuild to PATH
-        uses: microsoft/setup-msbuild@v1.0.2
+        uses: microsoft/setup-msbuild@v2
+        with:
+          msbuild-architecture: x64
+
+      - name: Install Mono
+        shell: cmd
+        run: choco install mono --ignore-checksums
 
       - name: Setup dotnet
-        uses: actions/setup-dotnet@v1
+        uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "5.0.100"
 
-      - uses: suisei-cn/actions-download-file@v1
+      - uses: suisei-cn/actions-download-file@818d6b7dc8fe73f2f924b6241f2b1134ca1377d9 # 1.6.0
         id: downloadfile
         name: Grab the project setup file
         with:
@@ -42,43 +52,43 @@ jobs:
         run: call NewProjectSetup.bat EmptyProject ${{github.ref_name}}
 
       - name: Compile Tools
-        if: ${{ matrix.buildconfig == 'Game_Win64_Release' }}
+        if: ${{ matrix.buildconfig == 'Game_Win64' }}
         shell: cmd
         run: msbuild EmptyProject.sln /property:Configuration="Editor_Release"
 
       - name: Compile Project
         shell: cmd
-        run: msbuild EmptyProject.sln /property:Configuration="${{matrix.buildconfig}}"
+        run: msbuild EmptyProject.sln /property:Configuration="${{matrix.buildconfig}}_${{matrix.configuration}}"
 
       - name: Copy Assets
         shell: cmd
         run: call CopyAssets.bat
 
       - name: Copy Editor Assets
-        shell: cmd
+        shell: pwsh
         continue-on-error: true
         run: |
-          robocopy ".build/Release/Assets" ".build\\Editor_Release\\Assets" *.* /w:0 /r:1 /v /E
-          robocopy "Engine/Tools" ".build\\Editor_Release\\Engine\\Tools" *.* /w:0 /r:1 /v /E
+          robocopy ".build/Release/Assets" ".build\\Editor_Release\\Assets" *.* /w:0 /r:1 /v /E ; if ($lastexitcode -lt 8) { $global:LASTEXITCODE = $null }
+          robocopy "Engine/Tools" ".build\\Editor_Release\\Engine\\Tools" *.* /w:0 /r:1 /v /E ; if ($lastexitcode -lt 8) { $global:LASTEXITCODE = $null }
 
       - name: Archive Editor
-        if: ${{ matrix.buildconfig == 'Editor_Release' }}
-        uses: actions/upload-artifact@v2
+        if: ${{ matrix.buildconfig == 'Editor' }}
+        uses: actions/upload-artifact@v4
         with:
-          name: EmptyProject v${{github.run_number}} - Editor
+          name: EmptyProject v${{github.run_number}} - Editor ${{ matrix.configuration }}
           path: |
-            .build/${{matrix.buildconfig}}
-            !.build/${{matrix.buildconfig}}/AppX
-            !.build/${{matrix.buildconfig}}/Tools/**/*.*
-            !.build/${{matrix.buildconfig}}/*.lib
-            !.build/${{matrix.buildconfig}}/*.pdb
-            !.build/${{matrix.buildconfig}}/*.exp
-            !.build/${{matrix.buildconfig}}/*.log
-            .build/${{matrix.buildconfig}}/Tools/Optick.exe
-            .build/${{matrix.buildconfig}}/Tools/Win64/*.*
+            .build/${{matrix.buildconfig}}_${{matrix.configuration}}
+            !.build/${{matrix.buildconfig}}_${{matrix.configuration}}/AppX
+            !.build${{matrix.buildconfig}}_${{matrix.configuration}}/Tools/**/*.*
+            !.build${{matrix.buildconfig}}_${{matrix.configuration}}/*.lib
+            !.build${{matrix.buildconfig}}_${{matrix.configuration}}/*.pdb
+            !.build${{matrix.buildconfig}}_${{matrix.configuration}}/*.exp
+            !.build${{matrix.buildconfig}}_${{matrix.configuration}}/*.log
+            .build/${{matrix.buildconfig}}_${{matrix.configuration}}/Tools/Optick.exe
+            .build/${{matrix.buildconfig}}_${{matrix.configuration}}/Tools/Win64/*.*
 
       - name: Cook Assets
-        if: ${{ matrix.buildconfig == 'Game_Win64_Release' }}
+        if: ${{ matrix.buildconfig == 'Game_Win64' }}
         shell: cmd
         run: |
           cd ".build/Editor_Release/"
@@ -86,58 +96,59 @@ jobs:
           cd ../../
 
       - name: Copy Cooked Assets
-        if: ${{ matrix.buildconfig == 'Game_Win64_Release' }}
-        shell: cmd
+        if: ${{ matrix.buildconfig == 'Game_Win64' }}
+        shell: pwsh
         continue-on-error: true
         run: |
-          robocopy ".build/Editor_Release/Assets" ".build\\Game_Win64_Release\\Assets" *.* /w:0 /r:1 /v /E
+          robocopy ".build/Editor_Release/Assets" ".build\\Game_Win64_${{matrix.configuration}}\\Assets" *.* /w:0 /r:1 /v /E ; if ($lastexitcode -lt 8) { $global:LASTEXITCODE = $null }
 
       - name: Archive Build
-        if: ${{ matrix.buildconfig == 'Game_Win64_Release' }}
-        uses: actions/upload-artifact@v2
+        if: ${{ matrix.buildconfig == 'Game_Win64' }}
+        uses: actions/upload-artifact@v4
         with:
-          name: EmptyProject v${{github.run_number}} - ${{matrix.buildconfig}}
+          name: EmptyProject v${{github.run_number}} - ${{matrix.buildconfig}}_${{matrix.configuration}}
           path: |
-            .build/${{matrix.buildconfig}}
-            .build/${{matrix.buildconfig}}/Assets
-            !.build/${{matrix.buildconfig}}/AppX
-            !.build/${{matrix.buildconfig}}/*.lib
-            !.build/${{matrix.buildconfig}}/*.pdb
-            !.build/${{matrix.buildconfig}}/*.exp
-            !.build/${{matrix.buildconfig}}/*.log
-            !.build/${{matrix.buildconfig}}/**/*.png
-            !.build/${{matrix.buildconfig}}/**/*.jpg
-            !.build/${{matrix.buildconfig}}/**/*.frag
-            !.build/${{matrix.buildconfig}}/**/*.vert
-            !.build/${{matrix.buildconfig}}/**/*.var
-            !.build/${{matrix.buildconfig}}/**/*.sh
+            .build/${{matrix.buildconfig}}_${{matrix.configuration}}
+            .build/${{matrix.buildconfig}}_${{matrix.configuration}}/Assets
+            !.build/${{matrix.buildconfig}}_${{matrix.configuration}}/AppX
+            !.build/${{matrix.buildconfig}}_${{matrix.configuration}}/*.lib
+            !.build/${{matrix.buildconfig}}_${{matrix.configuration}}/*.pdb
+            !.build/${{matrix.buildconfig}}_${{matrix.configuration}}/*.exp
+            !.build/${{matrix.buildconfig}}_${{matrix.configuration}}/*.log
+            !.build/${{matrix.buildconfig}}_${{matrix.configuration}}/**/*.png
+            !.build/${{matrix.buildconfig}}_${{matrix.configuration}}/**/*.jpg
+            !.build/${{matrix.buildconfig}}_${{matrix.configuration}}/**/*.frag
+            !.build/${{matrix.buildconfig}}_${{matrix.configuration}}/**/*.vert
+            !.build/${{matrix.buildconfig}}_${{matrix.configuration}}/**/*.var
+            !.build/${{matrix.buildconfig}}_${{matrix.configuration}}/**/*.sh
 
       - name: Copy Tools Assets
-        shell: cmd
+        shell: pwsh
         continue-on-error: true
         run: |
-          robocopy "Engine/Tools/HUB/Assets" ".build\\Editor_Release\\Assets" *.* /w:0 /r:1 /v /E
-          robocopy "Engine/Tools/HUB" ".build\\Editor_Release" *.exe /w:0 /r:1 /v /E
+          robocopy "Engine/Tools/HUB/Assets" ".build\\Editor_Release\\Assets" *.* /w:0 /r:1 /v /E ; if ($lastexitcode -lt 8) { $global:LASTEXITCODE = $null }
+          robocopy "Engine/Tools/HUB" ".build\\Editor_Release" *.exe /w:0 /r:1 /v /E ; if ($lastexitcode -lt 8) { $global:LASTEXITCODE = $null }
 
       - name: Archive Tools
-        if: ${{ matrix.buildconfig == 'Editor_Release' }}
-        uses: actions/upload-artifact@v2
+        if: ${{ matrix.buildconfig == 'Editor' }}
+        uses: actions/upload-artifact@v4
         with:
-          name: HUB v${{github.run_number}}
+          name: HUB v${{github.run_number}} ${{ matrix.configuration }}
           path: |
-            .build/${{matrix.buildconfig}}/HUB.exe
-            .build/${{matrix.buildconfig}}/Assets/Close.png
-            .build/${{matrix.buildconfig}}/Assets/Minimize.png
-            .build/${{matrix.buildconfig}}/Assets/VS.png
-            .build/${{matrix.buildconfig}}/Assets/LOGO.png
-            .build/${{matrix.buildconfig}}/shaderc.exe
-            .build/${{matrix.buildconfig}}/texturec.exe
-            .build/${{matrix.buildconfig}}/*.dll
-            !.build/${{matrix.buildconfig}}/AppX
-            !.build/${{matrix.buildconfig}}/Tools/**/*.*
-            !.build/${{matrix.buildconfig}}/*.lib
-            !.build/${{matrix.buildconfig}}/*.pdb
-            !.build/${{matrix.buildconfig}}/*.exp
-            !.build/${{matrix.buildconfig}}/*.log
-            .build/${{matrix.buildconfig}}/Tools/Optick.exe
-            .build/${{matrix.buildconfig}}/Tools/Win64/*.*
+            .build/${{matrix.buildconfig}}_${{matrix.configuration}}/HUB.exe
+            .build/${{matrix.buildconfig}}_${{matrix.configuration}}/Assets/Close.png
+            .build/${{matrix.buildconfig}}_${{matrix.configuration}}/Assets/Minimize.png
+            .build/${{matrix.buildconfig}}_${{matrix.configuration}}/Assets/VS.png
+            .build/${{matrix.buildconfig}}_${{matrix.configuration}}/Assets/GEN.png
+            .build/${{matrix.buildconfig}}_${{matrix.configuration}}/Assets/LOGO.png
+            .build/${{matrix.buildconfig}}_${{matrix.configuration}}/shaderc.exe
+            .build/${{matrix.buildconfig}}_${{matrix.configuration}}/texturec.exe
+            .build/${{matrix.buildconfig}}_${{matrix.configuration}}/*.dll
+            !.build/${{matrix.buildconfig}}_${{matrix.configuration}}/AppX
+            !.build/${{matrix.buildconfig}}_${{matrix.configuration}}/Tools/**/*.*
+            !.build/${{matrix.buildconfig}}_${{matrix.configuration}}/*.lib
+            !.build/${{matrix.buildconfig}}_${{matrix.configuration}}/*.pdb
+            !.build/${{matrix.buildconfig}}_${{matrix.configuration}}/*.exp
+            !.build/${{matrix.buildconfig}}_${{matrix.configuration}}/*.log
+            .build/${{matrix.buildconfig}}_${{matrix.configuration}}/Tools/Optick.exe
+            .build/${{matrix.buildconfig}}_${{matrix.configuration}}/Tools/Win64/*.*

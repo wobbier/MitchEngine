@@ -14,7 +14,7 @@
 #include "Editor/AssetDescriptor.h"
 #include "UI/Colors.h"
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 SceneHierarchyWidget::SceneHierarchyWidget()
 	: HavanaWidget("Hierarchy")

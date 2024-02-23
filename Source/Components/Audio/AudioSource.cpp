@@ -8,186 +8,261 @@
 
 #include "Events/AudioEvents.h"
 
-#ifdef FMOD_ENABLED
+#if USING( ME_FMOD )
 #include "fmod.hpp"
 #endif
 #include "Resource/MetaFile.h"
+#include "Core/Assert.h"
 
-AudioSource::AudioSource(const std::string& InFilePath)
-	: Component("AudioSource")
-	, FilePath(InFilePath)
+AudioSource::AudioSource( const std::string& InFilePath )
+    : Component( "AudioSource" )
+    , FilePath( InFilePath )
+#if USING( ME_FMOD )
+    , SoundInstance( nullptr )
+#endif
 {
-	if (Preload)
-	{
+    if( Preload )
+    {
 
-	}
+    }
 }
 
 AudioSource::AudioSource()
-	: Component("AudioSource")
+    : Component( "AudioSource" )
+#if USING( ME_FMOD )
+    , SoundInstance( nullptr )
+#endif
 {
 
 }
 
-void AudioSource::Play(bool ShouldLoop)
+void AudioSource::Play( bool ShouldLoop )
 {
-#ifdef FMOD_ENABLED
-	if (SoundInstance)
-	{
-		if (IsPlaying())
-		{
-			Stop(true);
-		}
-		SoundInstance->Handle->getSystemObject(&m_owner);
-		m_owner->playSound(SoundInstance->Handle, nullptr, false, &ChannelHandle);
-	}
+#if USING( ME_FMOD )
+    if( SoundInstance )
+    {
+        if( IsPlaying() )
+        {
+            Stop( true );
+        }
+        SoundInstance->Handle->getSystemObject( &m_owner );
+        m_owner->playSound( SoundInstance->Handle, nullptr, false, &ChannelHandle );
+        if( ChannelHandle && ChannelHandle->getFrequency( &Frequency ) != FMOD_OK )
+        {
+        }
+    }
 #endif
 }
 
-void AudioSource::Stop(bool immediate)
+void AudioSource::Pause()
 {
-#ifdef FMOD_ENABLED
-	if (ChannelHandle)
-	{
-		ChannelHandle->stop();
-	}
+#if USING( ME_FMOD )
+    if( SoundInstance )
+    {
+        ChannelHandle->setPaused( true );
+    }
+#endif
+}
+
+void AudioSource::Resume()
+{
+#if USING( ME_FMOD )
+    if( SoundInstance )
+    {
+        ChannelHandle->setPaused( false );
+    }
+#endif
+}
+
+void AudioSource::Stop( bool immediate )
+{
+#if USING( ME_FMOD )
+    if( ChannelHandle )
+    {
+        ChannelHandle->stop();
+    }
 #endif
 }
 
 bool AudioSource::IsPlaying() const
 {
-#ifdef FMOD_ENABLED
-	bool isPlaying;
-	return (ChannelHandle && ChannelHandle->isPlaying(&isPlaying) == FMOD_OK && isPlaying);
+#if USING( ME_FMOD )
+    bool isPlaying;
+    return ( ChannelHandle && ChannelHandle->isPlaying( &isPlaying ) == FMOD_OK && isPlaying );
 #else
-	return false;
+    return false;
+#endif
+}
+
+bool AudioSource::IsPaused() const
+{
+#if USING( ME_FMOD )
+    bool isPaused;
+    return ( ChannelHandle && ChannelHandle->getPaused( &isPaused ) == FMOD_OK && isPaused );
+#else
+    return false;
 #endif
 }
 
 unsigned int AudioSource::GetLength()
 {
-#ifdef FMOD_ENABLED
-	unsigned int isPlaying = 0;
-	if (SoundInstance && SoundInstance->Handle && SoundInstance->Handle->getLength(&isPlaying, FMOD_TIMEUNIT_MS) != FMOD_OK)
-	{
-	}
-	return isPlaying;
+#if USING( ME_FMOD )
+    unsigned int isPlaying = 0;
+    if( SoundInstance && SoundInstance->Handle && SoundInstance->Handle->getLength( &isPlaying, FMOD_TIMEUNIT_MS ) != FMOD_OK )
+    {
+    }
+    return isPlaying;
 #else
-	return 0.f;
+    return 0.f;
 #endif
 }
 
 unsigned int AudioSource::GetPositionMs()
 {
-#ifdef FMOD_ENABLED
-	unsigned int isPlaying = 0;
-	if (ChannelHandle && ChannelHandle->getPosition(&isPlaying, FMOD_TIMEUNIT_MS) != FMOD_OK)
-	{
-	}
-	return isPlaying;
+#if USING( ME_FMOD )
+    unsigned int isPlaying = 0;
+    if( ChannelHandle && ChannelHandle->getPosition( &isPlaying, FMOD_TIMEUNIT_MS ) != FMOD_OK )
+    {
+    }
+    return isPlaying;
 #else
-	return 0.f;
+    return 0.f;
 #endif
 }
 
-void AudioSource::SetPositionMs(unsigned int position)
+void AudioSource::SetPositionMs( unsigned int position )
 {
-#ifdef FMOD_ENABLED
-	if (ChannelHandle && ChannelHandle->setPosition(position, FMOD_TIMEUNIT_MS) != FMOD_OK)
-	{
-	}
+#if USING( ME_FMOD )
+    if( ChannelHandle && ChannelHandle->setPosition( position, FMOD_TIMEUNIT_MS ) != FMOD_OK )
+    {
+    }
 #endif
 }
 
-void AudioSource::OnSerialize(json& outJson)
+void AudioSource::SetPositionPercent( float positionPercent )
 {
-	outJson["FilePath"] = FilePath.LocalPath;
-	outJson["PlayOnAwake"] = PlayOnAwake;
-	outJson["Loop"] = Loop;
+#if USING( ME_FMOD )
+    if( ChannelHandle && ChannelHandle->setPosition( GetLength() * positionPercent, FMOD_TIMEUNIT_MS ) != FMOD_OK )
+    {
+    }
+#endif
 }
 
-void AudioSource::OnDeserialize(const json& inJson)
+void AudioSource::SetPlaybackSpeed( float inSpeed )
 {
-	if (inJson.contains("FilePath"))
-	{
-		FilePath = Path(inJson["FilePath"]);
-	}
-	if (inJson.contains("PlayOnAwake"))
-	{
-		PlayOnAwake = inJson["PlayOnAwake"];
-	}
-	if (inJson.contains("Loop"))
-	{
-		Loop = inJson["Loop"];
-	}
+    PlaybackSpeed = inSpeed;
+#if USING( ME_FMOD )
+    if( ChannelHandle && ChannelHandle->setFrequency( Frequency * PlaybackSpeed ) != FMOD_OK )
+    {
+    }
+#endif
 }
 
-#if ME_EDITOR
+float AudioSource::GetPlaybackSpeed()
+{
+    return PlaybackSpeed;
+}
+
+void AudioSource::SetVolume( float inVolumePercent )
+{
+#if USING( ME_FMOD )
+    if( ChannelHandle && ChannelHandle->setVolume( inVolumePercent ) != FMOD_OK )
+    {
+        ME_ASSERT_MSG( false, "Failed to set volume" );
+    }
+#endif
+}
+
+void AudioSource::OnSerialize( json& outJson )
+{
+    outJson["FilePath"] = FilePath.GetLocalPath();
+    outJson["PlayOnAwake"] = PlayOnAwake;
+    outJson["Loop"] = Loop;
+}
+
+void AudioSource::OnDeserialize( const json& inJson )
+{
+    if( inJson.contains( "FilePath" ) )
+    {
+        FilePath = Path( inJson["FilePath"] );
+    }
+    if( inJson.contains( "PlayOnAwake" ) )
+    {
+        PlayOnAwake = inJson["PlayOnAwake"];
+    }
+    if( inJson.contains( "Loop" ) )
+    {
+        Loop = inJson["Loop"];
+    }
+}
+
+#if USING( ME_EDITOR )
 void AudioSource::OnEditorInspect()
 {
-#ifndef FMOD_ENABLED
-	ImGui::Text("FMOD NOT ENABLED! See Help > About.");
-	return;
+#if !USING( ME_FMOD )
+    ImGui::Text( "FMOD NOT ENABLED! See Help > About." );
+    return;
 #endif
-	ImVec2 selectorSize(-1.f, 19.f);
+    ImVec2 selectorSize( -1.f, 19.f );
 
-	HavanaUtils::Label("Asset");
-	if (!FilePath.LocalPath.empty())
-	{
-		selectorSize = ImVec2(ImGui::GetContentRegionAvailWidth() - 19.f, 19.f);
-	}
-	if (ImGui::Button(FilePath.LocalPath.empty() ? "Select Asset" : FilePath.LocalPath.c_str(), selectorSize))
-	{
-		RequestAssetSelectionEvent evt([this](Path selectedAsset) {
-			ClearData();
-			FilePath = selectedAsset;
-			}, AssetType::Audio);
-		evt.Fire();
-	}
-	if (ImGui::BeginDragDropTarget())
-	{
-		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(AssetDescriptor::kDragAndDropPayload))
-		{
-			IM_ASSERT(payload->DataSize == sizeof(AssetDescriptor));
-			AssetDescriptor& payload_n = *(AssetDescriptor*)payload->Data;
+    HavanaUtils::Label( "Asset" );
+    auto soundPath = FilePath.GetLocalPath();
+    if( !soundPath.empty() )
+    {
+        selectorSize = ImVec2( ImGui::GetContentRegionAvail().x - 19.f, 19.f );
+    }
+    if( ImGui::Button( soundPath.empty() ? "Select Asset" : soundPath.data(), selectorSize ) )
+    {
+        RequestAssetSelectionEvent evt( [this]( Path selectedAsset ) {
+            ClearData();
+            FilePath = selectedAsset;
+            }, AssetType::Audio );
+        evt.Fire();
+    }
+    if( ImGui::BeginDragDropTarget() )
+    {
+        if( const ImGuiPayload* payload = ImGui::AcceptDragDropPayload( AssetDescriptor::kDragAndDropPayload ) )
+        {
+            IM_ASSERT( payload->DataSize == sizeof( AssetDescriptor ) );
+            AssetDescriptor& payload_n = *(AssetDescriptor*)payload->Data;
 
-			if (payload_n.Type == AssetType::Audio)
-			{
-				ClearData();
-				FilePath = payload_n.FullPath;
-			}
-		}
-		ImGui::EndDragDropTarget();
-	}
+            if( payload_n.Type == AssetType::Audio )
+            {
+                ClearData();
+                FilePath = payload_n.FullPath;
+            }
+        }
+        ImGui::EndDragDropTarget();
+    }
 
-	if (!FilePath.LocalPath.empty())
-	{
-		ImGui::SameLine();
-		if (ImGui::Button("X"))
-		{
-			ClearData();
-		}
-	}
+    if( !soundPath.empty() )
+    {
+        ImGui::SameLine();
+        if( ImGui::Button( "X" ) )
+        {
+            ClearData();
+        }
+    }
 
-	if (ImGui::Checkbox("Play On Awake", &PlayOnAwake))
-	{
-	}
+    if( ImGui::Checkbox( "Play On Awake", &PlayOnAwake ) )
+    {
+    }
 
-	if (ImGui::Checkbox("Loop", &Loop))
-	{
-	}
+    if( ImGui::Checkbox( "Loop", &Loop ) )
+    {
+    }
 
-	if (IsPlaying())
-	{
-		if (ImGui::Button("Stop"))
-		{
-			Stop();
-		}
-	}
-	else if (ImGui::Button("Play"))
-	{
-		Play(false);
-	}
+    if( IsPlaying() )
+    {
+        if( ImGui::Button( "Stop" ) )
+        {
+            Stop();
+        }
+    }
+    else if( ImGui::Button( "Play" ) )
+    {
+        Play( false );
+    }
 }
 #endif
 
@@ -197,103 +272,95 @@ void AudioSource::Init()
 
 void AudioSource::ClearData()
 {
-#ifdef FMOD_ENABLED
-	SoundInstance = nullptr;
-	m_owner = nullptr;
+#if USING( ME_FMOD )
+    SoundInstance = nullptr;
+    m_owner = nullptr;
 #endif
 
-	IsInitialized = false;
-	FilePath = Path();
+    IsInitialized = false;
+    FilePath = Path();
 }
 
 std::string AudioResourceMetadata::GetExtension2() const
 {
-	return "wav";
+    return "wav";
 }
 
-void AudioResourceMetadata::OnSerialize(json& inJson)
+void AudioResourceMetadata::OnSerialize( json& inJson )
 {
 }
 
-void AudioResourceMetadata::OnDeserialize(const json& inJson)
+void AudioResourceMetadata::OnDeserialize( const json& inJson )
 {
 }
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 void AudioResourceMetadata::Export()
 {
-	MetaBase::Export();
 }
 
 void AudioResourceMetadata::OnEditorInspect()
 {
-	MetaBase::OnEditorInspect();
-#ifndef FMOD_ENABLED
-	ImGui::Separator();
-	ImGui::Text("FMOD NOT ENABLED! See Help > About.");
-	return;
+    MetaBase::OnEditorInspect();
+#if !USING( ME_FMOD )
+    ImGui::Separator();
+    ImGui::Text( "FMOD NOT ENABLED! See Help > About." );
+    return;
 #endif
-	static SharedPtr<AudioSource> source = nullptr;
-	if(source && source->FilePath.LocalPath != FilePath.LocalPath)
-	{
-		source->Stop();
-		source = nullptr;
-	}
+    static SharedPtr<AudioSource> source = nullptr;
+    if( source && source->FilePath.GetLocalPath() != FilePath.GetLocalPath() )
+    {
+        source->Stop();
+        source = nullptr;
+    }
 
-	if (source && source->IsPlaying())
-	{
-		if (ImGui::Button("Stop"))
-		{
-			source->Stop();
-		}
-	}
-	else if (ImGui::Button("Play"))
-	{
-		if (!source || (source && !source->IsInitialized))
-		{
-			PlayAudioEvent evt;
-			evt.SourceName = FilePath.FullPath;
-			evt.Callback = [](SharedPtr<AudioSource> loadedAudio) { source = loadedAudio; };
-			evt.Fire();
-		}
-		else
-		{
-			source->Play();
-		}
-	}
-	ImGui::SameLine();
-	float progress = 0.f;
-	if(source && source->GetLength() > 0)
-	{
-		progress = (float)source->GetPositionMs() / (float)source->GetLength();
-	}
-	ImGui::ProgressBar(progress);
-	if(ImGui::Button("Seek Half WAy") && source)
-	{
-		float half = (float)source->GetLength() / 2.f;
+    if( source && source->IsPlaying() )
+    {
+        if( ImGui::Button( "Stop" ) )
+        {
+            source->Stop();
+        }
+    }
+    else if( ImGui::Button( "Play" ) )
+    {
+        if( !source || ( source && !source->IsInitialized ) )
+        {
+            PlayAudioEvent evt;
+            evt.SourceName = FilePath.FullPath;
+            evt.Callback = []( SharedPtr<AudioSource> loadedAudio ) { source = loadedAudio; };
+            evt.Fire();
+        }
+        else
+        {
+            source->Play();
+        }
+    }
 
-		source->SetPositionMs(half);
-	}
+    if( !source )
+    {
+        return;
+    }
 
-	/*if (ImGui::IsItemActive())
-	{
-		if (!source)
-		{
-			source->Stop();
-		}
-		
-	}*/
-	if(!source)
-	{
-		return;
-	}
+    ImGui::SameLine();
+    float progress = (float)source->GetPositionMs();
 
+    if( ImGui::SliderFloat( "##SeekSlider", &progress, 0, (float)source->GetLength(), "%.3f" ) )
+    {
+        source->SetPositionMs( progress );
+    }
+
+    if( ImGui::Button( "Seek Half Way" ) )
+    {
+        float half = (float)source->GetLength() / 2.f;
+
+        source->SetPositionMs( half );
+    }
 }
 
 #endif
 
 std::string AudioResourceMetadataMp3::GetExtension2() const
 {
-	return "mp3";
+    return "mp3";
 }

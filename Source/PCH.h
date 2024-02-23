@@ -1,26 +1,16 @@
 #pragma once
 #pragma message("[MAN] Compiling Engine PCH...")
 
-#if ME_PLATFORM_UWP || ME_PLATFORM_WIN64
+#include "Dementia.h"
+
+#if USING( ME_PLATFORM_WINDOWS )
 #include <SDKDDKVer.h>
 #include <Windows.h>
 #endif
 
-#include "Dementia.h"
 #include "Pointers.h"
-#if ME_DIRECTX
-#include <wrl.h>
-#include <wrl/client.h>
-#include <dxgi1_4.h>
-#include <d3d11_3.h>
-#include <d2d1_3.h>
-#include <d2d1effects_2.h>
-#include <dwrite_3.h>
-#include <wincodec.h>
-#include <concrt.h>
 
-#endif
-#if ME_PLATFORM_UWP
+#if USING( ME_PLATFORM_UWP )
 //#include <agile.h>
 #endif
 

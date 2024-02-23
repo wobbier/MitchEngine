@@ -1,6 +1,6 @@
 #define SDL_MAIN_HANDLED
 #include "Window/SDLWindow.h"
-#include "BGFXRenderer.h"
+#include "Renderer.h"
 #include <Camera/CameraData.h>
 #include <Engine/Input.h>
 #include "MitchHub.h"
@@ -37,10 +37,10 @@ int main(int argc, char** argv)
 	set.InitAssets = false;
 	Renderer->Create(set);
 
-#if ME_PLATFORM_WIN64
+#if USING( ME_PLATFORM_WIN64 )
     ImGui_ImplSDL2_InitForD3D(static_cast<SDLWindow*>(win)->WindowHandle);
 #endif
-#if ME_PLATFORM_MACOS
+#if USING( ME_PLATFORM_MACOS )
     ImGui_ImplSDL2_InitForMetal(static_cast<SDLWindow*>(win)->WindowHandle);
 #endif
 

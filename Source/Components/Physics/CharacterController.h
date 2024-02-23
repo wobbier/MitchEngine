@@ -15,69 +15,69 @@
 class btPairCachingGhostObjectWithEvents;
 
 class CharacterController
-	: public Component<CharacterController>
+    : public Component<CharacterController>
 {
-	friend class PhysicsCore;
+    friend class PhysicsCore;
 public:
-	CharacterController();
-	~CharacterController();
+    CharacterController();
+    ~CharacterController();
 
-	float Deceleration = 7.f;
-	float MaxSpeed = 100.f;
-	float JumpForce = 20.f;
+    float Deceleration = 7.f;
+    float MaxSpeed = 100.f;
+    float JumpForce = 20.f;
 
-	float JumpRechargeTime = 0.5f;
+    float JumpRechargeTime = 0.5f;
 
-	// Separate init from construction code.
-	virtual void Init() final;
+    // Separate init from construction code.
+    virtual void Init() final;
 
-	void Initialize(btDynamicsWorld* pPhysicsWorld, const Vector3 spawnPos, float radius, float height, float mass, float stepHeight);
+    void Initialize( btDynamicsWorld* pPhysicsWorld, const Vector3 spawnPos, float radius, float height, float mass, float stepHeight );
 
-	void Walk(const Vector3& direction);
-	void Walk(Vector2 direction);
+    void Walk( const Vector3& direction );
+    void Walk( Vector2 direction );
 
-    void Update(const UpdateContext& inUpdateContext);
+    void Update( const UpdateContext& inUpdateContext );
 
-	void Jump();
+    void Jump();
 
-	void Teleport(const Vector3& inPosition, const Quaternion& inRotation);
+    void Teleport( const Vector3& inPosition, const Quaternion& inRotation );
 
-	Vector3 GetPosition() const;
-	Vector3 GetVelocity() const;
+    Vector3 GetPosition() const;
+    Vector3 GetVelocity() const;
 
-	bool IsOnGround() const;
+    bool IsOnGround() const;
 
-#if ME_EDITOR
-	virtual void OnEditorInspect() override;
+#if USING( ME_EDITOR )
+    virtual void OnEditorInspect() override;
 #endif
 private:
-	btDynamicsWorld* m_world = nullptr;
-	btCollisionShape* m_shape = nullptr;
-	btDefaultMotionState* m_motionState = nullptr;
-	btRigidBody* m_rigidbody = nullptr;
-	btPairCachingGhostObjectWithEvents* m_ghostObject = nullptr;
+    btDynamicsWorld* m_world = nullptr;
+    btCollisionShape* m_shape = nullptr;
+    btDefaultMotionState* m_motionState = nullptr;
+    btRigidBody* m_rigidbody = nullptr;
+    btPairCachingGhostObjectWithEvents* m_ghostObject = nullptr;
 
-	bool m_isGrounded = false;
-	bool m_isHittingWall = false;
-	float m_bottomYOffset = 0.f;
-	float m_bottomRoundedRegionYOffset = 0.f;
-	float m_stepHeight = 0.1f;
+    bool m_isGrounded = false;
+    bool m_isHittingWall = false;
+    float m_bottomYOffset = 0.f;
+    float m_bottomRoundedRegionYOffset = 0.f;
+    float m_stepHeight = 0.1f;
 
-	btTransform m_motionTransform;
+    btTransform m_motionTransform;
 
-	Vector3 m_manualVelocity;
-	std::vector<Vector3> m_surfaceHitNormals;
+    Vector3 m_manualVelocity;
+    std::vector<Vector3> m_surfaceHitNormals;
 
-	btVector3 m_previousPosition;
-	float m_jumpTimer = 0.f;
+    btVector3 m_previousPosition;
+    float m_jumpTimer = 0.f;
 
-	void ParseGhostContacts();
+    void ParseGhostContacts();
 
-	void UpdatePosition();
-	void UpdateVelocity(float dt);
+    void UpdatePosition();
+    void UpdateVelocity( float dt );
 
-	virtual void OnSerialize(json& outJson) final;
-	virtual void OnDeserialize(const json& inJson) final;
+    virtual void OnSerialize( json& outJson ) final;
+    virtual void OnDeserialize( const json& inJson ) final;
 };
 
-ME_REGISTER_COMPONENT_FOLDER(CharacterController, "Physics")
+ME_REGISTER_COMPONENT_FOLDER( CharacterController, "Physics" )

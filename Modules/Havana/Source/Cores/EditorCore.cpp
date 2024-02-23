@@ -15,22 +15,22 @@
 #include <World/Scene.h>
 #include <Utils/EditorConfig.h>
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
-EditorCore::EditorCore(Havana* editor)
-	: Base(ComponentFilter().Excludes<Transform>())
-	, m_editor(editor)
+EditorCore::EditorCore( Havana* editor )
+    : Base( ComponentFilter().Excludes<Transform>() )
+    , m_editor( editor )
 {
-	SetIsSerializable(false);
+    SetIsSerializable( false );
 
-	EditorCameraTransform = MakeShared<Transform>();
-	EditorCamera = new Camera();
+    EditorCameraTransform = MakeShared<Transform>();
+    EditorCamera = new Camera();
 
-	std::vector<TypeId> events;
-	events.push_back(SaveSceneEvent::GetEventId());
-	events.push_back(NewSceneEvent::GetEventId());
-	//events.push_back(Moonlight::PickingEvent::GetEventId());
-	EventManager::GetInstance().RegisterReceiver(this, events);
+    std::vector<TypeId> events;
+    events.push_back( SaveSceneEvent::GetEventId() );
+    events.push_back( NewSceneEvent::GetEventId() );
+    //events.push_back(Moonlight::PickingEvent::GetEventId());
+    EventManager::GetInstance().RegisterReceiver( this, events );
 }
 
 EditorCore::~EditorCore()
@@ -39,254 +39,254 @@ EditorCore::~EditorCore()
 
 void EditorCore::Init()
 {
-	Camera::EditorCamera = EditorCamera;
+    Camera::EditorCamera = EditorCamera;
 
-	EditorCameraTransform->SetWorldPosition(EditorConfig::GetInstance().CameraPosition);
-	EditorCameraTransform->SetRotation(EditorConfig::GetInstance().CameraRotation);
+    EditorCameraTransform->SetWorldPosition( EditorConfig::GetInstance().CameraPosition );
+    EditorCameraTransform->SetRotation( EditorConfig::GetInstance().CameraRotation );
 }
 
-void EditorCore::Update(const UpdateContext& inUpdateContext)
+void EditorCore::Update( const UpdateContext& inUpdateContext )
 {
-	OPTICK_CATEGORY("FlyingCameraCore::Update", Optick::Category::Camera);
+    OPTICK_CATEGORY( "EditorCore::Update", Optick::Category::UI );
 
-	Input& input = m_editor->GetInput();
+    Input& input = m_editor->GetInput();
 
-	if (m_editor->IsWorldViewFocused() || FirstUpdate)
-	{
-		if (input.IsKeyDown(KeyCode::F))
-		{
-			IsFocusingTransform = true;
+    if ( m_editor->IsWorldViewFocused() || FirstUpdate )
+    {
+        if ( input.IsKeyDown( KeyCode::F ) )
+        {
+            IsFocusingTransform = true;
 
-			// Keep a note of the time the movement started.
-			startTime = 0.f;
+            // Keep a note of the time the movement started.
+            startTime = 0.f;
 
-			// Calculate the journey length.
-			TravelDistance = (EditorCameraTransform->GetPosition() - Vector3()).Length();
+            // Calculate the journey length.
+            TravelDistance = ( EditorCameraTransform->GetPosition() - Vector3() ).Length();
 
-			totalTime = 0.f;
-		}
+            totalTime = 0.f;
+        }
 
-		totalTime += inUpdateContext.GetDeltaTime();
+        totalTime += inUpdateContext.GetDeltaTime();
 
-		if (FirstUpdate)
-		{
-			Vector3& rot = EditorConfig::GetInstance().CameraRotation;
-			EditorCameraTransform->SetPosition(EditorConfig::GetInstance().CameraPosition);
-			EditorCameraTransform->SetRotation(rot);
-			EditorCamera->Yaw = -rot.y;
-			EditorCamera->Pitch = rot.x;
-			//EditorConfig::GetInstance().CameraPosition = Vector3(EditorCameraTransform->GetPosition());
-			//EditorConfig::GetInstance().CameraRotation = Vector3(EditorCameraTransform->GetRotationEuler());
-			FirstUpdate = false;
-			return;
-		}
-		
-		if (!IsFocusingTransform)
-		{
-			if (!input.IsMouseButtonDown(MouseButton::Right))
-			{
-				return;
-			}
+        if ( FirstUpdate )
+        {
+            Vector3& rot = EditorConfig::GetInstance().CameraRotation;
+            EditorCameraTransform->SetPosition( EditorConfig::GetInstance().CameraPosition );
+            EditorCameraTransform->SetRotation( rot );
+            EditorCamera->Yaw = -rot.y;
+            EditorCamera->Pitch = rot.x;
+            //EditorConfig::GetInstance().CameraPosition = Vector3(EditorCameraTransform->GetPosition());
+            //EditorConfig::GetInstance().CameraRotation = Vector3(EditorCameraTransform->GetRotationEuler());
+            FirstUpdate = false;
+            return;
+        }
 
-			float CameraSpeed = m_flyingSpeed;
-			if (input.IsKeyDown(KeyCode::LeftShift))
-			{
-				CameraSpeed += m_speedModifier;
-			}
-			CameraSpeed *= inUpdateContext.GetDeltaTime();
+        if ( !IsFocusingTransform )
+        {
+            if ( !input.IsMouseButtonDown( MouseButton::Right ) )
+            {
+                return;
+            }
 
-			const Vector3& Front = EditorCameraTransform->Front();
+            float CameraSpeed = m_flyingSpeed;
+            if ( input.IsKeyDown( KeyCode::LeftShift ) )
+            {
+                CameraSpeed += m_speedModifier;
+            }
+            CameraSpeed *= inUpdateContext.GetDeltaTime();
 
-			if (input.IsKeyDown(KeyCode::W))
-			{
-				EditorCameraTransform->Translate(Front * CameraSpeed);
-			}
-			if (input.IsKeyDown(KeyCode::S))
-			{
-				EditorCameraTransform->Translate((Front * CameraSpeed) * -1.f);
-			}
-			if (input.IsKeyDown(KeyCode::A))
-			{
-				EditorCameraTransform->Translate(-EditorCameraTransform->Right() * CameraSpeed);
-			}
-			if (input.IsKeyDown(KeyCode::D))
-			{
-				EditorCameraTransform->Translate(EditorCameraTransform->Right() * CameraSpeed);
-			}
-			if (input.IsKeyDown(KeyCode::Space))
-			{
-				EditorCameraTransform->Translate(Vector3::Up * CameraSpeed);
-			}
-			if (input.IsKeyDown(KeyCode::E))
-			{
-				EditorCameraTransform->Translate(EditorCameraTransform->Up() * CameraSpeed);
-			}
-			if (input.IsKeyDown(KeyCode::Q))
-			{
-				EditorCameraTransform->Translate(-EditorCameraTransform->Up() * CameraSpeed);
-			}
+            const Vector3& Front = EditorCameraTransform->Front();
 
-			Vector2 currentState = input.GetRelativeMousePosition();
-			float XOffset = ((currentState.x) * m_lookSensitivity) * inUpdateContext.GetDeltaTime();
-			float YOffest = ((currentState.y) * m_lookSensitivity) * inUpdateContext.GetDeltaTime();
+            if ( input.IsKeyDown( KeyCode::W ) )
+            {
+                EditorCameraTransform->Translate( Front * CameraSpeed );
+            }
+            if ( input.IsKeyDown( KeyCode::S ) )
+            {
+                EditorCameraTransform->Translate( ( Front * CameraSpeed ) * -1.f );
+            }
+            if ( input.IsKeyDown( KeyCode::A ) )
+            {
+                EditorCameraTransform->Translate( -EditorCameraTransform->Right() * CameraSpeed );
+            }
+            if ( input.IsKeyDown( KeyCode::D ) )
+            {
+                EditorCameraTransform->Translate( EditorCameraTransform->Right() * CameraSpeed );
+            }
+            if ( input.IsKeyDown( KeyCode::Space ) )
+            {
+                EditorCameraTransform->Translate( Vector3::Up * CameraSpeed );
+            }
+            if ( input.IsKeyDown( KeyCode::E ) )
+            {
+                EditorCameraTransform->Translate( EditorCameraTransform->Up() * CameraSpeed );
+            }
+            if ( input.IsKeyDown( KeyCode::Q ) )
+            {
+                EditorCameraTransform->Translate( -EditorCameraTransform->Up() * CameraSpeed );
+            }
 
-			const float Yaw = EditorCamera->Yaw -= XOffset;
-			float Pitch = EditorCamera->Pitch + YOffest;
+            Vector2 currentState = input.GetRelativeMousePosition();
+            float XOffset = ( ( currentState.x ) * m_lookSensitivity ) * inUpdateContext.GetDeltaTime();
+            float YOffest = ( ( currentState.y ) * m_lookSensitivity ) * inUpdateContext.GetDeltaTime();
 
-			if (Pitch > 89.0f)
-			{
-				Pitch = 89.0f;
-			}
-			if (Pitch < -89.0f)
-			{
-				Pitch = -89.0f;
-			}
-			EditorCamera->Pitch = Pitch;
-			EditorCameraTransform->SetRotation(Vector3(Pitch, -Yaw, 0.0f));
-			EditorConfig::GetInstance().CameraPosition = Vector3(EditorCameraTransform->GetPosition());
-			EditorConfig::GetInstance().CameraRotation = Vector3(EditorCameraTransform->GetRotationEuler());
-		}
-		else
-		{
-			// Distance moved = time * speed.
-			float distCovered = (totalTime - startTime) * m_focusSpeed;
+            const float Yaw = EditorCamera->Yaw -= XOffset;
+            float Pitch = EditorCamera->Pitch + YOffest;
 
-			// Fraction of journey completed = current distance divided by total distance.
-			float fracJourney = distCovered / TravelDistance;
+            if ( Pitch > 89.0f )
+            {
+                Pitch = 89.0f;
+            }
+            if ( Pitch < -89.0f )
+            {
+                Pitch = -89.0f;
+            }
+            EditorCamera->Pitch = Pitch;
+            EditorCameraTransform->SetRotation( Vector3( Pitch, -Yaw, 0.0f ) );
+            EditorConfig::GetInstance().CameraPosition = Vector3( EditorCameraTransform->GetPosition() );
+            EditorConfig::GetInstance().CameraRotation = Vector3( EditorCameraTransform->GetRotationEuler() );
+        }
+        else
+        {
+            // Distance moved = time * speed.
+            float distCovered = ( totalTime - startTime ) * m_focusSpeed;
 
-			if (fracJourney <= .8f)
-			{
-				Vector3 lerp = Mathf::Lerp(EditorCameraTransform->GetPosition(), Vector3(), fracJourney);
-				EditorCameraTransform->SetPosition(lerp);
-			}
-			else
-			{
-				IsFocusingTransform = false;
-			}
-		}
-	}
+            // Fraction of journey completed = current distance divided by total distance.
+            float fracJourney = distCovered / TravelDistance;
+
+            if ( fracJourney <= .8f )
+            {
+                Vector3 lerp = Mathf::Lerp( EditorCameraTransform->GetPosition(), Vector3(), fracJourney );
+                EditorCameraTransform->SetPosition( lerp );
+            }
+            else
+            {
+                IsFocusingTransform = false;
+            }
+        }
+    }
 }
 
-void EditorCore::Update(const UpdateContext& inUpdateContext, Transform* rootTransform)
+void EditorCore::Update( const UpdateContext& inUpdateContext, Transform* rootTransform )
 {
-	OPTICK_EVENT("EditorCore::Update");
+    OPTICK_EVENT( "EditorCore::Update" );
 
-	RootTransform = rootTransform;
+    RootTransform = rootTransform;
 
-	Update(inUpdateContext);
+    Update( inUpdateContext );
 }
 
-bool EditorCore::OnEvent(const BaseEvent& evt)
+bool EditorCore::OnEvent( const BaseEvent& evt )
 {
-	if (evt.GetEventId() == SaveSceneEvent::GetEventId())
-	{
-		const SaveSceneEvent& event = static_cast<const SaveSceneEvent&>(evt);
-		if (GetEngine().CurrentScene->IsNewScene() || event.SaveAs)
-		{
-			RequestAssetSelectionEvent evt([this](const Path& inPath) {
-				GetEngine().CurrentScene->Save(inPath.LocalPath, RootTransform);
-				GetEngine().GetConfig().SetValue(std::string("CurrentScene"), inPath.LocalPath);
-				GetEngine().GetConfig().Save();
-				}, AssetType::Level, true);
-			evt.Fire();
-		}
-		else
-		{
-			GetEngine().CurrentScene->Save(GetEngine().CurrentScene->FilePath.LocalPath, RootTransform);
-			GetEngine().GetConfig().SetValue(std::string("CurrentScene"), GetEngine().CurrentScene->FilePath.LocalPath);
-			GetEngine().GetConfig().Save();
-		}
-		return true;
-	}
-	/*else if (evt.GetEventId() == Moonlight::PickingEvent::GetEventId())
-	{
-		const Moonlight::PickingEvent& casted = static_cast<const Moonlight::PickingEvent&>(evt);
+    if ( evt.GetEventId() == SaveSceneEvent::GetEventId() )
+    {
+        const SaveSceneEvent& event = static_cast<const SaveSceneEvent&>( evt );
+        if ( GetEngine().CurrentScene->IsNewScene() || event.SaveAs )
+        {
+            RequestAssetSelectionEvent evt( [this]( const Path& inPath ) {
+                GetEngine().CurrentScene->Save( inPath.GetLocalPath().data(), RootTransform );
+                GetEngine().GetConfig().SetValue( std::string( "CurrentScene" ), inPath.GetLocalPath().data() );
+                GetEngine().GetConfig().Save();
+                }, AssetType::Level, true );
+            evt.Fire();
+        }
+        else
+        {
+            GetEngine().CurrentScene->Save( GetEngine().CurrentScene->FilePath.GetLocalPath().data(), RootTransform );
+            GetEngine().GetConfig().SetValue( std::string( "CurrentScene" ), GetEngine().CurrentScene->FilePath.GetLocalPath().data() );
+            GetEngine().GetConfig().Save();
+        }
+        return true;
+    }
+    /*else if (evt.GetEventId() == Moonlight::PickingEvent::GetEventId())
+    {
+        const Moonlight::PickingEvent& casted = static_cast<const Moonlight::PickingEvent&>(evt);
 
-		auto ents = GetEngine().GetWorld().lock()->GetCore(RenderCore::GetTypeId())->GetEntities();
-		for (auto& ent : ents)
-		{
-			if (!ent.HasComponent<Mesh>())
-			{
-				continue;
-			}
-			if (ent.GetComponent<Mesh>().Id == casted.Id)
-			{
-				Transform* meshTransform = &ent.GetComponent<Transform>();
-				std::stack<Transform*> parentEnts;
-				parentEnts.push(meshTransform->GetParent());
+        auto ents = GetEngine().GetWorld().lock()->GetCore(RenderCore::GetTypeId())->GetEntities();
+        for (auto& ent : ents)
+        {
+            if (!ent.HasComponent<Mesh>())
+            {
+                continue;
+            }
+            if (ent.GetComponent<Mesh>().Id == casted.Id)
+            {
+                Transform* meshTransform = &ent.GetComponent<Transform>();
+                std::stack<Transform*> parentEnts;
+                parentEnts.push(meshTransform->GetParent());
 
-				static Transform* selectedParentObjec = nullptr;
+                static Transform* selectedParentObjec = nullptr;
 
-				while (parentEnts.size() > 0)
-				{
-					Transform* parent = parentEnts.top();
-					parentEnts.pop();
-					if (!parent)
-					{
-						continue;
-					}
+                while (parentEnts.size() > 0)
+                {
+                    Transform* parent = parentEnts.top();
+                    parentEnts.pop();
+                    if (!parent)
+                    {
+                        continue;
+                    }
 
-					if (parent->Parent->HasComponent<Model>())
-					{
-						Transform* selectedModel = &parent->Parent->GetComponent<Transform>();
-						if (m_editor->SelectedTransform == nullptr || selectedParentObjec != selectedModel)
-						{
-							m_editor->SelectedTransform = selectedModel;
-							selectedParentObjec = selectedModel;
-							break;
-						}
+                    if (parent->Parent->HasComponent<Model>())
+                    {
+                        Transform* selectedModel = &parent->Parent->GetComponent<Transform>();
+                        if (m_editor->SelectedTransform == nullptr || selectedParentObjec != selectedModel)
+                        {
+                            m_editor->SelectedTransform = selectedModel;
+                            selectedParentObjec = selectedModel;
+                            break;
+                        }
 
-						if (meshTransform != m_editor->SelectedTransform)
-						{
-							m_editor->SelectedTransform = meshTransform;
-						}
-						else
-						{
-							m_editor->SelectedTransform = selectedModel;
-						}
-						break;
-					}
-					else
-					{
-						parentEnts.push(parent->GetParent());
-					}
-				}
-			}
-		}
-		return true;
-	}*/
+                        if (meshTransform != m_editor->SelectedTransform)
+                        {
+                            m_editor->SelectedTransform = meshTransform;
+                        }
+                        else
+                        {
+                            m_editor->SelectedTransform = selectedModel;
+                        }
+                        break;
+                    }
+                    else
+                    {
+                        parentEnts.push(parent->GetParent());
+                    }
+                }
+            }
+        }
+        return true;
+    }*/
 
-	return false;
+    return false;
 }
 
-void EditorCore::OnEntityAdded(Entity& NewEntity)
+void EditorCore::OnEntityAdded( Entity& NewEntity )
 {
-	Base::OnEntityAdded(NewEntity);
+    Base::OnEntityAdded( NewEntity );
 }
 
 Havana* EditorCore::GetEditor() const
 {
-	return m_editor;
+    return m_editor;
 }
 
 SharedPtr<Transform> EditorCore::GetEditorCameraTransform() const
 {
-	return EditorCameraTransform;
+    return EditorCameraTransform;
 }
 
 void EditorCore::OnEditorInspect()
 {
-	BaseCore::OnEditorInspect();
+    BaseCore::OnEditorInspect();
 
-	ImGui::Text("Camera Settings");
-	ImGui::DragFloat("Flying Speed", &m_flyingSpeed);
-	ImGui::DragFloat("Speed Modifier", &m_speedModifier);
-	ImGui::DragFloat("Focus Speed", &m_focusSpeed);
-	ImGui::DragFloat("Look Sensitivity", &m_lookSensitivity, 0.01f);
+    ImGui::Text( "Camera Settings" );
+    ImGui::DragFloat( "Flying Speed", &m_flyingSpeed );
+    ImGui::DragFloat( "Speed Modifier", &m_speedModifier );
+    ImGui::DragFloat( "Focus Speed", &m_focusSpeed );
+    ImGui::DragFloat( "Look Sensitivity", &m_lookSensitivity, 0.01f );
 
-	EditorCameraTransform->OnEditorInspect();
+    EditorCameraTransform->OnEditorInspect();
 
-	EditorCamera->OnEditorInspect();
+    EditorCamera->OnEditorInspect();
 }
 
 #endif

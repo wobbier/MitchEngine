@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using Sharpmake;
 using static CommonTarget;
 
@@ -13,7 +13,7 @@ public abstract class BaseProject : Project
         IsTargetFileNameToLower = false;
         AddTargets(CommonTarget.GetDefaultTargets());
 
-        if(Util.GetExecutingPlatform() == Platform.mac)
+        if (Util.GetExecutingPlatform() == Platform.mac)
         {
             ResourceFiles.Add(Globals.RootDir + "Engine/ThirdParty/UltralightSDK/bin/macOS/AppCore.dylib");
         }
@@ -43,21 +43,56 @@ public abstract class BaseProject : Project
         conf.TargetPath = "[project.SharpmakeCsPath]/.build/[target.Name]/";
         conf.LibraryPaths.Add("[project.SharpmakeCsPath]/.build/[target.Name]/");
 
+        conf.Defines.Add("DEFINE_ME_ULTRALIGHT");
+
+        // RenderDoc DLL
+        // TODO: Is this a chocolatey package? cross platform?
+        // Shitty detection atm, but it works without this?
+        if (File.Exists("C:/Program Files/RenderDoc/renderdoc.dll"))
+        {
+            conf.Defines.Add("DEFINE_ME_RENDERDOC");
+            conf.IncludePaths.Add("C:/Program Files/RenderDoc/");
+            // If we have RenderDoc installed, it better be the same version 😤
+            var copyDirBuildStep = new Configuration.BuildStepCopy(
+                $@"[project.SharpmakeCsPath]/ThirdParty/RenderDoc",
+                Globals.RootDir + "/.build/[target.Name]");
+
+            copyDirBuildStep.IsFileCopy = false;
+            copyDirBuildStep.CopyPattern = "*.dll";
+            conf.EventPostBuildExe.Add(copyDirBuildStep);
+        }
+        conf.Options.Add(
+            new Options.Vc.Compiler.DisableSpecificWarnings(
+                "4267",
+                "4244"
+                )
+        );
+        //conf.Options.Add(Options.Vc.General.TreatWarningsAsErrors.Enable);
         if (target.SelectedMode == CommonTarget.Mode.Editor)
         {
-            conf.Defines.Add("ME_EDITOR");
-            conf.Defines.Add("ME_TOOLS");
+            conf.Defines.Add("DEFINE_ME_EDITOR");
+            conf.Defines.Add("DEFINE_ME_TOOLS");
         }
 
         conf.Defines.Add("NOMINMAX");
 
+        if (Directory.Exists(Globals.FMOD_Win64_Dir) || Directory.Exists(Globals.FMOD_UWP_Dir))
+        {
+            conf.Defines.Add("_DISABLE_EXTENDED_ALIGNED_STORAGE");
+        }
+
         if (target.Optimization == Optimization.Debug)
         {
+            conf.Defines.Add("BX_CONFIG_DEBUG=1");
         }
         else
         {
-
+            conf.Defines.Add("BX_CONFIG_DEBUG=0");
         }
+
+
+        conf.Options.Add(Options.Vc.General.WarningLevel.Level3);
+        conf.Options.Add(Options.Vc.General.TreatWarningsAsErrors.Enable);
     }
 
     #region Platfoms
@@ -71,7 +106,7 @@ public abstract class BaseProject : Project
         conf.Options.Add(Options.Vc.General.CharacterSet.Unicode);
         conf.Options.Add(Options.Vc.Compiler.Exceptions.Enable);
 
-        conf.Defines.Add("ME_PLATFORM_WIN64");
+        conf.Defines.Add("DEFINE_ME_PLATFORM_WIN64");
 
         conf.Options.Add(
             new Options.Vc.Compiler.DisableSpecificWarnings(
@@ -79,6 +114,15 @@ public abstract class BaseProject : Project
                 "4100"
                 )
         );
+
+        if (Directory.Exists(Globals.FMOD_Win64_Dir))
+        {
+            conf.Defines.Add("DEFINE_ME_FMOD");
+        }
+        if (Directory.Exists(Globals.MONO_Win64_Dir))
+        {
+            conf.Defines.Add("DEFINE_ME_MONO");
+        }
     }
 
     [ConfigurePriority(ConfigurePriorities.Platform)]
@@ -90,15 +134,24 @@ public abstract class BaseProject : Project
         conf.Options.Add(Options.Vc.General.CharacterSet.Unicode);
         conf.Options.Add(Options.Vc.Compiler.Exceptions.Enable);
 
-        conf.Defines.Add("ME_PLATFORM_UWP");
+        conf.Defines.Add("DEFINE_ME_PLATFORM_UWP");
         conf.Defines.Add("USE_OPTICK=0");
-        
+
         conf.Options.Add(
             new Options.Vc.Compiler.DisableSpecificWarnings(
                 "4201",
                 "4100"
                 )
         );
+
+        if (Directory.Exists(Globals.FMOD_UWP_Dir))
+        {
+            conf.Defines.Add("DEFINE_ME_FMOD");
+        }
+        if (Directory.Exists(Globals.MONO_Win64_Dir))
+        {
+            conf.Defines.Add("DEFINE_ME_MONO");
+        }
     }
 
     [ConfigurePriority(ConfigurePriorities.Platform)]
@@ -119,7 +172,12 @@ public abstract class BaseProject : Project
         //conf.Options.Add(new Options.XCode.Compiler.SystemFrameworks("Foundation"));
         conf.Options.Add(new Options.XCode.Compiler.SystemFrameworks("Quartz"));
 
-        conf.Defines.Add("ME_PLATFORM_MACOS");
+        conf.Defines.Add("DEFINE_ME_PLATFORM_MACOS");
+
+        if (Directory.Exists(Globals.MONO_macOS_Dir))
+        {
+            conf.Defines.Add("DEFINE_ME_MONO");
+        }
     }
 
     #endregion
@@ -133,6 +191,8 @@ public abstract class BaseProject : Project
         conf.DefaultOption = Options.DefaultTarget.Debug;
 
         conf.Options.Add(Sharpmake.Options.Vc.Compiler.RuntimeLibrary.MultiThreadedDebugDLL);
+        conf.Options.Add(Options.Vc.Compiler.Inline.Disable);
+        conf.Defines.Add("DEFINE_ME_DEBUG");
     }
 
     [ConfigurePriority(ConfigurePriorities.Optimization)]
@@ -141,6 +201,27 @@ public abstract class BaseProject : Project
     {
         conf.DefaultOption = Options.DefaultTarget.Release;
         conf.Options.Add(Sharpmake.Options.Vc.Compiler.RuntimeLibrary.MultiThreadedDLL);
+        conf.Options.Add(Options.Vc.Compiler.Inline.OnlyInline);
+        conf.AdditionalCompilerOptions.Add("/Zi");
+        conf.Defines.Add("DEFINE_ME_RELEASE");
+    }
+
+
+    [ConfigurePriority(ConfigurePriorities.Optimization)]
+    [Configure(Optimization.Retail)]
+    public virtual void ConfigureRetail(Configuration conf, CommonTarget target)
+    {
+        conf.DefaultOption = Options.DefaultTarget.Release;
+
+        conf.Options.Add(Sharpmake.Options.Vc.Compiler.RuntimeLibrary.MultiThreadedDLL);
+
+        // Full inlining
+        conf.Options.Add(Options.Vc.Compiler.Inline.AnySuitable);
+        conf.Options.Add(Options.Vc.Compiler.Optimization.MaximizeSpeed);
+
+        conf.Options.Add(Options.Vc.Compiler.Exceptions.EnableWithSEH);
+        conf.Options.Add(Options.Vc.Compiler.EnhancedInstructionSet.AdvancedVectorExtensions2);
+        conf.Defines.Add("DEFINE_ME_RETAIL");
     }
 
     #endregion

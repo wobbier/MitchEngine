@@ -20,208 +20,170 @@
 #include "Engine/Engine.h"
 #include "Components/Lighting/DirectionalLight.h"
 #include "Work/Burst.h"
-#include "BGFXRenderer.h"
+#include "Renderer.h"
 #include <Core/JobSystem.h>
+#include "Camera/CameraData.h"
 
 RenderCore::RenderCore()
-	: Base(ComponentFilter().Requires<Transform>().Requires<Mesh>())
+    : Base( ComponentFilter().Requires<Transform>().Requires<Mesh>() )
 {
-	SetIsSerializable(false);
-	//m_renderer = &GetEngine().GetRenderer();
-	//m_renderer->RegisterDeviceNotify(this);
+    SetIsSerializable( false );
+    //m_renderer = &GetEngine().GetRenderer();
+    //m_renderer->RegisterDeviceNotify(this);
 }
 
 void RenderCore::Init()
 {
-	CLog::GetInstance().Log(CLog::LogType::Debug, "RenderCore Initialized...");
-	//m_renderer->ClearDebugColliders();
-	GetEngine().GetRenderer().ClearMeshes();
+    CLog::GetInstance().Log( CLog::LogType::Debug, "RenderCore Initialized..." );
+    //m_renderer->ClearDebugColliders();
+    GetEngine().GetRenderer().ClearMeshes();
 }
 
-void RenderCore::OnEntityAdded(Entity& NewEntity)
+void RenderCore::OnEntityAdded( Entity& NewEntity )
 {
-	if (NewEntity.HasComponent<Mesh>())
-	{
-		Moonlight::MeshCommand command;
-		Mesh& model = NewEntity.GetComponent<Mesh>();
-		command.SingleMesh = model.MeshReferece;
-		command.MeshMaterial = model.MeshMaterial;
-		command.Transform = NewEntity.GetComponent<Transform>().GetMatrix().GetInternalMatrix();
-		command.Type = model.GetType();
-		model.Id = GetEngine().GetRenderer().GetMeshCache().Push(command);
-	}
-	if (NewEntity.HasComponent<DirectionalLight>())
-	{
-		//DirectionalLight& light = NewEntity.GetComponent<DirectionalLight>();
-		//GetEngine().GetRenderer().Sunlight.ambient = light.Ambient;
-		//GetEngine().GetRenderer().Sunlight.diffuse = light.Diffuse;
-		//GetEngine().GetRenderer().Sunlight.dir = light.Direction;
-	}
+    if( NewEntity.HasComponent<Mesh>() )
+    {
+
+    }
 }
 
-void RenderCore::OnEntityRemoved(Entity& InEntity)
+void RenderCore::OnEntityRemoved( Entity& InEntity )
 {
-	if (InEntity.HasComponent<Mesh>())
-	{
-		Mesh& mesh = InEntity.GetComponent<Mesh>();
-		GetEngine().GetRenderer().GetMeshCache().Pop(mesh.Id);
-	}
+    if( InEntity.HasComponent<Mesh>() )
+    {
+        //Mesh& mesh = InEntity.GetComponent<Mesh>();
+        //GetEngine().GetRenderer().GetMeshCache().Pop( mesh.Id );
+    }
 }
 
 RenderCore::~RenderCore()
 {
-	CLog::GetInstance().Log(CLog::LogType::Debug, "RenderCore Destroyed...");
+    CLog::GetInstance().Log( CLog::LogType::Debug, "RenderCore Destroyed..." );
 }
 
-void RenderCore::Update(const UpdateContext& inUpdateContext)
+void RenderCore::Update( const UpdateContext& inUpdateContext )
 {
-	OPTICK_CATEGORY("RenderCore::Update", Optick::Category::Rendering)
-	//m_renderer->Update(dt);
-
-	auto& Renderables = GetEntities();
-	if (Renderables.empty())
-	{
-		return;
-	}
+    OPTICK_CATEGORY( "RenderCore::Update", Optick::Category::Rendering );
+    auto& Renderables = GetEntities();
+    Engine& engine = GetEngine();
+    BGFXRenderer& renderer = engine.GetRenderer();
     
-    //auto [worker, pool] = GetEngine().GetJobSystemNew();
-
-    Worker* worker = GetEngine().GetJobEngine().GetThreadWorker();
-    Job* rootJob = worker->GetPool().CreateClosureJob([&Renderables, worker](Job& job) {
+    // Clear Render Commands
+    renderer.GetMeshCache().Commands.clear();
+    while( !renderer.GetMeshCache().FreeIndicies.empty() )
+    {
+        renderer.GetMeshCache().FreeIndicies.pop();
+    }
     
-    });
+    if( Renderables.empty() )
+    {
+        return;
+    }
 
-	std::vector<std::pair<int, int>> batches;
-	Burst::GenerateChunks(Renderables.size(), 11, batches);
+    std::vector<std::pair<int, int>> batches;
+    Burst::GenerateChunks( Renderables.size(), 44, batches );
 
-	worker->Submit(rootJob);
-	for (auto& batch : batches)
-	{
-		int batchBegin = batch.first;
-		int batchEnd = batch.second;
-		int batchSize = batchEnd - batchBegin;
+    JobSystem& jobSystem = engine.m_jobSystem;
+    auto& cameras = renderer.GetCameraCache();
 
-		//YIKES(std::to_string(batchBegin) + " End:" + std::to_string(batchEnd) + " Size:" + std::to_string(batchSize));
-		Job* burstJob = worker->GetPool().CreateClosureJobAsChild([&Renderables, batchBegin, batchEnd, batchSize](Job& job) {
-			if (Renderables.size() == 0)
-			{
-				return;
-			}
-			for (int entIndex = batchBegin; entIndex < batchEnd; ++entIndex)
-			{
-				auto& InEntity = Renderables[entIndex];
-				OPTICK_CATEGORY("B::Update Mesh Matrix", Optick::Category::Debug);
+    // Resize visible flag vector
+    engine.EditorCamera.VisibleFlags.resize( Renderables.size() );
+    for( Moonlight::CameraData& cam : cameras.Commands )
+    {
+        cam.VisibleFlags.resize( Renderables.size() );
+    }
 
-				if (InEntity/* && !InEntity.IsLoading*/)
-				{
+    for( auto& batch : batches )
+    {
+        OPTICK_CATEGORY( "Create Render Jobs", Optick::Category::Debug );
+        int batchBegin = batch.first;
+        int batchEnd = batch.second;
+        int batchSize = batchEnd - batchBegin;
 
-					Transform& transform = InEntity.GetComponent<Transform>();
-					if (InEntity.HasComponent<Mesh>())
-					{
-						Mesh& model = InEntity.GetComponent<Mesh>();
+        auto meshJob = [&renderer, &Renderables, &cameras, batchBegin, batchEnd, batchSize]() {
+            for( int entIndex = batchBegin; entIndex < batchEnd; ++entIndex )
+            {
+                OPTICK_CATEGORY( "Update Transform", Optick::Category::Debug );
+                auto& InEntity = Renderables[entIndex];
+                {
+                    Transform& transform = InEntity.GetComponent<Transform>();
+                    Mesh& model = InEntity.GetComponent<Mesh>();
+                    bool isVisible = false;
+                    const glm::mat4& meshMatrix = transform.GetLocalToWorldMatrix().GetInternalMatrix();
 
-						GetEngine().GetRenderer().UpdateMeshMatrix(model.GetId(), transform.GetMatrix().GetInternalMatrix());
-					}
-					if (InEntity.HasComponent<DirectionalLight>())
-					{
-						//DirectionalLight& light = InEntity.GetComponent<DirectionalLight>();
-						//auto pos = transform.GetWorldPosition();
-						//m_renderer->Sunlight.pos = XMFLOAT4(pos.x, pos.y, pos.z, 0);
-						//m_renderer->Sunlight.ambient = light.Ambient;
-						//m_renderer->Sunlight.diffuse = light.Diffuse;
-						//m_renderer->Sunlight.dir = light.Direction;
-					}
-				}
+                    for( Moonlight::CameraData& cam : cameras.Commands )
+                    {
+                        if( cam.ViewFrustum.IsPointInFrustum( glm::vec4(meshMatrix[3] ) ) )
+                        {
+                            isVisible = true;
+                            cam.VisibleFlags[entIndex] = true;
+                        }
+                    }
 
-			}
-		}, rootJob);
-		worker->Submit(burstJob);
-	}
-    worker->Wait(rootJob);
-	//for (auto& InEntity : Renderables)
-	//{
-	//	//OPTICK_CATEGORY("Update Mesh", Optick::Category::Rendering);
+                    if( isVisible )
+                    {
+                        Moonlight::MeshCommand command;
+                        command.SingleMesh = model.MeshReferece;
+                        command.MeshMaterial = model.MeshMaterial;
+                        command.Transform = meshMatrix;
+                        command.Type = model.GetType();
+                        command.VisibilityIndex = entIndex;
+                        model.Id = renderer.GetMeshCache().Push( command );
+                    }
+                }
+            }
+            };
+        //meshJob();
+        jobSystem.AddWork( meshJob, false );
+        jobSystem.SignalWorkAvailable();
+    }
+    jobSystem.Wait();
 
-	//	Burst::LambdaWorkEntry entry;
-	//	entry.m_callBack = [this, &InEntity]() {
-	//		OPTICK_CATEGORY("Burst::TestFunc", Optick::Category::Debug);
-	//		Transform& transform = InEntity.GetComponent<Transform>();
-	//		Mesh& model = InEntity.GetComponent<Mesh>();
-
-	//		m_renderer->UpdateMeshMatrix(model.GetId(), transform.GetMatrix().GetInternalMatrix());
-	//	};
-	//	burst.AddWork2<Burst::LambdaWorkEntry>(entry, (int)sizeof(Burst::LambdaWorkEntry));
-	//	//if (InEntity.HasComponent<Rigidbody>())
-	//	//{
-	//	//	Rigidbody& rigidbody = InEntity.GetComponent<Rigidbody>();
-	//	//	if (rigidbody.IsRigidbodyInitialized())
-	//	//	{
-	//	//		// TODO: Use the matrix from the rigidbody
-	//	//		m_renderer->UpdateMatrix(rigidbody.Id, transform.GetMatrix().GetInternalMatrix());
-	//	//	}
-	//	//}
-	//	//if (InEntity.HasComponent<DirectionalLight>())
-	//	//{
-	//	//	DirectionalLight& light = InEntity.GetComponent<DirectionalLight>();
-	//	//	auto pos = transform.GetWorldPosition().GetInternalVec();
-	//	//	m_renderer->Sunlight.pos = XMFLOAT4(pos.x, pos.y, pos.z, 0);
-	//	//	m_renderer->Sunlight.ambient = light.Ambient;
-	//	//	m_renderer->Sunlight.diffuse = light.Diffuse;
-	//	//	m_renderer->Sunlight.dir = light.Direction;
-	//	//}
-	//}
-#if ME_EDITOR
-	GetEngine().GetRenderer().SetDebugDrawEnabled(EnableDebugDraw);
+#if USING( ME_EDITOR )
+    renderer.SetDebugDrawEnabled( EnableDebugDraw );
 #endif
 }
 
 void RenderCore::OnDeviceLost()
 {
-#if ME_DIRECTX
-	//m_renderer->ReleaseDeviceDependentResources();
-#endif
 }
 
 void RenderCore::OnDeviceRestored()
 {
-#if ME_DIRECTX
-	//m_renderer->CreateDeviceDependentResources();
-	//m_renderer->GetDevice().CreateWindowSizeDependentResources();
-#endif
 }
 
 void RenderCore::OnStop()
 {
-	GetEngine().GetRenderer().ClearMeshes();
-	//m_renderer->ClearDebugColliders();
+    GetEngine().GetRenderer().ClearMeshes();
+    //m_renderer->ClearDebugColliders();
 }
 
-void RenderCore::UpdateMesh(Mesh* InMesh)
+void RenderCore::UpdateMesh( Mesh* InMesh )
 {
-	GetEngine().GetRenderer().GetMeshCache().Pop(InMesh->Id);
-
-	Moonlight::MeshCommand command;
-	command.SingleMesh = InMesh->MeshReferece;
-	command.MeshMaterial = InMesh->MeshMaterial;
-	command.Type = InMesh->GetType();
-	InMesh->Id = GetEngine().GetRenderer().GetMeshCache().Push(command);
+    //GetEngine().GetRenderer().GetMeshCache().Pop( InMesh->Id );
+    //
+    //Moonlight::MeshCommand command;
+    //command.SingleMesh = InMesh->MeshReferece;
+    //command.MeshMaterial = InMesh->MeshMaterial;
+    //command.Type = InMesh->GetType();
+    //InMesh->Id = GetEngine().GetRenderer().GetMeshCache().Push( command );
 }
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 void RenderCore::OnEditorInspect()
 {
-	Base::OnEditorInspect();
+    Base::OnEditorInspect();
 
-	ImGui::Checkbox("Enable Debug Draw", &EnableDebugDraw);
-	if (ImGui::Button("MSAA None"))
-	{
-		GetEngine().GetRenderer().SetMSAALevel(BGFXRenderer::MSAALevel::None);
-	}
-	if (ImGui::Button("MSAA X16"))
-	{
-		GetEngine().GetRenderer().SetMSAALevel(BGFXRenderer::MSAALevel::X16);
-	}
+    ImGui::Checkbox( "Enable Debug Draw", &EnableDebugDraw );
+    if( ImGui::Button( "MSAA None" ) )
+    {
+        GetEngine().GetRenderer().SetMSAALevel( BGFXRenderer::MSAALevel::None );
+    }
+    if( ImGui::Button( "MSAA X16" ) )
+    {
+        GetEngine().GetRenderer().SetMSAALevel( BGFXRenderer::MSAALevel::X16 );
+    }
 
 
 }

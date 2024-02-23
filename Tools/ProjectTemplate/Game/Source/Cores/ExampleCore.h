@@ -17,7 +17,7 @@ public:
 	virtual void Update(float dt) final;
 
 private:
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 	virtual void OnEditorInspect() final;
 #endif
 };

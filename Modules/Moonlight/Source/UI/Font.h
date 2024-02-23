@@ -2,10 +2,10 @@
 #include "Resource/Resource.h"
 
 class Font
-	: public Resource
+    : public Resource
 {
     Font() = delete;
-	Font(const Path& InFilePath);
+    Font( const Path& InFilePath );
 
 
 };

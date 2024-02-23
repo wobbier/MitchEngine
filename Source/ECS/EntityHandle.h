@@ -8,25 +8,27 @@ class Entity;
 
 struct EntityIDHash
 {
-	std::size_t operator()(const EntityID& k) const
-	{
-		return std::hash<EntityID::IntType>()(k.Value());
-	}
+    std::size_t operator()( const EntityID& k ) const
+    {
+        return std::hash<EntityID::IntType>()( k.Value() );
+    }
 };
 
 class EntityHandle
 {
 public:
-	EntityHandle() = default;
-	EntityHandle(EntityID InID, WeakPtr<World> InWorld);
+    EntityHandle() = default;
+    EntityHandle( EntityID InID, WeakPtr<World> InWorld );
 
-	explicit operator bool() const;
-	bool operator ==(const EntityHandle& other) const;
-	Entity* operator->() const;
+    explicit operator bool() const;
+    bool operator ==( const EntityHandle& other ) const;
+    Entity* operator->() const;
 
-	Entity* Get() const;
+    Entity* Get() const;
+
+    EntityID GetID() const;
 
 private:
-	EntityID ID;
-	WeakPtr<World> GameWorld;
+    EntityID ID;
+    WeakPtr<World> GameWorld;
 };

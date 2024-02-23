@@ -7,36 +7,36 @@
 
 struct EntityID
 {
-	typedef std::uint64_t IntType;
+    typedef std::uint64_t IntType;
 
-	IntType Index{ MITCH_ENTITY_ID_INDEX_BIT_COUNT };
-	IntType Counter{ MITCH_ENTITY_ID_COUNTER_BIT_COUNT };
+    IntType Index { MITCH_ENTITY_ID_INDEX_BIT_COUNT };
+    IntType Counter { MITCH_ENTITY_ID_COUNTER_BIT_COUNT };
 
-	EntityID() : Index(0), Counter(0) {};
-	EntityID(IntType inIndex, IntType inCounter) : Index(inIndex), Counter(inCounter) {};
+    EntityID() : Index( 0 ), Counter( 0 ) {};
+    EntityID( IntType inIndex, IntType inCounter ) : Index( inIndex ), Counter( inCounter ) {};
 
-	inline operator IntType() const
-	{
-		return Value();
-	}
-	
-	bool operator==(const EntityID& other) const
-	{
-		return (Value() == other.Value());
-	}
+    inline operator IntType() const
+    {
+        return Value();
+    }
 
-	inline IntType Value() const
-	{
-		return (Counter << MITCH_ENTITY_ID_COUNTER_BIT_COUNT) | Index;
-	}
+    bool operator==( const EntityID& other ) const
+    {
+        return ( Value() == other.Value() );
+    }
 
-	void Clear()
-	{
-		Index = Counter = 0;
-	}
+    inline IntType Value() const
+    {
+        return ( Counter << MITCH_ENTITY_ID_COUNTER_BIT_COUNT ) | Index;
+    }
 
-	bool IsNull() const
-	{
-		return Value() == 0;
-	}
+    void Clear()
+    {
+        Index = Counter = 0;
+    }
+
+    bool IsNull() const
+    {
+        return Value() == 0;
+    }
 };

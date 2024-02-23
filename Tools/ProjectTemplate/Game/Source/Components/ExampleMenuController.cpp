@@ -8,6 +8,8 @@ ExampleMenuController::ExampleMenuController()
 	FilePath = Path("Assets/UI/ExampleMenu.html");
 }
 
+#if USING( ME_UI )
+
 void ExampleMenuController::OnUILoad(ultralight::JSObject& GlobalWindow, ultralight::View* Caller)
 {
 	BasicUIView::OnUILoad(GlobalWindow, Caller);
@@ -22,3 +24,5 @@ void ExampleMenuController::LoadScene(const ultralight::JSObject& thisObject, co
 	evt.Level = std::string(path.utf8().data());
 	evt.Fire();
 }
+
+#endif

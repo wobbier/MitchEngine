@@ -4,7 +4,7 @@
 #include "Dementia.h"
 #include "CLog.h"
 
-#if ME_PLATFORM_UWP
+#if USING( ME_PLATFORM_UWP )
 #include <wrl/client.h>
 #include <fstream>
 #else
@@ -14,19 +14,25 @@
 class Path
 {
 public:
-	Path() = default;
+    Path() = default;
 
-	explicit Path(const std::string& InFile, bool Raw = false);
+    explicit Path( const std::string& InFile, bool Raw = false );
 
-	~Path();
+    ~Path();
 
-	const char* GetExtension() const;
+    const char* GetExtension() const;
 
-	bool IsFile = false;
-	bool IsFolder = false;
-	bool Exists = false;
-	int8_t ExtensionPos;
-	std::string FullPath;
-	std::string LocalPath;
-	std::string Directory;
+    std::string_view GetDirectory() const;
+    std::string GetDirectoryString() const;
+
+    std::string_view GetLocalPath() const;
+    std::string GetLocalPathString() const;
+
+    bool IsFile = false;
+    bool IsFolder = false;
+    bool Exists = false;
+    int8_t ExtensionPos;
+    int8_t DirectoryPos;
+    int8_t LocalPos;
+    std::string FullPath;
 };

@@ -26,7 +26,7 @@ public:
 	void Update() final;
 	void Render() final;
 
-	void SetData(std::vector<SharedPtr<HavanaWidget>>* widgetList, EditorApp* editorApp);
+	void SetData(std::vector<SharedPtr<HavanaWidget>>* widgetList, std::vector<SharedPtr<HavanaWidget>>* customWidgetList, EditorApp* editorApp);
 
 	void SetWindowTitle(const std::string& title);
 
@@ -44,6 +44,7 @@ private:
 
 	EditorApp* App = nullptr;
 	std::vector<SharedPtr<HavanaWidget>>* WidgetList = nullptr;
+	std::vector<SharedPtr<HavanaWidget>>* CustomWidgetList = nullptr;
 
 	std::unordered_map<std::string, SharedPtr<Moonlight::Texture>> Icons;
 	std::string WindowTitle;
@@ -57,8 +58,12 @@ private:
 	json AssetDirectory;
 	Havana* Editor = nullptr;
 
-#ifdef FMOD_ENABLED
+#if USING( ME_FMOD )
 	SharedPtr<Moonlight::Texture> FMODImage;
+#endif
+
+#if USING( ME_SCRIPTING )
+    SharedPtr<Moonlight::Texture> MONOImage;
 #endif
 
 	void BrowseDirectory(const Path& path);

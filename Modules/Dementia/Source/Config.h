@@ -3,24 +3,28 @@
 #include <File.h>
 #include <JSON.h>
 
-class Config
+class ConfigFile
 {
 public:
-	Config(const Path& ConfigPath);
-	virtual ~Config();
+    ConfigFile() = default;
+    explicit ConfigFile( const Path& ConfigPath );
+    virtual ~ConfigFile();
 
-	std::string GetValue(const std::string& value);
-	const json& GetJsonObject(const std::string& value);
+    std::string GetValue( const std::string& value );
+    const json& GetJsonObject( const std::string& value );
 
-	void SetValue(const std::string& key, const std::string& newVal);
+    void SetValue( const std::string& key, const std::string& newVal );
 
-	void Save();
+    void Save();
+    void Load();
 
-	virtual void OnSave(json& outJson) {};
-	virtual void OnLoad(const json& outJson) {};
+    void Clear();
 
+    virtual void OnSave( json& outJson ) {};
+    virtual void OnLoadConfig( const json& outJson ) {};
 
-	json Root;
-private:
-	File ConfigFile;
+    json Root;
+
+protected:
+    File m_configFile;
 };

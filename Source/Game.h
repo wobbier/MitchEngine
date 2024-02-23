@@ -1,4 +1,4 @@
-// 2018 Mitchell Andrews
+// 2023 Mitchell Andrews
 #pragma once
 #include "Dementia.h"
 #include "Core/UpdateContext.h"
@@ -6,27 +6,18 @@
 class Game
 {
 public:
-	Game() = delete;
-	Game(int argc, char** argv) {};
-	virtual void OnInitialize() = 0;
+    Game() = delete;
+    Game( int argc, char** argv ) {};
+    virtual void OnInitialize() = 0;
 
-	virtual void OnStart() = 0;
-	virtual void OnUpdate(const UpdateContext& inUpdateContext) = 0;
-	virtual void OnEnd() = 0;
-	virtual void PostRender() = 0;
-	ME_NONCOPYABLE(Game)
-	ME_NONMOVABLE(Game)
+    virtual void OnStart() = 0;
+    virtual void OnUpdate( const UpdateContext& inUpdateContext ) = 0;
+    virtual void OnEnd() = 0;
+    virtual void PostRender() = 0;
+    ME_HARDSTUCK( Game )
 };
 
-#ifndef __cplusplus_winrt
-#define ME_APPLICATION_MAIN(className)                                      \
-    int main(int argc, char** argv) {                                       \
-        className app(argc, argv);                                          \
-		GetEngine().Init(&app);                                             \
-		GetEngine().Run();                                                  \
-		return 0;                                                           \
-	}
-#else
+#if USING( ME_PLATFORM_UWP )
 #include "SDL.h"
 #include "SDL_video.h"
 #include "SDL_main.h"
@@ -46,4 +37,12 @@ public:
         return SDL_WinRTRunApp(_main, nullptr);                             \
     }                                                                       \
     __pragma(warning(pop))
+#else
+#define ME_APPLICATION_MAIN(className)                                      \
+    int main(int argc, char** argv) {                                       \
+        className app(argc, argv);                                          \
+		GetEngine().Init(&app);                                             \
+		GetEngine().Run();                                                  \
+		return 0;                                                           \
+	}
 #endif

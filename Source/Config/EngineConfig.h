@@ -3,21 +3,17 @@
 #include <stdio.h>
 
 class EngineConfig
-    : public Config
+    : public ConfigFile
 {
 public:
-    EngineConfig(const Path& inPath)
-        : Config(inPath)
-    {
-        std::cout << "llmfao";
-    }
+    EngineConfig() = default;
+    EngineConfig( const Path& inPath );
 
-    virtual void OnSave(json& outJson) final
-    {
+    virtual void OnSave( json& outJson ) final;
 
-    }
+    virtual void OnLoadConfig( const json& inJson ) final;
 
-    virtual void OnLoad(const json& inJson) final;
-
-    Vector2 WindowSize;
+    Vector2 WindowSize = { 1280.f, 720.f };
+    Vector2 WindowPosition = { 0.f, 0.f };
+    std::string WindowTitle;
 };

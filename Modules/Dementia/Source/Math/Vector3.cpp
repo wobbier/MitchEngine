@@ -1,10 +1,10 @@
 #include "Vector3.h"
 
-const Vector3 Vector3::Right = Vector3(1.f, 0.f, 0.f);
+const Vector3 Vector3::Right = Vector3( 1.f, 0.f, 0.f );
 
-const Vector3 Vector3::Front = Vector3(0.f, 0.f, 1.f);
+const Vector3 Vector3::Front = Vector3( 0.f, 0.f, 1.f );
 
-const Vector3 Vector3::Up = Vector3(0.f, 1.f, 0.f);
+const Vector3 Vector3::Up = Vector3( 0.f, 1.f, 0.f );
 //
 //inline Vector3 operator* (const Vector3& v, float s)
 //{

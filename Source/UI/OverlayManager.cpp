@@ -1,105 +1,165 @@
 #include "PCH.h"
 #include "OverlayManager.h"
+
+#if USING( ME_UI )
+
 #include <algorithm>
 #include <AppCore/Overlay.h>
+#include <AppCore/App.h>
+#include <Ultralight/Renderer.h>
 
+/*
 namespace ultralight {
 
-OverlayManager::OverlayManager() {
-}
+    OverlayManager::OverlayManager() {
+    }
 
-OverlayManager::~OverlayManager() {
-}
+    OverlayManager::~OverlayManager() {
+    }
 
-void OverlayManager::Add(Overlay* overlay) {
-  overlays_.push_back(overlay);
-}
+    void OverlayManager::Add( Overlay* overlay ) {
+        overlays_.push_back( overlay );
+    }
 
-void OverlayManager::Remove(Overlay* overlay) {
-  overlays_.erase(std::remove(overlays_.begin(), overlays_.end(), overlay), overlays_.end());
+    void OverlayManager::Remove( Overlay* overlay ) {
+        overlays_.erase( std::remove( overlays_.begin(), overlays_.end(), overlay ), overlays_.end() );
 
-  if (focused_overlay_ == overlay) {
-    focused_overlay_ = nullptr;
-    is_dragging_ = false;
-  }
+        if( focused_overlay_ == overlay ) {
+            focused_overlay_ = nullptr;
+            is_dragging_ = false;
+        }
 
-  if (hovered_overlay_ == overlay)
-    hovered_overlay_ = nullptr;
-}
+        if( hovered_overlay_ == overlay )
+            hovered_overlay_ = nullptr;
+    }
 
-void OverlayManager::Draw() {
-  for (auto& i : overlays_)
-    i->Draw();
-}
+    void OverlayManager::Render() {
+        if( overlays_.empty() )
+            return;
 
-void OverlayManager::FireKeyEvent(const ultralight::KeyEvent& evt) {
-  if (focused_overlay_)
-    focused_overlay_->view()->FireKeyEvent(evt);
-}
+        size_t view_array_len = overlays_.size();
+        View** view_array = new View * [view_array_len];
 
-void OverlayManager::FireMouseEvent(const ultralight::MouseEvent& evt) {
-  if (is_dragging_) {
-    MouseEvent rel_evt = evt;
-    rel_evt.x -= hovered_overlay_->x();
-    rel_evt.y -= hovered_overlay_->y();
+        size_t i = 0;
+        for( auto& overlay : overlays_ ) {
+            view_array[i] = overlay->view().get();
+            i++;
+        }
 
-    focused_overlay_->view()->FireMouseEvent(rel_evt);
+        App::instance()->renderer()->RenderOnly( view_array, view_array_len );
 
-    if (evt.type == ultralight::MouseEvent::kType_MouseUp && evt.button == MouseEvent::kButton_Left)
-      is_dragging_ = false;
+        delete[] view_array;
+    }
 
-    return;
-  }
+    void OverlayManager::Paint() {
+        for( auto& i : overlays_ )
+            i->Paint();
+    }
 
-  hovered_overlay_ = HitTest(evt.x, evt.y);
+    void OverlayManager::SetWindowFocused( bool focused ) {
+        window_focused_ = focused;
+        if( focused_overlay_ ) {
+            if( window_focused_ )
+                focused_overlay_->view()->Focus();
+            else
+                focused_overlay_->view()->Unfocus();
+        }
+    }
 
-  if (evt.type == ultralight::MouseEvent::kType_MouseDown && evt.button == MouseEvent::kButton_Left) {
-    focused_overlay_ = HitTest(evt.x, evt.y);
-    is_dragging_ = true;
-  }
+    void OverlayManager::SetWindowScale( double scale ) {
+        window_scale_ = scale;
+    }
 
-  if (hovered_overlay_) {
-    MouseEvent rel_evt = evt;
-    rel_evt.x -= hovered_overlay_->x();
-    rel_evt.y -= hovered_overlay_->y();
+    void OverlayManager::FireKeyEvent( const ultralight::KeyEvent& evt ) {
+        if( focused_overlay_ ) {
+            focused_overlay_->view()->FireKeyEvent( evt );
+        }
+    }
 
-    hovered_overlay_->view()->FireMouseEvent(rel_evt);
-  }
-}
+    void OverlayManager::FireMouseEvent( const ultralight::MouseEvent& evt ) {
+        if( is_dragging_ ) {
+            MouseEvent rel_evt = evt;
+            rel_evt.x -= (int)std::round( hovered_overlay_->x() / window_scale_ );
+            rel_evt.y -= (int)std::round( hovered_overlay_->y() / window_scale_ );
 
-void OverlayManager::FireScrollEvent(const ultralight::ScrollEvent& evt) {
-  if (hovered_overlay_)
-    hovered_overlay_->view()->FireScrollEvent(evt);
-}
+            focused_overlay_->view()->FireMouseEvent( rel_evt );
 
-void OverlayManager::FocusOverlay(Overlay* overlay) {
-  if (!is_dragging_)
-    focused_overlay_ = overlay;
-}
+            if( evt.type == ultralight::MouseEvent::kType_MouseUp && evt.button == MouseEvent::kButton_Left )
+                is_dragging_ = false;
 
-void OverlayManager::UnfocusOverlay(Overlay* overlay) {
-  if (focused_overlay_ == overlay)
-    focused_overlay_ = nullptr;
-}
+            return;
+        }
 
-bool OverlayManager::IsOverlayFocused(Overlay* overlay) const {
-  return focused_overlay_ == overlay;
-}
+        int x_px = (int)std::round( evt.x * window_scale_ );
+        int y_px = (int)std::round( evt.y * window_scale_ );
+        hovered_overlay_ = HitTest( x_px, y_px );
 
-Overlay* OverlayManager::HitTest(int x, int y) {
-  for (auto& i : overlays_) {
-    if (!i->is_hidden() && x >= i->x() && y >= i->y() && x < i->x() + (int)i->width() && y < i->y() + (int)i->height())
-      return i;
-  }
+        if( hovered_overlay_ ) {
+            if( evt.type == ultralight::MouseEvent::kType_MouseDown && evt.button == MouseEvent::kButton_Left ) {
+                if( focused_overlay_ )
+                    focused_overlay_->view()->Unfocus();
 
-  return nullptr;
-}
+                focused_overlay_ = hovered_overlay_;
 
-void OverlayManager::UnfocusAll() {
-	if (focused_overlay_)
-		focused_overlay_->view()->Unfocus();
+                if( window_focused_ )
+                    focused_overlay_->view()->Focus();
+                is_dragging_ = true;
+            }
 
-	focused_overlay_ = nullptr;
-}
+            MouseEvent rel_evt = evt;
+            rel_evt.x -= (int)std::round( hovered_overlay_->x() / window_scale_ );
+            rel_evt.y -= (int)std::round( hovered_overlay_->y() / window_scale_ );
 
-}  // namespace ultralight
+            hovered_overlay_->view()->FireMouseEvent( rel_evt );
+        }
+    }
+
+    void OverlayManager::FireScrollEvent( const ultralight::ScrollEvent& evt ) {
+        if( hovered_overlay_ )
+            hovered_overlay_->view()->FireScrollEvent( evt );
+    }
+
+    void OverlayManager::FocusOverlay( Overlay* overlay ) {
+        if( !is_dragging_ ) {
+            if( focused_overlay_ )
+                focused_overlay_->view()->Unfocus();
+
+            focused_overlay_ = overlay;
+
+            if( window_focused_ )
+                focused_overlay_->view()->Focus();
+        }
+    }
+
+    void OverlayManager::UnfocusAll() {
+        if( focused_overlay_ )
+            focused_overlay_->view()->Unfocus();
+
+        focused_overlay_ = nullptr;
+    }
+
+    bool OverlayManager::IsOverlayFocused( Overlay* overlay ) const {
+        return focused_overlay_ == overlay;
+    }
+
+    bool OverlayManager::NeedsRepaint() {
+        for( auto& i : overlays_ )
+            if( i->NeedsRepaint() )
+                return true;
+
+        return false;
+    }
+
+    Overlay* OverlayManager::HitTest( int x, int y ) {
+        for( auto& i : overlays_ ) {
+            if( !i->is_hidden() && x >= i->x() && y >= i->y() && x < i->x() + (int)i->width() && y < i->y() + (int)i->height() )
+                return i;
+        }
+
+        return nullptr;
+    }
+
+
+}  // namespace ultralight*/
+
+#endif

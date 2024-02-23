@@ -3,17 +3,17 @@
 
 namespace Moonlight
 {
-	class UnlitMaterial
-		: public Material
-	{
-	public:
-		UnlitMaterial();
+    class UnlitMaterial
+        : public Material
+    {
+    public:
+        UnlitMaterial();
 
-		virtual void Init() final;
-		virtual void Use() final;
+        virtual void Init() final;
+        virtual void Use() final;
 
-		virtual SharedPtr<Material> CreateInstance() final;
-	};
+        virtual SharedPtr<Material> CreateInstance() final;
+    };
 
-	ME_REGISTER_MATERIAL_NAME(UnlitMaterial, "Unlit")
+    ME_REGISTER_MATERIAL_NAME( UnlitMaterial, "Unlit" )
 }

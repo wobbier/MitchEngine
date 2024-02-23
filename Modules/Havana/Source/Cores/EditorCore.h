@@ -8,7 +8,7 @@ class Transform;
 class Havana;
 class Camera;
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 class EditorCore
 	: public Core<EditorCore>
@@ -40,7 +40,7 @@ public:
 private:
 	float m_flyingSpeed = 25.f;
 
-	float m_lookSensitivity = 10.f;
+	float m_lookSensitivity = 40.f;
 	float m_speedModifier = 100.f;
 	float LastX = 0.f;
 	float LastY = 0.f;

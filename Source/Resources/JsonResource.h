@@ -3,13 +3,13 @@
 #include "JSON.h"
 
 class JsonResource
-	: public Resource
+    : public Resource
 {
 public:
-	JsonResource(const Path& InFilePath);
+    JsonResource( const Path& InFilePath );
 
-	const json& GetJson() const;
+    const json& GetJson() const;
 
 private:
-	json Data;
+    json Data;
 };

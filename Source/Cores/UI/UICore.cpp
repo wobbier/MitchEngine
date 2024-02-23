@@ -1,302 +1,454 @@
 #include <PCH.h>
 #include <Cores/UI/UICore.h>
 
-#include <AppCore/Overlay.h>
 #include <Components/Camera.h>
 #include <Engine/Engine.h>
+
+#if USING( ME_UI )
+#include <AppCore/Overlay.h>
+#include <AppCore/Platform.h>
 #include <Ultralight/platform/Platform.h>
-#include <Ultralight/platform/Config.h>
+#endif
+
 #include <imgui.h>
 #include <Utils/ImGuiUtils.h>
-#include <AppCore/Platform.h>
-#include <BGFXRenderer.h>
+#include <Renderer.h>
 #include "Mathf.h"
+#include "Dementia.h"
+#include "Events/SceneEvents.h"
+#include "CLog.h"
+#include "Utils/BGFXUtils.h"
+#include "Primitives/Cube.h"
+#include "UI/FileLogger.h"
+#include "UI/FileSystemBasic.h"
+#include "UI/UIUtils.h"
 
-UICore::UICore(IWindow* window, BGFXRenderer* renderer)
-	: Base(ComponentFilter().Requires<BasicUIView>())
-	, m_uiTexture(BGFX_INVALID_HANDLE)
+UICore::UICore( IWindow* window, BGFXRenderer* renderer )
+    : Base( ComponentFilter().Requires<BasicUIView>() )
+    , m_uiTexture( BGFX_INVALID_HANDLE )
 {
-	SetIsSerializable(false);
+    SetIsSerializable( false );
+    ///DestroyOnLoad = false;
 
-	m_renderer = renderer;
-	m_window = AdoptRef(*new UIWindow(window, GetOverlayManager()));
-	std::string fileSystemRoot = Path("").Directory;
-	m_fs.reset(new ultralight::FileSystemBasic(fileSystemRoot.c_str()));
+    std::vector<TypeId> events;
+    events.push_back( SceneLoadedEvent::GetEventId() );
+    EventManager::GetInstance().RegisterReceiver( this, events );
 
-	ultralight::Config config;
-	config.device_scale = 1.0f;
-	config.enable_images = true;
-	config.face_winding = ultralight::FaceWinding::kFaceWinding_Clockwise;
-	config.force_repaint = true;
-	config.font_family_standard = "Arial";
-	config.use_gpu_renderer = false;
-	// ??????
-	config.resource_path = "M:\\Projects\\C++\\stack\\Engine\\Modules\\Havana\\..\\..\\..\\Build\\Debug Editor";
-	//config_.cache_path = ultralight::String16(std::string(fileSystemRoot.Directory + "ultralight.log").c_str());
+    m_renderer = renderer;
 
-	m_context.reset(new GPUContext());
-	if (!m_context->Initialize(m_window->width(), m_window->height(), m_window->scale(), m_window->is_fullscreen(), true, false, 1))
-	{
-		YIKES("Failed to initialize ultralight context");
-	}
+    UIProgram = Moonlight::LoadProgram( "Assets/Shaders/UI.vert", "Assets/Shaders/UI.frag" );
+    s_texUI = bgfx::createUniform( "s_texUI", bgfx::UniformType::Sampler );
 
-	m_driver.reset(new GPUDriverBGFX(m_context.get()));
-	m_logger.reset(new ultralight::FileLogger(ultralight::String(std::string(fileSystemRoot + "Ultralight.log").c_str())));
-#if ME_PLATFORM_UWP
-	m_fontLoader.reset(new ultralight::FontLoaderWin());
+#if USING( ME_UI )
+    m_config.force_repaint = false;
+    m_config.face_winding = ultralight::FaceWinding::Clockwise;
+    m_config.animation_timer_delay = 1.0 / 60.0;
+    m_config.recycle_delay = 1.0;
+#if USING( ME_EDITOR )
+    m_config.resource_path_prefix = "Assets/UI/";
 #else
-    m_fontLoader.reset(ultralight::GetPlatformFontLoader());
+    m_config.resource_path_prefix = "Assets/UI/";
 #endif
-	ultralight::Platform& platform = ultralight::Platform::instance();
-	platform.set_config(config);
-	platform.set_file_system(m_fs.get());
-	platform.set_font_loader(m_fontLoader.get());
-	//if (config.use_gpu_renderer)
-	{
-		platform.set_gpu_driver(m_driver.get());
-	}
-	platform.set_logger(m_logger.get());
 
-	m_uiRenderer = ultralight::Renderer::Create();
+
+    ultralight::Platform::instance().set_config( m_config );
+    ultralight::Platform::instance().set_font_loader( new FontLoaderWin() );
+    ultralight::Platform::instance().set_file_system( new FileSystemBasic( Path( "/" ).FullPath.c_str() ) );
+    ultralight::Platform::instance().set_logger( new FileLogger( "ultralight.log" ) );
+
+    m_driver = new UIDriver();
+    ultralight::Platform::instance().set_gpu_driver( m_driver );
+
+    m_uiRenderer = ultralight::Renderer::Create();
+#endif
 }
 
 UICore::~UICore()
 {
-	CLog::Log(CLog::LogType::Debug, "UICore Destroyed...");
+    CLog::Log( CLog::LogType::Debug, "UICore Destroyed..." );
+    EventManager::GetInstance().DeRegisterReciever( this );
+    // Am I leaking? or am I just dreaming?
+    //m_overlays.clear();
+
+#if USING( ME_UI )
+    delete m_driver;
+#endif
 }
 
 void UICore::Init()
 {
-	CLog::Log(CLog::LogType::Debug, "UICore Initialized...");
+    CLog::Log( CLog::LogType::Debug, "UICore Initialized..." );
 }
 
-void UICore::OnEntityAdded(Entity& NewEntity)
+void UICore::OnEntityAdded( Entity& NewEntity )
 {
-	BasicUIView& view = NewEntity.GetComponent<BasicUIView>();
+    BasicUIView& view = NewEntity.GetComponent<BasicUIView>();
 
-	InitUIView(view);
+    InitUIView( view );
 }
 
-void UICore::OnEntityRemoved(Entity& InEntity)
+void UICore::OnEntityRemoved( Entity& InEntity )
 {
-	BasicUIView& view = InEntity.GetComponent<BasicUIView>();
+    BasicUIView& view = InEntity.GetComponent<BasicUIView>();
+    view.IsInitialized = false;
 
-	GetOverlayManager()->Remove(m_overlays[view.Index].get());
-	m_overlays.erase(m_overlays.begin() + view.Index);
+    m_views.erase( std::remove( m_views.begin(), m_views.end(), m_views[view.Index] ), m_views.end() );
 }
 
 void UICore::OnStop()
 {
-	for (auto overlay : m_overlays)
-	{
-		GetOverlayManager()->Remove(overlay.get());
-	}
-	m_overlays.clear();
+    m_views.clear();
 }
 
-void UICore::Update(const UpdateContext& inUpdateContext)
+void UICore::Update( const UpdateContext& inUpdateContext )
 {
-	auto& entities = GetEntities();
-	for (auto& InEntity : entities)
-	{
-		BasicUIView& view = InEntity.GetComponent<BasicUIView>();
-		if (!view.IsInitialized)
-		{
-			InitUIView(view);
-		}
-	}
+    OPTICK_EVENT( "UI Update", Optick::Category::UI );
+    auto& entities = GetEntities();
+    for( auto& InEntity : entities )
+    {
+        if( !InEntity.HasComponent<BasicUIView>() )
+        {
+            BRUH( "Updating an entity that doesn't have a UI View." );
+            continue;
+        }
 
-	ultralight::MouseEvent mouseEvent;
-	mouseEvent.type = ultralight::MouseEvent::kType_MouseMoved;
+        BasicUIView& view = InEntity.GetComponent<BasicUIView>();
+        if( !view.IsInitialized )
+        {
+            InitUIView( view );
+        }
+    }
+#if USING( ME_UI )
+    Input& gameInput = GetEngine().GetInput();
+    ultralight::MouseEvent mouseEvent;
+    ultralight::ScrollEvent mouseScrollEvent;
+    mouseEvent.type = ultralight::MouseEvent::kType_MouseMoved;
+    Vector2 mousePosition = gameInput.GetMousePosition();
+    mouseScrollEvent.delta_y = gameInput.GetMouseScrollDelta().y * 100;
+    mouseScrollEvent.delta_x = 0;
 
-//	Vector2 mousePosition = GetEngine().GetInput().GetMousePosition();
-//
-//#if ME_EDITOR
-//	if (!static_cast<EditorApp*>(GetEngine().GetGame())->IsGameRunning())
-//	{
-//		return;
-//	}
-//
-//	Havana* editor = static_cast<EditorCore*>(GetEngine().GetWorld().lock()->GetCore(EditorCore::GetTypeId()))->GetEditor();
-//	
-//	Vector2 windowPosition = GetEngine().GetWindow()->GetPosition();
-//
-//	mouseEvent.x = (windowPosition.X() + mousePosition.X()) - editor->GameViewRenderLocation.X();
-//	mouseEvent.y = (windowPosition.Y() + mousePosition.Y()) - editor->GameViewRenderLocation.Y();
-//
-//	if (mousePosition.IsZero())
-//	{
-//		return;
-//	}
-//#else
-//	mouseEvent.x = mousePosition.X();
-//	mouseEvent.y = mousePosition.Y();
-//#endif
-//
-//	static bool hasPressed = false;
-//	if (GetEngine().GetInput().GetMouseState().leftButton && !hasPressed)
-//	{
-//		mouseEvent.button = ultralight::MouseEvent::Button::kButton_Left;
-//		mouseEvent.type = ultralight::MouseEvent::kType_MouseDown;
-//		hasPressed = true;
-//	}
-//	else if (!GetEngine().GetInput().GetMouseState().leftButton && hasPressed)
-//	{
-//		mouseEvent.button = ultralight::MouseEvent::Button::kButton_Left;
-//		mouseEvent.type = ultralight::MouseEvent::kType_MouseUp;
-//		hasPressed = false;
-//	}
-//	else
-//	{
-//		mouseEvent.button = ultralight::MouseEvent::Button::kButton_None;
-//	}
-//
-//#if ME_EDITOR
-//	//if (m_renderer->GetViewportMode() == ViewportMode::Game)
-//#endif
-//	{
-//		for (auto& view : m_overlays)
-//		{
-//			view->view()->FireMouseEvent(mouseEvent);
-//		}
-//	}
+    {
+        OPTICK_EVENT( "UI Keyboard Update", Optick::Category::UI );
+        for( auto& inputEvent : gameInput.m_keyEventsThisFrame )
+        {
+            ultralight::KeyEvent keyEvent;
+            bool isCharacterEvent = UIUtils::ConvertToUL( (KeyCode)inputEvent.Key, keyEvent.virtual_key_code );
+            keyEvent.native_key_code = inputEvent.Key;
 
-	// Update internal logic (timers, event callbacks, etc.)
-	m_uiRenderer->Update();
+            // #TODO: Modifiers / Keypad detection
+            keyEvent.is_system_key = false;
+            keyEvent.is_keypad = false;
+            keyEvent.modifiers = 0;
+            keyEvent.is_auto_repeat = inputEvent.State == KeyState::Held;
+
+            ultralight::KeyEvent::Type keyEventType = KeyEvent::kType_RawKeyDown;
+
+            if( isCharacterEvent && inputEvent.State != KeyState::Released )
+            {
+                keyEventType = KeyEvent::kType_Char;
+                GetKeyFromVirtualKeyCode( keyEvent.virtual_key_code, false, keyEvent.text );
+            }
+            else
+            {
+                if( inputEvent.State == KeyState::Released )
+                    keyEventType = KeyEvent::kType_KeyUp;
+            }
+
+            keyEvent.type = keyEventType;
+            for( auto& view : m_views )
+            {
+                view->FireKeyEvent( keyEvent );
+            }
+        }
+    }
+
+#if USING( ME_EDITOR )
+    //if ( !static_cast<EditorApp*>( GetEngine().GetGame() )->IsGameRunning() )
+    //{
+    //    return;
+    //}
+
+    //Havana* editor = static_cast<EditorCore*>( GetEngine().GetWorld().lock()->GetCore( EditorCore::GetTypeId() ) )->GetEditor();
+
+    Vector2 windowPosition = GetEngine().GetWindow()->GetPosition();
+    Vector2 offset = gameInput.GetMouseOffset();
+    mouseEvent.x = ( windowPosition.x + mousePosition.x ) - offset.x;// + windowPosition.x  + offset.x;
+    mouseEvent.y = ( windowPosition.y + mousePosition.y ) - offset.y;// + windowPosition.y  - offset.y;
+
+    if( mousePosition.IsZero() )
+    {
+        return;
+    }
+#else
+    mouseEvent.x = mousePosition.x;
+    mouseEvent.y = mousePosition.y;
+#endif
+
+    static bool hasPressed = false;
+    if( gameInput.WasMouseButtonPressed( MouseButton::Left ) && !hasPressed )
+    {
+        mouseEvent.button = ultralight::MouseEvent::Button::kButton_Left;
+        mouseEvent.type = ultralight::MouseEvent::kType_MouseDown;
+        hasPressed = true;
+    }
+    else if( !gameInput.WasMouseButtonPressed( MouseButton::Left ) && hasPressed )
+    {
+        mouseEvent.button = ultralight::MouseEvent::Button::kButton_Left;
+        mouseEvent.type = ultralight::MouseEvent::kType_MouseUp;
+        hasPressed = false;
+    }
+    else
+    {
+        mouseEvent.button = ultralight::MouseEvent::Button::kButton_None;
+    }
+
+#if USING( ME_EDITOR )
+    //if (m_renderer->GetViewportMode() == ViewportMode::Game)
+#endif
+    {
+        OPTICK_EVENT( "UI Input Update", Optick::Category::UI );
+        for( auto& view : m_views )
+        {
+            view->FireMouseEvent( mouseEvent );
+            view->FireScrollEvent( mouseScrollEvent );
+        }
+    }
+
+    // Update internal logic (timers, event callbacks, etc.)
+    {
+        OPTICK_EVENT( "UI Widget Update", Optick::Category::UI );
+        m_uiRenderer->Update();
+
+        // #TODO: This should be called after vsync is done.
+        m_uiRenderer->RefreshDisplay( 0 );
+    }
+#endif
 }
 
 void UICore::Render()
 {
-	OPTICK_EVENT("UI Render", Optick::Category::Rendering);
-	m_driver->BeginSynchronize();
+    OPTICK_EVENT( "UI Render", Optick::Category::GPU_UI );
 
-	// Render all active views to command lists and dispatch calls to GPUDriver
-	m_uiRenderer->Render();
+#if USING( ME_UI )
 
-	m_driver->EndSynchronize();
+    {
+        OPTICK_EVENT( "Ultralight Render", Optick::Category::UI );
+        m_uiRenderer->Render();
+    }
+    m_driver->RenderCommandList();
 
-	// Draw any pending commands to screen
-	if (m_driver->HasCommandsPending())
-	{
-		//m_context->BeginDrawing();
-		m_driver->DrawCommandList();
+    for( auto ent : GetEntities() )
+    {
+        if( !ent.HasComponent<BasicUIView>() )
+        {
+            BRUH( "Rendering an entity that doesn't have a UI View." );
+            continue;
+        }
+        OPTICK_EVENT( "UI View Render", Optick::Category::GPU_UI );
 
-		// Perform any additional drawing (Overlays) here...
-		//DrawOverlays();
+        ultralight::RenderTarget surface = (ultralight::RenderTarget)( ent.GetComponent<BasicUIView>().ViewRef->render_target() );
 
-		// Flip buffers here.
-		if (m_window)
-		{
-			Draw();
-		}
-		//m_context->EndDrawing();
-	}
+        bgfx::ViewId view = 10;
+        {
+            bgfx::setViewName( view, "UI BLIT" );
+            const bgfx::RendererType::Enum renderer = bgfx::getRendererType();
+            float m_texelHalf = 0.0f;
+            float orthoProj[16];
+            bx::mtxOrtho( orthoProj, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, bgfx::getCaps()->homogeneousDepth );
+            {
+                // clear out transform stack
+                float identity[16];
+                bx::mtxIdentity( identity );
+                bgfx::setTransform( identity );
+            }
 
-	for (auto ent : GetEntities())
-	{
-		ultralight::BitmapSurface* surface = (ultralight::BitmapSurface*)(ent.GetComponent<BasicUIView>().ViewRef->surface());
+            bgfx::setViewRect( view, 0, 0, uint16_t( surface.texture_width ), uint16_t( surface.texture_height ) );
+            bgfx::setViewTransform( view, NULL, orthoProj );
+            bgfx::setViewFrameBuffer( view, m_driver->m_buffers[surface.render_buffer_id].BufferHandle );
+            bgfx::setState( 0
+                | BGFX_STATE_WRITE_RGB
+                //| BGFX_STATE_BLEND_ALPHA // - Not it, creates artifacts
+                //| BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA) // - Almost there
+                | BGFX_STATE_BLEND_FUNC_SEPARATE( BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA, BGFX_STATE_BLEND_INV_DST_ALPHA, BGFX_STATE_BLEND_ONE )
+            );
+            bgfx::setTexture( 0, s_texUI, m_driver->m_buffers[surface.render_buffer_id].TexHandle );
+            Moonlight::screenSpaceQuad( surface.texture_width, surface.texture_height, m_texelHalf, bgfx::getCaps()->originBottomLeft );
+            bgfx::submit( view, UIProgram );
+            bgfx::blit( view, m_uiTexture, 0, 0, m_driver->m_buffers[surface.render_buffer_id].TexHandle );
+        }
+        if( !surface.is_empty )//&& !surface->dirty_bounds().IsEmpty() )
+        {
+            //m_driver->m_storedTextures[surface.texture_id].Handle
+            //bgfx::blit( m_driver->kViewId + surface.render_buffer_id, m_uiTexture, 0, 0, m_driver->m_buffers[surface.render_buffer_id].TexHandle);
 
-		if (!surface->dirty_bounds().IsEmpty())
-		{
-			CopyBitmapToTexture(surface->bitmap());
+            //CopyBitmapToTexture( surface->bitmap() );
+            GetEngine().GetRenderer().GetCameraCache().Get( Camera::CurrentCamera->GetCameraId() )->UITexture = m_uiTexture;// m_driver->m_storedTextures[surface.texture_id].Handle;
 
-			surface->ClearDirtyBounds();
-		}
-	}
+            //surface->ClearDirtyBounds();
+        }
+    }
+#endif
 }
 
-void UICore::OnResize(const Vector2& NewSize)
+void UICore::OnResize( const Vector2& NewSize )
 {
-	if (m_context)
-	{
-		m_context->Resize(NewSize);
-		for (auto overlay : overlays_)
-		{
-			overlay->Resize((int)NewSize.x, (int)NewSize.y);
-		}
-	}
+    if( NewSize.IsZero() )
+    {
+        return;
+    }
 
-	if (NewSize.IsZero())
-	{
-		return;
-	}
+    if( NewSize != UISize )
+    {
+        if( bgfx::isValid( m_uiTexture ) )
+        {
+            bgfx::destroy( m_uiTexture );
+        }
 
-	if (NewSize != UISize)
-	{
-		if (bgfx::isValid(m_uiTexture))
-		{
-			bgfx::destroy(m_uiTexture);
-		}
+        m_uiTexture = bgfx::createTexture2D( static_cast<uint16_t>( NewSize.x )
+            , static_cast<uint16_t>( Mathf::Abs( NewSize.y ) )
+            , false
+            , 1
+            , bgfx::TextureFormat::BGRA8
+            , BGFX_SAMPLER_MIN_POINT | BGFX_SAMPLER_MAG_POINT | BGFX_SAMPLER_MIP_POINT | BGFX_TEXTURE_BLIT_DST
+        );
+        UISize = NewSize;
 
-		m_uiTexture = bgfx::createTexture2D(static_cast<uint16_t>(NewSize.x)
-			, static_cast<uint16_t>(Mathf::Abs(NewSize.y))
-			, false
-			, 1
-			, bgfx::TextureFormat::BGRA8
-			, BGFX_SAMPLER_MIN_POINT | BGFX_SAMPLER_MAG_POINT | BGFX_SAMPLER_MIP_POINT
-		);
-		UISize = NewSize;
-	}
+#if USING( ME_UI )
+    //if( m_context )
+        {
+            //m_context->Resize( NewSize );
+            for( auto overlay : m_views )
+            {
+                overlay->Resize( (int)NewSize.x, (int)NewSize.y );
+            }
+        }
+#endif
+
+#if USING ( ME_DEBUG )
+        BRUH_FMT( "%i, %s", m_uiTexture.idx, "UI Tex" );
+#endif
+    }
 }
 
-void UICore::InitUIView(BasicUIView& view)
+void UICore::InitUIView( BasicUIView& view )
 {
-	ultralight::Ref<ultralight::View> newView = m_uiRenderer->CreateView(static_cast<uint32_t>(Camera::CurrentCamera->OutputSize.x), static_cast<uint32_t>(Camera::CurrentCamera->OutputSize.y), true, nullptr);
+#if USING( ME_UI )
+    ultralight::ViewConfig view_config;
+    view_config.is_accelerated = true;
+    view_config.is_transparent = true;
+    view_config.font_family_standard = "Arial";
 
-	ultralight::RefPtr<ultralight::Overlay> overlay = ultralight::Overlay::Create(*m_window.get(), newView, 0, 0);
-	overlay->view()->set_load_listener(&view);
+    ultralight::RefPtr<ultralight::View> newView;
+    newView = m_uiRenderer->CreateView( static_cast<uint32_t>( Camera::CurrentCamera->OutputSize.x ), static_cast<uint32_t>( Camera::CurrentCamera->OutputSize.y ), view_config, nullptr );
 
-	//overlay->view()->LoadHTML(view.SourceFile.Read().c_str());
-	ultralight::String str = "file:///" + ultralight::String(view.FilePath.LocalPath.c_str());
-	overlay->view()->LoadURL(str);
+    //ultralight::Ref<ultralight::View> newView = m_uiRenderer->CreateView( static_cast<uint32_t>( Camera::CurrentCamera->OutputSize.x ), static_cast<uint32_t>( Camera::CurrentCamera->OutputSize.y ), true, nullptr );
 
-	m_overlays.push_back(overlay);
-	GetOverlayManager()->Add(overlay.get());
+    //ultralight::RefPtr<ultralight::Overlay> overlay = ultralight::Overlay::Create( *m_window.get(), newView, 0, 0 );
+    newView->set_load_listener( &view );
 
-	view.IsInitialized = true;
-	view.Index = m_overlays.size() - 1;
-	view.ViewRef = overlay->view();
+    ////overlay->view()->LoadHTML(view.SourceFile.Read().c_str());
+    ultralight::String str = "file:///" + ultralight::String( view.FilePath.GetLocalPath().data() );
+    newView->LoadURL( str );
+
+    //m_overlays.push_back( overlay );
+    //GetOverlayManager()->Add( overlay.get() );
+    m_views.push_back( newView );
+
+    view.IsInitialized = true;
+    view.Index = m_views.size() - 1;
+    view.ViewRef = newView;
+#endif
 }
+//
+//ultralight::OverlayManager* UICore::GetOverlayManager()
+//{
+//    return this;
+//}
 
-ultralight::OverlayManager* UICore::GetOverlayManager()
+#if USING( ME_UI )
+
+void UICore::CopyBitmapToTexture( ultralight::RefPtr<ultralight::Bitmap> bitmap )
 {
-	return this;
+    void* pixels = bitmap->LockPixels();
+
+    uint32_t width = bitmap->width();
+    uint32_t height = bitmap->height();
+    uint32_t stride = bitmap->row_bytes();
+
+    //bitmap->WritePNG(Path("Assets/TestUI.png").FullPath.c_str());
+
+    {
+        const uint16_t tw = static_cast<uint32_t>( bitmap->width() );
+        const uint16_t th = static_cast<uint32_t>( bitmap->height() );
+        const uint16_t tx = 0;
+        const uint16_t ty = 0;
+
+        const bgfx::Memory* mem = bgfx::makeRef( pixels, stride );
+
+        if( bgfx::isValid( m_uiTexture ) && Camera::CurrentCamera )
+        {
+            bgfx::updateTexture2D( m_uiTexture, 0, 0, tx, ty, tw, th, mem, stride );
+            GetEngine().GetRenderer().GetCameraCache().Get( Camera::CurrentCamera->GetCameraId() )->UITexture = m_uiTexture;
+        }
+    }
+
+    bitmap->UnlockPixels();
 }
 
-void UICore::CopyBitmapToTexture(ultralight::RefPtr<ultralight::Bitmap> bitmap)
+#endif
+
+bool UICore::OnEvent( const BaseEvent& evt )
 {
-	void* pixels = bitmap->LockPixels();
-
-	//uint32_t width = bitmap->width();
-	//uint32_t height = bitmap->height();
-	uint32_t stride = bitmap->row_bytes();
-
-	//bitmap->WritePNG(Path("Assets/TestUI.png").FullPath.c_str());
-
-	{
-		const uint16_t tw = bitmap->bounds().width();
-		const uint16_t th = bitmap->bounds().height();
-		const uint16_t tx = bitmap->bounds().x();
-		const uint16_t ty = bitmap->bounds().y();
-
-		const bgfx::Memory* mem = bgfx::makeRef(pixels, stride);
-
-		if (bgfx::isValid(m_uiTexture) && Camera::CurrentCamera)
-		{
-			bgfx::updateTexture2D(m_uiTexture, 0, 0, tx, ty, tw, th, mem, stride);
-			GetEngine().GetRenderer().GetCameraCache().Get(Camera::CurrentCamera->GetCameraId())->UITexture = m_uiTexture;
-		}
-	}
-
-	bitmap->UnlockPixels();
+    if( evt.GetEventId() == SceneLoadedEvent::GetEventId() )
+    {
+        const SceneLoadedEvent& event = static_cast<const SceneLoadedEvent&>( evt );
+        //m_overlays.clear();
+        // O_O
+    }
+    return false;
 }
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 void UICore::OnEditorInspect()
 {
-	Base::OnEditorInspect();
-	ImGui::Image(m_uiTexture, ImVec2(UISize.x, UISize.y));
+    Base::OnEditorInspect();
+    ImGui::Text( "Clear Calls %i", m_driver->m_uiDrawInfo.m_numClearCalls );
+    ImGui::Text( "Fill Calls %i", m_driver->m_uiDrawInfo.m_numDrawFillCalls );
+    ImGui::Text( "Fill Path Calls %i", m_driver->m_uiDrawInfo.m_numDrawFillPathCalls );
+    if( ImGui::CollapsingHeader( "Settings", ImGuiTreeNodeFlags_DefaultOpen ) )
+    {
+        if( ImGui::Checkbox( "Force Repaint", &m_config.force_repaint ) )
+        {
+            ultralight::Platform::instance().set_config( m_config );
+        }
+    }
+
+    if( ImGui::CollapsingHeader( "Final UI Texture", ImGuiTreeNodeFlags_DefaultOpen ) )
+    {
+        ImGui::Image( m_uiTexture, ImVec2( UISize.x, UISize.y ) );
+    }
+
+    if( ImGui::CollapsingHeader( "UI Buffers", ImGuiTreeNodeFlags_DefaultOpen ) )
+    {
+        for( auto& buffer : m_driver->m_buffers )
+        {
+            ImGui::Text( std::string( "Frame Buffer: " + std::to_string( buffer.first ) + ", " + std::to_string( buffer.second.FrameBufferTexture ) ).c_str() );
+            ImGui::Image( buffer.second.TexHandle, ImVec2( m_driver->m_storedTextures[buffer.second.FrameBufferTexture].Width, m_driver->m_storedTextures[buffer.second.FrameBufferTexture].Height ) );
+        }
+    }
+
+    if( ImGui::CollapsingHeader( "UI Textures", ImGuiTreeNodeFlags_DefaultOpen ) )
+    {
+        for( auto& buffer : m_driver->m_storedTextures )
+        {
+            if( !buffer.second.IsRenderTexture )
+            {
+                ImGui::Text( std::string( "Texture: " + std::to_string( buffer.first ) ).c_str() );
+                ImGui::Image( buffer.second.Handle, ImVec2( buffer.second.Width, buffer.second.Height ) );
+            }
+        }
+    }
 }
 
 #endif

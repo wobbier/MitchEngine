@@ -6,24 +6,24 @@
 #include "Utils/HavanaUtils.h"
 #include "Physics/RigidBodyWithCollisionEvents.h"
 
-Rigidbody::Rigidbody(ColliderType type)
-	: Component("Rigidbody")
-	, Type(type)
+Rigidbody::Rigidbody( ColliderType type )
+    : Component( "Rigidbody" )
+    , Type( type )
 {
 }
 
 Rigidbody::Rigidbody()
-	: Component("Rigidbody")
-	, Type(ColliderType::Box)
+    : Component( "Rigidbody" )
+    , Type( ColliderType::Box )
 {
 }
 
 Rigidbody::~Rigidbody()
 {
-	if (m_world && InternalRigidbody)
-	{
-		m_world->removeRigidBody(InternalRigidbody);
-	}
+    if( m_world && InternalRigidbody )
+    {
+        m_world->removeRigidBody( InternalRigidbody );
+    }
 }
 
 void Rigidbody::Init()
@@ -34,212 +34,212 @@ void Rigidbody::Init()
 
 bool Rigidbody::IsRigidbodyInitialized()
 {
-	return IsInitialized;
+    return IsInitialized;
 }
 
-void Rigidbody::ApplyForce(const Vector3& direction, float force)
+void Rigidbody::ApplyForce( const Vector3& direction, float force )
 {
-	//InternalRigidbody->setWorldTransform(btTransform::getIdentity());
-	InternalRigidbody->applyForce(PhysicsCore::ToBulletVector(direction * force), -PhysicsCore::ToBulletVector(direction));
-	InternalRigidbody->activate();
+    //InternalRigidbody->setWorldTransform(btTransform::getIdentity());
+    InternalRigidbody->applyForce( PhysicsCore::ToBulletVector( direction * force ), -PhysicsCore::ToBulletVector( direction ) );
+    InternalRigidbody->activate();
 }
 
-void Rigidbody::SetScale(Vector3 InScale)
+void Rigidbody::SetScale( Vector3 InScale )
 {
-	Scale = InScale;
-	if (fallShape)
-	{
-		fallShape->setLocalScaling(btVector3(InScale[0], InScale[1], InScale[2]));
-	}
+    Scale = InScale;
+    if( fallShape )
+    {
+        fallShape->setLocalScaling( btVector3( InScale[0], InScale[1], InScale[2] ) );
+    }
 }
 
 const Vector3& Rigidbody::GetScale() const
 {
-	return Scale;
+    return Scale;
 }
 
-void Rigidbody::SetMass(float InMass)
+void Rigidbody::SetMass( float InMass )
 {
-	Mass = InMass;
-	if (InternalRigidbody)
-	{
-		InternalRigidbody->setMassProps(InMass, btVector3());
-	}
+    Mass = InMass;
+    if( InternalRigidbody )
+    {
+        InternalRigidbody->setMassProps( InMass, btVector3() );
+    }
 }
 
-void Rigidbody::SetVelocity(Vector3 newVelocity)
+void Rigidbody::SetVelocity( Vector3 newVelocity )
 {
-	Velocity = newVelocity;
+    Velocity = newVelocity;
 }
 
 const bool Rigidbody::IsDynamic() const
 {
-	return m_isDynamic;
+    return m_isDynamic;
 }
 
-std::string Rigidbody::GetColliderString(ColliderType InType)
+std::string Rigidbody::GetColliderString( ColliderType InType )
 {
-	switch (Type)
-	{
-	case ColliderType::Sphere:
-		return "Sphere";
-	case ColliderType::Box:
-		return "Box";
-	default:
-		return "Error";
-	}
+    switch( Type )
+    {
+    case ColliderType::Sphere:
+        return "Sphere";
+    case ColliderType::Box:
+        return "Box";
+    default:
+        return "Error";
+    }
 }
 
 Matrix4 Rigidbody::GetMat()
 {
-	btTransform trans;
-	InternalRigidbody->getMotionState()->getWorldTransform(trans);
+    btTransform trans;
+    InternalRigidbody->getMotionState()->getWorldTransform( trans );
 
-	float m[16];
-	trans.getOpenGLMatrix(m);
+    float m[16];
+    trans.getOpenGLMatrix( m );
 
-	//DirectX::XMMATRIX transform(m[0], m[4], m[8], m[12],
-	//	m[1], m[5], m[9], m[13],
-	//	m[2], m[6], m[10], m[14],
-	//	m[3], m[7], m[11], m[15]);
+    //DirectX::XMMATRIX transform(m[0], m[4], m[8], m[12],
+    //	m[1], m[5], m[9], m[13],
+    //	m[2], m[6], m[10], m[14],
+    //	m[3], m[7], m[11], m[15]);
 
-	return Matrix4();// transform);
+    return Matrix4();// transform);
 }
 
-void Rigidbody::SetReceiveEvents(bool inIsEventsEnabled)
+void Rigidbody::SetReceiveEvents( bool inIsEventsEnabled )
 {
-	IsEventsEnabled = inIsEventsEnabled;
-	if (InternalRigidbody)
-	{
-		InternalRigidbody->setMonitorCollisions(IsEventsEnabled);
-	}
+    IsEventsEnabled = inIsEventsEnabled;
+    if( InternalRigidbody )
+    {
+        InternalRigidbody->setMonitorCollisions( IsEventsEnabled );
+    }
 }
 
-void Rigidbody::OnSerialize(json& outJson)
+void Rigidbody::OnSerialize( json& outJson )
 {
-	outJson["Scale"] = { Scale.x, Scale.y, Scale.z };
-	outJson["ColliderType"] = GetColliderString(Type);
-	outJson["Mass"] = Mass;
-	outJson["IsEventsEnabled"] = IsEventsEnabled;
+    outJson["Scale"] = { Scale.x, Scale.y, Scale.z };
+    outJson["ColliderType"] = GetColliderString( Type );
+    outJson["Mass"] = Mass;
+    outJson["IsEventsEnabled"] = IsEventsEnabled;
 }
 
-void Rigidbody::OnDeserialize(const json& inJson)
+void Rigidbody::OnDeserialize( const json& inJson )
 {
-	if (inJson.contains("Scale"))
-	{
-		SetScale(Vector3((float)inJson["Scale"][0], (float)inJson["Scale"][1], (float)inJson["Scale"][2]));
-	}
+    if( inJson.contains( "Scale" ) )
+    {
+        SetScale( Vector3( (float)inJson["Scale"][0], (float)inJson["Scale"][1], (float)inJson["Scale"][2] ) );
+    }
 
-	if (inJson.contains("ColliderType"))
-	{
-		std::string type = inJson["ColliderType"];
-		if (type == "Sphere")
-		{
-			Type = ColliderType::Sphere;
-		}
-		else if (type == "Box")
-		{
-			Type = ColliderType::Box;
-		}
-	}
+    if( inJson.contains( "ColliderType" ) )
+    {
+        std::string type = inJson["ColliderType"];
+        if( type == "Sphere" )
+        {
+            Type = ColliderType::Sphere;
+        }
+        else if( type == "Box" )
+        {
+            Type = ColliderType::Box;
+        }
+    }
 
-	if (inJson.contains("Mass"))
-	{
-		Mass = inJson["Mass"];
-	}
+    if( inJson.contains( "Mass" ) )
+    {
+        Mass = inJson["Mass"];
+    }
 
-	if (inJson.contains("IsEventsEnabled"))
-	{
-		IsEventsEnabled = inJson["IsEventsEnabled"];
-	}
+    if( inJson.contains( "IsEventsEnabled" ) )
+    {
+        IsEventsEnabled = inJson["IsEventsEnabled"];
+    }
 }
 
-void Rigidbody::CreateObject(const Vector3& Position, const Quaternion& Rotation, const Vector3& InScale, btDiscreteDynamicsWorld* world)
+void Rigidbody::CreateObject( const Vector3& Position, const Quaternion& Rotation, const Vector3& InScale, btDiscreteDynamicsWorld* world )
 {
-	m_world = world;
-	if (Scale == Vector3())
-	{
-		Scale = InScale;
-	}
-	switch (Type)
-	{
-	case ColliderType::Sphere:
-		fallShape = new btSphereShape(1.0f);
-		break;
-	case ColliderType::Box:
-	default:
-		fallShape = new btBoxShape(btVector3(Scale[0], Scale[1], Scale[2]));
-		break;
-	}
-	//fallShape->setLocalScaling(btVector3(Scale[0], Scale[1], Scale[2]));
-	m_isDynamic = (Mass != 0.f);
+    m_world = world;
+    if( Scale == Vector3() )
+    {
+        Scale = InScale;
+    }
+    switch( Type )
+    {
+    case ColliderType::Sphere:
+        fallShape = new btSphereShape( 1.0f );
+        break;
+    case ColliderType::Box:
+    default:
+        fallShape = new btBoxShape( btVector3( Scale[0], Scale[1], Scale[2] ) );
+        break;
+    }
+    //fallShape->setLocalScaling(btVector3(Scale[0], Scale[1], Scale[2]));
+    m_isDynamic = ( Mass != 0.f );
 
-	btDefaultMotionState* fallMotionState =
-		new btDefaultMotionState(btTransform(btQuaternion(Rotation.x, Rotation.y, Rotation.z, Rotation.w), btVector3(Position.x, Position.y, Position.z)));
-	btVector3 fallInertia(0, 0, 0);
-	if (m_isDynamic)
-	{
-		fallShape->calculateLocalInertia(Mass, fallInertia);
-	}
-	btRigidBody::btRigidBodyConstructionInfo fallRigidBodyCI(Mass, fallMotionState, fallShape, fallInertia);
-	InternalRigidbody = new btRigidBodyWithEvents(fallRigidBodyCI);
-	InternalRigidbody->setMonitorCollisions(IsEventsEnabled);
+    btDefaultMotionState* fallMotionState =
+        new btDefaultMotionState( btTransform( btQuaternion( Rotation.x, Rotation.y, Rotation.z, Rotation.w ), btVector3( Position.x, Position.y, Position.z ) ) );
+    btVector3 fallInertia( 0, 0, 0 );
+    if( m_isDynamic )
+    {
+        fallShape->calculateLocalInertia( Mass, fallInertia );
+    }
+    btRigidBody::btRigidBodyConstructionInfo fallRigidBodyCI( Mass, fallMotionState, fallShape, fallInertia );
+    InternalRigidbody = new btRigidBodyWithEvents( fallRigidBodyCI );
+    InternalRigidbody->setMonitorCollisions( IsEventsEnabled );
 
-	InternalRigidbody->setUserPointer(this);
-	InternalRigidbody->setLinearVelocity(PhysicsCore::ToBulletVector(Velocity));
-	IsInitialized = true;
+    InternalRigidbody->setUserPointer( this );
+    InternalRigidbody->setLinearVelocity( PhysicsCore::ToBulletVector( Velocity ) );
+    IsInitialized = true;
 }
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 void Rigidbody::OnEditorInspect()
 {
-	HavanaUtils::Label("Collider Type");
-	if (ImGui::BeginCombo("##ColliderType", GetColliderString(Type).c_str()))
-	{
-		for (unsigned int n = 0; n < (unsigned int)ColliderType::Count; ++n)
-		{
-			const char* name = "";
-			switch ((ColliderType)n)
-			{
-			case ColliderType::Sphere:
-				name = "Sphere";
-				break;
-			case ColliderType::Box:
-				name = "Box";
-				break;
+    HavanaUtils::Label( "Collider Type" );
+    if( ImGui::BeginCombo( "##ColliderType", GetColliderString( Type ).c_str() ) )
+    {
+        for( unsigned int n = 0; n < (unsigned int)ColliderType::Count; ++n )
+        {
+            const char* name = "";
+            switch( (ColliderType)n )
+            {
+            case ColliderType::Sphere:
+                name = "Sphere";
+                break;
+            case ColliderType::Box:
+                name = "Box";
+                break;
             default:
                 break;
-			}
+            }
 
-			if (ImGui::Selectable(name, false))
-			{
-				if ((ColliderType)n != Type)
-				{
-					Type = (ColliderType)n;
-				}
-				break;
-			}
-		}
-		ImGui::EndCombo();
-	}
+            if( ImGui::Selectable( name, false ) )
+            {
+                if( (ColliderType)n != Type )
+                {
+                    Type = (ColliderType)n;
+                }
+                break;
+            }
+        }
+        ImGui::EndCombo();
+    }
 
-	HavanaUtils::EditableVector3("Hitbox Scale", Scale);
+    HavanaUtils::EditableVector3( "Hitbox Scale", Scale );
 
-	bool m_isDynamicTemp = (Mass != 0.f);
-	HavanaUtils::Label("Is Dynamic");
-	ImGui::Checkbox("##Is Dynamic", &m_isDynamicTemp);
+    bool m_isDynamicTemp = ( Mass != 0.f );
+    HavanaUtils::Label( "Is Dynamic" );
+    ImGui::Checkbox( "##Is Dynamic", &m_isDynamicTemp );
 
-	HavanaUtils::Label("Mass");
-	ImGui::DragFloat("##Mass", &Mass);
+    HavanaUtils::Label( "Mass" );
+    ImGui::DragFloat( "##Mass", &Mass );
 
-	bool isEventsEnabledTemp = IsEventsEnabled;
-	HavanaUtils::Label("Collision Events");
-	ImGui::Checkbox("##CollisionEvents", &isEventsEnabledTemp);
-	if (isEventsEnabledTemp != IsEventsEnabled)
-	{
-		SetReceiveEvents(isEventsEnabledTemp);
-	}
+    bool isEventsEnabledTemp = IsEventsEnabled;
+    HavanaUtils::Label( "Collision Events" );
+    ImGui::Checkbox( "##CollisionEvents", &isEventsEnabledTemp );
+    if( isEventsEnabledTemp != IsEventsEnabled )
+    {
+        SetReceiveEvents( isEventsEnabledTemp );
+    }
 }
 
 #endif

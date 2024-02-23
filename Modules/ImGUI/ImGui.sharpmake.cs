@@ -24,8 +24,8 @@ public class ImGui : BaseProject
         SourceFiles.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/ImGui/imstb_textedit.h"));
         SourceFiles.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/ImGui/imstb_truetype.h"));
 
-        SourceFiles.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/ImGui/backends/imgui_impl_sdl.h"));
-        SourceFiles.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/ImGui/backends/imgui_impl_sdl.cpp"));
+        SourceFiles.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/ImGui/backends/imgui_impl_sdl2.h"));
+        SourceFiles.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/ImGui/backends/imgui_impl_sdl2.cpp"));
     }
 
     public override void ConfigureAll(Project.Configuration conf, CommonTarget target)
@@ -33,7 +33,7 @@ public class ImGui : BaseProject
         base.ConfigureAll(conf, target);
         conf.Output = Configuration.OutputType.Lib;
 
-        conf.SolutionFolder = "Engine/Modules";
+        conf.SolutionFolder = "Modules";
 
 
 

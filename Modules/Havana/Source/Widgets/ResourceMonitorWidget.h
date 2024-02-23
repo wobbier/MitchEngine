@@ -3,8 +3,9 @@
 
 #include <HavanaWidget.h>
 #include "Pointers.h"
+#include "Dementia.h"
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 class Resource;
 

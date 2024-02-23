@@ -11,39 +11,39 @@
 class Entity;
 
 class Model
-	: public Component<Model>
+    : public Component<Model>
 {
-	friend class RenderCore;
+    friend class RenderCore;
 public:
-	Model();
-	Model(const std::string& path);
-	~Model() override;
+    Model();
+    Model( const std::string& path );
+    ~Model() override;
 
-	// Separate init from construction code.
-	virtual void Init() final;
+    // Separate init from construction code.
+    virtual void Init() final;
 
-	void RecursiveLoadMesh(Moonlight::Node& root, EntityHandle& parentEnt);
+    void RecursiveLoadMesh( Moonlight::Node& root, EntityHandle& parentEnt );
 
-	SharedPtr<class ModelResource> ModelHandle = nullptr;
-	class Moonlight::ShaderCommand* ModelShader = nullptr;
+    SharedPtr<class ModelResource> ModelHandle = nullptr;
+    class Moonlight::ShaderCommand* ModelShader = nullptr;
 
 private:
-	Path ModelPath;
-	bool IsInitialized = false;
+    Path ModelPath;
+    bool IsInitialized = false;
 
-	virtual void OnSerialize(json& outJson) final
-	{
-		outJson["ModelPath"] = ModelPath.LocalPath;
-	}
+    virtual void OnSerialize( json& outJson ) final
+    {
+        outJson["ModelPath"] = ModelPath.GetLocalPath();
+    }
 
-	virtual void OnDeserialize(const json& inJson) final
-	{
-		ModelPath = Path(inJson["ModelPath"]);
-	}
+    virtual void OnDeserialize( const json& inJson ) final
+    {
+        ModelPath = Path( inJson["ModelPath"] );
+    }
 
-#if ME_EDITOR
-	virtual void OnEditorInspect() final;
+#if USING( ME_EDITOR )
+    virtual void OnEditorInspect() final;
 #endif
 };
 
-ME_REGISTER_COMPONENT_FOLDER(Model, "Rendering")
+ME_REGISTER_COMPONENT_FOLDER( Model, "Rendering" )

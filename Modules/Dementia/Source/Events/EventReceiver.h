@@ -4,5 +4,5 @@
 class EventReceiver
 {
 public:
-	virtual bool OnEvent(const BaseEvent& evt) = 0;
+    virtual bool OnEvent( const BaseEvent& evt ) = 0;
 };

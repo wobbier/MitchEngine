@@ -2,55 +2,55 @@
 
 #include <Resource/ResourceCache.h>
 
-Resource::Resource(const Path& path)
-	: FilePath(path)
+Resource::Resource( const Path& path )
+    : FilePath( path )
 {
 }
 
 Resource::~Resource()
 {
-	Metadata.reset();
-	Metadata = nullptr;
+    Metadata.reset();
+    Metadata = nullptr;
 }
 
-void Resource::SetMetadata(SharedPtr<MetaBase> metadata)
+void Resource::SetMetadata( SharedPtr<MetaBase> metadata )
 {
-	Metadata = metadata;
+    Metadata = metadata;
 }
 
 bool Resource::IsCached() const
 {
-	return Resources != nullptr;
+    return Resources != nullptr;
 }
 
 ResourceCache* Resource::GetResourceCache()
 {
-	return Resources;
+    return Resources;
 }
 
 const ResourceCache* Resource::GetResourceCache() const
 {
-	return Resources;
+    return Resources;
 }
 
 const Path& Resource::GetPath() const
 {
-	return FilePath;
+    return FilePath;
 }
 
 const std::size_t Resource::GetResourceType() const
 {
-	return ResourceType;
+    return ResourceType;
 }
 
 SharedPtr<MetaBase> Resource::GetMetadata()
 {
-	return Metadata;
+    return Metadata;
 }
 
-void Resource::Load()
+bool Resource::Load()
 {
-
+    return true;
 }
 
 void Resource::Reload()

@@ -3,86 +3,90 @@
 #include "bgfx/platform.h"
 #include "CLog.h"
 #include "Engine/Input.h"
+#include "optick.h"
+#include "Events/PlatformEvents.h"
 
 #define RESIZE_BORDER 10
-SDL_HitTestResult HitTestCallback(SDL_Window* window, const SDL_Point* area, void* data)
+SDL_HitTestResult HitTestCallback( SDL_Window* window, const SDL_Point* area, void* data )
 {
-	SDLWindow* engineWindow = static_cast<SDLWindow*>(data);
-	if (engineWindow->CustomDragCB)
-	{
-		if (auto result = engineWindow->CustomDragCB(Vector2(area->x, area->y)))
-		{
-			return *result;
-		}
-	}
+    SDLWindow* engineWindow = static_cast<SDLWindow*>( data );
+    if( engineWindow->CustomDragCB )
+    {
+        if( auto result = engineWindow->CustomDragCB( Vector2( area->x, area->y ) ) )
+        {
+            return *result;
+        }
+    }
 
-	if (engineWindow->IsMaximized() || engineWindow->IsFullscreen())
-	{
-		return SDL_HITTEST_NORMAL;
-	}
+    if( engineWindow->IsMaximized() || engineWindow->IsFullscreen() )
+    {
+        return SDL_HITTEST_NORMAL;
+    }
 
-	int w, h;
-	SDL_GetWindowSize(window, &w, &h);
+    int w, h;
+    SDL_GetWindowSize( window, &w, &h );
 
-		//SDL_Log("HIT-TEST: RESIZE_" #name "\n");
-	#define REPORT_RESIZE_HIT(name) {\
+        //SDL_Log("HIT-TEST: RESIZE_" #name "\n");
+#define REPORT_RESIZE_HIT(name) {\
 		return SDL_HITTEST_RESIZE_##name; \
 	}
-	if (area->x < RESIZE_BORDER && area->y < RESIZE_BORDER)
-	{
-		REPORT_RESIZE_HIT(TOPLEFT);
-	}
-	else if (area->x > RESIZE_BORDER&& area->x < w - RESIZE_BORDER && area->y < RESIZE_BORDER)
-	{
-		REPORT_RESIZE_HIT(TOP);
-	}
-	else if (area->x > w - RESIZE_BORDER && area->y < RESIZE_BORDER)
-	{
-		REPORT_RESIZE_HIT(TOPRIGHT);
-	}
-	else if (area->x > w - RESIZE_BORDER && area->y > RESIZE_BORDER&& area->y < h - RESIZE_BORDER)
-	{
-		REPORT_RESIZE_HIT(RIGHT);
-	}
-	else if (area->x > w - RESIZE_BORDER && area->y > h - RESIZE_BORDER)
-	{
-		REPORT_RESIZE_HIT(BOTTOMRIGHT);
-	}
-	else if (area->x < w - RESIZE_BORDER && area->x > RESIZE_BORDER&& area->y > h - RESIZE_BORDER)
-	{
-		REPORT_RESIZE_HIT(BOTTOM);
-	}
-	else if (area->x < RESIZE_BORDER && area->y > h - RESIZE_BORDER)
-	{
-		REPORT_RESIZE_HIT(BOTTOMLEFT);
-	}
-	else if (area->x < RESIZE_BORDER && area->y < h - RESIZE_BORDER && area->y > RESIZE_BORDER)
-	{
-		REPORT_RESIZE_HIT(LEFT);
-	}
+    if( area->x < RESIZE_BORDER && area->y < RESIZE_BORDER )
+    {
+        REPORT_RESIZE_HIT( TOPLEFT );
+    }
+    else if( area->x > RESIZE_BORDER && area->x < w - RESIZE_BORDER && area->y < RESIZE_BORDER )
+    {
+        REPORT_RESIZE_HIT( TOP );
+    }
+    else if( area->x > w - RESIZE_BORDER && area->y < RESIZE_BORDER )
+    {
+        REPORT_RESIZE_HIT( TOPRIGHT );
+    }
+    else if( area->x > w - RESIZE_BORDER && area->y > RESIZE_BORDER && area->y < h - RESIZE_BORDER )
+    {
+        REPORT_RESIZE_HIT( RIGHT );
+    }
+    else if( area->x > w - RESIZE_BORDER && area->y > h - RESIZE_BORDER )
+    {
+        REPORT_RESIZE_HIT( BOTTOMRIGHT );
+    }
+    else if( area->x < w - RESIZE_BORDER && area->x > RESIZE_BORDER && area->y > h - RESIZE_BORDER )
+    {
+        REPORT_RESIZE_HIT( BOTTOM );
+    }
+    else if( area->x < RESIZE_BORDER && area->y > h - RESIZE_BORDER )
+    {
+        REPORT_RESIZE_HIT( BOTTOMLEFT );
+    }
+    else if( area->x < RESIZE_BORDER && area->y < h - RESIZE_BORDER && area->y > RESIZE_BORDER )
+    {
+        REPORT_RESIZE_HIT( LEFT );
+    }
 
-	return SDL_HITTEST_NORMAL;
+    return SDL_HITTEST_NORMAL;
 }
 
-SDLWindow::SDLWindow(const std::string& title, std::function<void(const Vector2&)> resizeFunc, int X, int Y, Vector2 windowSize)
-	: ResizeCB(resizeFunc)
+SDLWindow::SDLWindow( const std::string& title, std::function<void( const Vector2& )> resizeFunc, int X, int Y, Vector2 windowSize )
+    : ResizeCB( resizeFunc )
 {
-	SDL_Init(SDL_INIT_EVERYTHING);
-	WindowHandle = SDL_CreateWindow(title.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_UNDEFINED, static_cast<int>(windowSize.x), static_cast<int>(windowSize.y), SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
+    SDL_Init( SDL_INIT_EVERYTHING );
+    int xPos = ( X == 0 ) ? SDL_WINDOWPOS_CENTERED : X;
+    int yPos = ( Y == 0 ) ? SDL_WINDOWPOS_UNDEFINED : Y;
+    WindowHandle = SDL_CreateWindow( title.c_str(), xPos, yPos, static_cast<int>( windowSize.x ), static_cast<int>( windowSize.y ), SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE );
 
-	if (WindowHandle == nullptr) {
-		printf("Window could not be created. SDL_Error: %s\n", SDL_GetError());
-	}
-	SetWindow(WindowHandle);
-	SDL_SetWindowHitTest(WindowHandle, HitTestCallback, this);
+    if( WindowHandle == nullptr ) {
+        printf( "Window could not be created. SDL_Error: %s\n", SDL_GetError() );
+    }
+    SetWindow( WindowHandle );
+    SDL_SetWindowHitTest( WindowHandle, HitTestCallback, this );
 
-	/*SharedPtr<Texture> tex = ResourceCache::GetInstance().Get<Texture>(Path("Assets/Havana/ME.png"));
-	tex->
-	SDL_Surface* surface = SDL_CreateRGBSurfaceFrom()*/
-	// #TODO Icon support
-	SDL_Surface* surface;     // Declare an SDL_Surface to be filled in with pixel data from an image file
-	Uint16 pixels[100 * 100] = {  // ...or with raw pixel data:
-	  // 'ME-LOGO', 100x100px
+    /*SharedPtr<Texture> tex = ResourceCache::GetInstance().Get<Texture>(Path("Assets/Havana/ME.png"));
+    tex->
+    SDL_Surface* surface = SDL_CreateRGBSurfaceFrom()*/
+    // #TODO Icon support
+    SDL_Surface* surface;     // Declare an SDL_Surface to be filled in with pixel data from an image file
+    Uint16 pixels[100 * 100] = {  // ...or with raw pixel data:
+      // 'ME-LOGO', 100x100px
 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
@@ -708,232 +712,264 @@ SDLWindow::SDLWindow(const std::string& title, std::function<void(const Vector2&
 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000
-	};
-	surface = SDL_CreateRGBSurfaceFrom(pixels, 100, 100, 16, 100 * 2, 0x0f00, 0x00f0, 0x000f, 0xf000);
+    };
+    surface = SDL_CreateRGBSurfaceFrom( pixels, 100, 100, 16, 100 * 2, 0x0f00, 0x00f0, 0x000f, 0xf000 );
 
-	//// The icon is attached to the window pointer
-	SDL_SetWindowIcon(WindowHandle, surface);
+    //// The icon is attached to the window pointer
+    SDL_SetWindowIcon( WindowHandle, surface );
 
-	//// ...and the surface containing the icon pixel data is no longer required.
-	SDL_FreeSurface(surface);
+    //// ...and the surface containing the icon pixel data is no longer required.
+    SDL_FreeSurface( surface );
 }
 
 bool SDLWindow::ShouldClose()
 {
-	return CloseRequested;
+    return CloseRequested;
 }
 
-extern bool ImGui_ImplSDL2_ProcessEvent(const SDL_Event* event);
+#if USING( ME_IMGUI )
+extern bool ImGui_ImplSDL2_ProcessEvent( const SDL_Event* event );
+#endif
 void SDLWindow::ParseMessageQueue()
 {
-	SDL_Event event;
-	while (SDL_PollEvent(&event))
-	{
-		if (ImGui_ImplSDL2_ProcessEvent(&event))
-		{
-			//return;
-		}
-		switch (event.type)
-		{
-		case SDL_QUIT:
-		{
-			CloseRequested = true;
-			break;
-		}
+    OPTICK_EVENT( "Window::ParseMessageQueue" );
+    SDL_Event event;
+    while( SDL_PollEvent( &event ) )
+    {
 
-		case SDL_MOUSEWHEEL:
-		{
-			MouseScrollEvent evt(static_cast<float>(event.wheel.x), static_cast<float>(event.wheel.y));
-			evt.Fire();
-			break;
-		}
-
-		case SDL_WINDOWEVENT:
-		{
-			HandleWindowEvent(event.window);
-			break;
+#if USING( ME_IMGUI )
+        if( ImGui_ImplSDL2_ProcessEvent( &event ) )
+        {
+            //return;
         }
-		default:
-			break;
-		}
-	}
+#endif
+
+        switch( event.type )
+        {
+        case SDL_QUIT:
+        {
+            CloseRequested = true;
+            break;
+        }
+        case SDL_KEYDOWN:
+        {
+            KeyState keyState = KeyState::Pressed;
+            if( event.key.repeat > 0 )
+            {
+                keyState = KeyState::Held;
+            }
+            KeyPressEvent evt( event.key.keysym.scancode, keyState );
+            evt.Fire();
+
+            break;
+        }
+
+        case SDL_KEYUP:
+        {
+            KeyPressEvent evt( event.key.keysym.scancode, KeyState::Released );
+            evt.Fire();
+            break;
+        }
+
+        case SDL_MOUSEWHEEL:
+        {
+            MouseScrollEvent evt( static_cast<float>( event.wheel.x ), static_cast<float>( event.wheel.y ) );
+            evt.Fire();
+            break;
+        }
+
+        case SDL_WINDOWEVENT:
+        {
+            HandleWindowEvent( event.window );
+            break;
+        }
+        default:
+            break;
+        }
+    }
 }
 
 Vector2 SDLWindow::GetSize() const
 {
-	int width = 0;
-	int height = 0;
-	SDL_GetWindowSize(WindowHandle, &width, &height);
+    int width = 0;
+    int height = 0;
+    SDL_GetWindowSize( WindowHandle, &width, &height );
 
-	return Vector2(width, height);
+    return Vector2( width, height );
 }
 
 Vector2 SDLWindow::GetPosition()
 {
-	int x, y;
-	SDL_GetWindowPosition(WindowHandle, &x, &y);
+    int x, y;
+    SDL_GetWindowPosition( WindowHandle, &x, &y );
 
-	return Vector2(x, y);
+    return Vector2( x, y );
 }
 
 bool SDLWindow::IsFullscreen()
 {
-	return false;
+    return false;
 }
 
 void SDLWindow::Maximize()
 {
-	SDL_MaximizeWindow(WindowHandle);
+    SDL_MaximizeWindow( WindowHandle );
 }
 
 void SDLWindow::Minimize()
 {
-	SDL_MinimizeWindow(WindowHandle);
+    SDL_MinimizeWindow( WindowHandle );
 }
 
 void SDLWindow::ExitMaximize()
 {
-	if (isMaximized)
-	{
-		SDL_RestoreWindow(WindowHandle);
-	}
+    if( isMaximized )
+    {
+        SDL_RestoreWindow( WindowHandle );
+    }
 }
 
-void SDLWindow::SetTitle(const std::string& title)
+void SDLWindow::SetTitle( const std::string& title )
 {
 }
 
 void SDLWindow::Exit()
 {
-	CloseRequested = true;
+    CloseRequested = true;
 }
 
 void* SDLWindow::GetWindowPtr()
 {
-	return PlatformInfo.nwh;
+    return PlatformInfo.nwh;
 }
 
-void SDLWindow::CanMoveWindow(bool param1)
+void SDLWindow::CanMoveWindow( bool param1 )
 {
 }
 
-void SDLWindow::SetBorderless(bool isBorderless)
+void SDLWindow::SetBorderless( bool isBorderless )
 {
-	SDL_SetWindowBordered(WindowHandle, (SDL_bool)!isBorderless);
+    SDL_SetWindowBordered( WindowHandle, (SDL_bool)!isBorderless );
 }
 
 bool SDLWindow::IsMaximized()
 {
-	return isMaximized;
+    return isMaximized;
 }
 
-void SDLWindow::SetCustomDragCallback(std::function<std::optional<SDL_HitTestResult>(const Vector2&)> cb)
+void SDLWindow::SetCustomDragCallback( std::function<std::optional<SDL_HitTestResult>( const Vector2& )> cb )
 {
-	CustomDragCB = cb;
+    CustomDragCB = cb;
 }
 
-void SDLWindow::SetWindow(SDL_Window* window)
+void SDLWindow::SetWindow( SDL_Window* window )
 {
-	SDL_SysWMinfo wmi;
+    SDL_SysWMinfo wmi;
 
-	SDL_VERSION(&wmi.version);
-	if (!SDL_GetWindowWMInfo(window, &wmi))
-	{
-		return;
-	}
+    SDL_VERSION( &wmi.version );
+    if( !SDL_GetWindowWMInfo( window, &wmi ) )
+    {
+        return;
+    }
 
-#if ME_PLATFORM_WIN64
-	PlatformInfo.ndt = nullptr;
-	PlatformInfo.nwh = wmi.info.win.window;
-#endif
-#if ME_PLATFORM_MACOS
-    PlatformInfo.ndt = nullptr;
-    PlatformInfo.nwh = wmi.info.cocoa.window;
-#endif
-#if ME_PLATFORM_UWP
+#if USING( ME_PLATFORM_WIN64 )
     PlatformInfo.ndt = nullptr;
     PlatformInfo.nwh = wmi.info.win.window;
 #endif
-	PlatformInfo.context = nullptr;
-	PlatformInfo.backBuffer = nullptr;
-	PlatformInfo.backBufferDS = nullptr;
+#if USING( ME_PLATFORM_MACOS )
+    PlatformInfo.ndt = nullptr;
+    PlatformInfo.nwh = wmi.info.cocoa.window;
+#endif
+#if USING( ME_PLATFORM_UWP )
+    PlatformInfo.ndt = nullptr;
+    PlatformInfo.nwh = wmi.info.win.window;
+#endif
+    PlatformInfo.context = nullptr;
+    PlatformInfo.backBuffer = nullptr;
+    PlatformInfo.backBufferDS = nullptr;
 }
 
-void SDLWindow::HandleWindowEvent(const SDL_WindowEvent& event)
+void SDLWindow::HandleWindowEvent( const SDL_WindowEvent& event )
 {
-	if (event.type != SDL_WINDOWEVENT)
-	{
-		YIKES("Event Type Mismatch: Expected WindowEvent");
-		return;
-	}
-	switch (event.event) {
-	case SDL_WINDOWEVENT_SHOWN:
-		//SDL_Log("Window %d shown", event.windowID);
-		break;
-	case SDL_WINDOWEVENT_HIDDEN:
-		//SDL_Log("Window %d hidden", event.windowID);
-		break;
-	case SDL_WINDOWEVENT_EXPOSED:
-		//SDL_Log("Window %d exposed", event.windowID);
-		break;
-	case SDL_WINDOWEVENT_MOVED:
-		//SDL_Log("Window %d moved to %d,%d",
-		//	event.windowID, event.data1,
-		//	event.data2);
-		break;
-	case SDL_WINDOWEVENT_RESIZED:
-		ResizeCB(GetSize());
-		SDL_Log("Window %d resized to %dx%d",
-			event.windowID, event.data1,
-			event.data2);
-		break;
-	case SDL_WINDOWEVENT_SIZE_CHANGED:
-		ResizeCB(GetSize());
-		SDL_Log("Window %d size changed to %dx%d",
-			event.windowID, event.data1,
-			event.data2);
-		break;
-	case SDL_WINDOWEVENT_MINIMIZED:
-		SDL_Log("Window %d minimized", event.windowID);
-		break;
-	case SDL_WINDOWEVENT_MAXIMIZED:
-		isMaximized = true;
-		SDL_Log("Window %d maximized", event.windowID);
-		break;
-	case SDL_WINDOWEVENT_RESTORED:
-		isMaximized = false;
-		SDL_Log("Window %d restored", event.windowID);
-		break;
-	case SDL_WINDOWEVENT_ENTER:
-		//SDL_Log("Mouse entered window %d",
-			//event.windowID);
-		break;
-	case SDL_WINDOWEVENT_LEAVE:
-		//SDL_Log("Mouse left window %d", event.windowID);
-		break;
-	case SDL_WINDOWEVENT_FOCUS_GAINED:
-		//SDL_Log("Window %d gained keyboard focus",
-			//event.windowID);
-		break;
-	case SDL_WINDOWEVENT_FOCUS_LOST:
-		//SDL_Log("Window %d lost keyboard focus",
-			//event.windowID);
-		break;
-	case SDL_WINDOWEVENT_CLOSE:
-		CloseRequested = true;
-		SDL_Log("Window %d closed", event.windowID);
-		break;
+    if( event.type != SDL_WINDOWEVENT )
+    {
+        YIKES( "Event Type Mismatch: Expected WindowEvent" );
+        return;
+    }
+    switch( event.event ) {
+    case SDL_WINDOWEVENT_SHOWN:
+        //SDL_Log("Window %d shown", event.windowID);
+        break;
+    case SDL_WINDOWEVENT_HIDDEN:
+        //SDL_Log("Window %d hidden", event.windowID);
+        break;
+    case SDL_WINDOWEVENT_EXPOSED:
+        //SDL_Log("Window %d exposed", event.windowID);
+        break;
+    case SDL_WINDOWEVENT_MOVED:
+    {
+        SDL_Log( "Window %d moved to %d,%d",
+            event.windowID, event.data1,
+            event.data2 );
+        WindowMovedEvent evt;
+        evt.NewPosition = { event.data1, event.data2 };
+        evt.Fire();
+        break;
+    }
+    case SDL_WINDOWEVENT_RESIZED:
+        // Remove this CB
+        ResizeCB( GetSize() );
+        SDL_Log( "Window %d resized to %dx%d",
+            event.windowID, event.data1,
+            event.data2 );
+        break;
+    case SDL_WINDOWEVENT_SIZE_CHANGED:
+        ResizeCB( GetSize() );
+        SDL_Log( "Window %d size changed to %dx%d",
+            event.windowID, event.data1,
+            event.data2 );
+        break;
+    case SDL_WINDOWEVENT_MINIMIZED:
+        SDL_Log( "Window %d minimized", event.windowID );
+        break;
+    case SDL_WINDOWEVENT_MAXIMIZED:
+        isMaximized = true;
+        SDL_Log( "Window %d maximized", event.windowID );
+        break;
+    case SDL_WINDOWEVENT_RESTORED:
+        isMaximized = false;
+        SDL_Log( "Window %d restored", event.windowID );
+        break;
+    case SDL_WINDOWEVENT_ENTER:
+        //SDL_Log("Mouse entered window %d",
+            //event.windowID);
+        break;
+    case SDL_WINDOWEVENT_LEAVE:
+        //SDL_Log("Mouse left window %d", event.windowID);
+        break;
+    case SDL_WINDOWEVENT_FOCUS_GAINED:
+        //SDL_Log("Window %d gained keyboard focus",
+            //event.windowID);
+        break;
+    case SDL_WINDOWEVENT_FOCUS_LOST:
+        //SDL_Log("Window %d lost keyboard focus",
+            //event.windowID);
+        break;
+    case SDL_WINDOWEVENT_CLOSE:
+        CloseRequested = true;
+        SDL_Log( "Window %d closed", event.windowID );
+        break;
 #if SDL_VERSION_ATLEAST(2, 0, 5)
-	case SDL_WINDOWEVENT_TAKE_FOCUS:
-		SDL_Log("Window %d is offered a focus", event.windowID);
-		break;
-	case SDL_WINDOWEVENT_HIT_TEST:
-		//SDL_Log("Window %d has a special hit test", event.windowID);
-		break;
+    case SDL_WINDOWEVENT_TAKE_FOCUS:
+        SDL_Log( "Window %d is offered a focus", event.windowID );
+        break;
+    case SDL_WINDOWEVENT_HIT_TEST:
+        //SDL_Log("Window %d has a special hit test", event.windowID);
+        break;
 #endif
-	default:
-		SDL_Log("Window %d got unknown event %d",
-			event.windowID, event.event);
-		break;
-	}
+    default:
+        SDL_Log( "Window %d got unknown event %d",
+            event.windowID, event.event );
+        break;
+    }
 }

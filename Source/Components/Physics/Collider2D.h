@@ -4,22 +4,22 @@
 
 class Collider2D : public Component<Collider2D>
 {
-	friend class PhysicsCore;
+    friend class PhysicsCore;
 public:
-	Collider2D();
-	~Collider2D();
+    Collider2D();
+    ~Collider2D();
 
-	// Separate init from construction code.
-	virtual void Init() final;
+    // Separate init from construction code.
+    virtual void Init() final;
 
-	//void SetBodyType(b2BodyType InBodyType);
+    //void SetBodyType(b2BodyType InBodyType);
 private:
-	//class b2PhysicsWorld;
-	//b2Body* Body;
+    //class b2PhysicsWorld;
+    //b2Body* Body;
 
-	//b2BodyDef BodyDefinition;
-	//b2FixtureDef FixtureDefinition;
-	//b2PolygonShape ShapeDefinition;
+    //b2BodyDef BodyDefinition;
+    //b2FixtureDef FixtureDefinition;
+    //b2PolygonShape ShapeDefinition;
 
-	bool IsInitialized;
+    bool IsInitialized;
 };

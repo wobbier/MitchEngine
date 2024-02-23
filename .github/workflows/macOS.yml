@@ -2,9 +2,9 @@ name: macOS
 
 on:
   push:
-    branches: [master]
+    branches: [master, motivation]
   pull_request:
-    branches: [master]
+    branches: [master, motivation]
 
   workflow_dispatch:
 
@@ -15,7 +15,7 @@ jobs:
         platform:
           - macOS
         xcode:
-          - ^12
+          - ^11
         configuration:
           - Debug
           - Release
@@ -25,7 +25,7 @@ jobs:
     runs-on: macos-11
 
     steps:
-      - uses: suisei-cn/actions-download-file@v1
+      - uses: suisei-cn/actions-download-file@818d6b7dc8fe73f2f924b6241f2b1134ca1377d9 # 1.6.0
         id: downloadfile
         name: Grab the project setup file
         with:
@@ -33,10 +33,10 @@ jobs:
           target: ./
 
       - name: Setup dotnet
-        uses: actions/setup-dotnet@v1
+        uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "5.0.100"
-
+        
       - name: Generate a new project
         shell: bash
         run: sh NewProjectSetup.command EmptyProject ${{github.ref_name}}
@@ -74,7 +74,7 @@ jobs:
         run: echo todo
 
       - name: Archive
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: EmptyProject - ${{matrix.type}} - ${{matrix.buildconfig}}
           path: |

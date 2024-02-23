@@ -15,8 +15,10 @@
 #include <Cores/UI/UICore.h>
 #include "Profiling/BasicFrameProfile.h"
 #include "UI/Colors.h"
+#include "Components/Physics/Rigidbody.h"
+#include "Physics/RigidBodyWithCollisionEvents.h"
 
-#if ME_EDITOR
+#if USING( ME_EDITOR )
 
 SceneViewWidget::SceneViewWidget(const std::string& inTitle, bool inSceneToolsEnabled)
 	: HavanaWidget(inTitle)
@@ -135,10 +137,6 @@ void SceneViewWidget::Update()
 
 void SceneViewWidget::Render()
 {
-	if (!IsOpen)
-	{
-		return;
-	}
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
@@ -147,20 +145,25 @@ void SceneViewWidget::Render()
 
 	Input& gameInput = GetEngine().GetInput();
 	Input& editorInput = GetEngine().GetEditorInput();
-
+	bool shouldRender = false;
 	if (MaximizeOnPlay)
 	{
 		ImGuiWindowFlags fullScreenFlags = WindowFlags | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar;
 
 		ImGui::SetNextWindowPos(ImVec2(App->Editor->DockPos.x, App->Editor->DockPos.y));
 		ImGui::SetNextWindowSize(ImVec2(App->Editor->DockSize.x, App->Editor->DockSize.y));
-		ImGui::Begin("Full Screen Viewport", NULL, fullScreenFlags);
+		shouldRender = ImGui::Begin("Full Screen Viewport", NULL, fullScreenFlags);
 	}
 	else
 	{
 		ImGuiWindowFlags fullScreenFlags = WindowFlags | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar;
-		ImGui::Begin(Name.c_str(), &IsOpen, fullScreenFlags);
+		shouldRender = ImGui::Begin(Name.c_str(), &IsOpen, fullScreenFlags);
 	}
+
+    if( MainCamera )
+    {
+        MainCamera->ShouldRender = shouldRender && !ImGui::IsWindowCollapsed();
+    }
 
 	if (ImGui::BeginMenuBar())
 	{
@@ -244,7 +247,8 @@ void SceneViewWidget::Render()
 	SceneViewRenderLocation = Vector2(ImGui::GetCursorPos().x, ImGui::GetCursorPos().y);
 	GizmoRenderLocation = Vector2(ImGui::GetCursorScreenPos().x, ImGui::GetCursorScreenPos().y);
 
-	Vector2 availableSpace = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y - SceneViewRenderLocation.y);
+    Vector2 availableSpace = Vector2( ImGui::GetWindowSize().x, ImGui::GetWindowSize().y - SceneViewRenderLocation.y );
+    Vector2 heightSub = { 0.f, SceneViewRenderLocation.y };
 	Vector2 viewportRenderSize = availableSpace;
 	float scale = 1.f;
 	switch (CurrentDisplayParams.Type)
@@ -313,10 +317,11 @@ void SceneViewWidget::Render()
 	default:
 		break;
 	}
+    GetEngine().GetInput().SetMouseOffset( (GizmoRenderLocation + SceneViewRenderLocation) - heightSub );
 
 	Moonlight::FrameBuffer* currentView = (MainCamera) ? MainCamera->Buffer : nullptr;
 
-	if (currentView && bgfx::isValid(currentView->Buffer))
+    if ( currentView && bgfx::isValid( currentView->Buffer ) )
 	{
 		ImGui::SetCursorPos(ImVec2(SceneViewRenderLocation.x, SceneViewRenderLocation.y));
 		ImVec2 maxPos = ImVec2(SceneViewRenderLocation.x + ImGui::GetWindowSize().x, SceneViewRenderLocation.y + ImGui::GetWindowSize().y);
@@ -326,8 +331,13 @@ void SceneViewWidget::Render()
 			ImVec2(0, 0),
 			ImVec2(Mathf::Clamp(0.f, 1.0f, SceneViewRenderSize.x / currentView->Width), Mathf::Clamp(0.f, 1.0f, SceneViewRenderSize.y / currentView->Height)));
 
-		IsFocused = ImGui::IsItemClicked();
-	}
+		if ( ImGui::IsItemClicked( 1 ) )
+		{
+            ImGui::SetWindowFocus();
+        }
+
+        IsFocused = ImGui::IsWindowFocused();
+    }
 
 	if (EnableSceneTools)
 	{
@@ -391,9 +401,6 @@ void SceneViewWidget::DrawGuizmo()
 			Vector3 currentPos, currentRot, currentScale;
 			ImGuizmo::DecomposeMatrixToComponents(matrix, &currentPos.x, &currentRot.x, &currentScale.x);
 
-			float viewManipulateRight = io.DisplaySize.x;
-			float viewManipulateTop = 0;
-
 			ImGuizmo::SetRect(GizmoRenderLocation.x, GizmoRenderLocation.y, SceneViewRenderSize.x, SceneViewRenderSize.y);
 			ImGuizmo::Manipulate(&cameraViewLH[0][0], cameraProjection, CurrentGizmoOperation, CurrentGizmoMode, matrix);
 			//ImGuizmo::ViewManipulate(&cameraViewRH[0][0], 8.f, ImVec2(GizmoRenderLocation.x + SceneViewRenderSize.x - 128, GizmoRenderLocation.y), ImVec2(128, 128), 0x00101010);
@@ -412,6 +419,19 @@ void SceneViewWidget::DrawGuizmo()
 			{
 				SelectedTransform.lock()->SetScale(modifiedScale);
 			}
+
+			EntityHandle& selectedEntity = SelectedTransform.lock()->Parent;
+            if ( SelectedTransform.lock()->IsDirty() && selectedEntity->HasComponent<Rigidbody>() )
+            {
+                btTransform trans;
+				btRigidBodyWithEvents* rigidbody = selectedEntity->GetComponent<Rigidbody>().InternalRigidbody;
+                Vector3 transPos = SelectedTransform.lock()->GetWorldPosition();
+				Quaternion rotation = SelectedTransform.lock()->GetRotation();
+                trans.setRotation( btQuaternion( rotation.x, rotation.y, rotation.z, rotation.w ) );
+                trans.setOrigin( btVector3( transPos.x, transPos.y, transPos.z ) );
+                rigidbody->setWorldTransform( trans );
+                rigidbody->activate();
+            }
 		}
 	}
 }

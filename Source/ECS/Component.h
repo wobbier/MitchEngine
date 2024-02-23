@@ -28,77 +28,84 @@
 
 class BaseComponent
 {
-	friend class ComponentStorage;
+    friend class ComponentStorage;
 public:
-	BaseComponent() = delete;
-	BaseComponent(const char* CompName)
-		: TypeName(CompName)
-	{
-		TypeName = TypeName.substr(TypeName.find(' ') + 1);
-	}
+    BaseComponent() = delete;
+    BaseComponent( const char* CompName )
+        : TypeName( CompName )
+    {
+        TypeName = TypeName.substr( TypeName.find( ' ' ) + 1 );
+    }
 
-	virtual ~BaseComponent() = default;
+    virtual ~BaseComponent() = default;
 
-	// Called after Deserialize
-	virtual void Init() = 0;
+    // Called after Deserialize
+    virtual void Init() = 0;
 
-	const std::string& GetName() const
-	{
-		return TypeName;
-	}
+    const std::string& GetName() const
+    {
+        return TypeName;
+    }
 
-	EntityHandle Parent;
+    EntityHandle Parent;
 
-	virtual void Serialize(json& outJson) = 0;
-	virtual void Deserialize(const json& inJson) = 0;
+    virtual void Serialize( json& outJson ) = 0;
+    virtual void Deserialize( const json& inJson ) = 0;
 
-#if ME_EDITOR
-	virtual void OnEditorInspect() = 0;
+    virtual TypeId GetTypeId() const = 0;
+
+#if USING( ME_EDITOR )
+    virtual void OnEditorInspect() = 0;
 #endif
 
 private:
-	std::string TypeName;
+    std::string TypeName;
 };
 
 template<typename T>
 class Component
-	: public BaseComponent
+    : public BaseComponent
 {
 public:
-	Component(const char* Name)
-		: BaseComponent(Name)
-	{
-	}
+    Component( const char* Name )
+        : BaseComponent( Name )
+    {
+    }
 
-	static TypeId GetTypeId()
-	{
-		return ClassTypeId<BaseComponent>::GetTypeId<T>();
-	}
+    virtual TypeId GetTypeId() const final
+    {
+        return ClassTypeId<BaseComponent>::GetTypeId<T>();
+    }
 
-	// OnDeserialize guaranteed to be called before this
-	virtual void Init() override {};
+    static TypeId GetStaticTypeId()
+    {
+        return ClassTypeId<BaseComponent>::GetTypeId<T>();
+    }
 
-	virtual void Serialize(json& outJson) final
-	{
-		outJson["Type"] = GetName();
-		OnSerialize(outJson);
-	}
+    // OnDeserialize guaranteed to be called before this
+    virtual void Init() override {};
 
-	virtual void Deserialize(const json& inJson) final
-	{
-		OnDeserialize(inJson);
-	}
+    virtual void Serialize( json& outJson ) final
+    {
+        outJson["Type"] = GetName();
+        OnSerialize( outJson );
+    }
 
-#if ME_EDITOR
+    virtual void Deserialize( const json& inJson ) final
+    {
+        OnDeserialize( inJson );
+    }
 
-	virtual void OnEditorInspect() override
-	{
-	}
+#if USING( ME_EDITOR )
+
+    virtual void OnEditorInspect() override
+    {
+    }
 
 #endif
 private:
-	virtual void OnSerialize(json& outJson) = 0;
-	virtual void OnDeserialize(const json& inJson) = 0;
+    virtual void OnSerialize( json& outJson ) = 0;
+    virtual void OnDeserialize( const json& inJson ) = 0;
 };
 
 using ComponentArray = std::vector<std::reference_wrapper<BaseComponent>>;

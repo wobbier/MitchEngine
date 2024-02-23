@@ -1,4 +1,5 @@
 #include "PCH.h"
+/*
 #include <AppCore/Overlay.h>
 #include <AppCore/Window.h>
 #include <AppCore/App.h>
@@ -6,256 +7,292 @@
 #include <Ultralight/Buffer.h>
 #include <Ultralight/platform/Platform.h>
 #include <Ultralight/platform/Config.h>
+#include <Ultralight/platform/Surface.h>
 #include "GPUDriverImpl.h"
 #include "RefCountedImpl.h"
 #include "OverlayManager.h"
 #include <vector>
-#include "Engine/Engine.h"
-#include "Cores/UI/UICore.h"
 
 namespace ultralight {
 
-	static IndexType patternCW[] = { 0, 1, 3, 1, 2, 3 };
-	static IndexType patternCCW[] = { 0, 3, 1, 1, 3, 2 };
+    static IndexType patternCW[] = { 0, 1, 3, 1, 2, 3 };
+    static IndexType patternCCW[] = { 0, 3, 1, 1, 3, 2 };
 
-	class OverlayImpl : public Overlay,
-		public RefCountedImpl<OverlayImpl> {
-	public:
-		virtual void Draw() override {
-			if (is_hidden_)
-				return;
+    class OverlayImpl : public Overlay,
+        public RefCountedImpl<OverlayImpl> {
+    public:
+        virtual void Paint() override {
+            if( is_hidden_ )
+                return;
 
-			UpdateGeometry();
+            if( use_gpu_ ) {
+                //UpdateGeometry();
 
-			driver_->DrawGeometry(geometry_id_, 6, 0, gpu_state_);
-		}
+                //driver_->DrawGeometry( geometry_id_, 6, 0, gpu_state_ );
+            }
+            else if( view()->surface() ) {
+                Surface* surface = view()->surface();
+                window_->DrawSurface( x_, y_, surface );
+            }
 
-		virtual void Resize(uint32_t width, uint32_t height) override {
-			// Clamp each dimension to 2
-			width = width <= 2 ? 2 : width;
-			height = height <= 2 ? 2 : height;
+            needs_update_ = false;
+        }
 
-			if (width == width_ && height == height_)
-				return;
+        virtual void Resize( uint32_t width, uint32_t height ) override {
+            // Clamp each dimension to 2
+            width = width <= 2 ? 2 : width;
+            height = height <= 2 ? 2 : height;
 
-			view_->Resize(width, height);
+            if( width == width_ && height == height_ )
+                return;
 
-			width_ = width;
-			height_ = height;
-			needs_update_ = true;
-			UpdateGeometry();
+            view_->Resize( width, height );
 
-			// Update these now since they were invalidated
-			RenderTarget target = view_->render_target();
-			gpu_state_.texture_1_id = target.texture_id;
-			gpu_state_.viewport_width = window_->width();
-			gpu_state_.viewport_height = window_->height();
-		}
+            width_ = width;
+            height_ = height;
+            needs_update_ = true;
 
-		void UpdateGeometry() {
-			bool initial_creation = false;
-			RenderTarget target = view_->render_target();
+            if( use_gpu_ ) {
+                //UpdateGeometry();
 
-			if (vertices_.empty()) {
-				vertices_.resize(4);
-				indices_.resize(6);
+                // Update these now since they were invalidated
+                RenderTarget target = view_->render_target();
+                gpu_state_.texture_1_id = target.texture_id;
+                gpu_state_.viewport_width = window_->width();
+                gpu_state_.viewport_height = window_->height();
+            }
+        }
 
-				auto& config = Platform::instance().config();
-				if (config.face_winding == kFaceWinding_Clockwise)
-					memcpy(indices_.data(), patternCW, sizeof(IndexType) * indices_.size());
-				else
-					memcpy(indices_.data(), patternCCW, sizeof(IndexType) * indices_.size());
+        //void UpdateGeometry() {
+        //    if( !use_gpu_ )
+        //        return;
+        //
+        //    bool initial_creation = false;
+        //    RenderTarget target = view_->render_target();
+        //
+        //    if( vertices_.empty() ) {
+        //        vertices_.resize( 4 );
+        //        indices_.resize( 6 );
+        //
+        //        auto& config = Platform::instance().config();
+        //        if( config.face_winding == FaceWinding::Clockwise )
+        //            memcpy( indices_.data(), patternCW, sizeof( IndexType ) * indices_.size() );
+        //        else
+        //            memcpy( indices_.data(), patternCCW, sizeof( IndexType ) * indices_.size() );
+        //
+        //        memset( &gpu_state_, 0, sizeof( gpu_state_ ) );
+        //        Matrix identity;
+        //        identity.SetIdentity();
+        //
+        //        gpu_state_.viewport_width = window_->width();
+        //        gpu_state_.viewport_height = window_->height();
+        //        gpu_state_.transform = identity.GetMatrix4x4();
+        //        gpu_state_.enable_blend = true;
+        //        gpu_state_.enable_texturing = true;
+        //        gpu_state_.shader_type = ShaderType::Fill;
+        //        gpu_state_.render_buffer_id = window_->render_buffer_id();
+        //        gpu_state_.texture_1_id = target.texture_id;
+        //
+        //        initial_creation = true;
+        //    }
+        //
+        //    if( !needs_update_ )
+        //        return;
+        //
+        //    Vertex_2f_4ub_2f_2f_28f v;
+        //    memset( &v, 0, sizeof( v ) );
+        //
+        //    v.data0[0] = 1; // Fill Type: Image
+        //
+        //    v.color[0] = 255;
+        //    v.color[1] = 255;
+        //    v.color[2] = 255;
+        //    v.color[3] = 255;
+        //
+        //    float left = static_cast<float>( x_ );
+        //    float top = static_cast<float>( y_ );
+        //    float right = static_cast<float>( x_ + width() );
+        //    float bottom = static_cast<float>( y_ + height() );
+        //
+        //    // TOP LEFT
+        //    v.pos[0] = v.obj[0] = left;
+        //    v.pos[1] = v.obj[1] = top;
+        //    v.tex[0] = target.uv_coords.left;
+        //    v.tex[1] = target.uv_coords.top;
+        //
+        //    vertices_[0] = v;
+        //
+        //    // TOP RIGHT
+        //    v.pos[0] = v.obj[0] = right;
+        //    v.pos[1] = v.obj[1] = top;
+        //    v.tex[0] = target.uv_coords.right;
+        //    v.tex[1] = target.uv_coords.top;
+        //
+        //    vertices_[1] = v;
+        //
+        //    // BOTTOM RIGHT
+        //    v.pos[0] = v.obj[0] = right;
+        //    v.pos[1] = v.obj[1] = bottom;
+        //    v.tex[0] = target.uv_coords.right;
+        //    v.tex[1] = target.uv_coords.bottom;
+        //
+        //    vertices_[2] = v;
+        //
+        //    // BOTTOM LEFT
+        //    v.pos[0] = v.obj[0] = left;
+        //    v.pos[1] = v.obj[1] = bottom;
+        //    v.tex[0] = target.uv_coords.left;
+        //    v.tex[1] = target.uv_coords.bottom;
+        //
+        //    vertices_[3] = v;
+        //
+        //    ultralight::VertexBuffer vbuffer;
+        //    vbuffer.format = ultralight::VertexBufferFormat::_2f_4ub_2f_2f_28f;
+        //    vbuffer.size = static_cast<uint32_t>( sizeof( ultralight::Vertex_2f_4ub_2f_2f_28f ) * vertices_.size() );
+        //    vbuffer.data = (uint8_t*)vertices_.data();
+        //
+        //    ultralight::IndexBuffer ibuffer;
+        //    ibuffer.size = static_cast<uint32_t>( sizeof( ultralight::IndexType ) * indices_.size() );
+        //    ibuffer.data = (uint8_t*)indices_.data();
+        //
+        //    if( initial_creation ) {
+        //        geometry_id_ = driver_->NextGeometryId();
+        //        driver_->CreateGeometry( geometry_id_, vbuffer, ibuffer );
+        //    }
+        //    else {
+        //        driver_->UpdateGeometry( geometry_id_, vbuffer, ibuffer );
+        //    }
+        //
+        //    needs_update_ = false;
+        //}
 
-				memset(&gpu_state_, 0, sizeof(gpu_state_));
-				Matrix identity;
-				identity.SetIdentity();
+        virtual RefPtr<View> view() override {
+            return view_;
+        }
 
-				gpu_state_.viewport_width = window_->width();
-				gpu_state_.viewport_height = window_->height();
-				gpu_state_.transform = identity.GetMatrix4x4();
-				gpu_state_.enable_blend = true;
-				gpu_state_.enable_texturing = true;
-				gpu_state_.shader_type = kShaderType_Fill;
-				gpu_state_.render_buffer_id = 0; // default render target view (screen)
-				gpu_state_.texture_1_id = target.texture_id;
+        virtual uint32_t width() const override {
+            return width_;
+        }
 
-				initial_creation = true;
-			}
+        virtual uint32_t height() const override {
+            return height_;
+        }
 
-			if (!needs_update_)
-				return;
+        virtual int x() const override {
+            return x_;
+        }
 
-			Vertex_2f_4ub_2f_2f_28f v;
-			memset(&v, 0, sizeof(v));
+        virtual int y() const override {
+            return y_;
+        }
 
-			v.data0[0] = 1; // Fill Type: Image
+        virtual bool is_hidden() const override {
+            return is_hidden_;
+        }
 
-			v.color[0] = 255;
-			v.color[1] = 255;
-			v.color[2] = 255;
-			v.color[3] = 255;
+        virtual void Hide() override {
+            is_hidden_ = true;
+        }
 
-			float left = static_cast<float>(x_);
-			float top = static_cast<float>(y_);
-			float right = static_cast<float>(x_ + width());
-			float bottom = static_cast<float>(y_ + height());
+        virtual void Show() override {
+            is_hidden_ = false;
+            needs_update_ = true;
+        }
 
-			// TOP LEFT
-			v.pos[0] = v.obj[0] = left;
-			v.pos[1] = v.obj[1] = top;
-			v.tex[0] = target.uv_coords.left;
-			v.tex[1] = target.uv_coords.top;
+        virtual bool has_focus() const override {
+            return window_->overlay_manager()->IsOverlayFocused( (Overlay*)this );
+        }
 
-			vertices_[0] = v;
+        virtual void Focus() override {
+            window_->overlay_manager()->FocusOverlay( (Overlay*)this );
+        }
 
-			// TOP RIGHT
-			v.pos[0] = v.obj[0] = right;
-			v.pos[1] = v.obj[1] = top;
-			v.tex[0] = target.uv_coords.right;
-			v.tex[1] = target.uv_coords.top;
+        virtual void Unfocus() override {
+            if( has_focus() )
+                window_->overlay_manager()->UnfocusAll();
+        }
 
-			vertices_[1] = v;
+        virtual void MoveTo( int x, int y ) override {
+            x_ = x;
+            y_ = y;
+            needs_update_ = true;
+        }
 
-			// BOTTOM RIGHT
-			v.pos[0] = v.obj[0] = right;
-			v.pos[1] = v.obj[1] = bottom;
-			v.tex[0] = target.uv_coords.right;
-			v.tex[1] = target.uv_coords.bottom;
+        virtual bool NeedsRepaint() override {
+            return needs_update_ || view_->needs_paint();
+        }
 
-			vertices_[2] = v;
+        REF_COUNTED_IMPL( OverlayImpl );
 
-			// BOTTOM LEFT
-			v.pos[0] = v.obj[0] = left;
-			v.pos[1] = v.obj[1] = bottom;
-			v.tex[0] = target.uv_coords.left;
-			v.tex[1] = target.uv_coords.bottom;
+    protected:
+        OverlayImpl( RefPtr<Window> window, uint32_t width, uint32_t height, int x, int y ) :
+            window_( window ), width_( width ), height_( height ), x_( x ), y_( y ), needs_update_( true ),
+            use_gpu_( Platform::instance().gpu_driver() ) {
+            //if( use_gpu_ )
+            //    driver_ = (ultralight::GPUDriverImpl*)Platform::instance().gpu_driver();
 
-			vertices_[3] = v;
+            ViewConfig view_config;
+            view_config.initial_device_scale = window_->scale();
+            view_config.is_accelerated = use_gpu_;
+            view_ = App::instance()->renderer()->CreateView( width, height, view_config, nullptr );
 
-			ultralight::VertexBuffer vbuffer;
-			vbuffer.format = ultralight::kVertexBufferFormat_2f_4ub_2f_2f_28f;
-			vbuffer.size = static_cast<uint32_t>(sizeof(ultralight::Vertex_2f_4ub_2f_2f_28f) * vertices_.size());
-			vbuffer.data = (uint8_t*)vertices_.data();
+            window_->overlay_manager()->Add( this );
+        }
 
-			ultralight::IndexBuffer ibuffer;
-			ibuffer.size = static_cast<uint32_t>(sizeof(ultralight::IndexType) * indices_.size());
-			ibuffer.data = (uint8_t*)indices_.data();
+        OverlayImpl( RefPtr<Window> window, RefPtr<View> view, int x, int y ) :
+            window_( window ), view_( view ), width_( view->width() ),
+            height_( view->height() ), x_( x ), y_( y ), needs_update_( true ),
+            use_gpu_( Platform::instance().gpu_driver() ) {
+            //if( use_gpu_ )
+            //    driver_ = (ultralight::GPUDriverImpl*)Platform::instance().gpu_driver();
 
-			if (initial_creation) {
-				geometry_id_ = driver_->NextGeometryId();
-				driver_->CreateGeometry(geometry_id_, vbuffer, ibuffer);
-			}
-			else {
-				driver_->UpdateGeometry(geometry_id_, vbuffer, ibuffer);
-			}
+            window_->overlay_manager()->Add( this );
+        }
 
-			needs_update_ = false;
-		}
+        ~OverlayImpl() {
+            if( App::instance() ) {
+                window_->overlay_manager()->Remove( this );
 
-		virtual Ref<View> view() override { return view_; }
+                //if( use_gpu_ && vertices_.size() && driver_ )
+                //    driver_->DestroyGeometry( geometry_id_ );
+            }
+        }
 
-		virtual uint32_t width() const override { return width_; }
+        RefPtr<Window> window_;
+        uint32_t width_;
+        uint32_t height_;
+        int x_;
+        int y_;
+        bool is_hidden_ = false;
+        bool use_gpu_ = true;
+        ultralight::RefPtr<ultralight::View> view_;
+        //ultralight::GPUDriverImpl* driver_;
+        std::vector<ultralight::Vertex_2f_4ub_2f_2f_28f> vertices_;
+        std::vector<ultralight::IndexType> indices_;
+        bool needs_update_;
+        uint32_t geometry_id_;
+        ultralight::GPUState gpu_state_;
 
-		virtual uint32_t height() const override { return height_; }
+        friend class Overlay;
 
-		virtual int x() const override { return x_; }
+        DISALLOW_COPY_AND_ASSIGN( OverlayImpl );
+    };
 
-		virtual int y() const override { return y_; }
+    RefPtr<Overlay> Overlay::Create( RefPtr<Window> window, uint32_t width,
+        uint32_t height, int x, int y ) {
+        // Clamp each dimension to 2
+        width = width <= 2 ? 2 : width;
+        height = height <= 2 ? 2 : height;
 
-		virtual bool is_hidden() const override { return is_hidden_; }
+        return AdoptRef( *new OverlayImpl( window, width, height, x, y ) );
+    }
 
-		virtual void Hide() override {
-			is_hidden_ = true;
-		}
+    RefPtr<Overlay> Overlay::Create( RefPtr<Window> window, RefPtr<View> view, int x, int y ) {
+        return AdoptRef( *new OverlayImpl( window, view, x, y ) );
+    }
 
-		virtual void Show() override {
-			is_hidden_ = false;
-		}
-
-		virtual bool has_focus() const override {
-			return window_->overlay_manager()->IsOverlayFocused((Overlay*)this);
-		}
-
-		virtual void Focus() override {
-			window_->overlay_manager()->FocusOverlay(static_cast<Overlay*>(this));
-		}
-
-		virtual void Unfocus() override {
-			if (has_focus())
-				window_->overlay_manager()->UnfocusAll();
-		}
-
-		virtual void MoveTo(int x, int y) override {
-			x_ = x;
-			y_ = y;
-			needs_update_ = true;
-		}
-
-		virtual bool NeedsRepaint() override {
-			return needs_update_ || view_->needs_paint();
-		}
-
-		REF_COUNTED_IMPL(OverlayImpl);
-
-	protected:
-		//OverlayImpl(Ref<Window> window, uint32_t width, uint32_t height, int x, int y) :
-		//	window_(window), /*view_(GetEngine().UI->m_uiRenderer->CreateView(width, height, false, nullptr)),*/
-		//	width_(width), height_(height), x_(x), y_(y), needs_update_(true)/*,
-		//	driver_((GPUDriverImpl*)Platform::instance().gpu_driver())*/ {
-		//	window_->overlay_manager()->Add(this);
-		//}
-
-		OverlayImpl(Ref<Window> window, Ref<View> view, int x, int y) :
-			window_(window), view_(view), width_(view->width()),
-			height_(view->height()), x_(x), y_(y), needs_update_(true),
-			driver_((GPUDriverImpl*)Platform::instance().gpu_driver()) {
-			window_->overlay_manager()->Add(this);
-		}
-
-		~OverlayImpl() {
-			/*if (GetEngine().UI->m_uiRenderer) {
-				window_->overlay_manager()->Remove(this);
-
-				if (vertices_.size())
-					driver_->DestroyGeometry(geometry_id_);
-			}*/
-		}
-
-		Ref<Window> window_;
-		uint32_t width_;
-		uint32_t height_;
-		int x_;
-		int y_;
-		bool is_hidden_ = false;
-		ultralight::Ref<ultralight::View> view_;
-		ultralight::GPUDriverImpl* driver_;
-		std::vector<ultralight::Vertex_2f_4ub_2f_2f_28f> vertices_;
-		std::vector<ultralight::IndexType> indices_;
-		bool needs_update_;
-		uint32_t geometry_id_;
-		ultralight::GPUState gpu_state_;
-
-		friend class Overlay;
-
-		DISALLOW_COPY_AND_ASSIGN(OverlayImpl);
-	};
-
-	//Ref<Overlay> Overlay::Create(Ref<Window> window, uint32_t width,
-	//	uint32_t height, int x, int y) {
-	//	// Clamp each dimension to 2
-	//	width = width <= 2 ? 2 : width;
-	//	height = height <= 2 ? 2 : height;
-
-	//	return AdoptRef(*new OverlayImpl(window, width, height, x, y));
-	//}
-
-	Ref<Overlay> Overlay::Create(Ref<Window> window, Ref<View> view, int x, int y) {
-		return AdoptRef(*new OverlayImpl(window, view, x, y));
-	}
-
-	Overlay::~Overlay()
-	{
-	}
+    Overlay::~Overlay() {}
 
 
 }  // namespace ultralight
+*/

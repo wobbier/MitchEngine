@@ -70,7 +70,7 @@ namespace ImGui
 	bool DrawCurve(float P[5], float width, float height)
 	{
 		enum { SMOOTHNESS = 64 }; // curve smoothness: the higher number of segments, the smoother curve
-		const float avail = GetContentRegionAvailWidth();
+		const float avail = GetContentRegionAvail().x;
 		const float availHeight = GetContentRegionAvail().y;
 		const float dim = width > 0 ? width : avail;
 		const float dim2 = height > 0 ? height : availHeight;
@@ -185,7 +185,7 @@ namespace ImGui
 		Dummy(ImVec2(0, 3));
 
 		// prepare canvas
-		const float avail = GetContentRegionAvailWidth();
+		const float avail = GetContentRegionAvail().x;
 		const float availHeight = GetContentRegionAvail().y;
 		const float dim = AREA_WIDTH > 0 ? AREA_WIDTH : avail;
 		const float dim2 = AREA_HEIGHT > 0 ? AREA_HEIGHT : availHeight;
