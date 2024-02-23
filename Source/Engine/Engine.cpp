@@ -180,8 +180,9 @@ void Engine::Init( Game* game )
 
     // Register systems
     {
-        updateContext.m_SystemRegistry->RegisterSystem( NewRenderer );
+        systemRegistry.RegisterSystem( NewRenderer );
     }
+    updateContext.m_SystemRegistry = &systemRegistry;
 
     m_isInitialized = true;
 }

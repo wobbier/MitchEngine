@@ -4,7 +4,7 @@
 #include "Vector2.h"
 
 #include "Matrix4.h"
-#include "glm\detail\type_vec.hpp"
+#include <glm/glm.hpp>
 
 class Frustum
 {

@@ -113,9 +113,9 @@ struct ShaderFileMetadata
             exportType = "vertex";
         }
 
-        std::string fileName = FilePath.GetLocalPath().substr( FilePath.GetLocalPath().rfind( "/" ) + 1, FilePath.GetLocalPath().length() );
-
-        std::string localFolder = FilePath.GetLocalPath().substr( 0, FilePath.GetLocalPath().rfind( "/" ) + 1 );
+        // #TODO: Do I need this local string shit?
+        std::string fileName = FilePath.GetLocalPathString().substr( FilePath.GetLocalPathString().rfind( "/" ) + 1, FilePath.GetLocalPathString().length() );
+        std::string localFolder = FilePath.GetLocalPathString().substr( 0, FilePath.GetLocalPathString().rfind( "/" ) + 1 );
 
         std::string nameNoExt = fileName.substr( 0, fileName.rfind( "." ) );
         std::string progArgs = "\"" + shadercPath.FullPath + "\" -f ../../";

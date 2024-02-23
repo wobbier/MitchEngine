@@ -93,6 +93,7 @@ private:
     JobEngine newJobSystem;
 
     EngineUpdateContext updateContext;
+    SystemRegistry systemRegistry;
 
 #if USING( ME_EDITOR )
     Input m_editorInput;

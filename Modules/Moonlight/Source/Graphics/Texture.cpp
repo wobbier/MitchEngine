@@ -295,8 +295,8 @@ void TextureResourceMetadata::Export()
 
     // texturec -f $in -o $out -t bc2 -m
     std::string progArgs = "\"" + optickPath.FullPath + "\" -f ../../";
-    progArgs += FilePath.LocalPath;
-    progArgs += " -o \"../../" + FilePath.LocalPath + ".dds\"" + exportType;
+    progArgs += FilePath.GetLocalPathString();
+    progArgs += " -o \"../../" + FilePath.GetLocalPathString() + ".dds\"" + exportType;
     system( progArgs.c_str() );
 
 #endif

@@ -201,9 +201,18 @@ public abstract class BaseProject : Project
     {
         conf.DefaultOption = Options.DefaultTarget.Release;
         conf.Options.Add(Sharpmake.Options.Vc.Compiler.RuntimeLibrary.MultiThreadedDLL);
+        conf.Options.Add(Options.Vc.General.DebugInformation.ProgramDatabase);
         conf.Options.Add(Options.Vc.Compiler.Inline.OnlyInline);
-        conf.AdditionalCompilerOptions.Add("/Zi");
         conf.Defines.Add("DEFINE_ME_RELEASE");
+
+        if (conf.Platform == Platform.win64 )
+        {
+            conf.AdditionalCompilerOptions.Add("/Zi");
+        }
+        else if (conf.Platform == Platform.mac)
+        {
+            conf.AdditionalCompilerOptions.Add("-g");
+        }
     }
 
 

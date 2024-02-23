@@ -1,12 +1,11 @@
 #include "PCH.h"
 #include "GPUDriver.h"
-#include "Utils\BGFXUtils.h"
-#include "bimg\decode.h"
-#include "Core\Assert.h"
-#include "Device\FrameBuffer.h"
-#include "bgfx\bgfx.h"
-#include "Graphics\ShaderStructures.h"
-#include <DirectXMath.h>
+#include <Utils/BGFXUtils.h>
+#include <bimg/decode.h>
+#include "Core/Assert.h"
+#include "Device/FrameBuffer.h"
+#include "bgfx/bgfx.h"
+#include "Graphics/ShaderStructures.h"
 #include <glm/glm.hpp>
 
 #if USING( ME_UI )

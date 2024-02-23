@@ -113,7 +113,8 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
 
                     for( Moonlight::CameraData& cam : cameras.Commands )
                     {
-                        if( cam.ViewFrustum.IsPointInFrustum( glm::vec4(meshMatrix[3] ) ) )
+                        glm::vec4 point = glm::vec4( meshMatrix[3] );
+                        if( cam.ViewFrustum.IsPointInFrustum( point ) )
                         {
                             isVisible = true;
                             cam.VisibleFlags[entIndex] = true;

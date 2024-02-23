@@ -12,9 +12,8 @@ class UIWindow
     : public ultralight::Window
     , public ultralight::RefCountedImpl<UIWindow>
 {
-    friend class ultralight::OverlayImpl;
     friend class ultralight::Window;
-    friend class ultralight::OverlayImpl;
+    //friend class ultralight::OverlayImpl;
 public:
     UIWindow( IWindow* window, ultralight::OverlayManager* manager );
 protected:

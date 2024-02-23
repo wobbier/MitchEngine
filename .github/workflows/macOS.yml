@@ -43,7 +43,7 @@ jobs:
 
       - name: Generate a new project
         shell: bash
-        run: cd Project && sh GenerateSolution.command && cd ../
+        run: cd Project && sh GenerateSolution.command && cd ../ && ls
 
       - name: Build Editor
         if: ${{ matrix.type == 'Editor' }}
@@ -54,6 +54,7 @@ jobs:
           action: build # default = `test`
           code-coverage: true # default = `false`
           warnings-as-errors: false # default = `false`
+          workspace: EmptyProject.xcworkspace
           configuration: ${{ matrix.type }}_${{ matrix.configuration }} # no default, ie. `xcodebuild` decides itself
           scheme: Havana_mac
 
@@ -66,6 +67,7 @@ jobs:
           action: build # default = `test`
           code-coverage: true # default = `false`
           warnings-as-errors: false # default = `false`
+          workspace: EmptyProject.xcworkspace
           configuration: ${{ matrix.type }}_${{ matrix.configuration }} # no default, ie. `xcodebuild` decides itself
           scheme: Game_EntryPoint_mac
 
