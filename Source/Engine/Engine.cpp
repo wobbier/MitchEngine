@@ -178,6 +178,11 @@ void Engine::Init( Game* game )
 
     ResizeFunc( engineConfig.WindowSize );
 
+    // Register systems
+    {
+        updateContext.m_SystemRegistry->RegisterSystem( NewRenderer );
+    }
+
     m_isInitialized = true;
 }
 

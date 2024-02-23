@@ -14,6 +14,7 @@
 #include <Work/JobEngine.h>
 #include <Work/Pool.h>
 #include <Work/Worker.h>
+#include "Core/ISystem.h"
 
 class Game;
 class IWindow;
@@ -21,6 +22,7 @@ class BGFXRenderer;
 
 class Engine
     : public EventReceiver
+    , public ISystem
 {
     class EngineUpdateContext : public UpdateContext
     {
@@ -28,6 +30,7 @@ class Engine
     };
 
 public:
+    ME_SYSTEM_ID( Engine );
     const float FPS = 144.f;
     long long FrameRate;
 
