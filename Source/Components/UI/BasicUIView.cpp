@@ -24,7 +24,6 @@ BasicUIView::BasicUIView()
 BasicUIView::BasicUIView( const char* Name )
     : Component( Name )
 {
-
 }
 
 void BasicUIView::Init()
@@ -88,6 +87,7 @@ void BasicUIView::ExecuteScript( const std::string& Script )
 }
 
 #if USING( ME_UI )
+
 void BasicUIView::PlaySound( const ultralight::JSObject& thisObject, const ultralight::JSArgs& args )
 {
     if( args.empty() || !args[0].IsString() )

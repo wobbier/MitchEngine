@@ -24,6 +24,9 @@ class UIDriver;
 class UICore final
     : public Core<UICore>
     , public EventReceiver
+#if USING( ME_UI )
+    , public ultralight::ViewListener
+#endif
 {
 public:
     UICore( IWindow* window, BGFXRenderer* renderer );
@@ -45,6 +48,10 @@ public:
 
     //OverlayManager* GetOverlayManager();
 #if USING( ME_UI )
+
+    void OnChangeCursor( ultralight::View* caller, ultralight::Cursor cursor ) override;
+
+    void OnAddConsoleMessage( ultralight::View* caller, const ultralight::ConsoleMessage& message ) override;
 
     ultralight::RefPtr<ultralight::Renderer> m_uiRenderer;
 #endif

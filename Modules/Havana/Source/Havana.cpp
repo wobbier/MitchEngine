@@ -411,7 +411,10 @@ void Havana::Render( Moonlight::CameraData& EditorCamera )
     }
 
     //SDL_Cursor* cursor = g_imgui_to_sdl_cursor[ImGui::GetMouseCursor()];
-    SDL_SetCursor( g_imgui_to_sdl_cursor[ImGui::GetMouseCursor()] );
+    if( !IsGameFocused() )
+    {
+        SDL_SetCursor( g_imgui_to_sdl_cursor[ImGui::GetMouseCursor()] );
+    }
 }
 
 void Havana::SetWindowTitle( const std::string& title )

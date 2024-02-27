@@ -8,8 +8,10 @@
 
 namespace ultralight {
 
-    FileLogger::FileLogger( const String& log_path ) : log_file_( log_path.utf8().data() ) {
-        if( !log_file_.is_open() ) {
+    FileLogger::FileLogger( const String& log_path ) : log_file_( log_path.utf8().data() )
+    {
+        if( !log_file_.is_open() )
+        {
             std::cerr << "Could not open log file for writing with path: " <<
                 log_path.utf8().data() << std::endl;
         }
@@ -18,12 +20,8 @@ namespace ultralight {
     FileLogger::~FileLogger() {
     }
 
-    void FileLogger::LogMessage( LogLevel log_level, const String& message ) {
-        if( !log_file_.is_open() )
-            return;
-
-        log_file_ << "> " << String( message ).utf8().data() << std::endl << std::endl;
-
+    void FileLogger::LogMessage( LogLevel log_level, const String& message )
+    {
         switch( log_level )
         {
         case ultralight::LogLevel::Error:
@@ -38,6 +36,11 @@ namespace ultralight {
         default:
             break;
         }
+
+        if( !log_file_.is_open() )
+            return;
+
+        log_file_ << "> " << String( message ).utf8().data() << std::endl << std::endl;
     }
 
 }  // namespace ultralight

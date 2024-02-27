@@ -8,6 +8,9 @@
 #include <AppCore/Overlay.h>
 #include <AppCore/Platform.h>
 #include <Ultralight/platform/Platform.h>
+
+static SDL_Cursor* g_ul_to_sdl_cursor[ultralight::kCursor_Custom];
+
 #endif
 
 #include <imgui.h>
@@ -60,6 +63,16 @@ UICore::UICore( IWindow* window, BGFXRenderer* renderer )
     ultralight::Platform::instance().set_gpu_driver( m_driver );
 
     m_uiRenderer = ultralight::Renderer::Create();
+
+    memset( &g_ul_to_sdl_cursor[0], 0, sizeof( SDL_Cursor* ) * ultralight::kCursor_Custom );
+    g_ul_to_sdl_cursor[ultralight::kCursor_Pointer] = SDL_CreateSystemCursor( SDL_SYSTEM_CURSOR_ARROW );
+    g_ul_to_sdl_cursor[ultralight::kCursor_IBeam] = SDL_CreateSystemCursor( SDL_SYSTEM_CURSOR_IBEAM );
+    g_ul_to_sdl_cursor[ultralight::kCursor_Hand] = SDL_CreateSystemCursor( SDL_SYSTEM_CURSOR_HAND );
+    g_ul_to_sdl_cursor[ultralight::kCursor_NorthSouthResize] = SDL_CreateSystemCursor( SDL_SYSTEM_CURSOR_SIZENS );
+    g_ul_to_sdl_cursor[ultralight::kCursor_EastWestResize] = SDL_CreateSystemCursor( SDL_SYSTEM_CURSOR_SIZEWE );
+    g_ul_to_sdl_cursor[ultralight::kCursor_NorthEastSouthWestResize] = SDL_CreateSystemCursor( SDL_SYSTEM_CURSOR_SIZENESW );
+    g_ul_to_sdl_cursor[ultralight::kCursor_NorthWestSouthEastResize] = SDL_CreateSystemCursor( SDL_SYSTEM_CURSOR_SIZENWSE );
+
 #endif
 }
 
@@ -67,6 +80,12 @@ UICore::~UICore()
 {
     CLog::Log( CLog::LogType::Debug, "UICore Destroyed..." );
     EventManager::GetInstance().DeRegisterReciever( this );
+
+    for( int ui_cursor = 0; ui_cursor < (int)ultralight::kCursor_Custom; ui_cursor++ )
+    {
+        SDL_FreeCursor( g_ul_to_sdl_cursor[ui_cursor] );
+    }
+
     // Am I leaking? or am I just dreaming?
     //m_overlays.clear();
 
@@ -351,6 +370,7 @@ void UICore::InitUIView( BasicUIView& view )
 
     //ultralight::RefPtr<ultralight::Overlay> overlay = ultralight::Overlay::Create( *m_window.get(), newView, 0, 0 );
     newView->set_load_listener( &view );
+    newView->set_view_listener( this );
 
     ////overlay->view()->LoadHTML(view.SourceFile.Read().c_str());
     ultralight::String str = "file:///" + ultralight::String( view.FilePath.GetLocalPath().data() );
@@ -400,6 +420,20 @@ void UICore::CopyBitmapToTexture( ultralight::RefPtr<ultralight::Bitmap> bitmap 
 
     bitmap->UnlockPixels();
 }
+
+void UICore::OnChangeCursor( ultralight::View* caller, ultralight::Cursor cursor )
+{
+    if( g_ul_to_sdl_cursor[cursor] )
+    {
+        SDL_SetCursor( g_ul_to_sdl_cursor[cursor] );
+    }
+}
+
+void UICore::OnAddConsoleMessage( ultralight::View* caller, const ultralight::ConsoleMessage& message )
+{
+    BRUH( message.message().utf8().data() );
+}
+
 
 #endif
 
