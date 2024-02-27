@@ -184,12 +184,18 @@ void UICore::Update( const UpdateContext& inUpdateContext )
     mouseEvent.y = mousePosition.y;
 #endif
 
+    // This sucks
     static bool hasPressed = false;
     if( gameInput.WasMouseButtonPressed( MouseButton::Left ) && !hasPressed )
     {
         mouseEvent.button = ultralight::MouseEvent::Button::kButton_Left;
         mouseEvent.type = ultralight::MouseEvent::kType_MouseDown;
         hasPressed = true;
+    }
+    else if( gameInput.IsMouseButtonDown( MouseButton::Left ) )
+    {
+        mouseEvent.button = ultralight::MouseEvent::Button::kButton_Left;
+        mouseEvent.type = ultralight::MouseEvent::kType_MouseMoved;
     }
     else if( !gameInput.WasMouseButtonPressed( MouseButton::Left ) && hasPressed )
     {
