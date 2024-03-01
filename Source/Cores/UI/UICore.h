@@ -9,6 +9,7 @@
 #include <UI/Graphics/GPUDriver.h>
 #include <Ultralight/Renderer.h>
 #include <Ultralight/platform/Config.h>
+#include <Ultralight/platform/FontLoader.h>
 #include <UI/FileLogger.h>
 #include <UI/FontLoaderWin.h>
 #include <UI/UIWindow.h>

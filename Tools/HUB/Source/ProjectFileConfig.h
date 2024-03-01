@@ -1,7 +1,7 @@
 #pragma once
 #include <JSON.h>
 #include "File.h"
-#include "Core\Assert.h"
+#include "Core/Assert.h"
 
 class ProjectFileConfig 
 {

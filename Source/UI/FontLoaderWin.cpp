@@ -1,8 +1,6 @@
 #include "PCH.h"
 
-#if USING( ME_PLATFORM_WINDOWS )
-
-#if USING( ME_UI )
+#if USING( ME_PLATFORM_WINDOWS ) && USING( ME_UI )
 
 #include "FontLoaderWin.h"
 #include <wrl.h>
@@ -246,14 +244,6 @@ namespace ultralight {
     RefPtr<FontFile> FontLoaderWin::Load( const String& family, int weight, bool italic ) {
         return LoadFont( family.utf16(), weight, italic );
     }
-
-    // Called from Platform.cpp
-    FontLoader* CreatePlatformFontLoader() {
-        return new FontLoaderWin();
-    }
-
 }  // namespace ultralight
-
-#endif
 
 #endif

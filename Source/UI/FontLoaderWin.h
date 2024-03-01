@@ -1,15 +1,12 @@
 #pragma once
 
-#if USING( ME_UI )
+#if USING( ME_PLATFORM_WINDOWS ) && USING( ME_UI )
 
 #include <Ultralight/platform/FontLoader.h>
 #include <map>
 
-namespace ultralight {
-
-/**
- * FontLoader implementation for Windows.
- */
+namespace ultralight
+{
     class FontLoaderWin : public FontLoader
     {
     public:
@@ -21,7 +18,6 @@ namespace ultralight {
     protected:
         std::map<uint32_t, RefPtr<Buffer>> fonts_;
     };
-
 }  // namespace ultralight
 
 #endif

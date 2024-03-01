@@ -2,7 +2,7 @@
 #include "ComponentStorage.h"
 #include "ComponentTypeArray.h"
 #include <iostream>
-#include "Core\Assert.h"
+#include "Core/Assert.h"
 
 ComponentStorage::ComponentStorage( std::size_t InEntityAmount ) :
     ComponentEntries( InEntityAmount )

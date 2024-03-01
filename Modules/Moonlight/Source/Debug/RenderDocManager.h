@@ -6,7 +6,7 @@
 #include "CLog.h"
 #include <Windows.h>
 #include <libloaderapi.h>
-#include "Core\Assert.h"
+#include "Core/Assert.h"
 
 class RenderDocManager
 {

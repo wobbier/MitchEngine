@@ -55,9 +55,12 @@ UICore::UICore( IWindow* window, BGFXRenderer* renderer )
 
 
     ultralight::Platform::instance().set_config( m_config );
-    ultralight::Platform::instance().set_font_loader( new FontLoaderWin() );
     ultralight::Platform::instance().set_file_system( new FileSystemBasic( Path( "/" ).FullPath.c_str() ) );
     ultralight::Platform::instance().set_logger( new FileLogger( "ultralight.log" ) );
+
+#if USING( ME_PLATFORM_WINDOWS )
+    ultralight::Platform::instance().set_font_loader( new FontLoaderWin() );
+#endif
 
     m_driver = new UIDriver();
     ultralight::Platform::instance().set_gpu_driver( m_driver );
@@ -111,12 +114,16 @@ void UICore::OnEntityRemoved( Entity& InEntity )
     BasicUIView& view = InEntity.GetComponent<BasicUIView>();
     view.IsInitialized = false;
 
+#if USING( ME_UI )
     m_views.erase( std::remove( m_views.begin(), m_views.end(), m_views[view.Index] ), m_views.end() );
+#endif
 }
 
 void UICore::OnStop()
 {
+#if USING( ME_UI )
     m_views.clear();
+#endif
 }
 
 void UICore::Update( const UpdateContext& inUpdateContext )
