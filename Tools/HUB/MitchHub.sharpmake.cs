@@ -8,6 +8,8 @@ public class MitchHubProject : BaseProject
     {
         Name = "HUB";
         SourceRootPath = @"Source";
+        SourceFiles.Add(Globals.RootDir + "/Engine/Modules/Tool/Source/Tool.h");
+        SourceFiles.Add(Globals.RootDir + "/Engine/Modules/Tool/Source/Tool.cpp");
     }
 
     public override void ConfigureAll(Project.Configuration conf, CommonTarget target)
@@ -17,6 +19,7 @@ public class MitchHubProject : BaseProject
         conf.SolutionFolder = "Tools";
 
         conf.IncludePaths.Add("[project.SourceRootPath]");
+        conf.IncludePaths.Add(Globals.RootDir + "/Engine/Modules/Tool/Source/");
         conf.TargetPath = Globals.RootDir + "/.build/[target.Name]/";
         conf.VcxprojUserFile.LocalDebuggerWorkingDirectory = "[project.SharpmakeCsPath]";
 

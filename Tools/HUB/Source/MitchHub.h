@@ -1,36 +1,30 @@
 #pragma once
 #include <Pointers.h>
-#include <Path.h>
 #include "ProjectCache.h"
-#include <Math/Vector2.h>
+#include "Tool.h"
 
-class Input;
-class SDLWindow;
-class ImGuiRenderer;
-namespace Moonlight { class Texture; }
+namespace Moonlight {
+    class Texture;
+}
 
 class MitchHub
+    : public Tool
 {
 public:
-	MitchHub(Input* input, SDLWindow* window, ImGuiRenderer* renderer);
+    MitchHub( ToolCreationFlags& inToolCreationFlags );
 
-	void Draw();
-    
-	ImGuiRenderer* GetRenderer() const;
+    void OnUpdate() final;
+
+    void OnStart() override;
 
 private:
-	Input* m_input = nullptr;
-	SDLWindow* m_window = nullptr;
-	ImGuiRenderer* m_renderer = nullptr;
-	SharedPtr<Moonlight::Texture> logo;
-	SharedPtr<Moonlight::Texture> closeIcon;
-	SharedPtr<Moonlight::Texture> minimizeIcon;
+    SharedPtr<Moonlight::Texture> logo;
+    SharedPtr<Moonlight::Texture> closeIcon;
+    SharedPtr<Moonlight::Texture> minimizeIcon;
     SharedPtr<Moonlight::Texture> vsIcon;
     SharedPtr<Moonlight::Texture> genIcon;
-	
-	std::size_t SelectedProjectIndex = 0;
-	ProjectCache Cache;
-	Vector2 TitleBarDragPosition = { 0.f, 0.f };
-	Vector2 TitleBarDragSize = { 0.f, 0.f };
-	const float SystemButtonSize = 30.f;
+
+    std::size_t SelectedProjectIndex = 0;
+    ProjectCache Cache;
+    const float SystemButtonSize = 30.f;
 };
