@@ -1,6 +1,8 @@
 #pragma once
 #include "Engine/Input.h"
 #include "Math/Vector2.h"
+#include "imgui.h"
+#include "Math/Vector4.h"
 
 class SDLWindow;
 class BGFXRenderer;
@@ -8,6 +10,8 @@ class BGFXRenderer;
 struct ToolCreationFlags
 {
     bool isBorderless = false;
+    bool isDockingEnabled = false;
+    std::string toolName;
 };
 
 
@@ -22,6 +26,9 @@ public:
     virtual void OnStart() = 0;
 
     virtual void OnUpdate() = 0;
+
+    // Top, Bottom, Left, Right
+    Vector4 DockMargins = { 0.f, 0.f, 0.f, 0.f };
 
 private:
     void Run();

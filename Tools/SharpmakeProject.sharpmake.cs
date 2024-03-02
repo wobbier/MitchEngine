@@ -24,7 +24,9 @@ public class SharpmakeProjectBase : CSharpProject
         SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/Tools/BaseProject.sharpmake.cs");
         SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/Tools/CommonTarget.sharpmake.cs");
         SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/Tools/SharpmakeProject.sharpmake.cs");
+        SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/Tools/BaseTool.sharpmake.cs");
         SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/Tools/HUB/MitchHub.sharpmake.cs");
+        SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/Tools/ShaderEditor/ShaderEditor.sharpmake.cs");
         SourceFiles.Add(@"[project.SharpmakeCsPath]/Engine/ThirdParty/Mono.sharpmake.cs");
         //SourceFilesCompileExtensions.Clear();
         //SourceFilesCompileExtensions.Add(".cs");

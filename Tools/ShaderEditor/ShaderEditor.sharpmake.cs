@@ -1,13 +1,12 @@
 using Sharpmake;
 
 [Generate]
-public class MitchHubProject : BaseTool
+public class ShaderEditor : BaseTool
 {
-    public MitchHubProject()
+    public ShaderEditor()
         : base()
     {
-        Name = "HUB";
-        SourceRootPath = @"Source";
+        Name = "ShaderEditor";
     }
 
     public override void ConfigureAll(Project.Configuration conf, CommonTarget target)

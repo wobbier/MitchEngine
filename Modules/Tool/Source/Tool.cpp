@@ -37,7 +37,7 @@ void Tool::Start()
             }
         };
 
-    m_window = new SDLWindow( "ME HUB", ResizeFunc, 500, 300, Vector2( 1280, 720 ) );
+    m_window = new SDLWindow( m_toolCreationFlags.toolName, ResizeFunc, 500, 300, Vector2( 1280, 720 ) );
     m_window->SetBorderless( m_toolCreationFlags.isBorderless );
     ResizeFunc( Vector2( 1280, 720 ) );
     RendererCreationSettings set;
@@ -54,11 +54,17 @@ void Tool::Start()
 
 
     ImGuiIO& io = ImGui::GetIO(); (void)io;
-    Path EngineConfigFilePath = Path( ".tmp/hub-imgui.cfg" );
+    Path EngineConfigFilePath = Path( ".tmp/" + m_toolCreationFlags.toolName + ".cfg" );
     io.IniFilename = EngineConfigFilePath.FullPath.c_str();
 
     io.BackendFlags |= ImGuiBackendFlags_PlatformHasViewports | ImGuiBackendFlags_RendererHasViewports;
 
+    if( m_toolCreationFlags.isDockingEnabled )
+    {
+        io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    }
+
+    // Colors
     {
         ImVec4* colors = ImGui::GetStyle().Colors;
         colors[ImGuiCol_Text] = COLOR_TEXT;
@@ -178,7 +184,45 @@ void Tool::Run()
             , -1
             , 255 );
 
-        OnUpdate();
+        if( m_toolCreationFlags.isDockingEnabled )
+        {
+            ImGuiViewport* viewport = ImGui::GetMainViewport();
+
+            ImVec2 DockSize = viewport->Size;
+            DockSize.x -= DockMargins.z + DockMargins.w;
+            DockSize.y -= DockMargins.x + DockMargins.y;
+
+            ImVec2 DockPos;
+            DockPos.x = DockMargins.z;
+            DockPos.y = DockMargins.x;
+
+            ImGui::SetNextWindowPos( DockPos );
+            ImGui::SetNextWindowSize( DockSize );
+            ImGui::SetNextWindowViewport( viewport->ID );
+            ImGui::SetNextWindowBgAlpha( 0.0f );
+
+            ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDocking;
+            window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
+            window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+
+            ImGui::PushStyleVar( ImGuiStyleVar_WindowRounding, 0.0f );
+            ImGui::PushStyleVar( ImGuiStyleVar_WindowBorderSize, 0.0f );
+            ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2( 0.0f, 0.0f ) );
+            bool show_dockspace = true;
+            ImGui::Begin( "MainDockSpace", &show_dockspace, window_flags );
+            ImGui::PopStyleVar( 3 );
+            ImGuiID dockspace_id = ImGui::GetID( "MyDockspace" );
+            ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_PassthruCentralNode;
+            {
+                ImGui::DockSpace( dockspace_id, ImVec2( 0.0f, 0.0f ), dockspace_flags );
+                OnUpdate();
+                ImGui::End();
+            }
+        }
+        else
+        {
+            OnUpdate();
+        }
 
         Moonlight::CameraData cam;
         m_renderer->Render( cam );

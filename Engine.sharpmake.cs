@@ -12,6 +12,8 @@ using Sharpmake;
 [module: Sharpmake.Include("Tools/CommonTarget.sharpmake.cs")]
 [module: Sharpmake.Include("Tools/HUB/MitchHub.sharpmake.cs")]
 [module: Sharpmake.Include("Tools/SharpmakeProject.sharpmake.cs")]
+[module: Sharpmake.Include("Tools/BaseTool.sharpmake.cs")]
+[module: Sharpmake.Include("Tools/ShaderEditor/ShaderEditor.sharpmake.cs")]
 [module: Sharpmake.Include("ThirdParty/Mono.sharpmake.cs")]
 
 public abstract class BaseGameProject : BaseProject
@@ -400,6 +402,7 @@ public class BaseGameSolution : Solution
         {
             conf.AddProject<Havana>(target);
             conf.AddProject<MitchHubProject>(target);
+            conf.AddProject<ShaderEditor>(target);
         }
         else
         {
