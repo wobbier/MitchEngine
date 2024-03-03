@@ -4,6 +4,7 @@
 #include "imgui.h"
 #include "Utils\ImGuiUtils.h"
 #include "Resource\ResourceCache.h"
+#include "Nodes\BasicNodes.h"
 
 ShaderEditorInstance::ShaderEditorInstance()
 {
@@ -195,8 +196,9 @@ void ShaderEditorInstance::ShowLeftPane( float paneWidth )
     ImGui::Spacing(); ImGui::SameLine();
     ImGui::TextUnformatted( "Nodes" );
     ImGui::Indent();
-    for( auto& node : m_Nodes )
+    for( auto nodePtr : m_Nodes )
     {
+        Node& node = *nodePtr;
         ImGui::PushID( node.ID.AsPointer() );
         auto start = ImGui::GetCursorScreenPos();
 
@@ -526,14 +528,22 @@ void ShaderEditorInstance::BlueprintStart()
     node = SpawnHoudiniTransformNode(); ed::SetNodePosition( node->ID, ImVec2( 500, -70 ) );
     node = SpawnHoudiniGroupNode();     ed::SetNodePosition( node->ID, ImVec2( 500, 42 ) );
 
+    node = new LessThanNode( m_NextId ); ed::SetNodePosition( node->ID, ImVec2( -320, 200 ) );
+    m_Nodes.push_back( node );
+    node = new IntegerNode( m_NextId ); ed::SetNodePosition( node->ID, ImVec2( -350, 200 ) );
+    m_Nodes.push_back( node );
+    node = new IntegerNode( m_NextId ); ed::SetNodePosition( node->ID, ImVec2( -350, 000 ) );
+    static_cast<IntegerNode*>(node)->value = 2;
+    m_Nodes.push_back( node );
+
     ed::NavigateToContent();
 
     BuildNodes();
 
-    m_Links.push_back( Link( GetNextLinkId(), m_Nodes[5].Outputs[0].ID, m_Nodes[6].Inputs[0].ID ) );
-    m_Links.push_back( Link( GetNextLinkId(), m_Nodes[5].Outputs[0].ID, m_Nodes[7].Inputs[0].ID ) );
+    m_Links.push_back( Link( GetNextLinkId(), m_Nodes[5]->Outputs[0].ID, m_Nodes[6]->Inputs[0].ID ) );
+    m_Links.push_back( Link( GetNextLinkId(), m_Nodes[5]->Outputs[0].ID, m_Nodes[7]->Inputs[0].ID ) );
 
-    m_Links.push_back( Link( GetNextLinkId(), m_Nodes[14].Outputs[0].ID, m_Nodes[15].Inputs[0].ID ) );
+    m_Links.push_back( Link( GetNextLinkId(), m_Nodes[14]->Outputs[0].ID, m_Nodes[15]->Inputs[0].ID ) );
 
     m_headerTexture = ResourceCache::GetInstance().Get<Moonlight::Texture>( Path( "Assets/BlueprintBackground.png" ) );
     m_saveTexture = ResourceCache::GetInstance().Get<Moonlight::Texture>( Path( "Assets/ic_save_white_24dp.png" ) );
@@ -645,6 +655,13 @@ void ShaderEditorInstance::HandleLinks()
                         showLabel( "+ Create Link", ImColor( 32, 45, 32, 180 ) );
                         if( ed::AcceptNewItem( ImColor( 128, 255, 128 ), 4.0f ) )
                         {
+                                // Remove the input node because we're linking a new one
+                                auto id = std::find_if( m_Links.begin(), m_Links.end(), [endPin]( auto& link ) { return link.EndPinID == endPin->ID; } );
+                                if( id != m_Links.end() )
+                                {
+                                    ed::DeleteLink( (*id).ID );
+                                }
+                            endPin->LinkedInput = startPin;
                             m_Links.emplace_back( Link( GetNextId(), startPinId, endPinId ) );
                             m_Links.back().Color = GetIconColor( startPin->Type );
                         }
@@ -682,7 +699,7 @@ void ShaderEditorInstance::HandleLinks()
             {
                 if( ed::AcceptDeletedItem() )
                 {
-                    auto id = std::find_if( m_Nodes.begin(), m_Nodes.end(), [nodeId]( auto& node ) { return node.ID == nodeId; } );
+                    auto id = std::find_if( m_Nodes.begin(), m_Nodes.end(), [nodeId]( auto node ) { return node->ID == nodeId; } );
                     if( id != m_Nodes.end() )
                         m_Nodes.erase( id );
                 }
@@ -695,7 +712,18 @@ void ShaderEditorInstance::HandleLinks()
                 {
                     auto id = std::find_if( m_Links.begin(), m_Links.end(), [linkId]( auto& link ) { return link.ID == linkId; } );
                     if( id != m_Links.end() )
+                    {
+                        auto link = FindLink( linkId );
+                        auto startPin = FindPin( link->StartPinID );
+                        auto endPin = FindPin( link->EndPinID );
+
+                        // Remove the linked input if we're the pin connected
+                        if( startPin == endPin->LinkedInput && endPin->LinkedInput )
+                        {
+                            endPin->LinkedInput = nullptr;
+                        }
                         m_Links.erase( id );
+                    }
                 }
             }
         }
@@ -749,8 +777,9 @@ void ShaderEditorInstance::DrawOrdinals()
 void ShaderEditorInstance::DrawComments()
 {
     // Comment Nodes
-    for( auto& node : m_Nodes )
+    for( auto nodePtr : m_Nodes )
     {
+        Node& node = *nodePtr;
         if( node.Type != NodeType::Comment )
             continue;
 
@@ -813,8 +842,9 @@ void ShaderEditorInstance::DrawComments()
 void ShaderEditorInstance::DrawHoudiniNodes()
 {
     // Houdini Nodes
-    for( auto& node : m_Nodes )
+    for( auto nodePtr : m_Nodes )
     {
+        Node& node = *nodePtr;
         if( node.Type != NodeType::Houdini )
             continue;
 
@@ -989,8 +1019,9 @@ void ShaderEditorInstance::DrawHoudiniNodes()
 void ShaderEditorInstance::DrawTreeNodes()
 {
     // Tree nodes
-    for( auto& node : m_Nodes )
+    for( auto nodePtr : m_Nodes )
     {
+        Node& node = *nodePtr;
         if( node.Type != NodeType::Tree )
             continue;
 
@@ -1147,10 +1178,13 @@ void ShaderEditorInstance::DrawBasicNodes()
 {
     util::BlueprintNodeBuilder builder( ImGui::toId( m_headerTexture->TexHandle, IMGUI_FLAGS_ALPHA_BLEND, 0 ), m_headerTexture->mWidth, m_headerTexture->mHeight );
     // Draw IO Nodes
-    for( auto& node : m_Nodes )
+    for( auto nodePtr : m_Nodes )
     {
+        Node& node = *nodePtr;
         if( node.Type != NodeType::Blueprint && node.Type != NodeType::Simple )
             continue;
+
+        node.OnEvaluate();
 
         const auto isSimple = node.Type == NodeType::Simple;
 

@@ -82,7 +82,7 @@ private:
 
     int                  m_NextId = 1;
     const int            m_PinIconSize = 24;
-    std::vector<Node>    m_Nodes;
+    std::vector<Node*>   m_Nodes;
     std::vector<Link>    m_Links;
     ImTextureID          m_HeaderBackground = nullptr;
     ImTextureID          m_SaveIcon = nullptr;
@@ -132,9 +132,9 @@ private:
 
     Node* FindNode( ed::NodeId id )
     {
-        for( auto& node : m_Nodes )
-            if( node.ID == id )
-                return &node;
+        for( auto node : m_Nodes )
+            if( node->ID == id )
+                return node;
 
         return nullptr;
     }
@@ -153,13 +153,13 @@ private:
         if( !id )
             return nullptr;
 
-        for( auto& node : m_Nodes )
+        for( auto node : m_Nodes )
         {
-            for( auto& pin : node.Inputs )
+            for( auto& pin : node->Inputs )
                 if( pin.ID == id )
                     return &pin;
 
-            for( auto& pin : node.Outputs )
+            for( auto& pin : node->Outputs )
                 if( pin.ID == id )
                     return &pin;
         }
@@ -220,211 +220,227 @@ private:
 
     Node* SpawnInputActionNode()
     {
-        m_Nodes.emplace_back( GetNextId(), "InputAction Fire", ImColor( 255, 128, 128 ) );
-        m_Nodes.back().Outputs.emplace_back( GetNextId(), "", PinType::Delegate );
-        m_Nodes.back().Outputs.emplace_back( GetNextId(), "Pressed", PinType::Flow );
-        m_Nodes.back().Outputs.emplace_back( GetNextId(), "Released", PinType::Flow );
+        Node* node = new Node( GetNextId(), "InputAction Fire", ImColor( 255, 128, 128 ) );
+        m_Nodes.emplace_back( node );
+        m_Nodes.back()->Outputs.emplace_back( GetNextId(), "", PinType::Delegate );
+        m_Nodes.back()->Outputs.emplace_back( GetNextId(), "Pressed", PinType::Flow );
+        m_Nodes.back()->Outputs.emplace_back( GetNextId(), "Released", PinType::Flow );
 
-        BuildNode( &m_Nodes.back() );
+        BuildNode( node );
 
-        return &m_Nodes.back();
+        return node;
     }
 
     Node* SpawnBranchNode()
     {
-        m_Nodes.emplace_back( GetNextId(), "Branch" );
-        m_Nodes.back().Inputs.emplace_back( GetNextId(), "", PinType::Flow );
-        m_Nodes.back().Inputs.emplace_back( GetNextId(), "Condition", PinType::Bool );
-        m_Nodes.back().Outputs.emplace_back( GetNextId(), "True", PinType::Flow );
-        m_Nodes.back().Outputs.emplace_back( GetNextId(), "False", PinType::Flow );
+        Node* node = new Node( GetNextId(), "Branch" );
+        m_Nodes.emplace_back( node );
+        m_Nodes.back()->Inputs.emplace_back( GetNextId(), "", PinType::Flow );
+        m_Nodes.back()->Inputs.emplace_back( GetNextId(), "Condition", PinType::Bool );
+        m_Nodes.back()->Outputs.emplace_back( GetNextId(), "True", PinType::Flow );
+        m_Nodes.back()->Outputs.emplace_back( GetNextId(), "False", PinType::Flow );
 
-        BuildNode( &m_Nodes.back() );
+        BuildNode( node );
 
-        return &m_Nodes.back();
+        return node;
     }
 
     Node* SpawnDoNNode()
     {
-        m_Nodes.emplace_back( GetNextId(), "Do N" );
-        m_Nodes.back().Inputs.emplace_back( GetNextId(), "Enter", PinType::Flow );
-        m_Nodes.back().Inputs.emplace_back( GetNextId(), "N", PinType::Int );
-        m_Nodes.back().Inputs.emplace_back( GetNextId(), "Reset", PinType::Flow );
-        m_Nodes.back().Outputs.emplace_back( GetNextId(), "Exit", PinType::Flow );
-        m_Nodes.back().Outputs.emplace_back( GetNextId(), "Counter", PinType::Int );
+        Node* node = new Node( GetNextId(), "Do N" );
+        m_Nodes.emplace_back( node );
+        m_Nodes.back()->Inputs.emplace_back( GetNextId(), "Enter", PinType::Flow );
+        m_Nodes.back()->Inputs.emplace_back( GetNextId(), "N", PinType::Int );
+        m_Nodes.back()->Inputs.emplace_back( GetNextId(), "Reset", PinType::Flow );
+        m_Nodes.back()->Outputs.emplace_back( GetNextId(), "Exit", PinType::Flow );
+        m_Nodes.back()->Outputs.emplace_back( GetNextId(), "Counter", PinType::Int );
 
-        BuildNode( &m_Nodes.back() );
+        BuildNode( node );
 
-        return &m_Nodes.back();
+        return node;
     }
 
     Node* SpawnOutputActionNode()
     {
-        m_Nodes.emplace_back( GetNextId(), "OutputAction" );
-        m_Nodes.back().Inputs.emplace_back( GetNextId(), "Sample", PinType::Float );
-        m_Nodes.back().Outputs.emplace_back( GetNextId(), "Condition", PinType::Bool );
-        m_Nodes.back().Inputs.emplace_back( GetNextId(), "Event", PinType::Delegate );
+        Node* node = new Node( GetNextId(), "OutputAction" );
+        m_Nodes.emplace_back( node );
+        m_Nodes.back()->Inputs.emplace_back( GetNextId(), "Sample", PinType::Float );
+        m_Nodes.back()->Outputs.emplace_back( GetNextId(), "Condition", PinType::Bool );
+        m_Nodes.back()->Inputs.emplace_back( GetNextId(), "Event", PinType::Delegate );
 
-        BuildNode( &m_Nodes.back() );
+        BuildNode( node );
 
-        return &m_Nodes.back();
+        return node;
     }
 
     Node* SpawnPrintStringNode()
     {
-        m_Nodes.emplace_back( GetNextId(), "Print String" );
-        m_Nodes.back().Inputs.emplace_back( GetNextId(), "", PinType::Flow );
-        m_Nodes.back().Inputs.emplace_back( GetNextId(), "In String", PinType::String );
-        m_Nodes.back().Outputs.emplace_back( GetNextId(), "", PinType::Flow );
+        Node* node = new Node( GetNextId(), "Print String" );
+        m_Nodes.emplace_back( node );
+        m_Nodes.back()->Inputs.emplace_back( GetNextId(), "", PinType::Flow );
+        m_Nodes.back()->Inputs.emplace_back( GetNextId(), "In String", PinType::String );
+        m_Nodes.back()->Outputs.emplace_back( GetNextId(), "", PinType::Flow );
 
-        BuildNode( &m_Nodes.back() );
+        BuildNode( node );
 
-        return &m_Nodes.back();
+        return node;
     }
 
     Node* SpawnMessageNode()
     {
-        m_Nodes.emplace_back( GetNextId(), "", ImColor( 128, 195, 248 ) );
-        m_Nodes.back().Type = NodeType::Simple;
-        m_Nodes.back().Outputs.emplace_back( GetNextId(), "Message", PinType::String );
+        Node* node = new Node( GetNextId(), "", ImColor( 128, 195, 248 ) );
+        m_Nodes.emplace_back( node );
+        m_Nodes.back()->Type = NodeType::Simple;
+        m_Nodes.back()->Outputs.emplace_back( GetNextId(), "Message", PinType::String );
 
-        BuildNode( &m_Nodes.back() );
+        BuildNode( node );
 
-        return &m_Nodes.back();
+        return node;
     }
 
     Node* SpawnSetTimerNode()
     {
-        m_Nodes.emplace_back( GetNextId(), "Set Timer", ImColor( 128, 195, 248 ) );
-        m_Nodes.back().Inputs.emplace_back( GetNextId(), "", PinType::Flow );
-        m_Nodes.back().Inputs.emplace_back( GetNextId(), "Object", PinType::Object );
-        m_Nodes.back().Inputs.emplace_back( GetNextId(), "Function Name", PinType::Function );
-        m_Nodes.back().Inputs.emplace_back( GetNextId(), "Time", PinType::Float );
-        m_Nodes.back().Inputs.emplace_back( GetNextId(), "Looping", PinType::Bool );
-        m_Nodes.back().Outputs.emplace_back( GetNextId(), "", PinType::Flow );
+        Node* node = new Node( GetNextId(), "Set Timer", ImColor( 128, 195, 248 ) );
+        m_Nodes.emplace_back( node );
+        m_Nodes.back()->Inputs.emplace_back( GetNextId(), "", PinType::Flow );
+        m_Nodes.back()->Inputs.emplace_back( GetNextId(), "Object", PinType::Object );
+        m_Nodes.back()->Inputs.emplace_back( GetNextId(), "Function Name", PinType::Function );
+        m_Nodes.back()->Inputs.emplace_back( GetNextId(), "Time", PinType::Float );
+        m_Nodes.back()->Inputs.emplace_back( GetNextId(), "Looping", PinType::Bool );
+        m_Nodes.back()->Outputs.emplace_back( GetNextId(), "", PinType::Flow );
 
-        BuildNode( &m_Nodes.back() );
+        BuildNode( node );
 
-        return &m_Nodes.back();
+        return node;
     }
 
     Node* SpawnLessNode()
     {
-        m_Nodes.emplace_back( GetNextId(), "<", ImColor( 128, 195, 248 ) );
-        m_Nodes.back().Type = NodeType::Simple;
-        m_Nodes.back().Inputs.emplace_back( GetNextId(), "", PinType::Float );
-        m_Nodes.back().Inputs.emplace_back( GetNextId(), "", PinType::Float );
-        m_Nodes.back().Outputs.emplace_back( GetNextId(), "", PinType::Float );
+        Node* node = new Node( GetNextId(), "<", ImColor( 128, 195, 248 ) );
+        m_Nodes.emplace_back( node );
+        m_Nodes.back()->Type = NodeType::Simple;
+        m_Nodes.back()->Inputs.emplace_back( GetNextId(), "", PinType::Float );
+        m_Nodes.back()->Inputs.emplace_back( GetNextId(), "", PinType::Float );
+        m_Nodes.back()->Outputs.emplace_back( GetNextId(), "", PinType::Float );
 
-        BuildNode( &m_Nodes.back() );
+        BuildNode( node );
 
-        return &m_Nodes.back();
+        return node;
     }
 
     Node* SpawnWeirdNode()
     {
-        m_Nodes.emplace_back( GetNextId(), "o.O", ImColor( 128, 195, 248 ) );
-        m_Nodes.back().Type = NodeType::Simple;
-        m_Nodes.back().Inputs.emplace_back( GetNextId(), "", PinType::Float );
-        m_Nodes.back().Outputs.emplace_back( GetNextId(), "", PinType::Float );
-        m_Nodes.back().Outputs.emplace_back( GetNextId(), "", PinType::Float );
+        Node* node = new Node( GetNextId(), "o.O", ImColor( 128, 195, 248 ) );
+        m_Nodes.emplace_back( node );
+        m_Nodes.back()->Type = NodeType::Simple;
+        m_Nodes.back()->Inputs.emplace_back( GetNextId(), "", PinType::Float );
+        m_Nodes.back()->Outputs.emplace_back( GetNextId(), "", PinType::Float );
+        m_Nodes.back()->Outputs.emplace_back( GetNextId(), "", PinType::Float );
 
-        BuildNode( &m_Nodes.back() );
+        BuildNode( node );
 
-        return &m_Nodes.back();
+        return node;
     }
 
     Node* SpawnTraceByChannelNode()
     {
-        m_Nodes.emplace_back( GetNextId(), "Single Line Trace by Channel", ImColor( 255, 128, 64 ) );
-        m_Nodes.back().Inputs.emplace_back( GetNextId(), "", PinType::Flow );
-        m_Nodes.back().Inputs.emplace_back( GetNextId(), "Start", PinType::Flow );
-        m_Nodes.back().Inputs.emplace_back( GetNextId(), "End", PinType::Int );
-        m_Nodes.back().Inputs.emplace_back( GetNextId(), "Trace Channel", PinType::Float );
-        m_Nodes.back().Inputs.emplace_back( GetNextId(), "Trace Complex", PinType::Bool );
-        m_Nodes.back().Inputs.emplace_back( GetNextId(), "Actors to Ignore", PinType::Int );
-        m_Nodes.back().Inputs.emplace_back( GetNextId(), "Draw Debug Type", PinType::Bool );
-        m_Nodes.back().Inputs.emplace_back( GetNextId(), "Ignore Self", PinType::Bool );
-        m_Nodes.back().Outputs.emplace_back( GetNextId(), "", PinType::Flow );
-        m_Nodes.back().Outputs.emplace_back( GetNextId(), "Out Hit", PinType::Float );
-        m_Nodes.back().Outputs.emplace_back( GetNextId(), "Return Value", PinType::Bool );
+        Node* node = new Node( GetNextId(), "Single Line Trace by Channel", ImColor( 255, 128, 64 ) );
+        m_Nodes.emplace_back( node );
+        m_Nodes.back()->Inputs.emplace_back( GetNextId(), "", PinType::Flow );
+        m_Nodes.back()->Inputs.emplace_back( GetNextId(), "Start", PinType::Flow );
+        m_Nodes.back()->Inputs.emplace_back( GetNextId(), "End", PinType::Int );
+        m_Nodes.back()->Inputs.emplace_back( GetNextId(), "Trace Channel", PinType::Float );
+        m_Nodes.back()->Inputs.emplace_back( GetNextId(), "Trace Complex", PinType::Bool );
+        m_Nodes.back()->Inputs.emplace_back( GetNextId(), "Actors to Ignore", PinType::Int );
+        m_Nodes.back()->Inputs.emplace_back( GetNextId(), "Draw Debug Type", PinType::Bool );
+        m_Nodes.back()->Inputs.emplace_back( GetNextId(), "Ignore Self", PinType::Bool );
+        m_Nodes.back()->Outputs.emplace_back( GetNextId(), "", PinType::Flow );
+        m_Nodes.back()->Outputs.emplace_back( GetNextId(), "Out Hit", PinType::Float );
+        m_Nodes.back()->Outputs.emplace_back( GetNextId(), "Return Value", PinType::Bool );
 
-        BuildNode( &m_Nodes.back() );
+        BuildNode( node );
 
-        return &m_Nodes.back();
+        return node;
     }
 
     Node* SpawnTreeSequenceNode()
     {
-        m_Nodes.emplace_back( GetNextId(), "Sequence" );
-        m_Nodes.back().Type = NodeType::Tree;
-        m_Nodes.back().Inputs.emplace_back( GetNextId(), "", PinType::Flow );
-        m_Nodes.back().Outputs.emplace_back( GetNextId(), "", PinType::Flow );
+        Node* node = new Node( GetNextId(), "Sequence" );
+        m_Nodes.emplace_back( node );
+        m_Nodes.back()->Type = NodeType::Tree;
+        m_Nodes.back()->Inputs.emplace_back( GetNextId(), "", PinType::Flow );
+        m_Nodes.back()->Outputs.emplace_back( GetNextId(), "", PinType::Flow );
 
-        BuildNode( &m_Nodes.back() );
+        BuildNode( node );
 
-        return &m_Nodes.back();
+        return node;
     }
 
     Node* SpawnTreeTaskNode()
     {
-        m_Nodes.emplace_back( GetNextId(), "Move To" );
-        m_Nodes.back().Type = NodeType::Tree;
-        m_Nodes.back().Inputs.emplace_back( GetNextId(), "", PinType::Flow );
+        Node* node = new Node( GetNextId(), "Move To" );
+        m_Nodes.emplace_back( node );
+        m_Nodes.back()->Type = NodeType::Tree;
+        m_Nodes.back()->Inputs.emplace_back( GetNextId(), "", PinType::Flow );
 
-        BuildNode( &m_Nodes.back() );
+        BuildNode( node );
 
-        return &m_Nodes.back();
+        return node;
     }
 
     Node* SpawnTreeTask2Node()
     {
-        m_Nodes.emplace_back( GetNextId(), "Random Wait" );
-        m_Nodes.back().Type = NodeType::Tree;
-        m_Nodes.back().Inputs.emplace_back( GetNextId(), "", PinType::Flow );
+        Node* node = new Node( GetNextId(), "Random Wait" );
+        m_Nodes.emplace_back( node );
+        m_Nodes.back()->Type = NodeType::Tree;
+        m_Nodes.back()->Inputs.emplace_back( GetNextId(), "", PinType::Flow );
 
-        BuildNode( &m_Nodes.back() );
+        BuildNode( node );
 
-        return &m_Nodes.back();
+        return node;
     }
 
     Node* SpawnComment()
     {
-        m_Nodes.emplace_back( GetNextId(), "Test Comment" );
-        m_Nodes.back().Type = NodeType::Comment;
-        m_Nodes.back().Size = ImVec2( 300, 200 );
+        Node* node = new Node( GetNextId(), "Test Comment" );
+        m_Nodes.emplace_back( node );
+        m_Nodes.back()->Type = NodeType::Comment;
+        m_Nodes.back()->Size = ImVec2( 300, 200 );
 
-        return &m_Nodes.back();
+        return node;
     }
 
     Node* SpawnHoudiniTransformNode()
     {
-        m_Nodes.emplace_back( GetNextId(), "Transform" );
-        m_Nodes.back().Type = NodeType::Houdini;
-        m_Nodes.back().Inputs.emplace_back( GetNextId(), "", PinType::Flow );
-        m_Nodes.back().Outputs.emplace_back( GetNextId(), "", PinType::Flow );
+        Node* node = new Node( GetNextId(), "Transform" );
+        m_Nodes.emplace_back( node );
+        m_Nodes.back()->Type = NodeType::Houdini;
+        m_Nodes.back()->Inputs.emplace_back( GetNextId(), "", PinType::Flow );
+        m_Nodes.back()->Outputs.emplace_back( GetNextId(), "", PinType::Flow );
 
-        BuildNode( &m_Nodes.back() );
+        BuildNode( node );
 
-        return &m_Nodes.back();
+        return node;
     }
 
     Node* SpawnHoudiniGroupNode()
     {
-        m_Nodes.emplace_back( GetNextId(), "Group" );
-        m_Nodes.back().Type = NodeType::Houdini;
-        m_Nodes.back().Inputs.emplace_back( GetNextId(), "", PinType::Flow );
-        m_Nodes.back().Inputs.emplace_back( GetNextId(), "", PinType::Flow );
-        m_Nodes.back().Outputs.emplace_back( GetNextId(), "", PinType::Flow );
+        Node* node = new Node( GetNextId(), "Group" );
+        m_Nodes.emplace_back( node );
+        m_Nodes.back()->Type = NodeType::Houdini;
+        m_Nodes.back()->Inputs.emplace_back( GetNextId(), "", PinType::Flow );
+        m_Nodes.back()->Inputs.emplace_back( GetNextId(), "", PinType::Flow );
+        m_Nodes.back()->Outputs.emplace_back( GetNextId(), "", PinType::Flow );
 
-        BuildNode( &m_Nodes.back() );
+        BuildNode( node );
 
-        return &m_Nodes.back();
+        return node;
     }
 
     void BuildNodes()
     {
-        for( auto& node : m_Nodes )
-            BuildNode( &node );
+        for( auto node : m_Nodes )
+            BuildNode( node );
     }
     void DrawPinIcon( const Pin& pin, bool connected, int alpha );
 
