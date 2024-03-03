@@ -26,41 +26,37 @@ SDL_HitTestResult HitTestCallback( SDL_Window* window, const SDL_Point* area, vo
     int w, h;
     SDL_GetWindowSize( window, &w, &h );
 
-        //SDL_Log("HIT-TEST: RESIZE_" #name "\n");
-#define REPORT_RESIZE_HIT(name) {\
-		return SDL_HITTEST_RESIZE_##name; \
-	}
     if( area->x < RESIZE_BORDER && area->y < RESIZE_BORDER )
     {
-        REPORT_RESIZE_HIT( TOPLEFT );
+        return SDL_HITTEST_RESIZE_TOPLEFT;
     }
     else if( area->x > RESIZE_BORDER && area->x < w - RESIZE_BORDER && area->y < RESIZE_BORDER )
     {
-        REPORT_RESIZE_HIT( TOP );
+        return SDL_HITTEST_RESIZE_TOP;
     }
     else if( area->x > w - RESIZE_BORDER && area->y < RESIZE_BORDER )
     {
-        REPORT_RESIZE_HIT( TOPRIGHT );
+        return SDL_HITTEST_RESIZE_TOPRIGHT;
     }
     else if( area->x > w - RESIZE_BORDER && area->y > RESIZE_BORDER && area->y < h - RESIZE_BORDER )
     {
-        REPORT_RESIZE_HIT( RIGHT );
+        return SDL_HITTEST_RESIZE_RIGHT;
     }
     else if( area->x > w - RESIZE_BORDER && area->y > h - RESIZE_BORDER )
     {
-        REPORT_RESIZE_HIT( BOTTOMRIGHT );
+        return SDL_HITTEST_RESIZE_BOTTOMRIGHT;
     }
     else if( area->x < w - RESIZE_BORDER && area->x > RESIZE_BORDER && area->y > h - RESIZE_BORDER )
     {
-        REPORT_RESIZE_HIT( BOTTOM );
+        return SDL_HITTEST_RESIZE_BOTTOM;
     }
     else if( area->x < RESIZE_BORDER && area->y > h - RESIZE_BORDER )
     {
-        REPORT_RESIZE_HIT( BOTTOMLEFT );
+        return SDL_HITTEST_RESIZE_BOTTOMLEFT;
     }
     else if( area->x < RESIZE_BORDER && area->y < h - RESIZE_BORDER && area->y > RESIZE_BORDER )
     {
-        REPORT_RESIZE_HIT( LEFT );
+        return SDL_HITTEST_RESIZE_LEFT;
     }
 
     return SDL_HITTEST_NORMAL;

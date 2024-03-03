@@ -203,6 +203,10 @@ void Engine::StopGame()
     m_game->OnEnd();
 }
 
+#if USING( ME_IMGUI )
+extern void ImGui_ImplSDL2_NewFrame();
+#endif
+
 void Engine::Run()
 {
     m_game->OnStart();
@@ -261,6 +265,7 @@ void Engine::Run()
                     // Multi-viewport mode: mouse position in OS absolute coordinates (io.MousePos is (0,0) when the mouse is on the upper-left of the primary monitor)
                     mousePos = input.GetGlobalMousePosition();
                 }
+                ImGui_ImplSDL2_NewFrame();
 
                 NewRenderer->BeginFrame( mousePos, ( input.IsMouseButtonDown( MouseButton::Left ) ? 0x01 : 0 )
                     | ( input.IsMouseButtonDown( MouseButton::Right ) ? 0x02 : 0 )
