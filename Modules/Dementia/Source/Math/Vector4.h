@@ -11,6 +11,10 @@ struct Vector4
         {
             float x, y, z, w;
         };
+        struct
+        {
+            float top, bottom, left, right;
+        };
         glm::vec4 InternalVector;
     };
 
