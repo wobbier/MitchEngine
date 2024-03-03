@@ -4,7 +4,9 @@
 #include "Editor\imgui_node_editor_internal.h"
 #include "utilities\builders.h"
 #include "utilities\widgets.h"
-
+#include "Core/Node.h"
+#include "Graphics\Texture.h"
+#include "Pointers.h"
 
 static inline ImRect ImGui_GetItemRect()
 {
@@ -42,91 +44,6 @@ using ax::Widgets::IconType;
 
 static ed::EditorContext* m_Editor = nullptr;
 
-enum class PinType
-{
-    Flow,
-    Bool,
-    Int,
-    Float,
-    String,
-    Object,
-    Function,
-    Delegate,
-};
-
-enum class PinKind
-{
-    Output,
-    Input
-};
-
-enum class NodeType
-{
-    Blueprint,
-    Simple,
-    Tree,
-    Comment,
-    Houdini
-};
-
-struct Node;
-
-struct Pin
-{
-    ed::PinId   ID;
-    ::Node* Node;
-    std::string Name;
-    PinType     Type;
-    PinKind     Kind;
-
-    Pin( int id, const char* name, PinType type ) :
-        ID( id ), Node( nullptr ), Name( name ), Type( type ), Kind( PinKind::Input )
-    {
-    }
-};
-
-struct Node
-{
-    ed::NodeId ID;
-    std::string Name;
-    std::vector<Pin> Inputs;
-    std::vector<Pin> Outputs;
-    ImColor Color;
-    NodeType Type;
-    ImVec2 Size;
-
-    std::string State;
-    std::string SavedState;
-
-    Node( int id, const char* name, ImColor color = ImColor( 255, 255, 255 ) ) :
-        ID( id ), Name( name ), Color( color ), Type( NodeType::Blueprint ), Size( 0, 0 )
-    {
-    }
-};
-
-struct Link
-{
-    ed::LinkId ID;
-
-    ed::PinId StartPinID;
-    ed::PinId EndPinID;
-
-    ImColor Color;
-
-    Link( ed::LinkId id, ed::PinId startPinId, ed::PinId endPinId ) :
-        ID( id ), StartPinID( startPinId ), EndPinID( endPinId ), Color( 255, 255, 255 )
-    {
-    }
-};
-
-struct NodeIdLess
-{
-    bool operator()( const ed::NodeId& lhs, const ed::NodeId& rhs ) const
-    {
-        return lhs.AsPointer() < rhs.AsPointer();
-    }
-};
-
 class ShaderEditor
     : public Tool
 {
@@ -141,6 +58,15 @@ public:
 
     void DrawGraph();
     void DrawBlueprint();
+
+    void HandleLinks();
+
+    void DrawOrdinals();
+
+    void DrawComments();
+    void DrawHoudiniNodes();
+    void DrawTreeNodes();
+    void DrawBasicNodes();
 
     struct LinkInfo
     {
@@ -179,11 +105,11 @@ public:
 
     float GetTextureWidth()
     {
-        return 19;
+        return 50;
     }
     float GetTextureHeight()
     {
-        return 19;
+        return 50;
     }
 
 
@@ -515,4 +441,19 @@ public:
     void DrawPinIcon( const Pin& pin, bool connected, int alpha );
 
     void ShowLeftPane( float paneWidth );
+
+    void HandleAddNodeConxtualMenu();
+
+    ed::NodeId contextNodeId = 0;
+    ed::LinkId contextLinkId = 0;
+    ed::PinId  contextPinId = 0;
+    bool createNewNode = false;
+    Pin* newNodeLinkPin = nullptr;
+    Pin* newLinkPin = nullptr;
+    SharedPtr<Moonlight::Texture> m_headerTexture;
+    SharedPtr<Moonlight::Texture> m_saveTexture;
+    SharedPtr<Moonlight::Texture> m_restoreTexture;
+
+    float leftPaneWidth = 400.0f;
+    float rightPaneWidth = 800.0f;
 };

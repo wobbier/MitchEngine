@@ -70,6 +70,8 @@ namespace Moonlight
 
         bgfx::TextureHandle TexHandle;
         static std::string ToString( TextureType type );
+        uint64_t m_flags = 0;
+        uint8_t m_mips = 0;
     };
 }
 

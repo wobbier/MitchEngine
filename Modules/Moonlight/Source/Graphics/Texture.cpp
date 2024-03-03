@@ -49,7 +49,7 @@ namespace Moonlight
 
     bool Texture::Load()
     {
-        uint64_t flags = BGFX_TEXTURE_NONE | BGFX_SAMPLER_W_MIRROR;
+        m_flags = BGFX_TEXTURE_NONE | BGFX_SAMPLER_W_MIRROR;
         Path compiledTexture( FilePath.FullPath + ".dds" );
         if( !compiledTexture.Exists )
         {
@@ -72,9 +72,9 @@ namespace Moonlight
                 {
                     YIKES( "You gotta implement 3d textures" );
                 }
-                else if( bgfx::isTextureValid( 0, false, imageContainer->m_numLayers, bgfx::TextureFormat::Enum( imageContainer->m_format ), flags ) )
+                else if( bgfx::isTextureValid( 0, false, imageContainer->m_numLayers, bgfx::TextureFormat::Enum( imageContainer->m_format ), m_flags ) )
                 {
-                    TexHandle = bgfx::createTexture2D( imageContainer->m_width, imageContainer->m_height, 1 < imageContainer->m_numMips, imageContainer->m_numLayers, bgfx::TextureFormat::Enum( imageContainer->m_format ), flags, mem );
+                    TexHandle = bgfx::createTexture2D( imageContainer->m_width, imageContainer->m_height, 1 < imageContainer->m_numMips, imageContainer->m_numLayers, bgfx::TextureFormat::Enum( imageContainer->m_format ), m_flags, mem );
                 }
 
                 if( bgfx::isValid( TexHandle ) )
@@ -89,6 +89,7 @@ namespace Moonlight
                 }
                 mWidth = imageContainer->m_width;
                 mHeight = imageContainer->m_height;
+                m_mips = imageContainer->m_numMips;
 
 #if USING ( ME_DEBUG )
                 BRUH_FMT( "%i, %s", TexHandle.idx, compiledTexture.FullPath.c_str() );
