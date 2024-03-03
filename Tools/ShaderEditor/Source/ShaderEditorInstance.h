@@ -6,6 +6,8 @@
 #include "Core\Node.h"
 #include "Graphics\Texture.h"
 
+class BasicShaderMasterNode;
+
 static inline ImRect ImGui_GetItemRect()
 {
     return ImRect( ImGui::GetItemRectMin(), ImGui::GetItemRectMax() );
@@ -448,6 +450,8 @@ private:
 
     void HandleAddNodeConxtualMenu();
 
+    void ExportShader();
+
     ed::NodeId contextNodeId = 0;
     ed::LinkId contextLinkId = 0;
     ed::PinId  contextPinId = 0;
@@ -457,6 +461,9 @@ private:
     SharedPtr<Moonlight::Texture> m_headerTexture;
     SharedPtr<Moonlight::Texture> m_saveTexture;
     SharedPtr<Moonlight::Texture> m_restoreTexture;
+
+    // Temp until I can specify the type of shader.
+    BasicShaderMasterNode* m_masterNode = nullptr;
 
     float leftPaneWidth = 400.0f;
     float rightPaneWidth = 800.0f;

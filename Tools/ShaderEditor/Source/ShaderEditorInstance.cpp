@@ -158,6 +158,10 @@ void ShaderEditorInstance::ShowLeftPane( float paneWidth )
     ImGui::Spring( 0.0f, 0.0f );
     if( ImGui::Button( "Zoom to Content" ) )
         ed::NavigateToContent();
+    if( ImGui::Button( "Export" ) )
+    {
+        ExportShader();
+    }
     ImGui::Spring( 0.0f );
     if( ImGui::Button( "Show Flow" ) )
     {
@@ -499,6 +503,14 @@ void ShaderEditorInstance::HandleAddNodeConxtualMenu()
 
 }
 
+void ShaderEditorInstance::ExportShader()
+{
+    File file( Path( "EXPORT.txt" ) );
+    
+    m_masterNode->OnExport( file );
+    file.Write();
+}
+
 void ShaderEditorInstance::BlueprintStart()
 {
     ed::Config config;
@@ -534,6 +546,10 @@ void ShaderEditorInstance::BlueprintStart()
     m_Nodes.push_back( node );
     node = new IntegerNode( m_NextId ); ed::SetNodePosition( node->ID, ImVec2( -350, 000 ) );
     static_cast<IntegerNode*>(node)->value = 2;
+    m_Nodes.push_back( node );
+
+    m_masterNode = new BasicShaderMasterNode( m_NextId ); ed::SetNodePosition( node->ID, ImVec2( 350, 000 ) );
+    node = m_masterNode;
     m_Nodes.push_back( node );
 
     ed::NavigateToContent();

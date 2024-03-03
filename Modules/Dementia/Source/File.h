@@ -48,6 +48,11 @@ public:
         return Data;
     }
 
+    void Append( const std::string& inContents )
+    {
+        Data.append( inContents );
+    }
+
     void Write()
     {
         std::ofstream out( FilePath.FullPath );
@@ -55,9 +60,9 @@ public:
         out.close();
     }
 
-    void Write( const std::string& Contents )
+    void Write( const std::string& inContents )
     {
-        Data = Contents;
+        Data = inContents;
         Write();
     }
 

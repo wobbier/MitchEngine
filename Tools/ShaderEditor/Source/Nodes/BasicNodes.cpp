@@ -12,7 +12,7 @@ LessThanNode::LessThanNode( int& inId )
 
 bool LessThanNode::OnEvaluate()
 {
-    for (auto& input : Inputs)
+    for( auto& input : Inputs )
     {
         if( input.Node == this )
         {
@@ -42,7 +42,7 @@ bool LessThanNode::OnEvaluate()
 
 
 IntegerNode::IntegerNode( int& inId )
-    : Node( inId++, "Integer", { 68, 201, 156} )
+    : Node( inId++, "Integer", { 68, 201, 156 } )
 {
     Outputs.emplace_back( inId++, "Value", PinType::Int );
 
@@ -52,7 +52,29 @@ IntegerNode::IntegerNode( int& inId )
 bool IntegerNode::OnEvaluate()
 {
     Outputs[0].Data = value;
-    Outputs[0].Name = std::string("Value(" + std::to_string(value) + ")").c_str();
+    Outputs[0].Name = std::string( "Value(" + std::to_string( value ) + ")" ).c_str();
     // update the output pin
     return false;
+}
+
+BasicShaderMasterNode::BasicShaderMasterNode( int& inId )
+    : Node( inId++, "Basic Shader", { 68, 201, 156 } )
+{
+    Inputs.emplace_back( inId++, "Color", PinType::Int );
+}
+
+bool BasicShaderMasterNode::OnEvaluate()
+{
+    return false;
+}
+
+void BasicShaderMasterNode::OnExport( File& inFile )
+{
+    inFile.Append( "BasicShaderMasterNode" );
+    for( auto pin : Inputs )
+    {
+        auto actualPin = pin.LinkedInput ? pin.LinkedInput : &pin;
+
+        inFile.Append( std::to_string(std::get<int>( actualPin->Data )) );
+    }
 }

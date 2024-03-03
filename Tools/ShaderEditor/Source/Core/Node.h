@@ -5,6 +5,7 @@
 #include <variant>
 #include "imgui.h"
 #include "utilities\builders.h"
+#include "File.h"
 
 namespace ed = ax::NodeEditor;
 namespace util = ax::NodeEditor::Utilities;
@@ -19,6 +20,8 @@ enum class PinType
     Object,
     Function,
     Delegate,
+    Vector3,
+    Vector4,
 };
 
 enum class PinKind
@@ -98,6 +101,10 @@ struct Node
     virtual bool OnRender()
     {
         return false;
+    }
+
+    virtual void OnExport( File& inFile )
+    {
     }
 };
 
