@@ -505,10 +505,8 @@ void ShaderEditorInstance::HandleAddNodeConxtualMenu()
 
 void ShaderEditorInstance::ExportShader()
 {
-    File file( Path( "EXPORT.txt" ) );
     
-    m_masterNode->OnExport( file );
-    file.Write();
+    m_masterNode->ExportShitty(m_shaderFileName);
 }
 
 void ShaderEditorInstance::BlueprintStart()
