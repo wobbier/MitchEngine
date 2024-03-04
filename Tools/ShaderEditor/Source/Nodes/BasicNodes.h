@@ -22,6 +22,44 @@ public:
     IntegerNode( int& inId );
 
     bool OnEvaluate() override;
+
+    bool OnRender() override;
+
+
+    void OnExport( ShaderWriter& inFile ) override;
+
+};
+
+class FloatNode
+    : public Node
+{
+public:
+    float value = 0.f;
+    FloatNode( int& inId );
+
+    bool OnEvaluate() override;
+
+    bool OnRender() override;
+
+
+    void OnExport( ShaderWriter& inFile ) override;
+
+};
+
+class Vector3Node
+    : public Node
+{
+public:
+    Vector3 value;
+    Vector3Node( int& inId );
+
+    bool OnEvaluate() override;
+
+    bool OnRender() override;
+
+
+    void OnExport( ShaderWriter& inFile ) override;
+
 };
 
 
@@ -33,7 +71,9 @@ public:
 
     virtual bool OnEvaluate() final;
     void ExportShitty( const std::string& inShaderName );
-    virtual void OnExport( File& inFile ) final;
+    virtual void OnExport( ShaderWriter& inFile ) final;
+
+    void ExportPin( int inPinNum, PinType inPinType );
     // static? reset on export? move to base?
     int m_variableId = 0;
 };

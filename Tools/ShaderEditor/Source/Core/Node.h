@@ -6,6 +6,8 @@
 #include "imgui.h"
 #include "utilities\builders.h"
 #include "File.h"
+#include "Math\Vector3.h"
+#include "ShaderWriter.h"
 
 namespace ed = ax::NodeEditor;
 namespace util = ax::NodeEditor::Utilities;
@@ -20,7 +22,7 @@ enum class PinType
     Object,
     Function,
     Delegate,
-    Vector3,
+    Vector3Type,
     Vector4,
 };
 
@@ -41,7 +43,7 @@ enum class NodeType
 
 struct Node;
 
-using PinData = std::variant<int, bool>;
+using PinData = std::variant<int, bool, float, Vector3>;
 
 struct Pin
 {
@@ -103,7 +105,7 @@ struct Node
         return false;
     }
 
-    virtual void OnExport( File& inFile )
+    virtual void OnExport( ShaderWriter& inFile )
     {
     }
 };

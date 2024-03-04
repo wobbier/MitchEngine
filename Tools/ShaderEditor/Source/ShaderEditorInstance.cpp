@@ -63,17 +63,19 @@ void ShaderEditorInstance::DrawPinIcon( const Pin& pin, bool connected, int alph
     case PinType::Function: iconType = IconType::Circle; break;
     case PinType::Delegate: iconType = IconType::Square; break;
     default:
-        return;
+        iconType = IconType::Circle;
     }
 
     ax::Widgets::Icon( ImVec2( static_cast<float>( m_PinIconSize ), static_cast<float>( m_PinIconSize ) ), iconType, connected, color, ImColor( 32, 32, 32, alpha ) );
 };
 
-void ShowStyleEditor( bool* show = nullptr )
+void ShowStyleEditor( bool* show, std::string& inName )
 {
+    ImGui::PushID( inName.c_str() );
     if( !ImGui::Begin( "Style", show ) )
     {
         ImGui::End();
+        ImGui::PopID();
         return;
     }
 
@@ -143,6 +145,7 @@ void ShowStyleEditor( bool* show = nullptr )
     ImGui::PopItemWidth();
 
     ImGui::End();
+    ImGui::PopID();
 }
 
 void ShaderEditorInstance::ShowLeftPane( float paneWidth )
@@ -175,7 +178,7 @@ void ShaderEditorInstance::ShowLeftPane( float paneWidth )
     ImGui::Checkbox( "Show Ordinals", &m_ShowOrdinals );
 
     if( showStyleEditor )
-        ShowStyleEditor( &showStyleEditor );
+        ShowStyleEditor( &showStyleEditor, m_shaderFileName );
 
     std::vector<ed::NodeId> selectedNodes;
     std::vector<ed::LinkId> selectedLinks;
@@ -517,33 +520,41 @@ void ShaderEditorInstance::BlueprintStart()
     ed::SetCurrentEditor( m_editorContext );
 
     Node* node;
-    node = SpawnInputActionNode();      ed::SetNodePosition( node->ID, ImVec2( -252, 220 ) );
-    node = SpawnBranchNode();           ed::SetNodePosition( node->ID, ImVec2( -300, 351 ) );
-    node = SpawnDoNNode();              ed::SetNodePosition( node->ID, ImVec2( -238, 504 ) );
-    node = SpawnOutputActionNode();     ed::SetNodePosition( node->ID, ImVec2( 71, 80 ) );
-    node = SpawnSetTimerNode();         ed::SetNodePosition( node->ID, ImVec2( 168, 316 ) );
+    if( false )
+    {
+        node = SpawnInputActionNode();      ed::SetNodePosition( node->ID, ImVec2( -252, 220 ) );
+        node = SpawnBranchNode();           ed::SetNodePosition( node->ID, ImVec2( -300, 351 ) );
+        node = SpawnDoNNode();              ed::SetNodePosition( node->ID, ImVec2( -238, 504 ) );
+        node = SpawnOutputActionNode();     ed::SetNodePosition( node->ID, ImVec2( 71, 80 ) );
+        node = SpawnSetTimerNode();         ed::SetNodePosition( node->ID, ImVec2( 168, 316 ) );
 
-    node = SpawnTreeSequenceNode();     ed::SetNodePosition( node->ID, ImVec2( 1028, 329 ) );
-    node = SpawnTreeTaskNode();         ed::SetNodePosition( node->ID, ImVec2( 1204, 458 ) );
-    node = SpawnTreeTask2Node();        ed::SetNodePosition( node->ID, ImVec2( 868, 538 ) );
+        node = SpawnTreeSequenceNode();     ed::SetNodePosition( node->ID, ImVec2( 1028, 329 ) );
+        node = SpawnTreeTaskNode();         ed::SetNodePosition( node->ID, ImVec2( 1204, 458 ) );
+        node = SpawnTreeTask2Node();        ed::SetNodePosition( node->ID, ImVec2( 868, 538 ) );
 
-    node = SpawnComment();              ed::SetNodePosition( node->ID, ImVec2( 112, 576 ) ); ed::SetGroupSize( node->ID, ImVec2( 384, 154 ) );
-    node = SpawnComment();              ed::SetNodePosition( node->ID, ImVec2( 800, 224 ) ); ed::SetGroupSize( node->ID, ImVec2( 640, 400 ) );
+        node = SpawnComment();              ed::SetNodePosition( node->ID, ImVec2( 112, 576 ) ); ed::SetGroupSize( node->ID, ImVec2( 384, 154 ) );
+        node = SpawnComment();              ed::SetNodePosition( node->ID, ImVec2( 800, 224 ) ); ed::SetGroupSize( node->ID, ImVec2( 640, 400 ) );
 
-    node = SpawnLessNode();             ed::SetNodePosition( node->ID, ImVec2( 366, 652 ) );
-    node = SpawnWeirdNode();            ed::SetNodePosition( node->ID, ImVec2( 144, 652 ) );
-    node = SpawnMessageNode();          ed::SetNodePosition( node->ID, ImVec2( -348, 698 ) );
-    node = SpawnPrintStringNode();      ed::SetNodePosition( node->ID, ImVec2( -69, 652 ) );
+        node = SpawnLessNode();             ed::SetNodePosition( node->ID, ImVec2( 366, 652 ) );
+        node = SpawnWeirdNode();            ed::SetNodePosition( node->ID, ImVec2( 144, 652 ) );
+        node = SpawnMessageNode();          ed::SetNodePosition( node->ID, ImVec2( -348, 698 ) );
+        node = SpawnPrintStringNode();      ed::SetNodePosition( node->ID, ImVec2( -69, 652 ) );
 
-    node = SpawnHoudiniTransformNode(); ed::SetNodePosition( node->ID, ImVec2( 500, -70 ) );
-    node = SpawnHoudiniGroupNode();     ed::SetNodePosition( node->ID, ImVec2( 500, 42 ) );
+        node = SpawnHoudiniTransformNode(); ed::SetNodePosition( node->ID, ImVec2( 500, -70 ) );
+        node = SpawnHoudiniGroupNode();     ed::SetNodePosition( node->ID, ImVec2( 500, 42 ) );
+    }
 
     node = new LessThanNode( m_NextId ); ed::SetNodePosition( node->ID, ImVec2( -320, 200 ) );
     m_Nodes.push_back( node );
     node = new IntegerNode( m_NextId ); ed::SetNodePosition( node->ID, ImVec2( -350, 200 ) );
     m_Nodes.push_back( node );
     node = new IntegerNode( m_NextId ); ed::SetNodePosition( node->ID, ImVec2( -350, 000 ) );
-    static_cast<IntegerNode*>(node)->value = 2;
+    m_Nodes.push_back( node );
+    node = new FloatNode( m_NextId ); ed::SetNodePosition( node->ID, ImVec2( -450, 000 ) );
+    m_Nodes.push_back( node );
+
+
+    node = new Vector3Node( m_NextId ); ed::SetNodePosition( node->ID, ImVec2( -350, 000 ) );
     m_Nodes.push_back( node );
 
     m_masterNode = new BasicShaderMasterNode( m_NextId ); ed::SetNodePosition( node->ID, ImVec2( 350, 000 ) );
@@ -554,10 +565,10 @@ void ShaderEditorInstance::BlueprintStart()
 
     BuildNodes();
 
-    m_Links.push_back( Link( GetNextLinkId(), m_Nodes[5]->Outputs[0].ID, m_Nodes[6]->Inputs[0].ID ) );
-    m_Links.push_back( Link( GetNextLinkId(), m_Nodes[5]->Outputs[0].ID, m_Nodes[7]->Inputs[0].ID ) );
-
-    m_Links.push_back( Link( GetNextLinkId(), m_Nodes[14]->Outputs[0].ID, m_Nodes[15]->Inputs[0].ID ) );
+    //m_Links.push_back( Link( GetNextLinkId(), m_Nodes[5]->Outputs[0].ID, m_Nodes[6]->Inputs[0].ID ) );
+    //m_Links.push_back( Link( GetNextLinkId(), m_Nodes[5]->Outputs[0].ID, m_Nodes[7]->Inputs[0].ID ) );
+    //
+    //m_Links.push_back( Link( GetNextLinkId(), m_Nodes[14]->Outputs[0].ID, m_Nodes[15]->Inputs[0].ID ) );
 
     m_headerTexture = ResourceCache::GetInstance().Get<Moonlight::Texture>( Path( "Assets/BlueprintBackground.png" ) );
     m_saveTexture = ResourceCache::GetInstance().Get<Moonlight::Texture>( Path( "Assets/ic_save_white_24dp.png" ) );
@@ -732,7 +743,7 @@ void ShaderEditorInstance::HandleLinks()
                         auto endPin = FindPin( link->EndPinID );
 
                         // Remove the linked input if we're the pin connected
-                        if( startPin == endPin->LinkedInput && endPin->LinkedInput )
+                        if( endPin && startPin == endPin->LinkedInput && endPin->LinkedInput )
                         {
                             endPin->LinkedInput = nullptr;
                         }
@@ -1329,6 +1340,7 @@ void ShaderEditorInstance::DrawBasicNodes()
             ImGui::PopStyleVar();
             builder.EndOutput();
         }
+        node.OnRender();
 
         builder.End();
     }

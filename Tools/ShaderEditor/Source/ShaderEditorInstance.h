@@ -256,6 +256,9 @@ private:
         m_Nodes.back()->Inputs.emplace_back( GetNextId(), "Reset", PinType::Flow );
         m_Nodes.back()->Outputs.emplace_back( GetNextId(), "Exit", PinType::Flow );
         m_Nodes.back()->Outputs.emplace_back( GetNextId(), "Counter", PinType::Int );
+        m_Nodes.back()->Outputs.emplace_back( GetNextId(), "Counter2", PinType::Int );
+        m_Nodes.back()->Outputs.emplace_back( GetNextId(), "Counter3", PinType::Int );
+        m_Nodes.back()->Outputs.emplace_back( GetNextId(), "Counter4", PinType::Int );
 
         BuildNode( node );
 
