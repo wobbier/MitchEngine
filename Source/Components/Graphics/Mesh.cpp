@@ -258,6 +258,24 @@ void Mesh::OnEditorInspect()
 
     if( MeshMaterial )
     {
+        if( ImGui::Button( "Select Shader" ) )
+        {
+            RequestAssetSelectionEvent evt( [this]( Path selectedAsset ) {
+                std::string path = selectedAsset.GetLocalPathString();
+                size_t pos = path.rfind( selectedAsset.GetExtension() );
+                if( pos != std::string::npos ) {
+                    path.erase( pos-1, path.length() );
+                }
+                MeshMaterial->LoadShader( path );
+                }, AssetType::Shader );
+            evt.Fire();
+        }
+
+        if( MeshMaterial->MeshShader.IsLoaded() && ImGui::Button( "Reload Shader" ) )
+        {
+            MeshMaterial->LoadShader( MeshMaterial->ShaderName );
+        }
+
         bool transparent = MeshMaterial->IsTransparent();
         //if (ImGui::TreeNodeEx("Material", ImGuiTreeNodeFlags_DefaultOpen))
         {

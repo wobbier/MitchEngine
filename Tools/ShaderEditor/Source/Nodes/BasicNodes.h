@@ -1,6 +1,7 @@
 #pragma once
 #include "Core/Node.h"
 #include "File.h"
+#include "Graphics/Texture.h"
 
 namespace ed = ax::NodeEditor;
 namespace util = ax::NodeEditor::Utilities;
@@ -61,6 +62,40 @@ public:
     void OnExport( ShaderWriter& inFile ) override;
 
 };
+
+class AddNode
+    : public Node
+{
+public:
+    Vector3 valueA;
+    Vector3 valueB;
+    AddNode( int& inId );
+
+    bool OnEvaluate() override;
+
+    bool OnRender() override;
+
+
+    void OnExport( ShaderWriter& inFile ) override;
+
+};
+
+class SampleTextureNode
+    : public Node
+{
+public:
+    SharedPtr<Moonlight::Texture> value;
+    SampleTextureNode( int& inId );
+
+    bool OnEvaluate() override;
+
+    bool OnRender() override;
+
+
+    void OnExport( ShaderWriter& inFile ) override;
+
+};
+
 
 
 class BasicShaderMasterNode

@@ -54,6 +54,8 @@ namespace Moonlight
         Material() = delete;
         virtual ~Material();
 
+        void LoadShader( const std::string& inShaderName );
+
         const bool IsTransparent() const;
         void SetRenderMode( RenderingMode newMode );
 
@@ -76,6 +78,7 @@ namespace Moonlight
         RenderingMode RenderMode = RenderingMode::Opaque;
         Vector3 DiffuseColor;
         Vector2 Tiling;
+        std::string ShaderName;
 
         Moonlight::ShaderCommand MeshShader;
         const std::string& GetTypeName() const;

@@ -8,6 +8,9 @@
 #include "File.h"
 #include "Math\Vector3.h"
 #include "ShaderWriter.h"
+#include "Pointers.h"
+#include "Math\Vector4.h"
+#include "Math\Vector2.h"
 
 namespace ed = ax::NodeEditor;
 namespace util = ax::NodeEditor::Utilities;
@@ -22,6 +25,8 @@ enum class PinType
     Object,
     Function,
     Delegate,
+    Texture,
+    Vector2,
     Vector3Type,
     Vector4,
 };
@@ -42,8 +47,9 @@ enum class NodeType
 };
 
 struct Node;
+namespace Moonlight { class Texture; }
 
-using PinData = std::variant<int, bool, float, Vector3>;
+using PinData = std::variant<int, bool, float, Vector2, Vector3, Vector4, SharedPtr<Moonlight::Texture>>;
 
 struct Pin
 {
@@ -107,6 +113,16 @@ struct Node
 
     virtual void OnExport( ShaderWriter& inFile )
     {
+    }
+
+    bool ExportLinkedPin( int inPinNumber, ShaderWriter& inFile )
+    {
+        if( Inputs[inPinNumber].LinkedInput )
+        {
+            Inputs[inPinNumber].LinkedInput->Node->OnExport( inFile );
+            return true;
+        }
+        return false;
     }
 };
 

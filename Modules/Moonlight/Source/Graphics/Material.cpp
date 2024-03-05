@@ -11,14 +11,20 @@ namespace Moonlight
         , Tiling( 1.f, 1.f )
         , TypeName( MaterialTypeName )
     {
-        if( ShaderPath.length() > 0 )
-        {
-            MeshShader = ShaderCommand( ShaderPath );
-        }
+        LoadShader( ShaderPath );
     }
 
     Material::~Material()
     {
+    }
+
+    void Material::LoadShader( const std::string& inShaderName )
+    {
+        ShaderName = inShaderName;
+        if( inShaderName.length() > 0 )
+        {
+            MeshShader = ShaderCommand( inShaderName );
+        }
     }
 
     const bool Material::IsTransparent() const

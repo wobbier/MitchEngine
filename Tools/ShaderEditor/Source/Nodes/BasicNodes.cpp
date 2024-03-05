@@ -1,6 +1,11 @@
 #include "BasicNodes.h"
 #include "imgui.h"
 #include "Utils\HavanaUtils.h"
+#include "Events\HavanaEvents.h"
+#include "Resource\ResourceCache.h"
+#include "Utils\ImGuiUtils.h"
+#include "Utils\PlatformUtils.h"
+#include "Utils\ShaderEditorUtils.h"
 
 LessThanNode::LessThanNode( int& inId )
     : Node( inId++, "Less Than" )
@@ -77,9 +82,7 @@ bool IntegerNode::OnRender()
 
 void IntegerNode::OnExport( ShaderWriter& inFile )
 {
-    std::string var = "int_" + std::to_string( inFile.ID++ );
-    inFile.WriteLine( "float " + var + " = " + std::to_string( value ) );
-    inFile.LastVariable = var;
+    inFile.WriteInt( value );
 }
 
 FloatNode::FloatNode( int& inId )
@@ -115,9 +118,7 @@ bool FloatNode::OnRender()
 
 void FloatNode::OnExport( ShaderWriter& inFile )
 {
-    std::string var = "float" + std::to_string( inFile.ID++ );
-    inFile.WriteLine( "float " + var + " = " + std::to_string( value ) );
-    inFile.LastVariable = var;
+    inFile.WriteFloat( value );
 }
 
 Vector3Node::Vector3Node( int& inId )
@@ -148,23 +149,143 @@ bool Vector3Node::OnEvaluate()
 
 bool Vector3Node::OnRender()
 {
-    if( Outputs[0].LinkedInput )
+    bool isLinked = true;
+    for( int i = 0; i < Inputs.size(); ++i )
     {
-        return false;
+        isLinked = isLinked && Inputs[i].LinkedInput;
     }
-    Vector3();
-    if( HavanaUtils::EditableVector3( "Value", value, 0.f, 300.f ) )
+    if( !isLinked && HavanaUtils::EditableVector3( "Value", value, 0.f, 300.f ) )
     {
     }
 
     return true;
 }
 
-
 void Vector3Node::OnExport( ShaderWriter& inFile )
 {
-    std::string var = "v_3_" + std::to_string( inFile.ID++ );
-    inFile.WriteLine( "vec3 " + var + " = vec3( " + std::to_string( value.x ) + ", " + std::to_string( value.y ) + ", " + std::to_string( value.z ) + " );" );
+    inFile.WriteVector( value );
+}
+
+
+AddNode::AddNode( int& inId )
+    : Node( inId++, "Add", { 168, 201, 156 } )
+{
+    Inputs.emplace_back( inId++, "A(3)", PinType::Vector3Type );
+    Inputs.back().Data = 0.f;
+    Inputs.emplace_back( inId++, "B(3)", PinType::Vector3Type );
+    Inputs.back().Data = 0.f;
+    Outputs.emplace_back( inId++, "Value(3)", PinType::Vector3Type );
+    Outputs.back().Data = Vector3();
+
+    BuildNode();
+}
+
+bool AddNode::OnEvaluate()
+{
+    Vector3 result = ( Inputs[0].LinkedInput ? std::get<Vector3>( Inputs[0].LinkedInput->Data ) : valueA )
+        + ( Inputs[1].LinkedInput ? std::get<Vector3>( Inputs[1].LinkedInput->Data ) : valueB );
+    Outputs[0].Data = result;
+    // update the output pin
+    return false;
+}
+
+bool AddNode::OnRender()
+{
+    if( HavanaUtils::EditableVector3( "Value A", valueA, 0.f, 300.f ) )
+    {
+    }
+    if( HavanaUtils::EditableVector3( "Value B", valueA, 0.f, 300.f ) )
+    {
+    }
+
+    return true;
+}
+
+void AddNode::OnExport( ShaderWriter& inFile )
+{
+    std::string addNameA;
+    std::string addNameB;
+
+    // Make this a helper
+    if( !ExportLinkedPin( 0, inFile ) )
+    {
+        inFile.WriteVector( valueA );
+    }
+    addNameA = inFile.LastVariable;
+    // Make this a helper
+    if( !ExportLinkedPin( 1, inFile ) )
+    {
+        inFile.WriteVector( valueB );
+    }
+    addNameB = inFile.LastVariable;
+
+    std::string var = "v3_" + std::to_string( inFile.ID++ );
+    inFile.WriteLine( "vec3 " + var + " = " + addNameA + " + " + addNameB + ";" );
+    inFile.LastVariable = var;
+}
+
+
+SampleTextureNode::SampleTextureNode( int& inId )
+    : Node( inId++, "Sample", { 168, 201, 156 } )
+{
+    Inputs.emplace_back( inId++, "Texture", PinType::Texture );
+    Inputs.back().Data = 0.f;
+    Inputs.emplace_back( inId++, "UV(2)", PinType::Vector2 );
+    Inputs.back().Data = Vector2();
+    Outputs.emplace_back( inId++, "Value(3)", PinType::Vector3Type );
+    Outputs.back().Data = Vector3();
+
+    BuildNode();
+}
+
+bool SampleTextureNode::OnEvaluate()
+{
+    //Vector3 result = ( Inputs[0].LinkedInput ? std::get<Vector3>( Inputs[0].LinkedInput->Data ) : valueA )
+    //    + ( Inputs[1].LinkedInput ? std::get<Vector3>( Inputs[1].LinkedInput->Data ) : valueB );
+    //Outputs[0].Data = result;
+    // update the output pin
+    return false;
+}
+
+bool SampleTextureNode::OnRender()
+{
+    if( ImGui::Button( "Select Texture" ) )
+    {
+
+        Path path = HUB::ShowOpenFilePrompt( nullptr );
+        if( path.Exists )
+        {
+            value = ResourceCache::GetInstance().Get<Moonlight::Texture>( path );
+        }
+
+        //PlatformUtils::OpenFile(Path("../../../Assets"));
+        //RequestAssetSelectionEvent evt( [this]( Path selectedAsset ) {
+        //    value = ResourceCache::GetInstance().Get<Moonlight::Texture>( selectedAsset );
+        //    }, AssetType::Texture );
+        //evt.Fire();
+    }
+
+    if( value )
+    {
+        ImGui::Image( value->TexHandle, { 50, 50 } );
+    }
+
+    return true;
+}
+
+void SampleTextureNode::OnExport( ShaderWriter& inFile )
+{
+    // Make this a helper
+    std::string uvName;
+    if( !ExportLinkedPin( 1, inFile ) )
+    {
+        inFile.WriteLine( "vec2 uvs = v_texcoord0 * s_tiling.xy;" );
+        inFile.LastVariable = "uvs";
+    }
+    uvName = inFile.LastVariable;
+
+    std::string var = "sample_" + std::to_string( inFile.ID++ );
+    inFile.WriteLine( "vec4 " + var + " = texture2D(s_texDiffuse, " + uvName + ");" );
     inFile.LastVariable = var;
 }
 
@@ -173,8 +294,10 @@ BasicShaderMasterNode::BasicShaderMasterNode( int& inId )
 {
     Inputs.emplace_back( inId++, "Position(3)", PinType::Vector3Type );
     Inputs.back().Data = Vector3();
-    Inputs.emplace_back( inId++, "Color", PinType::Int );
-    Inputs.back().Data = 0;
+    Inputs.emplace_back( inId++, "Color(3)", PinType::Vector3Type );
+    Inputs.back().Data = Vector3();
+    Inputs.emplace_back( inId++, "Alpha(1)", PinType::Float );
+    Inputs.back().Data = 1.f;
 }
 
 bool BasicShaderMasterNode::OnEvaluate()
@@ -228,25 +351,13 @@ void BasicShaderMasterNode::ExportShitty( const std::string& inShaderName )
         file.WriteLine( "{" );
         file.Tabs++;
         {
-            if( Inputs[0].LinkedInput )
+            if( !ExportLinkedPin( 0, file ) )
             {
-                Inputs[0].LinkedInput->Node->OnExport( file );
-            }
-            else
-            {
-                auto actualPin = Inputs[0].LinkedInput ? Inputs[0].LinkedInput : &Inputs[0];
-
-                if( actualPin->Type == PinType::Vector3Type )
-                {
-                    Vector3 data = std::get<Vector3>( actualPin->Data );
-                    std::string variableName = "var_default" + std::to_string( file.ID++ );
-                    file.WriteLine( "vec3 " + variableName + " = vec3( " + std::to_string( data.x ) + ", " + std::to_string( data.y ) + ", " + std::to_string( data.z ) + " );" );
-                    file.LastVariable = variableName;
-                }
+                file.LastVariable = "a_position";
             }
         }
-        file.WriteLine( "v_color0 = vec4( " + file.LastVariable + ", 1.0 );" );
-        file.WriteLine( "gl_Position = mul(u_modelViewProj, vec4(a_position, 1.0) );" );
+        file.WriteLine( "gl_Position = mul(u_modelViewProj, vec4(" + file.LastVariable + ", 1.0) );" );
+        file.WriteLine( "v_color0 = vec4(a_normal.x,a_normal.y,a_normal.z,1.0);" );
         file.Append( "\n" );
         file.WriteLine( "v_texcoord0 = a_texcoord0;" );
         file.WriteLine( "vec3 normal = a_normal.xyz;" );
@@ -261,7 +372,7 @@ void BasicShaderMasterNode::ExportShitty( const std::string& inShaderName )
         ShaderWriter file( inShaderName + ".frag" );
         file.WriteLine( "$input v_color0, v_normal, v_texcoord0" );
         file.Append( "\n" );
-        file.WriteLine( "#include \"Common.sh" );
+        file.WriteLine( "#include \"Common.sh\"" );
         file.Append( "\n" );
         file.WriteLine( "SAMPLER2D(s_texDiffuse, 0);" );
         file.WriteLine( "SAMPLER2D(s_texNormal, 1);" );
@@ -279,9 +390,28 @@ void BasicShaderMasterNode::ExportShitty( const std::string& inShaderName )
         file.Tabs++;
 
         OnExport( file );
+        std::string colorVariable;
+        std::string alphaVariable;
+        {
+            if( !ExportLinkedPin( 1, file ) )
+            {
+                Vector3 data = std::get<Vector3>( Inputs[1].Data );
+                file.WriteVector( data );
+            }
+            colorVariable = file.LastVariable;
+        }
+        {
+            if( !ExportLinkedPin( 2, file ) )
+            {
+                // could this be trimmed even more?
+                float data = std::get<float>( Inputs[2].Data );
+                file.WriteFloat( data );
+            }
+            alphaVariable = file.LastVariable;
+        }
 
         file.WriteLine( "vec2 uvs = v_texcoord0 * s_tiling.xy;" );
-        file.WriteLine( "vec4 color = texture2D(s_texDiffuse, uvs) * s_diffuse;" );
+        file.WriteLine( "vec4 color = texture2D(s_texDiffuse, uvs) * vec4(" + colorVariable + ", " + alphaVariable + "); " );
         file.Append( "\n" );
         file.WriteLine( "vec4 ambient = s_ambient * color;" );
         file.WriteLine( "vec4 lightDir = normalize(s_sunDirection);" );
@@ -294,7 +424,7 @@ void BasicShaderMasterNode::ExportShitty( const std::string& inShaderName )
         file.WriteLine( "color += diffuse;" );
         file.Append( "\n" );
         file.WriteLine( "color += diffuseSky * u_skyLuminance;" );
-        file.WriteLine( "color.a = toLinear(texture2D(s_texAlpha, uvs)).r;" );
+        file.WriteLine( "color.a = toLinear(texture2D(s_texAlpha, uvs)).r * " + alphaVariable + ";" );
         file.WriteLine( "gl_FragColor = color;//texture2D(s_texNormal, uvs);//color;ambient + " );
         file.Tabs--;
         file.WriteLine( "}" );
@@ -306,22 +436,4 @@ void BasicShaderMasterNode::ExportShitty( const std::string& inShaderName )
 void BasicShaderMasterNode::OnExport( ShaderWriter& inFile )
 {
 
-    {
-        if( Inputs[1].LinkedInput )
-        {
-            Inputs[1].LinkedInput->Node->OnExport( inFile );
-        }
-        else
-        {
-            auto actualPin = Inputs[1].LinkedInput ? Inputs[1].LinkedInput : &Inputs[1];
-
-            // Temp Shit
-            if( actualPin->Type == PinType::Int )
-            {
-                std::string variableName = "int" + std::to_string( inFile.ID++ );
-                inFile.WriteLine( "float " + variableName + " = " + std::to_string( std::get<int>( actualPin->Data ) ) + ";" );
-                inFile.LastVariable = variableName;
-            }
-        }
-    }
 }

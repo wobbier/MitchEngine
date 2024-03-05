@@ -557,6 +557,12 @@ void ShaderEditorInstance::BlueprintStart()
     node = new Vector3Node( m_NextId ); ed::SetNodePosition( node->ID, ImVec2( -350, 000 ) );
     m_Nodes.push_back( node );
 
+    node = new AddNode( m_NextId ); ed::SetNodePosition( node->ID, ImVec2( -350, 000 ) );
+    m_Nodes.push_back( node );
+
+    node = new SampleTextureNode( m_NextId ); ed::SetNodePosition( node->ID, ImVec2( -350, 400 ) );
+    m_Nodes.push_back( node );
+
     m_masterNode = new BasicShaderMasterNode( m_NextId ); ed::SetNodePosition( node->ID, ImVec2( 350, 000 ) );
     node = m_masterNode;
     m_Nodes.push_back( node );
