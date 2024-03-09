@@ -41,9 +41,39 @@ void util::BlueprintNodeBuilder::Begin(ed::NodeId id)
     SetStage(Stage::Begin);
 }
 
-void util::BlueprintNodeBuilder::End()
+void util::BlueprintNodeBuilder::End(Node& inNode)
 {
     SetStage(Stage::End);
+
+    float width = ( HeaderMax.x - HeaderMin.x ) < 400 ? 400 : ( HeaderMax.x - HeaderMin.x ); // bad magic numbers. used to define width of tree widget
+    //ImGui::BeginHorizontal( "testeroonie", { width, 0 } );
+    //ImGui::Spring( 1, 1 );
+
+    ImGui::BeginVertical( "testerrr", { width, 0 } );
+    ImGui::Spring( 1, 1 );
+    ImGui::PushStyleVar( ImGuiStyleVar_ItemSpacing, ImVec2( 0.0f, 0.0f ) );
+    ImGui::Dummy( ImVec2( width, 0 ) );
+    ImGui::PopStyleVar();
+
+
+    // Start columns, but use only first one.
+    ImGui::BeginColumns( "##TreeColumns", 2,
+        ImGuiOldColumnFlags_NoBorder |
+        ImGuiOldColumnFlags_NoResize |
+        ImGuiOldColumnFlags_NoPreserveWidths |
+        ImGuiOldColumnFlags_NoForceWithinWindow );
+
+    // Adjust column width to match requested one.
+    ImGui::SetColumnWidth( 0, width
+        + ImGui::GetStyle().WindowPadding.x
+        + ImGui::GetStyle().ItemSpacing.x );
+
+    inNode.OnRender();
+
+    ImGui::EndColumns();
+
+    ImGui::EndVertical();
+    //ImGui::EndHorizontal();
 
     ed::EndNode();
 
@@ -88,7 +118,7 @@ void util::BlueprintNodeBuilder::End()
 
     ed::PopStyleVar();
 
-    SetStage(Stage::Invalid);
+    SetStage( Stage::Invalid );
 }
 
 void util::BlueprintNodeBuilder::Header(const ImVec4& color)
@@ -99,7 +129,9 @@ void util::BlueprintNodeBuilder::Header(const ImVec4& color)
 
 void util::BlueprintNodeBuilder::EndHeader()
 {
-    SetStage(Stage::Content);
+    SetStage( Stage::Content );
+    ImGui::GetWindowDrawList()->AddRectFilled(
+        ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), IM_COL32( 255, 0, 0, 64 ) );
 }
 
 void util::BlueprintNodeBuilder::Input(ed::PinId id)
@@ -134,6 +166,13 @@ void util::BlueprintNodeBuilder::Middle()
     SetStage(Stage::Middle);
 }
 
+void ax::NodeEditor::Utilities::BlueprintNodeBuilder::Footer()
+{
+    const auto applyPadding = ( CurrentStage == Stage::Footer );
+
+    SetStage( Stage::Footer );
+}
+
 void util::BlueprintNodeBuilder::Output(ed::PinId id)
 {
     if (CurrentStage == Stage::Begin)
@@ -158,6 +197,11 @@ void util::BlueprintNodeBuilder::EndOutput()
     EndPin();
 }
 
+void util::BlueprintNodeBuilder::EndFooter()
+{
+    ImGui::EndHorizontal();
+}
+
 bool util::BlueprintNodeBuilder::SetStage(Stage stage)
 {
     if (stage == CurrentStage)
@@ -176,9 +220,11 @@ bool util::BlueprintNodeBuilder::SetStage(Stage stage)
             ImGui::EndHorizontal();
             HeaderMin = ImGui::GetItemRectMin();
             HeaderMax = ImGui::GetItemRectMax();
+            ImGui::GetWindowDrawList()->AddRect(
+                ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), IM_COL32( 255, 0, 0, 255 ) );
 
             // spacing between header and content
-            ImGui::Spring(0, ImGui::GetStyle().ItemSpacing.y * 2.0f);
+            ImGui::Spring( 0, ImGui::GetStyle().ItemSpacing.y * 2.0f );
 
             break;
 
@@ -192,8 +238,8 @@ bool util::BlueprintNodeBuilder::SetStage(Stage stage)
             ImGui::EndVertical();
 
             // #debug
-            // ImGui::GetWindowDrawList()->AddRect(
-            //     ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), IM_COL32(255, 0, 0, 255));
+             ImGui::GetWindowDrawList()->AddRect(
+                 ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), IM_COL32(255, 0, 0, 255));
 
             break;
 
@@ -201,8 +247,8 @@ bool util::BlueprintNodeBuilder::SetStage(Stage stage)
             ImGui::EndVertical();
 
             // #debug
-            // ImGui::GetWindowDrawList()->AddRect(
-            //     ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), IM_COL32(255, 0, 0, 255));
+            ImGui::GetWindowDrawList()->AddRect(
+                ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), IM_COL32( 255, 0, 0, 255 ) );
 
             break;
 
@@ -213,11 +259,13 @@ bool util::BlueprintNodeBuilder::SetStage(Stage stage)
             ImGui::EndVertical();
 
             // #debug
-            // ImGui::GetWindowDrawList()->AddRect(
-            //     ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), IM_COL32(255, 0, 0, 255));
+            ImGui::GetWindowDrawList()->AddRect(
+                ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), IM_COL32( 255, 0, 0, 255 ) );
 
             break;
 
+        case Stage::Footer:
+            break;
         case Stage::End:
             break;
 
@@ -274,6 +322,14 @@ bool util::BlueprintNodeBuilder::SetStage(Stage stage)
                 ImGui::Spring(1, 0);
             break;
 
+        case Stage::Footer:
+            if( oldStage == Stage::Output || oldStage == Stage::Input )
+                ImGui::Spring( 0 );
+
+            ImGui::BeginHorizontal( "footer" );
+            ImGui::Spring( 0, 0 );
+            break;
+
         case Stage::End:
             if (oldStage == Stage::Input)
                 ImGui::Spring(1, 0);
@@ -305,6 +361,6 @@ void util::BlueprintNodeBuilder::EndPin()
     ed::EndPin();
 
     // #debug
-    // ImGui::GetWindowDrawList()->AddRectFilled(
-    //     ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), IM_COL32(255, 0, 0, 64));
+     ImGui::GetWindowDrawList()->AddRectFilled(
+         ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), IM_COL32(255, 0, 0, 64));
 }

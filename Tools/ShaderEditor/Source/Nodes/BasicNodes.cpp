@@ -154,7 +154,7 @@ bool Vector3Node::OnRender()
     {
         isLinked = isLinked && Inputs[i].LinkedInput;
     }
-    if( !isLinked && HavanaUtils::EditableVector3( "Value", value, 0.f, 300.f ) )
+    if( !isLinked && HavanaUtils::EditableVector3( "Value", value, 0.f) )
     {
     }
 
@@ -191,10 +191,10 @@ bool AddNode::OnEvaluate()
 
 bool AddNode::OnRender()
 {
-    if( HavanaUtils::EditableVector3( "Value A", valueA, 0.f, 300.f ) )
+    if( HavanaUtils::EditableVector3( "##Value A", valueA, 0.f ) )
     {
     }
-    if( HavanaUtils::EditableVector3( "Value B", valueA, 0.f, 300.f ) )
+    if( HavanaUtils::EditableVector3( "##Value B", valueA, 0.f ) )
     {
     }
 

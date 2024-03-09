@@ -12,6 +12,7 @@
 
 //------------------------------------------------------------------------------
 # include <Editor/imgui_node_editor.h>
+#include "Core/Node.h"
 
 
 //------------------------------------------------------------------------------
@@ -26,7 +27,7 @@ struct BlueprintNodeBuilder
     BlueprintNodeBuilder(ImTextureID texture = nullptr, int textureWidth = 0, int textureHeight = 0);
 
     void Begin(NodeId id);
-    void End();
+    void End( Node& inNode );
 
     void Header(const ImVec4& color = ImVec4(1, 1, 1, 1));
     void EndHeader();
@@ -35,6 +36,8 @@ struct BlueprintNodeBuilder
     void EndInput();
 
     void Middle();
+    void Footer();
+    void EndFooter();
 
     void Output(PinId id);
     void EndOutput();
@@ -49,6 +52,7 @@ private:
         Content,
         Input,
         Output,
+        Footer,
         Middle,
         End
     };

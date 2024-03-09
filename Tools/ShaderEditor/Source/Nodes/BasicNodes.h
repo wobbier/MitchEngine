@@ -2,6 +2,7 @@
 #include "Core/Node.h"
 #include "File.h"
 #include "Graphics/Texture.h"
+#include "utilities/builders.h"
 
 namespace ed = ax::NodeEditor;
 namespace util = ax::NodeEditor::Utilities;

@@ -9,12 +9,19 @@
 ShaderEditorInstance::ShaderEditorInstance()
 {
 }
+bool LoadNodeSet( ed::NodeId nodeId, const char* data, size_t size, ed::SaveReasonFlags reason, void* userPointer )
+{
+    return false;
+}
 
 void ShaderEditorInstance::Init( const std::string& inShaderFilename )
 {
     m_shaderFileName = inShaderFilename;
-    ed::Config config;
-    config.SettingsFile = inShaderFilename.c_str();
+    config.SettingsFile = std::string( inShaderFilename + ".settings" ).c_str();
+
+    //using ConfigSaveNodeSettings = bool   ( * )( NodeId nodeId, const char* data, size_t size, SaveReasonFlags reason, void* userPointer );
+    //using ConfigLoadNodeSettings = size_t( * )( NodeId nodeId, char* data, void* userPointer );
+    config.SaveNodeSettings = &LoadNodeSet;
     m_editorContext = ed::CreateEditor( &config );
 }
 
@@ -163,6 +170,7 @@ void ShaderEditorInstance::ShowLeftPane( float paneWidth )
         ed::NavigateToContent();
     if( ImGui::Button( "Export" ) )
     {
+        SaveGraph( Path( m_shaderFileName + ".src.json" ) );
         ExportShader();
     }
     ImGui::Spring( 0.0f );
@@ -377,7 +385,9 @@ void ShaderEditorInstance::HandleAddNodeConxtualMenu()
             ImGui::Text( "Unknown node: %p", contextNodeId.AsPointer() );
         ImGui::Separator();
         if( ImGui::MenuItem( "Delete" ) )
+        {
             ed::DeleteNode( contextNodeId );
+        }
         ImGui::EndPopup();
     }
 
@@ -430,6 +440,12 @@ void ShaderEditorInstance::HandleAddNodeConxtualMenu()
         //drawList->AddCircleFilled(ImGui::GetMousePosOnOpeningCurrentPopup(), 10.0f, 0xFFFF00FF);
 
         Node* node = nullptr;
+        if( ImGui::MenuItem( "Vector 3" ) )
+        {
+            node = SpawnNodeFromString( m_NextId, std::string( "Vector 3" ) );
+            m_Nodes.push_back( node );
+        }
+        ImGui::Separator();
         if( ImGui::MenuItem( "Input Action" ) )
             node = SpawnInputActionNode();
         if( ImGui::MenuItem( "Output Action" ) )
@@ -508,16 +524,159 @@ void ShaderEditorInstance::HandleAddNodeConxtualMenu()
 
 void ShaderEditorInstance::ExportShader()
 {
-    
-    m_masterNode->ExportShitty(m_shaderFileName);
+    m_masterNode->ExportShitty( m_shaderFileName );
+}
+
+void ShaderEditorInstance::SaveGraph( Path& inPath )
+{
+    File outFile( Path( "../../../Assets/Shaders/" + inPath.GetLocalPathString() + ".shader" ) );
+    json outJson;
+    json& vars = outJson["Variables"];
+    for( auto exportVar : m_exported )
+    {
+        json exportDef;
+        exportVar->OnSave( exportDef );
+
+        vars.push_back( exportDef );
+    }
+
+    json& nodes = outJson["Nodes"];
+    for( auto node : m_Nodes )
+    {
+        json nodeDef;
+        nodeDef["ID"] = node->ID.Get();
+        nodeDef["Name"] = node->Name;
+
+
+        auto internalNode = ed::GetNodePosition( node->ID );
+        nodeDef["X"] = internalNode.x;
+        nodeDef["Y"] = internalNode.y;
+        node->OnSave( nodes );
+
+        nodes.push_back( nodeDef );
+    }
+
+    json& links = outJson["Links"];
+    for( auto& link : m_Links )
+    {
+        json linkDef;
+        linkDef["ID"] = (int)( link.ID.Get() );
+        linkDef["StartPinID"] = (int)( link.StartPinID.Get() );
+        linkDef["EndPinID"] = (int)( link.EndPinID.Get() );
+        links.push_back( linkDef );
+    }
+
+    outFile.Write( outJson.dump( 1 ) );
+}
+
+Node* ShaderEditorInstance::SpawnNodeFromString( int& inNodeId, std::string& id )
+{
+    if( id == "Basic Shader" )
+    {
+        m_masterNode = new BasicShaderMasterNode( inNodeId );
+        return m_masterNode;
+    }
+    if( id == "Integer" )
+    {
+        return new IntegerNode( inNodeId );
+    }
+    if( id == "Float" )
+    {
+        return new FloatNode( inNodeId );
+    }
+    if( id == "Add" )
+    {
+        return new AddNode( inNodeId );
+    }
+    if( id == "Sample" )
+    {
+        return new SampleTextureNode( inNodeId );
+    }
+    if( id == "Vector 3" )
+    {
+        return new Vector3Node( inNodeId );
+    }
+
+    if( id == "Less Than" )
+    {
+        return new LessThanNode( inNodeId );
+    }
+    ME_ASSERT_MSG( false, "Missing Parsed Node Spawn" );
+    return new IntegerNode( inNodeId );
+}
+
+void ShaderEditorInstance::LoadGraph( Path& inPath )
+{
+    if( !inPath.Exists )
+    {
+        return;
+    }
+
+    m_Nodes.clear();
+    m_NextId = 1;
+
+    m_Links.clear();
+    m_NextLinkId = 1;
+
+    File inFile( inPath );
+    const std::string& contents = inFile.Read();
+    json parsedData = json::parse( contents );
+    int baseNodeId = 1;
+    if( parsedData.contains( "Nodes" ) )
+    {
+        Node* newNode;
+        for( auto node : parsedData["Nodes"] )
+        {
+            newNode = SpawnNodeFromString( baseNodeId, std::string( node["Name"] ) ); ed::SetNodePosition( newNode->ID, ImVec2( node["X"], node["Y"] ) );
+            m_Nodes.push_back( newNode );
+        }
+    }
+    m_NextId = baseNodeId;
+
+    int baseLinkId = 1;
+    //if( parsedData.contains( "Links" ) )
+    //{
+    //    json& links = parsedData["Links"];
+    //    for( auto& link : links )
+    //    {
+    //        //json linkDef;
+    //        //linkDef["ID"] = (int)( link.ID.Get() );
+    //        //linkDef["EndPinID"] = (int)( link.EndPinID.Get() );
+    //        //linkDef["StartPinID"] = (int)( link.StartPinID.Get() );
+    //        //links.push_back( linkDef );
+    //        int start = link["StartPinID"];
+    //        int end = link["EndPinID"];
+    //
+    //        Pin* linkedStartPin = FindPin( start );
+    //        Pin* linkedPin = FindPin( end );
+    //
+    //        linkedPin->LinkedInput = FindPin( start );
+    //        m_Links.emplace_back( Link( baseLinkId++, start, end ) );
+    //        m_Links.back().Color = GetIconColor( linkedStartPin->Type );
+    //    }
+    //}
+    m_NextLinkId = baseLinkId;
+    //
+    // 
+    //json outJson;
+    //json& vars = outJson["Variables"];
+    //for( auto exportVar : m_exported )
+    //{
+    //    json exportDef;
+    //    exportVar->OnSave( exportDef );
+    //
+    //    vars.push_back( exportDef );
+    //}
+    //
+
+    //outFile.Write( outJson.dump( 1 ) );
 }
 
 void ShaderEditorInstance::BlueprintStart()
 {
-    ed::Config config;
-    config.SettingsFile = "BasicInteraction.json";
-    m_editorContext = ed::CreateEditor( &config );
     ed::SetCurrentEditor( m_editorContext );
+
+    LoadGraph( Path( "../../../Assets/Shaders/" + m_shaderFileName + ".src.json.shader" ) );
 
     Node* node;
     if( false )
@@ -544,28 +703,28 @@ void ShaderEditorInstance::BlueprintStart()
         node = SpawnHoudiniGroupNode();     ed::SetNodePosition( node->ID, ImVec2( 500, 42 ) );
     }
 
-    node = new LessThanNode( m_NextId ); ed::SetNodePosition( node->ID, ImVec2( -320, 200 ) );
-    m_Nodes.push_back( node );
-    node = new IntegerNode( m_NextId ); ed::SetNodePosition( node->ID, ImVec2( -350, 200 ) );
-    m_Nodes.push_back( node );
-    node = new IntegerNode( m_NextId ); ed::SetNodePosition( node->ID, ImVec2( -350, 000 ) );
-    m_Nodes.push_back( node );
-    node = new FloatNode( m_NextId ); ed::SetNodePosition( node->ID, ImVec2( -450, 000 ) );
-    m_Nodes.push_back( node );
+    //node = new LessThanNode( m_NextId ); ed::SetNodePosition( node->ID, ImVec2( -320, 200 ) );
+    //m_Nodes.push_back( node );
+    //node = new IntegerNode( m_NextId ); ed::SetNodePosition( node->ID, ImVec2( -350, 200 ) );
+    //m_Nodes.push_back( node );
+    //node = new IntegerNode( m_NextId ); ed::SetNodePosition( node->ID, ImVec2( -350, 000 ) );
+    //m_Nodes.push_back( node );
+    //node = new FloatNode( m_NextId ); ed::SetNodePosition( node->ID, ImVec2( -450, 000 ) );
+    //m_Nodes.push_back( node );
+    //
+    //
+    //node = new Vector3Node( m_NextId ); ed::SetNodePosition( node->ID, ImVec2( -350, 000 ) );
+    //m_Nodes.push_back( node );
+    //
+    //node = new AddNode( m_NextId ); ed::SetNodePosition( node->ID, ImVec2( -350, 000 ) );
+    //m_Nodes.push_back( node );
+    //
+    //node = new SampleTextureNode( m_NextId ); ed::SetNodePosition( node->ID, ImVec2( -350, 400 ) );
+    //m_Nodes.push_back( node );
 
-
-    node = new Vector3Node( m_NextId ); ed::SetNodePosition( node->ID, ImVec2( -350, 000 ) );
-    m_Nodes.push_back( node );
-
-    node = new AddNode( m_NextId ); ed::SetNodePosition( node->ID, ImVec2( -350, 000 ) );
-    m_Nodes.push_back( node );
-
-    node = new SampleTextureNode( m_NextId ); ed::SetNodePosition( node->ID, ImVec2( -350, 400 ) );
-    m_Nodes.push_back( node );
-
-    m_masterNode = new BasicShaderMasterNode( m_NextId ); ed::SetNodePosition( node->ID, ImVec2( 350, 000 ) );
-    node = m_masterNode;
-    m_Nodes.push_back( node );
+    //m_masterNode = new BasicShaderMasterNode( m_NextId ); ed::SetNodePosition( node->ID, ImVec2( 350, 000 ) );
+    //node = m_masterNode;
+    //m_Nodes.push_back( node );
 
     ed::NavigateToContent();
 
@@ -584,6 +743,7 @@ void ShaderEditorInstance::BlueprintStart()
 
 void ShaderEditorInstance::DrawBlueprint()
 {
+    ed::SetCurrentEditor( m_editorContext );
     UpdateTouch();
 
     auto& io = ImGui::GetIO();
@@ -687,13 +847,13 @@ void ShaderEditorInstance::HandleLinks()
                         if( ed::AcceptNewItem( ImColor( 128, 255, 128 ), 4.0f ) )
                         {
                                 // Remove the input node because we're linking a new one
-                                auto id = std::find_if( m_Links.begin(), m_Links.end(), [endPin]( auto& link ) { return link.EndPinID == endPin->ID; } );
-                                if( id != m_Links.end() )
-                                {
-                                    ed::DeleteLink( (*id).ID );
-                                }
+                            auto id = std::find_if( m_Links.begin(), m_Links.end(), [endPin]( auto& link ) { return link.EndPinID == endPin->ID; } );
+                            if( id != m_Links.end() )
+                            {
+                                ed::DeleteLink( ( *id ).ID );
+                            }
                             endPin->LinkedInput = startPin;
-                            m_Links.emplace_back( Link( GetNextId(), startPinId, endPinId ) );
+                            m_Links.emplace_back( Link( GetNextLinkId(), startPinId, endPinId ) );
                             m_Links.back().Color = GetIconColor( startPin->Type );
                         }
                     }
@@ -732,7 +892,15 @@ void ShaderEditorInstance::HandleLinks()
                 {
                     auto id = std::find_if( m_Nodes.begin(), m_Nodes.end(), [nodeId]( auto node ) { return node->ID == nodeId; } );
                     if( id != m_Nodes.end() )
+                    {
+                        //for( auto input : (*id)->Inputs )
+                        //{
+                        //    auto id2 = std::find_if( m_Links.begin(), m_Links.end(), [input, id]( auto node ) { return node->ID == nodeId; } );
+                        //    if( id2 != m_Links.end() )
+                        //        m_Links.erase( id2 );
+                        //}
                         m_Nodes.erase( id );
+                    }
                 }
             }
 
@@ -1346,8 +1514,14 @@ void ShaderEditorInstance::DrawBasicNodes()
             ImGui::PopStyleVar();
             builder.EndOutput();
         }
-        node.OnRender();
 
-        builder.End();
+        //builder.Footer();
+        ////ImGui::Spring( 0 );
+        ////ImGui::BeginHorizontal( m_NextId);
+        ////ImGui::BeginVertical( m_NextId++ );
+        //
+        //builder.EndFooter();
+        //ImGui::EndHorizontal();
+        builder.End( node );
     }
 }

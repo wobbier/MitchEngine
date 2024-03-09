@@ -4,16 +4,15 @@
 #include <vector>
 #include <variant>
 #include "imgui.h"
-#include "utilities\builders.h"
 #include "File.h"
 #include "Math\Vector3.h"
 #include "ShaderWriter.h"
 #include "Pointers.h"
 #include "Math\Vector4.h"
 #include "Math\Vector2.h"
+#include "JSON.h"
 
 namespace ed = ax::NodeEditor;
-namespace util = ax::NodeEditor::Utilities;
 
 enum class PinType
 {
@@ -123,6 +122,10 @@ struct Node
             return true;
         }
         return false;
+    }
+
+    virtual void OnSave( json& outJson )
+    {
     }
 };
 

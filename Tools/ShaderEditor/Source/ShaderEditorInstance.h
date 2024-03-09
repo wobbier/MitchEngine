@@ -55,6 +55,12 @@ private:
     ed::EditorContext* m_editorContext = nullptr;
     std::string m_shaderFileName;
 
+    // Save States
+    void SaveGraph( Path& inPath );
+    void LoadGraph( Path& inPath );
+
+    Node* SpawnNodeFromString( int& inNodeId, std::string& id );
+
     // Copied
 
     void BlueprintStart();
@@ -70,6 +76,7 @@ private:
     void DrawBasicNodes();
 
 
+    ed::Config config;
     struct LinkInfo
     {
         ed::LinkId Id;
@@ -79,7 +86,7 @@ private:
 
     bool                 m_FirstFrame = true;    // Flag set for first frame only, some action need to be executed once.
     ImVector<LinkInfo>   m_LinksOG;                // List of live links. It is dynamic unless you want to create read-only view over nodes.
-    int                  m_NextLinkId = 100;     // Counter to help generate link ids. In real application this will probably based on pointer to user data structure.
+    int                  m_NextLinkId = 1;     // Counter to help generate link ids. In real application this will probably based on pointer to user data structure.
 
 
     int                  m_NextId = 1;
@@ -92,6 +99,8 @@ private:
     const float          m_TouchTime = 1.0f;
     std::map<ed::NodeId, float, NodeIdLess> m_NodeTouchTime;
     bool                 m_ShowOrdinals = false;
+
+    std::vector<Node*>   m_exported;
 
     int GetNextId()
     {
