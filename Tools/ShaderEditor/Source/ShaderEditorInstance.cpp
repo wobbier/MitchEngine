@@ -452,7 +452,10 @@ void ShaderEditorInstance::HandleAddNodeConxtualMenu()
         }
         ImGui::Separator();
         if( ImGui::MenuItem( "Comment" ) )
-            node = SpawnComment();
+        {
+            node = new CommentNode( m_NextId );
+            m_Nodes.push_back( node );
+        }
 
         if( node )
         {
@@ -517,11 +520,14 @@ void ShaderEditorInstance::SaveGraph( Path& inPath )
         json nodeDef;
         nodeDef["ID"] = node->ID.Get();
         nodeDef["Name"] = node->Name;
-
+        nodeDef["Type"] = node->Type;
 
         auto internalNode = ed::GetNodePosition( node->ID );
+        auto internalNodeSize = ed::GetNodeSize( node->ID );
         nodeDef["X"] = internalNode.x;
         nodeDef["Y"] = internalNode.y;
+        nodeDef["Width"] = internalNodeSize.x;
+        nodeDef["Height"] = internalNodeSize.y;
         node->OnSave( nodes );
 
         nodes.push_back( nodeDef );
@@ -540,40 +546,72 @@ void ShaderEditorInstance::SaveGraph( Path& inPath )
     outFile.Write( outJson.dump( 1 ) );
 }
 
-Node* ShaderEditorInstance::SpawnNodeFromString( int& inNodeId, std::string& id )
+Node* ShaderEditorInstance::SpawnNodeFromString( int& inNodeId, std::string& inId, json* inJson )
 {
-    if( id == "Basic Shader" )
+    if( inId == "Basic Shader" )
     {
         m_masterNode = new BasicShaderMasterNode( inNodeId );
         return m_masterNode;
     }
-    if( id == "Integer" )
+    if( inId == "Integer" )
     {
         return new IntegerNode( inNodeId );
     }
-    if( id == "Float" )
+    if( inId == "Float" )
     {
         return new FloatNode( inNodeId );
     }
-    if( id == "Add" )
+    if( inId == "Add" )
     {
         return new AddNode( inNodeId );
     }
-    if( id == "Sample" )
+    if( inId == "Sample" )
     {
         return new SampleTextureNode( inNodeId );
     }
-    if( id == "Vector 3" )
+    if( inId == "Vector 3" )
     {
         return new Vector3Node( inNodeId );
     }
 
-    if( id == "Less Than" )
+    if( inId == "Less Than" )
     {
         return new LessThanNode( inNodeId );
     }
+
+    // Make this into it's own node
+    if( inId == "Comment" )
+    {
+        std::string name = "New Comment";
+        int x = 300;
+        int y = 200;
+        if( inJson )
+        {
+            json& readJson = *inJson;
+            if( readJson.contains( "Title" ) )
+            {
+                name = readJson["Title"];
+            }
+
+            if( readJson.contains( "Width" ) )
+            {
+                x = readJson["Width"];
+            }
+
+            if( readJson.contains( "Height" ) )
+            {
+                y = readJson["Height"];
+            }
+        }
+        int id = inNodeId++;
+        CommentNode* node = new CommentNode( id );
+        node->CommentTitle = name;
+        node->Size = ImVec2( x, y );
+
+        return node;
+    }
     ME_ASSERT_MSG( false, "Missing Parsed Node Spawn" );
-    return new IntegerNode( inNodeId );
+    return nullptr;
 }
 
 void ShaderEditorInstance::LoadGraph( Path& inPath )
@@ -596,10 +634,10 @@ void ShaderEditorInstance::LoadGraph( Path& inPath )
     if( parsedData.contains( "Nodes" ) )
     {
         Node* newNode;
-        for( auto node : parsedData["Nodes"] )
+        for( auto& node : parsedData["Nodes"] )
         {
             int ogNodeId = node["ID"];
-            newNode = SpawnNodeFromString( ogNodeId, std::string( node["Name"] ) ); ed::SetNodePosition( newNode->ID, ImVec2( node["X"], node["Y"] ) );
+            newNode = SpawnNodeFromString( ogNodeId, std::string( node["Name"] ), &node ); ed::SetNodePosition( newNode->ID, ImVec2( node["X"], node["Y"] ) );
             m_Nodes.push_back( newNode );
 
             // if ogNodeId > inputs/outputs increment to make room

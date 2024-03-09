@@ -289,6 +289,15 @@ void SampleTextureNode::OnExport( ShaderWriter& inFile )
     inFile.LastVariable = var;
 }
 
+
+CommentNode::CommentNode( int& inId )
+    : Node( inId++, "Comment", { 168, 201, 156 } )
+{
+    CommentTitle = "New Comment";
+    Type = NodeType::Comment;
+}
+
+
 BasicShaderMasterNode::BasicShaderMasterNode( int& inId )
     : Node( inId++, "Basic Shader", { 68, 201, 156 } )
 {

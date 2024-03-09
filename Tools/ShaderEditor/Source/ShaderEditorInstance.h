@@ -59,7 +59,7 @@ private:
     void SaveGraph( Path& inPath );
     void LoadGraph( Path& inPath );
 
-    Node* SpawnNodeFromString( int& inNodeId, std::string& id );
+    Node* SpawnNodeFromString( int& inNodeId, std::string& id, json* inJson = nullptr );
 
     // Copied
 

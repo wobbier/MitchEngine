@@ -98,6 +98,15 @@ public:
 };
 
 
+class CommentNode
+    : public Node
+{
+public:
+    std::string CommentTitle;
+    CommentNode( int& inId );
+};
+
+
 
 class BasicShaderMasterNode
     : public Node
