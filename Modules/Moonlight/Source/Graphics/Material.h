@@ -7,6 +7,7 @@
 #include "Math/Vector2.h"
 #include "ShaderCommand.h"
 #include "MaterialDetail.h"
+#include "Dementia.h"
 
 #define ME_REGISTER_MATERIAL_NAME_FOLDER(TYPE, NAME, FOLDER)            \
 	namespace details {                                       \
@@ -54,7 +55,7 @@ namespace Moonlight
         Material() = delete;
         virtual ~Material();
 
-        void LoadShader( const std::string& inShaderName );
+        virtual void LoadShader( const std::string& inShaderName );
 
         const bool IsTransparent() const;
         void SetRenderMode( RenderingMode newMode );
@@ -69,6 +70,10 @@ namespace Moonlight
         virtual SharedPtr<Material> CreateInstance() = 0;
 
         void CopyValues( Material* mat );
+
+#if USING( ME_TOOLS )
+        virtual void OnEditorInspect() {}
+#endif
 
         //virtual void SetSamplers() = 0;
 

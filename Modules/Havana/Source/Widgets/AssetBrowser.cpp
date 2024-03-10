@@ -1057,7 +1057,7 @@ bool AssetBrowserWidget::ProccessDirectoryRecursive( std::string& dir, Directory
                 {
                     type = AssetType::Model;
                 }
-                else if( newdir.rfind( ".frag" ) != std::string::npos || newdir.rfind( ".vert" ) != std::string::npos )
+                else if( newdir.rfind( ".frag" ) != std::string::npos || newdir.rfind( ".vert" ) != std::string::npos || newdir.rfind( ".shader" ) != std::string::npos )
                 {
                     type = AssetType::Shader;
                 }

@@ -1,5 +1,6 @@
 #pragma once
 #include "Graphics/Material.h"
+#include "ShaderGraphMaterial.h"
 
 class DiffuseMaterial
     : public Moonlight::Material
@@ -28,40 +29,6 @@ public:
     SharedPtr<Material> CreateInstance() final
     {
         SharedPtr<DiffuseMaterial> ptr = MakeShared<DiffuseMaterial>( *this );
-
-        return ptr;
-    }
-private:
-    bgfx::UniformHandle s_diffuse;
-    bgfx::UniformHandle s_tiling;
-};
-class ShaderGraphMaterial
-    : public Moonlight::Material
-{
-public:
-    ShaderGraphMaterial()
-        : Moonlight::Material( "ShaderGraphMaterial" )
-        , s_diffuse( BGFX_INVALID_HANDLE )
-        , s_tiling( BGFX_INVALID_HANDLE )
-    {
-
-    }
-
-    void Init() override
-    {
-        s_diffuse = bgfx::createUniform( "s_diffuse", bgfx::UniformType::Vec4 );
-        s_tiling = bgfx::createUniform( "s_tiling", bgfx::UniformType::Vec4 );
-    }
-
-    virtual void Use() final
-    {
-        bgfx::setUniform( s_diffuse, &DiffuseColor.x );
-        bgfx::setUniform( s_tiling, &Tiling.x );
-    }
-
-    SharedPtr<Material> CreateInstance() final
-    {
-        SharedPtr<ShaderGraphMaterial> ptr = MakeShared<ShaderGraphMaterial>( *this );
 
         return ptr;
     }
@@ -105,5 +72,4 @@ public:
 };
 
 ME_REGISTER_MATERIAL_NAME( DiffuseMaterial, "Diffuse" )
-ME_REGISTER_MATERIAL_NAME( ShaderGraphMaterial, "ShaderGraphMaterial" )
 ME_REGISTER_MATERIAL_NAME( WhiteMaterial, "White" )

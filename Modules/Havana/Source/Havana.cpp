@@ -142,7 +142,7 @@ void Havana::InitUI()
     colors[ImGuiCol_WindowBg] = COLOR_FOREGROUND;
     colors[ImGuiCol_ChildBg] = ImVec4( 1.00f, 1.00f, 1.00f, 0.00f );
     colors[ImGuiCol_PopupBg] = ImVec4( 0.08f, 0.08f, 0.08f, 0.94f );
-    colors[ImGuiCol_Border] = ImVec4( 0.43f, 0.43f, 0.50f, 0.50f );
+    colors[ImGuiCol_Border] = COLOR_BACKGROUND_BORDER;
     colors[ImGuiCol_BorderShadow] = ImVec4( 0.00f, 0.00f, 0.00f, 0.00f );
     colors[ImGuiCol_FrameBg] = COLOR_DROPDOWN;
     colors[ImGuiCol_FrameBgHovered] = ImVec4( 0.40f, 0.40f, 0.40f, 0.40f );
@@ -168,7 +168,7 @@ void Havana::InitUI()
     colors[ImGuiCol_SeparatorHovered] = COLOR_PRIMARY_HOVER;
     colors[ImGuiCol_SeparatorActive] = COLOR_PRIMARY_PRESS;
     colors[ImGuiCol_ResizeGrip] = ImVec4( 0.91f, 0.91f, 0.91f, 0.25f );
-    colors[ImGuiCol_ResizeGripHovered] = ImVec4( 0.81f, 0.81f, 0.81f, 0.67f );
+    colors[ImGuiCol_ResizeGripHovered] = COLOR_PRIMARY_HOVER;
     colors[ImGuiCol_ResizeGripActive] = ImVec4( 0.46f, 0.46f, 0.46f, 0.95f );
     colors[ImGuiCol_PlotLines] = ImVec4( 0.61f, 0.61f, 0.61f, 1.00f );
     colors[ImGuiCol_PlotLinesHovered] = ImVec4( 1.00f, 0.43f, 0.35f, 1.00f );
@@ -203,6 +203,7 @@ void Havana::InitUI()
     style.TabRounding = 2.f;
     style.ColorButtonPosition = ImGuiDir_Left;
     style.WindowTitleAlign = { .5f, .5f };
+    style.DockingSeparatorSize = 6.f;
     //style.FramePadding = { 8.f, 3.f };
 
     //auto cb = [this](const Vector2& pos) -> std::optional<SDL_HitTestResult>

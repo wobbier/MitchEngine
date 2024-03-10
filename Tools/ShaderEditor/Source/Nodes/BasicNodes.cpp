@@ -124,6 +124,7 @@ void FloatNode::OnExport( ShaderWriter& inFile )
 Vector3Node::Vector3Node( int& inId )
     : Node( inId++, "Vector 3", { 68, 201, 156 } )
 {
+    Size = { 400, 0 };
     Inputs.emplace_back( inId++, "X(1)", PinType::Float );
     Inputs.back().Data = 0.f;
     Inputs.emplace_back( inId++, "Y(1)", PinType::Float );
@@ -290,13 +291,23 @@ void SampleTextureNode::OnExport( ShaderWriter& inFile )
 }
 
 
+void SampleTextureNode::OnSave( json& outJson, json& rootJson )
+{
+
+}
+
 CommentNode::CommentNode( int& inId )
     : Node( inId++, "Comment", { 168, 201, 156 } )
 {
-    CommentTitle = "New Comment";
+    Title = "New Comment";
     Type = NodeType::Comment;
 }
 
+
+void CommentNode::OnSave( json& outJson, json& rootJson )
+{
+    outJson["Title"] = Title;
+}
 
 BasicShaderMasterNode::BasicShaderMasterNode( int& inId )
     : Node( inId++, "Basic Shader", { 68, 201, 156 } )

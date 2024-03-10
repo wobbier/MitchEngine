@@ -45,7 +45,7 @@ void util::BlueprintNodeBuilder::End(Node& inNode)
 {
     SetStage(Stage::End);
 
-    float width = ( HeaderMax.x - HeaderMin.x ) < 400 ? 400 : ( HeaderMax.x - HeaderMin.x ); // bad magic numbers. used to define width of tree widget
+    float width = ( HeaderMax.x - HeaderMin.x );// < 400 ? 400 : ( HeaderMax.x - HeaderMin.x ); // bad magic numbers. used to define width of tree widget
     //ImGui::BeginHorizontal( "testeroonie", { width, 0 } );
     //ImGui::Spring( 1, 1 );
 
@@ -130,8 +130,8 @@ void util::BlueprintNodeBuilder::Header(const ImVec4& color)
 void util::BlueprintNodeBuilder::EndHeader()
 {
     SetStage( Stage::Content );
-    ImGui::GetWindowDrawList()->AddRectFilled(
-        ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), IM_COL32( 255, 0, 0, 64 ) );
+    //ImGui::GetWindowDrawList()->AddRectFilled(
+    //    ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), IM_COL32( 255, 0, 0, 64 ) );
 }
 
 void util::BlueprintNodeBuilder::Input(ed::PinId id)

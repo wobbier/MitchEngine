@@ -148,3 +148,17 @@ std::string Path::GetLocalPathString() const
     return std::string( GetLocalPath() );
 }
 
+std::string_view Path::GetFileName() const
+{
+    size_t lastSlash = GetLocalPathString().rfind( '/' );
+    size_t period = GetLocalPathString().rfind( '.' );
+
+    return GetLocalPathString().substr( lastSlash, period );
+
+}
+
+std::string Path::GetFileNameString() const
+{
+    return std::string( GetFileName() );
+}
+

@@ -28,6 +28,9 @@ public:
     std::string_view GetLocalPath() const;
     std::string GetLocalPathString() const;
 
+    std::string_view GetFileName() const;
+    std::string GetFileNameString() const;
+
     bool IsFile = false;
     bool IsFolder = false;
     bool Exists = false;

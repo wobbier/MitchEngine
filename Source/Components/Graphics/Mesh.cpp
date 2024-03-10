@@ -443,6 +443,7 @@ void Mesh::OnEditorInspect()
                 i++;
             }
             //ImGui::TreePop();
+            MeshMaterial->OnEditorInspect();
         }
     }
 }
@@ -473,6 +474,7 @@ void Mesh::SelectMaterial( const std::pair<std::string, MaterialInfo*>& ptr, Mat
         MeshMaterial.reset();
 
         MeshMaterial = reg[ptr.first].CreateFunc();
+        MeshMaterial->Init();
 
         //textures
         for( int i = 0; i < Moonlight::TextureType::Count; ++i )

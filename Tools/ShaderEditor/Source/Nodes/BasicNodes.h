@@ -95,6 +95,9 @@ public:
 
     void OnExport( ShaderWriter& inFile ) override;
 
+
+    void OnSave( json& outJson, json& rootJson ) override;
+
 };
 
 
@@ -102,8 +105,11 @@ class CommentNode
     : public Node
 {
 public:
-    std::string CommentTitle;
+    std::string Title;
     CommentNode( int& inId );
+
+    void OnSave( json& outJson, json& rootJson ) override;
+
 };
 
 

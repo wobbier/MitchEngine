@@ -509,7 +509,7 @@ void ShaderEditorInstance::SaveGraph( Path& inPath )
     for( auto exportVar : m_exported )
     {
         json exportDef;
-        exportVar->OnSave( exportDef );
+        exportVar->OnSave( exportDef, outJson );
 
         vars.push_back( exportDef );
     }
@@ -528,7 +528,7 @@ void ShaderEditorInstance::SaveGraph( Path& inPath )
         nodeDef["Y"] = internalNode.y;
         nodeDef["Width"] = internalNodeSize.x;
         nodeDef["Height"] = internalNodeSize.y;
-        node->OnSave( nodes );
+        node->OnSave( nodeDef, outJson );
 
         nodes.push_back( nodeDef );
     }
@@ -588,27 +588,28 @@ Node* ShaderEditorInstance::SpawnNodeFromString( int& inNodeId, std::string& inI
         if( inJson )
         {
             json& readJson = *inJson;
+            std::string duimp = readJson.dump(1);
             if( readJson.contains( "Title" ) )
             {
                 name = readJson["Title"];
-            }
 
-            if( readJson.contains( "Width" ) )
-            {
-                x = readJson["Width"];
-            }
+                if( readJson.contains( "Width" ) )
+                {
+                    x = readJson["Width"];
+                }
 
-            if( readJson.contains( "Height" ) )
-            {
-                y = readJson["Height"];
+                if( readJson.contains( "Height" ) )
+                {
+                    y = readJson["Height"];
+                }
             }
+            int id = inNodeId++;
+            CommentNode* node = new CommentNode( id );
+            node->Title = name;
+            node->Size = ImVec2( x, y );
+
+            return node;
         }
-        int id = inNodeId++;
-        CommentNode* node = new CommentNode( id );
-        node->CommentTitle = name;
-        node->Size = ImVec2( x, y );
-
-        return node;
     }
     ME_ASSERT_MSG( false, "Missing Parsed Node Spawn" );
     return nullptr;
@@ -1028,6 +1029,7 @@ void ShaderEditorInstance::DrawBasicNodes()
         if( !isSimple )
         {
             builder.Header( node.Color );
+            ImGui::Dummy( ImVec2( node.Size.x, 0 ) );
             ImGui::Spring( 0 );
             ImGui::TextUnformatted( node.Name.c_str() );
             ImGui::Spring( 1 );

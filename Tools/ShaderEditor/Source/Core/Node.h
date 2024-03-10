@@ -124,7 +124,7 @@ struct Node
         return false;
     }
 
-    virtual void OnSave( json& outJson )
+    virtual void OnSave( json& outJson, json& rootJson )
     {
     }
 };
