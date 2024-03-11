@@ -89,6 +89,7 @@ FloatNode::FloatNode( int& inId )
     : Node( inId++, "Float", { 68, 101, 156 } )
 {
     Outputs.emplace_back( inId++, "Value", PinType::Float );
+    Outputs.back().Data = 0.f;
 
     BuildNode();
 }
@@ -155,7 +156,7 @@ bool Vector3Node::OnRender()
     {
         isLinked = isLinked && Inputs[i].LinkedInput;
     }
-    if( !isLinked && HavanaUtils::EditableVector3( "Value", value, 0.f) )
+    if( !isLinked && HavanaUtils::EditableVector3( "Value", value, 0.f ) )
     {
     }
 
@@ -252,11 +253,10 @@ bool SampleTextureNode::OnRender()
 {
     if( ImGui::Button( "Select Texture" ) )
     {
-
-        Path path = HUB::ShowOpenFilePrompt( nullptr );
-        if( path.Exists )
+        filePath = HUB::ShowOpenFilePrompt( nullptr );
+        if( filePath.Exists )
         {
-            value = ResourceCache::GetInstance().Get<Moonlight::Texture>( path );
+            value = ResourceCache::GetInstance().Get<Moonlight::Texture>( filePath );
         }
 
         //PlatformUtils::OpenFile(Path("../../../Assets"));
@@ -278,16 +278,35 @@ void SampleTextureNode::OnExport( ShaderWriter& inFile )
 {
     // Make this a helper
     std::string uvName;
-    if( !ExportLinkedPin( 1, inFile ) )
+    if( !ExportLinkedPin( 0, inFile ) )
     {
         inFile.WriteLine( "vec2 uvs = v_texcoord0 * s_tiling.xy;" );
         inFile.LastVariable = "uvs";
     }
     uvName = inFile.LastVariable;
 
-    std::string var = "sample_" + std::to_string( inFile.ID++ );
-    inFile.WriteLine( "vec4 " + var + " = texture2D(s_texDiffuse, " + uvName + ");" );
-    inFile.LastVariable = var;
+    // useless?
+    if( ExportLinkedPin( 1, inFile ) )
+    {
+        std::string var = "sample_" + std::to_string( inFile.ID++ );
+        //" + var + "
+        inFile.WriteLine( "vec4 color = " + inFile.LastVariable + ";" );
+        inFile.LastVariable = "color";
+    }
+    else if( filePath.Exists )
+    {
+        std::string var = "sample_" + std::to_string( inFile.ID++ );
+        //" + var + "
+        inFile.WriteLine( "vec4 color = texture2D(s_texDiffuse0, " + uvName + ");" );
+        inFile.LastVariable = "color";
+    }
+    else
+    {
+        inFile.WriteLine( "vec4 color = (1.f, 1.f, 1.f, 1.f);" );
+        inFile.LastVariable = "color";
+    }
+
+    inFile.WriteTexture( filePath );
 }
 
 
@@ -343,8 +362,13 @@ void BasicShaderMasterNode::ExportPin( int inPinNum, PinType inPinType )
     //return false;
 }
 
-void BasicShaderMasterNode::ExportShitty( const std::string& inShaderName )
+void BasicShaderMasterNode::ExportShitty( Path& inPath, const std::string& inShaderName )
 {
+    File outFile( Path( "../../../Assets/Shaders/" + inPath.GetLocalPathString() ) );
+    json outJson = json::parse( outFile.Read() );
+    json& textures = outJson["Textures"];
+
+
     {
         ShaderWriter file( inShaderName + ".var" );
         file.WriteLine( "vec4 v_color0 : COLOR0 = vec4(1.0, 0.0, 0.0, 1.0);" );
@@ -390,6 +414,7 @@ void BasicShaderMasterNode::ExportShitty( const std::string& inShaderName )
 
     {
         ShaderWriter file( inShaderName + ".frag" );
+
         file.WriteLine( "$input v_color0, v_normal, v_texcoord0" );
         file.Append( "\n" );
         file.WriteLine( "#include \"Common.sh\"" );
@@ -397,6 +422,7 @@ void BasicShaderMasterNode::ExportShitty( const std::string& inShaderName )
         file.WriteLine( "SAMPLER2D(s_texDiffuse, 0);" );
         file.WriteLine( "SAMPLER2D(s_texNormal, 1);" );
         file.WriteLine( "SAMPLER2D(s_texAlpha, 2);" );
+        file.WriteLine( "SAMPLER2D(s_texDiffuse0, 3);" );
         file.Append( "\n" );
         file.WriteLine( "uniform vec4 s_diffuse;" );
         file.WriteLine( "uniform vec4 s_ambient;" );
@@ -430,27 +456,20 @@ void BasicShaderMasterNode::ExportShitty( const std::string& inShaderName )
             alphaVariable = file.LastVariable;
         }
 
-        file.WriteLine( "vec2 uvs = v_texcoord0 * s_tiling.xy;" );
-        file.WriteLine( "vec4 color = texture2D(s_texDiffuse, uvs) * vec4(" + colorVariable + ", " + alphaVariable + "); " );
+        file.WriteLine( "vec4 finalColor = vec4(" + colorVariable + ".xyz, 1.f);" );
         file.Append( "\n" );
-        file.WriteLine( "vec4 ambient = s_ambient * color;" );
-        file.WriteLine( "vec4 lightDir = normalize(s_sunDirection);" );
-        file.WriteLine( "vec3 skyDirection = vec3(0.0, 0.0, 1.0);" );
-        file.Append( "\n" );
-        file.WriteLine( "float diff = max(dot(normalize(v_normal), lightDir), 0.0);" );
-        file.WriteLine( "float diffuseSky = 1.0 + 0.5 * dot(normalize(v_normal), skyDirection);" );
-        file.WriteLine( "diffuseSky *= 0.03;" );
-        file.WriteLine( "vec4 diffuse = diff * s_sunDiffuse;// * color;" );
-        file.WriteLine( "color += diffuse;" );
-        file.Append( "\n" );
-        file.WriteLine( "color += diffuseSky * u_skyLuminance;" );
-        file.WriteLine( "color.a = toLinear(texture2D(s_texAlpha, uvs)).r * " + alphaVariable + ";" );
-        file.WriteLine( "gl_FragColor = color;//texture2D(s_texNormal, uvs);//color;ambient + " );
+        file.WriteLine( "finalColor.a = " + alphaVariable + ";" );
+        file.WriteLine( "gl_FragColor = finalColor;" );
         file.Tabs--;
         file.WriteLine( "}" );
 
         file.WriteToDisk();
+        for( auto texture : file.m_textures )
+        {
+            textures["Path"] = texture.FullPath;
+        }
     }
+    outFile.Write( outJson.dump( 1 ) );
 }
 
 void BasicShaderMasterNode::OnExport( ShaderWriter& inFile )

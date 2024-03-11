@@ -1,5 +1,6 @@
 #pragma once
 #include "Graphics/Material.h"
+#include "Graphics/Texture.h"
 
 class ShaderGraphMaterial
     : public Moonlight::Material
@@ -23,10 +24,13 @@ public:
     {
         bgfx::setUniform( s_diffuse, &DiffuseColor.x );
         bgfx::setUniform( s_tiling, &Tiling.x );
-        //for (auto uniform : s_uniforms)
-        //{
-        //    bgfx::setUniform(uniform, &s_uniformTextures[i])
-        //}
+        for( int i = 0; i < s_uniforms.size(); ++i )
+        {
+            if( bgfx::isValid( m_textures[i]->TexHandle) )
+            {
+                bgfx::setTexture( 3, s_uniforms[i], m_textures[i]->TexHandle);
+            }
+        }
     }
 
     SharedPtr<Material> CreateInstance() final
@@ -51,6 +55,7 @@ private:
     bgfx::UniformHandle s_tiling;
     std::vector<bgfx::UniformHandle> s_uniforms;
     std::vector<bgfx::TextureHandle> s_uniformTextures;
+    std::vector<SharedPtr<Moonlight::Texture>> m_textures;
 };
 
 ME_REGISTER_MATERIAL_NAME( ShaderGraphMaterial, "ShaderGraphMaterial" )

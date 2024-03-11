@@ -51,3 +51,8 @@ void ShaderWriter::WriteInt( int inValue )
     WriteLine( "float " + var + " = " + std::to_string( inValue ) + ";" );
     LastVariable = var;
 }
+
+void ShaderWriter::WriteTexture( Path& inPath )
+{
+    m_textures.push_back( { inPath.FullPath } );
+}

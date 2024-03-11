@@ -102,13 +102,13 @@ void util::BlueprintNodeBuilder::End(Node& inNode)
                 headerColor, GetStyle().NodeRounding, 1 | 2);
 #endif
 
-            if (ContentMin.y > HeaderMax.y)
-            {
-                drawList->AddLine(
-                    ImVec2(HeaderMin.x - (8 - halfBorderWidth), HeaderMax.y - 0.5f),
-                    ImVec2(HeaderMax.x + (8 - halfBorderWidth), HeaderMax.y - 0.5f),
-                    ImColor(255, 255, 255, 96 * alpha / (3 * 255)), 1.0f);
-            }
+            //if (ContentMin.y > HeaderMax.y)
+            //{
+            //    drawList->AddLine(
+            //        ImVec2(HeaderMin.x - (8 - halfBorderWidth), HeaderMax.y - 0.5f),
+            //        ImVec2(HeaderMax.x + (8 - halfBorderWidth), HeaderMax.y - 0.5f),
+            //        ImColor(255, 255, 255, 96 * alpha / (3 * 255)), 1.0f);
+            //}
         }
     }
 
@@ -220,8 +220,8 @@ bool util::BlueprintNodeBuilder::SetStage(Stage stage)
             ImGui::EndHorizontal();
             HeaderMin = ImGui::GetItemRectMin();
             HeaderMax = ImGui::GetItemRectMax();
-            ImGui::GetWindowDrawList()->AddRect(
-                ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), IM_COL32( 255, 0, 0, 255 ) );
+            //ImGui::GetWindowDrawList()->AddRect(
+            //    ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), IM_COL32( 255, 0, 0, 255 ) );
 
             // spacing between header and content
             ImGui::Spring( 0, ImGui::GetStyle().ItemSpacing.y * 2.0f );
@@ -238,8 +238,8 @@ bool util::BlueprintNodeBuilder::SetStage(Stage stage)
             ImGui::EndVertical();
 
             // #debug
-             ImGui::GetWindowDrawList()->AddRect(
-                 ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), IM_COL32(255, 0, 0, 255));
+            //ImGui::GetWindowDrawList()->AddRect(
+            //    ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), IM_COL32(255, 0, 0, 255));
 
             break;
 
@@ -247,8 +247,8 @@ bool util::BlueprintNodeBuilder::SetStage(Stage stage)
             ImGui::EndVertical();
 
             // #debug
-            ImGui::GetWindowDrawList()->AddRect(
-                ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), IM_COL32( 255, 0, 0, 255 ) );
+            //ImGui::GetWindowDrawList()->AddRect(
+            //    ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), IM_COL32( 255, 0, 0, 255 ) );
 
             break;
 
@@ -259,8 +259,8 @@ bool util::BlueprintNodeBuilder::SetStage(Stage stage)
             ImGui::EndVertical();
 
             // #debug
-            ImGui::GetWindowDrawList()->AddRect(
-                ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), IM_COL32( 255, 0, 0, 255 ) );
+            //ImGui::GetWindowDrawList()->AddRect(
+            //    ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), IM_COL32( 255, 0, 0, 255 ) );
 
             break;
 
@@ -361,6 +361,6 @@ void util::BlueprintNodeBuilder::EndPin()
     ed::EndPin();
 
     // #debug
-     ImGui::GetWindowDrawList()->AddRectFilled(
-         ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), IM_COL32(255, 0, 0, 64));
+    // ImGui::GetWindowDrawList()->AddRectFilled(
+    //     ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), IM_COL32(255, 0, 0, 64));
 }

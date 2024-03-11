@@ -248,7 +248,7 @@ private:
 
     void HandleAddNodeConxtualMenu();
 
-    void ExportShader();
+    void ExportShader(Path& inFile);
 
     ed::NodeId contextNodeId = 0;
     ed::LinkId contextLinkId = 0;

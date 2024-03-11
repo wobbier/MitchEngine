@@ -24,12 +24,8 @@ public:
     IntegerNode( int& inId );
 
     bool OnEvaluate() override;
-
     bool OnRender() override;
-
-
     void OnExport( ShaderWriter& inFile ) override;
-
 };
 
 class FloatNode
@@ -40,12 +36,8 @@ public:
     FloatNode( int& inId );
 
     bool OnEvaluate() override;
-
     bool OnRender() override;
-
-
     void OnExport( ShaderWriter& inFile ) override;
-
 };
 
 class Vector3Node
@@ -56,12 +48,8 @@ public:
     Vector3Node( int& inId );
 
     bool OnEvaluate() override;
-
     bool OnRender() override;
-
-
     void OnExport( ShaderWriter& inFile ) override;
-
 };
 
 class AddNode
@@ -73,12 +61,8 @@ public:
     AddNode( int& inId );
 
     bool OnEvaluate() override;
-
     bool OnRender() override;
-
-
     void OnExport( ShaderWriter& inFile ) override;
-
 };
 
 class SampleTextureNode
@@ -86,18 +70,13 @@ class SampleTextureNode
 {
 public:
     SharedPtr<Moonlight::Texture> value;
+    Path filePath;
     SampleTextureNode( int& inId );
 
     bool OnEvaluate() override;
-
     bool OnRender() override;
-
-
     void OnExport( ShaderWriter& inFile ) override;
-
-
     void OnSave( json& outJson, json& rootJson ) override;
-
 };
 
 
@@ -109,7 +88,6 @@ public:
     CommentNode( int& inId );
 
     void OnSave( json& outJson, json& rootJson ) override;
-
 };
 
 
@@ -121,7 +99,7 @@ public:
     BasicShaderMasterNode( int& inId );
 
     virtual bool OnEvaluate() final;
-    void ExportShitty( const std::string& inShaderName );
+    void ExportShitty( Path& inPath, const std::string& inShaderName );
     virtual void OnExport( ShaderWriter& inFile ) final;
 
     void ExportPin( int inPinNum, PinType inPinType );

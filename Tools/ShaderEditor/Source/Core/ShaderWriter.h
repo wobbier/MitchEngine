@@ -3,6 +3,11 @@
 #include "File.h"
 #include "Math\Vector3.h"
 
+struct ExportedTextureInfo
+{
+    std::string FullPath;
+};
+
 class ShaderWriter
 {
 public:
@@ -17,7 +22,11 @@ public:
     void WriteFloat( float inValue );
     void WriteInt( int inValue );
 
+    void WriteTexture( Path& inPath );
+
     int Tabs = 0;
+
+    std::vector<ExportedTextureInfo> m_textures;
 
     std::string LastVariable;
     int ID = 0;

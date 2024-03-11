@@ -44,7 +44,10 @@ namespace Moonlight
     Texture::~Texture()
     {
         // TODO: Unload textures
-        bgfx::destroy( TexHandle );
+        if( bgfx::isValid( TexHandle ) )
+        {
+            bgfx::destroy( TexHandle );
+        }
     }
 
     bool Texture::Load()

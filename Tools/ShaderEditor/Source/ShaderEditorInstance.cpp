@@ -170,8 +170,8 @@ void ShaderEditorInstance::ShowLeftPane( float paneWidth )
         ed::NavigateToContent();
     if( ImGui::Button( "Export" ) )
     {
-        SaveGraph( Path( m_shaderFileName + ".src.json" ) );
-        ExportShader();
+        SaveGraph( Path( m_shaderFileName + ".shader" ) );
+        ExportShader( Path( m_shaderFileName + ".shader" ) );
     }
     ImGui::Spring( 0.0f );
     if( ImGui::Button( "Show Flow" ) )
@@ -440,9 +440,19 @@ void ShaderEditorInstance::HandleAddNodeConxtualMenu()
         //drawList->AddCircleFilled(ImGui::GetMousePosOnOpeningCurrentPopup(), 10.0f, 0xFFFF00FF);
 
         Node* node = nullptr;
+        if( ImGui::MenuItem( "Add" ) )
+        {
+            node = SpawnNodeFromString( m_NextId, std::string( "Add" ) );
+            m_Nodes.push_back( node );
+        }
         if( ImGui::MenuItem( "Vector 3" ) )
         {
             node = SpawnNodeFromString( m_NextId, std::string( "Vector 3" ) );
+            m_Nodes.push_back( node );
+        }
+        if( ImGui::MenuItem( "Float" ) )
+        {
+            node = SpawnNodeFromString( m_NextId, std::string( "Float" ) );
             m_Nodes.push_back( node );
         }
         if( ImGui::MenuItem( "Sample" ) )
@@ -496,14 +506,14 @@ void ShaderEditorInstance::HandleAddNodeConxtualMenu()
 
 }
 
-void ShaderEditorInstance::ExportShader()
+void ShaderEditorInstance::ExportShader( Path& inPath )
 {
-    m_masterNode->ExportShitty( m_shaderFileName );
+    m_masterNode->ExportShitty( inPath, m_shaderFileName );
 }
 
 void ShaderEditorInstance::SaveGraph( Path& inPath )
 {
-    File outFile( Path( "../../../Assets/Shaders/" + inPath.GetLocalPathString() + ".shader" ) );
+    File outFile( Path( "../../../Assets/Shaders/" + inPath.GetLocalPathString() ) );
     json outJson;
     json& vars = outJson["Variables"];
     for( auto exportVar : m_exported )
@@ -588,7 +598,7 @@ Node* ShaderEditorInstance::SpawnNodeFromString( int& inNodeId, std::string& inI
         if( inJson )
         {
             json& readJson = *inJson;
-            std::string duimp = readJson.dump(1);
+            std::string duimp = readJson.dump( 1 );
             if( readJson.contains( "Title" ) )
             {
                 name = readJson["Title"];
@@ -666,10 +676,10 @@ void ShaderEditorInstance::LoadGraph( Path& inPath )
             int linkID = link["ID"];
             int start = link["StartPinID"];
             int end = link["EndPinID"];
-    
+
             Pin* linkedStartPin = FindPin( start );
             Pin* linkedPin = FindPin( end );
-    
+
             linkedPin->LinkedInput = FindPin( start );
             m_Links.emplace_back( Link( linkID, start, end ) );
             m_Links.back().Color = GetIconColor( linkedStartPin->Type );
@@ -699,7 +709,7 @@ void ShaderEditorInstance::BlueprintStart()
 {
     ed::SetCurrentEditor( m_editorContext );
 
-    LoadGraph( Path( "../../../Assets/Shaders/" + m_shaderFileName + ".src.json.shader" ) );
+    LoadGraph( Path( "../../../Assets/Shaders/" + m_shaderFileName + ".shader" ) );
 
     BuildNodes();
 
