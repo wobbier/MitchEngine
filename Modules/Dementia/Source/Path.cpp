@@ -64,6 +64,7 @@ Path::Path( const std::string& InFile, bool Raw /*= false*/ )
     ExtensionPos = (int8_t)LocalPath.rfind( '.' );
     ExtensionPos = (int8_t)( LocalPath.size() - ++ExtensionPos );
 
+    // yeah don't do this
     path = LocalPath.rfind( "Assets" );
     if( path != std::string::npos )
     {
@@ -148,17 +149,33 @@ std::string Path::GetLocalPathString() const
     return std::string( GetLocalPath() );
 }
 
-std::string_view Path::GetFileName() const
+std::string_view Path::GetFileName( bool inIncludeExt ) const
 {
-    size_t lastSlash = GetLocalPathString().rfind( '/' );
-    size_t period = GetLocalPathString().rfind( '.' );
+    std::string_view localPath = GetLocalPath();
+    size_t lastSlash = localPath.rfind( '/' );
+    if( lastSlash != std::string::npos )
+    {
+        lastSlash++;
+    }
+    else
+    {
+        lastSlash = 0;
+    }
 
-    return GetLocalPathString().substr( lastSlash, period );
+    if( inIncludeExt )
+    {
+        return localPath.substr( lastSlash, localPath.size() );
+    }
+    else
+    {
+        //size_t period = GetLocalPathString().rfind( '.' );
+        size_t size = localPath.size() - lastSlash - ExtensionPos - 1;
 
+        return localPath.substr( lastSlash, size );
+    }
 }
 
-std::string Path::GetFileNameString() const
+std::string Path::GetFileNameString( bool inIncludeExt ) const
 {
-    return std::string( GetFileName() );
+    return std::string( GetFileName( inIncludeExt ) );
 }
-

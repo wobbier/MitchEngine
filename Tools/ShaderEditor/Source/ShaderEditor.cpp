@@ -12,35 +12,36 @@ ShaderEditor::ShaderEditor( ToolCreationFlags& inToolCreationFlags )
 void ShaderEditor::OnStart()
 {
     DockMargins = { 6.f };
-    {
-        auto initialInstance = MakeShared<ShaderEditorInstance>();
-        initialInstance->Init( "BasicInteraction.json" );
-
-        m_editorInstances.push_back( initialInstance );
-    }
-    {
-        auto initialInstance = MakeShared<ShaderEditorInstance>();
-        initialInstance->Init( "BasicShader.json" );
-
-        m_editorInstances.push_back( initialInstance );
-    }
-    for( auto& instance : m_editorInstances )
-    {
-        instance->Start();
-    }
+    OpenShader( "../../../Assets/Shaders/BasicInteraction.shader" );
+    OpenShader( "../../../Assets/Shaders/BasicShader.shader" );
 }
 
 
 void ShaderEditor::OnUpdate()
 {
     ImGui::BeginMainMenuBar();
-    ImGui::Button( "File" );
+    if( ImGui::BeginMenu( "File" ) )
+    {
+        if( ImGui::MenuItem( "New..." ) )
+        {
+            OpenShader( "../../../Assets/Shaders/NewShader" + std::to_string( m_newFileNum++ ) + ".shader" );
+        }
+        ImGui::EndMenu();
+    }
     ImGui::EndMainMenuBar();
     DockMargins.top = 20.f;
+    m_editorInstances.erase(std::remove_if(m_editorInstances.begin(), m_editorInstances.end(), [](auto& instance) {
 
+        if( !instance->m_isOpen )
+        {
+            return true;
+        }
+        return false;
+        } ), m_editorInstances.end() );
     int i = 0;
     for( auto& instance : m_editorInstances )
     {
+
         ImGui::PushID( i );
         instance->OnUpdate();
         i++;
@@ -251,4 +252,13 @@ void ShaderEditor::OnUpdate()
     //draw_list->AddRect( ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), ImGui::GetColorU32( ImGuiCol_Border ) );
     //
     //ImGui::End();
+}
+
+void ShaderEditor::OpenShader( const std::string& inFileName )
+{
+    auto initialInstance = MakeShared<ShaderEditorInstance>();
+    initialInstance->Init( Path( inFileName ) );
+
+    m_editorInstances.push_back( initialInstance );
+    initialInstance->Start();
 }

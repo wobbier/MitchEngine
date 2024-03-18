@@ -364,13 +364,13 @@ void BasicShaderMasterNode::ExportPin( int inPinNum, PinType inPinType )
 
 void BasicShaderMasterNode::ExportShitty( Path& inPath, const std::string& inShaderName )
 {
-    File outFile( Path( "../../../Assets/Shaders/" + inPath.GetLocalPathString() ) );
+    File outFile( inPath );
     json outJson = json::parse( outFile.Read() );
     json& textures = outJson["Textures"];
 
 
     {
-        ShaderWriter file( inShaderName + ".var" );
+        ShaderWriter file( Path( inPath.FullPath + ".var" ) );
         file.WriteLine( "vec4 v_color0 : COLOR0 = vec4(1.0, 0.0, 0.0, 1.0);" );
         file.WriteLine( "vec3 v_normal : NORMAL = vec3( 0.0, 0.0, 1.0 );" );
         file.WriteLine( "vec2 v_texcoord0 : TEXCOORD0 = vec2( 0.0, 0.0 );" );
@@ -385,7 +385,7 @@ void BasicShaderMasterNode::ExportShitty( Path& inPath, const std::string& inSha
     }
 
     {
-        ShaderWriter file( inShaderName + ".vert" );
+        ShaderWriter file( Path( inPath.FullPath + ".vert" ) );
         file.WriteLine( "$input a_position, a_normal, a_texcoord0, a_tangent, a_bitangent" );
         file.WriteLine( "$output v_color0, v_normal, v_texcoord0" );
         file.Append( "\n" );
@@ -413,7 +413,7 @@ void BasicShaderMasterNode::ExportShitty( Path& inPath, const std::string& inSha
     }
 
     {
-        ShaderWriter file( inShaderName + ".frag" );
+        ShaderWriter file( Path( inPath.FullPath + ".frag" ) );
 
         file.WriteLine( "$input v_color0, v_normal, v_texcoord0" );
         file.Append( "\n" );

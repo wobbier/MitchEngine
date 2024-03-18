@@ -44,16 +44,19 @@ using ax::Widgets::IconType;
 
 class ShaderEditorInstance
 {
+    friend class ShaderEditor;
 public:
     ShaderEditorInstance();
 
-    void Init( const std::string& inShaderFilename );
+    void Init( const Path& inShaderFilepath );
     void Start();
 
     void OnUpdate();
 private:
     ed::EditorContext* m_editorContext = nullptr;
     std::string m_shaderFileName;
+    std::string m_configPath;
+    Path m_shaderFilePath;
 
     // Save States
     void SaveGraph( Path& inPath );
@@ -112,7 +115,7 @@ private:
 
     ed::LinkId GetNextLinkId()
     {
-        return ed::LinkId( GetNextId() );
+        return ed::LinkId( m_NextLinkId++ );
     }
 
     void TouchNode( ed::NodeId id )
@@ -265,4 +268,5 @@ private:
 
     float leftPaneWidth = 400.0f;
     float rightPaneWidth = 800.0f;
+    bool m_isOpen = true;
 };

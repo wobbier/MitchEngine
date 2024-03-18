@@ -22,6 +22,23 @@ void ShaderGraphMaterial::OnDeserialize( const json& InJson )
     }
 }
 
+void ShaderGraphMaterial::LoadShader( const std::string& inShaderName )
+{
+    m_textures.clear();
+    // clean this up
+    s_uniforms.clear();
+    s_uniformTextures.clear();
+    Path filePath( inShaderName + ".shader" );
+    if( filePath.Exists )
+    {
+        File shaderGraphFile( filePath );
+        json parsed = json::parse( shaderGraphFile.Read() );
+        OnDeserialize( parsed );
+    }
+
+    Material::LoadShader( inShaderName );
+}
+
 #if USING( ME_TOOLS )
 void ShaderGraphMaterial::OnEditorInspect()
 {
@@ -46,21 +63,5 @@ void ShaderGraphMaterial::OnEditorInspect()
     }
 }
 
-void ShaderGraphMaterial::LoadShader( const std::string& inShaderName )
-{
-    m_textures.clear();
-    // clean this up
-    s_uniforms.clear();
-    s_uniformTextures.clear();
-    Path filePath( inShaderName + ".shader" );
-    if( filePath.Exists )
-    {
-        File shaderGraphFile( filePath );
-        json parsed = json::parse( shaderGraphFile.Read() );
-        OnDeserialize( parsed );
-    }
-
-    Material::LoadShader( inShaderName );
-}
 
 #endif

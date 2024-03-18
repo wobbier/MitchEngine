@@ -1,8 +1,8 @@
 #include "ShaderWriter.h"
 
-ShaderWriter::ShaderWriter( const std::string& inShaderName )
+ShaderWriter::ShaderWriter( const Path& inShaderName )
 {
-    m_shaderFile = File( Path( "../../../Assets/Shaders/" + inShaderName));
+    m_shaderFile = File( inShaderName );
     m_shaderFile.Reset();
 }
 
@@ -13,7 +13,7 @@ void ShaderWriter::Reset()
 
 void ShaderWriter::WriteLine( const std::string& inLine )
 {
-    for ( int i = 0; i < Tabs; ++i )
+    for( int i = 0; i < Tabs; ++i )
     {
         m_shaderFile.Append( "\t" );
     }

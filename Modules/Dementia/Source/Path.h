@@ -28,8 +28,8 @@ public:
     std::string_view GetLocalPath() const;
     std::string GetLocalPathString() const;
 
-    std::string_view GetFileName() const;
-    std::string GetFileNameString() const;
+    std::string_view GetFileName( bool inIncludeExt = true ) const;
+    std::string GetFileNameString( bool inIncludeExt = true ) const;
 
     bool IsFile = false;
     bool IsFolder = false;

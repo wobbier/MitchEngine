@@ -5,6 +5,7 @@
 #include "Utils\ImGuiUtils.h"
 #include "Resource\ResourceCache.h"
 #include "Nodes\BasicNodes.h"
+#include "UI\Colors.h"
 
 ShaderEditorInstance::ShaderEditorInstance()
 {
@@ -14,10 +15,15 @@ bool LoadNodeSet( ed::NodeId nodeId, const char* data, size_t size, ed::SaveReas
     return false;
 }
 
-void ShaderEditorInstance::Init( const std::string& inShaderFilename )
+void ShaderEditorInstance::Init( const Path& inShaderFilepath )
 {
-    m_shaderFileName = inShaderFilename;
-    config.SettingsFile = std::string( inShaderFilename + ".settings" ).c_str();
+    m_shaderFileName = inShaderFilepath.GetFileNameString();
+    m_shaderFilePath = inShaderFilepath;
+    m_configPath = std::string( m_shaderFilePath.FullPath + ".settings" );
+    config.SettingsFile = m_configPath.c_str();
+
+    std::cout << inShaderFilepath.GetFileNameString().c_str() << std::endl;
+    std::cout << inShaderFilepath.GetFileNameString( false ).c_str() << std::endl;
 
     //using ConfigSaveNodeSettings = bool   ( * )( NodeId nodeId, const char* data, size_t size, SaveReasonFlags reason, void* userPointer );
     //using ConfigLoadNodeSettings = size_t( * )( NodeId nodeId, char* data, void* userPointer );
@@ -28,11 +34,20 @@ void ShaderEditorInstance::Init( const std::string& inShaderFilename )
 void ShaderEditorInstance::Start()
 {
     BlueprintStart();
+
+    auto& editorStyle = ed::GetStyle();
+    editorStyle.NodeRounding = 3.f;
+    editorStyle.HoveredNodeBorderWidth = 4.f;
+    editorStyle.HoverNodeBorderOffset = 2.5f;
+    editorStyle.Colors[ax::NodeEditor::StyleColor::StyleColor_Bg] = COLOR_BACKGROUND_BORDER;
+    editorStyle.Colors[ax::NodeEditor::StyleColor::StyleColor_NodeBg] = COLOR_FOREGROUND;
+    editorStyle.Colors[ax::NodeEditor::StyleColor::StyleColor_PinRect] = COLOR_PRIMARY_HOVER;
+    editorStyle.Colors[ax::NodeEditor::StyleColor::StyleColor_HovLinkBorder] = COLOR_PRIMARY;
 }
 
 void ShaderEditorInstance::OnUpdate()
 {
-    ImGui::Begin( m_shaderFileName.c_str(), 0, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoCollapse );
+    ImGui::Begin( m_shaderFileName.c_str(), &m_isOpen, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_MenuBar );
     DrawBlueprint();
     ImGui::End();
 }
@@ -170,8 +185,8 @@ void ShaderEditorInstance::ShowLeftPane( float paneWidth )
         ed::NavigateToContent();
     if( ImGui::Button( "Export" ) )
     {
-        SaveGraph( Path( m_shaderFileName + ".shader" ) );
-        ExportShader( Path( m_shaderFileName + ".shader" ) );
+        SaveGraph( m_shaderFilePath );
+        ExportShader( m_shaderFilePath );
     }
     ImGui::Spring( 0.0f );
     if( ImGui::Button( "Show Flow" ) )
@@ -460,7 +475,14 @@ void ShaderEditorInstance::HandleAddNodeConxtualMenu()
             node = SpawnNodeFromString( m_NextId, std::string( "Sample" ) );
             m_Nodes.push_back( node );
         }
+
         ImGui::Separator();
+        if( ImGui::MenuItem( "Basic Shader" ) )
+        {
+            node = SpawnNodeFromString( m_NextId, std::string( "Basic Shader" ) );
+            m_Nodes.push_back( node );
+        }
+
         if( ImGui::MenuItem( "Comment" ) )
         {
             node = new CommentNode( m_NextId );
@@ -513,7 +535,7 @@ void ShaderEditorInstance::ExportShader( Path& inPath )
 
 void ShaderEditorInstance::SaveGraph( Path& inPath )
 {
-    File outFile( Path( "../../../Assets/Shaders/" + inPath.GetLocalPathString() ) );
+    File outFile( inPath );
     json outJson;
     json& vars = outJson["Variables"];
     for( auto exportVar : m_exported )
@@ -642,20 +664,25 @@ void ShaderEditorInstance::LoadGraph( Path& inPath )
     const std::string& contents = inFile.Read();
     json parsedData = json::parse( contents );
     int baseNodeId = 1;
+    //std::map<int, int> m_nodeMappings;
     if( parsedData.contains( "Nodes" ) )
     {
         Node* newNode;
         for( auto& node : parsedData["Nodes"] )
         {
             int ogNodeId = node["ID"];
-            newNode = SpawnNodeFromString( ogNodeId, std::string( node["Name"] ), &node ); ed::SetNodePosition( newNode->ID, ImVec2( node["X"], node["Y"] ) );
+            //m_nodeMappings[ogNodeId] = m_NextId + 1;
+            //ogNodeId = ogNodeId - 1;
+            newNode = SpawnNodeFromString( ogNodeId, std::string( node["Name"] ), &node );
+            
+            ed::SetNodePosition( newNode->ID, ImVec2( node["X"], node["Y"] ) );
             m_Nodes.push_back( newNode );
 
             // if ogNodeId > inputs/outputs increment to make room
 
 
             // should this be greater or equal?
-            if( ogNodeId > m_NextId )
+            if( ogNodeId >= m_NextId )
                 baseNodeId = ogNodeId;
         }
     }
@@ -668,11 +695,6 @@ void ShaderEditorInstance::LoadGraph( Path& inPath )
         json& links = parsedData["Links"];
         for( auto& link : links )
         {
-            //json linkDef;
-            //linkDef["ID"] = (int)( link.ID.Get() );
-            //linkDef["EndPinID"] = (int)( link.EndPinID.Get() );
-            //linkDef["StartPinID"] = (int)( link.StartPinID.Get() );
-            //links.push_back( linkDef );
             int linkID = link["ID"];
             int start = link["StartPinID"];
             int end = link["EndPinID"];
@@ -684,11 +706,11 @@ void ShaderEditorInstance::LoadGraph( Path& inPath )
             m_Links.emplace_back( Link( linkID, start, end ) );
             m_Links.back().Color = GetIconColor( linkedStartPin->Type );
 
-            if( linkID > m_NextLinkId )
+            if( linkID >= m_NextLinkId )
                 baseLinkId = linkID;
         }
     }
-    m_NextLinkId = baseLinkId++;
+    m_NextLinkId = ++baseLinkId;
     //
     // 
     //json outJson;
@@ -709,7 +731,7 @@ void ShaderEditorInstance::BlueprintStart()
 {
     ed::SetCurrentEditor( m_editorContext );
 
-    LoadGraph( Path( "../../../Assets/Shaders/" + m_shaderFileName + ".shader" ) );
+    LoadGraph( m_shaderFilePath );
 
     BuildNodes();
 
@@ -723,12 +745,16 @@ void ShaderEditorInstance::BlueprintStart()
 
 void ShaderEditorInstance::DrawBlueprint()
 {
+    auto& io = ImGui::GetIO();
+    if( ImGui::BeginMenuBar() )
+    {
+        ImGui::Text( "FPS: %.2f (%.2gms)", io.Framerate, io.Framerate ? 1000.0f / io.Framerate : 0.0f );
+
+        ImGui::EndMenuBar();
+    }
+
     ed::SetCurrentEditor( m_editorContext );
     UpdateTouch();
-
-    auto& io = ImGui::GetIO();
-
-    ImGui::Text( "FPS: %.2f (%.2gms)", io.Framerate, io.Framerate ? 1000.0f / io.Framerate : 0.0f );
 
     ed::SetCurrentEditor( m_editorContext );
 

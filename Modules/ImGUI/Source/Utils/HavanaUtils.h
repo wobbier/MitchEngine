@@ -14,6 +14,7 @@ public:
     static void Text( const std::string& Name, const Vector2& Vector );
 
     static bool EditableVector3( const std::string& Name, Vector3& Vector, float ResetValue = 0.f, float customWidth = -1 );
+    static bool EditableVector3Spring( const std::string& Name, Vector3& Vector, float ResetValue = 0.f, float customWidth = -1 );
     static bool EditableVector( const std::string& Name, Vector2& Vector, float ResetValue = 0.f, float customWidth = -1 );
 
     static bool Float( const std::string& Name, float& value );

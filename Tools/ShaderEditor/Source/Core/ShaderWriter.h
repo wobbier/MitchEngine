@@ -11,7 +11,7 @@ struct ExportedTextureInfo
 class ShaderWriter
 {
 public:
-    ShaderWriter( const std::string& inShaderName );
+    ShaderWriter( const Path& inShaderName );
 
     void Reset();
     void WriteLine( const std::string& inLine );
