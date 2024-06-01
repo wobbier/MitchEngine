@@ -16,6 +16,33 @@ public:
     bool OnEvaluate() override;
 };
 
+
+class AbsoluteNode
+    : public Node
+{
+public:
+    // is this needed?
+    float value = 0.f;
+    AbsoluteNode( int& inId );
+
+    bool OnEvaluate() override;
+    bool OnRender() override;
+    void OnExport( ShaderWriter& inFile ) override;
+};
+
+
+class BoolNode
+    : public Node
+{
+public:
+    bool value = false;
+    BoolNode( int& inId );
+
+    bool OnEvaluate() override;
+    bool OnRender() override;
+    void OnExport( ShaderWriter& inFile ) override;
+};
+
 class IntegerNode
     : public Node
 {

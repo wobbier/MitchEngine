@@ -6,6 +6,7 @@
 #include "Utils\ImGuiUtils.h"
 #include "Utils\PlatformUtils.h"
 #include "Utils\ShaderEditorUtils.h"
+#include "Mathf.h"
 
 LessThanNode::LessThanNode( int& inId )
     : Node( inId++, "Less Than" )
@@ -46,6 +47,121 @@ bool LessThanNode::OnEvaluate()
     }
 
     // update the output pin
+}
+
+
+AbsoluteNode::AbsoluteNode( int& inId )
+    : Node( inId++, "Absolute", { 68, 201, 156 } )
+{
+    Outputs.emplace_back( inId++, "Value", PinType::Float );
+
+    Inputs.emplace_back( inId++, "Value", PinType::Float );
+    Inputs.back().Data = value;
+
+    BuildNode();
+}
+
+bool AbsoluteNode::OnEvaluate()
+{
+    float evaluatedValue = value;
+    if( Inputs.size() > 0 )
+    {
+        if( Inputs[0].LinkedInput )
+        {
+            float linkedValue = std::get<float>( Inputs[0].LinkedInput->Data );
+            //Inputs[0].Name = linkedValue ? "true" : "false";
+            evaluatedValue = linkedValue;
+        }
+    }
+
+    evaluatedValue = Mathf::Abs( evaluatedValue );
+    Outputs[0].Data = evaluatedValue;
+    Outputs[0].Name = std::string( "Value(" + std::to_string( evaluatedValue ) + ")" ).c_str();
+    // update the output pin
+    return false;
+}
+
+bool AbsoluteNode::OnRender()
+{
+    if( Inputs.size() > 0 && Inputs[0].LinkedInput )
+    {
+        return false;
+    }
+    //ImGui::PushItemWidth( 100 );
+    //if( ImGui::Checkbox( "Value", &value ) )
+    //{
+    //}
+    //ImGui::PopItemWidth();
+
+    return true;
+}
+
+void AbsoluteNode::OnExport( ShaderWriter& inFile )
+{
+    // Make this a helper
+    if( !ExportLinkedPin( 0, inFile ) )
+    {
+        inFile.WriteFloat( value );
+    }
+
+    std::string var = "f_" + std::to_string( inFile.ID++ );
+    inFile.WriteLine( "float " + var + " = abs(" + inFile.LastVariable + ");" );
+    inFile.LastVariable = var;
+}
+
+
+BoolNode::BoolNode( int& inId )
+    : Node( inId++, "Bool", { 68, 201, 156 } )
+{
+    Outputs.emplace_back( inId++, "Value", PinType::Bool );
+
+    Inputs.emplace_back( inId++, "Value", PinType::Bool );
+    Inputs.back().Data = value;
+
+    BuildNode();
+}
+
+bool BoolNode::OnEvaluate()
+{
+    bool evaluatedValue = value;
+    if( Inputs.size() > 0 )
+    {
+        if( Inputs[0].LinkedInput )
+        {
+            bool linkedValue = std::get<bool>( Inputs[0].LinkedInput->Data );
+            Inputs[0].Name = linkedValue ? "true" : "false";
+            evaluatedValue = linkedValue;
+        }
+        else
+        {
+            Inputs[0].Name = value ? "true" : "false";
+        }
+    }
+
+    Outputs[0].Data = evaluatedValue;
+    Outputs[0].Name = std::string( "Value(" + std::to_string( evaluatedValue ) + ")" ).c_str();
+    // update the output pin
+    return false;
+}
+
+bool BoolNode::OnRender()
+{
+    if( Inputs.size() > 0 && Inputs[0].LinkedInput )
+    {
+        return false;
+    }
+    ImGui::PushItemWidth( 100 );
+    if( ImGui::Checkbox( "Value", &value ) )
+    {
+    }
+    ImGui::PopItemWidth();
+
+    return true;
+}
+
+void BoolNode::OnExport( ShaderWriter& inFile )
+{
+    //inFile.WriteInt( value );
 }
 
 
@@ -125,7 +241,7 @@ void FloatNode::OnExport( ShaderWriter& inFile )
 Vector3Node::Vector3Node( int& inId )
     : Node( inId++, "Vector 3", { 68, 201, 156 } )
 {
-    Size = { 400, 0 };
+    Size = { 300, 0 };
     Inputs.emplace_back( inId++, "X(1)", PinType::Float );
     Inputs.back().Data = 0.f;
     Inputs.emplace_back( inId++, "Y(1)", PinType::Float );
@@ -172,6 +288,7 @@ void Vector3Node::OnExport( ShaderWriter& inFile )
 AddNode::AddNode( int& inId )
     : Node( inId++, "Add", { 168, 201, 156 } )
 {
+    Size = { 300, 0 };
     Inputs.emplace_back( inId++, "A(3)", PinType::Vector3Type );
     Inputs.back().Data = 0.f;
     Inputs.emplace_back( inId++, "B(3)", PinType::Vector3Type );
@@ -341,6 +458,19 @@ BasicShaderMasterNode::BasicShaderMasterNode( int& inId )
 
 bool BasicShaderMasterNode::OnEvaluate()
 {
+    //if( Inputs.size() > 1 )
+    //{
+    //    if( Inputs[2].LinkedInput )
+    //    {
+    //        float linkedValue = std::get<float>( Inputs[2].LinkedInput->Data );
+    //        Inputs[2].Name = linkedValue ? std::string("Alpha(" + std::to_string(linkedValue) + ")") : "Alpha(1)";
+    //        //evaluatedValue = linkedValue;
+    //    }
+    //    else
+    //    {
+    //        //Inputs[2].Name = value ? "true" : "false";
+    //    }
+    //}
     return false;
 }
 

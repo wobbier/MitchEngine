@@ -455,9 +455,27 @@ void ShaderEditorInstance::HandleAddNodeConxtualMenu()
         //drawList->AddCircleFilled(ImGui::GetMousePosOnOpeningCurrentPopup(), 10.0f, 0xFFFF00FF);
 
         Node* node = nullptr;
-        if( ImGui::MenuItem( "Add" ) )
+
+        if( ImGui::BeginMenu( "Math" ) )
         {
-            node = SpawnNodeFromString( m_NextId, std::string( "Add" ) );
+            if( ImGui::MenuItem( "Add" ) )
+            {
+                node = SpawnNodeFromString( m_NextId, std::string( "Add" ) );
+                m_Nodes.push_back( node );
+            }
+            if( ImGui::MenuItem( "Absolute" ) )
+            {
+                node = SpawnNodeFromString( m_NextId, std::string( "Absolute" ) );
+                m_Nodes.push_back( node );
+            }
+            ImGui::EndMenu();
+        }
+
+        ImGui::Separator();
+ 
+        if( ImGui::MenuItem( "Bool" ) )
+        {
+            node = SpawnNodeFromString( m_NextId, std::string( "Bool" ) );
             m_Nodes.push_back( node );
         }
         if( ImGui::MenuItem( "Vector 3" ) )
@@ -584,6 +602,15 @@ Node* ShaderEditorInstance::SpawnNodeFromString( int& inNodeId, std::string& inI
     {
         m_masterNode = new BasicShaderMasterNode( inNodeId );
         return m_masterNode;
+    }
+    
+    if( inId == "Absolute" )
+    {
+        return new AbsoluteNode( inNodeId );
+    }
+    if( inId == "Bool" )
+    {
+        return new BoolNode( inNodeId );
     }
     if( inId == "Integer" )
     {
@@ -1127,8 +1154,8 @@ void ShaderEditorInstance::DrawBasicNodes()
             }
             if( input.Type == PinType::Bool )
             {
-                ImGui::Button( "Hello" );
-                ImGui::Spring( 0 );
+                //ImGui::Button( "" );
+                //ImGui::Spring( 0 );
             }
             ImGui::PopStyleVar();
             builder.EndInput();
