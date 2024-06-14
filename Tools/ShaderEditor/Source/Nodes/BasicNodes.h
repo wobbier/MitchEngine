@@ -7,6 +7,21 @@
 namespace ed = ax::NodeEditor;
 namespace util = ax::NodeEditor::Utilities;
 
+// this can be baked into the base? just do checks for all types
+struct NumericPin
+    : public Pin
+{
+    NumericPin( int id, const char* name )
+        : Pin( id, name, PinType::Numeric )
+    {
+    }
+
+    virtual bool AcceptsType( PinType inType )
+    {
+        return true;
+    }
+};
+
 class LessThanNode
     : public Node
 {
@@ -79,12 +94,14 @@ public:
     void OnExport( ShaderWriter& inFile ) override;
 };
 
+using ValueVariant = std::variant<float, Vector2, Vector3, Vector4>;
+
 class AddNode
     : public Node
 {
 public:
-    Vector3 valueA;
-    Vector3 valueB;
+    ValueVariant valueA;
+    ValueVariant valueB;
     AddNode( int& inId );
 
     bool OnEvaluate() override;
