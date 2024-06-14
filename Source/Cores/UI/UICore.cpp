@@ -143,6 +143,8 @@ void UICore::Update( const UpdateContext& inUpdateContext )
         {
             InitUIView( view );
         }
+        
+        view.OnUpdate();
     }
 #if USING( ME_UI )
     Input& gameInput = GetEngine().GetInput();

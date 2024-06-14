@@ -44,6 +44,10 @@ public:
 
     void ExecuteScript( const std::string& Script );
 
+    virtual void OnUpdate()
+    {
+    }
+
     Path FilePath;
 
 protected:

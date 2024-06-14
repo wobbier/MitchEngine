@@ -157,7 +157,7 @@ Class& operator=(Class&&) = delete;
 #define ME_EDITOR_WIN64     USE_IF( USING( ME_EDITOR ) && USING( ME_PLATFORM_WIN64 ) )
 #define ME_EDITOR_MACOS     USE_IF( USING( ME_EDITOR ) && USING( ME_PLATFORM_MACOS ) )
 #define ME_SCRIPTING        USE_IF( USING( ME_MONO ) )
-#define ME_UI               USE_IF( USING( ME_ULTRALIGHT ) )
+#define ME_UI               USE_IF( USING( ME_ULTRALIGHT ) && !USING( ME_HEADLESS ) )
 #define ME_PROFILING        USE_IF( USING( ME_DEBUG ) || USING( ME_RELEASE ) )
 // I'm currently using some ImGui stuff in debug for profiling, TOOLS needs it even that it's currently bundled with the editor.
 #define ME_IMGUI            USE_IF( USING( ME_EDITOR ) || USING( ME_TOOLS ) || USING( ME_PROFILING ) )
