@@ -11,7 +11,9 @@ class Sound
     : public Resource
 {
 public:
-    Sound( const Path& path, void* fmodSystem = nullptr );
+    Sound( const Path& path, void* fmodSystem = nullptr, bool isImmediate = true );
+
+    bool IsReady() const;
 
     FMOD::Sound* Handle = nullptr;
 };

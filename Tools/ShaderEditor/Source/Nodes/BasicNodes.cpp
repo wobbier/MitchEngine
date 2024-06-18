@@ -289,11 +289,11 @@ AddNode::AddNode( int& inId )
     : Node( inId++, "Add", { 168, 201, 156 } )
 {
     Size = { 300, 0 };
-    Inputs.emplace_back( inId++, "A(3)", PinType::Vector3Type );
+    Inputs.emplace_back( inId++, "A(3)", PinType::Numeric );
     Inputs.back().Data = 0.f;
-    Inputs.emplace_back( inId++, "B(3)", PinType::Vector3Type );
+    Inputs.emplace_back( inId++, "B(3)", PinType::Numeric );
     Inputs.back().Data = 0.f;
-    Outputs.emplace_back( inId++, "Value(3)", PinType::Vector3Type );
+    Outputs.emplace_back( inId++, "Value(3)", PinType::Numeric );
     Outputs.back().Data = Vector3();
 
     BuildNode();
@@ -301,46 +301,59 @@ AddNode::AddNode( int& inId )
 
 bool AddNode::OnEvaluate()
 {
-    Vector3 result = ( Inputs[0].LinkedInput ? std::get<Vector3>( Inputs[0].LinkedInput->Data ) : valueA )
-        + ( Inputs[1].LinkedInput ? std::get<Vector3>( Inputs[1].LinkedInput->Data ) : valueB );
-    Outputs[0].Data = result;
+    PinType outType = PinType::Numeric;
+
+    PinType inType1 = Inputs[0].GetPinType();
+    PinType inType2 = Inputs[1].GetPinType();
+    if( inType1 != PinType::Numeric )
+    {
+        Inputs[1].Type = inType1;
+    }
+    if( inType2 != PinType::Numeric )
+    {
+        Inputs[0].Type = inType2;
+    }
+    Outputs[0].Type = Inputs[0].LinkedInput ? Inputs[0].LinkedInput->Type : PinType::Numeric;
+    //Vector3 result = ( Inputs[0].LinkedInput ? std::get<Vector3>( Inputs[0].LinkedInput->Data ) : valueA )
+    //    + ( Inputs[1].LinkedInput ? std::get<Vector3>( Inputs[1].LinkedInput->Data ) : valueB );
+    //Outputs[0].Data = result;
     // update the output pin
     return false;
 }
 
 bool AddNode::OnRender()
 {
-    if( HavanaUtils::EditableVector3( "##Value A", valueA, 0.f ) )
-    {
-    }
-    if( HavanaUtils::EditableVector3( "##Value B", valueA, 0.f ) )
-    {
-    }
+    //if( HavanaUtils::EditableVector3( "##Value A", valueA, 0.f ) )
+    //{
+    //}
+    //if( HavanaUtils::EditableVector3( "##Value B", valueA, 0.f ) )
+    //{
+    //}
 
     return true;
 }
 
 void AddNode::OnExport( ShaderWriter& inFile )
 {
-    std::string addNameA;
-    std::string addNameB;
-
-    // Make this a helper
-    if( !ExportLinkedPin( 0, inFile ) )
-    {
-        inFile.WriteVector( valueA );
-    }
-    addNameA = inFile.LastVariable;
-    // Make this a helper
-    if( !ExportLinkedPin( 1, inFile ) )
-    {
-        inFile.WriteVector( valueB );
-    }
-    addNameB = inFile.LastVariable;
-
-    std::string var = "v3_" + std::to_string( inFile.ID++ );
-    inFile.WriteLine( "vec3 " + var + " = " + addNameA + " + " + addNameB + ";" );
-    inFile.LastVariable = var;
+    //std::string addNameA;
+    //std::string addNameB;
+    //
+    //// Make this a helper
+    //if( !ExportLinkedPin( 0, inFile ) )
+    //{
+    //    inFile.WriteVector( valueA );
+    //}
+    //addNameA = inFile.LastVariable;
+    //// Make this a helper
+    //if( !ExportLinkedPin( 1, inFile ) )
+    //{
+    //    inFile.WriteVector( valueB );
+    //}
+    //addNameB = inFile.LastVariable;
+    //
+    //std::string var = "v3_" + std::to_string( inFile.ID++ );
+    //inFile.WriteLine( "vec3 " + var + " = " + addNameA + " + " + addNameB + ";" );
+    //inFile.LastVariable = var;
 }
 
 

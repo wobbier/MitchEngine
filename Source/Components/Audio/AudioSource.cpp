@@ -84,6 +84,17 @@ void AudioSource::Stop( bool immediate )
 #endif
 }
 
+bool AudioSource::IsLoaded() const
+{
+#if USING( ME_FMOD )
+    if( SoundInstance )
+    {
+        return SoundInstance->IsReady();
+    }
+#endif
+    return false;
+}
+
 bool AudioSource::IsPlaying() const
 {
 #if USING( ME_FMOD )

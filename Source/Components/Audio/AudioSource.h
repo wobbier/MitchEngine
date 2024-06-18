@@ -26,6 +26,7 @@ public:
     void Stop( bool immediate = true );
     bool Preload = false;
 
+    bool IsLoaded() const;
     bool IsPlaying() const;
     bool IsPaused() const;
 

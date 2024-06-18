@@ -28,6 +28,7 @@ enum class PinType
     Vector2,
     Vector3Type,
     Vector4,
+    Numeric
 };
 
 enum class PinKind
@@ -63,6 +64,21 @@ struct Pin
     Pin( int id, const char* name, PinType type ) :
         ID( id ), Node( nullptr ), Name( name ), Type( type ), Kind( PinKind::Input )
     {
+    }
+
+    virtual bool AcceptsType( PinType inType ) const
+    {
+        if (Type == PinType::Numeric)
+        {
+            return ( inType == PinType::Vector3Type ) || ( inType == PinType::Float );
+        }
+        return Type == inType;
+    }
+
+    // this dont make sense
+    PinType GetPinType()
+    {
+        return LinkedInput ? LinkedInput->Type : Type;
     }
 };
 

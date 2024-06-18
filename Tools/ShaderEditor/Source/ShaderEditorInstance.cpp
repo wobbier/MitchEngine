@@ -867,7 +867,7 @@ void ShaderEditorInstance::HandleLinks()
                     //    showLabel("x Cannot connect to self", ImColor(45, 32, 32, 180));
                     //    ed::RejectNewItem(ImColor(255, 0, 0), 1.0f);
                     //}
-                    else if( endPin->Type != startPin->Type )
+                    else if( !endPin->AcceptsType( startPin->Type ) )
                     {
                         showLabel( "x Incompatible Pin Type", ImColor( 45, 32, 32, 180 ) );
                         ed::RejectNewItem( ImColor( 255, 128, 128 ), 1.0f );

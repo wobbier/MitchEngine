@@ -1,7 +1,7 @@
 #include "ShaderGraphMaterial.h"
 #include "File.h"
 #include "Path.h"
-#include "Resource\ResourceCache.h"
+#include "Resource/ResourceCache.h"
 #include "Utils/ImGuiUtils.h"
 
 void ShaderGraphMaterial::OnSerialize( json& OutJson )
