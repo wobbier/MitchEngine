@@ -24,7 +24,11 @@ Sound::Sound( const Path& path, void* fmodSystem, bool isImmediate )
 
 bool Sound::IsReady() const
 {
+#if USING( ME_FMOD )
     FMOD_OPENSTATE openstate;
     bool result = Handle->getOpenState( &openstate, nullptr, nullptr, nullptr );
     return openstate == FMOD_OPENSTATE_READY;
+#else
+    return true;
+#endif
 }
