@@ -288,7 +288,7 @@ void Vector3Node::OnExport( ShaderWriter& inFile )
 AddNode::AddNode( int& inId )
     : Node( inId++, "Add", { 168, 201, 156 } )
 {
-    Size = { 300, 0 };
+    Size = { 250, 0 };
     Inputs.emplace_back( inId++, "A(3)", PinType::Numeric );
     Inputs.back().Data = 0.f;
     Inputs.emplace_back( inId++, "B(3)", PinType::Numeric );
@@ -358,11 +358,11 @@ void AddNode::OnExport( ShaderWriter& inFile )
     // Make this a helper
     if( !ExportLinkedPin( 1, inFile ) )
     {
-        //inFile.WriteVector( valueB );
+        inFile.WriteVector( Vector3() );
     }
     addNameB = inFile.LastVariable;
     
-    std::string var = "v3_" + std::to_string( inFile.ID++ );
+    std::string var = "add_" + std::to_string( inFile.ID++ );
     inFile.WriteLine( outputType + " " + var + " = " + addNameA + " + " + addNameB + ";" );
     inFile.LastVariable = var;
 }
@@ -396,7 +396,7 @@ bool SampleTextureNode::OnRender()
 {
     if( ImGui::Button( "Select Texture" ) )
     {
-        filePath = HUB::ShowOpenFilePrompt( nullptr );
+        filePath = HUB::ShowOpenFilePrompt();
         if( filePath.Exists )
         {
             value = ResourceCache::GetInstance().Get<Moonlight::Texture>( filePath );

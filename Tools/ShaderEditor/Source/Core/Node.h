@@ -81,6 +81,40 @@ struct Pin
     {
         return LinkedInput ? LinkedInput->Type : Type;
     }
+
+    void SetType( PinType inType )
+    {
+        Type = inType;
+        switch( Type )
+        {
+        case PinType::Bool:
+            Data = false;
+            break;
+        case PinType::Int:
+            Data = 0;
+            break;
+        case PinType::Float:
+            Data = 0.f;
+            break;
+        case PinType::Texture:
+            Data = SharedPtr<Moonlight::Texture>();
+            break;
+        case PinType::Vector2:
+            Data = Vector2();
+            break;
+        case PinType::Vector3Type:
+            Data = Vector3();
+            break;
+        case PinType::Vector4:
+            Data = Vector4();
+            break;
+        case PinType::Numeric:
+            Data = 0.f;
+            break;
+        default:
+            break;
+        }
+    }
 };
 
 struct Node
@@ -122,16 +156,16 @@ struct Node
         {
             if( input.Type == PinType::Numeric )
             {
-                input.Type = inPinType;
+                input.SetType( inPinType );
             }
         }
 
         // we can't reset outputs atm, since the connection isn't cached
-        for( auto& outputs : Outputs )
+        for( auto& output : Outputs )
         {
-            if( outputs.Type == PinType::Numeric )
+            if( output.Type == PinType::Numeric )
             {
-                outputs.Type = inPinType;
+                output.SetType( inPinType );
             }
         }
 
@@ -152,11 +186,7 @@ struct Node
         {
             if( input.Type != input.OGType )
             {
-                input.Type = input.OGType;
-                if( input.Type == PinType::Numeric )
-                {
-                    input.Data = 0.f;
-                }
+                input.SetType( input.OGType );
             }
         }
 
@@ -164,11 +194,7 @@ struct Node
         {
             if( output.Type != output.OGType )
             {
-                output.Type = output.OGType;
-                if( output.Type == PinType::Numeric )
-                {
-                    output.Data = 0.f;
-                }
+                output.SetType( output.OGType );
             }
         }
 

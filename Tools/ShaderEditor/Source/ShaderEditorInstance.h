@@ -193,7 +193,7 @@ private:
 
     bool CanCreateLink( Pin* a, Pin* b )
     {
-        if( !a || !b || a == b || a->Kind == b->Kind || a->Type != b->Type || a->Node == b->Node )
+        if( !a || !b || a == b || a->Kind == b->Kind || a->Node == b->Node || !( b->AcceptsType( a->Type ) || a->AcceptsType( b->Type ) ) )
             return false;
 
         return true;

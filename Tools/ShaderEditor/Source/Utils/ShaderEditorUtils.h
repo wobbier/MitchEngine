@@ -6,6 +6,6 @@
 namespace HUB
 {
 #if USING( ME_PLATFORM_WIN64 )
-    Path ShowOpenFilePrompt( void* hwnd );
+    Path ShowOpenFilePrompt( void* hwnd = nullptr );
 #endif
 }

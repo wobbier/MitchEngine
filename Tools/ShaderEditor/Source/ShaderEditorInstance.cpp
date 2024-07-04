@@ -702,7 +702,7 @@ void ShaderEditorInstance::LoadGraph( Path& inPath )
             //m_nodeMappings[ogNodeId] = m_NextId + 1;
             //ogNodeId = ogNodeId - 1;
             newNode = SpawnNodeFromString( ogNodeId, std::string( node["Name"] ), &node );
-            
+            BuildNode( newNode );
             ed::SetNodePosition( newNode->ID, ImVec2( node["X"], node["Y"] ) );
             m_Nodes.push_back( newNode );
 
@@ -729,6 +729,7 @@ void ShaderEditorInstance::LoadGraph( Path& inPath )
 
             Pin* linkedStartPin = FindPin( start );
             Pin* linkedPin = FindPin( end );
+            linkedPin->Node->TryConvert( linkedStartPin->Type );
 
             linkedPin->LinkedInput = FindPin( start );
             m_Links.emplace_back( Link( linkID, start, end ) );
@@ -739,6 +740,7 @@ void ShaderEditorInstance::LoadGraph( Path& inPath )
         }
     }
     m_NextLinkId = ++baseLinkId;
+
     //
     // 
     //json outJson;

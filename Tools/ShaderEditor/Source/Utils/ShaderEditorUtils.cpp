@@ -48,8 +48,8 @@ Path HUB::ShowOpenFilePrompt( void* hwnd )
 
         // Restrict the dialog to show only certain file types
         COMDLG_FILTERSPEC fileTypes[] = {
-            { L"OBJ Files", L"*.obj" },
             { L"PNG Files", L"*.png" },
+            { L"OBJ Files", L"*.obj" },
             { L"BIN Files", L"*.bin" }
         };
         pFileOpenDialog->SetFileTypes( _countof( fileTypes ), fileTypes );
