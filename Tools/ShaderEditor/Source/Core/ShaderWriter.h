@@ -3,6 +3,8 @@
 #include "File.h"
 #include "Math\Vector3.h"
 
+enum class PinType;
+
 struct ExportedTextureInfo
 {
     std::string FullPath;
@@ -30,6 +32,7 @@ public:
 
     std::string LastVariable;
     int ID = 0;
+    PinType LastType;
 
 private:
     File m_shaderFile;

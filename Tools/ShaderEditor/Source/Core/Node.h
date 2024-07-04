@@ -57,12 +57,13 @@ struct Pin
     ::Node* Node;
     std::string Name;
     PinType     Type;
+    PinType     OGType;
     PinKind     Kind;
     PinData     Data;
     Pin* LinkedInput = nullptr;
 
     Pin( int id, const char* name, PinType type ) :
-        ID( id ), Node( nullptr ), Name( name ), Type( type ), Kind( PinKind::Input )
+        ID( id ), Node( nullptr ), Name( name ), Type( type ), OGType( type ), Kind(PinKind::Input)
     {
     }
 
@@ -98,6 +99,80 @@ struct Node
     Node( int id, const char* name, ImColor color = ImColor( 255, 255, 255 ) ) :
         ID( id ), Name( name ), Color( color ), Type( NodeType::Blueprint ), Size( 0, 0 )
     {
+    }
+
+    bool TryConvert( PinType inPinType )
+    {
+        for( auto& input : Inputs )
+        {
+            if( input.LinkedInput )
+            {
+                return false;
+            }
+        }
+        for( auto& outputs : Outputs )
+        {
+            if( outputs.LinkedInput )
+            {
+                return false;
+            }
+        }
+
+        for( auto& input : Inputs )
+        {
+            if( input.Type == PinType::Numeric )
+            {
+                input.Type = inPinType;
+            }
+        }
+
+        // we can't reset outputs atm, since the connection isn't cached
+        for( auto& outputs : Outputs )
+        {
+            if( outputs.Type == PinType::Numeric )
+            {
+                outputs.Type = inPinType;
+            }
+        }
+
+        return true;
+    }
+
+    bool TryReset()
+    {
+        for( auto& input : Inputs )
+        {
+            if( input.LinkedInput )
+            {
+                return false;
+            }
+        }
+
+        for( auto& input : Inputs )
+        {
+            if( input.Type != input.OGType )
+            {
+                input.Type = input.OGType;
+                if( input.Type == PinType::Numeric )
+                {
+                    input.Data = 0.f;
+                }
+            }
+        }
+
+        for( auto& output : Outputs )
+        {
+            if( output.Type != output.OGType )
+            {
+                output.Type = output.OGType;
+                if( output.Type == PinType::Numeric )
+                {
+                    output.Data = 0.f;
+                }
+            }
+        }
+
+        return true;
     }
 
     // More of an ensure PinKind method

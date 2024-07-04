@@ -8,6 +8,7 @@ int main( int argc, char** argv )
     flags.isDockingEnabled = true;
     flags.toolName = "Shader Editor";
 
+    CLog::GetInstance().SetLogVerbosity( CLog::LogType::Warning );
     ShaderEditor tool( flags );
     tool.Start();
 

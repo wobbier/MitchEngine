@@ -62,6 +62,7 @@ ImColor GetIconColor( PinType type )
     case PinType::Bool:     return ImColor( 220, 48, 48 );
     case PinType::Int:      return ImColor( 68, 201, 156 );
     case PinType::Float:    return ImColor( 147, 226, 74 );
+    case PinType::Vector3Type:    return ImColor( 147, 0, 74 );
     case PinType::String:   return ImColor( 124, 21, 153 );
     case PinType::Object:   return ImColor( 51, 150, 215 );
     case PinType::Function: return ImColor( 218, 0, 183 );
@@ -883,6 +884,7 @@ void ShaderEditorInstance::HandleLinks()
                             {
                                 ed::DeleteLink( ( *id ).ID );
                             }
+                            endPin->Node->TryConvert( startPin->Type );
                             endPin->LinkedInput = startPin;
                             m_Links.emplace_back( Link( GetNextLinkId(), startPinId, endPinId ) );
                             m_Links.back().Color = GetIconColor( startPin->Type );
@@ -952,6 +954,9 @@ void ShaderEditorInstance::HandleLinks()
                         {
                             endPin->LinkedInput = nullptr;
                         }
+                        
+                        endPin->Node->TryReset();
+
                         m_Links.erase( id );
                     }
                 }
