@@ -11,6 +11,10 @@ public:
         return DeltaTime;
     };
 
+    inline float GetTotalTime() const {
+        return TotalTime;
+    };
+
     inline uint64_t GetFrameID() const {
         return FrameID;
     };
@@ -24,10 +28,12 @@ protected:
     inline void UpdateDeltaTime( float inDeltaTime )
     {
         DeltaTime = inDeltaTime;
+        TotalTime += inDeltaTime;
         FrameID++;
     }
 
     float DeltaTime = 1.f / 60.f;
+    float TotalTime = 0.f;
     uint64_t FrameID = 0;
     SystemRegistry* m_SystemRegistry = nullptr;
 };

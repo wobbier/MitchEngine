@@ -170,6 +170,7 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
         m_dynamicSky->m_sun.Update( 0 );
         m_defaultOpacityTexture = ResourceCache::GetInstance().Get<Moonlight::Texture>( Path( "Assets/Textures/DefaultAlpha.png" ) );
     }
+    s_time = bgfx::createUniform( "u_time", bgfx::UniformType::Vec4 );
     TransparentIndicies.reserve( kMeshTransparencyTempSize );
 
 #if USING( ME_IMGUI )
@@ -251,6 +252,7 @@ void BGFXRenderer::Render( Moonlight::CameraData& EditorCamera )
         bgfx::setUniform( s_sunDirection, &m_dynamicSky->m_sun.m_sunDir.x );
         bgfx::setUniform( s_sunDiffuse, &sunDiffuse.x );
     }
+    bgfx::setUniform( s_time, &m_time.x );
 
 #if USING( ME_EDITOR )
     bgfx::ViewId id = 1;

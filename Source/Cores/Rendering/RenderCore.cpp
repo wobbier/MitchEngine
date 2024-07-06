@@ -67,6 +67,11 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
     auto& Renderables = GetEntities();
     Engine& engine = GetEngine();
     BGFXRenderer& renderer = engine.GetRenderer();
+
+    // maybe this is fine?
+    // (a few minutes later) it's not...
+    renderer.m_time.x = inUpdateContext.GetDeltaTime();
+    renderer.m_time.y = inUpdateContext.GetTotalTime();
     
     // Clear Render Commands
     renderer.GetMeshCache().Commands.clear();

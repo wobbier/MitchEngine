@@ -14,6 +14,7 @@
 #include <Debug/DebugDrawer.h>
 #include <Utils/CommandCache.h>
 #include "Core/ISystem.h"
+#include "Math/Vector4.h"
 
 class ImGuiRenderer;
 
@@ -49,6 +50,8 @@ public:
 		, m_timeOffset(0)
 	{
 	}
+    // move me, dummy :D 
+    Vector4 m_time;
 
     void Create( const RendererCreationSettings& settings );
     void Destroy();
@@ -117,6 +120,7 @@ private:
     bgfx::UniformHandle s_ambient;
     bgfx::UniformHandle s_sunDirection;
     bgfx::UniformHandle s_sunDiffuse;
+    bgfx::UniformHandle s_time;
     bx::Vec3 m_ambient;
     int32_t m_pt;
     int64_t m_timeOffset;
