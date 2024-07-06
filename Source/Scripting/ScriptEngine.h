@@ -99,7 +99,10 @@ public:
 
     void OnCreate()
     {
-        ScriptRef.InvokeMethod( Instance, OnCreateMethod, nullptr );
+        if( OnCreateMethod )
+        {
+            ScriptRef.InvokeMethod( Instance, OnCreateMethod, nullptr );
+        }
     }
 
     void OnUpdate( float deltaTime )
@@ -107,6 +110,11 @@ public:
 #if USING( ME_DEBUG )
         OPTICK_EVENT( ScriptRef.Name.c_str() );
 #endif
+        if( !OnUpdateMethod )
+        {
+            return;
+        }
+
         void* param = &deltaTime;
         ScriptRef.InvokeMethod( Instance, OnUpdateMethod, &param );
     }

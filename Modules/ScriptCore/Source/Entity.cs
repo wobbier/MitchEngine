@@ -39,6 +39,12 @@ public class Entity
         return new T() { Parent = this };
     }
 
+    public Transform transform
+    {
+        get { return GetComponent<Transform>(); }
+        private set { }
+    }
+
 
     [MethodImplAttribute(MethodImplOptions.InternalCall)]
     extern static bool Entity_HasComponent(EntityID id, Type type);

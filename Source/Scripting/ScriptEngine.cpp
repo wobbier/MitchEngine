@@ -13,6 +13,7 @@
 #include <mono/metadata/mono-debug.h>
 #include <mono/metadata/threads.h>
 #include "ECS/Entity.h"
+#include "CLog.h"
 
 
 ScriptEngine::ScriptData ScriptEngine::sScriptData;
@@ -20,6 +21,24 @@ ScriptEngine::ScriptData ScriptEngine::sScriptData;
 std::vector<ScriptEngine::LoadedClassInfo> ScriptEngine::LoadedClasses;
 
 std::vector<ScriptEngine::LoadedClassInfo> ScriptEngine::LoadedEntityScripts;
+
+static void Log( MonoString* inString )
+{
+    char* str = mono_string_to_utf8( inString );
+
+    BRUH( str );
+
+    mono_free( str );
+}
+
+static void LogError( MonoString* inString )
+{
+    char* str = mono_string_to_utf8( inString );
+
+    YIKES( str );
+
+    mono_free( str );
+}
 
 static void NativeLog( MonoString* inString, int number )
 {
@@ -165,6 +184,8 @@ void ScriptEngine::InitMono()
 
 void ScriptEngine::RegisterFunctions()
 {
+    mono_add_internal_call( "Debug::Log", (void*)Log );
+    mono_add_internal_call( "Debug::Error", (void*)LogError );
     mono_add_internal_call( "TestScript::NativeLog", (void*)NativeLog );
     mono_add_internal_call( "TestScript::NativeLog_Vector", (void*)NativeLog_Vector );
     mono_add_internal_call( "TestScript::Native_VectorLength", (void*)Native_VectorLength );

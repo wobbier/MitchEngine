@@ -6,6 +6,7 @@
 #include "Resource\ResourceCache.h"
 #include "Nodes\BasicNodes.h"
 #include "UI\Colors.h"
+#include "Nodes\CoreNodes.h"
 
 ShaderEditorInstance::ShaderEditorInstance()
 {
@@ -507,6 +508,11 @@ void ShaderEditorInstance::HandleAddNodeConxtualMenu()
             node = new CommentNode( m_NextId );
             m_Nodes.push_back( node );
         }
+        if( ImGui::MenuItem( "Uniform" ) )
+        {
+            node = new UniformNode( m_NextId );
+            m_Nodes.push_back( node );
+        }
 
         if( node )
         {
@@ -637,6 +643,11 @@ Node* ShaderEditorInstance::SpawnNodeFromString( int& inNodeId, std::string& inI
     if( inId == "Less Than" )
     {
         return new LessThanNode( inNodeId );
+    }
+
+    if( inId == "Uniform" )
+    {
+        return new UniformNode( inNodeId );
     }
 
     // Make this into it's own node
