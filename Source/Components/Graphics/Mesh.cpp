@@ -267,7 +267,7 @@ void Mesh::OnEditorInspect()
                     path.erase( pos-1, path.length() );
                 }
                 MeshMaterial->LoadShader( path );
-                }, AssetType::Shader );
+                }, AssetType::ShaderGraph );
             evt.Fire();
         }
 

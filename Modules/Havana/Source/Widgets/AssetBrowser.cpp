@@ -1057,10 +1057,6 @@ bool AssetBrowserWidget::ProccessDirectoryRecursive( std::string& dir, Directory
                 {
                     type = AssetType::Model;
                 }
-                else if( newdir.rfind( ".frag" ) != std::string::npos || newdir.rfind( ".vert" ) != std::string::npos || newdir.rfind( ".shader" ) != std::string::npos )
-                {
-                    type = AssetType::Shader;
-                }
                 else if( newdir.rfind( ".html" ) != std::string::npos )
                 {
                     type = AssetType::UI;
@@ -1068,6 +1064,13 @@ bool AssetBrowserWidget::ProccessDirectoryRecursive( std::string& dir, Directory
                 else if( newdir.rfind( ".cs" ) != std::string::npos )
                 {
                     type = AssetType::CS;
+                }
+
+                size_t shaderPos = newdir.rfind( ".shader" );
+                size_t shaderExtPos = newdir.rfind( ".shader." );
+                if( shaderPos != std::string::npos && shaderExtPos == std::string::npos )
+                {
+                    type = AssetType::ShaderGraph;
                 }
                 else if( newdir.rfind( ".vert" ) != std::string::npos || newdir.rfind( ".frag" ) != std::string::npos )
                 {

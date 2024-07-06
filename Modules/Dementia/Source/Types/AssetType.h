@@ -9,6 +9,7 @@ enum class AssetType : unsigned int
     Model,
     Prefab,
     Shader,
+    ShaderGraph,
     Texture,
     UI,
     Code,

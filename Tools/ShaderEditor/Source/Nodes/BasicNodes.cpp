@@ -522,6 +522,7 @@ void BasicShaderMasterNode::ExportPin( int inPinNum, PinType inPinType )
 void BasicShaderMasterNode::ExportShitty( Path& inPath, const std::string& inShaderName )
 {
     File outFile( inPath );
+    std::string localPrefix = inPath.FullPath.substr( 0, inPath.FullPath.rfind( ".shader" ) );
     if( !outFile.FilePath.Exists )
     {
         outFile.Write("{}");
@@ -531,7 +532,7 @@ void BasicShaderMasterNode::ExportShitty( Path& inPath, const std::string& inSha
 
 
     {
-        ShaderWriter file( Path( inPath.FullPath + ".var" ) );
+        ShaderWriter file( Path( localPrefix + ".var" ) );
         file.WriteLine( "vec4 v_color0 : COLOR0 = vec4(1.0, 0.0, 0.0, 1.0);" );
         file.WriteLine( "vec3 v_normal : NORMAL = vec3( 0.0, 0.0, 1.0 );" );
         file.WriteLine( "vec2 v_texcoord0 : TEXCOORD0 = vec2( 0.0, 0.0 );" );
@@ -546,7 +547,7 @@ void BasicShaderMasterNode::ExportShitty( Path& inPath, const std::string& inSha
     }
 
     {
-        ShaderWriter file( Path( inPath.FullPath + ".vert" ) );
+        ShaderWriter file( Path( localPrefix + ".vert" ) );
         file.WriteLine( "$input a_position, a_normal, a_texcoord0, a_tangent, a_bitangent" );
         file.WriteLine( "$output v_color0, v_normal, v_texcoord0" );
         file.Append( "\n" );
@@ -574,7 +575,7 @@ void BasicShaderMasterNode::ExportShitty( Path& inPath, const std::string& inSha
     }
 
     {
-        ShaderWriter file( Path( inPath.FullPath + ".frag" ) );
+        ShaderWriter file( Path( localPrefix + ".frag" ) );
 
         file.WriteLine( "$input v_color0, v_normal, v_texcoord0" );
         file.Append( "\n" );
