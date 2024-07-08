@@ -7,6 +7,7 @@
 #include <Windows.h>
 #endif
 
+// why is this a class?
 class StringUtils
 {
 public:
@@ -27,4 +28,13 @@ public:
         return std::wstring( buffer.get() );
     }
 #endif // #if USING( ME_PLATFORM_WINDOWS )
+
+    static std::string TrimLeadingSpaces( const std::string& str )
+    {
+        std::string result = str;
+        result.erase( result.begin(), std::find_if( result.begin(), result.end(), []( unsigned char ch ) {
+            return !std::isspace( ch );
+            } ) );
+        return result;
+    }
 };

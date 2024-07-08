@@ -60,7 +60,8 @@ void AudioCore::InitComponent( AudioSource& audioSource )
     if( !audioSource.IsInitialized && !audioSource.FilePath.GetLocalPath().empty() )
     {
 #if USING( ME_FMOD )
-        SharedPtr<Sound> soundResource = ResourceCache::GetInstance().Get<Sound>( audioSource.FilePath, system );
+        // Fix instant loading vs threaded
+        SharedPtr<Sound> soundResource = ResourceCache::GetInstance().Get<Sound>( audioSource.FilePath, system, false );
         if( !soundResource )
         {
             YIKES_FMT( "Failed to load sound: %s", audioSource.FilePath.GetLocalPathString().c_str() );
