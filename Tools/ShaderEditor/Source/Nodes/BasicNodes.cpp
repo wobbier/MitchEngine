@@ -433,6 +433,10 @@ void AddNode::OnExport( ShaderWriter& inFile )
     {
         conversionType1 = ToMyType( Outputs[0].Type, inFile.LastType );
     }
+    else
+    {
+        inFile.Errors.push_back( "Can't export an unlinked (Add) node atm..." );
+    }
     addNameA = inFile.LastVariable;
     // Make this a helper
     if( ExportLinkedPin( 1, inFile ) )
@@ -441,12 +445,11 @@ void AddNode::OnExport( ShaderWriter& inFile )
     }
     else
     {
-        // this is an issue for sure...
-        inFile.WriteVector( Vector3() );
+        inFile.Errors.push_back( "Can't export an unlinked (Add) node atm..." );
     }
     outputType = PinToString( Outputs[0].Type );
     addNameB = inFile.LastVariable;
-
+    inFile.Warnings.push_back( "not big oopsie" );
     std::string var = "add_" + std::to_string( inFile.ID++ );
     inFile.WriteLine( outputType + " " + var + " = " + addNameA + conversionType1 + " + " + addNameB + conversionType2 + ";" );
     inFile.LastVariable = var;
@@ -497,7 +500,8 @@ bool SampleTextureNode::OnRender()
 
     if( value )
     {
-        ImGui::Image( value->TexHandle, { 50, 50 } );
+        ImVec2 size = ImGui::GetContentRegionAvail();
+        ImGui::Image( value->TexHandle, { size.x, size.x } );
     }
 
     return true;
@@ -596,7 +600,7 @@ void BasicShaderMasterNode::ExportPin( int inPinNum, PinType inPinType )
     //return false;
 }
 
-void BasicShaderMasterNode::ExportShitty( Path& inPath, const std::string& inShaderName )
+std::vector<ShaderWriter> BasicShaderMasterNode::ExportShitty( Path& inPath, const std::string& inShaderName )
 {
     File outFile( inPath );
     std::string localPrefix = inPath.FullPath.substr( 0, inPath.FullPath.rfind( ".shader" ) );
@@ -606,7 +610,7 @@ void BasicShaderMasterNode::ExportShitty( Path& inPath, const std::string& inSha
     }
     json outJson = json::parse( outFile.Read() );
     json& textures = outJson["Textures"];
-
+    std::vector<ShaderWriter> exportedFiles;
 
     {
         ShaderWriter file( Path( localPrefix + ".var" ) );
@@ -621,6 +625,7 @@ void BasicShaderMasterNode::ExportShitty( Path& inPath, const std::string& inSha
         file.WriteLine( "vec3 a_bitangent : BITANGENT;" );
 
         file.WriteToDisk();
+        exportedFiles.push_back( file );
     }
 
     {
@@ -649,6 +654,7 @@ void BasicShaderMasterNode::ExportShitty( Path& inPath, const std::string& inSha
         file.WriteLine( "}" );
 
         file.WriteToDisk();
+        exportedFiles.push_back( file );
     }
 
     {
@@ -707,8 +713,10 @@ void BasicShaderMasterNode::ExportShitty( Path& inPath, const std::string& inSha
         {
             textures["Path"] = texture.FullPath;
         }
+        exportedFiles.push_back( file );
     }
     outFile.Write( outJson.dump( 1 ) );
+    return exportedFiles;
 }
 
 void BasicShaderMasterNode::OnExport( ShaderWriter& inFile )

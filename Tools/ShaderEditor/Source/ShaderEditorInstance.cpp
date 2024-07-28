@@ -7,6 +7,7 @@
 #include "Nodes\BasicNodes.h"
 #include "UI\Colors.h"
 #include "Nodes\CoreNodes.h"
+#include "Core\ShaderWriter.h"
 
 ShaderEditorInstance::ShaderEditorInstance()
 {
@@ -336,32 +337,61 @@ void ShaderEditorInstance::ShowLeftPane( float paneWidth )
     ImGui::Unindent();
 
     static int changeCount = 0;
+    static bool vis = true;
+    {
+        ImGui::GetWindowDrawList()->AddRectFilled(
+            ImGui::GetCursorScreenPos(),
+            ImGui::GetCursorScreenPos() + ImVec2( paneWidth, ImGui::GetTextLineHeight() ),
+            ImColor( ImGui::GetStyle().Colors[ImGuiCol_HeaderActive] ), ImGui::GetTextLineHeight() * 0.25f );
+        ImGui::Spacing(); ImGui::SameLine();
+        ImGui::TextUnformatted( "Selection" );
 
-    ImGui::GetWindowDrawList()->AddRectFilled(
-        ImGui::GetCursorScreenPos(),
-        ImGui::GetCursorScreenPos() + ImVec2( paneWidth, ImGui::GetTextLineHeight() ),
-        ImColor( ImGui::GetStyle().Colors[ImGuiCol_HeaderActive] ), ImGui::GetTextLineHeight() * 0.25f );
-    ImGui::Spacing(); ImGui::SameLine();
-    ImGui::TextUnformatted( "Selection" );
+        ImGui::BeginHorizontal( "Selection Stats", ImVec2( paneWidth, 0 ) );
+        ImGui::Text( "Changed %d time%s", changeCount, changeCount > 1 ? "s" : "" );
+        ImGui::Spring();
+        if( ImGui::Button( "Deselect All" ) )
+            ed::ClearSelection();
+        ImGui::EndHorizontal();
+        ImGui::Indent();
+        for( int i = 0; i < nodeCount; ++i ) ImGui::Text( "Node (%p)", selectedNodes[i].AsPointer() );
+        for( int i = 0; i < linkCount; ++i ) ImGui::Text( "Link (%p)", selectedLinks[i].AsPointer() );
+        ImGui::Unindent();
 
-    ImGui::BeginHorizontal( "Selection Stats", ImVec2( paneWidth, 0 ) );
-    ImGui::Text( "Changed %d time%s", changeCount, changeCount > 1 ? "s" : "" );
-    ImGui::Spring();
-    if( ImGui::Button( "Deselect All" ) )
-        ed::ClearSelection();
-    ImGui::EndHorizontal();
-    ImGui::Indent();
-    for( int i = 0; i < nodeCount; ++i ) ImGui::Text( "Node (%p)", selectedNodes[i].AsPointer() );
-    for( int i = 0; i < linkCount; ++i ) ImGui::Text( "Link (%p)", selectedLinks[i].AsPointer() );
-    ImGui::Unindent();
+        if( ImGui::IsKeyPressed( ImGui::GetKeyIndex( ImGuiKey_Z ) ) )
+            for( auto& link : m_Links )
+                ed::Flow( link.ID );
 
-    if( ImGui::IsKeyPressed( ImGui::GetKeyIndex( ImGuiKey_Z ) ) )
-        for( auto& link : m_Links )
-            ed::Flow( link.ID );
+        if( ed::HasSelectionChanged() )
+            ++changeCount;
+    }
 
-    if( ed::HasSelectionChanged() )
-        ++changeCount;
-
+    if( !Errors.empty() )
+    {
+        ImGui::PushStyleColor( ImGuiCol_Header, { 255, 0,0,1 } );
+        if( ImGui::CollapsingHeader( "Errors" , &m_errorsVisible, ImGuiTreeNodeFlags_DefaultOpen ) )
+        {
+            for( auto e : Errors )
+            {
+                ImGui::Text( e.c_str() );
+            }
+        }
+        ImGui::PopStyleColor( 1 );
+    }
+    if( !Warnings.empty() )
+    {
+        ImGui::PushStyleColor( ImGuiCol_Header, { 100, 100,0,1 } );
+        ImGui::PushStyleColor( ImGuiCol_Text, { 0, 0,0,1 } );
+        if( ImGui::CollapsingHeader( "Warnings" , &m_warningsVisible, ImGuiTreeNodeFlags_DefaultOpen ) )
+        {
+            ImGui::PopStyleColor( 1 );
+            for( auto w : Warnings )
+            {
+                ImGui::Text( w.c_str() );
+            }
+            ImGui::PushStyleColor( ImGuiCol_Text, { 0, 0,0,1 } );
+        }
+        ImGui::PopStyleColor( 2 );
+    }
     ImGui::EndChild();
 }
 
@@ -474,7 +504,7 @@ void ShaderEditorInstance::HandleAddNodeConxtualMenu()
         }
 
         ImGui::Separator();
- 
+
         if( ImGui::MenuItem( "Bool" ) )
         {
             node = SpawnNodeFromString( m_NextId, std::string( "Bool" ) );
@@ -555,7 +585,14 @@ void ShaderEditorInstance::HandleAddNodeConxtualMenu()
 
 void ShaderEditorInstance::ExportShader( Path& inPath )
 {
-    m_masterNode->ExportShitty( inPath, m_shaderFileName );
+    Warnings.clear();
+    Errors.clear();
+    auto exports = m_masterNode->ExportShitty( inPath, m_shaderFileName );
+    for( auto e : exports )
+    {
+        Warnings.insert( Warnings.end(), e.Warnings.begin(), e.Warnings.end() );
+        Errors.insert( Errors.end(), e.Errors.begin(), e.Errors.end() );
+    }
 }
 
 void ShaderEditorInstance::SaveGraph( Path& inPath )
@@ -610,7 +647,7 @@ Node* ShaderEditorInstance::SpawnNodeFromString( int& inNodeId, std::string& inI
         m_masterNode = new BasicShaderMasterNode( inNodeId );
         return m_masterNode;
     }
-    
+
     if( inId == "Absolute" )
     {
         return new AbsoluteNode( inNodeId );
@@ -802,8 +839,9 @@ void ShaderEditorInstance::DrawBlueprint()
     //auto& style = ImGui::GetStyle();
 
     Splitter( true, 4.0f, &leftPaneWidth, &rightPaneWidth, 50.0f, 50.0f );
-
+    ImGui::PushID( m_shaderFileName.c_str() );
     ShowLeftPane( leftPaneWidth - 4.0f );
+    ImGui::PopID();
 
     ImGui::SameLine( 0.0f, 12.0f );
 
@@ -967,7 +1005,7 @@ void ShaderEditorInstance::HandleLinks()
                         {
                             endPin->LinkedInput = nullptr;
                         }
-                        
+
                         endPin->Node->TryReset();
 
                         m_Links.erase( id );

@@ -143,7 +143,7 @@ public:
     BasicShaderMasterNode( int& inId );
 
     virtual bool OnEvaluate() final;
-    void ExportShitty( Path& inPath, const std::string& inShaderName );
+    std::vector<ShaderWriter> ExportShitty( Path& inPath, const std::string& inShaderName );
     virtual void OnExport( ShaderWriter& inFile ) final;
 
     void ExportPin( int inPinNum, PinType inPinType );

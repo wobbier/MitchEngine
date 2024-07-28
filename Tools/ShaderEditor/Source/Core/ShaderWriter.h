@@ -18,7 +18,7 @@ public:
     void Reset();
     void WriteLine( const std::string& inLine );
     void Append( const std::string& inText );
-    void WriteToDisk();
+    bool WriteToDisk();
 
     void WriteVector( Vector3 inValue );
     void WriteFloat( float inValue );
@@ -33,6 +33,8 @@ public:
     std::string LastVariable;
     int ID = 0;
     PinType LastType;
+    std::vector<std::string> Warnings;
+    std::vector<std::string> Errors;
 
 private:
     File m_shaderFile;

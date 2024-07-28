@@ -10,6 +10,8 @@ ShaderWriter::ShaderWriter( const Path& inShaderName )
 void ShaderWriter::Reset()
 {
     m_shaderFile.Reset();
+    Warnings.clear();
+    Errors.clear();
 }
 
 void ShaderWriter::WriteLine( const std::string& inLine )
@@ -27,9 +29,14 @@ void ShaderWriter::Append( const std::string& inText )
     m_shaderFile.Append( inText );
 }
 
-void ShaderWriter::WriteToDisk()
+bool ShaderWriter::WriteToDisk()
 {
+    if( !Errors.empty() )
+    {
+        return false;
+    }
     m_shaderFile.Write();
+    return true;
 }
 
 void ShaderWriter::WriteVector( Vector3 inValue )

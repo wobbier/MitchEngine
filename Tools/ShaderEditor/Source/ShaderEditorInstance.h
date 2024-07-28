@@ -76,6 +76,10 @@ private:
     void DrawComments();
     void DrawBasicNodes();
 
+    std::vector<std::string> Warnings;
+    std::vector<std::string> Errors;
+    bool m_errorsVisible = true;
+    bool m_warningsVisible = true;
 
     ed::Config config;
     struct LinkInfo
