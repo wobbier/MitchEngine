@@ -12,6 +12,7 @@ class Sound
 {
 public:
     Sound( const Path& path, void* fmodSystem = nullptr, bool isImmediate = true );
+    ~Sound();
 
     bool IsReady() const;
 

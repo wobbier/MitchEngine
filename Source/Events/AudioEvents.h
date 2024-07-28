@@ -21,3 +21,15 @@ public:
 
     std::function<void( SharedPtr<AudioSource> sound )> Callback;
 };
+
+class StopAudioEvent
+    : public Event<StopAudioEvent>
+{
+public:
+    StopAudioEvent() = default;
+    StopAudioEvent( const std::string& InSource )
+        : SourceName( InSource )
+    {
+    }
+    std::string SourceName;
+};

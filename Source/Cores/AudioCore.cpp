@@ -31,7 +31,8 @@ AudioCore::AudioCore()
 #endif
 
     std::vector<TypeId> events = {
-        PlayAudioEvent::GetEventId()
+        PlayAudioEvent::GetEventId(),
+        StopAudioEvent::GetEventId()
     };
     EventManager::GetInstance().RegisterReceiver( this, events );
 }
@@ -111,6 +112,19 @@ bool AudioCore::OnEvent( const BaseEvent& InEvent )
         }
 
         return true;
+    }
+
+    if( InEvent.GetEventId() == StopAudioEvent::GetEventId() )
+    {
+        const StopAudioEvent& evt = static_cast<const StopAudioEvent&>( InEvent );
+        Path soundPath = Path( evt.SourceName );
+        auto sound = soundPath.GetLocalPath();
+        if( m_cachedSounds.find( sound.data() ) != m_cachedSounds.end() )
+        {
+            std::remove( sound.data() );
+            //auto& source = m_cachedSounds[sound.data()] = MakeShared<AudioSource>( sound.data() );
+            //InitComponent( *source );
+        }
     }
 
     return false;

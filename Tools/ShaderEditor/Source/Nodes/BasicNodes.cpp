@@ -333,37 +333,122 @@ bool AddNode::OnRender()
     return true;
 }
 
+std::string ToMyType( PinType myType, PinType theirType )
+{
+    if( myType == theirType )
+    {
+        return "";
+    }
+
+    switch( myType )
+    {
+    case PinType::Flow:
+        break;
+    case PinType::Bool:
+        break;
+    case PinType::Int:
+        break;
+    case PinType::Float:
+        break;
+    case PinType::String:
+        break;
+    case PinType::Object:
+        break;
+    case PinType::Function:
+        break;
+    case PinType::Delegate:
+        break;
+    case PinType::Texture:
+        break;
+    case PinType::Vector2:
+        break;
+    case PinType::Vector3Type:
+    {
+        switch( theirType )
+        {
+        case PinType::Vector4:
+            return ".xyz";
+        default:
+            break;
+        }
+    }
+    break;
+    case PinType::Vector4:
+        break;
+    case PinType::Numeric:
+        break;
+    default:
+        break;
+    }
+    return "";
+}
+
+std::string PinToString( PinType inType )
+{
+    switch( inType )
+    {
+    case PinType::Flow:
+        break;
+    case PinType::Bool:
+        break;
+    case PinType::Int:
+        break;
+    case PinType::Float:
+        break;
+    case PinType::String:
+        break;
+    case PinType::Object:
+        break;
+    case PinType::Function:
+        break;
+    case PinType::Delegate:
+        break;
+    case PinType::Texture:
+        break;
+    case PinType::Vector2:
+        return "vec2";
+    case PinType::Vector3Type:
+        return "vec3";
+    case PinType::Vector4:
+        return "vec4";
+    case PinType::Numeric:
+        break;
+    default:
+        break;
+    }
+    return "";
+}
+
+
 void AddNode::OnExport( ShaderWriter& inFile )
 {
     std::string addNameA;
     std::string addNameB;
     std::string outputType;
-    
+    std::string conversionType1;
+    std::string conversionType2;
+
     // Make this a helper
     if( ExportLinkedPin( 0, inFile ) )
     {
-        if( inFile.LastType == PinType::Vector3Type )
-        {
-            //inFile.WriteVector( std::get<Vector3>( valueA ) );
-            outputType = "vec3";
-        }
-
-        if( inFile.LastType == PinType::Float )
-        {
-            //inFile.WriteFloat( std::get<float>( valueA ) );
-            outputType = "float";
-        }
+        conversionType1 = ToMyType( Outputs[0].Type, inFile.LastType );
     }
     addNameA = inFile.LastVariable;
     // Make this a helper
-    if( !ExportLinkedPin( 1, inFile ) )
+    if( ExportLinkedPin( 1, inFile ) )
     {
+        conversionType2 = ToMyType( Outputs[0].Type, inFile.LastType );
+    }
+    else
+    {
+        // this is an issue for sure...
         inFile.WriteVector( Vector3() );
     }
+    outputType = PinToString( Outputs[0].Type );
     addNameB = inFile.LastVariable;
-    
+
     std::string var = "add_" + std::to_string( inFile.ID++ );
-    inFile.WriteLine( outputType + " " + var + " = " + addNameA + " + " + addNameB + ";" );
+    inFile.WriteLine( outputType + " " + var + " = " + addNameA + conversionType1 + " + " + addNameB + conversionType2 + ";" );
     inFile.LastVariable = var;
 }
 
@@ -375,9 +460,10 @@ SampleTextureNode::SampleTextureNode( int& inId )
     Inputs.back().Data = 0.f;
     Inputs.emplace_back( inId++, "UV(2)", PinType::Vector2 );
     Inputs.back().Data = Vector2();
+    // this isn't actually a vec3...
     Outputs.emplace_back( inId++, "Value(3)", PinType::Vector3Type );
     Outputs.back().Data = Vector3();
-    Outputs.emplace_back( inId++, "Value(3)", PinType::Float );
+    Outputs.emplace_back( inId++, "Alpha(1)", PinType::Float );
     Outputs.back().Data = 0.f;
 
     BuildNode();
@@ -428,20 +514,11 @@ void SampleTextureNode::OnExport( ShaderWriter& inFile )
     }
     uvName = inFile.LastVariable;
 
-    // useless?
-    if( ExportLinkedPin( 1, inFile ) )
+    if( filePath.Exists )
     {
-        std::string var = "sample_" + std::to_string( inFile.ID++ );
+        inFile.LastVariable = "sample_" + std::to_string( inFile.ID++ );
         //" + var + "
-        inFile.WriteLine( "vec4 color = " + inFile.LastVariable + ";" );
-        inFile.LastVariable = "color";
-    }
-    else if( filePath.Exists )
-    {
-        std::string var = "sample_" + std::to_string( inFile.ID++ );
-        //" + var + "
-        inFile.WriteLine( "vec4 color = texture2D( s_texDiffuse0, " + uvName + " );" );
-        inFile.LastVariable = "color";
+        inFile.WriteLine( "vec4 " + inFile.LastVariable + " = texture2D( s_texDiffuse0, " + uvName + " );" );
     }
     else
     {
@@ -525,7 +602,7 @@ void BasicShaderMasterNode::ExportShitty( Path& inPath, const std::string& inSha
     std::string localPrefix = inPath.FullPath.substr( 0, inPath.FullPath.rfind( ".shader" ) );
     if( !outFile.FilePath.Exists )
     {
-        outFile.Write("{}");
+        outFile.Write( "{}" );
     }
     json outJson = json::parse( outFile.Read() );
     json& textures = outJson["Textures"];
