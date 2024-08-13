@@ -512,7 +512,7 @@ void AssetBrowserWidget::DrawAssetTable()
             FilteredAssetList.clear();
             for( auto& it : MasterAssetsList )
             {
-                bool passedStringFilter = filter.PassFilter( it.Name.c_str() );
+                bool passedStringFilter = filter.PassFilter( it.FullPath.GetLocalPathString().c_str() );
                 if( passedStringFilter && hasNoTypeFilter )
                 {
                     FilteredAssetList.push_back( &it );

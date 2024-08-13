@@ -47,6 +47,15 @@ Path::Path( const std::string& InFile, bool Raw /*= false*/ )
     LocalPath = InFile;
 
     std::replace( LocalPath.begin(), LocalPath.end(), '\\', '/' );
+
+    auto remove_duplicate_slashes = []( std::string& str ) {
+        std::string::size_type pos = 0;
+        while( ( pos = str.find( "//", pos ) ) != std::string::npos ) {
+            str.replace( pos, 2, "/" );
+        }
+        };
+    remove_duplicate_slashes( LocalPath );
+
 #if USING( ME_PLATFORM_MACOS )
     size_t path = LocalPath[0] == '/' ? 0 : std::string::npos;
 #else
