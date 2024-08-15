@@ -121,7 +121,7 @@ bool AudioCore::OnEvent( const BaseEvent& InEvent )
         auto sound = soundPath.GetLocalPath();
         if( m_cachedSounds.find( sound.data() ) != m_cachedSounds.end() )
         {
-            std::remove( sound.data() );
+            m_cachedSounds.erase( sound.data() );
             //auto& source = m_cachedSounds[sound.data()] = MakeShared<AudioSource>( sound.data() );
             //InitComponent( *source );
         }

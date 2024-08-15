@@ -14,7 +14,7 @@
 
 Path::Path( const std::string& InFile, bool Raw /*= false*/ )
 {
-    OPTICK_CATEGORY( "Path", Optick::Category::IO);
+    OPTICK_CATEGORY( "Path", Optick::Category::IO );
     std::string LocalPath;
 #if USING( ME_PLATFORM_UWP )
     size_t pos;
@@ -92,6 +92,15 @@ Path::Path( const std::string& InFile, bool Raw /*= false*/ )
                 assetPrefix = assetPrefix.append( "Engine/" );
                 LocalPath = "Engine/" + LocalPath;
                 Exists = true;
+            }
+            else
+            {
+                auto pos = FullPath.rfind( "Engine/Assets" );
+                if( pos != std::string::npos )
+                {
+                    // Gross
+                    FullPath.replace( pos, 13, "Assets" );
+                }
             }
         }
     }

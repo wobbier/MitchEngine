@@ -426,7 +426,6 @@ public class BaseGameSolution : Solution
             {
                 conf.AddProject<EntryPointGameProjectUWP>(target);
             }
-            else
             {
                 conf.AddProject<EntryPointGameProject>(target);
             }

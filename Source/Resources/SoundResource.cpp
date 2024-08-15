@@ -24,11 +24,13 @@ Sound::Sound( const Path& path, void* fmodSystem, bool isImmediate )
 
 Sound::~Sound()
 {
+#if USING( ME_FMOD )
     if( Handle )
     {
         Handle->release();
         Handle = nullptr;
     }
+#endif
 }
 
 bool Sound::IsReady() const
