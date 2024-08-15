@@ -106,6 +106,13 @@ public abstract class BaseProject : Project
         conf.Options.Add(Options.Vc.General.CharacterSet.Unicode);
         conf.Options.Add(Options.Vc.Compiler.Exceptions.Enable);
 
+        // Hot-Reloading
+        {
+            conf.Options.Add(Options.Vc.General.DebugInformation.ProgramDatabaseEnC);
+            conf.Options.Add(Options.Vc.Compiler.FunctionLevelLinking.Enable);
+            conf.Options.Add(Options.Vc.Linker.Incremental.Enable);
+        }
+
         conf.Defines.Add("DEFINE_ME_PLATFORM_WIN64");
 
         conf.Options.Add(
@@ -207,7 +214,8 @@ public abstract class BaseProject : Project
 
         if (conf.Platform == Platform.win64 )
         {
-            conf.AdditionalCompilerOptions.Add("/Zi");
+            // Should be covered by Options.Vc.General.DebugInformation.ProgramDatabase
+            //conf.AdditionalCompilerOptions.Add("/Zi");
         }
         else if (conf.Platform == Platform.mac)
         {
@@ -230,6 +238,14 @@ public abstract class BaseProject : Project
 
         conf.Options.Add(Options.Vc.Compiler.Exceptions.EnableWithSEH);
         conf.Options.Add(Options.Vc.Compiler.EnhancedInstructionSet.AdvancedVectorExtensions2);
+
+        // Undo Hot-Reloading
+        {
+            conf.Options.Add(Options.Vc.General.DebugInformation.Disable);
+            conf.Options.Add(Options.Vc.Compiler.FunctionLevelLinking.Disable);
+            conf.Options.Add(Options.Vc.Linker.Incremental.Disable);
+        }
+
         conf.Defines.Add("DEFINE_ME_RETAIL");
     }
 
