@@ -68,6 +68,22 @@ public class EntryPointGameProject : BaseProject
 
         conf.AddPublicDependency<SharpGameProject>(target);
     }
+
+    public override void ConfigureWin64(Configuration conf, CommonTarget target)
+    {
+        base.ConfigureWin64(conf, target);
+
+        // Copy custom game dlls until I figure this out
+        {
+            var copyDirBuildStep = new Configuration.BuildStepCopy(
+                Path.Combine(Globals.RootDir, $@"ThirdParty/Bin/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}/"),
+                Globals.RootDir + "/.build/[target.Name]");
+
+            copyDirBuildStep.IsFileCopy = false;
+            copyDirBuildStep.CopyPattern = "*.dll";
+            conf.EventPostBuildExe.Add(copyDirBuildStep);
+        }
+    }
 }
 [Generate]
 public class EntryPointGameProjectUWP : EntryPointGameProject
