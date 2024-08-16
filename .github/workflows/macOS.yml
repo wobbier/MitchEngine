@@ -15,14 +15,14 @@ jobs:
         platform:
           - macOS
         xcode:
-          - ^11
+          - ^15
         configuration:
           - Debug
           - Release
         type:
           - Editor
           - Game_macOS
-    runs-on: macos-11
+    runs-on: macos-13
 
     steps:
       - uses: suisei-cn/actions-download-file@818d6b7dc8fe73f2f924b6241f2b1134ca1377d9 # 1.6.0

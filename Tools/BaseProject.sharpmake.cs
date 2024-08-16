@@ -178,6 +178,7 @@ public abstract class BaseProject : Project
         conf.Options.Add(new Options.XCode.Compiler.SystemFrameworks("CoreVideo"));
         //conf.Options.Add(new Options.XCode.Compiler.SystemFrameworks("Foundation"));
         conf.Options.Add(new Options.XCode.Compiler.SystemFrameworks("Quartz"));
+        conf.Options.Add(new Options.XCode.Compiler.OnlyActiveArch());
 
         conf.Defines.Add("DEFINE_ME_PLATFORM_MACOS");
 
