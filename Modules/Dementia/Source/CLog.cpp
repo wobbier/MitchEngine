@@ -31,10 +31,7 @@ bool CLog::LogMessage( CLog::LogType priority, std::string message )
     if( priority < mPriority )
         return false;
 
-
-#if USING( ME_PLATFORM_WIN64 )
     mLogFile.open( mLogFileLocation, std::ios_base::app );
-
     int color = 15;
     std::string type;
     switch( priority )
@@ -62,6 +59,7 @@ bool CLog::LogMessage( CLog::LogType priority, std::string message )
         break;
     }
 
+#if USING( ME_PLATFORM_WIN64 )
     HANDLE hConsole = GetStdHandle( STD_OUTPUT_HANDLE );
     SetConsoleTextAttribute( hConsole, static_cast<WORD>( color ) );
 
@@ -69,9 +67,12 @@ bool CLog::LogMessage( CLog::LogType priority, std::string message )
     std::cout << type << message.c_str() << std::endl;
 
     SetConsoleTextAttribute( hConsole, 15 );
-    mLogFile.close();
+#else
+    mLogFile << type << message.c_str() << std::endl;
+    std::cout << type << message.c_str() << std::endl;
 #endif
-
+    
+    mLogFile.close();
 #if USING( ME_EDITOR )
     Messages.emplace_back( LogEntry { priority, std::move( message ) } );
 #endif

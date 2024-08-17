@@ -21,6 +21,7 @@
 #include "Utils/PlatformUtils.h"
 #include "UI/Colors.h"
 #include "Mathf.h"
+#include <sys/stat.h>
 
 #if USING( ME_EDITOR )
 
@@ -1094,7 +1095,7 @@ bool AssetBrowserWidget::ProccessDirectoryRecursive( std::string& dir, Directory
                 //}
                 desc.ID = static_cast<int>( MasterAssetsList.size() );
 
-#if USING( ME_PLATFORM_WIN64 )
+//#if USING( ME_PLATFORM_WIN64 )
                 struct stat fileInfo;
                 if( stat( desc.FullPath.FullPath.c_str(), &fileInfo ) != 0 )
                 {
@@ -1148,7 +1149,7 @@ bool AssetBrowserWidget::ProccessDirectoryRecursive( std::string& dir, Directory
                         desc.LastModifiedHuman = desc.LastModifiedHuman.replace( place + 3, 1, "" );
                     }
                 }
-#endif
+//#endif
                 MasterAssetsList.push_back( desc );
                 return true;
             }

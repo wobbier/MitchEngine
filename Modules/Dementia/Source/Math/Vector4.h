@@ -84,7 +84,7 @@ struct Vector4
 
     bool operator!= ( const Vector4& v )
     {
-        return x != v.x || y != v.y || z != v.z && w != v.w;
+        return x != v.x || y != v.y || z != v.z || w != v.w;
     }
 
     Vector4& operator*= ( float s )

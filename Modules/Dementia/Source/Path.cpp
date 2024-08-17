@@ -37,7 +37,7 @@ Path::Path( const std::string& InFile, bool Raw /*= false*/ )
 #elif USING( ME_PLATFORM_MACOS )
 #if USING( ME_EDITOR )
     // #TODO: WTF
-    assetPrefix = "/../../";
+    assetPrefix = "/";
 #else
     assetPrefix = "/";
 #endif

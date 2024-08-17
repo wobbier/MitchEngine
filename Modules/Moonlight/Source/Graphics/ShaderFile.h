@@ -119,12 +119,12 @@ struct ShaderFileMetadata
         std::string localFolder = FilePath.GetLocalPathString().substr( 0, FilePath.GetLocalPathString().rfind( "/" ) + 1 );
 
         std::string nameNoExt = fileName.substr( 0, fileName.rfind( "." ) );
-        std::string progArgs = "\"" + shadercPath.FullPath + "\" -f ../../";
+        std::string progArgs = "\"" + shadercPath.FullPath + "\" -f "+shadercPath.GetDirectoryString()+"/../../../";
         progArgs += localFolder + fileName;
-        progArgs += " -o ../../" + localFolder + fileName + "." + GetExtension2() + " --varyingdef ../../" + localFolder + nameNoExt + ".var --platform osx -p metal --depends -disasm --type " + exportType;
+        progArgs += " -o "+shadercPath.GetDirectoryString()+"/../../../" + localFolder + fileName + "." + GetExtension2() + " --varyingdef "+shadercPath.GetDirectoryString()+"/../../../" + localFolder + nameNoExt + ".var --platform osx -p metal --depends -disasm --type " + exportType;
 
 
-
+        //"\"/Users/mitchellandrews/Projects/stack-new/Engine/Tools/macOS/shaderc\" -f ../../Engine/Assets/Shaders/UI.vert -o ../../Engine/Assets/Shaders/UI.vert.metal.bin --varyingdef ../../Engine/Assets/Shaders/UI.var --platform osx -p metal --depends -disasm --type vertex"
         // texturec -f $in -o $out -t bc2 -m
         system( progArgs.c_str() );
 #endif

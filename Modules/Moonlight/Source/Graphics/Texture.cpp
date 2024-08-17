@@ -298,9 +298,9 @@ void TextureResourceMetadata::Export()
     Path optickPath = Path( "Engine/Tools/macOS/texturec" );
 
     // texturec -f $in -o $out -t bc2 -m
-    std::string progArgs = "\"" + optickPath.FullPath + "\" -f ../../";
+    std::string progArgs = "\"" + optickPath.FullPath + "\" -f "+optickPath.GetDirectoryString()+"/../../../";
     progArgs += FilePath.GetLocalPathString();
-    progArgs += " -o \"../../" + FilePath.GetLocalPathString() + ".dds\"" + exportType;
+    progArgs += " -o \""+optickPath.GetDirectoryString()+"/../../../" + FilePath.GetLocalPathString() + ".dds\"" + exportType;
     system( progArgs.c_str() );
 
 #endif

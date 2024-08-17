@@ -1,11 +1,11 @@
 #include "MetaFile.h"
 #include "File.h"
 #include "Dementia.h"
+#include <sys/stat.h>
 
 MetaBase::MetaBase( const Path& filePath )
     : FilePath( filePath )
 {
-#if USING( ME_PLATFORM_WINDOWS )
     struct stat fileInfo;
 
     if( stat( filePath.FullPath.c_str(), &fileInfo ) != 0 ) {  // Use stat() to get the info
@@ -30,6 +30,7 @@ MetaBase::MetaBase( const Path& filePath )
     //	std::ctime(&fileInfo.st_mtime);         // Last mod time
 
     LastModified = static_cast<long>( fileInfo.st_mtime );
+#if USING( ME_PLATFORM_WINDOWS )
     char str[26];
     ctime_s( str, sizeof str, &fileInfo.st_mtime );
     LastModifiedDebug = std::string( str );// std::ctime(&fileInfo.st_mtime);

@@ -55,7 +55,7 @@ UICore::UICore( IWindow* window, BGFXRenderer* renderer )
 
 
     ultralight::Platform::instance().set_config( m_config );
-    ultralight::Platform::instance().set_file_system( new FileSystemBasic( Path( "/" ).FullPath.c_str() ) );
+    ultralight::Platform::instance().set_file_system( new FileSystemBasic( Path( "" ).FullPath.c_str() ) );
     ultralight::Platform::instance().set_logger( new FileLogger( "ultralight.log" ) );
 
 #if USING( ME_PLATFORM_WINDOWS )
