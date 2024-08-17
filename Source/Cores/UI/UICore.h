@@ -12,6 +12,7 @@
 #include <Ultralight/platform/FontLoader.h>
 #include <UI/FileLogger.h>
 #include <UI/FontLoaderWin.h>
+#include <UI/FontLoaderMac.h>
 #include <UI/UIWindow.h>
 #endif
 

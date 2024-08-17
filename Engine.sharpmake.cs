@@ -129,6 +129,7 @@ public class Engine : BaseProject
     {
         Name = "MitchEngine";
         NatvisFiles.Add("Engine.natvis");
+        SourceFilesExtensions.Add("mm");
     }
 
     public override void ConfigureAll(Project.Configuration conf, CommonTarget target)

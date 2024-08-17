@@ -372,11 +372,11 @@ void Havana::Render( Moonlight::CameraData& EditorCamera )
         }
 
         // #TODO: Remove this
-        Camera::CurrentCamera->OutputSize = GetGameOutputSize();
-        if( Camera::CurrentCamera->OutputSize != Vector2( (float)camData->Buffer->Width, (float)camData->Buffer->Height ) )
-        {
-            camData->Buffer->Resize( Camera::CurrentCamera->OutputSize );
-        }
+        //Camera::CurrentCamera->OutputSize = GetGameOutputSize();
+        //if( Camera::CurrentCamera->OutputSize != Vector2( (float)camData->Buffer->Width, (float)camData->Buffer->Height ) )
+        //{
+        //    camData->Buffer->Resize( Camera::CurrentCamera->OutputSize );
+        //}
     }
 
     // Asset Browser

@@ -61,6 +61,9 @@ UICore::UICore( IWindow* window, BGFXRenderer* renderer )
 #if USING( ME_PLATFORM_WINDOWS )
     ultralight::Platform::instance().set_font_loader( new FontLoaderWin() );
 #endif
+#if USING( ME_PLATFORM_MACOS )
+    ultralight::Platform::instance().set_font_loader( new FontLoaderMac() );
+#endif
 
     m_driver = new UIDriver();
     ultralight::Platform::instance().set_gpu_driver( m_driver );
