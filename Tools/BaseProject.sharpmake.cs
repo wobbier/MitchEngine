@@ -144,6 +144,8 @@ public abstract class BaseProject : Project
         conf.Defines.Add("DEFINE_ME_PLATFORM_UWP");
         conf.Defines.Add("USE_OPTICK=0");
 
+        conf.LibraryPaths.Add("C:\\Program Files (x86)\\Windows Kits\\10\\UnionMetadata");
+
         conf.Options.Add(
             new Options.Vc.Compiler.DisableSpecificWarnings(
                 "4201",
