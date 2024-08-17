@@ -146,7 +146,7 @@ void UICore::Update( const UpdateContext& inUpdateContext )
         {
             InitUIView( view );
         }
-        
+
         view.OnUpdate();
     }
 #if USING( ME_UI )
@@ -341,8 +341,8 @@ void UICore::OnResize( const Vector2& NewSize )
             bgfx::destroy( m_uiTexture );
         }
 
-        m_uiTexture = bgfx::createTexture2D( static_cast<uint16_t>( NewSize.x )
-            , static_cast<uint16_t>( Mathf::Abs( NewSize.y ) )
+        m_uiTexture = bgfx::createTexture2D( static_cast<uint16_t>( Mathf::Max( NewSize.x, 1.f ) )
+            , static_cast<uint16_t>( Mathf::Abs( Mathf::Max( NewSize.y, 1.f ) ) )
             , false
             , 1
             , bgfx::TextureFormat::BGRA8

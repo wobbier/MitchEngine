@@ -60,6 +60,7 @@ protected:
     void PlaySound( const ultralight::JSObject& thisObject, const ultralight::JSArgs& args );
     void LoadScene( const ultralight::JSObject& thisObject, const ultralight::JSArgs& args );
     void Quit( const ultralight::JSObject& thisObject, const ultralight::JSArgs& args );
+    ultralight::JSValue AreToolsEnabled( const ultralight::JSObject& thisObject, const ultralight::JSArgs& args );
 #endif
 
 private:

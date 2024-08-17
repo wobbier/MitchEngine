@@ -65,4 +65,14 @@ namespace Mathf
         const float bestRatio = std::min( inSizeConstraints.x / inSize.x, inSizeConstraints.y / inSize.y );
         return { inSize.x * bestRatio, inSize.y * bestRatio };
     }
+
+    inline float Min( float x, float y )
+    {
+        return std::min( x, y );
+    }
+
+    inline float Max( float x, float y )
+    {
+        return std::max( x, y );
+    }
 }

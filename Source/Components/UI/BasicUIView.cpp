@@ -62,6 +62,7 @@ void BasicUIView::OnDOMReady( ultralight::View* caller,
     GlobalWindow["PlaySound"] = BindJSCallback( &BasicUIView::PlaySound );
     GlobalWindow["LoadScene"] = BindJSCallback( &BasicUIView::LoadScene );
     GlobalWindow["Quit"] = BindJSCallback( &BasicUIView::Quit );
+    GlobalWindow["AreToolsEnabled"] = BindJSCallbackWithRetval( &BasicUIView::AreToolsEnabled );
 
     OnUILoad( GlobalWindow, caller );
 }
@@ -102,6 +103,7 @@ void BasicUIView::PlaySound( const ultralight::JSObject& thisObject, const ultra
     evt.Fire();
 }
 
+
 void BasicUIView::LoadScene( const ultralight::JSObject& thisObject, const ultralight::JSArgs& args )
 {
     SharedPtr<LoadSceneEvent> evt = MakeShared<LoadSceneEvent>();
@@ -116,6 +118,16 @@ void BasicUIView::Quit( const ultralight::JSObject& thisObject, const ultralight
 {
     GetEngine().Quit();
 }
+
+ultralight::JSValue BasicUIView::AreToolsEnabled( const ultralight::JSObject& thisObject, const ultralight::JSArgs& args )
+{
+#if USING( ME_TOOLS )
+    return ultralight::JSValue( true );
+#else
+    return ultralight::JSValue( false );
+#endif
+}
+
 #endif
 
 #if USING( ME_EDITOR )

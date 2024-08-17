@@ -34,6 +34,8 @@ namespace {
             return "Level";
         case AssetType::Shader:
             return "Shader";
+        case AssetType::ShaderGraph:
+            return "ShaderGraph";
         case AssetType::Prefab:
             return "Prefab";
         case AssetType::UI:
