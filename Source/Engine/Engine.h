@@ -16,6 +16,10 @@
 #include <Work/Worker.h>
 #include "Core/ISystem.h"
 
+#if USING( ME_GAME_TOOLS )
+#include "Tools/DebugTools.h"
+#endif
+
 class Game;
 class IWindow;
 class BGFXRenderer;
@@ -99,6 +103,9 @@ private:
     Input m_editorInput;
 public:
     Input& GetEditorInput();
+#endif
+#if USING( ME_GAME_TOOLS )
+    DebugTools m_debugTools;
 #endif
 };
 

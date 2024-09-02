@@ -203,6 +203,7 @@ public abstract class BaseProject : Project
         conf.Options.Add(Sharpmake.Options.Vc.Compiler.RuntimeLibrary.MultiThreadedDebugDLL);
         conf.Options.Add(Options.Vc.Compiler.Inline.Disable);
         conf.Defines.Add("DEFINE_ME_DEBUG");
+        conf.Defines.Add("DEFINE_ME_TOOLS");
     }
 
     [ConfigurePriority(ConfigurePriorities.Optimization)]
@@ -214,6 +215,7 @@ public abstract class BaseProject : Project
         conf.Options.Add(Options.Vc.General.DebugInformation.ProgramDatabase);
         conf.Options.Add(Options.Vc.Compiler.Inline.OnlyInline);
         conf.Defines.Add("DEFINE_ME_RELEASE");
+        conf.Defines.Add("DEFINE_ME_TOOLS");
 
         if (conf.Platform == Platform.win64 )
         {

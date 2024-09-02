@@ -174,6 +174,10 @@ void Engine::Init( Game* game )
             }
         } );
 
+#if USING( ME_GAME_TOOLS )
+    m_debugTools.Init();
+#endif
+
     InitGame();
 
     ResizeFunc( engineConfig.WindowSize );
@@ -282,6 +286,10 @@ void Engine::Run()
             GetInput().Update();
 #if USING( ME_EDITOR )
             GetEditorInput().Update();
+#endif
+
+#if USING( ME_GAME_TOOLS )
+            m_debugTools.Render();
 #endif
 
             // Update Loaded Cores

@@ -921,9 +921,6 @@ void SDLWindow::HandleWindowEvent( const SDL_WindowEvent& event )
         break;
     case SDL_WINDOWEVENT_SIZE_CHANGED:
         ResizeCB( GetSize() );
-        SDL_Log( "Window %d size changed to %dx%d",
-            event.windowID, event.data1,
-            event.data2 );
         break;
     case SDL_WINDOWEVENT_MINIMIZED:
         SDL_Log( "Window %d minimized", event.windowID );

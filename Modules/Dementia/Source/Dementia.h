@@ -162,3 +162,4 @@ Class& operator=(Class&&) = delete;
 // I'm currently using some ImGui stuff in debug for profiling, TOOLS needs it even that it's currently bundled with the editor.
 #define ME_IMGUI            USE_IF( USING( ME_EDITOR ) || USING( ME_TOOLS ) || USING( ME_PROFILING ) )
 #define ME_BASIC_PROFILER   USE_IF( USING( ME_IMGUI ) && USING( ME_PROFILING ) )
+#define ME_GAME_TOOLS       USE_IF( USING( ME_TOOLS ) && !USING( ME_EDITOR ) )
