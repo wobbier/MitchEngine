@@ -1,7 +1,8 @@
 #pragma once
 
 #if USING( ME_GAME_TOOLS )
-#include "Editor\WidgetRegistry.h"
+
+#include "Editor/WidgetRegistry.h"
 
 class DebugTools
 {
