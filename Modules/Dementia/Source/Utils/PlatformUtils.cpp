@@ -65,7 +65,7 @@ void PlatformUtils::SystemCall( const Path& inFilePath, const std::string& inArg
     SetCurrentDirectory( StringUtils::ToWString( ProgramPath ).c_str() );
 #else
     std::string progArgs = "\"" + inFilePath.FullPath + "\" " + inArgs;
-    system( progArgs.c_str() );
+    std::system( progArgs.c_str() );
 #endif
 }
 
