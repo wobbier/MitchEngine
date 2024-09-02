@@ -55,7 +55,8 @@ UICore::UICore( IWindow* window, BGFXRenderer* renderer )
 
 
     ultralight::Platform::instance().set_config( m_config );
-    ultralight::Platform::instance().set_file_system( new FileSystemBasic( Path( "" ).FullPath.c_str() ) );
+    // maybe make this customizable, I would like to load assets out the UI folder maybe?
+    ultralight::Platform::instance().set_file_system( new FileSystemBasic( Path( "Assets/UI" ).FullPath.c_str() ) );
     ultralight::Platform::instance().set_logger( new FileLogger( "ultralight.log" ) );
 
 #if USING( ME_PLATFORM_WINDOWS )

@@ -59,7 +59,14 @@ namespace ultralight
     bool FileSystemBasic::FileExists( const String& path )
     {
         std::ifstream filestream( getRelative( path ) );
-        return filestream.good();
+        if( !filestream.good() )
+        {
+            String8 utf8 = path.utf8();
+            std::string filepath( utf8.data(), utf8.length() );
+            Path filePath( filepath );
+            return filePath.Exists;
+        }
+        return true;
     }
 
     String FileSystemBasic::GetFileMimeType( const String& file_path )
@@ -90,7 +97,15 @@ namespace ultralight
 
     RefPtr<Buffer> FileSystemBasic::OpenFile( const String& file_path )
     {
-        std::ifstream file = std::ifstream( getRelative( file_path ), std::ifstream::ate | std::ifstream::binary );
+        Path relativePath( getRelative( file_path ) );
+        if( !relativePath.Exists )
+        {
+            String8 utf8 = file_path.utf8();
+            std::string filepath( utf8.data(), utf8.length() );
+            relativePath = Path( filepath );
+        }
+
+        std::ifstream file = std::ifstream( relativePath.FullPath, std::ifstream::ate | std::ifstream::binary );
         if( !file.good() )
             return nullptr;
 
