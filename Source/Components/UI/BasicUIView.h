@@ -34,6 +34,9 @@ public:
 #if USING( ME_UI )
     virtual void OnUpdateHistory( ultralight::View* caller ) override;
 
+    void OnWindowObjectReady( ultralight::View* caller, uint64_t frame_id, bool is_main_frame, const ultralight::String& url ) override;
+    virtual void OnJSReady( ultralight::JSObject& GlobalWindow, ultralight::View* Caller );
+
     virtual void OnDOMReady( ultralight::View* caller,
         uint64_t frame_id,
         bool is_main_frame,

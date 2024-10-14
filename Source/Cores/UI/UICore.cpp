@@ -159,6 +159,23 @@ void UICore::Update( const UpdateContext& inUpdateContext )
     mouseScrollEvent.delta_y = gameInput.GetMouseScrollDelta().y * 100;
     mouseScrollEvent.delta_x = 0;
 
+    bool isShiftDown = gameInput.IsKeyDown( KeyCode::LeftShift ) || gameInput.IsKeyDown( KeyCode::RightShift );
+    bool isCtrlDown = gameInput.IsKeyDown( KeyCode::LeftControl ) || gameInput.IsKeyDown( KeyCode::RightControl );
+    bool isAltDown = gameInput.IsKeyDown( KeyCode::LeftAlt ) || gameInput.IsKeyDown( KeyCode::RightAlt );
+    uint8_t keyMods = 0;
+    if( isShiftDown )
+    {
+        keyMods |= ultralight::KeyEvent::Modifiers::kMod_ShiftKey;
+    }
+    if( isCtrlDown )
+    {
+        keyMods |= ultralight::KeyEvent::Modifiers::kMod_CtrlKey;
+    }
+    if( isAltDown )
+    {
+        keyMods |= ultralight::KeyEvent::Modifiers::kMod_AltKey;
+    }
+
     {
         OPTICK_EVENT( "UI Keyboard Update", Optick::Category::UI );
         for( auto& inputEvent : gameInput.m_keyEventsThisFrame )
@@ -170,7 +187,7 @@ void UICore::Update( const UpdateContext& inUpdateContext )
             // #TODO: Modifiers / Keypad detection
             keyEvent.is_system_key = false;
             keyEvent.is_keypad = false;
-            keyEvent.modifiers = 0;
+            keyEvent.modifiers = keyMods;
             keyEvent.is_auto_repeat = inputEvent.State == KeyState::Held;
 
             ultralight::KeyEvent::Type keyEventType = KeyEvent::kType_RawKeyDown;
@@ -178,7 +195,7 @@ void UICore::Update( const UpdateContext& inUpdateContext )
             if( isCharacterEvent && inputEvent.State != KeyState::Released )
             {
                 keyEventType = KeyEvent::kType_Char;
-                GetKeyFromVirtualKeyCode( keyEvent.virtual_key_code, false, keyEvent.text );
+                GetKeyFromVirtualKeyCode( keyEvent.virtual_key_code, isShiftDown, keyEvent.text );
             }
             else
             {

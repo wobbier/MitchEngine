@@ -344,7 +344,7 @@ SDL_SCANCODE_INTERNATIONAL1 = 135, /**< used on Asian keyboards, see
     LeftAlt = SDL_SCANCODE_LALT, /**< alt, option */
     SDL_SCANCODE_LGUI = 227, /**< windows, command (apple), meta */
     RightControl = 228,
-    SDL_SCANCODE_RSHIFT = 229,
+    RightShift = 229,
     RightAlt = SDL_SCANCODE_RALT, /**< alt gr, option */
     SDL_SCANCODE_RGUI = 231, /**< windows, command (apple), meta */
 

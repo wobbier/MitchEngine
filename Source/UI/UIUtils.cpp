@@ -582,7 +582,7 @@ bool UIUtils::ConvertToUL( KeyCode inKeyCode, int& outULKeyCode )
         break;
     case KeyCode::RightControl:
         break;
-    case KeyCode::SDL_SCANCODE_RSHIFT:
+    case KeyCode::RightShift:
         break;
     case KeyCode::RightAlt:
         break;

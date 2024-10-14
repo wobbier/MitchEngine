@@ -50,6 +50,24 @@ void BasicUIView::OnUpdateHistory( ultralight::View* caller )
 {
 }
 
+
+void BasicUIView::OnWindowObjectReady( ultralight::View* caller, uint64_t frame_id, bool is_main_frame, const ultralight::String& url )
+{
+    ultralight::RefPtr<ultralight::JSContext> context = caller->LockJSContext();
+    ultralight::SetJSContext( context->ctx() );
+    ultralight::JSObject GlobalWindow = ultralight::JSGlobalObject();
+
+    GlobalWindow["AreToolsEnabled"] = BindJSCallbackWithRetval( &BasicUIView::AreToolsEnabled );
+
+    OnJSReady( GlobalWindow, caller );
+}
+
+
+void BasicUIView::OnJSReady( ultralight::JSObject& GlobalWindow, ultralight::View* Caller )
+{
+}
+
+
 void BasicUIView::OnDOMReady( ultralight::View* caller,
     uint64_t frame_id,
     bool is_main_frame,
@@ -62,7 +80,6 @@ void BasicUIView::OnDOMReady( ultralight::View* caller,
     GlobalWindow["PlaySound"] = BindJSCallback( &BasicUIView::PlaySound );
     GlobalWindow["LoadScene"] = BindJSCallback( &BasicUIView::LoadScene );
     GlobalWindow["Quit"] = BindJSCallback( &BasicUIView::Quit );
-    GlobalWindow["AreToolsEnabled"] = BindJSCallbackWithRetval( &BasicUIView::AreToolsEnabled );
 
     OnUILoad( GlobalWindow, caller );
 }
@@ -86,6 +103,7 @@ void BasicUIView::ExecuteScript( const std::string& Script )
     }
 #endif
 }
+
 
 #if USING( ME_UI )
 
