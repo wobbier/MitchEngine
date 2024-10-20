@@ -30,7 +30,7 @@ LRESULT CALLBACK CBTProc( int nCode, WPARAM wParam, LPARAM lParam )
 
     return 0;
 }
-void CustomAssertFunction( const char* expression, const char* inMessage, const char* file, int line )
+bool CustomAssertFunction( const char* expression, const char* inMessage, const char* file, int line )
 {
     std::wstringstream ws;
     if( inMessage )
@@ -90,12 +90,6 @@ void CustomAssertFunction( const char* expression, const char* inMessage, const 
         {
             ws << frames - i - 1 << ": " << symbol->Name << " at (0x" << std::hex << symbol->Address << std::dec << ")\n\n";
         }
-
-        //if( strcmp( symbol->Name, "main" ) == 0 )
-        //{
-        //    i = frames;
-        //    break;
-        //}
     }
 
     free( symbol );
@@ -121,13 +115,13 @@ void CustomAssertFunction( const char* expression, const char* inMessage, const 
         break;
     case IDTRYAGAIN:
         // "Break" was clicked, break into the debugger
-        __debugbreak();
-        break;
+        return true;
     case IDCONTINUE:
         // "Crash" was clicked, terminate the application
         exit( -1 );
         break;
     }
+    return false;
 }
 
 #endif
