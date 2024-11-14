@@ -10,6 +10,7 @@
 
 #if USING( ME_FMOD )
 #include "fmod.hpp"
+#include <fmod_errors.h>
 #endif
 #include "Resource/MetaFile.h"
 #include "Core/Assert.h"
@@ -57,7 +58,7 @@ void AudioSource::Play( bool ShouldLoop )
 void AudioSource::Pause()
 {
 #if USING( ME_FMOD )
-    if( SoundInstance )
+    if( ChannelHandle )
     {
         ChannelHandle->setPaused( true );
     }
@@ -67,7 +68,7 @@ void AudioSource::Pause()
 void AudioSource::Resume()
 {
 #if USING( ME_FMOD )
-    if( SoundInstance )
+    if( ChannelHandle )
     {
         ChannelHandle->setPaused( false );
     }
@@ -79,7 +80,15 @@ void AudioSource::Stop( bool immediate )
 #if USING( ME_FMOD )
     if( ChannelHandle )
     {
-        ChannelHandle->stop();
+        FMOD_RESULT result = ChannelHandle->stop();
+        if( result == FMOD_OK )
+        {
+            ChannelHandle = nullptr;
+        }
+        else
+        {
+            std::cerr << "Error stopping channel: " << FMOD_ErrorString( result ) << std::endl;
+        }
     }
 #endif
 }
@@ -139,6 +148,39 @@ unsigned int AudioSource::GetPositionMs()
 #else
     return 0.f;
 #endif
+}
+
+
+#if USING( ME_FMOD )
+void checkFmodError( FMOD_RESULT result, const char* message = "" )
+{
+    if( result != FMOD_OK )
+    {
+        std::cerr << "FMOD error (" << result << "): " << FMOD_ErrorString( result );
+        if( message && message[0] != '\0' )
+        {
+            std::cerr << " - " << message;
+        }
+        std::cerr << std::endl;
+    }
+}
+#endif
+
+
+float AudioSource::GetVolume()
+{
+    float volume = 1.f;
+#if USING( ME_FMOD )
+    if( !ChannelHandle )
+        return volume;
+    
+    FMOD_RESULT result = ChannelHandle->getVolume( &volume );
+    if( result != FMOD_OK )
+    {
+        checkFmodError( result );
+    }
+#endif
+    return volume;
 }
 
 void AudioSource::SetPositionMs( unsigned int position )

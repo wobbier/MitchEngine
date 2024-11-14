@@ -61,8 +61,8 @@ void AudioCore::InitComponent( AudioSource& audioSource )
     if( !audioSource.IsInitialized && !audioSource.FilePath.GetLocalPath().empty() )
     {
 #if USING( ME_FMOD )
-        // Fix instant loading vs threaded
-        SharedPtr<Sound> soundResource = ResourceCache::GetInstance().Get<Sound>( audioSource.FilePath, system, false );
+        // #TODO: Add support for audio flags.
+        SharedPtr<Sound> soundResource = ResourceCache::GetInstance().Get<Sound>( audioSource.FilePath, system, SoundFlags::Default );
         if( !soundResource )
         {
             YIKES_FMT( "Failed to load sound: %s", audioSource.FilePath.GetLocalPathString().c_str() );
@@ -128,6 +128,11 @@ bool AudioCore::OnEvent( const BaseEvent& InEvent )
     }
 
     return false;
+}
+
+FMOD::System* AudioCore::GetSystem() const
+{
+    return system;
 }
 
 void AudioCore::Init()

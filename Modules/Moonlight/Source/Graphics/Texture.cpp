@@ -48,6 +48,7 @@ namespace Moonlight
         {
             bgfx::destroy( TexHandle );
         }
+        TexHandle = BGFX_INVALID_HANDLE;
     }
 
     bool Texture::Load()
@@ -99,6 +100,7 @@ namespace Moonlight
 #endif
                 return true;
             }
+            bx::free( Moonlight::getDefaultAllocator(), (void*)memory );
         }
 
         return false;

@@ -5,7 +5,7 @@
 #include <fmod.hpp>
 #endif
 
-Sound::Sound( const Path& path, void* fmodSystem, bool isImmediate )
+Sound::Sound( const Path& path, void* fmodSystem, SoundFlags inFlags )
     : Resource( path )
 {
 #if USING( ME_FMOD )
@@ -14,7 +14,8 @@ Sound::Sound( const Path& path, void* fmodSystem, bool isImmediate )
     {
         YIKES( "FMOD System is not enabled." );
     }
-    if( system->createSound( path.FullPath.c_str(), FMOD_DEFAULT | ( isImmediate ? FMOD_DEFAULT : FMOD_NONBLOCKING ), nullptr, &Handle ) != FMOD_OK )
+
+    if( system->createSound( path.FullPath.c_str(), inFlags, nullptr, &Handle ) != FMOD_OK )
     {
         // #TODO: Perhaps having the macro for this accepts a string view?
         YIKES( "Failed to create sound resource: " + path.FullPath );
@@ -38,7 +39,7 @@ bool Sound::IsReady() const
 #if USING( ME_FMOD )
     FMOD_OPENSTATE openstate;
     bool result = Handle->getOpenState( &openstate, nullptr, nullptr, nullptr );
-    return openstate == FMOD_OPENSTATE_READY;
+    return openstate == FMOD_OPENSTATE_READY || openstate == FMOD_OPENSTATE_PLAYING;
 #else
     return true;
 #endif

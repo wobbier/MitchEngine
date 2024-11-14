@@ -29,6 +29,8 @@ public:
 
     virtual bool OnEvent( const BaseEvent& InEvent ) final;
 
+    FMOD::System* GetSystem() const;
+
 private:
     virtual void Init() override;
     bool IsInitialized = false;
