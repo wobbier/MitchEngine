@@ -219,10 +219,10 @@ float AudioSource::GetPlaybackSpeed()
 void AudioSource::SetVolume( float inVolumePercent )
 {
 #if USING( ME_FMOD )
-    if( ChannelHandle && ChannelHandle->setVolume( inVolumePercent ) != FMOD_OK )
-    {
-        ME_ASSERT_MSG( false, "Failed to set volume" );
-    }
+    if( !ChannelHandle )
+        return;
+    FMOD_RESULT result = ChannelHandle->setVolume( inVolumePercent );
+    checkFmodError( result );
 #endif
 }
 

@@ -27,6 +27,8 @@ AudioCore::AudioCore()
     {
         YIKES( "FMOD System failed to create!" );
     }
+    res = system->setStreamBufferSize( 64 * 1024, FMOD_TIMEUNIT_RAWBYTES );
+    FMOD::Debug_Initialize( FMOD_DEBUG_LEVEL_LOG, FMOD_DEBUG_MODE_FILE, nullptr, "fmod_log.txt" );
     IsInitialized = true;
 #endif
 

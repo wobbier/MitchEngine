@@ -57,6 +57,7 @@ class Sound
 {
 public:
     Sound( const Path& path, void* fmodSystem = nullptr, SoundFlags inFlags = SoundFlags::Default );
+    Sound( const char* url, void* fmodSystem = nullptr );
     ~Sound();
 
     bool IsReady() const;

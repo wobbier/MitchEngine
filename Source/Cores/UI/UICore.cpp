@@ -148,7 +148,7 @@ void UICore::Update( const UpdateContext& inUpdateContext )
             InitUIView( view );
         }
 
-        view.OnUpdate();
+        view.OnUpdate(inUpdateContext.GetDeltaTime());
     }
 #if USING( ME_UI )
     Input& gameInput = GetEngine().GetInput();

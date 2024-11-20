@@ -47,7 +47,7 @@ public:
 
     void ExecuteScript( const std::string& Script );
 
-    virtual void OnUpdate()
+    virtual void OnUpdate( float dt )
     {
     }
 
