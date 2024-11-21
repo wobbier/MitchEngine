@@ -482,7 +482,7 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId
         for( size_t i = 0; i < m_meshCache.Commands.size(); ++i )
         {
             const Moonlight::MeshCommand& mesh = m_meshCache.Commands[i];
-            if( !camera.VisibleFlags[mesh.VisibilityIndex] )
+            if( camera.ShouldCull && !camera.VisibleFlags[mesh.VisibilityIndex] )
             {
                 continue;
             }

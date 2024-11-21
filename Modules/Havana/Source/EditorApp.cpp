@@ -94,6 +94,7 @@ void EditorApp::UpdateCameras()
     EditorCamera.ClearType = Camera::CurrentCamera->ClearType;
     EditorCamera.Projection = Camera::EditorCamera->Projection;
     EditorCamera.OrthographicSize = Camera::EditorCamera->OrthographicSize;
+    EditorCamera.ShouldCull = false;
 
     // #TODO: Clean this up
     Vector3 eye = { EditorCamera.Position.x, EditorCamera.Position.y, EditorCamera.Position.z };

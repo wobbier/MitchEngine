@@ -53,7 +53,7 @@ namespace Moonlight
         bool IsMain = false;
         bool IsOblique = false;
         bool ShouldRender = true;
-
+        bool ShouldCull = true;
 
         std::vector<bool> VisibleFlags;
     };
