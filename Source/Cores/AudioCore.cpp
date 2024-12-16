@@ -1,5 +1,6 @@
 #include "PCH.h"
 #include "AudioCore.h"
+#include "Core/Assert.h"
 #include "Components/Audio/AudioSource.h"
 #include "Events/AudioEvents.h"
 #include "optick.h"
@@ -39,6 +40,7 @@ AudioCore::AudioCore()
     EventManager::GetInstance().RegisterReceiver( this, events );
 }
 
+
 void AudioCore::Update( float dt )
 {
     OPTICK_CATEGORY( "AudioCore Update", Optick::Category::Audio );
@@ -57,6 +59,7 @@ void AudioCore::Update( float dt )
         InitComponent( audioSource );
     }
 }
+
 
 void AudioCore::InitComponent( AudioSource& audioSource )
 {
@@ -77,6 +80,7 @@ void AudioCore::InitComponent( AudioSource& audioSource )
     }
 }
 
+
 void AudioCore::OnEntityAdded( Entity& NewEntity )
 {
     AudioSource& comp = NewEntity.GetComponent<AudioSource>();
@@ -84,12 +88,14 @@ void AudioCore::OnEntityAdded( Entity& NewEntity )
     InitComponent( comp );
 }
 
+
 void AudioCore::OnEntityRemoved( Entity& NewEntity )
 {
     AudioSource& comp = NewEntity.GetComponent<AudioSource>();
     comp.Stop();
     comp.ClearData();
 }
+
 
 bool AudioCore::OnEvent( const BaseEvent& InEvent )
 {
@@ -132,15 +138,12 @@ bool AudioCore::OnEvent( const BaseEvent& InEvent )
     return false;
 }
 
-FMOD::System* AudioCore::GetSystem() const
-{
-    return system;
-}
 
 void AudioCore::Init()
 {
 
 }
+
 
 void AudioCore::OnStart()
 {
@@ -163,4 +166,15 @@ void AudioCore::OnStop()
         audioSource.second->ClearData();
     }
     m_cachedSounds.clear();
+}
+
+
+FMOD::System* AudioCore::GetSystem() const
+{
+#if USING( ME_FMOD )
+    return system;
+#else
+    ME_ASSERT_MSG( false, "Trying to get FMOD when it's not compiled." );
+    return nullptr;
+#endif
 }

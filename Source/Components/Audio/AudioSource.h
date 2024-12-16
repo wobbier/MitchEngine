@@ -52,8 +52,8 @@ public:
     bool PlayOnAwake = false;
     bool Loop = false;
 
-#if USING( ME_FMOD )
     SharedPtr<Sound> SoundInstance = nullptr;
+#if USING( ME_FMOD )
     FMOD::Channel* ChannelHandle = nullptr;
 #endif
 

@@ -7,11 +7,9 @@
 #include "Events/EventReceiver.h"
 
 class AudioSource;
-#if USING( ME_FMOD )
 namespace FMOD {
     class System;
 }
-#endif
 
 class AudioCore
     : public Core<AudioCore>
@@ -41,7 +39,7 @@ private:
     void OnStop() final;
 
 #if USING( ME_FMOD )
-    FMOD::System* system;
+    FMOD::System* system = nullptr;
 #endif
 };
 
