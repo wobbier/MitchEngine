@@ -125,6 +125,10 @@ void JobSystem::Wait()
         {
             return;
         }
+        else
+        {
+            SignalWorkAvailable();
+        }
     }
     while( !m_isWorkFinished )
     {

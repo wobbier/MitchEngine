@@ -2,6 +2,7 @@
 #include "JobQueueOld.h"
 #include "WorkerThread.h"
 #include <atomic>
+#include "ISystem.h"
 
 struct ThreadInfo
 {
@@ -10,8 +11,11 @@ struct ThreadInfo
 };
 
 class JobSystem
+    : public ISystem
 {
 public:
+    ME_SYSTEM_ID( JobSystem );
+
     JobSystem( std::size_t InNumThreads );
     ~JobSystem();
 

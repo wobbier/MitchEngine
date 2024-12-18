@@ -184,7 +184,9 @@ void Engine::Init( Game* game )
 
     // Register systems
     {
+        systemRegistry.RegisterSystem( this );
         systemRegistry.RegisterSystem( NewRenderer );
+        systemRegistry.RegisterSystem( &m_jobSystem );
     }
     updateContext.m_SystemRegistry = &systemRegistry;
 

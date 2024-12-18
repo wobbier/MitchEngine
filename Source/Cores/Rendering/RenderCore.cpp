@@ -65,7 +65,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
 {
     OPTICK_CATEGORY( "RenderCore::Update", Optick::Category::Rendering );
     auto& Renderables = GetEntities();
-    Engine& engine = GetEngine();
+    Engine& engine = *inUpdateContext.GetSystem<Engine>();
     BGFXRenderer& renderer = engine.GetRenderer();
 
     // maybe this is fine?
@@ -73,6 +73,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
     renderer.m_time.x = inUpdateContext.GetDeltaTime();
     renderer.m_time.y = inUpdateContext.GetTotalTime();
     
+    // WTF IS THIS LMAO
     // Clear Render Commands
     renderer.GetMeshCache().Commands.clear();
     while( !renderer.GetMeshCache().FreeIndicies.empty() )
@@ -190,8 +191,6 @@ void RenderCore::OnEditorInspect()
     {
         GetEngine().GetRenderer().SetMSAALevel( BGFXRenderer::MSAALevel::X16 );
     }
-
-
 }
 
 #endif
