@@ -104,6 +104,13 @@ Vector2 PlatformWindow::GetSize() const
     return { x, y };
 }
 
+Vector2 PlatformWindow::GetClientSize()
+{
+    int clientWidth, clientHeight;
+    SDL_GL_GetDrawableSize( WindowPtr, &clientWidth, &clientHeight );
+    return { clientWidth, clientHeight };
+}
+
 void PlatformWindow::SetPosition( const Vector2& InPosition )
 {
     SDL_SetWindowPosition( WindowPtr, InPosition.x, InPosition.y );
@@ -115,6 +122,12 @@ Vector2 PlatformWindow::GetPosition()
     int x = 0, y = 0;
     SDL_GetWindowPosition( WindowPtr, &x, &y );
     return { x, y };
+}
+
+Vector2 PlatformWindow::GetClientPosition()
+{
+    //#TODO: Return the client position
+    return GetPosition();
 }
 
 void PlatformWindow::Show()

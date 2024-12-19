@@ -26,7 +26,8 @@ public:
 
 	virtual void OnEnd() override;
 
-	virtual void PostRender() override;
+    virtual void PreRender() override;
+    virtual void PostRender() override;
 
 	void StartGame();
 	void StopGame();

@@ -801,6 +801,22 @@ Vector2 SDLWindow::GetPosition()
     return Vector2( x, y );
 }
 
+Vector2 SDLWindow::GetClientPosition()
+{
+    int windowX, windowY;
+    SDL_GetWindowPosition( WindowHandle, &windowX, &windowY );
+
+    int clientWidth, clientHeight;
+    SDL_GL_GetDrawableSize( WindowHandle, &clientWidth, &clientHeight );
+
+    int windowWidth, windowHeight;
+    SDL_GetWindowSize( WindowHandle, &windowWidth, &windowHeight );
+
+    int borderWidth = ( windowWidth - clientWidth ) / 2;
+    int titleHeight = ( windowHeight - clientHeight ) - borderWidth;
+    return Vector2(windowX + borderWidth, windowY + titleHeight);
+}
+
 bool SDLWindow::IsFullscreen()
 {
     return false;
@@ -863,6 +879,13 @@ bool SDLWindow::IsMaximized()
 void SDLWindow::SetCustomDragCallback( std::function<std::optional<SDL_HitTestResult>( const Vector2& )> cb )
 {
     CustomDragCB = cb;
+}
+
+Vector2 SDLWindow::GetClientSize()
+{
+    int clientWidth, clientHeight;
+    SDL_GL_GetDrawableSize( WindowHandle, &clientWidth, &clientHeight );
+    return { clientWidth, clientHeight };
 }
 
 void SDLWindow::SetWindow( SDL_Window* window )

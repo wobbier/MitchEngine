@@ -27,6 +27,7 @@ struct PlatformWindow
     }
     virtual void ParseMessageQueue() final {}
     Vector2 GetPosition() final;
+    Vector2 GetClientPosition() final;
 
     virtual bool IsFullscreen() final {
         return false;
@@ -61,6 +62,7 @@ struct PlatformWindow
 
     void SetSize( const Vector2& InSize );
     Vector2 GetSize() const final;
+    Vector2 GetClientSize() final;
     void SetPosition( const Vector2& InPosition );
 
     uint16_t GetViewId() const {

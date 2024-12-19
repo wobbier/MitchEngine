@@ -9,6 +9,8 @@ public:
     virtual void ParseMessageQueue() = 0;
     virtual Vector2 GetSize() const = 0;
     virtual Vector2 GetPosition() = 0;
+    virtual Vector2 GetClientPosition() = 0;
+    virtual Vector2 GetClientSize() = 0;
 
     virtual bool IsFullscreen() = 0;
     virtual bool IsMaximized() = 0;

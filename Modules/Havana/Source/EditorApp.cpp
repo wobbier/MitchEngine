@@ -52,13 +52,16 @@ EditorApp::EditorApp( int argc, char** argv )
     //REGISTER_EDITORCOMPONENTCACHE_ORDERDATA( CameraComponent, 0x000E );
 }
 
+
 EditorApp::~EditorApp()
 {
 }
 
+
 void EditorApp::OnStart()
 {
 }
+
 
 void EditorApp::OnUpdate( const UpdateContext& inUpdateContext )
 {
@@ -72,6 +75,7 @@ void EditorApp::OnUpdate( const UpdateContext& inUpdateContext )
 
     UpdateCameras();
 }
+
 
 void EditorApp::UpdateCameras()
 {
@@ -115,11 +119,13 @@ void EditorApp::UpdateCameras()
     GetEngine().EditorCamera = EditorCamera;
 }
 
+
 void EditorApp::OnEnd()
 {
     Editor->Save();
     EditorConfig::GetInstance().Save();
 }
+
 
 void EditorApp::OnInitialize()
 {
@@ -162,11 +168,18 @@ void EditorApp::OnInitialize()
     }
 }
 
-void EditorApp::PostRender()
+
+void EditorApp::PreRender()
 {
     Editor->Render( GetEngine().EditorCamera );
     Editor->GetInput().PostUpdate();
 }
+
+
+void EditorApp::PostRender()
+{
+}
+
 
 void EditorApp::StartGame()
 {
@@ -176,6 +189,7 @@ void EditorApp::StartGame()
         m_isGameRunning = true;
     }
 }
+
 
 void EditorApp::StopGame()
 {
@@ -194,15 +208,18 @@ void EditorApp::StopGame()
     }
 }
 
+
 const bool EditorApp::IsGameRunning() const
 {
     return m_isGameRunning;
 }
 
+
 const bool EditorApp::IsGamePaused() const
 {
     return m_isGamePaused;
 }
+
 
 bool EditorApp::OnEvent( const BaseEvent& evt )
 {

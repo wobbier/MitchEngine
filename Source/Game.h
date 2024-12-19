@@ -13,6 +13,7 @@ public:
     virtual void OnStart() = 0;
     virtual void OnUpdate( const UpdateContext& inUpdateContext ) = 0;
     virtual void OnEnd() = 0;
+    virtual void PreRender() = 0;
     virtual void PostRender() = 0;
     ME_HARDSTUCK( Game )
 };

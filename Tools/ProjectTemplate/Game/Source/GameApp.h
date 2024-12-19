@@ -14,5 +14,6 @@ public:
 	virtual void OnUpdate(const UpdateContext& inUpdateContext) override;
 	virtual void OnEnd() override;
 
+	virtual void PreRender() override;
 	virtual void PostRender() override;
 };

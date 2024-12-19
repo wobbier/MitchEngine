@@ -19,6 +19,7 @@ public:
     Vector2 GetSize() const override;
 
     Vector2 GetPosition() override;
+    Vector2 GetClientPosition() override;
 
     bool IsFullscreen() override;
 
@@ -43,6 +44,9 @@ public:
     void SetCustomDragCallback( std::function<std::optional<SDL_HitTestResult>( const Vector2& )> cb );
     std::function<std::optional<SDL_HitTestResult>( const Vector2& )> CustomDragCB;
     SDL_Window* WindowHandle = nullptr;
+
+    Vector2 GetClientSize() override;
+
 private:
 
     bgfx::PlatformData PlatformInfo;

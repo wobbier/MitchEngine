@@ -355,10 +355,11 @@ void Engine::Run()
 
             // Render
             {
+                m_game->PreRender();
 #if !USING( ME_EDITOR )
                 EditorCamera.OutputSize = GetWindow()->GetSize();
 #if USING( ME_BASIC_PROFILER )
-                FrameProfile::GetInstance().Render( { 10.f, ( GameWindow->GetSize().y - FrameProfile::kMinProfilerSize ) - 10 }, { GameWindow->GetSize().x - 20, (float)FrameProfile::kMinProfilerSize } );
+                FrameProfile::GetInstance().Render( { GameWindow->GetClientPosition().x + 10.f, ( GameWindow->GetClientPosition().y + GameWindow->GetClientSize().y - FrameProfile::kMinProfilerSize - 10.f ) }, { GameWindow->GetClientSize().x - 20, (float)FrameProfile::kMinProfilerSize } );
 #endif
 #endif
                 ME_FRAMEPROFILE_START( "UI Render", ProfileCategory::UI );
@@ -367,8 +368,8 @@ void Engine::Run()
                 ME_FRAMEPROFILE_START( "Render", ProfileCategory::Rendering );
                 NewRenderer->Render( EditorCamera );
                 ME_FRAMEPROFILE_STOP( "Render" );
-                m_game->PostRender();
                 UI->PostRender( updateContext );
+                m_game->PostRender();
             }
 
 #if USING( ME_BASIC_PROFILER )

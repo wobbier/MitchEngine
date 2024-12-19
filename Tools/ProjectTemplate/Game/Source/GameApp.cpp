@@ -29,6 +29,10 @@ void GameApp::OnInitialize()
 	GetEngine().LoadScene("Assets/Example.lvl");
 }
 
+void GameApp::PreRender()
+{
+}
+
 void GameApp::PostRender()
 {
 }
