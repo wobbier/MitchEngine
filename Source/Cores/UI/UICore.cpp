@@ -273,9 +273,6 @@ void UICore::Update( const UpdateContext& inUpdateContext )
     {
         OPTICK_EVENT( "UI Widget Update", Optick::Category::UI );
         m_uiRenderer->Update();
-
-        // #TODO: This should be called after vsync is done.
-        m_uiRenderer->RefreshDisplay( 0 );
     }
 #endif
 }
@@ -344,6 +341,13 @@ void UICore::Render()
     }
 #endif
 }
+
+
+void UICore::PostRender( const UpdateContext& inUpdateContext )
+{
+    m_uiRenderer->RefreshDisplay( 0 );
+}
+
 
 void UICore::OnResize( const Vector2& NewSize )
 {

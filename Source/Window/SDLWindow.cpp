@@ -74,7 +74,6 @@ SDLWindow::SDLWindow( const std::string& title, std::function<void( const Vector
         printf( "Window could not be created. SDL_Error: %s\n", SDL_GetError() );
     }
     SetWindow( WindowHandle );
-    SDL_SetWindowHitTest( WindowHandle, HitTestCallback, this );
 
     /*SharedPtr<Texture> tex = ResourceCache::GetInstance().Get<Texture>(Path("Assets/Havana/ME.png"));
     tex->
@@ -845,6 +844,14 @@ void SDLWindow::CanMoveWindow( bool param1 )
 
 void SDLWindow::SetBorderless( bool isBorderless )
 {
+    if( isBorderless )
+    {
+        SDL_SetWindowHitTest( WindowHandle, HitTestCallback, this );
+    }
+    else
+    {
+        SDL_SetWindowHitTest( WindowHandle, NULL, this );
+    }
     SDL_SetWindowBordered( WindowHandle, (SDL_bool)!isBorderless );
 }
 

@@ -355,7 +355,6 @@ void Engine::Run()
 
             // Render
             {
-                m_game->PostRender();
 #if !USING( ME_EDITOR )
                 EditorCamera.OutputSize = GetWindow()->GetSize();
 #if USING( ME_BASIC_PROFILER )
@@ -368,8 +367,9 @@ void Engine::Run()
                 ME_FRAMEPROFILE_START( "Render", ProfileCategory::Rendering );
                 NewRenderer->Render( EditorCamera );
                 ME_FRAMEPROFILE_STOP( "Render" );
+                m_game->PostRender();
+                UI->PostRender( updateContext );
             }
-
 
 #if USING( ME_BASIC_PROFILER )
             // This makes the profiler overview data to be delayed for a frame, but takes the renderer into account.

@@ -47,6 +47,7 @@ public:
     void OnResize( const Vector2& NewSize );
 
     void Render();
+    void PostRender( const UpdateContext& inUpdateContext ) override;
 
     //OverlayManager* GetOverlayManager();
 #if USING( ME_UI )
@@ -76,6 +77,7 @@ private:
 
 #if USING( ME_UI )
     void CopyBitmapToTexture( ultralight::RefPtr<ultralight::Bitmap> bitmap );
+
 
     UniquePtr<ultralight::FileSystemBasic> m_fs;
     UniquePtr<GPUContext> m_context = nullptr;

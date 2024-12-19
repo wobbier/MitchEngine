@@ -38,6 +38,7 @@ public:
     // Each core must update each loop
     virtual void Update( const UpdateContext& inUpdateContext ) {};
     virtual void LateUpdate( const UpdateContext& inUpdateContext ) {};
+    virtual void PostRender( const UpdateContext& inUpdateContext ) {};
     virtual void OnEntityAdded( Entity& NewEntity ) {};
     virtual void OnEntityRemoved( Entity& InEntity ) {};
     virtual void OnEntityDestroyed( Entity& InEntity ) {};
