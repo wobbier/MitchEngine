@@ -148,7 +148,7 @@ void UICore::Update( const UpdateContext& inUpdateContext )
             InitUIView( view );
         }
 
-        view.OnUpdate(inUpdateContext.GetDeltaTime());
+        view.OnUpdate( inUpdateContext.GetDeltaTime() );
     }
 #if USING( ME_UI )
     Input& gameInput = GetEngine().GetInput();
@@ -406,9 +406,15 @@ void UICore::InitUIView( BasicUIView& view )
     newView->set_load_listener( &view );
     newView->set_view_listener( this );
 
-    ////overlay->view()->LoadHTML(view.SourceFile.Read().c_str());
-    ultralight::String str = "file:///" + ultralight::String( view.FilePath.GetLocalPath().data() );
-    newView->LoadURL( str );
+    if( m_useWebUrl && !view.m_uiUrl.empty() )
+    {
+        newView->LoadURL( ultralight::String( view.m_uiUrl.c_str() ) );
+    }
+    else
+    {
+        ultralight::String str = "file:///" + ultralight::String( view.FilePath.GetLocalPath().data() );
+        newView->LoadURL( str );
+    }
 
     //m_overlays.push_back( overlay );
     //GetOverlayManager()->Add( overlay.get() );
@@ -492,6 +498,7 @@ void UICore::OnEditorInspect()
     ImGui::Text( "Fill Path Calls %i", m_driver->m_uiDrawInfo.m_numDrawFillPathCalls );
     if( ImGui::CollapsingHeader( "Settings", ImGuiTreeNodeFlags_DefaultOpen ) )
     {
+        ImGui::Checkbox( "Use Web URL", &m_useWebUrl );
         if( ImGui::Checkbox( "Force Repaint", &m_config.force_repaint ) )
         {
             ultralight::Platform::instance().set_config( m_config );

@@ -14,6 +14,7 @@
 #include "Events/SceneEvents.h"
 #include "Core/Assert.h"
 #include "Engine/Engine.h"
+#include "misc/cpp/imgui_stdlib.h"
 
 BasicUIView::BasicUIView()
     : Component( "BasicUIView" )
@@ -34,6 +35,7 @@ void BasicUIView::Init()
 void BasicUIView::OnSerialize( json& outJson )
 {
     outJson["FilePath"] = FilePath.GetLocalPath();
+    outJson["UIURL"] = m_uiUrl;
 }
 
 void BasicUIView::OnDeserialize( const json& inJson )
@@ -41,6 +43,10 @@ void BasicUIView::OnDeserialize( const json& inJson )
     if( inJson.contains( "FilePath" ) )
     {
         FilePath = Path( inJson["FilePath"] );
+    }
+    if( inJson.contains( "UIURL" ) )
+    {
+        m_uiUrl = inJson["UIURL"];
     }
 }
 
@@ -163,6 +169,9 @@ void BasicUIView::OnEditorInspect()
             }, AssetType::UI );
         evt.Fire();
     }
+
+    HavanaUtils::Label( "UI URL" );
+    ImGui::InputText( "##UIURL", &m_uiUrl );
 }
 
 #endif

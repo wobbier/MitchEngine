@@ -91,5 +91,6 @@ private:
 
     bgfx::ProgramHandle UIProgram;
     bgfx::UniformHandle s_texUI;
+    bool m_useWebUrl = false;
 };
 

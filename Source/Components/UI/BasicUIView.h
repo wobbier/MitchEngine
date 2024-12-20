@@ -73,5 +73,7 @@ private:
 #if USING( ME_UI )
     ultralight::RefPtr<ultralight::View> ViewRef;
 #endif
+
+    std::string m_uiUrl;
 };
 ME_REGISTER_COMPONENT_FOLDER( BasicUIView, "UI" )

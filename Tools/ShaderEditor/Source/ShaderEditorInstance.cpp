@@ -640,7 +640,7 @@ void ShaderEditorInstance::SaveGraph( Path& inPath )
     outFile.Write( outJson.dump( 1 ) );
 }
 
-Node* ShaderEditorInstance::SpawnNodeFromString( int& inNodeId, std::string& inId, json* inJson )
+Node* ShaderEditorInstance::SpawnNodeFromString( int& inNodeId, const std::string& inId, json* inJson )
 {
     if( inId == "Basic Shader" )
     {
@@ -749,7 +749,8 @@ void ShaderEditorInstance::LoadGraph( Path& inPath )
             int ogNodeId = node["ID"];
             //m_nodeMappings[ogNodeId] = m_NextId + 1;
             //ogNodeId = ogNodeId - 1;
-            newNode = SpawnNodeFromString( ogNodeId, std::string( node["Name"] ), &node );
+            std::string nodeName( node["Name"] );
+            newNode = SpawnNodeFromString( ogNodeId, nodeName, &node );
             BuildNode( newNode );
             ed::SetNodePosition( newNode->ID, ImVec2( node["X"], node["Y"] ) );
             m_Nodes.push_back( newNode );

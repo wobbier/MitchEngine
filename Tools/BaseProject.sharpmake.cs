@@ -93,6 +93,7 @@ public abstract class BaseProject : Project
 
         conf.Options.Add(Options.Vc.General.WarningLevel.Level3);
         conf.Options.Add(Options.Vc.General.TreatWarningsAsErrors.Enable);
+        conf.Options.Add(Options.Vc.Compiler.ConformanceMode.Enable);
     }
 
     #region Platfoms
