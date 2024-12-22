@@ -60,7 +60,7 @@ public class EntryPointGameProject : BaseProject
             conf.ProjectFileName = @"[project.Name]_[target.Platform]";
         }
         conf.TargetPath = Globals.RootDir + "/.build/[target.Name]/";
-        conf.VcxprojUserFile.LocalDebuggerWorkingDirectory = "$(OutDir)";
+        conf.VcxprojUserFile.LocalDebuggerWorkingDirectory = Globals.RootDir;
         if (target.SubPlatform == CommonTarget.SubPlatformType.UWP)
         {
             conf.ConsumeWinRTExtensions.Add("main.cpp");
