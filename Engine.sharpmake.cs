@@ -354,13 +354,22 @@ public class Engine : BaseProject
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/Assimp/macOS/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $@"ThirdParty/UltralightSDK/Lib/[target.SubPlatform]"));
 
-        conf.LibraryFiles.Add("assimp");
         conf.LibraryFiles.Add("BulletCollision");
         conf.LibraryFiles.Add("BulletDynamics");
         conf.LibraryFiles.Add("LinearMath");
         conf.LibraryFiles.Add("SDL2d");
         conf.LibraryFiles.Add("AppCore");
 
+        if (target.Optimization == Optimization.Debug)
+        {
+            conf.LibraryFiles.Add("assimpd");
+            conf.LibraryFiles.Add("zlibstaticd");
+        }
+        else
+        {
+            conf.LibraryFiles.Add("assimp");
+            conf.LibraryFiles.Add("zlibstatic");
+        }
         //??
         conf.Options.Add(new Options.XCode.Compiler.UserFrameworks("Mono"));
 
