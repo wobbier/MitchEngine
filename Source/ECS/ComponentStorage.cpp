@@ -40,7 +40,7 @@ void ComponentStorage::RemoveComponent( const Entity& InEntity, TypeId InTypeId 
     auto Index = InEntity.GetId().Index;
     auto& ComponentData = ComponentEntries[Index];
 
-    ME_ASSERT( ComponentData.Components.size() < InTypeId );
+    ME_ASSERT( InTypeId < ComponentData.Components.size() );
 
     ComponentData.Components[InTypeId].reset();
     ComponentData.ComponentTypeList[InTypeId] = false;

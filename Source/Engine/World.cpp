@@ -261,7 +261,7 @@ void World::DestroyEntity( Entity& InEntity, bool RemoveFromWorld )
     }
 }
 
-EntityHandle World::CreateFromPrefab( std::string& FilePath, Transform* Parent )
+EntityHandle World::CreateFromPrefab( const std::string& FilePath, Transform* Parent )
 {
     OPTICK_EVENT( "World::CreateFromPrefab" );
     //File PrefabSource = File(Path(FilePath));

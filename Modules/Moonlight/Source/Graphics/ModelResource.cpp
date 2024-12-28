@@ -1,6 +1,7 @@
 #include "ModelResource.h"
 
 #include <assimp/Importer.hpp>
+#include <assimp/Exporter.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 
@@ -15,6 +16,23 @@
 #include <stack>
 #include "assimp/material.h"
 #include "Materials/DiffuseMaterial.h"
+#include "Core/Assert.h"
+
+
+void ScaleNode( aiNode* node, float scale )
+{
+    aiMatrix4x4 scalingMatrix;
+    aiMatrix4x4::Scaling( aiVector3D( scale, scale, scale ), scalingMatrix );
+
+    // Apply the scaling to the node's transformation
+    node->mTransformation = scalingMatrix * node->mTransformation;
+
+    // Recursively scale child nodes
+    for( unsigned int i = 0; i < node->mNumChildren; ++i )
+    {
+        ScaleNode( node->mChildren[i], scale );
+    }
+}
 
 ModelResource::ModelResource( const Path& path )
     : Resource( path )
@@ -44,13 +62,18 @@ ModelResource::~ModelResource()
 bool ModelResource::Load()
 {
     Assimp::Importer importer;
-    const aiScene* scene = importer.ReadFile( FilePath.FullPath.c_str(), aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_CalcTangentSpace );
+    Path newPath = Path( FilePath.FullPath + ".assbin" );
+    ME_ASSERT_MSG( newPath.Exists, "Exported Model Doesn't Exist" );
+    const aiScene* scene = importer.ReadFile( newPath.FullPath.c_str(), 0 );
     if( !scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode )
     {
         std::cout << "ERROR::ASSIMP:: " << importer.GetErrorString() << std::endl;
         return false;
     }
-
+    if( scene && scene->mRootNode )
+    {
+        ScaleNode( scene->mRootNode, 0.01f ); // Example: Scale down by 50%
+    }
     RootNode.Name = std::string( scene->mRootNode->mName.C_Str() );
     ProcessNode( scene->mRootNode, scene, RootNode );
     importer.FreeScene();
@@ -249,7 +272,7 @@ void ModelResourceMetadata::OnDeserialize( const json& inJson )
 
 std::string ModelResourceMetadata::GetExtension2() const
 {
-    return "fbx";
+    return "assbin";
 }
 
 #if USING( ME_EDITOR )
@@ -262,8 +285,56 @@ void ModelResourceMetadata::OnEditorInspect()
     ImGui::Checkbox( "Model Resource Test", &isChecked );
 }
 
+#endif
+
+#if USING( ME_TOOLS )
+
+void ScaleMeshVertices( aiMesh* mesh, float scale )
+{
+    for( unsigned int i = 0; i < mesh->mNumVertices; ++i )
+    {
+        mesh->mVertices[i] *= scale; // Scale the position
+        if( mesh->HasNormals() )
+        {
+            mesh->mNormals[i] *= scale; // Scale the normals if needed
+        }
+    }
+}
+
+void ScaleSceneMeshes( const aiScene* scene, float scale )
+{
+    for( unsigned int i = 0; i < scene->mNumMeshes; ++i )
+    {
+        ScaleMeshVertices( scene->mMeshes[i], scale );
+    }
+}
 void ModelResourceMetadata::Export()
 {
+    Assimp::Importer importer;
+    const aiScene* scene = importer.ReadFile( FilePath.FullPath.c_str(), aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_CalcTangentSpace );
+    if( !scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode )
+    {
+        std::cout << "ERROR::ASSIMP:: " << importer.GetErrorString() << std::endl;
+        return;
+    }
+    if( scene && scene->mRootNode )
+    {
+        ScaleNode( scene->mRootNode, 0.1f ); // Example: Scale down by 50%
+    }
+    if( scene )
+    {
+        ScaleSceneMeshes( scene, 0.1f ); // Scale down all meshes by 50%
+    }
+    Assimp::Exporter exporter;
+    if( exporter.Export( scene, "assbin", FilePath.FullPath + ".assbin" ) != AI_SUCCESS )
+    {
+        std::cerr << "Error exporting model: " << exporter.GetErrorString() << std::endl;
+        return;
+    }
+    //RootNode.Name = std::string( scene->mRootNode->mName.C_Str() );
+    //ProcessNode( scene->mRootNode, scene, RootNode );
+    exporter.FreeBlob();
+    importer.FreeScene();
 }
 
 #endif

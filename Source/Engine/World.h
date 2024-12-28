@@ -69,7 +69,7 @@ public:
 
     void MarkEntityForDelete( Entity& EntityToDestroy );
 
-    EntityHandle CreateFromPrefab( std::string& FilePath, Transform* Parent = nullptr );
+    EntityHandle CreateFromPrefab( const std::string& FilePath, Transform* Parent = nullptr );
 
     std::size_t GetEntityCount() const;
     EntityHandle GetEntity( const EntityID& id );

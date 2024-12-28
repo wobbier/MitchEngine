@@ -50,9 +50,20 @@ struct ModelResourceMetadata
 
 #if USING( ME_EDITOR )
     virtual void OnEditorInspect() final;
-
+#endif
+#if USING( ME_TOOLS )
     void Export() override;
 #endif
 };
 
-ME_REGISTER_METADATA( ".fbx", ModelResourceMetadata );
+struct ModelResourceMetadataObj
+    : public ModelResourceMetadata
+{
+    ModelResourceMetadataObj( const Path& filePath ) : ModelResourceMetadata( filePath )
+    {
+    }
+};
+
+
+ME_REGISTER_METADATA( "fbx", ModelResourceMetadata );
+ME_REGISTER_METADATA( "obj", ModelResourceMetadataObj );

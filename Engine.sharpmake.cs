@@ -175,12 +175,11 @@ public class Engine : BaseProject
     {
         base.ConfigureWin64(conf, target);
 
-        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/Assimp/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
+        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/Assimp/{target.Optimization}"));
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/SDL/Win64/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/Bullet/Win64/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $@"ThirdParty/UltralightSDK/Lib/[target.SubPlatform]/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
 
-        conf.LibraryFiles.Add("assimp-vc140-mt.lib");
         conf.LibraryFiles.Add("AppCore");
         conf.LibraryFiles.Add("Dwrite");
 
@@ -206,6 +205,7 @@ public class Engine : BaseProject
         // Do a virtual method for different configs
         if (target.Optimization == Optimization.Debug)
         {
+            conf.LibraryFiles.Add("assimpd.lib");
             conf.LibraryFiles.Add("SDL2d.lib");
             conf.LibraryFiles.Add("BulletCollision_Debug.lib");
             conf.LibraryFiles.Add("BulletDynamics_Debug.lib");
@@ -214,6 +214,7 @@ public class Engine : BaseProject
         }
         else
         {
+            conf.LibraryFiles.Add("assimp.lib");
             conf.LibraryFiles.Add("SDL2.lib");
             conf.LibraryFiles.Add("BulletCollision_MinsizeRel.lib");
             conf.LibraryFiles.Add("BulletDynamics_MinsizeRel.lib");
@@ -267,7 +268,7 @@ public class Engine : BaseProject
     {
         base.ConfigureUWP(conf, target);
 
-        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/Assimp/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
+        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/Assimp/{target.Optimization}"));
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/Bullet/Win64/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/SDL/UWP/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $@"ThirdParty/UltralightSDK/Lib/[target.SubPlatform]/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
@@ -275,11 +276,11 @@ public class Engine : BaseProject
         conf.LibraryPaths.Add("$(VCInstallDir)\\lib\\store\\amd64");
         conf.LibraryPaths.Add("$(VCInstallDir)\\lib\\amd64");
 
-        conf.LibraryFiles.Add("assimp-vc140-mt.lib");
         conf.LibraryFiles.Add("SDL2.lib");
         conf.LibraryFiles.Add("Dwrite");
         if (target.Optimization == Optimization.Debug)
         {
+            conf.LibraryFiles.Add("assimpd.lib");
             conf.LibraryFiles.Add("BulletCollision_Debug.lib");
             conf.LibraryFiles.Add("BulletDynamics_Debug.lib");
             conf.LibraryFiles.Add("LinearMath_Debug.lib");
@@ -287,6 +288,7 @@ public class Engine : BaseProject
         }
         else
         {
+            conf.LibraryFiles.Add("assimp.lib");
             conf.LibraryFiles.Add("BulletCollision_MinsizeRel.lib");
             conf.LibraryFiles.Add("BulletDynamics_MinsizeRel.lib");
             conf.LibraryFiles.Add("LinearMath_MinsizeRel.lib");
