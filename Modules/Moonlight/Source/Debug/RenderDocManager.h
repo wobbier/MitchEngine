@@ -22,6 +22,7 @@ public:
             int ret = RENDERDOC_GetAPI( eRENDERDOC_API_Version_1_4_2, (void**)&RenderDocApi );
             ME_ASSERT_MSG( ret == 1, "The RenderDoc DLL version is \"built different\" from what I've expected." );
             CLog::GetInstance().Log( CLog::LogType::Info, "[RenderDoc] Loaded." );
+            RenderDocApi->MaskOverlayBits( RENDERDOC_OverlayBits::eRENDERDOC_Overlay_None, 0 );
         }
         else
         {

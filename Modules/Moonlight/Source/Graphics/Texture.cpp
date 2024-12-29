@@ -148,7 +148,9 @@ namespace Moonlight
 void TextureResourceMetadata::OnSerialize( json& outJson )
 {
     outJson["Type"] = FromEnum( OutputType );
-    outJson["MIPs"] = ( OutputType == OutputTextureType::Sprite ) ? GenerateSpriteMIPs : GenerateMIPs;
+    outJson["MIPs"] = GenerateMIPs;
+    outJson["Quality"] = OutputQualityFromEnum( OutputQuality );
+    outJson["Format"] = OutputFormatFromEnum( OutputFormat );
 }
 
 void TextureResourceMetadata::OnDeserialize( const json& inJson )
@@ -165,14 +167,17 @@ void TextureResourceMetadata::OnDeserialize( const json& inJson )
 
     if( inJson.contains( "MIPs" ) )
     {
-        if( OutputType == OutputTextureType::Sprite )
-        {
-            GenerateSpriteMIPs = inJson["MIPs"];
-        }
-        else
-        {
-            GenerateMIPs = inJson["MIPs"];
-        }
+        GenerateMIPs = inJson["MIPs"];
+    }
+
+    if( inJson.contains( "Quality" ) )
+    {
+        OutputQuality = OutputQualityToEnum( inJson["Quality"] );
+    }
+
+    if( inJson.contains( "Format" ) )
+    {
+        OutputFormat = OutputFormatToEnum( inJson["Format"] );
     }
 }
 
@@ -182,8 +187,6 @@ std::string TextureResourceMetadata::FromEnum( OutputTextureType inType )
     {
     case OutputTextureType::NormalMap:
         return "Normal Map";
-    case OutputTextureType::Sprite:
-        return "Sprite";
     case OutputTextureType::Default:
     default:
         return "Default";
@@ -202,6 +205,113 @@ TextureResourceMetadata::OutputTextureType TextureResourceMetadata::ToEnum( cons
     }
 
     return OutputTextureType::Default;
+}
+
+std::string TextureResourceMetadata::ReadableOutputQualityFromEnum( OutputTextureQuality inType )
+{
+    switch( inType )
+    {
+    case OutputTextureQuality::Fastest:
+        return "Fastest";
+    case OutputTextureQuality::Highest:
+        return "Highest";
+    case OutputTextureQuality::Default:
+    case OutputTextureQuality::Count:
+    default:
+        return "Default";
+    }
+}
+
+std::string TextureResourceMetadata::OutputQualityFromEnum( OutputTextureQuality inType )
+{
+    switch( inType )
+    {
+    case OutputTextureQuality::Fastest:
+        return "f";
+    case OutputTextureQuality::Highest:
+        return "h";
+    case OutputTextureQuality::Default:
+    case OutputTextureQuality::Count:
+    default:
+        return "d";
+    }
+}
+
+TextureResourceMetadata::OutputTextureQuality TextureResourceMetadata::OutputQualityToEnum( const std::string& inType )
+{
+    for( int n = 0; n < (int)OutputTextureQuality::Count; n++ )
+    {
+        if( OutputQualityFromEnum( (OutputTextureQuality)n ) == inType )
+        {
+            return (OutputTextureQuality)n;
+        }
+    }
+
+    return OutputTextureQuality::Default;
+}
+
+std::string TextureResourceMetadata::OutputFormatFromEnum( OutputTextureFormat inType )
+{
+    switch( inType )
+    {
+    case OutputTextureFormat::BC1:
+        return "BC1";
+    //case OutputTextureFormat::BC2:
+    //    return "BC2";
+    case OutputTextureFormat::BC3:
+        return "BC3";
+    //case OutputTextureFormat::BC4:
+    //    return "BC4";
+    //case OutputTextureFormat::BC5:
+    //    return "BC5";
+    //case OutputTextureFormat::BC6H:
+    //    return "BC6H";
+    //case OutputTextureFormat::BC7:
+    //    return "BC7";
+    //case OutputTextureFormat::ETC1:
+    //    return "ETC1";
+    //case OutputTextureFormat::ETC2:
+    //    return "ETC2";
+    //case OutputTextureFormat::ETC2A:
+    //    return "ETC2A";
+    //case OutputTextureFormat::ETC2A1:
+    //    return "ETC2A1";
+    //case OutputTextureFormat::PTC12:
+    //    return "PTC12";
+    //case OutputTextureFormat::PTC14:
+    //    return "PTC14";
+    //case OutputTextureFormat::PTC12A:
+    //    return "PTC12A";
+    //case OutputTextureFormat::PTC14A:
+    //    return "PTC14A";
+    //case OutputTextureFormat::PTC22:
+    //    return "PTC22";
+    //case OutputTextureFormat::PTC24:
+    //    return "PTC24";
+    //case OutputTextureFormat::ATC:
+    //    return "ATC";
+    //case OutputTextureFormat::ATCE:
+    //    return "ATCE";
+    //case OutputTextureFormat::ATCI:
+    //    return "ATCI";
+    case OutputTextureFormat::Count:
+    case OutputTextureFormat::None:
+    default:
+        return "None";
+    }
+}
+
+TextureResourceMetadata::OutputTextureFormat TextureResourceMetadata::OutputFormatToEnum( const std::string& inType )
+{
+    for( int n = 0; n < (int)OutputTextureFormat::Count; n++ )
+    {
+        if( OutputFormatFromEnum( (OutputTextureFormat)n ) == inType )
+        {
+            return (OutputTextureFormat)n;
+        }
+    }
+
+    return OutputTextureFormat::None;
 }
 
 std::string TextureResourceMetadata::GetExtension2() const
@@ -232,12 +342,41 @@ void TextureResourceMetadata::OnEditorInspect()
         ImGui::EndCombo();
     }
 
-    bool* genMips = &GenerateMIPs;
-    if( OutputType == OutputTextureType::Sprite )
+
+    HavanaUtils::Label( "Format" );
+    if( ImGui::BeginCombo( "##FormatSetting", OutputFormatFromEnum( OutputFormat ).c_str() ) )
     {
-        genMips = &GenerateSpriteMIPs;
+        for( int n = 0; n < (int)OutputTextureFormat::Count; n++ )
+        {
+            if( ImGui::Selectable( OutputFormatFromEnum( (OutputTextureFormat)n ).c_str(), false ) )
+            {
+                OutputFormat = (OutputTextureFormat)n;
+
+                break;
+            }
+        }
+        ImGui::EndCombo();
     }
-    ImGui::Checkbox( "Generate MIPs", genMips );
+
+    if( OutputFormat != OutputTextureFormat::None )
+    {
+        HavanaUtils::Label( "Quality" );
+        if( ImGui::BeginCombo( "##QualitySetting", ReadableOutputQualityFromEnum( OutputQuality ).c_str() ) )
+        {
+            for( int n = 0; n < (int)OutputTextureQuality::Count; n++ )
+            {
+                if( ImGui::Selectable( ReadableOutputQualityFromEnum( (OutputTextureQuality)n ).c_str(), false ) )
+                {
+                    OutputQuality = (OutputTextureQuality)n;
+
+                    break;
+                }
+            }
+            ImGui::EndCombo();
+        }
+    }
+
+    ImGui::Checkbox( "Generate MIPs", &GenerateMIPs );
 }
 
 #endif
@@ -247,13 +386,18 @@ void TextureResourceMetadata::OnEditorInspect()
 void TextureResourceMetadata::Export()
 {
     std::string exportType = " --as dds";
-    if( ( OutputType == OutputTextureType::Sprite && GenerateSpriteMIPs ) || ( OutputType != OutputTextureType::Sprite && GenerateMIPs ) )
+    if( GenerateMIPs )
     {
         exportType += " -m";
     }
     if( OutputType == OutputTextureType::NormalMap )
     {
         exportType += " -n";
+    }
+    if( OutputFormat != OutputTextureFormat::None )
+    {
+        exportType += " -t " + OutputFormatFromEnum( OutputFormat );
+        exportType += " -q " + OutputQualityFromEnum( OutputQuality );
     }
     /*
         rule texturec_bc1
@@ -283,10 +427,10 @@ void TextureResourceMetadata::Export()
     */
 
 #if USING( ME_PLATFORM_WIN64 )
-    Path optickPath = Path( "Engine/Tools/Win64/texturec.exe" );
-    if( !optickPath.Exists )
+    Path texturecPath = Path( "Engine/Tools/Win64/texturec.exe" );
+    if( !texturecPath.Exists )
     {
-        optickPath = Path( "texturec.exe" );
+        texturecPath = Path( "texturec.exe" );
     }
 
     std::string progArgs = "-f \"";
@@ -294,7 +438,7 @@ void TextureResourceMetadata::Export()
     progArgs += "\" -o \"" + FilePath.FullPath + ".dds\"" + exportType;
     // ./shaderc -f ../../../Assets/Shaders/vs_cubes.shader -o ../../../Assets/Shaders/dummy.bin --varyingdef ./varying.def.sc --platform windows -p vs_5_0 --type vertex
     CLog::GetInstance().Log( CLog::LogType::Info, progArgs );
-    PlatformUtils::SystemCall( optickPath, progArgs );
+    PlatformUtils::SystemCall( texturecPath, progArgs );
 #else
 
     Path optickPath = Path( "Engine/Tools/macOS/texturec" );

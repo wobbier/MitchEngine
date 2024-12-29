@@ -1,5 +1,7 @@
 {
     "FileType": "png",
+    "Format": "BC3",
     "MIPs": false,
+    "Quality": "h",
     "Type": "Default"
 }

@@ -82,7 +82,42 @@ struct TextureResourceMetadata
     {
         Default = 0,
         NormalMap,
-        Sprite,
+        Count
+    };
+
+    enum class OutputTextureQuality : uint8_t
+    {
+        Default = 0,
+        Highest,
+        Fastest,
+
+        Count
+    };
+
+    enum class OutputTextureFormat : uint8_t
+    {
+        None,
+        BC1,          //!< DXT1
+        //BC2,          //!< DXT3
+        BC3,          //!< DXT5
+        //BC4,          //!< LATC1/ATI1
+        //BC5,          //!< LATC2/ATI2
+        //BC6H,         //!< BC6H
+        //BC7,          //!< BC7
+        //ETC1,         //!< ETC1 RGB8
+        //ETC2,         //!< ETC2 RGB8
+        //ETC2A,        //!< ETC2 RGBA8
+        //ETC2A1,       //!< ETC2 RGB8A1
+        //PTC12,        //!< PVRTC1 RGB 2BPP
+        //PTC14,        //!< PVRTC1 RGB 4BPP
+        //PTC12A,       //!< PVRTC1 RGBA 2BPP
+        //PTC14A,       //!< PVRTC1 RGBA 4BPP
+        //PTC22,        //!< PVRTC2 RGBA 2BPP
+        //PTC24,        //!< PVRTC2 RGBA 4BPP
+        //ATC,          //!< ATC RGB 4BPP
+        //ATCE,         //!< ATCE RGBA 8 BPP explicit alpha
+        //ATCI,         //!< ATCI RGBA 8 BPP interpolated alpha
+
         Count
     };
 
@@ -97,8 +132,11 @@ struct TextureResourceMetadata
     void OnDeserialize( const json& inJson ) override;
 
     bool GenerateMIPs = true;
-    bool GenerateSpriteMIPs = false;
     OutputTextureType OutputType = OutputTextureType::Default;
+    // I haven't seen much difference in final images with changing this setting, it just takes longer?
+    // Might not apply to the formats I'm using based off the source code
+    OutputTextureQuality OutputQuality = OutputTextureQuality::Default;
+    OutputTextureFormat OutputFormat = OutputTextureFormat::None;
 
 #if USING( ME_EDITOR )
     virtual void OnEditorInspect() final;
@@ -111,6 +149,13 @@ struct TextureResourceMetadata
 private:
     std::string FromEnum( OutputTextureType inType );
     OutputTextureType ToEnum( const std::string& inType );
+
+    std::string ReadableOutputQualityFromEnum( OutputTextureQuality inType );
+    std::string OutputQualityFromEnum( OutputTextureQuality inType );
+    OutputTextureQuality OutputQualityToEnum( const std::string& inType );
+
+    std::string OutputFormatFromEnum( OutputTextureFormat inType );
+    OutputTextureFormat OutputFormatToEnum( const std::string& inType );
 };
 
 struct TextureResourceMetadataJpg

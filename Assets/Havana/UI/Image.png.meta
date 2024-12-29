@@ -1,5 +1,7 @@
 {
     "FileType": "png",
+    "Format": "BC1",
     "MIPs": false,
-    "Type": "Sprite"
+    "Quality": "h",
+    "Type": "Default"
 }
