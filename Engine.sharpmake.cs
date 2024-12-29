@@ -178,7 +178,8 @@ public class Engine : BaseProject
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/Assimp/{target.Optimization}"));
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/SDL/Win64/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/Bullet/Win64/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
-        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $@"ThirdParty/UltralightSDK/Lib/[target.SubPlatform]/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
+        // Release for now since the 1.4 debug dlls are massive
+        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $@"ThirdParty/UltralightSDK/Lib/[target.SubPlatform]/{CommonTarget.GetThirdPartyOptimization(Optimization.Release)}"));
 
         conf.LibraryFiles.Add("AppCore");
         conf.LibraryFiles.Add("Dwrite");
