@@ -319,11 +319,11 @@ void ModelResourceMetadata::Export()
     }
     if( scene && scene->mRootNode )
     {
-        ScaleNode( scene->mRootNode, 0.1f ); // Example: Scale down by 50%
+        //ScaleNode( scene->mRootNode, 0.1f ); // Example: Scale down by 50%
     }
     if( scene )
     {
-        ScaleSceneMeshes( scene, 0.1f ); // Scale down all meshes by 50%
+        //ScaleSceneMeshes( scene, 0.1f ); // Scale down all meshes by 50%
     }
     Assimp::Exporter exporter;
     if( exporter.Export( scene, "assbin", FilePath.FullPath + ".assbin" ) != AI_SUCCESS )

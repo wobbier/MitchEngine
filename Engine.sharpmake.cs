@@ -370,6 +370,7 @@ public class Engine : BaseProject
             conf.LibraryFiles.Add("assimp");
             conf.LibraryFiles.Add("zlibstatic");
         }
+
         //??
         conf.Options.Add(new Options.XCode.Compiler.UserFrameworks("Mono"));
 
@@ -392,6 +393,14 @@ public class Engine : BaseProject
                 //copyDirBuildStep.CopyPattern = "mscorelib.dll";
                 //conf.EventPostBuildExe.Add(copyDirBuildStep);
             }
+        }
+        // Ultralight dylibs
+        {
+            var copyDirBuildStep = new Configuration.BuildStepCopy(
+                $@"[project.SharpmakeCsPath]/ThirdParty/UltralightSDK/lib/macOS/",
+                Globals.RootDir + "/.build/[target.Name]");
+
+            conf.EventPostBuildExe.Add(copyDirBuildStep);
         }
     }
 }

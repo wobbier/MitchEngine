@@ -116,14 +116,8 @@ void Engine::Init( Game* game )
 
     engineConfig = EngineConfig( engineCfg );
     engineConfig.OnLoadConfig( engineConfig.Root );
-#if USING( ME_PLATFORM_WIN64 )
+#if USING( ME_PLATFORM_WIN64 ) || USING( ME_PLATFORM_MACOS )
     GameWindow = new SDLWindow( engineConfig.GetValue( "Title" ), ResizeFunc, engineConfig.WindowPosition.x, engineConfig.WindowPosition.y, engineConfig.WindowSize );
-#endif
-
-#if USING( ME_PLATFORM_MACOS )
-    int WindowWidth = 1280;
-    int WindowHeight = 720;
-    GameWindow = new SDLWindow( "MitchEngine", ResizeFunc, 500, 300, Vector2( WindowWidth, WindowHeight ) );
 #endif
 
 #if USING( ME_PLATFORM_UWP )
