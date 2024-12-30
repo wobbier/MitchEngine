@@ -20,6 +20,7 @@ class ImGuiRenderer;
 
 namespace Moonlight {
     class DynamicSky;
+    class PickingPass;
 }
 
 struct RendererCreationSettings
@@ -137,6 +138,10 @@ private:
 
 #if USING( ME_IMGUI )
     ImGuiRenderer* ImGuiRender = nullptr;
+#endif
+
+#if USING( ME_EDITOR )
+    SharedPtr<Moonlight::PickingPass> m_pickingPass;
 #endif
 
 public:

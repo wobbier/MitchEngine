@@ -30,6 +30,7 @@ public:
     void SignalWorkAvailable();
 
     void Wait();
+    void WaitAndWork();
 private:
     JobQueueOld Queue;
 

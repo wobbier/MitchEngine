@@ -137,3 +137,25 @@ void JobSystem::Wait()
         std::this_thread::sleep_for( std::chrono::microseconds( 100 ) );
     }
 }
+
+void JobSystem::WaitAndWork()
+{
+    while( true )
+    {
+        if( m_isWorkAvailable && !m_isWorkFinished )
+        {
+            auto& queue = GetJobQueue();
+            auto job = queue.GetNextJob();
+            if( job )
+            {
+                OPTICK_CATEGORY( "Running Job", Optick::Category::Wait );
+                job();
+            }
+        }
+        else
+        {
+            Wait();
+            return;
+        }
+    }
+}

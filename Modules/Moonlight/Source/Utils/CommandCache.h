@@ -9,6 +9,7 @@ struct CommandCache
     unsigned int Push( const T& inCommand );
     void Update( unsigned int Id, T& inCommand );
     void Pop( unsigned int Id );
+    void Clear();
 
     T* Get( unsigned int Id );
 
@@ -16,6 +17,15 @@ struct CommandCache
     std::queue<unsigned int> FreeIndicies;
     std::mutex CommandMutex;
 };
+
+template<typename T>
+void CommandCache<T>::Clear()
+{
+    CommandMutex.lock();
+    Commands.clear();
+    FreeIndicies = std::queue<unsigned int>();
+    CommandMutex.unlock();
+}
 
 template<typename T>
 unsigned int CommandCache<T>::Push( const T& inCommand )

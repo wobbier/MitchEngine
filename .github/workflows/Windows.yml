@@ -130,10 +130,10 @@ jobs:
           robocopy "Engine/Tools/HUB" ".build\\Editor_Release" *.exe /w:0 /r:1 /v /E ; if ($lastexitcode -lt 8) { $global:LASTEXITCODE = $null }
 
       - name: Archive Tools
-        if: ${{ matrix.buildconfig == 'Editor' }}
+        if: ${{ matrix.buildconfig == 'Editor' && matrix.configuration == 'Release' }}
         uses: actions/upload-artifact@v4
         with:
-          name: HUB v${{github.run_number}} ${{ matrix.configuration }}
+          name: HUB v${{github.run_number}}
           path: |
             .build/${{matrix.buildconfig}}_${{matrix.configuration}}/HUB.exe
             .build/${{matrix.buildconfig}}_${{matrix.configuration}}/Assets/Close.png
@@ -143,6 +143,7 @@ jobs:
             .build/${{matrix.buildconfig}}_${{matrix.configuration}}/Assets/LOGO.png
             .build/${{matrix.buildconfig}}_${{matrix.configuration}}/shaderc.exe
             .build/${{matrix.buildconfig}}_${{matrix.configuration}}/texturec.exe
+            .build/${{matrix.buildconfig}}_${{matrix.configuration}}/Tools/Win64/shaderc.exe
             .build/${{matrix.buildconfig}}_${{matrix.configuration}}/*.dll
             !.build/${{matrix.buildconfig}}_${{matrix.configuration}}/AppX
             !.build/${{matrix.buildconfig}}_${{matrix.configuration}}/Tools/**/*.*
@@ -152,3 +153,11 @@ jobs:
             !.build/${{matrix.buildconfig}}_${{matrix.configuration}}/*.log
             .build/${{matrix.buildconfig}}_${{matrix.configuration}}/Tools/Optick.exe
             .build/${{matrix.buildconfig}}_${{matrix.configuration}}/Tools/Win64/*.*
+
+      - name: Asset Folder
+        if: ${{ matrix.buildconfig == 'Editor' && matrix.configuration == 'Release' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Raw Assets v${{github.run_number}} ${{ matrix.configuration }}
+          path: |
+            .build/${{matrix.buildconfig}}_${{matrix.configuration}}
