@@ -4,7 +4,6 @@
 
 int main( int argc, char** argv )
 {
-    //Web::DownloadFile( "dlc.mitch.gg", "dlc_index.json", Path( "dlc_cache.json" ) );
     for( int i = 0; i < argc; ++i )
     {
         std::printf( "argv[%d]: %s\n", i, argv[i] );

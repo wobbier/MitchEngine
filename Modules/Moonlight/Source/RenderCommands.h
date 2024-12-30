@@ -51,11 +51,13 @@ namespace Moonlight
             SingleMesh = nullptr;
             MeshMaterial = nullptr;
             Transform = glm::mat4( 1.f );
+            ID = 0u;
         }
         MeshData* SingleMesh = nullptr;
         SharedPtr<Material> MeshMaterial = nullptr;
         glm::mat4 Transform;
         MeshType Type = MeshType::Model;
+        uint64_t ID = 0u;
         int VisibilityIndex = 0;
         bool Visible = false;
     };

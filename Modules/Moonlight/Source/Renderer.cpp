@@ -22,6 +22,7 @@
 #include <stack>
 #include <Mathf.h>
 #include "Core/Assert.h"
+#include "RenderPasses/PickingPass.h"
 
 #if BX_PLATFORM_LINUX
 #define GLFW_EXPOSE_NATIVE_X11
@@ -168,6 +169,10 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
 
         m_dynamicSky->m_sun.Update( 0 );
         m_defaultOpacityTexture = ResourceCache::GetInstance().Get<Moonlight::Texture>( Path( "Assets/Textures/DefaultAlpha.png" ) );
+
+#if USING( ME_EDITOR )
+        m_pickingPass = MakeShared<Moonlight::PickingPass>();
+#endif
     }
     s_time = bgfx::createUniform( "u_time", bgfx::UniformType::Vec4 );
     TransparentIndicies.reserve( kMeshTransparencyTempSize );
@@ -176,6 +181,7 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
     ImGuiRender = new ImGuiRenderer();
     ImGuiRender->Create();
 #endif
+
 
     bgfx::reset( (uint32_t)CurrentSize.x, (uint32_t)CurrentSize.y, m_resetFlags );
     bgfx::setViewRect( kClearView, 0, 0, bgfx::BackbufferRatio::Equal );
@@ -311,6 +317,7 @@ void BGFXRenderer::Render( Moonlight::CameraData& EditorCamera )
             bgfx::frame();
         }
     }
+    m_meshCache.Clear();
 }
 
 

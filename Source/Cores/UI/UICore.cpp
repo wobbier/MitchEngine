@@ -88,10 +88,12 @@ UICore::~UICore()
     CLog::Log( CLog::LogType::Debug, "UICore Destroyed..." );
     EventManager::GetInstance().DeRegisterReciever( this );
 
+#if USING( ME_UI )
     for( int ui_cursor = 0; ui_cursor < (int)ultralight::kCursor_Custom; ui_cursor++ )
     {
         SDL_FreeCursor( g_ul_to_sdl_cursor[ui_cursor] );
     }
+#endif
 
     // Am I leaking? or am I just dreaming?
     //m_overlays.clear();
@@ -345,7 +347,9 @@ void UICore::Render()
 
 void UICore::PostRender( const UpdateContext& inUpdateContext )
 {
+#if USING( ME_UI )
     m_uiRenderer->RefreshDisplay( 0 );
+#endif
 }
 
 

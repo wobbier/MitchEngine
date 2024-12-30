@@ -73,7 +73,6 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
     renderer.m_time.x = inUpdateContext.GetDeltaTime();
     renderer.m_time.y = inUpdateContext.GetTotalTime();
     
-    // WTF IS THIS LMAO
     // Clear Render Commands
     renderer.GetMeshCache().Commands.clear();
     while( !renderer.GetMeshCache().FreeIndicies.empty() )
@@ -135,6 +134,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                         command.Transform = meshMatrix;
                         command.Type = model.GetType();
                         command.VisibilityIndex = entIndex;
+                        command.ID = InEntity.GetId().Value();
                         model.Id = renderer.GetMeshCache().Push( command );
                     }
                 }
@@ -144,7 +144,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
         jobSystem.AddWork( meshJob, false );
         jobSystem.SignalWorkAvailable();
     }
-    jobSystem.Wait();
+    jobSystem.WaitAndWork();
 
 #if USING( ME_EDITOR )
     renderer.SetDebugDrawEnabled( EnableDebugDraw );
@@ -191,6 +191,8 @@ void RenderCore::OnEditorInspect()
     {
         GetEngine().GetRenderer().SetMSAALevel( BGFXRenderer::MSAALevel::X16 );
     }
+
+
 }
 
 #endif
