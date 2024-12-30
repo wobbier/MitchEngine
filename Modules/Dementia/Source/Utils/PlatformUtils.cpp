@@ -43,7 +43,7 @@ void PlatformUtils::SystemCall( const Path& inFilePath, const std::string& inArg
     std::string ProgramPath( std::string( p.generic_string() ) );
     if( inFilePath.IsFile && inRunFromDirectory )
     {
-        SetCurrentDirectory( StringUtils::ToWString( inFilePath.GetDirectory() ).c_str() );
+        SetCurrentDirectory( StringUtils::ToWString( inFilePath.GetDirectoryString() ).c_str() );
     }
 
     STARTUPINFO si;

@@ -103,7 +103,9 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
 #endif
     m_resetFlags = init.resolution.reset;
     CurrentSize = settings.InitialSize;
-
+#if USING( ME_ENABLE_RENDERDOC )
+    RenderDoc = new RenderDocManager();
+#endif
     if( !bgfx::init( init ) )
     {
         CLog::Log( CLog::LogType::Error, "BGFX Failed to Init." );
@@ -121,9 +123,6 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
 
     if( settings.InitAssets )
     {
-#if USING( ME_ENABLE_RENDERDOC )
-        RenderDoc = new RenderDocManager();
-#endif
         EditorCameraBuffer = new Moonlight::FrameBuffer( init.resolution.width, init.resolution.height );
         EditorCameraBuffer->ReCreate( m_resetFlags );
 
@@ -258,9 +257,10 @@ void BGFXRenderer::Render( Moonlight::CameraData& EditorCamera )
     bgfx::ViewId id = 1;
 
     EditorCamera.Buffer = EditorCameraBuffer;
-    if( EditorCamera.ShouldRender )
+    if( EditorCamera.Buffer && EditorCamera.ShouldRender )
     {
         RenderCameraView( EditorCamera, id );
+        m_pickingPass->Render( this, &EditorCamera );
         ++id;
     }
 

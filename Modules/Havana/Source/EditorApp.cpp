@@ -79,7 +79,7 @@ void EditorApp::OnUpdate( const UpdateContext& inUpdateContext )
 
 void EditorApp::UpdateCameras()
 {
-    if ( !Camera::CurrentCamera )
+    if( !Camera::CurrentCamera )
     {
         Camera::CurrentCamera = Camera::EditorCamera;
     }
@@ -129,7 +129,7 @@ void EditorApp::OnEnd()
 
 void EditorApp::OnInitialize()
 {
-    if ( !Editor )
+    if( !Editor )
     {
         EditorConfig::GetInstance().Init();
         EditorConfig::GetInstance().Load();
@@ -137,16 +137,19 @@ void EditorApp::OnInitialize()
         Editor = MakeUnique<Havana>( &GetEngine(), this );
         EditorSceneManager = new EditorCore( Editor.get() );
 
-        Editor->SetGameCallbacks( [this]() {
-            StartGame();
-            m_isGamePaused = false;
-            m_isGameRunning = true;
-            //Editor->SetViewportMode(ViewportMode::Game);
+        Editor->SetGameCallbacks( [this]()
+            {
+                StartGame();
+                m_isGamePaused = false;
+                m_isGameRunning = true;
+                //Editor->SetViewportMode(ViewportMode::Game);
             }
-            , [this]() {
+            , [this]()
+            {
                 m_isGamePaused = true;
             }
-                , [this]() {
+            , [this]()
+            {
                 m_isGamePaused = false;
                 //Editor->SetViewportMode(ViewportMode::World);
                 ClearInspectEvent evt;
@@ -181,7 +184,7 @@ void EditorApp::PostRender()
 
 void EditorApp::StartGame()
 {
-    if ( !m_isGameRunning )
+    if( !m_isGameRunning )
     {
         GetEngine().GetWorld().lock()->Start();
         m_isGameRunning = true;
@@ -191,9 +194,9 @@ void EditorApp::StartGame()
 
 void EditorApp::StopGame()
 {
-    if ( m_isGameRunning )
+    if( m_isGameRunning )
     {
-        if ( GetEngine().GetWorld().lock() )
+        if( GetEngine().GetWorld().lock() )
         {
             GetEngine().GetWorld().lock()->Destroy();
         }
@@ -221,18 +224,18 @@ const bool EditorApp::IsGamePaused() const
 
 bool EditorApp::OnEvent( const BaseEvent& evt )
 {
-    if ( evt.GetEventId() == NewSceneEvent::GetEventId() )
+    if( evt.GetEventId() == NewSceneEvent::GetEventId() )
     {
         GetEngine().LoadScene( "" );
         GetEngine().InitGame();
         GetEngine().GetWorld().lock()->Simulate();
     }
-    else if ( evt.GetEventId() == SceneLoadedEvent::GetEventId() )
+    else if( evt.GetEventId() == SceneLoadedEvent::GetEventId() )
     {
         const SceneLoadedEvent& test = static_cast<const SceneLoadedEvent&>( evt );
 
         Editor->SetWindowTitle( "Havana - " + test.LoadedScene->FilePath.GetLocalPathString() );
-        if ( m_isGameRunning )
+        if( m_isGameRunning )
         {
             GetEngine().GetWorld().lock()->Start();
         }

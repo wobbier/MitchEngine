@@ -20,6 +20,7 @@ class Tool
 public:
     Tool() = delete;
     Tool( ToolCreationFlags& inToolCreationFlags );
+    virtual ~Tool();
 
     void Start();
 

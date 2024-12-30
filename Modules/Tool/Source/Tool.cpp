@@ -14,10 +14,19 @@
 
 extern bool ImGui_ImplSDL2_InitForMetal( SDL_Window* window );
 extern bool ImGui_ImplSDL2_InitForD3D( SDL_Window* window );
+static SDL_Cursor* g_imgui_to_sdl_cursor[ImGuiMouseCursor_COUNT];
 
 Tool::Tool( ToolCreationFlags& inToolCreationFlags )
     : m_toolCreationFlags( inToolCreationFlags )
 {
+}
+
+Tool::~Tool()
+{
+    for( ImGuiMouseCursor imgui_cursor = 0; imgui_cursor < ImGuiMouseCursor_COUNT; imgui_cursor++ )
+    {
+        SDL_FreeCursor( g_imgui_to_sdl_cursor[imgui_cursor] );
+    }
 }
 
 void Tool::Start()
@@ -52,6 +61,13 @@ void Tool::Start()
     ImGui_ImplSDL2_InitForMetal( static_cast<SDLWindow*>( m_window )->WindowHandle );
 #endif
 
+    g_imgui_to_sdl_cursor[ImGuiMouseCursor_Arrow] = SDL_CreateSystemCursor( SDL_SYSTEM_CURSOR_ARROW );
+    g_imgui_to_sdl_cursor[ImGuiMouseCursor_TextInput] = SDL_CreateSystemCursor( SDL_SYSTEM_CURSOR_IBEAM );
+    g_imgui_to_sdl_cursor[ImGuiMouseCursor_Hand] = SDL_CreateSystemCursor( SDL_SYSTEM_CURSOR_HAND );
+    g_imgui_to_sdl_cursor[ImGuiMouseCursor_ResizeNS] = SDL_CreateSystemCursor( SDL_SYSTEM_CURSOR_SIZENS );
+    g_imgui_to_sdl_cursor[ImGuiMouseCursor_ResizeEW] = SDL_CreateSystemCursor( SDL_SYSTEM_CURSOR_SIZEWE );
+    g_imgui_to_sdl_cursor[ImGuiMouseCursor_ResizeNESW] = SDL_CreateSystemCursor( SDL_SYSTEM_CURSOR_SIZENESW );
+    g_imgui_to_sdl_cursor[ImGuiMouseCursor_ResizeNWSE] = SDL_CreateSystemCursor( SDL_SYSTEM_CURSOR_SIZENWSE );
 
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     Path EngineConfigFilePath = Path( ".tmp/" + m_toolCreationFlags.toolName + ".cfg" );
@@ -223,6 +239,8 @@ void Tool::Run()
         {
             OnUpdate();
         }
+
+        SDL_SetCursor( g_imgui_to_sdl_cursor[ImGui::GetMouseCursor()] );
 
         Moonlight::CameraData cam;
         m_renderer->Render( cam );
