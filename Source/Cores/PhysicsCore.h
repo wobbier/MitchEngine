@@ -1,7 +1,6 @@
 #pragma once
 #include "ECS/Core.h"
 #include <btBulletDynamicsCommon.h>
-#include "Math/Vector3.h"
 #include "ECS/CoreDetail.h"
 #include "Components/Physics/Rigidbody.h"
 #include "Components/Transform.h"

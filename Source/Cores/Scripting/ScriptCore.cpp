@@ -10,18 +10,12 @@
 #include <mono/metadata/attrdefs.h>
 #endif
 
-#include "Math/Vector3.h"
-
-#include "Path.h"
-#include "imgui.h"
 #include "File.h"
 #include "Utils/PlatformUtils.h"
 #include "Scripting/MonoUtils.h"
 #include "Scripting/ScriptEngine.h"
 #include "Events/SceneEvents.h"
 #include "ECS/Core.h"
-#include "optick.h"
-
 
 
 ScriptCore::ScriptCore()

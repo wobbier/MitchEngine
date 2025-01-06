@@ -5,9 +5,6 @@
 #include "Components/Camera.h"
 #include "Engine/Input.h"
 #include "Events/EventManager.h"
-#include "optick.h"
-#include "Math/Vector3.h"
-#include "Mathf.h"
 #include "Engine/Engine.h"
 
 FlyingCameraCore::FlyingCameraCore() : Base( ComponentFilter().Requires<FlyingCamera>().Requires<Camera>() )

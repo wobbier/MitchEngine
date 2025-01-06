@@ -1,6 +1,5 @@
 #pragma once
 #include "Vector3.h"
-#include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 
 struct Quaternion

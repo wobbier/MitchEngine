@@ -1,7 +1,6 @@
 #pragma once
-#include "LinearMath/btVector3.h"
-#include <string>
 #include <glm/glm.hpp>
+#include <LinearMath/btVector3.h>
 
 struct Vector3
 {

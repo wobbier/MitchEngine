@@ -5,13 +5,10 @@
 #include "LinearMath/btScalar.h"
 #include "RenderCommands.h"
 #include "Engine/Engine.h"
-#include "Math/Quaternion.h"
-#include "Math/Matrix4.h"
 #include "Components/Physics/CharacterController.h"
 #include "BulletCollision/CollisionDispatch/btCollisionWorld.h"
 #include "BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
 #include "Math/Line.h"
-#include "Mathf.h"
 #include "Work/Burst.h"
 #include <Renderer.h>
 #include <Debug/DebugDrawer.h>

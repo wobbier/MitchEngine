@@ -3,7 +3,6 @@
 #include "ECS/ComponentDetail.h"
 #include "ECS/Component.h"
 #include "Scripting/ScriptEngine.h"
-#include "Math/Vector3.h"
 
 // TODO: this should go
 #include "Engine/Input.h"

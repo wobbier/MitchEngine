@@ -2,9 +2,6 @@
 #include "ECS/Component.h"
 #include "ECS/ComponentDetail.h"
 #include <btBulletDynamicsCommon.h>
-#include "Math/Vector3.h"
-#include "Math/Matrix4.h"
-#include "Math/Quaternion.h"
 
 class btRigidBodyWithEvents;
 

@@ -9,8 +9,6 @@
 #include "BulletCollision/CollisionShapes/btCollisionShape.h"
 #include "BulletDynamics/Dynamics/btRigidBody.h"
 #include "LinearMath/btTransform.h"
-#include <Math/Vector3.h>
-#include "Math/Quaternion.h"
 
 class btPairCachingGhostObjectWithEvents;
 

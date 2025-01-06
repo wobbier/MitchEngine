@@ -1,11 +1,8 @@
 #pragma once
-#include "ECS/Component.h"
-
 #include "Dementia.h"
-#include "Math/Vector3.h"
+#include "ECS/Component.h"
 #include "ECS/ComponentDetail.h"
-#include "Utils/HavanaUtils.h"
-#include "Math/Quaternion.h"
+
 #include "Math/Matrix4.h"
 
 enum class TransformSpace : uint8_t
@@ -84,7 +81,9 @@ public:
     const Matrix4& GetWorldToLocalMatrix();
     bool FuncIsLocalToWorldDirty();
 
+#if USING( ME_EDITOR )
     virtual void OnEditorInspect() final;
+#endif
 
 private:
     std::string Name;
