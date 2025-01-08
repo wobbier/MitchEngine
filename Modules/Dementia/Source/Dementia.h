@@ -141,6 +141,12 @@ Class& operator=(Class&&) = delete;
 #define ME_MONO NOT_IN_USE
 #endif
 
+#if defined( DEFINE_ME_PHYSICS_3D )
+#define ME_PHYSICS_3D IN_USE
+#else
+#define ME_PHYSICS_3D NOT_IN_USE
+#endif
+
 #if defined( DEFINE_ME_RENDERDOC )
 #define ME_ENABLE_RENDERDOC IN_USE
 #else

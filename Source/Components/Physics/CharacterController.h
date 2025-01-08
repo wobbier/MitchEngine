@@ -2,6 +2,7 @@
 #include "ECS/ComponentDetail.h"
 #include "ECS/Component.h"
 
+#if USING( ME_PHYSICS_3D )
 #include "btBulletDynamicsCommon.h"
 #include <BulletCollision/CollisionDispatch/btGhostObject.h>
 #include "BulletDynamics/Dynamics/btDynamicsWorld.h"
@@ -9,6 +10,7 @@
 #include "BulletCollision/CollisionShapes/btCollisionShape.h"
 #include "BulletDynamics/Dynamics/btRigidBody.h"
 #include "LinearMath/btTransform.h"
+#endif
 
 class btPairCachingGhostObjectWithEvents;
 
@@ -29,7 +31,9 @@ public:
     // Separate init from construction code.
     virtual void Init() final;
 
+#if USING( ME_PHYSICS_3D )
     void Initialize( btDynamicsWorld* pPhysicsWorld, const Vector3 spawnPos, float radius, float height, float mass, float stepHeight );
+#endif
 
     void Walk( const Vector3& direction );
     void Walk( Vector2 direction );
@@ -49,11 +53,14 @@ public:
     virtual void OnEditorInspect() override;
 #endif
 private:
+#if USING( ME_PHYSICS_3D )
     btDynamicsWorld* m_world = nullptr;
     btCollisionShape* m_shape = nullptr;
     btDefaultMotionState* m_motionState = nullptr;
     btRigidBody* m_rigidbody = nullptr;
     btPairCachingGhostObjectWithEvents* m_ghostObject = nullptr;
+    btTransform m_motionTransform;
+#endif
 
     bool m_isGrounded = false;
     bool m_isHittingWall = false;
@@ -61,7 +68,6 @@ private:
     float m_bottomRoundedRegionYOffset = 0.f;
     float m_stepHeight = 0.1f;
 
-    btTransform m_motionTransform;
 
     Vector3 m_manualVelocity;
     std::vector<Vector3> m_surfaceHitNormals;
@@ -69,10 +75,12 @@ private:
     btVector3 m_previousPosition;
     float m_jumpTimer = 0.f;
 
+#if USING( ME_PHYSICS_3D )
     void ParseGhostContacts();
 
     void UpdatePosition();
     void UpdateVelocity( float dt );
+#endif
 
     virtual void OnSerialize( json& outJson ) final;
     virtual void OnDeserialize( const json& inJson ) final;

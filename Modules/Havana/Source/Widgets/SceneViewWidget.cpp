@@ -420,6 +420,7 @@ void SceneViewWidget::DrawGuizmo()
 				SelectedTransform.lock()->SetScale(modifiedScale);
 			}
 
+#if USING( ME_PHYSICS_3D )
 			EntityHandle& selectedEntity = SelectedTransform.lock()->Parent;
             if ( SelectedTransform.lock()->IsDirty() && selectedEntity->HasComponent<Rigidbody>() )
             {
@@ -432,6 +433,7 @@ void SceneViewWidget::DrawGuizmo()
                 rigidbody->setWorldTransform( trans );
                 rigidbody->activate();
             }
+#endif
 		}
 	}
 }

@@ -43,6 +43,7 @@ void CharacterController::Init()
 {
 }
 
+#if USING( ME_PHYSICS_3D )
 void CharacterController::Initialize( btDynamicsWorld* pPhysicsWorld, const Vector3 spawnPos, float radius, float height, float mass, float stepHeight )
 {
     m_world = pPhysicsWorld;
@@ -79,6 +80,7 @@ void CharacterController::Initialize( btDynamicsWorld* pPhysicsWorld, const Vect
 
     m_world->addCollisionObject( m_ghostObject, btBroadphaseProxy::KinematicFilter, btBroadphaseProxy::StaticFilter | btBroadphaseProxy::DefaultFilter );
 }
+#endif
 
 void CharacterController::Walk( const Vector3& direction )
 {
@@ -102,6 +104,7 @@ void CharacterController::Walk( Vector2 direction )
 
 void CharacterController::Update( const UpdateContext& inUpdateContext )
 {
+#if USING( ME_PHYSICS_3D )
     m_ghostObject->setWorldTransform( m_rigidbody->getWorldTransform() );
 
     m_motionState->getWorldTransform( m_motionTransform );
@@ -117,10 +120,12 @@ void CharacterController::Update( const UpdateContext& inUpdateContext )
     {
         m_jumpTimer += inUpdateContext.GetDeltaTime();
     }
+#endif
 }
 
 void CharacterController::Jump()
 {
+#if USING( ME_PHYSICS_3D )
     if( m_isGrounded && m_jumpTimer >= JumpRechargeTime )
     {
         m_jumpTimer = 0.f;
@@ -133,25 +138,36 @@ void CharacterController::Jump()
 
         m_rigidbody->getWorldTransform().getOrigin().setY( previousY + jumpYOffset );
     }
+#endif
 }
 
 void CharacterController::Teleport( const Vector3& inPosition, const Quaternion& inRotation )
 {
+#if USING( ME_PHYSICS_3D )
     btTransform trans = m_rigidbody->getWorldTransform();
     //Vector3 transPos = TransformComponent.GetWorldPosition();
     trans.setRotation( btQuaternion( inRotation.x, inRotation.y, inRotation.z, inRotation.w ) );
     trans.setOrigin( btVector3( inPosition.x, inPosition.y, inPosition.z ) );
     m_rigidbody->setWorldTransform( trans );
+#endif
 }
 
 Vector3 CharacterController::GetPosition() const
 {
+#if USING( ME_PHYSICS_3D )
     return Vector3( m_motionTransform.getOrigin() );
+#else
+    return {};
+#endif
 }
 
 Vector3 CharacterController::GetVelocity() const
 {
+#if USING( ME_PHYSICS_3D )
     return Vector3( m_rigidbody->getLinearVelocity() );
+#else
+    return {};
+#endif
 }
 
 bool CharacterController::IsOnGround() const
@@ -214,6 +230,8 @@ void CharacterController::OnEditorInspect()
 }
 
 #endif
+
+#if USING( ME_PHYSICS_3D )
 
 void CharacterController::ParseGhostContacts()
 {
@@ -334,3 +352,5 @@ void CharacterController::UpdateVelocity( float dt )
         return;
     }
 }
+
+#endif

@@ -162,6 +162,11 @@ public class Engine : BaseProject
         conf.AddPublicDependency<ImGui>(target);
         conf.AddPublicDependency<Moonlight>(target);
 
+        if (Globals.IsPhysicsEnabled3D)
+        {
+            conf.Defines.Add("DEFINE_ME_PHYSICS_3D");
+        }
+
         // #TODO This shouldn't be a sharpmake class
         //conf.AddPublicDependency<Mono>(target, DependencySetting.Default | DependencySetting.Defines | DependencySetting.IncludePaths);
         if (target.Platform != Platform.mac && (Directory.Exists(Globals.MONO_macOS_Dir) || Directory.Exists(Globals.MONO_Win64_Dir)))
@@ -177,9 +182,26 @@ public class Engine : BaseProject
 
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/Assimp/{target.Optimization}"));
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/SDL/Win64/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
-        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/Bullet/Win64/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
         // Release for now since the 1.4 debug dlls are massive
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $@"ThirdParty/UltralightSDK/Lib/[target.SubPlatform]/{CommonTarget.GetThirdPartyOptimization(Optimization.Release)}"));
+
+        // Physics3D / Bullet3D
+        if (Globals.IsPhysicsEnabled3D)
+        {
+            conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/Bullet/Win64/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
+            if (target.Optimization == Optimization.Debug)
+            {
+                conf.LibraryFiles.Add("BulletCollision_Debug.lib");
+                conf.LibraryFiles.Add("BulletDynamics_Debug.lib");
+                conf.LibraryFiles.Add("LinearMath_Debug.lib");
+            }
+            else
+            {
+                conf.LibraryFiles.Add("BulletCollision_MinsizeRel.lib");
+                conf.LibraryFiles.Add("BulletDynamics_MinsizeRel.lib");
+                conf.LibraryFiles.Add("LinearMath_MinsizeRel.lib");
+            }
+        }
 
         conf.LibraryFiles.Add("AppCore");
         conf.LibraryFiles.Add("Dwrite");
@@ -206,20 +228,14 @@ public class Engine : BaseProject
         // Do a virtual method for different configs
         if (target.Optimization == Optimization.Debug)
         {
-            conf.LibraryFiles.Add("assimpd.lib");
             conf.LibraryFiles.Add("SDL2d.lib");
-            conf.LibraryFiles.Add("BulletCollision_Debug.lib");
-            conf.LibraryFiles.Add("BulletDynamics_Debug.lib");
-            conf.LibraryFiles.Add("LinearMath_Debug.lib");
+            conf.LibraryFiles.Add("assimpd.lib");
             conf.LibraryFiles.Add("zlibstaticd.lib");
         }
         else
         {
-            conf.LibraryFiles.Add("assimp.lib");
             conf.LibraryFiles.Add("SDL2.lib");
-            conf.LibraryFiles.Add("BulletCollision_MinsizeRel.lib");
-            conf.LibraryFiles.Add("BulletDynamics_MinsizeRel.lib");
-            conf.LibraryFiles.Add("LinearMath_MinsizeRel.lib");
+            conf.LibraryFiles.Add("assimp.lib");
             conf.LibraryFiles.Add("zlibstatic.lib");
         }
 
@@ -270,9 +286,26 @@ public class Engine : BaseProject
         base.ConfigureUWP(conf, target);
 
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/Assimp/{target.Optimization}"));
-        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/Bullet/Win64/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/SDL/UWP/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $@"ThirdParty/UltralightSDK/Lib/[target.SubPlatform]/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
+
+        // Physics3D / Bullet3D
+        if (Globals.IsPhysicsEnabled3D)
+        {
+            conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/Bullet/Win64/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
+            if (target.Optimization == Optimization.Debug)
+            {
+                conf.LibraryFiles.Add("BulletCollision_Debug.lib");
+                conf.LibraryFiles.Add("BulletDynamics_Debug.lib");
+                conf.LibraryFiles.Add("LinearMath_Debug.lib");
+            }
+            else
+            {
+                conf.LibraryFiles.Add("BulletCollision_MinsizeRel.lib");
+                conf.LibraryFiles.Add("BulletDynamics_MinsizeRel.lib");
+                conf.LibraryFiles.Add("LinearMath_MinsizeRel.lib");
+            }
+        }
 
         conf.LibraryPaths.Add("$(VCInstallDir)\\lib\\store\\amd64");
         conf.LibraryPaths.Add("$(VCInstallDir)\\lib\\amd64");
@@ -282,17 +315,11 @@ public class Engine : BaseProject
         if (target.Optimization == Optimization.Debug)
         {
             conf.LibraryFiles.Add("assimpd.lib");
-            conf.LibraryFiles.Add("BulletCollision_Debug.lib");
-            conf.LibraryFiles.Add("BulletDynamics_Debug.lib");
-            conf.LibraryFiles.Add("LinearMath_Debug.lib");
             conf.LibraryFiles.Add("zlibstaticd.lib");
         }
         else
         {
             conf.LibraryFiles.Add("assimp.lib");
-            conf.LibraryFiles.Add("BulletCollision_MinsizeRel.lib");
-            conf.LibraryFiles.Add("BulletDynamics_MinsizeRel.lib");
-            conf.LibraryFiles.Add("LinearMath_MinsizeRel.lib");
             conf.LibraryFiles.Add("zlibstatic.lib");
         }
 
@@ -349,15 +376,28 @@ public class Engine : BaseProject
     {
         base.ConfigureMac(conf, target);
 
-        // What the actual fuck lmao                                                                 v
-        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/Lib/Bullet/macOS/Debug"));
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/Lib/SDL/macOS/Debug"));
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/Assimp/macOS/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $@"ThirdParty/UltralightSDK/Lib/[target.SubPlatform]"));
 
-        conf.LibraryFiles.Add("BulletCollision");
-        conf.LibraryFiles.Add("BulletDynamics");
-        conf.LibraryFiles.Add("LinearMath");
+        // Physics3D / Bullet3D
+        if (Globals.IsPhysicsEnabled3D)
+        {
+            // What the actual fuck lmao                                                                 v
+            conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/Lib/Bullet/macOS/Debug"));
+
+            conf.LibraryFiles.Add("BulletCollision");
+            conf.LibraryFiles.Add("BulletDynamics");
+            conf.LibraryFiles.Add("LinearMath");
+        }
+
+        // Build Machine
+        if (!Directory.Exists(Globals.FMOD_macOS_Dir) && Directory.Exists(Path.Combine(Globals.RootDir, $"Engine/ThirdParty/FMOD")))
+        {
+            Globals.FMOD_macOS_Dir = Path.Combine(Globals.RootDir, $"Engine/ThirdParty/FMOD");
+        }
+
+
         conf.LibraryFiles.Add("SDL2d");
         conf.LibraryFiles.Add("AppCore");
 
@@ -370,6 +410,25 @@ public class Engine : BaseProject
         {
             conf.LibraryFiles.Add("assimp");
             conf.LibraryFiles.Add("zlibstatic");
+        }
+
+        if (Directory.Exists(Globals.FMOD_macOS_Dir))
+        {
+            conf.IncludePaths.Add(Path.Combine(Globals.FMOD_macOS_Dir, "api/core/inc"));
+            conf.LibraryPaths.Add(Path.Combine(Globals.FMOD_macOS_Dir, "api/core/lib"));
+
+            conf.LibraryFiles.Add("fmodL");
+
+            // FMOD LIB
+            {
+                var copyDirBuildStep = new Configuration.BuildStepCopy(
+                    Path.Combine(Globals.FMOD_macOS_Dir, "api/core/lib"),
+                    Globals.RootDir + "/.build/[target.Name]");
+
+                copyDirBuildStep.IsFileCopy = false;
+                copyDirBuildStep.CopyPattern = "*.*";
+                conf.EventPostBuildExe.Add(copyDirBuildStep);
+            }
         }
 
         //??
@@ -509,12 +568,15 @@ public class Globals
     public static string RootDir = string.Empty;
     public static string FMOD_Win64_Dir = string.Empty;
     public static string FMOD_UWP_Dir = string.Empty;
+    public static string FMOD_macOS_Dir = string.Empty;
 
     public static string MONO_Win64_Dir = "C:/Program Files/Mono/";
     public static string MONO_macOS_Dir = "/Library/Frameworks/Mono.framework/";
 
     public static string UWP_Thumbprint = "2b58614583c74c71d9068804a758d87346f87f40";
     public static string UWP_CertificateName = "Game_EntryPoint_UWP_TemporaryKey.pfx";
+
+    public static bool IsPhysicsEnabled3D = true;
 }
 
 

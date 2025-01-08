@@ -72,14 +72,14 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
     // (a few minutes later) it's not...
     renderer.m_time.x = inUpdateContext.GetDeltaTime();
     renderer.m_time.y = inUpdateContext.GetTotalTime();
-    
+
     // Clear Render Commands
     renderer.GetMeshCache().Commands.clear();
     while( !renderer.GetMeshCache().FreeIndicies.empty() )
     {
         renderer.GetMeshCache().FreeIndicies.pop();
     }
-    
+
     if( Renderables.empty() )
     {
         return;
@@ -105,44 +105,45 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
         int batchEnd = batch.second;
         int batchSize = batchEnd - batchBegin;
 
-        auto meshJob = [&renderer, &Renderables, &cameras, batchBegin, batchEnd, batchSize]() {
-            for( int entIndex = batchBegin; entIndex < batchEnd; ++entIndex )
+        auto meshJob = [&renderer, &Renderables, &cameras, batchBegin, batchEnd, batchSize]()
             {
-                OPTICK_CATEGORY( "Update Transform", Optick::Category::Debug );
-                auto& InEntity = Renderables[entIndex];
+                for( int entIndex = batchBegin; entIndex < batchEnd; ++entIndex )
                 {
-                    Transform& transform = InEntity.GetComponent<Transform>();
-                    Mesh& model = InEntity.GetComponent<Mesh>();
-                    bool isVisible = false;
-                    const glm::mat4& meshMatrix = transform.GetLocalToWorldMatrix().GetInternalMatrix();
-
-                    for( Moonlight::CameraData& cam : cameras.Commands )
+                    OPTICK_CATEGORY( "Update Transform", Optick::Category::Debug );
+                    auto& InEntity = Renderables[entIndex];
                     {
-                        glm::vec4 point = glm::vec4( meshMatrix[3] );
-                        if( cam.ViewFrustum.IsPointInFrustum( point ) )
+                        Transform& transform = InEntity.GetComponent<Transform>();
+                        Mesh& model = InEntity.GetComponent<Mesh>();
+                        bool isVisible = false;
+                        const glm::mat4& meshMatrix = transform.GetLocalToWorldMatrix().GetInternalMatrix();
+
+                        for( Moonlight::CameraData& cam : cameras.Commands )
                         {
-                            isVisible = true;
-                            cam.VisibleFlags[entIndex] = true;
+                            glm::vec4 point = glm::vec4( meshMatrix[3] );
+                            if( cam.ViewFrustum.IsPointInFrustum( point ) )
+                            {
+                                isVisible = true;
+                                cam.VisibleFlags[entIndex] = true;
+                            }
+                        }
+
+                        if( isVisible )
+                        {
+                            Moonlight::MeshCommand command;
+                            command.SingleMesh = model.MeshReferece;
+                            command.MeshMaterial = model.MeshMaterial;
+                            command.Transform = meshMatrix;
+                            command.Type = model.GetType();
+                            command.VisibilityIndex = entIndex;
+                            command.ID = InEntity.GetId().Value();
+                            model.Id = renderer.GetMeshCache().Push( command );
                         }
                     }
-
-                    if( isVisible )
-                    {
-                        Moonlight::MeshCommand command;
-                        command.SingleMesh = model.MeshReferece;
-                        command.MeshMaterial = model.MeshMaterial;
-                        command.Transform = meshMatrix;
-                        command.Type = model.GetType();
-                        command.VisibilityIndex = entIndex;
-                        command.ID = InEntity.GetId().Value();
-                        model.Id = renderer.GetMeshCache().Push( command );
-                    }
                 }
-            }
             };
-        //meshJob();
-        jobSystem.AddWork( meshJob, false );
-        jobSystem.SignalWorkAvailable();
+        meshJob();
+        //jobSystem.AddWork( meshJob, false );
+        //jobSystem.SignalWorkAvailable();
     }
     jobSystem.WaitAndWork();
 
@@ -191,8 +192,34 @@ void RenderCore::OnEditorInspect()
     {
         GetEngine().GetRenderer().SetMSAALevel( BGFXRenderer::MSAALevel::X16 );
     }
+    const bgfx::Stats* stats = bgfx::getStats();
+    HavanaUtils::Label( "CPU Frame Time: " );
+    ImGui::Text( ( std::to_string( bgfx::getStats()->cpuTimeFrame / 1000.f ) + " ms" ).c_str() );
+    HavanaUtils::Label( "CPU Time: " );
+    ImGui::Text( ( std::to_string( ( stats->cpuTimeEnd - stats->cpuTimeBegin ) / 1000.f ) + " ms" ).c_str() );
 
+    HavanaUtils::Label( "GPU Frame: " );
+    ImGui::Text( std::to_string( bgfx::getStats()->gpuFrameNum ).c_str() );
+    HavanaUtils::Label( "GPU Draw Calls: " );
+    ImGui::Text( std::to_string( bgfx::getStats()->numDraw ).c_str() );
+    HavanaUtils::Label( "GPU Compute Calls: " );
+    ImGui::Text( std::to_string( bgfx::getStats()->numCompute ).c_str() );
+    HavanaUtils::Label( "GPU Time: " );
+    ImGui::Text( ( std::to_string( ( stats->gpuTimeEnd - stats->gpuTimeBegin ) / 1000.f ) + " ms" ).c_str() );
 
+    bool shouldClose = true;
+    if( ImGui::CollapsingHeader( "View Stats", &shouldClose, ImGuiTreeNodeFlags_DefaultOpen ) )
+    {
+        for( uint16_t i = 0; i < stats->numViews; ++i )
+        {
+            bgfx::ViewStats& view = stats->viewStats[i];
+            ImGui::Text( &view.name[0] );
+            HavanaUtils::Label( "CPU Time: " );
+            ImGui::Text( ( std::to_string( ( view.cpuTimeEnd - view.cpuTimeBegin ) / 1000.f ) + " ms" ).c_str() );
+            HavanaUtils::Label( "GPU Time: " );
+            ImGui::Text( ( std::to_string( ( view.gpuTimeEnd - view.gpuTimeBegin ) / 1000.f ) + " ms" ).c_str() );
+        }
+    }
 }
 
 #endif
