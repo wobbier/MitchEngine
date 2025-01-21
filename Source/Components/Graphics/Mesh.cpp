@@ -232,6 +232,10 @@ void Mesh::OnEditorInspect()
             }
         }
     }
+
+    // #TODO: Move this to the material class, or an inspector type...
+    // Also while I'm here, material properties should be saved in a different file for re-use.
+    // Maybe an "instance"?
     HavanaUtils::Label( "Material Type" );
     if( ImGui::BeginCombo( "##Material Type", ( MeshMaterial ) ? reg[MeshMaterial->GetTypeName()].Name.c_str() : "Selected Material" ) )
     {
@@ -260,13 +264,15 @@ void Mesh::OnEditorInspect()
     {
         if( ImGui::Button( "Select Shader" ) )
         {
-            RequestAssetSelectionEvent evt( [this]( Path selectedAsset ) {
-                std::string path = selectedAsset.GetLocalPathString();
-                size_t pos = path.rfind( selectedAsset.GetExtension() );
-                if( pos != std::string::npos ) {
-                    path.erase( pos-1, path.length() );
-                }
-                MeshMaterial->LoadShader( path );
+            RequestAssetSelectionEvent evt( [this]( Path selectedAsset )
+                {
+                    std::string path = selectedAsset.GetLocalPathString();
+                    size_t pos = path.rfind( selectedAsset.GetExtension() );
+                    if( pos != std::string::npos )
+                    {
+                        path.erase( pos - 1, path.length() );
+                    }
+                    MeshMaterial->LoadShader( path );
                 }, AssetType::ShaderGraph );
             evt.Fire();
         }
@@ -284,11 +290,41 @@ void Mesh::OnEditorInspect()
             if( transparent )
             {
                 MeshMaterial->SetRenderMode( Moonlight::RenderingMode::Transparent );
+
+                HavanaUtils::Label( "Blend Type" );
+                if( ImGui::BeginCombo( "##Blend Type", MeshMaterial->GetBlendModeString( MeshMaterial->AlphaBlendMode ).c_str() ) )
+                {
+                    for( unsigned int blendMode = (unsigned int)Moonlight::BlendMode::Alpha; blendMode < (unsigned int)Moonlight::BlendMode::Count; ++blendMode )
+                    {
+                        if( ImGui::BeginMenu( MeshMaterial->GetBlendModeString(( Moonlight::BlendMode )blendMode).c_str() ))
+                        {
+                            MeshMaterial->AlphaBlendMode = (Moonlight::BlendMode)blendMode;
+                            ImGui::EndMenu();
+                        }
+                    }
+                    ImGui::EndCombo();
+                }
+
             }
             else
             {
                 MeshMaterial->SetRenderMode( Moonlight::RenderingMode::Opaque );
             }
+
+            HavanaUtils::Label( "Face Type" );
+            if( ImGui::BeginCombo( "##Face Type", MeshMaterial->GetRenderFaceModeString( MeshMaterial->FaceMode ).c_str() ) )
+            {
+                for( unsigned int faceMode = (unsigned int)Moonlight::RenderFaceMode::Front; faceMode < (unsigned int)Moonlight::RenderFaceMode::Count; ++faceMode )
+                {
+                    if( ImGui::BeginMenu( MeshMaterial->GetRenderFaceModeString( (Moonlight::RenderFaceMode)faceMode ).c_str() ) )
+                    {
+                        MeshMaterial->FaceMode = (Moonlight::RenderFaceMode)faceMode;
+                        ImGui::EndMenu();
+                    }
+                }
+                ImGui::EndCombo();
+            }
+
             HavanaUtils::EditableVector( "Tiling", MeshMaterial->Tiling );
 
             //static std::vector<Path> Textures;
@@ -373,8 +409,9 @@ void Mesh::OnEditorInspect()
                 ImGui::PushID( i );
                 if( ImGui::Button( ( ( texture ) ? texture->GetPath().GetLocalPath().data() : "Select Asset" ), selectorSize ) )
                 {
-                    RequestAssetSelectionEvent evt( [this, i]( Path selectedAsset ) {
-                        MeshMaterial->SetTexture( static_cast<Moonlight::TextureType>( i ), ResourceCache::GetInstance().Get<Moonlight::Texture>( selectedAsset ) );
+                    RequestAssetSelectionEvent evt( [this, i]( Path selectedAsset )
+                        {
+                            MeshMaterial->SetTexture( static_cast<Moonlight::TextureType>( i ), ResourceCache::GetInstance().Get<Moonlight::Texture>( selectedAsset ) );
                         }, AssetType::Texture );
                     evt.Fire();
                 }

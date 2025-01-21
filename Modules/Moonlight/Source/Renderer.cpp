@@ -443,7 +443,7 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId
         // Set model matrix for rendering.
         glm::mat4 model = glm::mat4( 1.f );
         model = glm::translate( model, camera.Position.InternalVector );
-        model = glm::scale( model, glm::vec3( 1000.f, 1000.f, 1000.f ) );
+        model = glm::scale( model, glm::vec3( 10.f, 10.f, 10.f ) );
 
         bgfx::setTransform( &model[0] );
 
@@ -472,7 +472,6 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId
         | BGFX_STATE_WRITE_RGB
         | BGFX_STATE_WRITE_Z
         | BGFX_STATE_DEPTH_TEST_LESS
-        | BGFX_STATE_CULL_CCW
         | BGFX_STATE_MSAA
         | s_ptState[m_pt]
         ;
@@ -535,10 +534,8 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId
         | BGFX_STATE_WRITE_RGB
         //| BGFX_STATE_WRITE_Z
         | BGFX_STATE_DEPTH_TEST_LESS
-        | BGFX_STATE_CULL_CCW
         | BGFX_STATE_MSAA
-        | BGFX_STATE_BLEND_ALPHA
-        | s_ptState[m_pt]
+        | s_ptState[m_pt] // triangle strip cause I'm not changing that??
         ;
 
     {

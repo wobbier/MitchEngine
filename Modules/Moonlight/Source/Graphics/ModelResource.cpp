@@ -254,6 +254,12 @@ bool ModelResource::LoadMaterialTextures( SharedPtr<Moonlight::Material> newMate
             {
                 texture = ResourceCache::GetInstance().Get<Moonlight::Texture>( Path( std::string( FilePath.GetDirectory() ) + texturePath ), wrapMode );
             }
+
+            if( !texture )
+            {
+                return false;
+            }
+
             texture->Type = typeName;
             newMaterial->SetTexture( typeName, texture );
             return true;

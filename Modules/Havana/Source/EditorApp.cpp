@@ -60,6 +60,7 @@ EditorApp::~EditorApp()
 
 void EditorApp::OnStart()
 {
+    Camera::EditorCamera->Near = 0.1f;
 }
 
 
@@ -85,28 +86,29 @@ void EditorApp::UpdateCameras()
     }
 
     Moonlight::CameraData& EditorCamera = GetEngine().EditorCamera;
+    SharedPtr<Transform> camTransform = EditorSceneManager->GetEditorCameraTransform();
+    Camera* editorCamera = Camera::EditorCamera;
 
-    EditorCamera.Position = EditorSceneManager->GetEditorCameraTransform()->GetPosition();
-    EditorCamera.Front = EditorSceneManager->GetEditorCameraTransform()->Front();
-    EditorCamera.Up = EditorSceneManager->GetEditorCameraTransform()->Up();
+    EditorCamera.Position = camTransform->GetPosition();
+    EditorCamera.Front = camTransform->Front();
+    EditorCamera.Up = camTransform->Up();
     EditorCamera.OutputSize = Editor->GetWorldEditorRenderSize();
-    EditorCamera.FOV = Camera::EditorCamera->GetFOV();
-    EditorCamera.Near = Camera::EditorCamera->Near;
-    EditorCamera.Far = Camera::EditorCamera->Far;
+    EditorCamera.FOV = editorCamera->GetFOV();
+    EditorCamera.Near = editorCamera->Near;
+    EditorCamera.Far = editorCamera->Far;
     EditorCamera.Skybox = Camera::CurrentCamera->Skybox;
     EditorCamera.ClearColor = Camera::CurrentCamera->ClearColor;
     EditorCamera.ClearType = Camera::CurrentCamera->ClearType;
-    EditorCamera.Projection = Camera::EditorCamera->Projection;
-    EditorCamera.OrthographicSize = Camera::EditorCamera->OrthographicSize;
+    EditorCamera.Projection = editorCamera->Projection;
+    EditorCamera.OrthographicSize = editorCamera->OrthographicSize;
     EditorCamera.ShouldCull = false;
 
-    // #TODO: Clean this up
-    Vector3 eye = { EditorCamera.Position.x, EditorCamera.Position.y, EditorCamera.Position.z };
-    Vector3 at = { EditorCamera.Position.x + EditorCamera.Front.x, EditorCamera.Position.y + EditorCamera.Front.y, EditorCamera.Position.z + EditorCamera.Front.z };
-    Vector3 up = { EditorCamera.Up.x, EditorCamera.Up.y, EditorCamera.Up.z };
+    Vector3& eye = EditorCamera.Position;
+    Vector3 at = eye + EditorCamera.Front;
+    Vector3& up = EditorCamera.Up;
 
     EditorCamera.View = glm::lookAtLH( eye.InternalVector, at.InternalVector, up.InternalVector );
-    Frustum& camFrustum = Camera::EditorCamera->CameraFrustum;
+    Frustum& camFrustum = editorCamera->CameraFrustum;
 
 
     Matrix4 testMatrix;
@@ -114,7 +116,7 @@ void EditorApp::UpdateCameras()
     camFrustum.Update( testMatrix, EditorCamera.View, EditorCamera.FOV, EditorCamera.OutputSize, EditorCamera.Near, EditorCamera.Far );
     EditorCamera.ProjectionMatrix = testMatrix;
 
-    EditorCamera.ViewFrustum = Camera::EditorCamera->CameraFrustum;
+    EditorCamera.ViewFrustum = editorCamera->CameraFrustum;
 
     GetEngine().EditorCamera = EditorCamera;
 }

@@ -2,6 +2,7 @@
 #include "optick.h"
 #include "Texture.h"
 #include "Resource/ResourceCache.h"
+#include "bgfx/defines.h"
 
 namespace Moonlight
 {
@@ -48,6 +49,9 @@ namespace Moonlight
     void Material::OnSerialize( json& OutJson )
     {
         OutJson["Type"] = TypeName;
+        OutJson["FaceMode"] = FaceMode;
+        OutJson["BlendMode"] = AlphaBlendMode;
+        OutJson["RenderMode"] = RenderMode;
         OutJson["DiffuseColor"] = { DiffuseColor.x, DiffuseColor.y, DiffuseColor.z };
         OutJson["Tiling"] = { Tiling.x, Tiling.y };
         for( unsigned int type = 0; type < TextureType::Count; ++type )
@@ -76,6 +80,18 @@ namespace Moonlight
         {
             Tiling = Vector2( (float)InJson["Tiling"][0], (float)InJson["Tiling"][1] );
         }
+        if( InJson.contains( "FaceMode" ) )
+        {
+            FaceMode = (RenderFaceMode)InJson["FaceMode"];
+        }
+        if( InJson.contains( "BlendMode" ) )
+        {
+            AlphaBlendMode = (BlendMode)InJson["BlendMode"];
+        }
+        if( InJson.contains( "RenderMode" ) )
+        {
+            RenderMode = (RenderingMode)InJson["RenderMode"];
+        }
         if( InJson.contains( "Textures" ) )
         {
             for( unsigned int type = 0; type < TextureType::Count; ++type )
@@ -96,6 +112,7 @@ namespace Moonlight
         RenderMode = mat->RenderMode;
         Tiling = mat->Tiling;
         MeshShader = mat->MeshShader;
+        AlphaBlendMode = mat->AlphaBlendMode;
     }
 
     void Material::SetTexture( const TextureType& textureType, std::shared_ptr<Moonlight::Texture> loadedTexture )
@@ -124,6 +141,45 @@ namespace Moonlight
 
     uint64_t Material::GetRenderState( uint64_t state ) const
     {
-        return state;
+        uint64_t modifiedState = state;
+        // this all should be applied when changed and not polled
+
+        if( IsTransparent() )
+        {
+            switch( AlphaBlendMode )
+            {
+            case Moonlight::BlendMode::Alpha:
+                break;
+            case Moonlight::BlendMode::Premultiply:
+                break;
+            case Moonlight::BlendMode::Additive:
+                modifiedState = modifiedState | BGFX_STATE_BLEND_ADD;
+                break;
+            case Moonlight::BlendMode::Multiply:
+                modifiedState = modifiedState | BGFX_STATE_BLEND_MULTIPLY;
+                break;
+            case Moonlight::BlendMode::Count:
+            default:
+                break;
+            }
+        }
+
+        switch( FaceMode )
+        {
+        case Moonlight::RenderFaceMode::Front:
+            modifiedState = modifiedState | BGFX_STATE_CULL_CCW;
+            break;
+        case Moonlight::RenderFaceMode::Back:
+            modifiedState = modifiedState | BGFX_STATE_CULL_CW;
+            break;
+        case Moonlight::RenderFaceMode::Both:
+            // none?
+            break;
+        case Moonlight::RenderFaceMode::Count:
+        default:
+            break;
+        }
+
+        return modifiedState;
     }
 }

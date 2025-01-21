@@ -1028,6 +1028,7 @@ bool AssetBrowserWidget::ProccessDirectoryRecursive( std::string& dir, Directory
             {
                 if( newdir.rfind( ".meta" ) != std::string::npos
                     || newdir.rfind( ".dds" ) != std::string::npos
+                    || newdir.rfind( ".assbin" ) != std::string::npos
                     || newdir.rfind( ".pdn" ) != std::string::npos
                     || newdir.rfind( ".blend" ) != std::string::npos
                     || newdir.rfind( ".bin" ) != std::string::npos

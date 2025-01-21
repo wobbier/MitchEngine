@@ -210,5 +210,6 @@ FakesAssemblies/
 !**/Assets/**/*.obj
 engine.txt
 imgui.ini
+*.assbin
 
 .DS_Store

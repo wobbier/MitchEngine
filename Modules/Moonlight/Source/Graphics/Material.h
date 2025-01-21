@@ -8,6 +8,8 @@
 #include "ShaderCommand.h"
 #include "MaterialDetail.h"
 #include "Dementia.h"
+// move once I move the material??
+#include "Core/Assert.h"
 
 #define ME_REGISTER_MATERIAL_NAME_FOLDER(TYPE, NAME, FOLDER)            \
 	namespace details {                                       \
@@ -36,6 +38,23 @@ namespace Moonlight
         Opaque = 0,
         Transparent
     };
+    enum class BlendMode : unsigned int
+    {
+        Alpha = 0,
+        Premultiply,
+        Additive,
+        Multiply,
+
+        Count
+    };
+    enum class RenderFaceMode : unsigned int
+    {
+        Front = 0,
+        Back,
+        Both,
+
+        Count
+    };
     class Material
     {
     public:
@@ -50,6 +69,45 @@ namespace Moonlight
                 return "Opaque";
             }
             return "Opaque";
+        }
+
+        std::string GetRenderFaceModeString( RenderFaceMode mode )
+        {
+            switch( mode )
+            {
+            case RenderFaceMode::Front:
+                return "Front";
+            case RenderFaceMode::Back:
+                return "Back";
+            case RenderFaceMode::Both:
+                return "Both";
+            case RenderFaceMode::Count:
+            default:
+                break;
+            }
+
+            ME_ASSERT_MSG( false, "Unknown Face Mode" );
+            return "Front";
+        }
+        std::string GetBlendModeString( BlendMode mode )
+        {
+            switch( mode )
+            {
+            case BlendMode::Alpha:
+                return "Alpha";
+            case BlendMode::Premultiply:
+                return "Premultiply";
+            case BlendMode::Additive:
+                return "Additive";
+            case BlendMode::Multiply:
+                return "Multiply";
+            case BlendMode::Count:
+            default:
+                break;
+            }
+
+            ME_ASSERT_MSG( false, "Unknown Blend Mode" );
+            return "Alpha";
         }
         Material( const std::string& MaterialTypeName, const std::string& ShaderPath = "" );
         Material() = delete;
@@ -84,6 +142,8 @@ namespace Moonlight
         Vector3 DiffuseColor;
         Vector2 Tiling;
         std::string ShaderName;
+        RenderFaceMode FaceMode = RenderFaceMode::Front;
+        BlendMode AlphaBlendMode = BlendMode::Alpha;
 
         Moonlight::ShaderCommand MeshShader;
         const std::string& GetTypeName() const;
