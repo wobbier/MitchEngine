@@ -20,10 +20,12 @@ Rigidbody::Rigidbody()
 
 Rigidbody::~Rigidbody()
 {
+#if USING( ME_PHYSICS_3D )
     if( m_world && InternalRigidbody )
     {
         m_world->removeRigidBody( InternalRigidbody );
     }
+#endif
 }
 
 void Rigidbody::Init()
@@ -39,18 +41,22 @@ bool Rigidbody::IsRigidbodyInitialized()
 
 void Rigidbody::ApplyForce( const Vector3& direction, float force )
 {
+#if USING( ME_PHYSICS_3D )
     //InternalRigidbody->setWorldTransform(btTransform::getIdentity());
     InternalRigidbody->applyForce( PhysicsCore::ToBulletVector( direction * force ), -PhysicsCore::ToBulletVector( direction ) );
     InternalRigidbody->activate();
+#endif
 }
 
 void Rigidbody::SetScale( Vector3 InScale )
 {
     Scale = InScale;
+#if USING( ME_PHYSICS_3D )
     if( fallShape )
     {
         fallShape->setLocalScaling( btVector3( InScale[0], InScale[1], InScale[2] ) );
     }
+#endif
 }
 
 const Vector3& Rigidbody::GetScale() const
@@ -61,10 +67,12 @@ const Vector3& Rigidbody::GetScale() const
 void Rigidbody::SetMass( float InMass )
 {
     Mass = InMass;
+#if USING( ME_PHYSICS_3D )
     if( InternalRigidbody )
     {
         InternalRigidbody->setMassProps( InMass, btVector3() );
     }
+#endif
 }
 
 void Rigidbody::SetVelocity( Vector3 newVelocity )
@@ -92,6 +100,7 @@ std::string Rigidbody::GetColliderString( ColliderType InType )
 
 Matrix4 Rigidbody::GetMat()
 {
+#if USING( ME_PHYSICS_3D )
     btTransform trans;
     InternalRigidbody->getMotionState()->getWorldTransform( trans );
 
@@ -104,15 +113,20 @@ Matrix4 Rigidbody::GetMat()
     //	m[3], m[7], m[11], m[15]);
 
     return Matrix4();// transform);
+#else
+    return Matrix4();
+#endif
 }
 
 void Rigidbody::SetReceiveEvents( bool inIsEventsEnabled )
 {
     IsEventsEnabled = inIsEventsEnabled;
+#if USING( ME_PHYSICS_3D )
     if( InternalRigidbody )
     {
         InternalRigidbody->setMonitorCollisions( IsEventsEnabled );
     }
+#endif
 }
 
 void Rigidbody::OnSerialize( json& outJson )
@@ -154,6 +168,8 @@ void Rigidbody::OnDeserialize( const json& inJson )
     }
 }
 
+#if USING( ME_PHYSICS_3D )
+
 void Rigidbody::CreateObject( const Vector3& Position, const Quaternion& Rotation, const Vector3& InScale, btDiscreteDynamicsWorld* world )
 {
     m_world = world;
@@ -189,6 +205,8 @@ void Rigidbody::CreateObject( const Vector3& Position, const Quaternion& Rotatio
     InternalRigidbody->setLinearVelocity( PhysicsCore::ToBulletVector( Velocity ) );
     IsInitialized = true;
 }
+
+#endif
 
 #if USING( ME_EDITOR )
 

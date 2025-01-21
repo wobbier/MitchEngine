@@ -1,4 +1,4 @@
-//#pragma once
+#pragma once
 //
 //#include "Engine/Engine.h"
 //#include <AppCore/Overlay.h>

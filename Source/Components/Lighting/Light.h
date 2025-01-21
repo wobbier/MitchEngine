@@ -1,7 +1,6 @@
 #pragma once
 #include "ECS/Component.h"
 #include "ECS/ComponentDetail.h"
-#include "Math/Vector3.h"
 #include "RenderCommands.h"
 
 class Light

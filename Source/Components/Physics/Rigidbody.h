@@ -1,12 +1,12 @@
 #pragma once
 #include "ECS/Component.h"
 #include "ECS/ComponentDetail.h"
+#if USING( ME_PHYSICS_3D )
 #include <btBulletDynamicsCommon.h>
-#include "Math/Vector3.h"
-#include "Math/Matrix4.h"
-#include "Math/Quaternion.h"
+#endif
 
 class btRigidBodyWithEvents;
+class btDiscreteDynamicsWorld;
 
 class Rigidbody
     : public Component<Rigidbody>
@@ -47,9 +47,11 @@ public:
 
     std::vector<Rigidbody*> NewCollisions;
 private:
+#if USING( ME_PHYSICS_3D )
     void CreateObject( const Vector3& Position, const Quaternion& Rotation, const Vector3& InScale, class btDiscreteDynamicsWorld* world );
     btRigidBodyWithEvents* InternalRigidbody = nullptr;
     btCollisionShape* fallShape = nullptr;
+#endif
     Vector3 Scale;
     Vector3 Velocity;
     ColliderType Type = ColliderType::Box;
@@ -61,7 +63,7 @@ private:
     virtual void OnDeserialize( const json& inJson ) final;
 protected:
     bool IsInitialized = false;
-    class btDiscreteDynamicsWorld* m_world;
+    btDiscreteDynamicsWorld* m_world = nullptr;
     int DebugColliderId = 0;
 #if USING( ME_EDITOR )
 

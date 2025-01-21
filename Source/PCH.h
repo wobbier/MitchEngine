@@ -16,7 +16,19 @@
 
 #include "optick.h"
 
+// Math
+#include <glm/glm.hpp>
 #include "Math/Vector2.h"
+#include "Math/Vector3.h"
+#include "Math/Quaternion.h"
+#include "Math/Matrix4.h"
+#include "Mathf.h"
+
+#if USING( ME_IMGUI )
+#include <imgui.h>
+#include "misc/cpp/imgui_stdlib.h"
+#include "Utils/HavanaUtils.h"
+#endif
 
 //#include "ozz/animation/runtime/animation.h"
 //#include "ozz/animation/runtime/blending_job.h"
@@ -49,7 +61,11 @@
 
 #include <JSON.h>
 
+#include "Utils/StringUtils.h"
+#include "Path.h"
+
 //#include "ECS/ComponentDetail.h"
+#include "Core/Assert.h"
 
 #include <CLog.h>
 

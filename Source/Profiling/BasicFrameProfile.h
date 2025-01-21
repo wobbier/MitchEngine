@@ -1,9 +1,6 @@
 #pragma once
 #include "Singleton.h"
 #include "Engine/Clock.h"
-#include "Math/Vector3.h"
-#include "imgui.h"
-#include "Dementia.h"
 
 // This should just be profiling?
 #if USING( ME_BASIC_PROFILER )

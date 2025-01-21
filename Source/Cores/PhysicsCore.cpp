@@ -5,13 +5,10 @@
 #include "LinearMath/btScalar.h"
 #include "RenderCommands.h"
 #include "Engine/Engine.h"
-#include "Math/Quaternion.h"
-#include "Math/Matrix4.h"
 #include "Components/Physics/CharacterController.h"
 #include "BulletCollision/CollisionDispatch/btCollisionWorld.h"
 #include "BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
 #include "Math/Line.h"
-#include "Mathf.h"
 #include "Work/Burst.h"
 #include <Renderer.h>
 #include <Debug/DebugDrawer.h>
@@ -20,6 +17,7 @@
 PhysicsCore::PhysicsCore()
     : Base( ComponentFilter().Requires<Transform>().RequiresOneOf<Rigidbody>().RequiresOneOf<CharacterController>() )
 {
+#if USING( ME_PHYSICS_3D )
     Gravity = btVector3( 0, -9.8f, 0 );
     ///collision configuration contains default setup for memory, collision setup. Advanced users can create their own configuration.
     btDefaultCollisionConfiguration* collisionConfiguration = new btDefaultCollisionConfiguration();
@@ -44,6 +42,7 @@ PhysicsCore::PhysicsCore()
     //	groundRigidBodyCI(0, groundMotionState, groundShape, btVector3(0, 0, 0));
     //btRigidBody* groundRigidBody = new btRigidBody(groundRigidBodyCI);
     //PhysicsWorld->addRigidBody(groundRigidBody);
+#endif
 }
 
 PhysicsCore::~PhysicsCore()
@@ -56,6 +55,7 @@ void PhysicsCore::Init()
 
 void PhysicsCore::Update( const UpdateContext& inUpdateContext )
 {
+#if USING( ME_PHYSICS_3D )
     OPTICK_CATEGORY( "PhysicsCore::Update", Optick::Category::Physics )
         auto& PhysicsEntites = GetEntities();
 
@@ -179,6 +179,7 @@ void PhysicsCore::Update( const UpdateContext& inUpdateContext )
     worker->Submit( rootJob );
     worker->Wait( rootJob );
     //burst.FinalizeWork();
+#endif
 }
 
 void PhysicsCore::OnEntityAdded( Entity& NewEntity )
@@ -194,7 +195,9 @@ void PhysicsCore::OnEntityAdded( Entity& NewEntity )
     if( NewEntity.HasComponent<CharacterController>() )
     {
         CharacterController& Controller = NewEntity.GetComponent<CharacterController>();
+#if USING( ME_PHYSICS_3D )
         Controller.Initialize( PhysicsWorld, TransformComponent.GetWorldPosition(), 1, 5, 5, 1 );
+#endif
     }
 }
 
@@ -204,15 +207,18 @@ void PhysicsCore::OnEntityRemoved( Entity& NewEntity )
     {
         Rigidbody& RigidbodyComponent = NewEntity.GetComponent<Rigidbody>();
 
+#if USING( ME_PHYSICS_3D )
         PhysicsWorld->removeRigidBody( RigidbodyComponent.InternalRigidbody );
         RigidbodyComponent.InternalRigidbody->setUserPointer( nullptr );
         RigidbodyComponent.InternalRigidbody->setMonitorCollisions( false );
         delete RigidbodyComponent.InternalRigidbody;
         RigidbodyComponent.InternalRigidbody = nullptr;
+#endif
 
         GetEngine().GetRenderer().GetDebugDrawCache().Pop( RigidbodyComponent.DebugColliderId );
     }
 
+#if USING( ME_PHYSICS_3D )
     if( NewEntity.HasComponent<CharacterController>() )
     {
         CharacterController& Controller = NewEntity.GetComponent<CharacterController>();
@@ -226,6 +232,7 @@ void PhysicsCore::OnEntityRemoved( Entity& NewEntity )
         delete Controller.m_ghostObject;
         Controller.m_ghostObject = nullptr;
     }
+#endif
 }
 
 void PhysicsCore::OnDrawGuizmo( DebugDrawer* inDrawer )
@@ -253,6 +260,7 @@ void PhysicsCore::OnDrawGuizmo( DebugDrawer* inDrawer )
 
 void PhysicsCore::InitRigidbody( Rigidbody& RigidbodyComponent, Transform& TransformComponent )
 {
+#if USING( ME_PHYSICS_3D )
     if( !RigidbodyComponent.IsRigidbodyInitialized() )
     {
         RigidbodyComponent.CreateObject( TransformComponent.GetPosition(), TransformComponent.GetRotation(), TransformComponent.GetScale(), PhysicsWorld );
@@ -265,10 +273,12 @@ void PhysicsCore::InitRigidbody( Rigidbody& RigidbodyComponent, Transform& Trans
         cmd.Transform[2][2] = RigidbodyComponent.GetScale().z;
         RigidbodyComponent.DebugColliderId = GetEngine().GetRenderer().GetDebugDrawCache().Push( cmd );
     }
+#endif
 }
 
 bool PhysicsCore::Raycast( const Vector3& InPosition, const Vector3& InDirection, RaycastHit& OutHit )
 {
+#if USING( ME_PHYSICS_3D )
     btVector3 red( 1, 0, 0 );
     btVector3 blue( 0, 0, 1 );
 
@@ -326,8 +336,11 @@ bool PhysicsCore::Raycast( const Vector3& InPosition, const Vector3& InDirection
             return true;
         }
     }
+#endif
     return false;
 }
+
+#if USING( ME_PHYSICS_3D )
 
 void PhysicsCore::OnCollisionStart( const btRigidBodyWithEventsEventDelegates* thisBodyA, const btCollisionObject* bodyB, const btVector3& localSpaceContactPoint, const btVector3& worldSpaceContactPoint, const btVector3& worldSpaceContactNormal, const btScalar penetrationDistance, const btScalar appliedImpulse )
 {
@@ -366,3 +379,5 @@ void PhysicsCore::OnCollisionStop( const btRigidBodyWithEventsEventDelegates* th
         YIKES( name + " Stopped Colliding with: " + name2 );
     }
 }
+
+#endif

@@ -1,7 +1,7 @@
 #pragma once
-#include "LinearMath/btVector3.h"
-#include <string>
 #include <glm/glm.hpp>
+#include <LinearMath/btVector3.h>
+#include "Dementia.h"
 
 struct Vector3
 {
@@ -39,12 +39,14 @@ struct Vector3
     {
     }
 
+#if USING( ME_PHYSICS_3D )
     Vector3( const btVector3& v )
         : x( v.x() )
         , y( v.y() )
         , z( v.z() )
     {
     }
+#endif
 
     Vector3( const glm::vec3& v )
         : x( v.x )

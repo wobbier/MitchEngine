@@ -1,18 +1,11 @@
 #include "PCH.h"
 #include "Transform.h"
-#include <algorithm>
-#include "Math/Vector3.h"
 #include "Engine/Engine.h"
-#include "Mathf.h"
-#include "optick.h"
 #include <glm/gtc/type_ptr.hpp>
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/matrix_decompose.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/quaternion.hpp>
-#include "imgui.h"
-#include "misc/cpp/imgui_stdlib.h"
-#include "Core/Assert.h"
 
 Transform::Transform()
     : Component( "Transform" )
@@ -385,6 +378,8 @@ void Transform::SetName( const std::string& name )
     Name = name;
 }
 
+#if USING( ME_EDITOR )
+
 void Transform::OnEditorInspect()
 {
     HavanaUtils::Label( "Name" );
@@ -429,3 +424,5 @@ void Transform::OnEditorInspect()
 // 	ImGui::Separator();
 // 	ImGui::Text(GetWorldToLocalMatrix().ToString().c_str());
 }
+
+#endif

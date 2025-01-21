@@ -9,11 +9,9 @@
 #include <mono/metadata/attrdefs.h>
 #include "Utils/PlatformUtils.h"
 #include "MonoUtils.h"
-#include "Math/Vector3.h"
 #include <mono/metadata/mono-debug.h>
 #include <mono/metadata/threads.h>
 #include "ECS/Entity.h"
-#include "CLog.h"
 
 
 ScriptEngine::ScriptData ScriptEngine::sScriptData;

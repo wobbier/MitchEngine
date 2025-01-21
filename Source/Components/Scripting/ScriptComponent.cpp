@@ -131,6 +131,7 @@ void ScriptComponent::OnEditorInspect()
 
 void ScriptComponent::DrawValues( const ScriptClass& scriptClass )
 {
+#if USING( ME_IMGUI )
     const auto& fields = scriptClass.m_fields;
 
     for( const auto& [name, field] : fields )
@@ -256,6 +257,7 @@ void ScriptComponent::DrawValues( const ScriptClass& scriptClass )
             break;
         }
     }
+#endif
 }
 #endif
 

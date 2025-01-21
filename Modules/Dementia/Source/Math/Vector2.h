@@ -30,7 +30,7 @@ struct Vector2
     }
 
     Vector2( int x, int y )
-        : InternalVec( static_cast<int>( x ), static_cast<int>( y ) )
+        : InternalVec( static_cast<float>( x ), static_cast<float>( y ) )
     {
     }
 
