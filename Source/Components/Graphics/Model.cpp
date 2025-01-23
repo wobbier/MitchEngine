@@ -7,7 +7,6 @@
 #include "Engine/Engine.h"
 #include "ECS/Entity.h"
 #include "Events/HavanaEvents.h"
-#include "imgui.h"
 #include "Editor/AssetDescriptor.h"
 
 Model::Model( const std::string& path )
@@ -32,55 +31,18 @@ void Model::Init()
     {
         ModelHandle = ResourceCache::GetInstance().Get<ModelResource>( ModelPath );
     }
+
     if( ModelHandle && !IsInitialized )
     {
         IsInitialized = true;
-        //ModelShader = 
-
-        if( ModelHandle->RootNode.Nodes.size() > 0 )
+        ME_ASSERT_MSG( ModelHandle->RootNode.Meshes.empty(), "you can have a mesh on the root??" );
+        if(ModelHandle->RootNode.Nodes.size() == 1 )
         {
-            if( ModelHandle->RootNode.Nodes.size() == 1 )
-            {
-                auto& childNode = ModelHandle->RootNode.Nodes[0];
-                {
-                    //if (childNode.Nodes.size() == 1)
-                    {
-                        for( auto& childNodes : childNode.Nodes )
-                        {
-                            EntityHandle entityNode = GetEngine().GetWorld().lock()->CreateEntity();
-                            auto& transform = entityNode->AddComponent<Transform>( childNodes.Name );
-                            transform.SetParent( Parent->GetComponent<Transform>() );
-                            transform.SetPosition( childNodes.Position );
-                            RecursiveLoadMesh( childNodes, entityNode );
-                        }
-                        for( auto child : childNode.Meshes )
-                        {
-                            //Transform& trans = Parent->AddComponent<Transform>(child->Name);
-                            Mesh& meshRef = Parent->AddComponent<Mesh>( child );
-                            meshRef.MeshReferece = child;
-                            //trans.SetPosition(root.Position);
-                            //meshRef.MeshMaterial = child->MeshMaterial->CreateInstance();
-                            //trans.SetParent(parentEnt->GetComponent<Transform>());
-                        }
-                    }
-                    //else
-                    {
-                        //RecursiveLoadMesh(childNode, Parent);
-                    }
-                }
-                /*for (auto child : ModelHandle->RootNode.Meshes)
-                {
-                    Transform& trans = Parent->GetComponent<Transform>();
-                    Mesh& meshRef = Parent->AddComponent<Mesh>(child);
-                }*/
-            }
-            else
-            {
-                for( auto& childNode : ModelHandle->RootNode.Nodes )
-                {
-                    RecursiveLoadMesh( childNode, Parent );
-                }
-            }
+            RecursiveLoadMesh( ModelHandle->RootNode.Nodes[0], Parent);
+        }
+        else
+        {
+            RecursiveLoadMesh( ModelHandle->RootNode, Parent );
         }
     }
 }
@@ -95,15 +57,23 @@ void Model::RecursiveLoadMesh( Moonlight::Node& root, EntityHandle& parentEnt )
         transform.SetPosition( childNode.Position );
         RecursiveLoadMesh( childNode, entityNode );
     }
-    for( auto child : root.Meshes )
+
+    if( root.Meshes.size() == 1 )
     {
-        auto ent = GetEngine().GetWorld().lock()->CreateEntity();
-        Transform& trans = ent->AddComponent<Transform>( child->Name );
-        //Mesh& meshRef =
-        ent->AddComponent<Mesh>( child );
-        trans.SetPosition( root.Position );
-        //meshRef.MeshShader = ModelShader;
-        trans.SetParent( parentEnt->GetComponent<Transform>() );
+        auto& meshRef = parentEnt->AddComponent<Mesh>( root.Meshes[0] );
+        meshRef.MeshReferece = root.Meshes[0];
+    }
+    else
+    {
+        for( auto child : root.Meshes )
+        {
+            auto ent = GetEngine().GetWorld().lock()->CreateEntity();
+            Transform& trans = ent->AddComponent<Transform>( child->Name );
+            Mesh& meshRef = ent->AddComponent<Mesh>( child );
+            meshRef.MeshReferece = child;
+            trans.SetPosition( root.Position );
+            trans.SetParent( parentEnt->GetComponent<Transform>() );
+        }
     }
 }
 
@@ -123,9 +93,10 @@ void Model::OnEditorInspect()
         HavanaUtils::Label( "Model" );
         if( ImGui::Button( ( ( !ModelPath.GetLocalPath().empty() ) ? ModelPath.GetLocalPath().data() : "Select Asset" ), selectorSize ) )
         {
-            RequestAssetSelectionEvent evt( [this]( Path selectedAsset ) {
-                ModelPath = selectedAsset;
-                Init();
+            RequestAssetSelectionEvent evt( [this]( Path selectedAsset )
+                {
+                    ModelPath = selectedAsset;
+                    Init();
                 }, AssetType::Model );
             evt.Fire();
         }

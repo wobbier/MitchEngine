@@ -296,10 +296,9 @@ void Mesh::OnEditorInspect()
                 {
                     for( unsigned int blendMode = (unsigned int)Moonlight::BlendMode::Alpha; blendMode < (unsigned int)Moonlight::BlendMode::Count; ++blendMode )
                     {
-                        if( ImGui::BeginMenu( MeshMaterial->GetBlendModeString(( Moonlight::BlendMode )blendMode).c_str() ))
+                        if( ImGui::Selectable( MeshMaterial->GetBlendModeString( (Moonlight::BlendMode)blendMode ).c_str(), ( blendMode == (unsigned int)MeshMaterial->AlphaBlendMode ) ) )
                         {
                             MeshMaterial->AlphaBlendMode = (Moonlight::BlendMode)blendMode;
-                            ImGui::EndMenu();
                         }
                     }
                     ImGui::EndCombo();
@@ -316,10 +315,9 @@ void Mesh::OnEditorInspect()
             {
                 for( unsigned int faceMode = (unsigned int)Moonlight::RenderFaceMode::Front; faceMode < (unsigned int)Moonlight::RenderFaceMode::Count; ++faceMode )
                 {
-                    if( ImGui::BeginMenu( MeshMaterial->GetRenderFaceModeString( (Moonlight::RenderFaceMode)faceMode ).c_str() ) )
+                    if( ImGui::Selectable( MeshMaterial->GetRenderFaceModeString( (Moonlight::RenderFaceMode)faceMode ).c_str(), ( faceMode == (unsigned int)MeshMaterial->FaceMode ) ) )
                     {
                         MeshMaterial->FaceMode = (Moonlight::RenderFaceMode)faceMode;
-                        ImGui::EndMenu();
                     }
                 }
                 ImGui::EndCombo();

@@ -149,8 +149,10 @@ namespace Moonlight
             switch( AlphaBlendMode )
             {
             case Moonlight::BlendMode::Alpha:
+                modifiedState = modifiedState | BGFX_STATE_BLEND_ALPHA;
                 break;
             case Moonlight::BlendMode::Premultiply:
+                modifiedState = modifiedState | BGFX_STATE_BLEND_FUNC( BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA );
                 break;
             case Moonlight::BlendMode::Additive:
                 modifiedState = modifiedState | BGFX_STATE_BLEND_ADD;
@@ -160,6 +162,7 @@ namespace Moonlight
                 break;
             case Moonlight::BlendMode::Count:
             default:
+                modifiedState = modifiedState | BGFX_STATE_BLEND_ALPHA;
                 break;
             }
         }

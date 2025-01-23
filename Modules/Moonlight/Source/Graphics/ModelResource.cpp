@@ -41,7 +41,6 @@ ModelResource::ModelResource( const Path& path )
 
 ModelResource::~ModelResource()
 {
-    std::vector<Moonlight::MeshData*> meshes;
     std::stack<Moonlight::Node*> nodes;
     nodes.push( &RootNode );
     while( !nodes.empty() )
@@ -104,8 +103,6 @@ std::vector<Moonlight::MeshData*> ModelResource::GetAllMeshes()
 
 void ModelResource::ProcessNode( aiNode* node, const aiScene* scene, Moonlight::Node& parent )
 {
-    //parent.Position = Vector3(node->mTransformation[0][0]);
-    //parent.Name = node->mName;
     for( unsigned int i = 0; i < node->mNumMeshes; i++ )
     {
         aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
@@ -114,9 +111,17 @@ void ModelResource::ProcessNode( aiNode* node, const aiScene* scene, Moonlight::
 
     for( unsigned int i = 0; i < node->mNumChildren; i++ )
     {
-        parent.Nodes.emplace_back();
-        parent.Nodes.back().Name = std::string( node->mChildren[i]->mName.C_Str() );
-        ProcessNode( node->mChildren[i], scene, parent.Nodes.back() );
+        std::string nodeName = std::string( node->mChildren[i]->mName.C_Str() );
+        if( nodeName.rfind( "$AssimpFbx$" ) == std::string::npos ) //_RotationPivotInverse
+        {
+            parent.Nodes.emplace_back();
+            parent.Nodes.back().Name = nodeName;
+            ProcessNode( node->mChildren[i], scene, parent.Nodes.back() );
+        }
+        else
+        {
+            ProcessNode( node->mChildren[i], scene, parent );
+        }
     }
 }
 
@@ -323,6 +328,20 @@ void ModelResourceMetadata::Export()
         std::cout << "ERROR::ASSIMP:: " << importer.GetErrorString() << std::endl;
         return;
     }
+
+
+    //const char* chainStr[chain_length] = {
+    //    "Cube1_$AssimpFbx$_Translation",
+    //    "Cube1_$AssimpFbx$_RotationPivot",
+    //    "Cube1_$AssimpFbx$_RotationPivotInverse",
+    //    "Cube1_$AssimpFbx$_ScalingOffset",
+    //    "Cube1_$AssimpFbx$_ScalingPivot",
+    //    "Cube1_$AssimpFbx$_Scaling",
+    //    "Cube1_$AssimpFbx$_ScalingPivotInverse",
+    //    "Cube1"
+    //};
+    double factor( 0.0 );
+    scene->mMetaData->Get( "UnitScaleFactor", factor );
     if( scene && scene->mRootNode )
     {
         //ScaleNode( scene->mRootNode, 0.1f ); // Example: Scale down by 50%

@@ -73,9 +73,10 @@ std::string Moonlight::GetPlatformString()
     case bgfx::RendererType::Vulkan:     return "spirv";
 
     case bgfx::RendererType::Count:
-        BX_ASSERT( false, "You should not be here!" );
+    default:
         break;
     }
+    BX_ASSERT( false, "You should not be here!" );
     return "";
 }
 
