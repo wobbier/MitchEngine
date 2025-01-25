@@ -420,6 +420,7 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId
     );
 
     bgfx::touch( id );
+    bgfx::setViewMode( id, bgfx::ViewMode::Sequential );
 
     //bgfx::setViewTransform( id, &camera.View.GetInternalMatrix()[0][0], &camera.ProjectionMatrix.GetInternalMatrix()[0][0] );
     //bgfx::setViewTransform( 0, &view.GetInternalMatrix()[0][0], &proj.GetInternalMatrix()[0][0] );

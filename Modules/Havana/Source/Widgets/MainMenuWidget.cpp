@@ -1,4 +1,5 @@
 #include "MainMenuWidget.h"
+#include "Dementia.h"
 #include <optick.h>
 #include <Graphics/Texture.h>
 #include <Resource/ResourceCache.h>
@@ -336,6 +337,7 @@ void MainMenuWidget::Render()
         ImGui::BeginGroup();
         ImGui::PushStyleColor( ImGuiCol_Button, static_cast<ImVec4>( ImColor::HSV( 0.0f, 0.6f, 0.6f, 0.f ) ) );
         ImGui::PushStyleColor( ImGuiCol_ButtonActive, static_cast<ImVec4>( ImColor::HSV( 0.f, 0.8f, 0.8f, 0.f ) ) );
+#if USING( ME_OPTICK )
         ImGui::SetCursorPosX( ImGui::GetWindowWidth() - ( buttonWidth * 4.25f ) );
         if( ImGui::ImageButton( Icons["Profiler"]->TexHandle, ImVec2( 30.f, 30.f ) ) )
         {
@@ -343,6 +345,7 @@ void MainMenuWidget::Render()
             // additional information
             PlatformUtils::RunProcess( optickPath );
         }
+#endif
         //if (ImGui::ImageButton(Icons["Info"]->TexHandle, ImVec2(30.f, 30.f)))
         //{
         //	if (m_engine->CurrentScene && !std::filesystem::exists(m_engine->CurrentScene->FilePath.FullPath))

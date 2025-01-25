@@ -75,10 +75,10 @@ Class& operator=(Class&&) = delete;
 #define ME_HEADLESS NOT_IN_USE
 #endif
 
-#if defined( USE_OPTICK )
-#define ME_OPTICK IN_USE;
+#if DEFINE_ME_OPTICK
+#define ME_OPTICK IN_USE
 #else
-#define ME_OPTICK NOT_IN_USE;
+#define ME_OPTICK NOT_IN_USE
 #endif
 
 #if defined( DEFINE_ME_PLATFORM_WIN64 )

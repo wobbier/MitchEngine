@@ -91,6 +91,17 @@ public abstract class BaseProject : Project
         }
 
 
+        // Optick
+        if (target.Optimization == Optimization.Retail)
+        {
+            conf.Defines.Add("USE_OPTICK=0");
+        }
+        else
+        {
+            conf.Defines.Add("DEFINE_ME_OPTICK");
+            conf.Defines.Add("USE_OPTICK=1");
+        }
+
         conf.Options.Add(Options.Vc.General.WarningLevel.Level3);
         conf.Options.Add(Options.Vc.General.TreatWarningsAsErrors.Enable);
         conf.Options.Add(Options.Vc.Compiler.ConformanceMode.Enable);
@@ -143,7 +154,6 @@ public abstract class BaseProject : Project
         conf.Options.Add(Options.Vc.Compiler.Exceptions.Enable);
 
         conf.Defines.Add("DEFINE_ME_PLATFORM_UWP");
-        conf.Defines.Add("USE_OPTICK=0");
 
         conf.LibraryPaths.Add("C:\\Program Files (x86)\\Windows Kits\\10\\UnionMetadata");
 
