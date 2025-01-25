@@ -14,6 +14,7 @@
 #include <Window/SDLWindow.h>
 #include "UI/Colors.h"
 #include "Config.h"
+#include "Events/EditorEvents.h"
 
 #if USING( ME_EDITOR )
 

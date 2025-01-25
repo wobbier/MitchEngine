@@ -10,6 +10,7 @@ enum class AssetType : unsigned int
     Prefab,
     Shader,
     ShaderGraph,
+    Material,
     Texture,
     UI,
     Code,
@@ -44,6 +45,8 @@ namespace {
             return "Code";
         case AssetType::CS:
             return "Script";
+        case AssetType::Material:
+            return "Material";
         case AssetType::Count:
         default:
             return "";

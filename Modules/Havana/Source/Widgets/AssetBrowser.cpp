@@ -22,6 +22,7 @@
 #include "UI/Colors.h"
 #include "Mathf.h"
 #include <sys/stat.h>
+#include "Events/EditorEvents.h"
 
 #if USING( ME_EDITOR )
 
@@ -1066,6 +1067,10 @@ bool AssetBrowserWidget::ProccessDirectoryRecursive( std::string& dir, Directory
                 else if( newdir.rfind( ".cs" ) != std::string::npos )
                 {
                     type = AssetType::CS;
+                }
+                else if( newdir.rfind( ".mat" ) != std::string::npos )
+                {
+                    type = AssetType::Material;
                 }
 
                 size_t shaderPos = newdir.rfind( ".shader" );

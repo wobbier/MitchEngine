@@ -4,7 +4,7 @@
 #include "Path.h"
 #include "imgui.h"
 #include "Events/HavanaEvents.h"
-#include <Editor/AssetDescriptor.h>
+#include <Types/AssetDescriptor.h>
 
 #include "Events/AudioEvents.h"
 
@@ -14,6 +14,7 @@
 #endif
 #include "Resource/MetaFile.h"
 #include "Core/Assert.h"
+#include "Events/EditorEvents.h"
 
 AudioSource::AudioSource( const std::string& InFilePath )
     : Component( "AudioSource" )

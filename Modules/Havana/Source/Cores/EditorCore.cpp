@@ -14,6 +14,7 @@
 #include <Window/IWindow.h>
 #include <World/Scene.h>
 #include <Utils/EditorConfig.h>
+#include "Events/EditorEvents.h"
 
 #if USING( ME_EDITOR )
 

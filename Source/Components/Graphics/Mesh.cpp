@@ -19,9 +19,10 @@
 #include "CLog.h"
 #include "Utils/ImGuiUtils.h"
 #include <Materials/DiffuseMaterial.h>
-#include "Editor/AssetDescriptor.h"
+#include "Types/AssetDescriptor.h"
 #include <Primitives/Plane.h>
 #include "Primitives/Cube.h"
+#include "Events/EditorEvents.h"
 
 Mesh::Mesh()
     : Component( "Mesh" )

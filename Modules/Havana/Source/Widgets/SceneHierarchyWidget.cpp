@@ -11,7 +11,7 @@
 #include <Events/EventManager.h>
 #include <Components/Graphics/Model.h>
 #include <Types/AssetType.h>
-#include "Editor/AssetDescriptor.h"
+#include "Types/AssetDescriptor.h"
 #include "UI/Colors.h"
 
 #if USING( ME_EDITOR )

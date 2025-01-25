@@ -7,7 +7,7 @@
 #include <functional>
 #include <Pointers.h>
 #include <JSON.h>
-#include "Editor/AssetDescriptor.h"
+#include "Types/AssetDescriptor.h"
 
 class Transform;
 class Resource;

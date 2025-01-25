@@ -5,6 +5,8 @@
 #include "Mathf.h"
 #include <Utils/ImGuiUtils.h>
 #include "Components/Camera.h"
+#include "Events/Event.h"
+#include "Events/EditorEvents.h"
 
 AssetPreviewWidget::AssetPreviewWidget()
 	: HavanaWidget("Preview")

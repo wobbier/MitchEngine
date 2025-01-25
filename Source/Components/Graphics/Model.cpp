@@ -7,7 +7,8 @@
 #include "Engine/Engine.h"
 #include "ECS/Entity.h"
 #include "Events/HavanaEvents.h"
-#include "Editor/AssetDescriptor.h"
+#include "Types/AssetDescriptor.h"
+#include "Events/EditorEvents.h"
 
 Model::Model( const std::string& path )
     : Component( "Model" )

@@ -5,7 +5,6 @@
 #include "Dementia.h"
 #include "Graphics/MeshData.h"
 #include "Graphics/Texture.h"
-#include <string>
 #include "Graphics/Material.h"
 #include "Graphics/ShaderCommand.h"
 #include "Graphics/MaterialDetail.h"

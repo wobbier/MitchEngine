@@ -15,6 +15,7 @@
 #include "Core/Assert.h"
 #include "Engine/Engine.h"
 #include "misc/cpp/imgui_stdlib.h"
+#include "Events/EditorEvents.h"
 
 BasicUIView::BasicUIView()
     : Component( "BasicUIView" )

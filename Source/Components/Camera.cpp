@@ -11,9 +11,10 @@
 #include <Renderer.h>
 #include <Graphics/DynamicSky.h>
 #include <Engine/Engine.h>
-#endif
+#include "Events/EditorEvents.h"
 #include "Events/HavanaEvents.h"
-#include "Editor/AssetDescriptor.h"
+#include "Types/AssetDescriptor.h"
+#endif
 
 Camera* Camera::CurrentCamera = nullptr;
 Camera* Camera::EditorCamera = nullptr;
