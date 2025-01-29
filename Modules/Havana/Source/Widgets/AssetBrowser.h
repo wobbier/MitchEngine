@@ -76,6 +76,7 @@ private:
     void RefreshMetaPanel( const Path& item );
 
     void TryDestroyMetaFile();
+    void DrawAssetIcon( AssetType inAssetType, ImVec2 inIconSize = { 16, 16 } );
 
     static const ImGuiTableSortSpecs* s_current_sort_specs;
     static int CompareWithSortSpecs( const void* lhs, const void* rhs );

@@ -662,40 +662,7 @@ void AssetBrowserWidget::DrawAssetTable()
                     }
 
                     ImGui::SameLine();
-                    ImVec2 iconSize( 16, 16 );
-                    switch( item->Type )
-                    {
-                    case AssetType::Level:
-                        ImGui::Image( Icons["World"]->TexHandle, iconSize );
-                        break;
-                    case AssetType::Texture:
-                        ImGui::Image( Icons["Image"]->TexHandle, iconSize );
-                        break;
-                    case AssetType::Model:
-                        ImGui::Image( Icons["Model"]->TexHandle, iconSize );
-                        break;
-                    case AssetType::Shader:
-                        ImGui::Image( Icons["Shader"]->TexHandle, iconSize );
-                        break;
-                    case AssetType::Audio:
-                        ImGui::Image( Icons["Audio"]->TexHandle, iconSize );
-                        break;
-                    case AssetType::Prefab:
-                        ImGui::Image( Icons["Prefab"]->TexHandle, iconSize );
-                        break;
-                    case AssetType::Code:
-                        ImGui::Image( Icons["Code"]->TexHandle, iconSize );
-                        break;
-                    case AssetType::UI:
-                        ImGui::Image( Icons["UI"]->TexHandle, iconSize );
-                        break;
-                    case AssetType::CS:
-                        ImGui::Image( Icons["CS"]->TexHandle, iconSize );
-                        break;
-                    default:
-                        ImGui::Image( Icons["File"]->TexHandle, iconSize );
-                        break;
-                    }
+                    DrawAssetIcon( item->Type );
                 }
 
                 if( ImGui::TableNextColumn() )
@@ -716,6 +683,43 @@ void AssetBrowserWidget::DrawAssetTable()
     }
 
 
+}
+
+void AssetBrowserWidget::DrawAssetIcon( AssetType inAssetType, ImVec2 inIconSize )
+{
+    switch( inAssetType )
+    {
+    case AssetType::Level:
+        ImGui::Image( Icons["World"]->TexHandle, inIconSize );
+        break;
+    case AssetType::Texture:
+        ImGui::Image( Icons["Image"]->TexHandle, inIconSize );
+        break;
+    case AssetType::Model:
+        ImGui::Image( Icons["Model"]->TexHandle, inIconSize );
+        break;
+    case AssetType::Shader:
+        ImGui::Image( Icons["Shader"]->TexHandle, inIconSize );
+        break;
+    case AssetType::Audio:
+        ImGui::Image( Icons["Audio"]->TexHandle, inIconSize );
+        break;
+    case AssetType::Prefab:
+        ImGui::Image( Icons["Prefab"]->TexHandle, inIconSize );
+        break;
+    case AssetType::Code:
+        ImGui::Image( Icons["Code"]->TexHandle, inIconSize );
+        break;
+    case AssetType::UI:
+        ImGui::Image( Icons["UI"]->TexHandle, inIconSize );
+        break;
+    case AssetType::CS:
+        ImGui::Image( Icons["CS"]->TexHandle, inIconSize );
+        break;
+    default:
+        ImGui::Image( Icons["File"]->TexHandle, inIconSize );
+        break;
+    }
 }
 
 void AssetBrowserWidget::RefreshMetaPanel( const Path& item )
@@ -804,39 +808,7 @@ void AssetBrowserWidget::Recursive( Directory& dir )
     int i = 0;
     for( AssetDescriptor& files : dir.Files )
     {
-        switch( files.Type )
-        {
-        case AssetType::Level:
-            ImGui::Image( Icons["World"]->TexHandle, ImVec2( 16, 16 ) );
-            break;
-        case AssetType::Texture:
-            ImGui::Image( Icons["Image"]->TexHandle, ImVec2( 16, 16 ) );
-            break;
-        case AssetType::Model:
-            ImGui::Image( Icons["Model"]->TexHandle, ImVec2( 16, 16 ) );
-            break;
-        case AssetType::Shader:
-            ImGui::Image( Icons["Shader"]->TexHandle, ImVec2( 16, 16 ) );
-            break;
-        case AssetType::Audio:
-            ImGui::Image( Icons["Audio"]->TexHandle, ImVec2( 16, 16 ) );
-            break;
-        case AssetType::Prefab:
-            ImGui::Image( Icons["Prefab"]->TexHandle, ImVec2( 16, 16 ) );
-            break;
-        case AssetType::UI:
-            ImGui::Image( Icons["UI"]->TexHandle, ImVec2( 16, 16 ) );
-            break;
-        case AssetType::Code:
-            ImGui::Image( Icons["Code"]->TexHandle, ImVec2( 16, 16 ) );
-            break;
-        case AssetType::CS:
-            ImGui::Image( Icons["CS"]->TexHandle, ImVec2( 16, 16 ) );
-            break;
-        default:
-            ImGui::Image( Icons["File"]->TexHandle, ImVec2( 16, 16 ) );
-            break;
-        }
+        DrawAssetIcon( files.Type );
 
         ImGui::SameLine();
         //ImGui::Text(files.Name.c_str());

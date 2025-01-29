@@ -89,10 +89,11 @@ void EditorCore::Update( const UpdateContext& inUpdateContext )
                 return;
             }
 
+            m_flyingSpeed = Mathf::Clamp(0.f, 100.f, m_flyingSpeed + input.GetMouseScrollDelta().y);
             float CameraSpeed = m_flyingSpeed;
             if ( input.IsKeyDown( KeyCode::LeftShift ) )
             {
-                CameraSpeed += m_speedModifier;
+                CameraSpeed = m_flyingSpeed * m_speedModifier;
             }
             CameraSpeed *= inUpdateContext.GetDeltaTime();
 
@@ -134,14 +135,8 @@ void EditorCore::Update( const UpdateContext& inUpdateContext )
             const float Yaw = EditorCamera->Yaw -= XOffset;
             float Pitch = EditorCamera->Pitch + YOffest;
 
-            if ( Pitch > 89.0f )
-            {
-                Pitch = 89.0f;
-            }
-            if ( Pitch < -89.0f )
-            {
-                Pitch = -89.0f;
-            }
+            Pitch = Mathf::Clamp( -89.f, 89.f, Pitch );
+
             EditorCamera->Pitch = Pitch;
             EditorCameraTransform->SetRotation( Vector3( Pitch, -Yaw, 0.0f ) );
             EditorConfig::GetInstance().CameraPosition = Vector3( EditorCameraTransform->GetPosition() );

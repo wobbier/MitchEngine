@@ -41,7 +41,6 @@ PickingPass::PickingPass()
     m_reading = 0;
     m_currFrame = UINT32_MAX;
     m_fov = 3.0f;
-    m_cameraSpin = false;
 
     
     //bx::RngMwc mwc;  // Random number generator
@@ -160,7 +159,6 @@ void PickingPass::Render( BGFXRenderer* inRenderer, CameraData* inCamData )
 
 
     const float camSpeed = 0.25;
-    float cameraSpin = (float)m_cameraSpin;
     float eyeDist = 2.5f;
     float time = (float)( ( bx::getHPCounter() - m_timeOffset ) / double( bx::getHPFrequency() ) );
 
@@ -250,7 +248,6 @@ void PickingPass::RenderDebugMenu()
 {
     ImGui::Image( m_pickingRT, ImVec2( m_width / 5.0f - 16.0f, m_width / 5.0f - 16.0f ) );
     ImGui::SliderFloat( "Field of view", &m_fov, 1.0f, 60.0f );
-    ImGui::Checkbox( "Spin Camera", &m_cameraSpin );
 }
 
 bool PickingPass::IsSupported()

@@ -59,6 +59,5 @@ namespace Moonlight
         uint32_t m_currFrame;
 
         float m_fov;
-        bool  m_cameraSpin;
     };
 }
