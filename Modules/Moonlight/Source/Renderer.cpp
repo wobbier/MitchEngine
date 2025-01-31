@@ -317,7 +317,6 @@ void BGFXRenderer::Render( Moonlight::CameraData& EditorCamera )
             bgfx::frame();
         }
     }
-    m_meshCache.Clear();
 }
 
 

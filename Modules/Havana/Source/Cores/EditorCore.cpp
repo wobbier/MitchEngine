@@ -89,7 +89,7 @@ void EditorCore::Update( const UpdateContext& inUpdateContext )
                 return;
             }
 
-            m_flyingSpeed = Mathf::Clamp(0.f, 100.f, m_flyingSpeed + input.GetMouseScrollDelta().y);
+            m_flyingSpeed = Mathf::Clamp(1.f, 100.f, m_flyingSpeed + input.GetMouseScrollDelta().y);
             float CameraSpeed = m_flyingSpeed;
             if ( input.IsKeyDown( KeyCode::LeftShift ) )
             {

@@ -43,7 +43,7 @@ void RenderCore::OnEntityAdded( Entity& NewEntity )
 {
     if( NewEntity.HasComponent<Mesh>() )
     {
-
+        NewEntity.GetComponent<Mesh>().Id = GetEngine().GetRenderer().GetMeshCache().Push( Moonlight::MeshCommand() );
     }
 }
 
@@ -51,8 +51,8 @@ void RenderCore::OnEntityRemoved( Entity& InEntity )
 {
     if( InEntity.HasComponent<Mesh>() )
     {
-        //Mesh& mesh = InEntity.GetComponent<Mesh>();
-        //GetEngine().GetRenderer().GetMeshCache().Pop( mesh.Id );
+        Mesh& mesh = InEntity.GetComponent<Mesh>();
+        GetEngine().GetRenderer().GetMeshCache().Pop( mesh.Id );
     }
 }
 
@@ -74,11 +74,11 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
     renderer.m_time.y = inUpdateContext.GetTotalTime();
 
     // Clear Render Commands
-    renderer.GetMeshCache().Commands.clear();
-    while( !renderer.GetMeshCache().FreeIndicies.empty() )
-    {
-        renderer.GetMeshCache().FreeIndicies.pop();
-    }
+    //renderer.GetMeshCache().Commands.clear();
+    //while( !renderer.GetMeshCache().FreeIndicies.empty() )
+    //{
+    //    renderer.GetMeshCache().FreeIndicies.pop();
+    //}
 
     if( Renderables.empty() )
     {
@@ -109,7 +109,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
             {
                 for( int entIndex = batchBegin; entIndex < batchEnd; ++entIndex )
                 {
-                    OPTICK_CATEGORY( "Update Transform", Optick::Category::Debug );
+                    OPTICK_CATEGORY( "Update Transform", Optick::Category::Scene );
                     auto& InEntity = Renderables[entIndex];
                     {
                         Transform& transform = InEntity.GetComponent<Transform>();
@@ -117,18 +117,28 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                         bool isVisible = false;
                         const glm::mat4& meshMatrix = transform.GetLocalToWorldMatrix().GetInternalMatrix();
 
-                        for( Moonlight::CameraData& cam : cameras.Commands )
                         {
-                            glm::vec4 point = glm::vec4( meshMatrix[3] );
-                            if( cam.ViewFrustum.IsPointInFrustum( point ) )
+                            OPTICK_CATEGORY( "Culling", Optick::Category::Visibility );
+                            for( Moonlight::CameraData& cam : cameras.Commands )
                             {
-                                isVisible = true;
-                                cam.VisibleFlags[entIndex] = true;
+                                if( !cam.ShouldCull )
+                                {
+                                    isVisible = true;
+                                    continue;
+                                }
+
+                                glm::vec4 point = glm::vec4( meshMatrix[3] );
+                                if( cam.ViewFrustum.IsPointInFrustum( point ) )
+                                {
+                                    isVisible = true;
+                                    cam.VisibleFlags[entIndex] = true;
+                                }
                             }
                         }
 
                         if( isVisible )
                         {
+                            OPTICK_CATEGORY( "Submit", Optick::Category::Rendering );
                             Moonlight::MeshCommand command;
                             command.SingleMesh = model.MeshReferece;
                             command.MeshMaterial = model.MeshMaterial;
@@ -136,7 +146,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                             command.Type = model.GetType();
                             command.VisibilityIndex = entIndex;
                             command.ID = InEntity.GetId().Value();
-                            model.Id = renderer.GetMeshCache().Push( command );
+                            renderer.GetMeshCache().Update( model.GetId(), command);
                         }
                     }
                 }
