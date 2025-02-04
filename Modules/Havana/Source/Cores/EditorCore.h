@@ -3,6 +3,7 @@
 
 #include <Events/EventReceiver.h>
 #include "Pointers.h"
+#include "Math/Vector3.h"
 
 class Transform;
 class Havana;
@@ -42,19 +43,20 @@ private:
 
 	float m_lookSensitivity = 40.f;
 	float m_speedModifier = 2.f;
-	float LastX = 0.f;
-	float LastY = 0.f;
 	bool FirstUpdate = true;
 	bool PreviousMouseDown = false;
 	bool IsFocusingTransform = false;
 	float startTime = 0.0f;
 	float totalTime = 0.0f;
-	float TravelDistance = 0.f;
-	float m_focusSpeed = 10.f;
+	float m_focusDuration = 0.1f;
 
 	SharedPtr<Transform> EditorCameraTransform = nullptr;
+	WeakPtr<Transform> FocusedTransform;
 	Camera* EditorCamera = nullptr;
 	Havana* m_editor = nullptr;
+
+	Vector3 FocusPositionStart;
+	Vector3 FocusPositionEnd;
 
 	virtual void OnEditorInspect() final;
 };

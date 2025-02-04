@@ -30,6 +30,7 @@ EditorCore::EditorCore( Havana* editor )
     std::vector<TypeId> events;
     events.push_back( SaveSceneEvent::GetEventId() );
     events.push_back( NewSceneEvent::GetEventId() );
+    events.push_back( InspectEvent::GetEventId() );
     //events.push_back(Moonlight::PickingEvent::GetEventId());
     EventManager::GetInstance().RegisterReceiver( this, events );
 }
@@ -54,20 +55,19 @@ void EditorCore::Update( const UpdateContext& inUpdateContext )
 
     if ( m_editor->IsWorldViewFocused() || FirstUpdate )
     {
-        if ( input.IsKeyDown( KeyCode::F ) )
+        if ( input.IsKeyDown( KeyCode::F ) && FocusedTransform.lock() )
         {
             IsFocusingTransform = true;
 
             // Keep a note of the time the movement started.
-            startTime = 0.f;
+            startTime = inUpdateContext.GetTotalTime();
 
             // Calculate the journey length.
-            TravelDistance = ( EditorCameraTransform->GetPosition() - Vector3() ).Length();
+            FocusPositionStart = EditorCameraTransform->GetWorldPosition();
+            FocusPositionEnd = FocusedTransform.lock()->GetWorldPosition();
 
             totalTime = 0.f;
         }
-
-        totalTime += inUpdateContext.GetDeltaTime();
 
         if ( FirstUpdate )
         {
@@ -144,20 +144,18 @@ void EditorCore::Update( const UpdateContext& inUpdateContext )
         }
         else
         {
-            // Distance moved = time * speed.
-            float distCovered = ( totalTime - startTime ) * m_focusSpeed;
+            totalTime += inUpdateContext.GetDeltaTime();
 
-            // Fraction of journey completed = current distance divided by total distance.
-            float fracJourney = distCovered / TravelDistance;
-
-            if ( fracJourney <= .8f )
+            float fracJourney = totalTime / m_focusDuration;
+            if( fracJourney >= 1.f )
             {
-                Vector3 lerp = Mathf::Lerp( EditorCameraTransform->GetPosition(), Vector3(), fracJourney );
-                EditorCameraTransform->SetPosition( lerp );
+                EditorCameraTransform->SetPosition( FocusPositionEnd );
+                IsFocusingTransform = false;
             }
             else
             {
-                IsFocusingTransform = false;
+                Vector3 lerp = Mathf::Lerp( FocusPositionStart, FocusPositionEnd, fracJourney );
+                EditorCameraTransform->SetPosition( lerp );
             }
         }
     }
@@ -193,6 +191,12 @@ bool EditorCore::OnEvent( const BaseEvent& evt )
             GetEngine().GetConfig().Save();
         }
         return true;
+    }
+    if( evt.GetEventId() == InspectEvent::GetEventId() )
+    {
+        const InspectEvent& event = static_cast<const InspectEvent&>( evt );
+
+        FocusedTransform = event.SelectedTransform;
     }
     /*else if (evt.GetEventId() == Moonlight::PickingEvent::GetEventId())
     {
@@ -277,7 +281,7 @@ void EditorCore::OnEditorInspect()
     ImGui::Text( "Camera Settings" );
     ImGui::DragFloat( "Flying Speed", &m_flyingSpeed );
     ImGui::DragFloat( "Speed Modifier", &m_speedModifier );
-    ImGui::DragFloat( "Focus Speed", &m_focusSpeed );
+    ImGui::DragFloat( "Focus Duration", &m_focusDuration );
     ImGui::DragFloat( "Look Sensitivity", &m_lookSensitivity, 0.01f );
 
     EditorCameraTransform->OnEditorInspect();
