@@ -13,13 +13,14 @@
 #include <Types/AssetType.h>
 #include "Types/AssetDescriptor.h"
 #include "UI/Colors.h"
+#include "Events/EditorEvents.h"
 
 #if USING( ME_EDITOR )
 
 SceneHierarchyWidget::SceneHierarchyWidget()
 	: HavanaWidget("Hierarchy")
 {
-	EventManager::GetInstance().RegisterReceiver(this, { InspectEvent::GetEventId(), ClearInspectEvent::GetEventId() });
+	EventManager::GetInstance().RegisterReceiver(this, { InspectEvent::GetEventId(), ClearInspectEvent::GetEventId(), PickingEvent::GetEventId() });
 }
 
 void SceneHierarchyWidget::Init()
@@ -38,15 +39,36 @@ bool SceneHierarchyWidget::OnEvent(const BaseEvent& evt)
 	if (evt.GetEventId() == ClearInspectEvent::GetEventId())
 	{
 		ClearSelection();
-	}
-	else if (evt.GetEventId() == InspectEvent::GetEventId())
-	{
-		const InspectEvent& event = static_cast<const InspectEvent&>(evt);
+    }
+    else if( evt.GetEventId() == InspectEvent::GetEventId() )
+    {
+        const InspectEvent& event = static_cast<const InspectEvent&>( evt );
 
-		SelectedCore = event.SelectedCore;
-		SelectedEntity = event.SelectedEntity;
-		SelectedTransform = event.SelectedTransform;
-	}
+        SelectedCore = event.SelectedCore;
+        SelectedEntity = event.SelectedEntity;
+        SelectedTransform = event.SelectedTransform;
+    }
+    else if( evt.GetEventId() == PickingEvent::GetEventId() )
+    {
+        const PickingEvent& event = static_cast<const PickingEvent&>( evt );
+
+		EntityHandle handle = GetEngine().GetWorld().lock()->FindEntityByIDValue( event.RawEntityID );
+
+        SelectedCore = nullptr;
+        SelectedEntity = handle;
+		if( SelectedEntity->HasComponent<Transform>() )
+		{
+			SelectedTransform = SelectedEntity->GetComponent<Transform>().GetPtr();
+		}
+		else
+		{
+			SelectedTransform.reset();
+        }
+        InspectEvent evt;
+        evt.SelectedTransform = SelectedTransform;
+        evt.SelectedEntity = SelectedEntity;
+        evt.Fire();
+    }
 	return false;
 }
 

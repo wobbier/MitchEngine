@@ -46,6 +46,8 @@ public:
 	bool IsFocused = false;
 	bool EnableSceneTools = false;
 	bool MaximizeOnPlay = false;
+	bool IsUsingGuizmo = false;
+	bool IsPlatformWindow = false;
 
 	Vector2 SceneViewRenderSize;
 	Vector2 SceneViewRenderLocation;

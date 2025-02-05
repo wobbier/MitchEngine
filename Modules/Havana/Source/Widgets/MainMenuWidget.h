@@ -32,6 +32,8 @@ public:
 
 	void DrawOpenFilePopup();
 
+	Vector2 GetMainMenuSize() const;
+
 	void SetCallbacks(std::function<void()> StartGame, std::function<void()> PauseGame, std::function<void()> StopGame);
 
 	bool MaximizeOnPlay = false;

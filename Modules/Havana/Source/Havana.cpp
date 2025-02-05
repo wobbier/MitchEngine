@@ -38,6 +38,7 @@
 #include <Window/PlatformWindowHooks.h>
 #include "HavanaWidget.h"
 #include "Editor/WidgetRegistry.h"
+#include "Window/IWindow.h"
 
 static SDL_Cursor* g_imgui_to_sdl_cursor[ImGuiMouseCursor_COUNT];
 
@@ -344,6 +345,20 @@ void Havana::Render( Moonlight::CameraData& EditorCamera )
         OPTICK_EVENT( "MainSceneView", Optick::Category::UI );
         MainSceneView->SetData( EditorCamera );
         MainSceneView->Render();
+
+        FrameRenderData& frameRenderData = GetEngine().m_frameRenderSettings;
+        // Potentially bad for if the window isn't docked
+        //GetEngine().m_frameRenderSettings.MousePosition =  GetInput().GetGlobalMousePosition() - ( m_engine->GetWindow()->GetPosition() - MainSceneView->SceneViewRenderLocation );
+        frameRenderData.MousePosition = GetInput().GetMousePosition() - MainSceneView->SceneViewRenderLocation;// -( GetEngine().GetWindow()->GetPosition() );
+        if( !MainSceneView->IsPlatformWindow )
+        {
+            ImGuiStyle& style = ImGui::GetStyle();
+            frameRenderData.MousePosition -= Vector2( 0.f, MainMenu->GetMainMenuSize().y ) + Vector2( style.DockingSeparatorSize, 0.f );
+        }
+        if( MainSceneView->IsUsingGuizmo || frameRenderData.MousePosition.x >= MainSceneView->SceneViewRenderSize.x )
+        {
+            frameRenderData.WasLeftPressed = false;
+        }
     }
 
     // Game View

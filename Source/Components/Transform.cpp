@@ -336,6 +336,11 @@ const std::vector<SharedPtr<Transform>>& Transform::GetChildren() const
     return Children;
 }
 
+WeakPtr<Transform> Transform::GetPtr()
+{
+    return shared_from_this();
+}
+
 Transform* Transform::GetParentTransform()
 {
     if( ParentTransform )

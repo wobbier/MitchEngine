@@ -216,8 +216,9 @@ void BGFXRenderer::BeginFrame( const Vector2& mousePosition, uint8_t mouseButton
 
 #endif
 
-void BGFXRenderer::Render( Moonlight::CameraData& EditorCamera )
+void BGFXRenderer::Render( Moonlight::CameraData& EditorCamera, FrameRenderData& inFrameData )
 {
+    inFrameData.m_currentFrame = m_currentFrame;
     OPTICK_EVENT( "Renderer::Render", Optick::Category::Rendering );
 
     // Use debug font to print information about this example.
@@ -266,7 +267,7 @@ void BGFXRenderer::Render( Moonlight::CameraData& EditorCamera )
     if( EditorCamera.Buffer && EditorCamera.ShouldRender )
     {
         RenderCameraView( EditorCamera, id );
-        m_pickingPass->Render( this, &EditorCamera );
+        m_pickingPass->Render( this, &EditorCamera, inFrameData );
         ++id;
     }
 
@@ -314,7 +315,8 @@ void BGFXRenderer::Render( Moonlight::CameraData& EditorCamera )
 #endif
         {
             OPTICK_EVENT( "Renderer::Frame", Optick::Category::Rendering );
-            bgfx::frame();
+            m_currentFrame = bgfx::frame();
+            inFrameData.m_currentFrame = m_currentFrame;
         }
     }
 }
@@ -639,7 +641,7 @@ void BGFXRenderer::RenderSingleMesh( bgfx::ViewId id, const Moonlight::MeshComma
     //else 
     if( mesh.Type == Moonlight::MeshType::Model || mesh.Type == Moonlight::MeshType::Plane || mesh.Type == Moonlight::Cube )
     {
-        if( !mesh.SingleMesh )
+        if( !mesh.SingleMesh || !bgfx::isValid(mesh.SingleMesh->GetVertexBuffer() ) )
         {
             return;
         }
@@ -690,6 +692,10 @@ void BGFXRenderer::RenderSingleMesh( bgfx::ViewId id, const Moonlight::MeshComma
 
         // Submit primitive for rendering to view 0.
         bgfx::submit( id, mesh.MeshMaterial->MeshShader.GetProgram() );
+    }
+    else
+    {
+        ME_ASSERT_MSG( false, "Why do I need that if statement?" );
     }
 }
 

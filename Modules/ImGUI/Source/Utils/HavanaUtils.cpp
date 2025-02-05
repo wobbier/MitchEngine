@@ -89,7 +89,7 @@ bool HavanaUtils::EditableVector3( const std::string& Name, Vector3& Vector, flo
             ImGui::PopStyleColor( 2 );
             ImGui::SameLine();
             ImGui::PushItemWidth( dragWidths );
-            ImGui::DragFloat( "##X", &Vector.x, 0.1f );
+            ImGui::DragFloat( "##X", &Vector.x, 0.1f, 0.f, 0.f, "%.6f");
             ImGui::PopItemWidth();
         }
 
@@ -104,7 +104,7 @@ bool HavanaUtils::EditableVector3( const std::string& Name, Vector3& Vector, flo
             ImGui::PopStyleColor( 2 );
             ImGui::SameLine();
             ImGui::PushItemWidth( dragWidths );
-            ImGui::DragFloat( "##Y", &Vector.y, 0.1f );
+            ImGui::DragFloat( "##Y", &Vector.y, 0.1f, 0.f, 0.f, "%.6f" );
             ImGui::PopItemWidth();
         }
 
@@ -119,7 +119,7 @@ bool HavanaUtils::EditableVector3( const std::string& Name, Vector3& Vector, flo
             ImGui::PopStyleColor( 2 );
             ImGui::SameLine();
             ImGui::PushItemWidth( dragWidths );
-            ImGui::DragFloat( "##Z", &Vector.z, 0.1f );
+            ImGui::DragFloat( "##Z", &Vector.z, 0.1f, 0.f, 0.f, "%.6f" );
             ImGui::PopItemWidth();
         }
 

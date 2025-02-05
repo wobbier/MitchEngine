@@ -40,7 +40,7 @@ namespace Moonlight
 
     private:
         unsigned int m_indexCount;
-        bgfx::VertexBufferHandle m_vbh;
-        bgfx::IndexBufferHandle m_ibh;
+        bgfx::VertexBufferHandle m_vbh = BGFX_INVALID_HANDLE;
+        bgfx::IndexBufferHandle m_ibh = BGFX_INVALID_HANDLE;
     };
 }

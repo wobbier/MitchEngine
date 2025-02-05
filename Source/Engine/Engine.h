@@ -19,6 +19,7 @@
 #if USING( ME_GAME_TOOLS )
 #include "Tools/DebugTools.h"
 #endif
+#include "Core/FrameRenderData.h"
 
 class Game;
 class IWindow;
@@ -107,6 +108,7 @@ public:
 #if USING( ME_GAME_TOOLS )
     DebugTools m_debugTools;
 #endif
+    FrameRenderData m_frameRenderSettings;
 };
 
 Engine& GetEngine();

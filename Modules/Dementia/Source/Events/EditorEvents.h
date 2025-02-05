@@ -3,6 +3,16 @@
 
 namespace Moonlight { class Texture; }
 
+class PickingEvent
+    : public Event<PickingEvent>
+{
+public:
+    PickingEvent()
+        : Event()
+    {
+    }
+    uint32_t RawEntityID = 0;
+};
 
 class PreviewResourceEvent
     : public Event<PreviewResourceEvent>

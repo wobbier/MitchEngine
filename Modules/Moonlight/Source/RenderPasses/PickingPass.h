@@ -4,6 +4,7 @@
 #include "Math/Random.h"
 #include "Math/Vector4.h"
 #include <unordered_map>
+#include "Core/FrameRenderData.h"
 
 //#TODO: better view ids
 #define RENDER_PASS_SHADING 100  // Default forward rendered geo with simple shading
@@ -24,7 +25,7 @@ namespace Moonlight
     public:
         PickingPass();
 
-        void Render( BGFXRenderer* inRenderer, CameraData* inCamData );
+        void Render( BGFXRenderer* inRenderer, CameraData* inCamData, FrameRenderData& inFrameSettings );
 
         void RenderDebugMenu();
         virtual bool IsSupported() final;
@@ -55,8 +56,10 @@ namespace Moonlight
 
         uint8_t m_blitData[ID_DIM * ID_DIM * 4]; // Read blit into this
 
-        uint32_t m_reading;
+        uint32_t m_reading = 0;
         uint32_t m_currFrame;
+
+        bool ForceDraw = true;
 
         float m_fov;
     };

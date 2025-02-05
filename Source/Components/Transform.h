@@ -67,6 +67,7 @@ public:
     void RemoveChild( Transform* TargetTransform );
     Transform* GetChildByName( const std::string& inName );
     const std::vector<SharedPtr<Transform>>& GetChildren() const;
+    WeakPtr<Transform> GetPtr();
 
     Transform* GetParentTransform();
     const Matrix4& GetMatrix();

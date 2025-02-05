@@ -39,6 +39,7 @@
 #include "Events/PlatformEvents.h"
 #include "Scripting/ScriptEngine.h"
 #include "Core/Assert.h"
+#include "Events/EditorEvents.h"
 
 Engine& GetEngine()
 {
@@ -244,6 +245,11 @@ void Engine::Run()
             AccumulatedTime += GameClock.GetDeltaSeconds();
         }
 
+        GetInput().Update();
+#if USING( ME_EDITOR )
+        GetEditorInput().Update();
+#endif
+
         //if (AccumulatedTime >= MaxDeltaTime)
         {
             float deltaTime = DeltaTime = AccumulatedTime;
@@ -264,6 +270,8 @@ void Engine::Run()
                     OPTICK_EVENT( "GetGlobalMousePosition" );
                     // Multi-viewport mode: mouse position in OS absolute coordinates (io.MousePos is (0,0) when the mouse is on the upper-left of the primary monitor)
                     mousePos = input.GetGlobalMousePosition();
+                    m_frameRenderSettings.MousePosition = mousePos;
+                    m_frameRenderSettings.WasLeftPressed = input.WasMouseButtonPressed( MouseButton::Left );
                 }
                 ImGui_ImplSDL2_NewFrame();
 
@@ -279,13 +287,17 @@ void Engine::Run()
 
             GameWorld->Simulate();
 
-            GetInput().Update();
-#if USING( ME_EDITOR )
-            GetEditorInput().Update();
-#endif
+            if( m_frameRenderSettings.RequestedEntityID > 0 )
+            {
+                PickingEvent evt;
+                evt.RawEntityID = m_frameRenderSettings.RequestedEntityID;
+                evt.Fire();
+                m_frameRenderSettings.RequestedEntityID = 0;
+            }
+            
 
 #if USING( ME_GAME_TOOLS )
-            m_debugTools.Render();
+        m_debugTools.Render();
 #endif
 
             // Update Loaded Cores
@@ -360,7 +372,7 @@ void Engine::Run()
                 UI->Render();
                 ME_FRAMEPROFILE_STOP( "UI Render" );
                 ME_FRAMEPROFILE_START( "Render", ProfileCategory::Rendering );
-                NewRenderer->Render( EditorCamera );
+                NewRenderer->Render( EditorCamera, m_frameRenderSettings );
                 ME_FRAMEPROFILE_STOP( "Render" );
                 UI->PostRender( updateContext );
                 m_game->PostRender();

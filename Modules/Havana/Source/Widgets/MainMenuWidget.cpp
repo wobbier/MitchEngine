@@ -516,6 +516,11 @@ void MainMenuWidget::Render()
     }
 }
 
+Vector2 MainMenuWidget::GetMainMenuSize() const
+{
+    return Vector2( MainMenuSize.x, MainMenuSize.y );
+}
+
 void MainMenuWidget::SetCallbacks( std::function<void()> StartGame, std::function<void()> PauseGame, std::function<void()> StopGame )
 {
     StartGameFunc = StartGame;

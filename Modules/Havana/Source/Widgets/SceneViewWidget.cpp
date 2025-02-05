@@ -165,6 +165,8 @@ void SceneViewWidget::Render()
         MainCamera->ShouldRender = shouldRender && !ImGui::IsWindowCollapsed();
     }
 
+	IsPlatformWindow = (bool)( ImGui::GetWindowViewport() != ImGui::GetMainViewport() && ImGui::GetWindowViewport()->Flags & ImGuiViewportFlags_IsPlatformWindow);
+
 	if (ImGui::BeginMenuBar())
 	{
 		if (EnableSceneTools)
@@ -390,7 +392,7 @@ void SceneViewWidget::DrawGuizmo()
 
 		auto cameraViewLH = glm::lookAtLH(eye, at, MainCamera->Up.InternalVector);
 		auto cameraViewRH = glm::lookAtRH(eye, at, MainCamera->Up.InternalVector);
-
+		IsUsingGuizmo = ImGuizmo::IsUsing() || ImGuizmo::IsOver();
 		ImGuizmo::SetID(0);
 		ImGui::SetCursorPos({ 0, 0 });
 

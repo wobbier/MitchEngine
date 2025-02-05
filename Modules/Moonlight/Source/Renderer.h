@@ -15,6 +15,7 @@
 #include <Utils/CommandCache.h>
 #include "Core/ISystem.h"
 #include "Math/Vector4.h"
+#include "Core/FrameRenderData.h"
 
 class ImGuiRenderer;
 
@@ -61,7 +62,7 @@ public:
     void BeginFrame( const Vector2& mousePosition, uint8_t mouseButton, int32_t scroll, Vector2 outputSize, int inputChar, bgfx::ViewId viewId );
 #endif
 
-    void Render( Moonlight::CameraData& EditorCamera );
+    void Render( Moonlight::CameraData& EditorCamera, FrameRenderData& inFrameData );
     void SetGuizmoDrawCallback( std::function<void( DebugDrawer* )> GuizmoDrawingFunc );
     void RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId id );
 
@@ -131,6 +132,7 @@ private:
     bool EnableDebugDraw = false;
     UniquePtr<DebugDrawer> m_debugDraw;
     bool NeedsReset = false;
+    uint32_t m_currentFrame = 0;
 
 #if USING( ME_ENABLE_RENDERDOC )
     RenderDocManager* RenderDoc;

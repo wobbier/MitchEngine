@@ -418,6 +418,18 @@ Entity* World::GetEntityRaw( const EntityID& InEntity )
     return nullptr;
 }
 
+EntityHandle World::FindEntityByIDValue( uint32_t id )
+{
+    for (auto& alive : EntityCache.Alive)
+    {
+        if( alive.first.Value() == id )
+        {
+            return EntityHandle( alive.first, GetSharedPtr() );
+        }
+    }
+    return {};
+}
+
 const bool World::EntityExists( const EntityID& InEntity ) const
 {
     auto it = EntityCache.Alive.find( InEntity );

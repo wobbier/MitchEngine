@@ -103,7 +103,7 @@ PickingPass::PickingPass()
 }
 
 
-void PickingPass::Render( BGFXRenderer* inRenderer, CameraData* inCamData )
+void PickingPass::Render( BGFXRenderer* inRenderer, CameraData* inCamData, FrameRenderData& inFrameSettings )
 {
     m_width = inCamData->OutputSize.x;
     m_height = inCamData->OutputSize.y;
@@ -111,6 +111,7 @@ void PickingPass::Render( BGFXRenderer* inRenderer, CameraData* inCamData )
     {
         return;
     }
+
     CameraData& camera = *inCamData;
     const bgfx::Caps* caps = bgfx::getCaps();
 //ImGui::SetNextWindowPos(
@@ -170,8 +171,8 @@ void PickingPass::Render( BGFXRenderer* inRenderer, CameraData* inCamData )
     bx::mtxInverse( invViewProj, viewProj );
 
     // Mouse coord in NDC
-    float mouseXNDC = ( 100.f / (float)m_width ) * 2.0f - 1.0f;
-    float mouseYNDC = ( ( m_height - 100.f ) / (float)m_height ) * 2.0f - 1.0f;
+    float mouseXNDC = ( inFrameSettings.MousePosition.x / (float)m_width ) * 2.0f - 1.0f;
+    float mouseYNDC = ( ( m_height - inFrameSettings.MousePosition.y ) / (float)m_height ) * 2.0f - 1.0f;
 
     const bx::Vec3 pickEye = bx::mulH( { mouseXNDC, mouseYNDC, 0.0f }, invViewProj );
     const bx::Vec3 pickAt = bx::mulH( { mouseXNDC, mouseYNDC, 1.0f }, invViewProj );
@@ -197,6 +198,7 @@ void PickingPass::Render( BGFXRenderer* inRenderer, CameraData* inCamData )
         //| s_ptState[m_pt]
         ;
 
+    if( ForceDraw || ( m_reading == 0 && inFrameSettings.WasLeftPressed ) )
     {
         OPTICK_CATEGORY( "Picking", Optick::Category::GPU_Scene );
 
@@ -209,9 +211,9 @@ void PickingPass::Render( BGFXRenderer* inRenderer, CameraData* inCamData )
             }
 
             {
-                if( !mesh.SingleMesh )
+                if( !mesh.SingleMesh || !bgfx::isValid( mesh.SingleMesh->GetVertexBuffer() ) )
                 {
-                    return;
+                    continue;
                 }
 
                 uint32_t rr = ( mesh.ID & 0xFF );        // Red channel: least significant byte
@@ -241,13 +243,87 @@ void PickingPass::Render( BGFXRenderer* inRenderer, CameraData* inCamData )
             }
         }
     }
+    // If the user previously clicked, and we're done reading data from GPU, look at ID buffer on CPU
+                // Whatever mesh has the most pixels in the ID buffer is the one the user clicked on.
+    if( m_reading == inFrameSettings.m_currentFrame )
+    {
+        m_reading = 0;
+        std::map<uint32_t, uint32_t> ids;  // This contains all the IDs found in the buffer
+        uint32_t maxAmount = 0;
+        for( uint8_t* x = m_blitData; x < m_blitData + ID_DIM * ID_DIM * 4;)
+        {
+            uint8_t rr = *x++;
+            uint8_t gg = *x++;
+            uint8_t bb = *x++;
+            uint8_t aa = *x++;
+
+            if( 0 == ( rr | gg | bb ) ) // Skip background
+            {
+                continue;
+            }
+
+            uint32_t hashKey = rr + ( gg << 8 ) + ( bb << 16 ) + ( aa << 24 );
+            std::map<uint32_t, uint32_t>::iterator mapIter = ids.find( hashKey );
+            uint32_t amount = 1;
+            if( mapIter != ids.end() )
+            {
+                amount = mapIter->second + 1;
+            }
+
+            ids[hashKey] = amount; // Amount of times this ID (color) has been clicked on in buffer
+            maxAmount = maxAmount > amount
+                ? maxAmount
+                : amount
+                ;
+        }
+
+        uint32_t idKey = 0;
+        m_highlighted = UINT32_MAX;
+        if( maxAmount )
+        {
+            for( std::map<uint32_t, uint32_t>::iterator mapIter = ids.begin(); mapIter != ids.end(); mapIter++ )
+            {
+                if( mapIter->second == maxAmount )
+                {
+                    idKey = mapIter->first;
+                    break;
+                }
+            }
+
+            for( uint32_t ii = 0; ii < 12; ++ii )
+            {
+                if( m_idsU[ii] == idKey )
+                {
+                    m_highlighted = ii;
+                    break;
+                }
+            }
+
+            inFrameSettings.RequestedEntityID = m_idsToEnt[idKey];
+        }
+    }
+
+    // Start a new readback?
+    if( m_reading == 0 && inFrameSettings.WasLeftPressed)
+    {
+        // Blit and read
+        bgfx::blit( RENDER_PASS_BLIT, m_blitTex, 0, 0, m_pickingRT );
+        m_reading = bgfx::readTexture( m_blitTex, m_blitData );
+    }
 }
 
 
 void PickingPass::RenderDebugMenu()
 {
-    ImGui::Image( m_pickingRT, ImVec2( m_width / 5.0f - 16.0f, m_width / 5.0f - 16.0f ) );
+    ImVec2 pickingSize = ImVec2( m_width / 5.0f - 16.0f, m_width / 5.0f - 16.0f );
+    ImGui::Image( m_pickingRT, pickingSize );
     ImGui::SliderFloat( "Field of view", &m_fov, 1.0f, 60.0f );
+    if( bgfx::isValid( m_blitTex ) )
+    {
+        //ImGui::Image( m_blitTex, pickingSize );
+    }
+
+    ImGui::Checkbox( "Force Draw", &ForceDraw );
 }
 
 bool PickingPass::IsSupported()

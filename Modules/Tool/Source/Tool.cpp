@@ -243,7 +243,8 @@ void Tool::Run()
         SDL_SetCursor( g_imgui_to_sdl_cursor[ImGui::GetMouseCursor()] );
 
         Moonlight::CameraData cam;
-        m_renderer->Render( cam );
+        FrameRenderData frameRenderData;
+        m_renderer->Render( cam, frameRenderData );
         m_input.PostUpdate();
     }
 }
