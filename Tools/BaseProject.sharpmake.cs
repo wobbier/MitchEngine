@@ -98,8 +98,23 @@ public abstract class BaseProject : Project
         }
         else
         {
-            conf.Defines.Add("DEFINE_ME_OPTICK");
-            conf.Defines.Add("USE_OPTICK=1");
+            // TODO: Update macOS libs for Optick? Does Optick even have macOS exe's?
+            if (target.SubPlatform == SubPlatformType.Win64)
+            {
+                conf.Defines.Add("DEFINE_ME_OPTICK");
+                conf.Defines.Add("USE_OPTICK=1");
+
+                // Optick DLL
+                if (target.SubPlatform == SubPlatformType.Win64 || target.SubPlatform == SubPlatformType.UWP)
+                {
+                    var copyDirBuildStep = new Configuration.BuildStepCopy(
+                        Path.Combine(Globals.RootDir, $"Engine/ThirdParty/Lib/Optick/Win64/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"),
+                        Globals.RootDir + "/.build/[target.Name]");
+                    copyDirBuildStep.IsFileCopy = false;
+                    copyDirBuildStep.CopyPattern = "OptickCore.dll";
+                    conf.EventPostBuildExe.Add(copyDirBuildStep);
+                }
+            }
         }
 
         conf.Options.Add(Options.Vc.General.WarningLevel.Level3);
