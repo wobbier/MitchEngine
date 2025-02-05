@@ -56,6 +56,8 @@ void Model::RecursiveLoadMesh( Moonlight::Node& root, EntityHandle& parentEnt )
         auto& transform = entityNode->AddComponent<Transform>( childNode.Name );
         transform.SetParent( parentEnt->GetComponent<Transform>() );
         transform.SetPosition( childNode.Position );
+        transform.SetScale( childNode.Scale );
+        transform.SetRotation( childNode.Rotation );
         RecursiveLoadMesh( childNode, entityNode );
     }
 
@@ -72,13 +74,28 @@ void Model::RecursiveLoadMesh( Moonlight::Node& root, EntityHandle& parentEnt )
             Transform& trans = ent->AddComponent<Transform>( child->Name );
             Mesh& meshRef = ent->AddComponent<Mesh>( child );
             meshRef.MeshReferece = child;
-            trans.SetPosition( root.Position );
+            //trans.SetPosition( root.Position );
+            //trans.SetScale( root.Scale );
+            //trans.SetRotation( root.Rotation );
             trans.SetParent( parentEnt->GetComponent<Transform>() );
         }
     }
 }
 
 #if USING( ME_EDITOR )
+
+void RecursiveModelNode( SharedPtr<ModelResource>& inModel, Moonlight::Node& parent )
+{
+    if( ImGui::CollapsingHeader( parent.Name.c_str(), 0 /*| ImGuiTreeNodeFlags_DefaultOpen*/ ) )
+    {
+        HavanaUtils::EditableVector3( "Position", parent.Position );
+        HavanaUtils::EditableVector3( "Rotaion", parent.EulerRotation );
+        for( auto& child : parent.Nodes )
+        {
+            RecursiveModelNode( inModel, child );
+        }
+    }
+}
 
 void Model::OnEditorInspect()
 {
@@ -87,6 +104,7 @@ void Model::OnEditorInspect()
         ImGui::Text( "Loaded Path" );
         ImGui::SameLine();
         ImGui::Text( ModelPath.GetLocalPath().data() );
+        RecursiveModelNode( ModelHandle, ModelHandle->RootNode );
     }
     else
     {

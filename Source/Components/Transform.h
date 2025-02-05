@@ -87,21 +87,21 @@ public:
 #endif
 
 private:
+    Matrix4 LocalToWorldMatrix;
+    Matrix4 WorldToLocalMatrix;
+
     std::string Name;
 
     Quaternion LocalRotation;
     Vector3 LocalPosition;
     Vector3 LocalScale;
-
-    Matrix4 LocalToWorldMatrix;
-    Matrix4 WorldToLocalMatrix;
+    SharedPtr<Transform> ParentTransform;
+    std::vector<SharedPtr<Transform>> Children;
+    bool m_isDirty = true;
 
     bool IsLocalToWorldDirty = false;
     bool IsWorldToLocalDirty = false;
 
-    SharedPtr<Transform> ParentTransform;
-    std::vector<SharedPtr<Transform>> Children;
-    bool m_isDirty = true;
 
     void SetDirty( bool Dirty );
     virtual void OnSerialize( json& outJson ) final;

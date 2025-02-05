@@ -18,6 +18,70 @@
 #include "Materials/DiffuseMaterial.h"
 #include "Core/Assert.h"
 
+DISABLE_OPTIMIZATION;
+
+void DecomposeMatrix(
+    const glm::mat4& inMatrix,
+    glm::vec3& outTranslation,
+    glm::quat& outRotation,
+    glm::vec3& outScale )
+{
+    outTranslation = glm::vec3( inMatrix[3] );
+
+    glm::vec3 col0 = glm::vec3( inMatrix[0] );
+    glm::vec3 col1 = glm::vec3( inMatrix[1] );
+    glm::vec3 col2 = glm::vec3( inMatrix[2] );
+
+    outScale.x = glm::length( col0 );
+    outScale.y = glm::length( col1 );
+    outScale.z = glm::length( col2 );
+
+    if( outScale.x != 0.0f ) col0 /= outScale.x;
+    if( outScale.y != 0.0f ) col1 /= outScale.y;
+    if( outScale.z != 0.0f ) col2 /= outScale.z;
+
+    float det = dot( col0, cross( col1, col2 ) );
+
+    // If negative, there's an overall flip => choose one axis to be negative
+    if( det < 0.0f )
+    {
+        float absX = fabs( outScale.x );
+        float absY = fabs( outScale.y );
+        float absZ = fabs( outScale.z );
+
+        // Flip whichever axis has the largest magnitude
+        if( absX >= absY && absX >= absZ )
+        {
+            outScale.x = -outScale.x;
+            col0 = -col0;
+        }
+        else if( absY >= absX && absY >= absZ )
+        {
+            outScale.y = -outScale.y;
+            col1 = -col1;
+        }
+        else
+        {
+            outScale.z = -outScale.z;
+            col2 = -col2;
+        }
+    }
+
+    glm::mat3 rotationMatrix( col0, col1, col2 );
+    outRotation = glm::quat_cast( rotationMatrix );
+}
+
+glm::mat4 AssimpToGLM( const aiMatrix4x4& from )
+{
+    glm::mat4 to;
+
+    to[0][0] = from.a1; to[1][0] = from.a2; to[2][0] = from.a3; to[3][0] = from.a4;
+    to[0][1] = from.b1; to[1][1] = from.b2; to[2][1] = from.b3; to[3][1] = from.b4;
+    to[0][2] = from.c1; to[1][2] = from.c2; to[2][2] = from.c3; to[3][2] = from.c4;
+    to[0][3] = from.d1; to[1][3] = from.d2; to[2][3] = from.d3; to[3][3] = from.d4;
+
+    return to;
+}
 
 void ScaleNode( aiNode* node, float scale )
 {
@@ -41,40 +105,43 @@ ModelResource::ModelResource( const Path& path )
 
 ModelResource::~ModelResource()
 {
-    std::stack<Moonlight::Node*> nodes;
-    nodes.push( &RootNode );
-    while( !nodes.empty() )
-    {
-        Moonlight::Node& child = *nodes.top();
-        nodes.pop();
-        for( Moonlight::MeshData* childMesh : child.Meshes )
-        {
-            delete childMesh;
-        }
-        for( Moonlight::Node& childNode : child.Nodes )
-        {
-            nodes.push( &childNode );
-        }
-    }
 }
 
 bool ModelResource::Load()
 {
     Assimp::Importer importer;
-    Path newPath = Path( FilePath.FullPath + ".assbin" );
-    ME_ASSERT_MSG( newPath.Exists, "Exported Model Doesn't Exist" );
-    const aiScene* scene = importer.ReadFile( newPath.FullPath.c_str(), 0 );
-    if( !scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode )
+    const aiScene* scene;
+    // Force model loading 
+    if( false )
     {
-        std::cout << "ERROR::ASSIMP:: " << importer.GetErrorString() << std::endl;
-        return false;
+        Path newPath = Path( FilePath.FullPath );
+        ME_ASSERT_MSG( newPath.Exists, "Exported Model Doesn't Exist" );
+
+        scene = importer.ReadFile( FilePath.FullPath.c_str(), aiProcess_Triangulate | aiProcess_CalcTangentSpace | aiProcess_GlobalScale | aiProcess_ConvertToLeftHanded );
+        if( !scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode )
+        {
+            std::cout << "ERROR::ASSIMP:: " << importer.GetErrorString() << std::endl;
+            return false;
+        }
+
     }
-    if( scene && scene->mRootNode )
+    else
     {
-        ScaleNode( scene->mRootNode, 0.01f ); // Example: Scale down by 50%
+        Path newPath = Path( FilePath.FullPath + ".assbin" );
+        ME_ASSERT_MSG( newPath.Exists, "Exported Model Doesn't Exist" );
+
+        scene = importer.ReadFile( newPath.FullPath.c_str(), 0 );
+        if( !scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode )
+        {
+            std::cout << "ERROR::ASSIMP:: " << importer.GetErrorString() << std::endl;
+            return false;
+        }
     }
+
+    RootNode.MaterialCache.resize( scene->mNumMaterials );
+
     RootNode.Name = std::string( scene->mRootNode->mName.C_Str() );
-    ProcessNode( scene->mRootNode, scene, RootNode );
+    ProcessNode( scene->mRootNode, scene, RootNode, AssimpToGLM( scene->mRootNode->mTransformation ) );
     importer.FreeScene();
 
     return true;
@@ -101,35 +168,65 @@ std::vector<Moonlight::MeshData*> ModelResource::GetAllMeshes()
     return meshes;
 }
 
-void ModelResource::ProcessNode( aiNode* node, const aiScene* scene, Moonlight::Node& parent )
+void ModelResource::ProcessNode( aiNode* node, const aiScene* scene, Moonlight::Node& parent, glm::mat4 parentTransform )
 {
+    glm::mat4 nodeTransform = AssimpToGLM( node->mTransformation ); // Convert Assimp transform to GLM
+    glm::mat4 worldTransform = /*parentTransform **/ nodeTransform;   // Combine with parent transform
+
+    std::string nodeName = std::string( node->mName.C_Str() );
+    glm::vec3 translation;
+    glm::vec3 scale;
+    glm::quat rotation;
+
+    DecomposeMatrix( worldTransform, translation, rotation, scale );
+
+    glm::vec3 position = glm::vec3( worldTransform[3] );
+    parent.Name = nodeName;
+    parent.Position = Vector3( translation );
+    parent.Scale = Vector3( scale );
+    parent.NodeMatrix = Matrix4( worldTransform );
+    parent.Rotation = Quaternion( rotation );
+    if( nodeName == "SM_Generic_Mountains_Grass_10" )
+    {
+        Matrix4 testNode = Matrix4( worldTransform );
+        printf( "Translation: (%.6f, %.6f, %.6f)\n", translation.x, translation.y, translation.z );
+        printf( "Scale:       (%.6f, %.6f, %.6f)\n", scale.x, scale.y, scale.z );
+        printf( "Rotation (quat): (%.6f, %.6f, %.6f, %.6f)\n",
+            rotation.w, rotation.x, rotation.y, rotation.z );
+
+        glm::vec3 eulerDegrees = glm::degrees( glm::eulerAngles( rotation ) );
+        printf( "Rotation (Euler XYZ): (%.2f, %.2f, %.2f)\n",
+            eulerDegrees.x, eulerDegrees.y, eulerDegrees.z );
+    }
+
     for( unsigned int i = 0; i < node->mNumMeshes; i++ )
     {
         aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
-        parent.Meshes.push_back( ProcessMesh( mesh, scene ) );
+        parent.Meshes.push_back( ProcessMesh( mesh, parent, scene ) );
     }
+
+    parent.Nodes.reserve( node->mNumChildren );
 
     for( unsigned int i = 0; i < node->mNumChildren; i++ )
     {
-        std::string nodeName = std::string( node->mChildren[i]->mName.C_Str() );
-        if( nodeName.rfind( "$AssimpFbx$" ) == std::string::npos ) //_RotationPivotInverse
+        // Apply these transforms? I upgraded from like blender 2.8 to 4.3 so maybe this doesn't matter anymore?
+        //if( nodeName.rfind( "$AssimpFbx$" ) == std::string::npos ) //_RotationPivotInverse
         {
-            parent.Nodes.emplace_back();
-            parent.Nodes.back().Name = nodeName;
-            ProcessNode( node->mChildren[i], scene, parent.Nodes.back() );
+            parent.Nodes.push_back( Moonlight::Node() );
+            ProcessNode( node->mChildren[i], scene, parent.Nodes.back(), worldTransform );
         }
-        else
-        {
-            ProcessNode( node->mChildren[i], scene, parent );
-        }
+        //else
+        //{
+        //    ProcessNode( node->mChildren[i], scene, parent, worldTransform );
+        //}
     }
 }
 
-Moonlight::MeshData* ModelResource::ProcessMesh( aiMesh* mesh, const aiScene* scene )
+Moonlight::MeshData* ModelResource::ProcessMesh( aiMesh* mesh, Moonlight::Node& inParent, const aiScene* scene )
 {
     std::vector<Moonlight::PosNormTexTanBiVertex> vertices;
     std::vector<uint16_t> indices;
-    SharedPtr<Moonlight::Material> newMaterial = MakeShared<DiffuseMaterial>();
+
     for( unsigned int i = 0; i < mesh->mNumVertices; i++ )
     {
         Moonlight::PosNormTexTanBiVertex vertex;
@@ -182,29 +279,35 @@ Moonlight::MeshData* ModelResource::ProcessMesh( aiMesh* mesh, const aiScene* sc
         }
     }
 
-    aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
-
-    aiColor3D color( 0.f, 0.f, 0.f );
-    aiColor3D color2( 0.f, 0.f, 0.f );
-    material->Get( AI_MATKEY_COLOR_TRANSPARENT, color );
-    if( color != color2 )
+    SharedPtr<Moonlight::Material> newMaterial = RootNode.MaterialCache[mesh->mMaterialIndex];
+    if( !newMaterial )
     {
-        //newMaterial->RenderMode = Moonlight::RenderingMode::Transparent;
-    }
+        newMaterial = RootNode.MaterialCache[mesh->mMaterialIndex] = MakeShared<DiffuseMaterial>();
 
-    aiColor3D colorDiff( 0.f, 0.f, 0.f );
-    aiColor3D colorDiff2( 0.f, 0.f, 0.f );
-    material->Get( AI_MATKEY_COLOR_DIFFUSE, colorDiff );
-    if( colorDiff != colorDiff2 )
-    {
-        //newMaterial->RenderMode = Moonlight::RenderingMode::Transparent;
-    }
+        aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
 
-    LoadMaterialTextures( newMaterial, material, aiTextureType_DIFFUSE, Moonlight::TextureType::Diffuse );
-    LoadMaterialTextures( newMaterial, material, aiTextureType_SPECULAR, Moonlight::TextureType::Specular );
-    LoadMaterialTextures( newMaterial, material, aiTextureType_NORMALS, Moonlight::TextureType::Normal );
-    LoadMaterialTextures( newMaterial, material, aiTextureType_HEIGHT, Moonlight::TextureType::Height );
-    LoadMaterialTextures( newMaterial, material, aiTextureType_OPACITY, Moonlight::TextureType::Opacity );
+        aiColor3D color( 0.f, 0.f, 0.f );
+        aiColor3D color2( 1.f, 1.f, 1.f );
+        material->Get( AI_MATKEY_COLOR_TRANSPARENT, color );
+        if( color != color2 )
+        {
+            //newMaterial->RenderMode = Moonlight::RenderingMode::Transparent;
+        }
+
+        aiColor3D colorDiff( 0.f, 0.f, 0.f );
+        aiColor3D colorDiff2( 0.f, 0.f, 0.f );
+        material->Get( AI_MATKEY_COLOR_DIFFUSE, colorDiff );
+        if( colorDiff != colorDiff2 )
+        {
+            newMaterial->DiffuseColor = Vector3( colorDiff.r, colorDiff.g, colorDiff.b );
+        }
+
+        LoadMaterialTextures( newMaterial, material, aiTextureType_DIFFUSE, Moonlight::TextureType::Diffuse );
+        LoadMaterialTextures( newMaterial, material, aiTextureType_SPECULAR, Moonlight::TextureType::Specular );
+        LoadMaterialTextures( newMaterial, material, aiTextureType_NORMALS, Moonlight::TextureType::Normal );
+        LoadMaterialTextures( newMaterial, material, aiTextureType_HEIGHT, Moonlight::TextureType::Height );
+        LoadMaterialTextures( newMaterial, material, aiTextureType_OPACITY, Moonlight::TextureType::Opacity );
+    }
 
     Moonlight::MeshData* output = new Moonlight::MeshData( vertices, indices, newMaterial );
     output->Name = std::string( mesh->mName.C_Str() );
@@ -222,6 +325,7 @@ bool ModelResource::LoadMaterialTextures( SharedPtr<Moonlight::Material> newMate
         std::string stdString = std::string( str.C_Str() );
         if( stdString != "." )
         {
+            BRUH( "Loading: " + stdString );
             std::string& texturePath = stdString;
             std::shared_ptr<Moonlight::Texture> texture;
 
@@ -246,29 +350,40 @@ bool ModelResource::LoadMaterialTextures( SharedPtr<Moonlight::Material> newMate
                 break;
             }
 
-            if( stdString.find( ":" ) != std::string::npos )
+            Path filePath( texturePath );
+            if( filePath.Exists )
             {
-                Path filePath( texturePath );
-                if( !filePath.Exists )
-                {
-                    return false;
-                }
+                BRUH( "ABS: " + filePath.FullPath );
                 texture = ResourceCache::GetInstance().Get<Moonlight::Texture>( filePath, wrapMode );
             }
             else
             {
-                texture = ResourceCache::GetInstance().Get<Moonlight::Texture>( Path( std::string( FilePath.GetDirectory() ) + texturePath ), wrapMode );
+                Path relativePath = Path( FilePath.GetDirectoryString() + texturePath );
+                if( relativePath.Exists )
+                {
+                    BRUH( "REL: " + relativePath.GetLocalPathString() );
+                    texture = ResourceCache::GetInstance().Get<Moonlight::Texture>( relativePath, wrapMode );
+                }
             }
 
+            // this should be done in the compile stage
+            if( !texture )
+            {
+                Path desperationPath = ResourceCache::GetInstance().FindByName( Path( "Assets" ), Path( texturePath ).GetFileNameString( true ) );
+                BRUH( "FOUND: " + desperationPath.LocalPos );
+                texture = ResourceCache::GetInstance().Get<Moonlight::Texture>( desperationPath );
+            }
+
+            // this should be done in the compile stage
             if( !texture )
             {
                 return false;
             }
-
             texture->Type = typeName;
             newMaterial->SetTexture( typeName, texture );
             return true;
         }
+        YIKES_FMT( "OOPS NO TEXTURE???" );
     }
     return false;
 }
@@ -294,6 +409,10 @@ void ModelResourceMetadata::OnEditorInspect()
 
     static bool isChecked = false;
     ImGui::Checkbox( "Model Resource Test", &isChecked );
+    if( ImGui::Button( "Re Export" ) )
+    {
+        Export();
+    }
 }
 
 #endif
@@ -322,7 +441,7 @@ void ScaleSceneMeshes( const aiScene* scene, float scale )
 void ModelResourceMetadata::Export()
 {
     Assimp::Importer importer;
-    const aiScene* scene = importer.ReadFile( FilePath.FullPath.c_str(), aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_CalcTangentSpace );
+    const aiScene* scene = importer.ReadFile( FilePath.FullPath.c_str(), aiProcess_Triangulate | aiProcess_CalcTangentSpace | aiProcess_GlobalScale | aiProcess_ConvertToLeftHanded );
     if( !scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode )
     {
         std::cout << "ERROR::ASSIMP:: " << importer.GetErrorString() << std::endl;

@@ -4,6 +4,7 @@
 #include "Graphics/ShaderCommand.h"
 #include "Device/IDevice.h"
 #include "Graphics/ModelResource.h"
+#include "Work/SimpleJobSystem.h"
 
 class Mesh;
 
@@ -39,5 +40,6 @@ public:
 
 private:
     bool EnableDebugDraw = false;
-    //Moonlight::Renderer* m_renderer;
+    SimpleJobSystem simpleJobSystem;
+        //Moonlight::Renderer* m_renderer;
 };

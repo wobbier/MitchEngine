@@ -19,6 +19,7 @@
 #if USING( ME_GAME_TOOLS )
 #include "Tools/DebugTools.h"
 #endif
+#include "Work/SimpleJobSystem.h"
 #include "Core/FrameRenderData.h"
 
 class Game;
@@ -81,6 +82,7 @@ public:
     Scene* CurrentScene = nullptr;
     float DeltaTime = 0.f;
     JobSystem m_jobSystem;
+    SimpleJobSystem m_simpleJobSystem;
 private:
     Input m_input;
     std::shared_ptr<World> GameWorld;

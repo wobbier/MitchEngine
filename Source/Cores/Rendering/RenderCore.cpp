@@ -24,8 +24,10 @@
 #include <Core/JobSystem.h>
 #include "Camera/CameraData.h"
 
+
 RenderCore::RenderCore()
     : Base( ComponentFilter().Requires<Transform>().Requires<Mesh>() )
+    , simpleJobSystem()
 {
     SetIsSerializable( false );
     //m_renderer = &GetEngine().GetRenderer();
@@ -107,6 +109,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
 
         auto meshJob = [&renderer, &Renderables, &cameras, batchBegin, batchEnd, batchSize]()
             {
+                OPTICK_CATEGORY( "Mesh Job", Optick::Category::Debug );
                 for( int entIndex = batchBegin; entIndex < batchEnd; ++entIndex )
                 {
                     OPTICK_CATEGORY( "Update Transform", Optick::Category::Scene );
@@ -151,11 +154,13 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                     }
                 }
             };
+        //simpleJobSystem.submit( meshJob );
         meshJob();
         //jobSystem.AddWork( meshJob, false );
         //jobSystem.SignalWorkAvailable();
     }
-    jobSystem.WaitAndWork();
+    //jobSystem.WaitAndWork();
+    //simpleJobSystem.waitForAllJobs( true );
 
 #if USING( ME_EDITOR )
     renderer.SetDebugDrawEnabled( EnableDebugDraw );

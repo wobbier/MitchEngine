@@ -1,9 +1,11 @@
 #pragma once
 #include <vector>
+#include "Graphics\MeshData.h"
+#include "Pointers.h"
 
-namespace Moonlight {
-    class MeshData;
-}
+namespace Moonlight { class Material; }
+
+DISABLE_OPTIMIZATION;
 
 namespace Moonlight
 {
@@ -11,9 +13,26 @@ namespace Moonlight
     {
     public:
         Node() {}
+        ~Node()
+        {
+            for (auto mesh : Meshes)
+            {
+                if( mesh )
+                {
+                    delete mesh;
+                    mesh = nullptr;
+                }
+            }
+        }
         std::vector<Node> Nodes;
         std::vector<Moonlight::MeshData*> Meshes;
+        std::vector<std::string> UnresolvedTextureNames;
+        std::vector<SharedPtr<Moonlight::Material>> MaterialCache;
         std::string Name;
         Vector3 Position;
+        Vector3 Scale = { 1.f, 1.f, 1.f };
+        Vector3 EulerRotation;
+        Quaternion Rotation;
+        Matrix4 NodeMatrix;
     };
 }

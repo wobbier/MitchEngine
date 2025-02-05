@@ -138,6 +138,11 @@ void Mesh::OnDeserialize( const json& inJson )
     {
         Type = GetMeshTypeFromString( inJson["MeshType"] );
     }
+    if( !MeshMaterial )
+    {
+        MeshMaterial = MakeShared<DiffuseMaterial>();
+        MeshMaterial->Init();
+    }
 }
 
 std::string Mesh::GetMeshTypeString( Moonlight::MeshType InType )
@@ -191,6 +196,9 @@ void Mesh::OnEditorInspect()
     {
         ImGui::Text( "Vertices: %i", MeshReferece->Vertices.size() );
     }
+
+
+    ImGui::Text( "" );
 
     std::map<std::string, MaterialTest> folders;
     MaterialRegistry& reg = GetMaterialRegistry();
@@ -282,203 +290,19 @@ void Mesh::OnEditorInspect()
         {
             MeshMaterial->LoadShader( MeshMaterial->ShaderName );
         }
-
-        bool transparent = MeshMaterial->IsTransparent();
-        //if (ImGui::TreeNodeEx("Material", ImGuiTreeNodeFlags_DefaultOpen))
+        if( ImGui::Button("Save As Material File: ") )
         {
-            HavanaUtils::Label( "Render Transparent" );
-            ImGui::Checkbox( "##Render Transparent", &transparent );
-            if( transparent )
-            {
-                MeshMaterial->SetRenderMode( Moonlight::RenderingMode::Transparent );
-
-                HavanaUtils::Label( "Blend Type" );
-                if( ImGui::BeginCombo( "##Blend Type", MeshMaterial->GetBlendModeString( MeshMaterial->AlphaBlendMode ).c_str() ) )
+            RequestAssetSelectionEvent evt( [this]( const Path& inPath )
                 {
-                    for( unsigned int blendMode = (unsigned int)Moonlight::BlendMode::Alpha; blendMode < (unsigned int)Moonlight::BlendMode::Count; ++blendMode )
-                    {
-                        if( ImGui::Selectable( MeshMaterial->GetBlendModeString( (Moonlight::BlendMode)blendMode ).c_str(), ( blendMode == (unsigned int)MeshMaterial->AlphaBlendMode ) ) )
-                        {
-                            MeshMaterial->AlphaBlendMode = (Moonlight::BlendMode)blendMode;
-                        }
-                    }
-                    ImGui::EndCombo();
-                }
-
-            }
-            else
-            {
-                MeshMaterial->SetRenderMode( Moonlight::RenderingMode::Opaque );
-            }
-
-            HavanaUtils::Label( "Face Type" );
-            if( ImGui::BeginCombo( "##Face Type", MeshMaterial->GetRenderFaceModeString( MeshMaterial->FaceMode ).c_str() ) )
-            {
-                for( unsigned int faceMode = (unsigned int)Moonlight::RenderFaceMode::Front; faceMode < (unsigned int)Moonlight::RenderFaceMode::Count; ++faceMode )
-                {
-                    if( ImGui::Selectable( MeshMaterial->GetRenderFaceModeString( (Moonlight::RenderFaceMode)faceMode ).c_str(), ( faceMode == (unsigned int)MeshMaterial->FaceMode ) ) )
-                    {
-                        MeshMaterial->FaceMode = (Moonlight::RenderFaceMode)faceMode;
-                    }
-                }
-                ImGui::EndCombo();
-            }
-
-            HavanaUtils::EditableVector( "Tiling", MeshMaterial->Tiling );
-
-            //static std::vector<Path> Textures;
-            //Path path = Path("Assets");
-            //Path engineAssetPath = Path("Engine/Assets");
-            //if (Textures.empty())
-            //{
-            //	Textures.push_back(Path(""));
-            //	for (const auto& entry : std::filesystem::recursive_directory_iterator(path.FullPath))
-            //	{
-            //		Path filePath(entry.path().string());
-            //		if ((filePath.LocalPath.rfind(".png") != std::string::npos || filePath.LocalPath.rfind(".jpg") != std::string::npos || filePath.LocalPath.rfind(".tif") != std::string::npos)
-            //			&& filePath.LocalPath.rfind(".meta") == std::string::npos
-            //			&& filePath.LocalPath.rfind(".dds") == std::string::npos)
-            //		{
-            //			Textures.push_back(filePath);
-            //		}
-            //	}
-
-            //	for (const auto& entry : std::filesystem::recursive_directory_iterator(engineAssetPath.FullPath))
-            //	{
-            //		Path filePath(entry.path().string());
-            //		if ((filePath.LocalPath.rfind(".png") != std::string::npos || filePath.LocalPath.rfind(".jpg") != std::string::npos || filePath.LocalPath.rfind(".tif") != std::string::npos)
-            //			&& filePath.LocalPath.rfind(".meta") == std::string::npos
-            //			&& filePath.LocalPath.rfind(".dds") == std::string::npos)
-            //		{
-            //			Textures.push_back(filePath);
-            //		}
-            //	}
-            //}
-            HavanaUtils::ColorButton( "Diffuse Color", MeshMaterial->DiffuseColor );
-
-            int i = 0;
-            for( auto texture : MeshMaterial->GetTextures() )
-            {
-                float widgetWidth = HavanaUtils::Label( Moonlight::Texture::ToString( static_cast<Moonlight::TextureType>( i ) ) );
-                std::string label( "##Texture" + std::to_string( i ) );
-                if( texture && bgfx::isValid( texture->TexHandle ) )
-                {
-                    if( ImGui::ImageButton( texture->TexHandle, ImVec2( 30, 30 ) ) )
-                    {
-                        PreviewResourceEvent evt;
-                        evt.Subject = texture;
-                        evt.Fire();
-                    }
-                    static bool ViewTexture = true;
-                    if( ImGui::BeginPopupModal( "ViewTexture", &ViewTexture, ImGuiWindowFlags_MenuBar ) )
-                    {
-                        if( texture )
-                        {
-                            // Get the current cursor position (where your window is)
-                            ImVec2 pos = ImGui::GetCursorScreenPos();
-                            ImVec2 maxPos = ImVec2( pos.x + ImGui::GetWindowSize().x, pos.y + ImGui::GetWindowSize().y );
-                            Vector2 RenderSize = Vector2( ImGui::GetWindowSize().x, ImGui::GetWindowSize().y );
-
-                            // Ask ImGui to draw it as an image:
-                            // Under OpenGL the ImGUI image type is GLuint
-                            // So make sure to use "(void *)tex" but not "&tex"
-                            /*ImGui::GetWindowDrawList()->AddImage(
-                                (void*)texture->TexHandle,
-                                ImVec2(pos.x, pos.y),
-                                ImVec2(maxPos));*/
-                                //ImVec2(WorldViewRenderSize.X() / RenderSize.X(), WorldViewRenderSize.Y() / RenderSize.Y()));
-
-                        }
-                        if( ImGui::Button( "Close" ) )
-                        {
-                            ViewTexture = false;
-                            ImGui::CloseCurrentPopup();
-                        }
-                        ImGui::EndPopup();
-                    }
-                    ImGui::SameLine();
-                }
-
-                ImVec2 selectorSize( widgetWidth, 0.f );
-
-                if( texture )
-                {
-                    selectorSize = ImVec2( widgetWidth - 54.f, 0.f );
-                }
-                ImGui::PushID( i );
-                if( ImGui::Button( ( ( texture ) ? texture->GetPath().GetLocalPath().data() : "Select Asset" ), selectorSize ) )
-                {
-                    RequestAssetSelectionEvent evt( [this, i]( Path selectedAsset )
-                        {
-                            MeshMaterial->SetTexture( static_cast<Moonlight::TextureType>( i ), ResourceCache::GetInstance().Get<Moonlight::Texture>( selectedAsset ) );
-                        }, AssetType::Texture );
-                    evt.Fire();
-                }
-
-                if( ImGui::BeginDragDropTarget() )
-                {
-                    if( const ImGuiPayload* payload = ImGui::AcceptDragDropPayload( AssetDescriptor::kDragAndDropPayload ) )
-                    {
-                        IM_ASSERT( payload->DataSize == sizeof( AssetDescriptor ) );
-                        AssetDescriptor& payload_n = *(AssetDescriptor*)payload->Data;
-
-                        if( payload_n.Type == AssetType::Texture )
-                        {
-                            MeshMaterial->SetTexture( static_cast<Moonlight::TextureType>( i ), ResourceCache::GetInstance().Get<Moonlight::Texture>( payload_n.FullPath ) );
-                        }
-                    }
-                    ImGui::EndDragDropTarget();
-                }
-                if( texture )
-                {
-                    ImGui::SameLine();
-                    if( ImGui::Button( "X" ) )
-                    {
-                        MeshMaterial->SetTexture( static_cast<Moonlight::TextureType>( i ), nullptr );
-                    }
-                }
-                ImGui::PopID();
-                //if (ImGui::BeginCombo(label.c_str(), ((texture) ? texture->GetPath().LocalPath.c_str() : "")))
-                //{
-                //	static ImGuiTextFilter filter;
-                //	/*ImGui::Text("Filter usage:\n"
-                //		"  \"\"         display all lines\n"
-                //		"  \"xxx\"      display lines containing \"xxx\"\n"
-                //		"  \"xxx,yyy\"  display lines containing \"xxx\" or \"yyy\"\n"
-                //		"  \"-xxx\"     hide lines containing \"xxx\"");*/
-                //	filter.Draw("##Filter");
-                //	for (size_t n = 0; n < Textures.size(); n++)
-                //	{
-                //		if (!filter.PassFilter(Textures[n].LocalPath.c_str()))
-                //		{
-                //			continue;
-                //		}
-
-                //		if (ImGui::Selectable(Textures[n].LocalPath.c_str(), false))
-                //		{
-                //			if (!Textures[n].LocalPath.empty())
-                //			{
-                //				MeshMaterial->SetTexture(static_cast<Moonlight::TextureType>(i), ResourceCache::GetInstance().Get<Moonlight::Texture>(Textures[n]));
-                //			}
-                //			else
-                //			{
-                //				MeshMaterial->SetTexture(static_cast<Moonlight::TextureType>(i), nullptr);
-                //			}
-                //			Textures.clear();
-                //			break;
-                //		}
-                //	}
-                //	ImGui::EndCombo();
-                //}
-                //if (texture)
-                //{
-                //	if (i == static_cast<int>(Moonlight::TextureType::Diffuse))
-                //	{
-                //	}
-                //}
-                i++;
-            }
-            //ImGui::TreePop();
+                    json outJson;
+                    OnSerialize( outJson );
+                    File( inPath ).Write( outJson.dump( 1 ) );
+                }, AssetType::Material, true );
+            evt.Fire();
+        }
+        bool shouldClose = true;
+        if( ImGui::CollapsingHeader( "Material Properties", &shouldClose, ImGuiTreeNodeFlags_DefaultOpen ) )
+        {
             MeshMaterial->OnEditorInspect();
         }
     }

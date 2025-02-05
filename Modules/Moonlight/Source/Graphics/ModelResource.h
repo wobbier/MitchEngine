@@ -13,6 +13,7 @@
 #include "Graphics/ShaderCommand.h"
 #include "Scene/Node.h"
 #include "Resource/MetaRegistry.h"
+#include "glm/detail/type_mat.hpp"
 
 namespace Moonlight {
     class MeshData;
@@ -31,9 +32,9 @@ public:
     std::vector<Moonlight::MeshData*> GetAllMeshes();
 private:
 
-    void ProcessNode( aiNode* node, const aiScene* scene, Moonlight::Node& parent );
+    void ProcessNode( aiNode* node, const aiScene* scene, Moonlight::Node& parent, glm::mat4 parentTransform );
 
-    Moonlight::MeshData* ProcessMesh( aiMesh* mesh, const aiScene* scene );
+    Moonlight::MeshData* ProcessMesh( aiMesh* mesh, Moonlight::Node& inParent, const aiScene* scene );
 
     bool LoadMaterialTextures( SharedPtr<Moonlight::Material> newMaterial, aiMaterial* mat, aiTextureType type, const Moonlight::TextureType& typeName );
 };
