@@ -28,6 +28,9 @@ public:
     SharedPtr<T> Get( const Path& InFilePath, Args&& ... args );
 
     SharedPtr<Resource> GetCached( const Path& InFilePath );
+#if USING( ME_TOOLS )
+    Path FindByName( const Path& inRoot, const std::string& InFileName );
+#endif
 
     void TryToDestroy( Resource* resource );
 
@@ -65,6 +68,7 @@ SharedPtr<T> ResourceCache::Get( const Path& InFilePath, Args&& ... args )
 #if USING( ME_TOOLS )
     if( metaFile && ( metaFile->FlaggedForExport || !compiledFileExists ) )
     {
+        YIKES( "Exporting asset: " + InFilePath.FullPath );
         metaFile->Export();
         metaFile->Save();
         AssetMetaCache::GetInstance().Update( InFilePath, metaFile );
@@ -75,6 +79,11 @@ SharedPtr<T> ResourceCache::Get( const Path& InFilePath, Args&& ... args )
     {
         YIKES( "Failed to load resource: " + InFilePath.FullPath );
         return {};
+    }
+
+    if( !InFilePath.Exists )
+    {
+        YIKES( "Shit don't exist bro: " + InFilePath.FullPath );
     }
 
     SharedPtr<T> Res = MakeShared<T>( InFilePath, std::forward<Args>( args )... );

@@ -5,6 +5,53 @@
 #include "JSON.h"
 #include "File.h"
 #include "AssetMetaCache.h"
+#include <optional>
+
+
+#if USING( ME_TOOLS )
+
+
+class PathResolver
+{
+public:
+    static std::optional<std::filesystem::path> FindMatchingFile( const std::filesystem::path& filename, const std::filesystem::path& rootDir )
+    {
+        for( const auto& entry : std::filesystem::recursive_directory_iterator( rootDir ) )
+        {
+            if( entry.is_regular_file() && entry.path().filename() == filename )
+            {
+                return entry.path();
+            }
+        }
+        return std::nullopt;
+    }
+
+
+    static std::filesystem::path ResolvePath( const std::filesystem::path& requestedPath, const std::filesystem::path& assetRoot )
+    {
+        std::filesystem::path filename = requestedPath.filename();
+
+        if( auto foundFile = FindMatchingFile( filename, assetRoot ) )
+        {
+            return *foundFile;
+        }
+
+        return requestedPath;
+    }
+};
+
+
+Path ResourceCache::FindByName( const Path& inRoot, const std::string& InFileName )
+{
+    std::filesystem::path inputPath = InFileName;
+    std::filesystem::path assetRoot = inRoot.FullPath;
+
+    return Path(PathResolver::ResolvePath( inputPath, assetRoot ).generic_string());
+}
+
+
+#endif
+
 
 ResourceCache::ResourceCache()
 {
