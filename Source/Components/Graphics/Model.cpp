@@ -63,8 +63,13 @@ void Model::RecursiveLoadMesh( Moonlight::Node& root, EntityHandle& parentEnt )
 
     if( root.Meshes.size() == 1 )
     {
-        auto& meshRef = parentEnt->AddComponent<Mesh>( root.Meshes[0] );
+        Mesh& meshRef = parentEnt->AddComponent<Mesh>( root.Meshes[0] );
+        // this is super dumbo 
         meshRef.MeshReferece = root.Meshes[0];
+        if( root.IsFlipped )
+        {
+            meshRef.MeshMaterial->FaceMode = Moonlight::RenderFaceMode::Back;
+        }
     }
     else
     {

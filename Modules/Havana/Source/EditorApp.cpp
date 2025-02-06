@@ -60,7 +60,7 @@ EditorApp::~EditorApp()
 
 void EditorApp::OnStart()
 {
-    Camera::EditorCamera->Near = 0.1f;
+    Camera::EditorCamera->Near = 1.f;
 }
 
 

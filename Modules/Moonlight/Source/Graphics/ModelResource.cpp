@@ -24,7 +24,8 @@ void DecomposeMatrix(
     const glm::mat4& inMatrix,
     glm::vec3& outTranslation,
     glm::quat& outRotation,
-    glm::vec3& outScale )
+    glm::vec3& outScale,
+    bool& outWasFlipped )
 {
     outTranslation = glm::vec3( inMatrix[3] );
 
@@ -65,6 +66,7 @@ void DecomposeMatrix(
             outScale.z = -outScale.z;
             col2 = -col2;
         }
+        outWasFlipped = true;
     }
 
     glm::mat3 rotationMatrix( col0, col1, col2 );
@@ -139,6 +141,7 @@ bool ModelResource::Load()
     }
 
     RootNode.MaterialCache.resize( scene->mNumMaterials );
+    m_allMeshData.resize( scene->mNumMeshes );
 
     RootNode.Name = std::string( scene->mRootNode->mName.C_Str() );
     ProcessNode( scene->mRootNode, scene, RootNode, AssimpToGLM( scene->mRootNode->mTransformation ) );
@@ -177,8 +180,9 @@ void ModelResource::ProcessNode( aiNode* node, const aiScene* scene, Moonlight::
     glm::vec3 translation;
     glm::vec3 scale;
     glm::quat rotation;
+    bool wasFlipped = false;
 
-    DecomposeMatrix( worldTransform, translation, rotation, scale );
+    DecomposeMatrix( worldTransform, translation, rotation, scale, wasFlipped );
 
     glm::vec3 position = glm::vec3( worldTransform[3] );
     parent.Name = nodeName;
@@ -186,6 +190,7 @@ void ModelResource::ProcessNode( aiNode* node, const aiScene* scene, Moonlight::
     parent.Scale = Vector3( scale );
     parent.NodeMatrix = Matrix4( worldTransform );
     parent.Rotation = Quaternion( rotation );
+    parent.IsFlipped = wasFlipped;
     if( nodeName == "SM_Generic_Mountains_Grass_10" )
     {
         Matrix4 testNode = Matrix4( worldTransform );
@@ -201,8 +206,14 @@ void ModelResource::ProcessNode( aiNode* node, const aiScene* scene, Moonlight::
 
     for( unsigned int i = 0; i < node->mNumMeshes; i++ )
     {
-        aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
-        parent.Meshes.push_back( ProcessMesh( mesh, parent, scene ) );
+        if( !m_allMeshData[node->mMeshes[i]] )
+        {
+            aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
+            m_allMeshData[node->mMeshes[i]] = ProcessMesh( mesh, parent, scene );
+            parent.Meshes.push_back( m_allMeshData[node->mMeshes[i]] );
+            continue;
+        }
+        parent.Meshes.push_back( m_allMeshData[node->mMeshes[i]] );
     }
 
     parent.Nodes.reserve( node->mNumChildren );

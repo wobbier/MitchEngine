@@ -15,14 +15,6 @@ namespace Moonlight
         Node() {}
         ~Node()
         {
-            for (auto mesh : Meshes)
-            {
-                if( mesh )
-                {
-                    delete mesh;
-                    mesh = nullptr;
-                }
-            }
         }
         std::vector<Node> Nodes;
         std::vector<Moonlight::MeshData*> Meshes;
@@ -34,5 +26,6 @@ namespace Moonlight
         Vector3 EulerRotation;
         Quaternion Rotation;
         Matrix4 NodeMatrix;
+        bool IsFlipped = false;
     };
 }

@@ -31,6 +31,7 @@ public:
     Moonlight::Node RootNode;
     std::vector<Moonlight::MeshData*> GetAllMeshes();
 private:
+    std::vector<Moonlight::MeshData*> m_allMeshData;
 
     void ProcessNode( aiNode* node, const aiScene* scene, Moonlight::Node& parent, glm::mat4 parentTransform );
 

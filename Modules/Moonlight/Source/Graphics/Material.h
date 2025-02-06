@@ -145,7 +145,7 @@ namespace Moonlight
         Vector3 DiffuseColor;
         Vector2 Tiling;
         std::string ShaderName;
-        RenderFaceMode FaceMode = RenderFaceMode::Both;
+        RenderFaceMode FaceMode = RenderFaceMode::Front;
         BlendMode AlphaBlendMode = BlendMode::Alpha;
 
         Moonlight::ShaderCommand MeshShader;
