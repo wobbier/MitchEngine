@@ -32,6 +32,9 @@ void CameraCore::LateUpdate( const UpdateContext& inUpdateContext )
 {
     OPTICK_CATEGORY( "CameraCore::Update", Optick::Category::Camera );
     auto Cameras = GetEntities();
+    BGFXRenderer* renderer = inUpdateContext.GetSystem<BGFXRenderer>();
+    Vector2 windowSize = GetEngine().GetWindow()->GetSize();
+    CommandCache<Moonlight::CameraData>& cameraCache = renderer->GetCameraCache();
 
     for( auto& InEntity : Cameras )
     {
@@ -41,10 +44,10 @@ void CameraCore::LateUpdate( const UpdateContext& inUpdateContext )
 
         if( CameraComponent.IsMain() )
         {
-            CameraComponent.OutputSize = GetEngine().GetWindow()->GetSize();
+            CameraComponent.OutputSize = windowSize;
         }
 
-        Moonlight::CameraData* CamData = GetEngine().GetRenderer().GetCameraCache().Get( CameraComponent.m_id );
+        Moonlight::CameraData* CamData = cameraCache.Get( CameraComponent.m_id );
         if( CamData )
         {
             CamData->Position = TransformComponent.GetWorldPosition();
@@ -88,9 +91,8 @@ void CameraCore::LateUpdate( const UpdateContext& inUpdateContext )
             //CamData->ProjectionMatrix = testMatrix;
 
 
-
             CameraComponent.WorldToCamera = CamData->View;// CamData->ProjectionMatrix.GetInternalMatrix()* CamData->View.GetInternalMatrix();
-            GetEngine().GetRenderer().GetCameraCache().Update( CameraComponent.m_id, *CamData );
+            cameraCache.Update( CameraComponent.m_id, *CamData );
         }
     }
 }

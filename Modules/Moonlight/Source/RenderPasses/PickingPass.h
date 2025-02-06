@@ -61,6 +61,6 @@ namespace Moonlight
 
         bool ForceDraw = true;
 
-        float m_fov;
+        float m_fov = 1.f;
     };
 }

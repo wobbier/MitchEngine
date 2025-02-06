@@ -30,53 +30,40 @@ LRESULT CALLBACK CBTProc( int nCode, WPARAM wParam, LPARAM lParam )
 
     return 0;
 }
+
 bool CustomAssertFunction( const char* expression, const char* inMessage, const char* file, int line )
 {
-    std::wstringstream ws;
+    std::wstringstream assertOutput;
     if( inMessage )
     {
-        ws << inMessage;
-        ws << L"\n\n";
+        assertOutput << inMessage;
+        assertOutput << L"\n\n";
     }
 
-    auto p = std::filesystem::current_path();
-    std::string ProgramPath( std::string( p.generic_string() ) );
+    assertOutput << L"Assert: ";
+    assertOutput << expression;
 
-    std::string fileString( file );
-    std::replace( fileString.begin(), fileString.end(), '\\', '/' );
-    std::replace( ProgramPath.begin(), ProgramPath.end(), '\\', '/' );
-
-    auto endlmao = fileString.find( ProgramPath );
-    if( endlmao != std::string::npos )
-    {
-        std::string attttttttt = std::string( file );
-        ProgramPath = fileString.substr( endlmao, attttttttt.length() );
-    }
-
-    ws << L"Assert: ";
-    ws << expression;
-
-    ws << L"\n\nFile: ";
-    ws << file;
-    ws << L":";
-    ws << line;
+    assertOutput << L"\n\nFile: ";
+    assertOutput << file;
+    assertOutput << L":";
+    assertOutput << line;
 
     // Capture the call stack
-    ws << L"\n\nCall stack:\n";
+    assertOutput << L"\n\nCall stack:\n";
 
     void* stack[100];
     HANDLE process = GetCurrentProcess();
     SymInitialize( process, NULL, TRUE );
     unsigned short frames = CaptureStackBackTrace( 0, 100, stack, NULL );
-    SYMBOL_INFO* symbol = (SYMBOL_INFO*)calloc( sizeof( SYMBOL_INFO ) + 256, 1 );
-    symbol->MaxNameLen = 255;
-    symbol->SizeOfStruct = sizeof( SYMBOL_INFO );
+    SYMBOL_INFO* stackSymbols = (SYMBOL_INFO*)calloc( sizeof( SYMBOL_INFO ) + 256, 1 );
+    stackSymbols->MaxNameLen = 255;
+    stackSymbols->SizeOfStruct = sizeof( SYMBOL_INFO );
 
     IMAGEHLP_LINE64 lineInfo = { sizeof( IMAGEHLP_LINE64 ) };
     for( int i = 1; i < frames; i++ )
     {
         DWORD64 address = (DWORD64)( stack[i] );
-        SymFromAddr( process, address, 0, symbol );
+        SymFromAddr( process, address, 0, stackSymbols );
 
         DWORD dwDisplacement;
         if( SymGetLineFromAddr64( process, address, &dwDisplacement, &lineInfo ) )
@@ -84,18 +71,18 @@ bool CustomAssertFunction( const char* expression, const char* inMessage, const 
             std::wstring thing = std::wstring( lineInfo.FileName, lineInfo.FileName + strlen( lineInfo.FileName ) );
             std::size_t slash = thing.find_last_of( '\\' );
             std::wstring fileName = thing.substr( slash + 1, thing.length() );
-            ws << frames - i - 1 << ": " << symbol->Name << " in (" << fileName << ":" << lineInfo.LineNumber << ")\n\n";
+            assertOutput << frames - i - 1 << ": " << stackSymbols->Name << " in (" << fileName << ":" << lineInfo.LineNumber << ")\n\n";
         }
         else
         {
-            ws << frames - i - 1 << ": " << symbol->Name << " at (0x" << std::hex << symbol->Address << std::dec << ")\n\n";
+            assertOutput << frames - i - 1 << ": " << stackSymbols->Name << " at (0x" << std::hex << stackSymbols->Address << std::dec << ")\n\n";
         }
     }
 
-    free( symbol );
+    free( stackSymbols );
     SymCleanup( process );
 
-    std::wstring message = ws.str();
+    std::wstring message = assertOutput.str();
 
     hHook = SetWindowsHookEx( WH_CBT, &CBTProc, 0, GetCurrentThreadId() );
 
