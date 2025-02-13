@@ -242,6 +242,9 @@ void BGFXRenderer::Render( Moonlight::CameraData& EditorCamera, FrameRenderData&
                     cam.Buffer->ReCreate( m_resetFlags );
                 }
             }
+#if USING( ME_EDITOR )
+            EditorCamera.Buffer->ReCreate( m_resetFlags );
+#endif
         }
         NeedsReset = false;
     }

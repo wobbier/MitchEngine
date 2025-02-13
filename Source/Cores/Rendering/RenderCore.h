@@ -40,6 +40,5 @@ public:
 
 private:
     bool EnableDebugDraw = false;
-    SimpleJobSystem simpleJobSystem;
         //Moonlight::Renderer* m_renderer;
 };

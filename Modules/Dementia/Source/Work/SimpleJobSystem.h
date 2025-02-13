@@ -9,11 +9,14 @@
 #include <vector>
 #include <memory>
 #include "optick.h"
+#include "Core/ISystem.h"
 
 
 class SimpleJobSystem
+    : public ISystem
 {
 public:
+    ME_SYSTEM_ID( SimpleJobSystem );
     using SimpleJob = std::function<void()>;
 
     SimpleJobSystem( size_t numThreads = std::thread::hardware_concurrency() ) : shutdown( false ), activeJobs( 0 )
@@ -89,6 +92,11 @@ public:
                     } );
             }
         }
+    }
+
+    size_t GetNumWorkers() const
+    {
+        return workers.size();
     }
 
 private:

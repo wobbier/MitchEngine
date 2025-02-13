@@ -69,8 +69,7 @@ public:
     EngineConfig& GetConfig();
     Input& GetInput();
 
-    JobEngine& GetJobEngine();
-    std::tuple<Worker*, Pool&> GetJobSystemNew();
+    SimpleJobSystem& GetJobSystem();
 
     class CameraCore* Cameras = nullptr;
     class SceneCore* SceneNodes = nullptr;
@@ -81,8 +80,6 @@ public:
     Moonlight::CameraData EditorCamera;
     Scene* CurrentScene = nullptr;
     float DeltaTime = 0.f;
-    JobSystem m_jobSystem;
-    SimpleJobSystem m_simpleJobSystem;
 private:
     Input m_input;
     std::shared_ptr<World> GameWorld;
@@ -97,7 +94,7 @@ private:
 
     BGFXRenderer* NewRenderer = nullptr;
 
-    JobEngine newJobSystem;
+    SimpleJobSystem simpleJobSystem;
 
     EngineUpdateContext updateContext;
     SystemRegistry systemRegistry;

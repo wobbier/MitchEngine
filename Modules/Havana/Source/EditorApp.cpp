@@ -101,7 +101,7 @@ void EditorApp::UpdateCameras()
     EditorCamera.ClearType = Camera::CurrentCamera->ClearType;
     EditorCamera.Projection = editorCamera->Projection;
     EditorCamera.OrthographicSize = editorCamera->OrthographicSize;
-    EditorCamera.ShouldCull = false;
+    //EditorCamera.ShouldCull = false;
 
     Vector3& eye = EditorCamera.Position;
     Vector3 at = eye + EditorCamera.Front;

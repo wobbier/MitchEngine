@@ -29,7 +29,6 @@
 
 RenderCore::RenderCore()
     : Base( ComponentFilter().Requires<Transform>().Requires<Mesh>() )
-    , simpleJobSystem()
 {
     SetIsSerializable( false );
     //m_renderer = &GetEngine().GetRenderer();
@@ -77,28 +76,28 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
     renderer.m_time.x = inUpdateContext.GetDeltaTime();
     renderer.m_time.y = inUpdateContext.GetTotalTime();
 
-    // Clear Render Commands
-    //renderer.GetMeshCache().Commands.clear();
-    //while( !renderer.GetMeshCache().FreeIndicies.empty() )
-    //{
-    //    renderer.GetMeshCache().FreeIndicies.pop();
-    //}
-
     if( Renderables.empty() )
     {
         return;
     }
 
-    std::vector<std::pair<int, int>> batches;
-    Burst::GenerateChunks( Renderables.size(), 44, batches );
+    SimpleJobSystem& simpleJobSystem = engine.GetJobSystem();
 
-    JobSystem& jobSystem = engine.m_jobSystem;
+    std::vector<std::pair<int, int>> batches;
+    Burst::GenerateChunks( Renderables.size(), simpleJobSystem.GetNumWorkers(), batches );
+
     auto& cameras = renderer.GetCameraCache();
 
     // Resize visible flag vector
-    engine.EditorCamera.VisibleFlags.resize( Renderables.size() );
+#if USING( ME_EDITOR )
+    Moonlight::CameraData& editorCamera = engine.EditorCamera;
+    editorCamera.VisibleFlags.clear();
+    editorCamera.VisibleFlags.resize( Renderables.size() );
+#endif
+
     for( Moonlight::CameraData& cam : cameras.Commands )
     {
+        cam.VisibleFlags.clear();
         cam.VisibleFlags.resize( Renderables.size() );
     }
 
@@ -109,7 +108,11 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
         int batchEnd = batch.second;
         int batchSize = batchEnd - batchBegin;
 
-        auto meshJob = [&renderer, &Renderables, &cameras, batchBegin, batchEnd, batchSize]()
+        auto meshJob = [&renderer, &Renderables, &cameras, batchBegin, batchEnd, batchSize,
+#if USING( ME_EDITOR )
+            &editorCamera
+#endif
+        ]()
             {
                 OPTICK_CATEGORY( "Mesh Job", Optick::Category::Debug );
                 for( int entIndex = batchBegin; entIndex < batchEnd; ++entIndex )
@@ -124,6 +127,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
 
                         {
                             OPTICK_CATEGORY( "Culling", Optick::Category::Visibility );
+                            glm::vec4 point = glm::vec4( meshMatrix[3] );
                             for( Moonlight::CameraData& cam : cameras.Commands )
                             {
                                 if( !cam.ShouldCull )
@@ -132,13 +136,24 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                                     continue;
                                 }
 
-                                glm::vec4 point = glm::vec4( meshMatrix[3] );
                                 if( cam.ViewFrustum.IsPointInFrustum( point ) )
                                 {
                                     isVisible = true;
                                     cam.VisibleFlags[entIndex] = true;
                                 }
                             }
+#if USING( ME_EDITOR )
+                            //if( !cam.ShouldCull )
+                            //{
+                            //    isVisible = true;
+                            //}
+
+                            if( editorCamera.ViewFrustum.IsPointInFrustum( point ) )
+                            {
+                                isVisible = true;
+                                editorCamera.VisibleFlags[entIndex] = true;
+                            }
+#endif
                         }
 
                         if( isVisible )
@@ -156,13 +171,10 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                     }
                 }
             };
-        //simpleJobSystem.submit( meshJob );
-        meshJob();
-        //jobSystem.AddWork( meshJob, false );
-        //jobSystem.SignalWorkAvailable();
+        simpleJobSystem.submit( meshJob );
+        //meshJob();
     }
-    //jobSystem.WaitAndWork();
-    //simpleJobSystem.waitForAllJobs( true );
+    simpleJobSystem.waitForAllJobs( true );
 
 #if USING( ME_EDITOR )
     renderer.SetDebugDrawEnabled( EnableDebugDraw );
