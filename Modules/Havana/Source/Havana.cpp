@@ -355,10 +355,8 @@ void Havana::Render( Moonlight::CameraData& EditorCamera )
             ImGuiStyle& style = ImGui::GetStyle();
             frameRenderData.MousePosition -= Vector2( 0.f, MainMenu->GetMainMenuSize().y ) + Vector2( style.DockingSeparatorSize, 0.f );
         }
-        if( MainSceneView->IsUsingGuizmo || frameRenderData.MousePosition.x >= MainSceneView->SceneViewRenderSize.x )
-        {
-            frameRenderData.WasLeftPressed = false;
-        }
+
+        frameRenderData.WasLeftPressed = frameRenderData.WasLeftPressed && MainSceneView->IsFocused && !MainSceneView->IsUsingGuizmo && frameRenderData.MousePosition.x <= MainSceneView->SceneViewRenderSize.x;
     }
 
     // Game View

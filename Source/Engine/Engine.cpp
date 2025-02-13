@@ -270,9 +270,9 @@ void Engine::Run()
                     OPTICK_EVENT( "GetGlobalMousePosition" );
                     // Multi-viewport mode: mouse position in OS absolute coordinates (io.MousePos is (0,0) when the mouse is on the upper-left of the primary monitor)
                     mousePos = input.GetGlobalMousePosition();
-                    m_frameRenderSettings.MousePosition = mousePos;
-                    m_frameRenderSettings.WasLeftPressed = input.WasMouseButtonPressed( MouseButton::Left );
                 }
+                m_frameRenderSettings.MousePosition = mousePos;
+                m_frameRenderSettings.WasLeftPressed = input.WasMouseButtonPressed( MouseButton::Left );
                 ImGui_ImplSDL2_NewFrame();
 
                 NewRenderer->BeginFrame( mousePos, ( input.IsMouseButtonDown( MouseButton::Left ) ? 0x01 : 0 )

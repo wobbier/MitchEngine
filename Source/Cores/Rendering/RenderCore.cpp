@@ -23,6 +23,8 @@
 #include "Renderer.h"
 #include <Core/JobSystem.h>
 #include "Camera/CameraData.h"
+#include "RenderPasses/PickingPass.h"
+#include "Utils/ImGuiUtils.h"
 
 
 RenderCore::RenderCore()
@@ -222,8 +224,8 @@ void RenderCore::OnEditorInspect()
     HavanaUtils::Label( "GPU Time: " );
     ImGui::Text( ( std::to_string( ( stats->gpuTimeEnd - stats->gpuTimeBegin ) / 1000.f ) + " ms" ).c_str() );
 
-    bool shouldClose = true;
-    if( ImGui::CollapsingHeader( "View Stats", &shouldClose, ImGuiTreeNodeFlags_DefaultOpen ) )
+    static bool shouldStatsClose = true;
+    if( ImGui::CollapsingHeader( "View Stats", &shouldStatsClose, ImGuiTreeNodeFlags_DefaultOpen ) )
     {
         for( uint16_t i = 0; i < stats->numViews; ++i )
         {
@@ -234,6 +236,21 @@ void RenderCore::OnEditorInspect()
             HavanaUtils::Label( "GPU Time: " );
             ImGui::Text( ( std::to_string( ( view.gpuTimeEnd - view.gpuTimeBegin ) / 1000.f ) + " ms" ).c_str() );
         }
+    }
+    static bool shouldPickingClose = true;
+    if( ImGui::CollapsingHeader( "Picking Pass", &shouldPickingClose, ImGuiTreeNodeFlags_DefaultOpen ) )
+    {
+        auto& pickingPass = GetEngine().GetRenderer().m_pickingPass;
+
+        ImVec2 pickingSize = ImVec2( pickingPass->m_width / 5.0f - 16.0f, pickingPass->m_width / 5.0f - 16.0f );
+        ImGui::Image( pickingPass->m_pickingRT, pickingSize );
+        ImGui::SliderFloat( "Field of view", &pickingPass->m_fov, 1.0f, 60.0f );
+        if( bgfx::isValid( pickingPass->m_blitTex ) )
+        {
+            //ImGui::Image( m_blitTex, pickingSize );
+        }
+
+        ImGui::Checkbox( "Force Draw", &pickingPass->ForceDraw );
     }
 }
 

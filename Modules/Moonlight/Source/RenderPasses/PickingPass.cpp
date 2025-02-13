@@ -2,7 +2,6 @@
 #include "Renderer.h"
 #include "Camera/CameraData.h"
 #include "Utils/BGFXUtils.h"
-#include "Utils/ImGuiUtils.h"
 #include "bx/timer.h"
 #include "optick.h"
 #include "RenderCommands.h"
@@ -40,8 +39,6 @@ PickingPass::PickingPass()
     m_highlighted = UINT32_MAX;
     m_reading = 0;
     m_currFrame = UINT32_MAX;
-    m_fov = 3.0f;
-
     
     //bx::RngMwc mwc;  // Random number generator
     for( uint32_t ii = 0; ii < 1000; ++ii )
@@ -122,8 +119,6 @@ void PickingPass::Render( BGFXRenderer* inRenderer, CameraData* inCamData, Frame
     //    ImVec2( m_width / 5.0f, m_height / 2.0f )
     //    , ImGuiCond_FirstUseEver
     //);
-    RenderDebugMenu();
-
     bgfx::setViewFrameBuffer( RENDER_PASS_ID, m_pickingFB );
 
     std::string viewName = "Picking Pass " + std::to_string( RENDER_PASS_ID );
@@ -193,7 +188,6 @@ void PickingPass::Render( BGFXRenderer* inRenderer, CameraData* inCamData, Frame
         | BGFX_STATE_WRITE_RGB
         | BGFX_STATE_WRITE_Z
         | BGFX_STATE_DEPTH_TEST_LESS
-        | BGFX_STATE_CULL_CCW
         | BGFX_STATE_MSAA
         //| s_ptState[m_pt]
         ;
@@ -312,19 +306,6 @@ void PickingPass::Render( BGFXRenderer* inRenderer, CameraData* inCamData, Frame
     }
 }
 
-
-void PickingPass::RenderDebugMenu()
-{
-    ImVec2 pickingSize = ImVec2( m_width / 5.0f - 16.0f, m_width / 5.0f - 16.0f );
-    ImGui::Image( m_pickingRT, pickingSize );
-    ImGui::SliderFloat( "Field of view", &m_fov, 1.0f, 60.0f );
-    if( bgfx::isValid( m_blitTex ) )
-    {
-        //ImGui::Image( m_blitTex, pickingSize );
-    }
-
-    ImGui::Checkbox( "Force Draw", &ForceDraw );
-}
 
 bool PickingPass::IsSupported()
 {

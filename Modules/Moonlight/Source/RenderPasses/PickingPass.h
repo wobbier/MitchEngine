@@ -27,7 +27,6 @@ namespace Moonlight
 
         void Render( BGFXRenderer* inRenderer, CameraData* inCamData, FrameRenderData& inFrameSettings );
 
-        void RenderDebugMenu();
         virtual bool IsSupported() final;
 
         Random64 m_random;
@@ -59,7 +58,7 @@ namespace Moonlight
         uint32_t m_reading = 0;
         uint32_t m_currFrame;
 
-        bool ForceDraw = true;
+        bool ForceDraw = false;
 
         float m_fov = 1.f;
     };
