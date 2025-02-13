@@ -108,9 +108,9 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
         int batchEnd = batch.second;
         int batchSize = batchEnd - batchBegin;
 
-        auto meshJob = [&renderer, &Renderables, &cameras, batchBegin, batchEnd, batchSize,
+        auto meshJob = [&renderer, &Renderables, &cameras, batchBegin, batchEnd, batchSize
 #if USING( ME_EDITOR )
-            &editorCamera
+            , &editorCamera
 #endif
         ]()
             {

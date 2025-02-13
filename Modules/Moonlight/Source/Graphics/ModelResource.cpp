@@ -377,13 +377,15 @@ bool ModelResource::LoadMaterialTextures( SharedPtr<Moonlight::Material> newMate
                 }
             }
 
+#if USING( ME_TOOLS )
             // this should be done in the compile stage
             if( !texture )
             {
                 Path desperationPath = ResourceCache::GetInstance().FindByName( Path( "Assets" ), Path( texturePath ).GetFileNameString( true ) );
-                BRUH( "FOUND: " + desperationPath.LocalPos );
+                ME_ASSERT_MSG( false, std::string("Loading an FBX texture that doesn't exist: \n" + texturePath + "\nFound: " + desperationPath.GetLocalPathString()).c_str());
                 texture = ResourceCache::GetInstance().Get<Moonlight::Texture>( desperationPath );
             }
+#endif
 
             // this should be done in the compile stage
             if( !texture )

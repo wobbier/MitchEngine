@@ -89,6 +89,68 @@ void Camera::ClearObliqueMatrixData()
     isOblique = false;
 }
 
+Matrix4 CalculateObliqueMatrix( const Matrix4& projection, const glm::vec4& clipPlane )
+{
+    Matrix4 returnMat = projection;
+    {
+        glm::vec4 vCamera = {
+        ( Mathf::Sign( clipPlane.x ) + returnMat.GetInternalMatrix()[2][0] ) / returnMat.GetInternalMatrix()[0][0],
+        ( Mathf::Sign( clipPlane.y ) + returnMat.GetInternalMatrix()[2][1] ) / returnMat.GetInternalMatrix()[1][1],
+        1.f,
+        ( 1.f + returnMat.GetInternalMatrix()[2][2] ) / returnMat.GetInternalMatrix()[3][2]
+        };
+
+        float m = 2.f / glm::dot( clipPlane, vCamera );
+        returnMat.GetInternalMatrix()[0][2] = clipPlane.x * m;
+        returnMat.GetInternalMatrix()[1][2] = clipPlane.y * m;
+        returnMat.GetInternalMatrix()[2][2] = clipPlane.z * m;
+        returnMat.GetInternalMatrix()[3][2] = clipPlane.w * m;
+    }
+    /*{
+        glm::vec4 vCamera = {
+        (Mathf::Sign(clipPlane.x) - returnMat.GetInternalMatrix()[0][2]) / returnMat.GetInternalMatrix()[0][0],
+        (Mathf::Sign(clipPlane.y) - returnMat.GetInternalMatrix()[1][2]) / returnMat.GetInternalMatrix()[1][1],
+        1.f,
+        (1.f - returnMat.GetInternalMatrix()[2][2]) / returnMat.GetInternalMatrix()[2][3]
+        };
+
+        float m = 1.f / glm::dot(clipPlane, vCamera);
+        returnMat.GetInternalMatrix()[2][0] = m * clipPlane.x;
+        returnMat.GetInternalMatrix()[2][1] = m * clipPlane.y;
+        returnMat.GetInternalMatrix()[2][2] = m * clipPlane.z;
+        returnMat.GetInternalMatrix()[2][3] = m * clipPlane.w;
+    }*/
+    //{
+    //	glm::vec4 q = projection.Inverse().GetInternalMatrix() * glm::vec4(Mathf::Sign(clipPlane.x), Mathf::Sign(clipPlane.y), 1.f, 1.f);
+    //	glm::vec4 c = clipPlane * (2.f / glm::dot(clipPlane, q));
+    //	returnMat.GetInternalMatrix()[2][0] = c.x - returnMat.GetInternalMatrix()[3][0];
+    //	returnMat.GetInternalMatrix()[2][1] = c.y - returnMat.GetInternalMatrix()[3][1];
+    //	returnMat.GetInternalMatrix()[2][2] = c.z - returnMat.GetInternalMatrix()[3][2];
+    //	returnMat.GetInternalMatrix()[2][3] = c.w - returnMat.GetInternalMatrix()[3][3];
+    //}
+    return returnMat;
+}
+
+Matrix4 Camera::GetProjectionMatrix() const
+{
+    // #TODO: output size in the game view of the editor is messed up cause it's not reading the output size of the editor window widget.
+    Matrix4 outMatrix;
+    if( Projection == Moonlight::ProjectionType::Perspective )
+    {
+        bx::mtxProj( &outMatrix.GetInternalMatrix()[0][0], m_FOV, float( OutputSize.x ) / float( OutputSize.y ), std::max( Near, 0.01f ), Far, bgfx::getCaps()->homogeneousDepth );
+    }
+    else
+    {
+        bx::mtxOrtho( &outMatrix.GetInternalMatrix()[0][0], -( OutputSize.x / OrthographicSize ), ( OutputSize.x / OrthographicSize ), -( OutputSize.y / OrthographicSize ), ( OutputSize.y / OrthographicSize ), Near, Far, 0.f, bgfx::getCaps()->homogeneousDepth );
+    }
+
+    if( isOblique )
+    {
+        return CalculateObliqueMatrix( outMatrix.GetInternalMatrix(), ObliqueMatData );
+    }
+    return outMatrix;
+}
+
 void Camera::OnDeserialize( const json& inJson )
 {
     if( inJson.contains( "Skybox" ) )
@@ -277,12 +339,13 @@ void Camera::OnEditorInspect()
         ImVec2 selectorSize( widgetWidth, 0.f );
         if( ImGui::Button( ( ( skyboxTexture ) ? skyboxTexture->GetPath().GetLocalPath().data() : "Select Asset" ), selectorSize ) )
         {
-            RequestAssetSelectionEvent evt( [this]( Path selectedAsset ) {
-                if( !Skybox )
+            RequestAssetSelectionEvent evt( [this]( Path selectedAsset )
                 {
-                    Skybox = new Moonlight::SkyBox( selectedAsset.FullPath );
-                }
-                Skybox->SkyMaterial->SetTexture( Moonlight::TextureType::Diffuse, ResourceCache::GetInstance().Get<Moonlight::Texture>( selectedAsset ) );
+                    if( !Skybox )
+                    {
+                        Skybox = new Moonlight::SkyBox( selectedAsset.FullPath );
+                    }
+                    Skybox->SkyMaterial->SetTexture( Moonlight::TextureType::Diffuse, ResourceCache::GetInstance().Get<Moonlight::Texture>( selectedAsset ) );
                 }, AssetType::Texture );
             evt.Fire();
         }

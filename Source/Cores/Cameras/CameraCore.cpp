@@ -78,10 +78,10 @@ void CameraCore::LateUpdate( const UpdateContext& inUpdateContext )
             CamData->View = glm::lookAtLH( eye.InternalVector, at.InternalVector, up.InternalVector );
 
 
-            Matrix4 testMatrix;
-            bx::mtxProj( &testMatrix.GetInternalMatrix()[0][0], CamData->FOV, float( CamData->OutputSize.x ) / float( CamData->OutputSize.y ), std::max( CamData->Near, 0.01f ), CamData->Far, bgfx::getCaps()->homogeneousDepth );
-            camFrustum.Update( testMatrix, CamData->View, CamData->FOV, CamData->OutputSize, CamData->Near, CamData->Far );
-            CamData->ProjectionMatrix = testMatrix;
+            //Matrix4 testMatrix;
+            //bx::mtxProj( &testMatrix.GetInternalMatrix()[0][0], CamData->FOV, float( CamData->OutputSize.x ) / float( CamData->OutputSize.y ), std::max( CamData->Near, 0.01f ), CamData->Far, bgfx::getCaps()->homogeneousDepth );
+            CamData->ProjectionMatrix = CameraComponent.GetProjectionMatrix();
+            camFrustum.Update( CamData->ProjectionMatrix, CamData->View, CamData->FOV, CamData->OutputSize, CamData->Near, CamData->Far );
             CamData->ViewFrustum = camFrustum;
 
 
