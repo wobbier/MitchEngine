@@ -55,6 +55,7 @@ public class EntryPointGameProject : BaseProject
         base.ConfigureAll(conf, target);
         conf.Output = Configuration.OutputType.Exe;
         conf.SolutionFolder = "Apps";
+        conf.TargetFileName = Globals.ExeName + "_x64";
         if (target.GetPlatform() == Platform.win64)
         {
             conf.ProjectFileName = @"[project.Name]_[target.Platform]";
@@ -102,6 +103,7 @@ public class EntryPointGameProjectUWP : EntryPointGameProject
     {
         base.ConfigureAll(conf, target);
         conf.ProjectPath = Path.Combine(Globals.RootDir, "Game_EntryPoint");
+        conf.TargetFileName = Globals.ExeName + "_UWP";
 
         conf.ConsumeWinRTExtensions.Add("main.cpp");
         conf.AppxManifestFilePath = Path.Combine(Globals.RootDir, "Game_EntryPoint/Package.appxmanifest");
@@ -569,6 +571,8 @@ public class Globals
     public static string FMOD_Win64_Dir = string.Empty;
     public static string FMOD_UWP_Dir = string.Empty;
     public static string FMOD_macOS_Dir = string.Empty;
+
+    public static string ExeName = "Game_EntryPoint";
 
     public static string MONO_Win64_Dir = "C:/Program Files/Mono/";
     public static string MONO_macOS_Dir = "/Library/Frameworks/Mono.framework/";

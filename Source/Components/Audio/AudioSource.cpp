@@ -125,20 +125,21 @@ bool AudioSource::IsPaused() const
 #endif
 }
 
-unsigned int AudioSource::GetLength()
+unsigned int AudioSource::GetLength() const
 {
 #if USING( ME_FMOD )
-    unsigned int isPlaying = 0;
-    if( SoundInstance && SoundInstance->Handle && SoundInstance->Handle->getLength( &isPlaying, FMOD_TIMEUNIT_MS ) != FMOD_OK )
+    unsigned int audioLength = 0;
+    if( SoundInstance && SoundInstance->Handle && SoundInstance->Handle->getLength( &audioLength, FMOD_TIMEUNIT_MS ) != FMOD_OK )
     {
+        BRUH( "Failed to get audio length" );
     }
-    return isPlaying;
+    return audioLength;
 #else
     return 0.f;
 #endif
 }
 
-unsigned int AudioSource::GetPositionMs()
+unsigned int AudioSource::GetPositionMs() const
 {
 #if USING( ME_FMOD )
     unsigned int isPlaying = 0;

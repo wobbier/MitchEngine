@@ -45,6 +45,7 @@ void Transform::SetPosition( const Vector3& NewPosition )
 {
     LocalPosition = NewPosition;
     IsLocalToWorldDirty = true;
+    IsWorldToLocalDirty = true;
     SetDirty( true );
 }
 
@@ -229,7 +230,7 @@ const Matrix4& Transform::GetLocalToWorldMatrix()
 }
 bool Transform::FuncIsLocalToWorldDirty()
 {
-    return true;// IsLocalToWorldDirty;
+    return true;// IsLocalToWorldDirty || ( ParentTransform && ParentTransform->FuncIsLocalToWorldDirty() );
 }
 
 const Matrix4& Transform::GetWorldToLocalMatrix()

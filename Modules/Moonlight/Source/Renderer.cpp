@@ -424,11 +424,11 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId
     TransparentIndicies.clear();
     {
         OPTICK_CATEGORY( "Meshes", Optick::Category::GPU_Scene );
-
+        bool hasCullingInfo = camera.ShouldCull && !camera.VisibleFlags.empty();
         for( size_t i = 0; i < m_meshCache.Commands.size(); ++i )
         {
             const Moonlight::MeshCommand& mesh = m_meshCache.Commands[i];
-            if( camera.ShouldCull && !camera.VisibleFlags[mesh.VisibilityIndex] )
+            if( hasCullingInfo && !camera.VisibleFlags[mesh.VisibilityIndex] )
             {
                 continue;
             }

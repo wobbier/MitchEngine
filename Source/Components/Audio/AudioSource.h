@@ -30,8 +30,8 @@ public:
     bool IsPlaying() const;
     bool IsPaused() const;
 
-    unsigned int GetLength();
-    unsigned int GetPositionMs();
+    unsigned int GetLength() const;
+    unsigned int GetPositionMs() const;
     float GetVolume();
     void SetPositionMs( unsigned int position );
     void SetPositionPercent( float positionPercent );

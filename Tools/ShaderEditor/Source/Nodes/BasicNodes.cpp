@@ -281,6 +281,7 @@ bool Vector3Node::OnRender()
 
 void Vector3Node::OnExport( ShaderWriter& inFile )
 {
+    inFile.Warnings.push_back( "Vector's don't respect linked inputs I guess" );
     inFile.WriteVector( value );
 }
 
