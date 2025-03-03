@@ -148,6 +148,7 @@ public class Engine : BaseProject
 
         // TODO: Fix other API's
         //if (target.SubPlatform == CommonTarget.SubPlatformType.Win64 || target.SubPlatform == CommonTarget.SubPlatformType.macOS)
+        if (Globals.IsUltralightEnabled)
         {
             conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/UltralightSDK/include"));
 
@@ -182,8 +183,14 @@ public class Engine : BaseProject
 
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/Assimp/{target.Optimization}"));
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/SDL/Win64/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
-        // Release for now since the 1.4 debug dlls are massive
-        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $@"ThirdParty/UltralightSDK/Lib/[target.SubPlatform]/{CommonTarget.GetThirdPartyOptimization(Optimization.Release)}"));
+
+        // Ultralight UI
+        if (Globals.IsUltralightEnabled)
+        {
+            // Release for now since the 1.4 debug dlls are massive
+            conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $@"ThirdParty/UltralightSDK/Lib/[target.SubPlatform]/{CommonTarget.GetThirdPartyOptimization(Optimization.Release)}"));
+            conf.LibraryFiles.Add("AppCore");
+        }
 
         // Physics3D / Bullet3D
         if (Globals.IsPhysicsEnabled3D)
@@ -203,7 +210,6 @@ public class Engine : BaseProject
             }
         }
 
-        conf.LibraryFiles.Add("AppCore");
         conf.LibraryFiles.Add("Dwrite");
 
         if (Directory.Exists(Globals.FMOD_Win64_Dir))
@@ -250,12 +256,13 @@ public class Engine : BaseProject
             conf.EventPostBuildExe.Add(copyDirBuildStep);
         }
 
-        // Ultralight DLL
         // TODO: Fix other API's
+        // Ultralight UI DLL
+        if (Globals.IsUltralightEnabled)
         {
             var copyDirBuildStep = new Configuration.BuildStepCopy(
-                $@"[project.SharpmakeCsPath]/ThirdParty/UltralightSDK/bin/[target.SubPlatform]/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}",
-                Globals.RootDir + "/.build/[target.Name]");
+            $@"[project.SharpmakeCsPath]/ThirdParty/UltralightSDK/bin/[target.SubPlatform]/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}",
+            Globals.RootDir + "/.build/[target.Name]");
 
             conf.EventPostBuildExe.Add(copyDirBuildStep);
         }
@@ -287,7 +294,12 @@ public class Engine : BaseProject
 
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/Assimp/{target.Optimization}"));
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/SDL/UWP/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
-        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $@"ThirdParty/UltralightSDK/Lib/[target.SubPlatform]/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
+
+        // Ultralight UI
+        if (Globals.IsUltralightEnabled)
+        {
+            conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $@"ThirdParty/UltralightSDK/Lib/[target.SubPlatform]/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
+        }
 
         // Physics3D / Bullet3D
         if (Globals.IsPhysicsEnabled3D)
@@ -323,7 +335,8 @@ public class Engine : BaseProject
             conf.LibraryFiles.Add("zlibstatic.lib");
         }
 
-        // Ultralight
+        // Ultralight UI
+        if (Globals.IsUltralightEnabled)
         {
             var copyDirBuildStep = new Configuration.BuildStepCopy(
                 $@"[project.SharpmakeCsPath]/ThirdParty/UltralightSDK/bin/Win64/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}",
@@ -378,7 +391,13 @@ public class Engine : BaseProject
 
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/Lib/SDL/macOS/Debug"));
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/Assimp/macOS/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
-        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $@"ThirdParty/UltralightSDK/Lib/[target.SubPlatform]"));
+
+        // Ultralight UI
+        if (Globals.IsUltralightEnabled)
+        {
+            conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $@"ThirdParty/UltralightSDK/Lib/[target.SubPlatform]"));
+            conf.LibraryFiles.Add("AppCore");
+        }
 
         // Physics3D / Bullet3D
         if (Globals.IsPhysicsEnabled3D)
@@ -399,7 +418,6 @@ public class Engine : BaseProject
 
 
         conf.LibraryFiles.Add("SDL2d");
-        conf.LibraryFiles.Add("AppCore");
 
         if (target.Optimization == Optimization.Debug)
         {
@@ -454,7 +472,9 @@ public class Engine : BaseProject
                 //conf.EventPostBuildExe.Add(copyDirBuildStep);
             }
         }
+
         // Ultralight dylibs
+        if (Globals.IsUltralightEnabled)
         {
             var copyDirBuildStep = new Configuration.BuildStepCopy(
                 $@"[project.SharpmakeCsPath]/ThirdParty/UltralightSDK/lib/macOS/",
@@ -576,6 +596,8 @@ public class Globals
     public static string UWP_Thumbprint = "2b58614583c74c71d9068804a758d87346f87f40";
     public static string UWP_CertificateName = "Game_EntryPoint_UWP_TemporaryKey.pfx";
 
+    public static bool IsUWPEnabled = true;
+    public static bool IsUltralightEnabled = true;
     public static bool IsPhysicsEnabled3D = true;
 }
 

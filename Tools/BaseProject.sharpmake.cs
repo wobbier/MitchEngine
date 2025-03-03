@@ -13,9 +13,14 @@ public abstract class BaseProject : Project
         IsTargetFileNameToLower = false;
         AddTargets(CommonTarget.GetDefaultTargets());
 
-        if (Util.GetExecutingPlatform() == Platform.mac)
+
+        // Ultralight UI
+        if (Globals.IsUltralightEnabled)
         {
-            ResourceFiles.Add(Globals.RootDir + "Engine/ThirdParty/UltralightSDK/bin/macOS/AppCore.dylib");
+            if (Util.GetExecutingPlatform() == Platform.mac)
+            {
+                ResourceFiles.Add(Globals.RootDir + "Engine/ThirdParty/UltralightSDK/bin/macOS/AppCore.dylib");
+            }
         }
     }
 
@@ -43,7 +48,10 @@ public abstract class BaseProject : Project
         conf.TargetPath = "[project.SharpmakeCsPath]/.build/[target.Name]/";
         conf.LibraryPaths.Add("[project.SharpmakeCsPath]/.build/[target.Name]/");
 
-        conf.Defines.Add("DEFINE_ME_ULTRALIGHT");
+        if (Globals.IsUltralightEnabled)
+        {
+            conf.Defines.Add("DEFINE_ME_ULTRALIGHT");
+        }
 
         // RenderDoc DLL
         // TODO: Is this a chocolatey package? cross platform?

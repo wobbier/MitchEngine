@@ -497,6 +497,7 @@ bool UICore::OnEvent( const BaseEvent& evt )
 void UICore::OnEditorInspect()
 {
     Base::OnEditorInspect();
+#if USING ( ME_UI )
     ImGui::Text( "Clear Calls %i", m_driver->m_uiDrawInfo.m_numClearCalls );
     ImGui::Text( "Fill Calls %i", m_driver->m_uiDrawInfo.m_numDrawFillCalls );
     ImGui::Text( "Fill Path Calls %i", m_driver->m_uiDrawInfo.m_numDrawFillPathCalls );
@@ -534,6 +535,7 @@ void UICore::OnEditorInspect()
             }
         }
     }
+#endif
 }
 
 #endif

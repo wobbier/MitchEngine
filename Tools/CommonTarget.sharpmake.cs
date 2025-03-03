@@ -73,13 +73,17 @@ public class CommonTarget : Sharpmake.ITarget
                         dotNetOS: 0);
                     baseTarget.SubPlatform = SubPlatformType.Win64;
 
-                    var uwpTarget = new CommonTarget(
-                        Platform.win64,
-                        DevEnv.vs2022,
-                        Optimization.Debug | Optimization.Release | Optimization.Retail,
-                        DotNetFramework.v4_8,
-                        dotNetOS: 0);
-                    uwpTarget.SubPlatform = SubPlatformType.UWP;
+                    CommonTarget uwpTarget = null;
+                    if (Globals.IsUWPEnabled)
+                    {
+                        uwpTarget = new CommonTarget(
+                            Platform.win64,
+                            DevEnv.vs2022,
+                            Optimization.Debug | Optimization.Release | Optimization.Retail,
+                            DotNetFramework.v4_8,
+                            dotNetOS: 0);
+                        uwpTarget.SubPlatform = SubPlatformType.UWP;
+                    }
 
                     var editorTarget = new CommonTarget(
                         Platform.win64,
@@ -90,7 +94,11 @@ public class CommonTarget : Sharpmake.ITarget
                     editorTarget.SubPlatform = SubPlatformType.Win64;
                     editorTarget.SelectedMode = Mode.Editor;
 
-                    return new[] { baseTarget, uwpTarget, editorTarget };
+                    if(Globals.IsUWPEnabled)
+                    {
+                        return new[] { baseTarget, uwpTarget, editorTarget };
+                    }
+                    return new[] { baseTarget, editorTarget };
                 }
             case Platform.mac:
                 {
