@@ -20,7 +20,7 @@ public:
     AudioSource();
     AudioSource( const std::string& InFilePath );
 
-    void Play( const bool ShouldLoop = false );
+    void Play( bool ShouldLoop = false, bool StartPaused = false );
     void Pause();
     void Resume();
     void Stop( bool immediate = true );

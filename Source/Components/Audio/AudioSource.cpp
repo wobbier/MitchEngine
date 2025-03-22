@@ -38,7 +38,7 @@ AudioSource::AudioSource()
 
 }
 
-void AudioSource::Play( bool ShouldLoop )
+void AudioSource::Play( bool ShouldLoop, bool StartPaused )
 {
 #if USING( ME_FMOD )
     if( SoundInstance )
@@ -48,7 +48,7 @@ void AudioSource::Play( bool ShouldLoop )
             Stop( true );
         }
         SoundInstance->Handle->getSystemObject( &m_owner );
-        m_owner->playSound( SoundInstance->Handle, nullptr, false, &ChannelHandle );
+        m_owner->playSound( SoundInstance->Handle, nullptr, StartPaused, &ChannelHandle );
         if( ChannelHandle && ChannelHandle->getFrequency( &Frequency ) != FMOD_OK )
         {
         }
