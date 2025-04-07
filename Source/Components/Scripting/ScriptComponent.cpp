@@ -10,6 +10,7 @@
 #include "Cores/Scripting/ScriptCore.h"
 #include "Scripting/ScriptEngine.h"
 #include "Components/Transform.h"
+#include "Components/Camera.h"
 #include "Engine/Engine.h"
 
 #if USING( ME_SCRIPTING )
@@ -42,11 +43,15 @@ ScriptComponent::ScriptComponent()
 #if USING( ME_SCRIPTING )
     // Did you update your bgfx .hpp shaders at all??
     mono_add_internal_call( "Transform::Entity_GetTranslation", (void*)Transform_GetTranslation );
-    mono_add_internal_call( "Transform::Entity_SetTranslation", (void*)Transform_SetTranslation );
+    mono_add_internal_call( "Transform::Entity_GetTranslation", (void*)Transform_GetTranslation );
+    mono_add_internal_call( "Camera::Camera_GetClearColor", (void*)Camera_GetClearColor );
+    mono_add_internal_call( "Camera::Camera_SetClearColor", (void*)Camera_SetClearColor );
     mono_add_internal_call( "Input::IsKeyDown", (void*)Input_IsKeyDown );
 
     mono_add_internal_call( "Entity::Entity_HasComponent", (void*)Entity_HasComponent );
+    // does this go into the other components?
     RegisterComponent<Transform>();
+    RegisterComponent<Camera>();
 #endif
 }
 
@@ -284,6 +289,18 @@ void ScriptComponent::Transform_SetTranslation( EntityID id, Vector3* inPos )
 {
     EntityHandle handle( id, ScriptEngine::sScriptData.worldPtr );
     handle->GetComponent<Transform>().SetPosition( *inPos );
+}
+
+void ScriptComponent::Camera_GetClearColor( EntityID id, Vector3* outPosition )
+{
+    EntityHandle handle( id, ScriptEngine::sScriptData.worldPtr );
+    *outPosition = handle->GetComponent<Camera>().ClearColor;
+}
+
+void ScriptComponent::Camera_SetClearColor( EntityID id, Vector3* inPos )
+{
+    EntityHandle handle( id, ScriptEngine::sScriptData.worldPtr );
+    handle->GetComponent<Camera>().ClearColor = *inPos;
 }
 
 bool ScriptComponent::Entity_HasComponent( EntityID id, MonoReflectionType* inType )
