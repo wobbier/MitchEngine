@@ -39,6 +39,8 @@ private:
     // this should go
     static void Transform_GetTranslation( EntityID id, Vector3* outPosition );
     static void Transform_SetTranslation( EntityID id, Vector3* inPos );
+    static void Transform_GetScale( EntityID id, Vector3* outPosition );
+    static void Transform_SetScale( EntityID id, Vector3* inPos );
     static void Camera_GetClearColor( EntityID id, Vector3* outPosition );
     static void Camera_SetClearColor( EntityID id, Vector3* inPos );
     static bool Entity_HasComponent( EntityID id, MonoReflectionType* inType );

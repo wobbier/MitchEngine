@@ -15,12 +15,59 @@
 #include "Engine/Engine.h"
 #include "Cores/SceneCore.h"
 
+#include <mono/metadata/assembly.h>
+#include <mono/metadata/class.h>
+#include <mono/metadata/image.h>
+#include <mono/metadata/debug-helpers.h>
+#include <mono/metadata/tokentype.h>
+
+//// forward declare internal Mono debugger agent functions
+//extern "C" {
+//    void mono_debugger_agent_send_assembly_load( MonoAssembly* assembly );
+//    void mono_debugger_agent_send_type_load( MonoClass* klass );
+//    void mono_debugger_agent_send_method( MonoMethod* method );
+//}
+
 
 ScriptEngine::ScriptData ScriptEngine::sScriptData;
 
 std::vector<ScriptEngine::LoadedClassInfo> ScriptEngine::LoadedClasses;
 
 std::vector<ScriptEngine::LoadedClassInfo> ScriptEngine::LoadedEntityScripts;
+
+std::unordered_map<EntityID, MonoObject*> ScriptEngine::entityInstanceCache;
+
+
+//void ResendDebugInfo( MonoAssembly* monoAssembly )
+//{
+//    //for( MonoAssembly* asm : allLoadedAssemblies )
+//    {
+//        mono_debugger_agent_send_assembly_load( monoAssembly );
+//
+//        MonoImage* img = mono_assembly_get_image( monoAssembly );
+//        int typeCount = mono_image_get_table_rows( img, MONO_TABLE_TYPEDEF );
+//
+//        for( int i = 1; i < typeCount; ++i )
+//        {
+//            MonoClass* klass = mono_class_get( img, ( i + 1 ) | MONO_TOKEN_TYPE_DEF );
+//            if( !klass ) continue;
+//
+//            mono_debugger_agent_send_type_load( klass );
+//
+//            void* iter = nullptr;
+//            while( MonoMethod* method = mono_class_get_methods( klass, &iter ) )
+//            {
+//                mono_debugger_agent_send_method( method );
+//            }
+//        }
+//    }
+//}
+//
+//void ResendDebugInfo()
+//{
+//    ResendDebugInfo( ScriptEngine::sScriptData.CoreAssembly );
+//    ResendDebugInfo( ScriptEngine::sScriptData.AppAssembly );
+//}
 
 static void Log( MonoString* inString )
 {
@@ -89,18 +136,34 @@ static const Transform* World_GetTransformByName_InternalRecursive( Transform* i
     return nullptr;
 }
 
-static EntityID World_GetTransformByName( MonoString* inString )
+static MonoObject* World_GetTransformByName( MonoString* inString )
 {
     char* str = mono_string_to_utf8( inString );
 
     const Transform* found = World_GetTransformByName_InternalRecursive( GetEngine().SceneNodes->GetRootTransform(), str );
-    
+
     mono_free( str );
-    if( found )
+    if( !found )
     {
-        return found->Parent.GetID();
+        return nullptr;
     }
-    return EntityID( 0, 0 );
+
+    EntityID id = found->Parent.GetID();
+    if( auto it = ScriptEngine::entityInstanceCache.find( id ); it != ScriptEngine::entityInstanceCache.end() )
+    {
+        return it->second;
+    }
+    MonoClass* entityClass = mono_class_from_name( ScriptEngine::sScriptData.CoreAssemblyImage, "", "Entity" );
+    MonoObject* entityObj = mono_object_new( mono_domain_get(), entityClass );
+
+    MonoMethod* ctor = mono_class_get_method_from_name( entityClass, ".ctor", 1 );
+    void* args[] = { &id };
+    mono_runtime_invoke( ctor, entityObj, args, nullptr );
+
+    ScriptEngine::entityInstanceCache[id] = entityObj;
+
+    return entityObj;
+
 }
 
 static void ImGui_Checkbox( MonoString* inString, MonoBoolean* inValue )
@@ -228,7 +291,7 @@ void ScriptEngine::InitMono()
     if( sScriptData.EnableDebugging )
     {
         const char* argv[2] = {
-            "--debugger-agent=transport=dt_socket,address=127.0.0.1:2550,server=y,suspend=n,loglevel=3,logfile=MonoDebugger.log",
+            "--debugger-agent=transport=dt_socket,address=127.0.0.1:55555,server=y,suspend=n,loglevel=3,logfile=MonoDebugger.log",
             "--soft-breakpoints",
         };
         mono_jit_parse_options( 2, (char**)argv );
@@ -236,7 +299,7 @@ void ScriptEngine::InitMono()
     }
 
     //mono_set_dirs( MONO_HOME "/lib", MONO_HOME "/etc" );
-    sScriptData.RootDomain = mono_jit_init_version( "MEMonoRuntime", "v4.0.30319 --debug" );
+    sScriptData.RootDomain = mono_jit_init_version( "MEMonoRuntime", "v4.8" );
     if( !sScriptData.RootDomain )
     {
         YIKES( "mono_jit_init failed" );
@@ -363,7 +426,7 @@ SharedPtr<ScriptInstance> ScriptEngine::CreateScriptInstance( ScriptClass& scrip
 bool ScriptEngine::LoadAssembly( const Path& assemblyPath )
 {
     char name[30] = "MEScriptRuntime\n";
-    sScriptData.AppDomain = mono_domain_create_appdomain( &name[0], nullptr);
+    sScriptData.AppDomain = mono_domain_create_appdomain( &name[0], nullptr );
     mono_domain_set( sScriptData.AppDomain, true );
 
     sScriptData.CoreAssembly = MonoUtils::LoadMonoAssembly( assemblyPath, sScriptData.EnableDebugging );
