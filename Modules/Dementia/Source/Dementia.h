@@ -69,7 +69,7 @@ Class& operator=(Class&&) = delete;
 #error Unknown Compiler
 #endif
 
-#ifdef ME_HEADLESS
+#if defined( DEFINE_ME_HEADLESS )
 #define ME_HEADLESS IN_USE
 #else
 #define ME_HEADLESS NOT_IN_USE

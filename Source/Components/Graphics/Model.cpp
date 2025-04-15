@@ -53,7 +53,8 @@ void Model::RecursiveLoadMesh( Moonlight::Node& root, EntityHandle& parentEnt )
     for( auto& childNode : root.Nodes )
     {
         EntityHandle entityNode = GetEngine().GetWorld().lock()->CreateEntity();
-        auto& transform = entityNode->AddComponent<Transform>( childNode.Name );
+        auto& transform = entityNode->AddComponent<Transform>();
+        transform.SetName( childNode.Name );
         transform.SetParent( parentEnt->GetComponent<Transform>() );
         transform.SetPosition( childNode.Position );
         transform.SetScale( childNode.Scale );
@@ -76,13 +77,14 @@ void Model::RecursiveLoadMesh( Moonlight::Node& root, EntityHandle& parentEnt )
         for( auto child : root.Meshes )
         {
             auto ent = GetEngine().GetWorld().lock()->CreateEntity();
-            Transform& trans = ent->AddComponent<Transform>( child->Name );
+            Transform& transform = ent->AddComponent<Transform>();
+            transform.SetName( child->Name );
             Mesh& meshRef = ent->AddComponent<Mesh>( child );
             meshRef.MeshReferece = child;
-            //trans.SetPosition( root.Position );
-            //trans.SetScale( root.Scale );
-            //trans.SetRotation( root.Rotation );
-            trans.SetParent( parentEnt->GetComponent<Transform>() );
+            //transform.SetPosition( root.Position );
+            //transform.SetScale( root.Scale );
+            //transform.SetRotation( root.Rotation );
+            transform.SetParent( parentEnt->GetComponent<Transform>() );
         }
     }
 }
@@ -110,6 +112,16 @@ void Model::OnEditorInspect()
         ImGui::SameLine();
         ImGui::Text( ModelPath.GetLocalPath().data() );
         RecursiveModelNode( ModelHandle, ModelHandle->RootNode );
+        for( const Moonlight::AnimationClip& clip : ModelHandle->GetAnimations() )
+        {
+            if( ImGui::CollapsingHeader( clip.Name.c_str(), 0 /*| ImGuiTreeNodeFlags_DefaultOpen*/ ) )
+            {
+                for( const auto& nodeAnim : clip.NodeChannels )
+                {
+                    ImGui::Text( nodeAnim.NodeName.c_str() );
+                }
+            }
+        }
     }
     else
     {

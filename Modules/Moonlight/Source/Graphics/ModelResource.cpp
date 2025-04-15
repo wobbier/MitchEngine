@@ -4,6 +4,7 @@
 #include <assimp/Exporter.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
+#include <assimp/mesh.h>
 
 #include <unordered_map>
 
@@ -73,6 +74,7 @@ void DecomposeMatrix(
     outRotation = glm::quat_cast( rotationMatrix );
 }
 
+
 glm::mat4 AssimpToGLM( const aiMatrix4x4& from )
 {
     glm::mat4 to;
@@ -84,6 +86,7 @@ glm::mat4 AssimpToGLM( const aiMatrix4x4& from )
 
     return to;
 }
+
 
 void ScaleNode( aiNode* node, float scale )
 {
@@ -100,14 +103,17 @@ void ScaleNode( aiNode* node, float scale )
     }
 }
 
+
 ModelResource::ModelResource( const Path& path )
     : Resource( path )
 {
 }
 
+
 ModelResource::~ModelResource()
 {
 }
+
 
 bool ModelResource::Load()
 {
@@ -145,31 +151,25 @@ bool ModelResource::Load()
 
     RootNode.Name = std::string( scene->mRootNode->mName.C_Str() );
     ProcessNode( scene->mRootNode, scene, RootNode, AssimpToGLM( scene->mRootNode->mTransformation ) );
-    importer.FreeScene();
+    ProcessSkeleton( scene );
+    ProcessAnimations( scene );
 
+    importer.FreeScene();
     return true;
 }
 
-std::vector<Moonlight::MeshData*> ModelResource::GetAllMeshes()
+
+const std::vector<Moonlight::MeshData*>& ModelResource::GetAllMeshes() const
 {
-    std::vector<Moonlight::MeshData*> meshes;
-    std::stack<Moonlight::Node*> nodes;
-    nodes.push( &RootNode );
-    while( !nodes.empty() )
-    {
-        Moonlight::Node& child = *nodes.top();
-        nodes.pop();
-        for( Moonlight::MeshData* childMesh : child.Meshes )
-        {
-            meshes.push_back( childMesh );
-        }
-        for( Moonlight::Node& childNode : child.Nodes )
-        {
-            nodes.push( &childNode );
-        }
-    }
-    return meshes;
+    return m_allMeshData;
 }
+
+
+const std::vector<Moonlight::AnimationClip>& ModelResource::GetAnimations() const
+{
+    return m_animations;
+}
+
 
 void ModelResource::ProcessNode( aiNode* node, const aiScene* scene, Moonlight::Node& parent, glm::mat4 parentTransform )
 {
@@ -233,6 +233,82 @@ void ModelResource::ProcessNode( aiNode* node, const aiScene* scene, Moonlight::
     }
 }
 
+
+void ModelResource::ProcessSkeleton( const aiScene* inScene )
+{
+    for( unsigned int meshIndex = 0; meshIndex < inScene->mNumMeshes; ++meshIndex )
+    {
+        const aiMesh* aiMeshPtr = inScene->mMeshes[meshIndex];
+
+        for( unsigned int boneIndex = 0; boneIndex < aiMeshPtr->mNumBones; ++boneIndex )
+        {
+            const aiBone* aiBonePtr = aiMeshPtr->mBones[boneIndex];
+
+            std::string boneName = aiBonePtr->mName.C_Str();
+
+            if( m_skeleton.BoneNameToIndex.find( boneName ) == m_skeleton.BoneNameToIndex.end() )
+            {
+                uint32_t newIndex = (uint32_t)m_skeleton.Bones.size();
+                m_skeleton.BoneNameToIndex[boneName] = newIndex;
+
+                Moonlight::BoneInfo boneInfo;
+                boneInfo.Offset = Matrix4( AssimpToGLM( aiBonePtr->mOffsetMatrix) );
+                boneInfo.FinalTransform = Matrix4();
+                m_skeleton.Bones.push_back( boneInfo );
+            }
+        }
+    }
+}
+
+
+void ModelResource::ProcessAnimations( const aiScene* scene )
+{
+    if( !scene->HasAnimations() )
+    {
+        return;
+    }
+
+    ME_ASSERT_MSG( false, "HAS ANIMS WOWWWW!!!!!! YIPPEEE!!!" );
+
+    for( unsigned int i = 0; i < scene->mNumAnimations; ++i )
+    {
+        aiAnimation* anim = scene->mAnimations[i];
+
+        Moonlight::AnimationClip clip;
+        clip.Name = anim->mName.length > 0 ? anim->mName.C_Str() : "UnnamedAnimation";
+        clip.Duration = static_cast<float>( anim->mDuration );
+        clip.TicksPerSecond = ( anim->mTicksPerSecond != 0.0 ) ? static_cast<float>( anim->mTicksPerSecond ) : 25.0f;
+        BRUH( clip.Name );
+
+
+        clip.NodeChannels.reserve( anim->mNumChannels );
+        for( unsigned int channelIndex = 0; channelIndex < anim->mNumChannels; ++channelIndex )
+        {
+            aiNodeAnim* aiNodeAnimation = anim->mChannels[channelIndex];
+            Moonlight::NodeAnimation nodeAnim;
+            nodeAnim.NodeName = aiNodeAnimation->mNodeName.C_Str();
+            nodeAnim.Keyframes = BuildKeyframes( aiNodeAnimation, clip.TicksPerSecond );
+            BRUH( nodeAnim.NodeName );
+
+            clip.NodeChannels.push_back( std::move( nodeAnim ) );
+        }
+        m_animations.push_back( std::move( clip ) );
+    }
+}
+
+
+std::vector<Moonlight::Keyframe> ModelResource::BuildKeyframes( const aiNodeAnim* channel, float ticksPerSecond )
+{
+    std::vector<Moonlight::Keyframe> keyframes;
+
+    // assume each array is the same length for now
+    // no do this again
+    unsigned int keyframeCount = std::max( std::max( channel->mNumPositionKeys, channel->mNumRotationKeys ), channel->mNumScalingKeys );
+
+    return keyframes;
+}
+
+
 Moonlight::MeshData* ModelResource::ProcessMesh( aiMesh* mesh, Moonlight::Node& inParent, const aiScene* scene )
 {
     std::vector<Moonlight::PosNormTexTanBiVertex> vertices;
@@ -293,6 +369,7 @@ Moonlight::MeshData* ModelResource::ProcessMesh( aiMesh* mesh, Moonlight::Node& 
     SharedPtr<Moonlight::Material> newMaterial = RootNode.MaterialCache[mesh->mMaterialIndex];
     if( !newMaterial )
     {
+        // use AI_MATKEY_SHADING_MODEL to pick a different material?
         newMaterial = RootNode.MaterialCache[mesh->mMaterialIndex] = MakeShared<DiffuseMaterial>();
 
         aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
@@ -324,6 +401,7 @@ Moonlight::MeshData* ModelResource::ProcessMesh( aiMesh* mesh, Moonlight::Node& 
     output->Name = std::string( mesh->mName.C_Str() );
     return output;
 }
+
 
 bool ModelResource::LoadMaterialTextures( SharedPtr<Moonlight::Material> newMaterial, aiMaterial* mat, aiTextureType type, const Moonlight::TextureType& typeName )
 {
@@ -382,7 +460,7 @@ bool ModelResource::LoadMaterialTextures( SharedPtr<Moonlight::Material> newMate
             if( !texture )
             {
                 Path desperationPath = ResourceCache::GetInstance().FindByName( Path( "Assets" ), Path( texturePath ).GetFileNameString( true ) );
-                ME_ASSERT_MSG( false, std::string("Loading an FBX texture that doesn't exist: \n" + texturePath + "\nFound: " + desperationPath.GetLocalPathString()).c_str());
+                ME_ASSERT_MSG( false, std::string( "Loading an FBX texture that doesn't exist: \n" + texturePath + "\nFound: " + desperationPath.GetLocalPathString() ).c_str() );
                 texture = ResourceCache::GetInstance().Get<Moonlight::Texture>( desperationPath );
             }
 #endif
@@ -401,18 +479,22 @@ bool ModelResource::LoadMaterialTextures( SharedPtr<Moonlight::Material> newMate
     return false;
 }
 
+
 void ModelResourceMetadata::OnSerialize( json& inJson )
 {
 }
+
 
 void ModelResourceMetadata::OnDeserialize( const json& inJson )
 {
 }
 
+
 std::string ModelResourceMetadata::GetExtension2() const
 {
     return "assbin";
 }
+
 
 #if USING( ME_EDITOR )
 
@@ -444,6 +526,7 @@ void ScaleMeshVertices( aiMesh* mesh, float scale )
     }
 }
 
+
 void ScaleSceneMeshes( const aiScene* scene, float scale )
 {
     for( unsigned int i = 0; i < scene->mNumMeshes; ++i )
@@ -451,6 +534,8 @@ void ScaleSceneMeshes( const aiScene* scene, float scale )
         ScaleMeshVertices( scene->mMeshes[i], scale );
     }
 }
+
+
 void ModelResourceMetadata::Export()
 {
     Assimp::Importer importer;
