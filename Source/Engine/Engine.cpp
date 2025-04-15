@@ -48,10 +48,8 @@ Engine& GetEngine()
 
 Engine::Engine()
     : Running( true )
-    , newJobSystem( 1, 100000 )
-    , m_jobSystem( 4 )
+    , simpleJobSystem()
 {
-
     std::vector<TypeId> events;
     events.push_back( LoadSceneEvent::GetEventId() );
     events.push_back( WindowMovedEvent::GetEventId() );
@@ -181,7 +179,7 @@ void Engine::Init( Game* game )
     {
         systemRegistry.RegisterSystem( this );
         systemRegistry.RegisterSystem( NewRenderer );
-        systemRegistry.RegisterSystem( &m_jobSystem );
+        systemRegistry.RegisterSystem( &simpleJobSystem );
     }
     updateContext.m_SystemRegistry = &systemRegistry;
 
@@ -270,9 +268,9 @@ void Engine::Run()
                     OPTICK_EVENT( "GetGlobalMousePosition" );
                     // Multi-viewport mode: mouse position in OS absolute coordinates (io.MousePos is (0,0) when the mouse is on the upper-left of the primary monitor)
                     mousePos = input.GetGlobalMousePosition();
-                    m_frameRenderSettings.MousePosition = mousePos;
-                    m_frameRenderSettings.WasLeftPressed = input.WasMouseButtonPressed( MouseButton::Left );
                 }
+                m_frameRenderSettings.MousePosition = mousePos;
+                m_frameRenderSettings.WasLeftPressed = input.WasMouseButtonPressed( MouseButton::Left );
                 ImGui_ImplSDL2_NewFrame();
 
                 NewRenderer->BeginFrame( mousePos, ( input.IsMouseButtonDown( MouseButton::Left ) ? 0x01 : 0 )
@@ -397,7 +395,6 @@ void Engine::Run()
             FrameProfile::GetInstance().End( AccumulatedTime );
 #endif
             AccumulatedTime = 0;// std::fmod(AccumulatedTime, MaxDeltaTime);
-            GetJobEngine().ClearWorkerPools();
             GetInput().PostUpdate();
 #if USING ( ME_EDITOR )
             GetEditorInput().PostUpdate();
@@ -476,15 +473,11 @@ Input& Engine::GetInput()
     return m_input;
 }
 
-JobEngine& Engine::GetJobEngine()
+SimpleJobSystem& Engine::GetJobSystem()
 {
-    return newJobSystem;
+    return simpleJobSystem;
 }
 
-std::tuple<Worker*, Pool&> Engine::GetJobSystemNew()
-{
-    return { newJobSystem.GetThreadWorker(), newJobSystem.GetThreadWorker()->GetPool() };
-}
 
 void Engine::LoadScene( const std::string& SceneFile )
 {

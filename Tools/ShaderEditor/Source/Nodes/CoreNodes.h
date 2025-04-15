@@ -19,3 +19,16 @@ public:
 
     bool OnRender() override;
 };
+
+class DeltaTimeNode
+    : public Node
+{
+public:
+    DeltaTimeNode( int& inId );
+
+    bool OnEvaluate() override;
+
+    void OnExport( ShaderWriter& inFile ) override;
+
+    bool OnRender() override;
+};

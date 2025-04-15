@@ -53,6 +53,8 @@ public:
 
     Matrix4 WorldToCamera;
 
+    Matrix4 GetProjectionMatrix() const;
+
 #if USING( ME_EDITOR )
     virtual void OnEditorInspect() final;
 #endif

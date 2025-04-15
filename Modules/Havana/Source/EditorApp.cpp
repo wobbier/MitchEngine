@@ -60,7 +60,7 @@ EditorApp::~EditorApp()
 
 void EditorApp::OnStart()
 {
-    Camera::EditorCamera->Near = 0.1f;
+    Camera::EditorCamera->Near = 1.f;
 }
 
 
@@ -92,7 +92,9 @@ void EditorApp::UpdateCameras()
     EditorCamera.Position = camTransform->GetPosition();
     EditorCamera.Front = camTransform->Front();
     EditorCamera.Up = camTransform->Up();
+    // this is why the game is fucked, need to tell it a custom render size from the world.
     EditorCamera.OutputSize = Editor->GetWorldEditorRenderSize();
+    editorCamera->OutputSize = EditorCamera.OutputSize;
     EditorCamera.FOV = editorCamera->GetFOV();
     EditorCamera.Near = editorCamera->Near;
     EditorCamera.Far = editorCamera->Far;
@@ -101,7 +103,7 @@ void EditorApp::UpdateCameras()
     EditorCamera.ClearType = Camera::CurrentCamera->ClearType;
     EditorCamera.Projection = editorCamera->Projection;
     EditorCamera.OrthographicSize = editorCamera->OrthographicSize;
-    EditorCamera.ShouldCull = false;
+    //EditorCamera.ShouldCull = false;
 
     Vector3& eye = EditorCamera.Position;
     Vector3 at = eye + EditorCamera.Front;
@@ -110,11 +112,8 @@ void EditorApp::UpdateCameras()
     EditorCamera.View = glm::lookAtLH( eye.InternalVector, at.InternalVector, up.InternalVector );
     Frustum& camFrustum = editorCamera->CameraFrustum;
 
-
-    Matrix4 testMatrix;
-    bx::mtxProj( &testMatrix.GetInternalMatrix()[0][0], EditorCamera.FOV, float( EditorCamera.OutputSize.x ) / float( EditorCamera.OutputSize.y ), std::max( EditorCamera.Near, 0.01f ), EditorCamera.Far, bgfx::getCaps()->homogeneousDepth );
-    camFrustum.Update( testMatrix, EditorCamera.View, EditorCamera.FOV, EditorCamera.OutputSize, EditorCamera.Near, EditorCamera.Far );
-    EditorCamera.ProjectionMatrix = testMatrix;
+    EditorCamera.ProjectionMatrix = editorCamera->GetProjectionMatrix();
+    camFrustum.Update( EditorCamera.ProjectionMatrix, EditorCamera.View, EditorCamera.FOV, EditorCamera.OutputSize, EditorCamera.Near, EditorCamera.Far );
 
     EditorCamera.ViewFrustum = editorCamera->CameraFrustum;
 

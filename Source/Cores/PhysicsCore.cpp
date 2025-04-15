@@ -85,12 +85,6 @@ void PhysicsCore::Update( const UpdateContext& inUpdateContext )
     //	}
     //}
 
-    auto [worker, pool] = GetEngine().GetJobSystemNew();
-
-    Job* rootJob = pool.CreateClosureJob( []( Job& job ) {
-
-        } );
-
     for( auto& batch : batches )
     {
         int batchBegin = batch.first;
@@ -176,8 +170,6 @@ void PhysicsCore::Update( const UpdateContext& inUpdateContext )
     //GetEngine().GetJobEngine().Wait();
     //burst.AddWork2(job, sizeof(Burst::LambdaWorkEntry));
     }
-    worker->Submit( rootJob );
-    worker->Wait( rootJob );
     //burst.FinalizeWork();
 #endif
 }

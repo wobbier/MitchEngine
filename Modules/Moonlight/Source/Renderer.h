@@ -43,6 +43,7 @@ class BGFXRenderer
 {
     static constexpr bgfx::ViewId kClearView = 0;
     static constexpr std::size_t kMeshTransparencyTempSize = 60;
+    friend class RenderCore;
 public:
     ME_SYSTEM_ID( BGFXRenderer );
 

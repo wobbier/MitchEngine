@@ -12,6 +12,8 @@
 #include <mono/metadata/mono-debug.h>
 #include <mono/metadata/threads.h>
 #include "ECS/Entity.h"
+#include "Engine/Engine.h"
+#include "Cores/SceneCore.h"
 
 
 ScriptEngine::ScriptData ScriptEngine::sScriptData;
@@ -58,6 +60,63 @@ static void NativeLog_Vector( Vector3* inVector, Vector3* outVec )
 static float Native_VectorLength( Vector3* inVector )
 {
     return inVector->Length();
+}
+
+static bool ImGui_Begin( MonoString* inString )
+{
+    char* str = mono_string_to_utf8( inString );
+    bool ret = ImGui::Begin( str );
+    mono_free( str );
+    return ret;
+}
+
+static void ImGui_Text( MonoString* inString )
+{
+    char* str = mono_string_to_utf8( inString );
+    ImGui::Text( str );
+    mono_free( str );
+}
+
+static const Transform* World_GetTransformByName_InternalRecursive( Transform* inParent, const std::string& inString )
+{
+    for( auto& transform : inParent->GetChildren() )
+    {
+        if( transform->GetName() == inString )
+        {
+            return transform.get();
+        }
+    }
+    return nullptr;
+}
+
+static EntityID World_GetTransformByName( MonoString* inString )
+{
+    char* str = mono_string_to_utf8( inString );
+
+    const Transform* found = World_GetTransformByName_InternalRecursive( GetEngine().SceneNodes->GetRootTransform(), str );
+    
+    mono_free( str );
+    if( found )
+    {
+        return found->Parent.GetID();
+    }
+    return EntityID( 0, 0 );
+}
+
+static void ImGui_Checkbox( MonoString* inString, MonoBoolean* inValue )
+{
+    char* str = mono_string_to_utf8( inString );
+    bool checkbox = *inValue;
+    if( ImGui::Checkbox( str, &checkbox ) )
+    {
+        *inValue = checkbox;
+    }
+    mono_free( str );
+}
+
+static void ImGui_End()
+{
+    ImGui::End();
 }
 
 
@@ -121,6 +180,16 @@ void ScriptEngine::Init()
     Path appPath( "Game.Script.dll" );
     // todo: fix path
 #if USING( ME_EDITOR )
+#if USING( ME_RELEASE )
+    if( !path.Exists )
+    {
+        path = Path( ".build/editor_release/ScriptCore.dll" );
+    }
+    if( !appPath.Exists )
+    {
+        appPath = Path( ".build/editor_release/Game.Script.dll" );
+    }
+#else
     if( !path.Exists )
     {
         path = Path( ".build/editor_debug/ScriptCore.dll" );
@@ -129,6 +198,7 @@ void ScriptEngine::Init()
     {
         appPath = Path( ".build/editor_debug/Game.Script.dll" );
     }
+#endif
 #else
     if( !path.Exists )
     {
@@ -159,14 +229,14 @@ void ScriptEngine::InitMono()
     {
         const char* argv[2] = {
             "--debugger-agent=transport=dt_socket,address=127.0.0.1:2550,server=y,suspend=n,loglevel=3,logfile=MonoDebugger.log",
-            "--soft-breakpoints"
+            "--soft-breakpoints",
         };
         mono_jit_parse_options( 2, (char**)argv );
         mono_debug_init( MONO_DEBUG_FORMAT_MONO );
     }
 
     //mono_set_dirs( MONO_HOME "/lib", MONO_HOME "/etc" );
-    sScriptData.RootDomain = mono_jit_init( "MEMonoRuntime" );
+    sScriptData.RootDomain = mono_jit_init_version( "MEMonoRuntime", "v4.0.30319 --debug" );
     if( !sScriptData.RootDomain )
     {
         YIKES( "mono_jit_init failed" );
@@ -187,6 +257,11 @@ void ScriptEngine::RegisterFunctions()
     mono_add_internal_call( "TestScript::NativeLog", (void*)NativeLog );
     mono_add_internal_call( "TestScript::NativeLog_Vector", (void*)NativeLog_Vector );
     mono_add_internal_call( "TestScript::Native_VectorLength", (void*)Native_VectorLength );
+    mono_add_internal_call( "ImGui::ImGui_Begin", (void*)ImGui_Begin );
+    mono_add_internal_call( "ImGui::ImGui_End", (void*)ImGui_End );
+    mono_add_internal_call( "ImGui::ImGui_Text", (void*)ImGui_Text );
+    mono_add_internal_call( "ImGui::ImGui_Checkbox", (void*)ImGui_Checkbox );
+    mono_add_internal_call( "World::World_GetTransformByName", (void*)World_GetTransformByName );
 }
 
 

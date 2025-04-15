@@ -242,6 +242,9 @@ void BGFXRenderer::Render( Moonlight::CameraData& EditorCamera, FrameRenderData&
                     cam.Buffer->ReCreate( m_resetFlags );
                 }
             }
+#if USING( ME_EDITOR )
+            EditorCamera.Buffer->ReCreate( m_resetFlags );
+#endif
         }
         NeedsReset = false;
     }
@@ -327,47 +330,6 @@ void BGFXRenderer::SetGuizmoDrawCallback( std::function<void( DebugDrawer* )> Gu
     m_guizmoCallback = GuizmoDrawingFunc;
 }
 
-Matrix4 CalculateObliqueMatrix( const Matrix4& projection, const glm::vec4& clipPlane )
-{
-    Matrix4 returnMat = projection.GetInternalMatrix();
-    {
-        glm::vec4 vCamera = {
-        ( Mathf::Sign( clipPlane.x ) + returnMat.GetInternalMatrix()[2][0] ) / returnMat.GetInternalMatrix()[0][0],
-        ( Mathf::Sign( clipPlane.y ) + returnMat.GetInternalMatrix()[2][1] ) / returnMat.GetInternalMatrix()[1][1],
-        1.f,
-        ( 1.f + returnMat.GetInternalMatrix()[2][2] ) / returnMat.GetInternalMatrix()[3][2]
-        };
-
-        float m = 2.f / glm::dot( clipPlane, vCamera );
-        returnMat.GetInternalMatrix()[0][2] = clipPlane.x * m;
-        returnMat.GetInternalMatrix()[1][2] = clipPlane.y * m;
-        returnMat.GetInternalMatrix()[2][2] = clipPlane.z * m;
-        returnMat.GetInternalMatrix()[3][2] = clipPlane.w * m;
-    }
-    /*{
-        glm::vec4 vCamera = {
-        (Mathf::Sign(clipPlane.x) - returnMat.GetInternalMatrix()[0][2]) / returnMat.GetInternalMatrix()[0][0],
-        (Mathf::Sign(clipPlane.y) - returnMat.GetInternalMatrix()[1][2]) / returnMat.GetInternalMatrix()[1][1],
-        1.f,
-        (1.f - returnMat.GetInternalMatrix()[2][2]) / returnMat.GetInternalMatrix()[2][3]
-        };
-
-        float m = 1.f / glm::dot(clipPlane, vCamera);
-        returnMat.GetInternalMatrix()[2][0] = m * clipPlane.x;
-        returnMat.GetInternalMatrix()[2][1] = m * clipPlane.y;
-        returnMat.GetInternalMatrix()[2][2] = m * clipPlane.z;
-        returnMat.GetInternalMatrix()[2][3] = m * clipPlane.w;
-    }*/
-    //{
-    //	glm::vec4 q = projection.Inverse().GetInternalMatrix() * glm::vec4(Mathf::Sign(clipPlane.x), Mathf::Sign(clipPlane.y), 1.f, 1.f);
-    //	glm::vec4 c = clipPlane * (2.f / glm::dot(clipPlane, q));
-    //	returnMat.GetInternalMatrix()[2][0] = c.x - returnMat.GetInternalMatrix()[3][0];
-    //	returnMat.GetInternalMatrix()[2][1] = c.y - returnMat.GetInternalMatrix()[3][1];
-    //	returnMat.GetInternalMatrix()[2][2] = c.z - returnMat.GetInternalMatrix()[3][2];
-    //	returnMat.GetInternalMatrix()[2][3] = c.w - returnMat.GetInternalMatrix()[3][3];
-    //}
-    return returnMat;
-}
 
 void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId id )
 {
@@ -384,36 +346,16 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId
     std::string viewName = "Game " + std::to_string( id );
     bgfx::setViewName( id, viewName.c_str() );
 
-    // Set view and projection matrix for view 0.
-    Matrix4 view = camera.View;
-    //bx::mtxLookAt(view, eye, at, up);
-
-    // #TODO: remove this custom code and rely on camera data
-    Matrix4 proj;
-    if( camera.Projection == Moonlight::ProjectionType::Perspective )
-    {
-        bx::mtxProj( &proj.GetInternalMatrix()[0][0], camera.FOV, float( camera.OutputSize.x ) / float( camera.OutputSize.y ), std::max( camera.Near, 0.01f ), camera.Far, bgfx::getCaps()->homogeneousDepth );
-    }
-    else
-    {
-        bx::mtxOrtho( &proj.GetInternalMatrix()[0][0], -( camera.OutputSize.x / camera.OrthographicSize ), ( camera.OutputSize.x / camera.OrthographicSize ), -( camera.OutputSize.y / camera.OrthographicSize ), ( camera.OutputSize.y / camera.OrthographicSize ), camera.Near, camera.Far, 0.f, bgfx::getCaps()->homogeneousDepth );
-    }
-
-    if( camera.IsOblique )
-    {
-        proj = CalculateObliqueMatrix( proj.GetInternalMatrix(), camera.ObliqueData );
-    }
-
-    bgfx::setViewTransform( id, &camera.View.GetInternalMatrix()[0][0], &proj.GetInternalMatrix()[0][0] );
+    // Set view and projection matrix for view.
+    bgfx::setViewTransform( id, &camera.View.GetInternalMatrix()[0][0], &camera.ProjectionMatrix.GetInternalMatrix()[0][0] );
     if( id > 0 )
     {
         bgfx::setViewFrameBuffer( id, camera.Buffer->Buffer );
     }
 
-    // Set view 0 default viewport.
+    // Set view default viewport.
     bgfx::setViewRect( id, 0, 0, uint16_t( camera.OutputSize.x ), uint16_t( camera.OutputSize.y ) );
 
-    //bgfx::touch(0);
     uint32_t color = (uint32_t)( camera.ClearColor.x * 255.f ) << 24 | (uint32_t)( camera.ClearColor.y * 255.f ) << 16 | (uint32_t)( camera.ClearColor.z * 255.f ) << 8 | 255;
     bgfx::setViewClear( id
         , BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH
@@ -423,8 +365,6 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId
     bgfx::touch( id );
     bgfx::setViewMode( id, bgfx::ViewMode::Sequential );
 
-    //bgfx::setViewTransform( id, &camera.View.GetInternalMatrix()[0][0], &camera.ProjectionMatrix.GetInternalMatrix()[0][0] );
-    //bgfx::setViewTransform( 0, &view.GetInternalMatrix()[0][0], &proj.GetInternalMatrix()[0][0] );
     if( camera.ClearType == Moonlight::ClearColorType::Procedural )
     {
         m_dynamicSky->Draw( id );
@@ -440,8 +380,6 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId
             | s_ptState[m_pt]
             ;
 
-        //			XMStoreFloat4x4(&m_constantBufferSceneData.model, XMMatrixTranslation(eye[0], eye[1], eye[2]));
-        //			XMStoreFloat4x4(&m_constantBufferSceneData.modelInv, XMMatrixInverse(nullptr, XMMatrixTranslation(eye[0], eye[1], eye[2])));
         // Set model matrix for rendering.
         glm::mat4 model = glm::mat4( 1.f );
         model = glm::translate( model, camera.Position.InternalVector );
@@ -486,11 +424,11 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId
     TransparentIndicies.clear();
     {
         OPTICK_CATEGORY( "Meshes", Optick::Category::GPU_Scene );
-
+        bool hasCullingInfo = camera.ShouldCull && !camera.VisibleFlags.empty();
         for( size_t i = 0; i < m_meshCache.Commands.size(); ++i )
         {
             const Moonlight::MeshCommand& mesh = m_meshCache.Commands[i];
-            if( camera.ShouldCull && !camera.VisibleFlags[mesh.VisibilityIndex] )
+            if( hasCullingInfo && !camera.VisibleFlags[mesh.VisibilityIndex] )
             {
                 continue;
             }
@@ -545,9 +483,6 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId
 
             for( auto index : TransparentIndicies )
             {
-                //m_debugDraw->Push();
-                //m_debugDraw->Draw(&m_meshCache.Commands[index].Transform[0][0]);
-                //m_debugDraw->Pop();
                 RenderSingleMesh( id, m_meshCache.Commands[index], transparentState );
             }
     }

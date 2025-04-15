@@ -543,6 +543,11 @@ void ShaderEditorInstance::HandleAddNodeConxtualMenu()
             node = new UniformNode( m_NextId );
             m_Nodes.push_back( node );
         }
+        if( ImGui::MenuItem( "DeltaTime" ) )
+        {
+            node = new DeltaTimeNode( m_NextId );
+            m_Nodes.push_back( node );
+        }
 
         if( node )
         {
@@ -685,6 +690,11 @@ Node* ShaderEditorInstance::SpawnNodeFromString( int& inNodeId, const std::strin
     if( inId == "Uniform" )
     {
         return new UniformNode( inNodeId );
+    }
+
+    if( inId == "DeltaTimeNode" )
+    {
+        return new DeltaTimeNode( inNodeId );
     }
 
     // Make this into it's own node

@@ -234,7 +234,7 @@ namespace MonoUtils
         if( loadPDB )
         {
             std::filesystem::path pdbPath = path.FullPath;
-            pdbPath.replace_extension( ".pdb" );
+            pdbPath.replace_extension( ".dll.mdb" );
 
             if( std::filesystem::exists( pdbPath ) )
             {

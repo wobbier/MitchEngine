@@ -20,7 +20,7 @@ public:
     AudioSource();
     AudioSource( const std::string& InFilePath );
 
-    void Play( const bool ShouldLoop = false );
+    void Play( bool ShouldLoop = false, bool StartPaused = false );
     void Pause();
     void Resume();
     void Stop( bool immediate = true );
@@ -30,8 +30,8 @@ public:
     bool IsPlaying() const;
     bool IsPaused() const;
 
-    unsigned int GetLength();
-    unsigned int GetPositionMs();
+    unsigned int GetLength() const;
+    unsigned int GetPositionMs() const;
     float GetVolume();
     void SetPositionMs( unsigned int position );
     void SetPositionPercent( float positionPercent );

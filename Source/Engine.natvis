@@ -16,5 +16,13 @@
 	<Type Name="Matrix4">
 		<DisplayString>{{{m_matrix}}}</DisplayString>
 	</Type>
-  
+  <Type Name="glm::vec<4,float,0>">
+    <DisplayString>{{x={x}, y={y}, z={z}, w={w}}}</DisplayString>
+    <Expand>
+      <Item Name="x">x</Item>
+      <Item Name="y">y</Item>
+      <Item Name="z">z</Item>
+      <Item Name="w">w</Item>
+    </Expand>
+  </Type>
 </AutoVisualizer>

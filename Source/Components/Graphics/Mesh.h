@@ -41,6 +41,7 @@ public:
 private:
     unsigned int Id = 0;
     Moonlight::MeshType Type;
+    Path MaterialAssetPath;
 
     std::string GetMeshTypeString( Moonlight::MeshType InType );
     Moonlight::MeshType GetMeshTypeFromString( const std::string& InType );

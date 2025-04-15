@@ -18,13 +18,21 @@ namespace Moonlight
 
     MeshData::~MeshData()
     {
-        bgfx::destroy( m_vbh );
-        bgfx::destroy( m_ibh );
+        if( bgfx::isValid( m_vbh ) )
+            bgfx::destroy( m_vbh );
+
+        if( bgfx::isValid( m_ibh ) )
+            bgfx::destroy( m_ibh );
     }
 
     void MeshData::InitMesh()
     {
         m_vbh = bgfx::createVertexBuffer( bgfx::makeRef( Vertices.data(), sizeof( Moonlight::PosNormTexTanBiVertex ) * static_cast<uint16_t>( Vertices.size() ) ), Moonlight::PosNormTexTanBiVertex::ms_layout );
+        if( !bgfx::isValid( m_vbh ) )
+        {
+            ME_ASSERT_MSG( false, "Ran out of vbh?" );
+        }
+
         m_ibh = bgfx::createIndexBuffer( bgfx::makeRef( Indices.data(), sizeof( uint16_t ) * static_cast<uint16_t>( Indices.size() ) ) );
     }
 

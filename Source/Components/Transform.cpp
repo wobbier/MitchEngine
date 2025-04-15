@@ -45,6 +45,8 @@ void Transform::SetPosition( const Vector3& NewPosition )
 {
     LocalPosition = NewPosition;
     IsLocalToWorldDirty = true;
+    IsWorldToLocalDirty = true;
+    SetDirty( true );
 }
 
 Quaternion Transform::GetRotation() const
@@ -56,6 +58,7 @@ void Transform::SetRotation( const Quaternion& InRotation )
 {
     LocalRotation = InRotation;
     IsLocalToWorldDirty = true;
+    SetDirty( true );
 }
 
 Vector3 Transform::GetScale()
@@ -71,6 +74,7 @@ void Transform::SetScale( const Vector3& NewScale )
     }
     LocalScale = NewScale;
     IsLocalToWorldDirty = true;
+    SetDirty( true );
 }
 
 void Transform::SetScale( float NewScale )
@@ -104,6 +108,7 @@ void Transform::SetWorldPosition( const Vector3& NewPosition )
     }
 
     IsWorldToLocalDirty = true;
+    SetDirty( true );
 }
 
 Quaternion Transform::GetWorldRotation()
@@ -127,6 +132,7 @@ void Transform::SetWorldRotation( const Quaternion& inRotation )
         SetRotation( inRotation );
     }
     IsWorldToLocalDirty = true;
+    SetDirty( true );
 }
 
 void Transform::Translate( Vector3 NewPosition )
@@ -136,6 +142,7 @@ void Transform::Translate( Vector3 NewPosition )
         return;
     }
     SetWorldPosition( LocalPosition + NewPosition );
+    SetDirty( true );
 }
 
 void Transform::Rotate( const Vector3& inDegrees, TransformSpace inRelativeTo /*= TransformSpace::Self*/ )
@@ -151,6 +158,7 @@ void Transform::Rotate( const Vector3& inDegrees, TransformSpace inRelativeTo /*
         LocalRotation = LocalRotation * eulerRot;
         SetRotation( LocalRotation );
     }
+    SetDirty( true );
 }
 
 Vector3 Transform::Front()
@@ -175,6 +183,7 @@ void Transform::Reset()
     SetScale( 1.f );
     Matrix4 idMat;
     SetWorldTransform( idMat, true );
+    SetDirty( true );
 }
 
 void Transform::SetWorldTransform( Matrix4& NewWorldTransform, bool InIsDirty )
@@ -195,11 +204,12 @@ void Transform::SetWorldTransform( Matrix4& NewWorldTransform, bool InIsDirty )
     // update local transform
     //WorldTransform = std::move(NewWorldTransform);
     IsWorldToLocalDirty = true;
+    SetDirty( true );
 }
 
 const bool Transform::IsDirty() const
 {
-    return IsLocalToWorldDirty || IsWorldToLocalDirty;
+    return true;// IsLocalToWorldDirty || IsWorldToLocalDirty;
 }
 
 const Matrix4& Transform::GetLocalToWorldMatrix()
@@ -220,7 +230,7 @@ const Matrix4& Transform::GetLocalToWorldMatrix()
 }
 bool Transform::FuncIsLocalToWorldDirty()
 {
-    return IsLocalToWorldDirty || ( ParentTransform && ParentTransform->FuncIsLocalToWorldDirty() );
+    return true;// IsLocalToWorldDirty || ( ParentTransform && ParentTransform->FuncIsLocalToWorldDirty() );
 }
 
 const Matrix4& Transform::GetWorldToLocalMatrix()
@@ -236,18 +246,20 @@ const Matrix4& Transform::GetWorldToLocalMatrix()
 
 void Transform::SetDirty( bool Dirty )
 {
-    //OPTICK_EVENT( "Transform::SetDirty" );
-    //if( Dirty && ( Dirty != m_isDirty ) )
-    //{
-    //    for( SharedPtr<Transform>& Child : Children )
-    //    {
-    //        if( Child )
-    //        {
-    //            Child->SetDirty( Dirty );
-    //        }
-    //    }
-    //}
-    //m_isDirty = Dirty;
+    OPTICK_EVENT( "Transform::SetDirty" );
+    if( Dirty && ( Dirty != m_isDirty ) )
+    {
+        for( SharedPtr<Transform>& Child : Children )
+        {
+            if( Child )
+            {
+                Child->SetDirty( Dirty );
+            }
+        }
+    }
+    IsWorldToLocalDirty = true;
+    IsLocalToWorldDirty = true;
+    m_isDirty = Dirty;
 }
 
 void Transform::LookAt( const Vector3& InDirection )

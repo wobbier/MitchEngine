@@ -10,6 +10,7 @@
 #include "Dementia.h"
 // move once I move the material??
 #include "Core/Assert.h"
+#include "Resource/Resource.h"
 
 #define ME_REGISTER_MATERIAL_NAME_FOLDER(TYPE, NAME, FOLDER)            \
 	namespace details {                                       \
@@ -56,6 +57,7 @@ namespace Moonlight
         Count
     };
     class Material
+        : public Resource
     {
     public:
         std::string GetRenderingModeString( RenderingMode mode )
@@ -109,6 +111,7 @@ namespace Moonlight
             ME_ASSERT_MSG( false, "Unknown Blend Mode" );
             return "Alpha";
         }
+        Material( const Path& InFilePath, WrapMode mode = WrapMode::Wrap );
         Material( const std::string& MaterialTypeName, const std::string& ShaderPath = "" );
         Material() = delete;
         virtual ~Material();
@@ -130,7 +133,7 @@ namespace Moonlight
         void CopyValues( Material* mat );
 
 #if USING( ME_TOOLS )
-        virtual void OnEditorInspect() {}
+        virtual void OnEditorInspect();
 #endif
 
         //virtual void SetSamplers() = 0;
@@ -147,10 +150,56 @@ namespace Moonlight
 
         Moonlight::ShaderCommand MeshShader;
         const std::string& GetTypeName() const;
+
+        bool Load() override
+        {
+            return true;
+        }
+
+
+        void Reload() override
+        {
+        }
+
     private:
         std::vector<std::shared_ptr<Texture>> Textures;
         std::string TypeName;
     public:
         virtual uint64_t GetRenderState( uint64_t state ) const;
     };
+
+
+
+    struct MaterialResourceMetadata
+        : public MetaBase
+    {
+        MaterialResourceMetadata( const Path& filePath ) : MetaBase( filePath )
+        {
+        }
+
+        void OnSerialize( json& inJson ) override
+        {
+        };
+        void OnDeserialize( const json& inJson ) override
+        {
+        };
+
+        virtual std::string GetExtension2() const override
+        {
+            return "mat";
+        };
+
+#if USING( ME_EDITOR )
+        virtual void OnEditorInspect() final
+        {
+        };
+#endif
+#if USING( ME_TOOLS )
+        void Export() override
+        {
+        };
+#endif
+    };
+
+    ME_REGISTER_METADATA( "mat", MaterialResourceMetadata );
 }

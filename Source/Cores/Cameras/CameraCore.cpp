@@ -32,6 +32,9 @@ void CameraCore::LateUpdate( const UpdateContext& inUpdateContext )
 {
     OPTICK_CATEGORY( "CameraCore::Update", Optick::Category::Camera );
     auto Cameras = GetEntities();
+    BGFXRenderer* renderer = inUpdateContext.GetSystem<BGFXRenderer>();
+    Vector2 windowSize = GetEngine().GetWindow()->GetSize();
+    CommandCache<Moonlight::CameraData>& cameraCache = renderer->GetCameraCache();
 
     for( auto& InEntity : Cameras )
     {
@@ -41,10 +44,10 @@ void CameraCore::LateUpdate( const UpdateContext& inUpdateContext )
 
         if( CameraComponent.IsMain() )
         {
-            CameraComponent.OutputSize = GetEngine().GetWindow()->GetSize();
+            CameraComponent.OutputSize = windowSize;
         }
 
-        Moonlight::CameraData* CamData = GetEngine().GetRenderer().GetCameraCache().Get( CameraComponent.m_id );
+        Moonlight::CameraData* CamData = cameraCache.Get( CameraComponent.m_id );
         if( CamData )
         {
             CamData->Position = TransformComponent.GetWorldPosition();
@@ -75,10 +78,10 @@ void CameraCore::LateUpdate( const UpdateContext& inUpdateContext )
             CamData->View = glm::lookAtLH( eye.InternalVector, at.InternalVector, up.InternalVector );
 
 
-            Matrix4 testMatrix;
-            bx::mtxProj( &testMatrix.GetInternalMatrix()[0][0], CamData->FOV, float( CamData->OutputSize.x ) / float( CamData->OutputSize.y ), std::max( CamData->Near, 0.01f ), CamData->Far, bgfx::getCaps()->homogeneousDepth );
-            camFrustum.Update( testMatrix, CamData->View, CamData->FOV, CamData->OutputSize, CamData->Near, CamData->Far );
-            CamData->ProjectionMatrix = testMatrix;
+            //Matrix4 testMatrix;
+            //bx::mtxProj( &testMatrix.GetInternalMatrix()[0][0], CamData->FOV, float( CamData->OutputSize.x ) / float( CamData->OutputSize.y ), std::max( CamData->Near, 0.01f ), CamData->Far, bgfx::getCaps()->homogeneousDepth );
+            CamData->ProjectionMatrix = CameraComponent.GetProjectionMatrix();
+            camFrustum.Update( CamData->ProjectionMatrix, CamData->View, CamData->FOV, CamData->OutputSize, CamData->Near, CamData->Far );
             CamData->ViewFrustum = camFrustum;
 
 
@@ -88,9 +91,8 @@ void CameraCore::LateUpdate( const UpdateContext& inUpdateContext )
             //CamData->ProjectionMatrix = testMatrix;
 
 
-
             CameraComponent.WorldToCamera = CamData->View;// CamData->ProjectionMatrix.GetInternalMatrix()* CamData->View.GetInternalMatrix();
-            GetEngine().GetRenderer().GetCameraCache().Update( CameraComponent.m_id, *CamData );
+            cameraCache.Update( CameraComponent.m_id, *CamData );
         }
     }
 }
