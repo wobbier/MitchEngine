@@ -1,6 +1,6 @@
 #pragma once
 #include <vector>
-#include "Graphics\MeshData.h"
+#include "Graphics/MeshData.h"
 #include "Pointers.h"
 
 namespace Moonlight { class Material; }
