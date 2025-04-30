@@ -12,6 +12,9 @@
 #include "Components/Transform.h"
 #include "Components/Camera.h"
 #include "Engine/Engine.h"
+#include "Components/UI/BasicUIView.h"
+#include "Scripting/MonoUtils.h"
+
 
 #if USING( ME_SCRIPTING )
 static std::unordered_map<MonoType*, std::function<bool( EntityHandle )>> s_EntityHasComponentFuncs;
@@ -32,7 +35,10 @@ static void RegisterComponent()
                 YIKES( "Could not find component type {}" );
                 return;
             }
-            s_EntityHasComponentFuncs[managedType] = []( EntityHandle entity ) { return entity->HasComponent<Component>(); };
+            s_EntityHasComponentFuncs[managedType] = []( EntityHandle entity )
+                {
+                    return entity->HasComponent<Component>();
+                };
         }( ), ... );
 }
 #endif
@@ -51,9 +57,11 @@ ScriptComponent::ScriptComponent()
     mono_add_internal_call( "Input::IsKeyDown", (void*)Input_IsKeyDown );
 
     mono_add_internal_call( "Entity::Entity_HasComponent", (void*)Entity_HasComponent );
+    mono_add_internal_call( "BasicUIView::BasicUIView_ExecuteJS", (void*)BasicUIView_ExecuteJS );
     // does this go into the other components?
     RegisterComponent<Transform>();
     RegisterComponent<Camera>();
+    RegisterComponent<BasicUIView>();
 #endif
 }
 
@@ -77,14 +85,17 @@ void ScriptComponent::Init()
                 for( const auto& [name, fieldInstance] : fieldMap )
                 {
                     Instance->SetFieldValueInternal( name, (void*)fieldInstance.Buffer );
-                    ScriptName = foundClass->first;
-                    Instance->OnCreate();
                 }
             }
+            ScriptName = foundClass->first;
+
+            // Call OnCreate exactly ONCE after initialization:
+            Instance->OnCreate();
         }
     }
 #endif
 }
+
 
 #if USING( ME_EDITOR )
 
@@ -317,8 +328,24 @@ void ScriptComponent::Camera_SetClearColor( EntityID id, Vector3* inPos )
     handle->GetComponent<Camera>().ClearColor = *inPos;
 }
 
+
+void ScriptComponent::BasicUIView_ExecuteJS( EntityID id, MonoString* inString )
+{
+    EntityHandle handle( id, ScriptEngine::sScriptData.worldPtr );
+    if( handle )
+    {
+        handle->GetComponent<BasicUIView>().ExecuteScript( MonoUtils::MonoStringToUTF8( inString ) );
+    }
+}
+
+
 bool ScriptComponent::Entity_HasComponent( EntityID id, MonoReflectionType* inType )
 {
+    if( id.IsNull() )
+    {
+        return false;
+    }
+
     EntityHandle handle( id, ScriptEngine::sScriptData.worldPtr );
 
     MonoType* managedType = mono_reflection_type_get_type( inType );
