@@ -8,6 +8,7 @@
 #include "Engine/World.h"
 #include "MonoUtils.h"
 #include "ECS/Entity.h"
+#include <mono/metadata/object.h>
 
 struct ScriptField
 {
@@ -79,12 +80,17 @@ public:
         : ScriptRef( inClass )
         , Owner( inOwner )
     {
-        Instance = inClass.Instantiate();
+        GCHandle = mono_gchandle_new( inClass.Instantiate(), false );
+
         OnCreateMethod = inClass.GetMethod( "OnCreate", 0 );
         OnUpdateMethod = inClass.GetMethod( "OnUpdate", 1 );
         void* entID = &inOwner;
-        Init( 1, &entID );
-        //Owner = EntityHandle( inOwner );
+        Init( 0, nullptr );
+    }
+
+    ~ScriptInstance()
+    {
+        mono_gchandle_free( GCHandle );
     }
 
     //explicit ScriptInstance( ScriptInstance& inClass )
@@ -100,7 +106,7 @@ public:
     {
         if( OnCreateMethod )
         {
-            ScriptRef.InvokeMethod( Instance, OnCreateMethod, nullptr );
+            ScriptRef.InvokeMethod( GetMonoObjectInstance(), OnCreateMethod, nullptr );
         }
     }
 
@@ -115,7 +121,7 @@ public:
         }
 
         void* param = &deltaTime;
-        ScriptRef.InvokeMethod( Instance, OnUpdateMethod, &param );
+        ScriptRef.InvokeMethod( GetMonoObjectInstance(), OnUpdateMethod, &param);
     }
 
     template <typename T>
@@ -124,7 +130,9 @@ public:
     template <typename T>
     void SetFieldValue( const std::string& name, T& value );
 
-    MonoObject* Instance = nullptr;
+    MonoObject* GetMonoObjectInstance() const;
+
+    uint32_t GCHandle = 0;
     MonoMethod* OnCreateMethod = nullptr;
     MonoMethod* OnUpdateMethod = nullptr;
 

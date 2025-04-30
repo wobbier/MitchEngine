@@ -130,6 +130,7 @@ void ScriptComponent::OnEditorInspect()
         ImGui::Text( ScriptName.c_str() );
 
         // Add a inspect settings option passed in
+        // #TODO: questionable??
         if( true )//if ( static_cast<EditorApp*>( GetEngine().GetGame() )->IsGameRunning() )
         {
             ScriptClass& scriptClass = ScriptEngine::GetEntityClass( ScriptName );

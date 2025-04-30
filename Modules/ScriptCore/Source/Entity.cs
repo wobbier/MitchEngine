@@ -32,7 +32,7 @@ public class Entity : MEObject
         EntID = inID;
     }
 
-    public bool HasComponent<T>() where T : Component, new()
+    public bool HasComponent<T>() where T : Component
     {
         Type type = typeof(T);
 
@@ -52,7 +52,7 @@ public class Entity : MEObject
         if (!HasComponent<T>())
             return null;
 
-        var comp = new T { EntID = this.EntID, Parent = this };
+        var comp = new T { Parent = this };
         _componentCache[type] = comp;
         return comp;
     }
