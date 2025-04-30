@@ -232,7 +232,7 @@ MonoMethod* ScriptClass::GetMethod( const std::string& inFuncName, int params ) 
 void ScriptClass::InvokeMethod( MonoObject* inInstance, MonoMethod* inMethod, void** inParams )
 {
     MonoObject* exception = nullptr;
-
+    ME_ASSERT_MSG( inInstance != nullptr, "ScriptClass::InvokeMethod instance is bad!!" );
     mono_runtime_invoke( inMethod, inInstance, inParams, &exception );
 }
 
@@ -539,16 +539,21 @@ void ScriptEngine::CacheAssemblyTypes()
     }
 }
 
+MonoObject* ScriptInstance::GetMonoObjectInstance() const
+{
+    return mono_gchandle_get_target( GCHandle );
+}
+
 void ScriptInstance::Init( int numParams /*= 0*/, void** params /*= nullptr*/ )
 {
     if( numParams <= 0 )
     {
-        mono_runtime_object_init( Instance );
+        mono_runtime_object_init( GetMonoObjectInstance() );
     }
     else
     {
         auto method = ScriptEngine::sScriptData.entityClass.GetMethod( ".ctor", numParams );
-        ScriptRef.InvokeMethod( Instance, method, params );
+        ScriptRef.InvokeMethod( GetMonoObjectInstance(), method, params );
     }
 }
 
@@ -559,7 +564,7 @@ bool ScriptInstance::GetFieldValueInternal( const std::string& name, void* outVa
     if( it == fields.end() )
         return false;
 
-    mono_field_get_value( Instance, it->second.Field, outValue );
+    mono_field_get_value( GetMonoObjectInstance(), it->second.Field, outValue );
     return true;
 }
 
@@ -570,7 +575,7 @@ bool ScriptInstance::SetFieldValueInternal( const std::string& name, void* inVal
     if( it == fields.end() )
         return false;
 
-    mono_field_set_value( Instance, it->second.Field, inValue );
+    mono_field_set_value( GetMonoObjectInstance(), it->second.Field, inValue );
     return true;
 }
 

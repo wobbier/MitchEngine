@@ -6,7 +6,7 @@ public class BasicUIView
 {
     public void ExecuteJS(string inJS)
     {
-        BasicUIView_ExecuteJS(EntID, inJS);
+        BasicUIView_ExecuteJS(Parent.EntID, inJS);
     }
 
     [MethodImplAttribute(MethodImplOptions.InternalCall)]
