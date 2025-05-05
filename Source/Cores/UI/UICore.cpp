@@ -167,18 +167,10 @@ void UICore::Update( const UpdateContext& inUpdateContext )
     bool isCtrlDown = gameInput.IsKeyDown( KeyCode::LeftControl ) || gameInput.IsKeyDown( KeyCode::RightControl );
     bool isAltDown = gameInput.IsKeyDown( KeyCode::LeftAlt ) || gameInput.IsKeyDown( KeyCode::RightAlt );
     uint8_t keyMods = 0;
-    if( isShiftDown )
-    {
-        keyMods |= ultralight::KeyEvent::Modifiers::kMod_ShiftKey;
-    }
-    if( isCtrlDown )
-    {
-        keyMods |= ultralight::KeyEvent::Modifiers::kMod_CtrlKey;
-    }
-    if( isAltDown )
-    {
-        keyMods |= ultralight::KeyEvent::Modifiers::kMod_AltKey;
-    }
+
+    if( isShiftDown ) keyMods |= ultralight::KeyEvent::Modifiers::kMod_ShiftKey;
+    if( isCtrlDown )  keyMods |= ultralight::KeyEvent::Modifiers::kMod_CtrlKey;
+    if( isAltDown )   keyMods |= ultralight::KeyEvent::Modifiers::kMod_AltKey;
 
     {
         OPTICK_EVENT( "UI Keyboard Update", Optick::Category::UI );
