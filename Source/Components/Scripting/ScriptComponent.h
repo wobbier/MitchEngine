@@ -46,6 +46,7 @@ private:
     static bool Entity_HasComponent( EntityID id, MonoReflectionType* inType );
     static bool Input_IsKeyDown( KeyCode key );
     static void BasicUIView_ExecuteJS( EntityID id, MonoString* inString );
+    static MonoString* HTTP_DownloadFile( MonoString* inURL, MonoString* inDirectory );
 
     SharedPtr<ScriptInstance> Instance = nullptr;
 #endif
