@@ -25,6 +25,7 @@ static SDL_Cursor* g_ul_to_sdl_cursor[ultralight::kCursor_Custom];
 #include "UI/FileLogger.h"
 #include "UI/FileSystemBasic.h"
 #include "UI/UIUtils.h"
+#include "UI/Platform/UIClipboard.h"
 
 UICore::UICore( IWindow* window, BGFXRenderer* renderer )
     : Base( ComponentFilter().Requires<BasicUIView>() )
@@ -55,6 +56,7 @@ UICore::UICore( IWindow* window, BGFXRenderer* renderer )
 
 
     ultralight::Platform::instance().set_config( m_config );
+    ultralight::Platform::instance().set_clipboard( new UIClipboard() );
     // maybe make this customizable, I would like to load assets out the UI folder maybe?
     ultralight::Platform::instance().set_file_system( new FileSystemBasic( Path( "Assets/UI" ).FullPath.c_str() ) );
     ultralight::Platform::instance().set_logger( new FileLogger( "ultralight.log" ) );
@@ -165,25 +167,17 @@ void UICore::Update( const UpdateContext& inUpdateContext )
     bool isCtrlDown = gameInput.IsKeyDown( KeyCode::LeftControl ) || gameInput.IsKeyDown( KeyCode::RightControl );
     bool isAltDown = gameInput.IsKeyDown( KeyCode::LeftAlt ) || gameInput.IsKeyDown( KeyCode::RightAlt );
     uint8_t keyMods = 0;
-    if( isShiftDown )
-    {
-        keyMods |= ultralight::KeyEvent::Modifiers::kMod_ShiftKey;
-    }
-    if( isCtrlDown )
-    {
-        keyMods |= ultralight::KeyEvent::Modifiers::kMod_CtrlKey;
-    }
-    if( isAltDown )
-    {
-        keyMods |= ultralight::KeyEvent::Modifiers::kMod_AltKey;
-    }
+
+    if( isShiftDown ) keyMods |= ultralight::KeyEvent::Modifiers::kMod_ShiftKey;
+    if( isCtrlDown )  keyMods |= ultralight::KeyEvent::Modifiers::kMod_CtrlKey;
+    if( isAltDown )   keyMods |= ultralight::KeyEvent::Modifiers::kMod_AltKey;
 
     {
         OPTICK_EVENT( "UI Keyboard Update", Optick::Category::UI );
         for( auto& inputEvent : gameInput.m_keyEventsThisFrame )
         {
             ultralight::KeyEvent keyEvent;
-            bool isCharacterEvent = UIUtils::ConvertToUL( (KeyCode)inputEvent.Key, keyEvent.virtual_key_code );
+            bool isCharacterEvent = UIUtils::ConvertToUL( (KeyCode)inputEvent.Key, keyEvent.virtual_key_code ) && !isCtrlDown && !isAltDown;
             keyEvent.native_key_code = inputEvent.Key;
 
             // #TODO: Modifiers / Keypad detection

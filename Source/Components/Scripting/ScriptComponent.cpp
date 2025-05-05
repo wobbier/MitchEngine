@@ -47,6 +47,7 @@ ScriptComponent::ScriptComponent()
     : Component( "ScriptComponent" )
 {
 #if USING( ME_SCRIPTING )
+    // Remove this shit
     // Did you update your bgfx .hpp shaders at all??
     mono_add_internal_call( "Transform::Entity_GetTranslation", (void*)Transform_GetTranslation );
     mono_add_internal_call( "Transform::Entity_GetTranslation", (void*)Transform_GetTranslation );
