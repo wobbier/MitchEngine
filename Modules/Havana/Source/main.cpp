@@ -9,7 +9,7 @@ int main( int argc, char** argv )
     int dbgFlags = _CrtSetDbgFlag( _CRTDBG_REPORT_FLAG );
     dbgFlags |= _CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF;
     _CrtSetDbgFlag( dbgFlags );
-    //_CrtSetBreakAlloc(162);
+    _CrtSetBreakAlloc(162);
 #endif  /* ME_MEMORY_LEAK_TRACKER */
 
     {

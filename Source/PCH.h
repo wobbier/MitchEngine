@@ -66,6 +66,7 @@
 
 //#include "ECS/ComponentDetail.h"
 #include "Core/Assert.h"
+#include <Core/Memory.h>
 
 #include <CLog.h>
 

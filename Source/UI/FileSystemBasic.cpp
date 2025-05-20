@@ -115,12 +115,12 @@ namespace ultralight
         if( file_size <= 0 )
             return nullptr;
 
-        std::unique_ptr<std::vector<char>> buffer( new std::vector<char>( file_size ) );
+        std::unique_ptr<std::vector<char>> buffer( ME_NEW std::vector<char>( file_size ) );
 
         file.seekg( 0, file.beg );
         file.read( buffer->data(), (std::streamsize) file_size );
 
-        FileSystemBasic_BufferData* buffer_data = new FileSystemBasic_BufferData();
+        FileSystemBasic_BufferData* buffer_data = ME_NEW FileSystemBasic_BufferData();
         buffer_data->file_size = file_size;
         buffer_data->file_contents = std::move( buffer );
 
@@ -133,7 +133,7 @@ namespace ultralight
 
     FileSystem* CreatePlatformFileSystem( const String& baseDir )
     {
-        return new ultralight::FileSystemBasic( baseDir.utf8().data() );
+        return ME_NEW ultralight::FileSystemBasic( baseDir.utf8().data() );
     }
 
 }  // namespace ultralight

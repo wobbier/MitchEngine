@@ -155,7 +155,7 @@ void Camera::OnDeserialize( const json& inJson )
 {
     if( inJson.contains( "Skybox" ) )
     {
-        Skybox = new Moonlight::SkyBox( inJson["Skybox"] );
+        Skybox = ME_NEW Moonlight::SkyBox( inJson["Skybox"] );
     }
 
     if( inJson.contains( "Zoom" ) )
@@ -343,7 +343,7 @@ void Camera::OnEditorInspect()
                 {
                     if( !Skybox )
                     {
-                        Skybox = new Moonlight::SkyBox( selectedAsset.FullPath );
+                        Skybox = ME_NEW Moonlight::SkyBox( selectedAsset.FullPath );
                     }
                     Skybox->SkyMaterial->SetTexture( Moonlight::TextureType::Diffuse, ResourceCache::GetInstance().Get<Moonlight::Texture>( selectedAsset ) );
                 }, AssetType::Texture );
