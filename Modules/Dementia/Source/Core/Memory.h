@@ -10,3 +10,15 @@
 #else
 #define ME_NEW new
 #endif
+
+#define ME_DELETE(Object)  \
+    do {                   \
+        delete (Object);   \
+        (Object) = nullptr; \
+    } while(0)
+
+#define ME_DELETE_ARRAY(Object)  \
+    do {                         \
+        delete[] (Object);       \
+        (Object) = nullptr;      \
+    } while(0)
