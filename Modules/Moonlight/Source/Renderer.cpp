@@ -189,6 +189,7 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
 
 void BGFXRenderer::Destroy()
 {
+    m_debugDraw.release();
     bgfx::shutdown();
 
 #if USING( ME_ENABLE_RENDERDOC )

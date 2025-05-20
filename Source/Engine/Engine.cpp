@@ -39,6 +39,7 @@
 #include "Events/PlatformEvents.h"
 #include "Scripting/ScriptEngine.h"
 #include "Core/Assert.h"
+#include <Core/Memory.h>
 #include "Events/EditorEvents.h"
 
 Engine& GetEngine()
@@ -58,6 +59,8 @@ Engine::Engine()
 
 Engine::~Engine()
 {
+    //NewRenderer->Destroy();
+    //delete NewRenderer;
 }
 
 extern bool ImGui_ImplSDL2_InitForD3D( SDL_Window* window );
@@ -129,7 +132,7 @@ void Engine::Init( Game* game )
     GameWindow->SetBorderless( true );
 #endif
 
-    NewRenderer = new BGFXRenderer();
+    NewRenderer = ME_NEW BGFXRenderer();
     RendererCreationSettings settings;
     settings.WindowPtr = GameWindow->GetWindowPtr();
     settings.InitialSize = engineConfig.WindowSize;
