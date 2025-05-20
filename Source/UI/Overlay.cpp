@@ -284,11 +284,11 @@ namespace ultralight {
         width = width <= 2 ? 2 : width;
         height = height <= 2 ? 2 : height;
 
-        return AdoptRef( *new OverlayImpl( window, width, height, x, y ) );
+        return AdoptRef( *ME_NEW OverlayImpl( window, width, height, x, y ) );
     }
 
     RefPtr<Overlay> Overlay::Create( RefPtr<Window> window, RefPtr<View> view, int x, int y ) {
-        return AdoptRef( *new OverlayImpl( window, view, x, y ) );
+        return AdoptRef( *ME_NEW OverlayImpl( window, view, x, y ) );
     }
 
     Overlay::~Overlay() {}

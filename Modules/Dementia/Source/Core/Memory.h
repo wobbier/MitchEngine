@@ -5,15 +5,14 @@
 #define _CRTDBG_MAP_ALLOC
 #include <crtdbg.h>
 
-#define DEBUG_NEW new (_NORMAL_BLOCK, __FILE__, __LINE__)
-#define ME_NEW DEBUG_NEW
+#define ME_NEW new (_NORMAL_BLOCK, __FILE__, __LINE__)
 #else
 #define ME_NEW new
 #endif
 
-#define ME_DELETE(Object)  \
-    do {                   \
-        delete (Object);   \
+#define ME_DELETE(Object)   \
+    do {                    \
+        delete (Object);    \
         (Object) = nullptr; \
     } while(0)
 
