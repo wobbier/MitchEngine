@@ -9,6 +9,7 @@
 #endif
 
 #include "Pointers.h"
+#include <Core/Memory.h>
 
 #if USING( ME_PLATFORM_UWP )
 //#include <agile.h>

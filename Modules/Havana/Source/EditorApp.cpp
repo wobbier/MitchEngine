@@ -136,7 +136,7 @@ void EditorApp::OnInitialize()
         EditorConfig::GetInstance().Load();
         InitialLevel = GetEngine().GetConfig().GetValue( "CurrentScene" );
         Editor = MakeUnique<Havana>( &GetEngine(), this );
-        EditorSceneManager = new EditorCore( Editor.get() );
+        EditorSceneManager = ME_NEW EditorCore( Editor.get() );
 
         Editor->SetGameCallbacks( [this]()
             {
