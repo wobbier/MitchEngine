@@ -17,10 +17,13 @@
 #include <Web\HttpDownload.h>
 #include "File.h"
 #include <mono\metadata\appdomain.h>
+#include "Utils/HavanaUtils.h"
+#include "Engine/World.h"
 
 
 #if USING( ME_SCRIPTING )
 static std::unordered_map<MonoType*, std::function<bool( EntityHandle )>> s_EntityHasComponentFuncs;
+static std::unordered_map<MonoType*, std::function<void( EntityHandle )>> s_EntityAddComponentFuncs;
 
 template<typename... Component>
 static void RegisterComponent()
@@ -42,6 +45,11 @@ static void RegisterComponent()
                 {
                     return entity->HasComponent<Component>();
                 };
+
+            s_EntityAddComponentFuncs[managedType] = []( EntityHandle entity )
+                {
+                    entity->AddComponent<Component>();
+                };
         }( ), ... );
 }
 #endif
@@ -61,6 +69,7 @@ ScriptComponent::ScriptComponent()
     mono_add_internal_call( "Input::IsKeyDown", (void*)Input_IsKeyDown );
 
     mono_add_internal_call( "Entity::Entity_HasComponent", (void*)Entity_HasComponent );
+    mono_add_internal_call( "Entity::Entity_AddComponent", (void*)Entity_AddComponent );
     mono_add_internal_call( "BasicUIView::BasicUIView_ExecuteJS", (void*)BasicUIView_ExecuteJS );
     mono_add_internal_call( "HTTP::HTTP_DownloadFile", (void*)HTTP_DownloadFile );
     // does this go into the other components?
@@ -92,6 +101,7 @@ void ScriptComponent::Init()
                     Instance->SetFieldValueInternal( name, (void*)fieldInstance.Buffer );
                 }
             }
+
             ScriptName = foundClass->first;
 
             // Call OnCreate exactly ONCE after initialization:
@@ -107,6 +117,8 @@ void ScriptComponent::Init()
 void ScriptComponent::OnEditorInspect()
 {
 #if USING( ME_SCRIPTING )
+    HavanaUtils::Label( "Has Valid Entity" );
+    ImGui::Text( Parent.Get() ? "VALID" : "INVALID" );
     // Uninitialized script
     if( !Instance )
     {
@@ -370,6 +382,22 @@ bool ScriptComponent::Entity_HasComponent( EntityID id, MonoReflectionType* inTy
     MonoType* managedType = mono_reflection_type_get_type( inType );
     return s_EntityHasComponentFuncs.at( managedType )( handle );
 }
+
+
+void ScriptComponent::Entity_AddComponent( EntityID id, MonoReflectionType* inType )
+{
+    if( id.IsNull() )
+    {
+        return;
+    }
+
+    EntityHandle handle( id, ScriptEngine::sScriptData.worldPtr );
+
+    MonoType* managedType = mono_reflection_type_get_type( inType );
+    s_EntityAddComponentFuncs.at( managedType )( handle );
+    ScriptEngine::sScriptData.worldPtr.lock()->Simulate();
+}
+
 
 bool ScriptComponent::Input_IsKeyDown( KeyCode key )
 {

@@ -52,13 +52,32 @@ public class Entity : MEObject
         if (!HasComponent<T>())
             return null;
 
-        var comp = new T { Parent = this };
+        var comp = new T { _parent = this };
         _componentCache[type] = comp;
         return comp;
+    }
+
+    public T AddComponent<T>() where T : Component, new()
+    {
+        T existing = GetComponent<T>();
+        if (existing != null)
+        {
+            Console.WriteLine("HAVE EXISTING");
+            return existing;
+        }
+
+        Type type = typeof(T);
+            Console.WriteLine("CALLING C++");
+        Entity_AddComponent(EntID, type);
+
+        return GetComponent<T>();
     }
 
     public Transform transform => GetComponent<Transform>();
 
     [MethodImplAttribute(MethodImplOptions.InternalCall)]
     extern static bool Entity_HasComponent(EntityID id, Type type);
+
+    [MethodImplAttribute(MethodImplOptions.InternalCall)]
+    extern static void Entity_AddComponent(EntityID id, Type type);
 }

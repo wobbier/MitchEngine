@@ -44,6 +44,7 @@ private:
     static void Camera_GetClearColor( EntityID id, Vector3* outPosition );
     static void Camera_SetClearColor( EntityID id, Vector3* inPos );
     static bool Entity_HasComponent( EntityID id, MonoReflectionType* inType );
+    static void Entity_AddComponent( EntityID id, MonoReflectionType* inType );
     static bool Input_IsKeyDown( KeyCode key );
     static void BasicUIView_ExecuteJS( EntityID id, MonoString* inString );
     static MonoString* HTTP_DownloadFile( MonoString* inURL, MonoString* inDirectory );

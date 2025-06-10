@@ -31,6 +31,55 @@ BasicUIView::BasicUIView( const char* Name )
 void BasicUIView::Init()
 {
     SourceFile = File( FilePath );
+    if( SourceFile.Read().empty() )
+    {
+        SourceFile.Append( "<!DOCTYPE html>\
+<html>\
+<head>\
+<style>\
+  html, body {\
+    margin: 0;\
+    padding: 0;\
+    height: 100%;\
+  }\
+\
+  .ui-debug {\
+    position: relative;\
+    width: 100%;\
+    height: 100%;\
+    border: 2px solid red;\
+    box-sizing: border-box;\
+    overflow: hidden;\
+  }\
+\
+  .ui-debug .line {\
+    position: absolute;\
+    top: 50%;\
+    left: 50%;\
+    width: 141.5%; /* = 100% * 2 to cover diagonal */\
+    height: 2px;\
+    background: red;\
+    transform-origin: center;\
+  }\
+\
+  .ui-debug .x1 {\
+    transform: translate(-50%, -50%) rotate(45deg);\
+  }\
+\
+  .ui-debug .x2 {\
+    transform: translate(-50%, -50%) rotate(-45deg);\
+  }\
+</style>\
+</head>\
+<body>\
+  <div class=\"ui-debug\">\
+    <div class=\"line x1\"></div>\
+    <div class=\"line x2\"></div>\
+  </div>\
+</body>\
+</html>\
+" );
+    }
 }
 
 void BasicUIView::OnSerialize( json& outJson )
@@ -100,6 +149,11 @@ void BasicUIView::OnUILoad( ultralight::JSObject& GlobalWindow, ultralight::View
 void BasicUIView::ExecuteScript( const std::string& Script )
 {
 #if USING( ME_UI )
+    if( !ViewRef )
+    {
+        return;
+    }
+
     ultralight::String excpt;
     ViewRef->EvaluateScript( Script.c_str(), &excpt );
     if( !excpt.empty() )

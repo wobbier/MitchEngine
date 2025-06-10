@@ -8,7 +8,8 @@ public class MEObject
 
 public abstract class Component : MEObject
 {
-    public Entity Parent { get; internal set; }
+    public Entity _parent;
+    public Entity Parent => _parent;
 
     public T GetComponent<T>() where T : Component, new()
     {
@@ -28,5 +29,16 @@ public abstract class Component : MEObject
         }
 
         return Parent.HasComponent<T>();
+    }
+
+    public T AddComponent<T>() where T : Component, new()
+    {
+        if (Parent == null)
+        {
+            Console.WriteLine("NULL PARENT");
+            return null;
+        }
+
+        return Parent.AddComponent<T>();
     }
 }
