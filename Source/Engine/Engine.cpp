@@ -39,6 +39,7 @@
 #include "Events/PlatformEvents.h"
 #include "Scripting/ScriptEngine.h"
 #include "Core/Assert.h"
+#include <Core/Memory.h>
 #include "Events/EditorEvents.h"
 
 Engine& GetEngine()
@@ -58,6 +59,8 @@ Engine::Engine()
 
 Engine::~Engine()
 {
+    ME_DELETE( NewRenderer );
+    ME_DELETE( GameWindow );
 }
 
 extern bool ImGui_ImplSDL2_InitForD3D( SDL_Window* window );
@@ -116,20 +119,20 @@ void Engine::Init( Game* game )
     engineConfig = EngineConfig( engineCfg );
     engineConfig.OnLoadConfig( engineConfig.Root );
 #if USING( ME_PLATFORM_WIN64 ) || USING( ME_PLATFORM_MACOS )
-    GameWindow = new SDLWindow( engineConfig.GetValue( "Title" ), ResizeFunc, engineConfig.WindowPosition.x, engineConfig.WindowPosition.y, engineConfig.WindowSize );
+    GameWindow = ME_NEW SDLWindow( engineConfig.GetValue( "Title" ), ResizeFunc, engineConfig.WindowPosition.x, engineConfig.WindowPosition.y, engineConfig.WindowSize );
 #endif
 
 #if USING( ME_PLATFORM_UWP )
     int WindowWidth = 1280;
     int WindowHeight = 720;
-    GameWindow = new SDLWindow( "MitchEngine", ResizeFunc, 500, 300, Vector2( WindowWidth, WindowHeight ) );
-    //GameWindow = new UWPWindow("MitchEngine", 1920, 1080, ResizeFunc);
+    GameWindow = ME_NEW SDLWindow( "MitchEngine", ResizeFunc, 500, 300, Vector2( WindowWidth, WindowHeight ) );
+    //GameWindow = ME_NEW UWPWindow("MitchEngine", 1920, 1080, ResizeFunc);
 #endif
 #if USING( ME_EDITOR_WIN64 )
     GameWindow->SetBorderless( true );
 #endif
 
-    NewRenderer = new BGFXRenderer();
+    NewRenderer = ME_NEW BGFXRenderer();
     RendererCreationSettings settings;
     settings.WindowPtr = GameWindow->GetWindowPtr();
     settings.InitialSize = engineConfig.WindowSize;
@@ -142,21 +145,21 @@ void Engine::Init( Game* game )
     ImGui_ImplSDL2_InitForMetal( static_cast<SDLWindow*>( GameWindow )->WindowHandle );
 #endif
 #endif
-    //m_renderer = new Moonlight::Renderer();
+    //m_renderer = ME_NEW Moonlight::Renderer();
     //m_renderer->WindowResized(GameWindow->GetSize());
 
     GameWorld = MakeShared<World>();
 
-    Cameras = new CameraCore();
+    Cameras = ME_NEW CameraCore();
 
-    SceneNodes = new SceneCore();
+    SceneNodes = ME_NEW SceneCore();
 
-    ModelRenderer = new RenderCore();
-    AudioThread = new AudioCore();
+    ModelRenderer = ME_NEW RenderCore();
+    AudioThread = ME_NEW AudioCore();
 
     //m_renderer->Init();
 
-    UI = new UICore( GameWindow, NewRenderer );
+    UI = ME_NEW UICore( GameWindow, NewRenderer );
 
     NewRenderer->SetGuizmoDrawCallback( [this]( DebugDrawer* drawer )
         {
@@ -491,7 +494,7 @@ void Engine::LoadScene( const std::string& SceneFile )
 
     GameWorld->Unload();
     SceneNodes->Init();
-    CurrentScene = new Scene( SceneFile );
+    CurrentScene = ME_NEW Scene( SceneFile );
 
     if( !CurrentScene->Load( GameWorld ) && !CurrentScene->IsNewScene() )
     {

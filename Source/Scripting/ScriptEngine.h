@@ -8,7 +8,7 @@
 #include "Engine/World.h"
 #include "MonoUtils.h"
 #include "ECS/Entity.h"
-
+#include <mono/metadata/object.h>
 
 struct ScriptField
 {
@@ -80,12 +80,17 @@ public:
         : ScriptRef( inClass )
         , Owner( inOwner )
     {
-        Instance = inClass.Instantiate();
+        GCHandle = mono_gchandle_new( inClass.Instantiate(), false );
+
         OnCreateMethod = inClass.GetMethod( "OnCreate", 0 );
         OnUpdateMethod = inClass.GetMethod( "OnUpdate", 1 );
         void* entID = &inOwner;
-        Init( 1, &entID );
-        //Owner = EntityHandle( inOwner );
+        Init( 0, nullptr );
+    }
+
+    ~ScriptInstance()
+    {
+        mono_gchandle_free( GCHandle );
     }
 
     //explicit ScriptInstance( ScriptInstance& inClass )
@@ -97,13 +102,14 @@ public:
     //{
     //}
 
-    void OnCreate()
+    MonoObject* GetMonoObject() const
     {
-        if( OnCreateMethod )
-        {
-            ScriptRef.InvokeMethod( Instance, OnCreateMethod, nullptr );
-        }
+        return GetMonoObjectInstance();
     }
+
+    MonoClass* GetMonoClass() const;
+
+    void OnCreate();
 
     void OnUpdate( float deltaTime )
     {
@@ -116,7 +122,7 @@ public:
         }
 
         void* param = &deltaTime;
-        ScriptRef.InvokeMethod( Instance, OnUpdateMethod, &param );
+        ScriptRef.InvokeMethod( GetMonoObjectInstance(), OnUpdateMethod, &param);
     }
 
     template <typename T>
@@ -125,7 +131,9 @@ public:
     template <typename T>
     void SetFieldValue( const std::string& name, T& value );
 
-    MonoObject* Instance = nullptr;
+    MonoObject* GetMonoObjectInstance() const;
+
+    uint32_t GCHandle = 0;
     MonoMethod* OnCreateMethod = nullptr;
     MonoMethod* OnUpdateMethod = nullptr;
 
@@ -200,15 +208,22 @@ public:
 
     static void Init();
 
+    static void InitDebug();
+
     static void RegisterFunctions();
     static void Tests();
 
     static ScriptClass& GetEntityClass( const std::string& name );
     static const ScriptFieldMap& GetScriptFieldMap( Entity ent );
 
+    static MonoObject* ReturnEntityID( const EntityHandle& inEntity );
+
     static MonoImage* GetCoreImage();
 
     static SharedPtr<ScriptInstance> CreateScriptInstance( ScriptClass& script, EntityHandle entity );
+
+    static MonoObject* GetManagedEntity( EntityHandle entity );
+    static void RegisterManagedEntity( EntityHandle entity, MonoObject* obj );
 private:
     static void InitMono();
     static bool LoadAssembly( const Path& assemblyPath );
@@ -219,11 +234,16 @@ private:
 public:
     static ScriptData sScriptData;
 
+    static std::unordered_map<uint64_t, MonoObject*> s_ManagedEntities;
     // Parsed class
     static std::vector<LoadedClassInfo> LoadedClasses;
 
     // Successful class loaded
     static std::vector<LoadedClassInfo> LoadedEntityScripts;
+
+
+    static std::unordered_map<EntityID, uint32_t> entityInstanceCache;
 };
+
 
 #endif

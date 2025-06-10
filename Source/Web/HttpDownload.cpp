@@ -1,3 +1,5 @@
+#include "PCH.h"
+
 #include "HttpDownload.h"
 #include "Dementia.h"
 
@@ -142,7 +144,7 @@ namespace Web
                     break;
 
                 // Allocate buffer for data
-                char* buffer = new char[dwSize];
+                char* buffer = ME_NEW char[dwSize];
 
                 // Read data
                 if( WinHttpReadData( hRequest, (LPVOID)buffer, dwSize, &dwDownloaded ) )

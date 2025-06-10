@@ -3,7 +3,7 @@
 #include <map>
 #include <utility>
 #include "ClassTypeId.h"
-#include <iostream>
+#include "Core/Memory.h"
 
 class BaseCore;
 
@@ -20,7 +20,7 @@ template<class T>
 std::pair<BaseCore*, TypeId> CreateCore( bool create ) {
     if( create )
     {
-        return std::make_pair( new T(), T::GetTypeId() );
+        return std::make_pair( ME_NEW T(), T::GetTypeId() );
     }
     return std::make_pair( nullptr, T::GetTypeId() );
 }

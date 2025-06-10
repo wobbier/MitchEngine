@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <functional>
 
 // 64 Bit IDs
 #define MITCH_ENTITY_ID_INDEX_BIT_COUNT 48
@@ -14,6 +15,7 @@ struct EntityID
 
     EntityID() : Index( 0 ), Counter( 0 ) {};
     EntityID( IntType inIndex, IntType inCounter ) : Index( inIndex ), Counter( inCounter ) {};
+    EntityID& operator=( const EntityID& ) = default;
 
     inline operator IntType() const
     {
@@ -40,3 +42,15 @@ struct EntityID
         return Value() == 0;
     }
 };
+
+namespace std
+{
+    template<>
+    struct hash<EntityID>
+    {
+        std::size_t operator()( const EntityID& eid ) const noexcept
+        {
+            return std::hash<uint32_t>()( eid.Value() );
+        }
+    };
+}

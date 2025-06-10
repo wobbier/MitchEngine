@@ -12,9 +12,18 @@
 #include "Components/Transform.h"
 #include "Components/Camera.h"
 #include "Engine/Engine.h"
+#include "Components/UI/BasicUIView.h"
+#include "Scripting/MonoUtils.h"
+#include <Web\HttpDownload.h>
+#include "File.h"
+#include <mono\metadata\appdomain.h>
+#include "Utils/HavanaUtils.h"
+#include "Engine/World.h"
+
 
 #if USING( ME_SCRIPTING )
 static std::unordered_map<MonoType*, std::function<bool( EntityHandle )>> s_EntityHasComponentFuncs;
+static std::unordered_map<MonoType*, std::function<void( EntityHandle )>> s_EntityAddComponentFuncs;
 
 template<typename... Component>
 static void RegisterComponent()
@@ -32,7 +41,15 @@ static void RegisterComponent()
                 YIKES( "Could not find component type {}" );
                 return;
             }
-            s_EntityHasComponentFuncs[managedType] = []( EntityHandle entity ) { return entity->HasComponent<Component>(); };
+            s_EntityHasComponentFuncs[managedType] = []( EntityHandle entity )
+                {
+                    return entity->HasComponent<Component>();
+                };
+
+            s_EntityAddComponentFuncs[managedType] = []( EntityHandle entity )
+                {
+                    entity->AddComponent<Component>();
+                };
         }( ), ... );
 }
 #endif
@@ -45,14 +62,20 @@ ScriptComponent::ScriptComponent()
     // Did you update your bgfx .hpp shaders at all??
     mono_add_internal_call( "Transform::Entity_GetTranslation", (void*)Transform_GetTranslation );
     mono_add_internal_call( "Transform::Entity_GetTranslation", (void*)Transform_GetTranslation );
+    mono_add_internal_call( "Transform::Transform_GetScale", (void*)Transform_GetScale );
+    mono_add_internal_call( "Transform::Transform_SetScale", (void*)Transform_SetScale );
     mono_add_internal_call( "Camera::Camera_GetClearColor", (void*)Camera_GetClearColor );
     mono_add_internal_call( "Camera::Camera_SetClearColor", (void*)Camera_SetClearColor );
     mono_add_internal_call( "Input::IsKeyDown", (void*)Input_IsKeyDown );
 
     mono_add_internal_call( "Entity::Entity_HasComponent", (void*)Entity_HasComponent );
+    mono_add_internal_call( "Entity::Entity_AddComponent", (void*)Entity_AddComponent );
+    mono_add_internal_call( "BasicUIView::BasicUIView_ExecuteJS", (void*)BasicUIView_ExecuteJS );
+    mono_add_internal_call( "HTTP::HTTP_DownloadFile", (void*)HTTP_DownloadFile );
     // does this go into the other components?
     RegisterComponent<Transform>();
     RegisterComponent<Camera>();
+    RegisterComponent<BasicUIView>();
 #endif
 }
 
@@ -76,20 +99,26 @@ void ScriptComponent::Init()
                 for( const auto& [name, fieldInstance] : fieldMap )
                 {
                     Instance->SetFieldValueInternal( name, (void*)fieldInstance.Buffer );
-                    ScriptName = foundClass->first;
-                    Instance->OnCreate();
                 }
             }
+
+            ScriptName = foundClass->first;
+
+            // Call OnCreate exactly ONCE after initialization:
+            Instance->OnCreate();
         }
     }
 #endif
 }
+
 
 #if USING( ME_EDITOR )
 
 void ScriptComponent::OnEditorInspect()
 {
 #if USING( ME_SCRIPTING )
+    HavanaUtils::Label( "Has Valid Entity" );
+    ImGui::Text( Parent.Get() ? "VALID" : "INVALID" );
     // Uninitialized script
     if( !Instance )
     {
@@ -118,6 +147,7 @@ void ScriptComponent::OnEditorInspect()
         ImGui::Text( ScriptName.c_str() );
 
         // Add a inspect settings option passed in
+        // #TODO: questionable??
         if( true )//if ( static_cast<EditorApp*>( GetEngine().GetGame() )->IsGameRunning() )
         {
             ScriptClass& scriptClass = ScriptEngine::GetEntityClass( ScriptName );
@@ -292,6 +322,18 @@ void ScriptComponent::Transform_SetTranslation( EntityID id, Vector3* inPos )
     handle->GetComponent<Transform>().SetPosition( *inPos );
 }
 
+void ScriptComponent::Transform_GetScale( EntityID id, Vector3* outPosition )
+{
+    EntityHandle handle( id, ScriptEngine::sScriptData.worldPtr );
+    *outPosition = handle->GetComponent<Transform>().GetScale();
+}
+
+void ScriptComponent::Transform_SetScale( EntityID id, Vector3* inPos )
+{
+    EntityHandle handle( id, ScriptEngine::sScriptData.worldPtr );
+    handle->GetComponent<Transform>().SetScale( *inPos );
+}
+
 void ScriptComponent::Camera_GetClearColor( EntityID id, Vector3* outPosition )
 {
     EntityHandle handle( id, ScriptEngine::sScriptData.worldPtr );
@@ -304,13 +346,58 @@ void ScriptComponent::Camera_SetClearColor( EntityID id, Vector3* inPos )
     handle->GetComponent<Camera>().ClearColor = *inPos;
 }
 
+
+void ScriptComponent::BasicUIView_ExecuteJS( EntityID id, MonoString* inString )
+{
+    EntityHandle handle( id, ScriptEngine::sScriptData.worldPtr );
+    if( handle )
+    {
+        handle->GetComponent<BasicUIView>().ExecuteScript( MonoUtils::MonoStringToUTF8( inString ) );
+    }
+}
+
+
+MonoString* ScriptComponent::HTTP_DownloadFile( MonoString* inURL, MonoString* inDirectory )
+{
+    char* str = mono_string_to_utf8( inURL );
+    char* inDirectoryMono = mono_string_to_utf8( inDirectory );
+    Path outPath = Path( inDirectoryMono );
+    if( Web::DownloadFile( str, outPath ) )
+    {
+        return mono_string_new( mono_domain_get(), File( outPath ).Read().c_str() );
+    }
+    return nullptr;
+}
+
+
 bool ScriptComponent::Entity_HasComponent( EntityID id, MonoReflectionType* inType )
 {
+    if( id.IsNull() )
+    {
+        return false;
+    }
+
     EntityHandle handle( id, ScriptEngine::sScriptData.worldPtr );
 
     MonoType* managedType = mono_reflection_type_get_type( inType );
     return s_EntityHasComponentFuncs.at( managedType )( handle );
 }
+
+
+void ScriptComponent::Entity_AddComponent( EntityID id, MonoReflectionType* inType )
+{
+    if( id.IsNull() )
+    {
+        return;
+    }
+
+    EntityHandle handle( id, ScriptEngine::sScriptData.worldPtr );
+
+    MonoType* managedType = mono_reflection_type_get_type( inType );
+    s_EntityAddComponentFuncs.at( managedType )( handle );
+    ScriptEngine::sScriptData.worldPtr.lock()->Simulate();
+}
+
 
 bool ScriptComponent::Input_IsKeyDown( KeyCode key )
 {

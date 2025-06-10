@@ -26,7 +26,7 @@ SDL_Renderer* renderer = NULL;
 UWPWindow::UWPWindow( std::string title, int width, int height, std::function<void( const Vector2& )> resizeCallback )
     : ResizeCB( resizeCallback )
 {
-    MessageHandler = ref new UWPWindowMessageHandler( this );
+    MessageHandler = ref ME_NEW UWPWindowMessageHandler( this );
     Size = Vector2( width, height );
 
     if( SDL_Init( SDL_INIT_EVERYTHING ) != 0 ) {
@@ -158,13 +158,13 @@ UWPWindow::UWPWindowMessageHandler::UWPWindowMessageHandler( UWPWindow* window )
     CoreWindow^ coreWindow = CoreWindow::GetForCurrentThread();
 
     coreWindow->SizeChanged +=
-        ref new TypedEventHandler<CoreWindow^, WindowSizeChangedEventArgs^>( this, &UWPWindowMessageHandler::OnWindowSizeChanged );
+        ref ME_NEW TypedEventHandler<CoreWindow^, WindowSizeChangedEventArgs^>( this, &UWPWindowMessageHandler::OnWindowSizeChanged );
 
     coreWindow->VisibilityChanged +=
-        ref new TypedEventHandler<CoreWindow^, VisibilityChangedEventArgs^>( this, &UWPWindowMessageHandler::OnVisibilityChanged );
+        ref ME_NEW TypedEventHandler<CoreWindow^, VisibilityChangedEventArgs^>( this, &UWPWindowMessageHandler::OnVisibilityChanged );
 
     coreWindow->Closed +=
-        ref new TypedEventHandler<CoreWindow^, CoreWindowEventArgs^>( this, &UWPWindowMessageHandler::OnWindowClosed );
+        ref ME_NEW TypedEventHandler<CoreWindow^, CoreWindowEventArgs^>( this, &UWPWindowMessageHandler::OnWindowClosed );
 
     //coreWindow->KeyDown +=
     //	ref new Windows::Foundation::TypedEventHandler<Windows::UI::Core::CoreWindow ^, Windows::UI::Core::KeyEventArgs ^>(this, &UWPWindowMessageHandler::OnKeyDown);
@@ -172,7 +172,7 @@ UWPWindow::UWPWindowMessageHandler::UWPWindowMessageHandler( UWPWindow* window )
     Windows::Graphics::Display::DisplayInformation^ currentDisplayInformation = Windows::Graphics::Display::DisplayInformation::GetForCurrentView();
 
     Windows::Graphics::Display::DisplayInformation::DisplayContentsInvalidated +=
-        ref new TypedEventHandler<Windows::Graphics::Display::DisplayInformation^, Object^>( this, &UWPWindowMessageHandler::OnDisplayContentsInvalidated );
+        ref ME_NEW TypedEventHandler<Windows::Graphics::Display::DisplayInformation^, Object^>( this, &UWPWindowMessageHandler::OnDisplayContentsInvalidated );
 
     m_window->Size = Vector2( coreWindow->Bounds.Width, coreWindow->Bounds.Height );
 }

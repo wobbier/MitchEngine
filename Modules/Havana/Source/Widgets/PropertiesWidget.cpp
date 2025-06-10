@@ -7,6 +7,7 @@
 #include <Utils/CommonUtils.h>
 #include <Events/SceneEvents.h>
 #include "Editor/EditorComponentInfoCache.h"
+#include <Utils/HavanaUtils.h>
 
 #if USING( ME_EDITOR )
 
@@ -68,7 +69,25 @@ void PropertiesWidget::Render()
 		if (entity)
 		{
 			OPTICK_CATEGORY("Inspect Entity", Optick::Category::Debug);
-			entity->OnEditorInspect();
+            if( ImGui::CollapsingHeader( "Entity Properties", nullptr, ImGuiTreeNodeFlags_None) )
+            {
+                ImGui::PushStyleVar( ImGuiStyleVar_ItemSpacing, { 0.f, ImGui::GetStyle().ItemSpacing.y } );
+                ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, { 20.f, 0.f } );
+                ImGui::BeginGroup();
+
+				HavanaUtils::Label( "Active" );
+				bool isActive = GetEngine().GetWorld().lock()->IsActive( *entity.Get() );
+				if( ImGui::Checkbox( "##Active", &isActive ) )
+				{
+					entity->SetActive( isActive );
+                }
+
+                entity->OnEditorInspect();
+
+                ImGui::EndGroup();
+                ImGui::PopStyleVar( 2 );
+                ImGui::Text( "\n" );
+            }
 
 			const auto componentList = entity->GetAllComponents();
             // Cache the component pointers if we've modified our components or we've changed the focused GameObject.

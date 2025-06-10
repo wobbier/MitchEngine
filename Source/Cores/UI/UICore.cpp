@@ -56,19 +56,19 @@ UICore::UICore( IWindow* window, BGFXRenderer* renderer )
 
 
     ultralight::Platform::instance().set_config( m_config );
-    ultralight::Platform::instance().set_clipboard( new UIClipboard() );
+    ultralight::Platform::instance().set_clipboard( ME_NEW UIClipboard() );
     // maybe make this customizable, I would like to load assets out the UI folder maybe?
-    ultralight::Platform::instance().set_file_system( new FileSystemBasic( Path( "Assets/UI" ).FullPath.c_str() ) );
-    ultralight::Platform::instance().set_logger( new FileLogger( "ultralight.log" ) );
+    ultralight::Platform::instance().set_file_system( ME_NEW FileSystemBasic( Path( "Assets/UI" ).FullPath.c_str() ) );
+    ultralight::Platform::instance().set_logger( ME_NEW FileLogger( "ultralight.log" ) );
 
 #if USING( ME_PLATFORM_WINDOWS )
-    ultralight::Platform::instance().set_font_loader( new FontLoaderWin() );
+    ultralight::Platform::instance().set_font_loader( ME_NEW FontLoaderWin() );
 #endif
 #if USING( ME_PLATFORM_MACOS )
-    ultralight::Platform::instance().set_font_loader( new FontLoaderMac() );
+    ultralight::Platform::instance().set_font_loader( ME_NEW FontLoaderMac() );
 #endif
 
-    m_driver = new UIDriver();
+    m_driver = ME_NEW UIDriver();
     ultralight::Platform::instance().set_gpu_driver( m_driver );
 
     m_uiRenderer = ultralight::Renderer::Create();
@@ -410,8 +410,8 @@ void UICore::InitUIView( BasicUIView& view )
     }
     else
     {
-        ultralight::String str = "file:///" + ultralight::String( view.FilePath.GetLocalPath().data() );
-        newView->LoadURL( str );
+        ultralight::String str = ultralight::String( view.SourceFile.Read().c_str() );
+        newView->LoadHTML( str );
     }
 
     //m_overlays.push_back( overlay );

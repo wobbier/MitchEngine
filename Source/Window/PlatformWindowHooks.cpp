@@ -37,7 +37,7 @@ static void Platform_CreateWindow( ImGuiViewport* viewport )
     params.Position = { viewport->Pos.x, viewport->Pos.y };
     params.Size = { viewport->Size.x, viewport->Size.y };
 
-    PlatformWindow* vp = new PlatformWindow( params );
+    PlatformWindow* vp = ME_NEW PlatformWindow( params );
     vp->Create();
     vp->Viewport = viewport;
     vp->Renderer = app.Renderer;
@@ -168,7 +168,7 @@ namespace ImGui
         p.Name = "LMAO";
         p.Size = { 1920, 1080 };
 
-        PlatformWindow* win = new PlatformWindow( p );
+        PlatformWindow* win = ME_NEW PlatformWindow( p );
         win->WindowPtr = window->WindowHandle;
         win->Renderer = renderer;
 
