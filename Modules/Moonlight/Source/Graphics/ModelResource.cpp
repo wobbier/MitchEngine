@@ -18,6 +18,7 @@
 #include "assimp/material.h"
 #include "Materials/DiffuseMaterial.h"
 #include "Core/Assert.h"
+#include <Core/Memory.h>
 
 DISABLE_OPTIMIZATION;
 
@@ -397,7 +398,7 @@ Moonlight::MeshData* ModelResource::ProcessMesh( aiMesh* mesh, Moonlight::Node& 
         LoadMaterialTextures( newMaterial, material, aiTextureType_OPACITY, Moonlight::TextureType::Opacity );
     }
 
-    Moonlight::MeshData* output = new Moonlight::MeshData( vertices, indices, newMaterial );
+    Moonlight::MeshData* output = ME_NEW Moonlight::MeshData( vertices, indices, newMaterial );
     output->Name = std::string( mesh->mName.C_Str() );
     return output;
 }

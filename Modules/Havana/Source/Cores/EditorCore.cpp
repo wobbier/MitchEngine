@@ -25,7 +25,7 @@ EditorCore::EditorCore( Havana* editor )
     SetIsSerializable( false );
 
     EditorCameraTransform = MakeShared<Transform>();
-    EditorCamera = new Camera();
+    EditorCamera = ME_NEW Camera();
 
     std::vector<TypeId> events;
     events.push_back( SaveSceneEvent::GetEventId() );

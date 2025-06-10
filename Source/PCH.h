@@ -9,6 +9,7 @@
 #endif
 
 #include "Pointers.h"
+#include <Core/Memory.h>
 
 #if USING( ME_PLATFORM_UWP )
 //#include <agile.h>
@@ -66,6 +67,7 @@
 
 //#include "ECS/ComponentDetail.h"
 #include "Core/Assert.h"
+#include <Core/Memory.h>
 
 #include <CLog.h>
 
