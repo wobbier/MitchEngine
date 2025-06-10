@@ -10,6 +10,8 @@
 #include "ECS/Entity.h"
 #include <mono/metadata/object.h>
 
+class Engine;
+
 struct ScriptField
 {
     MonoUtils::ScriptFieldType Type;
@@ -197,6 +199,7 @@ public:
         bool EnableDebugging = true;
 
         WeakPtr<World> worldPtr;
+        Engine* enginePtr = nullptr;
 
         ScriptClass entityClass;
 
@@ -234,7 +237,6 @@ private:
 public:
     static ScriptData sScriptData;
 
-    static std::unordered_map<uint64_t, MonoObject*> s_ManagedEntities;
     // Parsed class
     static std::vector<LoadedClassInfo> LoadedClasses;
 
