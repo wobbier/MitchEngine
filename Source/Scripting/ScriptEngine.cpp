@@ -176,6 +176,7 @@ static MonoObject* World_GetTransformByName( MonoString* inString )
 
 }
 
+
 static void ImGui_Checkbox( MonoString* inString, MonoBoolean* inValue )
 {
     char* str = mono_string_to_utf8( inString );
@@ -186,6 +187,16 @@ static void ImGui_Checkbox( MonoString* inString, MonoBoolean* inValue )
     }
     mono_free( str );
 }
+
+
+static bool ImGui_Button( MonoString* inString, MonoBoolean* inValue )
+{
+    char* str = mono_string_to_utf8( inString );
+    return ImGui::Button( str );
+    // what is this interaction?
+    // mono_free( str );
+}
+
 
 static void ImGui_End()
 {
@@ -294,9 +305,19 @@ void ScriptEngine::Init()
     Tests();
 }
 
+void ScriptEngine::InitDebug()
+{
+    if( sScriptData.EnableDebugging )
+    {
+        mono_debug_domain_create( sScriptData.RootDomain );
+    }
+}
+
 void ScriptEngine::InitMono()
 {
     mono_set_assemblies_path( MONO_PATH );
+    BRUH_FMT( "Mono version: %s", mono_get_runtime_build_info() );
+
 
     if( sScriptData.EnableDebugging )
     {
@@ -314,11 +335,7 @@ void ScriptEngine::InitMono()
     {
         YIKES( "mono_jit_init failed" );
     }
-
-    if( sScriptData.EnableDebugging )
-    {
-        mono_debug_domain_create( sScriptData.RootDomain );
-    }
+    InitDebug();
 
     mono_thread_set_main( mono_thread_current() );
 }
@@ -334,6 +351,7 @@ void ScriptEngine::RegisterFunctions()
     mono_add_internal_call( "ImGui::ImGui_End", (void*)ImGui_End );
     mono_add_internal_call( "ImGui::ImGui_Text", (void*)ImGui_Text );
     mono_add_internal_call( "ImGui::ImGui_Checkbox", (void*)ImGui_Checkbox );
+    mono_add_internal_call( "ImGui::ImGui_Button", (void*)ImGui_Button );
     mono_add_internal_call( "World::World_GetTransformByName", (void*)World_GetTransformByName );
 }
 
@@ -443,6 +461,7 @@ bool ScriptEngine::LoadAssembly( const Path& assemblyPath )
     sScriptData.CoreAssemblyFilePath = assemblyPath;
 
     sScriptData.CoreAssemblyImage = mono_assembly_get_image( sScriptData.CoreAssembly );
+
     if( !sScriptData.CoreAssemblyImage )
     {
         YIKES( "mono_assembly_get_image failed" );
@@ -511,8 +530,8 @@ void ScriptEngine::CacheAssemblyTypes()
         loadedClass.Name = name;
 
         MonoClass* monoClass = mono_class_from_name( sScriptData.AppAssemblyImage, nameSpace.c_str(), name.c_str() );
-        if( monoClass == monoBase )
-            continue;
+        //if( monoClass == monoBase )
+        //    continue;
 
         bool isEntity = mono_class_is_subclass_of( monoClass, monoBase, false );
         if( isEntity )
@@ -529,7 +548,7 @@ void ScriptEngine::CacheAssemblyTypes()
                 {
                     MonoType* type = mono_field_get_type( field );
                     MonoUtils::ScriptFieldType fieldType = MonoUtils::MonoTypeToScriptFieldType( type );
-                    BRUH_FMT( "%s, %i", MonoUtils::ScriptFieldTypeToString( fieldType ).c_str(), fieldType );
+                    //BRUH_FMT( "%s, %i", MonoUtils::ScriptFieldTypeToString( fieldType ).c_str(), fieldType );
                     scriptClass.m_fields[fieldName] = { fieldType, fieldName, field };
                 }
             }

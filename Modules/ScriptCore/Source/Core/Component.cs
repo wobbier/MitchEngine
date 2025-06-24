@@ -29,19 +29,4 @@ public abstract class Component : MEObject
 
         return Parent.HasComponent<T>();
     }
-
-    // #TODO: This shouldn't be here, investigate removing it...
-    public EntityID EntID { get; protected set; } // No readonly! Use private set if you want more control
-
-    protected Component()
-    {
-        Console.WriteLine("Created a new entity from component");
-        EntID = new EntityID { Index = 0, Counter = 0 };
-    }
-
-    internal Component(EntityID inID)
-    {
-        Console.WriteLine("Created a new entity with ID from component");
-        EntID = inID;
-    }
 }

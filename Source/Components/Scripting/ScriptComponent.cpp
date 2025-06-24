@@ -14,6 +14,9 @@
 #include "Engine/Engine.h"
 #include "Components/UI/BasicUIView.h"
 #include "Scripting/MonoUtils.h"
+#include <Web\HttpDownload.h>
+#include "File.h"
+#include <mono\metadata\appdomain.h>
 
 
 #if USING( ME_SCRIPTING )
@@ -59,6 +62,7 @@ ScriptComponent::ScriptComponent()
 
     mono_add_internal_call( "Entity::Entity_HasComponent", (void*)Entity_HasComponent );
     mono_add_internal_call( "BasicUIView::BasicUIView_ExecuteJS", (void*)BasicUIView_ExecuteJS );
+    mono_add_internal_call( "HTTP::HTTP_DownloadFile", (void*)HTTP_DownloadFile );
     // does this go into the other components?
     RegisterComponent<Transform>();
     RegisterComponent<Camera>();
@@ -338,6 +342,19 @@ void ScriptComponent::BasicUIView_ExecuteJS( EntityID id, MonoString* inString )
     {
         handle->GetComponent<BasicUIView>().ExecuteScript( MonoUtils::MonoStringToUTF8( inString ) );
     }
+}
+
+
+MonoString* ScriptComponent::HTTP_DownloadFile( MonoString* inURL, MonoString* inDirectory )
+{
+    char* str = mono_string_to_utf8( inURL );
+    char* inDirectoryMono = mono_string_to_utf8( inDirectory );
+    Path outPath = Path( inDirectoryMono );
+    if( Web::DownloadFile( str, outPath ) )
+    {
+        return mono_string_new( mono_domain_get(), File( outPath ).Read().c_str() );
+    }
+    return nullptr;
 }
 
 
