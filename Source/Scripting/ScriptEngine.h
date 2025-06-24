@@ -9,7 +9,6 @@
 #include "MonoUtils.h"
 #include "ECS/Entity.h"
 
-
 struct ScriptField
 {
     MonoUtils::ScriptFieldType Type;
@@ -224,6 +223,10 @@ public:
 
     // Successful class loaded
     static std::vector<LoadedClassInfo> LoadedEntityScripts;
+
+
+    static std::unordered_map<EntityID, MonoObject*> entityInstanceCache;
 };
+
 
 #endif

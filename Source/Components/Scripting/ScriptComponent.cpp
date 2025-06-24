@@ -45,6 +45,8 @@ ScriptComponent::ScriptComponent()
     // Did you update your bgfx .hpp shaders at all??
     mono_add_internal_call( "Transform::Entity_GetTranslation", (void*)Transform_GetTranslation );
     mono_add_internal_call( "Transform::Entity_GetTranslation", (void*)Transform_GetTranslation );
+    mono_add_internal_call( "Transform::Transform_GetScale", (void*)Transform_GetScale );
+    mono_add_internal_call( "Transform::Transform_SetScale", (void*)Transform_SetScale );
     mono_add_internal_call( "Camera::Camera_GetClearColor", (void*)Camera_GetClearColor );
     mono_add_internal_call( "Camera::Camera_SetClearColor", (void*)Camera_SetClearColor );
     mono_add_internal_call( "Input::IsKeyDown", (void*)Input_IsKeyDown );
@@ -290,6 +292,18 @@ void ScriptComponent::Transform_SetTranslation( EntityID id, Vector3* inPos )
 {
     EntityHandle handle( id, ScriptEngine::sScriptData.worldPtr );
     handle->GetComponent<Transform>().SetPosition( *inPos );
+}
+
+void ScriptComponent::Transform_GetScale( EntityID id, Vector3* outPosition )
+{
+    EntityHandle handle( id, ScriptEngine::sScriptData.worldPtr );
+    *outPosition = handle->GetComponent<Transform>().GetScale();
+}
+
+void ScriptComponent::Transform_SetScale( EntityID id, Vector3* inPos )
+{
+    EntityHandle handle( id, ScriptEngine::sScriptData.worldPtr );
+    handle->GetComponent<Transform>().SetScale( *inPos );
 }
 
 void ScriptComponent::Camera_GetClearColor( EntityID id, Vector3* outPosition )

@@ -1,5 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+
+[AttributeUsage(AttributeTargets.Method | AttributeTargets.Class)]
+public class UsedImplicitlyAttribute : Attribute { }
 
 [Serializable]
 public struct EntityID
@@ -11,6 +15,7 @@ public struct EntityID
 public class Entity
 {
     public readonly EntityID EntID;
+    private Dictionary<Type, Component> _componentCache = new Dictionary<Type, Component>();
 
     protected Entity()
     {
@@ -31,12 +36,17 @@ public class Entity
 
     public T GetComponent<T>() where T: Component, new()
     {
+        var type = typeof(T);
+
+        if (_componentCache.TryGetValue(type, out var existing))
+            return (T)existing;
+
         if (!HasComponent<T>())
-        {
             return null;
-        }
-        
-        return new T() { Parent = this };
+
+        var comp = new T { Parent = this };
+        _componentCache[type] = comp;
+        return comp;
     }
 
     public Transform transform
@@ -45,8 +55,6 @@ public class Entity
         private set { }
     }
 
-
     [MethodImplAttribute(MethodImplOptions.InternalCall)]
     extern static bool Entity_HasComponent(EntityID id, Type type);
-
 }
