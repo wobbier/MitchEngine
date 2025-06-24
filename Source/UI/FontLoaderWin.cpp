@@ -109,7 +109,7 @@ namespace ultralight {
 
         if( FAILED( hr ) || !nameLength ) return fallback_font();
 
-        std::unique_ptr<wchar_t[]> name( ME_NEW wchar_t[nameLength + 1] );
+        std::unique_ptr<wchar_t[]> name( new wchar_t[nameLength + 1] );
         hr = pFamilyNames->GetString( index, name.get(), nameLength + 1 );
 
         if( FAILED( hr ) ) return fallback_font();
@@ -137,7 +137,7 @@ namespace ultralight {
         UINT32 index = 0;
         BOOL exists = false;
         size_t len = family.length() + 1;
-        WCHAR* family_name_wcstr = ME_NEW WCHAR[len];
+        WCHAR* family_name_wcstr = new WCHAR[len];
         memset( family_name_wcstr, 0, sizeof( WCHAR ) * len );
         memcpy( family_name_wcstr, family.data(), sizeof( WCHAR ) * ( len - 1 ) );
         hr = pFontCollection->FindFamilyName( family_name_wcstr, &index, &exists );
@@ -209,7 +209,7 @@ namespace ultralight {
 
             if( FAILED( hr ) ) return nullptr;
 
-            std::unique_ptr<WCHAR[]> path( ME_NEW WCHAR[(size_t)pathLength + 1] );
+            std::unique_ptr<WCHAR[]> path( new WCHAR[(size_t)pathLength + 1] );
 
             hr = localFileLoader->GetFilePathFromKey( referenceKey, refKeySize, path.get(), pathLength + 1 );
             if( FAILED( hr ) ) return nullptr;

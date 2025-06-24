@@ -4,14 +4,13 @@
 #include "bx/readerwriter.h"
 #include "bx/file.h"
 #include "Path.h"
-#include <Core/Memory.h>
 
 namespace Moonlight
 {
     static bx::FileReaderI* s_fileReader;
     static bx::FileWriterI* s_fileWriter;
 
-    static bx::AllocatorI* s_allocator3 = ME_NEW bx::DefaultAllocator();
+    static bx::AllocatorI* s_allocator3 = new bx::DefaultAllocator();
     typedef bx::StringT<&s_allocator3> String;
     static String s_currentDir;
 

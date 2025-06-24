@@ -46,10 +46,10 @@ Mesh::Mesh( Moonlight::MeshType InType, Moonlight::Material* InMaterial )
     case Moonlight::Model:
         break;
     case Moonlight::Plane:
-        MeshReferece = ME_NEW PlaneMesh();
+        MeshReferece = new PlaneMesh();
         break;
     case Moonlight::Cube:
-        MeshReferece = ME_NEW Moonlight::CubeMesh();
+        MeshReferece = new Moonlight::CubeMesh();
         break;
     case Moonlight::MeshCount:
         break;

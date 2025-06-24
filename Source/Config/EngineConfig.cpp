@@ -3,7 +3,7 @@
 
 EngineConfig::EngineConfig( const Path& inPath )
     : ConfigFile( inPath )
-    , WindowTitle( "MitchEngine" )
+    , WindowTitle("MitchEngine")
 {
 }
 
@@ -12,8 +12,8 @@ void EngineConfig::OnSave( json& outJson )
     json& window = outJson["Window"];
     window["Width"] = WindowSize.x;
     window["Height"] = WindowSize.y;
-    window["X"] = Mathf::Min( 0.f, WindowPosition.x );
-    window["Y"] = Mathf::Min( 0.f, WindowPosition.y );
+    window["X"] = WindowPosition.x;
+    window["Y"] = WindowPosition.y;
     window["Title"] = WindowTitle;
 }
 

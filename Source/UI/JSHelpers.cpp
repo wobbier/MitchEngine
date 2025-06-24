@@ -239,15 +239,15 @@ namespace ultralight {
 #define GetVectorConst() (*reinterpret_cast<const std::vector<JSValue>*>(instance_))
 
     JSArgs::JSArgs() {
-        instance_ = ME_NEW std::vector<JSValue>();
+        instance_ = new std::vector<JSValue>();
     }
 
     JSArgs::JSArgs( const std::initializer_list<JSValue>& values ) {
-        instance_ = ME_NEW std::vector<JSValue>( values );
+        instance_ = new std::vector<JSValue>( values );
     }
 
     JSArgs::JSArgs( const JSArgs& other ) {
-        instance_ = ME_NEW std::vector<JSValue>( *reinterpret_cast<std::vector<JSValue>*>( other.instance_ ) );
+        instance_ = new std::vector<JSValue>( *reinterpret_cast<std::vector<JSValue>*>( other.instance_ ) );
     }
 
     JSArgs::~JSArgs() {
@@ -299,14 +299,14 @@ namespace ultralight {
 
     JSPropertyValue::JSPropertyValue( JSContextRef ctx, JSObjectRef proxy_obj, unsigned idx )
         : JSValue( ctx ),
-        proxyObj_( ME_NEW JSObject( ctx, proxy_obj ) ),
+        proxyObj_( new JSObject( ctx, proxy_obj ) ),
         using_numeric_idx_( true ),
         numeric_idx_( idx ) {
     }
 
     JSPropertyValue::JSPropertyValue( JSContextRef ctx, JSObjectRef proxy_obj, JSString idx )
         : JSValue( ctx ),
-        proxyObj_( ME_NEW JSObject( ctx, proxy_obj ) ),
+        proxyObj_( new JSObject( ctx, proxy_obj ) ),
         using_numeric_idx_( false ),
         numeric_idx_( 0 ),
         string_idx_( idx ) {
@@ -400,7 +400,7 @@ namespace ultralight {
     }
 
     JSPropertyValue& JSPropertyValue::operator=( const JSCallback& callback ) {
-        JSObjectRef nativeFunction = JSObjectMake( ctx_, NativeFunctionClass(), ME_NEW JSCallback( callback ) );
+        JSObjectRef nativeFunction = JSObjectMake( ctx_, NativeFunctionClass(), new JSCallback( callback ) );
         if( using_numeric_idx_ ) {
             JSObjectSetPropertyAtIndex( ctx_, *proxyObj_, numeric_idx_, nativeFunction, nullptr );
             JSObjectSetProperty( ctx_, nativeFunction, JSString( "name" ), JSValue( numeric_idx_ ), kJSPropertyAttributeReadOnly, nullptr );
@@ -414,7 +414,7 @@ namespace ultralight {
     }
 
     JSPropertyValue& JSPropertyValue::operator=( const JSCallbackWithRetval& callback ) {
-        JSObjectRef nativeFunction = JSObjectMake( ctx_, NativeFunctionWithRetvalClass(), ME_NEW JSCallbackWithRetval( callback ) );
+        JSObjectRef nativeFunction = JSObjectMake( ctx_, NativeFunctionWithRetvalClass(), new JSCallbackWithRetval( callback ) );
         if( using_numeric_idx_ ) {
             JSObjectSetPropertyAtIndex( ctx_, *proxyObj_, numeric_idx_, nativeFunction, nullptr );
             JSObjectSetProperty( ctx_, nativeFunction, JSString( "name" ), JSValue( numeric_idx_ ), kJSPropertyAttributeReadOnly, nullptr );
@@ -445,7 +445,7 @@ namespace ultralight {
         size_t argCount = values.size();
         JSValueRef* args = nullptr;
         if( argCount ) {
-            args = ME_NEW JSValueRef[argCount];
+            args = new JSValueRef[argCount];
             size_t i = 0;
             for( auto arg : values )
                 args[i++] = arg;
@@ -618,7 +618,7 @@ namespace ultralight {
         size_t argCount = args.size();
         JSValueRef* _args = nullptr;
         if( argCount ) {
-            _args = ME_NEW JSValueRef[argCount];
+            _args = new JSValueRef[argCount];
             for( size_t i = 0; i < argCount; ++i )
                 _args[i] = args[i];
         }

@@ -38,7 +38,7 @@ namespace ultralight {
             return;
 
         size_t view_array_len = overlays_.size();
-        View** view_array = ME_NEW View * [view_array_len];
+        View** view_array = new View * [view_array_len];
 
         size_t i = 0;
         for( auto& overlay : overlays_ ) {

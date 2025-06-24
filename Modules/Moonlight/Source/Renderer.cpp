@@ -23,7 +23,6 @@
 #include <Mathf.h>
 #include "Core/Assert.h"
 #include "RenderPasses/PickingPass.h"
-#include "Core/Memory.h"
 
 #if BX_PLATFORM_LINUX
 #define GLFW_EXPOSE_NATIVE_X11
@@ -106,7 +105,7 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
     m_resetFlags = init.resolution.reset;
     CurrentSize = settings.InitialSize;
 #if USING( ME_ENABLE_RENDERDOC )
-    RenderDoc = ME_NEW RenderDocManager();
+    RenderDoc = new RenderDocManager();
 #endif
     if( !bgfx::init( init ) )
     {
@@ -125,10 +124,10 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
 
     if( settings.InitAssets )
     {
-        EditorCameraBuffer = ME_NEW Moonlight::FrameBuffer( init.resolution.width, init.resolution.height );
+        EditorCameraBuffer = new Moonlight::FrameBuffer( init.resolution.width, init.resolution.height );
         EditorCameraBuffer->ReCreate( m_resetFlags );
 
-        m_debugDraw.reset( ME_NEW DebugDrawer() );
+        m_debugDraw.reset( new DebugDrawer() );
         //bgfx::setViewClear(1
         //	, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH
         //	, 0x303030ff
@@ -179,7 +178,7 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
     TransparentIndicies.reserve( kMeshTransparencyTempSize );
 
 #if USING( ME_IMGUI )
-    ImGuiRender = ME_NEW ImGuiRenderer();
+    ImGuiRender = new ImGuiRenderer();
     ImGuiRender->Create();
 #endif
 
@@ -190,7 +189,6 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
 
 void BGFXRenderer::Destroy()
 {
-    m_debugDraw.release();
     bgfx::shutdown();
 
 #if USING( ME_ENABLE_RENDERDOC )

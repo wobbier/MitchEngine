@@ -3,7 +3,6 @@
 #include <stdint.h>
 #include <memory>
 #include <assert.h>
-#include <Core/Memory.h>
 
 class Buffer
 {
@@ -23,7 +22,7 @@ public:
     void Allocate( uint64_t size )
     {
         assert( !Data );
-        Data = ME_NEW uint8_t[size];
+        Data = new uint8_t[size];
         Size = size;
     }
 

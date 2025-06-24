@@ -35,7 +35,8 @@ public:
             return Data;
         }
 
-        INFO_FMT("[File IO]", "Loaded File : %s", FilePath.GetLocalPathString().c_str() );
+         // #TODO: Perhaps having the macro for this accepts a string view?
+        CLog::Log( CLog::LogType::Info, "[File IO] Loaded File: " + FilePath.GetLocalPathString() );
 
         IsOpen = true;
 

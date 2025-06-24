@@ -70,7 +70,6 @@ public:
     void MarkEntityForDelete( Entity& EntityToDestroy );
 
     EntityHandle CreateFromPrefab( const std::string& FilePath, Transform* Parent = nullptr );
-    bool IsActive( Entity& InEntity );
 
     std::size_t GetEntityCount() const;
     EntityHandle GetEntity( const EntityID& id );
@@ -166,7 +165,7 @@ T& World::AddCore( Args&& ... args )
     {
         return GetCore( T::GetTypeId() );
     }
-    return AddCore( ME_NEW T { std::forward<Args>( args )... }, T::GetTypeId() );
+    return AddCore( new T { std::forward<Args>( args )... }, T::GetTypeId() );
 }
 
 template <typename TCore>

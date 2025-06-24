@@ -27,7 +27,7 @@ Entity* EntityHandle::operator->() const
 
 Entity* EntityHandle::Get() const
 {
-    return ID.IsNull() ? nullptr : (GameWorld.lock() ? GameWorld.lock()->GetEntityRaw( ID ) : nullptr );
+    return GameWorld.lock() ? GameWorld.lock()->GetEntityRaw( ID ) : nullptr;
 }
 
 EntityID EntityHandle::GetID() const

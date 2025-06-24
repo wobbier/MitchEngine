@@ -7,18 +7,16 @@
 #include "Camera/CameraData.h"
 #include "Renderer.h"
 #include "Mathf.h"
-#include <Core/Memory.h>
 
-CameraCore::CameraCore()
-    : Base( ComponentFilter().Requires<Camera>().Requires<Transform>() )
+CameraCore::CameraCore() : Base( ComponentFilter().Requires<Camera>().Requires<Transform>() )
 {
     SetIsSerializable( false );
-    DefaultCamera = ME_NEW Camera();
+    DefaultCamera = new Camera();
 }
 
 CameraCore::~CameraCore()
 {
-    ME_DELETE( DefaultCamera );
+    delete DefaultCamera;
 }
 
 void CameraCore::Init()
@@ -138,7 +136,7 @@ Moonlight::CameraData CameraCore::CreateCameraData( Transform& InTransform, Came
     //Vector3 Up = CamData.Front.Cross(Right).Normalized();
 
     //CamData.CameraFrustum = InCamera.CameraFrustum;
-    CamData.Buffer = ME_NEW Moonlight::FrameBuffer( static_cast<uint32_t>( CamData.OutputSize.x ), static_cast<uint32_t>( CamData.OutputSize.y ) );
+    CamData.Buffer = new Moonlight::FrameBuffer( static_cast<uint32_t>( CamData.OutputSize.x ), static_cast<uint32_t>( CamData.OutputSize.y ) );
 
     return CamData;
 }

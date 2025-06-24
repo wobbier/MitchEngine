@@ -61,35 +61,35 @@ void World::Simulate()
         return;
     }
     OPTICK_CATEGORY( "World::Simulate", Optick::Category::Scene )
-    for( auto& InEntity : EntityCache.Activated )
-    {
-        auto& Attr = EntityAttributes.Attributes[InEntity.GetId().Index];
-        Attr.IsActive = true;
-
-        for( auto& InCore : Cores )
+        for( auto& InEntity : EntityCache.Activated )
         {
-            if( !InCore.second->IsRunning )
-            {
-                //continue;
-            }
-            auto CoreIndex = InCore.first;
+            auto& Attr = EntityAttributes.Attributes[InEntity.GetId().Index];
+            Attr.IsActive = true;
 
-            if( InCore.second->GetComponentFilter().PassFilter( EntityAttributes.Storage.GetComponentTypes( InEntity ) ) )
+            for( auto& InCore : Cores )
             {
-                if( Attr.Cores.size() <= CoreIndex || !Attr.Cores[CoreIndex] )
+                if( !InCore.second->IsRunning )
                 {
-                    InCore.second->Add( InEntity );
+                    //continue;
+                }
+                auto CoreIndex = InCore.first;
 
-                    Attr.Cores[CoreIndex] = true;
+                if( InCore.second->GetComponentFilter().PassFilter( EntityAttributes.Storage.GetComponentTypes( InEntity ) ) )
+                {
+                    if( Attr.Cores.size() <= CoreIndex || !Attr.Cores[CoreIndex] )
+                    {
+                        InCore.second->Add( InEntity );
+
+                        Attr.Cores[CoreIndex] = true;
+                    }
+                }
+                else if( Attr.Cores.size() > CoreIndex && Attr.Cores[CoreIndex] )
+                {
+                    InCore.second->Remove( InEntity );
+                    Attr.Cores[CoreIndex] = false;
                 }
             }
-            else if( Attr.Cores.size() > CoreIndex && Attr.Cores[CoreIndex] )
-            {
-                InCore.second->Remove( InEntity );
-                Attr.Cores[CoreIndex] = false;
-            }
         }
-    }
     for( auto& InEntity : EntityCache.Deactivated )
     {
         auto& Attr = EntityAttributes.Attributes[InEntity.GetId().Index];
@@ -446,12 +446,6 @@ void World::ActivateEntity( Entity& InEntity, const bool InActive )
     {
         EntityCache.Deactivated.push_back( InEntity );
     }
-}
-
-bool World::IsActive( Entity& InEntity )
-{
-    auto& Attr = EntityAttributes.Attributes[InEntity.GetId().Index];
-    return Attr.IsActive;
 }
 
 void World::MarkEntityForDelete( Entity& EntityToDestroy )

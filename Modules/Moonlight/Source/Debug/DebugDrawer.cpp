@@ -73,11 +73,6 @@ DebugDrawer::DebugDrawer()
 
     bgfx::RendererType::Enum type = bgfx::getRendererType();
 
-    for( uint32_t ii = 0; ii < Program::Count; ++ii )
-    {
-        m_program[ii] = BGFX_INVALID_HANDLE;
-    }
-
     m_program[Program::Lines] = bgfx::createProgram(
         bgfx::createEmbeddedShader( s_embeddedShaders, type, "vs_debugdraw_lines" )
         , bgfx::createEmbeddedShader( s_embeddedShaders, type, "fs_debugdraw_lines" )
@@ -124,8 +119,7 @@ DebugDrawer::~DebugDrawer()
     bgfx::destroy( m_vbh );
     for( uint32_t ii = 0; ii < Program::Count; ++ii )
     {
-        if( bgfx::isValid( m_program[ii] ) )
-            bgfx::destroy( m_program[ii] );
+        bgfx::destroy( m_program[ii] );
     }
     bgfx::destroy( u_params );
     bgfx::destroy( s_texColor );
@@ -172,7 +166,7 @@ void DebugDrawer::Begin( uint16_t InViewId, bool InDepthTestLess /*= true*/ )
 
 void DebugDrawer::Push()
 {
-    BX_ASSERT( State::Count != m_state, "" );
+    BX_ASSERT( State::Count != m_state, "");
     ++m_stack;
     m_attrib[m_stack] = m_attrib[m_stack - 1];
 }

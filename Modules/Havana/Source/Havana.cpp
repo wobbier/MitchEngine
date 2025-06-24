@@ -80,29 +80,29 @@ Havana::Havana( Engine* GameEngine, EditorApp* app )
     EventManager::GetInstance().RegisterReceiver( this, events );
     Renderer = &GameEngine->GetRenderer();
 
-    MainMenu.reset( ME_NEW MainMenuWidget( this ) );
+    MainMenu.reset( new MainMenuWidget( this ) );
     RegisteredWidgets.push_back( MainMenu );
 
-    AssetBrowser.reset( ME_NEW AssetBrowserWidget( this ) );
+    AssetBrowser.reset( new AssetBrowserWidget( this ) );
     RegisteredWidgets.push_back( AssetBrowser );
 
-    LogPanel.reset( ME_NEW LogWidget() );
+    LogPanel.reset( new LogWidget() );
     RegisteredWidgets.push_back( LogPanel );
 
-    ResourceMonitor.reset( ME_NEW ResourceMonitorWidget() );
+    ResourceMonitor.reset( new ResourceMonitorWidget() );
     RegisteredWidgets.push_back( ResourceMonitor );
 
-    MainSceneView.reset( ME_NEW SceneViewWidget( "World View", true ) );
-    GameSceneView.reset( ME_NEW SceneViewWidget( "Game View" ) );
+    MainSceneView.reset( new SceneViewWidget( "World View", true ) );
+    GameSceneView.reset( new SceneViewWidget( "Game View" ) );
     RegisteredWidgets.push_back( GameSceneView );
 
-    SceneHierarchy.reset( ME_NEW SceneHierarchyWidget() );
+    SceneHierarchy.reset( new SceneHierarchyWidget() );
     RegisteredWidgets.push_back( SceneHierarchy );
 
-    PropertiesView.reset( ME_NEW PropertiesWidget() );
+    PropertiesView.reset( new PropertiesWidget() );
     RegisteredWidgets.push_back( PropertiesView );
 
-    AssetPreview.reset( ME_NEW AssetPreviewWidget() );
+    AssetPreview.reset( new AssetPreviewWidget() );
     RegisteredWidgets.push_back( AssetPreview );
 
     InitUI();

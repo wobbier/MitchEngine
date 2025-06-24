@@ -11,7 +11,6 @@
 #include "UI/Colors.h"
 #include "Window/PlatformWindowHooks.h"
 #include <Camera/CameraData.h>
-#include <Core/Memory.h>
 
 extern bool ImGui_ImplSDL2_InitForMetal( SDL_Window* window );
 extern bool ImGui_ImplSDL2_InitForD3D( SDL_Window* window );
@@ -37,7 +36,7 @@ void Tool::Start()
         return;
     }
 
-    m_renderer = ME_NEW BGFXRenderer();
+    m_renderer = new BGFXRenderer();
 
     std::function<void( const Vector2& )> ResizeFunc = [this]( const Vector2& NewSize )
         {
@@ -47,7 +46,7 @@ void Tool::Start()
             }
         };
 
-    m_window = ME_NEW SDLWindow( m_toolCreationFlags.toolName, ResizeFunc, 500, 300, Vector2( 1280, 720 ) );
+    m_window = new SDLWindow( m_toolCreationFlags.toolName, ResizeFunc, 500, 300, Vector2( 1280, 720 ) );
     m_window->SetBorderless( m_toolCreationFlags.isBorderless );
     ResizeFunc( Vector2( 1280, 720 ) );
     RendererCreationSettings set;
