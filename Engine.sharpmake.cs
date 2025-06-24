@@ -185,8 +185,6 @@ public class Engine : BaseProject
 
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/Assimp/{target.Optimization}"));
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/SDL/Win64/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
-        conf.LibraryFiles.Add("winmm.lib");
-        conf.LibraryFiles.Add("winhttp.lib");
 
         // Ultralight UI
         if (Globals.IsUltralightEnabled)
@@ -298,8 +296,6 @@ public class Engine : BaseProject
 
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/Assimp/{target.Optimization}"));
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/SDL/UWP/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
-        conf.LibraryFiles.Add("winmm.lib");
-        conf.LibraryFiles.Add("winhttp.lib");
 
         // Ultralight UI
         if (Globals.IsUltralightEnabled)

@@ -5,7 +5,7 @@
 #include "Singleton.h"
 #include <vector>
 /*
-CLog.h
+Logger.h
 A utility class for creating and managing logs for the engine. You can change the
 log file name and priority levels to control what info gets saved and where.
 */
@@ -24,20 +24,6 @@ log file name and priority levels to control what info gets saved and where.
                                              ":" + std::to_string(__LINE__) + \
                                              "]\n\t[" + __FUNCTION__ + "]\n\t", \
                                              __VA_ARGS__ )
-/// Info log
-#define INFO(category, message) \
-    CLog::Log(CLog::LogType::Info, \
-        std::string(category) + " [" + std::string(__FILE__).substr(std::string(__FILE__).find_last_of("/\\") + 1) + \
-        ":" + std::to_string(__LINE__) + "] " + message)
-
-/// Info log with category
-#define INFO_FMT(category, formatStr, ...) \
-    CLog::LogFmt(CLog::LogType::Info, \
-        std::string(category) + " [" + \
-        std::string(__FILE__).substr(std::string(__FILE__).find_last_of("/\\") + 1) + \
-        ":" + std::to_string(__LINE__) + "] " + formatStr, \
-        __VA_ARGS__)
-
 
 class CLog
 {

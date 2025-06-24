@@ -94,11 +94,6 @@ void ScriptCore::OnEditorInspect()
     {
         ImGui::Text( "%s %s", it.Namespace.c_str(), it.Name.c_str() );
     }
-
-    if( ImGui::Button( "Start Debugging" ) )
-    {
-        ScriptEngine::InitDebug();
-    }
 #endif
 }
 

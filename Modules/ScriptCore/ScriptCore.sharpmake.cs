@@ -1,6 +1,5 @@
 using System.IO;
 using Sharpmake;
-using static Sharpmake.Options;
 
 [Generate]
 public class ScriptCore : CSharpProject
@@ -34,11 +33,6 @@ public class ScriptCore : CSharpProject
         CSharpProjectExtensions.AddAspNetReferences(conf);
         //conf.ReferencesByPath.Add(@"[project.SharpmakeCsPath]/Engine/Tools/Sharpmake/Sharpmake.dll");
         //conf.ReferencesByPath.Add(@"[project.SharpmakeCsPath]/Engine/Tools/Sharpmake/Sharpmake.Generators.dll");
-        
-        conf.Options.Add(Options.CSharp.DebugSymbols.Enabled);
-        conf.Options.Add(Options.CSharp.DebugType.Pdbonly);
-        //conf.CustomAdditionalOptions.Add("/p:DebugType=portable");
-        //conf.CustomAdditionalOptions.Add("/p:DebugSymbols=true");
     }
 }
 
