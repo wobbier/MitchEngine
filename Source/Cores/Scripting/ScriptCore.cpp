@@ -74,8 +74,29 @@ void ScriptCore::OnEntityAdded( Entity& NewEntity )
 
 void ScriptCore::OnEntityRemoved( Entity& InEntity )
 {
+#if USING( ME_SCRIPTING )
+    EntityID entityId = InEntity.GetId();
 
+    auto it = ScriptEngine::entityInstanceCache.find( entityId );
+    if( it != ScriptEngine::entityInstanceCache.end() )
+    {
+        mono_gchandle_free( it->second ); // Free the GC handle explicitly
+        ScriptEngine::entityInstanceCache.erase( it );
+        BRUH_FMT( "Removed GC handle for Entity ID: %u", entityId.Value() );
+    }
+
+    // Also handle the entity instances if needed
+    auto instIt = ScriptEngine::sScriptData.EntityInstances.find( entityId.Value() );
+    if( instIt != ScriptEngine::sScriptData.EntityInstances.end() )
+    {
+        ScriptEngine::sScriptData.EntityInstances.erase( instIt );
+    }
+
+    // Clear script fields associated with entity, if tracked
+    ScriptEngine::sScriptData.EntityScriptFields.erase( entityId.Value() );
+#endif
 }
+
 
 #if USING( ME_EDITOR )
 
@@ -90,9 +111,20 @@ void ScriptCore::OnEditorInspect()
     //
     //ScriptEngine::testClassInstance.InvokeFull("PrintFloatVar");
 
-    for( auto& it : ScriptEngine::LoadedClasses )
+    if( ImGui::CollapsingHeader( "Entity Classes" ) )
     {
-        ImGui::Text( "%s %s", it.Namespace.c_str(), it.Name.c_str() );
+        for( auto& it : ScriptEngine::LoadedEntityScripts )
+        {
+            ImGui::Text( "%s %s", it.Namespace.c_str(), it.Name.c_str() );
+        }
+    }
+
+    if( ImGui::CollapsingHeader( "All Classes" ) )
+    {
+        for( auto& it : ScriptEngine::LoadedClasses )
+        {
+            ImGui::Text( "%s %s", it.Namespace.c_str(), it.Name.c_str() );
+        }
     }
 #endif
 }

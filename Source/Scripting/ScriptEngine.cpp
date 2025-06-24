@@ -35,7 +35,7 @@ std::vector<ScriptEngine::LoadedClassInfo> ScriptEngine::LoadedClasses;
 
 std::vector<ScriptEngine::LoadedClassInfo> ScriptEngine::LoadedEntityScripts;
 
-std::unordered_map<EntityID, MonoObject*> ScriptEngine::entityInstanceCache;
+std::unordered_map<EntityID, uint32_t> ScriptEngine::entityInstanceCache;
 
 
 //void ResendDebugInfo( MonoAssembly* monoAssembly )
@@ -149,18 +149,28 @@ static MonoObject* World_GetTransformByName( MonoString* inString )
     }
 
     EntityID id = found->Parent.GetID();
-    if( auto it = ScriptEngine::entityInstanceCache.find( id ); it != ScriptEngine::entityInstanceCache.end() )
+    auto it = ScriptEngine::entityInstanceCache.find( id );
+    if( it != ScriptEngine::entityInstanceCache.end() )
     {
-        return it->second;
+        MonoObject* entityObj = mono_gchandle_get_target( it->second );
+        if( entityObj == nullptr )
+        {
+            YIKES( "MonoObject reference was lost (collected by GC)" );
+            return nullptr;
+        }
+        return entityObj;
     }
+
     MonoClass* entityClass = mono_class_from_name( ScriptEngine::sScriptData.CoreAssemblyImage, "", "Entity" );
     MonoObject* entityObj = mono_object_new( mono_domain_get(), entityClass );
+    YIKES( "Creating new mono transform object: " + std::string( str ) );
 
     MonoMethod* ctor = mono_class_get_method_from_name( entityClass, ".ctor", 1 );
     void* args[] = { &id };
     mono_runtime_invoke( ctor, entityObj, args, nullptr );
-
-    ScriptEngine::entityInstanceCache[id] = entityObj;
+    // Create a GC handle to ensure object isn't collected
+    uint32_t gcHandle = mono_gchandle_new( entityObj, /*pinned=*/false );
+    ScriptEngine::entityInstanceCache[id] = gcHandle;
 
     return entityObj;
 
@@ -478,7 +488,7 @@ void ScriptEngine::CacheAssemblyTypes()
     const MonoTableInfo* typeDefinitionsTable = mono_image_get_table_info( sScriptData.AppAssemblyImage, MONO_TABLE_TYPEDEF );
     int32_t numTypes = mono_table_info_get_rows( typeDefinitionsTable );
 
-    MonoClass* monoBase = mono_class_from_name( sScriptData.CoreAssemblyImage, "", "Entity" );
+    MonoClass* monoBase = mono_class_from_name( sScriptData.CoreAssemblyImage, "", "MEObject" );
     for( int32_t i = 0; i < numTypes; i++ )
     {
         uint32_t cols[MONO_TYPEDEF_SIZE];
@@ -505,12 +515,10 @@ void ScriptEngine::CacheAssemblyTypes()
             continue;
 
         bool isEntity = mono_class_is_subclass_of( monoClass, monoBase, false );
-        if( !isEntity )
-            continue;
+        if( isEntity )
         {
             sScriptData.EntityClasses[fullName] = ScriptClass( loadedClass.Namespace, loadedClass.Name );
             ScriptClass& scriptClass = sScriptData.EntityClasses[fullName];
-            LoadedEntityScripts.push_back( loadedClass );
             int fieldCount = mono_class_num_fields( monoClass );
             void* it = nullptr;
             while( MonoClassField* field = mono_class_get_fields( monoClass, &it ) )
@@ -525,8 +533,9 @@ void ScriptEngine::CacheAssemblyTypes()
                     scriptClass.m_fields[fieldName] = { fieldType, fieldName, field };
                 }
             }
+            LoadedEntityScripts.push_back( loadedClass );
         }
-        LoadedClasses.push_back( std::move( loadedClass ) );
+        LoadedClasses.push_back( loadedClass );
     }
 }
 

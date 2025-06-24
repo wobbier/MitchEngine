@@ -225,7 +225,7 @@ public:
     static std::vector<LoadedClassInfo> LoadedEntityScripts;
 
 
-    static std::unordered_map<EntityID, MonoObject*> entityInstanceCache;
+    static std::unordered_map<EntityID, uint32_t> entityInstanceCache;
 };
 
 

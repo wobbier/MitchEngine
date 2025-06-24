@@ -1,8 +1,7 @@
 using System;
 using System.Runtime.CompilerServices;
 
-public class Transform
-    : Component
+public class Transform : Component
 {
     public Vector3 Translation
     {
@@ -22,7 +21,6 @@ public class Transform
 
     [MethodImplAttribute(MethodImplOptions.InternalCall)]
     extern static void Entity_SetTranslation(EntityID id, ref Vector3 translation);
-
 
     public Vector3 Scale
     {

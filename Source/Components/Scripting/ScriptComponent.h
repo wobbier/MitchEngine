@@ -45,6 +45,7 @@ private:
     static void Camera_SetClearColor( EntityID id, Vector3* inPos );
     static bool Entity_HasComponent( EntityID id, MonoReflectionType* inType );
     static bool Input_IsKeyDown( KeyCode key );
+    static void BasicUIView_ExecuteJS( EntityID id, MonoString* inString );
 
     SharedPtr<ScriptInstance> Instance = nullptr;
 #endif

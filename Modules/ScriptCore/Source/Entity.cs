@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
 [AttributeUsage(AttributeTargets.Method | AttributeTargets.Class)]
@@ -12,29 +13,36 @@ public struct EntityID
     public ulong Counter;
 }
 
-public class Entity
+// Everything in your world is an Entity
+public class Entity : MEObject
 {
-    public readonly EntityID EntID;
+    public EntityID EntID { get; protected set; } // No readonly! Use private set if you want more control
+
     private Dictionary<Type, Component> _componentCache = new Dictionary<Type, Component>();
 
     protected Entity()
     {
-        EntID.Index = 0;
-        EntID.Counter = 0;
+        Console.WriteLine("Created a new entity");
+        EntID = new EntityID { Index = 0, Counter = 0 };
     }
 
     internal Entity(EntityID inID)
     {
+        Console.WriteLine("Created a new entity with ID");
         EntID = inID;
     }
 
     public bool HasComponent<T>() where T : Component, new()
     {
         Type type = typeof(T);
+
+        if (_componentCache.TryGetValue(type, out var existing))
+            return true;
+
         return Entity_HasComponent(EntID, type);
     }
 
-    public T GetComponent<T>() where T: Component, new()
+    public T GetComponent<T>() where T : Component, new()
     {
         var type = typeof(T);
 
@@ -44,16 +52,12 @@ public class Entity
         if (!HasComponent<T>())
             return null;
 
-        var comp = new T { Parent = this };
+        var comp = new T { EntID = this.EntID, Parent = this };
         _componentCache[type] = comp;
         return comp;
     }
 
-    public Transform transform
-    {
-        get { return GetComponent<Transform>(); }
-        private set { }
-    }
+    public Transform transform => GetComponent<Transform>();
 
     [MethodImplAttribute(MethodImplOptions.InternalCall)]
     extern static bool Entity_HasComponent(EntityID id, Type type);
