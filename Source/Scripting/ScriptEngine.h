@@ -200,6 +200,8 @@ public:
 
     static void Init();
 
+    static void InitDebug();
+
     static void RegisterFunctions();
     static void Tests();
 

@@ -229,7 +229,18 @@ namespace MonoUtils
             return nullptr;
         }
 
-        // TODO: Write a file extension replacement function.
+        MonoAssembly* assembly = mono_assembly_load_from_full( image, path.FullPath.c_str(), &status, 0 );
+
+        if( !assembly )
+        {
+            YIKES( "mono_assembly_load_from_full failed" );
+            return nullptr;
+        }
+
+        mono_image_close( image );
+        fileData.Release();
+
+        // #TODO: Write a file extension replacement function.
 #if !USING( ME_PLATFORM_UWP )
         if( loadPDB )
         {
@@ -244,17 +255,6 @@ namespace MonoUtils
             }
         }
 #endif
-
-        MonoAssembly* assembly = mono_assembly_load_from_full( image, path.FullPath.c_str(), &status, 0 );
-
-        if( !assembly )
-        {
-            YIKES( "mono_assembly_load_from_full failed" );
-            return nullptr;
-        }
-
-        mono_image_close( image );
-        fileData.Release();
 
         return assembly;
     }

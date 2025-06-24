@@ -23,7 +23,7 @@ public class Entity
         EntID = inID;
     }
 
-    public bool HasComponent<T>() where T : Component, new()
+    public bool HasComponent<T>() where T : Component
     {
         Type type = typeof(T);
         return Entity_HasComponent(EntID, type);
