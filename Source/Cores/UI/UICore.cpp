@@ -410,8 +410,8 @@ void UICore::InitUIView( BasicUIView& view )
     }
     else
     {
-        ultralight::String str = "file:///" + ultralight::String( view.FilePath.GetLocalPath().data() );
-        newView->LoadURL( str );
+        ultralight::String str = ultralight::String( view.SourceFile.Read().c_str() );
+        newView->LoadHTML( str );
     }
 
     //m_overlays.push_back( overlay );

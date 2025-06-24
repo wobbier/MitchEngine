@@ -21,6 +21,8 @@
 #include <mono/metadata/debug-helpers.h>
 #include <mono/metadata/tokentype.h>
 
+#include "Bindings/ImGui.bindings.h"
+
 //// forward declare internal Mono debugger agent functions
 //extern "C" {
 //    void mono_debugger_agent_send_assembly_load( MonoAssembly* assembly );
@@ -109,20 +111,6 @@ static float Native_VectorLength( Vector3* inVector )
     return inVector->Length();
 }
 
-static bool ImGui_Begin( MonoString* inString )
-{
-    char* str = mono_string_to_utf8( inString );
-    bool ret = ImGui::Begin( str );
-    mono_free( str );
-    return ret;
-}
-
-static void ImGui_Text( MonoString* inString )
-{
-    char* str = mono_string_to_utf8( inString );
-    ImGui::Text( str );
-    mono_free( str );
-}
 
 static const Transform* World_GetTransformByName_InternalRecursive( Transform* inParent, const std::string& inString )
 {
@@ -136,19 +124,14 @@ static const Transform* World_GetTransformByName_InternalRecursive( Transform* i
     return nullptr;
 }
 
-static MonoObject* World_GetTransformByName( MonoString* inString )
+MonoObject* ScriptEngine::ReturnEntityID( const EntityHandle& inEntity )
 {
-    char* str = mono_string_to_utf8( inString );
-
-    const Transform* found = World_GetTransformByName_InternalRecursive( GetEngine().SceneNodes->GetRootTransform(), str );
-
-    mono_free( str );
-    if( !found )
+    if( !inEntity )
     {
         return nullptr;
     }
 
-    EntityID id = found->Parent.GetID();
+    EntityID id = inEntity.GetID();
     auto it = ScriptEngine::entityInstanceCache.find( id );
     if( it != ScriptEngine::entityInstanceCache.end() )
     {
@@ -163,7 +146,6 @@ static MonoObject* World_GetTransformByName( MonoString* inString )
 
     MonoClass* entityClass = mono_class_from_name( ScriptEngine::sScriptData.CoreAssemblyImage, "", "Entity" );
     MonoObject* entityObj = mono_object_new( mono_domain_get(), entityClass );
-    YIKES( "Creating new mono transform object: " + std::string( str ) );
 
     MonoMethod* ctor = mono_class_get_method_from_name( entityClass, ".ctor", 1 );
     void* args[] = { &id };
@@ -173,34 +155,35 @@ static MonoObject* World_GetTransformByName( MonoString* inString )
     ScriptEngine::entityInstanceCache[id] = gcHandle;
 
     return entityObj;
-
 }
 
-
-static void ImGui_Checkbox( MonoString* inString, MonoBoolean* inValue )
+static MonoObject* World_GetTransformByName( MonoString* inString )
 {
     char* str = mono_string_to_utf8( inString );
-    bool checkbox = *inValue;
-    if( ImGui::Checkbox( str, &checkbox ) )
-    {
-        *inValue = checkbox;
-    }
+    const Transform* found = World_GetTransformByName_InternalRecursive( GetEngine().SceneNodes->GetRootTransform(), str );
+
     mono_free( str );
+    if( !found )
+    {
+        return nullptr;
+    }
+
+    return ScriptEngine::ReturnEntityID( found->Parent );
 }
 
 
-static bool ImGui_Button( MonoString* inString, MonoBoolean* inValue )
+static MonoObject* World_CreateEntity( MonoString* inString )
 {
     char* str = mono_string_to_utf8( inString );
-    return ImGui::Button( str );
-    // what is this interaction?
-    // mono_free( str );
-}
 
+    auto world = ScriptEngine::sScriptData.worldPtr.lock();
+    auto newEntity = world->CreateEntity();
+    Transform* found = &newEntity->AddComponent<Transform>();
+    found->SetName( str );
 
-static void ImGui_End()
-{
-    ImGui::End();
+    mono_free( str );
+
+    return ScriptEngine::ReturnEntityID( newEntity );
 }
 
 
@@ -347,12 +330,9 @@ void ScriptEngine::RegisterFunctions()
     mono_add_internal_call( "TestScript::NativeLog", (void*)NativeLog );
     mono_add_internal_call( "TestScript::NativeLog_Vector", (void*)NativeLog_Vector );
     mono_add_internal_call( "TestScript::Native_VectorLength", (void*)Native_VectorLength );
-    mono_add_internal_call( "ImGui::ImGui_Begin", (void*)ImGui_Begin );
-    mono_add_internal_call( "ImGui::ImGui_End", (void*)ImGui_End );
-    mono_add_internal_call( "ImGui::ImGui_Text", (void*)ImGui_Text );
-    mono_add_internal_call( "ImGui::ImGui_Checkbox", (void*)ImGui_Checkbox );
-    mono_add_internal_call( "ImGui::ImGui_Button", (void*)ImGui_Button );
     mono_add_internal_call( "World::World_GetTransformByName", (void*)World_GetTransformByName );
+    mono_add_internal_call( "World::World_CreateEntity", (void*)World_CreateEntity );
+    Register_ImGuiBindings();
 }
 
 
@@ -558,9 +538,61 @@ void ScriptEngine::CacheAssemblyTypes()
     }
 }
 
+MonoClass* ScriptInstance::GetMonoClass() const
+{
+    return mono_object_get_class( GetMonoObjectInstance() );
+}
+
+void ScriptInstance::OnCreate()
+{
+    MonoClass* klass = GetMonoClass();
+    MonoClassField* parentField = nullptr;
+
+    while( klass != nullptr )
+    {
+        parentField = mono_class_get_field_from_name( klass, "_parent" );
+        if( parentField != nullptr )
+            break;
+
+        klass = mono_class_get_parent( klass ); // walk up to base class
+    }
+
+    if( parentField )
+    {
+        MonoObject* managedEntity = ScriptEngine::ReturnEntityID( Owner );
+        if( managedEntity == nullptr )
+        {
+            YIKES( "MonoObject reference was lost (collected by GC)" );
+        }
+
+        if( managedEntity )
+            mono_field_set_value( GetMonoObject(), parentField, managedEntity );
+    }
+
+    if( OnCreateMethod )
+    {
+        ScriptRef.InvokeMethod( GetMonoObjectInstance(), OnCreateMethod, nullptr );
+    }
+}
+
 MonoObject* ScriptInstance::GetMonoObjectInstance() const
 {
     return mono_gchandle_get_target( GCHandle );
+}
+
+std::unordered_map<uint64_t, MonoObject*> ScriptEngine::s_ManagedEntities;
+
+MonoObject* ScriptEngine::GetManagedEntity( EntityHandle entity )
+{
+    auto it = s_ManagedEntities.find( entity.GetID().Value() );
+    if( it != s_ManagedEntities.end() )
+        return it->second;
+    return nullptr;
+}
+
+void ScriptEngine::RegisterManagedEntity( EntityHandle entity, MonoObject* obj )
+{
+    s_ManagedEntities[entity.GetID().Value()] = obj;
 }
 
 void ScriptInstance::Init( int numParams /*= 0*/, void** params /*= nullptr*/ )

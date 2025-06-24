@@ -70,6 +70,7 @@ public:
     void MarkEntityForDelete( Entity& EntityToDestroy );
 
     EntityHandle CreateFromPrefab( const std::string& FilePath, Transform* Parent = nullptr );
+    bool IsActive( Entity& InEntity );
 
     std::size_t GetEntityCount() const;
     EntityHandle GetEntity( const EntityID& id );
