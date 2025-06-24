@@ -500,6 +500,7 @@ void Engine::LoadScene( const std::string& SceneFile )
 
 #if USING( ME_SCRIPTING )
     ScriptEngine::sScriptData.worldPtr = GetWorld();
+    ScriptEngine::sScriptData.enginePtr = this;
 #endif
     GameWorld->AddCore<UICore>(*UI);
 

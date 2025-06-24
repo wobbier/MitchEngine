@@ -22,6 +22,8 @@
 #include <mono/metadata/tokentype.h>
 
 #include "Bindings/ImGui.bindings.h"
+#include "Bindings/World.bindings.h"
+#include "Bindings/Log.bindings.h"
 
 //// forward declare internal Mono debugger agent functions
 //extern "C" {
@@ -71,58 +73,7 @@ std::unordered_map<EntityID, uint32_t> ScriptEngine::entityInstanceCache;
 //    ResendDebugInfo( ScriptEngine::sScriptData.AppAssembly );
 //}
 
-static void Log( MonoString* inString )
-{
-    char* str = mono_string_to_utf8( inString );
 
-    BRUH( str );
-
-    mono_free( str );
-}
-
-static void LogError( MonoString* inString )
-{
-    char* str = mono_string_to_utf8( inString );
-
-    YIKES( str );
-
-    mono_free( str );
-}
-
-static void NativeLog( MonoString* inString, int number )
-{
-    char* str = mono_string_to_utf8( inString );
-
-    std::cout << str << std::to_string( number ) << std::endl;
-
-    mono_free( str );
-}
-
-static void NativeLog_Vector( Vector3* inVector, Vector3* outVec )
-{
-    Vector3 vec = *inVector;
-    std::cout << "CPP: " << std::to_string( vec.x ) << ", " << std::to_string( vec.y ) << ", " << std::to_string( vec.z ) << std::endl;
-    inVector->Normalize();
-    *outVec = *inVector;
-}
-
-static float Native_VectorLength( Vector3* inVector )
-{
-    return inVector->Length();
-}
-
-
-static const Transform* World_GetTransformByName_InternalRecursive( Transform* inParent, const std::string& inString )
-{
-    for( auto& transform : inParent->GetChildren() )
-    {
-        if( transform->GetName() == inString )
-        {
-            return transform.get();
-        }
-    }
-    return nullptr;
-}
 
 MonoObject* ScriptEngine::ReturnEntityID( const EntityHandle& inEntity )
 {
@@ -155,35 +106,6 @@ MonoObject* ScriptEngine::ReturnEntityID( const EntityHandle& inEntity )
     ScriptEngine::entityInstanceCache[id] = gcHandle;
 
     return entityObj;
-}
-
-static MonoObject* World_GetTransformByName( MonoString* inString )
-{
-    char* str = mono_string_to_utf8( inString );
-    const Transform* found = World_GetTransformByName_InternalRecursive( GetEngine().SceneNodes->GetRootTransform(), str );
-
-    mono_free( str );
-    if( !found )
-    {
-        return nullptr;
-    }
-
-    return ScriptEngine::ReturnEntityID( found->Parent );
-}
-
-
-static MonoObject* World_CreateEntity( MonoString* inString )
-{
-    char* str = mono_string_to_utf8( inString );
-
-    auto world = ScriptEngine::sScriptData.worldPtr.lock();
-    auto newEntity = world->CreateEntity();
-    Transform* found = &newEntity->AddComponent<Transform>();
-    found->SetName( str );
-
-    mono_free( str );
-
-    return ScriptEngine::ReturnEntityID( newEntity );
 }
 
 
@@ -325,14 +247,9 @@ void ScriptEngine::InitMono()
 
 void ScriptEngine::RegisterFunctions()
 {
-    mono_add_internal_call( "Debug::Log", (void*)Log );
-    mono_add_internal_call( "Debug::Error", (void*)LogError );
-    mono_add_internal_call( "TestScript::NativeLog", (void*)NativeLog );
-    mono_add_internal_call( "TestScript::NativeLog_Vector", (void*)NativeLog_Vector );
-    mono_add_internal_call( "TestScript::Native_VectorLength", (void*)Native_VectorLength );
-    mono_add_internal_call( "World::World_GetTransformByName", (void*)World_GetTransformByName );
-    mono_add_internal_call( "World::World_CreateEntity", (void*)World_CreateEntity );
     Register_ImGuiBindings();
+    Register_WorldBindings();
+    Register_LogBindings();
 }
 
 
@@ -580,20 +497,6 @@ MonoObject* ScriptInstance::GetMonoObjectInstance() const
     return mono_gchandle_get_target( GCHandle );
 }
 
-std::unordered_map<uint64_t, MonoObject*> ScriptEngine::s_ManagedEntities;
-
-MonoObject* ScriptEngine::GetManagedEntity( EntityHandle entity )
-{
-    auto it = s_ManagedEntities.find( entity.GetID().Value() );
-    if( it != s_ManagedEntities.end() )
-        return it->second;
-    return nullptr;
-}
-
-void ScriptEngine::RegisterManagedEntity( EntityHandle entity, MonoObject* obj )
-{
-    s_ManagedEntities[entity.GetID().Value()] = obj;
-}
 
 void ScriptInstance::Init( int numParams /*= 0*/, void** params /*= nullptr*/ )
 {
