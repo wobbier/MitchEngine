@@ -410,8 +410,19 @@ void UICore::InitUIView( BasicUIView& view )
     }
     else
     {
-        ultralight::String str = ultralight::String( view.SourceFile.Read().c_str() );
-        newView->LoadHTML( str );
+        // Load from disk
+        if (view.FilePath.Exists)
+        {
+            // Read from file path
+            ultralight::String str = "file:///" + ultralight::String(view.FilePath.GetLocalPath().data());
+            newView->LoadURL(str);
+        }
+        else
+        {
+            // the file doesn't exist so display the raw html (error screen)
+            ultralight::String str = ultralight::String(view.SourceFile.Read().c_str());
+            newView->LoadHTML(str);
+        }
     }
 
     //m_overlays.push_back( overlay );
