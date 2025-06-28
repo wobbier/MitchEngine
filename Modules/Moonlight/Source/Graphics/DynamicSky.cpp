@@ -240,7 +240,7 @@ namespace Moonlight
 
     void SunController::CalculateSunOrbit()
     {
-        float day = 30.0f * m_month + 15.0f;
+        float day = 30.0f * (int)m_month + 15.0f;
         float lambda = 280.46f + 0.9856474f * day;
         lambda = bx::toRad( lambda );
         m_delta = bx::asin( bx::sin( m_eclipticObliquity ) * bx::sin( lambda ) );

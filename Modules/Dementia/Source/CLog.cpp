@@ -28,7 +28,7 @@ void CLog::SetLogVerbosity( CLog::LogType priority )
 bool CLog::LogMessage( CLog::LogType priority, std::string message )
 {
     if( mPriority == LogType::None ) return false;
-    if( priority < mPriority )
+    if( priority > mPriority )
         return false;
 
     mLogFile.open( mLogFileLocation, std::ios_base::app );
@@ -45,6 +45,7 @@ bool CLog::LogMessage( CLog::LogType priority, std::string message )
         break;
     case LogType::Debug:
         type = "[Debug]: ";
+        color = 9;
         break;
     case LogType::Warning:
         type = "[Warning]: ";
@@ -53,6 +54,10 @@ bool CLog::LogMessage( CLog::LogType priority, std::string message )
     case LogType::Error:
         type = "[! Error !]: ";
         color = 12;
+        break;
+    case LogType::Success:
+        type = "[Success]: ";
+        color = 10;
         break;
     default:
         type = "[Unknown]: ";
@@ -95,6 +100,7 @@ std::string CLog::TypeToName( LogType type )
     case LogType::Debug: return "Debug";
     case LogType::Warning: return "Warning";
     case LogType::Error: return "Error";
+    case LogType::Success: return "Success";
     default: return "Unknown";
     }
 }

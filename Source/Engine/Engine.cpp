@@ -73,7 +73,7 @@ void Engine::Init( Game* game )
     m_game = game;
 
     CLog::GetInstance().SetLogFile( "Engine.txt" );
-    CLog::GetInstance().SetLogVerbosity( CLog::LogType::Info );
+    CLog::GetInstance().SetLogVerbosity( CLog::LogType::Debug );
     CLog::GetInstance().Log( CLog::LogType::Info, "Starting the MitchEngine." );
     Path engineCfg( "Assets\\Config\\Engine.cfg" );
 
@@ -188,6 +188,17 @@ void Engine::Init( Game* game )
 
 void Engine::InitGame()
 {
+    INFO("Engine", "Engine INFO");
+    INFO_FMT("Engine", "Engine INFO_FMT: {}", "ARGS");
+    BRUH("Engine BRUH");
+    BRUH("Engine BRUH_FMT {}", "ARGS");
+    DBG("Engine BRUH_FMT {}", "ARGS");
+    DBG("Engine BRUH_FMT {}");
+    YIKES("Engine YIKES");
+    YIKES("Engine YIKES_FMT: {}", "ARGS");
+    YIKES("Engine YIKES_FMT_NEW: {}", "ARGS");
+    YIKES("Engine YIKES_FMT_NEW NO ARGS");
+
     GameWorld->AddCore<CameraCore>( *Cameras );
     GameWorld->AddCore<SceneCore>( *SceneNodes );
     GameWorld->AddCore<RenderCore>( *ModelRenderer );

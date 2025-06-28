@@ -221,7 +221,7 @@ void ScriptEngine::InitDebug()
 void ScriptEngine::InitMono()
 {
     mono_set_assemblies_path( MONO_PATH );
-    BRUH_FMT( "Mono version: %s", mono_get_runtime_build_info() );
+    BRUH( "Mono version: {}", mono_get_runtime_build_info() );
 
 
     if( sScriptData.EnableDebugging )
@@ -445,7 +445,7 @@ void ScriptEngine::CacheAssemblyTypes()
                 {
                     MonoType* type = mono_field_get_type( field );
                     MonoUtils::ScriptFieldType fieldType = MonoUtils::MonoTypeToScriptFieldType( type );
-                    //BRUH_FMT( "%s, %i", MonoUtils::ScriptFieldTypeToString( fieldType ).c_str(), fieldType );
+                    //BRUH( "{}, {}", MonoUtils::ScriptFieldTypeToString( fieldType ).c_str(), fieldType );
                     scriptClass.m_fields[fieldName] = { fieldType, fieldName, field };
                 }
             }

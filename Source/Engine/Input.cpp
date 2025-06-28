@@ -49,7 +49,7 @@ bool Input::OnEvent( const BaseEvent& evt )
                 const KeyPressEvent& event = static_cast<const KeyPressEvent&>( evt );
                 LastKeyPressed = (KeyCode)event.Key;
 
-                //BRUH_FMT( "KeyEvent: Key %i, State %i", event.Key, event.State );
+                //BRUH( "KeyEvent: Key {}, State {}", event.Key, event.State );
                 m_keyEventsThisFrame.push_back( event );
             }
         }

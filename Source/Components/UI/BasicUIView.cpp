@@ -116,7 +116,7 @@ void BasicUIView::ExecuteScript( const std::string& Script )
     {
         std::string exceptionString( excpt.utf8().data() );
 
-        YIKES_FMT( "[UI] [%s]: %s", FilePath.GetLocalPathString().c_str(), exceptionString.c_str() );
+        YIKES( "[UI] [{}]: {}", FilePath.GetLocalPathString().c_str(), exceptionString.c_str() );
     }
 #endif
 }

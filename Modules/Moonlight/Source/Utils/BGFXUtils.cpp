@@ -21,7 +21,7 @@ const bgfx::Memory* Moonlight::LoadMemory( const Path& filePath )
 
     if( err && !err->isOk() )
     {
-        YIKES_FMT( "[%s]: %s", filePath.GetLocalPathString().c_str(), err->getMessage().getPtr() );
+        YIKES( "[{}]: {}", filePath.GetLocalPathString().c_str(), err->getMessage().getPtr() );
     }
 
     //if (filePath.Exists)

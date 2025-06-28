@@ -22,14 +22,14 @@ public:
 
         if( !FilePath.Exists )
         {
-            YIKES_FMT( "[File IO] File does not exist: %s", FilePath.GetLocalPath().data() );
+            YIKES( "[File IO] File does not exist: {}", FilePath.GetLocalPath().data() );
         }
 
         FileStream.open( FilePath.FullPath.c_str(), std::ios::in );
 
         if( !FileStream )
         {
-            YIKES_FMT( "[File IO] Failed to load file: %s", FilePath.GetLocalPath().data() );
+            YIKES( "[File IO] Failed to load file: {}", FilePath.GetLocalPath().data() );
             FileStream.close();
 
             return Data;

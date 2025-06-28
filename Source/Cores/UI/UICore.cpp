@@ -382,7 +382,7 @@ void UICore::OnResize( const Vector2& NewSize )
 #endif
 
 #if USING ( ME_DEBUG )
-        BRUH_FMT( "%i, %s", m_uiTexture.idx, "UI Tex" );
+        BRUH("{}, {}", m_uiTexture.idx, "UI Tex");
 #endif
     }
 }

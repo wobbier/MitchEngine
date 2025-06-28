@@ -41,7 +41,7 @@ Sound::Sound( const char* url, void* fmodSystem /*= nullptr */ )
     if( system->createSound( url, SoundFlags::NonBlocking | SoundFlags::CreateStream, &exinfo, &Handle ) != FMOD_OK )
     {
         // #TODO: Perhaps having the macro for this accepts a string view?
-        YIKES_FMT( "Failed to create sound resource: %s", url );
+        YIKES( "Failed to create sound resource: {}", url );
     }
 #endif
 }

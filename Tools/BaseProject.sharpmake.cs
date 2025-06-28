@@ -136,7 +136,7 @@ public abstract class BaseProject : Project
     [Configure(SubPlatformType.Win64)]
     public virtual void ConfigureWin64(Configuration conf, CommonTarget target)
     {
-        conf.Options.Add(Options.Vc.Compiler.CppLanguageStandard.CPP17);
+        conf.Options.Add(Options.Vc.Compiler.CppLanguageStandard.CPP20);
         conf.Options.Add(Options.Vc.Compiler.RTTI.Enable);
         conf.Options.Add(Options.Vc.General.CharacterSet.Unicode);
         conf.Options.Add(Options.Vc.Compiler.Exceptions.Enable);

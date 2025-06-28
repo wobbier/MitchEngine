@@ -82,7 +82,7 @@ void ScriptCore::OnEntityRemoved( Entity& InEntity )
     {
         mono_gchandle_free( it->second ); // Free the GC handle explicitly
         ScriptEngine::entityInstanceCache.erase( it );
-        BRUH_FMT( "Removed GC handle for Entity ID: %u", entityId.Value() );
+        BRUH( "Removed GC handle for Entity ID: {}", entityId.Value() );
     }
 
     // Also handle the entity instances if needed

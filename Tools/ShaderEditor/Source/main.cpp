@@ -9,16 +9,16 @@ int main( int argc, char** argv )
     flags.isDockingEnabled = true;
     flags.toolName = "Shader Editor";
 
-    CLog::GetInstance().SetLogVerbosity( CLog::LogType::Warning );
-    BRUH( std::to_string( sizeof( int ) ) );
-    BRUH( std::to_string( sizeof( bool ) ) );
-    BRUH( std::to_string( sizeof( float ) ) );
-    BRUH( std::to_string( sizeof( Vector2 ) ) );
-    BRUH( std::to_string( sizeof( Vector3 ) ) );
-    BRUH( std::to_string( sizeof( Vector4 ) ) );
-    BRUH( std::to_string( sizeof( SharedPtr<Moonlight::Texture> ) ) );
-    BRUH( std::to_string( sizeof( float[4] ) ) );
-    BRUH( std::to_string( sizeof( Matrix4 ) ) );
+    CLog::GetInstance().SetLogVerbosity( CLog::LogType::Debug );
+    BRUH(sizeof(int) );
+    BRUH(sizeof(bool) );
+    BRUH(sizeof(float) );
+    BRUH(sizeof(Vector2) );
+    BRUH(sizeof(Vector3) );
+    BRUH(sizeof(Vector4) );
+    BRUH(sizeof(SharedPtr<Moonlight::Texture>) );
+    BRUH(sizeof(float[4]) );
+    BRUH(sizeof(Matrix4) );
 
     ShaderEditor tool( flags );
     tool.Start();

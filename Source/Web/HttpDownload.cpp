@@ -26,7 +26,7 @@ namespace Web
 
         if( !SplitUrl( inURL, fileServer, filePath, isSecure ) )
         {
-            YIKES_FMT( "Invalid URL: %s", inURL.c_str() );
+            YIKES( "Invalid URL: {}", inURL.c_str() );
             return false;
         }
 
@@ -81,7 +81,7 @@ namespace Web
             WINHTTP_NO_REQUEST_DATA, 0, 0, 0 ) )
         {
             DWORD error = GetLastError();
-            YIKES_FMT( "Failed to send request. Error code: %d", error );
+            YIKES( "Failed to send request. Error code: {}", error );
             WinHttpCloseHandle( hRequest );
             WinHttpCloseHandle( hConnect );
             WinHttpCloseHandle( hSession );
@@ -114,7 +114,7 @@ namespace Web
 
         if( statusCode != 200 )
         {
-            YIKES_FMT( "Recieved non-success status code: %d", statusCode );
+            YIKES( "Recieved non-success status code: {}", statusCode );
 
             WinHttpCloseHandle( hRequest );
             WinHttpCloseHandle( hConnect );

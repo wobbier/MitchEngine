@@ -96,7 +96,7 @@ namespace Moonlight
                 m_mips = imageContainer->m_numMips;
 
 #if USING ( ME_DEBUG )
-                //BRUH_FMT( "%i, %s", TexHandle.idx, compiledTexture.FullPath.c_str() );
+                BRUH( "{}, {}", TexHandle.idx, compiledTexture.FullPath.c_str() );
 #endif
                 return true;
             }

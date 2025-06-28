@@ -47,7 +47,7 @@ void ConfigFile::Load()
     const std::string& configData = m_configFile.Read();
     if( configData.empty() )
     {
-        YIKES( "[Config] Empty File: " + m_configFile.FilePath.GetLocalPathString() );
+        YIKES( "[Config] Empty File: {}", m_configFile.FilePath.GetLocalPathString() );
         return;
     }
 
@@ -55,7 +55,7 @@ void ConfigFile::Load()
 
     if( Root.is_null() )
     {
-        YIKES( "Failed to parse config: " + m_configFile.FilePath.GetLocalPathString() );
+        YIKES( "Failed to parse config: {}", m_configFile.FilePath.GetLocalPathString() );
         return;
     }
 

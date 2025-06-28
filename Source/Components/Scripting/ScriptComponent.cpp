@@ -289,7 +289,7 @@ void ScriptComponent::DrawValues( const ScriptClass& scriptClass )
             break;
         }
         default:
-            BRUH_FMT( "Missing entry for %s", name.c_str() );
+            BRUH( "Missing entry for {}", name.c_str() );
             break;
         }
     }
