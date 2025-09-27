@@ -3,6 +3,7 @@
 #if USING( ME_SCRIPTING )
 #include <mono/metadata/loader.h>
 #include <mono/metadata/reflection.h>    // this should go
+#include <mono/metadata/appdomain.h>
 #endif
 
 #include "ScriptComponent.h"
@@ -14,9 +15,8 @@
 #include "Engine/Engine.h"
 #include "Components/UI/BasicUIView.h"
 #include "Scripting/MonoUtils.h"
-#include <Web\HttpDownload.h>
+#include <Web/HttpDownload.h>
 #include "File.h"
-#include <mono\metadata\appdomain.h>
 #include "Utils/HavanaUtils.h"
 #include "Engine/World.h"
 
