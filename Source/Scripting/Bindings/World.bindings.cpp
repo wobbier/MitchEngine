@@ -1,5 +1,7 @@
 #include "PCH.h"
 
+#if USING( ME_SCRIPTING )
+
 #include <mono/metadata/object.h>
 #include <Components/Transform.h>
 #include <Scripting/ScriptEngine.h>
@@ -55,3 +57,5 @@ void Register_WorldBindings()
     mono_add_internal_call( "World::World_GetTransformByName", (void*)World_GetTransformByName );
     mono_add_internal_call( "World::World_CreateEntity", (void*)World_CreateEntity );
 }
+
+#endif

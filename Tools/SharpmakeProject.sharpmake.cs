@@ -6,11 +6,26 @@ public class SharpmakeProjectBase : CSharpProject
         : base(typeof(CommonTarget))
     {
         Name = "SharpmakeProject";
-        SourceRootPath = @"./";
+        RootPath = @"[project.SharpmakeCsPath]";
+        SourceRootPath = @"[project.SharpmakeCsPath]";
 
         ProjectSchema = CSharpProjectSchema.NetFramework;
-        string[] things = { ".xml", ".map", ".config", ".bat", ".txt", ".xsd", ".h.template", ".resx", ".cur" };
-        NoneExtensions.Remove(things);
+
+        SourceFilesExcludeRegex.Add(@".*\.xml");
+        SourceFilesExcludeRegex.Add(@".*\.map");
+        SourceFilesExcludeRegex.Add(@".*\.config");
+        SourceFilesExcludeRegex.Add(@".*\.bat");
+        SourceFilesExcludeRegex.Add(@".*\.txt");
+        SourceFilesExcludeRegex.Add(@".*\.xsd");
+        SourceFilesExcludeRegex.Add(@".*\.h\.template");
+        SourceFilesExcludeRegex.Add(@".*\.template");
+        SourceFilesExcludeRegex.Add(@".*\.resx");
+        SourceFilesExcludeRegex.Add(@".*\.cur");
+        SourceFilesExcludeRegex.Add(@".*\.proto");
+        SourceFilesExcludeRegex.Add(@".*\.vsct");
+        SourceFilesExcludeRegex.Add(@".*\.settings");
+        SourceFilesExcludeRegex.Add(@".*\.manifest");
+
         SourceFilesExtensions = new Strings("Engine.sharpmake.cs");
 
         ContentExtension.Add("GenerateSolution.bat", "macOS.yml", "Windows.yml", "UWP.yml");
