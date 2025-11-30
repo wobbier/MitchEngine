@@ -515,6 +515,10 @@ public class BaseGameSolution : Solution
         {
             Globals.FMOD_Win64_Dir = Path.Combine(Globals.RootDir, $"Engine/ThirdParty/FMOD");
         }
+        if (!Directory.Exists(Globals.FMOD_Linux_Dir) && Directory.Exists(Path.Combine(Globals.RootDir, $"Engine/ThirdParty/FMOD")))
+        {
+            Globals.FMOD_Linux_Dir = Path.Combine(Globals.RootDir, $"Engine/ThirdParty/FMOD");
+        }
 
         conf.AddProject<Dementia>(target);
         conf.AddProject<ImGui>(target);
@@ -595,11 +599,13 @@ public class Globals
     public static string FMOD_Win64_Dir = string.Empty;
     public static string FMOD_UWP_Dir = string.Empty;
     public static string FMOD_macOS_Dir = string.Empty;
+    public static string FMOD_Linux_Dir = string.Empty;
 
     public static string ExeName = "Game_EntryPoint";
 
     public static string MONO_Win64_Dir = "C:/Program Files/Mono/";
     public static string MONO_macOS_Dir = "/Library/Frameworks/Mono.framework/";
+    public static string MONO_Linux_Dir = "/usr/lib/mono/";
 
     public static string UWP_Thumbprint = "2b58614583c74c71d9068804a758d87346f87f40";
     public static string UWP_CertificateName = "Game_EntryPoint_UWP_TemporaryKey.pfx";

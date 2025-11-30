@@ -219,6 +219,42 @@ public abstract class BaseProject : Project
         }
     }
 
+    [ConfigurePriority(ConfigurePriorities.Platform)]
+    [Configure(SubPlatformType.linux)]
+    public virtual void ConfigureLinux(Configuration conf, CommonTarget target)
+    {
+        conf.Options.Add(Options.Makefile.Compiler.CppLanguageStandard.Cpp17);
+        conf.Options.Add(Options.Makefile.Compiler.TreatWarningsAsErrors.Disable);
+        conf.Options.Add(Options.Makefile.Compiler.Rtti.Enable);
+        conf.Options.Add(Options.Makefile.Compiler.Exceptions.Enable);
+        //conf.AdditionalCompilerOptions.Add("-Wall");
+
+        conf.Defines.Add("DEFINE_ME_PLATFORM_LINUX");
+        conf.Defines.Add("UNICODE");
+        conf.Defines.Add("_UNICODE");
+
+        conf.AdditionalCompilerOptions.Add("-fPIC");
+        //conf.AdditionalCompilerOptions.Add("-frtti");
+        //conf.AdditionalCompilerOptions.Add("-fexceptions");
+        conf.AdditionalCompilerOptions.Add("-Wextra");
+        //conf.AdditionalCompilerOptions.Add("-Werror");
+        conf.AdditionalCompilerOptions.Add("-Wno-unused-parameter");
+
+        if (target.Optimization == Optimization.Debug)
+        {
+            conf.AdditionalCompilerOptions.Add("-g");
+        }
+
+        if (Directory.Exists(Globals.FMOD_Linux_Dir))
+        {
+            //conf.Defines.Add("DEFINE_ME_FMOD");
+        }
+        if (Directory.Exists(Globals.MONO_Linux_Dir))
+        {
+            //conf.Defines.Add("DEFINE_ME_MONO");
+        }
+    }
+
     #endregion
 
     #region Optimizations
