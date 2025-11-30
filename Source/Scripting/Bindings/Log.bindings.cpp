@@ -1,6 +1,8 @@
 #include "PCH.h"
 #include "Log.bindings.h"
 
+#if USING( ME_SCRIPTING )
+
 #include <mono/metadata/object.h>
 
 static void Log( MonoString* inString )
@@ -52,3 +54,5 @@ void Register_LogBindings()
     mono_add_internal_call( "TestScript::NativeLog_Vector", (void*)NativeLog_Vector );
     mono_add_internal_call( "TestScript::Native_VectorLength", (void*)Native_VectorLength );
 }
+
+#endif

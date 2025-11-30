@@ -104,14 +104,14 @@ public class CommonTarget : Sharpmake.ITarget
                 {
                     var macOSTarget = new CommonTarget(
                         Platform.mac,
-                        DevEnv.xcode4ios,
+                        DevEnv.xcode,
                         Optimization.Debug | Optimization.Release,
                         DotNetFramework.v4_8,
                         dotNetOS: 0);
                     macOSTarget.SubPlatform = SubPlatformType.macOS;
                     var macEditor = new CommonTarget(
                         Platform.mac,
-                        DevEnv.xcode4ios,
+                        DevEnv.xcode,
                         Optimization.Debug | Optimization.Release,
                         DotNetFramework.v4_8,
                         dotNetOS: 0);

@@ -456,7 +456,7 @@ public class Engine : BaseProject
         }
 
         //??
-        conf.Options.Add(new Options.XCode.Compiler.UserFrameworks("Mono"));
+        conf.XcodeUserFrameworks.Add( "Mono" );
 
         // #TODO Read path from Globals / Move to own class again
         if (Directory.Exists(Globals.MONO_macOS_Dir))

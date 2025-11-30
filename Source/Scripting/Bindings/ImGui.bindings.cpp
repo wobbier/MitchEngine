@@ -1,6 +1,8 @@
 #include "PCH.h"
 #include "ImGui.bindings.h"
 
+#if USING( ME_SCRIPTING )
+
 #include <mono/metadata/object.h>
 #include "imgui.h"
 
@@ -56,3 +58,5 @@ void Register_ImGuiBindings()
     mono_add_internal_call( "ImGui::ImGui_Checkbox", (void*)ImGui_Checkbox );
     mono_add_internal_call( "ImGui::ImGui_Button", (void*)ImGui_Button );
 }
+
+#endif
