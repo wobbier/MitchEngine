@@ -2,6 +2,8 @@
 #include <atomic>
 #include <new>
 #include <array>
+#include <type_traits>
+#include <cstring>
 
 class Job
 {

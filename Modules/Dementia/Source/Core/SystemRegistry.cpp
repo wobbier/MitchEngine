@@ -1,4 +1,5 @@
 #include "SystemRegistry.h"
+#include <algorithm>
 
 SystemRegistry::~SystemRegistry()
 {

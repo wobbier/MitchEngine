@@ -1,4 +1,5 @@
 #include "Job.h"
+#include <cstring>
 
 Job::Job( void( *jobFunction )( Job& ), Job* parent /*= nullptr*/ )
     : JobFuntion { jobFunction }

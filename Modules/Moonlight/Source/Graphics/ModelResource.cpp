@@ -474,7 +474,7 @@ bool ModelResource::LoadMaterialTextures( SharedPtr<Moonlight::Material> newMate
             newMaterial->SetTexture( typeName, texture );
             return true;
         }
-        YIKES_FMT( "OOPS NO TEXTURE???" );
+        YIKES( "OOPS NO TEXTURE???" );
     }
     return false;
 }

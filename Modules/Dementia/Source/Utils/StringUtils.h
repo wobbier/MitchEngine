@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <memory>
+#include <algorithm>
 #include "Dementia.h"
 
 #if USING( ME_PLATFORM_WINDOWS )

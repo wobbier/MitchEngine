@@ -2,6 +2,7 @@
 #include "Events/EventReceiver.h"
 #include "optick.h"
 #include "Dementia.h"
+#include <algorithm>
 
 EventManager::EventManager()
 {
