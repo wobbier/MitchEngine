@@ -99,6 +99,12 @@ Class& operator=(Class&&) = delete;
 #define ME_PLATFORM_MACOS NOT_IN_USE
 #endif
 
+#if defined( DEFINE_ME_PLATFORM_LINUX )
+#define ME_PLATFORM_LINUX IN_USE
+#else
+#define ME_PLATFORM_LINUX NOT_IN_USE
+#endif
+
 #if defined( DEFINE_ME_EDITOR )
 #define ME_EDITOR IN_USE
 #else

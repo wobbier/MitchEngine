@@ -7,6 +7,7 @@ From: https://pybullet.org/Bullet/phpBB3/viewtopic.php?f=9&t=1691&start=0&hilit=
 
 #include "RigidBodyWithCollisionEvents.h"
 
+#if USING( ME_PHYSICS_3D )
 
 ICollisionEvents* btRigidBodyWithEventsEventDelegates::eventDispatcher = NULL;
 
@@ -326,3 +327,5 @@ void btRigidBodyWithEventsEventDelegates::_SendCollisionEvents()
 #endif  
 
 }
+
+#endif

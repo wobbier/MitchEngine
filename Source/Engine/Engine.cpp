@@ -115,7 +115,7 @@ void Engine::Init( Game* game )
 
     engineConfig = EngineConfig( engineCfg );
     engineConfig.OnLoadConfig( engineConfig.Root );
-#if USING( ME_PLATFORM_WIN64 ) || USING( ME_PLATFORM_MACOS )
+#if USING( ME_PLATFORM_WIN64 ) || USING( ME_PLATFORM_MACOS ) || USING( ME_PLATFORM_LINUX )
     GameWindow = new SDLWindow( engineConfig.GetValue( "Title" ), ResizeFunc, engineConfig.WindowPosition.x, engineConfig.WindowPosition.y, engineConfig.WindowSize );
 #endif
 
@@ -129,11 +129,13 @@ void Engine::Init( Game* game )
     GameWindow->SetBorderless( true );
 #endif
 
+    CLog::GetInstance().Log( CLog::LogType::Info, "Starting the Renderer." );
     NewRenderer = new BGFXRenderer();
     RendererCreationSettings settings;
     settings.WindowPtr = GameWindow->GetWindowPtr();
     settings.InitialSize = engineConfig.WindowSize;
     NewRenderer->Create( settings );
+    CLog::GetInstance().Log( CLog::LogType::Info, "After the Renderer." );
 #if USING( ME_IMGUI )
 #if USING( ME_PLATFORM_WIN64 )
     ImGui_ImplSDL2_InitForD3D( static_cast<SDLWindow*>( GameWindow )->WindowHandle );

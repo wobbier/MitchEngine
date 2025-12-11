@@ -24,14 +24,15 @@ public class Dementia : BaseProject
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/ImGui"));
         conf.IncludePaths.Add("[project.SourceRootPath]");
 
-        conf.LibraryFiles.Add("Dementia");
-        conf.LibraryFiles.Add("OptickCore");
+        //conf.LibraryFiles.Add("Dementia");
     }
     
     public override void ConfigureWin64(Configuration conf, CommonTarget target)
     {
         base.ConfigureWin64(conf, target);
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"../../ThirdParty/Lib/Optick/Win64/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
+
+        conf.LibraryFiles.Add("OptickCore");
     }
 
     public override void ConfigureUWP(Configuration conf, CommonTarget target)

@@ -4,6 +4,7 @@
 #include <Utils/HavanaUtils.h>
 #include <Physics/RigidBodyWithCollisionEvents.h>
 
+#if USING( ME_PHYSICS_3D )
 class IgnoreBodyAndGhostCast
     : public btCollisionWorld::ClosestRayResultCallback
 {
@@ -28,7 +29,7 @@ private:
     btRigidBody* m_body = nullptr;
     btPairCachingGhostObjectWithEvents* m_ghostObject = nullptr;
 };
-
+#endif
 
 CharacterController::CharacterController()
     : Component( "CharacterController" )

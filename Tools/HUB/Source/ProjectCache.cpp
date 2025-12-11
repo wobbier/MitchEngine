@@ -1,7 +1,7 @@
 #include "ProjectCache.h"
 #include <JSON.h>
 #include <File.h>
-#include "Resource\ResourceCache.h"
+#include "Resource/ResourceCache.h"
 #include "ProjectFileConfig.h"
 
 void ProjectCache::Load()

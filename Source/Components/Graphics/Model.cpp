@@ -110,7 +110,7 @@ void Model::OnEditorInspect()
     {
         ImGui::Text( "Loaded Path" );
         ImGui::SameLine();
-        ImGui::Text( ModelPath.GetLocalPath().data() );
+        ImGui::Text("%s", ModelPath.GetLocalPath().data());
         RecursiveModelNode( ModelHandle, ModelHandle->RootNode );
         for( const Moonlight::AnimationClip& clip : ModelHandle->GetAnimations() )
         {
@@ -118,7 +118,7 @@ void Model::OnEditorInspect()
             {
                 for( const auto& nodeAnim : clip.NodeChannels )
                 {
-                    ImGui::Text( nodeAnim.NodeName.c_str() );
+                    ImGui::Text("%s", ModelPath.GetLocalPath().data());
                 }
             }
         }

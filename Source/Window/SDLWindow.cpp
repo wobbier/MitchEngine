@@ -1,5 +1,31 @@
 #include "PCH.h"
 #include <Window/SDLWindow.h>
+
+// SDL headers
+#include <SDL.h>
+
+// Avoid conflicts with X11's KeyCode / Window typedefs.
+#define KeyCode X11KeyCode
+#define Window  X11Window
+
+// Make sure wl/x11 fields in SDL_SysWMinfo are available on this build.
+#ifndef SDL_VIDEO_DRIVER_WAYLAND
+#define SDL_VIDEO_DRIVER_WAYLAND 1
+#endif
+
+#ifndef SDL_VIDEO_DRIVER_X11
+#define SDL_VIDEO_DRIVER_X11 1
+#endif
+
+#include <SDL2/SDL_syswm.h>
+
+// Clean up X11 name pollution so the rest of this TU is sane.
+#undef KeyCode
+#undef Window
+#undef None  // X.h defines `#define None 0L` which breaks enum values like eKeyState::None
+
+#include <bgfx/bgfx.h>
+
 #include "bgfx/platform.h"
 #include "CLog.h"
 #include "Engine/Input.h"
@@ -74,6 +100,12 @@ SDLWindow::SDLWindow( const std::string& title, std::function<void( const Vector
         printf( "Window could not be created. SDL_Error: %s\n", SDL_GetError() );
     }
     SetWindow( WindowHandle );
+
+    int numDrivers = SDL_GetNumVideoDrivers();
+    printf("SDL video drivers: %d\n", numDrivers);
+    for (int i = 0; i < numDrivers; ++i)
+        printf("  %s\n", SDL_GetVideoDriver(i));
+    printf("Current video driver: %s\n", SDL_GetCurrentVideoDriver());
 
     /*SharedPtr<Texture> tex = ResourceCache::GetInstance().Get<Texture>(Path("Assets/Havana/ME.png"));
     tex->
@@ -746,32 +778,32 @@ void SDLWindow::ParseMessageQueue()
             CloseRequested = true;
             break;
         }
-        case SDL_KEYDOWN:
-        {
-            KeyState keyState = KeyState::Pressed;
-            if( event.key.repeat > 0 )
-            {
-                keyState = KeyState::Held;
-            }
-            KeyPressEvent evt( event.key.keysym.scancode, keyState );
-            evt.Fire();
-
-            break;
-        }
-
-        case SDL_KEYUP:
-        {
-            KeyPressEvent evt( event.key.keysym.scancode, KeyState::Released );
-            evt.Fire();
-            break;
-        }
-
-        case SDL_MOUSEWHEEL:
-        {
-            MouseScrollEvent evt( static_cast<float>( event.wheel.x ), static_cast<float>( event.wheel.y ) );
-            evt.Fire();
-            break;
-        }
+        //case SDL_KEYDOWN:
+        //{
+        //    KeyState keyState = KeyState::Pressed;
+        //    if( event.key.repeat > 0 )
+        //    {
+        //        keyState = KeyState::Held;
+        //    }
+        //    KeyPressEvent evt( event.key.keysym.scancode, keyState );
+        //    evt.Fire();
+//
+        //    break;
+        //}
+//
+        //case SDL_KEYUP:
+        //{
+        //    KeyPressEvent evt( event.key.keysym.scancode, KeyState::Released );
+        //    evt.Fire();
+        //    break;
+        //}
+//
+        //case SDL_MOUSEWHEEL:
+        //{
+        //    MouseScrollEvent evt( static_cast<float>( event.wheel.x ), static_cast<float>( event.wheel.y ) );
+        //    evt.Fire();
+        //    break;
+        //}
 
         case SDL_WINDOWEVENT:
         {
@@ -897,6 +929,7 @@ void SDLWindow::SetWindow( SDL_Window* window )
     {
         return;
     }
+    printf("Subsystem: %d\n", wmi.subsystem);
 
 #if USING( ME_PLATFORM_WIN64 )
     PlatformInfo.ndt = nullptr;
@@ -909,6 +942,26 @@ void SDLWindow::SetWindow( SDL_Window* window )
 #if USING( ME_PLATFORM_UWP )
     PlatformInfo.ndt = nullptr;
     PlatformInfo.nwh = wmi.info.win.window;
+#endif
+#if USING( ME_PLATFORM_LINUX )
+    switch (wmi.subsystem)
+    {
+        case SDL_SYSWM_WAYLAND:
+            // Wayland: ndt = wl_display*, nwh = wl_surface*
+            PlatformInfo.ndt = wmi.info.wl.display;
+            PlatformInfo.nwh = (void*)wmi.info.wl.egl_window;
+            break;
+
+        case SDL_SYSWM_X11:
+            // X11: ndt = Display*, nwh = Window
+            PlatformInfo.ndt = wmi.info.x11.display;
+            PlatformInfo.nwh = (void*)(uintptr_t)wmi.info.x11.window;
+            break;
+
+        default:
+            printf("Unhandled SDL WM subsystem: %d\n", (int)wmi.subsystem);
+            break;
+    }
 #endif
     PlatformInfo.context = nullptr;
     PlatformInfo.backBuffer = nullptr;
@@ -937,9 +990,9 @@ void SDLWindow::HandleWindowEvent( const SDL_WindowEvent& event )
         SDL_Log( "Window %d moved to %d,%d",
             event.windowID, event.data1,
             event.data2 );
-        WindowMovedEvent evt;
-        evt.NewPosition = { event.data1, event.data2 };
-        evt.Fire();
+        //WindowMovedEvent evt;
+        //evt.NewPosition = { event.data1, event.data2 };
+        //evt.Fire();
         break;
     }
     case SDL_WINDOWEVENT_RESIZED:

@@ -123,6 +123,10 @@ public abstract class BaseProject : Project
                     conf.EventPostBuildExe.Add(copyDirBuildStep);
                 }
             }
+            else
+            {
+                conf.Defines.Add("USE_OPTICK=0");
+            }
         }
 
         conf.Options.Add(Options.Vc.General.WarningLevel.Level3);
@@ -228,17 +232,21 @@ public abstract class BaseProject : Project
         conf.Options.Add(Options.Makefile.Compiler.Rtti.Enable);
         conf.Options.Add(Options.Makefile.Compiler.Exceptions.Enable);
         //conf.AdditionalCompilerOptions.Add("-Wall");
+        //conf.Options.Add(Options.Makefile.Linker.LibGroup.Enable);
+        conf.AdditionalCompilerOptions.Add("`pkg-config --cflags sdl2`");
+        conf.AdditionalLinkerOptions.Add("`pkg-config --libs sdl2`");
 
         conf.Defines.Add("DEFINE_ME_PLATFORM_LINUX");
         conf.Defines.Add("UNICODE");
         conf.Defines.Add("_UNICODE");
 
         conf.AdditionalCompilerOptions.Add("-fPIC");
-        //conf.AdditionalCompilerOptions.Add("-frtti");
+        conf.AdditionalCompilerOptions.Add("-frtti");
         //conf.AdditionalCompilerOptions.Add("-fexceptions");
-        conf.AdditionalCompilerOptions.Add("-Wextra");
+        //conf.AdditionalCompilerOptions.Add("-Wextra");
         //conf.AdditionalCompilerOptions.Add("-Werror");
         conf.AdditionalCompilerOptions.Add("-Wno-unused-parameter");
+        conf.AdditionalCompilerOptions.Add("-Wno-format-security");
 
         if (target.Optimization == Optimization.Debug)
         {
@@ -253,6 +261,39 @@ public abstract class BaseProject : Project
         {
             //conf.Defines.Add("DEFINE_ME_MONO");
         }
+            // existing LibraryPaths, etc.
+    conf.LibraryPaths.Add(Path.Combine(
+        "[project.SharpmakeCsPath]",
+        "ThirdParty/Lib/Assimp/linux/Release"
+    ));
+    conf.LibraryPaths.Add(Path.Combine(
+        "[project.SharpmakeCsPath]",
+        $"ThirdParty/Lib/BGFX/linux/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"
+    ));
+    //conf.LibraryPaths.Add(Path.Combine(
+    //    "[project.SharpmakeCsPath]",
+    //    $"ThirdParty/Lib/SDL/linux/Release"
+    //));
+    conf.LibraryPaths.Add(Path.Combine(
+        "[project.SharpmakeCsPath]",
+        $"ThirdParty/Lib/Bullet/linux/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"
+    ));
+            conf.AdditionalLinkerOptions.Add(
+        "-l:libDementia.a " +
+        "-l:libImGui.a " +
+        "-l:libMitchEngine.a " +
+        "-l:libMitchGame.a " +
+        "-l:libMoonlight.a " +
+        "-l:libassimp.a " +
+        "-l:libbgfxDebug.a " +          // Fix this
+        "-l:libbimgDebug.a " +
+        "-l:libbimg_decodeDebug.a " +
+        "-l:libbxDebug.a " +
+        "-l:libzlibstatic.a " +
+        "-l:libBulletDynamics.a " +
+        "-l:libBulletCollision.a " +
+        "-l:libLinearMath.a "
+    );
     }
 
     #endregion

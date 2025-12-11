@@ -161,9 +161,9 @@ public class Engine : BaseProject
 
         conf.LibraryFiles.Add("MitchEngine");
 
+        conf.AddPublicDependency<Moonlight>(target);
         conf.AddPublicDependency<Dementia>(target);
         conf.AddPublicDependency<ImGui>(target);
-        conf.AddPublicDependency<Moonlight>(target);
 
         if (Globals.IsPhysicsEnabled3D)
         {
@@ -488,6 +488,62 @@ public class Engine : BaseProject
 
             conf.EventPostBuildExe.Add(copyDirBuildStep);
         }
+    }
+
+
+    public override void ConfigureLinux(Configuration conf, CommonTarget target)
+    {
+        base.ConfigureLinux(conf, target);
+
+        // potentially use [target.Platform] and move this to ConfigureAll
+        //conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/SDL/linux/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
+        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/Assimp/linux/Release"));
+
+        // TODO: Release v debug?
+        //conf.LibraryFiles.Add("SDL2");
+        conf.LibraryFiles.Add("assimp");
+        conf.LibraryFiles.Add("zlibstatic");
+        // Link against the system-provided copies of the third-party libs we use on Linux.
+
+        // bgfx and SDL pull in the usual GL/X11/pthread stack on Linux.
+    conf.AdditionalLinkerOptions.Add("-l:libassimp.a");
+    conf.AdditionalLinkerOptions.Add("-l:libbgfxDebug.a");       // or Release, match your lib names
+    conf.AdditionalLinkerOptions.Add("-l:libbimgDebug.a");
+    conf.AdditionalLinkerOptions.Add("-l:libbimg_decodeDebug.a");
+    conf.AdditionalLinkerOptions.Add("-l:libbxDebug.a");
+    conf.AdditionalLinkerOptions.Add("-l:libzlibstatic.a");
+        conf.LibraryPaths.Add(Path.Combine(
+        "[project.SharpmakeCsPath]",
+        "ThirdParty/Lib/Assimp/linux/Release"
+    ));
+    conf.LibraryPaths.Add(Path.Combine(
+        "[project.SharpmakeCsPath]",
+        $"ThirdParty/Lib/BGFX/linux/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"
+    ));
+    //conf.LibraryPaths.Add(Path.Combine(
+    //    "[project.SharpmakeCsPath]",
+    //    $"ThirdParty/Lib/SDL/linux/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"
+    //));
+    conf.LibraryPaths.Add(Path.Combine(
+        "[project.SharpmakeCsPath]",
+        $"ThirdParty/Lib/Bullet/linux/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"
+    ));
+            conf.AdditionalLinkerOptions.Add(
+        "-l:libDementia.a " +
+        "-l:libImGui.a " +
+        "-l:libMitchEngine.a " +
+        "-l:libMitchGame.a " +
+        "-l:libMoonlight.a " +
+        "-l:libassimp.a " +
+        "-l:libbgfxDebug.a " +          // Fix this
+        "-l:libbimgDebug.a " +
+        "-l:libbimg_decodeDebug.a " +
+        "-l:libbxDebug.a " +
+        "-l:libzlibstatic.a " +
+    "-l:libBulletDynamics.a " +
+    "-l:libBulletCollision.a " +
+    "-l:libLinearMath.a "
+    );
     }
 }
 

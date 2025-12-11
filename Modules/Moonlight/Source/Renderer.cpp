@@ -86,7 +86,9 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
     PreviousSize = settings.InitialSize;
     // Call bgfx::renderFrame before bgfx::init to signal to bgfx not to create a render thread.
     // Most graphics APIs must be used on the same thread that created the window.
+        BRUH("renderFrame");
     bgfx::renderFrame();
+        BRUH("renderFrame");
     // Initialize bgfx using the native window handle and window resolution.
     bgfx::Init init;
     init.platformData.nwh = settings.WindowPtr;
@@ -153,7 +155,7 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
             // Static data can be passed with bgfx::makeRef
             bgfx::makeRef( Moonlight::s_cubeTriList, sizeof( Moonlight::s_cubeTriList ) )
         );
-
+        BRUH("Renderer assets");
         UIProgram = Moonlight::LoadProgram( "Assets/Shaders/UI.vert", "Assets/Shaders/UI.frag" );
         s_texDiffuse = bgfx::createUniform( "s_texDiffuse", bgfx::UniformType::Sampler );
         s_texNormal = bgfx::createUniform( "s_texNormal", bgfx::UniformType::Sampler );

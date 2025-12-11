@@ -32,6 +32,7 @@ Created: 11/10/2009
 /// TODO: Clean up and refactor this huge mess a bit, otherwise in a pair of weeks I won't be able to understand it anymore myself...
 
 
+#if USING( ME_PHYSICS_3D )
 
 // This is just a partial part of btRigidBodyWithEvents (i.e. could just be merged to it):
 ///TODO: instead port everything we can from btRigidBodyWithEvents to this class, so that users
@@ -195,3 +196,4 @@ public:
     virtual ~btPairCachingGhostObjectWithEvents() {}
 
 };
+#endif

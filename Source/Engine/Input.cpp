@@ -126,21 +126,21 @@ bool Input::WasKeyReleased( KeyCode key )
     return CaptureInput && PreviousKeyboardState[(uint32_t)key] && !KeyboardState[(uint32_t)key];
 }
 
-KeyState Input::GetKeyCodeState( KeyCode key )
+eKeyState Input::GetKeyCodeState( KeyCode key )
 {
     if( !CaptureInput )
-        return KeyState::None;
+        return eKeyState::None;
 
     if( WasKeyPressed( key ) )
-        return KeyState::Pressed;
+        return eKeyState::Pressed;
 
     if( PreviousKeyboardState[(uint32_t)key] && KeyboardState[(uint32_t)key] )
-        return KeyState::Held;
+        return eKeyState::Held;
 
     if( WasKeyReleased( key ) )
-        return KeyState::Released;
+        return eKeyState::Released;
 
-    return KeyState::None;
+    return eKeyState::None;
 }
 
 #pragma endregion
