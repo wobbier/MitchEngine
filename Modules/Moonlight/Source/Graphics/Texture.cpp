@@ -439,9 +439,19 @@ void TextureResourceMetadata::Export()
     // ./shaderc -f ../../../Assets/Shaders/vs_cubes.shader -o ../../../Assets/Shaders/dummy.bin --varyingdef ./varying.def.sc --platform windows -p vs_5_0 --type vertex
     CLog::GetInstance().Log( CLog::LogType::Info, progArgs );
     PlatformUtils::SystemCall( texturecPath, progArgs );
-#else
+#elif USING( ME_PLATFORM_MACOS )
 
     Path optickPath = Path( "Engine/Tools/macOS/texturec" );
+
+    // texturec -f $in -o $out -t bc2 -m
+    std::string progArgs = "\"" + optickPath.FullPath + "\" -f "+optickPath.GetDirectoryString()+"/../../../";
+    progArgs += FilePath.GetLocalPathString();
+    progArgs += " -o \""+optickPath.GetDirectoryString()+"/../../../" + FilePath.GetLocalPathString() + ".dds\"" + exportType;
+    system( progArgs.c_str() );
+
+#elif USING( ME_PLATFORM_LINUX )
+
+    Path optickPath = Path( "Engine/Tools/linux/texturec" );
 
     // texturec -f $in -o $out -t bc2 -m
     std::string progArgs = "\"" + optickPath.FullPath + "\" -f "+optickPath.GetDirectoryString()+"/../../../";

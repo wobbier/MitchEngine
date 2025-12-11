@@ -127,6 +127,44 @@ struct ShaderFileMetadata
         //"\"/Users/mitchellandrews/Projects/stack-new/Engine/Tools/macOS/shaderc\" -f ../../Engine/Assets/Shaders/UI.vert -o ../../Engine/Assets/Shaders/UI.vert.metal.bin --varyingdef ../../Engine/Assets/Shaders/UI.var --platform osx -p metal --depends -disasm --type vertex"
         // texturec -f $in -o $out -t bc2 -m
         system( progArgs.c_str() );
+#elif USING( ME_PLATFORM_LINUX )
+    Path shadercPath = Path( "Engine/Tools/linux/shaderc" );
+
+    std::string exportType;
+    std::string ext = FilePath.GetExtension();
+    if( ext == "frag" )
+    {
+        exportType = "fragment";
+    }
+    else if( ext == "vert" )
+    {
+        exportType = "vertex";
+    }
+
+    std::string fileName = FilePath.GetLocalPathString().substr(
+        FilePath.GetLocalPathString().rfind( "/" ) + 1
+    );
+    std::string localFolder = FilePath.GetLocalPathString().substr(
+        0,
+        FilePath.GetLocalPathString().rfind( "/" ) + 1
+    );
+
+    std::string nameNoExt = fileName.substr( 0, fileName.rfind( "." ) );
+
+    // GLSL 1.50 for this shaderc build
+    std::string glslProfile = "150";
+
+    std::string progArgs;
+    progArgs  = "\"" + shadercPath.FullPath + "\"";
+    progArgs += " -f " + shadercPath.GetDirectoryString() + "/../../../" + localFolder + fileName;
+    progArgs += " -o " + shadercPath.GetDirectoryString() + "/../../../" + localFolder + fileName + "." + GetExtension2();
+    progArgs += " --varyingdef " + shadercPath.GetDirectoryString() + "/../../../" + localFolder + nameNoExt + ".var";
+    progArgs += " --platform linux -p " + glslProfile;
+    progArgs += " --depends -disasm --type " + exportType;
+    progArgs += " -i \"" + Path( "Engine/Assets/Shaders" ).FullPath + "\"";
+
+    BRUH( progArgs );
+    system( progArgs.c_str() );
 #endif
     }
 #if USING( ME_EDITOR )
