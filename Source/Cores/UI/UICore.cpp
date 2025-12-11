@@ -137,7 +137,6 @@ void UICore::OnStop()
 
 void UICore::Update( const UpdateContext& inUpdateContext )
 {
-    YIKES("UICORE UPDATE");
     OPTICK_EVENT( "UI Update", Optick::Category::UI );
     auto& entities = GetEntities();
     for( auto& InEntity : entities )

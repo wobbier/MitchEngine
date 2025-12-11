@@ -103,10 +103,10 @@ void Engine::Init( Game* game )
         }
         if( UI )
         {
-            //if( Camera::CurrentCamera )
-            //{
-            //    UI->OnResize( Camera::CurrentCamera->OutputSize );
-            //}
+            if( Camera::CurrentCamera )
+            {
+                UI->OnResize( Camera::CurrentCamera->OutputSize );
+            }
         }
         engineConfig.WindowSize = NewSize;
         WindowResizedEvent evt;
@@ -145,7 +145,7 @@ void Engine::Init( Game* game )
 #elif USING( ME_PLATFORM_LINUX )
     ImGui_ImplSDL2_InitForOpenGL(
         static_cast<SDLWindow*>( GameWindow )->WindowHandle,
-        static_cast<SDLWindow*>( GameWindow )->GetGLContext()   // see below
+        static_cast<SDLWindow*>( GameWindow )->GetGLContext()
     );
 #endif
 #endif
@@ -223,7 +223,6 @@ void Engine::Run()
     const float FramesPerSec = FPS;
     const float MaxDeltaTime = ( 1.f / FramesPerSec );
 
-    YIKES("Engine::Run");
     // Game loop
     forever
     {
@@ -251,7 +250,6 @@ void Engine::Run()
 
             AccumulatedTime += GameClock.GetDeltaSeconds();
         }
-    YIKES("GameWorld->Simulate");
 
         GetInput().Update();
 #if USING( ME_EDITOR )
@@ -293,7 +291,6 @@ void Engine::Run()
             }
 #endif
 
-    YIKES("GameWorld->Simulate");
             GameWorld->Simulate();
 
             if( m_frameRenderSettings.RequestedEntityID > 0 )

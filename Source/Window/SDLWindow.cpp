@@ -790,12 +790,10 @@ void SDLWindow::ParseMessageQueue()
     {
 
 #if USING( ME_IMGUI )
-    YIKES("ImGui_ImplSDL2_ProcessEvent::BEFORE");
         if( ImGui_ImplSDL2_ProcessEvent( &event ) )
         {
             //return;
         }
-    YIKES("ImGui_ImplSDL2_ProcessEvent::AFTER");
 #endif
 
         switch( event.type )
@@ -805,45 +803,42 @@ void SDLWindow::ParseMessageQueue()
             CloseRequested = true;
             break;
         }
-        //case SDL_KEYDOWN:
-        //{
-        //    KeyState keyState = KeyState::Pressed;
-        //    if( event.key.repeat > 0 )
-        //    {
-        //        keyState = KeyState::Held;
-        //    }
-        //    KeyPressEvent evt( event.key.keysym.scancode, keyState );
-        //    evt.Fire();
-//
-        //    break;
-        //}
-//
-        //case SDL_KEYUP:
-        //{
-        //    KeyPressEvent evt( event.key.keysym.scancode, KeyState::Released );
-        //    evt.Fire();
-        //    break;
-        //}
-//
-        //case SDL_MOUSEWHEEL:
-        //{
-        //    MouseScrollEvent evt( static_cast<float>( event.wheel.x ), static_cast<float>( event.wheel.y ) );
-        //    evt.Fire();
-        //    break;
-        //}
+        case SDL_KEYDOWN:
+        {
+            eKeyState keyState = eKeyState::Pressed;
+            if( event.key.repeat > 0 )
+            {
+                keyState = eKeyState::Held;
+            }
+            KeyPressEvent evt( event.key.keysym.scancode, keyState );
+            evt.Fire();
+
+            break;
+        }
+
+        case SDL_KEYUP:
+        {
+            KeyPressEvent evt( event.key.keysym.scancode, eKeyState::Released );
+            evt.Fire();
+            break;
+        }
+
+        case SDL_MOUSEWHEEL:
+        {
+            MouseScrollEvent evt( static_cast<float>( event.wheel.x ), static_cast<float>( event.wheel.y ) );
+            evt.Fire();
+            break;
+        }
 
         case SDL_WINDOWEVENT:
         {
-    YIKES("SDLWindow::BEFORE");
             HandleWindowEvent( event.window );
-    YIKES("SDLWindow::AFTER");
             break;
         }
         default:
             break;
         }
     }
-    YIKES("SDLWindow::AFTER");
 }
 
 Vector2 SDLWindow::GetSize() const
@@ -1020,9 +1015,9 @@ void SDLWindow::HandleWindowEvent( const SDL_WindowEvent& event )
         SDL_Log( "Window %d moved to %d,%d",
             event.windowID, event.data1,
             event.data2 );
-        //WindowMovedEvent evt;
-        //evt.NewPosition = { event.data1, event.data2 };
-        //evt.Fire();
+        WindowMovedEvent evt;
+        evt.NewPosition = { event.data1, event.data2 };
+        evt.Fire();
         break;
     }
     case SDL_WINDOWEVENT_RESIZED:
@@ -1078,5 +1073,4 @@ void SDLWindow::HandleWindowEvent( const SDL_WindowEvent& event )
             event.windowID, event.event );
         break;
     }
-    YIKES("SDLWindow::ParseMessageQueue");
 }
