@@ -146,7 +146,7 @@ SharedPtr<MetaBase> ResourceCache::LoadMetadata( const Path& filePath )
             metadata->FlaggedForExport = true;
         }
 
-        metadata->FlaggedForExport = AssetMetaCache::GetInstance().WasModified( filePath, metadata ) || metadata->FlaggedForExport;
+        metadata->FlaggedForExport = true;//AssetMetaCache::GetInstance().WasModified( filePath, metadata ) || metadata->FlaggedForExport;
 #endif
     }
     return metadata;

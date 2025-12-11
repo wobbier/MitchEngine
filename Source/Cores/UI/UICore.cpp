@@ -40,6 +40,7 @@ UICore::UICore( IWindow* window, BGFXRenderer* renderer )
 
     m_renderer = renderer;
 
+    YIKES("UICORE CREATE");
     UIProgram = Moonlight::LoadProgram( "Assets/Shaders/UI.vert", "Assets/Shaders/UI.frag" );
     s_texUI = bgfx::createUniform( "s_texUI", bgfx::UniformType::Sampler );
 
@@ -136,6 +137,7 @@ void UICore::OnStop()
 
 void UICore::Update( const UpdateContext& inUpdateContext )
 {
+    YIKES("UICORE UPDATE");
     OPTICK_EVENT( "UI Update", Optick::Category::UI );
     auto& entities = GetEntities();
     for( auto& InEntity : entities )

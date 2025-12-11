@@ -18,6 +18,7 @@ public:
               std::function<void(const Vector2&)> resizeFunc,
               int X, int Y,
               Vector2 windowSize);
+    ~SDLWindow();
 
     bool ShouldClose() override;
     void ParseMessageQueue() override;
@@ -47,6 +48,10 @@ public:
 
     Vector2 GetClientSize() override;
 
+#if USING( ME_PLATFORM_LINUX )
+    void* GetGLContext() const { return GLContext; }
+#endif
+
 private:
     bgfx::PlatformData PlatformInfo;
     std::function<void(const Vector2&)> ResizeCB;
@@ -56,4 +61,8 @@ private:
 
     bool CloseRequested = false;
     bool isMaximized = false;
+    
+#if USING( ME_PLATFORM_LINUX )
+    SDL_GLContext GLContext = nullptr;
+#endif
 };

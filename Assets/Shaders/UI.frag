@@ -8,6 +8,6 @@ void main()
 {
 	vec4 src = toLinear(texture2D(s_texUI, v_texcoord0));
 	
-	vec3 finalColor = pow(src, 1.0 / 2.2);
+	vec3 finalColor = pow(src.rgb, vec3(1.0 / 2.2));
 	gl_FragColor = vec4(finalColor.x, finalColor.y, finalColor.z, src.a);
 }

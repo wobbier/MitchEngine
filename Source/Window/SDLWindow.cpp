@@ -747,6 +747,32 @@ SDLWindow::SDLWindow( const std::string& title, std::function<void( const Vector
 
     //// ...and the surface containing the icon pixel data is no longer required.
     SDL_FreeSurface( surface );
+
+#if USING( ME_PLATFORM_LINUX )
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+
+    GLContext = SDL_GL_CreateContext(WindowHandle);
+    SDL_GL_MakeCurrent(WindowHandle, GLContext);
+#endif
+}
+
+SDLWindow::~SDLWindow()
+{
+#if USING( ME_PLATFORM_LINUX )
+    if (GLContext)
+    {
+        SDL_GL_DeleteContext(GLContext);
+        GLContext = nullptr;
+    }
+#endif
+
+    if (WindowHandle)
+    {
+        SDL_DestroyWindow(WindowHandle);
+        WindowHandle = nullptr;
+    }
 }
 
 bool SDLWindow::ShouldClose()
@@ -759,16 +785,17 @@ extern bool ImGui_ImplSDL2_ProcessEvent( const SDL_Event* event );
 #endif
 void SDLWindow::ParseMessageQueue()
 {
-    OPTICK_EVENT( "Window::ParseMessageQueue" );
     SDL_Event event;
     while( SDL_PollEvent( &event ) )
     {
 
 #if USING( ME_IMGUI )
+    YIKES("ImGui_ImplSDL2_ProcessEvent::BEFORE");
         if( ImGui_ImplSDL2_ProcessEvent( &event ) )
         {
             //return;
         }
+    YIKES("ImGui_ImplSDL2_ProcessEvent::AFTER");
 #endif
 
         switch( event.type )
@@ -807,13 +834,16 @@ void SDLWindow::ParseMessageQueue()
 
         case SDL_WINDOWEVENT:
         {
+    YIKES("SDLWindow::BEFORE");
             HandleWindowEvent( event.window );
+    YIKES("SDLWindow::AFTER");
             break;
         }
         default:
             break;
         }
     }
+    YIKES("SDLWindow::AFTER");
 }
 
 Vector2 SDLWindow::GetSize() const
@@ -1048,4 +1078,5 @@ void SDLWindow::HandleWindowEvent( const SDL_WindowEvent& event )
             event.windowID, event.event );
         break;
     }
+    YIKES("SDLWindow::ParseMessageQueue");
 }

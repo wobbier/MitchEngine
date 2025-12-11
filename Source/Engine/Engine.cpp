@@ -62,6 +62,7 @@ Engine::~Engine()
 
 extern bool ImGui_ImplSDL2_InitForD3D( SDL_Window* window );
 extern bool ImGui_ImplSDL2_InitForMetal( SDL_Window* window );
+extern bool ImGui_ImplSDL2_InitForOpenGL(SDL_Window* window, void* sdl_gl_context);
 extern bool ImGui_ImplWin32_Init( void* window );
 void Engine::Init( Game* game )
 {
@@ -102,10 +103,10 @@ void Engine::Init( Game* game )
         }
         if( UI )
         {
-            if( Camera::CurrentCamera )
-            {
-                UI->OnResize( Camera::CurrentCamera->OutputSize );
-            }
+            //if( Camera::CurrentCamera )
+            //{
+            //    UI->OnResize( Camera::CurrentCamera->OutputSize );
+            //}
         }
         engineConfig.WindowSize = NewSize;
         WindowResizedEvent evt;
@@ -139,9 +140,13 @@ void Engine::Init( Game* game )
 #if USING( ME_IMGUI )
 #if USING( ME_PLATFORM_WIN64 )
     ImGui_ImplSDL2_InitForD3D( static_cast<SDLWindow*>( GameWindow )->WindowHandle );
-#endif
-#if USING( ME_PLATFORM_MACOS )
+#elif USING( ME_PLATFORM_MACOS )
     ImGui_ImplSDL2_InitForMetal( static_cast<SDLWindow*>( GameWindow )->WindowHandle );
+#elif USING( ME_PLATFORM_LINUX )
+    ImGui_ImplSDL2_InitForOpenGL(
+        static_cast<SDLWindow*>( GameWindow )->WindowHandle,
+        static_cast<SDLWindow*>( GameWindow )->GetGLContext()   // see below
+    );
 #endif
 #endif
     //m_renderer = new Moonlight::Renderer();
@@ -196,6 +201,7 @@ void Engine::InitGame()
     GameWorld->AddCore<AudioCore>( *AudioThread );
     GameWorld->AddCore<UICore>( *UI );
 
+    YIKES("Engine::InitGame");
     m_game->OnInitialize();
 }
 
@@ -217,6 +223,7 @@ void Engine::Run()
     const float FramesPerSec = FPS;
     const float MaxDeltaTime = ( 1.f / FramesPerSec );
 
+    YIKES("Engine::Run");
     // Game loop
     forever
     {
@@ -244,6 +251,7 @@ void Engine::Run()
 
             AccumulatedTime += GameClock.GetDeltaSeconds();
         }
+    YIKES("GameWorld->Simulate");
 
         GetInput().Update();
 #if USING( ME_EDITOR )
@@ -285,6 +293,7 @@ void Engine::Run()
             }
 #endif
 
+    YIKES("GameWorld->Simulate");
             GameWorld->Simulate();
 
             if( m_frameRenderSettings.RequestedEntityID > 0 )
