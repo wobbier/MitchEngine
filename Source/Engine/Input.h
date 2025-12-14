@@ -21,7 +21,7 @@ public:
     Vector2 Scroll;
 };
 
-enum class eKeyState : uint32_t
+enum class KeyState : uint32_t
 {
     None = 0,
     Pressed,
@@ -35,14 +35,14 @@ class KeyPressEvent
 public:
     KeyPressEvent() = default;
 
-    KeyPressEvent( uint32_t inKey, eKeyState inState )
+    KeyPressEvent( uint32_t inKey, KeyState inState )
         : Event()
         , Key( inKey )
         , State( inState )
     {
     }
     uint32_t Key;
-    eKeyState State;
+    KeyState State;
 };
 
 enum class MouseButton : uint32_t
@@ -463,7 +463,7 @@ public:
     bool IsKeyDown( KeyCode key );
     bool WasKeyPressed( KeyCode key );
     bool WasKeyReleased( KeyCode key );
-    eKeyState GetKeyCodeState( KeyCode key );
+    KeyState GetKeyCodeState( KeyCode key );
 
     void Update();
     void PostUpdate();

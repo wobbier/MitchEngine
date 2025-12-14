@@ -4,6 +4,7 @@
 // SDL headers
 #include <SDL.h>
 
+#if USING( ME_PLATFORM_LINUX )
 // Avoid conflicts with X11's KeyCode / Window typedefs.
 #define KeyCode X11KeyCode
 #define Window  X11Window
@@ -18,11 +19,14 @@
 #endif
 
 #include <SDL2/SDL_syswm.h>
-
 // Clean up X11 name pollution so the rest of this TU is sane.
 #undef KeyCode
 #undef Window
 #undef None  // X.h defines `#define None 0L` which breaks enum values like eKeyState::None
+
+#else
+#include <SDL_syswm.h>
+#endif
 
 #include <bgfx/bgfx.h>
 
@@ -805,10 +809,10 @@ void SDLWindow::ParseMessageQueue()
         }
         case SDL_KEYDOWN:
         {
-            eKeyState keyState = eKeyState::Pressed;
+            KeyState keyState = KeyState::Pressed;
             if( event.key.repeat > 0 )
             {
-                keyState = eKeyState::Held;
+                keyState = KeyState::Held;
             }
             KeyPressEvent evt( event.key.keysym.scancode, keyState );
             evt.Fire();
@@ -818,7 +822,7 @@ void SDLWindow::ParseMessageQueue()
 
         case SDL_KEYUP:
         {
-            KeyPressEvent evt( event.key.keysym.scancode, eKeyState::Released );
+            KeyPressEvent evt( event.key.keysym.scancode, KeyState::Released );
             evt.Fire();
             break;
         }

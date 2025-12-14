@@ -973,7 +973,7 @@ bool AssetBrowserWidget::ProccessDirectoryRecursive( std::string& dir, Directory
 #if USING( ME_PLATFORM_MACOS )
     const char slash = '/';
 #else
-    const char slash = '\\';
+    const char slash = '/';
 #endif
     std::size_t d = dir.find_first_of( slash );
     if( d != std::string::npos )
