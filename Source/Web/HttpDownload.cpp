@@ -274,20 +274,21 @@ namespace Web
         // Perform the request
         CURLcode res = curl_easy_perform( curlHandle );
 
-        // Clean up
-        curl_easy_cleanup( curlHandle );
-        outfile.close();
-
         if( res != CURLE_OK )
         {
-            std::cerr << "Download failed with error: "
-                << curl_easy_strerror( res ) << std::endl;
+            std::cerr << "Download failed with error: " << curl_easy_strerror( res ) << std::endl;
+            curl_easy_cleanup( curlHandle );
+            outfile.close();
             return false;
         }
 
         // Optionally check the HTTP response code
         long http_code = 0;
         curl_easy_getinfo( curlHandle, CURLINFO_RESPONSE_CODE, &http_code );
+        
+        curl_easy_cleanup( curlHandle );
+        outfile.close();
+        
         if( http_code != 200 )
         {
             std::cerr << "Non-200 status code received: " << http_code << std::endl;
