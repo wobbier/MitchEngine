@@ -63,6 +63,7 @@ Engine::~Engine()
 extern bool ImGui_ImplSDL2_InitForD3D( SDL_Window* window );
 extern bool ImGui_ImplSDL2_InitForMetal( SDL_Window* window );
 extern bool ImGui_ImplSDL2_InitForOpenGL(SDL_Window* window, void* sdl_gl_context);
+extern bool ImGui_ImplSDL2_InitForVulkan( SDL_Window* window );
 extern bool ImGui_ImplWin32_Init( void* window );
 void Engine::Init( Game* game )
 {
@@ -134,6 +135,9 @@ void Engine::Init( Game* game )
     NewRenderer = new BGFXRenderer();
     RendererCreationSettings settings;
     settings.WindowPtr = GameWindow->GetWindowPtr();
+#if USING( ME_PLATFORM_LINUX )
+    settings.DisplayPtr = static_cast<SDLWindow*>( GameWindow )->GetDisplayPtr();
+#endif
     settings.InitialSize = engineConfig.WindowSize;
     NewRenderer->Create( settings );
     CLog::GetInstance().Log( CLog::LogType::Info, "After the Renderer." );
@@ -143,10 +147,7 @@ void Engine::Init( Game* game )
 #elif USING( ME_PLATFORM_MACOS )
     ImGui_ImplSDL2_InitForMetal( static_cast<SDLWindow*>( GameWindow )->WindowHandle );
 #elif USING( ME_PLATFORM_LINUX )
-    ImGui_ImplSDL2_InitForOpenGL(
-        static_cast<SDLWindow*>( GameWindow )->WindowHandle,
-        static_cast<SDLWindow*>( GameWindow )->GetGLContext()
-    );
+    ImGui_ImplSDL2_InitForVulkan( static_cast<SDLWindow*>( GameWindow )->WindowHandle );
 #endif
 #endif
     //m_renderer = new Moonlight::Renderer();

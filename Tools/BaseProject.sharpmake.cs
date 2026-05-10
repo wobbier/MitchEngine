@@ -227,7 +227,7 @@ public abstract class BaseProject : Project
     [Configure(SubPlatformType.linux)]
     public virtual void ConfigureLinux(Configuration conf, CommonTarget target)
     {
-        conf.Options.Add(Options.Makefile.Compiler.CppLanguageStandard.Cpp17);
+        conf.Options.Add(Options.Makefile.Compiler.CppLanguageStandard.GnuCpp2a);
         conf.Options.Add(Options.Makefile.Compiler.TreatWarningsAsErrors.Disable);
         conf.Options.Add(Options.Makefile.Compiler.Rtti.Enable);
         conf.Options.Add(Options.Makefile.Compiler.Exceptions.Enable);
@@ -237,6 +237,8 @@ public abstract class BaseProject : Project
         conf.AdditionalLinkerOptions.Add("`pkg-config --libs sdl2`");
 
         conf.Defines.Add("DEFINE_ME_PLATFORM_LINUX");
+        conf.Defines.Add("BGFX_PLATFORM_SUPPORTS_DXBC=0");
+        conf.Defines.Add("BGFX_PLATFORM_SUPPORTS_WGSL=0");
         conf.Defines.Add("UNICODE");
         conf.Defines.Add("_UNICODE");
 

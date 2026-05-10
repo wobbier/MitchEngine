@@ -27,6 +27,7 @@ namespace Moonlight {
 struct RendererCreationSettings
 {
     void* WindowPtr = nullptr;
+    void* DisplayPtr = nullptr;
     Vector2 InitialSize = Vector2( 1280.f, 720.f );
     bool InitAssets = true;
 };

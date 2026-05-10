@@ -58,7 +58,7 @@ namespace
         BGFX_STATE_PT_LINESTRIP,
         BGFX_STATE_PT_POINTS,
     };
-    BX_STATIC_ASSERT( BX_COUNTOF( s_ptState ) == BX_COUNTOF( s_ptNames ) );
+    static_assert( BX_COUNTOF( s_ptState ) == BX_COUNTOF( s_ptNames ) );
 }
 
 
@@ -92,17 +92,20 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
     // Initialize bgfx using the native window handle and window resolution.
     bgfx::Init init;
     init.platformData.nwh = settings.WindowPtr;
+    init.platformData.ndt = settings.DisplayPtr;
     init.resolution.width = static_cast<uint32_t>( PreviousSize.x );
     init.resolution.height = static_cast<uint32_t>( PreviousSize.y );
 #if USING( ME_PLATFORM_MACOS )
     init.resolution.reset = BGFX_RESET_VSYNC;
 #else
-    init.resolution.reset =/* BGFX_RESET_VSYNC |*/ BGFX_RESET_MSAA_X16;
+    init.resolution.reset = BGFX_RESET_NONE;// | BGFX_RESET_MSAA_X16;
 #endif
 
 #if USING( ME_PLATFORM_UWP )
     // Something is up with using DX12 and my shaders, so this is the fix for now.
     init.type = bgfx::RendererType::Direct3D11;
+#elif USING( ME_PLATFORM_LINUX )
+    init.type = bgfx::RendererType::Vulkan;
 #endif
     m_resetFlags = init.resolution.reset;
     CurrentSize = settings.InitialSize;
@@ -130,6 +133,7 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
         EditorCameraBuffer->ReCreate( m_resetFlags );
 
         m_debugDraw.reset( new DebugDrawer() );
+        //m_debugDraw->End();
         //bgfx::setViewClear(1
         //	, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH
         //	, 0x303030ff
@@ -234,7 +238,7 @@ void BGFXRenderer::Render( Moonlight::CameraData& EditorCamera, FrameRenderData&
         PreviousSize = CurrentSize;
 
         bgfx::reset( (uint32_t)CurrentSize.x, (uint32_t)CurrentSize.y, m_resetFlags );
-        bgfx::setViewRect( kClearView, 0, 0, bgfx::BackbufferRatio::Equal );
+        //bgfx::setViewRect( kClearView, 0, 0, bgfx::BackbufferRatio::Equal );
         if( NeedsReset )
         {
             for( auto& cam : m_cameraCache.Commands )
@@ -555,27 +559,7 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId
 void BGFXRenderer::RenderSingleMesh( bgfx::ViewId id, const Moonlight::MeshCommand& mesh, uint64_t state )
 {
     OPTICK_CATEGORY( "Mesh", Optick::Category::Rendering );
-//if (mesh.Type == Moonlight::Cube)
-    //{
-    //	if (mesh.MeshMaterial)
-    //	{
-    //		// Set model matrix for rendering.
-    //		bgfx::setTransform(&mesh.Transform);
 
-    //		// Set vertex and index buffer.
-    //		bgfx::setVertexBuffer(0, m_vbh);
-    //		bgfx::setIndexBuffer(m_ibh);
-
-    //		mesh.MeshMaterial->Use();
-
-    //		// Set render states.
-    //		bgfx::setState(state);
-
-    //		// Submit primitive for rendering to view 0.
-    //		bgfx::submit(id, mesh.MeshMaterial->MeshShader.GetProgram());
-    //	}
-    //}
-    //else 
     if( mesh.Type == Moonlight::MeshType::Model || mesh.Type == Moonlight::MeshType::Plane || mesh.Type == Moonlight::Cube )
     {
         if( !mesh.SingleMesh || !bgfx::isValid(mesh.SingleMesh->GetVertexBuffer() ) )

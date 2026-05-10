@@ -98,8 +98,11 @@ SDLWindow::SDLWindow( const std::string& title, std::function<void( const Vector
     SDL_Init( SDL_INIT_EVERYTHING );
     int xPos = ( X == 0 ) ? SDL_WINDOWPOS_CENTERED : X;
     int yPos = ( Y == 0 ) ? SDL_WINDOWPOS_UNDEFINED : Y;
-    WindowHandle = SDL_CreateWindow( title.c_str(), xPos, yPos, static_cast<int>( windowSize.x ), static_cast<int>( windowSize.y ), SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE );
-
+    Uint32 windowFlags = SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE;
+#if USING( ME_PLATFORM_LINUX )
+    windowFlags |= SDL_WINDOW_VULKAN;
+#endif
+    WindowHandle = SDL_CreateWindow( title.c_str(), xPos, yPos, static_cast<int>( windowSize.x ), static_cast<int>( windowSize.y ), windowFlags );
     if( WindowHandle == nullptr ) {
         printf( "Window could not be created. SDL_Error: %s\n", SDL_GetError() );
     }
@@ -752,25 +755,10 @@ SDLWindow::SDLWindow( const std::string& title, std::function<void( const Vector
     //// ...and the surface containing the icon pixel data is no longer required.
     SDL_FreeSurface( surface );
 
-#if USING( ME_PLATFORM_LINUX )
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-
-    GLContext = SDL_GL_CreateContext(WindowHandle);
-    SDL_GL_MakeCurrent(WindowHandle, GLContext);
-#endif
 }
 
 SDLWindow::~SDLWindow()
 {
-#if USING( ME_PLATFORM_LINUX )
-    if (GLContext)
-    {
-        SDL_GL_DeleteContext(GLContext);
-        GLContext = nullptr;
-    }
-#endif
 
     if (WindowHandle)
     {
@@ -1025,8 +1013,6 @@ void SDLWindow::HandleWindowEvent( const SDL_WindowEvent& event )
         break;
     }
     case SDL_WINDOWEVENT_RESIZED:
-        // Remove this CB
-        ResizeCB( GetSize() );
         SDL_Log( "Window %d resized to %dx%d",
             event.windowID, event.data1,
             event.data2 );

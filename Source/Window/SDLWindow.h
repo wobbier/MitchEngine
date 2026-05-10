@@ -50,6 +50,7 @@ public:
 
 #if USING( ME_PLATFORM_LINUX )
     void* GetGLContext() const { return GLContext; }
+    void* GetDisplayPtr() const { return PlatformInfo.ndt; }
 #endif
 
 private:

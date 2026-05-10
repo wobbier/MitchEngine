@@ -1,6 +1,4 @@
 $input v_color0, v_normal, v_texcoord0
-
-
 #include "Common.sh"
 
 SAMPLER2D(s_texDiffuse, 0);

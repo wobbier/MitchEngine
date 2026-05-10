@@ -49,7 +49,7 @@ void AssetBrowserWidget::ReloadDirectories()
 
     for( auto& file : std::filesystem::recursive_directory_iterator( AssetDirectory.FullPath.FullPath ) )
     {
-        Paths[file.path().u8string()] = std::filesystem::last_write_time( file );
+        Paths[file.path().string()] = std::filesystem::last_write_time( file );
         ProccessDirectory( file, AssetDirectory );
     }
 
@@ -873,10 +873,10 @@ void AssetBrowserWidget::Recursive( Directory& dir )
 void AssetBrowserWidget::ProccessDirectory( const std::filesystem::directory_entry& file, Directory& dirRef )
 {
     std::string& parentDir = dirRef.FullPath.FullPath;
-    std::size_t t = file.path().u8string().find( parentDir );
+    std::size_t t = file.path().string().find( parentDir );
     if( t != std::string::npos )
     {
-        std::string dir2 = file.path().u8string().substr( parentDir.size(), file.path().u8string().size() );
+        std::string dir2 = file.path().string().substr( parentDir.size(), file.path().string().size() );
 
         ProccessDirectoryRecursive( dir2, dirRef, file );
 
@@ -1059,7 +1059,7 @@ bool AssetBrowserWidget::ProccessDirectoryRecursive( std::string& dir, Directory
                 AssetDescriptor desc;
                 desc.Name = newdir;
                 //desc.MetaFile = File(Path(file.path().string() + ".meta"));
-                desc.FullPath = Path( file.path().u8string() );
+                desc.FullPath = Path( file.path().string() );
                 desc.Type = type;
                 dirRef.Files.push_back( desc );
                 //const std::string & data = dirRef.Files.back().MetaFile.Read();

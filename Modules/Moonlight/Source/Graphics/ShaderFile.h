@@ -151,16 +151,16 @@ struct ShaderFileMetadata
 
     std::string nameNoExt = fileName.substr( 0, fileName.rfind( "." ) );
 
-    // GLSL 1.50 for this shaderc build
-    std::string glslProfile = "150";
+    const std::string platformStr = Moonlight::GetPlatformString();
+    const std::string shaderProfile = ( platformStr == "spirv" ) ? "spirv" : "150";
 
     std::string progArgs;
     progArgs  = "\"" + shadercPath.FullPath + "\"";
     progArgs += " -f " + shadercPath.GetDirectoryString() + "/../../../" + localFolder + fileName;
     progArgs += " -o " + shadercPath.GetDirectoryString() + "/../../../" + localFolder + fileName + "." + GetExtension2();
     progArgs += " --varyingdef " + shadercPath.GetDirectoryString() + "/../../../" + localFolder + nameNoExt + ".var";
-    progArgs += " --platform linux -p " + glslProfile;
-    progArgs += " --depends -disasm --type " + exportType;
+    progArgs += " --platform linux -p " + shaderProfile;
+    progArgs += " --depends --type " + exportType;
     progArgs += " -i \"" + Path( "Engine/Assets/Shaders" ).FullPath + "\"";
 
     BRUH( progArgs );

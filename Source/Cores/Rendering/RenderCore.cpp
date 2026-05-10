@@ -217,6 +217,10 @@ void RenderCore::OnEditorInspect()
     {
         GetEngine().GetRenderer().SetMSAALevel( BGFXRenderer::MSAALevel::None );
     }
+    if( ImGui::Button( "MSAA X8" ) )
+    {
+        GetEngine().GetRenderer().SetMSAALevel( BGFXRenderer::MSAALevel::X8 );
+    }
     if( ImGui::Button( "MSAA X16" ) )
     {
         GetEngine().GetRenderer().SetMSAALevel( BGFXRenderer::MSAALevel::X16 );
