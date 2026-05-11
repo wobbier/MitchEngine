@@ -1,12 +1,7 @@
 #pragma once
 #include "IWindow.h"
 
-#if USING(ME_PLATFORM_LINUX)
-    #include <SDL2/SDL.h>
-#else
-    #include <SDL.h>
-#endif
-
+#include <SDL.h>
 #include <bgfx/bgfx.h>
 #include <functional>
 #include <optional>
@@ -51,6 +46,7 @@ public:
 #if USING( ME_PLATFORM_LINUX )
     void* GetGLContext() const { return GLContext; }
     void* GetDisplayPtr() const { return PlatformInfo.ndt; }
+    bgfx::NativeWindowHandleType::Enum GetWindowType() const { return PlatformInfo.type; }
 #endif
 
 private:
@@ -62,8 +58,9 @@ private:
 
     bool CloseRequested = false;
     bool isMaximized = false;
-    
+
 #if USING( ME_PLATFORM_LINUX )
     SDL_GLContext GLContext = nullptr;
+    struct wl_egl_window* m_waylandEglWindow = nullptr;
 #endif
 };

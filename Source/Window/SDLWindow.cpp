@@ -18,7 +18,8 @@
 #define SDL_VIDEO_DRIVER_X11 1
 #endif
 
-#include <SDL2/SDL_syswm.h>
+#include <SDL_syswm.h>
+#include <wayland-egl.h>
 // Clean up X11 name pollution so the rest of this TU is sane.
 #undef KeyCode
 #undef Window
@@ -759,7 +760,13 @@ SDLWindow::SDLWindow( const std::string& title, std::function<void( const Vector
 
 SDLWindow::~SDLWindow()
 {
-
+#if USING( ME_PLATFORM_LINUX )
+    if ( m_waylandEglWindow )
+    {
+        wl_egl_window_destroy( m_waylandEglWindow );
+        m_waylandEglWindow = nullptr;
+    }
+#endif
     if (WindowHandle)
     {
         SDL_DestroyWindow(WindowHandle);
@@ -964,9 +971,16 @@ void SDLWindow::SetWindow( SDL_Window* window )
     switch (wmi.subsystem)
     {
         case SDL_SYSWM_WAYLAND:
-            // Wayland: ndt = wl_display*, nwh = wl_surface*
-            PlatformInfo.ndt = wmi.info.wl.display;
-            PlatformInfo.nwh = (void*)wmi.info.wl.egl_window;
+            // SDL_WINDOW_VULKAN doesn't create a wl_egl_window; create one manually.
+            // BGFX's Vulkan Wayland path reads wl_surface via ((wl_egl_window*)nwh)->surface.
+            {
+                int w, h;
+                SDL_GetWindowSize( window, &w, &h );
+                m_waylandEglWindow = wl_egl_window_create( wmi.info.wl.surface, w, h );
+                PlatformInfo.ndt  = wmi.info.wl.display;
+                PlatformInfo.nwh  = (void*)m_waylandEglWindow;
+                PlatformInfo.type = bgfx::NativeWindowHandleType::Wayland;
+            }
             break;
 
         case SDL_SYSWM_X11:

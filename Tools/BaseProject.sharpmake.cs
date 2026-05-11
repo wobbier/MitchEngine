@@ -294,7 +294,8 @@ public abstract class BaseProject : Project
         "-l:libzlibstatic.a " +
         "-l:libBulletDynamics.a " +
         "-l:libBulletCollision.a " +
-        "-l:libLinearMath.a "
+        "-l:libLinearMath.a " +
+        "-lwayland-egl "
     );
     }
 

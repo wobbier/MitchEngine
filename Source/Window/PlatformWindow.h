@@ -5,7 +5,7 @@
 #include <Window/IWindow.h>
 
 #if USING(ME_PLATFORM_LINUX)
-    #include <SDL2/SDL.h>
+    #include <SDL.h>
 #else
     #include <SDL.h>
 #endif

@@ -91,9 +91,10 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
         BRUH("renderFrame");
     // Initialize bgfx using the native window handle and window resolution.
     bgfx::Init init;
-    init.platformData.nwh = settings.WindowPtr;
-    init.platformData.ndt = settings.DisplayPtr;
-    init.resolution.width = static_cast<uint32_t>( PreviousSize.x );
+    init.platformData.nwh  = settings.WindowPtr;
+    init.platformData.ndt  = settings.DisplayPtr;
+    init.platformData.type = settings.WindowType;
+    init.resolution.width  = static_cast<uint32_t>( PreviousSize.x );
     init.resolution.height = static_cast<uint32_t>( PreviousSize.y );
 #if USING( ME_PLATFORM_MACOS )
     init.resolution.reset = BGFX_RESET_VSYNC;

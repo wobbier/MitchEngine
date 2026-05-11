@@ -137,6 +137,7 @@ void Engine::Init( Game* game )
     settings.WindowPtr = GameWindow->GetWindowPtr();
 #if USING( ME_PLATFORM_LINUX )
     settings.DisplayPtr = static_cast<SDLWindow*>( GameWindow )->GetDisplayPtr();
+    settings.WindowType = static_cast<SDLWindow*>( GameWindow )->GetWindowType();
 #endif
     settings.InitialSize = engineConfig.WindowSize;
     NewRenderer->Create( settings );

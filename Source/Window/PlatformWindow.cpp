@@ -16,7 +16,7 @@
 #define SDL_VIDEO_DRIVER_X11 1
 #endif
 
-#include <SDL2/SDL_syswm.h>
+#include <SDL_syswm.h>
 
 // Clean up X11 name pollution so the rest of this TU is sane.
 #undef KeyCode
