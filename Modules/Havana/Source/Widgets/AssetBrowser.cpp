@@ -501,8 +501,11 @@ void AssetBrowserWidget::DrawAssetTable()
         }
         if( sorts_specs && items_need_sort && MasterAssetsList.size() > 1 )
         {
-            s_current_sort_specs = sorts_specs; // Store in variable accessible by the sort function.
-            qsort( &MasterAssetsList[0], (size_t)MasterAssetsList.size(), sizeof( MasterAssetsList[0] ), CompareWithSortSpecs );
+            s_current_sort_specs = sorts_specs;
+            std::sort( MasterAssetsList.begin(), MasterAssetsList.end(),
+                []( const AssetDescriptor& a, const AssetDescriptor& b ) {
+                    return CompareWithSortSpecs( &a, &b ) < 0;
+                } );
             s_current_sort_specs = NULL;
             sorts_specs->SpecsDirty = false;
             items_need_filtered = true;

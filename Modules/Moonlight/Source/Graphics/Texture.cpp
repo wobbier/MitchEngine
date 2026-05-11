@@ -441,23 +441,23 @@ void TextureResourceMetadata::Export()
     PlatformUtils::SystemCall( texturecPath, progArgs );
 #elif USING( ME_PLATFORM_MACOS )
 
-    Path optickPath = Path( "Engine/Tools/macOS/texturec" );
+    Path texturecPath = Path( "Engine/Tools/macOS/texturec" );
 
-    // texturec -f $in -o $out -t bc2 -m
-    std::string progArgs = "\"" + optickPath.FullPath + "\" -f "+optickPath.GetDirectoryString()+"/../../../";
-    progArgs += FilePath.GetLocalPathString();
-    progArgs += " -o \""+optickPath.GetDirectoryString()+"/../../../" + FilePath.GetLocalPathString() + ".dds\"" + exportType;
-    system( progArgs.c_str() );
+    std::string progArgs = "-f \"";
+    progArgs += FilePath.FullPath;
+    progArgs += "\" -o \"" + FilePath.FullPath + ".dds\"" + exportType;
+    CLog::GetInstance().Log( CLog::LogType::Info, progArgs );
+    PlatformUtils::SystemCall( texturecPath, progArgs );
 
 #elif USING( ME_PLATFORM_LINUX )
 
-    Path optickPath = Path( "Engine/Tools/linux/texturec" );
+    Path texturecPath = Path( "Engine/Tools/linux/texturec" );
 
-    // texturec -f $in -o $out -t bc2 -m
-    std::string progArgs = "\"" + optickPath.FullPath + "\" -f "+optickPath.GetDirectoryString()+"/../../../";
-    progArgs += FilePath.GetLocalPathString();
-    progArgs += " -o \""+optickPath.GetDirectoryString()+"/../../../" + FilePath.GetLocalPathString() + ".dds\"" + exportType;
-    system( progArgs.c_str() );
+    std::string progArgs = "-f \"";
+    progArgs += FilePath.FullPath;
+    progArgs += "\" -o \"" + FilePath.FullPath + ".dds\"" + exportType;
+    CLog::GetInstance().Log( CLog::LogType::Info, progArgs );
+    PlatformUtils::SystemCall( texturecPath, progArgs );
 
 #endif
 }

@@ -125,7 +125,7 @@ bool ModelResource::Load()
         Path newPath = Path( FilePath.FullPath );
         ME_ASSERT_MSG( newPath.Exists, "Exported Model Doesn't Exist" );
 
-        scene = importer.ReadFile( FilePath.FullPath.c_str(), aiProcess_Triangulate | aiProcess_CalcTangentSpace | aiProcess_GlobalScale | aiProcess_ConvertToLeftHanded );
+        scene = importer.ReadFile( FilePath.FullPath.c_str(), aiProcess_Triangulate | aiProcess_CalcTangentSpace | aiProcess_ConvertToLeftHanded );
         if( !scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode )
         {
             std::cout << "ERROR::ASSIMP:: " << importer.GetErrorString() << std::endl;
@@ -371,6 +371,7 @@ Moonlight::MeshData* ModelResource::ProcessMesh( aiMesh* mesh, Moonlight::Node& 
     {
         // use AI_MATKEY_SHADING_MODEL to pick a different material?
         newMaterial = RootNode.MaterialCache[mesh->mMaterialIndex] = MakeShared<DiffuseMaterial>();
+        newMaterial->Init();
 
         aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
 
@@ -539,7 +540,7 @@ void ScaleSceneMeshes( const aiScene* scene, float scale )
 void ModelResourceMetadata::Export()
 {
     Assimp::Importer importer;
-    const aiScene* scene = importer.ReadFile( FilePath.FullPath.c_str(), aiProcess_Triangulate | aiProcess_CalcTangentSpace | aiProcess_GlobalScale | aiProcess_ConvertToLeftHanded );
+    const aiScene* scene = importer.ReadFile( FilePath.FullPath.c_str(), aiProcess_Triangulate | aiProcess_CalcTangentSpace | aiProcess_ConvertToLeftHanded );
     if( !scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode )
     {
         std::cout << "ERROR::ASSIMP:: " << importer.GetErrorString() << std::endl;
