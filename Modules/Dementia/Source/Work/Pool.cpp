@@ -40,7 +40,12 @@ Job* Pool::CreateJob( JobFunc InJobFunc )
 
 Job* Pool::CreateJobAsChild( JobFunc InJobFunc, Job* InParent )
 {
-
+    Job* job = Allocate();
+    if( job )
+    {
+        new( job ) Job { InJobFunc, InParent };
+        return job;
+    }
     return nullptr;
 }
 

@@ -83,6 +83,7 @@ namespace
 
 void BGFXRenderer::Create( const RendererCreationSettings& settings )
 {
+    OPTICK_EVENT( "BGFXRenderer::Create" );
     PreviousSize = settings.InitialSize;
     // Call bgfx::renderFrame before bgfx::init to signal to bgfx not to create a render thread.
     // Most graphics APIs must be used on the same thread that created the window.
@@ -113,11 +114,13 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
 #if USING( ME_ENABLE_RENDERDOC )
     RenderDoc = new RenderDocManager();
 #endif
-    if( !bgfx::init( init ) )
     {
-        CLog::Log( CLog::LogType::Error, "BGFX Failed to Init." );
-
-        return;
+        OPTICK_EVENT( "BGFXRenderer::bgfx_init" );
+        if( !bgfx::init( init ) )
+        {
+            CLog::Log( CLog::LogType::Error, "BGFX Failed to Init." );
+            return;
+        }
     }
 
     // Set view 0 clear state.
@@ -161,6 +164,7 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
             bgfx::makeRef( Moonlight::s_cubeTriList, sizeof( Moonlight::s_cubeTriList ) )
         );
         BRUH("Renderer assets");
+        OPTICK_EVENT( "BGFXRenderer::LoadShaders" );
         UIProgram = Moonlight::LoadProgram( "Assets/Shaders/UI.vert", "Assets/Shaders/UI.frag" );
         s_texDiffuse = bgfx::createUniform( "s_texDiffuse", bgfx::UniformType::Sampler );
         s_texNormal = bgfx::createUniform( "s_texNormal", bgfx::UniformType::Sampler );
@@ -185,8 +189,11 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
     TransparentIndicies.reserve( kMeshTransparencyTempSize );
 
 #if USING( ME_IMGUI )
-    ImGuiRender = new ImGuiRenderer();
-    ImGuiRender->Create();
+    {
+        OPTICK_EVENT( "BGFXRenderer::ImGuiCreate" );
+        ImGuiRender = new ImGuiRenderer();
+        ImGuiRender->Create();
+    }
 #endif
 
 

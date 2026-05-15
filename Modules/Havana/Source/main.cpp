@@ -1,6 +1,7 @@
 #include "EditorApp.h"
 #include "Engine/Engine.h"
 #include <Widgets/AssetBrowser.h>
+#include "optick.h"
 
 int main( int argc, char** argv )
 {
@@ -20,6 +21,8 @@ int main( int argc, char** argv )
             return 0;
         }
     }
+
+    OPTICK_START_CAPTURE();
     EditorApp app( argc, argv );
     GetEngine().Init( &app );
     GetEngine().Run();
