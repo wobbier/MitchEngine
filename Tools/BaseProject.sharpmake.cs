@@ -123,6 +123,10 @@ public abstract class BaseProject : Project
                     conf.EventPostBuildExe.Add(copyDirBuildStep);
                 }
             }
+            else if (target.SubPlatform == SubPlatformType.linux)
+            {
+                conf.Defines.Add("USE_OPTICK=0");
+            }
             else
             {
                 conf.Defines.Add("USE_OPTICK=0");
@@ -252,7 +256,10 @@ public abstract class BaseProject : Project
 
         if (target.Optimization == Optimization.Debug)
         {
-            conf.AdditionalCompilerOptions.Add("-g");
+            conf.AdditionalCompilerOptions.Add("-g3");               // full debug info + macros
+            conf.AdditionalCompilerOptions.Add("-fno-omit-frame-pointer"); // GDB stack unwinding
+            conf.AdditionalCompilerOptions.Add("-fno-inline-functions");   // don't inline, step cleanly
+            conf.AdditionalCompilerOptions.Add("-O0");               // no optimisation
         }
 
         if (Directory.Exists(Globals.FMOD_Linux_Dir))
