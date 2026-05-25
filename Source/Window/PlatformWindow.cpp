@@ -3,11 +3,10 @@
 
 #include <SDL.h>
 
-// Avoid conflicts with X11's KeyCode / Window typedefs.
+#if USING( ME_PLATFORM_LINUX )
 #define KeyCode X11KeyCode
 #define Window  X11Window
 
-// Make sure wl/x11 fields in SDL_SysWMinfo are available on this build.
 #ifndef SDL_VIDEO_DRIVER_WAYLAND
 #define SDL_VIDEO_DRIVER_WAYLAND 1
 #endif
@@ -15,13 +14,15 @@
 #ifndef SDL_VIDEO_DRIVER_X11
 #define SDL_VIDEO_DRIVER_X11 1
 #endif
+#endif
 
 #include <SDL_syswm.h>
 
-// Clean up X11 name pollution so the rest of this TU is sane.
+#if USING( ME_PLATFORM_LINUX )
 #undef KeyCode
 #undef Window
-#undef None  // X.h defines `#define None 0L` which breaks enum values like eKeyState::None
+#undef None
+#endif
 
 #include <ImGui/ImGuiRenderer.h>
 #include <imgui.h>

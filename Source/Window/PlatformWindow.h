@@ -3,12 +3,7 @@
 #include <Math/Vector2.h>
 #include <bgfx/bgfx.h>
 #include <Window/IWindow.h>
-
-#if USING(ME_PLATFORM_LINUX)
-    #include <SDL.h>
-#else
-    #include <SDL.h>
-#endif
+#include <SDL.h>
 
 struct SDL_Window;
 struct ImGuiViewport;
