@@ -235,16 +235,15 @@ private:
     static void CacheAssemblyTypes();
 
 public:
-    static ScriptData sScriptData;
+    inline static ScriptData sScriptData;
 
     // Parsed class
-    static std::vector<LoadedClassInfo> LoadedClasses;
+    inline static std::vector<LoadedClassInfo> LoadedClasses;
 
     // Successful class loaded
-    static std::vector<LoadedClassInfo> LoadedEntityScripts;
+    inline static std::vector<LoadedClassInfo> LoadedEntityScripts;
 
-
-    static std::unordered_map<EntityID, uint32_t> entityInstanceCache;
+    inline static std::unordered_map<EntityID, uint32_t> entityInstanceCache;
 };
 
 

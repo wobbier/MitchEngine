@@ -41,7 +41,7 @@ Created: 11/10/2009
 class btRigidBodyWithEventsEventDelegates
 {
 protected:
-    static ICollisionEvents* eventDispatcher;
+    inline static ICollisionEvents* eventDispatcher = nullptr;
     friend class ICollisionEvents;
     friend class btRigidBodyWithEvents;
 
@@ -150,7 +150,7 @@ public:
     }
 
     //endregion
-    static btAlignedObjectArray< btRigidBodyWithEventsEventDelegates* > monitorCollisionsBodies;	// This list is the list of bodies for which to monitor collisions
+    inline static btAlignedObjectArray< btRigidBodyWithEventsEventDelegates* > monitorCollisionsBodies;
     void setMonitorCollisions( bool flag = true );
     static void PerformCollisionDetection( btDynamicsWorld* btWorld, bool processContactPointWithPositiveDistancesToo = false, bool averageAllContactPointsInDifferentManifolds = false );
     static void _SendCollisionEvents();

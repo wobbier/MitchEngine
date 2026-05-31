@@ -9,10 +9,6 @@ From: https://pybullet.org/Bullet/phpBB3/viewtopic.php?f=9&t=1691&start=0&hilit=
 
 #if USING( ME_PHYSICS_3D )
 
-ICollisionEvents* btRigidBodyWithEventsEventDelegates::eventDispatcher = NULL;
-
-btAlignedObjectArray< btRigidBodyWithEventsEventDelegates* > btRigidBodyWithEventsEventDelegates::monitorCollisionsBodies;	// This list is the list of bodies for which to monitor collisions
-
 void btRigidBodyWithEventsEventDelegates::setMonitorCollisions( bool flag ) {
     _monitorCollisions = flag;
     int index = FindRigidBodyIn( this, monitorCollisionsBodies );

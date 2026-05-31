@@ -16,9 +16,6 @@
 #include "Types/AssetDescriptor.h"
 #endif
 
-Camera* Camera::CurrentCamera = nullptr;
-Camera* Camera::EditorCamera = nullptr;
-
 Camera::Camera()
     : Component( "Camera" )
     , OutputSize( 1280.f, 720.f )

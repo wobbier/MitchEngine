@@ -33,15 +33,6 @@
 //}
 
 
-ScriptEngine::ScriptData ScriptEngine::sScriptData;
-
-std::vector<ScriptEngine::LoadedClassInfo> ScriptEngine::LoadedClasses;
-
-std::vector<ScriptEngine::LoadedClassInfo> ScriptEngine::LoadedEntityScripts;
-
-std::unordered_map<EntityID, uint32_t> ScriptEngine::entityInstanceCache;
-
-
 //void ResendDebugInfo( MonoAssembly* monoAssembly )
 //{
 //    //for( MonoAssembly* asm : allLoadedAssemblies )
