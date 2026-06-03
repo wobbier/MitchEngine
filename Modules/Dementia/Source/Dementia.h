@@ -21,19 +21,19 @@ Class& operator=(Class&&) = delete;
 #define ME_HARDSTUCK(Class) ME_NONCOPYABLE(Class); ME_NONMOVABLE(Class);
 
 #ifndef IN_USE
-#define IN_USE &&
-#endif /* IN USE */
+#define IN_USE 1
+#endif /* IN_USE */
 
 #ifndef NOT_IN_USE
-#define NOT_IN_USE &&!
+#define NOT_IN_USE 0
 #endif /* NOT_IN_USE */
 
 #ifndef USE_IF
-#define USE_IF(x) &&((x) ? 1: 0)&&
+#define USE_IF(x) ((x) ? 1 : 0)
 #endif /* USE_IF */
 
 #ifndef USING
-#define USING(x) (1 x 1)
+#define USING(x) (x)
 #endif /* USING */
 
 #if defined( _MSC_VER )
@@ -141,10 +141,10 @@ Class& operator=(Class&&) = delete;
 #define ME_RETAIL NOT_IN_USE
 #endif
 
-#if defined( DEFINE_ME_MONO )
-#define ME_MONO IN_USE
+#if defined( DEFINE_ME_DOTNET )
+#define ME_DOTNET IN_USE
 #else
-#define ME_MONO NOT_IN_USE
+#define ME_DOTNET NOT_IN_USE
 #endif
 
 #if defined( DEFINE_ME_PHYSICS_3D )
@@ -168,7 +168,7 @@ Class& operator=(Class&&) = delete;
 #define ME_PLATFORM_WINDOWS USE_IF( USING( ME_PLATFORM_WIN64 ) || USING( ME_PLATFORM_UWP ) )
 #define ME_EDITOR_WIN64     USE_IF( USING( ME_EDITOR ) && USING( ME_PLATFORM_WIN64 ) )
 #define ME_EDITOR_MACOS     USE_IF( USING( ME_EDITOR ) && USING( ME_PLATFORM_MACOS ) )
-#define ME_SCRIPTING        USE_IF( USING( ME_MONO ) )
+#define ME_SCRIPTING        USE_IF( USING( ME_DOTNET ) )
 #define ME_UI               USE_IF( USING( ME_ULTRALIGHT ) && !USING( ME_HEADLESS ) )
 #define ME_PROFILING        USE_IF( USING( ME_DEBUG ) || USING( ME_RELEASE ) )
 // I'm currently using some ImGui stuff in debug for profiling, TOOLS needs it even that it's currently bundled with the editor.

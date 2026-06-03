@@ -70,7 +70,7 @@ public class CommonTarget : Sharpmake.ITarget
                         Platform.win64,
                         DevEnv.vs2022,
                         Optimization.Debug | Optimization.Release | Optimization.Retail,
-                        DotNetFramework.v4_8,
+                        DotNetFramework.net8_0,
                         dotNetOS: 0);
                     baseTarget.SubPlatform = SubPlatformType.Win64;
 
@@ -81,7 +81,7 @@ public class CommonTarget : Sharpmake.ITarget
                             Platform.win64,
                             DevEnv.vs2022,
                             Optimization.Debug | Optimization.Release | Optimization.Retail,
-                            DotNetFramework.v4_8,
+                            DotNetFramework.net8_0,
                             dotNetOS: 0);
                         uwpTarget.SubPlatform = SubPlatformType.UWP;
                     }
@@ -90,7 +90,7 @@ public class CommonTarget : Sharpmake.ITarget
                         Platform.win64,
                         DevEnv.vs2022,
                         Optimization.Debug | Optimization.Release | Optimization.Retail,
-                        DotNetFramework.v4_8,
+                        DotNetFramework.net8_0,
                         dotNetOS: 0);
                     editorTarget.SubPlatform = SubPlatformType.Win64;
                     editorTarget.SelectedMode = Mode.Editor;

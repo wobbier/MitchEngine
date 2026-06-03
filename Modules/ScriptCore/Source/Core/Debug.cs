@@ -1,20 +1,10 @@
-using System.Runtime.CompilerServices;
+namespace ScriptCore;
 
-public class Debug
+// TODO: errything an error for now
+public static class Debug
 {
-    [MethodImplAttribute( MethodImplOptions.InternalCall )]
-    public static extern void Log( string inString );
-
-    [MethodImplAttribute( MethodImplOptions.InternalCall )]
-    public static extern void Error( string inString );
-
-    public static void Log( object inObject )
-    {
-        Log( inObject.ToString() );
-    }
-
-    public static void Error( object inObject )
-    {
-        Error( inObject.ToString() );
-    }
+    public static void Log(string inString) => Engine.Log(inString);
+    public static void Log(object inObject) => Engine.Log(inObject?.ToString() ?? "null");
+    public static void Error(string inString) => Engine.Log(inString);
+    public static void Error(object inObject) => Engine.Log(inObject?.ToString() ?? "null");
 }

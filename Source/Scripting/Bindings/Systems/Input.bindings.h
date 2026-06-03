@@ -1,4 +1,4 @@
 #pragma once
 #include "Scripting/Generated/ScriptEngineAPI.generated.h"
 
-void Register_ImGuiBindings( ScriptEngineAPI& inAPI );
+void Register_InputBindings( ScriptEngineAPI& inAPI );

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "ECS/Core.h"
-#include "Scripting/MonoFwd.h"
 #include "Path.h"
 #include "Events/EventReceiver.h"
 

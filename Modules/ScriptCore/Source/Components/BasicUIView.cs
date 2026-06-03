@@ -1,14 +1,9 @@
-using System;
-using System.Runtime.CompilerServices;
+namespace ScriptCore;
 
-public class BasicUIView
-    : Component
+public class BasicUIView : Component
 {
     public void ExecuteJS(string inJS)
     {
-        BasicUIView_ExecuteJS(Parent.EntID, inJS);
+        unsafe { fixed (byte* p = Engine.Utf8(inJS)) Engine._api.BasicUIView_ExecuteJS(Entity, p); }
     }
-
-    [MethodImplAttribute(MethodImplOptions.InternalCall)]
-    public extern static void BasicUIView_ExecuteJS(EntityID id, string inJS);
 }

@@ -533,9 +533,9 @@ void Engine::LoadScene( const std::string& SceneFile )
     }
 
 #if USING( ME_SCRIPTING )
-    ScriptEngine::sScriptData.worldPtr = GetWorld();
-    ScriptEngine::sScriptData.enginePtr = this;
+    ScriptEngine::SetWorld( GetWorld() );
 #endif
+
     GameWorld->AddCore<UICore>(*UI);
 
     GameWorld->Simulate();

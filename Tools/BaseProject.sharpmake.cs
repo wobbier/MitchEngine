@@ -172,9 +172,9 @@ public abstract class BaseProject : Project
         {
             conf.Defines.Add("DEFINE_ME_FMOD");
         }
-        if (Directory.Exists(Globals.MONO_Win64_Dir))
+        if (Directory.Exists(Globals.DOTNET_Win64_Dir))
         {
-            conf.Defines.Add("DEFINE_ME_MONO");
+            conf.Defines.Add("DEFINE_ME_DOTNET");
         }
     }
 
@@ -202,9 +202,9 @@ public abstract class BaseProject : Project
         {
             conf.Defines.Add("DEFINE_ME_FMOD");
         }
-        if (Directory.Exists(Globals.MONO_Win64_Dir))
+        if (Directory.Exists(Globals.DOTNET_Win64_Dir))
         {
-            conf.Defines.Add("DEFINE_ME_MONO");
+            conf.Defines.Add("DEFINE_ME_DOTNET");
         }
     }
 
@@ -223,11 +223,6 @@ public abstract class BaseProject : Project
         conf.Options.Add(new Options.XCode.Compiler.OnlyActiveArch());
 
         conf.Defines.Add("DEFINE_ME_PLATFORM_MACOS");
-
-        if (Directory.Exists(Globals.MONO_macOS_Dir))
-        {
-            conf.Defines.Add("DEFINE_ME_MONO");
-        }
     }
 
     [ConfigurePriority(ConfigurePriorities.Platform)]
@@ -269,44 +264,40 @@ public abstract class BaseProject : Project
         {
             //conf.Defines.Add("DEFINE_ME_FMOD");
         }
-        if (Directory.Exists(Globals.MONO_Linux_Dir))
-        {
-            //conf.Defines.Add("DEFINE_ME_MONO");
-        }
-            // existing LibraryPaths, etc.
-    conf.LibraryPaths.Add(Path.Combine(
-        "[project.SharpmakeCsPath]",
-        "ThirdParty/Lib/Assimp/linux/Release"
-    ));
-    conf.LibraryPaths.Add(Path.Combine(
-        "[project.SharpmakeCsPath]",
-        $"ThirdParty/Lib/BGFX/linux/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"
-    ));
-    //conf.LibraryPaths.Add(Path.Combine(
-    //    "[project.SharpmakeCsPath]",
-    //    $"ThirdParty/Lib/SDL/linux/Release"
-    //));
-    conf.LibraryPaths.Add(Path.Combine(
-        "[project.SharpmakeCsPath]",
-        $"ThirdParty/Lib/Bullet/linux/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"
-    ));
-            conf.AdditionalLinkerOptions.Add(
-        "-l:libDementia.a " +
-        "-l:libImGui.a " +
-        "-l:libMitchEngine.a " +
-        "-l:libMitchGame.a " +
-        "-l:libMoonlight.a " +
-        "-l:libassimp.a " +
-        "-l:libbgfxDebug.a " +          // Fix this
-        "-l:libbimgDebug.a " +
-        "-l:libbimg_decodeDebug.a " +
-        "-l:libbxDebug.a " +
-        "-l:libzlibstatic.a " +
-        "-l:libBulletDynamics.a " +
-        "-l:libBulletCollision.a " +
-        "-l:libLinearMath.a " +
-        "-lwayland-egl "
-    );
+        // existing LibraryPaths, etc.
+        conf.LibraryPaths.Add(Path.Combine(
+            "[project.SharpmakeCsPath]",
+            "ThirdParty/Lib/Assimp/linux/Release"
+        ));
+        conf.LibraryPaths.Add(Path.Combine(
+            "[project.SharpmakeCsPath]",
+            $"ThirdParty/Lib/BGFX/linux/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"
+        ));
+        //conf.LibraryPaths.Add(Path.Combine(
+        //    "[project.SharpmakeCsPath]",
+        //    $"ThirdParty/Lib/SDL/linux/Release"
+        //));
+        conf.LibraryPaths.Add(Path.Combine(
+            "[project.SharpmakeCsPath]",
+            $"ThirdParty/Lib/Bullet/linux/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"
+        ));
+        conf.AdditionalLinkerOptions.Add(
+            "-l:libDementia.a " +
+            "-l:libImGui.a " +
+            "-l:libMitchEngine.a " +
+            "-l:libMitchGame.a " +
+            "-l:libMoonlight.a " +
+            "-l:libassimp.a " +
+            "-l:libbgfxDebug.a " +          // Fix this
+            "-l:libbimgDebug.a " +
+            "-l:libbimg_decodeDebug.a " +
+            "-l:libbxDebug.a " +
+            "-l:libzlibstatic.a " +
+            "-l:libBulletDynamics.a " +
+            "-l:libBulletCollision.a " +
+            "-l:libLinearMath.a " +
+            "-lwayland-egl "
+        );
     }
 
     #endregion
