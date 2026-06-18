@@ -351,8 +351,9 @@ void Camera::OnEditorInspect()
         {
             if( const ImGuiPayload* payload = ImGui::AcceptDragDropPayload( AssetDescriptor::kDragAndDropPayload ) )
             {
-                IM_ASSERT( payload->DataSize == sizeof( AssetDescriptor ) );
-                AssetDescriptor& payload_n = *(AssetDescriptor*)payload->Data;
+                AssetDescriptor* _p = AssetDescriptor::GetDragged();
+                if( !_p ) return;
+                AssetDescriptor& payload_n = *_p;
 
                 if( payload_n.Type == AssetType::Texture )
                 {

@@ -27,6 +27,7 @@
 #if USING( ME_EDITOR )
 
 const ImGuiTableSortSpecs* AssetBrowserWidget::s_current_sort_specs = nullptr;
+AssetDescriptor* AssetDescriptor::s_dragged = nullptr;
 
 AssetBrowserWidget::AssetBrowserWidget( Havana* inEditor )
     : HavanaWidget( "Asset Browser", "F2" )
@@ -46,6 +47,9 @@ void AssetBrowserWidget::ReloadDirectories()
     AssetDirectory.Directories.clear();
     AssetDirectory.Files.clear();
     MasterAssetsList.clear();
+    FilteredAssetList.clear();
+    AssetDescriptor::s_dragged = nullptr;
+    items_need_filtered = true;
 
     for( auto& file : std::filesystem::recursive_directory_iterator( AssetDirectory.FullPath.FullPath ) )
     {
@@ -614,7 +618,8 @@ void AssetBrowserWidget::DrawAssetTable()
 
                     if( ImGui::BeginDragDropSource( ImGuiDragDropFlags_None ) )
                     {
-                        ImGui::SetDragDropPayload( AssetDescriptor::kDragAndDropPayload, item, sizeof( AssetDescriptor ) );
+                        AssetDescriptor::s_dragged = item;
+                        ImGui::SetDragDropPayload( AssetDescriptor::kDragAndDropPayload, &item->ID, sizeof( int ) );
                         ImGui::Text( item->Name.c_str() );
                         ImGui::EndDragDropSource();
                     }
@@ -850,7 +855,8 @@ void AssetBrowserWidget::Recursive( Directory& dir )
         if( ImGui::BeginDragDropSource( ImGuiDragDropFlags_None ) )
         {
             //files.FullPath = dir.FullPath;
-            ImGui::SetDragDropPayload( AssetDescriptor::kDragAndDropPayload, &files, sizeof( AssetDescriptor ) );
+            AssetDescriptor::s_dragged = &files;
+            ImGui::SetDragDropPayload( AssetDescriptor::kDragAndDropPayload, &files.ID, sizeof( int ) );
             ImGui::Text( files.Name.c_str() );
             ImGui::EndDragDropSource();
         }
@@ -1060,9 +1066,9 @@ bool AssetBrowserWidget::ProccessDirectoryRecursive( std::string& dir, Directory
                 }
 
                 AssetDescriptor desc;
-                desc.Name = newdir;
                 //desc.MetaFile = File(Path(file.path().string() + ".meta"));
                 desc.FullPath = Path( file.path().string() );
+                desc.Name = desc.FullPath.GetFileNameString();
                 desc.Type = type;
                 dirRef.Files.push_back( desc );
                 //const std::string & data = dirRef.Files.back().MetaFile.Read();

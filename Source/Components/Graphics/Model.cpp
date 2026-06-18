@@ -141,8 +141,9 @@ void Model::OnEditorInspect()
         {
             if( const ImGuiPayload* payload = ImGui::AcceptDragDropPayload( AssetDescriptor::kDragAndDropPayload ) )
             {
-                IM_ASSERT( payload->DataSize == sizeof( AssetDescriptor ) );
-                const AssetDescriptor& payload_n = *static_cast<AssetDescriptor*>( payload->Data );
+                const AssetDescriptor* _p = AssetDescriptor::GetDragged();
+                if( !_p ) return;
+                const AssetDescriptor& payload_n = *_p;
 
                 if( payload_n.Type == AssetType::Model )
                 {
