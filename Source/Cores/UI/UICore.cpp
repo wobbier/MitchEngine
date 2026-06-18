@@ -40,7 +40,10 @@ UICore::UICore( IWindow* window, BGFXRenderer* renderer )
 
     m_renderer = renderer;
 
+#if USING( ME_UI )
     YIKES("UICORE CREATE");
+#endif
+
     UIProgram = Moonlight::LoadProgram( "Assets/Shaders/UI.vert", "Assets/Shaders/UI.frag" );
     s_texUI = bgfx::createUniform( "s_texUI", bgfx::UniformType::Sampler );
 
@@ -64,9 +67,10 @@ UICore::UICore( IWindow* window, BGFXRenderer* renderer )
 
 #if USING( ME_PLATFORM_WINDOWS )
     ultralight::Platform::instance().set_font_loader( new FontLoaderWin() );
-#endif
-#if USING( ME_PLATFORM_MACOS )
+#elif USING( ME_PLATFORM_MACOS )
     ultralight::Platform::instance().set_font_loader( new FontLoaderMac() );
+#elif USING( ME_PLATFORM_LINUX )
+    ultralight::Platform::instance().set_font_loader( ultralight::GetPlatformFontLoader() );
 #endif
 
     m_driver = new UIDriver();
@@ -280,11 +284,13 @@ void UICore::Render()
 
 #if USING( ME_UI )
 
+#if !USING( ME_PLATFORM_LINUX )
     {
         OPTICK_EVENT( "Ultralight Render", Optick::Category::UI );
         m_uiRenderer->Render();
     }
     m_driver->RenderCommandList();
+#endif
 
     for( auto ent : GetEntities() )
     {
@@ -395,6 +401,9 @@ void UICore::InitUIView( BasicUIView& view )
     view_config.is_accelerated = true;
     view_config.is_transparent = true;
     view_config.font_family_standard = "Arial";
+#if USING( ME_PLATFORM_LINUX )
+    view_config.enable_javascript = false;
+#endif
 
     ultralight::RefPtr<ultralight::View> newView;
     newView = m_uiRenderer->CreateView( static_cast<uint32_t>( Camera::CurrentCamera->OutputSize.x ), static_cast<uint32_t>( Camera::CurrentCamera->OutputSize.y ), view_config, nullptr );
@@ -405,6 +414,7 @@ void UICore::InitUIView( BasicUIView& view )
     newView->set_load_listener( &view );
     newView->set_view_listener( this );
 
+#if !USING( ME_PLATFORM_LINUX )
     if( m_useWebUrl && !view.m_uiUrl.empty() )
     {
         newView->LoadURL( ultralight::String( view.m_uiUrl.c_str() ) );
@@ -421,10 +431,11 @@ void UICore::InitUIView( BasicUIView& view )
         else
         {
             // the file doesn't exist so display the raw html (error screen)
-            ultralight::String str = ultralight::String(view.SourceFile.Read().c_str());
-            newView->LoadHTML(str);
+            ultralight::String str = "file:///" + ultralight::String( view.SourceFile.FilePath.FullPath.c_str() );
+            newView->LoadURL( str );
         }
     }
+#endif
 
     //m_overlays.push_back( overlay );
     //GetOverlayManager()->Add( overlay.get() );

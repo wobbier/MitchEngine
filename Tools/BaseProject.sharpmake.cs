@@ -262,7 +262,31 @@ public abstract class BaseProject : Project
 
         if (Directory.Exists(Globals.FMOD_Linux_Dir))
         {
-            //conf.Defines.Add("DEFINE_ME_FMOD");
+            conf.Defines.Add("DEFINE_ME_FMOD");
+            // Bake the fmod lib dir into the binary's RPATH so it loads without LD_LIBRARY_PATH
+            string fmodLibDir = Path.Combine(Globals.FMOD_Linux_Dir, "api/core/lib/x86_64");
+            conf.AdditionalLinkerOptions.Add($"-Wl,-rpath,{fmodLibDir}");
+        }
+
+        if (Globals.IsUltralightEnabled)
+        {
+            string ultralightLibDir = Path.Combine(Globals.RootDir, "Engine/ThirdParty/UltralightSDK/lib/linux");
+            conf.AdditionalLinkerOptions.Add($"-Wl,-rpath,{ultralightLibDir}");
+
+            var copyDirBuildStep = new Configuration.BuildStepCopy(
+                Path.Combine(Globals.RootDir, "Engine/ThirdParty/UltralightSDK/lib/linux"),
+                Globals.RootDir + "/.build/[target.Name]");
+            copyDirBuildStep.IsFileCopy = false;
+            copyDirBuildStep.CopyPattern = "*.so";
+            conf.EventPostBuildExe.Add(copyDirBuildStep);
+        }
+        if (Directory.Exists(Globals.MONO_Linux_Dir))
+        {
+            //conf.Defines.Add("DEFINE_ME_MONO");
+        }
+        if (Directory.Exists(Globals.DOTNET_Linux_Dir))
+        {
+            conf.Defines.Add("DEFINE_ME_DOTNET");
         }
         // existing LibraryPaths, etc.
         conf.LibraryPaths.Add(Path.Combine(
@@ -281,6 +305,7 @@ public abstract class BaseProject : Project
             "[project.SharpmakeCsPath]",
             $"ThirdParty/Lib/Bullet/linux/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"
         ));
+        // Optick library path removed — ChromeTrace is header-only on Linux
         conf.AdditionalLinkerOptions.Add(
             "-l:libDementia.a " +
             "-l:libImGui.a " +
@@ -296,7 +321,9 @@ public abstract class BaseProject : Project
             "-l:libBulletDynamics.a " +
             "-l:libBulletCollision.a " +
             "-l:libLinearMath.a " +
-            "-lwayland-egl "
+            "-lwayland-egl " +
+            (Directory.Exists(Globals.FMOD_Linux_Dir) ? "-lfmodL " : "") +
+            (Globals.IsUltralightEnabled ? "-lUltralight -lUltralightCore -lWebCore -lAppCore -lfontconfig " : "")
         );
     }
 
