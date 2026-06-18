@@ -82,24 +82,26 @@ void EditorApp::OnUpdate( const UpdateContext& inUpdateContext )
             }
         }
 
-        static bool s_capturing = false;
+        static constexpr int kCaptureFrames = 10;
+        static int s_captureFramesLeft = 0;
         Input& editorInput = GetEngine().GetEditorInput();
-        if( editorInput.WasKeyPressed( KeyCode::F9 ) )
+        if( editorInput.WasKeyPressed( KeyCode::F9 ) && s_captureFramesLeft == 0 )
         {
-            if( !s_capturing )
-            {
-                OPTICK_START_CAPTURE();
-                s_capturing = true;
-                CLog::GetInstance().Log( CLog::LogType::Info, "Optick capture started (F9 to stop + save)" );
-            }
-            else
+            OPTICK_START_CAPTURE();
+            s_captureFramesLeft = kCaptureFrames;
+            CLog::GetInstance().Log( CLog::LogType::Info, "Optick capture started (10 frames)" );
+        }
+
+        if( s_captureFramesLeft > 0 )
+        {
+            --s_captureFramesLeft;
+            if( s_captureFramesLeft == 0 )
             {
                 OPTICK_STOP_CAPTURE();
                 char filename[64];
                 std::time_t t = std::time( nullptr );
                 std::strftime( filename, sizeof( filename ), "capture_%Y%m%d_%H%M%S.opt", std::localtime( &t ) );
                 OPTICK_SAVE_CAPTURE( filename );
-                s_capturing = false;
                 CLog::GetInstance().Log( CLog::LogType::Info, std::string( "Optick capture saved: " ) + filename );
             }
         }
