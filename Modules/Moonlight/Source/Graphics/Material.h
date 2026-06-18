@@ -2,6 +2,7 @@
 #include "Texture.h"
 #include <string>
 #include <unordered_map>
+#include <cstring>
 
 #include "Math/Vector3.h"
 #include "Math/Vector2.h"
@@ -142,6 +143,7 @@ namespace Moonlight
         const Texture* GetTexture( const TextureType& type ) const;
         std::vector<std::shared_ptr<Texture>>& GetTextures();
         RenderingMode RenderMode = RenderingMode::Opaque;
+        bool SupportsInstancing = false;
         Vector3 DiffuseColor;
         Vector2 Tiling;
         std::string ShaderName;
@@ -166,6 +168,35 @@ namespace Moonlight
         std::string TypeName;
     public:
         virtual uint64_t GetRenderState( uint64_t state ) const;
+
+        virtual uint64_t GetInstanceBatchKey() const
+        {
+            auto mix = []( uint64_t h, uint64_t v ) {
+                return ( h ^ ( v + 0x9e3779b97f4a7c15ULL + ( h << 6 ) + ( h >> 2 ) ) );
+                };
+            auto texId = [this]( const TextureType& type ) -> uint64_t {
+                const Texture* tex = GetTexture( type );
+                return ( tex && bgfx::isValid( tex->TexHandle ) ) ? tex->TexHandle.idx : 0xFFFFu;
+                };
+            auto floatBits = []( float f ) -> uint64_t {
+                uint32_t bits = 0u;
+                std::memcpy( &bits, &f, sizeof( bits ) );
+                return bits;
+                };
+
+            uint64_t h = 1469598103934665603ULL;
+            h = mix( h, MeshShader.GetProgram().idx );
+            h = mix( h, texId( TextureType::Diffuse ) );
+            h = mix( h, texId( TextureType::Normal ) );
+            h = mix( h, texId( TextureType::Opacity ) );
+            h = mix( h, GetRenderState( 0 ) );
+            h = mix( h, floatBits( DiffuseColor.x ) );
+            h = mix( h, floatBits( DiffuseColor.y ) );
+            h = mix( h, floatBits( DiffuseColor.z ) );
+            h = mix( h, floatBits( Tiling.x ) );
+            h = mix( h, floatBits( Tiling.y ) );
+            return h;
+        }
     };
 
 

@@ -71,6 +71,8 @@ public:
 
     void RenderSingleMesh( bgfx::ViewId id, const Moonlight::MeshCommand& mesh, uint64_t state );
 
+    void RenderMeshInstanced( bgfx::ViewId id, const Moonlight::MeshCommand& representative, const glm::mat4* transforms, uint32_t count, uint64_t state );
+
     void WindowResized( const Vector2& newSize );
 
     uint32_t GetResetFlags() const;
@@ -104,6 +106,19 @@ public:
 #endif
 
 private:
+    bgfx::ProgramHandle BindMeshDrawState( const Moonlight::MeshCommand& mesh, uint64_t state );
+
+    struct InstanceBatch
+    {
+        uint16_t vertexBuffer = 0;
+        uint16_t indexBuffer = 0;
+        uint64_t materialKey = 0;
+        size_t representativeIndex = 0;
+        std::vector<glm::mat4> transforms;
+    };
+    std::vector<InstanceBatch> m_instanceBatches;
+    size_t m_activeBatchCount = 0;
+
     Vector2 PreviousSize;
     Vector2 CurrentSize;
     uint32_t m_resetFlags = 0u;

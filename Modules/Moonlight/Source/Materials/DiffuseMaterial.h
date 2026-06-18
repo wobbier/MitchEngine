@@ -9,7 +9,7 @@ public:
     DiffuseMaterial()
         : Moonlight::Material( "DiffuseMaterial", "Assets/Shaders/Diffuse" )
     {
-
+        SupportsInstancing = true;
     }
 
     void Init() override
@@ -33,10 +33,9 @@ public:
 
     SharedPtr<Material> CreateInstance() final
     {
-        SharedPtr<DiffuseMaterial> ptr = MakeShared<DiffuseMaterial>( *this );
-
-        return ptr;
+        return MakeShared<DiffuseMaterial>( *this );
     }
+
 private:
     inline static bgfx::UniformHandle s_diffuse = BGFX_INVALID_HANDLE;
     inline static bgfx::UniformHandle s_tiling = BGFX_INVALID_HANDLE;
@@ -49,12 +48,13 @@ public:
     WhiteMaterial()
         : Moonlight::Material( "WhiteMaterial", "Assets/Shaders/Diffuse" )
     {
-
+        SupportsInstancing = true;
     }
     WhiteMaterial( WhiteMaterial* ref )
         : Moonlight::Material( "WhiteMaterial" )
     {
         CopyValues( ref );
+        SupportsInstancing = true;
     }
 
 
