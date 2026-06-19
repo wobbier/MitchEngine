@@ -6,8 +6,11 @@ struct AssetDescriptor
 {
     static constexpr const char* kDragAndDropPayload = "DND_ASSET_BROWSER";
 
-    static AssetDescriptor* s_dragged;
-    static AssetDescriptor* GetDragged() { return s_dragged; }
+    inline static AssetDescriptor* s_dragged = nullptr;
+    static AssetDescriptor* GetDragged()
+    {
+        return s_dragged;
+    }
 
     std::string Name;
     File MetaFile;

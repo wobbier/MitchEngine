@@ -271,6 +271,7 @@ public abstract class BaseProject : Project
         if (Globals.IsUltralightEnabled)
         {
             string ultralightLibDir = Path.Combine(Globals.RootDir, "Engine/ThirdParty/UltralightSDK/lib/linux");
+            conf.LibraryPaths.Add(ultralightLibDir);
             conf.AdditionalLinkerOptions.Add($"-Wl,-rpath,{ultralightLibDir}");
 
             var copyDirBuildStep = new Configuration.BuildStepCopy(

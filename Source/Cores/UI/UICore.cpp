@@ -225,43 +225,39 @@ void UICore::Update( const UpdateContext& inUpdateContext )
     mouseEvent.x = ( windowPosition.x + mousePosition.x ) - offset.x;// + windowPosition.x  + offset.x;
     mouseEvent.y = ( windowPosition.y + mousePosition.y ) - offset.y;// + windowPosition.y  - offset.y;
 
-    if( mousePosition.IsZero() )
-    {
-        return;
-    }
+    const bool fireMouseEvents = !mousePosition.IsZero();
 #else
     mouseEvent.x = mousePosition.x;
     mouseEvent.y = mousePosition.y;
+    const bool fireMouseEvents = true;
 #endif
 
-    // This sucks
-    static bool hasPressed = false;
-    if( gameInput.WasMouseButtonPressed( MouseButton::Left ) && !hasPressed )
+    if( fireMouseEvents )
     {
-        mouseEvent.button = ultralight::MouseEvent::Button::kButton_Left;
-        mouseEvent.type = ultralight::MouseEvent::kType_MouseDown;
-        hasPressed = true;
-    }
-    else if( gameInput.IsMouseButtonDown( MouseButton::Left ) )
-    {
-        mouseEvent.button = ultralight::MouseEvent::Button::kButton_Left;
-        mouseEvent.type = ultralight::MouseEvent::kType_MouseMoved;
-    }
-    else if( !gameInput.WasMouseButtonPressed( MouseButton::Left ) && hasPressed )
-    {
-        mouseEvent.button = ultralight::MouseEvent::Button::kButton_Left;
-        mouseEvent.type = ultralight::MouseEvent::kType_MouseUp;
-        hasPressed = false;
-    }
-    else
-    {
-        mouseEvent.button = ultralight::MouseEvent::Button::kButton_None;
-    }
+        // This sucks
+        static bool hasPressed = false;
+        if( gameInput.WasMouseButtonPressed( MouseButton::Left ) && !hasPressed )
+        {
+            mouseEvent.button = ultralight::MouseEvent::Button::kButton_Left;
+            mouseEvent.type = ultralight::MouseEvent::kType_MouseDown;
+            hasPressed = true;
+        }
+        else if( gameInput.IsMouseButtonDown( MouseButton::Left ) )
+        {
+            mouseEvent.button = ultralight::MouseEvent::Button::kButton_Left;
+            mouseEvent.type = ultralight::MouseEvent::kType_MouseMoved;
+        }
+        else if( !gameInput.WasMouseButtonPressed( MouseButton::Left ) && hasPressed )
+        {
+            mouseEvent.button = ultralight::MouseEvent::Button::kButton_Left;
+            mouseEvent.type = ultralight::MouseEvent::kType_MouseUp;
+            hasPressed = false;
+        }
+        else
+        {
+            mouseEvent.button = ultralight::MouseEvent::Button::kButton_None;
+        }
 
-#if USING( ME_EDITOR )
-    //if (m_renderer->GetViewportMode() == ViewportMode::Game)
-#endif
-    {
         OPTICK_EVENT( "UI Input Update", Optick::Category::UI );
         for( auto& view : m_views )
         {
@@ -284,13 +280,12 @@ void UICore::Render()
 
 #if USING( ME_UI )
 
-#if !USING( ME_PLATFORM_LINUX )
     {
         OPTICK_EVENT( "Ultralight Render", Optick::Category::UI );
+        m_uiRenderer->RefreshDisplay( 0 );
         m_uiRenderer->Render();
     }
     m_driver->RenderCommandList();
-#endif
 
     for( auto ent : GetEntities() )
     {
@@ -304,9 +299,9 @@ void UICore::Render()
         ultralight::RenderTarget surface = (ultralight::RenderTarget)( ent.GetComponent<BasicUIView>().ViewRef->render_target() );
 
         bgfx::ViewId view = 10;
+        if( bgfx::isValid( m_uiFrameBuffer ) )
         {
-            bgfx::setViewName( view, "UI BLIT" );
-            const bgfx::RendererType::Enum renderer = bgfx::getRendererType();
+            bgfx::setViewName( view, "UI Render Target" );
             float m_texelHalf = 0.0f;
             float orthoProj[16];
             bx::mtxOrtho( orthoProj, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, bgfx::getCaps()->homogeneousDepth );
@@ -317,19 +312,18 @@ void UICore::Render()
                 bgfx::setTransform( identity );
             }
 
+            // Composite the Ultralight render-target into m_uiTexture (a separate
+            // render target). Rendering into the RT's own framebuffer while sampling
+            // the same texture is a read-after-write hazard that corrupts on Vulkan.
             bgfx::setViewRect( view, 0, 0, uint16_t( surface.texture_width ), uint16_t( surface.texture_height ) );
             bgfx::setViewTransform( view, NULL, orthoProj );
-            bgfx::setViewFrameBuffer( view, m_driver->m_buffers[surface.render_buffer_id].BufferHandle );
-            bgfx::setState( 0
-                | BGFX_STATE_WRITE_RGB
-                //| BGFX_STATE_BLEND_ALPHA // - Not it, creates artifacts
-                //| BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA) // - Almost there
-                | BGFX_STATE_BLEND_FUNC_SEPARATE( BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA, BGFX_STATE_BLEND_INV_DST_ALPHA, BGFX_STATE_BLEND_ONE )
-            );
+            bgfx::setViewFrameBuffer( view, m_uiFrameBuffer );
+            bgfx::setViewClear( view, BGFX_CLEAR_COLOR, 0x00000000 );
+            // Straight overwrite copy (RT content is already premultiplied alpha).
+            bgfx::setState( BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A );
             bgfx::setTexture( 0, s_texUI, m_driver->m_buffers[surface.render_buffer_id].TexHandle );
             Moonlight::screenSpaceQuad( surface.texture_width, surface.texture_height, m_texelHalf, bgfx::getCaps()->originBottomLeft );
             bgfx::submit( view, UIProgram );
-            bgfx::blit( view, m_uiTexture, 0, 0, m_driver->m_buffers[surface.render_buffer_id].TexHandle );
         }
         if( !surface.is_empty )//&& !surface->dirty_bounds().IsEmpty() )
         {
@@ -349,7 +343,7 @@ void UICore::Render()
 void UICore::PostRender( const UpdateContext& inUpdateContext )
 {
 #if USING( ME_UI )
-    m_uiRenderer->RefreshDisplay( 0 );
+    // RefreshDisplay now happens before Render() (see UICore::Render).
 #endif
 }
 
@@ -363,6 +357,11 @@ void UICore::OnResize( const Vector2& NewSize )
 
     if( NewSize != UISize )
     {
+        if( bgfx::isValid( m_uiFrameBuffer ) )
+        {
+            bgfx::destroy( m_uiFrameBuffer );
+            m_uiFrameBuffer = BGFX_INVALID_HANDLE;
+        }
         if( bgfx::isValid( m_uiTexture ) )
         {
             bgfx::destroy( m_uiTexture );
@@ -373,8 +372,10 @@ void UICore::OnResize( const Vector2& NewSize )
             , false
             , 1
             , bgfx::TextureFormat::BGRA8
-            , BGFX_SAMPLER_MIN_POINT | BGFX_SAMPLER_MAG_POINT | BGFX_SAMPLER_MIP_POINT | BGFX_TEXTURE_BLIT_DST
+            , BGFX_TEXTURE_RT | BGFX_SAMPLER_MIN_POINT | BGFX_SAMPLER_MAG_POINT | BGFX_SAMPLER_MIP_POINT
         );
+        bgfx::TextureHandle fbTex[] = { m_uiTexture };
+        m_uiFrameBuffer = bgfx::createFrameBuffer( BX_COUNTOF( fbTex ), fbTex, false );
         UISize = NewSize;
 
 #if USING( ME_UI )
@@ -401,9 +402,6 @@ void UICore::InitUIView( BasicUIView& view )
     view_config.is_accelerated = true;
     view_config.is_transparent = true;
     view_config.font_family_standard = "Arial";
-#if USING( ME_PLATFORM_LINUX )
-    view_config.enable_javascript = false;
-#endif
 
     ultralight::RefPtr<ultralight::View> newView;
     newView = m_uiRenderer->CreateView( static_cast<uint32_t>( Camera::CurrentCamera->OutputSize.x ), static_cast<uint32_t>( Camera::CurrentCamera->OutputSize.y ), view_config, nullptr );
@@ -414,7 +412,6 @@ void UICore::InitUIView( BasicUIView& view )
     newView->set_load_listener( &view );
     newView->set_view_listener( this );
 
-#if !USING( ME_PLATFORM_LINUX )
     if( m_useWebUrl && !view.m_uiUrl.empty() )
     {
         newView->LoadURL( ultralight::String( view.m_uiUrl.c_str() ) );
@@ -435,7 +432,6 @@ void UICore::InitUIView( BasicUIView& view )
             newView->LoadURL( str );
         }
     }
-#endif
 
     //m_overlays.push_back( overlay );
     //GetOverlayManager()->Add( overlay.get() );

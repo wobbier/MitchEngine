@@ -27,7 +27,6 @@
 #if USING( ME_EDITOR )
 
 const ImGuiTableSortSpecs* AssetBrowserWidget::s_current_sort_specs = nullptr;
-AssetDescriptor* AssetDescriptor::s_dragged = nullptr;
 
 AssetBrowserWidget::AssetBrowserWidget( Havana* inEditor )
     : HavanaWidget( "Asset Browser", "F2" )

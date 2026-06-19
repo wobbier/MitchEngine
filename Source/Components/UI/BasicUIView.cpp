@@ -31,7 +31,7 @@ BasicUIView::BasicUIView( const char* Name )
 void BasicUIView::Init()
 {
     SourceFile = File( FilePath );
-    if( SourceFile.Read().empty() )
+    if( FilePath.IsFile && SourceFile.Read().empty() )
     {
         // #TODO: do I only show this in a dev block? or do I display a blank html block...
         SourceFile = File( Path("Assets/UI/UIFuckup.html") );
