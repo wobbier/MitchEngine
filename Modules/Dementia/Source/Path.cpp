@@ -48,6 +48,11 @@ Path::Path( const std::string& InFile, bool Raw /*= false*/ )
 
     std::replace( LocalPath.begin(), LocalPath.end(), '\\', '/' );
 
+    if( LocalPath.empty() )
+    {
+        return;
+    }
+
     auto remove_duplicate_slashes = []( std::string& str ) {
         std::string::size_type pos = 0;
         while( ( pos = str.find( "//", pos ) ) != std::string::npos ) {
@@ -70,8 +75,8 @@ Path::Path( const std::string& InFile, bool Raw /*= false*/ )
         FullPath = ProgramPath + assetPrefix + LocalPath;
     }
 
-    ExtensionPos = (int8_t)LocalPath.rfind( '.' );
-    ExtensionPos = (int8_t)( LocalPath.size() - ++ExtensionPos );
+    const size_t extensionPos = LocalPath.rfind( '.' );
+    ExtensionPos = extensionPos == std::string::npos ? 0 : LocalPath.size() - extensionPos - 1;
 
     // yeah don't do this
     path = LocalPath.rfind( "Assets" );
@@ -127,9 +132,11 @@ Path::Path( const std::string& InFile, bool Raw /*= false*/ )
 #endif
 
 #endif
-    LocalPos = static_cast<int8_t>( FullPath.rfind( LocalPath ) );
-    DirectoryPos = static_cast<int8_t>( FullPath.find_last_of( "/" ) + 1 );
-    DirectoryPos = (int8_t)( FullPath.size() - DirectoryPos );
+    const size_t localPos = FullPath.rfind( LocalPath );
+    LocalPos = localPos == std::string::npos ? 0 : localPos;
+
+    const size_t directoryEnd = FullPath.find_last_of( "/" );
+    DirectoryPos = directoryEnd == std::string::npos ? FullPath.size() : FullPath.size() - directoryEnd - 1;
 
 #if USING( ME_PLATFORM_UWP )
         //std::replace(LocalPath.begin(), LocalPath.end(), '/', '\\');
@@ -145,11 +152,19 @@ Path::~Path()
 const char* Path::GetExtension() const
 {
     const char* c = FullPath.c_str();
+    if( ExtensionPos > FullPath.size() )
+    {
+        return c + FullPath.size();
+    }
     return &c[FullPath.size() - ExtensionPos];
 }
 
 std::string_view Path::GetDirectory() const
 {
+    if( DirectoryPos > FullPath.size() )
+    {
+        return {};
+    }
     return std::string_view( FullPath.c_str(), FullPath.size() - DirectoryPos );
 }
 
@@ -160,7 +175,11 @@ std::string Path::GetDirectoryString() const
 
 std::string_view Path::GetLocalPath() const
 {
-    return std::string_view( FullPath.c_str() + LocalPos );
+    if( LocalPos > FullPath.size() )
+    {
+        return {};
+    }
+    return std::string_view( FullPath.c_str() + LocalPos, FullPath.size() - LocalPos );
 }
 
 std::string Path::GetLocalPathString() const

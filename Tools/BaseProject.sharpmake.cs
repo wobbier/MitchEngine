@@ -311,7 +311,6 @@ public abstract class BaseProject : Project
             "-l:libDementia.a " +
             "-l:libImGui.a " +
             "-l:libMitchEngine.a " +
-            "-l:libMitchGame.a " +
             "-l:libMoonlight.a " +
             "-l:libassimp.a " +
             "-l:libbgfxDebug.a " +          // Fix this

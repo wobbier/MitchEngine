@@ -220,10 +220,11 @@ void UICore::Update( const UpdateContext& inUpdateContext )
 
     //Havana* editor = static_cast<EditorCore*>( GetEngine().GetWorld().lock()->GetCore( EditorCore::GetTypeId() ) )->GetEditor();
 
-    Vector2 windowPosition = GetEngine().GetWindow()->GetPosition();
+    const ImGuiViewport* mainViewport = ImGui::GetMainViewport();
+    Vector2 windowPosition = Vector2( mainViewport->Pos.x, mainViewport->Pos.y );
     Vector2 offset = gameInput.GetMouseOffset();
-    mouseEvent.x = ( windowPosition.x + mousePosition.x ) - offset.x;// + windowPosition.x  + offset.x;
-    mouseEvent.y = ( windowPosition.y + mousePosition.y ) - offset.y;// + windowPosition.y  - offset.y;
+    mouseEvent.x = ( windowPosition.x + mousePosition.x ) - offset.x;
+    mouseEvent.y = ( windowPosition.y + mousePosition.y ) - offset.y;
 
     const bool fireMouseEvents = !mousePosition.IsZero();
 #else
