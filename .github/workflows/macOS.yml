@@ -44,10 +44,10 @@ jobs:
           echo "Downloaded setup script:"
           head -n 5 NewProjectSetup.command
 
-      - name: Setup dotnet
-        uses: actions/setup-dotnet@v4
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: "5.0.100"
+          dotnet-version: "8.0.x"
 
       - name: Generate project
         shell: bash
