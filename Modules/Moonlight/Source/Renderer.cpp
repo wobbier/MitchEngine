@@ -13,6 +13,7 @@
 #include "Graphics/MeshData.h"
 #include "Graphics/ShaderCommand.h"
 #include <algorithm>
+#include <cstring>
 #include "Resource/ResourceCache.h"
 #include <Graphics/SkyBox.h>
 #include <Math/Matrix4.h>
@@ -58,7 +59,7 @@ namespace
         BGFX_STATE_PT_LINESTRIP,
         BGFX_STATE_PT_POINTS,
     };
-    BX_STATIC_ASSERT( BX_COUNTOF( s_ptState ) == BX_COUNTOF( s_ptNames ) );
+    static_assert( BX_COUNTOF( s_ptState ) == BX_COUNTOF( s_ptNames ) );
 }
 
 
@@ -83,35 +84,44 @@ namespace
 
 void BGFXRenderer::Create( const RendererCreationSettings& settings )
 {
+    OPTICK_EVENT( "BGFXRenderer::Create" );
     PreviousSize = settings.InitialSize;
     // Call bgfx::renderFrame before bgfx::init to signal to bgfx not to create a render thread.
     // Most graphics APIs must be used on the same thread that created the window.
+        BRUH("renderFrame");
     bgfx::renderFrame();
+        BRUH("renderFrame");
     // Initialize bgfx using the native window handle and window resolution.
     bgfx::Init init;
-    init.platformData.nwh = settings.WindowPtr;
-    init.resolution.width = static_cast<uint32_t>( PreviousSize.x );
+    init.platformData.nwh  = settings.WindowPtr;
+    init.platformData.ndt  = settings.DisplayPtr;
+    init.platformData.type = settings.WindowType;
+    init.resolution.width  = static_cast<uint32_t>( PreviousSize.x );
     init.resolution.height = static_cast<uint32_t>( PreviousSize.y );
 #if USING( ME_PLATFORM_MACOS )
     init.resolution.reset = BGFX_RESET_VSYNC;
 #else
-    init.resolution.reset =/* BGFX_RESET_VSYNC |*/ BGFX_RESET_MSAA_X16;
+    init.resolution.reset = BGFX_RESET_NONE;// | BGFX_RESET_MSAA_X16;
 #endif
 
 #if USING( ME_PLATFORM_UWP )
     // Something is up with using DX12 and my shaders, so this is the fix for now.
     init.type = bgfx::RendererType::Direct3D11;
+#elif USING( ME_PLATFORM_LINUX )
+    init.type = bgfx::RendererType::Vulkan;
 #endif
     m_resetFlags = init.resolution.reset;
     CurrentSize = settings.InitialSize;
 #if USING( ME_ENABLE_RENDERDOC )
     RenderDoc = new RenderDocManager();
 #endif
-    if( !bgfx::init( init ) )
     {
-        CLog::Log( CLog::LogType::Error, "BGFX Failed to Init." );
-
-        return;
+        OPTICK_EVENT( "BGFXRenderer::bgfx_init" );
+        if( !bgfx::init( init ) )
+        {
+            CLog::Log( CLog::LogType::Error, "BGFX Failed to Init." );
+            return;
+        }
     }
 
     // Set view 0 clear state.
@@ -128,6 +138,7 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
         EditorCameraBuffer->ReCreate( m_resetFlags );
 
         m_debugDraw.reset( new DebugDrawer() );
+        //m_debugDraw->End();
         //bgfx::setViewClear(1
         //	, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH
         //	, 0x303030ff
@@ -153,7 +164,8 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
             // Static data can be passed with bgfx::makeRef
             bgfx::makeRef( Moonlight::s_cubeTriList, sizeof( Moonlight::s_cubeTriList ) )
         );
-
+        BRUH("Renderer assets");
+        OPTICK_EVENT( "BGFXRenderer::LoadShaders" );
         UIProgram = Moonlight::LoadProgram( "Assets/Shaders/UI.vert", "Assets/Shaders/UI.frag" );
         s_texDiffuse = bgfx::createUniform( "s_texDiffuse", bgfx::UniformType::Sampler );
         s_texNormal = bgfx::createUniform( "s_texNormal", bgfx::UniformType::Sampler );
@@ -178,8 +190,11 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
     TransparentIndicies.reserve( kMeshTransparencyTempSize );
 
 #if USING( ME_IMGUI )
-    ImGuiRender = new ImGuiRenderer();
-    ImGuiRender->Create();
+    {
+        OPTICK_EVENT( "BGFXRenderer::ImGuiCreate" );
+        ImGuiRender = new ImGuiRenderer();
+        ImGuiRender->Create();
+    }
 #endif
 
 
@@ -232,7 +247,7 @@ void BGFXRenderer::Render( Moonlight::CameraData& EditorCamera, FrameRenderData&
         PreviousSize = CurrentSize;
 
         bgfx::reset( (uint32_t)CurrentSize.x, (uint32_t)CurrentSize.y, m_resetFlags );
-        bgfx::setViewRect( kClearView, 0, 0, bgfx::BackbufferRatio::Equal );
+        //bgfx::setViewRect( kClearView, 0, 0, bgfx::BackbufferRatio::Equal );
         if( NeedsReset )
         {
             for( auto& cam : m_cameraCache.Commands )
@@ -422,6 +437,34 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId
     }
 
     TransparentIndicies.clear();
+
+    for( size_t b = 0; b < m_activeBatchCount; ++b )
+    {
+        m_instanceBatches[b].transforms.clear();
+    }
+    m_activeBatchCount = 0;
+
+    auto getBatch = [this]( uint16_t vbh, uint16_t ibh, uint64_t key, size_t cmdIndex ) -> InstanceBatch& {
+        for( size_t b = 0; b < m_activeBatchCount; ++b )
+        {
+            InstanceBatch& batch = m_instanceBatches[b];
+            if( batch.vertexBuffer == vbh && batch.indexBuffer == ibh && batch.materialKey == key )
+            {
+                return batch;
+            }
+        }
+        if( m_activeBatchCount == m_instanceBatches.size() )
+        {
+            m_instanceBatches.emplace_back();
+        }
+        InstanceBatch& batch = m_instanceBatches[m_activeBatchCount++];
+        batch.vertexBuffer = vbh;
+        batch.indexBuffer = ibh;
+        batch.materialKey = key;
+        batch.representativeIndex = cmdIndex;
+        return batch;
+        };
+
     {
         OPTICK_CATEGORY( "Meshes", Optick::Category::GPU_Scene );
         bool hasCullingInfo = camera.ShouldCull && !camera.VisibleFlags.empty();
@@ -439,19 +482,31 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId
                     continue;
                 }
 
-                if( mesh.MeshMaterial->IsTransparent() )
+                if( mesh.IsTransparent )
                 {
                     TransparentIndicies.push_back( i );
                     continue;
                 }
 
-                //float dist = glm::distance( camera.Position.InternalVector, glm::vec3( mesh.Transform[3] ) );
-                //if( dist <= camera.Far )
-                    //m_debugDraw->Push();
-                    //m_debugDraw->Draw(&mesh.Transform[0][0]);
-                    //m_debugDraw->Pop();
+                if( mesh.SupportsInstancing && mesh.VertexBufferIdx != UINT16_MAX )
+                {
+                    InstanceBatch& batch = getBatch( mesh.VertexBufferIdx, mesh.IndexBufferIdx, mesh.BatchKey, i );
+                    batch.transforms.push_back( mesh.Transform );
+                    continue;
+                }
+
                 RenderSingleMesh( id, mesh, state );
             }
+        }
+    }
+
+    {
+        OPTICK_CATEGORY( "Instanced Meshes", Optick::Category::GPU_Scene );
+
+        for( size_t b = 0; b < m_activeBatchCount; ++b )
+        {
+            InstanceBatch& batch = m_instanceBatches[b];
+            RenderMeshInstanced( id, m_meshCache.Commands[batch.representativeIndex], batch.transforms.data(), (uint32_t)batch.transforms.size(), state );
         }
     }
 
@@ -483,7 +538,15 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId
 
             for( auto index : TransparentIndicies )
             {
-                RenderSingleMesh( id, m_meshCache.Commands[index], transparentState );
+                const Moonlight::MeshCommand& mesh = m_meshCache.Commands[index];
+                if( mesh.SupportsInstancing )
+                {
+                    RenderMeshInstanced( id, mesh, &mesh.Transform, 1, transparentState );
+                }
+                else
+                {
+                    RenderSingleMesh( id, mesh, transparentState );
+                }
             }
     }
 
@@ -550,30 +613,57 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId
     }
 }
 
+bgfx::ProgramHandle BGFXRenderer::BindMeshDrawState( const Moonlight::MeshCommand& mesh, uint64_t state )
+{
+    // Set vertex and index buffer.
+    bgfx::setVertexBuffer( 0, mesh.SingleMesh->GetVertexBuffer() );
+    bgfx::setIndexBuffer( mesh.SingleMesh->GetIndexuffer() );
+
+    if( const Moonlight::Texture* diffuse = mesh.MeshMaterial->GetTexture( Moonlight::TextureType::Diffuse ) )
+    {
+        if( bgfx::isValid( diffuse->TexHandle ) )
+        {
+            bgfx::setTexture( 0, s_texDiffuse, diffuse->TexHandle );
+        }
+    }
+
+    if( const Moonlight::Texture* normal = mesh.MeshMaterial->GetTexture( Moonlight::TextureType::Normal ) )
+    {
+        if( bgfx::isValid( normal->TexHandle ) )
+        {
+            bgfx::setTexture( 1, s_texNormal, normal->TexHandle );
+        }
+    }
+    else
+    {
+        bgfx::setTexture( 1, s_texNormal, m_defaultOpacityTexture->TexHandle );
+    }
+
+    if( const Moonlight::Texture* opacity = mesh.MeshMaterial->GetTexture( Moonlight::TextureType::Opacity ) )
+    {
+        if( bgfx::isValid( opacity->TexHandle ) )
+        {
+            bgfx::setTexture( 2, s_texAlpha, opacity->TexHandle );
+        }
+    }
+    else
+    {
+        bgfx::setTexture( 2, s_texAlpha, m_defaultOpacityTexture->TexHandle );
+    }
+
+    mesh.MeshMaterial->Use();
+
+    // Set render states.
+    bgfx::setState( mesh.MeshMaterial->GetRenderState( state ) );
+
+    return mesh.MeshMaterial->MeshShader.GetProgram();
+}
+
+
 void BGFXRenderer::RenderSingleMesh( bgfx::ViewId id, const Moonlight::MeshCommand& mesh, uint64_t state )
 {
     OPTICK_CATEGORY( "Mesh", Optick::Category::Rendering );
-//if (mesh.Type == Moonlight::Cube)
-    //{
-    //	if (mesh.MeshMaterial)
-    //	{
-    //		// Set model matrix for rendering.
-    //		bgfx::setTransform(&mesh.Transform);
 
-    //		// Set vertex and index buffer.
-    //		bgfx::setVertexBuffer(0, m_vbh);
-    //		bgfx::setIndexBuffer(m_ibh);
-
-    //		mesh.MeshMaterial->Use();
-
-    //		// Set render states.
-    //		bgfx::setState(state);
-
-    //		// Submit primitive for rendering to view 0.
-    //		bgfx::submit(id, mesh.MeshMaterial->MeshShader.GetProgram());
-    //	}
-    //}
-    //else 
     if( mesh.Type == Moonlight::MeshType::Model || mesh.Type == Moonlight::MeshType::Plane || mesh.Type == Moonlight::Cube )
     {
         if( !mesh.SingleMesh || !bgfx::isValid(mesh.SingleMesh->GetVertexBuffer() ) )
@@ -584,53 +674,48 @@ void BGFXRenderer::RenderSingleMesh( bgfx::ViewId id, const Moonlight::MeshComma
         // Set model matrix for rendering.
         bgfx::setTransform( &mesh.Transform );
 
-        // Set vertex and index buffer.
-        bgfx::setVertexBuffer( 0, mesh.SingleMesh->GetVertexBuffer() );
-        bgfx::setIndexBuffer( mesh.SingleMesh->GetIndexuffer() );
-
-        if( const Moonlight::Texture* diffuse = mesh.MeshMaterial->GetTexture( Moonlight::TextureType::Diffuse ) )
-        {
-            if( bgfx::isValid( diffuse->TexHandle ) )
-            {
-                bgfx::setTexture( 0, s_texDiffuse, diffuse->TexHandle );
-            }
-        }
-
-        if( const Moonlight::Texture* normal = mesh.MeshMaterial->GetTexture( Moonlight::TextureType::Normal ) )
-        {
-            if( bgfx::isValid( normal->TexHandle ) )
-            {
-                bgfx::setTexture( 1, s_texNormal, normal->TexHandle );
-            }
-        }
-        else
-        {
-            bgfx::setTexture( 1, s_texNormal, m_defaultOpacityTexture->TexHandle );
-        }
-
-        if( const Moonlight::Texture* opacity = mesh.MeshMaterial->GetTexture( Moonlight::TextureType::Opacity ) )
-        {
-            if( bgfx::isValid( opacity->TexHandle ) )
-            {
-                bgfx::setTexture( 2, s_texAlpha, opacity->TexHandle );
-            }
-        }
-        else
-        {
-            bgfx::setTexture( 2, s_texAlpha, m_defaultOpacityTexture->TexHandle );
-        }
-
-        mesh.MeshMaterial->Use();
-
-        // Set render states.
-        bgfx::setState( mesh.MeshMaterial->GetRenderState( state ) );
+        bgfx::ProgramHandle program = BindMeshDrawState( mesh, state );
 
         // Submit primitive for rendering to view 0.
-        bgfx::submit( id, mesh.MeshMaterial->MeshShader.GetProgram() );
+        bgfx::submit( id, program );
     }
     else
     {
         ME_ASSERT_MSG( false, "Why do I need that if statement?" );
+    }
+}
+
+
+void BGFXRenderer::RenderMeshInstanced( bgfx::ViewId id, const Moonlight::MeshCommand& representative, const glm::mat4* transforms, uint32_t count, uint64_t state )
+{
+    if( count == 0 || transforms == nullptr || !representative.SingleMesh || !bgfx::isValid( representative.SingleMesh->GetVertexBuffer() ) )
+    {
+        return;
+    }
+
+    constexpr uint16_t kInstanceStride = sizeof( glm::mat4 );
+
+    uint32_t remaining = count;
+    uint32_t offset = 0;
+    while( remaining > 0 )
+    {
+        const uint32_t available = bgfx::getAvailInstanceDataBuffer( remaining, kInstanceStride );
+        if( available == 0 )
+        {
+            break;
+        }
+
+        bgfx::InstanceDataBuffer idb;
+        bgfx::allocInstanceDataBuffer( &idb, available, kInstanceStride );
+        std::memcpy( idb.data, transforms + offset, (size_t)available * kInstanceStride );
+
+        bgfx::ProgramHandle program = BindMeshDrawState( representative, state );
+        bgfx::setInstanceDataBuffer( &idb );
+
+        bgfx::submit( id, program );
+
+        offset += available;
+        remaining -= available;
     }
 }
 

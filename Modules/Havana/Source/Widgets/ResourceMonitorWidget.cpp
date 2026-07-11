@@ -31,7 +31,7 @@ void ResourceMonitorWidget::Render()
         OPTICK_CATEGORY( "Resource Monitor", Optick::Category::UI );
         ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2( 0.f, 0.f ) );
         ImGui::PushStyleVar( ImGuiStyleVar_FramePadding, ImVec2( 12.f, ImGui::GetStyle().FramePadding.y ) );
-        ImGui::Begin( "Resource Monitor", &IsOpen );
+        if( ImGui::Begin( "Resource Monitor", &IsOpen ) )
         {
             ResourceStack& resources = ResourceCache::GetInstance().GetResouceStack();
 
@@ -115,8 +115,8 @@ void ResourceMonitorWidget::Render()
                 }
                 ImGui::EndTable();
             }
-            ImGui::End();
         }
+        ImGui::End();
         ImGui::PopStyleVar( 2 );
     }
 }

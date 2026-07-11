@@ -3,6 +3,7 @@ name: macOS
 on:
   push:
     branches: [master, motivation]
+
   pull_request:
     branches: [master, motivation]
 
@@ -10,74 +11,90 @@ on:
 
 jobs:
   build:
+    runs-on: macos-15-intel
+
     strategy:
+      fail-fast: false
       matrix:
-        platform:
-          - macOS
-        xcode:
-          - ^15
         configuration:
           - Debug
           - Release
         type:
           - Editor
           - Game_macOS
-    runs-on: macos-13
+
+    env:
+      ENGINE_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+      ENGINE_REVISION: ${{ github.event.pull_request.head.sha || github.sha }}
+      ENGINE_BRANCH: ${{ github.head_ref || github.ref_name }}
 
     steps:
-      - uses: suisei-cn/actions-download-file@818d6b7dc8fe73f2f924b6241f2b1134ca1377d9 # 1.6.0
-        id: downloadfile
-        name: Grab the project setup file
-        with:
-          url: "https://raw.githubusercontent.com/wobbier/MitchEngine/${{github.ref_name}}/Tools/NewProjectSetup.command"
-          target: ./
-
-      - name: Setup dotnet
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "5.0.100"
-        
-      - name: Generate a new project
+      - name: Download project setup
         shell: bash
-        run: sh NewProjectSetup.command EmptyProject ${{github.ref_name}}
+        run: |
+          set -euo pipefail
 
-      - name: Generate a new project
+          curl \
+            --fail \
+            --location \
+            --show-error \
+            --output NewProjectSetup.command \
+            "https://raw.githubusercontent.com/${ENGINE_REPOSITORY}/${ENGINE_REVISION}/Tools/NewProjectSetup.command"
+
+          echo "Downloaded setup script:"
+          head -n 5 NewProjectSetup.command
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Generate project
         shell: bash
-        run: cd Project && sh GenerateSolution.command && cd ../ && ls
+        run: |
+          set -euo pipefail
+
+          echo "Generating from branch: ${ENGINE_BRANCH}"
+          bash NewProjectSetup.command EmptyProject "${ENGINE_BRANCH}"
+
+          echo "Generated workspace:"
+          find . -maxdepth 2 \
+            \( -name "*.xcworkspace" -o -name "*.xcodeproj" \) \
+            -print
 
       - name: Build Editor
         if: ${{ matrix.type == 'Editor' }}
-        uses: mxcl/xcodebuild@v2
+        uses: mxcl/xcodebuild@v3
         with:
-          xcode: ${{ matrix.xcode }}
-          platform: ${{ matrix.platform }}
-          action: build # default = `test`
-          code-coverage: true # default = `false`
-          warnings-as-errors: false # default = `false`
+          xcode: ^16
+          platform: macOS
+          action: build
+          code-coverage: true
+          warnings-as-errors: false
           workspace: EmptyProject.xcworkspace
-          configuration: ${{ matrix.type }}_${{ matrix.configuration }} # no default, ie. `xcodebuild` decides itself
+          configuration: ${{ matrix.type }}_${{ matrix.configuration }}
           scheme: Havana_mac
 
       - name: Build Game
         if: ${{ matrix.type == 'Game_macOS' }}
-        uses: mxcl/xcodebuild@v2
+        uses: mxcl/xcodebuild@v3
         with:
-          xcode: ${{ matrix.xcode }}
-          platform: ${{ matrix.platform }}
-          action: build # default = `test`
-          code-coverage: true # default = `false`
-          warnings-as-errors: false # default = `false`
+          xcode: ^16
+          platform: macOS
+          action: build
+          code-coverage: true
+          warnings-as-errors: false
           workspace: EmptyProject.xcworkspace
-          configuration: ${{ matrix.type }}_${{ matrix.configuration }} # no default, ie. `xcodebuild` decides itself
+          configuration: ${{ matrix.type }}_${{ matrix.configuration }}
           scheme: Game_EntryPoint_mac
 
-      - name: Copy Assets (Not Implemented)
+      - name: Copy Assets
         shell: bash
-        run: echo todo
+        run: echo "TODO"
 
       - name: Archive
         uses: actions/upload-artifact@v4
         with:
-          name: EmptyProject - ${{matrix.type}} - ${{matrix.buildconfig}}
-          path: |
-            Build/${{matrix.buildconfig}}
+          name: EmptyProject - ${{ matrix.type }} - ${{ matrix.configuration }}
+          path: Build
+          if-no-files-found: warn

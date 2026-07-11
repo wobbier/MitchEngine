@@ -31,10 +31,14 @@ static const bgfx::EmbeddedShader s_embeddedShaders[] =
 
 void ImGuiRenderer::Create()
 {
+    OPTICK_EVENT( "ImGuiRenderer::Create" );
     ViewId = 255;
 
     IMGUI_CHECKVERSION();
-    Context = ImGui::CreateContext();
+    {
+        OPTICK_EVENT( "ImGui::CreateContext" );
+        Context = ImGui::CreateContext();
+    }
 
     ImGuiIO& io = ImGui::GetIO();
 
@@ -67,7 +71,10 @@ void ImGuiRenderer::Create()
     uint8_t* data;
     int32_t width;
     int32_t height;
-    io.Fonts->GetTexDataAsRGBA32( &data, &width, &height );
+    {
+        OPTICK_EVENT( "ImGui::FontAtlasBuild" );
+        io.Fonts->GetTexDataAsRGBA32( &data, &width, &height );
+    }
 
     mTexture = bgfx::createTexture2D(
         (uint16_t)width

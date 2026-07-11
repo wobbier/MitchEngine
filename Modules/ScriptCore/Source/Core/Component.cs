@@ -1,44 +1,38 @@
 using System;
-using System.Collections.Generic;
 
-public class MEObject
+namespace ScriptCore;
+
+// stateless proxy, just marshalling really
+public abstract class Component
 {
+    public Entity Entity { get; internal set; }
 
-}
+    // if the entity is being observed by the world in any capacity, you cannot hide in silence
+    public bool Exists => Entity.IsAlive && Entity.HasComponentNamed(GetType().Name);
 
-public abstract class Component : MEObject
-{
-    public Entity _parent;
-    public Entity Parent => _parent;
+    public Transform transform => Entity.GetComponent<Transform>();
+    public T GetComponent<T>() where T : Component, new() => Entity.GetComponent<T>();
+    public bool HasComponent<T>() where T : Component, new() => Entity.HasComponent<T>();
+    public T AddComponent<T>() where T : Component, new() => Entity.AddComponent<T>();
 
-    public T GetComponent<T>() where T : Component, new()
+    public bool Equals(Component other)
     {
-        if (Parent == null)
-        {
-            return null;
-        }
-
-        return Parent.GetComponent<T>();
+        bool meNull = !Exists;
+        bool otherNull = other is null || !other.Exists;
+        if (meNull || otherNull) return meNull && otherNull;
+        return Entity == other.Entity && GetType() == other.GetType();
     }
 
-    public bool HasComponent<T>() where T : Component
-    {
-        if (Parent == null)
-        {
-            return false;
-        }
+    public override bool Equals(object obj) => Equals(obj as Component);
+    public override int GetHashCode() => HashCode.Combine(GetType(), Entity.Index, Entity.Counter);
 
-        return Parent.HasComponent<T>();
+    public static bool operator ==(Component a, Component b)
+    {
+        bool aNull = a is null || !a.Exists;
+        bool bNull = b is null || !b.Exists;
+        if (aNull || bNull) return aNull && bNull;
+        return a.Entity == b.Entity && a.GetType() == b.GetType();
     }
 
-    public T AddComponent<T>() where T : Component, new()
-    {
-        if (Parent == null)
-        {
-            Console.WriteLine("NULL PARENT");
-            return null;
-        }
-
-        return Parent.AddComponent<T>();
-    }
+    public static bool operator !=(Component a, Component b) => !(a == b);
 }

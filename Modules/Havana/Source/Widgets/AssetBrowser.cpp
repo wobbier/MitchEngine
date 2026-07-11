@@ -46,10 +46,13 @@ void AssetBrowserWidget::ReloadDirectories()
     AssetDirectory.Directories.clear();
     AssetDirectory.Files.clear();
     MasterAssetsList.clear();
+    FilteredAssetList.clear();
+    AssetDescriptor::s_dragged = nullptr;
+    items_need_filtered = true;
 
     for( auto& file : std::filesystem::recursive_directory_iterator( AssetDirectory.FullPath.FullPath ) )
     {
-        Paths[file.path().u8string()] = std::filesystem::last_write_time( file );
+        Paths[file.path().string()] = std::filesystem::last_write_time( file );
         ProccessDirectory( file, AssetDirectory );
     }
 
@@ -501,8 +504,11 @@ void AssetBrowserWidget::DrawAssetTable()
         }
         if( sorts_specs && items_need_sort && MasterAssetsList.size() > 1 )
         {
-            s_current_sort_specs = sorts_specs; // Store in variable accessible by the sort function.
-            qsort( &MasterAssetsList[0], (size_t)MasterAssetsList.size(), sizeof( MasterAssetsList[0] ), CompareWithSortSpecs );
+            s_current_sort_specs = sorts_specs;
+            std::sort( MasterAssetsList.begin(), MasterAssetsList.end(),
+                []( const AssetDescriptor& a, const AssetDescriptor& b ) {
+                    return CompareWithSortSpecs( &a, &b ) < 0;
+                } );
             s_current_sort_specs = NULL;
             sorts_specs->SpecsDirty = false;
             items_need_filtered = true;
@@ -611,7 +617,8 @@ void AssetBrowserWidget::DrawAssetTable()
 
                     if( ImGui::BeginDragDropSource( ImGuiDragDropFlags_None ) )
                     {
-                        ImGui::SetDragDropPayload( AssetDescriptor::kDragAndDropPayload, item, sizeof( AssetDescriptor ) );
+                        AssetDescriptor::s_dragged = item;
+                        ImGui::SetDragDropPayload( AssetDescriptor::kDragAndDropPayload, &item->ID, sizeof( int ) );
                         ImGui::Text( item->Name.c_str() );
                         ImGui::EndDragDropSource();
                     }
@@ -847,7 +854,8 @@ void AssetBrowserWidget::Recursive( Directory& dir )
         if( ImGui::BeginDragDropSource( ImGuiDragDropFlags_None ) )
         {
             //files.FullPath = dir.FullPath;
-            ImGui::SetDragDropPayload( AssetDescriptor::kDragAndDropPayload, &files, sizeof( AssetDescriptor ) );
+            AssetDescriptor::s_dragged = &files;
+            ImGui::SetDragDropPayload( AssetDescriptor::kDragAndDropPayload, &files.ID, sizeof( int ) );
             ImGui::Text( files.Name.c_str() );
             ImGui::EndDragDropSource();
         }
@@ -873,10 +881,10 @@ void AssetBrowserWidget::Recursive( Directory& dir )
 void AssetBrowserWidget::ProccessDirectory( const std::filesystem::directory_entry& file, Directory& dirRef )
 {
     std::string& parentDir = dirRef.FullPath.FullPath;
-    std::size_t t = file.path().u8string().find( parentDir );
+    std::size_t t = file.path().string().find( parentDir );
     if( t != std::string::npos )
     {
-        std::string dir2 = file.path().u8string().substr( parentDir.size(), file.path().u8string().size() );
+        std::string dir2 = file.path().string().substr( parentDir.size(), file.path().string().size() );
 
         ProccessDirectoryRecursive( dir2, dirRef, file );
 
@@ -973,7 +981,7 @@ bool AssetBrowserWidget::ProccessDirectoryRecursive( std::string& dir, Directory
 #if USING( ME_PLATFORM_MACOS )
     const char slash = '/';
 #else
-    const char slash = '\\';
+    const char slash = '/';
 #endif
     std::size_t d = dir.find_first_of( slash );
     if( d != std::string::npos )
@@ -1057,9 +1065,9 @@ bool AssetBrowserWidget::ProccessDirectoryRecursive( std::string& dir, Directory
                 }
 
                 AssetDescriptor desc;
-                desc.Name = newdir;
                 //desc.MetaFile = File(Path(file.path().string() + ".meta"));
-                desc.FullPath = Path( file.path().u8string() );
+                desc.FullPath = Path( file.path().string() );
+                desc.Name = desc.FullPath.GetFileNameString();
                 desc.Type = type;
                 dirRef.Files.push_back( desc );
                 //const std::string & data = dirRef.Files.back().MetaFile.Read();

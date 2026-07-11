@@ -11,20 +11,6 @@
 #include <Utils/HavanaUtils.h>
 #include <Device/FrameBuffer.h>
 
-static void imageReleaseCb( void* _ptr, void* _userData )
-{
-    BX_UNUSED( _ptr );
-    bimg::ImageContainer* imageContainer = (bimg::ImageContainer*)_userData;
-    bimg::imageFree( imageContainer );
-}
-
-void unload( bx::AllocatorI* _allocator, void* _ptr )
-{
-	if( _ptr )
-	{
-		bx::free(_allocator, _ptr);
-	}
-}
 
 namespace Moonlight
 {
@@ -43,7 +29,6 @@ namespace Moonlight
 
     Texture::~Texture()
     {
-        // TODO: Unload textures
         if( bgfx::isValid( TexHandle ) )
         {
             bgfx::destroy( TexHandle );
@@ -439,15 +424,25 @@ void TextureResourceMetadata::Export()
     // ./shaderc -f ../../../Assets/Shaders/vs_cubes.shader -o ../../../Assets/Shaders/dummy.bin --varyingdef ./varying.def.sc --platform windows -p vs_5_0 --type vertex
     CLog::GetInstance().Log( CLog::LogType::Info, progArgs );
     PlatformUtils::SystemCall( texturecPath, progArgs );
-#else
+#elif USING( ME_PLATFORM_MACOS )
 
-    Path optickPath = Path( "Engine/Tools/macOS/texturec" );
+    Path texturecPath = Path( "Engine/Tools/macOS/texturec" );
 
-    // texturec -f $in -o $out -t bc2 -m
-    std::string progArgs = "\"" + optickPath.FullPath + "\" -f "+optickPath.GetDirectoryString()+"/../../../";
-    progArgs += FilePath.GetLocalPathString();
-    progArgs += " -o \""+optickPath.GetDirectoryString()+"/../../../" + FilePath.GetLocalPathString() + ".dds\"" + exportType;
-    system( progArgs.c_str() );
+    std::string progArgs = "-f \"";
+    progArgs += FilePath.FullPath;
+    progArgs += "\" -o \"" + FilePath.FullPath + ".dds\"" + exportType;
+    CLog::GetInstance().Log( CLog::LogType::Info, progArgs );
+    PlatformUtils::SystemCall( texturecPath, progArgs );
+
+#elif USING( ME_PLATFORM_LINUX )
+
+    Path texturecPath = Path( "Engine/Tools/linux/texturec" );
+
+    std::string progArgs = "-f \"";
+    progArgs += FilePath.FullPath;
+    progArgs += "\" -o \"" + FilePath.FullPath + ".dds\"" + exportType;
+    CLog::GetInstance().Log( CLog::LogType::Info, progArgs );
+    PlatformUtils::SystemCall( texturecPath, progArgs );
 
 #endif
 }

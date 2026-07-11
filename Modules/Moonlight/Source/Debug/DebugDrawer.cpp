@@ -1,8 +1,8 @@
 #include "DebugDrawer.h"
 #include <bgfx/bgfx.h>
 #include <bgfx/embedded_shader.h>
-#include "vs_debugdraw_lines.bin.hpp"
-#include "fs_debugdraw_lines.bin.hpp"
+#include "vs_debugdraw_lines.bin.h"
+#include "fs_debugdraw_lines.bin.h"
 #include "bx/bx.h"
 #include <bx/math.h>
 #include <Utils/BGFXUtils.h>
@@ -67,6 +67,7 @@ static const uint16_t s_cubeIndices[36] =
 };
 
 DebugDrawer::DebugDrawer()
+    : m_state( State::Count )
 {
     DebugShapeVertex::init();
     DebugVertex::init();

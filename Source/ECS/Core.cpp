@@ -3,12 +3,33 @@
 #include <imgui.h>
 #include <string>
 #include "Core/Assert.h"
+#if defined( __GNUC__ ) || defined( __clang__ )
+#include <cxxabi.h>
+#endif
+
+static std::string CleanTypeName( const char* rawName )
+{
+#if defined( __GNUC__ ) || defined( __clang__ )
+    int status = 0;
+    char* demangled = abi::__cxa_demangle( rawName, nullptr, nullptr, &status );
+    std::string result = ( status == 0 && demangled ) ? demangled : rawName;
+    free( demangled );
+    
+    auto pos = result.rfind( "::" );
+    if( pos != std::string::npos )
+        result = result.substr( pos + 2 );
+    return result;
+#else
+    std::string name( rawName );
+    auto pos = name.find( ' ' );
+    return pos != std::string::npos ? name.substr( pos + 1 ) : name;
+#endif
+}
 
 BaseCore::BaseCore( const char* CompName, const ComponentFilter& Filter )
-    : Name( CompName )
+    : Name( CleanTypeName( CompName ) )
     , CompFilter( Filter )
 {
-    Name = Name.substr( Name.find( ' ' ) + 1 );
 }
 
 World& BaseCore::GetWorld() const

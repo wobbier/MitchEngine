@@ -3,6 +3,7 @@
 #include <Math/Vector2.h>
 #include <bgfx/bgfx.h>
 #include <Window/IWindow.h>
+#include <SDL.h>
 
 struct SDL_Window;
 struct ImGuiViewport;
@@ -68,6 +69,11 @@ struct PlatformWindow
     uint16_t GetViewId() const {
         return ViewId;
     }
+
+#if USING( ME_PLATFORM_LINUX )
+    void* GetGLContext() const { return GLContext; }
+    SDL_GLContext GLContext = nullptr;
+#endif
 
     PlatformWindowParams Params;
     SDL_Window* WindowPtr = nullptr;

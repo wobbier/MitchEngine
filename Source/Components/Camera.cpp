@@ -16,9 +16,6 @@
 #include "Types/AssetDescriptor.h"
 #endif
 
-Camera* Camera::CurrentCamera = nullptr;
-Camera* Camera::EditorCamera = nullptr;
-
 Camera::Camera()
     : Component( "Camera" )
     , OutputSize( 1280.f, 720.f )
@@ -354,8 +351,9 @@ void Camera::OnEditorInspect()
         {
             if( const ImGuiPayload* payload = ImGui::AcceptDragDropPayload( AssetDescriptor::kDragAndDropPayload ) )
             {
-                IM_ASSERT( payload->DataSize == sizeof( AssetDescriptor ) );
-                AssetDescriptor& payload_n = *(AssetDescriptor*)payload->Data;
+                AssetDescriptor* _p = AssetDescriptor::GetDragged();
+                if( !_p ) return;
+                AssetDescriptor& payload_n = *_p;
 
                 if( payload_n.Type == AssetType::Texture )
                 {

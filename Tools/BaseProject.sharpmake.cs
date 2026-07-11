@@ -123,6 +123,14 @@ public abstract class BaseProject : Project
                     conf.EventPostBuildExe.Add(copyDirBuildStep);
                 }
             }
+            else if (target.SubPlatform == SubPlatformType.linux)
+            {
+                conf.Defines.Add("USE_OPTICK=0");
+            }
+            else
+            {
+                conf.Defines.Add("USE_OPTICK=0");
+            }
         }
 
         conf.Options.Add(Options.Vc.General.WarningLevel.Level3);
@@ -136,10 +144,11 @@ public abstract class BaseProject : Project
     [Configure(SubPlatformType.Win64)]
     public virtual void ConfigureWin64(Configuration conf, CommonTarget target)
     {
-        conf.Options.Add(Options.Vc.Compiler.CppLanguageStandard.CPP17);
+        conf.Options.Add(Options.Vc.Compiler.CppLanguageStandard.CPP20);
         conf.Options.Add(Options.Vc.Compiler.RTTI.Enable);
         conf.Options.Add(Options.Vc.General.CharacterSet.Unicode);
         conf.Options.Add(Options.Vc.Compiler.Exceptions.Enable);
+        conf.AdditionalCompilerOptions.Add("/Zc:preprocessor");
 
         // Hot-Reloading
         {
@@ -153,7 +162,9 @@ public abstract class BaseProject : Project
         conf.Options.Add(
             new Options.Vc.Compiler.DisableSpecificWarnings(
                 "4201",
-                "4100"
+                "4100",
+                "5104",
+                "5105"
                 )
         );
 
@@ -161,9 +172,9 @@ public abstract class BaseProject : Project
         {
             conf.Defines.Add("DEFINE_ME_FMOD");
         }
-        if (Directory.Exists(Globals.MONO_Win64_Dir))
+        if (Directory.Exists(Globals.DOTNET_Win64_Dir))
         {
-            conf.Defines.Add("DEFINE_ME_MONO");
+            conf.Defines.Add("DEFINE_ME_DOTNET");
         }
     }
 
@@ -171,7 +182,7 @@ public abstract class BaseProject : Project
     [Configure(SubPlatformType.UWP)]
     public virtual void ConfigureUWP(Configuration conf, CommonTarget target)
     {
-        conf.Options.Add(Options.Vc.Compiler.CppLanguageStandard.CPP17);
+        conf.Options.Add(Options.Vc.Compiler.CppLanguageStandard.CPP20);
         conf.Options.Add(Options.Vc.Compiler.RTTI.Enable);
         conf.Options.Add(Options.Vc.General.CharacterSet.Unicode);
         conf.Options.Add(Options.Vc.Compiler.Exceptions.Enable);
@@ -191,9 +202,9 @@ public abstract class BaseProject : Project
         {
             conf.Defines.Add("DEFINE_ME_FMOD");
         }
-        if (Directory.Exists(Globals.MONO_Win64_Dir))
+        if (Directory.Exists(Globals.DOTNET_Win64_Dir))
         {
-            conf.Defines.Add("DEFINE_ME_MONO");
+            conf.Defines.Add("DEFINE_ME_DOTNET");
         }
     }
 
@@ -212,10 +223,123 @@ public abstract class BaseProject : Project
         conf.Options.Add(new Options.XCode.Compiler.OnlyActiveArch());
 
         conf.Defines.Add("DEFINE_ME_PLATFORM_MACOS");
+    }
 
-        if (Directory.Exists(Globals.MONO_macOS_Dir))
+    [ConfigurePriority(ConfigurePriorities.Platform)]
+    [Configure(SubPlatformType.linux)]
+    public virtual void ConfigureLinux(Configuration conf, CommonTarget target)
+    {
+        conf.Options.Add(Options.Makefile.Compiler.CppLanguageStandard.GnuCpp2a);
+        conf.Options.Add(Options.Makefile.Compiler.TreatWarningsAsErrors.Disable);
+        conf.Options.Add(Options.Makefile.Compiler.Rtti.Enable);
+        conf.Options.Add(Options.Makefile.Compiler.Exceptions.Enable);
+        //conf.AdditionalCompilerOptions.Add("-Wall");
+        // Wrap all of LDLIBS in -Wl,--start-group/--end-group so ld re-scans the archives
+        // until every cross-reference resolves — this removes ld.bfd's left-to-right
+        // ordering fragility, letting the modules/libs come in via the dependency graph and
+        // LibraryFiles in any order. Requires IsLinkerInvokedViaCompiler=true (set in
+        // SharpmakeMain) so the group flags are emitted as -Wl,-- and not bare (see the
+        // Sharpmake 0.20.0 regression noted there).
+        conf.AdditionalCompilerOptions.Add("`pkg-config --cflags sdl2`");
+        conf.AdditionalLinkerOptions.Add("`pkg-config --libs sdl2`");
+
+        conf.Defines.Add("DEFINE_ME_PLATFORM_LINUX");
+        conf.Defines.Add("BGFX_PLATFORM_SUPPORTS_DXBC=0");
+        conf.Defines.Add("BGFX_PLATFORM_SUPPORTS_WGSL=0");
+        conf.Defines.Add("UNICODE");
+        conf.Defines.Add("_UNICODE");
+
+        conf.AdditionalCompilerOptions.Add("-fPIC");
+        conf.AdditionalCompilerOptions.Add("-frtti");
+        //conf.AdditionalCompilerOptions.Add("-fexceptions");
+        //conf.AdditionalCompilerOptions.Add("-Wextra");
+        //conf.AdditionalCompilerOptions.Add("-Werror");
+        conf.AdditionalCompilerOptions.Add("-Wno-unused-parameter");
+        conf.AdditionalCompilerOptions.Add("-Wno-format-security");
+
+        if (target.Optimization == Optimization.Debug)
         {
-            conf.Defines.Add("DEFINE_ME_MONO");
+            conf.AdditionalCompilerOptions.Add("-g3");               // full debug info + macros
+            conf.AdditionalCompilerOptions.Add("-fno-omit-frame-pointer"); // GDB stack unwinding
+            conf.AdditionalCompilerOptions.Add("-fno-inline-functions");   // don't inline, step cleanly
+            conf.AdditionalCompilerOptions.Add("-O0");               // no optimisation
+        }
+
+        if (Directory.Exists(Globals.FMOD_Linux_Dir))
+        {
+            conf.Defines.Add("DEFINE_ME_FMOD");
+            // Bake the fmod lib dir into the binary's RPATH so it loads without LD_LIBRARY_PATH
+            string fmodLibDir = Path.Combine(Globals.FMOD_Linux_Dir, "api/core/lib/x86_64");
+            conf.AdditionalLinkerOptions.Add($"-Wl,-rpath,{fmodLibDir}");
+        }
+
+        if (Globals.IsUltralightEnabled)
+        {
+            string ultralightLibDir = Path.Combine(Globals.RootDir, "Engine/ThirdParty/UltralightSDK/lib/linux");
+            conf.LibraryPaths.Add(ultralightLibDir);
+            conf.AdditionalLinkerOptions.Add($"-Wl,-rpath,{ultralightLibDir}");
+
+            var copyDirBuildStep = new Configuration.BuildStepCopy(
+                Path.Combine(Globals.RootDir, "Engine/ThirdParty/UltralightSDK/lib/linux"),
+                Globals.RootDir + "/.build/[target.Name]");
+            copyDirBuildStep.IsFileCopy = false;
+            copyDirBuildStep.CopyPattern = "*.so";
+            conf.EventPostBuildExe.Add(copyDirBuildStep);
+        }
+        if (Directory.Exists(Globals.MONO_Linux_Dir))
+        {
+            //conf.Defines.Add("DEFINE_ME_MONO");
+        }
+        
+        if (Directory.Exists(Globals.DOTNET_Linux_Dir))
+        {
+        System.Console.WriteLine(Globals.DOTNET_Linux_Dir);
+            conf.Defines.Add("DEFINE_ME_DOTNET");
+        }
+        // existing LibraryPaths, etc.
+        conf.LibraryPaths.Add(Path.Combine(
+            "[project.SharpmakeCsPath]",
+            "ThirdParty/Lib/Assimp/linux/Release"
+        ));
+        conf.LibraryPaths.Add(Path.Combine(
+            "[project.SharpmakeCsPath]",
+            $"ThirdParty/Lib/BGFX/linux/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"
+        ));
+        //conf.LibraryPaths.Add(Path.Combine(
+        //    "[project.SharpmakeCsPath]",
+        //    $"ThirdParty/Lib/SDL/linux/Release"
+        //));
+        conf.LibraryPaths.Add(Path.Combine(
+            "[project.SharpmakeCsPath]",
+            $"ThirdParty/Lib/Bullet/linux/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"
+        ));
+        // Optick library path removed — ChromeTrace is header-only on Linux
+
+        // The prebuilt Bullet archives were built without -fPIC, so their R_X86_64_32S
+        // relocations cannot be linked into a PIE (the default). Link non-PIE instead.
+        conf.AdditionalLinkerOptions.Add("-no-pie");
+
+        // Libraries that aren't carried in by the dependency graph on Linux. The engine
+        // modules (Dementia/ImGui/MitchEngine/Moonlight) plus bgfx/bimg/bx/assimp/zlib
+        // already reach LDLIBS via AddPublicDependency / module LibraryFiles, so we only
+        // add the rest here. LibGroup (enabled in ConfigureLinux) wraps all of LDLIBS in a
+        // linker group, so order is irrelevant. Bare names become -l:lib<name>.a; the
+        // shared libs need their full .so filename to avoid the forced .a suffix.
+        conf.LibraryFiles.Add("BulletDynamics");
+        conf.LibraryFiles.Add("BulletCollision");
+        conf.LibraryFiles.Add("LinearMath");
+        conf.LibraryFiles.Add("libwayland-egl.so");
+        if (Directory.Exists(Globals.FMOD_Linux_Dir))
+        {
+            conf.LibraryFiles.Add("libfmodL.so");
+        }
+        if (Globals.IsUltralightEnabled)
+        {
+            conf.LibraryFiles.Add("libUltralight.so");
+            conf.LibraryFiles.Add("libUltralightCore.so");
+            conf.LibraryFiles.Add("libWebCore.so");
+            conf.LibraryFiles.Add("libAppCore.so");
+            conf.LibraryFiles.Add("libfontconfig.so");
         }
     }
 

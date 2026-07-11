@@ -23,6 +23,7 @@
 #include "Math/Matrix4.h"
 #include "Math/Frustrum.h"
 #include "optick.h"
+#include <ctime>
 #include <Core/JobQueueOld.h>
 #include <Math/Quaternion.h>
 #include "Events/HavanaEvents.h"
@@ -67,6 +68,45 @@ void EditorApp::OnStart()
 void EditorApp::OnUpdate( const UpdateContext& inUpdateContext )
 {
     OPTICK_CATEGORY( "EditorApp::OnUpdate", Optick::Category::GameLogic );
+
+#if USING( ME_EDITOR )
+    {
+        static int s_startupFramesLeft = 10;
+        if( s_startupFramesLeft > 0 )
+        {
+            --s_startupFramesLeft;
+            if( s_startupFramesLeft == 0 )
+            {
+                OPTICK_STOP_CAPTURE();
+                OPTICK_SAVE_CAPTURE( "startup.opt" );
+            }
+        }
+
+        static constexpr int kCaptureFrames = 10;
+        static int s_captureFramesLeft = 0;
+        Input& editorInput = GetEngine().GetEditorInput();
+        if( editorInput.WasKeyPressed( KeyCode::F9 ) && s_captureFramesLeft == 0 )
+        {
+            OPTICK_START_CAPTURE();
+            s_captureFramesLeft = kCaptureFrames;
+            CLog::GetInstance().Log( CLog::LogType::Info, "Optick capture started (10 frames)" );
+        }
+
+        if( s_captureFramesLeft > 0 )
+        {
+            --s_captureFramesLeft;
+            if( s_captureFramesLeft == 0 )
+            {
+                OPTICK_STOP_CAPTURE();
+                char filename[64];
+                std::time_t t = std::time( nullptr );
+                std::strftime( filename, sizeof( filename ), "capture_%Y%m%d_%H%M%S.opt", std::localtime( &t ) );
+                OPTICK_SAVE_CAPTURE( filename );
+                CLog::GetInstance().Log( CLog::LogType::Info, std::string( "Optick capture saved: " ) + filename );
+            }
+        }
+    }
+#endif
 
     Editor->NewFrame();
     Transform* root = GetEngine().SceneNodes->GetRootTransform();
@@ -130,12 +170,19 @@ void EditorApp::OnEnd()
 
 void EditorApp::OnInitialize()
 {
+    OPTICK_EVENT( "EditorApp::OnInitialize" );
     if( !Editor )
     {
-        EditorConfig::GetInstance().Init();
-        EditorConfig::GetInstance().Load();
+        {
+            OPTICK_EVENT( "EditorConfig::Load" );
+            EditorConfig::GetInstance().Init();
+            EditorConfig::GetInstance().Load();
+        }
         InitialLevel = GetEngine().GetConfig().GetValue( "CurrentScene" );
-        Editor = MakeUnique<Havana>( &GetEngine(), this );
+        {
+            OPTICK_EVENT( "Havana::Create" );
+            Editor = MakeUnique<Havana>( &GetEngine(), this );
+        }
         EditorSceneManager = new EditorCore( Editor.get() );
 
         Editor->SetGameCallbacks( [this]()

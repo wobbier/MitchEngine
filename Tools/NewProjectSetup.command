@@ -9,7 +9,7 @@ fi
 id=$1;
 if [[ $1 == "" ]]
 then
-echo Enter a project name \(Used for the project files\): 
+echo Enter a project name \(Used for the project files\):
 read id
 fi
 
@@ -18,10 +18,16 @@ then
 id="EmptyProject";
 fi
 
+branch=$2;
+if [[ $branch == "" ]]
+then
+branch="master";
+fi
+
 echo $id
 echo 2> .gitmodules
 
-git submodule add --force --name Engine https://github.com/wobbier/MitchEngine Engine
+git submodule add -b $branch --force --name Engine https://github.com/wobbier/MitchEngine Engine
 
 git submodule init
 git submodule update

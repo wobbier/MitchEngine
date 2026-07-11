@@ -7,10 +7,7 @@ From: https://pybullet.org/Bullet/phpBB3/viewtopic.php?f=9&t=1691&start=0&hilit=
 
 #include "RigidBodyWithCollisionEvents.h"
 
-
-ICollisionEvents* btRigidBodyWithEventsEventDelegates::eventDispatcher = NULL;
-
-btAlignedObjectArray< btRigidBodyWithEventsEventDelegates* > btRigidBodyWithEventsEventDelegates::monitorCollisionsBodies;	// This list is the list of bodies for which to monitor collisions
+#if USING( ME_PHYSICS_3D )
 
 void btRigidBodyWithEventsEventDelegates::setMonitorCollisions( bool flag ) {
     _monitorCollisions = flag;
@@ -326,3 +323,5 @@ void btRigidBodyWithEventsEventDelegates::_SendCollisionEvents()
 #endif  
 
 }
+
+#endif

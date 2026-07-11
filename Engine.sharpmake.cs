@@ -154,16 +154,19 @@ public class Engine : BaseProject
         {
             conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/UltralightSDK/include"));
 
-            conf.LibraryFiles.Add("Ultralight");
-            conf.LibraryFiles.Add("UltralightCore");
-            conf.LibraryFiles.Add("WebCore");
+            if (target.Platform != Platform.linux)
+            {
+                conf.LibraryFiles.Add("Ultralight");
+                conf.LibraryFiles.Add("UltralightCore");
+                conf.LibraryFiles.Add("WebCore");
+            }
         }
 
         conf.LibraryFiles.Add("MitchEngine");
 
+        conf.AddPublicDependency<Moonlight>(target);
         conf.AddPublicDependency<Dementia>(target);
         conf.AddPublicDependency<ImGui>(target);
-        conf.AddPublicDependency<Moonlight>(target);
 
         if (Globals.IsPhysicsEnabled3D)
         {
@@ -172,7 +175,7 @@ public class Engine : BaseProject
 
         // #TODO This shouldn't be a sharpmake class
         //conf.AddPublicDependency<Mono>(target, DependencySetting.Default | DependencySetting.Defines | DependencySetting.IncludePaths);
-        if (target.Platform != Platform.mac && (Directory.Exists(Globals.MONO_macOS_Dir) || Directory.Exists(Globals.MONO_Win64_Dir)))
+        if (target.Platform != Platform.mac && (Directory.Exists(Globals.MONO_macOS_Dir) || Directory.Exists(Globals.MONO_Win64_Dir) || Directory.Exists(Globals.DOTNET_Win64_Dir) || Directory.Exists(Globals.DOTNET_Linux_Dir)))
         {
             conf.AddPublicDependency<ScriptCore>(target);
             conf.AddPublicDependency<UserGameScript>(target);
@@ -269,6 +272,31 @@ public class Engine : BaseProject
             Globals.RootDir + "/.build/[target.Name]");
 
             conf.EventPostBuildExe.Add(copyDirBuildStep);
+        }
+
+        if (Directory.Exists(Globals.DOTNET_Win64_Dir))
+        {
+            conf.IncludePaths.Add(Globals.DOTNET_Win64_Dir);
+            conf.LibraryPaths.Add(Globals.DOTNET_Win64_Dir);
+            conf.LibraryFiles.Add("nethost");
+
+            {
+                var copyDirBuildStep = new Configuration.BuildStepCopy(
+                    Globals.DOTNET_Win64_Dir,
+                    Globals.RootDir + "/.build/[target.Name]");
+                copyDirBuildStep.IsFileCopy = false;
+                copyDirBuildStep.CopyPattern = "nethost.dll";
+                conf.EventPostBuildExe.Add(copyDirBuildStep);
+            }
+
+            // hostfxr loads this relative to the working dir (root), so copy it out of source
+            {
+                var copyRuntimeConfig = new Configuration.BuildStepCopy(
+                    Path.Combine(Globals.RootDir, "Engine/Source/Scripting/ScriptCore.runtimeconfig.json"),
+                    Path.Combine(Globals.RootDir, "ScriptCore.runtimeconfig.json"));
+                copyRuntimeConfig.IsFileCopy = true;
+                conf.EventPostBuildExe.Add(copyRuntimeConfig);
+            }
         }
 
         // #TODO Read path from Globals / Move to own class again
@@ -456,7 +484,7 @@ public class Engine : BaseProject
         }
 
         //??
-        conf.XcodeUserFrameworks.Add( "Mono" );
+        conf.XcodeUserFrameworks.Add("Mono");
 
         // #TODO Read path from Globals / Move to own class again
         if (Directory.Exists(Globals.MONO_macOS_Dir))
@@ -489,6 +517,87 @@ public class Engine : BaseProject
             conf.EventPostBuildExe.Add(copyDirBuildStep);
         }
     }
+
+
+    public override void ConfigureLinux(Configuration conf, CommonTarget target)
+    {
+        base.ConfigureLinux(conf, target);
+
+        if (Directory.Exists(Globals.DOTNET_Linux_Dir))
+        {
+            System.Console.WriteLine("exists");
+            conf.IncludePaths.Add(Globals.DOTNET_Linux_Dir);
+            conf.AdditionalLinkerOptions.Add($"-L{Globals.DOTNET_Linux_Dir}");
+            conf.AdditionalLinkerOptions.Add($"-Wl,-rpath,{Globals.DOTNET_Linux_Dir}");
+            conf.AdditionalLinkerOptions.Add("-lnethost");
+            conf.AdditionalLinkerOptions.Add("-ldl");
+
+            // hostfxr_initialize_for_runtime_config expects this in the CWD at runtime
+            var copyRuntimeConfig = new Configuration.BuildStepCopy(
+                Path.Combine(Globals.RootDir, "Engine/Source/Scripting/ScriptCore.runtimeconfig.json"),
+                Path.Combine(Globals.RootDir, "ScriptCore.runtimeconfig.json"));
+            copyRuntimeConfig.IsFileCopy = true;
+            conf.EventPostBuildExe.Add(copyRuntimeConfig);
+        }
+
+        if (Directory.Exists(Globals.FMOD_Linux_Dir))
+        {
+            conf.IncludePaths.Add(Path.Combine(Globals.FMOD_Linux_Dir, "api/core/inc"));
+            conf.LibraryPaths.Add(Path.Combine(Globals.FMOD_Linux_Dir, "api/core/lib/x86_64"));
+            conf.AdditionalLinkerOptions.Add("-lfmodL");
+        }
+
+        if (Globals.IsUltralightEnabled)
+        {
+            conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/UltralightSDK/lib/linux"));
+        }
+
+        // potentially use [target.Platform] and move this to ConfigureAll
+        //conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/SDL/linux/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
+        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/Assimp/linux/Release"));
+
+        // TODO: Release v debug?
+        //conf.LibraryFiles.Add("SDL2");
+        conf.LibraryFiles.Add("assimp");
+        conf.LibraryFiles.Add("zlibstatic");
+        // Link against the system-provided copies of the third-party libs we use on Linux.
+
+        // bgfx and SDL pull in the usual GL/X11/pthread stack on Linux.
+        conf.AdditionalLinkerOptions.Add("-l:libassimp.a");
+        conf.AdditionalLinkerOptions.Add("-l:libbgfxDebug.a");       // or Release, match your lib names
+        conf.AdditionalLinkerOptions.Add("-l:libbimgDebug.a");
+        conf.AdditionalLinkerOptions.Add("-l:libbimg_decodeDebug.a");
+        conf.AdditionalLinkerOptions.Add("-l:libbxDebug.a");
+        conf.AdditionalLinkerOptions.Add("-l:libzlibstatic.a");
+            conf.LibraryPaths.Add(Path.Combine(
+            "[project.SharpmakeCsPath]",
+            "ThirdParty/Lib/Assimp/linux/Release"
+        ));
+        conf.LibraryPaths.Add(Path.Combine(
+            "[project.SharpmakeCsPath]",
+            $"ThirdParty/Lib/BGFX/linux/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"
+        ));
+        //conf.LibraryPaths.Add(Path.Combine(
+        //    "[project.SharpmakeCsPath]",
+        //    $"ThirdParty/Lib/SDL/linux/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"
+        //));
+        conf.LibraryPaths.Add(Path.Combine(
+            "[project.SharpmakeCsPath]",
+            $"ThirdParty/Lib/Bullet/linux/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"
+        ));
+        conf.AdditionalLinkerOptions.Add(
+            "-l:libDementia.a " +
+            "-l:libImGui.a " +
+            "-l:libMitchEngine.a " +
+            "-l:libMoonlight.a " +
+            "-l:libassimp.a " +
+            "-l:libbgfxDebug.a " +          // Fix this
+            "-l:libbimgDebug.a " +
+            "-l:libbimg_decodeDebug.a " +
+            "-l:libbxDebug.a " +
+            "-l:libzlibstatic.a "
+        );
+    }
 }
 
 public class BaseGameSolution : Solution
@@ -514,6 +623,16 @@ public class BaseGameSolution : Solution
         if (!Directory.Exists(Globals.FMOD_Win64_Dir) && Directory.Exists(Path.Combine(Globals.RootDir, $"Engine/ThirdParty/FMOD")))
         {
             Globals.FMOD_Win64_Dir = Path.Combine(Globals.RootDir, $"Engine/ThirdParty/FMOD");
+        }
+        if (!Directory.Exists(Globals.FMOD_Linux_Dir) && Directory.Exists(Path.Combine(Globals.RootDir, "Engine/ThirdParty/FMOD")))
+            Globals.FMOD_Linux_Dir = Path.Combine(Globals.RootDir, "Engine/ThirdParty/FMOD");
+        if (!Directory.Exists(Globals.FMOD_Linux_Dir) && Directory.Exists(Path.Combine(Globals.RootDir, "Engine/ThirdParty/fmod")))
+            Globals.FMOD_Linux_Dir = Path.Combine(Globals.RootDir, "Engine/ThirdParty/fmod");
+
+        {
+            string dotnetNativeEnv = System.Environment.GetEnvironmentVariable("DOTNET_LINUX_NATIVE_DIR") ?? string.Empty;
+            if (!string.IsNullOrEmpty(dotnetNativeEnv) && Directory.Exists(dotnetNativeEnv))
+                Globals.DOTNET_Linux_Dir = dotnetNativeEnv;
         }
 
         conf.AddProject<Dementia>(target);
@@ -545,10 +664,10 @@ public class BaseGameSolution : Solution
 
         conf.AddProject<SharpGameProject>(target);
         // Disabled on mac atm since xcode doesn't have mono support that I know of
-        if (target.Platform != Platform.mac && (Directory.Exists(Globals.MONO_macOS_Dir) || Directory.Exists(Globals.MONO_Win64_Dir)))
+        if (target.Platform != Platform.mac && (Directory.Exists(Globals.MONO_macOS_Dir) || Directory.Exists(Globals.MONO_Win64_Dir) || Directory.Exists(Globals.MONO_Linux_Dir)))
         {
-            conf.AddProject<UserGameScript>(target);
-            conf.AddProject<ScriptCore>(target);
+            //conf.AddProject<UserGameScript>(target);
+            //conf.AddProject<ScriptCore>(target);
         }
 
         // #TODO (mitch): Make this actual C# JSON shit, and make it not stop current configs.
@@ -576,15 +695,14 @@ public class BaseScriptSolution : Solution
     [Configure]
     public virtual void ConfigureAll(Solution.Configuration conf, CommonTarget target)
     {
-        conf.SolutionPath = Globals.RootDir;
+        conf.SolutionPath = Path.GetFullPath(Path.Combine(SharpmakeCsPath, ".."));
         conf.SolutionFileName = "GameScript";
-        //Globals.RootDir = Path.GetFullPath("../../");
 
-        // Disabled on mac atm since xcode doesn't have mono support that I know of
-        if (target.Platform != Platform.mac && (Directory.Exists(Globals.MONO_macOS_Dir) || Directory.Exists(Globals.MONO_Win64_Dir)))
+        // Disabled on mac atm since I just don't give a shit personally
+        if (target.Platform != Platform.mac && (Directory.Exists(Globals.MONO_macOS_Dir) || Directory.Exists(Globals.MONO_Linux_Dir)))
         {
-            conf.AddProject<UserGameScript>(target);
-            conf.AddProject<ScriptCore>(target);
+            //conf.AddProject<UserGameScript>(target);
+            //conf.AddProject<ScriptCore>(target);
         }
     }
 }
@@ -595,11 +713,16 @@ public class Globals
     public static string FMOD_Win64_Dir = string.Empty;
     public static string FMOD_UWP_Dir = string.Empty;
     public static string FMOD_macOS_Dir = string.Empty;
+    public static string FMOD_Linux_Dir = string.Empty;
 
     public static string ExeName = "Game_EntryPoint";
 
-    public static string MONO_Win64_Dir = "C:/Program Files/Mono/";
-    public static string MONO_macOS_Dir = "/Library/Frameworks/Mono.framework/";
+    // C# Scripting
+    public static string MONO_Win64_Dir = string.Empty; //"C:/Program Files/Mono/";
+    public static string MONO_macOS_Dir = string.Empty; //"/Library/Frameworks/Mono.framework/";
+    public static string MONO_Linux_Dir = string.Empty; //"/usr/lib/mono/";
+    public static string DOTNET_Win64_Dir = string.Empty; //C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Host.win-x64\8.0.22\runtimes\win-x64\native
+    public static string DOTNET_Linux_Dir = string.Empty; // set via DOTNET_LINUX_NATIVE_DIR env var in nix develop
 
     public static string UWP_Thumbprint = "2b58614583c74c71d9068804a758d87346f87f40";
     public static string UWP_CertificateName = "Game_EntryPoint_UWP_TemporaryKey.pfx";
@@ -616,6 +739,7 @@ public static class Main
     public static void SharpmakeMain(Sharpmake.Arguments arguments)
     {
         KitsRootPaths.SetUseKitsRootForDevEnv(DevEnv.vs2022, KitsRootEnum.KitsRoot10, Options.Vc.General.WindowsTargetPlatformVersion.v10_0_19041_0);
+
         arguments.Generate<SharpGameSolution>();
         arguments.Generate<BaseScriptSolution>();
     }
