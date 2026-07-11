@@ -234,7 +234,13 @@ public abstract class BaseProject : Project
         conf.Options.Add(Options.Makefile.Compiler.Rtti.Enable);
         conf.Options.Add(Options.Makefile.Compiler.Exceptions.Enable);
         //conf.AdditionalCompilerOptions.Add("-Wall");
-        //conf.Options.Add(Options.Makefile.Linker.LibGroup.Enable);
+        // Wrap all of LDLIBS in -Wl,--start-group/--end-group so ld re-scans the archives
+        // until every cross-reference resolves — this removes ld.bfd's left-to-right
+        // ordering fragility, letting the modules/libs come in via the dependency graph and
+        // LibraryFiles in any order. Requires IsLinkerInvokedViaCompiler=true (set in
+        // SharpmakeMain) so the group flags are emitted as -Wl,-- and not bare (see the
+        // Sharpmake 0.20.0 regression noted there).
+        conf.Options.Add(Options.Makefile.Linker.LibGroup.Enable);
         conf.AdditionalCompilerOptions.Add("`pkg-config --cflags sdl2`");
         conf.AdditionalLinkerOptions.Add("`pkg-config --libs sdl2`");
 
@@ -285,8 +291,10 @@ public abstract class BaseProject : Project
         {
             //conf.Defines.Add("DEFINE_ME_MONO");
         }
+        
         if (Directory.Exists(Globals.DOTNET_Linux_Dir))
         {
+        System.Console.WriteLine(Globals.DOTNET_Linux_Dir);
             conf.Defines.Add("DEFINE_ME_DOTNET");
         }
         // existing LibraryPaths, etc.
@@ -307,24 +315,33 @@ public abstract class BaseProject : Project
             $"ThirdParty/Lib/Bullet/linux/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"
         ));
         // Optick library path removed — ChromeTrace is header-only on Linux
-        conf.AdditionalLinkerOptions.Add(
-            "-l:libDementia.a " +
-            "-l:libImGui.a " +
-            "-l:libMitchEngine.a " +
-            "-l:libMoonlight.a " +
-            "-l:libassimp.a " +
-            "-l:libbgfxDebug.a " +          // Fix this
-            "-l:libbimgDebug.a " +
-            "-l:libbimg_decodeDebug.a " +
-            "-l:libbxDebug.a " +
-            "-l:libzlibstatic.a " +
-            "-l:libBulletDynamics.a " +
-            "-l:libBulletCollision.a " +
-            "-l:libLinearMath.a " +
-            "-lwayland-egl " +
-            (Directory.Exists(Globals.FMOD_Linux_Dir) ? "-lfmodL " : "") +
-            (Globals.IsUltralightEnabled ? "-lUltralight -lUltralightCore -lWebCore -lAppCore -lfontconfig " : "")
-        );
+
+        // The prebuilt Bullet archives were built without -fPIC, so their R_X86_64_32S
+        // relocations cannot be linked into a PIE (the default). Link non-PIE instead.
+        conf.AdditionalLinkerOptions.Add("-no-pie");
+
+        // Libraries that aren't carried in by the dependency graph on Linux. The engine
+        // modules (Dementia/ImGui/MitchEngine/Moonlight) plus bgfx/bimg/bx/assimp/zlib
+        // already reach LDLIBS via AddPublicDependency / module LibraryFiles, so we only
+        // add the rest here. LibGroup (enabled in ConfigureLinux) wraps all of LDLIBS in a
+        // linker group, so order is irrelevant. Bare names become -l:lib<name>.a; the
+        // shared libs need their full .so filename to avoid the forced .a suffix.
+        conf.LibraryFiles.Add("BulletDynamics");
+        conf.LibraryFiles.Add("BulletCollision");
+        conf.LibraryFiles.Add("LinearMath");
+        conf.LibraryFiles.Add("libwayland-egl.so");
+        if (Directory.Exists(Globals.FMOD_Linux_Dir))
+        {
+            conf.LibraryFiles.Add("libfmodL.so");
+        }
+        if (Globals.IsUltralightEnabled)
+        {
+            conf.LibraryFiles.Add("libUltralight.so");
+            conf.LibraryFiles.Add("libUltralightCore.so");
+            conf.LibraryFiles.Add("libWebCore.so");
+            conf.LibraryFiles.Add("libAppCore.so");
+            conf.LibraryFiles.Add("libfontconfig.so");
+        }
     }
 
     #endregion

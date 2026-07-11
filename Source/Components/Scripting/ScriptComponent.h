@@ -4,8 +4,6 @@
 #include "ECS/Component.h"
 #include "Scripting/ScriptEngine.h"
 
-// TODO: this should go
-#include "Engine/Input.h"
 
 class ScriptComponent
     : public Component<ScriptComponent>

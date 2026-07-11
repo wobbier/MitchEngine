@@ -17,6 +17,7 @@
 #include "UI/Colors.h"
 #include "Components/Physics/Rigidbody.h"
 #include "Physics/RigidBodyWithCollisionEvents.h"
+#include "Utils/HavanaUtils.h"
 
 #if USING( ME_EDITOR )
 
@@ -237,6 +238,12 @@ void SceneViewWidget::Render()
 			ImGui::PopStyleVar(1);
 		}
 		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 150.f);
+
+		static bool testBTN = false;
+		if( HavanaUtils::ToggleButton("TEST", testBTN))
+		{
+			MaximizeOnPlay = !testBTN;
+		}
 
 		if (ImGui::Button("Toggle Fullscreen", ImVec2(150.f, 20.f)))
 		{

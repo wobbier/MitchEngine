@@ -439,3 +439,13 @@ void HavanaUtils::ColorButton( const std::string& Name, Vector3& arr )
     arr.z = color.z;
 }
 
+
+
+bool HavanaUtils::ToggleButton( const std::string& InName, bool& OutPressed )
+{
+    if (ImGui::Button("Toggle Fullscreen", ImVec2(150.f, 20.f)))
+    {
+        OutPressed = !OutPressed;
+    }
+    return false;
+}

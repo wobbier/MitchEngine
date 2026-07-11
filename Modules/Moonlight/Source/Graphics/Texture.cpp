@@ -11,20 +11,6 @@
 #include <Utils/HavanaUtils.h>
 #include <Device/FrameBuffer.h>
 
-static void imageReleaseCb( void* _ptr, void* _userData )
-{
-    BX_UNUSED( _ptr );
-    bimg::ImageContainer* imageContainer = (bimg::ImageContainer*)_userData;
-    bimg::imageFree( imageContainer );
-}
-
-void unload( bx::AllocatorI* _allocator, void* _ptr )
-{
-	if( _ptr )
-	{
-		bx::free(_allocator, _ptr);
-	}
-}
 
 namespace Moonlight
 {
@@ -43,7 +29,6 @@ namespace Moonlight
 
     Texture::~Texture()
     {
-        // TODO: Unload textures
         if( bgfx::isValid( TexHandle ) )
         {
             bgfx::destroy( TexHandle );

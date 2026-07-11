@@ -525,6 +525,7 @@ public class Engine : BaseProject
 
         if (Directory.Exists(Globals.DOTNET_Linux_Dir))
         {
+            System.Console.WriteLine("exists");
             conf.IncludePaths.Add(Globals.DOTNET_Linux_Dir);
             conf.AdditionalLinkerOptions.Add($"-L{Globals.DOTNET_Linux_Dir}");
             conf.AdditionalLinkerOptions.Add($"-Wl,-rpath,{Globals.DOTNET_Linux_Dir}");
@@ -594,10 +595,7 @@ public class Engine : BaseProject
             "-l:libbimgDebug.a " +
             "-l:libbimg_decodeDebug.a " +
             "-l:libbxDebug.a " +
-            "-l:libzlibstatic.a " +
-            "-l:libBulletDynamics.a " +
-            "-l:libBulletCollision.a " +
-            "-l:libLinearMath.a "
+            "-l:libzlibstatic.a "
         );
     }
 }
@@ -666,10 +664,10 @@ public class BaseGameSolution : Solution
 
         conf.AddProject<SharpGameProject>(target);
         // Disabled on mac atm since xcode doesn't have mono support that I know of
-        if (target.Platform != Platform.mac && (Directory.Exists(Globals.MONO_macOS_Dir) || Directory.Exists(Globals.MONO_Win64_Dir)))
+        if (target.Platform != Platform.mac && (Directory.Exists(Globals.MONO_macOS_Dir) || Directory.Exists(Globals.MONO_Win64_Dir) || Directory.Exists(Globals.MONO_Linux_Dir)))
         {
-            conf.AddProject<UserGameScript>(target);
-            conf.AddProject<ScriptCore>(target);
+            //conf.AddProject<UserGameScript>(target);
+            //conf.AddProject<ScriptCore>(target);
         }
 
         // #TODO (mitch): Make this actual C# JSON shit, and make it not stop current configs.
@@ -701,10 +699,10 @@ public class BaseScriptSolution : Solution
         conf.SolutionFileName = "GameScript";
 
         // Disabled on mac atm since I just don't give a shit personally
-        if (target.Platform != Platform.mac && (Directory.Exists(Globals.MONO_macOS_Dir) || Directory.Exists(Globals.MONO_Win64_Dir)))
+        if (target.Platform != Platform.mac && (Directory.Exists(Globals.MONO_macOS_Dir) || Directory.Exists(Globals.MONO_Linux_Dir)))
         {
-            conf.AddProject<UserGameScript>(target);
-            conf.AddProject<ScriptCore>(target);
+            //conf.AddProject<UserGameScript>(target);
+            //conf.AddProject<ScriptCore>(target);
         }
     }
 }
@@ -740,6 +738,13 @@ public static class Main
     [Sharpmake.Main]
     public static void SharpmakeMain(Sharpmake.Arguments arguments)
     {
+        // Workaround for the Sharpmake 0.20.0+ regression (commit e3142832): the Makefile
+        // generator only prefixes linker flags with -Wl, when the Linux platform reports
+        // IsLinkerInvokedViaCompiler, which defaults to false. Our link runs through $(CXX)
+        // (g++), so without this, LibGroup emits a bare --start-group that g++ rejects.
+        var linuxDescriptor = (Linux.LinuxPlatform)PlatformRegistry.Get<IPlatformDescriptor>(Platform.linux);
+        linuxDescriptor.IsLinkerInvokedViaCompiler = true;
+
         KitsRootPaths.SetUseKitsRootForDevEnv(DevEnv.vs2022, KitsRootEnum.KitsRoot10, Options.Vc.General.WindowsTargetPlatformVersion.v10_0_19041_0);
         arguments.Generate<SharpGameSolution>();
         arguments.Generate<BaseScriptSolution>();

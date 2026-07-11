@@ -971,16 +971,9 @@ void SDLWindow::SetWindow( SDL_Window* window )
     switch (wmi.subsystem)
     {
         case SDL_SYSWM_WAYLAND:
-            // SDL_WINDOW_VULKAN doesn't create a wl_egl_window; create one manually.
-            // BGFX's Vulkan Wayland path reads wl_surface via ((wl_egl_window*)nwh)->surface.
-            {
-                int w, h;
-                SDL_GetWindowSize( window, &w, &h );
-                m_waylandEglWindow = wl_egl_window_create( wmi.info.wl.surface, w, h );
-                PlatformInfo.ndt  = wmi.info.wl.display;
-                PlatformInfo.nwh  = (void*)m_waylandEglWindow;
-                PlatformInfo.type = bgfx::NativeWindowHandleType::Wayland;
-            }
+            PlatformInfo.ndt  = wmi.info.wl.display;
+            PlatformInfo.nwh  = wmi.info.wl.surface;
+            PlatformInfo.type = bgfx::NativeWindowHandleType::Wayland;
             break;
 
         case SDL_SYSWM_X11:

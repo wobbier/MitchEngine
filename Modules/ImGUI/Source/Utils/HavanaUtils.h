@@ -29,4 +29,6 @@ public:
     static bool UInt( const std::string& Name, uint64_t& value );
 
     static void ColorButton( const std::string& Name, Vector3& arr );
+
+    static bool ToggleButton( const std::string& InName, bool& OutPressed );
 };
