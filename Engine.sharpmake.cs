@@ -738,24 +738,7 @@ public static class Main
     [Sharpmake.Main]
     public static void SharpmakeMain(Sharpmake.Arguments arguments)
     {
-        Platform hostPlatform = Util.GetExecutingPlatform();
-
-        if ( hostPlatform == Platform.linux )
-        {
-            // Workaround for the Sharpmake 0.20.0+ regression (commit e3142832):
-            // Linux Makefiles link through $(CXX), so linker-only arguments must use -Wl,.
-            var linuxDescriptor = (Linux.LinuxPlatform)PlatformRegistry.Get<IPlatformDescriptor>( Platform.linux );
-
-            linuxDescriptor.IsLinkerInvokedViaCompiler = true;
-        }
-
-        if (hostPlatform == Platform.win64)
-        {
-            KitsRootPaths.SetUseKitsRootForDevEnv(
-                DevEnv.vs2022,
-                KitsRootEnum.KitsRoot10,
-                Options.Vc.General.WindowsTargetPlatformVersion.v10_0_19041_0 );
-        }
+        KitsRootPaths.SetUseKitsRootForDevEnv(DevEnv.vs2022, KitsRootEnum.KitsRoot10, Options.Vc.General.WindowsTargetPlatformVersion.v10_0_19041_0);
 
         arguments.Generate<SharpGameSolution>();
         arguments.Generate<BaseScriptSolution>();
