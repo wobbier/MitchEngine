@@ -1,3 +1,7 @@
+#include "PCH.h"
+
+#if USING( ME_PLATFORM_LINUX )
+
 #include "FontLoaderLinux.h"
 #include <fontconfig/fontconfig.h>
 #include <memory>
@@ -7,6 +11,7 @@
 #include <sstream>
 #include <vector>
 #include <iostream>
+
 
 namespace ultralight {
 
@@ -396,3 +401,5 @@ FontLoader* CreatePlatformFontLoader() {
 }
 
 }  // namespace ultralight
+
+#endif  // USING( ME_PLATFORM_LINUX )

@@ -1,5 +1,9 @@
 #pragma once
 
+#if USING( ME_PLATFORM_LINUX )
+
+#include <Dementia.h>
+
 #include <Ultralight/platform/FontLoader.h>
 #include <map>
 
@@ -17,3 +21,5 @@ protected:
 }; 
 
 }  // namespace ultralight
+
+#endif  // USING( ME_PLATFORM_LINUX )
