@@ -209,3 +209,15 @@ engine.txt
 imgui.ini
 
 !ThirdParty/Lib/**/*.*
+
+# Generated build files (Sharpmake) — never commit these
+.build/
+.tmp/
+Makefile
+*.make
+compile_commands.json
+
+# Runtime logs / dumps
+Engine.txt
+fmod_log.txt
+startup.json
