@@ -36,9 +36,19 @@ jobs:
         run: choco install mono --ignore-checksums
 
       - name: Setup dotnet
-        uses: actions/setup-dotnet@v4
+        id: setup-dotnet
+        uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: "5.0.100"
+          dotnet-version: "8.0.x"
+
+      - name: Pin dotnet SDK
+        shell: pwsh
+        run: |
+          '{"sdk":{"version":"${{ steps.setup-dotnet.outputs.dotnet-version }}","rollForward":"latestPatch"}}' |
+            Set-Content -Encoding utf8 global.json
+
+          Write-Host "Selected SDK:"
+          dotnet --version
 
       - uses: suisei-cn/actions-download-file@818d6b7dc8fe73f2f924b6241f2b1134ca1377d9
         id: downloadfile
@@ -50,16 +60,23 @@ jobs:
       - name: Generate a new project
         shell: cmd
         run: call NewProjectSetup.bat EmptyProject "${{ github.head_ref || github.ref_name }}"
-        
+
       - name: Compile Tools
         if: ${{ matrix.buildconfig == 'Game_Win64' }}
         shell: cmd
-        run: msbuild EmptyProject.sln /property:Configuration="Editor_Release"
+        run: >
+          msbuild EmptyProject.sln
+          /restore
+          /m
+          /property:Configuration="Editor_Release"
 
       - name: Compile Project
         shell: cmd
-        run: msbuild EmptyProject.sln /property:Configuration="${{matrix.buildconfig}}_${{matrix.configuration}}"
-
+        run: >
+          msbuild EmptyProject.sln
+          /restore
+          /m
+          /property:Configuration="${{ matrix.buildconfig }}_${{ matrix.configuration }}"
       - name: Copy Assets
         shell: cmd
         run: call CopyAssets.bat
