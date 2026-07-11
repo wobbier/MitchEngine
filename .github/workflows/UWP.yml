@@ -39,16 +39,16 @@ jobs:
         with:
           dotnet-version: "5.0.100"
 
-      - uses: suisei-cn/actions-download-file@818d6b7dc8fe73f2f924b6241f2b1134ca1377d9 # 1.6.0
+      - uses: suisei-cn/actions-download-file@818d6b7dc8fe73f2f924b6241f2b1134ca1377d9
         id: downloadfile
         name: Grab the project setup file
         with:
-          url: "https://raw.githubusercontent.com/wobbier/MitchEngine/${{github.ref_name}}/Tools/NewProjectSetup.bat"
+          url: "https://raw.githubusercontent.com/${{ github.event.pull_request.head.repo.full_name || github.repository }}/${{ github.event.pull_request.head.sha || github.sha }}/Tools/NewProjectSetup.bat"
           target: ./
 
       - name: Generate a new project
         shell: cmd
-        run: call NewProjectSetup.bat EmptyProject ${{github.ref_name}}
+        run: call NewProjectSetup.bat EmptyProject "${{ github.head_ref || github.ref_name }}"
 
       - name: Generate a new project
         shell: cmd
