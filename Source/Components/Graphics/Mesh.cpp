@@ -195,7 +195,7 @@ void Mesh::OnEditorInspect()
 
     if( MeshReferece )
     {
-        ImGui::Text( "Vertices: %i", MeshReferece->Vertices.size() );
+        ImGui::Text( "Vertices: %u", MeshReferece->GetVertexCount() );
     }
 
 

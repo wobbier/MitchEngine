@@ -51,6 +51,14 @@ namespace Moonlight
     std::string GetPlatformString();
 
 
+    // Packs a 0..1 RGB color into bgfx's 0xRRGGBBAA clear format, clamping each channel.
+    inline uint32_t PackClearColor( float r, float g, float b, float a = 1.f )
+    {
+        auto toByte = []( float v ) { return static_cast<uint32_t>( bx::clamp( v, 0.f, 1.f ) * 255.f + 0.5f ); };
+        return toByte( r ) << 24 | toByte( g ) << 16 | toByte( b ) << 8 | toByte( a );
+    }
+
+
     inline bool CheckAvailTransientBuffers( uint32_t inNumVertices, const bgfx::VertexLayout& inLayout, uint32_t inNumIndices )
     {
         return inNumVertices == bgfx::getAvailTransientVertexBuffer( inNumVertices, inLayout )

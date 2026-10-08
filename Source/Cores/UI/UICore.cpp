@@ -286,7 +286,7 @@ void UICore::Render()
         m_uiRenderer->RefreshDisplay( 0 );
         m_uiRenderer->Render();
     }
-    m_driver->RenderCommandList();
+    const bool uiPainted = m_driver->RenderCommandList();
 
     for( auto ent : GetEntities() )
     {
@@ -298,8 +298,32 @@ void UICore::Render()
         OPTICK_EVENT( "UI View Render", Optick::Category::GPU_UI );
 
         ultralight::RenderTarget surface = (ultralight::RenderTarget)( ent.GetComponent<BasicUIView>().ViewRef->render_target() );
+        Moonlight::CameraData* camData = Camera::CurrentCamera ? GetEngine().GetRenderer().GetCameraCache().Get( Camera::CurrentCamera->GetCameraId() ) : nullptr;
 
-        bgfx::ViewId view = 10;
+        // Ultralight paints on its own display refresh (~60 Hz), far below the engine frame rate.
+        // Between paints its render target can already be reallocated for a new size without
+        // being drawn yet, so only resolve on frames it painted and keep showing the last result.
+        if( !uiPainted && bgfx::isValid( m_uiFrameBuffer ) )
+        {
+            if( camData )
+            {
+                camData->UITexture = m_uiTexture;
+            }
+            continue;
+        }
+
+        if( surface.is_empty || surface.width == 0 || surface.height == 0 )
+        {
+            if( camData )
+            {
+                camData->UITexture = BGFX_INVALID_HANDLE;
+            }
+            continue;
+        }
+
+        EnsureUITarget( surface.width, surface.height );
+
+        const bgfx::ViewId view = Moonlight::RenderView::UIResolve;
         if( bgfx::isValid( m_uiFrameBuffer ) )
         {
             bgfx::setViewName( view, "UI Render Target" );
@@ -316,25 +340,23 @@ void UICore::Render()
             // Composite the Ultralight render-target into m_uiTexture (a separate
             // render target). Rendering into the RT's own framebuffer while sampling
             // the same texture is a read-after-write hazard that corrupts on Vulkan.
-            bgfx::setViewRect( view, 0, 0, uint16_t( surface.texture_width ), uint16_t( surface.texture_height ) );
+            bgfx::setViewRect( view, 0, 0, uint16_t( surface.width ), uint16_t( surface.height ) );
             bgfx::setViewTransform( view, NULL, orthoProj );
             bgfx::setViewFrameBuffer( view, m_uiFrameBuffer );
             bgfx::setViewClear( view, BGFX_CLEAR_COLOR, 0x00000000 );
             // Straight overwrite copy (RT content is already premultiplied alpha).
             bgfx::setState( BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A );
             bgfx::setTexture( 0, s_texUI, m_driver->m_buffers[surface.render_buffer_id].TexHandle );
-            Moonlight::screenSpaceQuad( surface.texture_width, surface.texture_height, m_texelHalf, bgfx::getCaps()->originBottomLeft );
+            // Ultralight pads render target textures (and reuses larger ones while resizing), so
+            // only the uv_coords region is valid. The quad's size scales against fixed 0..1 UVs.
+            const float uvRight = surface.uv_coords.right > 0.f ? surface.uv_coords.right : 1.f;
+            const float uvBottom = surface.uv_coords.bottom > 0.f ? surface.uv_coords.bottom : 1.f;
+            Moonlight::screenSpaceQuad( float( surface.texture_width ), float( surface.texture_height ), m_texelHalf, bgfx::getCaps()->originBottomLeft, 1.f / uvRight, 1.f / uvBottom );
             bgfx::submit( view, UIProgram );
         }
-        if( !surface.is_empty )//&& !surface->dirty_bounds().IsEmpty() )
+        if( camData )
         {
-            //m_driver->m_storedTextures[surface.texture_id].Handle
-            //bgfx::blit( m_driver->kViewId + surface.render_buffer_id, m_uiTexture, 0, 0, m_driver->m_buffers[surface.render_buffer_id].TexHandle);
-
-            //CopyBitmapToTexture( surface->bitmap() );
-            GetEngine().GetRenderer().GetCameraCache().Get( Camera::CurrentCamera->GetCameraId() )->UITexture = m_uiTexture;// m_driver->m_storedTextures[surface.texture_id].Handle;
-
-            //surface->ClearDirtyBounds();
+            camData->UITexture = bgfx::isValid( m_uiFrameBuffer ) ? m_uiTexture : bgfx::TextureHandle( BGFX_INVALID_HANDLE );
         }
     }
 #endif
@@ -358,25 +380,7 @@ void UICore::OnResize( const Vector2& NewSize )
 
     if( NewSize != UISize )
     {
-        if( bgfx::isValid( m_uiFrameBuffer ) )
-        {
-            bgfx::destroy( m_uiFrameBuffer );
-            m_uiFrameBuffer = BGFX_INVALID_HANDLE;
-        }
-        if( bgfx::isValid( m_uiTexture ) )
-        {
-            bgfx::destroy( m_uiTexture );
-        }
-
-        m_uiTexture = bgfx::createTexture2D( static_cast<uint16_t>( Mathf::Max( NewSize.x, 1.f ) )
-            , static_cast<uint16_t>( Mathf::Abs( Mathf::Max( NewSize.y, 1.f ) ) )
-            , false
-            , 1
-            , bgfx::TextureFormat::BGRA8
-            , BGFX_TEXTURE_RT | BGFX_SAMPLER_MIN_POINT | BGFX_SAMPLER_MAG_POINT | BGFX_SAMPLER_MIP_POINT
-        );
-        bgfx::TextureHandle fbTex[] = { m_uiTexture };
-        m_uiFrameBuffer = bgfx::createFrameBuffer( BX_COUNTOF( fbTex ), fbTex, false );
+        // The UI render target itself is rebuilt in Render() once Ultralight has painted at the new size.
         UISize = NewSize;
 
 #if USING( ME_UI )
@@ -390,10 +394,39 @@ void UICore::OnResize( const Vector2& NewSize )
         }
 #endif
 
-#if USING ( ME_DEBUG )
-        BRUH_FMT( "%i, %s", m_uiTexture.idx, "UI Tex" );
-#endif
     }
+}
+
+
+void UICore::EnsureUITarget( uint32_t inWidth, uint32_t inHeight )
+{
+    if( bgfx::isValid( m_uiFrameBuffer ) && inWidth == m_uiTargetWidth && inHeight == m_uiTargetHeight )
+    {
+        return;
+    }
+
+    if( bgfx::isValid( m_uiFrameBuffer ) )
+    {
+        bgfx::destroy( m_uiFrameBuffer );
+        m_uiFrameBuffer = BGFX_INVALID_HANDLE;
+    }
+    if( bgfx::isValid( m_uiTexture ) )
+    {
+        bgfx::destroy( m_uiTexture );
+        m_uiTexture = BGFX_INVALID_HANDLE;
+    }
+
+    m_uiTexture = bgfx::createTexture2D( static_cast<uint16_t>( inWidth )
+        , static_cast<uint16_t>( inHeight )
+        , false
+        , 1
+        , bgfx::TextureFormat::BGRA8
+        , BGFX_TEXTURE_RT | BGFX_SAMPLER_MIN_POINT | BGFX_SAMPLER_MAG_POINT | BGFX_SAMPLER_MIP_POINT
+    );
+    bgfx::TextureHandle fbTex[] = { m_uiTexture };
+    m_uiFrameBuffer = bgfx::createFrameBuffer( BX_COUNTOF( fbTex ), fbTex, false );
+    m_uiTargetWidth = inWidth;
+    m_uiTargetHeight = inHeight;
 }
 
 void UICore::InitUIView( BasicUIView& view )

@@ -66,6 +66,10 @@ public:
     bgfx::FrameBufferHandle m_uiFrameBuffer = BGFX_INVALID_HANDLE;
     Vector2 UISize;
 private:
+    // (Re)creates m_uiTexture/m_uiFrameBuffer to match the Ultralight view size.
+    void EnsureUITarget( uint32_t inWidth, uint32_t inHeight );
+    uint32_t m_uiTargetWidth = 0;
+    uint32_t m_uiTargetHeight = 0;
 
 #if USING( ME_UI )
     std::vector<ultralight::RefPtr<ultralight::View>> m_views;

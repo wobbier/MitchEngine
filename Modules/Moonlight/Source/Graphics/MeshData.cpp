@@ -7,10 +7,9 @@
 
 namespace Moonlight
 {
-    MeshData::MeshData( std::vector<PosNormTexTanBiVertex> inVerticies, std::vector<uint16_t> inIndices, SharedPtr<Moonlight::Material> inMaterial )
+    MeshData::MeshData( std::vector<PosNormTexTanBiVertex> inVerticies, std::vector<uint32_t> inIndices, SharedPtr<Moonlight::Material> inMaterial )
         : Vertices( inVerticies )
         , Indices( inIndices )
-        , m_indexCount( static_cast<unsigned int>( Indices.size() ) )
         , MeshMaterial( inMaterial )
     {
         InitMesh();
@@ -27,13 +26,21 @@ namespace Moonlight
 
     void MeshData::InitMesh()
     {
-        m_vbh = bgfx::createVertexBuffer( bgfx::makeRef( Vertices.data(), sizeof( Moonlight::PosNormTexTanBiVertex ) * static_cast<uint16_t>( Vertices.size() ) ), Moonlight::PosNormTexTanBiVertex::ms_layout );
+        m_vertexCount = static_cast<uint32_t>( Vertices.size() );
+        m_indexCount = static_cast<uint32_t>( Indices.size() );
+
+        m_vbh = bgfx::createVertexBuffer( bgfx::copy( Vertices.data(), static_cast<uint32_t>( sizeof( Moonlight::PosNormTexTanBiVertex ) * Vertices.size() ) ), Moonlight::PosNormTexTanBiVertex::ms_layout );
         if( !bgfx::isValid( m_vbh ) )
         {
             ME_ASSERT_MSG( false, "Ran out of vbh?" );
         }
 
-        m_ibh = bgfx::createIndexBuffer( bgfx::makeRef( Indices.data(), sizeof( uint16_t ) * static_cast<uint16_t>( Indices.size() ) ) );
+        // 32-bit indices: unwelded imports can exceed 65535 vertices per mesh.
+        m_ibh = bgfx::createIndexBuffer( bgfx::copy( Indices.data(), static_cast<uint32_t>( sizeof( uint32_t ) * Indices.size() ) ), BGFX_BUFFER_INDEX32 );
+
+        // bgfx owns copies of the geometry now; drop the CPU side.
+        std::vector<PosNormTexTanBiVertex>().swap( Vertices );
+        std::vector<uint32_t>().swap( Indices );
     }
 
     void MeshData::Draw( SharedPtr<Material> inMaterial )

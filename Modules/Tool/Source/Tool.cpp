@@ -198,7 +198,7 @@ void Tool::Run()
             , (int32_t)m_input.GetMouseScrollOffset().y
             , m_window->GetSize()
             , -1
-            , 255 );
+            , Moonlight::RenderView::ImGuiMain );
 
         if( m_toolCreationFlags.isDockingEnabled )
         {

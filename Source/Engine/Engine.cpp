@@ -303,7 +303,7 @@ void Engine::Run()
                     , (int32_t)input.GetMouseScrollOffset().y
                     , GameWindow->GetSize()
                     , -1
-                    , 255 );
+                    , Moonlight::RenderView::ImGuiMain );
             }
 #endif
 

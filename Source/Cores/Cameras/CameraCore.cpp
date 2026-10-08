@@ -42,7 +42,13 @@ void CameraCore::LateUpdate( const UpdateContext& inUpdateContext )
         Camera& CameraComponent = InEntity.GetComponent<Camera>();
         Transform& TransformComponent = InEntity.GetComponent<Transform>();
 
+#if USING( ME_EDITOR )
+        // The editor sizes the main camera to the Game View panel; only fall back to the window
+        // until it has, otherwise the two fight and the camera renders with the window's size.
+        if( CameraComponent.IsMain() && CameraComponent.OutputSize.IsZero() )
+#else
         if( CameraComponent.IsMain() )
+#endif
         {
             CameraComponent.OutputSize = windowSize;
         }

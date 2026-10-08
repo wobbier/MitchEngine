@@ -2,6 +2,7 @@
 
 #include <Ultralight/platform/GPUDriver.h>
 #include "bgfx/bgfx.h"
+#include <RenderViews.h>
 #include <unordered_map>
 #include "Core/Buffer.h"
 #include "Math/Matrix4.h"
@@ -18,7 +19,7 @@ class UIDriver
     : public ultralight::GPUDriver
 {
     friend class UICore;
-    static const constexpr bgfx::ViewId kViewId = 11;
+    static const constexpr bgfx::ViewId kViewId = Moonlight::RenderView::UIDriverFirst;
 public:
     UIDriver();
     void BeginSynchronize() override;
@@ -46,7 +47,8 @@ public:
 
 private:
     void UpdateConstantBuffer( const ultralight::GPUState& inState, uint32_t geoId );
-    void RenderCommandList();
+    // Returns true if Ultralight painted this frame (it had commands to execute).
+    bool RenderCommandList();
 
     uint32_t m_textureCount = 1;
     std::stack<uint32_t> m_unusedTextures;
@@ -64,7 +66,8 @@ private:
         bgfx::FrameBufferHandle BufferHandle;
         bgfx::TextureHandle TexHandle;
         uint32_t FrameBufferTexture = 0;
-        uint32_t RenderViewId = kViewId;
+        // New render targets hold whatever was in that GPU memory before; clear before first use.
+        bool NeedsClear = true;
     };
     std::stack<uint32_t> m_unusedBuffers;
     uint32_t m_bufferCount = 1;

@@ -88,6 +88,13 @@ namespace Moonlight
         { -0.0033f, -0.0109f, -0.0670f },
     };
 
+    DynamicSky::~DynamicSky()
+    {
+        bgfx::destroy( m_ibh );
+        bgfx::destroy( m_vbh );
+    }
+
+
     DynamicSky::DynamicSky( uint32_t inWidth, uint32_t inHeight )
     {
         ScreenPosVertex::init();

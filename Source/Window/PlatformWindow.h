@@ -2,6 +2,7 @@
 #include <string>
 #include <Math/Vector2.h>
 #include <bgfx/bgfx.h>
+#include <RenderViews.h>
 #include <Window/IWindow.h>
 #include <SDL.h>
 
@@ -81,6 +82,6 @@ struct PlatformWindow
     ImGuiRenderer* Renderer = nullptr;
     bgfx::FrameBufferHandle Buffer;
     bgfx::PlatformData PlatformInfo;
-    uint16_t ViewId = 254;
+    uint16_t ViewId = Moonlight::RenderView::ImGuiPlatformLast;
 };
 

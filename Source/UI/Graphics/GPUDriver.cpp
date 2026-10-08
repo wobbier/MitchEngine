@@ -7,6 +7,7 @@
 #include "bgfx/bgfx.h"
 #include "Graphics/ShaderStructures.h"
 #include <glm/glm.hpp>
+#include <bx/string.h>
 
 #if USING( ME_UI )
 
@@ -176,7 +177,7 @@ void UIDriver::CreateRenderBuffer( uint32_t render_buffer_id, const RenderBuffer
     m_buffers[render_buffer_id].BufferHandle = bgfx::createFrameBuffer( BX_COUNTOF( fbtextures ), fbtextures, false );
     m_buffers[render_buffer_id].TexHandle = m_storedTextures[buffer.texture_id].Handle;
     m_buffers[render_buffer_id].FrameBufferTexture = buffer.texture_id;
-    m_buffers[render_buffer_id].RenderViewId = kViewId + render_buffer_id;
+    m_buffers[render_buffer_id].NeedsClear = true;
 }
 
 void UIDriver::DestroyRenderBuffer( uint32_t render_buffer_id )
@@ -243,8 +244,8 @@ void UIDriver::DestroyGeometry( uint32_t geometry_id )
 {
     bgfx::destroy( m_geometry[geometry_id].m_ibh );
     bgfx::destroy( m_geometry[geometry_id].m_vbh );
-    delete m_geometry[geometry_id].m_vertexBuffer;
-    delete m_geometry[geometry_id].m_indexBuffer;
+    free( m_geometry[geometry_id].m_vertexBuffer );
+    free( m_geometry[geometry_id].m_indexBuffer );
     m_geometry.erase( geometry_id );
 }
 
@@ -315,40 +316,78 @@ void UIDriver::UpdateConstantBuffer( const ultralight::GPUState& inState, uint32
     bgfx::setUniform( m_clipUniform, &m_uniform.Clip, UINT16_MAX );
 }
 
-void UIDriver::RenderCommandList()
+bool UIDriver::RenderCommandList()
 {
     OPTICK_EVENT( "UI CommandList", Optick::Category::GPU_UI );
     memset( &m_uiDrawInfo, 0, sizeof(UIDrawInfo) );
-    // Move this
+
+    // bgfx executes views in ID order, but Ultralight's command list is ordered: a render buffer
+    // is often drawn and then sampled by a later command (layers, transforms). Mapping views to
+    // render buffer IDs ran those out of order, sampling stale or freshly created (garbage)
+    // textures while resizing. Instead, every run of commands on one render buffer gets the next
+    // view in command order. View clear state is sticky in bgfx, so every view sets it explicitly.
+    const bgfx::ViewId viewEnd = kViewId + Moonlight::RenderView::UIDriverCount;
+    bgfx::ViewId nextView = kViewId;
+    bgfx::ViewId currentView = viewEnd;
+    uint32_t currentBuffer = UINT32_MAX;
+    uint32_t currentWidth = 0;
+    uint32_t currentHeight = 0;
+
+    auto beginView = [&]( uint32_t inRenderBufferId, uint32_t inWidth, uint32_t inHeight, bool inClear ) -> bool
+    {
+        if( nextView >= viewEnd )
+        {
+            ME_ASSERT_MSG( false, "Out of UI render views, raise RenderView::UIDriverCount." );
+            return false;
+        }
+        UIBuffer& buffer = m_buffers[inRenderBufferId];
+        inClear = inClear || buffer.NeedsClear;
+        buffer.NeedsClear = false;
+
+        currentView = nextView++;
+        currentBuffer = inRenderBufferId;
+        currentWidth = inWidth;
+        currentHeight = inHeight;
+
+        char viewName[32];
+        bx::snprintf( viewName, sizeof( viewName ), "UI Buffer %u", inRenderBufferId );
+        bgfx::setViewName( currentView, viewName );
+        bgfx::setViewMode( currentView, bgfx::ViewMode::Sequential );
+        bgfx::setViewFrameBuffer( currentView, buffer.BufferHandle );
+        bgfx::setViewRect( currentView, 0, 0, uint16_t( inWidth ), uint16_t( inHeight ) );
+        bgfx::setViewClear( currentView, inClear ? BGFX_CLEAR_COLOR : BGFX_CLEAR_NONE, 0x00000000, 1.0f, 0 );
+        bgfx::touch( currentView );
+        return true;
+    };
+
     for( ultralight::Command& command : m_renderCommands )
     {
+        const uint32_t renderBufferId = command.gpu_state.render_buffer_id;
+
         if( command.command_type == CommandType::ClearRenderBuffer )
         {
             OPTICK_EVENT( "UI Clear Command", Optick::Category::GPU_UI );
-            uint32_t color = (uint32_t)( 0.f * 255.f ) << 24
-                | (uint32_t)( 0.f * 255.f ) << 16
-                | (uint32_t)( 0.f * 255.f ) << 8
-                | (uint32_t)( 0.f * 255.f ); // Alpha channel (0 opacity)
-            
-            bgfx::touch( kViewId + command.gpu_state.render_buffer_id );
-            bgfx::setViewClear( kViewId + command.gpu_state.render_buffer_id
-                , BGFX_CLEAR_COLOR
-                , color, 1.0f, 0
-            );
+            // Clear the whole render target, which may be larger than the viewport.
+            const UITexture& target = m_storedTextures[m_buffers[renderBufferId].FrameBufferTexture];
+            if( !beginView( renderBufferId, target.Width, target.Height, true ) )
+            {
+                break;
+            }
             m_uiDrawInfo.m_numClearCalls++;
-            bgfx::setViewMode( kViewId + command.gpu_state.render_buffer_id, bgfx::ViewMode::Sequential );
             continue;
         }
         {
             OPTICK_EVENT( "UI Geometry Command", Optick::Category::GPU_UI );
-            UIBuffer& view = m_buffers[command.gpu_state.render_buffer_id];
-            bgfx::ViewId bufferId = view.RenderViewId;
-            std::string viewName = "UI " + std::to_string( bufferId );
-            bgfx::setViewName( bufferId, viewName.c_str() );
+            if( renderBufferId != currentBuffer
+                || command.gpu_state.viewport_width != currentWidth
+                || command.gpu_state.viewport_height != currentHeight )
+            {
+                if( !beginView( renderBufferId, command.gpu_state.viewport_width, command.gpu_state.viewport_height, false ) )
+                {
+                    break;
+                }
+            }
 
-            bgfx::setViewRect( bufferId, 0, 0, command.gpu_state.viewport_width, command.gpu_state.viewport_height );
-
-            bgfx::setViewFrameBuffer( bufferId, m_buffers[command.gpu_state.render_buffer_id].BufferHandle );
             // Set vertex and index buffer.
             auto& geo = m_geometry[command.geometry_id];
 
@@ -367,7 +406,9 @@ void UIDriver::RenderCommandList()
 
             if( command.gpu_state.enable_scissor )
             {
-                bgfx::setScissor( command.gpu_state.scissor_rect.left, command.gpu_state.scissor_rect.top, command.gpu_state.scissor_rect.right, command.gpu_state.scissor_rect.bottom );
+                // bgfx takes x/y/width/height; Ultralight gives left/top/right/bottom.
+                const ultralight::IntRect& scissor = command.gpu_state.scissor_rect;
+                bgfx::setScissor( uint16_t( scissor.left ), uint16_t( scissor.top ), uint16_t( scissor.right - scissor.left ), uint16_t( scissor.bottom - scissor.top ) );
             }
             else
             {
@@ -397,10 +438,12 @@ void UIDriver::RenderCommandList()
                 m_uiDrawInfo.m_numDrawFillPathCalls++;
             }
 
-            bgfx::submit( bufferId, ( command.gpu_state.shader_type == ShaderType::Fill ) ? m_fillProgram : m_fillPathProgram );
+            bgfx::submit( currentView, ( command.gpu_state.shader_type == ShaderType::Fill ) ? m_fillProgram : m_fillPathProgram );
         }
     }
+    const bool painted = !m_renderCommands.empty();
     m_renderCommands.clear();
+    return painted;
 }
 
 #endif

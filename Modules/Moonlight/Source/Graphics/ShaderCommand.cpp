@@ -28,21 +28,32 @@ namespace Moonlight
     {
         OPTICK_EVENT( "ShaderCommand(string)" );
 
-        Program = Moonlight::LoadProgram( InShaderFile + ".vert", InShaderFile + ".frag" );
-
-        isLoaded = bgfx::isValid( Program );
+        SetProgram( Moonlight::LoadProgram( InShaderFile + ".vert", InShaderFile + ".frag" ) );
     }
 
     ShaderCommand::ShaderCommand( const std::string& InVertexShaderPath, const std::string& InFragShaderPath )
     {
-        Program = Moonlight::LoadProgram( InVertexShaderPath + ".vert", InFragShaderPath + ".frag" );
-
-        isLoaded = bgfx::isValid( Program );
+        SetProgram( Moonlight::LoadProgram( InVertexShaderPath + ".vert", InFragShaderPath + ".frag" ) );
     }
 
-    ShaderCommand::~ShaderCommand()
+
+    void ShaderCommand::SetProgram( bgfx::ProgramHandle inProgram )
     {
-        //bgfx::destroy(Program);
+        Program = inProgram;
+        isLoaded = bgfx::isValid( Program );
+        m_programRef = isLoaded ? MakeShared<ProgramRef>( Program ) : nullptr;
+    }
+
+
+    ShaderCommand::ProgramRef::ProgramRef( bgfx::ProgramHandle inHandle )
+        : Handle( inHandle )
+    {
+    }
+
+
+    ShaderCommand::ProgramRef::~ProgramRef()
+    {
+        bgfx::destroy( Handle );
     }
 
 }

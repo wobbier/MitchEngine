@@ -11,14 +11,6 @@ using namespace Moonlight;
 
 PickingPass::PickingPass()
 {
-        // Set up screen clears
-    bgfx::setViewClear( RENDER_PASS_SHADING
-        , BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH
-        , 0x303030ff
-        , 1.0f
-        , 0
-    );
-
 // ID buffer clears to black, which represents clicking on nothing (background)
     bgfx::setViewClear( RENDER_PASS_ID
         , BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH
@@ -27,37 +19,8 @@ PickingPass::PickingPass()
         , 0
     );
 
-// Create uniforms
-    u_tint = bgfx::createUniform( "u_tint", bgfx::UniformType::Vec4 ); // Tint for when you click on items
     u_id = bgfx::createUniform( "u_id", bgfx::UniformType::Vec4 ); // ID for drawing into ID buffer
-
-    // Create program from shaders.
-    m_shadingProgram = Moonlight::LoadProgram( "Assets/Shaders/Picking/picking_shaded.vert", "Assets/Shaders/Picking/picking_shaded.frag" ); // Blinn shading
-    m_idProgram = Moonlight::LoadProgram( "Assets/Shaders/Picking/picking_shaded.vert", "Assets/Shaders/Picking/picking_id.frag" );     // Shader for drawing into ID buffer
-
-
-    m_highlighted = UINT32_MAX;
-    m_reading = 0;
-    m_currFrame = UINT32_MAX;
-    
-    //bx::RngMwc mwc;  // Random number generator
-    for( uint32_t ii = 0; ii < 1000; ++ii )
-    {
-        //m_meshes[ii] = meshLoad( meshPaths[ii % BX_COUNTOF( meshPaths )] );
-        //m_meshScale[ii] = meshScale[ii % BX_COUNTOF( meshPaths )];
-        // For the sake of this example, we'll give each mesh a random color,  so the debug output looks colorful.
-        // In an actual app, you'd probably just want to count starting from 1
-        
-        uint32_t rr = m_random( 0, 200000 ) % 256;
-        uint32_t gg = m_random( 0, 200000 ) % 256;
-        uint32_t bb = m_random( 0, 200000 ) % 256;
-        m_idsF[ii][0] = rr / 255.0f;
-        m_idsF[ii][1] = gg / 255.0f;
-        m_idsF[ii][2] = bb / 255.0f;
-        m_idsF[ii][3] = 1.0f;
-        m_idsU[ii] = rr + ( gg << 8 ) + ( bb << 16 ) + ( 255u << 24 );
-    }
-    //m_timeOffset = bx::getHPCounter();
+    m_idProgram = Moonlight::LoadProgram( "Assets/Shaders/Picking/picking_shaded.vert", "Assets/Shaders/Picking/picking_id.frag" );
 
             // Set up ID buffer, which has a color target and depth buffer
     m_pickingRT = bgfx::createTexture2D( ID_DIM, ID_DIM, false, 1, bgfx::TextureFormat::RGBA8, 0
@@ -100,6 +63,16 @@ PickingPass::PickingPass()
 }
 
 
+PickingPass::~PickingPass()
+{
+    // m_pickingFB owns m_pickingRT and m_pickingRTDepth.
+    bgfx::destroy( m_pickingFB );
+    bgfx::destroy( m_blitTex );
+    bgfx::destroy( m_idProgram );
+    bgfx::destroy( u_id );
+}
+
+
 void PickingPass::Render( BGFXRenderer* inRenderer, CameraData* inCamData, FrameRenderData& inFrameSettings )
 {
     m_width = inCamData->OutputSize.x;
@@ -121,8 +94,7 @@ void PickingPass::Render( BGFXRenderer* inRenderer, CameraData* inCamData, Frame
     //);
     bgfx::setViewFrameBuffer( RENDER_PASS_ID, m_pickingFB );
 
-    std::string viewName = "Picking Pass " + std::to_string( RENDER_PASS_ID );
-    bgfx::setViewName( RENDER_PASS_ID, viewName.c_str() );
+    bgfx::setViewName( RENDER_PASS_ID, "Picking Pass" );
 
     // Set view and projection matrix for view 0.
     Matrix4 view = camera.View;
@@ -144,19 +116,9 @@ void PickingPass::Render( BGFXRenderer* inRenderer, CameraData* inCamData, Frame
     // Set view 0 default viewport.
     bgfx::setViewRect( RENDER_PASS_ID, 0, 0, ID_DIM, ID_DIM );
 
-    //bgfx::touch(0);
-    uint32_t color = (uint32_t)( camera.ClearColor.x * 255.f ) << 24 | (uint32_t)( camera.ClearColor.y * 255.f ) << 16 | (uint32_t)( camera.ClearColor.z * 255.f ) << 8 | 255;
-    bgfx::setViewClear( RENDER_PASS_ID
-        , BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH
-        , color, 1.0f, 0
-    );
-
+    // Don't override the black clear from the constructor: black is "background" in the readback.
     bgfx::touch( RENDER_PASS_ID );
 
-
-    const float camSpeed = 0.25;
-    float eyeDist = 2.5f;
-    float time = (float)( ( bx::getHPCounter() - m_timeOffset ) / double( bx::getHPFrequency() ) );
 
                 // Set up picking pass
     float viewProj[16];
@@ -196,10 +158,11 @@ void PickingPass::Render( BGFXRenderer* inRenderer, CameraData* inCamData, Frame
     {
         OPTICK_CATEGORY( "Picking", Optick::Category::GPU_Scene );
 
+        const bool hasCullingInfo = inCamData->ShouldCull && !inCamData->VisibleFlags.empty();
         for( size_t i = 0; i < inRenderer->GetMeshCache().Commands.size(); ++i )
         {
             const Moonlight::MeshCommand& mesh = inRenderer->GetMeshCache().Commands[i];
-            if( inCamData->ShouldCull && !inCamData->VisibleFlags[mesh.VisibilityIndex] )
+            if( hasCullingInfo && !inCamData->VisibleFlags[mesh.VisibilityIndex] )
             {
                 continue;
             }
@@ -272,7 +235,6 @@ void PickingPass::Render( BGFXRenderer* inRenderer, CameraData* inCamData, Frame
         }
 
         uint32_t idKey = 0;
-        m_highlighted = UINT32_MAX;
         if( maxAmount )
         {
             for( std::map<uint32_t, uint32_t>::iterator mapIter = ids.begin(); mapIter != ids.end(); mapIter++ )
@@ -280,15 +242,6 @@ void PickingPass::Render( BGFXRenderer* inRenderer, CameraData* inCamData, Frame
                 if( mapIter->second == maxAmount )
                 {
                     idKey = mapIter->first;
-                    break;
-                }
-            }
-
-            for( uint32_t ii = 0; ii < 12; ++ii )
-            {
-                if( m_idsU[ii] == idKey )
-                {
-                    m_highlighted = ii;
                     break;
                 }
             }

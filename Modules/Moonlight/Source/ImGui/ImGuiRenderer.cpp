@@ -32,7 +32,7 @@ static const bgfx::EmbeddedShader s_embeddedShaders[] =
 void ImGuiRenderer::Create()
 {
     OPTICK_EVENT( "ImGuiRenderer::Create" );
-    ViewId = 255;
+    ViewId = Moonlight::RenderView::ImGuiMain;
 
     IMGUI_CHECKVERSION();
     {
@@ -126,7 +126,7 @@ void ImGuiRenderer::EndFrame()
             // TODO: Find out why this was removed??
             //if ( viewport->Flags & ImGuiViewportFlags_Minimized )
             //    continue;
-            uint16_t platformIndex = static_cast<uint16_t>( 254 - platform_io.Viewports.Size ) + i;
+            uint16_t platformIndex = static_cast<uint16_t>( Moonlight::RenderView::ImGuiPlatformLast - platform_io.Viewports.Size ) + i;
             if( platform_io.Platform_RenderWindow ) platform_io.Platform_RenderWindow( viewport, &platformIndex );
         }
     }

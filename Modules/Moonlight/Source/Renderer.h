@@ -16,6 +16,7 @@
 #include "Core/ISystem.h"
 #include "Math/Vector4.h"
 #include "Core/FrameRenderData.h"
+#include <RenderViews.h>
 
 class ImGuiRenderer;
 
@@ -43,15 +44,14 @@ enum class ViewportMode : uint8_t
 class BGFXRenderer
     : public ISystem
 {
-    static constexpr bgfx::ViewId kClearView = 0;
+    static constexpr bgfx::ViewId kClearView = Moonlight::RenderView::Clear;
     static constexpr std::size_t kMeshTransparencyTempSize = 60;
     friend class RenderCore;
 public:
     ME_SYSTEM_ID( BGFXRenderer );
 
 	BGFXRenderer()
-	: m_ambient(bx::InitNone)
-	, m_pt(0)
+	: m_pt(0)
 		, m_timeOffset(0)
 	{
 	}
@@ -67,7 +67,7 @@ public:
 
     void Render( Moonlight::CameraData& EditorCamera, FrameRenderData& inFrameData );
     void SetGuizmoDrawCallback( std::function<void( DebugDrawer* )> GuizmoDrawingFunc );
-    void RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId id );
+    void RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId id, bool toBackbuffer );
 
     void RenderSingleMesh( bgfx::ViewId id, const Moonlight::MeshCommand& mesh, uint64_t state );
 
@@ -130,18 +130,18 @@ private:
 
     Moonlight::FrameBuffer* EditorCameraBuffer = nullptr;
     std::function<void( DebugDrawer* )> m_guizmoCallback;
-    bgfx::VertexBufferHandle m_vbh;
-    bgfx::IndexBufferHandle m_ibh;
-    bgfx::ProgramHandle UIProgram;
-    bgfx::UniformHandle s_texDiffuse;
-    bgfx::UniformHandle s_texNormal;
-    bgfx::UniformHandle s_texAlpha;
-    bgfx::UniformHandle s_texUI;
-    bgfx::UniformHandle s_ambient;
-    bgfx::UniformHandle s_sunDirection;
-    bgfx::UniformHandle s_sunDiffuse;
-    bgfx::UniformHandle s_time;
-    bx::Vec3 m_ambient;
+    bgfx::VertexBufferHandle m_vbh = BGFX_INVALID_HANDLE;
+    bgfx::IndexBufferHandle m_ibh = BGFX_INVALID_HANDLE;
+    bgfx::ProgramHandle UIProgram = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle s_texDiffuse = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle s_texNormal = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle s_texAlpha = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle s_texUI = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle s_ambient = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle s_sunDirection = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle s_sunDiffuse = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle s_time = BGFX_INVALID_HANDLE;
+    Vector4 m_ambient;
     int32_t m_pt;
     int64_t m_timeOffset;
     Moonlight::CameraData DummyCameraData;

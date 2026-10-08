@@ -1,5 +1,6 @@
 #pragma once
 #include <bgfx/bgfx.h>
+#include <RenderViews.h>
 #include "Math/Vector2.h"
 
 struct ImGuiContext;
@@ -15,7 +16,7 @@ public:
     void NewFrame( const Vector2& mousePosition, uint8_t mouseButton, int32_t scroll, Vector2 outputSize, int inputChar, bgfx::ViewId viewId );
     void EndFrame();
 
-    void Render( ImDrawData* drawData, bgfx::ViewId viewId = 255 );
+    void Render( ImDrawData* drawData, bgfx::ViewId viewId = Moonlight::RenderView::ImGuiMain );
 private:
     ImGuiContext* Context = nullptr;
 
@@ -25,5 +26,5 @@ private:
     bgfx::UniformHandle sTexture;
     bgfx::UniformHandle ImageLODEnabled;
     bgfx::TextureHandle mTexture;
-    bgfx::ViewId ViewId = 255;
+    bgfx::ViewId ViewId = Moonlight::RenderView::ImGuiMain;
 };

@@ -26,9 +26,18 @@ namespace Moonlight
             
             //fullPath = fullPath.substr(0, fullPath.rfind(".")) + ".bin";
             ME_ASSERT_MSG( fullPath.Exists, "Shader doesn't exist." );
-            Data = Moonlight::LoadMemory( fullPath );
-            Handle = bgfx::createShader( Data );
+            // createShader consumes the memory, so don't hold on to it.
+            Handle = bgfx::createShader( Moonlight::LoadMemory( fullPath ) );
             bgfx::setName( Handle, InPath.GetLocalPath().data() );
+        }
+
+        // Programs hold their own reference to the shader, so this is safe while they're alive.
+        ~ShaderFile()
+        {
+            if( bgfx::isValid( Handle ) )
+            {
+                bgfx::destroy( Handle );
+            }
         }
 
         inline std::vector<char> ReadToByteArray( const char* filename )
@@ -41,7 +50,6 @@ namespace Moonlight
             return data;
         }
 
-        const bgfx::Memory* Data = nullptr;
         bgfx::ShaderHandle Handle = BGFX_INVALID_HANDLE;
     };
 }

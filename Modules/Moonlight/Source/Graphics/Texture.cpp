@@ -12,6 +12,32 @@
 #include <Device/FrameBuffer.h>
 
 
+namespace
+{
+    void ImageReleaseCb( void*, void* inUserData )
+    {
+        bimg::imageFree( static_cast<bimg::ImageContainer*>( inUserData ) );
+    }
+
+
+    bool ReadFileBytes( const Path& inPath, std::vector<uint8_t>& outData )
+    {
+        bx::FileReaderI* reader = Moonlight::getDefaultReader();
+        bx::Error err;
+        if( !bx::open( reader, inPath.FullPath.c_str(), &err ) )
+        {
+            YIKES_FMT( "[%s]: %s", inPath.GetLocalPathString().c_str(), err.getMessage().getCPtr() );
+            return false;
+        }
+
+        outData.resize( static_cast<size_t>( bx::getSize( reader ) ) );
+        bx::read( reader, outData.data(), static_cast<int32_t>( outData.size() ), &err );
+        bx::close( reader );
+        return err.isOk();
+    }
+}
+
+
 namespace Moonlight
 {
     Texture::Texture( const Path& InFilePath, WrapMode mode )
@@ -45,50 +71,45 @@ namespace Moonlight
             return false;
         }
 
-        const auto* memory = Moonlight::LoadMemory( compiledTexture );
-        if( memory )
+        std::vector<uint8_t> fileData;
+        if( !ReadFileBytes( compiledTexture, fileData ) )
         {
-            if( bimg::ImageContainer* imageContainer = bimg::imageParse( Moonlight::getDefaultAllocator(), memory->data, memory->size ) )
-            {
-                const bgfx::Memory* mem = bgfx::makeRef( imageContainer->m_data, imageContainer->m_size, NULL, imageContainer );
-
-                bx::free( Moonlight::getDefaultAllocator(), (void*)memory );
-                if( imageContainer->m_cubeMap )
-                {
-                    YIKES( "You gotta implement cubemap textures" );
-                }
-                else if( 1 < imageContainer->m_depth )
-                {
-                    YIKES( "You gotta implement 3d textures" );
-                }
-                else if( bgfx::isTextureValid( 0, false, imageContainer->m_numLayers, bgfx::TextureFormat::Enum( imageContainer->m_format ), m_flags ) )
-                {
-                    TexHandle = bgfx::createTexture2D( imageContainer->m_width, imageContainer->m_height, 1 < imageContainer->m_numMips, imageContainer->m_numLayers, bgfx::TextureFormat::Enum( imageContainer->m_format ), m_flags, mem );
-                }
-
-                if( bgfx::isValid( TexHandle ) )
-                {
-                    bgfx::setName( TexHandle, FilePath.GetLocalPath().data() );
-                }
-
-                bgfx::TextureInfo* info = nullptr;
-                if( info )
-                {
-                    bgfx::calcTextureSize( *info, imageContainer->m_width, imageContainer->m_height, imageContainer->m_depth, imageContainer->m_cubeMap, imageContainer->m_numMips > 0, imageContainer->m_numLayers, bgfx::TextureFormat::Enum( imageContainer->m_format ) );
-                }
-                mWidth = imageContainer->m_width;
-                mHeight = imageContainer->m_height;
-                m_mips = imageContainer->m_numMips;
-
-#if USING ( ME_DEBUG )
-                //BRUH_FMT( "%i, %s", TexHandle.idx, compiledTexture.FullPath.c_str() );
-#endif
-                return true;
-            }
-            bx::free( Moonlight::getDefaultAllocator(), (void*)memory );
+            return false;
         }
 
-        return false;
+        // imageParse copies what it needs, so fileData can go out of scope afterwards.
+        bimg::ImageContainer* imageContainer = bimg::imageParse( Moonlight::getDefaultAllocator(), fileData.data(), static_cast<uint32_t>( fileData.size() ) );
+        if( !imageContainer )
+        {
+            return false;
+        }
+
+        mWidth = imageContainer->m_width;
+        mHeight = imageContainer->m_height;
+        m_mips = imageContainer->m_numMips;
+
+        if( imageContainer->m_cubeMap )
+        {
+            YIKES( "You gotta implement cubemap textures" );
+        }
+        else if( 1 < imageContainer->m_depth )
+        {
+            YIKES( "You gotta implement 3d textures" );
+        }
+        else if( bgfx::isTextureValid( 0, false, imageContainer->m_numLayers, bgfx::TextureFormat::Enum( imageContainer->m_format ), m_flags ) )
+        {
+            // bgfx owns the image from here and frees it via ImageReleaseCb once uploaded.
+            const bgfx::Memory* mem = bgfx::makeRef( imageContainer->m_data, imageContainer->m_size, ImageReleaseCb, imageContainer );
+            TexHandle = bgfx::createTexture2D( imageContainer->m_width, imageContainer->m_height, 1 < imageContainer->m_numMips, imageContainer->m_numLayers, bgfx::TextureFormat::Enum( imageContainer->m_format ), m_flags, mem );
+            if( bgfx::isValid( TexHandle ) )
+            {
+                bgfx::setName( TexHandle, FilePath.GetLocalPath().data() );
+            }
+            return true;
+        }
+
+        bimg::imageFree( imageContainer );
+        return true;
     }
 
     void Texture::Reload()

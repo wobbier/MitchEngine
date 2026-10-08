@@ -7,6 +7,7 @@
 #include "imgui.h"
 #include "Utils/BGFXUtils.h"
 #include "bx/timer.h"
+#include <bx/string.h>
 #include "Graphics/Material.h"
 #include "Graphics/ShaderStructures.h"
 #include "Primitives/Cube.h"
@@ -171,9 +172,10 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
         s_texNormal = bgfx::createUniform( "s_texNormal", bgfx::UniformType::Sampler );
         s_texAlpha = bgfx::createUniform( "s_texAlpha", bgfx::UniformType::Sampler );
         s_texUI = bgfx::createUniform( "s_texUI", bgfx::UniformType::Sampler );
-        s_ambient = bgfx::createUniform( "s_ambient", bgfx::UniformType::Vec4 );
-        s_sunDirection = bgfx::createUniform( "s_sunDirection", bgfx::UniformType::Vec4 );
-        s_sunDiffuse = bgfx::createUniform( "s_sunDiffuse", bgfx::UniformType::Vec4 );
+        // Per-frame uniforms apply to every draw in the frame regardless of view/sort order.
+        s_ambient = bgfx::createUniform( "s_ambient", bgfx::UniformFreq::Frame, bgfx::UniformType::Vec4 );
+        s_sunDirection = bgfx::createUniform( "s_sunDirection", bgfx::UniformFreq::Frame, bgfx::UniformType::Vec4 );
+        s_sunDiffuse = bgfx::createUniform( "s_sunDiffuse", bgfx::UniformFreq::Frame, bgfx::UniformType::Vec4 );
 
         m_timeOffset = bx::getHPCounter();
 
@@ -186,7 +188,7 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
         m_pickingPass = MakeShared<Moonlight::PickingPass>();
 #endif
     }
-    s_time = bgfx::createUniform( "u_time", bgfx::UniformType::Vec4 );
+    s_time = bgfx::createUniform( "u_time", bgfx::UniformFreq::Frame, bgfx::UniformType::Vec4 );
     TransparentIndicies.reserve( kMeshTransparencyTempSize );
 
 #if USING( ME_IMGUI )
@@ -204,6 +206,37 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
 
 void BGFXRenderer::Destroy()
 {
+    // Release everything the renderer owns before shutting bgfx down.
+#if USING( ME_EDITOR )
+    m_pickingPass.reset();
+#endif
+    m_dynamicSky.reset();
+    m_debugDraw.reset();
+    m_defaultOpacityTexture.reset();
+    delete EditorCameraBuffer;
+    EditorCameraBuffer = nullptr;
+
+    const bgfx::UniformHandle uniforms[] = { s_texDiffuse, s_texNormal, s_texAlpha, s_texUI, s_ambient, s_sunDirection, s_sunDiffuse, s_time };
+    for( const bgfx::UniformHandle& uniform : uniforms )
+    {
+        if( bgfx::isValid( uniform ) )
+        {
+            bgfx::destroy( uniform );
+        }
+    }
+    if( bgfx::isValid( UIProgram ) )
+    {
+        bgfx::destroy( UIProgram );
+    }
+    if( bgfx::isValid( m_vbh ) )
+    {
+        bgfx::destroy( m_vbh );
+    }
+    if( bgfx::isValid( m_ibh ) )
+    {
+        bgfx::destroy( m_ibh );
+    }
+
     bgfx::shutdown();
 
 #if USING( ME_ENABLE_RENDERDOC )
@@ -269,63 +302,56 @@ void BGFXRenderer::Render( Moonlight::CameraData& EditorCamera, FrameRenderData&
         bx::Vec3 sunLuminanceXYZ = m_dynamicSky->m_sunLuminanceXYZ.GetValue( m_dynamicSky->m_time );
         bx::Vec3 sunDiffuse = m_dynamicSky->xyzToRgb( sunLuminanceXYZ );
 
-        sunDiffuse.x = sunDiffuse.x / 255.f;
-        sunDiffuse.y = sunDiffuse.y / 255.f;
-        sunDiffuse.z = sunDiffuse.z / 255.f;
-        bgfx::setUniform( s_ambient, &m_ambient.x );
-        bgfx::setUniform( s_sunDirection, &m_dynamicSky->m_sun.m_sunDir.x );
-        bgfx::setUniform( s_sunDiffuse, &sunDiffuse.x );
+        // Vec4 uniforms read 16 bytes; widen the bx::Vec3s so we don't read past them.
+        const bx::Vec3& sunDir = m_dynamicSky->m_sun.m_sunDir;
+        const Vector4 sunDirection( sunDir.x, sunDir.y, sunDir.z, 0.f );
+        const Vector4 sunDiffuse4( sunDiffuse.x / 255.f, sunDiffuse.y / 255.f, sunDiffuse.z / 255.f, 1.f );
+        bgfx::setFrameUniform( s_ambient, &m_ambient.x );
+        bgfx::setFrameUniform( s_sunDirection, &sunDirection.x );
+        bgfx::setFrameUniform( s_sunDiffuse, &sunDiffuse4.x );
     }
-    bgfx::setUniform( s_time, &m_time.x );
+    bgfx::setFrameUniform( s_time, &m_time.x );
+
+    bgfx::ViewId id = Moonlight::RenderView::CameraFirst;
 
 #if USING( ME_EDITOR )
-    bgfx::ViewId id = 1;
-
     EditorCamera.Buffer = EditorCameraBuffer;
     if( EditorCamera.Buffer && EditorCamera.ShouldRender )
     {
-        RenderCameraView( EditorCamera, id );
+        RenderCameraView( EditorCamera, id++, false );
         m_pickingPass->Render( this, &EditorCamera, inFrameData );
-        ++id;
     }
 
+    // The editor shows the main camera inside the scene view widget, so it renders to its buffer.
+    constexpr bool kMainCameraToBackbuffer = false;
+#else
+    constexpr bool kMainCameraToBackbuffer = true;
+#endif
+
+    // Secondary cameras first so the main camera can sample their output this frame.
+    // The last camera view is reserved for the main camera.
     for( auto& camData : m_cameraCache.Commands )
     {
-        if( !camData.IsMain && camData.ShouldRender )
+        if( camData.IsMain || !camData.ShouldRender )
         {
-            RenderCameraView( camData, id );
-            ++id;
+            continue;
         }
+        if( id >= Moonlight::RenderView::CameraLast )
+        {
+            ME_ASSERT_MSG( false, "Out of camera render views, raise RenderView::CameraCount." );
+            break;
+        }
+        RenderCameraView( camData, id++, false );
     }
 
     for( auto& camData : m_cameraCache.Commands )
     {
         if( camData.IsMain && camData.ShouldRender )
         {
-            RenderCameraView( camData, id );
+            RenderCameraView( camData, id, kMainCameraToBackbuffer );
             break;
         }
     }
-#else
-    bgfx::ViewId id = kClearView;
-    for( auto& camData : m_cameraCache.Commands )
-    {
-        if( !camData.IsMain )
-        {
-            ++id;
-            RenderCameraView( camData, id );
-        }
-    }
-
-    for( auto& camData : m_cameraCache.Commands )
-    {
-        if( camData.IsMain )
-        {
-            RenderCameraView( camData, kClearView );
-            break;
-        }
-    }
-#endif
 
     {
 #if USING( ME_IMGUI )
@@ -346,7 +372,7 @@ void BGFXRenderer::SetGuizmoDrawCallback( std::function<void( DebugDrawer* )> Gu
 }
 
 
-void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId id )
+void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId id, bool toBackbuffer )
 {
     OPTICK_CATEGORY( "Render Camera", Optick::Category::Camera );
     if( CurrentSize.IsZero() )
@@ -358,20 +384,21 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId
         return;
     }
 
-    std::string viewName = "Game " + std::to_string( id );
-    bgfx::setViewName( id, viewName.c_str() );
+    char viewName[32];
+    bx::snprintf( viewName, sizeof( viewName ), "Camera %u", id - Moonlight::RenderView::CameraFirst );
+    bgfx::setViewName( id, viewName );
+
+    // View framebuffer state persists across frames, so always set it (invalid handle = backbuffer).
+    const bgfx::FrameBufferHandle target = toBackbuffer ? bgfx::FrameBufferHandle( BGFX_INVALID_HANDLE ) : camera.Buffer->Buffer;
 
     // Set view and projection matrix for view.
     bgfx::setViewTransform( id, &camera.View.GetInternalMatrix()[0][0], &camera.ProjectionMatrix.GetInternalMatrix()[0][0] );
-    if( id > 0 )
-    {
-        bgfx::setViewFrameBuffer( id, camera.Buffer->Buffer );
-    }
+    bgfx::setViewFrameBuffer( id, target );
 
     // Set view default viewport.
     bgfx::setViewRect( id, 0, 0, uint16_t( camera.OutputSize.x ), uint16_t( camera.OutputSize.y ) );
 
-    uint32_t color = (uint32_t)( camera.ClearColor.x * 255.f ) << 24 | (uint32_t)( camera.ClearColor.y * 255.f ) << 16 | (uint32_t)( camera.ClearColor.z * 255.f ) << 8 | 255;
+    const uint32_t color = Moonlight::PackClearColor( camera.ClearColor.x, camera.ClearColor.y, camera.ClearColor.z );
     bgfx::setViewClear( id
         , BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH
         , color, 1.0f, 0
@@ -576,26 +603,16 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId
         bgfx::setTransform( identity );
     }
 
-    // Get renderer capabilities info.
-    const bgfx::RendererType::Enum renderer = bgfx::getRendererType();
     float m_texelHalf = 0.0f;
     if( camera.IsMain && bgfx::isValid( camera.UITexture ) )
     {
-        const int view = 9;
-        bgfx::setViewName( view, "UI" );
-        //bgfx::setViewClear(view
-        //	, BGFX_CLEAR_NONE
-        //	, 1
-        //	, 1.0f
-        //	, 0
-        //);
+        // Runs after the UI resolve and all camera views, so the UI texture is from this frame.
+        const bgfx::ViewId view = Moonlight::RenderView::UIComposite;
+        bgfx::setViewName( view, "UI Composite" );
 
         bgfx::setViewRect( view, 0, 0, uint16_t( camera.OutputSize.x ), uint16_t( camera.OutputSize.y ) );
         bgfx::setViewTransform( view, NULL, orthoProj );
-        if( id > 0 )
-        {
-            bgfx::setViewFrameBuffer( view, camera.Buffer->Buffer );
-        }
+        bgfx::setViewFrameBuffer( view, target );
         bgfx::setState( 0
             | BGFX_STATE_WRITE_RGB
             //| BGFX_STATE_BLEND_ALPHA // - Not it, creates artifacts
@@ -605,11 +622,6 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId
         bgfx::setTexture( 0, s_texUI, camera.UITexture );
         Moonlight::screenSpaceQuad( camera.OutputSize.x, camera.OutputSize.y, m_texelHalf, bgfx::getCaps()->originBottomLeft );
         bgfx::submit( view, UIProgram );
-    }
-
-    //if (!camera.IsMain)
-    {
-        bgfx::blit( id, camera.Buffer->Texture, 0, 0, bgfx::getTexture( camera.Buffer->Buffer ) );
     }
 }
 

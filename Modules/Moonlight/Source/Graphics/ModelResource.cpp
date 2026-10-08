@@ -125,7 +125,7 @@ bool ModelResource::Load()
         Path newPath = Path( FilePath.FullPath );
         ME_ASSERT_MSG( newPath.Exists, "Exported Model Doesn't Exist" );
 
-        scene = importer.ReadFile( FilePath.FullPath.c_str(), aiProcess_Triangulate | aiProcess_CalcTangentSpace | aiProcess_ConvertToLeftHanded );
+        scene = importer.ReadFile( FilePath.FullPath.c_str(), aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_CalcTangentSpace | aiProcess_ConvertToLeftHanded );
         if( !scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode )
         {
             std::cout << "ERROR::ASSIMP:: " << importer.GetErrorString() << std::endl;
@@ -312,7 +312,7 @@ std::vector<Moonlight::Keyframe> ModelResource::BuildKeyframes( const aiNodeAnim
 Moonlight::MeshData* ModelResource::ProcessMesh( aiMesh* mesh, Moonlight::Node& inParent, const aiScene* scene )
 {
     std::vector<Moonlight::PosNormTexTanBiVertex> vertices;
-    std::vector<uint16_t> indices;
+    std::vector<uint32_t> indices;
 
     for( unsigned int i = 0; i < mesh->mNumVertices; i++ )
     {
@@ -540,7 +540,7 @@ void ScaleSceneMeshes( const aiScene* scene, float scale )
 void ModelResourceMetadata::Export()
 {
     Assimp::Importer importer;
-    const aiScene* scene = importer.ReadFile( FilePath.FullPath.c_str(), aiProcess_Triangulate | aiProcess_CalcTangentSpace | aiProcess_ConvertToLeftHanded );
+    const aiScene* scene = importer.ReadFile( FilePath.FullPath.c_str(), aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_CalcTangentSpace | aiProcess_ConvertToLeftHanded );
     if( !scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode )
     {
         std::cout << "ERROR::ASSIMP:: " << importer.GetErrorString() << std::endl;

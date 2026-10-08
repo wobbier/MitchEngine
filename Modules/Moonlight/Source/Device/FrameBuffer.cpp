@@ -50,7 +50,7 @@ void Moonlight::FrameBuffer::ReCreate( uint32_t resetFlags )
                 , false
                 , 1
                 , bgfx::TextureFormat::BGRA8
-                , ( uint64_t( msaa + 1 ) << BGFX_TEXTURE_RT_MSAA_SHIFT ) | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP | BGFX_TEXTURE_BLIT_DST
+                , ( uint64_t( msaa + 1 ) << BGFX_TEXTURE_RT_MSAA_SHIFT ) | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP
             ),
         bgfx::createTexture2D(
                 uint16_t( Width )

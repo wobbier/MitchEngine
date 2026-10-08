@@ -55,7 +55,8 @@ bgfx::ProgramHandle Moonlight::LoadProgram( const std::string& vsName, const std
         fragmentShader = LoadShader( fsName );
     }
 
-    return bgfx::createProgram( vertexShader, fragmentShader, true );
+    // The shaders are owned by their cached ShaderFile, so don't let the program destroy them.
+    return bgfx::createProgram( vertexShader, fragmentShader, false );
 }
 
 std::string Moonlight::GetPlatformString()

@@ -114,6 +114,7 @@ namespace Moonlight
     {
     public:
         DynamicSky( uint32_t inWidth, uint32_t inHeight );
+        ~DynamicSky();
 
         void DrawImGui();
         void Draw( uint32_t inViewId );
