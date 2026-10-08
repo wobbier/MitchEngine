@@ -12,9 +12,9 @@ namespace Moonlight
 
         void Resize( Vector2 newSize );
 
-        bgfx::FrameBufferHandle Buffer;
-        bgfx::TextureHandle Texture;
-        bgfx::TextureHandle DepthTexture;
+        bgfx::FrameBufferHandle Buffer = BGFX_INVALID_HANDLE;
+        bgfx::TextureHandle Texture = BGFX_INVALID_HANDLE;
+        bgfx::TextureHandle DepthTexture = BGFX_INVALID_HANDLE;
         uint32_t Width = 0;
         uint32_t Height = 0;
         void ReCreate( uint32_t resetFlags );

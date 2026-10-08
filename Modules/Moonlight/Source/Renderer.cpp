@@ -782,7 +782,7 @@ CommandCache<Moonlight::DebugColliderCommand>& BGFXRenderer::GetDebugDrawCache()
 
 void BGFXRenderer::UpdateMeshMatrix( unsigned int Id, const glm::mat4& matrix )
 {
-    if( Id > m_meshCache.Commands.size() )
+    if( Id >= m_meshCache.Commands.size() )
     {
         return;
     }

@@ -124,7 +124,7 @@ bool ModelResource::Load()
         Path newPath = Path( FilePath.FullPath );
         ME_ASSERT_MSG( newPath.Exists, "Exported Model Doesn't Exist" );
 
-        scene = importer.ReadFile( FilePath.FullPath.c_str(), aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_CalcTangentSpace | aiProcess_ConvertToLeftHanded );
+        scene = importer.ReadFile( FilePath.FullPath.c_str(), aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_GenSmoothNormals | aiProcess_CalcTangentSpace | aiProcess_ConvertToLeftHanded );
         if( !scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode )
         {
             std::cout << "ERROR::ASSIMP:: " << importer.GetErrorString() << std::endl;
@@ -190,18 +190,6 @@ void ModelResource::ProcessNode( aiNode* node, const aiScene* scene, Moonlight::
     parent.NodeMatrix = Matrix4( worldTransform );
     parent.Rotation = Quaternion( rotation );
     parent.IsFlipped = wasFlipped;
-    if( nodeName == "SM_Generic_Mountains_Grass_10" )
-    {
-        Matrix4 testNode = Matrix4( worldTransform );
-        printf( "Translation: (%.6f, %.6f, %.6f)\n", translation.x, translation.y, translation.z );
-        printf( "Scale:       (%.6f, %.6f, %.6f)\n", scale.x, scale.y, scale.z );
-        printf( "Rotation (quat): (%.6f, %.6f, %.6f, %.6f)\n",
-            rotation.w, rotation.x, rotation.y, rotation.z );
-
-        glm::vec3 eulerDegrees = glm::degrees( glm::eulerAngles( rotation ) );
-        printf( "Rotation (Euler XYZ): (%.2f, %.2f, %.2f)\n",
-            eulerDegrees.x, eulerDegrees.y, eulerDegrees.z );
-    }
 
     for( unsigned int i = 0; i < node->mNumMeshes; i++ )
     {
@@ -267,8 +255,6 @@ void ModelResource::ProcessAnimations( const aiScene* scene )
         return;
     }
 
-    ME_ASSERT_MSG( false, "HAS ANIMS WOWWWW!!!!!! YIPPEEE!!!" );
-
     for( unsigned int i = 0; i < scene->mNumAnimations; ++i )
     {
         aiAnimation* anim = scene->mAnimations[i];
@@ -320,10 +306,13 @@ Moonlight::MeshData* ModelResource::ProcessMesh( aiMesh* mesh, Moonlight::Node& 
 
         vertex.Position = { mesh->mVertices[i].x,  mesh->mVertices[i].y,  mesh->mVertices[i].z };
 
-        vector.x = mesh->mNormals[i].x;
-        vector.y = mesh->mNormals[i].y;
-        vector.z = mesh->mNormals[i].z;
-        vertex.Normal = vector;
+        if( mesh->mNormals )
+        {
+            vector.x = mesh->mNormals[i].x;
+            vector.y = mesh->mNormals[i].y;
+            vector.z = mesh->mNormals[i].z;
+            vertex.Normal = vector;
+        }
 
         if( mesh->mTextureCoords[0] )
         {
@@ -539,7 +528,7 @@ void ScaleSceneMeshes( const aiScene* scene, float scale )
 void ModelResourceMetadata::Export()
 {
     Assimp::Importer importer;
-    const aiScene* scene = importer.ReadFile( FilePath.FullPath.c_str(), aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_CalcTangentSpace | aiProcess_ConvertToLeftHanded );
+    const aiScene* scene = importer.ReadFile( FilePath.FullPath.c_str(), aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_GenSmoothNormals | aiProcess_CalcTangentSpace | aiProcess_ConvertToLeftHanded );
     if( !scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode )
     {
         std::cout << "ERROR::ASSIMP:: " << importer.GetErrorString() << std::endl;
@@ -558,7 +547,10 @@ void ModelResourceMetadata::Export()
     //    "Cube1"
     //};
     double factor( 0.0 );
-    scene->mMetaData->Get( "UnitScaleFactor", factor );
+    if( scene && scene->mMetaData )
+    {
+        scene->mMetaData->Get( "UnitScaleFactor", factor );
+    }
     if( scene && scene->mRootNode )
     {
         //ScaleNode( scene->mRootNode, 0.1f ); // Example: Scale down by 50%

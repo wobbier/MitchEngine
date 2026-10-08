@@ -26,9 +26,11 @@ public:
 
     virtual void Use() final
     {
-        bgfx::setUniform( s_diffuse, &DiffuseColor.x );
-
-        bgfx::setUniform( s_tiling, &Tiling.x );
+        // Vec4 uniforms read 16 bytes: widen the Vector3/Vector2 members instead of over-reading them.
+        const float diffuse[4] = { DiffuseColor.x, DiffuseColor.y, DiffuseColor.z, 1.f };
+        const float tiling[4] = { Tiling.x, Tiling.y, 0.f, 0.f };
+        bgfx::setUniform( s_diffuse, diffuse );
+        bgfx::setUniform( s_tiling, tiling );
     }
 
     SharedPtr<Material> CreateInstance() final

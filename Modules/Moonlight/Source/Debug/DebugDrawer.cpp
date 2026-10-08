@@ -74,6 +74,11 @@ DebugDrawer::DebugDrawer()
 
     bgfx::RendererType::Enum type = bgfx::getRendererType();
 
+    // Only the line program is embedded; the rest stay invalid and are never submitted.
+    for( uint32_t ii = 0; ii < Program::Count; ++ii )
+    {
+        m_program[ii] = BGFX_INVALID_HANDLE;
+    }
     m_program[Program::Lines] = bgfx::createProgram(
         bgfx::createEmbeddedShader( s_embeddedShaders, type, "vs_debugdraw_lines" )
         , bgfx::createEmbeddedShader( s_embeddedShaders, type, "fs_debugdraw_lines" )
@@ -120,7 +125,10 @@ DebugDrawer::~DebugDrawer()
     bgfx::destroy( m_vbh );
     for( uint32_t ii = 0; ii < Program::Count; ++ii )
     {
-        bgfx::destroy( m_program[ii] );
+        if( bgfx::isValid( m_program[ii] ) )
+        {
+            bgfx::destroy( m_program[ii] );
+        }
     }
     bgfx::destroy( u_params );
     bgfx::destroy( s_texColor );

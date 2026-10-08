@@ -12,15 +12,15 @@ Moonlight::FrameBuffer::FrameBuffer( uint32_t width, uint32_t height )
 
 Moonlight::FrameBuffer::~FrameBuffer()
 {
-    bgfx::destroy( Buffer );
-    bgfx::destroy( Texture );
-    bgfx::destroy( DepthTexture );
+    // The framebuffer was created with destroyTextures = true, so it owns Texture/DepthTexture.
+    if( bgfx::isValid( Buffer ) )
+    {
+        bgfx::destroy( Buffer );
+    }
 }
 
 void Moonlight::FrameBuffer::Resize( Vector2 newSize )
 {
-    CLog::Log( CLog::LogType::Warning, "[TODO] Trying to resize frame buffer." );
-
     Width = Mathf::Max( newSize.x, 1.f );
     Height = Mathf::Max( newSize.y, 1.f );
     ReCreate( m_resetFlags );

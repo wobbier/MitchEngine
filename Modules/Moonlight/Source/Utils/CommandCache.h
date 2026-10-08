@@ -61,7 +61,7 @@ void CommandCache<T>::Update( unsigned int Id, T& inCommand )
 template<typename T>
 void CommandCache<T>::Pop( unsigned int Id )
 {
-    if( Id > Commands.size() )
+    if( Id >= Commands.size() )
     {
         return;
     }

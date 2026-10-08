@@ -14,24 +14,36 @@ public:
         Moonlight::PosNormTexTanBiVertex vert1;
         vert1.Position = { -1.f,0.f,-1.f };
         vert1.TextureCoord = { 0.f,0.f };
+        vert1.Normal = { 0.f, 1.f, 0.f };
+        vert1.Tangent = { 1.f, 0.f, 0.f };
+        vert1.BiTangent = { 0.f, 0.f, 1.f };
         Vertices.push_back( vert1 );
 
         // bottom left
         Moonlight::PosNormTexTanBiVertex vert2;
         vert2.Position = { -1.f, 0.f, 1.f };
         vert2.TextureCoord = { 0.f,1.f };
+        vert2.Normal = { 0.f, 1.f, 0.f };
+        vert2.Tangent = { 1.f, 0.f, 0.f };
+        vert2.BiTangent = { 0.f, 0.f, 1.f };
         Vertices.push_back( vert2 );
 
         // top right
         Moonlight::PosNormTexTanBiVertex vert3;
         vert3.Position = { 1.f, 0.f, -1.f };
         vert3.TextureCoord = { 1.f,0.f };
+        vert3.Normal = { 0.f, 1.f, 0.f };
+        vert3.Tangent = { 1.f, 0.f, 0.f };
+        vert3.BiTangent = { 0.f, 0.f, 1.f };
         Vertices.push_back( vert3 );
 
         // bottom right
         Moonlight::PosNormTexTanBiVertex vert4;
         vert4.Position = { 1.f, 0.f, 1.f };
         vert4.TextureCoord = { 1.f,1.f };
+        vert4.Normal = { 0.f, 1.f, 0.f };
+        vert4.Tangent = { 1.f, 0.f, 0.f };
+        vert4.BiTangent = { 0.f, 0.f, 1.f };
         Vertices.push_back( vert4 );
 
         Indices = { 0, 1, 2, 2, 1, 3 };

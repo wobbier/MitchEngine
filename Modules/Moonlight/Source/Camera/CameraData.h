@@ -55,6 +55,7 @@ namespace Moonlight
         bool ShouldRender = true;
         bool ShouldCull = true;
 
-        std::vector<bool> VisibleFlags;
+        // One byte per renderable (not vector<bool>): mesh jobs write these concurrently.
+        std::vector<uint8_t> VisibleFlags;
     };
 }

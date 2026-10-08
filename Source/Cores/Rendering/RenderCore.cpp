@@ -139,7 +139,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                                 if( cam.ViewFrustum.IsPointInFrustum( point ) )
                                 {
                                     isVisible = true;
-                                    cam.VisibleFlags[entIndex] = true;
+                                    cam.VisibleFlags[entIndex] = 1;
                                 }
                             }
 #if USING( ME_EDITOR )
@@ -151,7 +151,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                             if( editorCamera.ViewFrustum.IsPointInFrustum( point ) )
                             {
                                 isVisible = true;
-                                editorCamera.VisibleFlags[entIndex] = true;
+                                editorCamera.VisibleFlags[entIndex] = 1;
                             }
 #endif
                         }

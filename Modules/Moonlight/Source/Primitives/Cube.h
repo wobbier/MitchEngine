@@ -34,6 +34,8 @@ namespace Moonlight
         6, 3, 7,
     };
 
+    // Unit cube (-1..1) with per-face normals, tangents and UVs so it lights and normal-maps correctly.
+    // Triangles wind so cross(v1 - v0, v2 - v0) points out of the face (the engine's front-face convention).
     class CubeMesh
         : public Moonlight::MeshData
     {
@@ -41,84 +43,45 @@ namespace Moonlight
         CubeMesh()
             : Moonlight::MeshData()
         {
-            // top left
-            Moonlight::PosNormTexTanBiVertex vert1;
-            vert1.Position = { -1.0f,  1.0f,  1.0f };
-            vert1.TextureCoord = { 0.f,0.f };
-            Vertices.push_back( vert1 );
-
-            // bottom left
-            Moonlight::PosNormTexTanBiVertex vert2;
-            vert2.Position = { 1.0f,  1.0f,  1.0f };
-            vert2.TextureCoord = { 0.f,1.f };
-            Vertices.push_back( vert2 );
-
-            // top right
-            Moonlight::PosNormTexTanBiVertex vert3;
-            vert3.Position = { -1.0f, -1.0f,  1.0f };
-            vert3.TextureCoord = { 1.f,0.f };
-            Vertices.push_back( vert3 );
-
-            // bottom right
-            Moonlight::PosNormTexTanBiVertex vert4;
-            vert4.Position = { 1.0f, -1.0f,  1.0f };
-            vert4.TextureCoord = { 1.f,1.f };
-            Vertices.push_back( vert4 );
-
-            {
-                Moonlight::PosNormTexTanBiVertex vert5;
-                vert5.Position = { -1.0f,  1.0f, -1.0f };
-                vert5.TextureCoord = { 1.f,1.f };
-                Vertices.push_back( vert5 );
-            }
-            {
-                Moonlight::PosNormTexTanBiVertex vert5;
-                vert5.Position = { 1.0f,  1.0f, -1.0f };
-                vert5.TextureCoord = { 1.f,1.f };
-                Vertices.push_back( vert5 );
-            }
-            {
-                Moonlight::PosNormTexTanBiVertex vert5;
-                vert5.Position = { -1.0f, -1.0f, -1.0f };
-                vert5.TextureCoord = { 1.f,1.f };
-                Vertices.push_back( vert5 );
-            }
-            {
-                Moonlight::PosNormTexTanBiVertex vert5;
-                vert5.Position = { 1.0f, -1.0f, -1.0f };
-                vert5.TextureCoord = { 1.f,1.f };
-                Vertices.push_back( vert5 );
-            }
-
-            Indices = {
-                0, 1, 2, // 0
-                1, 3, 2,
-                4, 6, 5, // 2
-                5, 6, 7,
-                0, 2, 4, // 4
-                4, 2, 6,
-                1, 5, 3, // 6
-                5, 7, 3,
-                0, 4, 1, // 8
-                4, 5, 1,
-                2, 3, 6, // 10
-                6, 3, 7,
+            struct Face { Vector3 Normal; Vector3 Tangent; };
+            const Face faces[] = {
+                { {  1.f,  0.f,  0.f }, {  0.f,  0.f,  1.f } },
+                { { -1.f,  0.f,  0.f }, {  0.f,  0.f, -1.f } },
+                { {  0.f,  1.f,  0.f }, {  1.f,  0.f,  0.f } },
+                { {  0.f, -1.f,  0.f }, {  1.f,  0.f,  0.f } },
+                { {  0.f,  0.f,  1.f }, { -1.f,  0.f,  0.f } },
+                { {  0.f,  0.f, -1.f }, {  1.f,  0.f,  0.f } },
             };
 
-            //VertexPositionTexCoord verts[5];
-            //verts[0].Position = vert1.Position;
-            //verts[1].Position = vert2.Position;
-            //verts[2].Position = vert3.Position;
-            //verts[3].Position = vert4.Position;
-            //verts[4].Position = vert2.Position;
+            for( const Face& face : faces )
+            {
+                const Vector3 bitangent = face.Normal.Cross( face.Tangent );
+                const Vector3 corners[4] = {
+                    face.Normal - face.Tangent - bitangent,
+                    face.Normal + face.Tangent - bitangent,
+                    face.Normal + face.Tangent + bitangent,
+                    face.Normal - face.Tangent + bitangent,
+                };
+                const Vector2 uvs[4] = { { 0.f, 1.f }, { 1.f, 1.f }, { 1.f, 0.f }, { 0.f, 0.f } };
 
-            //verts[0].TexCoord = vert1.TexCoord;
-            //verts[1].TexCoord = vert2.TexCoord;
-            //verts[2].TexCoord = vert3.TexCoord;
-            //verts[3].TexCoord = vert4.TexCoord;
-            //verts[4].TexCoord = vert2.TexCoord;
-            //this->vertices.push_back()
-            //MeshMaterial = MakeShared<DiffuseMaterial>();
+                const uint32_t base = static_cast<uint32_t>( Vertices.size() );
+                for( int i = 0; i < 4; ++i )
+                {
+                    Moonlight::PosNormTexTanBiVertex vertex;
+                    vertex.Position = corners[i];
+                    vertex.Normal = face.Normal;
+                    vertex.TextureCoord = uvs[i];
+                    vertex.Tangent = face.Tangent;
+                    vertex.BiTangent = bitangent;
+                    Vertices.push_back( vertex );
+                }
+
+                const uint32_t faceIndices[6] = { 0, 1, 2, 0, 2, 3 };
+                for( uint32_t index : faceIndices )
+                {
+                    Indices.push_back( base + index );
+                }
+            }
 
             InitMesh();
         }
