@@ -13,6 +13,8 @@ public:
 
     virtual void OnStart() = 0;
     virtual void OnUpdate( const UpdateContext& inUpdateContext ) = 0;
+    // Called at the fixed simulation rate (see Engine::SetFixedTimeStep), possibly several times a frame.
+    virtual void OnFixedUpdate( const UpdateContext& inUpdateContext ) {}
     virtual void OnEnd() = 0;
     virtual void PreRender() = 0;
     virtual void PostRender() = 0;

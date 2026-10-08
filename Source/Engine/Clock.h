@@ -1,10 +1,11 @@
 // 2018 Mitchell Andrews
 #pragma once
+#include <cstdint>
 
 /*
 Clock.h
-A simple high precision engine clock that utilizes system cpu ticks to determine
-how much time has time has passed since the last computation.
+High precision clock (std::chrono::steady_clock) measuring time between Update() calls.
+Times are kept in double precision so long sessions don't lose resolution.
 */
 
 class Clock
@@ -17,18 +18,20 @@ public:
 
     void Update();
 
-    // Converts clock ticks into milliseconds and returns it.
-    float GetTimeInMilliseconds();
+    // Seconds since the process-wide clock epoch.
+    static double GetTimeInSecondsPrecise();
 
-    // Converts clock ticks into seconds.
+    float GetTimeInMilliseconds();
     float GetTimeInSeconds();
 
+    // Time between the last two Update() calls.
     const float GetDeltaMilliseconds();
     const float GetDeltaSeconds();
+    double GetDeltaSecondsPrecise() const;
 
     float GetPreviousTime() const;
 
 private:
-    float CurrentTime = 0;
-    float PreviousTime = 0;
+    double CurrentTime = 0.0;
+    double PreviousTime = 0.0;
 };

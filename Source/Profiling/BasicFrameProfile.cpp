@@ -89,7 +89,8 @@ void FrameProfile::Render( const Vector2& inPosition, const Vector2& inSize )
             float sz = 50.f;
             //draw_list->AddRectFilled(ImVec2(x, y), ImVec2(x + ImGui::GetWindowSize().x, y + sz), col322);
             float previousX = 0;
-            float targetFPS = ( 1.f / GetEngine().FPS );
+            // Bar scale: a frame at the cap (or 144 Hz when uncapped) fills the bar.
+            const float targetFPS = 1.f / ( GetEngine().GetMaxFrameRate() > 0.f ? GetEngine().GetMaxFrameRate() : 144.f );
             float size = ( totalFrameTime / targetFPS );
 
             if( size >= 100.f )

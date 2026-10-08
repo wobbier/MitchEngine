@@ -41,6 +41,12 @@ bool AutomationRunner::OnFrameEnd( BGFXRenderer& renderer, double frameMilliseco
     }
 
     ++m_frameIndex;
+    const double nowSeconds = std::chrono::duration<double>( std::chrono::steady_clock::now().time_since_epoch() ).count();
+    if( m_lastFrameEndSeconds >= 0.0 && m_frameIndex > static_cast<uint64_t>( m_warmupFrames ) && !m_screenshotRequested )
+    {
+        m_wallFrameTimes.push_back( ( nowSeconds - m_lastFrameEndSeconds ) * 1000.0 );
+    }
+    m_lastFrameEndSeconds = nowSeconds;
     if( !m_tracePath.empty() && !m_isTracing && m_frameIndex == static_cast<uint64_t>( m_warmupFrames ) )
     {
         OPTICK_START_CAPTURE();
@@ -123,6 +129,14 @@ void AutomationRunner::WritePerfReport() const
         report["P50Ms"] = percentile( 0.50 );
         report["P95Ms"] = percentile( 0.95 );
         report["P99Ms"] = percentile( 0.99 );
+    }
+
+    if( !m_wallFrameTimes.empty() )
+    {
+        const double wallTotal = std::accumulate( m_wallFrameTimes.begin(), m_wallFrameTimes.end(), 0.0 );
+        const double wallAverage = wallTotal / static_cast<double>( m_wallFrameTimes.size() );
+        report["WallAverageMs"] = wallAverage;
+        report["WallAverageFps"] = wallAverage > 0.0 ? 1000.0 / wallAverage : 0.0;
     }
 
     std::ofstream out( m_perfReportPath );

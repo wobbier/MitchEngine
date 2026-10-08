@@ -188,16 +188,20 @@ void EditorApp::OnInitialize()
             {
                 StartGame();
                 m_isGamePaused = false;
+                GetEngine().SetPaused( false );
                 m_isGameRunning = true;
                 //Editor->SetViewportMode(ViewportMode::Game);
             }
             , [this]()
             {
-                m_isGamePaused = true;
+                // Toggle: pausing freezes Update/FixedUpdate deltas; rendering and the editor keep running.
+                m_isGamePaused = !m_isGamePaused;
+                GetEngine().SetPaused( m_isGamePaused );
             }
             , [this]()
             {
                 m_isGamePaused = false;
+                GetEngine().SetPaused( false );
                 //Editor->SetViewportMode(ViewportMode::World);
                 ClearInspectEvent evt;
                 evt.Fire();

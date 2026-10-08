@@ -53,14 +53,14 @@ void PhysicsCore::Init()
 {
 }
 
-void PhysicsCore::Update( const UpdateContext& inUpdateContext )
+void PhysicsCore::FixedUpdate( const UpdateContext& inUpdateContext )
 {
 #if USING( ME_PHYSICS_3D )
-    OPTICK_CATEGORY( "PhysicsCore::Update", Optick::Category::Physics )
+    OPTICK_CATEGORY( "PhysicsCore::FixedUpdate", Optick::Category::Physics )
         auto& PhysicsEntites = GetEntities();
 
-        // Need a fixed delta probably
-    PhysicsWorld->stepSimulation( inUpdateContext.GetDeltaTime(), 10 );
+    // One fixed step per call: the engine runs FixedUpdate at a constant rate.
+    PhysicsWorld->stepSimulation( inUpdateContext.GetFixedDeltaTime(), 1, inUpdateContext.GetFixedDeltaTime() );
 
     std::vector<std::pair<int, int>> batches;
     Burst::GenerateChunks( PhysicsEntites.size(), 11, batches );

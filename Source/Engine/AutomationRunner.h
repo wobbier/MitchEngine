@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>
 #include <cstdint>
+#include <chrono>
 
 class BGFXRenderer;
 
@@ -39,4 +40,7 @@ private:
     uint32_t m_screenshotBaseline = 0;
     int m_framesSinceScreenshotRequest = 0;
     std::vector<double> m_frameTimes;
+    // Time between consecutive frame ends (includes frame limiting / vsync waits).
+    std::vector<double> m_wallFrameTimes;
+    double m_lastFrameEndSeconds = -1.0;
 };

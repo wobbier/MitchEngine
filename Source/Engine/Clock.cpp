@@ -2,59 +2,71 @@
 #include "Clock.h"
 #include <chrono>
 
+
 Clock::Clock()
 {
     Reset();
 }
 
+
 Clock::~Clock()
 {
 }
 
+
 void Clock::Reset()
 {
-    const float timeStamp = GetTimeInSeconds();
-
+    const double timeStamp = GetTimeInSecondsPrecise();
     CurrentTime = timeStamp;
     PreviousTime = timeStamp;
 }
 
+
 void Clock::Update()
 {
-    const float timeStamp = GetTimeInSeconds();
-
     PreviousTime = CurrentTime;
-    CurrentTime = timeStamp;
+    CurrentTime = GetTimeInSecondsPrecise();
 }
+
+
+double Clock::GetTimeInSecondsPrecise()
+{
+    static const auto startTime = std::chrono::steady_clock::now();
+    return std::chrono::duration<double>( std::chrono::steady_clock::now() - startTime ).count();
+}
+
 
 float Clock::GetTimeInMilliseconds()
 {
-    return GetTimeInSeconds() * 1000.0f;
+    return static_cast<float>( GetTimeInSecondsPrecise() * 1000.0 );
 }
+
 
 float Clock::GetTimeInSeconds()
 {
-    static auto startTime = std::chrono::high_resolution_clock::now();
-
-    const auto timeStamp = std::chrono::high_resolution_clock::now();
-    const auto totalSeconds = timeStamp - startTime;
-
-    const float DeltaSeconds = std::chrono::duration_cast<std::chrono::duration<float>>( totalSeconds ).count();
-
-    return DeltaSeconds;
+    return static_cast<float>( GetTimeInSecondsPrecise() );
 }
+
 
 const float Clock::GetDeltaMilliseconds()
 {
-    return ( CurrentTime - PreviousTime ) / 1000.f;
+    return static_cast<float>( ( CurrentTime - PreviousTime ) * 1000.0 );
 }
+
 
 const float Clock::GetDeltaSeconds()
 {
-    return ( CurrentTime - PreviousTime );
+    return static_cast<float>( CurrentTime - PreviousTime );
 }
+
+
+double Clock::GetDeltaSecondsPrecise() const
+{
+    return CurrentTime - PreviousTime;
+}
+
 
 float Clock::GetPreviousTime() const
 {
-    return PreviousTime;
+    return static_cast<float>( PreviousTime );
 }

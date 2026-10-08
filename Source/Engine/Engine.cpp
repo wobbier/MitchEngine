@@ -43,6 +43,9 @@
 #include "Core/CommandLine.h"
 #include "Core/CrashHandler.h"
 #include <chrono>
+#include <thread>
+#include <algorithm>
+#include <cmath>
 
 Engine& GetEngine()
 {
@@ -129,6 +132,25 @@ void Engine::Init( Game* game )
         engineConfig.OnLoadConfig( engineConfig.Root );
 
         m_automation.Init();
+
+        // Timing settings: Engine.cfg keys, overridable from the command line.
+        const json& configRoot = engineConfig.Root;
+        if( configRoot.contains( "FixedTimeStep" ) && configRoot["FixedTimeStep"].is_number() )
+        {
+            SetFixedTimeStep( configRoot["FixedTimeStep"].get<float>() );
+        }
+        if( configRoot.contains( "MaxFrameRate" ) && configRoot["MaxFrameRate"].is_number() )
+        {
+            SetMaxFrameRate( configRoot["MaxFrameRate"].get<float>() );
+        }
+        if( CommandLine::Has( "--fixed-step" ) )
+        {
+            SetFixedTimeStep( CommandLine::GetFloat( "--fixed-step", m_fixedTimeStep ) );
+        }
+        if( CommandLine::Has( "--max-fps" ) )
+        {
+            SetMaxFrameRate( CommandLine::GetFloat( "--max-fps", 0.f ) );
+        }
         if( CommandLine::Has( "--width" ) && CommandLine::Has( "--height" ) )
         {
             engineConfig.WindowSize = Vector2( static_cast<float>( CommandLine::GetInt( "--width" ) ), static_cast<float>( CommandLine::GetInt( "--height" ) ) );
@@ -254,9 +276,7 @@ void Engine::Run()
     }
 
     GameClock.Reset();
-
-    const float FramesPerSec = FPS;
-    const float MaxDeltaTime = ( 1.f / FramesPerSec );
+    m_fixedAccumulator = 0.0;
 
     // Game loop
     forever
@@ -280,11 +300,27 @@ void Engine::Run()
             EventManager::GetInstance().FirePendingEvents();
         }
 
+        // Frame timing: clamp hitches (debugger breaks, loading) so the simulation never tries to
+        // catch up on seconds of backlog, then apply pause / time scale.
+        float frameSeconds = 0.f;
+        float scaledSeconds = 0.f;
         {
             OPTICK_EVENT( "Clock" );
             GameClock.Update();
-
-            AccumulatedTime += GameClock.GetDeltaSeconds();
+            frameSeconds = static_cast<float>( std::min( GameClock.GetDeltaSecondsPrecise(), static_cast<double>( m_maxFrameDelta ) ) );
+            if( m_isPaused )
+            {
+                // Step Frame advances exactly one fixed step while paused.
+                scaledSeconds = m_stepRequested ? m_fixedTimeStep : 0.f;
+                m_stepRequested = false;
+            }
+            else
+            {
+                scaledSeconds = frameSeconds * m_timeScale;
+            }
+            DeltaTime = scaledSeconds;
+            updateContext.FixedDeltaTime = m_fixedTimeStep;
+            updateContext.BeginFrame( scaledSeconds, frameSeconds, m_timeScale, m_isPaused );
         }
 
         GetInput().Update();
@@ -292,10 +328,8 @@ void Engine::Run()
         GetEditorInput().Update();
 #endif
 
-        //if (AccumulatedTime >= MaxDeltaTime)
         {
-            float deltaTime = DeltaTime = AccumulatedTime;
-            updateContext.UpdateDeltaTime( deltaTime );
+            const float deltaTime = scaledSeconds;
 
 #if USING( ME_IMGUI )
             {
@@ -342,11 +376,35 @@ void Engine::Run()
         m_debugTools.Render();
 #endif
 
+            // Fixed-step simulation (physics, deterministic gameplay): zero or more steps per frame.
+            {
+                OPTICK_EVENT( "FixedUpdate" );
+                ME_FRAMEPROFILE_SCOPED( "Physics", ProfileCategory::Physics );
+                m_fixedAccumulator += scaledSeconds;
+                int steps = 0;
+                while( m_fixedAccumulator >= m_fixedTimeStep && steps < m_maxFixedStepsPerFrame )
+                {
+                    updateContext.IsFixedStepActive = true;
+                    GameWorld->FixedUpdateLoadedCores( updateContext );
+                    m_game->OnFixedUpdate( updateContext );
+                    updateContext.IsFixedStepActive = false;
+                    GameWorld->Simulate();
+                    m_fixedAccumulator -= m_fixedTimeStep;
+                    ++steps;
+                }
+                if( steps == m_maxFixedStepsPerFrame && m_fixedAccumulator >= m_fixedTimeStep )
+                {
+                    // Too far behind: drop the backlog rather than spiral.
+                    m_fixedAccumulator = std::fmod( m_fixedAccumulator, static_cast<double>( m_fixedTimeStep ) );
+                }
+                updateContext.InterpolationAlpha = static_cast<float>( m_fixedAccumulator / m_fixedTimeStep );
+            }
+
             // Update Loaded Cores
             {
-                // TODO: This is wrong?? There's more than just physics in loaded cores...
-                ME_FRAMEPROFILE_SCOPED( "Physics", ProfileCategory::Physics );
+                ME_FRAMEPROFILE_SCOPED( "Game Cores", ProfileCategory::Game );
                 GameWorld->UpdateLoadedCores( updateContext );
+                GameWorld->Simulate();
             }
 
             // Update Cameras
@@ -361,6 +419,7 @@ void Engine::Run()
                 ME_FRAMEPROFILE_SCOPED( "Game", ProfileCategory::Game );
                 OPTICK_CATEGORY( "MainLoop::GameUpdate", Optick::Category::GameLogic );
                 m_game->OnUpdate( updateContext );
+                GameWorld->Simulate();
             }
 
             // Update Audio
@@ -394,6 +453,7 @@ void Engine::Run()
             {
                 OPTICK_EVENT( "LateUpdate" );
                 GameWorld->LateUpdateLoadedCores( updateContext );
+                GameWorld->Simulate();
                 Cameras->Update( updateContext );
                 SceneNodes->LateUpdate( updateContext );
                 Cameras->LateUpdate( updateContext );
@@ -436,7 +496,7 @@ void Engine::Run()
             // This makes the profiler overview data to be delayed for a frame, but takes the renderer into account.
             {
                 static float fpsTime = 0;
-                fpsTime += AccumulatedTime;
+                fpsTime += frameSeconds;
                 if( fpsTime > 1.f )
                 {
                     FrameProfile::GetInstance().Dump();
@@ -445,29 +505,99 @@ void Engine::Run()
             }
 #endif
 
-            AccumulatedTime = std::fmod( AccumulatedTime, MaxDeltaTime );
-
 #if USING( ME_BASIC_PROFILER )
-            FrameProfile::GetInstance().End( AccumulatedTime );
+            FrameProfile::GetInstance().End( frameSeconds );
 #endif
-            AccumulatedTime = 0;// std::fmod(AccumulatedTime, MaxDeltaTime);
             GetInput().PostUpdate();
 #if USING ( ME_EDITOR )
             GetEditorInput().PostUpdate();
 #endif
         }
         ResourceCache::GetInstance().Dump();
-        //Sleep(1);
+
+        LimitFrameRate( frameStartTime );
     }
 
     if( m_automation.IsActive() )
     {
         // Unattended runs must not clobber the user's window config.
         m_automation.Shutdown();
+    }
+    else
+    {
+        engineConfig.Save();
+    }
+    Shutdown();
+}
+
+
+void Engine::Shutdown()
+{
+    OPTICK_EVENT( "Engine::Shutdown" );
+    CLog::Log( CLog::LogType::Info, "Shutting down." );
+
+    // Components get OnDisable/OnDestroy while every engine system is still alive.
+    if( GameWorld )
+    {
+        GameWorld->Stop();
+        GameWorld->Destroy();
+    }
+
+    Jobs::JobSystem::Get().Shutdown();
+    CLog::GetInstance().Flush();
+}
+
+void Engine::LimitFrameRate( std::chrono::steady_clock::time_point frameStart )
+{
+    if( m_maxFrameRate <= 0.f )
+    {
         return;
     }
-    engineConfig.Save();
+    OPTICK_EVENT( "FrameRateLimit" );
+    const auto frameEnd = frameStart + std::chrono::duration_cast<std::chrono::steady_clock::duration>( std::chrono::duration<double>( 1.0 / m_maxFrameRate ) );
+    // Sleep most of the remainder, then spin for precision.
+    const auto sleepUntil = frameEnd - std::chrono::milliseconds( 1 );
+    if( std::chrono::steady_clock::now() < sleepUntil )
+    {
+        std::this_thread::sleep_until( sleepUntil );
+    }
+    while( std::chrono::steady_clock::now() < frameEnd )
+    {
+        std::this_thread::yield();
+    }
 }
+
+
+void Engine::SetTimeScale( float InTimeScale )
+{
+    m_timeScale = std::max( 0.f, InTimeScale );
+}
+
+
+void Engine::SetPaused( bool InPaused )
+{
+    m_isPaused = InPaused;
+    m_stepRequested = false;
+}
+
+
+void Engine::StepFrame()
+{
+    m_stepRequested = true;
+}
+
+
+void Engine::SetFixedTimeStep( float InSeconds )
+{
+    m_fixedTimeStep = std::clamp( InSeconds, 1.f / 1000.f, 1.f / 5.f );
+}
+
+
+void Engine::SetMaxFrameRate( float InFramesPerSecond )
+{
+    m_maxFrameRate = std::max( 0.f, InFramesPerSecond );
+}
+
 
 bool Engine::OnEvent( const BaseEvent& evt )
 {
