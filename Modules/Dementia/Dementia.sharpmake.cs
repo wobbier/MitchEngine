@@ -1,5 +1,6 @@
 using System.IO;
 using Sharpmake;
+using static CommonTarget;
 
 [Generate]
 public class Dementia : BaseProject
@@ -20,18 +21,20 @@ public class Dementia : BaseProject
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/Bullet/src"));
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/glm"));
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/JSON/include"));
-        conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/Optick/src"));
+        if (target.SubPlatform != SubPlatformType.linux)
+            conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/Optick/src"));
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/ImGui"));
         conf.IncludePaths.Add("[project.SourceRootPath]");
 
-        conf.LibraryFiles.Add("Dementia");
-        conf.LibraryFiles.Add("OptickCore");
+        //conf.LibraryFiles.Add("Dementia");
     }
     
     public override void ConfigureWin64(Configuration conf, CommonTarget target)
     {
         base.ConfigureWin64(conf, target);
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"../../ThirdParty/Lib/Optick/Win64/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
+
+        conf.LibraryFiles.Add("OptickCore");
     }
 
     public override void ConfigureUWP(Configuration conf, CommonTarget target)
@@ -45,5 +48,11 @@ public class Dementia : BaseProject
         base.ConfigureMac(conf, target);
         // What the actual fuck lmao                                                                       v
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/Lib/Optick/macOS/Debug"));
+    }
+
+    public override void ConfigureLinux(Configuration conf, CommonTarget target)
+    {
+        base.ConfigureLinux(conf, target);
+        conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/ChromeTrace"));
     }
 }

@@ -2,7 +2,28 @@
 #include "PlatformWindow.h"
 
 #include <SDL.h>
+
+#if USING( ME_PLATFORM_LINUX )
+#define KeyCode X11KeyCode
+#define Window  X11Window
+
+#ifndef SDL_VIDEO_DRIVER_WAYLAND
+#define SDL_VIDEO_DRIVER_WAYLAND 1
+#endif
+
+#ifndef SDL_VIDEO_DRIVER_X11
+#define SDL_VIDEO_DRIVER_X11 1
+#endif
+#endif
+
 #include <SDL_syswm.h>
+
+#if USING( ME_PLATFORM_LINUX )
+#undef KeyCode
+#undef Window
+#undef None
+#endif
+
 #include <ImGui/ImGuiRenderer.h>
 #include <imgui.h>
 
@@ -28,6 +49,13 @@ void PlatformWindow::Create()
 
 void PlatformWindow::Destroy()
 {
+#if USING( ME_PLATFORM_LINUX )
+    if (GLContext)
+    {
+        SDL_GL_DeleteContext(GLContext);
+        GLContext = nullptr;
+    }
+#endif
     if( bgfx::isValid( Buffer ) )
     {
         bgfx::destroy( Buffer );
@@ -56,6 +84,26 @@ void PlatformWindow::SetWindow( SDL_Window* window )
 #if USING( ME_PLATFORM_MACOS )
     PlatformInfo.ndt = nullptr;
     PlatformInfo.nwh = wmi.info.cocoa.window;
+#endif
+#if USING( ME_PLATFORM_LINUX )
+    switch (wmi.subsystem)
+    {
+        case SDL_SYSWM_WAYLAND:
+            // Wayland: ndt = wl_display*, nwh = wl_surface*
+            PlatformInfo.ndt = wmi.info.wl.display;
+            PlatformInfo.nwh = (void*)wmi.info.wl.egl_window;
+            break;
+
+        case SDL_SYSWM_X11:
+            // X11: ndt = Display*, nwh = Window
+            PlatformInfo.ndt = wmi.info.x11.display;
+            PlatformInfo.nwh = (void*)(uintptr_t)wmi.info.x11.window;
+            break;
+
+        default:
+            printf("Unhandled SDL WM subsystem: %d\n", (int)wmi.subsystem);
+            break;
+    }
 #endif
     PlatformInfo.context = nullptr;
     PlatformInfo.backBuffer = nullptr;

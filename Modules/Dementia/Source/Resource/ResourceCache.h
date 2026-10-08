@@ -68,7 +68,7 @@ SharedPtr<T> ResourceCache::Get( const Path& InFilePath, Args&& ... args )
 #if USING( ME_TOOLS )
     if( metaFile && ( metaFile->FlaggedForExport || !compiledFileExists ) )
     {
-        YIKES( "Exporting asset: " + InFilePath.FullPath );
+        BRUH( "Exporting asset: " + InFilePath.FullPath );
         metaFile->Export();
         metaFile->Save();
         AssetMetaCache::GetInstance().Update( InFilePath, metaFile );

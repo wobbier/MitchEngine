@@ -124,9 +124,11 @@ void Havana::InitUI()
     //ImGui::LoadIniSettingsFromDisk(EngineConfigFilePath.FullPath.c_str());
     io.IniFilename = EngineConfigFilePath.FullPath.c_str();
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+#if !USING( ME_PLATFORM_LINUX )
     io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
     io.BackendFlags |= ImGuiBackendFlags_PlatformHasViewports;
     io.BackendFlags |= ImGuiBackendFlags_RendererHasViewports;
+#endif
     //io.MouseDrawCursor = true;
 
     g_imgui_to_sdl_cursor[ImGuiMouseCursor_Arrow] = SDL_CreateSystemCursor( SDL_SYSTEM_CURSOR_ARROW );

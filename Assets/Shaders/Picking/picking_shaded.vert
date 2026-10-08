@@ -6,7 +6,7 @@ $output v_pos, v_view, v_normal, v_color0
  * License: https://github.com/bkaradzic/bgfx/blob/master/LICENSE
  */
 
-#include "../common.sh"
+#include "../Common.sh"
 
 uniform vec4 u_tint;
 

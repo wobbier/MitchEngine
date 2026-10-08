@@ -4,6 +4,7 @@
 
 class btRigidBodyWithEventsEventDelegates;
 
+#if USING( ME_PHYSICS_3D )
 class ICollisionEvents
     : public btActionInterface
 {
@@ -20,3 +21,4 @@ public:
 
     virtual ~ICollisionEvents() {}
 };
+#endif

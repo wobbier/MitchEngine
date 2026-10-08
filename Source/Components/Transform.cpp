@@ -209,14 +209,14 @@ void Transform::SetWorldTransform( Matrix4& NewWorldTransform, bool InIsDirty )
 
 const bool Transform::IsDirty() const
 {
-    return true;// IsLocalToWorldDirty || IsWorldToLocalDirty;
+    return IsLocalToWorldDirty || IsWorldToLocalDirty;
 }
 
 const Matrix4& Transform::GetLocalToWorldMatrix()
 {
-    OPTICK_CATEGORY( "GetLocalToWorldMatrix", Optick::Category::Scene );
     if( FuncIsLocalToWorldDirty() )
     {
+        //OPTICK_CATEGORY( "DIRTY: GetLocalToWorldMatrix", Optick::Category::Scene );
         glm::mat4 T = glm::translate( glm::mat4( 1.0f ), GetPosition().InternalVector );
         glm::quat R = GetRotation().InternalQuat;
         glm::mat4 S = glm::scale( glm::mat4( 1.0f ), GetScale().InternalVector );
@@ -230,12 +230,12 @@ const Matrix4& Transform::GetLocalToWorldMatrix()
 }
 bool Transform::FuncIsLocalToWorldDirty()
 {
-    return true;// IsLocalToWorldDirty || ( ParentTransform && ParentTransform->FuncIsLocalToWorldDirty() );
+    return IsLocalToWorldDirty;
 }
 
 const Matrix4& Transform::GetWorldToLocalMatrix()
 {
-    OPTICK_CATEGORY( "GetWorldToLocalMatrix", Optick::Category::Scene );
+    //OPTICK_CATEGORY( "GetWorldToLocalMatrix", Optick::Category::Scene );
     if( IsWorldToLocalDirty )
     {
         WorldToLocalMatrix = GetLocalToWorldMatrix().Inverse();
@@ -246,20 +246,27 @@ const Matrix4& Transform::GetWorldToLocalMatrix()
 
 void Transform::SetDirty( bool Dirty )
 {
+    if( Dirty && IsLocalToWorldDirty )
+    {
+        return;
+    }
+
     OPTICK_EVENT( "Transform::SetDirty" );
-    if( Dirty && ( Dirty != m_isDirty ) )
+
+    IsLocalToWorldDirty = Dirty;
+    IsWorldToLocalDirty = Dirty;
+    m_isDirty = Dirty;
+
+    if( Dirty )
     {
         for( SharedPtr<Transform>& Child : Children )
         {
             if( Child )
             {
-                Child->SetDirty( Dirty );
+                Child->SetDirty( true );
             }
         }
     }
-    IsWorldToLocalDirty = true;
-    IsLocalToWorldDirty = true;
-    m_isDirty = Dirty;
 }
 
 void Transform::LookAt( const Vector3& InDirection )

@@ -8,8 +8,11 @@
 #include <winhttp.h>
 #endif
 
-#if USING( ME_PLATFORM_MACOS )
+#if USING( ME_PLATFORM_MACOS ) || USING( ME_PLATFORM_LINUX )
 #include <curl/curl.h>
+#include <cctype>
+#include <cstdio>
+#include <cstring>
 #endif
 
 #include <iostream>
@@ -18,9 +21,13 @@
 
 namespace Web
 {
-#if USING( ME_PLATFORM_WINDOWS )
+#if USING( ME_PLATFORM_MACOS ) || USING( ME_PLATFORM_LINUX )
+    bool DownloadFileCurl( const std::string& inURL, const Path& outPath );
+#endif
+
     bool DownloadFile( const std::string& inURL, const Path& outPath )
     {
+#if USING( ME_PLATFORM_WINDOWS )
         std::string fileServer, filePath;
         bool isSecure = false;
 
@@ -169,8 +176,14 @@ namespace Web
 
         BRUH( "File downloaded successfully." );
         return true;
-    }
+#elif USING( ME_PLATFORM_MACOS ) || USING( ME_PLATFORM_LINUX )
+        return DownloadFileCurl( inURL, outPath );
+#else
+        YIKES_FMT( "Web::DownloadFile is not implemented on this platform; cannot download '%s'", inURL.c_str() );
+        (void)outPath;
+        return false;
 #endif
+    }
 
     bool SplitUrl( std::string url, std::string& baseUrl, std::string& path, bool& isSecure )
     {
@@ -212,7 +225,7 @@ namespace Web
         return true;
     }
 
-#if USING( ME_PLATFORM_MACOS )
+#if USING( ME_PLATFORM_MACOS ) || USING( ME_PLATFORM_LINUX )
     size_t WriteToFileCallback( char* ptr, size_t size, size_t nmemb, void* userdata )
     {
         // 'userdata' is our ofstream pointer
@@ -225,7 +238,37 @@ namespace Web
         return size * nmemb;
     }
 
-    bool DownloadFile( const std::string& inURL, const Path& outPath )
+    std::string NormalizeDownloadUrl( const std::string& inURL )
+    {
+        std::string scheme = "https://";
+        std::string rest = inURL;
+        size_t schemeEnd = inURL.find( "://" );
+        if( schemeEnd != std::string::npos )
+        {
+            scheme = inURL.substr( 0, schemeEnd + 3 );
+            rest = inURL.substr( schemeEnd + 3 );
+        }
+
+        std::string encoded;
+        encoded.reserve( rest.size() );
+        for( unsigned char c : rest )
+        {
+            if( std::isalnum( c ) || std::strchr( "/-_.~:@%?=&", c ) != nullptr )
+            {
+                encoded += static_cast<char>( c );
+            }
+            else
+            {
+                char buf[4];
+                std::snprintf( buf, sizeof( buf ), "%%%02X", c );
+                encoded += buf;
+            }
+        }
+
+        return scheme + encoded;
+    }
+
+    bool DownloadFileCurl( const std::string& inURL, const Path& outPath )
     {
         // Ensure directory exists (similar logic to your WinHTTP version)
         std::string directory = outPath.GetDirectoryString();
@@ -246,7 +289,8 @@ namespace Web
         }
 
         // Configure URL
-        curl_easy_setopt( curlHandle, CURLOPT_URL, inURL.c_str() );
+        const std::string url = NormalizeDownloadUrl( inURL );
+        curl_easy_setopt( curlHandle, CURLOPT_URL, url.c_str() );
 
         // If you need HTTPS ignoring invalid certificates (similar to your WinHTTP code),
         // you can disable cert verification here.
@@ -274,20 +318,21 @@ namespace Web
         // Perform the request
         CURLcode res = curl_easy_perform( curlHandle );
 
-        // Clean up
-        curl_easy_cleanup( curlHandle );
-        outfile.close();
-
         if( res != CURLE_OK )
         {
-            std::cerr << "Download failed with error: "
-                << curl_easy_strerror( res ) << std::endl;
+            std::cerr << "Download failed with error: " << curl_easy_strerror( res ) << std::endl;
+            curl_easy_cleanup( curlHandle );
+            outfile.close();
             return false;
         }
 
         // Optionally check the HTTP response code
         long http_code = 0;
         curl_easy_getinfo( curlHandle, CURLINFO_RESPONSE_CODE, &http_code );
+        
+        curl_easy_cleanup( curlHandle );
+        outfile.close();
+        
         if( http_code != 200 )
         {
             std::cerr << "Non-200 status code received: " << http_code << std::endl;

@@ -59,4 +59,21 @@ public class Moonlight : BaseProject
 
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/bx/include/compat/osx/"));
     }
+
+    public override void ConfigureLinux(Configuration conf, CommonTarget target)
+    {
+        base.ConfigureLinux(conf, target);
+
+        //conf.LibraryFiles.Add($"bgfxDebug");
+        //conf.LibraryFiles.Add($"bxDebug");
+        //conf.LibraryFiles.Add($"bimgDebug");
+        //conf.LibraryFiles.Add($"bimg_decodeDebug");
+    //conf.AdditionalLinkerOptions.Add("-l:libassimp.a");
+    //conf.AdditionalLinkerOptions.Add("-l:libbgfxDebug.a");       // Remove this
+    //conf.AdditionalLinkerOptions.Add("-l:libbimgDebug.a");
+    //conf.AdditionalLinkerOptions.Add("-l:libbimg_decodeDebug.a");
+    //conf.AdditionalLinkerOptions.Add("-l:libbxDebug.a");
+    //conf.AdditionalLinkerOptions.Add("-l:libzlibstatic.a");
+        conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/bx/include/compat/linux/"));
+    }
 }

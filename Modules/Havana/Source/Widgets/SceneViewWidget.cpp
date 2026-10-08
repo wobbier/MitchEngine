@@ -17,6 +17,7 @@
 #include "UI/Colors.h"
 #include "Components/Physics/Rigidbody.h"
 #include "Physics/RigidBodyWithCollisionEvents.h"
+#include "Utils/HavanaUtils.h"
 
 #if USING( ME_EDITOR )
 
@@ -238,6 +239,12 @@ void SceneViewWidget::Render()
 		}
 		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 150.f);
 
+		static bool testBTN = false;
+		if( HavanaUtils::ToggleButton("TEST", testBTN))
+		{
+			MaximizeOnPlay = !testBTN;
+		}
+
 		if (ImGui::Button("Toggle Fullscreen", ImVec2(150.f, 20.f)))
 		{
 			MaximizeOnPlay = !MaximizeOnPlay;
@@ -350,8 +357,9 @@ void SceneViewWidget::Render()
 	{
 		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(AssetDescriptor::kDragAndDropPayload))
 		{
-			IM_ASSERT(payload->DataSize == sizeof(AssetDescriptor));
-			AssetDescriptor& payload_n = *(AssetDescriptor*)payload->Data;
+			AssetDescriptor* _p = AssetDescriptor::GetDragged();
+			if (!_p) return;
+			AssetDescriptor& payload_n = *_p;
 
 			if (payload_n.Type == AssetType::Prefab)
 			{

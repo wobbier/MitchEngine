@@ -10,5 +10,4 @@ Cubemap::Cubemap( const Path& InFilePath )
 
 Cubemap::~Cubemap()
 {
-    // TODO: Unload Cubemaps
 }

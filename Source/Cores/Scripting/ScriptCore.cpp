@@ -3,16 +3,8 @@
 #include "ScriptCore.h"
 #include "Components/Scripting/ScriptComponent.h"
 
-#if USING( ME_SCRIPTING )
-#include <mono/jit/jit.h>
-#include <mono/metadata/assembly.h>
-#include <mono/metadata/debug-helpers.h>
-#include <mono/metadata/attrdefs.h>
-#endif
-
 #include "File.h"
 #include "Utils/PlatformUtils.h"
-#include "Scripting/MonoUtils.h"
 #include "Scripting/ScriptEngine.h"
 #include "Events/SceneEvents.h"
 #include "ECS/Core.h"
@@ -29,6 +21,7 @@ ScriptCore::ScriptCore()
 #endif
 }
 
+
 ScriptCore::~ScriptCore()
 {
 }
@@ -38,62 +31,45 @@ void ScriptCore::Init()
 {
 }
 
+
 void ScriptCore::Update( const UpdateContext& inUpdateContext )
 {
 #if USING( ME_SCRIPTING )
     OPTICK_EVENT( "ScriptCore::Update" );
-    auto& entities = GetEntities();
-    for( auto& InEntity : entities )
+    for( auto& entity : GetEntities() )
     {
-        auto& scriptComponent = InEntity.GetComponent<ScriptComponent>();
-
-        if( scriptComponent.Instance )
+        auto& comp = entity.GetComponent<ScriptComponent>();
+        if( comp.m_dotnetHandle >= 0 )
         {
-            scriptComponent.Instance->OnUpdate( inUpdateContext.GetDeltaTime() );
+            ScriptEngine::ScriptOnUpdate( comp.m_dotnetHandle, inUpdateContext.GetDeltaTime() );
         }
     }
 #endif
 }
+
 
 void ScriptCore::LateUpdate( const UpdateContext& inUpdateContext )
 {
 
 }
 
+
 void ScriptCore::OnEntityAdded( Entity& NewEntity )
 {
-#if USING( ME_SCRIPTING )
-    ScriptComponent& comp = NewEntity.GetComponent<ScriptComponent>();
-    if( comp.Instance )
-    {
-        // could be possibly called before other entities are done
-        comp.Instance->OnCreate();
-    }
-#endif
+    // nothing to do - ScriptComponent::Init() already runs CreateScript + ScriptOnStart.
+    // #TODO: add a ScriptOnCreate binding here if we ever want an Awake-before-Start split.
 }
+
 
 void ScriptCore::OnEntityRemoved( Entity& InEntity )
 {
 #if USING( ME_SCRIPTING )
-    EntityID entityId = InEntity.GetId();
-
-    auto it = ScriptEngine::entityInstanceCache.find( entityId );
-    if( it != ScriptEngine::entityInstanceCache.end() )
+    auto& comp = InEntity.GetComponent<ScriptComponent>();
+    if( comp.m_dotnetHandle >= 0 )
     {
-        mono_gchandle_free( it->second ); // Free the GC handle explicitly
-        ScriptEngine::entityInstanceCache.erase( it );
-        BRUH_FMT( "Removed GC handle for Entity ID: %u", entityId.Value() );
+        ScriptEngine::ScriptOnDestroy( comp.m_dotnetHandle );
+        comp.m_dotnetHandle = -1;
     }
-
-    // Also handle the entity instances if needed
-    auto instIt = ScriptEngine::sScriptData.EntityInstances.find( entityId.Value() );
-    if( instIt != ScriptEngine::sScriptData.EntityInstances.end() )
-    {
-        ScriptEngine::sScriptData.EntityInstances.erase( instIt );
-    }
-
-    // Clear script fields associated with entity, if tracked
-    ScriptEngine::sScriptData.EntityScriptFields.erase( entityId.Value() );
 #endif
 }
 
@@ -104,32 +80,17 @@ void ScriptCore::OnEditorInspect()
 {
 #if USING( ME_SCRIPTING )
     OPTICK_EVENT( "ScriptCore::OnEditorInspect" );
-    //float value;
-    //mono_field_get_value( ScriptEngine::testClassInstance.ClassObject, ScriptEngine::floatField, &value );
-    //ImGui::DragFloat( "C# Float", &value );
-    //mono_field_set_value( ScriptEngine::testClassInstance.ClassObject, ScriptEngine::floatField, &value );
-    //
-    //ScriptEngine::testClassInstance.InvokeFull("PrintFloatVar");
 
+    // debug: dump the scriptable classes the game dll handed us.
+    // #TODO: the old "All Classes" dump needs a new binding to come back.
     if( ImGui::CollapsingHeader( "Entity Classes" ) )
     {
-        for( auto& it : ScriptEngine::LoadedEntityScripts )
+        int count = ScriptEngine::GetScriptCount();
+        for( int i = 0; i < count; ++i )
         {
-            ImGui::Text( "%s %s", it.Namespace.c_str(), it.Name.c_str() );
+            std::string name = ScriptEngine::GetScriptName( i );
+            ImGui::Text( "%s", name.c_str() );
         }
-    }
-
-    if( ImGui::CollapsingHeader( "All Classes" ) )
-    {
-        for( auto& it : ScriptEngine::LoadedClasses )
-        {
-            ImGui::Text( "%s %s", it.Namespace.c_str(), it.Name.c_str() );
-        }
-    }
-
-    if( ImGui::Button( "Start Debugging" ) )
-    {
-        ScriptEngine::InitDebug();
     }
 #endif
 }

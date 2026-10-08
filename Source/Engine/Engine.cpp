@@ -62,9 +62,12 @@ Engine::~Engine()
 
 extern bool ImGui_ImplSDL2_InitForD3D( SDL_Window* window );
 extern bool ImGui_ImplSDL2_InitForMetal( SDL_Window* window );
+extern bool ImGui_ImplSDL2_InitForOpenGL(SDL_Window* window, void* sdl_gl_context);
+extern bool ImGui_ImplSDL2_InitForVulkan( SDL_Window* window );
 extern bool ImGui_ImplWin32_Init( void* window );
 void Engine::Init( Game* game )
 {
+    OPTICK_EVENT( "Engine::Init" );
     if( m_isInitialized || !game )
     {
         return;
@@ -113,10 +116,16 @@ void Engine::Init( Game* game )
         evt.Fire();
     };
 
-    engineConfig = EngineConfig( engineCfg );
-    engineConfig.OnLoadConfig( engineConfig.Root );
-#if USING( ME_PLATFORM_WIN64 ) || USING( ME_PLATFORM_MACOS )
-    GameWindow = new SDLWindow( engineConfig.GetValue( "Title" ), ResizeFunc, engineConfig.WindowPosition.x, engineConfig.WindowPosition.y, engineConfig.WindowSize );
+    {
+        OPTICK_EVENT( "Engine::Init::LoadConfig" );
+        engineConfig = EngineConfig( engineCfg );
+        engineConfig.OnLoadConfig( engineConfig.Root );
+    }
+#if USING( ME_PLATFORM_WIN64 ) || USING( ME_PLATFORM_MACOS ) || USING( ME_PLATFORM_LINUX )
+    {
+        OPTICK_EVENT( "Engine::Init::CreateWindow" );
+        GameWindow = new SDLWindow( engineConfig.GetValue( "Title" ), ResizeFunc, engineConfig.WindowPosition.x, engineConfig.WindowPosition.y, engineConfig.WindowSize );
+    }
 #endif
 
 #if USING( ME_PLATFORM_UWP )
@@ -129,34 +138,41 @@ void Engine::Init( Game* game )
     GameWindow->SetBorderless( true );
 #endif
 
-    NewRenderer = new BGFXRenderer();
-    RendererCreationSettings settings;
-    settings.WindowPtr = GameWindow->GetWindowPtr();
-    settings.InitialSize = engineConfig.WindowSize;
-    NewRenderer->Create( settings );
+    CLog::GetInstance().Log( CLog::LogType::Info, "Starting the Renderer." );
+    {
+        OPTICK_EVENT( "Engine::Init::RendererCreate" );
+        NewRenderer = new BGFXRenderer();
+        RendererCreationSettings settings;
+        settings.WindowPtr = GameWindow->GetWindowPtr();
+#if USING( ME_PLATFORM_LINUX )
+        settings.DisplayPtr = static_cast<SDLWindow*>( GameWindow )->GetDisplayPtr();
+        settings.WindowType = static_cast<SDLWindow*>( GameWindow )->GetWindowType();
+#endif
+        settings.InitialSize = engineConfig.WindowSize;
+        NewRenderer->Create( settings );
+    }
+    CLog::GetInstance().Log( CLog::LogType::Info, "After the Renderer." );
 #if USING( ME_IMGUI )
 #if USING( ME_PLATFORM_WIN64 )
     ImGui_ImplSDL2_InitForD3D( static_cast<SDLWindow*>( GameWindow )->WindowHandle );
-#endif
-#if USING( ME_PLATFORM_MACOS )
+#elif USING( ME_PLATFORM_MACOS )
     ImGui_ImplSDL2_InitForMetal( static_cast<SDLWindow*>( GameWindow )->WindowHandle );
+#elif USING( ME_PLATFORM_LINUX )
+    ImGui_ImplSDL2_InitForVulkan( static_cast<SDLWindow*>( GameWindow )->WindowHandle );
 #endif
 #endif
     //m_renderer = new Moonlight::Renderer();
     //m_renderer->WindowResized(GameWindow->GetSize());
 
-    GameWorld = MakeShared<World>();
-
-    Cameras = new CameraCore();
-
-    SceneNodes = new SceneCore();
-
-    ModelRenderer = new RenderCore();
-    AudioThread = new AudioCore();
-
-    //m_renderer->Init();
-
-    UI = new UICore( GameWindow, NewRenderer );
+    {
+        OPTICK_EVENT( "Engine::Init::CreateCores" );
+        GameWorld = MakeShared<World>();
+        Cameras = new CameraCore();
+        SceneNodes = new SceneCore();
+        ModelRenderer = new RenderCore();
+        AudioThread = new AudioCore();
+        UI = new UICore( GameWindow, NewRenderer );
+    }
 
     NewRenderer->SetGuizmoDrawCallback( [this]( DebugDrawer* drawer )
         {
@@ -188,13 +204,21 @@ void Engine::Init( Game* game )
 
 void Engine::InitGame()
 {
-    GameWorld->AddCore<CameraCore>( *Cameras );
-    GameWorld->AddCore<SceneCore>( *SceneNodes );
-    GameWorld->AddCore<RenderCore>( *ModelRenderer );
-    GameWorld->AddCore<AudioCore>( *AudioThread );
-    GameWorld->AddCore<UICore>( *UI );
+    OPTICK_EVENT( "Engine::InitGame" );
+    {
+        OPTICK_EVENT( "Engine::InitGame::AddCores" );
+        GameWorld->AddCore<CameraCore>( *Cameras );
+        GameWorld->AddCore<SceneCore>( *SceneNodes );
+        GameWorld->AddCore<RenderCore>( *ModelRenderer );
+        GameWorld->AddCore<AudioCore>( *AudioThread );
+        GameWorld->AddCore<UICore>( *UI );
+    }
 
-    m_game->OnInitialize();
+    YIKES("Engine::InitGame");
+    {
+        OPTICK_EVENT( "Engine::InitGame::OnInitialize" );
+        m_game->OnInitialize();
+    }
 }
 
 void Engine::StopGame()
@@ -346,8 +370,9 @@ void Engine::Run()
                 }
             }
 
-            // Late Update	
+            // Late Update
             {
+                OPTICK_EVENT( "LateUpdate" );
                 GameWorld->LateUpdateLoadedCores( updateContext );
                 Cameras->Update( updateContext );
                 SceneNodes->LateUpdate( updateContext );
@@ -359,6 +384,7 @@ void Engine::Run()
 
             // Render
             {
+                OPTICK_EVENT( "Render" );
                 m_game->PreRender();
 #if !USING( ME_EDITOR )
                 EditorCamera.OutputSize = GetWindow()->GetSize();
@@ -481,27 +507,35 @@ SimpleJobSystem& Engine::GetJobSystem()
 
 void Engine::LoadScene( const std::string& SceneFile )
 {
+    OPTICK_EVENT( "Engine::LoadScene" );
     Cameras->Init();
     if( CurrentScene )
     {
+        OPTICK_EVENT( "Engine::LoadScene::UnloadPrevious" );
         CurrentScene->UnLoad();
         delete CurrentScene;
         CurrentScene = nullptr;
     }
 
-    GameWorld->Unload();
+    {
+        OPTICK_EVENT( "Engine::LoadScene::WorldUnload" );
+        GameWorld->Unload();
+    }
     SceneNodes->Init();
     CurrentScene = new Scene( SceneFile );
 
-    if( !CurrentScene->Load( GameWorld ) && !CurrentScene->IsNewScene() )
     {
-        ME_ASSERT_MSG( false, "Failed to load scene." );
+        OPTICK_EVENT( "Engine::LoadScene::ParseJSON" );
+        if( !CurrentScene->Load( GameWorld ) && !CurrentScene->IsNewScene() )
+        {
+            ME_ASSERT_MSG( false, "Failed to load scene." );
+        }
     }
 
 #if USING( ME_SCRIPTING )
-    ScriptEngine::sScriptData.worldPtr = GetWorld();
-    ScriptEngine::sScriptData.enginePtr = this;
+    ScriptEngine::SetWorld( GetWorld() );
 #endif
+
     GameWorld->AddCore<UICore>(*UI);
 
     GameWorld->Simulate();

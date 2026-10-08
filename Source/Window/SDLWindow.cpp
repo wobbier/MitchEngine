@@ -1,5 +1,36 @@
 #include "PCH.h"
 #include <Window/SDLWindow.h>
+
+// SDL headers
+#include <SDL.h>
+
+#if USING( ME_PLATFORM_LINUX )
+// Avoid conflicts with X11's KeyCode / Window typedefs.
+#define KeyCode X11KeyCode
+#define Window  X11Window
+
+// Make sure wl/x11 fields in SDL_SysWMinfo are available on this build.
+#ifndef SDL_VIDEO_DRIVER_WAYLAND
+#define SDL_VIDEO_DRIVER_WAYLAND 1
+#endif
+
+#ifndef SDL_VIDEO_DRIVER_X11
+#define SDL_VIDEO_DRIVER_X11 1
+#endif
+
+#include <SDL_syswm.h>
+#include <wayland-egl.h>
+// Clean up X11 name pollution so the rest of this TU is sane.
+#undef KeyCode
+#undef Window
+#undef None  // X.h defines `#define None 0L` which breaks enum values like eKeyState::None
+
+#else
+#include <SDL_syswm.h>
+#endif
+
+#include <bgfx/bgfx.h>
+
 #include "bgfx/platform.h"
 #include "CLog.h"
 #include "Engine/Input.h"
@@ -68,12 +99,21 @@ SDLWindow::SDLWindow( const std::string& title, std::function<void( const Vector
     SDL_Init( SDL_INIT_EVERYTHING );
     int xPos = ( X == 0 ) ? SDL_WINDOWPOS_CENTERED : X;
     int yPos = ( Y == 0 ) ? SDL_WINDOWPOS_UNDEFINED : Y;
-    WindowHandle = SDL_CreateWindow( title.c_str(), xPos, yPos, static_cast<int>( windowSize.x ), static_cast<int>( windowSize.y ), SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE );
-
+    Uint32 windowFlags = SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE;
+#if USING( ME_PLATFORM_LINUX )
+    windowFlags |= SDL_WINDOW_VULKAN;
+#endif
+    WindowHandle = SDL_CreateWindow( title.c_str(), xPos, yPos, static_cast<int>( windowSize.x ), static_cast<int>( windowSize.y ), windowFlags );
     if( WindowHandle == nullptr ) {
         printf( "Window could not be created. SDL_Error: %s\n", SDL_GetError() );
     }
     SetWindow( WindowHandle );
+
+    int numDrivers = SDL_GetNumVideoDrivers();
+    printf("SDL video drivers: %d\n", numDrivers);
+    for (int i = 0; i < numDrivers; ++i)
+        printf("  %s\n", SDL_GetVideoDriver(i));
+    printf("Current video driver: %s\n", SDL_GetCurrentVideoDriver());
 
     /*SharedPtr<Texture> tex = ResourceCache::GetInstance().Get<Texture>(Path("Assets/Havana/ME.png"));
     tex->
@@ -715,6 +755,23 @@ SDLWindow::SDLWindow( const std::string& title, std::function<void( const Vector
 
     //// ...and the surface containing the icon pixel data is no longer required.
     SDL_FreeSurface( surface );
+
+}
+
+SDLWindow::~SDLWindow()
+{
+#if USING( ME_PLATFORM_LINUX )
+    if ( m_waylandEglWindow )
+    {
+        wl_egl_window_destroy( m_waylandEglWindow );
+        m_waylandEglWindow = nullptr;
+    }
+#endif
+    if (WindowHandle)
+    {
+        SDL_DestroyWindow(WindowHandle);
+        WindowHandle = nullptr;
+    }
 }
 
 bool SDLWindow::ShouldClose()
@@ -727,7 +784,6 @@ extern bool ImGui_ImplSDL2_ProcessEvent( const SDL_Event* event );
 #endif
 void SDLWindow::ParseMessageQueue()
 {
-    OPTICK_EVENT( "Window::ParseMessageQueue" );
     SDL_Event event;
     while( SDL_PollEvent( &event ) )
     {
@@ -897,6 +953,7 @@ void SDLWindow::SetWindow( SDL_Window* window )
     {
         return;
     }
+    printf("Subsystem: %d\n", wmi.subsystem);
 
 #if USING( ME_PLATFORM_WIN64 )
     PlatformInfo.ndt = nullptr;
@@ -909,6 +966,26 @@ void SDLWindow::SetWindow( SDL_Window* window )
 #if USING( ME_PLATFORM_UWP )
     PlatformInfo.ndt = nullptr;
     PlatformInfo.nwh = wmi.info.win.window;
+#endif
+#if USING( ME_PLATFORM_LINUX )
+    switch (wmi.subsystem)
+    {
+        case SDL_SYSWM_WAYLAND:
+            PlatformInfo.ndt  = wmi.info.wl.display;
+            PlatformInfo.nwh  = wmi.info.wl.surface;
+            PlatformInfo.type = bgfx::NativeWindowHandleType::Wayland;
+            break;
+
+        case SDL_SYSWM_X11:
+            // X11: ndt = Display*, nwh = Window
+            PlatformInfo.ndt = wmi.info.x11.display;
+            PlatformInfo.nwh = (void*)(uintptr_t)wmi.info.x11.window;
+            break;
+
+        default:
+            printf("Unhandled SDL WM subsystem: %d\n", (int)wmi.subsystem);
+            break;
+    }
 #endif
     PlatformInfo.context = nullptr;
     PlatformInfo.backBuffer = nullptr;
@@ -943,8 +1020,6 @@ void SDLWindow::HandleWindowEvent( const SDL_WindowEvent& event )
         break;
     }
     case SDL_WINDOWEVENT_RESIZED:
-        // Remove this CB
-        ResizeCB( GetSize() );
         SDL_Log( "Window %d resized to %dx%d",
             event.windowID, event.data1,
             event.data2 );

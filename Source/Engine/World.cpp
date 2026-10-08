@@ -418,7 +418,7 @@ Entity* World::GetEntityRaw( const EntityID& InEntity )
     return nullptr;
 }
 
-EntityHandle World::FindEntityByIDValue( uint32_t id )
+EntityHandle World::FindEntityByIDValue( uint64_t id )
 {
     for (auto& alive : EntityCache.Alive)
     {

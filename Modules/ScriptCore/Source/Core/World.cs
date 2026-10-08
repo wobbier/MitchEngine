@@ -1,18 +1,26 @@
-using System.Runtime.CompilerServices;
+namespace ScriptCore;
 
-public class World
+public static unsafe class World
 {
-    [MethodImplAttribute(MethodImplOptions.InternalCall)]
-    public static extern Entity World_CreateEntity(string inString);
-    public static Entity CreateEntity(string inName)
+    public static Entity CreateEntity( string name )
     {
-        return World_CreateEntity(inName);
+        Entity e = default;
+        fixed (byte* p = Engine.Utf8(name)) Engine._api.World_CreateEntity(p, &e);
+        return e;
     }
 
-    [MethodImplAttribute(MethodImplOptions.InternalCall)]
-    public static extern Entity World_GetTransformByName(string inString);
-    public static Transform GetTransformByName(string inName)
+
+    public static Entity Find( string name )
     {
-        return World_GetTransformByName(inName).GetComponent<Transform>();
+        Entity e = default;
+        fixed (byte* p = Engine.Utf8(name)) Engine._api.World_FindByName(p, &e);
+        return e;
+    }
+
+
+    public static Transform GetTransformByName( string name )
+    {
+        var e = Find(name);
+        return e ? e.GetComponent<Transform>() : null;
     }
 }

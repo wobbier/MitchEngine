@@ -56,7 +56,7 @@ bool SceneHierarchyWidget::OnEvent(const BaseEvent& evt)
 
         SelectedCore = nullptr;
         SelectedEntity = handle;
-		if( SelectedEntity->HasComponent<Transform>() )
+		if( SelectedEntity && SelectedEntity->HasComponent<Transform>() )
 		{
 			SelectedTransform = SelectedEntity->GetComponent<Transform>().GetPtr();
 		}
@@ -95,14 +95,13 @@ void SceneHierarchyWidget::Render()
 	OPTICK_CATEGORY("Havana::UpdateWorld", Optick::Category::GameLogic);
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 0.f, 0.f });
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0.f, 0.f });
-	ImGui::Begin(Name.c_str(), 0, ImGuiWindowFlags_MenuBar);
-	if (!world)
+	bool windowOpen = ImGui::Begin(Name.c_str(), 0, ImGuiWindowFlags_MenuBar);
+	ImGui::PopStyleVar(2);
+	if (!windowOpen || !world)
 	{
-		ImGui::PopStyleVar(2);
 		ImGui::End();
 		return;
 	}
-	ImGui::PopStyleVar(2);
 
 	ImGui::BeginMenuBar();
 	if (ImGui::BeginMenu("Create"))
@@ -378,8 +377,9 @@ void SceneHierarchyWidget::HandleAssetDragAndDrop(Transform* root)
 {
 	if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(AssetDescriptor::kDragAndDropPayload))
 	{
-		IM_ASSERT(payload->DataSize == sizeof(AssetDescriptor));
-		AssetDescriptor& payload_n = *(AssetDescriptor*)payload->Data;
+		AssetDescriptor* _p = AssetDescriptor::GetDragged();
+		if (!_p) return;
+		AssetDescriptor& payload_n = *_p;
 
 		if (payload_n.Type == AssetType::Model)
 		{

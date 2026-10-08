@@ -3,7 +3,7 @@
 #include <Path.h>
 #include <Pointers.h>
 #include <vector>
-#include "Graphics\Texture.h"
+#include "Graphics/Texture.h"
 #include "ProjectFileConfig.h"
 
 namespace Moonlight { class Texture; }

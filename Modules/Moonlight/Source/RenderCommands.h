@@ -60,6 +60,12 @@ namespace Moonlight
         uint64_t ID = 0u;
         int VisibilityIndex = 0;
         bool Visible = false;
+
+        uint64_t BatchKey = 0u;
+        uint16_t VertexBufferIdx = UINT16_MAX;
+        uint16_t IndexBufferIdx = UINT16_MAX;
+        bool IsTransparent = false;
+        bool SupportsInstancing = false;
     };
 
     struct LightCommand

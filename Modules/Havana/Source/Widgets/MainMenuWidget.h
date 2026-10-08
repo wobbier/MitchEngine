@@ -65,7 +65,7 @@ private:
 #endif
 
 #if USING( ME_SCRIPTING )
-    SharedPtr<Moonlight::Texture> MONOImage;
+    SharedPtr<Moonlight::Texture> DOTNETImage;
 #endif
 
 	void BrowseDirectory(const Path& path);

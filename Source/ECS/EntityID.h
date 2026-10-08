@@ -29,7 +29,7 @@ struct EntityID
 
     inline IntType Value() const
     {
-        return ( Counter << MITCH_ENTITY_ID_COUNTER_BIT_COUNT ) | Index;
+        return ( ( Counter & 0xFFFFULL ) << MITCH_ENTITY_ID_INDEX_BIT_COUNT ) | ( Index & 0x0000FFFFFFFFFFFFULL );
     }
 
     void Clear()
@@ -50,7 +50,7 @@ namespace std
     {
         std::size_t operator()( const EntityID& eid ) const noexcept
         {
-            return std::hash<uint32_t>()( eid.Value() );
+            return std::hash<uint64_t>()( eid.Value() );
         }
     };
 }

@@ -63,6 +63,7 @@ public:
     virtual void OnEditorInspect() final;
 #endif
     bgfx::TextureHandle m_uiTexture;
+    bgfx::FrameBufferHandle m_uiFrameBuffer = BGFX_INVALID_HANDLE;
     Vector2 UISize;
 private:
 

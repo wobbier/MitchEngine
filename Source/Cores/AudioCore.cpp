@@ -103,20 +103,25 @@ bool AudioCore::OnEvent( const BaseEvent& InEvent )
     {
         const PlayAudioEvent& evt = static_cast<const PlayAudioEvent&>( InEvent );
         Path soundPath = Path( evt.SourceName );
-        auto sound = soundPath.GetLocalPath();
-        if( m_cachedSounds.find( sound.data() ) == m_cachedSounds.end() )
+        std::string sound = soundPath.GetLocalPathString();
+        if( sound.empty() )
         {
-            auto& source = m_cachedSounds[sound.data()] = MakeShared<AudioSource>( sound.data() );
+            return true;
+        }
+
+        if( m_cachedSounds.find( sound ) == m_cachedSounds.end() )
+        {
+            auto& source = m_cachedSounds[sound] = MakeShared<AudioSource>( sound );
             InitComponent( *source );
         }
-        auto& cachedSound = m_cachedSounds[sound.data()];
+        auto& cachedSound = m_cachedSounds[sound];
         cachedSound->Play( false );
         cachedSound->SetVolume( evt.Volume );
         cachedSound->SetPositionMs( cachedSound->GetLength() * evt.StartPercent );
 
         if( evt.Callback )
         {
-            evt.Callback( m_cachedSounds[sound.data()] );
+            evt.Callback( m_cachedSounds[sound] );
         }
 
         return true;
@@ -126,10 +131,10 @@ bool AudioCore::OnEvent( const BaseEvent& InEvent )
     {
         const StopAudioEvent& evt = static_cast<const StopAudioEvent&>( InEvent );
         Path soundPath = Path( evt.SourceName );
-        auto sound = soundPath.GetLocalPath();
-        if( m_cachedSounds.find( sound.data() ) != m_cachedSounds.end() )
+        std::string sound = soundPath.GetLocalPathString();
+        if( m_cachedSounds.find( sound ) != m_cachedSounds.end() )
         {
-            m_cachedSounds.erase( sound.data() );
+            m_cachedSounds.erase( sound );
             //auto& source = m_cachedSounds[sound.data()] = MakeShared<AudioSource>( sound.data() );
             //InitComponent( *source );
         }

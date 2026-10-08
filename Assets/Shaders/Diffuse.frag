@@ -1,6 +1,4 @@
 $input v_color0, v_normal, v_texcoord0
-
-
 #include "Common.sh"
 
 SAMPLER2D(s_texDiffuse, 0);
@@ -19,10 +17,10 @@ void main()
 	vec4 color = texture2D(s_texDiffuse, uvs) * s_diffuse;
 
 	vec4 ambient = s_ambient * color;
-	vec4 lightDir = normalize(s_sunDirection);
+	vec3 lightDir    = normalize(s_sunDirection.xyz);
 	vec3 skyDirection = vec3(0.0, 0.0, 1.0);
 
-	float diff = max(dot(normalize(v_normal), lightDir), 0.0);
+	float diff       = max(dot(normalize(v_normal), lightDir), 0.0);
 	float diffuseSky = 1.0 + 0.5 * dot(normalize(v_normal), skyDirection);
 	diffuseSky *= 0.03;
 	vec4 diffuse = diff * s_sunDiffuse;// * color;

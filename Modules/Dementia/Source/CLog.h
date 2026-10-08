@@ -4,6 +4,7 @@
 #include <fstream>
 #include "Singleton.h"
 #include <vector>
+#include <format>
 /*
 CLog.h
 A utility class for creating and managing logs for the engine. You can change the
@@ -17,6 +18,9 @@ log file name and priority levels to control what info gets saved and where.
                                              ":" + std::to_string(__LINE__) + \
                                              "]\n\t[" + __FUNCTION__ + "]\n\t", \
                                              __VA_ARGS__ )
+#define YIKES_NEW( ... ) CLog::Log( CLog::LogType::Error, \
+                                           std::format("{}\n\t[{}:{}]\n\t[{}]\n\t", \
+                                           CLog::FormatMessage2(__VA_ARGS__), __FILE__, __LINE__, __FUNCTION__) )
 /// A Warning
 #define BRUH(name) CLog::Log(CLog::LogType::Warning, name)
 #define BRUH_FMT( name, ... ) CLog::LogFmt( CLog::LogType::Warning, \
@@ -39,6 +43,13 @@ log file name and priority levels to control what info gets saved and where.
         __VA_ARGS__)
 
 
+#define BRUH_NEW( ... ) CLog::Log( CLog::LogType::Warning, \
+                                           std::format("{}\n\t[{}:{}]\n\t[{}]\n\t", \
+                                           CLog::FormatMessage2(__VA_ARGS__), __FILE__, __LINE__, __FUNCTION__) )
+/// A Debug Message
+#define DBG( ... ) CLog::Log( CLog::LogType::Debug, \
+                                           std::format("{}\n\t[{}:{}]\n\t[{}]\n\t", \
+                                           CLog::FormatMessage2(__VA_ARGS__), __FILE__, __LINE__, __FUNCTION__) )
 class CLog
 {
 public:
@@ -72,6 +83,13 @@ public:
 
     template<typename... Args>
     static bool LogFmt( CLog::LogType priority, const std::string& message, Args&&... args );
+
+    template<typename T>
+    static std::string FormatMessage2( T&& single );
+
+    template<typename... Args>
+    static std::string FormatMessage2( std::format_string<Args...> fmt, Args&&... args );
+
     struct LogEntry
     {
         LogType Type = LogType::None;
@@ -101,4 +119,16 @@ bool CLog::LogFmt( LogType priority, const std::string& message, Args&&... args 
 
     std::string formattedString = std::string( buf.data() );
     return CLog::GetInstance().LogMessage( priority, formattedString );
+}
+
+template<typename T>
+std::string CLog::FormatMessage2( T&& single )
+{
+    return std::format( "{}", std::forward<T>( single ) );
+}
+
+template<typename... Args>
+std::string CLog::FormatMessage2( std::format_string<Args...> fmt, Args&&... args )
+{
+    return std::format( fmt, std::forward<Args>( args )... );
 }

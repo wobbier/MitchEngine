@@ -1,6 +1,7 @@
 #pragma once
 #include "Worker.h"
 #include "StaticVector.h"
+#include <random>
 
 class JobEngine
 {
@@ -15,6 +16,7 @@ public:
 
 private:
     StaticVector<Worker> Workers;
+    std::mt19937 RandomEngine { std::random_device()() };
 
     Worker* FindThreadWorker( const std::thread::id InThreadId );
 };

@@ -23,6 +23,7 @@ public:
         if( !FilePath.Exists )
         {
             YIKES_FMT( "[File IO] File does not exist: %s", FilePath.GetLocalPath().data() );
+            return Data;
         }
 
         FileStream.open( FilePath.FullPath.c_str(), std::ios::in );
