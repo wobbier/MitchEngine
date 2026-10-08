@@ -19,6 +19,7 @@
 #endif
 #include "Core/FrameRenderData.h"
 #include "AutomationRunner.h"
+#include "Resource/FileWatcher.h"
 
 class Game;
 class IWindow;
@@ -130,6 +131,10 @@ public:
 
 private:
     AutomationRunner m_automation;
+#if USING( ME_TOOLS )
+    void PollAssetChanges();
+    FileWatcher m_assetWatcher;
+#endif
 };
 
 Engine& GetEngine();

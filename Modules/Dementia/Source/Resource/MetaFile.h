@@ -48,4 +48,6 @@ struct MetaBase
     Path FilePath;
     long LastModified = 0;
     bool FlaggedForExport = false;
+    // Stable identity of the asset (generated the first time the meta is written).
+    uint64_t GUID = 0;
 };

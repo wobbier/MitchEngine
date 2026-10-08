@@ -2,6 +2,10 @@
 #include "File.h"
 #include "Dementia.h"
 #include <sys/stat.h>
+#include <cstdio>
+#include <cstdlib>
+#include "AssetDatabase.h"
+#include "Utils/GUID.h"
 
 MetaBase::MetaBase( const Path& filePath )
     : FilePath( filePath )
@@ -40,6 +44,14 @@ MetaBase::MetaBase( const Path& filePath )
 void MetaBase::Serialize( json& outJson )
 {
     outJson["FileType"] = FilePath.GetExtension();
+    if( GUID == 0 )
+    {
+        GUID = ::GUID::Generate();
+    }
+    char guidText[17];
+    std::snprintf( guidText, sizeof( guidText ), "%016llx", static_cast<unsigned long long>( GUID ) );
+    outJson["GUID"] = guidText;
+    AssetDatabase::Get().Register( FilePath.GetLocalPathString(), GUID );
     //outJson["LastModified"] = LastModified;
     //outJson["LastModifiedDebug"] = LastModifiedDebug;
     //outJson["LastModified"] = buffer;
@@ -51,6 +63,11 @@ void MetaBase::Deserialize( const json& inJson )
     if( inJson.contains( "FileType" ) )
     {
         FileType = inJson["FileType"];
+    }
+    if( inJson.contains( "GUID" ) && inJson["GUID"].is_string() )
+    {
+        GUID = std::strtoull( inJson["GUID"].get<std::string>().c_str(), nullptr, 16 );
+        AssetDatabase::Get().Register( FilePath.GetLocalPathString(), GUID );
     }
 
     /*bool wasModified = true;

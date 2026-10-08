@@ -25,9 +25,14 @@ Path::Path( const std::string& InFile, bool Raw /*= false*/ )
     pos = ProgramPath.find_last_of( "/" );
     ProgramPath = ProgramPath.substr( 0, pos + 1 );
 #else
-    auto p = std::filesystem::current_path();
-    std::string ProgramPath( std::string( p.generic_string() ) );
-    std::replace( ProgramPath.begin(), ProgramPath.end(), '\\', '/' );
+    // The working directory is fixed for the life of the engine; querying it for every Path
+    // was a syscall per construction.
+    static const std::string s_programPath = []() {
+        std::string path = std::filesystem::current_path().generic_string();
+        std::replace( path.begin(), path.end(), '\\', '/' );
+        return path;
+    }();
+    const std::string& ProgramPath = s_programPath;
 #endif
 
     std::string assetPrefix;

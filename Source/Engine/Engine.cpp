@@ -42,6 +42,9 @@
 #include "Events/EditorEvents.h"
 #include "Core/CommandLine.h"
 #include "Core/CrashHandler.h"
+#include "Resource/FileWatcher.h"
+#include "Resource/AssetDatabase.h"
+#include "World/SceneSerializer.h"
 #include <chrono>
 #include <thread>
 #include <algorithm>
@@ -268,6 +271,12 @@ extern void ImGui_ImplSDL2_NewFrame();
 
 void Engine::Run()
 {
+#if USING( ME_TOOLS )
+    // Hot reload: watch the asset trees and reimport/reload changed assets at frame start.
+    AssetDatabase::Get().Refresh( { "Assets", "Engine/Assets" } );
+    m_assetWatcher.Start( { "Assets", "Engine/Assets" } );
+#endif
+
     m_game->OnStart();
 
     if( CommandLine::Has( "--scene" ) )
@@ -299,6 +308,10 @@ void Engine::Run()
             OPTICK_EVENT( "EventManager", Optick::Category::Cloth );
             EventManager::GetInstance().FirePendingEvents();
         }
+
+#if USING( ME_TOOLS )
+        PollAssetChanges();
+#endif
 
         // Frame timing: clamp hitches (debugger breaks, loading) so the simulation never tries to
         // catch up on seconds of backlog, then apply pause / time scale.
@@ -531,9 +544,41 @@ void Engine::Run()
 }
 
 
+#if USING( ME_TOOLS )
+void Engine::PollAssetChanges()
+{
+    std::vector<FileWatcher::Change> changes = m_assetWatcher.ConsumeChanges();
+    if( changes.empty() )
+    {
+        return;
+    }
+    OPTICK_EVENT( "Engine::PollAssetChanges" );
+    std::vector<std::string> paths;
+    for( const FileWatcher::Change& change : changes )
+    {
+        if( change.Type != FileWatcher::ChangeType::Removed )
+        {
+            paths.push_back( change.FullPath );
+        }
+        if( change.FullPath.size() > 7 && change.FullPath.compare( change.FullPath.size() - 7, 7, ".prefab" ) == 0 )
+        {
+            SceneSerializer::ClearPrefabCache();
+        }
+    }
+    for( const std::string& reloaded : ResourceCache::GetInstance().OnFilesChanged( paths ) )
+    {
+        CLog::Log( CLog::LogType::Info, "Hot reloaded: " + reloaded );
+    }
+}
+#endif
+
+
 void Engine::Shutdown()
 {
     OPTICK_EVENT( "Engine::Shutdown" );
+#if USING( ME_TOOLS )
+    m_assetWatcher.Stop();
+#endif
     CLog::Log( CLog::LogType::Info, "Shutting down." );
 
     // Components get OnDisable/OnDestroy while every engine system is still alive.
