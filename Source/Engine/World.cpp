@@ -8,6 +8,7 @@
 #include "ECS/ComponentDetail.h"
 #include "File.h"
 #include "Resources/JsonResource.h"
+#include "World/SceneSerializer.h"
 #include "optick.h"
 #include "Core/Assert.h"
 #include <algorithm>
@@ -850,63 +851,5 @@ const World::CoreArray& World::GetAllCoresArray()
 EntityHandle World::CreateFromPrefab( const std::string& FilePath, Transform* Parent )
 {
     OPTICK_EVENT( "World::CreateFromPrefab" );
-    SharedPtr<JsonResource> prefabJson = ResourceCache::GetInstance().Get<JsonResource>( Path( FilePath ) );
-    if( !prefabJson )
-    {
-        YIKES( "Failed to load prefab: " + FilePath );
-        return {};
-    }
-    return LoadPrefab( prefabJson->GetJson(), Parent, Parent );
-}
-
-
-EntityHandle World::LoadPrefab( const json& obj, Transform* parent, Transform* root )
-{
-    EntityHandle ent;
-    if( parent && parent != root )
-    {
-        auto t = parent->GetChildByName( obj["Name"] );
-        if( t )
-        {
-            ent = t->Parent;
-        }
-    }
-    if( !ent )
-    {
-        ent = CreateEntity( obj.value( "Name", std::string() ) );
-    }
-    ent->SetLoading( true );
-    Transform* transComp = nullptr;
-    for( const json& comp : obj["Components"] )
-    {
-        if( comp.is_null() )
-        {
-            continue;
-        }
-        BaseComponent* addedComp = ent->AddComponentByName( comp["Type"] );
-        if( comp["Type"] == "Transform" )
-        {
-            transComp = static_cast<Transform*>( addedComp );
-            if( parent )
-            {
-                transComp->SetParent( *parent );
-            }
-        }
-        if( addedComp )
-        {
-            addedComp->Deserialize( comp );
-            addedComp->Init();
-        }
-    }
-    ent->SetActive( true );
-    ent->SetLoading( false );
-
-    if( obj.contains( "Children" ) )
-    {
-        for( const json& child : obj["Children"] )
-        {
-            LoadPrefab( child, transComp, root );
-        }
-    }
-    return ent;
+    return SceneSerializer::InstantiatePrefab( *this, FilePath, Parent );
 }

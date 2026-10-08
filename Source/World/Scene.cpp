@@ -1,8 +1,10 @@
 #include "PCH.h"
 
 #include "Scene.h"
+#include "SceneSerializer.h"
 #include "Engine/Engine.h"
 #include "CLog.h"
+
 
 Scene::Scene( const std::string& SceneFilePath )
     : FilePath( std::move( SceneFilePath ) )
@@ -10,78 +12,17 @@ Scene::Scene( const std::string& SceneFilePath )
     CurrentLevel = File( FilePath );
 }
 
+
 void Scene::UnLoad()
 {
     GameWorld = nullptr;
 }
 
-void Scene::LoadSceneObject( const json& obj, Transform* parent )
-{
-    EntityHandle ent;
-    if( parent )
-    {
-        auto t = parent->GetChildByName( obj["Name"] );
-        if( t )
-        {
-            ent = t->Parent;
-        }
-    }
-    if( !ent )
-    {
-        ent = GameWorld->CreateEntity( obj.value( "Name", std::string() ) );
-    }
-    ent->SetLoading( true );
-    Transform* transComp = nullptr;
-    for( const json& comp : obj["Components"] )
-    {
-        if( comp.is_null() )
-        {
-            continue;
-        }
-        
-        const std::string compType  = comp["Type"].get<std::string>();
-        const std::string evDeser   = "Deserialize::" + compType;
-        const std::string evInit    = "Init::"        + compType;
-
-        BaseComponent* addedComp = ent->AddComponentByName( comp["Type"] );
-        if( comp["Type"] == "Transform" )
-        {
-            transComp = static_cast<Transform*>( addedComp );
-            if( parent )
-            {
-                transComp->SetParent( *parent );
-            }
-            transComp->SetName( obj["Name"] );
-        }
-        if( addedComp )
-        {
-            { OPTICK_EVENT_DYNAMIC( evDeser.c_str() ); addedComp->Deserialize( comp ); }
-            { OPTICK_EVENT_DYNAMIC( evInit.c_str() ); addedComp->Init(); }
-        }
-    }
-    ent->SetActive( true );
-
-    if( obj.contains( "DestroyOnLoad" ) )
-    {
-        ent->SetDestroyOnLoad( obj["DestroyOnLoad"].get<bool>() );
-    }
-
-    ent->SetLoading( false );
-
-    if( obj.contains( "Children" ) )
-    {
-        for( const json& child : obj["Children"] )
-        {
-            LoadSceneObject( child, transComp );
-        }
-    }
-}
 
 bool Scene::Load( SharedPtr<World> InWorld )
 {
     OPTICK_EVENT( "Scene::Load" );
     GameWorld = InWorld;
-    GameWorld->IsLoading = true;
 
     if( CurrentLevel.FilePath.GetLocalPath().size() > 0 )
     {
@@ -89,86 +30,40 @@ bool Scene::Load( SharedPtr<World> InWorld )
         CurrentLevel.Read();
     }
 
-    if( CurrentLevel.Data.length() > 0 )
+    if( CurrentLevel.Data.empty() )
     {
-        json level;
-
-        {
-            OPTICK_EVENT( "Scene::Load::JSONParse" );
-            level = json::parse( CurrentLevel.Data );
-        }
-
-        {
-            OPTICK_EVENT( "Scene::Load::Cores" );
-            json& cores = level["Cores"];
-            for( json& core : cores )
-            {
-                LoadCore( core );
-            }
-        }
-
-        {
-            OPTICK_EVENT( "Scene::Load::Entities" );
-            json& scene = level["Scene"];
-            for( json& ent : scene )
-            {
-                LoadSceneObject( ent, nullptr );
-            }
-        }
-    }
-    else
-    {
-        GameWorld->IsLoading = false;
         return false;
     }
 
+    json level;
+    {
+        OPTICK_EVENT( "Scene::Load::JSONParse" );
+        level = json::parse( CurrentLevel.Data, nullptr, false );
+    }
+    if( level.is_discarded() )
+    {
+        YIKES( "Scene file is not valid JSON: " + FilePath.GetLocalPathString() );
+        return false;
+    }
+
+    // No sync points while the scene is half built.
+    GameWorld->IsLoading = true;
+    {
+        OPTICK_EVENT( "Scene::Load::Entities" );
+        SceneSerializer::LoadOptions options;
+        options.LoadCores = true;
+        SceneSerializer::Deserialize( *GameWorld, level, options );
+    }
     GameWorld->IsLoading = false;
     return true;
 }
 
-void Scene::LoadCore( json& core )
-{
-    auto addedCore = GameWorld->AddCoreByName( core["Type"] );
-    if( !addedCore )
-    {
-        YIKES( "Core not registered, are you missing a dependency?" );
-        return;
-    }
-    addedCore->Deserialize( core );
-}
 
 bool Scene::IsNewScene()
 {
     return FilePath.GetLocalPath().empty();
 }
 
-void Scene::SaveSceneRecursively( json& d, Transform* CurrentTransform )
-{
-    OPTICK_EVENT( "SceneGraph::UpdateRecursively" );
-    json outEntity;
-
-    outEntity["Name"] = CurrentTransform->GetName();
-    outEntity["DestroyOnLoad"] = CurrentTransform->Parent->GetDestroyOnLoad();
-
-    json& componentsJson = outEntity["Components"];
-    EntityHandle ent = CurrentTransform->Parent;
-
-    auto comps = ent->GetAllComponents();
-    for( auto comp : comps )
-    {
-        json compJson;
-        comp->Serialize( compJson );
-        componentsJson.push_back( compJson );
-    }
-    if( CurrentTransform->GetChildren().size() > 0 )
-    {
-        for( Transform* Child : CurrentTransform->GetChildren() )
-        {
-            SaveSceneRecursively( outEntity["Children"], Child );
-        }
-    }
-    d.push_back( outEntity );
-}
 
 void Scene::Save( const std::string& fileName, Transform* root )
 {
@@ -182,29 +77,8 @@ void Scene::Save( const std::string& fileName, Transform* root )
 void Scene::SaveCopy( const std::string& fileName, Transform* root )
 {
 #if USING( ME_EDITOR )
+    json world = SceneSerializer::SerializeWorld( *GetEngine().GetWorld().lock(), root );
     File worldFile{ Path( fileName ) };
-    json world;
-
-    if( root->GetChildren().size() > 0 )
-    {
-        for( Transform* Child : root->GetChildren() )
-        {
-            SaveSceneRecursively( world["Scene"], Child );
-        }
-    }
-
-    json& cores = world["Cores"];
-    for( auto& core : GetEngine().GetWorld().lock()->GetAllCores() )
-    {
-        if( ( *core ).GetIsSerializable() )
-        {
-            json coreDef;
-            ( *core ).Serialize( coreDef );
-            cores.push_back( coreDef );
-        }
-    }
-
     worldFile.Write( world.dump( 4 ) );
 #endif
 }
-

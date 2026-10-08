@@ -1,3 +1,4 @@
+#include "World/SceneSerializer.h"
 #include "AssetBrowser.h"
 #include <filesystem>
 #include "imgui.h"
@@ -218,7 +219,7 @@ void AssetBrowserWidget::Render()
                 json prefab;
                 SavePrefab( prefab, payload_n->Parent, true );
 
-                File( Path( Path("Assets").FullPath + payload_n->Parent->GetName() + std::string(".prefab"))).Write(prefab[0].dump(4));
+                File( Path( Path( "Assets" ).FullPath + "/" + payload_n->Parent->GetName() + std::string( ".prefab" ) ) ).Write( prefab.dump( 4 ) );
             }
             ImGui::EndDragDropTarget();
         }
@@ -842,7 +843,7 @@ void AssetBrowserWidget::Recursive( Directory& dir )
                 json prefab;
                 SavePrefab( prefab, payload_n->Parent, true );
 
-                File( Path( std::string( directory.second.FullPath.GetDirectory() ) + "/" + payload_n->Parent->GetName() + std::string( ".prefab" ) ) ).Write( prefab[0].dump( 4 ) );
+                File( Path( std::string( directory.second.FullPath.GetDirectory() ) + "/" + payload_n->Parent->GetName() + std::string( ".prefab" ) ) ).Write( prefab.dump( 4 ) );
             }
             ImGui::EndDragDropTarget();
         }
@@ -910,7 +911,7 @@ void AssetBrowserWidget::Recursive( Directory& dir )
                 json prefab;
                 SavePrefab( prefab, payload_n->Parent, true );
 
-                File( Path( std::string( files.FullPath.GetDirectory() ) + payload_n->Parent->GetName() + std::string( ".prefab" ) ) ).Write( prefab[0].dump( 4 ) );
+                File( Path( std::string( files.FullPath.GetDirectory() ) + payload_n->Parent->GetName() + std::string( ".prefab" ) ) ).Write( prefab.dump( 4 ) );
             }
             ImGui::EndDragDropTarget();
         }
@@ -1195,35 +1196,9 @@ bool AssetBrowserWidget::ProccessDirectoryRecursive( std::string& dir, Directory
 
 void AssetBrowserWidget::SavePrefab( json& d, Transform* CurrentTransform, bool IsRoot )
 {
-    json newJson;
-    /*json& refJson = d;
-
-    if (!IsRoot)
-    {
-        refJson = newJson;
-    }*/
-
-    newJson["Name"] = CurrentTransform->GetName();
-
-    json& componentsJson = newJson["Components"];
-    EntityHandle ent = CurrentTransform->Parent;
-
-    auto comps = ent->GetAllComponents();
-    for( auto comp : comps )
-    {
-        json compJson;
-        comp->Serialize( compJson );
-        componentsJson.push_back( compJson );
-    }
-    if( CurrentTransform->GetChildren().size() > 0 )
-    {
-        for( Transform* Child : CurrentTransform->GetChildren() )
-        {
-            SavePrefab( newJson["Children"], Child, false );
-        }
-    }
-
-    d.push_back( newJson );
+    // Scene format v2 subtree; instancing remaps GUIDs, so the file can be instanced many times.
+    d = SceneSerializer::SerializeEntities( *GetEngine().GetWorld().lock(), { CurrentTransform->Parent.Get() } );
+    SceneSerializer::ClearPrefabCache();
 }
 
 bool AssetBrowserWidget::Contains( const std::string& key )

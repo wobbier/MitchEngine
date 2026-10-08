@@ -5,6 +5,7 @@
 #include "File.h"
 #include "Engine/World.h"
 
+// A scene file on disk. Loading/saving goes through SceneSerializer (format v2, v1 migrated on load).
 class Scene
 {
 public:
@@ -12,16 +13,13 @@ public:
 
     void UnLoad();
 
-    void LoadSceneObject( const json& obj, Transform* parent );
     bool Load( SharedPtr<World> InWorld );
-    void LoadCore( json& core );
 
     bool IsNewScene();
 
     void Save( const std::string& fileName, Transform* root );
     // Writes the scene to fileName without changing this scene's FilePath (play-mode snapshots, autosave).
     void SaveCopy( const std::string& fileName, Transform* root );
-    void SaveSceneRecursively( json& d, Transform* CurrentTransform );
 
     SharedPtr<World> GameWorld;
     File CurrentLevel;

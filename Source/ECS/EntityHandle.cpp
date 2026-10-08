@@ -3,10 +3,13 @@
 #include "Entity.h"
 #include "Engine/World.h"
 
+#include "World/SceneSerializer.h"
+
 namespace
 {
     // World used to resolve entity references while (de)serializing; see SerializationWorldScope.
     thread_local World* s_serializationWorld = nullptr;
+    thread_local const std::unordered_map<uint64_t, uint64_t>* s_serializationRemap = nullptr;
 }
 
 
@@ -79,34 +82,58 @@ namespace Reflection
     void CustomTypeTraits<EntityHandle>::ToJson( const EntityHandle& value, json& out )
     {
         Entity* entity = value.Get();
-        out = entity ? json( entity->GetGUID() ) : json( 0 );
+        out = entity ? json( SceneSerializer::GUIDToString( entity->GetGUID() ) ) : json( nullptr );
     }
 
 
     bool CustomTypeTraits<EntityHandle>::FromJson( EntityHandle& value, const json& in )
     {
-        if( !in.is_number_unsigned() && !in.is_number_integer() )
+        if( in.is_null() )
+        {
+            value = EntityHandle();
+            return true;
+        }
+        if( !in.is_string() && !in.is_number_unsigned() && !in.is_number_integer() )
         {
             return false;
         }
-        const uint64_t guid = in.get<uint64_t>();
-        World* world = SerializationWorldScope::GetCurrent();
-        value = ( guid != 0 && world ) ? world->FindEntityByGUID( guid ) : EntityHandle();
+        value = SerializationWorldScope::Resolve( SceneSerializer::GUIDFromJson( in ) );
         return true;
     }
 }
 
 
-SerializationWorldScope::SerializationWorldScope( World* InWorld )
-    : m_previous( s_serializationWorld )
+SerializationWorldScope::SerializationWorldScope( World* InWorld, const std::unordered_map<uint64_t, uint64_t>* InRemap )
+    : m_previousWorld( s_serializationWorld )
+    , m_previousRemap( s_serializationRemap )
 {
     s_serializationWorld = InWorld;
+    s_serializationRemap = InRemap;
 }
 
 
 SerializationWorldScope::~SerializationWorldScope()
 {
-    s_serializationWorld = m_previous;
+    s_serializationWorld = m_previousWorld;
+    s_serializationRemap = m_previousRemap;
+}
+
+
+EntityHandle SerializationWorldScope::Resolve( uint64_t InSavedGUID )
+{
+    if( InSavedGUID == 0 || !s_serializationWorld )
+    {
+        return {};
+    }
+    if( s_serializationRemap )
+    {
+        auto it = s_serializationRemap->find( InSavedGUID );
+        if( it != s_serializationRemap->end() )
+        {
+            InSavedGUID = it->second;
+        }
+    }
+    return s_serializationWorld->FindEntityByGUID( InSavedGUID );
 }
 
 

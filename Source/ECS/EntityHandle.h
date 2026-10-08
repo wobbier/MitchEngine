@@ -4,6 +4,7 @@
 #include "Pointers.h"
 #include "JSON.h"
 #include "Reflection/Reflection.h"
+#include <unordered_map>
 
 class World;
 class Entity;
@@ -44,19 +45,23 @@ private:
     World* GameWorld = nullptr;
 };
 
-// While alive, EntityHandle fields deserialized through reflection resolve their GUIDs in this world.
+// While alive, EntityHandle fields deserialized through reflection resolve their GUIDs in this world,
+// optionally translating saved GUIDs through a remap table (prefab instances, paste, duplicate).
 class SerializationWorldScope
 {
 public:
-    explicit SerializationWorldScope( World* InWorld );
+    explicit SerializationWorldScope( World* InWorld, const std::unordered_map<uint64_t, uint64_t>* InRemap = nullptr );
     ~SerializationWorldScope();
     SerializationWorldScope( const SerializationWorldScope& ) = delete;
     SerializationWorldScope& operator=( const SerializationWorldScope& ) = delete;
 
     static World* GetCurrent();
+    // Saved GUID -> live entity in the current scope's world (null handle if unknown).
+    static EntityHandle Resolve( uint64_t InSavedGUID );
 
 private:
-    World* m_previous = nullptr;
+    World* m_previousWorld = nullptr;
+    const std::unordered_map<uint64_t, uint64_t>* m_previousRemap = nullptr;
 };
 
 // Entity references serialize by GUID so they survive save/load and prefab instancing.

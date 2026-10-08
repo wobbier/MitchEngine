@@ -123,6 +123,9 @@ public:
         uint8_t Layer = 0;
         uint64_t GUID = 0;
         std::string Name;
+        // Prefab link: the asset this entity was instanced from and its GUID inside that asset.
+        std::string PrefabAsset;
+        uint64_t PrefabSource = 0;
         // Components present on the entity.
         ComponentTypeArray Mask;
         // Components present and enabled.
@@ -156,7 +159,6 @@ private:
     bool ComputeActiveInHierarchy( uint32_t InIndex ) const;
     void RemoveCore( TypeId InType );
 
-    EntityHandle LoadPrefab( const json& obj, Transform* parent, Transform* root );
 
     std::deque<EntityRecord> m_records;
     std::vector<uint32_t> m_freeIndices;

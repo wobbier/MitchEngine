@@ -4,6 +4,7 @@
 #include "ECS/Core.h"
 #include "Components/Transform.h"
 #include "Math/Bounds.h"
+#include "World/SceneSerializer.h"
 #include <memory>
 #include <string>
 #include <vector>
@@ -296,7 +297,7 @@ TEST_CASE( "ECS: GUIDs are unique and resolve entity references" )
 
     json saved;
     a->GetComponent<Health>().Serialize( saved );
-    CHECK( saved["Target"].get<uint64_t>() == b->GetGUID() );
+    CHECK( SceneSerializer::GUIDFromJson( saved["Target"] ) == b->GetGUID() );
 
     EntityHandle c = world->CreateEntity();
     Health& loaded = c->AddComponent<Health>();

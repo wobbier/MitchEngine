@@ -50,22 +50,33 @@ void Model::Init()
 
 void Model::RecursiveLoadMesh( Moonlight::Node& root, EntityHandle& parentEnt )
 {
+    Transform& parentTransform = parentEnt->GetComponent<Transform>();
+    World& world = *GetEngine().GetWorld().lock();
+
     for( auto& childNode : root.Nodes )
     {
-        EntityHandle entityNode = GetEngine().GetWorld().lock()->CreateEntity();
-        auto& transform = entityNode->AddComponent<Transform>();
-        transform.SetName( childNode.Name );
-        transform.SetParent( parentEnt->GetComponent<Transform>() );
-        transform.SetPosition( childNode.Position );
-        transform.SetScale( childNode.Scale );
-        transform.SetRotation( childNode.Rotation );
+        // A saved scene already contains this node's entity (with any edits made to it): reuse it.
+        EntityHandle entityNode;
+        if( Transform* existing = parentTransform.GetChildByName( childNode.Name ) )
+        {
+            entityNode = existing->Parent;
+        }
+        else
+        {
+            entityNode = world.CreateEntity( childNode.Name );
+            auto& transform = entityNode->AddComponent<Transform>();
+            transform.SetParent( parentTransform );
+            transform.SetPosition( childNode.Position );
+            transform.SetScale( childNode.Scale );
+            transform.SetRotation( childNode.Rotation );
+        }
         RecursiveLoadMesh( childNode, entityNode );
     }
 
     if( root.Meshes.size() == 1 )
     {
         Mesh& meshRef = parentEnt->AddComponent<Mesh>( root.Meshes[0] );
-        // this is super dumbo 
+        // AddComponent returns the deserialized Mesh when there is one; point it at the geometry.
         meshRef.MeshReferece = root.Meshes[0];
         if( root.IsFlipped )
         {
@@ -76,15 +87,19 @@ void Model::RecursiveLoadMesh( Moonlight::Node& root, EntityHandle& parentEnt )
     {
         for( auto child : root.Meshes )
         {
-            auto ent = GetEngine().GetWorld().lock()->CreateEntity();
-            Transform& transform = ent->AddComponent<Transform>();
-            transform.SetName( child->Name );
+            EntityHandle ent;
+            if( Transform* existing = parentTransform.GetChildByName( child->Name ) )
+            {
+                ent = existing->Parent;
+            }
+            else
+            {
+                ent = world.CreateEntity( child->Name );
+                Transform& transform = ent->AddComponent<Transform>();
+                transform.SetParent( parentTransform );
+            }
             Mesh& meshRef = ent->AddComponent<Mesh>( child );
             meshRef.MeshReferece = child;
-            //transform.SetPosition( root.Position );
-            //transform.SetScale( root.Scale );
-            //transform.SetRotation( root.Rotation );
-            transform.SetParent( parentEnt->GetComponent<Transform>() );
         }
     }
 }

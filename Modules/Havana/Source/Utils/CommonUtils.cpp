@@ -3,6 +3,7 @@
 #include <Engine/Engine.h>
 #include <Engine/World.h>
 #include <Events/HavanaEvents.h>
+#include "World/SceneSerializer.h"
 
 #if USING( ME_EDITOR )
 
@@ -139,109 +140,43 @@ void CommonUtils::DrawAddComponentList(const EntityHandle& entity)
 }
 void CommonUtils::SerializeEntity(json& outEntity, Transform* CurrentTransform)
 {
-	OPTICK_EVENT("SceneGraph::UpdateRecursively");
-
-	outEntity["Name"] = CurrentTransform->GetName();
-	outEntity["DestroyOnLoad"] = CurrentTransform->Parent->GetDestroyOnLoad();
-
-	json& componentsJson = outEntity["Components"];
-	EntityHandle ent = CurrentTransform->Parent;
-
-	auto comps = ent->GetAllComponents();
-	for (auto comp : comps)
-	{
-		json compJson;
-		comp->Serialize(compJson);
-		componentsJson.push_back(compJson);
-	}
-	if (CurrentTransform->GetChildren().size() > 0)
-	{
-		// One JSON object per child (writing every child into the same object corrupted
-		// duplicates of entities with more than one child).
-		json& children = outEntity["Children"];
-		children = json::array();
-		for (Transform* Child : CurrentTransform->GetChildren())
-		{
-			json childJson;
-			SerializeEntity(childJson, Child);
-			children.push_back(std::move(childJson));
-		}
-	}
+	OPTICK_EVENT("CommonUtils::SerializeEntity");
+	World& world = *GetEngine().GetWorld().lock();
+	outEntity = SceneSerializer::SerializeEntities(world, { CurrentTransform->Parent.Get() });
 }
 
 EntityHandle CommonUtils::DeserializeEntity(const json& obj, Transform* parent)
 {
-	std::string thingg = obj.dump(4);
-	EntityHandle ent;
-	if (parent)
-	{
-		auto t = parent->GetChildByName(obj["Name"]);
-		if (t)
-		{
-			// change name cause already exists
-			//ent = t->Parent;
-		}
-	}
-	if (!ent)
-	{
-		ent = GetEngine().GetWorld().lock()->CreateEntity(obj.value("Name", std::string()));
-	}
-	ent->SetLoading(true);
-	Transform* transComp = nullptr;
-	for (const json& comp : obj["Components"])
-	{
-		if (comp.is_null())
-		{
-			continue;
-		}
-		BaseComponent* addedComp = ent->AddComponentByName(comp["Type"]);
-		if (comp["Type"] == "Transform")
-		{
-			transComp = static_cast<Transform*>(addedComp);
-			if (parent)
-			{
-				transComp->SetParent(*parent);
-			}
-			transComp->SetName(obj["Name"]);
-		}
-		if (addedComp)
-		{
-			addedComp->Deserialize(comp);
-			addedComp->Init();
-		}
-	}
-	ent->SetActive(true);
-
-	if (obj.contains("DestroyOnLoad"))
-	{
-		ent->SetDestroyOnLoad(obj["DestroyOnLoad"].get<bool>());
-	}
-
-	ent->SetLoading(false);
-
-	if (obj.contains("Children"))
-	{
-		for (const json& child : obj["Children"])
-		{
-			DeserializeEntity(child, transComp);
-		}
-	}
-	return ent;
+	World& world = *GetEngine().GetWorld().lock();
+	SceneSerializer::LoadOptions options;
+	options.RemapGUIDs = true;
+	options.LoadCores = false;
+	options.Parent = parent;
+	std::vector<EntityHandle> roots = SceneSerializer::Deserialize(world, obj, options);
+	return roots.empty() ? EntityHandle() : roots.front();
 }
 
 void CommonUtils::DuplicateEntity(const EntityHandle& entity)
 {
-	if (entity->HasComponent<Transform>())
+	if (!entity || !entity->HasComponent<Transform>())
 	{
-		json j;
-		SerializeEntity(j, &entity->GetComponent<Transform>());
-
-		EntityHandle handle = DeserializeEntity(j, nullptr);
-
-		InspectEvent evt;
-		evt.SelectedEntity = handle;
-		evt.Fire();
+		return;
 	}
+
+	Transform& source = entity->GetComponent<Transform>();
+	json j;
+	SerializeEntity(j, &source);
+
+	// Same parent, placed right after the original.
+	EntityHandle handle = DeserializeEntity(j, source.GetParentTransform());
+	if (handle && source.GetParentTransform())
+	{
+		handle->GetComponent<Transform>().SetSiblingIndex(source.GetSiblingIndex() + 1);
+	}
+
+	InspectEvent evt;
+	evt.SelectedEntity = handle;
+	evt.Fire();
 }
 
 #endif
