@@ -2,6 +2,7 @@
 #pragma once
 #include "Dementia.h"
 #include "Core/UpdateContext.h"
+#include "Core/CommandLine.h"
 
 class Game
 {
@@ -25,6 +26,7 @@ public:
 #include <wrl.h>
 #define ME_APPLICATION_MAIN(className)                                      \
     int _main(int argc, char** argv) {                                      \
+        CommandLine::Set(argc, argv);                                       \
         className app(argc, argv);                                          \
 		GetEngine().Init(&app);                                             \
 		GetEngine().Run();                                                  \
@@ -41,6 +43,7 @@ public:
 #else
 #define ME_APPLICATION_MAIN(className)                                      \
     int main(int argc, char** argv) {                                       \
+        CommandLine::Set(argc, argv);                                       \
         className app(argc, argv);                                          \
 		GetEngine().Init(&app);                                             \
 		GetEngine().Run();                                                  \

@@ -2,9 +2,11 @@
 #include "Engine/Engine.h"
 #include <Widgets/AssetBrowser.h>
 #include "optick.h"
+#include "Core/CommandLine.h"
 
 int main( int argc, char** argv )
 {
+    CommandLine::Set( argc, argv );
     for( int i = 0; i < argc; ++i )
     {
         std::printf( "argv[%d]: %s\n", i, argv[i] );

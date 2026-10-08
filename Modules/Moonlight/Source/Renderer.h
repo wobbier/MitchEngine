@@ -17,6 +17,7 @@
 #include "Math/Vector4.h"
 #include "Core/FrameRenderData.h"
 #include <RenderViews.h>
+#include "Utils/BGFXCallback.h"
 
 class ImGuiRenderer;
 
@@ -101,11 +102,20 @@ public:
     };
     void SetMSAALevel( MSAALevel level );
 
+    // Skips compositing the HTML UI over the main camera (used by unattended captures).
+    bool EnableUIComposite = true;
+
+    // Captures the backbuffer at the end of the current frame and writes it as a PNG.
+    void RequestScreenshot( const std::string& filePath );
+    uint32_t GetScreenshotCount() const;
+
 #if USING( ME_IMGUI )
     ImGuiRenderer* GetImGuiRenderer() const;
 #endif
 
 private:
+    Moonlight::BGFXCallback m_bgfxCallback;
+
     bgfx::ProgramHandle BindMeshDrawState( const Moonlight::MeshCommand& mesh, uint64_t state );
 
     struct InstanceBatch

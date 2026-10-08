@@ -40,6 +40,8 @@
 #include "Scripting/ScriptEngine.h"
 #include "Core/Assert.h"
 #include "Events/EditorEvents.h"
+#include "Core/CommandLine.h"
+#include <chrono>
 
 Engine& GetEngine()
 {
@@ -120,6 +122,12 @@ void Engine::Init( Game* game )
         OPTICK_EVENT( "Engine::Init::LoadConfig" );
         engineConfig = EngineConfig( engineCfg );
         engineConfig.OnLoadConfig( engineConfig.Root );
+
+        m_automation.Init();
+        if( CommandLine::Has( "--width" ) && CommandLine::Has( "--height" ) )
+        {
+            engineConfig.WindowSize = Vector2( static_cast<float>( CommandLine::GetInt( "--width" ) ), static_cast<float>( CommandLine::GetInt( "--height" ) ) );
+        }
     }
 #if USING( ME_PLATFORM_WIN64 ) || USING( ME_PLATFORM_MACOS ) || USING( ME_PLATFORM_LINUX )
     {
@@ -150,6 +158,7 @@ void Engine::Init( Game* game )
 #endif
         settings.InitialSize = engineConfig.WindowSize;
         NewRenderer->Create( settings );
+        NewRenderer->EnableUIComposite = !CommandLine::Has( "--no-ui" );
     }
     CLog::GetInstance().Log( CLog::LogType::Info, "After the Renderer." );
 #if USING( ME_IMGUI )
@@ -234,6 +243,11 @@ void Engine::Run()
 {
     m_game->OnStart();
 
+    if( CommandLine::Has( "--scene" ) )
+    {
+        LoadScene( CommandLine::GetString( "--scene" ) );
+    }
+
     GameClock.Reset();
 
     const float FramesPerSec = FPS;
@@ -243,6 +257,7 @@ void Engine::Run()
     forever
     {
         OPTICK_FRAME( "MainLoop" );
+        const auto frameStartTime = std::chrono::steady_clock::now();
 #if USING( ME_BASIC_PROFILER )
         FrameProfile::GetInstance().Start();
 #endif
@@ -402,6 +417,16 @@ void Engine::Run()
                 m_game->PostRender();
             }
 
+            if( m_automation.IsActive() )
+            {
+                const double frameMs = std::chrono::duration<double, std::milli>( std::chrono::steady_clock::now() - frameStartTime ).count();
+                if( m_automation.OnFrameEnd( *NewRenderer, frameMs ) )
+                {
+                    StopGame();
+                    break;
+                }
+            }
+
 #if USING( ME_BASIC_PROFILER )
             // This makes the profiler overview data to be delayed for a frame, but takes the renderer into account.
             {
@@ -428,6 +453,13 @@ void Engine::Run()
         }
         ResourceCache::GetInstance().Dump();
         //Sleep(1);
+    }
+
+    if( m_automation.IsActive() )
+    {
+        // Unattended runs must not clobber the user's window config.
+        m_automation.Shutdown();
+        return;
     }
     engineConfig.Save();
 }

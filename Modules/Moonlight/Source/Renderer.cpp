@@ -97,6 +97,7 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
     init.platformData.nwh  = settings.WindowPtr;
     init.platformData.ndt  = settings.DisplayPtr;
     init.platformData.type = settings.WindowType;
+    init.callback = &m_bgfxCallback;
     init.resolution.width  = static_cast<uint32_t>( PreviousSize.x );
     init.resolution.height = static_cast<uint32_t>( PreviousSize.y );
 #if USING( ME_PLATFORM_MACOS )
@@ -604,7 +605,7 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId
     }
 
     float m_texelHalf = 0.0f;
-    if( camera.IsMain && bgfx::isValid( camera.UITexture ) )
+    if( EnableUIComposite && camera.IsMain && bgfx::isValid( camera.UITexture ) )
     {
         // Runs after the UI resolve and all camera views, so the UI texture is from this frame.
         const bgfx::ViewId view = Moonlight::RenderView::UIComposite;
@@ -834,6 +835,18 @@ void BGFXRenderer::SetMSAALevel( MSAALevel level )
     }
 
     NeedsReset = true;
+}
+
+
+void BGFXRenderer::RequestScreenshot( const std::string& filePath )
+{
+    bgfx::requestScreenShot( BGFX_INVALID_HANDLE, filePath.c_str() );
+}
+
+
+uint32_t BGFXRenderer::GetScreenshotCount() const
+{
+    return m_bgfxCallback.GetScreenshotCount();
 }
 
 #if USING( ME_IMGUI )

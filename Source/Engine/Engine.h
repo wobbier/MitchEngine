@@ -21,6 +21,7 @@
 #endif
 #include "Work/SimpleJobSystem.h"
 #include "Core/FrameRenderData.h"
+#include "AutomationRunner.h"
 
 class Game;
 class IWindow;
@@ -108,6 +109,9 @@ public:
     DebugTools m_debugTools;
 #endif
     FrameRenderData m_frameRenderSettings;
+
+private:
+    AutomationRunner m_automation;
 };
 
 Engine& GetEngine();
