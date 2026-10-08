@@ -141,26 +141,52 @@ private:
     std::vector<Event> m_events;
 };
 
+// Costs one atomic load when no capture is running: names are only touched while recording.
+// Literal names are kept by pointer; OPTICK_EVENT_DYNAMIC copies runtime names so temporaries are safe.
 struct Scope
 {
-    std::string name;   // copied at construction so temporaries are safe
-    const char* cat;
-    int64_t     start;
+    const char* name = nullptr;
+    const char* cat = nullptr;
+    int64_t     start = -1;
+    std::string ownedName;
 
-    Scope( const char* n, const char* c ) : name( n ? n : "" ), cat( c ), start( NowUs() ) {}
-    ~Scope() { Tracer::Get().Push( name.c_str(), cat, start, NowUs() - start ); }
+    Scope( const char* n, const char* c, bool copyName = false )
+        : name( n )
+        , cat( c )
+    {
+        if( Tracer::Get().IsRecording() )
+        {
+            if( copyName && n )
+            {
+                ownedName = n;
+                name = ownedName.c_str();
+            }
+            start = NowUs();
+        }
+    }
+
+    ~Scope()
+    {
+        if( start >= 0 )
+        {
+            Tracer::Get().Push( name ? name : "", cat, start, NowUs() - start );
+        }
+    }
 };
 
 } // namespace ChromeTrace
 
 // OPTICK_EVENT accepts 1 or 2 args: (name) or (name, category)
-#define _CT_EVENT_1( name )      ChromeTrace::Scope _ct_##__LINE__( name, "event" )
-#define _CT_EVENT_2( name, cat ) ChromeTrace::Scope _ct_##__LINE__( name, #cat )
+#define _CT_CONCAT_IMPL( a, b ) a##b
+#define _CT_CONCAT( a, b ) _CT_CONCAT_IMPL( a, b )
+#define _CT_EVENT_1( name )      ChromeTrace::Scope _CT_CONCAT( _ct_, __LINE__ )( name, "event" )
+#define _CT_EVENT_2( name, cat ) ChromeTrace::Scope _CT_CONCAT( _ct_, __LINE__ )( name, #cat )
 #define _CT_EVENT_SEL( _1, _2, X, ... ) X
 #define OPTICK_EVENT( ... )      _CT_EVENT_SEL( __VA_ARGS__, _CT_EVENT_2, _CT_EVENT_1 )( __VA_ARGS__ );
 
-#define OPTICK_CATEGORY( name, cat ) ChromeTrace::Scope _ct_##__LINE__( name, #cat );
-#define OPTICK_FRAME( name )         ChromeTrace::Scope _ct_##__LINE__( name, "frame" );
+#define OPTICK_EVENT_DYNAMIC( name ) ChromeTrace::Scope _CT_CONCAT( _ct_, __LINE__ )( name, "event", true );
+#define OPTICK_CATEGORY( name, cat ) ChromeTrace::Scope _CT_CONCAT( _ct_, __LINE__ )( name, #cat );
+#define OPTICK_FRAME( name )         ChromeTrace::Scope _CT_CONCAT( _ct_, __LINE__ )( name, "frame" );
 #define OPTICK_THREAD( name )        ( (void)0 )
 #define OPTICK_START_CAPTURE()       ChromeTrace::Tracer::Get().Start()
 #define OPTICK_STOP_CAPTURE()        ChromeTrace::Tracer::Get().Stop()

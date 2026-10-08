@@ -55,8 +55,8 @@ void Scene::LoadSceneObject( const json& obj, Transform* parent )
         }
         if( addedComp )
         {
-            { OPTICK_EVENT( evDeser.c_str() ); addedComp->Deserialize( comp ); }
-            { OPTICK_EVENT( evInit.c_str()  ); addedComp->Init();              }
+            { OPTICK_EVENT_DYNAMIC( evDeser.c_str() ); addedComp->Deserialize( comp ); }
+            { OPTICK_EVENT_DYNAMIC( evInit.c_str() ); addedComp->Init(); }
         }
     }
     ent->SetActive( true );

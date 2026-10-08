@@ -209,7 +209,7 @@ void World::UpdateLoadedCores( const UpdateContext& inUpdateContext )
     {
         if( core.second && core.second->IsRunning )
         {
-            OPTICK_EVENT( core.second->GetName().c_str() );
+            OPTICK_EVENT_DYNAMIC( core.second->GetName().c_str() );
             core.second->Update( inUpdateContext );
         }
     }
