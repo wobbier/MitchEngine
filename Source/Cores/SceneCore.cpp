@@ -17,10 +17,8 @@ void SceneCore::Init()
 {
     if( !RootTransformEntity )
     {
-        RootTransformEntity = GameWorld->CreateEntity();
+        RootTransformEntity = GameWorld->CreateEntity( "RootTransform" );
         RootTransform = &RootTransformEntity->AddComponent<Transform>();
-        RootTransform->SetDirty( false );
-        RootTransform->Name = "RootTransform";
     }
 }
 
@@ -28,9 +26,9 @@ void SceneCore::OnEntityAdded( Entity& NewEntity )
 {
     Base::OnEntityAdded( NewEntity );
 
+    // Every transform without a parent hangs off the scene root.
     Transform& NewEntityTransform = NewEntity.GetComponent<Transform>();
-
-    if( !NewEntityTransform.ParentTransform && !( NewEntity.GetId() == RootTransformEntity->GetId() ) )
+    if( !NewEntityTransform.GetParentTransform() && NewEntity.GetId() != RootTransformEntity.GetID() && GetRootTransform() )
     {
         NewEntityTransform.SetParent( *GetRootTransform() );
     }
@@ -38,21 +36,16 @@ void SceneCore::OnEntityAdded( Entity& NewEntity )
 
 Transform* SceneCore::GetRootTransform()
 {
-    return RootTransform;
+    return RootTransformEntity ? RootTransform : nullptr;
 }
 
 void SceneCore::OnEntityRemoved( Entity& InEntity )
 {
-
 }
 
 void SceneCore::OnEntityDestroyed( Entity& InEntity )
 {
-    Transform& transform = InEntity.GetComponent<Transform>();
-    if( transform.ParentTransform.get() )
-    {
-        transform.ParentTransform->RemoveChild( &transform );
-    }
+    // Transform::OnDestroy unlinks the hierarchy.
 }
 
 #if USING( ME_EDITOR )

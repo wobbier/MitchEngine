@@ -33,7 +33,7 @@ public:
     {
     }
     EntityHandle SelectedEntity;
-    WeakPtr<Transform> SelectedTransform;
+    TransformHandle SelectedTransform;
     BaseCore* SelectedCore = nullptr;
 };
 

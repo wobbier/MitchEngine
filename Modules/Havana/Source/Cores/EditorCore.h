@@ -5,7 +5,7 @@
 #include "Pointers.h"
 #include "Math/Vector3.h"
 
-class Transform;
+#include "Components/Transform.h"
 class Havana;
 class Camera;
 
@@ -51,7 +51,7 @@ private:
 	float m_focusDuration = 0.1f;
 
 	SharedPtr<Transform> EditorCameraTransform = nullptr;
-	WeakPtr<Transform> FocusedTransform;
+	TransformHandle FocusedTransform;
 	Camera* EditorCamera = nullptr;
 	Havana* m_editor = nullptr;
 

@@ -37,6 +37,8 @@ public:
 
     // Each core must update each loop
     virtual void Update( const UpdateContext& inUpdateContext ) {};
+    // Runs zero or more times per frame at the fixed simulation rate (physics, deterministic logic).
+    virtual void FixedUpdate( const UpdateContext& inUpdateContext ) {};
     virtual void LateUpdate( const UpdateContext& inUpdateContext ) {};
     virtual void PostRender( const UpdateContext& inUpdateContext ) {};
     virtual void OnEntityAdded( Entity& NewEntity ) {};
@@ -58,6 +60,15 @@ public:
     // Get the component filter associated with the core.
     const ComponentFilter& GetComponentFilter() const;
 
+    // O(1): is the entity with this slot index currently matched by this core?
+    bool Contains( uint32_t InEntityIndex ) const;
+
+    // Cores update in ascending priority order (ties broken by name), so ordering is deterministic.
+    int GetPriority() const { return Priority; }
+
+    // TypeId the World registered this core under.
+    TypeId GetTypeIdInternal() const { return m_coreTypeId; }
+
     const std::string& GetName() const;
 
 #if USING( ME_EDITOR )
@@ -70,9 +81,10 @@ public:
 protected:
     void SetIsSerializable( bool value );
 
-    class Engine* GameEngine;
-    World* GameWorld;
+    class Engine* GameEngine = nullptr;
+    World* GameWorld = nullptr;
     bool DestroyOnLoad = true;
+    int Priority = 0;
 
 private:
     // Separate init from construction code.
@@ -91,6 +103,8 @@ private:
 
     // The Entities that are attached to this system
     std::vector<Entity> Entities;
+    // Entity slot index -> position in Entities + 1 (0 = not a member).
+    std::vector<uint32_t> m_memberSlots;
 
     // The World attached to the system
 
@@ -100,7 +114,9 @@ private:
 
     bool IsRunning = false;
     bool IsSerializable = true;
-    bool _padding[5];
+    // Created by the World from a scene/registry (as opposed to owned by the engine/editor).
+    bool IsOwnedByWorld = false;
+    TypeId m_coreTypeId = 0;
 };
 
 // Use the CRTP patten to define custom systems

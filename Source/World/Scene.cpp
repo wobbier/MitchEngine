@@ -28,9 +28,9 @@ void Scene::LoadSceneObject( const json& obj, Transform* parent )
     }
     if( !ent )
     {
-        ent = GameWorld->CreateEntity();
+        ent = GameWorld->CreateEntity( obj.value( "Name", std::string() ) );
     }
-    ent->IsLoading = true;
+    ent->SetLoading( true );
     Transform* transComp = nullptr;
     for( const json& comp : obj["Components"] )
     {
@@ -63,10 +63,10 @@ void Scene::LoadSceneObject( const json& obj, Transform* parent )
 
     if( obj.contains( "DestroyOnLoad" ) )
     {
-        ent->DestroyOnLoad = obj["DestroyOnLoad"];
+        ent->SetDestroyOnLoad( obj["DestroyOnLoad"].get<bool>() );
     }
 
-    ent->IsLoading = false;
+    ent->SetLoading( false );
 
     if( obj.contains( "Children" ) )
     {
@@ -148,7 +148,7 @@ void Scene::SaveSceneRecursively( json& d, Transform* CurrentTransform )
     json outEntity;
 
     outEntity["Name"] = CurrentTransform->GetName();
-    outEntity["DestroyOnLoad"] = CurrentTransform->Parent->DestroyOnLoad;
+    outEntity["DestroyOnLoad"] = CurrentTransform->Parent->GetDestroyOnLoad();
 
     json& componentsJson = outEntity["Components"];
     EntityHandle ent = CurrentTransform->Parent;
@@ -162,9 +162,9 @@ void Scene::SaveSceneRecursively( json& d, Transform* CurrentTransform )
     }
     if( CurrentTransform->GetChildren().size() > 0 )
     {
-        for( SharedPtr<Transform> Child : CurrentTransform->GetChildren() )
+        for( Transform* Child : CurrentTransform->GetChildren() )
         {
-            SaveSceneRecursively( outEntity["Children"], Child.get() );
+            SaveSceneRecursively( outEntity["Children"], Child );
         }
     }
     d.push_back( outEntity );
@@ -187,9 +187,9 @@ void Scene::SaveCopy( const std::string& fileName, Transform* root )
 
     if( root->GetChildren().size() > 0 )
     {
-        for( SharedPtr<Transform> Child : root->GetChildren() )
+        for( Transform* Child : root->GetChildren() )
         {
-            SaveSceneRecursively( world["Scene"], Child.get() );
+            SaveSceneRecursively( world["Scene"], Child );
         }
     }
 

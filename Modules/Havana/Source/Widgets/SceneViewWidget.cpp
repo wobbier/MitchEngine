@@ -125,7 +125,7 @@ bool SceneViewWidget::OnEvent(const BaseEvent& evt)
 		{
 			if (selectedEntity->HasComponent<Transform>())
 			{
-				SelectedTransform = selectedEntity->GetComponent<Transform>().shared_from_this();
+				SelectedTransform = TransformHandle(selectedEntity->GetComponent<Transform>());
 			}
 		}
 	}

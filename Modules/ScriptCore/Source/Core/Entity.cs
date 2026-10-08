@@ -10,13 +10,14 @@ public readonly struct Entity : IEquatable<Entity>
 {
     public static readonly Entity Null = default;   // {0, 0}
 
-    public readonly ulong Index;
-    public readonly ulong Counter;
+    // Mirrors the engine's 8-byte EntityID: slot index + generation (0 = null).
+    public readonly uint Index;
+    public readonly uint Generation;
 
-    public Entity(ulong inIndex, ulong inCounter)
+    public Entity(uint inIndex, uint inGeneration)
     {
         Index = inIndex;
-        Counter = inCounter;
+        Generation = inGeneration;
     }
 
     public bool IsAlive { get { unsafe { return Engine._api.Entity_IsAlive(this) != 0; } } }
@@ -58,13 +59,13 @@ public readonly struct Entity : IEquatable<Entity>
         unsafe { fixed (byte* p = bytes) return Engine._api.Entity_HasComponent(this, p) != 0; }
     }
 
-    public bool Equals(Entity o) => Index == o.Index && Counter == o.Counter;
+    public bool Equals(Entity o) => Index == o.Index && Generation == o.Generation;
     public override bool Equals(object? obj) => obj is Entity e && Equals(e);
-    public override int GetHashCode() => HashCode.Combine(Index, Counter);
+    public override int GetHashCode() => HashCode.Combine(Index, Generation);
     public static bool operator ==(Entity a, Entity b) => a.Equals(b);
     public static bool operator !=(Entity a, Entity b) => !a.Equals(b);
 
-    public override string ToString() => $"Entity({Index}:{Counter})";
+    public override string ToString() => $"Entity({Index}:{Generation})";
 }
 
 // pre-cache per typename so HasComponent/GetComponent doesn't re-marshal the string on every single call.

@@ -2,19 +2,20 @@
 #pragma once
 #include "Component.h"
 #include "ClassTypeId.h"
-#include <unordered_map>
 #include <string>
+#include <vector>
 #include "EntityID.h"
 
 class World;
 
+// Lightweight view of an entity: a World pointer plus a generational id. Copies are cheap and all
+// state lives in the World's entity record, so copies held by cores never go stale or diverge.
 class Entity
 {
     friend class World;
 public:
-    Entity();
+    Entity() = default;
     Entity( World& inWorld, EntityID inId );
-    ~Entity();
     Entity( const Entity& ) = default;
     Entity& operator=( const Entity& ) = default;
     bool operator==( const Entity& entity ) const;
@@ -23,37 +24,65 @@ public:
     }
     explicit operator bool() const
     {
-        return GameWorld != nullptr;
+        return IsValid();
     }
 
-    template <typename T>
-    bool HasComponent();
+    // True while the entity this view refers to is alive.
+    bool IsValid() const;
 
     template <typename T>
-    T& AddComponent( SharedPtr<T> inComponent );
-
-    BaseComponent* AddComponentByName( const std::string& inComponent );
+    bool HasComponent() const;
 
     template <typename T, typename... Args>
     T& AddComponent( Args&&... args );
 
+    BaseComponent* AddComponentByName( const std::string& inComponent );
+
+    // Asserts if the component is missing; use TryGetComponent when unsure.
     template <typename T>
     T& GetComponent() const;
 
+    template <typename T>
+    T* TryGetComponent() const;
+
+    // Removal is deferred to the next World sync point (end of the current phase).
     template <typename T>
     void RemoveComponent();
 
     void RemoveComponent( const std::string& Name );
 
+    BaseComponent* GetComponentByName( const std::string& Name ) const;
     std::vector<BaseComponent*> GetAllComponents() const;
 
     const EntityID& GetId() const;
+    World* GetWorld() const { return GameWorld; }
+    EntityHandle GetHandle() const;
 
+    // Active state. The effective state also depends on the parents (see IsActiveInHierarchy) and
+    // is applied to cores at the next sync point.
     void SetActive( const bool InActive );
+    bool IsActiveSelf() const;
+    bool IsActiveInHierarchy() const;
+
+    // Destroys the entity and its children at the next sync point. Safe to call repeatedly.
     void MarkForDelete();
-    bool IsLoading = false;
-    // not a fan tbh
-    bool DestroyOnLoad = true;
+
+    const std::string& GetName() const;
+    void SetName( const std::string& InName );
+
+    // Persistent identity used by scenes/prefabs/entity references.
+    uint64_t GetGUID() const;
+
+    uint8_t GetLayer() const;
+    void SetLayer( uint8_t InLayer );
+
+    // While loading, AddComponent defers Init() until the components are deserialized.
+    bool IsLoading() const;
+    void SetLoading( bool InLoading );
+
+    // Whether the entity is destroyed when another scene loads.
+    bool GetDestroyOnLoad() const;
+    void SetDestroyOnLoad( bool InDestroyOnLoad );
 
 #if USING( ME_EDITOR )
     void OnEditorInspect();
@@ -63,52 +92,10 @@ private:
     World* GameWorld = nullptr;
     EntityID Id;
 
-    void AddComponent( SharedPtr<BaseComponent> inComponent, TypeId inComponentTypeId );
+    BaseComponent* GetComponentPtr( TypeId InTypeId ) const;
     const bool HasComponent( TypeId inComponentType ) const;
-    BaseComponent& GetComponent( TypeId InTypeId ) const;
     void RemoveComponent( TypeId InComponentTypeId );
 };
 
-template <typename T>
-bool Entity::HasComponent()
-{
-    //static_assert(std::is_base_of<BaseComponent, T>(), "T is not a component, cannot add T to entity");
-    return HasComponent( T::GetStaticTypeId() );
-}
-
-template <typename T>
-T& Entity::AddComponent( SharedPtr<T> inComponent )
-{
-    if( HasComponent( T::GetStaticTypeId() ) )
-    {
-        return GetComponent<T>();
-    }
-
-    //static_assert(std::is_base_of<BaseComponent, T>(), "T is not a component, cannot add T to entity");
-    AddComponent( inComponent, T::GetStaticTypeId() );
-    return *inComponent;
-}
-
-template <typename T>
-T& Entity::GetComponent() const
-{
-    //static_assert(std::is_base_of<BaseComponent, T>(), "T is not a component, cannot get T from Entity");
-    return static_cast<T&>( GetComponent( T::GetStaticTypeId() ) );
-}
-
-template <typename T, typename... Args>
-T& Entity::AddComponent( Args&&... args )
-{
-    if( HasComponent( T::GetStaticTypeId() ) )
-    {
-        return GetComponent<T>();
-    }
-    SharedPtr<T> t = MakeShared<T>( std::forward<Args>( args )... );
-    return AddComponent( t );
-}
-
-template <typename T>
-void Entity::RemoveComponent()
-{
-    RemoveComponent( T::GetStaticTypeId() );
-}
+// Template member definitions live at the end of World.h, after World is complete.
+#include "Engine/World.h"

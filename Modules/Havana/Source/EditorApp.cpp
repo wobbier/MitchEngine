@@ -24,7 +24,6 @@
 #include "Math/Frustrum.h"
 #include "optick.h"
 #include <ctime>
-#include <Core/JobQueueOld.h>
 #include <Math/Quaternion.h>
 #include "Events/HavanaEvents.h"
 #include <Utils/EditorConfig.h>

@@ -58,7 +58,7 @@ bool SceneHierarchyWidget::OnEvent(const BaseEvent& evt)
         SelectedEntity = handle;
 		if( SelectedEntity && SelectedEntity->HasComponent<Transform>() )
 		{
-			SelectedTransform = SelectedEntity->GetComponent<Transform>().GetPtr();
+			SelectedTransform = TransformHandle(SelectedEntity->GetComponent<Transform>());
 		}
 		else
 		{
@@ -187,14 +187,14 @@ void SceneHierarchyWidget::Render()
 		int i = 0;
 		for (auto& comp : world->GetAllCoresArray())
 		{
-			ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | (SelectedCore == comp.second.get() ? ImGuiTreeNodeFlags_Selected : 0);
+			ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | (SelectedCore == comp.second ? ImGuiTreeNodeFlags_Selected : 0);
 			{
 				node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding; // ImGuiTreeNodeFlags_Bullet
 				ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, comp.second->GetName().c_str());
 				if (ImGui::IsItemClicked())
 				{
 					InspectEvent evt;
-					evt.SelectedCore = comp.second.get();
+					evt.SelectedCore = comp.second;
 					evt.Fire();
 				}
 			}
@@ -238,14 +238,16 @@ void SceneHierarchyWidget::UpdateWorldRecursive(Transform* root)
 	}
 
 	int i = 0;
-	for (SharedPtr<Transform> child : root->GetChildren())
+	// Iterate a copy: drag-and-drop below reparents children while the tree is drawn.
+	const std::vector<Transform*> children = root->GetChildren();
+	for (Transform* child : children)
 	{
 		OPTICK_CATEGORY("UpdateWorld::UpdateWorldRecursive::Child", Optick::Category::GameLogic);
 		if (!child)
 		{
 			continue;
 		}
-		Transform* var = child.get();
+		Transform* var = child;
 		bool open = false;
 		ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding | (SelectedTransform.lock().get() == var ? ImGuiTreeNodeFlags_Selected : 0);
 		if (var->GetChildren().empty())
@@ -277,7 +279,7 @@ void SceneHierarchyWidget::UpdateWorldRecursive(Transform* root)
 
 				if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_CHILD_TRANSFORM"))
 				{
-					DragParentDescriptor.Parent->SetParent(*child);
+					DragParentDescriptor.Parent->SetParent(*child, true);
 				}
 				ImGui::EndDragDropTarget();
 			}
@@ -317,7 +319,7 @@ void SceneHierarchyWidget::UpdateWorldRecursive(Transform* root)
 
 				if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_CHILD_TRANSFORM"))
 				{
-					DragParentDescriptor.Parent->SetParent(*child);
+					DragParentDescriptor.Parent->SetParent(*child, true);
 				}
 				ImGui::EndDragDropTarget();
 			}

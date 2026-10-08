@@ -2,8 +2,12 @@
 
 #pragma once
 #include <bitset>
+#include <cstddef>
 
-typedef std::bitset<64> ComponentTypeArray;
+// Upper bound on distinct component types (engine + game). Raise freely; it only sizes the masks.
+static constexpr std::size_t kMaxComponentTypes = 256;
+
+typedef std::bitset<kMaxComponentTypes> ComponentTypeArray;
 
 template <class TContainer>
 void CheckCapacity( TContainer& InContainer, typename TContainer::size_type InIndex )

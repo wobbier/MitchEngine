@@ -33,6 +33,9 @@ public:
     }
     bool PassFilter( const ComponentTypeArray& InComponentTypeArray ) const;
 
+    // A filter with no Requires/RequiresOneOf matches every entity.
+    bool IsEmpty() const;
+
     void Clear();
 
 private:

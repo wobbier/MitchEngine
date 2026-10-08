@@ -4,6 +4,7 @@
 #include "Renderer.h"
 #include "CLog.h"
 #include "JSON.h"
+#include "optick.h"
 #include <algorithm>
 #include <fstream>
 #include <numeric>
@@ -21,8 +22,9 @@ void AutomationRunner::Init()
     m_warmupFrames = CommandLine::GetInt( "--warmup", 30 );
     m_screenshotPath = CommandLine::GetString( "--screenshot" );
     m_perfReportPath = CommandLine::GetString( "--perf-report" );
+    m_tracePath = CommandLine::GetString( "--trace" );
 
-    m_isActive = m_targetFrames > 0 || !m_screenshotPath.empty() || !m_perfReportPath.empty();
+    m_isActive = m_targetFrames > 0 || !m_screenshotPath.empty() || !m_perfReportPath.empty() || !m_tracePath.empty();
     if( m_isActive )
     {
         m_frameTimes.reserve( m_targetFrames > 0 ? m_targetFrames : 4096 );
@@ -39,6 +41,11 @@ bool AutomationRunner::OnFrameEnd( BGFXRenderer& renderer, double frameMilliseco
     }
 
     ++m_frameIndex;
+    if( !m_tracePath.empty() && !m_isTracing && m_frameIndex == static_cast<uint64_t>( m_warmupFrames ) )
+    {
+        OPTICK_START_CAPTURE();
+        m_isTracing = true;
+    }
     if( m_frameIndex > static_cast<uint64_t>( m_warmupFrames ) && !m_screenshotRequested )
     {
         m_frameTimes.push_back( frameMilliseconds );
@@ -79,6 +86,12 @@ bool AutomationRunner::OnFrameEnd( BGFXRenderer& renderer, double frameMilliseco
 
 void AutomationRunner::Shutdown()
 {
+    if( m_isTracing )
+    {
+        OPTICK_STOP_CAPTURE();
+        OPTICK_SAVE_CAPTURE( m_tracePath.c_str() );
+        m_isTracing = false;
+    }
     if( !m_perfReportPath.empty() )
     {
         WritePerfReport();

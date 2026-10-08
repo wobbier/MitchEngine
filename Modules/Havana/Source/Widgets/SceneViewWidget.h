@@ -9,7 +9,7 @@
 #if USING( ME_EDITOR )
 
 class EditorApp;
-class Transform;
+#include "Components/Transform.h"
 class SceneViewWidget
 	: public HavanaWidget
 	, public EventReceiver
@@ -52,7 +52,7 @@ public:
 	Vector2 SceneViewRenderSize;
 	Vector2 SceneViewRenderLocation;
 
-	WeakPtr<Transform> SelectedTransform;
+	TransformHandle SelectedTransform;
 
 	DisplayParams CurrentDisplayParams;
 private:

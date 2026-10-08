@@ -5,7 +5,7 @@
 #include <Path.h>
 #include <Resource/MetaFile.h>
 
-class Transform;
+#include "Components/Transform.h"
 class BaseCore;
 class BaseComponent;
 
@@ -32,7 +32,7 @@ public:
 	void AddComponentPopup(EntityHandle inSelectedEntity);
 
 	EntityHandle SelectedEntity;
-	WeakPtr<Transform> SelectedTransform;
+	TransformHandle SelectedTransform;
 	class BaseCore* SelectedCore = nullptr;
 
 private:

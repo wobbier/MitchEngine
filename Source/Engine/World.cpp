@@ -1,31 +1,731 @@
 #include "PCH.h"
 #include "Engine/World.h"
+#include "ECS/Core.h"
 #include "Components/Transform.h"
-#include <unordered_map>
 #include "Pointers.h"
 #include "CLog.h"
 #include "ECS/CoreDetail.h"
+#include "ECS/ComponentDetail.h"
 #include "File.h"
 #include "Resources/JsonResource.h"
 #include "optick.h"
 #include "Core/Assert.h"
+#include <algorithm>
+#include <random>
+#include <chrono>
 
-#define DEFAULT_ENTITY_POOL_SIZE 50
+namespace
+{
+    // Fires lifecycle callbacks for every enabled component of an entity.
+    template<typename Fn>
+    void ForEachEnabledComponent( const World::EntityRecord& record, World& world, Fn&& fn )
+    {
+        for( std::size_t typeId = 0; typeId < kMaxComponentTypes; ++typeId )
+        {
+            if( record.EnabledMask.test( typeId ) && !record.PendingRemoval.test( typeId ) )
+            {
+                if( BaseComponent* component = world.GetComponent( record.Facade.GetId(), typeId ) )
+                {
+                    fn( *component );
+                }
+            }
+        }
+    }
+}
+
 
 World::World()
-    : World( DEFAULT_ENTITY_POOL_SIZE )
 {
 }
 
-World::World( std::size_t InEntityPoolSize ) :
-    EntIdPool( InEntityPoolSize ),
-    EntityAttributes( InEntityPoolSize )
-{
-}
 
 World::~World()
 {
+    Destroy();
+    for( auto& core : Cores )
+    {
+        core.second->Clear();
+        core.second->GameWorld = nullptr;
+    }
+    Cores.clear();
+    m_sortedCores.clear();
+    m_loadedCores.clear();
+    m_ownedCores.clear();
 }
+
+
+SharedPtr<World> World::GetSharedPtr()
+{
+    return shared_from_this();
+}
+
+
+uint64_t World::GenerateGUID()
+{
+    static thread_local std::mt19937_64 generator( std::random_device{}() ^ static_cast<uint64_t>( std::chrono::steady_clock::now().time_since_epoch().count() ) );
+    uint64_t guid = 0;
+    while( guid == 0 )
+    {
+        guid = generator();
+    }
+    return guid;
+}
+
+// ------------------------------------------------------------------------------------------------
+// Entities
+// ------------------------------------------------------------------------------------------------
+
+EntityHandle World::CreateEntity( const std::string& InName )
+{
+    return CreateEntityInternal( 0, InName );
+}
+
+
+EntityHandle World::CreateEntityWithGUID( uint64_t InGUID, const std::string& InName )
+{
+    if( InGUID != 0 && m_guidToIndex.find( InGUID ) != m_guidToIndex.end() )
+    {
+        // Duplicate (e.g. the same prefab instanced twice): the caller remaps references.
+        InGUID = 0;
+    }
+    return CreateEntityInternal( InGUID, InName );
+}
+
+
+EntityHandle World::CreateEntityInternal( uint64_t InGUID, const std::string& InName )
+{
+    uint32_t index;
+    if( !m_freeIndices.empty() )
+    {
+        index = m_freeIndices.back();
+        m_freeIndices.pop_back();
+    }
+    else
+    {
+        index = static_cast<uint32_t>( m_records.size() );
+        m_records.emplace_back();
+    }
+
+    EntityRecord& record = m_records[index];
+    const uint32_t generation = record.Generation;
+    record = EntityRecord();
+    record.Generation = generation;
+    record.Alive = true;
+    record.GUID = InGUID != 0 ? InGUID : GenerateGUID();
+    record.Name = InName;
+
+    const EntityID id( index, generation );
+    record.Facade = Entity( *this, id );
+    m_guidToIndex[record.GUID] = index;
+    ++m_aliveCount;
+
+    MarkEntityDirty( id );
+    return EntityHandle( id, this );
+}
+
+
+World::EntityRecord* World::GetRecord( const EntityID& InId )
+{
+    if( InId.Index >= m_records.size() )
+    {
+        return nullptr;
+    }
+    EntityRecord& record = m_records[InId.Index];
+    return ( record.Alive && record.Generation == InId.Generation ) ? &record : nullptr;
+}
+
+
+const World::EntityRecord* World::GetRecord( const EntityID& InId ) const
+{
+    if( InId.Index >= m_records.size() )
+    {
+        return nullptr;
+    }
+    const EntityRecord& record = m_records[InId.Index];
+    return ( record.Alive && record.Generation == InId.Generation ) ? &record : nullptr;
+}
+
+
+void World::MarkEntityDirty( const EntityID& InId )
+{
+    EntityRecord* record = GetRecord( InId );
+    if( !record || record->QueuedForSync )
+    {
+        return;
+    }
+    record->QueuedForSync = true;
+    m_syncQueue.push_back( InId.Index );
+}
+
+
+void World::MarkEntityForDelete( Entity& EntityToDestroy )
+{
+    EntityRecord* record = GetRecord( EntityToDestroy.GetId() );
+    if( !record || record->PendingDestroy )
+    {
+        return;
+    }
+    record->PendingDestroy = true;
+    m_destroyQueue.push_back( EntityToDestroy.GetId().Index );
+}
+
+
+void World::DestroyEntity( const EntityHandle& InEntity )
+{
+    if( Entity* entity = InEntity.Get() )
+    {
+        MarkEntityForDelete( *entity );
+    }
+}
+
+
+std::size_t World::GetEntityCount() const
+{
+    return m_aliveCount;
+}
+
+
+EntityHandle World::GetEntity( const EntityID& InEntity )
+{
+    return GetRecord( InEntity ) ? EntityHandle( InEntity, this ) : EntityHandle();
+}
+
+
+Entity* World::GetEntityRaw( const EntityID& InEntity )
+{
+    EntityRecord* record = GetRecord( InEntity );
+    return record ? &record->Facade : nullptr;
+}
+
+
+EntityHandle World::FindEntityByIDValue( uint64_t id )
+{
+    return GetEntity( EntityID::FromValue( id ) );
+}
+
+
+EntityHandle World::FindEntityByGUID( uint64_t InGUID )
+{
+    auto it = m_guidToIndex.find( InGUID );
+    if( it == m_guidToIndex.end() )
+    {
+        return {};
+    }
+    const EntityRecord& record = m_records[it->second];
+    return EntityHandle( record.Facade.GetId(), this );
+}
+
+
+EntityHandle World::FindEntityByName( const std::string& InName )
+{
+    for( EntityRecord& record : m_records )
+    {
+        if( record.Alive && record.Name == InName )
+        {
+            return EntityHandle( record.Facade.GetId(), this );
+        }
+    }
+    return {};
+}
+
+
+const bool World::EntityExists( const EntityID& InEntity ) const
+{
+    return GetRecord( InEntity ) != nullptr;
+}
+
+
+bool World::IsActive( Entity& InEntity )
+{
+    const EntityRecord* record = GetRecord( InEntity.GetId() );
+    return record && record->ActiveInHierarchy;
+}
+
+// ------------------------------------------------------------------------------------------------
+// Components
+// ------------------------------------------------------------------------------------------------
+
+IComponentPool* World::GetComponentPool( TypeId InTypeId ) const
+{
+    return InTypeId < m_pools.size() ? m_pools[InTypeId].get() : nullptr;
+}
+
+
+BaseComponent* World::GetComponent( const EntityID& InId, TypeId InTypeId ) const
+{
+    const EntityRecord* record = GetRecord( InId );
+    if( !record || InTypeId >= m_pools.size() || !m_pools[InTypeId] )
+    {
+        return nullptr;
+    }
+    return m_pools[InTypeId]->Get( InId.Index );
+}
+
+
+void World::RemoveComponent( const EntityID& InId, TypeId InTypeId )
+{
+    EntityRecord* record = GetRecord( InId );
+    if( !record || InTypeId >= kMaxComponentTypes || !record->Mask.test( InTypeId ) )
+    {
+        return;
+    }
+    record->PendingRemoval.set( InTypeId );
+    MarkEntityDirty( InId );
+}
+
+
+void World::OnComponentEnabledChanged( BaseComponent& InComponent )
+{
+    EntityRecord* record = GetRecord( InComponent.Parent.GetID() );
+    if( !record )
+    {
+        return;
+    }
+
+    const TypeId typeId = InComponent.GetTypeId();
+    record->EnabledMask.set( typeId, InComponent.IsEnabled() );
+
+    if( record->ActiveInHierarchy && !record->IsLoading )
+    {
+        if( InComponent.IsEnabled() )
+        {
+            InComponent.OnEnable();
+        }
+        else
+        {
+            InComponent.OnDisable();
+        }
+    }
+    MarkEntityDirty( record->Facade.GetId() );
+}
+
+
+void BaseComponent::SetEnabled( bool InEnabled )
+{
+    if( m_isEnabled == InEnabled )
+    {
+        return;
+    }
+    m_isEnabled = InEnabled;
+    if( World* world = Parent.GetWorld() )
+    {
+        world->OnComponentEnabledChanged( *this );
+    }
+}
+
+// ------------------------------------------------------------------------------------------------
+// Sync
+// ------------------------------------------------------------------------------------------------
+
+bool World::ComputeActiveInHierarchy( uint32_t InIndex ) const
+{
+    uint32_t index = InIndex;
+    // Walk up the Transform hierarchy; any inactive ancestor deactivates the entity.
+    for( int depth = 0; depth < 4096; ++depth )
+    {
+        const EntityRecord& record = m_records[index];
+        if( !record.Alive || !record.ActiveSelf )
+        {
+            return false;
+        }
+
+        const IComponentPool* transformPool = GetComponentPool( Transform::GetStaticTypeId() );
+        const Transform* transform = transformPool ? static_cast<const Transform*>( transformPool->Get( index ) ) : nullptr;
+        const Transform* parent = transform ? transform->GetParentTransform() : nullptr;
+        if( !parent )
+        {
+            return true;
+        }
+        index = parent->Parent.GetID().Index;
+    }
+    ME_ASSERT_MSG( false, "Transform hierarchy too deep (or cyclic)." );
+    return false;
+}
+
+
+void World::SyncEntity( uint32_t InIndex )
+{
+    EntityRecord& record = m_records[InIndex];
+    record.QueuedForSync = false;
+    if( !record.Alive )
+    {
+        return;
+    }
+
+    const bool wasActive = record.ActiveInHierarchy;
+    const bool isActive = ComputeActiveInHierarchy( InIndex );
+    const ComponentTypeArray effectiveMask = isActive ? ( record.EnabledMask & ~record.PendingRemoval ) : ComponentTypeArray();
+
+    // Core membership. Removal happens while the components still exist so cores can clean up.
+    for( BaseCore* core : m_sortedCores )
+    {
+        const bool shouldBeMember = isActive && core->GetComponentFilter().PassFilter( effectiveMask );
+        const bool isMember = core->Contains( InIndex );
+        if( shouldBeMember && !isMember )
+        {
+            core->Add( record.Facade );
+        }
+        else if( !shouldBeMember && isMember )
+        {
+            core->Remove( record.Facade );
+        }
+    }
+
+    if( wasActive != isActive )
+    {
+        record.ActiveInHierarchy = isActive;
+        ForEachEnabledComponent( record, *this, [isActive]( BaseComponent& component ) {
+            if( isActive )
+            {
+                component.OnEnable();
+            }
+            else
+            {
+                component.OnDisable();
+            }
+        } );
+
+        // Children inherit activity.
+        if( const IComponentPool* transformPool = GetComponentPool( Transform::GetStaticTypeId() ) )
+        {
+            if( const Transform* transform = static_cast<const Transform*>( transformPool->Get( InIndex ) ) )
+            {
+                for( Transform* child : transform->GetChildren() )
+                {
+                    MarkEntityDirty( child->Parent.GetID() );
+                }
+            }
+        }
+    }
+
+    ApplyPendingRemovals( InIndex );
+}
+
+
+void World::ApplyPendingRemovals( uint32_t InIndex )
+{
+    EntityRecord& record = m_records[InIndex];
+    if( record.PendingRemoval.none() )
+    {
+        return;
+    }
+
+    for( std::size_t typeId = 0; typeId < kMaxComponentTypes; ++typeId )
+    {
+        if( !record.PendingRemoval.test( typeId ) )
+        {
+            continue;
+        }
+        if( BaseComponent* component = GetComponent( record.Facade.GetId(), typeId ) )
+        {
+            if( record.ActiveInHierarchy && component->IsEnabled() )
+            {
+                component->OnDisable();
+            }
+            component->OnDestroy();
+            m_pools[typeId]->Destroy( InIndex );
+        }
+        record.Mask.reset( typeId );
+        record.EnabledMask.reset( typeId );
+    }
+    record.PendingRemoval.reset();
+}
+
+
+void World::CollectHierarchy( uint32_t InIndex, std::vector<EntityID>& OutIds )
+{
+    // Children first, so a parent outlives everything below it during destruction.
+    if( const IComponentPool* transformPool = GetComponentPool( Transform::GetStaticTypeId() ) )
+    {
+        if( const Transform* transform = static_cast<const Transform*>( transformPool->Get( InIndex ) ) )
+        {
+            for( Transform* child : transform->GetChildren() )
+            {
+                CollectHierarchy( child->Parent.GetID().Index, OutIds );
+            }
+        }
+    }
+    OutIds.push_back( m_records[InIndex].Facade.GetId() );
+}
+
+
+void World::DestroyEntityNow( const EntityID& InId )
+{
+    // Generation-checked: an OnDestroy callback may have created an entity in a freed slot.
+    if( !GetRecord( InId ) )
+    {
+        return;
+    }
+    const uint32_t InIndex = InId.Index;
+    EntityRecord& record = m_records[InIndex];
+
+    for( BaseCore* core : m_sortedCores )
+    {
+        if( core->Contains( InIndex ) )
+        {
+            core->Remove( record.Facade );
+            core->OnEntityDestroyed( record.Facade );
+        }
+    }
+
+    for( std::size_t typeId = 0; typeId < kMaxComponentTypes; ++typeId )
+    {
+        if( !record.Mask.test( typeId ) )
+        {
+            continue;
+        }
+        if( BaseComponent* component = m_pools[typeId] ? m_pools[typeId]->Get( InIndex ) : nullptr )
+        {
+            if( record.ActiveInHierarchy && component->IsEnabled() )
+            {
+                component->OnDisable();
+            }
+            component->OnDestroy();
+            m_pools[typeId]->Destroy( InIndex );
+        }
+    }
+
+    m_guidToIndex.erase( record.GUID );
+
+    const uint32_t nextGeneration = record.Generation + 1 == 0 ? 1 : record.Generation + 1;
+    record = EntityRecord();
+    record.Generation = nextGeneration;
+    m_freeIndices.push_back( InIndex );
+    --m_aliveCount;
+}
+
+
+void World::Simulate()
+{
+    if( IsLoading || m_iterationDepth > 0 )
+    {
+        return;
+    }
+    OPTICK_CATEGORY( "World::Simulate", Optick::Category::Scene )
+
+    // Entities still being deserialized wait for a later sync point.
+    std::vector<uint32_t> deferred;
+
+    // Callbacks (OnEnable, OnEntityAdded...) may queue more work; keep going until it drains.
+    for( int pass = 0; pass < 16; ++pass )
+    {
+        std::vector<uint32_t> queue;
+        queue.swap( m_syncQueue );
+        for( uint32_t index : queue )
+        {
+            EntityRecord& record = m_records[index];
+            if( !record.Alive || !record.QueuedForSync )
+            {
+                continue;
+            }
+            if( record.IsLoading )
+            {
+                deferred.push_back( index );
+                continue;
+            }
+            SyncEntity( index );
+        }
+
+        if( !m_destroyQueue.empty() )
+        {
+            std::vector<uint32_t> roots;
+            roots.swap( m_destroyQueue );
+
+            std::vector<EntityID> ordered;
+            for( uint32_t index : roots )
+            {
+                if( m_records[index].Alive )
+                {
+                    CollectHierarchy( index, ordered );
+                }
+            }
+            for( const EntityID& id : ordered )
+            {
+                DestroyEntityNow( id );
+            }
+        }
+
+        if( m_syncQueue.empty() && m_destroyQueue.empty() )
+        {
+            break;
+        }
+    }
+
+    m_syncQueue.insert( m_syncQueue.end(), deferred.begin(), deferred.end() );
+}
+
+
+void World::Start()
+{
+    for( BaseCore* core : m_sortedCores )
+    {
+        if( !core->IsRunning )
+        {
+            core->OnStart();
+            core->IsRunning = true;
+        }
+    }
+}
+
+
+void World::Stop()
+{
+    for( BaseCore* core : m_sortedCores )
+    {
+        if( core->IsRunning )
+        {
+            core->OnStop();
+            core->IsRunning = false;
+        }
+    }
+}
+
+
+void World::Destroy()
+{
+    // Every entity, children before parents.
+    std::vector<EntityID> ordered;
+    for( uint32_t index = 0; index < m_records.size(); ++index )
+    {
+        const EntityRecord& record = m_records[index];
+        if( !record.Alive )
+        {
+            continue;
+        }
+        const Transform* transform = static_cast<const Transform*>( GetComponent( record.Facade.GetId(), Transform::GetStaticTypeId() ) );
+        if( !transform || !transform->GetParentTransform() )
+        {
+            CollectHierarchy( index, ordered );
+        }
+    }
+    for( const EntityID& id : ordered )
+    {
+        DestroyEntityNow( id );
+    }
+    for( uint32_t index = 0; index < m_records.size(); ++index )
+    {
+        if( m_records[index].Alive )
+        {
+            DestroyEntityNow( m_records[index].Facade.GetId() );
+        }
+    }
+    m_syncQueue.clear();
+    m_destroyQueue.clear();
+
+    for( BaseCore* core : m_sortedCores )
+    {
+        core->Clear();
+    }
+
+    std::vector<BaseCore*> loaded = m_loadedCores;
+    for( BaseCore* core : loaded )
+    {
+        core->OnStop();
+        core->IsRunning = false;
+        core->OnRemovedFromWorld();
+        RemoveCore( core->GetTypeIdInternal() );
+    }
+}
+
+
+void World::Unload()
+{
+    std::vector<uint32_t> doomed;
+    for( uint32_t index = 0; index < m_records.size(); ++index )
+    {
+        if( m_records[index].Alive && m_records[index].DestroyOnLoad )
+        {
+            doomed.push_back( index );
+        }
+    }
+
+    // Deepest first so parents are destroyed after their children.
+    auto depthOf = [this]( uint32_t index ) {
+        int depth = 0;
+        const Transform* transform = static_cast<const Transform*>( GetComponent( m_records[index].Facade.GetId(), Transform::GetStaticTypeId() ) );
+        while( transform && transform->GetParentTransform() && depth < 4096 )
+        {
+            transform = transform->GetParentTransform();
+            ++depth;
+        }
+        return depth;
+    };
+    std::vector<std::pair<int, EntityID>> byDepth;
+    byDepth.reserve( doomed.size() );
+    for( uint32_t index : doomed )
+    {
+        byDepth.emplace_back( depthOf( index ), m_records[index].Facade.GetId() );
+    }
+    std::stable_sort( byDepth.begin(), byDepth.end(), []( const auto& a, const auto& b ) { return a.first > b.first; } );
+    for( const auto& entry : byDepth )
+    {
+        DestroyEntityNow( entry.second );
+    }
+    m_destroyQueue.clear();
+
+    std::vector<BaseCore*> loaded = m_loadedCores;
+    for( BaseCore* core : loaded )
+    {
+        if( core->DestroyOnLoad )
+        {
+            core->OnStop();
+            core->IsRunning = false;
+            core->OnRemovedFromWorld();
+            RemoveCore( core->GetTypeIdInternal() );
+        }
+    }
+}
+
+
+void World::UpdateLoadedCores( const UpdateContext& inUpdateContext )
+{
+    OPTICK_EVENT( "UpdateLoadedCores" );
+    ++m_iterationDepth;
+    for( BaseCore* core : m_loadedCores )
+    {
+        if( core->IsRunning )
+        {
+            OPTICK_EVENT_DYNAMIC( core->GetName().c_str() );
+            core->Update( inUpdateContext );
+        }
+    }
+    --m_iterationDepth;
+}
+
+
+void World::FixedUpdateLoadedCores( const UpdateContext& inUpdateContext )
+{
+    OPTICK_EVENT( "FixedUpdateLoadedCores" );
+    ++m_iterationDepth;
+    for( BaseCore* core : m_loadedCores )
+    {
+        if( core->IsRunning )
+        {
+            OPTICK_EVENT_DYNAMIC( core->GetName().c_str() );
+            core->FixedUpdate( inUpdateContext );
+        }
+    }
+    --m_iterationDepth;
+}
+
+
+void World::LateUpdateLoadedCores( const UpdateContext& inUpdateContext )
+{
+    OPTICK_EVENT( "LateUpdateLoadedCores" );
+    ++m_iterationDepth;
+    for( BaseCore* core : m_loadedCores )
+    {
+        if( core->IsRunning )
+        {
+            core->LateUpdate( inUpdateContext );
+        }
+    }
+    --m_iterationDepth;
+}
+
+// ------------------------------------------------------------------------------------------------
+// Cores
+// ------------------------------------------------------------------------------------------------
 
 BaseCore* World::AddCoreByName( const std::string& core )
 {
@@ -46,235 +746,123 @@ BaseCore* World::AddCoreByName( const std::string& core )
     return GetCore( createdCore.second );
 }
 
-EntityHandle World::CreateEntity()
+
+void World::AddCore( BaseCore& InCore, TypeId InCoreTypeId, bool OwnedByWorld )
 {
-    CheckForResize( 1 );
-    EntityID id = EntIdPool.Create();
-    EntityCache.Alive[id] = Entity( *this, id );
-    return EntityHandle( id, GetSharedPtr() );
+    if( HasCore( InCoreTypeId ) )
+    {
+        if( OwnedByWorld && Cores[InCoreTypeId] != &InCore )
+        {
+            delete &InCore;
+        }
+        return;
+    }
+
+    Cores[InCoreTypeId] = &InCore;
+    InCore.m_coreTypeId = InCoreTypeId;
+    InCore.IsOwnedByWorld = OwnedByWorld;
+    InCore.GameWorld = this;
+    if( OwnedByWorld )
+    {
+        m_ownedCores.emplace_back( &InCore );
+        m_loadedCores.push_back( &InCore );
+    }
+    SortCores();
+
+    InCore.Init();
+    InCore.OnAddedToWorld();
+
+    // Existing entities may match the new core.
+    for( EntityRecord& record : m_records )
+    {
+        if( record.Alive )
+        {
+            MarkEntityDirty( record.Facade.GetId() );
+        }
+    }
 }
 
-void World::Simulate()
+
+void World::RemoveCore( TypeId InType )
 {
-    if( IsLoading )
+    auto it = Cores.find( InType );
+    if( it == Cores.end() )
     {
         return;
     }
-    OPTICK_CATEGORY( "World::Simulate", Optick::Category::Scene )
-    for( auto& InEntity : EntityCache.Activated )
-    {
-        auto& Attr = EntityAttributes.Attributes[InEntity.GetId().Index];
-        Attr.IsActive = true;
-
-        for( auto& InCore : Cores )
-        {
-            if( !InCore.second->IsRunning )
-            {
-                //continue;
-            }
-            auto CoreIndex = InCore.first;
-
-            if( InCore.second->GetComponentFilter().PassFilter( EntityAttributes.Storage.GetComponentTypes( InEntity ) ) )
-            {
-                if( Attr.Cores.size() <= CoreIndex || !Attr.Cores[CoreIndex] )
-                {
-                    InCore.second->Add( InEntity );
-
-                    Attr.Cores[CoreIndex] = true;
-                }
-            }
-            else if( Attr.Cores.size() > CoreIndex && Attr.Cores[CoreIndex] )
-            {
-                InCore.second->Remove( InEntity );
-                Attr.Cores[CoreIndex] = false;
-            }
-        }
-    }
-    for( auto& InEntity : EntityCache.Deactivated )
-    {
-        auto& Attr = EntityAttributes.Attributes[InEntity.GetId().Index];
-        if( Attr.IsActive )
-        {
-            Attr.IsActive = false;
-
-            for( auto& InCore : Cores )
-            {
-                auto CoreIndex = InCore.first;
-                if( Attr.Cores.size() <= CoreIndex ) continue;
-                if( Attr.Cores[CoreIndex] )
-                {
-                    InCore.second->Remove( InEntity );
-                    Attr.Cores[CoreIndex] = false;
-                }
-            }
-        }
-    }
-
-    for( auto& InEntity : EntityCache.Killed )
-    {
-        DestroyEntity( InEntity, true );
-    }
-
-    EntityCache.ClearTemp();
+    BaseCore* core = it->second;
+    Cores.erase( it );
+    core->Clear();
+    core->GameWorld = nullptr;
+    m_sortedCores.erase( std::remove( m_sortedCores.begin(), m_sortedCores.end(), core ), m_sortedCores.end() );
+    m_loadedCores.erase( std::remove( m_loadedCores.begin(), m_loadedCores.end(), core ), m_loadedCores.end() );
+    m_ownedCores.erase( std::remove_if( m_ownedCores.begin(), m_ownedCores.end(), [core]( const std::unique_ptr<BaseCore>& owned ) { return owned.get() == core; } ), m_ownedCores.end() );
 }
 
-void World::Start()
+
+void World::SortCores()
 {
+    m_sortedCores.clear();
     for( auto& core : Cores )
     {
-        if( !core.second->IsRunning )
-        {
-            core.second->OnStart();
-            core.second->IsRunning = true;
-        }
+        m_sortedCores.push_back( core.second );
     }
+    auto byPriority = []( const BaseCore* a, const BaseCore* b ) {
+        if( a->GetPriority() != b->GetPriority() )
+        {
+            return a->GetPriority() < b->GetPriority();
+        }
+        return a->GetName() < b->GetName();
+    };
+    std::sort( m_sortedCores.begin(), m_sortedCores.end(), byPriority );
+    std::sort( m_loadedCores.begin(), m_loadedCores.end(), byPriority );
 }
 
-void World::Stop()
+
+bool World::HasCore( TypeId InType )
 {
-    for( auto& core : Cores )
-    {
-        if( core.second->IsRunning )
-        {
-            core.second->OnStop();
-            core.second->IsRunning = false;
-        }
-    }
+    return Cores.find( InType ) != Cores.end();
 }
 
-void World::Destroy()
+
+BaseCore* World::GetCore( TypeId InType )
 {
-    //sus entities are maybe alive?
-
-    for( auto& it : EntityCache.Alive )
-    {
-        DestroyEntity( it.second, false );
-    }
-    EntityCache.Alive.clear();
-
-    for( auto& core : Cores )
-    {
-        core.second->Clear();
-    }
-    for( auto& core : m_loadedCores )
-    {
-        core.second->OnStop();
-        core.second->OnRemovedFromWorld();
-        Cores.erase( core.first );
-    }
-    m_loadedCores.clear();
-    EntityCache.ClearTemp();
+    auto it = Cores.find( InType );
+    return it != Cores.end() ? it->second : nullptr;
 }
 
-void World::Unload()
+
+std::vector<BaseCore*> World::GetAllCores()
 {
-    for( auto iter = EntityCache.Alive.begin(); iter != EntityCache.Alive.end(); )
-    {
-        if( iter->second.DestroyOnLoad )
-        {
-            DestroyEntity( iter->second, false );
-            iter = EntityCache.Alive.erase( iter );
-        }
-        else
-        {
-            ++iter;
-        }
-    }
-
-    for( auto it = m_loadedCores.begin(); it != m_loadedCores.end(); /* no increment here */ )
-    {
-        if( it->second->DestroyOnLoad )
-        {
-            it->second->OnStop();
-
-            it->second->OnRemovedFromWorld();
-
-            Cores.erase( it->first );
-            it = m_loadedCores.erase( it );
-        }
-        else
-        {
-            ++it;
-        }
-    }
-
-    // Do I need this?
-    EntityCache.ClearTemp();
+    return m_sortedCores;
 }
 
-void World::UpdateLoadedCores( const UpdateContext& inUpdateContext )
+
+const World::CoreArray& World::GetAllCoresArray()
 {
-    OPTICK_EVENT( "UpdateLoadedCores" );
-    for( auto core : m_loadedCores )
-    {
-        if( core.second && core.second->IsRunning )
-        {
-            OPTICK_EVENT_DYNAMIC( core.second->GetName().c_str() );
-            core.second->Update( inUpdateContext );
-        }
-    }
+    return Cores;
 }
 
-void World::LateUpdateLoadedCores( const UpdateContext& inUpdateContext )
-{
-    OPTICK_EVENT( "UpdateLoadedCores" );
-    for( auto core : m_loadedCores )
-    {
-        if( core.second && core.second->IsRunning )
-        {
-            core.second->LateUpdate( inUpdateContext );
-        }
-    }
-}
-
-void World::DestroyEntity( Entity& InEntity, bool RemoveFromWorld )
-{
-    auto& Attr = EntityAttributes.Attributes[InEntity.GetId().Index];
-    Attr.IsActive = false;
-    {
-        for( auto& InCore : Cores )
-        {
-            auto CoreIndex = InCore.first;
-
-            if( InCore.second->GetComponentFilter().PassFilter( EntityAttributes.Storage.GetComponentTypes( InEntity ) ) )
-            {
-                if( Attr.Cores.size() >= CoreIndex )
-                {
-                    InCore.second->Remove( InEntity );
-                    InCore.second->OnEntityDestroyed( InEntity );
-                }
-            }
-        }
-    }
-    EntityAttributes.Storage.RemoveAllComponents( InEntity );
-    Attr.Cores.reset();
-
-    EntIdPool.Remove( InEntity.GetId() );
-
-    if( RemoveFromWorld )
-    {
-        auto it = EntityCache.Alive.find( InEntity.GetId() );
-        if( it != EntityCache.Alive.end() )
-        {
-            EntityCache.Alive.erase( it );
-        }
-    }
-}
+// ------------------------------------------------------------------------------------------------
+// Prefabs
+// ------------------------------------------------------------------------------------------------
 
 EntityHandle World::CreateFromPrefab( const std::string& FilePath, Transform* Parent )
 {
     OPTICK_EVENT( "World::CreateFromPrefab" );
-    //File PrefabSource = File(Path(FilePath));
     SharedPtr<JsonResource> prefabJson = ResourceCache::GetInstance().Get<JsonResource>( Path( FilePath ) );
-    //nlohmann::json Prefab = nlohmann::json::parse(PrefabSource.Read());
+    if( !prefabJson )
+    {
+        YIKES( "Failed to load prefab: " + FilePath );
+        return {};
+    }
     return LoadPrefab( prefabJson->GetJson(), Parent, Parent );
 }
+
 
 EntityHandle World::LoadPrefab( const json& obj, Transform* parent, Transform* root )
 {
     EntityHandle ent;
-    World* GameWorld = this;
-    ME_ASSERT_MSG( GameWorld, "Trying to load a Prefab into a null world." );
     if( parent && parent != root )
     {
         auto t = parent->GetChildByName( obj["Name"] );
@@ -285,9 +873,9 @@ EntityHandle World::LoadPrefab( const json& obj, Transform* parent, Transform* r
     }
     if( !ent )
     {
-        ent = GameWorld->CreateEntity();
+        ent = CreateEntity( obj.value( "Name", std::string() ) );
     }
-    ent->IsLoading = true;
+    ent->SetLoading( true );
     Transform* transComp = nullptr;
     for( const json& comp : obj["Components"] )
     {
@@ -303,7 +891,6 @@ EntityHandle World::LoadPrefab( const json& obj, Transform* parent, Transform* r
             {
                 transComp->SetParent( *parent );
             }
-            transComp->SetName( obj["Name"] );
         }
         if( addedComp )
         {
@@ -312,7 +899,7 @@ EntityHandle World::LoadPrefab( const json& obj, Transform* parent, Transform* r
         }
     }
     ent->SetActive( true );
-    ent->IsLoading = false;
+    ent->SetLoading( false );
 
     if( obj.contains( "Children" ) )
     {
@@ -322,140 +909,4 @@ EntityHandle World::LoadPrefab( const json& obj, Transform* parent, Transform* r
         }
     }
     return ent;
-}
-
-SharedPtr<World> World::GetSharedPtr()
-{
-    return shared_from_this();
-}
-
-void World::AddCore( BaseCore& InCore, TypeId InCoreTypeId, bool HandleUpdate )
-{
-    if( !Cores[InCoreTypeId] )
-    {
-        Cores[InCoreTypeId].reset( &InCore );
-    }
-    InCore.GameWorld = this;
-    InCore.Init();
-    if( HandleUpdate )
-    {
-        m_loadedCores[InCoreTypeId] = Cores[InCoreTypeId].get();
-    }
-    InCore.OnAddedToWorld();
-    // 	for (auto ent : EntityCache.Alive)
-    // 	{
-    // 		ActivateEntity(*ent.get(), true);
-    // 	}
-}
-
-bool World::HasCore( TypeId InType )
-{
-    return Cores.find( InType ) != Cores.end();
-}
-
-BaseCore* World::GetCore( TypeId InType )
-{
-    return Cores[InType].get();
-}
-
-std::vector<BaseCore*> World::GetAllCores()
-{
-    OPTICK_CATEGORY( "GetAllCores", Optick::Category::Scene );
-
-    std::vector<BaseCore*> cores;
-    for( auto& core : Cores )
-    {
-        cores.push_back( core.second.get() );
-    }
-    return cores;
-}
-
-const World::CoreArray& World::GetAllCoresArray()
-{
-    return Cores;
-}
-
-void World::CheckForResize( std::size_t InNumEntitiesToBeAllocated )
-{
-    auto NewSize = GetEntityCount() + InNumEntitiesToBeAllocated;
-
-    if( NewSize > EntIdPool.GetSize() )
-    {
-        Resize( NewSize );
-    }
-}
-
-void World::Resize( std::size_t InAmount )
-{
-    EntIdPool.Resize( InAmount );
-    EntityAttributes.Resize( InAmount );
-}
-
-std::size_t World::GetEntityCount() const
-{
-    return EntityCache.Alive.size();
-}
-
-EntityHandle World::GetEntity( const EntityID& InEntity )
-{
-    auto it = EntityCache.Alive.find( InEntity );
-    if( it != EntityCache.Alive.end() )
-    {
-        return EntityHandle( InEntity, GetSharedPtr() );
-    }
-
-    return {};
-}
-
-Entity* World::GetEntityRaw( const EntityID& InEntity )
-{
-    auto it = EntityCache.Alive.find( InEntity );
-    if( it != EntityCache.Alive.end() )
-    {
-        return &EntityCache.Alive[InEntity];
-    }
-
-    return nullptr;
-}
-
-EntityHandle World::FindEntityByIDValue( uint64_t id )
-{
-    for (auto& alive : EntityCache.Alive)
-    {
-        if( alive.first.Value() == id )
-        {
-            return EntityHandle( alive.first, GetSharedPtr() );
-        }
-    }
-    return {};
-}
-
-const bool World::EntityExists( const EntityID& InEntity ) const
-{
-    auto it = EntityCache.Alive.find( InEntity );
-    return ( it != EntityCache.Alive.end() );
-}
-
-void World::ActivateEntity( Entity& InEntity, const bool InActive )
-{
-    if( InActive )
-    {
-        EntityCache.Activated.push_back( InEntity );
-    }
-    else
-    {
-        EntityCache.Deactivated.push_back( InEntity );
-    }
-}
-
-bool World::IsActive( Entity& InEntity )
-{
-    auto& Attr = EntityAttributes.Attributes[InEntity.GetId().Index];
-    return Attr.IsActive;
-}
-
-void World::MarkEntityForDelete( Entity& EntityToDestroy )
-{
-    //EntityCache.Deactivated.push_back(EntityToDestroy);
-    EntityCache.Killed.push_back( EntityToDestroy );
 }

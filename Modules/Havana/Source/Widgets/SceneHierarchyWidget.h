@@ -41,7 +41,7 @@ public:
 	std::vector<Entity>* Entities = nullptr;
 
 	EntityHandle SelectedEntity;
-	WeakPtr<Transform> SelectedTransform;
+	TransformHandle SelectedTransform;
 	class BaseCore* SelectedCore = nullptr;
 
 	ParentDescriptor DragParentDescriptor;

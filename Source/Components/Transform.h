@@ -4,6 +4,7 @@
 #include "ECS/ComponentDetail.h"
 
 #include "Math/Matrix4.h"
+#include <vector>
 
 enum class TransformSpace : uint8_t
 {
@@ -11,101 +12,158 @@ enum class TransformSpace : uint8_t
     World
 };
 
+// Position/rotation/scale relative to the parent transform, plus the scene hierarchy.
+//
+// World matrices are cached and recomputed lazily. Invariant: when a transform is dirty, all of its
+// descendants are dirty too, so marking stops early at already-dirty subtrees. Transform::UpdateAll
+// resolves every dirty matrix on the main thread before render/physics jobs read them concurrently.
 class Transform
     : public Component<Transform>
-    , public std::enable_shared_from_this<Transform>
 {
+    ME_REFLECTABLE( Transform )
     typedef Component<Transform> Base;
     friend class SceneCore;
+    friend class World;
 public:
 
     Transform();
     Transform( const std::string& Name );
     virtual ~Transform();
 
-    // Separate init from construction code.
     virtual void Init() final;
+    virtual void OnDestroy() final;
+    virtual void OnPropertyChanged( const std::string& InFieldName ) final;
 
-    // Local Space
-    Vector3 GetPosition() const;
+    // Local space
+    const Vector3& GetPosition() const;
     void SetPosition( const Vector3& NewPosition );
 
-    Quaternion GetRotation() const;
+    const Quaternion& GetRotation() const;
     void SetRotation( const Quaternion& InRotation );
+    // Euler angles in degrees.
+    void SetRotation( const Vector3& euler );
+    Vector3 GetRotationEuler() const;
 
-    Vector3 GetScale();
+    const Vector3& GetScale() const;
     void SetScale( const Vector3& NewScale );
     void SetScale( float NewScale );
 
-    //World Space
-    Vector3 GetWorldPosition() const;
+    // World space
+    Vector3 GetWorldPosition();
     void SetWorldPosition( const Vector3& NewPosition );
 
     Quaternion GetWorldRotation();
     void SetWorldRotation( const Quaternion& inRotation );
-
-    // Euler
-    Vector3 GetRotationEuler() const;
     Vector3 GetWorldRotationEuler();
 
-    void SetRotation( const Vector3& euler );
+    // Approximate world scale (exact unless a parent is non-uniformly scaled and rotated).
+    Vector3 GetWorldScale();
 
+    // Replaces the local transform so the world transform equals NewWorld.
+    void SetWorldMatrix( const Matrix4& NewWorld );
+
+    // World-space basis vectors.
     Vector3 Front();
     Vector3 Up();
     Vector3 Right();
 
-    void LookAt( const Vector3& InDirection );
-    void Translate( Vector3 NewTransform );
+    // Rotates so Front() points at a world-space target / along a world-space direction.
+    void LookAt( const Vector3& InWorldTarget, const Vector3& InUp = Vector3::Up );
+    void LookDirection( const Vector3& InDirection, const Vector3& InUp = Vector3::Up );
 
+    // Moves by a delta expressed in world space (default) or this transform's local axes.
+    void Translate( const Vector3& InDelta, TransformSpace InSpace = TransformSpace::World );
+
+    // Rotates by Euler degrees around this transform's axes or the world axes.
     void Rotate( const Vector3& inDegrees, TransformSpace inRelativeTo = TransformSpace::Self );
+
+    Vector3 TransformPoint( const Vector3& InLocalPoint );
+    Vector3 TransformDirection( const Vector3& InLocalDirection );
+    Vector3 InverseTransformPoint( const Vector3& InWorldPoint );
+    Vector3 InverseTransformDirection( const Vector3& InWorldDirection );
 
     void Reset();
 
     ME_HARDSTUCK( Transform )
 
-        void SetParent( Transform& NewParent );
+    // Hierarchy. keepWorldTransform preserves the current world pose under the new parent.
+    void SetParent( Transform& NewParent, bool keepWorldTransform = false );
+    void DetachFromParent( bool keepWorldTransform = false );
     void RemoveChild( Transform* TargetTransform );
-    Transform* GetChildByName( const std::string& inName );
-    const std::vector<SharedPtr<Transform>>& GetChildren() const;
-    WeakPtr<Transform> GetPtr();
+    Transform* GetParentTransform() const;
+    const std::vector<Transform*>& GetChildren() const;
+    Transform* GetChildByName( const std::string& inName ) const;
+    Transform* FindDescendantByName( const std::string& inName ) const;
+    bool IsDescendantOf( const Transform& InAncestor ) const;
+    size_t GetSiblingIndex() const;
+    void SetSiblingIndex( size_t InIndex );
 
-    Transform* GetParentTransform();
+    // Matrices
     const Matrix4& GetMatrix();
-
-    const std::string& GetName() const;
-    void SetName( const std::string& name );
-    void SetWorldTransform( Matrix4& NewWorldTransform, bool InIsDirty = false );
-
-    const bool IsDirty() const;
-
     const Matrix4& GetLocalToWorldMatrix();
     const Matrix4& GetWorldToLocalMatrix();
-    bool FuncIsLocalToWorldDirty();
+    Matrix4 GetLocalMatrix() const;
+    bool IsDirty() const;
+
+    // Resolves every dirty world matrix in the world (main thread). Call before jobs read matrices.
+    static void UpdateAll( class World& InWorld );
+
+    // The entity's name (stored on the entity; kept here for convenience).
+    const std::string& GetName() const;
+    void SetName( const std::string& name );
 
 #if USING( ME_EDITOR )
     virtual void OnEditorInspect() final;
 #endif
 
 private:
+    void MarkDirty();
+
+    Vector3 LocalPosition;
+    Quaternion LocalRotation;
+    Vector3 LocalScale;
+
     Matrix4 LocalToWorldMatrix;
     Matrix4 WorldToLocalMatrix;
+    bool m_isWorldDirty = true;
+    bool m_isInverseDirty = true;
 
-    std::string Name;
+    Transform* m_parent = nullptr;
+    std::vector<Transform*> m_children;
 
-    Quaternion LocalRotation;
-    Vector3 LocalPosition;
-    Vector3 LocalScale;
-    SharedPtr<Transform> ParentTransform;
-    std::vector<SharedPtr<Transform>> Children;
-    bool m_isDirty = true;
+    // Name given to the constructor before the owning entity is known.
+    std::string m_pendingName;
 
-    bool IsLocalToWorldDirty = true;
-    bool IsWorldToLocalDirty = true;
-
-
-    void SetDirty( bool Dirty );
     virtual void OnSerialize( json& outJson ) final;
     virtual void OnDeserialize( const json& inJson ) final;
+};
+
+// Weak reference to a Transform via its owning entity; resolves to null once the entity or the
+// component is destroyed. lock() mirrors the old WeakPtr<Transform> API used by editor widgets.
+class TransformHandle
+{
+public:
+    struct Locked
+    {
+        Transform* Ptr = nullptr;
+        Transform* operator->() const { return Ptr; }
+        Transform& operator*() const { return *Ptr; }
+        Transform* get() const { return Ptr; }
+        explicit operator bool() const { return Ptr != nullptr; }
+    };
+
+    TransformHandle() = default;
+    TransformHandle( Transform* InTransform );
+    TransformHandle( Transform& InTransform ) : TransformHandle( &InTransform ) {}
+
+    Transform* Get() const;
+    Locked lock() const { return Locked{ Get() }; }
+    void reset() { m_entity.Reset(); }
+    explicit operator bool() const { return Get() != nullptr; }
+    bool operator==( const TransformHandle& InOther ) const { return m_entity == InOther.m_entity; }
+
+private:
+    EntityHandle m_entity;
 };
 
 ME_REGISTER_COMPONENT( Transform )

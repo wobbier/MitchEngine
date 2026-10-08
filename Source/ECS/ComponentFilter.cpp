@@ -3,23 +3,30 @@
 
 bool ComponentFilter::PassFilter( const ComponentTypeArray& InComponentTypeArray ) const
 {
+    // Every Requires<> component must be present.
     if( ( InComponentTypeArray & RequiredComponentsList ) != RequiredComponentsList )
     {
         return false;
     }
 
-    if( ( InComponentTypeArray & RequiresOneOfComponentsList ).any() )
+    // At least one of the RequiresOneOf<> components (when any were specified).
+    if( RequiresOneOfComponentsList.any() && !( InComponentTypeArray & RequiresOneOfComponentsList ).any() )
     {
-        return true;
+        return false;
     }
 
-    // Exclude any components we don't want
+    // None of the Excludes<> components.
     if( ( ExcludeComponentsList & InComponentTypeArray ).any() )
     {
         return false;
     }
 
     return true;
+}
+
+bool ComponentFilter::IsEmpty() const
+{
+    return RequiredComponentsList.none() && RequiresOneOfComponentsList.none();
 }
 
 void ComponentFilter::Clear()

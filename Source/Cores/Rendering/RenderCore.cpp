@@ -21,7 +21,6 @@
 #include "Components/Lighting/DirectionalLight.h"
 #include "Work/Burst.h"
 #include "Renderer.h"
-#include <Core/JobSystem.h>
 #include "Camera/CameraData.h"
 #include "RenderPasses/PickingPass.h"
 #include "Utils/ImGuiUtils.h"
@@ -81,10 +80,8 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
         return;
     }
 
-    SimpleJobSystem& simpleJobSystem = engine.GetJobSystem();
-
-    std::vector<std::pair<int, int>> batches;
-    Burst::GenerateChunks( Renderables.size(), simpleJobSystem.GetNumWorkers(), batches );
+    // Resolve dirty world matrices first so the mesh jobs below only read them.
+    Transform::UpdateAll( GetWorld() );
 
     auto& cameras = renderer.GetCameraCache();
 
@@ -101,33 +98,29 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
         cam.VisibleFlags.resize( Renderables.size() );
     }
 
-    for( auto& batch : batches )
-    {
-        OPTICK_CATEGORY( "Create Render Jobs", Optick::Category::Debug );
-        int batchBegin = batch.first;
-        int batchEnd = batch.second;
-        int batchSize = batchEnd - batchBegin;
-
-        auto meshJob = [&renderer, &Renderables, &cameras, batchBegin, batchEnd, batchSize
-#if USING( ME_EDITOR )
-            , &editorCamera
-#endif
-        ]()
+    engine.GetJobSystem().ParallelFor( static_cast<uint32_t>( Renderables.size() ), 128, [&]( uint32_t batchBegin, uint32_t batchEnd )
             {
                 OPTICK_CATEGORY( "Mesh Job", Optick::Category::Debug );
-                for( int entIndex = batchBegin; entIndex < batchEnd; ++entIndex )
+                for( uint32_t entIndex = batchBegin; entIndex < batchEnd; ++entIndex )
                 {
                     //OPTICK_CATEGORY( "Update Transform", Optick::Category::Scene );
                     auto& InEntity = Renderables[entIndex];
                     {
                         Transform& transform = InEntity.GetComponent<Transform>();
                         Mesh& model = InEntity.GetComponent<Mesh>();
+                        // Meshes without geometry (e.g. a Model still loading) have nothing to draw.
+                        if( !model.MeshReferece || !model.MeshMaterial )
+                        {
+                            continue;
+                        }
+
                         bool isVisible = false;
                         const glm::mat4& meshMatrix = transform.GetLocalToWorldMatrix().GetInternalMatrix();
 
                         {
-                            //OPTICK_CATEGORY( "Culling", Optick::Category::Visibility );
-                            glm::vec4 point = glm::vec4( meshMatrix[3] );
+                            // Cull the mesh's world-space bounding box, not just its origin: big
+                            // objects whose pivot leaves the view must still be drawn.
+                            const AABB worldBounds = model.MeshReferece->Bounds.Transformed( transform.GetLocalToWorldMatrix() );
                             for( Moonlight::CameraData& cam : cameras.Commands )
                             {
                                 if( !cam.ShouldCull )
@@ -136,7 +129,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                                     continue;
                                 }
 
-                                if( cam.ViewFrustum.IsPointInFrustum( point ) )
+                                if( cam.ViewFrustum.Intersects( worldBounds ) )
                                 {
                                     isVisible = true;
                                     cam.VisibleFlags[entIndex] = 1;
@@ -148,7 +141,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                             //    isVisible = true;
                             //}
 
-                            if( editorCamera.ViewFrustum.IsPointInFrustum( point ) )
+                            if( editorCamera.ViewFrustum.Intersects( worldBounds ) )
                             {
                                 isVisible = true;
                                 editorCamera.VisibleFlags[entIndex] = 1;
@@ -183,11 +176,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                         }
                     }
                 }
-            };
-        simpleJobSystem.submit( meshJob );
-        //meshJob();
-    }
-    simpleJobSystem.waitForAllJobs( true );
+            } );
 
 #if USING( ME_EDITOR )
     renderer.SetDebugDrawEnabled( EnableDebugDraw );

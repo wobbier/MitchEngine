@@ -10,16 +10,12 @@
 #include "Config/EngineConfig.h"
 #include "Input.h"
 #include "Work/Burst.h"
-#include <Core/JobSystem.h>
-#include <Work/JobEngine.h>
-#include <Work/Pool.h>
-#include <Work/Worker.h>
+#include "Jobs/JobSystem.h"
 #include "Core/ISystem.h"
 
 #if USING( ME_GAME_TOOLS )
 #include "Tools/DebugTools.h"
 #endif
-#include "Work/SimpleJobSystem.h"
 #include "Core/FrameRenderData.h"
 #include "AutomationRunner.h"
 
@@ -70,7 +66,7 @@ public:
     EngineConfig& GetConfig();
     Input& GetInput();
 
-    SimpleJobSystem& GetJobSystem();
+    Jobs::JobSystem& GetJobSystem();
 
     class CameraCore* Cameras = nullptr;
     class SceneCore* SceneNodes = nullptr;
@@ -95,7 +91,6 @@ private:
 
     BGFXRenderer* NewRenderer = nullptr;
 
-    SimpleJobSystem simpleJobSystem;
 
     EngineUpdateContext updateContext;
     SystemRegistry systemRegistry;

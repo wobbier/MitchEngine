@@ -24,7 +24,7 @@ public abstract class Component
     }
 
     public override bool Equals(object obj) => Equals(obj as Component);
-    public override int GetHashCode() => HashCode.Combine(GetType(), Entity.Index, Entity.Counter);
+    public override int GetHashCode() => HashCode.Combine(GetType(), Entity.Index, Entity.Generation);
 
     public static bool operator ==(Component a, Component b)
     {

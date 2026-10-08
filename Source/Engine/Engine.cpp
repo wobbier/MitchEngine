@@ -51,7 +51,6 @@ Engine& GetEngine()
 
 Engine::Engine()
     : Running( true )
-    , simpleJobSystem()
 {
     std::vector<TypeId> events;
     events.push_back( LoadSceneEvent::GetEventId() );
@@ -210,7 +209,7 @@ void Engine::Init( Game* game )
     {
         systemRegistry.RegisterSystem( this );
         systemRegistry.RegisterSystem( NewRenderer );
-        systemRegistry.RegisterSystem( &simpleJobSystem );
+        systemRegistry.RegisterSystem( &Jobs::JobSystem::Get() );
     }
     updateContext.m_SystemRegistry = &systemRegistry;
 
@@ -537,9 +536,9 @@ Input& Engine::GetInput()
     return m_input;
 }
 
-SimpleJobSystem& Engine::GetJobSystem()
+Jobs::JobSystem& Engine::GetJobSystem()
 {
-    return simpleJobSystem;
+    return Jobs::JobSystem::Get();
 }
 
 

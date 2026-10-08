@@ -2,20 +2,25 @@
 #include <cstdint>
 #include <functional>
 
-// 64 Bit IDs
-#define MITCH_ENTITY_ID_INDEX_BIT_COUNT 48
-#define MITCH_ENTITY_ID_COUNTER_BIT_COUNT 16
-
+// 64-bit generational entity id: a slot index plus the generation the slot had when the entity was
+// created. Destroying an entity bumps its slot's generation, so stale ids/handles never resolve to a
+// newer entity reusing the slot. Generation 0 is reserved for "null".
+//
+// Layout is mirrored by ScriptCore/Source/Core/Entity.cs - keep them in sync.
 struct EntityID
 {
     typedef std::uint64_t IntType;
 
-    IntType Index { MITCH_ENTITY_ID_INDEX_BIT_COUNT };
-    IntType Counter { MITCH_ENTITY_ID_COUNTER_BIT_COUNT };
+    std::uint32_t Index = 0;
+    std::uint32_t Generation = 0;
 
-    EntityID() : Index( 0 ), Counter( 0 ) {};
-    EntityID( IntType inIndex, IntType inCounter ) : Index( inIndex ), Counter( inCounter ) {};
-    EntityID& operator=( const EntityID& ) = default;
+    EntityID() = default;
+    EntityID( std::uint32_t inIndex, std::uint32_t inGeneration ) : Index( inIndex ), Generation( inGeneration ) {}
+
+    static EntityID FromValue( IntType value )
+    {
+        return EntityID( static_cast<std::uint32_t>( value & 0xFFFFFFFFull ), static_cast<std::uint32_t>( value >> 32 ) );
+    }
 
     inline operator IntType() const
     {
@@ -24,24 +29,32 @@ struct EntityID
 
     bool operator==( const EntityID& other ) const
     {
-        return ( Value() == other.Value() );
+        return Index == other.Index && Generation == other.Generation;
+    }
+
+    bool operator!=( const EntityID& other ) const
+    {
+        return !( *this == other );
     }
 
     inline IntType Value() const
     {
-        return ( ( Counter & 0xFFFFULL ) << MITCH_ENTITY_ID_INDEX_BIT_COUNT ) | ( Index & 0x0000FFFFFFFFFFFFULL );
+        return ( static_cast<IntType>( Generation ) << 32 ) | static_cast<IntType>( Index );
     }
 
     void Clear()
     {
-        Index = Counter = 0;
+        Index = 0;
+        Generation = 0;
     }
 
     bool IsNull() const
     {
-        return Value() == 0;
+        return Generation == 0;
     }
 };
+
+static_assert( sizeof( EntityID ) == 8, "EntityID is passed by value to managed code; keep it 8 bytes." );
 
 namespace std
 {

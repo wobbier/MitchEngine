@@ -4,7 +4,7 @@
 #include "Graphics/ShaderCommand.h"
 #include "Device/IDevice.h"
 #include "Graphics/ModelResource.h"
-#include "Work/SimpleJobSystem.h"
+#include "Jobs/JobSystem.h"
 
 class Mesh;
 

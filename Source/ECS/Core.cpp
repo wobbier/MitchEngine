@@ -58,21 +58,54 @@ const std::string& BaseCore::GetName() const
     return Name;
 }
 
+bool BaseCore::Contains( uint32_t InEntityIndex ) const
+{
+    return InEntityIndex < m_memberSlots.size() && m_memberSlots[InEntityIndex] != 0;
+}
+
 void BaseCore::Add( Entity& InEntity )
 {
+    const uint32_t index = InEntity.GetId().Index;
+    if( Contains( index ) )
+    {
+        return;
+    }
+    if( index >= m_memberSlots.size() )
+    {
+        m_memberSlots.resize( index + 1, 0 );
+    }
     Entities.push_back( InEntity );
-    OnEntityAdded( InEntity );
+    m_memberSlots[index] = static_cast<uint32_t>( Entities.size() );
+    OnEntityAdded( Entities.back() );
 }
 
 void BaseCore::Remove( Entity& InEntity )
 {
-    OnEntityRemoved( InEntity );
-    Entities.erase( std::remove( Entities.begin(), Entities.end(), InEntity ), Entities.end() );
+    const uint32_t index = InEntity.GetId().Index;
+    if( !Contains( index ) )
+    {
+        return;
+    }
+
+    // Copy first: InEntity may refer to an element of Entities, which the swap-remove overwrites.
+    Entity removed = InEntity;
+    OnEntityRemoved( removed );
+
+    const uint32_t position = m_memberSlots[index] - 1;
+    const uint32_t last = static_cast<uint32_t>( Entities.size() - 1 );
+    if( position != last )
+    {
+        Entities[position] = Entities[last];
+        m_memberSlots[Entities[position].GetId().Index] = position + 1;
+    }
+    Entities.pop_back();
+    m_memberSlots[index] = 0;
 }
 
 void BaseCore::Clear()
 {
     Entities.clear();
+    m_memberSlots.clear();
 }
 
 const bool BaseCore::GetIsSerializable() const

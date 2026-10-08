@@ -10,6 +10,7 @@ class BGFXRenderer;
 //   --screenshot <png>    capture the backbuffer after --frames and save it
 //   --perf-report <json>  record per-frame CPU times and write a summary on exit
 //   --warmup N            frames to ignore at the start of the perf report (default 30)
+//   --trace <path>        record a profiler capture of the measured frames (Chrome trace JSON on Linux)
 //   --exit                exit once the above finish (implied by --frames)
 class AutomationRunner
 {
@@ -32,6 +33,8 @@ private:
     uint64_t m_frameIndex = 0;
     std::string m_screenshotPath;
     std::string m_perfReportPath;
+    std::string m_tracePath;
+    bool m_isTracing = false;
     bool m_screenshotRequested = false;
     uint32_t m_screenshotBaseline = 0;
     int m_framesSinceScreenshotRequest = 0;

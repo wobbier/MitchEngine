@@ -12,10 +12,7 @@ void CommonUtils::RecusiveDelete(EntityHandle ent, Transform* trans)
 	{
 		return;
 	}
-	for (auto child : trans->GetChildren())
-	{
-		RecusiveDelete(child->Parent, child.get());
-	}
+	// MarkForDelete destroys the whole subtree at the next sync point.
 	ent->MarkForDelete();
 }
 
@@ -145,7 +142,7 @@ void CommonUtils::SerializeEntity(json& outEntity, Transform* CurrentTransform)
 	OPTICK_EVENT("SceneGraph::UpdateRecursively");
 
 	outEntity["Name"] = CurrentTransform->GetName();
-	outEntity["DestroyOnLoad"] = CurrentTransform->Parent->DestroyOnLoad;
+	outEntity["DestroyOnLoad"] = CurrentTransform->Parent->GetDestroyOnLoad();
 
 	json& componentsJson = outEntity["Components"];
 	EntityHandle ent = CurrentTransform->Parent;
@@ -159,9 +156,15 @@ void CommonUtils::SerializeEntity(json& outEntity, Transform* CurrentTransform)
 	}
 	if (CurrentTransform->GetChildren().size() > 0)
 	{
-		for (SharedPtr<Transform> Child : CurrentTransform->GetChildren())
+		// One JSON object per child (writing every child into the same object corrupted
+		// duplicates of entities with more than one child).
+		json& children = outEntity["Children"];
+		children = json::array();
+		for (Transform* Child : CurrentTransform->GetChildren())
 		{
-			SerializeEntity(outEntity["Children"], Child.get());
+			json childJson;
+			SerializeEntity(childJson, Child);
+			children.push_back(std::move(childJson));
 		}
 	}
 }
@@ -181,9 +184,9 @@ EntityHandle CommonUtils::DeserializeEntity(const json& obj, Transform* parent)
 	}
 	if (!ent)
 	{
-		ent = GetEngine().GetWorld().lock()->CreateEntity();
+		ent = GetEngine().GetWorld().lock()->CreateEntity(obj.value("Name", std::string()));
 	}
-	ent->IsLoading = true;
+	ent->SetLoading(true);
 	Transform* transComp = nullptr;
 	for (const json& comp : obj["Components"])
 	{
@@ -211,10 +214,10 @@ EntityHandle CommonUtils::DeserializeEntity(const json& obj, Transform* parent)
 
 	if (obj.contains("DestroyOnLoad"))
 	{
-		ent->DestroyOnLoad = obj["DestroyOnLoad"];
+		ent->SetDestroyOnLoad(obj["DestroyOnLoad"].get<bool>());
 	}
 
-	ent->IsLoading = false;
+	ent->SetLoading(false);
 
 	if (obj.contains("Children"))
 	{

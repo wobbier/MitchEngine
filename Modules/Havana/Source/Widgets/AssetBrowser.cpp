@@ -1217,9 +1217,9 @@ void AssetBrowserWidget::SavePrefab( json& d, Transform* CurrentTransform, bool 
     }
     if( CurrentTransform->GetChildren().size() > 0 )
     {
-        for( SharedPtr<Transform> Child : CurrentTransform->GetChildren() )
+        for( Transform* Child : CurrentTransform->GetChildren() )
         {
-            SavePrefab( newJson["Children"], Child.get(), false );
+            SavePrefab( newJson["Children"], Child, false );
         }
     }
 
