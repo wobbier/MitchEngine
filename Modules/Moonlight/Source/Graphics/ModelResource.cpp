@@ -19,7 +19,6 @@
 #include "Materials/DiffuseMaterial.h"
 #include "Core/Assert.h"
 
-DISABLE_OPTIMIZATION;
 
 void DecomposeMatrix(
     const glm::mat4& inMatrix,

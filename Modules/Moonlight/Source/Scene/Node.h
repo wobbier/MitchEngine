@@ -5,7 +5,6 @@
 
 namespace Moonlight { class Material; }
 
-DISABLE_OPTIMIZATION;
 
 namespace Moonlight
 {
