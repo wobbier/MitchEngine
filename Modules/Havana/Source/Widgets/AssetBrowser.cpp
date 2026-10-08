@@ -623,7 +623,12 @@ void AssetBrowserWidget::DrawAssetTable()
                         ImGui::EndDragDropSource();
                     }
 
-                    bool deleteFileShortcut = m_editor->GetInput().WasKeyPressed( KeyCode::Delete ) && !pendingAssetListRefresh;
+                    // Only react to Delete while this window has focus and no text field is active,
+                    // otherwise deleting an entity in the hierarchy would also delete the selected asset.
+                    bool deleteFileShortcut = m_editor->GetInput().WasKeyPressed( KeyCode::Delete )
+                        && ImGui::IsWindowFocused( ImGuiFocusedFlags_RootAndChildWindows )
+                        && !ImGui::GetIO().WantTextInput
+                        && !pendingAssetListRefresh;
                     if( ImGui::BeginPopupContextItem( "AssetRightClickContext" ) )
                     {
                         if ( AssetSelectedCallback )
@@ -661,10 +666,10 @@ void AssetBrowserWidget::DrawAssetTable()
                         {
                             PlatformUtils::OpenFile( item->FullPath );
                         }
-                        if( SelectedAsset && deleteFileShortcut && !pendingAssetListRefresh )
+                        if( SelectedAsset && deleteFileShortcut && !pendingAssetListRefresh && !m_openDeleteConfirmation )
                         {
-                            PlatformUtils::DeleteFile( SelectedAsset->FullPath );
-                            pendingAssetListRefresh = true;
+                            m_pendingDeletePath = SelectedAsset->FullPath.FullPath;
+                            m_openDeleteConfirmation = true;
                         }
                     }
 
@@ -689,7 +694,43 @@ void AssetBrowserWidget::DrawAssetTable()
         ImGui::EndTable();
     }
 
+    DrawDeleteConfirmation();
+}
 
+
+void AssetBrowserWidget::DrawDeleteConfirmation()
+{
+    if( m_openDeleteConfirmation )
+    {
+        ImGui::OpenPopup( "Delete Asset?" );
+        m_openDeleteConfirmation = false;
+    }
+
+    if( ImGui::BeginPopupModal( "Delete Asset?", nullptr, ImGuiWindowFlags_AlwaysAutoResize ) )
+    {
+        ImGui::Text( "Move this asset (and its .meta) to .tmp/Trash?" );
+        ImGui::TextDisabled( "%s", m_pendingDeletePath.c_str() );
+        ImGui::Separator();
+
+        if( ImGui::Button( "Delete", ImVec2( 120.f, 0.f ) ) || ImGui::IsKeyPressed( ImGuiKey_Enter ) )
+        {
+            if( !PlatformUtils::MoveToTrash( Path( m_pendingDeletePath ), ".tmp/Trash" ) )
+            {
+                YIKES( "Failed to move asset to trash: " + m_pendingDeletePath );
+            }
+            SelectedAsset = nullptr;
+            pendingAssetListRefresh = true;
+            m_pendingDeletePath.clear();
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        if( ImGui::Button( "Cancel", ImVec2( 120.f, 0.f ) ) || ImGui::IsKeyPressed( ImGuiKey_Escape ) )
+        {
+            m_pendingDeletePath.clear();
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
 }
 
 void AssetBrowserWidget::DrawAssetIcon( AssetType inAssetType, ImVec2 inIconSize )

@@ -174,8 +174,15 @@ void Scene::Save( const std::string& fileName, Transform* root )
 {
 #if USING( ME_EDITOR )
     FilePath = Path( fileName );
+    SaveCopy( fileName, root );
+#endif
+}
 
-    File worldFile( FilePath );
+
+void Scene::SaveCopy( const std::string& fileName, Transform* root )
+{
+#if USING( ME_EDITOR )
+    File worldFile{ Path( fileName ) };
     json world;
 
     if( root->GetChildren().size() > 0 )
@@ -198,7 +205,6 @@ void Scene::Save( const std::string& fileName, Transform* root )
     }
 
     worldFile.Write( world.dump( 4 ) );
-    std::cout << world.dump( 4 ) << std::endl;
 #endif
 }
 

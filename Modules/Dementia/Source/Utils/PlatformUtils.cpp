@@ -5,6 +5,7 @@
 #endif
 
 #include <filesystem>
+#include <chrono>
 #include "File.h"
 
 void PlatformUtils::RunProcess( const Path& inFilePath, const std::string& inArgs /*= ""*/ )
@@ -93,6 +94,44 @@ void PlatformUtils::OpenFolder( const Path& inFolderPath )
 void PlatformUtils::DeleteFile( const Path& inFilePath )
 {
     std::filesystem::remove( inFilePath.FullPath );
+}
+
+
+bool PlatformUtils::MoveToTrash( const Path& inFilePath, const std::string& trashDirectory )
+{
+    namespace fs = std::filesystem;
+    std::error_code ec;
+    fs::create_directories( trashDirectory, ec );
+
+    const auto stamp = std::chrono::duration_cast<std::chrono::seconds>( std::chrono::system_clock::now().time_since_epoch() ).count();
+    auto moveOne = [&]( const fs::path& source ) -> bool
+    {
+        if( !fs::exists( source, ec ) )
+        {
+            return true;
+        }
+        const fs::path destination = fs::path( trashDirectory ) / ( std::to_string( stamp ) + "_" + source.filename().string() );
+        fs::rename( source, destination, ec );
+        if( ec )
+        {
+            // Different filesystem: fall back to copy + remove.
+            ec.clear();
+            fs::copy( source, destination, fs::copy_options::recursive | fs::copy_options::overwrite_existing, ec );
+            if( ec )
+            {
+                return false;
+            }
+            fs::remove_all( source, ec );
+        }
+        return !ec;
+    };
+
+    const fs::path source( inFilePath.FullPath );
+    if( !moveOne( source ) )
+    {
+        return false;
+    }
+    return moveOne( fs::path( inFilePath.FullPath + ".meta" ) );
 }
 
 Buffer PlatformUtils::ReadBytes( const Path& inFilePath )

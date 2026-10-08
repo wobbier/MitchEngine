@@ -43,6 +43,11 @@ public:
 	bool m_isGameRunning = false;
 	bool m_isGamePaused = false;
 	std::string InitialLevel;
+
+	// Play mode snapshot: the edited scene is saved here on Play and restored on Stop,
+	// so unsaved edits survive a play session.
+	bool m_hasPlaySnapshot = false;
+	std::string m_playSceneFilePath;
 };
 
 #endif

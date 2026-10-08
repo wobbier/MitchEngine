@@ -17,6 +17,10 @@ namespace PlatformUtils
 
     void DeleteFile( const Path& inFilePath );
 
+    // Moves a file (and its .meta sidecar, if any) into trashDirectory with a timestamped name.
+    // Recoverable alternative to DeleteFile for editor operations. Returns false on failure.
+    bool MoveToTrash( const Path& inFilePath, const std::string& trashDirectory );
+
 
     Buffer ReadBytes( const Path& inFilePath );
 }

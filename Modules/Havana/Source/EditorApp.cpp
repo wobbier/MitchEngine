@@ -230,10 +230,24 @@ void EditorApp::PostRender()
 }
 
 
+namespace
+{
+    constexpr const char* kPlaySnapshotPath = ".tmp/PlaySnapshot.lvl";
+}
+
+
 void EditorApp::StartGame()
 {
     if( !m_isGameRunning )
     {
+        m_hasPlaySnapshot = false;
+        Scene* scene = GetEngine().CurrentScene;
+        if( scene && EditorSceneManager && EditorSceneManager->RootTransform )
+        {
+            m_playSceneFilePath = scene->IsNewScene() ? std::string() : scene->FilePath.GetLocalPathString();
+            scene->SaveCopy( kPlaySnapshotPath, EditorSceneManager->RootTransform );
+            m_hasPlaySnapshot = true;
+        }
         GetEngine().GetWorld().lock()->Start();
         m_isGameRunning = true;
     }
@@ -252,8 +266,19 @@ void EditorApp::StopGame()
         GetEngine().GetWorld().lock()->Stop();
         NewSceneEvent evt;
         evt.Fire();
-        InitialLevel = GetEngine().GetConfig().GetValue( "CurrentScene" );
-        GetEngine().LoadScene( InitialLevel );
+        if( m_hasPlaySnapshot )
+        {
+            // Restore the pre-play state, then point the scene back at its real file.
+            GetEngine().LoadScene( kPlaySnapshotPath );
+            GetEngine().CurrentScene->FilePath = m_playSceneFilePath.empty() ? Path() : Path( m_playSceneFilePath );
+            Editor->SetWindowTitle( "Havana - " + ( m_playSceneFilePath.empty() ? std::string( "Untitled" ) : m_playSceneFilePath ) );
+            m_hasPlaySnapshot = false;
+        }
+        else
+        {
+            InitialLevel = GetEngine().GetConfig().GetValue( "CurrentScene" );
+            GetEngine().LoadScene( InitialLevel );
+        }
     }
 }
 

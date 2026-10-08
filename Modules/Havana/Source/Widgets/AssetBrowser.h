@@ -104,6 +104,10 @@ private:
     bool IsMetaPanelOpen = false;
     Havana* m_editor = nullptr;
     bool pendingAssetListRefresh = false;
+    // Delete goes through a confirmation modal and moves the file to .tmp/Trash.
+    void DrawDeleteConfirmation();
+    std::string m_pendingDeletePath;
+    bool m_openDeleteConfirmation = false;
     AssetType CurrentlyFocusedAssetType = AssetType::Unknown;
     SharedPtr<Resource> CurrentlyFocusedAsset = nullptr;
     std::string SavedName;

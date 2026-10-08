@@ -19,6 +19,8 @@ public:
     bool IsNewScene();
 
     void Save( const std::string& fileName, Transform* root );
+    // Writes the scene to fileName without changing this scene's FilePath (play-mode snapshots, autosave).
+    void SaveCopy( const std::string& fileName, Transform* root );
     void SaveSceneRecursively( json& d, Transform* CurrentTransform );
 
     SharedPtr<World> GameWorld;
