@@ -11,7 +11,9 @@ public:
 
     static TypeId GetEventId();
 
+    // Dispatch now, on this thread (main thread).
     void Fire();
+    // Copy the event and deliver it on the main thread at the start of the next frame. Thread safe.
     void Queue();
 };
 
@@ -30,7 +32,7 @@ Event<T>::Event() : BaseEvent( GetEventId() )
 template <class T>
 void Event<T>::Queue()
 {
-    //EventManager::GetInstance().QueueEvent( MakeShared<T>(this) );
+    EventManager::GetInstance().QueueEvent( std::make_unique<T>( static_cast<const T&>( *this ) ) );
 }
 
 template <class T>

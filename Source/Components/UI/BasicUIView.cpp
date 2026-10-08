@@ -141,12 +141,12 @@ void BasicUIView::PlaySound( const ultralight::JSObject& thisObject, const ultra
 
 void BasicUIView::LoadScene( const ultralight::JSObject& thisObject, const ultralight::JSArgs& args )
 {
-    SharedPtr<LoadSceneEvent> evt = MakeShared<LoadSceneEvent>();
+    LoadSceneEvent evt;
     ultralight::String path = args[0].ToString();
     Path requestedPath( std::string( path.utf8().data() ) );
     ME_ASSERT_MSG( requestedPath.Exists, "Level does not exist" );
-    evt->Level = requestedPath.GetLocalPath();
-    EventManager::GetInstance().QueueEvent( evt );
+    evt.Level = requestedPath.GetLocalPath();
+    evt.Queue();
 }
 
 void BasicUIView::Quit( const ultralight::JSObject& thisObject, const ultralight::JSArgs& args )
