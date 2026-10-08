@@ -738,6 +738,17 @@ public static class Main
     [Sharpmake.Main]
     public static void SharpmakeMain(Sharpmake.Arguments arguments)
     {
+        if (Util.GetExecutingPlatform() == Platform.linux)
+        {
+            // Workaround for the Sharpmake 0.20.0+ regression (commit e3142832):
+            // Linux Makefiles link through $(CXX), so linker-only arguments must be
+            // emitted as -Wl,. Without this, the LibGroup flags enabled in
+            // BaseProject.ConfigureLinux come out bare and ld's left-to-right archive
+            // ordering breaks the link (undefined assimp/bimg_decode references).
+            var linuxDescriptor = (Linux.LinuxPlatform)PlatformRegistry.Get<IPlatformDescriptor>(Platform.linux);
+            linuxDescriptor.IsLinkerInvokedViaCompiler = true;
+        }
+
         KitsRootPaths.SetUseKitsRootForDevEnv(DevEnv.vs2022, KitsRootEnum.KitsRoot10, Options.Vc.General.WindowsTargetPlatformVersion.v10_0_19041_0);
 
         arguments.Generate<SharpGameSolution>();

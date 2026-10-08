@@ -240,8 +240,11 @@ public abstract class BaseProject : Project
         // LibraryFiles in any order. Requires IsLinkerInvokedViaCompiler=true (set in
         // SharpmakeMain) so the group flags are emitted as -Wl,-- and not bare (see the
         // Sharpmake 0.20.0 regression noted there).
+        conf.Options.Add(Options.Makefile.Linker.LibGroup.Enable);
         conf.AdditionalCompilerOptions.Add("`pkg-config --cflags sdl2`");
         conf.AdditionalLinkerOptions.Add("`pkg-config --libs sdl2`");
+        conf.AdditionalCompilerOptions.Add("`pkg-config --cflags libcurl`");
+        conf.AdditionalLinkerOptions.Add("`pkg-config --libs libcurl`");
 
         conf.Defines.Add("DEFINE_ME_PLATFORM_LINUX");
         conf.Defines.Add("BGFX_PLATFORM_SUPPORTS_DXBC=0");

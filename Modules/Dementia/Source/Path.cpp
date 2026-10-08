@@ -85,7 +85,7 @@ Path::Path( const std::string& InFile, bool Raw /*= false*/ )
         LocalPath = LocalPath.substr( path, LocalPath.size() );
     }
 
-#if USING( ME_EDITOR ) || USING( ME_PLATFORM_MACOS ) || USING( ME_PLATFORM_WIN64 )
+#if USING( ME_EDITOR ) || USING( ME_PLATFORM_MACOS ) || USING( ME_PLATFORM_WIN64 ) || USING( ME_PLATFORM_LINUX )
     if( !std::filesystem::exists( FullPath ) )
     {
         if( !Raw )
