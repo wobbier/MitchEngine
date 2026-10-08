@@ -2,6 +2,10 @@
 #include <algorithm>
 #include "Mathf.h"
 #include <glm/gtc/quaternion.hpp>
+#ifndef GLM_ENABLE_EXPERIMENTAL
+#define GLM_ENABLE_EXPERIMENTAL
+#endif
+#include <glm/gtx/quaternion.hpp>
 
 #define _USE_MATH_DEFINES
 #include <math.h>
@@ -22,6 +26,44 @@ Vector3 Quaternion::ToEulerAngles( const Quaternion& InQuat )
     angles.z = Mathf::Degrees( angles.z );
     return angles;
 }
+
+Quaternion Quaternion::LookRotation( const Vector3& forward, const Vector3& up )
+{
+    const glm::vec3 direction = glm::normalize( forward.InternalVector );
+    glm::vec3 upHint = up.InternalVector;
+    // Pick another up axis when looking (anti-)parallel to it.
+    if( std::abs( glm::dot( direction, glm::normalize( upHint ) ) ) > 0.9999f )
+    {
+        upHint = std::abs( direction.y ) < 0.9f ? glm::vec3( 0.f, 1.f, 0.f ) : glm::vec3( 1.f, 0.f, 0.f );
+    }
+    return Quaternion( glm::quatLookAtLH( direction, upHint ) );
+}
+
+
+Quaternion Quaternion::AngleAxis( float radians, const Vector3& axis )
+{
+    return Quaternion( glm::angleAxis( radians, glm::normalize( axis.InternalVector ) ) );
+}
+
+
+Quaternion Quaternion::FromEulerDegrees( const Vector3& degrees )
+{
+    return Quaternion( glm::quat( glm::vec3( Mathf::Radians( degrees.x ), Mathf::Radians( degrees.y ), Mathf::Radians( degrees.z ) ) ) );
+}
+
+
+Quaternion Quaternion::Slerp( const Quaternion& a, const Quaternion& b, float t )
+{
+    return Quaternion( glm::slerp( a.InternalQuat, b.InternalQuat, t ) );
+}
+
+
+float Quaternion::Angle( const Quaternion& a, const Quaternion& b )
+{
+    const float d = std::min( std::abs( a.Dot( b ) ), 1.f );
+    return 2.f * std::acos( d );
+}
+
 
 float Quaternion::ToAngle() const
 {

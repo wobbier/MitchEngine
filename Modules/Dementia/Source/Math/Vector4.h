@@ -162,9 +162,7 @@ struct Vector4
 
     inline float LengthSquared() const
     {
-        float s = ( x * x + y * y + z * z + w * w );
-        s *= s;
-        return s;
+        return x * x + y * y + z * z + w * w;
     }
 
     inline Vector4& Normalize()

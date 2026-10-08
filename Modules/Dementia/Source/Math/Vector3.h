@@ -154,24 +154,26 @@ struct Vector3
 
     inline float LengthSquared() const
     {
-        float s = ( x * x + y * y + z * z );
-        s *= s;
-        return s;
+        return x * x + y * y + z * z;
     }
 
+    // Zero-length vectors stay zero instead of becoming NaN.
     inline Vector3& Normalize()
     {
-        float m = Length();
-        x /= m;
-        y /= m;
-        z /= m;
+        const float m = Length();
+        if( m > 0.f )
+        {
+            x /= m;
+            y /= m;
+            z /= m;
+        }
         return *this;
     }
 
     inline Vector3 Normalized() const
     {
-        Vector3 ret( x, y, z );
-        return Vector3( ret / Length() );
+        const float m = Length();
+        return m > 0.f ? Vector3( x / m, y / m, z / m ) : Vector3();
     }
 
     inline float Dot( const Vector3& other ) const

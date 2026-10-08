@@ -29,12 +29,12 @@ public:
         return m_matrix;
     }
 
-    Vector3 GetPosition()
+    Vector3 GetPosition() const
     {
         return Vector3( m_matrix[3][0]/*_41*/, m_matrix[3][1]/*._42*/, m_matrix[3][2]/*._43*/ );
     }
 
-    Quaternion GetRotation()
+    Quaternion GetRotation() const
     {
         return Quaternion( glm::quat_cast( GetInternalMatrix() ) );
     }
@@ -65,9 +65,9 @@ public:
         return mat;
     }
 
-    Vector3 operator*( const Matrix4& Mat )
+    Matrix4 operator*( const Matrix4& Mat ) const
     {
-        return Vector3();
+        return Matrix4( m_matrix * Mat.m_matrix );
     }
 
 private:

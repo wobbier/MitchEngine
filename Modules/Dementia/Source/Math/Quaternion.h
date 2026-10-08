@@ -118,46 +118,25 @@ struct Quaternion
         return x * other.x + y * other.y + z * other.z + w * other.w;
     }
 
-    void SetLookRotation( const Vector3& view )
+    void SetLookRotation( const Vector3& view, const Vector3& up = Vector3::Up )
     {
-        SetLookRotation( view, Vector3::Up );
+        *this = LookRotation( view, up );
     }
 
-    void SetLookRotation( const Vector3& view, const Vector3& up )
-    {
-        LookRotation( view, up );
-    }
+    // Rotation whose Front (+Z, left-handed) points along forward, with up as the up hint.
+    static Quaternion LookRotation( const Vector3& forward, const Vector3& up = Vector3::Up );
 
-    void LookRotation( const Vector3& inForawrd, const Vector3& up )
-    {
-        Vector3 forward = inForawrd.Normalized();
+    // Rotation of `radians` around `axis` (normalized internally).
+    static Quaternion AngleAxis( float radians, const Vector3& axis );
 
-        float dot = Vector3::Front.Dot( forward );
+    // Euler angles in degrees, same convention as ToEulerAngles.
+    static Quaternion FromEulerDegrees( const Vector3& degrees );
 
-        Quaternion q;
-        if( std::abs( dot - -1.f ) < 0.000001f )
-        {
-            q = Quaternion( Vector3::Up, 3.1415926535897932f );
-        }
-        else if( std::abs( dot - 1.f ) < 0.000001f )
-        {
-            q = Quaternion::Identity;
-        }
-        else
-        {
-            float rotAngle = std::acos( dot );
-            Vector3 rotAxis = Vector3::Front.Cross( forward );
-            rotAxis.Normalize();
+    // Spherical interpolation along the shortest arc.
+    static Quaternion Slerp( const Quaternion& a, const Quaternion& b, float t );
 
-            // This needs a func to create from axis angle
-            q = Quaternion( rotAxis, rotAngle );//DirectX::XMQuaternionRotationAxis /*DirectX::SimpleMath::Quaternion::CreateFromAxisAngle(rotAxis.AsXMVEC(), rotAngle)*/);
-        }
-
-        x = q.x;
-        y = q.y;
-        z = q.z;
-        w = q.w;
-    }
+    // Angle between two rotations in radians.
+    static float Angle( const Quaternion& a, const Quaternion& b );
 
     Vector3 Rotate( const Vector3& inVector ) const
     {
@@ -170,7 +149,7 @@ struct Quaternion
             pMult * inVector.z + vMult * z + crossMult * ( x * inVector.y - y * inVector.x ) );
     }
 
-    Quaternion Inverse()
+    Quaternion Inverse() const
     {
         return Quaternion( glm::inverse( InternalQuat ) );
     }
@@ -182,12 +161,11 @@ struct Quaternion
 
     void SetEuler( const Vector3& euler );
 
-    Quaternion Normalized()
+    Quaternion Normalized() const
     {
         float mag = std::sqrt( Dot( *this ) );
 
-        // float min?
-        if( mag < std::numeric_limits<float>::lowest() )
+        if( mag < kEpsilon )
         {
             return Identity;
         }

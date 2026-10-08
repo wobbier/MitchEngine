@@ -85,6 +85,39 @@ bool Frustum::IsPointInFrustum( glm::vec4& inPoint )
     return true;
 }
 
+bool Frustum::Intersects( const AABB& inBox ) const
+{
+    if( !inBox.IsValid() )
+    {
+        return false;
+    }
+    for( const glm::vec4& plane : Planes )
+    {
+        // The box corner furthest along the plane normal; if even that is behind, the box is out.
+        const glm::vec3 positive(
+            plane.x >= 0.f ? inBox.Max.x : inBox.Min.x,
+            plane.y >= 0.f ? inBox.Max.y : inBox.Min.y,
+            plane.z >= 0.f ? inBox.Max.z : inBox.Min.z );
+        if( glm::dot( glm::vec3( plane ), positive ) + plane.w < 0.f )
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool Frustum::Intersects( const Sphere& inSphere ) const
+{
+    for( const glm::vec4& plane : Planes )
+    {
+        if( glm::dot( glm::vec3( plane ), inSphere.Center.InternalVector ) + plane.w < -inSphere.Radius )
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool Frustum::IsOnPositiveSide( const glm::vec4& inPlane, const glm::vec3& inPoint )
 {
     return glm::dot( glm::vec3( inPlane ), inPoint ) + inPlane.w > 0;
