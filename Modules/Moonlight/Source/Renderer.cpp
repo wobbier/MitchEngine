@@ -185,6 +185,16 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
         m_dynamicSky->m_sun.Update( 0 );
         m_defaultOpacityTexture = ResourceCache::GetInstance().Get<Moonlight::Texture>( Path( "Assets/Textures/DefaultAlpha.png" ) );
 
+        auto makeSolidTexture = []( uint32_t rgba, const char* name ) {
+            const bgfx::TextureHandle handle = bgfx::createTexture2D( 1, 1, false, 1, bgfx::TextureFormat::RGBA8, BGFX_SAMPLER_NONE, bgfx::copy( &rgba, sizeof( rgba ) ) );
+            bgfx::setName( handle, name );
+            return handle;
+        };
+        // Little-endian RGBA8: 0xAABBGGRR.
+        m_whiteTexture = makeSolidTexture( 0xFFFFFFFFu, "Default White" );
+        m_blackTexture = makeSolidTexture( 0xFF000000u, "Default Black" );
+        m_flatNormalTexture = makeSolidTexture( 0xFFFF8080u, "Default Flat Normal" );
+
 #if USING( ME_EDITOR )
         m_pickingPass = MakeShared<Moonlight::PickingPass>();
 #endif
@@ -632,37 +642,15 @@ bgfx::ProgramHandle BGFXRenderer::BindMeshDrawState( const Moonlight::MeshComman
     bgfx::setVertexBuffer( 0, mesh.SingleMesh->GetVertexBuffer() );
     bgfx::setIndexBuffer( mesh.SingleMesh->GetIndexuffer() );
 
-    if( const Moonlight::Texture* diffuse = mesh.MeshMaterial->GetTexture( Moonlight::TextureType::Diffuse ) )
-    {
-        if( bgfx::isValid( diffuse->TexHandle ) )
-        {
-            bgfx::setTexture( 0, s_texDiffuse, diffuse->TexHandle );
-        }
-    }
-
-    if( const Moonlight::Texture* normal = mesh.MeshMaterial->GetTexture( Moonlight::TextureType::Normal ) )
-    {
-        if( bgfx::isValid( normal->TexHandle ) )
-        {
-            bgfx::setTexture( 1, s_texNormal, normal->TexHandle );
-        }
-    }
-    else
-    {
-        bgfx::setTexture( 1, s_texNormal, m_defaultOpacityTexture->TexHandle );
-    }
-
-    if( const Moonlight::Texture* opacity = mesh.MeshMaterial->GetTexture( Moonlight::TextureType::Opacity ) )
-    {
-        if( bgfx::isValid( opacity->TexHandle ) )
-        {
-            bgfx::setTexture( 2, s_texAlpha, opacity->TexHandle );
-        }
-    }
-    else
-    {
-        bgfx::setTexture( 2, s_texAlpha, m_defaultOpacityTexture->TexHandle );
-    }
+    // Every sampler gets a texture: a missing map falls back to a neutral 1x1 so the material's
+    // colour shows through instead of whatever the backend leaves bound.
+    auto textureOr = [&mesh]( Moonlight::TextureType type, bgfx::TextureHandle fallback ) {
+        const Moonlight::Texture* texture = mesh.MeshMaterial->GetTexture( type );
+        return ( texture && bgfx::isValid( texture->TexHandle ) ) ? texture->TexHandle : fallback;
+    };
+    bgfx::setTexture( 0, s_texDiffuse, textureOr( Moonlight::TextureType::Diffuse, m_whiteTexture ) );
+    bgfx::setTexture( 1, s_texNormal, textureOr( Moonlight::TextureType::Normal, m_flatNormalTexture ) );
+    bgfx::setTexture( 2, s_texAlpha, textureOr( Moonlight::TextureType::Opacity, m_whiteTexture ) );
 
     mesh.MeshMaterial->Use();
 

@@ -27,6 +27,12 @@ namespace Moonlight
     void MeshData::InitMesh()
     {
         m_vertexCount = static_cast<uint32_t>( Vertices.size() );
+
+        Bounds = AABB();
+        for( const PosNormTexTanBiVertex& vertex : Vertices )
+        {
+            Bounds.Encapsulate( vertex.Position );
+        }
         m_indexCount = static_cast<uint32_t>( Indices.size() );
 
         m_vbh = bgfx::createVertexBuffer( bgfx::copy( Vertices.data(), static_cast<uint32_t>( sizeof( Moonlight::PosNormTexTanBiVertex ) * Vertices.size() ) ), Moonlight::PosNormTexTanBiVertex::ms_layout );

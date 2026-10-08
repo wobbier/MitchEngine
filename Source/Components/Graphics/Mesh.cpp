@@ -74,6 +74,21 @@ Mesh::~Mesh()
 
 void Mesh::Init()
 {
+    // Primitive meshes loaded from a scene only know their MeshType; build their geometry here.
+    if( !MeshReferece )
+    {
+        switch( Type )
+        {
+        case Moonlight::Plane:
+            MeshReferece = new PlaneMesh();
+            break;
+        case Moonlight::Cube:
+            MeshReferece = new Moonlight::CubeMesh();
+            break;
+        default:
+            break;
+        }
+    }
 }
 
 unsigned int Mesh::GetId()
@@ -152,6 +167,8 @@ std::string Mesh::GetMeshTypeString( Moonlight::MeshType InType )
     {
     case Moonlight::MeshType::Plane:
         return "Plane";
+    case Moonlight::MeshType::Cube:
+        return "Cube";
     case Moonlight::MeshType::Model:
     default:
         return "Model";
@@ -163,6 +180,10 @@ Moonlight::MeshType Mesh::GetMeshTypeFromString( const std::string& InType )
     if( InType == "Plane" )
     {
         return Moonlight::MeshType::Plane;
+    }
+    else if( InType == "Cube" )
+    {
+        return Moonlight::MeshType::Cube;
     }
     else
     {

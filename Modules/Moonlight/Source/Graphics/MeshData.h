@@ -4,6 +4,7 @@
 
 #include <Graphics/ShaderStructures.h>
 #include <Pointers.h>
+#include "Math/Bounds.h"
 #include <bgfx/bgfx.h>
 
 namespace Moonlight
@@ -23,6 +24,9 @@ namespace Moonlight
         // CPU-side geometry, only valid until InitMesh() uploads it to the GPU.
         std::vector<PosNormTexTanBiVertex> Vertices;
         std::vector<uint32_t> Indices;
+
+        // Local-space bounds, computed from the vertices when the GPU buffers are created.
+        AABB Bounds;
         SharedPtr<Moonlight::Material> MeshMaterial;
 
         const bgfx::VertexBufferHandle& GetVertexBuffer() const {

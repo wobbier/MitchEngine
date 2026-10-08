@@ -156,6 +156,10 @@ private:
     int64_t m_timeOffset;
     Moonlight::CameraData DummyCameraData;
     SharedPtr<Moonlight::Texture> m_defaultOpacityTexture;
+    // 1x1 fallbacks bound when a material has no texture in a slot.
+    bgfx::TextureHandle m_whiteTexture = BGFX_INVALID_HANDLE;
+    bgfx::TextureHandle m_blackTexture = BGFX_INVALID_HANDLE;
+    bgfx::TextureHandle m_flatNormalTexture = BGFX_INVALID_HANDLE;
     SharedPtr<Moonlight::DynamicSky> m_dynamicSky;
     bool EnableDebugDraw = false;
     UniquePtr<DebugDrawer> m_debugDraw;
