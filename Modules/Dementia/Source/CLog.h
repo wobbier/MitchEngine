@@ -5,10 +5,13 @@
 #include "Singleton.h"
 #include <vector>
 #include <format>
+#include <mutex>
+#include <cstdint>
 /*
 CLog.h
 A utility class for creating and managing logs for the engine. You can change the
 log file name and priority levels to control what info gets saved and where.
+Thread safe: messages may be logged from any thread.
 */
 
 /// Looks like things fucked up
@@ -55,12 +58,13 @@ class CLog
 public:
     ~CLog();
 
+    // Ordered by severity: verbosity filtering drops anything below the configured level.
     enum class LogType : int
     {
         None = 0,
-        Info,
         Trace,
         Debug,
+        Info,
         Warning,
         Error
     };
@@ -68,18 +72,24 @@ public:
     enum class LogFilter : int
     {
         None = 0,
-        Info = 0 << 0,
-        Trace = 0 << 1,
-        Debug = 0 << 2,
-        Warning = 0 << 3,
-        Error = 0 << 4
+        Trace = 1 << 0,
+        Debug = 1 << 1,
+        Info = 1 << 2,
+        Warning = 1 << 3,
+        Error = 1 << 4,
+        All = Trace | Debug | Info | Warning | Error
     };
+
+    static LogFilter ToFilter( LogType type );
 
     void SetLogFile( const std::string& filename );
     void SetLogVerbosity( CLog::LogType priority );
 
     bool LogMessage( CLog::LogType priority, std::string message );
     static bool Log( CLog::LogType priority, const std::string& message );
+
+    // Pushes buffered file output to disk. Called automatically for warnings and errors.
+    void Flush();
 
     template<typename... Args>
     static bool LogFmt( CLog::LogType priority, const std::string& message, Args&&... args );
@@ -94,17 +104,30 @@ public:
     {
         LogType Type = LogType::None;
         std::string Message;
+        // Seconds since the logger was created.
+        double Timestamp = 0.0;
+        uint32_t ThreadId = 0;
     };
     std::string TypeToName( CLog::LogType );
 
+    // Editor console history. Bounded; lock GetMutex() while reading it from the UI.
     static std::vector<LogEntry> Messages;
+    static constexpr size_t kMaxMessages = 20000;
+
+    // Total messages ever appended to Messages (keeps counting after trimming).
+    uint64_t GetTotalMessageCount() const { return mTotalMessages; }
+
+    std::recursive_mutex& GetMutex() { return mMutex; }
 
 private:
 
     std::ofstream mLogFile;
     std::string mLogFileLocation;
     LogType mPriority = LogType::None;
-    CLog() = default;
+    std::recursive_mutex mMutex;
+    uint64_t mTotalMessages = 0;
+    bool mUseColor = false;
+    CLog();
 
     ME_SINGLETON_DEFINITION( CLog )
 };

@@ -30,6 +30,8 @@ void LogWidget::Render()
 		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(12.f, ImGui::GetStyle().FramePadding.y));
 		if (ImGui::Begin("Log", &IsOpen, WindowFlags))
 		{
+			// Other threads append to CLog::Messages; hold the log lock while the list is drawn.
+			std::lock_guard<std::recursive_mutex> logLock(CLog::GetInstance().GetMutex());
 			// Menu
 			if (ImGui::BeginMenuBar())
 			{

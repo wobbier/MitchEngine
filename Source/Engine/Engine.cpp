@@ -41,6 +41,7 @@
 #include "Core/Assert.h"
 #include "Events/EditorEvents.h"
 #include "Core/CommandLine.h"
+#include "Core/CrashHandler.h"
 #include <chrono>
 
 Engine& GetEngine()
@@ -78,7 +79,12 @@ void Engine::Init( Game* game )
     m_game = game;
 
     CLog::GetInstance().SetLogFile( "Engine.txt" );
+#if USING( ME_RETAIL )
     CLog::GetInstance().SetLogVerbosity( CLog::LogType::Info );
+#else
+    CLog::GetInstance().SetLogVerbosity( CLog::LogType::Trace );
+#endif
+    CrashHandler::Install( ".tmp/Crashes" );
     CLog::GetInstance().Log( CLog::LogType::Info, "Starting the MitchEngine." );
     Path engineCfg( "Assets\\Config\\Engine.cfg" );
 

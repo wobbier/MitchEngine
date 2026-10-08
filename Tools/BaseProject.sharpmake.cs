@@ -322,6 +322,9 @@ public abstract class BaseProject : Project
         // relocations cannot be linked into a PIE (the default). Link non-PIE instead.
         conf.AdditionalLinkerOptions.Add("-no-pie");
 
+        // Export the executable's symbols so crash/assert backtraces can name engine functions.
+        conf.AdditionalLinkerOptions.Add("-rdynamic");
+
         // Libraries that aren't carried in by the dependency graph on Linux. The engine
         // modules (Dementia/ImGui/MitchEngine/Moonlight) plus bgfx/bimg/bx/assimp/zlib
         // already reach LDLIBS via AddPublicDependency / module LibraryFiles, so we only

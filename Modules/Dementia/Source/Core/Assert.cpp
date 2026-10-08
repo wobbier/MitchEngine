@@ -1,114 +1,102 @@
 #include "Assert.h"
 
-#if USING( ME_PLATFORM_WINDOWS ) && !USING( ME_RETAIL )
+#if !USING( ME_RETAIL )
 
-#include <windows.h>
-#include <DbgHelp.h>
+#include "CLog.h"
+#include "Core/CommandLine.h"
+#include "Core/StackTrace.h"
+#include <cstdlib>
 #include <string>
-#include <sstream>
-#include "Utils\StringUtils.h"
-#include <filesystem>
 
-#pragma comment(lib, "Dbghelp.lib")
+#if USING( ME_PLATFORM_WIN64 )
+#include <windows.h>
+#include "Utils/StringUtils.h"
 
-HHOOK hHook;
-
-LRESULT CALLBACK CBTProc( int nCode, WPARAM wParam, LPARAM lParam )
+namespace
 {
-    if( nCode < 0 )
-    {
-        return CallNextHookEx( hHook, nCode, wParam, lParam );
-    }
+    HHOOK hHook;
 
-    if( nCode == HCBT_ACTIVATE )
+    LRESULT CALLBACK CBTProc( int nCode, WPARAM wParam, LPARAM lParam )
     {
-        HWND hDlg = (HWND)wParam;
-        SetDlgItemText( hDlg, IDCANCEL, L"Ignore" );
-        SetDlgItemText( hDlg, IDTRYAGAIN, L"Break" );
-        SetDlgItemText( hDlg, IDCONTINUE, L"Crash" );
-    }
+        if( nCode < 0 )
+        {
+            return CallNextHookEx( hHook, nCode, wParam, lParam );
+        }
 
-    return 0;
+        if( nCode == HCBT_ACTIVATE )
+        {
+            HWND hDlg = (HWND)wParam;
+            SetDlgItemText( hDlg, IDCANCEL, L"Ignore" );
+            SetDlgItemText( hDlg, IDTRYAGAIN, L"Break" );
+            SetDlgItemText( hDlg, IDCONTINUE, L"Crash" );
+        }
+
+        return 0;
+    }
 }
+#endif
 
-bool CustomAssertFunction( const char* expression, const char* inMessage, const char* file, int line )
+
+bool CustomAssertFunction( const char* expression, const char* inMessage, const char* file, int line, bool* ignoreAlways )
 {
-    std::wstringstream assertOutput;
+    std::string report = "Assertion failed: ";
+    report += expression;
     if( inMessage )
     {
-        assertOutput << inMessage;
-        assertOutput << L"\n\n";
+        report += "\n\t";
+        report += inMessage;
     }
+    report += "\n\t";
+    report += file;
+    report += ":";
+    report += std::to_string( line );
+    report += "\nCall stack:\n";
+    report += StackTrace::CaptureString( 1 );
 
-    assertOutput << L"Assert: ";
-    assertOutput << expression;
+    CLog::Log( CLog::LogType::Error, report );
+    CLog::GetInstance().Flush();
 
-    assertOutput << L"\n\nFile: ";
-    assertOutput << file;
-    assertOutput << L":";
-    assertOutput << line;
-
-    // Capture the call stack
-    assertOutput << L"\n\nCall stack:\n";
-
-    void* stack[100];
-    HANDLE process = GetCurrentProcess();
-    SymInitialize( process, NULL, TRUE );
-    unsigned short frames = CaptureStackBackTrace( 0, 100, stack, NULL );
-    SYMBOL_INFO* stackSymbols = (SYMBOL_INFO*)calloc( sizeof( SYMBOL_INFO ) + 256, 1 );
-    stackSymbols->MaxNameLen = 255;
-    stackSymbols->SizeOfStruct = sizeof( SYMBOL_INFO );
-
-    IMAGEHLP_LINE64 lineInfo = { sizeof( IMAGEHLP_LINE64 ) };
-    for( int i = 1; i < frames; i++ )
+    if( CommandLine::Has( "--assert-fatal" ) )
     {
-        DWORD64 address = (DWORD64)( stack[i] );
-        SymFromAddr( process, address, 0, stackSymbols );
-
-        DWORD dwDisplacement;
-        if( SymGetLineFromAddr64( process, address, &dwDisplacement, &lineInfo ) )
-        {
-            std::wstring thing = std::wstring( lineInfo.FileName, lineInfo.FileName + strlen( lineInfo.FileName ) );
-            std::size_t slash = thing.find_last_of( '\\' );
-            std::wstring fileName = thing.substr( slash + 1, thing.length() );
-            assertOutput << frames - i - 1 << ": " << stackSymbols->Name << " in (" << fileName << ":" << lineInfo.LineNumber << ")\n\n";
-        }
-        else
-        {
-            assertOutput << frames - i - 1 << ": " << stackSymbols->Name << " at (0x" << std::hex << stackSymbols->Address << std::dec << ")\n\n";
-        }
+        std::abort();
     }
 
-    free( stackSymbols );
-    SymCleanup( process );
+#if USING( ME_PLATFORM_WIN64 )
+    if( CommandLine::Has( "--assert-log" ) )
+    {
+        return Debugger::IsAttached();
+    }
 
-    std::wstring message = assertOutput.str();
+    const std::wstring message = StringUtils::ToWString( report );
+    const std::wstring title = inMessage ? ( L"Assertion Failed: " + StringUtils::ToWString( inMessage ) ) : L"Assertion Failed";
 
     hHook = SetWindowsHookEx( WH_CBT, &CBTProc, 0, GetCurrentThreadId() );
-
-    std::wstring title = inMessage ? ( L"Assertion Failed: " + StringUtils::ToWString( inMessage ) ) : L"Assertion Failed";
-
-    int msgboxID = MessageBox(
-        NULL,
-        message.c_str(),
-        title.c_str(),
-        MB_ICONWARNING | MB_CANCELTRYCONTINUE | MB_DEFBUTTON2
-    );
+    const int msgboxID = MessageBox( NULL, message.c_str(), title.c_str(), MB_ICONWARNING | MB_CANCELTRYCONTINUE | MB_DEFBUTTON2 );
+    UnhookWindowsHookEx( hHook );
 
     switch( msgboxID )
     {
-    case IDCANCEL:
-        // "Ignore" was clicked, continue execution
-        break;
     case IDTRYAGAIN:
-        // "Break" was clicked, break into the debugger
         return true;
     case IDCONTINUE:
-        // "Crash" was clicked, terminate the application
-        exit( -1 );
-        break;
+        std::exit( -1 );
+    case IDCANCEL:
+    default:
+        return false;
+    }
+#else
+    if( Debugger::IsAttached() )
+    {
+        return true;
+    }
+
+    // No debugger to stop in: report each assert site once and keep running.
+    if( ignoreAlways )
+    {
+        *ignoreAlways = true;
     }
     return false;
+#endif
 }
 
 #endif

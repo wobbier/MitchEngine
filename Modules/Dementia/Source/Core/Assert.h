@@ -1,29 +1,34 @@
 #pragma once
 #include "Dementia.h"
 
-#if USING( ME_RETAIL )
-#define ME_ASSERT(expr)
-#define ME_ASSERT_MSG(expr, msg)
-#else
-
 #if USING( ME_PLATFORM_WINDOWS )
+#define ME_DEBUG_BREAK() __debugbreak()
+#elif defined( __clang__ )
+#define ME_DEBUG_BREAK() __builtin_debugtrap()
+#else
+#include <csignal>
+#define ME_DEBUG_BREAK() std::raise( SIGTRAP )
+#endif
 
-bool CustomAssertFunction( const char* expression, const char* message, const char* file, int line );
-#define ME_ASSERT_MSG(expr, msg) \
-if (!(expr) && CustomAssertFunction(#expr, msg, __FILE__, __LINE__)) { \
-__debugbreak();\
-}
-
-#define ME_ASSERT(expr) \
-if (!(expr) && CustomAssertFunction(#expr, nullptr, __FILE__, __LINE__)) { \
-__debugbreak();\
-}
-
+#if USING( ME_RETAIL )
+#define ME_ASSERT(expr) ((void)0)
+#define ME_ASSERT_MSG(expr, msg) ((void)0)
 #else
 
-#define ME_ASSERT(expr)
-#define ME_ASSERT_MSG(expr, msg)
+// Reports a failed assertion (log + call stack, plus a dialog on Win64).
+// Returns true when the caller should break into the debugger.
+// Setting *ignoreAlways silences this assert site for the rest of the run.
+// Run with --assert-fatal to abort on the first failure (tests / CI).
+bool CustomAssertFunction( const char* expression, const char* message, const char* file, int line, bool* ignoreAlways );
 
-#endif
+#define ME_ASSERT_MSG(expr, msg) \
+    do { \
+        static bool s_meAssertIgnored = false; \
+        if( !s_meAssertIgnored && !( expr ) && CustomAssertFunction( #expr, msg, __FILE__, __LINE__, &s_meAssertIgnored ) ) { \
+            ME_DEBUG_BREAK(); \
+        } \
+    } while( 0 )
+
+#define ME_ASSERT(expr) ME_ASSERT_MSG( expr, nullptr )
 
 #endif
