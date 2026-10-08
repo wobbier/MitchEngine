@@ -8,6 +8,7 @@ using Sharpmake;
 [module: Sharpmake.Include("Modules/Moonlight/Moonlight.sharpmake.cs")]
 [module: Sharpmake.Include("Modules/Havana/Havana.sharpmake.cs")]
 [module: Sharpmake.Include("Modules/ScriptCore/ScriptCore.sharpmake.cs")]
+[module: Sharpmake.Include("Tests/Tests.sharpmake.cs")]
 [module: Sharpmake.Include("Tools/BaseProject.sharpmake.cs")]
 [module: Sharpmake.Include("Tools/CommonTarget.sharpmake.cs")]
 [module: Sharpmake.Include("Tools/HUB/MitchHub.sharpmake.cs")]
@@ -663,6 +664,10 @@ public class BaseGameSolution : Solution
         }
 
         conf.AddProject<SharpGameProject>(target);
+        if (target.SubPlatform != CommonTarget.SubPlatformType.UWP)
+        {
+            conf.AddProject<EngineTests>(target);
+        }
         // Disabled on mac atm since xcode doesn't have mono support that I know of
         if (target.Platform != Platform.mac && (Directory.Exists(Globals.MONO_macOS_Dir) || Directory.Exists(Globals.MONO_Win64_Dir) || Directory.Exists(Globals.MONO_Linux_Dir)))
         {
