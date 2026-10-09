@@ -54,22 +54,22 @@ struct Vector2
         return ( &x )[index];
     }
 
-    Vector2 operator*( const Vector2& other )
+    Vector2 operator*( const Vector2& other ) const
     {
         return Vector2( InternalVec * other.InternalVec );
     }
 
-    Vector2 operator*( const float& other )
+    Vector2 operator*( const float& other ) const
     {
         return Vector2( InternalVec.x * other, InternalVec.y * other );
     }
 
-    Vector2 operator+( const Vector2& other )
+    Vector2 operator+( const Vector2& other ) const
     {
         return Vector2( InternalVec + other.InternalVec );
     }
 
-    Vector2 operator-( const Vector2& other )
+    Vector2 operator-( const Vector2& other ) const
     {
         return Vector2( InternalVec - other.InternalVec );
     }
@@ -82,12 +82,12 @@ struct Vector2
         return *this;
     }
 
-    Vector2 operator/( const float& other )
+    Vector2 operator/( const float& other ) const
     {
         return Vector2( InternalVec.x / other, InternalVec.y / other );
     }
 
-    bool operator==( const Vector2& other )
+    bool operator==( const Vector2& other ) const
     {
         return InternalVec == other.InternalVec;
     }

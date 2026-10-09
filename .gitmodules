@@ -46,3 +46,6 @@
 [submodule "ThirdParty/doctest"]
 	path = ThirdParty/doctest
 	url = https://github.com/doctest/doctest
+[submodule "ThirdParty/ImGuizmo"]
+	path = ThirdParty/ImGuizmo
+	url = https://github.com/CedricGuillemet/ImGuizmo

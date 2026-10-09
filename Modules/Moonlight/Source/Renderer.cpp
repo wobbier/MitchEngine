@@ -324,9 +324,11 @@ void BGFXRenderer::Render( Moonlight::CameraData& EditorCamera, FrameRenderData&
     bgfx::setFrameUniform( s_time, &m_time.x );
 
     bgfx::ViewId id = Moonlight::RenderView::CameraFirst;
+    DebugDraw::CollectFrame( m_debugLines );
 
 #if USING( ME_EDITOR )
     EditorCamera.Buffer = EditorCameraBuffer;
+    EditorCamera.IsEditorView = true;
     if( EditorCamera.Buffer && EditorCamera.ShouldRender )
     {
         RenderCameraView( EditorCamera, id++, false );
@@ -604,6 +606,7 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId
 
         m_debugDraw->End();
     }
+    SubmitDebugLines( camera, id );
 
     float orthoProj[16];
     bx::mtxOrtho( orthoProj, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, bgfx::getCaps()->homogeneousDepth );
@@ -635,6 +638,22 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId
         bgfx::submit( view, UIProgram );
     }
 }
+
+void BGFXRenderer::SubmitDebugLines( const Moonlight::CameraData& camera, bgfx::ViewId id )
+{
+    if( !m_debugDraw )
+    {
+        return;
+    }
+    m_debugDraw->DrawLines( id, m_debugLines.Depth.data(), static_cast<uint32_t>( m_debugLines.Depth.size() ), true );
+    m_debugDraw->DrawLines( id, m_debugLines.Overlay.data(), static_cast<uint32_t>( m_debugLines.Overlay.size() ), false );
+    if( camera.IsEditorView )
+    {
+        m_debugDraw->DrawLines( id, m_debugLines.EditorDepth.data(), static_cast<uint32_t>( m_debugLines.EditorDepth.size() ), true );
+        m_debugDraw->DrawLines( id, m_debugLines.EditorOverlay.data(), static_cast<uint32_t>( m_debugLines.EditorOverlay.size() ), false );
+    }
+}
+
 
 bgfx::ProgramHandle BGFXRenderer::BindMeshDrawState( const Moonlight::MeshCommand& mesh, uint64_t state )
 {

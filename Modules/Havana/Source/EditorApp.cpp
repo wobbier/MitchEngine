@@ -246,7 +246,7 @@ void EditorApp::Play()
     m_isGamePaused = false;
     GetEngine().SetPaused( false );
 
-    ImGui::SetWindowFocus( "Game View" );
+    Editor->SetPlayMode( true );
     GetEngine().GetInput().Resume();
     Editor->GetInput().Stop();
 }
@@ -261,6 +261,7 @@ void EditorApp::Stop()
     m_isGamePaused = false;
     GetEngine().SetPaused( false );
     StopGame();
+    Editor->SetPlayMode( false );
 
     GetEngine().GetInput().Stop();
     Editor->GetInput().Resume();

@@ -59,6 +59,10 @@ public:
 
     bool OnEvent( const BaseEvent& evt ) override;
 
+    // What a scene-view click on InPicked should select: the outermost model/prefab instance root
+    // first, then one level deeper per click while InCurrent is already on that branch.
+    static EntityHandle ResolvePickTarget( const EntityHandle& InPicked, const EntityHandle& InCurrent );
+
 private:
     Selection();
     void Prune() const;

@@ -54,6 +54,8 @@ namespace Moonlight
         bool IsOblique = false;
         bool ShouldRender = true;
         bool ShouldCull = true;
+        // The editor scene view (gets editor-only debug drawing: grid, selection, gizmos).
+        bool IsEditorView = false;
 
         // One byte per renderable (not vector<bool>): mesh jobs write these concurrently.
         std::vector<uint8_t> VisibleFlags;

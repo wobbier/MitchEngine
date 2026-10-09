@@ -119,6 +119,43 @@ DebugDrawer::DebugDrawer()
     Init( bgfx::begin() );
 }
 
+void DebugDrawer::DrawLines( bgfx::ViewId InViewId, const DebugDraw::LineVertex* InVertices, uint32_t InCount, bool InDepthTest )
+{
+    if( !bgfx::isValid( m_program[Program::Lines] ) )
+    {
+        return;
+    }
+    const uint64_t state = BGFX_STATE_WRITE_RGB
+        | BGFX_STATE_PT_LINES
+        | BGFX_STATE_LINEAA
+        | BGFX_STATE_BLEND_ALPHA
+        | ( InDepthTest ? BGFX_STATE_DEPTH_TEST_LEQUAL : 0 );
+
+    // Transient buffers are capped per frame; submit in even-sized chunks.
+    uint32_t offset = 0;
+    while( offset + 1 < InCount )
+    {
+        uint32_t count = bgfx::getAvailTransientVertexBuffer( InCount - offset, DebugVertex::ms_layout ) & ~1u;
+        if( count == 0 )
+        {
+            return;
+        }
+        bgfx::TransientVertexBuffer buffer;
+        bgfx::allocTransientVertexBuffer( &buffer, count, DebugVertex::ms_layout );
+        DebugVertex* vertices = reinterpret_cast<DebugVertex*>( buffer.data );
+        for( uint32_t i = 0; i < count; ++i )
+        {
+            const DebugDraw::LineVertex& source = InVertices[offset + i];
+            vertices[i] = { source.X, source.Y, source.Z, 0.f, source.ABGR };
+        }
+        bgfx::setVertexBuffer( 0, &buffer );
+        bgfx::setState( state );
+        bgfx::submit( InViewId, m_program[Program::Lines] );
+        offset += count;
+    }
+}
+
+
 DebugDrawer::~DebugDrawer()
 {
     bgfx::destroy( m_ibh );

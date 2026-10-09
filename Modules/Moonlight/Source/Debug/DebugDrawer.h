@@ -1,6 +1,7 @@
 #pragma once
 #include <memory>
 #include <bgfx/bgfx.h>
+#include "Debug/DebugDraw.h"
 
 struct DebugVertex
 {
@@ -121,6 +122,9 @@ public:
     void End();
 
     void Draw( const float* InOBB );
+
+    // Submits a line list (vertex pairs, world space) to a view with the debug line program.
+    void DrawLines( bgfx::ViewId InViewId, const DebugDraw::LineVertex* InVertices, uint32_t InCount, bool InDepthTest );
 
 private:
     static const uint32_t kStackSize = 16;

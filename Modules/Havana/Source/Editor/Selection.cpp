@@ -7,6 +7,8 @@
 #include "Engine/World.h"
 #include "Events/EditorEvents.h"
 #include "Events/HavanaEvents.h"
+#include "Components/Graphics/Model.h"
+#include "Cores/SceneCore.h"
 #include <imgui.h>
 #include <algorithm>
 #include <unordered_set>
@@ -231,6 +233,64 @@ void Selection::RestoreGUIDs( World& InWorld, const std::vector<uint64_t>& InGUI
 }
 
 
+EntityHandle Selection::ResolvePickTarget( const EntityHandle& InPicked, const EntityHandle& InCurrent )
+{
+    Transform* transform = InPicked ? InPicked->TryGetComponent<Transform>() : nullptr;
+    if( !transform )
+    {
+        return InPicked;
+    }
+    Transform* sceneRoot = GetEngine().SceneNodes ? GetEngine().SceneNodes->GetRootTransform() : nullptr;
+
+    // Chain from the top-level ancestor down to the picked entity.
+    std::vector<EntityHandle> chain;
+    for( Transform* node = transform; node && node != sceneRoot; node = node->GetParentTransform() )
+    {
+        chain.insert( chain.begin(), node->Parent );
+    }
+    if( chain.empty() )
+    {
+        return InPicked;
+    }
+
+    World& world = *GetEngine().GetWorld().lock();
+    auto isGroupRoot = [&world]( const EntityHandle& handle, const EntityHandle& parent ) {
+        if( handle->HasComponent<Model>() )
+        {
+            return true;
+        }
+        const World::EntityRecord* record = world.GetRecord( handle->GetId() );
+        if( !record || record->PrefabAsset.empty() )
+        {
+            return false;
+        }
+        const World::EntityRecord* parentRecord = parent ? world.GetRecord( parent->GetId() ) : nullptr;
+        return !parentRecord || parentRecord->PrefabAsset != record->PrefabAsset;
+    };
+
+    size_t group = chain.size() - 1;
+    for( size_t i = 0; i < chain.size(); ++i )
+    {
+        if( isGroupRoot( chain[i], i > 0 ? chain[i - 1] : EntityHandle() ) )
+        {
+            group = i;
+            break;
+        }
+    }
+
+    auto current = std::find( chain.begin(), chain.end(), InCurrent );
+    if( current != chain.end() )
+    {
+        const size_t index = static_cast<size_t>( current - chain.begin() );
+        if( index >= group && index + 1 < chain.size() )
+        {
+            return chain[index + 1];
+        }
+    }
+    return chain[group];
+}
+
+
 bool Selection::OnEvent( const BaseEvent& evt )
 {
     if( m_isNotifying )
@@ -259,16 +319,30 @@ bool Selection::OnEvent( const BaseEvent& evt )
     }
     else if( evt.GetEventId() == PickingEvent::GetEventId() )
     {
-        // Scene view click: Ctrl toggles, otherwise replaces.
+        // Scene view click: empty space clears, Ctrl toggles, otherwise replaces.
         const PickingEvent& picking = static_cast<const PickingEvent&>( evt );
-        EntityHandle picked = GetEngine().GetWorld().lock()->FindEntityByIDValue( picking.RawEntityID );
-        if( ImGui::GetIO().KeyCtrl )
+        const ImGuiIO& io = ImGui::GetIO();
+        EntityHandle picked = picking.RawEntityID ? GetEngine().GetWorld().lock()->FindEntityByIDValue( picking.RawEntityID ) : EntityHandle();
+        if( !picked )
         {
-            Toggle( picked );
+            if( !io.KeyCtrl && !io.KeyShift )
+            {
+                Clear();
+            }
+            return false;
+        }
+        EntityHandle target = ResolvePickTarget( picked, GetActive() );
+        if( io.KeyCtrl )
+        {
+            Toggle( target );
+        }
+        else if( io.KeyShift )
+        {
+            Add( target );
         }
         else
         {
-            Set( picked );
+            Set( target );
         }
     }
     return false;

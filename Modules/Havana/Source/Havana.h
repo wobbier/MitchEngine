@@ -45,6 +45,9 @@ public:
 	const bool IsWorldViewFocused() const;
 
 	SceneHierarchyWidget* GetHierarchy() const { return SceneHierarchy.get(); }
+	SceneViewWidget* GetSceneView() const { return MainSceneView.get(); }
+	// Called by EditorApp when play mode starts/stops (game view focus, maximize on play).
+	void SetPlayMode(bool playing);
 	// Opens (and focuses) a registered widget by name.
 	void ShowWidget(const std::string& name);
 	// True while the hierarchy or the world view has keyboard focus (scene-editing shortcuts).

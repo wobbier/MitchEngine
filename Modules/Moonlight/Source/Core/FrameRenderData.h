@@ -8,5 +8,7 @@ struct FrameRenderData
 
     // so specific atm
     bool WasLeftPressed = false;
+    // Set when a pick readback finished; RequestedEntityID is 0 when the click hit nothing.
+    bool PickCompleted = false;
     uint64_t RequestedEntityID = 0;
 };

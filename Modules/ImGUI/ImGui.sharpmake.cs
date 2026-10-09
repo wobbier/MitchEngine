@@ -30,6 +30,9 @@ public class ImGui : BaseProject
 
         SourceFiles.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/ImGui/backends/imgui_impl_sdl2.h"));
         SourceFiles.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/ImGui/backends/imgui_impl_sdl2.cpp"));
+
+        SourceFiles.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/ImGuizmo/src/ImGuizmo.h"));
+        SourceFiles.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/ImGuizmo/src/ImGuizmo.cpp"));
     }
 
     public override void ConfigureAll(Project.Configuration conf, CommonTarget target)
@@ -46,6 +49,7 @@ public class ImGui : BaseProject
         //conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/JSON/include"));
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/SDL/include"));
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/ImGui"));
+        conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/ImGuizmo/src"));
         conf.IncludePaths.Add("[project.SourceRootPath]");
         conf.AddPublicDependency<Dementia>(target);
         //conf.LibraryFiles.Add("ImGui");

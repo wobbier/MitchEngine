@@ -36,6 +36,7 @@
 #include "SDL_video.h"
 #include <imgui.h>
 #include <Debug/DebugDrawer.h>
+#include <Debug/DebugDraw.h>
 #include "Events/PlatformEvents.h"
 #include "Scripting/ScriptEngine.h"
 #include "Core/Assert.h"
@@ -380,12 +381,13 @@ void Engine::Run()
 
             GameWorld->Simulate();
 
-            if( m_frameRenderSettings.RequestedEntityID > 0 )
+            if( m_frameRenderSettings.PickCompleted )
             {
                 PickingEvent evt;
                 evt.RawEntityID = m_frameRenderSettings.RequestedEntityID;
                 evt.Fire();
                 m_frameRenderSettings.RequestedEntityID = 0;
+                m_frameRenderSettings.PickCompleted = false;
             }
             
 
@@ -495,6 +497,7 @@ void Engine::Run()
                 ME_FRAMEPROFILE_START( "Render", ProfileCategory::Rendering );
                 NewRenderer->Render( EditorCamera, m_frameRenderSettings );
                 ME_FRAMEPROFILE_STOP( "Render" );
+                DebugDraw::EndFrame( updateContext.GetUnscaledDeltaTime() );
                 UI->PostRender( updateContext );
                 m_game->PostRender();
             }

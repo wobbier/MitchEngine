@@ -17,6 +17,7 @@
 #include "File.h"
 #include "CLog.h"
 #include <cmath>
+#include <imgui.h>
 #include <sstream>
 
 namespace
@@ -214,6 +215,10 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
     if( command == "wait" )
     {
         m_waitFrames = std::max( 1, std::atoi( args.c_str() ) );
+    }
+    else if( command == "focus-window" )
+    {
+        ImGui::SetWindowFocus( args.c_str() );
     }
     else if( command == "log" )
     {

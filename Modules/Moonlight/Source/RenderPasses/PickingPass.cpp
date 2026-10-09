@@ -205,6 +205,8 @@ void PickingPass::Render( BGFXRenderer* inRenderer, CameraData* inCamData, Frame
     if( m_reading == inFrameSettings.m_currentFrame )
     {
         m_reading = 0;
+        inFrameSettings.PickCompleted = true;
+        inFrameSettings.RequestedEntityID = 0;
         std::map<uint32_t, uint32_t> ids;  // This contains all the IDs found in the buffer
         uint32_t maxAmount = 0;
         for( uint8_t* x = m_blitData; x < m_blitData + ID_DIM * ID_DIM * 4;)

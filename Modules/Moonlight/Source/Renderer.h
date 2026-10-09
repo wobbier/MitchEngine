@@ -69,6 +69,7 @@ public:
     void Render( Moonlight::CameraData& EditorCamera, FrameRenderData& inFrameData );
     void SetGuizmoDrawCallback( std::function<void( DebugDrawer* )> GuizmoDrawingFunc );
     void RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId id, bool toBackbuffer );
+    void SubmitDebugLines( const Moonlight::CameraData& camera, bgfx::ViewId id );
 
     void RenderSingleMesh( bgfx::ViewId id, const Moonlight::MeshCommand& mesh, uint64_t state );
 
@@ -163,6 +164,7 @@ private:
     SharedPtr<Moonlight::DynamicSky> m_dynamicSky;
     bool EnableDebugDraw = false;
     UniquePtr<DebugDrawer> m_debugDraw;
+    DebugDraw::FrameLines m_debugLines;
     bool NeedsReset = false;
     uint32_t m_currentFrame = 0;
 

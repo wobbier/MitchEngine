@@ -98,6 +98,7 @@ Havana::Havana( Engine* GameEngine, EditorApp* app )
     RegisteredWidgets.push_back( ResourceMonitor );
 
     MainSceneView.reset( new SceneViewWidget( "World View", true ) );
+    RegisteredWidgets.push_back( MainSceneView );
     GameSceneView.reset( new SceneViewWidget( "Game View" ) );
     RegisteredWidgets.push_back( GameSceneView );
 
@@ -339,6 +340,16 @@ void Havana::NewFrame()
     EditorActions::Get().DrawPalette();
 }
 
+void Havana::SetPlayMode( bool playing )
+{
+    GameSceneView->MaximizeOnPlay = playing && GameSceneView->MaximizeOnPlayPreference;
+    if( playing )
+    {
+        ImGui::SetWindowFocus( GameSceneView->MaximizeOnPlay ? "Full Screen Viewport" : GameSceneView->Name.c_str() );
+    }
+}
+
+
 void Havana::ShowWidget( const std::string& name )
 {
     for( auto& widget : RegisteredWidgets )
@@ -389,17 +400,10 @@ void Havana::Render( Moonlight::CameraData& EditorCamera )
         MainSceneView->SetData( EditorCamera );
         MainSceneView->Render();
 
+        // GPU picking for clicks (not drags) on the scene view, in viewport pixels.
         FrameRenderData& frameRenderData = GetEngine().m_frameRenderSettings;
-        // Potentially bad for if the window isn't docked
-        //GetEngine().m_frameRenderSettings.MousePosition =  GetInput().GetGlobalMousePosition() - ( m_engine->GetWindow()->GetPosition() - MainSceneView->SceneViewRenderLocation );
-        frameRenderData.MousePosition = GetInput().GetMousePosition() - MainSceneView->SceneViewRenderLocation;// -( GetEngine().GetWindow()->GetPosition() );
-        if( !MainSceneView->IsPlatformWindow )
-        {
-            ImGuiStyle& style = ImGui::GetStyle();
-            frameRenderData.MousePosition -= Vector2( 0.f, MainMenu->GetMainMenuSize().y ) + Vector2( style.DockingSeparatorSize, 0.f );
-        }
-
-        frameRenderData.WasLeftPressed = frameRenderData.WasLeftPressed && MainSceneView->IsFocused && !MainSceneView->IsUsingGuizmo && frameRenderData.MousePosition.x <= MainSceneView->SceneViewRenderSize.x;
+        frameRenderData.MousePosition = MainSceneView->ViewportMousePosition;
+        frameRenderData.WasLeftPressed = MainSceneView->ConsumeClick();
     }
 
     // Game View
