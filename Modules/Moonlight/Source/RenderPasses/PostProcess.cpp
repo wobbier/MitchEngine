@@ -135,7 +135,7 @@ namespace Moonlight
         SetupFullscreenView( aoView, InTargets.AOBuffer.Buffer, InTargets.AOBuffer.Width, InTargets.AOBuffer.Height );
         const float ssao[4] = { settings.AORadius, settings.AOIntensity, 0.002f, projection[1][1] };
         const float ssaoProjection[4] = { projection[2][2], projection[3][2], InCamera.Projection == ProjectionType::Orthographic ? 1.f : 0.f, bgfx::getCaps()->homogeneousDepth ? 1.f : 0.f };
-        const float ssaoProjection2[4] = { projection[0][0], projection[1][1], 0.f, 0.f };
+        const float ssaoProjection2[4] = { projection[0][0], projection[1][1], 1.f / std::max<float>( InTargets.Width, 1.f ), 1.f / std::max<float>( InTargets.Height, 1.f ) };
         bgfx::setUniform( u_ssao, ssao );
         bgfx::setUniform( u_ssaoProjection, ssaoProjection );
         bgfx::setUniform( u_ssaoProjection2, ssaoProjection2 );

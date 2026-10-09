@@ -7,7 +7,7 @@ $input v_texcoord0
 SAMPLER2D(s_input0, 0);         // camera depth
 uniform vec4 u_ssao;            // x world radius, y intensity, z bias, w projection scale (P[1][1])
 uniform vec4 u_ssaoProjection;  // x P[2][2], y P[3][2], z 1 = orthographic, w 1 = depth range -1..1
-uniform vec4 u_ssaoProjection2; // x P[0][0], y P[1][1]
+uniform vec4 u_ssaoProjection2; // x P[0][0], y P[1][1], zw 1 / full-resolution depth size
 
 float viewDepth(vec2 _uv)
 {
@@ -20,8 +20,17 @@ float viewDepth(vec2 _uv)
 	return u_ssaoProjection.y / (ndc - u_ssaoProjection.x);
 }
 
+// Half-resolution pixel centres land exactly between full-resolution depth texels, where point
+// sampling rounds either way; snap to a texel centre and rebuild the ray from that same spot so the
+// depth and the position always agree (otherwise one row of normals comes out wrong).
+vec2 depthTexelCenter(vec2 _uv)
+{
+	return (floor(_uv / u_ssaoProjection2.zw) + 0.5) * u_ssaoProjection2.zw;
+}
+
 vec3 viewPosition(vec2 _uv)
 {
+	_uv = depthTexelCenter(_uv);
 	float z = viewDepth(_uv);
 	vec2 ndc = vec2(_uv.x * 2.0 - 1.0, 1.0 - _uv.y * 2.0);
 	return vec3(ndc.x * z / u_ssaoProjection2.x, ndc.y * z / u_ssaoProjection2.y, z);
@@ -30,7 +39,7 @@ vec3 viewPosition(vec2 _uv)
 void main()
 {
 	vec2 uv = v_texcoord0;
-	float rawDepth = texture2D(s_input0, uv).r;
+	float rawDepth = texture2D(s_input0, depthTexelCenter(uv)).r;
 	if (rawDepth >= 0.99999)
 	{
 		gl_FragColor = vec4_splat(1.0);   // sky
