@@ -1,6 +1,6 @@
 # State of the Engine
 
-> **This doc is opinion.** Every other doc in `Docs/` is factual; this one rates, prioritizes, and recommends. Never cite it as a description of behavior — cite the subsystem docs. Assessed at engine commit 047f57b8, 2026-07-10; scorecard rows for the core runtime re-scored at dab803a2, 2026-10-08 (overhaul Waves 0–1).
+> **This doc is opinion.** Every other doc in `Docs/` is factual; this one rates, prioritizes, and recommends. Never cite it as a description of behavior — cite the subsystem docs. Assessed at engine commit 047f57b8, 2026-07-10; scorecard rows for the core runtime re-scored at dab803a2, 2026-10-08 (overhaul Waves 0–1); editor, serialization and rendering-tooling rows at 7e869c6e, 2026-10-09 (Wave 2).
 
 MitchEngine is a real, working engine: it ships Drumsmith, runs a full editor on Linux/Windows, hosts .NET 8 scripting, and has genuinely thoughtful hot paths (the zero-virtual render submit, automatic instancing, transform dirty caching). Its weaknesses are the classic solo-engine kind: half-migrations left in place (Mono→.NET, fixed→variable timestep, Ultralight→web-UI), correctness debt that hasn't hurt *yet* (variable-dt physics, name-string schemas, uninitialized ambient), and workflow traps that cost real work (Stop-reverts-to-last-save). The theme of this assessment: **finish or delete the half-things, then invest where the engine already punches above its weight.**
 
@@ -15,16 +15,16 @@ Ratings: **Solid** (rely on it) · **Usable** (works, know the sharp edges) · *
 | Frame loop & timing | **Usable** | Fixed timestep + pause/step/time scale/frame cap; engine-core update order still hardcoded; partial teardown (no bgfx shutdown) | [Architecture.md](Architecture.md) |
 | Jobs | **Solid** | Work stealing, helping waits, allocation-free ParallelFor, stress tested | [Jobs-and-Events.md](Jobs-and-Events.md) |
 | Events | **Usable** | Thread-safe queue, auto-deregistering receivers, safe re-entrant dispatch; still string-free but untyped `OnEvent` switches | [Jobs-and-Events.md](Jobs-and-Events.md) |
-| Rendering pipeline | **Usable** | Producer/consumer split and instancing are the engine's best work; point culling and view-ID collisions are the debt | [Rendering-Pipeline.md](Rendering-Pipeline.md) |
+| Rendering pipeline | **Usable** | Producer/consumer split and instancing are the engine's best work; AABB culling, Debug Draw v2 and GPU/frame stats landed; view-ID collisions and lighting are the debt | [Rendering-Pipeline.md](Rendering-Pipeline.md) |
 | Lighting & shadows | **Experimental** | One procedural sun, uninitialized ambient uniform, dead `Light` components, empty `DepthPass` — lighting is a façade | [Rendering-Pipeline.md](Rendering-Pipeline.md) |
 | Materials & shaders | **Usable** | Clear contract + offline cook; batch-key discipline is manual; ShaderGraph half-finished | [Materials-and-Shaders.md](Materials-and-Shaders.md) |
 | Resources & assets | **Usable** | Hot reload, keep-alive cache, asset GUIDs; loads still synchronous on the main thread | [Resources-and-Assets.md](Resources-and-Assets.md) |
-| Serialization & scenes | **Usable** | Versioned v2 format with GUIDs, references and migration; prefab overrides not yet implemented | [Serialization-and-Scenes.md](Serialization-and-Scenes.md) |
+| Serialization & scenes | **Solid** | Versioned v2 format with GUIDs, references, migration and prefab links with stable source GUIDs; asset references are still paths | [Serialization-and-Scenes.md](Serialization-and-Scenes.md) |
 | Physics | **Usable** | Standard Bullet integration with collision events + raycasts; variable dt and Euler round-trips undermine it | [Cores-and-Components-Reference.md](Cores-and-Components-Reference.md) |
 | Audio | **Usable** | FMOD basics + event-driven fire-and-forget; nonstandard update signature; feature-thin (no 3D emitters/mixing story) | [Cores-and-Components-Reference.md](Cores-and-Components-Reference.md) |
 | Scripting (.NET 8) | **Experimental** | The hosting chain is genuinely impressive and works on Win64+Linux; hand-mirrored ABI, no hot reload, no macOS | [Scripting-DotNet.md](Scripting-DotNet.md) |
 | UI (Ultralight) | **Abandoned-in-place** | 60 fps cap + licensing friction; replacement (web/Vue direction) in progress — do not extend | [UI-Ultralight-and-ImGui.md](UI-Ultralight-and-ImGui.md) |
-| Editor (Havana) | **Usable** | Real widget set, GPU picking, gizmos; Stop-discards-unsaved-work is a data-loss trap; undo coverage partial | [Editor-Havana.md](Editor-Havana.md) |
+| Editor (Havana) | **Solid** | Selection/undo/actions services, in-memory play snapshots, autosave + recovery, multi-object gizmos, reflection inspector with multi-edit, prefab overrides, asset browser v2, scripted regression tests; non-reflected components and path-based asset refs are the gaps | [Editor-Havana.md](Editor-Havana.md) |
 | Build system | **Usable** | Sharpmake graph is coherent; silent directory-existence feature variance bites every fresh machine | [Build-System.md](Build-System.md) |
 
 ## 2. Platform Support Matrix
@@ -69,7 +69,7 @@ Impact (H/M/L) × Effort (S/M/L). Grouped so related items can share one work se
 ### A. Correctness & data safety
 | Item | Impact | Effort | Notes |
 |------|--------|--------|-------|
-| Editor: snapshot world on Play (or force-save prompt) | **H** | S–M | Kills the #1 data-loss trap (`Editor-Havana.md`); a temp-file save/load on Play is enough |
+| ~~Editor: snapshot world on Play~~ | — | — | Done (Wave 2): in-memory snapshot, selection and undo survive Stop |
 | Fixed timestep for physics | **H** | M | Accumulator loop feeding `stepSimulation` with fixed dt; the remnants show it was intended |
 | Scene versioning + rename migration | **H** | M | Minimal viable: `"Version"` field + a name-alias map consulted by the registries |
 | Fix `m_ambient` | M | **S** | Uninitialized GPU uniform; also unlocks actually *having* ambient light |

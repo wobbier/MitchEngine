@@ -2,7 +2,7 @@
 
 Rendering is split into a CPU **producer** — `RenderCore` runs a parallel job that fills POD `MeshCommand`s per visible mesh — and a serial **consumer** — `BGFXRenderer` walks the command cache once per camera view and submits to bgfx. It is a forward renderer: no depth prepass, no shadows, no per-light data; opaque geometry is auto-instanced, transparents are distance-sorted. This doc maps the frame's data flow, the view-ID layout (which differs between editor and game builds), and the sharp edges.
 
-> Verified against engine commit 047f57b8, 2026-07-10.
+> Verified against engine commit 047f57b8, 2026-07-10; the debug draw, frame statistics and picking sections against 7e869c6e, 2026-10-09. Wave 3 of the overhaul rewrites the rest.
 
 ## Overview
 
@@ -87,8 +87,20 @@ Cameras that `ShouldRender == false` or lack a `Buffer` are skipped. Every camer
    - Everything else submits immediately via `RenderSingleMesh`.
 4. **Instanced flush**: each batch submits through `RenderMeshInstanced` — chunked `bgfx::allocInstanceDataBuffer` loops (64-byte `glm::mat4` stride) with the batch's *representative* command binding textures/uniforms/state for the whole batch.
 5. **Transparents**: debug-only `ME_ASSERT_MSG` if count ≥ `kMeshTransparencyTempSize` (60) — release builds just grow the vector; sorted **back-to-front** by squared distance to the camera; drawn with depth-*test* on but depth-*write* off. Instancing-capable transparents still go through `RenderMeshInstanced` with `count == 1`.
-6. **Debug draw** (when enabled): the gizmo callback (every core's `OnDrawGuizmo`) plus queued `DebugColliderCommand`s.
+6. **Debug draw**: when `EnableDebugDraw` is set, the legacy gizmo callback (every core's `OnDrawGuizmo`) and queued `DebugColliderCommand`s; then, always, the **Debug Draw v2** lines collected for this frame (`SubmitDebugLines`). Depth-tested and overlay lines go to every view; `EditorOnly` lines (grid, selection, gizmos) go only to the view with `CameraData::IsEditorView`.
 7. **UI composite** (main camera with a valid `camera.UITexture` only): a screen-space quad at view 9, orthographic, with blend `BLEND_FUNC_SEPARATE(ONE, INV_SRC_ALPHA, INV_DST_ALPHA, ONE)` — premultiplied-alpha-over, chosen after artifacts with plain alpha (the rejected attempts are commented in place). See `Docs/UI-Ultralight-and-ImGui.md`.
+
+### Debug Draw v2 (`Modules/Moonlight/Source/Debug/DebugDraw.h`)
+
+An immediate-mode, thread-safe line API for any code: `DebugDraw::Line`, `Ray`, `Arrow`, `Box` (AABB or oriented by a matrix), `Circle`, `Sphere`, `Capsule`, `Cone`, `Axes`, `Frustum` (from a view-projection matrix) and `Grid`. Every call takes a colour, a duration in seconds (0 = this frame) and flags (`NoDepthTest`, `EditorOnly`). Shapes are queued under a mutex. `BGFXRenderer::Render` copies them into per-bucket vertex lists once per frame (`DebugDraw::CollectFrame`). `DebugDrawer::DrawLines` submits them as transient line lists with the embedded debug-draw line program, alpha-blended and depth-tested `LEQUAL` (or not). `Engine::Run` calls `DebugDraw::EndFrame` after rendering to age timed shapes.
+
+### Frame statistics
+
+After `bgfx::frame`, `BGFXRenderer::GatherFrameStats` copies `bgfx::getStats()` into `FrameStats::RenderStats`: GPU time, render-thread time, draw calls, triangles, GPU memory, and per-view CPU/GPU times. Per-view timings require `BGFX_DEBUG_PROFILER`, which is enabled only while `FrameStats::DetailedGpuTimings` is set (the editor's Profiler window is open).
+
+### Picking
+
+`PickingPass` renders entity IDs into a 32x32 target around the mouse (a tight-FOV pick camera) when `FrameRenderData::WasLeftPressed` is set, and reads it back a couple of frames later. The editor sets `WasLeftPressed` only for clicks that didn't turn into drags (`SceneViewWidget::ConsumeClick`), with `MousePosition` in viewport pixels. When the readback completes, `PickCompleted` is set. `RequestedEntityID` is 0 when the click hit nothing, and the engine fires `PickingEvent` either way, so empty clicks deselect.
 
 ### Draw state binding (`BindMeshDrawState`)
 
@@ -107,7 +119,6 @@ Texture slots: 0 = diffuse (`s_texDiffuse`), 1 = normal (`s_texNormal`), 2 = opa
 
 ## Caveats & Fragility
 
-- **Point culling**: visibility tests the transform origin only. Large meshes whose origin exits the frustum disappear while still on screen; there are no bounding volumes to fix this per-mesh.
 - **View-ID collisions are possible**: camera views count up from 1 (editor) — with ~8+ active cameras they collide with the hardcoded UI view 9; Ultralight surfaces start at 11 (+ buffer index). Nothing validates.
 - **`CommandCache::Update`/`Pop` are unlocked** — safe only under the current frame schedule; any new code that `Push`es meshes while mesh jobs run is a reallocation race.
 - **Off-by-one guards** in `CommandCache::Pop` and `UpdateMeshMatrix` (`Id > size()` instead of `>=`).
@@ -125,5 +136,5 @@ Texture slots: 0 = diffuse (`s_texDiffuse`), 1 = normal (`s_texNormal`), 2 = opa
 - `Docs/Jobs-and-Events.md` — the job dispatch + threading contract behind the mesh job
 - `Docs/Cores-and-Components-Reference.md` — `Camera`, `Mesh`, `Transform` component details
 - `Docs/UI-Ultralight-and-ImGui.md` — where `camera.UITexture` comes from
-- `Docs/Editor-Havana.md` — `PickingPass` and the scene-view texture
+- `Docs/Editor-Havana.md` — `PickingPass`, the scene-view texture and the editor overlays
 - `Docs/State-of-the-Engine.md` — shadows/multi-light improvement notes

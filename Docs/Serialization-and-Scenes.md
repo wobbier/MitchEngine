@@ -2,7 +2,7 @@
 
 Scenes and prefabs are JSON in **scene format v2**: a `"Cores"` array naming the systems the scene needs and a flat, depth-first `"Entities"` array where each entity has a 64-bit GUID, an optional `Parent` GUID and a `Components` list. `SceneSerializer` owns both directions; version 1 files (nested `"Scene"`/`"Children"`) are migrated on load. Entity references are stored as GUIDs and remapped when prefabs or copies are instanced.
 
-> Verified against engine commit dab803a2, 2026-10-08.
+> Verified against engine commit 7e869c6e, 2026-10-09.
 
 ## Overview
 
@@ -60,7 +60,15 @@ Components serialize through `BaseComponent::Serialize` / `Deserialize`: the sea
 
 ### Prefabs
 
-`World::CreateFromPrefab( path, parent )` → `SceneSerializer::InstantiatePrefab`: the file is parsed and migrated once and cached (`ClearPrefabCache`; the engine clears it when a `.prefab` changes on disk), then deserialized with `RemapGUIDs` so every instance gets fresh GUIDs and internal references point inside the instance. Each created entity records its **prefab link** (`EntityRecord::PrefabAsset` / `PrefabSource`), which is saved with the scene. Overrides/apply/revert are editor features (`Docs/Editor-Havana.md`).
+`World::CreateFromPrefab( path, parent )` → `SceneSerializer::InstantiatePrefab`. `LoadPrefabData` parses and migrates the file once and caches it (`ClearPrefabCache`; the engine clears the cache when a `.prefab` changes on disk). The data is then deserialized with `RemapGUIDs`, so every instance gets fresh GUIDs and internal references point inside the instance. Each created entity records its **prefab link**: `EntityRecord::PrefabAsset` (normalized by `NormalizePrefabPath` to the project-local path) and `PrefabSource` (the entity's GUID in the file). The link is saved with the scene. An entity's own `"Prefab"` key in the data wins over the outer prefab, so nested prefab instances keep linking to their own asset.
+
+`SerializePrefab( world, root, path )` produces a prefab's contents from an instance:
+
+- Entities linked to that prefab get their source GUIDs back, so GUIDs are stable across applies, and their self-links are dropped.
+- Parent links and entity references are remapped to match.
+- Entities added in the instance keep their own GUIDs.
+
+Overrides, apply, revert and unpack are editor features (`Docs/Editor-Havana.md`).
 
 ### Models
 
