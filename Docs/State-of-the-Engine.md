@@ -1,6 +1,6 @@
 # State of the Engine
 
-> **This doc is opinion.** Every other doc in `Docs/` is factual; this one rates, prioritizes, and recommends. Never cite it as a description of behavior — cite the subsystem docs. Assessed at engine commit 047f57b8, 2026-07-10.
+> **This doc is opinion.** Every other doc in `Docs/` is factual; this one rates, prioritizes, and recommends. Never cite it as a description of behavior — cite the subsystem docs. Assessed at engine commit 047f57b8, 2026-07-10; scorecard rows for the core runtime re-scored at dab803a2, 2026-10-08 (overhaul Waves 0–1).
 
 MitchEngine is a real, working engine: it ships Drumsmith, runs a full editor on Linux/Windows, hosts .NET 8 scripting, and has genuinely thoughtful hot paths (the zero-virtual render submit, automatic instancing, transform dirty caching). Its weaknesses are the classic solo-engine kind: half-migrations left in place (Mono→.NET, fixed→variable timestep, Ultralight→web-UI), correctness debt that hasn't hurt *yet* (variable-dt physics, name-string schemas, uninitialized ambient), and workflow traps that cost real work (Stop-reverts-to-last-save). The theme of this assessment: **finish or delete the half-things, then invest where the engine already punches above its weight.**
 
@@ -11,15 +11,15 @@ Ratings: **Solid** (rely on it) · **Usable** (works, know the sharp edges) · *
 | Subsystem | Rating | Why (one line) | Doc |
 |-----------|--------|----------------|-----|
 | Platform/Window/Input/Config | **Solid** | SDL2 everywhere, boring in the good way; DPI + crash-safe config are the gaps | [Platform-Window-Input-Config.md](Platform-Window-Input-Config.md) |
-| ECS core | **Usable** | Clean model, working registries; 64-core bitset cap, `shared_ptr` storage, activation-driven filter refresh | [ECS.md](ECS.md) |
-| Frame loop & timing | **Fragile** | Variable timestep with dead fixed-step remnants; hardcoded core order; zero teardown | [Architecture.md](Architecture.md) |
-| Jobs | **Usable** | Simple pool that does its one job; wait-race + no dependencies/cancellation | [Jobs-and-Events.md](Jobs-and-Events.md) |
-| Events | **Fragile** | Immediate-only, not thread-safe, dangling-receiver risk, decoy queue API | [Jobs-and-Events.md](Jobs-and-Events.md) |
+| ECS core | **Solid** | Generational ids, paged pools, deferred structural changes, lifecycle hooks, O(1) membership, unit tested | [ECS.md](ECS.md) |
+| Frame loop & timing | **Usable** | Fixed timestep + pause/step/time scale/frame cap; engine-core update order still hardcoded; partial teardown (no bgfx shutdown) | [Architecture.md](Architecture.md) |
+| Jobs | **Solid** | Work stealing, helping waits, allocation-free ParallelFor, stress tested | [Jobs-and-Events.md](Jobs-and-Events.md) |
+| Events | **Usable** | Thread-safe queue, auto-deregistering receivers, safe re-entrant dispatch; still string-free but untyped `OnEvent` switches | [Jobs-and-Events.md](Jobs-and-Events.md) |
 | Rendering pipeline | **Usable** | Producer/consumer split and instancing are the engine's best work; point culling and view-ID collisions are the debt | [Rendering-Pipeline.md](Rendering-Pipeline.md) |
 | Lighting & shadows | **Experimental** | One procedural sun, uninitialized ambient uniform, dead `Light` components, empty `DepthPass` — lighting is a façade | [Rendering-Pipeline.md](Rendering-Pipeline.md) |
 | Materials & shaders | **Usable** | Clear contract + offline cook; batch-key discipline is manual; ShaderGraph half-finished | [Materials-and-Shaders.md](Materials-and-Shaders.md) |
-| Resources & assets | **Fragile** | Sync-blocking loads, per-frame refcount eviction, silent type-mismatch nulls; the metadata/cook design itself is sound | [Resources-and-Assets.md](Resources-and-Assets.md) |
-| Serialization & scenes | **Fragile** | Name strings are the schema; no versioning/migration; save traverses transforms only | [Serialization-and-Scenes.md](Serialization-and-Scenes.md) |
+| Resources & assets | **Usable** | Hot reload, keep-alive cache, asset GUIDs; loads still synchronous on the main thread | [Resources-and-Assets.md](Resources-and-Assets.md) |
+| Serialization & scenes | **Usable** | Versioned v2 format with GUIDs, references and migration; prefab overrides not yet implemented | [Serialization-and-Scenes.md](Serialization-and-Scenes.md) |
 | Physics | **Usable** | Standard Bullet integration with collision events + raycasts; variable dt and Euler round-trips undermine it | [Cores-and-Components-Reference.md](Cores-and-Components-Reference.md) |
 | Audio | **Usable** | FMOD basics + event-driven fire-and-forget; nonstandard update signature; feature-thin (no 3D emitters/mixing story) | [Cores-and-Components-Reference.md](Cores-and-Components-Reference.md) |
 | Scripting (.NET 8) | **Experimental** | The hosting chain is genuinely impressive and works on Win64+Linux; hand-mirrored ABI, no hot reload, no macOS | [Scripting-DotNet.md](Scripting-DotNet.md) |
@@ -49,9 +49,6 @@ The stated bar (per the game project's conventions) is: Win64/macOS/Linux must c
 | `DepthPass` | `Modules/Moonlight/Source/RenderPasses/DepthPass.h` | Empty shell | **Finish** — it's the natural home for shadow mapping |
 | `LightCommand` | `Modules/Moonlight/Source/RenderCommands.h` | `float test;` stub | **Finish** with DepthPass work (per-light data plumbing) |
 | `Light` / `DirectionalLight` components | `Source/Components/Lighting/` | Serialized, inspected, never consumed | **Finish or delete** — currently they lie to the user |
-| Fixed-timestep remnants | `Source/Engine/Engine.cpp` (`FPS`, `MaxDeltaTime`, dead `fmod`) | Disabled mid-migration | **Decide** — physics wants fixed; either implement an accumulator loop or delete the remnants |
-| `EventManager::Queue` path | `Modules/Dementia/Source/Events/Event.h` (body commented) + `FirePendingEvents` decoy | Machinery exists, nothing enqueues | **Finish or delete the decoy** — deferred delivery would also fix event re-entrancy pain |
-| Legacy job systems | `Modules/Dementia/Source/Work/` (`Job`, `JobEngine`, `JobQueue`, `Pool`, `Worker`) + `Modules/Dementia/Source/Core/JobSystem.h` | Only referenced by commented-out code + stale includes in `Source/Engine/Engine.h` | **Delete** |
 | Mono remnants | `ThirdParty/Mono.sharpmake.cs`, `Globals.MONO_*_Dir` checks | Define nothing | **Delete** |
 | `Collider2D` | `Source/Components/Physics/Collider2D.h` | No core consumes it | **Delete** (revive only with a real 2D physics plan) |
 | `Canvas` | `Source/Components/UI/Canvas.h` | Empty file | **Delete** |

@@ -2,13 +2,13 @@
 
 MitchEngine is a C++20 game engine organized as a small set of static-library modules around an ECS runtime. A singleton `Engine` owns the window, renderer, job system, and `World`; games subclass `Game` and are wired in with the `ME_APPLICATION_MAIN` macro. This doc covers the module layout, the engine lifecycle (init → frame loop → shutdown), the split between engine-owned and scene-loaded cores, and the compile-time feature-flag system that gates everything else.
 
-> Verified against engine commit 047f57b8, 2026-07-10.
+> Verified against engine commit dab803a2, 2026-10-08.
 
 ## Overview
 
 The engine proper lives in `Source/` and links against two foundational modules: **Dementia** (`Modules/Dementia/` — utilities: feature flags, logging, job systems, events, resource cache, file/path) and **Moonlight** (`Modules/Moonlight/` — the BGFX renderer). The **Havana** editor (`Modules/Havana/`) wraps the engine in an editor application; **ScriptCore** (`Modules/ScriptCore/`) is the C# half of the scripting system; **ImGUI** (`Modules/ImGUI/`) and **Tool** (`Modules/Tool/`) support editor/tool builds. Third-party code lives in `ThirdParty/`; prebuilt tool binaries (e.g. `shaderc`) in `Tools/`.
 
-Everything runs on one main thread except explicitly parallelized work dispatched through `SimpleJobSystem` (see `Docs/Jobs-and-Events.md`). There is no fixed timestep: the loop runs as fast as vsync/OS allows and passes the raw frame delta to updates.
+Everything runs on one main thread except explicitly parallelized work dispatched through `Jobs::JobSystem` (see `Docs/Jobs-and-Events.md`). The loop runs a **fixed-timestep simulation** (`FixedUpdate`, 60 Hz by default) inside a variable-rate frame (`Update`/`LateUpdate`/render), with time scale, pause and single-step support.
 
 ## Key Files
 
@@ -77,7 +77,7 @@ Games implement the pure-virtual `Game` interface (`Source/Game.h`): `OnInitiali
 7. `World` is created, then the **five engine-owned cores** are `new`ed: `CameraCore`, `SceneCore`, `RenderCore`, `AudioCore`, `UICore` (held as raw public members `Cameras`, `SceneNodes`, `ModelRenderer`, `AudioThread`, `UI`).
 8. A gizmo-draw callback is registered on the renderer that iterates every core's `OnDrawGuizmo`.
 9. `Engine::InitGame` adds the five cores to the world via `World::AddCore<T>` and calls `Game::OnInitialize()`. (It also unconditionally logs the error-level marker `YIKES("Engine::InitGame")` — a leftover.)
-10. `ResizeFunc` is fired once manually, and `SystemRegistry` registers `Engine`, the renderer, and the `SimpleJobSystem` so they are reachable through `UpdateContext`.
+10. `ResizeFunc` is fired once manually, and `SystemRegistry` registers `Engine`, the renderer, and the `Jobs::JobSystem` so they are reachable through `UpdateContext`.
 
 ### Engine-owned vs scene-loaded cores
 
@@ -86,48 +86,41 @@ This is a load-bearing architectural split:
 - **Engine-owned cores** (`CameraCore`, `SceneCore`, `RenderCore`, `AudioCore`, `UICore`) are created in `Engine::Init`, held as raw pointers on `Engine`, and updated **explicitly by name** in the frame loop.
 - **Scene-loaded cores** (`PhysicsCore`, `ScriptCore`, and any game-defined cores) are *not* created by the engine. They are instantiated by name from the `"Cores"` array of a `.lvl` scene file (see `Docs/Serialization-and-Scenes.md`) and live in `World::m_loadedCores`, updated via `World::UpdateLoadedCores` / `LateUpdateLoadedCores`.
 
-Consequences: physics only exists if the scene declares it; core update order is partly hardcoded (engine cores) and partly map-ordered (loaded cores); and the frame-loop comment `// TODO: This is wrong?? There's more than just physics in loaded cores...` in `Engine::Run` reflects that the loaded-core update block is profiled under the label "Physics" even though it updates every loaded core.
+Consequences: physics only exists if the scene declares it, and core update order is partly hardcoded (engine cores) and partly priority-ordered (loaded cores, `BaseCore::GetPriority`).
 
 ### The frame loop (`Engine::Run`)
 
 ```mermaid
 flowchart TD
     A["GameWindow->ParseMessageQueue()"] --> B{"ShouldClose()?"}
-    B -- yes --> Z["StopGame() → Game::OnEnd, break"]
+    B -- yes --> Z["StopGame, break, Engine::Shutdown"]
     B -- no --> C["EventManager::FirePendingEvents()"]
-    C --> D["Clock update: AccumulatedTime += delta"]
+    C --> C2["PollAssetChanges (tools builds: hot reload)"]
+    C2 --> D["Clock: clamp delta to 250 ms, apply pause / time scale"]
     D --> E["Input::Update (+ EditorInput in editor)"]
-    E --> F["ImGui NewFrame + Renderer::BeginFrame<br/>(mouse state, picking request)"]
-    F --> G["World::Simulate()<br/>(entity ↔ core matching)"]
-    G --> H["Fire PickingEvent if renderer<br/>returned a picked entity"]
-    H --> I["World::UpdateLoadedCores()<br/>(Physics, Script, game cores)"]
+    E --> F["ImGui NewFrame + Renderer::BeginFrame"]
+    F --> G["World::Simulate() sync point"]
+    G --> H["Fixed steps: FixedUpdateLoadedCores + Game::OnFixedUpdate + Simulate, repeated while the accumulator holds a step"]
+    H --> I["World::UpdateLoadedCores() + Simulate"]
     I --> J["SceneNodes->Update()"]
-    J --> K["Game::OnUpdate()"]
+    J --> K["Game::OnUpdate() + Simulate"]
     K --> L["AudioThread->Update(dt)"]
-    L --> M["ModelRenderer->Update()<br/>(parallel mesh job)"]
+    L --> M["ModelRenderer->Update(): Transform::UpdateAll, parallel mesh jobs"]
     M --> N["UI->OnResize + UI->Update()"]
-    N --> O
-    subgraph O["Late update block"]
-        O1["World::LateUpdateLoadedCores()"] --> O2["Cameras->Update()  ← CameraCore's ONLY update"]
-        O2 --> O3["SceneNodes->LateUpdate() → Cameras->LateUpdate()"]
-        O3 --> O4["AudioThread->LateUpdate() → ModelRenderer->LateUpdate() → UI->LateUpdate()"]
-    end
-    O --> P
-    subgraph P["Render block"]
-        P1["Game::PreRender()"] --> P2["UI->Render()"]
-        P2 --> P3["NewRenderer->Render(EditorCamera, frameSettings)"]
-        P3 --> P4["UI->PostRender() → Game::PostRender()"]
-    end
-    P --> Q["AccumulatedTime = 0<br/>Input::PostUpdate"]
-    Q --> R["ResourceCache::Dump()"]
-    R --> A
+    N --> O["Late update: LateUpdateLoadedCores + Simulate, Cameras, SceneNodes, Audio, Renderer, UI"]
+    O --> P["Render: Game::PreRender, UI->Render, Renderer::Render, UI->PostRender, Game::PostRender"]
+    P --> Q["Automation hooks, Input::PostUpdate, ResourceCache::Dump, frame-rate limiter"]
+    Q --> A
 ```
 
 Timing details worth knowing:
 
-- `DeltaTime` for the frame is `AccumulatedTime` (the clock delta accumulated since last frame). There is a commented-out `//if (AccumulatedTime >= MaxDeltaTime)` gate and an `AccumulatedTime = std::fmod(AccumulatedTime, MaxDeltaTime)` line whose result is immediately overwritten by `AccumulatedTime = 0` — remnants of an abandoned fixed-timestep design. `Engine::FPS` (144) only feeds the dead `MaxDeltaTime` math.
-- `CameraCore` (`Cameras`) has **no early update** — its `Update` is called inside the late-update block, after game logic. Anything that moves a camera during `OnUpdate` is picked up the same frame; anything reading camera matrices during `OnUpdate` sees last frame's.
+- **Delta**: the clock delta is clamped to `m_maxFrameDelta` (250 ms) so hitches don't produce a burst of catch-up steps. While paused the scaled delta is 0, except after `Engine::StepFrame`, which advances exactly one fixed step.
+- **Fixed steps**: the accumulator gains the scaled delta and runs up to 8 steps of `Engine::GetFixedTimeStep()` (default 1/60 s); a larger backlog is dropped. `UpdateContext::GetInterpolationAlpha()` reports progress toward the next step for smoothing. Inside `FixedUpdate`, `GetDeltaTime()` returns the fixed delta.
+- **Settings**: `FixedTimeStep` and `MaxFrameRate` in `Engine.cfg`, overridable with `--fixed-step` / `--max-fps`. `Engine::SetTimeScale`, `SetPaused`, `StepFrame` and `SetMaxFrameRate` are available at runtime.
+- `CameraCore` (`Cameras`) has **no early update** — its `Update` runs in the late-update block, after game logic.
 - In non-editor builds, `EditorCamera.OutputSize` is refreshed from the window each frame inside the render block — the member named "EditorCamera" is used as the backbuffer camera descriptor in game builds too.
+- Command-line automation (`--frames`, `--screenshot`, `--perf-report`, `--trace`, `--scene`, `--no-ui`, `--width`/`--height`) is handled by `Source/Engine/AutomationRunner.cpp`.
 
 ### Scene loading
 
@@ -144,7 +137,7 @@ Timing details worth knowing:
 
 ### Shutdown
 
-Window close → `StopGame()` (which only calls `Game::OnEnd()`) → loop break → `engineConfig.Save()`. That is the entire teardown: `~Engine` is empty, and the `new`ed subsystems (`GameWindow`, `NewRenderer`, the five cores) are never deleted — process exit is the cleanup. Don't add shutdown-order-dependent logic to core destructors and expect it to run.
+Window close → `StopGame()` (`Game::OnEnd()`) → loop break → `engineConfig.Save()` (skipped for automation runs) → `Engine::Shutdown`: the asset watcher stops, the World is stopped and destroyed (every component gets `OnDisable`/`OnDestroy`), the job workers are joined and the log is flushed. The renderer and the `new`ed engine cores are not destroyed and bgfx is not shut down; process exit cleans those up.
 
 ### Feature flags (`Modules/Dementia/Source/Dementia.h`)
 
@@ -174,21 +167,19 @@ Flags are driven by `DEFINE_ME_*` preprocessor defines that Sharpmake sets per t
 
 ## Caveats & Fragility
 
-- **No teardown.** Nothing owned by `Engine` is destroyed on exit; `Engine::IsRunning()` is hardcoded to return `true`. RAII in cores/components must not depend on engine-driven destruction order.
-- **Two core-update paths.** Engine-owned cores are updated by explicit member calls in a hardcoded order; scene-loaded cores through `UpdateLoadedCores` in map order. Adding an engine-level core means editing the frame loop by hand.
+- **Partial teardown.** `Engine::Shutdown` destroys the World and jobs, but not the renderer, window or engine cores, and never calls `bgfx::shutdown`. `Engine::IsRunning()` is hardcoded to return `true`.
+- **Two core-update paths.** Engine-owned cores are updated by explicit member calls in a hardcoded order; scene-loaded cores through `UpdateLoadedCores` in priority order. Adding an engine-level core means editing the frame loop by hand.
 - **`YIKES("Engine::InitGame")`** logs an error-level line on every boot — noise, not an actual error.
-- **Fixed-timestep remnants.** `FPS`, `MaxDeltaTime`, the commented gate, and the dead `fmod` suggest frame-rate independence that does not exist; all updates get the raw variable delta.
 - **`UICore` is re-added on every scene load** in `Engine::LoadScene`; if you add another engine-owned core that must survive scene loads, it needs the same treatment (or `DestroyOnLoad = false`).
 - **Non-editor scene load runs `Simulate()` twice** (once unconditionally, once in the non-editor block) — harmless today but easy to trip over when reasoning about `OnEntityAdded` timing.
 - **`Camera::CurrentCamera` static global** is consulted by the resize path and UI sizing every frame; a scene without a main camera skips UI resize silently.
 - **Window/UI resize flows through a lambda captured in `Engine::Init`** (`ResizeFunc`) — it fires a `WindowResizedEvent` *and* directly pokes the renderer, UI, and config; resize behavior is split between that lambda and event receivers.
 - **`Assets\Config\Engine.cfg`** path is written with backslashes and relies on `Path` normalization; the editor-only first-run copy creates directories on Win64 only.
-- The frame-loop label **"Physics" on the loaded-core update block is a lie** — it updates *all* loaded cores (the in-code TODO acknowledges this).
 
 ## Related Docs
 
 - `Docs/ECS.md` — what `World::Simulate` actually does; core/component machinery
-- `Docs/Jobs-and-Events.md` — `SimpleJobSystem`, `EventManager`, threading rules
+- `Docs/Jobs-and-Events.md` — `Jobs::JobSystem`, `EventManager`, threading rules
 - `Docs/Rendering-Pipeline.md` — what happens inside `NewRenderer->Render`
 - `Docs/Serialization-and-Scenes.md` — `.lvl` files, the `"Cores"` array, prefabs
 - `Docs/Build-System.md` — how `DEFINE_ME_*` flags get set per target

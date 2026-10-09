@@ -1,8 +1,8 @@
 # Resources and Assets
 
-All asset loading funnels through the `ResourceCache` singleton: a string-keyed map of `SharedPtr<Resource>` with fully **synchronous** loading, `.meta` JSON sidecars per asset, and an editor/tools-only cook step (`Export()`) that compiles sources (`.png`, `.fbx`, `.vert`…) into runtime formats (`.dds`, `.assbin`, `.<platform>.bin`). Lifetime is reference-counted with an aggressive per-frame sweep. This doc covers the load flow, the metadata/cook system, the resource type inventory, and how to add a new type.
+All asset loading funnels through the `ResourceCache` singleton: a thread-safe, string-keyed map of `SharedPtr<Resource>` with **synchronous** loading, `.meta` JSON sidecars per asset (carrying asset GUIDs), and an editor/tools-only cook step (`Export()`) that compiles sources (`.png`, `.fbx`, `.vert`…) into runtime formats (`.dds`, `.assbin`, `.<platform>.bin`). Unreferenced resources are kept alive for a grace period, and tools builds hot reload assets when files change. This doc covers the load flow, the metadata/cook system, hot reload, the resource type inventory, and how to add a new type.
 
-> Verified against engine commit 047f57b8, 2026-07-10.
+> Verified against engine commit dab803a2, 2026-10-08.
 
 ## Overview
 
@@ -75,15 +75,17 @@ Registered metadata types:
 
 Extensions **not** in this table (e.g. `.json`, `.lvl`, `.html`) get **no metadata**: `LoadMetadata` returns null, no cook step runs, and `Get` goes straight to `T::Load()` on the source file.
 
-### Lifetime: `Dump()` every frame
+### Lifetime: keep-alive eviction
 
-`m_resourceStack` holds one owning `SharedPtr` per resource. `ResourceCache::Dump()` — called **once per frame** at the bottom of `Engine::Run` — erases every entry whose `use_count() == 1`, i.e. anything nobody else currently references. Consequences:
+`m_resourceStack` holds one owning `SharedPtr` per resource. `ResourceCache::Dump()` runs at the bottom of every frame but does its work at most four times a second: a resource whose only owner is the cache is remembered as unreferenced, and evicted once it has stayed unreferenced for `SetKeepAliveSeconds` (default 15 s). Anything referenced again before then is kept. `ReleaseAll()` drops every cache reference; `TryToDestroy(Resource*)` erases one refcount-1 entry immediately.
 
-- The cache is *not* an LRU or preload cache. Holding a resource across frames requires holding the `SharedPtr` (components do: `Mesh::MeshMaterial`, `AudioSource`, etc.).
-- A `Get` whose result you drop is loaded, then destroyed within a frame — repeated transient `Get`s of a heavy asset thrash disk and GPU uploads.
-- `TryToDestroy(Resource*)` is the targeted variant of the same refcount-1 erase.
+### Hot reload (tools builds)
 
-`Reload()` exists on `Resource` but is a no-op default; there is no automatic hot-reload — the editor achieves "reimport" by flagging metadata for export and re-running `Get` after eviction.
+`Engine::Run` starts a `FileWatcher` (`Modules/Dementia/Source/Resource/FileWatcher.h`) over `Assets/` and `Engine/Assets/` before `Game::OnStart`. It polls file modification times on a background thread (build artefacts like `.bin`, `.d`, `.dds`, `.assbin` are ignored) and `Engine::PollAssetChanges` consumes the changes at the start of each frame: `ResourceCache::OnFilesChanged` re-exports each affected cached resource from its metadata and calls `Resource::Reload()`. Editing a `.meta` reimports the asset it describes, and changed `.prefab` files clear the prefab cache. A resource type only reloads if it overrides `Reload()`.
+
+### Asset GUIDs
+
+`MetaBase` reads and writes a `"GUID"` (hex) in each `.meta`; one is generated the first time a meta is written. `AssetDatabase` (`Modules/Dementia/Source/Resource/AssetDatabase.h`) maps GUID ↔ project path; it is filled by scanning `.meta` files at startup (tools builds) and updated whenever a meta is read or saved. Components still store asset paths.
 
 ### Tools-only path resolution
 
@@ -125,15 +127,15 @@ struct CurveMetadata : public MetaBase
 ME_REGISTER_METADATA( "curve", CurveMetadata );
 ```
 
-3. Load it anywhere with `ResourceCache::GetInstance().Get<CurveResource>( Path( "Assets/Curves/Jump.curve" ) )` and **store the `SharedPtr`** on whatever owns it — otherwise the next `Dump()` evicts it.
+3. Load it anywhere with `ResourceCache::GetInstance().Get<CurveResource>( Path( "Assets/Curves/Jump.curve" ) )` and **store the `SharedPtr`** on whatever owns it — otherwise it is evicted after the keep-alive period.
 4. If the resource wraps GPU/API handles, release them in the destructor — that *is* reliably called on eviction (unlike cores; see `Docs/ECS.md`).
 
 ## Caveats & Fragility
 
 - **Everything is synchronous on the main thread** — model import, texture upload, shader compile (a shell-out!) all block the frame. First-touch hitches are structural, not incidental.
-- **Not thread-safe.** `m_resourceStack` is an unguarded `std::map`; calling `Get` from a job is a data race (see `Docs/Jobs-and-Events.md`).
-- **Type-mismatched cache hit returns null silently** (`dynamic_pointer_cast` with no log). Two systems loading the same path as different types is a quiet failure mode.
-- **Refcount-1 eviction every frame** means "cache" semantics most engines have (keep-warm, budget-based eviction) don't exist; transient `Get`s are full reloads.
+- **The cache is thread safe, GPU resources aren't**: `Get` takes a recursive mutex (held during `Load`), but loading textures/shaders/models creates bgfx objects, so keep those on the main thread (see `Docs/Jobs-and-Events.md`).
+- **Type-mismatched cache hits return null** (logged as an error). Two systems loading the same path as different types is still a bug.
+- **Keep-alive is time-based, not budget-based**: there is no memory cap.
 - **Editor builds mutate the asset tree on read**: missing `.meta` files are created, sidecars are rewritten, exports are triggered — running the editor is not read-only with respect to `Assets/`.
 - **Cook failures are soft**: `Export()` implementations shell out and don't propagate failure; a failed compile typically surfaces later as a missing/stale compiled twin (`YIKES` on next run) or a broken load.
 - **`AssetMetaCache` treats unknown assets as modified** — a fresh checkout re-exports everything it touches on first editor run.
