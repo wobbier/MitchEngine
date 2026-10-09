@@ -82,7 +82,7 @@ private:
     static int CompareWithSortSpecs( const void* lhs, const void* rhs );
 
     std::vector<SharedPtr<Resource>> m_compiledAssets;
-    void SavePrefab( json& d, Transform* CurrentTransform, bool IsRoot );
+    void CreatePrefabIn( const std::string& InDirectory, Transform* InRoot );
     std::unordered_map<std::string, std::filesystem::file_time_type> Paths;
     bool IsRunning = true;
     bool Contains( const std::string& key );

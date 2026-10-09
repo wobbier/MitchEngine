@@ -463,10 +463,52 @@ namespace ReflectionUI
                 }
             }
 
+            const bool overridden = InContext.IsOverridden && InContext.IsOverridden( field.Name );
+            const ImVec2 rowStart = ImGui::GetCursorScreenPos();
+            const float rowWidth = ImGui::GetContentRegionAvail().x;
+
             const bool readOnly = field.Has( Reflection::FieldFlags::ReadOnly );
             ImGui::BeginDisabled( readOnly );
+            if( overridden )
+            {
+                ImGui::PushStyleColor( ImGuiCol_Text, ImVec4( 0.45f, 0.75f, 1.f, 1.f ) );
+            }
             const bool changed = DrawValue( field.DisplayName.c_str(), &field, *field.Ops, field.Get( owner ), mixed );
+            if( overridden )
+            {
+                ImGui::PopStyleColor();
+            }
             ImGui::EndDisabled();
+
+            // Prefab override marker and label context menu.
+            const ImVec2 labelMax( rowStart.x + rowWidth * 0.35f, rowStart.y + ImGui::GetFrameHeight() );
+            if( overridden )
+            {
+                ImGui::GetWindowDrawList()->AddRectFilled( ImVec2( rowStart.x - 6.f, rowStart.y + 1.f ), ImVec2( rowStart.x - 3.f, labelMax.y - 1.f ), IM_COL32( 60, 160, 255, 255 ) );
+            }
+            if( InContext.OnPrefabAction )
+            {
+                ImGui::PushID( field.Name.c_str() );
+                if( ImGui::IsMouseHoveringRect( rowStart, labelMax ) && ImGui::IsMouseClicked( ImGuiMouseButton_Right ) )
+                {
+                    ImGui::OpenPopup( "PrefabFieldContext" );
+                }
+                if( ImGui::BeginPopup( "PrefabFieldContext" ) )
+                {
+                    ImGui::TextDisabled( "%s", field.DisplayName.c_str() );
+                    ImGui::Separator();
+                    if( ImGui::MenuItem( "Revert to Prefab", nullptr, false, overridden ) )
+                    {
+                        InContext.OnPrefabAction( field.Name, false );
+                    }
+                    if( ImGui::MenuItem( "Apply to Prefab", nullptr, false, overridden ) )
+                    {
+                        InContext.OnPrefabAction( field.Name, true );
+                    }
+                    ImGui::EndPopup();
+                }
+                ImGui::PopID();
+            }
 
             if( changed )
             {

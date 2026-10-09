@@ -1,5 +1,6 @@
 #include "PCH.h"
 #include "SceneSerializer.h"
+#include <algorithm>
 #include "Engine/World.h"
 #include "ECS/Core.h"
 #include "Components/Transform.h"
@@ -442,49 +443,132 @@ namespace SceneSerializer
     }
 
 
-    EntityHandle InstantiatePrefab( World& InWorld, const std::string& InPrefabPath, Transform* InParent )
+    std::string NormalizePrefabPath( const std::string& InPath )
     {
-        OPTICK_EVENT( "SceneSerializer::InstantiatePrefab" );
-        std::shared_ptr<const json> data;
+        if( InPath.empty() )
+        {
+            return InPath;
+        }
+        std::string local = Path( InPath ).GetLocalPathString();
+        std::replace( local.begin(), local.end(), '\\', '/' );
+        return local;
+    }
+
+
+    std::shared_ptr<const json> LoadPrefabData( const std::string& InPrefabPath )
+    {
+        const std::string key = NormalizePrefabPath( InPrefabPath );
         {
             PrefabCacheData& cache = GetPrefabCache();
             std::lock_guard<std::mutex> lock( cache.Mutex );
-            auto it = cache.Entries.find( InPrefabPath );
+            auto it = cache.Entries.find( key );
             if( it != cache.Entries.end() )
             {
-                data = it->second;
+                return it->second;
             }
         }
 
+        File file{ Path( key ) };
+        const std::string& contents = file.Read();
+        if( contents.empty() )
+        {
+            YIKES( "Prefab not found or empty: " + key );
+            return {};
+        }
+        json parsed = json::parse( contents, nullptr, false );
+        if( parsed.is_discarded() )
+        {
+            YIKES( "Prefab is not valid JSON: " + key );
+            return {};
+        }
+        std::shared_ptr<const json> data = std::make_shared<const json>( MigrateToLatest( parsed ) );
+
+        PrefabCacheData& cache = GetPrefabCache();
+        std::lock_guard<std::mutex> lock( cache.Mutex );
+        cache.Entries[key] = data;
+        return data;
+    }
+
+
+    EntityHandle InstantiatePrefab( World& InWorld, const std::string& InPrefabPath, Transform* InParent )
+    {
+        OPTICK_EVENT( "SceneSerializer::InstantiatePrefab" );
+        std::shared_ptr<const json> data = LoadPrefabData( InPrefabPath );
         if( !data )
         {
-            File file{ Path( InPrefabPath ) };
-            const std::string& contents = file.Read();
-            if( contents.empty() )
-            {
-                YIKES( "Prefab not found or empty: " + InPrefabPath );
-                return {};
-            }
-            json parsed = json::parse( contents, nullptr, false );
-            if( parsed.is_discarded() )
-            {
-                YIKES( "Prefab is not valid JSON: " + InPrefabPath );
-                return {};
-            }
-            data = std::make_shared<const json>( MigrateToLatest( parsed ) );
-
-            PrefabCacheData& cache = GetPrefabCache();
-            std::lock_guard<std::mutex> lock( cache.Mutex );
-            cache.Entries[InPrefabPath] = data;
+            return {};
         }
 
         LoadOptions options;
         options.RemapGUIDs = true;
         options.LoadCores = false;
         options.Parent = InParent;
-        options.PrefabAsset = InPrefabPath;
+        options.PrefabAsset = NormalizePrefabPath( InPrefabPath );
         std::vector<EntityHandle> roots = Deserialize( InWorld, *data, options );
         return roots.empty() ? EntityHandle() : roots.front();
+    }
+
+
+    namespace
+    {
+        // Replaces GUID strings (entity references, parent links) using the remap table.
+        void RemapGUIDStrings( json& InOutValue, const std::unordered_map<std::string, std::string>& InRemap )
+        {
+            if( InOutValue.is_string() )
+            {
+                auto it = InRemap.find( InOutValue.get<std::string>() );
+                if( it != InRemap.end() )
+                {
+                    InOutValue = it->second;
+                }
+            }
+            else if( InOutValue.is_array() || InOutValue.is_object() )
+            {
+                for( json& child : InOutValue )
+                {
+                    RemapGUIDStrings( child, InRemap );
+                }
+            }
+        }
+    }
+
+
+    json SerializePrefab( World& InWorld, Entity& InRoot, const std::string& InPrefabPath, std::unordered_map<uint64_t, uint64_t>* OutInstanceToSource )
+    {
+        const std::string asset = NormalizePrefabPath( InPrefabPath );
+        json data = SerializeEntities( InWorld, { &InRoot } );
+
+        // Instance GUID -> GUID inside the prefab file.
+        std::unordered_map<std::string, std::string> remap;
+        for( json& entity : data["Entities"] )
+        {
+            const std::string instanceGUID = entity.value( "GUID", std::string() );
+            std::string fileGUID = instanceGUID;
+            auto prefab = entity.find( "Prefab" );
+            if( prefab != entity.end() && prefab->is_object() && NormalizePrefabPath( prefab->value( "Asset", std::string() ) ) == asset )
+            {
+                fileGUID = prefab->value( "Source", instanceGUID );
+                entity.erase( "Prefab" );
+            }
+            remap[instanceGUID] = fileGUID;
+            if( OutInstanceToSource )
+            {
+                ( *OutInstanceToSource )[GUIDFromJson( instanceGUID )] = GUIDFromJson( fileGUID );
+            }
+        }
+        for( json& entity : data["Entities"] )
+        {
+            entity["GUID"] = remap[entity.value( "GUID", std::string() )];
+            if( entity.contains( "Parent" ) )
+            {
+                RemapGUIDStrings( entity["Parent"], remap );
+            }
+            if( entity.contains( "Components" ) )
+            {
+                RemapGUIDStrings( entity["Components"], remap );
+            }
+        }
+        return data;
     }
 
 

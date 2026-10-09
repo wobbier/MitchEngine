@@ -19,6 +19,11 @@ namespace ReflectionUI
         std::vector<void*> Others;
         // Top-level fields changed this frame (after propagation to Others).
         std::vector<std::string> ChangedFields;
+
+        // Prefab overrides (optional): fields reported as overridden get a marker, and
+        // right-clicking their label offers Apply/Revert (InApply = true for Apply).
+        std::function<bool( const std::string& InField )> IsOverridden;
+        std::function<void( const std::string& InField, bool InApply )> OnPrefabAction;
     };
 
     // Draws all fields; returns true when anything changed.

@@ -180,6 +180,8 @@ void SceneHierarchyWidget::Render()
 			{
 				EditorOps::CreateEntity("Entity", nullptr, false);
 			}
+			ImGui::Separator();
+			DrawCreateTemplates(Selection::Get().GetActiveTransform() ? Selection::Get().GetActiveTransform()->GetParentTransform() : nullptr);
 			if (ImGui::BeginMenu("Core"))
 			{
 				DrawAddCoreList();
@@ -559,9 +561,14 @@ void SceneHierarchyWidget::DrawEntityContextMenu(Entity& entity, Transform* tran
 		Selection::Get().Set(handle);
 	}
 
-	if (transform && ImGui::MenuItem("Create Child"))
+	if (transform && ImGui::BeginMenu("Create Child"))
 	{
-		EditorOps::CreateEntity("New Entity", transform);
+		if (ImGui::MenuItem("Empty Entity"))
+		{
+			EditorOps::CreateEntity("New Entity", transform);
+		}
+		DrawCreateTemplates(transform);
+		ImGui::EndMenu();
 	}
 	if (ImGui::BeginMenu("Add Component"))
 	{
@@ -644,6 +651,48 @@ void SceneHierarchyWidget::DrawCores(World& world)
 		ImGui::PopID();
 	}
 	ImGui::PopStyleColor();
+}
+
+
+void SceneHierarchyWidget::DrawCreateTemplates(Transform* parent)
+{
+	// Scene-format snippets instantiated as one undoable create.
+	auto create = [parent](const char* name, json components) {
+		json entity;
+		entity["Name"] = name;
+		entity["Components"] = std::move(components);
+		json data;
+		data["Version"] = SceneSerializer::kVersion;
+		data["Entities"] = json::array({ entity });
+		EditorOps::CreateFromData(data, parent, std::string("Create ") + name);
+	};
+	auto mesh = [](const char* type) {
+		return json{ { "Type", "Mesh" }, { "MeshType", type }, { "Material", { { "Type", "DiffuseMaterial" }, { "DiffuseColor", { 0.8, 0.8, 0.8 } } } } };
+	};
+	if (ImGui::BeginMenu("3D Object"))
+	{
+		if (ImGui::MenuItem("Cube"))
+		{
+			create("Cube", json::array({ json{ { "Type", "Transform" } }, mesh("Cube") }));
+		}
+		if (ImGui::MenuItem("Plane"))
+		{
+			create("Plane", json::array({ json{ { "Type", "Transform" } }, mesh("Plane") }));
+		}
+		ImGui::EndMenu();
+	}
+	if (ImGui::MenuItem("Camera"))
+	{
+		create("Camera", json::array({ json{ { "Type", "Transform" } }, json{ { "Type", "Camera" } } }));
+	}
+	if (ImGui::MenuItem("Light"))
+	{
+		create("Light", json::array({ json{ { "Type", "Transform" }, { "Rotation", { 50.0, -30.0, 0.0 } } }, json{ { "Type", "Light" } } }));
+	}
+	if (ImGui::MenuItem("Audio Source"))
+	{
+		create("Audio Source", json::array({ json{ { "Type", "Transform" } }, json{ { "Type", "AudioSource" } } }));
+	}
 }
 
 

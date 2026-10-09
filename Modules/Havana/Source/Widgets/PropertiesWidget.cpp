@@ -10,6 +10,7 @@
 #include "Editor/EditorOperations.h"
 #include "Editor/Selection.h"
 #include "Editor/ReflectionUI.h"
+#include "Editor/PrefabTools.h"
 #include "Editor/UndoStack.h"
 #include "World/SceneSerializer.h"
 #include <Utils/HavanaUtils.h>
@@ -216,10 +217,46 @@ void PropertiesWidget::DrawEntityHeader(Entity& entity)
 		ImGui::SetClipboardText(guid.c_str());
 	}
 
-	const World::EntityRecord* record = entity.GetWorld()->GetRecord(entity.GetId());
-	if (record && !record->PrefabAsset.empty())
+	if (Entity* root = PrefabTools::FindInstanceRoot(entity))
 	{
-		ImGui::TextColored(ImVec4(ACCENT_BLUE), "Prefab: %s", record->PrefabAsset.c_str());
+		// Override state is re-scanned at most a few times a second.
+		const double now = ImGui::GetTime();
+		if (now - m_prefabCheckTime > 0.25 || m_prefabCheckRoot != root->GetGUID())
+		{
+			m_prefabHasOverrides = PrefabTools::HasOverrides(*root);
+			m_prefabCheckTime = now;
+			m_prefabCheckRoot = root->GetGUID();
+		}
+		const std::string asset = PrefabTools::GetPrefabAsset(*root);
+		ImGui::TextColored(ImVec4(ACCENT_BLUE), "Prefab%s: %s", m_prefabHasOverrides ? " (modified)" : "", asset.c_str());
+		if (root != &entity && ImGui::SmallButton("Select Root"))
+		{
+			Selection::Get().Set(root->GetHandle());
+		}
+		if (root != &entity)
+		{
+			ImGui::SameLine();
+		}
+		ImGui::BeginDisabled(!m_prefabHasOverrides);
+		if (ImGui::SmallButton("Apply All"))
+		{
+			PrefabTools::ApplyAll(*root);
+			m_prefabCheckTime = 0.0;
+		}
+		ImGui::SetItemTooltip("Write this instance's changes into %s and update its other instances", asset.c_str());
+		ImGui::SameLine();
+		if (ImGui::SmallButton("Revert All"))
+		{
+			PrefabTools::RevertAll(*root);
+			m_prefabCheckTime = 0.0;
+		}
+		ImGui::EndDisabled();
+		ImGui::SameLine();
+		if (ImGui::SmallButton("Unpack"))
+		{
+			PrefabTools::Unpack(*root);
+		}
+		ImGui::SetItemTooltip("Break the link to the prefab");
 	}
 
 	ImGui::Unindent(8.f);
@@ -298,6 +335,25 @@ void PropertiesWidget::DrawComponentGroup(const std::string& typeName, std::vect
 			{
 				context.Others.push_back(instances[i].Component);
 			}
+			std::vector<std::string> overridden;
+			Entity& owner = *instances.front().Owner;
+			if (instances.size() == 1 && !PrefabTools::GetPrefabAsset(owner).empty())
+			{
+				overridden = PrefabTools::GetOverriddenFields(owner, typeName);
+				context.IsOverridden = [&overridden](const std::string& field) {
+					return std::find(overridden.begin(), overridden.end(), field) != overridden.end();
+				};
+				context.OnPrefabAction = [&owner, &typeName](const std::string& field, bool apply) {
+					if (apply)
+					{
+						PrefabTools::ApplyField(owner, typeName, field);
+					}
+					else
+					{
+						PrefabTools::RevertField(owner, typeName, field);
+					}
+				};
+			}
 			if (ReflectionUI::DrawType(*typeInfo, primary, context))
 			{
 				for (const std::string& field : context.ChangedFields)
@@ -364,6 +420,27 @@ void PropertiesWidget::DrawComponentContextMenu(const std::string& typeName, std
 	BaseComponent* primary = instances.front().Component;
 	const bool isTransform = typeName == "Transform";
 
+	Entity& owner = *instances.front().Owner;
+	if (instances.size() == 1 && !PrefabTools::GetPrefabAsset(owner).empty())
+	{
+		const std::vector<std::string> overridden = PrefabTools::GetOverriddenFields(owner, typeName);
+		if (ImGui::MenuItem("Revert Component to Prefab", nullptr, false, !overridden.empty()))
+		{
+			UndoTransaction transaction("Revert " + typeName);
+			for (const std::string& field : overridden)
+			{
+				PrefabTools::RevertField(owner, typeName, field);
+			}
+		}
+		if (ImGui::MenuItem("Apply Component to Prefab", nullptr, false, !overridden.empty()))
+		{
+			for (const std::string& field : overridden)
+			{
+				PrefabTools::ApplyField(owner, typeName, field);
+			}
+		}
+		ImGui::Separator();
+	}
 	if (ImGui::MenuItem("Reset", nullptr, false, primary->GetTypeInfo() != nullptr))
 	{
 		const json defaults = EditorOps::GetComponentDefaults(typeName);

@@ -4,6 +4,8 @@
 
 #include "EditorActions.h"
 #include "EditorOperations.h"
+#include "PrefabTools.h"
+#include "World/SceneSerializer.h"
 #include "Selection.h"
 #include "UndoStack.h"
 #include "EditorApp.h"
@@ -343,6 +345,82 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
             else
             {
                 EditorOps::RecordComponentEdit( *active.Get(), type, before, EditorOps::CaptureComponent( *active.Get(), type ), "Edit " + type );
+            }
+        }
+    }
+    else if( command == "create-prefab" )
+    {
+        auto [name, path] = SplitArgs( args );
+        EntityHandle entity = FindEntity( name );
+        if( !entity || !PrefabTools::CreatePrefab( *entity.Get(), path ) )
+        {
+            Fail( "create-prefab failed for " + name );
+        }
+    }
+    else if( command == "instantiate" )
+    {
+        // Undoable instantiation, like dropping the prefab in the hierarchy.
+        EntityHandle instance = world.CreateFromPrefab( args, nullptr );
+        if( !instance )
+        {
+            Fail( "instantiate failed: " + args );
+        }
+        else
+        {
+            json data = SceneSerializer::SerializeEntities( world, { instance.Get() } );
+            instance->MarkForDelete();
+            world.Simulate();
+            EditorOps::CreateFromData( data, nullptr, "Instantiate Prefab" );
+        }
+    }
+    else if( command == "prefab-apply" || command == "prefab-revert" || command == "prefab-unpack" )
+    {
+        EntityHandle entity = FindEntity( args );
+        if( !entity || !PrefabTools::FindInstanceRoot( *entity.Get() ) )
+        {
+            Fail( command + ": " + args + " is not a prefab instance" );
+        }
+        else if( command == "prefab-apply" )
+        {
+            PrefabTools::ApplyAll( *entity.Get() );
+        }
+        else if( command == "prefab-revert" )
+        {
+            PrefabTools::RevertAll( *entity.Get() );
+        }
+        else
+        {
+            PrefabTools::Unpack( *entity.Get() );
+        }
+    }
+    else if( command == "assert-prefab" )
+    {
+        auto [name, asset] = SplitArgs( args );
+        EntityHandle entity = FindEntity( name );
+        const std::string actual = entity ? PrefabTools::GetPrefabAsset( *entity.Get() ) : std::string( "<missing>" );
+        const std::string expected = asset == "none" ? std::string() : SceneSerializer::NormalizePrefabPath( asset );
+        if( actual != expected )
+        {
+            Fail( name + " prefab link is '" + actual + "', expected '" + expected + "'" );
+        }
+    }
+    else if( command == "assert-overridden" )
+    {
+        // assert-overridden Cube | Transform.Scale | 1
+        auto [name, rest] = SplitArgs( args );
+        auto [fieldPath, expectedText] = SplitArgs( rest );
+        EntityHandle entity = FindEntity( name );
+        const size_t dot = fieldPath.find( '.' );
+        if( !entity || dot == std::string::npos )
+        {
+            Fail( "assert-overridden: bad arguments" );
+        }
+        else
+        {
+            const bool overridden = PrefabTools::IsFieldOverridden( *entity.Get(), fieldPath.substr( 0, dot ), fieldPath.substr( dot + 1 ) );
+            if( overridden != ( expectedText == "1" || expectedText == "true" ) )
+            {
+                Fail( name + " " + fieldPath + " overridden = " + ( overridden ? "true" : "false" ) );
             }
         }
     }

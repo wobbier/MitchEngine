@@ -34,6 +34,8 @@ public:
 	void Render() override;
 
 	void DrawAddCoreList();
+	// Create menu entries for common objects (primitives, camera, light...).
+	void DrawCreateTemplates(Transform* parent);
 
 	// Starts inline rename of the active selection (Edit.Rename).
 	void BeginRename();

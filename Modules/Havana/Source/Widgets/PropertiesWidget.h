@@ -52,6 +52,9 @@ private:
 	uint64_t m_nameEntityGUID = 0;
 	bool m_nameEditing = false;
 	char m_addComponentFilter[128] = {};
+	double m_prefabCheckTime = 0.0;
+	uint64_t m_prefabCheckRoot = 0;
+	bool m_prefabHasOverrides = false;
 };
 
 #endif

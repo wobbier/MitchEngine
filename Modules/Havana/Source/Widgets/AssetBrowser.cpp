@@ -1,4 +1,5 @@
 #include "World/SceneSerializer.h"
+#include "Editor/PrefabTools.h"
 #include "AssetBrowser.h"
 #include <filesystem>
 #include "imgui.h"
@@ -216,10 +217,7 @@ void AssetBrowserWidget::Render()
                 IM_ASSERT( payload->DataSize == sizeof( ParentDescriptor ) );
                 ParentDescriptor* payload_n = (ParentDescriptor*)payload->Data;
 
-                json prefab;
-                SavePrefab( prefab, payload_n->Parent, true );
-
-                File( Path( Path( "Assets" ).FullPath + "/" + payload_n->Parent->GetName() + std::string( ".prefab" ) ) ).Write( prefab.dump( 4 ) );
+                CreatePrefabIn( "Assets", payload_n->Parent );
             }
             ImGui::EndDragDropTarget();
         }
@@ -840,10 +838,7 @@ void AssetBrowserWidget::Recursive( Directory& dir )
                 IM_ASSERT( payload->DataSize == sizeof( ParentDescriptor ) );
                 ParentDescriptor* payload_n = (ParentDescriptor*)payload->Data;
 
-                json prefab;
-                SavePrefab( prefab, payload_n->Parent, true );
-
-                File( Path( std::string( directory.second.FullPath.GetDirectory() ) + "/" + payload_n->Parent->GetName() + std::string( ".prefab" ) ) ).Write( prefab.dump( 4 ) );
+                CreatePrefabIn( std::string( directory.second.FullPath.GetDirectory() ), payload_n->Parent );
             }
             ImGui::EndDragDropTarget();
         }
@@ -908,10 +903,7 @@ void AssetBrowserWidget::Recursive( Directory& dir )
                 IM_ASSERT( payload->DataSize == sizeof( ParentDescriptor ) );
                 ParentDescriptor* payload_n = (ParentDescriptor*)payload->Data;
 
-                json prefab;
-                SavePrefab( prefab, payload_n->Parent, true );
-
-                File( Path( std::string( files.FullPath.GetDirectory() ) + payload_n->Parent->GetName() + std::string( ".prefab" ) ) ).Write( prefab.dump( 4 ) );
+                CreatePrefabIn( std::string( files.FullPath.GetDirectory() ), payload_n->Parent );
             }
             ImGui::EndDragDropTarget();
         }
@@ -1194,11 +1186,19 @@ bool AssetBrowserWidget::ProccessDirectoryRecursive( std::string& dir, Directory
     return false;
 }
 
-void AssetBrowserWidget::SavePrefab( json& d, Transform* CurrentTransform, bool IsRoot )
+void AssetBrowserWidget::CreatePrefabIn( const std::string& InDirectory, Transform* InRoot )
 {
-    // Scene format v2 subtree; instancing remaps GUIDs, so the file can be instanced many times.
-    d = SceneSerializer::SerializeEntities( *GetEngine().GetWorld().lock(), { CurrentTransform->Parent.Get() } );
-    SceneSerializer::ClearPrefabCache();
+    if( !InRoot || !InRoot->Parent )
+    {
+        return;
+    }
+    std::string directory = InDirectory;
+    while( !directory.empty() && ( directory.back() == '/' || directory.back() == '\\' ) )
+    {
+        directory.pop_back();
+    }
+    // The dragged entity becomes an instance of the new prefab.
+    PrefabTools::CreatePrefab( *InRoot->Parent.Get(), directory + "/" + InRoot->Parent->GetName() + ".prefab" );
 }
 
 bool AssetBrowserWidget::Contains( const std::string& key )

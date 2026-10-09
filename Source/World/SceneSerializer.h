@@ -2,7 +2,9 @@
 #include "JSON.h"
 #include "ECS/EntityHandle.h"
 #include <cstdint>
+#include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 class World;
@@ -61,6 +63,18 @@ namespace SceneSerializer
 
     // Instantiates a prefab asset (cached, migrated once) under InParent.
     EntityHandle InstantiatePrefab( World& InWorld, const std::string& InPrefabPath, Transform* InParent );
+
+    // Parsed, migrated prefab data (cached). Null when the file is missing or invalid.
+    std::shared_ptr<const json> LoadPrefabData( const std::string& InPrefabPath );
+
+    // Serializes an instance subtree as the contents of prefab InPrefabPath: entities linked to that
+    // prefab get their prefab-source GUIDs back (stable across applies), their links are dropped,
+    // and parent/entity references are remapped accordingly. Nested prefab links are kept.
+    // OutInstanceToSource receives instance GUID -> GUID in the prefab file for every entity.
+    json SerializePrefab( World& InWorld, Entity& InRoot, const std::string& InPrefabPath, std::unordered_map<uint64_t, uint64_t>* OutInstanceToSource = nullptr );
+
+    // Canonical form of a prefab path for links and cache keys (project-local, forward slashes).
+    std::string NormalizePrefabPath( const std::string& InPath );
 
     // Drops cached prefab data (call when prefab files change).
     void ClearPrefabCache();
