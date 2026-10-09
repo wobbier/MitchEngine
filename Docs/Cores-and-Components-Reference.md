@@ -23,7 +23,7 @@ Cores come in two flavors (see `Docs/Architecture.md`): **engine-owned** (create
 | `AnimationCore` (`Source/Cores/AnimationCore.h`) | `Transform` + `Animator` | engine-owned | Plays Animators while the world is started: binds clips to node entities by name, steps state machines, samples poses in parallel, writes Transforms, fires `AnimationEvent`s — see `Docs/Animation.md` |
 | `ScriptCore` (`Source/Cores/Scripting/ScriptCore.h`) | `ScriptComponent` | scene-loaded | .NET script lifecycle — see `Docs/Scripting-DotNet.md` |
 | `SelfDestructor` (`Source/Cores/Utility/SelfDestructCore.h`) | `SelfDestruct` | scene-loaded | Kills entities when their `Lifetime` expires (note the class name — not "SelfDestructCore") |
-| `FlyingCameraCore` (`Source/Cores/Cameras/FlyingCameraCore.h`) | `FlyingCamera` + `Camera` | scene-loaded/editor | WASD+mouse free-fly camera control |
+| `FlyingCameraCore` (`Source/Cores/Cameras/FlyingCameraCore.h`) | `FlyingCamera` + `Camera` + `Transform` | scene-loaded | Free-fly camera: the `Move` / `Look` actions (or WASD + right-drag), E / Q or shoulders to rise and sink, sprint — see `Docs/Input.md` |
 | `EditorCore` (`Modules/Havana/Source/Cores/EditorCore.h`) | — | editor-only | Selection/gizmo state — see `Docs/Editor-Havana.md` |
 
 ### Update phases at a glance

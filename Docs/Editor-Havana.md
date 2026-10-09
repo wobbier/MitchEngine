@@ -2,7 +2,7 @@
 
 Havana is the ImGui-based editor. `EditorApp` is itself a `Game` subclass (standard entry point in `Modules/Havana/Source/main.cpp`) that hosts dockable widgets around a small set of **editor services**: one `Selection`, an `UndoStack`, named `EditorActions` (menus, shortcuts, command palette, scripts) and `EditorOps`, the undoable operations every widget uses to change the scene. Play mode snapshots the scene in memory and restores it on Stop. `--editor-exec` drives all of it from a script for unattended testing.
 
-> Verified against engine commit 7e869c6e, 2026-10-09; Create menu, overlays and View menu rendering toggles against 1fa55311, 2026-10-09 (Wave 3); physics gizmos, menus and settings against 8fdd99b1, 2026-10-09 (Wave 4); audio gizmos and settings, and the `pick` / `assert-audio` commands against afce7083, 2026-10-09.
+> Verified against engine commit 7e869c6e, 2026-10-09; Create menu, overlays and View menu rendering toggles against 1fa55311, 2026-10-09 (Wave 3); physics gizmos, menus and settings against 8fdd99b1, 2026-10-09 (Wave 4); audio gizmos and settings, and the `pick` / `assert-audio` commands against afce7083, 2026-10-09; tabbed Project Settings, data assets and `show-asset` against e0ca1f26, 2026-10-09.
 
 ## Overview
 
@@ -132,8 +132,8 @@ A folder tree (Assets and Engine Assets, tracked by absolute path) plus grid or 
 
 - **Navigation**: back/forward/up, clickable breadcrumbs, recursive search and a type filter.
 - **Thumbnails**: textures that are already compiled, at most two loaded per frame.
-- **Details pane**: preview and import settings (Apply re-exports and reloads).
-- **File operations**: create folder/scene/prefab/material/C# script, rename (F2, moves the `.meta`), duplicate (Ctrl+D), move (Alt-drag files, or drag folders, onto folders or breadcrumbs), delete to `.tmp/Trash` after confirmation, show in file manager, copy path, reimport.
+- **Details pane**: preview and import settings (Apply re-exports and reloads). Data assets (metadata that exposes a reflected object, e.g. `.inputactions`) show their contents in the reflection inspector with a Save button.
+- **File operations**: create folder/scene/prefab/material/input actions/C# script, rename (F2, moves the `.meta`), duplicate (Ctrl+D), move (Alt-drag files, or drag folders, onto folders or breadcrumbs), delete to `.tmp/Trash` after confirmation, show in file manager, copy path, reimport.
 - **Picker mode**: the same window serves `RequestAssetSelectionEvent`. Double-click selects; save dialogs save into the browsed folder with the right extension.
 - `AssetsChangedEvent` from the asset watcher refreshes it.
 
@@ -142,7 +142,7 @@ A folder tree (Assets and Engine Assets, tracked by absolute path) plus grid or 
 - **Log**: level toggles with counts, search, duplicate collapsing, timestamps, auto-scroll that pauses when you scroll up, a detail pane, copy. Double-click opens `file:line` references in the code editor (`PlatformUtils::OpenInCodeEditor`: Preferences command, `$ME_CODE_EDITOR`, or `code -g`).
 - **History**: the undo stack; click an entry to jump there.
 - **Profiler**: CPU/GPU frame history, per-phase and per-core CPU scopes from `FrameStats` (`ME_STAT_SCOPE`), per-view GPU timings (the bgfx profiler is enabled only while this window is open).
-- **Preferences** (per user) and **Project Settings** (fixed update rate and frame cap in `Engine.cfg`; layer names, gravity, the triangular layer collision matrix over the named layers and the audio bus volumes in the project's `ProjectSettings.json` under `Assets/Config`).
+- **Preferences** (per user) and **Project Settings**, tabbed into Time, Layers, Physics, Input and Audio. Time holds the fixed update rate and frame cap in `Engine.cfg`. The rest live in the project's `ProjectSettings.json` under `Assets/Config`: layer names, gravity, the triangular layer collision matrix over the named layers, the action map path (with connected pads and a live action table) and the audio bus volumes.
 
 ### Automation: `--editor-exec`
 
@@ -159,6 +159,7 @@ The script runs one command per frame after a short warm-up and logs `[editor-ex
 | `action Id`, `undo`, `redo` | Run an editor action / undo / redo |
 | `select a,b`, `select-add a`, `select-none` | Selection (names, or `Parent/Child` paths) |
 | `pick fx fy` | Clicks the scene view at that fraction of its size; GPU picking selects what is drawn there |
+| `show-asset path` | Opens the Assets window on a file with its details shown (data assets show their editable contents) |
 | `create Name [| Parent]`, `rename Name`, `reparent Child | Parent|root` | Structural edits |
 | `add-component T`, `remove-component T`, `set Type.Field <json>` | Component edits on the active entity |
 | `create-prefab Entity | path`, `instantiate path`, `prefab-apply/-revert/-unpack Entity` | Prefab workflow |

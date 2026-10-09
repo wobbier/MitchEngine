@@ -2,7 +2,7 @@
 
 The OS boundary: an `IWindow` abstraction implemented by `SDLWindow` (SDL2, on **every** platform including UWP), input as polled SDL state plus window-fired events, and a small JSON config system that persists window geometry and editor state. This is where per-platform branches concentrate.
 
-> Verified against engine commit 047f57b8, 2026-07-10.
+> Verified against engine commit 047f57b8, 2026-07-10; input devices, controller events and SDL subsystem init against e0ca1f26, 2026-10-09 (actions and gamepads: `Docs/Input.md`).
 
 ## Overview
 
@@ -15,7 +15,8 @@ The window owns the message pump (`ParseMessageQueue`, first thing each frame �
 | `Source/Window/IWindow.h` | The window interface (size/position, fullscreen/maximize, exit, native ptr) |
 | `Source/Window/SDLWindow.cpp` / `Source/Window/SDLWindow.h` | The implementation used everywhere; SDL event pump; native-handle extraction |
 | `Source/Window/UWPWindow.cpp` | Vestigial dedicated UWP window (commented out in `Engine::Init`; UWP uses `SDLWindow`) |
-| `Source/Engine/Input.h` / `Source/Engine/Input.cpp` | Key/mouse state, `KeyState`, `KeyPressEvent`/`MouseScrollEvent` definitions |
+| `Source/Engine/Input.h` / `Source/Engine/Input.cpp` | Key/mouse state, `KeyState`, `KeyPressEvent`/`MouseScrollEvent` definitions; the per-frame device snapshot, actions and the gamepad API (`Docs/Input.md`) |
+| `Source/Input/Gamepads.h` | SDL game controllers in four slots (hotplug, rumble) |
 | `Source/Events/PlatformEvents.h` | `WindowResizedEvent`, `WindowMovedEvent` |
 | `Modules/Dementia/Source/Config.h` | `ConfigFile` base: JSON `Root`, `GetValue`/`SetValue`, `OnSave`/`OnLoadConfig` |
 | `Source/Config/EngineConfig.h` / `Source/Config/EngineConfig.cpp` | Window size/position/title + free-form values (`"Title"`, `"CurrentScene"`) |
@@ -30,6 +31,7 @@ flowchart LR
     SDL["SDL_PollEvent loop<br/>(SDLWindow::ParseMessageQueue)"] --> Q["SDL_QUIT → CloseRequested<br/>(→ Engine::Run breaks, StopGame)"]
     SDL --> K["SDL_KEYDOWN/KEYUP →<br/>KeyPressEvent(scancode, Pressed/Held/Released).Fire()"]
     SDL --> W["SDL_MOUSEWHEEL → MouseScrollEvent.Fire()"]
+    SDL --> G["SDL_CONTROLLERDEVICEADDED/REMOVED →<br/>Gamepads slots, GamepadConnectionEvent"]
     SDL --> WE["SDL_WINDOWEVENT → HandleWindowEvent"]
     WE --> RS["RESIZED/SIZE_CHANGED → ResizeCB(GetSize())"]
     WE --> MV["MOVED → WindowMovedEvent → Engine saves config position"]
@@ -42,12 +44,13 @@ flowchart LR
 - On Linux the window extracts X11 vs Wayland handles via `SDL_SYSWM` and hands bgfx the display pointer + window type (`RendererCreationSettings` — `Docs/Rendering-Pipeline.md`).
 - Window events fire **synchronously inside `ParseMessageQueue`**, i.e. before this frame's `Input::Update` and everything else.
 - `Engine::Quit()` = `GameWindow->Exit()` → close request → normal shutdown path.
+- `SDL_Init` starts every subsystem, except that unattended runs (`AutomationRunner::IsUnattendedRun`) skip the joystick, game-controller, haptic and sensor subsystems, so automated runs never probe the machine's HID devices.
 
 ### Input
 
 `Input` is a plain class, not a singleton — the engine owns one for the game (`Engine::GetInput()`) and, in editor builds, a second for the editor (`GetEditorInput()`); **both receive the same fired events**, and each polls SDL state in its `Update()` (`SDL_GetKeyboardState`, `SDL_GetMouseState`, global mouse position for ImGui multi-viewport).
 
-API surface: `IsKeyDown` / `WasKeyPressed` / `WasKeyReleased` (`KeyState` tracked per scancode), mouse buttons/position/scroll, and the flow-control trio `Pause()` / `Resume()` / `Stop()` — which is how the editor implements play/pause: pausing *game* input while editor input keeps running (`Docs/Editor-Havana.md`). `Update()`/`PostUpdate()` bracket the frame (PostUpdate clears per-frame pressed/released edges).
+API surface: `IsKeyDown` / `WasKeyPressed` / `WasKeyReleased` (`KeyState` tracked per scancode), mouse buttons/position/scroll, gamepads and named actions (`GetAction`; see `Docs/Input.md`), and the flow-control trio `Pause()` / `Resume()` / `Stop()` — which is how the editor implements play/pause: pausing *game* input while editor input keeps running (`Docs/Editor-Havana.md`). `Update()`/`PostUpdate()` bracket the frame (PostUpdate clears per-frame pressed/released edges).
 
 ### Config
 
@@ -69,6 +72,7 @@ Lifecycle: loaded in `Engine::Init` from `Assets\Config\Engine.cfg`; **saved onc
 ## Related Docs
 
 - `Docs/Architecture.md` — where the pump, input updates, and config save sit in the lifecycle
+- `Docs/Input.md` — actions, contexts, rebinding and gamepads
 - `Docs/Jobs-and-Events.md` — the event system these window/input events ride on
 - `Docs/Editor-Havana.md` — dual-input play/pause mechanics
 - `Docs/Build-System.md` — per-platform SDL/bgfx wiring
