@@ -22,6 +22,18 @@ namespace Moonlight
 
         if( bgfx::isValid( m_ibh ) )
             bgfx::destroy( m_ibh );
+
+        if( bgfx::isValid( m_skinVbh ) )
+            bgfx::destroy( m_skinVbh );
+    }
+
+    void MeshData::InitSkin( const std::vector<SkinWeightsVertex>& InWeights )
+    {
+        if( InWeights.empty() || InWeights.size() != m_vertexCount || BoneNames.empty() || BoneNames.size() > kMaxBones )
+        {
+            return;
+        }
+        m_skinVbh = bgfx::createVertexBuffer( bgfx::copy( InWeights.data(), static_cast<uint32_t>( sizeof( SkinWeightsVertex ) * InWeights.size() ) ), SkinWeightsVertex::ms_layout );
     }
 
     void MeshData::InitMesh()

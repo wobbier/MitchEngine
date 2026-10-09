@@ -30,9 +30,10 @@ namespace SceneTools
             if( entity )
             {
                 Mesh* mesh = entity->TryGetComponent<Mesh>();
-                if( mesh && mesh->MeshReferece && mesh->MeshReferece->Bounds.IsValid() )
+                const AABB bounds = mesh ? mesh->GetWorldBounds( InTransform.GetLocalToWorldMatrix() ) : AABB();
+                if( bounds.IsValid() )
                 {
-                    OutBounds.Encapsulate( mesh->MeshReferece->Bounds.Transformed( InTransform.GetLocalToWorldMatrix() ) );
+                    OutBounds.Encapsulate( bounds );
                 }
             }
             if( InRecursive )

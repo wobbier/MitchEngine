@@ -57,6 +57,8 @@ public:
 
 	// A left click (press + release without dragging) landed on the viewport this frame.
 	bool ConsumeClick();
+	// Clicks the viewport at a point given as a fraction of its size (automation).
+	void RequestClick(const Vector2& InViewportFraction);
 
 	Moonlight::CameraData* MainCamera = nullptr;
 	EditorApp* App = nullptr;
@@ -120,6 +122,8 @@ private:
 	bool m_marquee = false;
 	Vector2 m_pressPosition;
 	bool m_clicked = false;
+	bool m_hasRequestedClick = false;
+	Vector2 m_requestedClick;
 
 	// Icons hit this frame (screen position, entity) for click selection.
 	struct IconHit

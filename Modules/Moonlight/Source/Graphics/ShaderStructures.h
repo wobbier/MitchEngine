@@ -76,6 +76,25 @@ namespace Moonlight
         static bgfx::VertexLayout ms_layout;
     };
 
+    // Skinning stream (vertex buffer 1 of skinned meshes): up to four bone influences.
+    struct SkinWeightsVertex
+    {
+        uint8_t Indices[4] = { 0, 0, 0, 0 };
+        float Weights[4] = { 0.f, 0.f, 0.f, 0.f };
+
+        static void Init()
+        {
+            ms_layout
+                .begin()
+                // Normalized (UNORM is supported everywhere, unlike USCALED): the shader scales by 255.
+                .add( bgfx::Attrib::Indices, 4, bgfx::AttribType::Uint8, true, false )
+                .add( bgfx::Attrib::Weight, 4, bgfx::AttribType::Float )
+                .end();
+        };
+
+        static bgfx::VertexLayout ms_layout;
+    };
+
     struct ShaderProgram
     {
         float test;

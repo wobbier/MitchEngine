@@ -1,5 +1,9 @@
 #include "PCH.h"
 #include "Mesh.h"
+#include "Model.h"
+#include "Components/Transform.h"
+#include <algorithm>
+#include <unordered_map>
 
 #include "Graphics/MeshData.h"
 #include "Graphics/Texture.h"
@@ -381,3 +385,109 @@ void Mesh::SelectMaterial( const std::pair<std::string, MaterialInfo*>& ptr, Mat
     }
 }
 #endif
+
+
+bool Mesh::IsSkinned() const
+{
+    return MeshReferece && MeshReferece->IsSkinned();
+}
+
+
+bool Mesh::ResolveBones()
+{
+    m_bones.clear();
+    if( !IsSkinned() || !Parent )
+    {
+        return false;
+    }
+    // Bones live below the Model this mesh came from (the nearest ancestor with a Model).
+    Transform* root = Parent->TryGetComponent<Transform>();
+    for( Transform* node = root; node; node = node->GetParentTransform() )
+    {
+        root = node;
+        if( node->Parent && node->Parent->HasComponent<Model>() )
+        {
+            break;
+        }
+    }
+    if( !root )
+    {
+        return false;
+    }
+    std::unordered_map<std::string, Transform*> nodes;
+    std::vector<Transform*> stack{ root };
+    while( !stack.empty() )
+    {
+        Transform* node = stack.back();
+        stack.pop_back();
+        nodes.emplace( node->GetName(), node );
+        for( Transform* child : node->GetChildren() )
+        {
+            if( child )
+            {
+                stack.push_back( child );
+            }
+        }
+    }
+    bool complete = true;
+    m_bones.reserve( MeshReferece->BoneNames.size() );
+    for( const std::string& name : MeshReferece->BoneNames )
+    {
+        auto found = nodes.find( name );
+        if( found != nodes.end() )
+        {
+            m_bones.push_back( found->second->Parent );
+        }
+        else
+        {
+            // A bone collapsed into the Model entity on import (a single root node): use the root.
+            m_bones.push_back( root->Parent );
+            complete = complete && root->Parent;
+        }
+    }
+    return complete;
+}
+
+
+AABB Mesh::UpdateSkin( const glm::mat4& InMeshWorld )
+{
+    const size_t count = MeshReferece->BoneNames.size();
+    bool valid = m_bonesResolved && m_bones.size() == count;
+    for( size_t i = 0; valid && i < count; ++i )
+    {
+        valid = static_cast<bool>( m_bones[i] );
+    }
+    if( !valid )
+    {
+        m_bonesResolved = ResolveBones();
+    }
+
+    const glm::mat4 meshInverse = glm::inverse( InMeshWorld );
+    m_skinPalette.resize( count );
+    AABB bounds;
+    for( size_t i = 0; i < count; ++i )
+    {
+        Transform* bone = i < m_bones.size() && m_bones[i] ? m_bones[i]->TryGetComponent<Transform>() : nullptr;
+        const glm::mat4 boneWorld = bone ? bone->GetLocalToWorldMatrix().GetInternalMatrix() : InMeshWorld * glm::inverse( MeshReferece->BoneOffsets[i] );
+        m_skinPalette[i] = meshInverse * boneWorld * MeshReferece->BoneOffsets[i];
+        // Every vertex a bone moves stays within its radius of the bone.
+        const float scale = std::max( { glm::length( glm::vec3( boneWorld[0] ) ), glm::length( glm::vec3( boneWorld[1] ) ), glm::length( glm::vec3( boneWorld[2] ) ) } );
+        const float radius = MeshReferece->BoneRadii[i] * scale;
+        const Vector3 center( boneWorld[3].x, boneWorld[3].y, boneWorld[3].z );
+        bounds.Encapsulate( center - Vector3( radius, radius, radius ) );
+        bounds.Encapsulate( center + Vector3( radius, radius, radius ) );
+    }
+    // Unweighted vertices stay rigid with the mesh.
+    m_skinBounds = bounds.IsValid() ? bounds : MeshReferece->Bounds.Transformed( Matrix4( InMeshWorld ) );
+    return m_skinBounds;
+}
+
+
+AABB Mesh::GetWorldBounds( const Matrix4& InWorld ) const
+{
+    if( IsSkinned() && m_skinBounds.IsValid() )
+    {
+        return m_skinBounds;
+    }
+    return MeshReferece && MeshReferece->Bounds.IsValid() ? MeshReferece->Bounds.Transformed( InWorld ) : AABB();
+}

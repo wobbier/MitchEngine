@@ -15,6 +15,7 @@ public:
     SharedPtr<Material> CreateInstance() override;
     uint64_t GetInstanceBatchKey() const override;
     float GetAlphaCutoff() const override { return AlphaCutoff; }
+    bgfx::ProgramHandle GetSkinnedProgram() override;
 
     void OnSerialize( json& OutJson ) override;
     void OnDeserialize( const json& InJson ) override;
@@ -37,6 +38,10 @@ protected:
     StandardMaterial( const std::string& InTypeName );
 
 private:
+    // StandardSkinned.vert + Standard.frag, created on first use (shared through the program registry).
+    Moonlight::ShaderCommand m_skinnedShader;
+    bool m_skinnedShaderRequested = false;
+
     inline static bgfx::UniformHandle u_baseColor = BGFX_INVALID_HANDLE;
     inline static bgfx::UniformHandle u_pbrParams = BGFX_INVALID_HANDLE;
     inline static bgfx::UniformHandle u_emissive = BGFX_INVALID_HANDLE;

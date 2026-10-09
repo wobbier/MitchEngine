@@ -34,7 +34,9 @@ namespace Moonlight
 
         // Resource handles
         Moonlight::ShaderCommand m_idProgram;
+        Moonlight::ShaderCommand m_skinnedIdProgram;
         bgfx::UniformHandle u_id;
+        bgfx::UniformHandle u_bones;
         bgfx::TextureHandle m_pickingRT;
         bgfx::TextureHandle m_pickingRTDepth;
         bgfx::TextureHandle m_blitTex;

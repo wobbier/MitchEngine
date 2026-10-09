@@ -6,6 +6,7 @@
 #include "Events/EventManager.h"
 #include "Cores/PhysicsCore.h"
 #include "Cores/Physics2DCore.h"
+#include "Cores/AnimationCore.h"
 #include "Cores/Cameras/CameraCore.h"
 #include "Cores/SceneCore.h"
 #include "Cores/Rendering/RenderCore.h"
@@ -219,6 +220,7 @@ void Engine::Init( Game* game )
         Particles = new ParticleCore();
         Physics = new PhysicsCore();
         Physics2D = new Physics2DCore();
+        Animation = new AnimationCore();
         AudioThread = new AudioCore();
         UI = new UICore( GameWindow, NewRenderer );
     }
@@ -262,6 +264,7 @@ void Engine::InitGame()
         GameWorld->AddCore<ParticleCore>( *Particles );
         GameWorld->AddCore<PhysicsCore>( *Physics );
         GameWorld->AddCore<Physics2DCore>( *Physics2D );
+        GameWorld->AddCore<AnimationCore>( *Animation );
         GameWorld->AddCore<AudioCore>( *AudioThread );
         GameWorld->AddCore<UICore>( *UI );
     }
@@ -468,6 +471,13 @@ void Engine::Run()
             {
 
                 AudioThread->Update( deltaTime );
+            }
+
+            // Animation (after gameplay set its parameters, before render prep skins meshes)
+            {
+                ME_FRAMEPROFILE_SCOPED( "Animation", ProfileCategory::Game );
+                ME_STAT_SCOPE( "Animation" );
+                Animation->Update( updateContext );
             }
 
             // Particles (simulated before render prep so this frame's particles draw)

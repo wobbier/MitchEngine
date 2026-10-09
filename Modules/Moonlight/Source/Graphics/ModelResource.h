@@ -9,8 +9,6 @@
 #include "Resource/MetaRegistry.h"
 #include "Scene/AnimationClip.h"
 #include "assimp/material.h"
-#include "Scene/Keyframe.h"
-#include "Scene/Skeleton.h"
 
 struct aiScene;
 struct aiNode;
@@ -39,12 +37,11 @@ public:
 private:
     std::vector<Moonlight::MeshData*> m_allMeshData;
     std::vector<Moonlight::AnimationClip> m_animations;
-    Moonlight::Skeleton m_skeleton;
 
     void ProcessNode( aiNode* node, const aiScene* inScene, Moonlight::Node& inParent, glm::mat4 inParentTransform );
-    void ProcessSkeleton( const aiScene* inScene );
     void ProcessAnimations( const aiScene* inScene );
-    std::vector<Moonlight::Keyframe> BuildKeyframes( const aiNodeAnim* channel, float ticksPerSecond );
+    // Bone names, offsets and per-vertex weights (max 4) of a skinned mesh.
+    void ProcessSkin( aiMesh* mesh, Moonlight::MeshData& outMesh, const std::vector<glm::vec3>& positions );
 
     Moonlight::MeshData* ProcessMesh( aiMesh* mesh, Moonlight::Node& inParent, const aiScene* scene );
 

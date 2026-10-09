@@ -212,6 +212,13 @@ bool SceneViewWidget::ConsumeClick()
 }
 
 
+void SceneViewWidget::RequestClick(const Vector2& InViewportFraction)
+{
+	m_requestedClick = InViewportFraction;
+	m_hasRequestedClick = true;
+}
+
+
 Matrix4 SceneViewWidget::GetProjection() const
 {
 	return MainCamera ? MainCamera->ProjectionMatrix : Matrix4();
@@ -332,6 +339,12 @@ void SceneViewWidget::Render()
 		IsViewportHovered = ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
 		const ImVec2 mouse = ImGui::GetIO().MousePos;
 		ViewportMousePosition = Vector2(mouse.x - imageScreenPos.x, mouse.y - imageScreenPos.y) * (SceneViewRenderSize.x / std::max(viewportRenderSize.x, 1.f));
+		if (m_hasRequestedClick)
+		{
+			m_hasRequestedClick = false;
+			ViewportMousePosition = Vector2(m_requestedClick.x * SceneViewRenderSize.x, m_requestedClick.y * SceneViewRenderSize.y);
+			m_clicked = true;
+		}
 
 		if (IsViewportHovered && (ImGui::IsMouseClicked(ImGuiMouseButton_Right) || ImGui::IsMouseClicked(ImGuiMouseButton_Middle)))
 		{

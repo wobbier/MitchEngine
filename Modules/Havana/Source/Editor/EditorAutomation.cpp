@@ -11,6 +11,7 @@
 #include "EditorApp.h"
 #include "Havana.h"
 #include "Widgets/AssetBrowser.h"
+#include "Widgets/SceneViewWidget.h"
 #include "Components/Transform.h"
 #include "Core/CommandLine.h"
 #include "Cores/SceneCore.h"
@@ -271,6 +272,20 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
                 continue;
             }
             Selection::Get().Add( entity );
+        }
+    }
+    else if( command == "pick" )
+    {
+        // pick 0.5 0.5   (clicks the scene view at that fraction of its size; GPU picking selects)
+        auto [xText, yText] = SplitWord( args );
+        SceneViewWidget* sceneView = InApp.Editor ? InApp.Editor->GetSceneView() : nullptr;
+        if( !sceneView )
+        {
+            Fail( "pick: no scene view" );
+        }
+        else
+        {
+            sceneView->RequestClick( Vector2( static_cast<float>( std::atof( xText.c_str() ) ), static_cast<float>( std::atof( yText.c_str() ) ) ) );
         }
     }
     else if( command == "select-none" )
@@ -551,8 +566,14 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
     {
         // assert-field Cube | Transform.Position | [0,1,0]   (or space separated when names have no spaces)
         // assert-field Cube | Transform.Position.1 | 0.5 ~ 0.02   (numbers within a tolerance)
+        // assert-field Cube | Transform.Rotation | != [0,0,0]   (anything but that value)
         auto [name, rest] = SplitArgs( args );
         auto [fieldPath, valueText] = SplitArgs( rest );
+        const bool negate = valueText.rfind( "!=", 0 ) == 0;
+        if( negate )
+        {
+            valueText = Trim( valueText.substr( 2 ) );
+        }
         double tolerance = 1e-3;
         if( const size_t tilde = valueText.find( " ~ " ); tilde != std::string::npos )
         {
@@ -571,9 +592,9 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
         {
             json state = EditorOps::CaptureComponent( *entity.Get(), type );
             const json* actual = Resolve( state, pointer );
-            if( !actual || !NearlyEqual( *actual, expected, tolerance ) )
+            if( !actual || NearlyEqual( *actual, expected, tolerance ) == negate )
             {
-                Fail( name + " " + fieldPath + " is " + ( actual ? actual->dump() : std::string( "<missing>" ) ) + ", expected " + valueText );
+                Fail( name + " " + fieldPath + " is " + ( actual ? actual->dump() : std::string( "<missing>" ) ) + ", expected " + ( negate ? "not " : "" ) + valueText );
             }
         }
     }

@@ -129,7 +129,9 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                         const glm::mat4& meshMatrix = transform.GetLocalToWorldMatrix().GetInternalMatrix();
                         // Cull the mesh's world-space bounding box, not just its origin: big
                         // objects whose pivot leaves the view must still be drawn.
-                        const AABB worldBounds = model.MeshReferece->Bounds.Transformed( transform.GetLocalToWorldMatrix() );
+                        // Skinned meshes are bounded by their bones' reach in the current pose.
+                        const bool skinned = model.IsSkinned();
+                        const AABB worldBounds = skinned ? model.UpdateSkin( meshMatrix ) : model.MeshReferece->Bounds.Transformed( transform.GetLocalToWorldMatrix() );
 
                         {
                             for( Moonlight::CameraData& cam : cameras.Commands )
@@ -186,6 +188,12 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                             {
                                 command.VertexBufferIdx = model.MeshReferece->GetVertexBuffer().idx;
                                 command.IndexBufferIdx = model.MeshReferece->GetIndexuffer().idx;
+                            }
+                            if( skinned )
+                            {
+                                command.SkinPalette = model.m_skinPalette.data();
+                                command.SkinBoneCount = static_cast<uint16_t>( model.m_skinPalette.size() );
+                                command.SupportsInstancing = false;
                             }
 
                             renderer.GetMeshCache().Update( model.GetId(), command);

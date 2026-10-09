@@ -47,6 +47,17 @@ StandardMaterial::StandardMaterial( const std::string& InTypeName )
 }
 
 
+bgfx::ProgramHandle StandardMaterial::GetSkinnedProgram()
+{
+    if( !m_skinnedShaderRequested )
+    {
+        m_skinnedShaderRequested = true;
+        m_skinnedShader = Moonlight::ShaderCommand( "Assets/Shaders/StandardSkinned", "Assets/Shaders/Standard" );
+    }
+    return m_skinnedShader.GetProgram();
+}
+
+
 void StandardMaterial::Init()
 {
     if( !bgfx::isValid( u_baseColor ) )

@@ -76,6 +76,8 @@ public:
     void RenderSingleMesh( bgfx::ViewId id, const Moonlight::MeshCommand& mesh, uint64_t state );
 
     void RenderMeshInstanced( bgfx::ViewId id, const Moonlight::MeshCommand& representative, const glm::mat4* transforms, uint32_t count, uint64_t state );
+    // One skinned mesh: the material's skinned program, the weights stream and the bone palette.
+    void RenderSkinnedMesh( bgfx::ViewId id, const Moonlight::MeshCommand& mesh, uint64_t state );
 
     void WindowResized( const Vector2& newSize );
 
@@ -163,6 +165,9 @@ private:
     ShadowAtlas m_sunShadowAtlas;
     ShadowAtlas m_spotShadowAtlas;
     Moonlight::ShaderCommand m_shadowProgram;
+    Moonlight::ShaderCommand m_shadowSkinnedProgram;
+    bgfx::UniformHandle u_bones = BGFX_INVALID_HANDLE;
+    std::vector<size_t> m_skinnedShadowCasters;
     bool m_shadowsSupported = false;
     bool m_hasSunShadow = false;
     Moonlight::LightCommand m_sunShadowLight;

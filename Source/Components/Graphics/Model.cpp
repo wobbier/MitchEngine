@@ -127,15 +127,13 @@ void Model::OnEditorInspect()
         ImGui::SameLine();
         ImGui::Text("%s", ModelPath.GetLocalPath().data());
         RecursiveModelNode( ModelHandle, ModelHandle->RootNode );
-        for( const Moonlight::AnimationClip& clip : ModelHandle->GetAnimations() )
+        if( !ModelHandle->GetAnimations().empty() && ImGui::TreeNode( "Animations" ) )
         {
-            if( ImGui::CollapsingHeader( clip.Name.c_str(), 0 /*| ImGuiTreeNodeFlags_DefaultOpen*/ ) )
+            for( const Moonlight::AnimationClip& clip : ModelHandle->GetAnimations() )
             {
-                for( const auto& nodeAnim : clip.NodeChannels )
-                {
-                    ImGui::Text("%s", ModelPath.GetLocalPath().data());
-                }
+                ImGui::BulletText( "%s  (%.2f s, %zu channels)", clip.Name.c_str(), clip.Duration, clip.Channels.size() );
             }
+            ImGui::TreePop();
         }
     }
     else

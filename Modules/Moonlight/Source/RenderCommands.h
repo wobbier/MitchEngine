@@ -78,6 +78,10 @@ namespace Moonlight
         // alpha-tested materials discard in the depth pass too.
         float AlphaCutoff = 0.f;
         AABB WorldBounds;
+        // Skinned meshes: this frame's mesh-space bone palette (owned by the Mesh component, valid
+        // until the next RenderCore update). Skinned meshes are drawn one at a time.
+        const glm::mat4* SkinPalette = nullptr;
+        uint16_t SkinBoneCount = 0;
     };
 
     enum class LightType : uint8_t

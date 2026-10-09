@@ -39,10 +39,24 @@ public:
     // Renders into shadow maps (directional cascades and spot lights).
     bool CastShadows = true;
 
+    // Skinned meshes: the bone node entities (found by name below the owning Model) and this
+    // frame's palette of mesh-space bone matrices.
+    bool IsSkinned() const;
+    // World-space bounds: the last skinned pose for skinned meshes, else the mesh bounds placed by InWorld.
+    AABB GetWorldBounds( const Matrix4& InWorld ) const;
+
     virtual void OnSerialize( json& outJson ) final;
     virtual void OnDeserialize( const json& inJson ) final;
 private:
     unsigned int Id = 0;
+    std::vector<EntityHandle> m_bones;
+    bool m_bonesResolved = false;
+    std::vector<glm::mat4> m_skinPalette;
+    AABB m_skinBounds;
+    // Finds the bone entities; returns false while any is missing.
+    bool ResolveBones();
+    // Fills the palette from the bones' world matrices; returns the skinned world bounds.
+    AABB UpdateSkin( const glm::mat4& InMeshWorld );
     Moonlight::MeshType Type;
     Path MaterialAssetPath;
 

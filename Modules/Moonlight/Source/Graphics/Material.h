@@ -175,6 +175,12 @@ namespace Moonlight
             return 0.f;
         }
 
+        // The program skinned meshes draw with; invalid = draw the bind pose with MeshShader.
+        virtual bgfx::ProgramHandle GetSkinnedProgram()
+        {
+            return BGFX_INVALID_HANDLE;
+        }
+
         virtual uint64_t GetInstanceBatchKey() const
         {
             auto mix = []( uint64_t h, uint64_t v ) {

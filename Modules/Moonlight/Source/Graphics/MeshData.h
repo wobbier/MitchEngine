@@ -6,6 +6,7 @@
 #include <Pointers.h>
 #include "Math/Bounds.h"
 #include <bgfx/bgfx.h>
+#include <glm/mat4x4.hpp>
 
 namespace Moonlight
 {
@@ -38,6 +39,22 @@ namespace Moonlight
         const bgfx::IndexBufferHandle& GetIndexuffer() const {
             return m_ibh;
         }
+
+        // Skinning. Bone i deforms vertices through inverse(meshWorld) * boneWorld * BoneOffsets[i]
+        // (the offset maps bind-pose mesh space into the bone's space). Bones are found by name in
+        // the model's node entities.
+        static constexpr uint32_t kMaxBones = 128;
+        std::vector<std::string> BoneNames;
+        std::vector<glm::mat4> BoneOffsets;
+        std::vector<float> BoneRadii;   // furthest influenced vertex from each bone, for skinned bounds
+        bool IsSkinned() const {
+            return bgfx::isValid( m_skinVbh );
+        }
+        const bgfx::VertexBufferHandle& GetSkinBuffer() const {
+            return m_skinVbh;
+        }
+        // Uploads one SkinWeightsVertex per vertex (vertex buffer stream 1).
+        void InitSkin( const std::vector<SkinWeightsVertex>& InWeights );
         uint32_t GetVertexCount() const {
             return m_vertexCount;
         }
@@ -57,5 +74,6 @@ namespace Moonlight
         uint32_t m_indexCount = 0;
         bgfx::VertexBufferHandle m_vbh = BGFX_INVALID_HANDLE;
         bgfx::IndexBufferHandle m_ibh = BGFX_INVALID_HANDLE;
+        bgfx::VertexBufferHandle m_skinVbh = BGFX_INVALID_HANDLE;
     };
 }

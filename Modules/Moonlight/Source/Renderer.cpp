@@ -157,6 +157,7 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
         // Create vertex stream declaration.
         Moonlight::PosColorVertex::Init();
         Moonlight::PosNormTexTanBiVertex::Init();
+        Moonlight::SkinWeightsVertex::Init();
         Moonlight::PosTexCoordVertex::Init();
         Moonlight::Vertex_2f_4ub_2f::Init();
         Moonlight::Vertex_2f_4ub_2f_2f_28f::Init();
@@ -234,6 +235,8 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
         s_shadowMap = bgfx::createUniform( "s_shadowMap", bgfx::UniformType::Sampler );
         s_spotShadowMap = bgfx::createUniform( "s_spotShadowMap", bgfx::UniformType::Sampler );
         m_shadowProgram = Moonlight::ShaderCommand( "Assets/Shaders/ShadowDepth" );
+        m_shadowSkinnedProgram = Moonlight::ShaderCommand( "Assets/Shaders/ShadowDepthSkinned", "Assets/Shaders/ShadowDepth" );
+        u_bones = bgfx::createUniform( "u_bones", bgfx::UniformType::Mat4, Moonlight::MeshData::kMaxBones );
         m_shadowsSupported = ( bgfx::getCaps()->supported & BGFX_CAPS_TEXTURE_COMPARE_LEQUAL ) != 0 && m_shadowProgram.IsLoaded();
         if( !m_shadowsSupported )
         {
@@ -329,7 +332,7 @@ void BGFXRenderer::Destroy()
         s_lightData, s_clusterGrid, s_clusterIndices, s_texMetallicRoughness, s_texEmissive, s_texOcclusion,
         u_shadowMatrix, u_cascadeSplits, u_cascadeTexel, u_shadowParams, u_spotShadowMatrix, u_spotShadowParams, u_shadowAlpha, s_shadowMap, s_spotShadowMap,
         s_envSpecular, s_envIrradiance, s_brdfLut, u_envParams,
-        u_particleParams, u_particleParams2, u_particleDepth, s_texParticle, s_sceneDepth };
+        u_particleParams, u_particleParams2, u_particleDepth, s_texParticle, s_sceneDepth, u_bones };
     m_particleProgram = Moonlight::ShaderCommand();
     for( bgfx::TextureHandle* texture : { &m_particleTexture } )
     {
@@ -354,6 +357,7 @@ void BGFXRenderer::Destroy()
     DestroyShadowAtlas( m_sunShadowAtlas );
     DestroyShadowAtlas( m_spotShadowAtlas );
     m_shadowProgram = Moonlight::ShaderCommand();
+    m_shadowSkinnedProgram = Moonlight::ShaderCommand();
     if( bgfx::isValid( m_lightDataTexture ) )
     {
         bgfx::destroy( m_lightDataTexture );
@@ -699,6 +703,12 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
                     continue;
                 }
 
+                if( mesh.SkinBoneCount > 0 )
+                {
+                    RenderSkinnedMesh( id, mesh, state );
+                    continue;
+                }
+
                 if( mesh.SupportsInstancing && mesh.VertexBufferIdx != UINT16_MAX )
                 {
                     InstanceBatch& batch = getBatch( mesh.VertexBufferIdx, mesh.IndexBufferIdx, mesh.BatchKey, i );
@@ -768,7 +778,11 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
             for( auto index : TransparentIndicies )
             {
                 const Moonlight::MeshCommand& mesh = m_meshCache.Commands[index];
-                if( mesh.SupportsInstancing )
+                if( mesh.SkinBoneCount > 0 )
+                {
+                    RenderSkinnedMesh( transparentView, mesh, transparentState );
+                }
+                else if( mesh.SupportsInstancing )
                 {
                     RenderMeshInstanced( transparentView, mesh, &mesh.Transform, 1, transparentState );
                 }
@@ -1109,6 +1123,7 @@ void BGFXRenderer::SubmitShadowCasters( bgfx::ViewId view, const Frustum& frustu
         m_shadowBatches[b].transforms.clear();
     }
     m_activeShadowBatchCount = 0;
+    m_skinnedShadowCasters.clear();
 
     for( size_t i = 0; i < m_meshCache.Commands.size(); ++i )
     {
@@ -1119,6 +1134,11 @@ void BGFXRenderer::SubmitShadowCasters( bgfx::ViewId view, const Frustum& frustu
         }
         if( !mesh.WorldBounds.IsValid() || !frustum.Intersects( mesh.WorldBounds ) )
         {
+            continue;
+        }
+        if( mesh.SkinBoneCount > 0 )
+        {
+            m_skinnedShadowCasters.push_back( i );   // each has its own pose: drawn one by one below
             continue;
         }
         // Opaque casters only differ by geometry; alpha-tested ones also by their textures.
@@ -1183,6 +1203,35 @@ void BGFXRenderer::SubmitShadowCasters( bgfx::ViewId view, const Frustum& frustu
             bgfx::submit( view, m_shadowProgram.GetProgram() );
             offset += available;
         }
+    }
+
+    const bgfx::ProgramHandle skinnedProgram = m_shadowSkinnedProgram.GetProgram();
+    for( size_t index : m_skinnedShadowCasters )
+    {
+        const Moonlight::MeshCommand& mesh = m_meshCache.Commands[index];
+        if( !bgfx::isValid( skinnedProgram ) || !bgfx::isValid( mesh.SingleMesh->GetSkinBuffer() ) || bgfx::getAvailInstanceDataBuffer( 1, kInstanceStride ) == 0 )
+        {
+            continue;
+        }
+        bgfx::InstanceDataBuffer idb;
+        bgfx::allocInstanceDataBuffer( &idb, 1, kInstanceStride );
+        std::memcpy( idb.data, &mesh.Transform, kInstanceStride );
+        const float alpha[4] = { mesh.AlphaCutoff, mesh.MeshMaterial->Tiling.x, mesh.MeshMaterial->Tiling.y, 0.f };
+        bgfx::setVertexBuffer( 0, mesh.SingleMesh->GetVertexBuffer() );
+        bgfx::setVertexBuffer( 1, mesh.SingleMesh->GetSkinBuffer() );
+        bgfx::setIndexBuffer( mesh.SingleMesh->GetIndexuffer() );
+        bgfx::setInstanceDataBuffer( &idb );
+        bgfx::setUniform( u_shadowAlpha, alpha );
+        bgfx::setUniform( u_bones, mesh.SkinPalette, mesh.SkinBoneCount );
+        if( mesh.AlphaCutoff > 0.f )
+        {
+            const Moonlight::Texture* diffuse = mesh.MeshMaterial->GetTexture( Moonlight::TextureType::Diffuse );
+            const Moonlight::Texture* opacity = mesh.MeshMaterial->GetTexture( Moonlight::TextureType::Opacity );
+            bgfx::setTexture( 0, s_texDiffuse, diffuse && bgfx::isValid( diffuse->TexHandle ) ? diffuse->TexHandle : m_whiteTexture );
+            bgfx::setTexture( 2, s_texAlpha, opacity && bgfx::isValid( opacity->TexHandle ) ? opacity->TexHandle : m_whiteTexture );
+        }
+        bgfx::setState( state );
+        bgfx::submit( view, skinnedProgram );
     }
 }
 
@@ -1456,6 +1505,31 @@ void BGFXRenderer::RenderSingleMesh( bgfx::ViewId id, const Moonlight::MeshComma
     {
         ME_ASSERT_MSG( false, "Why do I need that if statement?" );
     }
+}
+
+
+void BGFXRenderer::RenderSkinnedMesh( bgfx::ViewId id, const Moonlight::MeshCommand& mesh, uint64_t state )
+{
+    constexpr uint16_t kInstanceStride = sizeof( glm::mat4 );
+    if( !mesh.SingleMesh || !bgfx::isValid( mesh.SingleMesh->GetVertexBuffer() ) || bgfx::getAvailInstanceDataBuffer( 1, kInstanceStride ) == 0 )
+    {
+        return;
+    }
+    bgfx::InstanceDataBuffer idb;
+    bgfx::allocInstanceDataBuffer( &idb, 1, kInstanceStride );
+    std::memcpy( idb.data, &mesh.Transform, kInstanceStride );
+
+    bgfx::ProgramHandle program = BindMeshDrawState( mesh, state );
+    const bgfx::ProgramHandle skinned = mesh.MeshMaterial->GetSkinnedProgram();
+    if( bgfx::isValid( skinned ) && bgfx::isValid( mesh.SingleMesh->GetSkinBuffer() ) )
+    {
+        bgfx::setVertexBuffer( 1, mesh.SingleMesh->GetSkinBuffer() );
+        bgfx::setUniform( u_bones, mesh.SkinPalette, mesh.SkinBoneCount );
+        program = skinned;
+    }
+    // Materials without a skinned program draw the bind pose.
+    bgfx::setInstanceDataBuffer( &idb );
+    bgfx::submit( id, program );
 }
 
 

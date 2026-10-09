@@ -21,6 +21,8 @@ PickingPass::PickingPass()
 
     u_id = bgfx::createUniform( "u_id", bgfx::UniformType::Vec4 ); // ID for drawing into ID buffer
     m_idProgram = Moonlight::ShaderCommand( "Assets/Shaders/Picking/picking_shaded", "Assets/Shaders/Picking/picking_id" );
+    m_skinnedIdProgram = Moonlight::ShaderCommand( "Assets/Shaders/Picking/picking_skinned", "Assets/Shaders/Picking/picking_id" );
+    u_bones = bgfx::createUniform( "u_bones", bgfx::UniformType::Mat4, Moonlight::MeshData::kMaxBones );
 
             // Set up ID buffer, which has a color target and depth buffer
     m_pickingRT = bgfx::createTexture2D( ID_DIM, ID_DIM, false, 1, bgfx::TextureFormat::RGBA8, 0
@@ -69,6 +71,7 @@ PickingPass::~PickingPass()
     bgfx::destroy( m_pickingFB );
     bgfx::destroy( m_blitTex );
     bgfx::destroy( u_id );
+    bgfx::destroy( u_bones );
 }
 
 
@@ -189,13 +192,22 @@ void PickingPass::Render( BGFXRenderer* inRenderer, CameraData* inCamData, Frame
                 bgfx::setVertexBuffer( 0, mesh.SingleMesh->GetVertexBuffer() );
                 bgfx::setIndexBuffer( mesh.SingleMesh->GetIndexuffer() );
 
+                // Animated meshes pick in their current pose.
+                bgfx::ProgramHandle program = m_idProgram.GetProgram();
+                if( mesh.SkinBoneCount > 0 && bgfx::isValid( mesh.SingleMesh->GetSkinBuffer() ) && bgfx::isValid( m_skinnedIdProgram.GetProgram() ) )
+                {
+                    bgfx::setVertexBuffer( 1, mesh.SingleMesh->GetSkinBuffer() );
+                    bgfx::setUniform( u_bones, mesh.SkinPalette, mesh.SkinBoneCount );
+                    program = m_skinnedIdProgram.GetProgram();
+                }
+
                 // Set render states.
                 bgfx::setState( state );
 
                     // Submit ID pass based on mesh ID
                 bgfx::setUniform( u_id, &colorVec.x );
                 // Submit primitive for rendering to view 0.
-                bgfx::submit( RENDER_PASS_ID, m_idProgram.GetProgram() );
+                bgfx::submit( RENDER_PASS_ID, program );
             }
         }
     }

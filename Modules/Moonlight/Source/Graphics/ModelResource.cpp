@@ -124,7 +124,7 @@ bool ModelResource::Load()
         Path newPath = Path( FilePath.FullPath );
         ME_ASSERT_MSG( newPath.Exists, "Exported Model Doesn't Exist" );
 
-        scene = importer.ReadFile( FilePath.FullPath.c_str(), aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_GenSmoothNormals | aiProcess_CalcTangentSpace | aiProcess_ConvertToLeftHanded );
+        scene = importer.ReadFile( FilePath.FullPath.c_str(), aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_GenSmoothNormals | aiProcess_CalcTangentSpace | aiProcess_LimitBoneWeights | aiProcess_ConvertToLeftHanded );
         if( !scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode )
         {
             std::cout << "ERROR::ASSIMP:: " << importer.GetErrorString() << std::endl;
@@ -150,7 +150,6 @@ bool ModelResource::Load()
 
     RootNode.Name = std::string( scene->mRootNode->mName.C_Str() );
     ProcessNode( scene->mRootNode, scene, RootNode, AssimpToGLM( scene->mRootNode->mTransformation ) );
-    ProcessSkeleton( scene );
     ProcessAnimations( scene );
 
     importer.FreeScene();
@@ -221,76 +220,110 @@ void ModelResource::ProcessNode( aiNode* node, const aiScene* scene, Moonlight::
 }
 
 
-void ModelResource::ProcessSkeleton( const aiScene* inScene )
-{
-    for( unsigned int meshIndex = 0; meshIndex < inScene->mNumMeshes; ++meshIndex )
-    {
-        const aiMesh* aiMeshPtr = inScene->mMeshes[meshIndex];
-
-        for( unsigned int boneIndex = 0; boneIndex < aiMeshPtr->mNumBones; ++boneIndex )
-        {
-            const aiBone* aiBonePtr = aiMeshPtr->mBones[boneIndex];
-
-            std::string boneName = aiBonePtr->mName.C_Str();
-
-            if( m_skeleton.BoneNameToIndex.find( boneName ) == m_skeleton.BoneNameToIndex.end() )
-            {
-                uint32_t newIndex = (uint32_t)m_skeleton.Bones.size();
-                m_skeleton.BoneNameToIndex[boneName] = newIndex;
-
-                Moonlight::BoneInfo boneInfo;
-                boneInfo.Offset = Matrix4( AssimpToGLM( aiBonePtr->mOffsetMatrix) );
-                boneInfo.FinalTransform = Matrix4();
-                m_skeleton.Bones.push_back( boneInfo );
-            }
-        }
-    }
-}
-
-
 void ModelResource::ProcessAnimations( const aiScene* scene )
 {
-    if( !scene->HasAnimations() )
-    {
-        return;
-    }
-
     for( unsigned int i = 0; i < scene->mNumAnimations; ++i )
     {
-        aiAnimation* anim = scene->mAnimations[i];
+        const aiAnimation* anim = scene->mAnimations[i];
+        const double ticksPerSecond = anim->mTicksPerSecond != 0.0 ? anim->mTicksPerSecond : 25.0;
 
         Moonlight::AnimationClip clip;
-        clip.Name = anim->mName.length > 0 ? anim->mName.C_Str() : "UnnamedAnimation";
-        clip.Duration = static_cast<float>( anim->mDuration );
-        clip.TicksPerSecond = ( anim->mTicksPerSecond != 0.0 ) ? static_cast<float>( anim->mTicksPerSecond ) : 25.0f;
-        BRUH( clip.Name );
-
-
-        clip.NodeChannels.reserve( anim->mNumChannels );
+        clip.Name = anim->mName.length > 0 ? anim->mName.C_Str() : ( "Animation " + std::to_string( i ) );
+        clip.Duration = static_cast<float>( anim->mDuration / ticksPerSecond );
+        clip.Channels.reserve( anim->mNumChannels );
         for( unsigned int channelIndex = 0; channelIndex < anim->mNumChannels; ++channelIndex )
         {
-            aiNodeAnim* aiNodeAnimation = anim->mChannels[channelIndex];
-            Moonlight::NodeAnimation nodeAnim;
-            nodeAnim.NodeName = aiNodeAnimation->mNodeName.C_Str();
-            nodeAnim.Keyframes = BuildKeyframes( aiNodeAnimation, clip.TicksPerSecond );
-            BRUH( nodeAnim.NodeName );
-
-            clip.NodeChannels.push_back( std::move( nodeAnim ) );
+            const aiNodeAnim* source = anim->mChannels[channelIndex];
+            Moonlight::AnimationChannel channel;
+            channel.NodeName = source->mNodeName.C_Str();
+            for( unsigned int k = 0; k < source->mNumPositionKeys; ++k )
+            {
+                const aiVectorKey& key = source->mPositionKeys[k];
+                channel.PositionTimes.push_back( static_cast<float>( key.mTime / ticksPerSecond ) );
+                channel.Positions.push_back( Vector3( key.mValue.x, key.mValue.y, key.mValue.z ) );
+            }
+            for( unsigned int k = 0; k < source->mNumRotationKeys; ++k )
+            {
+                const aiQuatKey& key = source->mRotationKeys[k];
+                channel.RotationTimes.push_back( static_cast<float>( key.mTime / ticksPerSecond ) );
+                channel.Rotations.push_back( Quaternion( key.mValue.x, key.mValue.y, key.mValue.z, key.mValue.w ) );
+            }
+            for( unsigned int k = 0; k < source->mNumScalingKeys; ++k )
+            {
+                const aiVectorKey& key = source->mScalingKeys[k];
+                channel.ScaleTimes.push_back( static_cast<float>( key.mTime / ticksPerSecond ) );
+                channel.Scales.push_back( Vector3( key.mValue.x, key.mValue.y, key.mValue.z ) );
+            }
+            clip.Channels.push_back( std::move( channel ) );
         }
         m_animations.push_back( std::move( clip ) );
     }
 }
 
 
-std::vector<Moonlight::Keyframe> ModelResource::BuildKeyframes( const aiNodeAnim* channel, float ticksPerSecond )
+void ModelResource::ProcessSkin( aiMesh* mesh, Moonlight::MeshData& outMesh, const std::vector<glm::vec3>& positions )
 {
-    std::vector<Moonlight::Keyframe> keyframes;
+    if( !mesh->HasBones() )
+    {
+        return;
+    }
+    if( mesh->mNumBones > Moonlight::MeshData::kMaxBones )
+    {
+        BRUH( "Skinned mesh " + std::string( mesh->mName.C_Str() ) + " has " + std::to_string( mesh->mNumBones ) + " bones (max " + std::to_string( Moonlight::MeshData::kMaxBones ) + "); drawing it unskinned" );
+        return;
+    }
 
-    // assume each array is the same length for now
-    // no do this again
-    unsigned int keyframeCount = std::max( std::max( channel->mNumPositionKeys, channel->mNumRotationKeys ), channel->mNumScalingKeys );
-
-    return keyframes;
+    std::vector<Moonlight::SkinWeightsVertex> weights( mesh->mNumVertices );
+    outMesh.BoneNames.resize( mesh->mNumBones );
+    outMesh.BoneOffsets.resize( mesh->mNumBones );
+    outMesh.BoneRadii.assign( mesh->mNumBones, 0.f );
+    for( unsigned int boneIndex = 0; boneIndex < mesh->mNumBones; ++boneIndex )
+    {
+        const aiBone* bone = mesh->mBones[boneIndex];
+        outMesh.BoneNames[boneIndex] = bone->mName.C_Str();
+        outMesh.BoneOffsets[boneIndex] = AssimpToGLM( bone->mOffsetMatrix );
+        for( unsigned int w = 0; w < bone->mNumWeights; ++w )
+        {
+            const aiVertexWeight& influence = bone->mWeights[w];
+            if( influence.mVertexId >= mesh->mNumVertices || influence.mWeight <= 0.f )
+            {
+                continue;
+            }
+            // Keep the four strongest influences.
+            Moonlight::SkinWeightsVertex& vertex = weights[influence.mVertexId];
+            int slot = 0;
+            for( int s = 1; s < 4; ++s )
+            {
+                if( vertex.Weights[s] < vertex.Weights[slot] )
+                {
+                    slot = s;
+                }
+            }
+            if( influence.mWeight > vertex.Weights[slot] )
+            {
+                vertex.Weights[slot] = influence.mWeight;
+                vertex.Indices[slot] = static_cast<uint8_t>( boneIndex );
+            }
+            if( influence.mWeight > 0.05f && influence.mVertexId < positions.size() )
+            {
+                const glm::vec3 local = glm::vec3( outMesh.BoneOffsets[boneIndex] * glm::vec4( positions[influence.mVertexId], 1.f ) );
+                outMesh.BoneRadii[boneIndex] = std::max( outMesh.BoneRadii[boneIndex], glm::length( local ) );
+            }
+        }
+    }
+    // Weights sum to one; unweighted vertices keep zero weights and stay rigid in the shader.
+    for( Moonlight::SkinWeightsVertex& vertex : weights )
+    {
+        const float total = vertex.Weights[0] + vertex.Weights[1] + vertex.Weights[2] + vertex.Weights[3];
+        if( total > 0.f )
+        {
+            for( float& weight : vertex.Weights )
+            {
+                weight /= total;
+            }
+        }
+    }
+    outMesh.InitSkin( weights );
 }
 
 
@@ -432,8 +465,18 @@ Moonlight::MeshData* ModelResource::ProcessMesh( aiMesh* mesh, Moonlight::Node& 
         }
     }
 
+    std::vector<glm::vec3> positions;
+    if( mesh->HasBones() )
+    {
+        positions.reserve( vertices.size() );
+        for( const Moonlight::PosNormTexTanBiVertex& vertex : vertices )
+        {
+            positions.push_back( vertex.Position.InternalVector );
+        }
+    }
     Moonlight::MeshData* output = new Moonlight::MeshData( vertices, indices, newMaterial );
     output->Name = std::string( mesh->mName.C_Str() );
+    ProcessSkin( mesh, *output, positions );
     return output;
 }
 
@@ -574,7 +617,7 @@ void ScaleSceneMeshes( const aiScene* scene, float scale )
 void ModelResourceMetadata::Export()
 {
     Assimp::Importer importer;
-    const aiScene* scene = importer.ReadFile( FilePath.FullPath.c_str(), aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_GenSmoothNormals | aiProcess_CalcTangentSpace | aiProcess_ConvertToLeftHanded );
+    const aiScene* scene = importer.ReadFile( FilePath.FullPath.c_str(), aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_GenSmoothNormals | aiProcess_CalcTangentSpace | aiProcess_LimitBoneWeights | aiProcess_ConvertToLeftHanded );
     if( !scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode )
     {
         std::cout << "ERROR::ASSIMP:: " << importer.GetErrorString() << std::endl;
