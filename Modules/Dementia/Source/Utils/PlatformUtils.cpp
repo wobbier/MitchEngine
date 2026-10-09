@@ -149,10 +149,26 @@ void PlatformUtils::ShowInFileManager( const Path& inFilePath )
 }
 
 
+namespace
+{
+    std::string& CodeEditorCommand()
+    {
+        static std::string command;
+        return command;
+    }
+}
+
+
+void PlatformUtils::SetCodeEditorCommand( const std::string& inCommand )
+{
+    CodeEditorCommand() = inCommand;
+}
+
+
 void PlatformUtils::OpenInCodeEditor( const std::string& inFile, int inLine )
 {
     const char* custom = std::getenv( "ME_CODE_EDITOR" );
-    std::string command = custom ? custom : "code -g \"{file}:{line}\"";
+    std::string command = !CodeEditorCommand().empty() ? CodeEditorCommand() : ( custom ? custom : "code -g \"{file}:{line}\"" );
     auto replace = [&command]( const std::string& token, const std::string& value ) {
         for( size_t at = command.find( token ); at != std::string::npos; at = command.find( token, at + value.size() ) )
         {

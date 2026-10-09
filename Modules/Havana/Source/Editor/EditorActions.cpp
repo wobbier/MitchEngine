@@ -16,6 +16,12 @@ EditorActions& EditorActions::Get()
 
 void EditorActions::Register( EditorAction InAction )
 {
+    InAction.DefaultShortcut = InAction.Shortcut;
+    auto overridden = m_overrides.find( InAction.Id );
+    if( overridden != m_overrides.end() )
+    {
+        InAction.Shortcut = overridden->second;
+    }
     auto existing = std::find_if( m_actions.begin(), m_actions.end(), [&InAction]( const EditorAction& action ) { return action.Id == InAction.Id; } );
     if( existing != m_actions.end() )
     {
@@ -23,6 +29,61 @@ void EditorActions::Register( EditorAction InAction )
         return;
     }
     m_actions.push_back( std::move( InAction ) );
+}
+
+
+void EditorActions::SetShortcut( const std::string& InId, ImGuiKeyChord InChord )
+{
+    m_overrides[InId] = InChord;
+    for( EditorAction& action : m_actions )
+    {
+        if( action.Id == InId )
+        {
+            action.Shortcut = InChord;
+        }
+    }
+}
+
+
+void EditorActions::ResetShortcut( const std::string& InId )
+{
+    m_overrides.erase( InId );
+    for( EditorAction& action : m_actions )
+    {
+        if( action.Id == InId )
+        {
+            action.Shortcut = action.DefaultShortcut;
+        }
+    }
+}
+
+
+void EditorActions::SetShortcutOverrides( const std::unordered_map<std::string, ImGuiKeyChord>& InOverrides )
+{
+    m_overrides = InOverrides;
+    for( EditorAction& action : m_actions )
+    {
+        auto overridden = m_overrides.find( action.Id );
+        action.Shortcut = overridden != m_overrides.end() ? overridden->second : action.DefaultShortcut;
+    }
+}
+
+
+const EditorAction* EditorActions::FindConflict( const std::string& InId, ImGuiKeyChord InChord ) const
+{
+    if( InChord == 0 )
+    {
+        return nullptr;
+    }
+    const ImGuiKeyChord resolved = ResolveChord( InChord );
+    for( const EditorAction& action : m_actions )
+    {
+        if( action.Id != InId && ( ResolveChord( action.Shortcut ) == resolved || ( action.AltShortcut && ResolveChord( action.AltShortcut ) == resolved ) ) )
+        {
+            return &action;
+        }
+    }
+    return nullptr;
 }
 
 
@@ -59,6 +120,10 @@ bool EditorActions::Execute( const std::string& InId )
 
 void EditorActions::ProcessShortcuts()
 {
+    if( ShortcutsSuspended )
+    {
+        return;
+    }
     const ImGuiIO& io = ImGui::GetIO();
     const bool gameFocused = IsGameFocused && IsGameFocused();
     const ImGuiKeyChord currentMods = io.KeyMods & ImGuiMod_Mask_;

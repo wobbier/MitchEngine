@@ -37,6 +37,7 @@
 #include <imgui.h>
 #include <Debug/DebugDrawer.h>
 #include <Debug/DebugDraw.h>
+#include "Engine/ProjectSettings.h"
 #include "Profiling/FrameStats.h"
 #include "Events/PlatformEvents.h"
 #include "Scripting/ScriptEngine.h"
@@ -135,6 +136,7 @@ void Engine::Init( Game* game )
         OPTICK_EVENT( "Engine::Init::LoadConfig" );
         engineConfig = EngineConfig( engineCfg );
         engineConfig.OnLoadConfig( engineConfig.Root );
+        ProjectSettings::Get().Load();
 
         m_automation.Init();
 
@@ -555,10 +557,10 @@ void Engine::Run()
 
     if( m_automation.IsActive() )
     {
-        // Unattended runs must not clobber the user's window config.
         m_automation.Shutdown();
     }
-    else
+    // Unattended runs must not clobber the user's window config.
+    if( !AutomationRunner::IsUnattendedRun() )
     {
         engineConfig.Save();
     }

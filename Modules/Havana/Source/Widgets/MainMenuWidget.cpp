@@ -144,6 +144,8 @@ void MainMenuWidget::Render()
             actions.MenuItem( "Edit.Deselect" );
             ImGui::Separator();
             actions.MenuItem( "View.CommandPalette" );
+            actions.MenuItem( "Edit.Preferences" );
+            actions.MenuItem( "Edit.ProjectSettings" );
             ImGui::EndMenu();
         }
 

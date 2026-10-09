@@ -133,8 +133,15 @@ public:
 		}
 	}
 
+	// Unattended runs (tests, scripts) read the user's settings but never write them.
+	bool ReadOnly = false;
+
 	void Save()
 	{
+		if (ReadOnly)
+		{
+			return;
+		}
 		Path configPath(kConfigPath);
 
 		json config;

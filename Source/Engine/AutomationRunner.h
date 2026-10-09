@@ -20,6 +20,10 @@ public:
 
     bool IsActive() const { return m_isActive; }
 
+    // True for any unattended run (frame-limited runs, captures, editor scripts, --transient).
+    // Such runs must not write the user's settings (Engine.cfg window state, editor prefs, layout).
+    static bool IsUnattendedRun();
+
     // Called once per frame after rendering. Returns true when the engine should quit.
     bool OnFrameEnd( BGFXRenderer& renderer, double frameMilliseconds );
 

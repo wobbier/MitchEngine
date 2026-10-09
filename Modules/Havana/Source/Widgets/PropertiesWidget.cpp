@@ -11,6 +11,7 @@
 #include "Editor/Selection.h"
 #include "Editor/ReflectionUI.h"
 #include "Editor/PrefabTools.h"
+#include "Engine/ProjectSettings.h"
 #include "Editor/UndoStack.h"
 #include "World/SceneSerializer.h"
 #include <Utils/HavanaUtils.h>
@@ -194,11 +195,12 @@ void PropertiesWidget::DrawEntityHeader(Entity& entity)
 	ImGui::SameLine();
 	ImGui::SetNextItemWidth(80.f);
 	int layer = entity.GetLayer();
-	if (ImGui::BeginCombo("##Layer", ("Layer " + std::to_string(layer)).c_str()))
+	const ProjectSettings& settings = ProjectSettings::Get();
+	if (ImGui::BeginCombo("##Layer", settings.GetLayerLabel(layer).c_str()))
 	{
-		for (int i = 0; i < 32; ++i)
+		for (int i = 0; i < ProjectSettings::kLayerCount; ++i)
 		{
-			if (ImGui::Selectable(("Layer " + std::to_string(i)).c_str(), i == layer))
+			if (ImGui::Selectable(settings.GetLayerLabel(i).c_str(), i == layer))
 			{
 				EditorOps::SetLayer(entity, static_cast<uint8_t>(i));
 			}

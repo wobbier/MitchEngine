@@ -31,6 +31,7 @@
 
 #include "Editor/EditorComponentInfoCache.h"
 #include "Editor/EditorOperations.h"
+#include "Engine/AutomationRunner.h"
 #include "Editor/Selection.h"
 #include "Editor/UndoStack.h"
 #include "World/SceneSerializer.h"
@@ -201,6 +202,7 @@ void EditorApp::OnInitialize()
     {
         {
             OPTICK_EVENT( "EditorConfig::Load" );
+            EditorConfig::GetInstance().ReadOnly = AutomationRunner::IsUnattendedRun();
             EditorConfig::GetInstance().Init();
             EditorConfig::GetInstance().Load();
         }

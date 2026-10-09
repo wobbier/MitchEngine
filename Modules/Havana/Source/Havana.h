@@ -23,6 +23,8 @@ class AssetPreviewWidget;
 class AssetBrowserWidget;
 class HistoryWidget;
 class ProfilerWidget;
+class PreferencesWidget;
+class ProjectSettingsWidget;
 
 #if USING( ME_EDITOR )
 
@@ -83,6 +85,8 @@ private:
 	SharedPtr<AssetBrowserWidget> AssetBrowser;
 	SharedPtr<HistoryWidget> History;
 	SharedPtr<ProfilerWidget> Profiler;
+	SharedPtr<PreferencesWidget> Preferences;
+	SharedPtr<ProjectSettingsWidget> ProjectSettingsView;
 
     std::vector<SharedPtr<HavanaWidget>> RegisteredWidgets;
     std::vector<SharedPtr<HavanaWidget>> CustomRegisteredWidgets;

@@ -41,9 +41,11 @@
 #include "Window/IWindow.h"
 #include "Widgets/HistoryWidget.h"
 #include "Widgets/ProfilerWidget.h"
+#include "Widgets/SettingsWidgets.h"
 #include "Editor/EditorActions.h"
 #include "Editor/DefaultEditorActions.h"
 #include "Editor/ReflectionUI.h"
+#include "Engine/AutomationRunner.h"
 #include <imgui_internal.h>
 #include <cstring>
 
@@ -119,6 +121,12 @@ Havana::Havana( Engine* GameEngine, EditorApp* app )
     Profiler.reset( new ProfilerWidget() );
     RegisteredWidgets.push_back( Profiler );
 
+    Preferences.reset( new PreferencesWidget() );
+    RegisteredWidgets.push_back( Preferences );
+
+    ProjectSettingsView.reset( new ProjectSettingsWidget() );
+    RegisteredWidgets.push_back( ProjectSettingsView );
+
     EditorActions& actions = EditorActions::Get();
     actions.IsContextActive = [this]( ActionContext context ) {
         return context != ActionContext::Scene || IsSceneContextFocused();
@@ -126,7 +134,11 @@ Havana::Havana( Engine* GameEngine, EditorApp* app )
     actions.IsGameFocused = [this]() {
         return m_app->IsGameRunning() && GetEngine().GetInput().IsCapturing();
     };
+    PreferencesWidget::ApplyStartupPreferences();
     RegisterDefaultEditorActions( *app );
+    actions.Register( { "Edit.Preferences", "Preferences...", "Edit", ImGuiMod_Shortcut | ImGuiKey_Comma, 0, [this]() { ShowWidget( "Preferences" ); } } );
+    actions.Register( { "Edit.ProjectSettings", "Project Settings...", "Edit", 0, 0, [this]() { ShowWidget( "Project Settings" ); } } );
+    actions.Register( { "View.Profiler", "Profiler", "View", 0, 0, [this]() { ShowWidget( "Profiler" ); } } );
     ReflectionUI::RegisterDefaultDrawers();
     actions.Register( { "View.AssetSearch", "Quick Asset Search", "View", ImGuiMod_Shortcut | ImGuiKey_Space, 0, [this]() { AssetBrowser->RequestOverlay( nullptr ); } } );
 
@@ -148,6 +160,12 @@ void Havana::InitUI()
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     //ImGui::LoadIniSettingsFromDisk(EngineConfigFilePath.FullPath.c_str());
     io.IniFilename = EngineConfigFilePath.FullPath.c_str();
+    if( AutomationRunner::IsUnattendedRun() )
+    {
+        // Use the user's dock layout without ever writing it back.
+        ImGui::LoadIniSettingsFromDisk( io.IniFilename );
+        io.IniFilename = nullptr;
+    }
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 #if !USING( ME_PLATFORM_LINUX )
     io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
@@ -344,6 +362,8 @@ void Havana::NewFrame()
     ResourceMonitor->Render();
     History->Render();
     Profiler->Render();
+    Preferences->Render();
+    ProjectSettingsView->Render();
     EditorActions::Get().DrawPalette();
 }
 

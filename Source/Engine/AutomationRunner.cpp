@@ -16,6 +16,13 @@ namespace
 }
 
 
+bool AutomationRunner::IsUnattendedRun()
+{
+    return CommandLine::Has( "--frames" ) || CommandLine::Has( "--screenshot" ) || CommandLine::Has( "--perf-report" )
+        || CommandLine::Has( "--trace" ) || CommandLine::Has( "--editor-exec" ) || CommandLine::Has( "--transient" );
+}
+
+
 void AutomationRunner::Init()
 {
     m_targetFrames = CommandLine::GetInt( "--frames", -1 );

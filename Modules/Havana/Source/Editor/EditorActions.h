@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <functional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #if USING( ME_EDITOR )
@@ -34,6 +35,8 @@ struct EditorAction
     bool AllowWhileGameFocused = false;
     // Hidden from the command palette (internal / automation-only actions).
     bool HideInPalette = false;
+    // The shortcut the action was registered with (before user rebinding).
+    ImGuiKeyChord DefaultShortcut = 0;
 };
 
 class EditorActions
@@ -42,6 +45,14 @@ public:
     static EditorActions& Get();
 
     void Register( EditorAction InAction );
+
+    // User rebinding. Overrides are applied to actions registered later too.
+    void SetShortcut( const std::string& InId, ImGuiKeyChord InChord );
+    void ResetShortcut( const std::string& InId );
+    void SetShortcutOverrides( const std::unordered_map<std::string, ImGuiKeyChord>& InOverrides );
+    const std::unordered_map<std::string, ImGuiKeyChord>& GetShortcutOverrides() const { return m_overrides; }
+    // Another action already using InChord (null if free).
+    const EditorAction* FindConflict( const std::string& InId, ImGuiKeyChord InChord ) const;
     const EditorAction* Find( const std::string& InId ) const;
     bool Execute( const std::string& InId );
     bool IsEnabled( const std::string& InId ) const;
@@ -52,6 +63,8 @@ public:
     // Editor state the shortcut filter needs (set by Havana).
     std::function<bool( ActionContext )> IsContextActive;
     std::function<bool()> IsGameFocused;
+    // Set while a shortcut is being captured for rebinding.
+    bool ShortcutsSuspended = false;
 
     void OpenPalette() { m_openPalette = true; }
     void DrawPalette();
@@ -68,6 +81,7 @@ public:
 
 private:
     std::vector<EditorAction> m_actions;
+    std::unordered_map<std::string, ImGuiKeyChord> m_overrides;
     bool m_openPalette = false;
     char m_paletteFilter[128] = {};
     int m_paletteSelection = 0;
