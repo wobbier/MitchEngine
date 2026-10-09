@@ -2,7 +2,7 @@
 
 Havana is the ImGui-based editor. `EditorApp` is itself a `Game` subclass (standard entry point in `Modules/Havana/Source/main.cpp`) that hosts dockable widgets around a small set of **editor services**: one `Selection`, an `UndoStack`, named `EditorActions` (menus, shortcuts, command palette, scripts) and `EditorOps`, the undoable operations every widget uses to change the scene. Play mode snapshots the scene in memory and restores it on Stop. `--editor-exec` drives all of it from a script for unattended testing.
 
-> Verified against engine commit 7e869c6e, 2026-10-09; Create menu, overlays and View menu rendering toggles against 1fa55311, 2026-10-09 (Wave 3); physics gizmos, menus and settings against bdfedae8, 2026-10-09 (Wave 4).
+> Verified against engine commit 7e869c6e, 2026-10-09; Create menu, overlays and View menu rendering toggles against 1fa55311, 2026-10-09 (Wave 3); physics gizmos, menus and settings against 8fdd99b1, 2026-10-09 (Wave 4).
 
 ## Overview
 
@@ -26,7 +26,7 @@ Editor builds are gated by `ME_EDITOR` (Sharpmake "Editor" targets, `Docs/Build-
 | `Modules/Havana/Source/Cores/EditorCore.*` | Owns the scene camera, queues overlays, saves scenes |
 | `Modules/Havana/Source/Widgets/` | `SceneViewWidget` (World/Game View), `SceneHierarchyWidget`, `PropertiesWidget`, `AssetBrowser`, `LogWidget`, `HistoryWidget`, `ProfilerWidget`, `SettingsWidgets` (Preferences, Project Settings), `MainMenuWidget`, `AssetPreviewWidget`, `ResourceMonitorWidget` |
 | `Modules/Havana/Source/Utils/EditorConfig.h` | Per-user state and preferences (`.tmp/Havana.cfg`) |
-| `Source/Engine/ProjectSettings.*` | Project settings (layer names) in `Assets/Config/ProjectSettings.json` |
+| `Source/Engine/ProjectSettings.*` | Project settings (layer names, layer collision matrix, gravity) in the project's `ProjectSettings.json` under `Assets/Config` |
 
 ## How It Works
 
@@ -93,13 +93,13 @@ New/Open/Quit (including closing the window) go through `RunWithUnsavedCheck`. I
 - **Gizmo** (upstream ImGuizmo): Move/Rotate/Scale/Universal, local/world, pivot/center, snapping with per-mode increments (toolbar toggle, Ctrl inverts while dragging). With several selected entities the gizmo drives a proxy matrix P, and every dragged root gets `W = P * P0^-1 * W0` through `Transform::SetWorldMatrix`, so parents and rotation are handled correctly. Physics bodies follow because `PhysicsCore` notices the moved Transforms and teleports their bodies.
 - **View cube** (top right) snaps the camera around its pivot.
 - **Camera** (`EditorCameraController`): RMB fly (WASD/QE/Space, wheel changes speed, Shift fast), Alt+LMB orbit, MMB pan, Alt+RMB dolly, wheel zoom toward the pivot (orthographic size in ortho). F frames the selection's bounds, or the whole scene when nothing is selected, fitting both FOV axes. The view persists in the editor config.
-- **Overlays** (`SceneTools`, drawn with `DebugDraw` as editor-only lines): a distance-faded grid at y = 0 whose spacing follows camera height, with X/Z axis lines; selection bounds (bright where visible, faint through geometry); camera frustums; light gizmos per type (directional arrow, point range sphere, spot cones); the selected particle system's emission shape; clickable camera/light/audio/particle icons; a stats overlay (fps, ms, GPU ms, draws, triangles, entities). Each can be toggled from the View menu. The View menu also switches shadows, the shadow-cascade tint and the physics debug draw on and off (actions `View.Shadows`, `View.ShadowCascades`, `View.Physics`). The selected entity's colliders (green, triggers blue), character capsule and joint anchors are drawn too (`SceneTools::DrawPhysicsGizmos`).
+- **Overlays** (`SceneTools`, drawn with `DebugDraw` as editor-only lines): a distance-faded grid at y = 0 whose spacing follows camera height, with X/Z axis lines; selection bounds (bright where visible, faint through geometry); camera frustums; light gizmos per type (directional arrow, point range sphere, spot cones); the selected particle system's emission shape; clickable camera/light/audio/particle icons; a stats overlay (fps, ms, GPU ms, draws, triangles, entities). Each can be toggled from the View menu. The View menu also switches shadows, the shadow-cascade tint and the physics debug draw on and off (actions `View.Shadows`, `View.ShadowCascades`, `View.Physics`). The selected entity's 3D and 2D colliders (green, triggers blue), character capsule and joint anchors are drawn too (`SceneTools::DrawPhysicsGizmos` / `DrawPhysics2DGizmos`).
 - **Marquee**: drag on empty space to box-select pickable entities (resolved to their pick roots), Shift/Ctrl add.
 - **Drops**: models and prefabs dropped on the view land on the surface under the cursor (oriented-bounds raycast), else on the ground plane.
 
 ### Hierarchy
 
-Multi-select (Ctrl toggles, Shift ranges), search with `t:Type` to filter by component, inline rename (F2 or double-click), drag onto a row to reparent or between rows to reorder (keeps world transforms, cycle-safe), an active toggle per row, prefab instances drawn blue and inactive rows dimmed. The Create menu (and Create Child) offers empty entities, 3D Objects (Cube, Plane, Sphere, Cylinder, Capsule; StandardMaterial, each with a fitting static collider), Physics (dynamic Cube/Sphere/Capsule, Trigger Volume, Character Controller), Camera, Light (Directional, Point, Spot), Effects (Fire, Smoke, Sparks particle presets) and Audio Source. Transform-less entities are listed under "Utility". Scene-view picks reveal and scroll to the picked row.
+Multi-select (Ctrl toggles, Shift ranges), search with `t:Type` to filter by component, inline rename (F2 or double-click), drag onto a row to reparent or between rows to reorder (keeps world transforms, cycle-safe), an active toggle per row, prefab instances drawn blue and inactive rows dimmed. The Create menu (and Create Child) offers empty entities, 3D Objects (Cube, Plane, Sphere, Cylinder, Capsule; StandardMaterial, each with a fitting static collider), Physics (dynamic Cube/Sphere/Capsule, Trigger Volume, Character Controller), Physics 2D (Dynamic Box/Circle, Static Platform, Trigger Area, Character Controller 2D; thin meshes as stand-ins), Camera, Light (Directional, Point, Spot), Effects (Fire, Smoke, Sparks particle presets) and Audio Source. Transform-less entities are listed under "Utility". Scene-view picks reveal and scroll to the picked row.
 
 ### Inspector
 
@@ -166,7 +166,7 @@ The script runs one command per frame after a short warm-up and logs `[editor-ex
 | `assert-exists/-missing Name`, `assert-selected N`, `assert-active Name`, `assert-parent Child | Parent`, `assert-children Name | N` | Scene structure |
 | `assert-field Name | Type.Field | <json>` (numbers within 1e-3; append `~ tolerance` to widen; `Type.Field.N` indexes arrays), `assert-dirty 0/1`, `assert-playing 0/1`, `assert-prefab Name | path/none`, `assert-overridden Name | Type.Field | 0/1` | State |
 
-`Assets/Scenes/Tests/EditorFlows.edscript` and `PrefabFlows.edscript` (run with `HierarchyTest.lvl`) and `PhysicsFlows.edscript` (run with `PhysicsTest.lvl`) in the game repository are the regression scripts.
+`Assets/Scenes/Tests/EditorFlows.edscript` and `PrefabFlows.edscript` (run with `HierarchyTest.lvl`) `PhysicsFlows.edscript` (run with `PhysicsTest.lvl`) and `Physics2DFlows.edscript` (run with `Physics2DTest.lvl`) in the game repository are the regression scripts.
 
 ## How to Extend
 

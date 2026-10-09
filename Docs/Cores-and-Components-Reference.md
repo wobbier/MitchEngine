@@ -2,7 +2,7 @@
 
 The catalog: every core (system) and component the engine ships, what each core filters on, when it updates, and which components are decorative or orphaned. The Audio (FMOD) deep-dive lives here; Physics, Rendering, UI, and Scripting have their own docs.
 
-> Verified against engine commit 047f57b8, 2026-07-10; the rendering rows (RenderCore, ParticleCore, Mesh, Light, PostProcess, ParticleSystem) against 1fa55311, 2026-10-09 (overhaul Wave 3); the physics rows against bdfedae8, 2026-10-09 (overhaul Wave 4).
+> Verified against engine commit 047f57b8, 2026-07-10; the rendering rows (RenderCore, ParticleCore, Mesh, Light, PostProcess, ParticleSystem) against 1fa55311, 2026-10-09 (overhaul Wave 3); the physics rows against 8fdd99b1, 2026-10-09 (overhaul Wave 4).
 
 ## Overview
 
@@ -19,6 +19,7 @@ Cores come in two flavors (see `Docs/Architecture.md`): **engine-owned** (create
 | `AudioCore` (`Source/Cores/AudioCore.h`) | `AudioSource` | engine-owned | FMOD playback + path-keyed sound cache |
 | `UICore` (`Source/Cores/UI/UICore.h`) | `BasicUIView` | engine-owned | Ultralight HTML views — see `Docs/UI-Ultralight-and-ImGui.md` |
 | `PhysicsCore` (`Source/Cores/PhysicsCore.h`) | `Transform` + one of (`Rigidbody`, a collider, `CharacterController`, `PhysicsJoint`) | engine-owned | Box3D world: fixed-step simulation (play mode), interpolated poses, edit-mode body sync, `CollisionEvent`s, queries, character mover — see `Docs/Physics.md`. Old scenes' `"PhysicsCore"` core entries resolve to it |
+| `Physics2DCore` (`Source/Cores/Physics2DCore.h`) | `Transform` + one of (`Rigidbody2D`, a 2D collider, `CharacterController2D`, `PhysicsJoint2D`) | engine-owned | The Box2D counterpart in the XY plane: same lifecycle, events (`Is2D`), layers and queries — see `Docs/Physics.md` |
 | `ScriptCore` (`Source/Cores/Scripting/ScriptCore.h`) | `ScriptComponent` | scene-loaded | .NET script lifecycle — see `Docs/Scripting-DotNet.md` |
 | `SelfDestructor` (`Source/Cores/Utility/SelfDestructCore.h`) | `SelfDestruct` | scene-loaded | Kills entities when their `Lifetime` expires (note the class name — not "SelfDestructCore") |
 | `FlyingCameraCore` (`Source/Cores/Cameras/FlyingCameraCore.h`) | `FlyingCamera` + `Camera` | scene-loaded/editor | WASD+mouse free-fly camera control |
@@ -28,7 +29,7 @@ Cores come in two flavors (see `Docs/Architecture.md`): **engine-owned** (create
 
 ```mermaid
 flowchart TD
-    A["World::Simulate<br/>(membership churn — ALWAYS runs, even edit mode)"] --> P["Fixed loop: FixedUpdateLoadedCores → Game::OnFixedUpdate → PhysicsCore::FixedUpdate<br/>then PhysicsCore::Update (interpolated poses / edit-mode sync)"]
+    A["World::Simulate<br/>(membership churn — ALWAYS runs, even edit mode)"] --> P["Fixed loop: FixedUpdateLoadedCores → Game::OnFixedUpdate → PhysicsCore / Physics2DCore FixedUpdate<br/>then their Update (interpolated poses / edit-mode sync)"]
     P --> B["UpdateLoadedCores<br/>ScriptCore · SelfDestructor · game cores<br/>(gated by World::Start — dormant in edit mode)"]
     B --> C["SceneNodes->Update → Game::OnUpdate"]
     C --> D["AudioThread->Update(dt) — nonstandard float overload"]
@@ -63,6 +64,10 @@ Physics (Box3D) has its own deep dive: `Docs/Physics.md`.
 | `BoxCollider` / `SphereCollider` / `CapsuleCollider` / `MeshCollider` | `Source/Components/Physics/Colliders.h` | Collision shapes (centre, trigger, friction, restitution, density); compound into an ancestor's `Rigidbody`, static on their own |
 | `PhysicsJoint` | `Source/Components/Physics/PhysicsJoint.h` | Fixed / hinge / ball-socket / slider / distance joint with limits, motor, spring, break force |
 | `CharacterController` | `Source/Components/Physics/CharacterController.h` | Upright capsule moved by the Box3D mover: walk, slopes, ground snap, jump, push |
+| `Rigidbody2D` | `Source/Components/Physics/Rigidbody2D.h` | 2D body in the XY plane: type, mass, damping, gravity scale, bullet, freeze rotation, interpolation; forces, velocities, `MoveTo`, `Teleport` |
+| `BoxCollider2D` / `CircleCollider2D` / `CapsuleCollider2D` / `PolygonCollider2D` / `EdgeCollider2D` | `Source/Components/Physics/Colliders2D.h` | 2D shapes (offset, trigger, friction, restitution, density); polygons up to 8 hull vertices, edges as two-sided segments |
+| `PhysicsJoint2D` | `Source/Components/Physics/PhysicsJoint2D.h` | Fixed / hinge / slider / distance / wheel joint with limits, motor, spring, break force |
+| `CharacterController2D` | `Source/Components/Physics/CharacterController2D.h` | Platformer capsule on the Box2D mover: run, slopes, ground snap, jump with coyote time, push |
 | `AudioSource` | `Source/Components/Audio/AudioSource.h` | FMOD channel wrapper: path, preload/loop flags, play/stop; also declares the `wav`/`mp3` metadata types |
 | `ScriptComponent` | `Source/Components/Scripting/ScriptComponent.h` | Script by type name + `m_dotnetHandle` (int) + saved-fields JSON |
 | `BasicUIView` | `Source/Components/UI/BasicUIView.h` | Ultralight HTML view + JS bridge |

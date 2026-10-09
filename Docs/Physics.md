@@ -1,13 +1,13 @@
 # Physics
 
-3D physics runs on **Box3D**, compiled from source as a C17 static library. The engine-owned `PhysicsCore` turns physics components into Box3D bodies, shapes and joints:
+Physics comes in two engine-owned cores, each built on a library compiled from source as a C17 static library:
 
-- **Bodies and shapes:** `Rigidbody`, the four collider types, `CharacterController`.
-- **Joints:** `PhysicsJoint`.
+- **3D:** `PhysicsCore` runs on **Box3D**. Its bodies and shapes come from `Rigidbody`, the four 3D collider types and `CharacterController`; its joints from `PhysicsJoint`.
+- **2D:** `Physics2DCore` runs on **Box2D v3.1** in the world XY plane. Its bodies and shapes come from `Rigidbody2D`, the five 2D collider types and `CharacterController2D`; its joints from `PhysicsJoint2D`.
 
-It steps the simulation at the fixed rate while the world is started, then interpolates the poses it writes to Transforms. Outside play mode, bodies follow their Transforms instead, so queries and gizmos stay in sync. Contacts and triggers are reported through `CollisionEvent`. Layers and a Project Settings collision matrix filter both collisions and queries. Box3D's solver work runs on the engine job system.
+Both cores step at the fixed rate while the world is started, then interpolate the poses they write to Transforms. Outside play mode, bodies follow their Transforms instead, so queries and gizmos stay in sync. Contacts and triggers are reported through `CollisionEvent`. Layers and a Project Settings collision matrix filter both collisions and queries. Solver work runs on the engine job system. Most of this doc describes the 3D core; [2D physics](#2d-physics-box2d) covers where the 2D core differs.
 
-> Verified against engine commit bdfedae8, 2026-10-09 (overhaul Wave 4).
+> Verified against engine commit 8fdd99b1, 2026-10-09 (overhaul Wave 4).
 
 ## Overview
 
@@ -28,7 +28,7 @@ Units are metres, kilograms and seconds. Angles on components are degrees; Box3D
 | Path | Role |
 |------|------|
 | `Source/Cores/PhysicsCore.h` / `.cpp` | The core: Box3D world, body / shape / joint sync, stepping, interpolation, events, queries, character mover, job bridge |
-| `Source/Components/Physics/Rigidbody.h` | Body settings and the runtime API (forces, velocities, `MoveTo`, `Teleport`, sleep) |
+| `Source/Components/Physics/Rigidbody.h` | Body settings and the runtime API (forces, velocities, `MoveTo`, `Teleport` (moves the Transform too), sleep) |
 | `Source/Components/Physics/Colliders.h` | `ColliderSettings` mixin (centre, trigger, friction, restitution, density) and the four collider components |
 | `Source/Components/Physics/CharacterController.h` | Capsule character settings and API (`SetMoveInput`, `Move`, `Jump`, `IsOnGround`) |
 | `Source/Components/Physics/PhysicsJoint.h` | Joint type, anchors, axis, limits, motor, spring, break force |
@@ -37,7 +37,10 @@ Units are metres, kilograms and seconds. Angles on components are degrees; Box3D
 | `Source/Physics/PhysicsDebugDraw.cpp` | `b3DebugDraw` callbacks routed to `DebugDraw` |
 | `Source/Engine/ProjectSettings.h` | Layer collision matrix and gravity (the project's `ProjectSettings.json` under `Assets/Config`) |
 | `ThirdParty/Box3D.sharpmake.cs` | Box3D build (C17; AVX2 off on Windows) |
-| `Tests/Source/PhysicsTests.cpp` | Behavioural tests |
+| `Source/Cores/Physics2DCore.h` / `.cpp` | The 2D core, the same structure on Box2D; its debug draw is built in |
+| `Source/Components/Physics/Rigidbody2D.h`, `Colliders2D.h`, `PhysicsJoint2D.h`, `CharacterController2D.h` | The 2D components |
+| `Source/Physics/Box2DUtils.h` / `Source/Physics/PhysicsHash.h` | Box2D conversions (XY plane, angle about Z) / hashing shared by both cores |
+| `Tests/Source/PhysicsTests.cpp` / `Tests/Source/Physics2DTests.cpp` | Behavioural tests |
 
 ## How It Works
 
@@ -139,7 +142,7 @@ The capsule is always upright and the Transform's rotation is left alone. The Tr
 
 `SyncJoints` creates joints from `PhysicsJoint` components:
 
-- **Bodies.** Body A is the joint entity's body; body B is `ConnectedBody`'s body, or a shared static ground body when `ConnectedBody` is empty.
+- **Bodies.** Body A is `ConnectedBody`'s body, or a shared static ground body when `ConnectedBody` is empty; body B is the joint entity's body. Box3D measures B relative to A, so a positive `MotorSpeed`, translation or limit describes the entity's own motion, right-handed about `Axis`.
 - **Joint frame.** Placed at `Anchor` and rotated so the joint's axis matches `Axis`, both in the entity's local space. Revolute (Hinge) joints turn about the frame's z axis; prismatic (Slider) joints slide along its x axis.
 - **Fixed, Hinge, BallSocket, Slider:** the bodies are joined where the anchor is when the joint is created.
 - **Distance:** joins `Anchor` to `ConnectedAnchor`, which is local to the connected body, or a world point for the ground. `Distance` = 0 keeps the distance at creation.
@@ -166,6 +169,27 @@ Joints have their own signature and are re-created when it changes.
 - **Mass:** with mass > 0 the collider comes with a `Rigidbody`; with mass 0 it stands alone as a static collider.
 - **Character:** a Bullet-era `CharacterController` (identified by its `JumpForce` key) becomes a default one.
 
+### 2D physics (Box2D)
+
+`Physics2DCore` sits next to `PhysicsCore` in the frame loop and runs the same pipeline: body ownership, shape and body signatures, fixed step plus interpolation, edit-mode sync, events and queries. Where it differs:
+
+- **The plane.** A body owns its Transform's X/Y position and its angle about world Z (`Box2DUtils::AngleOf`, the ZYX yaw). Poses are written with `WithAngle`, which turns the current rotation about world Z by the angle change. A world-Z pre-rotation adds exactly to that yaw, so the Transform's Z position and any X/Y tilt survive: a cylinder turned on its side rolls like a wheel.
+- **Shapes.** Shapes come from the entity's local XY plane, scaled by its X/Y world scale.
+  - `BoxCollider2D`: a rounded box (`EdgeRadius`).
+  - `CircleCollider2D`: `Radius` × the larger scale axis.
+  - `CapsuleCollider2D`: vertical or horizontal; it collapses to a circle when it's shorter than its diameter.
+  - `PolygonCollider2D`: the convex hull of `Points`, reduced to Box2D's 8-vertex limit by dropping the vertex that removes the least area (`Collider2DUtils::ConvexHull`).
+  - `EdgeCollider2D`: two-sided segments along `Points` (optionally `Loop`ed). They have no area.
+- **Joints** (`PhysicsJoint2D`). Fixed (weld), Hinge (revolute), Slider (prismatic), Distance and Wheel, with the same A = connected / B = entity convention.
+  - Wheel joints go on the wheel, connected to the chassis.
+  - Box2D v3.1 has no joint events, so `BreakJoints` compares `b2Joint_GetConstraintForce` / `Torque` against `BreakForce` after each step.
+- **`CharacterController2D`.** The same mover loop on `b2World_CollideMover` / `b2SolvePlanes` / `b2World_CastMover`, plus `CoyoteTime`: a jump still works for a moment after leaving a ledge. The input is a horizontal value in [-1, 1], and only gravity's Y applies.
+  - Box2D's mover queries take no filter callback. Each character therefore gets a unique high category bit (`m_selfBit`, bits 32-63), and its query uses that bit as its category.
+  - Every shape's mask carries all of those bits except its own character's, so a character's queries skip only its own capsule. The low 32 bits stay the layer matrix.
+- **Tasks.** Box2D asks for parallel-for ranges. `EnqueueTask` splits them across the job system, and the worker index Box2D expects is `Jobs::JobSystem::GetCurrentThreadIndex` (0 on the stepping thread).
+- **Queries.** `Raycast` / `RaycastAll` / `Linecast` / `CircleCast` / `OverlapCircle` / `OverlapBox` (with an angle) / `OverlapPoint`. `RaycastHit` positions take the hit entity's Z.
+- **Debug draw.** It shares `PhysicsCore::DebugDrawEnabled` and is drawn flat at z = 0.
+
 ## How to Extend
 
 - **React to collisions:** register an `EventReceiver` for `CollisionEvent::GetEventId()` and compare `A` / `B` against your entities. See `PhysicsTest::CollisionLog` in the tests.
@@ -190,7 +214,10 @@ Joints have their own signature and are re-created when it changes.
 - **Gravity:** edit mode resets the world's gravity to Project Settings every frame. `PhysicsCore::SetGravity` during play lasts until the next stop.
 - **Triangle mesh colliders on dynamic bodies silently become hulls.**
 - **Box3D is pre-1.0** (a pinned `ThirdParty/box3d` submodule commit). Its API is still moving, and an update may need `Box3DUtils` / `PhysicsCore` changes.
-- **2D physics:** Box2D v3.1 is built and linked (`ThirdParty/Box2D.sharpmake.cs`), but no core uses it yet.
+- **2D and 3D bodies live in separate worlds and never touch.** An entity with both a `Rigidbody` and a `Rigidbody2D` would have its pose written by both cores; don't mix them on one entity.
+- **2D debug drawing is flattened to z = 0**, regardless of the bodies' Transform Z.
+- **2D edge colliders have no area.** Two edges never collide, so they only work as static or kinematic level geometry.
+- **Up to 32 characters per 2D world get a unique self-filter bit.** The 33rd shares a bit with the first, and those two pass through each other's capsules.
 
 ## Related Docs
 
