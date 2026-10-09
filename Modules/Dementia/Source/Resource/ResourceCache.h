@@ -40,6 +40,9 @@ public:
 #endif
 
     void TryToDestroy( Resource* resource );
+    // Drops the cache's reference to a resource even while others still hold it (the next Get
+    // loads it afresh).
+    void Evict( const std::string& InFullPath );
 
     ResourceStack& GetResouceStack() const;
 
@@ -88,7 +91,9 @@ SharedPtr<T> ResourceCache::Get( const Path& InFilePath, Args&& ... args )
     SharedPtr<MetaBase> metaFile = LoadMetadata( InFilePath );
 
     bool compiledFileExists = true;
-    if( metaFile )
+    // Pass-through assets (wav, mp3, mat: the "compiled" twin has the source's own extension) have
+    // nothing to cook, so a missing twin doesn't force an export.
+    if( metaFile && metaFile->GetExtension2() != InFilePath.GetExtension() )
     {
         Path compiledAsset = Path( metaFile->FilePath.FullPath + "." + metaFile->GetExtension2() );
         compiledFileExists = compiledAsset.Exists;

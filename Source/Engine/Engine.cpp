@@ -221,7 +221,9 @@ void Engine::Init( Game* game )
         Physics = new PhysicsCore();
         Physics2D = new Physics2DCore();
         Animation = new AnimationCore();
-        AudioThread = new AudioCore();
+        // Automated runs (captures, editor scripts) and --no-audio never play through the speakers.
+        const bool silentAudio = CommandLine::Has( "--no-audio" ) || ( AutomationRunner::IsUnattendedRun() && !CommandLine::Has( "--audio" ) );
+        AudioThread = new AudioCore( silentAudio ? AudioOutput::Silent : AudioOutput::Device );
         UI = new UICore( GameWindow, NewRenderer );
     }
 
@@ -362,8 +364,6 @@ void Engine::Run()
 #endif
 
         {
-            const float deltaTime = scaledSeconds;
-
 #if USING( ME_IMGUI )
             {
 #if USING( ME_EDITOR )
@@ -467,17 +467,17 @@ void Engine::Run()
                 GameWorld->Simulate();
             }
 
-            // Update Audio
-            {
-
-                AudioThread->Update( deltaTime );
-            }
-
             // Animation (after gameplay set its parameters, before render prep skins meshes)
             {
                 ME_FRAMEPROFILE_SCOPED( "Animation", ProfileCategory::Game );
                 ME_STAT_SCOPE( "Animation" );
                 Animation->Update( updateContext );
+            }
+
+            // Audio (after gameplay and animation moved this frame's listener and sources)
+            {
+                ME_STAT_SCOPE( "Audio" );
+                AudioThread->Update( updateContext );
             }
 
             // Particles (simulated before render prep so this frame's particles draw)
@@ -648,6 +648,10 @@ void Engine::Shutdown()
     {
         GameWorld->Stop();
         GameWorld->Destroy();
+    }
+    if( AudioThread )
+    {
+        AudioThread->Shutdown();
     }
 
     Jobs::JobSystem::Get().Shutdown();

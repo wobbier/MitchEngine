@@ -2,6 +2,7 @@
 #include "Editor/EditorActions.h"
 #include "Engine/Engine.h"
 #include "Engine/ProjectSettings.h"
+#include "Cores/AudioCore.h"
 #include "Cores/EditorCore.h"
 #include "EditorApp.h"
 #include <Utils/EditorConfig.h>
@@ -413,6 +414,28 @@ void ProjectSettingsWidget::Render()
 			}
 			ImGui::EndTable();
 			if (changed)
+			{
+				settings.Save();
+			}
+		}
+	}
+
+	if (ImGui::CollapsingHeader("Audio", ImGuiTreeNodeFlags_DefaultOpen))
+	{
+		// Bus volumes apply live and are saved when a slider is released.
+		ProjectSettings& settings = ProjectSettings::Get();
+		AudioCore* audio = AudioCore::Get();
+		if (audio && audio->IsSilent())
+		{
+			ImGui::TextDisabled("No audio device: mixing silently");
+		}
+		for (int bus = 0; bus < ProjectSettings::kAudioBusCount; ++bus)
+		{
+			if (ImGui::SliderFloat(AudioBusName(static_cast<AudioBus>(bus)), &settings.BusVolumes[bus], 0.f, 1.f, "%.2f") && audio)
+			{
+				audio->SetBusVolume(static_cast<AudioBus>(bus), settings.BusVolumes[bus]);
+			}
+			if (ImGui::IsItemDeactivatedAfterEdit())
 			{
 				settings.Save();
 			}

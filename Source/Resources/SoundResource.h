@@ -61,6 +61,9 @@ public:
     ~Sound();
 
     bool IsReady() const;
+    // Frees the FMOD sound now (before its system is released); the resource is empty afterwards.
+    void Release();
 
     FMOD::Sound* Handle = nullptr;
+    FMOD::System* System = nullptr;
 };

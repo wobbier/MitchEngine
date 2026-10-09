@@ -68,6 +68,17 @@ void ProjectSettings::Load()
     {
         Gravity = Vector3( root["Gravity"][0].get<float>(), root["Gravity"][1].get<float>(), root["Gravity"][2].get<float>() );
     }
+    if( root.contains( "AudioBusVolumes" ) && root["AudioBusVolumes"].is_array() )
+    {
+        const json& volumes = root["AudioBusVolumes"];
+        for( size_t i = 0; i < volumes.size() && i < BusVolumes.size(); ++i )
+        {
+            if( volumes[i].is_number() )
+            {
+                BusVolumes[i] = volumes[i].get<float>();
+            }
+        }
+    }
 }
 
 
@@ -85,6 +96,7 @@ void ProjectSettings::Save() const
         root["LayerCollision"].push_back( mask );
     }
     root["Gravity"] = { Gravity.x, Gravity.y, Gravity.z };
+    root["AudioBusVolumes"] = BusVolumes;
     File file{ Path( kSettingsPath ) };
     file.Write( root.dump( 4 ) );
 }

@@ -12,6 +12,7 @@
 #include "Havana.h"
 #include "Widgets/AssetBrowser.h"
 #include "Widgets/SceneViewWidget.h"
+#include "Components/Audio/AudioSource.h"
 #include "Components/Transform.h"
 #include "Core/CommandLine.h"
 #include "Cores/SceneCore.h"
@@ -560,6 +561,18 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
         if( !transform || transform->GetChildren().size() != expected )
         {
             Fail( name + " child count " + ( transform ? std::to_string( transform->GetChildren().size() ) : std::string( "<missing>" ) ) + " != " + countText );
+        }
+    }
+    else if( command == "assert-audio" )
+    {
+        // assert-audio Name | 1   (the entity's AudioSource voice is playing: 1, or not: 0)
+        auto [name, expectedText] = SplitArgs( args );
+        EntityHandle entity = FindEntity( name );
+        AudioSource* source = entity ? entity->TryGetComponent<AudioSource>() : nullptr;
+        const bool expected = std::atoi( expectedText.c_str() ) != 0;
+        if( !source || source->IsPlaying() != expected )
+        {
+            Fail( name + " audio " + ( source ? ( source->IsPlaying() ? "playing" : "stopped" ) : std::string( "<no AudioSource>" ) ) + ", expected " + ( expected ? "playing" : "stopped" ) );
         }
     }
     else if( command == "assert-field" )

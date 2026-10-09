@@ -10,9 +10,11 @@ Sound::Sound( const Path& path, void* fmodSystem, SoundFlags inFlags )
 {
 #if USING( ME_FMOD )
     FMOD::System* system = static_cast<FMOD::System*>( fmodSystem );
+    System = system;
     if( !system )
     {
         YIKES( "FMOD System is not enabled." );
+        return;
     }
 
     if( system->createSound( path.FullPath.c_str(), inFlags, nullptr, &Handle ) != FMOD_OK )
@@ -29,9 +31,11 @@ Sound::Sound( const char* url, void* fmodSystem /*= nullptr */ )
 {
 #if USING( ME_FMOD )
     FMOD::System* system = static_cast<FMOD::System*>( fmodSystem );
+    System = system;
     if( !system )
     {
         YIKES( "FMOD System is not enabled." );
+        return;
     }
 
     FMOD_CREATESOUNDEXINFO exinfo;
@@ -49,6 +53,12 @@ Sound::Sound( const char* url, void* fmodSystem /*= nullptr */ )
 
 Sound::~Sound()
 {
+    Release();
+}
+
+
+void Sound::Release()
+{
 #if USING( ME_FMOD )
     if( Handle )
     {
@@ -62,6 +72,10 @@ Sound::~Sound()
 bool Sound::IsReady() const
 {
 #if USING( ME_FMOD )
+    if( !Handle )
+    {
+        return false;
+    }
     FMOD_OPENSTATE openstate;
     unsigned int    percent = 0;
     bool            starving = false;

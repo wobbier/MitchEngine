@@ -4,6 +4,7 @@
 
 #include "EditorOperations.h"
 #include "Selection.h"
+#include "Components/Audio/AudioSource.h"
 #include "Components/Camera.h"
 #include "Components/Graphics/Mesh.h"
 #include "Components/Lighting/Light.h"
@@ -313,6 +314,14 @@ namespace SceneTools
                 {
                     DrawPhysicsGizmos( entity, *transform );
                     DrawPhysics2DGizmos( entity, *transform );
+                }
+                AudioSource* audio = entity.TryGetComponent<AudioSource>();
+                if( audio && selected && audio->SpatialBlend > 0.f )
+                {
+                    // Full volume inside the inner sphere; the outer one is where rolloff ends.
+                    const Vector3 position = transform->GetWorldPosition();
+                    DebugDraw::Sphere( position, std::max( audio->MinDistance, 0.01f ), Vector4( 0.45f, 0.8f, 1.f, 0.9f ), 0.f, DebugDraw::EditorOnly, 24 );
+                    DebugDraw::Sphere( position, std::max( audio->MaxDistance, audio->MinDistance ), Vector4( 0.45f, 0.8f, 1.f, 0.35f ), 0.f, DebugDraw::EditorOnly, 32 );
                 }
                 ParticleSystem* particles = entity.TryGetComponent<ParticleSystem>();
                 if( particles && selected )

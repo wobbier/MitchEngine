@@ -105,6 +105,22 @@ void ResourceCache::TryToDestroy( Resource* resource )
     }
 }
 
+void ResourceCache::Evict( const std::string& InFullPath )
+{
+    std::lock_guard<std::recursive_mutex> lock( m_mutex );
+    auto entry = m_resourceStack.find( InFullPath );
+    if( entry != m_resourceStack.end() )
+    {
+        if( entry->second )
+        {
+            entry->second->Resources = nullptr;
+        }
+        m_resourceStack.erase( entry );
+    }
+    m_unreferencedSince.erase( InFullPath );
+}
+
+
 ResourceStack& ResourceCache::GetResouceStack() const
 {
     // Callers iterate on the main thread; loads from other threads take the lock.

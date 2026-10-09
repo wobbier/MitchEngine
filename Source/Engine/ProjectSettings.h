@@ -5,7 +5,8 @@
 #include <string>
 
 // Project-wide settings stored in Assets/Config/ProjectSettings.json (timing lives in Engine.cfg):
-// the names of the 32 entity layers, which layers collide with which, and gravity.
+// the names of the 32 entity layers, which layers collide with which, gravity and the audio bus
+// volumes.
 class ProjectSettings
 {
 public:
@@ -28,6 +29,9 @@ public:
     void SetLayersCollide( int InLayerA, int InLayerB, bool InCollide );
 
     Vector3 Gravity = Vector3( 0.f, -9.81f, 0.f );
+    // Per AudioBus (Master, Music, SFX, UI, Voice), 0..1.
+    static constexpr int kAudioBusCount = 5;
+    std::array<float, kAudioBusCount> BusVolumes = { 1.f, 1.f, 1.f, 1.f, 1.f };
 
 private:
     ProjectSettings();
