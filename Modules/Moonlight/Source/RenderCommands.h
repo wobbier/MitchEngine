@@ -3,6 +3,7 @@
 #include "Math/Vector3.h"
 #include "Math/Vector2.h"
 #include "Math/Matrix4.h"
+#include "Math/Bounds.h"
 #include <string>
 #include <cstdint>
 #include "Pointers.h"
@@ -71,6 +72,10 @@ namespace Moonlight
         bool IsTransparent = false;
         bool SupportsInstancing = false;
         bool CastShadows = true;
+        // Shadow passes: casters are culled per cascade / spot light by their world bounds, and
+        // alpha-tested materials discard in the depth pass too.
+        float AlphaCutoff = 0.f;
+        AABB WorldBounds;
     };
 
     enum class LightType : uint8_t
@@ -91,7 +96,10 @@ namespace Moonlight
         float CosInner = 0.9f;
         float CosOuter = 0.8f;
         bool CastShadows = false;
-        float ShadowBias = 0.0005f;
-        float ShadowNormalBias = 0.02f;
+        // Biases are in shadow texels, so they hold across cascade sizes and spot distances.
+        float ShadowBias = 0.5f;          // receiver pushed towards the light
+        float ShadowNormalBias = 2.5f;    // receiver pushed along its normal (scaled by the slope)
+        float ShadowDistance = 80.f;      // directional: cascades cover the view out to here
+        float OuterConeAngle = 30.f;      // spot: degrees, for the shadow projection
     };
 }

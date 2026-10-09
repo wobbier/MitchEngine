@@ -36,6 +36,9 @@ public:
 
     Moonlight::MeshType GetType() const;
 
+    // Renders into shadow maps (directional cascades and spot lights).
+    bool CastShadows = true;
+
     virtual void OnSerialize( json& outJson ) final;
     virtual void OnDeserialize( const json& inJson ) final;
 private:

@@ -27,8 +27,12 @@ public:
     float InnerConeAngle = 20.f;
     float OuterConeAngle = 30.f;
     bool CastShadows = false;
-    float ShadowBias = 0.0005f;
-    float ShadowNormalBias = 0.02f;
+    // In shadow-map texels: depth bias pushes receivers towards the light, normal bias along their
+    // surface normal. Raise them for acne, lower them for detached ("peter panning") shadows.
+    float ShadowBias = 0.5f;
+    float ShadowNormalBias = 2.5f;
+    // Directional lights: shadows cover the view out to this distance (split over 4 cascades).
+    float ShadowDistance = 80.f;
 
 private:
     void OnDeserialize( const json& inJson ) override;

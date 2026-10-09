@@ -13,9 +13,10 @@ ME_REFLECT_BEGIN( Light )
     ME_FIELD( Range ).Range( 0.01f, 1000.f ).Tooltip( "Point/spot: distance where the light fades out" );
     ME_FIELD( InnerConeAngle ).Range( 0.f, 89.f ).Tooltip( "Spot: full intensity inside this half-angle (degrees)" );
     ME_FIELD( OuterConeAngle ).Range( 0.f, 89.f ).Tooltip( "Spot: no light outside this half-angle (degrees)" );
-    ME_FIELD( CastShadows );
-    ME_FIELD( ShadowBias ).Range( 0.f, 0.01f ).Speed( 0.0001f );
-    ME_FIELD( ShadowNormalBias ).Range( 0.f, 0.5f ).Speed( 0.001f );
+    ME_FIELD( CastShadows ).Category( "Shadows" );
+    ME_FIELD( ShadowBias ).Category( "Shadows" ).Range( 0.f, 5.f ).Speed( 0.01f ).Tooltip( "Shadow texels the receiver is pushed towards the light (fixes acne)" );
+    ME_FIELD( ShadowNormalBias ).Category( "Shadows" ).Range( 0.f, 5.f ).Speed( 0.01f ).Tooltip( "Shadow texels the receiver is pushed along its normal (fixes acne on slopes)" );
+    ME_FIELD( ShadowDistance ).Category( "Shadows" ).Range( 1.f, 1000.f ).Tooltip( "Directional: how far from the camera shadows reach" );
 ME_REFLECT_END()
 
 
@@ -59,5 +60,7 @@ Moonlight::LightCommand Light::BuildCommand( const Transform& InTransform ) cons
     command.CastShadows = CastShadows;
     command.ShadowBias = ShadowBias;
     command.ShadowNormalBias = ShadowNormalBias;
+    command.ShadowDistance = std::max( ShadowDistance, 1.f );
+    command.OuterConeAngle = outer;
     return command;
 }

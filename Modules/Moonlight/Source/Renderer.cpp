@@ -27,6 +27,8 @@
 #include "RenderPasses/PickingPass.h"
 #include "RenderPasses/PostProcess.h"
 #include "Lighting/ClusterBuilder.h"
+#include "Lighting/ShadowCascades.h"
+#include <glm/gtc/matrix_transform.hpp>
 #include "Primitives/Primitives.h"
 #include "Profiling/FrameStats.h"
 
@@ -206,9 +208,9 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
 
         // Lighting resources (see PrepareFrameLighting / PrepareCameraLighting).
         m_clusterBuilder = MakeUnique<Moonlight::ClusterBuilder>();
-        m_lightDataTexture = bgfx::createTexture2D( 1024, 1, false, 1, bgfx::TextureFormat::RGBA32F, BGFX_SAMPLER_POINT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP );
+        m_lightDataTexture = bgfx::createTexture2D( 2048, 1, false, 1, bgfx::TextureFormat::RGBA32F, BGFX_SAMPLER_POINT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP );
         bgfx::setName( m_lightDataTexture, "Light Data" );
-        m_lightData.assign( 1024 * 4, 0.f );
+        m_lightData.assign( 2048 * 4, 0.f );
         u_lightParams = bgfx::createUniform( "u_lightParams", bgfx::UniformType::Vec4 );
         u_dirLightDirection = bgfx::createUniform( "u_dirLightDirection", bgfx::UniformType::Vec4, 4 );
         u_dirLightColor = bgfx::createUniform( "u_dirLightColor", bgfx::UniformType::Vec4, 4 );
@@ -222,6 +224,26 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
         s_texMetallicRoughness = bgfx::createUniform( "s_texMetallicRoughness", bgfx::UniformType::Sampler );
         s_texEmissive = bgfx::createUniform( "s_texEmissive", bgfx::UniformType::Sampler );
         s_texOcclusion = bgfx::createUniform( "s_texOcclusion", bgfx::UniformType::Sampler );
+
+        // Shadows (see RenderSunShadows / RenderSpotShadows).
+        u_shadowMatrix = bgfx::createUniform( "u_shadowMatrix", bgfx::UniformType::Mat4, 4 );
+        u_cascadeSplits = bgfx::createUniform( "u_cascadeSplits", bgfx::UniformType::Vec4 );
+        u_cascadeTexel = bgfx::createUniform( "u_cascadeTexel", bgfx::UniformType::Vec4 );
+        u_shadowParams = bgfx::createUniform( "u_shadowParams", bgfx::UniformType::Vec4 );
+        u_spotShadowMatrix = bgfx::createUniform( "u_spotShadowMatrix", bgfx::UniformType::Mat4, 4 );
+        u_spotShadowParams = bgfx::createUniform( "u_spotShadowParams", bgfx::UniformType::Vec4 );
+        u_shadowAlpha = bgfx::createUniform( "u_shadowAlpha", bgfx::UniformType::Vec4 );
+        s_shadowMap = bgfx::createUniform( "s_shadowMap", bgfx::UniformType::Sampler );
+        s_spotShadowMap = bgfx::createUniform( "s_spotShadowMap", bgfx::UniformType::Sampler );
+        m_shadowProgram = Moonlight::LoadProgram( "Assets/Shaders/ShadowDepth.vert", "Assets/Shaders/ShadowDepth.frag" );
+        m_shadowsSupported = ( bgfx::getCaps()->supported & BGFX_CAPS_TEXTURE_COMPARE_LEQUAL ) != 0 && bgfx::isValid( m_shadowProgram );
+        if( !m_shadowsSupported )
+        {
+            YIKES( "Shadows disabled: the renderer has no depth compare samplers or the shadow shader failed to load." );
+        }
+        // The lighting shader always declares the shadow samplers, so the atlases always exist.
+        EnsureShadowAtlas( m_sunShadowAtlas, Shadows.CascadeResolution, "Sun Shadow Atlas" );
+        EnsureShadowAtlas( m_spotShadowAtlas, Shadows.SpotResolution, "Spot Shadow Atlas" );
     }
     s_time = bgfx::createUniform( "u_time", bgfx::UniformFreq::Frame, bgfx::UniformType::Vec4 );
     TransparentIndicies.reserve( kMeshTransparencyTempSize );
@@ -265,7 +287,15 @@ void BGFXRenderer::Destroy()
 
     const bgfx::UniformHandle uniforms[] = { s_texDiffuse, s_texNormal, s_texAlpha, s_texUI, s_ambient, s_sunDirection, s_sunDiffuse, s_time,
         u_lightParams, u_dirLightDirection, u_dirLightColor, u_clusterParams, u_clusterGrid, u_ambientSky, u_ambientGround,
-        s_lightData, s_clusterGrid, s_clusterIndices, s_texMetallicRoughness, s_texEmissive, s_texOcclusion };
+        s_lightData, s_clusterGrid, s_clusterIndices, s_texMetallicRoughness, s_texEmissive, s_texOcclusion,
+        u_shadowMatrix, u_cascadeSplits, u_cascadeTexel, u_shadowParams, u_spotShadowMatrix, u_spotShadowParams, u_shadowAlpha, s_shadowMap, s_spotShadowMap };
+    DestroyShadowAtlas( m_sunShadowAtlas );
+    DestroyShadowAtlas( m_spotShadowAtlas );
+    if( bgfx::isValid( m_shadowProgram ) )
+    {
+        bgfx::destroy( m_shadowProgram );
+        m_shadowProgram = BGFX_INVALID_HANDLE;
+    }
     if( bgfx::isValid( m_lightDataTexture ) )
     {
         bgfx::destroy( m_lightDataTexture );
@@ -472,6 +502,14 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     }
 
     PrepareCameraLighting( camera );
+    if( Shadows.Enabled && m_shadowsSupported )
+    {
+        RenderSunShadows( camera );
+    }
+    else
+    {
+        m_lighting.ShadowParams[3] = 0.f;
+    }
 
     const char* label = camera.IsEditorView ? "Editor" : ( camera.IsMain ? "Main" : "Camera" );
     char viewName[64];
@@ -756,20 +794,23 @@ void BGFXRenderer::SubmitDebugLines( const Moonlight::CameraData& camera, bgfx::
 void BGFXRenderer::PrepareFrameLighting()
 {
     OPTICK_EVENT( "Renderer::PrepareFrameLighting" );
+    const bool shadowsOn = Shadows.Enabled && m_shadowsSupported;
+    if( shadowsOn )
+    {
+        EnsureShadowAtlas( m_sunShadowAtlas, Shadows.CascadeResolution, "Sun Shadow Atlas" );
+        EnsureShadowAtlas( m_spotShadowAtlas, Shadows.SpotResolution, "Spot Shadow Atlas" );
+    }
+
+    // Directional lights go to uniforms; the first shadow caster takes slot 0 (the "sun").
+    std::vector<const Moonlight::LightCommand*> directional;
     m_localLights.clear();
-    int directionalCount = 0;
     for( const Moonlight::LightCommand& light : m_lights )
     {
         if( light.Type == Moonlight::LightType::Directional )
         {
-            if( directionalCount < 4 )
+            if( directional.size() < 4 )
             {
-                float* direction = m_lighting.DirectionalDirection[directionalCount];
-                float* color = m_lighting.DirectionalColor[directionalCount];
-                const Vector3 dir = light.Direction.Normalized();
-                direction[0] = dir.x; direction[1] = dir.y; direction[2] = dir.z; direction[3] = light.CastShadows ? 1.f : 0.f;
-                color[0] = light.Color.x; color[1] = light.Color.y; color[2] = light.Color.z; color[3] = 0.f;
-                ++directionalCount;
+                directional.push_back( &light );
             }
         }
         else if( m_localLights.size() < 256 )
@@ -777,8 +818,31 @@ void BGFXRenderer::PrepareFrameLighting()
             m_localLights.push_back( light );
         }
     }
+    auto sun = std::find_if( directional.begin(), directional.end(), []( const Moonlight::LightCommand* light ) { return light->CastShadows; } );
+    if( sun != directional.end() )
+    {
+        std::iter_swap( directional.begin(), sun );
+    }
 
-    // Scenes without a directional light are lit by the procedural sky's sun.
+    m_hasSunShadow = false;
+    for( size_t i = 0; i < directional.size(); ++i )
+    {
+        const Moonlight::LightCommand& light = *directional[i];
+        float* direction = m_lighting.DirectionalDirection[i];
+        float* color = m_lighting.DirectionalColor[i];
+        const Vector3 dir = light.Direction.Normalized();
+        const bool shadowed = i == 0 && light.CastShadows && shadowsOn;
+        direction[0] = dir.x; direction[1] = dir.y; direction[2] = dir.z; direction[3] = shadowed ? 1.f : 0.f;
+        color[0] = light.Color.x; color[1] = light.Color.y; color[2] = light.Color.z; color[3] = 0.f;
+        if( shadowed )
+        {
+            m_hasSunShadow = true;
+            m_sunShadowLight = light;
+        }
+    }
+    int directionalCount = static_cast<int>( directional.size() );
+
+    // Scenes without a directional light are lit (and shadowed) by the procedural sky's sun.
     if( directionalCount == 0 && m_dynamicSky )
     {
         const bx::Vec3& sunDir = m_dynamicSky->m_sun.m_sunDir;
@@ -788,33 +852,83 @@ void BGFXRenderer::PrepareFrameLighting()
         const float intensity = 3.f * elevation;
         float* direction = m_lighting.DirectionalDirection[0];
         float* color = m_lighting.DirectionalColor[0];
-        direction[0] = -sunDir.x; direction[1] = -sunDir.y; direction[2] = -sunDir.z; direction[3] = 1.f;
+        direction[0] = -sunDir.x; direction[1] = -sunDir.y; direction[2] = -sunDir.z; direction[3] = shadowsOn ? 1.f : 0.f;
         color[0] = sunRgb.x / peak * intensity; color[1] = sunRgb.y / peak * intensity; color[2] = sunRgb.z / peak * intensity;
         directionalCount = 1;
+        if( shadowsOn && elevation > 0.f )
+        {
+            m_hasSunShadow = true;
+            m_sunShadowLight = Moonlight::LightCommand();
+            m_sunShadowLight.Type = Moonlight::LightType::Directional;
+            m_sunShadowLight.Direction = Vector3( -sunDir.x, -sunDir.y, -sunDir.z );
+            m_sunShadowLight.CastShadows = true;
+        }
+        else
+        {
+            direction[3] = 0.f;
+        }
     }
 
     m_lighting.Params[0] = static_cast<float>( directionalCount );
     m_lighting.Params[1] = static_cast<float>( m_localLights.size() );
     m_lighting.Params[2] = 1.f;
 
-    // Light data: 4 RGBA32F texels per point/spot light.
+    // Bounds of everything that casts shadows: cascades extend towards the light to include them.
+    m_casterBounds = AABB();
+    if( m_hasSunShadow )
+    {
+        for( const Moonlight::MeshCommand& mesh : m_meshCache.Commands )
+        {
+            if( mesh.MeshMaterial && mesh.CastShadows && !mesh.IsTransparent )
+            {
+                m_casterBounds.Encapsulate( mesh.WorldBounds );
+            }
+        }
+    }
+
+    // Spot shadows: the first four shadowed spots get an atlas tile each.
+    m_spotShadows.clear();
+    const bgfx::Caps* caps = bgfx::getCaps();
+    const float spotTexelScaleBase = 2.f / std::max<float>( Shadows.SpotResolution, 1.f );
+
+    // Light data: 5 RGBA32F texels per point/spot light.
     if( !m_localLights.empty() && bgfx::isValid( m_lightDataTexture ) )
     {
         for( size_t i = 0; i < m_localLights.size(); ++i )
         {
             const Moonlight::LightCommand& light = m_localLights[i];
-            float* texel = &m_lightData[i * 16];
             const Vector3 dir = light.Direction.Normalized();
-            const float values[16] = {
+            float shadowSlot = -1.f;
+            float texelScale = 0.f;
+            if( shadowsOn && light.Type == Moonlight::LightType::Spot && light.CastShadows && m_spotShadows.size() < 4 )
+            {
+                // A little wider than the cone so PCF at the rim stays inside the projection.
+                const float fov = std::min( light.OuterConeAngle * 2.f + 4.f, 170.f );
+                SpotShadow shadow;
+                const glm::vec3 position = light.Position.InternalVector;
+                const glm::vec3 forward = glm::normalize( dir.InternalVector );
+                const glm::vec3 up = std::abs( forward.y ) > 0.99f ? glm::vec3( 0.f, 0.f, 1.f ) : glm::vec3( 0.f, 1.f, 0.f );
+                shadow.View = glm::lookAtLH( position, position + forward, up );
+                bx::mtxProj( &shadow.Projection[0][0], fov, 1.f, 0.05f, std::max( light.Range, 0.1f ), caps->homogeneousDepth );
+                shadowSlot = static_cast<float>( m_spotShadows.size() );
+                texelScale = std::tan( glm::radians( fov ) * 0.5f ) * spotTexelScaleBase;
+                m_lighting.SpotShadowMatrix[m_spotShadows.size()] = ShadowAtlasMatrix( static_cast<uint32_t>( m_spotShadows.size() ), shadow.Projection * shadow.View );
+                m_spotShadows.push_back( shadow );
+            }
+            const float values[20] = {
                 light.Position.x, light.Position.y, light.Position.z, light.Range,
                 light.Color.x, light.Color.y, light.Color.z, light.Type == Moonlight::LightType::Spot ? 2.f : 1.f,
                 dir.x, dir.y, dir.z, light.CosOuter,
-                light.CosInner, 0.f, 0.f, 0.f };
-            std::memcpy( texel, values, sizeof( values ) );
+                light.CosInner, 0.f, 0.f, 0.f,
+                shadowSlot, texelScale, light.ShadowBias, light.ShadowNormalBias };
+            std::memcpy( &m_lightData[i * 20], values, sizeof( values ) );
         }
-        const uint16_t width = static_cast<uint16_t>( m_localLights.size() * 4 );
+        const uint16_t width = static_cast<uint16_t>( m_localLights.size() * 5 );
         bgfx::updateTexture2D( m_lightDataTexture, 0, 0, 0, 0, width, 1, bgfx::copy( m_lightData.data(), width * 4 * sizeof( float ) ) );
     }
+    m_lighting.SpotShadowParams[0] = 1.f / ( 2.f * std::max<float>( Shadows.SpotResolution, 1.f ) );
+
+    RenderSpotShadows();
 }
 
 
@@ -863,6 +977,241 @@ void BGFXRenderer::PrepareCameraLighting( Moonlight::CameraData& camera )
 }
 
 
+void BGFXRenderer::EnsureShadowAtlas( ShadowAtlas& atlas, uint16_t tileSize, const char* name )
+{
+    tileSize = std::clamp<uint16_t>( tileSize, 128, 4096 );
+    if( atlas.TileSize == tileSize && bgfx::isValid( atlas.Texture ) )
+    {
+        return;
+    }
+    DestroyShadowAtlas( atlas );
+
+    // Hardware-compared depth (bilinear PCF per tap); prefer 32-bit float depth.
+    const uint64_t flags = BGFX_TEXTURE_RT | BGFX_SAMPLER_COMPARE_LEQUAL | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP;
+    bgfx::TextureFormat::Enum format = bgfx::TextureFormat::D16;
+    for( bgfx::TextureFormat::Enum candidate : { bgfx::TextureFormat::D32F, bgfx::TextureFormat::D24, bgfx::TextureFormat::D16 } )
+    {
+        if( bgfx::isTextureValid( 0, false, 1, candidate, flags ) )
+        {
+            format = candidate;
+            break;
+        }
+    }
+    const uint16_t size = static_cast<uint16_t>( tileSize * 2 );
+    atlas.Texture = bgfx::createTexture2D( size, size, false, 1, format, flags );
+    bgfx::setName( atlas.Texture, name );
+    atlas.Buffer = bgfx::createFrameBuffer( 1, &atlas.Texture, false );
+    atlas.TileSize = tileSize;
+}
+
+
+void BGFXRenderer::DestroyShadowAtlas( ShadowAtlas& atlas )
+{
+    if( bgfx::isValid( atlas.Buffer ) )
+    {
+        bgfx::destroy( atlas.Buffer );
+    }
+    if( bgfx::isValid( atlas.Texture ) )
+    {
+        bgfx::destroy( atlas.Texture );
+    }
+    atlas = ShadowAtlas();
+}
+
+
+glm::mat4 BGFXRenderer::ShadowAtlasMatrix( uint32_t tile, const glm::mat4& viewProjection ) const
+{
+    // Clip space -> texture space (y flips unless the backend's origin is bottom-left; GL depth is
+    // [-1, 1]), then into the tile's quarter of the atlas. Tile 0 is the top-left of the target.
+    const bgfx::Caps* caps = bgfx::getCaps();
+    const float sy = caps->originBottomLeft ? 0.5f : -0.5f;
+    const float sz = caps->homogeneousDepth ? 0.5f : 1.f;
+    const float tz = caps->homogeneousDepth ? 0.5f : 0.f;
+    glm::mat4 crop( 1.f );
+    crop[0][0] = 0.5f;
+    crop[1][1] = sy;
+    crop[2][2] = sz;
+    crop[3] = glm::vec4( 0.5f, 0.5f, tz, 1.f );
+
+    const float column = static_cast<float>( tile % 2 );
+    const float row = static_cast<float>( tile / 2 );
+    glm::mat4 tileMatrix( 1.f );
+    tileMatrix[0][0] = 0.5f;
+    tileMatrix[1][1] = 0.5f;
+    tileMatrix[3] = glm::vec4( column * 0.5f, caps->originBottomLeft ? 0.5f - row * 0.5f : row * 0.5f, 0.f, 1.f );
+    return tileMatrix * crop * viewProjection;
+}
+
+
+void BGFXRenderer::SubmitShadowCasters( bgfx::ViewId view, const Frustum& frustum )
+{
+    OPTICK_EVENT( "Renderer::SubmitShadowCasters" );
+    for( size_t b = 0; b < m_activeShadowBatchCount; ++b )
+    {
+        m_shadowBatches[b].transforms.clear();
+    }
+    m_activeShadowBatchCount = 0;
+
+    for( size_t i = 0; i < m_meshCache.Commands.size(); ++i )
+    {
+        const Moonlight::MeshCommand& mesh = m_meshCache.Commands[i];
+        if( !mesh.MeshMaterial || !mesh.SingleMesh || !mesh.CastShadows || mesh.IsTransparent || mesh.VertexBufferIdx == UINT16_MAX )
+        {
+            continue;
+        }
+        if( !mesh.WorldBounds.IsValid() || !frustum.Intersects( mesh.WorldBounds ) )
+        {
+            continue;
+        }
+        // Opaque casters only differ by geometry; alpha-tested ones also by their textures.
+        const uint64_t key = mesh.AlphaCutoff > 0.f ? mesh.BatchKey : 0u;
+        InstanceBatch* batch = nullptr;
+        for( size_t b = 0; b < m_activeShadowBatchCount; ++b )
+        {
+            InstanceBatch& candidate = m_shadowBatches[b];
+            if( candidate.vertexBuffer == mesh.VertexBufferIdx && candidate.indexBuffer == mesh.IndexBufferIdx && candidate.materialKey == key )
+            {
+                batch = &candidate;
+                break;
+            }
+        }
+        if( !batch )
+        {
+            if( m_activeShadowBatchCount == m_shadowBatches.size() )
+            {
+                m_shadowBatches.emplace_back();
+            }
+            batch = &m_shadowBatches[m_activeShadowBatchCount++];
+            batch->vertexBuffer = mesh.VertexBufferIdx;
+            batch->indexBuffer = mesh.IndexBufferIdx;
+            batch->materialKey = key;
+            batch->representativeIndex = i;
+        }
+        batch->transforms.push_back( mesh.Transform );
+    }
+
+    constexpr uint16_t kInstanceStride = sizeof( glm::mat4 );
+    const uint64_t state = BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS;
+    for( size_t b = 0; b < m_activeShadowBatchCount; ++b )
+    {
+        const InstanceBatch& batch = m_shadowBatches[b];
+        const Moonlight::MeshCommand& mesh = m_meshCache.Commands[batch.representativeIndex];
+        const float alpha[4] = { mesh.AlphaCutoff, mesh.MeshMaterial->Tiling.x, mesh.MeshMaterial->Tiling.y, 0.f };
+        const uint32_t count = static_cast<uint32_t>( batch.transforms.size() );
+        uint32_t offset = 0;
+        while( offset < count )
+        {
+            const uint32_t available = bgfx::getAvailInstanceDataBuffer( count - offset, kInstanceStride );
+            if( available == 0 )
+            {
+                break;
+            }
+            bgfx::InstanceDataBuffer idb;
+            bgfx::allocInstanceDataBuffer( &idb, available, kInstanceStride );
+            std::memcpy( idb.data, batch.transforms.data() + offset, (size_t)available * kInstanceStride );
+
+            bgfx::setVertexBuffer( 0, mesh.SingleMesh->GetVertexBuffer() );
+            bgfx::setIndexBuffer( mesh.SingleMesh->GetIndexuffer() );
+            bgfx::setInstanceDataBuffer( &idb );
+            bgfx::setUniform( u_shadowAlpha, alpha );
+            if( mesh.AlphaCutoff > 0.f )
+            {
+                const Moonlight::Texture* diffuse = mesh.MeshMaterial->GetTexture( Moonlight::TextureType::Diffuse );
+                const Moonlight::Texture* opacity = mesh.MeshMaterial->GetTexture( Moonlight::TextureType::Opacity );
+                bgfx::setTexture( 0, s_texDiffuse, diffuse && bgfx::isValid( diffuse->TexHandle ) ? diffuse->TexHandle : m_whiteTexture );
+                bgfx::setTexture( 2, s_texAlpha, opacity && bgfx::isValid( opacity->TexHandle ) ? opacity->TexHandle : m_whiteTexture );
+            }
+            bgfx::setState( state );
+            bgfx::submit( view, m_shadowProgram );
+            offset += available;
+        }
+    }
+}
+
+
+void BGFXRenderer::RenderSpotShadows()
+{
+    OPTICK_EVENT( "Renderer::RenderSpotShadows" );
+    const uint16_t tile = m_spotShadowAtlas.TileSize;
+    for( size_t i = 0; i < m_spotShadows.size(); ++i )
+    {
+        char name[32];
+        bx::snprintf( name, sizeof( name ), "Spot Shadow %u", static_cast<uint32_t>( i ) );
+        const bgfx::ViewId view = m_views.Allocate( name );
+        if( view == UINT16_MAX )
+        {
+            return;
+        }
+        const SpotShadow& shadow = m_spotShadows[i];
+        bgfx::setViewFrameBuffer( view, m_spotShadowAtlas.Buffer );
+        bgfx::setViewRect( view, static_cast<uint16_t>( ( i % 2 ) * tile ), static_cast<uint16_t>( ( i / 2 ) * tile ), tile, tile );
+        bgfx::setViewClear( view, BGFX_CLEAR_DEPTH, 0, 1.f, 0 );
+        bgfx::setViewTransform( view, &shadow.View[0][0], &shadow.Projection[0][0] );
+        bgfx::touch( view );
+        Frustum frustum;
+        frustum.Update( shadow.Projection * shadow.View );
+        SubmitShadowCasters( view, frustum );
+    }
+}
+
+
+void BGFXRenderer::RenderSunShadows( Moonlight::CameraData& camera )
+{
+    OPTICK_EVENT( "Renderer::RenderSunShadows" );
+    m_lighting.ShadowParams[3] = 0.f;
+    if( !m_hasSunShadow )
+    {
+        return;
+    }
+
+    Moonlight::CascadeInput input;
+    input.CameraPosition = camera.Position;
+    input.CameraFront = camera.Front;
+    input.CameraUp = camera.Up;
+    input.FovDegrees = camera.FOV;
+    input.Aspect = camera.OutputSize.y > 0.f ? camera.OutputSize.x / camera.OutputSize.y : 1.f;
+    input.Orthographic = camera.Projection == Moonlight::ProjectionType::Orthographic;
+    input.OrthographicSize = camera.OrthographicSize;
+    input.Near = camera.Near;
+    input.ShadowDistance = std::min( m_sunShadowLight.ShadowDistance, camera.Far );
+    input.LightDirection = m_sunShadowLight.Direction;
+    input.Resolution = m_sunShadowAtlas.TileSize;
+    input.HomogeneousDepth = bgfx::getCaps()->homogeneousDepth;
+    input.CasterBounds = m_casterBounds;
+    Moonlight::CascadeSetup cascades[Moonlight::kMaxCascades];
+    Moonlight::ComputeCascades( input, cascades );
+
+    const uint16_t tile = m_sunShadowAtlas.TileSize;
+    for( uint32_t i = 0; i < Moonlight::kMaxCascades; ++i )
+    {
+        char name[32];
+        bx::snprintf( name, sizeof( name ), "Shadow Cascade %u", i );
+        const bgfx::ViewId view = m_views.Allocate( name );
+        if( view == UINT16_MAX )
+        {
+            return;
+        }
+        const Moonlight::CascadeSetup& cascade = cascades[i];
+        bgfx::setViewFrameBuffer( view, m_sunShadowAtlas.Buffer );
+        bgfx::setViewRect( view, static_cast<uint16_t>( ( i % 2 ) * tile ), static_cast<uint16_t>( ( i / 2 ) * tile ), tile, tile );
+        bgfx::setViewClear( view, BGFX_CLEAR_DEPTH, 0, 1.f, 0 );
+        bgfx::setViewTransform( view, &cascade.View[0][0], &cascade.Projection[0][0] );
+        bgfx::touch( view );
+        Frustum frustum;
+        frustum.Update( cascade.ViewProjection );
+        SubmitShadowCasters( view, frustum );
+
+        m_lighting.ShadowMatrix[i] = ShadowAtlasMatrix( i, cascade.ViewProjection );
+        m_lighting.CascadeSplits[i] = cascade.SplitFar;
+        m_lighting.CascadeTexel[i] = cascade.TexelWorldSize;
+    }
+    m_lighting.ShadowParams[0] = m_sunShadowLight.ShadowBias;
+    m_lighting.ShadowParams[1] = m_sunShadowLight.ShadowNormalBias;
+    m_lighting.ShadowParams[2] = 1.f / ( 2.f * static_cast<float>( tile ) );
+    m_lighting.ShadowParams[3] = Shadows.DebugCascades ? 2.f : 1.f;
+}
+
+
 void BGFXRenderer::BindLighting()
 {
     // Uniform state is part of each draw in bgfx, so these go with every submit.
@@ -875,6 +1224,17 @@ void BGFXRenderer::BindLighting()
     bgfx::setUniform( u_ambientGround, m_lighting.AmbientGround );
     const uint32_t pointClamp = BGFX_SAMPLER_POINT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP;
     bgfx::setTexture( 8, s_lightData, m_lightDataTexture, pointClamp );
+    bgfx::setUniform( u_shadowMatrix, m_lighting.ShadowMatrix, 4 );
+    bgfx::setUniform( u_cascadeSplits, m_lighting.CascadeSplits );
+    bgfx::setUniform( u_cascadeTexel, m_lighting.CascadeTexel );
+    bgfx::setUniform( u_shadowParams, m_lighting.ShadowParams );
+    bgfx::setUniform( u_spotShadowMatrix, m_lighting.SpotShadowMatrix, 4 );
+    bgfx::setUniform( u_spotShadowParams, m_lighting.SpotShadowParams );
+    if( bgfx::isValid( m_sunShadowAtlas.Texture ) )
+    {
+        bgfx::setTexture( 11, s_shadowMap, m_sunShadowAtlas.Texture );
+        bgfx::setTexture( 12, s_spotShadowMap, m_spotShadowAtlas.Texture );
+    }
     if( bgfx::isValid( m_lighting.ClusterGridTexture ) )
     {
         bgfx::setTexture( 9, s_clusterGrid, m_lighting.ClusterGridTexture, pointClamp );

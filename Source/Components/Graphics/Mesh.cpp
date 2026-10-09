@@ -84,6 +84,7 @@ void Mesh::OnSerialize( json& outJson )
         MeshMaterial->OnSerialize( mat );
     }
     outJson["MeshType"] = GetMeshTypeString( Type );
+    outJson["CastShadows"] = CastShadows;
 }
 
 void Mesh::OnDeserialize( const json& inJson )
@@ -125,6 +126,10 @@ void Mesh::OnDeserialize( const json& inJson )
         BRUH( "Material isn't created in OnDeserialize" );
     }
 
+    if( inJson.contains( "CastShadows" ) && inJson["CastShadows"].is_boolean() )
+    {
+        CastShadows = inJson["CastShadows"].get<bool>();
+    }
     if( inJson.contains( "MeshType" ) )
     {
         const Moonlight::MeshType newType = GetMeshTypeFromString( inJson["MeshType"] );
@@ -216,6 +221,9 @@ void Mesh::OnEditorInspect()
             ImGui::EndCombo();
         }
     }
+
+    HavanaUtils::Label( "Cast Shadows" );
+    ImGui::Checkbox( "##CastShadows", &CastShadows );
 
     if( MeshReferece )
     {

@@ -24,6 +24,8 @@ public:
     Frustum();
 
     void Update( Matrix4& inProjectionMatrix, Matrix4& inViewMatrix, float inFOV, Vector2& inOutputSize, float inNear, float inFar );
+    // Planes straight from a view-projection matrix (shadow cascades, spot light views).
+    void Update( const glm::mat4& inViewProjection );
 
     bool IsPointInFrustum( glm::vec4& inPoint );
 

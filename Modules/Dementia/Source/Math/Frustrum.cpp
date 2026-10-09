@@ -18,10 +18,12 @@ void Frustum::Update( Matrix4& inProjectionMatrix, Matrix4& inViewMatrix, float 
         return;
     }
 
-    //bx::mtxProj( &inProjectionMatrix.GetInternalMatrix()[0][0], inFOV, float( inOutputSize.OutputSize.x ) / float( inOutputSize.OutputSize.y ), std::max( inNear, 1.f ), inFar, bgfx::getCaps()->homogeneousDepth );
-    //glm::mat4 projectionMatrix = glm::perspectiveLH( inFOV, float( inOutputSize.x ) / float( inOutputSize.y ), inNear, inFar );
-    glm::mat4 vpMatrix = inProjectionMatrix.GetInternalMatrix() * inViewMatrix.GetInternalMatrix();
+    Update( inProjectionMatrix.GetInternalMatrix() * inViewMatrix.GetInternalMatrix() );
+}
 
+
+void Frustum::Update( const glm::mat4& vpMatrix )
+{
     // Left plane
     Planes[FrustumPlane::Left] = glm::vec4(
         vpMatrix[0][3] + vpMatrix[0][0],

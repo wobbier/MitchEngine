@@ -17,6 +17,7 @@
 #include "Editor/SceneTools.h"
 #include "Widgets/SceneViewWidget.h"
 #include <imgui.h>
+#include <Renderer.h>
 
 #if USING( ME_EDITOR )
 
@@ -58,6 +59,8 @@ void EditorCore::RegisterViewActions()
     view( "View.Top", "Top View", ImGuiKey_Keypad7, [this]() { m_camera.SetAngles( 89.9f, 0.f ); } );
     view( "View.Front", "Front View", ImGuiKey_Keypad1, [this]() { m_camera.SetAngles( 0.f, 0.f ); } );
     view( "View.Right", "Right View", ImGuiKey_Keypad3, [this]() { m_camera.SetAngles( 0.f, -90.f ); } );
+    view( "View.Shadows", "Toggle Shadows", 0, []() { BGFXRenderer& renderer = GetEngine().GetRenderer(); renderer.Shadows.Enabled = !renderer.Shadows.Enabled; } );
+    view( "View.ShadowCascades", "Show Shadow Cascades", 0, []() { BGFXRenderer& renderer = GetEngine().GetRenderer(); renderer.Shadows.DebugCascades = !renderer.Shadows.DebugCascades; } );
 }
 
 

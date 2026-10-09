@@ -14,6 +14,7 @@ public:
     void Use() override;
     SharedPtr<Material> CreateInstance() override;
     uint64_t GetInstanceBatchKey() const override;
+    float GetAlphaCutoff() const override { return AlphaCutoff; }
 
     void OnSerialize( json& OutJson ) override;
     void OnDeserialize( const json& InJson ) override;

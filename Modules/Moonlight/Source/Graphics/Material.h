@@ -169,6 +169,12 @@ namespace Moonlight
     public:
         virtual uint64_t GetRenderState( uint64_t state ) const;
 
+        // > 0 for alpha-tested materials (fragments below it are discarded, also in shadow maps).
+        virtual float GetAlphaCutoff() const
+        {
+            return 0.f;
+        }
+
         virtual uint64_t GetInstanceBatchKey() const
         {
             auto mix = []( uint64_t h, uint64_t v ) {

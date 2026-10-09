@@ -127,11 +127,11 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
 
                         bool isVisible = false;
                         const glm::mat4& meshMatrix = transform.GetLocalToWorldMatrix().GetInternalMatrix();
+                        // Cull the mesh's world-space bounding box, not just its origin: big
+                        // objects whose pivot leaves the view must still be drawn.
+                        const AABB worldBounds = model.MeshReferece->Bounds.Transformed( transform.GetLocalToWorldMatrix() );
 
                         {
-                            // Cull the mesh's world-space bounding box, not just its origin: big
-                            // objects whose pivot leaves the view must still be drawn.
-                            const AABB worldBounds = model.MeshReferece->Bounds.Transformed( transform.GetLocalToWorldMatrix() );
                             for( Moonlight::CameraData& cam : cameras.Commands )
                             {
                                 if( !cam.ShouldCull )
@@ -160,10 +160,14 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
 #endif
                         }
 
-                        if( isVisible )
+                        // Every mesh gets a fresh command each frame, visible or not: shadow passes
+                        // need casters outside the camera views, and VisibilityIndex must always
+                        // match this frame's visibility flags.
                         {
-                            //OPTICK_CATEGORY( "Submit", Optick::Category::Rendering );
                             Moonlight::MeshCommand command;
+                            command.Visible = isVisible;
+                            command.WorldBounds = worldBounds;
+                            command.CastShadows = model.CastShadows;
                             command.SingleMesh = model.MeshReferece;
                             command.MeshMaterial = model.MeshMaterial;
                             command.Transform = meshMatrix;
@@ -176,6 +180,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                                 command.IsTransparent = model.MeshMaterial->IsTransparent();
                                 command.SupportsInstancing = model.MeshMaterial->SupportsInstancing;
                                 command.BatchKey = model.MeshMaterial->GetInstanceBatchKey();
+                                command.AlphaCutoff = model.MeshMaterial->GetAlphaCutoff();
                             }
                             if( model.MeshReferece )
                             {
@@ -226,6 +231,26 @@ void RenderCore::OnEditorInspect()
     Base::OnEditorInspect();
 
     ImGui::Checkbox( "Enable Debug Draw", &EnableDebugDraw );
+
+    BGFXRenderer::ShadowSettings& shadows = GetEngine().GetRenderer().Shadows;
+    ImGui::Checkbox( "Shadows", &shadows.Enabled );
+    ImGui::Checkbox( "Show Shadow Cascades", &shadows.DebugCascades );
+    const uint16_t sizes[] = { 512, 1024, 2048, 4096 };
+    auto sizeCombo = []( const char* label, uint16_t& value, const uint16_t* options, int count ) {
+        if( ImGui::BeginCombo( label, std::to_string( value ).c_str() ) )
+        {
+            for( int i = 0; i < count; ++i )
+            {
+                if( ImGui::Selectable( std::to_string( options[i] ).c_str(), value == options[i] ) )
+                {
+                    value = options[i];
+                }
+            }
+            ImGui::EndCombo();
+        }
+    };
+    sizeCombo( "Cascade Resolution", shadows.CascadeResolution, sizes, 4 );
+    sizeCombo( "Spot Shadow Resolution", shadows.SpotResolution, sizes, 4 );
     if( ImGui::Button( "MSAA None" ) )
     {
         GetEngine().GetRenderer().SetMSAALevel( BGFXRenderer::MSAALevel::None );

@@ -5,7 +5,8 @@
 
 #define PI 3.14159265359
 #define MAX_DIRECTIONAL_LIGHTS 4
-#define LIGHT_DATA_WIDTH 1024.0      // 4 texels per light, 256 lights
+#define LIGHT_DATA_WIDTH 2048.0      // 5 texels per light, 256 lights
+#define LIGHT_DATA_TEXELS 5.0
 #define CLUSTER_INDEX_WIDTH 1024.0
 #define CLUSTER_INDEX_HEIGHT 128.0
 #define MAX_LIGHTS_PER_CLUSTER 64
@@ -21,6 +22,22 @@ uniform vec4 u_ambientGround;                            // rgb ground ambient (
 SAMPLER2D(s_lightData, 8);
 SAMPLER2D(s_clusterGrid, 9);
 SAMPLER2D(s_clusterIndices, 10);
+SAMPLER2DSHADOW(s_shadowMap, 11);
+SAMPLER2DSHADOW(s_spotShadowMap, 12);
+
+// Shadows. Both maps are 2x2 atlases; the matrices map world space straight to atlas uv + depth.
+uniform mat4 u_shadowMatrix[4];      // sun cascades
+uniform vec4 u_cascadeSplits;        // view depth where each cascade ends
+uniform vec4 u_cascadeTexel;         // world size of one shadow texel, per cascade
+uniform vec4 u_shadowParams;         // x depth bias, y normal bias (texels), z 1 / atlas size, w 0 off, 1 on, 2 tint cascades
+uniform mat4 u_spotShadowMatrix[4];
+uniform vec4 u_spotShadowParams;     // x 1 / atlas size
+
+#if BGFX_SHADER_LANGUAGE_GLSL >= 130
+#	define shadowCompare(_sampler, _coord) texture(_sampler, _coord)
+#else
+#	define shadowCompare(_sampler, _coord) shadow2D(_sampler, _coord)
+#endif
 
 float D_GGX(float _NoH, float _a)
 {
@@ -84,10 +101,137 @@ float distanceAttenuation(float _distanceSq, float _range)
 
 vec4 fetchLightTexel(float _light, float _texel)
 {
-	return texture2DLod(s_lightData, vec2((_light * 4.0 + _texel + 0.5) / LIGHT_DATA_WIDTH, 0.5), 0.0);
+	return texture2DLod(s_lightData, vec2((_light * LIGHT_DATA_TEXELS + _texel + 0.5) / LIGHT_DATA_WIDTH, 0.5), 0.0);
 }
 
-// Light data texels: 0 position.xyz range | 1 colour.rgb type (1 point, 2 spot) | 2 direction.xyz cosOuter | 3 cosInner
+// One-hot select of a vec4 component by a float index (0..3).
+float vec4Component(vec4 _v, float _index)
+{
+	vec4 lower = step(vec4(0.0, 1.0, 2.0, 3.0) - 0.5, vec4_splat(_index));
+	vec4 upper = step(vec4(1.0, 2.0, 3.0, 4.0) - 0.5, vec4_splat(_index));
+	return dot(_v, lower - upper);
+}
+
+// Atlas tile (2x2) as minU, minV, maxU, maxV; tile 0 is the top-left of the render target.
+vec4 shadowTileRect(float _tile)
+{
+	float column = mod(_tile, 2.0);
+	float row = floor(_tile / 2.0);
+	float minV = (u_clusterGrid.w > 0.5) ? (0.5 - row * 0.5) : (row * 0.5);
+	return vec4(column * 0.5, minV, column * 0.5 + 0.5, minV + 0.5);
+}
+
+// 3x3 hardware-compared taps (each bilinear), kept inside the tile.
+float sunShadowPcf(vec3 _coord, vec4 _rect)
+{
+	float texel = u_shadowParams.z;
+	vec2 lo = _rect.xy + texel * 1.5;
+	vec2 hi = _rect.zw - texel * 1.5;
+	if (any(lessThan(_coord.xy, lo)) || any(greaterThan(_coord.xy, hi)) || _coord.z >= 1.0)
+	{
+		return 1.0;
+	}
+	float sum = 0.0;
+	for (int y = -1; y <= 1; ++y)
+	{
+		for (int x = -1; x <= 1; ++x)
+		{
+			sum += shadowCompare(s_shadowMap, vec3(_coord.xy + vec2(float(x), float(y)) * texel, _coord.z));
+		}
+	}
+	return sum / 9.0;
+}
+
+// Receiver offset that keeps a sloped surface out of its own shadow: a PCF tap t texels away sees
+// the surface t*tan(theta) deeper, while lifting the point n along its normal brings it n/cos(theta)
+// closer to the light, so the normal offset needs to grow with sin(theta).
+vec3 shadowReceiverOffset(Surface _s, vec3 _L, float _texelWorld, float _depthBias, float _normalBias)
+{
+	float NoL = clamp(dot(_s.normal, _L), 0.0, 1.0);
+	float sinTheta = sqrt(1.0 - NoL * NoL);
+	return _s.normal * (_normalBias * _texelWorld * sinTheta) + _L * (_depthBias * _texelWorld);
+}
+
+float sunShadowCascade(Surface _s, vec3 _L, float _cascade)
+{
+	float texelWorld = vec4Component(u_cascadeTexel, _cascade);
+	vec3 position = _s.position + shadowReceiverOffset(_s, _L, texelWorld, u_shadowParams.x, u_shadowParams.y);
+	vec4 coord = mul(u_shadowMatrix[int(_cascade)], vec4(position, 1.0));
+	return sunShadowPcf(coord.xyz, shadowTileRect(_cascade));
+}
+
+float sunCascadeIndex(float _viewZ)
+{
+	return dot(step(u_cascadeSplits, vec4_splat(_viewZ)), vec4_splat(1.0));
+}
+
+// Visibility of the shadowed directional light (index 0); _L points towards the light.
+float sunShadow(Surface _s, vec3 _L, float _viewZ)
+{
+	float cascade = sunCascadeIndex(_viewZ);
+	if (u_shadowParams.w < 0.5 || cascade > 3.5)
+	{
+		return 1.0;
+	}
+	float shadow = sunShadowCascade(_s, _L, cascade);
+
+	// Blend into the next cascade over the last 10% of this one (and fade out after the last).
+	float splitEnd = vec4Component(u_cascadeSplits, cascade);
+	float splitStart = cascade > 0.5 ? vec4Component(u_cascadeSplits, cascade - 1.0) : 0.0;
+	float band = (splitEnd - splitStart) * 0.1;
+	float t = clamp((_viewZ - (splitEnd - band)) / max(band, 1e-4), 0.0, 1.0);
+	if (t > 0.0)
+	{
+		float next = cascade < 2.5 ? sunShadowCascade(_s, _L, cascade + 1.0) : 1.0;
+		shadow = mix(shadow, next, t);
+	}
+	return shadow;
+}
+
+vec3 cascadeDebugTint(float _viewZ)
+{
+	float cascade = sunCascadeIndex(_viewZ);
+	if (u_shadowParams.w < 1.5 || cascade > 3.5)
+	{
+		return vec3_splat(1.0);
+	}
+	vec3 tints[4];
+	tints[0] = vec3(1.0, 0.45, 0.45);
+	tints[1] = vec3(0.45, 1.0, 0.45);
+	tints[2] = vec3(0.45, 0.6, 1.0);
+	tints[3] = vec3(1.0, 1.0, 0.4);
+	return tints[int(cascade)];
+}
+
+// Spot shadow: _info = slot, texel size per unit distance, depth bias, normal bias.
+float spotShadow(Surface _s, vec3 _L, float _distance, vec4 _info)
+{
+	float texelWorld = _info.y * _distance;
+	vec3 position = _s.position + shadowReceiverOffset(_s, _L, texelWorld, _info.z, _info.w);
+	vec4 coord = mul(u_spotShadowMatrix[int(_info.x)], vec4(position, 1.0));
+	if (coord.w <= 0.0)
+	{
+		return 1.0;
+	}
+	vec3 projected = coord.xyz / coord.w;
+	vec4 rect = shadowTileRect(_info.x);
+	float texel = u_spotShadowParams.x;
+	vec2 lo = rect.xy + texel * 1.5;
+	vec2 hi = rect.zw - texel * 1.5;
+	float sum = 0.0;
+	for (int y = -1; y <= 1; ++y)
+	{
+		for (int x = -1; x <= 1; ++x)
+		{
+			vec2 uv = clamp(projected.xy + vec2(float(x), float(y)) * texel, lo, hi);
+			sum += shadowCompare(s_spotShadowMap, vec3(uv, projected.z));
+		}
+	}
+	return sum / 9.0;
+}
+
+// Light data texels: 0 position.xyz range | 1 colour.rgb type (1 point, 2 spot) | 2 direction.xyz cosOuter
+// | 3 cosInner | 4 shadow slot (-1 none), texel size per unit distance, depth bias, normal bias
 vec3 shadeLocalLight(Surface _s, float _light)
 {
 	vec4 t0 = fetchLightTexel(_light, 0.0);
@@ -107,6 +251,11 @@ vec3 shadeLocalLight(Surface _s, float _light)
 		float cd = dot(-L, t2.xyz);
 		float spot = clamp((cd - t2.w) / max(t3.x - t2.w, 1e-4), 0.0, 1.0);
 		attenuation *= spot * spot;
+		vec4 t4 = fetchLightTexel(_light, 4.0);
+		if (t4.x > -0.5 && attenuation > 0.0)
+		{
+			attenuation *= spotShadow(_s, L, sqrt(distanceSq), t4);
+		}
 	}
 	return shadeLight(_s, L, t1.rgb * attenuation);
 }

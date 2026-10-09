@@ -2,6 +2,7 @@
 #include <EditorApp.h>
 #include "Cores/EditorCore.h"
 #include <Engine/Engine.h>
+#include <Renderer.h>
 #include <Engine/World.h>
 #include <ImGuizmo.h>
 #include <Utils/ImGuiUtils.h>
@@ -421,6 +422,10 @@ void SceneViewWidget::DrawSceneToolbar()
 		actions.MenuItem("View.Top");
 		actions.MenuItem("View.Front");
 		actions.MenuItem("View.Right");
+		ImGui::Separator();
+		BGFXRenderer& renderer = GetEngine().GetRenderer();
+		ImGui::MenuItem("Shadows", nullptr, &renderer.Shadows.Enabled);
+		ImGui::MenuItem("Shadow Cascades", nullptr, &renderer.Shadows.DebugCascades);
 		ImGui::EndMenu();
 	}
 	ImGui::PopStyleVar();

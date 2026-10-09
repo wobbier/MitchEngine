@@ -109,6 +109,16 @@ public:
     // Skips compositing the HTML UI over the main camera (used by unattended captures).
     bool EnableUIComposite = true;
 
+    // Cascaded sun shadows (4 cascades in a 2x2 atlas) and spot light shadows (up to 4).
+    struct ShadowSettings
+    {
+        bool Enabled = true;
+        uint16_t CascadeResolution = 2048;   // texels per cascade
+        uint16_t SpotResolution = 1024;      // texels per spot light
+        bool DebugCascades = false;          // tint the scene by cascade
+    };
+    ShadowSettings Shadows;
+
     // Captures the backbuffer at the end of the current frame and writes it as a PNG.
     void RequestScreenshot( const std::string& filePath );
     uint32_t GetScreenshotCount() const;
@@ -127,6 +137,35 @@ private:
     void PrepareCameraLighting( Moonlight::CameraData& camera );
     void BindLighting();
 
+    // Shadows: atlases, caster passes and the matrices the lighting shader samples with.
+    struct ShadowAtlas
+    {
+        bgfx::TextureHandle Texture = BGFX_INVALID_HANDLE;
+        bgfx::FrameBufferHandle Buffer = BGFX_INVALID_HANDLE;
+        uint16_t TileSize = 0;
+    };
+    void EnsureShadowAtlas( ShadowAtlas& atlas, uint16_t tileSize, const char* name );
+    void DestroyShadowAtlas( ShadowAtlas& atlas );
+    void RenderSunShadows( Moonlight::CameraData& camera );
+    void RenderSpotShadows();
+    void SubmitShadowCasters( bgfx::ViewId view, const Frustum& frustum );
+    // World -> atlas uv / depth for one tile of a 2x2 atlas.
+    glm::mat4 ShadowAtlasMatrix( uint32_t tile, const glm::mat4& viewProjection ) const;
+
+    ShadowAtlas m_sunShadowAtlas;
+    ShadowAtlas m_spotShadowAtlas;
+    bgfx::ProgramHandle m_shadowProgram = BGFX_INVALID_HANDLE;
+    bool m_shadowsSupported = false;
+    bool m_hasSunShadow = false;
+    Moonlight::LightCommand m_sunShadowLight;
+    AABB m_casterBounds;
+    struct SpotShadow
+    {
+        glm::mat4 View = glm::mat4( 1.f );
+        glm::mat4 Projection = glm::mat4( 1.f );
+    };
+    std::vector<SpotShadow> m_spotShadows;
+
     std::vector<Moonlight::LightCommand> m_lights;
     std::vector<Moonlight::LightCommand> m_localLights;
     std::vector<float> m_lightData;
@@ -143,6 +182,12 @@ private:
         float AmbientGround[4] = {};
         bgfx::TextureHandle ClusterGridTexture = BGFX_INVALID_HANDLE;
         bgfx::TextureHandle ClusterIndexTexture = BGFX_INVALID_HANDLE;
+        glm::mat4 ShadowMatrix[4] = { glm::mat4( 1.f ), glm::mat4( 1.f ), glm::mat4( 1.f ), glm::mat4( 1.f ) };
+        float CascadeSplits[4] = {};
+        float CascadeTexel[4] = {};
+        float ShadowParams[4] = {};
+        glm::mat4 SpotShadowMatrix[4] = { glm::mat4( 1.f ), glm::mat4( 1.f ), glm::mat4( 1.f ), glm::mat4( 1.f ) };
+        float SpotShadowParams[4] = {};
     } m_lighting;
     bgfx::UniformHandle u_lightParams = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle u_dirLightDirection = BGFX_INVALID_HANDLE;
@@ -157,6 +202,15 @@ private:
     bgfx::UniformHandle s_texMetallicRoughness = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle s_texEmissive = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle s_texOcclusion = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle u_shadowMatrix = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle u_cascadeSplits = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle u_cascadeTexel = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle u_shadowParams = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle u_spotShadowMatrix = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle u_spotShadowParams = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle u_shadowAlpha = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle s_shadowMap = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle s_spotShadowMap = BGFX_INVALID_HANDLE;
 
     struct InstanceBatch
     {
@@ -168,6 +222,8 @@ private:
     };
     std::vector<InstanceBatch> m_instanceBatches;
     size_t m_activeBatchCount = 0;
+    std::vector<InstanceBatch> m_shadowBatches;
+    size_t m_activeShadowBatchCount = 0;
 
     Vector2 PreviousSize;
     Vector2 CurrentSize;
