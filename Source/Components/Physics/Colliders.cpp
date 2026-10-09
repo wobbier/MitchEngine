@@ -2,6 +2,7 @@
 #include "Colliders.h"
 #include "Components/Graphics/Mesh.h"
 #include "Graphics/MeshData.h"
+#include "Physics/PhysicsHash.h"
 #include <algorithm>
 #include <cstring>
 
@@ -36,20 +37,7 @@ ME_REFLECT_BEGIN( MeshCollider )
     ME_COLLIDER_FIELDS()
 ME_REFLECT_END()
 
-namespace
-{
-    uint64_t Mix( uint64_t h, uint64_t v )
-    {
-        return h ^ ( v + 0x9e3779b97f4a7c15ULL + ( h << 6 ) + ( h >> 2 ) );
-    }
-
-    uint64_t Bits( float f )
-    {
-        uint32_t bits = 0;
-        std::memcpy( &bits, &f, sizeof( bits ) );
-        return bits;
-    }
-}
+using namespace PhysicsHash;
 
 
 uint64_t ColliderSettings::SettingsHash() const

@@ -5,6 +5,7 @@
 #include "Window/UWPWindow.h"
 #include "Events/EventManager.h"
 #include "Cores/PhysicsCore.h"
+#include "Cores/Physics2DCore.h"
 #include "Cores/Cameras/CameraCore.h"
 #include "Cores/SceneCore.h"
 #include "Cores/Rendering/RenderCore.h"
@@ -217,6 +218,7 @@ void Engine::Init( Game* game )
         ModelRenderer = new RenderCore();
         Particles = new ParticleCore();
         Physics = new PhysicsCore();
+        Physics2D = new Physics2DCore();
         AudioThread = new AudioCore();
         UI = new UICore( GameWindow, NewRenderer );
     }
@@ -259,6 +261,7 @@ void Engine::InitGame()
         GameWorld->AddCore<RenderCore>( *ModelRenderer );
         GameWorld->AddCore<ParticleCore>( *Particles );
         GameWorld->AddCore<PhysicsCore>( *Physics );
+        GameWorld->AddCore<Physics2DCore>( *Physics2D );
         GameWorld->AddCore<AudioCore>( *AudioThread );
         GameWorld->AddCore<UICore>( *UI );
     }
@@ -418,6 +421,7 @@ void Engine::Run()
                     m_game->OnFixedUpdate( updateContext );
                     // Gameplay applied its forces; now the world steps.
                     Physics->FixedUpdate( updateContext );
+                    Physics2D->FixedUpdate( updateContext );
                     updateContext.IsFixedStepActive = false;
                     GameWorld->Simulate();
                     m_fixedAccumulator -= m_fixedTimeStep;
@@ -432,6 +436,7 @@ void Engine::Run()
 
                 // Interpolated body poses land before gameplay reads them (cameras following bodies).
                 Physics->Update( updateContext );
+                Physics2D->Update( updateContext );
             }
 
             // Update Loaded Cores

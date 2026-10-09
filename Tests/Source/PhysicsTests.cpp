@@ -417,3 +417,61 @@ TEST_CASE( "Physics: Bullet-era rigidbodies migrate to a Rigidbody plus a collid
     REQUIRE( same.size() == 1 );
     CHECK( same[0] == current );
 }
+
+TEST_CASE( "Physics: compound colliders follow a rotated parent" )
+{
+    Scene scene;
+    // Parent turned 90 degrees about Z: its local +X points along world +Y.
+    EntityHandle arm = scene.Create( "Arm", Vector3( 0.f, 3.f, 0.f ) );
+    arm->GetComponent<Transform>().SetRotation( Quaternion( 0.f, 0.f, std::sin( 0.785398f ), std::cos( 0.785398f ) ) );
+    arm->AddComponent<Rigidbody>().Type = BodyType::Kinematic;
+    EntityHandle tip = scene.Create( "Tip", Vector3( 2.f, 0.f, 0.f ) );
+    tip->GetComponent<Transform>().SetParent( arm->GetComponent<Transform>() );
+    tip->AddComponent<SphereCollider>().Radius = 0.5f;
+    scene.Start();
+    scene.Run( kStep );
+
+    RaycastHit hit;
+    REQUIRE( scene.Physics.Raycast( Vector3( 0.f, 10.f, 0.f ), Vector3( 0.f, -1.f, 0.f ), 20.f, hit ) );
+    CHECK( hit.Entity == tip );
+    CHECK( hit.Position.y == doctest::Approx( 5.5f ).epsilon( 0.001 ) );
+}
+
+TEST_CASE( "Physics: joint motors and sliders act on the joint's own entity" )
+{
+    Scene scene;
+    // A turntable spinning +90 deg/s about +Y (right-handed), driven against the world.
+    EntityHandle table = scene.Create( "Table", Vector3( 0.f, 2.f, 0.f ) );
+    Rigidbody& tableBody = table->AddComponent<Rigidbody>();
+    tableBody.GravityScale = 0.f;
+    table->AddComponent<BoxCollider>().Size = Vector3( 2.f, 0.2f, 0.5f );
+    PhysicsJoint& hinge = table->AddComponent<PhysicsJoint>();
+    hinge.Type = JointType::Hinge;
+    hinge.Axis = Vector3( 0.f, 1.f, 0.f );
+    hinge.UseMotor = true;
+    hinge.MotorSpeed = 90.f;
+    hinge.MaxMotorForce = 1000.f;
+
+    // A slider along +X pushed by its motor towards the upper limit.
+    EntityHandle piston = scene.Create( "Piston", Vector3( 10.f, 2.f, 0.f ) );
+    piston->AddComponent<Rigidbody>().GravityScale = 0.f;
+    piston->AddComponent<BoxCollider>();
+    PhysicsJoint& slider = piston->AddComponent<PhysicsJoint>();
+    slider.Type = JointType::Slider;
+    slider.Axis = Vector3( 1.f, 0.f, 0.f );
+    slider.UseLimits = true;
+    slider.LowerLimit = -1.f;
+    slider.UpperLimit = 2.f;
+    slider.UseMotor = true;
+    slider.MotorSpeed = 1.f;
+    slider.MaxMotorForce = 1000.f;
+
+    scene.Start();
+    scene.Run( 1.f );
+    CHECK( tableBody.GetAngularVelocity().y == doctest::Approx( 3.14159265f * 0.5f ).epsilon( 0.02 ) );
+    const Vector3 front = table->GetComponent<Transform>().GetWorldRotation() * Vector3( 1.f, 0.f, 0.f );
+    CHECK( front.z == doctest::Approx( -1.f ).epsilon( 0.05 ) );   // +X turned 90 degrees about +Y
+    CHECK( PositionOf( piston ).x == doctest::Approx( 11.f ).epsilon( 0.01 ) );
+    scene.Run( 2.f );
+    CHECK( PositionOf( piston ).x == doctest::Approx( 12.f ).epsilon( 0.01 ) );   // stopped at the upper limit
+}

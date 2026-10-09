@@ -1,5 +1,6 @@
 #include "PCH.h"
 #include "Rigidbody.h"
+#include "Components/Transform.h"
 #include "Physics/Box3DUtils.h"
 
 ME_REFLECT_ENUM( BodyType, { { "Static", BodyType::Static }, { "Kinematic", BodyType::Kinematic }, { "Dynamic", BodyType::Dynamic } } )
@@ -165,6 +166,15 @@ void Rigidbody::Teleport( const Vector3& InPosition, const Quaternion& InRotatio
     if( HasBody() )
     {
         b3Body_SetTransform( Body( m_body ), ToB3( InPosition ), ToB3( InRotation ) );
+    }
+    // The Transform jumps too, so the core restarts interpolation there instead of sliding.
+    if( Parent )
+    {
+        if( Transform* transform = Parent->TryGetComponent<Transform>() )
+        {
+            transform->SetWorldPosition( InPosition );
+            transform->SetWorldRotation( InRotation );
+        }
     }
     m_hasPendingMove = false;
 }

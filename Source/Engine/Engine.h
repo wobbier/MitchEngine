@@ -78,6 +78,7 @@ public:
     class RenderCore* ModelRenderer = nullptr;
     class ParticleCore* Particles = nullptr;
     class PhysicsCore* Physics = nullptr;
+    class Physics2DCore* Physics2D = nullptr;
     class AudioCore* AudioThread = nullptr;
     class UICore* UI = nullptr;
     Clock GameClock;

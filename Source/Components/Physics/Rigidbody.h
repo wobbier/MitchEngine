@@ -6,13 +6,6 @@
 #include "Math/Vector3.h"
 #include <cstdint>
 
-enum class BodyType : uint8_t
-{
-    Static = 0,     // never moves (floors, walls)
-    Kinematic,      // moved by code / animation, pushes dynamic bodies, isn't pushed
-    Dynamic,        // simulated
-};
-
 // A physics body (Box3D). Its shape comes from the collider components on this entity and on child
 // entities without their own Rigidbody (compound bodies). Dynamic bodies drive their Transform;
 // kinematic bodies follow it. Entities with colliders but no Rigidbody become static bodies.

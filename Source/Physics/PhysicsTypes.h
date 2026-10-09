@@ -16,6 +16,14 @@ namespace PhysicsLayers
     }
 }
 
+// What a body does (Rigidbody and Rigidbody2D).
+enum class BodyType : uint8_t
+{
+    Static = 0,     // never moves (floors, walls)
+    Kinematic,      // moved by code / animation, pushes dynamic bodies, isn't pushed
+    Dynamic,        // simulated
+};
+
 // How a force passed to Rigidbody::AddForce / AddTorque is applied.
 enum class ForceMode : uint8_t
 {

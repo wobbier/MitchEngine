@@ -12,6 +12,7 @@
 #include "Graphics/MeshData.h"
 #include "Physics/Box3DUtils.h"
 #include "Physics/PhysicsDebugDraw.h"
+#include "Physics/PhysicsHash.h"
 #include "optick.h"
 #include <algorithm>
 #include <chrono>
@@ -23,6 +24,7 @@
 #endif
 
 using namespace Box3DUtils;
+using namespace PhysicsHash;
 
 namespace
 {
@@ -41,33 +43,6 @@ namespace
         uint64_t value = 0;
         std::memcpy( &value, &InId, sizeof( InId ) );
         return value;
-    }
-
-    uint64_t Mix( uint64_t h, uint64_t v )
-    {
-        return h ^ ( v + 0x9e3779b97f4a7c15ULL + ( h << 6 ) + ( h >> 2 ) );
-    }
-
-    uint64_t Bits( float f )
-    {
-        uint32_t bits = 0;
-        std::memcpy( &bits, &f, sizeof( bits ) );
-        return bits;
-    }
-
-    // Quantized so float noise from recomputed world scales never looks like an edit.
-    uint64_t Quantized( float f )
-    {
-        return static_cast<uint64_t>( static_cast<int64_t>( std::lround( f * 10000.f ) ) );
-    }
-
-    uint64_t MixVector( uint64_t h, const Vector3& v, bool InQuantize = false )
-    {
-        if( InQuantize )
-        {
-            return Mix( Mix( Mix( h, Quantized( v.x ) ), Quantized( v.y ) ), Quantized( v.z ) );
-        }
-        return Mix( Mix( Mix( h, Bits( v.x ) ), Bits( v.y ) ), Bits( v.z ) );
     }
 
     bool SamePose( const Vector3& InPositionA, const Quaternion& InRotationA, const Vector3& InPositionB, const Quaternion& InRotationB )
@@ -841,12 +816,14 @@ void PhysicsCore::SyncJoints()
         // Revolute joints turn about the frame's z axis, prismatic joints slide along its x axis.
         const b3Vec3 frameAxis = joint->Type == JointType::Slider ? b3Vec3{ 1.f, 0.f, 0.f } : b3Vec3{ 0.f, 0.f, 1.f };
         const b3Quat frameRotation = RotationBetween( frameAxis, ToB3( axis ) );
-        const b3WorldTransform poseA = b3Body_GetTransform( Body( bodyA ) );
-        const b3WorldTransform poseB = b3Body_GetTransform( Body( bodyB ) );
+        // Box3D measures body B relative to body A: A is the connected body (or the ground), B this
+        // entity, so positive motor speeds / translations / limits are about this entity's motion.
+        const b3WorldTransform poseA = b3Body_GetTransform( Body( bodyB ) );
+        const b3WorldTransform poseB = b3Body_GetTransform( Body( bodyA ) );
 
         b3JointDef base = {};
-        base.bodyIdA = Body( bodyA );
-        base.bodyIdB = Body( bodyB );
+        base.bodyIdA = Body( bodyB );
+        base.bodyIdB = Body( bodyA );
         base.localFrameA = b3Transform{ b3InvRotateVector( poseA.q, b3Sub( anchor, poseA.p ) ), b3InvMulQuat( poseA.q, frameRotation ) };
         base.localFrameB = b3Transform{ b3InvRotateVector( poseB.q, b3Sub( anchor, poseB.p ) ), b3InvMulQuat( poseB.q, frameRotation ) };
         base.collideConnected = joint->CollideConnected;
@@ -913,8 +890,8 @@ void PhysicsCore::SyncJoints()
             ApplyJointBase( def.base, base );
             // The other end: ConnectedAnchor on the connected body, or a world point (the ground body
             // sits at the origin).
-            def.base.localFrameB = b3Transform{ ToB3( joint->ConnectedAnchor ), b3Quat_identity };
-            const b3Vec3 otherEnd = b3Add( poseB.p, b3RotateVector( poseB.q, ToB3( joint->ConnectedAnchor ) ) );
+            def.base.localFrameA = b3Transform{ ToB3( joint->ConnectedAnchor ), b3Quat_identity };
+            const b3Vec3 otherEnd = b3Add( poseA.p, b3RotateVector( poseA.q, ToB3( joint->ConnectedAnchor ) ) );
             const float current = b3Length( b3Sub( anchor, otherEnd ) );
             def.length = joint->Distance > 0.f ? joint->Distance : current;
             def.enableLimit = joint->UseLimits;

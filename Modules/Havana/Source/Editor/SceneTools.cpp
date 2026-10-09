@@ -9,8 +9,11 @@
 #include "Components/Lighting/Light.h"
 #include "Components/Effects/ParticleSystem.h"
 #include "Components/Physics/CharacterController.h"
+#include "Components/Physics/CharacterController2D.h"
 #include "Components/Physics/Colliders.h"
+#include "Components/Physics/Colliders2D.h"
 #include "Components/Physics/PhysicsJoint.h"
+#include "Components/Physics/PhysicsJoint2D.h"
 #include "Components/Transform.h"
 #include "Debug/DebugDraw.h"
 #include "Engine/World.h"
@@ -194,6 +197,94 @@ namespace SceneTools
         }
 
 
+        // 2D colliders live in the entity's local XY plane.
+        void DrawPhysics2DGizmos( Entity& InEntity, Transform& InTransform )
+        {
+            const Matrix4 localToWorld = InTransform.GetLocalToWorldMatrix();
+            const Vector3 scale = InTransform.GetWorldScale();
+            const Vector2 absScale( std::abs( scale.x ), std::abs( scale.y ) );
+            const Vector3 normal = InTransform.GetWorldRotation() * Vector3( 0.f, 0.f, 1.f );
+            auto point = [&localToWorld]( const Vector2& InLocal ) { return localToWorld.TransformPoint( Vector3( InLocal.x, InLocal.y, 0.f ) ); };
+            auto colorFor = []( const Collider2DSettings& InCollider ) {
+                return InCollider.IsTrigger ? Vector4( 0.45f, 0.85f, 1.f, 0.9f ) : Vector4( 0.55f, 1.f, 0.45f, 0.9f );
+            };
+            auto loop = [&point]( const std::vector<Vector2>& InPoints, bool InClosed, const Vector4& InColor ) {
+                for( size_t i = 0; i + 1 < InPoints.size() || ( InClosed && i < InPoints.size() && InPoints.size() > 2 ); ++i )
+                {
+                    DebugDraw::Line( point( InPoints[i] ), point( InPoints[( i + 1 ) % InPoints.size()] ), InColor, 0.f, DebugDraw::EditorOnly );
+                }
+            };
+            // A capsule from world-space cap centres, flat in the plane with the given normal.
+            auto capsule = []( const Vector3& InA, const Vector3& InB, float InRadius, const Vector3& InNormal, const Vector4& InColor ) {
+                DebugDraw::Circle( InA, InNormal, InRadius, InColor, 0.f, DebugDraw::EditorOnly, 24 );
+                DebugDraw::Circle( InB, InNormal, InRadius, InColor, 0.f, DebugDraw::EditorOnly, 24 );
+                Vector3 along = InB - InA;
+                if( along.LengthSquared() > 1e-8f )
+                {
+                    const Vector3 side = along.Cross( InNormal ).Normalized() * InRadius;
+                    DebugDraw::Line( InA + side, InB + side, InColor, 0.f, DebugDraw::EditorOnly );
+                    DebugDraw::Line( InA - side, InB - side, InColor, 0.f, DebugDraw::EditorOnly );
+                }
+            };
+            if( BoxCollider2D* box = InEntity.TryGetComponent<BoxCollider2D>(); box && box->IsEnabled() )
+            {
+                const Vector2 h = box->Size * 0.5f;
+                const Vector2 o = box->Offset;
+                loop( { o + Vector2( -h.x, -h.y ), o + Vector2( h.x, -h.y ), o + Vector2( h.x, h.y ), o + Vector2( -h.x, h.y ) }, true, colorFor( *box ) );
+            }
+            if( CircleCollider2D* circle = InEntity.TryGetComponent<CircleCollider2D>(); circle && circle->IsEnabled() )
+            {
+                DebugDraw::Circle( point( circle->Offset ), normal, circle->Radius * std::max( absScale.x, absScale.y ), colorFor( *circle ), 0.f, DebugDraw::EditorOnly, 32 );
+            }
+            if( CapsuleCollider2D* shape = InEntity.TryGetComponent<CapsuleCollider2D>(); shape && shape->IsEnabled() )
+            {
+                const bool vertical = shape->Direction == CapsuleDirection2D::Vertical;
+                const float radius = shape->Radius * ( vertical ? absScale.x : absScale.y );
+                const float axisScale = vertical ? absScale.y : absScale.x;
+                const float half = axisScale > 1e-6f ? std::max( shape->Height * axisScale * 0.5f - radius, 0.f ) / axisScale : 0.f;
+                const Vector2 along = vertical ? Vector2( 0.f, half ) : Vector2( half, 0.f );
+                capsule( point( shape->Offset - along ), point( shape->Offset + along ), radius, normal, colorFor( *shape ) );
+            }
+            if( PolygonCollider2D* polygon = InEntity.TryGetComponent<PolygonCollider2D>(); polygon && polygon->IsEnabled() )
+            {
+                loop( Collider2DUtils::ConvexHull( polygon->Points, 8 ), true, colorFor( *polygon ) );
+            }
+            if( EdgeCollider2D* edge = InEntity.TryGetComponent<EdgeCollider2D>(); edge && edge->IsEnabled() )
+            {
+                loop( edge->Points, edge->Loop, colorFor( *edge ) );
+            }
+            if( CharacterController2D* character = InEntity.TryGetComponent<CharacterController2D>(); character && character->IsEnabled() )
+            {
+                const float half = std::max( character->Height * 0.5f - character->Radius, 0.f );
+                const Vector3 center = InTransform.GetWorldPosition() - Vector3( character->Offset.x, character->Offset.y, 0.f );
+                capsule( center - Vector3( 0.f, half, 0.f ), center + Vector3( 0.f, half, 0.f ), character->Radius, Vector3( 0.f, 0.f, 1.f ), Vector4( 0.55f, 1.f, 0.45f, 0.9f ) );
+            }
+            if( PhysicsJoint2D* joint = InEntity.TryGetComponent<PhysicsJoint2D>(); joint && joint->IsEnabled() )
+            {
+                const Vector4 color( 1.f, 0.85f, 0.3f, 1.f );
+                const Vector3 anchor = point( joint->Anchor );
+                DebugDraw::Circle( anchor, normal, 0.08f, color, 0.f, DebugDraw::EditorOnly | DebugDraw::NoDepthTest, 12 );
+                if( joint->Type == JointType2D::Slider || joint->Type == JointType2D::Wheel )
+                {
+                    Vector3 axis = InTransform.GetWorldRotation() * Vector3( joint->Axis.x, joint->Axis.y, 0.f );
+                    axis = axis.LengthSquared() > 1e-8f ? axis.Normalized() : Vector3( 0.f, 1.f, 0.f );
+                    DebugDraw::Arrow( anchor - axis * 0.5f, anchor + axis * 0.5f, color, 0.1f, 0.f, DebugDraw::EditorOnly | DebugDraw::NoDepthTest );
+                }
+                Transform* other = joint->ConnectedBody ? joint->ConnectedBody->TryGetComponent<Transform>() : nullptr;
+                if( joint->Type == JointType2D::Distance )
+                {
+                    const Vector3 otherEnd = other ? other->GetLocalToWorldMatrix().TransformPoint( Vector3( joint->ConnectedAnchor.x, joint->ConnectedAnchor.y, 0.f ) )
+                                                   : Vector3( joint->ConnectedAnchor.x, joint->ConnectedAnchor.y, anchor.z );
+                    DebugDraw::Line( anchor, otherEnd, color, 0.f, DebugDraw::EditorOnly );
+                }
+                else if( other )
+                {
+                    DebugDraw::Line( anchor, other->GetWorldPosition(), Vector4( color.x, color.y, color.z, 0.4f ), 0.f, DebugDraw::EditorOnly );
+                }
+            }
+        }
+
+
         void DrawComponentGizmos()
         {
             World& world = EditorOps::GetWorld();
@@ -220,6 +311,7 @@ namespace SceneTools
                 if( selected )
                 {
                     DrawPhysicsGizmos( entity, *transform );
+                    DrawPhysics2DGizmos( entity, *transform );
                 }
                 ParticleSystem* particles = entity.TryGetComponent<ParticleSystem>();
                 if( particles && selected )

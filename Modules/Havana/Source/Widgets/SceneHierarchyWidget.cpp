@@ -723,6 +723,32 @@ void SceneHierarchyWidget::DrawCreateTemplates(Transform* parent)
 		}
 		ImGui::EndMenu();
 	}
+	// 2D physics in the XY plane; the meshes are thin stand-ins until there's a sprite renderer.
+	if (ImGui::BeginMenu("Physics 2D"))
+	{
+		if (ImGui::MenuItem("Dynamic Box"))
+		{
+			create("Box 2D", json::array({ json{ { "Type", "Transform" }, { "Scale", { 0.5, 0.5, 0.25 } } }, mesh("Cube"), json{ { "Type", "BoxCollider2D" }, { "Size", { 2.0, 2.0 } } }, json{ { "Type", "Rigidbody2D" } } }));
+		}
+		if (ImGui::MenuItem("Dynamic Circle"))
+		{
+			create("Circle 2D", json::array({ json{ { "Type", "Transform" }, { "Scale", { 0.5, 0.5, 0.5 } } }, mesh("Sphere"), json{ { "Type", "CircleCollider2D" }, { "Radius", 1.0 } }, json{ { "Type", "Rigidbody2D" } } }));
+		}
+		if (ImGui::MenuItem("Static Platform"))
+		{
+			create("Platform 2D", json::array({ json{ { "Type", "Transform" }, { "Scale", { 4.0, 0.25, 1.0 } } }, mesh("Cube"), json{ { "Type", "BoxCollider2D" }, { "Size", { 2.0, 2.0 } } } }));
+		}
+		if (ImGui::MenuItem("Trigger Area"))
+		{
+			create("Trigger 2D", json::array({ json{ { "Type", "Transform" } }, json{ { "Type", "BoxCollider2D" }, { "Size", { 2.0, 2.0 } }, { "IsTrigger", true } } }));
+		}
+		if (ImGui::MenuItem("Character Controller 2D"))
+		{
+			// The capsule mesh scaled to the controller's default 0.3 m radius, 1.6 m height.
+			create("Character 2D", json::array({ json{ { "Type", "Transform" }, { "Scale", { 0.6, 0.8, 0.6 } } }, mesh("Capsule"), json{ { "Type", "CharacterController2D" } } }));
+		}
+		ImGui::EndMenu();
+	}
 	if (ImGui::MenuItem("Camera"))
 	{
 		create("Camera", json::array({ json{ { "Type", "Transform" } }, json{ { "Type", "Camera" } } }));
