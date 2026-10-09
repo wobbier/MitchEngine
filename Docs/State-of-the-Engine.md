@@ -1,8 +1,8 @@
 # State of the Engine
 
-> **This doc is opinion.** Every other doc in `Docs/` is factual; this one rates, prioritizes, and recommends. Never cite it as a description of behavior — cite the subsystem docs. Assessed at engine commit 047f57b8, 2026-07-10; scorecard rows for the core runtime re-scored at dab803a2, 2026-10-08 (overhaul Waves 0–1); editor, serialization and rendering-tooling rows at 7e869c6e, 2026-10-09 (Wave 2).
+> **This doc is opinion.** Every other doc in `Docs/` is factual; this one rates, prioritizes, and recommends. Never cite it as a description of behavior — cite the subsystem docs. Assessed at engine commit 047f57b8, 2026-07-10; scorecard rows for the core runtime re-scored at dab803a2, 2026-10-08 (overhaul Waves 0–1); editor, serialization and rendering-tooling rows at 7e869c6e, 2026-10-09 (Wave 2); rendering, lighting and materials rows at 1fa55311, 2026-10-09 (Wave 3).
 
-MitchEngine is a real, working engine: it ships Drumsmith, runs a full editor on Linux/Windows, hosts .NET 8 scripting, and has genuinely thoughtful hot paths (the zero-virtual render submit, automatic instancing, transform dirty caching). Its weaknesses are the classic solo-engine kind: half-migrations left in place (Mono→.NET, fixed→variable timestep, Ultralight→web-UI), correctness debt that hasn't hurt *yet* (variable-dt physics, name-string schemas, uninitialized ambient), and workflow traps that cost real work (Stop-reverts-to-last-save). The theme of this assessment: **finish or delete the half-things, then invest where the engine already punches above its weight.**
+MitchEngine is a real, working engine: it ships Drumsmith, runs a full editor on Linux/Windows, hosts .NET 8 scripting, and has genuinely thoughtful hot paths (the zero-virtual render submit, automatic instancing, transform dirty caching). Its weaknesses are the classic solo-engine kind: half-migrations left in place (Mono→.NET, fixed→variable timestep, Ultralight→web-UI), correctness debt that hasn't hurt *yet* (variable-dt physics, name-string schemas), and workflow traps that cost real work (Stop-reverts-to-last-save). The theme of this assessment: **finish or delete the half-things, then invest where the engine already punches above its weight.**
 
 ## 1. Maturity Scorecard
 
@@ -15,9 +15,9 @@ Ratings: **Solid** (rely on it) · **Usable** (works, know the sharp edges) · *
 | Frame loop & timing | **Usable** | Fixed timestep + pause/step/time scale/frame cap; engine-core update order still hardcoded; partial teardown (no bgfx shutdown) | [Architecture.md](Architecture.md) |
 | Jobs | **Solid** | Work stealing, helping waits, allocation-free ParallelFor, stress tested | [Jobs-and-Events.md](Jobs-and-Events.md) |
 | Events | **Usable** | Thread-safe queue, auto-deregistering receivers, safe re-entrant dispatch; still string-free but untyped `OnEvent` switches | [Jobs-and-Events.md](Jobs-and-Events.md) |
-| Rendering pipeline | **Usable** | Producer/consumer split and instancing are the engine's best work; AABB culling, Debug Draw v2 and GPU/frame stats landed; view-ID collisions and lighting are the debt | [Rendering-Pipeline.md](Rendering-Pipeline.md) |
-| Lighting & shadows | **Experimental** | One procedural sun, uninitialized ambient uniform, dead `Light` components, empty `DepthPass` — lighting is a façade | [Rendering-Pipeline.md](Rendering-Pipeline.md) |
-| Materials & shaders | **Usable** | Clear contract + offline cook; batch-key discipline is manual; ShaderGraph half-finished | [Materials-and-Shaders.md](Materials-and-Shaders.md) |
+| Rendering pipeline | **Solid** | Zero-virtual submit + auto-instancing, AABB culling, a view allocator, linear HDR with a full post stack, soft particles; unverified on non-Vulkan backends and unmeasured on GPUs at 57k-mesh scale with shadows | [Rendering-Pipeline.md](Rendering-Pipeline.md) |
+| Lighting & shadows | **Usable** | PBR + clustered point/spot lights, stable CSM sun shadows, spot shadows and IBL probes; no point-light shadows, unlit particles, one shadowed sun | [Rendering-Pipeline.md](Rendering-Pipeline.md) |
+| Materials & shaders | **Usable** | Metallic-roughness StandardMaterial, live shader hot reload with include tracking; batch-key discipline is manual; ShaderGraph half-finished; compiles block the main thread | [Materials-and-Shaders.md](Materials-and-Shaders.md) |
 | Resources & assets | **Usable** | Hot reload, keep-alive cache, asset GUIDs; loads still synchronous on the main thread | [Resources-and-Assets.md](Resources-and-Assets.md) |
 | Serialization & scenes | **Solid** | Versioned v2 format with GUIDs, references, migration and prefab links with stable source GUIDs; asset references are still paths | [Serialization-and-Scenes.md](Serialization-and-Scenes.md) |
 | Physics | **Usable** | Standard Bullet integration with collision events + raycasts; variable dt and Euler round-trips undermine it | [Cores-and-Components-Reference.md](Cores-and-Components-Reference.md) |
@@ -45,10 +45,6 @@ The stated bar (per the game project's conventions) is: Win64/macOS/Linux must c
 
 | Item | Location | State | Verdict |
 |------|----------|-------|---------|
-| Uninitialized ambient uniform | `Modules/Moonlight/Source/Renderer.h` (`m_ambient`, `bx::InitNone`) | Uploads garbage every frame | **Fix now** (one line + an editor control) |
-| `DepthPass` | `Modules/Moonlight/Source/RenderPasses/DepthPass.h` | Empty shell | **Finish** — it's the natural home for shadow mapping |
-| `LightCommand` | `Modules/Moonlight/Source/RenderCommands.h` | `float test;` stub | **Finish** with DepthPass work (per-light data plumbing) |
-| `Light` / `DirectionalLight` components | `Source/Components/Lighting/` | Serialized, inspected, never consumed | **Finish or delete** — currently they lie to the user |
 | Mono remnants | `ThirdParty/Mono.sharpmake.cs`, `Globals.MONO_*_Dir` checks | Define nothing | **Delete** |
 | `Collider2D` | `Source/Components/Physics/Collider2D.h` | No core consumes it | **Delete** (revive only with a real 2D physics plan) |
 | `Canvas` | `Source/Components/UI/Canvas.h` | Empty file | **Delete** |
@@ -79,10 +75,10 @@ Impact (H/M/L) × Effort (S/M/L). Grouped so related items can share one work se
 ### B. Rendering
 | Item | Impact | Effort | Notes |
 |------|--------|--------|-------|
-| Bounding-volume culling | **H** | M | Point-culling makes large meshes vanish at frustum edges; AABB per `MeshData` + radius test in the mesh job |
-| Shadow mapping via DepthPass | **H** | L | The marquee visual feature the engine lacks; brings `LightCommand`/`Light` components to life |
-| Multi-light forward loop | M | M | Depends on LightCommand plumbing from the shadow work |
-| View-ID allocation scheme | M | S | Replace hardcoded 9/11/255 + counters with a small allocator; removes a whole hazard class |
+| GPU validation of the Wave 3 renderer | **H** | S | Measure the 57k-mesh bench with shadows and IBL on real hardware, and smoke-test D3D11/Metal (only Vulkan/lavapipe verified) |
+| Point-light shadows | M | M | Cube or dual-paraboloid maps in the spot atlas scheme |
+| Lit particles | M | M | Ambient/IBL + clustered lights for alpha particles (smoke currently ignores lighting) |
+| Parallel shadow caster culling | M | S | One pass over commands for all cascades, ParallelFor; ~1.5 ms CPU at 57k meshes today |
 | ShaderGraph finish-or-delete | M | M/L | Decide before any new material work builds on it |
 
 ### C. Scripting
@@ -131,15 +127,15 @@ quadrantChart
 ## 5. Top 10 Priorities
 
 1. **Snapshot-on-Play** — *why now:* it silently destroys real work today. *First step:* serialize to a temp `.lvl` in `EditorApp::StartGame`, reload it (not the config scene) in `StopGame`. → `Editor-Havana.md`
-2. **Fix `m_ambient`** — *why now:* shipping garbage to the GPU; 10-minute fix. *First step:* initialize + expose in `RenderCore::OnEditorInspect`. → `Rendering-Pipeline.md`
+2. ~~Fix `m_ambient`~~ — done in Wave 3 (the legacy uniform is gone; ambient is image-based). → `Rendering-Pipeline.md`
 3. **Debt purge (theme E)** — *why now:* cheap, and every future task navigates past the corpses. *First step:* delete the legacy `Work/` job files + `Engine.h` includes; build all targets.
 4. **Fixed timestep for physics** — *why now:* Drumsmith is a rhythm game; timing determinism is product-critical. *First step:* accumulator in `Engine::Run` driving `PhysicsCore` at fixed dt with interpolation flag. → `Architecture.md`
 5. **Scene versioning + rename aliases** — *why now:* every rename risk grows with content volume. *First step:* write `"Version": 1` on save; add alias map to component/core registries. → `Serialization-and-Scenes.md`
 6. **Finish Ultralight removal** — *why now:* it's already declared dead; limbo is the worst state. *First step:* land the web-UI spike behind `ME_UI`, delete `Source/UI/Graphics/GPUDriver.*` last. → `UI-Ultralight-and-ImGui.md`
 7. **Script binding codegen** — *why now:* before the API grows; every added binding is currently a 4-file ABI hazard. *First step:* a small generator (even a python script) emitting both structs from a manifest. → `Scripting-DotNet.md`
 8. **Script hot reload** — *why now:* biggest iteration-speed win available; groundwork exists. *First step:* wire `ReloadGameAssembly`, re-create instances from `ScriptComponent` names + fields JSON. → `Scripting-DotNet.md`
-9. **Bounding-volume culling** — *why now:* correctness bug masquerading as an optimization task. *First step:* store an AABB on `MeshData` at import; sphere-test in the mesh job. → `Rendering-Pipeline.md`
-10. **Shadow mapping** — *why now:* highest visual payoff; the empty `DepthPass` and light components are waiting. *First step:* single-cascade directional shadow into `DepthPass`, sampled in `Diffuse.frag`. → `Rendering-Pipeline.md`
+9. ~~Bounding-volume culling~~ — done (AABB per mesh, tested in the mesh job). → `Rendering-Pipeline.md`
+10. ~~Shadow mapping~~ — done in Wave 3 (cascaded sun + spot shadows). Next rendering priority: validate on real GPUs and non-Vulkan backends. → `Rendering-Pipeline.md`
 
 ## 6. Reassessment Triggers
 

@@ -2,7 +2,7 @@
 
 The catalog: every core (system) and component the engine ships, what each core filters on, when it updates, and which components are decorative or orphaned. Deep-dives for Physics (Bullet3D) and Audio (FMOD) live here; Rendering, UI, and Scripting cores have their own docs.
 
-> Verified against engine commit 047f57b8, 2026-07-10.
+> Verified against engine commit 047f57b8, 2026-07-10; the rendering rows (RenderCore, ParticleCore, Mesh, Light, PostProcess, ParticleSystem) against 1fa55311, 2026-10-09 (overhaul Wave 3).
 
 ## Overview
 
@@ -14,7 +14,8 @@ Cores come in two flavors (see `Docs/Architecture.md`): **engine-owned** (create
 |------|--------|--------|-----------|
 | `SceneCore` (`Source/Cores/SceneCore.h`) | `Transform` | engine-owned | Owns the root transform entity and the scene hierarchy |
 | `CameraCore` (`Source/Cores/Cameras/CameraCore.h`) | `Camera` + `Transform` | engine-owned | Builds `Moonlight::CameraData` commands; manages `Camera::CurrentCamera` |
-| `RenderCore` (`Source/Cores/Rendering/RenderCore.h`) | `Transform` + `Mesh` | engine-owned | Parallel cull + `MeshCommand` fill — see `Docs/Rendering-Pipeline.md` |
+| `RenderCore` (`Source/Cores/Rendering/RenderCore.h`) | `Transform` + `Mesh` | engine-owned | Gathers `Light`s, parallel AABB cull + `MeshCommand` fill for every mesh — see `Docs/Rendering-Pipeline.md` |
+| `ParticleCore` (`Source/Cores/Rendering/ParticleCore.h`) | `Transform` + `ParticleSystem` | engine-owned | Simulates particle systems (job per system) into renderer batches; runs in edit mode too, so effects preview live |
 | `AudioCore` (`Source/Cores/AudioCore.h`) | `AudioSource` | engine-owned | FMOD playback + path-keyed sound cache |
 | `UICore` (`Source/Cores/UI/UICore.h`) | `BasicUIView` | engine-owned | Ultralight HTML views — see `Docs/UI-Ultralight-and-ImGui.md` |
 | `PhysicsCore` (`Source/Cores/PhysicsCore.h`) | `Transform` + one of (`Rigidbody`, `CharacterController`) | scene-loaded | Bullet3D world, transform sync, collision events, raycasts |
@@ -61,9 +62,11 @@ flowchart TD
 |-----------|------|---------|
 | `Transform` | `Source/Components/Transform.h` | Hierarchy node: position/rotation/scale, parent/children (`SharedPtr<Transform>` links), name. Dirty-flag cached matrices — see below |
 | `Camera` | `Source/Components/Camera.h` | Projection (perspective/ortho), FOV, near/far, clear type (color/skybox/procedural), main-camera flag; statics `Camera::CurrentCamera` / `Camera::EditorCamera` |
-| `Mesh` | `Source/Components/Graphics/Mesh.h` | One renderable mesh: `MeshData*`, per-instance material, renderer cache slot `Id` |
+| `Mesh` | `Source/Components/Graphics/Mesh.h` | One renderable mesh: `MeshData*` (primitives share one geometry per shape: Plane, Cube, Sphere, Cylinder, Capsule), per-instance material (default `StandardMaterial`), `CastShadows`, renderer cache slot `Id` |
 | `Model` | `Source/Components/Graphics/Model.h` | Assimp model reference; `Init()` **expands the model's node tree into real child entities** with `Transform` + `Mesh` components |
-| `Light` / `DirectionalLight` | `Source/Components/Lighting/Light.h`, `Source/Components/Lighting/DirectionalLight.h` | **Decorative** — no core or renderer path consumes them (see `Docs/Rendering-Pipeline.md`) |
+| `Light` | `Source/Components/Lighting/Light.h` | Directional / Point / Spot: colour, intensity, range, cone angles, shadows (texel-unit biases, shadow distance). Scenes' old `DirectionalLight` components migrate on load |
+| `PostProcess` | `Source/Components/Graphics/PostProcess.h` | Per-camera exposure (manual / auto), tonemapper, bloom, SSAO, colour grading, vignette, FXAA |
+| `ParticleSystem` | `Source/Components/Effects/ParticleSystem.h` | CPU emitter: shapes, rate + burst, randomized ranges, over-lifetime size/colour/alpha, gravity/drag/noise, world or local space, billboard/stretched/flat soft particles with flipbooks |
 | `Rigidbody` | `Source/Components/Physics/Rigidbody.h` | Bullet body (box/sphere collider shapes), mass/velocity, per-body collision-event hookups |
 | `CharacterController` | `Source/Components/Physics/CharacterController.h` | Kinematic capsule driven by `PhysicsCore` (rotation in, position out) |
 | `Collider2D` | `Source/Components/Physics/Collider2D.h` | **Orphaned** — no core filters it; physics is 3D-only |
@@ -89,7 +92,6 @@ Matrix recompute is **lazy** — `GetLocalToWorldMatrix()` rebuilds (parent-firs
 - **Physics uses a variable timestep** — simulation behavior is frame-rate-dependent beyond what 10 Bullet substeps mask; the in-code TODO acknowledges it.
 - **Rigidbody rotation syncs through Euler ZYX degrees** every frame — susceptible to gimbal/representation drift for bodies tumbling on multiple axes.
 - **`AudioCore::Update(float)` doesn't override the base** — don't "fix" a missing update by adding AudioCore to a generic core loop; the engine's explicit call is the contract.
-- **`Light`/`DirectionalLight` do nothing**; the only scene light is the procedural sky's sun. Don't debug "why isn't my light working" in components — the plumbing doesn't exist.
 - **`Collider2D` and `Canvas` are dead weight** (orphaned / empty file).
 - **`Model::Init` creates real entities** as children — deleting a Model component does not delete the entities it spawned, and re-`Init` is guarded only by an in-memory `IsInitialized` flag.
 - **`Camera::CurrentCamera`/`EditorCamera` are mutable statics** used by resize, UI sizing, and picking; scenes without a main camera silently skip those paths.

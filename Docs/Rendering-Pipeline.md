@@ -1,27 +1,55 @@
 # Rendering Pipeline
 
-Rendering is split into a CPU **producer** — `RenderCore` runs a parallel job that fills POD `MeshCommand`s per visible mesh — and a serial **consumer** — `BGFXRenderer` walks the command cache once per camera view and submits to bgfx. It is a forward renderer: no depth prepass, no shadows, no per-light data; opaque geometry is auto-instanced, transparents are distance-sorted. This doc maps the frame's data flow, the view-ID layout (which differs between editor and game builds), and the sharp edges.
+Rendering is split into CPU **producers** and a serial **consumer**:
 
-> Verified against engine commit 047f57b8, 2026-07-10; the debug draw, frame statistics and picking sections against 7e869c6e, 2026-10-09. Wave 3 of the overhaul rewrites the rest.
+- **Producers** are `RenderCore` and `ParticleCore`. `RenderCore` runs a parallel job that fills one POD `MeshCommand` per mesh and gathers a `LightCommand` per light; `ParticleCore` simulates particle systems into per-system batches.
+- **The consumer** is `BGFXRenderer`. It renders every camera through the same chain into HDR targets:
+  1. Shadow cascades.
+  2. Clustered-forward PBR opaque pass.
+  3. SSAO.
+  4. Transparent meshes.
+  5. Particles.
+  6. Bloom, eye adaptation, tonemapping, grading and FXAA.
+  7. UI composite.
+
+Ambient light comes from per-camera image-based-lighting probes. This doc maps the frame, the view-ID scheme, the lighting data paths and the sharp edges.
+
+> Verified against engine commit 1fa55311, 2026-10-09 (overhaul Wave 3).
 
 ## Overview
 
-The hot-path design goal is **no virtual calls in the submit loop**: everything the renderer needs per mesh (`BatchKey`, `VertexBufferIdx`, `IndexBufferIdx`, `IsTransparent`, `SupportsInstancing`) is precomputed into the `MeshCommand` by the parallel mesh job. bgfx runs single-threaded (`bgfx::renderFrame()` is called before `bgfx::init` to suppress the render thread), with `ViewMode::Sequential` on camera views — submission order *is* draw order.
+The hot-path design goal is **no virtual calls in the submit loop**. Everything the renderer needs per mesh is precomputed into the `MeshCommand` by the parallel mesh job:
 
-Backend selection: Vulkan is forced on Linux, D3D11 on UWP ("Something is up with using DX12 and my shaders"); other platforms take bgfx's default (D3D11/12 on Windows, Metal on macOS). VSync is always on (`BGFX_RESET_VSYNC`).
+- `BatchKey`, `VertexBufferIdx` and `IndexBufferIdx`
+- `IsTransparent` and `SupportsInstancing`
+- `CastShadows`, `AlphaCutoff` and `WorldBounds`
+
+Opaque meshes are auto-instanced. Scene views use `ViewMode::Sequential`, so submission order *is* draw order.
+
+Backend selection: Vulkan is forced on Linux and D3D11 on UWP; other platforms take bgfx's default (D3D11/12 on Windows, Metal on macOS). Everything that differs between backends is handled once:
+
+- clip-space depth range (`caps->homogeneousDepth`)
+- render-target orientation (`caps->originBottomLeft`)
+- shader profile (`Moonlight::GetPlatformString()`)
 
 ## Key Files
 
 | Path | Role |
 |------|------|
-| `Source/Cores/Rendering/RenderCore.cpp` / `Source/Cores/Rendering/RenderCore.h` | Producer: parallel cull + `MeshCommand` fill |
-| `Modules/Moonlight/Source/Renderer.cpp` / `Modules/Moonlight/Source/Renderer.h` | Consumer: `BGFXRenderer` — view setup, instancing, submit |
-| `Modules/Moonlight/Source/RenderCommands.h` | `MeshCommand`, `DebugColliderCommand`, the stub `LightCommand` |
-| `Modules/Moonlight/Source/Utils/CommandCache.h` | Slot-based command storage shared producer↔consumer |
-| `Modules/Moonlight/Source/Camera/CameraData.h` | Per-camera view/projection/frustum/output description |
-| `Modules/Moonlight/Source/Device/FrameBuffer.h` | Per-camera render target, recreated on resize/reset |
-| `Modules/Moonlight/Source/RenderPasses/PickingPass.cpp` | Editor-only entity-ID pass (see `Docs/Editor-Havana.md`) |
-| `Modules/Moonlight/Source/Graphics/DynamicSky.cpp` | Procedural sky + the only live "sun" light |
+| `Source/Cores/Rendering/RenderCore.cpp` | Producer: transforms → per-camera AABB culling → `MeshCommand`s; gathers `LightCommand`s |
+| `Source/Cores/Rendering/ParticleCore.cpp` | Producer: simulates `ParticleSystem`s in parallel → `ParticleBatch`es |
+| `Modules/Moonlight/Source/Renderer.cpp` / `Renderer.h` | Consumer: `BGFXRenderer` — views, lighting setup, shadows, opaque/transparent/particle passes |
+| `Modules/Moonlight/Source/RenderViews.h` | The fixed view IDs and the per-frame `ViewAllocator` |
+| `Modules/Moonlight/Source/RenderCommands.h` | `MeshCommand`, `LightCommand`, `ParticleInstance` / `ParticleBatch` |
+| `Modules/Moonlight/Source/Device/FrameBuffer.h` | Per-camera targets: HDR scene, final, post, bloom mips, AO, luminance, cluster textures |
+| `Modules/Moonlight/Source/Lighting/ClusterBuilder.cpp` | CPU light-to-froxel assignment for clustered forward |
+| `Modules/Moonlight/Source/Lighting/ShadowCascades.cpp` | Cascade splits and stable, texel-snapped fitting |
+| `Modules/Moonlight/Source/Lighting/EnvironmentLighting.cpp` | IBL probes: capture, prefilter, irradiance, BRDF LUT |
+| `Modules/Moonlight/Source/RenderPasses/PostProcess.cpp` | SSAO, bloom, eye adaptation, tonemap + grading, FXAA |
+| `Modules/Moonlight/Source/RenderPasses/PickingPass.cpp` | Editor entity-ID pass (see `Docs/Editor-Havana.md`) |
+| `Modules/Moonlight/Source/Debug/DebugDraw.h` | Immediate-mode debug line API |
+| `Modules/Moonlight/Source/Primitives/Primitives.cpp` | Shared Plane / Cube / Sphere / Cylinder / Capsule geometry |
+| `Assets/Shaders/Lighting.sh` | BRDF, clustered light loop, shadow sampling, IBL — included by `Standard.frag` |
 
 ## How It Works
 
@@ -29,112 +57,231 @@ Backend selection: Vulkan is forced on Linux, D3D11 on UWP ("Something is up wit
 
 ```mermaid
 flowchart LR
-    subgraph ECS["ECS (main thread + jobs)"]
-        T["Transform + Mesh components"] --> RC["RenderCore::Update"]
-        RC -->|"Burst chunks × SimpleJobSystem"| J["parallel mesh jobs:<br/>frustum-test, fill MeshCommand"]
+    subgraph ECS["Engine loop (main thread + jobs)"]
+        PC["ParticleCore::Update<br/>(job per system)"] --> PB["ParticleBatch per system"]
+        RC["RenderCore::Update"] --> TU["Transform::UpdateAll"]
+        TU --> LG["gather LightCommands"]
+        TU --> MJ["ParallelFor mesh job:<br/>AABB vs each camera frustum,<br/>fill MeshCommand (every mesh)"]
     end
-    J -->|"MeshCache.Update(slot, cmd)"| MC["CommandCache&lt;MeshCommand&gt;<br/>(slot per Mesh component)"]
-    subgraph R["BGFXRenderer::Render (main thread, serial)"]
-        V1["per camera: RenderCameraView(id)"] --> OP["opaque loop:<br/>instanced batches + singles"]
-        OP --> TR["transparent: sort back-to-front,<br/>depth-write off"]
-        TR --> UI["view 9: UI composite (main cam)"]
-        UI --> BL["blit camera buffer → texture"]
+    MJ --> MC["CommandCache&lt;MeshCommand&gt;"]
+    subgraph R["BGFXRenderer::Render (serial)"]
+        F["PrepareFrameLighting:<br/>sun, light data texture,<br/>spot shadow maps"] --> C["per camera: RenderCameraView"]
+        C --> P["UI composite → ImGui → bgfx::frame"]
     end
-    MC --> V1
-    BL --> F["bgfx::frame()"]
+    MC --> F
+    LG --> F
+    PB --> C
 ```
 
-### Command caches and slots
+`RenderCore` refreshes the command of **every** mesh each frame, visible or not. Shadow passes need casters outside the camera, and each command's `VisibilityIndex` always matches this frame's per-camera `VisibleFlags`. The opaque loop skips commands whose flag is 0 for the camera being drawn.
 
-`CommandCache<T>` (`Modules/Moonlight/Source/Utils/CommandCache.h`) is a `vector<T>` with a free-index queue. `RenderCore::OnEntityAdded` `Push`es an empty `MeshCommand` and stores the returned slot index on the `Mesh` component (`Mesh::Id`); `OnEntityRemoved` `Pop`s it; the per-frame mesh job overwrites the slot via `Update`. The same structure holds `CameraData` (managed by `CameraCore`) and `DebugColliderCommand`s.
+### Views
 
-Threading contract: **`Push`/`Clear` lock a mutex; `Update`/`Pop`/`Get` do not.** Concurrent job writes are safe only because every job writes distinct slots and nothing `Push`es (which can reallocate the vector) while jobs run — a scheduling guarantee, not a structural one. Also note both `Pop` and `BGFXRenderer::UpdateMeshMatrix` guard with `Id > size()` instead of `>=` — `Id == size()` walks past the end.
+bgfx runs views in ascending ID order, so producers must have lower IDs than their consumers. `RenderViews.h` holds the fixed IDs:
 
-### The mesh job (producer)
+| View | Purpose |
+|------|---------|
+| 0 | Backbuffer clear |
+| 1–32 | Ultralight GPU driver buffers |
+| 33 | UI resolve |
+| 34–223 | **Dynamic band**: `ViewAllocator` hands these out per frame in submission order |
+| 224–225 | Picking ID pass + readback blit (editor) |
+| 226 | UI composite |
+| 227–255 | ImGui (platform windows count down from 254; main pass is 255) |
 
-Per frame, `RenderCore::Update` splits the entity list into `GetNumWorkers()` chunks (`Burst::GenerateChunks`) and submits one job per chunk (pattern details in `Docs/Jobs-and-Events.md`). Each job, per entity:
+`ViewAllocator::Allocate(name)` names each view for RenderDoc and returns `UINT16_MAX` when the band is exhausted; callers skip that pass. Allocation order per frame:
 
-1. Reads `Transform::GetLocalToWorldMatrix` (lazy-recomputed, see `Docs/Cores-and-Components-Reference.md`).
-2. Culls: tests **only the matrix's translation column** (`meshMatrix[3]`) against each camera's `ViewFrustum` — a *point* test, no bounding volume. Sets `camera.VisibleFlags[entIndex]` per camera (the flag vectors are resized on the main thread before dispatch). Cameras with `ShouldCull == false` accept everything.
-3. If visible to anyone, fills the `MeshCommand`: mesh pointer, material `SharedPtr` (refcount bump), transform, entity ID, and the precomputed hot fields — `IsTransparent`, `SupportsInstancing`, `BatchKey` (`Material::GetInstanceBatchKey()`, see `Docs/Materials-and-Shaders.md`), and raw bgfx `VertexBufferIdx`/`IndexBufferIdx`.
-
-If an entity is *not* visible this frame, its slot keeps last frame's command — harmless because per-camera `VisibleFlags` gate consumption.
-
-`RenderCore` also pokes `renderer.m_time` (delta + total time) directly each update — flagged in-code with "maybe this is fine? … it's not".
-
-### View ID layout
-
-`BGFXRenderer::Render` assigns views differently per build flavor:
-
-| View | Editor build | Game build |
-|------|-------------|------------|
-| 0 (`kClearView`) | clear only | **main camera** (renders straight to backbuffer — `setViewFrameBuffer` is skipped for id 0) |
-| 1 | editor camera (+ `PickingPass` right after) | first non-main camera |
-| 2… | non-main cameras, then **main camera last** | further non-main cameras |
-| 9 | UI composite (hardcoded) | UI composite (hardcoded) |
-| 11+N | Ultralight GPU driver surfaces (`GPUDriver.h` `kViewId`) | same |
-| 255 | ImGui (`Engine::Run` passes viewId 255 to `BeginFrame`) | same (when `ME_IMGUI`) |
-
-Cameras that `ShouldRender == false` or lack a `Buffer` are skipped. Every camera view except view 0 renders into its `FrameBuffer` and ends with `bgfx::blit` of the buffer into `camera.Buffer->Texture` (that's what the editor's scene-view widget samples).
+1. Spot-light shadow maps.
+2. For each camera (editor camera first, other cameras next, main camera last so it can sample render-to-texture cameras):
+   1. Environment probe updates.
+   2. 4 shadow cascades.
+   3. Opaque.
+   4. SSAO (3 views).
+   5. Transparent.
+   6. Particles.
+   7. Bloom down/up chain.
+   8. Luminance + adaptation.
+   9. Tonemap.
+   10. FXAA.
 
 ### Inside `RenderCameraView`
 
-1. View setup: name, view/projection from `CameraData`, framebuffer (id > 0), viewport from `OutputSize`, clear color packed from `camera.ClearColor`, `ViewMode::Sequential`.
-2. **Sky**: `ClearColorType::Procedural` → `DynamicSky::Draw`; `ClearColorType::Skybox` → the skybox model drawn at scale 10 around the camera position.
-3. **Opaque loop** over the whole mesh cache (skipping invisible-for-this-camera and null-material commands):
-   - Transparent commands are deferred into `TransparentIndicies`.
-   - `SupportsInstancing` commands accumulate into an `InstanceBatch` keyed `(vertexBuffer, indexBuffer, materialKey)` — found by **linear scan** over active batches.
-   - Everything else submits immediately via `RenderSingleMesh`.
-4. **Instanced flush**: each batch submits through `RenderMeshInstanced` — chunked `bgfx::allocInstanceDataBuffer` loops (64-byte `glm::mat4` stride) with the batch's *representative* command binding textures/uniforms/state for the whole batch.
-5. **Transparents**: debug-only `ME_ASSERT_MSG` if count ≥ `kMeshTransparencyTempSize` (60) — release builds just grow the vector; sorted **back-to-front** by squared distance to the camera; drawn with depth-*test* on but depth-*write* off. Instancing-capable transparents still go through `RenderMeshInstanced` with `count == 1`.
-6. **Debug draw**: when `EnableDebugDraw` is set, the legacy gizmo callback (every core's `OnDrawGuizmo`) and queued `DebugColliderCommand`s; then, always, the **Debug Draw v2** lines collected for this frame (`SubmitDebugLines`). Depth-tested and overlay lines go to every view; `EditorOnly` lines (grid, selection, gizmos) go only to the view with `CameraData::IsEditorView`.
-7. **UI composite** (main camera with a valid `camera.UITexture` only): a screen-space quad at view 9, orthographic, with blend `BLEND_FUNC_SEPARATE(ONE, INV_SRC_ALPHA, INV_DST_ALPHA, ONE)` — premultiplied-alpha-over, chosen after artifacts with plain alpha (the rejected attempts are commented in place). See `Docs/UI-Ultralight-and-ImGui.md`.
+1. **Targets**: the camera's `FrameBuffer` is resized to `OutputSize` and holds the targets below. Depth uses the best of D32F → D24S8 → D24 → D16.
+   - `SceneBuffer`: RGBA16F colour plus sampleable depth.
+   - `Buffer`: the BGRA8 final image, sharing that depth.
+   - `PostBuffer`: LDR, used for FXAA.
+   - Half-resolution bloom mips and AO targets.
+   - 1×1 luminance targets.
+   - The cluster textures.
+   - `ParticleBuffer`: HDR colour *without* depth.
+2. **Lighting setup**:
+   - `PrepareCameraLighting` builds the clusters and the ambient fallback.
+   - `EnvironmentLighting::Prepare` picks or refreshes the IBL probe.
+   - `RenderSunShadows` renders the cascades.
+3. **Opaque view** on `SceneBuffer`:
+   - Clear to the linearised clear colour.
+   - Sky (procedural `DynamicSky` or the skybox model).
+   - Opaque meshes: instanced batches keyed `(vertexBuffer, indexBuffer, BatchKey)` plus singles.
+4. **SSAO** multiplies the opaque HDR colour (before transparents).
+5. **Transparent view**: meshes sorted back to front, depth-write off; then legacy gizmo callbacks and the Debug Draw v2 lines.
+6. **Particles** (see below).
+7. **Post** into the final target, then the **UI composite** for the main camera.
 
-### Debug Draw v2 (`Modules/Moonlight/Source/Debug/DebugDraw.h`)
+### Lights and clustered forward
 
-An immediate-mode, thread-safe line API for any code: `DebugDraw::Line`, `Ray`, `Arrow`, `Box` (AABB or oriented by a matrix), `Circle`, `Sphere`, `Capsule`, `Cone`, `Axes`, `Frustum` (from a view-projection matrix) and `Grid`. Every call takes a colour, a duration in seconds (0 = this frame) and flags (`NoDepthTest`, `EditorOnly`). Shapes are queued under a mutex. `BGFXRenderer::Render` copies them into per-bucket vertex lists once per frame (`DebugDraw::CollectFrame`). `DebugDrawer::DrawLines` submits them as transient line lists with the embedded debug-draw line program, alpha-blended and depth-tested `LEQUAL` (or not). `Engine::Run` calls `DebugDraw::EndFrame` after rendering to age timed shapes.
+`Light` components (Directional / Point / Spot) become `LightCommand`s every frame. Colour is linearised and multiplied by intensity; direction is the entity's forward axis.
 
-### Frame statistics
+`PrepareFrameLighting` handles the lights frame-wide:
 
-After `bgfx::frame`, `BGFXRenderer::GatherFrameStats` copies `bgfx::getStats()` into `FrameStats::RenderStats`: GPU time, render-thread time, draw calls, triangles, GPU memory, and per-view CPU/GPU times. Per-view timings require `BGFX_DEBUG_PROFILER`, which is enabled only while `FrameStats::DetailedGpuTimings` is set (the editor's Profiler window is open).
+- **Directional lights**: up to 4, uploaded as uniforms. The first shadow caster takes slot 0 and becomes "the sun". With no directional light at all, `DynamicSky`'s sun lights and shadows the scene.
+- **Point and spot lights**: up to 256. Each is packed into **5 RGBA32F texels** of the light-data texture:
+  1. Position and range.
+  2. Colour and type.
+  3. Direction and cos(outer angle).
+  4. cos(inner angle).
+  5. Shadow slot, texel scale and biases.
 
-### Picking
+Per camera, `ClusterBuilder` bins point and spot lights into a **16×9×24 froxel grid**:
 
-`PickingPass` renders entity IDs into a 32x32 target around the mouse (a tight-FOV pick camera) when `FrameRenderData::WasLeftPressed` is set, and reads it back a couple of frames later. The editor sets `WasLeftPressed` only for clicks that didn't turn into drags (`SceneViewWidget::ConsumeClick`), with `MousePosition` in viewport pixels. When the readback completes, `PickCompleted` is set. `RequestedEntityID` is 0 when the click hit nothing, and the engine fires `PickingEvent` either way, so empty clicks deselect.
+- Screen tiles × exponential depth slices.
+- Each light is tested as a sphere: the slice range comes from its view depth, and the tile rectangle from the projected corners of its view-space box (full screen if it crosses the near plane).
+- The grid (offset, count) and the flattened index list go up as float textures (144×24 RGBA32F and 1024×128 R32F), so no compute shaders are needed.
+- Limits: 64 lights per cluster and 131072 indices.
+
+`Standard.frag` finds its cluster from `gl_FragCoord`, flipped for bottom-left-origin backends, and the view depth, then loops over the cluster's lights.
+
+Shading (`Lighting.sh`) is GGX distribution, height-correlated Smith visibility, Schlick Fresnel and an energy-split Lambert diffuse. Point and spot falloff is windowed inverse-square that reaches zero at `Range`; spot cones are smoothstepped between the inner and outer angles.
+
+### Shadows
+
+- **Sun: cascaded shadow maps.**
+  - Layout: 4 cascades in a 2×2 depth atlas (`Shadows.CascadeResolution`, default 2048 per cascade), using hardware compare samplers.
+  - Splits: PSSM with λ = 0.75, out to `min(Light::ShadowDistance, camera far)`.
+  - Stability: each cascade fits the **bounding sphere** of its frustum slice, so its size is rotation-invariant, and is **snapped to whole texels**, so edges don't shimmer.
+  - Casters: the near plane is pulled back to the bounds of every caster (`m_casterBounds`), so tall or distant casters land in the map.
+- **Spot lights**: the first 4 shadowed spots each get a tile of a second atlas (`Shadows.SpotResolution`, default 1024), using a perspective projection slightly wider than the cone.
+- **Casters**:
+  - Drawn with one instanced depth-only shader (`ShadowDepth`) for every material, culled per cascade or spot frustum by `WorldBounds`.
+  - Alpha-tested materials (`Material::GetAlphaCutoff() > 0`) bind their textures and discard in the depth pass too.
+  - `Mesh::CastShadows` opts a mesh out.
+- **Lookup**:
+  - Cascade chosen by view depth; 3×3 PCF taps clamped inside the tile; 10% blend into the next cascade and a fade-out after the last.
+  - Receiver biases are in **shadow texels**: `ShadowBias` pushes the receiver towards the light, and `ShadowNormalBias` along its normal **scaled by sin θ**. That's what keeps a sloped receiver out of its own PCF kernel.
+- **Debug**: Scene View → View → *Shadow Cascades* tints the scene per cascade (action `View.ShadowCascades`).
+
+### Image-based lighting
+
+`EnvironmentLighting` keeps up to 3 probes, one per distinct background source:
+
+- the procedural sky, captured per pixel from the Perez model without the sun disc and with a dim ground below the horizon;
+- a skybox panorama, sampled as equirectangular;
+- the clear colour.
+
+A probe holds:
+
+- a 128² RGBA16F capture, downsampled into separate 64/32/16 cubes (separate textures, so no read/write hazards);
+- a 5-mip GGX-prefiltered specular cube (roughness = mip / 4, each level sampling the source sized for it);
+- a 32² cosine-convolved irradiance cube.
+
+A shared split-sum BRDF table is rendered once.
+
+- **Refresh**: probes refresh only when their source key changes (the sky's sun position and time of day, the panorama texture, or the clear colour). A refresh is split over two frames, one step per frame engine-wide, after checking frame-buffer headroom.
+- **Face addressing**: faces are addressed through `gl_FragCoord`, which maps to the same face texel on every backend.
+- **Shading**:
+  - Split-sum specular with Fdez-Agüera multiple-scattering compensation.
+  - Frostbite's dominant direction for rough lobes.
+  - Specular occlusion from material and SSAO occlusion.
+  - Falls back to a hemisphere ambient until a probe is ready.
+- **Controls**: `BGFXRenderer::EnableEnvironmentLighting` / `EnvironmentIntensity` (RenderCore inspector).
+
+### Post-processing
+
+Per camera, from `CameraData::Post`, which `CameraCore` copies from a `PostProcess` component (the editor view uses the main camera's):
+
+- **SSAO**:
+  - Runs at half resolution from depth (Alchemy-style), with edge-aware normals and depth lookups snapped to texel centres.
+  - A depth-aware 4×4 blur follows.
+  - It is applied as a multiply onto the opaque HDR colour.
+- **Bloom**: thresholded downsample chain (up to 6 RGBA16F mips) and additive tent upsample.
+- **Eye adaptation**: log-average luminance into 1×1, adapted over time between min/max EV (`AutoExposure`).
+- **Tonemap**:
+  - Exposure (manual stops or adapted), bloom mix and white balance.
+  - ACES / AgX / Reinhard / none.
+  - Saturation, contrast, lift/gamma/gain and vignette.
+  - Accurate gamma encode with ±0.5 LSB dither.
+  - Writes luma to alpha only when FXAA follows.
+- **FXAA** into the final target.
+
+### Particles
+
+`ParticleCore` (engine-owned, so it also runs in the editor) handles the CPU side:
+
+- Each frame it loads textures on the main thread, then simulates every `ParticleSystem` as its own job.
+- Each system fills a `ParticleBatch`: texture, blend, alignment, flipbook, softness, bounds, and 64-byte `ParticleInstance`s.
+
+`RenderParticles` draws after the transparent view:
+
+- **View**: a sequential view targeting `ParticleBuffer`, which is HDR colour only, so the scene depth can be read as a texture.
+- **Ordering and culling**: systems are culled by bounds and drawn back to front. Alpha-blended systems also sort their particles.
+- **Geometry**: quads are expanded in `Particle.vert` from `u_invView` axes, as billboards, velocity-stretched or horizontal.
+- **Depth**: `Particle.frag` depth-tests against the scene depth and fades within `SoftParticleDistance` (soft particles).
+- **Blending**: additive is premultiplied ONE/ONE; alpha uses the standard blend.
+
+### Debug Draw v2, statistics, picking
+
+- **Debug Draw v2** (`DebugDraw.h`): a thread-safe, immediate-mode line API:
+  - Shapes: `Line`, `Ray`, `Arrow`, `Box`, `Circle`, `Sphere`, `Capsule`, `Cone`, `Axes`, `Frustum`, `Grid`.
+  - Every call takes a colour, a duration and flags (`NoDepthTest`, `EditorOnly`).
+  - Collected once per frame and drawn in each camera's transparent view. `EditorOnly` lines go only to the editor camera.
+- **Frame statistics**: `BGFXRenderer::GatherFrameStats` copies `bgfx::getStats()` into `FrameStats::RenderStats`. Per-view GPU timings need `BGFX_DEBUG_PROFILER`, which is on only while the editor's Profiler window is open.
+- **Picking**: `PickingPass` renders entity IDs into a 32×32 target around the click and reads it back (see `Docs/Editor-Havana.md`).
 
 ### Draw state binding (`BindMeshDrawState`)
 
-Texture slots: 0 = diffuse (`s_texDiffuse`), 1 = normal (`s_texNormal`), 2 = opacity (`s_texAlpha`). Missing normal or opacity textures fall back to `m_defaultOpacityTexture` (`Assets/Textures/DefaultAlpha.png`) — yes, **the opacity default is bound to the normal slot too**. Then `Material::Use()` uploads material uniforms, `Material::GetRenderState(state)` merges blend/cull bits, and the material's `ShaderCommand` program is returned for submit.
+Texture stages:
 
-### Lighting reality
+| Stage | Binding |
+|-------|---------|
+| 0 | Base colour |
+| 1 | Normal |
+| 2 | Opacity |
+| 3 | Metallic-roughness |
+| 4 | Emissive |
+| 5 | Occlusion |
+| 6–7 | Free |
+| 8 | Light data |
+| 9 | Cluster grid |
+| 10 | Cluster indices |
+| 11 | Sun shadow atlas |
+| 12 | Spot shadow atlas |
+| 13 | Environment specular |
+| 14 | Environment irradiance |
+| 15 | BRDF LUT |
 
-- Global uniforms per frame: `s_sunDirection` and `s_sunDiffuse` come from **`DynamicSky`'s sun model** (direction + XYZ-luminance-derived RGB), `u_time` from `RenderCore`.
-- `s_ambient` uploads `m_ambient`, which is constructed with `bx::InitNone` and **never assigned anywhere** — the ambient uniform is uninitialized memory.
-- The `Light` / `DirectionalLight` components exist but **nothing reads them** into the renderer; `LightCommand` is an empty stub (`float test`). There is exactly one light in practice: the procedural sky's sun.
-- `Modules/Moonlight/Source/RenderPasses/DepthPass.h` exists but is empty — **no shadow mapping**.
+Missing maps fall back to neutral 1×1 textures (white; flat normal). `BindLighting` sets the lighting uniforms with every draw (bgfx uniform state is per draw), then `Material::Use()` and `GetRenderState()` apply.
 
-### Resize and reset
+## How to Extend
 
-`WindowResized` (from the window's resize callback) recreates the editor camera buffer and any camera buffer that `IsMain || MatchMainBufferSize`. `SetMSAALevel` flips reset flags and sets `NeedsReset`; the next `Render` call performs `bgfx::reset` and recreates every camera buffer. `FrameBuffer::ReCreate` destroys and recreates its textures; its separate `Resize` method is an empty TODO.
+- **New pass that reads another pass's output**: allocate its view *after* the producer's (`m_views.Allocate`) and skip the pass when it returns `UINT16_MAX`.
+- **New per-light data**: extend `LightCommand`, pack it into the light-data texels (`PrepareFrameLighting`, 5 texels per light today; the texture is 2048 wide) and read it in `shadeLocalLight` (`Lighting.sh`).
+- **New lit material**: include `Lighting.sh`, build a `Surface` and call `shadeLight` / `shadeClusteredLights` / `ambientLighting` like `Standard.frag`. See `Docs/Materials-and-Shaders.md`.
 
 ## Caveats & Fragility
 
-- **View-ID collisions are possible**: camera views count up from 1 (editor) — with ~8+ active cameras they collide with the hardcoded UI view 9; Ultralight surfaces start at 11 (+ buffer index). Nothing validates.
-- **`CommandCache::Update`/`Pop` are unlocked** — safe only under the current frame schedule; any new code that `Push`es meshes while mesh jobs run is a reallocation race.
-- **Off-by-one guards** in `CommandCache::Pop` and `UpdateMeshMatrix` (`Id > size()` instead of `>=`).
-- **Transparency assert is debug-only** and the sort is per-object distance — intersecting/large transparent geometry sorts wrong (standard limitation, no OIT).
-- **Instance batch lookup is a linear scan** per opaque instanced mesh (`getBatch`); fine at current batch counts, quadratic-ish if material/geometry variety explodes.
-- **Ambient uniform is uninitialized** (`m_ambient` = `bx::InitNone`, never set); shaders sampling `s_ambient` read garbage — effectively "whatever the driver zeroes or doesn't".
-- **Light components are decorative** today; adding lights means building the missing `LightCommand` plumbing.
-- **`Engine::LoadScene` → `RenderCore::Init` clears the whole mesh cache** (`ClearMeshes`) — anything caching mesh-cache indices across scene loads holds dangling slots.
-- **Logging noise**: `Create` logs `BRUH("renderFrame")` twice and `BRUH("Renderer assets")` at warning level every boot.
-- Per-camera `bgfx::blit` of the full render target every frame (including the main camera, whose guard is commented out) — bandwidth cost scales with camera count.
+- **Shadow cost on huge scenes**: casters are tested per cascade by a CPU loop over every mesh command (≈1.5 ms for 57k meshes in release). On the lavapipe software renderer the 57k-cube bench goes from 44 to 82 ms/frame with shadows; real GPUs pay far less, but this hasn't been measured on hardware yet.
+- **Cluster capacity**: more than 64 lights in one froxel silently drops the extras; more than 256 point/spot lights per frame are ignored.
+- **Point lights cast no shadows**: cube or dual-paraboloid shadows aren't implemented. Only 4 spots and 1 directional light get shadows.
+- **One sun in post**: only directional light 0 is shadowed; additional directionals are unshadowed.
+- **Probe refresh hitch**: a sky probe refresh costs ~60 tiny passes over two frames. An animated time of day (`DynamicSky::m_timeScale > 0`) refreshes about every 3 in-game minutes.
+- **Particles are unlit**: smoke takes its colour verbatim; there are no light or shadow interactions.
+- **Transparent sorting is per object** (plus per particle within alpha systems); intersecting transparents sort wrong (no OIT).
+- **`CommandCache::Update`/`Pop` are unlocked**: safe only because mesh jobs write distinct slots and nothing `Push`es while they run.
+- **Uniform names are global in bgfx**: the lighting uniforms (`u_lightParams`, `u_shadowMatrix`, `s_envSpecular`, …) must not be reused with other types.
 
 ## Related Docs
 
-- `Docs/Materials-and-Shaders.md` — batch keys, material state, shader cook
-- `Docs/Jobs-and-Events.md` — the job dispatch + threading contract behind the mesh job
-- `Docs/Cores-and-Components-Reference.md` — `Camera`, `Mesh`, `Transform` component details
-- `Docs/UI-Ultralight-and-ImGui.md` — where `camera.UITexture` comes from
-- `Docs/Editor-Havana.md` — `PickingPass`, the scene-view texture and the editor overlays
-- `Docs/State-of-the-Engine.md` — shadows/multi-light improvement notes
+- `Docs/Materials-and-Shaders.md` — StandardMaterial, batch keys, shader cook and hot reload
+- `Docs/Cores-and-Components-Reference.md` — `Light`, `Mesh`, `PostProcess`, `ParticleSystem`, `Camera`
+- `Docs/Jobs-and-Events.md` — the job system behind the mesh and particle jobs
+- `Docs/Editor-Havana.md` — picking, the scene view and its overlays
+- `Docs/State-of-the-Engine.md` — what's left to improve
