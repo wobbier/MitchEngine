@@ -6,6 +6,7 @@
 class Light
     : public Component<Light>
 {
+    ME_REFLECTABLE( Light )
 public:
     Light();
     ~Light() = default;
@@ -14,13 +15,6 @@ public:
     virtual void Init() final;
 
     Vector3 Colour { 1.f, 1.f, 1.f };
-#if USING( ME_EDITOR )
-    virtual void OnEditorInspect() final;
-#endif
     Moonlight::LightCommand cmd;
-
-private:
-    void OnSerialize( json& outJson ) override;
-    void OnDeserialize( const json& inJson ) override;
 };
 ME_REGISTER_COMPONENT_FOLDER( Light, "Rendering" )

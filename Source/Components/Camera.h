@@ -13,6 +13,7 @@
 class Camera
     : public Component<Camera>
 {
+    ME_REFLECTABLE( Camera )
     friend class CameraCore;
 public:
     inline static Camera* CurrentCamera = nullptr;

@@ -42,6 +42,7 @@
 #include "Widgets/HistoryWidget.h"
 #include "Editor/EditorActions.h"
 #include "Editor/DefaultEditorActions.h"
+#include "Editor/ReflectionUI.h"
 #include <imgui_internal.h>
 #include <cstring>
 
@@ -122,6 +123,7 @@ Havana::Havana( Engine* GameEngine, EditorApp* app )
         return m_app->IsGameRunning() && GetEngine().GetInput().IsCapturing();
     };
     RegisterDefaultEditorActions( *app );
+    ReflectionUI::RegisterDefaultDrawers();
     actions.Register( { "View.AssetSearch", "Quick Asset Search", "View", ImGuiMod_Shortcut | ImGuiKey_Space, 0, [this]() { AssetBrowser->RequestOverlay( nullptr ); } } );
 
     InitUI();

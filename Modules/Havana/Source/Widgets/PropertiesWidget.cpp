@@ -9,6 +9,8 @@
 #include "Editor/EditorComponentInfoCache.h"
 #include "Editor/EditorOperations.h"
 #include "Editor/Selection.h"
+#include "Editor/ReflectionUI.h"
+#include "Editor/UndoStack.h"
 #include "World/SceneSerializer.h"
 #include <Utils/HavanaUtils.h>
 #include "UI/Colors.h"
@@ -97,17 +99,44 @@ void PropertiesWidget::Render()
 		OPTICK_CATEGORY("Inspect Entity", Optick::Category::Debug);
 		DrawEntityHeader(*entity.Get());
 
+		// The active entity's components, in inspector order, that every selected entity has.
+		std::vector<EntityHandle> selected = selection.GetEntities();
 		std::vector<BaseComponent*> components = entity->GetAllComponents();
 		SortComponents(components);
 		for (BaseComponent* comp : components)
 		{
-			// Removing a component from a context menu defers it; skip what's already gone.
-			if (entity->GetComponentByName(comp->GetName()) == comp)
+			const std::string typeName = comp->GetName();
+			// Removing a component defers it; skip what's already gone.
+			if (entity->GetComponentByName(typeName) != comp)
 			{
-				DrawComponent(comp, *entity.Get());
+				continue;
+			}
+			std::vector<Instance> instances;
+			instances.push_back({ entity.Get(), comp, EditKey(*entity.Get(), *comp) });
+			bool shared = true;
+			for (EntityHandle& other : selected)
+			{
+				if (other == entity)
+				{
+					continue;
+				}
+				BaseComponent* otherComp = other->GetComponentByName(typeName);
+				if (!otherComp)
+				{
+					shared = false;
+					break;
+				}
+				instances.push_back({ other.Get(), otherComp, EditKey(*other.Get(), *otherComp) });
+			}
+			if (shared)
+			{
+				DrawComponentGroup(typeName, instances);
 			}
 		}
-		AddComponentPopup(*entity.Get());
+		if (selected.size() == 1)
+		{
+			AddComponentPopup(*entity.Get());
+		}
 	}
 	else if (BaseCore* core = selection.GetCore())
 	{
@@ -138,7 +167,7 @@ void PropertiesWidget::DrawEntityHeader(Entity& entity)
 	const size_t selectedCount = Selection::Get().Count();
 	if (selectedCount > 1)
 	{
-		ImGui::TextColored(ImVec4(ACCENT_YELLOW), "%zu entities selected (showing the active one)", selectedCount);
+		ImGui::TextColored(ImVec4(ACCENT_YELLOW), "%zu entities selected: editing shared components", selectedCount);
 	}
 
 	bool active = entity.IsActiveSelf();
@@ -198,52 +227,102 @@ void PropertiesWidget::DrawEntityHeader(Entity& entity)
 }
 
 
-void PropertiesWidget::DrawComponent(BaseComponent* comp, Entity& entity)
+void PropertiesWidget::CommitEdits(const std::string& typeName, std::vector<Instance>& instances, const std::string& undoName)
 {
-	const std::string key = EditKey(entity, *comp);
-	const bool pending = m_pendingEdits[key];
-	json& snapshot = m_snapshots[key];
-	if (!pending || snapshot.is_null())
+	std::vector<EditorOps::ComponentEdit> edits;
+	for (Instance& instance : instances)
 	{
-		snapshot = json();
-		comp->Serialize(snapshot);
+		json after;
+		instance.Component->Serialize(after);
+		json& before = m_snapshots[instance.Key];
+		if (after != before)
+		{
+			edits.push_back({ instance.Owner->GetGUID(), typeName, before, after });
+			before = after;
+		}
+	}
+	EditorOps::RecordComponentEdits(edits, undoName);
+}
+
+
+void PropertiesWidget::DrawComponentGroup(const std::string& typeName, std::vector<Instance>& instances)
+{
+	BaseComponent* primary = instances.front().Component;
+	const std::string& groupKey = instances.front().Key;
+	const bool pending = m_pendingEdits[groupKey];
+	for (Instance& instance : instances)
+	{
+		json& snapshot = m_snapshots[instance.Key];
+		if (!pending || snapshot.is_null())
+		{
+			snapshot = json();
+			instance.Component->Serialize(snapshot);
+		}
 	}
 
-	ImGui::PushID(comp);
+	ImGui::PushID(typeName.c_str());
 
 	bool keep = true;
-	const bool isTransform = comp->GetName() == "Transform";
+	const bool isTransform = typeName == "Transform";
 	const bool open = ImGui::CollapsingHeader("##header", isTransform ? nullptr : &keep, ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_AllowOverlap);
-	DrawComponentContextMenu(comp, entity);
+	DrawComponentContextMenu(typeName, instances);
 
 	// Enabled toggle + name drawn over the header.
 	ImGui::SameLine(ImGui::GetTreeNodeToLabelSpacing());
-	bool enabled = comp->IsEnabled();
+	bool enabled = primary->IsEnabled();
 	ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(1.f, 1.f));
 	if (!isTransform && ImGui::Checkbox("##enabled", &enabled))
 	{
-		json before = snapshot;
-		comp->SetEnabled(enabled);
+		for (Instance& instance : instances)
+		{
+			instance.Component->SetEnabled(enabled);
+		}
 		GetEngine().GetWorld().lock()->Simulate();
-		json after;
-		comp->Serialize(after);
-		EditorOps::RecordComponentEdit(entity, comp->GetName(), before, after, enabled ? "Enable " + comp->GetName() : "Disable " + comp->GetName());
-		snapshot = after;
+		CommitEdits(typeName, instances, (enabled ? "Enable " : "Disable ") + typeName);
 	}
 	ImGui::PopStyleVar();
 	ImGui::SameLine();
-	ImGui::TextUnformatted(comp->GetName().c_str());
+	ImGui::TextUnformatted(typeName.c_str());
 
 	if (open)
 	{
-		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0.f, ImGui::GetStyle().ItemSpacing.y });
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 20.f, 0.f });
+		ImGui::Indent(8.f);
 		ImGui::BeginGroup();
-		ImGui::BeginDisabled(!comp->IsEnabled());
-		comp->OnEditorInspect();
+		ImGui::BeginDisabled(!primary->IsEnabled());
+
+		if (const Reflection::TypeInfo* typeInfo = primary->GetTypeInfo())
+		{
+			ReflectionUI::Context context;
+			for (size_t i = 1; i < instances.size(); ++i)
+			{
+				context.Others.push_back(instances[i].Component);
+			}
+			if (ReflectionUI::DrawType(*typeInfo, primary, context))
+			{
+				for (const std::string& field : context.ChangedFields)
+				{
+					for (Instance& instance : instances)
+					{
+						instance.Component->OnPropertyChanged(field);
+					}
+				}
+			}
+		}
+		if (instances.size() == 1)
+		{
+			// Custom inspector UI (extra buttons, previews, non-reflected state).
+			primary->OnEditorInspect();
+		}
+		else if (!primary->GetTypeInfo())
+		{
+			ImGui::TextDisabled("Multi-editing isn't supported for %s.", typeName.c_str());
+		}
+
 		ImGui::EndDisabled();
 		ImGui::EndGroup();
-		ImGui::PopStyleVar(2);
+		ImGui::Unindent(8.f);
+		ImGui::PopStyleVar();
 
 		const bool active = ImGui::IsItemActive();
 		const bool edited = ImGui::IsItemEdited();
@@ -251,21 +330,15 @@ void PropertiesWidget::DrawComponent(BaseComponent* comp, Entity& entity)
 		const bool clickedInside = ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem) && ImGui::IsMouseReleased(ImGuiMouseButton_Left);
 		if (edited)
 		{
-			m_pendingEdits[key] = true;
+			m_pendingEdits[groupKey] = true;
 		}
 
 		// Commit once the interaction ends. Buttons and popups don't report edits, so a click
 		// inside the component also compares state.
-		if (!active && (m_pendingEdits[key] || deactivated || clickedInside))
+		if (!active && (m_pendingEdits[groupKey] || deactivated || clickedInside))
 		{
-			json after;
-			comp->Serialize(after);
-			if (after != snapshot)
-			{
-				EditorOps::RecordComponentEdit(entity, comp->GetName(), snapshot, after, "Edit " + comp->GetName());
-				snapshot = after;
-			}
-			m_pendingEdits[key] = false;
+			CommitEdits(typeName, instances, "Edit " + typeName);
+			m_pendingEdits[groupKey] = false;
 		}
 		ImGui::Dummy(ImVec2(0.f, 6.f));
 	}
@@ -273,22 +346,38 @@ void PropertiesWidget::DrawComponent(BaseComponent* comp, Entity& entity)
 
 	if (!keep)
 	{
-		EditorOps::RemoveComponent(entity, comp->GetName());
+		UndoTransaction transaction("Remove " + typeName);
+		for (Instance& instance : instances)
+		{
+			EditorOps::RemoveComponent(*instance.Owner, typeName);
+		}
 	}
 }
 
 
-void PropertiesWidget::DrawComponentContextMenu(BaseComponent* comp, Entity& entity)
+void PropertiesWidget::DrawComponentContextMenu(const std::string& typeName, std::vector<Instance>& instances)
 {
 	if (!ImGui::BeginPopupContextItem("ComponentContext"))
 	{
 		return;
 	}
-	const bool isTransform = comp->GetName() == "Transform";
+	BaseComponent* primary = instances.front().Component;
+	const bool isTransform = typeName == "Transform";
+
+	if (ImGui::MenuItem("Reset", nullptr, false, primary->GetTypeInfo() != nullptr))
+	{
+		const json defaults = EditorOps::GetComponentDefaults(typeName);
+		for (Instance& instance : instances)
+		{
+			EditorOps::ApplyComponent(instance.Owner->GetGUID(), typeName, defaults);
+		}
+		CommitEdits(typeName, instances, "Reset " + typeName);
+	}
+	ImGui::Separator();
 	if (ImGui::MenuItem("Copy Values"))
 	{
 		json values;
-		comp->Serialize(values);
+		primary->Serialize(values);
 		const std::string text = std::string(kComponentClipboardPrefix) + values.dump();
 		ImGui::SetClipboardText(text.c_str());
 	}
@@ -299,21 +388,24 @@ void PropertiesWidget::DrawComponentContextMenu(BaseComponent* comp, Entity& ent
 	{
 		pasted = json::parse(clipboard + std::strlen(kComponentClipboardPrefix), nullptr, false);
 	}
-	const bool canPaste = !pasted.is_discarded() && pasted.is_object() && pasted.value("Type", std::string()) == comp->GetName();
+	const bool canPaste = !pasted.is_discarded() && pasted.is_object() && pasted.value("Type", std::string()) == typeName;
 	if (ImGui::MenuItem("Paste Values", nullptr, false, canPaste))
 	{
-		json before;
-		comp->Serialize(before);
-		EditorOps::ApplyComponent(entity.GetGUID(), comp->GetName(), pasted);
-		json after;
-		comp->Serialize(after);
-		EditorOps::RecordComponentEdit(entity, comp->GetName(), before, after, "Paste " + comp->GetName() + " Values");
+		for (Instance& instance : instances)
+		{
+			EditorOps::ApplyComponent(instance.Owner->GetGUID(), typeName, pasted);
+		}
+		CommitEdits(typeName, instances, "Paste " + typeName + " Values");
 	}
 
 	ImGui::Separator();
 	if (ImGui::MenuItem("Remove Component", nullptr, false, !isTransform))
 	{
-		EditorOps::RemoveComponent(entity, comp->GetName());
+		UndoTransaction transaction("Remove " + typeName);
+		for (Instance& instance : instances)
+		{
+			EditorOps::RemoveComponent(*instance.Owner, typeName);
+		}
 	}
 	ImGui::EndPopup();
 }

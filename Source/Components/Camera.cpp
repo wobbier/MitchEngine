@@ -16,6 +16,21 @@
 #include "Types/AssetDescriptor.h"
 #endif
 
+ME_REFLECT_ENUM( Moonlight::ProjectionType, { { "Perspective", Moonlight::ProjectionType::Perspective }, { "Orthographic", Moonlight::ProjectionType::Orthographic } } )
+ME_REFLECT_ENUM( Moonlight::ClearColorType, { { "Color", Moonlight::ClearColorType::Color }, { "Skybox", Moonlight::ClearColorType::Skybox }, { "Procedural", Moonlight::ClearColorType::Procedural } } )
+
+ME_REFLECT_BEGIN( Camera )
+    ME_FIELD( Projection );
+    ME_FIELD_NAMED( m_FOV, "FieldOfView" ).Display( "Field of View" ).Range( 1.f, 179.f );
+    ME_FIELD( OrthographicSize ).Range( 0.01f, 1000.f );
+    ME_FIELD( Near ).Speed( 0.01f );
+    ME_FIELD( Far ).Speed( 1.f );
+    ME_FIELD( ClearType );
+    ME_FIELD( ClearColor ).Color();
+    ME_FIELD( Zoom ).Hidden();
+ME_REFLECT_END()
+
+
 Camera::Camera()
     : Component( "Camera" )
     , OutputSize( 1280.f, 720.f )
@@ -150,139 +165,40 @@ Matrix4 Camera::GetProjectionMatrix() const
 
 void Camera::OnDeserialize( const json& inJson )
 {
-    if( inJson.contains( "Skybox" ) )
+    Reflection::FromJson( StaticType(), this, inJson );
+    if( inJson.contains( "Skybox" ) && inJson["Skybox"].is_string() )
     {
-        Skybox = new Moonlight::SkyBox( inJson["Skybox"] );
+        Skybox = new Moonlight::SkyBox( inJson["Skybox"].get<std::string>() );
     }
-
-    if( inJson.contains( "Zoom" ) )
+    if( inJson.value( "IsCurrent", false ) )
     {
-        Zoom = inJson["Zoom"];
-    }
-
-    if( inJson.contains( "IsCurrent" ) )
-    {
-        if( inJson["IsCurrent"] )
-        {
-            SetCurrent();
-        }
-    }
-
-    if( inJson.contains( "Near" ) )
-    {
-        Near = inJson["Near"];
-    }
-
-    if( inJson.contains( "Far" ) )
-    {
-        Far = inJson["Far"];
-    }
-
-    if( inJson.contains( "ClearType" ) )
-    {
-        if( inJson["ClearType"] == "Color" )
-        {
-            ClearType = Moonlight::ClearColorType::Color;
-        }
-        else if( inJson["ClearType"] == "Skybox" )
-        {
-            ClearType = Moonlight::ClearColorType::Skybox;
-        }
-        else if( inJson["ClearType"] == "Procedural" )
-        {
-            ClearType = Moonlight::ClearColorType::Procedural;
-        }
-    }
-
-    if( inJson.contains( "ClearColor" ) )
-    {
-        ClearColor = Vector3( (float)inJson["ClearColor"][0], (float)inJson["ClearColor"][1], (float)inJson["ClearColor"][2] );
+        SetCurrent();
     }
 }
+
 
 void Camera::OnSerialize( json& outJson )
 {
-    outJson["Zoom"] = Zoom;
+    Reflection::ToJson( StaticType(), this, outJson );
     outJson["IsCurrent"] = IsCurrent();
-    outJson["Near"] = Near;
-    outJson["Far"] = Far;
-    if( ClearType == Moonlight::ClearColorType::Color )
-    {
-        outJson["ClearType"] = "Color";
-    }
-    else if( ClearType == Moonlight::ClearColorType::Skybox )
-    {
-        outJson["ClearType"] = "Skybox";
-    }
-    else if( ClearType == Moonlight::ClearColorType::Procedural )
-    {
-        outJson["ClearType"] = "Procedural";
-    }
-
-    if( Skybox && Skybox->SkyMaterial )
+    if( Skybox && Skybox->SkyMaterial && Skybox->SkyMaterial->GetTexture( Moonlight::TextureType::Diffuse ) )
     {
         outJson["Skybox"] = Skybox->SkyMaterial->GetTexture( Moonlight::TextureType::Diffuse )->GetPath().GetLocalPath();
     }
-
-    outJson["ClearColor"] = { ClearColor.x, ClearColor.y, ClearColor.z };
 }
+
 
 #if USING( ME_EDITOR )
 
 void Camera::OnEditorInspect()
 {
-    if( ImGui::Button( "Set Current" ) )
+    // Projection, FOV, clipping and clear settings are drawn from reflection.
+    ImGui::BeginDisabled( IsCurrent() );
+    if( ImGui::Button( IsCurrent() ? "Current Camera" : "Set Current" ) )
     {
         SetCurrent();
     }
-    HavanaUtils::Label( "Projection" );
-    if( ImGui::BeginCombo( "##Projection", ( Projection == Moonlight::ProjectionType::Perspective ) ? "Perspective" : "Orthographic" ) )
-    {
-        if( ImGui::Selectable( "Perspective", ( Projection == Moonlight::ProjectionType::Perspective ) ) )
-        {
-            Projection = Moonlight::ProjectionType::Perspective;
-        }
-        if( ImGui::Selectable( "Orthographic", ( Projection == Moonlight::ProjectionType::Orthographic ) ) )
-        {
-            Projection = Moonlight::ProjectionType::Orthographic;
-        }
-        ImGui::EndCombo();
-    }
-
-    if( Projection == Moonlight::ProjectionType::Perspective )
-    {
-        HavanaUtils::Label( "Field of View" );
-        ImGui::SliderFloat( "##Field of View", &m_FOV, 1.0f, 200.0f );
-    }
-    else if( Projection == Moonlight::ProjectionType::Orthographic )
-    {
-        HavanaUtils::Label( "Size" );
-        ImGui::SliderFloat( "##Size", &OrthographicSize, 0.1f, 200.0f );
-    }
-
-    HavanaUtils::Label( "Near" );
-    ImGui::SliderFloat( "##Near", &Near, 0.03f, 200.0f );
-    HavanaUtils::Label( "Far" );
-    ImGui::SliderFloat( "##Far", &Far, 0.2f, 2000.0f );
-
-    HavanaUtils::Label( "Clear Type" );
-    // TODO: Display the proper clear type as text
-    if( ImGui::BeginCombo( "##ClearType", ( ClearType == Moonlight::ClearColorType::Color ) ? "Color" : "Skybox" ) )
-    {
-        if( ImGui::Selectable( "Color", ( ClearType == Moonlight::ClearColorType::Color ) ) )
-        {
-            ClearType = Moonlight::ClearColorType::Color;
-        }
-        if( ImGui::Selectable( "Skybox", ( ClearType == Moonlight::ClearColorType::Skybox ) ) )
-        {
-            ClearType = Moonlight::ClearColorType::Skybox;
-        }
-        if( ImGui::Selectable( "Procedural", ( ClearType == Moonlight::ClearColorType::Procedural ) ) )
-        {
-            ClearType = Moonlight::ClearColorType::Procedural;
-        }
-        ImGui::EndCombo();
-    }
+    ImGui::EndDisabled();
 
     if( ClearType == Moonlight::ClearColorType::Skybox )
     {
@@ -370,10 +286,6 @@ void Camera::OnEditorInspect()
                 Skybox->SkyMaterial->SetTexture( Moonlight::TextureType::Diffuse, nullptr );
             }
         }
-    }
-    else if( ClearType == Moonlight::ClearColorType::Color )
-    {
-        HavanaUtils::ColorButton( "Clear Color", ClearColor );
     }
     else if( ClearType == Moonlight::ClearColorType::Procedural )
     {

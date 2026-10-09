@@ -3,6 +3,11 @@
 #include "Engine/Engine.h"
 #include "Utils/HavanaUtils.h"
 
+ME_REFLECT_BEGIN( Light )
+    ME_FIELD_NAMED( Colour, "Color" ).Color();
+ME_REFLECT_END()
+
+
 Light::Light()
     : Component( "Light" )
 {
@@ -14,19 +19,3 @@ void Light::Init()
     //GetEngine().GetRenderer().PushLight(cmd);
 }
 
-void Light::OnSerialize( json& outJson )
-{
-}
-
-void Light::OnDeserialize( const json& inJson )
-{
-}
-
-#if USING( ME_EDITOR )
-
-void Light::OnEditorInspect()
-{
-    HavanaUtils::EditableVector3( "Color", Colour );
-}
-
-#endif

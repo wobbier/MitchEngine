@@ -13,9 +13,10 @@ class Entity;
 
 #if USING( ME_EDITOR )
 
-// Inspector for the active selection. Every edit made inside a component's UI is captured as an
-// undoable before/after snapshot of that component, so custom OnEditorInspect code gets undo for
-// free.
+// Inspector for the selection. Reflected components get generated UI (with multi-entity editing of
+// the components every selected entity shares); custom OnEditorInspect code still runs for extra
+// UI. Every edit made inside a component's section is captured as an undoable before/after
+// snapshot, so custom inspector code gets undo for free.
 class PropertiesWidget
 	: public HavanaWidget
 {
@@ -29,9 +30,17 @@ public:
 	void Render() override;
 
 private:
+	struct Instance
+	{
+		Entity* Owner = nullptr;
+		BaseComponent* Component = nullptr;
+		std::string Key;
+	};
+
 	void DrawEntityHeader(Entity& entity);
-	void DrawComponent(BaseComponent* comp, Entity& entity);
-	void DrawComponentContextMenu(BaseComponent* comp, Entity& entity);
+	void DrawComponentGroup(const std::string& typeName, std::vector<Instance>& instances);
+	void DrawComponentContextMenu(const std::string& typeName, std::vector<Instance>& instances);
+	void CommitEdits(const std::string& typeName, std::vector<Instance>& instances, const std::string& undoName);
 	void AddComponentPopup(Entity& entity);
 	void SortComponents(std::vector<BaseComponent*>& components) const;
 

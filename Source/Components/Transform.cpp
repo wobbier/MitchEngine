@@ -650,32 +650,10 @@ void Transform::OnDeserialize( const json& inJson )
 
 void Transform::OnEditorInspect()
 {
-    if( Entity* entity = Parent.Get() )
+    // Local position/rotation/scale are drawn from reflection; this adds world-space editing.
+    if( !ImGui::TreeNodeEx( "World Space", ImGuiTreeNodeFlags_SpanAvailWidth ) )
     {
-        std::string name = entity->GetName();
-        HavanaUtils::Label( "Name" );
-        if( ImGui::InputText( "##Name", &name ) )
-        {
-            entity->SetName( name );
-        }
-    }
-
-    Vector3 OldPosition = LocalPosition;
-    if( HavanaUtils::EditableVector3( "Local Position", OldPosition ) )
-    {
-        SetPosition( OldPosition );
-    }
-
-    Vector3 OldRotation = Quaternion::ToEulerAngles( GetRotation() );
-    if( HavanaUtils::EditableVector3( "Local Rotation", OldRotation ) )
-    {
-        SetRotation( OldRotation );
-    }
-
-    Vector3 OldScale = LocalScale;
-    if( HavanaUtils::EditableVector3( "Scale", OldScale, 1.f ) )
-    {
-        SetScale( OldScale );
+        return;
     }
 
     Vector3 WorldPos = GetWorldPosition();
@@ -690,10 +668,7 @@ void Transform::OnEditorInspect()
         SetWorldRotation( Quaternion::FromEulerDegrees( OldWorldRotation ) );
     }
 
-    if( ImGui::Button( "Reset Transform" ) )
-    {
-        Reset();
-    }
+    ImGui::TreePop();
 }
 
 #endif

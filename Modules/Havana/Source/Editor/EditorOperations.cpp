@@ -12,6 +12,7 @@
 #include "CLog.h"
 #include <imgui.h>
 #include <algorithm>
+#include <unordered_map>
 #include <cstring>
 
 namespace EditorOps
@@ -686,6 +687,47 @@ namespace EditorOps
         }
         ComponentState state{ InEntity.GetGUID(), InTypeName, InBefore, InAfter };
         UndoStack::Get().Push( std::make_unique<ComponentStateCommand>( InUndoName, std::vector<ComponentState>{ state }, InMergeKey ) );
+    }
+
+
+    void RecordComponentEdits( const std::vector<ComponentEdit>& InEdits, const std::string& InUndoName )
+    {
+        std::vector<ComponentState> states;
+        for( const ComponentEdit& edit : InEdits )
+        {
+            if( edit.Before != edit.After )
+            {
+                states.push_back( { edit.GUID, edit.Type, edit.Before, edit.After } );
+            }
+        }
+        if( !states.empty() )
+        {
+            UndoStack::Get().Push( std::make_unique<ComponentStateCommand>( InUndoName, std::move( states ), 0 ) );
+        }
+    }
+
+
+    json GetComponentDefaults( const std::string& InTypeName )
+    {
+        static std::unordered_map<std::string, json> s_defaults;
+        auto cached = s_defaults.find( InTypeName );
+        if( cached != s_defaults.end() )
+        {
+            return cached->second;
+        }
+        World& world = GetWorld();
+        json defaults;
+        EntityHandle temp = world.CreateEntity( "__ComponentDefaults" );
+        // Loading defers Init, so the temporary component never touches resources or cores.
+        temp->SetLoading( true );
+        if( BaseComponent* component = temp->AddComponentByName( InTypeName ) )
+        {
+            component->Serialize( defaults );
+        }
+        temp->MarkForDelete();
+        world.Simulate();
+        s_defaults[InTypeName] = defaults;
+        return defaults;
     }
 
 

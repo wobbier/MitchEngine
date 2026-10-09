@@ -45,6 +45,18 @@ namespace EditorOps
     BaseComponent* AddComponent( Entity& InEntity, const std::string& InTypeName );
     void RemoveComponent( Entity& InEntity, const std::string& InTypeName );
 
+    struct ComponentEdit
+    {
+        uint64_t GUID = 0;
+        std::string Type;
+        json Before;
+        json After;
+    };
+    // Records already-applied edits of several components as one undo step (multi-edit).
+    void RecordComponentEdits( const std::vector<ComponentEdit>& InEdits, const std::string& InUndoName );
+    // Default serialized state of a component type (from a temporary, uninitialized instance).
+    json GetComponentDefaults( const std::string& InTypeName );
+
     // Records an edit of one component that has already been applied (inspector, gizmo).
     void RecordComponentEdit( Entity& InEntity, const std::string& InTypeName, const json& InBefore, const json& InAfter, const std::string& InUndoName, uint64_t InMergeKey = 0 );
 

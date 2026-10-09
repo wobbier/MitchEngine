@@ -39,3 +39,26 @@ public:
     size_t LocalPos = 0;
     std::string FullPath;
 };
+
+// Reflection: a Path field serializes as its project-local path string ("Assets/...").
+#include "Reflection/Reflection.h"
+namespace Reflection
+{
+    template<>
+    struct CustomTypeTraits<Path>
+    {
+        static constexpr bool IsCustom = true;
+        static constexpr const char* Name = "Path";
+        static void ToJson( const Path& InValue, json& OutJson ) { OutJson = InValue.GetLocalPathString(); }
+        static bool FromJson( Path& OutValue, const json& InJson )
+        {
+            if( !InJson.is_string() )
+            {
+                return false;
+            }
+            const std::string text = InJson.get<std::string>();
+            OutValue = text.empty() ? Path() : Path( text );
+            return true;
+        }
+    };
+}
