@@ -75,9 +75,9 @@ struct Quaternion
         float xy = qx * y;
         float xz = qx * z;
         float yz = qy * z;
-        float wx = w * x;
-        float wy = w * y;
-        float wz = w * z;
+        float wx = w * qx;
+        float wy = w * qy;
+        float wz = w * qz;
 
         Vector3 res;
         res.x = ( 1.f - ( yy + zz ) ) * point.x + ( xy - wz ) * point.y + ( xz + wy ) * point.z;

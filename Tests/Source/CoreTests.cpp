@@ -5,7 +5,9 @@
 #include "Core/CommandLine.h"
 #include "Core/CrashHandler.h"
 #include "Core/StackTrace.h"
+#include "Math/Quaternion.h"
 #include "Math/Vector3.h"
+#include <glm/gtc/quaternion.hpp>
 #include <atomic>
 #include <filesystem>
 #include <fstream>
@@ -91,6 +93,31 @@ TEST_CASE( "Vector3 cross product" )
 
 
 #if !USING( ME_PLATFORM_WINDOWS )
+TEST_CASE( "Quaternion times Vector3 rotates like Rotate and glm" )
+{
+    // 90 degrees about X takes +Y to +Z.
+    const Quaternion aboutX( std::sin( 0.785398f ), 0.f, 0.f, std::cos( 0.785398f ) );
+    const Vector3 up = aboutX * Vector3( 0.f, 1.f, 0.f );
+    CHECK( up.x == doctest::Approx( 0.f ).epsilon( 1e-5 ) );
+    CHECK( up.y == doctest::Approx( 0.f ).epsilon( 1e-5 ) );
+    CHECK( up.z == doctest::Approx( 1.f ).epsilon( 1e-5 ) );
+
+    // An arbitrary rotation agrees with Rotate() and glm.
+    const glm::quat g = glm::normalize( glm::quat( 0.8f, 0.3f, -0.4f, 0.33f ) );   // w, x, y, z
+    const Quaternion q( g.x, g.y, g.z, g.w );
+    const Vector3 v( 1.5f, -2.f, 0.25f );
+    const Vector3 a = q * v;
+    const Vector3 b = q.Rotate( v );
+    const glm::vec3 c = g * glm::vec3( v.x, v.y, v.z );
+    CHECK( a.x == doctest::Approx( c.x ).epsilon( 1e-5 ) );
+    CHECK( a.y == doctest::Approx( c.y ).epsilon( 1e-5 ) );
+    CHECK( a.z == doctest::Approx( c.z ).epsilon( 1e-5 ) );
+    CHECK( b.x == doctest::Approx( c.x ).epsilon( 1e-5 ) );
+    CHECK( b.y == doctest::Approx( c.y ).epsilon( 1e-5 ) );
+    CHECK( b.z == doctest::Approx( c.z ).epsilon( 1e-5 ) );
+}
+
+
 TEST_CASE( "CrashHandler writes a report when the process crashes" )
 {
     const std::string crashDir = ".tmp/TestCrashes";
