@@ -7,6 +7,7 @@
 #include "Camera/CameraData.h"
 #include "Renderer.h"
 #include "Mathf.h"
+#include "Components/Graphics/PostProcess.h"
 
 CameraCore::CameraCore() : Base( ComponentFilter().Requires<Camera>().Requires<Transform>() )
 {
@@ -70,6 +71,8 @@ void CameraCore::LateUpdate( const UpdateContext& inUpdateContext )
             CamData->Projection = CameraComponent.Projection;
             CamData->OrthographicSize = CameraComponent.OrthographicSize;
             CamData->IsMain = CameraComponent.IsMain();
+            const PostProcess* post = InEntity.TryGetComponent<PostProcess>();
+            CamData->Post = ( post && post->IsEnabled() ) ? post->ToSettings() : Moonlight::PostProcessSettings();
             //CamData.CameraFrustum = CameraComponent.CameraFrustum;
             CamData->UITexture = BGFX_INVALID_HANDLE;
 

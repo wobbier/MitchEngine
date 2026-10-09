@@ -14,7 +14,8 @@ uniform vec4 u_skyLuminance;
 void main()
 {
 	vec2 uvs = v_texcoord0 * s_tiling.xy;
-	vec4 color = texture2D(s_texDiffuse, uvs) * s_diffuse;
+	// Albedo textures are sRGB; lighting happens in linear space.
+	vec4 color = toLinear(texture2D(s_texDiffuse, uvs)) * s_diffuse;
 
 	vec4 ambient = s_ambient * color;
 	vec3 lightDir    = normalize(s_sunDirection.xyz);

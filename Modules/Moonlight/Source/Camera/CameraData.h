@@ -4,6 +4,7 @@
 #include "bgfx/bgfx.h"
 #include <Math/Matrix4.h>
 #include "Math/Frustrum.h"
+#include "Camera/PostProcessSettings.h"
 
 #include <vector>
 
@@ -56,6 +57,8 @@ namespace Moonlight
         bool ShouldCull = true;
         // The editor scene view (gets editor-only debug drawing: grid, selection, gizmos).
         bool IsEditorView = false;
+
+        PostProcessSettings Post;
 
         // One byte per renderable (not vector<bool>): mesh jobs write these concurrently.
         std::vector<uint8_t> VisibleFlags;

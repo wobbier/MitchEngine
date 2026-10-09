@@ -25,6 +25,7 @@
 #include <Mathf.h>
 #include "Core/Assert.h"
 #include "RenderPasses/PickingPass.h"
+#include "RenderPasses/PostProcess.h"
 #include "Profiling/FrameStats.h"
 
 #if BX_PLATFORM_LINUX
@@ -199,6 +200,7 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
 #if USING( ME_EDITOR )
         m_pickingPass = MakeShared<Moonlight::PickingPass>();
 #endif
+        m_postProcess = MakeUnique<Moonlight::PostProcess>();
     }
     s_time = bgfx::createUniform( "u_time", bgfx::UniformFreq::Frame, bgfx::UniformType::Vec4 );
     TransparentIndicies.reserve( kMeshTransparencyTempSize );
@@ -216,12 +218,23 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
     bgfx::setViewRect( kClearView, 0, 0, bgfx::BackbufferRatio::Equal );
 }
 
+BGFXRenderer::BGFXRenderer()
+    : m_pt( 0 )
+    , m_timeOffset( 0 )
+{
+}
+
+
+BGFXRenderer::~BGFXRenderer() = default;
+
+
 void BGFXRenderer::Destroy()
 {
     // Release everything the renderer owns before shutting bgfx down.
 #if USING( ME_EDITOR )
     m_pickingPass.reset();
 #endif
+    m_postProcess.reset();
     m_dynamicSky.reset();
     m_debugDraw.reset();
     m_defaultOpacityTexture.reset();
@@ -324,7 +337,7 @@ void BGFXRenderer::Render( Moonlight::CameraData& EditorCamera, FrameRenderData&
     }
     bgfx::setFrameUniform( s_time, &m_time.x );
 
-    bgfx::ViewId id = Moonlight::RenderView::CameraFirst;
+    m_views.Reset();
     DebugDraw::CollectFrame( m_debugLines );
 
 #if USING( ME_EDITOR )
@@ -332,7 +345,7 @@ void BGFXRenderer::Render( Moonlight::CameraData& EditorCamera, FrameRenderData&
     EditorCamera.IsEditorView = true;
     if( EditorCamera.Buffer && EditorCamera.ShouldRender )
     {
-        RenderCameraView( EditorCamera, id++, false );
+        RenderCameraView( EditorCamera, false );
         m_pickingPass->Render( this, &EditorCamera, inFrameData );
     }
 
@@ -343,26 +356,20 @@ void BGFXRenderer::Render( Moonlight::CameraData& EditorCamera, FrameRenderData&
 #endif
 
     // Secondary cameras first so the main camera can sample their output this frame.
-    // The last camera view is reserved for the main camera.
     for( auto& camData : m_cameraCache.Commands )
     {
         if( camData.IsMain || !camData.ShouldRender )
         {
             continue;
         }
-        if( id >= Moonlight::RenderView::CameraLast )
-        {
-            ME_ASSERT_MSG( false, "Out of camera render views, raise RenderView::CameraCount." );
-            break;
-        }
-        RenderCameraView( camData, id++, false );
+        RenderCameraView( camData, false );
     }
 
     for( auto& camData : m_cameraCache.Commands )
     {
         if( camData.IsMain && camData.ShouldRender )
         {
-            RenderCameraView( camData, id, kMainCameraToBackbuffer );
+            RenderCameraView( camData, kMainCameraToBackbuffer );
             break;
         }
     }
@@ -412,7 +419,7 @@ void BGFXRenderer::SetGuizmoDrawCallback( std::function<void( DebugDrawer* )> Gu
 }
 
 
-void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId id, bool toBackbuffer )
+void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackbuffer )
 {
     OPTICK_CATEGORY( "Render Camera", Optick::Category::Camera );
     if( CurrentSize.IsZero() )
@@ -424,28 +431,43 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId
         return;
     }
 
-    char viewName[32];
-    bx::snprintf( viewName, sizeof( viewName ), "Camera %u", id - Moonlight::RenderView::CameraFirst );
-    bgfx::setViewName( id, viewName );
+    // Camera targets match the output size exactly: post passes process whole textures.
+    const uint16_t width = static_cast<uint16_t>( std::max( 1.f, camera.OutputSize.x ) );
+    const uint16_t height = static_cast<uint16_t>( std::max( 1.f, camera.OutputSize.y ) );
+    if( camera.Buffer->Width != width || camera.Buffer->Height != height || !bgfx::isValid( camera.Buffer->SceneBuffer ) )
+    {
+        camera.Buffer->Width = width;
+        camera.Buffer->Height = height;
+        camera.Buffer->ReCreate( m_resetFlags );
+    }
 
-    // View framebuffer state persists across frames, so always set it (invalid handle = backbuffer).
+    const char* label = camera.IsEditorView ? "Editor" : ( camera.IsMain ? "Main" : "Camera" );
+    char viewName[64];
+    bx::snprintf( viewName, sizeof( viewName ), "%s Opaque", label );
+    const bgfx::ViewId id = m_views.Allocate( viewName );
+    if( id == UINT16_MAX )
+    {
+        return;
+    }
+
+    // The scene renders in linear HDR; post-processing writes the final image here.
     const bgfx::FrameBufferHandle target = toBackbuffer ? bgfx::FrameBufferHandle( BGFX_INVALID_HANDLE ) : camera.Buffer->Buffer;
+    const uint16_t targetWidth = toBackbuffer ? static_cast<uint16_t>( CurrentSize.x ) : width;
+    const uint16_t targetHeight = toBackbuffer ? static_cast<uint16_t>( CurrentSize.y ) : height;
 
-    // Set view and projection matrix for view.
-    bgfx::setViewTransform( id, &camera.View.GetInternalMatrix()[0][0], &camera.ProjectionMatrix.GetInternalMatrix()[0][0] );
-    bgfx::setViewFrameBuffer( id, target );
+    auto setupSceneView = [&]( bgfx::ViewId view ) {
+        bgfx::setViewTransform( view, &camera.View.GetInternalMatrix()[0][0], &camera.ProjectionMatrix.GetInternalMatrix()[0][0] );
+        bgfx::setViewFrameBuffer( view, camera.Buffer->SceneBuffer );
+        bgfx::setViewRect( view, 0, 0, width, height );
+        bgfx::setViewMode( view, bgfx::ViewMode::Sequential );
+        bgfx::touch( view );
+    };
+    setupSceneView( id );
 
-    // Set view default viewport.
-    bgfx::setViewRect( id, 0, 0, uint16_t( camera.OutputSize.x ), uint16_t( camera.OutputSize.y ) );
-
-    const uint32_t color = Moonlight::PackClearColor( camera.ClearColor.x, camera.ClearColor.y, camera.ClearColor.z );
-    bgfx::setViewClear( id
-        , BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH
-        , color, 1.0f, 0
-    );
-
-    bgfx::touch( id );
-    bgfx::setViewMode( id, bgfx::ViewMode::Sequential );
+    // Clear colours are authored in sRGB.
+    auto toLinear = []( float c ) { return c <= 0.04045f ? c / 12.92f : std::pow( ( c + 0.055f ) / 1.055f, 2.4f ); };
+    const uint32_t color = Moonlight::PackClearColor( toLinear( camera.ClearColor.x ), toLinear( camera.ClearColor.y ), toLinear( camera.ClearColor.z ) );
+    bgfx::setViewClear( id, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, color, 1.0f, 0 );
 
     if( camera.ClearType == Moonlight::ClearColorType::Procedural )
     {
@@ -497,11 +519,6 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId
         | BGFX_STATE_MSAA
         | s_ptState[m_pt]
         ;
-
-    if( EnableDebugDraw )
-    {
-        m_debugDraw->Begin( id, true );
-    }
 
     TransparentIndicies.clear();
 
@@ -592,6 +609,24 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId
             } );
     }
 
+    // Ambient occlusion darkens the opaque scene before transparents are composited on top.
+    m_postProcess->RenderAmbientOcclusion( m_views, camera, *camera.Buffer );
+
+    bx::snprintf( viewName, sizeof( viewName ), "%s Transparent", label );
+    bgfx::ViewId transparentView = m_views.Allocate( viewName );
+    if( transparentView == UINT16_MAX )
+    {
+        transparentView = id;
+    }
+    else
+    {
+        setupSceneView( transparentView );
+    }
+    if( EnableDebugDraw )
+    {
+        m_debugDraw->Begin( transparentView, true );
+    }
+
     uint64_t transparentState = 0
         | BGFX_STATE_WRITE_RGB
         //| BGFX_STATE_WRITE_Z
@@ -608,11 +643,11 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId
                 const Moonlight::MeshCommand& mesh = m_meshCache.Commands[index];
                 if( mesh.SupportsInstancing )
                 {
-                    RenderMeshInstanced( id, mesh, &mesh.Transform, 1, transparentState );
+                    RenderMeshInstanced( transparentView, mesh, &mesh.Transform, 1, transparentState );
                 }
                 else
                 {
-                    RenderSingleMesh( id, mesh, transparentState );
+                    RenderSingleMesh( transparentView, mesh, transparentState );
                 }
             }
     }
@@ -633,7 +668,11 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId
 
         m_debugDraw->End();
     }
-    SubmitDebugLines( camera, id );
+    SubmitDebugLines( camera, transparentView );
+
+    // HDR -> final image (bloom, exposure, tonemapping, grading, FXAA).
+    m_postProcess->DeltaSeconds = std::max( m_time.x, 0.0001f );
+    m_postProcess->Render( m_views, camera, *camera.Buffer, target, targetWidth, targetHeight );
 
     float orthoProj[16];
     bx::mtxOrtho( orthoProj, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, bgfx::getCaps()->homogeneousDepth );

@@ -2,23 +2,60 @@
 #include "bgfx/bgfx.h"
 #include "bx/bx.h"
 #include "Math/Vector2.h"
+#include <vector>
 
 namespace Moonlight
 {
+    // A camera's render targets.
+    //   SceneBuffer: HDR colour (RGBA16F) + sampleable depth; the scene renders here.
+    //   PostBuffer:  LDR intermediate between post passes (tonemap output before FXAA).
+    //   Buffer:      the final LDR image (Texture), what views, editor panels and render-to-texture
+    //                users sample. Shares DepthTexture with the scene so late overlays depth-test.
+    //   Bloom chain: half-resolution and smaller RGBA16F mips.
     struct FrameBuffer
     {
         FrameBuffer( uint32_t width, uint32_t height );
         ~FrameBuffer();
 
         void Resize( Vector2 newSize );
+        void ReCreate( uint32_t resetFlags );
 
         bgfx::FrameBufferHandle Buffer = BGFX_INVALID_HANDLE;
         bgfx::TextureHandle Texture = BGFX_INVALID_HANDLE;
         bgfx::TextureHandle DepthTexture = BGFX_INVALID_HANDLE;
+
+        bgfx::FrameBufferHandle SceneBuffer = BGFX_INVALID_HANDLE;
+        bgfx::TextureHandle SceneColor = BGFX_INVALID_HANDLE;
+
+        bgfx::FrameBufferHandle PostBuffer = BGFX_INVALID_HANDLE;
+        bgfx::TextureHandle PostColor = BGFX_INVALID_HANDLE;
+
+        struct Mip
+        {
+            bgfx::FrameBufferHandle Buffer = BGFX_INVALID_HANDLE;
+            bgfx::TextureHandle Color = BGFX_INVALID_HANDLE;
+            uint16_t Width = 0;
+            uint16_t Height = 0;
+        };
+        std::vector<Mip> BloomMips;
+
+        // Half-resolution ambient occlusion (raw and blurred).
+        Mip AOBuffer;
+        Mip AOBlurBuffer;
+
+        // Auto exposure: this frame's average luminance and the adapted value (ping-pong).
+        Mip LuminanceBuffer;
+        Mip AdaptedLuminance[2];
+        uint32_t AdaptedIndex = 0;
+
         uint32_t Width = 0;
         uint32_t Height = 0;
-        void ReCreate( uint32_t resetFlags );
         uint32_t m_resetFlags = 0;
         bool MatchMainBufferSize = false;
+
+        static bgfx::TextureFormat::Enum GetDepthFormat();
+
+    private:
+        void Release();
     };
 }

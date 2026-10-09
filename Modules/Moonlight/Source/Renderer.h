@@ -24,6 +24,7 @@ class ImGuiRenderer;
 namespace Moonlight {
     class DynamicSky;
     class PickingPass;
+    class PostProcess;
 }
 
 struct RendererCreationSettings
@@ -51,11 +52,8 @@ class BGFXRenderer
 public:
     ME_SYSTEM_ID( BGFXRenderer );
 
-	BGFXRenderer()
-	: m_pt(0)
-		, m_timeOffset(0)
-	{
-	}
+	BGFXRenderer();
+	~BGFXRenderer();
     // move me, dummy :D 
     Vector4 m_time;
 
@@ -68,7 +66,7 @@ public:
 
     void Render( Moonlight::CameraData& EditorCamera, FrameRenderData& inFrameData );
     void SetGuizmoDrawCallback( std::function<void( DebugDrawer* )> GuizmoDrawingFunc );
-    void RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId id, bool toBackbuffer );
+    void RenderCameraView( Moonlight::CameraData& camera, bool toBackbuffer );
     void SubmitDebugLines( const Moonlight::CameraData& camera, bgfx::ViewId id );
     void GatherFrameStats();
 
@@ -166,6 +164,8 @@ private:
     bool EnableDebugDraw = false;
     UniquePtr<DebugDrawer> m_debugDraw;
     DebugDraw::FrameLines m_debugLines;
+    Moonlight::ViewAllocator m_views;
+    UniquePtr<Moonlight::PostProcess> m_postProcess;
     bool NeedsReset = false;
     uint32_t m_currentFrame = 0;
 

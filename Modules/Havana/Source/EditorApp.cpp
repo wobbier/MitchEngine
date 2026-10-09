@@ -9,6 +9,7 @@
 #include "Components/Physics/Rigidbody.h"
 #include "Components/Graphics/Model.h"
 #include "Components/Lighting/Light.h"
+#include "Components/Graphics/PostProcess.h"
 
 #include <memory>
 #include "Engine/World.h"
@@ -166,6 +167,11 @@ void EditorApp::UpdateCameras()
     EditorCamera.Skybox = Camera::CurrentCamera->Skybox;
     EditorCamera.ClearColor = Camera::CurrentCamera->ClearColor;
     EditorCamera.ClearType = Camera::CurrentCamera->ClearType;
+    // The scene view shows the main camera's image settings (without its auto exposure state).
+    {
+        const PostProcess* post = Camera::CurrentCamera->Parent ? Camera::CurrentCamera->Parent->TryGetComponent<PostProcess>() : nullptr;
+        EditorCamera.Post = ( post && post->IsEnabled() ) ? post->ToSettings() : Moonlight::PostProcessSettings();
+    }
     EditorCamera.Projection = editorCamera->Projection;
     EditorCamera.OrthographicSize = editorCamera->OrthographicSize;
     //EditorCamera.ShouldCull = false;

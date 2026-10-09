@@ -37,10 +37,7 @@ void main()
 	float distance = 2.0 * (1.0 - dot(normalize(v_viewDir), lightDir));
 	float sun = exp(-distance/ u_parameters.y / size2) + step(distance, size2);
 	float sun2 = min(sun * sun, 1.0);
+	// Linear HDR: tonemapping and dithering happen in post-processing.
 	vec3 color = v_skyColor + sun2;
-	color = toGamma(color);
-	float r = n4rand_ss(v_screenPos);
-	color += vec3(r, r, r) / 40.0;
-
 	gl_FragColor = vec4(color, 1.0);
 }

@@ -1,6 +1,7 @@
 #pragma once
 #include "Graphics/Material.h"
 #include "ShaderGraphMaterial.h"
+#include <cmath>
 
 class DiffuseMaterial
     : public Moonlight::Material
@@ -27,7 +28,9 @@ public:
     virtual void Use() final
     {
         // Vec4 uniforms read 16 bytes: widen the Vector3/Vector2 members instead of over-reading them.
-        const float diffuse[4] = { DiffuseColor.x, DiffuseColor.y, DiffuseColor.z, 1.f };
+        // Colours are authored in sRGB; shading is linear.
+        auto toLinear = []( float c ) { return c <= 0.04045f ? c / 12.92f : std::pow( ( c + 0.055f ) / 1.055f, 2.4f ); };
+        const float diffuse[4] = { toLinear( DiffuseColor.x ), toLinear( DiffuseColor.y ), toLinear( DiffuseColor.z ), 1.f };
         const float tiling[4] = { Tiling.x, Tiling.y, 0.f, 0.f };
         bgfx::setUniform( s_diffuse, diffuse );
         bgfx::setUniform( s_tiling, tiling );
