@@ -33,6 +33,7 @@
 
 #include "bgfx/platform.h"
 #include "CLog.h"
+#include "Engine/AutomationRunner.h"
 #include "Engine/Input.h"
 #include "optick.h"
 #include "Events/PlatformEvents.h"
@@ -96,7 +97,14 @@ SDL_HitTestResult HitTestCallback( SDL_Window* window, const SDL_Point* area, vo
 SDLWindow::SDLWindow( const std::string& title, std::function<void( const Vector2& )> resizeFunc, int X, int Y, Vector2 windowSize )
     : ResizeCB( resizeFunc )
 {
-    SDL_Init( SDL_INIT_EVERYTHING );
+    // Automated runs (captures, editor scripts) never touch game controllers: SDL's joystick drivers
+    // probe and initialize HID devices, which can disturb the hardware of whoever is at the machine.
+    Uint32 subsystems = SDL_INIT_EVERYTHING;
+    if( AutomationRunner::IsUnattendedRun() )
+    {
+        subsystems &= ~( SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER | SDL_INIT_HAPTIC | SDL_INIT_SENSOR );
+    }
+    SDL_Init( subsystems );
     int xPos = ( X == 0 ) ? SDL_WINDOWPOS_CENTERED : X;
     int yPos = ( Y == 0 ) ? SDL_WINDOWPOS_UNDEFINED : Y;
     Uint32 windowFlags = SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE;
