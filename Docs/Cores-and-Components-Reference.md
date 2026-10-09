@@ -1,8 +1,8 @@
 # Cores and Components Reference
 
-The catalog: every core (system) and component the engine ships, what each core filters on, when it updates, and which components are decorative or orphaned. Deep-dives for Physics (Bullet3D) and Audio (FMOD) live here; Rendering, UI, and Scripting cores have their own docs.
+The catalog: every core (system) and component the engine ships, what each core filters on, when it updates, and which components are decorative or orphaned. The Audio (FMOD) deep-dive lives here; Physics, Rendering, UI, and Scripting have their own docs.
 
-> Verified against engine commit 047f57b8, 2026-07-10; the rendering rows (RenderCore, ParticleCore, Mesh, Light, PostProcess, ParticleSystem) against 1fa55311, 2026-10-09 (overhaul Wave 3).
+> Verified against engine commit 047f57b8, 2026-07-10; the rendering rows (RenderCore, ParticleCore, Mesh, Light, PostProcess, ParticleSystem) against 1fa55311, 2026-10-09 (overhaul Wave 3); the physics rows against bdfedae8, 2026-10-09 (overhaul Wave 4).
 
 ## Overview
 
@@ -18,7 +18,7 @@ Cores come in two flavors (see `Docs/Architecture.md`): **engine-owned** (create
 | `ParticleCore` (`Source/Cores/Rendering/ParticleCore.h`) | `Transform` + `ParticleSystem` | engine-owned | Simulates particle systems (job per system) into renderer batches; runs in edit mode too, so effects preview live |
 | `AudioCore` (`Source/Cores/AudioCore.h`) | `AudioSource` | engine-owned | FMOD playback + path-keyed sound cache |
 | `UICore` (`Source/Cores/UI/UICore.h`) | `BasicUIView` | engine-owned | Ultralight HTML views — see `Docs/UI-Ultralight-and-ImGui.md` |
-| `PhysicsCore` (`Source/Cores/PhysicsCore.h`) | `Transform` + one of (`Rigidbody`, `CharacterController`) | scene-loaded | Bullet3D world, transform sync, collision events, raycasts |
+| `PhysicsCore` (`Source/Cores/PhysicsCore.h`) | `Transform` + one of (`Rigidbody`, a collider, `CharacterController`, `PhysicsJoint`) | engine-owned | Box3D world: fixed-step simulation (play mode), interpolated poses, edit-mode body sync, `CollisionEvent`s, queries, character mover — see `Docs/Physics.md`. Old scenes' `"PhysicsCore"` core entries resolve to it |
 | `ScriptCore` (`Source/Cores/Scripting/ScriptCore.h`) | `ScriptComponent` | scene-loaded | .NET script lifecycle — see `Docs/Scripting-DotNet.md` |
 | `SelfDestructor` (`Source/Cores/Utility/SelfDestructCore.h`) | `SelfDestruct` | scene-loaded | Kills entities when their `Lifetime` expires (note the class name — not "SelfDestructCore") |
 | `FlyingCameraCore` (`Source/Cores/Cameras/FlyingCameraCore.h`) | `FlyingCamera` + `Camera` | scene-loaded/editor | WASD+mouse free-fly camera control |
@@ -28,7 +28,8 @@ Cores come in two flavors (see `Docs/Architecture.md`): **engine-owned** (create
 
 ```mermaid
 flowchart TD
-    A["World::Simulate<br/>(membership churn — ALWAYS runs, even edit mode)"] --> B["UpdateLoadedCores<br/>PhysicsCore · ScriptCore · SelfDestructor · game cores<br/>(gated by World::Start — dormant in edit mode)"]
+    A["World::Simulate<br/>(membership churn — ALWAYS runs, even edit mode)"] --> P["Fixed loop: FixedUpdateLoadedCores → Game::OnFixedUpdate → PhysicsCore::FixedUpdate<br/>then PhysicsCore::Update (interpolated poses / edit-mode sync)"]
+    P --> B["UpdateLoadedCores<br/>ScriptCore · SelfDestructor · game cores<br/>(gated by World::Start — dormant in edit mode)"]
     B --> C["SceneNodes->Update → Game::OnUpdate"]
     C --> D["AudioThread->Update(dt) — nonstandard float overload"]
     D --> E["ModelRenderer->Update — parallel mesh job"]
@@ -38,16 +39,7 @@ flowchart TD
 
 `CameraCore::Update` runs **only inside the LateUpdate block** — camera moves made in `Game::OnUpdate`/scripts apply the same frame; camera *reads* during update see last frame's matrices.
 
-### PhysicsCore (Bullet3D) — deep dive
-
-- The Bullet world (`btDiscreteDynamicsWorld` + default dispatcher/broadphase/solver) is built in the **constructor**, not `Init` (which is empty); gravity is hardcoded `(0, -9.8, 0)` at construction. Compiled out entirely without `ME_PHYSICS_3D`.
-- `Update`: `PhysicsWorld->stepSimulation( deltaTime, 10 )` — **variable timestep** (in-code comment: "Need a fixed delta probably"); Bullet's internal substepping (max 10) is the only mitigation.
-- After stepping, a serial loop (chunked by `Burst::GenerateChunks(size, 11, …)` but the job dispatch is commented out — it runs inline) syncs per entity:
-  - **Dynamic `Rigidbody`** → Bullet transform is written back to the `Transform` via `SetPosition` + `SetRotation(eulerZYX→degrees)` — every dynamic body dirties its transform subtree every frame, and rotation round-trips through Euler angles.
-  - **`CharacterController`** → transform rotation is pushed *into* Bullet, `Controller.Update()` runs, then position is pulled back via `SetWorldPosition`.
-- `InitRigidbody` is called for every rigidbody **every frame** (lazy-init guard inside).
-- Collision events: `PhysicsCore` implements `ICollisionEvents` (`Source/Physics/RigidBodyWithCollisionEvents.h`) — `OnCollisionStart/Continue/Stop` with contact point/normal/impulse, wired through a custom `btRigidBodyWithEvents` and forwarded to the involved `Rigidbody` components.
-- `Raycast(position, direction, RaycastHit&)` wraps Bullet's closest-hit ray test (`Source/Physics/RaycastHit.h`).
+Physics (Box3D) has its own deep dive: `Docs/Physics.md`.
 
 ### AudioCore (FMOD) — deep dive
 
@@ -67,9 +59,10 @@ flowchart TD
 | `Light` | `Source/Components/Lighting/Light.h` | Directional / Point / Spot: colour, intensity, range, cone angles, shadows (texel-unit biases, shadow distance). Scenes' old `DirectionalLight` components migrate on load |
 | `PostProcess` | `Source/Components/Graphics/PostProcess.h` | Per-camera exposure (manual / auto), tonemapper, bloom, SSAO, colour grading, vignette, FXAA |
 | `ParticleSystem` | `Source/Components/Effects/ParticleSystem.h` | CPU emitter: shapes, rate + burst, randomized ranges, over-lifetime size/colour/alpha, gravity/drag/noise, world or local space, billboard/stretched/flat soft particles with flipbooks |
-| `Rigidbody` | `Source/Components/Physics/Rigidbody.h` | Bullet body (box/sphere collider shapes), mass/velocity, per-body collision-event hookups |
-| `CharacterController` | `Source/Components/Physics/CharacterController.h` | Kinematic capsule driven by `PhysicsCore` (rotation in, position out) |
-| `Collider2D` | `Source/Components/Physics/Collider2D.h` | **Orphaned** — no core filters it; physics is 3D-only |
+| `Rigidbody` | `Source/Components/Physics/Rigidbody.h` | Static / kinematic / dynamic body: mass, damping, gravity scale, CCD, axis locks, interpolation; forces, velocities, `MoveTo`, `Teleport` |
+| `BoxCollider` / `SphereCollider` / `CapsuleCollider` / `MeshCollider` | `Source/Components/Physics/Colliders.h` | Collision shapes (centre, trigger, friction, restitution, density); compound into an ancestor's `Rigidbody`, static on their own |
+| `PhysicsJoint` | `Source/Components/Physics/PhysicsJoint.h` | Fixed / hinge / ball-socket / slider / distance joint with limits, motor, spring, break force |
+| `CharacterController` | `Source/Components/Physics/CharacterController.h` | Upright capsule moved by the Box3D mover: walk, slopes, ground snap, jump, push |
 | `AudioSource` | `Source/Components/Audio/AudioSource.h` | FMOD channel wrapper: path, preload/loop flags, play/stop; also declares the `wav`/`mp3` metadata types |
 | `ScriptComponent` | `Source/Components/Scripting/ScriptComponent.h` | Script by type name + `m_dotnetHandle` (int) + saved-fields JSON |
 | `BasicUIView` | `Source/Components/UI/BasicUIView.h` | Ultralight HTML view + JS bridge |
@@ -85,14 +78,12 @@ flowchart TD
 - **early-outs if already dirty** (`if( Dirty && IsLocalToWorldDirty ) return;`) — repeated mutation of the same subtree costs one flag write, and
 - **propagates eagerly to children** (recursive), so any descendant's cached matrix is invalidated immediately.
 
-Matrix recompute is **lazy** — `GetLocalToWorldMatrix()` rebuilds (parent-first) only when dirty. A static scene costs near-zero per frame; the expensive pattern is *wide* mutation (e.g. physics writing every dynamic body's transform each step — see above). World-space setters (`SetWorldPosition`) convert through the parent's `GetWorldToLocalMatrix`.
+Matrix recompute is **lazy** — `GetLocalToWorldMatrix()` rebuilds (parent-first) only when dirty. A static scene costs near-zero per frame; the expensive pattern is *wide* mutation (e.g. physics writing every awake dynamic body's transform each frame). World-space setters (`SetWorldPosition`) convert through the parent's `GetWorldToLocalMatrix`.
 
 ## Caveats & Fragility
 
-- **Physics uses a variable timestep** — simulation behavior is frame-rate-dependent beyond what 10 Bullet substeps mask; the in-code TODO acknowledges it.
-- **Rigidbody rotation syncs through Euler ZYX degrees** every frame — susceptible to gimbal/representation drift for bodies tumbling on multiple axes.
 - **`AudioCore::Update(float)` doesn't override the base** — don't "fix" a missing update by adding AudioCore to a generic core loop; the engine's explicit call is the contract.
-- **`Collider2D` and `Canvas` are dead weight** (orphaned / empty file).
+- **`Canvas` is dead weight** (empty file).
 - **`Model::Init` creates real entities** as children — deleting a Model component does not delete the entities it spawned, and re-`Init` is guarded only by an in-memory `IsInitialized` flag.
 - **`Camera::CurrentCamera`/`EditorCamera` are mutable statics** used by resize, UI sizing, and picking; scenes without a main camera silently skip those paths.
 - **Component headers pull editor includes**: several component headers include `imgui.h`/`HavanaUtils.h` unconditionally (e.g. `Source/Cores/Utility/SelfDestructCore.h`) — kept building by ImGui being present in most configs (`ME_IMGUI` covers editor, tools, and profiling builds).

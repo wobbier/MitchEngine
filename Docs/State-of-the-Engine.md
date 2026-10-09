@@ -1,6 +1,6 @@
 # State of the Engine
 
-> **This doc is opinion.** Every other doc in `Docs/` is factual; this one rates, prioritizes, and recommends. Never cite it as a description of behavior — cite the subsystem docs. Assessed at engine commit 047f57b8, 2026-07-10; scorecard rows for the core runtime re-scored at dab803a2, 2026-10-08 (overhaul Waves 0–1); editor, serialization and rendering-tooling rows at 7e869c6e, 2026-10-09 (Wave 2); rendering, lighting and materials rows at 1fa55311, 2026-10-09 (Wave 3).
+> **This doc is opinion.** Every other doc in `Docs/` is factual; this one rates, prioritizes, and recommends. Never cite it as a description of behavior — cite the subsystem docs. Assessed at engine commit 047f57b8, 2026-07-10; scorecard rows for the core runtime re-scored at dab803a2, 2026-10-08 (overhaul Waves 0–1); editor, serialization and rendering-tooling rows at 7e869c6e, 2026-10-09 (Wave 2); rendering, lighting and materials rows at 1fa55311, 2026-10-09 (Wave 3); physics at bdfedae8, 2026-10-09 (Wave 4).
 
 MitchEngine is a real, working engine: it ships Drumsmith, runs a full editor on Linux/Windows, hosts .NET 8 scripting, and has genuinely thoughtful hot paths (the zero-virtual render submit, automatic instancing, transform dirty caching). Its weaknesses are the classic solo-engine kind: half-migrations left in place (Mono→.NET, fixed→variable timestep, Ultralight→web-UI), correctness debt that hasn't hurt *yet* (variable-dt physics, name-string schemas), and workflow traps that cost real work (Stop-reverts-to-last-save). The theme of this assessment: **finish or delete the half-things, then invest where the engine already punches above its weight.**
 
@@ -20,7 +20,7 @@ Ratings: **Solid** (rely on it) · **Usable** (works, know the sharp edges) · *
 | Materials & shaders | **Usable** | Metallic-roughness StandardMaterial, live shader hot reload with include tracking; batch-key discipline is manual; ShaderGraph half-finished; compiles block the main thread | [Materials-and-Shaders.md](Materials-and-Shaders.md) |
 | Resources & assets | **Usable** | Hot reload, keep-alive cache, asset GUIDs; loads still synchronous on the main thread | [Resources-and-Assets.md](Resources-and-Assets.md) |
 | Serialization & scenes | **Solid** | Versioned v2 format with GUIDs, references, migration and prefab links with stable source GUIDs; asset references are still paths | [Serialization-and-Scenes.md](Serialization-and-Scenes.md) |
-| Physics | **Usable** | Standard Bullet integration with collision events + raycasts; variable dt and Euler round-trips undermine it | [Cores-and-Components-Reference.md](Cores-and-Components-Reference.md) |
+| Physics | **Usable** | Box3D at a fixed step with interpolation, compound bodies, joints, a mover-based character controller, layer matrix, events and queries, unit tested; Box3D itself is pre-1.0, CollisionEvent is global (no per-entity callbacks), 2D not wired yet | [Physics.md](Physics.md) |
 | Audio | **Usable** | FMOD basics + event-driven fire-and-forget; nonstandard update signature; feature-thin (no 3D emitters/mixing story) | [Cores-and-Components-Reference.md](Cores-and-Components-Reference.md) |
 | Scripting (.NET 8) | **Experimental** | The hosting chain is genuinely impressive and works on Win64+Linux; hand-mirrored ABI, no hot reload, no macOS | [Scripting-DotNet.md](Scripting-DotNet.md) |
 | UI (Ultralight) | **Abandoned-in-place** | 60 fps cap + licensing friction; replacement (web/Vue direction) in progress — do not extend | [UI-Ultralight-and-ImGui.md](UI-Ultralight-and-ImGui.md) |
@@ -46,7 +46,6 @@ The stated bar (per the game project's conventions) is: Win64/macOS/Linux must c
 | Item | Location | State | Verdict |
 |------|----------|-------|---------|
 | Mono remnants | `ThirdParty/Mono.sharpmake.cs`, `Globals.MONO_*_Dir` checks | Define nothing | **Delete** |
-| `Collider2D` | `Source/Components/Physics/Collider2D.h` | No core consumes it | **Delete** (revive only with a real 2D physics plan) |
 | `Canvas` | `Source/Components/UI/Canvas.h` | Empty file | **Delete** |
 | `ShaderGraphMaterial` + ShaderEditor | `Modules/Moonlight/Source/Materials/ShaderGraphMaterial.h`, `Tools/ShaderEditor` | Texture-slot-3 bug, per-instance uniform creation, external tool dependency | **Decide** — finish (fix slots, ship the tool) or delete and stay code-material-only |
 | Ultralight | `Source/UI/`, `Source/Cores/UI/` | Removal declared in commit history; Vue/web direction visible in `../flake.nix` | **Finish the removal** |
@@ -66,11 +65,11 @@ Impact (H/M/L) × Effort (S/M/L). Grouped so related items can share one work se
 | Item | Impact | Effort | Notes |
 |------|--------|--------|-------|
 | ~~Editor: snapshot world on Play~~ | — | — | Done (Wave 2): in-memory snapshot, selection and undo survive Stop |
-| Fixed timestep for physics | **H** | M | Accumulator loop feeding `stepSimulation` with fixed dt; the remnants show it was intended |
+| ~~Fixed timestep for physics~~ | — | — | Done (Wave 1 loop + Wave 4 Box3D core): fixed steps with interpolated poses |
 | Scene versioning + rename migration | **H** | M | Minimal viable: `"Version"` field + a name-alias map consulted by the registries |
 | Fix `m_ambient` | M | **S** | Uninitialized GPU uniform; also unlocks actually *having* ambient light |
 | Event-system hardening | M | S–M | Auto-deregistering `EventReceiver` destructor + main-thread assert; optionally finish the queue |
-| Quaternion transform sync in physics | M | S | Stop round-tripping through Euler ZYX degrees per frame |
+| ~~Quaternion transform sync in physics~~ | — | — | Done (Wave 4): poses sync as quaternions |
 
 ### B. Rendering
 | Item | Impact | Effort | Notes |
@@ -129,7 +128,7 @@ quadrantChart
 1. **Snapshot-on-Play** — *why now:* it silently destroys real work today. *First step:* serialize to a temp `.lvl` in `EditorApp::StartGame`, reload it (not the config scene) in `StopGame`. → `Editor-Havana.md`
 2. ~~Fix `m_ambient`~~ — done in Wave 3 (the legacy uniform is gone; ambient is image-based). → `Rendering-Pipeline.md`
 3. **Debt purge (theme E)** — *why now:* cheap, and every future task navigates past the corpses. *First step:* delete the legacy `Work/` job files + `Engine.h` includes; build all targets.
-4. **Fixed timestep for physics** — *why now:* Drumsmith is a rhythm game; timing determinism is product-critical. *First step:* accumulator in `Engine::Run` driving `PhysicsCore` at fixed dt with interpolation flag. → `Architecture.md`
+4. ~~Fixed timestep for physics~~ — done (Wave 4: Box3D `PhysicsCore` in the fixed loop with interpolation). → `Physics.md`
 5. **Scene versioning + rename aliases** — *why now:* every rename risk grows with content volume. *First step:* write `"Version": 1` on save; add alias map to component/core registries. → `Serialization-and-Scenes.md`
 6. **Finish Ultralight removal** — *why now:* it's already declared dead; limbo is the worst state. *First step:* land the web-UI spike behind `ME_UI`, delete `Source/UI/Graphics/GPUDriver.*` last. → `UI-Ultralight-and-ImGui.md`
 7. **Script binding codegen** — *why now:* before the API grows; every added binding is currently a 4-file ABI hazard. *First step:* a small generator (even a python script) emitting both structs from a manifest. → `Scripting-DotNet.md`

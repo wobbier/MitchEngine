@@ -2,7 +2,7 @@
 
 The engine's two cross-cutting runtime services: `Jobs::JobSystem`, a work-stealing job system with counters and `ParallelFor`, and `EventManager`, a typed publish/subscribe bus with immediate and queued delivery. This doc is the **threading rulebook** — what may run on a job and what must stay on the main thread.
 
-> Verified against engine commit dab803a2, 2026-10-08.
+> Verified against engine commit dab803a2, 2026-10-08; the physics task bridge against bdfedae8, 2026-10-09.
 
 ## Overview
 
@@ -15,7 +15,8 @@ The engine's two cross-cutting runtime services: `Jobs::JobSystem`, a work-steal
 | Path | Role |
 |------|------|
 | `Modules/Dementia/Source/Jobs/JobSystem.h` / `Modules/Dementia/Source/Jobs/JobSystem.cpp` | `Jobs::JobSystem`, `Jobs::Counter`, `ParallelFor`, `Submit` |
-| `Modules/Dementia/Source/Work/Burst.h` | `Burst::GenerateChunks` range helper (legacy; still used by the Bullet `PhysicsCore`) |
+| `Modules/Dementia/Source/Work/Burst.h` | `Burst::GenerateChunks` range helper (legacy; no engine callers left) |
+| `Source/Cores/PhysicsCore.cpp` | `PhysicsCore::EnqueueTask` / `FinishTask`: Box3D's solver tasks run as jobs (`Docs/Physics.md`) |
 | `Modules/Dementia/Source/Events/Event.h` | `Event<T>` CRTP: `GetEventId`, `Fire`, `Queue` |
 | `Modules/Dementia/Source/Events/EventManager.h` / `Modules/Dementia/Source/Events/EventManager.cpp` | Receiver registry, dispatch, the cross-thread queue |
 | `Modules/Dementia/Source/Events/EventReceiver.h` / `Modules/Dementia/Source/Events/EventReceiver.cpp` | `EventReceiver` (auto-deregistering), `EventSubscription` (lambda) |

@@ -1,6 +1,6 @@
 # MitchEngine Documentation
 
-Technical documentation for MitchEngine — a C++20, ECS-based game engine built on BGFX, SDL2, Bullet3D, FMOD, and .NET 8 scripting, with a visual editor called Havana. The engine lives in this repository and is consumed as a git submodule (`Engine/`) by game projects such as Drumsmith and MitchGame.
+Technical documentation for MitchEngine — a C++20, ECS-based game engine built on BGFX, SDL2, Box3D, FMOD, and .NET 8 scripting, with a visual editor called Havana. The engine lives in this repository and is consumed as a git submodule (`Engine/`) by game projects such as Drumsmith and MitchGame.
 
 ## Doc Map
 
@@ -12,7 +12,8 @@ Technical documentation for MitchEngine — a C++20, ECS-based game engine built
 | [Rendering-Pipeline.md](Rendering-Pipeline.md) | `RenderCore` parallel command build → `BGFXRenderer` submit, view-ID map (editor vs game), instancing, transparency, lighting reality |
 | [Materials-and-Shaders.md](Materials-and-Shaders.md) | Material hierarchy, instance batch keys, offline `shaderc` cooking via the MetaFile system |
 | [Resources-and-Assets.md](Resources-and-Assets.md) | `ResourceCache` load flow, `.meta` sidecars, export/cooking, eviction, resource type inventory |
-| [Cores-and-Components-Reference.md](Cores-and-Components-Reference.md) | Catalog of every core (incl. Physics/Bullet and Audio/FMOD deep-dives) and every component; orphaned-component list |
+| [Cores-and-Components-Reference.md](Cores-and-Components-Reference.md) | Catalog of every core (incl. the Audio/FMOD deep-dive) and every component; orphaned-component list |
+| [Physics.md](Physics.md) | Box3D `PhysicsCore`: bodies, colliders, compound bodies, joints, character mover, fixed step + interpolation, layers, events, queries |
 | [Serialization-and-Scenes.md](Serialization-and-Scenes.md) | `.lvl` JSON format, prefabs, registry-name instantiation, save/load flow, versioning caveats |
 | [Scripting-DotNet.md](Scripting-DotNet.md) | hostfxr bootstrap, `ScriptEngine`, the function-pointer API table, C# side, platform status, add-a-binding recipe |
 | [UI-Ultralight-and-ImGui.md](UI-Ultralight-and-ImGui.md) | Ultralight HTML UI integration, GPU driver, view composite — **deprecation status: do not extend** |
