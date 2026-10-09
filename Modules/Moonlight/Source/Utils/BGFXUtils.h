@@ -4,6 +4,7 @@
 #include "bx/readerwriter.h"
 #include "bx/file.h"
 #include "Path.h"
+#include "Pointers.h"
 
 namespace Moonlight
 {
@@ -45,8 +46,29 @@ namespace Moonlight
 
     const bgfx::Memory* LoadMemory( const Path& filePath );
 
+    class ShaderFile;
+
     bgfx::ShaderHandle LoadShader( const std::string& _name );
+    // A raw program (not hot reloaded; prefer ShaderCommand / AcquireProgram).
     bgfx::ProgramHandle LoadProgram( const std::string& vsName, const std::string& fsName );
+
+    // One owned reference to a bgfx program. Shared by everyone using the same shader pair, and
+    // rebuilt in place when one of its shaders hot reloads, so always read Handle at submit time.
+    struct ProgramRef
+    {
+        ProgramRef() = default;
+        explicit ProgramRef( bgfx::ProgramHandle InHandle ) : Handle( InHandle ) {}
+        ~ProgramRef();
+        ProgramRef( const ProgramRef& ) = delete;
+        ProgramRef& operator=( const ProgramRef& ) = delete;
+        bgfx::ProgramHandle Handle = BGFX_INVALID_HANDLE;
+    };
+
+    SharedPtr<ProgramRef> AcquireProgram( const std::string& vsName, const std::string& fsName );
+    // Recreates every acquired program that uses InShader (called after it reloads).
+    void RebuildProgramsUsing( const ShaderFile* InShader );
+    // Drops the registry's shader references (before the renderer shuts down).
+    void ReleaseProgramRegistry();
 
     std::string GetPlatformString();
 

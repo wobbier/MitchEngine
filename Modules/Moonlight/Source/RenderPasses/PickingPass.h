@@ -1,6 +1,7 @@
 #pragma once
 #include "IPass.h"
 #include "bgfx/bgfx.h"
+#include "Graphics/ShaderCommand.h"
 #include "Math/Vector4.h"
 #include <unordered_map>
 #include "Core/FrameRenderData.h"
@@ -32,7 +33,7 @@ namespace Moonlight
         uint32_t m_height = 0;
 
         // Resource handles
-        bgfx::ProgramHandle m_idProgram;
+        Moonlight::ShaderCommand m_idProgram;
         bgfx::UniformHandle u_id;
         bgfx::TextureHandle m_pickingRT;
         bgfx::TextureHandle m_pickingRTDepth;

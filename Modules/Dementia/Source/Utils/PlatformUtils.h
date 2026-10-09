@@ -10,6 +10,9 @@ namespace PlatformUtils
 
     void SystemCall( const Path& inFilePath, const std::string& inArgs = "", bool inRunFromDirectory = true );
 
+    // Runs a shell command, waits for it and returns its exit code; stdout and stderr go to OutOutput.
+    int RunCommand( const std::string& inCommand, std::string& OutOutput );
+
     void CreateDirectory( const Path& inFilePath );
 
     // Opens a file with its default application / a folder in the file manager.

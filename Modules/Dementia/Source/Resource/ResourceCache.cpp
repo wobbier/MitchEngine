@@ -225,7 +225,7 @@ SharedPtr<MetaBase> ResourceCache::LoadMetadata( const Path& filePath )
     MetaRegistry::iterator it = GetMetadatabase().reg.find( filePath.GetExtension() );
     if( it != GetMetadatabase().reg.end() )
     {
-        Path metaPath = Path( filePath.FullPath + ".meta" );
+        Path metaPath = Path( filePath.FullPath + ".meta", true );
         File metaFile = File( metaPath );
         json j;
 

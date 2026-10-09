@@ -4,6 +4,7 @@
 #include "ShaderStructures.h"
 #include "bgfx/bgfx.h"
 #include "Pointers.h"
+#include "Utils/BGFXUtils.h"
 
 namespace Moonlight
 {
@@ -17,28 +18,22 @@ namespace Moonlight
         ShaderCommand( const std::string& InShaderFile );
         ShaderCommand( const std::string& InVertexShaderPath, const std::string& InFragShaderPath );
 
-        const bgfx::ProgramHandle& GetProgram() const {
-            return Program;
+        // Always current: shader hot reloads rebuild the shared program in place, so read this at
+        // submit time rather than caching the handle.
+        const bgfx::ProgramHandle& GetProgram() const
+        {
+            static const bgfx::ProgramHandle kInvalid = BGFX_INVALID_HANDLE;
+            return m_programRef ? m_programRef->Handle : kInvalid;
         }
 
-        const bool IsLoaded() const {
-            return isLoaded;
+        const bool IsLoaded() const
+        {
+            return m_programRef && bgfx::isValid( m_programRef->Handle );
         };
 
     private:
-        // Owns one bgfx reference to the program. Shared so material copies
-        // reuse it, and the program is destroyed when the last copy goes away.
-        struct ProgramRef
-        {
-            explicit ProgramRef( bgfx::ProgramHandle inHandle );
-            ~ProgramRef();
-            bgfx::ProgramHandle Handle;
-        };
-
-        void SetProgram( bgfx::ProgramHandle inProgram );
-
+        // Shared by every material copy (and every user of the same shader pair); the program is
+        // destroyed when the last reference goes away.
         SharedPtr<ProgramRef> m_programRef;
-        bgfx::ProgramHandle Program;
-        bool isLoaded = false;
     };
 }

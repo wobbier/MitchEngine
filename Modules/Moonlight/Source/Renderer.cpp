@@ -236,8 +236,8 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
         u_shadowAlpha = bgfx::createUniform( "u_shadowAlpha", bgfx::UniformType::Vec4 );
         s_shadowMap = bgfx::createUniform( "s_shadowMap", bgfx::UniformType::Sampler );
         s_spotShadowMap = bgfx::createUniform( "s_spotShadowMap", bgfx::UniformType::Sampler );
-        m_shadowProgram = Moonlight::LoadProgram( "Assets/Shaders/ShadowDepth.vert", "Assets/Shaders/ShadowDepth.frag" );
-        m_shadowsSupported = ( bgfx::getCaps()->supported & BGFX_CAPS_TEXTURE_COMPARE_LEQUAL ) != 0 && bgfx::isValid( m_shadowProgram );
+        m_shadowProgram = Moonlight::ShaderCommand( "Assets/Shaders/ShadowDepth" );
+        m_shadowsSupported = ( bgfx::getCaps()->supported & BGFX_CAPS_TEXTURE_COMPARE_LEQUAL ) != 0 && m_shadowProgram.IsLoaded();
         if( !m_shadowsSupported )
         {
             YIKES( "Shadows disabled: the renderer has no depth compare samplers or the shadow shader failed to load." );
@@ -304,11 +304,7 @@ void BGFXRenderer::Destroy()
     }
     DestroyShadowAtlas( m_sunShadowAtlas );
     DestroyShadowAtlas( m_spotShadowAtlas );
-    if( bgfx::isValid( m_shadowProgram ) )
-    {
-        bgfx::destroy( m_shadowProgram );
-        m_shadowProgram = BGFX_INVALID_HANDLE;
-    }
+    m_shadowProgram = Moonlight::ShaderCommand();
     if( bgfx::isValid( m_lightDataTexture ) )
     {
         bgfx::destroy( m_lightDataTexture );
@@ -333,6 +329,8 @@ void BGFXRenderer::Destroy()
     {
         bgfx::destroy( m_ibh );
     }
+    // Shaders referenced by hot-reloadable programs.
+    Moonlight::ReleaseProgramRegistry();
 
     bgfx::shutdown();
 
@@ -1145,7 +1143,7 @@ void BGFXRenderer::SubmitShadowCasters( bgfx::ViewId view, const Frustum& frustu
                 bgfx::setTexture( 2, s_texAlpha, opacity && bgfx::isValid( opacity->TexHandle ) ? opacity->TexHandle : m_whiteTexture );
             }
             bgfx::setState( state );
-            bgfx::submit( view, m_shadowProgram );
+            bgfx::submit( view, m_shadowProgram.GetProgram() );
             offset += available;
         }
     }

@@ -88,10 +88,17 @@ void MetaBase::Deserialize( const json& inJson )
 
 void MetaBase::Save()
 {
-    Path metaPath = Path( FilePath.FullPath + ".meta" );
+    // Raw: the .meta always lives next to its asset (engine assets included), never redirected.
+    Path metaPath = Path( FilePath.FullPath + ".meta", true );
     File metaFile = File( metaPath );
     json j;
     Serialize( j );
-    metaFile.Write( j.dump( 4 ) );
+    const std::string contents = j.dump( 4 );
+    // Rewriting an unchanged .meta would look like an edit to the file watcher and reimport the
+    // asset again (an endless reload loop for hot reloaded shaders).
+    if( !metaPath.Exists || metaFile.Read() != contents )
+    {
+        metaFile.Write( contents );
+    }
     FlaggedForExport = false;
 }

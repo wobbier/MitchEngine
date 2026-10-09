@@ -34,9 +34,9 @@ namespace Moonlight
             return c <= 0.04045f ? c / 12.92f : std::pow( ( c + 0.055f ) / 1.055f, 2.4f );
         }
 
-        bgfx::ProgramHandle LoadEnvProgram( const char* InFragment )
+        ShaderCommand LoadEnvProgram( const char* InFragment )
         {
-            return LoadProgram( "Assets/Shaders/Post/Fullscreen.vert", std::string( "Assets/Shaders/Env/" ) + InFragment + ".frag" );
+            return ShaderCommand( "Assets/Shaders/Post/Fullscreen", std::string( "Assets/Shaders/Env/" ) + InFragment );
         }
     }
 
@@ -56,9 +56,9 @@ namespace Moonlight
         s_envSource = bgfx::createUniform( "s_envSource", bgfx::UniformType::Sampler );
         s_envPanorama = bgfx::createUniform( "s_envPanorama", bgfx::UniformType::Sampler );
 
-        for( bgfx::ProgramHandle program : { m_captureProgram, m_downsampleProgram, m_prefilterProgram, m_irradianceProgram, m_brdfProgram } )
+        for( const ShaderCommand* program : { &m_captureProgram, &m_downsampleProgram, &m_prefilterProgram, &m_irradianceProgram, &m_brdfProgram } )
         {
-            m_supported = m_supported && bgfx::isValid( program );
+            m_supported = m_supported && program->IsLoaded();
         }
         if( !m_supported )
         {
@@ -81,13 +81,9 @@ namespace Moonlight
         {
             DestroyProbe( probe );
         }
-        for( bgfx::ProgramHandle* program : { &m_captureProgram, &m_downsampleProgram, &m_prefilterProgram, &m_irradianceProgram, &m_brdfProgram } )
+        for( ShaderCommand* program : { &m_captureProgram, &m_downsampleProgram, &m_prefilterProgram, &m_irradianceProgram, &m_brdfProgram } )
         {
-            if( bgfx::isValid( *program ) )
-            {
-                bgfx::destroy( *program );
-                *program = BGFX_INVALID_HANDLE;
-            }
+            *program = ShaderCommand();
         }
         for( bgfx::UniformHandle* uniform : { &u_envFace, &u_envSource, &u_envColor, &s_envSource, &s_envPanorama } )
         {
@@ -297,11 +293,11 @@ namespace Moonlight
     }
 
 
-    void EnvironmentLighting::Submit( bgfx::ViewId InView, bgfx::ProgramHandle InProgram )
+    void EnvironmentLighting::Submit( bgfx::ViewId InView, const ShaderCommand& InProgram )
     {
         bgfx::setState( BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A );
         screenSpaceQuad( 1.f, 1.f, 0.f, bgfx::getCaps()->originBottomLeft );
-        bgfx::submit( InView, InProgram );
+        bgfx::submit( InView, InProgram.GetProgram() );
     }
 
 

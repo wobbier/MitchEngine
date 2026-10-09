@@ -6,6 +6,7 @@
 #include "Device/FrameBuffer.h"
 #include <RenderCommands.h>
 #include "Graphics/Texture.h"
+#include "Graphics/ShaderCommand.h"
 #include <Dementia.h>
 
 #if USING( ME_ENABLE_RENDERDOC )
@@ -159,7 +160,7 @@ private:
 
     ShadowAtlas m_sunShadowAtlas;
     ShadowAtlas m_spotShadowAtlas;
-    bgfx::ProgramHandle m_shadowProgram = BGFX_INVALID_HANDLE;
+    Moonlight::ShaderCommand m_shadowProgram;
     bool m_shadowsSupported = false;
     bool m_hasSunShadow = false;
     Moonlight::LightCommand m_sunShadowLight;

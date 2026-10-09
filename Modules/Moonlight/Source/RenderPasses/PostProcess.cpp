@@ -16,18 +16,10 @@ namespace Moonlight
     {
         constexpr uint64_t kWriteColor = BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A;
 
-        bgfx::ProgramHandle LoadPost( const char* InFragment )
+        // Hot reloadable: the shared program is rebuilt when either shader changes.
+        ShaderCommand LoadPost( const char* InFragment )
         {
-            return LoadProgram( "Assets/Shaders/Post/Fullscreen.vert", std::string( "Assets/Shaders/Post/" ) + InFragment + ".frag" );
-        }
-
-        void DestroyProgram( bgfx::ProgramHandle& InProgram )
-        {
-            if( bgfx::isValid( InProgram ) )
-            {
-                bgfx::destroy( InProgram );
-            }
-            InProgram = BGFX_INVALID_HANDLE;
+            return ShaderCommand( "Assets/Shaders/Post/Fullscreen", std::string( "Assets/Shaders/Post/" ) + InFragment );
         }
 
         void DestroyUniform( bgfx::UniformHandle& InUniform )
@@ -82,10 +74,6 @@ namespace Moonlight
 
     PostProcess::~PostProcess()
     {
-        for( bgfx::ProgramHandle* program : { &m_tonemapProgram, &m_fxaaProgram, &m_bloomDownProgram, &m_bloomUpProgram, &m_ssaoProgram, &m_ssaoBlurProgram, &m_ssaoApplyProgram, &m_luminanceProgram, &m_adaptProgram } )
-        {
-            DestroyProgram( *program );
-        }
         for( bgfx::UniformHandle* uniform : { &s_input0, &s_input1, &s_hdrColor, &s_bloom, &s_exposure, &s_ldrColor, &u_tonemap, &u_grading, &u_grading2, &u_exposure, &u_bloom, &u_ssao, &u_ssaoProjection, &u_ssaoProjection2, &u_adapt } )
         {
             DestroyUniform( *uniform );
@@ -106,11 +94,11 @@ namespace Moonlight
     }
 
 
-    void PostProcess::SubmitFullscreen( bgfx::ViewId InView, bgfx::ProgramHandle InProgram, uint64_t InState )
+    void PostProcess::SubmitFullscreen( bgfx::ViewId InView, const ShaderCommand& InProgram, uint64_t InState )
     {
         bgfx::setState( InState ? InState : kWriteColor );
         screenSpaceQuad( 1.f, 1.f, 0.f, bgfx::getCaps()->originBottomLeft );
-        bgfx::submit( InView, InProgram );
+        bgfx::submit( InView, InProgram.GetProgram() );
     }
 
 

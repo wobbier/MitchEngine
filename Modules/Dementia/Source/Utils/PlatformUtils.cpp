@@ -8,7 +8,12 @@
 #include <chrono>
 #include <algorithm>
 #include <cstdlib>
+#include <cstdio>
 #include "File.h"
+
+#if USING( ME_PLATFORM_LINUX ) || USING( ME_PLATFORM_MACOS )
+#include <sys/wait.h>
+#endif
 
 void PlatformUtils::RunProcess( const Path& inFilePath, const std::string& inArgs /*= ""*/ )
 {
@@ -71,6 +76,33 @@ void PlatformUtils::SystemCall( const Path& inFilePath, const std::string& inArg
     std::system( progArgs.c_str() );
 #endif
 }
+
+int PlatformUtils::RunCommand( const std::string& inCommand, std::string& OutOutput )
+{
+    OutOutput.clear();
+    const std::string command = inCommand + " 2>&1";
+#if USING( ME_PLATFORM_WIN64 )
+    FILE* pipe = _popen( command.c_str(), "r" );
+#else
+    FILE* pipe = popen( command.c_str(), "r" );
+#endif
+    if( !pipe )
+    {
+        return -1;
+    }
+    char buffer[512];
+    while( fgets( buffer, sizeof( buffer ), pipe ) )
+    {
+        OutOutput += buffer;
+    }
+#if USING( ME_PLATFORM_WIN64 )
+    return _pclose( pipe );
+#else
+    const int status = pclose( pipe );
+    return WIFEXITED( status ) ? WEXITSTATUS( status ) : -1;
+#endif
+}
+
 
 void PlatformUtils::CreateDirectory( const Path& inFilePath )
 {

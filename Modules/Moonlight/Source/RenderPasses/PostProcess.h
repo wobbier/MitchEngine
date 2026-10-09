@@ -1,6 +1,7 @@
 #pragma once
 #include <bgfx/bgfx.h>
 #include "Camera/PostProcessSettings.h"
+#include "Graphics/ShaderCommand.h"
 
 namespace Moonlight
 {
@@ -27,19 +28,19 @@ namespace Moonlight
 
     private:
         void SetupFullscreenView( bgfx::ViewId InView, bgfx::FrameBufferHandle InTarget, uint16_t InWidth, uint16_t InHeight );
-        void SubmitFullscreen( bgfx::ViewId InView, bgfx::ProgramHandle InProgram, uint64_t InState = 0 );
+        void SubmitFullscreen( bgfx::ViewId InView, const ShaderCommand& InProgram, uint64_t InState = 0 );
         void RenderBloom( ViewAllocator& InViews, const PostProcessSettings& InSettings, FrameBuffer& InTargets );
         bgfx::TextureHandle RenderAutoExposure( ViewAllocator& InViews, const PostProcessSettings& InSettings, FrameBuffer& InTargets );
 
-        bgfx::ProgramHandle m_tonemapProgram = BGFX_INVALID_HANDLE;
-        bgfx::ProgramHandle m_fxaaProgram = BGFX_INVALID_HANDLE;
-        bgfx::ProgramHandle m_bloomDownProgram = BGFX_INVALID_HANDLE;
-        bgfx::ProgramHandle m_bloomUpProgram = BGFX_INVALID_HANDLE;
-        bgfx::ProgramHandle m_ssaoProgram = BGFX_INVALID_HANDLE;
-        bgfx::ProgramHandle m_ssaoBlurProgram = BGFX_INVALID_HANDLE;
-        bgfx::ProgramHandle m_ssaoApplyProgram = BGFX_INVALID_HANDLE;
-        bgfx::ProgramHandle m_luminanceProgram = BGFX_INVALID_HANDLE;
-        bgfx::ProgramHandle m_adaptProgram = BGFX_INVALID_HANDLE;
+        ShaderCommand m_tonemapProgram;
+        ShaderCommand m_fxaaProgram;
+        ShaderCommand m_bloomDownProgram;
+        ShaderCommand m_bloomUpProgram;
+        ShaderCommand m_ssaoProgram;
+        ShaderCommand m_ssaoBlurProgram;
+        ShaderCommand m_ssaoApplyProgram;
+        ShaderCommand m_luminanceProgram;
+        ShaderCommand m_adaptProgram;
 
         bgfx::UniformHandle s_input0 = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle s_input1 = BGFX_INVALID_HANDLE;

@@ -1,5 +1,6 @@
 #pragma once
 #include <bgfx/bgfx.h>
+#include "Graphics/ShaderCommand.h"
 #include <array>
 #include <cstdint>
 #include <vector>
@@ -73,7 +74,7 @@ namespace Moonlight
         bool Filter( Probe& InProbe, ViewAllocator& InViews );
         bool RenderBrdfLut( ViewAllocator& InViews );
         bgfx::ViewId BeginPass( ViewAllocator& InViews, const char* InName, bgfx::TextureHandle InTarget, uint16_t InLayer, uint16_t InMip, uint16_t InSize );
-        void Submit( bgfx::ViewId InView, bgfx::ProgramHandle InProgram );
+        void Submit( bgfx::ViewId InView, const ShaderCommand& InProgram );
         void ReleaseFrameBuffers();
         bool HasFrameBufferHeadroom( uint32_t InNeeded ) const;
 
@@ -81,11 +82,11 @@ namespace Moonlight
         std::vector<bgfx::FrameBufferHandle> m_frameBuffers;
         uint64_t m_lastUpdateFrame = UINT64_MAX;
 
-        bgfx::ProgramHandle m_captureProgram = BGFX_INVALID_HANDLE;
-        bgfx::ProgramHandle m_downsampleProgram = BGFX_INVALID_HANDLE;
-        bgfx::ProgramHandle m_prefilterProgram = BGFX_INVALID_HANDLE;
-        bgfx::ProgramHandle m_irradianceProgram = BGFX_INVALID_HANDLE;
-        bgfx::ProgramHandle m_brdfProgram = BGFX_INVALID_HANDLE;
+        ShaderCommand m_captureProgram;
+        ShaderCommand m_downsampleProgram;
+        ShaderCommand m_prefilterProgram;
+        ShaderCommand m_irradianceProgram;
+        ShaderCommand m_brdfProgram;
         bgfx::UniformHandle u_envFace = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_envSource = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_envColor = BGFX_INVALID_HANDLE;

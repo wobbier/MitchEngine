@@ -46,6 +46,7 @@
 #include "Core/CommandLine.h"
 #include "Core/CrashHandler.h"
 #include "Resource/FileWatcher.h"
+#include "Graphics/ShaderDependencies.h"
 #include "Resource/AssetDatabase.h"
 #include "World/SceneSerializer.h"
 #include <chrono>
@@ -591,6 +592,8 @@ void Engine::PollAssetChanges()
             SceneSerializer::ClearPrefabCache();
         }
     }
+    // Editing a shader include or varying file reloads every shader built from it.
+    Moonlight::ExpandShaderChanges( paths );
     for( const std::string& reloaded : ResourceCache::GetInstance().OnFilesChanged( paths ) )
     {
         CLog::Log( CLog::LogType::Info, "Hot reloaded: " + reloaded );

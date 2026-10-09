@@ -20,7 +20,7 @@ PickingPass::PickingPass()
     );
 
     u_id = bgfx::createUniform( "u_id", bgfx::UniformType::Vec4 ); // ID for drawing into ID buffer
-    m_idProgram = Moonlight::LoadProgram( "Assets/Shaders/Picking/picking_shaded.vert", "Assets/Shaders/Picking/picking_id.frag" );
+    m_idProgram = Moonlight::ShaderCommand( "Assets/Shaders/Picking/picking_shaded", "Assets/Shaders/Picking/picking_id" );
 
             // Set up ID buffer, which has a color target and depth buffer
     m_pickingRT = bgfx::createTexture2D( ID_DIM, ID_DIM, false, 1, bgfx::TextureFormat::RGBA8, 0
@@ -68,7 +68,6 @@ PickingPass::~PickingPass()
     // m_pickingFB owns m_pickingRT and m_pickingRTDepth.
     bgfx::destroy( m_pickingFB );
     bgfx::destroy( m_blitTex );
-    bgfx::destroy( m_idProgram );
     bgfx::destroy( u_id );
 }
 
@@ -196,7 +195,7 @@ void PickingPass::Render( BGFXRenderer* inRenderer, CameraData* inCamData, Frame
                     // Submit ID pass based on mesh ID
                 bgfx::setUniform( u_id, &colorVec.x );
                 // Submit primitive for rendering to view 0.
-                bgfx::submit( RENDER_PASS_ID, m_idProgram );
+                bgfx::submit( RENDER_PASS_ID, m_idProgram.GetProgram() );
             }
         }
     }

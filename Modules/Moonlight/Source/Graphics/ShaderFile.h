@@ -21,14 +21,43 @@ namespace Moonlight
         ShaderFile( const Path& InPath )
             : Resource( InPath )
         {
-            std::string path = FilePath.FullPath.substr( FilePath.FullPath.rfind( "/" ) + 1, FilePath.FullPath.length() );
-            Path fullPath = Path(std::string( FilePath.GetDirectory() ) + path + "." + Moonlight::GetPlatformString() + ".bin");
-            
+            const Path fullPath = BinaryPath();
+
             //fullPath = fullPath.substr(0, fullPath.rfind(".")) + ".bin";
             ME_ASSERT_MSG( fullPath.Exists, "Shader doesn't exist." );
             // createShader consumes the memory, so don't hold on to it.
             Handle = bgfx::createShader( Moonlight::LoadMemory( fullPath ) );
             bgfx::setName( Handle, InPath.GetLocalPath().data() );
+        }
+
+        // Recreates the shader from the freshly compiled binary and rebuilds every program using it
+        // (ShaderCommand users see the new program immediately). Programs created from the old
+        // shader keep their own reference, so destroying it here is safe.
+        void Reload() override
+        {
+            const bgfx::Memory* memory = Moonlight::LoadMemory( BinaryPath() );
+            if( !memory )
+            {
+                return;
+            }
+            const bgfx::ShaderHandle rebuilt = bgfx::createShader( memory );
+            if( !bgfx::isValid( rebuilt ) )
+            {
+                return;
+            }
+            bgfx::setName( rebuilt, FilePath.GetLocalPath().data() );
+            const bgfx::ShaderHandle previous = Handle;
+            Handle = rebuilt;
+            Moonlight::RebuildProgramsUsing( this );
+            if( bgfx::isValid( previous ) )
+            {
+                bgfx::destroy( previous );
+            }
+        }
+
+        Path BinaryPath() const
+        {
+            return Path( FilePath.FullPath + "." + Moonlight::GetPlatformString() + ".bin" );
         }
 
         // Programs hold their own reference to the shader, so this is safe while they're alive.
@@ -76,104 +105,66 @@ struct ShaderFileMetadata
     {
     }
 
+    // Compiles the shader with bgfx's shaderc for the running renderer, next to the source (absolute
+    // paths, so engine shaders compile in place), with a depfile for include tracking. Compiler
+    // errors go to the log.
     void Export() override
     {
 #if USING( ME_PLATFORM_WIN64 )
-        Path shadercPath = Path( "Engine/Tools/Win64/shaderc.exe" );
-
-        std::string exportType;
-        std::string shaderType;
-        const std::string ext = FilePath.GetExtension();
-        if( ext == "frag" )
-        {
-            exportType = "fragment";
-            shaderType = "s_5_0";
-        }
-        else if( ext == "vert" )
-        {
-            exportType = "vertex";
-            shaderType = "s_5_0";
-        }
-
-        std::string fileName = std::string( FilePath.GetLocalPath().substr( FilePath.GetLocalPath().rfind( "/" ) + 1, FilePath.GetLocalPath().length() ) );
-        std::string localFolder = FilePath.GetDirectoryString();
-
-        // --platform windows -p vs_5_0 -O 3 --type vertex --depends -o $(@) -f $(<) --disasm
-        //
-        std::string nameNoExt = fileName.substr( 0, fileName.rfind( "." ) );
-        std::string progArgs = "-f \"" + localFolder + fileName + "\"" + " -o \"" + localFolder + fileName + "." + GetExtension2() + "\" --varyingdef \"" + localFolder + nameNoExt + ".var\" --platform windows -p " + shaderType + " --type " + exportType;
-        progArgs += " -i \"" + Path( "Engine/Assets/Shaders" ).FullPath + "\"";
-        // ./shaderc -f ../../../Assets/Shaders/vs_cubes.shader -o ../../../Assets/Shaders/dummy.bin --varyingdef ./varying.def.sc --platform windows -p vs_5_0 --type vertex
-
-        PlatformUtils::SystemCall( shadercPath, progArgs );
-
+        const Path shadercPath = Path( "Engine/Tools/Win64/shaderc.exe" );
+        const char* platform = "windows";
 #elif USING( ME_PLATFORM_MACOS )
-        Path shadercPath = Path( "Engine/Tools/macOS/shaderc" );
-
-        std::string exportType;
-        std::string shaderType = "ps_5_0";
-        std::string ext = FilePath.GetExtension();
-        if( ext == "frag" )
-        {
-            exportType = "fragment";
-        }
-        else if( ext == "vert" )
-        {
-            exportType = "vertex";
-        }
-
-        // #TODO: Do I need this local string shit?
-        std::string fileName = FilePath.GetLocalPathString().substr( FilePath.GetLocalPathString().rfind( "/" ) + 1, FilePath.GetLocalPathString().length() );
-        std::string localFolder = FilePath.GetLocalPathString().substr( 0, FilePath.GetLocalPathString().rfind( "/" ) + 1 );
-
-        std::string nameNoExt = fileName.substr( 0, fileName.rfind( "." ) );
-        std::string progArgs = "\"" + shadercPath.FullPath + "\" -f "+shadercPath.GetDirectoryString()+"/../../../";
-        progArgs += localFolder + fileName;
-        progArgs += " -o "+shadercPath.GetDirectoryString()+"/../../../" + localFolder + fileName + "." + GetExtension2() + " --varyingdef "+shadercPath.GetDirectoryString()+"/../../../" + localFolder + nameNoExt + ".var --platform osx -p metal --depends -disasm --type " + exportType;
-
-
-        //"\"/Users/mitchellandrews/Projects/stack-new/Engine/Tools/macOS/shaderc\" -f ../../Engine/Assets/Shaders/UI.vert -o ../../Engine/Assets/Shaders/UI.vert.metal.bin --varyingdef ../../Engine/Assets/Shaders/UI.var --platform osx -p metal --depends -disasm --type vertex"
-        // texturec -f $in -o $out -t bc2 -m
-        system( progArgs.c_str() );
-#elif USING( ME_PLATFORM_LINUX )
-    Path shadercPath = Path( "Engine/Tools/linux/shaderc" );
-
-    std::string exportType;
-    std::string ext = FilePath.GetExtension();
-    if( ext == "frag" )
-    {
-        exportType = "fragment";
-    }
-    else if( ext == "vert" )
-    {
-        exportType = "vertex";
-    }
-
-    std::string fileName = FilePath.GetLocalPathString().substr(
-        FilePath.GetLocalPathString().rfind( "/" ) + 1
-    );
-    std::string localFolder = FilePath.GetLocalPathString().substr(
-        0,
-        FilePath.GetLocalPathString().rfind( "/" ) + 1
-    );
-
-    std::string nameNoExt = fileName.substr( 0, fileName.rfind( "." ) );
-
-    const std::string platformStr = Moonlight::GetPlatformString();
-    const std::string shaderProfile = ( platformStr == "spirv" ) ? "spirv" : "150";
-
-    std::string progArgs;
-    progArgs  = "\"" + shadercPath.FullPath + "\"";
-    progArgs += " -f " + shadercPath.GetDirectoryString() + "/../../../" + localFolder + fileName;
-    progArgs += " -o " + shadercPath.GetDirectoryString() + "/../../../" + localFolder + fileName + "." + GetExtension2();
-    progArgs += " --varyingdef " + shadercPath.GetDirectoryString() + "/../../../" + localFolder + nameNoExt + ".var";
-    progArgs += " --platform linux -p " + shaderProfile;
-    progArgs += " --depends --type " + exportType;
-    progArgs += " -i \"" + Path( "Engine/Assets/Shaders" ).FullPath + "\"";
-
-    BRUH( progArgs );
-    system( progArgs.c_str() );
+        const Path shadercPath = Path( "Engine/Tools/macOS/shaderc" );
+        const char* platform = "osx";
+#else
+        const Path shadercPath = Path( "Engine/Tools/linux/shaderc" );
+        const char* platform = "linux";
 #endif
+        const std::string extension = FilePath.GetExtension();
+        const std::string type = extension == "frag" ? "fragment" : "vertex";
+
+        const std::string renderer = Moonlight::GetPlatformString();
+        std::string profile = "spirv";
+        if( renderer == "dx11" )
+        {
+            profile = "s_5_0";
+        }
+        else if( renderer == "glsl" )
+        {
+            profile = "150";
+        }
+        else if( renderer == "metal" )
+        {
+            profile = "metal";
+        }
+        else if( renderer == "essl" )
+        {
+            profile = "320_es";
+        }
+
+        const std::string source = FilePath.FullPath;
+        const std::string directory = FilePath.GetDirectoryString();
+        std::string fileName = source.substr( source.find_last_of( "/\\" ) + 1 );
+        const std::string baseName = fileName.substr( 0, fileName.rfind( '.' ) );
+        auto quote = []( const std::string& InText ) { return "\"" + InText + "\""; };
+
+        std::string command = quote( shadercPath.FullPath );
+        command += " -f " + quote( source );
+        command += " -o " + quote( source + "." + GetExtension2() );
+        command += " --varyingdef " + quote( directory + baseName + ".var" );
+        command += " -i " + quote( Path( "Engine/Assets/Shaders" ).FullPath );
+        command += std::string( " --platform " ) + platform + " -p " + profile + " --type " + type + " --depends";
+
+        std::string output;
+        const int result = PlatformUtils::RunCommand( command, output );
+        if( result != 0 )
+        {
+            YIKES( "Shader compile failed: " + FilePath.GetLocalPathString() + "\n" + output );
+        }
+        else
+        {
+            CLog::Log( CLog::LogType::Info, "Compiled shader: " + FilePath.GetLocalPathString() );
+        }
     }
 #if USING( ME_EDITOR )
     void OnEditorInspect() override
