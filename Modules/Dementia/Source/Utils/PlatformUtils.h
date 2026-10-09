@@ -12,8 +12,16 @@ namespace PlatformUtils
 
     void CreateDirectory( const Path& inFilePath );
 
+    // Opens a file with its default application / a folder in the file manager.
     void OpenFile( const Path& inFilePath );
     void OpenFolder( const Path& inFolderPath );
+    // Opens the file manager with the file selected (its folder on Linux).
+    void ShowInFileManager( const Path& inFilePath );
+    // Opens a source file at a line in the code editor: $ME_CODE_EDITOR ("{file}" and "{line}" are
+    // substituted) or VS Code ("code -g file:line").
+    void OpenInCodeEditor( const std::string& inFile, int inLine );
+    // Starts a shell command without waiting for it.
+    void RunDetached( const std::string& inCommand );
 
     void DeleteFile( const Path& inFilePath );
 

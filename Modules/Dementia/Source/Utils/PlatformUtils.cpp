@@ -6,6 +6,8 @@
 
 #include <filesystem>
 #include <chrono>
+#include <algorithm>
+#include <cstdlib>
 #include "File.h"
 
 void PlatformUtils::RunProcess( const Path& inFilePath, const std::string& inArgs /*= ""*/ )
@@ -72,23 +74,94 @@ void PlatformUtils::SystemCall( const Path& inFilePath, const std::string& inArg
 
 void PlatformUtils::CreateDirectory( const Path& inFilePath )
 {
+    std::error_code error;
+    std::filesystem::create_directories( std::string( inFilePath.GetDirectory() ), error );
+}
+
+
+namespace
+{
+    // Single-quotes an argument for /bin/sh.
+    std::string ShellQuote( const std::string& inText )
+    {
+        std::string quoted = "'";
+        for( char c : inText )
+        {
+            if( c == '\'' )
+            {
+                quoted += "'\\''";
+            }
+            else
+            {
+                quoted += c;
+            }
+        }
+        return quoted + "'";
+    }
+}
+
+
+void PlatformUtils::RunDetached( const std::string& inCommand )
+{
 #if USING( ME_PLATFORM_WIN64 )
-    std::filesystem::create_directories( inFilePath.GetDirectory() );
+    std::system( ( "start \"\" " + inCommand ).c_str() );
+#elif USING( ME_PLATFORM_LINUX ) || USING( ME_PLATFORM_MACOS )
+    std::system( ( inCommand + " >/dev/null 2>&1 &" ).c_str() );
 #endif
 }
+
 
 void PlatformUtils::OpenFile( const Path& inFilePath )
 {
 #if USING( ME_PLATFORM_WIN64 )
     ShellExecute( NULL, L"open", StringUtils::ToWString( inFilePath.FullPath ).c_str(), NULL, NULL, SW_SHOWDEFAULT );
+#elif USING( ME_PLATFORM_MACOS )
+    RunDetached( "open " + ShellQuote( inFilePath.FullPath ) );
+#elif USING( ME_PLATFORM_LINUX )
+    RunDetached( "xdg-open " + ShellQuote( inFilePath.FullPath ) );
 #endif
 }
 
+
 void PlatformUtils::OpenFolder( const Path& inFolderPath )
 {
+    const std::string folder = inFolderPath.IsFolder ? inFolderPath.FullPath : std::string( inFolderPath.GetDirectory() );
 #if USING( ME_PLATFORM_WIN64 )
-    ShellExecute( NULL, L"open", StringUtils::ToWString( inFolderPath.GetDirectory() ).c_str(), NULL, NULL, SW_SHOWDEFAULT );
+    ShellExecute( NULL, L"open", StringUtils::ToWString( folder ).c_str(), NULL, NULL, SW_SHOWDEFAULT );
+#elif USING( ME_PLATFORM_MACOS )
+    RunDetached( "open " + ShellQuote( folder ) );
+#elif USING( ME_PLATFORM_LINUX )
+    RunDetached( "xdg-open " + ShellQuote( folder ) );
 #endif
+}
+
+
+void PlatformUtils::ShowInFileManager( const Path& inFilePath )
+{
+#if USING( ME_PLATFORM_WIN64 )
+    const std::wstring arguments = L"/select,\"" + StringUtils::ToWString( inFilePath.FullPath ) + L"\"";
+    ShellExecute( NULL, L"open", L"explorer.exe", arguments.c_str(), NULL, SW_SHOWDEFAULT );
+#elif USING( ME_PLATFORM_MACOS )
+    RunDetached( "open -R " + ShellQuote( inFilePath.FullPath ) );
+#else
+    OpenFolder( inFilePath );
+#endif
+}
+
+
+void PlatformUtils::OpenInCodeEditor( const std::string& inFile, int inLine )
+{
+    const char* custom = std::getenv( "ME_CODE_EDITOR" );
+    std::string command = custom ? custom : "code -g \"{file}:{line}\"";
+    auto replace = [&command]( const std::string& token, const std::string& value ) {
+        for( size_t at = command.find( token ); at != std::string::npos; at = command.find( token, at + value.size() ) )
+        {
+            command.replace( at, token.size(), value );
+        }
+    };
+    replace( "{file}", inFile );
+    replace( "{line}", std::to_string( std::max( inLine, 1 ) ) );
+    RunDetached( command );
 }
 
 void PlatformUtils::DeleteFile( const Path& inFilePath )
