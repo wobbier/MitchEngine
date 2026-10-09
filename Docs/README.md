@@ -13,6 +13,7 @@ Technical documentation for MitchEngine — a C++20, ECS-based game engine built
 | [Materials-and-Shaders.md](Materials-and-Shaders.md) | Material hierarchy, instance batch keys, offline `shaderc` cooking via the MetaFile system |
 | [Resources-and-Assets.md](Resources-and-Assets.md) | `ResourceCache` load flow, `.meta` sidecars, export/cooking, eviction, resource type inventory |
 | [Cores-and-Components-Reference.md](Cores-and-Components-Reference.md) | Catalog of every core (incl. the Audio/FMOD deep-dive) and every component; orphaned-component list |
+| [Animation.md](Animation.md) | Clip import, the `Animator` state machine (parameters, transitions, blends, events), `AnimationCore`, bone entities, GPU skinning in every pass |
 | [Physics.md](Physics.md) | Box3D `PhysicsCore` and Box2D `Physics2DCore`: bodies, colliders, compound bodies, joints, character movers, fixed step + interpolation, layers, events, queries |
 | [Serialization-and-Scenes.md](Serialization-and-Scenes.md) | `.lvl` JSON format, prefabs, registry-name instantiation, save/load flow, versioning caveats |
 | [Scripting-DotNet.md](Scripting-DotNet.md) | hostfxr bootstrap, `ScriptEngine`, the function-pointer API table, C# side, platform status, add-a-binding recipe |
@@ -28,7 +29,7 @@ Technical documentation for MitchEngine — a C++20, ECS-based game engine built
 
 These rules apply to every doc in this directory:
 
-1. **Facts vs opinions.** Docs 2–14 are factual: what the code does today, including its limits and sharp edges (each doc's *Caveats & Fragility* section). All opinionated assessment — what should change, priorities, maturity ratings — lives **only** in `State-of-the-Engine.md`.
+1. **Facts vs opinions.** Every doc except `State-of-the-Engine.md` is factual: what the code does today, including its limits and sharp edges (each doc's *Caveats & Fragility* section). All opinionated assessment — what should change, priorities, maturity ratings — lives **only** in `State-of-the-Engine.md`.
 2. **File references** are backticked repo-relative paths from the engine root, e.g. `Source/Engine/Engine.cpp`. Files living in the *game* repo (which embeds this engine at `Engine/`) are referenced with a `../` prefix, e.g. `../flake.nix`. A checked reference must contain at least one `/` — bare backticked filenames (`imgui.h`) are just names, not checked references. This makes stale references scriptable to detect:
    ```bash
    # run from the engine root
@@ -47,4 +48,4 @@ These rules apply to every doc in this directory:
    ```
    Known label traps (both hit during validation): `stateDiagram-v2` transition labels cannot contain `::` (write `World Start`, not `World::Start`), and `sequenceDiagram` treats every `;` as a statement separator — including the one terminating an HTML entity like `&lt;` — so keep entities and semicolons out of message text.
 5. **Verification stamp.** Each doc opens with `> Verified against engine commit <hash>, <date>.` If you change engine behavior a doc describes, **update the doc and its stamp in the same change** — source wins over docs on conflict, but a known-stale doc is worse than none.
-6. **Template** (docs 2–14): Summary → Overview → Key Files → How It Works → How to Extend (where applicable) → Caveats & Fragility → Related Docs.
+6. **Template** (factual docs): Summary → Overview → Key Files → How It Works → How to Extend (where applicable) → Caveats & Fragility → Related Docs.

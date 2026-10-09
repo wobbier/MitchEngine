@@ -158,13 +158,14 @@ The script runs one command per frame after a short warm-up and logs `[editor-ex
 | `wait N`, `log text` | Wait frames, log |
 | `action Id`, `undo`, `redo` | Run an editor action / undo / redo |
 | `select a,b`, `select-add a`, `select-none` | Selection (names, or `Parent/Child` paths) |
+| `pick fx fy` | Clicks the scene view at that fraction of its size; GPU picking selects what is drawn there |
 | `create Name [| Parent]`, `rename Name`, `reparent Child | Parent|root` | Structural edits |
 | `add-component T`, `remove-component T`, `set Type.Field <json>` | Component edits on the active entity |
 | `create-prefab Entity | path`, `instantiate path`, `prefab-apply/-revert/-unpack Entity` | Prefab workflow |
 | `play`, `stop`, `load path`, `save-as path`, `show-assets folder`, `focus-window name`, `screenshot path`, `quit` | Editor state |
 | `mark-count`, `assert-count N`, `assert-count-delta N` | Entity counts |
 | `assert-exists/-missing Name`, `assert-selected N`, `assert-active Name`, `assert-parent Child | Parent`, `assert-children Name | N` | Scene structure |
-| `assert-field Name | Type.Field | <json>` (numbers within 1e-3; append `~ tolerance` to widen; `Type.Field.N` indexes arrays), `assert-dirty 0/1`, `assert-playing 0/1`, `assert-prefab Name | path/none`, `assert-overridden Name | Type.Field | 0/1` | State |
+| `assert-field Name | Type.Field | <json>` (numbers within 1e-3; append `~ tolerance` to widen; prefix `!=` to require a different value; `Type.Field.N` indexes arrays), `assert-dirty 0/1`, `assert-playing 0/1`, `assert-prefab Name | path/none`, `assert-overridden Name | Type.Field | 0/1` | State |
 
 `Assets/Scenes/Tests/EditorFlows.edscript` and `PrefabFlows.edscript` (run with `HierarchyTest.lvl`) `PhysicsFlows.edscript` (run with `PhysicsTest.lvl`) and `Physics2DFlows.edscript` (run with `Physics2DTest.lvl`) in the game repository are the regression scripts.
 

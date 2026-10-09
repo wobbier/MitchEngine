@@ -2,7 +2,7 @@
 
 The catalog: every core (system) and component the engine ships, what each core filters on, when it updates, and which components are decorative or orphaned. The Audio (FMOD) deep-dive lives here; Physics, Rendering, UI, and Scripting have their own docs.
 
-> Verified against engine commit 047f57b8, 2026-07-10; the rendering rows (RenderCore, ParticleCore, Mesh, Light, PostProcess, ParticleSystem) against 1fa55311, 2026-10-09 (overhaul Wave 3); the physics rows against 8fdd99b1, 2026-10-09 (overhaul Wave 4).
+> Verified against engine commit 047f57b8, 2026-07-10; the rendering rows (RenderCore, ParticleCore, Mesh, Light, PostProcess, ParticleSystem) against 1fa55311, 2026-10-09 (overhaul Wave 3); the physics rows against 8fdd99b1, 2026-10-09 (overhaul Wave 4); the animation rows (AnimationCore, Animator, Model, Mesh skinning) against 07617c5f, 2026-10-09.
 
 ## Overview
 
@@ -20,6 +20,7 @@ Cores come in two flavors (see `Docs/Architecture.md`): **engine-owned** (create
 | `UICore` (`Source/Cores/UI/UICore.h`) | `BasicUIView` | engine-owned | Ultralight HTML views — see `Docs/UI-Ultralight-and-ImGui.md` |
 | `PhysicsCore` (`Source/Cores/PhysicsCore.h`) | `Transform` + one of (`Rigidbody`, a collider, `CharacterController`, `PhysicsJoint`) | engine-owned | Box3D world: fixed-step simulation (play mode), interpolated poses, edit-mode body sync, `CollisionEvent`s, queries, character mover — see `Docs/Physics.md`. Old scenes' `"PhysicsCore"` core entries resolve to it |
 | `Physics2DCore` (`Source/Cores/Physics2DCore.h`) | `Transform` + one of (`Rigidbody2D`, a 2D collider, `CharacterController2D`, `PhysicsJoint2D`) | engine-owned | The Box2D counterpart in the XY plane: same lifecycle, events (`Is2D`), layers and queries — see `Docs/Physics.md` |
+| `AnimationCore` (`Source/Cores/AnimationCore.h`) | `Transform` + `Animator` | engine-owned | Plays Animators while the world is started: binds clips to node entities by name, steps state machines, samples poses in parallel, writes Transforms, fires `AnimationEvent`s — see `Docs/Animation.md` |
 | `ScriptCore` (`Source/Cores/Scripting/ScriptCore.h`) | `ScriptComponent` | scene-loaded | .NET script lifecycle — see `Docs/Scripting-DotNet.md` |
 | `SelfDestructor` (`Source/Cores/Utility/SelfDestructCore.h`) | `SelfDestruct` | scene-loaded | Kills entities when their `Lifetime` expires (note the class name — not "SelfDestructCore") |
 | `FlyingCameraCore` (`Source/Cores/Cameras/FlyingCameraCore.h`) | `FlyingCamera` + `Camera` | scene-loaded/editor | WASD+mouse free-fly camera control |
@@ -33,7 +34,8 @@ flowchart TD
     P --> B["UpdateLoadedCores<br/>ScriptCore · SelfDestructor · game cores<br/>(gated by World::Start — dormant in edit mode)"]
     B --> C["SceneNodes->Update → Game::OnUpdate"]
     C --> D["AudioThread->Update(dt) — nonstandard float overload"]
-    D --> E["ModelRenderer->Update — parallel mesh job"]
+    D --> D2["Animation->Update — state machines, parallel sampling, pose writes (started worlds only)"]
+    D2 --> E["ModelRenderer->Update — parallel mesh job, skin palettes"]
     E --> F["UI->Update"]
     F --> G["LateUpdate block:<br/>LateUpdateLoadedCores → Cameras->Update →<br/>SceneNodes/Cameras/Audio/ModelRenderer/UI LateUpdate"]
 ```
@@ -55,8 +57,9 @@ Physics (Box3D) has its own deep dive: `Docs/Physics.md`.
 |-----------|------|---------|
 | `Transform` | `Source/Components/Transform.h` | Hierarchy node: position/rotation/scale, parent/children (`SharedPtr<Transform>` links), name. Dirty-flag cached matrices — see below |
 | `Camera` | `Source/Components/Camera.h` | Projection (perspective/ortho), FOV, near/far, clear type (color/skybox/procedural), main-camera flag; statics `Camera::CurrentCamera` / `Camera::EditorCamera` |
-| `Mesh` | `Source/Components/Graphics/Mesh.h` | One renderable mesh: `MeshData*` (primitives share one geometry per shape: Plane, Cube, Sphere, Cylinder, Capsule), per-instance material (default `StandardMaterial`), `CastShadows`, renderer cache slot `Id` |
-| `Model` | `Source/Components/Graphics/Model.h` | Assimp model reference; `Init()` **expands the model's node tree into real child entities** with `Transform` + `Mesh` components |
+| `Mesh` | `Source/Components/Graphics/Mesh.h` | One renderable mesh: `MeshData*` (primitives share one geometry per shape: Plane, Cube, Sphere, Cylinder, Capsule), per-instance material (default `StandardMaterial`), `CastShadows`, renderer cache slot `Id`. Skinned meshes resolve their bone entities by name and build a bone palette each frame (`UpdateSkin`) |
+| `Model` | `Source/Components/Graphics/Model.h` | Assimp model reference; `Init()` **expands the model's node tree into real child entities** with `Transform` + `Mesh` components (bones included, reusing existing children by name); the inspector lists the model's animation clips |
+| `Animator` | `Source/Components/Animation/Animator.h` | Plays the Model's (or `ClipSource`'s, or code-built) clips on the node entities below it: states, 1D blends, parameter / exit-time transitions with cross-fades, event markers; `Play`, `SetFloat` / `SetBool` / `SetTrigger` |
 | `Light` | `Source/Components/Lighting/Light.h` | Directional / Point / Spot: colour, intensity, range, cone angles, shadows (texel-unit biases, shadow distance). Scenes' old `DirectionalLight` components migrate on load |
 | `PostProcess` | `Source/Components/Graphics/PostProcess.h` | Per-camera exposure (manual / auto), tonemapper, bloom, SSAO, colour grading, vignette, FXAA |
 | `ParticleSystem` | `Source/Components/Effects/ParticleSystem.h` | CPU emitter: shapes, rate + burst, randomized ranges, over-lifetime size/colour/alpha, gravity/drag/noise, world or local space, billboard/stretched/flat soft particles with flipbooks |
@@ -98,5 +101,6 @@ Matrix recompute is **lazy** — `GetLocalToWorldMatrix()` rebuilds (parent-firs
 
 - `Docs/ECS.md` — filter DSL, registration, core lifecycle hooks
 - `Docs/Architecture.md` — which cores tick where in the frame
+- `Docs/Animation.md` — `Animator` and `AnimationCore` in depth
 - `Docs/Rendering-Pipeline.md`, `Docs/UI-Ultralight-and-ImGui.md`, `Docs/Scripting-DotNet.md` — the specialized cores in depth
 - `Docs/State-of-the-Engine.md` — verdicts on the orphaned pieces

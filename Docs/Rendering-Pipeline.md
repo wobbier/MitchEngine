@@ -14,7 +14,7 @@ Rendering is split into CPU **producers** and a serial **consumer**:
 
 Ambient light comes from per-camera image-based-lighting probes. This doc maps the frame, the view-ID scheme, the lighting data paths and the sharp edges.
 
-> Verified against engine commit 1fa55311, 2026-10-09 (overhaul Wave 3).
+> Verified against engine commit 1fa55311, 2026-10-09 (overhaul Wave 3); skinned meshes against 07617c5f, 2026-10-09.
 
 ## Overview
 
@@ -50,6 +50,7 @@ Backend selection: Vulkan is forced on Linux and D3D11 on UWP; other platforms t
 | `Modules/Moonlight/Source/Debug/DebugDraw.h` | Immediate-mode debug line API |
 | `Modules/Moonlight/Source/Primitives/Primitives.cpp` | Shared Plane / Cube / Sphere / Cylinder / Capsule geometry |
 | `Assets/Shaders/Lighting.sh` | BRDF, clustered light loop, shadow sampling, IBL — included by `Standard.frag` |
+| `Assets/Shaders/Skinning.sh` | Bone palette uniform and `skinMatrix`, included by the `*Skinned` vertex shaders |
 
 ## How It Works
 
@@ -236,6 +237,19 @@ Per camera, from `CameraData::Post`, which `CameraCore` copies from a `PostProce
 - **Frame statistics**: `BGFXRenderer::GatherFrameStats` copies `bgfx::getStats()` into `FrameStats::RenderStats`. Per-view GPU timings need `BGFX_DEBUG_PROFILER`, which is on only while the editor's Profiler window is open.
 - **Picking**: `PickingPass` renders entity IDs into a 32×32 target around the click and reads it back (see `Docs/Editor-Havana.md`).
 
+### Skinned meshes
+
+`RenderCore`'s mesh job calls `Mesh::UpdateSkin` for skinned meshes. It writes a palette of mesh-space bone matrices (up to 128) and returns world bounds from the bones' reach in the current pose, which culling uses. The command carries `SkinPalette` / `SkinBoneCount` and clears `SupportsInstancing`.
+
+`RenderSkinnedMesh` draws each skinned mesh on its own, with:
+
+- a one-entry instance buffer;
+- the skin weights on vertex stream 1;
+- the `u_bones` uniform;
+- the material's `GetSkinnedProgram()` (`StandardSkinned.vert` + `Standard.frag` for `StandardMaterial`).
+
+The shadow and picking passes do the same, with `ShadowDepthSkinned` and `picking_skinned`. A material with no skinned program draws the bind pose. Bone animation itself is covered in `Docs/Animation.md`.
+
 ### Draw state binding (`BindMeshDrawState`)
 
 Texture stages:
@@ -274,6 +288,7 @@ Missing maps fall back to neutral 1×1 textures (white; flat normal). `BindLight
 - **One sun in post**: only directional light 0 is shadowed; additional directionals are unshadowed.
 - **Probe refresh hitch**: a sky probe refresh costs ~60 tiny passes over two frames. An animated time of day (`DynamicSky::m_timeScale > 0`) refreshes about every 3 in-game minutes.
 - **Particles are unlit**: smoke takes its colour verbatim; there are no light or shadow interactions.
+- **Skinned meshes aren't instanced**: each costs one draw per view (camera, cascade, spot light), and its palette is uploaded with every draw.
 - **Transparent sorting is per object** (plus per particle within alpha systems); intersecting transparents sort wrong (no OIT).
 - **`CommandCache::Update`/`Pop` are unlocked**: safe only because mesh jobs write distinct slots and nothing `Push`es while they run.
 - **Uniform names are global in bgfx**: the lighting uniforms (`u_lightParams`, `u_shadowMatrix`, `s_envSpecular`, …) must not be reused with other types.
@@ -283,5 +298,6 @@ Missing maps fall back to neutral 1×1 textures (white; flat normal). `BindLight
 - `Docs/Materials-and-Shaders.md` — StandardMaterial, batch keys, shader cook and hot reload
 - `Docs/Cores-and-Components-Reference.md` — `Light`, `Mesh`, `PostProcess`, `ParticleSystem`, `Camera`
 - `Docs/Jobs-and-Events.md` — the job system behind the mesh and particle jobs
+- `Docs/Animation.md` — clips, Animators and where skin palettes come from
 - `Docs/Editor-Havana.md` — picking, the scene view and its overlays
 - `Docs/State-of-the-Engine.md` — what's left to improve
