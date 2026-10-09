@@ -275,11 +275,7 @@ private:
     bgfx::UniformHandle s_texNormal = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle s_texAlpha = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle s_texUI = BGFX_INVALID_HANDLE;
-    bgfx::UniformHandle s_ambient = BGFX_INVALID_HANDLE;
-    bgfx::UniformHandle s_sunDirection = BGFX_INVALID_HANDLE;
-    bgfx::UniformHandle s_sunDiffuse = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle s_time = BGFX_INVALID_HANDLE;
-    Vector4 m_ambient;
     int32_t m_pt;
     int64_t m_timeOffset;
     Moonlight::CameraData DummyCameraData;

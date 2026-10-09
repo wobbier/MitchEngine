@@ -181,9 +181,6 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
         s_texAlpha = bgfx::createUniform( "s_texAlpha", bgfx::UniformType::Sampler );
         s_texUI = bgfx::createUniform( "s_texUI", bgfx::UniformType::Sampler );
         // Per-frame uniforms apply to every draw in the frame regardless of view/sort order.
-        s_ambient = bgfx::createUniform( "s_ambient", bgfx::UniformFreq::Frame, bgfx::UniformType::Vec4 );
-        s_sunDirection = bgfx::createUniform( "s_sunDirection", bgfx::UniformFreq::Frame, bgfx::UniformType::Vec4 );
-        s_sunDiffuse = bgfx::createUniform( "s_sunDiffuse", bgfx::UniformFreq::Frame, bgfx::UniformType::Vec4 );
 
         m_timeOffset = bx::getHPCounter();
 
@@ -327,7 +324,7 @@ void BGFXRenderer::Destroy()
     delete EditorCameraBuffer;
     EditorCameraBuffer = nullptr;
 
-    const bgfx::UniformHandle uniforms[] = { s_texDiffuse, s_texNormal, s_texAlpha, s_texUI, s_ambient, s_sunDirection, s_sunDiffuse, s_time,
+    const bgfx::UniformHandle uniforms[] = { s_texDiffuse, s_texNormal, s_texAlpha, s_texUI, s_time,
         u_lightParams, u_dirLightDirection, u_dirLightColor, u_clusterParams, u_clusterGrid, u_ambientSky, u_ambientGround,
         s_lightData, s_clusterGrid, s_clusterIndices, s_texMetallicRoughness, s_texEmissive, s_texOcclusion,
         u_shadowMatrix, u_cascadeSplits, u_cascadeTexel, u_shadowParams, u_spotShadowMatrix, u_spotShadowParams, u_shadowAlpha, s_shadowMap, s_spotShadowMap,
@@ -444,19 +441,6 @@ void BGFXRenderer::Render( Moonlight::CameraData& EditorCamera, FrameRenderData&
         NeedsReset = false;
     }
 
-    if( m_dynamicSky )
-    {
-        bx::Vec3 sunLuminanceXYZ = m_dynamicSky->m_sunLuminanceXYZ.GetValue( m_dynamicSky->m_time );
-        bx::Vec3 sunDiffuse = m_dynamicSky->xyzToRgb( sunLuminanceXYZ );
-
-        // Vec4 uniforms read 16 bytes; widen the bx::Vec3s so we don't read past them.
-        const bx::Vec3& sunDir = m_dynamicSky->m_sun.m_sunDir;
-        const Vector4 sunDirection( sunDir.x, sunDir.y, sunDir.z, 0.f );
-        const Vector4 sunDiffuse4( sunDiffuse.x / 255.f, sunDiffuse.y / 255.f, sunDiffuse.z / 255.f, 1.f );
-        bgfx::setFrameUniform( s_ambient, &m_ambient.x );
-        bgfx::setFrameUniform( s_sunDirection, &sunDirection.x );
-        bgfx::setFrameUniform( s_sunDiffuse, &sunDiffuse4.x );
-    }
     bgfx::setFrameUniform( s_time, &m_time.x );
 
     m_views.Reset();
