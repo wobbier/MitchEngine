@@ -182,6 +182,18 @@ namespace Moonlight
         m_time = bx::mod( m_time, 24.0f );
         m_sun.Update( m_time );
 
+        SetUniforms();
+
+        bgfx::setState( BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_EQUAL );
+        bgfx::setIndexBuffer( m_ibh );
+        bgfx::setVertexBuffer( 0, m_vbh );
+
+        bgfx::submit( inViewId, m_material->MeshShader.GetProgram() );
+    }
+
+
+    void DynamicSky::SetUniforms()
+    {
         Color sunLuminanceXYZ = m_sunLuminanceXYZ.GetValue( m_time );
         Color sunLuminanceRGB = xyzToRgb( sunLuminanceXYZ );
 
@@ -200,12 +212,6 @@ namespace Moonlight
         float perezCoeff[4 * 5];
         computePerezCoeff( m_turbidity, perezCoeff );
         bgfx::setUniform( m_material->u_perezCoeff, perezCoeff, 5 );
-
-        bgfx::setState( BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_EQUAL );
-        bgfx::setIndexBuffer( m_ibh );
-        bgfx::setVertexBuffer( 0, m_vbh );
-
-        bgfx::submit( inViewId, m_material->MeshShader.GetProgram() );
     }
 
     Color DynamicSky::xyzToRgb( const Color& xyz )

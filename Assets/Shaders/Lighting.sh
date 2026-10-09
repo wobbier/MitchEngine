@@ -24,6 +24,11 @@ SAMPLER2D(s_clusterGrid, 9);
 SAMPLER2D(s_clusterIndices, 10);
 SAMPLER2DSHADOW(s_shadowMap, 11);
 SAMPLER2DSHADOW(s_spotShadowMap, 12);
+SAMPLERCUBE(s_envSpecular, 13);
+SAMPLERCUBE(s_envIrradiance, 14);
+SAMPLER2D(s_brdfLut, 15);
+
+uniform vec4 u_envParams;            // x intensity, y specular mip count - 1, z 1 = environment ready
 
 // Shadows. Both maps are 2x2 atlases; the matrices map world space straight to atlas uv + depth.
 uniform mat4 u_shadowMatrix[4];      // sun cascades
@@ -35,8 +40,10 @@ uniform vec4 u_spotShadowParams;     // x 1 / atlas size
 
 #if BGFX_SHADER_LANGUAGE_GLSL >= 130
 #	define shadowCompare(_sampler, _coord) texture(_sampler, _coord)
+#	define cubeLod(_sampler, _dir, _lod) textureLod(_sampler, _dir, _lod)
 #else
 #	define shadowCompare(_sampler, _coord) shadow2D(_sampler, _coord)
+#	define cubeLod(_sampler, _dir, _lod) textureCubeLod(_sampler, _dir, _lod)
 #endif
 
 float D_GGX(float _NoH, float _a)
@@ -302,6 +309,33 @@ vec3 hemisphereAmbient(Surface _s)
 	vec3 irradiance = mix(u_ambientGround.rgb, u_ambientSky.rgb, up);
 	vec3 F = _s.f0 + (max(vec3_splat(1.0 - _s.roughness), _s.f0) - _s.f0) * pow(1.0 - _s.NoV, 5.0);
 	return (_s.diffuseColor * (vec3_splat(1.0) - F) + F * 0.5) * irradiance * u_lightParams.z;
+}
+
+// Image-based ambient: prefiltered radiance + irradiance with the split-sum BRDF, including the
+// multiple-scattering energy compensation (Fdez-Aguera 2019) so rough metals don't darken, and
+// specular occlusion from the material / SSAO occlusion (Lagarde 2014).
+vec3 ambientLighting(Surface _s, float _occlusion)
+{
+	if (u_envParams.z < 0.5)
+	{
+		return hemisphereAmbient(_s) * _occlusion;
+	}
+	vec2 brdf = texture2DLod(s_brdfLut, vec2(_s.NoV, _s.roughness), 0.0).rg;
+	float a = _s.roughness * _s.roughness;
+	vec3 R = reflect(-_s.view, _s.normal);
+	// Rough lobes lean towards the normal (Frostbite's dominant direction).
+	R = normalize(mix(_s.normal, R, (1.0 - a) * (sqrt(1.0 - a) + a)));
+	vec3 radiance = cubeLod(s_envSpecular, R, _s.roughness * u_envParams.y).rgb;
+	vec3 irradiance = cubeLod(s_envIrradiance, _s.normal, 0.0).rgb;
+
+	vec3 FssEss = _s.f0 * brdf.x + brdf.y;
+	float Ems = 1.0 - (brdf.x + brdf.y);
+	vec3 Favg = _s.f0 + (vec3_splat(1.0) - _s.f0) / 21.0;
+	vec3 FmsEms = Ems * FssEss * Favg / (vec3_splat(1.0) - Favg * Ems);
+	vec3 kD = _s.diffuseColor * (vec3_splat(1.0) - FssEss - FmsEms);
+
+	float specularOcclusion = clamp(pow(_s.NoV + _occlusion, exp2(-16.0 * _s.roughness - 1.0)) - 1.0 + _occlusion, 0.0, 1.0);
+	return (FssEss * radiance * specularOcclusion + (FmsEms + kD) * irradiance * _occlusion) * u_envParams.x;
 }
 
 #endif // __LIGHTING_SH__

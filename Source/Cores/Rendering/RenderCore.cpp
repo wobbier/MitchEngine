@@ -251,6 +251,10 @@ void RenderCore::OnEditorInspect()
     };
     sizeCombo( "Cascade Resolution", shadows.CascadeResolution, sizes, 4 );
     sizeCombo( "Spot Shadow Resolution", shadows.SpotResolution, sizes, 4 );
+
+    BGFXRenderer& renderer = GetEngine().GetRenderer();
+    ImGui::Checkbox( "Environment Lighting", &renderer.EnableEnvironmentLighting );
+    ImGui::SliderFloat( "Environment Intensity", &renderer.EnvironmentIntensity, 0.f, 4.f );
     if( ImGui::Button( "MSAA None" ) )
     {
         GetEngine().GetRenderer().SetMSAALevel( BGFXRenderer::MSAALevel::None );

@@ -26,6 +26,7 @@ namespace Moonlight {
     class PickingPass;
     class PostProcess;
     class ClusterBuilder;
+    class EnvironmentLighting;
 }
 
 struct RendererCreationSettings
@@ -119,6 +120,10 @@ public:
     };
     ShadowSettings Shadows;
 
+    // Image-based ambient lighting from each camera's background (sky, skybox or clear colour).
+    bool EnableEnvironmentLighting = true;
+    float EnvironmentIntensity = 1.f;
+
     // Captures the backbuffer at the end of the current frame and writes it as a PNG.
     void RequestScreenshot( const std::string& filePath );
     uint32_t GetScreenshotCount() const;
@@ -188,7 +193,12 @@ private:
         float ShadowParams[4] = {};
         glm::mat4 SpotShadowMatrix[4] = { glm::mat4( 1.f ), glm::mat4( 1.f ), glm::mat4( 1.f ), glm::mat4( 1.f ) };
         float SpotShadowParams[4] = {};
+        bgfx::TextureHandle EnvSpecular = BGFX_INVALID_HANDLE;
+        bgfx::TextureHandle EnvIrradiance = BGFX_INVALID_HANDLE;
+        float EnvParams[4] = {};
     } m_lighting;
+    UniquePtr<Moonlight::EnvironmentLighting> m_environment;
+    uint64_t m_frameIndex = 0;
     bgfx::UniformHandle u_lightParams = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle u_dirLightDirection = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle u_dirLightColor = BGFX_INVALID_HANDLE;
@@ -211,6 +221,10 @@ private:
     bgfx::UniformHandle u_shadowAlpha = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle s_shadowMap = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle s_spotShadowMap = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle s_envSpecular = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle s_envIrradiance = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle s_brdfLut = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle u_envParams = BGFX_INVALID_HANDLE;
 
     struct InstanceBatch
     {

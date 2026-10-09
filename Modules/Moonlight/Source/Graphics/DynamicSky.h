@@ -118,6 +118,8 @@ namespace Moonlight
 
         void DrawImGui();
         void Draw( uint32_t inViewId );
+        // Sky uniforms for the current time of day (also used to capture the sky for lighting).
+        void SetUniforms();
 
         void computePerezCoeff( float _turbidity, float* _outPerezCoeff );
         // Converts color repesentation from CIE XYZ to RGB color-space.

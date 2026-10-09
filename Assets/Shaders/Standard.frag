@@ -73,7 +73,7 @@ void main()
 		color += shadeLight(s, L, u_dirLightColor[i].rgb) * visibility;
 	}
 	color += shadeClusteredLights(s, gl_FragCoord.xy, v_viewPos.z);
-	color += hemisphereAmbient(s) * occlusion;
+	color += ambientLighting(s, occlusion);
 	color += toLinear(texture2D(s_texEmissive, uv).rgb) * u_emissive.rgb;
 
 	color *= cascadeDebugTint(v_viewPos.z);

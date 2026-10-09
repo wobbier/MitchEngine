@@ -28,6 +28,7 @@
 #include "RenderPasses/PostProcess.h"
 #include "Lighting/ClusterBuilder.h"
 #include "Lighting/ShadowCascades.h"
+#include "Lighting/EnvironmentLighting.h"
 #include <glm/gtc/matrix_transform.hpp>
 #include "Primitives/Primitives.h"
 #include "Profiling/FrameStats.h"
@@ -241,6 +242,12 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
         {
             YIKES( "Shadows disabled: the renderer has no depth compare samplers or the shadow shader failed to load." );
         }
+        s_envSpecular = bgfx::createUniform( "s_envSpecular", bgfx::UniformType::Sampler );
+        s_envIrradiance = bgfx::createUniform( "s_envIrradiance", bgfx::UniformType::Sampler );
+        s_brdfLut = bgfx::createUniform( "s_brdfLut", bgfx::UniformType::Sampler );
+        u_envParams = bgfx::createUniform( "u_envParams", bgfx::UniformType::Vec4 );
+        m_environment = MakeUnique<Moonlight::EnvironmentLighting>();
+        m_environment->Init();
         // The lighting shader always declares the shadow samplers, so the atlases always exist.
         EnsureShadowAtlas( m_sunShadowAtlas, Shadows.CascadeResolution, "Sun Shadow Atlas" );
         EnsureShadowAtlas( m_spotShadowAtlas, Shadows.SpotResolution, "Spot Shadow Atlas" );
@@ -288,7 +295,13 @@ void BGFXRenderer::Destroy()
     const bgfx::UniformHandle uniforms[] = { s_texDiffuse, s_texNormal, s_texAlpha, s_texUI, s_ambient, s_sunDirection, s_sunDiffuse, s_time,
         u_lightParams, u_dirLightDirection, u_dirLightColor, u_clusterParams, u_clusterGrid, u_ambientSky, u_ambientGround,
         s_lightData, s_clusterGrid, s_clusterIndices, s_texMetallicRoughness, s_texEmissive, s_texOcclusion,
-        u_shadowMatrix, u_cascadeSplits, u_cascadeTexel, u_shadowParams, u_spotShadowMatrix, u_spotShadowParams, u_shadowAlpha, s_shadowMap, s_spotShadowMap };
+        u_shadowMatrix, u_cascadeSplits, u_cascadeTexel, u_shadowParams, u_spotShadowMatrix, u_spotShadowParams, u_shadowAlpha, s_shadowMap, s_spotShadowMap,
+        s_envSpecular, s_envIrradiance, s_brdfLut, u_envParams };
+    if( m_environment )
+    {
+        m_environment->Destroy();
+        m_environment.reset();
+    }
     DestroyShadowAtlas( m_sunShadowAtlas );
     DestroyShadowAtlas( m_spotShadowAtlas );
     if( bgfx::isValid( m_shadowProgram ) )
@@ -397,6 +410,7 @@ void BGFXRenderer::Render( Moonlight::CameraData& EditorCamera, FrameRenderData&
     bgfx::setFrameUniform( s_time, &m_time.x );
 
     m_views.Reset();
+    ++m_frameIndex;
     DebugDraw::CollectFrame( m_debugLines );
     PrepareFrameLighting();
 
@@ -502,6 +516,15 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     }
 
     PrepareCameraLighting( camera );
+
+    // Ambient: the camera's environment probe (captured and filtered on demand).
+    const Moonlight::EnvironmentLighting::Probe* probe = EnableEnvironmentLighting ? m_environment->Prepare( m_views, camera, m_dynamicSky.get(), m_frameIndex ) : nullptr;
+    m_lighting.EnvSpecular = probe ? probe->Specular : m_environment->GetFallbackCube();
+    m_lighting.EnvIrradiance = probe ? probe->Irradiance : m_environment->GetFallbackCube();
+    m_lighting.EnvParams[0] = EnvironmentIntensity;
+    m_lighting.EnvParams[1] = static_cast<float>( Moonlight::EnvironmentLighting::kSpecularMips - 1 );
+    m_lighting.EnvParams[2] = probe ? 1.f : 0.f;
+
     if( Shadows.Enabled && m_shadowsSupported )
     {
         RenderSunShadows( camera );
@@ -1234,6 +1257,13 @@ void BGFXRenderer::BindLighting()
     {
         bgfx::setTexture( 11, s_shadowMap, m_sunShadowAtlas.Texture );
         bgfx::setTexture( 12, s_spotShadowMap, m_spotShadowAtlas.Texture );
+    }
+    bgfx::setUniform( u_envParams, m_lighting.EnvParams );
+    if( bgfx::isValid( m_lighting.EnvSpecular ) )
+    {
+        bgfx::setTexture( 13, s_envSpecular, m_lighting.EnvSpecular );
+        bgfx::setTexture( 14, s_envIrradiance, m_lighting.EnvIrradiance );
+        bgfx::setTexture( 15, s_brdfLut, m_environment->GetBrdfLut() );
     }
     if( bgfx::isValid( m_lighting.ClusterGridTexture ) )
     {
