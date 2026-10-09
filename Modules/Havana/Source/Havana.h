@@ -47,6 +47,7 @@ public:
 
 	SceneHierarchyWidget* GetHierarchy() const { return SceneHierarchy.get(); }
 	SceneViewWidget* GetSceneView() const { return MainSceneView.get(); }
+	AssetBrowserWidget* GetAssetBrowser() const { return AssetBrowser.get(); }
 	// Called by EditorApp when play mode starts/stops (game view focus, maximize on play).
 	void SetPlayMode(bool playing);
 	// Opens (and focuses) a registered widget by name.

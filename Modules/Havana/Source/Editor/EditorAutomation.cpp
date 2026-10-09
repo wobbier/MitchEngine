@@ -9,6 +9,8 @@
 #include "Selection.h"
 #include "UndoStack.h"
 #include "EditorApp.h"
+#include "Havana.h"
+#include "Widgets/AssetBrowser.h"
 #include "Components/Transform.h"
 #include "Core/CommandLine.h"
 #include "Cores/SceneCore.h"
@@ -217,6 +219,13 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
     if( command == "wait" )
     {
         m_waitFrames = std::max( 1, std::atoi( args.c_str() ) );
+    }
+    else if( command == "show-assets" )
+    {
+        if( InApp.Editor && InApp.Editor->GetAssetBrowser() )
+        {
+            InApp.Editor->GetAssetBrowser()->ShowFolder( args );
+        }
     }
     else if( command == "focus-window" )
     {

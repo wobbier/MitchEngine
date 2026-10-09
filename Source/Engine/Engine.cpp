@@ -576,8 +576,10 @@ void Engine::PollAssetChanges()
     }
     OPTICK_EVENT( "Engine::PollAssetChanges" );
     std::vector<std::string> paths;
+    AssetsChangedEvent changedEvent;
     for( const FileWatcher::Change& change : changes )
     {
+        changedEvent.Paths.push_back( change.FullPath );
         if( change.Type != FileWatcher::ChangeType::Removed )
         {
             paths.push_back( change.FullPath );
@@ -591,6 +593,7 @@ void Engine::PollAssetChanges()
     {
         CLog::Log( CLog::LogType::Info, "Hot reloaded: " + reloaded );
     }
+    changedEvent.Fire();
 }
 #endif
 

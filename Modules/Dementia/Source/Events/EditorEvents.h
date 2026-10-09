@@ -1,5 +1,7 @@
 #include "Event.h"
 #include "Types/AssetType.h"
+#include <string>
+#include <vector>
 
 namespace Moonlight { class Texture; }
 
@@ -12,6 +14,18 @@ public:
     {
     }
     uint64_t RawEntityID = 0;
+};
+
+// Files under the watched asset roots changed on disk (fired once per batch, main thread).
+class AssetsChangedEvent
+    : public Event<AssetsChangedEvent>
+{
+public:
+    AssetsChangedEvent()
+        : Event()
+    {
+    }
+    std::vector<std::string> Paths;
 };
 
 class PreviewResourceEvent

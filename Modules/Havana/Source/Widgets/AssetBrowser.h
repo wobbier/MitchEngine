@@ -4,9 +4,12 @@
 #include <HavanaWidget.h>
 #include <File.h>
 #include <map>
+#include <set>
 #include <functional>
 #include <Pointers.h>
 #include <JSON.h>
+#include <list>
+#include <unordered_map>
 #include "Types/AssetDescriptor.h"
 
 class Transform;
@@ -20,38 +23,16 @@ namespace Moonlight {
 
 #if USING( ME_EDITOR )
 
-enum MyItemColumnID
-{
-    MyItemColumnID_ID,
-    MyItemColumnID_Name,
-    MyItemColumnID_Action,
-    MyItemColumnID_Description,
-    MyItemColumnID_LastModified
-};
-
-enum class FileStatus : unsigned int
-{
-    Created = 0,
-    Modified,
-    Deleted
-};
-
+// Project asset browser: folder tree, grid/list view with texture thumbnails, breadcrumbs and
+// history, recursive search and type filter, multi-select, file operations (create, rename,
+// duplicate, move by drag, delete to .tmp/Trash, show in file manager), import settings, and the
+// asset picker / save dialog used by RequestAssetSelectionEvent. Refreshes when files change.
 class AssetBrowserWidget
     : public HavanaWidget
     , public EventReceiver
 {
 public:
-
-    struct Directory
-    {
-        std::map<std::string, Directory> Directories;
-        std::vector<AssetDescriptor> Files;
-        Path FullPath;
-    };
     AssetBrowserWidget( Havana* inEditor );
-
-    void ReloadDirectories();
-
     ~AssetBrowserWidget();
 
     void Init() override;
@@ -62,59 +43,119 @@ public:
     void Update() override;
     void Render() override;
 
-    void DrawAssetTable();
-
+    // Picker / save dialog. With a callback the browser opens in picking mode; without one it toggles.
     void RequestOverlay( const std::function<void( Path )> cb = nullptr, AssetType forcedType = AssetType::Unknown, bool isRequestingSave = false );
-    void Recursive( Directory& dir );
-    void ProccessDirectory( const std::filesystem::directory_entry& file, Directory& dirRef );
+
+    // Compiles every texture and shader (command line / pre-cooking helper).
     void BuildAssets();
     void ClearAssets();
+
+    static AssetType GetAssetType( const std::string& InPath );
+
+    // Opens the browser on a project folder ("Assets/Models").
+    void ShowFolder( const std::string& InFolder );
+
 private:
-    bool ProccessDirectoryRecursive( std::string& dir, Directory& dirRef, const std::filesystem::directory_entry& file );
-    void BuildAssetsRecursive( Directory& dir );
+    struct Entry
+    {
+        std::string FullPath;
+        std::string Name;
+        bool IsDirectory = false;
+        AssetType Type = AssetType::Unknown;
+        int64_t Modified = 0;
+        uintmax_t Size = 0;
+    };
 
-    void RefreshMetaPanel( const Path& item );
+    void DrawToolbar();
+    void DrawFolderTree( const std::string& InPath, const char* InLabel );
+    void DrawContents();
+    void DrawGrid();
+    void DrawList();
+    void DrawEntryContextMenu( Entry& InEntry );
+    void DrawBackgroundContextMenu();
+    void DrawDetails();
+    void DrawPickerFooter();
+    void DrawModals();
 
+    void HandleEntryInteraction( Entry& InEntry, int InIndex );
+    void BeginEntryDrag( Entry& InEntry );
+    bool AcceptDropInto( const std::string& InFolder );
+    void OpenEntry( Entry& InEntry );
+
+    void Navigate( const std::string& InFolder, bool InRecordHistory = true );
+    void Refresh();
+    void RebuildEntries();
+    bool PassesFilters( const Entry& InEntry ) const;
+    std::vector<std::string> ListSubfolders( const std::string& InPath );
+
+    // File operations
+    std::string UniquePath( const std::string& InFolder, const std::string& InName, const std::string& InExtension ) const;
+    void CreateAsset( const std::string& InName, const std::string& InExtension, const std::string& InContents );
+    void CreateFolder();
+    void BeginRename( const std::string& InPath );
+    void CommitRename();
+    void DuplicateSelection();
+    void MoveSelectionTo( const std::string& InFolder );
+    void CreatePrefabIn( const std::string& InDirectory, Transform* InRoot );
+
+    SharedPtr<Moonlight::Texture> GetThumbnail( const Entry& InEntry );
+    SharedPtr<Moonlight::Texture> GetIcon( const Entry& InEntry );
+    void SelectForDetails( const std::string& InPath );
     void TryDestroyMetaFile();
-    void DrawAssetIcon( AssetType inAssetType, ImVec2 inIconSize = { 16, 16 } );
 
-    static const ImGuiTableSortSpecs* s_current_sort_specs;
-    static int CompareWithSortSpecs( const void* lhs, const void* rhs );
+    Havana* m_editor = nullptr;
+    std::unordered_map<std::string, SharedPtr<Moonlight::Texture>> Icons;
+
+    // Navigation
+    std::string m_currentFolder = "Assets";
+    std::vector<std::string> m_history;
+    int m_historyIndex = -1;
+
+    // Contents of the current folder (or search results)
+    std::vector<Entry> m_entries;
+    bool m_entriesDirty = true;
+    std::map<std::string, std::vector<std::string>> m_subfolderCache;
+    char m_search[256] = {};
+    std::string m_builtSearch;
+    AssetType m_typeFilter = AssetType::Unknown;
+
+    // Selection
+    std::set<std::string> m_selection;
+    std::string m_selectionAnchor;
+    std::string m_focusedPath;
+
+    // Rename
+    std::string m_renamingPath;
+    char m_renameBuffer[256] = {};
+    bool m_focusRename = false;
+
+    // Dragging
+    AssetDescriptor m_dragDescriptor;
+    std::vector<std::string> m_draggedPaths;
+
+    // Thumbnails (bounded, loaded a couple per frame)
+    std::unordered_map<std::string, SharedPtr<Moonlight::Texture>> m_thumbnails;
+    std::list<std::string> m_thumbnailOrder;
+    int m_thumbnailLoadsThisFrame = 0;
+
+    // Details / import settings
+    bool m_showDetails = false;
+    SharedPtr<MetaBase> m_metafile = nullptr;
+    bool m_shouldDeleteMetaFile = false;
+    SharedPtr<Resource> m_focusedResource = nullptr;
+    std::string m_detailsPath;
+
+    // Picker / save dialog
+    std::function<void( Path )> m_pickCallback;
+    AssetType m_forcedType = AssetType::Unknown;
+    bool m_isSaveDialog = false;
+    char m_saveName[256] = {};
+
+    // Delete confirmation
+    std::vector<std::string> m_pendingDelete;
+    bool m_openDeleteConfirmation = false;
 
     std::vector<SharedPtr<Resource>> m_compiledAssets;
-    void CreatePrefabIn( const std::string& InDirectory, Transform* InRoot );
-    std::unordered_map<std::string, std::filesystem::file_time_type> Paths;
-    bool IsRunning = true;
-    bool Contains( const std::string& key );
-    Directory AssetDirectory;
-    Directory EngineAssetDirectory;
-    std::unordered_map<std::string, SharedPtr<Moonlight::Texture>> Icons;
-    AssetDescriptor* SelectedAsset = nullptr;
-
-    std::vector<AssetDescriptor> MasterAssetsList;
-    std::function<void( Path )> AssetSelectedCallback;
-    std::vector<AssetDescriptor*> FilteredAssetList;
-    AssetType ForcedAssetFilter = AssetType::Unknown;
-    bool items_need_filtered = true;
-    bool assetTypeFilters[static_cast<unsigned int>( AssetType::Count )];
-
-    Path AssetBrowserPath;
-    SharedPtr<MetaBase> metafile = nullptr;
-    bool ShouldDelteteMetaFile = false;
-    bool IsMetaPanelOpen = false;
-    Havana* m_editor = nullptr;
-    bool pendingAssetListRefresh = false;
-    // Delete goes through a confirmation modal and moves the file to .tmp/Trash.
-    void DrawDeleteConfirmation();
-    std::string m_pendingDeletePath;
-    bool m_openDeleteConfirmation = false;
-    AssetType CurrentlyFocusedAssetType = AssetType::Unknown;
-    SharedPtr<Resource> CurrentlyFocusedAsset = nullptr;
-    std::string SavedName;
-    bool IsRequestingSave = false;
-    bool ImagePreviewActive = false;
-    ImVec2 WindowPos;
-    ImVec2 WindowSize;
 };
 
 #endif
