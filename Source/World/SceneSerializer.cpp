@@ -168,6 +168,23 @@ namespace SceneSerializer
     }
 
 
+    json UpgradeComponent( const json& InComponent )
+    {
+        const std::string type = InComponent.value( "Type", std::string() );
+        if( type == "DirectionalLight" )
+        {
+            // Pre-Wave-3 sun component: now a directional Light (direction comes from the transform).
+            json light = { { "Type", "Light" }, { "LightType", "Directional" }, { "Intensity", 3.0 }, { "CastShadows", true } };
+            if( InComponent.contains( "Diffuse" ) && InComponent["Diffuse"].is_array() )
+            {
+                light["Color"] = InComponent["Diffuse"];
+            }
+            return light;
+        }
+        return InComponent;
+    }
+
+
     std::string GUIDToString( uint64_t InGUID )
     {
         char buffer[17];
@@ -384,12 +401,13 @@ namespace SceneSerializer
                 {
                     continue;
                 }
-                for( const json& componentJson : entityJson["Components"] )
+                for( const json& rawComponentJson : entityJson["Components"] )
                 {
-                    if( !componentJson.is_object() || !componentJson.contains( "Type" ) )
+                    if( !rawComponentJson.is_object() || !rawComponentJson.contains( "Type" ) )
                     {
                         continue;
                     }
+                    const json componentJson = UpgradeComponent( rawComponentJson );
                     BaseComponent* component = created[i]->AddComponentByName( componentJson["Type"].get<std::string>() );
                     if( !component )
                     {

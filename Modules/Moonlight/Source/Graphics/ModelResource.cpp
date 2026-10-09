@@ -358,7 +358,7 @@ Moonlight::MeshData* ModelResource::ProcessMesh( aiMesh* mesh, Moonlight::Node& 
     if( !newMaterial )
     {
         // use AI_MATKEY_SHADING_MODEL to pick a different material?
-        newMaterial = RootNode.MaterialCache[mesh->mMaterialIndex] = MakeShared<DiffuseMaterial>();
+        newMaterial = RootNode.MaterialCache[mesh->mMaterialIndex] = MakeShared<StandardMaterial>();
         newMaterial->Init();
 
         aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
@@ -371,19 +371,65 @@ Moonlight::MeshData* ModelResource::ProcessMesh( aiMesh* mesh, Moonlight::Node& 
             //newMaterial->RenderMode = Moonlight::RenderingMode::Transparent;
         }
 
+        StandardMaterial* standard = static_cast<StandardMaterial*>( newMaterial.get() );
+
+        // Base colour: PBR base colour factor, else the legacy diffuse colour.
+        aiColor4D baseColor( 1.f, 1.f, 1.f, 1.f );
         aiColor3D colorDiff( 0.f, 0.f, 0.f );
-        aiColor3D colorDiff2( 0.f, 0.f, 0.f );
-        material->Get( AI_MATKEY_COLOR_DIFFUSE, colorDiff );
-        if( colorDiff != colorDiff2 )
+        if( material->Get( AI_MATKEY_BASE_COLOR, baseColor ) == aiReturn_SUCCESS )
+        {
+            newMaterial->DiffuseColor = Vector3( baseColor.r, baseColor.g, baseColor.b );
+            standard->Opacity = baseColor.a;
+        }
+        else if( material->Get( AI_MATKEY_COLOR_DIFFUSE, colorDiff ) == aiReturn_SUCCESS && ( colorDiff.r + colorDiff.g + colorDiff.b ) > 0.f )
         {
             newMaterial->DiffuseColor = Vector3( colorDiff.r, colorDiff.g, colorDiff.b );
         }
 
-        LoadMaterialTextures( newMaterial, material, aiTextureType_DIFFUSE, Moonlight::TextureType::Diffuse );
+        float factor = 0.f;
+        if( material->Get( AI_MATKEY_METALLIC_FACTOR, factor ) == aiReturn_SUCCESS )
+        {
+            standard->Metallic = factor;
+        }
+        if( material->Get( AI_MATKEY_ROUGHNESS_FACTOR, factor ) == aiReturn_SUCCESS )
+        {
+            standard->Roughness = factor;
+        }
+        aiColor3D emissive( 0.f, 0.f, 0.f );
+        if( material->Get( AI_MATKEY_COLOR_EMISSIVE, emissive ) == aiReturn_SUCCESS )
+        {
+            standard->EmissiveColor = Vector3( emissive.r, emissive.g, emissive.b );
+        }
+
+        if( !LoadMaterialTextures( newMaterial, material, aiTextureType_BASE_COLOR, Moonlight::TextureType::Diffuse ) || !newMaterial->GetTexture( Moonlight::TextureType::Diffuse ) )
+        {
+            LoadMaterialTextures( newMaterial, material, aiTextureType_DIFFUSE, Moonlight::TextureType::Diffuse );
+        }
         LoadMaterialTextures( newMaterial, material, aiTextureType_SPECULAR, Moonlight::TextureType::Specular );
         LoadMaterialTextures( newMaterial, material, aiTextureType_NORMALS, Moonlight::TextureType::Normal );
         LoadMaterialTextures( newMaterial, material, aiTextureType_HEIGHT, Moonlight::TextureType::Height );
         LoadMaterialTextures( newMaterial, material, aiTextureType_OPACITY, Moonlight::TextureType::Opacity );
+        LoadMaterialTextures( newMaterial, material, aiTextureType_EMISSIVE, Moonlight::TextureType::Emissive );
+        if( newMaterial->GetTexture( Moonlight::TextureType::Emissive ) && standard->EmissiveColor.LengthSquared() <= 0.f )
+        {
+            standard->EmissiveColor = Vector3( 1.f, 1.f, 1.f );
+        }
+
+        // glTF packs metallic (B) and roughness (G) in one texture; assimp reports it as UNKNOWN or
+        // as the same file under METALNESS and DIFFUSE_ROUGHNESS.
+        aiString metalness;
+        aiString roughness;
+        const bool packed = material->GetTexture( aiTextureType_METALNESS, 0, &metalness ) == aiReturn_SUCCESS
+            && material->GetTexture( aiTextureType_DIFFUSE_ROUGHNESS, 0, &roughness ) == aiReturn_SUCCESS
+            && std::string( metalness.C_Str() ) == roughness.C_Str();
+        if( !LoadMaterialTextures( newMaterial, material, aiTextureType_UNKNOWN, Moonlight::TextureType::MetallicRoughness ) && packed )
+        {
+            LoadMaterialTextures( newMaterial, material, aiTextureType_METALNESS, Moonlight::TextureType::MetallicRoughness );
+        }
+        if( !LoadMaterialTextures( newMaterial, material, aiTextureType_AMBIENT_OCCLUSION, Moonlight::TextureType::Occlusion ) || !newMaterial->GetTexture( Moonlight::TextureType::Occlusion ) )
+        {
+            LoadMaterialTextures( newMaterial, material, aiTextureType_LIGHTMAP, Moonlight::TextureType::Occlusion );
+        }
     }
 
     Moonlight::MeshData* output = new Moonlight::MeshData( vertices, indices, newMaterial );

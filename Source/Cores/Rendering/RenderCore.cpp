@@ -18,7 +18,6 @@
 #include "Components/Lighting/Light.h"
 #include "Components/Graphics/Mesh.h"
 #include "Engine/Engine.h"
-#include "Components/Lighting/DirectionalLight.h"
 #include "Work/Burst.h"
 #include "Renderer.h"
 #include "Camera/CameraData.h"
@@ -75,13 +74,25 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
     renderer.m_time.x = inUpdateContext.GetDeltaTime();
     renderer.m_time.y = inUpdateContext.GetTotalTime();
 
+    // Resolve dirty world matrices first so the light gather and mesh jobs below only read them.
+    Transform::UpdateAll( GetWorld() );
+
+    // Lights are rebuilt every frame (cheap: a handful of POD commands).
+    {
+        std::vector<Moonlight::LightCommand>& lights = renderer.GetLights();
+        lights.clear();
+        GetWorld().Each<Transform, Light>( [&]( Entity& entity, Transform& transform, Light& light ) {
+            if( entity.IsActiveInHierarchy() && light.IsEnabled() )
+            {
+                lights.push_back( light.BuildCommand( transform ) );
+            }
+        } );
+    }
+
     if( Renderables.empty() )
     {
         return;
     }
-
-    // Resolve dirty world matrices first so the mesh jobs below only read them.
-    Transform::UpdateAll( GetWorld() );
 
     auto& cameras = renderer.GetCameraCache();
 

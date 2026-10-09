@@ -667,7 +667,7 @@ void SceneHierarchyWidget::DrawCreateTemplates(Transform* parent)
 		EditorOps::CreateFromData(data, parent, std::string("Create ") + name);
 	};
 	auto mesh = [](const char* type) {
-		return json{ { "Type", "Mesh" }, { "MeshType", type }, { "Material", { { "Type", "DiffuseMaterial" }, { "DiffuseColor", { 0.8, 0.8, 0.8 } } } } };
+		return json{ { "Type", "Mesh" }, { "MeshType", type }, { "Material", { { "Type", "StandardMaterial" }, { "DiffuseColor", { 0.8, 0.8, 0.8 } }, { "Roughness", 0.5 } } } };
 	};
 	if (ImGui::BeginMenu("3D Object"))
 	{
@@ -679,15 +679,34 @@ void SceneHierarchyWidget::DrawCreateTemplates(Transform* parent)
 		{
 			create("Plane", json::array({ json{ { "Type", "Transform" } }, mesh("Plane") }));
 		}
+		for (const char* shape : { "Sphere", "Cylinder", "Capsule" })
+		{
+			if (ImGui::MenuItem(shape))
+			{
+				create(shape, json::array({ json{ { "Type", "Transform" } }, mesh(shape) }));
+			}
+		}
 		ImGui::EndMenu();
 	}
 	if (ImGui::MenuItem("Camera"))
 	{
 		create("Camera", json::array({ json{ { "Type", "Transform" } }, json{ { "Type", "Camera" } } }));
 	}
-	if (ImGui::MenuItem("Light"))
+	if (ImGui::BeginMenu("Light"))
 	{
-		create("Light", json::array({ json{ { "Type", "Transform" }, { "Rotation", { 50.0, -30.0, 0.0 } } }, json{ { "Type", "Light" } } }));
+		if (ImGui::MenuItem("Directional Light"))
+		{
+			create("Directional Light", json::array({ json{ { "Type", "Transform" }, { "Rotation", { 50.0, -30.0, 0.0 } } }, json{ { "Type", "Light" }, { "LightType", "Directional" }, { "Intensity", 3.0 }, { "CastShadows", true } } }));
+		}
+		if (ImGui::MenuItem("Point Light"))
+		{
+			create("Point Light", json::array({ json{ { "Type", "Transform" } }, json{ { "Type", "Light" }, { "LightType", "Point" }, { "Intensity", 10.0 }, { "Range", 10.0 } } }));
+		}
+		if (ImGui::MenuItem("Spot Light"))
+		{
+			create("Spot Light", json::array({ json{ { "Type", "Transform" }, { "Rotation", { 90.0, 0.0, 0.0 } } }, json{ { "Type", "Light" }, { "LightType", "Spot" }, { "Intensity", 20.0 }, { "Range", 15.0 } } }));
+		}
+		ImGui::EndMenu();
 	}
 	if (ImGui::MenuItem("Audio Source"))
 	{

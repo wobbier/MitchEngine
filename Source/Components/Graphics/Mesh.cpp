@@ -20,14 +20,13 @@
 #include "Utils/ImGuiUtils.h"
 #include <Materials/DiffuseMaterial.h>
 #include "Types/AssetDescriptor.h"
-#include <Primitives/Plane.h>
-#include "Primitives/Cube.h"
+#include "Primitives/Primitives.h"
 #include "Events/EditorEvents.h"
 
 Mesh::Mesh()
     : Component( "Mesh" )
 {
-    MeshMaterial = MakeShared<DiffuseMaterial>();
+    MeshMaterial = MakeShared<StandardMaterial>();
     MeshMaterial->Init();
 }
 
@@ -41,21 +40,7 @@ Mesh::Mesh( Moonlight::MeshType InType, Moonlight::Material* InMaterial )
         MeshMaterial->Init();
     }
 
-    switch( Type )
-    {
-    case Moonlight::Model:
-        break;
-    case Moonlight::Plane:
-        MeshReferece = new PlaneMesh();
-        break;
-    case Moonlight::Cube:
-        MeshReferece = new Moonlight::CubeMesh();
-        break;
-    case Moonlight::MeshCount:
-        break;
-    default:
-        break;
-    }
+    MeshReferece = Moonlight::Primitives::Get( Type );
 }
 
 Mesh::Mesh( Moonlight::MeshData* mesh )
@@ -74,20 +59,10 @@ Mesh::~Mesh()
 
 void Mesh::Init()
 {
-    // Primitive meshes loaded from a scene only know their MeshType; build their geometry here.
+    // Primitive meshes loaded from a scene only know their MeshType; they share one geometry per type.
     if( !MeshReferece )
     {
-        switch( Type )
-        {
-        case Moonlight::Plane:
-            MeshReferece = new PlaneMesh();
-            break;
-        case Moonlight::Cube:
-            MeshReferece = new Moonlight::CubeMesh();
-            break;
-        default:
-            break;
-        }
+        MeshReferece = Moonlight::Primitives::Get( Type );
     }
 }
 
@@ -134,7 +109,7 @@ void Mesh::OnDeserialize( const json& inJson )
                 }
                 else
                 {
-                    MeshMaterial = MakeShared<DiffuseMaterial>();
+                    MeshMaterial = MakeShared<StandardMaterial>();
                     MeshMaterial->Init();
                 }
             }
@@ -152,11 +127,17 @@ void Mesh::OnDeserialize( const json& inJson )
 
     if( inJson.contains( "MeshType" ) )
     {
-        Type = GetMeshTypeFromString( inJson["MeshType"] );
+        const Moonlight::MeshType newType = GetMeshTypeFromString( inJson["MeshType"] );
+        // Switching between primitive shapes (e.g. undoing a shape change) swaps the shared geometry.
+        if( newType != Type && Moonlight::Primitives::IsPrimitive( newType ) && ( !MeshReferece || Moonlight::Primitives::IsPrimitive( Type ) ) )
+        {
+            MeshReferece = MeshReferece ? Moonlight::Primitives::Get( newType ) : nullptr;
+        }
+        Type = newType;
     }
     if( !MeshMaterial )
     {
-        MeshMaterial = MakeShared<DiffuseMaterial>();
+        MeshMaterial = MakeShared<StandardMaterial>();
         MeshMaterial->Init();
     }
 }
@@ -169,6 +150,12 @@ std::string Mesh::GetMeshTypeString( Moonlight::MeshType InType )
         return "Plane";
     case Moonlight::MeshType::Cube:
         return "Cube";
+    case Moonlight::MeshType::Sphere:
+        return "Sphere";
+    case Moonlight::MeshType::Cylinder:
+        return "Cylinder";
+    case Moonlight::MeshType::Capsule:
+        return "Capsule";
     case Moonlight::MeshType::Model:
     default:
         return "Model";
@@ -185,6 +172,18 @@ Moonlight::MeshType Mesh::GetMeshTypeFromString( const std::string& InType )
     {
         return Moonlight::MeshType::Cube;
     }
+    else if( InType == "Sphere" )
+    {
+        return Moonlight::MeshType::Sphere;
+    }
+    else if( InType == "Cylinder" )
+    {
+        return Moonlight::MeshType::Cylinder;
+    }
+    else if( InType == "Capsule" )
+    {
+        return Moonlight::MeshType::Capsule;
+    }
     else
     {
         return Moonlight::MeshType::Model;
@@ -195,19 +194,23 @@ Moonlight::MeshType Mesh::GetMeshTypeFromString( const std::string& InType )
 
 void Mesh::OnEditorInspect()
 {
-    if( !MeshReferece )
+    // Primitive meshes can switch shape; model meshes keep their imported geometry.
+    if( Moonlight::Primitives::IsPrimitive( Type ) )
     {
-        if( ImGui::BeginCombo( "Mesh Type", GetMeshTypeString( Type ).c_str() ) )
+        HavanaUtils::Label( "Shape" );
+        if( ImGui::BeginCombo( "##Shape", GetMeshTypeString( Type ).c_str() ) )
         {
             for( int n = 0; n < Moonlight::MeshType::MeshCount; n++ )
             {
-                if( ImGui::Selectable( GetMeshTypeString( (Moonlight::MeshType)n ).c_str(), false ) )
+                const Moonlight::MeshType shape = static_cast<Moonlight::MeshType>( n );
+                if( !Moonlight::Primitives::IsPrimitive( shape ) )
                 {
-                    Type = (Moonlight::MeshType)n;
-
-                    static_cast<RenderCore*>( GetEngine().GetWorld().lock()->GetCore( RenderCore::GetTypeId() ) )->UpdateMesh( this );
-
-                    break;
+                    continue;
+                }
+                if( ImGui::Selectable( GetMeshTypeString( shape ).c_str(), shape == Type ) )
+                {
+                    Type = shape;
+                    MeshReferece = Moonlight::Primitives::Get( shape );
                 }
             }
             ImGui::EndCombo();

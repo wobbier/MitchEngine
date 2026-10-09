@@ -26,6 +26,8 @@
 #include "Core/Assert.h"
 #include "RenderPasses/PickingPass.h"
 #include "RenderPasses/PostProcess.h"
+#include "Lighting/ClusterBuilder.h"
+#include "Primitives/Primitives.h"
 #include "Profiling/FrameStats.h"
 
 #if BX_PLATFORM_LINUX
@@ -201,6 +203,25 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
         m_pickingPass = MakeShared<Moonlight::PickingPass>();
 #endif
         m_postProcess = MakeUnique<Moonlight::PostProcess>();
+
+        // Lighting resources (see PrepareFrameLighting / PrepareCameraLighting).
+        m_clusterBuilder = MakeUnique<Moonlight::ClusterBuilder>();
+        m_lightDataTexture = bgfx::createTexture2D( 1024, 1, false, 1, bgfx::TextureFormat::RGBA32F, BGFX_SAMPLER_POINT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP );
+        bgfx::setName( m_lightDataTexture, "Light Data" );
+        m_lightData.assign( 1024 * 4, 0.f );
+        u_lightParams = bgfx::createUniform( "u_lightParams", bgfx::UniformType::Vec4 );
+        u_dirLightDirection = bgfx::createUniform( "u_dirLightDirection", bgfx::UniformType::Vec4, 4 );
+        u_dirLightColor = bgfx::createUniform( "u_dirLightColor", bgfx::UniformType::Vec4, 4 );
+        u_clusterParams = bgfx::createUniform( "u_clusterParams", bgfx::UniformType::Vec4 );
+        u_clusterGrid = bgfx::createUniform( "u_clusterGrid", bgfx::UniformType::Vec4 );
+        u_ambientSky = bgfx::createUniform( "u_ambientSky", bgfx::UniformType::Vec4 );
+        u_ambientGround = bgfx::createUniform( "u_ambientGround", bgfx::UniformType::Vec4 );
+        s_lightData = bgfx::createUniform( "s_lightData", bgfx::UniformType::Sampler );
+        s_clusterGrid = bgfx::createUniform( "s_clusterGrid", bgfx::UniformType::Sampler );
+        s_clusterIndices = bgfx::createUniform( "s_clusterIndices", bgfx::UniformType::Sampler );
+        s_texMetallicRoughness = bgfx::createUniform( "s_texMetallicRoughness", bgfx::UniformType::Sampler );
+        s_texEmissive = bgfx::createUniform( "s_texEmissive", bgfx::UniformType::Sampler );
+        s_texOcclusion = bgfx::createUniform( "s_texOcclusion", bgfx::UniformType::Sampler );
     }
     s_time = bgfx::createUniform( "u_time", bgfx::UniformFreq::Frame, bgfx::UniformType::Vec4 );
     TransparentIndicies.reserve( kMeshTransparencyTempSize );
@@ -235,13 +256,21 @@ void BGFXRenderer::Destroy()
     m_pickingPass.reset();
 #endif
     m_postProcess.reset();
+    Moonlight::Primitives::Shutdown();
     m_dynamicSky.reset();
     m_debugDraw.reset();
     m_defaultOpacityTexture.reset();
     delete EditorCameraBuffer;
     EditorCameraBuffer = nullptr;
 
-    const bgfx::UniformHandle uniforms[] = { s_texDiffuse, s_texNormal, s_texAlpha, s_texUI, s_ambient, s_sunDirection, s_sunDiffuse, s_time };
+    const bgfx::UniformHandle uniforms[] = { s_texDiffuse, s_texNormal, s_texAlpha, s_texUI, s_ambient, s_sunDirection, s_sunDiffuse, s_time,
+        u_lightParams, u_dirLightDirection, u_dirLightColor, u_clusterParams, u_clusterGrid, u_ambientSky, u_ambientGround,
+        s_lightData, s_clusterGrid, s_clusterIndices, s_texMetallicRoughness, s_texEmissive, s_texOcclusion };
+    if( bgfx::isValid( m_lightDataTexture ) )
+    {
+        bgfx::destroy( m_lightDataTexture );
+    }
+    m_clusterBuilder.reset();
     for( const bgfx::UniformHandle& uniform : uniforms )
     {
         if( bgfx::isValid( uniform ) )
@@ -339,6 +368,7 @@ void BGFXRenderer::Render( Moonlight::CameraData& EditorCamera, FrameRenderData&
 
     m_views.Reset();
     DebugDraw::CollectFrame( m_debugLines );
+    PrepareFrameLighting();
 
 #if USING( ME_EDITOR )
     EditorCamera.Buffer = EditorCameraBuffer;
@@ -440,6 +470,8 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
         camera.Buffer->Height = height;
         camera.Buffer->ReCreate( m_resetFlags );
     }
+
+    PrepareCameraLighting( camera );
 
     const char* label = camera.IsEditorView ? "Editor" : ( camera.IsMain ? "Main" : "Camera" );
     char viewName[64];
@@ -721,6 +753,136 @@ void BGFXRenderer::SubmitDebugLines( const Moonlight::CameraData& camera, bgfx::
 }
 
 
+void BGFXRenderer::PrepareFrameLighting()
+{
+    OPTICK_EVENT( "Renderer::PrepareFrameLighting" );
+    m_localLights.clear();
+    int directionalCount = 0;
+    for( const Moonlight::LightCommand& light : m_lights )
+    {
+        if( light.Type == Moonlight::LightType::Directional )
+        {
+            if( directionalCount < 4 )
+            {
+                float* direction = m_lighting.DirectionalDirection[directionalCount];
+                float* color = m_lighting.DirectionalColor[directionalCount];
+                const Vector3 dir = light.Direction.Normalized();
+                direction[0] = dir.x; direction[1] = dir.y; direction[2] = dir.z; direction[3] = light.CastShadows ? 1.f : 0.f;
+                color[0] = light.Color.x; color[1] = light.Color.y; color[2] = light.Color.z; color[3] = 0.f;
+                ++directionalCount;
+            }
+        }
+        else if( m_localLights.size() < 256 )
+        {
+            m_localLights.push_back( light );
+        }
+    }
+
+    // Scenes without a directional light are lit by the procedural sky's sun.
+    if( directionalCount == 0 && m_dynamicSky )
+    {
+        const bx::Vec3& sunDir = m_dynamicSky->m_sun.m_sunDir;
+        bx::Vec3 sunRgb = m_dynamicSky->xyzToRgb( m_dynamicSky->m_sunLuminanceXYZ.GetValue( m_dynamicSky->m_time ) );
+        const float peak = std::max( { sunRgb.x, sunRgb.y, sunRgb.z, 1e-4f } );
+        const float elevation = std::clamp( sunDir.y * 4.f, 0.f, 1.f );
+        const float intensity = 3.f * elevation;
+        float* direction = m_lighting.DirectionalDirection[0];
+        float* color = m_lighting.DirectionalColor[0];
+        direction[0] = -sunDir.x; direction[1] = -sunDir.y; direction[2] = -sunDir.z; direction[3] = 1.f;
+        color[0] = sunRgb.x / peak * intensity; color[1] = sunRgb.y / peak * intensity; color[2] = sunRgb.z / peak * intensity;
+        directionalCount = 1;
+    }
+
+    m_lighting.Params[0] = static_cast<float>( directionalCount );
+    m_lighting.Params[1] = static_cast<float>( m_localLights.size() );
+    m_lighting.Params[2] = 1.f;
+
+    // Light data: 4 RGBA32F texels per point/spot light.
+    if( !m_localLights.empty() && bgfx::isValid( m_lightDataTexture ) )
+    {
+        for( size_t i = 0; i < m_localLights.size(); ++i )
+        {
+            const Moonlight::LightCommand& light = m_localLights[i];
+            float* texel = &m_lightData[i * 16];
+            const Vector3 dir = light.Direction.Normalized();
+            const float values[16] = {
+                light.Position.x, light.Position.y, light.Position.z, light.Range,
+                light.Color.x, light.Color.y, light.Color.z, light.Type == Moonlight::LightType::Spot ? 2.f : 1.f,
+                dir.x, dir.y, dir.z, light.CosOuter,
+                light.CosInner, 0.f, 0.f, 0.f };
+            std::memcpy( texel, values, sizeof( values ) );
+        }
+        const uint16_t width = static_cast<uint16_t>( m_localLights.size() * 4 );
+        bgfx::updateTexture2D( m_lightDataTexture, 0, 0, 0, 0, width, 1, bgfx::copy( m_lightData.data(), width * 4 * sizeof( float ) ) );
+    }
+}
+
+
+void BGFXRenderer::PrepareCameraLighting( Moonlight::CameraData& camera )
+{
+    OPTICK_EVENT( "Renderer::PrepareCameraLighting" );
+    Moonlight::FrameBuffer& buffer = *camera.Buffer;
+    m_lighting.ClusterGridTexture = buffer.ClusterGrid;
+    m_lighting.ClusterIndexTexture = buffer.ClusterIndices;
+
+    if( !m_localLights.empty() )
+    {
+        m_clusterBuilder->Build( m_localLights, camera.View, camera.ProjectionMatrix, camera.Near, camera.Far, static_cast<float>( buffer.Width ), static_cast<float>( buffer.Height ) );
+        const std::vector<float>& grid = m_clusterBuilder->GetGrid();
+        bgfx::updateTexture2D( buffer.ClusterGrid, 0, 0, 0, 0, Moonlight::ClusterBuilder::kGridX * Moonlight::ClusterBuilder::kGridY, Moonlight::ClusterBuilder::kGridZ, bgfx::copy( grid.data(), static_cast<uint32_t>( grid.size() * sizeof( float ) ) ) );
+        const uint32_t rows = m_clusterBuilder->GetUsedIndexRows();
+        bgfx::updateTexture2D( buffer.ClusterIndices, 0, 0, 0, 0, Moonlight::ClusterBuilder::kIndexWidth, static_cast<uint16_t>( rows ), bgfx::copy( m_clusterBuilder->GetIndices().data(), rows * Moonlight::ClusterBuilder::kIndexWidth * sizeof( float ) ) );
+
+        const Moonlight::ClusterBuilder::Params& params = m_clusterBuilder->GetParams();
+        m_lighting.ClusterParams[0] = params.TileWidth;
+        m_lighting.ClusterParams[1] = params.TileHeight;
+        m_lighting.ClusterParams[2] = params.SliceScale;
+        m_lighting.ClusterParams[3] = params.SliceBias;
+    }
+    m_lighting.ClusterGrid[0] = static_cast<float>( Moonlight::ClusterBuilder::kGridX );
+    m_lighting.ClusterGrid[1] = static_cast<float>( Moonlight::ClusterBuilder::kGridY );
+    m_lighting.ClusterGrid[2] = static_cast<float>( Moonlight::ClusterBuilder::kGridZ );
+    m_lighting.ClusterGrid[3] = bgfx::getCaps()->originBottomLeft ? 1.f : 0.f;
+
+    // Hemisphere ambient from what the camera shows behind the scene.
+    auto toLinear = []( float c ) { return c <= 0.04045f ? c / 12.92f : std::pow( ( c + 0.055f ) / 1.055f, 2.4f ); };
+    Vector3 sky( 0.3f, 0.32f, 0.36f );
+    if( camera.ClearType == Moonlight::ClearColorType::Procedural && m_dynamicSky )
+    {
+        const bx::Vec3 skyRgb = m_dynamicSky->xyzToRgb( m_dynamicSky->m_skyLuminanceXYZ.GetValue( m_dynamicSky->m_time ) );
+        const float peak = std::max( { skyRgb.x, skyRgb.y, skyRgb.z, 1e-4f } );
+        const float daylight = std::clamp( m_dynamicSky->m_sun.m_sunDir.y * 3.f + 0.3f, 0.05f, 1.f );
+        sky = Vector3( skyRgb.x / peak, skyRgb.y / peak, skyRgb.z / peak ) * ( 0.6f * daylight );
+    }
+    else if( camera.ClearType == Moonlight::ClearColorType::Color )
+    {
+        sky = Vector3( toLinear( camera.ClearColor.x ), toLinear( camera.ClearColor.y ), toLinear( camera.ClearColor.z ) ) * 2.f + Vector3( 0.12f, 0.12f, 0.14f );
+    }
+    m_lighting.AmbientSky[0] = sky.x; m_lighting.AmbientSky[1] = sky.y; m_lighting.AmbientSky[2] = sky.z;
+    m_lighting.AmbientGround[0] = sky.x * 0.45f; m_lighting.AmbientGround[1] = sky.y * 0.4f; m_lighting.AmbientGround[2] = sky.z * 0.35f;
+}
+
+
+void BGFXRenderer::BindLighting()
+{
+    // Uniform state is part of each draw in bgfx, so these go with every submit.
+    bgfx::setUniform( u_lightParams, m_lighting.Params );
+    bgfx::setUniform( u_dirLightDirection, m_lighting.DirectionalDirection, 4 );
+    bgfx::setUniform( u_dirLightColor, m_lighting.DirectionalColor, 4 );
+    bgfx::setUniform( u_clusterParams, m_lighting.ClusterParams );
+    bgfx::setUniform( u_clusterGrid, m_lighting.ClusterGrid );
+    bgfx::setUniform( u_ambientSky, m_lighting.AmbientSky );
+    bgfx::setUniform( u_ambientGround, m_lighting.AmbientGround );
+    const uint32_t pointClamp = BGFX_SAMPLER_POINT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP;
+    bgfx::setTexture( 8, s_lightData, m_lightDataTexture, pointClamp );
+    if( bgfx::isValid( m_lighting.ClusterGridTexture ) )
+    {
+        bgfx::setTexture( 9, s_clusterGrid, m_lighting.ClusterGridTexture, pointClamp );
+        bgfx::setTexture( 10, s_clusterIndices, m_lighting.ClusterIndexTexture, pointClamp );
+    }
+}
+
+
 bgfx::ProgramHandle BGFXRenderer::BindMeshDrawState( const Moonlight::MeshCommand& mesh, uint64_t state )
 {
     // Set vertex and index buffer.
@@ -736,6 +898,10 @@ bgfx::ProgramHandle BGFXRenderer::BindMeshDrawState( const Moonlight::MeshComman
     bgfx::setTexture( 0, s_texDiffuse, textureOr( Moonlight::TextureType::Diffuse, m_whiteTexture ) );
     bgfx::setTexture( 1, s_texNormal, textureOr( Moonlight::TextureType::Normal, m_flatNormalTexture ) );
     bgfx::setTexture( 2, s_texAlpha, textureOr( Moonlight::TextureType::Opacity, m_whiteTexture ) );
+    bgfx::setTexture( 3, s_texMetallicRoughness, textureOr( Moonlight::TextureType::MetallicRoughness, m_whiteTexture ) );
+    bgfx::setTexture( 4, s_texEmissive, textureOr( Moonlight::TextureType::Emissive, m_whiteTexture ) );
+    bgfx::setTexture( 5, s_texOcclusion, textureOr( Moonlight::TextureType::Occlusion, m_whiteTexture ) );
+    BindLighting();
 
     mesh.MeshMaterial->Use();
 
@@ -750,7 +916,7 @@ void BGFXRenderer::RenderSingleMesh( bgfx::ViewId id, const Moonlight::MeshComma
 {
     OPTICK_CATEGORY( "Mesh", Optick::Category::Rendering );
 
-    if( mesh.Type == Moonlight::MeshType::Model || mesh.Type == Moonlight::MeshType::Plane || mesh.Type == Moonlight::Cube )
+    if( mesh.Type != Moonlight::MeshType::MeshCount )
     {
         if( !mesh.SingleMesh || !bgfx::isValid(mesh.SingleMesh->GetVertexBuffer() ) )
         {

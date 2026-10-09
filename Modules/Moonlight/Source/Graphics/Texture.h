@@ -17,11 +17,14 @@ namespace Moonlight
 {
     enum TextureType
     {
-        Diffuse = 0,
+        Diffuse = 0,        // base colour (sRGB)
         Normal,
         Specular,
         Height,
         Opacity,
+        Emissive,           // sRGB
+        MetallicRoughness,  // glTF: G roughness, B metallic
+        Occlusion,          // R
         Count
     };
 

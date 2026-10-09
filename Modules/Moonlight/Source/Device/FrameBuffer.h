@@ -48,6 +48,10 @@ namespace Moonlight
         Mip AdaptedLuminance[2];
         uint32_t AdaptedIndex = 0;
 
+        // Clustered lighting data for this camera (updated every frame).
+        bgfx::TextureHandle ClusterGrid = BGFX_INVALID_HANDLE;
+        bgfx::TextureHandle ClusterIndices = BGFX_INVALID_HANDLE;
+
         uint32_t Width = 0;
         uint32_t Height = 0;
         uint32_t m_resetFlags = 0;

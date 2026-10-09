@@ -61,7 +61,7 @@ public:
         //verts[3].TexCoord = vert4.TexCoord;
         //verts[4].TexCoord = vert2.TexCoord;
         //this->vertices.push_back()
-        MeshMaterial = MakeShared<DiffuseMaterial>();
+        MeshMaterial = MakeShared<StandardMaterial>();
         MeshMaterial->Init();
 
         InitMesh();

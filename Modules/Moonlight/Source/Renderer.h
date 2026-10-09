@@ -25,6 +25,7 @@ namespace Moonlight {
     class DynamicSky;
     class PickingPass;
     class PostProcess;
+    class ClusterBuilder;
 }
 
 struct RendererCreationSettings
@@ -78,6 +79,9 @@ public:
 
     uint32_t GetResetFlags() const;
 
+    // This frame's lights (RenderCore fills it every update from Light components).
+    std::vector<Moonlight::LightCommand>& GetLights() { return m_lights; }
+
     // Caches
     CommandCache<Moonlight::CameraData>& GetCameraCache();
     CommandCache<Moonlight::MeshCommand>& GetMeshCache();
@@ -117,6 +121,42 @@ private:
     Moonlight::BGFXCallback m_bgfxCallback;
 
     bgfx::ProgramHandle BindMeshDrawState( const Moonlight::MeshCommand& mesh, uint64_t state );
+
+    // Lighting: per frame (light data, directional lights) and per camera (clusters, ambient).
+    void PrepareFrameLighting();
+    void PrepareCameraLighting( Moonlight::CameraData& camera );
+    void BindLighting();
+
+    std::vector<Moonlight::LightCommand> m_lights;
+    std::vector<Moonlight::LightCommand> m_localLights;
+    std::vector<float> m_lightData;
+    bgfx::TextureHandle m_lightDataTexture = BGFX_INVALID_HANDLE;
+    UniquePtr<Moonlight::ClusterBuilder> m_clusterBuilder;
+    struct LightingUniforms
+    {
+        float Params[4] = { 0.f, 0.f, 1.f, 0.f };
+        float DirectionalDirection[4][4] = {};
+        float DirectionalColor[4][4] = {};
+        float ClusterParams[4] = {};
+        float ClusterGrid[4] = {};
+        float AmbientSky[4] = {};
+        float AmbientGround[4] = {};
+        bgfx::TextureHandle ClusterGridTexture = BGFX_INVALID_HANDLE;
+        bgfx::TextureHandle ClusterIndexTexture = BGFX_INVALID_HANDLE;
+    } m_lighting;
+    bgfx::UniformHandle u_lightParams = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle u_dirLightDirection = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle u_dirLightColor = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle u_clusterParams = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle u_clusterGrid = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle u_ambientSky = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle u_ambientGround = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle s_lightData = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle s_clusterGrid = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle s_clusterIndices = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle s_texMetallicRoughness = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle s_texEmissive = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle s_texOcclusion = BGFX_INVALID_HANDLE;
 
     struct InstanceBatch
     {

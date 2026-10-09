@@ -90,6 +90,8 @@ void Moonlight::FrameBuffer::Release()
         DestroyIfValid( adapted.Buffer );
         DestroyIfValid( adapted.Color );
     }
+    DestroyIfValid( ClusterGrid );
+    DestroyIfValid( ClusterIndices );
     DestroyIfValid( Texture );
     DestroyIfValid( DepthTexture );
     DestroyIfValid( SceneColor );
@@ -154,4 +156,10 @@ void Moonlight::FrameBuffer::ReCreate( uint32_t resetFlags )
         adapted.Buffer = bgfx::createFrameBuffer( 1, &adapted.Color, false );
     }
     AdaptedIndex = 0;
+
+    // Sized for ClusterBuilder (16 x 9 tiles, 24 slices; 1024 x 128 light indices).
+    ClusterGrid = bgfx::createTexture2D( 16 * 9, 24, false, 1, bgfx::TextureFormat::RGBA32F, BGFX_SAMPLER_POINT | kClampLinear );
+    bgfx::setName( ClusterGrid, "Cluster Grid" );
+    ClusterIndices = bgfx::createTexture2D( 1024, 128, false, 1, bgfx::TextureFormat::R32F, BGFX_SAMPLER_POINT | kClampLinear );
+    bgfx::setName( ClusterIndices, "Cluster Light Indices" );
 }

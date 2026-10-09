@@ -17,7 +17,7 @@ namespace Moonlight
     public:
         MeshData() = default;
         MeshData( std::vector<PosNormTexTanBiVertex> vertices, std::vector<uint32_t> indices, SharedPtr<Material> newMaterial = nullptr );
-        ~MeshData();
+        virtual ~MeshData();
 
         void Draw( SharedPtr<Material> inMaterial );
 

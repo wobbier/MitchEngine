@@ -143,12 +143,27 @@ namespace SceneTools
                         DebugDraw::Frustum( Matrix4( projection * view ), color, 0.f, DebugDraw::EditorOnly );
                     }
                 }
-                if( entity.HasComponent<Light>() )
+                if( Light* light = entity.TryGetComponent<Light>() )
                 {
                     const Vector3 position = transform->GetWorldPosition();
-                    const Vector4 color( 1.f, 0.9f, 0.4f, selected ? 1.f : 0.6f );
-                    DebugDraw::Circle( position, transform->Front(), 0.35f, color, 0.f, DebugDraw::EditorOnly, 16 );
-                    DebugDraw::Arrow( position, position + transform->Front() * ( selected ? 2.f : 1.f ), color, 0.25f, 0.f, DebugDraw::EditorOnly );
+                    const Vector4 color( light->Color.x, light->Color.y, light->Color.z, selected ? 1.f : 0.6f );
+                    switch( light->LightType )
+                    {
+                    case Moonlight::LightType::Directional:
+                        DebugDraw::Circle( position, transform->Front(), 0.35f, color, 0.f, DebugDraw::EditorOnly, 16 );
+                        DebugDraw::Arrow( position, position + transform->Front() * ( selected ? 2.f : 1.f ), color, 0.25f, 0.f, DebugDraw::EditorOnly );
+                        break;
+                    case Moonlight::LightType::Point:
+                        DebugDraw::Sphere( position, selected ? light->Range : 0.25f, color, 0.f, DebugDraw::EditorOnly, selected ? 32 : 12 );
+                        break;
+                    case Moonlight::LightType::Spot:
+                        DebugDraw::Cone( position, transform->Front(), selected ? light->Range : 1.f, light->OuterConeAngle, color, 0.f, DebugDraw::EditorOnly );
+                        if( selected )
+                        {
+                            DebugDraw::Cone( position, transform->Front(), light->Range, light->InnerConeAngle, Vector4( color.x, color.y, color.z, 0.35f ), 0.f, DebugDraw::EditorOnly );
+                        }
+                        break;
+                    }
                 }
             } );
         }

@@ -38,6 +38,9 @@ namespace SceneSerializer
     // Upgrades any supported scene/prefab JSON (v1 scene, v1 prefab object, v2) to the current format.
     json MigrateToLatest( const json& InData );
 
+    // Renames/converts components whose type was replaced (applied to every loaded component).
+    json UpgradeComponent( const json& InComponent );
+
     // Serializes the given entities and all of their descendants. Parent links pointing outside the
     // serialized set are omitted, so the result instantiates as a set of roots.
     json SerializeEntities( World& InWorld, const std::vector<Entity*>& InRoots );

@@ -143,6 +143,12 @@ namespace Moonlight
             return "Height";
         case TextureType::Opacity:
             return "Opacity";
+        case TextureType::Emissive:
+            return "Emissive";
+        case TextureType::MetallicRoughness:
+            return "MetallicRoughness";
+        case TextureType::Occlusion:
+            return "Occlusion";
         case TextureType::Count:
         default:
             CLog::GetInstance().Log( CLog::LogType::Error, "Couldn't find texture type: " + std::to_string( type ) );
