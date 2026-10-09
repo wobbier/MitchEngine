@@ -128,7 +128,11 @@ void UICore::OnEntityRemoved( Entity& InEntity )
     view.IsInitialized = false;
 
 #if USING( ME_UI )
-    m_views.erase( std::remove( m_views.begin(), m_views.end(), m_views[view.Index] ), m_views.end() );
+    // Indices go stale as views are removed (and OnStop clears the list), so match the view itself.
+    if( view.ViewRef )
+    {
+        m_views.erase( std::remove( m_views.begin(), m_views.end(), view.ViewRef ), m_views.end() );
+    }
 #endif
 }
 
