@@ -24,19 +24,25 @@ bool Scene::Load( SharedPtr<World> InWorld )
     OPTICK_EVENT( "Scene::Load" );
     GameWorld = InWorld;
 
-    if( CurrentLevel.FilePath.GetLocalPath().size() > 0 )
-    {
-        OPTICK_EVENT( "Scene::Load::ReadFile" );
-        CurrentLevel.Read();
-    }
-
-    if( CurrentLevel.Data.empty() )
-    {
-        return false;
-    }
-
     json level;
+    if( !PreloadedData.is_null() )
     {
+        level = std::move( PreloadedData );
+        PreloadedData = json();
+    }
+    else
+    {
+        if( CurrentLevel.FilePath.GetLocalPath().size() > 0 )
+        {
+            OPTICK_EVENT( "Scene::Load::ReadFile" );
+            CurrentLevel.Read();
+        }
+
+        if( CurrentLevel.Data.empty() )
+        {
+            return false;
+        }
+
         OPTICK_EVENT( "Scene::Load::JSONParse" );
         level = json::parse( CurrentLevel.Data, nullptr, false );
     }

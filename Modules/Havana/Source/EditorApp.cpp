@@ -26,9 +26,19 @@
 #include <ctime>
 #include <Math/Quaternion.h>
 #include "Events/HavanaEvents.h"
+#include "Events/EditorEvents.h"
 #include <Utils/EditorConfig.h>
 
 #include "Editor/EditorComponentInfoCache.h"
+#include "Editor/EditorOperations.h"
+#include "Editor/Selection.h"
+#include "Editor/UndoStack.h"
+#include "World/SceneSerializer.h"
+#include <imgui.h>
+#include <filesystem>
+#include "File.h"
+#include "CLog.h"
+#include "Types/AssetType.h"
 #include "bx/math.h"
 
 #if USING( ME_EDITOR )
@@ -114,6 +124,21 @@ void EditorApp::OnUpdate( const UpdateContext& inUpdateContext )
     Editor->UpdateWorld( root, EditorSceneManager->GetEntities() );
 
     UpdateCameras();
+
+    if( !m_checkedRecovery )
+    {
+        m_checkedRecovery = true;
+        if( !m_automation.IsActive() )
+        {
+            CheckForRecovery();
+        }
+    }
+    if( !m_automation.IsActive() )
+    {
+        UpdateAutosave( inUpdateContext.GetUnscaledDeltaTime() );
+    }
+    DrawEditorModals();
+    m_automation.Tick( *this );
 }
 
 
@@ -164,6 +189,8 @@ void EditorApp::OnEnd()
 {
     Editor->Save();
     EditorConfig::GetInstance().Save();
+    // A clean exit: nothing to recover next time.
+    ClearAutosave();
 }
 
 
@@ -183,31 +210,7 @@ void EditorApp::OnInitialize()
             Editor = MakeUnique<Havana>( &GetEngine(), this );
         }
         EditorSceneManager = new EditorCore( Editor.get() );
-
-        Editor->SetGameCallbacks( [this]()
-            {
-                StartGame();
-                m_isGamePaused = false;
-                GetEngine().SetPaused( false );
-                m_isGameRunning = true;
-                //Editor->SetViewportMode(ViewportMode::Game);
-            }
-            , [this]()
-            {
-                // Toggle: pausing freezes Update/FixedUpdate deltas; rendering and the editor keep running.
-                m_isGamePaused = !m_isGamePaused;
-                GetEngine().SetPaused( m_isGamePaused );
-            }
-            , [this]()
-            {
-                m_isGamePaused = false;
-                GetEngine().SetPaused( false );
-                //Editor->SetViewportMode(ViewportMode::World);
-                ClearInspectEvent evt;
-                evt.Fire();
-                StopGame();
-                //GetEngine().LoadScene("Assets/Alley.lvl");
-            } );
+        m_automation.Init();
 
         NewSceneEvent evt;
         evt.Fire();
@@ -233,56 +236,356 @@ void EditorApp::PostRender()
 }
 
 
-namespace
+void EditorApp::Play()
 {
-    constexpr const char* kPlaySnapshotPath = ".tmp/PlaySnapshot.lvl";
+    if( m_isGameRunning )
+    {
+        return;
+    }
+    StartGame();
+    m_isGamePaused = false;
+    GetEngine().SetPaused( false );
+
+    ImGui::SetWindowFocus( "Game View" );
+    GetEngine().GetInput().Resume();
+    Editor->GetInput().Stop();
+}
+
+
+void EditorApp::Stop()
+{
+    if( !m_isGameRunning )
+    {
+        return;
+    }
+    m_isGamePaused = false;
+    GetEngine().SetPaused( false );
+    StopGame();
+
+    GetEngine().GetInput().Stop();
+    Editor->GetInput().Resume();
+}
+
+
+void EditorApp::TogglePause()
+{
+    if( !m_isGameRunning )
+    {
+        return;
+    }
+    // Pausing freezes Update/FixedUpdate deltas; rendering and the editor keep running.
+    m_isGamePaused = !m_isGamePaused;
+    GetEngine().SetPaused( m_isGamePaused );
+}
+
+
+void EditorApp::StepFrame()
+{
+    if( !m_isGameRunning )
+    {
+        return;
+    }
+    if( !m_isGamePaused )
+    {
+        TogglePause();
+    }
+    GetEngine().StepFrame();
 }
 
 
 void EditorApp::StartGame()
 {
-    if( !m_isGameRunning )
+    if( m_isGameRunning )
     {
-        m_hasPlaySnapshot = false;
-        Scene* scene = GetEngine().CurrentScene;
-        if( scene && EditorSceneManager && EditorSceneManager->RootTransform )
-        {
-            m_playSceneFilePath = scene->IsNewScene() ? std::string() : scene->FilePath.GetLocalPathString();
-            scene->SaveCopy( kPlaySnapshotPath, EditorSceneManager->RootTransform );
-            m_hasPlaySnapshot = true;
-        }
-        GetEngine().GetWorld().lock()->Start();
-        m_isGameRunning = true;
+        return;
     }
+    m_playSnapshot = json();
+    Scene* scene = GetEngine().CurrentScene;
+    if( scene && EditorSceneManager && EditorSceneManager->RootTransform )
+    {
+        m_playSceneFilePath = scene->IsNewScene() ? std::string() : scene->FilePath.GetLocalPathString();
+        m_playSnapshot = SceneSerializer::SerializeWorld( *GetEngine().GetWorld().lock(), EditorSceneManager->RootTransform );
+    }
+    m_playSelection = Selection::Get().SaveGUIDs();
+    m_wasDirtyBeforePlay = UndoStack::Get().IsDirty();
+    UndoStack::Get().SetSuspended( true );
+
+    GetEngine().GetWorld().lock()->Start();
+    m_isGameRunning = true;
 }
 
 
 void EditorApp::StopGame()
 {
+    if( !m_isGameRunning )
+    {
+        return;
+    }
+    if( GetEngine().GetWorld().lock() )
+    {
+        GetEngine().GetWorld().lock()->Destroy();
+    }
+    m_isGameRunning = false;
+    GetEngine().GetWorld().lock()->Stop();
+    Selection::Get().Clear();
+
+    m_isRestoringSnapshot = true;
+    NewSceneEvent evt;
+    evt.Fire();
+    if( !m_playSnapshot.is_null() )
+    {
+        // Restore the pre-play state under the scene's real path.
+        GetEngine().LoadSceneFromData( m_playSnapshot, m_playSceneFilePath );
+        m_playSnapshot = json();
+    }
+    else
+    {
+        InitialLevel = GetEngine().GetConfig().GetValue( "CurrentScene" );
+        GetEngine().LoadScene( InitialLevel );
+    }
+    m_isRestoringSnapshot = false;
+
+    UndoStack::Get().SetSuspended( false );
+    if( m_wasDirtyBeforePlay )
+    {
+        UndoStack::Get().MarkDirty();
+    }
+    Selection::Get().RestoreGUIDs( *GetEngine().GetWorld().lock(), m_playSelection );
+}
+
+
+namespace
+{
+    const char* kAutosaveDir = ".tmp/Autosave";
+    const char* kAutosaveScene = ".tmp/Autosave/Autosave.lvl";
+    const char* kAutosaveSession = ".tmp/Autosave/Session.json";
+
+    std::string CurrentScenePath()
+    {
+        Scene* scene = GetEngine().CurrentScene;
+        return ( scene && !scene->IsNewScene() ) ? scene->FilePath.GetLocalPathString() : std::string();
+    }
+}
+
+
+void EditorApp::RunWithUnsavedCheck( std::function<void()> InAction )
+{
     if( m_isGameRunning )
     {
-        if( GetEngine().GetWorld().lock() )
-        {
-            GetEngine().GetWorld().lock()->Destroy();
-        }
-        m_isGameRunning = false;
-        GetEngine().GetWorld().lock()->Stop();
+        Stop();
+    }
+    if( !UndoStack::Get().IsDirty() )
+    {
+        InAction();
+        return;
+    }
+    m_pendingAction = std::move( InAction );
+    m_openUnsavedPrompt = true;
+}
+
+
+void EditorApp::RequestNewScene()
+{
+    RunWithUnsavedCheck( []() {
         NewSceneEvent evt;
-        evt.Fire();
-        if( m_hasPlaySnapshot )
+        evt.Queue();
+    } );
+}
+
+
+void EditorApp::RequestOpenScene( const std::string& InScenePath )
+{
+    RunWithUnsavedCheck( [InScenePath]() {
+        LoadSceneEvent evt;
+        evt.Level = InScenePath;
+        evt.Queue();
+        GetEngine().GetConfig().SetValue( std::string( "CurrentScene" ), InScenePath );
+        EditorConfig::GetInstance().AddRecentScene( InScenePath );
+    } );
+}
+
+
+void EditorApp::RequestOpenSceneDialog()
+{
+    RequestAssetSelectionEvent evt( [this]( Path selectedAsset ) {
+        RequestOpenScene( std::string( selectedAsset.GetLocalPath() ) );
+    }, AssetType::Level );
+    evt.Fire();
+}
+
+
+void EditorApp::SaveScene( bool InSaveAs )
+{
+    if( m_isGameRunning )
+    {
+        BRUH( "Stop play mode before saving the scene." );
+        return;
+    }
+    SaveSceneEvent evt;
+    evt.SaveAs = InSaveAs;
+    evt.Fire();
+    EditorConfig::GetInstance().AddRecentScene( CurrentScenePath() );
+}
+
+
+void EditorApp::RequestQuit()
+{
+    RunWithUnsavedCheck( []() { GetEngine().Quit( true ); } );
+}
+
+
+bool EditorApp::OnQuitRequested()
+{
+    if( !UndoStack::Get().IsDirty() && !m_isGameRunning )
+    {
+        return true;
+    }
+    // Stops play mode, then quits or asks about unsaved changes.
+    RequestQuit();
+    return false;
+}
+
+
+void EditorApp::DrawEditorModals()
+{
+    if( m_openUnsavedPrompt )
+    {
+        ImGui::OpenPopup( "Unsaved Changes" );
+        m_openUnsavedPrompt = false;
+    }
+    if( m_openRecoveryPrompt )
+    {
+        ImGui::OpenPopup( "Recover Unsaved Work" );
+        m_openRecoveryPrompt = false;
+    }
+
+    const ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos( center, ImGuiCond_Appearing, ImVec2( 0.5f, 0.5f ) );
+    if( ImGui::BeginPopupModal( "Unsaved Changes", nullptr, ImGuiWindowFlags_AlwaysAutoResize ) )
+    {
+        const std::string scenePath = CurrentScenePath();
+        ImGui::Text( "Save changes to %s before continuing?", scenePath.empty() ? "the untitled scene" : scenePath.c_str() );
+        ImGui::Spacing();
+        std::function<void()> runPending;
+        if( !scenePath.empty() )
         {
-            // Restore the pre-play state, then point the scene back at its real file.
-            GetEngine().LoadScene( kPlaySnapshotPath );
-            GetEngine().CurrentScene->FilePath = m_playSceneFilePath.empty() ? Path() : Path( m_playSceneFilePath );
-            Editor->SetWindowTitle( "Havana - " + ( m_playSceneFilePath.empty() ? std::string( "Untitled" ) : m_playSceneFilePath ) );
-            m_hasPlaySnapshot = false;
+            if( ImGui::Button( "Save", ImVec2( 120.f, 0.f ) ) )
+            {
+                SaveScene( false );
+                ImGui::CloseCurrentPopup();
+                runPending.swap( m_pendingAction );
+            }
         }
-        else
+        else if( ImGui::Button( "Save As...", ImVec2( 120.f, 0.f ) ) )
         {
-            InitialLevel = GetEngine().GetConfig().GetValue( "CurrentScene" );
-            GetEngine().LoadScene( InitialLevel );
+            // The save dialog is asynchronous; the user repeats the action afterwards.
+            SaveScene( true );
+            m_pendingAction = nullptr;
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        if( ImGui::Button( "Don't Save", ImVec2( 120.f, 0.f ) ) )
+        {
+            ImGui::CloseCurrentPopup();
+            UndoStack::Get().MarkSaved();
+            runPending.swap( m_pendingAction );
+        }
+        ImGui::SameLine();
+        if( ImGui::Button( "Cancel", ImVec2( 120.f, 0.f ) ) || ImGui::IsKeyPressed( ImGuiKey_Escape ) )
+        {
+            m_pendingAction = nullptr;
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+
+        if( runPending )
+        {
+            runPending();
         }
     }
+
+    ImGui::SetNextWindowPos( center, ImGuiCond_Appearing, ImVec2( 0.5f, 0.5f ) );
+    if( ImGui::BeginPopupModal( "Recover Unsaved Work", nullptr, ImGuiWindowFlags_AlwaysAutoResize ) )
+    {
+        ImGui::Text( "Havana didn't shut down cleanly last time." );
+        ImGui::Text( "An autosave of %s is available.", m_recoveryScenePath.empty() ? "an untitled scene" : m_recoveryScenePath.c_str() );
+        ImGui::Spacing();
+        if( ImGui::Button( "Recover", ImVec2( 120.f, 0.f ) ) )
+        {
+            GetEngine().LoadSceneFromData( m_recoveryData, m_recoveryScenePath );
+            UndoStack::Get().MarkDirty();
+            m_recoveryData = json();
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        if( ImGui::Button( "Discard", ImVec2( 120.f, 0.f ) ) )
+        {
+            ClearAutosave();
+            m_recoveryData = json();
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+}
+
+
+void EditorApp::UpdateAutosave( float InDeltaSeconds )
+{
+    const float interval = EditorConfig::GetInstance().GetPreference<float>( "Autosave.IntervalSeconds", 120.f );
+    if( interval <= 0.f || m_isGameRunning || !UndoStack::Get().IsDirty() || !EditorSceneManager || !EditorSceneManager->RootTransform )
+    {
+        m_autosaveTimer = 0.f;
+        return;
+    }
+    m_autosaveTimer += InDeltaSeconds;
+    if( m_autosaveTimer < interval )
+    {
+        return;
+    }
+    m_autosaveTimer = 0.f;
+
+    std::error_code error;
+    std::filesystem::create_directories( Path( kAutosaveDir ).FullPath, error );
+    json scene = SceneSerializer::SerializeWorld( *GetEngine().GetWorld().lock(), EditorSceneManager->RootTransform );
+    File( Path( kAutosaveScene ) ).Write( scene.dump() );
+    json session;
+    session["Scene"] = CurrentScenePath();
+    session["Time"] = static_cast<int64_t>( std::time( nullptr ) );
+    File( Path( kAutosaveSession ) ).Write( session.dump( 4 ) );
+    CLog::Log( CLog::LogType::Info, "Autosaved scene to " + std::string( kAutosaveScene ) );
+}
+
+
+void EditorApp::CheckForRecovery()
+{
+    Path sessionPath( kAutosaveSession );
+    Path scenePath( kAutosaveScene );
+    if( !sessionPath.Exists || !scenePath.Exists )
+    {
+        return;
+    }
+    File sessionFile( sessionPath );
+    sessionFile.Read();
+    json session = json::parse( sessionFile.Data, nullptr, false );
+    File sceneFile( scenePath );
+    sceneFile.Read();
+    json scene = json::parse( sceneFile.Data, nullptr, false );
+    if( session.is_discarded() || scene.is_discarded() )
+    {
+        ClearAutosave();
+        return;
+    }
+    m_recoveryScenePath = session.value( "Scene", std::string() );
+    m_recoveryData = std::move( scene );
+    m_openRecoveryPrompt = true;
+}
+
+
+void EditorApp::ClearAutosave()
+{
+    std::error_code error;
+    std::filesystem::remove( Path( kAutosaveSession ).FullPath, error );
+    std::filesystem::remove( Path( kAutosaveScene ).FullPath, error );
 }
 
 
@@ -302,6 +605,10 @@ bool EditorApp::OnEvent( const BaseEvent& evt )
 {
     if( evt.GetEventId() == NewSceneEvent::GetEventId() )
     {
+        if( !m_isRestoringSnapshot )
+        {
+            EditorOps::ResetForNewScene();
+        }
         GetEngine().LoadScene( "" );
         GetEngine().InitGame();
         GetEngine().GetWorld().lock()->Simulate();
@@ -310,7 +617,12 @@ bool EditorApp::OnEvent( const BaseEvent& evt )
     {
         const SceneLoadedEvent& test = static_cast<const SceneLoadedEvent&>( evt );
 
-        Editor->SetWindowTitle( "Havana - " + test.LoadedScene->FilePath.GetLocalPathString() );
+        if( !m_isRestoringSnapshot && !m_isGameRunning )
+        {
+            EditorOps::ResetForNewScene();
+        }
+        const std::string scenePath = test.LoadedScene->FilePath.GetLocalPathString();
+        Editor->SetWindowTitle( "Havana - " + ( scenePath.empty() ? std::string( "Untitled" ) : scenePath ) );
         if( m_isGameRunning )
         {
             GetEngine().GetWorld().lock()->Start();

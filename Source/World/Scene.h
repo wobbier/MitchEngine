@@ -3,6 +3,7 @@
 #include "Path.h"
 #include "Components/Transform.h"
 #include "File.h"
+#include "JSON.h"
 #include "Engine/World.h"
 
 // A scene file on disk. Loading/saving goes through SceneSerializer (format v2, v1 migrated on load).
@@ -23,5 +24,7 @@ public:
 
     SharedPtr<World> GameWorld;
     File CurrentLevel;
+    // When set, Load uses this data instead of reading FilePath (in-memory snapshots).
+    json PreloadedData;
     Path FilePath;
 };

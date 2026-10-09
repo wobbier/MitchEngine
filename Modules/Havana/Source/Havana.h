@@ -21,6 +21,7 @@ class SceneHierarchyWidget;
 class PropertiesWidget;
 class AssetPreviewWidget;
 class AssetBrowserWidget;
+class HistoryWidget;
 
 #if USING( ME_EDITOR )
 
@@ -43,7 +44,11 @@ public:
 	const bool IsGameFocused() const;
 	const bool IsWorldViewFocused() const;
 
-	void SetGameCallbacks(std::function<void()> StartGameFunc, std::function<void()> PauseGameFunc, std::function<void()> StopGameFunc);
+	SceneHierarchyWidget* GetHierarchy() const { return SceneHierarchy.get(); }
+	// Opens (and focuses) a registered widget by name.
+	void ShowWidget(const std::string& name);
+	// True while the hierarchy or the world view has keyboard focus (scene-editing shortcuts).
+	bool IsSceneContextFocused() const;
 
 	const Vector2& GetGameOutputSize() const;
 	Vector2 GetWorldEditorRenderSize() const;
@@ -71,6 +76,7 @@ private:
 	SharedPtr<PropertiesWidget> PropertiesView;
 	SharedPtr<AssetPreviewWidget> AssetPreview;
 	SharedPtr<AssetBrowserWidget> AssetBrowser;
+	SharedPtr<HistoryWidget> History;
 
     std::vector<SharedPtr<HavanaWidget>> RegisteredWidgets;
     std::vector<SharedPtr<HavanaWidget>> CustomRegisteredWidgets;

@@ -1,53 +1,70 @@
 #include "PropertiesWidget.h"
 #include <optick.h>
 #include <ECS/Component.h>
-#include <Events/HavanaEvents.h>
+#include <ECS/Core.h>
+#include <ECS/Entity.h>
 #include <Engine/Engine.h>
 #include <Engine/World.h>
 #include <Utils/CommonUtils.h>
-#include <Events/SceneEvents.h>
 #include "Editor/EditorComponentInfoCache.h"
+#include "Editor/EditorOperations.h"
+#include "Editor/Selection.h"
+#include "World/SceneSerializer.h"
 #include <Utils/HavanaUtils.h>
+#include "UI/Colors.h"
+#include <imgui.h>
+#include <algorithm>
+#include <cstdio>
+#include <cstring>
 
 #if USING( ME_EDITOR )
+
+namespace
+{
+	constexpr const char* kComponentClipboardPrefix = "MitchEngine.Component:";
+
+	std::string EditKey(const Entity& entity, const BaseComponent& comp)
+	{
+		return std::to_string(entity.GetGUID()) + ":" + comp.GetName();
+	}
+}
+
 
 PropertiesWidget::PropertiesWidget()
 	: HavanaWidget("Properties")
 {
-	EventManager::GetInstance().RegisterReceiver(this, { InspectEvent::GetEventId(), ClearInspectEvent::GetEventId() });
 }
+
 
 void PropertiesWidget::Init()
 {
 }
 
+
 void PropertiesWidget::Destroy()
 {
+	m_snapshots.clear();
+	m_pendingEdits.clear();
 }
 
-bool PropertiesWidget::OnEvent(const BaseEvent& evt)
-{
-	if (evt.GetEventId() == ClearInspectEvent::GetEventId() || evt.GetEventId() == NewSceneEvent::GetEventId())
-	{
-		ClearSelection();
-	}
-	else if (evt.GetEventId() == InspectEvent::GetEventId())
-	{
-		const InspectEvent& event = static_cast<const InspectEvent&>(evt);
-
-		ClearSelection();
-
-		SelectedCore = event.SelectedCore;
-		SelectedEntity = event.SelectedEntity;
-		SelectedTransform = event.SelectedTransform;
-		m_isDirty = true;
-	}
-	return false;
-}
 
 void PropertiesWidget::Update()
 {
 }
+
+
+void PropertiesWidget::SortComponents(std::vector<BaseComponent*>& components) const
+{
+	const EditorComponentCache::ComponentInfoMap& componentData = EditorComponentCache::GetAllComponentsInfo();
+	auto order = [&componentData](const BaseComponent* comp) {
+		auto it = componentData.find(comp->GetTypeId());
+		return it != componentData.end() ? it->second.Order : EditorComponentCache::kDefaultSortingOrder;
+	};
+	std::stable_sort(components.begin(), components.end(), [&order](const BaseComponent* a, const BaseComponent* b) {
+		return order(a) > order(b);
+	});
+}
+
 
 void PropertiesWidget::Render()
 {
@@ -59,127 +76,262 @@ void PropertiesWidget::Render()
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 0.f, 0.f });
 	bool windowOpen = ImGui::Begin("Properties", &IsOpen);
 	ImGui::PopStyleVar();
-	if (windowOpen)
+	if (!windowOpen)
 	{
-		EntityHandle entity = SelectedEntity;
-		if (SelectedTransform.lock())
+		ImGui::End();
+		return;
+	}
+
+	Selection& selection = Selection::Get();
+	if (m_selectionVersion != selection.GetVersion())
+	{
+		// New selection: forget snapshots of what was inspected before.
+		m_selectionVersion = selection.GetVersion();
+		m_snapshots.clear();
+		m_pendingEdits.clear();
+	}
+
+	EntityHandle entity = selection.GetActive();
+	if (entity)
+	{
+		OPTICK_CATEGORY("Inspect Entity", Optick::Category::Debug);
+		DrawEntityHeader(*entity.Get());
+
+		std::vector<BaseComponent*> components = entity->GetAllComponents();
+		SortComponents(components);
+		for (BaseComponent* comp : components)
 		{
-			entity = SelectedTransform.lock()->Parent;
-		}
-
-		if (entity)
-		{
-			OPTICK_CATEGORY("Inspect Entity", Optick::Category::Debug);
-            if( ImGui::CollapsingHeader( "Entity Properties", nullptr, ImGuiTreeNodeFlags_None) )
-            {
-                ImGui::PushStyleVar( ImGuiStyleVar_ItemSpacing, { 0.f, ImGui::GetStyle().ItemSpacing.y } );
-                ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, { 20.f, 0.f } );
-                ImGui::BeginGroup();
-
-				HavanaUtils::Label( "Active" );
-				bool isActive = GetEngine().GetWorld().lock()->IsActive( *entity.Get() );
-				if( ImGui::Checkbox( "##Active", &isActive ) )
-				{
-					entity->SetActive( isActive );
-                }
-
-                entity->OnEditorInspect();
-
-                ImGui::EndGroup();
-                ImGui::PopStyleVar( 2 );
-                ImGui::Text( "\n" );
-            }
-
-			const auto componentList = entity->GetAllComponents();
-            // Cache the component pointers if we've modified our components or we've changed the focused GameObject.
-            if( m_isDirty || entity->GetAllComponents().size() != m_components.size() )
-            {
-                m_components.reserve( componentList.size() );
-                m_components.assign( componentList.begin(), componentList.end() );
-
-                if( m_components.size() > 1 )
-                {
-                    const EditorComponentCache::ComponentInfoMap& componentData = EditorComponentCache::GetAllComponentsInfo();
-
-                    std::sort( m_components.begin(), m_components.end(), [&componentData]( const BaseComponent* a, const BaseComponent* b ) {
-                        int32_t first = EditorComponentCache::kDefaultSortingOrder;
-                        int32_t second = EditorComponentCache::kDefaultSortingOrder;
-                        bool foundFirst = componentData.find( a->GetTypeId() ) != componentData.end();
-                        if( foundFirst )
-                        {
-                            first = componentData.at( a->GetTypeId() ).Order;
-                        }
-
-                        bool foundSecond = componentData.find( b->GetTypeId() ) != componentData.end();
-                        if( foundSecond )
-                        {
-                            second = componentData.at( b->GetTypeId() ).Order;
-                        }
-
-                        return first > second;
-                        } );
-                }
-
-                m_isDirty = false;
-            }
-
-			for (BaseComponent* comp : m_components )
+			// Removing a component from a context menu defers it; skip what's already gone.
+			if (entity->GetComponentByName(comp->GetName()) == comp)
 			{
-				DrawComponentProperties(comp, entity);
+				DrawComponent(comp, *entity.Get());
 			}
-			AddComponentPopup(SelectedEntity);
 		}
-
-		if (SelectedCore != nullptr)
-		{
-			OPTICK_CATEGORY("Core::OnEditorInspect", Optick::Category::GameLogic);
-			SelectedCore->OnEditorInspect();
-		}
+		AddComponentPopup(*entity.Get());
+	}
+	else if (BaseCore* core = selection.GetCore())
+	{
+		OPTICK_CATEGORY("Core::OnEditorInspect", Optick::Category::GameLogic);
+		ImGui::Dummy(ImVec2(0.f, 4.f));
+		ImGui::Indent(8.f);
+		ImGui::TextUnformatted(core->GetName().c_str());
+		ImGui::Unindent(8.f);
+		ImGui::Separator();
+		core->OnEditorInspect();
+	}
+	else
+	{
+		ImGui::Dummy(ImVec2(0.f, 8.f));
+		ImGui::Indent(8.f);
+		ImGui::TextDisabled("Nothing selected");
+		ImGui::Unindent(8.f);
 	}
 	ImGui::End();
 }
 
-void PropertiesWidget::DrawComponentProperties(BaseComponent* comp, EntityHandle entity)
+
+void PropertiesWidget::DrawEntityHeader(Entity& entity)
 {
-	bool shouldClose = true;
-	if (ImGui::CollapsingHeader(comp->GetName().c_str(), &shouldClose, ImGuiTreeNodeFlags_DefaultOpen))
+	ImGui::Dummy(ImVec2(0.f, 4.f));
+	ImGui::Indent(8.f);
+
+	const size_t selectedCount = Selection::Get().Count();
+	if (selectedCount > 1)
+	{
+		ImGui::TextColored(ImVec4(ACCENT_YELLOW), "%zu entities selected (showing the active one)", selectedCount);
+	}
+
+	bool active = entity.IsActiveSelf();
+	if (ImGui::Checkbox("##EntityActive", &active))
+	{
+		EditorOps::SetActive(entity, active);
+	}
+	ImGui::SameLine();
+
+	if (!m_nameEditing || m_nameEntityGUID != entity.GetGUID())
+	{
+		std::snprintf(m_nameBuffer, sizeof(m_nameBuffer), "%s", entity.GetName().c_str());
+		m_nameEntityGUID = entity.GetGUID();
+	}
+	ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 90.f);
+	ImGui::InputText("##EntityName", m_nameBuffer, sizeof(m_nameBuffer));
+	m_nameEditing = ImGui::IsItemActive();
+	if (ImGui::IsItemDeactivatedAfterEdit())
+	{
+		EditorOps::Rename(entity, m_nameBuffer);
+	}
+
+	ImGui::SameLine();
+	ImGui::SetNextItemWidth(80.f);
+	int layer = entity.GetLayer();
+	if (ImGui::BeginCombo("##Layer", ("Layer " + std::to_string(layer)).c_str()))
+	{
+		for (int i = 0; i < 32; ++i)
+		{
+			if (ImGui::Selectable(("Layer " + std::to_string(i)).c_str(), i == layer))
+			{
+				EditorOps::SetLayer(entity, static_cast<uint8_t>(i));
+			}
+		}
+		ImGui::EndCombo();
+	}
+
+	const std::string guid = SceneSerializer::GUIDToString(entity.GetGUID());
+	ImGui::TextDisabled("GUID %s", guid.c_str());
+	if (ImGui::IsItemHovered())
+	{
+		ImGui::SetTooltip("Click to copy");
+	}
+	if (ImGui::IsItemClicked())
+	{
+		ImGui::SetClipboardText(guid.c_str());
+	}
+
+	const World::EntityRecord* record = entity.GetWorld()->GetRecord(entity.GetId());
+	if (record && !record->PrefabAsset.empty())
+	{
+		ImGui::TextColored(ImVec4(ACCENT_BLUE), "Prefab: %s", record->PrefabAsset.c_str());
+	}
+
+	ImGui::Unindent(8.f);
+	ImGui::Separator();
+}
+
+
+void PropertiesWidget::DrawComponent(BaseComponent* comp, Entity& entity)
+{
+	const std::string key = EditKey(entity, *comp);
+	const bool pending = m_pendingEdits[key];
+	json& snapshot = m_snapshots[key];
+	if (!pending || snapshot.is_null())
+	{
+		snapshot = json();
+		comp->Serialize(snapshot);
+	}
+
+	ImGui::PushID(comp);
+
+	bool keep = true;
+	const bool isTransform = comp->GetName() == "Transform";
+	const bool open = ImGui::CollapsingHeader("##header", isTransform ? nullptr : &keep, ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_AllowOverlap);
+	DrawComponentContextMenu(comp, entity);
+
+	// Enabled toggle + name drawn over the header.
+	ImGui::SameLine(ImGui::GetTreeNodeToLabelSpacing());
+	bool enabled = comp->IsEnabled();
+	ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(1.f, 1.f));
+	if (!isTransform && ImGui::Checkbox("##enabled", &enabled))
+	{
+		json before = snapshot;
+		comp->SetEnabled(enabled);
+		GetEngine().GetWorld().lock()->Simulate();
+		json after;
+		comp->Serialize(after);
+		EditorOps::RecordComponentEdit(entity, comp->GetName(), before, after, enabled ? "Enable " + comp->GetName() : "Disable " + comp->GetName());
+		snapshot = after;
+	}
+	ImGui::PopStyleVar();
+	ImGui::SameLine();
+	ImGui::TextUnformatted(comp->GetName().c_str());
+
+	if (open)
 	{
 		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0.f, ImGui::GetStyle().ItemSpacing.y });
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 20.f, 0.f });
 		ImGui::BeginGroup();
-
+		ImGui::BeginDisabled(!comp->IsEnabled());
 		comp->OnEditorInspect();
+		ImGui::EndDisabled();
 		ImGui::EndGroup();
 		ImGui::PopStyleVar(2);
-		ImGui::Text("\n");
+
+		const bool active = ImGui::IsItemActive();
+		const bool edited = ImGui::IsItemEdited();
+		const bool deactivated = ImGui::IsItemDeactivated();
+		const bool clickedInside = ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem) && ImGui::IsMouseReleased(ImGuiMouseButton_Left);
+		if (edited)
+		{
+			m_pendingEdits[key] = true;
+		}
+
+		// Commit once the interaction ends. Buttons and popups don't report edits, so a click
+		// inside the component also compares state.
+		if (!active && (m_pendingEdits[key] || deactivated || clickedInside))
+		{
+			json after;
+			comp->Serialize(after);
+			if (after != snapshot)
+			{
+				EditorOps::RecordComponentEdit(entity, comp->GetName(), snapshot, after, "Edit " + comp->GetName());
+				snapshot = after;
+			}
+			m_pendingEdits[key] = false;
+		}
+		ImGui::Dummy(ImVec2(0.f, 6.f));
 	}
-	if (!shouldClose)
+	ImGui::PopID();
+
+	if (!keep)
 	{
-		entity->RemoveComponent(comp->GetName());
-		GetEngine().GetWorld().lock()->Simulate();
+		EditorOps::RemoveComponent(entity, comp->GetName());
 	}
 }
 
-void PropertiesWidget::ClearSelection()
+
+void PropertiesWidget::DrawComponentContextMenu(BaseComponent* comp, Entity& entity)
 {
-	SelectedTransform.reset();
-	SelectedEntity = EntityHandle();
-	SelectedCore = nullptr;
+	if (!ImGui::BeginPopupContextItem("ComponentContext"))
+	{
+		return;
+	}
+	const bool isTransform = comp->GetName() == "Transform";
+	if (ImGui::MenuItem("Copy Values"))
+	{
+		json values;
+		comp->Serialize(values);
+		const std::string text = std::string(kComponentClipboardPrefix) + values.dump();
+		ImGui::SetClipboardText(text.c_str());
+	}
+
+	const char* clipboard = ImGui::GetClipboardText();
+	json pasted;
+	if (clipboard && std::strncmp(clipboard, kComponentClipboardPrefix, std::strlen(kComponentClipboardPrefix)) == 0)
+	{
+		pasted = json::parse(clipboard + std::strlen(kComponentClipboardPrefix), nullptr, false);
+	}
+	const bool canPaste = !pasted.is_discarded() && pasted.is_object() && pasted.value("Type", std::string()) == comp->GetName();
+	if (ImGui::MenuItem("Paste Values", nullptr, false, canPaste))
+	{
+		json before;
+		comp->Serialize(before);
+		EditorOps::ApplyComponent(entity.GetGUID(), comp->GetName(), pasted);
+		json after;
+		comp->Serialize(after);
+		EditorOps::RecordComponentEdit(entity, comp->GetName(), before, after, "Paste " + comp->GetName() + " Values");
+	}
+
+	ImGui::Separator();
+	if (ImGui::MenuItem("Remove Component", nullptr, false, !isTransform))
+	{
+		EditorOps::RemoveComponent(entity, comp->GetName());
+	}
+	ImGui::EndPopup();
 }
 
-void PropertiesWidget::AddComponentPopup(EntityHandle inSelectedEntity)
+
+void PropertiesWidget::AddComponentPopup(Entity& entity)
 {
-	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, {20.f, 10.f});
-	if (ImGui::Button("Add Component..", {-1.f, 26.f}))
+	ImGui::Dummy(ImVec2(0.f, 4.f));
+	ImGui::Indent(20.f);
+	if (ImGui::Button("Add Component", { ImGui::GetContentRegionAvail().x - 20.f, 26.f }))
 	{
-		ImGui::OpenPopup("my_select_popup");
+		ImGui::OpenPopup("AddComponentPopup");
 	}
-	ImGui::PopStyleVar();
+	ImGui::Unindent(20.f);
 
-	if (ImGui::BeginPopup("my_select_popup"))
+	if (ImGui::BeginPopup("AddComponentPopup"))
 	{
-		CommonUtils::DrawAddComponentList(inSelectedEntity);
-
+		CommonUtils::DrawAddComponentList(entity.GetHandle(), m_addComponentFilter, sizeof(m_addComponentFilter));
 		ImGui::EndPopup();
 	}
 }

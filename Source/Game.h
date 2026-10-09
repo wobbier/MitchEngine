@@ -16,6 +16,9 @@ public:
     // Called at the fixed simulation rate (see Engine::SetFixedTimeStep), possibly several times a frame.
     virtual void OnFixedUpdate( const UpdateContext& inUpdateContext ) {}
     virtual void OnEnd() = 0;
+    // The window was asked to close. Return false to keep running (the game is then responsible
+    // for quitting later through Engine::Quit, which asks again).
+    virtual bool OnQuitRequested() { return true; }
     virtual void PreRender() = 0;
     virtual void PostRender() = 0;
     ME_HARDSTUCK( Game )

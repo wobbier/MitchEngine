@@ -438,6 +438,8 @@ public:
     void Pause();
     void Resume();
     void Stop();
+    // False while paused/stopped (e.g. the editor owns the keyboard instead of the game).
+    bool IsCapturing() const { return CaptureInput; }
 
     // Mouse
     Vector2 GetMousePosition() const;

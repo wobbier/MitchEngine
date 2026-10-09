@@ -15,6 +15,8 @@
 #include <World/Scene.h>
 #include <Utils/EditorConfig.h>
 #include "Events/EditorEvents.h"
+#include "Editor/Selection.h"
+#include "Editor/UndoStack.h"
 
 #if USING( ME_EDITOR )
 
@@ -30,7 +32,6 @@ EditorCore::EditorCore( Havana* editor )
     std::vector<TypeId> events;
     events.push_back( SaveSceneEvent::GetEventId() );
     events.push_back( NewSceneEvent::GetEventId() );
-    events.push_back( InspectEvent::GetEventId() );
     //events.push_back(Moonlight::PickingEvent::GetEventId());
     EventManager::GetInstance().RegisterReceiver( this, events );
 }
@@ -55,7 +56,8 @@ void EditorCore::Update( const UpdateContext& inUpdateContext )
 
     if ( m_editor->IsWorldViewFocused() || FirstUpdate )
     {
-        if ( input.IsKeyDown( KeyCode::F ) && FocusedTransform.lock() )
+        Transform* focused = Selection::Get().GetActiveTransform();
+        if ( input.WasKeyPressed( KeyCode::F ) && focused )
         {
             IsFocusingTransform = true;
 
@@ -64,7 +66,7 @@ void EditorCore::Update( const UpdateContext& inUpdateContext )
 
             // Calculate the journey length.
             FocusPositionStart = EditorCameraTransform->GetWorldPosition();
-            FocusPositionEnd = FocusedTransform.lock()->GetWorldPosition();
+            FocusPositionEnd = focused->GetWorldPosition();
 
             totalTime = 0.f;
         }
@@ -179,6 +181,7 @@ bool EditorCore::OnEvent( const BaseEvent& evt )
         {
             RequestAssetSelectionEvent evt( [this]( const Path& inPath ) {
                 GetEngine().CurrentScene->Save( inPath.GetLocalPath().data(), RootTransform );
+                UndoStack::Get().MarkSaved();
                 GetEngine().GetConfig().SetValue( std::string( "CurrentScene" ), inPath.GetLocalPath().data() );
                 GetEngine().GetConfig().Save();
                 }, AssetType::Level, true );
@@ -187,16 +190,11 @@ bool EditorCore::OnEvent( const BaseEvent& evt )
         else
         {
             GetEngine().CurrentScene->Save( GetEngine().CurrentScene->FilePath.GetLocalPath().data(), RootTransform );
+            UndoStack::Get().MarkSaved();
             GetEngine().GetConfig().SetValue( std::string( "CurrentScene" ), GetEngine().CurrentScene->FilePath.GetLocalPath().data() );
             GetEngine().GetConfig().Save();
         }
         return true;
-    }
-    if( evt.GetEventId() == InspectEvent::GetEventId() )
-    {
-        const InspectEvent& event = static_cast<const InspectEvent&>( evt );
-
-        FocusedTransform = event.SelectedTransform;
     }
     /*else if (evt.GetEventId() == Moonlight::PickingEvent::GetEventId())
     {

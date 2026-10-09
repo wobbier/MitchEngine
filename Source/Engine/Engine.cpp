@@ -300,8 +300,12 @@ void Engine::Run()
 
         if( GameWindow->ShouldClose() )
         {
-            StopGame();
-            break;
+            if( m_forceQuit || m_game->OnQuitRequested() )
+            {
+                StopGame();
+                break;
+            }
+            GameWindow->CancelClose();
         }
 
         {
@@ -686,8 +690,9 @@ bool Engine::IsRunning() const
     return true;
 }
 
-void Engine::Quit()
+void Engine::Quit( bool InForce )
 {
+    m_forceQuit = m_forceQuit || InForce;
     GameWindow->Exit();
 }
 
@@ -719,6 +724,18 @@ Jobs::JobSystem& Engine::GetJobSystem()
 
 void Engine::LoadScene( const std::string& SceneFile )
 {
+    LoadSceneInternal( SceneFile, nullptr );
+}
+
+
+void Engine::LoadSceneFromData( const json& InData, const std::string& InFilePath )
+{
+    LoadSceneInternal( InFilePath, &InData );
+}
+
+
+void Engine::LoadSceneInternal( const std::string& SceneFile, const json* InData )
+{
     OPTICK_EVENT( "Engine::LoadScene" );
     Cameras->Init();
     if( CurrentScene )
@@ -735,10 +752,14 @@ void Engine::LoadScene( const std::string& SceneFile )
     }
     SceneNodes->Init();
     CurrentScene = new Scene( SceneFile );
+    if( InData )
+    {
+        CurrentScene->PreloadedData = *InData;
+    }
 
     {
         OPTICK_EVENT( "Engine::LoadScene::ParseJSON" );
-        if( !CurrentScene->Load( GameWorld ) && !CurrentScene->IsNewScene() )
+        if( !CurrentScene->Load( GameWorld ) && !CurrentScene->IsNewScene() && !InData )
         {
             ME_ASSERT_MSG( false, "Failed to load scene." );
         }

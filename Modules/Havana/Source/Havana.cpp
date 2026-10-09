@@ -39,6 +39,11 @@
 #include "HavanaWidget.h"
 #include "Editor/WidgetRegistry.h"
 #include "Window/IWindow.h"
+#include "Widgets/HistoryWidget.h"
+#include "Editor/EditorActions.h"
+#include "Editor/DefaultEditorActions.h"
+#include <imgui_internal.h>
+#include <cstring>
 
 static SDL_Cursor* g_imgui_to_sdl_cursor[ImGuiMouseCursor_COUNT];
 
@@ -104,6 +109,19 @@ Havana::Havana( Engine* GameEngine, EditorApp* app )
 
     AssetPreview.reset( new AssetPreviewWidget() );
     RegisteredWidgets.push_back( AssetPreview );
+
+    History.reset( new HistoryWidget() );
+    RegisteredWidgets.push_back( History );
+
+    EditorActions& actions = EditorActions::Get();
+    actions.IsContextActive = [this]( ActionContext context ) {
+        return context != ActionContext::Scene || IsSceneContextFocused();
+    };
+    actions.IsGameFocused = [this]() {
+        return m_app->IsGameRunning() && GetEngine().GetInput().IsCapturing();
+    };
+    RegisterDefaultEditorActions( *app );
+    actions.Register( { "View.AssetSearch", "Quick Asset Search", "View", ImGuiMod_Shortcut | ImGuiKey_Space, 0, [this]() { AssetBrowser->RequestOverlay( nullptr ); } } );
 
     InitUI();
 }
@@ -267,7 +285,7 @@ void Havana::NewFrame()
 
     ImGuizmo::BeginFrame();
 
-    ImGuiIO& io = ImGui::GetIO();
+    EditorActions::Get().ProcessShortcuts();
 
     {
         OPTICK_EVENT( "MainMenu", Optick::Category::UI );
@@ -317,11 +335,34 @@ void Havana::NewFrame()
     LogPanel->Render();
     AssetBrowser->Render();
     ResourceMonitor->Render();
+    History->Render();
+    EditorActions::Get().DrawPalette();
 }
 
-void Havana::SetGameCallbacks( std::function<void()> StartGameFunc, std::function<void()> PauseGameFunc, std::function<void()> StopGameFunc )
+void Havana::ShowWidget( const std::string& name )
 {
-    MainMenu->SetCallbacks( StartGameFunc, PauseGameFunc, StopGameFunc );
+    for( auto& widget : RegisteredWidgets )
+    {
+        if( widget->Name == name )
+        {
+            widget->IsOpen = true;
+            ImGui::SetWindowFocus( name.c_str() );
+        }
+    }
+}
+
+
+bool Havana::IsSceneContextFocused() const
+{
+    ImGuiContext* context = ImGui::GetCurrentContext();
+    ImGuiWindow* focused = context ? context->NavWindow : nullptr;
+    if( !focused )
+    {
+        // Nothing focused (e.g. right after a click on empty dock space): treat as the scene.
+        return true;
+    }
+    const char* name = focused->RootWindow ? focused->RootWindow->Name : focused->Name;
+    return std::strcmp( name, "Hierarchy" ) == 0 || std::strcmp( name, "World View" ) == 0;
 }
 
 void Havana::UpdateWorld( Transform* root, std::vector<Entity>& ents )
@@ -396,13 +437,6 @@ void Havana::Render( Moonlight::CameraData& EditorCamera )
         }
     }
 
-    // Asset Browser
-    {
-        if( GetInput().WasKeyPressed( KeyCode::F2 ) )
-        {
-            AssetBrowser->RequestOverlay( nullptr );
-        }
-    }
 
 #if USING( ME_BASIC_PROFILER )
     // Frame Profiler

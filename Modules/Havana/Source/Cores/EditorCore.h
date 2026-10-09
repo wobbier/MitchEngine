@@ -51,7 +51,6 @@ private:
 	float m_focusDuration = 0.1f;
 
 	SharedPtr<Transform> EditorCameraTransform = nullptr;
-	TransformHandle FocusedTransform;
 	Camera* EditorCamera = nullptr;
 	Havana* m_editor = nullptr;
 

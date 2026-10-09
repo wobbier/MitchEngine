@@ -5,6 +5,7 @@
 #include <ImGuizmo.h>
 #include <Pointers.h>
 #include "Dementia.h"
+#include "JSON.h"
 
 #if USING( ME_EDITOR )
 
@@ -52,8 +53,6 @@ public:
 	Vector2 SceneViewRenderSize;
 	Vector2 SceneViewRenderLocation;
 
-	TransformHandle SelectedTransform;
-
 	DisplayParams CurrentDisplayParams;
 private:
 	void DrawGuizmo();
@@ -62,6 +61,10 @@ private:
 	ImGuizmo::MODE CurrentGizmoMode = ImGuizmo::LOCAL;
 
 	Vector2 GizmoRenderLocation;
+
+	bool m_gizmoDragging = false;
+	uint64_t m_gizmoEntityGUID = 0;
+	json m_gizmoBefore;
 
 	std::vector<DisplayParams> DisplayOptions;
 };

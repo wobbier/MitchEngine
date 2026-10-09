@@ -6,7 +6,9 @@
 #include <Utils/ImGuiUtils.h>
 #include <Events/SceneEvents.h>
 #include <Engine/Engine.h>
-#include <Commands/EditorCommands.h>
+#include "Editor/EditorActions.h"
+#include "Editor/UndoStack.h"
+#include <Utils/EditorConfig.h>
 #include <EditorApp.h>
 #include <Havana.h>
 #include <Utils/StringUtils.h>
@@ -87,28 +89,7 @@ void MainMenuWidget::Update()
 void MainMenuWidget::Render()
 {
     OPTICK_EVENT( "MainMenuWidget::Render", Optick::Category::UI );
-    bool RequestLoadScene = false;
-    bool RequestSaveScene = false;
-    bool RequestSaveAsScene = false;
-
-    auto& input = Editor->GetInput();
-    if( ( input.IsKeyDown( KeyCode::LeftControl ) || input.IsKeyDown( KeyCode::RightControl ) )
-        && input.WasKeyPressed( KeyCode::O ) )
-    {
-        RequestLoadScene = true;
-    }
-
-    // Saving hotkeys
-    if( ( input.IsKeyDown( KeyCode::LeftControl ) && input.IsKeyDown( KeyCode::LeftShift ) )
-        && input.WasKeyPressed( KeyCode::S ) )
-    {
-        RequestSaveAsScene = true;
-    }
-    else if( input.IsKeyDown( KeyCode::LeftControl )
-        && input.WasKeyPressed( KeyCode::S ) )
-    {
-        RequestSaveScene = true;
-    }
+    EditorActions& actions = EditorActions::Get();
 
     ImGui::PushStyleVar( ImGuiStyleVar_FramePadding, ImVec2( 0.0f, 12.f ) );
     ImGui::PushStyleColor( ImGuiCol_MenuBarBg, COLOR_BACKGROUND_BORDER );
@@ -118,87 +99,60 @@ void MainMenuWidget::Render()
         ImGui::PopStyleVar( 1 );
 
         Input& editorInput = GetEngine().GetEditorInput();
-        Input& gameInput = GetEngine().GetInput();
 
         MainMenuSize = ImGui::GetWindowSize();
-        //MainMenuSize.y = 25.f;
-        //ImGui::SetWindowSize(MainMenuSize);
         ImGui::Image( Icons["Logo"]->TexHandle, ImVec2( 35, 35 ) );
         if( ImGui::BeginMenu( "File" ) )
         {
-            if( ImGui::MenuItem( "New Scene" ) )
+            actions.MenuItem( "File.NewScene" );
+            actions.MenuItem( "File.OpenScene" );
+            if( ImGui::BeginMenu( "Open Recent", !EditorConfig::GetInstance().RecentScenes.empty() ) )
             {
-
-#if USING( ME_PLATFORM_WIN64 )
-                NewSceneEvent evt;
-                evt.Queue();
-#endif
-            }
-            if( ImGui::MenuItem( "Open Scene", "Ctrl+O" ) )
-            {
-                RequestLoadScene = true;
-            }
-
-            if( ImGui::MenuItem( "Save", "Ctrl+S" ) )
-            {
-                if( GetEngine().CurrentScene )
+                for( const std::string& recent : EditorConfig::GetInstance().RecentScenes )
                 {
-                    SaveSceneEvent evt;
-                    evt.Fire();
+                    if( ImGui::MenuItem( recent.c_str() ) )
+                    {
+                        App->RequestOpenScene( recent );
+                    }
                 }
-
-            }
-            if( ImGui::MenuItem( "Save As..", "Ctrl+Shift+S" ) )
-            {
-                SaveSceneEvent evt;
-                evt.SaveAs = true;
-                evt.Fire();
+                ImGui::EndMenu();
             }
             ImGui::Separator();
-
-            if( ImGui::MenuItem( "Quit", "Alt+F4" ) )
-            {
-                GetEngine().Quit();
-            }
+            actions.MenuItem( "File.Save" );
+            actions.MenuItem( "File.SaveAs" );
+            ImGui::Separator();
+            actions.MenuItem( "File.Quit" );
             ImGui::EndMenu();
         }
-        //if (ImGui::BeginMenu("Edit"))
-        //{
-        //	const bool canUndo = EditorCommands.CanUndo();
 
-        //	if (ImGui::MenuItem("Undo", "CTRL+Z", false, canUndo))
-        //	{
-        //		EditorCommands.Undo();
-        //	}
+        if( ImGui::BeginMenu( "Edit" ) )
+        {
+            UndoStack& undo = UndoStack::Get();
+            const std::string undoLabel = undo.CanUndo() ? "Undo " + undo.GetUndoName() : std::string( "Undo" );
+            const std::string redoLabel = undo.CanRedo() ? "Redo " + undo.GetRedoName() : std::string( "Redo" );
+            actions.MenuItem( "Edit.Undo", undoLabel.c_str() );
+            actions.MenuItem( "Edit.Redo", redoLabel.c_str() );
+            ImGui::Separator();
+            actions.MenuItem( "Edit.Cut" );
+            actions.MenuItem( "Edit.Copy" );
+            actions.MenuItem( "Edit.Paste" );
+            actions.MenuItem( "Edit.Duplicate" );
+            actions.MenuItem( "Edit.Delete" );
+            actions.MenuItem( "Edit.Rename" );
+            ImGui::Separator();
+            actions.MenuItem( "Edit.SelectAll" );
+            actions.MenuItem( "Edit.Deselect" );
+            ImGui::Separator();
+            actions.MenuItem( "View.CommandPalette" );
+            ImGui::EndMenu();
+        }
 
-        //	const bool canRedo = EditorCommands.CanRedo();
-        //	if (ImGui::MenuItem("Redo", "CTRL+Y", false, canRedo))
-        //	{
-        //		EditorCommands.Redo();
-        //	}
-
-        //	/*ImGui::Separator();
-        //	if (ImGui::MenuItem("Cut", "CTRL+X")) {}
-        //	if (ImGui::MenuItem("Copy", "CTRL+C")) {}
-        //	if (ImGui::MenuItem("Paste", "CTRL+V")) {}*/
-        //	ImGui::EndMenu();
-        //}
-        //if (ImGui::BeginMenu("Add"))
-        //{
-        //	if (ImGui::MenuItem("Entity"))
-        //	{
-        //		// The fuck is this garbage
-        //		CreateEntity* cmd = new CreateEntity();
-        //		EditorCommands.Push(cmd);
-
-        //		AddComponentCommand* compCmd = new AddComponentCommand("Transform", cmd->Ent);
-        //		EditorCommands.Push(compCmd);
-
-        //		Transform* transform = static_cast<Transform*>(compCmd->GetComponent());
-        //		transform->SetName("New Entity");
-        //	}
-        //	ImGui::EndMenu();
-        //}
+        if( ImGui::BeginMenu( "Entity" ) )
+        {
+            actions.MenuItem( "Entity.CreateEmpty" );
+            actions.MenuItem( "Entity.CreateEmptyChild" );
+            ImGui::EndMenu();
+        }
 
         if( ImGui::BeginMenu( "View" ) )
         {
@@ -206,23 +160,20 @@ void MainMenuWidget::Render()
             {
                 if( CustomWidgetList )
                 {
-                    std::vector<SharedPtr<HavanaWidget>>& list = *CustomWidgetList;
-                    for( auto& i : list )
+                    for( auto& i : *CustomWidgetList )
                     {
-                        if( i.get() != this && ImGui::MenuItem( i->Name.c_str(), i->Hotkey.c_str(), &i->IsOpen ) )
-                        {
-                        }
+                        ImGui::MenuItem( i->Name.c_str(), i->Hotkey.c_str(), &i->IsOpen );
                     }
                 }
                 ImGui::EndMenu();
             }
             if( WidgetList )
             {
-                std::vector<SharedPtr<HavanaWidget>>& list = *WidgetList;
-                for( auto& i : list )
+                for( auto& i : *WidgetList )
                 {
-                    if( i.get() != this && ImGui::MenuItem( i->Name.c_str(), i->Hotkey.c_str(), &i->IsOpen ) )
+                    if( i.get() != this )
                     {
+                        ImGui::MenuItem( i->Name.c_str(), i->Hotkey.c_str(), &i->IsOpen );
                     }
                 }
             }
@@ -243,33 +194,49 @@ void MainMenuWidget::Render()
             ImGui::EndMenu();
         }
 
+        // Play controls.
         if( !App->IsGameRunning() )
         {
-            if( ImGui::ImageButton( Icons["Play"]->TexHandle, ImVec2( 30.f, 30.f ) ) || editorInput.IsKeyDown( KeyCode::F5 ) )
+            if( ImGui::ImageButton( Icons["Play"]->TexHandle, ImVec2( 30.f, 30.f ) ) )
             {
-                ImGui::SetWindowFocus( "Game" );
-                StartGameFunc();
-                gameInput.Resume();
-                Editor->GetInput().Stop();
+                actions.Execute( "Play.Toggle" );
             }
+            ImGui::SetItemTooltip( "Play (%s)", EditorActions::ShortcutToString( actions.Find( "Play.Toggle" )->Shortcut ).c_str() );
         }
-
-        if( App->IsGameRunning() )
+        else
         {
-            if( ImGui::ImageButton( Icons["Pause"]->TexHandle, ImVec2( 30.f, 30.f ) ) || editorInput.IsKeyDown( KeyCode::F10 ) )
+            ImGui::PushStyleColor( ImGuiCol_Button, App->IsGamePaused() ? ImVec4( COLOR_PRIMARY ) : ImGui::GetStyleColorVec4( ImGuiCol_Button ) );
+            if( ImGui::ImageButton( Icons["Pause"]->TexHandle, ImVec2( 30.f, 30.f ) ) )
             {
-                gameInput.Pause();
-                PauseGameFunc();
+                actions.Execute( "Play.Pause" );
+            }
+            ImGui::PopStyleColor();
+            ImGui::SetItemTooltip( App->IsGamePaused() ? "Resume" : "Pause" );
+
+            if( ImGui::ImageButton( Icons["Stop"]->TexHandle, ImVec2( 30.f, 30.f ) ) )
+            {
+                actions.Execute( "Play.Toggle" );
+            }
+            ImGui::SetItemTooltip( "Stop" );
+
+            if( App->IsGamePaused() )
+            {
+                if( ImGui::Button( "Step", ImVec2( 0.f, 30.f ) ) )
+                {
+                    actions.Execute( "Play.Step" );
+                }
             }
 
-            if( ImGui::ImageButton( Icons["Stop"]->TexHandle, ImVec2( 30.f, 30.f ) ) || ( editorInput.IsKeyDown( KeyCode::F5 ) && editorInput.IsKeyDown( KeyCode::LeftShift ) ) )
+            float timeScale = GetEngine().GetTimeScale();
+            ImGui::SetNextItemWidth( 70.f );
+            if( ImGui::SliderFloat( "##TimeScale", &timeScale, 0.f, 4.f, "x%.2f" ) )
             {
-                MaximizeOnPlay = false;
-                ClearInspectEvent evt;
-                evt.Fire();
-                StopGameFunc();
-                gameInput.Stop();
-                Editor->GetInput().Resume();
+                GetEngine().SetTimeScale( timeScale );
+            }
+            ImGui::SetItemTooltip( "Time scale (right-click resets)" );
+            if( ImGui::IsItemClicked( ImGuiMouseButton_Right ) )
+            {
+                GetEngine().SetTimeScale( 1.f );
             }
         }
 
@@ -332,7 +299,8 @@ void MainMenuWidget::Render()
         }
 
         ImGui::SetCursorPosX( ( ImGui::GetWindowWidth() / 2.f ) - ( ImGui::CalcTextSize( WindowTitle.c_str() ).x / 2.f ) );
-        ImGui::Text( WindowTitle.c_str() );
+        const std::string title = UndoStack::Get().IsDirty() ? WindowTitle + " *" : WindowTitle;
+        ImGui::TextUnformatted( title.c_str() );
 
         ImGui::BeginGroup();
         ImGui::PushStyleColor( ImGuiCol_Button, static_cast<ImVec4>( ImColor::HSV( 0.0f, 0.6f, 0.6f, 0.f ) ) );
@@ -487,42 +455,12 @@ void MainMenuWidget::Render()
         ImGui::ShowDemoWindow( &ShowDemoWindow );
     }
 
-    if( RequestLoadScene )
-    {
-        RequestAssetSelectionEvent evt( [this]( Path selectedAsset ) {
-            LoadSceneEvent evt;
-            evt.Level = selectedAsset.GetLocalPath();
-            evt.Fire();
-
-            GetEngine().GetConfig().SetValue( std::string( "CurrentScene" ), selectedAsset.GetLocalPath().data() );
-            }, AssetType::Level );
-        evt.Fire();
-    }
-
-    if( RequestSaveScene )
-    {
-        SaveSceneEvent evt;
-        evt.Fire();
-    }
-
-    if( RequestSaveAsScene )
-    {
-        SaveSceneEvent evt;
-        evt.SaveAs = true;
-        evt.Fire();
-    }
 }
+
 
 Vector2 MainMenuWidget::GetMainMenuSize() const
 {
     return Vector2( MainMenuSize.x, MainMenuSize.y );
-}
-
-void MainMenuWidget::SetCallbacks( std::function<void()> StartGame, std::function<void()> PauseGame, std::function<void()> StopGame )
-{
-    StartGameFunc = StartGame;
-    PauseGameFunc = PauseGame;
-    StopGameFunc = StopGame;
 }
 
 #endif

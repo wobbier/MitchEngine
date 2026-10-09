@@ -2,22 +2,14 @@
 #include <ECS/EntityHandle.h>
 #include <ECS/ComponentDetail.h>
 #include <string>
-#include <Commands/EditorCommands.h>
 #include <Components/Transform.h>
-#include <Utils/CommonUtils.h>
 #include <JSON.h>
 
 class Transform;
 
 #if USING( ME_EDITOR )
 
-class FolderTest
-{
-public:
-	std::map<std::string, FolderTest> Folders;
-	std::map<std::string, ComponentInfo*> Reg;
-};
-
+// Drag-and-drop payload for hierarchy entities ("DND_CHILD_TRANSFORM").
 struct ParentDescriptor
 {
 	class Transform* Parent;
@@ -25,17 +17,12 @@ struct ParentDescriptor
 
 namespace CommonUtils
 {
-	void RecusiveDelete(EntityHandle ent, Transform* trans);
-
-	void DoComponentRecursive(const FolderTest& currentFolder, const EntityHandle& entity);
-
-	void DrawAddComponentList(const EntityHandle& entity);
+	// Searchable list of registered components the entity doesn't have yet; adding is undoable.
+	// Returns true when a component was added. Pass a filter buffer to keep the search text alive
+	// across frames (null uses an internal one).
+	bool DrawAddComponentList(const EntityHandle& entity, char* filterBuffer = nullptr, size_t filterBufferSize = 0);
 
 	void SerializeEntity(json& d, Transform* CurrentTransform);
-
-	EntityHandle DeserializeEntity(const json& obj, Transform* parent);
-
-	void DuplicateEntity(const EntityHandle& entity);
 }
 
 #endif

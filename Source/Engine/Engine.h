@@ -47,6 +47,8 @@ public:
     void StopGame();
 
     void LoadScene( const std::string& Level );
+    // Loads a scene from already-parsed data; the scene's FilePath is set to InFilePath (may be empty).
+    void LoadSceneFromData( const json& InData, const std::string& InFilePath );
 
     void Run();
     // Orderly teardown after the main loop: world, jobs, logging.
@@ -58,7 +60,8 @@ public:
     std::weak_ptr<World> GetWorld() const;
 
     bool IsRunning() const;
-    void Quit();
+    // Requests shutdown at the start of the next frame. Unless forced, Game::OnQuitRequested may veto.
+    void Quit( bool InForce = false );
     const bool IsInitialized() const;
 
     IWindow* GetWindow();
@@ -101,6 +104,7 @@ private:
     EngineConfig engineConfig;
     Game* m_game = nullptr;
     void LimitFrameRate( std::chrono::steady_clock::time_point frameStart );
+    void LoadSceneInternal( const std::string& SceneFile, const json* InData );
 
     double m_fixedAccumulator = 0.0;
     float m_fixedTimeStep = 1.f / 60.f;
@@ -109,6 +113,7 @@ private:
     float m_timeScale = 1.f;
     float m_maxFrameRate = 0.f;
     bool m_isPaused = false;
+    bool m_forceQuit = false;
     bool m_stepRequested = false;
     bool m_isInitialized = false;
     ME_SINGLETON_DEFINITION( Engine )

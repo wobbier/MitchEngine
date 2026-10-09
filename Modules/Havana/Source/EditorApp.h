@@ -2,6 +2,10 @@
 #include "Game.h"
 #include "Havana.h"
 #include "Events/EventReceiver.h"
+#include "JSON.h"
+#include <vector>
+#include <functional>
+#include "Editor/EditorAutomation.h"
 
 // I don't like this
 #include "../../Game/Source/ComponentRegistry.h"
@@ -29,8 +33,20 @@ public:
     virtual void PreRender() override;
     virtual void PostRender() override;
 
-	void StartGame();
-	void StopGame();
+	// Play mode. Play snapshots the edited scene in memory; Stop restores it (selection and undo
+	// history survive because entity GUIDs are preserved).
+	void Play();
+	void Stop();
+	void TogglePause();
+	void StepFrame();
+
+	// Scene management. Anything that would discard the current scene asks about unsaved changes.
+	void RequestNewScene();
+	void RequestOpenScene( const std::string& InScenePath );
+	void RequestOpenSceneDialog();
+	void SaveScene( bool InSaveAs );
+	void RequestQuit();
+	bool OnQuitRequested() override;
 
 	const bool IsGameRunning() const;
 
@@ -44,10 +60,31 @@ public:
 	bool m_isGamePaused = false;
 	std::string InitialLevel;
 
-	// Play mode snapshot: the edited scene is saved here on Play and restored on Stop,
-	// so unsaved edits survive a play session.
-	bool m_hasPlaySnapshot = false;
+private:
+	void StartGame();
+	void StopGame();
+
+	// Runs InAction now, or after the user answers the unsaved-changes prompt.
+	void RunWithUnsavedCheck( std::function<void()> InAction );
+	void DrawEditorModals();
+	void UpdateAutosave( float InDeltaSeconds );
+	void CheckForRecovery();
+	void ClearAutosave();
+
+	EditorAutomation m_automation;
+	std::function<void()> m_pendingAction;
+	bool m_openUnsavedPrompt = false;
+	bool m_openRecoveryPrompt = false;
+	json m_recoveryData;
+	std::string m_recoveryScenePath;
+	float m_autosaveTimer = 0.f;
+	bool m_checkedRecovery = false;
+
+	json m_playSnapshot;
+	std::vector<uint64_t> m_playSelection;
 	std::string m_playSceneFilePath;
+	bool m_wasDirtyBeforePlay = false;
+	bool m_isRestoringSnapshot = false;
 };
 
 #endif

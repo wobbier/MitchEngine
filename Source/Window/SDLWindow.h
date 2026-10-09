@@ -57,6 +57,9 @@ private:
     void HandleWindowEvent(const SDL_WindowEvent& event);
 
     bool CloseRequested = false;
+public:
+    void CancelClose() override { CloseRequested = false; }
+private:
     bool isMaximized = false;
 
 #if USING( ME_PLATFORM_LINUX )

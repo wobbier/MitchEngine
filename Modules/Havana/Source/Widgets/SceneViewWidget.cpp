@@ -18,6 +18,9 @@
 #include "Components/Physics/Rigidbody.h"
 #include "Physics/RigidBodyWithCollisionEvents.h"
 #include "Utils/HavanaUtils.h"
+#include "Editor/Selection.h"
+#include "Editor/EditorOperations.h"
+#include "Engine/World.h"
 
 #if USING( ME_EDITOR )
 
@@ -25,7 +28,6 @@ SceneViewWidget::SceneViewWidget(const std::string& inTitle, bool inSceneToolsEn
 	: HavanaWidget(inTitle)
 	, EnableSceneTools(inSceneToolsEnabled)
 {
-	EventManager::GetInstance().RegisterReceiver(this, { ClearInspectEvent::GetEventId(), InspectEvent::GetEventId() });
 }
 
 void SceneViewWidget::Init()
@@ -111,24 +113,6 @@ void SceneViewWidget::SetData(Moonlight::CameraData& data)
 
 bool SceneViewWidget::OnEvent(const BaseEvent& evt)
 {
-	if (evt.GetEventId() == ClearInspectEvent::GetEventId())
-	{
-		SelectedTransform.reset();
-	}
-	else if (evt.GetEventId() == InspectEvent::GetEventId())
-	{
-		const InspectEvent& event = static_cast<const InspectEvent&>(evt);
-
-		const EntityHandle& selectedEntity = event.SelectedEntity;
-		SelectedTransform = event.SelectedTransform;
-		if (!SelectedTransform.lock() && selectedEntity)
-		{
-			if (selectedEntity->HasComponent<Transform>())
-			{
-				SelectedTransform = TransformHandle(selectedEntity->GetComponent<Transform>());
-			}
-		}
-	}
 	return false;
 }
 
@@ -377,9 +361,8 @@ void SceneViewWidget::DrawGuizmo()
 	ImGui::SetCursorPos(ImVec2(5.f, 45.f));
 
 	ImGuizmo::SetRect(SceneViewRenderLocation.x, SceneViewRenderLocation.y, SceneViewRenderSize.x, SceneViewRenderSize.y);
-	if (SelectedTransform.lock())
+	if (Selection::Get().GetActiveTransform())
 	{
-		ImGuiIO& io = ImGui::GetIO();
 		bool isPerspective = MainCamera->Projection == Moonlight::ProjectionType::Perspective;
 
 		float cameraProjection[16];
@@ -405,39 +388,43 @@ void SceneViewWidget::DrawGuizmo()
 		ImGui::SetCursorPos({ 0, 0 });
 
 		{
-			Matrix4 newMatrix(SelectedTransform.lock()->GetMatrix());
+			Transform* selected = Selection::Get().GetActiveTransform();
+			Matrix4 newMatrix(selected->GetMatrix());
 			float* matrix = &newMatrix.GetInternalMatrix()[0].x;
 
-			Vector3 currentPos, currentRot, currentScale;
-			ImGuizmo::DecomposeMatrixToComponents(matrix, &currentPos.x, &currentRot.x, &currentScale.x);
-
 			ImGuizmo::SetRect(GizmoRenderLocation.x, GizmoRenderLocation.y, SceneViewRenderSize.x, SceneViewRenderSize.y);
-			ImGuizmo::Manipulate(&cameraViewLH[0][0], cameraProjection, CurrentGizmoOperation, CurrentGizmoMode, matrix);
-			//ImGuizmo::ViewManipulate(&cameraViewRH[0][0], 8.f, ImVec2(GizmoRenderLocation.x + SceneViewRenderSize.x - 128, GizmoRenderLocation.y), ImVec2(128, 128), 0x00101010);
+			const bool changed = ImGuizmo::Manipulate(&cameraViewLH[0][0], cameraProjection, CurrentGizmoOperation, CurrentGizmoMode, matrix);
 
-			Vector3 modifiedPos, modifiedRot, modifiedScale;
-			ImGuizmo::DecomposeMatrixToComponents(matrix, &modifiedPos.x, &modifiedRot.x, &modifiedScale.x);
-			if (currentPos != modifiedPos)
+			// One undo step per drag.
+			const bool using_ = ImGuizmo::IsUsing();
+			if (using_ && !m_gizmoDragging)
 			{
-				SelectedTransform.lock()->SetWorldPosition(modifiedPos);
+				m_gizmoDragging = true;
+				m_gizmoEntityGUID = selected->Parent->GetGUID();
+				m_gizmoBefore = EditorOps::CaptureComponent(*selected->Parent.Get(), "Transform");
 			}
-			if (currentRot != modifiedRot)
+			if (changed)
 			{
-				SelectedTransform.lock()->SetRotation(modifiedRot);
+				// Handles parent space (the gizmo edits the world matrix).
+				selected->SetWorldMatrix(newMatrix);
 			}
-			if (currentScale != modifiedScale)
+			if (!using_ && m_gizmoDragging)
 			{
-				SelectedTransform.lock()->SetScale(modifiedScale);
+				m_gizmoDragging = false;
+				if (EntityHandle entity = EditorOps::GetWorld().FindEntityByGUID(m_gizmoEntityGUID))
+				{
+					EditorOps::RecordComponentEdit(*entity.Get(), "Transform", m_gizmoBefore, EditorOps::CaptureComponent(*entity.Get(), "Transform"), "Move");
+				}
 			}
 
 #if USING( ME_PHYSICS_3D )
-			EntityHandle& selectedEntity = SelectedTransform.lock()->Parent;
-            if ( SelectedTransform.lock()->IsDirty() && selectedEntity->HasComponent<Rigidbody>() )
+			EntityHandle& selectedEntity = selected->Parent;
+            if ( changed && selectedEntity->HasComponent<Rigidbody>() && selectedEntity->GetComponent<Rigidbody>().InternalRigidbody )
             {
                 btTransform trans;
 				btRigidBodyWithEvents* rigidbody = selectedEntity->GetComponent<Rigidbody>().InternalRigidbody;
-                Vector3 transPos = SelectedTransform.lock()->GetWorldPosition();
-				Quaternion rotation = SelectedTransform.lock()->GetRotation();
+                Vector3 transPos = selected->GetWorldPosition();
+				Quaternion rotation = selected->GetWorldRotation();
                 trans.setRotation( btQuaternion( rotation.x, rotation.y, rotation.z, rotation.w ) );
                 trans.setOrigin( btVector3( transPos.x, transPos.y, transPos.z ) );
                 rigidbody->setWorldTransform( trans );

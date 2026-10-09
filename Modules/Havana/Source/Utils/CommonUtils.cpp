@@ -2,181 +2,108 @@
 #include <optick.h>
 #include <Engine/Engine.h>
 #include <Engine/World.h>
-#include <Events/HavanaEvents.h>
 #include "World/SceneSerializer.h"
+#include "Editor/EditorOperations.h"
+#include <imgui.h>
+#include <algorithm>
+#include <cctype>
+#include <cstring>
 
 #if USING( ME_EDITOR )
 
-void CommonUtils::RecusiveDelete(EntityHandle ent, Transform* trans)
+namespace
 {
-	if (!trans)
+	bool ContainsInsensitive(const std::string& haystack, const char* needle)
 	{
-		return;
-	}
-	// MarkForDelete destroys the whole subtree at the next sync point.
-	ent->MarkForDelete();
-}
-
-void CommonUtils::DoComponentRecursive(const FolderTest& currentFolder, const EntityHandle& entity)
-{
-	for (auto& entry : currentFolder.Folders)
-	{
-		if (ImGui::BeginMenu(entry.first.c_str()))
+		if (!needle || needle[0] == '\0')
 		{
-			DoComponentRecursive(entry.second, entity);
-			ImGui::EndMenu();
+			return true;
 		}
-	}
-	for (auto& ptr : currentFolder.Reg)
-	{
-		if (ImGui::Selectable(ptr.first.c_str()))
-		{
-			if (entity)
-			{
-				entity->AddComponentByName(ptr.first);
-				//AddComponentCommand* compCmd = new AddComponentCommand(ptr.first, entity);
-				//EditorCommands.Push(compCmd);
-			}
-			/*if (SelectedTransform)
-			{
-				m_engine->GetWorld().lock()->GetEntity(SelectedTransform->Parent).lock()->AddComponentByName(thing.first);
-			}*/
-		}
+		auto it = std::search(haystack.begin(), haystack.end(), needle, needle + std::strlen(needle), [](char a, char b) {
+			return std::tolower(static_cast<unsigned char>(a)) == std::tolower(static_cast<unsigned char>(b));
+		});
+		return it != haystack.end();
 	}
 }
 
-void CommonUtils::DrawAddComponentList(const EntityHandle& entity)
+
+bool CommonUtils::DrawAddComponentList(const EntityHandle& entity, char* filterBuffer, size_t filterBufferSize)
 {
-	ImGui::Text("Components");
+	static char s_filter[128] = {};
+	if (!filterBuffer)
+	{
+		filterBuffer = s_filter;
+		filterBufferSize = sizeof(s_filter);
+	}
+	if (!entity)
+	{
+		return false;
+	}
+
+	if (ImGui::IsWindowAppearing())
+	{
+		filterBuffer[0] = '\0';
+		ImGui::SetKeyboardFocusHere();
+	}
+	ImGui::SetNextItemWidth(-1.f);
+	const bool submitted = ImGui::InputTextWithHint("##AddComponentFilter", "Search components", filterBuffer, filterBufferSize, ImGuiInputTextFlags_EnterReturnsTrue);
 	ImGui::Separator();
-	std::map<std::string, FolderTest> folders;
-	ComponentRegistry& reg = GetComponentRegistry();
 
-	for (auto& thing : reg)
+	// Folder -> components, skipping ones the entity already has.
+	std::map<std::string, std::vector<std::string>> byFolder;
+	for (auto& [name, info] : GetComponentRegistry())
 	{
-		if (thing.second.Folder == "")
+		if (entity->GetComponentByName(name) || !ContainsInsensitive(name, filterBuffer))
 		{
-			folders[""].Reg[thing.first] = &thing.second;
+			continue;
 		}
-		else
-		{
-			/*auto it = folders.at(thing.second.Folder);
-			if (it == folders.end())
-			{
-
-			}*/
-			std::string folderPath = thing.second.Folder;
-			std::size_t pos = folderPath.rfind("/");
-			if (pos == std::string::npos)
-			{
-				folders[thing.second.Folder].Reg[thing.first] = &thing.second;
-			}
-			else
-			{
-				FolderTest& test = folders[thing.second.Folder.substr(0, pos)];
-				while (pos != std::string::npos)
-				{
-					pos = folderPath.rfind("/");
-					if (pos == std::string::npos)
-					{
-						test.Folders[folderPath].Reg[thing.first] = &thing.second;
-					}
-					else
-					{
-						test = folders[folderPath.substr(0, pos)];
-						folderPath = folderPath.substr(pos + 1, folderPath.size());
-					}
-				}
-			}
-		}
+		byFolder[info.Folder].push_back(name);
 	}
 
-	for (auto& thing : folders)
+	std::string chosen;
+	size_t shown = 0;
+	ImGui::BeginChild("##AddComponentList", ImVec2(260.f, 320.f));
+	for (auto& [folder, names] : byFolder)
 	{
-		if (thing.first != "")
+		if (!folder.empty())
 		{
-			if (ImGui::BeginMenu(thing.first.c_str()))
-			{
-				DoComponentRecursive(thing.second, entity);
-				ImGui::EndMenu();
-			}
+			ImGui::TextDisabled("%s", folder.c_str());
 		}
-		else
+		for (const std::string& name : names)
 		{
-			for (auto& ptr : thing.second.Reg)
+			if (ImGui::Selectable(name.c_str()))
 			{
-				if (ImGui::Selectable(ptr.first.c_str()))
-				{
-					if (entity)
-					{
-						entity->AddComponentByName(ptr.first);
-						//AddComponentCommand* compCmd = new AddComponentCommand(ptr.first, entity);
-						//EditorCommands.Push(compCmd);
-					}
-					/*if (SelectedTransform)
-					{
-						m_engine->GetWorld().lock()->GetEntity(SelectedTransform->Parent).lock()->AddComponentByName(thing.first);
-					}*/
-				}
+				chosen = name;
 			}
+			if (submitted && shown == 0 && chosen.empty())
+			{
+				// Enter picks the first match.
+				chosen = name;
+			}
+			++shown;
 		}
 	}
+	if (shown == 0)
+	{
+		ImGui::TextDisabled("No matching components");
+	}
+	ImGui::EndChild();
 
-	//for (auto& thing : reg)
-	//{
-	//	if (ImGui::Selectable(thing.first.c_str()))
-	//	{
-	//		if (entity)
-	//		{
-	//			AddComponentCommand* compCmd = new AddComponentCommand(thing.first, entity);
-	//			EditorCommands.Push(compCmd);
-	//		}
-	//		/*if (SelectedTransform)
-	//		{
-	//			m_engine->GetWorld().lock()->GetEntity(SelectedTransform->Parent).lock()->AddComponentByName(thing.first);
-	//		}*/
-	//	}
-	//}
+	if (!chosen.empty())
+	{
+		EditorOps::AddComponent(*entity.Get(), chosen);
+		ImGui::CloseCurrentPopup();
+		return true;
+	}
+	return false;
 }
+
+
 void CommonUtils::SerializeEntity(json& outEntity, Transform* CurrentTransform)
 {
 	OPTICK_EVENT("CommonUtils::SerializeEntity");
 	World& world = *GetEngine().GetWorld().lock();
 	outEntity = SceneSerializer::SerializeEntities(world, { CurrentTransform->Parent.Get() });
-}
-
-EntityHandle CommonUtils::DeserializeEntity(const json& obj, Transform* parent)
-{
-	World& world = *GetEngine().GetWorld().lock();
-	SceneSerializer::LoadOptions options;
-	options.RemapGUIDs = true;
-	options.LoadCores = false;
-	options.Parent = parent;
-	std::vector<EntityHandle> roots = SceneSerializer::Deserialize(world, obj, options);
-	return roots.empty() ? EntityHandle() : roots.front();
-}
-
-void CommonUtils::DuplicateEntity(const EntityHandle& entity)
-{
-	if (!entity || !entity->HasComponent<Transform>())
-	{
-		return;
-	}
-
-	Transform& source = entity->GetComponent<Transform>();
-	json j;
-	SerializeEntity(j, &source);
-
-	// Same parent, placed right after the original.
-	EntityHandle handle = DeserializeEntity(j, source.GetParentTransform());
-	if (handle && source.GetParentTransform())
-	{
-		handle->GetComponent<Transform>().SetSiblingIndex(source.GetSiblingIndex() + 1);
-	}
-
-	InspectEvent evt;
-	evt.SelectedEntity = handle;
-	evt.Fire();
 }
 
 #endif

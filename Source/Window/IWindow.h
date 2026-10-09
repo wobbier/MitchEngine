@@ -20,6 +20,8 @@ public:
     virtual void ExitMaximize() = 0;
     virtual void SetTitle( const std::string& title ) = 0;
     virtual void Exit() = 0;
+    // Withdraws a pending close request (the game vetoed quitting, e.g. to ask about unsaved work).
+    virtual void CancelClose() {}
     virtual void* GetWindowPtr() = 0;
 
     virtual void SetBorderless( bool isBorderless ) = 0;
