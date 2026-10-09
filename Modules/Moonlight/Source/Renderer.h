@@ -70,6 +70,7 @@ public:
     void SetGuizmoDrawCallback( std::function<void( DebugDrawer* )> GuizmoDrawingFunc );
     void RenderCameraView( Moonlight::CameraData& camera, bgfx::ViewId id, bool toBackbuffer );
     void SubmitDebugLines( const Moonlight::CameraData& camera, bgfx::ViewId id );
+    void GatherFrameStats();
 
     void RenderSingleMesh( bgfx::ViewId id, const Moonlight::MeshCommand& mesh, uint64_t state );
 

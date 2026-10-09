@@ -25,6 +25,7 @@
 #include <Mathf.h>
 #include "Core/Assert.h"
 #include "RenderPasses/PickingPass.h"
+#include "Profiling/FrameStats.h"
 
 #if BX_PLATFORM_LINUX
 #define GLFW_EXPOSE_NATIVE_X11
@@ -283,7 +284,7 @@ void BGFXRenderer::Render( Moonlight::CameraData& EditorCamera, FrameRenderData&
     // Use debug font to print information about this example.
     bgfx::dbgTextClear();
     // Enable stats or debug text.
-    bgfx::setDebug( s_showStats ? BGFX_DEBUG_STATS : BGFX_DEBUG_TEXT );
+    bgfx::setDebug( ( s_showStats ? BGFX_DEBUG_STATS : BGFX_DEBUG_TEXT ) | ( FrameStats::Get().DetailedGpuTimings ? BGFX_DEBUG_PROFILER : 0 ) );
     // Advance to next frame. Process submitted rendering primitives.
 
     if( CurrentSize != PreviousSize || NeedsReset )
@@ -375,6 +376,32 @@ void BGFXRenderer::Render( Moonlight::CameraData& EditorCamera, FrameRenderData&
             m_currentFrame = bgfx::frame();
             inFrameData.m_currentFrame = m_currentFrame;
         }
+    }
+    GatherFrameStats();
+}
+
+
+void BGFXRenderer::GatherFrameStats()
+{
+    const bgfx::Stats* stats = bgfx::getStats();
+    FrameStats::RenderStats& out = FrameStats::Get().GetRenderStats();
+    if( !stats )
+    {
+        return;
+    }
+    const double gpuFrequency = stats->gpuTimerFreq > 0 ? static_cast<double>( stats->gpuTimerFreq ) : 1.0;
+    const double cpuFrequency = stats->cpuTimerFreq > 0 ? static_cast<double>( stats->cpuTimerFreq ) : 1.0;
+    out.GpuMilliseconds = stats->gpuTimeEnd > stats->gpuTimeBegin ? double( stats->gpuTimeEnd - stats->gpuTimeBegin ) * 1000.0 / gpuFrequency : 0.0;
+    out.RenderThreadMilliseconds = double( stats->cpuTimeEnd - stats->cpuTimeBegin ) * 1000.0 / cpuFrequency;
+    out.DrawCalls = stats->numDraw;
+    out.Triangles = stats->numPrims[bgfx::Topology::TriList] + stats->numPrims[bgfx::Topology::TriStrip];
+    out.GpuMemoryUsed = stats->gpuMemoryUsed;
+    out.GpuMemoryMax = stats->gpuMemoryMax;
+    out.Views.clear();
+    for( uint16_t i = 0; i < stats->numViews; ++i )
+    {
+        const bgfx::ViewStats& view = stats->viewStats[i];
+        out.Views.push_back( { view.name, double( view.cpuTimeEnd - view.cpuTimeBegin ) * 1000.0 / cpuFrequency, double( view.gpuTimeEnd - view.gpuTimeBegin ) * 1000.0 / gpuFrequency } );
     }
 }
 

@@ -22,6 +22,7 @@ class PropertiesWidget;
 class AssetPreviewWidget;
 class AssetBrowserWidget;
 class HistoryWidget;
+class ProfilerWidget;
 
 #if USING( ME_EDITOR )
 
@@ -80,6 +81,7 @@ private:
 	SharedPtr<AssetPreviewWidget> AssetPreview;
 	SharedPtr<AssetBrowserWidget> AssetBrowser;
 	SharedPtr<HistoryWidget> History;
+	SharedPtr<ProfilerWidget> Profiler;
 
     std::vector<SharedPtr<HavanaWidget>> RegisteredWidgets;
     std::vector<SharedPtr<HavanaWidget>> CustomRegisteredWidgets;

@@ -40,6 +40,7 @@
 #include "Editor/WidgetRegistry.h"
 #include "Window/IWindow.h"
 #include "Widgets/HistoryWidget.h"
+#include "Widgets/ProfilerWidget.h"
 #include "Editor/EditorActions.h"
 #include "Editor/DefaultEditorActions.h"
 #include "Editor/ReflectionUI.h"
@@ -114,6 +115,9 @@ Havana::Havana( Engine* GameEngine, EditorApp* app )
 
     History.reset( new HistoryWidget() );
     RegisteredWidgets.push_back( History );
+
+    Profiler.reset( new ProfilerWidget() );
+    RegisteredWidgets.push_back( Profiler );
 
     EditorActions& actions = EditorActions::Get();
     actions.IsContextActive = [this]( ActionContext context ) {
@@ -339,6 +343,7 @@ void Havana::NewFrame()
     AssetBrowser->Render();
     ResourceMonitor->Render();
     History->Render();
+    Profiler->Render();
     EditorActions::Get().DrawPalette();
 }
 

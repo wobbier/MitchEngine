@@ -256,49 +256,7 @@ void MainMenuWidget::Render()
             }
         }
 
-        static int frameCount = 0;
-        static float frametime = 0.0f;
-        //static std::vector<float> frames;
-        //frames.resize(50, GetEngine().DeltaTime * 100);
-        //if (frameCount > 15)
-        //{
-        //	frametime = GetEngine().DeltaTime;
-        //	frameCount = 0;
-        //}
-        //else
-        //{
-        //}
-        {
-            OPTICK_EVENT( "FPS", Optick::Category::UI );
-
-            // increase the counter by one
-            static int m_fpscount = 0;
-            static int fps = 0;
-            m_fpscount++;
-            ++frameCount;
-
-            static float fpsTime = 0;
-            fpsTime += GetEngine().DeltaTime;
-            // one second elapsed? (= 1000 milliseconds)
-            if( fpsTime >= 1.f )
-            {
-                frametime = GetEngine().DeltaTime;
-                frameCount = 0;
-
-                // save the current counter value to m_fps
-                fps = m_fpscount;
-
-                // reset the counter and the interval
-                m_fpscount = 0;
-                fpsTime -= 1.f;
-            }
-
-            ImGui::Text( "%.1f ms", frametime * 1000.f );
-            ImGui::Text( "%.1f fps", static_cast<float>( fps ) );
-            //ImGui::Text("%.1f fps", (float)ImGui::GetIO().Framerate);
-        }
-
-        ImGui::SetCursorPosX( ( ImGui::GetWindowWidth() / 2.f ) - ( ImGui::CalcTextSize( WindowTitle.c_str() ).x / 2.f ) );
+        ImGui::SetCursorPosX( std::max( endOfMenu + 16.f, ( ImGui::GetWindowWidth() / 2.f ) - ( ImGui::CalcTextSize( WindowTitle.c_str() ).x / 2.f ) ) );
         const std::string title = UndoStack::Get().IsDirty() ? WindowTitle + " *" : WindowTitle;
         ImGui::TextUnformatted( title.c_str() );
 

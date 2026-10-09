@@ -82,6 +82,7 @@ private:
 	void DrawGameToolbar();
 	void DrawManipulator();
 	void DrawViewCube();
+	void DrawStatsOverlay();
 	void DrawIcons();
 	void HandleMouse();
 	void HandleAssetDrop();

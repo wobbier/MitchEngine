@@ -37,6 +37,7 @@
 #include <imgui.h>
 #include <Debug/DebugDrawer.h>
 #include <Debug/DebugDraw.h>
+#include "Profiling/FrameStats.h"
 #include "Events/PlatformEvents.h"
 #include "Scripting/ScriptEngine.h"
 #include "Core/Assert.h"
@@ -399,6 +400,7 @@ void Engine::Run()
             {
                 OPTICK_EVENT( "FixedUpdate" );
                 ME_FRAMEPROFILE_SCOPED( "Physics", ProfileCategory::Physics );
+                ME_STAT_SCOPE( "Fixed Update" );
                 m_fixedAccumulator += scaledSeconds;
                 int steps = 0;
                 while( m_fixedAccumulator >= m_fixedTimeStep && steps < m_maxFixedStepsPerFrame )
@@ -422,6 +424,7 @@ void Engine::Run()
             // Update Loaded Cores
             {
                 ME_FRAMEPROFILE_SCOPED( "Game Cores", ProfileCategory::Game );
+                ME_STAT_SCOPE( "Scene Cores" );
                 GameWorld->UpdateLoadedCores( updateContext );
                 GameWorld->Simulate();
             }
@@ -430,12 +433,14 @@ void Engine::Run()
             {
                 OPTICK_EVENT( "SceneNodes->Update" );
                 ME_FRAMEPROFILE_SCOPED( "SceneNodes", ProfileCategory::UI );
+                ME_STAT_SCOPE( "Scene Graph" );
                 SceneNodes->Update( updateContext );
             }
 
             // Update Game Application
             {
                 ME_FRAMEPROFILE_SCOPED( "Game", ProfileCategory::Game );
+                ME_STAT_SCOPE( "Game Update" );
                 OPTICK_CATEGORY( "MainLoop::GameUpdate", Optick::Category::GameLogic );
                 m_game->OnUpdate( updateContext );
                 GameWorld->Simulate();
@@ -450,6 +455,7 @@ void Engine::Run()
             // Model Renderer Update
             {
                 ME_FRAMEPROFILE_SCOPED( "ModelRenderer", ProfileCategory::Rendering );
+                ME_STAT_SCOPE( "Render Prep" );
                 ModelRenderer->Update( updateContext );
             }
 
@@ -457,6 +463,7 @@ void Engine::Run()
             {
                 OPTICK_CATEGORY( "UICore::Update", Optick::Category::Rendering )
                 ME_FRAMEPROFILE_SCOPED( "UI", ProfileCategory::UI );
+                ME_STAT_SCOPE( "UI Update" );
                 // editor only?
                 if( UI )
                 {
@@ -471,6 +478,7 @@ void Engine::Run()
             // Late Update
             {
                 OPTICK_EVENT( "LateUpdate" );
+                ME_STAT_SCOPE( "Late Update" );
                 GameWorld->LateUpdateLoadedCores( updateContext );
                 GameWorld->Simulate();
                 Cameras->Update( updateContext );
@@ -492,15 +500,22 @@ void Engine::Run()
 #endif
 #endif
                 ME_FRAMEPROFILE_START( "UI Render", ProfileCategory::UI );
-                UI->Render();
+                {
+                    ME_STAT_SCOPE( "UI Render" );
+                    UI->Render();
+                }
                 ME_FRAMEPROFILE_STOP( "UI Render" );
                 ME_FRAMEPROFILE_START( "Render", ProfileCategory::Rendering );
-                NewRenderer->Render( EditorCamera, m_frameRenderSettings );
+                {
+                    ME_STAT_SCOPE( "Render Submit" );
+                    NewRenderer->Render( EditorCamera, m_frameRenderSettings );
+                }
                 ME_FRAMEPROFILE_STOP( "Render" );
                 DebugDraw::EndFrame( updateContext.GetUnscaledDeltaTime() );
                 UI->PostRender( updateContext );
                 m_game->PostRender();
             }
+            FrameStats::Get().EndFrame( std::chrono::duration<double, std::milli>( std::chrono::steady_clock::now() - frameStartTime ).count() );
 
             if( m_automation.IsActive() )
             {

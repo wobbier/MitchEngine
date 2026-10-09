@@ -28,7 +28,9 @@
 #include "Editor/UndoStack.h"
 #include <Utils/EditorConfig.h>
 #include <imgui_internal.h>
+#include "Profiling/FrameStats.h"
 #include <algorithm>
+#include <cstdio>
 #include <cmath>
 
 #if USING( ME_EDITOR )
@@ -340,6 +342,7 @@ void SceneViewWidget::Render()
 
 	if (EnableSceneTools && MainCamera)
 	{
+		DrawStatsOverlay();
 		DrawIcons();
 		DrawManipulator();
 		DrawViewCube();
@@ -406,6 +409,8 @@ void SceneViewWidget::DrawSceneToolbar()
 		bool showGrid = config.GetPreference<bool>("Scene.ShowGrid", true);
 		bool showGizmos = config.GetPreference<bool>("Scene.ShowGizmos", true);
 		bool showSelection = config.GetPreference<bool>("Scene.ShowSelection", true);
+		bool showStats = config.GetPreference<bool>("Scene.ShowStats", true);
+		if (ImGui::MenuItem("Stats", nullptr, &showStats)) config.SetPreference("Scene.ShowStats", showStats);
 		if (ImGui::MenuItem("Grid", nullptr, &showGrid)) config.SetPreference("Scene.ShowGrid", showGrid);
 		if (ImGui::MenuItem("Component Gizmos", nullptr, &showGizmos)) config.SetPreference("Scene.ShowGizmos", showGizmos);
 		if (ImGui::MenuItem("Selection Bounds", nullptr, &showSelection)) config.SetPreference("Scene.ShowSelection", showSelection);
@@ -587,6 +592,26 @@ void SceneViewWidget::DrawManipulator()
 	{
 		EndDrag();
 	}
+}
+
+
+void SceneViewWidget::DrawStatsOverlay()
+{
+	if (!EditorConfig::GetInstance().GetPreference<bool>("Scene.ShowStats", true))
+	{
+		return;
+	}
+	const FrameStats& stats = FrameStats::Get();
+	const FrameStats::RenderStats& render = stats.GetRenderStats();
+	char text[256];
+	std::snprintf(text, sizeof(text), "%.0f fps  %.2f ms\nGPU %.2f ms  Draws %u\nTris %.1fk  Entities %zu",
+		stats.GetFramesPerSecond(), stats.GetSmoothedFrameMilliseconds(), render.GpuMilliseconds, render.DrawCalls,
+		render.Triangles / 1000.f, EditorOps::GetWorld().GetEntityCount());
+	ImDrawList* drawList = ImGui::GetWindowDrawList();
+	const ImVec2 position(m_viewportScreenMin.x + 8.f, m_viewportScreenMin.y + 8.f);
+	const ImVec2 size = ImGui::CalcTextSize(text);
+	drawList->AddRectFilled(ImVec2(position.x - 4.f, position.y - 3.f), ImVec2(position.x + size.x + 4.f, position.y + size.y + 3.f), IM_COL32(0, 0, 0, 140), 3.f);
+	drawList->AddText(position, IM_COL32(230, 230, 230, 255), text);
 }
 
 

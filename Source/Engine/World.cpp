@@ -1,4 +1,5 @@
 #include "PCH.h"
+#include "Profiling/FrameStats.h"
 #include "Engine/World.h"
 #include "ECS/Core.h"
 #include "Components/Transform.h"
@@ -687,6 +688,7 @@ void World::UpdateLoadedCores( const UpdateContext& inUpdateContext )
         if( core->IsRunning )
         {
             OPTICK_EVENT_DYNAMIC( core->GetName().c_str() );
+            ME_STAT_SCOPE( core->GetName().c_str() );
             core->Update( inUpdateContext );
         }
     }
@@ -703,6 +705,7 @@ void World::FixedUpdateLoadedCores( const UpdateContext& inUpdateContext )
         if( core->IsRunning )
         {
             OPTICK_EVENT_DYNAMIC( core->GetName().c_str() );
+            ME_STAT_SCOPE( core->GetName().c_str() );
             core->FixedUpdate( inUpdateContext );
         }
     }
