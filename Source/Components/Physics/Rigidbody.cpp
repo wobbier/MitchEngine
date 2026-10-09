@@ -1,263 +1,218 @@
 #include "PCH.h"
 #include "Rigidbody.h"
-#include "Cores/PhysicsCore.h"
-#include "BulletDynamics/Dynamics/btDiscreteDynamicsWorld.h"
-#include "imgui.h"
-#include "Utils/HavanaUtils.h"
-#include "Physics/RigidBodyWithCollisionEvents.h"
+#include "Physics/Box3DUtils.h"
 
-Rigidbody::Rigidbody( ColliderType type )
-    : Component( "Rigidbody" )
-    , Type( type )
-{
-}
+ME_REFLECT_ENUM( BodyType, { { "Static", BodyType::Static }, { "Kinematic", BodyType::Kinematic }, { "Dynamic", BodyType::Dynamic } } )
+
+ME_REFLECT_BEGIN( Rigidbody )
+    ME_FIELD_NAMED( Type, "BodyType" );   // "Type" is the component type in scene JSON
+    ME_FIELD( Mass ).Range( 0.f, 100000.f ).Tooltip( "Kilograms; 0 derives the mass from the colliders' densities" );
+    ME_FIELD( LinearDamping ).Range( 0.f, 100.f );
+    ME_FIELD( AngularDamping ).Range( 0.f, 100.f );
+    ME_FIELD( GravityScale ).Range( -10.f, 10.f );
+    ME_FIELD( ContinuousCollision ).Tooltip( "Sweep fast movers so they can't pass through thin geometry (costs more)" );
+    ME_FIELD( Interpolate ).Tooltip( "Smooth the rendered pose between fixed physics steps" );
+    ME_FIELD( CanSleep );
+    ME_FIELD( LockPositionX ).Category( "Constraints" );
+    ME_FIELD( LockPositionY ).Category( "Constraints" );
+    ME_FIELD( LockPositionZ ).Category( "Constraints" );
+    ME_FIELD( LockRotationX ).Category( "Constraints" );
+    ME_FIELD( LockRotationY ).Category( "Constraints" );
+    ME_FIELD( LockRotationZ ).Category( "Constraints" );
+ME_REFLECT_END()
+
+using namespace Box3DUtils;
+
 
 Rigidbody::Rigidbody()
     : Component( "Rigidbody" )
-    , Type( ColliderType::Box )
 {
 }
 
-Rigidbody::~Rigidbody()
+
+void Rigidbody::OnDeserialize( const json& InJson )
 {
-#if USING( ME_PHYSICS_3D )
-    if( m_world && InternalRigidbody )
+    Reflection::FromJson( StaticType(), this, InJson );
+}
+
+
+bool Rigidbody::HasBody() const
+{
+    return IsBody( m_body );
+}
+
+
+void Rigidbody::AddForce( const Vector3& InForce, ForceMode InMode )
+{
+    if( !HasBody() )
     {
-        m_world->removeRigidBody( InternalRigidbody );
+        return;
     }
-#endif
-}
-
-void Rigidbody::Init()
-{
-
-}
-
-
-bool Rigidbody::IsRigidbodyInitialized()
-{
-    return IsInitialized;
-}
-
-void Rigidbody::ApplyForce( const Vector3& direction, float force )
-{
-#if USING( ME_PHYSICS_3D )
-    //InternalRigidbody->setWorldTransform(btTransform::getIdentity());
-    InternalRigidbody->applyForce( PhysicsCore::ToBulletVector( direction * force ), -PhysicsCore::ToBulletVector( direction ) );
-    InternalRigidbody->activate();
-#endif
-}
-
-void Rigidbody::SetScale( Vector3 InScale )
-{
-    Scale = InScale;
-#if USING( ME_PHYSICS_3D )
-    if( fallShape )
+    const b3BodyId body = Body( m_body );
+    const float mass = b3Body_GetMass( body );
+    switch( InMode )
     {
-        fallShape->setLocalScaling( btVector3( InScale[0], InScale[1], InScale[2] ) );
+    case ForceMode::Force:
+        b3Body_ApplyForceToCenter( body, ToB3( InForce ), true );
+        break;
+    case ForceMode::Impulse:
+        b3Body_ApplyLinearImpulseToCenter( body, ToB3( InForce ), true );
+        break;
+    case ForceMode::Acceleration:
+        b3Body_ApplyForceToCenter( body, ToB3( InForce * mass ), true );
+        break;
+    case ForceMode::VelocityChange:
+        b3Body_ApplyLinearImpulseToCenter( body, ToB3( InForce * mass ), true );
+        break;
     }
-#endif
 }
 
-const Vector3& Rigidbody::GetScale() const
+
+void Rigidbody::AddForceAtPosition( const Vector3& InForce, const Vector3& InWorldPosition, ForceMode InMode )
 {
-    return Scale;
+    if( !HasBody() )
+    {
+        return;
+    }
+    const b3BodyId body = Body( m_body );
+    const float mass = b3Body_GetMass( body );
+    const bool impulse = InMode == ForceMode::Impulse || InMode == ForceMode::VelocityChange;
+    const Vector3 amount = ( InMode == ForceMode::Acceleration || InMode == ForceMode::VelocityChange ) ? InForce * mass : InForce;
+    if( impulse )
+    {
+        b3Body_ApplyLinearImpulse( body, ToB3( amount ), ToB3( InWorldPosition ), true );
+    }
+    else
+    {
+        b3Body_ApplyForce( body, ToB3( amount ), ToB3( InWorldPosition ), true );
+    }
 }
+
+
+void Rigidbody::AddTorque( const Vector3& InTorque, ForceMode InMode )
+{
+    if( !HasBody() )
+    {
+        return;
+    }
+    const b3BodyId body = Body( m_body );
+    switch( InMode )
+    {
+    case ForceMode::Force:
+        b3Body_ApplyTorque( body, ToB3( InTorque ), true );
+        break;
+    case ForceMode::Impulse:
+        b3Body_ApplyAngularImpulse( body, ToB3( InTorque ), true );
+        break;
+    case ForceMode::Acceleration:
+        // Mass-independent: integrate over one fixed step.
+        SetAngularVelocity( GetAngularVelocity() + InTorque * ( 1.f / 60.f ) );
+        break;
+    case ForceMode::VelocityChange:
+        SetAngularVelocity( GetAngularVelocity() + InTorque );
+        break;
+    }
+}
+
+
+Vector3 Rigidbody::GetVelocity() const
+{
+    return HasBody() ? FromB3( b3Body_GetLinearVelocity( Body( m_body ) ) ) : Vector3();
+}
+
+
+void Rigidbody::SetVelocity( const Vector3& InVelocity )
+{
+    if( HasBody() )
+    {
+        b3Body_SetLinearVelocity( Body( m_body ), ToB3( InVelocity ) );
+    }
+}
+
+
+Vector3 Rigidbody::GetAngularVelocity() const
+{
+    return HasBody() ? FromB3( b3Body_GetAngularVelocity( Body( m_body ) ) ) : Vector3();
+}
+
+
+void Rigidbody::SetAngularVelocity( const Vector3& InVelocity )
+{
+    if( HasBody() )
+    {
+        b3Body_SetAngularVelocity( Body( m_body ), ToB3( InVelocity ) );
+    }
+}
+
+
+Vector3 Rigidbody::GetPointVelocity( const Vector3& InWorldPoint ) const
+{
+    return HasBody() ? FromB3( b3Body_GetWorldPointVelocity( Body( m_body ), ToB3( InWorldPoint ) ) ) : Vector3();
+}
+
+
+void Rigidbody::MoveTo( const Vector3& InPosition, const Quaternion& InRotation )
+{
+    // Applied by the core at the next fixed step (it knows the step length).
+    m_hasPendingMove = true;
+    m_movePosition = InPosition;
+    m_moveRotation = InRotation;
+}
+
+
+void Rigidbody::Teleport( const Vector3& InPosition, const Quaternion& InRotation )
+{
+    if( HasBody() )
+    {
+        b3Body_SetTransform( Body( m_body ), ToB3( InPosition ), ToB3( InRotation ) );
+    }
+    m_hasPendingMove = false;
+}
+
+
+float Rigidbody::GetBodyMass() const
+{
+    return HasBody() ? b3Body_GetMass( Body( m_body ) ) : Mass;
+}
+
+
+Vector3 Rigidbody::GetCenterOfMass() const
+{
+    return HasBody() ? FromB3( b3Body_GetWorldCenter( Body( m_body ) ) ) : Vector3();
+}
+
+
+bool Rigidbody::IsSleeping() const
+{
+    return HasBody() && !b3Body_IsAwake( Body( m_body ) );
+}
+
+
+void Rigidbody::WakeUp()
+{
+    if( HasBody() )
+    {
+        b3Body_SetAwake( Body( m_body ), true );
+    }
+}
+
+
+void Rigidbody::Sleep()
+{
+    if( HasBody() )
+    {
+        b3Body_SetAwake( Body( m_body ), false );
+    }
+}
+
 
 void Rigidbody::SetMass( float InMass )
 {
+    // Mass 0 used to mean "static" with the old physics backend.
+    if( InMass <= 0.f )
+    {
+        Type = BodyType::Static;
+        return;
+    }
     Mass = InMass;
-#if USING( ME_PHYSICS_3D )
-    if( InternalRigidbody )
-    {
-        InternalRigidbody->setMassProps( InMass, btVector3() );
-    }
-#endif
 }
-
-void Rigidbody::SetVelocity( Vector3 newVelocity )
-{
-    Velocity = newVelocity;
-}
-
-const bool Rigidbody::IsDynamic() const
-{
-    return m_isDynamic;
-}
-
-std::string Rigidbody::GetColliderString( ColliderType InType )
-{
-    switch( Type )
-    {
-    case ColliderType::Sphere:
-        return "Sphere";
-    case ColliderType::Box:
-        return "Box";
-    default:
-        return "Error";
-    }
-}
-
-Matrix4 Rigidbody::GetMat()
-{
-#if USING( ME_PHYSICS_3D )
-    btTransform trans;
-    InternalRigidbody->getMotionState()->getWorldTransform( trans );
-
-    float m[16];
-    trans.getOpenGLMatrix( m );
-
-    //DirectX::XMMATRIX transform(m[0], m[4], m[8], m[12],
-    //	m[1], m[5], m[9], m[13],
-    //	m[2], m[6], m[10], m[14],
-    //	m[3], m[7], m[11], m[15]);
-
-    return Matrix4();// transform);
-#else
-    return Matrix4();
-#endif
-}
-
-void Rigidbody::SetReceiveEvents( bool inIsEventsEnabled )
-{
-    IsEventsEnabled = inIsEventsEnabled;
-#if USING( ME_PHYSICS_3D )
-    if( InternalRigidbody )
-    {
-        InternalRigidbody->setMonitorCollisions( IsEventsEnabled );
-    }
-#endif
-}
-
-void Rigidbody::OnSerialize( json& outJson )
-{
-    outJson["Scale"] = { Scale.x, Scale.y, Scale.z };
-    outJson["ColliderType"] = GetColliderString( Type );
-    outJson["Mass"] = Mass;
-    outJson["IsEventsEnabled"] = IsEventsEnabled;
-}
-
-void Rigidbody::OnDeserialize( const json& inJson )
-{
-    if( inJson.contains( "Scale" ) )
-    {
-        SetScale( Vector3( (float)inJson["Scale"][0], (float)inJson["Scale"][1], (float)inJson["Scale"][2] ) );
-    }
-
-    if( inJson.contains( "ColliderType" ) )
-    {
-        std::string type = inJson["ColliderType"];
-        if( type == "Sphere" )
-        {
-            Type = ColliderType::Sphere;
-        }
-        else if( type == "Box" )
-        {
-            Type = ColliderType::Box;
-        }
-    }
-
-    if( inJson.contains( "Mass" ) )
-    {
-        Mass = inJson["Mass"];
-    }
-
-    if( inJson.contains( "IsEventsEnabled" ) )
-    {
-        IsEventsEnabled = inJson["IsEventsEnabled"];
-    }
-}
-
-#if USING( ME_PHYSICS_3D )
-
-void Rigidbody::CreateObject( const Vector3& Position, const Quaternion& Rotation, const Vector3& InScale, btDiscreteDynamicsWorld* world )
-{
-    m_world = world;
-    if( Scale == Vector3() )
-    {
-        Scale = InScale;
-    }
-    switch( Type )
-    {
-    case ColliderType::Sphere:
-        fallShape = new btSphereShape( 1.0f );
-        break;
-    case ColliderType::Box:
-    default:
-        fallShape = new btBoxShape( btVector3( Scale[0], Scale[1], Scale[2] ) );
-        break;
-    }
-    //fallShape->setLocalScaling(btVector3(Scale[0], Scale[1], Scale[2]));
-    m_isDynamic = ( Mass != 0.f );
-
-    btDefaultMotionState* fallMotionState =
-        new btDefaultMotionState( btTransform( btQuaternion( Rotation.x, Rotation.y, Rotation.z, Rotation.w ), btVector3( Position.x, Position.y, Position.z ) ) );
-    btVector3 fallInertia( 0, 0, 0 );
-    if( m_isDynamic )
-    {
-        fallShape->calculateLocalInertia( Mass, fallInertia );
-    }
-    btRigidBody::btRigidBodyConstructionInfo fallRigidBodyCI( Mass, fallMotionState, fallShape, fallInertia );
-    InternalRigidbody = new btRigidBodyWithEvents( fallRigidBodyCI );
-    InternalRigidbody->setMonitorCollisions( IsEventsEnabled );
-
-    InternalRigidbody->setUserPointer( this );
-    InternalRigidbody->setLinearVelocity( PhysicsCore::ToBulletVector( Velocity ) );
-    IsInitialized = true;
-}
-
-#endif
-
-#if USING( ME_EDITOR )
-
-void Rigidbody::OnEditorInspect()
-{
-    HavanaUtils::Label( "Collider Type" );
-    if( ImGui::BeginCombo( "##ColliderType", GetColliderString( Type ).c_str() ) )
-    {
-        for( unsigned int n = 0; n < (unsigned int)ColliderType::Count; ++n )
-        {
-            const char* name = "";
-            switch( (ColliderType)n )
-            {
-            case ColliderType::Sphere:
-                name = "Sphere";
-                break;
-            case ColliderType::Box:
-                name = "Box";
-                break;
-            default:
-                break;
-            }
-
-            if( ImGui::Selectable( name, false ) )
-            {
-                if( (ColliderType)n != Type )
-                {
-                    Type = (ColliderType)n;
-                }
-                break;
-            }
-        }
-        ImGui::EndCombo();
-    }
-
-    HavanaUtils::EditableVector3( "Hitbox Scale", Scale );
-
-    bool m_isDynamicTemp = ( Mass != 0.f );
-    HavanaUtils::Label( "Is Dynamic" );
-    ImGui::Checkbox( "##Is Dynamic", &m_isDynamicTemp );
-
-    HavanaUtils::Label( "Mass" );
-    ImGui::DragFloat( "##Mass", &Mass );
-
-    bool isEventsEnabledTemp = IsEventsEnabled;
-    HavanaUtils::Label( "Collision Events" );
-    ImGui::Checkbox( "##CollisionEvents", &isEventsEnabledTemp );
-    if( isEventsEnabledTemp != IsEventsEnabled )
-    {
-        SetReceiveEvents( isEventsEnabledTemp );
-    }
-}
-
-#endif

@@ -168,7 +168,18 @@ namespace SceneSerializer
     }
 
 
-    json UpgradeComponent( const json& InComponent )
+    Vector3 ReadVector3( const json& InValue, const Vector3& InFallback )
+    {
+        if( InValue.is_array() && InValue.size() == 3 && InValue[0].is_number() && InValue[1].is_number() && InValue[2].is_number() )
+        {
+            return Vector3( InValue[0].get<float>(), InValue[1].get<float>(), InValue[2].get<float>() );
+        }
+        return InFallback;
+    }
+
+
+    // Retired component formats -> their replacements (one old component may become several).
+    std::vector<json> UpgradeComponent( const json& InComponent, const json& InEntity )
     {
         const std::string type = InComponent.value( "Type", std::string() );
         if( type == "DirectionalLight" )
@@ -179,9 +190,47 @@ namespace SceneSerializer
             {
                 light["Color"] = InComponent["Diffuse"];
             }
-            return light;
+            return { light };
         }
-        return InComponent;
+        if( type == "Rigidbody" && InComponent.contains( "ColliderType" ) )
+        {
+            // Bullet-era Rigidbody: the shape lived on the body and ignored the Transform's scale
+            // (Scale = box half extents, spheres had radius 1). Now: Rigidbody + a collider sized
+            // in the entity's local space.
+            Vector3 transformScale( 1.f, 1.f, 1.f );
+            for( const json& component : InEntity.value( "Components", json::array() ) )
+            {
+                if( component.is_object() && component.value( "Type", std::string() ) == "Transform" )
+                {
+                    transformScale = ReadVector3( component.value( "Scale", json() ), transformScale );
+                }
+            }
+            auto safeDivide = []( float a, float b ) { return std::abs( b ) > 1e-6f ? a / std::abs( b ) : a; };
+            const float mass = InComponent.value( "Mass", 10.f );
+            json body = { { "Type", "Rigidbody" }, { "BodyType", mass > 0.f ? "Dynamic" : "Static" }, { "Mass", std::max( mass, 0.f ) } };
+            json collider;
+            if( InComponent.value( "ColliderType", std::string( "Box" ) ) == "Sphere" )
+            {
+                const float largest = std::max( { std::abs( transformScale.x ), std::abs( transformScale.y ), std::abs( transformScale.z ) } );
+                collider = { { "Type", "SphereCollider" }, { "Radius", safeDivide( 1.f, largest ) } };
+            }
+            else
+            {
+                const Vector3 half = ReadVector3( InComponent.value( "Scale", json() ), Vector3( 1.f, 1.f, 1.f ) );
+                collider = { { "Type", "BoxCollider" }, { "Size", { safeDivide( 2.f * half.x, transformScale.x ), safeDivide( 2.f * half.y, transformScale.y ), safeDivide( 2.f * half.z, transformScale.z ) } } };
+            }
+            if( mass <= 0.f )
+            {
+                return { collider };   // static: a collider alone makes a static body
+            }
+            return { body, collider };
+        }
+        if( type == "CharacterController" && InComponent.contains( "JumpForce" ) )
+        {
+            // Bullet-era controller fields don't carry over; defaults fit a human-sized capsule.
+            return { json{ { "Type", "CharacterController" } } };
+        }
+        return { InComponent };
     }
 
 
@@ -407,17 +456,19 @@ namespace SceneSerializer
                     {
                         continue;
                     }
-                    const json componentJson = UpgradeComponent( rawComponentJson );
-                    BaseComponent* component = created[i]->AddComponentByName( componentJson["Type"].get<std::string>() );
-                    if( !component )
+                    for( const json& componentJson : UpgradeComponent( rawComponentJson, entityJson ) )
                     {
-                        continue;
+                        BaseComponent* component = created[i]->AddComponentByName( componentJson["Type"].get<std::string>() );
+                        if( !component )
+                        {
+                            continue;
+                        }
+                        {
+                            OPTICK_EVENT_DYNAMIC( component->GetName().c_str() );
+                            component->Deserialize( componentJson );
+                        }
+                        addedComponents[i].push_back( component );
                     }
-                    {
-                        OPTICK_EVENT_DYNAMIC( component->GetName().c_str() );
-                        component->Deserialize( componentJson );
-                    }
-                    addedComponents[i].push_back( component );
                 }
             }
         }

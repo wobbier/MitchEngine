@@ -18,7 +18,6 @@ public class Dementia : BaseProject
 
         conf.SolutionFolder = "Modules";
 
-        conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/Bullet/src"));
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/glm"));
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/JSON/include"));
         if (target.SubPlatform != SubPlatformType.linux)

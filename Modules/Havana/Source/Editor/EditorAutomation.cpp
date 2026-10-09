@@ -82,11 +82,11 @@ namespace
     }
 
 
-    bool NearlyEqual( const json& InA, const json& InB )
+    bool NearlyEqual( const json& InA, const json& InB, double InTolerance = 1e-3 )
     {
         if( InA.is_number() && InB.is_number() )
         {
-            return std::fabs( InA.get<double>() - InB.get<double>() ) <= 1e-3;
+            return std::fabs( InA.get<double>() - InB.get<double>() ) <= InTolerance;
         }
         if( InA.is_array() && InB.is_array() )
         {
@@ -96,7 +96,7 @@ namespace
             }
             for( size_t i = 0; i < InA.size(); ++i )
             {
-                if( !NearlyEqual( InA[i], InB[i] ) )
+                if( !NearlyEqual( InA[i], InB[i], InTolerance ) )
                 {
                     return false;
                 }
@@ -550,8 +550,15 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
     else if( command == "assert-field" )
     {
         // assert-field Cube | Transform.Position | [0,1,0]   (or space separated when names have no spaces)
+        // assert-field Cube | Transform.Position.1 | 0.5 ~ 0.02   (numbers within a tolerance)
         auto [name, rest] = SplitArgs( args );
         auto [fieldPath, valueText] = SplitArgs( rest );
+        double tolerance = 1e-3;
+        if( const size_t tilde = valueText.find( " ~ " ); tilde != std::string::npos )
+        {
+            tolerance = std::atof( valueText.c_str() + tilde + 3 );
+            valueText = valueText.substr( 0, tilde );
+        }
         EntityHandle entity = FindEntity( name );
         std::string type;
         json::json_pointer pointer;
@@ -564,7 +571,7 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
         {
             json state = EditorOps::CaptureComponent( *entity.Get(), type );
             const json* actual = Resolve( state, pointer );
-            if( !actual || !NearlyEqual( *actual, expected ) )
+            if( !actual || !NearlyEqual( *actual, expected, tolerance ) )
             {
                 Fail( name + " " + fieldPath + " is " + ( actual ? actual->dump() : std::string( "<missing>" ) ) + ", expected " + valueText );
             }

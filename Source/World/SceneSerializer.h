@@ -39,7 +39,8 @@ namespace SceneSerializer
     json MigrateToLatest( const json& InData );
 
     // Renames/converts components whose type was replaced (applied to every loaded component).
-    json UpgradeComponent( const json& InComponent );
+    // InEntity is the owning entity's JSON; one old component can become several.
+    std::vector<json> UpgradeComponent( const json& InComponent, const json& InEntity );
 
     // Serializes the given entities and all of their descendants. Parent links pointing outside the
     // serialized set are omitted, so the result instantiates as a set of roots.

@@ -669,22 +669,57 @@ void SceneHierarchyWidget::DrawCreateTemplates(Transform* parent)
 	auto mesh = [](const char* type) {
 		return json{ { "Type", "Mesh" }, { "MeshType", type }, { "Material", { { "Type", "StandardMaterial" }, { "DiffuseColor", { 0.8, 0.8, 0.8 } }, { "Roughness", 0.5 } } } };
 	};
+	// Primitives come with a collider that fits them (static until a Rigidbody is added).
+	// Shapes span [-1, 1]; the capsule has radius 0.5.
+	auto collider = [](const char* shape) {
+		const std::string type = shape;
+		if (type == "Sphere")
+		{
+			return json{ { "Type", "SphereCollider" }, { "Radius", 1.0 } };
+		}
+		if (type == "Capsule")
+		{
+			return json{ { "Type", "CapsuleCollider" }, { "Radius", 0.5 }, { "Height", 2.0 } };
+		}
+		if (type == "Cylinder")
+		{
+			return json{ { "Type", "MeshCollider" }, { "Convex", true } };
+		}
+		if (type == "Plane")
+		{
+			return json{ { "Type", "BoxCollider" }, { "Size", { 2.0, 0.02, 2.0 } }, { "Center", { 0.0, -0.01, 0.0 } } };
+		}
+		return json{ { "Type", "BoxCollider" }, { "Size", { 2.0, 2.0, 2.0 } } };
+	};
 	if (ImGui::BeginMenu("3D Object"))
 	{
-		if (ImGui::MenuItem("Cube"))
-		{
-			create("Cube", json::array({ json{ { "Type", "Transform" } }, mesh("Cube") }));
-		}
-		if (ImGui::MenuItem("Plane"))
-		{
-			create("Plane", json::array({ json{ { "Type", "Transform" } }, mesh("Plane") }));
-		}
-		for (const char* shape : { "Sphere", "Cylinder", "Capsule" })
+		for (const char* shape : { "Cube", "Plane", "Sphere", "Cylinder", "Capsule" })
 		{
 			if (ImGui::MenuItem(shape))
 			{
-				create(shape, json::array({ json{ { "Type", "Transform" } }, mesh(shape) }));
+				create(shape, json::array({ json{ { "Type", "Transform" } }, mesh(shape), collider(shape) }));
 			}
+		}
+		ImGui::EndMenu();
+	}
+	if (ImGui::BeginMenu("Physics"))
+	{
+		for (const char* shape : { "Cube", "Sphere", "Capsule" })
+		{
+			const std::string name = std::string("Dynamic ") + shape;
+			if (ImGui::MenuItem(name.c_str()))
+			{
+				create(name.c_str(), json::array({ json{ { "Type", "Transform" }, { "Scale", { 0.5, 0.5, 0.5 } } }, mesh(shape), collider(shape), json{ { "Type", "Rigidbody" }, { "Mass", 1.0 } } }));
+			}
+		}
+		if (ImGui::MenuItem("Trigger Volume"))
+		{
+			create("Trigger", json::array({ json{ { "Type", "Transform" } }, json{ { "Type", "BoxCollider" }, { "Size", { 2.0, 2.0, 2.0 } }, { "IsTrigger", true } } }));
+		}
+		if (ImGui::MenuItem("Character Controller"))
+		{
+			// The capsule mesh scaled to the controller's default 0.4 m radius, 1.8 m height.
+			create("Character", json::array({ json{ { "Type", "Transform" }, { "Scale", { 0.8, 0.9, 0.8 } } }, mesh("Capsule"), json{ { "Type", "CharacterController" } } }));
 		}
 		ImGui::EndMenu();
 	}

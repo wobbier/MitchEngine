@@ -312,13 +312,9 @@ public abstract class BaseProject : Project
         //    "[project.SharpmakeCsPath]",
         //    $"ThirdParty/Lib/SDL/linux/Release"
         //));
-        conf.LibraryPaths.Add(Path.Combine(
-            "[project.SharpmakeCsPath]",
-            $"ThirdParty/Lib/Bullet/linux/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"
-        ));
         // Optick library path removed — ChromeTrace is header-only on Linux
 
-        // The prebuilt Bullet archives were built without -fPIC, so their R_X86_64_32S
+        // Some prebuilt third-party archives were built without -fPIC, so their R_X86_64_32S
         // relocations cannot be linked into a PIE (the default). Link non-PIE instead.
         conf.AdditionalLinkerOptions.Add("-no-pie");
 
@@ -331,9 +327,6 @@ public abstract class BaseProject : Project
         // add the rest here. LibGroup (enabled in ConfigureLinux) wraps all of LDLIBS in a
         // linker group, so order is irrelevant. Bare names become -l:lib<name>.a; the
         // shared libs need their full .so filename to avoid the forced .a suffix.
-        conf.LibraryFiles.Add("BulletDynamics");
-        conf.LibraryFiles.Add("BulletCollision");
-        conf.LibraryFiles.Add("LinearMath");
         conf.LibraryFiles.Add("libwayland-egl.so");
         if (Directory.Exists(Globals.FMOD_Linux_Dir))
         {

@@ -173,6 +173,7 @@ public class Engine : BaseProject
         conf.AddPublicDependency<Box2D>(target);
         conf.AddPublicDependency<Box3D>(target);
 
+        // Box3D (3D) and Box2D (2D) physics are built from source and always available.
         if (Globals.IsPhysicsEnabled3D)
         {
             conf.Defines.Add("DEFINE_ME_PHYSICS_3D");
@@ -202,24 +203,6 @@ public class Engine : BaseProject
             // Release for now since the 1.4 debug dlls are massive
             conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $@"ThirdParty/UltralightSDK/Lib/[target.SubPlatform]/{CommonTarget.GetThirdPartyOptimization(Optimization.Release)}"));
             conf.LibraryFiles.Add("AppCore");
-        }
-
-        // Physics3D / Bullet3D
-        if (Globals.IsPhysicsEnabled3D)
-        {
-            conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/Bullet/Win64/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
-            if (target.Optimization == Optimization.Debug)
-            {
-                conf.LibraryFiles.Add("BulletCollision_Debug.lib");
-                conf.LibraryFiles.Add("BulletDynamics_Debug.lib");
-                conf.LibraryFiles.Add("LinearMath_Debug.lib");
-            }
-            else
-            {
-                conf.LibraryFiles.Add("BulletCollision_MinsizeRel.lib");
-                conf.LibraryFiles.Add("BulletDynamics_MinsizeRel.lib");
-                conf.LibraryFiles.Add("LinearMath_MinsizeRel.lib");
-            }
         }
 
         conf.LibraryFiles.Add("Dwrite");
@@ -340,24 +323,6 @@ public class Engine : BaseProject
             conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $@"ThirdParty/UltralightSDK/Lib/[target.SubPlatform]/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
         }
 
-        // Physics3D / Bullet3D
-        if (Globals.IsPhysicsEnabled3D)
-        {
-            conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/Bullet/Win64/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
-            if (target.Optimization == Optimization.Debug)
-            {
-                conf.LibraryFiles.Add("BulletCollision_Debug.lib");
-                conf.LibraryFiles.Add("BulletDynamics_Debug.lib");
-                conf.LibraryFiles.Add("LinearMath_Debug.lib");
-            }
-            else
-            {
-                conf.LibraryFiles.Add("BulletCollision_MinsizeRel.lib");
-                conf.LibraryFiles.Add("BulletDynamics_MinsizeRel.lib");
-                conf.LibraryFiles.Add("LinearMath_MinsizeRel.lib");
-            }
-        }
-
         conf.LibraryPaths.Add("$(VCInstallDir)\\lib\\store\\amd64");
         conf.LibraryPaths.Add("$(VCInstallDir)\\lib\\amd64");
 
@@ -436,17 +401,6 @@ public class Engine : BaseProject
         {
             conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $@"ThirdParty/UltralightSDK/Lib/[target.SubPlatform]"));
             conf.LibraryFiles.Add("AppCore");
-        }
-
-        // Physics3D / Bullet3D
-        if (Globals.IsPhysicsEnabled3D)
-        {
-            // What the actual fuck lmao                                                                 v
-            conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", "ThirdParty/Lib/Bullet/macOS/Debug"));
-
-            conf.LibraryFiles.Add("BulletCollision");
-            conf.LibraryFiles.Add("BulletDynamics");
-            conf.LibraryFiles.Add("LinearMath");
         }
 
         // Build Machine
@@ -586,10 +540,6 @@ public class Engine : BaseProject
         //    "[project.SharpmakeCsPath]",
         //    $"ThirdParty/Lib/SDL/linux/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"
         //));
-        conf.LibraryPaths.Add(Path.Combine(
-            "[project.SharpmakeCsPath]",
-            $"ThirdParty/Lib/Bullet/linux/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"
-        ));
         conf.AdditionalLinkerOptions.Add(
             "-l:libDementia.a " +
             "-l:libImGui.a " +

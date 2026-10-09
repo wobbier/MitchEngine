@@ -45,6 +45,12 @@ namespace Moonlight
         m_ibh = bgfx::createIndexBuffer( bgfx::copy( Indices.data(), static_cast<uint32_t>( sizeof( uint32_t ) * Indices.size() ) ), BGFX_BUFFER_INDEX32 );
 
         // bgfx owns copies of the geometry now; drop the CPU side.
+        CollisionPositions.resize( Vertices.size() );
+        for( size_t i = 0; i < Vertices.size(); ++i )
+        {
+            CollisionPositions[i] = Vertices[i].Position;
+        }
+        CollisionIndices = Indices;
         std::vector<PosNormTexTanBiVertex>().swap( Vertices );
         std::vector<uint32_t>().swap( Indices );
     }

@@ -27,6 +27,9 @@ namespace Moonlight
 
         // Local-space bounds, computed from the vertices when the GPU buffers are created.
         AABB Bounds;
+        // Positions and triangle indices kept on the CPU after upload, for mesh colliders.
+        std::vector<Vector3> CollisionPositions;
+        std::vector<uint32_t> CollisionIndices;
         SharedPtr<Moonlight::Material> MeshMaterial;
 
         const bgfx::VertexBufferHandle& GetVertexBuffer() const {

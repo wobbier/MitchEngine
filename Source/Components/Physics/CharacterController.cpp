@@ -1,357 +1,81 @@
 #include "PCH.h"
 #include "CharacterController.h"
-#include "imgui.h"
-#include <Utils/HavanaUtils.h>
-#include <Physics/RigidBodyWithCollisionEvents.h>
+#include "Components/Transform.h"
+#include "Physics/Box3DUtils.h"
 
-#if USING( ME_PHYSICS_3D )
-class IgnoreBodyAndGhostCast
-    : public btCollisionWorld::ClosestRayResultCallback
-{
-public:
-    IgnoreBodyAndGhostCast( btRigidBody* body, btPairCachingGhostObjectWithEvents* ghostObject )
-        : btCollisionWorld::ClosestRayResultCallback( btVector3(), btVector3() )
-        , m_body( body )
-        , m_ghostObject( ghostObject )
-    {
-    }
+ME_REFLECT_BEGIN( CharacterController )
+    ME_FIELD( Center );
+    ME_FIELD( Radius ).Range( 0.05f, 10.f );
+    ME_FIELD( Height ).Range( 0.1f, 20.f ).Tooltip( "End to end, including the caps" );
+    ME_FIELD( MaxSpeed ).Category( "Movement" ).Range( 0.f, 100.f );
+    ME_FIELD( Acceleration ).Category( "Movement" ).Range( 0.f, 500.f );
+    ME_FIELD( AirControl ).Category( "Movement" ).Range( 0.f, 1.f );
+    ME_FIELD( JumpHeight ).Category( "Movement" ).Range( 0.f, 20.f );
+    ME_FIELD( GravityScale ).Category( "Movement" ).Range( 0.f, 10.f );
+    ME_FIELD( SlopeLimit ).Category( "Collision" ).Range( 0.f, 89.f ).Tooltip( "Steeper surfaces count as walls" );
+    ME_FIELD( GroundSnap ).Category( "Collision" ).Range( 0.f, 2.f ).Tooltip( "Follow the ground down steps and slopes" );
+    ME_FIELD( PushStrength ).Category( "Collision" ).Range( 0.f, 20.f );
+ME_REFLECT_END()
 
-    virtual btScalar addSingleResult( btCollisionWorld::LocalRayResult& result, bool normalInWorldSpace ) final
-    {
-        if( result.m_collisionObject == m_body || result.m_collisionObject == m_ghostObject )
-        {
-            return 1.f;
-        }
-        return ClosestRayResultCallback::addSingleResult( result, normalInWorldSpace );
-    }
-
-private:
-    btRigidBody* m_body = nullptr;
-    btPairCachingGhostObjectWithEvents* m_ghostObject = nullptr;
-};
-#endif
 
 CharacterController::CharacterController()
     : Component( "CharacterController" )
 {
 }
 
-CharacterController::~CharacterController()
+
+void CharacterController::OnDeserialize( const json& InJson )
 {
+    Reflection::FromJson( StaticType(), this, InJson );
 }
 
-void CharacterController::Init()
+
+void CharacterController::SetMoveInput( const Vector3& InDirection )
 {
-}
-
-#if USING( ME_PHYSICS_3D )
-void CharacterController::Initialize( btDynamicsWorld* pPhysicsWorld, const Vector3 spawnPos, float radius, float height, float mass, float stepHeight )
-{
-    m_world = pPhysicsWorld;
-    m_bottomYOffset = height / 2.f + radius;
-    m_bottomRoundedRegionYOffset = ( height + radius ) / 2.f;
-    m_stepHeight = stepHeight;
-
-    m_shape = new btCapsuleShape( radius, height );
-    m_motionState = new btDefaultMotionState( btTransform( btQuaternion( 1.f, 0.f, 0.f, 0.f ).normalized(), btVector3( spawnPos[0], spawnPos[1], spawnPos[2] ) ) );
-
-    btVector3 inertia;
-
-    m_shape->calculateLocalInertia( mass, inertia );
-
-    btRigidBody::btRigidBodyConstructionInfo rigidbodyInfo( mass, m_motionState, m_shape, inertia );
-
-    rigidbodyInfo.m_friction = 0.1f;
-    rigidbodyInfo.m_restitution = 0.f;
-    rigidbodyInfo.m_linearDamping = 0.f;
-
-    m_rigidbody = new btRigidBody( rigidbodyInfo );
-
-    m_rigidbody->setAngularFactor( 0.f );
-    m_rigidbody->setActivationState( DISABLE_DEACTIVATION );
-    m_rigidbody->setUserPointer( this );
-
-    m_world->addRigidBody( m_rigidbody );
-
-    m_ghostObject = new btPairCachingGhostObjectWithEvents();
-
-    m_ghostObject->setCollisionShape( m_shape );
-    m_ghostObject->setUserPointer( this );
-    m_ghostObject->setCollisionFlags( btCollisionObject::CF_NO_CONTACT_RESPONSE );
-
-    m_world->addCollisionObject( m_ghostObject, btBroadphaseProxy::KinematicFilter, btBroadphaseProxy::StaticFilter | btBroadphaseProxy::DefaultFilter );
-}
-#endif
-
-void CharacterController::Walk( const Vector3& direction )
-{
-    Walk( Vector2( direction.x, direction.z ) );
-}
-
-void CharacterController::Walk( Vector2 direction )
-{
-    Vector2 velocityXZ = direction + Vector2( m_manualVelocity.x, m_manualVelocity.z );
-
-    const float speed = velocityXZ.Length();
-
-    if( speed > MaxSpeed )
+    Vector3 direction( InDirection.x, 0.f, InDirection.z );
+    if( direction.LengthSquared() > 1.f )
     {
-        velocityXZ = velocityXZ / speed * MaxSpeed;
+        direction = direction.Normalized();
     }
-
-    m_manualVelocity[0] = velocityXZ.x;
-    m_manualVelocity[2] = velocityXZ.y;
+    m_moveInput = direction;
 }
 
-void CharacterController::Update( const UpdateContext& inUpdateContext )
+
+void CharacterController::Move( const Vector3& InDisplacement )
 {
-#if USING( ME_PHYSICS_3D )
-    m_ghostObject->setWorldTransform( m_rigidbody->getWorldTransform() );
-
-    m_motionState->getWorldTransform( m_motionTransform );
-
-    m_isGrounded = false;
-
-    ParseGhostContacts();
-
-    UpdatePosition();
-    UpdateVelocity( inUpdateContext.GetDeltaTime() );
-
-    if( m_jumpTimer < JumpRechargeTime )
-    {
-        m_jumpTimer += inUpdateContext.GetDeltaTime();
-    }
-#endif
+    m_pendingMove += InDisplacement;
 }
+
 
 void CharacterController::Jump()
 {
-#if USING( ME_PHYSICS_3D )
-    if( m_isGrounded && m_jumpTimer >= JumpRechargeTime )
-    {
-        m_jumpTimer = 0.f;
-
-        m_rigidbody->applyCentralImpulse( btVector3( 0.f, JumpForce, 0.f ) );
-
-        const float jumpYOffset = 0.01f;
-
-        float previousY = m_rigidbody->getWorldTransform().getOrigin().getY();
-
-        m_rigidbody->getWorldTransform().getOrigin().setY( previousY + jumpYOffset );
-    }
-#endif
+    m_wantsJump = true;
 }
 
-void CharacterController::Teleport( const Vector3& inPosition, const Quaternion& inRotation )
+
+void CharacterController::Teleport( const Vector3& InPosition, const Quaternion& InRotation )
 {
-#if USING( ME_PHYSICS_3D )
-    btTransform trans = m_rigidbody->getWorldTransform();
-    //Vector3 transPos = TransformComponent.GetWorldPosition();
-    trans.setRotation( btQuaternion( inRotation.x, inRotation.y, inRotation.z, inRotation.w ) );
-    trans.setOrigin( btVector3( inPosition.x, inPosition.y, inPosition.z ) );
-    m_rigidbody->setWorldTransform( trans );
-#endif
+    m_position = InPosition - Center;
+    m_previousPosition = m_position;
+    m_appliedCenter = m_position;
+    m_hasPosition = true;
+    m_velocity = Vector3();
+    if( Parent )
+    {
+        if( Transform* transform = Parent->TryGetComponent<Transform>() )
+        {
+            transform->SetWorldPosition( InPosition );
+            transform->SetWorldRotation( InRotation );
+        }
+    }
+    if( Box3DUtils::IsBody( m_body ) )
+    {
+        b3Body_SetTransform( Box3DUtils::Body( m_body ), Box3DUtils::ToB3( m_position ), b3Quat_identity );
+    }
 }
+
 
 Vector3 CharacterController::GetPosition() const
 {
-#if USING( ME_PHYSICS_3D )
-    return Vector3( m_motionTransform.getOrigin() );
-#else
-    return {};
-#endif
+    return m_position + Center;
 }
-
-Vector3 CharacterController::GetVelocity() const
-{
-#if USING( ME_PHYSICS_3D )
-    return Vector3( m_rigidbody->getLinearVelocity() );
-#else
-    return {};
-#endif
-}
-
-bool CharacterController::IsOnGround() const
-{
-    return m_isGrounded;
-}
-
-void CharacterController::OnSerialize( json& outJson )
-{
-    outJson["JumpForce"] = JumpForce;
-    outJson["MaxSpeed"] = MaxSpeed;
-    outJson["Deceleration"] = Deceleration;
-    outJson["JumpRechargeTime"] = JumpRechargeTime;
-    outJson["StepHeight"] = m_stepHeight;
-}
-
-void CharacterController::OnDeserialize( const json& inJson )
-{
-    if( inJson.contains( "JumpForce" ) )
-    {
-        JumpForce = inJson["JumpForce"];
-    }
-    if( inJson.contains( "MaxSpeed" ) )
-    {
-        MaxSpeed = inJson["MaxSpeed"];
-    }
-    if( inJson.contains( "Deceleration" ) )
-    {
-        Deceleration = inJson["Deceleration"];
-    }
-    if( inJson.contains( "JumpRechargeTime" ) )
-    {
-        JumpRechargeTime = inJson["JumpRechargeTime"];
-    }
-    if( inJson.contains( "StepHeight" ) )
-    {
-        m_stepHeight = inJson["StepHeight"];
-    }
-}
-
-#if USING( ME_EDITOR )
-
-void CharacterController::OnEditorInspect()
-{
-    HavanaUtils::Label( "Jump Force" );
-    ImGui::DragFloat( "##Jump Force", &JumpForce );
-
-    HavanaUtils::Label( "Max Speed" );
-    ImGui::DragFloat( "##Max Speed", &MaxSpeed );
-
-    HavanaUtils::Label( "Deceleration" );
-    ImGui::DragFloat( "##Deceleration", &Deceleration );
-
-    HavanaUtils::Label( "Jump Recharge Time" );
-    ImGui::DragFloat( "##Jump Recharge Time", &JumpRechargeTime );
-
-    HavanaUtils::Label( "Step Height" );
-    ImGui::DragFloat( "##Step Height", &m_stepHeight );
-
-}
-
-#endif
-
-#if USING( ME_PHYSICS_3D )
-
-void CharacterController::ParseGhostContacts()
-{
-    btManifoldArray manifoldArray;
-    btBroadphasePairArray& pairArray = m_ghostObject->getOverlappingPairCache()->getOverlappingPairArray();
-    int numPairs = pairArray.size();
-
-    m_isHittingWall = false;
-    m_surfaceHitNormals.clear();
-
-    for( int i = 0; i < numPairs; ++i )
-    {
-        manifoldArray.clear();
-
-        const btBroadphasePair& pait = pairArray[i];
-
-        btBroadphasePair* collisionPair = m_world->getPairCache()->findPair( pait.m_pProxy0, pait.m_pProxy1 );
-        if( collisionPair == nullptr )
-        {
-            continue;
-        }
-
-        if( collisionPair->m_algorithm != nullptr )
-        {
-            collisionPair->m_algorithm->getAllContactManifolds( manifoldArray );
-        }
-
-        for( int j = 0; j < manifoldArray.size(); ++j )
-        {
-            btPersistentManifold* manifold = manifoldArray[i];
-
-            if( manifold->getBody0() == m_rigidbody )
-            {
-                continue;
-            }
-            for( int k = 0; k < manifold->getNumContacts(); ++k )
-            {
-                const btManifoldPoint& point = manifold->getContactPoint( k );
-
-                if( point.getDistance() < 0.f )
-                {
-                    const btVector3& pointB = point.getPositionWorldOnB();
-
-                    if( pointB.getY() < m_motionTransform.getOrigin().y() - m_bottomRoundedRegionYOffset )
-                    {
-                        m_isGrounded = true;
-                    }
-                    else
-                    {
-                        m_isHittingWall = true;
-
-                        btVector3 normal = point.m_normalWorldOnB;
-
-                        m_surfaceHitNormals.push_back( Vector3( normal.x(), normal.y(), normal.z() ) );
-                    }
-                }
-            }
-        }
-    }
-}
-
-void CharacterController::UpdatePosition()
-{
-    IgnoreBodyAndGhostCast raycastBottom( m_rigidbody, m_ghostObject );
-
-    m_world->rayTest( m_rigidbody->getWorldTransform().getOrigin(), m_rigidbody->getWorldTransform().getOrigin() - btVector3( 0.f, m_bottomYOffset + m_stepHeight, 0.f ), raycastBottom );
-    if( raycastBottom.hasHit() )
-    {
-        float previousY = m_rigidbody->getWorldTransform().getOrigin().getY();
-
-        m_rigidbody->getWorldTransform().getOrigin().setY( previousY + ( m_bottomYOffset + m_stepHeight ) * ( 1.f - raycastBottom.m_closestHitFraction ) );
-
-        btVector3 velocity = m_rigidbody->getLinearVelocity();
-
-        velocity.setY( 0.f );
-
-        m_rigidbody->setLinearVelocity( velocity );
-
-        m_isGrounded = true;
-    }
-
-    float testOffset = 0.7f;
-
-    IgnoreBodyAndGhostCast raycastTop( m_rigidbody, m_ghostObject );
-
-    m_world->rayTest( m_rigidbody->getWorldTransform().getOrigin(), m_rigidbody->getWorldTransform().getOrigin() + btVector3( 0.f, m_bottomYOffset + testOffset, 0.f ), raycastTop );
-
-    if( raycastTop.hasHit() )
-    {
-        m_rigidbody->getWorldTransform().setOrigin( m_previousPosition );
-
-        btVector3 velocity = m_rigidbody->getLinearVelocity();
-
-        velocity.setY( 0.f );
-
-        m_rigidbody->setLinearVelocity( velocity );
-    }
-    m_previousPosition = m_rigidbody->getWorldTransform().getOrigin();
-}
-
-void CharacterController::UpdateVelocity( float dt )
-{
-    m_manualVelocity.y = m_rigidbody->getLinearVelocity().y();
-
-    const btVector3 velocity( m_manualVelocity.x, m_manualVelocity.y, m_manualVelocity.z );
-    m_rigidbody->setLinearVelocity( velocity );
-
-    m_manualVelocity = m_manualVelocity - ( m_manualVelocity * Deceleration * dt );
-
-    if( m_isHittingWall )
-    {
-        for( size_t i = 0, size = m_surfaceHitNormals.size(); i < size; i++ )
-        {
-            auto vec = m_manualVelocity.Dot( m_surfaceHitNormals[i] );
-
-            m_manualVelocity = m_manualVelocity - ( vec * 1.05f );
-        }
-        return;
-    }
-}
-
-#endif

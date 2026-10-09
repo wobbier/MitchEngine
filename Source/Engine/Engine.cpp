@@ -216,6 +216,7 @@ void Engine::Init( Game* game )
         SceneNodes = new SceneCore();
         ModelRenderer = new RenderCore();
         Particles = new ParticleCore();
+        Physics = new PhysicsCore();
         AudioThread = new AudioCore();
         UI = new UICore( GameWindow, NewRenderer );
     }
@@ -257,6 +258,7 @@ void Engine::InitGame()
         GameWorld->AddCore<SceneCore>( *SceneNodes );
         GameWorld->AddCore<RenderCore>( *ModelRenderer );
         GameWorld->AddCore<ParticleCore>( *Particles );
+        GameWorld->AddCore<PhysicsCore>( *Physics );
         GameWorld->AddCore<AudioCore>( *AudioThread );
         GameWorld->AddCore<UICore>( *UI );
     }
@@ -414,6 +416,8 @@ void Engine::Run()
                     updateContext.IsFixedStepActive = true;
                     GameWorld->FixedUpdateLoadedCores( updateContext );
                     m_game->OnFixedUpdate( updateContext );
+                    // Gameplay applied its forces; now the world steps.
+                    Physics->FixedUpdate( updateContext );
                     updateContext.IsFixedStepActive = false;
                     GameWorld->Simulate();
                     m_fixedAccumulator -= m_fixedTimeStep;
@@ -425,6 +429,9 @@ void Engine::Run()
                     m_fixedAccumulator = std::fmod( m_fixedAccumulator, static_cast<double>( m_fixedTimeStep ) );
                 }
                 updateContext.InterpolationAlpha = static_cast<float>( m_fixedAccumulator / m_fixedTimeStep );
+
+                // Interpolated body poses land before gameplay reads them (cameras following bodies).
+                Physics->Update( updateContext );
             }
 
             // Update Loaded Cores

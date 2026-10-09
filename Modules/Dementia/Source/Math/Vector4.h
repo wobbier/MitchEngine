@@ -1,7 +1,6 @@
 #pragma once
 #include <string>
 #include <glm/glm.hpp>
-#include "LinearMath/btVector3.h"
 
 struct Vector4
 {
@@ -39,14 +38,6 @@ struct Vector4
         , y( V )
         , z( V )
         , w( V )
-    {
-    }
-
-    Vector4( const btVector4& v )
-        : x( v.x() )
-        , y( v.y() )
-        , z( v.z() )
-        , w( v.w() )
     {
     }
 

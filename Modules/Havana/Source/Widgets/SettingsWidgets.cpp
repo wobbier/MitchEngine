@@ -357,6 +357,67 @@ void ProjectSettingsWidget::Render()
 			settings.Save();
 		}
 	}
+
+	if (ImGui::CollapsingHeader("Physics", ImGuiTreeNodeFlags_DefaultOpen))
+	{
+		ProjectSettings& settings = ProjectSettings::Get();
+		ImGui::DragFloat3("Gravity", &settings.Gravity.x, 0.05f, -100.f, 100.f, "%.2f");
+		if (ImGui::IsItemDeactivatedAfterEdit())
+		{
+			settings.Save();
+		}
+
+		// Layer collision matrix over the named layers (plus Default), triangular like Unity's.
+		std::vector<int> layers;
+		for (int i = 0; i < ProjectSettings::kLayerCount; ++i)
+		{
+			if (i == 0 || !settings.GetLayerName(i).empty())
+			{
+				layers.push_back(i);
+			}
+		}
+		ImGui::TextDisabled("Layer collision (name more layers above to add them)");
+		const int count = static_cast<int>(layers.size());
+		const ImGuiTableFlags flags = ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_HighlightHoveredColumn | ImGuiTableFlags_NoSavedSettings;
+		if (count > 0 && ImGui::BeginTable("##LayerCollision", count + 1, flags))
+		{
+			ImGui::TableSetupColumn("##Rows", ImGuiTableColumnFlags_NoHide | ImGuiTableColumnFlags_NoReorder);
+			for (int column = count - 1; column >= 0; --column)
+			{
+				ImGui::TableSetupColumn(settings.GetLayerLabel(layers[column]).c_str(), ImGuiTableColumnFlags_AngledHeader | ImGuiTableColumnFlags_WidthFixed);
+			}
+			ImGui::TableAngledHeadersRow();
+			bool changed = false;
+			for (int row = 0; row < count; ++row)
+			{
+				ImGui::TableNextRow();
+				ImGui::TableSetColumnIndex(0);
+				ImGui::TextUnformatted(settings.GetLayerLabel(layers[row]).c_str());
+				// Columns run from the last layer down to the row's own layer.
+				for (int column = count - 1; column >= row; --column)
+				{
+					ImGui::TableSetColumnIndex(count - column);
+					ImGui::PushID(row * ProjectSettings::kLayerCount + column);
+					bool collide = settings.DoLayersCollide(layers[row], layers[column]);
+					if (ImGui::Checkbox("##Collide", &collide))
+					{
+						settings.SetLayersCollide(layers[row], layers[column], collide);
+						changed = true;
+					}
+					if (ImGui::IsItemHovered())
+					{
+						ImGui::SetTooltip("%s / %s", settings.GetLayerLabel(layers[row]).c_str(), settings.GetLayerLabel(layers[column]).c_str());
+					}
+					ImGui::PopID();
+				}
+			}
+			ImGui::EndTable();
+			if (changed)
+			{
+				settings.Save();
+			}
+		}
+	}
 	ImGui::End();
 }
 

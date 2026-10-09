@@ -8,6 +8,9 @@
 #include "Components/Graphics/Mesh.h"
 #include "Components/Lighting/Light.h"
 #include "Components/Effects/ParticleSystem.h"
+#include "Components/Physics/CharacterController.h"
+#include "Components/Physics/Colliders.h"
+#include "Components/Physics/PhysicsJoint.h"
 #include "Components/Transform.h"
 #include "Debug/DebugDraw.h"
 #include "Engine/World.h"
@@ -121,6 +124,76 @@ namespace SceneTools
         }
 
 
+        // Collider shapes, character capsules and joint anchors of a selected entity.
+        void DrawPhysicsGizmos( Entity& InEntity, Transform& InTransform )
+        {
+            const Matrix4 localToWorld = InTransform.GetLocalToWorldMatrix();
+            const Vector3 scale = InTransform.GetWorldScale();
+            const Vector3 absScale( std::abs( scale.x ), std::abs( scale.y ), std::abs( scale.z ) );
+            const Quaternion rotation = InTransform.GetWorldRotation();
+            auto colorFor = []( const ColliderSettings& InCollider ) {
+                return InCollider.IsTrigger ? Vector4( 0.45f, 0.85f, 1.f, 0.9f ) : Vector4( 0.55f, 1.f, 0.45f, 0.9f );
+            };
+            if( BoxCollider* box = InEntity.TryGetComponent<BoxCollider>(); box && box->IsEnabled() )
+            {
+                DebugDraw::Box( localToWorld, AABB::FromCenterExtents( box->Center, box->Size * 0.5f ), colorFor( *box ), 0.f, DebugDraw::EditorOnly );
+            }
+            if( SphereCollider* sphere = InEntity.TryGetComponent<SphereCollider>(); sphere && sphere->IsEnabled() )
+            {
+                const float radius = sphere->Radius * std::max( { absScale.x, absScale.y, absScale.z } );
+                DebugDraw::Sphere( localToWorld.TransformPoint( sphere->Center ), radius, colorFor( *sphere ), 0.f, DebugDraw::EditorOnly, 24 );
+            }
+            if( CapsuleCollider* capsule = InEntity.TryGetComponent<CapsuleCollider>(); capsule && capsule->IsEnabled() )
+            {
+                const int axis = static_cast<int>( capsule->Direction );
+                const float axisScale = axis == 0 ? absScale.x : ( axis == 1 ? absScale.y : absScale.z );
+                const float radialScale = axis == 0 ? std::max( absScale.y, absScale.z ) : ( axis == 1 ? std::max( absScale.x, absScale.z ) : std::max( absScale.x, absScale.y ) );
+                const float radius = capsule->Radius * radialScale;
+                const float half = std::max( capsule->Height * axisScale * 0.5f - radius, 0.f );
+                const Vector3 direction = rotation * Vector3( axis == 0 ? 1.f : 0.f, axis == 1 ? 1.f : 0.f, axis == 2 ? 1.f : 0.f );
+                const Vector3 center = localToWorld.TransformPoint( capsule->Center );
+                DebugDraw::Capsule( center - direction * half, center + direction * half, radius, colorFor( *capsule ), 0.f, DebugDraw::EditorOnly );
+            }
+            if( MeshCollider* meshCollider = InEntity.TryGetComponent<MeshCollider>(); meshCollider && meshCollider->IsEnabled() )
+            {
+                AABB bounds;
+                if( ColliderUtils::GetMeshBounds( InEntity, bounds ) )
+                {
+                    DebugDraw::Box( localToWorld, bounds, colorFor( *meshCollider ), 0.f, DebugDraw::EditorOnly );
+                }
+            }
+            if( CharacterController* character = InEntity.TryGetComponent<CharacterController>(); character && character->IsEnabled() )
+            {
+                const float half = std::max( character->Height * 0.5f - character->Radius, 0.f );
+                const Vector3 center = InTransform.GetWorldPosition() - character->Center;
+                DebugDraw::Capsule( center - Vector3( 0.f, half, 0.f ), center + Vector3( 0.f, half, 0.f ), character->Radius, Vector4( 0.55f, 1.f, 0.45f, 0.9f ), 0.f, DebugDraw::EditorOnly );
+            }
+            if( PhysicsJoint* joint = InEntity.TryGetComponent<PhysicsJoint>(); joint && joint->IsEnabled() )
+            {
+                const Vector4 color( 1.f, 0.85f, 0.3f, 1.f );
+                const Vector3 anchor = localToWorld.TransformPoint( joint->Anchor );
+                DebugDraw::Sphere( anchor, 0.08f, color, 0.f, DebugDraw::EditorOnly | DebugDraw::NoDepthTest, 12 );
+                if( joint->Type == JointType::Hinge || joint->Type == JointType::Slider )
+                {
+                    Vector3 axis = rotation * joint->Axis;
+                    axis = axis.LengthSquared() > 1e-8f ? axis.Normalized() : Vector3( 0.f, 1.f, 0.f );
+                    DebugDraw::Arrow( anchor - axis * 0.5f, anchor + axis * 0.5f, color, 0.1f, 0.f, DebugDraw::EditorOnly | DebugDraw::NoDepthTest );
+                }
+                if( joint->Type == JointType::Distance )
+                {
+                    const Vector3 otherEnd = joint->ConnectedBody && joint->ConnectedBody->HasComponent<Transform>()
+                        ? joint->ConnectedBody->GetComponent<Transform>().GetLocalToWorldMatrix().TransformPoint( joint->ConnectedAnchor )
+                        : joint->ConnectedAnchor;
+                    DebugDraw::Line( anchor, otherEnd, color, 0.f, DebugDraw::EditorOnly );
+                }
+                else if( joint->ConnectedBody && joint->ConnectedBody->HasComponent<Transform>() )
+                {
+                    DebugDraw::Line( anchor, joint->ConnectedBody->GetComponent<Transform>().GetWorldPosition(), Vector4( color.x, color.y, color.z, 0.4f ), 0.f, DebugDraw::EditorOnly );
+                }
+            }
+        }
+
+
         void DrawComponentGizmos()
         {
             World& world = EditorOps::GetWorld();
@@ -143,6 +216,10 @@ namespace SceneTools
                         const Vector4 color = selected ? DebugDraw::White : Vector4( 0.8f, 0.8f, 0.8f, 0.5f );
                         DebugDraw::Frustum( Matrix4( projection * view ), color, 0.f, DebugDraw::EditorOnly );
                     }
+                }
+                if( selected )
+                {
+                    DrawPhysicsGizmos( entity, *transform );
                 }
                 ParticleSystem* particles = entity.TryGetComponent<ParticleSystem>();
                 if( particles && selected )

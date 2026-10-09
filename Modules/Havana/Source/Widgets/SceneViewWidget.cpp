@@ -12,14 +12,13 @@
 #include "Components/Camera.h"
 #include "Components/Lighting/Light.h"
 #include "Components/Effects/ParticleSystem.h"
+#include "Cores/PhysicsCore.h"
 #include "Components/Audio/AudioSource.h"
 #include <Math/Matrix4.h>
 #include <bgfx/bgfx.h>
 #include <Camera/CameraData.h>
 #include <Mathf.h>
 #include "UI/Colors.h"
-#include "Components/Physics/Rigidbody.h"
-#include "Physics/RigidBodyWithCollisionEvents.h"
 #include "Types/AssetDescriptor.h"
 #include "Types/AssetType.h"
 #include "World/SceneSerializer.h"
@@ -427,6 +426,7 @@ void SceneViewWidget::DrawSceneToolbar()
 		BGFXRenderer& renderer = GetEngine().GetRenderer();
 		ImGui::MenuItem("Shadows", nullptr, &renderer.Shadows.Enabled);
 		ImGui::MenuItem("Shadow Cascades", nullptr, &renderer.Shadows.DebugCascades);
+		ImGui::MenuItem("Physics", nullptr, &PhysicsCore::DebugDrawEnabled);
 		ImGui::EndMenu();
 	}
 	ImGui::PopStyleVar();
@@ -577,21 +577,8 @@ void SceneViewWidget::DrawManipulator()
 			{
 				continue;
 			}
+			// Physics bodies notice the moved Transform and teleport with it.
 			transform->SetWorldMatrix(Matrix4(delta * dragged.StartWorld.GetInternalMatrix()));
-
-#if USING( ME_PHYSICS_3D )
-			// Teleport physics bodies along with the gizmo.
-			if (Rigidbody* rigidbody = entity->TryGetComponent<Rigidbody>(); rigidbody && rigidbody->InternalRigidbody)
-			{
-				btTransform trans;
-				const Vector3 position = transform->GetWorldPosition();
-				const Quaternion rotation = transform->GetWorldRotation();
-				trans.setRotation(btQuaternion(rotation.x, rotation.y, rotation.z, rotation.w));
-				trans.setOrigin(btVector3(position.x, position.y, position.z));
-				rigidbody->InternalRigidbody->setWorldTransform(trans);
-				rigidbody->InternalRigidbody->activate();
-			}
-#endif
 		}
 	}
 	if (!using_ && m_dragging)
