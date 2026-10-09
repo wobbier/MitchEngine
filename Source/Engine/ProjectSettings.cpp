@@ -68,6 +68,10 @@ void ProjectSettings::Load()
     {
         Gravity = Vector3( root["Gravity"][0].get<float>(), root["Gravity"][1].get<float>(), root["Gravity"][2].get<float>() );
     }
+    if( root.contains( "InputActions" ) && root["InputActions"].is_string() )
+    {
+        InputActions = root["InputActions"].get<std::string>();
+    }
     if( root.contains( "AudioBusVolumes" ) && root["AudioBusVolumes"].is_array() )
     {
         const json& volumes = root["AudioBusVolumes"];
@@ -97,6 +101,7 @@ void ProjectSettings::Save() const
     }
     root["Gravity"] = { Gravity.x, Gravity.y, Gravity.z };
     root["AudioBusVolumes"] = BusVolumes;
+    root["InputActions"] = InputActions;
     File file{ Path( kSettingsPath ) };
     file.Write( root.dump( 4 ) );
 }

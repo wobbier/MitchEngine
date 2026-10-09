@@ -229,6 +229,13 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
             InApp.Editor->GetAssetBrowser()->ShowFolder( args );
         }
     }
+    else if( command == "show-asset" )
+    {
+        if( InApp.Editor && InApp.Editor->GetAssetBrowser() )
+        {
+            InApp.Editor->GetAssetBrowser()->ShowAsset( args );
+        }
+    }
     else if( command == "focus-window" )
     {
         ImGui::SetWindowFocus( args.c_str() );

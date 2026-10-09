@@ -2,6 +2,8 @@
 #include "World/SceneSerializer.h"
 #include "Editor/PrefabTools.h"
 #include "Editor/EditorActions.h"
+#include "Editor/ReflectionUI.h"
+#include "Input/InputActions.h"
 #include <filesystem>
 #include "imgui.h"
 #include "imgui_internal.h"
@@ -293,6 +295,17 @@ void AssetBrowserWidget::ShowFolder( const std::string& InFolder )
     IsOpen = true;
     Navigate( fs::path( InFolder ).is_absolute() ? InFolder : AbsoluteFolder( InFolder ) );
     ImGui::SetWindowFocus( "Asset Directory" );
+}
+
+
+void AssetBrowserWidget::ShowAsset( const std::string& InAsset )
+{
+    const std::string full = fs::path( InAsset ).is_absolute() ? InAsset : AbsoluteFolder( InAsset );
+    ShowFolder( fs::path( full ).parent_path().string() );
+    m_selection = { full };
+    m_selectionAnchor = full;
+    m_showDetails = true;
+    SelectForDetails( full );
 }
 
 
@@ -1208,6 +1221,41 @@ void AssetBrowserWidget::DrawBackgroundContextMenu()
         {
             CreateAsset( "New Material", ".mat", json{ { "Type", "DiffuseMaterial" }, { "DiffuseColor", { 1.0, 1.0, 1.0 } } }.dump( 4 ) );
         }
+        if( ImGui::MenuItem( "Input Actions" ) )
+        {
+            // A starter map: move, look and jump on keyboard / mouse and gamepad.
+            InputActionMap map;
+            InputContext gameplay;
+            gameplay.Name = "Gameplay";
+            InputAction move{ "Move", InputActionType::Vector2 };
+            InputBinding wasd;
+            wasd.Kind = InputBindingKind::Vector2;
+            wasd.Up = "Keyboard/W";
+            wasd.Down = "Keyboard/S";
+            wasd.Left = "Keyboard/A";
+            wasd.Right = "Keyboard/D";
+            InputBinding leftStick;
+            leftStick.Control = "Gamepad/LeftStick";
+            move.Bindings = { wasd, leftStick };
+            InputAction look{ "Look", InputActionType::Vector2 };
+            InputBinding mouse;
+            mouse.Control = "Mouse/Delta";
+            mouse.Scale = 0.1f;
+            InputBinding rightStick;
+            rightStick.Control = "Gamepad/RightStick";
+            look.Bindings = { mouse, rightStick };
+            InputAction jump{ "Jump", InputActionType::Button };
+            InputBinding space;
+            space.Control = "Keyboard/Space";
+            InputBinding south;
+            south.Control = "Gamepad/South";
+            jump.Bindings = { space, south };
+            gameplay.Actions = { move, look, jump };
+            map.Contexts = { gameplay };
+            json contents;
+            Reflection::ToJson( InputActionMap::StaticType(), &map, contents );
+            CreateAsset( "New Input Actions", ".inputactions", contents.dump( 4 ) );
+        }
         if( ImGui::MenuItem( "C# Script" ) )
         {
             const std::string name = fs::path( UniquePath( m_currentFolder, "NewScript", ".cs" ) ).stem().string();
@@ -1272,6 +1320,23 @@ void AssetBrowserWidget::DrawDetails()
         }
     }
 
+    if( m_metafile && m_metafile->GetEditableType() && m_metafile->GetEditableData() )
+    {
+        // Data asset: its contents are edited in place and written back on Save.
+        ImGui::TextUnformatted( "Contents" );
+        ReflectionUI::Context context;
+        if( ReflectionUI::DrawType( *m_metafile->GetEditableType(), m_metafile->GetEditableData(), context ) )
+        {
+            m_editableDirty = true;
+        }
+        if( ImGui::Button( m_editableDirty ? "Save *" : "Save", ImVec2( -1.f, 0.f ) ) )
+        {
+            m_metafile->SaveEditableData();
+            m_editableDirty = false;
+        }
+        ImGui::Separator();
+    }
+
     if( m_metafile )
     {
         ImGui::TextUnformatted( "Import Settings" );
@@ -1298,6 +1363,7 @@ void AssetBrowserWidget::SelectForDetails( const std::string& InPath )
     }
     TryDestroyMetaFile();
     m_detailsPath = InPath;
+    m_editableDirty = false;
     if( !m_showDetails )
     {
         return;

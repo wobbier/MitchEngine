@@ -12,6 +12,11 @@
 #include "Engine.h"
 #include <Window/IWindow.h>
 #include <Window/SDLWindow.h>
+#include "Input/Gamepads.h"
+#include "Input/InputActionsAsset.h"
+#include "Resource/ResourceCache.h"
+#include <algorithm>
+#include <cstring>
 
 #pragma region Class
 
@@ -38,7 +43,6 @@ bool Input::OnEvent( const BaseEvent& evt )
             if( CaptureInput )
             {
                 const MouseScrollEvent& event = static_cast<const MouseScrollEvent&>( evt );
-                PreviousMouseScroll = MouseScroll;
                 MouseScroll = MouseScroll + event.Scroll;
             }
         }
@@ -89,6 +93,31 @@ void Input::Update()
         SDL_GetRelativeMouseState( &relativeMouse[0], &relativeMouse[1] );
         RelativeMousePosition = Vector2( relativeMouse[0], relativeMouse[1] );
     }
+
+    // Device snapshot for actions and the gamepad API (nothing while another context has input).
+    m_previousDevices = m_devices;
+    m_devices = InputDeviceState();
+    if( CaptureInput )
+    {
+        int keyCount = 0;
+        const uint8_t* keys = SDL_GetKeyboardState( &keyCount );
+        std::memcpy( m_devices.Keys.data(), keys, std::min<size_t>( static_cast<size_t>( keyCount ), m_devices.Keys.size() ) );
+        m_devices.MouseButtons = MouseState;
+        m_devices.MouseDelta = Vector2( RelativeMousePosition.x, -RelativeMousePosition.y );
+        m_devices.Scroll = MouseScroll - PreviousMouseScroll;
+        Gamepads::Get().Snapshot( m_devices.Gamepads );
+    }
+
+    if( m_actionAsset && m_actionAsset->Version != m_actionVersion )
+    {
+        m_actionVersion = m_actionAsset->Version;
+        m_actions.SetMap( m_actionAsset->Map );
+    }
+    const auto now = std::chrono::steady_clock::now();
+    const float deltaSeconds = m_hasUpdated ? std::min( std::chrono::duration<float>( now - m_lastUpdate ).count(), 0.25f ) : 0.f;
+    m_lastUpdate = now;
+    m_hasUpdated = true;
+    m_actions.Update( m_devices, deltaSeconds );
 }
 
 void Input::PostUpdate()
@@ -140,6 +169,114 @@ KeyState Input::GetKeyCodeState( KeyCode key )
         return KeyState::Released;
 
     return KeyState::None;
+}
+
+#pragma endregion
+
+#pragma region Actions
+
+const InputActionState& Input::GetAction( const std::string& InName ) const
+{
+    return m_actions.GetAction( InName );
+}
+
+
+bool Input::LoadActions( const Path& InPath )
+{
+    if( !InPath.Exists )
+    {
+        return false;
+    }
+    m_actionAsset = ResourceCache::GetInstance().Get<InputActionsResource>( InPath );
+    if( !m_actionAsset )
+    {
+        return false;
+    }
+    m_actionVersion = m_actionAsset->Version;
+    m_actions.SetMap( m_actionAsset->Map );
+    return true;
+}
+
+#pragma endregion
+
+#pragma region Gamepads
+
+int Input::GetGamepadCount() const
+{
+    return Gamepads::Get().GetConnectedCount();
+}
+
+
+bool Input::IsGamepadConnected( int InSlot ) const
+{
+    return Gamepads::Get().IsConnected( InSlot );
+}
+
+
+std::string Input::GetGamepadName( int InSlot ) const
+{
+    return Gamepads::Get().GetName( InSlot );
+}
+
+
+bool Input::IsGamepadButtonDown( GamepadButton InButton, int InSlot ) const
+{
+    return InSlot >= 0 && InSlot < kMaxGamepads && m_devices.Gamepads[InSlot].Buttons[static_cast<size_t>( InButton )];
+}
+
+
+bool Input::WasGamepadButtonPressed( GamepadButton InButton, int InSlot ) const
+{
+    return IsGamepadButtonDown( InButton, InSlot ) && !m_previousDevices.Gamepads[InSlot].Buttons[static_cast<size_t>( InButton )];
+}
+
+
+bool Input::WasGamepadButtonReleased( GamepadButton InButton, int InSlot ) const
+{
+    return InSlot >= 0 && InSlot < kMaxGamepads && !m_devices.Gamepads[InSlot].Buttons[static_cast<size_t>( InButton )] && m_previousDevices.Gamepads[InSlot].Buttons[static_cast<size_t>( InButton )];
+}
+
+
+float Input::GetGamepadAxis( GamepadAxis InAxis, int InSlot ) const
+{
+    if( InSlot < 0 || InSlot >= kMaxGamepads )
+    {
+        return 0.f;
+    }
+    const GamepadState& pad = m_devices.Gamepads[InSlot];
+    switch( InAxis )
+    {
+    case GamepadAxis::LeftTrigger:
+    case GamepadAxis::RightTrigger:
+        return InputActionSystem::ApplyTriggerDeadzone( pad.Axes[static_cast<size_t>( InAxis )], m_actions.GetMap().TriggerDeadzone );
+    case GamepadAxis::LeftX:
+    case GamepadAxis::LeftY:
+        return InAxis == GamepadAxis::LeftX ? GetGamepadStick( GamepadStick::Left, InSlot ).x : GetGamepadStick( GamepadStick::Left, InSlot ).y;
+    case GamepadAxis::RightX:
+    case GamepadAxis::RightY:
+        return InAxis == GamepadAxis::RightX ? GetGamepadStick( GamepadStick::Right, InSlot ).x : GetGamepadStick( GamepadStick::Right, InSlot ).y;
+    default:
+        return 0.f;
+    }
+}
+
+
+Vector2 Input::GetGamepadStick( GamepadStick InStick, int InSlot ) const
+{
+    if( InSlot < 0 || InSlot >= kMaxGamepads )
+    {
+        return Vector2();
+    }
+    const GamepadState& pad = m_devices.Gamepads[InSlot];
+    const size_t x = InStick == GamepadStick::Left ? static_cast<size_t>( GamepadAxis::LeftX ) : static_cast<size_t>( GamepadAxis::RightX );
+    const InputActionMap& map = m_actions.GetMap();
+    return InputActionSystem::ApplyStickDeadzone( Vector2( pad.Axes[x], pad.Axes[x + 1] ), map.StickDeadzone, map.StickOuterDeadzone );
+}
+
+
+bool Input::Rumble( float InLow, float InHigh, float InSeconds, int InSlot )
+{
+    return CaptureInput && Gamepads::Get().Rumble( InSlot, InLow, InHigh, InSeconds );
 }
 
 #pragma endregion

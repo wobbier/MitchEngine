@@ -32,6 +32,8 @@ public:
     // Per AudioBus (Master, Music, SFX, UI, Voice), 0..1.
     static constexpr int kAudioBusCount = 5;
     std::array<float, kAudioBusCount> BusVolumes = { 1.f, 1.f, 1.f, 1.f, 1.f };
+    // The game's action map (.inputactions), loaded into the game Input at startup.
+    std::string InputActions = "Assets/Config/Input.inputactions";
 
 private:
     ProjectSettings();

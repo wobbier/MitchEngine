@@ -3,8 +3,14 @@
 #include <SDL_mouse.h>
 #include <SDL_scancode.h>
 #include "Events/EventReceiver.h"
+#include "Input/InputActions.h"
+#include "Input/InputTypes.h"
+#include "Pointers.h"
+#include <chrono>
 
 class IWindow;
+class InputActionsResource;
+class Path;
 
 class MouseScrollEvent
     : public Event<MouseScrollEvent>
@@ -467,6 +473,34 @@ public:
     bool WasKeyReleased( KeyCode key );
     KeyState GetKeyCodeState( KeyCode key );
 
+    // Actions (Input/InputActions.h): named, rebindable controls grouped in contexts.
+    const InputActionState& GetAction( const std::string& InName ) const;
+    InputActionSystem& GetActions()
+    {
+        return m_actions;
+    }
+    // Plays the action map of a .inputactions asset, following its hot reloads.
+    bool LoadActions( const Path& InPath );
+
+    // Gamepads, by slot (0..3; Input/Gamepads.h fires GamepadConnectionEvent on hotplug).
+    int GetGamepadCount() const;
+    bool IsGamepadConnected( int InSlot = 0 ) const;
+    std::string GetGamepadName( int InSlot = 0 ) const;
+    bool IsGamepadButtonDown( GamepadButton InButton, int InSlot = 0 ) const;
+    bool WasGamepadButtonPressed( GamepadButton InButton, int InSlot = 0 ) const;
+    bool WasGamepadButtonReleased( GamepadButton InButton, int InSlot = 0 ) const;
+    // Sticks and triggers with the action map's deadzones (sticks +Y up, triggers 0..1).
+    float GetGamepadAxis( GamepadAxis InAxis, int InSlot = 0 ) const;
+    Vector2 GetGamepadStick( GamepadStick InStick, int InSlot = 0 ) const;
+    // Low / high frequency motors 0..1 for InSeconds; false if the pad can't rumble.
+    bool Rumble( float InLow, float InHigh, float InSeconds, int InSlot = 0 );
+
+    // This frame's raw device snapshot (what actions read; empty while not capturing).
+    const InputDeviceState& GetDeviceState() const
+    {
+        return m_devices;
+    }
+
     void Update();
     void PostUpdate();
     std::vector<KeyPressEvent> m_keyEventsThisFrame;
@@ -487,5 +521,13 @@ private:
     uint32_t PreviousMouseState = 0;
     KeyCode LastKeyPressed = (KeyCode)SDL_NUM_SCANCODES;
     IWindow* GameWindow = nullptr;
+
+    InputDeviceState m_devices;
+    InputDeviceState m_previousDevices;
+    InputActionSystem m_actions;
+    SharedPtr<InputActionsResource> m_actionAsset;
+    uint32_t m_actionVersion = 0;
+    std::chrono::steady_clock::time_point m_lastUpdate;
+    bool m_hasUpdated = false;
 
 };

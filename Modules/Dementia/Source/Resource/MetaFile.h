@@ -11,6 +11,8 @@ using namespace std::chrono_literals;
 #endif
 #include "Path.h"
 
+namespace Reflection { struct TypeInfo; }
+
 struct MetaBase
 {
     MetaBase() = delete;
@@ -40,6 +42,20 @@ struct MetaBase
         ImGui::Text( "%s", LastModifiedDebug.c_str() );
     }
 #endif
+
+    // Data assets: a reflected object the editor draws (and edits in place) in the asset's details,
+    // written back to the asset by SaveEditableData.
+    virtual const Reflection::TypeInfo* GetEditableType()
+    {
+        return nullptr;
+    }
+    virtual void* GetEditableData()
+    {
+        return nullptr;
+    }
+    virtual void SaveEditableData()
+    {
+    }
 
     std::string FileType;
     std::string LastModifiedDebug;

@@ -21,6 +21,7 @@
 #include "Components/Cameras/FlyingCamera.h"
 #include "Cores/Cameras/FlyingCameraCore.h"
 #include "Cores/AudioCore.h"
+#include "Input/Gamepads.h"
 #include "Cores/UI/UICore.h"
 #include "Cores/Scripting/ScriptCore.h"
 
@@ -271,7 +272,13 @@ void Engine::InitGame()
         GameWorld->AddCore<UICore>( *UI );
     }
 
-    YIKES("Engine::InitGame");
+    // The project's action map (a game can load another in OnInitialize).
+    const std::string& actions = ProjectSettings::Get().InputActions;
+    if( !actions.empty() && Path( actions ).Exists )
+    {
+        m_input.LoadActions( Path( actions ) );
+    }
+
     {
         OPTICK_EVENT( "Engine::InitGame::OnInitialize" );
         m_game->OnInitialize();
@@ -653,6 +660,7 @@ void Engine::Shutdown()
     {
         AudioThread->Shutdown();
     }
+    Gamepads::Get().CloseAll();
 
     Jobs::JobSystem::Get().Shutdown();
     CLog::GetInstance().Flush();

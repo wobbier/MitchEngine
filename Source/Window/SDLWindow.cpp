@@ -34,6 +34,7 @@
 #include "bgfx/platform.h"
 #include "CLog.h"
 #include "Engine/AutomationRunner.h"
+#include "Input/Gamepads.h"
 #include "Engine/Input.h"
 #include "optick.h"
 #include "Events/PlatformEvents.h"
@@ -827,6 +828,18 @@ void SDLWindow::ParseMessageQueue()
         {
             KeyPressEvent evt( event.key.keysym.scancode, KeyState::Released );
             evt.Fire();
+            break;
+        }
+
+        case SDL_CONTROLLERDEVICEADDED:
+        {
+            Gamepads::Get().OnDeviceAdded( event.cdevice.which );
+            break;
+        }
+
+        case SDL_CONTROLLERDEVICEREMOVED:
+        {
+            Gamepads::Get().OnDeviceRemoved( event.cdevice.which );
             break;
         }
 

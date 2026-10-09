@@ -1,6 +1,7 @@
 #include "SettingsWidgets.h"
 #include "Editor/EditorActions.h"
 #include "Engine/Engine.h"
+#include "Engine/Input.h"
 #include "Engine/ProjectSettings.h"
 #include "Cores/AudioCore.h"
 #include "Cores/EditorCore.h"
@@ -306,7 +307,7 @@ void ProjectSettingsWidget::Render()
 	{
 		return;
 	}
-	ImGui::SetNextWindowSize(ImVec2(480.f, 520.f), ImGuiCond_FirstUseEver);
+	ImGui::SetNextWindowSize(ImVec2(560.f, 560.f), ImGuiCond_FirstUseEver);
 	if (!ImGui::Begin(Name.c_str(), &IsOpen))
 	{
 		ImGui::End();
@@ -314,7 +315,12 @@ void ProjectSettingsWidget::Render()
 	}
 
 	Engine& engine = GetEngine();
-	if (ImGui::CollapsingHeader("Time", ImGuiTreeNodeFlags_DefaultOpen))
+	if (!ImGui::BeginTabBar("##ProjectSettingsTabs"))
+	{
+		ImGui::End();
+		return;
+	}
+	if (ImGui::BeginTabItem("Time"))
 	{
 		float fixedHz = 1.f / std::max(engine.GetFixedTimeStep(), 0.0001f);
 		if (ImGui::DragFloat("Fixed update rate (Hz)", &fixedHz, 1.f, 10.f, 1000.f, "%.0f"))
@@ -333,9 +339,10 @@ void ProjectSettingsWidget::Render()
 			config.Root["MaxFrameRate"] = engine.GetMaxFrameRate();
 			config.Save();
 		}
+		ImGui::EndTabItem();
 	}
 
-	if (ImGui::CollapsingHeader("Layers", ImGuiTreeNodeFlags_DefaultOpen))
+	if (ImGui::BeginTabItem("Layers"))
 	{
 		ProjectSettings& settings = ProjectSettings::Get();
 		bool changed = false;
@@ -357,9 +364,10 @@ void ProjectSettingsWidget::Render()
 		{
 			settings.Save();
 		}
+		ImGui::EndTabItem();
 	}
 
-	if (ImGui::CollapsingHeader("Physics", ImGuiTreeNodeFlags_DefaultOpen))
+	if (ImGui::BeginTabItem("Physics"))
 	{
 		ProjectSettings& settings = ProjectSettings::Get();
 		ImGui::DragFloat3("Gravity", &settings.Gravity.x, 0.05f, -100.f, 100.f, "%.2f");
@@ -418,9 +426,81 @@ void ProjectSettingsWidget::Render()
 				settings.Save();
 			}
 		}
+		ImGui::EndTabItem();
 	}
 
-	if (ImGui::CollapsingHeader("Audio", ImGuiTreeNodeFlags_DefaultOpen))
+	if (ImGui::BeginTabItem("Input"))
+	{
+		ProjectSettings& settings = ProjectSettings::Get();
+		Input& input = engine.GetInput();
+		ImGui::InputText("Action map", &settings.InputActions);
+		if (ImGui::IsItemDeactivatedAfterEdit())
+		{
+			settings.Save();
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Load"))
+		{
+			input.LoadActions(Path(settings.InputActions));
+		}
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::SetTooltip("A .inputactions asset; edit it from the Assets window (Create > Input Actions)");
+		}
+
+		// Connected pads and the live value of every action (the game's input; zero while the
+		// editor has focus).
+		const int pads = input.GetGamepadCount();
+		ImGui::TextDisabled("%d gamepad(s)", pads);
+		for (int slot = 0; slot < kMaxGamepads; ++slot)
+		{
+			if (input.IsGamepadConnected(slot))
+			{
+				ImGui::BulletText("%d: %s", slot, input.GetGamepadName(slot).c_str());
+			}
+		}
+		InputActionSystem& actions = input.GetActions();
+		if (actions.HasMap() && ImGui::BeginTable("##Actions", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingStretchProp))
+		{
+			ImGui::TableSetupColumn("Action");
+			ImGui::TableSetupColumn("Context");
+			ImGui::TableSetupColumn("Value");
+			ImGui::TableSetupColumn("Bindings");
+			ImGui::TableHeadersRow();
+			for (const InputContext& context : actions.GetMap().Contexts)
+			{
+				for (const InputAction& action : context.Actions)
+				{
+					const InputActionState& state = actions.GetAction(action.Name);
+					ImGui::TableNextRow();
+					ImGui::TableNextColumn();
+					ImGui::TextColored(state.IsPressed() ? ImVec4(0.4f, 1.f, 0.5f, 1.f) : ImGui::GetStyleColorVec4(ImGuiCol_Text), "%s", action.Name.c_str());
+					ImGui::TableNextColumn();
+					ImGui::TextDisabled("%s%s", context.Name.c_str(), actions.IsContextEnabled(context.Name) ? "" : " (off)");
+					ImGui::TableNextColumn();
+					if (state.Type == InputActionType::Vector2)
+					{
+						ImGui::Text("%.2f, %.2f", state.Value.x, state.Value.y);
+					}
+					else
+					{
+						ImGui::Text("%.2f", state.Value.x);
+					}
+					ImGui::TableNextColumn();
+					std::string bindings;
+					for (size_t binding = 0; binding < action.Bindings.size(); ++binding)
+					{
+						bindings += (binding ? ", " : "") + actions.GetBindingDisplay(action.Name, binding);
+					}
+					ImGui::TextDisabled("%s", bindings.c_str());
+				}
+			}
+			ImGui::EndTable();
+		}
+		ImGui::EndTabItem();
+	}
+
+	if (ImGui::BeginTabItem("Audio"))
 	{
 		// Bus volumes apply live and are saved when a slider is released.
 		ProjectSettings& settings = ProjectSettings::Get();
@@ -440,7 +520,9 @@ void ProjectSettingsWidget::Render()
 				settings.Save();
 			}
 		}
+		ImGui::EndTabItem();
 	}
+	ImGui::EndTabBar();
 	ImGui::End();
 }
 

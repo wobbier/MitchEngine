@@ -54,6 +54,8 @@ public:
 
     // Opens the browser on a project folder ("Assets/Models").
     void ShowFolder( const std::string& InFolder );
+    // Opens the browser on an asset's folder with the asset selected and its details shown.
+    void ShowAsset( const std::string& InAsset );
 
 private:
     struct Entry
@@ -141,6 +143,8 @@ private:
     // Details / import settings
     bool m_showDetails = false;
     SharedPtr<MetaBase> m_metafile = nullptr;
+    // A data asset's contents were edited and not saved yet.
+    bool m_editableDirty = false;
     bool m_shouldDeleteMetaFile = false;
     SharedPtr<Resource> m_focusedResource = nullptr;
     std::string m_detailsPath;
