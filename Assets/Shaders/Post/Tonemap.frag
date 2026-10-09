@@ -1,7 +1,7 @@
 $input v_texcoord0
 
 // HDR -> display: exposure, bloom add, white balance, tonemapping, grading, vignette, dithered
-// gamma encode. Writes luma to alpha for FXAA.
+// gamma encode. Writes luma to alpha when FXAA follows.
 #include "../Common.sh"
 #include "PostCommon.sh"
 
@@ -12,7 +12,7 @@ SAMPLER2D(s_exposure, 2);  // adapted average luminance (1x1), when auto exposur
 uniform vec4 u_tonemap;   // x exposure (linear multiplier), y operator (0 clamp, 1 ACES, 2 AgX, 3 Reinhard), z bloom intensity, w vignette intensity
 uniform vec4 u_grading;   // x saturation, y contrast, z temperature, w tint
 uniform vec4 u_grading2;  // x vignette smoothness, y gamma, z lift, w gain
-uniform vec4 u_exposure;  // x auto exposure on, y compensation multiplier (2^EV)
+uniform vec4 u_exposure;  // x auto exposure on, y compensation multiplier (2^EV), z luma in alpha (FXAA follows)
 
 void main()
 {
@@ -57,5 +57,6 @@ void main()
 	vec3 display = toGammaAccurate(clamp(color, 0.0, 1.0));
 	// +-0.5 LSB of dither hides 8-bit banding in gradients (sky, fog).
 	display += (interleavedGradientNoise(gl_FragCoord.xy) - 0.5) / 255.0;
-	gl_FragColor = vec4(display, dot(display, vec3(0.299, 0.587, 0.114)));
+	// FXAA reads luma from alpha; when tonemapping straight to the output the image must stay opaque.
+	gl_FragColor = vec4(display, u_exposure.z > 0.5 ? dot(display, vec3(0.299, 0.587, 0.114)) : 1.0);
 }

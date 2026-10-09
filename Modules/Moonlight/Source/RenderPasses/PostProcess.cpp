@@ -251,7 +251,7 @@ namespace Moonlight
         const float tonemap[4] = { compensation, static_cast<float>( settings.Operator ), bloom ? settings.BloomIntensity : 0.f, settings.VignetteIntensity };
         const float grading[4] = { settings.Saturation, settings.Contrast, settings.Temperature, settings.Tint };
         const float grading2[4] = { settings.VignetteSmoothness, settings.Gamma, settings.Lift, settings.Gain };
-        const float exposure[4] = { settings.AutoExposure ? 1.f : 0.f, compensation, 0.f, 0.f };
+        const float exposure[4] = { settings.AutoExposure ? 1.f : 0.f, compensation, fxaa ? 1.f : 0.f, 0.f };
         bgfx::setUniform( u_tonemap, tonemap );
         bgfx::setUniform( u_grading, grading );
         bgfx::setUniform( u_grading2, grading2 );
