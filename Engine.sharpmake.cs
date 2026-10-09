@@ -16,6 +16,8 @@ using Sharpmake;
 [module: Sharpmake.Include("Tools/BaseTool.sharpmake.cs")]
 [module: Sharpmake.Include("Tools/ShaderEditor/ShaderEditor.sharpmake.cs")]
 [module: Sharpmake.Include("ThirdParty/Mono.sharpmake.cs")]
+[module: Sharpmake.Include("ThirdParty/Box2D.sharpmake.cs")]
+[module: Sharpmake.Include("ThirdParty/Box3D.sharpmake.cs")]
 
 public abstract class BaseGameProject : BaseProject
 {
@@ -168,6 +170,8 @@ public class Engine : BaseProject
         conf.AddPublicDependency<Moonlight>(target);
         conf.AddPublicDependency<Dementia>(target);
         conf.AddPublicDependency<ImGui>(target);
+        conf.AddPublicDependency<Box2D>(target);
+        conf.AddPublicDependency<Box3D>(target);
 
         if (Globals.IsPhysicsEnabled3D)
         {
