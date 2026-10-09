@@ -65,7 +65,7 @@ Because bones are ordinary entities, anything parented to a bone (a weapon, a ha
 
 ### Each frame
 
-`AnimationCore::Update` runs in `Engine::Run` after `Game::OnUpdate` and the audio update, and before particles and `RenderCore`. Gameplay therefore sets parameters for the same frame's pose. It only advances while the world is started (play mode, or game builds).
+`AnimationCore::Update` runs in `Engine::Run` after `Game::OnUpdate`, and before audio, particles and `RenderCore`. Gameplay therefore sets parameters for the same frame's pose. It only advances while the world is started (play mode, or game builds).
 
 1. **State machine** (main thread, per Animator):
    1. A pending `Play()` applies first. A name that is a clip but not a state becomes an implicit state.

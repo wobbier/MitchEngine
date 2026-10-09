@@ -61,7 +61,7 @@ A **disabled component doesn't count toward core filters**, so disabling a `Mesh
 A core declares its filter in its constructor (`Base( ComponentFilter().Requires<A>().Excludes<B>() )`). Membership is a dense `std::vector<Entity>` plus a sparse slot table, so `BaseCore::Contains`, add and remove are O(1) (removal swap-removes, so entity order isn't stable). Cores run in ascending `Priority`, ties broken by name, and get `Update`, `FixedUpdate` (fixed simulation rate, see `Docs/Architecture.md`) and `LateUpdate`. A new core is offered every existing entity at the next sync point.
 
 Two ownership stories:
-- **Engine-owned cores** (`CameraCore`, `SceneCore`, `RenderCore`, `AudioCore`, `UICore`, the editor's `EditorCore`) are added with `World::AddCore( core )`, owned by their creator and updated explicitly by `Engine::Run`.
+- **Engine-owned cores** (`CameraCore`, `SceneCore`, `RenderCore`, `ParticleCore`, the physics, animation and audio cores, `UICore`, the editor's `EditorCore`) are added with `World::AddCore( core )`, owned by their creator and updated explicitly by `Engine::Run`.
 - **Scene-loaded cores** come from `World::AddCoreByName` (scene `"Cores"` lists). The World owns and frees them, and ticks them from `UpdateLoadedCores` / `FixedUpdateLoadedCores` / `LateUpdateLoadedCores` once `World::Start` has run.
 
 ### Sync points (`World::Simulate`)

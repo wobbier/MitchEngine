@@ -2,7 +2,7 @@
 
 MitchEngine is a C++20 game engine organized as a small set of static-library modules around an ECS runtime. A singleton `Engine` owns the window, renderer, job system, and `World`; games subclass `Game` and are wired in with the `ME_APPLICATION_MAIN` macro. This doc covers the module layout, the engine lifecycle (init → frame loop → shutdown), the split between engine-owned and scene-loaded cores, and the compile-time feature-flag system that gates everything else.
 
-> Verified against engine commit 7e869c6e, 2026-10-09; engine-owned cores and physics against 8fdd99b1, 2026-10-09; animation against 07617c5f, 2026-10-09.
+> Verified against engine commit 7e869c6e, 2026-10-09; engine-owned cores and physics against 8fdd99b1, 2026-10-09; animation against 07617c5f, 2026-10-09; audio against afce7083, 2026-10-09.
 
 ## Overview
 
@@ -83,7 +83,7 @@ Games implement the pure-virtual `Game` interface (`Source/Game.h`): `OnInitiali
 
 This is a load-bearing architectural split:
 
-- **Engine-owned cores** (`CameraCore`, `SceneCore`, `RenderCore`, `ParticleCore`, `PhysicsCore`, `Physics2DCore`, `AnimationCore`, `AudioCore`, `UICore`) are created in `Engine::Init`, held as raw pointers on `Engine`, and updated **explicitly by name** in the frame loop. The two physics cores step inside the fixed-step loop and write interpolated poses right after it (`Docs/Physics.md`). `AnimationCore` runs after gameplay and audio, before render preparation (`Docs/Animation.md`).
+- **Engine-owned cores** (`CameraCore`, `SceneCore`, `RenderCore`, `ParticleCore`, `PhysicsCore`, `Physics2DCore`, `AnimationCore`, `AudioCore`, `UICore`) are created in `Engine::Init`, held as raw pointers on `Engine`, and updated **explicitly by name** in the frame loop. The two physics cores step inside the fixed-step loop and write interpolated poses right after it (`Docs/Physics.md`). `AnimationCore` runs after gameplay, then `AudioCore` (so sources on animated bones are heard where they're drawn), before render preparation (`Docs/Animation.md`, `Docs/Audio.md`).
 - **Scene-loaded cores** (`ScriptCore`, `SelfDestructor`, and any game-defined cores) are *not* created by the engine. They are instantiated by name from the `"Cores"` array of a `.lvl` scene file (see `Docs/Serialization-and-Scenes.md`) and live in `World::m_loadedCores`, updated via `World::UpdateLoadedCores` / `LateUpdateLoadedCores`.
 
 Consequences: core update order is partly hardcoded (engine cores) and partly priority-ordered (loaded cores, `BaseCore::GetPriority`). A scene that still lists an engine-owned core in `"Cores"` (old scenes name `PhysicsCore`) gets the existing instance back from `World::AddCoreByName`.
@@ -104,9 +104,9 @@ flowchart TD
     H --> I["World::UpdateLoadedCores() + Simulate"]
     I --> J["SceneNodes->Update()"]
     J --> K["Game::OnUpdate() + Simulate"]
-    K --> L["AudioThread->Update(dt)"]
-    L --> L2["Animation->Update(): state machines, parallel pose sampling, Transform writes"]
-    L2 --> L3["Particles->Update()"]
+    K --> L2["Animation->Update(): state machines, parallel pose sampling, Transform writes"]
+    L2 --> L["AudioThread->Update(): listener, sources, buses, FMOD update"]
+    L --> L3["Particles->Update()"]
     L3 --> M["ModelRenderer->Update(): Transform::UpdateAll, parallel mesh jobs, skin palettes"]
     M --> N["UI->OnResize + UI->Update()"]
     N --> O["Late update: LateUpdateLoadedCores + Simulate, Cameras, SceneNodes, Audio, Renderer, UI"]
@@ -123,7 +123,7 @@ Timing details worth knowing:
 - **Settings**: `FixedTimeStep` and `MaxFrameRate` in `Engine.cfg`, overridable with `--fixed-step` / `--max-fps`. `Engine::SetTimeScale`, `SetPaused`, `StepFrame` and `SetMaxFrameRate` are available at runtime.
 - `CameraCore` (`Cameras`) has **no early update** — its `Update` runs in the late-update block, after game logic.
 - In non-editor builds, `EditorCamera.OutputSize` is refreshed from the window each frame inside the render block — the member named "EditorCamera" is used as the backbuffer camera descriptor in game builds too.
-- Command-line automation (`--frames`, `--screenshot`, `--perf-report`, `--trace`, `--scene`, `--no-ui`, `--width`/`--height`) is handled by `Source/Engine/AutomationRunner.cpp`. `AutomationRunner::IsUnattendedRun()` (those flags, `--editor-exec` or `--transient`) suppresses writing the user's settings (`Engine.cfg` window state, editor preferences, ImGui layout).
+- Command-line automation (`--frames`, `--screenshot`, `--perf-report`, `--trace`, `--scene`, `--no-ui`, `--width`/`--height`) is handled by `Source/Engine/AutomationRunner.cpp`. `AutomationRunner::IsUnattendedRun()` (those flags, `--editor-exec` or `--transient`) suppresses writing the user's settings (`Engine.cfg` window state, editor preferences, ImGui layout) and makes audio silent (`--audio` overrides; `--no-audio` silences any run).
 - **Quitting**: when the window asks to close, `Game::OnQuitRequested()` may veto (the editor does while there are unsaved changes or play mode is running). It then calls `IWindow::CancelClose()` and quits later with `Engine::Quit( true )`, which forces the close.
 - **Frame statistics**: `ME_STAT_SCOPE( "Name" )` records named, nestable CPU scopes into `FrameStats` (`Modules/Dementia/Source/Profiling/FrameStats.h`). The engine scopes every phase above, and `World` scopes each scene-loaded core's update and fixed update. The renderer adds GPU and draw statistics. The editor's stats overlay and Profiler window display them.
 

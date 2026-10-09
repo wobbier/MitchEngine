@@ -12,7 +12,8 @@ Technical documentation for MitchEngine — a C++20, ECS-based game engine built
 | [Rendering-Pipeline.md](Rendering-Pipeline.md) | `RenderCore` parallel command build → `BGFXRenderer` submit, view-ID map (editor vs game), instancing, transparency, lighting reality |
 | [Materials-and-Shaders.md](Materials-and-Shaders.md) | Material hierarchy, instance batch keys, offline `shaderc` cooking via the MetaFile system |
 | [Resources-and-Assets.md](Resources-and-Assets.md) | `ResourceCache` load flow, `.meta` sidecars, export/cooking, eviction, resource type inventory |
-| [Cores-and-Components-Reference.md](Cores-and-Components-Reference.md) | Catalog of every core (incl. the Audio/FMOD deep-dive) and every component; orphaned-component list |
+| [Cores-and-Components-Reference.md](Cores-and-Components-Reference.md) | Catalog of every core and every component; orphaned-component list |
+| [Audio.md](Audio.md) | FMOD `AudioCore`: output modes (silent automated runs), mixer buses, listener, 2D/3D sources with rolloff and doppler, overlapping one-shots, pause and lifecycle |
 | [Animation.md](Animation.md) | Clip import, the `Animator` state machine (parameters, transitions, blends, events), `AnimationCore`, bone entities, GPU skinning in every pass |
 | [Physics.md](Physics.md) | Box3D `PhysicsCore` and Box2D `Physics2DCore`: bodies, colliders, compound bodies, joints, character movers, fixed step + interpolation, layers, events, queries |
 | [Serialization-and-Scenes.md](Serialization-and-Scenes.md) | `.lvl` JSON format, prefabs, registry-name instantiation, save/load flow, versioning caveats |
