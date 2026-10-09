@@ -90,6 +90,7 @@ void Moonlight::FrameBuffer::Release()
         DestroyIfValid( adapted.Buffer );
         DestroyIfValid( adapted.Color );
     }
+    DestroyIfValid( ParticleBuffer );
     DestroyIfValid( ClusterGrid );
     DestroyIfValid( ClusterIndices );
     DestroyIfValid( Texture );
@@ -126,6 +127,7 @@ void Moonlight::FrameBuffer::ReCreate( uint32_t resetFlags )
     PostColor = bgfx::createTexture2D( width, height, false, 1, bgfx::TextureFormat::BGRA8, BGFX_TEXTURE_RT | kClampLinear );
     bgfx::setName( PostColor, "Camera Post LDR" );
     PostBuffer = bgfx::createFrameBuffer( 1, &PostColor, false );
+    ParticleBuffer = bgfx::createFrameBuffer( 1, &SceneColor, false );
 
     Texture = bgfx::createTexture2D( width, height, false, 1, bgfx::TextureFormat::BGRA8, BGFX_TEXTURE_RT | kClampLinear );
     bgfx::setName( Texture, "Camera Output" );

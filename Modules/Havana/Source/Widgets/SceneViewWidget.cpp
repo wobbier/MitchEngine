@@ -11,6 +11,7 @@
 #include "Components/Transform.h"
 #include "Components/Camera.h"
 #include "Components/Lighting/Light.h"
+#include "Components/Effects/ParticleSystem.h"
 #include "Components/Audio/AudioSource.h"
 #include <Math/Matrix4.h>
 #include <bgfx/bgfx.h>
@@ -669,7 +670,8 @@ void SceneViewWidget::DrawIcons()
 		const bool isCamera = entity.HasComponent<Camera>() && entity.TryGetComponent<Camera>() != Camera::EditorCamera;
 		const bool isLight = entity.HasComponent<Light>();
 		const bool isAudio = entity.HasComponent<AudioSource>();
-		if (!isCamera && !isLight && !isAudio)
+		const bool isParticles = entity.HasComponent<ParticleSystem>();
+		if (!isCamera && !isLight && !isAudio && !isParticles)
 		{
 			return;
 		}
@@ -699,6 +701,16 @@ void SceneViewWidget::DrawIcons()
 			{
 				const float angle = i * 3.14159265f / 4.f;
 				drawList->AddLine(ImVec2(center.x + std::cos(angle) * 6.5f, center.y + std::sin(angle) * 6.5f), ImVec2(center.x + std::cos(angle) * 9.5f, center.y + std::sin(angle) * 9.5f), color, 1.5f);
+			}
+		}
+		else if (isParticles)
+		{
+			// A little burst of dots.
+			drawList->AddCircleFilled(center, 2.5f, color);
+			for (int i = 0; i < 6; ++i)
+			{
+				const float angle = i * 3.14159265f / 3.f + 0.3f;
+				drawList->AddCircleFilled(ImVec2(center.x + std::cos(angle) * 7.f, center.y + std::sin(angle) * 7.f), 1.8f, color);
 			}
 		}
 		else
@@ -788,7 +800,7 @@ void SceneViewWidget::HandleMouse()
 			return;
 		}
 		const AABB bounds = SceneTools::ComputeWorldBounds(entity, false);
-		const bool pickable = bounds.IsValid() || entity.HasComponent<Camera>() || entity.HasComponent<Light>() || entity.HasComponent<AudioSource>();
+		const bool pickable = bounds.IsValid() || entity.HasComponent<Camera>() || entity.HasComponent<Light>() || entity.HasComponent<AudioSource>() || entity.HasComponent<ParticleSystem>();
 		if (!pickable)
 		{
 			return;

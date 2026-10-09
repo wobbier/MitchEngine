@@ -76,6 +76,7 @@ public:
     class CameraCore* Cameras = nullptr;
     class SceneCore* SceneNodes = nullptr;
     class RenderCore* ModelRenderer = nullptr;
+    class ParticleCore* Particles = nullptr;
     class AudioCore* AudioThread = nullptr;
     class UICore* UI = nullptr;
     Clock GameClock;

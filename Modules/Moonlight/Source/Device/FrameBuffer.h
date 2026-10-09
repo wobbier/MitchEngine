@@ -48,6 +48,9 @@ namespace Moonlight
         Mip AdaptedLuminance[2];
         uint32_t AdaptedIndex = 0;
 
+        // HDR colour without the depth attachment: soft particles read the depth as a texture.
+        bgfx::FrameBufferHandle ParticleBuffer = BGFX_INVALID_HANDLE;
+
         // Clustered lighting data for this camera (updated every frame).
         bgfx::TextureHandle ClusterGrid = BGFX_INVALID_HANDLE;
         bgfx::TextureHandle ClusterIndices = BGFX_INVALID_HANDLE;

@@ -83,6 +83,8 @@ public:
 
     // This frame's lights (RenderCore fills it every update from Light components).
     std::vector<Moonlight::LightCommand>& GetLights() { return m_lights; }
+    // This frame's particles, one batch per system (ParticleCore fills them every update).
+    std::vector<Moonlight::ParticleBatch>& GetParticleBatches() { return m_particleBatches; }
 
     // Caches
     CommandCache<Moonlight::CameraData>& GetCameraCache();
@@ -173,6 +175,21 @@ private:
     std::vector<SpotShadow> m_spotShadows;
 
     std::vector<Moonlight::LightCommand> m_lights;
+
+    // Particles: drawn after transparent meshes into HDR colour, depth-tested in the shader.
+    void RenderParticles( Moonlight::CameraData& camera );
+    std::vector<Moonlight::ParticleBatch> m_particleBatches;
+    std::vector<std::pair<float, uint32_t>> m_particleOrder;
+    std::vector<Moonlight::ParticleInstance> m_particleSorted;
+    Moonlight::ShaderCommand m_particleProgram;
+    bgfx::VertexBufferHandle m_particleQuadVB = BGFX_INVALID_HANDLE;
+    bgfx::IndexBufferHandle m_particleQuadIB = BGFX_INVALID_HANDLE;
+    bgfx::TextureHandle m_particleTexture = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle u_particleParams = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle u_particleParams2 = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle u_particleDepth = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle s_texParticle = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle s_sceneDepth = BGFX_INVALID_HANDLE;
     std::vector<Moonlight::LightCommand> m_localLights;
     std::vector<float> m_lightData;
     bgfx::TextureHandle m_lightDataTexture = BGFX_INVALID_HANDLE;

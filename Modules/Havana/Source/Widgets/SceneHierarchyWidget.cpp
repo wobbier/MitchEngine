@@ -708,6 +708,29 @@ void SceneHierarchyWidget::DrawCreateTemplates(Transform* parent)
 		}
 		ImGui::EndMenu();
 	}
+	if (ImGui::BeginMenu("Effects"))
+	{
+		auto particles = [](json system) {
+			json component = { { "Type", "ParticleSystem" } };
+			component.update(system);
+			return component;
+		};
+		if (ImGui::MenuItem("Fire"))
+		{
+			create("Fire", json::array({ json{ { "Type", "Transform" } }, particles({}) }));
+		}
+		if (ImGui::MenuItem("Smoke"))
+		{
+			create("Smoke", json::array({ json{ { "Type", "Transform" } }, particles({ { "Blend", "Alpha" }, { "EmissionRate", 12.0 }, { "Lifetime", { 3.0, 5.0 } }, { "Speed", { 0.4, 0.9 } }, { "Size", { 0.4, 0.8 } }, { "EndSize", 3.0 },
+				{ "StartColor", { 0.45, 0.45, 0.45 } }, { "StartColor2", { 0.6, 0.6, 0.6 } }, { "EndColor", { 0.3, 0.3, 0.3 } }, { "StartAlpha", 0.5 }, { "Intensity", 1.0 }, { "Gravity", -0.05 }, { "NoiseStrength", 0.3 }, { "SoftParticleDistance", 1.0 } }) }));
+		}
+		if (ImGui::MenuItem("Sparks"))
+		{
+			create("Sparks", json::array({ json{ { "Type", "Transform" } }, particles({ { "Shape", "Hemisphere" }, { "EmissionRate", 60.0 }, { "Lifetime", { 0.4, 0.9 } }, { "Speed", { 3.0, 7.0 } }, { "Size", { 0.03, 0.06 } }, { "EndSize", 0.5 },
+				{ "StartColor", { 1.0, 0.8, 0.4 } }, { "StartColor2", { 1.0, 0.95, 0.7 } }, { "EndColor", { 1.0, 0.3, 0.05 } }, { "Intensity", 6.0 }, { "Gravity", 1.0 }, { "Drag", 0.2 }, { "NoiseStrength", 0.0 }, { "Alignment", "Stretched" }, { "StretchFactor", 0.06 } }) }));
+		}
+		ImGui::EndMenu();
+	}
 	if (ImGui::MenuItem("Audio Source"))
 	{
 		create("Audio Source", json::array({ json{ { "Type", "Transform" } }, json{ { "Type", "AudioSource" } } }));

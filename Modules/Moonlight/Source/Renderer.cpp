@@ -248,6 +248,41 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
         u_envParams = bgfx::createUniform( "u_envParams", bgfx::UniformType::Vec4 );
         m_environment = MakeUnique<Moonlight::EnvironmentLighting>();
         m_environment->Init();
+
+        // Particles: a unit quad, a soft round default texture and the particle shader.
+        {
+            const Moonlight::PosTexCoordVertex quad[4] = {
+                { Vector3( -0.5f, -0.5f, 0.f ), Vector2( 0.f, 1.f ) },
+                { Vector3( 0.5f, -0.5f, 0.f ), Vector2( 1.f, 1.f ) },
+                { Vector3( 0.5f, 0.5f, 0.f ), Vector2( 1.f, 0.f ) },
+                { Vector3( -0.5f, 0.5f, 0.f ), Vector2( 0.f, 0.f ) } };
+            const uint16_t indices[6] = { 0, 1, 2, 0, 2, 3 };
+            m_particleQuadVB = bgfx::createVertexBuffer( bgfx::copy( quad, sizeof( quad ) ), Moonlight::PosTexCoordVertex::ms_layout );
+            m_particleQuadIB = bgfx::createIndexBuffer( bgfx::copy( indices, sizeof( indices ) ) );
+
+            constexpr int kDotSize = 64;
+            std::vector<uint8_t> dot( kDotSize * kDotSize * 4 );
+            for( int y = 0; y < kDotSize; ++y )
+            {
+                for( int x = 0; x < kDotSize; ++x )
+                {
+                    const float dx = ( x + 0.5f ) / kDotSize * 2.f - 1.f;
+                    const float dy = ( y + 0.5f ) / kDotSize * 2.f - 1.f;
+                    const float falloff = std::clamp( 1.f - ( dx * dx + dy * dy ), 0.f, 1.f );
+                    uint8_t* texel = &dot[( y * kDotSize + x ) * 4];
+                    texel[0] = texel[1] = texel[2] = 255;
+                    texel[3] = static_cast<uint8_t>( falloff * falloff * 255.f );
+                }
+            }
+            m_particleTexture = bgfx::createTexture2D( kDotSize, kDotSize, false, 1, bgfx::TextureFormat::RGBA8, BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP, bgfx::copy( dot.data(), static_cast<uint32_t>( dot.size() ) ) );
+            bgfx::setName( m_particleTexture, "Particle Dot" );
+            u_particleParams = bgfx::createUniform( "u_particleParams", bgfx::UniformType::Vec4 );
+            u_particleParams2 = bgfx::createUniform( "u_particleParams2", bgfx::UniformType::Vec4 );
+            u_particleDepth = bgfx::createUniform( "u_particleDepth", bgfx::UniformType::Vec4 );
+            s_texParticle = bgfx::createUniform( "s_texParticle", bgfx::UniformType::Sampler );
+            s_sceneDepth = bgfx::createUniform( "s_sceneDepth", bgfx::UniformType::Sampler );
+            m_particleProgram = Moonlight::ShaderCommand( "Assets/Shaders/Particle" );
+        }
         // The lighting shader always declares the shadow samplers, so the atlases always exist.
         EnsureShadowAtlas( m_sunShadowAtlas, Shadows.CascadeResolution, "Sun Shadow Atlas" );
         EnsureShadowAtlas( m_spotShadowAtlas, Shadows.SpotResolution, "Spot Shadow Atlas" );
@@ -296,7 +331,24 @@ void BGFXRenderer::Destroy()
         u_lightParams, u_dirLightDirection, u_dirLightColor, u_clusterParams, u_clusterGrid, u_ambientSky, u_ambientGround,
         s_lightData, s_clusterGrid, s_clusterIndices, s_texMetallicRoughness, s_texEmissive, s_texOcclusion,
         u_shadowMatrix, u_cascadeSplits, u_cascadeTexel, u_shadowParams, u_spotShadowMatrix, u_spotShadowParams, u_shadowAlpha, s_shadowMap, s_spotShadowMap,
-        s_envSpecular, s_envIrradiance, s_brdfLut, u_envParams };
+        s_envSpecular, s_envIrradiance, s_brdfLut, u_envParams,
+        u_particleParams, u_particleParams2, u_particleDepth, s_texParticle, s_sceneDepth };
+    m_particleProgram = Moonlight::ShaderCommand();
+    for( bgfx::TextureHandle* texture : { &m_particleTexture } )
+    {
+        if( bgfx::isValid( *texture ) )
+        {
+            bgfx::destroy( *texture );
+        }
+    }
+    if( bgfx::isValid( m_particleQuadVB ) )
+    {
+        bgfx::destroy( m_particleQuadVB );
+    }
+    if( bgfx::isValid( m_particleQuadIB ) )
+    {
+        bgfx::destroy( m_particleQuadIB );
+    }
     if( m_environment )
     {
         m_environment->Destroy();
@@ -760,6 +812,7 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
         m_debugDraw->End();
     }
     SubmitDebugLines( camera, transparentView );
+    RenderParticles( camera );
 
     // HDR -> final image (bloom, exposure, tonemapping, grading, FXAA).
     m_postProcess->DeltaSeconds = std::max( m_time.x, 0.0001f );
@@ -1230,6 +1283,102 @@ void BGFXRenderer::RenderSunShadows( Moonlight::CameraData& camera )
     m_lighting.ShadowParams[1] = m_sunShadowLight.ShadowNormalBias;
     m_lighting.ShadowParams[2] = 1.f / ( 2.f * static_cast<float>( tile ) );
     m_lighting.ShadowParams[3] = Shadows.DebugCascades ? 2.f : 1.f;
+}
+
+
+void BGFXRenderer::RenderParticles( Moonlight::CameraData& camera )
+{
+    OPTICK_EVENT( "Renderer::RenderParticles" );
+    if( !m_particleProgram.IsLoaded() || !camera.Buffer || !bgfx::isValid( camera.Buffer->ParticleBuffer ) )
+    {
+        return;
+    }
+
+    // Systems back to front (by the centre of their bounds), skipping ones outside the view.
+    const glm::mat4& viewMatrix = camera.View.GetInternalMatrix();
+    m_particleOrder.clear();
+    for( uint32_t i = 0; i < m_particleBatches.size(); ++i )
+    {
+        const Moonlight::ParticleBatch& batch = m_particleBatches[i];
+        if( batch.Instances.empty() || ( camera.ShouldCull && !camera.ViewFrustum.Intersects( batch.Bounds ) ) )
+        {
+            continue;
+        }
+        const glm::vec4 center = viewMatrix * glm::vec4( batch.Bounds.GetCenter().InternalVector, 1.f );
+        m_particleOrder.emplace_back( center.z, i );
+    }
+    if( m_particleOrder.empty() )
+    {
+        return;
+    }
+    std::sort( m_particleOrder.begin(), m_particleOrder.end(), []( const auto& a, const auto& b ) { return a.first > b.first; } );
+
+    const bgfx::ViewId view = m_views.Allocate( camera.IsEditorView ? "Editor Particles" : "Particles" );
+    if( view == UINT16_MAX )
+    {
+        return;
+    }
+    Moonlight::FrameBuffer& buffer = *camera.Buffer;
+    bgfx::setViewFrameBuffer( view, buffer.ParticleBuffer );
+    bgfx::setViewRect( view, 0, 0, static_cast<uint16_t>( buffer.Width ), static_cast<uint16_t>( buffer.Height ) );
+    bgfx::setViewTransform( view, &camera.View.GetInternalMatrix()[0][0], &camera.ProjectionMatrix.GetInternalMatrix()[0][0] );
+    // Submission order is draw order (back to front).
+    bgfx::setViewMode( view, bgfx::ViewMode::Sequential );
+    bgfx::touch( view );
+
+    const glm::mat4& projection = camera.ProjectionMatrix.GetInternalMatrix();
+    const float depthParams[4] = { projection[2][2], projection[3][2], camera.Projection == Moonlight::ProjectionType::Orthographic ? 1.f : 0.f, bgfx::getCaps()->homogeneousDepth ? 1.f : 0.f };
+    constexpr uint16_t kInstanceStride = sizeof( Moonlight::ParticleInstance );
+    static_assert( sizeof( Moonlight::ParticleInstance ) == 64, "particle instances are four vec4s" );
+
+    for( const auto& entry : m_particleOrder )
+    {
+        const Moonlight::ParticleBatch& batch = m_particleBatches[entry.second];
+        const Moonlight::ParticleInstance* instances = batch.Instances.data();
+        if( batch.Blend == Moonlight::ParticleBlend::Alpha )
+        {
+            // Blended particles need back-to-front order within the system too.
+            m_particleSorted = batch.Instances;
+            std::sort( m_particleSorted.begin(), m_particleSorted.end(), [&viewMatrix]( const Moonlight::ParticleInstance& a, const Moonlight::ParticleInstance& b ) {
+                const float za = viewMatrix[0][2] * a.PositionSize.x + viewMatrix[1][2] * a.PositionSize.y + viewMatrix[2][2] * a.PositionSize.z;
+                const float zb = viewMatrix[0][2] * b.PositionSize.x + viewMatrix[1][2] * b.PositionSize.y + viewMatrix[2][2] * b.PositionSize.z;
+                return za > zb;
+            } );
+            instances = m_particleSorted.data();
+        }
+
+        const float params[4] = { static_cast<float>( batch.FlipbookColumns ), static_cast<float>( batch.FlipbookRows ), batch.Softness, static_cast<float>( batch.Alignment ) };
+        const float params2[4] = { batch.StretchFactor, batch.Blend == Moonlight::ParticleBlend::Additive ? 1.f : 0.f, 0.f, 0.f };
+        const uint64_t blend = batch.Blend == Moonlight::ParticleBlend::Additive
+            ? BGFX_STATE_BLEND_FUNC( BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_ONE )
+            : BGFX_STATE_BLEND_ALPHA;
+        const bgfx::TextureHandle texture = bgfx::isValid( batch.Texture ) ? batch.Texture : m_particleTexture;
+
+        const uint32_t count = static_cast<uint32_t>( batch.Instances.size() );
+        uint32_t offset = 0;
+        while( offset < count )
+        {
+            const uint32_t available = bgfx::getAvailInstanceDataBuffer( count - offset, kInstanceStride );
+            if( available == 0 )
+            {
+                break;
+            }
+            bgfx::InstanceDataBuffer idb;
+            bgfx::allocInstanceDataBuffer( &idb, available, kInstanceStride );
+            std::memcpy( idb.data, instances + offset, (size_t)available * kInstanceStride );
+            bgfx::setVertexBuffer( 0, m_particleQuadVB );
+            bgfx::setIndexBuffer( m_particleQuadIB );
+            bgfx::setInstanceDataBuffer( &idb );
+            bgfx::setTexture( 0, s_texParticle, texture );
+            bgfx::setTexture( 1, s_sceneDepth, buffer.DepthTexture, BGFX_SAMPLER_POINT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP );
+            bgfx::setUniform( u_particleParams, params );
+            bgfx::setUniform( u_particleParams2, params2 );
+            bgfx::setUniform( u_particleDepth, depthParams );
+            bgfx::setState( BGFX_STATE_WRITE_RGB | blend );
+            bgfx::submit( view, m_particleProgram.GetProgram() );
+            offset += available;
+        }
+    }
 }
 
 

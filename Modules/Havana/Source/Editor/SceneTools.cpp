@@ -7,6 +7,7 @@
 #include "Components/Camera.h"
 #include "Components/Graphics/Mesh.h"
 #include "Components/Lighting/Light.h"
+#include "Components/Effects/ParticleSystem.h"
 #include "Components/Transform.h"
 #include "Debug/DebugDraw.h"
 #include "Engine/World.h"
@@ -141,6 +142,31 @@ namespace SceneTools
                         const glm::mat4 view = glm::lookAtLH( position.InternalVector, ( position + transform->Front() ).InternalVector, transform->Up().InternalVector );
                         const Vector4 color = selected ? DebugDraw::White : Vector4( 0.8f, 0.8f, 0.8f, 0.5f );
                         DebugDraw::Frustum( Matrix4( projection * view ), color, 0.f, DebugDraw::EditorOnly );
+                    }
+                }
+                ParticleSystem* particles = entity.TryGetComponent<ParticleSystem>();
+                if( particles && selected )
+                {
+                    // Emission shape (the cone and box emit along the entity's up axis).
+                    const Vector4 color( 0.55f, 0.85f, 1.f, 0.8f );
+                    const Vector3 position = transform->GetWorldPosition();
+                    const Vector3 up = transform->Up();
+                    switch( particles->Shape )
+                    {
+                    case ParticleShape::Sphere:
+                    case ParticleShape::Hemisphere:
+                        DebugDraw::Sphere( position, std::max( particles->ShapeRadius, 0.05f ), color, 0.f, DebugDraw::EditorOnly, 20 );
+                        break;
+                    case ParticleShape::Cone:
+                        DebugDraw::Circle( position, up, std::max( particles->ShapeRadius, 0.05f ), color, 0.f, DebugDraw::EditorOnly, 24 );
+                        DebugDraw::Cone( position, up, 1.f, std::max( particles->ConeAngle, 1.f ), color, 0.f, DebugDraw::EditorOnly );
+                        break;
+                    case ParticleShape::Box:
+                        DebugDraw::Box( transform->GetLocalToWorldMatrix(), AABB::FromCenterExtents( Vector3(), particles->BoxSize * 0.5f ), color, 0.f, DebugDraw::EditorOnly );
+                        break;
+                    case ParticleShape::Point:
+                        DebugDraw::Arrow( position, position + up * 0.75f, color, 0.15f, 0.f, DebugDraw::EditorOnly );
+                        break;
                     }
                 }
                 if( Light* light = entity.TryGetComponent<Light>() )

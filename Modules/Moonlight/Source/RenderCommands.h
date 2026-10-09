@@ -7,6 +7,8 @@
 #include <string>
 #include <cstdint>
 #include "Pointers.h"
+#include <bgfx/bgfx.h>
+#include <glm/glm.hpp>
 
 namespace Moonlight {
     class ShaderCommand;
@@ -101,5 +103,41 @@ namespace Moonlight
         float ShadowNormalBias = 2.5f;    // receiver pushed along its normal (scaled by the slope)
         float ShadowDistance = 80.f;      // directional: cascades cover the view out to here
         float OuterConeAngle = 30.f;      // spot: degrees, for the shadow projection
+    };
+
+    enum class ParticleBlend : uint8_t
+    {
+        Additive = 0,   // light: fire, sparks, magic
+        Alpha,          // matter: smoke, dust, debris
+    };
+
+    enum class ParticleAlignment : uint8_t
+    {
+        Billboard = 0,  // faces the camera
+        Stretched,      // camera-facing, stretched along the velocity (sparks, rain)
+        Horizontal,     // flat on the XZ plane (ripples, decals)
+    };
+
+    // One particle as the GPU sees it (one 64-byte instance).
+    struct ParticleInstance
+    {
+        glm::vec4 PositionSize;     // world position, size
+        glm::vec4 Color;            // linear RGB * intensity, alpha
+        glm::vec4 Params;           // rotation (radians), flipbook frame
+        glm::vec4 Velocity;         // world velocity (stretched particles)
+    };
+
+    // Everything one particle system draws this frame (filled by ParticleCore).
+    struct ParticleBatch
+    {
+        bgfx::TextureHandle Texture = BGFX_INVALID_HANDLE;   // invalid: the built-in soft dot
+        ParticleBlend Blend = ParticleBlend::Additive;
+        ParticleAlignment Alignment = ParticleAlignment::Billboard;
+        float StretchFactor = 0.1f;
+        float Softness = 0.5f;           // soft-particle fade distance (0 = hard)
+        uint16_t FlipbookColumns = 1;
+        uint16_t FlipbookRows = 1;
+        AABB Bounds;
+        std::vector<ParticleInstance> Instances;
     };
 }

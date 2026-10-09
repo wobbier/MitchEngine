@@ -8,6 +8,7 @@
 #include "Cores/Cameras/CameraCore.h"
 #include "Cores/SceneCore.h"
 #include "Cores/Rendering/RenderCore.h"
+#include "Cores/Rendering/ParticleCore.h"
 #include "Game.h"
 #include "Window/IWindow.h"
 #include "Input.h"
@@ -214,6 +215,7 @@ void Engine::Init( Game* game )
         Cameras = new CameraCore();
         SceneNodes = new SceneCore();
         ModelRenderer = new RenderCore();
+        Particles = new ParticleCore();
         AudioThread = new AudioCore();
         UI = new UICore( GameWindow, NewRenderer );
     }
@@ -254,6 +256,7 @@ void Engine::InitGame()
         GameWorld->AddCore<CameraCore>( *Cameras );
         GameWorld->AddCore<SceneCore>( *SceneNodes );
         GameWorld->AddCore<RenderCore>( *ModelRenderer );
+        GameWorld->AddCore<ParticleCore>( *Particles );
         GameWorld->AddCore<AudioCore>( *AudioThread );
         GameWorld->AddCore<UICore>( *UI );
     }
@@ -453,6 +456,13 @@ void Engine::Run()
             {
 
                 AudioThread->Update( deltaTime );
+            }
+
+            // Particles (simulated before render prep so this frame's particles draw)
+            {
+                ME_FRAMEPROFILE_SCOPED( "Particles", ProfileCategory::Rendering );
+                ME_STAT_SCOPE( "Particles" );
+                Particles->Update( updateContext );
             }
 
             // Model Renderer Update
