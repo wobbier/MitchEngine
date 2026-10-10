@@ -86,6 +86,7 @@ public:
     int FlipbookRows = 1;
     float FlipbookFps = 0.f;        // 0 = play the flipbook once over each particle's life
     float SoftParticleDistance = 0.4f;
+    bool Lit = false;               // shade with the scene's lights (smoke, dust); glows stay unlit
 
     // Runtime
     void Simulate( float InDeltaSeconds, const glm::mat4& InWorld );

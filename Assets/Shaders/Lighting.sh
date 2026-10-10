@@ -323,13 +323,9 @@ vec3 shadeLocalLight(Surface _s, float _light)
 	return shadeLight(_s, L, t1.rgb * attenuation);
 }
 
-// Point and spot lights from this fragment's cluster.
-vec3 shadeClusteredLights(Surface _s, vec2 _fragCoord, float _viewZ)
+// This fragment's cluster: x first index into the cluster index list, y light count.
+vec2 clusterRange(vec2 _fragCoord, float _viewZ)
 {
-	if (u_lightParams.y < 0.5)
-	{
-		return vec3_splat(0.0);
-	}
 	vec2 pixel = _fragCoord;
 	if (u_clusterGrid.w > 0.5)
 	{
@@ -340,9 +336,26 @@ vec3 shadeClusteredLights(Surface _s, vec2 _fragCoord, float _viewZ)
 	float slice = clamp(floor(log(max(_viewZ, 1e-4)) * u_clusterParams.z + u_clusterParams.w), 0.0, u_clusterGrid.z - 1.0);
 	vec2 gridUv = vec2((tileX + tileY * u_clusterGrid.x + 0.5) / (u_clusterGrid.x * u_clusterGrid.y), (slice + 0.5) / u_clusterGrid.z);
 	vec4 cluster = texture2DLod(s_clusterGrid, gridUv, 0.0);
-	float offset = cluster.x;
-	int count = int(min(cluster.y, float(MAX_LIGHTS_PER_CLUSTER)));
+	return vec2(cluster.x, min(cluster.y, float(MAX_LIGHTS_PER_CLUSTER)));
+}
 
+// The light at position _i of a cluster's list.
+float clusterLight(vec2 _range, int _i)
+{
+	float index = _range.x + float(_i);
+	vec2 indexUv = vec2((mod(index, CLUSTER_INDEX_WIDTH) + 0.5) / CLUSTER_INDEX_WIDTH, (floor(index / CLUSTER_INDEX_WIDTH) + 0.5) / CLUSTER_INDEX_HEIGHT);
+	return texture2DLod(s_clusterIndices, indexUv, 0.0).r;
+}
+
+// Point and spot lights from this fragment's cluster.
+vec3 shadeClusteredLights(Surface _s, vec2 _fragCoord, float _viewZ)
+{
+	if (u_lightParams.y < 0.5)
+	{
+		return vec3_splat(0.0);
+	}
+	vec2 range = clusterRange(_fragCoord, _viewZ);
+	int count = int(range.y);
 	vec3 color = vec3_splat(0.0);
 	for (int i = 0; i < MAX_LIGHTS_PER_CLUSTER; ++i)
 	{
@@ -350,10 +363,102 @@ vec3 shadeClusteredLights(Surface _s, vec2 _fragCoord, float _viewZ)
 		{
 			break;
 		}
-		float index = offset + float(i);
-		vec2 indexUv = vec2((mod(index, CLUSTER_INDEX_WIDTH) + 0.5) / CLUSTER_INDEX_WIDTH, (floor(index / CLUSTER_INDEX_WIDTH) + 0.5) / CLUSTER_INDEX_HEIGHT);
-		float light = texture2DLod(s_clusterIndices, indexUv, 0.0).r;
-		color += shadeLocalLight(_s, light);
+		color += shadeLocalLight(_s, clusterLight(range, i));
+	}
+	return color;
+}
+
+// ---- Participating media (lit particles): no surface normal, light scatters evenly ----
+
+// A stand-in surface facing the light, so the shadow lookups can offset along it.
+Surface volumeSurface(vec3 _position, vec3 _L)
+{
+	Surface s;
+	s.position = _position;
+	s.normal = _L;
+	s.view = _L;
+	s.diffuseColor = vec3_splat(1.0);
+	s.f0 = vec3_splat(0.0);
+	s.roughness = 1.0;
+	s.NoV = 1.0;
+	return s;
+}
+
+// Radiance reaching _position from one point / spot light, shadows included.
+vec3 volumeLocalLight(vec3 _position, float _light)
+{
+	vec4 t0 = fetchLightTexel(_light, 0.0);
+	vec4 t1 = fetchLightTexel(_light, 1.0);
+	vec3 toLight = t0.xyz - _position;
+	float distanceSq = dot(toLight, toLight);
+	if (distanceSq > t0.w * t0.w)
+	{
+		return vec3_splat(0.0);
+	}
+	vec3 L = toLight * inversesqrt(max(distanceSq, 1e-8));
+	float attenuation = distanceAttenuation(distanceSq, t0.w);
+	vec4 t4 = fetchLightTexel(_light, 4.0);
+	if (t1.w > 1.5)
+	{
+		vec4 t2 = fetchLightTexel(_light, 2.0);
+		vec4 t3 = fetchLightTexel(_light, 3.0);
+		float spot = clamp((dot(-L, t2.xyz) - t2.w) / max(t3.x - t2.w, 1e-4), 0.0, 1.0);
+		attenuation *= spot * spot;
+		if (t4.x > -0.5 && attenuation > 0.0)
+		{
+			attenuation *= spotShadow(volumeSurface(_position, L), L, sqrt(distanceSq), t4);
+		}
+	}
+	else if (t4.x > -0.5 && attenuation > 0.0)
+	{
+		attenuation *= pointShadow(volumeSurface(_position, L), L, sqrt(distanceSq), t4);
+	}
+	return t1.rgb * attenuation;
+}
+
+// All light reaching a point in a volume: directional (the sun with its shadow), clustered point and
+// spot lights, and ambient. Scattering is isotropic, so a lit particle shows albedo * this.
+vec3 volumeLighting(vec3 _position, vec2 _fragCoord, float _viewZ)
+{
+	vec3 radiance = vec3_splat(0.0);
+	for (int i = 0; i < MAX_DIRECTIONAL_LIGHTS; ++i)
+	{
+		if (float(i) >= u_lightParams.x)
+		{
+			break;
+		}
+		vec3 L = -u_dirLightDirection[i].xyz;
+		float visibility = 1.0;
+		if (i == 0 && u_dirLightDirection[0].w > 0.5)
+		{
+			visibility = sunShadow(volumeSurface(_position, L), L, _viewZ);
+		}
+		radiance += u_dirLightColor[i].rgb * visibility;
+	}
+	if (u_lightParams.y > 0.5)
+	{
+		vec2 range = clusterRange(_fragCoord, _viewZ);
+		int count = int(range.y);
+		for (int i = 0; i < MAX_LIGHTS_PER_CLUSTER; ++i)
+		{
+			if (i >= count)
+			{
+				break;
+			}
+			radiance += volumeLocalLight(_position, clusterLight(range, i));
+		}
+	}
+	// Direct light, averaged over orientations (half a Lambert lobe), plus the ambient irradiance.
+	vec3 color = radiance * (0.5 / PI);
+	if (u_envParams.z > 0.5)
+	{
+		vec3 sky = cubeLod(s_envIrradiance, vec3(0.0, 1.0, 0.0), 0.0).rgb;
+		vec3 ground = cubeLod(s_envIrradiance, vec3(0.0, -1.0, 0.0), 0.0).rgb;
+		color += (sky * 0.65 + ground * 0.35) * u_envParams.x;
+	}
+	else
+	{
+		color += (u_ambientSky.rgb * 0.65 + u_ambientGround.rgb * 0.35) * u_lightParams.z;
 	}
 	return color;
 }

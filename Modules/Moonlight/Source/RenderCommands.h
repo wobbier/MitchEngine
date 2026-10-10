@@ -139,6 +139,7 @@ namespace Moonlight
         ParticleAlignment Alignment = ParticleAlignment::Billboard;
         float StretchFactor = 0.1f;
         float Softness = 0.5f;           // soft-particle fade distance (0 = hard)
+        bool Lit = false;                // shaded by the scene's lights like a volume (smoke)
         uint16_t FlipbookColumns = 1;
         uint16_t FlipbookRows = 1;
         AABB Bounds;

@@ -1,5 +1,5 @@
 $input a_position, a_texcoord0, i_data0, i_data1, i_data2, i_data3
-$output v_texcoord0, v_color0, v_viewPos
+$output v_texcoord0, v_color0, v_viewPos, v_worldPos
 
 // Instanced particle quads. Instance: i_data0 position + size, i_data1 colour, i_data2 rotation +
 // flipbook frame, i_data3 velocity. Camera axes come from u_invView (camera to world), which holds
@@ -40,6 +40,7 @@ void main()
 
 	gl_Position = mul(u_viewProj, vec4(worldPos, 1.0));
 	v_viewPos = mul(u_view, vec4(worldPos, 1.0));
+	v_worldPos = worldPos;
 
 	vec2 grid = max(u_particleParams.xy, vec2_splat(1.0));
 	float frame = mod(floor(i_data2.y), grid.x * grid.y);

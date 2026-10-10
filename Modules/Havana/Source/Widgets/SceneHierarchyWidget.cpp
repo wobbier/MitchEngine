@@ -783,7 +783,7 @@ void SceneHierarchyWidget::DrawCreateTemplates(Transform* parent)
 		if (ImGui::MenuItem("Smoke"))
 		{
 			create("Smoke", json::array({ json{ { "Type", "Transform" } }, particles({ { "Blend", "Alpha" }, { "EmissionRate", 12.0 }, { "Lifetime", { 3.0, 5.0 } }, { "Speed", { 0.4, 0.9 } }, { "Size", { 0.4, 0.8 } }, { "EndSize", 3.0 },
-				{ "StartColor", { 0.45, 0.45, 0.45 } }, { "StartColor2", { 0.6, 0.6, 0.6 } }, { "EndColor", { 0.3, 0.3, 0.3 } }, { "StartAlpha", 0.5 }, { "Intensity", 1.0 }, { "Gravity", -0.05 }, { "NoiseStrength", 0.3 }, { "SoftParticleDistance", 1.0 } }) }));
+				{ "StartColor", { 0.45, 0.45, 0.45 } }, { "StartColor2", { 0.6, 0.6, 0.6 } }, { "EndColor", { 0.3, 0.3, 0.3 } }, { "StartAlpha", 0.5 }, { "Intensity", 1.0 }, { "Gravity", -0.05 }, { "NoiseStrength", 0.3 }, { "SoftParticleDistance", 1.0 }, { "Lit", true } }) }));
 		}
 		if (ImGui::MenuItem("Sparks"))
 		{

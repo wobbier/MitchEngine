@@ -1490,7 +1490,7 @@ void BGFXRenderer::RenderParticles( Moonlight::CameraData& camera )
         }
 
         const float params[4] = { static_cast<float>( batch.FlipbookColumns ), static_cast<float>( batch.FlipbookRows ), batch.Softness, static_cast<float>( batch.Alignment ) };
-        const float params2[4] = { batch.StretchFactor, batch.Blend == Moonlight::ParticleBlend::Additive ? 1.f : 0.f, 0.f, 0.f };
+        const float params2[4] = { batch.StretchFactor, batch.Blend == Moonlight::ParticleBlend::Additive ? 1.f : 0.f, batch.Lit ? 1.f : 0.f, 0.f };
         const uint64_t blend = batch.Blend == Moonlight::ParticleBlend::Additive
             ? BGFX_STATE_BLEND_FUNC( BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_ONE )
             : BGFX_STATE_BLEND_ALPHA;
@@ -1516,6 +1516,8 @@ void BGFXRenderer::RenderParticles( Moonlight::CameraData& camera )
             bgfx::setUniform( u_particleParams, params );
             bgfx::setUniform( u_particleParams2, params2 );
             bgfx::setUniform( u_particleDepth, depthParams );
+            // The particle shader includes the lighting code, so its samplers are always bound.
+            BindLighting();
             bgfx::setState( BGFX_STATE_WRITE_RGB | blend );
             bgfx::submit( view, m_particleProgram.GetProgram() );
             offset += available;

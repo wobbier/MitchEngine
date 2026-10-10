@@ -51,6 +51,7 @@ ME_REFLECT_BEGIN( ParticleSystem )
     ME_FIELD( FlipbookRows ).Category( "Rendering" ).Range( 1.f, 64.f );
     ME_FIELD( FlipbookFps ).Category( "Rendering" ).Range( 0.f, 120.f ).Tooltip( "0 plays the flipbook once over each particle's life" );
     ME_FIELD( SoftParticleDistance ).Category( "Rendering" ).Range( 0.f, 10.f ).Tooltip( "Fade where particles meet geometry (0 = hard edges)" );
+    ME_FIELD( Lit ).Category( "Rendering" ).Tooltip( "Shade with the sun, point / spot lights (and their shadows) and ambient light, like smoke; additive glows usually stay unlit" );
 ME_REFLECT_END()
 
 
@@ -251,6 +252,7 @@ void ParticleSystem::FillBatch( Moonlight::ParticleBatch& OutBatch, const glm::m
     OutBatch.Alignment = Alignment;
     OutBatch.StretchFactor = StretchFactor;
     OutBatch.Softness = SoftParticleDistance;
+    OutBatch.Lit = Lit;
     OutBatch.FlipbookColumns = static_cast<uint16_t>( std::clamp( FlipbookColumns, 1, 64 ) );
     OutBatch.FlipbookRows = static_cast<uint16_t>( std::clamp( FlipbookRows, 1, 64 ) );
     OutBatch.Bounds = AABB();
