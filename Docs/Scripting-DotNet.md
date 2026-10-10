@@ -2,7 +2,7 @@
 
 Game scripts are C# classes implementing `IGameScript` (usually through the `Script` base class), hosted in-process via **hostfxr** (.NET 8). C++ loads `[UnmanagedCallersOnly]` bridge functions from `ScriptCore.dll`; C# gets a struct of engine callbacks (`ScriptEngineAPI`) that is **generated from one manifest** for both languages. Scripts live in a collectible `AssemblyLoadContext`, and editing a `.cs` file in a tools build **hot reloads** them with their field values kept. This doc covers the build, the bootstrap chain, the script lifecycle, hot reload, the API surface, platform status and the add-a-binding recipe.
 
-> Verified against engine commit 6a4b006f, 2026-10-09; the navigation API against 8d6769a5, 2026-10-10.
+> Verified against engine commit 6a4b006f, 2026-10-09; the navigation API against 8d6769a5, 2026-10-10; collision callbacks and field access against the commit that added them, 2026-10-10.
 
 ## Overview
 
@@ -91,6 +91,7 @@ sequenceDiagram
 | Each fixed step, before physics steps | `OnFixedUpdate(fixedDt)` |
 | Each frame, after the scene cores | `OnUpdate(dt)` (scaled; zero while paused) |
 | Entity destroyed / scene unloaded | `OnDestroy`, handle released |
+| Physics contact / trigger (3D and 2D) | `OnCollisionEnter` / `OnCollisionExit( Collision )` (other entity, point, normal from this entity towards the other) and `OnTriggerEnter` / `OnTriggerExit( Entity other )`, on the collider's entity and on the body it belongs to (compound colliders). `ScriptCore` receives `CollisionEvent` and calls both sides |
 | Editor inspector | `OnEditorInspect` (fields drawn by `Inspector.cs`) |
 
 Scripts run only while the game runs: in the editor that means Play mode, while the game executable runs them from its first frame. Disabled `ScriptComponent`s and inactive entities are skipped. Public fields round-trip as JSON (`GetFieldsJson`/`SetFieldsJson`, no size cap), which is how the inspector saves script data into scenes and how Play-mode snapshots restore it.
@@ -106,7 +107,7 @@ Only public fields survive. Private state, statics and references are rebuilt in
 
 ### Calling the engine from C#
 
-The API is about 85 functions. Strings cross as UTF-8 `byte*`, entities as the raw 64-bit `EntityID`, and vectors by pointer.
+The API is about 87 functions. Strings cross as UTF-8 `byte*`, entities as the raw 64-bit `EntityID`, and vectors by pointer.
 
 | Area | C# surface |
 |------|------------|
@@ -121,6 +122,7 @@ The API is about 85 functions. Strings cross as UTF-8 `byte*`, entities as the r
 | Physics | `Physics.Raycast(origin, dir, maxDistance, out RaycastHit)`; `Rigidbody.AddForce(force, ForceMode)` and `Velocity` |
 | Character | `CharacterController.SetMoveInput`, `Move`, `Jump`, `IsGrounded`, `Velocity`, `MaxSpeed` (`Docs/Physics.md`) |
 | Math | `Vector3` (`Zero`/`Up`/`Forward`…, `Normalized`, `Dot`, `Cross`, `Distance`, `Lerp`), `Mathf` (`Clamp`, `Atan2`, `Deg2Rad`, frame-rate independent `Damp`) |
+| Any component | `Entity.GetField<T>( component, path, fallback )`, `SetField( component, path, value )` and the raw `GetFieldJson` / `SetFieldJson`: any reflected field by path (`"Light", "Intensity"`, `"Color.0"`), or any key of a hand-serialized component's JSON. Vectors are `[x, y, z]` arrays and enums are names. Setting calls the component's `OnPropertyChanged` |
 | Navigation | `NavMeshAgent.SetDestination`, `IsStopped`, `ResetPath`, `Warp`, `HasPath`, `HasArrived`, `RemainingDistance`, `Velocity`, `DesiredVelocity`, `Speed`; `Navigation.FindPath`, `SamplePosition`, `Raycast`, `GetRandomPoint` (`Docs/Navigation.md`) |
 | Camera / UI | Clear colour; `BasicUIView.ExecuteJS` |
 | ImGui | A subset for `OnEditorInspect` |
@@ -180,7 +182,7 @@ Save it anywhere under `Assets/`. The editor builds it on the next start, or hot
 - **Game builds don't compile scripts.** The DLLs must already sit next to the executable, or scripting logs a warning and stays off.
 - **The .NET SDK must be on `PATH`** for tools builds to compile. Without it the existing DLLs are used as-is.
 - **All script calls are synchronous on the main thread.** A slow `OnUpdate` is a frame hitch; there is no sandboxing or time budget.
-- **Collision callbacks and generic reflected component get/set are not bound yet.** The API covers the explicit wrappers listed above.
+- **Field access by name goes through JSON.** It reaches every component, but a typed wrapper (like `Rigidbody`) is faster for per-frame use. Wrong names return the fallback or `false`, not an error.
 
 ## Related Docs
 

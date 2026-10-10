@@ -110,7 +110,7 @@ After each step, `ProcessEvents` reads Box3D's contact begin/end events and sens
 - `IsTrigger` and `State` (Enter / Exit) are set on every event.
 - `Point` and `Normal` are filled for contact Enter events.
 
-All events of a step are collected first and fired afterwards, so handlers may change the world. Every shape enables sensor and contact events. Joints whose break force was exceeded are destroyed from Box3D's joint events, and `PhysicsJoint` remembers that it broke.
+All events of a step are collected first and fired afterwards, so handlers may change the world. C# scripts get them as `OnCollisionEnter` / `OnTriggerEnter` and friends on both entities (`Docs/Scripting-DotNet.md`). Every shape enables sensor and contact events. Joints whose break force was exceeded are destroyed from Box3D's joint events, and `PhysicsJoint` remembers that it broke.
 
 ### Queries
 
@@ -192,7 +192,7 @@ Joints have their own signature and are re-created when it changes.
 
 ## How to Extend
 
-- **React to collisions:** register an `EventReceiver` for `CollisionEvent::GetEventId()` and compare `A` / `B` against your entities. See `PhysicsTest::CollisionLog` in the tests.
+- **React to collisions:** in C#, override `OnCollisionEnter` / `OnTriggerEnter` on a script of either entity. In C++, register an `EventReceiver` for `CollisionEvent::GetEventId()` and compare `A` / `B` against your entities (see `PhysicsTest::CollisionLog` in the tests).
 - **A new collider shape:**
   1. Add a component that mixes in `ColliderSettings`, and register it with `ME_COLLIDER_FIELDS()`.
   2. Add it to `PhysicsCore`'s filter (`RequiresOneOf`) and to `HasAnyCollider`.
