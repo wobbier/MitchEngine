@@ -1406,7 +1406,7 @@ void BGFXRenderer::SubmitShadowCasters( bgfx::ViewId view, uint32_t InViewIndex 
             }
 
             bgfx::setVertexBuffer( 0, mesh.SingleMesh->GetVertexBuffer() );
-            bgfx::setIndexBuffer( mesh.SingleMesh->GetIndexuffer() );
+            bgfx::setIndexBuffer( mesh.SingleMesh->GetIndexBuffer( mesh.Lod ) );
             bgfx::setInstanceDataBuffer( &idb );
             bgfx::setUniform( u_shadowAlpha, alpha );
             if( mesh.AlphaCutoff > 0.f )
@@ -1436,7 +1436,7 @@ void BGFXRenderer::SubmitShadowCasters( bgfx::ViewId view, uint32_t InViewIndex 
         const float alpha[4] = { mesh.AlphaCutoff, mesh.MeshMaterial->Tiling.x, mesh.MeshMaterial->Tiling.y, 0.f };
         bgfx::setVertexBuffer( 0, mesh.SingleMesh->GetVertexBuffer() );
         bgfx::setVertexBuffer( 1, mesh.SingleMesh->GetSkinBuffer() );
-        bgfx::setIndexBuffer( mesh.SingleMesh->GetIndexuffer() );
+        bgfx::setIndexBuffer( mesh.SingleMesh->GetIndexBuffer( mesh.Lod ) );
         bgfx::setInstanceDataBuffer( &idb );
         bgfx::setUniform( u_shadowAlpha, alpha );
         bgfx::setUniform( u_bones, mesh.SkinPalette, mesh.SkinBoneCount );
@@ -1691,7 +1691,7 @@ bgfx::ProgramHandle BGFXRenderer::BindMeshDrawState( const Moonlight::MeshComman
 {
     // Set vertex and index buffer.
     bgfx::setVertexBuffer( 0, mesh.SingleMesh->GetVertexBuffer() );
-    bgfx::setIndexBuffer( mesh.SingleMesh->GetIndexuffer() );
+    bgfx::setIndexBuffer( mesh.SingleMesh->GetIndexBuffer( mesh.Lod ) );
 
     // Every sampler gets a texture: a missing map falls back to a neutral 1x1 so the material's
     // colour shows through instead of whatever the backend leaves bound.

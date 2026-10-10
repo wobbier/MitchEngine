@@ -5,6 +5,7 @@
 #include <Graphics/ShaderStructures.h>
 #include <Pointers.h>
 #include "Math/Bounds.h"
+#include "Graphics/MeshLod.h"
 #include <bgfx/bgfx.h>
 #include <glm/mat4x4.hpp>
 
@@ -62,6 +63,23 @@ namespace Moonlight
             return m_indexCount;
         }
 
+        // Levels of detail (a model's import settings): index buffers over this mesh's vertices,
+        // coarser each level, each drawn below a relative screen height. Level 0 is the full mesh.
+        void SetLods( const std::vector<MeshLod>& InLods );
+        // Simplified levels (not counting the full mesh).
+        uint8_t GetLodCount() const {
+            return static_cast<uint8_t>( m_lodIbh.size() );
+        }
+        const float* GetLodHeights() const {
+            return m_lodHeights.data();
+        }
+        bgfx::IndexBufferHandle GetIndexBuffer( uint8_t InLod ) const {
+            return InLod == 0 || InLod > m_lodIbh.size() ? m_ibh : m_lodIbh[InLod - 1];
+        }
+        uint32_t GetIndexCount( uint8_t InLod ) const {
+            return InLod == 0 || InLod > m_lodIndexCounts.size() ? m_indexCount : m_lodIndexCounts[InLod - 1];
+        }
+
 // render the mesh
 //void Draw(SharedPtr<Material> mat, ID3D11DeviceContext* context, bool depthOnly = false);
         std::string Name;
@@ -75,5 +93,8 @@ namespace Moonlight
         bgfx::VertexBufferHandle m_vbh = BGFX_INVALID_HANDLE;
         bgfx::IndexBufferHandle m_ibh = BGFX_INVALID_HANDLE;
         bgfx::VertexBufferHandle m_skinVbh = BGFX_INVALID_HANDLE;
+        std::vector<bgfx::IndexBufferHandle> m_lodIbh;
+        std::vector<uint32_t> m_lodIndexCounts;
+        std::vector<float> m_lodHeights;
     };
 }

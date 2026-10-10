@@ -30,6 +30,34 @@ namespace Moonlight
 
         if( bgfx::isValid( m_skinVbh ) )
             bgfx::destroy( m_skinVbh );
+
+        for( bgfx::IndexBufferHandle lod : m_lodIbh )
+        {
+            if( bgfx::isValid( lod ) )
+            {
+                bgfx::destroy( lod );
+            }
+        }
+    }
+
+
+    void MeshData::SetLods( const std::vector<MeshLod>& InLods )
+    {
+        for( const MeshLod& lod : InLods )
+        {
+            if( lod.Indices.size() < 3 || m_lodIbh.size() >= 255 )
+            {
+                continue;
+            }
+            const bgfx::IndexBufferHandle handle = bgfx::createIndexBuffer( bgfx::copy( lod.Indices.data(), static_cast<uint32_t>( sizeof( uint32_t ) * lod.Indices.size() ) ), BGFX_BUFFER_INDEX32 );
+            if( !bgfx::isValid( handle ) )
+            {
+                break;
+            }
+            m_lodIbh.push_back( handle );
+            m_lodIndexCounts.push_back( static_cast<uint32_t>( lod.Indices.size() ) );
+            m_lodHeights.push_back( lod.ScreenHeight );
+        }
     }
 
     void MeshData::InitSkin( const std::vector<SkinWeightsVertex>& InWeights )

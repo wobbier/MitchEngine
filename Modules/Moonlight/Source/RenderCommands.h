@@ -70,7 +70,9 @@ namespace Moonlight
 
         uint64_t BatchKey = 0u;
         uint16_t VertexBufferIdx = UINT16_MAX;
+        // The index buffer of the level of detail drawn this frame (Lod; 0 = full mesh).
         uint16_t IndexBufferIdx = UINT16_MAX;
+        uint8_t Lod = 0;
         bool IsTransparent = false;
         bool SupportsInstancing = false;
         bool CastShadows = true;

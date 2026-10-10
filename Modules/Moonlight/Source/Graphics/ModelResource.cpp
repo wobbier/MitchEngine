@@ -215,9 +215,51 @@ bool ModelResource::LoadAsync()
         m_importer.reset();
         return false;
     }
-    // Clips are plain data: build them here too.
+    // Clips are plain data: build them here too, and the levels of detail (index lists only).
     ProcessAnimations( m_pendingScene );
+    BuildLods( m_pendingScene );
     return true;
+}
+
+
+void ModelResource::BuildLods( const aiScene* inScene )
+{
+    m_pendingLods.clear();
+    const ModelResourceMetadata* settings = dynamic_cast<const ModelResourceMetadata*>( Metadata.get() );
+    if( !settings || !settings->GenerateLODs || settings->LODs.Levels <= 0 )
+    {
+        return;
+    }
+    m_pendingLods.resize( inScene->mNumMeshes );
+    size_t fullTriangles = 0;
+    size_t lowestTriangles = 0;
+    for( unsigned int m = 0; m < inScene->mNumMeshes; ++m )
+    {
+        const aiMesh* mesh = inScene->mMeshes[m];
+        if( mesh->mNumVertices == 0 || !mesh->mVertices )
+        {
+            continue;
+        }
+        std::vector<uint32_t> indices;
+        indices.reserve( static_cast<size_t>( mesh->mNumFaces ) * 3 );
+        for( unsigned int f = 0; f < mesh->mNumFaces; ++f )
+        {
+            const aiFace& face = mesh->mFaces[f];
+            if( face.mNumIndices == 3 )
+            {
+                indices.insert( indices.end(), face.mIndices, face.mIndices + 3 );
+            }
+        }
+        if( indices.size() != static_cast<size_t>( mesh->mNumFaces ) * 3 )
+        {
+            continue;   // points or lines mixed in: leave this mesh at full detail
+        }
+        // ProcessMesh keeps aiMesh vertex order, so these index the uploaded vertices.
+        m_pendingLods[m] = Moonlight::BuildMeshLods( &mesh->mVertices[0].x, mesh->mNumVertices, sizeof( aiVector3D ), indices, settings->LODs );
+        fullTriangles += indices.size() / 3;
+        lowestTriangles += ( m_pendingLods[m].empty() ? indices.size() : m_pendingLods[m].back().Indices.size() ) / 3;
+    }
+    CLog::Log( CLog::LogType::Debug, "LODs for " + FilePath.GetLocalPathString() + ": " + std::to_string( fullTriangles ) + " triangles, " + std::to_string( lowestTriangles ) + " at the lowest level" );
 }
 
 
@@ -236,6 +278,7 @@ bool ModelResource::FinishAsyncLoad()
 
     m_pendingScene = nullptr;
     m_importer.reset();
+    std::vector<std::vector<Moonlight::MeshLod>>().swap( m_pendingLods );
     return true;
 }
 
@@ -279,6 +322,10 @@ void ModelResource::ProcessNode( aiNode* node, const aiScene* scene, Moonlight::
         {
             aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
             m_allMeshData[node->mMeshes[i]] = ProcessMesh( mesh, parent, scene );
+            if( node->mMeshes[i] < m_pendingLods.size() && m_allMeshData[node->mMeshes[i]] )
+            {
+                m_allMeshData[node->mMeshes[i]]->SetLods( m_pendingLods[node->mMeshes[i]] );
+            }
             parent.Meshes.push_back( m_allMeshData[node->mMeshes[i]] );
             continue;
         }
@@ -665,6 +712,16 @@ void ModelResourceMetadata::OnSerialize( json& inJson )
     {
         inJson["ConvertUnits"] = true;
     }
+    if( GenerateLODs )
+    {
+        // Rounded, so a float like 0.02 isn't saved as 0.019999999552965164.
+        auto tidy = []( float InValue ) { return std::round( static_cast<double>( InValue ) * 1e6 ) / 1e6; };
+        inJson["GenerateLODs"] = true;
+        inJson["LODLevels"] = LODs.Levels;
+        inJson["LODReduction"] = tidy( LODs.Reduction );
+        inJson["LODTransition"] = tidy( LODs.TransitionHeight );
+        inJson["LODMaxError"] = tidy( LODs.MaxError );
+    }
 }
 
 
@@ -672,6 +729,12 @@ void ModelResourceMetadata::OnDeserialize( const json& inJson )
 {
     ImportScale = inJson.value( "ImportScale", 1.f );
     ConvertUnits = inJson.value( "ConvertUnits", false );
+    const Moonlight::MeshLodSettings defaults;
+    GenerateLODs = inJson.value( "GenerateLODs", false );
+    LODs.Levels = std::clamp( inJson.value( "LODLevels", defaults.Levels ), 0, 4 );
+    LODs.Reduction = inJson.value( "LODReduction", defaults.Reduction );
+    LODs.TransitionHeight = inJson.value( "LODTransition", defaults.TransitionHeight );
+    LODs.MaxError = inJson.value( "LODMaxError", defaults.MaxError );
 }
 
 
@@ -699,6 +762,26 @@ void ModelResourceMetadata::OnEditorInspect()
     if( ImGui::IsItemHovered() )
     {
         ImGui::SetTooltip( "Use the file's unit (FBX UnitScaleFactor): centimetre assets import at metre size" );
+    }
+    ImGui::Checkbox( "Generate LODs", &GenerateLODs );
+    if( ImGui::IsItemHovered() )
+    {
+        ImGui::SetTooltip( "Simplified versions of each mesh, drawn when it's small on screen (meshoptimizer)" );
+    }
+    if( GenerateLODs )
+    {
+        ImGui::SliderInt( "LOD Levels", &LODs.Levels, 1, 4 );
+        ImGui::SliderFloat( "Triangles Kept Per Level", &LODs.Reduction, 0.1f, 0.9f, "%.2f" );
+        ImGui::SliderFloat( "First LOD Below Screen Height", &LODs.TransitionHeight, 0.01f, 1.f, "%.2f" );
+        if( ImGui::IsItemHovered() )
+        {
+            ImGui::SetTooltip( "Level 1 draws when the mesh covers less than this fraction of the view's height; each further level at half that" );
+        }
+        ImGui::SliderFloat( "Max Error", &LODs.MaxError, 0.001f, 0.2f, "%.3f" );
+        if( ImGui::IsItemHovered() )
+        {
+            ImGui::SetTooltip( "Largest deviation of level 1, relative to the mesh's size (doubles each level)" );
+        }
     }
     ImGui::TextDisabled( "Apply re-imports; reopen scenes that use the model to see the change" );
 }

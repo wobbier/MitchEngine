@@ -50,6 +50,10 @@ private:
     const aiScene* m_pendingScene = nullptr;
     std::vector<Moonlight::MeshData*> m_allMeshData;
     std::vector<Moonlight::AnimationClip> m_animations;
+    // Levels of detail per aiMesh, built by LoadAsync (import settings), uploaded with the meshes.
+    std::vector<std::vector<Moonlight::MeshLod>> m_pendingLods;
+
+    void BuildLods( const aiScene* inScene );
 
     void ProcessNode( aiNode* node, const aiScene* inScene, Moonlight::Node& inParent, glm::mat4 inParentTransform );
     void ProcessAnimations( const aiScene* inScene );
@@ -81,6 +85,11 @@ struct ModelResourceMetadata
     bool ConvertUnits = false;
     // The scale the cook applies for a file declaring InUnitScaleFactor (FBX: centimetres per unit).
     float GetBakedScale( double InUnitScaleFactor ) const;
+
+    // Levels of detail, simplified from each mesh when the model loads (not baked into the cook, so
+    // changes apply the next time the model loads).
+    bool GenerateLODs = false;
+    Moonlight::MeshLodSettings LODs;
 
 #if USING( ME_EDITOR )
     virtual void OnEditorInspect() final;

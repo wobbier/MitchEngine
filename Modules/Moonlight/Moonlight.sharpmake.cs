@@ -9,6 +9,15 @@ public class Moonlight : BaseProject
     {
         Name = "Moonlight";
         SourceRootPath = Path.Combine("[project.SharpmakeCsPath]", "Source");
+
+        // meshoptimizer (bgfx's copy): mesh LOD simplification (Graphics/MeshLod.cpp).
+        string meshoptimizer = Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/bgfx/3rdparty/meshoptimizer/src");
+        foreach (string file in new[] { "allocator.cpp", "clusterizer.cpp", "indexanalyzer.cpp", "indexcodec.cpp", "indexgenerator.cpp",
+            "overdrawoptimizer.cpp", "partition.cpp", "quantization.cpp", "rasterizer.cpp", "simplifier.cpp", "spatialorder.cpp",
+            "stripifier.cpp", "vcacheoptimizer.cpp", "vertexcodec.cpp", "vertexfilter.cpp", "vfetchoptimizer.cpp" })
+        {
+            SourceFiles.Add(Path.Combine(meshoptimizer, file));
+        }
     }
 
     public override void ConfigureAll(Project.Configuration conf, CommonTarget target)
@@ -23,6 +32,7 @@ public class Moonlight : BaseProject
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/bimg/include"));
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/bx/include"));
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/Assimp/include"));
+        conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/bgfx/3rdparty/meshoptimizer/src"));
 
         conf.IncludePaths.Add("[project.SourceRootPath]");
 

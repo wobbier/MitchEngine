@@ -193,7 +193,7 @@ void PickingPass::Render( BGFXRenderer* inRenderer, CameraData* inCamData, Frame
 
                 // Set vertex and index buffer.
                 bgfx::setVertexBuffer( 0, mesh.SingleMesh->GetVertexBuffer() );
-                bgfx::setIndexBuffer( mesh.SingleMesh->GetIndexuffer() );
+                bgfx::setIndexBuffer( mesh.SingleMesh->GetIndexBuffer( mesh.Lod ) );
 
                 // Animated meshes pick in their current pose.
                 bgfx::ProgramHandle program = m_idProgram.GetProgram();

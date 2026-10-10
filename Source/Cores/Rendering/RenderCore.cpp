@@ -23,6 +23,7 @@
 #include "Camera/CameraData.h"
 #include "RenderPasses/PickingPass.h"
 #include "Utils/ImGuiUtils.h"
+#include "Core/CommandLine.h"
 
 
 RenderCore::RenderCore()
@@ -36,6 +37,7 @@ RenderCore::RenderCore()
 void RenderCore::Init()
 {
     CLog::GetInstance().Log( CLog::LogType::Debug, "RenderCore Initialized..." );
+    LodBias = CommandLine::GetFloat( "--lod-bias", LodBias );
     //m_renderer->ClearDebugColliders();
     GetEngine().GetRenderer().ClearMeshes();
 }
@@ -95,6 +97,24 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
     }
 
     auto& cameras = renderer.GetCameraCache();
+
+    // Levels of detail follow the view being looked through: the scene view's camera while
+    // editing, else the main camera (one level per mesh per frame, shared by every pass).
+    const Moonlight::CameraData* lodCamera = nullptr;
+#if USING( ME_EDITOR )
+    if( !m_playing )
+    {
+        lodCamera = &engine.EditorCamera;
+    }
+#endif
+    for( const Moonlight::CameraData& cam : cameras.Commands )
+    {
+        if( !lodCamera && cam.IsMain && cam.ShouldRender )
+        {
+            lodCamera = &cam;
+        }
+    }
+    const float lodBias = LodBias;
 
     // Resize visible flag vector
 #if USING( ME_EDITOR )
@@ -186,8 +206,16 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                             }
                             if( model.MeshReferece )
                             {
+                                const uint8_t lodCount = model.MeshReferece->GetLodCount();
+                                if( lodCount > 0 && lodCamera )
+                                {
+                                    const float radius = worldBounds.GetExtents().Length();
+                                    const float distance = ( worldBounds.GetCenter() - lodCamera->Position ).Length();
+                                    const float height = Moonlight::RelativeScreenHeight( radius, distance, lodCamera->FOV, lodCamera->Projection == Moonlight::ProjectionType::Orthographic, lodCamera->OrthographicSize );
+                                    command.Lod = Moonlight::SelectLod( height, model.MeshReferece->GetLodHeights(), lodCount, lodBias );
+                                }
                                 command.VertexBufferIdx = model.MeshReferece->GetVertexBuffer().idx;
-                                command.IndexBufferIdx = model.MeshReferece->GetIndexuffer().idx;
+                                command.IndexBufferIdx = model.MeshReferece->GetIndexBuffer( command.Lod ).idx;
                             }
                             if( skinned )
                             {
@@ -215,8 +243,15 @@ void RenderCore::OnDeviceRestored()
 {
 }
 
+void RenderCore::OnStart()
+{
+    m_playing = true;
+}
+
+
 void RenderCore::OnStop()
 {
+    m_playing = false;
     GetEngine().GetRenderer().ClearMeshes();
     //m_renderer->ClearDebugColliders();
 }
@@ -228,6 +263,11 @@ void RenderCore::OnEditorInspect()
     Base::OnEditorInspect();
 
     ImGui::Checkbox( "Enable Debug Draw", &EnableDebugDraw );
+    ImGui::SliderFloat( "LOD Bias", &LodBias, 0.f, 4.f, "%.2f" );
+    if( ImGui::IsItemHovered() )
+    {
+        ImGui::SetTooltip( "Scales each mesh's screen size before its level of detail is picked: above 1 keeps detail longer, 0 draws the coarsest level" );
+    }
 
     BGFXRenderer::ShadowSettings& shadows = GetEngine().GetRenderer().Shadows;
     ImGui::Checkbox( "Shadows", &shadows.Enabled );
