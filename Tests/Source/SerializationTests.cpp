@@ -1,6 +1,7 @@
 #include <doctest/doctest.h>
 
 #include "World/SceneSerializer.h"
+#include "Resource/AssetDatabase.h"
 #include "Engine/World.h"
 #include "Components/Transform.h"
 #include <filesystem>
@@ -234,4 +235,106 @@ TEST_CASE( "Serialization: v1 scene objects migrate with Euler rotation and nest
     CHECK( a.GetRotationEuler().y == doctest::Approx( 90.f ).epsilon( 0.01 ) );
     REQUIRE( a.GetChildren().size() == 1 );
     CHECK( a.GetChildren()[0]->GetName() == "B" );
+}
+
+
+TEST_CASE( "Serialization: asset references follow assets that moved" )
+{
+    namespace fs = std::filesystem;
+    const std::string root = ".tmp/Tests/AssetRefs";
+    fs::remove_all( root );
+    fs::create_directories( root + "/Old" );
+    fs::create_directories( root + "/New" );
+    const std::string oldPath = root + "/Old/Crate.png";
+    const std::string newPath = root + "/New/Crate.png";
+    const std::string stayPath = root + "/Old/Stays.wav";
+    std::ofstream( oldPath ) << "png";
+    std::ofstream( stayPath ) << "wav";
+    const uint64_t crate = 0x5eed000000000001ull;
+    const uint64_t stays = 0x5eed000000000002ull;
+    AssetDatabase::Get().Register( oldPath, crate );
+    AssetDatabase::Get().Register( stayPath, stays );
+
+    json scene = json::parse( R"({
+        "Version": 2,
+        "Entities": [ { "GUID": "00000000000000a1", "Name": "Crate",
+            "Components": [ { "Type": "Mesh", "Textures": { "Diffuse": ")" + oldPath + R"(" } },
+                            { "Type": "AudioSource", "FilePath": ")" + stayPath + R"(" },
+                            { "Type": "Note", "Text": "not/a path to anything.txt" } ] } ]
+    })" );
+
+    // Saving records every known asset path by GUID.
+    SceneSerializer::PrepareForSave( scene, root + "/Scene.lvl", false );
+    REQUIRE( scene.contains( "AssetReferences" ) );
+    CHECK( scene["AssetReferences"].size() == 2 );
+    CHECK( scene["AssetReferences"][SceneSerializer::GUIDToString( crate )] == oldPath );
+    CHECK( scene["AssetReferences"][SceneSerializer::GUIDToString( stays )] == stayPath );
+
+    // Nothing moved: loading changes nothing.
+    json unchanged = scene;
+    CHECK( SceneSerializer::RemapAssetReferences( unchanged, "test" ) == 0 );
+    CHECK( unchanged == scene );
+
+    // The crate moves (outside the editor; a later scan finds its .meta at the new path).
+    fs::rename( oldPath, newPath );
+    AssetDatabase::Get().Unregister( oldPath );
+    AssetDatabase::Get().Register( newPath, crate );
+    json loaded = scene;
+    CHECK( SceneSerializer::RemapAssetReferences( loaded, "test" ) == 2 );   // the component and the table
+    const json& components = loaded["Entities"][0]["Components"];
+    CHECK( components[0]["Textures"]["Diffuse"] == newPath );
+    CHECK( components[1]["FilePath"] == stayPath );
+    CHECK( components[2]["Text"] == "not/a path to anything.txt" );
+    CHECK( loaded["AssetReferences"][SceneSerializer::GUIDToString( crate )] == newPath );
+
+    // Moved in the editor: the database keeps the former path, so a scene saved before it reloads
+    // still records the asset (under its old path) and the next load fixes it.
+    AssetDatabase::Get().Move( newPath, oldPath );
+    fs::rename( newPath, oldPath );
+    CHECK( AssetDatabase::Get().FindGUID( newPath ) == crate );
+    CHECK( AssetDatabase::Get().FindMovedPath( newPath ) == oldPath );
+    json stale = loaded;
+    SceneSerializer::PrepareForSave( stale, root + "/Scene.lvl", false );
+    CHECK( stale["AssetReferences"][SceneSerializer::GUIDToString( crate )] == newPath );
+    CHECK( SceneSerializer::RemapAssetReferences( stale, "test" ) == 2 );
+    CHECK( stale["Entities"][0]["Components"][0]["Textures"]["Diffuse"] == oldPath );
+
+    // Prefabs carry a stable asset GUID of their own.
+    const std::string prefabPath = root + "/Thing.prefab";
+    json prefab = json::parse( R"({ "Version": 2, "Entities": [] })" );
+    SceneSerializer::PrepareForSave( prefab, prefabPath, true );
+    const uint64_t prefabGUID = SceneSerializer::GUIDFromJson( prefab["AssetGUID"] );
+    CHECK( prefabGUID != 0 );
+    CHECK( AssetDatabase::Get().FindGUID( SceneSerializer::NormalizePrefabPath( prefabPath ) ) == prefabGUID );
+    json resaved = json::parse( R"({ "Version": 2, "Entities": [] })" );
+    SceneSerializer::PrepareForSave( resaved, prefabPath, true );
+    CHECK( SceneSerializer::GUIDFromJson( resaved["AssetGUID"] ) == prefabGUID );   // same file, same GUID
+
+    AssetDatabase::Get().Unregister( root );
+    fs::remove_all( root );
+}
+
+TEST_CASE( "Assets: the database follows moved folders and remembers former paths" )
+{
+    AssetDatabase& database = AssetDatabase::Get();
+    database.Register( "Tests/AssetDb/Folder/a.png", 0x5eed0000000000a1ull );
+    database.Register( "Tests/AssetDb/Folder/Sub/b.wav", 0x5eed0000000000a2ull );
+    database.Register( "Tests/AssetDb/c.fbx", 0x5eed0000000000a3ull );
+
+    database.Move( "Tests/AssetDb/Folder", "Tests/AssetDb/Renamed" );
+    CHECK( database.FindPath( 0x5eed0000000000a1ull ) == "Tests/AssetDb/Renamed/a.png" );
+    CHECK( database.FindPath( 0x5eed0000000000a2ull ) == "Tests/AssetDb/Renamed/Sub/b.wav" );
+    CHECK( database.FindPath( 0x5eed0000000000a3ull ) == "Tests/AssetDb/c.fbx" );
+    CHECK( database.FindGUID( "Tests/AssetDb/Folder/a.png" ) == 0x5eed0000000000a1ull );
+    CHECK( database.FindMovedPath( "Tests/AssetDb/Folder/Sub/b.wav" ) == "Tests/AssetDb/Renamed/Sub/b.wav" );
+    CHECK( database.FindMovedPath( "Tests/AssetDb/c.fbx" ).empty() );
+
+    // Moved twice: the first location resolves to the latest.
+    database.Move( "Tests/AssetDb/Renamed/a.png", "Tests/AssetDb/a.png" );
+    CHECK( database.FindMovedPath( "Tests/AssetDb/Folder/a.png" ) == "Tests/AssetDb/a.png" );
+
+    database.Unregister( "Tests/AssetDb" );
+    CHECK( database.FindPath( 0x5eed0000000000a1ull ).empty() );
+    CHECK( database.FindPath( 0x5eed0000000000a2ull ).empty() );
+    CHECK( database.FindPath( 0x5eed0000000000a3ull ).empty() );
 }

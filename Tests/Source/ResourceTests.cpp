@@ -2,6 +2,7 @@
 #include "Path.h"
 #include "Resource/Resource.h"
 #include "Resource/ResourceCache.h"
+#include "Resource/AssetDatabase.h"
 #include <atomic>
 #include <chrono>
 #include <filesystem>
@@ -27,6 +28,11 @@ namespace ResourceTest
         bool SupportsAsyncLoad() const override
         {
             return true;
+        }
+
+        bool Load() override
+        {
+            return LoadAsync() && FinishAsyncLoad();
         }
 
         bool LoadAsync() override
@@ -198,4 +204,21 @@ TEST_CASE( "Resources: async failures, budgets, waits and cancellation" )
     SharedPtr<SlowResource> after = cache.GetAsync<SlowResource>( WriteAsset( "AsyncAfterRelease", "again" ) );
     REQUIRE( PumpUntilLoaded( after ) );
     CHECK( after->Contents == "again" );
+}
+
+
+TEST_CASE( "Resources: loading a path whose asset moved this session loads it from the new path" )
+{
+    ResourceCache& cache = ResourceCache::GetInstance();
+    const Path moved = WriteAsset( "MovedNew", "moved here" );
+    const std::string oldPath = ".tmp/Tests/Resources/MovedOld.testasset";
+    std::filesystem::remove( oldPath );
+    AssetDatabase::Get().Register( oldPath, 0x5eed0000000000b1ull );
+    AssetDatabase::Get().Move( oldPath, moved.GetLocalPathString() );
+
+    SharedPtr<SlowResource> resource = cache.Get<SlowResource>( Path( oldPath ) );
+    REQUIRE( resource );
+    CHECK( resource->GetPath().FullPath == moved.FullPath );
+    CHECK( resource->Contents == "moved here" );
+    AssetDatabase::Get().Unregister( moved.GetLocalPathString() );
 }

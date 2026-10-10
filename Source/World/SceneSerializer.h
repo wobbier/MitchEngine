@@ -27,6 +27,12 @@ class Entity;
 // Entities are identified by 64-bit GUIDs (hex strings); EntityHandle fields reference entities by
 // GUID, so references survive save/load and are remapped when a prefab or clipboard copy is
 // instanced. Version 1 files (nested "Scene"/"Children", Euler rotations) are migrated on load.
+//
+// Asset references are paths, backed by GUIDs: scene and prefab files also carry
+//   "AssetReferences": { "<asset GUID>": "Assets/Models/Car.fbx", ... }
+// for every asset path they mention, and prefabs carry their own "AssetGUID". Loading rewrites the
+// paths of assets that have moved since (the old path is gone; the AssetDatabase knows the GUID's
+// new path), so moving or renaming assets doesn't break the scenes and prefabs using them.
 namespace SceneSerializer
 {
     static constexpr int kVersion = 2;
@@ -82,4 +88,13 @@ namespace SceneSerializer
 
     // Drops cached prefab data (call when prefab files change).
     void ClearPrefabCache();
+
+    // GUID -> path of every asset path in the data (strings the AssetDatabase knows).
+    json CollectAssetReferences( const json& InData );
+    // Rewrites paths of moved assets using the data's "AssetReferences" table. Returns how many
+    // strings changed; InContext names the file in the log.
+    int RemapAssetReferences( json& InOutData, const std::string& InContext );
+    // Before writing a scene or prefab file: refreshes its "AssetReferences", and gives a prefab its
+    // stable "AssetGUID" (kept across saves, registered with the AssetDatabase).
+    void PrepareForSave( json& InOutData, const std::string& InPath, bool InIsPrefab );
 }

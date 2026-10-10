@@ -51,6 +51,7 @@ bool Scene::Load( SharedPtr<World> InWorld )
         YIKES( "Scene file is not valid JSON: " + FilePath.GetLocalPathString() );
         return false;
     }
+    SceneSerializer::RemapAssetReferences( level, FilePath.GetLocalPathString() );
 
     // No sync points while the scene is half built.
     GameWorld->IsLoading = true;
@@ -84,6 +85,7 @@ void Scene::SaveCopy( const std::string& fileName, Transform* root )
 {
 #if USING( ME_EDITOR )
     json world = SceneSerializer::SerializeWorld( *GetEngine().GetWorld().lock(), root );
+    SceneSerializer::PrepareForSave( world, fileName, false );
     File worldFile{ Path( fileName ) };
     worldFile.Write( world.dump( 4 ) );
 #endif

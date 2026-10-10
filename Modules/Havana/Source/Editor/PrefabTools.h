@@ -40,6 +40,9 @@ namespace PrefabTools
     void ApplyAll( Entity& InEntity );
     void RevertAll( Entity& InEntity );
     void Unpack( Entity& InEntity );
+
+    // Prefab assets (or a folder of them) moved: instances in the world follow the move.
+    void OnAssetsMoved( const std::string& InFrom, const std::string& InTo );
 }
 
 #endif

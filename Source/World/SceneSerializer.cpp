@@ -8,6 +8,8 @@
 #include "Path.h"
 #include "CLog.h"
 #include "optick.h"
+#include "Resource/AssetDatabase.h"
+#include "Utils/GUID.h"
 #include <cstdio>
 #include <cstdlib>
 #include <mutex>
@@ -538,7 +540,17 @@ namespace SceneSerializer
         }
 
         File file{ Path( key ) };
-        const std::string& contents = file.Read();
+        std::string contents = file.Read();
+        if( contents.empty() )
+        {
+            // Moved in the editor this session: links to the old path still resolve.
+            const std::string moved = AssetDatabase::Get().FindMovedPath( key );
+            if( !moved.empty() )
+            {
+                File movedFile{ Path( moved ) };
+                contents = movedFile.Read();
+            }
+        }
         if( contents.empty() )
         {
             YIKES( "Prefab not found or empty: " + key );
@@ -550,6 +562,7 @@ namespace SceneSerializer
             YIKES( "Prefab is not valid JSON: " + key );
             return {};
         }
+        RemapAssetReferences( parsed, key );
         std::shared_ptr<const json> data = std::make_shared<const json>( MigrateToLatest( parsed ) );
 
         PrefabCacheData& cache = GetPrefabCache();
@@ -646,5 +659,174 @@ namespace SceneSerializer
         PrefabCacheData& cache = GetPrefabCache();
         std::lock_guard<std::mutex> lock( cache.Mutex );
         cache.Entries.clear();
+    }
+
+
+    namespace
+    {
+        // Strings that could be asset paths (a folder and an extension).
+        void CollectPathStrings( const json& InValue, std::unordered_set<std::string>& OutPaths )
+        {
+            if( InValue.is_string() )
+            {
+                const std::string& text = InValue.get_ref<const std::string&>();
+                if( text.find( '/' ) != std::string::npos && text.find( '.' ) != std::string::npos )
+                {
+                    OutPaths.insert( text );
+                }
+            }
+            else if( InValue.is_array() || InValue.is_object() )
+            {
+                for( const json& child : InValue )
+                {
+                    CollectPathStrings( child, OutPaths );
+                }
+            }
+        }
+
+
+        void ReplaceStrings( json& InOutValue, const std::unordered_map<std::string, std::string>& InReplacements, int& OutCount )
+        {
+            if( InOutValue.is_string() )
+            {
+                auto it = InReplacements.find( InOutValue.get_ref<const std::string&>() );
+                if( it != InReplacements.end() )
+                {
+                    InOutValue = it->second;
+                    ++OutCount;
+                }
+            }
+            else if( InOutValue.is_array() || InOutValue.is_object() )
+            {
+                for( json& child : InOutValue )
+                {
+                    ReplaceStrings( child, InReplacements, OutCount );
+                }
+            }
+        }
+    }
+
+
+    json CollectAssetReferences( const json& InData )
+    {
+        std::unordered_set<std::string> paths;
+        if( InData.is_object() )
+        {
+            for( auto it = InData.begin(); it != InData.end(); ++it )
+            {
+                if( it.key() != "AssetReferences" )
+                {
+                    CollectPathStrings( it.value(), paths );
+                }
+            }
+        }
+        else
+        {
+            CollectPathStrings( InData, paths );
+        }
+
+        AssetDatabase& database = AssetDatabase::Get();
+        json table = json::object();
+        for( const std::string& path : paths )
+        {
+            const uint64_t guid = database.FindGUID( path );
+            if( guid == 0 )
+            {
+                continue;
+            }
+            const std::string key = GUIDToString( guid );
+            // One asset under two paths (an old one not rewritten yet): keep the stale one, it's
+            // the one the next load has to remap.
+            if( !table.contains( key ) || database.FindPath( guid ) == table[key].get<std::string>() )
+            {
+                table[key] = path;
+            }
+        }
+        return table;
+    }
+
+
+    int RemapAssetReferences( json& InOutData, const std::string& InContext )
+    {
+        if( !InOutData.is_object() )
+        {
+            return 0;
+        }
+        auto table = InOutData.find( "AssetReferences" );
+        if( table == InOutData.end() || !table->is_object() )
+        {
+            return 0;
+        }
+
+        std::unordered_map<std::string, std::string> moved;
+        for( auto it = table->begin(); it != table->end(); ++it )
+        {
+            if( !it.value().is_string() )
+            {
+                continue;
+            }
+            const std::string path = it.value().get<std::string>();
+            if( Path( path ).Exists )
+            {
+                continue;
+            }
+            // Game builds scan the asset metadata only now, when something is actually missing.
+            AssetDatabase::Get().EnsureScanned();
+            const std::string current = AssetDatabase::Get().FindPath( GUIDFromJson( it.key() ) );
+            if( current.empty() || current == path || !Path( current ).Exists )
+            {
+                continue;
+            }
+            moved[path] = current;
+        }
+        if( moved.empty() )
+        {
+            return 0;
+        }
+
+        int count = 0;
+        ReplaceStrings( InOutData, moved, count );
+        for( const auto& [from, to] : moved )
+        {
+            CLog::Log( CLog::LogType::Info, InContext + ": asset '" + from + "' moved to '" + to + "'" );
+        }
+        return count;
+    }
+
+
+    void PrepareForSave( json& InOutData, const std::string& InPath, bool InIsPrefab )
+    {
+        if( !InOutData.is_object() )
+        {
+            return;
+        }
+        if( InIsPrefab )
+        {
+            const std::string asset = NormalizePrefabPath( InPath );
+            uint64_t guid = GUIDFromJson( InOutData.value( "AssetGUID", json() ) );
+            if( guid == 0 )
+            {
+                guid = AssetDatabase::Get().FindGUID( asset );
+            }
+            if( guid == 0 && Path( asset ).Exists )
+            {
+                if( std::shared_ptr<const json> existing = LoadPrefabData( asset ) )
+                {
+                    guid = GUIDFromJson( existing->value( "AssetGUID", json() ) );
+                }
+            }
+            if( guid == 0 )
+            {
+                guid = ::GUID::Generate();
+            }
+            InOutData["AssetGUID"] = GUIDToString( guid );
+            AssetDatabase::Get().Register( asset, guid );
+        }
+        InOutData.erase( "AssetReferences" );
+        json references = CollectAssetReferences( InOutData );
+        if( !references.empty() )
+        {
+            InOutData["AssetReferences"] = std::move( references );
+        }
     }
 }

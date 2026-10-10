@@ -11,6 +11,8 @@
 #include "Path.h"
 #include "Resource/ResourceCache.h"
 #include "Resource/MetaFile.h"
+#include "Resource/AssetDatabase.h"
+#include "Utils/GUID.h"
 #include "Graphics/Texture.h"
 #include "Graphics/ShaderFile.h"
 #include "File.h"
@@ -155,7 +157,14 @@ namespace
         }
     }
 
-    // Moves a file and its .meta sidecar. Returns false on failure.
+    // Project-relative form (AssetDatabase keys, prefab links): "Assets/...", "Engine/Assets/...".
+    std::string ProjectRelative( const std::string& absolute )
+    {
+        return fs::path( absolute ).lexically_relative( ProjectRoot() ).generic_string();
+    }
+
+    // Moves a file (or folder) and its .meta sidecar. References follow by GUID: the asset database
+    // learns the new path, and prefab instances in the open scene are relinked. Returns false on failure.
     bool MoveWithMeta( const std::string& from, const std::string& to )
     {
         std::error_code error;
@@ -169,6 +178,8 @@ namespace
         {
             fs::rename( from + ".meta", to + ".meta", error );
         }
+        AssetDatabase::Get().Move( ProjectRelative( from ), ProjectRelative( to ) );
+        PrefabTools::OnAssetsMoved( ProjectRelative( from ), ProjectRelative( to ) );
         return true;
     }
 }
@@ -1458,6 +1469,10 @@ void AssetBrowserWidget::DrawModals()
                 {
                     YIKES( "Failed to move asset to trash: " + path );
                 }
+                else
+                {
+                    AssetDatabase::Get().Unregister( ProjectRelative( path ) );
+                }
                 m_thumbnails.erase( path );
             }
             m_pendingDelete.clear();
@@ -1551,13 +1566,25 @@ void AssetBrowserWidget::DuplicateSelection()
         {
             continue;
         }
-        // The copy gets a fresh .meta (and GUID) on first use.
+        // The copy gets a fresh .meta (and GUID) on first use; a prefab's GUID is inside it.
         const std::string destination = UniquePath( ToGeneric( source.parent_path() ), source.stem().string() + " Copy", source.extension().string() );
         std::error_code error;
         fs::copy_file( source, destination, error );
         if( error )
         {
             YIKES( "Duplicate failed: " + error.message() );
+        }
+        else if( source.extension() == ".prefab" )
+        {
+            File copy{ Path( destination ) };
+            json data = json::parse( copy.Read(), nullptr, false );
+            if( data.is_object() && data.contains( "AssetGUID" ) )
+            {
+                const uint64_t guid = GUID::Generate();
+                data["AssetGUID"] = SceneSerializer::GUIDToString( guid );
+                copy.Write( data.dump( 4 ) );
+                AssetDatabase::Get().Register( ProjectRelative( destination ), guid );
+            }
         }
     }
     Refresh();
@@ -1588,7 +1615,7 @@ void AssetBrowserWidget::MoveSelectionTo( const std::string& InFolder )
     }
     if( moved > 0 )
     {
-        BRUH( "Moved " + std::to_string( moved ) + " asset(s). Scenes reference assets by path; re-save scenes that used them." );
+        CLog::Log( CLog::LogType::Info, "Moved " + std::to_string( moved ) + " asset(s). Scenes and prefabs follow the move when they load; saving them writes the new paths." );
     }
     m_draggedPaths.clear();
     m_selection.clear();

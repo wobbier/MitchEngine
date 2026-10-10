@@ -10,6 +10,7 @@
 #include <Singleton.h>
 #include "MetaFile.h"
 #include "AssetMetaCache.h"
+#include "AssetDatabase.h"
 #include <memory>
 #include <mutex>
 #include <vector>
@@ -135,6 +136,17 @@ SharedPtr<T> ResourceCache::Load( const Path& InFilePath, bool InAsync, Args&& .
             CompleteLoad( Res );
         }
         return Res;
+    }
+
+    if( !InFilePath.Exists )
+    {
+        // Moved in the editor this session: references to the old path still load.
+        const std::string moved = AssetDatabase::Get().FindMovedPath( InFilePath.GetLocalPathString() );
+        if( !moved.empty() )
+        {
+            lock.unlock();
+            return Load<T>( Path( moved ), InAsync, std::forward<Args>( args )... );
+        }
     }
 
     SharedPtr<MetaBase> metaFile = LoadMetadata( InFilePath );

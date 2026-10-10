@@ -174,8 +174,11 @@ namespace PrefabTools
 
         bool WritePrefab( const std::string& InAsset, const json& InData )
         {
+            // Stable asset GUID + reference table, so links to and from the prefab survive moves.
+            json data = InData;
+            SceneSerializer::PrepareForSave( data, InAsset, true );
             File file{ Path( InAsset ) };
-            file.Write( InData.dump( 4 ) );
+            file.Write( data.dump( 4 ) );
             SceneSerializer::ClearPrefabCache();
             return true;
         }
@@ -657,6 +660,28 @@ namespace PrefabTools
             }
         }
         UndoStack::Get().Push( std::make_unique<PrefabLinkCommand>( std::move( links ) ) );
+    }
+
+
+    void OnAssetsMoved( const std::string& InFrom, const std::string& InTo )
+    {
+        const std::string from = SceneSerializer::NormalizePrefabPath( InFrom );
+        const std::string to = SceneSerializer::NormalizePrefabPath( InTo );
+        const std::string folder = from + "/";
+        int relinked = 0;
+        EditorOps::GetWorld().ForEachEntity( [&]( Entity& entity ) {
+            World::EntityRecord* record = Record( entity );
+            if( record && ( record->PrefabAsset == from || record->PrefabAsset.rfind( folder, 0 ) == 0 ) )
+            {
+                record->PrefabAsset = to + record->PrefabAsset.substr( from.size() );
+                ++relinked;
+            }
+        } );
+        SceneSerializer::ClearPrefabCache();
+        if( relinked > 0 )
+        {
+            CLog::Log( CLog::LogType::Info, "Relinked " + std::to_string( relinked ) + " prefab instance entities to " + to );
+        }
     }
 }
 
