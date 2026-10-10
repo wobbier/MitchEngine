@@ -804,6 +804,93 @@ void World::RemoveCore( TypeId InType )
 }
 
 
+namespace
+{
+    // Priority then name, then the RunsAfter / RunsBefore constraints win: a stable topological
+    // order where, among the cores free to run next, the first by priority and name goes first.
+    void OrderCores( std::vector<BaseCore*>& InOutCores )
+    {
+        std::sort( InOutCores.begin(), InOutCores.end(), []( const BaseCore* InA, const BaseCore* InB ) {
+            if( InA->GetPriority() != InB->GetPriority() )
+            {
+                return InA->GetPriority() < InB->GetPriority();
+            }
+            return InA->GetName() < InB->GetName();
+        } );
+        const size_t count = InOutCores.size();
+        auto indexOf = [&InOutCores, count]( const std::string& InName ) {
+            for( size_t i = 0; i < count; ++i )
+            {
+                if( InOutCores[i]->GetName() == InName )
+                {
+                    return i;
+                }
+            }
+            return count;
+        };
+        std::vector<std::vector<size_t>> runsBefore( count );     // i -> the cores that wait for it
+        std::vector<int> waitingOn( count, 0 );
+        bool constrained = false;
+        auto addEdge = [&]( size_t InFirst, size_t InThen ) {
+            if( InFirst < count && InThen < count && InFirst != InThen )
+            {
+                runsBefore[InFirst].push_back( InThen );
+                ++waitingOn[InThen];
+                constrained = true;
+            }
+        };
+        for( size_t i = 0; i < count; ++i )
+        {
+            for( const std::string& name : InOutCores[i]->GetRunsAfter() )
+            {
+                addEdge( indexOf( name ), i );
+            }
+            for( const std::string& name : InOutCores[i]->GetRunsBefore() )
+            {
+                addEdge( i, indexOf( name ) );
+            }
+        }
+        if( !constrained )
+        {
+            return;
+        }
+
+        std::vector<BaseCore*> ordered;
+        ordered.reserve( count );
+        std::vector<bool> placed( count, false );
+        while( ordered.size() < count )
+        {
+            size_t next = count;
+            for( size_t i = 0; i < count && next == count; ++i )
+            {
+                if( !placed[i] && waitingOn[i] <= 0 )
+                {
+                    next = i;
+                }
+            }
+            if( next == count )
+            {
+                for( size_t i = 0; i < count && next == count; ++i )
+                {
+                    if( !placed[i] )
+                    {
+                        next = i;
+                    }
+                }
+                CLog::Log( CLog::LogType::Warning, "Core order: RunsAfter / RunsBefore constraints form a cycle through " + InOutCores[next]->GetName() + "; using priority order there" );
+            }
+            placed[next] = true;
+            ordered.push_back( InOutCores[next] );
+            for( size_t then : runsBefore[next] )
+            {
+                --waitingOn[then];
+            }
+        }
+        InOutCores = std::move( ordered );
+    }
+}
+
+
 void World::SortCores()
 {
     m_sortedCores.clear();
@@ -811,15 +898,8 @@ void World::SortCores()
     {
         m_sortedCores.push_back( core.second );
     }
-    auto byPriority = []( const BaseCore* a, const BaseCore* b ) {
-        if( a->GetPriority() != b->GetPriority() )
-        {
-            return a->GetPriority() < b->GetPriority();
-        }
-        return a->GetName() < b->GetName();
-    };
-    std::sort( m_sortedCores.begin(), m_sortedCores.end(), byPriority );
-    std::sort( m_loadedCores.begin(), m_loadedCores.end(), byPriority );
+    OrderCores( m_sortedCores );
+    OrderCores( m_loadedCores );
 }
 
 

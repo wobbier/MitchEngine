@@ -32,11 +32,11 @@ The engine owns scripting the way it owns physics and audio: `Engine::Scripts` i
 
 The managed side has these parts:
 
-- **`IGameScript.cs`** declares `OnStart`, `OnUpdate(float)`, `OnDestroy` and `OnEditorInspect`, plus default `OnFixedUpdate(float)` and `OnReload()`.
+- **`IGameScript.cs`** declares `OnStart`, `OnUpdate(float)`, `OnDestroy` and `OnEditorInspect`, plus default `OnFixedUpdate(float)`, `OnLateUpdate(float)` and `OnReload()`.
 - **`Script.cs`** is the base class with `Entity`, `transform` and the `Get/Has/AddComponent<T>` helpers.
 - **`Engine.cs`** is the `ScriptBridge` entry points and the instance table, and contains the hot reload logic.
 - **`GameScriptALC.cs`** is the collectible ALC. It redirects `ScriptCore` references to the already-loaded assembly.
-- **`ScriptRegistry.cs`** finds `IGameScript` implementors, keyed by `Type.Name` (`Find` also matches a `[FormerName]`), and declares `FormerNameAttribute`.
+- **`ScriptRegistry.cs`** finds `IGameScript` implementors, keyed by `Type.Name` (`Find` also matches a `[FormerName]`), and declares `FormerNameAttribute` and `ExecutionOrderAttribute`.
 - **`Inspector.cs`** is the reflection-driven ImGui field editor and the JSON field serializer.
 - **`Core/`** holds `Entity`, `World`, `Time`, `Input`, `Audio`, `Physics` and `Debug`.
 - **`Components/`** holds `Transform`, `Rigidbody`, `Camera` and `BasicUIView`.
@@ -90,6 +90,9 @@ sequenceDiagram
 | Play / game start (`ScriptCore::OnStart`), and each later frame for newly spawned scripts | `PhysicsCore::SyncNow` + `Physics2DCore::SyncNow` (so bodies and colliders exist), then `OnStart` for every created, unstarted script on an active entity |
 | Each fixed step, before physics steps | `OnFixedUpdate(fixedDt)` |
 | Each frame, after the scene cores | `OnUpdate(dt)` (scaled; zero while paused) |
+| Each frame, after navigation and animation, before audio and rendering | `OnLateUpdate(dt)`: follow cameras, IK targets, props on bones. A script started mid-frame gets its first one after its first `OnUpdate` |
+
+**Order.** Scripts run by `[ExecutionOrder(n)]` (lower first, default 0) and then by the order they started, in `OnStart` and in every update. Without the attribute, that's the order they joined the scene. The engine only calls the update callbacks a class implements: `ScriptGetSchedule` reports them per class, which saves a native→managed call per script per frame for the ones it doesn't.
 | Entity destroyed / scene unloaded | `OnDestroy`, handle released |
 | Physics contact / trigger (3D and 2D) | `OnCollisionEnter` / `OnCollisionExit( Collision )` (other entity, point, normal from this entity towards the other) and `OnTriggerEnter` / `OnTriggerExit( Entity other )`, on the collider's entity and on the body it belongs to (compound colliders). `ScriptCore` receives `CollisionEvent` and calls both sides |
 | Editor inspector | `OnEditorInspect` (fields drawn by `Inspector.cs`) |

@@ -47,6 +47,8 @@ void ScriptCore::StartPendingScripts()
         ScriptComponent& script = entity.GetComponent<ScriptComponent>();
         if( !script.m_started && entity.IsActiveInHierarchy() )
         {
+            script.EnsureCreated();
+            RefreshSchedule( script );
             pending.push_back( &script );
         }
     }
@@ -54,6 +56,10 @@ void ScriptCore::StartPendingScripts()
     {
         return;
     }
+    // OnStart in [ExecutionOrder] too (equal orders keep their scene order).
+    std::stable_sort( pending.begin(), pending.end(), []( const ScriptComponent* InA, const ScriptComponent* InB ) {
+        return InA->m_executionOrder < InB->m_executionOrder;
+    } );
     // OnStart sees every body and navmesh that exists by now, including ones spawned this frame.
     if( NavigationCore* navigation = GetEngine().Navigation )
     {
@@ -88,9 +94,73 @@ void ScriptCore::StartScript( ScriptComponent& InScript )
     if( InScript.m_dotnetHandle >= 0 && !InScript.m_started )
     {
         InScript.m_started = true;
+        InScript.m_hadUpdate = false;
+        InScript.m_startSequence = m_nextStartSequence++;
         ScriptEngine::ScriptOnStart( InScript.m_dotnetHandle );
     }
 #endif
+}
+
+
+void ScriptCore::RefreshSchedule( ScriptComponent& InScript )
+{
+#if USING( ME_SCRIPTING )
+    const uint32_t generation = ScriptEngine::GetReloadGeneration();
+    if( InScript.m_scheduleHandle == InScript.m_dotnetHandle && InScript.m_scheduleGeneration == generation )
+    {
+        return;
+    }
+    const ScriptEngine::Schedule schedule = ScriptEngine::GetSchedule( InScript.m_dotnetHandle );
+    InScript.m_executionOrder = schedule.Order;
+    InScript.m_callbacks = schedule.Callbacks;
+    InScript.m_scheduleHandle = InScript.m_dotnetHandle;
+    InScript.m_scheduleGeneration = generation;
+#endif
+}
+
+
+bool ScriptCore::RunsBefore( const ScriptComponent* InA, const ScriptComponent* InB )
+{
+#if USING( ME_SCRIPTING )
+    if( InA->m_executionOrder != InB->m_executionOrder )
+    {
+        return InA->m_executionOrder < InB->m_executionOrder;
+    }
+    return InA->m_startSequence < InB->m_startSequence;
+#else
+    return InA < InB;
+#endif
+}
+
+
+const std::vector<ScriptComponent*>& ScriptCore::RunList( uint32_t InCallback )
+{
+    m_runList.clear();
+#if USING( ME_SCRIPTING )
+    for( Entity& entity : GetEntities() )
+    {
+        ScriptComponent& script = entity.GetComponent<ScriptComponent>();
+        if( !script.m_started || !script.IsEnabled() || !entity.IsActiveInHierarchy() )
+        {
+            continue;
+        }
+        RefreshSchedule( script );
+        if( InCallback == ScriptEngine::UpdateCallback )
+        {
+            script.m_hadUpdate = true;
+        }
+        else if( InCallback == ScriptEngine::LateUpdateCallback && !script.m_hadUpdate )
+        {
+            continue;
+        }
+        if( script.m_callbacks & InCallback )
+        {
+            m_runList.push_back( &script );
+        }
+    }
+    std::sort( m_runList.begin(), m_runList.end(), &ScriptCore::RunsBefore );
+#endif
+    return m_runList;
 }
 
 
@@ -102,13 +172,9 @@ void ScriptCore::FixedUpdate( const UpdateContext& inUpdateContext )
         return;
     }
     OPTICK_EVENT( "ScriptCore::FixedUpdate" );
-    for( Entity& entity : GetEntities() )
+    for( ScriptComponent* script : RunList( ScriptEngine::FixedUpdateCallback ) )
     {
-        ScriptComponent& script = entity.GetComponent<ScriptComponent>();
-        if( script.m_started && script.IsEnabled() && entity.IsActiveInHierarchy() )
-        {
-            ScriptEngine::ScriptOnFixedUpdate( script.m_dotnetHandle, inUpdateContext.GetDeltaTime() );
-        }
+        ScriptEngine::ScriptOnFixedUpdate( script->m_dotnetHandle, inUpdateContext.GetDeltaTime() );
     }
 #endif
 }
@@ -125,13 +191,25 @@ void ScriptCore::Update( const UpdateContext& inUpdateContext )
     // Scripts created since the world started (spawned, or loaded with a scene) start before
     // their first update.
     StartPendingScripts();
-    for( Entity& entity : GetEntities() )
+    for( ScriptComponent* script : RunList( ScriptEngine::UpdateCallback ) )
     {
-        ScriptComponent& script = entity.GetComponent<ScriptComponent>();
-        if( script.m_started && script.IsEnabled() && entity.IsActiveInHierarchy() )
-        {
-            ScriptEngine::ScriptOnUpdate( script.m_dotnetHandle, inUpdateContext.GetDeltaTime() );
-        }
+        ScriptEngine::ScriptOnUpdate( script->m_dotnetHandle, inUpdateContext.GetDeltaTime() );
+    }
+#endif
+}
+
+
+void ScriptCore::LateUpdate( const UpdateContext& inUpdateContext )
+{
+#if USING( ME_SCRIPTING )
+    if( !m_running )
+    {
+        return;
+    }
+    OPTICK_EVENT( "ScriptCore::LateUpdate" );
+    for( ScriptComponent* script : RunList( ScriptEngine::LateUpdateCallback ) )
+    {
+        ScriptEngine::ScriptOnLateUpdate( script->m_dotnetHandle, inUpdateContext.GetDeltaTime() );
     }
 #endif
 }

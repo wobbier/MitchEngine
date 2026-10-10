@@ -36,6 +36,19 @@ inline CoreRegistry::iterator FindCoreFactory( const std::string& InName )
             it = reg.find( alias->second );
         }
     }
+    if( it == reg.end() && InName.find( "::" ) == std::string::npos )
+    {
+        // Scenes save a core's GetName (no namespace); namespaced cores register qualified.
+        for( auto candidate = reg.begin(); candidate != reg.end(); ++candidate )
+        {
+            const std::string& key = candidate->first;
+            if( key.size() > InName.size() + 2 && key.compare( key.size() - InName.size(), InName.size(), InName ) == 0
+                && key.compare( key.size() - InName.size() - 2, 2, "::" ) == 0 )
+            {
+                return candidate;
+            }
+        }
+    }
     return it;
 }
 

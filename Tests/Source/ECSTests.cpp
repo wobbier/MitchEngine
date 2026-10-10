@@ -437,3 +437,82 @@ TEST_CASE( "Bounds: AABB, sphere and ray tests" )
     CHECK( moved.Min.x == doctest::Approx( 9.f ) );
     CHECK( moved.Max.x == doctest::Approx( 11.f ) );
 }
+
+
+namespace CoreOrderTest
+{
+    // Priorities would run them Zeta(-5), Alpha(0), Beta(0), Gamma(10); the constraints say
+    // Gamma before Alpha, and Zeta after Beta.
+    class OrderAlphaCore : public Core<OrderAlphaCore>
+    {
+    public:
+        OrderAlphaCore() : Base( ComponentFilter() ) { RunsAfter( "OrderGammaCore" ); }
+    };
+
+    class OrderBetaCore : public Core<OrderBetaCore>
+    {
+    public:
+        OrderBetaCore() : Base( ComponentFilter() ) {}
+    };
+
+    class OrderGammaCore : public Core<OrderGammaCore>
+    {
+    public:
+        OrderGammaCore() : Base( ComponentFilter() ) { Priority = 10; }
+    };
+
+    class OrderZetaCore : public Core<OrderZetaCore>
+    {
+    public:
+        OrderZetaCore() : Base( ComponentFilter() ) { Priority = -5; RunsAfter<OrderBetaCore>(); RunsBefore( "NotInThisWorld" ); }
+    };
+
+    // A cycle: each waits for the other.
+    class CycleOneCore : public Core<CycleOneCore>
+    {
+    public:
+        CycleOneCore() : Base( ComponentFilter() ) { RunsAfter( "CycleTwoCore" ); }
+    };
+
+    class CycleTwoCore : public Core<CycleTwoCore>
+    {
+    public:
+        CycleTwoCore() : Base( ComponentFilter() ) { RunsAfter( "CycleOneCore" ); }
+    };
+
+    std::vector<std::string> LoadedOrder( const World& InWorld )
+    {
+        std::vector<std::string> names;
+        for( const BaseCore* core : InWorld.GetLoadedCores() )
+        {
+            names.push_back( core->GetName() );
+        }
+        return names;
+    }
+}
+
+ME_REGISTER_CORE( CoreOrderTest::OrderAlphaCore )
+ME_REGISTER_CORE( CoreOrderTest::OrderBetaCore )
+ME_REGISTER_CORE( CoreOrderTest::OrderGammaCore )
+ME_REGISTER_CORE( CoreOrderTest::OrderZetaCore )
+ME_REGISTER_CORE( CoreOrderTest::CycleOneCore )
+ME_REGISTER_CORE( CoreOrderTest::CycleTwoCore )
+
+TEST_CASE( "ECS: cores run in priority order unless RunsAfter / RunsBefore say otherwise" )
+{
+    using namespace CoreOrderTest;
+    auto world = MakeWorld();
+    for( const char* name : { "OrderAlphaCore", "OrderBetaCore", "OrderGammaCore", "OrderZetaCore" } )
+    {
+        REQUIRE( world->AddCoreByName( name ) );
+    }
+    // Beta is first free by priority, then Zeta (waiting on Beta, priority -5) and Gamma (10)
+    // before the Alpha waiting on it.
+    CHECK( LoadedOrder( *world ) == std::vector<std::string>{ "OrderBetaCore", "OrderZetaCore", "OrderGammaCore", "OrderAlphaCore" } );
+
+    // A cycle still orders every core (by priority, then name).
+    auto cyclic = MakeWorld();
+    REQUIRE( cyclic->AddCoreByName( "CycleTwoCore" ) );
+    REQUIRE( cyclic->AddCoreByName( "CycleOneCore" ) );
+    CHECK( LoadedOrder( *cyclic ) == std::vector<std::string>{ "CycleOneCore", "CycleTwoCore" } );
+}

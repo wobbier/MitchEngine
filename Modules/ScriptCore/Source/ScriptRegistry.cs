@@ -16,6 +16,16 @@ public sealed class FormerNameAttribute : Attribute
     public string Name { get; }
 }
 
+// Update order among scripts: lower runs first (default 0) in OnStart, OnFixedUpdate, OnUpdate and
+// OnLateUpdate; scripts with the same order run in the order they started.
+//   [ExecutionOrder(-100)] public class InputReader : Script { ... }
+[AttributeUsage(AttributeTargets.Class, Inherited = true)]
+public sealed class ExecutionOrderAttribute : Attribute
+{
+    public ExecutionOrderAttribute(int order) => Order = order;
+    public int Order { get; }
+}
+
 public static class ScriptRegistry
 {
     private static List<Type> _types = new();

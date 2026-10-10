@@ -148,7 +148,7 @@ ME_REGISTER_CORE( RegenCore )
 - **`Entity::GetComponent<T>` asserts on a missing component** and doesn't check liveness; use `TryGetComponent<T>` (returns null) when unsure, and `EntityHandle` for references kept across frames.
 - **TypeIds are first-request-ordered** — never persist or compare them across processes; use registry names.
 - **`AddComponent<T>` never replaces** — it returns the existing instance and ignores the constructor arguments.
-- **Core order within a phase is by `Priority`, then name** — not registration order.
+- **Core order within a phase is by `Priority`, then name** — not registration order. `RunsAfter<T>()` / `RunsBefore( "Name" )` in a core's constructor override that: the order is a stable topological sort, and a constraint cycle falls back to priority order there, with a warning. Constraints only order the world's cores among themselves. Engine-owned cores (physics, navigation, animation, render) run at fixed points of the frame; to run after animation, use `LateUpdate` (`Docs/Architecture.md`).
 - **The World must outlive its handles and engine-owned cores must outlive the World** (`World::~World` touches every registered core).
 - **Up to 256 component types** (`kMaxComponentTypes`); raising it is a one-line change.
 - **Registry misses are soft**: unknown component/core names log a warning; scene loads continue without that data.

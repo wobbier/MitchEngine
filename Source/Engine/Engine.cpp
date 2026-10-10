@@ -524,6 +524,21 @@ void Engine::Run()
                 Animation->Update( updateContext );
             }
 
+            // Late update: game cores' LateUpdate and scripts' OnLateUpdate, after navigation and
+            // animation moved things and before audio, particles and render prep read them (follow
+            // cameras, IK targets, props on bones render this frame).
+            {
+                OPTICK_EVENT( "LateUpdate" );
+                ME_FRAMEPROFILE_SCOPED( "Late Update", ProfileCategory::Game );
+                ME_STAT_SCOPE( "Late Update" );
+                GameWorld->LateUpdateLoadedCores( updateContext );
+                if( Scripts )
+                {
+                    Scripts->LateUpdate( updateContext );
+                }
+                GameWorld->Simulate();
+            }
+
             // Audio (after gameplay and animation moved this frame's listener and sources)
             {
                 ME_STAT_SCOPE( "Audio" );
@@ -572,12 +587,10 @@ void Engine::Run()
             }
             Model::ExpandPendingModels();
 
-            // Late Update
+            // Cameras and the engine's own late work (scene graph, listener, render and UI state)
             {
-                OPTICK_EVENT( "LateUpdate" );
-                ME_STAT_SCOPE( "Late Update" );
-                GameWorld->LateUpdateLoadedCores( updateContext );
-                GameWorld->Simulate();
+                OPTICK_EVENT( "EngineLateUpdate" );
+                ME_STAT_SCOPE( "Cameras" );
                 Cameras->Update( updateContext );
                 SceneNodes->LateUpdate( updateContext );
                 Cameras->LateUpdate( updateContext );

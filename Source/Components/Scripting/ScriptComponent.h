@@ -40,6 +40,16 @@ private:
 #if USING( ME_SCRIPTING )
     int m_dotnetHandle = -1;
     bool m_started = false;
+    // Update scheduling (ScriptCore): [ExecutionOrder], the callbacks the class implements, and the
+    // handle / reload generation they were read for; scripts with equal orders run by start order.
+    int m_executionOrder = 0;
+    uint32_t m_callbacks = 0;
+    int m_scheduleHandle = -1;
+    uint32_t m_scheduleGeneration = 0;
+    uint64_t m_startSequence = 0;
+    // Reached an update since it started: a script started mid-frame (Play pressed after the update
+    // stage) gets its first OnLateUpdate only after its first OnUpdate.
+    bool m_hadUpdate = false;
     // saved variables from scene or entity.
     std::string m_savedFields;
 

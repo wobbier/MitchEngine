@@ -60,6 +60,8 @@ using FnCreateScript = int  ( * )( const uint8_t*, EntityID );
 using FnScriptOnStart = void ( * )( int );
 using FnScriptOnUpdate = void ( * )( int, float );
 using FnScriptOnFixedUpdate = void ( * )( int, float );
+using FnScriptOnLateUpdate = void ( * )( int, float );
+using FnScriptGetSchedule = int ( * )( int, int* );
 using FnScriptOnDestroy = void ( * )( int );
 using FnGetMethodCount = int  ( * )( const uint8_t* );
 using FnGetMethodName = void ( * )( const uint8_t*, int, uint8_t*, int );
@@ -89,6 +91,8 @@ struct ScriptAPI
     FnScriptOnStart       ScriptOnStart = nullptr;
     FnScriptOnUpdate      ScriptOnUpdate = nullptr;
     FnScriptOnFixedUpdate ScriptOnFixedUpdate = nullptr;
+    FnScriptOnLateUpdate  ScriptOnLateUpdate = nullptr;
+    FnScriptGetSchedule   ScriptGetSchedule = nullptr;
     FnScriptOnDestroy     ScriptOnDestroy = nullptr;
     FnGetMethodCount      GetMethodCount = nullptr;
     FnGetMethodName       GetMethodName = nullptr;
@@ -110,6 +114,7 @@ struct ScriptAPI
 };
 
 static ScriptAPI gDotnetAPI;
+static uint32_t gReloadGeneration = 0;
 
 static bool LoadAPI( ScriptHost& inHost, const std::string& inCoreDll, ScriptAPI& outApi )
 {
@@ -123,6 +128,8 @@ static bool LoadAPI( ScriptHost& inHost, const std::string& inCoreDll, ScriptAPI
     ok &= inHost.LoadFunction( inCoreDll, bridgeType, "ScriptOnStart", (void**)&outApi.ScriptOnStart );
     ok &= inHost.LoadFunction( inCoreDll, bridgeType, "ScriptOnUpdate", (void**)&outApi.ScriptOnUpdate );
     ok &= inHost.LoadFunction( inCoreDll, bridgeType, "ScriptOnFixedUpdate", (void**)&outApi.ScriptOnFixedUpdate );
+    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "ScriptOnLateUpdate", (void**)&outApi.ScriptOnLateUpdate );
+    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "ScriptGetSchedule", (void**)&outApi.ScriptGetSchedule );
     ok &= inHost.LoadFunction( inCoreDll, bridgeType, "ScriptOnDestroy", (void**)&outApi.ScriptOnDestroy );
     ok &= inHost.LoadFunction( inCoreDll, bridgeType, "ScriptOnEditorInspect", (void**)&outApi.ScriptOnEditorInspect );
     ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetFieldsJson", (void**)&outApi.GetFieldsJson );
@@ -469,6 +476,7 @@ bool ScriptEngine::Reload()
         YIKES( "Scripts: reload failed; the running scripts are unchanged" );
         return false;
     }
+    ++gReloadGeneration;
     CLog::Log( CLog::LogType::Info, "Scripts: hot reloaded (" + std::to_string( restored ) + " live script(s) kept their fields)" );
     return true;
 }
@@ -543,6 +551,36 @@ void ScriptEngine::ScriptOnUpdate( int inHandle, float inDt )
 void ScriptEngine::ScriptOnFixedUpdate( int inHandle, float inDt )
 {
     gDotnetAPI.ScriptOnFixedUpdate( inHandle, inDt );
+}
+
+
+void ScriptEngine::ScriptOnLateUpdate( int inHandle, float inDt )
+{
+    gDotnetAPI.ScriptOnLateUpdate( inHandle, inDt );
+}
+
+
+ScriptEngine::Schedule ScriptEngine::GetSchedule( int inHandle )
+{
+    Schedule schedule;
+    if( inHandle < 0 || !gDotnetAPI.ScriptGetSchedule )
+    {
+        return schedule;
+    }
+    int order = 0;
+    const int callbacks = gDotnetAPI.ScriptGetSchedule( inHandle, &order );
+    if( callbacks >= 0 )
+    {
+        schedule.Order = order;
+        schedule.Callbacks = static_cast<uint32_t>( callbacks );
+    }
+    return schedule;
+}
+
+
+uint32_t ScriptEngine::GetReloadGeneration()
+{
+    return gReloadGeneration;
 }
 
 void ScriptEngine::ScriptOnCollision( int inHandle, CollisionCallback inKind, EntityID inOther, const Vector3& inPoint, const Vector3& inNormal )

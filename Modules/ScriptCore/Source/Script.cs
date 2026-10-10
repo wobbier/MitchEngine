@@ -8,6 +8,7 @@ public abstract class Script : IGameScript
     public virtual void OnStart() { }
     public virtual void OnUpdate( float deltaTime ) { }
     public virtual void OnFixedUpdate( float fixedDeltaTime ) { }
+    public virtual void OnLateUpdate( float deltaTime ) { }
     public virtual void OnDestroy() { }
     public virtual void OnEditorInspect() { }
     public virtual void OnReload() { }

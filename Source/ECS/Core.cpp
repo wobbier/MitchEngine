@@ -7,7 +7,7 @@
 #include <cxxabi.h>
 #endif
 
-static std::string CleanTypeName( const char* rawName )
+std::string BaseCore::CleanCoreName( const char* rawName )
 {
 #if defined( __GNUC__ ) || defined( __clang__ )
     int status = 0;
@@ -27,7 +27,7 @@ static std::string CleanTypeName( const char* rawName )
 }
 
 BaseCore::BaseCore( const char* CompName, const ComponentFilter& Filter )
-    : Name( CleanTypeName( CompName ) )
+    : Name( CleanCoreName( CompName ) )
     , CompFilter( Filter )
 {
 }

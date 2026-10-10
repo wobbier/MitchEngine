@@ -63,8 +63,15 @@ public:
     // O(1): is the entity with this slot index currently matched by this core?
     bool Contains( uint32_t InEntityIndex ) const;
 
-    // Cores update in ascending priority order (ties broken by name), so ordering is deterministic.
+    // Cores update in ascending priority order (ties broken by name), so ordering is deterministic;
+    // RunsAfter / RunsBefore constraints override it.
     int GetPriority() const { return Priority; }
+    const std::vector<std::string>& GetRunsAfter() const { return m_runsAfter; }
+    const std::vector<std::string>& GetRunsBefore() const { return m_runsBefore; }
+
+    // The name a core type is known by (GetName, scene "Cores" lists): the class name without its
+    // namespace.
+    static std::string CleanCoreName( const char* InRawTypeName );
 
     // TypeId the World registered this core under.
     TypeId GetTypeIdInternal() const { return m_coreTypeId; }
@@ -86,6 +93,31 @@ protected:
     bool DestroyOnLoad = true;
     int Priority = 0;
 
+    // Update order constraints between the world's cores, in every phase (FixedUpdate, Update,
+    // LateUpdate): this core runs after / before the other one whatever their priorities. Cores
+    // that aren't in the world are ignored; constraints that form a cycle fall back to priority
+    // order there (with a warning). Engine-owned cores (physics, animation, render) run at fixed
+    // points of the frame instead: use LateUpdate to run after animation.
+    //   CombatCore() : Base( ... ) { RunsAfter<MovementCore>(); RunsBefore( "HudCore" ); }
+    template<typename T>
+    void RunsAfter()
+    {
+        m_runsAfter.push_back( CleanCoreName( typeid( T ).name() ) );
+    }
+    template<typename T>
+    void RunsBefore()
+    {
+        m_runsBefore.push_back( CleanCoreName( typeid( T ).name() ) );
+    }
+    void RunsAfter( const std::string& InCoreName )
+    {
+        m_runsAfter.push_back( InCoreName );
+    }
+    void RunsBefore( const std::string& InCoreName )
+    {
+        m_runsBefore.push_back( InCoreName );
+    }
+
 private:
     // Separate init from construction code.
     virtual void Init() {};
@@ -105,6 +137,8 @@ private:
     std::vector<Entity> Entities;
     // Entity slot index -> position in Entities + 1 (0 = not a member).
     std::vector<uint32_t> m_memberSlots;
+    std::vector<std::string> m_runsAfter;
+    std::vector<std::string> m_runsBefore;
 
     // The World attached to the system
 
@@ -129,7 +163,7 @@ public:
 
     Core() = default;
 
-    Core( ComponentFilter& InComponentFilter ) : BaseCore( typeid( T ).name(), InComponentFilter )
+    Core( const ComponentFilter& InComponentFilter ) : BaseCore( typeid( T ).name(), InComponentFilter )
     {
     }
 

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -160,6 +161,7 @@ public static class ScriptBridge
         _handleOrder.Clear();
         ScriptRegistry.Clear();
         ScriptSerializer.ResetCaches();
+        _schedules.Clear();
         _alc?.Unload();
         _alc = newAlc;
         _alcRef = new WeakReference(newAlc);
@@ -340,6 +342,84 @@ public static class ScriptBridge
         {
             ReportException($"OnFixedUpdate(handle={handle})", ex);
         }
+    }
+
+    [UnmanagedCallersOnly]
+    public static void ScriptOnLateUpdate(int handle, float dt)
+    {
+        if (!Instances.TryGetValue(handle, out var s))
+        {
+            return;
+        }
+
+        try
+        {
+            s.OnLateUpdate(dt);
+        }
+        catch (Exception ex)
+        {
+            ReportException($"OnLateUpdate(handle={handle})", ex);
+        }
+    }
+
+    // How the engine schedules a script: its [ExecutionOrder] (into outOrder) and, returned, which
+    // update callbacks it implements (1 OnFixedUpdate, 2 OnUpdate, 4 OnLateUpdate), so the engine
+    // only calls those. -1 for a dead handle.
+    [UnmanagedCallersOnly]
+    public static unsafe int ScriptGetSchedule(int handle, int* outOrder)
+    {
+        if (!Instances.TryGetValue(handle, out var s))
+        {
+            return -1;
+        }
+        var (order, callbacks) = ScheduleOf(s.GetType());
+        *outOrder = order;
+        return callbacks;
+    }
+
+    // Per script class; cleared on reload (the classes are replaced).
+    private static readonly Dictionary<Type, (int Order, int Callbacks)> _schedules = new();
+
+    private static (int Order, int Callbacks) ScheduleOf(Type type)
+    {
+        if (_schedules.TryGetValue(type, out var known))
+        {
+            return known;
+        }
+        int callbacks = 0;
+        if (Implements(type, nameof(IGameScript.OnFixedUpdate))) callbacks |= 1;
+        if (Implements(type, nameof(IGameScript.OnUpdate))) callbacks |= 2;
+        if (Implements(type, nameof(IGameScript.OnLateUpdate))) callbacks |= 4;
+        var attribute = type.GetCustomAttribute<ExecutionOrderAttribute>(inherit: true);
+        var schedule = (attribute?.Order ?? 0, callbacks);
+        _schedules[type] = schedule;
+        return schedule;
+    }
+
+    // True when the script has its own body for an update callback: Script's empty virtuals and
+    // IGameScript's default bodies don't count.
+    private static bool Implements(Type type, string name)
+    {
+        var map = type.GetInterfaceMap(typeof(IGameScript));
+        for (int i = 0; i < map.InterfaceMethods.Length; ++i)
+        {
+            if (map.InterfaceMethods[i].Name != name)
+            {
+                continue;
+            }
+            var target = map.TargetMethods[i];
+            if (target.DeclaringType == typeof(IGameScript))
+            {
+                return false;
+            }
+            if (target.DeclaringType == typeof(Script))
+            {
+                var method = type.GetMethod(name, BindingFlags.Public | BindingFlags.Instance, new[] { typeof(float) });
+                return method != null && method.DeclaringType != typeof(Script);
+            }
+            return true;
+        }
+        return false;
     }
 
     [UnmanagedCallersOnly]

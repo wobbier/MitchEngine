@@ -83,8 +83,18 @@ Games implement the pure-virtual `Game` interface (`Source/Game.h`): `OnInitiali
 
 This is a load-bearing architectural split:
 
-- **Engine-owned cores** (`CameraCore`, `SceneCore`, `RenderCore`, `ParticleCore`, `PhysicsCore`, `Physics2DCore`, `AnimationCore`, `NavigationCore`, `AudioCore`, `UICore`, `ScriptCore`) are created in `Engine::Init`, held as raw pointers on `Engine`, and updated **explicitly by name** in the frame loop. The two physics cores step inside the fixed-step loop and write interpolated poses right after it (`Docs/Physics.md`). `AnimationCore` runs after gameplay, then `AudioCore` (so sources on animated bones are heard where they're drawn), before render preparation (`Docs/Animation.md`, `Docs/Audio.md`). `NavigationCore` runs after gameplay and before animation, so agents move with this frame's destinations (`Docs/Navigation.md`). `ScriptCore` runs `OnFixedUpdate` in each fixed step before physics steps, and `OnUpdate` right after the scene-loaded cores (`Docs/Scripting-DotNet.md`).
-- **Scene-loaded cores** (`SelfDestructor` and any game-defined cores) are *not* created by the engine. They are instantiated by name from the `"Cores"` array of a `.lvl` scene file (see `Docs/Serialization-and-Scenes.md`) and live in `World::m_loadedCores`, updated via `World::UpdateLoadedCores` / `LateUpdateLoadedCores`.
+- **Engine-owned cores** (`CameraCore`, `SceneCore`, `RenderCore`, `ParticleCore`, `PhysicsCore`, `Physics2DCore`, `AnimationCore`, `NavigationCore`, `AudioCore`, `UICore`, `ScriptCore`) are created in `Engine::Init`, held as raw pointers on `Engine`, and updated **explicitly by name** in the frame loop. The two physics cores step inside the fixed-step loop and write interpolated poses right after it (`Docs/Physics.md`). `AnimationCore` runs after gameplay, then `AudioCore` (so sources on animated bones are heard where they're drawn), before render preparation (`Docs/Animation.md`, `Docs/Audio.md`). `NavigationCore` runs after gameplay and before animation, so agents move with this frame's destinations (`Docs/Navigation.md`). `ScriptCore` runs `OnFixedUpdate` in each fixed step before physics steps, `OnUpdate` right after the scene-loaded cores and `OnLateUpdate` right after their `LateUpdate` (`Docs/Scripting-DotNet.md`).
+- **Scene-loaded cores** (`SelfDestructor` and any game-defined cores) are *not* created by the engine. They are instantiated by name from the `"Cores"` array of a `.lvl` scene file (see `Docs/Serialization-and-Scenes.md`) and live in `World::m_loadedCores`, updated via `World::FixedUpdateLoadedCores` / `UpdateLoadedCores` / `LateUpdateLoadedCores`.
+
+**Where game code runs.** The order of the engine's own stages is fixed, because each one feeds the next. Game code picks its stage:
+
+| Stage | Game cores | Scripts | Runs after | Use it for |
+|-------|-----------|---------|------------|------------|
+| Fixed step | `FixedUpdate` | `OnFixedUpdate` | the previous step | forces, deterministic gameplay (before physics steps) |
+| Update | `Update` | `OnUpdate` | physics interpolation | gameplay, input, setting animation parameters and nav destinations |
+| Late update | `LateUpdate` | `OnLateUpdate` | navigation and animation | follow cameras, IK targets, props on bones, anything that reads this frame's poses |
+
+Everything moved by the late update still makes this frame: audio, particles and render preparation run after it. Within a stage, cores run by `Priority` and then name, unless `RunsAfter` / `RunsBefore` constraints say otherwise (`Docs/ECS.md`). Scripts run by `[ExecutionOrder]` and then start order (`Docs/Scripting-DotNet.md`).
 
 Consequences: core update order is partly hardcoded (engine cores) and partly priority-ordered (loaded cores, `BaseCore::GetPriority`). A scene that still lists an engine-owned core in `"Cores"` (old scenes name `PhysicsCore` or `ScriptCore`) gets the existing instance back from `World::AddCoreByName`.
 
@@ -106,11 +116,12 @@ flowchart TD
     J --> K["Game::OnUpdate() + Simulate"]
     K --> N2["Navigation->Update(): bakes swap in, crowds step, agents move"]
     N2 --> L2["Animation->Update(): state machines, parallel pose sampling, Transform writes"]
-    L2 --> L["AudioThread->Update(): listener, sources, buses, FMOD update"]
+    L2 --> LU["Late update: LateUpdateLoadedCores + Scripts->LateUpdate + Simulate"]
+    LU --> L["AudioThread->Update(): listener, sources, buses, FMOD update"]
     L --> L3["Particles->Update()"]
     L3 --> M["ModelRenderer->Update(): Transform::UpdateAll, parallel mesh jobs, skin palettes"]
     M --> N["UI->OnResize + UI->Update()"]
-    N --> O["Late update: LateUpdateLoadedCores + Simulate, Cameras, SceneNodes, Audio, Renderer, UI"]
+    N --> O["Engine late update: Cameras, SceneNodes, Audio, Renderer, UI"]
     O --> P["Render: Game::PreRender, UI->Render, Renderer::Render, UI->PostRender, Game::PostRender"]
     P --> P2["DebugDraw::EndFrame, FrameStats::EndFrame"]
     P2 --> Q["Automation hooks, Input::PostUpdate, ResourceCache::Dump, frame-rate limiter"]

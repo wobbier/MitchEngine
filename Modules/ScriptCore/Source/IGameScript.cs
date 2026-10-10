@@ -10,6 +10,10 @@ public interface IGameScript
     // Every fixed simulation step (before physics), while the game runs.
     void OnFixedUpdate(float fixedDeltaTime) { }
 
+    // Every frame after navigation and animation have moved things, before audio and rendering:
+    // cameras that follow, IK targets, props attached to animated bones.
+    void OnLateUpdate(float deltaTime) { }
+
     // After a hot reload: the new instance has its public fields back, but nothing else
     // (references, statics, native state). Rebuild what OnStart set up here.
     void OnReload() { }
