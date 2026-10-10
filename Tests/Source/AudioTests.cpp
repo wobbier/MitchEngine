@@ -264,4 +264,35 @@ TEST_CASE( "Audio: sources spawned during play start on their own; one-shots fol
     CHECK_FALSE( shot.IsValid() );
 }
 
+
+TEST_CASE( "Audio: streamed sources open their own streams; their one-shots use the loaded clip" )
+{
+    Scene scene;
+    EntityHandle first = scene.AddSource( Vector3( 0.f, 0.f, 0.f ) );
+    EntityHandle second = scene.AddSource( Vector3( 0.f, 0.f, 0.f ) );
+    for( EntityHandle entity : { first, second } )
+    {
+        AudioSource& source = entity->GetComponent<AudioSource>();
+        source.Stream = true;
+        source.PlayOnAwake = true;
+    }
+    scene.Start();
+    Mix( scene.Core );
+    AudioSource& a = first->GetComponent<AudioSource>();
+    AudioSource& b = second->GetComponent<AudioSource>();
+    CHECK( a.IsStreaming() );
+    CHECK( b.IsStreaming() );
+    CHECK( a.IsPlaying() );
+    CHECK( b.IsPlaying() );   // the same file, two independent streams
+    CHECK( a.GetAudibility() == doctest::Approx( 1.f ).epsilon( 0.01 ) );
+    CHECK( b.GetAudibility() == doctest::Approx( 1.f ).epsilon( 0.01 ) );
+
+    // A one-shot doesn't steal the stream from the source's own voice.
+    AudioVoice shot = a.PlayOneShot( 0.5f );
+    Mix( scene.Core );
+    CHECK( shot.GetAudibility() == doctest::Approx( 0.5f ).epsilon( 0.02 ) );
+    CHECK( a.IsPlaying() );
+    CHECK( a.GetAudibility() == doctest::Approx( 1.f ).epsilon( 0.01 ) );
+}
+
 #endif

@@ -467,7 +467,19 @@ void AudioCore::InitComponent( AudioSource& InSource )
     }
     InSource.IsInitialized = true;
 #if USING( ME_FMOD )
-    InSource.SoundInstance = LoadSound( InSource.FilePath );
+    if( InSource.Stream && m_system )
+    {
+        // Each streaming source opens its own stream (a stream can't feed two voices).
+        InSource.SoundInstance = std::make_shared<Sound>( InSource.FilePath, m_system, SoundFlags::CreateStream );
+        if( !InSource.SoundInstance->Handle )
+        {
+            InSource.SoundInstance = nullptr;
+        }
+    }
+    else
+    {
+        InSource.SoundInstance = LoadSound( InSource.FilePath );
+    }
     if( !InSource.SoundInstance && m_system )
     {
         YIKES_FMT( "Failed to load sound: %s", InSource.FilePath.GetLocalPathString().c_str() );

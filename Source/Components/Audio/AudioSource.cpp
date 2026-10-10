@@ -30,6 +30,7 @@ ME_REFLECT_BEGIN( AudioSource )
     ME_FIELD( Mute );
     ME_FIELD( PlayOnAwake ).Tooltip( "Starts when the game starts, or when the source is spawned during play" );
     ME_FIELD( Loop );
+    ME_FIELD( Stream ).Tooltip( "Read from disk while playing (music, long ambience): no load hitch, little memory, one voice at a time" );
     ME_FIELD( MaxOneShots ).Range( 1.f, 64.f ).Tooltip( "Overlapping PlayOneShot voices; the oldest stops beyond this" );
     ME_FIELD( SpatialBlend ).Category( "3D Sound" ).Range( 0.f, 1.f ).Tooltip( "0 = 2D (no panning or distance fade), 1 = positioned at this entity" );
     ME_FIELD( MinDistance ).Category( "3D Sound" ).Range( 0.f, 1000.f ).Tooltip( "Metres at full volume" );
@@ -145,7 +146,8 @@ AudioVoice AudioSource::PlayOneShot( const Path& InClip, float InVolumeScale )
     {
         return AudioVoice();
     }
-    SharedPtr<Sound> sound = InClip.GetLocalPathString() == FilePath.GetLocalPathString() && SoundInstance ? SoundInstance : core->LoadSound( InClip );
+    // A stream feeds one voice, so one-shots of a streamed source use the clip loaded whole.
+    SharedPtr<Sound> sound = InClip.GetLocalPathString() == FilePath.GetLocalPathString() && SoundInstance && !Stream ? SoundInstance : core->LoadSound( InClip );
     if( !sound )
     {
         return AudioVoice();
@@ -322,6 +324,12 @@ void AudioSource::SetPlaybackSpeed( float inSpeed )
 float AudioSource::GetPlaybackSpeed()
 {
     return Pitch;
+}
+
+
+bool AudioSource::IsStreaming() const
+{
+    return SoundInstance && SoundInstance->IsStream();
 }
 
 

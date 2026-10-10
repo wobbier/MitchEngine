@@ -116,13 +116,13 @@ Velocities faster than sound (340 m/s) are treated as teleports (scene loads, ca
 ## How to Extend
 
 - **Gameplay sounds:** call `AudioCore::Get()->PlayOneShot( Path( "Assets/Sounds/Hit.wav" ), params )`, or put an `AudioSource` on the entity and call `PlayOneShot()`. Use `AudioPlayParams::SpatialBlend = 1` and `Position` for positional one-shots.
-- **Music:** use an `AudioSource` on the `Music` bus, 2D, `Loop`, `PlayOnAwake`. Fade it by animating `Volume`, or with `GetVoice().SetVolume`.
+- **Music:** use an `AudioSource` on the `Music` bus, 2D, `Loop`, `PlayOnAwake` and `Stream`. Fade it by animating `Volume`, or with `GetVoice().SetVolume`.
 - **A new bus:** add it to `AudioBus` before `Count`, give it a name in `AudioBusName`, and grow `ProjectSettings::kAudioBusCount` (a `static_assert` keeps them in step). Decide whether it pauses with the game in `AudioCore::Tick`.
 - **Tests:** construct `AudioCore( AudioOutput::Manual )`, call `Tick` to mix, and read `AudioVoice::GetAudibility()`. It reports the final level after volume, buses and attenuation.
 
 ## Caveats & Fragility
 
-- **Clips load synchronously** as decompressed samples on the main thread. There is no streaming option for long music yet, and no async load. The `Sound( url )` constructor streams, but nothing in the component path uses it.
+- **Clips load synchronously** as decompressed samples on the main thread, unless the source sets `Stream`: then the source opens its own FMOD stream (read from disk while playing; no load hitch, little memory). A stream feeds one voice, so a streamed source's one-shots load the clip whole. There is no async load of whole clips.
 - **One listener.** FMOD supports several (split-screen), but the core places only listener 0.
 - **No occlusion, reverb zones or DSP effects.** Sounds pass through walls, and buses have only volume and mute.
 - **Pitch ignores time scale.** Slow motion doesn't slow sounds down. Pause is the only time effect.

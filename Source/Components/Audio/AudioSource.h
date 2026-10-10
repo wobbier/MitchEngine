@@ -43,6 +43,9 @@ public:
     int Priority = 128;
     int MaxOneShots = 8;        // overlapping PlayOneShot voices; the oldest stops beyond this
     bool Preload = false;
+    // Read the clip from disk while it plays (music, long ambience): no load hitch and little memory,
+    // but one voice at a time (one-shots of the clip still load it whole).
+    bool Stream = false;
 
     // Starts the source's voice (restarting it if playing) with the Loop setting.
     void Play();
@@ -57,6 +60,8 @@ public:
     void StopAll();
 
     bool IsLoaded() const;
+    // The clip is being streamed from disk (Stream, once loaded).
+    bool IsStreaming() const;
     bool IsPlaying() const;
     bool IsPaused() const;
 

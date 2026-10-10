@@ -61,6 +61,8 @@ public:
     ~Sound();
 
     bool IsReady() const;
+    // Read from disk while playing (opened with CreateStream).
+    bool IsStream() const;
     // Frees the FMOD sound now (before its system is released); the resource is empty afterwards.
     void Release();
 

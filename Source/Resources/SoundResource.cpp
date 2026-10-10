@@ -69,6 +69,17 @@ void Sound::Release()
 }
 
 
+bool Sound::IsStream() const
+{
+#if USING( ME_FMOD )
+    FMOD_MODE mode = 0;
+    return Handle && Handle->getMode( &mode ) == FMOD_OK && ( mode & FMOD_CREATESTREAM ) != 0;
+#else
+    return false;
+#endif
+}
+
+
 bool Sound::IsReady() const
 {
 #if USING( ME_FMOD )
