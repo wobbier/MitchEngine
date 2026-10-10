@@ -529,4 +529,48 @@ public static unsafe class Input
     {
         fixed (byte* p = Engine.Utf8(action)) return Engine._api.Input_WasActionReleased(p) != 0;
     }
+
+    // Local multiplayer: player 0 is the default player (the methods above). Other players have
+    // their own pads; SetJoining lets unpaired pads join by pressing South (A / Cross).
+    public static int PlayerCount => Engine._api.Input_GetPlayerCount();
+    public static PlayerInput Player(int index) => new PlayerInput(index);
+    public static void SetJoining(int maxPlayers) => Engine._api.Input_SetJoining(maxPlayers);
+}
+
+// One local player's actions.
+public readonly unsafe struct PlayerInput
+{
+    public readonly int Index;
+
+    public PlayerInput(int index) => Index = index;
+
+    // The player's pad slot (-1 = any unowned pad, -2 = none).
+    public int Gamepad => Engine._api.Input_GetPlayerGamepad(Index);
+
+    public float GetAction(string action)
+    {
+        fixed (byte* p = Engine.Utf8(action)) return Engine._api.Input_GetPlayerActionValue(Index, p);
+    }
+
+    public Vector2 GetActionVector2(string action)
+    {
+        Vector2 v;
+        fixed (byte* p = Engine.Utf8(action)) Engine._api.Input_GetPlayerActionVector2(Index, p, &v);
+        return v;
+    }
+
+    public bool IsActionPressed(string action)
+    {
+        fixed (byte* p = Engine.Utf8(action)) return Engine._api.Input_IsPlayerActionPressed(Index, p) != 0;
+    }
+
+    public bool WasActionPressed(string action)
+    {
+        fixed (byte* p = Engine.Utf8(action)) return Engine._api.Input_WasPlayerActionPressed(Index, p) != 0;
+    }
+
+    public bool WasActionReleased(string action)
+    {
+        fixed (byte* p = Engine.Utf8(action)) return Engine._api.Input_WasPlayerActionReleased(Index, p) != 0;
+    }
 }

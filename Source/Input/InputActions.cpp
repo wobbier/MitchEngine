@@ -259,6 +259,20 @@ Vector2 InputActionSystem::Read( const Control& InControl, const InputDeviceStat
     switch( InControl.Kind )
     {
     case Key:
+    case MouseButton:
+    case MouseDelta:
+    case MouseScroll:
+        if( !m_keyboardMouse )
+        {
+            return Vector2();   // another player's devices
+        }
+        break;
+    default:
+        break;
+    }
+    switch( InControl.Kind )
+    {
+    case Key:
         return Vector2( InDevices.Keys[InControl.Code] ? 1.f : 0.f, 0.f );
     case MouseButton:
         return Vector2( ( InDevices.MouseButtons & SDL_BUTTON( InControl.Code ) ) ? 1.f : 0.f, 0.f );
@@ -275,7 +289,7 @@ Vector2 InputActionSystem::Read( const Control& InControl, const InputDeviceStat
     for( int slot = 0; slot < kMaxGamepads; ++slot )
     {
         const GamepadState& pad = InDevices.Gamepads[slot];
-        if( !pad.Connected || ( m_gamepadFilter >= 0 && slot != m_gamepadFilter ) )
+        if( !pad.Connected || !( m_gamepadMask & ( 1u << slot ) ) )
         {
             continue;
         }
@@ -670,7 +684,7 @@ void InputActionSystem::CancelRebind()
 
 std::string InputActionSystem::FindActuatedControl( const InputDeviceState& InDevices ) const
 {
-    for( int key = 0; key < kKeyCount; ++key )
+    for( int key = 0; m_keyboardMouse && key < kKeyCount; ++key )
     {
         if( InDevices.Keys[key] && !m_previous.Keys[key] )
         {
@@ -681,7 +695,7 @@ std::string InputActionSystem::FindActuatedControl( const InputDeviceState& InDe
             }
         }
     }
-    for( uint32_t button = 1; button <= 5; ++button )
+    for( uint32_t button = 1; m_keyboardMouse && button <= 5; ++button )
     {
         if( ( InDevices.MouseButtons & SDL_BUTTON( button ) ) && !( m_previous.MouseButtons & SDL_BUTTON( button ) ) )
         {
@@ -692,7 +706,7 @@ std::string InputActionSystem::FindActuatedControl( const InputDeviceState& InDe
     {
         const GamepadState& pad = InDevices.Gamepads[slot];
         const GamepadState& before = m_previous.Gamepads[slot];
-        if( !pad.Connected || ( m_gamepadFilter >= 0 && slot != m_gamepadFilter ) )
+        if( !pad.Connected || !( m_gamepadMask & ( 1u << slot ) ) )
         {
             continue;
         }

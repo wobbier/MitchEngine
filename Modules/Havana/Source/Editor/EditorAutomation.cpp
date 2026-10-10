@@ -227,7 +227,10 @@ void EditorAutomation::Tick( EditorApp& InApp )
         }
         m_previousCommandLogCount = m_commandLogCount;
         m_commandLogCount = CLog::GetInstance().GetTotalMessageCount();
-        if( !Execute( InApp, line ) )
+        const bool waitLog = line.rfind( "wait-log", 0 ) == 0;
+        const bool keepGoing = Execute( InApp, line );
+        m_lastWasWaitLog = waitLog;
+        if( !keepGoing )
         {
             return;
         }
@@ -258,11 +261,15 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
     {
         // wait-log Scripts: hot reloaded | 600   (frames before giving up). Matches messages logged
         // since the previous command started, so "action X" then "wait-log <what X logs>" can't
-        // miss a line X logged at once.
+        // miss a line X logged at once; a run of wait-logs shares that window, so several lines X
+        // logged at once can each be waited for.
         auto [text, framesText] = SplitArgs( args );
         m_waitLogText = text;
         m_waitLogFrames = std::max( 1, std::atoi( framesText.c_str() ) );
-        m_waitLogFrom = m_previousCommandLogCount;
+        if( !m_lastWasWaitLog )
+        {
+            m_waitLogFrom = m_previousCommandLogCount;
+        }
     }
     else if( command == "replace-in-file" )
     {

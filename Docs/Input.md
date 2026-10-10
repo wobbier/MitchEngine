@@ -21,6 +21,7 @@ Gamepads come from SDL's GameController API, with hotplug into four stable slots
 | Evaluator | `InputActionSystem` | Contexts on and off, overrides, interactive rebinding, prompt strings |
 | Pads | `Gamepads` singleton | SDL controllers in slots 0–3; fires `GamepadConnectionEvent` |
 | Snapshot | `InputDeviceState` | Keys, mouse buttons, mouse delta and scroll, four `GamepadState`s |
+| Players | `InputPlayers` (`Input::GetPlayers`) | Local multiplayer: one action system per player, device pairing, join on button press, `InputPlayerEvent` |
 
 ## Key Files
 
@@ -29,6 +30,7 @@ Gamepads come from SDL's GameController API, with hotplug into four stable slots
 | `Source/Input/InputActions.h` / `.cpp` | Map data (reflected), control-path parsing, evaluation, consumption, rebinding, overrides, display strings |
 | `Source/Input/InputTypes.h` | `GamepadButton`, `GamepadAxis`, `GamepadStick`, `GamepadState`, `InputDeviceState` |
 | `Source/Input/Gamepads.h` / `.cpp` | SDL controller slots, snapshots, rumble, `GamepadConnectionEvent` |
+| `Source/Input/InputPlayers.h` / `.cpp` | Local players: their action systems and devices, joining, `InputPlayerEvent` |
 | `Source/Input/InputActionsAsset.h` / `.cpp` | `InputActionsResource` (hot reloads) and `InputActionsMetadata` (edited in the asset browser) |
 | `Source/Engine/Input.h` / `.cpp` | The device snapshot, `GetAction`, `LoadActions`, the gamepad API |
 | `Source/Window/SDLWindow.cpp` | Forwards controller hotplug events to `Gamepads` |
@@ -90,6 +92,17 @@ Gamepad shaping:
 - **Order.** Buttons and axes follow SDL's order. Stick Y is flipped so up is +1.
 - **Unattended runs.** Automated runs (`AutomationRunner::IsUnattendedRun`) don't initialize SDL's joystick, game-controller, haptic or sensor subsystems at all. SDL probes HID devices when those start, so automated runs leave the user's hardware alone, and no pads are seen.
 
+### Local multiplayer
+
+`Input::GetPlayers()` (`InputPlayers`) holds the players.
+
+- **Player 0** is the default player: `GetAction( name )` and `GetActions()` read it. It hears the keyboard and mouse and any pad no other player owns, so single-player games are unaffected.
+- **Other players** have their own copy of the action map, so their own context states and rebinds, and their own devices: `AddPlayer( slot, keyboardMouse )`, `SetDevices( player, keyboardMouse, slot )`. A slot can be a pad slot, `kAnyGamepad` (any unowned pad) or `kNoGamepad`. Each frame every player's system gets a device mask (`InputActionSystem::SetDevices`: the keyboard and mouse on or off, and a bitmask of pad slots), so "Gamepad/..." reads only that player's pads and the keyboard is never read twice.
+- **Joining:** `EnableJoining( maxPlayers, button = South )`. A pad no player owns that presses the button joins: as player 0's own pad while player 0 has none, then as a new player, up to the maximum.
+- **Events:** `InputPlayerEvent` reports `Joined`, `DeviceLost` (the pad was unplugged; the player keeps its slot) and `DeviceRegained` (a pad is back in that slot).
+- **API:** `Input::GetAction( player, name )` reads a player's action, and `RumblePlayer( player, … )` rumbles its pad. Scripts use `Input.Player( n )`, `Input.PlayerCount` and `Input.SetJoining( max )`.
+- **Map changes:** a new map or a hot reload goes to every player, with contexts and overrides kept.
+
 ### Loading and editing maps
 
 - **Startup.** `Engine::InitGame` loads `ProjectSettings::InputActions` (default `Assets/Config/Input.inputactions`) into the game `Input` before `Game::OnInitialize`. A game can call `GetInput().LoadActions( path )` for another map.
@@ -113,7 +126,7 @@ The scene-loaded fly camera reads the `Move` action when the map has one, and WA
 
 ## Caveats & Fragility
 
-- **One player's map.** The game `Input` has one `InputActionSystem`. Local multiplayer needs a system per player, each pinned to a pad with `SetGamepadFilter`; there's no device-pairing layer.
+- **Pads pair by slot.** A player owns a slot, so a pad that comes back in another slot (after other pads moved) isn't recognized as the same pad. Players can't share the keyboard (split keyboard), and `SetGamepadFilter` on a player's system is overwritten each frame by its devices.
 - **Sub-frame taps are lost.** Keys and buttons are sampled once per frame, so a press and release between two frames never registers.
 - **Rebinding doesn't check conflicts.** Binding a control already used by another action leaves both bound.
 - **No gyro, touchpad positions, LEDs or haptic patterns.** Only buttons, sticks, triggers and simple rumble are exposed.

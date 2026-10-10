@@ -132,4 +132,14 @@ public unsafe struct EngineAPIBindings
     // Components by name: any reflected field (or serialized key) as JSON, e.g. ("Light", "Intensity")
     public delegate* unmanaged<Entity, byte*, byte*, byte*, int, int> Component_GetField;
     public delegate* unmanaged<Entity, byte*, byte*, byte*, byte> Component_SetField;
+
+    // Local multiplayer input: player 0 is the default player (Engine/Docs/Input.md)
+    public delegate* unmanaged<int> Input_GetPlayerCount;
+    public delegate* unmanaged<int, byte*, float> Input_GetPlayerActionValue;
+    public delegate* unmanaged<int, byte*, Vector2*, void> Input_GetPlayerActionVector2;
+    public delegate* unmanaged<int, byte*, byte> Input_IsPlayerActionPressed;
+    public delegate* unmanaged<int, byte*, byte> Input_WasPlayerActionPressed;
+    public delegate* unmanaged<int, byte*, byte> Input_WasPlayerActionReleased;
+    public delegate* unmanaged<int, int> Input_GetPlayerGamepad;
+    public delegate* unmanaged<int, void> Input_SetJoining;
 }

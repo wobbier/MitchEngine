@@ -146,7 +146,22 @@ public:
     // Which gamepad slot "Gamepad/..." controls read: -1 = any (the strongest), else that slot.
     void SetGamepadFilter( int InSlot )
     {
-        m_gamepadFilter = InSlot;
+        m_gamepadMask = InSlot >= 0 && InSlot < kMaxGamepads ? static_cast<uint8_t>( 1u << InSlot ) : 0xFF;
+    }
+    // The devices this system reads (local multiplayer, see InputPlayers): the keyboard and mouse,
+    // and the gamepad slots in the mask (bit n = slot n; the strongest of them wins).
+    void SetDevices( bool InKeyboardMouse, uint8_t InGamepadMask )
+    {
+        m_keyboardMouse = InKeyboardMouse;
+        m_gamepadMask = InGamepadMask;
+    }
+    bool ReadsKeyboardMouse() const
+    {
+        return m_keyboardMouse;
+    }
+    uint8_t GetGamepadMask() const
+    {
+        return m_gamepadMask;
     }
 
     // Rebinding: overrides replace a binding's control (or a composite part: "Up", "Negative"...)
@@ -238,6 +253,7 @@ private:
     std::map<std::string, bool> m_contextEnabled;
     std::map<std::string, std::string> m_overrides;
     InputDeviceState m_previous;
-    int m_gamepadFilter = -1;
+    bool m_keyboardMouse = true;
+    uint8_t m_gamepadMask = 0xFF;
     Rebind m_rebind;
 };

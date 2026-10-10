@@ -1,4 +1,6 @@
 #include <doctest/doctest.h>
+#include "Input/InputPlayers.h"
+#include "Events/EventReceiver.h"
 #include "Input/InputActions.h"
 #include <SDL_keyboard.h>
 #include <SDL_mouse.h>
@@ -250,4 +252,143 @@ TEST_CASE( "Input: interactive rebinding, overrides that persist, and map files"
     CHECK( loaded.Contexts[1].ConsumeInput );
     CHECK( loaded.Contexts[0].Actions[1].Bindings[0].Kind == InputBindingKind::Vector2 );
     CHECK( loaded.Contexts[0].Actions[3].Bindings[0].Modifier == "Keyboard/Left Ctrl" );
+}
+
+
+namespace InputPlayersTest
+{
+    struct PlayerLog
+        : public EventReceiver
+    {
+        PlayerLog()
+        {
+            EventManager::GetInstance().RegisterReceiver( this, { InputPlayerEvent::GetEventId() } );
+        }
+
+        bool OnEvent( const BaseEvent& InEvent ) override
+        {
+            const InputPlayerEvent& event = static_cast<const InputPlayerEvent&>( InEvent );
+            Events.push_back( { event.Player, event.GamepadSlot, event.Type } );
+            return false;
+        }
+
+        struct Entry
+        {
+            int Player;
+            int Slot;
+            InputPlayerEvent::Change Type;
+        };
+        std::vector<Entry> Events;
+    };
+
+    InputActionMap JumpMap()
+    {
+        InputAction jump;
+        jump.Name = "Jump";
+        InputBinding pad;
+        pad.Control = "Gamepad/South";
+        InputBinding key;
+        key.Control = "Keyboard/Space";
+        jump.Bindings = { pad, key };
+        InputContext context;
+        context.Name = "Gameplay";
+        context.Actions = { jump };
+        InputActionMap map;
+        map.Contexts = { context };
+        return map;
+    }
+}
+
+TEST_CASE( "Input: local players pair pads, join on button press and keep their own devices" )
+{
+    using namespace InputPlayersTest;
+    PlayerLog log;
+    InputActionSystem playerZero;
+    InputPlayers players( playerZero );
+    players.SetMap( JumpMap() );
+
+    InputDeviceState previous;
+    InputDeviceState devices;
+    for( int slot = 0; slot < kMaxGamepads; ++slot )
+    {
+        devices.Gamepads[slot].Connected = true;
+    }
+    const size_t south = static_cast<size_t>( GamepadButton::South );
+    const int space = SDL_SCANCODE_SPACE;
+    auto frame = [&]() {
+        players.Update( devices, previous, 1.f / 60.f );
+        previous = devices;
+    };
+    auto press = [&]( int InSlot ) {
+        devices.Gamepads[InSlot].Buttons[south] = true;
+        frame();
+        devices.Gamepads[InSlot].Buttons[south] = false;
+    };
+
+    // Alone, player 0 reads every pad and the keyboard: single-player games need nothing.
+    devices.Gamepads[2].Buttons[south] = true;
+    frame();
+    CHECK( players.GetActions( 0 ).GetAction( "Jump" ).IsPressed() );
+    devices.Gamepads[2].Buttons[south] = false;
+    frame();
+
+    // Joining: the first pad becomes player 0's, the next ones new players.
+    players.EnableJoining( 3 );
+    press( 1 );
+    frame();
+    CHECK( players.GetPlayerCount() == 1 );
+    CHECK( players.GetGamepad( 0 ) == 1 );
+    press( 2 );
+    frame();
+    REQUIRE( players.GetPlayerCount() == 2 );
+    CHECK( players.GetGamepad( 1 ) == 2 );
+    CHECK_FALSE( players.HasKeyboardMouse( 1 ) );
+    REQUIRE( log.Events.size() == 2 );
+    CHECK( log.Events[1].Player == 1 );
+    CHECK( log.Events[1].Type == InputPlayerEvent::Change::Joined );
+
+    // Each player hears only its own devices.
+    devices.Gamepads[2].Buttons[south] = true;
+    frame();
+    CHECK( players.GetActions( 1 ).GetAction( "Jump" ).IsPressed() );
+    CHECK_FALSE( players.GetActions( 0 ).GetAction( "Jump" ).IsPressed() );
+    devices.Gamepads[2].Buttons[south] = false;
+    devices.Keys[space] = 1;
+    frame();
+    CHECK( players.GetActions( 0 ).GetAction( "Jump" ).IsPressed() );
+    CHECK_FALSE( players.GetActions( 1 ).GetAction( "Jump" ).IsPressed() );
+    devices.Keys[space] = 0;
+    frame();
+
+    // Up to the limit: a third player joins, a fourth pad doesn't.
+    press( 3 );
+    frame();
+    CHECK( players.GetPlayerCount() == 3 );
+    press( 0 );
+    frame();
+    CHECK( players.GetPlayerCount() == 3 );
+    CHECK( players.GetPlayerForGamepad( 3 ) == 2 );
+
+    // Unplugging and replugging a pad.
+    devices.Gamepads[2].Connected = false;
+    frame();
+    devices.Gamepads[2].Connected = true;
+    frame();
+    REQUIRE( log.Events.size() == 5 );
+    CHECK( log.Events[3].Type == InputPlayerEvent::Change::DeviceLost );
+    CHECK( log.Events[4].Type == InputPlayerEvent::Change::DeviceRegained );
+    CHECK( log.Events[4].Player == 1 );
+
+    // Players rebind independently.
+    REQUIRE( players.GetActions( 1 ).SetBindingOverride( "Jump", 0, "", "Gamepad/East" ) );
+    devices.Gamepads[1].Buttons[south] = true;
+    devices.Gamepads[2].Buttons[static_cast<size_t>( GamepadButton::East )] = true;
+    frame();
+    CHECK( players.GetActions( 0 ).GetAction( "Jump" ).IsPressed() );
+    CHECK( players.GetActions( 1 ).GetAction( "Jump" ).IsPressed() );
+
+    // Removing a player moves the later ones down.
+    players.RemovePlayer( 1 );
+    CHECK( players.GetPlayerCount() == 2 );
+    CHECK( players.GetGamepad( 1 ) == 3 );
 }

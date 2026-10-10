@@ -111,13 +111,13 @@ void Input::Update()
     if( m_actionAsset && m_actionAsset->Version != m_actionVersion )
     {
         m_actionVersion = m_actionAsset->Version;
-        m_actions.SetMap( m_actionAsset->Map );
+        m_players.SetMap( m_actionAsset->Map );
     }
     const auto now = std::chrono::steady_clock::now();
     const float deltaSeconds = m_hasUpdated ? std::min( std::chrono::duration<float>( now - m_lastUpdate ).count(), 0.25f ) : 0.f;
     m_lastUpdate = now;
     m_hasUpdated = true;
-    m_actions.Update( m_devices, deltaSeconds );
+    m_players.Update( m_devices, m_previousDevices, deltaSeconds );
 }
 
 void Input::PostUpdate()
@@ -193,8 +193,21 @@ bool Input::LoadActions( const Path& InPath )
         return false;
     }
     m_actionVersion = m_actionAsset->Version;
-    m_actions.SetMap( m_actionAsset->Map );
+    m_players.SetMap( m_actionAsset->Map );
     return true;
+}
+
+
+const InputActionState& Input::GetAction( int InPlayer, const std::string& InName ) const
+{
+    return m_players.GetActions( InPlayer ).GetAction( InName );
+}
+
+
+bool Input::RumblePlayer( int InPlayer, float InLow, float InHigh, float InSeconds )
+{
+    const int slot = m_players.GetGamepad( InPlayer );
+    return slot >= 0 && Rumble( InLow, InHigh, InSeconds, slot );
 }
 
 #pragma endregion

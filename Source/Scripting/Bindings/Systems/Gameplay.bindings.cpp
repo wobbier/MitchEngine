@@ -276,6 +276,62 @@ static bool Eng_Input_WasActionReleased( const uint8_t* inAction )
 }
 
 
+static int Eng_Input_GetPlayerCount()
+{
+    return GetEngine().GetInput().GetPlayers().GetPlayerCount();
+}
+
+
+static float Eng_Input_GetPlayerActionValue( int inPlayer, const uint8_t* inAction )
+{
+    return GetEngine().GetInput().GetAction( inPlayer, Text( inAction ) ).GetValue();
+}
+
+
+static void Eng_Input_GetPlayerActionVector2( int inPlayer, const uint8_t* inAction, Vector2* outValue )
+{
+    *outValue = GetEngine().GetInput().GetAction( inPlayer, Text( inAction ) ).GetVector2();
+}
+
+
+static bool Eng_Input_IsPlayerActionPressed( int inPlayer, const uint8_t* inAction )
+{
+    return GetEngine().GetInput().GetAction( inPlayer, Text( inAction ) ).IsPressed();
+}
+
+
+static bool Eng_Input_WasPlayerActionPressed( int inPlayer, const uint8_t* inAction )
+{
+    return GetEngine().GetInput().GetAction( inPlayer, Text( inAction ) ).WasPressed();
+}
+
+
+static bool Eng_Input_WasPlayerActionReleased( int inPlayer, const uint8_t* inAction )
+{
+    return GetEngine().GetInput().GetAction( inPlayer, Text( inAction ) ).WasReleased();
+}
+
+
+static int Eng_Input_GetPlayerGamepad( int inPlayer )
+{
+    return GetEngine().GetInput().GetPlayers().GetGamepad( inPlayer );
+}
+
+
+static void Eng_Input_SetJoining( int inMaxPlayers )
+{
+    InputPlayers& players = GetEngine().GetInput().GetPlayers();
+    if( inMaxPlayers > 0 )
+    {
+        players.EnableJoining( inMaxPlayers );
+    }
+    else
+    {
+        players.DisableJoining();
+    }
+}
+
+
 static bool Eng_Input_WasKeyPressed( int inKey )
 {
     return GetEngine().GetInput().WasKeyPressed( static_cast<KeyCode>( inKey ) );
@@ -559,6 +615,14 @@ void Register_GameplayBindings( ScriptEngineAPI& inAPI )
     inAPI.Input_WasActionReleased = Eng_Input_WasActionReleased;
     inAPI.Input_WasKeyPressed = Eng_Input_WasKeyPressed;
     inAPI.Input_GetMouseDelta = Eng_Input_GetMouseDelta;
+    inAPI.Input_GetPlayerCount = Eng_Input_GetPlayerCount;
+    inAPI.Input_GetPlayerActionValue = Eng_Input_GetPlayerActionValue;
+    inAPI.Input_GetPlayerActionVector2 = Eng_Input_GetPlayerActionVector2;
+    inAPI.Input_IsPlayerActionPressed = Eng_Input_IsPlayerActionPressed;
+    inAPI.Input_WasPlayerActionPressed = Eng_Input_WasPlayerActionPressed;
+    inAPI.Input_WasPlayerActionReleased = Eng_Input_WasPlayerActionReleased;
+    inAPI.Input_GetPlayerGamepad = Eng_Input_GetPlayerGamepad;
+    inAPI.Input_SetJoining = Eng_Input_SetJoining;
     inAPI.Audio_PlayOneShot = Eng_Audio_PlayOneShot;
     inAPI.Audio_PlayOneShotAt = Eng_Audio_PlayOneShotAt;
     inAPI.Physics_Raycast = Eng_Physics_Raycast;

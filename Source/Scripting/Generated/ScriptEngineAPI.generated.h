@@ -143,4 +143,14 @@ struct ScriptEngineAPI
     // Components by name: any reflected field (or serialized key) as JSON, e.g. ("Light", "Intensity")
     int ( *Component_GetField )( EntityID id, const uint8_t* component, const uint8_t* path, uint8_t* outJson, int size );
     bool ( *Component_SetField )( EntityID id, const uint8_t* component, const uint8_t* path, const uint8_t* json );
+
+    // Local multiplayer input: player 0 is the default player (Engine/Docs/Input.md)
+    int ( *Input_GetPlayerCount )();
+    float ( *Input_GetPlayerActionValue )( int player, const uint8_t* action );
+    void ( *Input_GetPlayerActionVector2 )( int player, const uint8_t* action, Vector2* outValue );
+    bool ( *Input_IsPlayerActionPressed )( int player, const uint8_t* action );
+    bool ( *Input_WasPlayerActionPressed )( int player, const uint8_t* action );
+    bool ( *Input_WasPlayerActionReleased )( int player, const uint8_t* action );
+    int ( *Input_GetPlayerGamepad )( int player );
+    void ( *Input_SetJoining )( int maxPlayers );
 };

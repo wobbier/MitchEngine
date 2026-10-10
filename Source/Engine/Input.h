@@ -4,6 +4,7 @@
 #include <SDL_scancode.h>
 #include "Events/EventReceiver.h"
 #include "Input/InputActions.h"
+#include "Input/InputPlayers.h"
 #include "Input/InputTypes.h"
 #include "Pointers.h"
 #include <chrono>
@@ -482,6 +483,17 @@ public:
     // Plays the action map of a .inputactions asset, following its hot reloads.
     bool LoadActions( const Path& InPath );
 
+    // Local multiplayer (Input/InputPlayers.h). Player 0 is the default (GetAction / GetActions):
+    // the keyboard and mouse plus any pad no other player owns. Other players have their own copy
+    // of the map and their own pad; EnableJoining adds them as pads press the join button.
+    InputPlayers& GetPlayers()
+    {
+        return m_players;
+    }
+    const InputActionState& GetAction( int InPlayer, const std::string& InName ) const;
+    // Rumbles a player's own pad (players without one: nothing).
+    bool RumblePlayer( int InPlayer, float InLow, float InHigh, float InSeconds );
+
     // Gamepads, by slot (0..3; Input/Gamepads.h fires GamepadConnectionEvent on hotplug).
     int GetGamepadCount() const;
     bool IsGamepadConnected( int InSlot = 0 ) const;
@@ -525,6 +537,7 @@ private:
     InputDeviceState m_devices;
     InputDeviceState m_previousDevices;
     InputActionSystem m_actions;
+    InputPlayers m_players{ m_actions };
     SharedPtr<InputActionsResource> m_actionAsset;
     uint32_t m_actionVersion = 0;
     std::chrono::steady_clock::time_point m_lastUpdate;
