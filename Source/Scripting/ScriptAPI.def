@@ -122,3 +122,12 @@ int Navigation_FindPath( const Vector3* start, const Vector3* end, Vector3* outC
 bool Navigation_SamplePosition( const Vector3* point, float maxDistance, Vector3* outPosition )
 bool Navigation_Raycast( const Vector3* start, const Vector3* end, Vector3* outHit )
 bool Navigation_GetRandomPoint( Vector3* outPoint )
+
+## Character controller (Engine/Docs/Physics.md)
+void Character_SetMoveInput( Entity id, const Vector3* direction )
+void Character_Move( Entity id, const Vector3* displacement )
+void Character_Jump( Entity id )
+bool Character_IsGrounded( Entity id )
+void Character_GetVelocity( Entity id, Vector3* outVelocity )
+float Character_GetMaxSpeed( Entity id )
+void Character_SetMaxSpeed( Entity id, float speed )

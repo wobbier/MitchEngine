@@ -119,4 +119,13 @@ public unsafe struct EngineAPIBindings
     public delegate* unmanaged<Vector3*, float, Vector3*, byte> Navigation_SamplePosition;
     public delegate* unmanaged<Vector3*, Vector3*, Vector3*, byte> Navigation_Raycast;
     public delegate* unmanaged<Vector3*, byte> Navigation_GetRandomPoint;
+
+    // Character controller (Engine/Docs/Physics.md)
+    public delegate* unmanaged<Entity, Vector3*, void> Character_SetMoveInput;
+    public delegate* unmanaged<Entity, Vector3*, void> Character_Move;
+    public delegate* unmanaged<Entity, void> Character_Jump;
+    public delegate* unmanaged<Entity, byte> Character_IsGrounded;
+    public delegate* unmanaged<Entity, Vector3*, void> Character_GetVelocity;
+    public delegate* unmanaged<Entity, float> Character_GetMaxSpeed;
+    public delegate* unmanaged<Entity, float, void> Character_SetMaxSpeed;
 }

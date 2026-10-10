@@ -4,6 +4,7 @@
 #if USING( ME_SCRIPTING )
 
 #include "CLog.h"
+#include "Components/Physics/CharacterController.h"
 #include "Components/Physics/Rigidbody.h"
 #include "Components/Transform.h"
 #include "Cores/AudioCore.h"
@@ -42,6 +43,13 @@ namespace
     {
         EntityHandle handle = MakeHandle( InId );
         return handle ? handle->TryGetComponent<Rigidbody>() : nullptr;
+    }
+
+
+    CharacterController* CharacterOf( EntityID InId )
+    {
+        EntityHandle handle = MakeHandle( InId );
+        return handle ? handle->TryGetComponent<CharacterController>() : nullptr;
     }
 }
 
@@ -361,9 +369,69 @@ static void Eng_Debug_DrawSphere( const Vector3* inCenter, float inRadius, const
 }
 
 
+// Character controller
+
+static void Eng_Character_SetMoveInput( EntityID inId, const Vector3* inDirection )
+{
+    if( CharacterController* character = CharacterOf( inId ) )
+    {
+        character->SetMoveInput( *inDirection );
+    }
+}
+
+
+static void Eng_Character_Move( EntityID inId, const Vector3* inDisplacement )
+{
+    if( CharacterController* character = CharacterOf( inId ) )
+    {
+        character->Move( *inDisplacement );
+    }
+}
+
+
+static void Eng_Character_Jump( EntityID inId )
+{
+    if( CharacterController* character = CharacterOf( inId ) )
+    {
+        character->Jump();
+    }
+}
+
+
+static bool Eng_Character_IsGrounded( EntityID inId )
+{
+    CharacterController* character = CharacterOf( inId );
+    return character && character->IsOnGround();
+}
+
+
+static void Eng_Character_GetVelocity( EntityID inId, Vector3* outVelocity )
+{
+    CharacterController* character = CharacterOf( inId );
+    *outVelocity = character ? character->GetVelocity() : Vector3();
+}
+
+
+static float Eng_Character_GetMaxSpeed( EntityID inId )
+{
+    CharacterController* character = CharacterOf( inId );
+    return character ? character->MaxSpeed : 0.f;
+}
+
+
+static void Eng_Character_SetMaxSpeed( EntityID inId, float inSpeed )
+{
+    if( CharacterController* character = CharacterOf( inId ) )
+    {
+        character->MaxSpeed = std::max( inSpeed, 0.f );
+    }
+}
+
+
 void Register_GameplayBindings( ScriptEngineAPI& inAPI )
 {
     ScriptBindings::RegisterComponent<Rigidbody>( "Rigidbody" );
+    ScriptBindings::RegisterComponent<CharacterController>( "CharacterController" );
     inAPI.LogWarning = Eng_LogWarning;
     inAPI.LogError = Eng_LogError;
     inAPI.Time_GetDeltaTime = Eng_Time_GetDeltaTime;
@@ -401,6 +469,13 @@ void Register_GameplayBindings( ScriptEngineAPI& inAPI )
     inAPI.Rigidbody_SetVelocity = Eng_Rigidbody_SetVelocity;
     inAPI.Debug_DrawLine = Eng_Debug_DrawLine;
     inAPI.Debug_DrawSphere = Eng_Debug_DrawSphere;
+    inAPI.Character_SetMoveInput = Eng_Character_SetMoveInput;
+    inAPI.Character_Move = Eng_Character_Move;
+    inAPI.Character_Jump = Eng_Character_Jump;
+    inAPI.Character_IsGrounded = Eng_Character_IsGrounded;
+    inAPI.Character_GetVelocity = Eng_Character_GetVelocity;
+    inAPI.Character_GetMaxSpeed = Eng_Character_GetMaxSpeed;
+    inAPI.Character_SetMaxSpeed = Eng_Character_SetMaxSpeed;
 }
 
 #endif

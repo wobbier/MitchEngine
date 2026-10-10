@@ -130,4 +130,13 @@ struct ScriptEngineAPI
     bool ( *Navigation_SamplePosition )( const Vector3* point, float maxDistance, Vector3* outPosition );
     bool ( *Navigation_Raycast )( const Vector3* start, const Vector3* end, Vector3* outHit );
     bool ( *Navigation_GetRandomPoint )( Vector3* outPoint );
+
+    // Character controller (Engine/Docs/Physics.md)
+    void ( *Character_SetMoveInput )( EntityID id, const Vector3* direction );
+    void ( *Character_Move )( EntityID id, const Vector3* displacement );
+    void ( *Character_Jump )( EntityID id );
+    bool ( *Character_IsGrounded )( EntityID id );
+    void ( *Character_GetVelocity )( EntityID id, Vector3* outVelocity );
+    float ( *Character_GetMaxSpeed )( EntityID id );
+    void ( *Character_SetMaxSpeed )( EntityID id, float speed );
 };
