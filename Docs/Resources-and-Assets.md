@@ -1,12 +1,12 @@
 # Resources and Assets
 
-All asset loading funnels through the `ResourceCache` singleton: a thread-safe, string-keyed map of `SharedPtr<Resource>` with **synchronous** loading, `.meta` JSON sidecars per asset (carrying asset GUIDs), and an editor/tools-only cook step (`Export()`) that compiles sources (`.png`, `.fbx`, `.vert`…) into runtime formats (`.dds`, `.assbin`, `.<platform>.bin`). Unreferenced resources are kept alive for a grace period, and tools builds hot reload assets when files change. This doc covers the load flow, the metadata/cook system, hot reload, the resource type inventory, and how to add a new type.
+All asset loading funnels through the `ResourceCache` singleton: a thread-safe, string-keyed map of `SharedPtr<Resource>` with synchronous loading plus **background loading** for textures, `.meta` JSON sidecars per asset (carrying asset GUIDs), and an editor/tools-only cook step (`Export()`) that compiles sources (`.png`, `.fbx`, `.vert`…) into runtime formats (`.dds`, `.assbin`, `.<platform>.bin`). Unreferenced resources are kept alive for a grace period, and tools builds hot reload assets when files change. This doc covers the load flow, async loads, the metadata/cook system, hot reload, the resource type inventory, and how to add a new type.
 
-> Verified against engine commit dab803a2, 2026-10-08; model import (animation and skin data) against 07617c5f, 2026-10-09; pass-through assets against afce7083, 2026-10-09.
+> Verified against engine commit dab803a2, 2026-10-08; model import (animation and skin data) against 07617c5f, 2026-10-09; pass-through assets against afce7083, 2026-10-09; async loading against 4d4de548, 2026-10-10.
 
 ## Overview
 
-A `Resource` is anything constructed from a `Path` with a `Load()` override. `ResourceCache::Get<T>(path)` is the single entry point — components call it directly during deserialization (`Mesh` materials, `AudioSource` sounds, prefab JSON…), which is why scene loading blocks on asset IO. There is no async loading, no streaming, and no load-time budget; a cold `Get<ModelResource>` pays full Assimp import on the calling (main) thread.
+A `Resource` is anything constructed from a `Path` with a `Load()` override. `ResourceCache::Get<T>(path)` loads on the spot; components call it directly during deserialization (`AudioSource` sounds, prefab JSON…), so a cold `Get<ModelResource>` pays the full Assimp import on the calling (main) thread. `GetAsync<T>(path)` returns at once and loads types that support it on loader threads. Material textures, model textures, particle textures and asset-browser thumbnails load this way, so a scene's textures no longer block its first frame. A 2K texture cost about 30 ms of main-thread time before and costs under 0.1 ms now. Audio has its own streaming option (see `Docs/Audio.md`).
 
 Cooking is driven by metadata, not by a build step: in `ME_TOOLS` builds, `Get` checks whether the asset's compiled twin exists / whether the source changed, and shells out to the appropriate compiler on the spot. Shipped (non-tools) builds only ever read the compiled files.
 
@@ -15,8 +15,8 @@ Cooking is driven by metadata, not by a build step: in `ME_TOOLS` builds, `Get` 
 | Path | Role |
 |------|------|
 | `Modules/Dementia/Source/Resource/ResourceCache.h` | `Get<T>` template — the whole load/cook decision tree |
-| `Modules/Dementia/Source/Resource/ResourceCache.cpp` | `Dump`, `TryToDestroy`, `LoadMetadata`, tools-only `FindByName` |
-| `Modules/Dementia/Source/Resource/Resource.h` | Base class: `Load`, `Reload`, `Metadata`, `FilePath` |
+| `Modules/Dementia/Source/Resource/ResourceCache.cpp` | `Dump`, `TryToDestroy`, `LoadMetadata`, the async loader threads (`PumpAsyncLoads`, `WaitForAsyncLoads`, `CompleteLoad`), tools-only `FindByName` |
+| `Modules/Dementia/Source/Resource/Resource.h` | Base class: `Load`, `Reload`, the async split (`SupportsAsyncLoad`, `LoadAsync`, `FinishAsyncLoad`), `IsLoading`, `HasLoadFailed`, `Metadata`, `FilePath` |
 | `Modules/Dementia/Source/Resource/MetaFile.h` | `MetaBase` — sidecar contract: `Export()`, `GetExtension2()`, `FlaggedForExport` |
 | `Modules/Dementia/Source/Resource/MetaRegistry.h` | Extension → metadata factory map, `ME_REGISTER_METADATA` |
 | `Modules/Dementia/Source/Resource/AssetMetaCache.h` / `.cpp` | Timestamp cache backing the "was it modified" check |
@@ -58,6 +58,23 @@ Details that matter:
 - **Cache hits skip everything** — no metadata check, no export check, and the result is `dynamic_pointer_cast<T>`: calling `Get<Texture>` on a path already cached as another type returns **null silently**.
 - The missing-file paths differ: source missing + compiled missing + not flagged → `YIKES("Failed to load resource: …")` and a null return; source missing but compiled present → logs `"Shit don't exist bro: …"` and **continues** (loads from the compiled file).
 - The cache key is the raw `Path::FullPath` string — no normalization/dedup beyond what `Path` itself does.
+
+### Async loads
+
+`GetAsync<T>` runs the same decision tree up to the load. For a type whose `SupportsAsyncLoad()` is true, the resource is then cached and marked loading (`IsLoading()`), and it is queued:
+
+1. A **loader thread** runs `LoadAsync()`, the CPU part (file IO and decoding; no GPU calls, no engine state). There are a few loader threads (a quarter of the cores, 1–4), separate from the job workers, so frame jobs never wait behind a file read.
+2. The **main thread** runs `FinishAsyncLoad()` (the GPU upload). The engine calls `PumpAsyncLoads()` every frame before the late update and render, which finishes completed loads for up to 2 ms, always at least one.
+3. The resource is then ready, or `HasLoadFailed()` (logged).
+
+Rules:
+
+- **`Get` always returns a loaded resource.** A `Get` of a path that is still loading finishes it on the spot: it runs the background part itself if no loader thread has started it, or waits for it. `CompleteLoad(resource)` does the same explicitly; hot reload uses it before `Reload()`.
+- **Consumers must tolerate not-yet-loaded resources.** The renderer binds neutral fallbacks for a texture whose `TexHandle` isn't valid yet, and the asset browser shows the type icon until a thumbnail arrives.
+- **`WaitForAsyncLoads()`** finishes everything and helps with queued loads (loading screens). Deterministic runs (`--frame-time`) call it every frame instead of pumping, so captures never depend on IO timing; the screenshot regression stays bit-exact.
+- **`ReleaseAll()` cancels**: queued loads are dropped and marked failed, and the loader threads are joined. Engine shutdown does this before tearing the GPU down.
+- **`GetPendingLoadCount()`** counts queued, running and not-yet-finished loads, for progress bars.
+- To make a type async, override the three virtuals. `Texture` reads and parses the DDS in `LoadAsync` (`m_pendingImage`) and creates the bgfx texture in `FinishAsyncLoad`; its `Load()` is simply both. Types that don't opt in load synchronously through `Load()` even when requested with `GetAsync`.
 
 ### Metadata sidecars
 
@@ -135,8 +152,8 @@ ME_REGISTER_METADATA( "curve", CurveMetadata );
 
 ## Caveats & Fragility
 
-- **Everything is synchronous on the main thread** — model import, texture upload, shader compile (a shell-out!) all block the frame. First-touch hitches are structural, not incidental.
-- **The cache is thread safe, GPU resources aren't**: `Get` takes a recursive mutex (held during `Load`), but loading textures/shaders/models creates bgfx objects, so keep those on the main thread (see `Docs/Jobs-and-Events.md`).
+- **Only textures load in the background.** Model import (Assimp), shader loads and cooking (`Export()`, a shell-out even under `GetAsync`) still block the frame. A model's own load is synchronous, but its textures are async.
+- **The cache is thread safe, GPU resources aren't**: `Get` takes a recursive mutex (held during `Load`), but loading textures/shaders/models creates bgfx objects, so call `Get`/`GetAsync` from the main thread (see `Docs/Jobs-and-Events.md`); only `LoadAsync` runs elsewhere.
 - **Type-mismatched cache hits return null** (logged as an error). Two systems loading the same path as different types is still a bug.
 - **Keep-alive is time-based, not budget-based**: there is no memory cap.
 - **Editor builds mutate the asset tree on read**: missing `.meta` files are created, sidecars are rewritten, exports are triggered — running the editor is not read-only with respect to `Assets/`.

@@ -19,7 +19,7 @@ Ratings: **Solid** (rely on it) · **Usable** (works, know the sharp edges) · *
 | Rendering pipeline | **Solid** | Zero-virtual submit + auto-instancing, AABB culling, a view allocator, linear HDR with a full post stack, soft particles; unverified on non-Vulkan backends and unmeasured on GPUs at 57k-mesh scale with shadows | [Rendering-Pipeline.md](Rendering-Pipeline.md) |
 | Lighting & shadows | **Usable** | PBR + clustered point/spot lights, stable CSM sun shadows, spot and point-light shadows (cube faces in one atlas), IBL probes and lit smoke; one shadowed sun, fixed shadow budgets, no volumetrics | [Rendering-Pipeline.md](Rendering-Pipeline.md) |
 | Materials & shaders | **Usable** | Metallic-roughness StandardMaterial, live shader hot reload with include tracking; batch-key discipline is manual; ShaderGraph half-finished; compiles block the main thread | [Materials-and-Shaders.md](Materials-and-Shaders.md) |
-| Resources & assets | **Usable** | Hot reload, keep-alive cache, asset GUIDs; loads still synchronous on the main thread | [Resources-and-Assets.md](Resources-and-Assets.md) |
+| Resources & assets | **Usable** | Hot reload, keep-alive cache, asset GUIDs, background texture loads (main thread only uploads), unit tested; model imports and cooking still block the main thread | [Resources-and-Assets.md](Resources-and-Assets.md) |
 | Serialization & scenes | **Solid** | Versioned v2 format with GUIDs, references, migration and prefab links with stable source GUIDs; asset references are still paths | [Serialization-and-Scenes.md](Serialization-and-Scenes.md) |
 | Physics | **Solid** | Box3D and Box2D cores with the same model: fixed step + interpolation, compound bodies, joints, mover-based 3D and platformer characters, layer matrix, events and queries, unit + editor-flow tested; Box3D is pre-1.0, and C++ code subscribes to one global CollisionEvent (scripts get per-entity callbacks) | [Physics.md](Physics.md) |
 | Navigation | **Usable** | Recast/Detour with tiled parallel async bakes saved next to the scene, areas with costs, modifiers, volumes and links, DetourCrowd agents with avoidance and link arcs, queries from C++ and C#, editor bake / overlay, runtime obstacle carving (background tile rebuilds), an out-of-date warning, unit + editor-flow + game-build tested; one agent size per surface, no named agent types | [Navigation.md](Navigation.md) |
@@ -63,9 +63,9 @@ Impact (H/M/L) × Effort (S/M/L). Grouped so related items can share one work se
 |------|--------|--------|-------|
 | ~~Editor: snapshot world on Play~~ | — | — | Done (Wave 2): in-memory snapshot, selection and undo survive Stop |
 | ~~Fixed timestep for physics~~ | — | — | Done (Wave 1 loop + Wave 4 Box3D core): fixed steps with interpolated poses |
-| Scene versioning + rename migration | **H** | M | Minimal viable: `"Version"` field + a name-alias map consulted by the registries |
-| Fix `m_ambient` | M | **S** | Uninitialized GPU uniform; also unlocks actually *having* ambient light |
-| Event-system hardening | M | S–M | Auto-deregistering `EventReceiver` destructor + main-thread assert; optionally finish the queue |
+| Component/core rename migration | M | S | Versioning is done (v2 scenes with v1 migration); still missing: a name-alias map consulted by the registries so renamed types keep loading |
+| ~~Fix `m_ambient`~~ | — | — | Done (Wave 3): ambient is image-based from per-camera environment probes |
+| ~~Event-system hardening~~ | — | — | Done (Wave 1): auto-deregistering receivers, a thread-safe queue drained at frame start, safe re-entrant dispatch |
 | ~~Quaternion transform sync in physics~~ | — | — | Done (Wave 4): poses sync as quaternions |
 
 ### B. Rendering
@@ -82,7 +82,7 @@ Impact (H/M/L) × Effort (S/M/L). Grouped so related items can share one work se
 |------|--------|--------|-------|
 | ~~Binding codegen~~ | — | — | Done: `ScriptAPI.def` + `Tools/GenerateScriptAPI.py` generate both halves |
 | ~~Hot reload~~ | — | — | Done: rebuild on a worker thread, swap the ALC, same handles, fields restored |
-| Collision/trigger callbacks + generic component get/set | **H** | M | Route physics events to `OnCollision*`/`OnTrigger*`; expose reflected fields by path so every component is scriptable |
+| ~~Collision/trigger callbacks + generic component get/set~~ | — | — | Done: `OnCollisionEnter/Exit`, `OnTriggerEnter/Exit`, and `Entity.GetField/SetField` over reflection paths |
 | macOS .NET host | M | M | Same hostfxr dance with the osx-x64/arm64 host pack; restores platform parity |
 | ~~Fix `World_FindByName`~~ | — | — | Done: searches the whole world |
 
@@ -90,9 +90,9 @@ Impact (H/M/L) × Effort (S/M/L). Grouped so related items can share one work se
 | Item | Impact | Effort | Notes |
 |------|--------|--------|-------|
 | Finish Ultralight removal | **H** | L | Unblocks UI work, deletes the GTK3 dependency tail and the 60 fps cap |
-| Undo coverage + dirty-scene indicator | M | M | Wrap component add/remove + hierarchy ops in `ICommand`s |
+| ~~Undo coverage + dirty-scene indicator~~ | — | — | Done (Wave 2): transactions cover properties, create/delete/duplicate, reparenting and components; `*` in the title when dirty |
 | ~~Generation-time feature report~~ | — | — | Done: generation prints each optional feature, on / OFF, with the fix |
-| Async asset import / keep-warm cache | M | M–L | At minimum: stop evicting refcount-1 resources every frame; add an editor preload set |
+| Async model import | M | M | Textures load in the background (`GetAsync`) and the cache keeps unused assets warm; Assimp model imports and cooking still run on the main thread |
 
 ### E. Debt removal (one satisfying purge)
 Done (overhaul): the legacy job systems, Mono files, `Canvas.h`, `UpdateMesh`, `UWPWindow` and the boot-log noise are gone. The legacy `Collider2D` is gone too (Box2D colliders replaced it). Left: stale includes in `Source/Engine/Engine.h`.
