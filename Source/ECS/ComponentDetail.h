@@ -25,6 +25,37 @@ inline ComponentRegistry& GetComponentRegistry()
     return reg;
 }
 
+// Former component names (types renamed since files were saved) -> current names.
+inline std::map<std::string, std::string>& GetComponentAliases()
+{
+    static std::map<std::string, std::string> aliases;
+    return aliases;
+}
+
+// The registry entry for a component name, following renames. end() when unknown.
+inline ComponentRegistry::iterator FindComponentInfo( const std::string& InName )
+{
+    ComponentRegistry& reg = GetComponentRegistry();
+    ComponentRegistry::iterator it = reg.find( InName );
+    if( it == reg.end() )
+    {
+        auto alias = GetComponentAliases().find( InName );
+        if( alias != GetComponentAliases().end() )
+        {
+            it = reg.find( alias->second );
+        }
+    }
+    return it;
+}
+
+struct ComponentAlias
+{
+    ComponentAlias( const char* InFormerName, const char* InName )
+    {
+        GetComponentAliases()[InFormerName] = InName;
+    }
+};
+
 template<class T>
 BaseComponent* AddComponent( Entity& inEnt ) {
     return &inEnt.AddComponent<T>();

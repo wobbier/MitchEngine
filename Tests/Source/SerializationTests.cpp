@@ -3,6 +3,7 @@
 #include "World/SceneSerializer.h"
 #include "Resource/AssetDatabase.h"
 #include "Engine/World.h"
+#include "ECS/Core.h"
 #include "Components/Transform.h"
 #include <filesystem>
 #include <fstream>
@@ -65,9 +66,11 @@ using namespace SerializationTest;
 
 ME_REFLECT_BEGIN( SerializationTest::Link )
     ME_FIELD( Target );
-    ME_FIELD( Score );
+    ME_FIELD( Score ).FormerName( "Points" ).FormerName( "Points2" );
 ME_REFLECT_END()
 ME_REGISTER_COMPONENT( SerializationTest::Link )
+ME_REGISTER_COMPONENT_ALIAS( SerializationTest::Link, "OldLink" )
+ME_REGISTER_CORE_ALIAS( NavigationCore, "TestFormerNavigationCore" )
 
 
 TEST_CASE( "Serialization: every scene and prefab in the repo migrates to v2" )
@@ -337,4 +340,35 @@ TEST_CASE( "Assets: the database follows moved folders and remembers former path
     CHECK( database.FindPath( 0x5eed0000000000a1ull ).empty() );
     CHECK( database.FindPath( 0x5eed0000000000a2ull ).empty() );
     CHECK( database.FindPath( 0x5eed0000000000a3ull ).empty() );
+}
+
+
+TEST_CASE( "Serialization: renamed component types, core types and fields still load" )
+{
+    json data = json::parse( R"({ "Version": 2, "Entities": [
+        { "GUID": "00000000000000b1", "Name": "Old", "Components": [ { "Type": "OldLink", "Points": 42 } ] },
+        { "GUID": "00000000000000b2", "Name": "Older", "Components": [ { "Type": "OldLink", "Points2": 5 } ] },
+        { "GUID": "00000000000000b3", "Name": "Both", "Components": [ { "Type": "OldLink", "Points": 1, "Score": 9 } ] } ] })" );
+    auto world = MakeWorld();
+    SceneSerializer::LoadOptions options;
+    options.LoadCores = false;
+    std::vector<EntityHandle> roots = SceneSerializer::Deserialize( *world, data, options );
+    REQUIRE( roots.size() == 3 );
+    REQUIRE( roots[0]->HasComponent<Link>() );
+    CHECK( roots[0]->GetComponent<Link>().Score == 42 );
+    CHECK( roots[1]->GetComponent<Link>().Score == 5 );     // any former name
+    CHECK( roots[2]->GetComponent<Link>().Score == 9 );     // the current key wins
+
+    // Saving writes the current names.
+    const json saved = SceneSerializer::SerializeEntities( *world, { roots[0].Get() } );
+    const json& component = saved["Entities"][0]["Components"][0];
+    CHECK( component["Type"] == "SerializationTest::Link" );
+    CHECK( component["Score"] == 42 );
+    CHECK_FALSE( component.contains( "Points" ) );
+
+    // Name lookups follow the aliases too.
+    CHECK( roots[0]->GetComponentByName( "OldLink" ) == &roots[0]->GetComponent<Link>() );
+    CHECK( FindComponentInfo( "OldLink" ) == GetComponentRegistry().find( "SerializationTest::Link" ) );
+    CHECK( FindCoreFactory( "TestFormerNavigationCore" ) == GetCoreRegistry().find( "NavigationCore" ) );
+    CHECK( FindCoreFactory( "NoSuchCore" ) == GetCoreRegistry().end() );
 }

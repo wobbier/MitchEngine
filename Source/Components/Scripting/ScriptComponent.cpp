@@ -49,6 +49,13 @@ void ScriptComponent::EnsureCreated()
     m_started = false;
     if( m_dotnetHandle >= 0 )
     {
+        // A renamed class ([FormerName]) answers to the old name; adopt the new one so it's saved.
+        const std::string typeName = ScriptEngine::GetHandleTypeName( m_dotnetHandle );
+        if( !typeName.empty() && typeName != ScriptName )
+        {
+            CLog::Log( CLog::LogType::Info, "Script '" + ScriptName + "' is now '" + typeName + "'" );
+            ScriptName = typeName;
+        }
         // restore inspector/serialized values before the script runs
         if( !m_savedFields.empty() )
         {

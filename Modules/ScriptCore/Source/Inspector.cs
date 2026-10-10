@@ -100,9 +100,22 @@ public static class ScriptSerializer
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
         foreach (var f in FieldReflection.Of(target.GetType()))
-        if (root.TryGetProperty(f.Name, out var el))
         {
-            f.SetValue(target, el.Deserialize(f.FieldType, Options));
+            if (root.TryGetProperty(f.Name, out var el) || TryFormerName(root, f, out el))
+            {
+                f.SetValue(target, el.Deserialize(f.FieldType, Options));
+            }
         }
+    }
+
+    // A renamed field ([FormerName]) still reads the value saved under its old name.
+    private static bool TryFormerName(JsonElement root, FieldInfo field, out JsonElement value)
+    {
+        foreach (var former in field.GetCustomAttributes<FormerNameAttribute>(false))
+        {
+            if (root.TryGetProperty(former.Name, out value)) return true;
+        }
+        value = default;
+        return false;
     }
 }

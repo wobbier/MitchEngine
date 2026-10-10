@@ -168,7 +168,7 @@ public static class ScriptBridge
         int restored = 0;
         foreach (var (handle, typeName, entity, fields) in snapshots)
         {
-            var type = ScriptRegistry.ScriptTypes.FirstOrDefault(t => t.Name == typeName);
+            var type = ScriptRegistry.Find(typeName);
             if (type is null)
             {
                 Console.WriteLine($"[ScriptBridge] Reload: '{typeName}' no longer exists; dropping handle {handle}");
@@ -202,6 +202,17 @@ public static class ScriptBridge
     [UnmanagedCallersOnly]
     public static int GetScriptCount() => ScriptRegistry.ScriptTypes.Count;
 
+    // The class of a live script (differs from the name it was created with after a rename).
+    [UnmanagedCallersOnly]
+    public static unsafe void GetHandleTypeName(int handle, byte* outBuf, int bufSize)
+    {
+        if (outBuf is not null && bufSize > 0) outBuf[0] = 0;
+        if (Instances.TryGetValue(handle, out var s))
+        {
+            WriteUtf8(s.GetType().Name, outBuf, bufSize);
+        }
+    }
+
     [UnmanagedCallersOnly]
     public static unsafe void GetScriptName(int index, byte* outBuf, int bufSize)
     {
@@ -218,8 +229,8 @@ public static class ScriptBridge
         var name = ReadUtf8(inTypeName);
         try
         {
-            // matched by short name - see the collision note on ScriptRegistry.ScriptTypes
-            var type = ScriptRegistry.ScriptTypes.FirstOrDefault(t => t.Name == name);
+            // matched by short name (or a [FormerName]) - see the collision note on ScriptRegistry.ScriptTypes
+            var type = ScriptRegistry.Find(name);
             if (type is null)
             {
                 Console.WriteLine($"[ScriptBridge] CreateScript: no script type named '{name}'");

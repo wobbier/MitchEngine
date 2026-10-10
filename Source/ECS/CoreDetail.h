@@ -16,6 +16,37 @@ inline CoreRegistry& GetCoreRegistry()
     return reg;
 }
 
+// Former core names (types renamed since scenes were saved) -> current names.
+inline std::map<std::string, std::string>& GetCoreAliases()
+{
+    static std::map<std::string, std::string> aliases;
+    return aliases;
+}
+
+// The registry entry for a core name, following renames. end() when unknown.
+inline CoreRegistry::iterator FindCoreFactory( const std::string& InName )
+{
+    CoreRegistry& reg = GetCoreRegistry();
+    CoreRegistry::iterator it = reg.find( InName );
+    if( it == reg.end() )
+    {
+        auto alias = GetCoreAliases().find( InName );
+        if( alias != GetCoreAliases().end() )
+        {
+            it = reg.find( alias->second );
+        }
+    }
+    return it;
+}
+
+struct CoreAlias
+{
+    CoreAlias( const char* InFormerName, const char* InName )
+    {
+        GetCoreAliases()[InFormerName] = InName;
+    }
+};
+
 template<class T>
 std::pair<BaseCore*, TypeId> CreateCore( bool create ) {
     if( create )

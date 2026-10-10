@@ -99,7 +99,7 @@ Components keep asset paths (readable files, simple code), and the files keep th
 
 ## Caveats & Fragility
 
-- **Names are the schema** for types: component, core and material class names link files to code. Renaming one orphans data (one warning per instance at load).
+- **Names are the schema** for types: component, core and material class names link files to code. Renaming one orphans data (one warning per instance at load) unless the rename is declared: `ME_REGISTER_COMPONENT_ALIAS`, `ME_REGISTER_CORE_ALIAS`, `.FormerName()` on reflected fields, and `[FormerName]` on scripts and their fields (`Docs/ECS.md`). Material class names have no alias yet.
 - **Asset references follow moves only for GUID-backed assets.** Assets with a `.meta` (textures, models, audio, shaders, materials, input actions) and prefabs saved since `AssetGUID` was added are tracked. Scenes (`.lvl`) and C# scripts are not; prefabs written before `AssetGUID` existed are tracked once they're saved again. Paths built in code at runtime have no table, but they still resolve within the editor session that moved the asset.
 - **The table is written on save.** A file saved before this feature has no `AssetReferences`, so moves made before its next save can't be followed.
 - **Model child reuse is by name**: two same-named sibling nodes in a model map onto the first saved child.

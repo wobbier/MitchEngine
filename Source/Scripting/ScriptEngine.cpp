@@ -68,6 +68,7 @@ using FnRestoreScript = int  ( * )( const uint8_t*, int );
 using FnOnEditorInspect = void  ( * )( int );
 using FnGetFieldsJson = int ( * )( int, uint8_t*, int );
 using FnIsHandleAlive = int ( * )( int );
+using FnGetHandleTypeName = void ( * )( int, uint8_t*, int );
 using FnSetFieldsJson = void ( * )( int, const uint8_t* );
 using FnScriptOnCollision = void ( * )( int, int, EntityID, const Vector3*, const Vector3* );
 
@@ -97,6 +98,7 @@ struct ScriptAPI
     FnGetFieldsJson       GetFieldsJson = nullptr;
     FnSetFieldsJson       SetFieldsJson = nullptr;
     FnIsHandleAlive       IsHandleAlive = nullptr;
+    FnGetHandleTypeName   GetHandleTypeName = nullptr;
     FnScriptOnCollision   ScriptOnCollision = nullptr;
 
     bool IsValid() const
@@ -127,6 +129,7 @@ static bool LoadAPI( ScriptHost& inHost, const std::string& inCoreDll, ScriptAPI
     ok &= inHost.LoadFunction( inCoreDll, bridgeType, "SetFieldsJson", (void**)&outApi.SetFieldsJson );
     ok &= inHost.LoadFunction( inCoreDll, bridgeType, "ReloadGameAssembly", (void**)&outApi.ReloadGameAssembly );
     ok &= inHost.LoadFunction( inCoreDll, bridgeType, "IsHandleAlive", (void**)&outApi.IsHandleAlive );
+    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetHandleTypeName", (void**)&outApi.GetHandleTypeName );
     ok &= inHost.LoadFunction( inCoreDll, bridgeType, "ScriptOnCollision", (void**)&outApi.ScriptOnCollision );
     //ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetFieldCount",       (void**)&outApi.GetFieldCount );
     //ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetFieldInfo",        (void**)&outApi.GetFieldInfo );
@@ -573,6 +576,17 @@ std::string ScriptEngine::GetScriptName( int inIndex )
         gDotnetAPI.GetScriptName( inIndex, buf, sizeof( buf ) );
     }
 
+    return reinterpret_cast<const char*>( buf );
+}
+
+
+std::string ScriptEngine::GetHandleTypeName( int inHandle )
+{
+    uint8_t buf[256] = {};
+    if( gDotnetAPI.GetHandleTypeName )
+    {
+        gDotnetAPI.GetHandleTypeName( inHandle, buf, sizeof( buf ) );
+    }
     return reinterpret_cast<const char*>( buf );
 }
 

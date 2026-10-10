@@ -734,7 +734,7 @@ void World::LateUpdateLoadedCores( const UpdateContext& inUpdateContext )
 BaseCore* World::AddCoreByName( const std::string& core )
 {
     CoreRegistry& reg = GetCoreRegistry();
-    CoreRegistry::iterator it = reg.find( core );
+    CoreRegistry::iterator it = FindCoreFactory( core );
 
     if( it == reg.end() ) {
         CLog::GetInstance().Log( CLog::LogType::Error, "Factory not found for core " + core );

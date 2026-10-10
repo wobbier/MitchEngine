@@ -20,7 +20,7 @@ Ratings: **Solid** (rely on it) · **Usable** (works, know the sharp edges) · *
 | Lighting & shadows | **Usable** | PBR + clustered point/spot lights, stable CSM sun shadows, spot and point-light shadows (cube faces in one atlas), IBL probes and lit smoke; one shadowed sun, fixed shadow budgets, no volumetrics | [Rendering-Pipeline.md](Rendering-Pipeline.md) |
 | Materials & shaders | **Usable** | Metallic-roughness StandardMaterial, live shader hot reload with include tracking; batch-key discipline is manual; ShaderGraph half-finished; compiles block the main thread | [Materials-and-Shaders.md](Materials-and-Shaders.md) |
 | Resources & assets | **Usable** | Hot reload, keep-alive cache, asset GUIDs, background texture loads (main thread only uploads), unit tested; model imports and cooking still block the main thread | [Resources-and-Assets.md](Resources-and-Assets.md) |
-| Serialization & scenes | **Solid** | Versioned v2 format with GUIDs, references, migration and prefab links with stable source GUIDs; asset references are paths backed by asset GUIDs that follow moves and renames; renamed component types still orphan data | [Serialization-and-Scenes.md](Serialization-and-Scenes.md) |
+| Serialization & scenes | **Solid** | Versioned v2 format with GUIDs, references, migration and prefab links with stable source GUIDs; asset references are paths backed by asset GUIDs that follow moves and renames; declared renames (component, core, field and script aliases) keep old data loading | [Serialization-and-Scenes.md](Serialization-and-Scenes.md) |
 | Physics | **Solid** | Box3D and Box2D cores with the same model: fixed step + interpolation, compound bodies, joints, mover-based 3D and platformer characters, layer matrix, events and queries, unit + editor-flow tested; Box3D is pre-1.0, and C++ code subscribes to one global CollisionEvent (scripts get per-entity callbacks) | [Physics.md](Physics.md) |
 | Navigation | **Usable** | Recast/Detour with tiled parallel async bakes saved next to the scene, areas with costs, modifiers, volumes and links, DetourCrowd agents with avoidance and link arcs, queries from C++ and C#, editor bake / overlay, runtime obstacle carving (background tile rebuilds), an out-of-date warning, unit + editor-flow + game-build tested; one agent size per surface, no named agent types | [Navigation.md](Navigation.md) |
 | Animation | **Usable** | Clip import, bone entities, a real state machine (parameters, exit times, cross-fades, 1D and 2D blends, events), masked override layers, root motion through the character controller, and GPU skinning in the main, shadow and picking passes, unit + editor-flow tested; no additive layers, root rotation or edit-mode preview | [Animation.md](Animation.md) |
@@ -63,7 +63,7 @@ Impact (H/M/L) × Effort (S/M/L). Grouped so related items can share one work se
 |------|--------|--------|-------|
 | ~~Editor: snapshot world on Play~~ | — | — | Done (Wave 2): in-memory snapshot, selection and undo survive Stop |
 | ~~Fixed timestep for physics~~ | — | — | Done (Wave 1 loop + Wave 4 Box3D core): fixed steps with interpolated poses |
-| Component/core rename migration | M | S | Versioning is done (v2 scenes with v1 migration); still missing: a name-alias map consulted by the registries so renamed types keep loading |
+| ~~Component/core rename migration~~ | — | — | Done: `ME_REGISTER_COMPONENT_ALIAS` / `ME_REGISTER_CORE_ALIAS`, `.FormerName()` on reflected fields, `[FormerName]` for scripts |
 | ~~Fix `m_ambient`~~ | — | — | Done (Wave 3): ambient is image-based from per-camera environment probes |
 | ~~Event-system hardening~~ | — | — | Done (Wave 1): auto-deregistering receivers, a thread-safe queue drained at frame start, safe re-entrant dispatch |
 | ~~Quaternion transform sync in physics~~ | — | — | Done (Wave 4): poses sync as quaternions |
@@ -123,14 +123,14 @@ quadrantChart
 
 ## 5. Top 10 Priorities
 
-1. **Snapshot-on-Play** — *why now:* it silently destroys real work today. *First step:* serialize to a temp `.lvl` in `EditorApp::StartGame`, reload it (not the config scene) in `StopGame`. → `Editor-Havana.md`
+1. ~~Snapshot-on-Play~~ — done in Wave 2 (in-memory snapshot; selection and undo survive Stop). → `Editor-Havana.md`
 2. ~~Fix `m_ambient`~~ — done in Wave 3 (the legacy uniform is gone; ambient is image-based). → `Rendering-Pipeline.md`
 3. ~~Debt purge (theme E)~~ — mostly done (see theme E for what's left).
 4. ~~Fixed timestep for physics~~ — done (Wave 4: Box3D `PhysicsCore` in the fixed loop with interpolation). → `Physics.md`
-5. **Scene versioning + rename aliases** — *why now:* every rename risk grows with content volume. *First step:* write `"Version": 1` on save; add alias map to component/core registries. → `Serialization-and-Scenes.md`
+5. ~~Scene versioning + rename aliases~~ — done (v2 format with migration; component/core aliases, field and script `FormerName`s; asset references follow moves by GUID). → `Serialization-and-Scenes.md`
 6. **Finish Ultralight removal** — *why now:* it's already declared dead; limbo is the worst state. *First step:* land the web-UI spike behind `ME_UI`, delete `Source/UI/Graphics/GPUDriver.*` last. → `UI-Ultralight-and-ImGui.md`
 7. ~~Script binding codegen~~ — done (`ScriptAPI.def` + generator with a `--check` mode). → `Scripting-DotNet.md`
-8. ~~Script hot reload~~ — done (editing a `.cs` rebuilds and swaps in place; fields survive). Next scripting priority: collision callbacks and generic component access. → `Scripting-DotNet.md`
+8. ~~Script hot reload~~ — done (editing a `.cs` rebuilds and swaps in place; fields survive), and so are collision callbacks and generic component access. → `Scripting-DotNet.md`
 9. ~~Bounding-volume culling~~ — done (AABB per mesh, tested in the mesh job). → `Rendering-Pipeline.md`
 10. ~~Shadow mapping~~ — done in Wave 3 (cascaded sun + spot shadows). Next rendering priority: validate on real GPUs and non-Vulkan backends. → `Rendering-Pipeline.md`
 

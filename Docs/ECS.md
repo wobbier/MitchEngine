@@ -110,6 +110,13 @@ ME_REFLECT_END()
 
 Reflected components serialize with no extra code (the default `OnSerialize`/`OnDeserialize` use reflection). Override them only for custom formats. The name passed to `Component( "...")` must match the registered type name.
 
+**Renaming without orphaning saved data:**
+
+- When a component type is renamed, keep its old name loading with `ME_REGISTER_COMPONENT_ALIAS( NewType, "OldName" )`, next to `ME_REGISTER_COMPONENT`. Name lookups (`AddComponentByName`, `GetComponentByName`, `RemoveComponent`) follow the alias, and saving writes the new name.
+- Cores have `ME_REGISTER_CORE_ALIAS( NewCore, "OldCore" )`.
+- A renamed reflected field keeps its saved values with `ME_FIELD( MaxHealth ).FormerName( "Value" )`; the current key wins when both are present.
+- For scripts, see `[FormerName]` in `Docs/Scripting-DotNet.md`.
+
 ### Add a core
 
 ```cpp

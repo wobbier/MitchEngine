@@ -177,3 +177,15 @@ void Core<T>::OnEditorInspect()
 }
 
 #endif
+
+#ifndef ME_ALIAS_CONCAT
+#define ME_ALIAS_CONCAT_INNER( A, B ) A##B
+#define ME_ALIAS_CONCAT( A, B ) ME_ALIAS_CONCAT_INNER( A, B )
+#endif
+
+// A core type was renamed: scenes that still list FORMER_NAME get TYPE.
+//   ME_REGISTER_CORE_ALIAS( CombatCore, "DamageCore" )
+#define ME_REGISTER_CORE_ALIAS( TYPE, FORMER_NAME ) \
+    namespace details { namespace { \
+        const CoreAlias ME_ALIAS_CONCAT( s_coreAlias, __LINE__ )( FORMER_NAME, #TYPE ); \
+    }}

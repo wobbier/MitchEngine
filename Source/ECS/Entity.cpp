@@ -33,7 +33,7 @@ const bool Entity::HasComponent( TypeId inComponentType ) const
 BaseComponent* Entity::AddComponentByName( const std::string& inComponent )
 {
     ComponentRegistry& reg = GetComponentRegistry();
-    ComponentRegistry::iterator it = reg.find( inComponent );
+    ComponentRegistry::iterator it = FindComponentInfo( inComponent );
 
     if( it == reg.end() ) {
         CLog::GetInstance().Log( CLog::LogType::Warning, "Factory not found for component " + inComponent );
@@ -65,7 +65,7 @@ BaseComponent* Entity::GetComponentPtr( TypeId InTypeId ) const
 BaseComponent* Entity::GetComponentByName( const std::string& Name ) const
 {
     ComponentRegistry& reg = GetComponentRegistry();
-    ComponentRegistry::iterator it = reg.find( Name );
+    ComponentRegistry::iterator it = FindComponentInfo( Name );
     if( it == reg.end() )
     {
         return nullptr;
@@ -219,7 +219,7 @@ void Entity::RemoveComponent( TypeId InComponentTypeId )
 void Entity::RemoveComponent( const std::string& Name )
 {
     ComponentRegistry& reg = GetComponentRegistry();
-    ComponentRegistry::iterator it = reg.find( Name );
+    ComponentRegistry::iterator it = FindComponentInfo( Name );
 
     if( it == reg.end() )
     {

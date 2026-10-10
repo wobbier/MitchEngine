@@ -57,6 +57,9 @@ public:
     static void        ScriptOnEditorInspect( int inHandle );
     static int         GetScriptCount();
     static std::string GetScriptName( int inIndex );
+    // The class of a live script: differs from the name it was created with when the class was
+    // renamed with [FormerName]. Empty for dead handles.
+    static std::string GetHandleTypeName( int inHandle );
 };
 
 #endif

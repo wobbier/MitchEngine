@@ -131,6 +131,8 @@ namespace Reflection
         std::string ( *ChoiceName )( int index ) = nullptr;
         int ChoiceCount = 0;
         bool ChoiceMask = false;
+        // Keys this field was saved under before it was renamed (read when Name is missing).
+        std::vector<std::string> FormerNames;
 
         const ValueOps* Ops = nullptr;
         void* ( *Access )( void* instance ) = nullptr;
@@ -366,6 +368,8 @@ namespace Reflection
         FieldBuilder& Asset( const char* filter = "" ) { Field().Flags |= FieldFlags::Asset; Field().AssetFilter = filter; return *this; }
         FieldBuilder& Choices( int count, std::string ( *name )( int ) ) { Field().ChoiceCount = count; Field().ChoiceName = name; Field().ChoiceMask = false; return *this; }
         FieldBuilder& MaskChoices( int count, std::string ( *name )( int ) ) { Field().ChoiceCount = count; Field().ChoiceName = name; Field().ChoiceMask = true; return *this; }
+        // The field was renamed: data saved under the old key still loads (saving writes the new one).
+        FieldBuilder& FormerName( const char* name ) { Field().FormerNames.emplace_back( name ); return *this; }
 
     private:
         FieldInfo& Field() { return m_type.Fields[m_index]; }

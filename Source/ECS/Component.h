@@ -27,6 +27,19 @@
     }}
 #define ME_REGISTER_COMPONENT(TYPE) ME_REGISTER_COMPONENT_FOLDER(TYPE, "")
 
+#ifndef ME_ALIAS_CONCAT
+#define ME_ALIAS_CONCAT_INNER( A, B ) A##B
+#define ME_ALIAS_CONCAT( A, B ) ME_ALIAS_CONCAT_INNER( A, B )
+#endif
+
+// A component type was renamed: files that still say FORMER_NAME load as TYPE, and saving writes
+// the new name. Next to the type's ME_REGISTER_COMPONENT:
+//   ME_REGISTER_COMPONENT_ALIAS( HealthComponent, "Health" )
+#define ME_REGISTER_COMPONENT_ALIAS( TYPE, FORMER_NAME ) \
+    namespace details { namespace { \
+        const ComponentAlias ME_ALIAS_CONCAT( s_componentAlias, __LINE__ )( FORMER_NAME, #TYPE ); \
+    }}
+
 class World;
 
 // Lifecycle (all on the main thread):

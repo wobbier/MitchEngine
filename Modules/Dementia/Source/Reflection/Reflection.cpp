@@ -490,6 +490,10 @@ namespace Reflection
                 return;
             }
             auto it = in.find( field.Name );
+            for( size_t former = 0; ( it == in.end() || it->is_null() ) && former < field.FormerNames.size(); ++former )
+            {
+                it = in.find( field.FormerNames[former] );
+            }
             if( it == in.end() || it->is_null() )
             {
                 return;

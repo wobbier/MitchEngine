@@ -36,7 +36,7 @@ The managed side has these parts:
 - **`Script.cs`** is the base class with `Entity`, `transform` and the `Get/Has/AddComponent<T>` helpers.
 - **`Engine.cs`** is the `ScriptBridge` entry points and the instance table, and contains the hot reload logic.
 - **`GameScriptALC.cs`** is the collectible ALC. It redirects `ScriptCore` references to the already-loaded assembly.
-- **`ScriptRegistry.cs`** finds `IGameScript` implementors, keyed by `Type.Name`.
+- **`ScriptRegistry.cs`** finds `IGameScript` implementors, keyed by `Type.Name` (`Find` also matches a `[FormerName]`), and declares `FormerNameAttribute`.
 - **`Inspector.cs`** is the reflection-driven ImGui field editor and the JSON field serializer.
 - **`Core/`** holds `Entity`, `World`, `Time`, `Input`, `Audio`, `Physics` and `Debug`.
 - **`Components/`** holds `Transform`, `Rigidbody`, `Camera` and `BasicUIView`.
@@ -178,6 +178,7 @@ Save it anywhere under `Assets/`. The editor builds it on the next start, or hot
 
 - **The ABI guard is `sizeof` plus the generator.** The struct is append-only. Never hand-edit the generated files; `--check` catches drift between the manifest and the outputs.
 - **Script lookup is `Type.Name`**: two scripts with the same class name in different namespaces clash.
+- **Renames need `[FormerName]`.** A scene names its scripts by class name and their fields by field name. Put `[FormerName("OldClass")]` on a renamed script class: scenes that name the old class create the new one, and `ScriptComponent` adopts the new name (logged) so the next save writes it. `[FormerName("oldField")]` on a field reads a value saved under the old key. `ScriptTest.lvl` / `RenameProbe.cs` exercise both in `ScriptFlows`.
 - **Handles are bare ints.** They stay stable across reloads, and `IsHandleAlive` validates them, but there is no generation counter.
 - **Game builds don't compile scripts.** The DLLs must already sit next to the executable, or scripting logs a warning and stays off.
 - **The .NET SDK must be on `PATH`** for tools builds to compile. Without it the existing DLLs are used as-is.
