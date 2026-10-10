@@ -362,3 +362,119 @@ TEST_CASE( "Animation: root motion moves the entity instead of the root bone" )
     CHECK( rig.Root->GetComponent<Transform>().GetWorldPosition().x == doctest::Approx( before ) );
     CHECK( animator.GetRootMotion().x > 0.f );   // still reported
 }
+
+
+TEST_CASE( "Animation: additive layers add their motion on top of the layers below" )
+{
+    // The additive clip's first frame is its reference: its motion from there is what's added.
+    Moonlight::AnimationClip turn;
+    turn.Name = "Turn";
+    turn.Duration = 1.f;
+    Moonlight::AnimationChannel turnChannel = HoldChannel( "Arm", Vector3( 1.f, 0.f, 0.f ), 1.f );
+    const Quaternion yaw( 0.f, std::sin( 0.785398f ), 0.f, std::cos( 0.785398f ) );    // 90 deg about Y
+    turnChannel.RotationTimes = { 0.f };
+    turnChannel.Rotations = { yaw };
+    turn.Channels.push_back( turnChannel );
+    Moonlight::AnimationClip nod;
+    nod.Name = "Nod";
+    nod.Duration = 1.f;
+    Moonlight::AnimationChannel nodChannel;
+    nodChannel.NodeName = "Arm";
+    nodChannel.PositionTimes = { 0.f, 1.f };
+    nodChannel.Positions = { Vector3( 3.f, 0.f, 0.f ), Vector3( 5.f, 0.f, 0.f ) };     // +2 along X over the clip
+    const Quaternion pitch( std::sin( 0.785398f ), 0.f, 0.f, std::cos( 0.785398f ) );  // 90 deg about X
+    nodChannel.RotationTimes = { 0.f, 1.f };
+    nodChannel.Rotations = { Quaternion( 0.f, 0.f, 0.f, 1.f ), pitch };
+    nod.Channels.push_back( nodChannel );
+
+    Rig rig( { turn, nod } );
+    Animator& animator = rig.Anim();
+    AnimatorState base;
+    base.Name = "Turn";
+    base.Clip = "Turn";
+    AnimatorState nodState;
+    nodState.Name = "Nod";
+    nodState.Clip = "Nod";
+    nodState.Loop = false;
+    nodState.Layer = "Breathing";
+    animator.States = { base, nodState };
+    AnimatorLayer layer;
+    layer.Name = "Breathing";
+    layer.DefaultState = "Nod";
+    layer.Blending = AnimatorLayerBlending::Additive;
+    animator.Layers = { layer };
+    rig.Start();
+
+    // Halfway through: +1 along X added to the base's 1, not replaced by the clip's 4.
+    rig.Run( 0.5f );
+    CHECK( rig.ArmPosition().x == doctest::Approx( 2.f ).epsilon( 0.02 ) );
+    // At the end: the full pitch applied in the bone's frame, after the base's yaw.
+    rig.Run( 1.f );
+    CHECK( rig.ArmPosition().x == doctest::Approx( 3.f ).epsilon( 0.01 ) );
+    const Quaternion expected = yaw * pitch;
+    const Quaternion rotation = rig.Arm->GetComponent<Transform>().GetRotation();
+    CHECK( std::abs( rotation.x * expected.x + rotation.y * expected.y + rotation.z * expected.z + rotation.w * expected.w ) == doctest::Approx( 1.f ).epsilon( 0.001 ) );
+
+    // Weight scales the added motion.
+    animator.SetLayerWeight( "Breathing", 0.5f );
+    rig.Run( 0.1f );
+    CHECK( rig.ArmPosition().x == doctest::Approx( 2.f ).epsilon( 0.01 ) );
+    animator.SetLayerWeight( "Breathing", 0.f );
+    rig.Run( 0.1f );
+    CHECK( rig.ArmPosition().x == doctest::Approx( 1.f ).epsilon( 0.01 ) );
+}
+
+TEST_CASE( "Animation: editor previews pose in edit mode and always give the authored pose back" )
+{
+    Rig rig( { Slide( "Lean", "Arm", 0.f, 10.f, 10.f ) } );
+    Animator& animator = rig.Anim();
+    rig.GameWorld->Simulate();
+
+    // Held at a time, then playing.
+    animator.StartPreview( "Lean" );
+    animator.PreviewPlaying = false;
+    animator.PreviewTime = 3.f;
+    rig.Core.UpdatePreviews( 1.f / 60.f );
+    CHECK( animator.IsPreviewing() );
+    CHECK( rig.ArmPosition().x == doctest::Approx( 3.f ) );
+    CHECK( animator.GetPreviewDuration() == doctest::Approx( 10.f ) );
+    animator.PreviewPlaying = true;
+    rig.Core.UpdatePreviews( 0.5f );
+    CHECK( rig.ArmPosition().x == doctest::Approx( 3.5f ) );
+
+    // Saving writes the authored pose; the preview poses again on its next update.
+    rig.Core.RestorePreviewPoses();
+    CHECK( rig.ArmPosition().x == doctest::Approx( 0.f ) );
+    CHECK( rig.ArmPosition().y == doctest::Approx( 5.f ) );
+    rig.Core.UpdatePreviews( 0.f );
+    CHECK( rig.ArmPosition().x == doctest::Approx( 3.5f ) );
+
+    // Stopping restores the bind pose.
+    animator.StopPreview();
+    rig.Core.UpdatePreviews( 1.f / 60.f );
+    CHECK_FALSE( animator.IsPreviewing() );
+    CHECK( rig.ArmPosition().x == doctest::Approx( 0.f ) );
+    CHECK( rig.ArmPosition().y == doctest::Approx( 5.f ) );
+
+    // A preview nobody inspects ends on its own (selecting something else).
+    animator.StartPreview( "Lean" );
+    rig.Core.UpdatePreviews( 1.f / 60.f );
+    CHECK( rig.ArmPosition().y == doctest::Approx( 0.f ) );
+    for( int i = 0; i <= AnimationCore::kPreviewIdleUpdates; ++i )
+    {
+        rig.Core.UpdatePreviews( 1.f / 60.f );
+    }
+    CHECK_FALSE( animator.IsPreviewing() );
+    CHECK( rig.ArmPosition().y == doctest::Approx( 5.f ) );
+
+    // Entering play ends previews first: play binds to the authored pose.
+    animator.StartPreview( "Lean" );
+    animator.PreviewTime = 6.f;
+    rig.Core.UpdatePreviews( 0.f );
+    CHECK( rig.ArmPosition().x > 5.f );
+    rig.GameWorld->Start();
+    CHECK_FALSE( animator.IsPreviewing() );
+    CHECK( rig.ArmPosition().y == doctest::Approx( 5.f ) );
+    rig.Run( 0.5f );
+    CHECK( rig.ArmPosition().x == doctest::Approx( 0.5f ).epsilon( 0.05 ) );   // playing from the start
+}

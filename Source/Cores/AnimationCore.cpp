@@ -55,6 +55,8 @@ AnimationCore::AnimationCore()
 
 void AnimationCore::OnStart()
 {
+    // Previews end: the play bind pose is the scene as authored.
+    StopAllPreviews();
     m_running = true;
     // Bind afresh at play start: the bind pose is the scene as it was authored.
     for( Entity& entity : GetEntities() )
@@ -75,6 +77,121 @@ void AnimationCore::Update( const UpdateContext& inUpdateContext )
     if( m_running )
     {
         Advance( inUpdateContext.GetDeltaTime() );
+    }
+    else
+    {
+        UpdatePreviews( inUpdateContext.GetUnscaledDeltaTime() );
+    }
+}
+
+
+void AnimationCore::WriteBindPose( Animator& InAnimator )
+{
+    for( const Animator::Binding& binding : InAnimator.m_bindings )
+    {
+        if( Transform* transform = binding.Node ? binding.Node->TryGetComponent<Transform>() : nullptr )
+        {
+            transform->SetPosition( binding.BindPosition );
+            transform->SetRotation( binding.BindRotation );
+            transform->SetScale( binding.BindScale );
+        }
+    }
+}
+
+
+void AnimationCore::EndPreview( Animator& InAnimator )
+{
+    InAnimator.m_previewRequested = false;
+    if( InAnimator.m_previewBound )
+    {
+        WriteBindPose( InAnimator );
+        InAnimator.Unbind();
+        InAnimator.m_previewBound = false;
+    }
+}
+
+
+void AnimationCore::RestorePreviewPoses()
+{
+    for( Entity& entity : GetEntities() )
+    {
+        Animator& animator = entity.GetComponent<Animator>();
+        if( animator.m_previewBound )
+        {
+            WriteBindPose( animator );
+        }
+    }
+}
+
+
+void AnimationCore::StopAllPreviews()
+{
+    for( Entity& entity : GetEntities() )
+    {
+        EndPreview( entity.GetComponent<Animator>() );
+    }
+}
+
+
+void AnimationCore::UpdatePreviews( float InDeltaSeconds )
+{
+    OPTICK_EVENT( "AnimationCore::UpdatePreviews" );
+    std::vector<Animator*> previewing;
+    for( Entity& entity : GetEntities() )
+    {
+        Animator& a = entity.GetComponent<Animator>();
+        // A preview lives while its inspector is shown (selecting something else ends it).
+        if( a.m_previewRequested && ++a.m_previewIdleUpdates > kPreviewIdleUpdates )
+        {
+            a.m_previewRequested = false;
+        }
+        if( !a.m_previewRequested || !a.IsEnabled() || !entity.IsActiveInHierarchy() )
+        {
+            EndPreview( a );
+            continue;
+        }
+        if( !a.m_bound )
+        {
+            Bind( entity, a );
+            a.m_previewBound = true;
+        }
+        if( !a.m_clips || a.m_states.empty() || a.m_bindings.empty() )
+        {
+            continue;
+        }
+        int state = a.m_previewState.empty() ? -1 : a.FindState( a.m_previewState );
+        if( state < 0 )
+        {
+            state = a.DefaultState.empty() ? 0 : std::max( a.FindState( a.DefaultState ), 0 );
+            a.m_previewState = a.m_states[state].Name;
+        }
+        // Just this state, on its layer: no transitions, events or cross-fades.
+        const int layerIndex = a.StateLayer( state );
+        for( size_t i = 0; i < a.m_layers.size(); ++i )
+        {
+            Animator::LayerPlayback& layer = a.m_layers[i];
+            layer.Playing = static_cast<int>( i ) == layerIndex;
+            layer.Previous = -1;
+        }
+        const float duration = a.StateDuration( state );
+        if( a.PreviewPlaying )
+        {
+            a.PreviewTime += InDeltaSeconds * a.Speed * a.m_states[state].Speed;
+        }
+        if( duration > 0.f )
+        {
+            a.PreviewTime = a.m_states[state].Loop ? a.PreviewTime - std::floor( a.PreviewTime / duration ) * duration : std::clamp( a.PreviewTime, 0.f, duration );
+        }
+        Animator::LayerPlayback& layer = a.m_layers[layerIndex];
+        layer.Current = state;
+        layer.Time = a.PreviewTime;
+        layer.TimeBefore = a.PreviewTime;
+        previewing.push_back( &a );
+    }
+    for( Animator* animator : previewing )
+    {
+        SamplePose( *animator );
+        WritePose( *animator );   // root motion stays in place: nothing moves the entity
     }
 }
 
@@ -170,6 +287,7 @@ void AnimationCore::Bind( Entity& InEntity, Animator& InAnimator )
         }
         const AnimatorLayer& settings = a.Layers[layerIndex - 1];
         layer.Weight = std::clamp( settings.Weight, 0.f, 1.f );
+        layer.Additive = settings.Blending == AnimatorLayerBlending::Additive;
         if( settings.Mask.empty() )
         {
             continue;
@@ -592,11 +710,14 @@ void AnimationCore::SamplePose( Animator& InAnimator )
         return result;
     };
 
-    // A layer's pose for a binding: its current state, cross-faded from the previous one.
+    // A layer's pose for a binding: its current state, cross-faded from the previous one. Additive
+    // layers also sample each state's first frame, the reference their motion is measured from.
     struct LayerSamples
     {
         StateSamples Current;
         StateSamples Previous;
+        StateSamples CurrentReference;
+        StateSamples PreviousReference;
         float Fade = 1.f;
         bool Active = false;
     };
@@ -611,9 +732,17 @@ void AnimationCore::SamplePose( Animator& InAnimator )
         LayerSamples& samples = layers[i];
         samples.Active = true;
         samples.Current = resolve( playback.Current, playback.Time, playback.TimeBefore );
+        if( playback.Additive )
+        {
+            samples.CurrentReference = resolve( playback.Current, 0.f, 0.f );
+        }
         if( playback.Previous >= 0 )
         {
             samples.Previous = resolve( playback.Previous, playback.PreviousTime, playback.PreviousTimeBefore );
+            if( playback.Additive )
+            {
+                samples.PreviousReference = resolve( playback.Previous, 0.f, 0.f );
+            }
             float fade = playback.FadeDuration > 0.f ? std::clamp( playback.FadeElapsed / playback.FadeDuration, 0.f, 1.f ) : 1.f;
             samples.Fade = fade * fade * ( 3.f - 2.f * fade );   // smoothstep
         }
@@ -629,6 +758,33 @@ void AnimationCore::SamplePose( Animator& InAnimator )
         return pose;
     };
 
+    // An additive layer's motion for a binding: its pose relative to its state's first frame
+    // (position offset, local rotation, scale ratio), cross-faded like a pose.
+    auto ratio = []( float InValue, float InReference ) { return std::abs( InReference ) > 1e-6f ? InValue / InReference : 1.f; };
+    auto additiveDelta = [&]( const Animator::Binding& InBinding, const Animator::LayerPlayback& InPlayback, const LayerSamples& InSamples ) {
+        auto difference = [&]( const StateSamples& InPose, const StateSamples& InReference ) {
+            const Animator::Pose pose = statePose( InBinding, InPose );
+            const Animator::Pose reference = statePose( InBinding, InReference );
+            return Animator::Pose{ pose.Position - reference.Position, reference.Rotation.Inverse() * pose.Rotation,
+                Vector3( ratio( pose.Scale.x, reference.Scale.x ), ratio( pose.Scale.y, reference.Scale.y ), ratio( pose.Scale.z, reference.Scale.z ) ) };
+        };
+        Animator::Pose delta = difference( InSamples.Current, InSamples.CurrentReference );
+        if( InPlayback.Previous >= 0 && InSamples.Fade < 1.f )
+        {
+            Animator::Pose from = difference( InSamples.Previous, InSamples.PreviousReference );
+            blend( from, delta, InSamples.Fade );
+            delta = from;
+        }
+        return delta;
+    };
+    auto add = []( Animator::Pose& InOutPose, const Animator::Pose& InDelta, float InWeight ) {
+        InOutPose.Position = InOutPose.Position + InDelta.Position * InWeight;
+        InOutPose.Rotation = InOutPose.Rotation * Quaternion::Slerp( Quaternion::Identity, InDelta.Rotation, InWeight );
+        InOutPose.Scale = Vector3( InOutPose.Scale.x * ( 1.f + ( InDelta.Scale.x - 1.f ) * InWeight ),
+            InOutPose.Scale.y * ( 1.f + ( InDelta.Scale.y - 1.f ) * InWeight ),
+            InOutPose.Scale.z * ( 1.f + ( InDelta.Scale.z - 1.f ) * InWeight ) );
+    };
+
     for( size_t i = 0; i < a.m_bindings.size(); ++i )
     {
         const Animator::Binding& binding = a.m_bindings[i];
@@ -640,7 +796,15 @@ void AnimationCore::SamplePose( Animator& InAnimator )
         for( size_t layer = 1; layer < a.m_layers.size(); ++layer )
         {
             const Animator::LayerPlayback& playback = a.m_layers[layer];
-            if( layers[layer].Active && playback.Weight > 0.f && playback.BoneMask[i] )
+            if( !layers[layer].Active || playback.Weight <= 0.f || !playback.BoneMask[i] )
+            {
+                continue;
+            }
+            if( playback.Additive )
+            {
+                add( pose, additiveDelta( binding, playback, layers[layer] ), playback.Weight );
+            }
+            else
             {
                 blend( pose, layerPose( binding, playback, layers[layer] ), playback.Weight );
             }

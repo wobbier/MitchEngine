@@ -3,6 +3,7 @@
 #include "Scene.h"
 #include "SceneSerializer.h"
 #include "Engine/Engine.h"
+#include "Cores/AnimationCore.h"
 #include "CLog.h"
 
 
@@ -84,6 +85,11 @@ void Scene::Save( const std::string& fileName, Transform* root )
 void Scene::SaveCopy( const std::string& fileName, Transform* root )
 {
 #if USING( ME_EDITOR )
+    // Animation previews pose bones in edit mode: save the authored pose (they pose again next update).
+    if( GetEngine().Animation )
+    {
+        GetEngine().Animation->RestorePreviewPoses();
+    }
     json world = SceneSerializer::SerializeWorld( *GetEngine().GetWorld().lock(), root );
     SceneSerializer::PrepareForSave( world, fileName, false );
     File worldFile{ Path( fileName ) };

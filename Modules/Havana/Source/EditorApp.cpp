@@ -16,6 +16,7 @@
 #include "Path.h"
 #include "Cores/EditorCore.h"
 #include "Engine/Engine.h"
+#include "Cores/AnimationCore.h"
 #include "Havana.h"
 #include "Cores/SceneCore.h"
 #include "Events/SceneEvents.h"
@@ -309,6 +310,11 @@ void EditorApp::StartGame()
         return;
     }
     m_playSnapshot = json();
+    // Animation previews end, so the snapshot (and play's bind pose) is the authored pose.
+    if( GetEngine().Animation )
+    {
+        GetEngine().Animation->StopAllPreviews();
+    }
     Scene* scene = GetEngine().CurrentScene;
     if( scene && EditorSceneManager && EditorSceneManager->RootTransform )
     {
@@ -555,6 +561,10 @@ void EditorApp::UpdateAutosave( float InDeltaSeconds )
 
     std::error_code error;
     std::filesystem::create_directories( Path( kAutosaveDir ).FullPath, error );
+    if( GetEngine().Animation )
+    {
+        GetEngine().Animation->RestorePreviewPoses();   // previews pose again next update
+    }
     json scene = SceneSerializer::SerializeWorld( *GetEngine().GetWorld().lock(), EditorSceneManager->RootTransform );
     File( Path( kAutosaveScene ) ).Write( scene.dump() );
     json session;

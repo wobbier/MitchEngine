@@ -20,6 +20,8 @@
 #include <Renderer.h>
 #include <Cores/PhysicsCore.h>
 #include <Cores/NavigationCore.h>
+#include <Cores/AnimationCore.h>
+#include <Components/Animation/Animator.h>
 
 #if USING( ME_EDITOR )
 
@@ -67,6 +69,17 @@ void EditorCore::RegisterViewActions()
     view( "View.Navigation", "Show Navigation", 0, []() { NavigationCore::DebugDrawEnabled = !NavigationCore::DebugDrawEnabled; } );
     EditorAction bake{ "Navigation.BakeAll", "Bake All NavMeshes", "Navigation", 0, 0, []() { if( NavigationCore* navigation = GetEngine().Navigation ) { navigation->BakeAll( true ); } } };
     actions.Register( bake );
+    // Animation previews (the Animator inspector has the same controls).
+    EditorAction preview{ "Animation.PreviewSelected", "Preview Selected Animator", "Animation", 0, 0, []() {
+        EntityHandle selected = Selection::Get().GetActive();
+        if( Animator* animator = selected ? selected->TryGetComponent<Animator>() : nullptr )
+        {
+            animator->StartPreview( animator->DefaultState );
+        }
+    } };
+    actions.Register( preview );
+    EditorAction stopPreviews{ "Animation.StopPreviews", "Stop Animation Previews", "Animation", 0, 0, []() { if( AnimationCore* animation = GetEngine().Animation ) { animation->StopAllPreviews(); } } };
+    actions.Register( stopPreviews );
 }
 
 

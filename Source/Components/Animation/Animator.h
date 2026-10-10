@@ -55,9 +55,16 @@ public:
     std::string Layer;          // empty = the base layer
 };
 
-// A layer runs its own states over part of the body: its pose replaces the layers below it on the
-// bones in Mask (each named bone and everything below it), by Weight. Typical use: an upper-body
-// layer that aims or waves while the base layer walks.
+enum class AnimatorLayerBlending : uint8_t
+{
+    Override = 0,   // the layer's pose replaces the layers below on its bones
+    Additive,       // the layer's motion, relative to its state's first frame, adds on top of them
+};
+
+// A layer runs its own states over part of the body (the bones in Mask, each with everything below
+// it), blended over the layers below by Weight. Override layers replace the pose: an upper body that
+// aims or waves while the base layer walks. Additive layers add their motion: breathing, flinches,
+// leaning, aim offsets, on top of whatever plays below.
 struct AnimatorLayer
 {
     ME_REFLECTABLE( AnimatorLayer )
@@ -66,6 +73,7 @@ public:
     std::string DefaultState;   // empty = none until Play()
     float Weight = 1.f;
     std::vector<std::string> Mask;  // empty = the whole body
+    AnimatorLayerBlending Blending = AnimatorLayerBlending::Override;
 };
 
 enum class AnimatorCondition : uint8_t
@@ -169,6 +177,24 @@ public:
     // Plays these clips instead of a model's (procedural or code-built animation). Rebinds.
     void UseClips( SharedPtr<std::vector<Moonlight::AnimationClip>> InClips );
 
+    // Editor preview: in edit mode, poses the model with a state (empty = the default one), playing
+    // or held at PreviewTime, without running the state machine, events or root motion. Stopping it,
+    // saving the scene or entering play puts the authored pose back, so a preview is never saved.
+    void StartPreview( const std::string& InState = "" );
+    void StopPreview();
+    bool IsPreviewing() const
+    {
+        return m_previewRequested;
+    }
+    const std::string& GetPreviewState() const
+    {
+        return m_previewState;
+    }
+    float PreviewTime = 0.f;        // seconds into the previewed state
+    bool PreviewPlaying = true;
+    // The previewed state's length in seconds (0 until it's bound).
+    float GetPreviewDuration() const;
+
 #if USING( ME_EDITOR )
     void OnEditorInspect() override;
 #endif
@@ -203,6 +229,7 @@ private:
         float FadeElapsed = 0.f;
         float FadeDuration = 0.f;
         float Weight = 1.f;
+        bool Additive = false;
         std::vector<uint8_t> BoneMask;  // per binding: 1 = this layer drives it
     };
 
@@ -223,6 +250,11 @@ private:
     Vector3 m_rootMotion;           // last update, in the root bone's parent space (from SamplePose)
     Vector3 m_rootMotionWorld;
     Vector3 m_rootUp = Vector3( 0.f, 1.f, 0.f );     // world up in the root bone's parent space
+    // Editor preview
+    bool m_previewRequested = false;
+    bool m_previewBound = false;    // bound by a preview (edit mode): restore the bind pose when it ends
+    int m_previewIdleUpdates = 0;   // updates since the inspector last showed this animator
+    std::string m_previewState;
 
     int FindState( const std::string& InName ) const;
     int FindLayer( const std::string& InName ) const;   // -1 = unknown; "" = 0

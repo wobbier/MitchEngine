@@ -2,6 +2,8 @@
 #include "Animator.h"
 #include "Graphics/ModelResource.h"
 #include "Scene/AnimationClip.h"
+#include "Cores/AnimationCore.h"
+#include "Engine/Engine.h"
 #include <algorithm>
 #include <cmath>
 
@@ -9,6 +11,7 @@
 #include <imgui.h>
 #endif
 
+ME_REFLECT_ENUM( AnimatorLayerBlending, { { "Override", AnimatorLayerBlending::Override }, { "Additive", AnimatorLayerBlending::Additive } } )
 ME_REFLECT_ENUM( AnimatorParameterType, { { "Float", AnimatorParameterType::Float }, { "Bool", AnimatorParameterType::Bool }, { "Trigger", AnimatorParameterType::Trigger } } )
 ME_REFLECT_ENUM( AnimatorCondition, { { "Always", AnimatorCondition::Always }, { "Greater", AnimatorCondition::Greater }, { "Less", AnimatorCondition::Less },
     { "True", AnimatorCondition::True }, { "False", AnimatorCondition::False }, { "Trigger", AnimatorCondition::Trigger } } )
@@ -41,6 +44,7 @@ ME_REFLECT_BEGIN( AnimatorLayer )
     ME_FIELD( DefaultState );
     ME_FIELD( Weight ).Range( 0.f, 1.f );
     ME_FIELD( Mask ).Tooltip( "Bones (with everything below them) this layer drives; empty = all" );
+    ME_FIELD( Blending ).Tooltip( "Override replaces the pose below; Additive adds the layer's motion (relative to its state's first frame) on top" );
 ME_REFLECT_END()
 
 ME_REFLECT_BEGIN( AnimatorTransition )
@@ -390,12 +394,86 @@ std::vector<std::string> Animator::GetClipNames() const
 }
 
 
+void Animator::StartPreview( const std::string& InState )
+{
+    m_previewRequested = true;
+    m_previewIdleUpdates = 0;
+    if( InState != m_previewState || InState.empty() )
+    {
+        m_previewState = InState;
+        PreviewTime = 0.f;
+    }
+}
+
+
+void Animator::StopPreview()
+{
+    m_previewRequested = false;
+}
+
+
+float Animator::GetPreviewDuration() const
+{
+    const int state = m_previewBound ? FindState( m_previewState ) : -1;
+    return state >= 0 ? StateDuration( state ) : 0.f;
+}
+
+
 #if USING( ME_EDITOR )
 void Animator::OnEditorInspect()
 {
+    AnimationCore* core = GetEngine().Animation;
+    if( !core || !core->IsRunning() )
+    {
+        // Edit mode: preview a state on the model.
+        m_previewIdleUpdates = 0;
+        if( !m_previewRequested )
+        {
+            if( ImGui::Button( "Preview", ImVec2( -1.f, 0.f ) ) )
+            {
+                StartPreview( DefaultState );
+            }
+            return;
+        }
+        if( !m_previewBound )
+        {
+            ImGui::TextDisabled( "Binding..." );
+            return;
+        }
+        if( ImGui::BeginCombo( "Preview State", m_previewState.c_str() ) )
+        {
+            for( const AnimatorState& state : m_states )
+            {
+                if( ImGui::Selectable( state.Name.c_str(), state.Name == m_previewState ) )
+                {
+                    m_previewState = state.Name;
+                    PreviewTime = 0.f;
+                }
+            }
+            ImGui::EndCombo();
+        }
+        if( ImGui::Button( PreviewPlaying ? "Pause" : "Play" ) )
+        {
+            PreviewPlaying = !PreviewPlaying;
+        }
+        ImGui::SameLine();
+        const float duration = GetPreviewDuration();
+        ImGui::SetNextItemWidth( -90.f );
+        if( ImGui::SliderFloat( "##PreviewTime", &PreviewTime, 0.f, std::max( duration, 0.001f ), "%.2f s" ) )
+        {
+            PreviewPlaying = false;
+        }
+        ImGui::SameLine();
+        if( ImGui::Button( "Stop" ) )
+        {
+            StopPreview();
+        }
+        ImGui::TextDisabled( "Previewing: the authored pose comes back when it stops" );
+        return;
+    }
     if( !m_bound )
     {
-        ImGui::TextDisabled( "Binds to its clips when the game runs" );
+        ImGui::TextDisabled( "Binds to its clips on its first update" );
         return;
     }
     ImGui::Text( "State: %s%s", GetCurrentState().c_str(), IsInTransition() ? "  (blending)" : "" );
