@@ -35,8 +35,9 @@ uniform mat4 u_shadowMatrix[4];      // sun cascades
 uniform vec4 u_cascadeSplits;        // view depth where each cascade ends
 uniform vec4 u_cascadeTexel;         // world size of one shadow texel, per cascade
 uniform vec4 u_shadowParams;         // x depth bias, y normal bias (texels), z 1 / atlas size, w 0 off, 1 on, 2 tint cascades
-uniform mat4 u_spotShadowMatrix[4];
-uniform vec4 u_spotShadowParams;     // x 1 / atlas size
+uniform mat4 u_localShadowMatrix[16];   // 0-3 spot lights, 4-15 point light cube faces (light * 6 + face)
+uniform vec4 u_spotShadowParams;        // local shadow atlas: xy 1 / size, zw spot tile size (uv)
+uniform vec4 u_pointShadowParams;       // x u where point tiles start, yz point tile size (uv)
 
 #if BGFX_SHADER_LANGUAGE_GLSL >= 130
 #	define shadowCompare(_sampler, _coord) texture(_sampler, _coord)
@@ -210,19 +211,40 @@ vec3 cascadeDebugTint(float _viewZ)
 	return tints[int(cascade)];
 }
 
-// Spot shadow: _info = slot, texel size per unit distance, depth bias, normal bias.
-float spotShadow(Surface _s, vec3 _L, float _distance, vec4 _info)
+// Local shadow atlas: spot tiles (0-3) in a 2x2 block on the left, point light faces (4-19) in a
+// 4x4 block of smaller tiles to its right.
+vec4 localShadowRect(float _tile)
+{
+	vec2 origin;
+	vec2 size;
+	if (_tile < 3.5)
+	{
+		size = u_spotShadowParams.zw;
+		origin = vec2(mod(_tile, 2.0), floor(_tile / 2.0)) * size;
+	}
+	else
+	{
+		float t = _tile - 4.0;
+		size = u_pointShadowParams.yz;
+		origin = vec2(u_pointShadowParams.x, 0.0) + vec2(mod(t, 4.0), floor(t / 4.0)) * size;
+	}
+	float minV = (u_clusterGrid.w > 0.5) ? (1.0 - origin.y - size.y) : origin.y;
+	return vec4(origin.x, minV, origin.x + size.x, minV + size.y);
+}
+
+// One local shadow tile: _info = slot, texel size per unit distance, depth bias, normal bias.
+float localShadow(Surface _s, vec3 _L, float _distance, vec4 _info, float _tile)
 {
 	float texelWorld = _info.y * _distance;
 	vec3 position = _s.position + shadowReceiverOffset(_s, _L, texelWorld, _info.z, _info.w);
-	vec4 coord = mul(u_spotShadowMatrix[int(_info.x)], vec4(position, 1.0));
+	vec4 coord = mul(u_localShadowMatrix[int(_tile)], vec4(position, 1.0));
 	if (coord.w <= 0.0)
 	{
 		return 1.0;
 	}
 	vec3 projected = coord.xyz / coord.w;
-	vec4 rect = shadowTileRect(_info.x);
-	float texel = u_spotShadowParams.x;
+	vec4 rect = localShadowRect(_tile);
+	vec2 texel = u_spotShadowParams.xy;
 	vec2 lo = rect.xy + texel * 1.5;
 	vec2 hi = rect.zw - texel * 1.5;
 	float sum = 0.0;
@@ -235,6 +257,32 @@ float spotShadow(Surface _s, vec3 _L, float _distance, vec4 _info)
 		}
 	}
 	return sum / 9.0;
+}
+
+float spotShadow(Surface _s, vec3 _L, float _distance, vec4 _info)
+{
+	return localShadow(_s, _L, _distance, _info, _info.x);
+}
+
+// Point lights: the cube face the fragment falls in (by the light->fragment direction's major axis).
+float pointShadow(Surface _s, vec3 _L, float _distance, vec4 _info)
+{
+	vec3 v = -_L;
+	vec3 a = abs(v);
+	float face;
+	if (a.x >= a.y && a.x >= a.z)
+	{
+		face = v.x > 0.0 ? 0.0 : 1.0;
+	}
+	else if (a.y >= a.z)
+	{
+		face = v.y > 0.0 ? 2.0 : 3.0;
+	}
+	else
+	{
+		face = v.z > 0.0 ? 4.0 : 5.0;
+	}
+	return localShadow(_s, _L, _distance, _info, 4.0 + _info.x * 6.0 + face);
 }
 
 // Light data texels: 0 position.xyz range | 1 colour.rgb type (1 point, 2 spot) | 2 direction.xyz cosOuter
@@ -262,6 +310,14 @@ vec3 shadeLocalLight(Surface _s, float _light)
 		if (t4.x > -0.5 && attenuation > 0.0)
 		{
 			attenuation *= spotShadow(_s, L, sqrt(distanceSq), t4);
+		}
+	}
+	else if (attenuation > 0.0)
+	{
+		vec4 t4 = fetchLightTexel(_light, 4.0);
+		if (t4.x > -0.5)
+		{
+			attenuation *= pointShadow(_s, L, sqrt(distanceSq), t4);
 		}
 	}
 	return shadeLight(_s, L, t1.rgb * attenuation);

@@ -221,13 +221,14 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
         s_texEmissive = bgfx::createUniform( "s_texEmissive", bgfx::UniformType::Sampler );
         s_texOcclusion = bgfx::createUniform( "s_texOcclusion", bgfx::UniformType::Sampler );
 
-        // Shadows (see RenderSunShadows / RenderSpotShadows).
+        // Shadows (see RenderSunShadows / RenderLocalShadows).
         u_shadowMatrix = bgfx::createUniform( "u_shadowMatrix", bgfx::UniformType::Mat4, 4 );
         u_cascadeSplits = bgfx::createUniform( "u_cascadeSplits", bgfx::UniformType::Vec4 );
         u_cascadeTexel = bgfx::createUniform( "u_cascadeTexel", bgfx::UniformType::Vec4 );
         u_shadowParams = bgfx::createUniform( "u_shadowParams", bgfx::UniformType::Vec4 );
-        u_spotShadowMatrix = bgfx::createUniform( "u_spotShadowMatrix", bgfx::UniformType::Mat4, 4 );
+        u_localShadowMatrix = bgfx::createUniform( "u_localShadowMatrix", bgfx::UniformType::Mat4, 16 );
         u_spotShadowParams = bgfx::createUniform( "u_spotShadowParams", bgfx::UniformType::Vec4 );
+        u_pointShadowParams = bgfx::createUniform( "u_pointShadowParams", bgfx::UniformType::Vec4 );
         u_shadowAlpha = bgfx::createUniform( "u_shadowAlpha", bgfx::UniformType::Vec4 );
         s_shadowMap = bgfx::createUniform( "s_shadowMap", bgfx::UniformType::Sampler );
         s_spotShadowMap = bgfx::createUniform( "s_spotShadowMap", bgfx::UniformType::Sampler );
@@ -282,7 +283,7 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
         }
         // The lighting shader always declares the shadow samplers, so the atlases always exist.
         EnsureShadowAtlas( m_sunShadowAtlas, Shadows.CascadeResolution, "Sun Shadow Atlas" );
-        EnsureShadowAtlas( m_spotShadowAtlas, Shadows.SpotResolution, "Spot Shadow Atlas" );
+        EnsureLocalShadowAtlas( Shadows.SpotResolution, Shadows.PointResolution );
     }
     s_time = bgfx::createUniform( "u_time", bgfx::UniformFreq::Frame, bgfx::UniformType::Vec4 );
     TransparentIndicies.reserve( kMeshTransparencyTempSize );
@@ -327,7 +328,7 @@ void BGFXRenderer::Destroy()
     const bgfx::UniformHandle uniforms[] = { s_texDiffuse, s_texNormal, s_texAlpha, s_texUI, s_time,
         u_lightParams, u_dirLightDirection, u_dirLightColor, u_clusterParams, u_clusterGrid, u_ambientSky, u_ambientGround,
         s_lightData, s_clusterGrid, s_clusterIndices, s_texMetallicRoughness, s_texEmissive, s_texOcclusion,
-        u_shadowMatrix, u_cascadeSplits, u_cascadeTexel, u_shadowParams, u_spotShadowMatrix, u_spotShadowParams, u_shadowAlpha, s_shadowMap, s_spotShadowMap,
+        u_shadowMatrix, u_cascadeSplits, u_cascadeTexel, u_shadowParams, u_localShadowMatrix, u_spotShadowParams, u_pointShadowParams, u_shadowAlpha, s_shadowMap, s_spotShadowMap,
         s_envSpecular, s_envIrradiance, s_brdfLut, u_envParams,
         u_particleParams, u_particleParams2, u_particleDepth, s_texParticle, s_sceneDepth, u_bones };
     m_particleProgram = Moonlight::ShaderCommand();
@@ -873,7 +874,7 @@ void BGFXRenderer::PrepareFrameLighting()
     if( shadowsOn )
     {
         EnsureShadowAtlas( m_sunShadowAtlas, Shadows.CascadeResolution, "Sun Shadow Atlas" );
-        EnsureShadowAtlas( m_spotShadowAtlas, Shadows.SpotResolution, "Spot Shadow Atlas" );
+        EnsureLocalShadowAtlas( Shadows.SpotResolution, Shadows.PointResolution );
     }
 
     // Directional lights go to uniforms; the first shadow caster takes slot 0 (the "sun").
@@ -961,10 +962,19 @@ void BGFXRenderer::PrepareFrameLighting()
         }
     }
 
-    // Spot shadows: the first four shadowed spots get an atlas tile each.
+    // Local shadows: the first four shadowed spots get an atlas tile each, the first two shadowed
+    // point lights six (one per cube face).
     m_spotShadows.clear();
+    for( glm::mat4& matrix : m_lighting.LocalShadowMatrix )
+    {
+        matrix = glm::mat4( 1.f );
+    }
     const bgfx::Caps* caps = bgfx::getCaps();
-    const float spotTexelScaleBase = 2.f / std::max<float>( Shadows.SpotResolution, 1.f );
+    const uint16_t spotTile = m_spotShadowAtlas.TileSize;
+    const uint16_t pointTile = m_spotShadowAtlas.PointTileSize;
+    const float spotTexelScaleBase = 2.f / std::max<float>( spotTile, 1.f );
+    uint32_t spotCount = 0;
+    uint32_t pointCount = 0;
 
     // Light data: 5 RGBA32F texels per point/spot light.
     if( !m_localLights.empty() && bgfx::isValid( m_lightDataTexture ) )
@@ -975,7 +985,7 @@ void BGFXRenderer::PrepareFrameLighting()
             const Vector3 dir = light.Direction.Normalized();
             float shadowSlot = -1.f;
             float texelScale = 0.f;
-            if( shadowsOn && light.Type == Moonlight::LightType::Spot && light.CastShadows && m_spotShadows.size() < 4 )
+            if( shadowsOn && light.Type == Moonlight::LightType::Spot && light.CastShadows && spotCount < kMaxSpotShadows )
             {
                 // A little wider than the cone so PCF at the rim stays inside the projection.
                 const float fov = std::min( light.OuterConeAngle * 2.f + 4.f, 170.f );
@@ -985,10 +995,40 @@ void BGFXRenderer::PrepareFrameLighting()
                 const glm::vec3 up = std::abs( forward.y ) > 0.99f ? glm::vec3( 0.f, 0.f, 1.f ) : glm::vec3( 0.f, 1.f, 0.f );
                 shadow.View = glm::lookAtLH( position, position + forward, up );
                 bx::mtxProj( &shadow.Projection[0][0], fov, 1.f, 0.05f, std::max( light.Range, 0.1f ), caps->homogeneousDepth );
-                shadowSlot = static_cast<float>( m_spotShadows.size() );
+                shadow.X = static_cast<uint16_t>( ( spotCount % 2 ) * spotTile );
+                shadow.Y = static_cast<uint16_t>( ( spotCount / 2 ) * spotTile );
+                shadow.Size = spotTile;
+                shadowSlot = static_cast<float>( spotCount );
                 texelScale = std::tan( glm::radians( fov ) * 0.5f ) * spotTexelScaleBase;
-                m_lighting.SpotShadowMatrix[m_spotShadows.size()] = ShadowAtlasMatrix( static_cast<uint32_t>( m_spotShadows.size() ), shadow.Projection * shadow.View );
+                m_lighting.LocalShadowMatrix[spotCount] = AtlasRectMatrix( m_spotShadowAtlas, shadow.X, shadow.Y, shadow.Size, shadow.Projection * shadow.View );
                 m_spotShadows.push_back( shadow );
+                ++spotCount;
+            }
+            else if( shadowsOn && light.Type == Moonlight::LightType::Point && light.CastShadows && pointCount < kMaxPointShadows && pointTile > 0 )
+            {
+                // Six 90-degree faces, a hair wider so PCF at a face's edge stays inside it.
+                static const glm::vec3 kFaces[6][2] = {
+                    { { 1.f, 0.f, 0.f }, { 0.f, 1.f, 0.f } }, { { -1.f, 0.f, 0.f }, { 0.f, 1.f, 0.f } },
+                    { { 0.f, 1.f, 0.f }, { 0.f, 0.f, 1.f } }, { { 0.f, -1.f, 0.f }, { 0.f, 0.f, 1.f } },
+                    { { 0.f, 0.f, 1.f }, { 0.f, 1.f, 0.f } }, { { 0.f, 0.f, -1.f }, { 0.f, 1.f, 0.f } },
+                };
+                const float fov = glm::degrees( 2.f * std::atan( 1.f + 3.f / static_cast<float>( pointTile ) ) );
+                const glm::vec3 position = light.Position.InternalVector;
+                for( uint32_t face = 0; face < 6; ++face )
+                {
+                    const uint32_t tile = pointCount * 6 + face;
+                    SpotShadow shadow;
+                    shadow.View = glm::lookAtLH( position, position + kFaces[face][0], kFaces[face][1] );
+                    bx::mtxProj( &shadow.Projection[0][0], fov, 1.f, 0.05f, std::max( light.Range, 0.1f ), caps->homogeneousDepth );
+                    shadow.X = static_cast<uint16_t>( spotTile * 2 + ( tile % 4 ) * pointTile );
+                    shadow.Y = static_cast<uint16_t>( ( tile / 4 ) * pointTile );
+                    shadow.Size = pointTile;
+                    m_lighting.LocalShadowMatrix[kMaxSpotShadows + tile] = AtlasRectMatrix( m_spotShadowAtlas, shadow.X, shadow.Y, shadow.Size, shadow.Projection * shadow.View );
+                    m_spotShadows.push_back( shadow );
+                }
+                shadowSlot = static_cast<float>( pointCount );
+                texelScale = std::tan( glm::radians( fov ) * 0.5f ) * 2.f / static_cast<float>( pointTile );
+                ++pointCount;
             }
             const float values[20] = {
                 light.Position.x, light.Position.y, light.Position.z, light.Range,
@@ -1001,9 +1041,17 @@ void BGFXRenderer::PrepareFrameLighting()
         const uint16_t width = static_cast<uint16_t>( m_localLights.size() * 5 );
         bgfx::updateTexture2D( m_lightDataTexture, 0, 0, 0, 0, width, 1, bgfx::copy( m_lightData.data(), width * 4 * sizeof( float ) ) );
     }
-    m_lighting.SpotShadowParams[0] = 1.f / ( 2.f * std::max<float>( Shadows.SpotResolution, 1.f ) );
+    const float width = std::max<float>( m_spotShadowAtlas.Width, 1.f );
+    const float height = std::max<float>( m_spotShadowAtlas.Height, 1.f );
+    m_lighting.SpotShadowParams[0] = 1.f / width;
+    m_lighting.SpotShadowParams[1] = 1.f / height;
+    m_lighting.SpotShadowParams[2] = spotTile / width;
+    m_lighting.SpotShadowParams[3] = spotTile / height;
+    m_lighting.PointShadowParams[0] = spotTile * 2.f / width;
+    m_lighting.PointShadowParams[1] = pointTile / width;
+    m_lighting.PointShadowParams[2] = pointTile / height;
 
-    RenderSpotShadows();
+    RenderLocalShadows();
 }
 
 
@@ -1077,6 +1125,65 @@ void BGFXRenderer::EnsureShadowAtlas( ShadowAtlas& atlas, uint16_t tileSize, con
     bgfx::setName( atlas.Texture, name );
     atlas.Buffer = bgfx::createFrameBuffer( 1, &atlas.Texture, false );
     atlas.TileSize = tileSize;
+}
+
+
+void BGFXRenderer::EnsureLocalShadowAtlas( uint16_t spotTile, uint16_t pointTile )
+{
+    spotTile = std::clamp<uint16_t>( spotTile, 128, 4096 );
+    pointTile = std::clamp<uint16_t>( pointTile, 64, 2048 );
+    ShadowAtlas& atlas = m_spotShadowAtlas;
+    if( atlas.TileSize == spotTile && atlas.PointTileSize == pointTile && bgfx::isValid( atlas.Texture ) )
+    {
+        return;
+    }
+    DestroyShadowAtlas( atlas );
+
+    const uint64_t flags = BGFX_TEXTURE_RT | BGFX_SAMPLER_COMPARE_LEQUAL | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP;
+    bgfx::TextureFormat::Enum format = bgfx::TextureFormat::D16;
+    for( bgfx::TextureFormat::Enum candidate : { bgfx::TextureFormat::D32F, bgfx::TextureFormat::D24, bgfx::TextureFormat::D16 } )
+    {
+        if( bgfx::isTextureValid( 0, false, 1, candidate, flags ) )
+        {
+            format = candidate;
+            break;
+        }
+    }
+    atlas.Width = static_cast<uint16_t>( spotTile * 2 + pointTile * 4 );
+    atlas.Height = static_cast<uint16_t>( std::max( spotTile * 2, pointTile * 4 ) );
+    atlas.Texture = bgfx::createTexture2D( atlas.Width, atlas.Height, false, 1, format, flags );
+    bgfx::setName( atlas.Texture, "Local Shadow Atlas" );
+    atlas.Buffer = bgfx::createFrameBuffer( 1, &atlas.Texture, false );
+    atlas.TileSize = spotTile;
+    atlas.PointTileSize = pointTile;
+}
+
+
+glm::mat4 BGFXRenderer::AtlasRectMatrix( const ShadowAtlas& atlas, uint16_t x, uint16_t y, uint16_t size, const glm::mat4& viewProjection ) const
+{
+    // Clip space -> texture space (as ShadowAtlasMatrix), then into the rectangle. View rects are
+    // top-left based; on bottom-left-origin backends the texture's v runs the other way.
+    const bgfx::Caps* caps = bgfx::getCaps();
+    const float sy = caps->originBottomLeft ? 0.5f : -0.5f;
+    const float sz = caps->homogeneousDepth ? 0.5f : 1.f;
+    const float tz = caps->homogeneousDepth ? 0.5f : 0.f;
+    glm::mat4 crop( 1.f );
+    crop[0][0] = 0.5f;
+    crop[1][1] = sy;
+    crop[2][2] = sz;
+    crop[3] = glm::vec4( 0.5f, 0.5f, tz, 1.f );
+
+    const float width = std::max<float>( atlas.Width, 1.f );
+    const float height = std::max<float>( atlas.Height, 1.f );
+    const float w = size / width;
+    const float h = size / height;
+    const float u0 = x / width;
+    const float v0 = caps->originBottomLeft ? 1.f - ( y + size ) / height : y / height;
+    glm::mat4 rect( 1.f );
+    rect[0][0] = w;
+    rect[1][1] = h;
+    rect[3] = glm::vec4( u0, v0, 0.f, 1.f );
+    return rect * crop * viewProjection;
 }
 
 
@@ -1239,14 +1346,13 @@ void BGFXRenderer::SubmitShadowCasters( bgfx::ViewId view, const Frustum& frustu
 }
 
 
-void BGFXRenderer::RenderSpotShadows()
+void BGFXRenderer::RenderLocalShadows()
 {
-    OPTICK_EVENT( "Renderer::RenderSpotShadows" );
-    const uint16_t tile = m_spotShadowAtlas.TileSize;
+    OPTICK_EVENT( "Renderer::RenderLocalShadows" );
     for( size_t i = 0; i < m_spotShadows.size(); ++i )
     {
         char name[32];
-        bx::snprintf( name, sizeof( name ), "Spot Shadow %u", static_cast<uint32_t>( i ) );
+        bx::snprintf( name, sizeof( name ), "Local Shadow %u", static_cast<uint32_t>( i ) );
         const bgfx::ViewId view = m_views.Allocate( name );
         if( view == UINT16_MAX )
         {
@@ -1254,7 +1360,7 @@ void BGFXRenderer::RenderSpotShadows()
         }
         const SpotShadow& shadow = m_spotShadows[i];
         bgfx::setViewFrameBuffer( view, m_spotShadowAtlas.Buffer );
-        bgfx::setViewRect( view, static_cast<uint16_t>( ( i % 2 ) * tile ), static_cast<uint16_t>( ( i / 2 ) * tile ), tile, tile );
+        bgfx::setViewRect( view, shadow.X, shadow.Y, shadow.Size, shadow.Size );
         bgfx::setViewClear( view, BGFX_CLEAR_DEPTH, 0, 1.f, 0 );
         bgfx::setViewTransform( view, &shadow.View[0][0], &shadow.Projection[0][0] );
         bgfx::touch( view );
@@ -1434,8 +1540,9 @@ void BGFXRenderer::BindLighting()
     bgfx::setUniform( u_cascadeSplits, m_lighting.CascadeSplits );
     bgfx::setUniform( u_cascadeTexel, m_lighting.CascadeTexel );
     bgfx::setUniform( u_shadowParams, m_lighting.ShadowParams );
-    bgfx::setUniform( u_spotShadowMatrix, m_lighting.SpotShadowMatrix, 4 );
+    bgfx::setUniform( u_localShadowMatrix, m_lighting.LocalShadowMatrix, 16 );
     bgfx::setUniform( u_spotShadowParams, m_lighting.SpotShadowParams );
+    bgfx::setUniform( u_pointShadowParams, m_lighting.PointShadowParams );
     if( bgfx::isValid( m_sunShadowAtlas.Texture ) )
     {
         bgfx::setTexture( 11, s_shadowMap, m_sunShadowAtlas.Texture );
