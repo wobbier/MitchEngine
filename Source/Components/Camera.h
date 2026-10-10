@@ -25,7 +25,8 @@ public:
     float Yaw = 0.f;
     float Pitch = 0.f;
     float Roll = 0.f;
-    float OrthographicSize = 50.f;
+    // Orthographic projection: half the view height in world units (the width follows the aspect).
+    float OrthographicSize = 5.f;
     float Near = 1.f;
     float Far = 1000.f;
 

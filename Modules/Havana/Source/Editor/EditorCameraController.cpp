@@ -60,10 +60,10 @@ void EditorCameraController::Focus( const AABB& InBounds )
     const float halfFov = std::min( halfVertical, halfHorizontal );
     m_focusPivot = InBounds.GetCenter();
     m_focusDistance = std::clamp( radius / std::sin( halfFov ) * 1.15f, kMinDistance, kMaxDistance );
-    if( IsOrthographic() && m_camera->OutputSize.y > 0.f )
+    if( IsOrthographic() )
     {
-        // Ortho half-height is OutputSize.y / OrthographicSize.
-        m_camera->OrthographicSize = std::max( m_camera->OutputSize.y / ( radius * 1.2f ), 0.01f );
+        // OrthographicSize is the half height in world units.
+        m_camera->OrthographicSize = std::max( radius * 1.2f, 0.01f );
     }
     m_isFocusing = true;
 }
@@ -81,6 +81,11 @@ void EditorCameraController::SetOrthographic( bool InOrthographic )
 {
     if( m_camera )
     {
+        if( InOrthographic && !IsOrthographic() )
+        {
+            // Keep what's at the pivot the same size on screen.
+            m_camera->OrthographicSize = std::max( m_distance * std::tan( std::max( m_camera->GetFOV(), 1.f ) * 0.5f * kDegToRad ), 0.01f );
+        }
         m_camera->Projection = InOrthographic ? Moonlight::ProjectionType::Orthographic : Moonlight::ProjectionType::Perspective;
     }
 }
@@ -163,7 +168,7 @@ void EditorCameraController::Update( float InDeltaSeconds, const Input& InInput 
         float unitsPerPixel = 2.f * m_distance * std::tan( std::max( m_camera->GetFOV(), 1.f ) * 0.5f * kDegToRad ) / viewportHeight;
         if( IsOrthographic() )
         {
-            unitsPerPixel = 2.f / std::max( m_camera->OrthographicSize, 0.001f );
+            unitsPerPixel = 2.f * m_camera->OrthographicSize / viewportHeight;
         }
         m_pivot -= m_transform->Right() * ( delta.x * unitsPerPixel );
         m_pivot += m_transform->Up() * ( delta.y * unitsPerPixel );
@@ -177,7 +182,7 @@ void EditorCameraController::Update( float InDeltaSeconds, const Input& InInput 
         {
             if( IsOrthographic() )
             {
-                m_camera->OrthographicSize = std::clamp( m_camera->OrthographicSize * std::pow( 1.15f, InInput.Wheel ), 0.01f, 100000.f );
+                m_camera->OrthographicSize = std::clamp( m_camera->OrthographicSize * std::pow( 0.87f, InInput.Wheel ), 0.01f, 100000.f );
             }
             else
             {

@@ -153,7 +153,9 @@ Matrix4 Camera::GetProjectionMatrix() const
     }
     else
     {
-        bx::mtxOrtho( &outMatrix.GetInternalMatrix()[0][0], -( OutputSize.x / OrthographicSize ), ( OutputSize.x / OrthographicSize ), -( OutputSize.y / OrthographicSize ), ( OutputSize.y / OrthographicSize ), Near, Far, 0.f, bgfx::getCaps()->homogeneousDepth );
+        const float halfHeight = std::max( OrthographicSize, 0.001f );
+        const float halfWidth = OutputSize.y > 0.f ? halfHeight * OutputSize.x / OutputSize.y : halfHeight;
+        bx::mtxOrtho( &outMatrix.GetInternalMatrix()[0][0], -halfWidth, halfWidth, -halfHeight, halfHeight, Near, Far, 0.f, bgfx::getCaps()->homogeneousDepth );
     }
 
     if( isOblique )

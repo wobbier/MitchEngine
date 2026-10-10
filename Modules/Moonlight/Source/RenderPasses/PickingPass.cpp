@@ -110,7 +110,10 @@ void PickingPass::Render( BGFXRenderer* inRenderer, CameraData* inCamData, Frame
     }
     else
     {
-        bx::mtxOrtho( &proj.GetInternalMatrix()[0][0], -( camera.OutputSize.x / camera.OrthographicSize ), ( camera.OutputSize.x / camera.OrthographicSize ), -( camera.OutputSize.y / camera.OrthographicSize ), ( camera.OutputSize.y / camera.OrthographicSize ), camera.Near, camera.Far, 0.f, bgfx::getCaps()->homogeneousDepth );
+        // OrthographicSize is the half height in world units (Camera::GetProjectionMatrix).
+        const float halfHeight = std::max( camera.OrthographicSize, 0.001f );
+        const float halfWidth = camera.OutputSize.y > 0.f ? halfHeight * camera.OutputSize.x / camera.OutputSize.y : halfHeight;
+        bx::mtxOrtho( &proj.GetInternalMatrix()[0][0], -halfWidth, halfWidth, -halfHeight, halfHeight, camera.Near, camera.Far, 0.f, bgfx::getCaps()->homogeneousDepth );
     }
 
     //bgfx::setViewTransform( RENDER_PASS_ID, &camera.View.GetInternalMatrix()[0][0], &proj.GetInternalMatrix()[0][0] );
