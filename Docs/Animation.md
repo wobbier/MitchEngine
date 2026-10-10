@@ -8,7 +8,7 @@ Skeletal animation runs in three stages:
 
 Because bones are ordinary entities, anything parented to a bone (a weapon, a hat, a particle emitter) follows the animation without extra setup. The editor's play snapshot restores the authored pose on Stop.
 
-> Verified against engine commit 07617c5f, 2026-10-09 (overhaul Wave 4).
+> Verified against engine commit 07617c5f, 2026-10-09 (overhaul Wave 4); layers, 2D blends and root motion against b0f082f8, 2026-10-10.
 
 ## Overview
 
@@ -17,7 +17,8 @@ Because bones are ordinary entities, anything parented to a bone (a weapon, a ha
 | Clip | `Moonlight::AnimationClip` | Name, duration in seconds, one `AnimationChannel` per animated node (position / rotation / scale keys with their own times) |
 | Player | `Animator` component | On the entity whose descendants the clips animate (usually the `Model` entity) |
 | Playback system | `AnimationCore` | Engine-owned. Binds, steps the state machine, samples on the job system, writes Transforms |
-| State | `AnimatorState` | One clip, or a 1D blend over `BlendClips` by a float parameter. Has speed and loop settings |
+| State | `AnimatorState` | One clip, or a blend over `BlendClips`: 1D by one float parameter, 2D by two (freeform, gradient band). Has speed, loop and layer settings |
+| Layer | `AnimatorLayer` | Its own states and cross-fades over the bones in its `Mask` (each with its descendants), blended over the layers below by `Weight` |
 | Transition | `AnimatorTransition` | From (or any state) → To. Condition on a parameter, optional exit time, cross-fade duration |
 | Parameter | `AnimatorParameter` | Float, Bool or Trigger (a trigger is consumed by the transition that fires on it) |
 | Event marker | `AnimatorEventMarker` | Normalized time in a state. Fires an `AnimationEvent` each time playback passes it |
@@ -36,7 +37,7 @@ Because bones are ordinary entities, anything parented to a bone (a weapon, a ha
 | `Source/Components/Graphics/Mesh.cpp` | `ResolveBones`, `UpdateSkin` (palette + posed bounds), `GetWorldBounds` |
 | `Assets/Shaders/Skinning.sh` | `u_bones[128]` and `skinMatrix(indices, weights)` |
 | `Assets/Shaders/StandardSkinned.vert`, `ShadowDepthSkinned.vert`, `Picking/picking_skinned.vert` | Skinned variants of the main, shadow and picking vertex shaders |
-| `Tests/Source/AnimationTests.cpp` | Sampling, playback, transitions, blends, events |
+| `Tests/Source/AnimationTests.cpp` | Sampling, playback, transitions, 1D / 2D blends, events, layers, root motion |
 
 ## How It Works
 
@@ -61,22 +62,31 @@ Because bones are ordinary entities, anything parented to a bone (a weapon, a ha
    3. the clips of the `Model` on the same entity.
 2. **Build the states.** If `States` is empty, every clip becomes a state of the same name.
 3. **Bind channels to nodes.** Each channel's `NodeName` is matched against the Animator entity and its descendants. A name found more than once binds to its first match, with ancestors before descendants. Each binding remembers the node's local position, rotation and scale as its bind pose.
-4. **Start playing.** With `PlayOnStart`, `DefaultState` starts (the first state when empty).
+4. **Layers.** The base layer drives every binding. Each `AnimatorLayer` gets a bone mask: a binding is in it when its node, or any ancestor up to the Animator, is named in `Mask`. An empty mask means every binding.
+5. **Root.** The root binding is the `RootBone` binding, or the animated node closest to the Animator. World up is stored in its parent's space, which is what "horizontal" means for root motion.
+6. **Start playing.** With `PlayOnStart`, `DefaultState` starts on the base layer (the first base-layer state when empty), and every layer with a `DefaultState` starts it.
 
 ### Each frame
 
 `AnimationCore::Update` runs in `Engine::Run` after `Game::OnUpdate`, and before audio, particles and `RenderCore`. Gameplay therefore sets parameters for the same frame's pose. It only advances while the world is started (play mode, or game builds).
 
-1. **State machine** (main thread, per Animator):
-   1. A pending `Play()` applies first. A name that is a clip but not a state becomes an implicit state.
-   2. If no cross-fade is running, the first matching transition fires. Transitions are checked in declaration order.
+1. **State machine** (main thread, per Animator, per layer):
+   1. Pending `Play()` calls apply first, each in its state's layer. A name that is a clip but not a state becomes an implicit base-layer state.
+   2. If the layer isn't cross-fading, the first matching transition into one of its states fires. Transitions are checked in declaration order.
    3. Time advances by `delta × Animator::Speed × state Speed`. Non-looping states clamp at their end.
    4. Event markers passed during the step fire `AnimationEvent { Entity, State, Name }`, once per lap.
 2. **Sampling** (`ParallelFor` over the playing Animators):
    - **Starting pose.** Each binding starts from its bind pose, and keyed properties override it. A clip with only rotation keys therefore keeps the authored positions.
    - **1D blends.** The two `BlendClips` around the parameter value are blended. Their thresholds are sorted at sample time, and the clips stay in phase by normalized time.
+   - **2D blends** (`BlendParameterY` set). Each clip sits at `(Threshold, ThresholdY)`. Weights use gradient band interpolation (freeform cartesian):
+     - each clip's weight falls off towards every other clip, then the weights are normalized;
+     - a point exactly on a clip plays only that clip, and a point outside every band plays the nearest clip;
+     - at most the eight strongest clips are sampled.
    - **Cross-fades.** The previous state is blended in with a smoothstep weight over the transition's `Duration`.
+   - **Layers.** Each playing layer above the base replaces the pose of its masked bindings, blended by its `Weight` (`SetLayerWeight` at runtime).
+   - **Root motion** (base layer). The root binding's travel since last frame is summed over the weighted clips (and cross-faded), handling loop wraps, and its vertical part dropped. `GetRootMotion()` reports it in world space.
 3. **Write** (serial): `SetPosition` / `SetRotation` / `SetScale` on each node's `Transform`.
+4. **Root motion** (with `ApplyRootMotion`): the root bone is held above the entity horizontally (vertical motion stays in the bone), and the entity moves by the travel instead: through `CharacterController::Move` when it has one, so it still collides, or by moving its Transform.
 
 `Animator::Stop()` freezes the pose. Setting `Speed` to 0 does the same but keeps transitions and events live.
 
@@ -119,6 +129,7 @@ Bone indices are stored as normalized `Uint8`. `skinMatrix` multiplies them by 2
 
 ## How to Extend
 
+- **Locomotion:** a 2D blend state over `MoveX` / `MoveY` parameters (idle at 0,0, walks and runs around it), an "UpperBody" layer masked to the spine for aiming or waving, and `ApplyRootMotion` with a `CharacterController` so the feet don't slide.
 - **Drive an Animator from gameplay:** call `SetFloat` / `SetBool` / `SetTrigger` in `OnUpdate`, and `Play("State", fade)` for direct control. Listen for `AnimationEvent` (an `EventReceiver` registered for `AnimationEvent::GetEventId()`) for footsteps, hit frames and similar.
 - **Procedural clips:** build `Moonlight::AnimationClip`s in code and pass them with `UseClips`. The unit tests do exactly this.
 - **Attach props:** parent the prop entity to the bone entity (found by name under the model). It follows the pose with no further setup.
@@ -126,7 +137,8 @@ Bone indices are stored as normalized `Uint8`. `skinMatrix` multiplies them by 2
 
 ## Caveats & Fragility
 
-- **No root motion, 2D blend trees, layers or masks.** One state machine drives the whole hierarchy. Additive and partial-body animation aren't supported.
+- **Layers override; they don't add.** There are no additive layers. Root motion is translation only (no root rotation), and is taken from the base layer.
+- **2D blends use one family.** Freeform cartesian only (no directional or polar variants). Clips are phase-matched to the first clip's length, so clips of very different lengths drift.
 - **No edit-mode preview.** Animators only play while the world is started. Edit mode shows whatever pose the bone entities hold. Posing bones by hand in edit mode is saved with the scene.
 - **Name-based binding.** Clips and skins find nodes by name. Two descendants with the same name bind to the first one found, and renamed bone entities stop animating or skinning.
 - **Linear key interpolation only.** FBX cubic tangents are lost on import. Keys are found by linear scan, so very long clips cost more per sample.
