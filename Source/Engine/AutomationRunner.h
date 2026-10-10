@@ -20,6 +20,8 @@ public:
     void Init();
 
     bool IsActive() const { return m_isActive; }
+    // A screenshot has been requested and not delivered yet: the engine holds time still meanwhile.
+    bool IsCaptureFrozen() const { return m_screenshotRequested; }
 
     // True for any unattended run (frame-limited runs, captures, editor scripts, --transient).
     // Such runs must not write the user's settings (Engine.cfg window state, editor prefs, layout).

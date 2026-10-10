@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <condition_variable>
 #include <deque>
+#include <unordered_map>
 #include <thread>
 #include "optick.h"
 
@@ -24,6 +25,8 @@ struct ResourceCache::AsyncLoads
     std::deque<std::pair<SharedPtr<Resource>, bool>> Done;  // background part done (and whether it worked)
     std::vector<std::thread> Threads;
     bool Stopping = false;
+    std::unordered_map<Resource*, uint64_t> Sequence;   // request order of the pending loads
+    uint64_t NextSequence = 0;
 
     void Run( int InIndex )
     {
@@ -228,6 +231,7 @@ void ResourceCache::QueueAsyncLoad( const SharedPtr<Resource>& InResource )
             }
         }
         m_async->Queued.push_back( InResource );
+        m_async->Sequence[InResource.get()] = m_async->NextSequence++;
     }
     m_async->WorkReady.notify_one();
 }
@@ -236,6 +240,10 @@ void ResourceCache::QueueAsyncLoad( const SharedPtr<Resource>& InResource )
 void ResourceCache::FinishAsyncLoad( const SharedPtr<Resource>& InResource, bool InBackgroundSucceeded )
 {
     OPTICK_EVENT( "Resource::FinishAsyncLoad" );
+    {
+        std::lock_guard<std::mutex> lock( m_async->Mutex );
+        m_async->Sequence.erase( InResource.get() );
+    }
     const bool succeeded = InBackgroundSucceeded && InResource->FinishAsyncLoad();
     InResource->m_loadState = succeeded ? Resource::LoadState::Ready : Resource::LoadState::Failed;
     if( !succeeded )
@@ -276,41 +284,47 @@ int ResourceCache::PumpAsyncLoads( double InBudgetMs )
 void ResourceCache::WaitForAsyncLoads()
 {
     OPTICK_EVENT( "ResourceCache::WaitForAsyncLoads" );
+    // Every background part first (helping with the queued ones), then the main-thread parts in
+    // request order: GPU objects are created in the same order every run, which keeps
+    // deterministic captures exact (texture handles feed batch keys and draw order).
+    std::vector<std::pair<SharedPtr<Resource>, bool>> finished;
     while( true )
     {
-        std::pair<SharedPtr<Resource>, bool> done;
         SharedPtr<Resource> queued;
         {
             std::unique_lock<std::mutex> lock( m_async->Mutex );
-            if( !m_async->Done.empty() )
+            if( !m_async->Queued.empty() )
             {
-                done = std::move( m_async->Done.front() );
-                m_async->Done.pop_front();
-            }
-            else if( !m_async->Queued.empty() )
-            {
-                // Help rather than wait.
                 queued = std::move( m_async->Queued.front() );
                 m_async->Queued.pop_front();
             }
             else if( !m_async->Running.empty() )
             {
-                m_async->WorkDone.wait( lock, [this] { return !m_async->Done.empty() || m_async->Running.empty(); } );
+                m_async->WorkDone.wait( lock, [this] { return m_async->Running.empty() || !m_async->Queued.empty(); } );
                 continue;
             }
             else
             {
-                return;
+                for( auto& done : m_async->Done )
+                {
+                    finished.push_back( std::move( done ) );
+                }
+                m_async->Done.clear();
+                break;
             }
         }
-        if( done.first )
-        {
-            FinishAsyncLoad( done.first, done.second );
-        }
-        else
-        {
-            FinishAsyncLoad( queued, queued->LoadAsync() );
-        }
+        const bool succeeded = queued->LoadAsync();
+        finished.emplace_back( std::move( queued ), succeeded );
+    }
+    {
+        std::lock_guard<std::mutex> lock( m_async->Mutex );
+        std::sort( finished.begin(), finished.end(), [this]( const auto& InA, const auto& InB ) {
+            return m_async->Sequence[InA.first.get()] < m_async->Sequence[InB.first.get()];
+        } );
+    }
+    for( auto& [resource, succeeded] : finished )
+    {
+        FinishAsyncLoad( resource, succeeded );
     }
 }
 
@@ -379,6 +393,7 @@ void ResourceCache::StopAsyncLoads()
     }
     m_async->Queued.clear();
     m_async->Done.clear();
+    m_async->Sequence.clear();
     m_async->Stopping = false;
 }
 

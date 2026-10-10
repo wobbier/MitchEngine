@@ -370,6 +370,12 @@ void Engine::Run()
             OPTICK_EVENT( "Clock" );
             GameClock.Update();
             frameSeconds = m_fixedFrameDelta > 0.f ? m_fixedFrameDelta : static_cast<float>( std::min( GameClock.GetDeltaSecondsPrecise(), static_cast<double>( m_maxFrameDelta ) ) );
+            if( m_automation.IsCaptureFrozen() )
+            {
+                // The requested screenshot arrives a frame or more later: hold time still until then,
+                // so the capture is the frame that was asked for, whatever the GPU's latency.
+                frameSeconds = 0.f;
+            }
             if( m_isPaused )
             {
                 // Step Frame advances exactly one fixed step while paused.
