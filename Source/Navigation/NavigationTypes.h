@@ -74,4 +74,6 @@ struct NavMeshHit
 struct NavQueryFilter
 {
     uint32_t AreaMask = NavAreas::All;
+    // Query the navmesh baked for this agent type (1-based); 0 = the one under the query point.
+    int AgentType = 0;
 };

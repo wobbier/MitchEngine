@@ -1233,13 +1233,19 @@ void NavigationCore::MarkInspected( const NavMeshSurface& InSurface )
 
 // ------------------------------------------------------------------------------------------ Agents
 
-NavigationCore::SurfaceRecord* NavigationCore::SurfaceFor( const Vector3& InPosition, float InAgentRadius )
+NavigationCore::SurfaceRecord* NavigationCore::SurfaceFor( const Vector3& InPosition, float InAgentRadius, int InAgentType )
 {
     SurfaceRecord* best = nullptr;
     float bestScore = FLT_MAX;
     for( auto& [id, record] : m_surfaces )
     {
         if( !record.Mesh || !record.Mesh->IsValid() )
+        {
+            continue;
+        }
+        // An agent type walks only the surfaces baked for it.
+        const NavMeshSurface* surface = record.Surface ? record.Surface->TryGetComponent<NavMeshSurface>() : nullptr;
+        if( InAgentType > 0 && ( !surface || surface->AgentType != InAgentType ) )
         {
             continue;
         }
@@ -1287,7 +1293,7 @@ bool NavigationCore::AddAgent( AgentRecord& InAgent, NavMeshAgent& InComponent, 
     if( !surface )
     {
         InAgent.CrowdIndex = -1;
-        surface = SurfaceFor( position, InComponent.Radius );
+        surface = SurfaceFor( position, InComponent.Radius, InComponent.AgentType );
     }
     if( !surface )
     {
@@ -1557,9 +1563,9 @@ void NavigationCore::StepAgents( float InDeltaSeconds )
 
 // ------------------------------------------------------------------------------------------ Queries
 
-NavMesh* NavigationCore::GetNavMesh( const Vector3& InNear ) const
+NavMesh* NavigationCore::GetNavMesh( const Vector3& InNear, int InAgentType ) const
 {
-    SurfaceRecord* record = const_cast<NavigationCore*>( this )->SurfaceFor( InNear, 0.f );
+    SurfaceRecord* record = const_cast<NavigationCore*>( this )->SurfaceFor( InNear, 0.f, InAgentType );
     return record ? record->Mesh.get() : nullptr;
 }
 
@@ -1573,7 +1579,7 @@ NavMesh* NavigationCore::GetNavMesh( const NavMeshSurface& InSurface ) const
 
 NavPathStatus NavigationCore::FindPath( const Vector3& InStart, const Vector3& InEnd, std::vector<Vector3>& OutCorners, const NavQueryFilter& InFilter ) const
 {
-    NavMesh* mesh = GetNavMesh( InStart );
+    NavMesh* mesh = GetNavMesh( InStart, InFilter.AgentType );
     if( !mesh )
     {
         OutCorners.clear();
@@ -1585,14 +1591,14 @@ NavPathStatus NavigationCore::FindPath( const Vector3& InStart, const Vector3& I
 
 bool NavigationCore::SamplePosition( const Vector3& InPoint, float InMaxDistance, NavMeshHit& OutHit, const NavQueryFilter& InFilter ) const
 {
-    NavMesh* mesh = GetNavMesh( InPoint );
+    NavMesh* mesh = GetNavMesh( InPoint, InFilter.AgentType );
     return mesh && mesh->SamplePosition( InPoint, InMaxDistance, OutHit, InFilter );
 }
 
 
 bool NavigationCore::Raycast( const Vector3& InStart, const Vector3& InEnd, NavMeshHit& OutHit, const NavQueryFilter& InFilter ) const
 {
-    NavMesh* mesh = GetNavMesh( InStart );
+    NavMesh* mesh = GetNavMesh( InStart, InFilter.AgentType );
     return mesh && mesh->Raycast( InStart, InEnd, OutHit, InFilter );
 }
 
@@ -1601,7 +1607,8 @@ bool NavigationCore::GetRandomPoint( Vector3& OutPoint, const NavQueryFilter& In
 {
     for( const auto& [id, record] : m_surfaces )
     {
-        if( record.Mesh && record.Mesh->IsValid() )
+        const NavMeshSurface* surface = record.Surface ? record.Surface->TryGetComponent<NavMeshSurface>() : nullptr;
+        if( record.Mesh && record.Mesh->IsValid() && ( InFilter.AgentType <= 0 || ( surface && surface->AgentType == InFilter.AgentType ) ) )
         {
             return record.Mesh->GetRandomPoint( OutPoint, InFilter );
         }
@@ -1612,7 +1619,7 @@ bool NavigationCore::GetRandomPoint( Vector3& OutPoint, const NavQueryFilter& In
 
 bool NavigationCore::GetRandomPointAround( const Vector3& InCenter, float InRadius, Vector3& OutPoint, const NavQueryFilter& InFilter ) const
 {
-    NavMesh* mesh = GetNavMesh( InCenter );
+    NavMesh* mesh = GetNavMesh( InCenter, InFilter.AgentType );
     return mesh && mesh->GetRandomPointAround( InCenter, InRadius, OutPoint, InFilter );
 }
 

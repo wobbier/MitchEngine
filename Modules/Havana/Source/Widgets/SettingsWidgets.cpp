@@ -564,6 +564,74 @@ void ProjectSettingsWidget::Render()
 			ImGui::EndTable();
 		}
 		ImGui::TextDisabled("Area 1 (Not Walkable) is removed from the navmesh. Costs apply to new path queries.");
+
+		// Agent types: the body sizes surfaces bake for; agents walk the surfaces of their type.
+		ImGui::Separator();
+		ImGui::TextUnformatted("Agent Types");
+		bool agentsChanged = false;
+		int removeType = -1;
+		if (ImGui::BeginTable("NavAgentTypes", 6, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV))
+		{
+			ImGui::TableSetupColumn("Name");
+			ImGui::TableSetupColumn("Radius", ImGuiTableColumnFlags_WidthFixed, 80.f);
+			ImGui::TableSetupColumn("Height", ImGuiTableColumnFlags_WidthFixed, 80.f);
+			ImGui::TableSetupColumn("Step", ImGuiTableColumnFlags_WidthFixed, 80.f);
+			ImGui::TableSetupColumn("Slope", ImGuiTableColumnFlags_WidthFixed, 80.f);
+			ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 24.f);
+			ImGui::TableHeadersRow();
+			for (int i = 0; i < static_cast<int>(settings.NavAgentTypes.size()); ++i)
+			{
+				ProjectSettings::NavAgentType& type = settings.NavAgentTypes[i];
+				ImGui::PushID(i);
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				ImGui::SetNextItemWidth(-1.f);
+				ImGui::InputText("##name", &type.Name);
+				agentsChanged |= ImGui::IsItemDeactivatedAfterEdit();
+				ImGui::TableNextColumn();
+				ImGui::SetNextItemWidth(-1.f);
+				ImGui::DragFloat("##radius", &type.Radius, 0.01f, 0.05f, 20.f, "%.2f");
+				agentsChanged |= ImGui::IsItemDeactivatedAfterEdit();
+				ImGui::TableNextColumn();
+				ImGui::SetNextItemWidth(-1.f);
+				ImGui::DragFloat("##height", &type.Height, 0.01f, 0.1f, 50.f, "%.2f");
+				agentsChanged |= ImGui::IsItemDeactivatedAfterEdit();
+				ImGui::TableNextColumn();
+				ImGui::SetNextItemWidth(-1.f);
+				ImGui::DragFloat("##climb", &type.MaxClimb, 0.01f, 0.f, 10.f, "%.2f");
+				agentsChanged |= ImGui::IsItemDeactivatedAfterEdit();
+				ImGui::TableNextColumn();
+				ImGui::SetNextItemWidth(-1.f);
+				ImGui::DragFloat("##slope", &type.MaxSlope, 0.5f, 0.f, 89.f, "%.0f");
+				agentsChanged |= ImGui::IsItemDeactivatedAfterEdit();
+				ImGui::TableNextColumn();
+				ImGui::BeginDisabled(settings.NavAgentTypes.size() <= 1);
+				if (ImGui::SmallButton("x"))
+				{
+					removeType = i;
+				}
+				ImGui::EndDisabled();
+				ImGui::PopID();
+			}
+			ImGui::EndTable();
+		}
+		if (removeType >= 0)
+		{
+			settings.NavAgentTypes.erase(settings.NavAgentTypes.begin() + removeType);
+			agentsChanged = true;
+		}
+		ImGui::BeginDisabled(settings.NavAgentTypes.size() >= static_cast<size_t>(ProjectSettings::kMaxNavAgentTypes));
+		if (ImGui::Button("Add Agent Type"))
+		{
+			settings.NavAgentTypes.push_back({ "Agent " + std::to_string(settings.NavAgentTypes.size() + 1) });
+			agentsChanged = true;
+		}
+		ImGui::EndDisabled();
+		if (agentsChanged)
+		{
+			settings.Save();
+		}
+		ImGui::TextDisabled("Surfaces bake for one type; agents of that type walk them. Re-bake after changing a size.");
 		ImGui::EndTabItem();
 	}
 	ImGui::EndTabBar();

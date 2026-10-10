@@ -14,6 +14,7 @@ ME_REFLECT_ENUM( NavCollectGeometry, { { "Physics Colliders", NavCollectGeometry
 ME_REFLECT_ENUM( NavPartition, { { "Watershed", NavPartition::Watershed }, { "Monotone", NavPartition::Monotone }, { "Layers", NavPartition::Layers } } )
 
 ME_REFLECT_BEGIN( NavMeshSurface )
+    ME_FIELD( AgentType ).Category( "Agent" ).Choices( ProjectSettings::kMaxNavAgentTypes + 1, NavigationUI::SurfaceAgentTypeName ).Tooltip( "The agent size this navmesh is for (Project Settings > Navigation); Custom uses the values below" );
     ME_FIELD( AgentRadius ).Category( "Agent" ).Range( 0.05f, 10.f );
     ME_FIELD( AgentHeight ).Category( "Agent" ).Range( 0.1f, 20.f );
     ME_FIELD( AgentMaxClimb ).Category( "Agent" ).Range( 0.f, 5.f ).Tooltip( "Step height the agent can walk up" );
@@ -58,6 +59,13 @@ NavBuildSettings NavMeshSurface::GetBuildSettings() const
     settings.AgentHeight = AgentHeight;
     settings.AgentMaxClimb = AgentMaxClimb;
     settings.AgentMaxSlope = AgentMaxSlope;
+    if( const ProjectSettings::NavAgentType* type = ProjectSettings::Get().GetNavAgentType( AgentType ) )
+    {
+        settings.AgentRadius = type->Radius;
+        settings.AgentHeight = type->Height;
+        settings.AgentMaxClimb = type->MaxClimb;
+        settings.AgentMaxSlope = type->MaxSlope;
+    }
     settings.CellSize = CellSize;
     settings.CellHeight = CellHeight;
     settings.TileSize = TileSize;

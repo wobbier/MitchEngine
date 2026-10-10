@@ -472,3 +472,45 @@ TEST_CASE( "Navigation: a surface reports when its bake is out of date" )
     scene.GameWorld->Simulate();
     CHECK( scene.Navigation.IsOutOfDate( surface, true ) );   // the wall left the static set
 }
+
+
+TEST_CASE( "Navigation: agent types bake their own navmeshes; agents and queries use theirs" )
+{
+    ProjectSettings& settings = ProjectSettings::Get();
+    const std::vector<ProjectSettings::NavAgentType> savedTypes = settings.NavAgentTypes;
+    settings.NavAgentTypes = { { "Small", 0.3f, 2.f, 0.5f, 45.f }, { "Large", 1.5f, 2.f, 0.5f, 45.f } };
+    {
+        Scene scene;
+        scene.Box( "Ground", Vector3( 0.f, -0.5f, 0.f ), Vector3( 24.f, 1.f, 24.f ) );
+        // A wall across the ground with a 2 m gap: wide enough for the small type only.
+        scene.Box( "West Wall", Vector3( -6.5f, 1.f, 0.f ), Vector3( 11.f, 2.f, 1.f ) );
+        scene.Box( "East Wall", Vector3( 6.5f, 1.f, 0.f ), Vector3( 11.f, 2.f, 1.f ) );
+        NavMeshSurface& small = scene.Surface();
+        small.AgentType = 1;
+        NavMeshSurface& large = scene.Surface();
+        large.AgentType = 2;
+        CHECK( small.GetBuildSettings().AgentRadius == doctest::Approx( 0.3f ) );   // the type's size, not the surface's own
+        CHECK( large.GetBuildSettings().AgentRadius == doctest::Approx( 1.5f ) );
+        REQUIRE( scene.Navigation.Bake( small, false ) );
+        REQUIRE( scene.Navigation.Bake( large, false ) );
+
+        std::vector<Vector3> corners;
+        NavQueryFilter filter;
+        filter.AgentType = 1;
+        CHECK( scene.Navigation.FindPath( Vector3( 0.f, 0.f, -6.f ), Vector3( 0.f, 0.f, 6.f ), corners, filter ) == NavPathStatus::Complete );
+        filter.AgentType = 2;
+        CHECK( scene.Navigation.FindPath( Vector3( 0.f, 0.f, -6.f ), Vector3( 0.f, 0.f, 6.f ), corners, filter ) != NavPathStatus::Complete );
+
+        // Agents join the surface of their type.
+        EntityHandle truck = scene.Create( "Truck", Vector3( 4.f, 0.f, -6.f ) );
+        NavMeshAgent& agent = truck->AddComponent<NavMeshAgent>();
+        agent.Radius = 1.5f;
+        agent.AgentType = 2;
+        scene.GameWorld->Simulate();
+        scene.GameWorld->Start();
+        scene.Run( 0.1f );
+        CHECK( scene.Navigation.GetSurfaceInfo( large ).Agents == 1 );
+        CHECK( scene.Navigation.GetSurfaceInfo( small ).Agents == 0 );
+    }
+    settings.NavAgentTypes = savedTypes;
+}

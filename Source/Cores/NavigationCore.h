@@ -70,7 +70,7 @@ public:
     SurfaceInfo GetSurfaceInfo( const NavMeshSurface& InSurface ) const;
 
     // Queries use the navmesh under (or nearest to) InStart / InPoint.
-    NavMesh* GetNavMesh( const Vector3& InNear ) const;
+    NavMesh* GetNavMesh( const Vector3& InNear, int InAgentType = 0 ) const;
     NavMesh* GetNavMesh( const NavMeshSurface& InSurface ) const;
     NavPathStatus FindPath( const Vector3& InStart, const Vector3& InEnd, std::vector<Vector3>& OutCorners, const NavQueryFilter& InFilter = {} ) const;
     bool SamplePosition( const Vector3& InPoint, float InMaxDistance, NavMeshHit& OutHit, const NavQueryFilter& InFilter = {} ) const;
@@ -175,7 +175,7 @@ private:
     void CancelBake( SurfaceRecord& InRecord );
     SurfaceRecord* FindSurface( const NavMeshSurface& InSurface );
     const SurfaceRecord* FindSurface( const NavMeshSurface& InSurface ) const;
-    SurfaceRecord* SurfaceFor( const Vector3& InPosition, float InAgentRadius );
+    SurfaceRecord* SurfaceFor( const Vector3& InPosition, float InAgentRadius, int InAgentType = 0 );
     int FilterSlot( SurfaceRecord& InRecord, uint32_t InAreaMask );
 
     std::unordered_map<uint64_t, SurfaceRecord> m_surfaces;   // by surface entity id

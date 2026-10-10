@@ -26,6 +26,7 @@ ProjectSettings::ProjectSettings()
     NavAreaNames[2] = "Jump";
     NavAreaCosts.fill( 1.f );
     NavAreaCosts[2] = 2.f;
+    NavAgentTypes.push_back( { "Humanoid", 0.5f, 2.f, 0.5f, 45.f } );
 }
 
 
@@ -89,6 +90,23 @@ void ProjectSettings::Load()
             }
         }
     }
+    if( root.contains( "NavAgentTypes" ) && root["NavAgentTypes"].is_array() )
+    {
+        NavAgentTypes.clear();
+        for( const json& type : root["NavAgentTypes"] )
+        {
+            if( type.is_object() && NavAgentTypes.size() < static_cast<size_t>( kMaxNavAgentTypes ) )
+            {
+                NavAgentType agent;
+                agent.Name = type.value( "Name", std::string( "Agent" ) );
+                agent.Radius = type.value( "Radius", agent.Radius );
+                agent.Height = type.value( "Height", agent.Height );
+                agent.MaxClimb = type.value( "MaxClimb", agent.MaxClimb );
+                agent.MaxSlope = type.value( "MaxSlope", agent.MaxSlope );
+                NavAgentTypes.push_back( agent );
+            }
+        }
+    }
     if( root.contains( "AudioBusVolumes" ) && root["AudioBusVolumes"].is_array() )
     {
         const json& volumes = root["AudioBusVolumes"];
@@ -123,6 +141,11 @@ void ProjectSettings::Save() const
     for( int i = 0; i < kNavAreaCount; ++i )
     {
         root["NavAreas"].push_back( { { "Name", NavAreaNames[i] }, { "Cost", NavAreaCosts[i] } } );
+    }
+    root["NavAgentTypes"] = json::array();
+    for( const NavAgentType& type : NavAgentTypes )
+    {
+        root["NavAgentTypes"].push_back( { { "Name", type.Name }, { "Radius", type.Radius }, { "Height", type.Height }, { "MaxClimb", type.MaxClimb }, { "MaxSlope", type.MaxSlope } } );
     }
     File file{ Path( kSettingsPath ) };
     file.Write( root.dump( 4 ) );
@@ -159,6 +182,12 @@ std::string ProjectSettings::GetNavAreaLabel( int InArea ) const
         return "Area " + std::to_string( InArea );
     }
     return NavAreaNames[InArea].empty() ? "Area " + std::to_string( InArea ) : NavAreaNames[InArea];
+}
+
+
+const ProjectSettings::NavAgentType* ProjectSettings::GetNavAgentType( int InType ) const
+{
+    return InType >= 1 && InType <= static_cast<int>( NavAgentTypes.size() ) ? &NavAgentTypes[InType - 1] : nullptr;
 }
 
 

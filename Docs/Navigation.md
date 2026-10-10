@@ -2,7 +2,7 @@
 
 Navigation is built on Recast (navmesh generation) and Detour (runtime navmesh, path queries, DetourCrowd agents), compiled from the `ThirdParty/recastnavigation` submodule. The engine-owned `NavigationCore` runs it. The building blocks:
 
-- **Surfaces:** a `NavMeshSurface` bakes a navmesh for one agent size from the static geometry around it, and holds it at runtime.
+- **Surfaces:** a `NavMeshSurface` bakes a navmesh for one agent size (a named agent type from Project Settings, or its own custom size) from the static geometry around it, and holds it at runtime.
 - **Agents:** a `NavMeshAgent` walks the navmesh of the surface it stands on, steering around other agents.
 - **Markup:**
   - `NavMeshModifier` leaves geometry out of the bake or gives it another area.
@@ -74,6 +74,16 @@ Units are metres; +Y is up. The navmesh lies on surfaces facing up (normal `cros
 - With no file, `BakeOnLoad` bakes when the scene loads. That suits procedural levels and game builds that don't ship the file.
 - Renaming the surface entity changes the default file name: re-bake, or set `NavMeshData`.
 
+### Agent types
+
+Project Settings > Navigation lists **agent types**: a name, radius, height, step (max climb) and max slope ("Humanoid" by default, up to 16).
+
+- **Surfaces:** a surface's `AgentType` picks the size it bakes for. 0 (Custom) uses the surface's own `Agent*` fields. The out-of-date check sees size changes, because it hashes the resolved settings.
+- **Agents:** an agent's `AgentType` makes it join only surfaces of that type. 0 (Any) keeps the surface under the agent with the closest radius.
+- **Queries:** `NavQueryFilter::AgentType` queries that type's navmesh.
+
+Overlapping surfaces for different types (people and vehicles on the same streets) therefore never mix.
+
 ### Agents
 
 While the world runs (play mode, game builds), every enabled `NavMeshAgent` on an active entity joins a crowd.
@@ -111,7 +121,7 @@ Stopping play restores the navmesh as baked. A new bake re-carves every obstacle
 `NavigationCore::FindPath`, `SamplePosition`, `Raycast`, `GetRandomPoint` and `GetRandomPointAround` pick the navmesh under the query point. `NavMesh` offers the same queries on a specific mesh.
 
 - **Paths** are corner lists, start and end included. Up to 512 polygons are searched per query.
-- **Filters:** a `NavQueryFilter` mask selects areas. Costs come from Project Settings when the query runs, so changing a cost affects the next path.
+- **Filters:** a `NavQueryFilter` mask selects areas. Costs come from Project Settings when the query runs, so changing a cost affects the next path. Its `AgentType` picks that type's navmesh rather than the one under the point.
 - **Raycast** walks the surface. It reports the first wall with its normal, and the hit's height comes from the polygon it stopped on.
 
 ### Editor
@@ -149,7 +159,7 @@ The C# API covers the agent and the queries:
 ## Caveats & Fragility
 
 - **Obstacles carve only while the game runs**, and only into navmeshes that are already loaded. Static geometry that moves in the editor still needs a re-bake (the out-of-date warning says when).
-- **One navmesh per agent size.** Agents use the surface under them with the closest radius. Mixed sizes need a surface per size; there are no named agent types.
+- **One navmesh per agent type.** Mixed sizes need a surface per type, each baking the same geometry again. Agents and queries without a type use the surface under them with the closest radius. C# path queries don't take an agent type yet; C# agents can set `AgentType` through field access.
 - **The crowd holds 256 agents per navmesh**, and 16 distinct area masks per crowd (more fall back to the first filter).
 - **Agents don't push or collide with physics.** With `UpdatePosition` on they are moved kinematically. Pair them with a CharacterController (manual mode) for collisions.
 - **Remaining distance is a lower bound** when the path bends more than four corners ahead.

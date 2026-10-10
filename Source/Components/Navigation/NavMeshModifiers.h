@@ -95,4 +95,8 @@ namespace NavigationUI
     // Choice names for reflected area / mask fields.
     std::string AreaName( int InArea );
     std::string LayerName( int InLayer );
+    // Agent type pickers (1-based types; empty names hide unused slots): a surface's 0 is its own
+    // custom size, an agent's 0 any surface.
+    std::string SurfaceAgentTypeName( int InType );
+    std::string AgentAgentTypeName( int InType );
 }

@@ -35,7 +35,8 @@ class NavMeshSurface
 public:
     NavMeshSurface();
 
-    // Agent
+    // Agent: a type from Project Settings > Navigation, or 0 = these custom values.
+    int AgentType = 0;
     float AgentRadius = 0.5f;
     float AgentHeight = 2.f;
     float AgentMaxClimb = 0.5f;

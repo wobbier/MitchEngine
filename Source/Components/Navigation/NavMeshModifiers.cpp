@@ -48,6 +48,20 @@ namespace NavigationUI
     {
         return ProjectSettings::Get().GetLayerLabel( InLayer );
     }
+
+
+    std::string SurfaceAgentTypeName( int InType )
+    {
+        const ProjectSettings::NavAgentType* type = ProjectSettings::Get().GetNavAgentType( InType );
+        return InType == 0 ? "Custom" : type ? type->Name : std::string();
+    }
+
+
+    std::string AgentAgentTypeName( int InType )
+    {
+        const ProjectSettings::NavAgentType* type = ProjectSettings::Get().GetNavAgentType( InType );
+        return InType == 0 ? "Any" : type ? type->Name : std::string();
+    }
 }
 
 

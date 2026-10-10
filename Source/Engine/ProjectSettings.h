@@ -1,6 +1,7 @@
 #pragma once
 #include "Math/Vector3.h"
 #include <array>
+#include <vector>
 #include <cstdint>
 #include <string>
 
@@ -41,6 +42,21 @@ public:
     std::array<float, kNavAreaCount> NavAreaCosts;
     // Display label: the name, or "Area N" when unnamed.
     std::string GetNavAreaLabel( int InArea ) const;
+    // Navigation agent types: the body sizes navmeshes are baked for. A surface bakes for one (or
+    // for its own custom size) and agents walk the surfaces of theirs. Surfaces and agents store the
+    // type 1-based (0 = custom / any).
+    struct NavAgentType
+    {
+        std::string Name;
+        float Radius = 0.5f;
+        float Height = 2.f;
+        float MaxClimb = 0.5f;      // step height
+        float MaxSlope = 45.f;      // degrees
+    };
+    static constexpr int kMaxNavAgentTypes = 16;
+    std::vector<NavAgentType> NavAgentTypes;
+    // Type N (1-based), or null.
+    const NavAgentType* GetNavAgentType( int InType ) const;
 
 private:
     ProjectSettings();

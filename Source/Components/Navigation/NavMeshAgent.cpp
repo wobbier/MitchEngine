@@ -1,5 +1,6 @@
 #include "PCH.h"
 #include "NavMeshAgent.h"
+#include "Engine/ProjectSettings.h"
 #include "Components/Navigation/NavMeshModifiers.h"
 
 ME_REFLECT_ENUM( NavAvoidanceQuality, { { "None", NavAvoidanceQuality::None }, { "Low", NavAvoidanceQuality::Low }, { "Medium", NavAvoidanceQuality::Medium }, { "High", NavAvoidanceQuality::High } } )
@@ -14,6 +15,7 @@ ME_REFLECT_BEGIN( NavMeshAgent )
     ME_FIELD( BaseOffset ).Category( "Shape" ).Tooltip( "Height of the Transform above the navmesh" );
     ME_FIELD( LinkJumpHeight ).Category( "Steering" ).Range( 0.f, 10.f ).Tooltip( "Arc height when crossing a NavMeshLink" );
     ME_FIELD( Avoidance ).Category( "Avoidance" );
+    ME_FIELD( AgentType ).Category( "Pathing" ).Choices( ProjectSettings::kMaxNavAgentTypes + 1, NavigationUI::AgentAgentTypeName ).Tooltip( "Walk only surfaces baked for this agent type" );
     ME_FIELD( AreaMask ).Category( "Pathing" ).MaskChoices( NavAreas::kCount, NavigationUI::AreaName ).Tooltip( "Areas this agent may walk on" );
     ME_FIELD( UpdatePosition ).Category( "Pathing" ).Tooltip( "Move the Transform; off: read the desired velocity and move it yourself" );
     ME_FIELD( UpdateRotation ).Category( "Pathing" );

@@ -36,6 +36,9 @@ public:
     float LinkJumpHeight = 1.f;     // arc height when crossing a NavMeshLink
     NavAvoidanceQuality Avoidance = NavAvoidanceQuality::High;
     uint32_t AreaMask = NavAreas::All;
+    // Walk only surfaces baked for this agent type (Project Settings > Navigation); 0 = the surface
+    // under the agent baked for the closest radius.
+    int AgentType = 0;
     bool UpdatePosition = true;
     bool UpdateRotation = true;
 

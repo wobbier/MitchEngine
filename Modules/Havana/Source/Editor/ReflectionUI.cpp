@@ -145,6 +145,10 @@ namespace ReflectionUI
                 for( int i = 0; i < InField.ChoiceCount; ++i )
                 {
                     const std::string name = InField.ChoiceName( i );
+                    if( name.empty() )
+                    {
+                        continue;   // an unused slot (e.g. agent types not defined)
+                    }
                     ImGui::PushID( i );
                     if( InField.ChoiceMask )
                     {
