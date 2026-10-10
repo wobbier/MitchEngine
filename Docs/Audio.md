@@ -6,10 +6,11 @@ Audio runs on FMOD Core through the engine-owned `AudioCore`. The building block
 - **Listener:** an `AudioListener` component, or the camera when there is none.
 - **One-shots:** fire-and-forget sounds (`AudioCore::PlayOneShot`, `AudioSource::PlayOneShot`, `PlayAudioEvent`). Each gets its own voice, so repeats overlap instead of restarting.
 - **Buses:** Master > Music / SFX / UI / Voice. Their volumes live in Project Settings. Music, SFX and Voice pause with the game.
+- **Environment:** `AudioReverbZone`s give places their acoustics, and colliders between the listener and a 3D source muffle it (occlusion).
 
 Automated runs never use the speakers.
 
-> Verified against engine commit afce7083, 2026-10-09 (overhaul Wave 4).
+> Verified against engine commit afce7083, 2026-10-09 (overhaul Wave 4); reverb zones and occlusion against 21312974, 2026-10-10.
 
 ## Overview
 
@@ -32,6 +33,8 @@ Units are metres and seconds. The 3D space matches the engine's: left-handed, +Y
 | `Source/Audio/AudioTypes.h` | `AudioBus`, `AudioRolloff`, `AudioOutput`, `AudioPlayParams`, `AudioVoice` |
 | `Source/Components/Audio/AudioSource.h` / `.cpp` | Reflected source component and its playback API; `wav` / `mp3` metadata |
 | `Source/Components/Audio/AudioListener.h` | Listener marker component |
+| `Source/Components/Audio/AudioReverbZone.h` / `.cpp` | Reverb zone component (`ReverbPreset`, min / max distance) |
+| `Source/Audio/AudioOcclusion.h` / `.cpp` | `CountAudioObstacles`: the engine's physics-backed occlusion query |
 | `Source/Resources/SoundResource.h` / `.cpp` | `Sound` resource (`Release()` frees it before its system goes away) |
 | `Source/Events/AudioEvents.h` | `PlayAudioEvent` / `StopAudioEvent` |
 | `Source/Engine/ProjectSettings.h` | `BusVolumes`, saved in the project's `ProjectSettings.json` under `Assets/Config` |
@@ -65,8 +68,10 @@ The chosen mode is logged at startup (`Audio: FMOD output …`). `IsSilent()` re
 3. **Sources.** For every `AudioSource` in the world:
    - It (re)loads the clip if needed, including when `FilePath` changed in place.
    - It starts a pending play: `PlayOnAwake` when the world starts or when the source is spawned during play, or a `Play()` issued before the clip loaded.
-   - It applies the component's current bus, volume (0 when muted), pitch, loop, spatial blend, min/max distance, rolloff, doppler and world position/velocity to the source's voice and to its live one-shots.
-4. **FMOD update.**
+   - It updates the source's occlusion (see Occlusion below).
+   - It applies the component's current bus, volume (0 when muted), pitch, loop, spatial blend, min/max distance, rolloff, doppler, occlusion, reverb send and world position/velocity to the source's voice and to its live one-shots.
+4. **Reverb zones.** Each active `AudioReverbZone` keeps an FMOD `Reverb3D` at its entity, with its preset and distances (see below).
+5. **FMOD update.**
 
 Velocities faster than sound (340 m/s) are treated as teleports (scene loads, camera snaps) and zeroed, so they don't produce a doppler blip.
 
@@ -96,6 +101,22 @@ Velocities faster than sound (340 m/s) are treated as teleports (scene loads, ca
   - With a `Callback`, it keeps the older behaviour: one cached `AudioSource` per path, restarted on replay and handed to the callback. The asset inspector's preview uses this, and so does `BasicUIView::PlaySound` when its view has a callback set.
 - **`StopAudioEvent`** stops both the cached source and the one-shots of that clip.
 
+### Reverb zones
+
+An `AudioReverbZone` gives a place its acoustics. `Preset` picks one of FMOD's 23 presets (Room, Cave, Hangar, Forest, Sewer Pipe, Underwater…). The reverb is fully heard while the listener is within `MinDistance` of the entity and fades out by `MaxDistance`. FMOD blends overlapping zones by the listener's position, and outside every zone there's no reverb.
+
+- **What feeds it:** each voice sends `ReverbMix × SpatialBlend` to the reverb. 3D sounds echo, while 2D ones (music, UI, 2D one-shots) stay dry.
+- **Lifecycle:** the core creates the `Reverb3D` on the zone's first tick. It follows the entity's position and the preset, is inactive while the entity or component is disabled, and is released when the zone leaves the world or audio shuts down.
+- **Editor:** an inspected zone draws its two spheres.
+
+### Occlusion
+
+A 3D source whose line to the listener is blocked sounds muffled. FMOD's 3D occlusion attenuates the direct sound and adds a lowpass (the system is initialised with `FMOD_INIT_CHANNEL_LOWPASS`); the reverb send is occluded half as much.
+
+- **Query:** every `AudioCore::kOcclusionInterval` (0.1 s) per playing source, `AudioCore`'s occlusion query counts the obstacles. The engine's query is `CountAudioObstacles`: a physics `RaycastAll` from the listener to the source, counting distinct objects (hierarchy roots). The source's and the listener's own hierarchies don't count, and triggers never block.
+- **Amount:** occlusion = obstacles × `OcclusionAmount` (0.6 by default, so two walls occlude fully), capped at 1. It glides there over about 0.1 s, so passing a pillar doesn't click.
+- **Scope:** only the 3D part is occluded (× `SpatialBlend`). Sources opt out with `Occlusion = false`. Without a query (tests, or no physics) nothing is occluded. `AudioSource::GetOcclusion()` reports the current value.
+
 ### Lifecycle
 
 | Event | Effect |
@@ -104,6 +125,7 @@ Velocities faster than sound (340 m/s) are treated as teleports (scene loads, ca
 | `World::Start` (`OnStart`) | `PlayOnAwake` sources are queued |
 | `World::Stop` (`OnStop`) | Every voice stops, cached legacy sources clear, and pause is lifted. Leaving play mode is silent |
 | A source leaves the world (`OnEntityRemoved`) | Its voices stop |
+| A reverb zone leaves the world | Its FMOD reverb is released |
 | `Engine::Shutdown` → `AudioCore::Shutdown` | Every voice stops. Each `Sound` of this system is released and evicted from `ResourceCache` (holders keep an empty `Sound`). The buses and the FMOD system are released |
 
 ### Editor
@@ -118,13 +140,15 @@ Velocities faster than sound (340 m/s) are treated as teleports (scene loads, ca
 - **Gameplay sounds:** call `AudioCore::Get()->PlayOneShot( Path( "Assets/Sounds/Hit.wav" ), params )`, or put an `AudioSource` on the entity and call `PlayOneShot()`. Use `AudioPlayParams::SpatialBlend = 1` and `Position` for positional one-shots.
 - **Music:** use an `AudioSource` on the `Music` bus, 2D, `Loop`, `PlayOnAwake` and `Stream`. Fade it by animating `Volume`, or with `GetVoice().SetVolume`.
 - **A new bus:** add it to `AudioBus` before `Count`, give it a name in `AudioBusName`, and grow `ProjectSettings::kAudioBusCount` (a `static_assert` keeps them in step). Decide whether it pauses with the game in `AudioCore::Tick`.
-- **Tests:** construct `AudioCore( AudioOutput::Manual )`, call `Tick` to mix, and read `AudioVoice::GetAudibility()`. It reports the final level after volume, buses and attenuation.
+- **Tests:** construct `AudioCore( AudioOutput::Manual )`, call `Tick` to mix, and read `AudioVoice::GetAudibility()`. It reports the final level after volume, buses, attenuation and occlusion. Give the core a fake `SetOcclusionQuery` to test occlusion.
+- **Other occluders:** replace the engine's query (`AudioCore::SetOcclusionQuery`), for example to give materials their own amounts or to use a layer mask.
 
 ## Caveats & Fragility
 
 - **Clips load synchronously** as decompressed samples on the main thread, unless the source sets `Stream`: then the source opens its own FMOD stream (read from disk while playing; no load hitch, little memory). A stream feeds one voice, so a streamed source's one-shots load the clip whole. There is no async load of whole clips.
 - **One listener.** FMOD supports several (split-screen), but the core places only listener 0.
-- **No occlusion, reverb zones or DSP effects.** Sounds pass through walls, and buses have only volume and mute.
+- **Occlusion is a ray, not propagation.** Sound doesn't bend around corners or through doorways: a source behind a wall is muffled even with an open door beside it. Every collider counts the same (`OcclusionAmount` is per source, not per material).
+- **No DSP effects on buses.** Buses have only volume and mute; the reverb is FMOD's single 3D reverb (instance 0).
 - **Pitch ignores time scale.** Slow motion doesn't slow sounds down. Pause is the only time effect.
 - **`AudioCore::Get()` is a global.** It's the most recently created core. Only one should exist at a time (the engine's, or a test's).
 - **FMOD Studio isn't integrated.** There are no banks or events; this is the FMOD Core API only.
