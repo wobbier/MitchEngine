@@ -5,11 +5,13 @@
 #include "Path.h"
 #include "Pointers.h"
 #include <array>
+#include <functional>
 #include <map>
 #include <string>
 #include <vector>
 
 class AudioSource;
+class AudioReverbZone;
 class Sound;
 class Transform;
 namespace FMOD
@@ -23,7 +25,9 @@ namespace FMOD
 //      in edit mode), with a velocity for doppler;
 //   2. loads AudioSources' clips, starts PlayOnAwake sources once the world starts, and keeps every
 //      source's voices on its bus, volume, pitch and 3D position;
-//   3. pauses the game buses while the engine is paused, and updates FMOD.
+//   3. keeps AudioReverbZones' FMOD reverbs at their entities, and occludes 3D sources whose line to
+//      the listener is blocked (OcclusionQuery, a few times a second per source, smoothed);
+//   4. pauses the game buses while the engine is paused, and updates FMOD.
 // Overlapping one-shots (PlayOneShot, PlayAudioEvent) each get their own voice.
 class AudioCore final
     : public Core<AudioCore>
@@ -79,6 +83,13 @@ public:
     // Applies params to a playing voice (mode, bus, volume, pitch, 3D settings and position).
     void ApplyParams( AudioVoice& InVoice, const AudioPlayParams& InParams );
 
+    // How many obstacles block the line from the listener to a source (the engine counts colliders
+    // with physics raycasts; without a query nothing is occluded).
+    using OcclusionQuery = std::function<int( const Vector3& InListener, const Vector3& InSource, Entity* InListenerEntity, Entity& InSourceEntity )>;
+    void SetOcclusionQuery( OcclusionQuery InQuery );
+    // Seconds between a source's occlusion checks.
+    static constexpr float kOcclusionInterval = 0.1f;
+
     // Stops everything and releases FMOD (engine shutdown); the core is inert afterwards.
     void Shutdown();
 
@@ -88,6 +99,9 @@ private:
 
     void UpdateListener( float InDeltaSeconds );
     Transform* FindListener();
+    void UpdateReverbZone( Entity& InEntity, AudioReverbZone& InZone );
+    void ReleaseReverbZone( AudioReverbZone& InZone );
+    void UpdateOcclusion( Entity& InEntity, AudioSource& InSource, const Vector3& InPosition, float InDeltaSeconds );
     FMOD::ChannelGroup* GetBusGroup( AudioBus InBus ) const;
 
     AudioOutput m_output = AudioOutput::Device;
@@ -95,6 +109,8 @@ private:
     bool m_paused = false;
     Vector3 m_listenerPosition;
     bool m_hasListenerPosition = false;
+    EntityHandle m_listenerEntity;
+    OcclusionQuery m_occlusionQuery;
     std::array<float, static_cast<size_t>( AudioBus::Count )> m_busVolumes;
     std::array<bool, static_cast<size_t>( AudioBus::Count )> m_busMuted;
 

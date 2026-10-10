@@ -2,6 +2,7 @@
 #include "AudioCore.h"
 #include "Components/Audio/AudioListener.h"
 #include "Components/Audio/AudioSource.h"
+#include "Components/Audio/AudioReverbZone.h"
 #include "Components/Camera.h"
 #include "Components/Transform.h"
 #include "Core/Assert.h"
@@ -28,6 +29,20 @@ namespace
     FMOD_VECTOR ToFmod( const Vector3& InVector )
     {
         return FMOD_VECTOR{ InVector.x, InVector.y, InVector.z };
+    }
+
+
+    FMOD_REVERB_PROPERTIES ReverbProperties( ReverbPreset InPreset )
+    {
+        static const FMOD_REVERB_PROPERTIES kPresets[] = {
+            FMOD_PRESET_GENERIC, FMOD_PRESET_PADDEDCELL, FMOD_PRESET_ROOM, FMOD_PRESET_BATHROOM, FMOD_PRESET_LIVINGROOM,
+            FMOD_PRESET_STONEROOM, FMOD_PRESET_AUDITORIUM, FMOD_PRESET_CONCERTHALL, FMOD_PRESET_CAVE, FMOD_PRESET_ARENA,
+            FMOD_PRESET_HANGAR, FMOD_PRESET_CARPETTEDHALLWAY, FMOD_PRESET_HALLWAY, FMOD_PRESET_STONECORRIDOR, FMOD_PRESET_ALLEY,
+            FMOD_PRESET_FOREST, FMOD_PRESET_CITY, FMOD_PRESET_MOUNTAINS, FMOD_PRESET_QUARRY, FMOD_PRESET_PLAIN,
+            FMOD_PRESET_PARKINGLOT, FMOD_PRESET_SEWERPIPE, FMOD_PRESET_UNDERWATER };
+        static_assert( sizeof( kPresets ) / sizeof( kPresets[0] ) == static_cast<size_t>( ReverbPreset::Underwater ) + 1, "one FMOD preset per ReverbPreset" );
+        const size_t index = static_cast<size_t>( InPreset );
+        return index < sizeof( kPresets ) / sizeof( kPresets[0] ) ? kPresets[index] : kPresets[0];
     }
 
 
@@ -221,7 +236,7 @@ float AudioVoice::GetAudibility() const
 
 
 AudioCore::AudioCore( AudioOutput InOutput )
-    : Base( ComponentFilter().Requires<AudioSource>() )
+    : Base( ComponentFilter().RequiresOneOf<AudioSource>().RequiresOneOf<AudioReverbZone>() )
     , m_output( InOutput )
 {
     SetIsSerializable( false );
@@ -246,7 +261,7 @@ AudioCore::AudioCore( AudioOutput InOutput )
             m_system->setOutput( FMOD_OUTPUTTYPE_NOSOUND_NRT );
         }
         m_system->setStreamBufferSize( 64 * 1024, FMOD_TIMEUNIT_RAWBYTES );
-        FMOD_RESULT result = m_system->init( 512, FMOD_INIT_NORMAL, nullptr );
+        FMOD_RESULT result = m_system->init( 512, FMOD_INIT_CHANNEL_LOWPASS, nullptr );
         if( result != FMOD_OK && m_output == AudioOutput::Device )
         {
             // No usable device (headless machine, no sound server): keep the engine running silently.
@@ -257,7 +272,7 @@ AudioCore::AudioCore( AudioOutput InOutput )
             if( Check( FMOD::System_Create( &m_system ), "System_Create" ) )
             {
                 m_system->setOutput( FMOD_OUTPUTTYPE_NOSOUND );
-                result = m_system->init( 512, FMOD_INIT_NORMAL, nullptr );
+                result = m_system->init( 512, FMOD_INIT_CHANNEL_LOWPASS, nullptr );
             }
         }
         if( m_system && !Check( result, "System::init" ) )
@@ -349,6 +364,13 @@ void AudioCore::Shutdown()
         return;
     }
     StopAll();
+    for( Entity& entity : GetEntities() )
+    {
+        if( AudioReverbZone* zone = entity.TryGetComponent<AudioReverbZone>() )
+        {
+            ReleaseReverbZone( *zone );
+        }
+    }
     for( auto& cached : m_cachedSounds )
     {
         cached.second->ClearData();
@@ -554,7 +576,12 @@ void AudioCore::ApplyParams( AudioVoice& InVoice, const AudioPlayParams& InParam
         channel->set3DMinMaxDistance( std::max( InParams.MinDistance, 0.001f ), std::max( InParams.MaxDistance, InParams.MinDistance + 0.001f ) );
         channel->set3DDopplerLevel( std::clamp( InParams.DopplerLevel, 0.f, 5.f ) );
         InVoice.SetPosition( InParams.Position, InParams.Velocity );
+        // Obstacles muffle the direct sound fully and its reverb half as much.
+        const float occlusion = std::clamp( InParams.Occlusion, 0.f, 1.f );
+        channel->set3DOcclusion( occlusion, occlusion * 0.5f );
     }
+    // Only the 3D part feeds the reverb zones: music and UI stay dry.
+    channel->setReverbProperties( 0, std::clamp( InParams.ReverbMix, 0.f, 1.f ) * std::clamp( InParams.SpatialBlend, 0.f, 1.f ) );
 #endif
 }
 
@@ -589,11 +616,11 @@ void AudioCore::OnStart()
     m_started = true;
     for( Entity& entity : GetEntities() )
     {
-        AudioSource& source = entity.GetComponent<AudioSource>();
-        if( source.PlayOnAwake )
+        AudioSource* source = entity.TryGetComponent<AudioSource>();
+        if( source && source->PlayOnAwake )
         {
-            source.m_pendingPlay = true;
-            source.m_voiceLoops = source.Loop;
+            source->m_pendingPlay = true;
+            source->m_voiceLoops = source->Loop;
         }
     }
 }
@@ -612,7 +639,10 @@ void AudioCore::OnStop()
     StopAll();
     for( Entity& entity : GetEntities() )
     {
-        entity.GetComponent<AudioSource>().m_pendingPlay = false;
+        if( AudioSource* source = entity.TryGetComponent<AudioSource>() )
+        {
+            source->m_pendingPlay = false;
+        }
     }
     if( m_paused )
     {
@@ -623,13 +653,17 @@ void AudioCore::OnStop()
 
 void AudioCore::OnEntityAdded( Entity& InEntity )
 {
-    AudioSource& source = InEntity.GetComponent<AudioSource>();
-    InitComponent( source );
-    if( m_started && source.PlayOnAwake )
+    AudioSource* source = InEntity.TryGetComponent<AudioSource>();
+    if( !source )
+    {
+        return;   // a reverb zone: created on the next tick
+    }
+    InitComponent( *source );
+    if( m_started && source->PlayOnAwake )
     {
         // Spawned during play.
-        source.m_pendingPlay = true;
-        source.m_voiceLoops = source.Loop;
+        source->m_pendingPlay = true;
+        source->m_voiceLoops = source->Loop;
     }
 }
 
@@ -642,6 +676,88 @@ void AudioCore::OnEntityRemoved( Entity& InEntity )
         source->SoundInstance = nullptr;
         source->IsInitialized = false;
     }
+    if( AudioReverbZone* zone = InEntity.TryGetComponent<AudioReverbZone>() )
+    {
+        ReleaseReverbZone( *zone );
+    }
+}
+
+
+void AudioCore::SetOcclusionQuery( OcclusionQuery InQuery )
+{
+    m_occlusionQuery = std::move( InQuery );
+}
+
+
+void AudioCore::UpdateReverbZone( Entity& InEntity, AudioReverbZone& InZone )
+{
+#if USING( ME_FMOD )
+    const bool active = InEntity.IsActiveInHierarchy() && InZone.IsEnabled();
+    if( !InZone.m_reverb )
+    {
+        if( !active || !Check( m_system->createReverb3D( &InZone.m_reverb ), "createReverb3D" ) )
+        {
+            InZone.m_reverb = nullptr;
+            return;
+        }
+        InZone.m_presetApplied = false;
+    }
+    if( !InZone.m_presetApplied || InZone.m_appliedPreset != InZone.Preset )
+    {
+        const FMOD_REVERB_PROPERTIES properties = ReverbProperties( InZone.Preset );
+        InZone.m_reverb->setProperties( &properties );
+        InZone.m_appliedPreset = InZone.Preset;
+        InZone.m_presetApplied = true;
+    }
+    Vector3 position;
+    if( Transform* transform = InEntity.TryGetComponent<Transform>() )
+    {
+        position = transform->GetWorldPosition();
+    }
+    const FMOD_VECTOR fmodPosition = ToFmod( position );
+    const float minDistance = std::max( InZone.MinDistance, 0.f );
+    InZone.m_reverb->set3DAttributes( &fmodPosition, minDistance, std::max( InZone.MaxDistance, minDistance + 0.01f ) );
+    InZone.m_reverb->setActive( active );
+    InZone.m_active = active;
+#endif
+}
+
+
+void AudioCore::ReleaseReverbZone( AudioReverbZone& InZone )
+{
+#if USING( ME_FMOD )
+    if( InZone.m_reverb )
+    {
+        InZone.m_reverb->release();
+        InZone.m_reverb = nullptr;
+    }
+#endif
+    InZone.m_active = false;
+}
+
+
+void AudioCore::UpdateOcclusion( Entity& InEntity, AudioSource& InSource, const Vector3& InPosition, float InDeltaSeconds )
+{
+    float target = 0.f;
+    const bool audible = InSource.IsPlaying() || !InSource.m_oneShots.empty();
+    if( InSource.Occlusion && InSource.SpatialBlend > 0.f && audible && m_occlusionQuery && m_hasListenerPosition )
+    {
+        InSource.m_occlusionTimer -= InDeltaSeconds;
+        if( InSource.m_occlusionTimer <= 0.f )
+        {
+            InSource.m_occlusionTimer = kOcclusionInterval;
+            const int obstacles = m_occlusionQuery( m_listenerPosition, InPosition, m_listenerEntity.Get(), InEntity );
+            InSource.m_occlusionTarget = std::min( 1.f, static_cast<float>( obstacles ) * std::max( InSource.OcclusionAmount, 0.f ) );
+        }
+        target = InSource.m_occlusionTarget;
+    }
+    else
+    {
+        InSource.m_occlusionTimer = 0.f;   // check as soon as it plays
+        InSource.m_occlusionTarget = 0.f;
+    }
+    // Glide (~0.1 s) so passing a pillar doesn't click.
+    InSource.m_occlusion += ( target - InSource.m_occlusion ) * ( 1.f - std::exp( -InDeltaSeconds * 12.f ) );
 }
 
 
@@ -678,6 +794,7 @@ void AudioCore::UpdateListener( float InDeltaSeconds )
     const Vector3 velocity = m_hasListenerPosition ? MotionVelocity( m_listenerPosition, position, InDeltaSeconds ) : Vector3();
     m_listenerPosition = position;
     m_hasListenerPosition = true;
+    m_listenerEntity = listener->Parent;
     // FMOD's default space matches the engine's: left-handed, +Y up, +Z forward.
     Vector3 forward = listener->Front();
     Vector3 up = listener->Up();
@@ -722,7 +839,16 @@ void AudioCore::Tick( float InDeltaSeconds, bool InPaused )
 
     for( Entity& entity : GetEntities() )
     {
-        AudioSource& source = entity.GetComponent<AudioSource>();
+        if( AudioReverbZone* zone = entity.TryGetComponent<AudioReverbZone>() )
+        {
+            UpdateReverbZone( entity, *zone );
+        }
+        AudioSource* sourcePtr = entity.TryGetComponent<AudioSource>();
+        if( !sourcePtr )
+        {
+            continue;
+        }
+        AudioSource& source = *sourcePtr;
         if( source.IsInitialized && source.SoundInstance && source.SoundInstance->GetPath().GetLocalPathString() != source.FilePath.GetLocalPathString() )
         {
             // The clip was changed in place (inspector, script): reload it.
@@ -746,6 +872,7 @@ void AudioCore::Tick( float InDeltaSeconds, bool InPaused )
             source.m_hasPosition = true;
             source.Play( source.m_voiceLoops, false );
         }
+        UpdateOcclusion( entity, source, position, InDeltaSeconds );
         source.UpdateVoices( position, velocity );
     }
 

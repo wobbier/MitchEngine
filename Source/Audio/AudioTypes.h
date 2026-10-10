@@ -52,6 +52,39 @@ struct AudioPlayParams
     AudioRolloff Rolloff = AudioRolloff::Inverse;
     float DopplerLevel = 1.f;
     int Priority = 128;     // 0 (most important) to 256; the least important voices go virtual first
+    // Muffling by obstacles between the source and the listener, 0 clear to 1 fully occluded
+    // (lowpass and attenuation of the 3D part).
+    float Occlusion = 0.f;
+    // Send to the reverb zones, scaled by SpatialBlend: 2D sounds (music, UI) stay dry.
+    float ReverbMix = 1.f;
+};
+
+// Reverb zone characters (FMOD's presets).
+enum class ReverbPreset : uint8_t
+{
+    Generic = 0,
+    PaddedCell,
+    Room,
+    Bathroom,
+    LivingRoom,
+    StoneRoom,
+    Auditorium,
+    ConcertHall,
+    Cave,
+    Arena,
+    Hangar,
+    CarpetedHallway,
+    Hallway,
+    StoneCorridor,
+    Alley,
+    Forest,
+    City,
+    Mountains,
+    Quarry,
+    Plain,
+    ParkingLot,
+    SewerPipe,
+    Underwater,
 };
 
 // One playing instance of a sound. Cheap to copy and safe to keep after the sound ends: every call on

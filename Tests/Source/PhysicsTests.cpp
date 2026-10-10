@@ -1,4 +1,5 @@
 #include <doctest/doctest.h>
+#include "Audio/AudioOcclusion.h"
 #include "Components/Physics/CharacterController.h"
 #include "Components/Physics/Colliders.h"
 #include "Components/Physics/PhysicsJoint.h"
@@ -481,4 +482,35 @@ TEST_CASE( "Physics: joint motors and sliders act on the joint's own entity" )
     CHECK( PositionOf( piston ).x == doctest::Approx( 11.f ).epsilon( 0.01 ) );
     scene.Run( 2.f );
     CHECK( PositionOf( piston ).x == doctest::Approx( 12.f ).epsilon( 0.01 ) );   // stopped at the upper limit
+}
+
+
+TEST_CASE( "Physics: audio occlusion counts the objects between the listener and a source" )
+{
+    Scene scene;
+    EntityHandle listener = scene.Create( "Listener", Vector3( 0.f, 1.f, 0.f ) );
+    listener->AddComponent<SphereCollider>().Radius = 0.5f;     // the player around the listener
+    EntityHandle speaker = scene.Create( "Speaker", Vector3( 0.f, 1.f, 10.f ) );
+    speaker->AddComponent<BoxCollider>().Size = Vector3( 1.f, 1.f, 1.f );   // its own housing
+    EntityHandle wallA = scene.Create( "Wall A", Vector3( 0.f, 1.f, 3.f ) );
+    wallA->AddComponent<BoxCollider>().Size = Vector3( 4.f, 4.f, 0.5f );
+    EntityHandle wallB = scene.Create( "Wall B", Vector3( 0.f, 1.f, 6.f ) );
+    wallB->AddComponent<BoxCollider>().Size = Vector3( 4.f, 4.f, 0.5f );
+    EntityHandle panel = scene.Create( "Wall B Panel", Vector3( 0.f, 1.f, 6.6f ) );
+    panel->GetComponent<Transform>().SetParent( wallB->GetComponent<Transform>(), true );
+    panel->AddComponent<BoxCollider>().Size = Vector3( 4.f, 4.f, 0.5f );   // same object: counts once
+    EntityHandle zone = scene.Create( "Zone", Vector3( 0.f, 1.f, 8.f ) );
+    BoxCollider& trigger = zone->AddComponent<BoxCollider>();
+    trigger.Size = Vector3( 4.f, 4.f, 1.f );
+    trigger.IsTrigger = true;                                     // triggers never block
+    scene.Start();
+    scene.Run( kStep );
+
+    const Vector3 ear( 0.f, 1.f, 0.f );
+    CHECK( CountAudioObstacles( scene.Physics, ear, PositionOf( speaker ), listener.Get(), *speaker.Get() ) == 2 );
+    CHECK( CountAudioObstacles( scene.Physics, ear, Vector3( 0.f, 1.f, 4.5f ), listener.Get(), *speaker.Get() ) == 1 );
+    CHECK( CountAudioObstacles( scene.Physics, ear, Vector3( 0.f, 1.f, 2.f ), listener.Get(), *speaker.Get() ) == 0 );
+    CHECK( CountAudioObstacles( scene.Physics, ear, Vector3( 8.f, 1.f, 0.f ), listener.Get(), *speaker.Get() ) == 0 );
+    // Without the listener's entity its own collider would count.
+    CHECK( CountAudioObstacles( scene.Physics, Vector3( 0.f, 1.f, -1.f ), PositionOf( speaker ), nullptr, *speaker.Get() ) == 3 );
 }

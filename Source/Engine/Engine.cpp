@@ -21,6 +21,7 @@
 #include "Components/Cameras/FlyingCamera.h"
 #include "Cores/Cameras/FlyingCameraCore.h"
 #include "Cores/AudioCore.h"
+#include "Audio/AudioOcclusion.h"
 #include "Input/Gamepads.h"
 #include "Cores/UI/UICore.h"
 #include "Cores/Scripting/ScriptCore.h"
@@ -230,6 +231,9 @@ void Engine::Init( Game* game )
         // Automated runs (captures, editor scripts) and --no-audio never play through the speakers.
         const bool silentAudio = CommandLine::Has( "--no-audio" ) || ( AutomationRunner::IsUnattendedRun() && !CommandLine::Has( "--audio" ) );
         AudioThread = new AudioCore( silentAudio ? AudioOutput::Silent : AudioOutput::Device );
+        AudioThread->SetOcclusionQuery( [this]( const Vector3& InListener, const Vector3& InSource, Entity* InListenerEntity, Entity& InSourceEntity ) {
+            return Physics ? CountAudioObstacles( *Physics, InListener, InSource, InListenerEntity, InSourceEntity ) : 0;
+        } );
 #if USING( ME_SCRIPTING )
         Scripts = new ScriptCore();
 #endif

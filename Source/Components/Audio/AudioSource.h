@@ -46,6 +46,11 @@ public:
     // Read the clip from disk while it plays (music, long ambience): no load hitch and little memory,
     // but one voice at a time (one-shots of the clip still load it whole).
     bool Stream = false;
+    // Muffle the 3D part when colliders block the line to the listener (lowpass and attenuation).
+    bool Occlusion = true;
+    float OcclusionAmount = 0.6f;   // per obstacle (two walls at 0.6 occlude fully)
+    // Send to the reverb zones (3D part).
+    float ReverbMix = 1.f;
 
     // Starts the source's voice (restarting it if playing) with the Loop setting.
     void Play();
@@ -75,6 +80,11 @@ public:
     float GetPlaybackSpeed();
     // The main voice's level after bus and distance attenuation (0 when not playing).
     float GetAudibility() const;
+    // How occluded the source is right now (0 clear to 1), smoothed.
+    float GetOcclusion() const
+    {
+        return m_occlusion;
+    }
     AudioVoice GetVoice() const
     {
         return m_voice;
@@ -116,6 +126,9 @@ private:
     Vector3 m_position;
     Vector3 m_velocity;
     bool m_hasPosition = false;
+    float m_occlusion = 0.f;
+    float m_occlusionTarget = 0.f;
+    float m_occlusionTimer = 0.f;
 };
 
 ME_REGISTER_COMPONENT_FOLDER( AudioSource, "Audio" )

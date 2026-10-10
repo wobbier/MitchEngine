@@ -1,5 +1,6 @@
 #include <doctest/doctest.h>
 #include "Components/Audio/AudioListener.h"
+#include "Components/Audio/AudioReverbZone.h"
 #include "Components/Audio/AudioSource.h"
 #include "Components/Transform.h"
 #include "Cores/AudioCore.h"
@@ -13,6 +14,8 @@
 #include <memory>
 
 #if USING( ME_FMOD )
+
+#include "fmod.hpp"
 
 namespace AudioTest
 {
@@ -293,6 +296,122 @@ TEST_CASE( "Audio: streamed sources open their own streams; their one-shots use 
     CHECK( shot.GetAudibility() == doctest::Approx( 0.5f ).epsilon( 0.02 ) );
     CHECK( a.IsPlaying() );
     CHECK( a.GetAudibility() == doctest::Approx( 1.f ).epsilon( 0.01 ) );
+}
+
+
+TEST_CASE( "Audio: blocked 3D sources are occluded smoothly; 2D sounds never are" )
+{
+    Scene scene;
+    int obstacles = 0;
+    scene.Core.SetOcclusionQuery( [&obstacles]( const Vector3&, const Vector3&, Entity*, Entity& ) { return obstacles; } );
+    EntityHandle entity = scene.AddSource( Vector3( 0.f, 0.f, 2.f ) );
+    AudioSource& source = entity->GetComponent<AudioSource>();
+    source.SpatialBlend = 1.f;
+    source.Rolloff = AudioRolloff::Linear;
+    source.MinDistance = 1.f;
+    source.MaxDistance = 20.f;
+    source.PlayOnAwake = true;
+    scene.Start();
+    Mix( scene.Core, 30 );
+    const float clear = source.GetAudibility();
+    REQUIRE( clear > 0.5f );
+    CHECK( source.GetOcclusion() == doctest::Approx( 0.f ) );
+
+    obstacles = 1;
+    Mix( scene.Core, 60 );
+    CHECK( source.GetOcclusion() == doctest::Approx( 0.6f ).epsilon( 0.02 ) );
+    float direct = 0.f;
+    float reverb = 0.f;
+    REQUIRE( source.GetVoice().GetChannel() );
+    source.GetVoice().GetChannel()->get3DOcclusion( &direct, &reverb );
+    CHECK( direct == doctest::Approx( 0.6f ).epsilon( 0.02 ) );
+    CHECK( reverb == doctest::Approx( 0.3f ).epsilon( 0.02 ) );
+    CHECK( source.GetAudibility() < clear * 0.8f );
+
+    obstacles = 3;
+    Mix( scene.Core, 60 );
+    CHECK( source.GetOcclusion() == doctest::Approx( 1.f ).epsilon( 0.02 ) );
+
+    // It glides rather than jumps when the way clears.
+    obstacles = 0;
+    Mix( scene.Core, 2 );
+    CHECK( source.GetOcclusion() > 0.3f );
+    Mix( scene.Core, 60 );
+    CHECK( source.GetOcclusion() == doctest::Approx( 0.f ).epsilon( 0.02 ) );
+
+    // 2D sources (music, UI) and sources that opt out ignore obstacles.
+    obstacles = 2;
+    source.SpatialBlend = 0.f;
+    Mix( scene.Core, 60 );
+    CHECK( source.GetOcclusion() == doctest::Approx( 0.f ) );
+    source.SpatialBlend = 1.f;
+    source.Occlusion = false;
+    Mix( scene.Core, 60 );
+    CHECK( source.GetOcclusion() == doctest::Approx( 0.f ) );
+}
+
+TEST_CASE( "Audio: reverb zones follow their entity and preset; 3D sources feed them, 2D ones don't" )
+{
+    Scene scene;
+    EntityHandle zoneEntity = scene.GameWorld->CreateEntity( "Cave" );
+    zoneEntity->AddComponent<Transform>().SetPosition( Vector3( 10.f, 0.f, 0.f ) );
+    AudioReverbZone& zone = zoneEntity->AddComponent<AudioReverbZone>();
+    zone.Preset = ReverbPreset::Cave;
+    zone.MinDistance = 3.f;
+    zone.MaxDistance = 8.f;
+    EntityHandle spatial = scene.AddSource( Vector3( 0.f, 0.f, 1.f ) );
+    EntityHandle flat = scene.AddSource( Vector3( 0.f, 0.f, 1.f ) );
+    AudioSource& spatialSource = spatial->GetComponent<AudioSource>();
+    spatialSource.SpatialBlend = 1.f;
+    spatialSource.ReverbMix = 0.5f;
+    spatialSource.PlayOnAwake = true;
+    flat->GetComponent<AudioSource>().PlayOnAwake = true;
+    scene.Start();
+    Mix( scene.Core );
+
+    REQUIRE( zone.IsActive() );
+    REQUIRE( zone.GetReverb() );
+    FMOD_VECTOR position{};
+    float minDistance = 0.f;
+    float maxDistance = 0.f;
+    zone.GetReverb()->get3DAttributes( &position, &minDistance, &maxDistance );
+    CHECK( position.x == doctest::Approx( 10.f ) );
+    CHECK( minDistance == doctest::Approx( 3.f ) );
+    CHECK( maxDistance == doctest::Approx( 8.f ) );
+    FMOD_REVERB_PROPERTIES properties{};
+    zone.GetReverb()->getProperties( &properties );
+    CHECK( properties.DecayTime == doctest::Approx( 2900.f ) );   // FMOD_PRESET_CAVE
+
+    zone.Preset = ReverbPreset::Room;
+    zoneEntity->GetComponent<Transform>().SetPosition( Vector3( -4.f, 2.f, 0.f ) );
+    Mix( scene.Core );
+    zone.GetReverb()->getProperties( &properties );
+    CHECK( properties.DecayTime == doctest::Approx( 400.f ) );    // FMOD_PRESET_ROOM
+    zone.GetReverb()->get3DAttributes( &position, &minDistance, &maxDistance );
+    CHECK( position.x == doctest::Approx( -4.f ) );
+    CHECK( position.y == doctest::Approx( 2.f ) );
+
+    float wet = -1.f;
+    REQUIRE( spatialSource.GetVoice().GetChannel() );
+    spatialSource.GetVoice().GetChannel()->getReverbProperties( 0, &wet );
+    CHECK( wet == doctest::Approx( 0.5f ) );
+    REQUIRE( flat->GetComponent<AudioSource>().GetVoice().GetChannel() );
+    flat->GetComponent<AudioSource>().GetVoice().GetChannel()->getReverbProperties( 0, &wet );
+    CHECK( wet == doctest::Approx( 0.f ) );
+
+    // Deactivating the zone silences it; reactivating brings it back.
+    zoneEntity->SetActive( false );
+    scene.GameWorld->Simulate();
+    Mix( scene.Core );
+    CHECK_FALSE( zone.IsActive() );
+    zoneEntity->SetActive( true );
+    scene.GameWorld->Simulate();
+    Mix( scene.Core );
+    CHECK( zone.IsActive() );
+
+    scene.GameWorld->DestroyEntity( zoneEntity );
+    scene.GameWorld->Simulate();
+    Mix( scene.Core );
 }
 
 #endif

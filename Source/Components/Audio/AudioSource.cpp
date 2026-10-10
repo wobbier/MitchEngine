@@ -30,6 +30,9 @@ ME_REFLECT_BEGIN( AudioSource )
     ME_FIELD( Mute );
     ME_FIELD( PlayOnAwake ).Tooltip( "Starts when the game starts, or when the source is spawned during play" );
     ME_FIELD( Loop );
+    ME_FIELD( Occlusion ).Tooltip( "Muffle the sound when colliders block the line to the listener (3D)" );
+    ME_FIELD( OcclusionAmount ).Range( 0.f, 1.f ).Tooltip( "How much each obstacle muffles" );
+    ME_FIELD( ReverbMix ).Range( 0.f, 1.f ).Tooltip( "How much the sound feeds reverb zones (3D)" );
     ME_FIELD( Stream ).Tooltip( "Read from disk while playing (music, long ambience): no load hitch, little memory, one voice at a time" );
     ME_FIELD( MaxOneShots ).Range( 1.f, 64.f ).Tooltip( "Overlapping PlayOneShot voices; the oldest stops beyond this" );
     ME_FIELD( SpatialBlend ).Category( "3D Sound" ).Range( 0.f, 1.f ).Tooltip( "0 = 2D (no panning or distance fade), 1 = positioned at this entity" );
@@ -83,6 +86,8 @@ AudioPlayParams AudioSource::MakePlayParams() const
     params.Rolloff = Rolloff;
     params.DopplerLevel = DopplerLevel;
     params.Priority = Priority;
+    params.Occlusion = m_occlusion;
+    params.ReverbMix = ReverbMix;
     return params;
 }
 
