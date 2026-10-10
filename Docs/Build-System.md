@@ -88,7 +88,7 @@ Because these are **generation-time filesystem checks**, two machines with diffe
 
 ### Tools (`Tools/` at engine root)
 
-Prebuilt per-platform binaries in `Tools/Win64|macOS|linux/` (**`shaderc`**, `texturec` — used by the asset cook, `Docs/Resources-and-Assets.md`), the vendored **Sharpmake** application, **Optick.exe** (profiler viewer), and standalone tool apps: **ShaderEditor** (node-graph shader authoring feeding `ShaderGraphMaterial`) and **HUB** (MitchHub project launcher), plus `ProjectTemplate`/`NewProjectSetup` scripts for spinning up new game projects.
+Prebuilt per-platform binaries in `Tools/Win64|macOS|linux/` (**`shaderc`**, `texturec` — used by the asset cook, `Docs/Resources-and-Assets.md`), the vendored **Sharpmake** application, **Optick.exe** (profiler viewer), and standalone tool apps: **ShaderEditor** (node-graph shader authoring feeding `ShaderGraphMaterial`) and **HUB** (MitchHub project launcher), plus `ProjectTemplate`/`NewProjectSetup` scripts for spinning up new game projects. Python helpers: `GenerateScriptAPI.py` (the script ABI, `Docs/Scripting-DotNet.md`) and `ScreenshotRegression.py` (capture scenes with `--frame-time` and compare with reference PNGs; `Docs/Architecture.md`).
 
 ### The Linux/Nix dev shell (game repo `../flake.nix`; template copy in `Tools/ProjectTemplate/flake.nix`)
 

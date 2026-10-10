@@ -30,7 +30,7 @@ Units are metres, kilograms and seconds. Angles on components are degrees; Box3D
 | `Source/Cores/PhysicsCore.h` / `.cpp` | The core: Box3D world, body / shape / joint sync, stepping, interpolation, events, queries, character mover, job bridge |
 | `Source/Components/Physics/Rigidbody.h` | Body settings and the runtime API (forces, velocities, `MoveTo`, `Teleport` (moves the Transform too), sleep) |
 | `Source/Components/Physics/Colliders.h` | `ColliderSettings` mixin (centre, trigger, friction, restitution, density) and the four collider components |
-| `Source/Components/Physics/CharacterController.h` | Capsule character settings and API (`SetMoveInput`, `Move`, `Jump`, `IsOnGround`) |
+| `Source/Components/Physics/CharacterController.h` | Capsule character settings and API (`SetMoveInput`, `Move`, `Jump`, `IsOnGround`); also scriptable from C# (`Docs/Scripting-DotNet.md`) |
 | `Source/Components/Physics/PhysicsJoint.h` | Joint type, anchors, axis, limits, motor, spring, break force |
 | `Source/Physics/PhysicsTypes.h` | `PhysicsLayers`, `ForceMode`, `RaycastHit`, `CollisionEvent` |
 | `Source/Physics/Box3DUtils.h` | Vector / quaternion conversions; packing Box3D ids into `uint64_t` so headers don't include Box3D |

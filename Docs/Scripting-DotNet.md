@@ -106,7 +106,7 @@ Only public fields survive. Private state, statics and references are rebuilt in
 
 ### Calling the engine from C#
 
-The API is about 78 functions. Strings cross as UTF-8 `byte*`, entities as the raw 64-bit `EntityID`, and vectors by pointer.
+The API is about 85 functions. Strings cross as UTF-8 `byte*`, entities as the raw 64-bit `EntityID`, and vectors by pointer.
 
 | Area | C# surface |
 |------|------------|
@@ -119,6 +119,8 @@ The API is about 78 functions. Strings cross as UTF-8 `byte*`, entities as the r
 | Input | `IsKeyDown`, `WasKeyPressed`, `MouseDelta`, `GetAction`, `GetActionVector2`, `IsActionPressed`, `WasActionPressed`, `WasActionReleased` (actions from `Docs/Input.md`) |
 | Audio | `Audio.PlayOneShot(clip, volume)`, `PlayOneShotAt(clip, position, volume)` |
 | Physics | `Physics.Raycast(origin, dir, maxDistance, out RaycastHit)`; `Rigidbody.AddForce(force, ForceMode)` and `Velocity` |
+| Character | `CharacterController.SetMoveInput`, `Move`, `Jump`, `IsGrounded`, `Velocity`, `MaxSpeed` (`Docs/Physics.md`) |
+| Math | `Vector3` (`Zero`/`Up`/`Forward`…, `Normalized`, `Dot`, `Cross`, `Distance`, `Lerp`), `Mathf` (`Clamp`, `Atan2`, `Deg2Rad`, frame-rate independent `Damp`) |
 | Navigation | `NavMeshAgent.SetDestination`, `IsStopped`, `ResetPath`, `Warp`, `HasPath`, `HasArrived`, `RemainingDistance`, `Velocity`, `DesiredVelocity`, `Speed`; `Navigation.FindPath`, `SamplePosition`, `Raycast`, `GetRandomPoint` (`Docs/Navigation.md`) |
 | Camera / UI | Clear colour; `BasicUIView.ExecuteJS` |
 | ImGui | A subset for `OnEditorInspect` |

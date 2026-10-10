@@ -53,7 +53,7 @@ Audio (FMOD) has its own deep dive: `Docs/Audio.md`.
 | Component | File | Purpose |
 |-----------|------|---------|
 | `Transform` | `Source/Components/Transform.h` | Hierarchy node: position/rotation/scale, parent/children (`SharedPtr<Transform>` links), name. Dirty-flag cached matrices — see below |
-| `Camera` | `Source/Components/Camera.h` | Projection (perspective/ortho), FOV, near/far, clear type (color/skybox/procedural), main-camera flag; statics `Camera::CurrentCamera` / `Camera::EditorCamera` |
+| `Camera` | `Source/Components/Camera.h` | Projection (perspective, or orthographic with `OrthographicSize` = half the view height in world units), FOV, near/far, clear type (color/skybox/procedural), main-camera flag; statics `Camera::CurrentCamera` / `Camera::EditorCamera` |
 | `Mesh` | `Source/Components/Graphics/Mesh.h` | One renderable mesh: `MeshData*` (primitives share one geometry per shape: Plane, Cube, Sphere, Cylinder, Capsule), per-instance material (default `StandardMaterial`), `CastShadows`, renderer cache slot `Id`. Skinned meshes resolve their bone entities by name and build a bone palette each frame (`UpdateSkin`) |
 | `Model` | `Source/Components/Graphics/Model.h` | Assimp model reference; `Init()` **expands the model's node tree into real child entities** with `Transform` + `Mesh` components (bones included, reusing existing children by name); the inspector lists the model's animation clips |
 | `Animator` | `Source/Components/Animation/Animator.h` | Plays the Model's (or `ClipSource`'s, or code-built) clips on the node entities below it: states, 1D blends, parameter / exit-time transitions with cross-fades, event markers; `Play`, `SetFloat` / `SetBool` / `SetTrigger` |

@@ -28,6 +28,7 @@ Ratings: **Solid** (rely on it) · **Usable** (works, know the sharp edges) · *
 | Scripting (.NET 8) | **Usable** | Generated ABI from one manifest, hot reload that keeps field values, engine-owned lifecycle (start after physics sync, fixed update), a gameplay API (input actions, physics, audio, scenes, debug draw), CLI builds on Linux, editor-flow tested; no collision callbacks or generic component access, no macOS host, Win64 CLI path untested | [Scripting-DotNet.md](Scripting-DotNet.md) |
 | UI (Ultralight) | **Abandoned-in-place** | 60 fps cap + licensing friction; replacement (web/Vue direction) in progress — do not extend | [UI-Ultralight-and-ImGui.md](UI-Ultralight-and-ImGui.md) |
 | Editor (Havana) | **Solid** | Selection/undo/actions services, in-memory play snapshots, autosave + recovery, multi-object gizmos, reflection inspector with multi-edit, prefab overrides, asset browser v2, scripted regression tests; non-reflected components and path-based asset refs are the gaps | [Editor-Havana.md](Editor-Havana.md) |
+| QA automation | **Solid** | doctest unit tests (93 cases), scripted editor flows per subsystem, deterministic `--frame-time` captures with screenshot regression over showcase scenes, unattended runs that never touch user settings or speakers; no CI running the editor flows or screenshots yet | [Architecture.md](Architecture.md) |
 | Build system | **Usable** | Sharpmake graph is coherent; silent directory-existence feature variance bites every fresh machine | [Build-System.md](Build-System.md) |
 
 ## 2. Platform Support Matrix
