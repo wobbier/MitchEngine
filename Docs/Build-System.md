@@ -90,6 +90,17 @@ Because these are **generation-time filesystem checks**, two machines with diffe
 
 Prebuilt per-platform binaries in `Tools/Win64|macOS|linux/` (**`shaderc`**, `texturec` — used by the asset cook, `Docs/Resources-and-Assets.md`), the vendored **Sharpmake** application, **Optick.exe** (profiler viewer), and standalone tool apps: **ShaderEditor** (node-graph shader authoring feeding `ShaderGraphMaterial`) and **HUB** (MitchHub project launcher), plus `ProjectTemplate`/`NewProjectSetup` scripts for spinning up new game projects. Python helpers: `GenerateScriptAPI.py` (the script ABI, `Docs/Scripting-DotNet.md`) and `ScreenshotRegression.py` (capture scenes with `--frame-time` and compare with reference PNGs; `Docs/Architecture.md`).
 
+**Checks (Linux).** One command guards the engine. Run it from the project root inside the dev shell:
+
+```bash
+Engine/Tools/RunChecks.sh               # build, unit tests, every editor flow, screenshot regression
+Engine/Tools/RunChecks.sh --skip-build  # with the current binaries
+Engine/Tools/RunChecks.sh --only Nav    # only the editor flows whose path contains "Nav"
+```
+
+- `Tools/RunEditorFlows.py` finds every `*.edscript` under `Assets/Scenes`, opens the scene its header names (`--scene ...`) in the editor and reports which flows pass. Logs go to `.tmp/EditorFlows/`. While another Havana is open, it skips flows that edit files.
+- `Tools/Headless.sh <command>` runs a GUI program on a private virtual display (Xvfb, `:99`, started when needed) with software Vulkan (Mesa's lavapipe). Automated runs therefore never open windows on the desktop and render the same pixels on any machine. Both scripts above use it.
+
 ### The Linux/Nix dev shell (game repo `../flake.nix`; template copy in `Tools/ProjectTemplate/flake.nix`)
 
 New projects get a flake (+ lock) from the template — same shell minus the game-specific extras (e.g. Drumsmith's nodejs for the Vue UI). CI (`Linux.yml`) runs generation and make through `nix develop` on this flake.
