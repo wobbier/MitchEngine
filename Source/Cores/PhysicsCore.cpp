@@ -1378,16 +1378,38 @@ bool PhysicsCore::Raycast( const Vector3& InOrigin, const Vector3& InDirection, 
         return false;
     }
     const Vector3 direction = InDirection.Normalized();
-    const b3RayResult result = b3World_CastRayClosest( WorldId( m_world ), ToB3( InOrigin ), ToB3( direction * InMaxDistance ), QueryFilterFor( InLayerMask ) );
-    if( !result.hit )
+    // The closest hit that isn't a trigger (b3World_CastRayClosest would report triggers too).
+    struct Context
+    {
+        bool Hit = false;
+        b3ShapeId Shape;
+        b3Pos Point;
+        b3Vec3 Normal;
+        float Fraction = 1.f;
+    } context;
+    b3World_CastRay( WorldId( m_world ), ToB3( InOrigin ), ToB3( direction * InMaxDistance ), QueryFilterFor( InLayerMask ),
+        []( b3ShapeId shape, b3Pos point, b3Vec3 normal, float fraction, uint64_t, int, int, void* ctx ) -> float {
+            if( fraction == 0.f || b3Shape_IsSensor( shape ) )
+            {
+                return -1.f;   // starting inside the shape, or a trigger: ignore it
+            }
+            Context* self = static_cast<Context*>( ctx );
+            self->Hit = true;
+            self->Shape = shape;
+            self->Point = point;
+            self->Normal = normal;
+            self->Fraction = fraction;
+            return fraction;   // clip the ray: only closer hits from here on
+        }, &context );
+    if( !context.Hit )
     {
         return false;
     }
-    OutHit.Entity = EntityFromUserData( GetWorld(), b3Shape_GetUserData( result.shapeId ) );
-    OutHit.Position = FromB3( result.point );
-    OutHit.Normal = FromB3( result.normal );
-    OutHit.Fraction = result.fraction;
-    OutHit.Distance = result.fraction * InMaxDistance;
+    OutHit.Entity = EntityFromUserData( GetWorld(), b3Shape_GetUserData( context.Shape ) );
+    OutHit.Position = FromB3( context.Point );
+    OutHit.Normal = FromB3( context.Normal );
+    OutHit.Fraction = context.Fraction;
+    OutHit.Distance = context.Fraction * InMaxDistance;
     return true;
 }
 
@@ -1414,6 +1436,10 @@ std::vector<RaycastHit> PhysicsCore::RaycastAll( const Vector3& InOrigin, const 
     const Vector3 direction = InDirection.Normalized();
     b3World_CastRay( WorldId( m_world ), ToB3( InOrigin ), ToB3( direction * InMaxDistance ), QueryFilterFor( InLayerMask ),
         []( b3ShapeId shape, b3Pos point, b3Vec3 normal, float fraction, uint64_t, int, int, void* ctx ) -> float {
+            if( b3Shape_IsSensor( shape ) )
+            {
+                return -1.f;   // triggers don't block queries
+            }
             Context* self = static_cast<Context*>( ctx );
             RaycastHit hit;
             hit.Entity = EntityFromUserData( *self->GameWorld, b3Shape_GetUserData( shape ) );
@@ -1446,6 +1472,10 @@ bool PhysicsCore::SphereCast( const Vector3& InOrigin, float InRadius, const Vec
     const b3ShapeProxy proxy{ &center, 1, InRadius };
     b3World_CastShape( WorldId( m_world ), ToB3( InOrigin ), &proxy, ToB3( InDirection.Normalized() * InMaxDistance ), QueryFilterFor( InLayerMask ),
         []( b3ShapeId shape, b3Pos point, b3Vec3 normal, float fraction, uint64_t, int, int, void* ctx ) -> float {
+            if( b3Shape_IsSensor( shape ) )
+            {
+                return -1.f;
+            }
             Context* self = static_cast<Context*>( ctx );
             self->Hit = true;
             self->Result.Entity = EntityFromUserData( *self->GameWorld, b3Shape_GetUserData( shape ) );
@@ -1479,6 +1509,10 @@ std::vector<EntityHandle> PhysicsCore::OverlapSphere( const Vector3& InCenter, f
     const b3ShapeProxy proxy{ &center, 1, InRadius };
     b3World_OverlapShape( WorldId( m_world ), ToB3( InCenter ), &proxy, QueryFilterFor( InLayerMask ),
         []( b3ShapeId shape, void* ctx ) -> bool {
+            if( b3Shape_IsSensor( shape ) )
+            {
+                return true;   // skip triggers, keep looking
+            }
             Context* self = static_cast<Context*>( ctx );
             EntityHandle entity = EntityFromUserData( *self->GameWorld, b3Shape_GetUserData( shape ) );
             if( entity && std::find( self->Results->begin(), self->Results->end(), entity ) == self->Results->end() )
@@ -1512,6 +1546,10 @@ std::vector<EntityHandle> PhysicsCore::OverlapBox( const Vector3& InCenter, cons
     const b3ShapeProxy proxy{ corners, 8, 0.f };
     b3World_OverlapShape( WorldId( m_world ), ToB3( InCenter ), &proxy, QueryFilterFor( InLayerMask ),
         []( b3ShapeId shape, void* ctx ) -> bool {
+            if( b3Shape_IsSensor( shape ) )
+            {
+                return true;   // skip triggers, keep looking
+            }
             Context* self = static_cast<Context*>( ctx );
             EntityHandle entity = EntityFromUserData( *self->GameWorld, b3Shape_GetUserData( shape ) );
             if( entity && std::find( self->Results->begin(), self->Results->end(), entity ) == self->Results->end() )

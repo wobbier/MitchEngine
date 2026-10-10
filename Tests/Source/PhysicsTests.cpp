@@ -272,6 +272,13 @@ TEST_CASE( "Physics: triggers report enter and exit without blocking" )
 
     CHECK( PositionOf( ball ).y < -3.f );   // fell straight through
     REQUIRE( log.Count( CollisionEvent::Phase::Enter, true ) == 1 );
+    // Queries skip triggers.
+    RaycastHit hit;
+    CHECK_FALSE( scene.Physics.Raycast( Vector3( 1.5f, 5.f, 0.f ), Vector3( 0.f, -1.f, 0.f ), 10.f, hit ) );
+    CHECK( scene.Physics.RaycastAll( Vector3( 1.5f, 5.f, 0.f ), Vector3( 0.f, -1.f, 0.f ), 10.f ).empty() );
+    CHECK_FALSE( scene.Physics.SphereCast( Vector3( 1.5f, 5.f, 0.f ), 0.2f, Vector3( 0.f, -1.f, 0.f ), 10.f, hit ) );
+    CHECK( scene.Physics.OverlapSphere( Vector3( 1.5f, 0.f, 0.f ), 0.3f ).empty() );
+    CHECK( scene.Physics.OverlapBox( Vector3( 1.5f, 0.f, 0.f ), Vector3( 0.3f, 0.3f, 0.3f ), Quaternion() ).empty() );
     CHECK( log.Count( CollisionEvent::Phase::Exit, true ) == 1 );
     CHECK( log.Count( CollisionEvent::Phase::Enter, false ) == 0 );
     for( const CollisionEvent& event : log.Events )
