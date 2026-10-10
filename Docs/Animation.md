@@ -90,8 +90,20 @@ Because bones are ordinary entities, anything parented to a bone (a weapon, a ha
 3. **Write** (serial): `SetPosition` / `SetRotation` / `SetScale` on each node's `Transform`.
 4. **Root motion** (with `ApplyRootMotion`): the root bone is held above the entity horizontally (vertical motion stays in the bone), and the entity moves by the travel instead: through `CharacterController::Move` when it has one, so it still collides, or by moving its Transform. With `RootRotation` (on by default) the root also keeps its bind heading (tilt and roll stay in the bone), and the entity turns by the turn about world up.
 
+5. **Inverse kinematics** (`AnimationCore::SolveIK`, serial, after every pose is written): each active `TwoBoneIK`, then each `LookAtIK`, in the world. They work on any bones, animated or not, so procedural rigs work too. The late update then sees the solved pose (`Docs/Architecture.md`).
+
 `Animator::Stop()` freezes the pose. Setting `Speed` to 0 does the same but keeps transitions and events live.
 
+### Inverse kinematics
+
+The constraints are components (`Source/Components/Animation/IKConstraints.h`, math in `Source/Animation/IKSolver.cpp`), usually placed on the character. They point at bones by entity reference. A Model's node entities keep their GUIDs in a saved scene (`Model::Expand` reuses children by name), so the references survive reloads.
+
+| Component | Fields | What it does |
+|-----------|--------|--------------|
+| `TwoBoneIK` | `Tip` (the end bone; its parent and grandparent bend), `Target`, optional `Pole`, `Weight`, `MatchTargetRotation` | Feet on uneven ground, hands on handles. An analytic solve (law of cosines): the root and middle bones rotate in world space so the tip lands on the target. Bone lengths hold. Out of reach, the chain points at the target, fully stretched, and `IsReached()` is false. The middle joint bends toward the pole, or keeps the animation's bend direction without one. `Weight` slerps from the animated pose. `MatchTargetRotation` also turns the tip to the target's rotation |
+| `LookAtIK` | `Bone` (empty: this entity), `Target`, `AimAxis` (bone space), `Weight`, `MaxAngle`, `ChainLength` | Heads, eyes, turrets. The aim turns from its animated direction toward the target, by at most `MaxAngle` degrees, spread over `ChainLength` bones (the bone and its parents): each takes its share of what's left, so the last finishes the turn exactly |
+
+Scripts drive them through the generic field access (`entity.SetField( "TwoBoneIK", "Weight", 0.5f )`, `Docs/Scripting-DotNet.md`). Move targets in `OnUpdate`: IK runs before the late update. Unit tested (reach, out of reach, pole, weight, target rotation, limits, chains). AnimationFlows checks a tip reaching its target in play.
 ### Editor previews
 
 In edit mode `AnimationCore::Update` runs only previews (`UpdatePreviews`). `Animator::StartPreview( state )` binds the Animator to the current (authored) pose. The core then plays just that state on its layer, with no state machine, events, cross-fades or root motion moving the entity, at `PreviewTime` (advancing while `PreviewPlaying`). It samples and writes the pose like play does.

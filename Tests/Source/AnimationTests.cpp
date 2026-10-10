@@ -1,5 +1,7 @@
 #include <doctest/doctest.h>
 #include "Components/Animation/Animator.h"
+#include "Components/Animation/IKConstraints.h"
+#include "Animation/IKSolver.h"
 #include "Components/Transform.h"
 #include "Cores/AnimationCore.h"
 #include "Engine/World.h"
@@ -523,4 +525,130 @@ TEST_CASE( "Animation: root rotation turns the entity and holds the root's headi
         CHECK( yawDot( rig.Arm->GetComponent<Transform>().GetRotation(), 0.785398f ) == doctest::Approx( 1.f ).epsilon( 0.002 ) );
         CHECK( rig.Anim().GetRootTurn() == doctest::Approx( 90.f / 60.f ).epsilon( 0.05 ) );   // still reported
     }
+}
+
+
+namespace IKTest
+{
+    // A leg hanging from (0, 2, 0): thigh -> knee 1 m below -> foot 1 m below that.
+    struct Leg
+    {
+        std::shared_ptr<World> GameWorld = std::make_shared<World>();
+        EntityHandle Thigh;
+        EntityHandle Knee;
+        EntityHandle Foot;
+        EntityHandle Target;
+        EntityHandle Rig;
+
+        Leg()
+        {
+            GameWorld->IsLoading = false;
+            Thigh = GameWorld->CreateEntity( "Thigh" );
+            Knee = GameWorld->CreateEntity( "Knee" );
+            Foot = GameWorld->CreateEntity( "Foot" );
+            Target = GameWorld->CreateEntity( "Target" );
+            Rig = GameWorld->CreateEntity( "Rig" );
+            Transform& thigh = Thigh->AddComponent<Transform>();
+            Transform& knee = Knee->AddComponent<Transform>();
+            Transform& foot = Foot->AddComponent<Transform>();
+            Target->AddComponent<Transform>();
+            Rig->AddComponent<Transform>();
+            thigh.SetPosition( Vector3( 0.f, 2.f, 0.f ) );
+            knee.SetParent( thigh );
+            knee.SetPosition( Vector3( 0.f, -1.f, 0.f ) );
+            foot.SetParent( knee );
+            foot.SetPosition( Vector3( 0.f, -1.f, 0.f ) );
+            GameWorld->Simulate();
+        }
+
+        Vector3 WorldPosition( EntityHandle& InEntity )
+        {
+            return InEntity->GetComponent<Transform>().GetWorldPosition();
+        }
+    };
+
+    bool Near( const Vector3& InA, const Vector3& InB, float InTolerance = 1e-3f )
+    {
+        return ( InA - InB ).Length() < InTolerance;
+    }
+}
+
+TEST_CASE( "IK: two-bone chains reach their target, bend toward the pole and blend by weight" )
+{
+    IKTest::Leg leg;
+    leg.Target->GetComponent<Transform>().SetPosition( Vector3( 0.8f, 0.6f, 0.f ) );
+    Transform& pole = leg.GameWorld->CreateEntity( "Pole" )->AddComponent<Transform>();
+    pole.SetPosition( Vector3( 0.f, 1.f, 3.f ) );
+    TwoBoneIK& ik = leg.Rig->AddComponent<TwoBoneIK>();
+    ik.Tip = leg.Foot;
+    ik.Target = leg.Target;
+    ik.Pole = EntityHandle( pole.Parent.GetID(), leg.GameWorld );
+    leg.GameWorld->Simulate();
+
+    AnimationCore::SolveIK( *leg.GameWorld );
+    CHECK( ik.IsReached() );
+    CHECK( IKTest::Near( leg.WorldPosition( leg.Foot ), Vector3( 0.8f, 0.6f, 0.f ) ) );
+    // Bone lengths hold and the knee points at the pole (+Z).
+    CHECK( ( leg.WorldPosition( leg.Knee ) - leg.WorldPosition( leg.Thigh ) ).Length() == doctest::Approx( 1.f ).epsilon( 0.001 ) );
+    CHECK( leg.WorldPosition( leg.Knee ).z > 0.3f );
+
+    // Out of reach: the leg points at the target, fully stretched.
+    leg.Target->GetComponent<Transform>().SetPosition( Vector3( 0.f, 2.f, -5.f ) );
+    AnimationCore::SolveIK( *leg.GameWorld );
+    CHECK_FALSE( ik.IsReached() );
+    const Vector3 foot = leg.WorldPosition( leg.Foot );
+    CHECK( foot.z == doctest::Approx( -2.f ).epsilon( 0.01 ) );
+    CHECK( foot.y == doctest::Approx( 2.f ).epsilon( 0.01 ) );
+
+    // Weight 0 leaves the pose alone.
+    ik.Weight = 0.f;
+    leg.Target->GetComponent<Transform>().SetPosition( Vector3( 1.f, 1.f, 0.f ) );
+    AnimationCore::SolveIK( *leg.GameWorld );
+    CHECK( IKTest::Near( leg.WorldPosition( leg.Foot ), foot ) );
+
+    // MatchTargetRotation turns the foot to the target's rotation.
+    ik.Weight = 1.f;
+    ik.MatchTargetRotation = true;
+    leg.Target->GetComponent<Transform>().SetRotation( Vector3( 0.f, 90.f, 0.f ) );
+    AnimationCore::SolveIK( *leg.GameWorld );
+    const Quaternion footRotation = leg.Foot->GetComponent<Transform>().GetWorldRotation();
+    const Quaternion targetRotation = leg.Target->GetComponent<Transform>().GetWorldRotation();
+    CHECK( std::abs( glm::dot( footRotation.InternalQuat, targetRotation.InternalQuat ) ) == doctest::Approx( 1.f ).epsilon( 0.001 ) );
+}
+
+TEST_CASE( "IK: look-at aims a bone, limited by MaxAngle and shared along the chain" )
+{
+    IKTest::Leg rig;   // reused as a spine: Thigh (base) -> Knee -> Foot (head)
+    Transform& head = rig.Foot->GetComponent<Transform>();
+    rig.Target->GetComponent<Transform>().SetPosition( Vector3( 10.f, 0.f, 0.f ) );
+    LookAtIK& look = rig.Rig->AddComponent<LookAtIK>();
+    look.Bone = rig.Foot;
+    look.Target = rig.Target;
+    look.AimAxis = Vector3( 0.f, 0.f, 1.f );
+    look.MaxAngle = 0.f;    // no limit
+    rig.GameWorld->Simulate();
+
+    AnimationCore::SolveIK( *rig.GameWorld );
+    Vector3 aim = IK::Rotate( head.GetWorldRotation(), Vector3( 0.f, 0.f, 1.f ) );
+    Vector3 toTarget = ( rig.WorldPosition( rig.Target ) - head.GetWorldPosition() ).Normalized();
+    CHECK( glm::dot( aim.InternalVector, toTarget.InternalVector ) == doctest::Approx( 1.f ).epsilon( 0.001 ) );
+
+    // Limited: from the animated forward (+Z), a target at 90 degrees turns only 30.
+    head.SetRotation( Quaternion::Identity );
+    rig.Knee->GetComponent<Transform>().SetRotation( Quaternion::Identity );
+    rig.Thigh->GetComponent<Transform>().SetRotation( Quaternion::Identity );
+    look.MaxAngle = 30.f;
+    AnimationCore::SolveIK( *rig.GameWorld );
+    aim = IK::Rotate( head.GetWorldRotation(), Vector3( 0.f, 0.f, 1.f ) );
+    CHECK( glm::degrees( std::acos( std::clamp( aim.z, -1.f, 1.f ) ) ) == doctest::Approx( 30.f ).epsilon( 0.01 ) );
+
+    // Shared along three bones: the head still aims exactly, and the base turned too.
+    head.SetRotation( Quaternion::Identity );
+    look.MaxAngle = 0.f;
+    look.ChainLength = 3;
+    AnimationCore::SolveIK( *rig.GameWorld );
+    aim = IK::Rotate( head.GetWorldRotation(), Vector3( 0.f, 0.f, 1.f ) );
+    toTarget = ( rig.WorldPosition( rig.Target ) - head.GetWorldPosition() ).Normalized();
+    CHECK( glm::dot( aim.InternalVector, toTarget.InternalVector ) == doctest::Approx( 1.f ).epsilon( 0.001 ) );
+    CHECK( std::abs( rig.Thigh->GetComponent<Transform>().GetWorldRotation().InternalQuat.w ) < 0.999f );
 }

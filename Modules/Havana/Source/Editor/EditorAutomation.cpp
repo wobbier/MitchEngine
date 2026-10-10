@@ -441,6 +441,43 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
             }
         }
     }
+    else if( command == "set-ref" )
+    {
+        // set-ref TwoBoneIK.Tip | Waver/Root/Mid/Tip   (an entity reference field, by the entity's path)
+        auto [fieldPath, entityPath] = SplitArgs( args );
+        EntityHandle referenced = FindEntity( entityPath );
+        if( !referenced )
+        {
+            Fail( "set-ref: no entity named " + entityPath );
+        }
+        else
+        {
+            return Execute( InApp, "set " + fieldPath + " \"" + SceneSerializer::GUIDToString( referenced->GetGUID() ) + "\"" );
+        }
+    }
+    else if( command == "assert-near" )
+    {
+        // assert-near Waver/Root/Mid/Tip | Waver/IKTarget | 0.01   (world positions, within metres)
+        auto [first, rest] = SplitArgs( args );
+        auto [second, toleranceText] = SplitArgs( rest );
+        EntityHandle a = FindEntity( first );
+        EntityHandle b = FindEntity( second );
+        Transform* aTransform = a ? a->TryGetComponent<Transform>() : nullptr;
+        Transform* bTransform = b ? b->TryGetComponent<Transform>() : nullptr;
+        const float tolerance = toleranceText.empty() ? 0.01f : static_cast<float>( std::atof( toleranceText.c_str() ) );
+        if( !aTransform || !bTransform )
+        {
+            Fail( "assert-near: missing " + ( aTransform ? second : first ) );
+        }
+        else
+        {
+            const float distance = ( aTransform->GetWorldPosition() - bTransform->GetWorldPosition() ).Length();
+            if( distance > tolerance )
+            {
+                Fail( "assert-near: " + first + " is " + std::to_string( distance ) + " m from " + second );
+            }
+        }
+    }
     else if( command == "create-prefab" )
     {
         auto [name, path] = SplitArgs( args );

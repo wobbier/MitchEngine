@@ -162,11 +162,11 @@ The script runs one command per frame after a short warm-up and logs `[editor-ex
 | `show-asset path` | Opens the Assets window on a file with its details shown (data assets show their editable contents) |
 | `replace-in-file path | old | new`, `wait-log text | frames` | Edit a file in place (hot reload tests) / wait until a log line containing the text appears (lines logged since the previous command started count, so `action X` then `wait-log` can't miss what X logged; consecutive `wait-log`s share that window, so several lines X logged at once can each be awaited), failing after the frame budget |
 | `create Name [| Parent]`, `rename Name`, `reparent Child | Parent|root` | Structural edits |
-| `add-component T`, `remove-component T`, `set Type.Field <json>` | Component edits on the active entity |
+| `add-component T`, `remove-component T`, `set Type.Field <json>`, `set-ref Type.Field | Entity/Path` | Component edits on the active entity (`set-ref` fills an entity reference with that entity's GUID) |
 | `create-prefab Entity | path`, `instantiate path`, `prefab-apply/-revert/-unpack Entity` | Prefab workflow |
 | `play`, `stop`, `load path`, `save-as path`, `show-assets folder`, `focus-window name`, `screenshot path`, `quit` | Editor state |
 | `mark-count`, `assert-count N`, `assert-count-delta N` | Entity counts |
-| `assert-exists/-missing Name`, `assert-selected N`, `assert-active Name`, `assert-parent Child | Parent`, `assert-children Name | N` | Scene structure |
+| `assert-exists/-missing Name`, `assert-selected N`, `assert-active Name`, `assert-parent Child | Parent`, `assert-children Name | N`, `assert-near A | B | metres` (world positions) | Scene structure |
 | `assert-field Name | Type.Field | <json>` (numbers within 1e-3; append `~ tolerance` to widen; prefix `!=` to require a different value; `Type.Field.N` indexes arrays), `assert-dirty 0/1`, `assert-playing 0/1`, `assert-audio Name | 0/1` (its AudioSource is playing), `assert-prefab Name | path/none`, `assert-overridden Name | Type.Field | 0/1` | State |
 
 `Assets/Scenes/Tests/EditorFlows.edscript` and `PrefabFlows.edscript` (run with `HierarchyTest.lvl`) `PhysicsFlows.edscript` (run with `PhysicsTest.lvl`) and `Physics2DFlows.edscript` (run with `Physics2DTest.lvl`) in the game repository are the regression scripts.

@@ -1,6 +1,8 @@
 #include "PCH.h"
 #include "AnimationCore.h"
 #include "Components/Animation/Animator.h"
+#include "Components/Animation/IKConstraints.h"
+#include "Animation/IKSolver.h"
 #include "Components/Graphics/Model.h"
 #include "Components/Physics/CharacterController.h"
 #include "Components/Transform.h"
@@ -1020,6 +1022,83 @@ void AnimationCore::Advance( float InDeltaSeconds )
         WritePose( *animator );
         ApplyRootMotion( *animator );
     }
+    SolveIK( GetWorld() );
+}
+
+
+void AnimationCore::SolveIK( World& InWorld )
+{
+    OPTICK_EVENT( "AnimationCore::SolveIK" );
+    // Limbs first, then aims: a head looks from wherever the body ended up.
+    InWorld.Each<TwoBoneIK>( []( Entity& InEntity, TwoBoneIK& InIK ) {
+        Entity* tipEntity = InIK.Tip.Get();
+        Entity* targetEntity = InIK.Target.Get();
+        if( !InIK.IsEnabled() || InIK.Weight <= 0.f || !InEntity.IsActiveInHierarchy() || !tipEntity || !targetEntity )
+        {
+            return;
+        }
+        Transform* tip = tipEntity->TryGetComponent<Transform>();
+        Transform* mid = tip ? tip->GetParentTransform() : nullptr;
+        Transform* root = mid ? mid->GetParentTransform() : nullptr;
+        Transform* target = targetEntity->TryGetComponent<Transform>();
+        Entity* poleEntity = InIK.Pole.Get();
+        Transform* pole = poleEntity ? poleEntity->TryGetComponent<Transform>() : nullptr;
+        if( !root || !target )
+        {
+            return;
+        }
+        const float weight = std::min( InIK.Weight, 1.f );
+        const IK::TwoBoneSolution solution = IK::SolveTwoBone( root->GetWorldPosition(), mid->GetWorldPosition(), tip->GetWorldPosition(), target->GetWorldPosition(), pole ? pole->GetWorldPosition() : Vector3(), pole != nullptr );
+        InIK.m_reached = solution.Reached;
+        root->SetWorldRotation( IK::Then( root->GetWorldRotation(), IK::Scale( solution.RootDelta, weight ) ) );
+        mid->SetWorldRotation( IK::Then( mid->GetWorldRotation(), IK::Scale( solution.MidDelta, weight ) ) );
+        if( InIK.MatchTargetRotation )
+        {
+            tip->SetWorldRotation( Quaternion::Slerp( tip->GetWorldRotation(), target->GetWorldRotation(), weight ) );
+        }
+    } );
+
+    InWorld.Each<LookAtIK>( []( Entity& InEntity, LookAtIK& InIK ) {
+        Entity* boneEntity = InIK.Bone.Get() ? InIK.Bone.Get() : &InEntity;
+        Entity* targetEntity = InIK.Target.Get();
+        if( !InIK.IsEnabled() || InIK.Weight <= 0.f || !InEntity.IsActiveInHierarchy() || !targetEntity )
+        {
+            return;
+        }
+        Transform* bone = boneEntity->TryGetComponent<Transform>();
+        Transform* target = targetEntity->TryGetComponent<Transform>();
+        if( !bone || !target || InIK.AimAxis.LengthSquared() < 1e-8f )
+        {
+            return;
+        }
+        // The chain from its top bone down to the aiming one.
+        std::array<Transform*, 8> chain{};
+        int count = 0;
+        const int length = std::clamp( InIK.ChainLength, 1, static_cast<int>( chain.size() ) );
+        for( Transform* link = bone; link && count < length; link = link->GetParentTransform() )
+        {
+            chain[count++] = link;
+        }
+        std::reverse( chain.begin(), chain.begin() + count );
+
+        const Vector3 axis = InIK.AimAxis.Normalized();
+        const Vector3 animatedAim = IK::Rotate( bone->GetWorldRotation(), axis );
+        const float weight = std::min( InIK.Weight, 1.f );
+        // Each bone takes its share of what's left: the last one finishes the turn exactly.
+        for( int i = 0; i < count; ++i )
+        {
+            const Vector3 toTarget = target->GetWorldPosition() - bone->GetWorldPosition();
+            if( toTarget.LengthSquared() < 1e-10f )
+            {
+                return;
+            }
+            const Vector3 limited = IK::LimitDirection( animatedAim, toTarget, InIK.MaxAngle );
+            const Vector3 goal = IK::Rotate( IK::Scale( IK::FromTo( animatedAim, limited ), weight ), animatedAim );
+            const Vector3 aim = IK::Rotate( bone->GetWorldRotation(), axis );
+            const Quaternion step = IK::Scale( IK::FromTo( aim, goal ), 1.f / static_cast<float>( count - i ) );
+            chain[i]->SetWorldRotation( IK::Then( chain[i]->GetWorldRotation(), step ) );
+        }
+    } );
 }
 
 

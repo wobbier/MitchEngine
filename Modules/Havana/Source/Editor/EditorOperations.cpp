@@ -750,6 +750,9 @@ namespace EditorOps
         {
             return false;
         }
+        // Entity references in the state (joint bodies, IK targets) resolve in this world: without
+        // the scope, undo / redo / paste emptied them.
+        SerializationWorldScope scope( &GetWorld() );
         component->Deserialize( InState );
         component->OnPropertyChanged( "" );
         return true;

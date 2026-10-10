@@ -10,7 +10,8 @@ class Animator;
 //   2. state machine: pending Play() calls, then transitions on parameters / exit times;
 //   3. sample every layer's current state (a clip, or a 1D / 2D blend) and, while cross-fading, the
 //      previous one, on the job system; layers override the base on their masked nodes;
-//   4. write the poses to the node Transforms, fire AnimationEvents, and apply root motion.
+//   4. write the poses to the node Transforms, fire AnimationEvents, and apply root motion;
+//   5. inverse kinematics (TwoBoneIK, then LookAtIK) on the posed bones, animated or not.
 // RenderCore then skins meshes from those node Transforms.
 //
 // In edit mode it runs only editor previews (Animator::StartPreview): the previewed state is sampled
@@ -38,6 +39,9 @@ public:
     void StopAllPreviews();
     // Edit-mode update: poses previewing animators (Update calls this while the world isn't running).
     void UpdatePreviews( float InDeltaSeconds );
+    // Inverse kinematics on every active TwoBoneIK (limbs first) and LookAtIK in the world (Advance
+    // runs it after the poses are written).
+    static void SolveIK( World& InWorld );
     // Updates without the inspector before a preview stops (selecting something else ends it).
     static constexpr int kPreviewIdleUpdates = 30;
 
