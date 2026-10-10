@@ -227,6 +227,7 @@ Per camera, from `CameraData::Post`, which `CameraCore` copies from a `PostProce
 - **Ordering and culling**: systems are culled by bounds and drawn back to front. Alpha-blended systems also sort their particles.
 - **Geometry**: quads are expanded in `Particle.vert` from `u_invView` axes, as billboards, velocity-stretched or horizontal.
 - **Depth**: `Particle.frag` depth-tests against the scene depth and fades within `SoftParticleDistance` (soft particles).
+- **Lighting** (`ParticleSystem::Lit`, set on the Smoke preset): the particle colour becomes an albedo lit like a volume by `volumeLighting` in `Lighting.sh`. That sums the sun with its cascaded shadow, the cluster's point and spot lights with their shadows (no N·L, half a Lambert lobe), and ambient irradiance from the environment probe. The particle pass binds the same lighting state as opaque draws, and the camera's clusters still match its view. Additive glows (fire, sparks) stay unlit.
 - **Blending**: additive is premultiplied ONE/ONE; alpha uses the standard blend.
 
 ### Debug Draw v2, statistics, picking
@@ -289,7 +290,7 @@ Missing maps fall back to neutral 1×1 textures (white; flat normal). `BindLight
 - **Shadow budgets are fixed**: 4 spots, 2 point lights (12 extra shadow views a frame) and 1 directional light get shadows; further shadowed lights render unshadowed.
 - **One sun in post**: only directional light 0 is shadowed; additional directionals are unshadowed.
 - **Probe refresh hitch**: a sky probe refresh costs ~60 tiny passes over two frames. An animated time of day (`DynamicSky::m_timeScale > 0`) refreshes about every 3 in-game minutes.
-- **Particles are unlit**: smoke takes its colour verbatim; there are no light or shadow interactions.
+- **Lit particles are per-pixel and isotropic**: no forward-scattering phase function, no self-shadowing within a plume, and each lit pixel walks its cluster's lights, which costs fill rate on big smoke.
 - **Skinned meshes aren't instanced**: each costs one draw per view (camera, cascade, spot light), and its palette is uploaded with every draw.
 - **Transparent sorting is per object** (plus per particle within alpha systems); intersecting transparents sort wrong (no OIT).
 - **`CommandCache::Update`/`Pop` are unlocked**: safe only because mesh jobs write distinct slots and nothing `Push`es while they run.

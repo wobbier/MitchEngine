@@ -17,7 +17,7 @@ Ratings: **Solid** (rely on it) · **Usable** (works, know the sharp edges) · *
 | Jobs | **Solid** | Work stealing, helping waits, allocation-free ParallelFor, stress tested | [Jobs-and-Events.md](Jobs-and-Events.md) |
 | Events | **Usable** | Thread-safe queue, auto-deregistering receivers, safe re-entrant dispatch; still string-free but untyped `OnEvent` switches | [Jobs-and-Events.md](Jobs-and-Events.md) |
 | Rendering pipeline | **Solid** | Zero-virtual submit + auto-instancing, AABB culling, a view allocator, linear HDR with a full post stack, soft particles; unverified on non-Vulkan backends and unmeasured on GPUs at 57k-mesh scale with shadows | [Rendering-Pipeline.md](Rendering-Pipeline.md) |
-| Lighting & shadows | **Usable** | PBR + clustered point/spot lights, stable CSM sun shadows, spot and point-light shadows (cube faces in one atlas) and IBL probes; unlit particles, one shadowed sun, fixed shadow budgets | [Rendering-Pipeline.md](Rendering-Pipeline.md) |
+| Lighting & shadows | **Usable** | PBR + clustered point/spot lights, stable CSM sun shadows, spot and point-light shadows (cube faces in one atlas), IBL probes and lit smoke; one shadowed sun, fixed shadow budgets, no volumetrics | [Rendering-Pipeline.md](Rendering-Pipeline.md) |
 | Materials & shaders | **Usable** | Metallic-roughness StandardMaterial, live shader hot reload with include tracking; batch-key discipline is manual; ShaderGraph half-finished; compiles block the main thread | [Materials-and-Shaders.md](Materials-and-Shaders.md) |
 | Resources & assets | **Usable** | Hot reload, keep-alive cache, asset GUIDs; loads still synchronous on the main thread | [Resources-and-Assets.md](Resources-and-Assets.md) |
 | Serialization & scenes | **Solid** | Versioned v2 format with GUIDs, references, migration and prefab links with stable source GUIDs; asset references are still paths | [Serialization-and-Scenes.md](Serialization-and-Scenes.md) |
@@ -73,7 +73,7 @@ Impact (H/M/L) × Effort (S/M/L). Grouped so related items can share one work se
 |------|--------|--------|-------|
 | GPU validation of the Wave 3 renderer | **H** | S | Measure the 57k-mesh bench with shadows and IBL on real hardware, and smoke-test D3D11/Metal (only Vulkan/lavapipe verified) |
 | ~~Point-light shadows~~ | — | — | Done: six faces per light in the local shadow atlas |
-| Lit particles | M | M | Ambient/IBL + clustered lights for alpha particles (smoke currently ignores lighting) |
+| ~~Lit particles~~ | — | — | Done: `ParticleSystem::Lit` shades smoke with the sun, local lights, their shadows and ambient |
 | Parallel shadow caster culling | M | S | One pass over commands for all cascades, ParallelFor; ~1.5 ms CPU at 57k meshes today |
 | ShaderGraph finish-or-delete | M | M/L | Decide before any new material work builds on it |
 
