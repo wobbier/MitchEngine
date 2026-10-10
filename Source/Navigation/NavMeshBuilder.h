@@ -42,6 +42,7 @@ struct NavBuildInput
         float MinY = 0.f;
         float MaxY = 0.f;
         uint8_t Area = NavAreas::NotWalkable;
+        float Inflate = 0.f;    // grow the outline by this much (obstacles: the agent radius)
     };
     std::vector<Volume> Volumes;
 
@@ -65,7 +66,8 @@ struct NavBuildInput
 
 struct NavBuildResult
 {
-    NavMeshData Data;
+    NavMeshData Data;           // partial builds: only the rebuilt tiles that have polygons
+    std::vector<std::pair<int, int>> RebuiltTiles;  // partial builds: every tile rebuilt (x, z)
     bool Success = false;
     std::string Error;
     int TileCount = 0;      // tiles with polygons
@@ -79,6 +81,11 @@ struct NavBuildOptions
     std::atomic<bool>* Cancel = nullptr;    // set to abandon the bake
     std::atomic<int>* TilesDone = nullptr;  // progress
     std::atomic<int>* TilesTotal = nullptr;
+
+    // Patching an existing navmesh (dynamic obstacles): build on its grid instead of the geometry's
+    // bounds, and only the listed tiles (x, z). An empty list builds every tile.
+    const NavMeshData* Grid = nullptr;
+    std::vector<std::pair<int, int>> OnlyTiles;
 };
 
 // Bakes a tiled navmesh with Recast, building tiles in parallel. Pure function: safe on any thread.

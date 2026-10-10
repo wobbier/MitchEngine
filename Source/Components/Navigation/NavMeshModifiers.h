@@ -62,6 +62,34 @@ private:
 };
 ME_REGISTER_COMPONENT_FOLDER( NavMeshLink, "Navigation" )
 
+enum class NavObstacleShape : uint8_t
+{
+    Box = 0,
+    Cylinder,   // upright; Size.x is the diameter, Size.y the height
+};
+
+// Something agents must walk around that moves at runtime (a door, a crate, a parked car). While
+// the game runs, its footprint (grown by the agent radius) is carved out of the navmesh: when it
+// has moved more than MoveThreshold and then stood still for CarveDelay, the tiles under its old and
+// new place are rebuilt in the background. Obstacles are left out of bakes.
+class NavMeshObstacle
+    : public Component<NavMeshObstacle>
+{
+    ME_REFLECTABLE( NavMeshObstacle )
+public:
+    NavMeshObstacle();
+
+    NavObstacleShape Shape = NavObstacleShape::Box;
+    Vector3 Center = Vector3( 0.f, 0.f, 0.f );
+    Vector3 Size = Vector3( 1.f, 1.f, 1.f );
+    float MoveThreshold = 0.1f;
+    float CarveDelay = 0.25f;
+
+private:
+    void OnDeserialize( const json& InJson ) override;
+};
+ME_REGISTER_COMPONENT_FOLDER( NavMeshObstacle, "Navigation" )
+
 namespace NavigationUI
 {
     // Choice names for reflected area / mask fields.

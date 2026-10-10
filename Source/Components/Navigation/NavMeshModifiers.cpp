@@ -17,6 +17,16 @@ ME_REFLECT_BEGIN( NavMeshModifierVolume )
     ME_FIELD( Area ).Choices( NavAreas::kCount, NavigationUI::AreaName );
 ME_REFLECT_END()
 
+ME_REFLECT_ENUM( NavObstacleShape, { { "Box", NavObstacleShape::Box }, { "Cylinder", NavObstacleShape::Cylinder } } )
+
+ME_REFLECT_BEGIN( NavMeshObstacle )
+    ME_FIELD( Shape );
+    ME_FIELD( Center );
+    ME_FIELD( Size ).Tooltip( "Box: size; cylinder: diameter (x) and height (y). Local to this entity" );
+    ME_FIELD( MoveThreshold ).Range( 0.f, 5.f ).Tooltip( "Distance it must move before the navmesh is re-carved" );
+    ME_FIELD( CarveDelay ).Range( 0.f, 5.f ).Tooltip( "Seconds it must stand still before carving (moving obstacles don't churn the navmesh)" );
+ME_REFLECT_END()
+
 ME_REFLECT_BEGIN( NavMeshLink )
     ME_FIELD( StartPoint ).Tooltip( "Local to this entity" );
     ME_FIELD( EndPoint ).Tooltip( "Local to this entity" );
@@ -60,6 +70,18 @@ NavMeshModifierVolume::NavMeshModifierVolume()
 
 
 void NavMeshModifierVolume::OnDeserialize( const json& InJson )
+{
+    Reflection::FromJson( StaticType(), this, InJson );
+}
+
+
+NavMeshObstacle::NavMeshObstacle()
+    : Component( "NavMeshObstacle" )
+{
+}
+
+
+void NavMeshObstacle::OnDeserialize( const json& InJson )
 {
     Reflection::FromJson( StaticType(), this, InJson );
 }

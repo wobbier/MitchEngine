@@ -202,7 +202,18 @@ namespace
             {
                 outline.insert( outline.end(), { point.x, point.y, point.z } );
             }
-            rcMarkConvexPolyArea( &context, outline.data(), static_cast<int>( volume.Outline.size() ), volume.MinY, volume.MaxY, ToRecastArea( volume.Area ), *scratch.Compact );
+            int pointCount = static_cast<int>( volume.Outline.size() );
+            if( volume.Inflate > 0.f )
+            {
+                // Bevelled corners add up to a few points per corner.
+                std::vector<float> grown( outline.size() * 4 );
+                pointCount = rcOffsetPoly( outline.data(), pointCount, volume.Inflate, grown.data(), static_cast<int>( grown.size() / 3 ) );
+                outline.swap( grown );
+            }
+            if( pointCount >= 3 )
+            {
+                rcMarkConvexPolyArea( &context, outline.data(), pointCount, volume.MinY, volume.MaxY, ToRecastArea( volume.Area ), *scratch.Compact );
+            }
         }
 
         switch( settings.Partition )
@@ -375,6 +386,7 @@ uint64_t NavBuildInput::Hash() const
         hash = HashValue( hash, volume.MinY );
         hash = HashValue( hash, volume.MaxY );
         hash = HashValue( hash, volume.Area );
+        hash = HashValue( hash, volume.Inflate );
     }
     for( const Link& link : Links )
     {
@@ -428,7 +440,13 @@ NavBuildResult BuildNavMesh( const NavBuildInput& InInput, const NavBuildSetting
         geometryBounds.Encapsulate( vertex );
     }
     AABB bounds = geometryBounds;
-    if( InInput.Bounds.IsValid() )
+    if( InOptions.Grid )
+    {
+        // Same grid as the navmesh being patched (its tiles must line up).
+        bounds.Min = Vector3( InOptions.Grid->Origin[0], InOptions.Grid->Origin[1], InOptions.Grid->Origin[2] );
+        bounds.Max.y = std::max( bounds.Max.y, bounds.Min.y );
+    }
+    else if( InInput.Bounds.IsValid() )
     {
         bounds.Min = Vector3( std::max( bounds.Min.x, InInput.Bounds.Min.x ), std::max( bounds.Min.y, InInput.Bounds.Min.y ), std::max( bounds.Min.z, InInput.Bounds.Min.z ) );
         bounds.Max = Vector3( std::min( bounds.Max.x, InInput.Bounds.Max.x ), std::min( bounds.Max.y, InInput.Bounds.Max.y ), std::min( bounds.Max.z, InInput.Bounds.Max.z ) );
@@ -487,15 +505,32 @@ NavBuildResult BuildNavMesh( const NavBuildInput& InInput, const NavBuildSetting
     bake.TilesX = std::max( 1, ( gridWidth + config.tileSize - 1 ) / config.tileSize );
     bake.TilesZ = std::max( 1, ( gridHeight + config.tileSize - 1 ) / config.tileSize );
     bake.TileWorldSize = config.tileSize * cs;
+    int tileBits = Log2( NextPow2( bake.TilesX * bake.TilesZ ) );
+    if( InOptions.Grid )
+    {
+        // Cover the original grid (geometry may have shrunk since) and keep its reference layout.
+        bake.TileWorldSize = InOptions.Grid->TileWidth;
+        int maxX = bake.TilesX;
+        int maxZ = bake.TilesZ;
+        for( const auto& [x, z] : InOptions.OnlyTiles )
+        {
+            maxX = std::max( maxX, x + 1 );
+            maxZ = std::max( maxZ, z + 1 );
+        }
+        bake.TilesX = maxX;
+        bake.TilesZ = maxZ;
+        tileBits = Log2( InOptions.Grid->MaxTiles );
+        bake.BoundsMax[0] = bake.BoundsMin[0] + bake.TilesX * bake.TileWorldSize;
+        bake.BoundsMax[2] = bake.BoundsMin[2] + bake.TilesZ * bake.TileWorldSize;
+    }
     const int tileCount = bake.TilesX * bake.TilesZ;
-    const int tileBits = Log2( NextPow2( tileCount ) );
     if( tileBits > kMaxTileBits )
     {
         result.Error = "the area needs " + std::to_string( tileCount ) + " tiles (max " + std::to_string( 1 << kMaxTileBits ) + "); raise TileSize or CellSize";
         return result;
     }
     const int polyBits = 22 - tileBits;
-    bake.MaxPolysPerTile = 1 << polyBits;
+    bake.MaxPolysPerTile = InOptions.Grid ? InOptions.Grid->MaxPolysPerTile : 1 << polyBits;
 
     // Bucket triangles into the tiles their XZ bounds touch (with the border every tile reads).
     bake.TileTriangles.resize( tileCount );
@@ -541,12 +576,35 @@ NavBuildResult BuildNavMesh( const NavBuildInput& InInput, const NavBuildSetting
         bake.LinkIds.push_back( link.UserId );
     }
 
+    // Which tiles to build: all, or the requested ones that exist on the grid.
+    std::vector<int> work;
+    if( InOptions.OnlyTiles.empty() )
+    {
+        work.resize( tileCount );
+        for( int i = 0; i < tileCount; ++i )
+        {
+            work[i] = i;
+        }
+    }
+    else
+    {
+        for( const auto& [x, z] : InOptions.OnlyTiles )
+        {
+            if( x >= 0 && z >= 0 && x < bake.TilesX && z < bake.TilesZ )
+            {
+                work.push_back( z * bake.TilesX + x );
+                result.RebuiltTiles.emplace_back( x, z );
+            }
+        }
+    }
+    const int workCount = static_cast<int>( work.size() );
+
     // Build tiles on dedicated threads (long-running work must not land in a frame's job waits).
     std::vector<TileResult> tiles( tileCount );
     std::atomic<int> nextTile{ 0 };
     if( InOptions.TilesTotal )
     {
-        InOptions.TilesTotal->store( tileCount );
+        InOptions.TilesTotal->store( workCount );
     }
     auto worker = [&]() {
         for( ;; )
@@ -555,11 +613,12 @@ NavBuildResult BuildNavMesh( const NavBuildInput& InInput, const NavBuildSetting
             {
                 return;
             }
-            const int index = nextTile.fetch_add( 1 );
-            if( index >= tileCount )
+            const int next = nextTile.fetch_add( 1 );
+            if( next >= workCount )
             {
                 return;
             }
+            const int index = work[next];
             tiles[index] = BuildTile( bake, index % bake.TilesX, index / bake.TilesX );
             if( InOptions.TilesDone )
             {
@@ -573,7 +632,7 @@ NavBuildResult BuildNavMesh( const NavBuildInput& InInput, const NavBuildSetting
         const unsigned int hardware = std::thread::hardware_concurrency();
         threadCount = hardware > 1 ? hardware - 1 : 1;
     }
-    threadCount = std::max( 1u, std::min<unsigned int>( threadCount, static_cast<unsigned int>( tileCount ) ) );
+    threadCount = std::max( 1u, std::min<unsigned int>( threadCount, static_cast<unsigned int>( std::max( workCount, 1 ) ) ) );
     std::vector<std::thread> threads;
     for( unsigned int i = 1; i < threadCount; ++i )
     {
@@ -617,7 +676,7 @@ NavBuildResult BuildNavMesh( const NavBuildInput& InInput, const NavBuildSetting
         }
     }
     result.TileCount = static_cast<int>( data.Tiles.size() );
-    if( data.Tiles.empty() )
+    if( data.Tiles.empty() && InOptions.OnlyTiles.empty() )
     {
         result.Error = "nothing walkable (check the agent size and slope, and that surfaces face up)";
         return result;

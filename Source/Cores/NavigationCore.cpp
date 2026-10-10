@@ -22,6 +22,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <filesystem>
 #include <glm/gtc/matrix_inverse.hpp>
@@ -203,11 +204,7 @@ NavigationCore::NavigationCore()
 
 NavigationCore::~NavigationCore()
 {
-    for( auto& [id, record] : m_surfaces )
-    {
-        CancelBake( record );
-        DestroyCrowd( record );
-    }
+    OnRemovedFromWorld();
 }
 
 
@@ -223,16 +220,26 @@ void NavigationCore::OnRemovedFromWorld()
     for( auto& [id, record] : m_surfaces )
     {
         CancelBake( record );
+        if( record.Carve )
+        {
+            record.Carve->Cancel = true;
+            if( record.Carve->Thread.joinable() )
+            {
+                record.Carve->Thread.join();
+            }
+        }
         DestroyCrowd( record );
     }
     m_surfaces.clear();
     m_agents.clear();
+    m_obstacles.clear();
 }
 
 
 void NavigationCore::SyncNow()
 {
     PollBakes();
+    PollCarves();
     SyncSurfaces();
 }
 
@@ -258,6 +265,9 @@ void NavigationCore::OnStop()
         RemoveAgent( agent );
     }
     m_agents.clear();
+    // Obstacles carved the navmesh only for this run.
+    RestoreBakedMeshes();
+    m_obstacles.clear();
 }
 
 
@@ -300,6 +310,8 @@ void NavigationCore::Update( const UpdateContext& inUpdateContext )
         {
             StepAgents( deltaSeconds );
         }
+        SyncObstacles( deltaSeconds );
+        StartCarves();
     }
     DrawDebug();
 }
@@ -546,7 +558,7 @@ NavBuildInput NavigationCore::GatherInput( NavMeshSurface& InSurface )
     };
     // Moving things aren't part of the static navmesh.
     auto isDynamic = []( Entity& InEntity ) {
-        if( Enabled<NavMeshAgent>( InEntity ) || Enabled<CharacterController>( InEntity ) )
+        if( Enabled<NavMeshAgent>( InEntity ) || Enabled<CharacterController>( InEntity ) || Enabled<NavMeshObstacle>( InEntity ) )
         {
             return true;
         }
@@ -808,6 +820,16 @@ void NavigationCore::PollBakes()
         SetMesh( record, result.Data );
         record.BakeMilliseconds = result.Milliseconds;
         record.LastError.clear();
+        record.OutOfDateCheckedAt = -1.0;
+        // Obstacles carve the new navmesh from scratch.
+        record.CarveInput.reset();
+        record.Carved = false;
+        record.PendingTiles.clear();
+        for( auto& [obstacleId, obstacle] : m_obstacles )
+        {
+            obstacle.HasCarved = false;
+            obstacle.Dirty = true;
+        }
         if( !job->SavePath.empty() )
         {
             const Path file( job->SavePath );
@@ -836,8 +858,290 @@ void NavigationCore::WaitForBakes()
         {
             record.Bake->Thread.join();
         }
+        if( record.Carve && record.Carve->Thread.joinable() )
+        {
+            record.Carve->Thread.join();
+        }
     }
     PollBakes();
+    PollCarves();
+}
+
+
+// --------------------------------------------------------------------------------------- Obstacles
+
+NavBuildInput::Volume NavigationCore::ObstacleFootprint( NavMeshObstacle& InObstacle, Transform& InTransform )
+{
+    const glm::mat4 matrix = InTransform.GetLocalToWorldMatrix().GetInternalMatrix();
+    std::vector<Vector3> corners;
+    const Vector3 half = InObstacle.Size * 0.5f;
+    if( InObstacle.Shape == NavObstacleShape::Cylinder )
+    {
+        constexpr int kSides = 12;
+        for( int i = 0; i < kSides; ++i )
+        {
+            const float angle = 2.f * kPi * i / kSides;
+            for( float y : { -half.y, half.y } )
+            {
+                corners.push_back( InObstacle.Center + Vector3( std::cos( angle ) * half.x, y, std::sin( angle ) * half.x ) );
+            }
+        }
+    }
+    else
+    {
+        std::vector<uint32_t> unused;
+        BoxGeometry( InObstacle.Center, InObstacle.Size, corners, unused );
+    }
+    NavBuildInput::Volume volume;
+    volume.MinY = FLT_MAX;
+    volume.MaxY = -FLT_MAX;
+    for( Vector3& corner : corners )
+    {
+        corner = TransformPoint( matrix, corner );
+        volume.MinY = std::min( volume.MinY, corner.y );
+        volume.MaxY = std::max( volume.MaxY, corner.y );
+    }
+    volume.Outline = HullXZ( corners );
+    volume.Area = NavAreas::NotWalkable;
+    return volume;
+}
+
+
+void NavigationCore::SyncObstacles( float InDeltaSeconds )
+{
+    for( auto& [id, record] : m_obstacles )
+    {
+        record.Seen = false;
+    }
+    GetWorld().Each<NavMeshObstacle, Transform>( [&]( Entity& entity, NavMeshObstacle& obstacle, Transform& transform ) {
+        ObstacleRecord& record = m_obstacles[entity.GetId().Value()];
+        record.Obstacle = entity.GetHandle();
+        record.Seen = true;
+        NavBuildInput::Volume now = ObstacleFootprint( obstacle, transform );
+        bool moved = now.Outline.size() != record.Current.Outline.size() || std::fabs( now.MinY - record.Current.MinY ) > obstacle.MoveThreshold;
+        for( size_t i = 0; !moved && i < now.Outline.size(); ++i )
+        {
+            moved = ( now.Outline[i] - record.Current.Outline[i] ).Length() > obstacle.MoveThreshold;
+        }
+        if( moved )
+        {
+            record.Current = std::move( now );
+            record.StillTime = 0.f;
+            record.Dirty = true;
+        }
+        else
+        {
+            record.StillTime += InDeltaSeconds;
+        }
+        if( record.Dirty && record.StillTime >= obstacle.CarveDelay )
+        {
+            // Rebuild where it was and where it is.
+            if( record.HasCarved )
+            {
+                MarkTiles( record.Carved );
+            }
+            MarkTiles( record.Current );
+            record.Carved = record.Current;
+            record.HasCarved = true;
+            record.Dirty = false;
+        }
+    } );
+    for( auto it = m_obstacles.begin(); it != m_obstacles.end(); )
+    {
+        if( !it->second.Seen )
+        {
+            if( it->second.HasCarved )
+            {
+                MarkTiles( it->second.Carved );
+            }
+            it = m_obstacles.erase( it );
+        }
+        else
+        {
+            ++it;
+        }
+    }
+}
+
+
+void NavigationCore::MarkTiles( const NavBuildInput::Volume& InVolume )
+{
+    if( InVolume.Outline.empty() )
+    {
+        return;
+    }
+    float minX = FLT_MAX;
+    float minZ = FLT_MAX;
+    float maxX = -FLT_MAX;
+    float maxZ = -FLT_MAX;
+    for( const Vector3& point : InVolume.Outline )
+    {
+        minX = std::min( minX, point.x );
+        maxX = std::max( maxX, point.x );
+        minZ = std::min( minZ, point.z );
+        maxZ = std::max( maxZ, point.z );
+    }
+    for( auto& [id, record] : m_surfaces )
+    {
+        if( !record.Mesh || !record.Mesh->IsValid() )
+        {
+            continue;
+        }
+        const NavMeshData& data = record.Carved ? record.BaseData : record.Mesh->GetData();
+        // The obstacle grows by the agent radius, and tiles read a border around themselves.
+        const float margin = data.AgentRadius * 2.f + 0.5f;
+        const int x0 = std::max( 0, static_cast<int>( std::floor( ( minX - margin - data.Origin[0] ) / data.TileWidth ) ) );
+        const int x1 = static_cast<int>( std::floor( ( maxX + margin - data.Origin[0] ) / data.TileWidth ) );
+        const int z0 = std::max( 0, static_cast<int>( std::floor( ( minZ - margin - data.Origin[2] ) / data.TileHeight ) ) );
+        const int z1 = static_cast<int>( std::floor( ( maxZ + margin - data.Origin[2] ) / data.TileHeight ) );
+        for( int z = z0; z <= z1; ++z )
+        {
+            for( int x = x0; x <= x1; ++x )
+            {
+                record.PendingTiles.emplace( x, z );
+            }
+        }
+    }
+}
+
+
+void NavigationCore::StartCarves()
+{
+    for( auto& [id, record] : m_surfaces )
+    {
+        if( record.Carve || record.Bake || record.PendingTiles.empty() || !record.Mesh || !record.Mesh->IsValid() || !record.Surface )
+        {
+            continue;
+        }
+        NavMeshSurface* surface = record.Surface->TryGetComponent<NavMeshSurface>();
+        if( !surface )
+        {
+            continue;
+        }
+        if( !record.CarveInput )
+        {
+            record.CarveInput = std::make_unique<NavBuildInput>( GatherInput( *surface ) );
+            record.CarveSettings = surface->GetBuildSettings();
+        }
+        if( !record.Carved )
+        {
+            record.BaseData = record.Mesh->GetData();
+            record.Carved = true;
+        }
+        NavBuildInput input = *record.CarveInput;
+        for( const auto& [obstacleId, obstacle] : m_obstacles )
+        {
+            if( obstacle.HasCarved )
+            {
+                NavBuildInput::Volume volume = obstacle.Carved;
+                volume.Inflate = record.BaseData.AgentRadius;
+                input.Volumes.push_back( std::move( volume ) );
+            }
+        }
+        NavMeshData grid = record.BaseData;
+        grid.Tiles.clear();
+        std::vector<std::pair<int, int>> tiles( record.PendingTiles.begin(), record.PendingTiles.end() );
+        record.PendingTiles.clear();
+
+        auto job = std::make_unique<BakeJob>();
+        BakeJob* raw = job.get();
+        job->Thread = std::thread( [raw, input = std::move( input ), settings = record.CarveSettings, grid = std::move( grid ), tiles = std::move( tiles )]() {
+            NavBuildOptions options;
+            options.Cancel = &raw->Cancel;
+            options.Grid = &grid;
+            options.OnlyTiles = tiles;
+            options.ThreadCount = 2;    // a handful of tiles; leave the cores to the game
+            raw->Result = BuildNavMesh( input, settings, options );
+            raw->Done = true;
+        } );
+        record.Carve = std::move( job );
+    }
+}
+
+
+void NavigationCore::PollCarves()
+{
+    for( auto& [id, record] : m_surfaces )
+    {
+        if( !record.Carve || !record.Carve->Done )
+        {
+            continue;
+        }
+        std::unique_ptr<BakeJob> job = std::move( record.Carve );
+        if( job->Thread.joinable() )
+        {
+            job->Thread.join();
+        }
+        if( !job->Result.Success )
+        {
+            if( job->Result.Error != "cancelled" )
+            {
+                YIKES( "NavMesh obstacle carve failed: " + job->Result.Error );
+            }
+            continue;
+        }
+        if( record.Mesh && record.Carved )
+        {
+            record.Mesh->ReplaceTiles( job->Result.RebuiltTiles, job->Result.Data.Tiles );
+        }
+    }
+}
+
+
+void NavigationCore::RestoreBakedMeshes()
+{
+    for( auto& [id, record] : m_surfaces )
+    {
+        if( record.Carve )
+        {
+            record.Carve->Cancel = true;
+            if( record.Carve->Thread.joinable() )
+            {
+                record.Carve->Thread.join();
+            }
+            record.Carve.reset();
+        }
+        record.PendingTiles.clear();
+        if( record.Carved )
+        {
+            SetMesh( record, record.BaseData );
+            record.Carved = false;
+        }
+        record.CarveInput.reset();
+    }
+}
+
+
+bool NavigationCore::IsCarving() const
+{
+    for( const auto& [id, record] : m_surfaces )
+    {
+        if( record.Carve || !record.PendingTiles.empty() )
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+
+bool NavigationCore::IsOutOfDate( const NavMeshSurface& InSurface, bool InRecheckNow )
+{
+    SurfaceRecord* record = FindSurface( InSurface );
+    if( !record || !record->Mesh || !record->Mesh->IsValid() || record->Bake || !InSurface.Parent )
+    {
+        return false;
+    }
+    const double now = std::chrono::duration<double>( std::chrono::steady_clock::now().time_since_epoch() ).count();
+    if( InRecheckNow || record->OutOfDateCheckedAt < 0.0 || now - record->OutOfDateCheckedAt > 3.0 )
+    {
+        NavMeshSurface& surface = *InSurface.Parent->TryGetComponent<NavMeshSurface>();
+        const uint64_t hash = GatherInput( surface ).Hash() ^ ( surface.GetBuildSettings().Hash() * 31ull );
+        const NavMeshData& data = record->Carved ? record->BaseData : record->Mesh->GetData();
+        record->OutOfDate = hash != data.SourceHash;
+        record->OutOfDateCheckedAt = now;
+    }
+    return record->OutOfDate;
 }
 
 
@@ -1372,6 +1676,17 @@ void NavigationCore::DrawDebug()
         const glm::mat4 matrix = transform.GetLocalToWorldMatrix().GetInternalMatrix();
         DebugDraw::Arrow( TransformPoint( matrix, link.StartPoint ), TransformPoint( matrix, link.EndPoint ), DebugDraw::Orange, 0.2f, 0.f, flags );
     } );
+    for( const auto& [id, obstacle] : m_obstacles )
+    {
+        const NavBuildInput::Volume& footprint = obstacle.HasCarved ? obstacle.Carved : obstacle.Current;
+        const Vector4 color = obstacle.Dirty ? DebugDraw::Yellow : DebugDraw::Red;
+        for( size_t i = 0; i < footprint.Outline.size(); ++i )
+        {
+            const Vector3& a = footprint.Outline[i];
+            const Vector3& b = footprint.Outline[( i + 1 ) % footprint.Outline.size()];
+            DebugDraw::Line( Vector3( a.x, footprint.MinY + 0.03f, a.z ), Vector3( b.x, footprint.MinY + 0.03f, b.z ), color, 0.f, flags );
+        }
+    }
     GetWorld().Each<NavMeshModifierVolume, Transform>( [&]( Entity&, NavMeshModifierVolume& volume, Transform& transform ) {
         AABB local;
         local.Encapsulate( volume.Center - volume.Size * 0.5f );

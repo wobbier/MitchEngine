@@ -404,3 +404,71 @@ TEST_CASE( "Navigation: two agents swap places without passing through each othe
     CHECK( b->GetComponent<NavMeshAgent>().HasArrived() );
     CHECK( closest > 0.5f );   // radii 0.4 each: avoidance kept them (mostly) apart
 }
+
+
+TEST_CASE( "Navigation: an obstacle carves the navmesh while the game runs, and Stop restores it" )
+{
+    Scene scene;
+    scene.Box( "Ground", Vector3( 0.f, -0.5f, 0.f ), Vector3( 24.f, 1.f, 24.f ) );
+    NavMeshSurface& surface = scene.Surface();
+    REQUIRE( scene.Navigation.Bake( surface, false ) );
+
+    // A wide crate across the middle, not baked (obstacles are left out of bakes).
+    EntityHandle crate = scene.Create( "Crate", Vector3( 0.f, 0.5f, 0.f ) );
+    crate->AddComponent<BoxCollider>().Size = Vector3( 16.f, 1.f, 1.f );
+    NavMeshObstacle& obstacle = crate->AddComponent<NavMeshObstacle>();
+    obstacle.Size = Vector3( 16.f, 1.f, 1.f );
+    obstacle.CarveDelay = 0.f;
+    CHECK( scene.Navigation.GatherInput( surface ).Areas.size() == 12 );   // ground only
+
+    std::vector<Vector3> corners;
+    REQUIRE( scene.Navigation.FindPath( Vector3( 0.f, 0.f, -5.f ), Vector3( 0.f, 0.f, 5.f ), corners ) == NavPathStatus::Complete );
+    CHECK( PathLength( corners ) == doctest::Approx( 10.f ).epsilon( 0.05 ) );   // straight through: not carved in edit mode
+
+    scene.GameWorld->Simulate();
+    scene.GameWorld->Start();
+    scene.Run( 2.f / 60.f );
+    scene.Navigation.WaitForBakes();
+    CHECK( scene.Navigation.GetObstacleCount() == 1 );
+    REQUIRE( scene.Navigation.FindPath( Vector3( 0.f, 0.f, -5.f ), Vector3( 0.f, 0.f, 5.f ), corners ) == NavPathStatus::Complete );
+    CHECK( PathLength( corners ) > 17.f );   // around an end of the crate (grown by the agent radius)
+    NavMeshHit hit;
+    CHECK_FALSE( scene.Navigation.SamplePosition( Vector3( 0.f, 0.f, 0.f ), 0.2f, hit ) );
+
+    // Moving it re-carves where it was and where it is.
+    crate->GetComponent<Transform>().SetPosition( Vector3( 0.f, 0.5f, 6.f ) );
+    scene.Run( 2.f / 60.f );
+    scene.Navigation.WaitForBakes();
+    CHECK( scene.Navigation.SamplePosition( Vector3( 0.f, 0.f, 0.f ), 0.2f, hit ) );
+    CHECK_FALSE( scene.Navigation.SamplePosition( Vector3( 0.f, 0.f, 6.f ), 0.2f, hit ) );
+
+    // Stopping restores the navmesh as baked.
+    scene.GameWorld->Stop();
+    CHECK( scene.Navigation.SamplePosition( Vector3( 0.f, 0.f, 6.f ), 0.2f, hit ) );
+    CHECK( scene.Navigation.GetObstacleCount() == 0 );
+}
+
+
+TEST_CASE( "Navigation: a surface reports when its bake is out of date" )
+{
+    Scene scene;
+    scene.Box( "Ground", Vector3( 0.f, -0.5f, 0.f ), Vector3( 24.f, 1.f, 24.f ) );
+    NavMeshSurface& surface = scene.Surface();
+    REQUIRE( scene.Navigation.Bake( surface, false ) );
+    CHECK_FALSE( scene.Navigation.IsOutOfDate( surface, true ) );
+
+    // New static geometry, then new settings, each make it stale until the next bake.
+    EntityHandle wall = scene.Box( "New Wall", Vector3( 0.f, 1.f, 0.f ), Vector3( 6.f, 2.f, 1.f ) );
+    scene.GameWorld->Simulate();
+    CHECK( scene.Navigation.IsOutOfDate( surface, true ) );
+    REQUIRE( scene.Navigation.Bake( surface, false ) );
+    CHECK_FALSE( scene.Navigation.IsOutOfDate( surface, true ) );
+    surface.AgentRadius = 0.6f;
+    CHECK( scene.Navigation.IsOutOfDate( surface, true ) );
+    REQUIRE( scene.Navigation.Bake( surface, false ) );
+    CHECK_FALSE( scene.Navigation.IsOutOfDate( surface, true ) );
+    // Dynamic things don't count.
+    wall->AddComponent<Rigidbody>().Type = BodyType::Dynamic;
+    scene.GameWorld->Simulate();
+    CHECK( scene.Navigation.IsOutOfDate( surface, true ) );   // the wall left the static set
+}

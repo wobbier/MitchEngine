@@ -5,6 +5,7 @@
 #include "Navigation/NavMeshBuilder.h"
 #include <atomic>
 #include <memory>
+#include <set>
 #include <string>
 #include <thread>
 #include <unordered_map>
@@ -12,6 +13,8 @@
 
 class NavMeshSurface;
 class NavMeshAgent;
+class NavMeshObstacle;
+class Transform;
 class dtCrowd;
 
 // Navigation (Recast / Detour). Engine-owned: always present.
@@ -75,6 +78,13 @@ public:
     bool GetRandomPoint( Vector3& OutPoint, const NavQueryFilter& InFilter = {} ) const;
     bool GetRandomPointAround( const Vector3& InCenter, float InRadius, Vector3& OutPoint, const NavQueryFilter& InFilter = {} ) const;
 
+    // Dynamic obstacles carved into the navmeshes (while the world runs).
+    size_t GetObstacleCount() const { return m_obstacles.size(); }
+    bool IsCarving() const;
+    // The baked navmesh no longer matches the scene or the surface's settings (re-checked at most
+    // every few seconds; the inspector calls it).
+    bool IsOutOfDate( const NavMeshSurface& InSurface, bool InRecheckNow = false );
+
     size_t GetSurfaceCount() const { return m_surfaces.size(); }
     size_t GetAgentCount() const { return m_agents.size(); }
 
@@ -113,6 +123,28 @@ private:
         float BakeMilliseconds = 0.f;
         std::string LastError;
         std::vector<uint32_t> FilterMasks;  // crowd query filter slot -> area mask
+        // Dynamic obstacles: the static geometry (gathered once), the navmesh as baked, the
+        // running tile rebuild and the tiles waiting for the next one.
+        std::unique_ptr<NavBuildInput> CarveInput;
+        NavBuildSettings CarveSettings;
+        NavMeshData BaseData;
+        bool Carved = false;
+        std::unique_ptr<BakeJob> Carve;
+        std::set<std::pair<int, int>> PendingTiles;
+        // Out-of-date check (inspector)
+        double OutOfDateCheckedAt = -1.0;
+        bool OutOfDate = false;
+    };
+
+    struct ObstacleRecord
+    {
+        EntityHandle Obstacle;
+        NavBuildInput::Volume Current;  // where it is now
+        NavBuildInput::Volume Carved;   // where the navmesh has it
+        bool HasCarved = false;
+        bool Dirty = true;
+        float StillTime = 0.f;
+        bool Seen = false;
     };
 
     struct AgentRecord
@@ -124,6 +156,12 @@ private:
     };
 
     void SyncSurfaces();
+    void SyncObstacles( float InDeltaSeconds );
+    void MarkTiles( const NavBuildInput::Volume& InVolume );
+    void StartCarves();
+    void PollCarves();
+    void RestoreBakedMeshes();
+    static NavBuildInput::Volume ObstacleFootprint( NavMeshObstacle& InObstacle, Transform& InTransform );
     void SyncAgents();
     void PollBakes();
     void LoadSurface( SurfaceRecord& InRecord, NavMeshSurface& InSurface );
@@ -142,6 +180,7 @@ private:
 
     std::unordered_map<uint64_t, SurfaceRecord> m_surfaces;   // by surface entity id
     std::unordered_map<uint64_t, AgentRecord> m_agents;       // by agent entity id
+    std::unordered_map<uint64_t, ObstacleRecord> m_obstacles; // by obstacle entity id
     bool m_running = false;
 };
 

@@ -814,6 +814,10 @@ void SceneHierarchyWidget::DrawCreateTemplates(Transform* parent)
 		{
 			create("NavMesh Modifier Volume", json::array({ json{ { "Type", "Transform" } }, json{ { "Type", "NavMeshModifierVolume" } } }));
 		}
+		if (ImGui::MenuItem("NavMesh Obstacle"))
+		{
+			create("NavMesh Obstacle", json::array({ json{ { "Type", "Transform" } }, json{ { "Type", "NavMeshObstacle" } } }));
+		}
 		ImGui::EndMenu();
 	}
 }

@@ -10,6 +10,7 @@
 
 #include <cfloat>
 #include <cstring>
+#include <algorithm>
 #include <random>
 
 namespace
@@ -108,6 +109,41 @@ bool NavMesh::Load( const NavMeshData& InData )
     }
     m_data = InData;
     return true;
+}
+
+
+bool NavMesh::ReplaceTiles( const std::vector<std::pair<int, int>>& InCoords, const std::vector<std::vector<uint8_t>>& InTiles )
+{
+    if( !m_mesh )
+    {
+        return false;
+    }
+    auto sameTile = []( const std::vector<uint8_t>& InTile, int InX, int InZ ) {
+        const dtMeshHeader* header = reinterpret_cast<const dtMeshHeader*>( InTile.data() );
+        return InTile.size() >= sizeof( dtMeshHeader ) && header->x == InX && header->y == InZ;
+    };
+    for( const auto& [x, z] : InCoords )
+    {
+        if( const dtTileRef ref = m_mesh->getTileRefAt( x, z, 0 ) )
+        {
+            m_mesh->removeTile( ref, nullptr, nullptr );
+        }
+        m_data.Tiles.erase( std::remove_if( m_data.Tiles.begin(), m_data.Tiles.end(), [&]( const std::vector<uint8_t>& tile ) { return sameTile( tile, x, z ); } ), m_data.Tiles.end() );
+    }
+    bool ok = true;
+    for( const std::vector<uint8_t>& tile : InTiles )
+    {
+        unsigned char* copy = static_cast<unsigned char*>( dtAlloc( tile.size(), DT_ALLOC_PERM ) );
+        std::memcpy( copy, tile.data(), tile.size() );
+        if( dtStatusFailed( m_mesh->addTile( copy, static_cast<int>( tile.size() ), DT_TILE_FREE_DATA, 0, nullptr ) ) )
+        {
+            dtFree( copy );
+            ok = false;
+            continue;
+        }
+        m_data.Tiles.push_back( tile );
+    }
+    return ok;
 }
 
 

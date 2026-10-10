@@ -142,6 +142,10 @@ void NavMeshSurface::OnEditorInspect()
     }
     if( info.Loaded )
     {
+        if( !info.Baking && core->IsOutOfDate( *this ) )
+        {
+            ImGui::TextColored( ImVec4( 1.f, 0.75f, 0.3f, 1.f ), "Out of date: the scene or settings changed since the bake" );
+        }
         ImGui::TextDisabled( "%d tile(s), %d polygon(s)", info.Tiles, info.Polygons );
         if( info.BakeMilliseconds > 0.f )
         {

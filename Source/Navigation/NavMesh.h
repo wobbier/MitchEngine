@@ -20,6 +20,9 @@ public:
     NavMesh& operator=( const NavMesh& ) = delete;
 
     bool Load( const NavMeshData& InData );
+    // Swaps tiles in place (dynamic obstacles): removes every tile at InCoords, then adds InTiles.
+    // Agents keep their paths where still valid; the crowd replans the rest.
+    bool ReplaceTiles( const std::vector<std::pair<int, int>>& InCoords, const std::vector<std::vector<uint8_t>>& InTiles );
     void Clear();
     bool IsValid() const { return m_mesh != nullptr; }
 
