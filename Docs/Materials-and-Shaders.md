@@ -173,6 +173,7 @@ ME_REGISTER_MATERIAL_NAME( ClearcoatMaterial, "Clearcoat" )
 2. For a custom shader:
    - Author `Assets/Shaders/Foo.vert`, `.frag` and `.var`.
    - Include `Common.sh` and `Lighting.sh`, build a `Surface`, and call `shadeLight` / `shadeClusteredLights` / `ambientLighting` (copy `Standard.frag`'s structure).
+   - Include `Fog.sh` and end with `fogForward` like `Standard.frag`. Otherwise the shader stays unfogged when drawn as a transparent (after the fog pass); for opaque draws it's a no-op.
    - Instanced shaders read the model matrix from `i_data0..3`.
    - Note that bgfx's shaderc only allows `gl_FragCoord` inside `main()`.
 3. Override `OnSerialize`/`OnDeserialize` for new fields; the base handles modes, colour, tiling and textures.

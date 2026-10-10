@@ -7,14 +7,15 @@ Rendering is split into CPU **producers** and a serial **consumer**:
   1. Shadow cascades.
   2. Clustered-forward PBR opaque pass.
   3. SSAO.
-  4. Transparent meshes.
-  5. Particles.
-  6. Bloom, eye adaptation, tonemapping, grading and FXAA.
-  7. UI composite.
+  4. Height fog, optionally volumetric (light shafts, lit by every light).
+  5. Transparent meshes.
+  6. Particles.
+  7. Bloom, eye adaptation, tonemapping, grading and FXAA.
+  8. UI composite.
 
 Ambient light comes from per-camera image-based-lighting probes. This doc maps the frame, the view-ID scheme, the lighting data paths and the sharp edges.
 
-> Verified against engine commit 1fa55311, 2026-10-09 (overhaul Wave 3); skinned meshes against 07617c5f, 2026-10-09.
+> Verified against engine commit 1fa55311, 2026-10-09 (overhaul Wave 3); skinned meshes against 07617c5f, 2026-10-09; fog against b7c61e56, 2026-10-10.
 
 ## Overview
 
@@ -45,11 +46,13 @@ Backend selection: Vulkan is forced on Linux and D3D11 on UWP; other platforms t
 | `Modules/Moonlight/Source/Lighting/ClusterBuilder.cpp` | CPU light-to-froxel assignment for clustered forward |
 | `Modules/Moonlight/Source/Lighting/ShadowCascades.cpp` | Cascade splits and stable, texel-snapped fitting |
 | `Modules/Moonlight/Source/Lighting/EnvironmentLighting.cpp` | IBL probes: capture, prefilter, irradiance, BRDF LUT |
-| `Modules/Moonlight/Source/RenderPasses/PostProcess.cpp` | SSAO, bloom, eye adaptation, tonemap + grading, FXAA |
+| `Modules/Moonlight/Source/RenderPasses/PostProcess.cpp` | SSAO, fog (`RenderFog`, `FogUniforms`), bloom, eye adaptation, tonemap + grading, FXAA |
 | `Modules/Moonlight/Source/RenderPasses/PickingPass.cpp` | Editor entity-ID pass (see `Docs/Editor-Havana.md`) |
 | `Modules/Moonlight/Source/Debug/DebugDraw.h` | Immediate-mode debug line API |
 | `Modules/Moonlight/Source/Primitives/Primitives.cpp` | Shared Plane / Cube / Sphere / Cylinder / Capsule geometry |
 | `Assets/Shaders/Lighting.sh` | BRDF, clustered light loop, shadow sampling, IBL — included by `Standard.frag` |
+| `Assets/Shaders/Fog.sh` | Height-fog density, closed-form optical depth, view-ray reconstruction, Henyey-Greenstein phase, `fogForward` for transparents and particles |
+| `Assets/Shaders/Post/FogScatter.frag`, `FogBlur.frag`, `Fog.frag` | Volumetric raymarch (half resolution), its depth-aware blur, and the composite (bilateral upsample or analytic fog) |
 | `Assets/Shaders/Skinning.sh` | Bone palette uniform and `skinMatrix`, included by the `*Skinned` vertex shaders |
 
 ## How It Works
@@ -124,9 +127,10 @@ bgfx runs views in ascending ID order, so producers must have lower IDs than the
    - Sky (procedural `DynamicSky` or the skybox model).
    - Opaque meshes: instanced batches keyed `(vertexBuffer, indexBuffer, BatchKey)` plus singles.
 4. **SSAO** multiplies the opaque HDR colour (before transparents).
-5. **Transparent view**: meshes sorted back to front, depth-write off; then legacy gizmo callbacks and the Debug Draw v2 lines.
-6. **Particles** (see below).
-7. **Post** into the final target, then the **UI composite** for the main camera.
+5. **Fog** covers the opaque HDR colour (see Fog below). From here on, forward shaders fog themselves (`u_fogForward`).
+6. **Transparent view**: meshes sorted back to front, depth-write off; then legacy gizmo callbacks and the Debug Draw v2 lines.
+7. **Particles** (see below).
+8. **Post** into the final target, then the **UI composite** for the main camera.
 
 ### Lights and clustered forward
 
@@ -214,6 +218,24 @@ Per camera, from `CameraData::Post`, which `CameraCore` copies from a `PostProce
   - Writes luma to alpha only when FXAA follows.
 - **FXAA** into the final target.
 
+### Fog
+
+Exponential height fog, set per camera on the `PostProcess` component: `Fog`, `FogColor` (ambient in-scattering), `FogDensity` (extinction per metre at `FogHeight`), `FogHeightFalloff`, `FogStartDistance`, `FogMaxOpacity`, `FogSunIntensity` and `FogAnisotropy` (Henyey-Greenstein *g*). `VolumetricFog`, `VolumetricDistance` and `VolumetricSteps` turn on raymarched lighting. `PostProcess::RenderFog` runs after SSAO:
+
+- **Analytic** (default): one full-resolution pass (`Post/Fog.frag`) rebuilds each pixel's view ray from depth and integrates the height fog in closed form. It is lit by the ambient fog colour plus the unshadowed sun through the phase function, so the fog glows towards the sun.
+- **Volumetric**:
+  - `Post/FogScatter.frag` marches each ray at half resolution (up to `VolumetricDistance`, `VolumetricSteps` steps, jittered with interleaved gradient noise) and lights every step:
+    - the ambient fog colour;
+    - the sun through its cascaded shadow, one hardware-filtered tap (`sunShadowVolume`), giving light shafts and shadowed volumes;
+    - the cluster's point and spot lights with their shadows (`volumeLocalLight`, isotropic phase, scaled by `FogSunIntensity`).
+  - Fog beyond the march distance is added analytically.
+  - A depth-aware 4×4 blur (`FogBlur.frag`) hides the jitter.
+  - `Fog.frag` upsamples it with a joint bilateral filter (bilinear × depth similarity).
+- **Composite**: `src + dst · src.a` (in-scattering, transmittance) onto `ParticleBuffer`, the HDR colour without the depth attachment, so depth can be sampled. The sky's distance is the camera's far plane, so the horizon fogs over while the zenith stays clear.
+- **Transparents and particles** draw after the composite, so they fog themselves. `BindLighting` binds the fog uniforms (`FogUniforms`, shared with the pass), and `u_fogForward` turns on `fogForward` (`Fog.sh`, analytic) in `Standard.frag` and `Particle.frag` for every pass after the fog. Additive particles are dimmed by the transmittance; blended ones take the fog colour.
+
+`Assets/Scenes/Showcase/Fog.lvl` (dusk sun through a slatted wall, a shadowed spot lamp, lanterns) is the visual reference.
+
 ### Particles
 
 `ParticleCore` (engine-owned, so it also runs in the editor) handles the CPU side:
@@ -290,6 +312,7 @@ Missing maps fall back to neutral 1×1 textures (white; flat normal). `BindLight
 - **Shadow budgets are fixed**: 4 spots, 2 point lights (12 extra shadow views a frame) and 1 directional light get shadows; further shadowed lights render unshadowed.
 - **One sun in post**: only directional light 0 is shadowed; additional directionals are unshadowed.
 - **Probe refresh hitch**: a sky probe refresh costs ~60 tiny passes over two frames. An animated time of day (`DynamicSky::m_timeScale > 0`) refreshes about every 3 in-game minutes.
+- **Fog is screen-space, not froxels**: volumetric lighting exists only in front of opaque surfaces. Transparents and particles get analytic fog (no shafts). There's no temporal accumulation, so the step jitter is hidden by the blur alone, and thin shafts can shimmer in motion. The march costs `VolumetricSteps` shadow taps plus cluster light loops per half-resolution pixel.
 - **Lit particles are per-pixel and isotropic**: no forward-scattering phase function, no self-shadowing within a plume, and each lit pixel walks its cluster's lights, which costs fill rate on big smoke.
 - **Skinned meshes aren't instanced**: each costs one draw per view (camera, cascade, spot light), and its palette is uploaded with every draw.
 - **Transparent sorting is per object** (plus per particle within alpha systems); intersecting transparents sort wrong (no OIT).
