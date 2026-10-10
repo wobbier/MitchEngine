@@ -52,6 +52,21 @@ namespace Moonlight
         Mip AdaptedLuminance[2];
         uint32_t AdaptedIndex = 0;
 
+        // Temporal anti-aliasing (created on first use): the resolved HDR colour, ping-ponged with
+        // the history it was resolved against.
+        Mip TemporalHistory[2];
+        uint32_t TemporalIndex = 0;         // the target written last
+        bool TemporalValid = false;         // TemporalHistory[TemporalIndex] holds last frame's resolve
+        uint32_t TemporalFrame = 0;         // position in the jitter sequence
+        float TemporalJitter[2] = { 0.f, 0.f };             // this frame's jitter, in NDC
+        float PreviousViewProjection[16] = {};              // last frame's (unjittered)
+        float ViewProjection[16] = {};                      // this frame's (unjittered)
+        void EnsureTemporalTargets();
+
+        // This frame's HDR image for bloom, exposure and tonemapping: the temporal resolve, or
+        // SceneColor.
+        bgfx::TextureHandle PostInput = BGFX_INVALID_HANDLE;
+
         // HDR colour without the depth attachment: soft particles read the depth as a texture.
         bgfx::FrameBufferHandle ParticleBuffer = BGFX_INVALID_HANDLE;
 

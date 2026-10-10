@@ -39,6 +39,8 @@ ME_REFLECT_BEGIN( PostProcess )
     ME_FIELD( VignetteIntensity ).Category( "Vignette" ).Range( 0.f, 1.f );
     ME_FIELD( VignetteSmoothness ).Category( "Vignette" ).Range( 0.01f, 2.f );
     ME_FIELD( FXAA ).Category( "Anti-aliasing" );
+    ME_FIELD( TemporalAA ).Category( "Anti-aliasing" ).Tooltip( "Jittered frames resolved against the reprojected history: smooth edges, stable specular and thin geometry" );
+    ME_FIELD( TemporalSharpness ).Category( "Anti-aliasing" ).Range( 0.f, 1.f ).Tooltip( "Counters the temporal resolve's softening" );
 ME_REFLECT_END()
 
 
@@ -88,5 +90,7 @@ Moonlight::PostProcessSettings PostProcess::ToSettings() const
     settings.VignetteIntensity = VignetteIntensity;
     settings.VignetteSmoothness = VignetteSmoothness;
     settings.FXAA = FXAA;
+    settings.TemporalAA = TemporalAA;
+    settings.TemporalSharpness = TemporalSharpness;
     return settings;
 }

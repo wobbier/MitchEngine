@@ -10,8 +10,9 @@ Rendering is split into CPU **producers** and a serial **consumer**:
   4. Height fog, optionally volumetric (light shafts, lit by every light).
   5. Transparent meshes.
   6. Particles.
-  7. Bloom, eye adaptation, tonemapping, grading and FXAA.
-  8. UI composite.
+  7. Temporal anti-aliasing (optional).
+  8. Bloom, eye adaptation, tonemapping, grading and FXAA.
+  9. UI composite.
 
 Ambient light comes from per-camera image-based-lighting probes. This doc maps the frame, the view-ID scheme, the lighting data paths and the sharp edges.
 
@@ -46,7 +47,7 @@ Backend selection: Vulkan is forced on Linux and D3D11 on UWP; other platforms t
 | `Modules/Moonlight/Source/Lighting/ClusterBuilder.cpp` | CPU light-to-froxel assignment for clustered forward |
 | `Modules/Moonlight/Source/Lighting/ShadowCascades.cpp` | Cascade splits and stable, texel-snapped fitting |
 | `Modules/Moonlight/Source/Lighting/EnvironmentLighting.cpp` | IBL probes: capture, prefilter, irradiance, BRDF LUT |
-| `Modules/Moonlight/Source/RenderPasses/PostProcess.cpp` | SSAO, fog (`RenderFog`, `FogUniforms`), bloom, eye adaptation, tonemap + grading, FXAA |
+| `Modules/Moonlight/Source/RenderPasses/PostProcess.cpp` | SSAO, fog (`RenderFog`, `FogUniforms`), temporal AA (`RenderTemporalAA`, `TemporalJitter`), bloom, eye adaptation, tonemap + grading, FXAA |
 | `Modules/Moonlight/Source/RenderPasses/PickingPass.cpp` | Editor entity-ID pass (see `Docs/Editor-Havana.md`) |
 | `Modules/Moonlight/Source/Debug/DebugDraw.h` | Immediate-mode debug line API |
 | `Modules/Moonlight/Source/Graphics/MeshLod.cpp` | Level-of-detail generation (meshoptimizer), relative screen height, level selection |
@@ -104,10 +105,11 @@ bgfx runs views in ascending ID order, so producers must have lower IDs than the
    4. SSAO (3 views).
    5. Transparent.
    6. Particles.
-   7. Bloom down/up chain.
-   8. Luminance + adaptation.
-   9. Tonemap.
-   10. FXAA.
+   7. Temporal AA resolve (when on).
+   8. Bloom down/up chain.
+   9. Luminance + adaptation.
+   10. Tonemap.
+   11. FXAA.
 
 ### Inside `RenderCameraView`
 
@@ -209,6 +211,11 @@ Per camera, from `CameraData::Post`, which `CameraCore` copies from a `PostProce
   - Runs at half resolution from depth (Alchemy-style), with edge-aware normals and depth lookups snapped to texel centres.
   - A depth-aware 4×4 blur follows.
   - It is applied as a multiply onto the opaque HDR colour.
+- **Temporal anti-aliasing** (`TemporalAA`, off by default; the Lighting showcase uses it):
+  - The renderer jitters the projection by a sub-pixel offset each frame (Halton 2, 3 over 8 frames). It shifts NDC through w, so either handedness works, and restores the matrix when the view is done. It also stores the unjittered view-projection.
+  - `RenderTemporalAA` (`Post/TAA.frag`) runs on the HDR image once particles are in. It unjitters the current frame by sampling it at the jitter offset, and reprojects each pixel to last frame through the depth (`previous × inverse( current )` view-projection). It fetches the history there with a 5-tap Catmull-Rom, clips the history to the current 3×3 neighbourhood's mean ± deviation in YCoCg (variance clipping, so disocclusions and moved objects don't ghost), and blends 90% history with luma weights (Karis) against fireflies. `TemporalSharpness` adds back a little of the centre's contrast.
+  - The result (`FrameBuffer::PostInput`, ping-ponged `TemporalHistory`) feeds bloom, eye adaptation and tonemapping. History is created on first use, dropped on resize, and invalid when TAA was off the frame before.
+  - Captures stay repeatable: the jitter follows the camera's frame count, so `--frame-time` runs match.
 - **Bloom**: thresholded downsample chain (up to 6 RGBA16F mips) and additive tent upsample.
 - **Eye adaptation**: log-average luminance into 1×1, adapted over time between min/max EV (`AutoExposure`).
 - **Tonemap**:
@@ -317,6 +324,7 @@ Missing maps fall back to neutral 1×1 textures (white; flat normal). `BindLight
 ## Caveats & Fragility
 
 - **Shadow cost on huge scenes**: the casters are gathered once a frame (a parallel scan of the mesh commands into compact records, grouped into instance batches) and culled against all of a pass's views in one parallel sweep (a bit per view). Each view then collects its casters' indices and copies their matrices straight into the instance buffer. At 57k meshes the four cascades cost about 1.4 ms of CPU in release on the software-rendering test machine, against 1.84 ms before; the frame's local shadow views share one cull. On the lavapipe software renderer the 57k-cube bench goes from 44 to 82 ms/frame with shadows; real GPUs pay far less, but this hasn't been measured on hardware yet.
+- **Temporal AA reprojects camera motion only**: there are no per-object motion vectors, so moving and skinned objects rely on the neighbourhood clip, which trades their ghosting for a little softness while they move. Debug lines and gizmos drawn into the scene are resolved with it.
 - **Cluster capacity**: more than 64 lights in one froxel silently drops the extras; more than 256 point/spot lights per frame are ignored.
 - **Shadow budgets are fixed**: 4 spots, 2 point lights (12 extra shadow views a frame) and 1 directional light get shadows; further shadowed lights render unshadowed.
 - **One sun in post**: only directional light 0 is shadowed; additional directionals are unshadowed.

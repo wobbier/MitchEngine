@@ -62,5 +62,9 @@ namespace Moonlight
         float VignetteSmoothness = 0.6f;
 
         bool FXAA = true;
+        // Temporal anti-aliasing: the projection is jittered by a sub-pixel each frame and the HDR
+        // image is resolved against the reprojected history (camera motion through the depth).
+        bool TemporalAA = false;
+        float TemporalSharpness = 0.25f;    // counters the resolve's softening (0 = none)
     };
 }

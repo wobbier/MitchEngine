@@ -95,6 +95,13 @@ void Moonlight::FrameBuffer::Release()
         DestroyIfValid( adapted.Buffer );
         DestroyIfValid( adapted.Color );
     }
+    for( Mip& history : TemporalHistory )
+    {
+        DestroyIfValid( history.Buffer );
+        DestroyIfValid( history.Color );
+    }
+    TemporalValid = false;
+    PostInput = BGFX_INVALID_HANDLE;
     DestroyIfValid( ParticleBuffer );
     DestroyIfValid( ClusterGrid );
     DestroyIfValid( ClusterIndices );
@@ -102,6 +109,19 @@ void Moonlight::FrameBuffer::Release()
     DestroyIfValid( DepthTexture );
     DestroyIfValid( SceneColor );
     DestroyIfValid( PostColor );
+}
+
+
+void Moonlight::FrameBuffer::EnsureTemporalTargets()
+{
+    for( Mip& history : TemporalHistory )
+    {
+        if( !bgfx::isValid( history.Color ) )
+        {
+            history = CreateColorTarget( static_cast<uint16_t>( std::max<uint32_t>( Width, 1 ) ), static_cast<uint16_t>( std::max<uint32_t>( Height, 1 ) ), bgfx::TextureFormat::RGBA16F, "Temporal AA History" );
+            TemporalValid = false;
+        }
+    }
 }
 
 

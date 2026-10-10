@@ -558,6 +558,44 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
         camera.Buffer->ReCreate( m_resetFlags );
     }
 
+    // Temporal AA: this frame's unjittered view-projection (for reprojection), then a sub-pixel
+    // jitter on the projection the scene draws with (restored when the view is done).
+    Moonlight::FrameBuffer& targets = *camera.Buffer;
+    struct ProjectionRestore
+    {
+        Moonlight::CameraData& Camera;
+        Matrix4 Projection;
+        ~ProjectionRestore()
+        {
+            Camera.ProjectionMatrix = Projection;
+        }
+    } restoreProjection{ camera, camera.ProjectionMatrix };
+    {
+        const glm::mat4 viewProjection = camera.ProjectionMatrix.GetInternalMatrix() * camera.View.GetInternalMatrix();
+        std::copy( &viewProjection[0][0], &viewProjection[0][0] + 16, targets.ViewProjection );
+        targets.TemporalJitter[0] = targets.TemporalJitter[1] = 0.f;
+        if( camera.Post.TemporalAA )
+        {
+            float jitter[2];
+            Moonlight::PostProcess::TemporalJitter( targets.TemporalFrame, jitter );
+            targets.TemporalJitter[0] = 2.f * jitter[0] / static_cast<float>( width );
+            targets.TemporalJitter[1] = 2.f * jitter[1] / static_cast<float>( height );
+            // Shift NDC by exactly the jitter: through w for perspective (whatever its handedness),
+            // the translation for orthographic.
+            glm::mat4& projection = camera.ProjectionMatrix.GetInternalMatrix();
+            if( camera.Projection == Moonlight::ProjectionType::Orthographic )
+            {
+                projection[3][0] += targets.TemporalJitter[0];
+                projection[3][1] += targets.TemporalJitter[1];
+            }
+            else
+            {
+                projection[2][0] += targets.TemporalJitter[0] * projection[2][3];
+                projection[2][1] += targets.TemporalJitter[1] * projection[2][3];
+            }
+        }
+    }
+
     PrepareCameraLighting( camera );
 
     // Ambient: the camera's environment probe (captured and filtered on demand).
@@ -822,6 +860,7 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     RenderParticles( camera );
 
     // HDR -> final image (bloom, exposure, tonemapping, grading, FXAA).
+    m_postProcess->RenderTemporalAA( m_views, camera, *camera.Buffer );
     m_postProcess->DeltaSeconds = std::max( m_time.x, 0.0001f );
     m_postProcess->Render( m_views, camera, *camera.Buffer, target, targetWidth, targetHeight );
 

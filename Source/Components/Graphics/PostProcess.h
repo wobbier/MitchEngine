@@ -62,6 +62,8 @@ public:
     float VignetteSmoothness = 0.6f;
 
     bool FXAA = true;
+    bool TemporalAA = false;
+    float TemporalSharpness = 0.25f;
 };
 
 ME_REGISTER_COMPONENT_FOLDER( PostProcess, "Rendering" )
