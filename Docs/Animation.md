@@ -159,7 +159,7 @@ Bone indices are stored as normalized `Uint8`. `skinMatrix` multiplies them by 2
 - **Previews show one state.** An edit-mode preview plays a single state, without transitions, other layers or parameters changing. Posing bones by hand in edit mode (without a preview) is saved with the scene.
 - **Name-based binding.** Clips and skins find nodes by name. Two descendants with the same name bind to the first one found, and renamed bone entities stop animating or skinning.
 - **Linear key interpolation only.** FBX cubic tangents are lost on import. Keys are found by linear scan, so very long clips cost more per sample.
-- **Import scale is not converted.** Assets authored in centimetres (e.g. Synty FBX) import at 100× size. Scale the entity, since there is no unit conversion on import yet.
+- **Unit conversion is opt-in.** Assets authored in centimetres (e.g. Synty FBX) import at 100× size unless their `.meta` sets `ConvertUnits` (or an `ImportScale`), which bakes the scale into the cook (clips and bones included). A model whose root node is itself animated isn't affected, since only translations scale.
 - **Linux Assimp importers:** the prebuilt Linux Assimp library includes only the FBX, OBJ and Assbin importers. glTF / GLB models don't load there.
 - **Skinned meshes draw one by one.** They aren't instanced. Each one costs one draw per view (camera, shadow cascade, spot light).
 - **Bounds come from bone reach spheres.** They are conservative (larger than the mesh). Vertices weighted under 5% don't count toward a bone's reach.

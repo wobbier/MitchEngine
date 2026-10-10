@@ -60,6 +60,15 @@ struct ModelResourceMetadata
 
     virtual std::string GetExtension2() const override;
 
+    // Import settings, baked into the cooked model (node translations, vertices, bone offsets and
+    // animation positions are scaled; transforms keep a scale of 1).
+    float ImportScale = 1.f;
+    // Convert the file's units to metres (FBX UnitScaleFactor: centimetre assets such as Synty's
+    // come in 100x smaller). Files without units are taken as metres.
+    bool ConvertUnits = false;
+    // The scale the cook applies for a file declaring InUnitScaleFactor (FBX: centimetres per unit).
+    float GetBakedScale( double InUnitScaleFactor ) const;
+
 #if USING( ME_EDITOR )
     virtual void OnEditorInspect() final;
 #endif

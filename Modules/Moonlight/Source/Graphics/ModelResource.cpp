@@ -19,6 +19,7 @@
 #include "Materials/DiffuseMaterial.h"
 #include "Core/Assert.h"
 #include <algorithm>
+#include <cmath>
 #include <cctype>
 #include <filesystem>
 
@@ -644,11 +645,28 @@ bool ModelResource::LoadMaterialTextures( SharedPtr<Moonlight::Material> newMate
 
 void ModelResourceMetadata::OnSerialize( json& inJson )
 {
+    if( ImportScale != 1.f )
+    {
+        inJson["ImportScale"] = ImportScale;
+    }
+    if( ConvertUnits )
+    {
+        inJson["ConvertUnits"] = true;
+    }
 }
 
 
 void ModelResourceMetadata::OnDeserialize( const json& inJson )
 {
+    ImportScale = inJson.value( "ImportScale", 1.f );
+    ConvertUnits = inJson.value( "ConvertUnits", false );
+}
+
+
+float ModelResourceMetadata::GetBakedScale( double InUnitScaleFactor ) const
+{
+    const double units = ConvertUnits && InUnitScaleFactor > 0.0 ? InUnitScaleFactor / 100.0 : 1.0;
+    return static_cast<float>( units ) * ImportScale;
 }
 
 
@@ -664,12 +682,13 @@ void ModelResourceMetadata::OnEditorInspect()
 {
     MetaBase::OnEditorInspect();
 
-    static bool isChecked = false;
-    ImGui::Checkbox( "Model Resource Test", &isChecked );
-    if( ImGui::Button( "Re Export" ) )
+    ImGui::DragFloat( "Import Scale", &ImportScale, 0.001f, 0.0001f, 10000.f, "%.4f" );
+    ImGui::Checkbox( "Convert Units To Metres", &ConvertUnits );
+    if( ImGui::IsItemHovered() )
     {
-        Export();
+        ImGui::SetTooltip( "Use the file's unit (FBX UnitScaleFactor): centimetre assets import at metre size" );
     }
+    ImGui::TextDisabled( "Apply re-imports; reopen scenes that use the model to see the change" );
 }
 
 #endif
@@ -698,6 +717,57 @@ void ScaleSceneMeshes( const aiScene* scene, float scale )
 }
 
 
+namespace
+{
+    void ScaleNodeTranslations( aiNode* InNode, float InScale )
+    {
+        InNode->mTransformation.a4 *= InScale;
+        InNode->mTransformation.b4 *= InScale;
+        InNode->mTransformation.c4 *= InScale;
+        for( unsigned int i = 0; i < InNode->mNumChildren; ++i )
+        {
+            ScaleNodeTranslations( InNode->mChildren[i], InScale );
+        }
+    }
+
+
+    // A uniform scale baked into the data: every node's translation, every vertex, every bone's
+    // offset translation and every animation position key. Linear parts commute with a uniform
+    // scale, so the whole model scales without any scale in its transforms.
+    void BakeImportScale( aiScene& InScene, float InScale )
+    {
+        ScaleNodeTranslations( InScene.mRootNode, InScale );
+        for( unsigned int m = 0; m < InScene.mNumMeshes; ++m )
+        {
+            aiMesh* mesh = InScene.mMeshes[m];
+            for( unsigned int v = 0; v < mesh->mNumVertices; ++v )
+            {
+                mesh->mVertices[v] *= InScale;
+            }
+            for( unsigned int b = 0; b < mesh->mNumBones; ++b )
+            {
+                aiMatrix4x4& offset = mesh->mBones[b]->mOffsetMatrix;
+                offset.a4 *= InScale;
+                offset.b4 *= InScale;
+                offset.c4 *= InScale;
+            }
+        }
+        for( unsigned int a = 0; a < InScene.mNumAnimations; ++a )
+        {
+            aiAnimation* animation = InScene.mAnimations[a];
+            for( unsigned int c = 0; c < animation->mNumChannels; ++c )
+            {
+                aiNodeAnim* channel = animation->mChannels[c];
+                for( unsigned int k = 0; k < channel->mNumPositionKeys; ++k )
+                {
+                    channel->mPositionKeys[k].mValue *= InScale;
+                }
+            }
+        }
+    }
+}
+
+
 void ModelResourceMetadata::Export()
 {
     Assimp::Importer importer;
@@ -719,18 +789,25 @@ void ModelResourceMetadata::Export()
     //    "Cube1_$AssimpFbx$_ScalingPivotInverse",
     //    "Cube1"
     //};
+    // FBX: centimetres per unit (Assimp stores it as a float or a double depending on the file).
     double factor( 0.0 );
-    if( scene && scene->mMetaData )
+    if( scene->mMetaData )
     {
-        scene->mMetaData->Get( "UnitScaleFactor", factor );
+        float factorFloat = 0.f;
+        if( scene->mMetaData->Get( "UnitScaleFactor", factorFloat ) )
+        {
+            factor = factorFloat;
+        }
+        else
+        {
+            scene->mMetaData->Get( "UnitScaleFactor", factor );
+        }
     }
-    if( scene && scene->mRootNode )
+    const float scale = GetBakedScale( factor );
+    if( scale > 0.f && std::abs( scale - 1.f ) > 1e-6f )
     {
-        //ScaleNode( scene->mRootNode, 0.1f ); // Example: Scale down by 50%
-    }
-    if( scene )
-    {
-        //ScaleSceneMeshes( scene, 0.1f ); // Scale down all meshes by 50%
+        // The importer owns the scene; it's ours to change until it's exported.
+        BakeImportScale( *const_cast<aiScene*>( scene ), scale );
     }
     Assimp::Exporter exporter;
     if( exporter.Export( scene, "assbin", FilePath.FullPath + ".assbin" ) != AI_SUCCESS )
