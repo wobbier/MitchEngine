@@ -110,7 +110,7 @@ namespace Moonlight
                 if( InJson["Textures"].contains( Texture::ToString( static_cast<TextureType>( type ) ) ) )
                 {
                     Path texturePath = Path( InJson["Textures"][Texture::ToString( static_cast<TextureType>( type ) )]["Path"] );
-                    SetTexture( static_cast<TextureType>( type ), ResourceCache::GetInstance().Get<Moonlight::Texture>( texturePath ) );
+                    SetTexture( static_cast<TextureType>( type ), ResourceCache::GetInstance().GetAsync<Moonlight::Texture>( texturePath ) );
                 }
             }
         }

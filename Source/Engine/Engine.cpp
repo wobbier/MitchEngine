@@ -549,6 +549,17 @@ void Engine::Run()
                 }
             }
 
+            // Finish background loads (GPU uploads) before this frame's render commands are built.
+            // Deterministic runs (--frame-time) wait for them, so captures never depend on IO timing.
+            if( m_fixedFrameDelta > 0.f )
+            {
+                ResourceCache::GetInstance().WaitForAsyncLoads();
+            }
+            else
+            {
+                ResourceCache::GetInstance().PumpAsyncLoads();
+            }
+
             // Late Update
             {
                 OPTICK_EVENT( "LateUpdate" );

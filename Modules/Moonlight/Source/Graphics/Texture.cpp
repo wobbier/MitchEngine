@@ -1,4 +1,6 @@
 #include <iostream>
+#include <fstream>
+#include <vector>
 #include <assert.h>
 #include "Texture.h"
 #include "CLog.h"
@@ -20,20 +22,18 @@ namespace
     }
 
 
+    // Thread safe (loader threads call it), unlike the shared bx reader.
     bool ReadFileBytes( const Path& inPath, std::vector<uint8_t>& outData )
     {
-        bx::FileReaderI* reader = Moonlight::getDefaultReader();
-        bx::Error err;
-        if( !bx::open( reader, inPath.FullPath.c_str(), &err ) )
+        std::ifstream file( inPath.FullPath, std::ios::binary | std::ios::ate );
+        if( !file )
         {
-            YIKES_FMT( "[%s]: %s", inPath.GetLocalPathString().c_str(), err.getMessage().getCPtr() );
+            YIKES_FMT( "[%s]: can't open the file", inPath.GetLocalPathString().c_str() );
             return false;
         }
-
-        outData.resize( static_cast<size_t>( bx::getSize( reader ) ) );
-        bx::read( reader, outData.data(), static_cast<int32_t>( outData.size() ), &err );
-        bx::close( reader );
-        return err.isOk();
+        outData.resize( static_cast<size_t>( file.tellg() ) );
+        file.seekg( 0 );
+        return static_cast<bool>( file.read( reinterpret_cast<char*>( outData.data() ), static_cast<std::streamsize>( outData.size() ) ) );
     }
 }
 
@@ -55,6 +55,10 @@ namespace Moonlight
 
     Texture::~Texture()
     {
+        if( m_pendingImage )
+        {
+            bimg::imageFree( m_pendingImage );
+        }
         if( bgfx::isValid( TexHandle ) && IsGpuAlive() )
         {
             bgfx::destroy( TexHandle );
@@ -64,7 +68,18 @@ namespace Moonlight
 
     bool Texture::Load()
     {
-        m_flags = BGFX_TEXTURE_NONE | BGFX_SAMPLER_W_MIRROR;
+        return LoadAsync() && FinishAsyncLoad();
+    }
+
+
+    bool Texture::SupportsAsyncLoad() const
+    {
+        return true;
+    }
+
+
+    bool Texture::LoadAsync()
+    {
         Path compiledTexture( FilePath.FullPath + ".dds" );
         if( !compiledTexture.Exists )
         {
@@ -78,15 +93,28 @@ namespace Moonlight
         }
 
         // imageParse copies what it needs, so fileData can go out of scope afterwards.
-        bimg::ImageContainer* imageContainer = bimg::imageParse( Moonlight::getDefaultAllocator(), fileData.data(), static_cast<uint32_t>( fileData.size() ) );
+        m_pendingImage = bimg::imageParse( Moonlight::getDefaultAllocator(), fileData.data(), static_cast<uint32_t>( fileData.size() ) );
+        return m_pendingImage != nullptr;
+    }
+
+
+    bool Texture::FinishAsyncLoad()
+    {
+        bimg::ImageContainer* imageContainer = m_pendingImage;
+        m_pendingImage = nullptr;
         if( !imageContainer )
         {
             return false;
         }
-
+        m_flags = BGFX_TEXTURE_NONE | BGFX_SAMPLER_W_MIRROR;
         mWidth = imageContainer->m_width;
         mHeight = imageContainer->m_height;
         m_mips = imageContainer->m_numMips;
+        if( !IsGpuAlive() )
+        {
+            bimg::imageFree( imageContainer );
+            return true;
+        }
 
         if( imageContainer->m_cubeMap )
         {

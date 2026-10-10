@@ -23,6 +23,9 @@ typedef const std::map<std::string, std::shared_ptr<Resource>> ResourceStack;
 // Resources nobody references any more are kept alive for KeepAliveSeconds before being evicted,
 // so assets that are briefly unused (scene reloads, prefab spawns, editor previews) aren't reloaded
 // from disk. In tools builds, OnFilesChanged re-exports and hot reloads changed assets.
+//
+// GetAsync loads types that support it (textures) on loader threads; the main thread finishes
+// them (GPU upload) in PumpAsyncLoads, which the engine calls every frame before rendering.
 class ResourceCache
 {
     ResourceCache();
@@ -33,6 +36,23 @@ public:
 
     template<class T, typename... Args>
     SharedPtr<T> Get( const Path& InFilePath, Args&& ... args );
+
+    // Like Get, but types that support it load on a background thread: the resource is cached and
+    // returned at once, still loading (Resource::IsLoading), and becomes usable on a later frame
+    // when PumpAsyncLoads finishes it. A Get of a resource that is still loading finishes it on
+    // the spot, so Get always returns loaded resources.
+    template<class T, typename... Args>
+    SharedPtr<T> GetAsync( const Path& InFilePath, Args&& ... args );
+
+    // Main thread: finishes the async loads whose background part is done, for up to InBudgetMs
+    // (always at least one). Returns how many finished.
+    int PumpAsyncLoads( double InBudgetMs = 2.0 );
+    // Finishes every async load, helping with the queued ones (loading screens, deterministic runs).
+    void WaitForAsyncLoads();
+    // Finishes this resource's async load now (no-op unless it's loading).
+    void CompleteLoad( const SharedPtr<Resource>& InResource );
+    // Async loads not finished yet.
+    std::size_t GetPendingLoadCount() const;
 
     SharedPtr<Resource> GetCached( const Path& InFilePath );
 #if USING( ME_TOOLS )
@@ -51,7 +71,7 @@ public:
     void Dump();
     void SetKeepAliveSeconds( float InSeconds );
 
-    // Drops every cache reference (shutdown / forced refresh).
+    // Drops every cache reference and cancels the async loads (shutdown / forced refresh).
     void ReleaseAll();
 
     // Re-exports (tools builds) and reloads cached resources affected by the changed files.
@@ -61,7 +81,17 @@ public:
     SharedPtr<MetaBase> LoadMetadata( const Path& filePath );
 
 private:
+    template<class T, typename... Args>
+    SharedPtr<T> Load( const Path& InFilePath, bool InAsync, Args&& ... args );
     void ExportIfNeeded( const Path& InFilePath, const SharedPtr<MetaBase>& InMetaFile, bool InForce );
+    void QueueAsyncLoad( const SharedPtr<Resource>& InResource );
+    void FinishAsyncLoad( const SharedPtr<Resource>& InResource, bool InBackgroundSucceeded );
+    // Cancels the queued loads and joins the loader threads.
+    void StopAsyncLoads();
+
+    // Loader threads and their queues (ResourceCache.cpp).
+    struct AsyncLoads;
+    std::unique_ptr<AsyncLoads> m_async;
 
     std::map<std::string, std::shared_ptr<Resource>> m_resourceStack;
     // Seconds (steady clock) at which each entry became unreferenced; absent while referenced.
@@ -76,7 +106,21 @@ private:
 template<class T, typename... Args>
 SharedPtr<T> ResourceCache::Get( const Path& InFilePath, Args&& ... args )
 {
-    std::lock_guard<std::recursive_mutex> lock( m_mutex );
+    return Load<T>( InFilePath, false, std::forward<Args>( args )... );
+}
+
+
+template<class T, typename... Args>
+SharedPtr<T> ResourceCache::GetAsync( const Path& InFilePath, Args&& ... args )
+{
+    return Load<T>( InFilePath, true, std::forward<Args>( args )... );
+}
+
+
+template<class T, typename... Args>
+SharedPtr<T> ResourceCache::Load( const Path& InFilePath, bool InAsync, Args&& ... args )
+{
+    std::unique_lock<std::recursive_mutex> lock( m_mutex );
     auto I = m_resourceStack.find( InFilePath.FullPath );
     if( I != m_resourceStack.end() )
     {
@@ -84,6 +128,11 @@ SharedPtr<T> ResourceCache::Get( const Path& InFilePath, Args&& ... args )
         if( !Res )
         {
             YIKES( "ResourceCache: " + InFilePath.FullPath + " is cached as a different resource type." );
+        }
+        else if( !InAsync && Res->IsLoading() )
+        {
+            lock.unlock();
+            CompleteLoad( Res );
         }
         return Res;
     }
@@ -117,9 +166,17 @@ SharedPtr<T> ResourceCache::Get( const Path& InFilePath, Args&& ... args )
     TypeId id = ClassTypeId<Resource>::GetTypeId<T>();
     Res->ResourceType = static_cast<std::size_t>( id );
     Res->SetMetadata( metaFile );
+    if( InAsync && Res->SupportsAsyncLoad() )
+    {
+        Res->m_loadState = Resource::LoadState::Loading;
+        m_resourceStack[InFilePath.FullPath] = Res;
+        QueueAsyncLoad( Res );
+        return Res;
+    }
     if( !Res->Load() )
     {
         YIKES( "Resource failed to load: " + InFilePath.FullPath );
+        Res->m_loadState = Resource::LoadState::Failed;
     }
     m_resourceStack[InFilePath.FullPath] = Res;
     return Res;

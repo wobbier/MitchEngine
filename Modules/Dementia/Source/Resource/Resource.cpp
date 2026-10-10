@@ -57,3 +57,33 @@ void Resource::Reload()
 {
 
 }
+
+
+bool Resource::SupportsAsyncLoad() const
+{
+    return false;
+}
+
+
+bool Resource::LoadAsync()
+{
+    return true;
+}
+
+
+bool Resource::FinishAsyncLoad()
+{
+    return Load();
+}
+
+
+bool Resource::IsLoading() const
+{
+    return m_loadState == LoadState::Loading;
+}
+
+
+bool Resource::HasLoadFailed() const
+{
+    return m_loadState == LoadState::Failed;
+}

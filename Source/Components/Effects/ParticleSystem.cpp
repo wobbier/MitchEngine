@@ -107,7 +107,7 @@ void ParticleSystem::ResolveTexture()
         return;
     }
     m_loadedTexture = path;
-    m_texture = ( !path.empty() && Texture.Exists ) ? ResourceCache::GetInstance().Get<Moonlight::Texture>( Texture ) : nullptr;
+    m_texture = ( !path.empty() && Texture.Exists ) ? ResourceCache::GetInstance().GetAsync<Moonlight::Texture>( Texture ) : nullptr;
 }
 
 

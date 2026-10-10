@@ -13,6 +13,10 @@ namespace Moonlight {
     struct FrameBuffer;
 }
 
+namespace bimg {
+    struct ImageContainer;
+}
+
 namespace Moonlight
 {
     enum TextureType
@@ -52,6 +56,10 @@ namespace Moonlight
 
         virtual bool Load() override;
         virtual void Reload() override;
+        // Async: the compiled DDS is read and parsed on a loader thread, then uploaded here.
+        bool SupportsAsyncLoad() const override;
+        bool LoadAsync() override;
+        bool FinishAsyncLoad() override;
 
         void UpdateBuffer( FrameBuffer* NewBuffer );
 
@@ -75,6 +83,10 @@ namespace Moonlight
         static std::string ToString( TextureType type );
         uint64_t m_flags = 0;
         uint8_t m_mips = 0;
+
+    private:
+        // Parsed by LoadAsync, uploaded (and handed to bgfx) by FinishAsyncLoad.
+        bimg::ImageContainer* m_pendingImage = nullptr;
     };
 }
 

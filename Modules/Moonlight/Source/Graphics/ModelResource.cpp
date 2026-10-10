@@ -590,14 +590,14 @@ bool ModelResource::LoadMaterialTextures( SharedPtr<Moonlight::Material> newMate
             Path filePath( texturePath );
             if( filePath.Exists )
             {
-                texture = ResourceCache::GetInstance().Get<Moonlight::Texture>( filePath, wrapMode );
+                texture = ResourceCache::GetInstance().GetAsync<Moonlight::Texture>( filePath, wrapMode );
             }
             else
             {
                 Path relativePath = Path( FilePath.GetDirectoryString() + texturePath );
                 if( relativePath.Exists )
                 {
-                    texture = ResourceCache::GetInstance().Get<Moonlight::Texture>( relativePath, wrapMode );
+                    texture = ResourceCache::GetInstance().GetAsync<Moonlight::Texture>( relativePath, wrapMode );
                 }
             }
 
@@ -609,7 +609,7 @@ bool ModelResource::LoadMaterialTextures( SharedPtr<Moonlight::Material> newMate
                 {
                     const Path relinked( found );
                     CLog::Log( CLog::LogType::Warning, "Model " + FilePath.GetLocalPathString() + ": texture '" + texturePath + "' relinked to " + relinked.GetLocalPathString() );
-                    texture = ResourceCache::GetInstance().Get<Moonlight::Texture>( relinked, wrapMode );
+                    texture = ResourceCache::GetInstance().GetAsync<Moonlight::Texture>( relinked, wrapMode );
                 }
             }
 
@@ -622,7 +622,7 @@ bool ModelResource::LoadMaterialTextures( SharedPtr<Moonlight::Material> newMate
                 Path desperationPath = ResourceCache::GetInstance().FindByName( Path( "Assets" ), fileName );
                 if( desperationPath.Exists )
                 {
-                    texture = ResourceCache::GetInstance().Get<Moonlight::Texture>( desperationPath, wrapMode );
+                    texture = ResourceCache::GetInstance().GetAsync<Moonlight::Texture>( desperationPath, wrapMode );
                 }
             }
 #endif

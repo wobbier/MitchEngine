@@ -478,10 +478,11 @@ SharedPtr<Moonlight::Texture> AssetBrowserWidget::GetThumbnail( const Entry& InE
     auto found = m_thumbnails.find( InEntry.FullPath );
     if( found != m_thumbnails.end() )
     {
-        return found->second;
+        return found->second && !found->second->HasLoadFailed() ? found->second : nullptr;
     }
-    // Load at most two per frame, and only textures that are already compiled (compiling is slow).
-    if( m_thumbnailLoadsThisFrame >= 2 )
+    // Queue a few loads per frame (they load in the background), and only textures that are
+    // already compiled (compiling is slow).
+    if( m_thumbnailLoadsThisFrame >= 8 )
     {
         return nullptr;
     }
@@ -492,11 +493,7 @@ SharedPtr<Moonlight::Texture> AssetBrowserWidget::GetThumbnail( const Entry& InE
     const bool compiled = !meta || Path( meta->FilePath.FullPath + "." + meta->GetExtension2() ).Exists;
     if( compiled )
     {
-        texture = ResourceCache::GetInstance().Get<Moonlight::Texture>( path );
-        if( texture && !bgfx::isValid( texture->TexHandle ) )
-        {
-            texture = nullptr;
-        }
+        texture = ResourceCache::GetInstance().GetAsync<Moonlight::Texture>( path );
     }
     m_thumbnails[InEntry.FullPath] = texture;
     m_thumbnailOrder.push_back( InEntry.FullPath );
@@ -869,9 +866,10 @@ void AssetBrowserWidget::DrawGrid()
                     drawList->AddRectFilled( tileMin, tileMax, selected ? IM_COL32( 0, 112, 224, 110 ) : IM_COL32( 255, 255, 255, 25 ), 4.f );
                 }
 
+                // The type icon stands in while a thumbnail loads.
                 SharedPtr<Moonlight::Texture> image = GetThumbnail( entry );
-                const bool isThumbnail = static_cast<bool>( image );
-                if( !image && !entry.IsDirectory )
+                const bool isThumbnail = image && bgfx::isValid( image->TexHandle );
+                if( !isThumbnail && !entry.IsDirectory )
                 {
                     image = GetIcon( entry );
                 }
@@ -1347,6 +1345,7 @@ void AssetBrowserWidget::DrawDetails()
             m_metafile->Export();
             if( m_focusedResource )
             {
+                ResourceCache::GetInstance().CompleteLoad( m_focusedResource );
                 m_focusedResource->Reload();
             }
             m_thumbnails.erase( m_detailsPath );
