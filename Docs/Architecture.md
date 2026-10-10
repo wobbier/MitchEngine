@@ -2,7 +2,7 @@
 
 MitchEngine is a C++20 game engine organized as a small set of static-library modules around an ECS runtime. A singleton `Engine` owns the window, renderer, job system, and `World`; games subclass `Game` and are wired in with the `ME_APPLICATION_MAIN` macro. This doc covers the module layout, the engine lifecycle (init → frame loop → shutdown), the split between engine-owned and scene-loaded cores, and the compile-time feature-flag system that gates everything else.
 
-> Verified against engine commit 7e869c6e, 2026-10-09; engine-owned cores and physics against 8fdd99b1, 2026-10-09; animation against 07617c5f, 2026-10-09; audio against afce7083, 2026-10-09; scripting against 6a4b006f, 2026-10-09.
+> Verified against engine commit 7e869c6e, 2026-10-09; engine-owned cores and physics against 8fdd99b1, 2026-10-09; animation against 07617c5f, 2026-10-09; audio against afce7083, 2026-10-09; scripting against 6a4b006f, 2026-10-09; navigation against 8d6769a5, 2026-10-10.
 
 ## Overview
 
@@ -74,7 +74,7 @@ Games implement the pure-virtual `Game` interface (`Source/Game.h`): `OnInitiali
 4. `SDLWindow` is created on **all** platforms — including UWP, where the dedicated `UWPWindow` implementation is commented out. The window gets a `ResizeFunc` lambda that forwards resizes to the renderer, `UICore`, config, and a `WindowResizedEvent`.
 5. `BGFXRenderer::Create` — on Linux the SDL display pointer and window type (X11/Wayland) are passed through.
 6. ImGui SDL2 backend init, chosen per platform: D3D (Win64), Metal (macOS), Vulkan (Linux).
-7. `World` is created, then the **engine-owned cores** are `new`ed: `CameraCore`, `SceneCore`, `RenderCore`, `ParticleCore`, `PhysicsCore`, `Physics2DCore`, `AnimationCore`, `AudioCore`, `UICore`, and in scripting builds `ScriptCore` (held as raw public members `Cameras`, `SceneNodes`, `ModelRenderer`, `Particles`, `Physics`, `Physics2D`, `Animation`, `AudioThread`, `UI`, `Scripts`). Constructing `ScriptCore` starts .NET (`Docs/Scripting-DotNet.md`).
+7. `World` is created, then the **engine-owned cores** are `new`ed: `CameraCore`, `SceneCore`, `RenderCore`, `ParticleCore`, `PhysicsCore`, `Physics2DCore`, `AnimationCore`, `NavigationCore`, `AudioCore`, `UICore`, and in scripting builds `ScriptCore` (held as raw public members `Cameras`, `SceneNodes`, `ModelRenderer`, `Particles`, `Physics`, `Physics2D`, `Animation`, `Navigation`, `AudioThread`, `UI`, `Scripts`). Constructing `ScriptCore` starts .NET (`Docs/Scripting-DotNet.md`).
 8. A gizmo-draw callback is registered on the renderer that iterates every core's `OnDrawGuizmo`.
 9. `Engine::InitGame` adds those cores to the world via `World::AddCore<T>` and calls `Game::OnInitialize()`. (It also unconditionally logs the error-level marker `YIKES("Engine::InitGame")` — a leftover.)
 10. `ResizeFunc` is fired once manually, and `SystemRegistry` registers `Engine`, the renderer, and the `Jobs::JobSystem` so they are reachable through `UpdateContext`.
@@ -83,7 +83,7 @@ Games implement the pure-virtual `Game` interface (`Source/Game.h`): `OnInitiali
 
 This is a load-bearing architectural split:
 
-- **Engine-owned cores** (`CameraCore`, `SceneCore`, `RenderCore`, `ParticleCore`, `PhysicsCore`, `Physics2DCore`, `AnimationCore`, `AudioCore`, `UICore`, `ScriptCore`) are created in `Engine::Init`, held as raw pointers on `Engine`, and updated **explicitly by name** in the frame loop. The two physics cores step inside the fixed-step loop and write interpolated poses right after it (`Docs/Physics.md`). `AnimationCore` runs after gameplay, then `AudioCore` (so sources on animated bones are heard where they're drawn), before render preparation (`Docs/Animation.md`, `Docs/Audio.md`). `ScriptCore` runs `OnFixedUpdate` in each fixed step before physics steps, and `OnUpdate` right after the scene-loaded cores (`Docs/Scripting-DotNet.md`).
+- **Engine-owned cores** (`CameraCore`, `SceneCore`, `RenderCore`, `ParticleCore`, `PhysicsCore`, `Physics2DCore`, `AnimationCore`, `NavigationCore`, `AudioCore`, `UICore`, `ScriptCore`) are created in `Engine::Init`, held as raw pointers on `Engine`, and updated **explicitly by name** in the frame loop. The two physics cores step inside the fixed-step loop and write interpolated poses right after it (`Docs/Physics.md`). `AnimationCore` runs after gameplay, then `AudioCore` (so sources on animated bones are heard where they're drawn), before render preparation (`Docs/Animation.md`, `Docs/Audio.md`). `NavigationCore` runs after gameplay and before animation, so agents move with this frame's destinations (`Docs/Navigation.md`). `ScriptCore` runs `OnFixedUpdate` in each fixed step before physics steps, and `OnUpdate` right after the scene-loaded cores (`Docs/Scripting-DotNet.md`).
 - **Scene-loaded cores** (`SelfDestructor` and any game-defined cores) are *not* created by the engine. They are instantiated by name from the `"Cores"` array of a `.lvl` scene file (see `Docs/Serialization-and-Scenes.md`) and live in `World::m_loadedCores`, updated via `World::UpdateLoadedCores` / `LateUpdateLoadedCores`.
 
 Consequences: core update order is partly hardcoded (engine cores) and partly priority-ordered (loaded cores, `BaseCore::GetPriority`). A scene that still lists an engine-owned core in `"Cores"` (old scenes name `PhysicsCore` or `ScriptCore`) gets the existing instance back from `World::AddCoreByName`.
@@ -104,7 +104,8 @@ flowchart TD
     H --> I["World::UpdateLoadedCores() + Scripts->Update() + Simulate"]
     I --> J["SceneNodes->Update()"]
     J --> K["Game::OnUpdate() + Simulate"]
-    K --> L2["Animation->Update(): state machines, parallel pose sampling, Transform writes"]
+    K --> N2["Navigation->Update(): bakes swap in, crowds step, agents move"]
+    N2 --> L2["Animation->Update(): state machines, parallel pose sampling, Transform writes"]
     L2 --> L["AudioThread->Update(): listener, sources, buses, FMOD update"]
     L --> L3["Particles->Update()"]
     L3 --> M["ModelRenderer->Update(): Transform::UpdateAll, parallel mesh jobs, skin palettes"]

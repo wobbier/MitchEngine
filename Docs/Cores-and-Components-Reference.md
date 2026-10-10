@@ -1,8 +1,8 @@
 # Cores and Components Reference
 
-The catalog: every core (system) and component the engine ships, what each core filters on, when it updates, and which components are decorative or orphaned. Audio, Physics, Animation, Rendering, UI, and Scripting have their own docs.
+The catalog: every core (system) and component the engine ships, what each core filters on, when it updates, and which components are decorative or orphaned. Audio, Physics, Animation, Navigation, Rendering, UI, and Scripting have their own docs.
 
-> Verified against engine commit 047f57b8, 2026-07-10; the rendering rows (RenderCore, ParticleCore, Mesh, Light, PostProcess, ParticleSystem) against 1fa55311, 2026-10-09 (overhaul Wave 3); the physics rows against 8fdd99b1, 2026-10-09 (overhaul Wave 4); the animation rows (AnimationCore, Animator, Model, Mesh skinning) against 07617c5f, 2026-10-09; the audio rows against afce7083, 2026-10-09; the scripting rows against 6a4b006f, 2026-10-09.
+> Verified against engine commit 047f57b8, 2026-07-10; the rendering rows (RenderCore, ParticleCore, Mesh, Light, PostProcess, ParticleSystem) against 1fa55311, 2026-10-09 (overhaul Wave 3); the physics rows against 8fdd99b1, 2026-10-09 (overhaul Wave 4); the animation rows (AnimationCore, Animator, Model, Mesh skinning) against 07617c5f, 2026-10-09; the audio rows against afce7083, 2026-10-09; the scripting rows against 6a4b006f, 2026-10-09; the navigation rows against 8d6769a5, 2026-10-10.
 
 ## Overview
 
@@ -21,6 +21,7 @@ Cores come in two flavors (see `Docs/Architecture.md`): **engine-owned** (create
 | `PhysicsCore` (`Source/Cores/PhysicsCore.h`) | `Transform` + one of (`Rigidbody`, a collider, `CharacterController`, `PhysicsJoint`) | engine-owned | Box3D world: fixed-step simulation (play mode), interpolated poses, edit-mode body sync, `CollisionEvent`s, queries, character mover — see `Docs/Physics.md`. Old scenes' `"PhysicsCore"` core entries resolve to it |
 | `Physics2DCore` (`Source/Cores/Physics2DCore.h`) | `Transform` + one of (`Rigidbody2D`, a 2D collider, `CharacterController2D`, `PhysicsJoint2D`) | engine-owned | The Box2D counterpart in the XY plane: same lifecycle, events (`Is2D`), layers and queries — see `Docs/Physics.md` |
 | `AnimationCore` (`Source/Cores/AnimationCore.h`) | `Transform` + `Animator` | engine-owned | Plays Animators while the world is started: binds clips to node entities by name, steps state machines, samples poses in parallel, writes Transforms, fires `AnimationEvent`s — see `Docs/Animation.md` |
+| `NavigationCore` (`Source/Cores/NavigationCore.h`) | `Transform` + one of (`NavMeshSurface`, `NavMeshAgent`) | engine-owned | Recast / Detour: loads or bakes (async, saved next to the scene) each surface's navmesh, runs a DetourCrowd per navmesh while the world is started, path / sample / raycast queries, debug draw — see `Docs/Navigation.md` |
 | `ScriptCore` (`Source/Cores/Scripting/ScriptCore.h`) | `ScriptComponent` | engine-owned (scripting builds) | .NET script lifecycle while the world is started: `OnStart` after a physics sync, `OnFixedUpdate` before each physics step, `OnUpdate` after the scene-loaded cores, `OnDestroy` with the entity; inspector has Rebuild && Reload — see `Docs/Scripting-DotNet.md`. Old scenes' `"ScriptCore"` core entries resolve to it |
 | `SelfDestructor` (`Source/Cores/Utility/SelfDestructCore.h`) | `SelfDestruct` | scene-loaded | Kills entities when their `Lifetime` expires (note the class name — not "SelfDestructCore") |
 | `FlyingCameraCore` (`Source/Cores/Cameras/FlyingCameraCore.h`) | `FlyingCamera` + `Camera` + `Transform` | scene-loaded | Free-fly camera: the `Move` / `Look` actions (or WASD + right-drag), E / Q or shoulders to rise and sink, sprint — see `Docs/Input.md` |
@@ -33,7 +34,8 @@ flowchart TD
     A["World::Simulate<br/>(membership churn — ALWAYS runs, even edit mode)"] --> P["Fixed loop: FixedUpdateLoadedCores → ScriptCore FixedUpdate → Game::OnFixedUpdate → PhysicsCore / Physics2DCore FixedUpdate<br/>then their Update (interpolated poses / edit-mode sync)"]
     P --> B["UpdateLoadedCores (SelfDestructor · game cores) → ScriptCore Update<br/>(gated by World::Start — dormant in edit mode)"]
     B --> C["SceneNodes->Update → Game::OnUpdate"]
-    C --> D2["Animation->Update — state machines, parallel sampling, pose writes (started worlds only)"]
+    C --> N["Navigation->Update — bakes swap in, crowds step, agents move (started worlds only)"]
+    N --> D2["Animation->Update — state machines, parallel sampling, pose writes (started worlds only)"]
     D2 --> D["AudioThread->Update — listener, sources, buses, FMOD update"]
     D --> E["ModelRenderer->Update — parallel mesh job, skin palettes"]
     E --> F["UI->Update"]
@@ -68,6 +70,9 @@ Audio (FMOD) has its own deep dive: `Docs/Audio.md`.
 | `CharacterController2D` | `Source/Components/Physics/CharacterController2D.h` | Platformer capsule on the Box2D mover: run, slopes, ground snap, jump with coyote time, push |
 | `AudioSource` | `Source/Components/Audio/AudioSource.h` | Clip on a mixer bus: volume, pitch, mute, loop, PlayOnAwake, 2D/3D spatial blend, min/max distance, rolloff, doppler, priority; `Play`, `PlayOneShot` (overlapping), `Stop`, `Pause`; also declares the `wav`/`mp3` metadata types |
 | `AudioListener` | `Source/Components/Audio/AudioListener.h` | Where the game hears from; the first active one wins (else the camera) |
+| `NavMeshSurface` | `Source/Components/Navigation/NavMeshSurface.h` | Bakes and holds a navmesh for one agent size: sources (all / children / volume, colliders and/or meshes, layer mask), default area, Recast settings, output file, bake on load; inspector Bake / Clear |
+| `NavMeshAgent` | `Source/Components/Navigation/NavMeshAgent.h` | Crowd agent: speed, acceleration, turning, stopping distance, radius / height, avoidance quality, area mask, base offset, link jump arc; `SetDestination`, `Stop`, `Warp`, path state |
+| `NavMeshModifier` / `NavMeshModifierVolume` / `NavMeshLink` | `Source/Components/Navigation/NavMeshModifiers.h` | Bake markup: ignore or re-area geometry (optionally its children), re-mark a box, connect two points off-mesh |
 | `ScriptComponent` | `Source/Components/Scripting/ScriptComponent.h` | Script by type name + `m_dotnetHandle` (int, stable across hot reloads) + started flag + saved-fields JSON; the instance is created on load and started on Play |
 | `BasicUIView` | `Source/Components/UI/BasicUIView.h` | Ultralight HTML view + JS bridge |
 | `Canvas` | `Source/Components/UI/Canvas.h` | **Empty file** — placeholder |
@@ -97,5 +102,6 @@ Matrix recompute is **lazy** — `GetLocalToWorldMatrix()` rebuilds (parent-firs
 - `Docs/ECS.md` — filter DSL, registration, core lifecycle hooks
 - `Docs/Architecture.md` — which cores tick where in the frame
 - `Docs/Animation.md` — `Animator` and `AnimationCore` in depth
+- `Docs/Navigation.md` — navmesh surfaces, agents and `NavigationCore` in depth
 - `Docs/Rendering-Pipeline.md`, `Docs/UI-Ultralight-and-ImGui.md`, `Docs/Scripting-DotNet.md` — the specialized cores in depth
 - `Docs/State-of-the-Engine.md` — verdicts on the orphaned pieces

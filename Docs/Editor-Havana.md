@@ -2,7 +2,7 @@
 
 Havana is the ImGui-based editor. `EditorApp` is itself a `Game` subclass (standard entry point in `Modules/Havana/Source/main.cpp`) that hosts dockable widgets around a small set of **editor services**: one `Selection`, an `UndoStack`, named `EditorActions` (menus, shortcuts, command palette, scripts) and `EditorOps`, the undoable operations every widget uses to change the scene. Play mode snapshots the scene in memory and restores it on Stop. `--editor-exec` drives all of it from a script for unattended testing.
 
-> Verified against engine commit 7e869c6e, 2026-10-09; Create menu, overlays and View menu rendering toggles against 1fa55311, 2026-10-09 (Wave 3); physics gizmos, menus and settings against 8fdd99b1, 2026-10-09 (Wave 4); audio gizmos and settings, and the `pick` / `assert-audio` commands against afce7083, 2026-10-09; tabbed Project Settings, data assets and `show-asset` against e0ca1f26, 2026-10-09; `wait-log` / `replace-in-file` against 6a4b006f, 2026-10-09.
+> Verified against engine commit 7e869c6e, 2026-10-09; Create menu, overlays and View menu rendering toggles against 1fa55311, 2026-10-09 (Wave 3); physics gizmos, menus and settings against 8fdd99b1, 2026-10-09 (Wave 4); audio gizmos and settings, and the `pick` / `assert-audio` commands against afce7083, 2026-10-09; tabbed Project Settings, data assets and `show-asset` against e0ca1f26, 2026-10-09; `wait-log` / `replace-in-file` against 6a4b006f, 2026-10-09; navigation menus, settings and choice fields against 8d6769a5, 2026-10-10.
 
 ## Overview
 
@@ -93,13 +93,13 @@ New/Open/Quit (including closing the window) go through `RunWithUnsavedCheck`. I
 - **Gizmo** (upstream ImGuizmo): Move/Rotate/Scale/Universal, local/world, pivot/center, snapping with per-mode increments (toolbar toggle, Ctrl inverts while dragging). With several selected entities the gizmo drives a proxy matrix P, and every dragged root gets `W = P * P0^-1 * W0` through `Transform::SetWorldMatrix`, so parents and rotation are handled correctly. Physics bodies follow because `PhysicsCore` notices the moved Transforms and teleports their bodies.
 - **View cube** (top right) snaps the camera around its pivot.
 - **Camera** (`EditorCameraController`): RMB fly (WASD/QE/Space, wheel changes speed, Shift fast), Alt+LMB orbit, MMB pan, Alt+RMB dolly, wheel zoom toward the pivot (orthographic size in ortho). F frames the selection's bounds, or the whole scene when nothing is selected, fitting both FOV axes. The view persists in the editor config.
-- **Overlays** (`SceneTools`, drawn with `DebugDraw` as editor-only lines): a distance-faded grid at y = 0 whose spacing follows camera height, with X/Z axis lines; selection bounds (bright where visible, faint through geometry); camera frustums; light gizmos per type (directional arrow, point range sphere, spot cones); the selected particle system's emission shape; clickable camera/light/audio/particle icons; a stats overlay (fps, ms, GPU ms, draws, triangles, entities). Each can be toggled from the View menu. The View menu also switches shadows, the shadow-cascade tint and the physics debug draw on and off (actions `View.Shadows`, `View.ShadowCascades`, `View.Physics`). The selected entity's 3D and 2D colliders (green, triggers blue), character capsule and joint anchors are drawn too (`SceneTools::DrawPhysicsGizmos` / `DrawPhysics2DGizmos`), as are a selected 3D audio source's min / max distance spheres.
+- **Overlays** (`SceneTools`, drawn with `DebugDraw` as editor-only lines): a distance-faded grid at y = 0 whose spacing follows camera height, with X/Z axis lines; selection bounds (bright where visible, faint through geometry); camera frustums; light gizmos per type (directional arrow, point range sphere, spot cones); the selected particle system's emission shape; clickable camera/light/audio/particle icons; a stats overlay (fps, ms, GPU ms, draws, triangles, entities). Each can be toggled from the View menu. The View menu also switches shadows, the shadow-cascade tint, the physics debug draw and the navigation debug draw on and off (actions `View.Shadows`, `View.ShadowCascades`, `View.Physics`, `View.Navigation`; see `Docs/Navigation.md`). `Navigation.BakeAll` (command palette) bakes every NavMeshSurface. The selected entity's 3D and 2D colliders (green, triggers blue), character capsule and joint anchors are drawn too (`SceneTools::DrawPhysicsGizmos` / `DrawPhysics2DGizmos`), as are a selected 3D audio source's min / max distance spheres.
 - **Marquee**: drag on empty space to box-select pickable entities (resolved to their pick roots), Shift/Ctrl add.
 - **Drops**: models and prefabs dropped on the view land on the surface under the cursor (oriented-bounds raycast), else on the ground plane.
 
 ### Hierarchy
 
-Multi-select (Ctrl toggles, Shift ranges), search with `t:Type` to filter by component, inline rename (F2 or double-click), drag onto a row to reparent or between rows to reorder (keeps world transforms, cycle-safe), an active toggle per row, prefab instances drawn blue and inactive rows dimmed. The Create menu (and Create Child) offers empty entities, 3D Objects (Cube, Plane, Sphere, Cylinder, Capsule; StandardMaterial, each with a fitting static collider), Physics (dynamic Cube/Sphere/Capsule, Trigger Volume, Character Controller), Physics 2D (Dynamic Box/Circle, Static Platform, Trigger Area, Character Controller 2D; thin meshes as stand-ins), Camera, Light (Directional, Point, Spot), Effects (Fire, Smoke, Sparks particle presets) and Audio Source. Transform-less entities are listed under "Utility". Scene-view picks reveal and scroll to the picked row.
+Multi-select (Ctrl toggles, Shift ranges), search with `t:Type` to filter by component, inline rename (F2 or double-click), drag onto a row to reparent or between rows to reorder (keeps world transforms, cycle-safe), an active toggle per row, prefab instances drawn blue and inactive rows dimmed. The Create menu (and Create Child) offers empty entities, 3D Objects (Cube, Plane, Sphere, Cylinder, Capsule; StandardMaterial, each with a fitting static collider), Physics (dynamic Cube/Sphere/Capsule, Trigger Volume, Character Controller), Physics 2D (Dynamic Box/Circle, Static Platform, Trigger Area, Character Controller 2D; thin meshes as stand-ins), Camera, Light (Directional, Point, Spot), Effects (Fire, Smoke, Sparks particle presets), Audio Source and Navigation (NavMesh Surface, Agent, Link, Modifier Volume). Transform-less entities are listed under "Utility". Scene-view picks reveal and scroll to the picked row.
 
 ### Inspector
 
@@ -109,7 +109,7 @@ Reflected components get generated UI from `ReflectionUI`, chosen from each fiel
 
 - Ranges become sliders; angles are edited in degrees.
 - Colours and HDR colours get colour pickers; vectors get axis-coloured drags; quaternions are edited as stable Euler angles.
-- Enums become combos; nested structs and arrays (with +/-) are expanded.
+- Enums become combos; nested structs and arrays (with +/-) are expanded. Int fields registered with `.Choices( count, nameFn )` become combos of named choices, and `.MaskChoices` makes a multi-select bit mask (navigation areas, layers).
 - Asset paths get drag-drop and a picker; `EntityHandle` fields accept hierarchy drags.
 
 Hand-written `OnEditorInspect` still runs after the generated UI for extras.
@@ -142,7 +142,7 @@ A folder tree (Assets and Engine Assets, tracked by absolute path) plus grid or 
 - **Log**: level toggles with counts, search, duplicate collapsing, timestamps, auto-scroll that pauses when you scroll up, a detail pane, copy. Double-click opens `file:line` references in the code editor (`PlatformUtils::OpenInCodeEditor`: Preferences command, `$ME_CODE_EDITOR`, or `code -g`).
 - **History**: the undo stack; click an entry to jump there.
 - **Profiler**: CPU/GPU frame history, per-phase and per-core CPU scopes from `FrameStats` (`ME_STAT_SCOPE`), per-view GPU timings (the bgfx profiler is enabled only while this window is open).
-- **Preferences** (per user) and **Project Settings**, tabbed into Time, Layers, Physics, Input and Audio. Time holds the fixed update rate and frame cap in `Engine.cfg`. The rest live in the project's `ProjectSettings.json` under `Assets/Config`: layer names, gravity, the triangular layer collision matrix over the named layers, the action map path (with connected pads and a live action table) and the audio bus volumes.
+- **Preferences** (per user) and **Project Settings**, tabbed into Time, Layers, Physics, Input, Audio and Navigation. Time holds the fixed update rate and frame cap in `Engine.cfg`. The rest live in the project's `ProjectSettings.json` under `Assets/Config`: layer names, gravity, the triangular layer collision matrix over the named layers, the action map path (with connected pads and a live action table), the audio bus volumes, and the navigation area names and costs.
 
 ### Automation: `--editor-exec`
 
@@ -160,7 +160,7 @@ The script runs one command per frame after a short warm-up and logs `[editor-ex
 | `select a,b`, `select-add a`, `select-none` | Selection (names, or `Parent/Child` paths) |
 | `pick fx fy` | Clicks the scene view at that fraction of its size; GPU picking selects what is drawn there |
 | `show-asset path` | Opens the Assets window on a file with its details shown (data assets show their editable contents) |
-| `replace-in-file path | old | new`, `wait-log text | frames` | Edit a file in place (hot reload tests) / wait until a log line containing the text appears, failing after the frame budget |
+| `replace-in-file path | old | new`, `wait-log text | frames` | Edit a file in place (hot reload tests) / wait until a log line containing the text appears (lines logged since the previous command started count, so `action X` then `wait-log` can't miss what X logged), failing after the frame budget |
 | `create Name [| Parent]`, `rename Name`, `reparent Child | Parent|root` | Structural edits |
 | `add-component T`, `remove-component T`, `set Type.Field <json>` | Component edits on the active entity |
 | `create-prefab Entity | path`, `instantiate path`, `prefab-apply/-revert/-unpack Entity` | Prefab workflow |

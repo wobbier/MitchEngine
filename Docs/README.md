@@ -1,6 +1,6 @@
 # MitchEngine Documentation
 
-Technical documentation for MitchEngine — a C++20, ECS-based game engine built on BGFX, SDL2, Box3D, FMOD, and .NET 8 scripting, with a visual editor called Havana. The engine lives in this repository and is consumed as a git submodule (`Engine/`) by game projects such as Drumsmith and MitchGame.
+Technical documentation for MitchEngine — a C++20, ECS-based game engine built on BGFX, SDL2, Box3D, Recast/Detour, FMOD, and .NET 8 scripting, with a visual editor called Havana. The engine lives in this repository and is consumed as a git submodule (`Engine/`) by game projects such as Drumsmith and MitchGame.
 
 ## Doc Map
 
@@ -16,6 +16,7 @@ Technical documentation for MitchEngine — a C++20, ECS-based game engine built
 | [Audio.md](Audio.md) | FMOD `AudioCore`: output modes (silent automated runs), mixer buses, listener, 2D/3D sources with rolloff and doppler, overlapping one-shots, pause and lifecycle |
 | [Animation.md](Animation.md) | Clip import, the `Animator` state machine (parameters, transitions, blends, events), `AnimationCore`, bone entities, GPU skinning in every pass |
 | [Physics.md](Physics.md) | Box3D `PhysicsCore` and Box2D `Physics2DCore`: bodies, colliders, compound bodies, joints, character movers, fixed step + interpolation, layers, events, queries |
+| [Navigation.md](Navigation.md) | Recast/Detour: `NavMeshSurface` bakes (tiled, parallel, async, saved next to the scene), areas and costs, modifiers and links, `NavMeshAgent` crowds, queries, editor and script API |
 | [Serialization-and-Scenes.md](Serialization-and-Scenes.md) | `.lvl` JSON format, prefabs, registry-name instantiation, save/load flow, versioning caveats |
 | [Scripting-DotNet.md](Scripting-DotNet.md) | CLI script builds, hostfxr bootstrap, script lifecycle, hot reload, the generated API (`ScriptAPI.def`), C# side, platform status, add-a-binding recipe |
 | [UI-Ultralight-and-ImGui.md](UI-Ultralight-and-ImGui.md) | Ultralight HTML UI integration, GPU driver, view composite — **deprecation status: do not extend** |

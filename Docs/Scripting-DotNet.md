@@ -2,7 +2,7 @@
 
 Game scripts are C# classes implementing `IGameScript` (usually through the `Script` base class), hosted in-process via **hostfxr** (.NET 8). C++ loads `[UnmanagedCallersOnly]` bridge functions from `ScriptCore.dll`; C# gets a struct of engine callbacks (`ScriptEngineAPI`) that is **generated from one manifest** for both languages. Scripts live in a collectible `AssemblyLoadContext`, and editing a `.cs` file in a tools build **hot reloads** them with their field values kept. This doc covers the build, the bootstrap chain, the script lifecycle, hot reload, the API surface, platform status and the add-a-binding recipe.
 
-> Verified against engine commit 6a4b006f, 2026-10-09.
+> Verified against engine commit 6a4b006f, 2026-10-09; the navigation API against 8d6769a5, 2026-10-10.
 
 ## Overview
 
@@ -106,7 +106,7 @@ Only public fields survive. Private state, statics and references are rebuilt in
 
 ### Calling the engine from C#
 
-The API is about 63 functions. Strings cross as UTF-8 `byte*`, entities as the raw 64-bit `EntityID`, and vectors by pointer.
+The API is about 78 functions. Strings cross as UTF-8 `byte*`, entities as the raw 64-bit `EntityID`, and vectors by pointer.
 
 | Area | C# surface |
 |------|------------|
@@ -119,6 +119,7 @@ The API is about 63 functions. Strings cross as UTF-8 `byte*`, entities as the r
 | Input | `IsKeyDown`, `WasKeyPressed`, `MouseDelta`, `GetAction`, `GetActionVector2`, `IsActionPressed`, `WasActionPressed`, `WasActionReleased` (actions from `Docs/Input.md`) |
 | Audio | `Audio.PlayOneShot(clip, volume)`, `PlayOneShotAt(clip, position, volume)` |
 | Physics | `Physics.Raycast(origin, dir, maxDistance, out RaycastHit)`; `Rigidbody.AddForce(force, ForceMode)` and `Velocity` |
+| Navigation | `NavMeshAgent.SetDestination`, `IsStopped`, `ResetPath`, `Warp`, `HasPath`, `HasArrived`, `RemainingDistance`, `Velocity`, `DesiredVelocity`, `Speed`; `Navigation.FindPath`, `SamplePosition`, `Raycast`, `GetRandomPoint` (`Docs/Navigation.md`) |
 | Camera / UI | Clear colour; `BasicUIView.ExecuteJS` |
 | ImGui | A subset for `OnEditorInspect` |
 

@@ -232,6 +232,7 @@ Per camera, from `CameraData::Post`, which `CameraCore` copies from a `PostProce
 
 - **Debug Draw v2** (`DebugDraw.h`): a thread-safe, immediate-mode line API:
   - Shapes: `Line`, `Ray`, `Arrow`, `Box`, `Circle`, `Sphere`, `Capsule`, `Cone`, `Axes`, `Frustum`, `Grid`.
+  - Filled triangles (`Triangle`, `Triangles`): alpha blended, depth tested, never written to depth, drawn before the lines (the navmesh overlay uses them).
   - Every call takes a colour, a duration and flags (`NoDepthTest`, `EditorOnly`).
   - Collected once per frame and drawn in each camera's transparent view. `EditorOnly` lines go only to the editor camera.
 - **Frame statistics**: `BGFXRenderer::GatherFrameStats` copies `bgfx::getStats()` into `FrameStats::RenderStats`. Per-view GPU timings need `BGFX_DEBUG_PROFILER`, which is on only while the editor's Profiler window is open.
