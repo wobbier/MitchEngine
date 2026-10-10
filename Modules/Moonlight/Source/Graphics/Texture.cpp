@@ -55,7 +55,7 @@ namespace Moonlight
 
     Texture::~Texture()
     {
-        if( bgfx::isValid( TexHandle ) )
+        if( bgfx::isValid( TexHandle ) && IsGpuAlive() )
         {
             bgfx::destroy( TexHandle );
         }

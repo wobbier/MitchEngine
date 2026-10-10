@@ -89,3 +89,11 @@ namespace Moonlight
 
 
 }
+
+namespace Moonlight
+{
+    // False before bgfx::init and after bgfx::shutdown. GPU objects released then (static caches,
+    // the game object at exit) skip their bgfx calls instead of touching a dead context.
+    bool IsGpuAlive();
+    void SetGpuAlive( bool InAlive );
+}

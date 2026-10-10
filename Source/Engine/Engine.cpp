@@ -704,6 +704,14 @@ void Engine::Shutdown()
 #endif
     Gamepads::Get().CloseAll();
 
+    // GPU teardown: drop the cached assets, then the renderer and bgfx. GPU objects released after
+    // this (static caches, the game object) skip their handles (Moonlight::IsGpuAlive).
+    ResourceCache::GetInstance().ReleaseAll();
+    if( NewRenderer )
+    {
+        NewRenderer->Destroy();
+    }
+
     Jobs::JobSystem::Get().Shutdown();
     CLog::GetInstance().Flush();
 }

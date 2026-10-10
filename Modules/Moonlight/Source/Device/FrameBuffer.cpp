@@ -1,5 +1,6 @@
 #include "FrameBuffer.h"
 #include <CLog.h>
+#include "Utils/BGFXUtils.h"
 #include "Mathf.h"
 #include <algorithm>
 
@@ -10,7 +11,7 @@ namespace
 
     void DestroyIfValid( bgfx::FrameBufferHandle& handle )
     {
-        if( bgfx::isValid( handle ) )
+        if( bgfx::isValid( handle ) && Moonlight::IsGpuAlive() )
         {
             bgfx::destroy( handle );
         }
@@ -19,7 +20,7 @@ namespace
 
     void DestroyIfValid( bgfx::TextureHandle& handle )
     {
-        if( bgfx::isValid( handle ) )
+        if( bgfx::isValid( handle ) && Moonlight::IsGpuAlive() )
         {
             bgfx::destroy( handle );
         }

@@ -4,6 +4,7 @@
 #include "CLog.h"
 #include "ShaderCommand.h"
 #include "Material.h"
+#include "Utils/BGFXUtils.h"
 
 namespace Moonlight
 {
@@ -17,6 +18,10 @@ namespace Moonlight
 
     MeshData::~MeshData()
     {
+        if( !IsGpuAlive() )
+        {
+            return;
+        }
         if( bgfx::isValid( m_vbh ) )
             bgfx::destroy( m_vbh );
 

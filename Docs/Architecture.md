@@ -146,7 +146,7 @@ Timing details worth knowing:
 
 ### Shutdown
 
-Window close → `StopGame()` (`Game::OnEnd()`) → loop break → `engineConfig.Save()` (skipped for automation runs) → `Engine::Shutdown`: the asset watcher stops, the World is stopped and destroyed (every component gets `OnDisable`/`OnDestroy`), the job workers are joined and the log is flushed. The renderer and the `new`ed engine cores are not destroyed and bgfx is not shut down; process exit cleans those up.
+Window close → `StopGame()` (`Game::OnEnd()`) → loop break → `engineConfig.Save()` (skipped for automation runs) → `Engine::Shutdown`: the asset watcher stops, the World is stopped and destroyed (every component gets `OnDisable`/`OnDestroy`), audio and the .NET host shut down, the resource cache drops its references, and `BGFXRenderer::Destroy` releases the renderer's GPU objects and shuts bgfx down. Then the job workers are joined and the log is flushed. GPU objects released after that, from static caches or the game object as `main` returns, see `Moonlight::IsGpuAlive()` false and skip their bgfx calls (textures, meshes, framebuffers, programs). The `new`ed engine cores themselves are left to process exit.
 
 ### Feature flags (`Modules/Dementia/Source/Dementia.h`)
 

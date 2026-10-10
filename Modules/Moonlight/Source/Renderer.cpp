@@ -129,6 +129,7 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
             CLog::Log( CLog::LogType::Error, "BGFX Failed to Init." );
             return;
         }
+        Moonlight::SetGpuAlive( true );
     }
 
     // Set view 0 clear state.
@@ -383,6 +384,7 @@ void BGFXRenderer::Destroy()
     // Shaders referenced by hot-reloadable programs.
     Moonlight::ReleaseProgramRegistry();
 
+    Moonlight::SetGpuAlive( false );
     bgfx::shutdown();
 
 #if USING( ME_ENABLE_RENDERDOC )

@@ -89,7 +89,7 @@ namespace
 
 Moonlight::ProgramRef::~ProgramRef()
 {
-    if( bgfx::isValid( Handle ) )
+    if( bgfx::isValid( Handle ) && IsGpuAlive() )
     {
         bgfx::destroy( Handle );
     }
@@ -147,6 +147,24 @@ void Moonlight::RebuildProgramsUsing( const ShaderFile* InShader )
             ref->Handle = rebuilt;
         }
     }
+}
+
+
+namespace
+{
+    bool s_gpuAlive = false;
+}
+
+
+bool Moonlight::IsGpuAlive()
+{
+    return s_gpuAlive;
+}
+
+
+void Moonlight::SetGpuAlive( bool InAlive )
+{
+    s_gpuAlive = InAlive;
 }
 
 
