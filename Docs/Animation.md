@@ -8,7 +8,7 @@ Skeletal animation runs in three stages:
 
 Because bones are ordinary entities, anything parented to a bone (a weapon, a hat, a particle emitter) follows the animation without extra setup. The editor's play snapshot restores the authored pose on Stop.
 
-> Verified against engine commit 07617c5f, 2026-10-09 (overhaul Wave 4); layers, 2D blends and root motion against b0f082f8, 2026-10-10.
+> Verified against engine commit 07617c5f, 2026-10-09 (overhaul Wave 4); layers, 2D blends and root motion against b0f082f8, 2026-10-10; additive layers and editor previews against 2d07489b, 2026-10-10.
 
 ## Overview
 
@@ -18,7 +18,7 @@ Because bones are ordinary entities, anything parented to a bone (a weapon, a ha
 | Player | `Animator` component | On the entity whose descendants the clips animate (usually the `Model` entity) |
 | Playback system | `AnimationCore` | Engine-owned. Binds, steps the state machine, samples on the job system, writes Transforms |
 | State | `AnimatorState` | One clip, or a blend over `BlendClips`: 1D by one float parameter, 2D by two (freeform, gradient band). Has speed, loop and layer settings |
-| Layer | `AnimatorLayer` | Its own states and cross-fades over the bones in its `Mask` (each with its descendants), blended over the layers below by `Weight` |
+| Layer | `AnimatorLayer` | Its own states and cross-fades over the bones in its `Mask` (each with its descendants), blended over the layers below by `Weight`: `Override` replaces their pose, `Additive` adds its motion |
 | Transition | `AnimatorTransition` | From (or any state) → To. Condition on a parameter, optional exit time, cross-fade duration |
 | Parameter | `AnimatorParameter` | Float, Bool or Trigger (a trigger is consumed by the transition that fires on it) |
 | Event marker | `AnimatorEventMarker` | Normalized time in a state. Fires an `AnimationEvent` each time playback passes it |
@@ -83,12 +83,25 @@ Because bones are ordinary entities, anything parented to a bone (a weapon, a ha
      - a point exactly on a clip plays only that clip, and a point outside every band plays the nearest clip;
      - at most the eight strongest clips are sampled.
    - **Cross-fades.** The previous state is blended in with a smoothstep weight over the transition's `Duration`.
-   - **Layers.** Each playing layer above the base replaces the pose of its masked bindings, blended by its `Weight` (`SetLayerWeight` at runtime).
+   - **Layers.** Each playing layer above the base acts on its masked bindings, scaled by its `Weight` (`SetLayerWeight` at runtime):
+     - **Override** layers replace the pose (blended by weight).
+     - **Additive** layers add their motion. The layer's state is also sampled at its first frame (time 0, same blend weights), its *reference*. The difference between the pose and the reference is added on top: the position offset, the rotation `inverse(reference) × pose` applied in the bone's frame (slerped from identity by weight), and the scale ratio. Cross-fades blend the two states' differences. So a breathing or flinch clip authored on any pose adds just its motion to whatever plays below.
    - **Root motion** (base layer). The root binding's travel since last frame is summed over the weighted clips (and cross-faded), handling loop wraps, and its vertical part dropped. `GetRootMotion()` reports it in world space.
 3. **Write** (serial): `SetPosition` / `SetRotation` / `SetScale` on each node's `Transform`.
 4. **Root motion** (with `ApplyRootMotion`): the root bone is held above the entity horizontally (vertical motion stays in the bone), and the entity moves by the travel instead: through `CharacterController::Move` when it has one, so it still collides, or by moving its Transform.
 
 `Animator::Stop()` freezes the pose. Setting `Speed` to 0 does the same but keeps transitions and events live.
+
+### Editor previews
+
+In edit mode `AnimationCore::Update` runs only previews (`UpdatePreviews`). `Animator::StartPreview( state )` binds the Animator to the current (authored) pose. The core then plays just that state on its layer, with no state machine, events, cross-fades or root motion moving the entity, at `PreviewTime` (advancing while `PreviewPlaying`). It samples and writes the pose like play does.
+
+The authored pose always comes back:
+
+- **Stopping** (`StopPreview`, `StopAllPreviews`, the inspector's Stop) writes the bind pose and unbinds.
+- **Saving** (`Scene::SaveCopy`) and **autosaving** call `RestorePreviewPoses` first. The file gets the authored pose, and the preview poses again on its next update.
+- **Play** (`EditorApp::StartGame`, and `AnimationCore::OnStart`) ends previews before the snapshot, so play binds to the authored pose.
+- **Selecting something else** ends a preview: it lives while its inspector is drawn (`kPreviewIdleUpdates` updates of grace).
 
 ### Transition conditions
 
@@ -119,17 +132,21 @@ Bone indices are stored as normalized `Uint8`. `skinMatrix` multiplies them by 2
 
 ### Editor
 
-- **Inspector.** `Animator` fields are reflected: clip source, default state, speed, and the state machine (parameters, states, transitions, events), editable like any other component. During play the inspector also shows the current state, time, blend status and animated-node count, and a clip list (clicking a clip plays it with a 0.2 s fade).
+- **Inspector.** `Animator` fields are reflected: clip source, default state, speed, and the state machine (parameters, states, transitions, events, layers with their blending), editable like any other component.
+  - In edit mode it has a **Preview** button: a state picker, Play / Pause, a time scrubber and Stop.
+  - During play it shows the current state, time, blend status and animated-node count, and a clip list (clicking a clip plays it with a 0.2 s fade).
+- **Actions.** `Animation.PreviewSelected` previews the selected Animator's default state, and `Animation.StopPreviews` ends every preview (both are in the command palette).
 - **Regression script.** `../Assets/Scenes/Tests/AnimationFlows.edscript` runs against `AnimationTest.lvl`. It checks:
   - the bind pose holds in edit mode;
   - posed skinned meshes frame and pick correctly;
+  - an edit-mode preview poses the bones, a scene saved mid-preview holds the authored pose, and stopping restores it;
   - the bones move in play;
   - the hat stays on the tip bone;
   - Stop restores the bind pose.
 
 ## How to Extend
 
-- **Locomotion:** a 2D blend state over `MoveX` / `MoveY` parameters (idle at 0,0, walks and runs around it), an "UpperBody" layer masked to the spine for aiming or waving, and `ApplyRootMotion` with a `CharacterController` so the feet don't slide.
+- **Locomotion:** a 2D blend state over `MoveX` / `MoveY` parameters (idle at 0,0, walks and runs around it), an "UpperBody" layer masked to the spine for aiming or waving, an additive "Breathing" layer, and `ApplyRootMotion` with a `CharacterController` so the feet don't slide.
 - **Drive an Animator from gameplay:** call `SetFloat` / `SetBool` / `SetTrigger` in `OnUpdate`, and `Play("State", fade)` for direct control. Listen for `AnimationEvent` (an `EventReceiver` registered for `AnimationEvent::GetEventId()`) for footsteps, hit frames and similar.
 - **Procedural clips:** build `Moonlight::AnimationClip`s in code and pass them with `UseClips`. The unit tests do exactly this.
 - **Attach props:** parent the prop entity to the bone entity (found by name under the model). It follows the pose with no further setup.
@@ -137,9 +154,9 @@ Bone indices are stored as normalized `Uint8`. `skinMatrix` multiplies them by 2
 
 ## Caveats & Fragility
 
-- **Layers override; they don't add.** There are no additive layers. Root motion is translation only (no root rotation), and is taken from the base layer.
+- **Additive references are the first frame.** There's no separate reference clip or pose, so author additive clips to start at their rest pose. Root motion is translation only (no root rotation), and is taken from the base layer.
 - **2D blends use one family.** Freeform cartesian only (no directional or polar variants). Clips are phase-matched to the first clip's length, so clips of very different lengths drift.
-- **No edit-mode preview.** Animators only play while the world is started. Edit mode shows whatever pose the bone entities hold. Posing bones by hand in edit mode is saved with the scene.
+- **Previews show one state.** An edit-mode preview plays a single state, without transitions, other layers or parameters changing. Posing bones by hand in edit mode (without a preview) is saved with the scene.
 - **Name-based binding.** Clips and skins find nodes by name. Two descendants with the same name bind to the first one found, and renamed bone entities stop animating or skinning.
 - **Linear key interpolation only.** FBX cubic tangents are lost on import. Keys are found by linear scan, so very long clips cost more per sample.
 - **Import scale is not converted.** Assets authored in centimetres (e.g. Synty FBX) import at 100× size. Scale the entity, since there is no unit conversion on import yet.
