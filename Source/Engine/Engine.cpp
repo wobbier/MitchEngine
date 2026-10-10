@@ -21,6 +21,7 @@
 #include "Components/Cameras/FlyingCamera.h"
 #include "Cores/Cameras/FlyingCameraCore.h"
 #include "Cores/AudioCore.h"
+#include "Components/Graphics/Model.h"
 #include "Audio/AudioOcclusion.h"
 #include "Input/Gamepads.h"
 #include "Cores/UI/UICore.h"
@@ -569,6 +570,7 @@ void Engine::Run()
             {
                 ResourceCache::GetInstance().PumpAsyncLoads();
             }
+            Model::ExpandPendingModels();
 
             // Late Update
             {

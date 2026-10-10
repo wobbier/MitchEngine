@@ -3,6 +3,7 @@
 #include "Graphics/MeshData.h"
 #include "Resource/Resource.h"
 #include "Path.h"
+#include <memory>
 #include <string>
 #include <vector>
 #include "Scene/Node.h"
@@ -10,6 +11,10 @@
 #include "Scene/AnimationClip.h"
 #include "assimp/material.h"
 
+namespace Assimp
+{
+    class Importer;
+}
 struct aiScene;
 struct aiNode;
 struct aiMaterial;
@@ -31,10 +36,18 @@ public:
     ~ModelResource();
 
     virtual bool Load() final;
+    // Async (ResourceCache::GetAsync): the cooked file is read and the clips built on a loader
+    // thread; meshes, materials and the node tree are made on the main thread (GPU objects).
+    bool SupportsAsyncLoad() const final;
+    bool LoadAsync() final;
+    bool FinishAsyncLoad() final;
     Moonlight::Node RootNode;
     const std::vector<Moonlight::MeshData*>& GetAllMeshes() const;
     const std::vector<Moonlight::AnimationClip>& GetAnimations() const;
 private:
+    // Read by LoadAsync, consumed by FinishAsyncLoad.
+    std::unique_ptr<Assimp::Importer> m_importer;
+    const aiScene* m_pendingScene = nullptr;
     std::vector<Moonlight::MeshData*> m_allMeshData;
     std::vector<Moonlight::AnimationClip> m_animations;
 

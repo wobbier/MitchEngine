@@ -198,6 +198,12 @@ void AnimationCore::UpdatePreviews( float InDeltaSeconds )
 
 void AnimationCore::Bind( Entity& InEntity, Animator& InAnimator )
 {
+    // A model still loading in the background has neither clips nor bone entities yet: try again
+    // next update.
+    if( Model* model = InEntity.TryGetComponent<Model>(); model && model->ModelHandle && !model->IsReady() && !model->ModelHandle->HasLoadFailed() )
+    {
+        return;
+    }
     InAnimator.m_bound = true;
     if( InAnimator.m_ownClips )
     {

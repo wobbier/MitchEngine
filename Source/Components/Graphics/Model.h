@@ -10,6 +10,9 @@
 
 class Entity;
 
+// Expands a model file into child entities named after its nodes, with Mesh components on the
+// ones that have geometry (a saved scene's children are reused, keeping their edits). The model
+// loads in the background: the children appear once it's ready (ExpandPendingModels, every frame).
 class Model
     : public Component<Model>
 {
@@ -22,6 +25,15 @@ public:
     // Separate init from construction code.
     virtual void Init() final;
 
+    // The model has loaded and its child entities exist.
+    bool IsReady() const
+    {
+        return IsInitialized;
+    }
+    // Expands the models whose background load finished (the engine calls this every frame, after
+    // finishing loads and before the late update).
+    static void ExpandPendingModels();
+
     void RecursiveLoadMesh( Moonlight::Node& root, EntityHandle& parentEnt );
 
     SharedPtr<class ModelResource> ModelHandle = nullptr;
@@ -30,6 +42,7 @@ public:
 private:
     Path ModelPath;
     bool IsInitialized = false;
+    void Expand();
 
     virtual void OnSerialize( json& outJson ) final
     {

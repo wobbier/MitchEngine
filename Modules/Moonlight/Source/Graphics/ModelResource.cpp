@@ -187,43 +187,55 @@ ModelResource::~ModelResource()
 
 bool ModelResource::Load()
 {
-    Assimp::Importer importer;
-    const aiScene* scene;
-    // Force model loading 
-    if( false )
+    return LoadAsync() && FinishAsyncLoad();
+}
+
+
+bool ModelResource::SupportsAsyncLoad() const
+{
+    return true;
+}
+
+
+bool ModelResource::LoadAsync()
+{
+    // The cooked model (tools builds cook it from the source on first use, see Export).
+    Path cooked = Path( FilePath.FullPath + ".assbin" );
+    if( !cooked.Exists )
     {
-        Path newPath = Path( FilePath.FullPath );
-        ME_ASSERT_MSG( newPath.Exists, "Exported Model Doesn't Exist" );
-
-        scene = importer.ReadFile( FilePath.FullPath.c_str(), aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_GenSmoothNormals | aiProcess_CalcTangentSpace | aiProcess_LimitBoneWeights | aiProcess_ConvertToLeftHanded );
-        if( !scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode )
-        {
-            std::cout << "ERROR::ASSIMP:: " << importer.GetErrorString() << std::endl;
-            return false;
-        }
-
+        CLog::Log( CLog::LogType::Error, "Model isn't cooked: " + FilePath.GetLocalPathString() );
+        return false;
     }
-    else
+    m_importer = std::make_unique<Assimp::Importer>();
+    m_pendingScene = m_importer->ReadFile( cooked.FullPath.c_str(), 0 );
+    if( !m_pendingScene || m_pendingScene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !m_pendingScene->mRootNode )
     {
-        Path newPath = Path( FilePath.FullPath + ".assbin" );
-        ME_ASSERT_MSG( newPath.Exists, "Exported Model Doesn't Exist" );
-
-        scene = importer.ReadFile( newPath.FullPath.c_str(), 0 );
-        if( !scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode )
-        {
-            std::cout << "ERROR::ASSIMP:: " << importer.GetErrorString() << std::endl;
-            return false;
-        }
+        CLog::Log( CLog::LogType::Error, "Model " + FilePath.GetLocalPathString() + ": " + m_importer->GetErrorString() );
+        m_pendingScene = nullptr;
+        m_importer.reset();
+        return false;
     }
+    // Clips are plain data: build them here too.
+    ProcessAnimations( m_pendingScene );
+    return true;
+}
 
+
+bool ModelResource::FinishAsyncLoad()
+{
+    if( !m_pendingScene )
+    {
+        return false;
+    }
+    const aiScene* scene = m_pendingScene;
     RootNode.MaterialCache.resize( scene->mNumMaterials );
     m_allMeshData.resize( scene->mNumMeshes );
 
     RootNode.Name = std::string( scene->mRootNode->mName.C_Str() );
     ProcessNode( scene->mRootNode, scene, RootNode, AssimpToGLM( scene->mRootNode->mTransformation ) );
-    ProcessAnimations( scene );
 
-    importer.FreeScene();
+    m_pendingScene = nullptr;
+    m_importer.reset();
     return true;
 }
 

@@ -25,15 +25,55 @@ Model::~Model()
 {
 }
 
+namespace
+{
+    std::vector<EntityHandle>& PendingModels()
+    {
+        static std::vector<EntityHandle> pending;
+        return pending;
+    }
+}
+
+
 void Model::Init()
 {
     OPTICK_EVENT( "Model::Init" );
     if( !ModelPath.FullPath.empty() )
     {
-        ModelHandle = ResourceCache::GetInstance().Get<ModelResource>( ModelPath );
+        ModelHandle = ResourceCache::GetInstance().GetAsync<ModelResource>( ModelPath );
     }
+    if( ModelHandle && ModelHandle->IsLoading() )
+    {
+        PendingModels().push_back( Parent );
+        return;
+    }
+    Expand();
+}
 
-    if( ModelHandle && !IsInitialized )
+
+void Model::ExpandPendingModels()
+{
+    std::vector<EntityHandle>& pending = PendingModels();
+    for( size_t i = 0; i < pending.size(); )
+    {
+        Model* model = pending[i] ? pending[i]->TryGetComponent<Model>() : nullptr;
+        if( model && model->ModelHandle && model->ModelHandle->IsLoading() )
+        {
+            ++i;
+            continue;
+        }
+        if( model && model->ModelHandle && !model->ModelHandle->HasLoadFailed() )
+        {
+            model->Expand();
+        }
+        pending.erase( pending.begin() + i );
+    }
+}
+
+
+void Model::Expand()
+{
+    if( ModelHandle && !IsInitialized && !ModelHandle->HasLoadFailed() )
     {
         IsInitialized = true;
         ME_ASSERT_MSG( ModelHandle->RootNode.Meshes.empty(), "you can have a mesh on the root??" );

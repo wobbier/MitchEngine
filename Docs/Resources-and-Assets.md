@@ -1,12 +1,12 @@
 # Resources and Assets
 
-All asset loading funnels through the `ResourceCache` singleton: a thread-safe, string-keyed map of `SharedPtr<Resource>` with synchronous loading plus **background loading** for textures, `.meta` JSON sidecars per asset (carrying asset GUIDs), and an editor/tools-only cook step (`Export()`) that compiles sources (`.png`, `.fbx`, `.vert`…) into runtime formats (`.dds`, `.assbin`, `.<platform>.bin`). Unreferenced resources are kept alive for a grace period, and tools builds hot reload assets when files change. This doc covers the load flow, async loads, the metadata/cook system, hot reload, the resource type inventory, and how to add a new type.
+All asset loading funnels through the `ResourceCache` singleton: a thread-safe, string-keyed map of `SharedPtr<Resource>` with synchronous loading plus **background loading** for textures and models, `.meta` JSON sidecars per asset (carrying asset GUIDs), and an editor/tools-only cook step (`Export()`) that compiles sources (`.png`, `.fbx`, `.vert`…) into runtime formats (`.dds`, `.assbin`, `.<platform>.bin`). Unreferenced resources are kept alive for a grace period, and tools builds hot reload assets when files change. This doc covers the load flow, async loads, the metadata/cook system, hot reload, the resource type inventory, and how to add a new type.
 
 > Verified against engine commit dab803a2, 2026-10-08; model import (animation and skin data) against 07617c5f, 2026-10-09; pass-through assets against afce7083, 2026-10-09; async loading against 4d4de548, 2026-10-10.
 
 ## Overview
 
-A `Resource` is anything constructed from a `Path` with a `Load()` override. `ResourceCache::Get<T>(path)` loads on the spot; components call it directly during deserialization (`AudioSource` sounds, prefab JSON…), so a cold `Get<ModelResource>` pays the full Assimp import on the calling (main) thread. `GetAsync<T>(path)` returns at once and loads types that support it on loader threads. Material textures, model textures, particle textures and asset-browser thumbnails load this way, so a scene's textures no longer block its first frame. A 2K texture cost about 30 ms of main-thread time before and costs under 0.1 ms now. Audio has its own streaming option (see `Docs/Audio.md`).
+A `Resource` is anything constructed from a `Path` with a `Load()` override. `ResourceCache::Get<T>(path)` loads on the spot; components call it directly during deserialization (`AudioSource` sounds, prefab JSON…), so a cold `Get<ModelResource>` reads and builds the model on the calling (main) thread. `GetAsync<T>(path)` returns at once and loads types that support it on loader threads. Textures (material, model and particle textures, asset-browser thumbnails) and models (`Model` components) load this way, so a scene's assets no longer block its first frame. A 2K texture cost about 30 ms of main-thread time before and costs under 0.1 ms now. Audio has its own streaming option (see `Docs/Audio.md`).
 
 Cooking is driven by metadata, not by a build step: in `ME_TOOLS` builds, `Get` checks whether the asset's compiled twin exists / whether the source changed, and shells out to the appropriate compiler on the spot. Shipped (non-tools) builds only ever read the compiled files.
 
@@ -74,7 +74,10 @@ Rules:
 - **`WaitForAsyncLoads()`** finishes everything and helps with queued loads (loading screens). It runs every background part first, then the main-thread parts **in request order**, so GPU objects (and their handles, which feed batch keys and draw order) are created in the same order every run. Deterministic runs (`--frame-time`) call it every frame instead of pumping, so captures never depend on IO timing. `PumpAsyncLoads` finishes in completion order.
 - **`ReleaseAll()` cancels**: queued loads are dropped and marked failed, and the loader threads are joined. Engine shutdown does this before tearing the GPU down.
 - **`GetPendingLoadCount()`** counts queued, running and not-yet-finished loads, for progress bars.
-- To make a type async, override the three virtuals. `Texture` reads and parses the DDS in `LoadAsync` (`m_pendingImage`) and creates the bgfx texture in `FinishAsyncLoad`; its `Load()` is simply both. Types that don't opt in load synchronously through `Load()` even when requested with `GetAsync`.
+- To make a type async, override the three virtuals. Types that don't opt in load synchronously through `Load()` even when requested with `GetAsync`. Each async type's `Load()` is simply both parts:
+  - `Texture` reads and parses the DDS in `LoadAsync` (`m_pendingImage`) and creates the bgfx texture in `FinishAsyncLoad`.
+  - `ModelResource` reads the cooked `.assbin` with Assimp and builds the animation clips in `LoadAsync`. It makes meshes (GPU buffers), materials and the node tree in `FinishAsyncLoad`.
+- **Models expand when ready.** `Model::Init` requests its model with `GetAsync`, and while the model is loading the component waits in a pending list. `Model::ExpandPendingModels` runs right after the engine finishes loads each frame, before the late update, and creates the node entities and meshes then. Children saved in the scene exist meanwhile, without geometry. An `Animator` doesn't bind until its entity's `Model` is ready (`Model::IsReady`).
 
 ### Metadata sidecars
 
@@ -158,7 +161,7 @@ ME_REGISTER_METADATA( "curve", CurveMetadata );
 
 ## Caveats & Fragility
 
-- **Only textures load in the background.** Model import (Assimp), shader loads and cooking (`Export()`, a shell-out even under `GetAsync`) still block the frame. A model's own load is synchronous, but its textures are async.
+- **Shaders and cooking still block.** Shader loads and cooking (`Export()`, a shell-out or an Assimp import even under `GetAsync`) run on the main thread, as does the main-thread half of a model (meshes, materials, nodes: about a third of its load).
 - **The cache is thread safe, GPU resources aren't**: `Get` takes a recursive mutex (held during `Load`), but loading textures/shaders/models creates bgfx objects, so call `Get`/`GetAsync` from the main thread (see `Docs/Jobs-and-Events.md`); only `LoadAsync` runs elsewhere.
 - **Type-mismatched cache hits return null** (logged as an error). Two systems loading the same path as different types is still a bug.
 - **Keep-alive is time-based, not budget-based**: there is no memory cap.
