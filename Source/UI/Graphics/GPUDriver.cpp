@@ -98,26 +98,6 @@ void UIDriver::CreateTexture( uint32_t texture_id, RefPtr<Bitmap> bitmap )
             const uint16_t ty = 0;
             uint64_t flags = BGFX_TEXTURE_NONE | BGFX_SAMPLER_W_MIRROR | BGFX_CAPS_FORMAT_TEXTURE_2D;
 
-            // bgfx::createTexture2D expects tightly-packed pixel data (no row pitch).
-            // Ultralight pads row_bytes() to an alignment that can exceed width*bpp,
-            // so repack row-by-row when the stride is padded, otherwise the texture
-            // is sheared (each row reads from a progressively wrong offset).
-            //const uint32_t tightPitch = tw * bpp;
-            //const bgfx::Memory* mem;
-            //if( stride == tightPitch )
-            //{
-            //    mem = bgfx::copy( pixels, tightPitch * th );
-            //}
-            //else
-            //{
-            //    mem = bgfx::alloc( tightPitch * th );
-            //    for( uint32_t y = 0; y < height; ++y )
-            //    {
-            //        memcpy( mem->data + y * tightPitch,
-            //            static_cast<const uint8_t*>( pixels ) + y * stride,
-            //            tightPitch );
-            //    }
-            //}
             uint32_t calcSize = stride * th + ( tw * bpp );
             uint32_t guesstimations = ( tw * bpp ) * th;
             const bgfx::Memory* mem = bgfx::copy( pixels, guesstimations );
