@@ -332,6 +332,13 @@ public abstract class BaseProject : Project
         {
             conf.LibraryFiles.Add("libfmodL.so");
         }
+        // .NET hosting (scripting): nethost finds hostfxr; the rpath finds nethost at runtime.
+        if (Directory.Exists(Globals.DOTNET_Linux_Dir))
+        {
+            conf.LibraryPaths.Add(Globals.DOTNET_Linux_Dir);
+            conf.LibraryFiles.Add("libnethost.so");
+            conf.AdditionalLinkerOptions.Add($"-Wl,-rpath,{Globals.DOTNET_Linux_Dir}");
+        }
         if (Globals.IsUltralightEnabled)
         {
             conf.LibraryFiles.Add("libUltralight.so");

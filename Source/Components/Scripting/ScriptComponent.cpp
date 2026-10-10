@@ -27,23 +27,51 @@ ScriptComponent::~ScriptComponent()
 void ScriptComponent::Init()
 {
 #if USING( ME_SCRIPTING )
-    if( m_dotnetHandle < 0 && !ScriptName.empty() )
-    {
-        m_dotnetHandle = ScriptEngine::CreateScript( ScriptName, Parent.GetID() );
-        if( m_dotnetHandle >= 0 )
-        {
-            // restore inspector/serialized values before the script runs
-            if( !m_savedFields.empty() )
-                ScriptEngine::SetFieldsJson( m_dotnetHandle, m_savedFields );
-            ScriptEngine::ScriptOnStart( m_dotnetHandle );
-        }
-        else
-        {
-            BRUH_NEW( "dotnet: couldn't create script '{}', is it in the game dll?", ScriptName );
-        }
-    }
+    // Created now so the inspector shows live fields; ScriptCore starts it with the world.
+    EnsureCreated();
 #endif
 }
+
+
+#if USING( ME_SCRIPTING )
+void ScriptComponent::EnsureCreated()
+{
+    if( m_dotnetHandle >= 0 && !ScriptEngine::IsHandleAlive( m_dotnetHandle ) )
+    {
+        m_dotnetHandle = -1;   // its class went away in a hot reload
+        m_started = false;
+    }
+    if( m_dotnetHandle >= 0 || ScriptName.empty() || !ScriptEngine::IsAvailable() )
+    {
+        return;
+    }
+    m_dotnetHandle = ScriptEngine::CreateScript( ScriptName, Parent.GetID() );
+    m_started = false;
+    if( m_dotnetHandle >= 0 )
+    {
+        // restore inspector/serialized values before the script runs
+        if( !m_savedFields.empty() )
+        {
+            ScriptEngine::SetFieldsJson( m_dotnetHandle, m_savedFields );
+        }
+    }
+    else
+    {
+        BRUH_NEW( "dotnet: couldn't create script '{}', is it in the game dll?", ScriptName );
+    }
+}
+
+
+void ScriptComponent::DestroyInstance()
+{
+    if( m_dotnetHandle >= 0 )
+    {
+        ScriptEngine::ScriptOnDestroy( m_dotnetHandle );
+        m_dotnetHandle = -1;
+    }
+    m_started = false;
+}
+#endif
 
 
 #if USING( ME_EDITOR )
@@ -62,15 +90,8 @@ void ScriptComponent::OnEditorInspect()
                 if( ImGui::Selectable( name.c_str(), ScriptName == name ) )
                 {
                     ScriptName = name;
-                    m_dotnetHandle = ScriptEngine::CreateScript( ScriptName, Parent.GetID() );
-                    if( m_dotnetHandle >= 0 )
-                    {
-                        ScriptEngine::ScriptOnStart( m_dotnetHandle );
-                    }
-                    else
-                    {
-                        BRUH_NEW( "dotnet: CreateScript failed for '{}'", ScriptName );
-                    }
+                    m_savedFields.clear();
+                    EnsureCreated();
                 }
             }
             ImGui::EndCombo();
@@ -92,7 +113,7 @@ void ScriptComponent::OnSerialize( json& outJson )
 
 #if USING( ME_SCRIPTING )
     // serialize script for saving
-    if( m_dotnetHandle >= 0 )
+    if( m_dotnetHandle >= 0 && ScriptEngine::IsHandleAlive( m_dotnetHandle ) )
     {
         m_savedFields = ScriptEngine::GetFieldsJson( m_dotnetHandle );
     }

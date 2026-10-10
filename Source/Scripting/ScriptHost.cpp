@@ -132,24 +132,13 @@ bool ScriptHost::Init( const std::string& inRuntimeConfigPath )
 
 void ScriptHost::Shutdown()
 {
+    // Called from engine shutdown, while the runtime is alive. The hostfxr library stays loaded:
+    // CoreCLR can't be unloaded from a process, and unloading the host under it crashes at exit.
     if( m_hostfxrCtx && m_closeFptr )
     {
         m_closeFptr( m_hostfxrCtx );
         m_hostfxrCtx = nullptr;
     }
-#if USING( ME_PLATFORM_WINDOWS )
-    if( m_hostfxrLib )
-    {
-        ::FreeLibrary( (HMODULE)m_hostfxrLib );
-        m_hostfxrLib = nullptr;
-    }
-#elif USING( ME_PLATFORM_LINUX )
-    if( m_hostfxrLib )
-    {
-        dlclose( m_hostfxrLib );
-        m_hostfxrLib = nullptr;
-    }
-#endif
     m_loadAssemblyFn = nullptr;
 }
 

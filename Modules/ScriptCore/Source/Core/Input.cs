@@ -494,10 +494,39 @@ public enum KeyCode : int
     RightCommand = SDLKey.SDL_SCANCODE_RGUI, // aka RightWindows / RightSuper
 };
 
-public static class Input
+public static unsafe class Input
 {
-    public static bool IsKeyDown(KeyCode key)
+    public static bool IsKeyDown(KeyCode key) => Engine._api.Input_IsKeyDown((int)key) != 0;
+    public static bool WasKeyPressed(KeyCode key) => Engine._api.Input_WasKeyPressed((int)key) != 0;
+
+    // Mouse motion this frame in pixels (+Y up).
+    public static Vector2 MouseDelta { get { Vector2 v; Engine._api.Input_GetMouseDelta(&v); return v; } }
+
+    // Actions from the project's .inputactions map (Engine/Docs/Input.md).
+    public static float GetAction(string action)
     {
-        unsafe { return Engine._api.Input_IsKeyDown((int)key) != 0; }
+        fixed (byte* p = Engine.Utf8(action)) return Engine._api.Input_GetActionValue(p);
+    }
+
+    public static Vector2 GetActionVector2(string action)
+    {
+        Vector2 v;
+        fixed (byte* p = Engine.Utf8(action)) Engine._api.Input_GetActionVector2(p, &v);
+        return v;
+    }
+
+    public static bool IsActionPressed(string action)
+    {
+        fixed (byte* p = Engine.Utf8(action)) return Engine._api.Input_IsActionPressed(p) != 0;
+    }
+
+    public static bool WasActionPressed(string action)
+    {
+        fixed (byte* p = Engine.Utf8(action)) return Engine._api.Input_WasActionPressed(p) != 0;
+    }
+
+    public static bool WasActionReleased(string action)
+    {
+        fixed (byte* p = Engine.Utf8(action)) return Engine._api.Input_WasActionReleased(p) != 0;
     }
 }

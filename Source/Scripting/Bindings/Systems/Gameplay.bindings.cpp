@@ -1,0 +1,406 @@
+#include "PCH.h"
+#include "Gameplay.bindings.h"
+
+#if USING( ME_SCRIPTING )
+
+#include "CLog.h"
+#include "Components/Physics/Rigidbody.h"
+#include "Components/Transform.h"
+#include "Cores/AudioCore.h"
+#include "Cores/PhysicsCore.h"
+#include "Cores/SceneCore.h"
+#include "Debug/DebugDraw.h"
+#include "ECS/Entity.h"
+#include "Engine/Engine.h"
+#include "Engine/Input.h"
+#include "Engine/World.h"
+#include "Events/SceneEvents.h"
+#include "Path.h"
+#include "Scripting/Bindings/BindingContext.h"
+#include "World/SceneSerializer.h"
+#include <algorithm>
+#include <cstring>
+
+using ScriptBindings::MakeHandle;
+
+namespace
+{
+    const char* Text( const uint8_t* InText )
+    {
+        return InText ? reinterpret_cast<const char*>( InText ) : "";
+    }
+
+
+    Transform* TransformOf( EntityID InId )
+    {
+        EntityHandle handle = MakeHandle( InId );
+        return handle ? handle->TryGetComponent<Transform>() : nullptr;
+    }
+
+
+    Rigidbody* RigidbodyOf( EntityID InId )
+    {
+        EntityHandle handle = MakeHandle( InId );
+        return handle ? handle->TryGetComponent<Rigidbody>() : nullptr;
+    }
+}
+
+// Logging
+
+static void Eng_LogWarning( const uint8_t* inMessage )
+{
+    CLog::Log( CLog::LogType::Warning, Text( inMessage ) );
+}
+
+
+static void Eng_LogError( const uint8_t* inMessage )
+{
+    CLog::Log( CLog::LogType::Error, Text( inMessage ) );
+}
+
+// Time
+
+static float Eng_Time_GetDeltaTime()
+{
+    return GetEngine().DeltaTime;
+}
+
+
+static float Eng_Time_GetUnscaledDeltaTime()
+{
+    return GetEngine().UnscaledDeltaTime;
+}
+
+
+static float Eng_Time_GetFixedDeltaTime()
+{
+    return GetEngine().GetFixedTimeStep();
+}
+
+
+static float Eng_Time_GetTimeScale()
+{
+    return GetEngine().GetTimeScale();
+}
+
+
+static void Eng_Time_SetTimeScale( float inScale )
+{
+    GetEngine().SetTimeScale( inScale );
+}
+
+// Entity lifecycle
+
+static void Eng_Entity_Destroy( EntityID inId )
+{
+    if( EntityHandle handle = MakeHandle( inId ) )
+    {
+        handle->MarkForDelete();   // with its children, at the end of the frame
+    }
+}
+
+
+static bool Eng_Entity_IsActive( EntityID inId )
+{
+    EntityHandle handle = MakeHandle( inId );
+    return handle && handle->IsActiveSelf();
+}
+
+
+static void Eng_Entity_SetActive( EntityID inId, bool inActive )
+{
+    if( EntityHandle handle = MakeHandle( inId ) )
+    {
+        handle->SetActive( inActive );
+    }
+}
+
+
+static int Eng_Entity_GetName( EntityID inId, uint8_t* outName, int inSize )
+{
+    EntityHandle handle = MakeHandle( inId );
+    const std::string name = handle ? handle->GetName() : std::string();
+    if( outName && inSize > 0 )
+    {
+        const size_t length = std::min( name.size(), static_cast<size_t>( inSize - 1 ) );
+        std::memcpy( outName, name.data(), length );
+        outName[length] = 0;
+    }
+    return static_cast<int>( name.size() );
+}
+
+
+static void Eng_Entity_SetName( EntityID inId, const uint8_t* inName )
+{
+    if( EntityHandle handle = MakeHandle( inId ) )
+    {
+        handle->SetName( Text( inName ) );
+    }
+}
+
+// Transform hierarchy and world space
+
+static void Eng_Transform_GetWorldPosition( EntityID inId, Vector3* outPosition )
+{
+    Transform* transform = TransformOf( inId );
+    *outPosition = transform ? transform->GetWorldPosition() : Vector3();
+}
+
+
+static void Eng_Transform_SetWorldPosition( EntityID inId, const Vector3* inPosition )
+{
+    if( Transform* transform = TransformOf( inId ) )
+    {
+        transform->SetWorldPosition( *inPosition );
+    }
+}
+
+
+static void Eng_Transform_GetForward( EntityID inId, Vector3* outForward )
+{
+    Transform* transform = TransformOf( inId );
+    *outForward = transform ? transform->Front() : Vector3::Front;
+}
+
+
+static void Eng_Transform_GetRight( EntityID inId, Vector3* outRight )
+{
+    Transform* transform = TransformOf( inId );
+    *outRight = transform ? transform->Right() : Vector3::Right;
+}
+
+
+static void Eng_Transform_GetUp( EntityID inId, Vector3* outUp )
+{
+    Transform* transform = TransformOf( inId );
+    *outUp = transform ? transform->Up() : Vector3::Up;
+}
+
+
+static void Eng_Transform_LookAt( EntityID inId, const Vector3* inTarget )
+{
+    if( Transform* transform = TransformOf( inId ) )
+    {
+        transform->LookAt( *inTarget );
+    }
+}
+
+
+static void Eng_Transform_GetParent( EntityID inId, EntityID* outParent )
+{
+    *outParent = EntityID{};
+    Transform* transform = TransformOf( inId );
+    Transform* parent = transform ? transform->GetParentTransform() : nullptr;
+    if( parent && parent->Parent && parent != GetEngine().SceneNodes->GetRootTransform() )
+    {
+        *outParent = parent->Parent.GetID();
+    }
+}
+
+
+static void Eng_Transform_SetParent( EntityID inId, EntityID inParent )
+{
+    Transform* transform = TransformOf( inId );
+    if( !transform )
+    {
+        return;
+    }
+    Transform* parent = TransformOf( inParent );
+    // Keeps the world pose, like reparenting in the editor.
+    transform->SetParent( parent ? *parent : *GetEngine().SceneNodes->GetRootTransform(), true );
+}
+
+// World and scenes
+
+static void Eng_World_Instantiate( const uint8_t* inPrefab, EntityID inParent, EntityID* outId )
+{
+    *outId = EntityID{};
+    auto world = ScriptBindings::GetWorld().lock();
+    if( !world )
+    {
+        return;
+    }
+    EntityHandle instance = SceneSerializer::InstantiatePrefab( *world, Text( inPrefab ), TransformOf( inParent ) );
+    if( instance )
+    {
+        *outId = instance.GetID();
+    }
+}
+
+
+static void Eng_World_LoadScene( const uint8_t* inScene )
+{
+    // Queued: the current frame finishes on the scene the script lives in.
+    LoadSceneEvent event;
+    event.Level = Text( inScene );
+    event.Queue();
+}
+
+// Input actions
+
+static float Eng_Input_GetActionValue( const uint8_t* inAction )
+{
+    return GetEngine().GetInput().GetAction( Text( inAction ) ).GetValue();
+}
+
+
+static void Eng_Input_GetActionVector2( const uint8_t* inAction, Vector2* outValue )
+{
+    *outValue = GetEngine().GetInput().GetAction( Text( inAction ) ).GetVector2();
+}
+
+
+static bool Eng_Input_IsActionPressed( const uint8_t* inAction )
+{
+    return GetEngine().GetInput().GetAction( Text( inAction ) ).IsPressed();
+}
+
+
+static bool Eng_Input_WasActionPressed( const uint8_t* inAction )
+{
+    return GetEngine().GetInput().GetAction( Text( inAction ) ).WasPressed();
+}
+
+
+static bool Eng_Input_WasActionReleased( const uint8_t* inAction )
+{
+    return GetEngine().GetInput().GetAction( Text( inAction ) ).WasReleased();
+}
+
+
+static bool Eng_Input_WasKeyPressed( int inKey )
+{
+    return GetEngine().GetInput().WasKeyPressed( static_cast<KeyCode>( inKey ) );
+}
+
+
+static void Eng_Input_GetMouseDelta( Vector2* outDelta )
+{
+    *outDelta = GetEngine().GetInput().GetDeviceState().MouseDelta;
+}
+
+// Audio
+
+static void Eng_Audio_PlayOneShot( const uint8_t* inClip, float inVolume )
+{
+    if( AudioCore* audio = AudioCore::Get() )
+    {
+        AudioPlayParams params;
+        params.Volume = inVolume;
+        audio->PlayOneShot( Path( Text( inClip ) ), params );
+    }
+}
+
+
+static void Eng_Audio_PlayOneShotAt( const uint8_t* inClip, const Vector3* inPosition, float inVolume )
+{
+    if( AudioCore* audio = AudioCore::Get() )
+    {
+        AudioPlayParams params;
+        params.Volume = inVolume;
+        params.SpatialBlend = 1.f;
+        params.Position = *inPosition;
+        audio->PlayOneShot( Path( Text( inClip ) ), params );
+    }
+}
+
+// Physics
+
+static bool Eng_Physics_Raycast( const Vector3* inOrigin, const Vector3* inDirection, float inMaxDistance, ScriptRaycastHit* outHit )
+{
+    *outHit = ScriptRaycastHit();
+    PhysicsCore* physics = GetEngine().Physics;
+    RaycastHit hit;
+    if( !physics || !physics->Raycast( *inOrigin, *inDirection, inMaxDistance, hit ) )
+    {
+        return false;
+    }
+    outHit->Entity = hit.Entity ? hit.Entity.GetID() : EntityID{};
+    outHit->Point = hit.Position;
+    outHit->Normal = hit.Normal;
+    outHit->Distance = hit.Distance;
+    return true;
+}
+
+
+static void Eng_Rigidbody_AddForce( EntityID inId, const Vector3* inForce, int inMode )
+{
+    if( Rigidbody* body = RigidbodyOf( inId ) )
+    {
+        body->AddForce( *inForce, static_cast<ForceMode>( std::clamp( inMode, 0, 3 ) ) );
+    }
+}
+
+
+static void Eng_Rigidbody_GetVelocity( EntityID inId, Vector3* outVelocity )
+{
+    Rigidbody* body = RigidbodyOf( inId );
+    *outVelocity = body ? body->GetVelocity() : Vector3();
+}
+
+
+static void Eng_Rigidbody_SetVelocity( EntityID inId, const Vector3* inVelocity )
+{
+    if( Rigidbody* body = RigidbodyOf( inId ) )
+    {
+        body->SetVelocity( *inVelocity );
+    }
+}
+
+// Debug draw
+
+static void Eng_Debug_DrawLine( const Vector3* inFrom, const Vector3* inTo, const Vector3* inColor, float inDuration )
+{
+    DebugDraw::Line( *inFrom, *inTo, Vector4( inColor->x, inColor->y, inColor->z, 1.f ), inDuration );
+}
+
+
+static void Eng_Debug_DrawSphere( const Vector3* inCenter, float inRadius, const Vector3* inColor, float inDuration )
+{
+    DebugDraw::Sphere( *inCenter, inRadius, Vector4( inColor->x, inColor->y, inColor->z, 1.f ), inDuration );
+}
+
+
+void Register_GameplayBindings( ScriptEngineAPI& inAPI )
+{
+    ScriptBindings::RegisterComponent<Rigidbody>( "Rigidbody" );
+    inAPI.LogWarning = Eng_LogWarning;
+    inAPI.LogError = Eng_LogError;
+    inAPI.Time_GetDeltaTime = Eng_Time_GetDeltaTime;
+    inAPI.Time_GetUnscaledDeltaTime = Eng_Time_GetUnscaledDeltaTime;
+    inAPI.Time_GetFixedDeltaTime = Eng_Time_GetFixedDeltaTime;
+    inAPI.Time_GetTimeScale = Eng_Time_GetTimeScale;
+    inAPI.Time_SetTimeScale = Eng_Time_SetTimeScale;
+    inAPI.Entity_Destroy = Eng_Entity_Destroy;
+    inAPI.Entity_IsActive = Eng_Entity_IsActive;
+    inAPI.Entity_SetActive = Eng_Entity_SetActive;
+    inAPI.Entity_GetName = Eng_Entity_GetName;
+    inAPI.Entity_SetName = Eng_Entity_SetName;
+    inAPI.Transform_GetWorldPosition = Eng_Transform_GetWorldPosition;
+    inAPI.Transform_SetWorldPosition = Eng_Transform_SetWorldPosition;
+    inAPI.Transform_GetForward = Eng_Transform_GetForward;
+    inAPI.Transform_GetRight = Eng_Transform_GetRight;
+    inAPI.Transform_GetUp = Eng_Transform_GetUp;
+    inAPI.Transform_LookAt = Eng_Transform_LookAt;
+    inAPI.Transform_GetParent = Eng_Transform_GetParent;
+    inAPI.Transform_SetParent = Eng_Transform_SetParent;
+    inAPI.World_Instantiate = Eng_World_Instantiate;
+    inAPI.World_LoadScene = Eng_World_LoadScene;
+    inAPI.Input_GetActionValue = Eng_Input_GetActionValue;
+    inAPI.Input_GetActionVector2 = Eng_Input_GetActionVector2;
+    inAPI.Input_IsActionPressed = Eng_Input_IsActionPressed;
+    inAPI.Input_WasActionPressed = Eng_Input_WasActionPressed;
+    inAPI.Input_WasActionReleased = Eng_Input_WasActionReleased;
+    inAPI.Input_WasKeyPressed = Eng_Input_WasKeyPressed;
+    inAPI.Input_GetMouseDelta = Eng_Input_GetMouseDelta;
+    inAPI.Audio_PlayOneShot = Eng_Audio_PlayOneShot;
+    inAPI.Audio_PlayOneShotAt = Eng_Audio_PlayOneShotAt;
+    inAPI.Physics_Raycast = Eng_Physics_Raycast;
+    inAPI.Rigidbody_AddForce = Eng_Rigidbody_AddForce;
+    inAPI.Rigidbody_GetVelocity = Eng_Rigidbody_GetVelocity;
+    inAPI.Rigidbody_SetVelocity = Eng_Rigidbody_SetVelocity;
+    inAPI.Debug_DrawLine = Eng_Debug_DrawLine;
+    inAPI.Debug_DrawSphere = Eng_Debug_DrawSphere;
+}
+
+#endif

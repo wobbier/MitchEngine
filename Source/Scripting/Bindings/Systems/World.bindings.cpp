@@ -29,23 +29,16 @@ static void Eng_World_CreateEntity( const uint8_t* inName, EntityID* outId )
 
 static void Eng_World_FindByName( const uint8_t* inName, EntityID* outId )
 {
+    // Any live entity with that name, at any depth.
     *outId = EntityID{};
-    // #TODO: FIX - this shit is busted. only scans the scene root's direct children, so anything
-    // nested deeper never gets found. needs a proper recursive walk (or a name->entity lookup).
-    Transform* root = GetEngine().SceneNodes->GetRootTransform();
-    if( !root )
+    auto world = ScriptBindings::GetWorld().lock();
+    if( !world )
     {
         return;
     }
-
-    const std::string wanted = reinterpret_cast<const char*>( inName );
-    for( auto& child : root->GetChildren() )
+    if( EntityHandle found = world->FindEntityByName( reinterpret_cast<const char*>( inName ) ) )
     {
-        if( child->GetName() == wanted )
-        {
-            *outId = child->Parent.GetID();
-            return;
-        }
+        *outId = found.GetID();
     }
 }
 

@@ -181,7 +181,10 @@ public class Engine : BaseProject
 
         // #TODO This shouldn't be a sharpmake class
         //conf.AddPublicDependency<Mono>(target, DependencySetting.Default | DependencySetting.Defines | DependencySetting.IncludePaths);
-        if (target.Platform != Platform.mac && (Directory.Exists(Globals.MONO_macOS_Dir) || Directory.Exists(Globals.MONO_Win64_Dir) || Directory.Exists(Globals.DOTNET_Win64_Dir) || Directory.Exists(Globals.DOTNET_Linux_Dir)))
+        // Sharpmake only generates C# projects for Windows. Elsewhere the engine builds the SDK-style
+        // Modules/ScriptCore/ScriptCore.csproj and the game's Project/Game.Script.csproj with the
+        // dotnet CLI (ScriptEngine::BuildScripts).
+        if (target.Platform == Platform.win64 && (Directory.Exists(Globals.MONO_Win64_Dir) || Directory.Exists(Globals.DOTNET_Win64_Dir)))
         {
             conf.AddPublicDependency<ScriptCore>(target);
             conf.AddPublicDependency<UserGameScript>(target);

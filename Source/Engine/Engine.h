@@ -81,12 +81,16 @@ public:
     class Physics2DCore* Physics2D = nullptr;
     class AnimationCore* Animation = nullptr;
     class AudioCore* AudioThread = nullptr;
+    // C# scripts (null without scripting).
+    class ScriptCore* Scripts = nullptr;
     class UICore* UI = nullptr;
     Clock GameClock;
     Moonlight::CameraData EditorCamera;
     Scene* CurrentScene = nullptr;
     // Scaled delta of the current frame (0 while paused).
     float DeltaTime = 0.f;
+    // This frame's real (unpaused, unscaled) seconds.
+    float UnscaledDeltaTime = 0.f;
 
     // Time control. Pause/step affect Update and FixedUpdate deltas; rendering keeps running.
     void SetTimeScale( float InTimeScale );

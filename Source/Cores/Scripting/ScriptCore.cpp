@@ -2,19 +2,21 @@
 
 #include "ScriptCore.h"
 #include "Components/Scripting/ScriptComponent.h"
-
-#include "File.h"
-#include "Utils/PlatformUtils.h"
 #include "Scripting/ScriptEngine.h"
-#include "Events/SceneEvents.h"
-#include "ECS/Core.h"
+#include "Cores/Physics2DCore.h"
+#include "Cores/PhysicsCore.h"
+#include "Engine/Engine.h"
+#include "optick.h"
+
+#if USING( ME_EDITOR )
+#include "imgui.h"
+#endif
 
 
 ScriptCore::ScriptCore()
     : Base( ComponentFilter().Requires<ScriptComponent>() )
 {
-    SetIsSerializable( true );
-    EventManager::GetInstance().RegisterReceiver( this, { SceneLoadedEvent::GetEventId() } );
+    SetIsSerializable( false );
 
 #if USING( ME_SCRIPTING )
     ScriptEngine::Init();
@@ -22,83 +24,144 @@ ScriptCore::ScriptCore()
 }
 
 
-ScriptCore::~ScriptCore()
+void ScriptCore::OnStart()
 {
+    m_running = true;
+    StartPendingScripts();
 }
 
 
-void ScriptCore::Init()
+void ScriptCore::StartPendingScripts()
 {
+#if USING( ME_SCRIPTING )
+    std::vector<ScriptComponent*> pending;
+    for( Entity& entity : GetEntities() )
+    {
+        ScriptComponent& script = entity.GetComponent<ScriptComponent>();
+        if( !script.m_started && entity.IsActiveInHierarchy() )
+        {
+            pending.push_back( &script );
+        }
+    }
+    if( pending.empty() )
+    {
+        return;
+    }
+    // OnStart sees every body that exists by now, including ones spawned this frame.
+    if( PhysicsCore* physics = GetEngine().Physics )
+    {
+        physics->SyncNow();
+    }
+    if( Physics2DCore* physics2D = GetEngine().Physics2D )
+    {
+        physics2D->SyncNow();
+    }
+    for( ScriptComponent* script : pending )
+    {
+        StartScript( *script );
+    }
+#endif
+}
+
+
+void ScriptCore::OnStop()
+{
+    m_running = false;
+}
+
+
+void ScriptCore::StartScript( ScriptComponent& InScript )
+{
+#if USING( ME_SCRIPTING )
+    InScript.EnsureCreated();
+    if( InScript.m_dotnetHandle >= 0 && !InScript.m_started )
+    {
+        InScript.m_started = true;
+        ScriptEngine::ScriptOnStart( InScript.m_dotnetHandle );
+    }
+#endif
+}
+
+
+void ScriptCore::FixedUpdate( const UpdateContext& inUpdateContext )
+{
+#if USING( ME_SCRIPTING )
+    if( !m_running )
+    {
+        return;
+    }
+    OPTICK_EVENT( "ScriptCore::FixedUpdate" );
+    for( Entity& entity : GetEntities() )
+    {
+        ScriptComponent& script = entity.GetComponent<ScriptComponent>();
+        if( script.m_started && script.IsEnabled() && entity.IsActiveInHierarchy() )
+        {
+            ScriptEngine::ScriptOnFixedUpdate( script.m_dotnetHandle, inUpdateContext.GetDeltaTime() );
+        }
+    }
+#endif
 }
 
 
 void ScriptCore::Update( const UpdateContext& inUpdateContext )
 {
 #if USING( ME_SCRIPTING )
-    OPTICK_EVENT( "ScriptCore::Update" );
-    for( auto& entity : GetEntities() )
+    if( !m_running )
     {
-        auto& comp = entity.GetComponent<ScriptComponent>();
-        if( comp.m_dotnetHandle >= 0 )
+        return;
+    }
+    OPTICK_EVENT( "ScriptCore::Update" );
+    // Scripts created since the world started (spawned, or loaded with a scene) start before
+    // their first update.
+    StartPendingScripts();
+    for( Entity& entity : GetEntities() )
+    {
+        ScriptComponent& script = entity.GetComponent<ScriptComponent>();
+        if( script.m_started && script.IsEnabled() && entity.IsActiveInHierarchy() )
         {
-            ScriptEngine::ScriptOnUpdate( comp.m_dotnetHandle, inUpdateContext.GetDeltaTime() );
+            ScriptEngine::ScriptOnUpdate( script.m_dotnetHandle, inUpdateContext.GetDeltaTime() );
         }
     }
 #endif
 }
 
 
-void ScriptCore::LateUpdate( const UpdateContext& inUpdateContext )
-{
-
-}
-
-
 void ScriptCore::OnEntityAdded( Entity& NewEntity )
 {
-    // nothing to do - ScriptComponent::Init() already runs CreateScript + ScriptOnStart.
-    // #TODO: add a ScriptOnCreate binding here if we ever want an Awake-before-Start split.
+    // ScriptComponent::Init creates the instance; spawned during play, it starts before the next
+    // update (StartPendingScripts), once physics has its bodies.
 }
 
 
 void ScriptCore::OnEntityRemoved( Entity& InEntity )
 {
 #if USING( ME_SCRIPTING )
-    auto& comp = InEntity.GetComponent<ScriptComponent>();
-    if( comp.m_dotnetHandle >= 0 )
+    if( ScriptComponent* script = InEntity.TryGetComponent<ScriptComponent>() )
     {
-        ScriptEngine::ScriptOnDestroy( comp.m_dotnetHandle );
-        comp.m_dotnetHandle = -1;
+        script->DestroyInstance();
     }
 #endif
 }
 
 
 #if USING( ME_EDITOR )
-
 void ScriptCore::OnEditorInspect()
 {
 #if USING( ME_SCRIPTING )
     OPTICK_EVENT( "ScriptCore::OnEditorInspect" );
-
-    // debug: dump the scriptable classes the game dll handed us.
-    // #TODO: the old "All Classes" dump needs a new binding to come back.
-    if( ImGui::CollapsingHeader( "Entity Classes" ) )
+    ImGui::Text( "Scripting: %s", ScriptEngine::IsAvailable() ? "running" : "unavailable" );
+    if( ImGui::Button( "Rebuild && Reload Scripts" ) )
     {
-        int count = ScriptEngine::GetScriptCount();
+        ScriptEngine::RequestReload();
+    }
+    if( ImGui::CollapsingHeader( "Script Classes" ) )
+    {
+        const int count = ScriptEngine::GetScriptCount();
         for( int i = 0; i < count; ++i )
         {
-            std::string name = ScriptEngine::GetScriptName( i );
-            ImGui::Text( "%s", name.c_str() );
+            ImGui::BulletText( "%s", ScriptEngine::GetScriptName( i ).c_str() );
         }
     }
 #endif
 }
-
 #endif
-
-bool ScriptCore::OnEvent( const BaseEvent& evt )
-{
-    return false;
-}
-

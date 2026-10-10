@@ -22,6 +22,33 @@ public readonly struct Entity : IEquatable<Entity>
 
     public bool IsAlive { get { unsafe { return Engine._api.Entity_IsAlive(this) != 0; } } }
 
+    // Destroys the entity and its children at the end of the frame.
+    public void Destroy()
+    {
+        unsafe { Engine._api.Entity_Destroy(this); }
+    }
+
+    public bool Active
+    {
+        get { unsafe { return Engine._api.Entity_IsActive(this) != 0; } }
+        set { unsafe { Engine._api.Entity_SetActive(this, value ? (byte)1 : (byte)0); } }
+    }
+
+    public string Name
+    {
+        get
+        {
+            unsafe
+            {
+                int length = Engine._api.Entity_GetName(this, null, 0);
+                var buffer = new byte[length + 1];
+                fixed (byte* p = buffer) Engine._api.Entity_GetName(this, p, buffer.Length);
+                return Encoding.UTF8.GetString(buffer, 0, length);
+            }
+        }
+        set { unsafe { fixed (byte* p = Engine.Utf8(value)) Engine._api.Entity_SetName(this, p); } }
+    }
+
     // what is life?
     public static implicit operator bool(Entity e) => e.IsAlive;
 

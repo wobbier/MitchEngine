@@ -4,7 +4,14 @@
 
 #if USING( ME_SCRIPTING )
 
-#include <ctime>   // Eng_GetTime: clock() / CLOCKS_PER_SEC
+#include <atomic>
+#include <chrono>
+#include <cstdio>
+#include <filesystem>
+#include <mutex>
+#include <thread>
+#include <SDL_filesystem.h>
+#include "CLog.h"
 #include "Generated/ScriptEngineAPI.generated.h"
 
 // per-domain binding registrars
@@ -16,29 +23,9 @@
 #include "Bindings/Components/BasicUIView.bindings.h"
 #include "Bindings/Systems/World.bindings.h"
 #include "Bindings/Systems/Input.bindings.h"
+#include "Bindings/Systems/Gameplay.bindings.h"
 
-#if USING( ME_EDITOR )
-#define build_prefix "editor_"
-#define build_platform ""
-#else
-#define build_prefix "game_"
-
-#if USING( ME_PLATFORM_WINDOWS )
-#define build_platform "win64_"
-#elif USING( ME_PLATFORM_LINUX )
-#define build_platform "linux_"
-#elif USING( ME_PLATFORM_MACOS )
-#define build_platform "macos_"
-#endif
-
-#endif
-
-
-#if USING( ME_DEBUG )
-#define build_postfix "debug"
-#else
-#define build_postfix "release"
-#endif
+namespace fs = std::filesystem;
 
 
 static ScriptHost gScriptHost;
@@ -50,7 +37,9 @@ static void Eng_Log( const uint8_t* inMsg )
 }
 static float Eng_GetTime()
 {
-    return static_cast<float>( clock() ) / CLOCKS_PER_SEC;
+    // Seconds since the scripting runtime started (wall clock).
+    static const auto start = std::chrono::steady_clock::now();
+    return std::chrono::duration<float>( std::chrono::steady_clock::now() - start ).count();
 }
 
 
@@ -69,13 +58,15 @@ using FnGetInstanceTypeName = void ( * )( int, uint8_t*, int );
 using FnCreateScript = int  ( * )( const uint8_t*, EntityID );
 using FnScriptOnStart = void ( * )( int );
 using FnScriptOnUpdate = void ( * )( int, float );
+using FnScriptOnFixedUpdate = void ( * )( int, float );
 using FnScriptOnDestroy = void ( * )( int );
 using FnGetMethodCount = int  ( * )( const uint8_t* );
 using FnGetMethodName = void ( * )( const uint8_t*, int, uint8_t*, int );
 using FnSetEngineAPI = int  ( * )( const ScriptEngineAPI*, int );
 using FnRestoreScript = int  ( * )( const uint8_t*, int );
 using FnOnEditorInspect = void  ( * )( int );
-using FnGetFieldsJson = void ( * )( int, uint8_t*, int );
+using FnGetFieldsJson = int ( * )( int, uint8_t*, int );
+using FnIsHandleAlive = int ( * )( int );
 using FnSetFieldsJson = void ( * )( int, const uint8_t* );
 
 struct ScriptAPI
@@ -94,6 +85,7 @@ struct ScriptAPI
     FnCreateScript        CreateScript = nullptr;
     FnScriptOnStart       ScriptOnStart = nullptr;
     FnScriptOnUpdate      ScriptOnUpdate = nullptr;
+    FnScriptOnFixedUpdate ScriptOnFixedUpdate = nullptr;
     FnScriptOnDestroy     ScriptOnDestroy = nullptr;
     FnGetMethodCount      GetMethodCount = nullptr;
     FnGetMethodName       GetMethodName = nullptr;
@@ -102,6 +94,7 @@ struct ScriptAPI
     FnOnEditorInspect     ScriptOnEditorInspect = nullptr;
     FnGetFieldsJson       GetFieldsJson = nullptr;
     FnSetFieldsJson       SetFieldsJson = nullptr;
+    FnIsHandleAlive       IsHandleAlive = nullptr;
 
     bool IsValid() const
     {
@@ -124,11 +117,13 @@ static bool LoadAPI( ScriptHost& inHost, const std::string& inCoreDll, ScriptAPI
     ok &= inHost.LoadFunction( inCoreDll, bridgeType, "CreateScript", (void**)&outApi.CreateScript );
     ok &= inHost.LoadFunction( inCoreDll, bridgeType, "ScriptOnStart", (void**)&outApi.ScriptOnStart );
     ok &= inHost.LoadFunction( inCoreDll, bridgeType, "ScriptOnUpdate", (void**)&outApi.ScriptOnUpdate );
+    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "ScriptOnFixedUpdate", (void**)&outApi.ScriptOnFixedUpdate );
     ok &= inHost.LoadFunction( inCoreDll, bridgeType, "ScriptOnDestroy", (void**)&outApi.ScriptOnDestroy );
     ok &= inHost.LoadFunction( inCoreDll, bridgeType, "ScriptOnEditorInspect", (void**)&outApi.ScriptOnEditorInspect );
     ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetFieldsJson", (void**)&outApi.GetFieldsJson );
     ok &= inHost.LoadFunction( inCoreDll, bridgeType, "SetFieldsJson", (void**)&outApi.SetFieldsJson );
-    //ok &= inHost.LoadFunction( inCoreDll, bridgeType, "ReloadGameAssembly",  (void**)&outApi.ReloadGameAssembly );
+    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "ReloadGameAssembly", (void**)&outApi.ReloadGameAssembly );
+    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "IsHandleAlive", (void**)&outApi.IsHandleAlive );
     //ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetFieldCount",       (void**)&outApi.GetFieldCount );
     //ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetFieldInfo",        (void**)&outApi.GetFieldInfo );
     //ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetFieldValue",       (void**)&outApi.GetFieldValue );
@@ -142,6 +137,150 @@ static bool LoadAPI( ScriptHost& inHost, const std::string& inCoreDll, ScriptAPI
     return ok;
 }
 
+namespace
+{
+    bool gAvailable = false;
+    std::string gGameDll;
+
+    // Hot reload: a rebuild runs on a worker thread; the swap happens on the main thread.
+    std::thread gBuildThread;
+    std::atomic<bool> gBuildRunning{ false };
+    std::atomic<bool> gBuildDone{ false };
+    bool gBuildSucceeded = false;
+    bool gReloadQueued = false;
+    std::mutex gBuildMutex;
+    std::string gBuildLog;
+
+    // Assemblies live next to the executable (the C# projects build into .build/<config>/).
+    std::string ExecutableDirectory()
+    {
+        std::string directory;
+        if( char* base = SDL_GetBasePath() )
+        {
+            directory = base;
+            SDL_free( base );
+        }
+        return directory;
+    }
+
+
+    std::string FindRuntimeConfig( const std::string& InExeDir )
+    {
+        for( const std::string& candidate : { InExeDir + "ScriptCore.runtimeconfig.json", std::string( "ScriptCore.runtimeconfig.json" ), std::string( "Engine/Source/Scripting/ScriptCore.runtimeconfig.json" ) } )
+        {
+            std::error_code error;
+            if( fs::exists( candidate, error ) )
+            {
+                return candidate;
+            }
+        }
+        return "ScriptCore.runtimeconfig.json";
+    }
+
+
+    fs::file_time_type NewestSource( const std::vector<std::string>& InRoots )
+    {
+        fs::file_time_type newest = fs::file_time_type::min();
+        for( const std::string& root : InRoots )
+        {
+            std::error_code error;
+            if( fs::is_regular_file( root, error ) )
+            {
+                newest = std::max( newest, fs::last_write_time( root, error ) );
+                continue;
+            }
+            for( fs::recursive_directory_iterator it( root, fs::directory_options::skip_permission_denied, error ), end; !error && it != end; it.increment( error ) )
+            {
+                const fs::path& path = it->path();
+                if( path.extension() == ".cs" || path.extension() == ".csproj" )
+                {
+                    newest = std::max( newest, fs::last_write_time( path, error ) );
+                }
+            }
+        }
+        return newest;
+    }
+
+
+    const std::vector<std::string>& ScriptSources()
+    {
+        static const std::vector<std::string> sources = { "Assets", "Engine/Modules/ScriptCore/Source", ScriptEngine::kScriptProject, "Engine/Modules/ScriptCore/ScriptCore.csproj" };
+        return sources;
+    }
+}
+
+
+bool ScriptEngine::NeedsBuild()
+{
+    std::error_code error;
+    if( !fs::exists( kScriptProject, error ) )
+    {
+        return false;   // no command-line project (Visual Studio builds the assemblies)
+    }
+    const fs::path gameDll = ExecutableDirectory() + "Game.Script.dll";
+    if( !fs::exists( gameDll, error ) )
+    {
+        return true;
+    }
+    return NewestSource( ScriptSources() ) > fs::last_write_time( gameDll, error );
+}
+
+
+bool ScriptEngine::BuildScripts( std::string* OutLog )
+{
+#if USING( ME_TOOLS )
+    std::error_code error;
+    if( !fs::exists( kScriptProject, error ) )
+    {
+        return false;
+    }
+    std::string exeDir = ExecutableDirectory();
+    if( !exeDir.empty() && ( exeDir.back() == '/' || exeDir.back() == '\\' ) )
+    {
+        exeDir.pop_back();
+    }
+#if USING( ME_DEBUG )
+    const char* configuration = "Debug";
+#else
+    const char* configuration = "Release";
+#endif
+    // --artifacts-path keeps bin/obj out of the source tree.
+    const std::string command = std::string( "dotnet build \"" ) + kScriptProject + "\" -c " + configuration + " -o \"" + exeDir + "\" --artifacts-path .tmp/dotnet --nologo -v q -clp:NoSummary 2>&1";
+    std::string output;
+#if USING( ME_PLATFORM_WINDOWS )
+    FILE* pipe = _popen( command.c_str(), "r" );
+#else
+    FILE* pipe = popen( command.c_str(), "r" );
+#endif
+    if( !pipe )
+    {
+        if( OutLog )
+        {
+            *OutLog = "could not run dotnet";
+        }
+        return false;
+    }
+    char buffer[512];
+    while( fgets( buffer, sizeof( buffer ), pipe ) )
+    {
+        output += buffer;
+    }
+#if USING( ME_PLATFORM_WINDOWS )
+    const int status = _pclose( pipe );
+#else
+    const int status = pclose( pipe );
+#endif
+    if( OutLog )
+    {
+        *OutLog = output;
+    }
+    return status == 0;
+#else
+    return false;
+#endif
+}
+
+
 int ScriptEngine::Init()
 {
     if( gScriptHost.IsInitialized() )
@@ -150,13 +289,31 @@ int ScriptEngine::Init()
         return 0;
     }
 
-    // TODO: make this less ugly, maybe derive from sharpmake or a config
-    const std::string buildDir = ".build/" + std::string( build_prefix ) + std::string( build_platform ) + std::string( build_postfix );
-    const std::string coreDll = buildDir + "/ScriptCore.dll";
-    const std::string gameDll = buildDir + "/Game.Script.dll";
-    const std::string runtimeConfig = "ScriptCore.runtimeconfig.json"; // lives in the root, not the build dir
+    const std::string exeDir = ExecutableDirectory();
+    const std::string coreDll = exeDir + "ScriptCore.dll";
+    gGameDll = exeDir + "Game.Script.dll";
 
-    if( !gScriptHost.Init( runtimeConfig ) )
+#if USING( ME_TOOLS )
+    // Tools builds compile the scripts when they're missing or older than their sources.
+    if( NeedsBuild() )
+    {
+        CLog::Log( CLog::LogType::Info, "Scripts: building " + std::string( kScriptProject ) );
+        std::string log;
+        if( !BuildScripts( &log ) )
+        {
+            YIKES( "Scripts: build failed\n" + log );
+        }
+    }
+#endif
+
+    std::error_code error;
+    if( !fs::exists( coreDll, error ) || !fs::exists( gGameDll, error ) )
+    {
+        BRUH( "Scripts: no ScriptCore.dll / Game.Script.dll next to the executable; scripting is off" );
+        return 1;
+    }
+
+    if( !gScriptHost.Init( FindRuntimeConfig( exeDir ) ) )
     {
         YIKES( "failed to init .NET runtime, scripting is dead" );
         return 1;
@@ -179,23 +336,152 @@ int ScriptEngine::Init()
     Register_ImGuiBindings( engineApi );
     Register_InputBindings( engineApi );
     Register_WorldBindings( engineApi );
+    Register_GameplayBindings( engineApi );
+
+    // Every slot of the generated table must be filled, or a script call would jump to null.
+    static_assert( sizeof( ScriptEngineAPI ) % sizeof( void* ) == 0, "ScriptEngineAPI holds only function pointers" );
+    const void* const* slots = reinterpret_cast<const void* const*>( &engineApi );
+    for( size_t slot = 0; slot < sizeof( ScriptEngineAPI ) / sizeof( void* ); ++slot )
+    {
+        if( !slots[slot] )
+        {
+            YIKES_NEW( "Script API slot {} has no binding (see Source/Scripting/ScriptAPI.def)", slot );
+            return 1;
+        }
+    }
     if( gDotnetAPI.SetEngineAPI( &engineApi, sizeof( engineApi ) ) != 0 )
     {
         YIKES( "C# rejected our engine API, size mismatch? check EngineAPI vs EngineAPIBindings" );
         return 1;
     }
 
-    if( gDotnetAPI.LoadGameAssembly( reinterpret_cast<const uint8_t*>( gameDll.c_str() ) ) != 0 )
+    if( gDotnetAPI.LoadGameAssembly( reinterpret_cast<const uint8_t*>( gGameDll.c_str() ) ) != 0 )
     {
-        YIKES_NEW( "failed to load game scripts from {}", gameDll );
+        YIKES_NEW( "failed to load game scripts from {}", gGameDll );
         return 1;
     }
 
+    gAvailable = true;
     int scriptCount = gDotnetAPI.GetScriptCount();
     DBG( "dotnet ready: {} script(s) available", scriptCount );
 
     return 0;
 }
+
+
+bool ScriptEngine::IsAvailable()
+{
+    return gAvailable;
+}
+
+
+void ScriptEngine::RequestReload()
+{
+#if USING( ME_TOOLS )
+    if( !gAvailable )
+    {
+        return;
+    }
+    if( gBuildRunning )
+    {
+        gReloadQueued = true;   // build again once this one finishes
+        return;
+    }
+    if( gBuildThread.joinable() )
+    {
+        gBuildThread.join();
+    }
+    CLog::Log( CLog::LogType::Info, "Scripts: changed, rebuilding" );
+    gBuildRunning = true;
+    gBuildDone = false;
+    gBuildThread = std::thread( []() {
+        std::string log;
+        const bool succeeded = BuildScripts( &log );
+        {
+            std::lock_guard<std::mutex> lock( gBuildMutex );
+            gBuildSucceeded = succeeded;
+            gBuildLog = log;
+        }
+        gBuildDone = true;
+        gBuildRunning = false;
+    } );
+#endif
+}
+
+
+bool ScriptEngine::PollReload()
+{
+#if USING( ME_TOOLS )
+    if( !gBuildDone )
+    {
+        return false;
+    }
+    gBuildDone = false;
+    if( gBuildThread.joinable() )
+    {
+        gBuildThread.join();
+    }
+    bool succeeded = false;
+    std::string log;
+    {
+        std::lock_guard<std::mutex> lock( gBuildMutex );
+        succeeded = gBuildSucceeded;
+        log = gBuildLog;
+    }
+    bool reloaded = false;
+    if( !succeeded )
+    {
+        YIKES( "Scripts: build failed; the running scripts are unchanged\n" + log );
+    }
+    else
+    {
+        reloaded = Reload();
+    }
+    if( gReloadQueued )
+    {
+        gReloadQueued = false;
+        RequestReload();
+    }
+    return reloaded;
+#else
+    return false;
+#endif
+}
+
+
+bool ScriptEngine::Reload()
+{
+    if( !gAvailable || !gDotnetAPI.ReloadGameAssembly )
+    {
+        return false;
+    }
+    const int restored = gDotnetAPI.ReloadGameAssembly( reinterpret_cast<const uint8_t*>( gGameDll.c_str() ) );
+    if( restored < 0 )
+    {
+        YIKES( "Scripts: reload failed; the running scripts are unchanged" );
+        return false;
+    }
+    CLog::Log( CLog::LogType::Info, "Scripts: hot reloaded (" + std::to_string( restored ) + " live script(s) kept their fields)" );
+    return true;
+}
+
+
+bool ScriptEngine::IsHandleAlive( int inHandle )
+{
+    return inHandle >= 0 && gDotnetAPI.IsHandleAlive && gDotnetAPI.IsHandleAlive( inHandle ) != 0;
+}
+
+
+void ScriptEngine::Shutdown()
+{
+    if( gBuildThread.joinable() )
+    {
+        gBuildThread.join();
+    }
+    gAvailable = false;
+    gScriptHost.Shutdown();
+}
+
 
 void ScriptEngine::SetWorld( WeakPtr<World> inWorld )
 {
@@ -214,10 +500,16 @@ std::string ScriptEngine::GetFieldsJson( int inHandle )
         return {};
     }
 
-    // #TODO: fixed buffer, fine for small shit
-    uint8_t buf[4096] = {};
-    gDotnetAPI.GetFieldsJson( inHandle, buf, sizeof( buf ) );
-    return reinterpret_cast<const char*>( buf );
+    // Try a small buffer first; the call reports the size it needs when that's not enough.
+    std::string json( 1024, '\0' );
+    int length = gDotnetAPI.GetFieldsJson( inHandle, reinterpret_cast<uint8_t*>( json.data() ), static_cast<int>( json.size() ) );
+    if( length >= static_cast<int>( json.size() ) )
+    {
+        json.assign( static_cast<size_t>( length ) + 1, '\0' );
+        length = gDotnetAPI.GetFieldsJson( inHandle, reinterpret_cast<uint8_t*>( json.data() ), static_cast<int>( json.size() ) );
+    }
+    json.resize( static_cast<size_t>( std::max( length, 0 ) ) );
+    return json;
 }
 
 void ScriptEngine::SetFieldsJson( int inHandle, const std::string& inJson )
@@ -238,6 +530,11 @@ void ScriptEngine::ScriptOnStart( int inHandle )
 void ScriptEngine::ScriptOnUpdate( int inHandle, float inDt )
 {
     gDotnetAPI.ScriptOnUpdate( inHandle, inDt );
+}
+
+void ScriptEngine::ScriptOnFixedUpdate( int inHandle, float inDt )
+{
+    gDotnetAPI.ScriptOnFixedUpdate( inHandle, inDt );
 }
 
 void ScriptEngine::ScriptOnDestroy( int inHandle )

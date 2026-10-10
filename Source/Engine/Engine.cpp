@@ -225,6 +225,9 @@ void Engine::Init( Game* game )
         // Automated runs (captures, editor scripts) and --no-audio never play through the speakers.
         const bool silentAudio = CommandLine::Has( "--no-audio" ) || ( AutomationRunner::IsUnattendedRun() && !CommandLine::Has( "--audio" ) );
         AudioThread = new AudioCore( silentAudio ? AudioOutput::Silent : AudioOutput::Device );
+#if USING( ME_SCRIPTING )
+        Scripts = new ScriptCore();
+#endif
         UI = new UICore( GameWindow, NewRenderer );
     }
 
@@ -270,6 +273,10 @@ void Engine::InitGame()
         GameWorld->AddCore<AnimationCore>( *Animation );
         GameWorld->AddCore<AudioCore>( *AudioThread );
         GameWorld->AddCore<UICore>( *UI );
+        if( Scripts )
+        {
+            GameWorld->AddCore<ScriptCore>( *Scripts );
+        }
     }
 
     // The project's action map (a game can load another in OnInitialize).
@@ -340,6 +347,9 @@ void Engine::Run()
 
 #if USING( ME_TOOLS )
         PollAssetChanges();
+#if USING( ME_SCRIPTING )
+        ScriptEngine::PollReload();
+#endif
 #endif
 
         // Frame timing: clamp hitches (debugger breaks, loading) so the simulation never tries to
@@ -361,6 +371,7 @@ void Engine::Run()
                 scaledSeconds = frameSeconds * m_timeScale;
             }
             DeltaTime = scaledSeconds;
+            UnscaledDeltaTime = frameSeconds;
             updateContext.FixedDeltaTime = m_fixedTimeStep;
             updateContext.BeginFrame( scaledSeconds, frameSeconds, m_timeScale, m_isPaused );
         }
@@ -428,6 +439,10 @@ void Engine::Run()
                 {
                     updateContext.IsFixedStepActive = true;
                     GameWorld->FixedUpdateLoadedCores( updateContext );
+                    if( Scripts )
+                    {
+                        Scripts->FixedUpdate( updateContext );
+                    }
                     m_game->OnFixedUpdate( updateContext );
                     // Gameplay applied its forces; now the world steps.
                     Physics->FixedUpdate( updateContext );
@@ -454,6 +469,10 @@ void Engine::Run()
                 ME_FRAMEPROFILE_SCOPED( "Game Cores", ProfileCategory::Game );
                 ME_STAT_SCOPE( "Scene Cores" );
                 GameWorld->UpdateLoadedCores( updateContext );
+                if( Scripts )
+                {
+                    Scripts->Update( updateContext );
+                }
                 GameWorld->Simulate();
             }
 
@@ -630,6 +649,13 @@ void Engine::PollAssetChanges()
         {
             SceneSerializer::ClearPrefabCache();
         }
+#if USING( ME_SCRIPTING )
+        // Game scripts: rebuild in the background and hot reload them.
+        if( change.FullPath.size() > 3 && change.FullPath.compare( change.FullPath.size() - 3, 3, ".cs" ) == 0 )
+        {
+            ScriptEngine::RequestReload();
+        }
+#endif
     }
     // Editing a shader include or varying file reloads every shader built from it.
     Moonlight::ExpandShaderChanges( paths );
@@ -660,6 +686,9 @@ void Engine::Shutdown()
     {
         AudioThread->Shutdown();
     }
+#if USING( ME_SCRIPTING )
+    ScriptEngine::Shutdown();
+#endif
     Gamepads::Get().CloseAll();
 
     Jobs::JobSystem::Get().Shutdown();

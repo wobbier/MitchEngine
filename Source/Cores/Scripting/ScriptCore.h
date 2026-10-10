@@ -1,24 +1,25 @@
 #pragma once
 
 #include "ECS/Core.h"
-#include "Path.h"
-#include "Events/EventReceiver.h"
+#include "ECS/CoreDetail.h"
 
-class ScriptCore
+class ScriptComponent;
+
+// Runs C# scripts (engine-owned in scripting builds; scenes that still list "ScriptCore" get this
+// instance). Scripts are created with their saved fields as soon as their component loads, so the
+// inspector shows live values in edit mode, but only run while the world is started: OnStart when
+// it starts (scripts spawned during play start before their first update, after physics has
+// created their bodies), then OnFixedUpdate / OnUpdate each step.
+class ScriptCore final
     : public Core<ScriptCore>
-    , public EventReceiver
 {
 public:
-
     ScriptCore();
-    ~ScriptCore();
 
-    // Separate init from construction code.
-    void Init() final;
-
-    // Each core must update each loop
+    void OnStart() final;
+    void OnStop() final;
+    void FixedUpdate( const UpdateContext& inUpdateContext ) final;
     void Update( const UpdateContext& inUpdateContext ) final;
-    void LateUpdate( const UpdateContext& inUpdateContext ) final;
 
     void OnEntityAdded( Entity& NewEntity ) final;
     void OnEntityRemoved( Entity& InEntity ) final;
@@ -27,10 +28,11 @@ public:
     void OnEditorInspect() final;
 #endif
 
-    bool OnEvent( const BaseEvent& evt ) override;
-
 private:
+    bool m_running = false;
 
+    void StartScript( ScriptComponent& InScript );
+    void StartPendingScripts();
 };
 
 ME_REGISTER_CORE( ScriptCore )

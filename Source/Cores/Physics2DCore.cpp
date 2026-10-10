@@ -558,6 +558,12 @@ void Physics2DCore::DestroyRecord( BodyRecord& InRecord )
 }
 
 
+void Physics2DCore::SyncNow()
+{
+    SyncBodies();
+}
+
+
 void Physics2DCore::SyncBodies()
 {
     OPTICK_EVENT( "Physics2DCore::SyncBodies" );

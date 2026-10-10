@@ -1,0 +1,107 @@
+# The engine API handed to C# scripts: one function pointer per line, grouped by domain.
+#
+# Engine/Tools/GenerateScriptAPI.py turns this into both halves of the ABI, which must match exactly:
+#   Source/Scripting/Generated/ScriptEngineAPI.generated.h        (C++ struct ScriptEngineAPI)
+#   Modules/ScriptCore/Source/Generated/EngineAPIBindings.g.cs     (C# struct EngineAPIBindings)
+# Add a line here, run the generator, then fill the pointer in a Register_*Bindings function and
+# wrap it in ScriptCore. Order is the ABI: append rather than reorder.
+#
+# Types: void bool int float cstr (UTF-8 string) Entity, pointers to Entity / Vector2 / Vector3 /
+# float / int / bool / byte / RaycastHit, and const Vector3* for inputs passed by pointer.
+
+## Core
+void Log( cstr message )
+float GetTime()
+
+## Entity
+bool Entity_IsAlive( Entity id )
+bool Entity_HasComponent( Entity id, cstr component )
+void Entity_AddComponent( Entity id, cstr component )
+void Transform_GetTranslation( Entity id, Vector3* outTranslation )
+void Transform_SetTranslation( Entity id, const Vector3* translation )
+
+## ImGui (inOut values are read for display and written back on edit)
+bool ImGui_Float( cstr label, float* inOutValue )
+bool ImGui_Int( cstr label, int* inOutValue )
+bool ImGui_Bool( cstr label, bool* inOutValue )
+bool ImGui_Vec3( cstr label, Vector3* inOutValue )
+bool ImGui_Begin( cstr label )
+void ImGui_Text( cstr text )
+bool ImGui_Checkbox( cstr label, bool* inOutValue )
+bool ImGui_Button( cstr label )
+void ImGui_End()
+
+## Input
+bool Input_IsKeyDown( int key )
+
+## World
+void World_CreateEntity( cstr name, Entity* outId )
+void World_FindByName( cstr name, Entity* outId )
+
+## Camera
+void Camera_GetClearColor( Entity id, Vector3* outColor )
+void Camera_SetClearColor( Entity id, const Vector3* color )
+
+## Transform
+void Transform_GetScale( Entity id, Vector3* outScale )
+void Transform_SetScale( Entity id, const Vector3* scale )
+void Transform_GetRotation( Entity id, Vector3* outEuler )
+void Transform_SetRotation( Entity id, const Vector3* euler )
+
+## UI
+void BasicUIView_ExecuteJS( Entity id, cstr script )
+
+## Logging
+void LogWarning( cstr message )
+void LogError( cstr message )
+
+## Time (game time: scaled, zero while paused)
+float Time_GetDeltaTime()
+float Time_GetUnscaledDeltaTime()
+float Time_GetFixedDeltaTime()
+float Time_GetTimeScale()
+void Time_SetTimeScale( float scale )
+
+## Entity lifecycle
+void Entity_Destroy( Entity id )
+bool Entity_IsActive( Entity id )
+void Entity_SetActive( Entity id, bool active )
+int Entity_GetName( Entity id, byte* outName, int size )
+void Entity_SetName( Entity id, cstr name )
+
+## Transform hierarchy and world space
+void Transform_GetWorldPosition( Entity id, Vector3* outPosition )
+void Transform_SetWorldPosition( Entity id, const Vector3* position )
+void Transform_GetForward( Entity id, Vector3* outForward )
+void Transform_GetRight( Entity id, Vector3* outRight )
+void Transform_GetUp( Entity id, Vector3* outUp )
+void Transform_LookAt( Entity id, const Vector3* target )
+void Transform_GetParent( Entity id, Entity* outParent )
+void Transform_SetParent( Entity id, Entity parent )
+
+## World and scenes
+void World_Instantiate( cstr prefab, Entity parent, Entity* outId )
+void World_LoadScene( cstr scene )
+
+## Input actions (Engine/Docs/Input.md)
+float Input_GetActionValue( cstr action )
+void Input_GetActionVector2( cstr action, Vector2* outValue )
+bool Input_IsActionPressed( cstr action )
+bool Input_WasActionPressed( cstr action )
+bool Input_WasActionReleased( cstr action )
+bool Input_WasKeyPressed( int key )
+void Input_GetMouseDelta( Vector2* outDelta )
+
+## Audio
+void Audio_PlayOneShot( cstr clip, float volume )
+void Audio_PlayOneShotAt( cstr clip, const Vector3* position, float volume )
+
+## Physics
+bool Physics_Raycast( const Vector3* origin, const Vector3* direction, float maxDistance, RaycastHit* outHit )
+void Rigidbody_AddForce( Entity id, const Vector3* force, int mode )
+void Rigidbody_GetVelocity( Entity id, Vector3* outVelocity )
+void Rigidbody_SetVelocity( Entity id, const Vector3* velocity )
+
+## Debug draw (visible in game and editor views; duration 0 = this frame)
+void Debug_DrawLine( const Vector3* from, const Vector3* to, const Vector3* color, float duration )
+void Debug_DrawSphere( const Vector3* center, float radius, const Vector3* color, float duration )

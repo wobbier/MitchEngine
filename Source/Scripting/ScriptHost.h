@@ -5,10 +5,9 @@ class ScriptHost
 {
 public:
     ScriptHost() = default;
-    ~ScriptHost()
-    {
-        Shutdown();
-    }
+    // Nothing at static destruction: hostfxr's own statics may be gone by then. The engine calls
+    // Shutdown during its shutdown instead.
+    ~ScriptHost() = default;
 
     bool Init( const std::string& inRuntimeConfigPath );
     void Shutdown();

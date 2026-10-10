@@ -37,6 +37,9 @@ public:
     void OnRemovedFromWorld() final;
     void FixedUpdate( const UpdateContext& inUpdateContext ) final;
     void Update( const UpdateContext& inUpdateContext ) final;
+    // Brings bodies in line with components now, so entities spawned this frame can be queried
+    // before the next step (scripts' OnStart).
+    void SyncNow();
 
     // Queries in the XY plane. Masks are sets of layers (PhysicsLayers::Bit). Triggers are ignored.
     bool Raycast( const Vector2& InOrigin, const Vector2& InDirection, float InMaxDistance, RaycastHit& OutHit, uint32_t InLayerMask = PhysicsLayers::All );

@@ -622,6 +622,12 @@ void PhysicsCore::CollectMeshCache()
 }
 
 
+void PhysicsCore::SyncNow()
+{
+    SyncBodies();
+}
+
+
 void PhysicsCore::SyncBodies()
 {
     OPTICK_EVENT( "PhysicsCore::SyncBodies" );

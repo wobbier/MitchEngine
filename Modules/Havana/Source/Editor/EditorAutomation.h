@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include "Dementia.h"
 #include <string>
 #include <vector>
@@ -26,6 +27,10 @@ private:
     std::vector<std::string> m_lines;
     size_t m_nextLine = 0;
     int m_waitFrames = 10;
+    // wait-log: the text to wait for, frames left, and the log position it started at.
+    std::string m_waitLogText;
+    int m_waitLogFrames = 0;
+    uint64_t m_waitLogFrom = 0;
     int m_failures = 0;
     size_t m_markedCount = 0;
     std::vector<std::string> m_failureMessages;

@@ -192,6 +192,29 @@ void EditorAutomation::Tick( EditorApp& InApp )
         --m_waitFrames;
         return;
     }
+    if( m_waitLogFrames > 0 )
+    {
+        // Messages logged since the wait-log command, newest last.
+        CLog& log = CLog::GetInstance();
+        bool found = false;
+        {
+            std::lock_guard<std::recursive_mutex> lock( log.GetMutex() );
+            const uint64_t fresh = std::min<uint64_t>( log.GetTotalMessageCount() - m_waitLogFrom, CLog::Messages.size() );
+            for( size_t i = CLog::Messages.size() - fresh; i < CLog::Messages.size() && !found; ++i )
+            {
+                found = CLog::Messages[i].Message.find( m_waitLogText ) != std::string::npos;
+            }
+        }
+        if( !found && --m_waitLogFrames > 0 )
+        {
+            return;
+        }
+        if( !found )
+        {
+            Fail( "wait-log timed out waiting for '" + m_waitLogText + "'" );
+        }
+        m_waitLogFrames = 0;
+    }
 
     // Run lines until one asks to wait a frame (every command waits one frame by default so its
     // effects - sync points, deferred destroys, queued events - settle before the next).
@@ -227,6 +250,33 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
         if( InApp.Editor && InApp.Editor->GetAssetBrowser() )
         {
             InApp.Editor->GetAssetBrowser()->ShowFolder( args );
+        }
+    }
+    else if( command == "wait-log" )
+    {
+        // wait-log Scripts: hot reloaded | 600   (frames before giving up)
+        auto [text, framesText] = SplitArgs( args );
+        m_waitLogText = text;
+        m_waitLogFrames = std::max( 1, std::atoi( framesText.c_str() ) );
+        m_waitLogFrom = CLog::GetInstance().GetTotalMessageCount();
+    }
+    else if( command == "replace-in-file" )
+    {
+        // replace-in-file Assets/Scripts/Foo.cs | old text | new text   (drives hot reload tests)
+        auto [file, rest] = SplitArgs( args );
+        auto [from, to] = SplitArgs( rest );
+        Path path( file );
+        File source( path );
+        std::string contents = source.Read();
+        const size_t at = contents.find( from );
+        if( at == std::string::npos )
+        {
+            Fail( "replace-in-file: '" + from + "' not found in " + file );
+        }
+        else
+        {
+            contents.replace( at, from.size(), to );
+            source.Write( contents );
         }
     }
     else if( command == "show-asset" )

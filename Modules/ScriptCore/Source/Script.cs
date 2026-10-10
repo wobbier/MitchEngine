@@ -7,8 +7,10 @@ public abstract class Script : IGameScript
 
     public virtual void OnStart() { }
     public virtual void OnUpdate( float deltaTime ) { }
+    public virtual void OnFixedUpdate( float fixedDeltaTime ) { }
     public virtual void OnDestroy() { }
     public virtual void OnEditorInspect() { }
+    public virtual void OnReload() { }
 
     public Transform transform => Entity.GetComponent<Transform>();
     public T GetComponent<T>() where T : Component, new() => Entity.GetComponent<T>();

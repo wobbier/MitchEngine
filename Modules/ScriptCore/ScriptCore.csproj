@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Command-line build of ScriptCore (Linux and macOS, where Sharpmake can't generate C# projects,
+    and the engine's own script builds). Visual Studio uses the Sharpmake-generated project.
+    Build with: dotnet build ScriptCore.csproj -artifacts-path <scratch dir> (keeps bin/obj out of the tree).
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <AssemblyName>ScriptCore</AssemblyName>
+    <RootNamespace>ScriptCore</RootNamespace>
+    <Nullable>annotations</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <DebugType>portable</DebugType>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Source/**/*.cs" />
+  </ItemGroup>
+</Project>

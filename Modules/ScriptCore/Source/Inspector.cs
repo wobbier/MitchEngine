@@ -78,7 +78,10 @@ public static unsafe class Inspector
 // simple JSON serialization for script state, using the same field reflection as the inspector. not super efficient but hey, it's only for editor persistence and maybe some debug dumping, so who cares.
 public static class ScriptSerializer
 {
-    private static readonly JsonSerializerOptions Options = new() { IncludeFields = true };
+    // Replaced on hot reload: its metadata cache would otherwise pin the unloaded game assembly.
+    private static JsonSerializerOptions Options = new() { IncludeFields = true };
+
+    internal static void ResetCaches() => Options = new() { IncludeFields = true };
 
     public static string Serialize(object target)
     {
