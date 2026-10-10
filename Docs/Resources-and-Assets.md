@@ -105,7 +105,13 @@ Extensions **not** in this table (e.g. `.json`, `.lvl`, `.html`) get **no metada
 
 ### Asset GUIDs
 
-`MetaBase` reads and writes a `"GUID"` (hex) in each `.meta`; one is generated the first time a meta is written. `AssetDatabase` (`Modules/Dementia/Source/Resource/AssetDatabase.h`) maps GUID ↔ project path; it is filled by scanning `.meta` files at startup (tools builds) and updated whenever a meta is read or saved. Components still store asset paths.
+`MetaBase` reads and writes a `"GUID"` (hex) in each `.meta`; one is generated the first time a meta is written. Prefabs carry their GUID inside (`"AssetGUID"`). `AssetDatabase` (`Modules/Dementia/Source/Resource/AssetDatabase.h`) maps GUID ↔ project path:
+
+- It is filled by scanning `.meta` files and prefabs, at startup in tools builds and lazily (`EnsureScanned`) in game builds.
+- It is updated whenever a meta is read or saved.
+- It follows editor moves (`Move`), keeping the former paths (`FindMovedPath`). `ResourceCache::Get` of a path that moved this session loads from the new path.
+
+Components store asset paths; saved scenes and prefabs record the GUIDs behind them and remap moved paths on load (`Docs/Serialization-and-Scenes.md`, "Asset references").
 
 ### Tools-only path resolution
 

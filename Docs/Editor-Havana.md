@@ -188,7 +188,7 @@ EditorActions::Get().Register( action );
 
 ## Caveats & Fragility
 
-- **Asset references are paths.** Moving or renaming assets in the browser doesn't update scenes that reference them (a warning is logged).
+- **Asset references follow moves by GUID.** Moving or renaming in the browser updates the asset database and relinks open prefab instances. Scenes and prefabs remap the paths when they load and write the new ones on their next save. Files without GUIDs (`.lvl`, `.cs`) aren't tracked (see `Docs/Serialization-and-Scenes.md`).
 - **Prefab Apply isn't undoable** (it writes the file). Propagation only adds components and changes values; entities added to a prefab don't appear in other existing instances until they're re-instanced.
 - **Non-reflected components** (Mesh, Model) can't be multi-edited. Their prefab overrides show at component level only.
 - **Undo during play** is unavailable by design. Edits made while playing are discarded on Stop.

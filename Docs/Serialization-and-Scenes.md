@@ -1,19 +1,20 @@
 # Serialization and Scenes
 
-Scenes and prefabs are JSON in **scene format v2**: a `"Cores"` array naming the systems the scene needs and a flat, depth-first `"Entities"` array where each entity has a 64-bit GUID, an optional `Parent` GUID and a `Components` list. `SceneSerializer` owns both directions; version 1 files (nested `"Scene"`/`"Children"`) are migrated on load. Entity references are stored as GUIDs and remapped when prefabs or copies are instanced.
+Scenes and prefabs are JSON in **scene format v2**: a `"Cores"` array naming the systems the scene needs and a flat, depth-first `"Entities"` array where each entity has a 64-bit GUID, an optional `Parent` GUID and a `Components` list. `SceneSerializer` owns both directions; version 1 files (nested `"Scene"`/`"Children"`) are migrated on load. Entity references are stored as GUIDs and remapped when prefabs or copies are instanced. Asset references are paths backed by asset GUIDs, so moving or renaming assets doesn't break the files that use them.
 
-> Verified against engine commit 7e869c6e, 2026-10-09.
+> Verified against engine commit 7e869c6e, 2026-10-09; asset references against a76e6e79, 2026-10-10.
 
 ## Overview
 
-Components serialize through `BaseComponent::Serialize` / `Deserialize`: the sealed wrappers write `"Type"` (the registry name) and `"Enabled"` (when false) and call `OnSerialize` / `OnDeserialize`, which default to **reflection** (`Docs/ECS.md`). Cores implement the same pair. Assets are referenced by project-relative path; `.meta` sidecars carry asset GUIDs (`Docs/Resources-and-Assets.md`).
+Components serialize through `BaseComponent::Serialize` / `Deserialize`: the sealed wrappers write `"Type"` (the registry name) and `"Enabled"` (when false) and call `OnSerialize` / `OnDeserialize`, which default to **reflection** (`Docs/ECS.md`). Cores implement the same pair. Assets are referenced by project-relative path, and each saved file also records the GUIDs behind those paths (see Asset references below; `.meta` sidecars carry the GUIDs, `Docs/Resources-and-Assets.md`).
 
 ## Key Files
 
 | Path | Role |
 |------|------|
 | `Source/World/SceneSerializer.h` / `Source/World/SceneSerializer.cpp` | Format v2, `SerializeEntities`, `SerializeWorld`, `Deserialize`, `MigrateToLatest`, `InstantiatePrefab` |
-| `Source/World/Scene.h` / `Source/World/Scene.cpp` | A scene file: `Load`, `Save`, `SaveCopy` |
+| `Source/World/Scene.h` / `Source/World/Scene.cpp` | A scene file: `Load` (remaps moved assets), `Save`, `SaveCopy` (writes the reference table) |
+| `Modules/Dementia/Source/Resource/AssetDatabase.h` | GUID ↔ path, moves with former paths, prefab GUIDs, lazy scans |
 | `Source/ECS/EntityHandle.h` / `Source/ECS/EntityHandle.cpp` | GUID (de)serialization of `EntityHandle` fields, `SerializationWorldScope` |
 | `Source/Engine/World.cpp` | `CreateFromPrefab` → `SceneSerializer::InstantiatePrefab` |
 | `Source/ECS/ComponentDetail.h` / `Source/ECS/CoreDetail.h` | Name → factory registries |
@@ -70,6 +71,28 @@ Components serialize through `BaseComponent::Serialize` / `Deserialize`: the sea
 
 Overrides, apply, revert and unpack are editor features (`Docs/Editor-Havana.md`).
 
+### Asset references
+
+Components keep asset paths (readable files, simple code), and the files keep the GUIDs behind them. A prefab file looks like this (scenes have the same table, without `AssetGUID`):
+
+```json
+{
+    "AssetGUID": "c12a54af19ab173a",
+    "AssetReferences": {
+        "52b08b229bbb9b87": "Assets/Textures/Concrete/ConcreteDiffuse.png",
+        "6784e96c32fd1241": "Assets/Models/Synty/ExplorerKit/FBX/SM_Veh_4x4_Car_01.fbx"
+    },
+    "Version": 2,
+    "Entities": [ ... ]
+}
+```
+
+- **Saving** (`Scene::SaveCopy`, the editor's `WritePrefab`) calls `PrepareForSave`. `CollectAssetReferences` walks every string in the data, and those the `AssetDatabase` knows are recorded by GUID. Only strings with a folder and an extension are looked up. This is generic: custom-serialized components (`Model`, `Mesh` material textures, prefab links, …) are covered without per-component code.
+- **Prefabs** also get an `"AssetGUID"` of their own, which is kept across saves. Prefabs have no `.meta`; the key sorts first, so the database scan reads just the top of each `.prefab`.
+- **Loading** (`Scene::Load`, `LoadPrefabData`) calls `RemapAssetReferences`. For each entry whose path no longer exists, it asks the database where that GUID lives now and rewrites every occurrence of the old path (logged as `asset '…' moved to '…'`). Saving the file again writes the new paths. Game builds scan the asset metadata lazily, only when an entry is missing, so loads where nothing moved cost nothing extra.
+- **In the editor**, moving or renaming in the asset browser updates the database at once (`AssetDatabase::Move`, folders included) and relinks the open scene's prefab instances. The database remembers the former paths: a `Get` of an old path loads from the new one, prefab links to the old path still resolve, and a scene saved before it's reloaded records the asset under its old path (so the next load remaps it). Deleting to the trash unregisters the asset; duplicating a prefab gives the copy a new `AssetGUID`.
+- A scan warns when two files share a GUID (copied outside the editor), because references to it are then ambiguous.
+
 ### Models
 
 `Model::Init` expands a model file into child entities named after its nodes. When a saved scene already contains those children, `Model::Init` **reuses** the same-named children instead of creating new ones, so edits to model sub-entities (materials, transforms) survive save/load.
@@ -77,7 +100,8 @@ Overrides, apply, revert and unpack are editor features (`Docs/Editor-Havana.md`
 ## Caveats & Fragility
 
 - **Names are the schema** for types: component, core and material class names link files to code. Renaming one orphans data (one warning per instance at load).
-- **Asset references are paths**: `.meta` GUIDs exist (`AssetDatabase`) but components still store paths.
+- **Asset references follow moves only for GUID-backed assets.** Assets with a `.meta` (textures, models, audio, shaders, materials, input actions) and prefabs saved since `AssetGUID` was added are tracked. Scenes (`.lvl`) and C# scripts are not; prefabs written before `AssetGUID` existed are tracked once they're saved again. Paths built in code at runtime have no table, but they still resolve within the editor session that moved the asset.
+- **The table is written on save.** A file saved before this feature has no `AssetReferences`, so moves made before its next save can't be followed.
 - **Model child reuse is by name**: two same-named sibling nodes in a model map onto the first saved child.
 - **`DestroyOnLoad: false` entities survive `World::Unload`** but are written into whatever scene is saved while they're alive.
 - **Save is editor-only** (`Scene::Save`); game builds have no save-game path yet.
