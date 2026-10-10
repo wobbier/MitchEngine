@@ -125,6 +125,8 @@ public:
 
     // Submits a line list (vertex pairs, world space) to a view with the debug line program.
     void DrawLines( bgfx::ViewId InViewId, const DebugDraw::LineVertex* InVertices, uint32_t InCount, bool InDepthTest );
+    // Submits alpha-blended triangles (vertex triples, world space): depth tested, no depth write, no culling.
+    void DrawTriangles( bgfx::ViewId InViewId, const DebugDraw::LineVertex* InVertices, uint32_t InCount );
 
 private:
     static const uint32_t kStackSize = 16;

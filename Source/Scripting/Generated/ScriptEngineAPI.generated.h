@@ -113,4 +113,21 @@ struct ScriptEngineAPI
     // Debug draw (visible in game and editor views; duration 0 = this frame)
     void ( *Debug_DrawLine )( const Vector3* from, const Vector3* to, const Vector3* color, float duration );
     void ( *Debug_DrawSphere )( const Vector3* center, float radius, const Vector3* color, float duration );
+
+    // Navigation (Engine/Docs/Navigation.md)
+    bool ( *NavAgent_SetDestination )( EntityID id, const Vector3* destination );
+    void ( *NavAgent_SetStopped )( EntityID id, bool stopped );
+    void ( *NavAgent_ResetPath )( EntityID id );
+    void ( *NavAgent_Warp )( EntityID id, const Vector3* position );
+    bool ( *NavAgent_HasPath )( EntityID id );
+    bool ( *NavAgent_HasArrived )( EntityID id );
+    float ( *NavAgent_GetRemainingDistance )( EntityID id );
+    void ( *NavAgent_GetVelocity )( EntityID id, Vector3* outVelocity );
+    void ( *NavAgent_GetDesiredVelocity )( EntityID id, Vector3* outVelocity );
+    float ( *NavAgent_GetSpeed )( EntityID id );
+    void ( *NavAgent_SetSpeed )( EntityID id, float speed );
+    int ( *Navigation_FindPath )( const Vector3* start, const Vector3* end, Vector3* outCorners, int maxCorners );
+    bool ( *Navigation_SamplePosition )( const Vector3* point, float maxDistance, Vector3* outPosition );
+    bool ( *Navigation_Raycast )( const Vector3* start, const Vector3* end, Vector3* outHit );
+    bool ( *Navigation_GetRandomPoint )( Vector3* outPoint );
 };

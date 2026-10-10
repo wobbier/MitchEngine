@@ -522,6 +522,50 @@ void ProjectSettingsWidget::Render()
 		}
 		ImGui::EndTabItem();
 	}
+
+	if (ImGui::BeginTabItem("Navigation"))
+	{
+		// Area names show in area pickers; costs multiply the length of paths through an area.
+		ProjectSettings& settings = ProjectSettings::Get();
+		if (ImGui::BeginTable("NavAreas", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV))
+		{
+			ImGui::TableSetupColumn("#", ImGuiTableColumnFlags_WidthFixed, 24.f);
+			ImGui::TableSetupColumn("Name");
+			ImGui::TableSetupColumn("Cost", ImGuiTableColumnFlags_WidthFixed, 120.f);
+			ImGui::TableHeadersRow();
+			for (int area = 0; area < ProjectSettings::kNavAreaCount; ++area)
+			{
+				ImGui::PushID(area);
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				ImGui::TextDisabled("%d", area);
+				ImGui::TableNextColumn();
+				// The two built-in areas keep their names (code refers to them).
+				const bool builtIn = area == 0 || area == 1;
+				ImGui::BeginDisabled(builtIn);
+				ImGui::SetNextItemWidth(-1.f);
+				ImGui::InputText("##name", &settings.NavAreaNames[area]);
+				if (ImGui::IsItemDeactivatedAfterEdit())
+				{
+					settings.Save();
+				}
+				ImGui::EndDisabled();
+				ImGui::TableNextColumn();
+				ImGui::BeginDisabled(area == 1);
+				ImGui::SetNextItemWidth(-1.f);
+				ImGui::DragFloat("##cost", &settings.NavAreaCosts[area], 0.05f, 0.01f, 1000.f, "%.2f");
+				if (ImGui::IsItemDeactivatedAfterEdit())
+				{
+					settings.Save();
+				}
+				ImGui::EndDisabled();
+				ImGui::PopID();
+			}
+			ImGui::EndTable();
+		}
+		ImGui::TextDisabled("Area 1 (Not Walkable) is removed from the navmesh. Costs apply to new path queries.");
+		ImGui::EndTabItem();
+	}
 	ImGui::EndTabBar();
 	ImGui::End();
 }

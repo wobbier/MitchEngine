@@ -126,6 +126,11 @@ namespace Reflection
         float Min = 0.f;
         float Max = 0.f;
         float Speed = 0.1f;
+        // Integer fields picked from named choices (e.g. navigation areas): a combo, or a bit mask
+        // of the choices when ChoiceMask is set.
+        std::string ( *ChoiceName )( int index ) = nullptr;
+        int ChoiceCount = 0;
+        bool ChoiceMask = false;
 
         const ValueOps* Ops = nullptr;
         void* ( *Access )( void* instance ) = nullptr;
@@ -359,6 +364,8 @@ namespace Reflection
         FieldBuilder& Angle() { Field().Flags |= FieldFlags::Angle; return *this; }
         FieldBuilder& Multiline() { Field().Flags |= FieldFlags::Multiline; return *this; }
         FieldBuilder& Asset( const char* filter = "" ) { Field().Flags |= FieldFlags::Asset; Field().AssetFilter = filter; return *this; }
+        FieldBuilder& Choices( int count, std::string ( *name )( int ) ) { Field().ChoiceCount = count; Field().ChoiceName = name; Field().ChoiceMask = false; return *this; }
+        FieldBuilder& MaskChoices( int count, std::string ( *name )( int ) ) { Field().ChoiceCount = count; Field().ChoiceName = name; Field().ChoiceMask = true; return *this; }
 
     private:
         FieldInfo& Field() { return m_type.Fields[m_index]; }

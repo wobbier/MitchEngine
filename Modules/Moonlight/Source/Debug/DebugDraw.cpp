@@ -1,5 +1,6 @@
 #include "DebugDraw.h"
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <mutex>
 
@@ -15,8 +16,18 @@ namespace DebugDraw
             uint8_t Flags;
         };
 
+        struct FilledTriangle
+        {
+            LineVertex A;
+            LineVertex B;
+            LineVertex C;
+            float Remaining;
+            uint8_t Flags;
+        };
+
         std::mutex s_mutex;
         std::vector<Segment> s_segments;
+        std::vector<FilledTriangle> s_triangles;
 
         uint32_t ToABGR( const Vector4& InColor )
         {
@@ -250,12 +261,31 @@ namespace DebugDraw
     }
 
 
+    void Triangle( const Vector3& InA, const Vector3& InB, const Vector3& InC, const Vector4& InColor, float InDuration, uint8_t InFlags )
+    {
+        Triangles( std::array<Vector3, 3>{ InA, InB, InC }.data(), 3, InColor, InDuration, InFlags );
+    }
+
+
+    void Triangles( const Vector3* InPositions, size_t InCount, const Vector4& InColor, float InDuration, uint8_t InFlags )
+    {
+        const uint32_t color = ToABGR( InColor );
+        std::lock_guard<std::mutex> lock( s_mutex );
+        for( size_t i = 0; i + 2 < InCount; i += 3 )
+        {
+            s_triangles.push_back( { MakeVertex( InPositions[i], color ), MakeVertex( InPositions[i + 1], color ), MakeVertex( InPositions[i + 2], color ), InDuration, InFlags } );
+        }
+    }
+
+
     void CollectFrame( FrameLines& OutLines )
     {
         OutLines.Depth.clear();
         OutLines.Overlay.clear();
         OutLines.EditorDepth.clear();
         OutLines.EditorOverlay.clear();
+        OutLines.Fill.clear();
+        OutLines.EditorFill.clear();
 
         std::lock_guard<std::mutex> lock( s_mutex );
         for( const Segment& segment : s_segments )
@@ -265,6 +295,13 @@ namespace DebugDraw
             std::vector<LineVertex>& target = editor ? ( overlay ? OutLines.EditorOverlay : OutLines.EditorDepth ) : ( overlay ? OutLines.Overlay : OutLines.Depth );
             target.push_back( segment.A );
             target.push_back( segment.B );
+        }
+        for( const FilledTriangle& triangle : s_triangles )
+        {
+            std::vector<LineVertex>& target = ( triangle.Flags & EditorOnly ) != 0 ? OutLines.EditorFill : OutLines.Fill;
+            target.push_back( triangle.A );
+            target.push_back( triangle.B );
+            target.push_back( triangle.C );
         }
     }
 
@@ -277,6 +314,11 @@ namespace DebugDraw
             segment.Remaining -= InDeltaSeconds;
         }
         s_segments.erase( std::remove_if( s_segments.begin(), s_segments.end(), []( const Segment& segment ) { return segment.Remaining <= 0.f; } ), s_segments.end() );
+        for( FilledTriangle& triangle : s_triangles )
+        {
+            triangle.Remaining -= InDeltaSeconds;
+        }
+        s_triangles.erase( std::remove_if( s_triangles.begin(), s_triangles.end(), []( const FilledTriangle& triangle ) { return triangle.Remaining <= 0.f; } ), s_triangles.end() );
     }
 
 
@@ -284,6 +326,7 @@ namespace DebugDraw
     {
         std::lock_guard<std::mutex> lock( s_mutex );
         s_segments.clear();
+        s_triangles.clear();
     }
 
 

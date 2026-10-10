@@ -3,6 +3,7 @@
 #include "ScriptCore.h"
 #include "Components/Scripting/ScriptComponent.h"
 #include "Scripting/ScriptEngine.h"
+#include "Cores/NavigationCore.h"
 #include "Cores/Physics2DCore.h"
 #include "Cores/PhysicsCore.h"
 #include "Engine/Engine.h"
@@ -47,7 +48,11 @@ void ScriptCore::StartPendingScripts()
     {
         return;
     }
-    // OnStart sees every body that exists by now, including ones spawned this frame.
+    // OnStart sees every body and navmesh that exists by now, including ones spawned this frame.
+    if( NavigationCore* navigation = GetEngine().Navigation )
+    {
+        navigation->SyncNow();
+    }
     if( PhysicsCore* physics = GetEngine().Physics )
     {
         physics->SyncNow();

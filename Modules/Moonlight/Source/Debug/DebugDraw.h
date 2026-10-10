@@ -56,6 +56,12 @@ namespace DebugDraw
     // Square grid on the plane spanned by InAxisA/InAxisB, InHalfCount cells each side of InCenter.
     void Grid( const Vector3& InCenter, const Vector3& InAxisA, const Vector3& InAxisB, int InHalfCount, float InSpacing, const Vector4& InColor = Gray, float InDuration = 0.f, uint8_t InFlags = None );
 
+    // Filled, alpha-blended triangles (use a translucent colour). Always depth tested and never
+    // written to depth, so they tint what they cover; NoDepthTest is ignored.
+    void Triangle( const Vector3& InA, const Vector3& InB, const Vector3& InC, const Vector4& InColor, float InDuration = 0.f, uint8_t InFlags = None );
+    // InCount positions, three per triangle.
+    void Triangles( const Vector3* InPositions, size_t InCount, const Vector4& InColor, float InDuration = 0.f, uint8_t InFlags = None );
+
     // ---- Engine / renderer side -----------------------------------------------------------
     struct LineVertex
     {
@@ -69,6 +75,8 @@ namespace DebugDraw
         std::vector<LineVertex> Overlay;        // no depth test, every view
         std::vector<LineVertex> EditorDepth;    // depth tested, editor view only
         std::vector<LineVertex> EditorOverlay;  // no depth test, editor view only
+        std::vector<LineVertex> Fill;           // triangles, every view
+        std::vector<LineVertex> EditorFill;     // triangles, editor view only
     };
 
     // Copies the shapes to draw this frame (call once per frame before rendering).

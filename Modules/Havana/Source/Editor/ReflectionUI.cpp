@@ -95,8 +95,89 @@ namespace ReflectionUI
             return ImGui::DragFloat( InLabel, &InOutValue, speed, 0.f, 0.f, "%.3f" );
         }
 
+        // Integer fields with named choices: a combo, or a multi-select mask.
+        bool DrawChoices( const char* InLabel, const FieldInfo& InField, const ValueOps& InOps, void* InValue )
+        {
+            const size_t bytes = std::min<size_t>( InOps.IntBytes, sizeof( uint64_t ) );
+            uint64_t value = 0;
+            std::memcpy( &value, InValue, bytes );
+            const uint64_t valueMask = bytes >= 8 ? ~0ull : ( ( 1ull << ( bytes * 8 ) ) - 1 );
+            const uint64_t allChoices = InField.ChoiceCount >= 64 ? ~0ull : ( ( 1ull << InField.ChoiceCount ) - 1 );
+            bool changed = false;
+
+            std::string preview;
+            if( InField.ChoiceMask )
+            {
+                const uint64_t chosen = value & allChoices;
+                int count = 0;
+                int last = 0;
+                for( int i = 0; i < InField.ChoiceCount; ++i )
+                {
+                    if( chosen & ( 1ull << i ) )
+                    {
+                        ++count;
+                        last = i;
+                    }
+                }
+                preview = chosen == allChoices ? "Everything" : count == 0 ? "Nothing" : count == 1 ? InField.ChoiceName( last ) : "Mixed (" + std::to_string( count ) + ")";
+            }
+            else
+            {
+                preview = static_cast<int64_t>( value ) >= 0 && static_cast<int>( value ) < InField.ChoiceCount ? InField.ChoiceName( static_cast<int>( value ) ) : std::to_string( value );
+            }
+
+            if( ImGui::BeginCombo( InLabel, preview.c_str() ) )
+            {
+                if( InField.ChoiceMask )
+                {
+                    if( ImGui::Selectable( "Everything", false, ImGuiSelectableFlags_DontClosePopups ) )
+                    {
+                        value = ( value & ~allChoices ) | allChoices;
+                        changed = true;
+                    }
+                    if( ImGui::Selectable( "Nothing", false, ImGuiSelectableFlags_DontClosePopups ) )
+                    {
+                        value &= ~allChoices;
+                        changed = true;
+                    }
+                    ImGui::Separator();
+                }
+                for( int i = 0; i < InField.ChoiceCount; ++i )
+                {
+                    const std::string name = InField.ChoiceName( i );
+                    ImGui::PushID( i );
+                    if( InField.ChoiceMask )
+                    {
+                        bool selected = ( value & ( 1ull << i ) ) != 0;
+                        if( ImGui::Checkbox( name.c_str(), &selected ) )
+                        {
+                            value = selected ? ( value | ( 1ull << i ) ) : ( value & ~( 1ull << i ) );
+                            changed = true;
+                        }
+                    }
+                    else if( ImGui::Selectable( name.c_str(), value == static_cast<uint64_t>( i ) ) && value != static_cast<uint64_t>( i ) )
+                    {
+                        value = static_cast<uint64_t>( i );
+                        changed = true;
+                    }
+                    ImGui::PopID();
+                }
+                ImGui::EndCombo();
+            }
+            if( changed )
+            {
+                value &= valueMask;
+                std::memcpy( InValue, &value, bytes );
+            }
+            return changed;
+        }
+
         bool DrawInt( const char* InLabel, const FieldInfo* InField, const ValueOps& InOps, void* InValue )
         {
+            if( InField && InField->ChoiceName && InField->ChoiceCount > 0 )
+            {
+                return DrawChoices( InLabel, *InField, InOps, InValue );
+            }
             ImGuiDataType type = ImGuiDataType_S32;
             const bool isSigned = InOps.Type == PropertyType::Int;
             switch( InOps.IntBytes )

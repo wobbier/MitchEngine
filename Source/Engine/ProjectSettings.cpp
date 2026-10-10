@@ -21,6 +21,11 @@ ProjectSettings::ProjectSettings()
 {
     m_layerNames[0] = "Default";
     m_collisionMasks.fill( 0xFFFFFFFFu );
+    NavAreaNames[0] = "Walkable";
+    NavAreaNames[1] = "Not Walkable";
+    NavAreaNames[2] = "Jump";
+    NavAreaCosts.fill( 1.f );
+    NavAreaCosts[2] = 2.f;
 }
 
 
@@ -72,6 +77,18 @@ void ProjectSettings::Load()
     {
         InputActions = root["InputActions"].get<std::string>();
     }
+    if( root.contains( "NavAreas" ) && root["NavAreas"].is_array() )
+    {
+        const json& areas = root["NavAreas"];
+        for( size_t i = 0; i < areas.size() && i < static_cast<size_t>( kNavAreaCount ); ++i )
+        {
+            if( areas[i].is_object() )
+            {
+                NavAreaNames[i] = areas[i].value( "Name", NavAreaNames[i] );
+                NavAreaCosts[i] = areas[i].value( "Cost", NavAreaCosts[i] );
+            }
+        }
+    }
     if( root.contains( "AudioBusVolumes" ) && root["AudioBusVolumes"].is_array() )
     {
         const json& volumes = root["AudioBusVolumes"];
@@ -102,6 +119,11 @@ void ProjectSettings::Save() const
     root["Gravity"] = { Gravity.x, Gravity.y, Gravity.z };
     root["AudioBusVolumes"] = BusVolumes;
     root["InputActions"] = InputActions;
+    root["NavAreas"] = json::array();
+    for( int i = 0; i < kNavAreaCount; ++i )
+    {
+        root["NavAreas"].push_back( { { "Name", NavAreaNames[i] }, { "Cost", NavAreaCosts[i] } } );
+    }
     File file{ Path( kSettingsPath ) };
     file.Write( root.dump( 4 ) );
 }
@@ -127,6 +149,16 @@ std::string ProjectSettings::GetLayerLabel( int InLayer ) const
 {
     const std::string& name = GetLayerName( InLayer );
     return name.empty() ? "Layer " + std::to_string( InLayer ) : std::to_string( InLayer ) + ": " + name;
+}
+
+
+std::string ProjectSettings::GetNavAreaLabel( int InArea ) const
+{
+    if( InArea < 0 || InArea >= kNavAreaCount )
+    {
+        return "Area " + std::to_string( InArea );
+    }
+    return NavAreaNames[InArea].empty() ? "Area " + std::to_string( InArea ) : NavAreaNames[InArea];
 }
 
 

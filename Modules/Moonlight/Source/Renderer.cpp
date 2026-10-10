@@ -853,6 +853,12 @@ void BGFXRenderer::SubmitDebugLines( const Moonlight::CameraData& camera, bgfx::
     {
         return;
     }
+    // Fills first, so outlines drawn over them stay crisp.
+    m_debugDraw->DrawTriangles( id, m_debugLines.Fill.data(), static_cast<uint32_t>( m_debugLines.Fill.size() ) );
+    if( camera.IsEditorView )
+    {
+        m_debugDraw->DrawTriangles( id, m_debugLines.EditorFill.data(), static_cast<uint32_t>( m_debugLines.EditorFill.size() ) );
+    }
     m_debugDraw->DrawLines( id, m_debugLines.Depth.data(), static_cast<uint32_t>( m_debugLines.Depth.size() ), true );
     m_debugDraw->DrawLines( id, m_debugLines.Overlay.data(), static_cast<uint32_t>( m_debugLines.Overlay.size() ), false );
     if( camera.IsEditorView )

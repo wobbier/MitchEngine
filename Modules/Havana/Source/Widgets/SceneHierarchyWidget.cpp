@@ -796,6 +796,26 @@ void SceneHierarchyWidget::DrawCreateTemplates(Transform* parent)
 	{
 		create("Audio Source", json::array({ json{ { "Type", "Transform" } }, json{ { "Type", "AudioSource" } } }));
 	}
+	if (ImGui::BeginMenu("Navigation"))
+	{
+		if (ImGui::MenuItem("NavMesh Surface"))
+		{
+			create("NavMesh Surface", json::array({ json{ { "Type", "Transform" } }, json{ { "Type", "NavMeshSurface" } } }));
+		}
+		if (ImGui::MenuItem("NavMesh Agent"))
+		{
+			create("NavMesh Agent", json::array({ json{ { "Type", "Transform" } }, json{ { "Type", "NavMeshAgent" } } }));
+		}
+		if (ImGui::MenuItem("NavMesh Link"))
+		{
+			create("NavMesh Link", json::array({ json{ { "Type", "Transform" } }, json{ { "Type", "NavMeshLink" } } }));
+		}
+		if (ImGui::MenuItem("NavMesh Modifier Volume"))
+		{
+			create("NavMesh Modifier Volume", json::array({ json{ { "Type", "Transform" } }, json{ { "Type", "NavMeshModifierVolume" } } }));
+		}
+		ImGui::EndMenu();
+	}
 }
 
 

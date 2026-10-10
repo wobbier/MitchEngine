@@ -31,6 +31,9 @@ private:
     std::string m_waitLogText;
     int m_waitLogFrames = 0;
     uint64_t m_waitLogFrom = 0;
+    // Log message count when the previous command ran: wait-log also sees what that command logged.
+    uint64_t m_previousCommandLogCount = 0;
+    uint64_t m_commandLogCount = 0;
     int m_failures = 0;
     size_t m_markedCount = 0;
     std::vector<std::string> m_failureMessages;

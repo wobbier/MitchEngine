@@ -80,6 +80,7 @@ public:
     class PhysicsCore* Physics = nullptr;
     class Physics2DCore* Physics2D = nullptr;
     class AnimationCore* Animation = nullptr;
+    class NavigationCore* Navigation = nullptr;
     class AudioCore* AudioThread = nullptr;
     // C# scripts (null without scripting).
     class ScriptCore* Scripts = nullptr;

@@ -19,6 +19,7 @@
 #include <imgui.h>
 #include <Renderer.h>
 #include <Cores/PhysicsCore.h>
+#include <Cores/NavigationCore.h>
 
 #if USING( ME_EDITOR )
 
@@ -63,6 +64,9 @@ void EditorCore::RegisterViewActions()
     view( "View.Shadows", "Toggle Shadows", 0, []() { BGFXRenderer& renderer = GetEngine().GetRenderer(); renderer.Shadows.Enabled = !renderer.Shadows.Enabled; } );
     view( "View.ShadowCascades", "Show Shadow Cascades", 0, []() { BGFXRenderer& renderer = GetEngine().GetRenderer(); renderer.Shadows.DebugCascades = !renderer.Shadows.DebugCascades; } );
     view( "View.Physics", "Show Physics Shapes", 0, []() { PhysicsCore::DebugDrawEnabled = !PhysicsCore::DebugDrawEnabled; } );
+    view( "View.Navigation", "Show Navigation", 0, []() { NavigationCore::DebugDrawEnabled = !NavigationCore::DebugDrawEnabled; } );
+    EditorAction bake{ "Navigation.BakeAll", "Bake All NavMeshes", "Navigation", 0, 0, []() { if( NavigationCore* navigation = GetEngine().Navigation ) { navigation->BakeAll( true ); } } };
+    actions.Register( bake );
 }
 
 

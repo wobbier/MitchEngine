@@ -5,8 +5,8 @@
 #include <string>
 
 // Project-wide settings stored in Assets/Config/ProjectSettings.json (timing lives in Engine.cfg):
-// the names of the 32 entity layers, which layers collide with which, gravity and the audio bus
-// volumes.
+// the names of the 32 entity layers, which layers collide with which, gravity, the audio bus
+// volumes and the navigation areas.
 class ProjectSettings
 {
 public:
@@ -34,6 +34,13 @@ public:
     std::array<float, kAudioBusCount> BusVolumes = { 1.f, 1.f, 1.f, 1.f, 1.f };
     // The game's action map (.inputactions), loaded into the game Input at startup.
     std::string InputActions = "Assets/Config/Input.inputactions";
+    // Navigation areas (NavAreas): names and traversal cost multipliers. Area 0 is "Walkable" and
+    // area 1 "Not Walkable" (never on the navmesh); area 2 is the default for NavMeshLinks.
+    static constexpr int kNavAreaCount = 16;
+    std::array<std::string, kNavAreaCount> NavAreaNames;
+    std::array<float, kNavAreaCount> NavAreaCosts;
+    // Display label: the name, or "Area N" when unnamed.
+    std::string GetNavAreaLabel( int InArea ) const;
 
 private:
     ProjectSettings();

@@ -102,4 +102,21 @@ public unsafe struct EngineAPIBindings
     // Debug draw (visible in game and editor views; duration 0 = this frame)
     public delegate* unmanaged<Vector3*, Vector3*, Vector3*, float, void> Debug_DrawLine;
     public delegate* unmanaged<Vector3*, float, Vector3*, float, void> Debug_DrawSphere;
+
+    // Navigation (Engine/Docs/Navigation.md)
+    public delegate* unmanaged<Entity, Vector3*, byte> NavAgent_SetDestination;
+    public delegate* unmanaged<Entity, byte, void> NavAgent_SetStopped;
+    public delegate* unmanaged<Entity, void> NavAgent_ResetPath;
+    public delegate* unmanaged<Entity, Vector3*, void> NavAgent_Warp;
+    public delegate* unmanaged<Entity, byte> NavAgent_HasPath;
+    public delegate* unmanaged<Entity, byte> NavAgent_HasArrived;
+    public delegate* unmanaged<Entity, float> NavAgent_GetRemainingDistance;
+    public delegate* unmanaged<Entity, Vector3*, void> NavAgent_GetVelocity;
+    public delegate* unmanaged<Entity, Vector3*, void> NavAgent_GetDesiredVelocity;
+    public delegate* unmanaged<Entity, float> NavAgent_GetSpeed;
+    public delegate* unmanaged<Entity, float, void> NavAgent_SetSpeed;
+    public delegate* unmanaged<Vector3*, Vector3*, Vector3*, int, int> Navigation_FindPath;
+    public delegate* unmanaged<Vector3*, float, Vector3*, byte> Navigation_SamplePosition;
+    public delegate* unmanaged<Vector3*, Vector3*, Vector3*, byte> Navigation_Raycast;
+    public delegate* unmanaged<Vector3*, byte> Navigation_GetRandomPoint;
 }

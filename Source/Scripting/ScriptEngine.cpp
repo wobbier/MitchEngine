@@ -24,6 +24,7 @@
 #include "Bindings/Systems/World.bindings.h"
 #include "Bindings/Systems/Input.bindings.h"
 #include "Bindings/Systems/Gameplay.bindings.h"
+#include "Bindings/Systems/Navigation.bindings.h"
 
 namespace fs = std::filesystem;
 
@@ -337,6 +338,7 @@ int ScriptEngine::Init()
     Register_InputBindings( engineApi );
     Register_WorldBindings( engineApi );
     Register_GameplayBindings( engineApi );
+    Register_NavigationBindings( engineApi );
 
     // Every slot of the generated table must be filled, or a script call would jump to null.
     static_assert( sizeof( ScriptEngineAPI ) % sizeof( void* ) == 0, "ScriptEngineAPI holds only function pointers" );

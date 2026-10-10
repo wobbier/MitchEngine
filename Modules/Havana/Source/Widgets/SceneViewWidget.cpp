@@ -13,6 +13,7 @@
 #include "Components/Lighting/Light.h"
 #include "Components/Effects/ParticleSystem.h"
 #include "Cores/PhysicsCore.h"
+#include "Cores/NavigationCore.h"
 #include "Components/Audio/AudioSource.h"
 #include <Math/Matrix4.h>
 #include <bgfx/bgfx.h>
@@ -440,6 +441,7 @@ void SceneViewWidget::DrawSceneToolbar()
 		ImGui::MenuItem("Shadows", nullptr, &renderer.Shadows.Enabled);
 		ImGui::MenuItem("Shadow Cascades", nullptr, &renderer.Shadows.DebugCascades);
 		ImGui::MenuItem("Physics", nullptr, &PhysicsCore::DebugDrawEnabled);
+		ImGui::MenuItem("Navigation", nullptr, &NavigationCore::DebugDrawEnabled);
 		ImGui::EndMenu();
 	}
 	ImGui::PopStyleVar();

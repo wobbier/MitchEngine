@@ -7,6 +7,7 @@
 #include "Cores/PhysicsCore.h"
 #include "Cores/Physics2DCore.h"
 #include "Cores/AnimationCore.h"
+#include "Cores/NavigationCore.h"
 #include "Cores/Cameras/CameraCore.h"
 #include "Cores/SceneCore.h"
 #include "Cores/Rendering/RenderCore.h"
@@ -222,6 +223,7 @@ void Engine::Init( Game* game )
         Physics = new PhysicsCore();
         Physics2D = new Physics2DCore();
         Animation = new AnimationCore();
+        Navigation = new NavigationCore();
         // Automated runs (captures, editor scripts) and --no-audio never play through the speakers.
         const bool silentAudio = CommandLine::Has( "--no-audio" ) || ( AutomationRunner::IsUnattendedRun() && !CommandLine::Has( "--audio" ) );
         AudioThread = new AudioCore( silentAudio ? AudioOutput::Silent : AudioOutput::Device );
@@ -271,6 +273,7 @@ void Engine::InitGame()
         GameWorld->AddCore<PhysicsCore>( *Physics );
         GameWorld->AddCore<Physics2DCore>( *Physics2D );
         GameWorld->AddCore<AnimationCore>( *Animation );
+        GameWorld->AddCore<NavigationCore>( *Navigation );
         GameWorld->AddCore<AudioCore>( *AudioThread );
         GameWorld->AddCore<UICore>( *UI );
         if( Scripts )
@@ -491,6 +494,13 @@ void Engine::Run()
                 OPTICK_CATEGORY( "MainLoop::GameUpdate", Optick::Category::GameLogic );
                 m_game->OnUpdate( updateContext );
                 GameWorld->Simulate();
+            }
+
+            // Navigation (after gameplay set destinations, before animation reads agent motion)
+            {
+                ME_FRAMEPROFILE_SCOPED( "Navigation", ProfileCategory::Game );
+                ME_STAT_SCOPE( "Navigation" );
+                Navigation->Update( updateContext );
             }
 
             // Animation (after gameplay set its parameters, before render prep skins meshes)

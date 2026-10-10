@@ -156,6 +156,40 @@ void DebugDrawer::DrawLines( bgfx::ViewId InViewId, const DebugDraw::LineVertex*
 }
 
 
+void DebugDrawer::DrawTriangles( bgfx::ViewId InViewId, const DebugDraw::LineVertex* InVertices, uint32_t InCount )
+{
+    if( !bgfx::isValid( m_program[Program::Lines] ) )
+    {
+        return;
+    }
+    const uint64_t state = BGFX_STATE_WRITE_RGB
+        | BGFX_STATE_BLEND_ALPHA
+        | BGFX_STATE_DEPTH_TEST_LEQUAL;
+
+    uint32_t offset = 0;
+    while( offset + 2 < InCount )
+    {
+        const uint32_t count = bgfx::getAvailTransientVertexBuffer( InCount - offset, DebugVertex::ms_layout ) / 3 * 3;
+        if( count == 0 )
+        {
+            return;
+        }
+        bgfx::TransientVertexBuffer buffer;
+        bgfx::allocTransientVertexBuffer( &buffer, count, DebugVertex::ms_layout );
+        DebugVertex* vertices = reinterpret_cast<DebugVertex*>( buffer.data );
+        for( uint32_t i = 0; i < count; ++i )
+        {
+            const DebugDraw::LineVertex& source = InVertices[offset + i];
+            vertices[i] = { source.X, source.Y, source.Z, 0.f, source.ABGR };
+        }
+        bgfx::setVertexBuffer( 0, &buffer );
+        bgfx::setState( state );
+        bgfx::submit( InViewId, m_program[Program::Lines] );
+        offset += count;
+    }
+}
+
+
 DebugDrawer::~DebugDrawer()
 {
     bgfx::destroy( m_ibh );
