@@ -666,6 +666,11 @@ void Engine::Run()
 #if USING( ME_TOOLS )
 void Engine::PollAssetChanges()
 {
+    // Slow cooks (shaders, textures, models) recompile in the background and land here.
+    for( const std::string& reloaded : ResourceCache::GetInstance().PumpReimports() )
+    {
+        CLog::Log( CLog::LogType::Info, "Hot reloaded: " + reloaded );
+    }
     std::vector<FileWatcher::Change> changes = m_assetWatcher.ConsumeChanges();
     if( changes.empty() )
     {

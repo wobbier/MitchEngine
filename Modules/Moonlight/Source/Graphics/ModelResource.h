@@ -87,6 +87,11 @@ struct ModelResourceMetadata
 #endif
 #if USING( ME_TOOLS )
     void Export() override;
+    // The Assimp cook runs off the main thread on hot reload.
+    bool ExportsInBackground() const override
+    {
+        return true;
+    }
 #endif
 };
 

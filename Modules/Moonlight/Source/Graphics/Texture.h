@@ -159,6 +159,11 @@ struct TextureResourceMetadata
 
 #if USING( ME_TOOLS )
     void Export() override;
+    // texturec runs off the main thread on hot reload.
+    bool ExportsInBackground() const override
+    {
+        return true;
+    }
 #endif
 
 private:

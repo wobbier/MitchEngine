@@ -3,6 +3,8 @@
 #include "Resource/Resource.h"
 #include "Resource/ResourceCache.h"
 #include "Resource/AssetDatabase.h"
+#include "Resource/MetaFile.h"
+#include "Resource/MetaRegistry.h"
 #include <atomic>
 #include <chrono>
 #include <filesystem>
@@ -221,4 +223,103 @@ TEST_CASE( "Resources: loading a path whose asset moved this session loads it fr
     CHECK( resource->GetPath().FullPath == moved.FullPath );
     CHECK( resource->Contents == "moved here" );
     AssetDatabase::Get().Unregister( moved.GetLocalPathString() );
+}
+
+
+namespace ReimportTest
+{
+    std::atomic<int> s_exports{ 0 };
+    std::atomic<int> s_exportDelayMs{ 0 };
+    std::thread::id s_exportThread;
+
+    // An asset whose cook is slow and runs off the main thread on hot reload (like a shader).
+    struct SlowCookMeta
+        : public MetaBase
+    {
+        explicit SlowCookMeta( const Path& InPath )
+            : MetaBase( InPath )
+        {
+        }
+
+        std::string GetExtension2() const override
+        {
+            return "slowcook";   // the source is its own "compiled" file
+        }
+
+        void OnSerialize( json& ) override
+        {
+        }
+
+        void OnDeserialize( const json& ) override
+        {
+        }
+
+        void Export() override
+        {
+            std::this_thread::sleep_for( std::chrono::milliseconds( s_exportDelayMs.load() ) );
+            s_exportThread = std::this_thread::get_id();
+            ++s_exports;
+        }
+
+        bool ExportsInBackground() const override
+        {
+            return true;
+        }
+    };
+
+    class CookedResource
+        : public Resource
+    {
+    public:
+        explicit CookedResource( const Path& InPath )
+            : Resource( InPath )
+        {
+        }
+
+        void Reload() override
+        {
+            ++Reloads;
+            ReloadThread = std::this_thread::get_id();
+        }
+
+        int Reloads = 0;
+        std::thread::id ReloadThread;
+    };
+}
+
+ME_REGISTER_METADATA( "slowcook", ReimportTest::SlowCookMeta );
+
+TEST_CASE( "Resources: slow cooks recompile in the background on hot reload, then reload on the main thread" )
+{
+    using namespace ReimportTest;
+    ResourceCache& cache = ResourceCache::GetInstance();
+    std::filesystem::create_directories( ".tmp/Tests/Resources" );
+    const Path path( ".tmp/Tests/Resources/Thing.slowcook" );
+    std::ofstream( path.FullPath ) << "v1";
+    SharedPtr<CookedResource> resource = cache.Get<CookedResource>( path );
+    REQUIRE( resource );
+    const int exportsBefore = s_exports.load();
+
+    // The change is queued, not reloaded, and the main thread keeps going.
+    s_exportDelayMs = 40;
+    CHECK( cache.OnFilesChanged( { path.FullPath } ).empty() );
+    CHECK( cache.GetPendingReimportCount() == 1 );
+    CHECK( resource->Reloads == 0 );
+    const std::vector<std::string> reloaded = cache.WaitForReimports();
+    REQUIRE( reloaded.size() == 1 );
+    CHECK( reloaded[0] == path.FullPath );
+    CHECK( resource->Reloads == 1 );
+    CHECK( s_exports.load() == exportsBefore + 1 );
+    CHECK( s_exportThread != std::this_thread::get_id() );
+    CHECK( resource->ReloadThread == std::this_thread::get_id() );
+
+    // Changed again while compiling: compiled again, reloaded once with the latest.
+    CHECK( cache.OnFilesChanged( { path.FullPath } ).empty() );
+    std::this_thread::sleep_for( std::chrono::milliseconds( 10 ) );
+    CHECK( cache.OnFilesChanged( { path.FullPath } ).empty() );
+    cache.WaitForReimports();
+    CHECK( s_exports.load() == exportsBefore + 3 );
+    CHECK( resource->Reloads == 2 );
+    CHECK( cache.GetPendingReimportCount() == 0 );
+    s_exportDelayMs = 0;
 }

@@ -24,6 +24,12 @@ struct MetaBase
     void Deserialize( const json& inJson );
 
     virtual void Export() {};
+    // Hot reload: true when Export is slow (a compiler run) and safe off the main thread, so a
+    // changed asset recompiles on a reimport thread and reloads when it's done.
+    virtual bool ExportsInBackground() const
+    {
+        return false;
+    }
 
     virtual std::string GetExtension2() const = 0;
 

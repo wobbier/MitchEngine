@@ -97,6 +97,12 @@ struct ShaderFileMetadata
         return Moonlight::GetPlatformString() + std::string( ".bin" );
     }
 
+    // shaderc runs off the main thread on hot reload.
+    bool ExportsInBackground() const override
+    {
+        return true;
+    }
+
     void OnSerialize( json& outJson ) override
     {
     }

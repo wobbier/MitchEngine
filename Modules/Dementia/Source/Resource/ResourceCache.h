@@ -75,9 +75,17 @@ public:
     // Drops every cache reference and cancels the async loads (shutdown / forced refresh).
     void ReleaseAll();
 
-    // Re-exports (tools builds) and reloads cached resources affected by the changed files.
-    // Returns the paths that were reloaded.
+    // Re-exports (tools builds) and reloads cached resources affected by the changed files. Slow
+    // cooks (MetaBase::ExportsInBackground: shaders, textures, models) run on reimport threads and
+    // reload later from PumpReimports; quick ones reload now. Returns the paths reloaded now.
     std::vector<std::string> OnFilesChanged( const std::vector<std::string>& InChangedFullPaths );
+    // Main thread, once a frame: reloads the resources whose background re-export finished (a file
+    // changed again meanwhile is re-exported first). Returns their paths.
+    std::vector<std::string> PumpReimports();
+    // Blocks until every background reimport is done, then reloads them.
+    std::vector<std::string> WaitForReimports();
+    // Background re-exports queued or running.
+    std::size_t GetPendingReimportCount() const;
 
     SharedPtr<MetaBase> LoadMetadata( const Path& filePath );
 
@@ -89,10 +97,17 @@ private:
     void FinishAsyncLoad( const SharedPtr<Resource>& InResource, bool InBackgroundSucceeded );
     // Cancels the queued loads and joins the loader threads.
     void StopAsyncLoads();
+    void StopReimports();
+    void QueueReimport( const std::string& InPath, const SharedPtr<Resource>& InResource, const SharedPtr<MetaBase>& InMeta );
+    // Saves the meta and reloads a resource whose re-export finished.
+    void FinishReimport( const std::string& InPath, const SharedPtr<Resource>& InResource, const SharedPtr<MetaBase>& InMeta );
 
     // Loader threads and their queues (ResourceCache.cpp).
     struct AsyncLoads;
     std::unique_ptr<AsyncLoads> m_async;
+    // Reimport threads (hot reload of slow cooks).
+    struct Reimports;
+    std::unique_ptr<Reimports> m_reimports;
 
     std::map<std::string, std::shared_ptr<Resource>> m_resourceStack;
     // Seconds (steady clock) at which each entry became unreferenced; absent while referenced.

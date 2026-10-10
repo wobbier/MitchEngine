@@ -11,6 +11,7 @@
 #include <condition_variable>
 #include <deque>
 #include <unordered_map>
+#include <unordered_set>
 #include <thread>
 #include "optick.h"
 
@@ -103,8 +104,62 @@ Path ResourceCache::FindByName( const Path& inRoot, const std::string& InFileNam
 #endif
 
 
+struct ResourceCache::Reimports
+{
+    struct Job
+    {
+        std::string Path;
+        SharedPtr<Resource> Target;
+        SharedPtr<MetaBase> Meta;
+    };
+    mutable std::mutex Mutex;
+    std::condition_variable WorkReady;
+    std::condition_variable WorkDone;
+    std::deque<Job> Queued;
+    std::vector<std::string> Running;
+    std::deque<Job> Done;
+    std::unordered_set<std::string> Rerun;  // changed again while it was compiling
+    std::vector<std::thread> Threads;
+    bool Stopping = false;
+
+    bool IsPending( const std::string& InPath ) const
+    {
+        return std::find( Running.begin(), Running.end(), InPath ) != Running.end()
+            || std::any_of( Queued.begin(), Queued.end(), [&InPath]( const Job& InJob ) { return InJob.Path == InPath; } );
+    }
+
+    void Run( int InIndex )
+    {
+        const std::string threadName = "Reimport " + std::to_string( InIndex );
+        OPTICK_THREAD( threadName.c_str() );
+        std::unique_lock<std::mutex> lock( Mutex );
+        while( true )
+        {
+            WorkReady.wait( lock, [this] { return Stopping || !Queued.empty(); } );
+            if( Stopping )
+            {
+                return;
+            }
+            Job job = std::move( Queued.front() );
+            Queued.pop_front();
+            Running.push_back( job.Path );
+            lock.unlock();
+            {
+                OPTICK_EVENT( "MetaBase::Export" );
+                job.Meta->Export();
+            }
+            lock.lock();
+            Running.erase( std::find( Running.begin(), Running.end(), job.Path ) );
+            Done.push_back( std::move( job ) );
+            WorkDone.notify_all();
+        }
+    }
+};
+
+
 ResourceCache::ResourceCache()
     : m_async( std::make_unique<AsyncLoads>() )
+    , m_reimports( std::make_unique<Reimports>() )
 {
     AssetMetaCache::GetInstance().Load();
 }
@@ -112,6 +167,7 @@ ResourceCache::ResourceCache()
 ResourceCache::~ResourceCache()
 {
     StopAsyncLoads();
+    StopReimports();
     AssetMetaCache::GetInstance().Save();
     for( auto i : m_resourceStack )
     {
@@ -401,6 +457,7 @@ void ResourceCache::StopAsyncLoads()
 void ResourceCache::ReleaseAll()
 {
     StopAsyncLoads();
+    StopReimports();
     std::lock_guard<std::recursive_mutex> lock( m_mutex );
     for( auto& entry : m_resourceStack )
     {
@@ -460,6 +517,12 @@ std::vector<std::string> ResourceCache::OnFilesChanged( const std::vector<std::s
         Path sourceFile( sourcePath );
         if( SharedPtr<MetaBase> metaFile = LoadMetadata( sourceFile ) )
         {
+            if( metaFile->ExportsInBackground() )
+            {
+                // Recompile off the main thread; PumpReimports reloads it when that's done.
+                QueueReimport( sourcePath, resource, metaFile );
+                continue;
+            }
             ExportIfNeeded( sourceFile, metaFile, true );
             resource->SetMetadata( metaFile );
         }
@@ -468,6 +531,122 @@ std::vector<std::string> ResourceCache::OnFilesChanged( const std::vector<std::s
         reloaded.push_back( sourcePath );
     }
     return reloaded;
+}
+
+
+void ResourceCache::QueueReimport( const std::string& InPath, const SharedPtr<Resource>& InResource, const SharedPtr<MetaBase>& InMeta )
+{
+    {
+        std::lock_guard<std::mutex> lock( m_reimports->Mutex );
+        if( std::find( m_reimports->Running.begin(), m_reimports->Running.end(), InPath ) != m_reimports->Running.end() )
+        {
+            m_reimports->Rerun.insert( InPath );   // export again once this one finishes
+            return;
+        }
+        if( m_reimports->IsPending( InPath ) )
+        {
+            return;   // already queued
+        }
+        if( m_reimports->Threads.empty() )
+        {
+            const int count = static_cast<int>( std::clamp( std::thread::hardware_concurrency() / 4u, 1u, 4u ) );
+            for( int i = 0; i < count; ++i )
+            {
+                m_reimports->Threads.emplace_back( [this, i] { m_reimports->Run( i ); } );
+            }
+        }
+        m_reimports->Queued.push_back( { InPath, InResource, InMeta } );
+    }
+    m_reimports->WorkReady.notify_one();
+}
+
+
+void ResourceCache::FinishReimport( const std::string& InPath, const SharedPtr<Resource>& InResource, const SharedPtr<MetaBase>& InMeta )
+{
+#if USING( ME_TOOLS )
+    InMeta->Save();
+    AssetMetaCache::GetInstance().Update( Path( InPath ), InMeta );
+#endif
+    InResource->SetMetadata( InMeta );
+    CompleteLoad( InResource );
+    InResource->Reload();
+}
+
+
+std::vector<std::string> ResourceCache::PumpReimports()
+{
+    std::vector<std::string> reloaded;
+    std::deque<Reimports::Job> done;
+    {
+        std::lock_guard<std::mutex> lock( m_reimports->Mutex );
+        done.swap( m_reimports->Done );
+    }
+    for( Reimports::Job& job : done )
+    {
+        bool rerun = false;
+        {
+            std::lock_guard<std::mutex> lock( m_reimports->Mutex );
+            rerun = m_reimports->Rerun.erase( job.Path ) > 0;
+        }
+        if( rerun )
+        {
+            // Changed while compiling: the result is stale, compile the latest (and its settings).
+            SharedPtr<MetaBase> meta = LoadMetadata( Path( job.Path ) );
+            QueueReimport( job.Path, job.Target, meta ? meta : job.Meta );
+            continue;
+        }
+        FinishReimport( job.Path, job.Target, job.Meta );
+        reloaded.push_back( job.Path );
+    }
+    return reloaded;
+}
+
+
+std::vector<std::string> ResourceCache::WaitForReimports()
+{
+    std::vector<std::string> reloaded;
+    while( true )
+    {
+        {
+            std::unique_lock<std::mutex> lock( m_reimports->Mutex );
+            m_reimports->WorkDone.wait( lock, [this] { return m_reimports->Queued.empty() && m_reimports->Running.empty(); } );
+        }
+        std::vector<std::string> batch = PumpReimports();
+        reloaded.insert( reloaded.end(), batch.begin(), batch.end() );
+        std::lock_guard<std::mutex> lock( m_reimports->Mutex );
+        if( m_reimports->Queued.empty() && m_reimports->Running.empty() && m_reimports->Done.empty() )
+        {
+            return reloaded;
+        }
+    }
+}
+
+
+std::size_t ResourceCache::GetPendingReimportCount() const
+{
+    std::lock_guard<std::mutex> lock( m_reimports->Mutex );
+    return m_reimports->Queued.size() + m_reimports->Running.size() + m_reimports->Done.size();
+}
+
+
+void ResourceCache::StopReimports()
+{
+    std::vector<std::thread> threads;
+    {
+        std::lock_guard<std::mutex> lock( m_reimports->Mutex );
+        m_reimports->Stopping = true;
+        threads.swap( m_reimports->Threads );
+    }
+    m_reimports->WorkReady.notify_all();
+    for( std::thread& thread : threads )
+    {
+        thread.join();
+    }
+    std::lock_guard<std::mutex> lock( m_reimports->Mutex );
+    m_reimports->Queued.clear();
+    m_reimports->Done.clear();
+    m_reimports->Rerun.clear();
+    m_reimports->Stopping = false;
 }
 
 SharedPtr<MetaBase> ResourceCache::LoadMetadata( const Path& filePath )

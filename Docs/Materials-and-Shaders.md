@@ -131,7 +131,7 @@ flowchart LR
   It captures the compiler's output (`PlatformUtils::RunCommand`) and logs failures with the full error text.
 - **Hot reload** (tools builds):
   1. The asset watcher reports a changed `.vert`/`.frag`, or a `.sh`/`.var`, which `ExpandShaderChanges` maps to every shader whose depfile lists it.
-  2. The shader is re-exported and `ShaderFile::Reload` creates the new shader.
+  2. The shader is re-exported **on a reimport thread** (`ShaderFileMetadata::ExportsInBackground`), so the editor keeps running while `shaderc` works, several shaders at once when an include changed. When it's done, `ResourceCache::PumpReimports` (start of the next frame) saves the meta and `ShaderFile::Reload` creates the new shader. A shader edited again mid-compile compiles again before it reloads.
   3. Every program acquired through the registry is rebuilt in place. `ShaderCommand::GetProgram()` reads the shared `ProgramRef`, so materials, post-processing, IBL, shadow, particle and picking passes all pick it up.
 
   Programs created with raw `LoadProgram` (Ultralight UI) don't reload.
@@ -183,7 +183,7 @@ ME_REGISTER_MATERIAL_NAME( ClearcoatMaterial, "Clearcoat" )
 
 - **Batch-key completeness is on you.** A missing field causes silent, scene-dependent mis-batching.
 - **Uniform names are global in bgfx.** Two materials declaring the same name with different types collide; the lighting library reserves `u_light*`, `u_cluster*`, `u_shadow*`, `u_cascade*`, `u_spotShadow*`, `u_env*`, `u_ambient*` and samplers on stages 8–15.
-- **Shader compiles are synchronous.** A hot reload, or a first-run cook, blocks the main thread for the `shaderc` call. Editing `Common.sh` recompiles every loaded shader.
+- **First cooks are synchronous.** A shader without a binary is compiled when it's first loaded, blocking the main thread for the `shaderc` call. Hot reloads compile in the background, and until a recompile lands the old program keeps drawing. Editing `Common.sh` recompiles every loaded shader.
 - **`ShaderGraphMaterial` is half-finished**: all graph textures bind to stage 3, it recreates uniforms per instance, and it depends on the external `Tools/ShaderEditor/` app.
 - **`.mat` metadata is vestigial.** Materials live inside `Mesh` JSON.
 - **Unknown material names become `StandardMaterial`** (`Mesh::OnDeserialize` fallback); a renamed material class degrades scenes without errors.
