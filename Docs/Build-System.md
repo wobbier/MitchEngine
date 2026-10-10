@@ -74,7 +74,7 @@ From `Tools/BaseProject.sharpmake.cs` (+ `Engine.sharpmake.cs` `Globals`):
 | `DEFINE_ME_OPTICK` | Win64 (per-optimization lib copy from `ThirdParty/Lib/Optick/Win64/…`) |
 | `DEFINE_ME_RENDERDOC` | RenderDoc integration available |
 
-Because these are **generation-time filesystem checks**, two machines with different SDKs silently produce different feature sets from identical source. When a feature "doesn't work", check the generation log/defines before debugging code. `Globals.MONO_*_Dir` checks still exist but define nothing — Mono leftovers (with `ThirdParty/Mono.sharpmake.cs` fully vestigial).
+Because these are **generation-time filesystem checks**, two machines with different SDKs silently produce different feature sets from identical source. When a feature "doesn't work", check the generation log/defines before debugging code. The Mono integration is gone; `Globals.MONO_*_Dir` remain only so older game sharpmake files that set them still compile.
 
 ### Generating and building
 

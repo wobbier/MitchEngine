@@ -14,7 +14,6 @@ The window owns the message pump (`ParseMessageQueue`, first thing each frame �
 |------|------|
 | `Source/Window/IWindow.h` | The window interface (size/position, fullscreen/maximize, exit, native ptr) |
 | `Source/Window/SDLWindow.cpp` / `Source/Window/SDLWindow.h` | The implementation used everywhere; SDL event pump; native-handle extraction |
-| `Source/Window/UWPWindow.cpp` | Vestigial dedicated UWP window (commented out in `Engine::Init`; UWP uses `SDLWindow`) |
 | `Source/Engine/Input.h` / `Source/Engine/Input.cpp` | Key/mouse state, `KeyState`, `KeyPressEvent`/`MouseScrollEvent` definitions; the per-frame device snapshot, actions and the gamepad API (`Docs/Input.md`) |
 | `Source/Input/Gamepads.h` | SDL game controllers in four slots (hotplug, rumble) |
 | `Source/Events/PlatformEvents.h` | `WindowResizedEvent`, `WindowMovedEvent` |
@@ -65,7 +64,7 @@ Lifecycle: loaded in `Engine::Init` from `Assets\Config\Engine.cfg`; **saved onc
 - **Both Input instances see everything** — gating is by `Pause`/`Stop` state per instance, not by routing; new tooling must remember to check the right instance (game vs editor) or keys will double-trigger.
 - **Event-vs-poll duality**: key *events* fire during the pump; polled state updates later in `Input::Update`. Code mixing `OnEvent(KeyPressEvent)` with `IsKeyDown` in the same frame can see them disagree for one frame.
 - **No high-DPI handling** — sizes are raw pixels; scale factors aren't queried anywhere.
-- **`UWPWindow` is dead code** kept compiling; UWP runs through `SDLWindow` + `SDL_WinRTRunApp` (`Docs/Architecture.md`).
+- **UWP runs through `SDLWindow`** + `SDL_WinRTRunApp` (`Docs/Architecture.md`); the old dedicated `UWPWindow` was removed.
 - **`GetKeyCodeName` does an uncached lookup** (in-code TODO "Cache this :/") — fine for tooling, don't call per-frame per-key.
 - Resize behavior is split between the `ResizeFunc` lambda (renderer/UI/config pokes) and `WindowResizedEvent` receivers — two mechanisms for one concern; check both when debugging resize issues.
 

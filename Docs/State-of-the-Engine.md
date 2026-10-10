@@ -50,14 +50,9 @@ The stated bar (per the game project's conventions) is: Win64/macOS/Linux must c
 
 | Item | Location | State | Verdict |
 |------|----------|-------|---------|
-| Mono remnants | `ThirdParty/Mono.sharpmake.cs`, `Globals.MONO_*_Dir` checks | Define nothing | **Delete** |
-| `Canvas` | `Source/Components/UI/Canvas.h` | Empty file | **Delete** |
 | `ShaderGraphMaterial` + ShaderEditor | `Modules/Moonlight/Source/Materials/ShaderGraphMaterial.h`, `Tools/ShaderEditor` | Texture-slot-3 bug, per-instance uniform creation, external tool dependency | **Decide** — finish (fix slots, ship the tool) or delete and stay code-material-only |
 | Ultralight | `Source/UI/`, `Source/Cores/UI/` | Removal declared in commit history; Vue/web direction visible in `../flake.nix` | **Finish the removal** |
-| `RenderCore::UpdateMesh` | `Source/Cores/Rendering/RenderCore.cpp` | Fully commented out | **Delete** (the per-frame job rewrite made it moot) |
-| `UWPWindow` | `Source/Window/UWPWindow.cpp` | Superseded by SDLWindow-on-UWP | **Delete or revive** with a UWP pass |
 | `IsRunning` check in `Simulate` | `Source/Engine/World.cpp` (`//continue;`) | Deliberately (?) disabled | **Decide** the intended semantics and either restore or remove the dead check |
-| Boot log noise | `YIKES("Engine::InitGame")`, `BRUH("renderFrame")`×2, save-echo to stdout | Error/warn-level noise every session | **Clean** (trivial) |
 
 ## 4. Improvement Themes
 
@@ -100,7 +95,7 @@ Impact (H/M/L) × Effort (S/M/L). Grouped so related items can share one work se
 | Async asset import / keep-warm cache | M | M–L | At minimum: stop evicting refcount-1 resources every frame; add an editor preload set |
 
 ### E. Debt removal (one satisfying purge)
-Legacy job systems, Mono files, `Collider2D`, `Canvas.h`, `UpdateMesh`, `UWPWindow`, log noise, stale includes in `Source/Engine/Engine.h`. Impact L each but **compounding** — every deleted decoy makes the codebase more honest. Effort: S, mostly deletions.
+Done (overhaul): the legacy job systems, Mono files, `Canvas.h`, `UpdateMesh`, `UWPWindow` and the boot-log noise are gone. The legacy `Collider2D` is gone too (Box2D colliders replaced it). Left: stale includes in `Source/Engine/Engine.h`.
 
 ```mermaid
 quadrantChart
@@ -130,7 +125,7 @@ quadrantChart
 
 1. **Snapshot-on-Play** — *why now:* it silently destroys real work today. *First step:* serialize to a temp `.lvl` in `EditorApp::StartGame`, reload it (not the config scene) in `StopGame`. → `Editor-Havana.md`
 2. ~~Fix `m_ambient`~~ — done in Wave 3 (the legacy uniform is gone; ambient is image-based). → `Rendering-Pipeline.md`
-3. **Debt purge (theme E)** — *why now:* cheap, and every future task navigates past the corpses. *First step:* delete the legacy `Work/` job files + `Engine.h` includes; build all targets.
+3. ~~Debt purge (theme E)~~ — mostly done (see theme E for what's left).
 4. ~~Fixed timestep for physics~~ — done (Wave 4: Box3D `PhysicsCore` in the fixed loop with interpolation). → `Physics.md`
 5. **Scene versioning + rename aliases** — *why now:* every rename risk grows with content volume. *First step:* write `"Version": 1` on save; add alias map to component/core registries. → `Serialization-and-Scenes.md`
 6. **Finish Ultralight removal** — *why now:* it's already declared dead; limbo is the worst state. *First step:* land the web-UI spike behind `ME_UI`, delete `Source/UI/Graphics/GPUDriver.*` last. → `UI-Ultralight-and-ImGui.md`

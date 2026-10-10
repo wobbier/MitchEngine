@@ -75,7 +75,6 @@ Audio (FMOD) has its own deep dive: `Docs/Audio.md`.
 | `NavMeshModifier` / `NavMeshModifierVolume` / `NavMeshLink` | `Source/Components/Navigation/NavMeshModifiers.h` | Bake markup: ignore or re-area geometry (optionally its children), re-mark a box, connect two points off-mesh |
 | `ScriptComponent` | `Source/Components/Scripting/ScriptComponent.h` | Script by type name + `m_dotnetHandle` (int, stable across hot reloads) + started flag + saved-fields JSON; the instance is created on load and started on Play |
 | `BasicUIView` | `Source/Components/UI/BasicUIView.h` | Ultralight HTML view + JS bridge |
-| `Canvas` | `Source/Components/UI/Canvas.h` | **Empty file** — placeholder |
 | `FlyingCamera` | `Source/Components/Cameras/FlyingCamera.h` | Free-fly parameters (speed etc.) for `FlyingCameraCore` |
 | `DebugCube` | `Source/Components/Debug/DebugCube.h` | Debug visualization cube |
 | `SelfDestruct` | `Source/Cores/Utility/SelfDestructCore.h` | Lifetime in seconds; the core kills the entity when it expires (declared in the core's header, not `Source/Components/`) |
@@ -91,7 +90,6 @@ Matrix recompute is **lazy** — `GetLocalToWorldMatrix()` rebuilds (parent-firs
 
 ## Caveats & Fragility
 
-- **`Canvas` is dead weight** (empty file).
 - **`Model::Init` creates real entities** as children — deleting a Model component does not delete the entities it spawned, and re-`Init` is guarded only by an in-memory `IsInitialized` flag.
 - **`Camera::CurrentCamera`/`EditorCamera` are mutable statics** used by resize, UI sizing, and picking; scenes without a main camera silently skip those paths.
 - **Component headers pull editor includes**: several component headers include `imgui.h`/`HavanaUtils.h` unconditionally (e.g. `Source/Cores/Utility/SelfDestructCore.h`) — kept building by ImGui being present in most configs (`ME_IMGUI` covers editor, tools, and profiling builds).
