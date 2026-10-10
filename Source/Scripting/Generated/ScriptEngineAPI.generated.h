@@ -153,4 +153,9 @@ struct ScriptEngineAPI
     bool ( *Input_WasPlayerActionReleased )( int player, const uint8_t* action );
     int ( *Input_GetPlayerGamepad )( int player );
     void ( *Input_SetJoining )( int maxPlayers );
+
+    // Additive scenes (streaming) on top of the main scene (Engine/Docs/Serialization-and-Scenes.md)
+    int ( *World_LoadSceneAdditive )( const uint8_t* scene, bool async );
+    bool ( *World_UnloadScene )( int scene );
+    int ( *World_GetSceneState )( int scene );
 };

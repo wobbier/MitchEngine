@@ -14,6 +14,7 @@ Components serialize through `BaseComponent::Serialize` / `Deserialize`: the sea
 |------|------|
 | `Source/World/SceneSerializer.h` / `Source/World/SceneSerializer.cpp` | Format v2, `SerializeEntities`, `SerializeWorld`, `Deserialize`, `MigrateToLatest`, `InstantiatePrefab` |
 | `Source/World/Scene.h` / `Source/World/Scene.cpp` | A scene file: `Load` (remaps moved assets), `Save`, `SaveCopy` (writes the reference table) |
+| `Source/World/SceneStreaming.h` / `Source/World/SceneStreaming.cpp` | Additive scenes: load (sync or background), unload, states |
 | `Modules/Dementia/Source/Resource/AssetDatabase.h` | GUID ↔ path, moves with former paths, prefab GUIDs, lazy scans |
 | `Source/ECS/EntityHandle.h` / `Source/ECS/EntityHandle.cpp` | GUID (de)serialization of `EntityHandle` fields, `SerializationWorldScope` |
 | `Source/Engine/World.cpp` | `CreateFromPrefab` → `SceneSerializer::InstantiatePrefab` |
@@ -93,6 +94,20 @@ Components keep asset paths (readable files, simple code), and the files keep th
 - **In the editor**, moving or renaming in the asset browser updates the database at once (`AssetDatabase::Move`, folders included) and relinks the open scene's prefab instances. The database remembers the former paths: a `Get` of an old path loads from the new one, prefab links to the old path still resolve, and a scene saved before it's reloaded records the asset under its old path (so the next load remaps it). Deleting to the trash unregisters the asset; duplicating a prefab gives the copy a new `AssetGUID`.
 - A scan warns when two files share a GUID (copied outside the editor), because references to it are then ambiguous.
 
+### Additive scenes
+
+`Engine::LoadSceneAdditive( path, async )` loads a scene on top of the main one: a streamed level chunk, a shared lighting or gameplay scene, a menu over a level. Scripts use `World.LoadSceneAdditive( path, async = true )`, `World.UnloadScene( id )` and `World.GetSceneState( id )`. `Engine` owns a `SceneStreaming`.
+
+- **Ownership.** While a scene instantiates, `World::SetLoadingScene( id )` tags every entity created with its id (`EntityRecord::SceneId`; 0 is the main scene and anything made at runtime). `World::GetEntityScene` reads it back, and `World::DestroyScene( id )` destroys them all (deferred to the next sync point), which is what `UnloadAdditiveScene` does.
+- **Saving.** `SerializeWorld` skips tagged entities, so an additive scene never saves into the main scene, even while it's loaded in the editor.
+- **Background loads.** With `async`, the file is read, parsed and migrated on a worker thread. Each frame, at its start, `SceneStreaming::Pump` instantiates the ready scenes in request order (moved-asset remapping runs there too, on the main thread). Deterministic runs (`--frame-time`) wait for them instead. Textures and models inside arrive in the background as usual. `GetSceneState` is `Loading`, `Loaded`, `Failed` or `None`.
+- **GUIDs.** A scene loaded twice, or one whose GUIDs collide with the world's, is instanced with fresh GUIDs and its internal references remapped, as prefab instances are.
+- **Lifetime.** Loading another main scene (and Play / Stop in the editor) drops every additive scene. The scene's `Cores` list is honoured (missing cores are created).
+- **Navmeshes.** A surface finds its baked file next to its own scene (`Engine::GetEntityScenePath`), so streamed chunks bring their navigation.
+- **Events.** `AdditiveSceneEvent { SceneId, Path, Loaded }` reports loads and unloads.
+
+Unit tested (tagging, save exclusion, double loads, background loads, unload, missing files). ScriptFlows streams `Assets/Scenes/Tests/AdditiveChunk.lvl` in and out from C# (`StreamProbe.cs`).
+
 ### Models
 
 `Model::Init` expands a model file into child entities named after its nodes. When a saved scene already contains those children, `Model::Init` **reuses** the same-named children instead of creating new ones, so edits to model sub-entities (materials, transforms) survive save/load.
@@ -105,6 +120,7 @@ Components keep asset paths (readable files, simple code), and the files keep th
 - **Model child reuse is by name**: two same-named sibling nodes in a model map onto the first saved child.
 - **`DestroyOnLoad: false` entities survive `World::Unload`** but are written into whatever scene is saved while they're alive.
 - **Save is editor-only** (`Scene::Save`); game builds have no save-game path yet.
+- **Additive scenes are runtime-only.** The editor shows their entities but can't edit or save them as separate scenes (there's no multi-scene editing), and Play / Stop drops them. Instantiation is one main-thread step per scene, so stream big levels as several chunks.
 
 ## Related Docs
 

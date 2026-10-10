@@ -145,3 +145,8 @@ bool Input_WasPlayerActionPressed( int player, cstr action )
 bool Input_WasPlayerActionReleased( int player, cstr action )
 int Input_GetPlayerGamepad( int player )
 void Input_SetJoining( int maxPlayers )
+
+## Additive scenes (streaming) on top of the main scene (Engine/Docs/Serialization-and-Scenes.md)
+int World_LoadSceneAdditive( cstr scene, bool async )
+bool World_UnloadScene( int scene )
+int World_GetSceneState( int scene )

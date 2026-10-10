@@ -325,8 +325,10 @@ std::string NavigationCore::GetDataPath( const NavMeshSurface& InSurface ) const
     {
         return InSurface.NavMeshData;
     }
+    // Next to the surface's own scene (an additive scene's surfaces keep their own files).
+    Entity* owner = InSurface.Parent.Get();
     const Scene* scene = GetEngine().CurrentScene;
-    const std::string scenePath = scene ? scene->FilePath.GetLocalPathString() : std::string();
+    const std::string scenePath = owner ? GetEngine().GetEntityScenePath( *owner ) : ( scene ? scene->FilePath.GetLocalPathString() : std::string() );
     if( scenePath.empty() )
     {
         return std::string();

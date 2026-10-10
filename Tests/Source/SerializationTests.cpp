@@ -1,6 +1,7 @@
 #include <doctest/doctest.h>
 
 #include "World/SceneSerializer.h"
+#include "World/SceneStreaming.h"
 #include "Resource/AssetDatabase.h"
 #include "Engine/World.h"
 #include "ECS/Core.h"
@@ -371,4 +372,77 @@ TEST_CASE( "Serialization: renamed component types, core types and fields still 
     CHECK( FindComponentInfo( "OldLink" ) == GetComponentRegistry().find( "SerializationTest::Link" ) );
     CHECK( FindCoreFactory( "TestFormerNavigationCore" ) == GetCoreRegistry().find( "NavigationCore" ) );
     CHECK( FindCoreFactory( "NoSuchCore" ) == GetCoreRegistry().end() );
+}
+
+
+TEST_CASE( "Scenes: additive scenes load tagged, never save with the main scene, and unload together" )
+{
+    // A level chunk on disk: a root with a child that references it.
+    auto source = MakeWorld();
+    EntityHandle chunk = source->CreateEntity( "Chunk" );
+    chunk->AddComponent<Transform>();
+    EntityHandle rock = source->CreateEntity( "Rock" );
+    rock->AddComponent<Transform>().SetParent( chunk->GetComponent<Transform>() );
+    rock->AddComponent<Link>().Target = chunk;
+    std::filesystem::create_directories( ".tmp/Tests/Scenes" );
+    const std::string path = ".tmp/Tests/Scenes/Chunk.lvl";
+    std::ofstream( path ) << SceneSerializer::SerializeEntities( *source, { chunk.Get() } ).dump( 4 );
+
+    // The main scene: a scene root (SceneCore's, in the engine) with one entity.
+    auto world = MakeWorld();
+    EntityHandle sceneRoot = world->CreateEntity( "Scene Root" );
+    Transform& rootTransform = sceneRoot->AddComponent<Transform>();
+    EntityHandle main = world->CreateEntity( "Main" );
+    main->AddComponent<Transform>().SetParent( rootTransform );
+
+    SceneStreaming streaming;
+    const uint16_t first = streaming.Load( *world, path );
+    REQUIRE( first != 0 );
+    CHECK( streaming.GetState( first ) == SceneStreaming::State::Loaded );
+    EntityHandle loadedChunk = world->FindEntityByName( "Chunk" );
+    REQUIRE( loadedChunk );
+    loadedChunk->GetComponent<Transform>().SetParent( rootTransform );
+    CHECK( world->GetEntityScene( loadedChunk->GetId() ) == first );
+    CHECK( world->GetEntityScene( main->GetId() ) == 0 );
+    Transform* loadedRock = loadedChunk->GetComponent<Transform>().GetChildren()[0];
+    CHECK( world->GetEntityScene( loadedRock->Parent->GetId() ) == first );
+    CHECK( loadedRock->Parent->GetComponent<Link>().Target == loadedChunk );
+
+    // Saving the main scene leaves the additive one out.
+    const json saved = SceneSerializer::SerializeWorld( *world, &rootTransform );
+    REQUIRE( saved["Entities"].size() == 1 );
+    CHECK( saved["Entities"][0]["Name"] == "Main" );
+
+    // The same scene again, in the background: fresh GUIDs, its own references.
+    const uint16_t second = streaming.LoadAsync( path );
+    CHECK( second != first );
+    CHECK( streaming.Wait( *world ) == std::vector<uint16_t>{ second } );
+    CHECK( streaming.GetState( second ) == SceneStreaming::State::Loaded );
+    std::vector<uint64_t> chunkGUIDs;
+    world->ForEachEntity( [&]( Entity& InEntity ) {
+        if( InEntity.GetName() == "Chunk" )
+        {
+            chunkGUIDs.push_back( InEntity.GetGUID() );
+        }
+    } );
+    REQUIRE( chunkGUIDs.size() == 2 );
+    CHECK( chunkGUIDs[0] != chunkGUIDs[1] );
+    size_t chunks = 0;
+
+    // Unloading destroys just that scene's entities, at the next sync point.
+    CHECK( streaming.Unload( *world, first ) );
+    world->Simulate();
+    CHECK_FALSE( loadedChunk );
+    CHECK( main );
+    chunks = 0;
+    world->ForEachEntity( [&]( Entity& InEntity ) { chunks += InEntity.GetName() == "Chunk" ? 1 : 0; } );
+    CHECK( chunks == 1 );
+    CHECK( streaming.GetState( first ) == SceneStreaming::State::None );
+    CHECK( streaming.GetLoaded() == std::vector<uint16_t>{ second } );
+
+    // A missing file fails to load (sync) or reports Failed (async).
+    CHECK( streaming.Load( *world, ".tmp/Tests/Scenes/Missing.lvl" ) == 0 );
+    const uint16_t missing = streaming.LoadAsync( ".tmp/Tests/Scenes/Missing.lvl" );
+    streaming.Wait( *world );
+    CHECK( streaming.GetState( missing ) == SceneStreaming::State::Failed );
 }

@@ -119,7 +119,7 @@ The API is about 87 functions. Strings cross as UTF-8 `byte*`, entities as the r
 | Time | `Time.DeltaTime` (scaled), `UnscaledDeltaTime`, `FixedDeltaTime`, `TimeScale` (get/set), `RealTime` (wall clock) |
 | Entity | `IsAlive`, `Name`, `Active`, `Destroy()`, `Has/Add/GetComponent<T>` |
 | Transform | Local `Position`/`Rotation`/`Scale`; `WorldPosition`; `Forward`/`Right`/`Up`; `LookAt`; `Parent` |
-| World | `CreateEntity`, `Find(name)` (any depth), `Instantiate(prefab, parent)`, `LoadScene(path)` (queued to the end of the frame) |
+| World | `CreateEntity`, `Find(name)` (any depth), `Instantiate(prefab, parent)`, `LoadScene(path)` (queued to the end of the frame), `LoadSceneAdditive(path, async = true)` / `UnloadScene(id)` / `GetSceneState(id)` (`Docs/Serialization-and-Scenes.md`) |
 | Input | `IsKeyDown`, `WasKeyPressed`, `MouseDelta`, `GetAction`, `GetActionVector2`, `IsActionPressed`, `WasActionPressed`, `WasActionReleased` (actions from `Docs/Input.md`); local multiplayer: `PlayerCount`, `Player(n)` (a `PlayerInput` with the same action methods and its `Gamepad`), `SetJoining(maxPlayers)` |
 | Audio | `Audio.PlayOneShot(clip, volume)`, `PlayOneShotAt(clip, position, volume)` |
 | Physics | `Physics.Raycast(origin, dir, maxDistance, out RaycastHit)`; `Rigidbody.AddForce(force, ForceMode)` and `Velocity` |

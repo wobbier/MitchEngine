@@ -142,4 +142,9 @@ public unsafe struct EngineAPIBindings
     public delegate* unmanaged<int, byte*, byte> Input_WasPlayerActionReleased;
     public delegate* unmanaged<int, int> Input_GetPlayerGamepad;
     public delegate* unmanaged<int, void> Input_SetJoining;
+
+    // Additive scenes (streaming) on top of the main scene (Engine/Docs/Serialization-and-Scenes.md)
+    public delegate* unmanaged<byte*, byte, int> World_LoadSceneAdditive;
+    public delegate* unmanaged<int, byte> World_UnloadScene;
+    public delegate* unmanaged<int, int> World_GetSceneState;
 }

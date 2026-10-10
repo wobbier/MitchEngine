@@ -323,17 +323,22 @@ namespace SceneSerializer
 
     json SerializeWorld( World& InWorld, Transform* InSceneRoot )
     {
+        // Entities of additive scenes (SceneStreaming) belong to their own files.
         std::vector<Entity*> roots;
         if( InSceneRoot )
         {
             for( Transform* child : InSceneRoot->GetChildren() )
             {
-                roots.push_back( child->Parent.Get() );
+                Entity* entity = child->Parent.Get();
+                if( entity && InWorld.GetEntityScene( entity->GetId() ) == 0 )
+                {
+                    roots.push_back( entity );
+                }
             }
         }
         Entity* sceneRootEntity = InSceneRoot ? InSceneRoot->Parent.Get() : nullptr;
-        InWorld.ForEachEntity( [&roots, sceneRootEntity]( Entity& entity ) {
-            if( &entity != sceneRootEntity && !entity.HasComponent<Transform>() )
+        InWorld.ForEachEntity( [&InWorld, &roots, sceneRootEntity]( Entity& entity ) {
+            if( &entity != sceneRootEntity && !entity.HasComponent<Transform>() && InWorld.GetEntityScene( entity.GetId() ) == 0 )
             {
                 roots.push_back( &entity );
             }

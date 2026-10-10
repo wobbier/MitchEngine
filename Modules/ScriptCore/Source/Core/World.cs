@@ -34,9 +34,33 @@ public static unsafe class World
     }
 
 
+    // Loads a scene on top of this one (a streamed level chunk, a shared lighting scene) and returns
+    // its id. Async (the default) reads it in the background and adds it at the start of a later
+    // frame: watch SceneState. Its entities unload together and go when the main scene changes.
+    public static int LoadSceneAdditive( string scene, bool async = true )
+    {
+        fixed (byte* p = Engine.Utf8(scene)) return Engine._api.World_LoadSceneAdditive(p, async ? (byte)1 : (byte)0);
+    }
+
+
+    public static bool UnloadScene( int scene ) => Engine._api.World_UnloadScene(scene) != 0;
+
+
+    public static SceneState GetSceneState( int scene ) => (SceneState)Engine._api.World_GetSceneState(scene);
+
+
     public static Transform GetTransformByName( string name )
     {
         var e = Find(name);
         return e ? e.GetComponent<Transform>() : null;
     }
+}
+
+// An additive scene's progress (World.GetSceneState).
+public enum SceneState
+{
+    None = 0,   // unknown id, or unloaded
+    Loading,
+    Loaded,
+    Failed,
 }

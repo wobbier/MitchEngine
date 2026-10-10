@@ -43,6 +43,21 @@ public:
     void MarkEntityForDelete( Entity& EntityToDestroy );
     void DestroyEntity( const EntityHandle& InEntity );
 
+    // Additive scenes (World/SceneStreaming.h): entities created while a scene id is set belong to
+    // that scene (0 = the main scene, or made at runtime), so they unload together and never save
+    // with the main scene.
+    void SetLoadingScene( uint16_t InSceneId )
+    {
+        m_loadingScene = InSceneId;
+    }
+    uint16_t GetLoadingScene() const
+    {
+        return m_loadingScene;
+    }
+    uint16_t GetEntityScene( const EntityID& InId ) const;
+    // Destroys every entity of an additive scene (deferred like DestroyEntity). Returns how many.
+    std::size_t DestroyScene( uint16_t InSceneId );
+
     std::size_t GetEntityCount() const;
     EntityHandle GetEntity( const EntityID& id );
     Entity* GetEntityRaw( const EntityID& id );
@@ -121,6 +136,7 @@ public:
         bool PendingDestroy = false;
         bool QueuedForSync = false;
         uint8_t Layer = 0;
+        uint16_t SceneId = 0;
         uint64_t GUID = 0;
         std::string Name;
         // Prefab link: the asset this entity was instanced from and its GUID inside that asset.
@@ -164,6 +180,7 @@ private:
     std::vector<uint32_t> m_freeIndices;
     std::size_t m_aliveCount = 0;
     std::unordered_map<uint64_t, uint32_t> m_guidToIndex;
+    uint16_t m_loadingScene = 0;
 
     std::vector<std::unique_ptr<IComponentPool>> m_pools;   // indexed by component TypeId
 

@@ -105,7 +105,7 @@ flowchart TD
     A["GameWindow->ParseMessageQueue()"] --> B{"ShouldClose() and Game::OnQuitRequested()?"}
     B -- yes --> Z["StopGame, break, Engine::Shutdown"]
     B -- no --> C["EventManager::FirePendingEvents()"]
-    C --> C2["PollAssetChanges + ScriptEngine::PollReload (tools builds: hot reload)"]
+    C --> C2["PollAssetChanges + ScriptEngine::PollReload (tools builds: hot reload), additive scenes that finished loading join the world"]
     C2 --> D["Clock: clamp delta to 250 ms, apply pause / time scale"]
     D --> E["Input::Update (+ EditorInput in editor)"]
     E --> F["ImGui NewFrame + Renderer::BeginFrame"]

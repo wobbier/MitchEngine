@@ -115,6 +115,7 @@ EntityHandle World::CreateEntityInternal( uint64_t InGUID, const std::string& In
     record.Alive = true;
     record.GUID = InGUID != 0 ? InGUID : GenerateGUID();
     record.Name = InName;
+    record.SceneId = m_loadingScene;
 
     const EntityID id( index, generation );
     record.Facade = Entity( *this, id );
@@ -178,6 +179,32 @@ void World::DestroyEntity( const EntityHandle& InEntity )
     {
         MarkEntityForDelete( *entity );
     }
+}
+
+
+uint16_t World::GetEntityScene( const EntityID& InId ) const
+{
+    const EntityRecord* record = GetRecord( InId );
+    return record ? record->SceneId : 0;
+}
+
+
+std::size_t World::DestroyScene( uint16_t InSceneId )
+{
+    if( InSceneId == 0 )
+    {
+        return 0;
+    }
+    std::size_t count = 0;
+    for( EntityRecord& record : m_records )
+    {
+        if( record.Alive && record.SceneId == InSceneId && !record.PendingDestroy )
+        {
+            MarkEntityForDelete( record.Facade );
+            ++count;
+        }
+    }
+    return count;
 }
 
 

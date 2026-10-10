@@ -5,6 +5,7 @@
 #include "File.h"
 #include "Events/EventReceiver.h"
 #include "World/Scene.h"
+#include "World/SceneStreaming.h"
 #include "Camera/CameraData.h"
 #include <string>
 #include <chrono>
@@ -49,6 +50,20 @@ public:
     void LoadScene( const std::string& Level );
     // Loads a scene from already-parsed data; the scene's FilePath is set to InFilePath (may be empty).
     void LoadSceneFromData( const json& InData, const std::string& InFilePath );
+
+    // Additive scenes on top of the main one (World/SceneStreaming.h): their entities unload together
+    // and never save into the main scene; loading another main scene drops them. Async reads and
+    // parses on a worker thread and instantiates at the start of a later frame (deterministic runs
+    // wait for it). Returns the scene's id (0 when a synchronous load fails). AdditiveSceneEvent
+    // reports loads and unloads.
+    uint16_t LoadSceneAdditive( const std::string& InPath, bool InAsync = false );
+    bool UnloadAdditiveScene( uint16_t InSceneId );
+    SceneStreaming& GetSceneStreaming()
+    {
+        return m_sceneStreaming;
+    }
+    // The file an entity's scene came from: its additive scene's, else the main scene's.
+    std::string GetEntityScenePath( const Entity& InEntity ) const;
 
     void Run();
     // Orderly teardown after the main loop: world, jobs, logging.
@@ -150,6 +165,7 @@ private:
 #if USING( ME_TOOLS )
     void PollAssetChanges();
     FileWatcher m_assetWatcher;
+    SceneStreaming m_sceneStreaming;
 #endif
 };
 

@@ -244,6 +244,29 @@ static void Eng_World_LoadScene( const uint8_t* inScene )
     event.Queue();
 }
 
+// Additive scenes
+
+static int Eng_World_LoadSceneAdditive( const uint8_t* inScene, bool inAsync )
+{
+    return GetEngine().LoadSceneAdditive( Text( inScene ), inAsync );
+}
+
+
+static bool Eng_World_UnloadScene( int inScene )
+{
+    return inScene > 0 && inScene <= UINT16_MAX && GetEngine().UnloadAdditiveScene( static_cast<uint16_t>( inScene ) );
+}
+
+
+static int Eng_World_GetSceneState( int inScene )
+{
+    if( inScene <= 0 || inScene > UINT16_MAX )
+    {
+        return 0;
+    }
+    return static_cast<int>( GetEngine().GetSceneStreaming().GetState( static_cast<uint16_t>( inScene ) ) );
+}
+
 // Input actions
 
 static float Eng_Input_GetActionValue( const uint8_t* inAction )
@@ -608,6 +631,9 @@ void Register_GameplayBindings( ScriptEngineAPI& inAPI )
     inAPI.Transform_SetParent = Eng_Transform_SetParent;
     inAPI.World_Instantiate = Eng_World_Instantiate;
     inAPI.World_LoadScene = Eng_World_LoadScene;
+    inAPI.World_LoadSceneAdditive = Eng_World_LoadSceneAdditive;
+    inAPI.World_UnloadScene = Eng_World_UnloadScene;
+    inAPI.World_GetSceneState = Eng_World_GetSceneState;
     inAPI.Input_GetActionValue = Eng_Input_GetActionValue;
     inAPI.Input_GetActionVector2 = Eng_Input_GetActionVector2;
     inAPI.Input_IsActionPressed = Eng_Input_IsActionPressed;

@@ -363,6 +363,16 @@ void Engine::Run()
 #endif
 #endif
 
+        // Additive scenes whose background read finished join the world now (deterministic runs
+        // wait for them, so captures never depend on IO timing).
+        for( uint16_t loaded : m_fixedFrameDelta > 0.f ? m_sceneStreaming.Wait( *GameWorld ) : m_sceneStreaming.Pump( *GameWorld ) )
+        {
+            AdditiveSceneEvent loadedEvent;
+            loadedEvent.SceneId = loaded;
+            loadedEvent.Path = m_sceneStreaming.GetPath( loaded );
+            loadedEvent.Fire();
+        }
+
         // Frame timing: clamp hitches (debugger breaks, loading) so the simulation never tries to
         // catch up on seconds of backlog, then apply pause / time scale.
         float frameSeconds = 0.f;
@@ -895,6 +905,55 @@ void Engine::LoadSceneFromData( const json& InData, const std::string& InFilePat
 }
 
 
+uint16_t Engine::LoadSceneAdditive( const std::string& InPath, bool InAsync )
+{
+    if( InAsync )
+    {
+        return m_sceneStreaming.LoadAsync( InPath );
+    }
+    const uint16_t id = m_sceneStreaming.Load( *GameWorld, InPath );
+    if( id != 0 )
+    {
+        AdditiveSceneEvent loadedEvent;
+        loadedEvent.SceneId = id;
+        loadedEvent.Path = InPath;
+        loadedEvent.Fire();
+    }
+    return id;
+}
+
+
+bool Engine::UnloadAdditiveScene( uint16_t InSceneId )
+{
+    const std::string path = m_sceneStreaming.GetPath( InSceneId );
+    const bool wasLoaded = m_sceneStreaming.GetState( InSceneId ) == SceneStreaming::State::Loaded;
+    if( !m_sceneStreaming.Unload( *GameWorld, InSceneId ) )
+    {
+        return false;
+    }
+    if( wasLoaded )
+    {
+        AdditiveSceneEvent unloadedEvent;
+        unloadedEvent.SceneId = InSceneId;
+        unloadedEvent.Path = path;
+        unloadedEvent.Loaded = false;
+        unloadedEvent.Fire();
+    }
+    return true;
+}
+
+
+std::string Engine::GetEntityScenePath( const Entity& InEntity ) const
+{
+    const uint16_t sceneId = GameWorld ? GameWorld->GetEntityScene( InEntity.GetId() ) : 0;
+    if( sceneId != 0 )
+    {
+        return m_sceneStreaming.GetPath( sceneId );
+    }
+    return CurrentScene ? CurrentScene->FilePath.GetLocalPathString() : std::string();
+}
+
+
 void Engine::LoadSceneInternal( const std::string& SceneFile, const json* InData )
 {
     OPTICK_EVENT( "Engine::LoadScene" );
@@ -909,6 +968,7 @@ void Engine::LoadSceneInternal( const std::string& SceneFile, const json* InData
 
     {
         OPTICK_EVENT( "Engine::LoadScene::WorldUnload" );
+        m_sceneStreaming.Reset();
         GameWorld->Unload();
     }
     SceneNodes->Init();

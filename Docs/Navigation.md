@@ -68,7 +68,7 @@ Units are metres; +Y is up. The navmesh lies on surfaces facing up (normal `cros
 
 ### Files and loading
 
-- A surface's navmesh lives in `NavMeshData` when that names a file. Otherwise it is `<scene path without .lvl>.<entity name>.navmesh` next to the scene, e.g. `Assets/Scenes/Tests/NavTest.NavSurface.navmesh`.
+- A surface's navmesh lives in `NavMeshData` when that names a file. Otherwise it is `<scene path without .lvl>.<entity name>.navmesh` next to the surface's own scene (an additive scene's, for streamed chunks), e.g. `Assets/Scenes/Tests/NavTest.NavSurface.navmesh`.
 - The format is a small header (magic `MNAV`, version, Detour parameters, agent size, source hash) followed by length-prefixed Detour tiles.
 - Each update, `SyncNow` loads any surface whose path changed. It also runs before scripts' `OnStart` (`ScriptCore`) and when play starts, so scripts can query the navmesh from their first frame.
 - With no file, `BakeOnLoad` bakes when the scene loads. That suits procedural levels and game builds that don't ship the file.
