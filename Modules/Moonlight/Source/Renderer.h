@@ -1,4 +1,5 @@
 #pragma once
+#include <unordered_map>
 #include <bgfx/bgfx.h>
 #include <Math/Vector2.h>
 #include "Camera/CameraData.h"
@@ -165,7 +166,11 @@ private:
     void DestroyShadowAtlas( ShadowAtlas& atlas );
     void RenderSunShadows( Moonlight::CameraData& camera );
     void RenderLocalShadows();
-    void SubmitShadowCasters( bgfx::ViewId view, const Frustum& frustum );
+    // Shadow casters: gathered and grouped into instance batches once a frame, culled against all
+    // of a pass's views in one parallel sweep (a bit per view), then submitted view by view.
+    void GatherShadowCasters();
+    void CullShadowCasters( const Frustum* InFrustums, uint32_t InCount );
+    void SubmitShadowCasters( bgfx::ViewId InView, uint32_t InViewIndex );
     // World -> atlas uv / depth for one tile of a 2x2 atlas.
     glm::mat4 ShadowAtlasMatrix( uint32_t tile, const glm::mat4& viewProjection ) const;
     // World -> atlas uv / depth for a pixel rectangle of an atlas (top-left origin).
@@ -177,6 +182,24 @@ private:
     Moonlight::ShaderCommand m_shadowSkinnedProgram;
     bgfx::UniformHandle u_bones = BGFX_INVALID_HANDLE;
     std::vector<size_t> m_skinnedShadowCasters;
+    // What the cull and the batching need of a caster, copied compactly out of its mesh command.
+    struct ShadowCaster
+    {
+        uint32_t Command = 0;               // index into the mesh commands
+        uint32_t Batch = UINT32_MAX;        // shadow instance batch; UINT32_MAX = skinned (drawn alone)
+        uint64_t MaterialKey = 0;
+        uint16_t VertexBuffer = 0;
+        uint16_t IndexBuffer = 0;
+        bool Skinned = false;
+        AABB Bounds;
+    };
+    // Casters by chunk of mesh commands (gathered in parallel); a chunk's views start at its offset.
+    std::vector<std::vector<ShadowCaster>> m_shadowCasterChunks;
+    std::vector<uint32_t> m_shadowCasterChunkOffsets;
+    uint32_t m_shadowCasterChunkCount = 0;
+    uint32_t m_shadowCasterCount = 0;
+    std::vector<uint32_t> m_shadowCasterViews;  // per caster: bit v = inside the pass's view v
+    std::unordered_map<uint64_t, uint32_t> m_shadowBatchLookup;
     bool m_shadowsSupported = false;
     bool m_hasSunShadow = false;
     Moonlight::LightCommand m_sunShadowLight;
@@ -282,6 +305,7 @@ private:
         uint64_t materialKey = 0;
         size_t representativeIndex = 0;
         std::vector<glm::mat4> transforms;
+        std::vector<uint32_t> commands;     // shadow batches: the casters' mesh command indices
     };
     std::vector<InstanceBatch> m_instanceBatches;
     size_t m_activeBatchCount = 0;

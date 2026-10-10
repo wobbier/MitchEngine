@@ -4,6 +4,7 @@
 #include <bgfx/platform.h>
 #include <ImGui/ImGuiRenderer.h>
 #include "optick.h"
+#include "Jobs/JobSystem.h"
 #include "imgui.h"
 #include "Utils/BGFXUtils.h"
 #include "bx/timer.h"
@@ -959,18 +960,8 @@ void BGFXRenderer::PrepareFrameLighting()
     m_lighting.Params[1] = static_cast<float>( m_localLights.size() );
     m_lighting.Params[2] = 1.f;
 
-    // Bounds of everything that casts shadows: cascades extend towards the light to include them.
-    m_casterBounds = AABB();
-    if( m_hasSunShadow )
-    {
-        for( const Moonlight::MeshCommand& mesh : m_meshCache.Commands )
-        {
-            if( mesh.MeshMaterial && mesh.CastShadows && !mesh.IsTransparent )
-            {
-                m_casterBounds.Encapsulate( mesh.WorldBounds );
-            }
-        }
-    }
+    // This frame's shadow casters, and their bounds (cascades extend towards the light to include them).
+    GatherShadowCasters();
 
     // Local shadows: the first four shadowed spots get an atlas tile each, the first two shadowed
     // point lights six (one per cube face).
@@ -1237,57 +1228,152 @@ glm::mat4 BGFXRenderer::ShadowAtlasMatrix( uint32_t tile, const glm::mat4& viewP
 }
 
 
-void BGFXRenderer::SubmitShadowCasters( bgfx::ViewId view, const Frustum& frustum )
+void BGFXRenderer::GatherShadowCasters()
+{
+    OPTICK_EVENT( "Renderer::GatherShadowCasters" );
+    for( size_t b = 0; b < m_activeShadowBatchCount; ++b )
+    {
+        m_shadowBatches[b].commands.clear();
+    }
+    m_activeShadowBatchCount = 0;
+    m_shadowBatchLookup.clear();
+    m_casterBounds = AABB();
+
+    // Scan the (large) mesh commands in parallel chunks, keeping the casters compactly in order.
+    constexpr uint32_t kChunk = 2048;
+    const uint32_t commandCount = static_cast<uint32_t>( m_meshCache.Commands.size() );
+    const uint32_t chunkCount = ( commandCount + kChunk - 1 ) / kChunk;
+    if( m_shadowCasterChunks.size() < chunkCount )
+    {
+        m_shadowCasterChunks.resize( chunkCount );
+    }
+    m_shadowCasterChunkCount = chunkCount;
+    m_shadowCasterChunkOffsets.resize( chunkCount );
+    Jobs::JobSystem::Get().ParallelFor( chunkCount, 1, [this, commandCount]( uint32_t InBegin, uint32_t InEnd ) {
+        for( uint32_t chunk = InBegin; chunk < InEnd; ++chunk )
+        {
+            std::vector<ShadowCaster>& casters = m_shadowCasterChunks[chunk];
+            casters.clear();
+            const uint32_t last = std::min( commandCount, ( chunk + 1 ) * kChunk );
+            for( uint32_t i = chunk * kChunk; i < last; ++i )
+            {
+                const Moonlight::MeshCommand& mesh = m_meshCache.Commands[i];
+                if( !mesh.MeshMaterial || !mesh.SingleMesh || !mesh.CastShadows || mesh.IsTransparent || mesh.VertexBufferIdx == UINT16_MAX || !mesh.WorldBounds.IsValid() )
+                {
+                    continue;
+                }
+                ShadowCaster caster;
+                caster.Command = i;
+                // Opaque casters only differ by geometry; alpha-tested ones also by their textures.
+                caster.MaterialKey = mesh.AlphaCutoff > 0.f ? mesh.BatchKey : 0u;
+                caster.VertexBuffer = mesh.VertexBufferIdx;
+                caster.IndexBuffer = mesh.IndexBufferIdx;
+                caster.Skinned = mesh.SkinBoneCount > 0;
+                caster.Bounds = mesh.WorldBounds;
+                casters.push_back( caster );
+            }
+        }
+    } );
+
+    // Group into instance batches in place (serial, so batch order is stable).
+    uint32_t previousBatch = UINT32_MAX;
+    m_shadowCasterCount = 0;
+    for( uint32_t chunk = 0; chunk < chunkCount; ++chunk )
+    {
+        m_shadowCasterChunkOffsets[chunk] = m_shadowCasterCount;
+        m_shadowCasterCount += static_cast<uint32_t>( m_shadowCasterChunks[chunk].size() );
+        for( ShadowCaster& caster : m_shadowCasterChunks[chunk] )
+        {
+            m_casterBounds.Encapsulate( caster.Bounds );
+            if( !caster.Skinned )
+            {
+                auto matches = [&caster]( const InstanceBatch& InBatch ) {
+                    return InBatch.vertexBuffer == caster.VertexBuffer && InBatch.indexBuffer == caster.IndexBuffer && InBatch.materialKey == caster.MaterialKey;
+                };
+                const uint64_t lookup = caster.MaterialKey * 0x9E3779B97F4A7C15ull ^ ( static_cast<uint64_t>( caster.VertexBuffer ) << 16 | caster.IndexBuffer );
+                // Runs of the same mesh are common (scattered copies of a prop): skip the lookup for them.
+                if( previousBatch != UINT32_MAX && matches( m_shadowBatches[previousBatch] ) )
+                {
+                    caster.Batch = previousBatch;
+                }
+                else if( auto found = m_shadowBatchLookup.find( lookup ); found != m_shadowBatchLookup.end() && matches( m_shadowBatches[found->second] ) )
+                {
+                    caster.Batch = found->second;
+                }
+                else
+                {
+                    if( m_activeShadowBatchCount == m_shadowBatches.size() )
+                    {
+                        m_shadowBatches.emplace_back();
+                    }
+                    caster.Batch = static_cast<uint32_t>( m_activeShadowBatchCount++ );
+                    InstanceBatch& batch = m_shadowBatches[caster.Batch];
+                    batch.vertexBuffer = caster.VertexBuffer;
+                    batch.indexBuffer = caster.IndexBuffer;
+                    batch.materialKey = caster.MaterialKey;
+                    batch.representativeIndex = caster.Command;
+                    m_shadowBatchLookup.emplace( lookup, caster.Batch );
+                }
+                previousBatch = caster.Batch;
+            }
+        }
+    }
+}
+
+
+void BGFXRenderer::CullShadowCasters( const Frustum* InFrustums, uint32_t InCount )
+{
+    OPTICK_EVENT( "Renderer::CullShadowCasters" );
+    m_shadowCasterViews.assign( m_shadowCasterCount, 0u );
+    const uint32_t count = std::min<uint32_t>( InCount, 32u );
+    Jobs::JobSystem::Get().ParallelFor( m_shadowCasterChunkCount, 1, [this, InFrustums, count]( uint32_t InBegin, uint32_t InEnd ) {
+        for( uint32_t chunk = InBegin; chunk < InEnd; ++chunk )
+        {
+            const std::vector<ShadowCaster>& casters = m_shadowCasterChunks[chunk];
+            uint32_t* views = m_shadowCasterViews.data() + m_shadowCasterChunkOffsets[chunk];
+            for( size_t i = 0; i < casters.size(); ++i )
+            {
+                uint32_t bits = 0;
+                for( uint32_t v = 0; v < count; ++v )
+                {
+                    if( InFrustums[v].Intersects( casters[i].Bounds ) )
+                    {
+                        bits |= 1u << v;
+                    }
+                }
+                views[i] = bits;
+            }
+        }
+    } );
+}
+
+
+void BGFXRenderer::SubmitShadowCasters( bgfx::ViewId view, uint32_t InViewIndex )
 {
     OPTICK_EVENT( "Renderer::SubmitShadowCasters" );
     for( size_t b = 0; b < m_activeShadowBatchCount; ++b )
     {
-        m_shadowBatches[b].transforms.clear();
+        m_shadowBatches[b].commands.clear();
     }
-    m_activeShadowBatchCount = 0;
     m_skinnedShadowCasters.clear();
-
-    for( size_t i = 0; i < m_meshCache.Commands.size(); ++i )
+    const uint32_t bit = 1u << InViewIndex;
+    const uint32_t* views = m_shadowCasterViews.data();
+    for( uint32_t chunk = 0; chunk < m_shadowCasterChunkCount; ++chunk )
     {
-        const Moonlight::MeshCommand& mesh = m_meshCache.Commands[i];
-        if( !mesh.MeshMaterial || !mesh.SingleMesh || !mesh.CastShadows || mesh.IsTransparent || mesh.VertexBufferIdx == UINT16_MAX )
+        for( const ShadowCaster& caster : m_shadowCasterChunks[chunk] )
         {
-            continue;
-        }
-        if( !mesh.WorldBounds.IsValid() || !frustum.Intersects( mesh.WorldBounds ) )
-        {
-            continue;
-        }
-        if( mesh.SkinBoneCount > 0 )
-        {
-            m_skinnedShadowCasters.push_back( i );   // each has its own pose: drawn one by one below
-            continue;
-        }
-        // Opaque casters only differ by geometry; alpha-tested ones also by their textures.
-        const uint64_t key = mesh.AlphaCutoff > 0.f ? mesh.BatchKey : 0u;
-        InstanceBatch* batch = nullptr;
-        for( size_t b = 0; b < m_activeShadowBatchCount; ++b )
-        {
-            InstanceBatch& candidate = m_shadowBatches[b];
-            if( candidate.vertexBuffer == mesh.VertexBufferIdx && candidate.indexBuffer == mesh.IndexBufferIdx && candidate.materialKey == key )
+            if( *views++ & bit )
             {
-                batch = &candidate;
-                break;
+                if( caster.Batch == UINT32_MAX )
+                {
+                    m_skinnedShadowCasters.push_back( caster.Command );   // each has its own pose: drawn one by one below
+                }
+                else
+                {
+                    m_shadowBatches[caster.Batch].commands.push_back( caster.Command );
+                }
             }
         }
-        if( !batch )
-        {
-            if( m_activeShadowBatchCount == m_shadowBatches.size() )
-            {
-                m_shadowBatches.emplace_back();
-            }
-            batch = &m_shadowBatches[m_activeShadowBatchCount++];
-            batch->vertexBuffer = mesh.VertexBufferIdx;
-            batch->indexBuffer = mesh.IndexBufferIdx;
-            batch->materialKey = key;
-            batch->representativeIndex = i;
-        }
-        batch->transforms.push_back( mesh.Transform );
     }
 
     constexpr uint16_t kInstanceStride = sizeof( glm::mat4 );
@@ -1295,9 +1381,13 @@ void BGFXRenderer::SubmitShadowCasters( bgfx::ViewId view, const Frustum& frustu
     for( size_t b = 0; b < m_activeShadowBatchCount; ++b )
     {
         const InstanceBatch& batch = m_shadowBatches[b];
+        if( batch.commands.empty() )
+        {
+            continue;
+        }
         const Moonlight::MeshCommand& mesh = m_meshCache.Commands[batch.representativeIndex];
         const float alpha[4] = { mesh.AlphaCutoff, mesh.MeshMaterial->Tiling.x, mesh.MeshMaterial->Tiling.y, 0.f };
-        const uint32_t count = static_cast<uint32_t>( batch.transforms.size() );
+        const uint32_t count = static_cast<uint32_t>( batch.commands.size() );
         uint32_t offset = 0;
         while( offset < count )
         {
@@ -1308,7 +1398,12 @@ void BGFXRenderer::SubmitShadowCasters( bgfx::ViewId view, const Frustum& frustu
             }
             bgfx::InstanceDataBuffer idb;
             bgfx::allocInstanceDataBuffer( &idb, available, kInstanceStride );
-            std::memcpy( idb.data, batch.transforms.data() + offset, (size_t)available * kInstanceStride );
+            // Straight from the mesh commands into the instance buffer.
+            glm::mat4* instances = reinterpret_cast<glm::mat4*>( idb.data );
+            for( uint32_t k = 0; k < available; ++k )
+            {
+                instances[k] = m_meshCache.Commands[batch.commands[offset + k]].Transform;
+            }
 
             bgfx::setVertexBuffer( 0, mesh.SingleMesh->GetVertexBuffer() );
             bgfx::setIndexBuffer( mesh.SingleMesh->GetIndexuffer() );
@@ -1361,7 +1456,16 @@ void BGFXRenderer::SubmitShadowCasters( bgfx::ViewId view, const Frustum& frustu
 void BGFXRenderer::RenderLocalShadows()
 {
     OPTICK_EVENT( "Renderer::RenderLocalShadows" );
+    std::vector<Frustum> frustums( m_spotShadows.size() );
     for( size_t i = 0; i < m_spotShadows.size(); ++i )
+    {
+        frustums[i].Update( m_spotShadows[i].Projection * m_spotShadows[i].View );
+    }
+    if( !frustums.empty() )
+    {
+        CullShadowCasters( frustums.data(), static_cast<uint32_t>( frustums.size() ) );
+    }
+    for( size_t i = 0; i < m_spotShadows.size() && i < 32; ++i )
     {
         char name[32];
         bx::snprintf( name, sizeof( name ), "Local Shadow %u", static_cast<uint32_t>( i ) );
@@ -1376,9 +1480,7 @@ void BGFXRenderer::RenderLocalShadows()
         bgfx::setViewClear( view, BGFX_CLEAR_DEPTH, 0, 1.f, 0 );
         bgfx::setViewTransform( view, &shadow.View[0][0], &shadow.Projection[0][0] );
         bgfx::touch( view );
-        Frustum frustum;
-        frustum.Update( shadow.Projection * shadow.View );
-        SubmitShadowCasters( view, frustum );
+        SubmitShadowCasters( view, static_cast<uint32_t>( i ) );
     }
 }
 
@@ -1408,6 +1510,12 @@ void BGFXRenderer::RenderSunShadows( Moonlight::CameraData& camera )
     input.CasterBounds = m_casterBounds;
     Moonlight::CascadeSetup cascades[Moonlight::kMaxCascades];
     Moonlight::ComputeCascades( input, cascades );
+    Frustum frustums[Moonlight::kMaxCascades];
+    for( uint32_t i = 0; i < Moonlight::kMaxCascades; ++i )
+    {
+        frustums[i].Update( cascades[i].ViewProjection );
+    }
+    CullShadowCasters( frustums, Moonlight::kMaxCascades );
 
     const uint16_t tile = m_sunShadowAtlas.TileSize;
     for( uint32_t i = 0; i < Moonlight::kMaxCascades; ++i )
@@ -1425,9 +1533,7 @@ void BGFXRenderer::RenderSunShadows( Moonlight::CameraData& camera )
         bgfx::setViewClear( view, BGFX_CLEAR_DEPTH, 0, 1.f, 0 );
         bgfx::setViewTransform( view, &cascade.View[0][0], &cascade.Projection[0][0] );
         bgfx::touch( view );
-        Frustum frustum;
-        frustum.Update( cascade.ViewProjection );
-        SubmitShadowCasters( view, frustum );
+        SubmitShadowCasters( view, i );
 
         m_lighting.ShadowMatrix[i] = ShadowAtlasMatrix( i, cascade.ViewProjection );
         m_lighting.CascadeSplits[i] = cascade.SplitFar;

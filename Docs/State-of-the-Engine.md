@@ -74,7 +74,7 @@ Impact (H/M/L) × Effort (S/M/L). Grouped so related items can share one work se
 | GPU validation of the Wave 3 renderer | **H** | S | Measure the 57k-mesh bench with shadows and IBL on real hardware, and smoke-test D3D11/Metal (only Vulkan/lavapipe verified) |
 | ~~Point-light shadows~~ | — | — | Done: six faces per light in the local shadow atlas |
 | ~~Lit particles~~ | — | — | Done: `ParticleSystem::Lit` shades smoke with the sun, local lights, their shadows and ambient |
-| Parallel shadow caster culling | M | S | One pass over commands for all cascades, ParallelFor; ~1.5 ms CPU at 57k meshes today |
+| ~~Parallel shadow caster culling~~ | — | — | Done: one gather per frame, one parallel cull per pass for all its views (-24% CPU at 57k meshes on a busy machine) |
 | ShaderGraph finish-or-delete | M | M/L | Decide before any new material work builds on it |
 
 ### C. Scripting
