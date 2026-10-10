@@ -72,7 +72,7 @@ Audio (FMOD) has its own deep dive: `Docs/Audio.md`.
 | `AudioListener` | `Source/Components/Audio/AudioListener.h` | Where the game hears from; the first active one wins (else the camera) |
 | `NavMeshSurface` | `Source/Components/Navigation/NavMeshSurface.h` | Bakes and holds a navmesh for one agent size: sources (all / children / volume, colliders and/or meshes, layer mask), default area, Recast settings, output file, bake on load; inspector Bake / Clear |
 | `NavMeshAgent` | `Source/Components/Navigation/NavMeshAgent.h` | Crowd agent: speed, acceleration, turning, stopping distance, radius / height, avoidance quality, area mask, base offset, link jump arc; `SetDestination`, `Stop`, `Warp`, path state |
-| `NavMeshModifier` / `NavMeshModifierVolume` / `NavMeshLink` | `Source/Components/Navigation/NavMeshModifiers.h` | Bake markup: ignore or re-area geometry (optionally its children), re-mark a box, connect two points off-mesh |
+| `NavMeshModifier` / `NavMeshModifierVolume` / `NavMeshLink` / `NavMeshObstacle` | `Source/Components/Navigation/NavMeshModifiers.h` | Bake markup: ignore or re-area geometry (optionally its children), re-mark a box, connect two points off-mesh; obstacles carve the navmesh at runtime |
 | `ScriptComponent` | `Source/Components/Scripting/ScriptComponent.h` | Script by type name + `m_dotnetHandle` (int, stable across hot reloads) + started flag + saved-fields JSON; the instance is created on load and started on Play |
 | `BasicUIView` | `Source/Components/UI/BasicUIView.h` | Ultralight HTML view + JS bridge |
 | `FlyingCamera` | `Source/Components/Cameras/FlyingCamera.h` | Free-fly parameters (speed etc.) for `FlyingCameraCore` |

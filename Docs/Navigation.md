@@ -8,6 +8,7 @@ Navigation is built on Recast (navmesh generation) and Detour (runtime navmesh, 
   - `NavMeshModifier` leaves geometry out of the bake or gives it another area.
   - `NavMeshModifierVolume` re-marks a box of the navmesh (holes, costly regions).
   - `NavMeshLink` connects two points (jumps, drops, ladders).
+- **Obstacles:** a `NavMeshObstacle` carves its footprint out of the navmesh while the game runs, rebuilding only the tiles it touches.
 - **Areas:** 16 named areas with traversal costs, in Project Settings > Navigation. Agents and queries choose which areas they may use with a mask.
 
 > Verified against engine commit 8d6769a5, 2026-10-10 (overhaul Wave 4).
@@ -34,7 +35,7 @@ Units are metres; +Y is up. The navmesh lies on surfaces facing up (normal `cros
 | `Source/Cores/NavigationCore.h` / `.cpp` | The core: gathering scene geometry, async bakes, file load / save, crowds, agent stepping, debug draw |
 | `Source/Components/Navigation/NavMeshSurface.h` / `.cpp` | Bake settings, sources, output path; inspector with Bake / Clear |
 | `Source/Components/Navigation/NavMeshAgent.h` / `.cpp` | Steering settings and the path API |
-| `Source/Components/Navigation/NavMeshModifiers.h` / `.cpp` | `NavMeshModifier`, `NavMeshModifierVolume`, `NavMeshLink`; area / layer choice names |
+| `Source/Components/Navigation/NavMeshModifiers.h` / `.cpp` | `NavMeshModifier`, `NavMeshModifierVolume`, `NavMeshLink`, `NavMeshObstacle`; area / layer choice names |
 | `Source/Engine/ProjectSettings.h` | `NavAreaNames`, `NavAreaCosts` (saved in `Assets/Config/ProjectSettings.json`) |
 | `Source/Scripting/Bindings/Systems/Navigation.bindings.cpp` | Script API; C# `NavMeshAgent` and `Navigation` in `Modules/ScriptCore/Source` |
 | `ThirdParty/RecastNavigation.sharpmake.cs` | Builds Recast + Detour + DetourCrowd as one static library |
@@ -94,6 +95,17 @@ While the world runs (play mode, game builds), every enabled `NavMeshAgent` on a
 - **Links:** DetourCrowd slides agents across off-mesh links. The core adds an arc of `LinkJumpHeight` (0 = straight), and `IsOnLink` reports the traversal.
 - **Stopping play:** the crowds are emptied when play stops. Edit mode never moves agents.
 
+### Obstacles (runtime carving)
+
+A `NavMeshObstacle` (box or upright cylinder) is left out of bakes. While the world runs, `SyncObstacles` tracks each obstacle's world footprint, a convex XZ outline with a height range:
+
+1. **Movement:** it counts as moved once any outline point drifts more than `MoveThreshold` from where it was last carved. It is carved again after standing still for `CarveDelay`, so a pushed crate doesn't rebuild tiles every frame.
+2. **Tiles:** the tiles under the old and the new footprint, plus a margin of twice the agent radius for the tile borders, join the surface's pending set.
+3. **Rebuild:** `StartCarves` runs `BuildNavMesh` on a background thread for just those tiles. It uses the navmesh's own grid (`NavBuildOptions::Grid` / `OnlyTiles`), the static geometry gathered once, and every obstacle as a Not Walkable volume grown by the agent radius (`rcOffsetPoly`).
+4. **Swap:** `PollCarves` replaces the tiles in place (`NavMesh::ReplaceTiles`). DetourCrowd notices the changed polygons and replans paths through them.
+
+Stopping play restores the navmesh as baked. A new bake re-carves every obstacle.
+
 ### Queries
 
 `NavigationCore::FindPath`, `SamplePosition`, `Raycast`, `GetRandomPoint` and `GetRandomPointAround` pick the navmesh under the query point. `NavMesh` offers the same queries on a specific mesh.
@@ -104,15 +116,15 @@ While the world runs (play mode, game builds), every enabled `NavMeshAgent` on a
 
 ### Editor
 
-- **Inspector:** the `NavMeshSurface` inspector has Bake / Clear (Clear also deletes the file), a progress bar while baking, tile / polygon / agent counts, the last error, and the output path. A surface draws its navmesh while its inspector is open.
+- **Inspector:** the `NavMeshSurface` inspector has Bake / Clear (Clear also deletes the file), a progress bar while baking, tile / polygon / agent counts, the last error, and the output path. It warns when the bake is **out of date**: every few seconds, `IsOutOfDate` hashes what a bake would gather now (plus the settings) and compares it with the file's `SourceHash`. A surface draws its navmesh while its inspector is open.
 - **Debug view:** Scene View > View > Navigation (action `View.Navigation`) draws every navmesh, editor view only:
   - a translucent fill coloured by area;
   - bright outline edges (walls and ledges) and faint polygon edges;
   - links as arcs;
-  - link and modifier-volume gizmos;
+  - link and modifier-volume gizmos, and obstacle footprints (red once carved, yellow while waiting to carve);
   - agents' radius circles and destinations.
 - **Baking everything:** `Navigation.BakeAll` (command palette) bakes every surface.
-- **Create menu:** Create > Navigation adds a surface, agent, link or modifier volume.
+- **Create menu:** Create > Navigation adds a surface, agent, link, modifier volume or obstacle.
 - **Project Settings > Navigation** names areas 2–15 and sets every area's cost. Areas 0 and 1 are fixed.
 - **Inspector fields:** area and mask fields show area names, because reflected int fields can declare `Choices` / `MaskChoices`.
 - **Debug draw:** `DebugDraw` gained filled triangles (`Triangle`, `Triangles`). They are alpha blended, depth tested, and never written to depth.
@@ -136,12 +148,12 @@ The C# API covers the agent and the queries:
 
 ## Caveats & Fragility
 
-- **No carving obstacles or partial rebakes.** Moving obstacles (`NavMeshObstacle`) and rebuilding only the tiles a change touched are not implemented. Agents avoid each other, not dynamic props. Re-bake when static geometry moves.
+- **Obstacles carve only while the game runs**, and only into navmeshes that are already loaded. Static geometry that moves in the editor still needs a re-bake (the out-of-date warning says when).
 - **One navmesh per agent size.** Agents use the surface under them with the closest radius. Mixed sizes need a surface per size; there are no named agent types.
 - **The crowd holds 256 agents per navmesh**, and 16 distinct area masks per crowd (more fall back to the first filter).
 - **Agents don't push or collide with physics.** With `UpdatePosition` on they are moved kinematically. Pair them with a CharacterController (manual mode) for collisions.
 - **Remaining distance is a lower bound** when the path bends more than four corners ahead.
-- **No "out of date" warning yet.** `SourceHash` is stored, but the inspector doesn't compare it with the current scene.
+- **The out-of-date check gathers the scene.** It is throttled to every few seconds while a surface's inspector is open, but it costs a full gather on very large scenes.
 - **Detour queries run on the main thread.** Long `FindPath` calls in a loop are a frame cost; DetourCrowd's internal path queue spreads agent path searches over frames.
 - **Win64 / macOS** builds are written but unverified; the library is plain C++.
 
