@@ -7,6 +7,7 @@
 #include <string>
 #include "Pointers.h"
 #include "ECS/EntityID.h"
+#include "Math/Vector3.h"
 
 class World;
 
@@ -43,6 +44,15 @@ public:
     static void        ScriptOnStart( int inHandle );
     static void        ScriptOnUpdate( int inHandle, float inDt );
     static void        ScriptOnFixedUpdate( int inHandle, float inDt );
+    // Physics callbacks (OnCollisionEnter / Exit, OnTriggerEnter / Exit in C#).
+    enum class CollisionCallback : int
+    {
+        CollisionEnter = 0,
+        CollisionExit,
+        TriggerEnter,
+        TriggerExit,
+    };
+    static void        ScriptOnCollision( int inHandle, CollisionCallback inKind, EntityID inOther, const Vector3& inPoint, const Vector3& inNormal );
     static void        ScriptOnDestroy( int inHandle );
     static void        ScriptOnEditorInspect( int inHandle );
     static int         GetScriptCount();

@@ -77,6 +77,9 @@ public:
 
     // Reflection data for this component's concrete type, or null if it isn't reflected.
     virtual const Reflection::TypeInfo* GetTypeInfo() const { return nullptr; }
+    // The object GetTypeInfo describes (the concrete component, which may sit at another address
+    // than this base under multiple inheritance).
+    virtual void* GetReflectedObject() { return nullptr; }
 
 #if USING( ME_EDITOR )
     virtual void OnEditorInspect() = 0;
@@ -109,6 +112,11 @@ public:
 
     // OnDeserialize guaranteed to be called before this
     virtual void Init() override {};
+
+    virtual void* GetReflectedObject() override
+    {
+        return static_cast<T*>( this );
+    }
 
     virtual const Reflection::TypeInfo* GetTypeInfo() const override
     {

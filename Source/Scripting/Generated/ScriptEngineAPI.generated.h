@@ -139,4 +139,8 @@ struct ScriptEngineAPI
     void ( *Character_GetVelocity )( EntityID id, Vector3* outVelocity );
     float ( *Character_GetMaxSpeed )( EntityID id );
     void ( *Character_SetMaxSpeed )( EntityID id, float speed );
+
+    // Components by name: any reflected field (or serialized key) as JSON, e.g. ("Light", "Intensity")
+    int ( *Component_GetField )( EntityID id, const uint8_t* component, const uint8_t* path, uint8_t* outJson, int size );
+    bool ( *Component_SetField )( EntityID id, const uint8_t* component, const uint8_t* path, const uint8_t* json );
 };

@@ -289,6 +289,31 @@ public static class ScriptBridge
     }
 
     [UnmanagedCallersOnly]
+    public static unsafe void ScriptOnCollision(int handle, int kind, Entity other, Vector3* point, Vector3* normal)
+    {
+        if (!Instances.TryGetValue(handle, out var s))
+        {
+            return;
+        }
+
+        try
+        {
+            var collision = new Collision { Other = other, Point = *point, Normal = *normal };
+            switch (kind)
+            {
+                case 0: s.OnCollisionEnter(collision); break;
+                case 1: s.OnCollisionExit(collision); break;
+                case 2: s.OnTriggerEnter(other); break;
+                case 3: s.OnTriggerExit(other); break;
+            }
+        }
+        catch (Exception ex)
+        {
+            ReportException($"Collision callback {kind}(handle={handle})", ex);
+        }
+    }
+
+    [UnmanagedCallersOnly]
     public static void ScriptOnFixedUpdate(int handle, float dt)
     {
         if (!Instances.TryGetValue(handle, out var s))

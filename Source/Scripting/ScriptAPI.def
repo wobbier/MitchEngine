@@ -131,3 +131,7 @@ bool Character_IsGrounded( Entity id )
 void Character_GetVelocity( Entity id, Vector3* outVelocity )
 float Character_GetMaxSpeed( Entity id )
 void Character_SetMaxSpeed( Entity id, float speed )
+
+## Components by name: any reflected field (or serialized key) as JSON, e.g. ("Light", "Intensity")
+int Component_GetField( Entity id, cstr component, cstr path, byte* outJson, int size )
+bool Component_SetField( Entity id, cstr component, cstr path, cstr json )

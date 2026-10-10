@@ -6,6 +6,11 @@
 #include "Cores/NavigationCore.h"
 #include "Cores/Physics2DCore.h"
 #include "Cores/PhysicsCore.h"
+#include "Components/Physics/Rigidbody.h"
+#include "Components/Physics/Rigidbody2D.h"
+#include "Components/Transform.h"
+#include "Events/EventManager.h"
+#include "Physics/PhysicsTypes.h"
 #include "Engine/Engine.h"
 #include "optick.h"
 
@@ -21,6 +26,7 @@ ScriptCore::ScriptCore()
 
 #if USING( ME_SCRIPTING )
     ScriptEngine::Init();
+    EventManager::GetInstance().RegisterReceiver( this, { CollisionEvent::GetEventId() } );
 #endif
 }
 
@@ -144,6 +150,57 @@ void ScriptCore::OnEntityRemoved( Entity& InEntity )
     if( ScriptComponent* script = InEntity.TryGetComponent<ScriptComponent>() )
     {
         script->DestroyInstance();
+    }
+#endif
+}
+
+
+bool ScriptCore::OnEvent( const BaseEvent& InEvent )
+{
+#if USING( ME_SCRIPTING )
+    if( !m_running || InEvent.GetEventId() != CollisionEvent::GetEventId() )
+    {
+        return false;
+    }
+    const CollisionEvent& collision = static_cast<const CollisionEvent&>( InEvent );
+    const bool enter = collision.State == CollisionEvent::Phase::Enter;
+    const ScriptEngine::CollisionCallback kind = collision.IsTrigger
+        ? ( enter ? ScriptEngine::CollisionCallback::TriggerEnter : ScriptEngine::CollisionCallback::TriggerExit )
+        : ( enter ? ScriptEngine::CollisionCallback::CollisionEnter : ScriptEngine::CollisionCallback::CollisionExit );
+    // Each side hears about the other; the normal points from the receiver towards the other.
+    DeliverCollision( collision.A, collision.B, static_cast<int>( kind ), collision.Point, collision.Normal );
+    DeliverCollision( collision.B, collision.A, static_cast<int>( kind ), collision.Point, collision.Normal * -1.f );
+#endif
+    return false;
+}
+
+
+void ScriptCore::DeliverCollision( const EntityHandle& InSelf, const EntityHandle& InOther, int InKind, const Vector3& InPoint, const Vector3& InNormal )
+{
+#if USING( ME_SCRIPTING )
+    if( !InSelf )
+    {
+        return;
+    }
+    // The collider's entity, and the body it belongs to when that's an ancestor (compound bodies).
+    Entity* targets[2] = { InSelf.Get(), nullptr };
+    for( Transform* parent = InSelf->GetComponent<Transform>().GetParentTransform(); parent && !InSelf->TryGetComponent<Rigidbody>() && !InSelf->TryGetComponent<Rigidbody2D>(); parent = parent->GetParentTransform() )
+    {
+        Entity* candidate = parent->Parent.Get();
+        if( candidate && ( candidate->TryGetComponent<Rigidbody>() || candidate->TryGetComponent<Rigidbody2D>() ) )
+        {
+            targets[1] = candidate;
+            break;
+        }
+    }
+    const EntityID other = InOther ? InOther.GetID() : EntityID{};
+    for( Entity* target : targets )
+    {
+        ScriptComponent* script = target ? target->TryGetComponent<ScriptComponent>() : nullptr;
+        if( script && script->m_started && script->IsEnabled() && script->m_dotnetHandle >= 0 )
+        {
+            ScriptEngine::ScriptOnCollision( script->m_dotnetHandle, static_cast<ScriptEngine::CollisionCallback>( InKind ), other, InPoint, InNormal );
+        }
     }
 #endif
 }

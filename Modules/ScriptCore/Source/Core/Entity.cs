@@ -79,6 +79,69 @@ public readonly struct Entity : IEquatable<Entity>
 
     public Transform Transform => GetComponent<Transform>();
 
+    // Any field of any component by name, including ones without a C# wrapper:
+    //   GetField<float>("Light", "Intensity"); SetField("Light", "Color", new Vector3(1, 0.5f, 0));
+    // Paths can go deeper ("Settings.Radius", "Color.0"). Missing components or fields return the
+    // fallback / false.
+    public T GetField<T>(string component, string path, T fallback = default!)
+    {
+        string? json = GetFieldJson(component, path);
+        if (json == null)
+        {
+            return fallback;
+        }
+        try { return FieldJson.Read<T>(json); }
+        catch (System.Text.Json.JsonException) { return fallback; }
+    }
+
+    public bool SetField<T>(string component, string path, T value) => SetFieldJson(component, path, FieldJson.Write(value));
+
+    public string? GetFieldJson(string component, string path)
+    {
+        var componentBytes = Encoding.UTF8.GetBytes(component + "\0");
+        var pathBytes = Encoding.UTF8.GetBytes(path + "\0");
+        unsafe
+        {
+            fixed (byte* c = componentBytes)
+            fixed (byte* p = pathBytes)
+            {
+                const int stackSize = 256;
+                byte* buffer = stackalloc byte[stackSize];
+                int length = Engine._api.Component_GetField(this, c, p, buffer, stackSize);
+                if (length < 0)
+                {
+                    return null;
+                }
+                if (length < stackSize)
+                {
+                    return Encoding.UTF8.GetString(buffer, length);
+                }
+                var large = new byte[length + 1];
+                fixed (byte* l = large)
+                {
+                    Engine._api.Component_GetField(this, c, p, l, large.Length);
+                }
+                return Encoding.UTF8.GetString(large, 0, length);
+            }
+        }
+    }
+
+    public bool SetFieldJson(string component, string path, string json)
+    {
+        var componentBytes = Encoding.UTF8.GetBytes(component + "\0");
+        var pathBytes = Encoding.UTF8.GetBytes(path + "\0");
+        var jsonBytes = Encoding.UTF8.GetBytes(json + "\0");
+        unsafe
+        {
+            fixed (byte* c = componentBytes)
+            fixed (byte* p = pathBytes)
+            fixed (byte* j = jsonBytes)
+            {
+                return Engine._api.Component_SetField(this, c, p, j) != 0;
+            }
+        }
+    }
+
     // used by Component's fake-null check, where the type is only known at runtime.
     internal bool HasComponentNamed(string inName)
     {

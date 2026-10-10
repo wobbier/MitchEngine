@@ -69,6 +69,7 @@ using FnOnEditorInspect = void  ( * )( int );
 using FnGetFieldsJson = int ( * )( int, uint8_t*, int );
 using FnIsHandleAlive = int ( * )( int );
 using FnSetFieldsJson = void ( * )( int, const uint8_t* );
+using FnScriptOnCollision = void ( * )( int, int, EntityID, const Vector3*, const Vector3* );
 
 struct ScriptAPI
 {
@@ -96,6 +97,7 @@ struct ScriptAPI
     FnGetFieldsJson       GetFieldsJson = nullptr;
     FnSetFieldsJson       SetFieldsJson = nullptr;
     FnIsHandleAlive       IsHandleAlive = nullptr;
+    FnScriptOnCollision   ScriptOnCollision = nullptr;
 
     bool IsValid() const
     {
@@ -125,6 +127,7 @@ static bool LoadAPI( ScriptHost& inHost, const std::string& inCoreDll, ScriptAPI
     ok &= inHost.LoadFunction( inCoreDll, bridgeType, "SetFieldsJson", (void**)&outApi.SetFieldsJson );
     ok &= inHost.LoadFunction( inCoreDll, bridgeType, "ReloadGameAssembly", (void**)&outApi.ReloadGameAssembly );
     ok &= inHost.LoadFunction( inCoreDll, bridgeType, "IsHandleAlive", (void**)&outApi.IsHandleAlive );
+    ok &= inHost.LoadFunction( inCoreDll, bridgeType, "ScriptOnCollision", (void**)&outApi.ScriptOnCollision );
     //ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetFieldCount",       (void**)&outApi.GetFieldCount );
     //ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetFieldInfo",        (void**)&outApi.GetFieldInfo );
     //ok &= inHost.LoadFunction( inCoreDll, bridgeType, "GetFieldValue",       (void**)&outApi.GetFieldValue );
@@ -537,6 +540,14 @@ void ScriptEngine::ScriptOnUpdate( int inHandle, float inDt )
 void ScriptEngine::ScriptOnFixedUpdate( int inHandle, float inDt )
 {
     gDotnetAPI.ScriptOnFixedUpdate( inHandle, inDt );
+}
+
+void ScriptEngine::ScriptOnCollision( int inHandle, CollisionCallback inKind, EntityID inOther, const Vector3& inPoint, const Vector3& inNormal )
+{
+    if( gDotnetAPI.ScriptOnCollision )
+    {
+        gDotnetAPI.ScriptOnCollision( inHandle, static_cast<int>( inKind ), inOther, &inPoint, &inNormal );
+    }
 }
 
 void ScriptEngine::ScriptOnDestroy( int inHandle )

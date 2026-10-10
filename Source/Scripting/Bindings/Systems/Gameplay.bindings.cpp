@@ -369,6 +369,104 @@ static void Eng_Debug_DrawSphere( const Vector3* inCenter, float inRadius, const
 }
 
 
+// Components by name
+
+namespace
+{
+    BaseComponent* ComponentOf( EntityID InId, const uint8_t* InType )
+    {
+        EntityHandle handle = MakeHandle( InId );
+        return handle ? handle->GetComponentByName( Text( InType ) ) : nullptr;
+    }
+
+
+    // "Color.0" / "Points[2].x" -> "/Color/0" / "/Points/2/x" (for components without reflection data).
+    json::json_pointer ToPointer( const std::string& InPath )
+    {
+        std::string pointer = "/";
+        for( char c : InPath )
+        {
+            if( c != ']' )
+            {
+                pointer += ( c == '.' || c == '[' ) ? '/' : c;
+            }
+        }
+        return json::json_pointer( pointer );
+    }
+}
+
+
+static int Eng_Component_GetField( EntityID inId, const uint8_t* inComponent, const uint8_t* inPath, uint8_t* outJson, int inSize )
+{
+    BaseComponent* component = ComponentOf( inId, inComponent );
+    if( !component )
+    {
+        return -1;
+    }
+    const std::string path = Text( inPath );
+    json value;
+    if( const Reflection::TypeInfo* type = component->GetTypeInfo() )
+    {
+        value = Reflection::GetPathJson( *type, component->GetReflectedObject(), path );
+    }
+    if( value.is_null() )
+    {
+        // Hand-serialized components: read the field from their JSON.
+        json all;
+        component->Serialize( all );
+        const json::json_pointer pointer = ToPointer( path );
+        if( all.contains( pointer ) )
+        {
+            value = all[pointer];
+        }
+    }
+    if( value.is_null() )
+    {
+        return -1;
+    }
+    const std::string text = value.dump();
+    if( outJson && inSize > 0 )
+    {
+        const size_t count = std::min( text.size(), static_cast<size_t>( inSize - 1 ) );
+        std::memcpy( outJson, text.data(), count );
+        outJson[count] = 0;
+    }
+    return static_cast<int>( text.size() );
+}
+
+
+static bool Eng_Component_SetField( EntityID inId, const uint8_t* inComponent, const uint8_t* inPath, const uint8_t* inJson )
+{
+    BaseComponent* component = ComponentOf( inId, inComponent );
+    const json value = json::parse( Text( inJson ), nullptr, false );
+    if( !component || value.is_discarded() )
+    {
+        return false;
+    }
+    const std::string path = Text( inPath );
+    const std::string field = path.substr( 0, path.find_first_of( ".[" ) );
+    bool written = false;
+    if( const Reflection::TypeInfo* type = component->GetTypeInfo() )
+    {
+        written = Reflection::SetPathJson( *type, component->GetReflectedObject(), path, value );
+    }
+    if( !written )
+    {
+        json all;
+        component->Serialize( all );
+        const json::json_pointer pointer = ToPointer( path );
+        if( !all.contains( pointer ) )
+        {
+            return false;
+        }
+        all[pointer] = value;
+        component->Deserialize( all );
+    }
+    component->OnPropertyChanged( field );
+    return true;
+}
+
+
 // Character controller
 
 static void Eng_Character_SetMoveInput( EntityID inId, const Vector3* inDirection )
@@ -469,6 +567,8 @@ void Register_GameplayBindings( ScriptEngineAPI& inAPI )
     inAPI.Rigidbody_SetVelocity = Eng_Rigidbody_SetVelocity;
     inAPI.Debug_DrawLine = Eng_Debug_DrawLine;
     inAPI.Debug_DrawSphere = Eng_Debug_DrawSphere;
+    inAPI.Component_GetField = Eng_Component_GetField;
+    inAPI.Component_SetField = Eng_Component_SetField;
     inAPI.Character_SetMoveInput = Eng_Character_SetMoveInput;
     inAPI.Character_Move = Eng_Character_Move;
     inAPI.Character_Jump = Eng_Character_Jump;

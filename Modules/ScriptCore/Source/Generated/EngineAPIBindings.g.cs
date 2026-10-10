@@ -128,4 +128,8 @@ public unsafe struct EngineAPIBindings
     public delegate* unmanaged<Entity, Vector3*, void> Character_GetVelocity;
     public delegate* unmanaged<Entity, float> Character_GetMaxSpeed;
     public delegate* unmanaged<Entity, float, void> Character_SetMaxSpeed;
+
+    // Components by name: any reflected field (or serialized key) as JSON, e.g. ("Light", "Intensity")
+    public delegate* unmanaged<Entity, byte*, byte*, byte*, int, int> Component_GetField;
+    public delegate* unmanaged<Entity, byte*, byte*, byte*, byte> Component_SetField;
 }

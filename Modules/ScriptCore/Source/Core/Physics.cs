@@ -12,6 +12,14 @@ public struct RaycastHit
     public float Distance;
 }
 
+// A contact reported to OnCollisionEnter / OnCollisionExit.
+public struct Collision
+{
+    public Entity Other;        // the entity whose collider was touched
+    public Vector3 Point;       // contact point (enter events of 3D contacts)
+    public Vector3 Normal;      // from this entity towards the other
+}
+
 public enum ForceMode
 {
     Force = 0,          // continuous, mass dependent
