@@ -18,6 +18,76 @@
 #include "assimp/material.h"
 #include "Materials/DiffuseMaterial.h"
 #include "Core/Assert.h"
+#include <algorithm>
+#include <cctype>
+#include <filesystem>
+
+namespace
+{
+    bool IsImageExtension( std::string InExtension )
+    {
+        std::transform( InExtension.begin(), InExtension.end(), InExtension.begin(), []( unsigned char c ) { return static_cast<char>( std::tolower( c ) ); } );
+        return InExtension == ".png" || InExtension == ".tga" || InExtension == ".jpg" || InExtension == ".jpeg";
+    }
+
+
+    // Model files often carry the artist's own paths (absolute, Windows-style, or into a working folder
+    // that doesn't ship). Look for the texture near the model instead, from most to least certain:
+    // the same file name, the same name with a shipped image format, then (asset packs that ship
+    // "Texture_01.psd" as "Texture_01_A.png") the first image whose name starts with the stem.
+    std::string FindTextureNear( const std::string& InModelFullPath, std::string InReference )
+    {
+        namespace fs = std::filesystem;
+        std::replace( InReference.begin(), InReference.end(), '\\', '/' );
+        const fs::path reference( InReference );
+        const std::string fileName = reference.filename().string();
+        const std::string stem = reference.stem().string();
+        if( fileName.empty() )
+        {
+            return std::string();
+        }
+        const fs::path modelDirectory = fs::path( InModelFullPath ).parent_path();
+        const fs::path directories[] = { modelDirectory, modelDirectory / "Textures", modelDirectory / ".." / "Textures", modelDirectory / ".." / "textures", modelDirectory / ".." };
+        std::error_code error;
+        for( const fs::path& directory : directories )
+        {
+            if( fs::is_regular_file( directory / fileName, error ) )
+            {
+                return fs::weakly_canonical( directory / fileName, error ).string();
+            }
+        }
+        for( const fs::path& directory : directories )
+        {
+            for( const char* extension : { ".png", ".tga", ".jpg", ".jpeg" } )
+            {
+                const fs::path candidate = directory / ( stem + extension );
+                if( fs::is_regular_file( candidate, error ) )
+                {
+                    return fs::weakly_canonical( candidate, error ).string();
+                }
+            }
+        }
+        for( const fs::path& directory : directories )
+        {
+            std::string best;
+            for( fs::directory_iterator it( directory, error ), end; !error && it != end; it.increment( error ) )
+            {
+                const std::string name = it->path().filename().string();
+                if( name.size() > stem.size() && name.compare( 0, stem.size(), stem ) == 0 && ( name[stem.size()] == '_' || name[stem.size()] == '-' )
+                    && IsImageExtension( it->path().extension().string() ) && ( best.empty() || name < best ) )
+                {
+                    best = name;
+                }
+            }
+            error.clear();
+            if( !best.empty() )
+            {
+                return fs::weakly_canonical( directory / best, error ).string();
+            }
+        }
+        return std::string();
+    }
+}
 
 
 void DecomposeMatrix(
@@ -520,7 +590,6 @@ bool ModelResource::LoadMaterialTextures( SharedPtr<Moonlight::Material> newMate
             Path filePath( texturePath );
             if( filePath.Exists )
             {
-                BRUH( "ABS: " + filePath.FullPath );
                 texture = ResourceCache::GetInstance().Get<Moonlight::Texture>( filePath, wrapMode );
             }
             else
@@ -528,24 +597,39 @@ bool ModelResource::LoadMaterialTextures( SharedPtr<Moonlight::Material> newMate
                 Path relativePath = Path( FilePath.GetDirectoryString() + texturePath );
                 if( relativePath.Exists )
                 {
-                    BRUH( "REL: " + relativePath.GetLocalPathString() );
                     texture = ResourceCache::GetInstance().Get<Moonlight::Texture>( relativePath, wrapMode );
                 }
             }
 
-#if USING( ME_TOOLS )
-            // this should be done in the compile stage
             if( !texture )
             {
-                Path desperationPath = ResourceCache::GetInstance().FindByName( Path( "Assets" ), Path( texturePath ).GetFileNameString( true ) );
-                ME_ASSERT_MSG( false, std::string( "Loading an FBX texture that doesn't exist: \n" + texturePath + "\nFound: " + desperationPath.GetLocalPathString() ).c_str() );
-                texture = ResourceCache::GetInstance().Get<Moonlight::Texture>( desperationPath );
+                // The model points somewhere that doesn't exist here: relink by name.
+                const std::string found = FindTextureNear( FilePath.FullPath, texturePath );
+                if( !found.empty() )
+                {
+                    const Path relinked( found );
+                    CLog::Log( CLog::LogType::Warning, "Model " + FilePath.GetLocalPathString() + ": texture '" + texturePath + "' relinked to " + relinked.GetLocalPathString() );
+                    texture = ResourceCache::GetInstance().Get<Moonlight::Texture>( relinked, wrapMode );
+                }
+            }
+
+#if USING( ME_TOOLS )
+            if( !texture )
+            {
+                std::string fileName = texturePath;
+                std::replace( fileName.begin(), fileName.end(), '\\', '/' );
+                fileName = fileName.substr( fileName.find_last_of( '/' ) + 1 );
+                Path desperationPath = ResourceCache::GetInstance().FindByName( Path( "Assets" ), fileName );
+                if( desperationPath.Exists )
+                {
+                    texture = ResourceCache::GetInstance().Get<Moonlight::Texture>( desperationPath, wrapMode );
+                }
             }
 #endif
 
-            // this should be done in the compile stage
             if( !texture )
             {
+                BRUH( "Model " + FilePath.GetLocalPathString() + ": texture '" + texturePath + "' not found" );
                 return false;
             }
             texture->Type = typeName;
