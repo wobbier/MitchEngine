@@ -77,7 +77,8 @@ Rules:
 - To make a type async, override the three virtuals. Types that don't opt in load synchronously through `Load()` even when requested with `GetAsync`. Each async type's `Load()` is simply both parts:
   - `Texture` reads and parses the DDS in `LoadAsync` (`m_pendingImage`) and creates the bgfx texture in `FinishAsyncLoad`.
   - `ModelResource` reads the cooked `.assbin` with Assimp and builds the animation clips in `LoadAsync`. It makes meshes (GPU buffers), materials and the node tree in `FinishAsyncLoad`.
-- **Models expand when ready.** `Model::Init` requests its model with `GetAsync`, and while the model is loading the component waits in a pending list. `Model::ExpandPendingModels` runs right after the engine finishes loads each frame, before the late update, and creates the node entities and meshes then. Children saved in the scene exist meanwhile, without geometry. An `Animator` doesn't bind until its entity's `Model` is ready (`Model::IsReady`).
+- **First-time cooks happen in the background too** (tools builds). When `GetAsync` finds an asset that needs cooking (no compiled file, or flagged for export) and its meta says the cook is safe off the main thread (`MetaBase::ExportsInBackground`: textures and models), the loader thread runs `Export()` and saves the meta before `LoadAsync`. The main thread only records the result in the meta cache, in `FinishAsyncLoad`. A scene full of new assets therefore opens at once, and its textures and models pop in as `texturec` and Assimp finish (several in parallel). A synchronous `Get` still cooks on the spot.
+- **Models expand when ready.** `Model::Init` requests its model with `GetAsync`, and while the model is loading the component waits in a pending list. `Model::ExpandPendingModels` runs right after the engine finishes loads each frame, before the cameras' late update and rendering, and creates the node entities and meshes then. Children saved in the scene exist meanwhile, without geometry. An `Animator` doesn't bind until its entity's `Model` is ready (`Model::IsReady`).
 
 ### Metadata sidecars
 
@@ -161,7 +162,7 @@ ME_REGISTER_METADATA( "curve", CurveMetadata );
 
 ## Caveats & Fragility
 
-- **Shaders and cooking still block.** Shader loads and cooking (`Export()`, a shell-out or an Assimp import even under `GetAsync`) run on the main thread, as does the main-thread half of a model (meshes, materials, nodes: about a third of its load).
+- **Shaders and synchronous cooks still block.** Shader loads, and a cook requested with `Get` (or for a type without a background cook), run on the main thread, as does the main-thread half of a model (meshes, materials, nodes: about a third of its load).
 - **The cache is thread safe, GPU resources aren't**: `Get` takes a recursive mutex (held during `Load`), but loading textures/shaders/models creates bgfx objects, so call `Get`/`GetAsync` from the main thread (see `Docs/Jobs-and-Events.md`); only `LoadAsync` runs elsewhere.
 - **Type-mismatched cache hits return null** (logged as an error). Two systems loading the same path as different types is still a bug.
 - **Keep-alive is time-based, not budget-based**: there is no memory cap.

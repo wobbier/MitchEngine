@@ -45,11 +45,7 @@ struct ResourceCache::AsyncLoads
             Queued.pop_front();
             Running.push_back( resource.get() );
             lock.unlock();
-            bool succeeded = false;
-            {
-                OPTICK_EVENT( "Resource::LoadAsync" );
-                succeeded = resource->LoadAsync();
-            }
+            const bool succeeded = ResourceCache::RunBackgroundLoad( *resource );
             lock.lock();
             Running.erase( std::find( Running.begin(), Running.end(), resource.get() ) );
             Done.emplace_back( std::move( resource ), succeeded );
@@ -293,9 +289,32 @@ void ResourceCache::QueueAsyncLoad( const SharedPtr<Resource>& InResource )
 }
 
 
+bool ResourceCache::RunBackgroundLoad( Resource& InResource )
+{
+#if USING( ME_TOOLS )
+    if( InResource.m_pendingExport )
+    {
+        OPTICK_EVENT( "MetaBase::Export" );
+        CLog::Log( CLog::LogType::Info, "Exporting asset: " + InResource.FilePath.FullPath );
+        InResource.m_pendingExport->Export();
+        InResource.m_pendingExport->Save();
+    }
+#endif
+    OPTICK_EVENT( "Resource::LoadAsync" );
+    return InResource.LoadAsync();
+}
+
+
 void ResourceCache::FinishAsyncLoad( const SharedPtr<Resource>& InResource, bool InBackgroundSucceeded )
 {
     OPTICK_EVENT( "Resource::FinishAsyncLoad" );
+#if USING( ME_TOOLS )
+    if( InResource->m_pendingExport )
+    {
+        AssetMetaCache::GetInstance().Update( InResource->FilePath, InResource->m_pendingExport );
+        InResource->m_pendingExport.reset();
+    }
+#endif
     {
         std::lock_guard<std::mutex> lock( m_async->Mutex );
         m_async->Sequence.erase( InResource.get() );
@@ -369,7 +388,7 @@ void ResourceCache::WaitForAsyncLoads()
                 break;
             }
         }
-        const bool succeeded = queued->LoadAsync();
+        const bool succeeded = RunBackgroundLoad( *queued );
         finished.emplace_back( std::move( queued ), succeeded );
     }
     {
@@ -400,7 +419,7 @@ void ResourceCache::CompleteLoad( const SharedPtr<Resource>& InResource )
             // Not started yet: do it here instead of waiting for a loader thread.
             m_async->Queued.erase( queued );
             lock.unlock();
-            backgroundSucceeded = InResource->LoadAsync();
+            backgroundSucceeded = RunBackgroundLoad( *InResource );
         }
         else
         {

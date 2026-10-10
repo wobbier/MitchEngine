@@ -323,3 +323,106 @@ TEST_CASE( "Resources: slow cooks recompile in the background on hot reload, the
     CHECK( cache.GetPendingReimportCount() == 0 );
     s_exportDelayMs = 0;
 }
+
+
+namespace FirstCookTest
+{
+    std::atomic<int> s_exports{ 0 };
+    std::thread::id s_exportThread;
+    std::thread::id s_loadThread;
+
+    // An asset with a separate compiled file ("<source>.cooked"), written by its cook.
+    struct CookMeta
+        : public MetaBase
+    {
+        explicit CookMeta( const Path& InPath )
+            : MetaBase( InPath )
+        {
+        }
+
+        std::string GetExtension2() const override
+        {
+            return "cooked";
+        }
+
+        void OnSerialize( json& ) override
+        {
+        }
+
+        void OnDeserialize( const json& ) override
+        {
+        }
+
+        void Export() override
+        {
+            s_exportThread = std::this_thread::get_id();
+            ++s_exports;
+            std::ofstream( FilePath.FullPath + ".cooked" ) << "cooked";
+        }
+
+        bool ExportsInBackground() const override
+        {
+            return true;
+        }
+    };
+
+    class CookedAsset
+        : public Resource
+    {
+    public:
+        explicit CookedAsset( const Path& InPath )
+            : Resource( InPath )
+        {
+        }
+
+        bool SupportsAsyncLoad() const override
+        {
+            return true;
+        }
+
+        bool LoadAsync() override
+        {
+            s_loadThread = std::this_thread::get_id();
+            std::ifstream file( FilePath.FullPath + ".cooked" );
+            std::getline( file, Contents );
+            return !Contents.empty();
+        }
+
+        bool FinishAsyncLoad() override
+        {
+            return true;
+        }
+
+        std::string Contents;
+    };
+}
+
+ME_REGISTER_METADATA( "firstcook", FirstCookTest::CookMeta );
+
+TEST_CASE( "Resources: a background load cooks a new asset on its loader thread" )
+{
+    using namespace FirstCookTest;
+    ResourceCache& cache = ResourceCache::GetInstance();
+    std::filesystem::create_directories( ".tmp/Tests/Resources" );
+    const std::string source = ".tmp/Tests/Resources/Fresh.firstcook";
+    std::filesystem::remove( source + ".cooked" );
+    std::filesystem::remove( source + ".meta" );
+    std::ofstream( source ) << "source";
+    const int exportsBefore = s_exports.load();
+
+    SharedPtr<CookedAsset> asset = cache.GetAsync<CookedAsset>( Path( source ) );
+    REQUIRE( asset );
+    // Pump (not WaitForAsyncLoads, which runs queued loads on this thread) until a loader is done.
+    for( int i = 0; i < 5000 && asset->IsLoading(); ++i )
+    {
+        cache.PumpAsyncLoads();
+        std::this_thread::sleep_for( std::chrono::milliseconds( 1 ) );
+    }
+    CHECK_FALSE( asset->IsLoading() );
+    CHECK_FALSE( asset->HasLoadFailed() );
+    CHECK( asset->Contents == "cooked" );
+    CHECK( s_exports.load() == exportsBefore + 1 );
+    CHECK( s_exportThread != std::this_thread::get_id() );
+    CHECK( s_exportThread == s_loadThread );
+    CHECK( std::filesystem::exists( source + ".meta" ) );
+}

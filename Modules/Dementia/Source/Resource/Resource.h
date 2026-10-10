@@ -56,4 +56,6 @@ private:
         Failed
     };
     LoadState m_loadState = LoadState::Ready;
+    // A first-time cook the loader thread runs before LoadAsync (tools builds; ResourceCache).
+    SharedPtr<MetaBase> m_pendingExport;
 };

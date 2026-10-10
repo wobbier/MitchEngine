@@ -93,6 +93,8 @@ private:
     template<class T, typename... Args>
     SharedPtr<T> Load( const Path& InFilePath, bool InAsync, Args&& ... args );
     void ExportIfNeeded( const Path& InFilePath, const SharedPtr<MetaBase>& InMetaFile, bool InForce );
+    // The background part of an async load: a deferred first-time cook, then Resource::LoadAsync.
+    static bool RunBackgroundLoad( Resource& InResource );
     void QueueAsyncLoad( const SharedPtr<Resource>& InResource );
     void FinishAsyncLoad( const SharedPtr<Resource>& InResource, bool InBackgroundSucceeded );
     // Cancels the queued loads and joins the loader threads.
@@ -175,7 +177,17 @@ SharedPtr<T> ResourceCache::Load( const Path& InFilePath, bool InAsync, Args&& .
         compiledFileExists = compiledAsset.Exists;
     }
 
-    ExportIfNeeded( InFilePath, metaFile, !compiledFileExists );
+    // An asset loaded in the background is also cooked there the first time (a slow compiler run:
+    // texturec, the Assimp export), so a scene full of new assets doesn't freeze the main thread.
+    bool exportInBackground = false;
+#if USING( ME_TOOLS )
+    exportInBackground = InAsync && InFilePath.Exists && metaFile && metaFile->ExportsInBackground()
+        && ( metaFile->FlaggedForExport || !compiledFileExists );
+#endif
+    if( !exportInBackground )
+    {
+        ExportIfNeeded( InFilePath, metaFile, !compiledFileExists );
+    }
 
     if( !InFilePath.Exists && !compiledFileExists && metaFile && !metaFile->FlaggedForExport )
     {
@@ -196,9 +208,17 @@ SharedPtr<T> ResourceCache::Load( const Path& InFilePath, bool InAsync, Args&& .
     if( InAsync && Res->SupportsAsyncLoad() )
     {
         Res->m_loadState = Resource::LoadState::Loading;
+        if( exportInBackground )
+        {
+            Res->m_pendingExport = metaFile;
+        }
         m_resourceStack[InFilePath.FullPath] = Res;
         QueueAsyncLoad( Res );
         return Res;
+    }
+    if( exportInBackground )
+    {
+        ExportIfNeeded( InFilePath, metaFile, true );   // this type loads synchronously after all
     }
     if( !Res->Load() )
     {
