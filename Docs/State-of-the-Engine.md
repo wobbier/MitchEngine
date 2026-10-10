@@ -1,6 +1,6 @@
 # State of the Engine
 
-> **This doc is opinion.** Every other doc in `Docs/` is factual; this one rates, prioritizes, and recommends. Never cite it as a description of behavior — cite the subsystem docs. Assessed at engine commit 047f57b8, 2026-07-10; scorecard rows for the core runtime re-scored at dab803a2, 2026-10-08 (overhaul Waves 0–1); editor, serialization and rendering-tooling rows at 7e869c6e, 2026-10-09 (Wave 2); rendering, lighting and materials rows at 1fa55311, 2026-10-09 (Wave 3); physics at 8fdd99b1, 2026-10-09 (Wave 4); animation at 07617c5f, 2026-10-09; audio at afce7083, 2026-10-09; input at e0ca1f26, 2026-10-09.
+> **This doc is opinion.** Every other doc in `Docs/` is factual; this one rates, prioritizes, and recommends. Never cite it as a description of behavior — cite the subsystem docs. Assessed at engine commit 047f57b8, 2026-07-10; scorecard rows for the core runtime re-scored at dab803a2, 2026-10-08 (overhaul Waves 0–1); editor, serialization and rendering-tooling rows at 7e869c6e, 2026-10-09 (Wave 2); rendering, lighting and materials rows at 1fa55311, 2026-10-09 (Wave 3); physics at 8fdd99b1, 2026-10-09 (Wave 4); animation at 07617c5f, 2026-10-09; audio at afce7083, 2026-10-09; input at e0ca1f26, 2026-10-09; scripting at 6a4b006f, 2026-10-09.
 
 MitchEngine is a real, working engine: it ships Drumsmith, runs a full editor on Linux/Windows, hosts .NET 8 scripting, and has genuinely thoughtful hot paths (the zero-virtual render submit, automatic instancing, transform dirty caching). Its weaknesses are the classic solo-engine kind: half-migrations left in place (Mono→.NET, fixed→variable timestep, Ultralight→web-UI), correctness debt that hasn't hurt *yet* (variable-dt physics, name-string schemas), and workflow traps that cost real work (Stop-reverts-to-last-save). The theme of this assessment: **finish or delete the half-things, then invest where the engine already punches above its weight.**
 
@@ -24,7 +24,7 @@ Ratings: **Solid** (rely on it) · **Usable** (works, know the sharp edges) · *
 | Physics | **Solid** | Box3D and Box2D cores with the same model: fixed step + interpolation, compound bodies, joints, mover-based 3D and platformer characters, layer matrix, events and queries, unit + editor-flow tested; Box3D is pre-1.0 and CollisionEvent is global (no per-entity callbacks) | [Physics.md](Physics.md) |
 | Animation | **Usable** | Clip import, bone entities, a real state machine (parameters, exit times, cross-fades, 1D blends, events) and GPU skinning in the main, shadow and picking passes, unit + editor-flow tested; no root motion, 2D blends, layers/masks or edit-mode preview | [Animation.md](Animation.md) |
 | Audio | **Usable** | Mixer buses in Project Settings, listener, positioned sources with rolloff and doppler, overlapping one-shots, pause with the game, silent automated runs, unit + editor-flow tested; no streaming or async loads, occlusion, reverb or FMOD Studio | [Audio.md](Audio.md) |
-| Scripting (.NET 8) | **Experimental** | The hosting chain is genuinely impressive and works on Win64+Linux; hand-mirrored ABI, no hot reload, no macOS | [Scripting-DotNet.md](Scripting-DotNet.md) |
+| Scripting (.NET 8) | **Usable** | Generated ABI from one manifest, hot reload that keeps field values, engine-owned lifecycle (start after physics sync, fixed update), a gameplay API (input actions, physics, audio, scenes, debug draw), CLI builds on Linux, editor-flow tested; no collision callbacks or generic component access, no macOS host, Win64 CLI path untested | [Scripting-DotNet.md](Scripting-DotNet.md) |
 | UI (Ultralight) | **Abandoned-in-place** | 60 fps cap + licensing friction; replacement (web/Vue direction) in progress — do not extend | [UI-Ultralight-and-ImGui.md](UI-Ultralight-and-ImGui.md) |
 | Editor (Havana) | **Solid** | Selection/undo/actions services, in-memory play snapshots, autosave + recovery, multi-object gizmos, reflection inspector with multi-edit, prefab overrides, asset browser v2, scripted regression tests; non-reflected components and path-based asset refs are the gaps | [Editor-Havana.md](Editor-Havana.md) |
 | Build system | **Usable** | Sharpmake graph is coherent; silent directory-existence feature variance bites every fresh machine | [Build-System.md](Build-System.md) |
@@ -35,7 +35,7 @@ Ratings: **Solid** (rely on it) · **Usable** (works, know the sharp edges) · *
 |------------|-------|-------|-------|-----|
 | Build + run game | ✅ primary | ✅ active dev | ⚠️ historically yes, not recently verified | ⚠️ configs exist, untested |
 | Havana editor | ✅ | ✅ | ⚠️ unverified | — |
-| Scripting (.NET 8) | ✅ | ✅ (Nix shell wiring) | ❌ no host path (Mono era ended) | ❌ |
+| Scripting (.NET 8) | ✅ (hot reload unverified) | ✅ (Nix shell; scripts built with the dotnet CLI) | ❌ no host path (Mono era ended) | ❌ |
 | Audio (FMOD) | ✅ | ✅ | ✅ (SDK path exists) | ✅ (SDK path exists) |
 | UI (Ultralight 1.4) | ✅ | ✅ (GTK3 stack) | ✅ | ❌ |
 | Profiling (Optick) | ✅ | ⚠️ engine parses `.opt` captures, but the build define is Win64-only | ❌ | ❌ |
@@ -51,9 +51,6 @@ The stated bar (per the game project's conventions) is: Win64/macOS/Linux must c
 | `Canvas` | `Source/Components/UI/Canvas.h` | Empty file | **Delete** |
 | `ShaderGraphMaterial` + ShaderEditor | `Modules/Moonlight/Source/Materials/ShaderGraphMaterial.h`, `Tools/ShaderEditor` | Texture-slot-3 bug, per-instance uniform creation, external tool dependency | **Decide** — finish (fix slots, ship the tool) or delete and stay code-material-only |
 | Ultralight | `Source/UI/`, `Source/Cores/UI/` | Removal declared in commit history; Vue/web direction visible in `../flake.nix` | **Finish the removal** |
-| `ScriptEngineAPI.generated.h` | `Source/Scripting/Generated/` | Hand-written mirror pair with `sizeof` tripwire | **Automate** — generate both sides from one description |
-| Script hot reload | `Modules/ScriptCore/Source/GameScriptALC.cs` (collectible ALC) + commented `ReloadGameAssembly` | Groundwork only | **Finish** — the hard part (ALC isolation) is done |
-| `World_FindByName` binding | `Source/Scripting/Bindings/Systems/World.bindings.cpp` | Scans root's direct children only (in-code "this shit is busted") | **Fix** (small: recursive walk or name index) |
 | `RenderCore::UpdateMesh` | `Source/Cores/Rendering/RenderCore.cpp` | Fully commented out | **Delete** (the per-frame job rewrite made it moot) |
 | `UWPWindow` | `Source/Window/UWPWindow.cpp` | Superseded by SDLWindow-on-UWP | **Delete or revive** with a UWP pass |
 | `IsRunning` check in `Simulate` | `Source/Engine/World.cpp` (`//continue;`) | Deliberately (?) disabled | **Decide** the intended semantics and either restore or remove the dead check |
@@ -85,10 +82,11 @@ Impact (H/M/L) × Effort (S/M/L). Grouped so related items can share one work se
 ### C. Scripting
 | Item | Impact | Effort | Notes |
 |------|--------|--------|-------|
-| Binding codegen (single source of truth) | **H** | M | Generate `ScriptEngineAPI.generated.h` + `EngineAPIBindings` from one manifest; deletes the ABI-drift class of bugs |
-| Hot reload | **H** | M | `ReloadGameAssembly` + ALC unload + re-`CreateScript` with fields JSON re-applied |
+| ~~Binding codegen~~ | — | — | Done: `ScriptAPI.def` + `Tools/GenerateScriptAPI.py` generate both halves |
+| ~~Hot reload~~ | — | — | Done: rebuild on a worker thread, swap the ALC, same handles, fields restored |
+| Collision/trigger callbacks + generic component get/set | **H** | M | Route physics events to `OnCollision*`/`OnTrigger*`; expose reflected fields by path so every component is scriptable |
 | macOS .NET host | M | M | Same hostfxr dance with the osx-x64/arm64 host pack; restores platform parity |
-| Fix `World_FindByName` | M | **S** | Known-broken API surface |
+| ~~Fix `World_FindByName`~~ | — | — | Done: searches the whole world |
 
 ### D. Editor & workflow
 | Item | Impact | Effort | Notes |
@@ -133,8 +131,8 @@ quadrantChart
 4. ~~Fixed timestep for physics~~ — done (Wave 4: Box3D `PhysicsCore` in the fixed loop with interpolation). → `Physics.md`
 5. **Scene versioning + rename aliases** — *why now:* every rename risk grows with content volume. *First step:* write `"Version": 1` on save; add alias map to component/core registries. → `Serialization-and-Scenes.md`
 6. **Finish Ultralight removal** — *why now:* it's already declared dead; limbo is the worst state. *First step:* land the web-UI spike behind `ME_UI`, delete `Source/UI/Graphics/GPUDriver.*` last. → `UI-Ultralight-and-ImGui.md`
-7. **Script binding codegen** — *why now:* before the API grows; every added binding is currently a 4-file ABI hazard. *First step:* a small generator (even a python script) emitting both structs from a manifest. → `Scripting-DotNet.md`
-8. **Script hot reload** — *why now:* biggest iteration-speed win available; groundwork exists. *First step:* wire `ReloadGameAssembly`, re-create instances from `ScriptComponent` names + fields JSON. → `Scripting-DotNet.md`
+7. ~~Script binding codegen~~ — done (`ScriptAPI.def` + generator with a `--check` mode). → `Scripting-DotNet.md`
+8. ~~Script hot reload~~ — done (editing a `.cs` rebuilds and swaps in place; fields survive). Next scripting priority: collision callbacks and generic component access. → `Scripting-DotNet.md`
 9. ~~Bounding-volume culling~~ — done (AABB per mesh, tested in the mesh job). → `Rendering-Pipeline.md`
 10. ~~Shadow mapping~~ — done in Wave 3 (cascaded sun + spot shadows). Next rendering priority: validate on real GPUs and non-Vulkan backends. → `Rendering-Pipeline.md`
 

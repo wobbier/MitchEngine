@@ -2,7 +2,7 @@
 
 The catalog: every core (system) and component the engine ships, what each core filters on, when it updates, and which components are decorative or orphaned. Audio, Physics, Animation, Rendering, UI, and Scripting have their own docs.
 
-> Verified against engine commit 047f57b8, 2026-07-10; the rendering rows (RenderCore, ParticleCore, Mesh, Light, PostProcess, ParticleSystem) against 1fa55311, 2026-10-09 (overhaul Wave 3); the physics rows against 8fdd99b1, 2026-10-09 (overhaul Wave 4); the animation rows (AnimationCore, Animator, Model, Mesh skinning) against 07617c5f, 2026-10-09; the audio rows against afce7083, 2026-10-09.
+> Verified against engine commit 047f57b8, 2026-07-10; the rendering rows (RenderCore, ParticleCore, Mesh, Light, PostProcess, ParticleSystem) against 1fa55311, 2026-10-09 (overhaul Wave 3); the physics rows against 8fdd99b1, 2026-10-09 (overhaul Wave 4); the animation rows (AnimationCore, Animator, Model, Mesh skinning) against 07617c5f, 2026-10-09; the audio rows against afce7083, 2026-10-09; the scripting rows against 6a4b006f, 2026-10-09.
 
 ## Overview
 
@@ -21,7 +21,7 @@ Cores come in two flavors (see `Docs/Architecture.md`): **engine-owned** (create
 | `PhysicsCore` (`Source/Cores/PhysicsCore.h`) | `Transform` + one of (`Rigidbody`, a collider, `CharacterController`, `PhysicsJoint`) | engine-owned | Box3D world: fixed-step simulation (play mode), interpolated poses, edit-mode body sync, `CollisionEvent`s, queries, character mover — see `Docs/Physics.md`. Old scenes' `"PhysicsCore"` core entries resolve to it |
 | `Physics2DCore` (`Source/Cores/Physics2DCore.h`) | `Transform` + one of (`Rigidbody2D`, a 2D collider, `CharacterController2D`, `PhysicsJoint2D`) | engine-owned | The Box2D counterpart in the XY plane: same lifecycle, events (`Is2D`), layers and queries — see `Docs/Physics.md` |
 | `AnimationCore` (`Source/Cores/AnimationCore.h`) | `Transform` + `Animator` | engine-owned | Plays Animators while the world is started: binds clips to node entities by name, steps state machines, samples poses in parallel, writes Transforms, fires `AnimationEvent`s — see `Docs/Animation.md` |
-| `ScriptCore` (`Source/Cores/Scripting/ScriptCore.h`) | `ScriptComponent` | scene-loaded | .NET script lifecycle — see `Docs/Scripting-DotNet.md` |
+| `ScriptCore` (`Source/Cores/Scripting/ScriptCore.h`) | `ScriptComponent` | engine-owned (scripting builds) | .NET script lifecycle while the world is started: `OnStart` after a physics sync, `OnFixedUpdate` before each physics step, `OnUpdate` after the scene-loaded cores, `OnDestroy` with the entity; inspector has Rebuild && Reload — see `Docs/Scripting-DotNet.md`. Old scenes' `"ScriptCore"` core entries resolve to it |
 | `SelfDestructor` (`Source/Cores/Utility/SelfDestructCore.h`) | `SelfDestruct` | scene-loaded | Kills entities when their `Lifetime` expires (note the class name — not "SelfDestructCore") |
 | `FlyingCameraCore` (`Source/Cores/Cameras/FlyingCameraCore.h`) | `FlyingCamera` + `Camera` + `Transform` | scene-loaded | Free-fly camera: the `Move` / `Look` actions (or WASD + right-drag), E / Q or shoulders to rise and sink, sprint — see `Docs/Input.md` |
 | `EditorCore` (`Modules/Havana/Source/Cores/EditorCore.h`) | — | editor-only | Selection/gizmo state — see `Docs/Editor-Havana.md` |
@@ -30,8 +30,8 @@ Cores come in two flavors (see `Docs/Architecture.md`): **engine-owned** (create
 
 ```mermaid
 flowchart TD
-    A["World::Simulate<br/>(membership churn — ALWAYS runs, even edit mode)"] --> P["Fixed loop: FixedUpdateLoadedCores → Game::OnFixedUpdate → PhysicsCore / Physics2DCore FixedUpdate<br/>then their Update (interpolated poses / edit-mode sync)"]
-    P --> B["UpdateLoadedCores<br/>ScriptCore · SelfDestructor · game cores<br/>(gated by World::Start — dormant in edit mode)"]
+    A["World::Simulate<br/>(membership churn — ALWAYS runs, even edit mode)"] --> P["Fixed loop: FixedUpdateLoadedCores → ScriptCore FixedUpdate → Game::OnFixedUpdate → PhysicsCore / Physics2DCore FixedUpdate<br/>then their Update (interpolated poses / edit-mode sync)"]
+    P --> B["UpdateLoadedCores (SelfDestructor · game cores) → ScriptCore Update<br/>(gated by World::Start — dormant in edit mode)"]
     B --> C["SceneNodes->Update → Game::OnUpdate"]
     C --> D2["Animation->Update — state machines, parallel sampling, pose writes (started worlds only)"]
     D2 --> D["AudioThread->Update — listener, sources, buses, FMOD update"]
@@ -68,7 +68,7 @@ Audio (FMOD) has its own deep dive: `Docs/Audio.md`.
 | `CharacterController2D` | `Source/Components/Physics/CharacterController2D.h` | Platformer capsule on the Box2D mover: run, slopes, ground snap, jump with coyote time, push |
 | `AudioSource` | `Source/Components/Audio/AudioSource.h` | Clip on a mixer bus: volume, pitch, mute, loop, PlayOnAwake, 2D/3D spatial blend, min/max distance, rolloff, doppler, priority; `Play`, `PlayOneShot` (overlapping), `Stop`, `Pause`; also declares the `wav`/`mp3` metadata types |
 | `AudioListener` | `Source/Components/Audio/AudioListener.h` | Where the game hears from; the first active one wins (else the camera) |
-| `ScriptComponent` | `Source/Components/Scripting/ScriptComponent.h` | Script by type name + `m_dotnetHandle` (int) + saved-fields JSON |
+| `ScriptComponent` | `Source/Components/Scripting/ScriptComponent.h` | Script by type name + `m_dotnetHandle` (int, stable across hot reloads) + started flag + saved-fields JSON; the instance is created on load and started on Play |
 | `BasicUIView` | `Source/Components/UI/BasicUIView.h` | Ultralight HTML view + JS bridge |
 | `Canvas` | `Source/Components/UI/Canvas.h` | **Empty file** — placeholder |
 | `FlyingCamera` | `Source/Components/Cameras/FlyingCamera.h` | Free-fly parameters (speed etc.) for `FlyingCameraCore` |
