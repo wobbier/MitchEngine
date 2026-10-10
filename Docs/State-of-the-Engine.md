@@ -29,7 +29,7 @@ Ratings: **Solid** (rely on it) · **Usable** (works, know the sharp edges) · *
 | UI (Ultralight) | **Abandoned-in-place** | 60 fps cap + licensing friction; replacement (web/Vue direction) in progress — do not extend | [UI-Ultralight-and-ImGui.md](UI-Ultralight-and-ImGui.md) |
 | Editor (Havana) | **Solid** | Selection/undo/actions services, in-memory play snapshots, autosave + recovery, multi-object gizmos, reflection inspector with multi-edit, prefab overrides, asset browser v2, scripted regression tests; non-reflected components and path-based asset refs are the gaps | [Editor-Havana.md](Editor-Havana.md) |
 | QA automation | **Solid** | doctest unit tests (93 cases), scripted editor flows per subsystem, deterministic `--frame-time` captures with screenshot regression over showcase scenes, unattended runs that never touch user settings or speakers; no CI running the editor flows or screenshots yet | [Architecture.md](Architecture.md) |
-| Build system | **Usable** | Sharpmake graph is coherent; silent directory-existence feature variance bites every fresh machine | [Build-System.md](Build-System.md) |
+| Build system | **Usable** | Sharpmake graph is coherent; features still follow which SDK directories exist, but generation now reports what it found and how to fix what's missing | [Build-System.md](Build-System.md) |
 
 ## 2. Platform Support Matrix
 
@@ -91,7 +91,7 @@ Impact (H/M/L) × Effort (S/M/L). Grouped so related items can share one work se
 |------|--------|--------|-------|
 | Finish Ultralight removal | **H** | L | Unblocks UI work, deletes the GTK3 dependency tail and the 60 fps cap |
 | Undo coverage + dirty-scene indicator | M | M | Wrap component add/remove + hierarchy ops in `ICommand`s |
-| Generation-time feature report | M | **S** | Print the `DEFINE_ME_*` set per target at Sharpmake time; ends "why is FMOD off" debugging (`Build-System.md`) |
+| ~~Generation-time feature report~~ | — | — | Done: generation prints each optional feature, on / OFF, with the fix |
 | Async asset import / keep-warm cache | M | M–L | At minimum: stop evicting refcount-1 resources every frame; add an editor preload set |
 
 ### E. Debt removal (one satisfying purge)

@@ -102,7 +102,7 @@ When `Globals.DOTNET_Linux_Dir` (from `DOTNET_LINUX_NATIVE_DIR`) exists at gener
 
 ## Caveats & Fragility
 
-- **Silent feature variance**: directory-existence defines mean a fresh clone without SDKs builds a quietly reduced engine (no FMOD, no scripting, no Ultralight). There's no generation-time report of what got enabled; grep the generated project files for `DEFINE_ME_` to audit.
+- **Feature variance by machine**: directory-existence defines mean a fresh clone without SDKs builds a reduced engine (no FMOD, no scripting). Generation prints a **feature report** (`BaseGameSolution.ReportFeatures`): each optional feature, on or OFF, with the directory it found or what to do (e.g. "generate inside `nix develop`"). Read it when a feature seems missing.
 - **Regeneration is mandatory** after adding/removing source files or SDKs — stale projects fail in confusing ways (missing defines rather than missing files).
 - **Prebuilt `ThirdParty/Lib` archives can drift from submodule headers**: the Linux BGFX *Release* archives sat stale for a long time (undefined `bgfx::setViewName`/`createTexture2D` at link) while Debug was current. If a `*_release` config fails with undefined bgfx symbols, refresh via `GenerateSolutions.sh --build-bgfx` and copy the `.a` files from `bgfx/.build/linux64_gcc/bin` into `Lib/BGFX/linux/Release` (only the already-tracked set — the shaderc-only deps like `spirv-opt`/`tint-*` are ~700MB and stay uncommitted).
 - **Hardcoded SDK paths on Windows** (e.g. FMOD under Program Files, the .NET host pack version in `Globals.DOTNET_Win64_Dir`) — version bumps of installed SDKs require editing `Engine.sharpmake.cs`.

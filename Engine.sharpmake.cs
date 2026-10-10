@@ -531,6 +531,7 @@ public class BaseGameSolution : Solution
             if (!string.IsNullOrEmpty(dotnetNativeEnv) && Directory.Exists(dotnetNativeEnv))
                 Globals.DOTNET_Linux_Dir = dotnetNativeEnv;
         }
+        ReportFeatures();
 
         conf.AddProject<Dementia>(target);
         conf.AddProject<ImGui>(target);
@@ -571,6 +572,33 @@ public class BaseGameSolution : Solution
             // #TODO (mitch): wtf how TF do you write JSON inline with quotes?? perhaps have a C# serializable class?
             File.WriteAllText(Globals.RootDir + "Project/Game.meproj", "{\"ProjectName\":\"" + Name + "\"}");
         }
+    }
+    private static bool s_reportedFeatures = false;
+
+    // Optional features follow which SDKs exist at generation time and silently compile out when one
+    // is missing, so say what this generation found (once).
+    private static void ReportFeatures()
+    {
+        if (s_reportedFeatures)
+        {
+            return;
+        }
+        s_reportedFeatures = true;
+        bool windows = System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows);
+        bool mac = System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX);
+        string fmodDir = windows ? Globals.FMOD_Win64_Dir : (mac ? Globals.FMOD_macOS_Dir : Globals.FMOD_Linux_Dir);
+        string dotnetDir = windows ? Globals.DOTNET_Win64_Dir : (mac ? string.Empty : Globals.DOTNET_Linux_Dir);
+        bool fmod = Directory.Exists(fmodDir);
+        bool dotnet = Directory.Exists(dotnetDir);
+        string Line(string name, bool on, string detail) => $"  {name,-16} {(on ? "on " : "OFF")}  {detail}";
+        System.Console.WriteLine("MitchEngine features for this generation (optional SDKs are detected by directory):");
+        System.Console.WriteLine(Line("FMOD audio", fmod, fmod ? fmodDir : "no SDK found (Engine/ThirdParty/FMOD or Globals.FMOD_*_Dir); audio compiles to no-ops"));
+        System.Console.WriteLine(Line(".NET scripting", dotnet, dotnet ? dotnetDir
+            : (mac ? "no macOS host yet" : (windows ? "set Globals.DOTNET_Win64_Dir to the Microsoft.NETCore.App.Host.win-x64 native folder" : "DOTNET_LINUX_NATIVE_DIR not set or missing: generate inside `nix develop`"))));
+        System.Console.WriteLine(Line("Ultralight UI", Globals.IsUltralightEnabled, Globals.IsUltralightEnabled ? "Globals.IsUltralightEnabled" : "disabled in Globals"));
+        System.Console.WriteLine(Line("Optick", windows, windows ? "Win64 builds (not Retail)" : "Win64 only"));
+        System.Console.WriteLine(Line("RenderDoc", windows && File.Exists("C:/Program Files/RenderDoc/renderdoc.dll"), windows ? "C:/Program Files/RenderDoc" : "Windows only"));
+        System.Console.WriteLine(Line("Physics, navmesh", true, "Box3D, Box2D and Recast/Detour are built from source"));
     }
 }
 
