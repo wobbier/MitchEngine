@@ -234,6 +234,12 @@ private:
         bgfx::TextureHandle EnvSpecular = BGFX_INVALID_HANDLE;
         bgfx::TextureHandle EnvIrradiance = BGFX_INVALID_HANDLE;
         float EnvParams[4] = {};
+        // Fog (Fog.sh), from the camera's post settings; FogForward[0] is 1 while drawing passes
+        // after the fog pass (transparents, particles), which fog themselves.
+        float FogParams[4] = {};
+        float FogColor[4] = {};
+        float FogVolume[4] = {};
+        float FogForward[4] = {};
     } m_lighting;
     UniquePtr<Moonlight::EnvironmentLighting> m_environment;
     uint64_t m_frameIndex = 0;
@@ -264,6 +270,10 @@ private:
     bgfx::UniformHandle s_envIrradiance = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle s_brdfLut = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle u_envParams = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle u_fogParams = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle u_fogColor = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle u_fogVolume = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle u_fogForward = BGFX_INVALID_HANDLE;
 
     struct InstanceBatch
     {

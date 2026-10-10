@@ -43,6 +43,10 @@ namespace Moonlight
         Mip AOBuffer;
         Mip AOBlurBuffer;
 
+        // Half-resolution volumetric fog (raymarched and blurred): rgb in-scattering, a transmittance.
+        Mip FogBuffer;
+        Mip FogBlurBuffer;
+
         // Auto exposure: this frame's average luminance and the adapted value (ping-pong).
         Mip LuminanceBuffer;
         Mip AdaptedLuminance[2];

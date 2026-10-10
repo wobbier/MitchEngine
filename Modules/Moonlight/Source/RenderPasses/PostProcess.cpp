@@ -31,11 +31,35 @@ namespace Moonlight
             InUniform = BGFX_INVALID_HANDLE;
         }
 
+        float SrgbToLinear( float InValue )
+        {
+            return InValue <= 0.04045f ? InValue / 12.92f : std::pow( ( InValue + 0.055f ) / 1.055f, 2.4f );
+        }
+
+
         bgfx::TextureHandle MakeSolid( float InValue )
         {
             const float rgba[4] = { InValue, InValue, InValue, 1.f };
             return bgfx::createTexture2D( 1, 1, false, 1, bgfx::TextureFormat::RGBA32F, BGFX_SAMPLER_NONE, bgfx::copy( rgba, sizeof( rgba ) ) );
         }
+    }
+
+
+    void FogUniforms( const PostProcessSettings& InSettings, float OutParams[4], float OutColor[4], float OutVolume[4] )
+    {
+        const bool volumetric = InSettings.VolumetricFog && InSettings.VolumetricSteps > 0;
+        OutParams[0] = InSettings.FogDensity;
+        OutParams[1] = InSettings.FogHeight;
+        OutParams[2] = std::max( InSettings.FogHeightFalloff, 0.f );
+        OutParams[3] = std::max( InSettings.FogStartDistance, 0.f );
+        OutColor[0] = SrgbToLinear( InSettings.FogColor[0] );
+        OutColor[1] = SrgbToLinear( InSettings.FogColor[1] );
+        OutColor[2] = SrgbToLinear( InSettings.FogColor[2] );
+        OutColor[3] = std::clamp( InSettings.FogMaxOpacity, 0.f, 1.f );
+        OutVolume[0] = InSettings.FogSunIntensity;
+        OutVolume[1] = std::clamp( InSettings.FogAnisotropy, -0.95f, 0.95f );
+        OutVolume[2] = std::max( InSettings.VolumetricDistance, 1.f );
+        OutVolume[3] = volumetric ? static_cast<float>( std::min( InSettings.VolumetricSteps, 64 ) ) : 0.f;
     }
 
 
@@ -50,6 +74,9 @@ namespace Moonlight
         m_ssaoApplyProgram = LoadPost( "SSAOApply" );
         m_luminanceProgram = LoadPost( "Luminance" );
         m_adaptProgram = LoadPost( "Adapt" );
+        m_fogScatterProgram = LoadPost( "FogScatter" );
+        m_fogBlurProgram = LoadPost( "FogBlur" );
+        m_fogProgram = LoadPost( "Fog" );
 
         s_input0 = bgfx::createUniform( "s_input0", bgfx::UniformType::Sampler );
         s_input1 = bgfx::createUniform( "s_input1", bgfx::UniformType::Sampler );
@@ -66,6 +93,10 @@ namespace Moonlight
         u_ssaoProjection = bgfx::createUniform( "u_ssaoProjection", bgfx::UniformType::Vec4 );
         u_ssaoProjection2 = bgfx::createUniform( "u_ssaoProjection2", bgfx::UniformType::Vec4 );
         u_adapt = bgfx::createUniform( "u_adapt", bgfx::UniformType::Vec4 );
+        u_fogProjection = bgfx::createUniform( "u_fogProjection", bgfx::UniformType::Vec4 );
+        u_fogProjection2 = bgfx::createUniform( "u_fogProjection2", bgfx::UniformType::Vec4 );
+        u_fogScreen = bgfx::createUniform( "u_fogScreen", bgfx::UniformType::Vec4 );
+        u_fogInvView = bgfx::createUniform( "u_fogInvView", bgfx::UniformType::Mat4 );
 
         m_blackTexture = MakeSolid( 0.f );
         m_whiteTexture = MakeSolid( 1.f );
@@ -74,7 +105,8 @@ namespace Moonlight
 
     PostProcess::~PostProcess()
     {
-        for( bgfx::UniformHandle* uniform : { &s_input0, &s_input1, &s_hdrColor, &s_bloom, &s_exposure, &s_ldrColor, &u_tonemap, &u_grading, &u_grading2, &u_exposure, &u_bloom, &u_ssao, &u_ssaoProjection, &u_ssaoProjection2, &u_adapt } )
+        for( bgfx::UniformHandle* uniform : { &s_input0, &s_input1, &s_hdrColor, &s_bloom, &s_exposure, &s_ldrColor, &u_tonemap, &u_grading, &u_grading2, &u_exposure, &u_bloom, &u_ssao, &u_ssaoProjection, &u_ssaoProjection2, &u_adapt,
+            &u_fogProjection, &u_fogProjection2, &u_fogScreen, &u_fogInvView } )
         {
             DestroyUniform( *uniform );
         }
@@ -139,6 +171,68 @@ namespace Moonlight
         SetupFullscreenView( applyView, InTargets.SceneBuffer, static_cast<uint16_t>( InTargets.Width ), static_cast<uint16_t>( InTargets.Height ) );
         bgfx::setTexture( 0, s_input0, InTargets.AOBlurBuffer.Color );
         SubmitFullscreen( applyView, m_ssaoApplyProgram, BGFX_STATE_WRITE_RGB | BGFX_STATE_BLEND_FUNC( BGFX_STATE_BLEND_DST_COLOR, BGFX_STATE_BLEND_ZERO ) );
+    }
+
+
+    void PostProcess::RenderFog( ViewAllocator& InViews, const CameraData& InCamera, FrameBuffer& InTargets, const std::function<void()>& InBindLighting )
+    {
+        const PostProcessSettings& settings = InCamera.Post;
+        if( !settings.Fog || settings.FogDensity <= 0.f || settings.FogMaxOpacity <= 0.f || !bgfx::isValid( InTargets.FogBuffer.Buffer ) || !bgfx::isValid( InTargets.ParticleBuffer ) )
+        {
+            return;
+        }
+        OPTICK_EVENT( "PostProcess::Fog" );
+        const glm::mat4& projection = InCamera.ProjectionMatrix.GetInternalMatrix();
+        const glm::mat4 invView = glm::inverse( InCamera.View.GetInternalMatrix() );
+
+        float fogParams[4];
+        float fogColor[4];
+        float fogVolume[4];
+        FogUniforms( settings, fogParams, fogColor, fogVolume );
+        const bool volumetric = fogVolume[3] > 0.f;
+        const float fogProjection[4] = { projection[2][2], projection[3][2], InCamera.Projection == ProjectionType::Orthographic ? 1.f : 0.f, bgfx::getCaps()->homogeneousDepth ? 1.f : 0.f };
+        const float fogProjection2[4] = { projection[0][0], projection[1][1], InCamera.Far, 0.f };
+        const float fogScreen[4] = { static_cast<float>( InTargets.Width ), static_cast<float>( InTargets.Height ), static_cast<float>( InTargets.FogBuffer.Width ), static_cast<float>( InTargets.FogBuffer.Height ) };
+        const uint64_t pointClamp = BGFX_SAMPLER_MIN_POINT | BGFX_SAMPLER_MAG_POINT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP;
+        auto setFogState = [&]() {
+            InBindLighting();
+            bgfx::setUniform( u_fogProjection, fogProjection );
+            bgfx::setUniform( u_fogProjection2, fogProjection2 );
+            bgfx::setUniform( u_fogScreen, fogScreen );
+            bgfx::setUniform( u_fogInvView, &invView[0][0] );
+        };
+
+        if( volumetric )
+        {
+            const bgfx::ViewId scatterView = InViews.Allocate( "Fog Scatter" );
+            const bgfx::ViewId blurView = InViews.Allocate( "Fog Blur" );
+            if( blurView == UINT16_MAX )
+            {
+                return;
+            }
+            SetupFullscreenView( scatterView, InTargets.FogBuffer.Buffer, InTargets.FogBuffer.Width, InTargets.FogBuffer.Height );
+            setFogState();
+            bgfx::setTexture( 0, s_input0, InTargets.DepthTexture, pointClamp );
+            SubmitFullscreen( scatterView, m_fogScatterProgram );
+
+            SetupFullscreenView( blurView, InTargets.FogBlurBuffer.Buffer, InTargets.FogBlurBuffer.Width, InTargets.FogBlurBuffer.Height );
+            setFogState();
+            bgfx::setTexture( 0, s_input0, InTargets.FogBuffer.Color );
+            bgfx::setTexture( 1, s_input1, InTargets.DepthTexture, pointClamp );
+            SubmitFullscreen( blurView, m_fogBlurProgram );
+        }
+
+        // Over the opaque HDR colour (the depth-less target, so depth can be read): src + dst * src.a.
+        const bgfx::ViewId applyView = InViews.Allocate( "Fog" );
+        if( applyView == UINT16_MAX )
+        {
+            return;
+        }
+        SetupFullscreenView( applyView, InTargets.ParticleBuffer, static_cast<uint16_t>( InTargets.Width ), static_cast<uint16_t>( InTargets.Height ) );
+        setFogState();
+        bgfx::setTexture( 0, s_input0, volumetric ? InTargets.FogBlurBuffer.Color : m_blackTexture );
+        bgfx::setTexture( 1, s_input1, InTargets.DepthTexture, pointClamp );
+        SubmitFullscreen( applyView, m_fogProgram, BGFX_STATE_WRITE_RGB | BGFX_STATE_BLEND_FUNC( BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_SRC_ALPHA ) );
     }
 
 

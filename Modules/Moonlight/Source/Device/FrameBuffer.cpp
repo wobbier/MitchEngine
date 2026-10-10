@@ -84,6 +84,10 @@ void Moonlight::FrameBuffer::Release()
     DestroyIfValid( AOBuffer.Color );
     DestroyIfValid( AOBlurBuffer.Buffer );
     DestroyIfValid( AOBlurBuffer.Color );
+    DestroyIfValid( FogBuffer.Buffer );
+    DestroyIfValid( FogBuffer.Color );
+    DestroyIfValid( FogBlurBuffer.Buffer );
+    DestroyIfValid( FogBlurBuffer.Color );
     DestroyIfValid( LuminanceBuffer.Buffer );
     DestroyIfValid( LuminanceBuffer.Color );
     for( Mip& adapted : AdaptedLuminance )
@@ -147,6 +151,8 @@ void Moonlight::FrameBuffer::ReCreate( uint32_t resetFlags )
 
     AOBuffer = CreateColorTarget( width / 2, height / 2, bgfx::TextureFormat::R8, "SSAO" );
     AOBlurBuffer = CreateColorTarget( width / 2, height / 2, bgfx::TextureFormat::R8, "SSAO Blurred" );
+    FogBuffer = CreateColorTarget( width / 2, height / 2, bgfx::TextureFormat::RGBA16F, "Volumetric Fog" );
+    FogBlurBuffer = CreateColorTarget( width / 2, height / 2, bgfx::TextureFormat::RGBA16F, "Volumetric Fog Blurred" );
 
     LuminanceBuffer = CreateColorTarget( 1, 1, bgfx::TextureFormat::R16F, "Average Luminance" );
     for( Mip& adapted : AdaptedLuminance )

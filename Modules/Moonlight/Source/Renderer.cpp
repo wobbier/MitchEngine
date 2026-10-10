@@ -245,6 +245,10 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
         s_envIrradiance = bgfx::createUniform( "s_envIrradiance", bgfx::UniformType::Sampler );
         s_brdfLut = bgfx::createUniform( "s_brdfLut", bgfx::UniformType::Sampler );
         u_envParams = bgfx::createUniform( "u_envParams", bgfx::UniformType::Vec4 );
+        u_fogParams = bgfx::createUniform( "u_fogParams", bgfx::UniformType::Vec4 );
+        u_fogColor = bgfx::createUniform( "u_fogColor", bgfx::UniformType::Vec4 );
+        u_fogVolume = bgfx::createUniform( "u_fogVolume", bgfx::UniformType::Vec4 );
+        u_fogForward = bgfx::createUniform( "u_fogForward", bgfx::UniformType::Vec4 );
         m_environment = MakeUnique<Moonlight::EnvironmentLighting>();
         m_environment->Init();
 
@@ -330,7 +334,7 @@ void BGFXRenderer::Destroy()
         u_lightParams, u_dirLightDirection, u_dirLightColor, u_clusterParams, u_clusterGrid, u_ambientSky, u_ambientGround,
         s_lightData, s_clusterGrid, s_clusterIndices, s_texMetallicRoughness, s_texEmissive, s_texOcclusion,
         u_shadowMatrix, u_cascadeSplits, u_cascadeTexel, u_shadowParams, u_localShadowMatrix, u_spotShadowParams, u_pointShadowParams, u_shadowAlpha, s_shadowMap, s_spotShadowMap,
-        s_envSpecular, s_envIrradiance, s_brdfLut, u_envParams,
+        s_envSpecular, s_envIrradiance, s_brdfLut, u_envParams, u_fogParams, u_fogColor, u_fogVolume, u_fogForward,
         u_particleParams, u_particleParams2, u_particleDepth, s_texParticle, s_sceneDepth, u_bones };
     m_particleProgram = Moonlight::ShaderCommand();
     for( bgfx::TextureHandle* texture : { &m_particleTexture } )
@@ -746,8 +750,12 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
             } );
     }
 
-    // Ambient occlusion darkens the opaque scene before transparents are composited on top.
+    // Ambient occlusion darkens the opaque scene before transparents are composited on top, then
+    // fog covers it.
     m_postProcess->RenderAmbientOcclusion( m_views, camera, *camera.Buffer );
+    m_postProcess->RenderFog( m_views, camera, *camera.Buffer, [this]() { BindLighting(); } );
+    // Everything drawn from here on (transparents, particles) is in front of the fogged scene.
+    m_lighting.FogForward[0] = camera.Post.Fog && camera.Post.FogDensity > 0.f && camera.Post.FogMaxOpacity > 0.f ? 1.f : 0.f;
 
     bx::snprintf( viewName, sizeof( viewName ), "%s Transparent", label );
     bgfx::ViewId transparentView = m_views.Allocate( viewName );
@@ -1063,6 +1071,8 @@ void BGFXRenderer::PrepareCameraLighting( Moonlight::CameraData& camera )
     Moonlight::FrameBuffer& buffer = *camera.Buffer;
     m_lighting.ClusterGridTexture = buffer.ClusterGrid;
     m_lighting.ClusterIndexTexture = buffer.ClusterIndices;
+    Moonlight::FogUniforms( camera.Post, m_lighting.FogParams, m_lighting.FogColor, m_lighting.FogVolume );
+    m_lighting.FogForward[0] = 0.f;
 
     if( !m_localLights.empty() )
     {
@@ -1553,6 +1563,10 @@ void BGFXRenderer::BindLighting()
         bgfx::setTexture( 12, s_spotShadowMap, m_spotShadowAtlas.Texture );
     }
     bgfx::setUniform( u_envParams, m_lighting.EnvParams );
+    bgfx::setUniform( u_fogParams, m_lighting.FogParams );
+    bgfx::setUniform( u_fogColor, m_lighting.FogColor );
+    bgfx::setUniform( u_fogVolume, m_lighting.FogVolume );
+    bgfx::setUniform( u_fogForward, m_lighting.FogForward );
     if( bgfx::isValid( m_lighting.EnvSpecular ) )
     {
         bgfx::setTexture( 13, s_envSpecular, m_lighting.EnvSpecular );

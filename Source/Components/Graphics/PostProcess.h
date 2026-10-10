@@ -34,6 +34,20 @@ public:
     float AORadius = 0.5f;
     float AOIntensity = 1.f;
 
+    // Fog
+    bool Fog = false;
+    Vector3 FogColor = Vector3( 0.55f, 0.62f, 0.72f );
+    float FogDensity = 0.02f;
+    float FogHeight = 0.f;
+    float FogHeightFalloff = 0.15f;
+    float FogStartDistance = 0.f;
+    float FogMaxOpacity = 1.f;
+    float FogSunIntensity = 1.f;
+    float FogAnisotropy = 0.6f;
+    bool VolumetricFog = false;
+    float VolumetricDistance = 60.f;
+    int VolumetricSteps = 24;
+
     // Colour grading
     float Saturation = 1.f;
     float Contrast = 1.f;

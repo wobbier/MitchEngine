@@ -4,6 +4,7 @@ $input v_texcoord0, v_color0, v_viewPos, v_worldPos
 // the depth test happens here, and particles fade out where they meet geometry (soft particles).
 #include "Common.sh"
 #include "Lighting.sh"
+#include "Fog.sh"
 
 SAMPLER2D(s_texParticle, 0);
 SAMPLER2D(s_sceneDepth, 1);
@@ -47,5 +48,9 @@ void main()
 		// Smoke, dust, steam: the colour is an albedo lit like a volume.
 		color.rgb *= volumeLighting(v_worldPos, gl_FragCoord.xy, particleZ);
 	}
+	// Fog in front of the particle: additive light is dimmed by it, blended particles take its colour.
+	vec3 sunColor = u_lightParams.x > 0.5 ? u_dirLightColor[0].rgb : vec3_splat(0.0);
+	vec4 fog = fogForward(mul(u_invView, vec4(0.0, 0.0, 0.0, 1.0)).xyz, v_worldPos, sunColor, u_dirLightDirection[0].xyz);
+	color.rgb = u_particleParams2.y > 0.5 ? color.rgb * fog.a : color.rgb * fog.a + fog.rgb;
 	gl_FragColor = u_particleParams2.y > 0.5 ? vec4(color.rgb * color.a, color.a) : color;
 }

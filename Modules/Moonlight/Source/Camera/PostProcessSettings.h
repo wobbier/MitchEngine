@@ -34,6 +34,21 @@ namespace Moonlight
         float AORadius = 0.5f;              // world units
         float AOIntensity = 1.0f;
 
+        // Exponential height fog (applied before transparents)
+        bool Fog = false;
+        float FogColor[3] = { 0.55f, 0.62f, 0.72f };    // ambient in-scattering, sRGB (HDR allowed)
+        float FogDensity = 0.02f;           // extinction per metre at the base height
+        float FogHeight = 0.f;              // world Y of the base height
+        float FogHeightFalloff = 0.15f;     // density falls by e every 1/falloff metres above it
+        float FogStartDistance = 0.f;       // metres from the camera before fog begins
+        float FogMaxOpacity = 1.f;
+        float FogSunIntensity = 1.f;        // scale of the sun (and, when volumetric, local lights) in the fog
+        float FogAnisotropy = 0.6f;         // Henyey-Greenstein g: 0 even, towards 1 glows around the sun
+        // Raymarched lighting: light shafts through the sun's shadows, point and spot lights.
+        bool VolumetricFog = false;
+        float VolumetricDistance = 60.f;    // metres raymarched (analytic beyond)
+        int VolumetricSteps = 24;
+
         // Colour grading
         float Saturation = 1.f;
         float Contrast = 1.f;

@@ -4,6 +4,7 @@ $input v_worldPos, v_normal, v_tangent, v_bitangent, v_texcoord0, v_viewPos
 // occlusion, emissive, opacity; alpha cutout via u_emissive.w.
 #include "Common.sh"
 #include "Lighting.sh"
+#include "Fog.sh"
 
 SAMPLER2D(s_texDiffuse, 0);
 SAMPLER2D(s_texNormal, 1);
@@ -77,6 +78,11 @@ void main()
 	color += toLinear(texture2D(s_texEmissive, uv).rgb) * u_emissive.rgb;
 
 	color *= cascadeDebugTint(v_viewPos.z);
+
+	// Transparent surfaces are drawn after the fog pass, so they fog themselves.
+	vec3 sunColor = u_lightParams.x > 0.5 ? u_dirLightColor[0].rgb : vec3_splat(0.0);
+	vec4 fog = fogForward(cameraPos, v_worldPos, sunColor, u_dirLightDirection[0].xyz);
+	color = color * fog.a + fog.rgb;
 
 	gl_FragColor = vec4(color, alpha);
 }

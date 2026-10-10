@@ -323,7 +323,20 @@ vec3 shadeLocalLight(Surface _s, float _light)
 	return shadeLight(_s, L, t1.rgb * attenuation);
 }
 
-// This fragment's cluster: x first index into the cluster index list, y light count.
+// The cluster at a full-resolution pixel measured from the top-left of the view: x first index
+// into the cluster index list, y light count.
+vec2 clusterRangeAt(vec2 _pixel, float _viewZ)
+{
+	vec2 pixel = _pixel;
+	float tileX = clamp(floor(pixel.x / u_clusterParams.x), 0.0, u_clusterGrid.x - 1.0);
+	float tileY = clamp(floor(pixel.y / u_clusterParams.y), 0.0, u_clusterGrid.y - 1.0);
+	float slice = clamp(floor(log(max(_viewZ, 1e-4)) * u_clusterParams.z + u_clusterParams.w), 0.0, u_clusterGrid.z - 1.0);
+	vec2 gridUv = vec2((tileX + tileY * u_clusterGrid.x + 0.5) / (u_clusterGrid.x * u_clusterGrid.y), (slice + 0.5) / u_clusterGrid.z);
+	vec4 cluster = texture2DLod(s_clusterGrid, gridUv, 0.0);
+	return vec2(cluster.x, min(cluster.y, float(MAX_LIGHTS_PER_CLUSTER)));
+}
+
+// This fragment's cluster.
 vec2 clusterRange(vec2 _fragCoord, float _viewZ)
 {
 	vec2 pixel = _fragCoord;
@@ -331,12 +344,7 @@ vec2 clusterRange(vec2 _fragCoord, float _viewZ)
 	{
 		pixel.y = u_viewRect.w - pixel.y;
 	}
-	float tileX = clamp(floor(pixel.x / u_clusterParams.x), 0.0, u_clusterGrid.x - 1.0);
-	float tileY = clamp(floor(pixel.y / u_clusterParams.y), 0.0, u_clusterGrid.y - 1.0);
-	float slice = clamp(floor(log(max(_viewZ, 1e-4)) * u_clusterParams.z + u_clusterParams.w), 0.0, u_clusterGrid.z - 1.0);
-	vec2 gridUv = vec2((tileX + tileY * u_clusterGrid.x + 0.5) / (u_clusterGrid.x * u_clusterGrid.y), (slice + 0.5) / u_clusterGrid.z);
-	vec4 cluster = texture2DLod(s_clusterGrid, gridUv, 0.0);
-	return vec2(cluster.x, min(cluster.y, float(MAX_LIGHTS_PER_CLUSTER)));
+	return clusterRangeAt(pixel, _viewZ);
 }
 
 // The light at position _i of a cluster's list.
@@ -461,6 +469,25 @@ vec3 volumeLighting(vec3 _position, vec2 _fragCoord, float _viewZ)
 		color += (u_ambientSky.rgb * 0.65 + u_ambientGround.rgb * 0.35) * u_lightParams.z;
 	}
 	return color;
+}
+
+// ---- Fog (see Fog.sh): the sun's shadow in the air, one tap per raymarch step ----
+
+// Sun visibility at a point in the air: the cascade for its view depth, one filtered tap.
+float sunShadowVolume(vec3 _position, float _viewZ)
+{
+	float cascade = sunCascadeIndex(_viewZ);
+	if (u_shadowParams.w < 0.5 || u_dirLightDirection[0].w < 0.5 || cascade > 3.5)
+	{
+		return 1.0;
+	}
+	vec4 coord = mul(u_shadowMatrix[int(cascade)], vec4(_position, 1.0));
+	vec4 rect = shadowTileRect(cascade);
+	if (any(lessThan(coord.xy, rect.xy)) || any(greaterThan(coord.xy, rect.zw)) || coord.z >= 1.0)
+	{
+		return 1.0;
+	}
+	return shadowCompare(s_shadowMap, coord.xyz);
 }
 
 // Hemisphere ambient (replaced by image-based lighting when an environment is available).
