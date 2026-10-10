@@ -32,6 +32,23 @@ namespace
         return std::clamp( InTime, 0.f, InDuration );
     }
 
+    // The signed angle (radians, -pi..pi) of a rotation's twist about a unit axis (swing-twist).
+    float TwistAngle( const Quaternion& InRotation, const Vector3& InAxis )
+    {
+        const float projection = InRotation.x * InAxis.x + InRotation.y * InAxis.y + InRotation.z * InAxis.z;
+        float angle = 2.f * std::atan2( projection, InRotation.w );
+        if( angle > glm::pi<float>() )
+        {
+            angle -= glm::two_pi<float>();
+        }
+        else if( angle < -glm::pi<float>() )
+        {
+            angle += glm::two_pi<float>();
+        }
+        return angle;
+    }
+
+
     void CollectNodes( Transform& InNode, std::unordered_map<std::string, Transform*>& OutNodes )
     {
         for( Transform* child : InNode.GetChildren() )
@@ -818,8 +835,10 @@ void AnimationCore::SamplePose( Animator& InAnimator )
         a.m_pose[i] = pose;
     }
 
-    // Root motion (base layer): the root's travel since last frame, horizontal part only.
+    // Root motion (base layer): the root's travel since last frame, horizontal part only, and its
+    // turn about up.
     a.m_rootMotion = Vector3();
+    a.m_rootTurn = 0.f;
     if( a.m_rootBinding < 0 || !layers[0].Active )
     {
         return;
@@ -878,12 +897,69 @@ void AnimationCore::SamplePose( Animator& InAnimator )
     }
     const Vector3 up = a.m_rootUp;
     a.m_rootMotion = delta - up * delta.Dot( up );
+
+    // The turn: each clip's change in the root's heading about up since last frame (in its parent's
+    // space), weighted like the travel, laps included.
+    auto turn = [&]( const StateSamples& InSamples ) {
+        float total = 0.f;
+        for( int i = 0; i < InSamples.Count; ++i )
+        {
+            const ClipSample& sample = InSamples.Items[i];
+            const int channel = root.Channels[sample.Clip];
+            if( channel < 0 || sample.Weight <= 0.f )
+            {
+                continue;
+            }
+            const Moonlight::AnimationChannel& keys = clips[sample.Clip].Channels[channel];
+            const float duration = clips[sample.Clip].Duration;
+            auto rotationAt = [&]( float InTime ) {
+                Vector3 position = root.BindPosition;
+                Quaternion rotation = root.BindRotation;
+                Vector3 scale = root.BindScale;
+                Moonlight::AnimationClip::Sample( keys, InTime, position, rotation, scale );
+                return rotation;
+            };
+            auto change = [&]( float InFrom, float InTo ) {
+                return TwistAngle( rotationAt( InTo ) * rotationAt( InFrom ).Inverse(), up );
+            };
+            float angle = 0.f;
+            if( InSamples.Loop && duration > 0.f )
+            {
+                const float lapsNow = std::floor( sample.Time / duration );
+                const float lapsBefore = std::floor( sample.TimeBefore / duration );
+                const float now = sample.Time - lapsNow * duration;
+                const float before = sample.TimeBefore - lapsBefore * duration;
+                angle = lapsNow == lapsBefore ? change( before, now )
+                    : change( before, duration ) + change( 0.f, duration ) * std::max( lapsNow - lapsBefore - 1.f, 0.f ) + change( 0.f, now );
+            }
+            else
+            {
+                angle = change( std::clamp( sample.TimeBefore, 0.f, duration ), std::clamp( sample.Time, 0.f, duration ) );
+            }
+            total += angle * sample.Weight;
+        }
+        return total;
+    };
+    float angle = turn( layers[0].Current );
+    if( a.m_layers[0].Previous >= 0 && layers[0].Fade < 1.f )
+    {
+        const float previous = turn( layers[0].Previous );
+        angle = previous + ( angle - previous ) * layers[0].Fade;
+    }
+    a.m_rootTurn = angle;
+
     if( a.ApplyRootMotion )
     {
-        // The entity moves instead: keep the root above it (vertical motion stays in the bone).
+        // The entity moves instead: keep the root above it (vertical motion stays in the bone)...
         Animator::Pose& pose = a.m_pose[a.m_rootBinding];
         const Vector3 offset = pose.Position - root.BindPosition;
         pose.Position = pose.Position - ( offset - up * offset.Dot( up ) );
+        if( a.RootRotation )
+        {
+            // ...and facing its bind heading, since the entity turns instead (tilt and roll stay).
+            const float heading = TwistAngle( pose.Rotation * root.BindRotation.Inverse(), up );
+            pose.Rotation = Quaternion::AngleAxis( -heading, up ) * pose.Rotation;
+        }
     }
 }
 
@@ -963,12 +1039,29 @@ void AnimationCore::ApplyRootMotion( Animator& InAnimator )
         world = parent->GetLocalToWorldMatrix().GetInternalMatrix() * world;
     }
     a.m_rootMotionWorld = Vector3( world.x, 0.f, world.z );
-    if( !a.ApplyRootMotion || a.m_rootMotionWorld.LengthSquared() <= 0.f )
+    // The turn about the parent's up axis, as degrees about world up (a mirrored parent flips it).
+    float turn = a.m_rootTurn;
+    if( parent )
+    {
+        const glm::mat4& toWorld = parent->GetLocalToWorldMatrix().GetInternalMatrix();
+        const glm::vec3 upWorld = glm::vec3( toWorld * glm::vec4( a.m_rootUp.InternalVector, 0.f ) );
+        if( glm::determinant( glm::mat3( toWorld ) ) * upWorld.y < 0.f )
+        {
+            turn = -turn;
+        }
+    }
+    a.m_rootTurnDegrees = glm::degrees( turn );
+    Entity* owner = a.Parent.Get();
+    if( !a.ApplyRootMotion || !owner )
     {
         return;
     }
-    Entity* owner = a.Parent.Get();
-    if( !owner )
+    if( a.RootRotation && std::abs( turn ) > 0.f )
+    {
+        Transform& transform = owner->GetComponent<Transform>();
+        transform.SetWorldRotation( Quaternion::AngleAxis( turn, Vector3( 0.f, 1.f, 0.f ) ) * transform.GetWorldRotation() );
+    }
+    if( a.m_rootMotionWorld.LengthSquared() <= 0.f )
     {
         return;
     }

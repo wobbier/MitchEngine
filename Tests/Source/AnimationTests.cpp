@@ -478,3 +478,49 @@ TEST_CASE( "Animation: editor previews pose in edit mode and always give the aut
     rig.Run( 0.5f );
     CHECK( rig.ArmPosition().x == doctest::Approx( 0.5f ).epsilon( 0.05 ) );   // playing from the start
 }
+
+
+TEST_CASE( "Animation: root rotation turns the entity and holds the root's heading" )
+{
+    // The root bone turns 90 degrees about Y each second (looping), without travelling.
+    Moonlight::AnimationClip turnClip;
+    turnClip.Name = "Turn";
+    turnClip.Duration = 1.f;
+    Moonlight::AnimationChannel channel;
+    channel.NodeName = "Arm";
+    channel.PositionTimes = { 0.f };
+    channel.Positions = { Vector3( 0.f, 5.f, 0.f ) };
+    channel.RotationTimes = { 0.f, 0.5f, 1.f };
+    channel.Rotations = { Quaternion( 0.f, 0.f, 0.f, 1.f ), Quaternion::AngleAxis( 0.785398f, Vector3( 0.f, 1.f, 0.f ) ), Quaternion::AngleAxis( 1.570796f, Vector3( 0.f, 1.f, 0.f ) ) };
+    turnClip.Channels.push_back( channel );
+
+    auto yawDot = []( const Quaternion& InA, float InRadians ) {
+        const Quaternion expected = Quaternion::AngleAxis( InRadians, Vector3( 0.f, 1.f, 0.f ) );
+        return std::abs( InA.x * expected.x + InA.y * expected.y + InA.z * expected.z + InA.w * expected.w );
+    };
+
+    {
+        Rig rig( { turnClip } );
+        rig.Anim().ApplyRootMotion = true;
+        rig.Start();
+        rig.Run( 0.5f );
+        // The entity turned 45 degrees; the bone keeps its bind heading above it.
+        CHECK( yawDot( rig.Root->GetComponent<Transform>().GetWorldRotation(), 0.785398f ) == doctest::Approx( 1.f ).epsilon( 0.002 ) );
+        CHECK( yawDot( rig.Arm->GetComponent<Transform>().GetRotation(), 0.f ) == doctest::Approx( 1.f ).epsilon( 0.002 ) );
+        CHECK( rig.Anim().GetRootTurn() == doctest::Approx( 90.f / 60.f ).epsilon( 0.05 ) );
+        // Across the loop's wrap the turn keeps accumulating: 135 degrees after 1.5 s.
+        rig.Run( 1.f );
+        CHECK( yawDot( rig.Root->GetComponent<Transform>().GetWorldRotation(), 2.356194f ) == doctest::Approx( 1.f ).epsilon( 0.002 ) );
+    }
+    {
+        // RootRotation off: the bone turns, the entity doesn't.
+        Rig rig( { turnClip } );
+        rig.Anim().ApplyRootMotion = true;
+        rig.Anim().RootRotation = false;
+        rig.Start();
+        rig.Run( 0.5f );
+        CHECK( yawDot( rig.Root->GetComponent<Transform>().GetWorldRotation(), 0.f ) == doctest::Approx( 1.f ).epsilon( 0.002 ) );
+        CHECK( yawDot( rig.Arm->GetComponent<Transform>().GetRotation(), 0.785398f ) == doctest::Approx( 1.f ).epsilon( 0.002 ) );
+        CHECK( rig.Anim().GetRootTurn() == doctest::Approx( 90.f / 60.f ).epsilon( 0.05 ) );   // still reported
+    }
+}

@@ -146,8 +146,10 @@ public:
     std::vector<AnimatorEventMarker> Events;
     std::vector<AnimatorLayer> Layers;
     // Root motion: RootBone's horizontal travel moves this entity (through its CharacterController
-    // when it has one) instead of the bone. Empty RootBone = the topmost animated node.
+    // when it has one) instead of the bone, and with RootRotation its turning about the up axis
+    // turns the entity. Empty RootBone = the topmost animated node.
     bool ApplyRootMotion = false;
+    bool RootRotation = true;
     std::string RootBone;
 
     // Switches to a state (or, without states, a clip) in that state's layer, cross-fading over
@@ -171,8 +173,10 @@ public:
     bool IsInTransition( const std::string& InLayer = "" ) const;
     void SetLayerWeight( const std::string& InLayer, float InWeight );
     float GetLayerWeight( const std::string& InLayer ) const;
-    // Root motion of the last update, in world space (also with ApplyRootMotion off).
+    // Root motion of the last update, in world space (also with ApplyRootMotion off): the travel,
+    // and the turn in degrees about world up (positive = clockwise seen from above).
     Vector3 GetRootMotion() const { return m_rootMotionWorld; }
+    float GetRootTurn() const { return m_rootTurnDegrees; }
     std::vector<std::string> GetClipNames() const;
     // Plays these clips instead of a model's (procedural or code-built animation). Rebinds.
     void UseClips( SharedPtr<std::vector<Moonlight::AnimationClip>> InClips );
@@ -249,6 +253,8 @@ private:
     int m_rootBinding = -1;
     Vector3 m_rootMotion;           // last update, in the root bone's parent space (from SamplePose)
     Vector3 m_rootMotionWorld;
+    float m_rootTurn = 0.f;         // last update, radians about m_rootUp (from SamplePose)
+    float m_rootTurnDegrees = 0.f;
     Vector3 m_rootUp = Vector3( 0.f, 1.f, 0.f );     // world up in the root bone's parent space
     // Editor preview
     bool m_previewRequested = false;

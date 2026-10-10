@@ -73,6 +73,7 @@ ME_REFLECT_BEGIN( Animator )
     ME_FIELD( Transitions ).Category( "State Machine" );
     ME_FIELD( Events ).Category( "State Machine" );
     ME_FIELD( Layers ).Category( "State Machine" );
+    ME_FIELD( RootRotation ).Tooltip( "With root motion, the root's turning about up turns the entity too" );
     ME_FIELD( ApplyRootMotion ).Category( "Root Motion" ).Tooltip( "Move this entity by the root bone's horizontal travel" );
     ME_FIELD( RootBone ).Category( "Root Motion" ).Tooltip( "Empty = the topmost animated node" );
 ME_REFLECT_END()

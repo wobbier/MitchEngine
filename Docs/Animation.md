@@ -86,9 +86,9 @@ Because bones are ordinary entities, anything parented to a bone (a weapon, a ha
    - **Layers.** Each playing layer above the base acts on its masked bindings, scaled by its `Weight` (`SetLayerWeight` at runtime):
      - **Override** layers replace the pose (blended by weight).
      - **Additive** layers add their motion. The layer's state is also sampled at its first frame (time 0, same blend weights), its *reference*. The difference between the pose and the reference is added on top: the position offset, the rotation `inverse(reference) × pose` applied in the bone's frame (slerped from identity by weight), and the scale ratio. Cross-fades blend the two states' differences. So a breathing or flinch clip authored on any pose adds just its motion to whatever plays below.
-   - **Root motion** (base layer). The root binding's travel since last frame is summed over the weighted clips (and cross-faded), handling loop wraps, and its vertical part dropped. `GetRootMotion()` reports it in world space.
+   - **Root motion** (base layer). The root binding's travel since last frame is summed over the weighted clips (and cross-faded), handling loop wraps, and its vertical part dropped. So is its **turn**: the change in its heading about up, from a swing-twist decomposition of each clip's rotation change. `GetRootMotion()` reports the travel in world space, and `GetRootTurn()` the turn in degrees about world up.
 3. **Write** (serial): `SetPosition` / `SetRotation` / `SetScale` on each node's `Transform`.
-4. **Root motion** (with `ApplyRootMotion`): the root bone is held above the entity horizontally (vertical motion stays in the bone), and the entity moves by the travel instead: through `CharacterController::Move` when it has one, so it still collides, or by moving its Transform.
+4. **Root motion** (with `ApplyRootMotion`): the root bone is held above the entity horizontally (vertical motion stays in the bone), and the entity moves by the travel instead: through `CharacterController::Move` when it has one, so it still collides, or by moving its Transform. With `RootRotation` (on by default) the root also keeps its bind heading (tilt and roll stay in the bone), and the entity turns by the turn about world up.
 
 `Animator::Stop()` freezes the pose. Setting `Speed` to 0 does the same but keeps transitions and events live.
 
@@ -154,7 +154,8 @@ Bone indices are stored as normalized `Uint8`. `skinMatrix` multiplies them by 2
 
 ## Caveats & Fragility
 
-- **Additive references are the first frame.** There's no separate reference clip or pose, so author additive clips to start at their rest pose. Root motion is translation only (no root rotation), and is taken from the base layer.
+- **Additive references are the first frame.** There's no separate reference clip or pose, so author additive clips to start at their rest pose.
+- **Root motion comes from the base layer**, as horizontal travel plus the turn about up. Pitch and roll stay in the bone, and the travel isn't re-oriented by the turn within a frame.
 - **2D blends use one family.** Freeform cartesian only (no directional or polar variants). Clips are phase-matched to the first clip's length, so clips of very different lengths drift.
 - **Previews show one state.** An edit-mode preview plays a single state, without transitions, other layers or parameters changing. Posing bones by hand in edit mode (without a preview) is saved with the scene.
 - **Name-based binding.** Clips and skins find nodes by name. Two descendants with the same name bind to the first one found, and renamed bone entities stop animating or skinning.
