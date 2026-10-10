@@ -13,6 +13,7 @@ class BGFXRenderer;
 //   --warmup N            frames to ignore at the start of the perf report (default 30)
 //   --trace <path>        record a profiler capture of the measured frames (Chrome trace JSON on Linux)
 //   --exit                exit once the above finish (implied by --frames)
+//   --frame-time S        every frame advances S seconds of game time (repeatable captures; Engine)
 class AutomationRunner
 {
 public:

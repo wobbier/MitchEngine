@@ -160,6 +160,11 @@ void Engine::Init( Game* game )
         {
             SetFixedTimeStep( CommandLine::GetFloat( "--fixed-step", m_fixedTimeStep ) );
         }
+        if( CommandLine::Has( "--frame-time" ) )
+        {
+            // Simulated time per frame, whatever the real frame took: repeatable automated captures.
+            m_fixedFrameDelta = std::max( 0.f, CommandLine::GetFloat( "--frame-time", 0.f ) );
+        }
         if( CommandLine::Has( "--max-fps" ) )
         {
             SetMaxFrameRate( CommandLine::GetFloat( "--max-fps", 0.f ) );
@@ -362,7 +367,7 @@ void Engine::Run()
         {
             OPTICK_EVENT( "Clock" );
             GameClock.Update();
-            frameSeconds = static_cast<float>( std::min( GameClock.GetDeltaSecondsPrecise(), static_cast<double>( m_maxFrameDelta ) ) );
+            frameSeconds = m_fixedFrameDelta > 0.f ? m_fixedFrameDelta : static_cast<float>( std::min( GameClock.GetDeltaSecondsPrecise(), static_cast<double>( m_maxFrameDelta ) ) );
             if( m_isPaused )
             {
                 // Step Frame advances exactly one fixed step while paused.

@@ -119,6 +119,8 @@ private:
     float m_fixedTimeStep = 1.f / 60.f;
     int m_maxFixedStepsPerFrame = 8;
     float m_maxFrameDelta = 0.25f;
+    // --frame-time: every frame advances exactly this much (deterministic captures); 0 = real time.
+    float m_fixedFrameDelta = 0.f;
     float m_timeScale = 1.f;
     float m_maxFrameRate = 0.f;
     bool m_isPaused = false;
