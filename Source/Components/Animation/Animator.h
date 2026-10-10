@@ -29,13 +29,16 @@ public:
     float Value = 0.f;          // the float, or 0 / 1
 };
 
-// One clip of a 1D blend: the state plays the two clips around its blend parameter's value.
+// One clip of a blend. 1D: the state plays the two clips around its blend parameter's value. 2D
+// (a second parameter): each clip sits at (Threshold, ThresholdY) and is weighted by how close the
+// parameters are to it (gradient band interpolation).
 struct AnimatorBlendClip
 {
     ME_REFLECTABLE( AnimatorBlendClip )
 public:
     std::string Clip;
     float Threshold = 0.f;
+    float ThresholdY = 0.f;
 };
 
 struct AnimatorState
@@ -43,11 +46,26 @@ struct AnimatorState
     ME_REFLECTABLE( AnimatorState )
 public:
     std::string Name;
-    std::string Clip;           // or a 1D blend over BlendClips by BlendParameter
+    std::string Clip;           // or a blend over BlendClips by BlendParameter (and BlendParameterY)
     float Speed = 1.f;
     bool Loop = true;
     std::string BlendParameter;
+    std::string BlendParameterY;    // set: a 2D blend (e.g. strafe X / forward Y)
     std::vector<AnimatorBlendClip> BlendClips;
+    std::string Layer;          // empty = the base layer
+};
+
+// A layer runs its own states over part of the body: its pose replaces the layers below it on the
+// bones in Mask (each named bone and everything below it), by Weight. Typical use: an upper-body
+// layer that aims or waves while the base layer walks.
+struct AnimatorLayer
+{
+    ME_REFLECTABLE( AnimatorLayer )
+public:
+    std::string Name;
+    std::string DefaultState;   // empty = none until Play()
+    float Weight = 1.f;
+    std::vector<std::string> Mask;  // empty = the whole body
 };
 
 enum class AnimatorCondition : uint8_t
@@ -99,8 +117,9 @@ public:
 
 // Plays the animations of the Model on this entity (or of ClipSource) onto the node entities below
 // it: bones are entities, so skinned meshes follow them and anything parented to a bone rides along.
-// A small state machine picks what plays: states (a clip or a 1D blend), transitions on parameters
-// and exit times with cross-fades, and event markers. Without states, every clip is a state.
+// A small state machine picks what plays: states (a clip, or a 1D / 2D blend), transitions on
+// parameters and exit times with cross-fades, and event markers. Without states, every clip is a
+// state. Layers add masked state machines on top, and root motion can move the entity itself.
 class Animator
     : public Component<Animator>
 {
@@ -117,11 +136,17 @@ public:
     std::vector<AnimatorState> States;
     std::vector<AnimatorTransition> Transitions;
     std::vector<AnimatorEventMarker> Events;
+    std::vector<AnimatorLayer> Layers;
+    // Root motion: RootBone's horizontal travel moves this entity (through its CharacterController
+    // when it has one) instead of the bone. Empty RootBone = the topmost animated node.
+    bool ApplyRootMotion = false;
+    std::string RootBone;
 
-    // Switches to a state (or, without states, a clip), cross-fading over InFadeSeconds.
+    // Switches to a state (or, without states, a clip) in that state's layer, cross-fading over
+    // InFadeSeconds.
     void Play( const std::string& InState, float InFadeSeconds = 0.f );
     void Stop();
-    bool IsPlaying() const { return m_playing; }
+    bool IsPlaying() const;
 
     void SetFloat( const std::string& InName, float InValue );
     float GetFloat( const std::string& InName ) const;
@@ -130,11 +155,16 @@ public:
     void SetTrigger( const std::string& InName );
     void ResetTrigger( const std::string& InName );
 
-    std::string GetCurrentState() const;
-    float GetStateTime() const { return m_time; }
+    // InLayer: a layer's name; empty = the base layer.
+    std::string GetCurrentState( const std::string& InLayer = "" ) const;
+    float GetStateTime( const std::string& InLayer = "" ) const;
     // Playback position in the current state's clip, 0..1 (keeps counting past 1 when looping).
-    float GetNormalizedTime() const;
-    bool IsInTransition() const { return m_previous >= 0; }
+    float GetNormalizedTime( const std::string& InLayer = "" ) const;
+    bool IsInTransition( const std::string& InLayer = "" ) const;
+    void SetLayerWeight( const std::string& InLayer, float InWeight );
+    float GetLayerWeight( const std::string& InLayer ) const;
+    // Root motion of the last update, in world space (also with ApplyRootMotion off).
+    Vector3 GetRootMotion() const { return m_rootMotionWorld; }
     std::vector<std::string> GetClipNames() const;
     // Plays these clips instead of a model's (procedural or code-built animation). Rebinds.
     void UseClips( SharedPtr<std::vector<Moonlight::AnimationClip>> InClips );
@@ -160,6 +190,22 @@ private:
         Vector3 Scale;
     };
 
+    // One layer's playback (0 = base, then Layers in order).
+    struct LayerPlayback
+    {
+        bool Playing = false;
+        int Current = -1;
+        float Time = 0.f;
+        float TimeBefore = 0.f;         // Time before this frame's advance (root motion)
+        int Previous = -1;              // cross-fading from
+        float PreviousTime = 0.f;
+        float PreviousTimeBefore = 0.f;
+        float FadeElapsed = 0.f;
+        float FadeDuration = 0.f;
+        float Weight = 1.f;
+        std::vector<uint8_t> BoneMask;  // per binding: 1 = this layer drives it
+    };
+
     // Resolved by AnimationCore.
     SharedPtr<ModelResource> m_clipModel;
     SharedPtr<std::vector<Moonlight::AnimationClip>> m_ownClips;
@@ -170,23 +216,23 @@ private:
     bool m_bound = false;
 
     // Playback
-    bool m_playing = false;
-    int m_current = -1;
-    float m_time = 0.f;
-    int m_previous = -1;
-    float m_previousTime = 0.f;
-    float m_fadeElapsed = 0.f;
-    float m_fadeDuration = 0.f;
-    std::string m_pendingPlay;
-    float m_pendingFade = 0.f;
-    bool m_hasPendingPlay = false;
+    std::vector<LayerPlayback> m_layers;
+    std::vector<std::pair<std::string, float>> m_pendingPlays;     // Play() before / between updates
+    std::vector<std::pair<std::string, float>> m_pendingWeights;   // SetLayerWeight() before binding
+    int m_rootBinding = -1;
+    Vector3 m_rootMotion;           // last update, in the root bone's parent space (from SamplePose)
+    Vector3 m_rootMotionWorld;
+    Vector3 m_rootUp = Vector3( 0.f, 1.f, 0.f );     // world up in the root bone's parent space
 
     int FindState( const std::string& InName ) const;
+    int FindLayer( const std::string& InName ) const;   // -1 = unknown; "" = 0
+    int StateLayer( int InState ) const;
     AnimatorParameter* FindParameter( const std::string& InName );
     const AnimatorParameter* FindParameter( const std::string& InName ) const;
     int FindClip( const std::string& InName ) const;
     float StateDuration( int InState ) const;
     void BeginState( int InState, float InFade );
+    const LayerPlayback* GetLayer( const std::string& InLayer ) const;
     void Unbind();
 
     void OnDeserialize( const json& InJson ) override;

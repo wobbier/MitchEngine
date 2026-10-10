@@ -211,3 +211,154 @@ TEST_CASE( "Animation: 1D blends, Play() with fades and event markers" )
     CHECK( animator.GetCurrentState() == "Fast" );
     CHECK( rig.ArmPosition().x == doctest::Approx( 8.f ) );
 }
+
+
+namespace AnimationTest
+{
+    // A clip holding node InNode at InPosition.
+    Moonlight::AnimationChannel HoldChannel( const std::string& InNode, const Vector3& InPosition, float InDuration )
+    {
+        Moonlight::AnimationChannel channel;
+        channel.NodeName = InNode;
+        channel.PositionTimes = { 0.f, InDuration };
+        channel.Positions = { InPosition, InPosition };
+        return channel;
+    }
+
+    Moonlight::AnimationClip Hold( const std::string& InName, const std::vector<std::string>& InNodes, const Vector3& InPosition, float InDuration = 1.f )
+    {
+        Moonlight::AnimationClip clip;
+        clip.Name = InName;
+        clip.Duration = InDuration;
+        for( const std::string& node : InNodes )
+        {
+            clip.Channels.push_back( HoldChannel( node, InPosition, InDuration ) );
+        }
+        return clip;
+    }
+}
+
+
+TEST_CASE( "Animation: 2D blends weight the clips around the two parameters" )
+{
+    Rig rig( { Hold( "Idle", { "Arm" }, Vector3( 0.f, 0.f, 0.f ) ), Hold( "Right", { "Arm" }, Vector3( 10.f, 0.f, 0.f ) ), Hold( "Left", { "Arm" }, Vector3( -10.f, 0.f, 0.f ) ),
+        Hold( "Forward", { "Arm" }, Vector3( 0.f, 0.f, 10.f ) ), Hold( "Back", { "Arm" }, Vector3( 0.f, 0.f, -10.f ) ) } );
+    Animator& animator = rig.Anim();
+    AnimatorState move;
+    move.Name = "Move";
+    move.BlendParameter = "X";
+    move.BlendParameterY = "Y";
+    move.BlendClips = { { "Idle", 0.f, 0.f }, { "Right", 1.f, 0.f }, { "Left", -1.f, 0.f }, { "Forward", 0.f, 1.f }, { "Back", 0.f, -1.f } };
+    animator.States = { move };
+    rig.Start();
+
+    animator.SetFloat( "X", 0.f );
+    animator.SetFloat( "Y", 0.f );
+    rig.Run( 0.1f );
+    CHECK( rig.ArmPosition().x == doctest::Approx( 0.f ).epsilon( 0.01 ) );
+    CHECK( rig.ArmPosition().z == doctest::Approx( 0.f ).epsilon( 0.01 ) );
+
+    animator.SetFloat( "X", 1.f );
+    rig.Run( 0.1f );
+    CHECK( rig.ArmPosition().x == doctest::Approx( 10.f ).epsilon( 0.01 ) );   // exactly on a sample
+
+    animator.SetFloat( "X", 0.f );
+    animator.SetFloat( "Y", 0.5f );
+    rig.Run( 0.1f );
+    CHECK( rig.ArmPosition().z == doctest::Approx( 5.f ).epsilon( 0.02 ) );   // halfway to Forward
+    CHECK( std::abs( rig.ArmPosition().x ) < 0.01f );
+
+    animator.SetFloat( "X", 0.5f );
+    animator.SetFloat( "Y", 0.5f );
+    rig.Run( 0.1f );
+    CHECK( rig.ArmPosition().x > 1.f );   // diagonal: both Right and Forward contribute
+    CHECK( rig.ArmPosition().z > 1.f );
+    CHECK( rig.ArmPosition().x == doctest::Approx( rig.ArmPosition().z ).epsilon( 0.01 ) );
+
+    animator.SetFloat( "X", 3.f );   // far outside: the nearest edge wins
+    animator.SetFloat( "Y", 0.f );
+    rig.Run( 0.1f );
+    CHECK( rig.ArmPosition().x == doctest::Approx( 10.f ).epsilon( 0.01 ) );
+}
+
+
+TEST_CASE( "Animation: layers override masked bones by weight" )
+{
+    Rig rig( { Hold( "Walk", { "Arm", "Hand", "Leg" }, Vector3( 1.f, 0.f, 0.f ) ), Hold( "Wave", { "Arm", "Hand", "Leg" }, Vector3( 5.f, 0.f, 0.f ) ) } );
+    EntityHandle hand = rig.GameWorld->CreateEntity( "Hand" );
+    hand->AddComponent<Transform>().SetParent( rig.Arm->GetComponent<Transform>() );
+    EntityHandle leg = rig.GameWorld->CreateEntity( "Leg" );
+    leg->AddComponent<Transform>().SetParent( rig.Root->GetComponent<Transform>() );
+
+    Animator& animator = rig.Anim();
+    AnimatorState walk;
+    walk.Name = "Walk";
+    walk.Clip = "Walk";
+    AnimatorState wave;
+    wave.Name = "Wave";
+    wave.Clip = "Wave";
+    wave.Layer = "Upper";
+    animator.States = { walk, wave };
+    AnimatorLayer upper;
+    upper.Name = "Upper";
+    upper.DefaultState = "Wave";
+    upper.Mask = { "Arm" };   // the arm and everything below it
+    animator.Layers = { upper };
+    rig.Start();
+    rig.Run( 0.1f );
+
+    auto x = []( EntityHandle InEntity ) { return InEntity->GetComponent<Transform>().GetPosition().x; };
+    CHECK( animator.GetCurrentState() == "Walk" );
+    CHECK( animator.GetCurrentState( "Upper" ) == "Wave" );
+    CHECK( x( rig.Arm ) == doctest::Approx( 5.f ) );
+    CHECK( x( hand ) == doctest::Approx( 5.f ) );
+    CHECK( x( leg ) == doctest::Approx( 1.f ) );   // outside the mask: the base layer
+
+    animator.SetLayerWeight( "Upper", 0.5f );
+    rig.Run( 0.1f );
+    CHECK( x( rig.Arm ) == doctest::Approx( 3.f ) );
+    CHECK( animator.GetLayerWeight( "Upper" ) == doctest::Approx( 0.5f ) );
+
+    animator.SetLayerWeight( "Upper", 0.f );
+    rig.Run( 0.1f );
+    CHECK( x( hand ) == doctest::Approx( 1.f ) );
+}
+
+
+TEST_CASE( "Animation: root motion moves the entity instead of the root bone" )
+{
+    // The hips slide 2 m along X each second, looping.
+    Moonlight::AnimationClip walk;
+    walk.Name = "Walk";
+    walk.Duration = 1.f;
+    Moonlight::AnimationChannel hips;
+    hips.NodeName = "Hips";
+    hips.PositionTimes = { 0.f, 1.f };
+    hips.Positions = { Vector3( 0.f, 1.f, 0.f ), Vector3( 2.f, 1.f, 0.f ) };
+    walk.Channels.push_back( hips );
+    Rig rig( { walk } );
+    EntityHandle hipsEntity = rig.GameWorld->CreateEntity( "Hips" );
+    hipsEntity->AddComponent<Transform>().SetParent( rig.Root->GetComponent<Transform>() );
+    hipsEntity->GetComponent<Transform>().SetPosition( Vector3( 0.f, 1.f, 0.f ) );
+
+    Animator& animator = rig.Anim();
+    animator.ApplyRootMotion = true;
+    animator.RootBone = "Hips";
+    rig.Start();
+    rig.Run( 1.5f );   // crosses the loop point
+
+    const Vector3 root = rig.Root->GetComponent<Transform>().GetWorldPosition();
+    CHECK( root.x == doctest::Approx( 3.f ).epsilon( 0.03 ) );   // 1.5 s at 2 m/s, continuous over the wrap
+    CHECK( root.y == doctest::Approx( 0.f ) );
+    const Vector3 bone = hipsEntity->GetComponent<Transform>().GetPosition();
+    CHECK( std::abs( bone.x ) < 0.01f );   // the bone stays above the entity
+    CHECK( bone.y == doctest::Approx( 1.f ) );   // vertical motion stays in the bone
+    CHECK( animator.GetRootMotion().x == doctest::Approx( 2.f / 60.f ).epsilon( 0.05 ) );
+
+    // Off: the bone travels and the entity stays.
+    animator.ApplyRootMotion = false;
+    const float before = rig.Root->GetComponent<Transform>().GetWorldPosition().x;
+    rig.Run( 0.25f );
+    CHECK( rig.Root->GetComponent<Transform>().GetWorldPosition().x == doctest::Approx( before ) );
+    CHECK( animator.GetRootMotion().x > 0.f );   // still reported
+}

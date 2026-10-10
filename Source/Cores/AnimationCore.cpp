@@ -2,6 +2,7 @@
 #include "AnimationCore.h"
 #include "Components/Animation/Animator.h"
 #include "Components/Graphics/Model.h"
+#include "Components/Physics/CharacterController.h"
 #include "Components/Transform.h"
 #include "ECS/ComponentFilter.h"
 #include "Engine/Engine.h"
@@ -11,6 +12,8 @@
 #include "Scene/AnimationClip.h"
 #include "optick.h"
 #include <algorithm>
+#include <array>
+#include <climits>
 #include <cmath>
 #include <unordered_map>
 
@@ -153,11 +156,104 @@ void AnimationCore::Bind( Entity& InEntity, Animator& InAnimator )
         }
     }
     InAnimator.m_pose.resize( InAnimator.m_bindings.size() );
+    Animator& a = InAnimator;
 
-    if( InAnimator.PlayOnStart && !InAnimator.m_hasPendingPlay && !InAnimator.m_states.empty() )
+    // Layers: the base layer drives every node; the others the nodes under their mask's bones.
+    a.m_layers.assign( a.Layers.size() + 1, Animator::LayerPlayback() );
+    for( size_t layerIndex = 0; layerIndex < a.m_layers.size(); ++layerIndex )
     {
-        const int state = InAnimator.DefaultState.empty() ? 0 : InAnimator.FindState( InAnimator.DefaultState );
-        InAnimator.BeginState( std::max( state, 0 ), 0.f );
+        Animator::LayerPlayback& layer = a.m_layers[layerIndex];
+        layer.BoneMask.assign( a.m_bindings.size(), 1 );
+        if( layerIndex == 0 )
+        {
+            continue;
+        }
+        const AnimatorLayer& settings = a.Layers[layerIndex - 1];
+        layer.Weight = std::clamp( settings.Weight, 0.f, 1.f );
+        if( settings.Mask.empty() )
+        {
+            continue;
+        }
+        for( size_t i = 0; i < a.m_bindings.size(); ++i )
+        {
+            bool inMask = false;
+            for( Transform* node = a.m_bindings[i].Node ? &a.m_bindings[i].Node->GetComponent<Transform>() : nullptr; node && !inMask; node = node->GetParentTransform() )
+            {
+                inMask = std::find( settings.Mask.begin(), settings.Mask.end(), node->GetName() ) != settings.Mask.end();
+                if( node == &root )
+                {
+                    break;
+                }
+            }
+            layer.BoneMask[i] = inMask ? 1 : 0;
+        }
+    }
+    for( const auto& [name, weight] : a.m_pendingWeights )
+    {
+        a.SetLayerWeight( name, weight );
+    }
+    a.m_pendingWeights.clear();
+
+    // Root motion: RootBone, or the animated node closest to the Animator.
+    a.m_rootBinding = -1;
+    int bestDepth = INT_MAX;
+    for( size_t i = 0; i < a.m_bindings.size(); ++i )
+    {
+        if( !a.m_bindings[i].Node )
+        {
+            continue;
+        }
+        Transform& node = a.m_bindings[i].Node->GetComponent<Transform>();
+        if( !a.RootBone.empty() )
+        {
+            if( node.GetName() == a.RootBone )
+            {
+                a.m_rootBinding = static_cast<int>( i );
+                break;
+            }
+            continue;
+        }
+        int depth = 0;
+        for( Transform* parent = node.GetParentTransform(); parent && parent != &root; parent = parent->GetParentTransform() )
+        {
+            ++depth;
+        }
+        if( depth < bestDepth )
+        {
+            bestDepth = depth;
+            a.m_rootBinding = static_cast<int>( i );
+        }
+    }
+    if( a.m_rootBinding >= 0 )
+    {
+        Transform* parent = a.m_bindings[a.m_rootBinding].Node->GetComponent<Transform>().GetParentTransform();
+        if( parent )
+        {
+            const glm::mat4 toLocal = glm::inverse( parent->GetLocalToWorldMatrix().GetInternalMatrix() );
+            const glm::vec3 up = glm::vec3( toLocal * glm::vec4( 0.f, 1.f, 0.f, 0.f ) );
+            a.m_rootUp = glm::length( up ) > 0.f ? Vector3( glm::normalize( up ) ) : Vector3( 0.f, 1.f, 0.f );
+        }
+    }
+
+    if( a.PlayOnStart && !a.m_states.empty() )
+    {
+        if( a.m_pendingPlays.empty() )
+        {
+            int state = a.DefaultState.empty() ? -1 : a.FindState( a.DefaultState );
+            for( size_t i = 0; state < 0 && i < a.m_states.size(); ++i )
+            {
+                state = a.StateLayer( static_cast<int>( i ) ) == 0 ? static_cast<int>( i ) : -1;
+            }
+            a.BeginState( std::max( state, 0 ), 0.f );
+        }
+        for( const AnimatorLayer& layer : a.Layers )
+        {
+            const int state = layer.DefaultState.empty() ? -1 : a.FindState( layer.DefaultState );
+            if( state >= 0 )
+            {
+                a.BeginState( state, 0.f );
+            }
+        }
     }
 }
 
@@ -165,122 +261,212 @@ void AnimationCore::Bind( Entity& InEntity, Animator& InAnimator )
 void AnimationCore::StepStateMachine( Entity& InEntity, Animator& InAnimator, float InDeltaSeconds )
 {
     Animator& a = InAnimator;
-    if( a.m_hasPendingPlay )
+    for( const auto& [name, fade] : a.m_pendingPlays )
     {
-        a.m_hasPendingPlay = false;
-        int state = a.FindState( a.m_pendingPlay );
-        if( state < 0 && a.FindClip( a.m_pendingPlay ) >= 0 )
+        int state = a.FindState( name );
+        if( state < 0 && a.FindClip( name ) >= 0 )
         {
-            // A clip without a state of its own: play it as one.
+            // A clip without a state of its own: play it as one (on the base layer).
             AnimatorState implicit;
-            implicit.Name = a.m_pendingPlay;
-            implicit.Clip = a.m_pendingPlay;
+            implicit.Name = name;
+            implicit.Clip = name;
             a.m_states.push_back( implicit );
             state = static_cast<int>( a.m_states.size() ) - 1;
         }
         if( state >= 0 )
         {
-            a.BeginState( state, a.m_pendingFade );
+            a.BeginState( state, fade );
         }
     }
-    if( !a.m_playing || a.m_current < 0 )
-    {
-        return;
-    }
+    a.m_pendingPlays.clear();
 
-    // Transitions (one at a time: not while cross-fading).
-    if( a.m_previous < 0 )
+    for( size_t layerIndex = 0; layerIndex < a.m_layers.size(); ++layerIndex )
     {
-        const std::string& current = a.m_states[a.m_current].Name;
-        const float normalized = a.GetNormalizedTime();
-        for( const AnimatorTransition& transition : a.Transitions )
+        Animator::LayerPlayback& layer = a.m_layers[layerIndex];
+        layer.TimeBefore = layer.Time;
+        layer.PreviousTimeBefore = layer.PreviousTime;
+        if( !layer.Playing || layer.Current < 0 )
         {
-            if( ( !transition.From.empty() && transition.From != current ) || transition.To == current )
+            continue;
+        }
+
+        // Transitions into this layer's states (one at a time: not while cross-fading).
+        if( layer.Previous < 0 )
+        {
+            const std::string& current = a.m_states[layer.Current].Name;
+            const float currentDuration = a.StateDuration( layer.Current );
+            const float normalized = currentDuration > 0.f ? layer.Time / currentDuration : 0.f;
+            for( const AnimatorTransition& transition : a.Transitions )
             {
-                continue;
-            }
-            const int target = a.FindState( transition.To );
-            if( target < 0 || ( transition.ExitTime >= 0.f && normalized < transition.ExitTime ) )
-            {
-                continue;
-            }
-            AnimatorParameter* parameter = a.FindParameter( transition.Parameter );
-            bool pass = false;
-            switch( transition.Condition )
-            {
-            case AnimatorCondition::Always:
-                pass = true;
-                break;
-            case AnimatorCondition::Greater:
-                pass = parameter && parameter->Value > transition.Threshold;
-                break;
-            case AnimatorCondition::Less:
-                pass = parameter && parameter->Value < transition.Threshold;
-                break;
-            case AnimatorCondition::True:
-                pass = parameter && parameter->Value != 0.f;
-                break;
-            case AnimatorCondition::False:
-                pass = !parameter || parameter->Value == 0.f;
-                break;
-            case AnimatorCondition::Trigger:
-                pass = parameter && parameter->Value != 0.f;
+                if( ( !transition.From.empty() && transition.From != current ) || transition.To == current )
+                {
+                    continue;
+                }
+                const int target = a.FindState( transition.To );
+                if( target < 0 || a.StateLayer( target ) != static_cast<int>( layerIndex ) || ( transition.ExitTime >= 0.f && normalized < transition.ExitTime ) )
+                {
+                    continue;
+                }
+                AnimatorParameter* parameter = a.FindParameter( transition.Parameter );
+                bool pass = false;
+                switch( transition.Condition )
+                {
+                case AnimatorCondition::Always:
+                    pass = true;
+                    break;
+                case AnimatorCondition::Greater:
+                    pass = parameter && parameter->Value > transition.Threshold;
+                    break;
+                case AnimatorCondition::Less:
+                    pass = parameter && parameter->Value < transition.Threshold;
+                    break;
+                case AnimatorCondition::True:
+                    pass = parameter && parameter->Value != 0.f;
+                    break;
+                case AnimatorCondition::False:
+                    pass = !parameter || parameter->Value == 0.f;
+                    break;
+                case AnimatorCondition::Trigger:
+                    pass = parameter && parameter->Value != 0.f;
+                    if( pass )
+                    {
+                        parameter->Value = 0.f;   // consumed
+                    }
+                    break;
+                }
                 if( pass )
                 {
-                    parameter->Value = 0.f;   // consumed
+                    a.BeginState( target, transition.Duration );
+                    break;
                 }
-                break;
-            }
-            if( pass )
-            {
-                a.BeginState( target, transition.Duration );
-                break;
             }
         }
-    }
 
-    // Advance, firing event markers passed on the way.
-    const AnimatorState& state = a.m_states[a.m_current];
-    const float duration = a.StateDuration( a.m_current );
-    const float before = a.m_time;
-    a.m_time += InDeltaSeconds * a.Speed * state.Speed;
-    if( !state.Loop && duration > 0.f )
-    {
-        a.m_time = std::clamp( a.m_time, 0.f, duration );
-    }
-    if( duration > 0.f && a.m_time > before )
-    {
-        const float from = before / duration;
-        const float to = a.m_time / duration;
-        for( const AnimatorEventMarker& marker : a.Events )
+        // Advance, firing event markers passed on the way.
+        const AnimatorState& state = a.m_states[layer.Current];
+        const float duration = a.StateDuration( layer.Current );
+        const float before = layer.Time;
+        layer.TimeBefore = before;
+        layer.Time += InDeltaSeconds * a.Speed * state.Speed;
+        if( !state.Loop && duration > 0.f )
         {
-            if( marker.State != state.Name )
+            layer.Time = std::clamp( layer.Time, 0.f, duration );
+        }
+        if( duration > 0.f && layer.Time > before )
+        {
+            const float from = before / duration;
+            const float to = layer.Time / duration;
+            for( const AnimatorEventMarker& marker : a.Events )
             {
-                continue;
-            }
-            for( float lap = std::floor( from ); lap <= std::floor( to ); lap += 1.f )
-            {
-                const float at = lap + marker.Time;
-                if( at > from && at <= to )
+                if( marker.State != state.Name )
                 {
-                    AnimationEvent event;
-                    event.Entity = InEntity.GetHandle();
-                    event.State = state.Name;
-                    event.Name = marker.Name;
-                    event.Fire();
+                    continue;
+                }
+                for( float lap = std::floor( from ); lap <= std::floor( to ); lap += 1.f )
+                {
+                    const float at = lap + marker.Time;
+                    if( at > from && at <= to )
+                    {
+                        AnimationEvent event;
+                        event.Entity = InEntity.GetHandle();
+                        event.State = state.Name;
+                        event.Name = marker.Name;
+                        event.Fire();
+                    }
                 }
             }
         }
-    }
 
-    if( a.m_previous >= 0 )
-    {
-        const AnimatorState& previous = a.m_states[a.m_previous];
-        a.m_previousTime += InDeltaSeconds * a.Speed * previous.Speed;
-        a.m_fadeElapsed += InDeltaSeconds;
-        if( a.m_fadeElapsed >= a.m_fadeDuration )
+        if( layer.Previous >= 0 )
         {
-            a.m_previous = -1;
+            const AnimatorState& previous = a.m_states[layer.Previous];
+            layer.PreviousTimeBefore = layer.PreviousTime;
+            layer.PreviousTime += InDeltaSeconds * a.Speed * previous.Speed;
+            if( !previous.Loop )
+            {
+                layer.PreviousTime = std::min( layer.PreviousTime, a.StateDuration( layer.Previous ) );
+            }
+            layer.FadeElapsed += InDeltaSeconds;
+            if( layer.FadeElapsed >= layer.FadeDuration )
+            {
+                layer.Previous = -1;
+            }
+        }
+    }
+}
+
+
+namespace
+{
+    // One weighted clip of a state at a point in time (and where it was a frame ago, for root motion).
+    struct ClipSample
+    {
+        int Clip = -1;
+        float Time = 0.f;           // unwrapped
+        float TimeBefore = 0.f;     // unwrapped
+        float Weight = 0.f;
+    };
+
+    constexpr int kMaxSamples = 8;
+
+    struct StateSamples
+    {
+        std::array<ClipSample, kMaxSamples> Items;
+        int Count = 0;
+        bool Loop = true;
+    };
+
+    // Gradient band interpolation (2D freeform blends): each sample's weight falls off towards
+    // every other sample, so weights stay local and sum to one after normalizing.
+    void GradientBandWeights( const std::vector<std::array<float, 2>>& InPoints, float InX, float InY, std::vector<float>& OutWeights )
+    {
+        const size_t count = InPoints.size();
+        OutWeights.assign( count, 0.f );
+        float total = 0.f;
+        for( size_t i = 0; i < count; ++i )
+        {
+            float weight = 1.f;
+            const float px = InX - InPoints[i][0];
+            const float py = InY - InPoints[i][1];
+            for( size_t j = 0; j < count; ++j )
+            {
+                if( i == j )
+                {
+                    continue;
+                }
+                const float vx = InPoints[j][0] - InPoints[i][0];
+                const float vy = InPoints[j][1] - InPoints[i][1];
+                const float lengthSquared = vx * vx + vy * vy;
+                if( lengthSquared <= 1e-8f )
+                {
+                    continue;
+                }
+                weight = std::min( weight, std::clamp( 1.f - ( px * vx + py * vy ) / lengthSquared, 0.f, 1.f ) );
+            }
+            OutWeights[i] = weight;
+            total += weight;
+        }
+        if( total <= 1e-6f )
+        {
+            // Outside every band: the nearest sample.
+            size_t nearest = 0;
+            float best = FLT_MAX;
+            for( size_t i = 0; i < count; ++i )
+            {
+                const float dx = InX - InPoints[i][0];
+                const float dy = InY - InPoints[i][1];
+                if( dx * dx + dy * dy < best )
+                {
+                    best = dx * dx + dy * dy;
+                    nearest = i;
+                }
+            }
+            OutWeights[nearest] = 1.f;
+            return;
+        }
+        for( float& weight : OutWeights )
+        {
+            weight /= total;
         }
     }
 }
@@ -291,54 +477,83 @@ void AnimationCore::SamplePose( Animator& InAnimator )
     Animator& a = InAnimator;
     const std::vector<Moonlight::AnimationClip>& clips = *a.m_clips;
 
-    struct ClipSample
-    {
-        int Clip = -1;
-        float Time = 0.f;
-        float Weight = 0.f;
-    };
-    // The (up to two) weighted clips a state plays at a time.
-    auto resolve = [&a, &clips]( int InState, float InTime, ClipSample OutSamples[2] ) {
+    // The weighted clips a state plays at InTime (blends stay in phase, normalized to the first
+    // clip's length).
+    auto resolve = [&a, &clips]( int InState, float InTime, float InTimeBefore ) {
+        StateSamples out;
         const AnimatorState& state = a.m_states[InState];
+        out.Loop = state.Loop;
         if( state.BlendClips.empty() )
         {
             const int clip = a.FindClip( state.Clip );
             if( clip >= 0 )
             {
-                OutSamples[0] = { clip, ClipTime( InTime, clips[clip].Duration, state.Loop ), 1.f };
+                out.Items[0] = { clip, InTime, InTimeBefore, 1.f };
+                out.Count = 1;
             }
-            return;
+            return out;
         }
-        // 1D blend: clips stay in phase (normalized to the first clip's length).
-        std::vector<const AnimatorBlendClip*> sorted;
-        for( const AnimatorBlendClip& entry : state.BlendClips )
+
+        std::vector<float> weights( state.BlendClips.size(), 0.f );
+        if( state.BlendParameterY.empty() )
         {
-            sorted.push_back( &entry );
-        }
-        std::sort( sorted.begin(), sorted.end(), []( const AnimatorBlendClip* x, const AnimatorBlendClip* y ) { return x->Threshold < y->Threshold; } );
-        const float value = a.GetFloat( state.BlendParameter );
-        size_t upper = 0;
-        while( upper < sorted.size() && sorted[upper]->Threshold < value )
-        {
-            ++upper;
-        }
-        const size_t first = upper == 0 ? 0 : std::min( upper - 1, sorted.size() - 1 );
-        const size_t second = std::min( upper, sorted.size() - 1 );
-        const float span = sorted[second]->Threshold - sorted[first]->Threshold;
-        const float t = first == second || span <= 0.f ? 0.f : std::clamp( ( value - sorted[first]->Threshold ) / span, 0.f, 1.f );
-        const float reference = a.StateDuration( InState );
-        const float phase = reference > 0.f ? InTime / reference : 0.f;
-        const size_t picks[2] = { first, second };
-        const float weights[2] = { 1.f - t, t };
-        for( int i = 0; i < 2; ++i )
-        {
-            const int clip = a.FindClip( sorted[picks[i]]->Clip );
-            if( clip >= 0 )
+            // 1D: the two clips around the parameter.
+            std::vector<size_t> order( state.BlendClips.size() );
+            for( size_t i = 0; i < order.size(); ++i )
             {
-                const float duration = clips[clip].Duration;
-                OutSamples[i] = { clip, ClipTime( phase * duration, duration, state.Loop ), weights[i] };
+                order[i] = i;
+            }
+            std::sort( order.begin(), order.end(), [&state]( size_t x, size_t y ) { return state.BlendClips[x].Threshold < state.BlendClips[y].Threshold; } );
+            const float value = a.GetFloat( state.BlendParameter );
+            size_t upper = 0;
+            while( upper < order.size() && state.BlendClips[order[upper]].Threshold < value )
+            {
+                ++upper;
+            }
+            const size_t first = upper == 0 ? 0 : std::min( upper - 1, order.size() - 1 );
+            const size_t second = std::min( upper, order.size() - 1 );
+            const float span = state.BlendClips[order[second]].Threshold - state.BlendClips[order[first]].Threshold;
+            const float t = first == second || span <= 0.f ? 0.f : std::clamp( ( value - state.BlendClips[order[first]].Threshold ) / span, 0.f, 1.f );
+            weights[order[first]] += 1.f - t;
+            weights[order[second]] += t;
+        }
+        else
+        {
+            std::vector<std::array<float, 2>> points;
+            for( const AnimatorBlendClip& entry : state.BlendClips )
+            {
+                points.push_back( { entry.Threshold, entry.ThresholdY } );
+            }
+            GradientBandWeights( points, a.GetFloat( state.BlendParameter ), a.GetFloat( state.BlendParameterY ), weights );
+        }
+
+        // The strongest few, renormalized.
+        std::vector<size_t> ranked;
+        for( size_t i = 0; i < weights.size(); ++i )
+        {
+            if( weights[i] > 1e-4f && a.FindClip( state.BlendClips[i].Clip ) >= 0 )
+            {
+                ranked.push_back( i );
             }
         }
+        std::sort( ranked.begin(), ranked.end(), [&weights]( size_t x, size_t y ) { return weights[x] > weights[y]; } );
+        if( ranked.size() > static_cast<size_t>( kMaxSamples ) )
+        {
+            ranked.resize( kMaxSamples );
+        }
+        float total = 0.f;
+        for( size_t index : ranked )
+        {
+            total += weights[index];
+        }
+        const float reference = a.StateDuration( InState );
+        for( size_t index : ranked )
+        {
+            const int clip = a.FindClip( state.BlendClips[index].Clip );
+            const float scale = reference > 0.f ? clips[clip].Duration / reference : 1.f;
+            out.Items[out.Count++] = { clip, InTime * scale, InTimeBefore * scale, total > 0.f ? weights[index] / total : 0.f };
+        }
+        return out;
     };
 
     auto blend = []( Animator::Pose& InOutA, const Animator::Pose& InB, float InWeight ) {
@@ -348,13 +563,13 @@ void AnimationCore::SamplePose( Animator& InAnimator )
     };
 
     // A binding's pose for a state: its bind pose, overridden by the state's clips.
-    auto statePose = [&]( const Animator::Binding& InBinding, const ClipSample InSamples[2] ) {
+    auto statePose = [&]( const Animator::Binding& InBinding, const StateSamples& InSamples ) {
         Animator::Pose result{ InBinding.BindPosition, InBinding.BindRotation, InBinding.BindScale };
-        bool first = true;
-        for( int i = 0; i < 2; ++i )
+        float accumulated = 0.f;
+        for( int i = 0; i < InSamples.Count; ++i )
         {
-            const ClipSample& sample = InSamples[i];
-            if( sample.Clip < 0 || sample.Weight <= 0.f )
+            const ClipSample& sample = InSamples.Items[i];
+            if( sample.Weight <= 0.f )
             {
                 continue;
             }
@@ -362,42 +577,143 @@ void AnimationCore::SamplePose( Animator& InAnimator )
             const int channel = InBinding.Channels[sample.Clip];
             if( channel >= 0 )
             {
-                Moonlight::AnimationClip::Sample( clips[sample.Clip].Channels[channel], sample.Time, pose.Position, pose.Rotation, pose.Scale );
+                Moonlight::AnimationClip::Sample( clips[sample.Clip].Channels[channel], ClipTime( sample.Time, clips[sample.Clip].Duration, InSamples.Loop ), pose.Position, pose.Rotation, pose.Scale );
             }
-            if( first )
+            accumulated += sample.Weight;
+            if( accumulated <= sample.Weight )
             {
                 result = pose;
-                first = false;
             }
             else
             {
-                blend( result, pose, sample.Weight / ( InSamples[0].Weight + sample.Weight ) );
+                blend( result, pose, sample.Weight / accumulated );
             }
         }
         return result;
     };
 
-    ClipSample current[2];
-    resolve( a.m_current, a.m_time, current );
-    ClipSample previous[2];
-    float fade = 1.f;
-    if( a.m_previous >= 0 )
+    // A layer's pose for a binding: its current state, cross-faded from the previous one.
+    struct LayerSamples
     {
-        resolve( a.m_previous, a.m_previousTime, previous );
-        fade = a.m_fadeDuration > 0.f ? std::clamp( a.m_fadeElapsed / a.m_fadeDuration, 0.f, 1.f ) : 1.f;
-        fade = fade * fade * ( 3.f - 2.f * fade );   // smoothstep
+        StateSamples Current;
+        StateSamples Previous;
+        float Fade = 1.f;
+        bool Active = false;
+    };
+    std::vector<LayerSamples> layers( a.m_layers.size() );
+    for( size_t i = 0; i < a.m_layers.size(); ++i )
+    {
+        const Animator::LayerPlayback& playback = a.m_layers[i];
+        if( !playback.Playing || playback.Current < 0 )
+        {
+            continue;
+        }
+        LayerSamples& samples = layers[i];
+        samples.Active = true;
+        samples.Current = resolve( playback.Current, playback.Time, playback.TimeBefore );
+        if( playback.Previous >= 0 )
+        {
+            samples.Previous = resolve( playback.Previous, playback.PreviousTime, playback.PreviousTimeBefore );
+            float fade = playback.FadeDuration > 0.f ? std::clamp( playback.FadeElapsed / playback.FadeDuration, 0.f, 1.f ) : 1.f;
+            samples.Fade = fade * fade * ( 3.f - 2.f * fade );   // smoothstep
+        }
     }
+    auto layerPose = [&]( const Animator::Binding& InBinding, const Animator::LayerPlayback& InPlayback, const LayerSamples& InSamples ) {
+        Animator::Pose pose = statePose( InBinding, InSamples.Current );
+        if( InPlayback.Previous >= 0 && InSamples.Fade < 1.f )
+        {
+            Animator::Pose from = statePose( InBinding, InSamples.Previous );
+            blend( from, pose, InSamples.Fade );
+            pose = from;
+        }
+        return pose;
+    };
+
     for( size_t i = 0; i < a.m_bindings.size(); ++i )
     {
         const Animator::Binding& binding = a.m_bindings[i];
-        Animator::Pose pose = statePose( binding, current );
-        if( a.m_previous >= 0 && fade < 1.f )
+        Animator::Pose pose{ binding.BindPosition, binding.BindRotation, binding.BindScale };
+        if( layers[0].Active )
         {
-            Animator::Pose from = statePose( binding, previous );
-            blend( from, pose, fade );
-            pose = from;
+            pose = layerPose( binding, a.m_layers[0], layers[0] );
+        }
+        for( size_t layer = 1; layer < a.m_layers.size(); ++layer )
+        {
+            const Animator::LayerPlayback& playback = a.m_layers[layer];
+            if( layers[layer].Active && playback.Weight > 0.f && playback.BoneMask[i] )
+            {
+                blend( pose, layerPose( binding, playback, layers[layer] ), playback.Weight );
+            }
         }
         a.m_pose[i] = pose;
+    }
+
+    // Root motion (base layer): the root's travel since last frame, horizontal part only.
+    a.m_rootMotion = Vector3();
+    if( a.m_rootBinding < 0 || !layers[0].Active )
+    {
+        return;
+    }
+    const Animator::Binding& root = a.m_bindings[a.m_rootBinding];
+    auto travel = [&]( const StateSamples& InSamples ) {
+        Vector3 total;
+        for( int i = 0; i < InSamples.Count; ++i )
+        {
+            const ClipSample& sample = InSamples.Items[i];
+            const int channel = root.Channels[sample.Clip];
+            if( channel < 0 || sample.Weight <= 0.f )
+            {
+                continue;
+            }
+            const Moonlight::AnimationChannel& keys = clips[sample.Clip].Channels[channel];
+            const float duration = clips[sample.Clip].Duration;
+            auto positionAt = [&]( float InTime ) {
+                Vector3 position = root.BindPosition;
+                Quaternion rotation = root.BindRotation;
+                Vector3 scale = root.BindScale;
+                Moonlight::AnimationClip::Sample( keys, InTime, position, rotation, scale );
+                return position;
+            };
+            Vector3 delta;
+            if( InSamples.Loop && duration > 0.f )
+            {
+                const float lapsNow = std::floor( sample.Time / duration );
+                const float lapsBefore = std::floor( sample.TimeBefore / duration );
+                const float now = sample.Time - lapsNow * duration;
+                const float before = sample.TimeBefore - lapsBefore * duration;
+                if( lapsNow == lapsBefore )
+                {
+                    delta = positionAt( now ) - positionAt( before );
+                }
+                else
+                {
+                    // Wrapped: to the end, any whole laps, then from the start.
+                    const Vector3 lap = positionAt( duration ) - positionAt( 0.f );
+                    delta = ( positionAt( duration ) - positionAt( before ) ) + lap * std::max( lapsNow - lapsBefore - 1.f, 0.f ) + ( positionAt( now ) - positionAt( 0.f ) );
+                }
+            }
+            else
+            {
+                delta = positionAt( std::clamp( sample.Time, 0.f, duration ) ) - positionAt( std::clamp( sample.TimeBefore, 0.f, duration ) );
+            }
+            total = total + delta * sample.Weight;
+        }
+        return total;
+    };
+    Vector3 delta = travel( layers[0].Current );
+    if( a.m_layers[0].Previous >= 0 && layers[0].Fade < 1.f )
+    {
+        const Vector3 previous = travel( layers[0].Previous );
+        delta = previous + ( delta - previous ) * layers[0].Fade;
+    }
+    const Vector3 up = a.m_rootUp;
+    a.m_rootMotion = delta - up * delta.Dot( up );
+    if( a.ApplyRootMotion )
+    {
+        // The entity moves instead: keep the root above it (vertical motion stays in the bone).
+        Animator::Pose& pose = a.m_pose[a.m_rootBinding];
+        const Vector3 offset = pose.Position - root.BindPosition;
+        pose.Position = pose.Position - ( offset - up * offset.Dot( up ) );
     }
 }
 
@@ -440,7 +756,8 @@ void AnimationCore::Advance( float InDeltaSeconds )
             continue;
         }
         StepStateMachine( entity, *animator, InDeltaSeconds );
-        if( animator->m_playing && animator->m_current >= 0 && !animator->m_bindings.empty() )
+        const bool anyPlaying = std::any_of( animator->m_layers.begin(), animator->m_layers.end(), []( const Animator::LayerPlayback& layer ) { return layer.Playing && layer.Current >= 0; } );
+        if( anyPlaying && !animator->m_bindings.empty() )
         {
             active.push_back( animator );
         }
@@ -455,5 +772,43 @@ void AnimationCore::Advance( float InDeltaSeconds )
     for( Animator* animator : active )
     {
         WritePose( *animator );
+        ApplyRootMotion( *animator );
+    }
+}
+
+
+void AnimationCore::ApplyRootMotion( Animator& InAnimator )
+{
+    Animator& a = InAnimator;
+    a.m_rootMotionWorld = Vector3();
+    if( a.m_rootBinding < 0 || !a.m_bindings[a.m_rootBinding].Node )
+    {
+        return;
+    }
+    // The bone's horizontal travel, from its parent's space to the world.
+    Transform* parent = a.m_bindings[a.m_rootBinding].Node->GetComponent<Transform>().GetParentTransform();
+    glm::vec4 world( a.m_rootMotion.InternalVector, 0.f );
+    if( parent )
+    {
+        world = parent->GetLocalToWorldMatrix().GetInternalMatrix() * world;
+    }
+    a.m_rootMotionWorld = Vector3( world.x, 0.f, world.z );
+    if( !a.ApplyRootMotion || a.m_rootMotionWorld.LengthSquared() <= 0.f )
+    {
+        return;
+    }
+    Entity* owner = a.Parent.Get();
+    if( !owner )
+    {
+        return;
+    }
+    if( CharacterController* character = owner->TryGetComponent<CharacterController>() )
+    {
+        character->Move( a.m_rootMotionWorld );
+    }
+    else
+    {
+        Transform& transform = owner->GetComponent<Transform>();
+        transform.SetWorldPosition( transform.GetWorldPosition() + a.m_rootMotionWorld );
     }
 }

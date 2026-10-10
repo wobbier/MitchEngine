@@ -22,6 +22,7 @@ ME_REFLECT_END()
 ME_REFLECT_BEGIN( AnimatorBlendClip )
     ME_FIELD( Clip );
     ME_FIELD( Threshold );
+    ME_FIELD( ThresholdY ).Tooltip( "2D blends: the position on the second parameter" );
 ME_REFLECT_END()
 
 ME_REFLECT_BEGIN( AnimatorState )
@@ -30,7 +31,16 @@ ME_REFLECT_BEGIN( AnimatorState )
     ME_FIELD( Speed ).Range( -10.f, 10.f );
     ME_FIELD( Loop );
     ME_FIELD( BlendParameter ).Tooltip( "Float parameter that picks between BlendClips by their thresholds" );
+    ME_FIELD( BlendParameterY ).Tooltip( "Second float parameter: a 2D blend over (Threshold, ThresholdY)" );
     ME_FIELD( BlendClips );
+    ME_FIELD( Layer ).Tooltip( "The layer this state plays in; empty = the base layer" );
+ME_REFLECT_END()
+
+ME_REFLECT_BEGIN( AnimatorLayer )
+    ME_FIELD( Name );
+    ME_FIELD( DefaultState );
+    ME_FIELD( Weight ).Range( 0.f, 1.f );
+    ME_FIELD( Mask ).Tooltip( "Bones (with everything below them) this layer drives; empty = all" );
 ME_REFLECT_END()
 
 ME_REFLECT_BEGIN( AnimatorTransition )
@@ -58,6 +68,9 @@ ME_REFLECT_BEGIN( Animator )
     ME_FIELD( States ).Category( "State Machine" );
     ME_FIELD( Transitions ).Category( "State Machine" );
     ME_FIELD( Events ).Category( "State Machine" );
+    ME_FIELD( Layers ).Category( "State Machine" );
+    ME_FIELD( ApplyRootMotion ).Category( "Root Motion" ).Tooltip( "Move this entity by the root bone's horizontal travel" );
+    ME_FIELD( RootBone ).Category( "Root Motion" ).Tooltip( "Empty = the topmost animated node" );
 ME_REFLECT_END()
 
 
@@ -81,25 +94,90 @@ void Animator::Unbind()
     m_clipModel.reset();
     m_bindings.clear();
     m_states.clear();
-    m_current = -1;
-    m_previous = -1;
-    m_playing = false;
+    m_layers.clear();
+    m_rootBinding = -1;
 }
 
 
 void Animator::Play( const std::string& InState, float InFadeSeconds )
 {
     // Applied by AnimationCore once the clips are bound.
-    m_pendingPlay = InState;
-    m_pendingFade = std::max( InFadeSeconds, 0.f );
-    m_hasPendingPlay = true;
+    m_pendingPlays.emplace_back( InState, std::max( InFadeSeconds, 0.f ) );
 }
 
 
 void Animator::Stop()
 {
-    m_playing = false;
-    m_hasPendingPlay = false;
+    for( LayerPlayback& layer : m_layers )
+    {
+        layer.Playing = false;
+    }
+    m_pendingPlays.clear();
+}
+
+
+bool Animator::IsPlaying() const
+{
+    return !m_layers.empty() && m_layers[0].Playing;
+}
+
+
+int Animator::FindLayer( const std::string& InName ) const
+{
+    if( InName.empty() )
+    {
+        return 0;
+    }
+    for( size_t i = 0; i < Layers.size(); ++i )
+    {
+        if( Layers[i].Name == InName )
+        {
+            return static_cast<int>( i ) + 1;
+        }
+    }
+    return -1;
+}
+
+
+int Animator::StateLayer( int InState ) const
+{
+    if( InState < 0 || InState >= static_cast<int>( m_states.size() ) )
+    {
+        return -1;
+    }
+    return FindLayer( m_states[InState].Layer );
+}
+
+
+const Animator::LayerPlayback* Animator::GetLayer( const std::string& InLayer ) const
+{
+    const int index = FindLayer( InLayer );
+    return index >= 0 && index < static_cast<int>( m_layers.size() ) ? &m_layers[index] : nullptr;
+}
+
+
+void Animator::SetLayerWeight( const std::string& InLayer, float InWeight )
+{
+    const int index = FindLayer( InLayer );
+    if( index > 0 && index < static_cast<int>( m_layers.size() ) )
+    {
+        m_layers[index].Weight = std::clamp( InWeight, 0.f, 1.f );
+    }
+    else if( index > 0 )
+    {
+        m_pendingWeights.emplace_back( InLayer, std::clamp( InWeight, 0.f, 1.f ) );
+    }
+}
+
+
+float Animator::GetLayerWeight( const std::string& InLayer ) const
+{
+    if( const LayerPlayback* layer = GetLayer( InLayer ) )
+    {
+        return layer->Weight;
+    }
+    const int index = FindLayer( InLayer );
+    return index > 0 ? Layers[index - 1].Weight : ( index == 0 ? 1.f : 0.f );
 }
 
 
@@ -213,9 +291,24 @@ void Animator::ResetTrigger( const std::string& InName )
 }
 
 
-std::string Animator::GetCurrentState() const
+std::string Animator::GetCurrentState( const std::string& InLayer ) const
 {
-    return m_current >= 0 && m_current < static_cast<int>( m_states.size() ) ? m_states[m_current].Name : std::string();
+    const LayerPlayback* layer = GetLayer( InLayer );
+    return layer && layer->Current >= 0 && layer->Current < static_cast<int>( m_states.size() ) ? m_states[layer->Current].Name : std::string();
+}
+
+
+float Animator::GetStateTime( const std::string& InLayer ) const
+{
+    const LayerPlayback* layer = GetLayer( InLayer );
+    return layer ? layer->Time : 0.f;
+}
+
+
+bool Animator::IsInTransition( const std::string& InLayer ) const
+{
+    const LayerPlayback* layer = GetLayer( InLayer );
+    return layer && layer->Previous >= 0;
 }
 
 
@@ -237,29 +330,42 @@ float Animator::StateDuration( int InState ) const
 }
 
 
-float Animator::GetNormalizedTime() const
+float Animator::GetNormalizedTime( const std::string& InLayer ) const
 {
-    const float duration = StateDuration( m_current );
-    return duration > 0.f ? m_time / duration : 0.f;
+    const LayerPlayback* layer = GetLayer( InLayer );
+    if( !layer )
+    {
+        return 0.f;
+    }
+    const float duration = StateDuration( layer->Current );
+    return duration > 0.f ? layer->Time / duration : 0.f;
 }
 
 
 void Animator::BeginState( int InState, float InFade )
 {
-    if( InFade > 0.f && m_current >= 0 && m_playing )
+    const int index = StateLayer( InState );
+    if( index < 0 || index >= static_cast<int>( m_layers.size() ) )
     {
-        m_previous = m_current;
-        m_previousTime = m_time;
-        m_fadeElapsed = 0.f;
-        m_fadeDuration = InFade;
+        return;
+    }
+    LayerPlayback& layer = m_layers[index];
+    if( InFade > 0.f && layer.Current >= 0 && layer.Playing )
+    {
+        layer.Previous = layer.Current;
+        layer.PreviousTime = layer.Time;
+        layer.PreviousTimeBefore = layer.Time;
+        layer.FadeElapsed = 0.f;
+        layer.FadeDuration = InFade;
     }
     else
     {
-        m_previous = -1;
+        layer.Previous = -1;
     }
-    m_current = InState;
-    m_time = 0.f;
-    m_playing = true;
+    layer.Current = InState;
+    layer.Time = 0.f;
+    layer.TimeBefore = 0.f;
+    layer.Playing = true;
 }
 
 
@@ -293,8 +399,16 @@ void Animator::OnEditorInspect()
         return;
     }
     ImGui::Text( "State: %s%s", GetCurrentState().c_str(), IsInTransition() ? "  (blending)" : "" );
-    ImGui::Text( "Time: %.2f s  (%.2f)", m_time, GetNormalizedTime() );
+    ImGui::Text( "Time: %.2f s  (%.2f)", GetStateTime(), GetNormalizedTime() );
+    for( const AnimatorLayer& layer : Layers )
+    {
+        ImGui::Text( "%s: %s  (weight %.2f)%s", layer.Name.c_str(), GetCurrentState( layer.Name ).c_str(), GetLayerWeight( layer.Name ), IsInTransition( layer.Name ) ? "  (blending)" : "" );
+    }
     ImGui::Text( "Animated nodes: %zu", m_bindings.size() );
+    if( ApplyRootMotion )
+    {
+        ImGui::Text( "Root motion: %.3f, %.3f, %.3f", m_rootMotionWorld.x, m_rootMotionWorld.y, m_rootMotionWorld.z );
+    }
     if( ImGui::TreeNode( "Clips" ) )
     {
         for( const std::string& name : GetClipNames() )

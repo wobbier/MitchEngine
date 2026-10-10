@@ -8,9 +8,9 @@ class Animator;
 //   1. bind (once): find the clips (this entity's Model, or ClipSource) and the node entities they
 //      animate below the Animator, remembering each node's bind pose;
 //   2. state machine: pending Play() calls, then transitions on parameters / exit times;
-//   3. sample the current state (a clip or a 1D blend) and, while cross-fading, the previous one,
-//      on the job system;
-//   4. write the poses to the node Transforms and fire AnimationEvents.
+//   3. sample every layer's current state (a clip, or a 1D / 2D blend) and, while cross-fading, the
+//      previous one, on the job system; layers override the base on their masked nodes;
+//   4. write the poses to the node Transforms, fire AnimationEvents, and apply root motion.
 // RenderCore then skins meshes from those node Transforms.
 class AnimationCore final
     : public Core<AnimationCore>
@@ -32,6 +32,7 @@ private:
     void StepStateMachine( Entity& InEntity, Animator& InAnimator, float InDeltaSeconds );
     static void SamplePose( Animator& InAnimator );
     static void WritePose( Animator& InAnimator );
+    static void ApplyRootMotion( Animator& InAnimator );
 };
 
 ME_REGISTER_CORE( AnimationCore )
