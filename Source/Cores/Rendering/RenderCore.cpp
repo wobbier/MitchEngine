@@ -221,17 +221,6 @@ void RenderCore::OnStop()
     //m_renderer->ClearDebugColliders();
 }
 
-void RenderCore::UpdateMesh( Mesh* InMesh )
-{
-    //GetEngine().GetRenderer().GetMeshCache().Pop( InMesh->Id );
-    //
-    //Moonlight::MeshCommand command;
-    //command.SingleMesh = InMesh->MeshReferece;
-    //command.MeshMaterial = InMesh->MeshMaterial;
-    //command.Type = InMesh->GetType();
-    //InMesh->Id = GetEngine().GetRenderer().GetMeshCache().Push( command );
-}
-
 #if USING( ME_EDITOR )
 
 void RenderCore::OnEditorInspect()

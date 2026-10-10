@@ -15,7 +15,6 @@ using Sharpmake;
 [module: Sharpmake.Include("Tools/SharpmakeProject.sharpmake.cs")]
 [module: Sharpmake.Include("Tools/BaseTool.sharpmake.cs")]
 [module: Sharpmake.Include("Tools/ShaderEditor/ShaderEditor.sharpmake.cs")]
-[module: Sharpmake.Include("ThirdParty/Mono.sharpmake.cs")]
 [module: Sharpmake.Include("ThirdParty/Box2D.sharpmake.cs")]
 [module: Sharpmake.Include("ThirdParty/Box3D.sharpmake.cs")]
 [module: Sharpmake.Include("ThirdParty/RecastNavigation.sharpmake.cs")]
@@ -182,11 +181,10 @@ public class Engine : BaseProject
         }
 
         // #TODO This shouldn't be a sharpmake class
-        //conf.AddPublicDependency<Mono>(target, DependencySetting.Default | DependencySetting.Defines | DependencySetting.IncludePaths);
         // Sharpmake only generates C# projects for Windows. Elsewhere the engine builds the SDK-style
         // Modules/ScriptCore/ScriptCore.csproj and the game's Project/Game.Script.csproj with the
         // dotnet CLI (ScriptEngine::BuildScripts).
-        if (target.Platform == Platform.win64 && (Directory.Exists(Globals.MONO_Win64_Dir) || Directory.Exists(Globals.DOTNET_Win64_Dir)))
+        if (target.Platform == Platform.win64 && Directory.Exists(Globals.DOTNET_Win64_Dir))
         {
             conf.AddPublicDependency<ScriptCore>(target);
             conf.AddPublicDependency<UserGameScript>(target);
@@ -292,25 +290,6 @@ public class Engine : BaseProject
             }
         }
 
-        // #TODO Read path from Globals / Move to own class again
-        if (Directory.Exists(Globals.MONO_Win64_Dir))
-        {
-            conf.IncludePaths.Add(Path.Combine(Globals.MONO_Win64_Dir, "include/mono-2.0"));
-            conf.LibraryPaths.Add(Path.Combine(Globals.MONO_Win64_Dir, "lib"));
-            conf.LibraryFiles.Add("mono-2.0-sgen");
-            conf.Defines.Add($"MONO_HOME=\"{Globals.MONO_Win64_Dir}\"");
-            conf.Defines.Add($"MONO_PATH=\"{Globals.MONO_Win64_Dir}lib/mono/4.5\"");
-
-            // MONO DLL
-            {
-                var copyDirBuildStep = new Configuration.BuildStepCopy(
-                    Path.Combine(Globals.MONO_Win64_Dir, "bin"),
-                    Globals.RootDir + "/.build/[target.Name]");
-                copyDirBuildStep.IsFileCopy = false;
-                copyDirBuildStep.CopyPattern = "mono-2.0-sgen.dll";
-                conf.EventPostBuildExe.Add(copyDirBuildStep);
-            }
-        }
     }
 
     public override void ConfigureUWP(Configuration conf, CommonTarget target)
@@ -373,25 +352,6 @@ public class Engine : BaseProject
             }
         }
 
-        // #TODO Read path from Globals / Move to own class again
-        if (Directory.Exists(Globals.MONO_Win64_Dir))
-        {
-            conf.IncludePaths.Add(Path.Combine(Globals.MONO_Win64_Dir, "include/mono-2.0"));
-            conf.LibraryPaths.Add(Path.Combine(Globals.MONO_Win64_Dir, "lib"));
-            conf.LibraryFiles.Add("mono-2.0-sgen");
-            conf.Defines.Add($"MONO_HOME=\"{Globals.MONO_Win64_Dir}\"");
-            conf.Defines.Add($"MONO_PATH=\"{Globals.MONO_Win64_Dir}lib/mono/4.5\"");
-
-            // MONO DLL
-            {
-                var copyDirBuildStep = new Configuration.BuildStepCopy(
-                    Path.Combine(Globals.MONO_Win64_Dir, "bin"),
-                    Globals.RootDir + "/.build/[target.Name]");
-                copyDirBuildStep.IsFileCopy = false;
-                copyDirBuildStep.CopyPattern = "mono-2.0-sgen.dll";
-                conf.EventPostBuildExe.Add(copyDirBuildStep);
-            }
-        }
     }
 
     public override void ConfigureMac(Configuration conf, CommonTarget target)
@@ -447,29 +407,6 @@ public class Engine : BaseProject
             }
         }
 
-        //??
-        conf.XcodeUserFrameworks.Add("Mono");
-
-        // #TODO Read path from Globals / Move to own class again
-        if (Directory.Exists(Globals.MONO_macOS_Dir))
-        {
-            conf.IncludePaths.Add($"{Globals.MONO_macOS_Dir}Headers/mono-2.0/");
-            conf.LibraryPaths.Add($"{Globals.MONO_macOS_Dir}Libraries/");
-            conf.LibraryFiles.Add("monosgen-2.0");
-            conf.Defines.Add($"MONO_HOME=\"{Globals.MONO_macOS_Dir}Home\"");
-            conf.Defines.Add($"MONO_PATH=\"{Globals.MONO_macOS_Dir}Home/lib/mono/4.5\"");
-
-            // MONO DLL
-            {
-                //var copyDirBuildStep = new Configuration.BuildStepCopy(
-                //    "C:/Program Files/Mono/lib",
-                //    Globals.RootDir + "/.build/[target.Name]");
-                //// TODO: Copy mono-2.0sgen dll
-                //copyDirBuildStep.IsFileCopy = false;
-                //copyDirBuildStep.CopyPattern = "mscorelib.dll";
-                //conf.EventPostBuildExe.Add(copyDirBuildStep);
-            }
-        }
 
         // Ultralight dylibs
         if (Globals.IsUltralightEnabled)
@@ -627,12 +564,6 @@ public class BaseGameSolution : Solution
         {
             conf.AddProject<EngineTests>(target);
         }
-        // Disabled on mac atm since xcode doesn't have mono support that I know of
-        if (target.Platform != Platform.mac && (Directory.Exists(Globals.MONO_macOS_Dir) || Directory.Exists(Globals.MONO_Win64_Dir) || Directory.Exists(Globals.MONO_Linux_Dir)))
-        {
-            //conf.AddProject<UserGameScript>(target);
-            //conf.AddProject<ScriptCore>(target);
-        }
 
         // #TODO (mitch): Make this actual C# JSON shit, and make it not stop current configs.
         //if (!File.Exists(Globals.RootDir + "Project/Game.meproj"))
@@ -662,12 +593,6 @@ public class BaseScriptSolution : Solution
         conf.SolutionPath = Path.GetFullPath(Path.Combine(SharpmakeCsPath, ".."));
         conf.SolutionFileName = "GameScript";
 
-        // Disabled on mac atm since I just don't give a shit personally
-        if (target.Platform != Platform.mac && (Directory.Exists(Globals.MONO_macOS_Dir) || Directory.Exists(Globals.MONO_Linux_Dir)))
-        {
-            //conf.AddProject<UserGameScript>(target);
-            //conf.AddProject<ScriptCore>(target);
-        }
     }
 }
 
@@ -682,6 +607,7 @@ public class Globals
     public static string ExeName = "Game_EntryPoint";
 
     // C# Scripting
+    // Unused since the move to .NET 8 (kept so older game sharpmake files that set them still build).
     public static string MONO_Win64_Dir = string.Empty; //"C:/Program Files/Mono/";
     public static string MONO_macOS_Dir = string.Empty; //"/Library/Frameworks/Mono.framework/";
     public static string MONO_Linux_Dir = string.Empty; //"/usr/lib/mono/";

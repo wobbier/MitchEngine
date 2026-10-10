@@ -2,7 +2,6 @@
 #include "Engine.h"
 #include "CLog.h"
 #include "Config/EngineConfig.h"
-#include "Window/UWPWindow.h"
 #include "Events/EventManager.h"
 #include "Cores/PhysicsCore.h"
 #include "Cores/Physics2DCore.h"
@@ -185,7 +184,6 @@ void Engine::Init( Game* game )
     int WindowWidth = 1280;
     int WindowHeight = 720;
     GameWindow = new SDLWindow( "MitchEngine", ResizeFunc, 500, 300, Vector2( WindowWidth, WindowHeight ) );
-    //GameWindow = new UWPWindow("MitchEngine", 1920, 1080, ResizeFunc);
 #endif
 #if USING( ME_EDITOR_WIN64 )
     GameWindow->SetBorderless( true );

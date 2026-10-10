@@ -32,7 +32,6 @@ public:
     virtual void OnDeviceRestored() override;
 
     virtual void OnStop() override;
-    void UpdateMesh( Mesh* InMesh );
 
 #if USING( ME_EDITOR )
     virtual void OnEditorInspect() final;

@@ -381,7 +381,6 @@ void Mesh::SelectMaterial( const std::pair<std::string, MaterialInfo*>& ptr, Mat
         MeshMaterial->DiffuseColor = diffuse;
         MeshMaterial->Tiling = tiling;
 
-        static_cast<RenderCore*>( GetEngine().GetWorld().lock()->GetCore( RenderCore::GetTypeId() ) )->UpdateMesh( this );
     }
 }
 #endif

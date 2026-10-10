@@ -289,10 +289,6 @@ public abstract class BaseProject : Project
             copyDirBuildStep.CopyPattern = "*.so";
             conf.EventPostBuildExe.Add(copyDirBuildStep);
         }
-        if (Directory.Exists(Globals.MONO_Linux_Dir))
-        {
-            //conf.Defines.Add("DEFINE_ME_MONO");
-        }
         
         if (Directory.Exists(Globals.DOTNET_Linux_Dir))
         {
