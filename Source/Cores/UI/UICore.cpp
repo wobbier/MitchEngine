@@ -40,10 +40,6 @@ UICore::UICore( IWindow* window, BGFXRenderer* renderer )
 
     m_renderer = renderer;
 
-#if USING( ME_UI )
-    YIKES("UICORE CREATE");
-#endif
-
     UIProgram = Moonlight::LoadProgram( "Assets/Shaders/UI.vert", "Assets/Shaders/UI.frag" );
     s_texUI = bgfx::createUniform( "s_texUI", bgfx::UniformType::Sampler );
 

@@ -185,7 +185,7 @@ void ResourceCache::ExportIfNeeded( const Path& InFilePath, const SharedPtr<Meta
 #if USING( ME_TOOLS )
     if( InMetaFile && ( InMetaFile->FlaggedForExport || InForce ) )
     {
-        BRUH( "Exporting asset: " + InFilePath.FullPath );
+        CLog::Log( CLog::LogType::Info, "Exporting asset: " + InFilePath.FullPath );
         InMetaFile->Export();
         InMetaFile->Save();
         AssetMetaCache::GetInstance().Update( InFilePath, InMetaFile );

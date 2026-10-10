@@ -2,7 +2,7 @@
 
 Game scripts are C# classes implementing `IGameScript` (usually through the `Script` base class), hosted in-process via **hostfxr** (.NET 8). C++ loads `[UnmanagedCallersOnly]` bridge functions from `ScriptCore.dll`; C# gets a struct of engine callbacks (`ScriptEngineAPI`) that is **generated from one manifest** for both languages. Scripts live in a collectible `AssemblyLoadContext`, and editing a `.cs` file in a tools build **hot reloads** them with their field values kept. This doc covers the build, the bootstrap chain, the script lifecycle, hot reload, the API surface, platform status and the add-a-binding recipe.
 
-> Verified against engine commit 6a4b006f, 2026-10-09; the navigation API against 8d6769a5, 2026-10-10; collision callbacks and field access against the commit that added them, 2026-10-10.
+> Verified against engine commit 6a4b006f, 2026-10-09; the navigation API against 8d6769a5, 2026-10-10; collision callbacks and field access against f4ed921c, 2026-10-10.
 
 ## Overview
 
