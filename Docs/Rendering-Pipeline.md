@@ -66,7 +66,7 @@ flowchart LR
     end
     MJ --> MC["CommandCache&lt;MeshCommand&gt;"]
     subgraph R["BGFXRenderer::Render (serial)"]
-        F["PrepareFrameLighting:<br/>sun, light data texture,<br/>spot shadow maps"] --> C["per camera: RenderCameraView"]
+        F["PrepareFrameLighting:<br/>sun, light data texture,<br/>spot and point shadow maps"] --> C["per camera: RenderCameraView"]
         C --> P["UI composite → ImGui → bgfx::frame"]
     end
     MC --> F
@@ -92,7 +92,7 @@ bgfx runs views in ascending ID order, so producers must have lower IDs than the
 
 `ViewAllocator::Allocate(name)` names each view for RenderDoc and returns `UINT16_MAX` when the band is exhausted; callers skip that pass. Allocation order per frame:
 
-1. Spot-light shadow maps.
+1. Spot-light and point-light shadow maps (the local shadow atlas).
 2. For each camera (editor camera first, other cameras next, main camera last so it can sample render-to-texture cameras):
    1. Environment probe updates.
    2. 4 shadow cascades.
@@ -140,7 +140,7 @@ bgfx runs views in ascending ID order, so producers must have lower IDs than the
   2. Colour and type.
   3. Direction and cos(outer angle).
   4. cos(inner angle).
-  5. Shadow slot, texel scale and biases.
+  5. Shadow slot (spot tile, or point light 0-1), texel scale and biases.
 
 Per camera, `ClusterBuilder` bins point and spot lights into a **16×9×24 froxel grid**:
 
@@ -160,7 +160,8 @@ Shading (`Lighting.sh`) is GGX distribution, height-correlated Smith visibility,
   - Splits: PSSM with λ = 0.75, out to `min(Light::ShadowDistance, camera far)`.
   - Stability: each cascade fits the **bounding sphere** of its frustum slice, so its size is rotation-invariant, and is **snapped to whole texels**, so edges don't shimmer.
   - Casters: the near plane is pulled back to the bounds of every caster (`m_casterBounds`), so tall or distant casters land in the map.
-- **Spot lights**: the first 4 shadowed spots each get a tile of a second atlas (`Shadows.SpotResolution`, default 1024), using a perspective projection slightly wider than the cone.
+- **Spot lights**: the first 4 shadowed spots each get a tile of the local shadow atlas (`Shadows.SpotResolution`, default 1024), using a perspective projection slightly wider than the cone.
+- **Point lights**: the first 2 shadowed point lights get six 90° faces each (a hair wider, so PCF at a face edge stays inside it) in the same atlas: `Shadows.PointResolution` (default 512) tiles in a 4×4 block to the right of the 2×2 spot block, so the atlas is 4096×2048 by default. The shader picks the face from the light-to-fragment direction's major axis. Spot and point faces share `u_localShadowMatrix[16]` (0-3 spots, 4-15 faces), the sampler and the PCF.
 - **Casters**:
   - Drawn with one instanced depth-only shader (`ShadowDepth`) for every material, culled per cascade or spot frustum by `WorldBounds`.
   - Alpha-tested materials (`Material::GetAlphaCutoff() > 0`) bind their textures and discard in the depth pass too.
@@ -268,7 +269,7 @@ Texture stages:
 | 9 | Cluster grid |
 | 10 | Cluster indices |
 | 11 | Sun shadow atlas |
-| 12 | Spot shadow atlas |
+| 12 | Local shadow atlas (spot tiles + point light faces) |
 | 13 | Environment specular |
 | 14 | Environment irradiance |
 | 15 | BRDF LUT |
@@ -285,7 +286,7 @@ Missing maps fall back to neutral 1×1 textures (white; flat normal). `BindLight
 
 - **Shadow cost on huge scenes**: casters are tested per cascade by a CPU loop over every mesh command (≈1.5 ms for 57k meshes in release). On the lavapipe software renderer the 57k-cube bench goes from 44 to 82 ms/frame with shadows; real GPUs pay far less, but this hasn't been measured on hardware yet.
 - **Cluster capacity**: more than 64 lights in one froxel silently drops the extras; more than 256 point/spot lights per frame are ignored.
-- **Point lights cast no shadows**: cube or dual-paraboloid shadows aren't implemented. Only 4 spots and 1 directional light get shadows.
+- **Shadow budgets are fixed**: 4 spots, 2 point lights (12 extra shadow views a frame) and 1 directional light get shadows; further shadowed lights render unshadowed.
 - **One sun in post**: only directional light 0 is shadowed; additional directionals are unshadowed.
 - **Probe refresh hitch**: a sky probe refresh costs ~60 tiny passes over two frames. An animated time of day (`DynamicSky::m_timeScale > 0`) refreshes about every 3 in-game minutes.
 - **Particles are unlit**: smoke takes its colour verbatim; there are no light or shadow interactions.
