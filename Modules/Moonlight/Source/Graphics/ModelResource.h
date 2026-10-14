@@ -44,18 +44,21 @@ public:
     Moonlight::Node RootNode;
     const std::vector<Moonlight::MeshData*>& GetAllMeshes() const;
     const std::vector<Moonlight::AnimationClip>& GetAnimations() const;
+    // Zero for legacy cooks that did not record their scale.
+    float GetBakedImportScale() const { return m_bakedImportScale; }
 private:
     // Read by LoadAsync, consumed by FinishAsyncLoad.
     std::unique_ptr<Assimp::Importer> m_importer;
     const aiScene* m_pendingScene = nullptr;
     std::vector<Moonlight::MeshData*> m_allMeshData;
     std::vector<Moonlight::AnimationClip> m_animations;
+    float m_bakedImportScale = 0.f;
     // Levels of detail per aiMesh, built by LoadAsync (import settings), uploaded with the meshes.
     std::vector<std::vector<Moonlight::MeshLod>> m_pendingLods;
 
     void BuildLods( const aiScene* inScene );
 
-    void ProcessNode( aiNode* node, const aiScene* inScene, Moonlight::Node& inParent, glm::mat4 inParentTransform );
+    void ProcessNode( aiNode* node, const aiScene* inScene, Moonlight::Node& inParent );
     void ProcessAnimations( const aiScene* inScene );
     // Bone names, offsets and per-vertex weights (max 4) of a skinned mesh.
     void ProcessSkin( aiMesh* mesh, Moonlight::MeshData& outMesh, const std::vector<glm::vec3>& positions );
@@ -82,7 +85,7 @@ struct ModelResourceMetadata
     float ImportScale = 1.f;
     // Convert the file's units to metres (FBX UnitScaleFactor: centimetre assets such as Synty's
     // come in 100x smaller). Files without units are taken as metres.
-    bool ConvertUnits = false;
+    bool ConvertUnits = true;
     // The scale the cook applies for a file declaring InUnitScaleFactor (FBX: centimetres per unit).
     float GetBakedScale( double InUnitScaleFactor ) const;
 

@@ -216,6 +216,11 @@ bool ModelResource::LoadAsync()
         return false;
     }
     // Clips are plain data: build them here too, and the levels of detail (index lists only).
+    m_bakedImportScale = 0.f;
+    if( m_pendingScene->mRootNode->mMetaData )
+    {
+        m_pendingScene->mRootNode->mMetaData->Get( "MitchEngineImportScale", m_bakedImportScale );
+    }
     ProcessAnimations( m_pendingScene );
     BuildLods( m_pendingScene );
     return true;
@@ -274,7 +279,7 @@ bool ModelResource::FinishAsyncLoad()
     m_allMeshData.resize( scene->mNumMeshes );
 
     RootNode.Name = std::string( scene->mRootNode->mName.C_Str() );
-    ProcessNode( scene->mRootNode, scene, RootNode, AssimpToGLM( scene->mRootNode->mTransformation ) );
+    ProcessNode( scene->mRootNode, scene, RootNode );
 
     m_pendingScene = nullptr;
     m_importer.reset();
@@ -295,10 +300,10 @@ const std::vector<Moonlight::AnimationClip>& ModelResource::GetAnimations() cons
 }
 
 
-void ModelResource::ProcessNode( aiNode* node, const aiScene* scene, Moonlight::Node& parent, glm::mat4 parentTransform )
+void ModelResource::ProcessNode( aiNode* node, const aiScene* scene, Moonlight::Node& parent )
 {
-    glm::mat4 nodeTransform = AssimpToGLM( node->mTransformation ); // Convert Assimp transform to GLM
-    glm::mat4 worldTransform = /*parentTransform **/ nodeTransform;   // Combine with parent transform
+    // Entities retain this hierarchy, so each transform must stay relative to its parent.
+    const glm::mat4 localTransform = AssimpToGLM( node->mTransformation );
 
     std::string nodeName = std::string( node->mName.C_Str() );
     glm::vec3 translation;
@@ -306,13 +311,12 @@ void ModelResource::ProcessNode( aiNode* node, const aiScene* scene, Moonlight::
     glm::quat rotation;
     bool wasFlipped = false;
 
-    DecomposeMatrix( worldTransform, translation, rotation, scale, wasFlipped );
+    DecomposeMatrix( localTransform, translation, rotation, scale, wasFlipped );
 
-    glm::vec3 position = glm::vec3( worldTransform[3] );
     parent.Name = nodeName;
     parent.Position = Vector3( translation );
     parent.Scale = Vector3( scale );
-    parent.NodeMatrix = Matrix4( worldTransform );
+    parent.NodeMatrix = Matrix4( localTransform );
     parent.Rotation = Quaternion( rotation );
     parent.IsFlipped = wasFlipped;
 
@@ -336,16 +340,8 @@ void ModelResource::ProcessNode( aiNode* node, const aiScene* scene, Moonlight::
 
     for( unsigned int i = 0; i < node->mNumChildren; i++ )
     {
-        // Apply these transforms? I upgraded from like blender 2.8 to 4.3 so maybe this doesn't matter anymore?
-        //if( nodeName.rfind( "$AssimpFbx$" ) == std::string::npos ) //_RotationPivotInverse
-        {
-            parent.Nodes.push_back( Moonlight::Node() );
-            ProcessNode( node->mChildren[i], scene, parent.Nodes.back(), worldTransform );
-        }
-        //else
-        //{
-        //    ProcessNode( node->mChildren[i], scene, parent, worldTransform );
-        //}
+        parent.Nodes.emplace_back();
+        ProcessNode( node->mChildren[i], scene, parent.Nodes.back() );
     }
 }
 
@@ -708,10 +704,8 @@ void ModelResourceMetadata::OnSerialize( json& inJson )
     {
         inJson["ImportScale"] = ImportScale;
     }
-    if( ConvertUnits )
-    {
-        inJson["ConvertUnits"] = true;
-    }
+    // Always store this setting: old sidecars omitted it when conversion was opt-in.
+    inJson["ConvertUnits"] = ConvertUnits;
     if( GenerateLODs )
     {
         // Rounded, so a float like 0.02 isn't saved as 0.019999999552965164.
@@ -728,7 +722,10 @@ void ModelResourceMetadata::OnSerialize( json& inJson )
 void ModelResourceMetadata::OnDeserialize( const json& inJson )
 {
     ImportScale = inJson.value( "ImportScale", 1.f );
-    ConvertUnits = inJson.value( "ConvertUnits", false );
+    ConvertUnits = inJson.value( "ConvertUnits", true );
+    // Rebuild old cooks once, even when the source timestamp hasn't changed. Explicit opt-outs
+    // remain valid for files with incorrect unit metadata.
+    FlaggedForExport = FlaggedForExport || !inJson.contains( "ConvertUnits" );
     const Moonlight::MeshLodSettings defaults;
     GenerateLODs = inJson.value( "GenerateLODs", false );
     LODs.Levels = std::clamp( inJson.value( "LODLevels", defaults.Levels ), 0, 4 );
@@ -904,6 +901,11 @@ void ModelResourceMetadata::Export()
         // The importer owns the scene; it's ours to change until it's exported.
         BakeImportScale( *const_cast<aiScene*>( scene ), scale );
     }
+    // assbin preserves node metadata (not scene metadata). Remember the scale that actually
+    // produced this geometry so saved model instances can rescale their existing translations.
+    aiMetadata*& metadata = scene->mRootNode->mMetaData;
+    if( !metadata ) metadata = new aiMetadata();
+    metadata->Add( "MitchEngineImportScale", scale );
     Assimp::Exporter exporter;
     if( exporter.Export( scene, "assbin", FilePath.FullPath + ".assbin" ) != AI_SUCCESS )
     {

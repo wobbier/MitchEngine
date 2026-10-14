@@ -34,7 +34,7 @@ public:
     // finishing loads and before the late update).
     static void ExpandPendingModels();
 
-    void RecursiveLoadMesh( Moonlight::Node& root, EntityHandle& parentEnt );
+    void RecursiveLoadMesh( Moonlight::Node& root, EntityHandle& parentEnt, float InPositionScale = 1.f );
 
     SharedPtr<class ModelResource> ModelHandle = nullptr;
     class Moonlight::ShaderCommand* ModelShader = nullptr;
@@ -42,16 +42,21 @@ public:
 private:
     Path ModelPath;
     bool IsInitialized = false;
+    float m_bakedImportScale = 1.f;
+    bool m_hasBakedImportScale = false;
     void Expand();
 
     virtual void OnSerialize( json& outJson ) final
     {
         outJson["ModelPath"] = ModelPath.GetLocalPath();
+        if( m_hasBakedImportScale ) outJson["BakedImportScale"] = m_bakedImportScale;
     }
 
     virtual void OnDeserialize( const json& inJson ) final
     {
         ModelPath = Path( inJson["ModelPath"] );
+        m_hasBakedImportScale = inJson.contains( "BakedImportScale" );
+        m_bakedImportScale = inJson.value( "BakedImportScale", 1.f );
     }
 
 #if USING( ME_EDITOR )
