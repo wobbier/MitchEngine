@@ -85,6 +85,8 @@ public:
 
     // This frame's lights (RenderCore fills it every update from Light components).
     std::vector<Moonlight::LightCommand>& GetLights() { return m_lights; }
+    // This frame's decals (RenderCore fills it every update from Decal components).
+    std::vector<Moonlight::DecalCommand>& GetDecals() { return m_decals; }
     // This frame's particles, one batch per system (ParticleCore fills them every update).
     std::vector<Moonlight::ParticleBatch>& GetParticleBatches() { return m_particleBatches; }
 
@@ -223,6 +225,8 @@ private:
 
     // Particles: drawn after transparent meshes into HDR colour, depth-tested in the shader.
     void RenderParticles( Moonlight::CameraData& camera );
+    // Decals onto the opaque scene (before SSAO and fog), lit like the surfaces around them.
+    void RenderDecals( Moonlight::CameraData& camera );
     std::vector<Moonlight::ParticleBatch> m_particleBatches;
     std::vector<std::pair<float, uint32_t>> m_particleOrder;
     std::vector<Moonlight::ParticleInstance> m_particleSorted;
@@ -235,6 +239,19 @@ private:
     bgfx::UniformHandle u_particleDepth = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle s_texParticle = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle s_sceneDepth = BGFX_INVALID_HANDLE;
+    std::vector<Moonlight::DecalCommand> m_decals;
+    std::vector<const Moonlight::DecalCommand*> m_decalOrder;
+    Moonlight::ShaderCommand m_decalProgram;
+    bgfx::VertexBufferHandle m_decalBoxVB = BGFX_INVALID_HANDLE;
+    bgfx::IndexBufferHandle m_decalBoxIB = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle s_decalAlbedo = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle s_decalNormal = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle u_decalColor = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle u_decalEmissive = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle u_decalSurface = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle u_decalDepth = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle u_decalWorldToLocal = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle u_decalAxes = BGFX_INVALID_HANDLE;
     std::vector<Moonlight::LightCommand> m_localLights;
     std::vector<float> m_lightData;
     bgfx::TextureHandle m_lightDataTexture = BGFX_INVALID_HANDLE;

@@ -93,6 +93,23 @@ namespace Moonlight
         Spot,
     };
 
+    // One decal for this frame, gathered from Decal components by RenderCore: a unit box (-0.5..0.5)
+    // projecting along its +Z onto whatever the opaque pass drew inside it.
+    struct DecalCommand
+    {
+        glm::mat4 World = glm::mat4( 1.f );
+        glm::mat4 WorldToLocal = glm::mat4( 1.f );
+        // Columns: the box's X (texture right), Y (texture up) and Z (projection) axes in world space.
+        glm::mat4 Axes = glm::mat4( 1.f );
+        bgfx::TextureHandle Albedo = BGFX_INVALID_HANDLE;   // invalid: a solid tint
+        bgfx::TextureHandle Normal = BGFX_INVALID_HANDLE;   // invalid: no normal detail
+        float Color[4] = { 1.f, 1.f, 1.f, 1.f };            // linear tint, a opacity
+        float Emissive[4] = { 0.f, 0.f, 0.f, 0.f };         // linear emitted radiance
+        float Surface[4] = { 0.f, 0.6f, 1.f, 0.f };         // x metallic, y roughness, z normal strength, w cos(fade angle)
+        AABB WorldBounds;
+        int SortOrder = 0;
+    };
+
     // One light for this frame, gathered from Light components by RenderCore.
     struct LightCommand
     {

@@ -287,6 +287,26 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
             s_sceneDepth = bgfx::createUniform( "s_sceneDepth", bgfx::UniformType::Sampler );
             m_particleProgram = Moonlight::ShaderCommand( "Assets/Shaders/Particle" );
         }
+        // Decals: a unit box (outward faces counter-clockwise) and the decal shader.
+        {
+            Moonlight::PosTexCoordVertex box[8];
+            for( int i = 0; i < 8; ++i )
+            {
+                box[i] = { Vector3( ( i == 1 || i == 2 || i == 5 || i == 6 ) ? 0.5f : -0.5f, ( i == 2 || i == 3 || i == 6 || i == 7 ) ? 0.5f : -0.5f, i >= 4 ? 0.5f : -0.5f ), Vector2( 0.f, 0.f ) };
+            }
+            const uint16_t indices[36] = { 0, 2, 1, 0, 3, 2, 4, 5, 6, 4, 6, 7, 0, 7, 3, 0, 4, 7, 1, 2, 6, 1, 6, 5, 0, 1, 5, 0, 5, 4, 3, 6, 2, 3, 7, 6 };
+            m_decalBoxVB = bgfx::createVertexBuffer( bgfx::copy( box, sizeof( box ) ), Moonlight::PosTexCoordVertex::ms_layout );
+            m_decalBoxIB = bgfx::createIndexBuffer( bgfx::copy( indices, sizeof( indices ) ) );
+            s_decalAlbedo = bgfx::createUniform( "s_decalAlbedo", bgfx::UniformType::Sampler );
+            s_decalNormal = bgfx::createUniform( "s_decalNormal", bgfx::UniformType::Sampler );
+            u_decalColor = bgfx::createUniform( "u_decalColor", bgfx::UniformType::Vec4 );
+            u_decalEmissive = bgfx::createUniform( "u_decalEmissive", bgfx::UniformType::Vec4 );
+            u_decalSurface = bgfx::createUniform( "u_decalSurface", bgfx::UniformType::Vec4 );
+            u_decalDepth = bgfx::createUniform( "u_decalDepth", bgfx::UniformType::Vec4 );
+            u_decalWorldToLocal = bgfx::createUniform( "u_decalWorldToLocal", bgfx::UniformType::Mat4 );
+            u_decalAxes = bgfx::createUniform( "u_decalAxes", bgfx::UniformType::Mat4 );
+            m_decalProgram = Moonlight::ShaderCommand( "Assets/Shaders/Decal" );
+        }
         // The lighting shader always declares the shadow samplers, so the atlases always exist.
         EnsureShadowAtlas( m_sunShadowAtlas, Shadows.CascadeResolution, "Sun Shadow Atlas" );
         EnsureLocalShadowAtlas( Shadows.SpotResolution, Shadows.PointResolution );
@@ -336,9 +356,19 @@ void BGFXRenderer::Destroy()
         s_lightData, s_clusterGrid, s_clusterIndices, s_texMetallicRoughness, s_texEmissive, s_texOcclusion,
         u_shadowMatrix, u_cascadeSplits, u_cascadeTexel, u_shadowParams, u_localShadowMatrix, u_spotShadowParams, u_pointShadowParams, u_shadowAlpha, s_shadowMap, s_spotShadowMap,
         s_envSpecular, s_envIrradiance, s_brdfLut, u_envParams, u_fogParams, u_fogColor, u_fogVolume, u_fogForward,
-        u_particleParams, u_particleParams2, u_particleDepth, s_texParticle, s_sceneDepth, u_bones };
+        u_particleParams, u_particleParams2, u_particleDepth, s_texParticle, s_sceneDepth, u_bones,
+        s_decalAlbedo, s_decalNormal, u_decalColor, u_decalEmissive, u_decalSurface, u_decalDepth, u_decalWorldToLocal, u_decalAxes };
     m_particleProgram = Moonlight::ShaderCommand();
-    for( bgfx::TextureHandle* texture : { &m_particleTexture } )
+    m_decalProgram = Moonlight::ShaderCommand();
+    if( bgfx::isValid( m_decalBoxVB ) )
+    {
+        bgfx::destroy( m_decalBoxVB );
+    }
+    if( bgfx::isValid( m_decalBoxIB ) )
+    {
+        bgfx::destroy( m_decalBoxIB );
+    }
+    for( bgfx::TextureHandle* texture : { &m_particleTexture, &m_flatNormalTexture } )
     {
         if( bgfx::isValid( *texture ) )
         {
@@ -803,8 +833,9 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
             } );
     }
 
-    // Ambient occlusion darkens the opaque scene before transparents are composited on top, then
-    // fog covers it.
+    // Decals land on the opaque surfaces; ambient occlusion then darkens both before transparents
+    // are composited on top, and fog covers it all.
+    RenderDecals( camera );
     m_postProcess->RenderAmbientOcclusion( m_views, camera, *camera.Buffer );
     m_postProcess->RenderFog( m_views, camera, *camera.Buffer, [this]() { BindLighting(); } );
     // Everything drawn from here on (transparents, particles) is in front of the fogged scene.
@@ -1693,6 +1724,66 @@ void BGFXRenderer::RenderParticles( Moonlight::CameraData& camera )
             bgfx::submit( view, m_particleProgram.GetProgram() );
             offset += available;
         }
+    }
+}
+
+
+void BGFXRenderer::RenderDecals( Moonlight::CameraData& camera )
+{
+    OPTICK_CATEGORY( "Decals", Optick::Category::GPU_Scene );
+    if( m_decals.empty() || !m_decalProgram.IsLoaded() || !camera.Buffer || !bgfx::isValid( camera.Buffer->ParticleBuffer ) )
+    {
+        return;
+    }
+    // Visible decals in SortOrder (then gathering order): later ones draw over earlier ones.
+    m_decalOrder.clear();
+    for( const Moonlight::DecalCommand& decal : m_decals )
+    {
+        if( !camera.ShouldCull || camera.ViewFrustum.Intersects( decal.WorldBounds ) )
+        {
+            m_decalOrder.push_back( &decal );
+        }
+    }
+    if( m_decalOrder.empty() )
+    {
+        return;
+    }
+    std::stable_sort( m_decalOrder.begin(), m_decalOrder.end(), []( const Moonlight::DecalCommand* InA, const Moonlight::DecalCommand* InB ) { return InA->SortOrder < InB->SortOrder; } );
+
+    // The HDR colour without its depth attachment, so the scene depth can be read as a texture.
+    Moonlight::FrameBuffer& buffer = *camera.Buffer;
+    const bgfx::ViewId view = m_views.Allocate( camera.IsEditorView ? "Editor Decals" : "Decals" );
+    if( view == UINT16_MAX )
+    {
+        return;
+    }
+    bgfx::setViewFrameBuffer( view, buffer.ParticleBuffer );
+    bgfx::setViewRect( view, 0, 0, static_cast<uint16_t>( buffer.Width ), static_cast<uint16_t>( buffer.Height ) );
+    bgfx::setViewTransform( view, &camera.View.GetInternalMatrix()[0][0], &camera.ProjectionMatrix.GetInternalMatrix()[0][0] );
+    bgfx::setViewMode( view, bgfx::ViewMode::Sequential );
+    bgfx::touch( view );
+
+    const glm::mat4& projection = camera.ProjectionMatrix.GetInternalMatrix();
+    const float depthParams[4] = { projection[2][2], projection[3][2], camera.Projection == Moonlight::ProjectionType::Orthographic ? 1.f : 0.f, bgfx::getCaps()->homogeneousDepth ? 1.f : 0.f };
+    const uint32_t pointClamp = BGFX_SAMPLER_POINT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP;
+    for( const Moonlight::DecalCommand* decal : m_decalOrder )
+    {
+        bgfx::setTransform( &decal->World[0][0] );
+        bgfx::setVertexBuffer( 0, m_decalBoxVB );
+        bgfx::setIndexBuffer( m_decalBoxIB );
+        bgfx::setTexture( 0, s_decalAlbedo, bgfx::isValid( decal->Albedo ) ? decal->Albedo : m_whiteTexture );
+        bgfx::setTexture( 1, s_decalNormal, bgfx::isValid( decal->Normal ) ? decal->Normal : m_flatNormalTexture );
+        bgfx::setTexture( 2, s_sceneDepth, buffer.DepthTexture, pointClamp );
+        bgfx::setUniform( u_decalColor, decal->Color );
+        bgfx::setUniform( u_decalEmissive, decal->Emissive );
+        bgfx::setUniform( u_decalSurface, decal->Surface );
+        bgfx::setUniform( u_decalDepth, depthParams );
+        bgfx::setUniform( u_decalWorldToLocal, &decal->WorldToLocal[0][0] );
+        bgfx::setUniform( u_decalAxes, &decal->Axes[0][0] );
+        BindLighting();
+        // Only the box's far faces: each covered pixel shades once, even with the camera inside.
+        bgfx::setState( BGFX_STATE_WRITE_RGB | BGFX_STATE_BLEND_ALPHA | BGFX_STATE_CULL_CCW );
+        bgfx::submit( view, m_decalProgram.GetProgram() );
     }
 }
 
