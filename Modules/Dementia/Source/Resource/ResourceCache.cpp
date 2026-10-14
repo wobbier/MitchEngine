@@ -115,6 +115,7 @@ struct ResourceCache::Reimports
     std::vector<std::string> Running;
     std::deque<Job> Done;
     std::unordered_set<std::string> Rerun;  // changed again while it was compiling
+    std::unordered_map<std::string, SharedPtr<MetaBase>> DeferredChanges; // settings captured during an initial async load
     std::vector<std::thread> Threads;
     bool Stopping = false;
 
@@ -512,7 +513,8 @@ std::vector<std::string> ResourceCache::OnFilesChanged( const std::vector<std::s
         // Editing import settings (.meta) reimports the asset it describes.
         std::string sourcePath = changed;
         const std::string metaSuffix = ".meta";
-        if( sourcePath.size() > metaSuffix.size() && sourcePath.compare( sourcePath.size() - metaSuffix.size(), metaSuffix.size(), metaSuffix ) == 0 )
+        const bool metaChanged = sourcePath.size() > metaSuffix.size() && sourcePath.compare( sourcePath.size() - metaSuffix.size(), metaSuffix.size(), metaSuffix ) == 0;
+        if( metaChanged )
         {
             sourcePath.resize( sourcePath.size() - metaSuffix.size() );
         }
@@ -530,11 +532,38 @@ std::vector<std::string> ResourceCache::OnFilesChanged( const std::vector<std::s
         {
             continue;
         }
-        CompleteLoad( resource );
+        SharedPtr<MetaBase> changedMeta;
+#if USING( ME_TOOLS )
+        if( metaChanged )
+        {
+            changedMeta = LoadMetadata( Path( sourcePath ) );
+            if( changedMeta )
+            {
+                if( SharedPtr<MetaBase> previous = resource->GetMetadata() )
+                {
+                    json before, after;
+                    previous->OnSerialize( before );
+                    changedMeta->OnSerialize( after );
+                    if( before == after && previous->GUID == changedMeta->GUID )
+                    {
+                        continue; // the cook's own unchanged sidecar, not an import-setting edit
+                    }
+                }
+            }
+        }
+#endif
+        // A first-time cook creates its .meta while the resource is still loading. The watcher
+        // must not turn that background work into a blocking wait on the editor's main thread.
+        if( resource->IsLoading() )
+        {
+            std::lock_guard<std::mutex> lock( m_reimports->Mutex );
+            m_reimports->DeferredChanges[changed] = changedMeta;
+            continue;
+        }
 
 #if USING( ME_TOOLS )
         Path sourceFile( sourcePath );
-        if( SharedPtr<MetaBase> metaFile = LoadMetadata( sourceFile ) )
+        if( SharedPtr<MetaBase> metaFile = changedMeta ? changedMeta : LoadMetadata( sourceFile ) )
         {
             if( metaFile->ExportsInBackground() )
             {
@@ -594,7 +623,43 @@ void ResourceCache::FinishReimport( const std::string& InPath, const SharedPtr<R
 
 std::vector<std::string> ResourceCache::PumpReimports()
 {
-    std::vector<std::string> reloaded;
+    std::unordered_map<std::string, SharedPtr<MetaBase>> deferred;
+    {
+        std::lock_guard<std::mutex> lock( m_reimports->Mutex );
+        deferred.swap( m_reimports->DeferredChanges );
+    }
+    std::vector<std::string> ready;
+    for( const auto& change : deferred )
+    {
+        std::string source = change.first;
+        if( source.size() > 5 && source.compare( source.size() - 5, 5, ".meta" ) == 0 ) source.resize( source.size() - 5 );
+        SharedPtr<Resource> resource = GetCached( Path( source ) );
+        if( !resource ) continue;
+        if( resource->IsLoading() )
+        {
+            std::lock_guard<std::mutex> lock( m_reimports->Mutex );
+            m_reimports->DeferredChanges.insert( change );
+            continue;
+        }
+#if USING( ME_TOOLS )
+        if( change.second )
+        {
+            SharedPtr<MetaBase> current = LoadMetadata( Path( source ) );
+            SharedPtr<MetaBase> previous = resource->GetMetadata();
+            if( current && previous )
+            {
+                json before, after;
+                previous->OnSerialize( before );
+                current->OnSerialize( after );
+                // The initial cook saves its old settings when it finishes. Restore an edit
+                // captured meanwhile, unless the file already contains a newer user edit.
+                if( before == after && previous->GUID == current->GUID ) change.second->Save();
+            }
+        }
+#endif
+        ready.push_back( change.first );
+    }
+    std::vector<std::string> reloaded = OnFilesChanged( ready );
     std::deque<Reimports::Job> done;
     {
         std::lock_guard<std::mutex> lock( m_reimports->Mutex );
@@ -623,6 +688,8 @@ std::vector<std::string> ResourceCache::PumpReimports()
 
 std::vector<std::string> ResourceCache::WaitForReimports()
 {
+    // Explicit draining may wait; the frame-by-frame PumpReimports path never does.
+    WaitForAsyncLoads();
     std::vector<std::string> reloaded;
     while( true )
     {
@@ -633,7 +700,7 @@ std::vector<std::string> ResourceCache::WaitForReimports()
         std::vector<std::string> batch = PumpReimports();
         reloaded.insert( reloaded.end(), batch.begin(), batch.end() );
         std::lock_guard<std::mutex> lock( m_reimports->Mutex );
-        if( m_reimports->Queued.empty() && m_reimports->Running.empty() && m_reimports->Done.empty() )
+        if( m_reimports->Queued.empty() && m_reimports->Running.empty() && m_reimports->Done.empty() && m_reimports->DeferredChanges.empty() )
         {
             return reloaded;
         }
@@ -644,7 +711,7 @@ std::vector<std::string> ResourceCache::WaitForReimports()
 std::size_t ResourceCache::GetPendingReimportCount() const
 {
     std::lock_guard<std::mutex> lock( m_reimports->Mutex );
-    return m_reimports->Queued.size() + m_reimports->Running.size() + m_reimports->Done.size();
+    return m_reimports->Queued.size() + m_reimports->Running.size() + m_reimports->Done.size() + m_reimports->DeferredChanges.size();
 }
 
 
@@ -663,6 +730,7 @@ void ResourceCache::StopReimports()
     }
     std::lock_guard<std::mutex> lock( m_reimports->Mutex );
     m_reimports->Queued.clear();
+    m_reimports->DeferredChanges.clear();
     m_reimports->Done.clear();
     m_reimports->Rerun.clear();
     m_reimports->Stopping = false;

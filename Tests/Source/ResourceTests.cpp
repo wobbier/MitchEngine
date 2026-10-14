@@ -328,6 +328,8 @@ TEST_CASE( "Resources: slow cooks recompile in the background on hot reload, the
 namespace FirstCookTest
 {
     std::atomic<int> s_exports{ 0 };
+    std::atomic<bool> s_holdExport{ false };
+    std::atomic<bool> s_exportStarted{ false };
     std::thread::id s_exportThread;
     std::thread::id s_loadThread;
 
@@ -345,25 +347,31 @@ namespace FirstCookTest
             return "cooked";
         }
 
-        void OnSerialize( json& ) override
+        void OnSerialize( json& InJson ) override
         {
+            InJson["Version"] = Version;
         }
 
-        void OnDeserialize( const json& ) override
+        void OnDeserialize( const json& InJson ) override
         {
+            Version = InJson.value( "Version", 1 );
         }
 
         void Export() override
         {
+            s_exportStarted = true;
+            while( s_holdExport.load() ) std::this_thread::sleep_for( std::chrono::milliseconds( 1 ) );
             s_exportThread = std::this_thread::get_id();
             ++s_exports;
-            std::ofstream( FilePath.FullPath + ".cooked" ) << "cooked";
+            std::ofstream( FilePath.FullPath + ".cooked" ) << ( Version == 1 ? "cooked" : "changed settings" );
         }
 
         bool ExportsInBackground() const override
         {
             return true;
         }
+
+        int Version = 1;
     };
 
     class CookedAsset
@@ -393,7 +401,14 @@ namespace FirstCookTest
             return true;
         }
 
+        void Reload() override
+        {
+            ++Reloads;
+            LoadAsync();
+        }
+
         std::string Contents;
+        int Reloads = 0;
     };
 }
 
@@ -425,4 +440,61 @@ TEST_CASE( "Resources: a background load cooks a new asset on its loader thread"
     CHECK( s_exportThread != std::this_thread::get_id() );
     CHECK( s_exportThread == s_loadThread );
     CHECK( std::filesystem::exists( source + ".meta" ) );
+}
+
+TEST_CASE( "Resources: metadata notifications during a first cook never block the main thread" )
+{
+    using namespace FirstCookTest;
+    ResourceCache& cache = ResourceCache::GetInstance();
+    const std::string source = ".tmp/Tests/Resources/Deferred.firstcook";
+    std::filesystem::create_directories( ".tmp/Tests/Resources" );
+    std::filesystem::remove( source + ".cooked" );
+    std::filesystem::remove( source + ".meta" );
+    std::ofstream( source ) << "source";
+    s_holdExport = true;
+    s_exportStarted = false;
+    const int exportsBefore = s_exports.load();
+
+    // The watchdog releases a regressed, blocking implementation so the test can fail cleanly.
+    std::thread watchdog( [] { std::this_thread::sleep_for( std::chrono::milliseconds( 500 ) ); s_holdExport = false; } );
+    SharedPtr<CookedAsset> asset = cache.GetAsync<CookedAsset>( Path( source ) );
+    for( int i = 0; i < 200 && !s_exportStarted.load(); ++i ) std::this_thread::sleep_for( std::chrono::milliseconds( 1 ) );
+    CHECK( s_exportStarted.load() );
+    CHECK( cache.OnFilesChanged( { Path( source + ".meta" ).FullPath } ).empty() );
+    CHECK( s_holdExport.load() ); // the notification returned before the background cook completed
+    CHECK( cache.PumpReimports().empty() );
+    CHECK( s_holdExport.load() );
+    s_holdExport = false;
+    watchdog.join();
+    REQUIRE( asset );
+    REQUIRE( ResourceTest::PumpUntilLoaded( asset ) );
+    cache.WaitForReimports();
+    CHECK( s_exports.load() == exportsBefore + 1 ); // own .meta does not trigger a second cook
+    CHECK( asset->Reloads == 0 );
+    CHECK( cache.GetPendingReimportCount() == 0 );
+
+    // A real settings edit during a later first cook is retained and compiled after it finishes.
+    const std::string edited = ".tmp/Tests/Resources/DeferredEdit.firstcook";
+    std::filesystem::remove( edited + ".cooked" );
+    std::filesystem::remove( edited + ".meta" );
+    std::ofstream( edited ) << "source";
+    s_holdExport = true;
+    s_exportStarted = false;
+    std::thread editWatchdog( [] { std::this_thread::sleep_for( std::chrono::milliseconds( 500 ) ); s_holdExport = false; } );
+    auto changed = cache.GetAsync<CookedAsset>( Path( edited ) );
+    for( int i = 0; i < 200 && !s_exportStarted.load(); ++i ) std::this_thread::sleep_for( std::chrono::milliseconds( 1 ) );
+    CHECK( s_exportStarted.load() );
+    CookMeta newSettings{ Path( edited ) };
+    newSettings.Version = 2;
+    newSettings.GUID = changed->GetMetadata()->GUID;
+    newSettings.Save();
+    CHECK( cache.OnFilesChanged( { Path( edited + ".meta" ).FullPath } ).empty() );
+    CHECK( s_holdExport.load() );
+    s_holdExport = false;
+    editWatchdog.join();
+    REQUIRE( ResourceTest::PumpUntilLoaded( changed ) );
+    cache.WaitForReimports();
+    CHECK( changed->Reloads == 1 );
+    CHECK( changed->Contents == "changed settings" );
+    CHECK( cache.GetPendingReimportCount() == 0 );
 }
