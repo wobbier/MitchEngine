@@ -216,3 +216,5 @@ imgui.ini
 
 # compiled linux shaders
 *.bin.d
+ThirdParty/FMOD/
+capture*.json
