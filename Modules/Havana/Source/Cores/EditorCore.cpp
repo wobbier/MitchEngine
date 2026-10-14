@@ -171,6 +171,10 @@ void EditorCore::Update( const UpdateContext& inUpdateContext )
         input.Down = ImGui::IsKeyDown( ImGuiKey_Q );
     }
     m_camera.Update( inUpdateContext.GetUnscaledDeltaTime(), input );
+    if( sceneView && m_camera.IsNavigating() )
+    {
+        sceneView->WrapNavigationCursor();
+    }
 
     // Persist the view now and then (and on navigation end) rather than every frame.
     m_saveTimer += inUpdateContext.GetUnscaledDeltaTime();

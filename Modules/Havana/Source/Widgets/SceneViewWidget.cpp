@@ -30,6 +30,9 @@
 #include "Editor/UndoStack.h"
 #include <Utils/EditorConfig.h>
 #include <imgui_internal.h>
+#include <SDL_keyboard.h>
+#include <SDL_mouse.h>
+#include <SDL_video.h>
 #include "Profiling/FrameStats.h"
 #include <algorithm>
 #include <cstdio>
@@ -226,6 +229,53 @@ Matrix4 SceneViewWidget::GetProjection() const
 }
 
 
+void SceneViewWidget::WrapNavigationCursor()
+{
+	if (!EnableSceneTools || !MainCamera || !MainCamera->ShouldRender || !ImGui::IsMousePosValid())
+	{
+		return;
+	}
+	ImGuiViewport* viewport = ImGui::FindViewportByID(m_viewportId);
+	SDL_Window* window = viewport ? static_cast<SDL_Window*>(viewport->PlatformHandle) : nullptr;
+	if (!window || SDL_GetKeyboardFocus() != window)
+	{
+		return;
+	}
+
+	// Use the displayed image's logical size, including fixed-aspect letterboxing.
+	const Vector2 min(std::ceil(m_viewportScreenMin.x) + 2.f, std::ceil(m_viewportScreenMin.y) + 2.f);
+	const Vector2 max(std::floor(m_viewportScreenMin.x + m_viewportScreenSize.x) - 2.f,
+		std::floor(m_viewportScreenMin.y + m_viewportScreenSize.y) - 2.f);
+	if (max.x - min.x <= 2.f || max.y - min.y <= 2.f)
+	{
+		return;
+	}
+
+	ImGuiIO& io = ImGui::GetIO();
+	ImVec2 mouse = io.MousePos;
+	// Land inside the opposite edge so a stationary cursor won't wrap back.
+	if (mouse.x <= min.x) mouse.x = max.x - 1.f;
+	else if (mouse.x >= max.x) mouse.x = min.x + 1.f;
+	if (mouse.y <= min.y) mouse.y = max.y - 1.f;
+	else if (mouse.y >= max.y) mouse.y = min.y + 1.f;
+	if (mouse.x == io.MousePos.x && mouse.y == io.MousePos.y)
+	{
+		return;
+	}
+
+	int windowX = 0, windowY = 0;
+	if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+	{
+		// ImGui uses desktop coordinates for detached viewports; SDL warps within a window.
+		SDL_GetWindowPosition(window, &windowX, &windowY);
+	}
+	SDL_WarpMouseInWindow(window, static_cast<int>(mouse.x - windowX), static_cast<int>(mouse.y - windowY));
+	// Reset ImGui's delta baseline so the warp does not rotate the camera next frame.
+	ImGui::TeleportMousePos(mouse);
+	io.WantSetMousePos = false; // SDL already moved it; avoid a second warp next frame.
+}
+
+
 void SceneViewWidget::Render()
 {
 	if (!IsOpen && !MaximizeOnPlay)
@@ -265,6 +315,7 @@ void SceneViewWidget::Render()
 	}
 
 	IsPlatformWindow = (bool)(ImGui::GetWindowViewport() != ImGui::GetMainViewport() && ImGui::GetWindowViewport()->Flags & ImGuiViewportFlags_IsPlatformWindow);
+	m_viewportId = ImGui::GetWindowViewport()->ID;
 
 	if (ImGui::BeginMenuBar())
 	{

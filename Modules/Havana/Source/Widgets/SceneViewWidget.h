@@ -59,6 +59,8 @@ public:
 	bool ConsumeClick();
 	// Clicks the viewport at a point given as a fraction of its size (automation).
 	void RequestClick(const Vector2& InViewportFraction);
+	// Called after camera navigation consumes this frame's mouse movement.
+	void WrapNavigationCursor();
 
 	Moonlight::CameraData* MainCamera = nullptr;
 	EditorApp* App = nullptr;
@@ -104,6 +106,7 @@ private:
 
 	Vector2 m_viewportScreenMin;
 	Vector2 m_viewportScreenSize;
+	ImGuiID m_viewportId = 0;
 
 	// Gizmo drag
 	bool m_dragging = false;
