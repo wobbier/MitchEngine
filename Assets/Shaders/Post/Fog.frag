@@ -47,7 +47,8 @@ void main()
 	for (int i = 0; i < 4; ++i)
 	{
 		vec2 offset = vec2(mod(float(i), 2.0), floor(float(i) * 0.5));
-		vec2 tapUv = (base + offset + 0.5) / halfSize;
+		vec2 tap = clamp(base + offset, vec2_splat(0.0), halfSize - 1.0);
+		vec2 tapUv = (tap + 0.5) / halfSize;
 		float bilinear = mix(1.0 - f.x, f.x, offset.x) * mix(1.0 - f.y, f.y, offset.y);
 		float w = bilinear / (0.02 + abs(depthAt(tapUv) - viewZ) / max(viewZ, 1e-3) * 20.0);
 		sum += texture2DLod(s_input0, tapUv, 0.0) * w;

@@ -1,6 +1,6 @@
 $input v_texcoord0
 
-// Depth-aware 4x4 blur of the raymarched fog (half resolution): hides the per-pixel step jitter.
+// Depth-aware 5x5 blur of the raymarched fog (half resolution): hides the per-pixel step jitter.
 #include "../Common.sh"
 #include "../Fog.sh"
 
@@ -15,16 +15,21 @@ float depthAt(vec2 _uv)
 
 void main()
 {
-	vec2 t = u_viewTexel.xy;
-	float centerDepth = depthAt(v_texcoord0);
+	vec2 halfSize = u_fogScreen.zw;
+	vec2 center = floor(v_texcoord0 * halfSize);
+	float centerDepth = depthAt((center + 0.5) / halfSize);
 	vec4 sum = vec4_splat(0.0);
 	float weights = 0.0;
-	for (int y = -2; y < 2; ++y)
+	for (int y = -2; y <= 2; ++y)
 	{
-		for (int x = -2; x < 2; ++x)
+		for (int x = -2; x <= 2; ++x)
 		{
-			vec2 uv = v_texcoord0 + (vec2(float(x), float(y)) + 0.5) * t;
-			float w = 1.0 / (0.02 + abs(depthAt(uv) - centerDepth) / max(centerDepth, 1e-3) * 20.0);
+			// Each fog value must use the depth of the ray that produced it. Sampling between
+			// texels blends across silhouettes before the depth weight can reject the other side.
+			vec2 tap = clamp(center + vec2(float(x), float(y)), vec2_splat(0.0), halfSize - 1.0);
+			vec2 uv = (tap + 0.5) / halfSize;
+			float spatial = (3.0 - abs(float(x))) * (3.0 - abs(float(y)));
+			float w = spatial / (0.02 + abs(depthAt(uv) - centerDepth) / max(centerDepth, 1e-3) * 20.0);
 			sum += texture2DLod(s_input0, uv, 0.0) * w;
 			weights += w;
 		}

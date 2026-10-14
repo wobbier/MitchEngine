@@ -16,7 +16,8 @@ void main()
 	// Snap to a full-resolution depth texel (half-resolution centres fall between them, see SSAO);
 	// the composite looks the depth up the same way.
 	vec2 fullTexel = vec2(1.0 / u_fogScreen.x, 1.0 / u_fogScreen.y);
-	vec2 uv = (floor(v_texcoord0 / fullTexel) + 0.5) * fullTexel;
+	vec2 halfUv = (floor(v_texcoord0 * u_fogScreen.zw) + 0.5) / u_fogScreen.zw;
+	vec2 uv = (floor(halfUv / fullTexel) + 0.5) * fullTexel;
 	float viewZ = fogViewDepth(texture2D(s_input0, uv).r);
 	vec3 dir;
 	float distance;

@@ -226,7 +226,7 @@ namespace Moonlight
 
             SetupFullscreenView( blurView, InTargets.FogBlurBuffer.Buffer, InTargets.FogBlurBuffer.Width, InTargets.FogBlurBuffer.Height );
             setFogState();
-            bgfx::setTexture( 0, s_input0, InTargets.FogBuffer.Color );
+            bgfx::setTexture( 0, s_input0, InTargets.FogBuffer.Color, pointClamp );
             bgfx::setTexture( 1, s_input1, InTargets.DepthTexture, pointClamp );
             SubmitFullscreen( blurView, m_fogBlurProgram );
         }
@@ -239,7 +239,7 @@ namespace Moonlight
         }
         SetupFullscreenView( applyView, InTargets.ParticleBuffer, static_cast<uint16_t>( InTargets.Width ), static_cast<uint16_t>( InTargets.Height ) );
         setFogState();
-        bgfx::setTexture( 0, s_input0, volumetric ? InTargets.FogBlurBuffer.Color : m_blackTexture );
+        bgfx::setTexture( 0, s_input0, volumetric ? InTargets.FogBlurBuffer.Color : m_blackTexture, pointClamp );
         bgfx::setTexture( 1, s_input1, InTargets.DepthTexture, pointClamp );
         SubmitFullscreen( applyView, m_fogProgram, BGFX_STATE_WRITE_RGB | BGFX_STATE_BLEND_FUNC( BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_SRC_ALPHA ) );
     }
