@@ -12,7 +12,7 @@ set -u
 ENGINE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REPO_DIR="$(cd "$ENGINE_DIR/.." && pwd)"
 SHADERS="$ENGINE_DIR/Assets/Shaders"
-SHADERC="$ENGINE_DIR/Tools/linux/shaderc"
+SHADERC="$ENGINE_DIR/Tools/RunShaderCompiler.sh"
 FILTER=""
 CHANGED_ONLY=0
 for arg in "$@"; do

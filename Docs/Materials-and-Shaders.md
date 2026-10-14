@@ -123,7 +123,7 @@ flowchart LR
     HR -->|"RebuildProgramsUsing"| REG
 ```
 
-- **Cook**: `Export` runs the platform's `shaderc` (`Engine/Tools/<Win64|macOS|linux>/`) with absolute paths:
+- **Cook**: `Export` runs the platform's `shaderc` with absolute paths. Linux uses `Engine/Tools/RunShaderCompiler.sh` so vendored binaries can run with the current Nix loader:
   - `-i Engine/Assets/Shaders` so engine includes resolve;
   - the profile picked from the running renderer (`spirv` / `150` / `s_5_0` / `metal` / `320_es`);
   - always a `--depends` depfile.

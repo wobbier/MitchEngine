@@ -123,7 +123,7 @@ struct ShaderFileMetadata
         const Path shadercPath = Path( "Engine/Tools/macOS/shaderc" );
         const char* platform = "osx";
 #else
-        const Path shadercPath = Path( "Engine/Tools/linux/shaderc" );
+        const Path shadercPath = Path( "Engine/Tools/RunShaderCompiler.sh" );
         const char* platform = "linux";
 #endif
         const std::string extension = FilePath.GetExtension();
