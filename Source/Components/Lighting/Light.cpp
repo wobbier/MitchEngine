@@ -10,13 +10,13 @@ ME_REFLECT_BEGIN( Light )
     ME_FIELD( LightType ).Display( "Type" );
     ME_FIELD( Color ).Color();
     ME_FIELD( Intensity ).Range( 0.f, 100.f ).Speed( 0.05f );
-    ME_FIELD( Range ).Range( 0.01f, 1000.f ).Tooltip( "Point/spot: distance where the light fades out" );
+    ME_FIELD( Range ).Display( "Range (m)" ).Range( 0.01f, 1000.f ).Tooltip( "Point/spot: distance where the light fades out" );
     ME_FIELD( InnerConeAngle ).Range( 0.f, 89.f ).Tooltip( "Spot: full intensity inside this half-angle (degrees)" );
     ME_FIELD( OuterConeAngle ).Range( 0.f, 89.f ).Tooltip( "Spot: no light outside this half-angle (degrees)" );
     ME_FIELD( CastShadows ).Category( "Shadows" );
     ME_FIELD( ShadowBias ).Category( "Shadows" ).Range( 0.f, 5.f ).Speed( 0.01f ).Tooltip( "Shadow texels the receiver is pushed towards the light (fixes acne)" );
     ME_FIELD( ShadowNormalBias ).Category( "Shadows" ).Range( 0.f, 5.f ).Speed( 0.01f ).Tooltip( "Shadow texels the receiver is pushed along its normal (fixes acne on slopes)" );
-    ME_FIELD( ShadowDistance ).Category( "Shadows" ).Range( 1.f, 1000.f ).Tooltip( "Directional: how far from the camera shadows reach" );
+    ME_FIELD( ShadowDistance ).Display( "Shadow Distance (m)" ).Category( "Shadows" ).Range( 1.f, 1000.f ).Tooltip( "Directional: how far from the camera shadows reach" );
 ME_REFLECT_END()
 
 

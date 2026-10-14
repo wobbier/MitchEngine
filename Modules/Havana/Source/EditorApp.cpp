@@ -73,7 +73,7 @@ EditorApp::~EditorApp()
 
 void EditorApp::OnStart()
 {
-    Camera::EditorCamera->Near = 1.f;
+
 }
 
 
@@ -165,9 +165,10 @@ void EditorApp::UpdateCameras()
     EditorCamera.FOV = editorCamera->GetFOV();
     EditorCamera.Near = editorCamera->Near;
     EditorCamera.Far = editorCamera->Far;
-    EditorCamera.Skybox = Camera::CurrentCamera->Skybox;
-    EditorCamera.ClearColor = Camera::CurrentCamera->ClearColor;
-    EditorCamera.ClearType = Camera::CurrentCamera->ClearType;
+    Camera* environmentCamera = EditorSceneManager->UsesSceneEnvironment() ? Camera::CurrentCamera : editorCamera;
+    EditorCamera.Skybox = environmentCamera->Skybox;
+    EditorCamera.ClearColor = environmentCamera->ClearColor;
+    EditorCamera.ClearType = environmentCamera->ClearType;
     // The scene view shows the main camera's image settings (without its auto exposure state).
     {
         const PostProcess* post = Camera::CurrentCamera->Parent ? Camera::CurrentCamera->Parent->TryGetComponent<PostProcess>() : nullptr;

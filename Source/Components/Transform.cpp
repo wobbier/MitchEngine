@@ -19,7 +19,7 @@ namespace
 }
 
 ME_REFLECT_BEGIN( Transform )
-    ME_FIELD_NAMED( LocalPosition, "Position" ).Speed( 0.1f );
+    ME_FIELD_NAMED( LocalPosition, "Position" ).Display( "Position (m)" ).Speed( 0.1f );
     ME_FIELD_NAMED( LocalRotation, "Rotation" );
     ME_FIELD_NAMED( LocalScale, "Scale" ).Speed( 0.05f );
 ME_REFLECT_END()

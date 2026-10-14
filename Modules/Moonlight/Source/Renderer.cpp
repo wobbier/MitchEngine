@@ -617,6 +617,10 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
 
     const char* label = camera.IsEditorView ? "Editor" : ( camera.IsMain ? "Main" : "Camera" );
     char viewName[64];
+    const bool hasSkybox = camera.ClearType == Moonlight::ClearColorType::Skybox && camera.Skybox
+        && camera.Skybox->SkyModel && !camera.Skybox->SkyModel->GetAllMeshes().empty();
+    bx::snprintf( viewName, sizeof( viewName ), "%s Skybox", label );
+    const bgfx::ViewId skyView = hasSkybox ? m_views.Allocate( viewName ) : UINT16_MAX;
     bx::snprintf( viewName, sizeof( viewName ), "%s Opaque", label );
     const bgfx::ViewId id = m_views.Allocate( viewName );
     if( id == UINT16_MAX )
@@ -641,14 +645,23 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     // Clear colours are authored in sRGB.
     auto toLinear = []( float c ) { return c <= 0.04045f ? c / 12.92f : std::pow( ( c + 0.055f ) / 1.055f, 2.4f ); };
     const uint32_t color = Moonlight::PackClearColor( toLinear( camera.ClearColor.x ), toLinear( camera.ClearColor.y ), toLinear( camera.ClearColor.z ) );
-    bgfx::setViewClear( id, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, color, 1.0f, 0 );
+    bgfx::setViewClear( id, hasSkybox ? BGFX_CLEAR_NONE : BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, color, 1.0f, 0 );
 
     if( camera.ClearType == Moonlight::ClearColorType::Procedural )
     {
         m_dynamicSky->Draw( id );
     }
-    else if( camera.ClearType == Moonlight::ClearColorType::Skybox && camera.Skybox )
+    else if( hasSkybox )
     {
+        // The environment is infinitely distant. Give it a rotation-only view and its own clip
+        // range, so neither metre conversion nor scene clipping/orthographic zoom cuts it off.
+        glm::mat4 skyViewMatrix = glm::mat4( glm::mat3( camera.View.GetInternalMatrix() ) );
+        float skyProjection[16];
+        bx::mtxProj( skyProjection, camera.FOV, static_cast<float>( width ) / height, 0.01f, 10.f, bgfx::getCaps()->homogeneousDepth );
+        bgfx::setViewTransform( skyView, &skyViewMatrix[0][0], skyProjection );
+        bgfx::setViewFrameBuffer( skyView, camera.Buffer->SceneBuffer );
+        bgfx::setViewRect( skyView, 0, 0, width, height );
+        bgfx::setViewClear( skyView, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, color, 1.0f, 0 );
         uint64_t state = 0
             | BGFX_STATE_WRITE_RGB
             //| BGFX_STATE_WRITE_Z
@@ -658,16 +671,17 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
             | s_ptState[m_pt]
             ;
 
-        // Set model matrix for rendering.
-        glm::mat4 model = glm::mat4( 1.f );
-        model = glm::translate( model, camera.Position.InternalVector );
-        model = glm::scale( model, glm::vec3( 10.f, 10.f, 10.f ) );
+        // Normalize the sky mesh to a unit cube, independent of its source/import units.
+        const auto* skyMesh = camera.Skybox->SkyModel->GetAllMeshes()[0];
+        const glm::vec3 halfExtents = glm::max( skyMesh->Bounds.GetExtents().InternalVector, glm::vec3( 1e-6f ) );
+        glm::mat4 model = glm::scale( glm::mat4( 1.f ), glm::vec3( 1.f ) / halfExtents );
+        model = glm::translate( model, -skyMesh->Bounds.GetCenter().InternalVector );
 
         bgfx::setTransform( &model[0] );
 
         // Set vertex and index buffer.
-        bgfx::setVertexBuffer( 0, camera.Skybox->SkyModel->GetAllMeshes()[0]->GetVertexBuffer() );
-        bgfx::setIndexBuffer( camera.Skybox->SkyModel->GetAllMeshes()[0]->GetIndexuffer() );
+        bgfx::setVertexBuffer( 0, skyMesh->GetVertexBuffer() );
+        bgfx::setIndexBuffer( skyMesh->GetIndexuffer() );
 
         if( const Moonlight::Texture* diffuse = camera.Skybox->SkyMaterial->GetTexture( Moonlight::TextureType::Diffuse ) )
         {
@@ -683,7 +697,7 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
         bgfx::setState( state );
 
         // Submit primitive for rendering to view 0.
-        bgfx::submit( id, camera.Skybox->SkyMaterial->MeshShader.GetProgram() );
+        bgfx::submit( skyView, camera.Skybox->SkyMaterial->MeshShader.GetProgram() );
     }
 
     uint64_t state = 0

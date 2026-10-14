@@ -31,7 +31,7 @@ namespace Moonlight
 
         // Ambient occlusion
         bool AmbientOcclusion = true;
-        float AORadius = 0.5f;              // world units
+        float AORadius = 0.5f;              // metres
         float AOIntensity = 1.0f;
 
         // Exponential height fog (applied before transparents)

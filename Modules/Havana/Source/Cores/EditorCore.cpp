@@ -15,8 +15,10 @@
 #include "Editor/UndoStack.h"
 #include "Editor/EditorActions.h"
 #include "Editor/SceneTools.h"
+#include "Editor/ReflectionUI.h"
 #include "Widgets/SceneViewWidget.h"
 #include <imgui.h>
+#include <algorithm>
 #include <Renderer.h>
 #include <Cores/PhysicsCore.h>
 #include <Cores/NavigationCore.h>
@@ -41,6 +43,7 @@ EditorCore::EditorCore( Havana* editor )
 
 EditorCore::~EditorCore()
 {
+    delete EditorCamera;
 }
 
 
@@ -69,6 +72,11 @@ void EditorCore::RegisterViewActions()
     view( "View.Navigation", "Show Navigation", 0, []() { NavigationCore::DebugDrawEnabled = !NavigationCore::DebugDrawEnabled; } );
     EditorAction bake{ "Navigation.BakeAll", "Bake All NavMeshes", "Navigation", 0, 0, []() { if( NavigationCore* navigation = GetEngine().Navigation ) { navigation->BakeAll( true ); } } };
     actions.Register( bake );
+    EditorAction cameraSettings{ "View.CameraSettings", "Scene Camera Settings", "Scene View", 0, 0, [this]() {
+        Selection::Get().SetCore( this );
+        if( m_editor ) m_editor->ShowWidget( "Properties" );
+    } };
+    actions.Register( cameraSettings );
     // Animation previews (the Animator inspector has the same controls).
     EditorAction preview{ "Animation.PreviewSelected", "Preview Selected Animator", "Animation", 0, 0, []() {
         EntityHandle selected = Selection::Get().GetActive();
@@ -100,6 +108,14 @@ void EditorCore::SaveCameraState()
     config.CameraPosition = EditorCameraTransform->GetPosition();
     config.CameraRotation = Vector3( m_camera.GetPitch(), m_camera.GetYaw(), 0.f );
     config.SetPreference( "Camera.FlySpeed", m_camera.GetFlySpeed() );
+    config.SetPreference( "Camera.LookSensitivity", m_camera.LookSensitivity );
+    config.SetPreference( "Camera.FocusSmoothing", m_camera.FocusSmoothing );
+    config.SetPreference( "Camera.UseSceneEnvironment", m_useSceneEnvironment );
+    json camera;
+    EditorCamera->Serialize( camera );
+    // This camera is editor state and must never replace a scene's active camera on load.
+    camera.erase( "IsCurrent" );
+    config.SetPreference( "Camera.Settings", camera );
 }
 
 
@@ -112,8 +128,17 @@ void EditorCore::Update( const UpdateContext& inUpdateContext )
         EditorConfig& config = EditorConfig::GetInstance();
         EditorCameraTransform->SetPosition( config.CameraPosition );
         EditorCameraTransform->SetRotation( config.CameraRotation );
+        json camera = config.GetPreference<json>( "Camera.Settings", json::object() );
+        if( camera.is_object() )
+        {
+            camera.erase( "IsCurrent" );
+            EditorCamera->Deserialize( camera );
+        }
+        m_useSceneEnvironment = config.GetPreference<bool>( "Camera.UseSceneEnvironment", true );
         m_camera.Init( *EditorCameraTransform, *EditorCamera );
         m_camera.SetFlySpeed( config.GetPreference<float>( "Camera.FlySpeed", 10.f ) );
+        m_camera.LookSensitivity = std::clamp( config.GetPreference<float>( "Camera.LookSensitivity", 0.15f ), 0.01f, 2.f );
+        m_camera.FocusSmoothing = std::clamp( config.GetPreference<float>( "Camera.FocusSmoothing", 14.f ), 1.f, 60.f );
         FirstUpdate = false;
     }
 
@@ -217,18 +242,42 @@ SharedPtr<Transform> EditorCore::GetEditorCameraTransform() const
 
 void EditorCore::OnEditorInspect()
 {
-    BaseCore::OnEditorInspect();
-
-    ImGui::Text( "Scene Camera" );
+    ImGui::TextWrapped( "Distances are metres. These settings save with your editor preferences." );
+    ImGui::SeparatorText( "Navigation" );
+    Vector3 position = EditorCameraTransform->GetPosition();
+    Vector2 angles( m_camera.GetPitch(), m_camera.GetYaw() );
+    bool poseChanged = ImGui::DragFloat3( "Position (m)", &position.x, 0.1f );
+    poseChanged |= ImGui::DragFloat2( "Pitch / Yaw (deg)", &angles.x, 0.5f );
+    if( poseChanged ) m_camera.SetPose( position, angles.x, angles.y );
     float speed = m_camera.GetFlySpeed();
-    if( ImGui::DragFloat( "Fly Speed", &speed, 0.1f, 0.1f, 500.f ) )
+    if( ImGui::DragFloat( "Fly Speed (m/s)", &speed, 0.1f, 0.1f, 500.f ) )
     {
         m_camera.SetFlySpeed( speed );
     }
     ImGui::DragFloat( "Look Sensitivity", &m_camera.LookSensitivity, 0.01f, 0.01f, 2.f );
     ImGui::DragFloat( "Focus Smoothing", &m_camera.FocusSmoothing, 0.1f, 1.f, 60.f );
 
-    EditorCamera->OnEditorInspect();
+    ImGui::SeparatorText( "Camera" );
+    ImGui::Checkbox( "Use Scene Environment", &m_useSceneEnvironment );
+    if( m_useSceneEnvironment )
+    {
+        ImGui::TextWrapped( "Clear settings follow the main camera while Use Scene Environment is enabled." );
+    }
+    // This camera is outside the ECS component inspector, so draw its reflected fields here too.
+    static const Reflection::TypeInfo lensSettings = []() {
+        Reflection::TypeInfo type = Camera::StaticType();
+        type.Fields.erase( std::remove_if( type.Fields.begin(), type.Fields.end(), []( const Reflection::FieldInfo& field ) {
+            return field.Name == "ClearType" || field.Name == "ClearColor";
+        } ), type.Fields.end() );
+        return type;
+    }();
+    ReflectionUI::Context context;
+    if( ReflectionUI::DrawType( m_useSceneEnvironment ? lensSettings : Camera::StaticType(), EditorCamera, context ) )
+    {
+        for( const std::string& field : context.ChangedFields ) EditorCamera->OnPropertyChanged( field );
+    }
+    if( !m_useSceneEnvironment ) EditorCamera->OnEditorInspect();
+    SaveCameraState();
 }
 
 #endif

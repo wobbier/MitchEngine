@@ -57,6 +57,7 @@ private:
 	void DrawEntityContextMenu(Entity& entity, Transform* transform);
 	void DrawTransformlessEntities(World& world);
 	void DrawCores(World& world);
+	void DrawEditorEntities();
 	bool PassesFilter(Entity& entity) const;
 	bool SubtreePassesFilter(Transform* node) const;
 

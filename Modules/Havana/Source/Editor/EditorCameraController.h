@@ -38,6 +38,8 @@ public:
     };
 
     void Init( Transform& InTransform, Camera& InCamera );
+    // Inspector pose edits keep the orbit pivot and navigation state in sync.
+    void SetPose( const Vector3& InPosition, float InPitch, float InYaw );
     void Update( float InDeltaSeconds, const Input& InInput );
 
     // Frames the bounds (animated). Invalid bounds are ignored.

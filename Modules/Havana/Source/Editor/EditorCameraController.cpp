@@ -40,6 +40,18 @@ void EditorCameraController::Apply()
 }
 
 
+void EditorCameraController::SetPose( const Vector3& InPosition, float InPitch, float InYaw )
+{
+    if( !m_transform ) return;
+    m_isFocusing = false;
+    m_pitch = std::clamp( InPitch, -89.9f, 89.9f );
+    m_yaw = InYaw;
+    m_transform->SetRotation( Vector3( m_pitch, m_yaw, 0.f ) );
+    m_pivot = InPosition + m_transform->Front() * m_distance;
+    Apply();
+}
+
+
 void EditorCameraController::SetFlySpeed( float InSpeed )
 {
     m_flySpeed = std::clamp( InSpeed, 0.1f, 500.f );

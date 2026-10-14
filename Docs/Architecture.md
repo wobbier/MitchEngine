@@ -10,6 +10,10 @@ The engine proper lives in `Source/` and links against two foundational modules:
 
 Everything runs on one main thread except explicitly parallelized work dispatched through `Jobs::JobSystem` (see `Docs/Jobs-and-Events.md`). The loop runs a **fixed-timestep simulation** (`FixedUpdate`, 60 Hz by default) inside a variable-rate frame (`Update`/`LateUpdate`/render), with time scale, pause and single-step support.
 
+## Units
+
+One world unit is one metre throughout transforms, rendering, camera clipping, lighting, particles, physics, navigation, audio and animation. Speeds use metres per second and accelerations metres per second squared; mass is kilograms, time is seconds, component angles are degrees, and transform scale is dimensionless. Screen coordinates and UI sizes remain pixels. Model imports convert declared source units to metres by default; files without units are assumed to be authored in metres (see [Resources and Assets](Resources-and-Assets.md)).
+
 ## Key Files
 
 | Path | Role |

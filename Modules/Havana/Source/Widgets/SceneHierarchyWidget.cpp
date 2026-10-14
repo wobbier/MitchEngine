@@ -3,6 +3,7 @@
 #include <Engine/Engine.h>
 #include <optick.h>
 #include <EditorApp.h>
+#include <Cores/EditorCore.h>
 #include <Components/Transform.h>
 #include <ECS/CoreDetail.h>
 #include <Utils/CommonUtils.h>
@@ -233,6 +234,7 @@ void SceneHierarchyWidget::Render()
 	}
 
 	DrawTransformlessEntities(*world);
+	DrawEditorEntities();
 	DrawCores(*world);
 	ImGui::PopStyleVar(1);
 
@@ -627,6 +629,36 @@ void SceneHierarchyWidget::DrawTransformlessEntities(World& world)
 }
 
 
+void SceneHierarchyWidget::DrawEditorEntities()
+{
+	EditorCore* editor = App ? App->EditorSceneManager : nullptr;
+	if (!editor)
+	{
+		return;
+	}
+	const std::string filter = ToLower(m_filter);
+	if (!filter.empty())
+	{
+		const bool matches = filter.rfind("t:", 0) == 0
+			? std::string("camera").rfind(filter.substr(2), 0) == 0 || std::string("transform").rfind(filter.substr(2), 0) == 0
+			: std::string("scene camera editor camera").find(filter) != std::string::npos;
+		if (!matches) return;
+	}
+	if (!ImGui::CollapsingHeader("Editor Entities", ImGuiTreeNodeFlags_DefaultOpen))
+	{
+		return;
+	}
+	ImGui::PushID("EditorEntities");
+	ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding;
+	if (Selection::Get().GetCore() == editor) flags |= ImGuiTreeNodeFlags_Selected;
+	ImGui::TreeNodeEx("Scene Camera", flags);
+	if (ImGui::IsItemClicked()) EditorActions::Get().Execute("View.CameraSettings");
+	if (ImGui::IsItemHovered()) ImGui::SetTooltip("Editor camera settings. Saved in your editor preferences.");
+	ImGui::PopID();
+	ImGui::Dummy(ImVec2(0.f, 8.f));
+}
+
+
 void SceneHierarchyWidget::DrawCores(World& world)
 {
 	if (!ImGui::CollapsingHeader("Entity Cores", ImGuiTreeNodeFlags_DefaultOpen))
@@ -637,6 +669,7 @@ void SceneHierarchyWidget::DrawCores(World& world)
 	OPTICK_CATEGORY("Entity Cores", Optick::Category::Debug);
 	for (BaseCore* core : world.GetAllCores())
 	{
+		if (core->GetTypeIdInternal() == EditorCore::GetTypeId()) continue;
 		ImGui::PushID(core);
 		ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding;
 		if (Selection::Get().GetCore() == core)

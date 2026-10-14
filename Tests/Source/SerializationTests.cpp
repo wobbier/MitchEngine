@@ -6,6 +6,7 @@
 #include "Engine/World.h"
 #include "ECS/Core.h"
 #include "Components/Transform.h"
+#include "Components/Camera.h"
 #include <filesystem>
 #include <fstream>
 #include <functional>
@@ -445,4 +446,27 @@ TEST_CASE( "Scenes: additive scenes load tagged, never save with the main scene,
     const uint16_t missing = streaming.LoadAsync( ".tmp/Tests/Scenes/Missing.lvl" );
     streaming.Wait( *world );
     CHECK( streaming.GetState( missing ) == SceneStreaming::State::Failed );
+}
+
+TEST_CASE( "Camera: metre defaults and clipping settings survive serialization" )
+{
+    Camera camera;
+    CHECK( camera.Near == doctest::Approx( 0.1f ) );
+    CHECK( camera.Far == doctest::Approx( 1000.f ) );
+    camera.Deserialize( json{ { "Near", 0.05 }, { "Far", 250.0 }, { "OrthographicSize", 2.5 }, { "FieldOfView", 75.0 } } );
+    json saved;
+    camera.Serialize( saved );
+    Camera restored;
+    restored.Deserialize( saved );
+    CHECK( restored.Near == doctest::Approx( 0.05f ) );
+    CHECK( restored.Far == doctest::Approx( 250.f ) );
+    CHECK( restored.OrthographicSize == doctest::Approx( 2.5f ) );
+    CHECK( restored.GetFOV() == doctest::Approx( 75.f ) );
+
+    restored.Deserialize( json{ { "Near", -1.0 }, { "Far", -5.0 } } );
+    CHECK( restored.Near >= 0.01f );
+    CHECK( restored.Far > restored.Near );
+    restored.Near = 500.f;
+    restored.OnPropertyChanged( "Near" );
+    CHECK( restored.Far > restored.Near );
 }

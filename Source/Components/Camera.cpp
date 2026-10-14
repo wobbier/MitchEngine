@@ -22,9 +22,9 @@ ME_REFLECT_ENUM( Moonlight::ClearColorType, { { "Color", Moonlight::ClearColorTy
 ME_REFLECT_BEGIN( Camera )
     ME_FIELD( Projection );
     ME_FIELD_NAMED( m_FOV, "FieldOfView" ).Display( "Field of View" ).Range( 1.f, 179.f );
-    ME_FIELD( OrthographicSize ).Range( 0.01f, 1000.f );
-    ME_FIELD( Near ).Speed( 0.01f );
-    ME_FIELD( Far ).Speed( 1.f );
+    ME_FIELD( OrthographicSize ).Display( "Orthographic Size (m)" ).Range( 0.01f, 1000.f ).Tooltip( "Half the view height in metres" );
+    ME_FIELD( Near ).Display( "Near Clip (m)" ).Speed( 0.01f ).Tooltip( "Distance to the near clipping plane in metres" );
+    ME_FIELD( Far ).Display( "Far Clip (m)" ).Speed( 1.f ).Tooltip( "Distance to the far clipping plane in metres" );
     ME_FIELD( ClearType );
     ME_FIELD( ClearColor ).Color();
     ME_FIELD( Zoom ).Hidden();
@@ -44,6 +44,10 @@ Camera::~Camera()
     {
         CurrentCamera = nullptr;
     }
+    if( EditorCamera == this )
+    {
+        EditorCamera = nullptr;
+    }
     //delete CameraFrustum;
 }
 
@@ -53,6 +57,12 @@ void Camera::Init()
     {
         CurrentCamera = this;
     }
+}
+
+void Camera::OnPropertyChanged( const std::string& InFieldName )
+{
+    Near = std::max( Near, 0.01f );
+    Far = std::max( Far, Near + 0.01f );
 }
 
 Matrix4 Camera::GetViewMatrix()
@@ -168,6 +178,7 @@ Matrix4 Camera::GetProjectionMatrix() const
 void Camera::OnDeserialize( const json& inJson )
 {
     Reflection::FromJson( StaticType(), this, inJson );
+    OnPropertyChanged( "" );
     if( inJson.contains( "Skybox" ) && inJson["Skybox"].is_string() )
     {
         Skybox = new Moonlight::SkyBox( inJson["Skybox"].get<std::string>() );
@@ -195,12 +206,15 @@ void Camera::OnSerialize( json& outJson )
 void Camera::OnEditorInspect()
 {
     // Projection, FOV, clipping and clear settings are drawn from reflection.
-    ImGui::BeginDisabled( IsCurrent() );
-    if( ImGui::Button( IsCurrent() ? "Current Camera" : "Set Current" ) )
+    if( this != EditorCamera )
     {
-        SetCurrent();
+        ImGui::BeginDisabled( IsCurrent() );
+        if( ImGui::Button( IsCurrent() ? "Current Camera" : "Set Current" ) )
+        {
+            SetCurrent();
+        }
+        ImGui::EndDisabled();
     }
-    ImGui::EndDisabled();
 
     if( ClearType == Moonlight::ClearColorType::Skybox )
     {
@@ -275,6 +289,10 @@ void Camera::OnEditorInspect()
 
                 if( payload_n.Type == AssetType::Texture )
                 {
+                    if( !Skybox )
+                    {
+                        Skybox = new Moonlight::SkyBox( payload_n.FullPath.FullPath );
+                    }
                     Skybox->SkyMaterial->SetTexture( Moonlight::TextureType::Diffuse, ResourceCache::GetInstance().Get<Moonlight::Texture>( payload_n.FullPath ) );
                 }
             }

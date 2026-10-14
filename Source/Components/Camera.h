@@ -25,15 +25,16 @@ public:
     float Yaw = 0.f;
     float Pitch = 0.f;
     float Roll = 0.f;
-    // Orthographic projection: half the view height in world units (the width follows the aspect).
+    // Distances are metres. OrthographicSize is half the view height (width follows the aspect).
     float OrthographicSize = 5.f;
-    float Near = 1.f;
+    float Near = 0.1f;
     float Far = 1000.f;
 
     Camera();
     ~Camera();
 
     virtual void Init() override;
+    void OnPropertyChanged( const std::string& InFieldName ) override;
 
     Matrix4 GetViewMatrix();
     bool IsCurrent();

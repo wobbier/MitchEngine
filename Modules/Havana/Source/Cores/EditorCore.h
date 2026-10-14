@@ -37,6 +37,7 @@ public:
 
 	SharedPtr<Transform> GetEditorCameraTransform() const;
 	EditorCameraController& GetCameraController() { return m_camera; }
+	bool UsesSceneEnvironment() const { return m_useSceneEnvironment; }
 
 	// Frames the selection (or the whole scene when nothing is selected).
 	void FrameSelection();
@@ -52,6 +53,7 @@ private:
 	Havana* m_editor = nullptr;
 	EditorCameraController m_camera;
 	float m_saveTimer = 0.f;
+	bool m_useSceneEnvironment = true;
 
 	virtual void OnEditorInspect() final;
 };

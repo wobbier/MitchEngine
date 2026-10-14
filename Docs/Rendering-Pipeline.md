@@ -127,7 +127,7 @@ bgfx runs views in ascending ID order, so producers must have lower IDs than the
    - `RenderSunShadows` renders the cascades.
 3. **Opaque view** on `SceneBuffer`:
    - Clear to the linearised clear colour.
-   - Sky (procedural `DynamicSky` or the skybox model).
+   - Procedural sky (`DynamicSky`). A textured skybox gets a preceding view on the same HDR target: its mesh bounds are normalized to a unit cube, with a rotation-only view and fixed clipping. Source units, scene clip distances and orthographic zoom cannot clip the background.
    - Opaque meshes: instanced batches keyed `(vertexBuffer, indexBuffer, BatchKey)` plus singles.
 4. **SSAO** multiplies the opaque HDR colour (before transparents).
 5. **Fog** covers the opaque HDR colour (see Fog below). From here on, forward shaders fog themselves (`u_fogForward`).

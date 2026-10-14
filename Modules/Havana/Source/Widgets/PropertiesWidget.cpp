@@ -5,6 +5,7 @@
 #include <ECS/Entity.h>
 #include <Engine/Engine.h>
 #include <Engine/World.h>
+#include "Cores/EditorCore.h"
 #include <Utils/CommonUtils.h>
 #include "Editor/EditorComponentInfoCache.h"
 #include "Editor/EditorOperations.h"
@@ -145,7 +146,7 @@ void PropertiesWidget::Render()
 		OPTICK_CATEGORY("Core::OnEditorInspect", Optick::Category::GameLogic);
 		ImGui::Dummy(ImVec2(0.f, 4.f));
 		ImGui::Indent(8.f);
-		ImGui::TextUnformatted(core->GetName().c_str());
+		ImGui::TextUnformatted(core->GetTypeIdInternal() == EditorCore::GetTypeId() ? "Scene Camera" : core->GetName().c_str());
 		ImGui::Unindent(8.f);
 		ImGui::Separator();
 		core->OnEditorInspect();

@@ -187,7 +187,7 @@ void PreferencesWidget::DrawSceneView()
 	float translate = config.GetPreference<float>("Snap.Translate", 0.5f);
 	float rotate = config.GetPreference<float>("Snap.Rotate", 15.f);
 	float scale = config.GetPreference<float>("Snap.Scale", 0.1f);
-	if (ImGui::DragFloat("Move increment", &translate, 0.05f, 0.001f, 1000.f)) config.SetPreference("Snap.Translate", translate);
+	if (ImGui::DragFloat("Move increment (m)", &translate, 0.05f, 0.001f, 1000.f)) config.SetPreference("Snap.Translate", translate);
 	if (ImGui::DragFloat("Rotate increment (deg)", &rotate, 1.f, 0.1f, 180.f)) config.SetPreference("Snap.Rotate", rotate);
 	if (ImGui::DragFloat("Scale increment", &scale, 0.01f, 0.001f, 10.f)) config.SetPreference("Snap.Scale", scale);
 	ImGui::TextDisabled("Snap values apply the next time the scene view loads its settings.");
@@ -198,7 +198,7 @@ void PreferencesWidget::DrawSceneView()
 	{
 		EditorCameraController& camera = app->EditorSceneManager->GetCameraController();
 		float speed = camera.GetFlySpeed();
-		if (ImGui::DragFloat("Fly speed", &speed, 0.1f, 0.1f, 500.f))
+		if (ImGui::DragFloat("Fly speed (m/s)", &speed, 0.1f, 0.1f, 500.f))
 		{
 			camera.SetFlySpeed(speed);
 		}

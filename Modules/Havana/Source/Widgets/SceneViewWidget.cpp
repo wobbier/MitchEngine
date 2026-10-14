@@ -405,7 +405,7 @@ void SceneViewWidget::DrawSceneToolbar()
 	if (ImGui::BeginPopup("SnapSettings"))
 	{
 		ImGui::SetNextItemWidth(100.f);
-		bool changed = ImGui::DragFloat("Move", &m_snapTranslate, 0.05f, 0.001f, 1000.f, "%.3f");
+		bool changed = ImGui::DragFloat("Move (m)", &m_snapTranslate, 0.05f, 0.001f, 1000.f, "%.3f");
 		ImGui::SetNextItemWidth(100.f);
 		changed |= ImGui::DragFloat("Rotate", &m_snapRotate, 1.f, 0.1f, 180.f, "%.1f deg");
 		ImGui::SetNextItemWidth(100.f);
@@ -431,6 +431,7 @@ void SceneViewWidget::DrawSceneToolbar()
 		if (ImGui::MenuItem("Selection Bounds", nullptr, &showSelection)) config.SetPreference("Scene.ShowSelection", showSelection);
 		ImGui::Separator();
 		EditorActions& actions = EditorActions::Get();
+		actions.MenuItem("View.CameraSettings");
 		actions.MenuItem("View.FrameSelected");
 		actions.MenuItem("View.Perspective");
 		actions.MenuItem("View.Top");
