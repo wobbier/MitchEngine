@@ -131,12 +131,12 @@ void EditorApp::OnUpdate( const UpdateContext& inUpdateContext )
     if( !m_checkedRecovery )
     {
         m_checkedRecovery = true;
-        if( !m_automation.IsActive() )
+        if( !AutomationRunner::IsUnattendedRun() )
         {
             CheckForRecovery();
         }
     }
-    if( !m_automation.IsActive() )
+    if( !AutomationRunner::IsUnattendedRun() )
     {
         UpdateAutosave( inUpdateContext.GetUnscaledDeltaTime() );
     }
@@ -198,8 +198,11 @@ void EditorApp::OnEnd()
 {
     Editor->Save();
     EditorConfig::GetInstance().Save();
-    // A clean exit: nothing to recover next time.
-    ClearAutosave();
+    // Only an interactive session owns the user's recovery files.
+    if( !AutomationRunner::IsUnattendedRun() )
+    {
+        ClearAutosave();
+    }
 }
 
 
