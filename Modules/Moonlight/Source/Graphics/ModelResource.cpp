@@ -381,6 +381,56 @@ void ModelResource::ProcessAnimations( const aiScene* scene )
                 channel.ScaleTimes.push_back( static_cast<float>( key.mTime / ticksPerSecond ) );
                 channel.Scales.push_back( Vector3( key.mValue.x, key.mValue.y, key.mValue.z ) );
             }
+            // Some FBX imports retain a static pivot/pre-rotation chain but emit a combined
+            // animation on its terminal node. Those keys are relative to the chain's parent;
+            // applying them below the chain applies its bind transform twice. Rebase only these
+            // combined channels; channels explicitly animating helper nodes already are local.
+            const aiNode* node = scene->mRootNode->FindNode( source->mNodeName );
+            const std::string helperPrefix = channel.NodeName + "_$AssimpFbx$_";
+            aiMatrix4x4 chain;
+            bool hasChain = false;
+            bool animatedChain = false;
+            for( const aiNode* helper = node ? node->mParent : nullptr;
+                helper && std::string( helper->mName.C_Str() ).compare( 0, helperPrefix.size(), helperPrefix ) == 0;
+                helper = helper->mParent )
+            {
+                hasChain = true;
+                chain = helper->mTransformation * chain;
+                for( unsigned int c = 0; c < anim->mNumChannels; ++c )
+                    animatedChain = animatedChain || anim->mChannels[c]->mNodeName == helper->mName;
+            }
+            if( hasChain && !animatedChain )
+            {
+                const glm::mat4 inverseChain = glm::inverse( AssimpToGLM( chain ) );
+                std::vector<float> times = channel.PositionTimes;
+                times.insert( times.end(), channel.RotationTimes.begin(), channel.RotationTimes.end() );
+                times.insert( times.end(), channel.ScaleTimes.begin(), channel.ScaleTimes.end() );
+                std::sort( times.begin(), times.end() );
+                times.erase( std::unique( times.begin(), times.end() ), times.end() );
+                Moonlight::AnimationChannel local;
+                local.NodeName = channel.NodeName;
+                local.PositionTimes = local.RotationTimes = local.ScaleTimes = times;
+                for( float time : times )
+                {
+                    aiVector3D bindScale, bindPosition;
+                    aiQuaternion bindRotation;
+                    ( chain * node->mTransformation ).Decompose( bindScale, bindRotation, bindPosition );
+                    Vector3 position( bindPosition.x, bindPosition.y, bindPosition.z );
+                    Quaternion rotation( bindRotation.x, bindRotation.y, bindRotation.z, bindRotation.w );
+                    Vector3 scale( bindScale.x, bindScale.y, bindScale.z );
+                    Moonlight::AnimationClip::Sample( channel, time, position, rotation, scale );
+                    const glm::mat4 keyed = glm::translate( glm::mat4( 1.f ), position.InternalVector )
+                        * glm::mat4_cast( rotation.InternalQuat ) * glm::scale( glm::mat4( 1.f ), scale.InternalVector );
+                    glm::vec3 localPosition, localScale;
+                    glm::quat localRotation;
+                    bool flipped = false;
+                    DecomposeMatrix( inverseChain * keyed, localPosition, localRotation, localScale, flipped );
+                    local.Positions.emplace_back( localPosition );
+                    local.Rotations.emplace_back( localRotation );
+                    local.Scales.emplace_back( localScale );
+                }
+                channel = std::move( local );
+            }
             clip.Channels.push_back( std::move( channel ) );
         }
         m_animations.push_back( std::move( clip ) );
