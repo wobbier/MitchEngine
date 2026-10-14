@@ -10,6 +10,7 @@
 class BaseCore;
 class BaseComponent;
 class Entity;
+class World;
 
 #if USING( ME_EDITOR )
 
@@ -38,6 +39,7 @@ private:
 	};
 
 	void DrawEntityHeader(Entity& entity);
+	void DrawRenderCameraSettings(World& world);
 	void DrawComponentGroup(const std::string& typeName, std::vector<Instance>& instances);
 	void DrawComponentContextMenu(const std::string& typeName, std::vector<Instance>& instances);
 	void CommitEdits(const std::string& typeName, std::vector<Instance>& instances, const std::string& undoName);
@@ -48,6 +50,7 @@ private:
 	std::unordered_map<std::string, json> m_snapshots;
 	std::unordered_map<std::string, bool> m_pendingEdits;
 	uint64_t m_selectionVersion = 0;
+	uint64_t m_renderCameraGUID = 0; // 0 follows the main camera.
 	char m_nameBuffer[256] = {};
 	uint64_t m_nameEntityGUID = 0;
 	bool m_nameEditing = false;

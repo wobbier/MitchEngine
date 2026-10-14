@@ -5,7 +5,10 @@
 #include <ECS/Entity.h>
 #include <Engine/Engine.h>
 #include <Engine/World.h>
+#include "Cores/Rendering/RenderCore.h"
 #include "Cores/EditorCore.h"
+#include "Components/Camera.h"
+#include "Components/Graphics/PostProcess.h"
 #include <Utils/CommonUtils.h>
 #include "Editor/EditorComponentInfoCache.h"
 #include "Editor/EditorOperations.h"
@@ -150,6 +153,10 @@ void PropertiesWidget::Render()
 		ImGui::Unindent(8.f);
 		ImGui::Separator();
 		core->OnEditorInspect();
+		if (core->GetTypeIdInternal() == RenderCore::GetTypeId())
+		{
+			DrawRenderCameraSettings(core->GetWorld());
+		}
 	}
 	else
 	{
@@ -159,6 +166,80 @@ void PropertiesWidget::Render()
 		ImGui::Unindent(8.f);
 	}
 	ImGui::End();
+}
+
+
+void PropertiesWidget::DrawRenderCameraSettings(World& world)
+{
+	if (!ImGui::CollapsingHeader("Camera Post-processing", ImGuiTreeNodeFlags_DefaultOpen))
+	{
+		return;
+	}
+	ImGui::PushID("RenderCameraSettings");
+	EntityHandle cameraEntity = world.FindEntityByGUID(m_renderCameraGUID);
+	if (!cameraEntity || !cameraEntity->HasComponent<Camera>())
+	{
+		m_renderCameraGUID = 0;
+		cameraEntity.Reset();
+	}
+	if (m_renderCameraGUID == 0 && Camera::CurrentCamera && Camera::CurrentCamera->Parent.GetWorld() == &world)
+	{
+		cameraEntity = Camera::CurrentCamera->Parent;
+	}
+	const std::string preview = m_renderCameraGUID == 0 ? "Main Camera" : cameraEntity->GetName();
+	if (ImGui::BeginCombo("Camera", preview.c_str()))
+	{
+		if (ImGui::Selectable("Main Camera", m_renderCameraGUID == 0))
+		{
+			m_renderCameraGUID = 0;
+			cameraEntity = Camera::CurrentCamera && Camera::CurrentCamera->Parent.GetWorld() == &world ? Camera::CurrentCamera->Parent : EntityHandle();
+		}
+		world.Each<Camera>([&](Entity& entity, Camera&) {
+			ImGui::PushID(std::to_string(entity.GetGUID()).c_str());
+			if (ImGui::Selectable(entity.GetName().c_str(), entity.GetGUID() == m_renderCameraGUID))
+			{
+				m_renderCameraGUID = entity.GetGUID();
+				cameraEntity = world.GetEntity(entity.GetId());
+			}
+			ImGui::PopID();
+		});
+		ImGui::EndCombo();
+	}
+	ImGui::TextWrapped("Camera edits support undo and save with the scene. The Scene View follows Main Camera.");
+	if (cameraEntity)
+	{
+		Camera& camera = cameraEntity->GetComponent<Camera>();
+		ImGui::Text("%s | %.0f x %.0f", cameraEntity->GetName().c_str(), camera.OutputSize.x, camera.OutputSize.y);
+		if (!camera.IsEnabled() || !cameraEntity->IsActiveInHierarchy())
+		{
+			ImGui::TextDisabled("This camera is inactive.");
+		}
+		PostProcess* post = cameraEntity->TryGetComponent<PostProcess>();
+		if (!post)
+		{
+			ImGui::TextWrapped("Using defaults: FXAA on, TAA off, ACES tonemapping, bloom and ambient occlusion on.");
+			if (ImGui::Button("Add PostProcess"))
+			{
+				post = static_cast<PostProcess*>(EditorOps::AddComponent(*cameraEntity.Get(), "PostProcess"));
+			}
+		}
+		if (post)
+		{
+			const char* aa = !post->IsEnabled() ? "FXAA (defaults)" : post->TemporalAA ? (post->FXAA ? "TAA + FXAA" : "TAA") : (post->FXAA ? "FXAA" : "Off");
+			ImGui::Text("Scene AA: %s", aa);
+			if (ImGui::IsItemHovered())
+			{
+				ImGui::SetTooltip("FXAA smooths the final image. TAA combines jittered frames using depth reprojection; moving objects may ghost. Both can be enabled together. SMAA is not implemented.");
+			}
+			std::vector<Instance> instances = { { cameraEntity.Get(), post, EditKey(*cameraEntity.Get(), *post) } };
+			DrawComponentGroup("PostProcess", instances);
+		}
+	}
+	else
+	{
+		ImGui::TextWrapped("No scene camera is selected. Add a Camera to the scene to customize post-processing.");
+	}
+	ImGui::PopID();
 }
 
 

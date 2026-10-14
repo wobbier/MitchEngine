@@ -1,6 +1,5 @@
 #pragma once
 #include <unordered_map>
-#include <bgfx/bgfx.h>
 #include <Math/Vector2.h>
 #include "Camera/CameraData.h"
 #include <queue>
@@ -111,7 +110,11 @@ public:
         X8,
         X16
     };
+    // Requested backbuffer samples. Camera HDR/depth targets are single-sample.
+    MSAALevel GetMSAALevel() const;
     void SetMSAALevel( MSAALevel level );
+    bool IsVSyncEnabled() const;
+    void SetVSyncEnabled( bool enabled );
 
     // Skips compositing the HTML UI over the main camera (used by unattended captures).
     bool EnableUIComposite = true;

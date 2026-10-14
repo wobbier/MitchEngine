@@ -4,6 +4,9 @@
 ME_REFLECT_ENUM( Moonlight::Tonemapper, { { "None", Moonlight::Tonemapper::None }, { "ACES", Moonlight::Tonemapper::ACES }, { "AgX", Moonlight::Tonemapper::AgX }, { "Reinhard", Moonlight::Tonemapper::Reinhard } } )
 
 ME_REFLECT_BEGIN( PostProcess )
+    ME_FIELD( FXAA ).Category( "Anti-aliasing" ).Tooltip( "Smooths edges in the final image after tonemapping; can be combined with TAA" );
+    ME_FIELD( TemporalAA ).Category( "Anti-aliasing" ).Tooltip( "Jittered frames resolved against depth-reprojected history; stabilizes edges and specular detail, but moving objects may ghost" );
+    ME_FIELD( TemporalSharpness ).Category( "Anti-aliasing" ).Range( 0.f, 1.f ).Tooltip( "Counters the temporal resolve's softening; used when TAA is enabled" );
     ME_FIELD( ExposureCompensation ).Category( "Exposure" ).Range( -8.f, 8.f ).Tooltip( "Stops added to the exposure (or to auto exposure)" );
     ME_FIELD( AutoExposure ).Category( "Exposure" ).Tooltip( "Adapt to the scene's average brightness like an eye" );
     ME_FIELD( AutoExposureMinEV ).Category( "Exposure" ).Range( -10.f, 20.f );
@@ -38,9 +41,6 @@ ME_REFLECT_BEGIN( PostProcess )
     ME_FIELD( Gain ).Category( "Color Grading" ).Range( 0.f, 2.f );
     ME_FIELD( VignetteIntensity ).Category( "Vignette" ).Range( 0.f, 1.f );
     ME_FIELD( VignetteSmoothness ).Category( "Vignette" ).Range( 0.01f, 2.f );
-    ME_FIELD( FXAA ).Category( "Anti-aliasing" );
-    ME_FIELD( TemporalAA ).Category( "Anti-aliasing" ).Tooltip( "Jittered frames resolved against the reprojected history: smooth edges, stable specular and thin geometry" );
-    ME_FIELD( TemporalSharpness ).Category( "Anti-aliasing" ).Range( 0.f, 1.f ).Tooltip( "Counters the temporal resolve's softening" );
 ME_REFLECT_END()
 
 

@@ -24,6 +24,7 @@
 #include "RenderPasses/PickingPass.h"
 #include "Utils/ImGuiUtils.h"
 #include "Core/CommandLine.h"
+#include "Profiling/FrameStats.h"
 
 
 RenderCore::RenderCore()
@@ -260,93 +261,209 @@ void RenderCore::OnStop()
 
 void RenderCore::OnEditorInspect()
 {
-    Base::OnEditorInspect();
+    BGFXRenderer& renderer = GetEngine().GetRenderer();
+    const bgfx::Caps* caps = bgfx::getCaps();
+    const bgfx::Stats* stats = bgfx::getStats();
+    ImGui::PushID( "RenderCore" );
 
-    ImGui::Checkbox( "Enable Debug Draw", &EnableDebugDraw );
-    ImGui::SliderFloat( "LOD Bias", &LodBias, 0.f, 4.f, "%.2f" );
-    if( ImGui::IsItemHovered() )
+    if( ImGui::CollapsingHeader( "Rendering" ) )
     {
-        ImGui::SetTooltip( "Scales each mesh's screen size before its level of detail is picked: above 1 keeps detail longer, 0 draws the coarsest level" );
+        Base::OnEditorInspect();
+        if( caps )
+        {
+            ImGui::Text( "Backend: %s", bgfx::getRendererName( caps->rendererType ) );
+        }
+        ImGui::Text( "Cameras: %zu | Lights: %zu", renderer.GetCameraCache().Commands.size(), renderer.GetLights().size() );
+        if( ImGui::Checkbox( "Enable Debug Draw", &EnableDebugDraw ) )
+        {
+            renderer.SetDebugDrawEnabled( EnableDebugDraw );
+        }
+        ImGui::SliderFloat( "LOD Bias", &LodBias, 0.f, 4.f, "%.2f" );
+        if( ImGui::IsItemHovered() )
+        {
+            ImGui::SetTooltip( "Scales mesh screen size before choosing LOD: above 1 keeps detail longer; 0 draws the coarsest level" );
+        }
     }
 
-    BGFXRenderer::ShadowSettings& shadows = GetEngine().GetRenderer().Shadows;
-    ImGui::Checkbox( "Shadows", &shadows.Enabled );
-    ImGui::Checkbox( "Show Shadow Cascades", &shadows.DebugCascades );
-    const uint16_t sizes[] = { 512, 1024, 2048, 4096 };
-    auto sizeCombo = []( const char* label, uint16_t& value, const uint16_t* options, int count ) {
-        if( ImGui::BeginCombo( label, std::to_string( value ).c_str() ) )
+    if( ImGui::CollapsingHeader( "Presentation" ) )
+    {
+        bool vsync = renderer.IsVSyncEnabled();
+        if( ImGui::Checkbox( "VSync", &vsync ) )
         {
-            for( int i = 0; i < count; ++i )
+            renderer.SetVSyncEnabled( vsync );
+        }
+        ImGui::Checkbox( "Composite Game UI", &renderer.EnableUIComposite );
+        if( ImGui::IsItemHovered() )
+        {
+            ImGui::SetTooltip( "Composites the HTML UI over the main camera" );
+        }
+        const char* levels[] = { "Off", "2x", "4x", "8x", "16x" };
+        int level = static_cast<int>( renderer.GetMSAALevel() );
+        if( ImGui::Combo( "Backbuffer MSAA", &level, levels, 5 ) )
+        {
+            renderer.SetMSAALevel( static_cast<BGFXRenderer::MSAALevel>( level ) );
+        }
+        ImGui::TextWrapped( "MSAA requests samples for the backbuffer. Camera HDR targets are single-sample; use FXAA or TAA in Camera Post-processing for scene edges. The backend may reduce the requested sample count." );
+        if( stats )
+        {
+            ImGui::Text( "Backbuffer: %u x %u", stats->width, stats->height );
+        }
+        ImGui::TextDisabled( "Global rendering controls apply to this session." );
+    }
+
+    if( ImGui::CollapsingHeader( "Shadows" ) )
+    {
+        BGFXRenderer::ShadowSettings& shadows = renderer.Shadows;
+        ImGui::Checkbox( "Enable Shadows", &shadows.Enabled );
+        if( !renderer.m_shadowsSupported )
+        {
+            ImGui::TextWrapped( "Shadow comparison sampling is unavailable on this backend." );
+        }
+        ImGui::BeginDisabled( !shadows.Enabled || !renderer.m_shadowsSupported );
+        ImGui::Checkbox( "Show Shadow Cascades", &shadows.DebugCascades );
+        // Resolutions are per cascade/light/face. Check the complete atlas against the GPU limit.
+        auto resolutionCombo = [&]( const char* label, uint16_t& value, int kind ) {
+            if( ImGui::BeginCombo( label, std::to_string( value ).c_str() ) )
             {
-                if( ImGui::Selectable( std::to_string( options[i] ).c_str(), value == options[i] ) )
+                const uint16_t sizes[] = { 128, 256, 512, 1024, 2048, 4096 };
+                for( uint16_t size : sizes )
                 {
-                    value = options[i];
+                    if( ( kind == 0 && size < 512 ) || ( kind == 2 && size > 2048 ) )
+                    {
+                        continue;
+                    }
+                    const uint32_t spot = kind == 1 ? size : shadows.SpotResolution;
+                    const uint32_t point = kind == 2 ? size : shadows.PointResolution;
+                    const uint32_t width = kind == 0 ? size * 2 : spot * 2 + point * 4;
+                    const uint32_t height = kind == 0 ? size * 2 : std::max( spot * 2, point * 4 );
+                    const bool supported = !caps || ( width <= caps->limits.maxTextureSize && height <= caps->limits.maxTextureSize );
+                    ImGui::BeginDisabled( !supported );
+                    if( ImGui::Selectable( std::to_string( size ).c_str(), value == size ) )
+                    {
+                        value = size;
+                    }
+                    ImGui::EndDisabled();
                 }
+                ImGui::EndCombo();
             }
-            ImGui::EndCombo();
+        };
+        resolutionCombo( "Cascade Resolution", shadows.CascadeResolution, 0 );
+        resolutionCombo( "Spot Shadow Resolution", shadows.SpotResolution, 1 );
+        resolutionCombo( "Point Shadow Resolution", shadows.PointResolution, 2 );
+        ImGui::Text( "Sun atlas: %u x %u", shadows.CascadeResolution * 2u, shadows.CascadeResolution * 2u );
+        ImGui::Text( "Local atlas: %u x %u", shadows.SpotResolution * 2u + shadows.PointResolution * 4u,
+            std::max( shadows.SpotResolution * 2u, shadows.PointResolution * 4u ) );
+        ImGui::TextWrapped( "Four sun cascades, up to four shadowed spots and two shadowed points. Light components control shadow distance and bias." );
+        ImGui::EndDisabled();
+    }
+
+    if( ImGui::CollapsingHeader( "Environment Lighting" ) )
+    {
+        ImGui::Checkbox( "Enable Environment Lighting", &renderer.EnableEnvironmentLighting );
+        ImGui::BeginDisabled( !renderer.EnableEnvironmentLighting );
+        ImGui::SliderFloat( "Environment Intensity", &renderer.EnvironmentIntensity, 0.f, 4.f, "%.2f" );
+        ImGui::TextWrapped( "Ambient diffuse and reflections come from each camera's sky, skybox or clear color." );
+        ImGui::EndDisabled();
+    }
+
+    // bgfx timestamps are ticks. CPU and GPU timers may have different frequencies.
+    auto drawTime = []( int64_t ticks, int64_t frequency ) {
+        if( frequency > 0 && ticks >= 0 )
+        {
+            ImGui::Text( "%.3f ms", static_cast<double>( ticks ) * 1000.0 / static_cast<double>( frequency ) );
+        }
+        else
+        {
+            ImGui::TextDisabled( "Unavailable" );
         }
     };
-    sizeCombo( "Cascade Resolution", shadows.CascadeResolution, sizes, 4 );
-    sizeCombo( "Spot Shadow Resolution", shadows.SpotResolution, sizes, 4 );
-
-    BGFXRenderer& renderer = GetEngine().GetRenderer();
-    ImGui::Checkbox( "Environment Lighting", &renderer.EnableEnvironmentLighting );
-    ImGui::SliderFloat( "Environment Intensity", &renderer.EnvironmentIntensity, 0.f, 4.f );
-    if( ImGui::Button( "MSAA None" ) )
+    if( ImGui::CollapsingHeader( "Performance" ) )
     {
-        GetEngine().GetRenderer().SetMSAALevel( BGFXRenderer::MSAALevel::None );
-    }
-    if( ImGui::Button( "MSAA X8" ) )
-    {
-        GetEngine().GetRenderer().SetMSAALevel( BGFXRenderer::MSAALevel::X8 );
-    }
-    if( ImGui::Button( "MSAA X16" ) )
-    {
-        GetEngine().GetRenderer().SetMSAALevel( BGFXRenderer::MSAALevel::X16 );
-    }
-    const bgfx::Stats* stats = bgfx::getStats();
-    HavanaUtils::Label( "CPU Frame Time: " );
-    ImGui::Text( ( std::to_string( bgfx::getStats()->cpuTimeFrame / 1000.f ) + " ms" ).c_str() );
-    HavanaUtils::Label( "CPU Time: " );
-    ImGui::Text( ( std::to_string( ( stats->cpuTimeEnd - stats->cpuTimeBegin ) / 1000.f ) + " ms" ).c_str() );
-
-    HavanaUtils::Label( "GPU Frame: " );
-    ImGui::Text( std::to_string( bgfx::getStats()->gpuFrameNum ).c_str() );
-    HavanaUtils::Label( "GPU Draw Calls: " );
-    ImGui::Text( std::to_string( bgfx::getStats()->numDraw ).c_str() );
-    HavanaUtils::Label( "GPU Compute Calls: " );
-    ImGui::Text( std::to_string( bgfx::getStats()->numCompute ).c_str() );
-    HavanaUtils::Label( "GPU Time: " );
-    ImGui::Text( ( std::to_string( ( stats->gpuTimeEnd - stats->gpuTimeBegin ) / 1000.f ) + " ms" ).c_str() );
-
-    static bool shouldStatsClose = true;
-    if( ImGui::CollapsingHeader( "View Stats", &shouldStatsClose, ImGuiTreeNodeFlags_DefaultOpen ) )
-    {
-        for( uint16_t i = 0; i < stats->numViews; ++i )
+        if( stats && ImGui::BeginTable( "RenderStats", 2, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp ) )
         {
-            bgfx::ViewStats& view = stats->viewStats[i];
-            ImGui::Text( &view.name[0] );
-            HavanaUtils::Label( "CPU Time: " );
-            ImGui::Text( ( std::to_string( ( view.cpuTimeEnd - view.cpuTimeBegin ) / 1000.f ) + " ms" ).c_str() );
-            HavanaUtils::Label( "GPU Time: " );
-            ImGui::Text( ( std::to_string( ( view.gpuTimeEnd - view.gpuTimeBegin ) / 1000.f ) + " ms" ).c_str() );
+            auto row = []( const char* label ) {
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex( 0 );
+                ImGui::TextUnformatted( label );
+                ImGui::TableSetColumnIndex( 1 );
+            };
+            row( "CPU Frame" );
+            drawTime( stats->cpuTimeFrame, stats->cpuTimerFreq );
+            row( "Render Thread" );
+            drawTime( stats->cpuTimeEnd - stats->cpuTimeBegin, stats->cpuTimerFreq );
+            row( "GPU Frame" );
+            drawTime( stats->gpuTimeEnd - stats->gpuTimeBegin, stats->gpuTimerFreq );
+            row( "Draw Calls" );
+            ImGui::Text( "%u", stats->numDraw );
+            row( "Triangles" );
+            ImGui::Text( "%u", stats->numPrims[bgfx::Topology::TriList] );
+            row( "Compute / Blit Calls" );
+            ImGui::Text( "%u / %u", stats->numCompute, stats->numBlit );
+            row( "Textures / Framebuffers" );
+            ImGui::Text( "%u / %u", stats->numTextures, stats->numFrameBuffers );
+            row( "Texture Memory" );
+            ImGui::Text( "%.1f MiB", stats->textureMemoryUsed / ( 1024.0 * 1024.0 ) );
+            row( "Render Target Memory" );
+            ImGui::Text( "%.1f MiB", stats->rtMemoryUsed / ( 1024.0 * 1024.0 ) );
+            row( "GPU Memory" );
+            if( stats->gpuMemoryUsed >= 0 )
+            {
+                ImGui::Text( "%.1f MiB", stats->gpuMemoryUsed / ( 1024.0 * 1024.0 ) );
+            }
+            else
+            {
+                ImGui::TextDisabled( "Unavailable" );
+            }
+            ImGui::EndTable();
+        }
+        else if( !stats )
+        {
+            ImGui::TextDisabled( "Renderer statistics are unavailable." );
         }
     }
-    static bool shouldPickingClose = true;
-    if( ImGui::CollapsingHeader( "Picking Pass", &shouldPickingClose, ImGuiTreeNodeFlags_DefaultOpen ) )
+    if( ImGui::CollapsingHeader( "View Stats" ) )
     {
-        auto& pickingPass = GetEngine().GetRenderer().m_pickingPass;
-
-        ImVec2 pickingSize = ImVec2( pickingPass->m_width / 5.0f - 16.0f, pickingPass->m_width / 5.0f - 16.0f );
-        ImGui::Image( pickingPass->m_pickingRT, pickingSize );
-        ImGui::SliderFloat( "Field of view", &pickingPass->m_fov, 1.0f, 60.0f );
-        if( bgfx::isValid( pickingPass->m_blitTex ) )
+        ImGui::TextWrapped( "Open the Profiler window to collect per-view GPU timings." );
+        if( stats && stats->viewStats && ImGui::BeginTable( "ViewStats", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV ) )
         {
-            //ImGui::Image( m_blitTex, pickingSize );
+            ImGui::TableSetupColumn( "View" );
+            ImGui::TableSetupColumn( "CPU ms" );
+            ImGui::TableSetupColumn( "GPU ms" );
+            ImGui::TableHeadersRow();
+            for( uint16_t i = 0; i < stats->numViews; ++i )
+            {
+                const bgfx::ViewStats& view = stats->viewStats[i];
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex( 0 );
+                ImGui::TextUnformatted( view.name );
+                ImGui::TableSetColumnIndex( 1 );
+                drawTime( view.cpuTimeEnd - view.cpuTimeBegin, stats->cpuTimerFreq );
+                ImGui::TableSetColumnIndex( 2 );
+                if( FrameStats::Get().DetailedGpuTimings )
+                {
+                    drawTime( view.gpuTimeEnd - view.gpuTimeBegin, stats->gpuTimerFreq );
+                }
+                else
+                {
+                    ImGui::TextDisabled( "Unavailable" );
+                }
+            }
+            ImGui::EndTable();
         }
-
-        ImGui::Checkbox( "Force Draw", &pickingPass->ForceDraw );
     }
+    if( ImGui::CollapsingHeader( "Picking Pass" ) && renderer.m_pickingPass )
+    {
+        auto& pickingPass = renderer.m_pickingPass;
+        if( bgfx::isValid( pickingPass->m_pickingRT ) )
+        {
+            const float width = std::max( 1.f, std::min( ImGui::GetContentRegionAvail().x, pickingPass->m_width * 4.f ) );
+            const float height = width * pickingPass->m_height / std::max( 1.f, static_cast<float>( pickingPass->m_width ) );
+            ImGui::Image( pickingPass->m_pickingRT, ImVec2( width, height ) );
+        }
+        ImGui::SliderFloat( "Picking Field of View", &pickingPass->m_fov, 1.0f, 60.0f );
+        ImGui::Checkbox( "Force Picking Draw", &pickingPass->ForceDraw );
+    }
+    ImGui::PopID();
 }
 
 #endif

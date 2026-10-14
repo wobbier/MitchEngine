@@ -135,6 +135,30 @@ bgfx runs views in ascending ID order, so producers must have lower IDs than the
 7. **Particles** (see below).
 8. **Post** into the final target, then the **UI composite** for the main camera.
 
+### Anti-aliasing and RenderCore controls
+
+Camera AA supports **Off**, **FXAA**, **TAA**, or **TAA + FXAA**, using the camera's
+`PostProcess` component. FXAA runs after tonemapping; TAA resolves the HDR scene before bloom
+and tonemapping. TAA reprojects history using camera matrices and depth, without per-object
+motion vectors, so moving objects can ghost. `TemporalSharpness` counters its softening.
+Cameras without an enabled `PostProcess` use FXAA on and TAA off. SMAA is not implemented.
+
+`SetMSAALevel` requests **Off / 2x / 4x / 8x / 16x** on the **backbuffer**. Camera HDR color
+and depth textures are single-sample, so this does not provide MSAA for scene geometry. The
+backend may reduce the requested sample count. Scene MSAA would require multisampled camera
+targets plus color/depth resolves compatible with the depth-sampling post passes.
+
+Select **RenderCore** in the hierarchy's Entity Cores section to inspect grouped session
+controls for presentation (VSync, backbuffer MSAA, game UI), LOD/debug drawing, shadows
+(including point-light face resolution) and environment lighting. Performance and view tables
+convert bgfx ticks using the CPU/GPU timer frequencies; open the Profiler for per-view GPU
+timings. Shadow resolution choices account for the full atlas size and the GPU texture limit.
+
+**Camera Post-processing** follows the main camera by default and can target another scene
+camera. It reuses the component inspector, including undo, reset/copy/paste, prefab overrides,
+and scene serialization. **Add PostProcess** creates the component as an undoable edit. The
+Scene View continues to follow the main camera's post settings.
+
 ### Lights and clustered forward
 
 `Light` components (Directional / Point / Spot) become `LightCommand`s every frame. Colour is linearised and multiplied by intensity; direction is the entity's forward axis.

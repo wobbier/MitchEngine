@@ -1932,9 +1932,19 @@ void BGFXRenderer::RecreateFrameBuffer( uint32_t index )
     m_cameraCache.Get( index )->Buffer->ReCreate( m_resetFlags );
 }
 
+BGFXRenderer::MSAALevel BGFXRenderer::GetMSAALevel() const
+{
+    return static_cast<MSAALevel>( ( m_resetFlags & BGFX_RESET_MSAA_MASK ) >> BGFX_RESET_MSAA_SHIFT );
+}
+
+
 void BGFXRenderer::SetMSAALevel( MSAALevel level )
 {
-    m_resetFlags &= ~( m_resetFlags & BGFX_RESET_MSAA_MASK );
+    if( GetMSAALevel() == level )
+    {
+        return;
+    }
+    m_resetFlags &= ~BGFX_RESET_MSAA_MASK;
 
     switch( level )
     {
@@ -1955,6 +1965,23 @@ void BGFXRenderer::SetMSAALevel( MSAALevel level )
         break;
     }
 
+    NeedsReset = true;
+}
+
+
+bool BGFXRenderer::IsVSyncEnabled() const
+{
+    return ( m_resetFlags & BGFX_RESET_VSYNC ) != 0;
+}
+
+
+void BGFXRenderer::SetVSyncEnabled( bool enabled )
+{
+    if( IsVSyncEnabled() == enabled )
+    {
+        return;
+    }
+    m_resetFlags = enabled ? m_resetFlags | BGFX_RESET_VSYNC : m_resetFlags & ~BGFX_RESET_VSYNC;
     NeedsReset = true;
 }
 
