@@ -222,6 +222,8 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
         s_texMetallicRoughness = bgfx::createUniform( "s_texMetallicRoughness", bgfx::UniformType::Sampler );
         s_texEmissive = bgfx::createUniform( "s_texEmissive", bgfx::UniformType::Sampler );
         s_texOcclusion = bgfx::createUniform( "s_texOcclusion", bgfx::UniformType::Sampler );
+        s_texMetallic = bgfx::createUniform( "s_texMetallic", bgfx::UniformType::Sampler );
+        s_texRoughness = bgfx::createUniform( "s_texRoughness", bgfx::UniformType::Sampler );
 
         // Shadows (see RenderSunShadows / RenderLocalShadows).
         u_shadowMatrix = bgfx::createUniform( "u_shadowMatrix", bgfx::UniformType::Mat4, 4 );
@@ -353,7 +355,7 @@ void BGFXRenderer::Destroy()
 
     const bgfx::UniformHandle uniforms[] = { s_texDiffuse, s_texNormal, s_texAlpha, s_texUI, s_time,
         u_lightParams, u_dirLightDirection, u_dirLightColor, u_clusterParams, u_clusterGrid, u_ambientSky, u_ambientGround,
-        s_lightData, s_clusterGrid, s_clusterIndices, s_texMetallicRoughness, s_texEmissive, s_texOcclusion,
+        s_lightData, s_clusterGrid, s_clusterIndices, s_texMetallicRoughness, s_texEmissive, s_texOcclusion, s_texMetallic, s_texRoughness,
         u_shadowMatrix, u_cascadeSplits, u_cascadeTexel, u_shadowParams, u_localShadowMatrix, u_spotShadowParams, u_pointShadowParams, u_shadowAlpha, s_shadowMap, s_spotShadowMap,
         s_envSpecular, s_envIrradiance, s_brdfLut, u_envParams, u_fogParams, u_fogColor, u_fogVolume, u_fogForward,
         u_particleParams, u_particleParams2, u_particleDepth, s_texParticle, s_sceneDepth, u_bones,
@@ -1849,6 +1851,8 @@ bgfx::ProgramHandle BGFXRenderer::BindMeshDrawState( const Moonlight::MeshComman
     bgfx::setTexture( 3, s_texMetallicRoughness, textureOr( Moonlight::TextureType::MetallicRoughness, m_whiteTexture ) );
     bgfx::setTexture( 4, s_texEmissive, textureOr( Moonlight::TextureType::Emissive, m_whiteTexture ) );
     bgfx::setTexture( 5, s_texOcclusion, textureOr( Moonlight::TextureType::Occlusion, m_whiteTexture ) );
+    bgfx::setTexture( 6, s_texMetallic, textureOr( Moonlight::TextureType::Metallic, m_whiteTexture ) );
+    bgfx::setTexture( 7, s_texRoughness, textureOr( Moonlight::TextureType::Roughness, m_whiteTexture ) );
     BindLighting();
 
     mesh.MeshMaterial->Use();

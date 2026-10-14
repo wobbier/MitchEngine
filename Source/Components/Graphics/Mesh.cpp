@@ -7,6 +7,7 @@
 
 #include "Graphics/MeshData.h"
 #include "Graphics/Texture.h"
+#include "Graphics/ImportedMaterialMerge.h"
 
 #if USING( ME_EDITOR )
 
@@ -80,6 +81,31 @@ Moonlight::MeshType Mesh::GetType() const
     return Type;
 }
 
+void Mesh::BindModelMesh( Moonlight::MeshData* InMesh )
+{
+    MeshReferece = InMesh;
+    Type = Moonlight::MeshType::Model;
+    if( !InMesh || !InMesh->MeshMaterial ) return;
+    json imported, current;
+    InMesh->MeshMaterial->OnSerialize( imported );
+    if( m_pendingMaterial.is_object() ) current = m_pendingMaterial;
+    else if( MeshMaterial ) MeshMaterial->OnSerialize( current );
+    else current = imported;
+    const json& previous = m_importedMaterialDefaults.is_object() ? m_importedMaterialDefaults : InMesh->MeshMaterial->LegacyImportDefaults;
+    const json merged = Moonlight::MergeImportedMaterial( current, previous, imported );
+    // A fresh instance also clears texture slots explicitly removed by the user.
+    const std::string type = merged.value( "Type", InMesh->MeshMaterial->GetTypeName() );
+    MaterialRegistry& registry = GetMaterialRegistry();
+    auto registered = registry.find( type );
+    MeshMaterial = type != InMesh->MeshMaterial->GetTypeName() && registered != registry.end()
+        ? registered->second.CreateFunc() : InMesh->MeshMaterial->CreateInstance();
+    MeshMaterial->GetTextures().assign( Moonlight::TextureType::Count, nullptr );
+    MeshMaterial->OnDeserialize( merged );
+    MeshMaterial->Init();
+    m_importedMaterialDefaults = imported;
+    m_pendingMaterial = nullptr;
+}
+
 void Mesh::OnSerialize( json& outJson )
 {
     if( MeshMaterial )
@@ -89,10 +115,13 @@ void Mesh::OnSerialize( json& outJson )
     }
     outJson["MeshType"] = GetMeshTypeString( Type );
     outJson["CastShadows"] = CastShadows;
+    if( m_importedMaterialDefaults.is_object() ) outJson["ImportedMaterialDefaults"] = m_importedMaterialDefaults;
 }
 
 void Mesh::OnDeserialize( const json& inJson )
 {
+    m_importedMaterialDefaults = inJson.value( "ImportedMaterialDefaults", json() );
+    m_pendingMaterial = inJson.value( "Material", json() );
     if( !MeshMaterial )
     {
 

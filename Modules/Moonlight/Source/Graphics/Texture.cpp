@@ -88,6 +88,7 @@ namespace Moonlight
     Texture::Texture( const Path& InFilePath, WrapMode mode )
         : Resource( InFilePath )
         , TexHandle( BGFX_INVALID_HANDLE )
+        , m_wrapMode( mode )
     {
         //Load();
     }
@@ -151,7 +152,11 @@ namespace Moonlight
         {
             return false;
         }
-        m_flags = BGFX_TEXTURE_NONE | BGFX_SAMPLER_W_MIRROR;
+        m_flags = BGFX_TEXTURE_NONE;
+        if( m_wrapMode == WrapMode::Clamp || m_wrapMode == WrapMode::Decal )
+            m_flags |= BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP;
+        else if( m_wrapMode == WrapMode::Mirror )
+            m_flags |= BGFX_SAMPLER_U_MIRROR | BGFX_SAMPLER_V_MIRROR;
         mWidth = imageContainer->m_width;
         mHeight = imageContainer->m_height;
         m_mips = imageContainer->m_numMips;
@@ -222,6 +227,10 @@ namespace Moonlight
             return "MetallicRoughness";
         case TextureType::Occlusion:
             return "Occlusion";
+        case TextureType::Metallic:
+            return "Metallic";
+        case TextureType::Roughness:
+            return "Roughness";
         case TextureType::Count:
         default:
             CLog::GetInstance().Log( CLog::LogType::Error, "Couldn't find texture type: " + std::to_string( type ) );

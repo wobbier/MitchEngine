@@ -4,6 +4,9 @@
 #include "Components/Graphics/Model.h"
 #include "Components/Transform.h"
 #include "Engine/World.h"
+#include "Graphics/ImportedMaterial.h"
+#include "Graphics/ImportedMaterialMerge.h"
+#include "Graphics/Material.h"
 #include <assimp/Importer.hpp>
 #include <assimp/Exporter.hpp>
 #include <assimp/scene.h>
@@ -297,6 +300,95 @@ TEST_CASE( "Models: legacy scenes migrate consistent unit mismatches and keep is
     other.Init();
     CHECK( editedFirst->GetComponent<Transform>().GetPosition().x == doctest::Approx( 100.f ) );
     CHECK( editedSecond->GetComponent<Transform>().GetPosition().y == doctest::Approx( 2.f ) );
+}
+
+TEST_CASE( "Models: Max Physical materials retain PBR maps and use mapped values instead of scalar placeholders" )
+{
+    aiMaterial material;
+    const aiString physical( "PHYSICAL_MTL" ), base( "textures/curtain_red_BaseColor.png" ), rough( "textures/curtain_Roughness.png" ), metal( "textures/curtain_Metalness.png" );
+    const aiColor3D tint( 0.18f, 0.18f, 0.18f );
+    const float invalid = -2.2f, zero = 0.f;
+    material.AddProperty( &physical, "$raw.3dsMax|ORIGINAL_MTL" );
+    material.AddProperty( &tint, 1, AI_MATKEY_COLOR_DIFFUSE );
+    material.AddProperty( &invalid, 1, AI_MATKEY_ROUGHNESS_FACTOR );
+    material.AddProperty( &zero, 1, "$raw.3dsMax|Parameters|roughness" );
+    material.AddProperty( &zero, 1, "$raw.3dsMax|Parameters|metalness" );
+    material.AddProperty( &zero, 1, "$raw.babylonBackfaceCulling" );
+    material.AddProperty( &base, "$raw.3dsMax|Parameters|base_color_map|file", aiTextureType_UNKNOWN );
+    material.AddProperty( &rough, "$raw.3dsMax|Parameters|roughness_map|file", aiTextureType_UNKNOWN );
+    material.AddProperty( &metal, "$raw.3dsMax|Parameters|metalness_map|file", aiTextureType_UNKNOWN );
+    const auto imported = Moonlight::ReadImportedMaterial( material );
+    CHECK( imported.Color.x == doctest::Approx( 1.f ) );
+    CHECK( imported.Roughness == doctest::Approx( 1.f ) );
+    CHECK( imported.Metallic == doctest::Approx( 1.f ) );
+    CHECK( imported.Textures[Moonlight::TextureType::Roughness] == rough.C_Str() );
+    CHECK( imported.Textures[Moonlight::TextureType::Normal] == "textures/curtain_Normal.png" );
+    CHECK( imported.DoubleSided );
+
+    const aiString mask( "textures/dirt_mask.png" );
+    const float transparency = 0.65f;
+    material.AddProperty( &mask, "$raw.3dsMax|Parameters|cutout_map|file", aiTextureType_UNKNOWN );
+    material.AddProperty( &transparency, 1, "$raw.3dsMax|Parameters|transparency" );
+    const auto decal = Moonlight::ReadImportedMaterial( material );
+    CHECK( decal.Transparent );
+    CHECK( decal.Opacity == doctest::Approx( 0.35f ) );
+    CHECK( decal.AlphaCutoff == doctest::Approx( 0.f ) );
+    CHECK( decal.Textures[Moonlight::TextureType::Opacity] == mask.C_Str() );
+    material.AddProperty( &zero, 1, "$raw.3dsMax|Parameters|transparency" );
+    const auto cutout = Moonlight::ReadImportedMaterial( material );
+    CHECK_FALSE( cutout.Transparent );
+    CHECK( cutout.AlphaCutoff == doctest::Approx( 0.5f ) );
+}
+
+TEST_CASE( "Models: saved material defaults migrate while user edits and removed texture slots survive" )
+{
+    json previous = { { "Roughness", -2.2f }, { "DiffuseColor", { 0.18f, 0.18f, 0.18f } }, { "Opacity", 1.f },
+        { "Textures", { { "Diffuse", { { "Path", "red.png" } } } } } };
+    json imported = { { "Roughness", 1.f }, { "DiffuseColor", { 1.f, 1.f, 1.f } }, { "Opacity", 0.35f },
+        { "Textures", { { "Diffuse", { { "Path", "red.png" } } }, { "Normal", { { "Path", "normal.png" } } } } } };
+    json edited = previous;
+    edited["Opacity"] = 0.7f;
+    const json merged = Moonlight::MergeImportedMaterial( edited, previous, imported );
+    CHECK( merged["Roughness"].get<float>() == doctest::Approx( 1.f ) );
+    CHECK( merged["Opacity"].get<float>() == doctest::Approx( 0.7f ) );
+    CHECK( merged["DiffuseColor"] == imported["DiffuseColor"] );
+    CHECK( merged["Textures"]["Normal"]["Path"] == "normal.png" );
+    CHECK( Moonlight::MergeImportedMaterial( merged, imported, imported ) == merged );
+    json removed = imported;
+    removed["Textures"].erase( "Normal" );
+    CHECK_FALSE( Moonlight::MergeImportedMaterial( removed, imported, imported )["Textures"].contains( "Normal" ) );
+}
+
+TEST_CASE( "Models: glTF alpha factors are not applied twice and cutout maps stay in the opaque pass" )
+{
+    aiMaterial source;
+    const aiColor4D base( 1.f, 1.f, 1.f, 0.35f );
+    const float opacity = 0.35f;
+    const aiString mask( "MASK" );
+    source.AddProperty( &base, 1, AI_MATKEY_BASE_COLOR );
+    source.AddProperty( &opacity, 1, AI_MATKEY_OPACITY );
+    source.AddProperty( &mask, "$mat.gltf.alphaMode" );
+    const auto imported = Moonlight::ReadImportedMaterial( source );
+    CHECK( imported.Opacity == doctest::Approx( 0.35f ) );
+    CHECK_FALSE( imported.Transparent );
+    CHECK( imported.AlphaCutoff == doctest::Approx( 0.5f ) );
+
+    struct AlphaMaterial : Moonlight::Material
+    {
+        AlphaMaterial() : Material( "AlphaTest", "" ) {}
+        void Init() override {}
+        void Use() override {}
+        SharedPtr<Moonlight::Material> CreateInstance() override { return nullptr; }
+        float GetAlphaCutoff() const override { return Cutoff; }
+        float Cutoff = 0.f;
+    };
+    AlphaMaterial material;
+    material.SetTexture( Moonlight::TextureType::Opacity, MakeShared<Moonlight::Texture>( Path( "" ) ) );
+    CHECK( material.IsTransparent() );
+    material.Cutoff = 0.5f;
+    CHECK_FALSE( material.IsTransparent() );
+    material.RenderMode = Moonlight::RenderingMode::Transparent;
+    CHECK( material.IsTransparent() );
 }
 
 #endif

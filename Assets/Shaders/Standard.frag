@@ -12,11 +12,14 @@ SAMPLER2D(s_texAlpha, 2);
 SAMPLER2D(s_texMetallicRoughness, 3);
 SAMPLER2D(s_texEmissive, 4);
 SAMPLER2D(s_texOcclusion, 5);
+SAMPLER2D(s_texMetallic, 6);
+SAMPLER2D(s_texRoughness, 7);
 
 uniform vec4 u_baseColor;   // linear rgb, opacity
 uniform vec4 u_pbrParams;   // x metallic, y roughness, z normal strength, w occlusion strength
 uniform vec4 u_emissive;    // rgb linear * intensity, w alpha cutoff (0 = off)
 uniform vec4 u_uvTransform; // xy tiling, zw offset
+uniform vec4 u_pbrTextureParams; // xy separate metallic/roughness maps, z invert roughness
 
 void main()
 {
@@ -29,8 +32,11 @@ void main()
 	}
 
 	vec3 mr = texture2D(s_texMetallicRoughness, uv).rgb;
-	float metallic = clamp(u_pbrParams.x * mr.b, 0.0, 1.0);
-	float roughness = clamp(u_pbrParams.y * mr.g, 0.045, 1.0);
+	float metalMap = mix(mr.b, texture2D(s_texMetallic, uv).r, u_pbrTextureParams.x);
+	float roughMap = mix(mr.g, texture2D(s_texRoughness, uv).r, u_pbrTextureParams.y);
+	roughMap = mix(roughMap, 1.0 - roughMap, u_pbrTextureParams.z);
+	float metallic = clamp(u_pbrParams.x * metalMap, 0.0, 1.0);
+	float roughness = clamp(u_pbrParams.y * roughMap, 0.045, 1.0);
 	float occlusion = mix(1.0, texture2D(s_texOcclusion, uv).r, u_pbrParams.w);
 
 	// Tangent-space normal (z reconstructed, so two-channel BC5 maps work too).

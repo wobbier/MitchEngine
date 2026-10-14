@@ -29,6 +29,8 @@ namespace Moonlight
         Emissive,           // sRGB
         MetallicRoughness,  // glTF: G roughness, B metallic
         Occlusion,          // R
+        Metallic,           // R, separate FBX/PBR maps
+        Roughness,          // R
         Count
     };
 
@@ -44,7 +46,7 @@ namespace Moonlight
         : public Resource
     {
     public:
-        TextureType Type;
+        TextureType Type = TextureType::Diffuse;
 
         int mWidth = 1920;
         int mHeight = 1080;
@@ -85,6 +87,7 @@ namespace Moonlight
         uint8_t m_mips = 0;
 
     private:
+        WrapMode m_wrapMode = WrapMode::Wrap;
         // Parsed by LoadAsync, uploaded (and handed to bgfx) by FinishAsyncLoad.
         bimg::ImageContainer* m_pendingImage = nullptr;
     };
@@ -185,5 +188,13 @@ struct TextureResourceMetadataJpg
 };
 
 
+struct TextureResourceMetadataTga
+    : public TextureResourceMetadata
+{
+    TextureResourceMetadataTga( const Path& filePath ) : TextureResourceMetadata( filePath ) {}
+};
+
+
 ME_REGISTER_METADATA( "png", TextureResourceMetadata );
 ME_REGISTER_METADATA( "jpg", TextureResourceMetadataJpg );
+ME_REGISTER_METADATA( "tga", TextureResourceMetadataTga );

@@ -32,6 +32,7 @@ public:
     Vector3 EmissiveColor = Vector3( 0.f, 0.f, 0.f );
     float EmissiveIntensity = 1.f;
     float AlphaCutoff = 0.f;
+    bool InvertRoughness = false;
 
 protected:
     // Subclasses that keep their own registry name (e.g. the legacy DiffuseMaterial).
@@ -46,6 +47,7 @@ private:
     inline static bgfx::UniformHandle u_pbrParams = BGFX_INVALID_HANDLE;
     inline static bgfx::UniformHandle u_emissive = BGFX_INVALID_HANDLE;
     inline static bgfx::UniformHandle u_uvTransform = BGFX_INVALID_HANDLE;
+    inline static bgfx::UniformHandle u_pbrTextureParams = BGFX_INVALID_HANDLE;
 };
 
 ME_REGISTER_MATERIAL_NAME( StandardMaterial, "Standard (PBR)" )

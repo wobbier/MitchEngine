@@ -66,6 +66,7 @@ void StandardMaterial::Init()
         u_pbrParams = bgfx::createUniform( "u_pbrParams", bgfx::UniformType::Vec4 );
         u_emissive = bgfx::createUniform( "u_emissive", bgfx::UniformType::Vec4 );
         u_uvTransform = bgfx::createUniform( "u_uvTransform", bgfx::UniformType::Vec4 );
+        u_pbrTextureParams = bgfx::createUniform( "u_pbrTextureParams", bgfx::UniformType::Vec4 );
     }
 }
 
@@ -81,6 +82,8 @@ void StandardMaterial::Use()
     bgfx::setUniform( u_pbrParams, pbr );
     bgfx::setUniform( u_emissive, emissive );
     bgfx::setUniform( u_uvTransform, uvTransform );
+    const float maps[4] = { GetTexture( Moonlight::TextureType::Metallic ) ? 1.f : 0.f, GetTexture( Moonlight::TextureType::Roughness ) ? 1.f : 0.f, InvertRoughness ? 1.f : 0.f, 0.f };
+    bgfx::setUniform( u_pbrTextureParams, maps );
 }
 
 
@@ -100,6 +103,9 @@ uint64_t StandardMaterial::GetInstanceBatchKey() const
     h = Mix( h, texId( Moonlight::TextureType::MetallicRoughness ) );
     h = Mix( h, texId( Moonlight::TextureType::Emissive ) );
     h = Mix( h, texId( Moonlight::TextureType::Occlusion ) );
+    h = Mix( h, texId( Moonlight::TextureType::Metallic ) );
+    h = Mix( h, texId( Moonlight::TextureType::Roughness ) );
+    h = Mix( h, InvertRoughness );
     for( float value : { Opacity, Metallic, Roughness, NormalStrength, OcclusionStrength, EmissiveColor.x, EmissiveColor.y, EmissiveColor.z, EmissiveIntensity, AlphaCutoff } )
     {
         h = Mix( h, FloatBits( value ) );
@@ -119,6 +125,7 @@ void StandardMaterial::OnSerialize( json& OutJson )
     OutJson["EmissiveColor"] = { EmissiveColor.x, EmissiveColor.y, EmissiveColor.z };
     OutJson["EmissiveIntensity"] = EmissiveIntensity;
     OutJson["AlphaCutoff"] = AlphaCutoff;
+    OutJson["InvertRoughness"] = InvertRoughness;
 }
 
 
@@ -127,11 +134,13 @@ void StandardMaterial::OnDeserialize( const json& InJson )
     Material::OnDeserialize( InJson );
     Opacity = ReadFloat( InJson, "Opacity", Opacity );
     Metallic = ReadFloat( InJson, "Metallic", Metallic );
-    Roughness = ReadFloat( InJson, "Roughness", Roughness );
+    const float roughness = ReadFloat( InJson, "Roughness", Roughness );
+    Roughness = std::isfinite( roughness ) && roughness >= 0.f && roughness <= 1.f ? roughness : 0.5f;
     NormalStrength = ReadFloat( InJson, "NormalStrength", NormalStrength );
     OcclusionStrength = ReadFloat( InJson, "OcclusionStrength", OcclusionStrength );
     EmissiveIntensity = ReadFloat( InJson, "EmissiveIntensity", EmissiveIntensity );
     AlphaCutoff = ReadFloat( InJson, "AlphaCutoff", AlphaCutoff );
+    InvertRoughness = InJson.value( "InvertRoughness", InvertRoughness );
     auto emissive = InJson.find( "EmissiveColor" );
     if( emissive != InJson.end() && emissive->is_array() && emissive->size() == 3 )
     {

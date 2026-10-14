@@ -198,8 +198,8 @@ void Model::RecursiveLoadMesh( Moonlight::Node& root, EntityHandle& parentEnt, f
     {
         Mesh& meshRef = parentEnt->AddComponent<Mesh>( root.Meshes[0] );
         // AddComponent returns the deserialized Mesh when there is one; point it at the geometry.
-        meshRef.MeshReferece = root.Meshes[0];
-        if( root.IsFlipped )
+        meshRef.BindModelMesh( root.Meshes[0] );
+        if( root.IsFlipped && meshRef.MeshMaterial->FaceMode != Moonlight::RenderFaceMode::Both )
         {
             meshRef.MeshMaterial->FaceMode = Moonlight::RenderFaceMode::Back;
         }
@@ -234,8 +234,8 @@ void Model::RecursiveLoadMesh( Moonlight::Node& root, EntityHandle& parentEnt, f
                 transform.SetParent( parentTransform );
             }
             Mesh& meshRef = ent->AddComponent<Mesh>( child );
-            meshRef.MeshReferece = child;
-            if( root.IsFlipped ) meshRef.MeshMaterial->FaceMode = Moonlight::RenderFaceMode::Back;
+            meshRef.BindModelMesh( child );
+            if( root.IsFlipped && meshRef.MeshMaterial->FaceMode != Moonlight::RenderFaceMode::Both ) meshRef.MeshMaterial->FaceMode = Moonlight::RenderFaceMode::Back;
         }
     }
 }

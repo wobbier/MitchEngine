@@ -45,7 +45,7 @@ namespace Moonlight
         {
             return true;
         }
-        else if( Textures[TextureType::Opacity] )
+        else if( Textures[TextureType::Opacity] && GetAlphaCutoff() <= 0.f )
         {
             return true;
         }

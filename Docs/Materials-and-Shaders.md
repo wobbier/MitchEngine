@@ -72,7 +72,7 @@ classDiagram
 |-------|--------|
 | Base colour | `DiffuseColor` (sRGB, linearised in `Use()`) × `Opacity`, times the Diffuse texture (sRGB) |
 | Normal | Normal texture: tangent space, Z reconstructed (two-channel maps work), scaled by `NormalStrength` |
-| Metallic / roughness | Factors × `MetallicRoughness` texture (glTF packing: **G = roughness, B = metallic**) |
+| Metallic / roughness | Factors × `MetallicRoughness` texture (glTF packing: **G = roughness, B = metallic**); separate `Metallic` and `Roughness` textures use R and override the corresponding packed channel. `InvertRoughness` supports gloss maps. |
 | Occlusion | `Occlusion` texture R, blended by `OcclusionStrength`; also drives specular occlusion |
 | Emissive | `EmissiveColor` × `EmissiveIntensity` (HDR) × Emissive texture |
 | Opacity | Alpha of base colour × Opacity texture R; `AlphaCutoff > 0` alpha-tests (also in shadow maps) |
@@ -84,6 +84,10 @@ Model import (`ModelResource.cpp`) maps assimp's PBR keys onto these fields:
 - `AI_MATKEY_BASE_COLOR`, metallic and roughness factors, emissive colour.
 - `BASE_COLOR`, `METALNESS`/`DIFFUSE_ROUGHNESS` (or glTF's packed `UNKNOWN` slot), `EMISSIVE`, `AMBIENT_OCCLUSION`/`LIGHTMAP` and `NORMALS` textures.
 - It falls back to the legacy diffuse colour and texture.
+
+Max Physical FBX materials also retain their raw `3dsMax|Parameters` properties. The importer reads their base-color, normal/bump, metalness, roughness and cutout maps, replacing scalar/color placeholders when Max uses a map. Invalid roughness values from legacy shininess conversion use a valid fallback. A missing normal-map connection can resolve the shipped `_Normal` companion of an explicitly referenced `_Roughness` texture. Transparency and backface-culling settings select blend/cutout and sidedness; an opacity map with alpha cutoff stays in the opaque/shadow passes.
+
+Model meshes save `ImportedMaterialDefaults` alongside their material. Reopening rebases values that still equal those defaults and retains user edits, including removed texture slots. Older scenes compare against the former importer's defaults so newly supported maps and corrected factors apply without resetting authored materials.
 
 ### The material contract
 

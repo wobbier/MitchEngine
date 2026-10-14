@@ -35,6 +35,7 @@ public:
     SharedPtr<Moonlight::Material> MeshMaterial;
 
     Moonlight::MeshType GetType() const;
+    void BindModelMesh( Moonlight::MeshData* InMesh );
 
     // Renders into shadow maps (directional cascades and spot lights).
     bool CastShadows = true;
@@ -59,6 +60,8 @@ private:
     AABB UpdateSkin( const glm::mat4& InMeshWorld );
     Moonlight::MeshType Type;
     Path MaterialAssetPath;
+    json m_importedMaterialDefaults;
+    json m_pendingMaterial;
 
     std::string GetMeshTypeString( Moonlight::MeshType InType );
     Moonlight::MeshType GetMeshTypeFromString( const std::string& InType );

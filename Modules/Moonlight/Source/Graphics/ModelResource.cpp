@@ -12,6 +12,7 @@
 #include "Resource/ResourceCache.h"
 #include "Graphics/Texture.h"
 #include "Graphics/Material.h"
+#include "Graphics/ImportedMaterial.h"
 #include "Graphics/MeshData.h"
 #include "Scene/Node.h"
 #include <stack>
@@ -516,79 +517,46 @@ Moonlight::MeshData* ModelResource::ProcessMesh( aiMesh* mesh, Moonlight::Node& 
     SharedPtr<Moonlight::Material> newMaterial = RootNode.MaterialCache[mesh->mMaterialIndex];
     if( !newMaterial )
     {
-        // use AI_MATKEY_SHADING_MODEL to pick a different material?
         newMaterial = RootNode.MaterialCache[mesh->mMaterialIndex] = MakeShared<StandardMaterial>();
         newMaterial->Init();
+        const aiMaterial& material = *scene->mMaterials[mesh->mMaterialIndex];
+        const Moonlight::ImportedMaterial imported = Moonlight::ReadImportedMaterial( material );
+        auto apply = []( StandardMaterial& target, const Moonlight::ImportedMaterial& data ) {
+            target.DiffuseColor = data.Color;
+            target.EmissiveColor = data.Emissive;
+            target.Opacity = data.Opacity;
+            target.Metallic = data.Metallic;
+            target.Roughness = data.Roughness;
+            target.NormalStrength = data.NormalStrength;
+            target.AlphaCutoff = data.AlphaCutoff;
+            target.InvertRoughness = data.InvertRoughness;
+            target.RenderMode = data.Transparent ? Moonlight::RenderingMode::Transparent : Moonlight::RenderingMode::Opaque;
+            target.FaceMode = data.DoubleSided ? Moonlight::RenderFaceMode::Both : Moonlight::RenderFaceMode::Front;
+        };
+        apply( *static_cast<StandardMaterial*>( newMaterial.get() ), imported );
+        for( unsigned int t = 0; t < Moonlight::TextureType::Count; ++t )
+        {
+            if( t == Moonlight::TextureType::Normal && imported.InferredNormal
+                && !Path( FilePath.GetDirectoryString() + imported.Textures[t] ).Exists
+                && FindTextureNear( FilePath.FullPath, imported.Textures[t] ).empty() ) continue;
+            if( !imported.Textures[t].empty() ) LoadMaterialTexture( newMaterial, imported.Textures[t], static_cast<Moonlight::TextureType>( t ), imported.Wrap[t] );
+        }
+        if( newMaterial->GetTexture( Moonlight::TextureType::Emissive ) && imported.Emissive.LengthSquared() <= 0.f )
+            static_cast<StandardMaterial*>( newMaterial.get() )->EmissiveColor = Vector3( 1.f );
 
-        aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
+        // Saved scenes contain copies of the previous importer's defaults. Keep a comparison
+        // baseline so binding fresh geometry can update those values while retaining user edits.
+        const Moonlight::ImportedMaterial old = Moonlight::ReadImportedMaterial( material, true );
+        auto legacy = newMaterial->CreateInstance();
+        apply( *static_cast<StandardMaterial*>( legacy.get() ), old );
+        legacy->GetTextures().assign( Moonlight::TextureType::Count, nullptr );
+        for( unsigned int t = 0; t < Moonlight::TextureType::Count; ++t )
+        {
+            if( !old.Textures[t].empty() ) LoadMaterialTexture( legacy, old.Textures[t], static_cast<Moonlight::TextureType>( t ), old.Wrap[t] );
+        }
+        legacy->OnSerialize( newMaterial->LegacyImportDefaults );
+        newMaterial->LegacyImportDefaults.erase( "InvertRoughness" );
 
-        aiColor3D color( 0.f, 0.f, 0.f );
-        aiColor3D color2( 1.f, 1.f, 1.f );
-        material->Get( AI_MATKEY_COLOR_TRANSPARENT, color );
-        if( color != color2 )
-        {
-            //newMaterial->RenderMode = Moonlight::RenderingMode::Transparent;
-        }
-
-        StandardMaterial* standard = static_cast<StandardMaterial*>( newMaterial.get() );
-
-        // Base colour: PBR base colour factor, else the legacy diffuse colour.
-        aiColor4D baseColor( 1.f, 1.f, 1.f, 1.f );
-        aiColor3D colorDiff( 0.f, 0.f, 0.f );
-        if( material->Get( AI_MATKEY_BASE_COLOR, baseColor ) == aiReturn_SUCCESS )
-        {
-            newMaterial->DiffuseColor = Vector3( baseColor.r, baseColor.g, baseColor.b );
-            standard->Opacity = baseColor.a;
-        }
-        else if( material->Get( AI_MATKEY_COLOR_DIFFUSE, colorDiff ) == aiReturn_SUCCESS && ( colorDiff.r + colorDiff.g + colorDiff.b ) > 0.f )
-        {
-            newMaterial->DiffuseColor = Vector3( colorDiff.r, colorDiff.g, colorDiff.b );
-        }
-
-        float factor = 0.f;
-        if( material->Get( AI_MATKEY_METALLIC_FACTOR, factor ) == aiReturn_SUCCESS )
-        {
-            standard->Metallic = factor;
-        }
-        if( material->Get( AI_MATKEY_ROUGHNESS_FACTOR, factor ) == aiReturn_SUCCESS )
-        {
-            standard->Roughness = factor;
-        }
-        aiColor3D emissive( 0.f, 0.f, 0.f );
-        if( material->Get( AI_MATKEY_COLOR_EMISSIVE, emissive ) == aiReturn_SUCCESS )
-        {
-            standard->EmissiveColor = Vector3( emissive.r, emissive.g, emissive.b );
-        }
-
-        if( !LoadMaterialTextures( newMaterial, material, aiTextureType_BASE_COLOR, Moonlight::TextureType::Diffuse ) || !newMaterial->GetTexture( Moonlight::TextureType::Diffuse ) )
-        {
-            LoadMaterialTextures( newMaterial, material, aiTextureType_DIFFUSE, Moonlight::TextureType::Diffuse );
-        }
-        LoadMaterialTextures( newMaterial, material, aiTextureType_SPECULAR, Moonlight::TextureType::Specular );
-        LoadMaterialTextures( newMaterial, material, aiTextureType_NORMALS, Moonlight::TextureType::Normal );
-        LoadMaterialTextures( newMaterial, material, aiTextureType_HEIGHT, Moonlight::TextureType::Height );
-        LoadMaterialTextures( newMaterial, material, aiTextureType_OPACITY, Moonlight::TextureType::Opacity );
-        LoadMaterialTextures( newMaterial, material, aiTextureType_EMISSIVE, Moonlight::TextureType::Emissive );
-        if( newMaterial->GetTexture( Moonlight::TextureType::Emissive ) && standard->EmissiveColor.LengthSquared() <= 0.f )
-        {
-            standard->EmissiveColor = Vector3( 1.f, 1.f, 1.f );
-        }
-
-        // glTF packs metallic (B) and roughness (G) in one texture; assimp reports it as UNKNOWN or
-        // as the same file under METALNESS and DIFFUSE_ROUGHNESS.
-        aiString metalness;
-        aiString roughness;
-        const bool packed = material->GetTexture( aiTextureType_METALNESS, 0, &metalness ) == aiReturn_SUCCESS
-            && material->GetTexture( aiTextureType_DIFFUSE_ROUGHNESS, 0, &roughness ) == aiReturn_SUCCESS
-            && std::string( metalness.C_Str() ) == roughness.C_Str();
-        if( !LoadMaterialTextures( newMaterial, material, aiTextureType_UNKNOWN, Moonlight::TextureType::MetallicRoughness ) && packed )
-        {
-            LoadMaterialTextures( newMaterial, material, aiTextureType_METALNESS, Moonlight::TextureType::MetallicRoughness );
-        }
-        if( !LoadMaterialTextures( newMaterial, material, aiTextureType_AMBIENT_OCCLUSION, Moonlight::TextureType::Occlusion ) || !newMaterial->GetTexture( Moonlight::TextureType::Occlusion ) )
-        {
-            LoadMaterialTextures( newMaterial, material, aiTextureType_LIGHTMAP, Moonlight::TextureType::Occlusion );
-        }
     }
 
     std::vector<glm::vec3> positions;
@@ -607,94 +575,41 @@ Moonlight::MeshData* ModelResource::ProcessMesh( aiMesh* mesh, Moonlight::Node& 
 }
 
 
-bool ModelResource::LoadMaterialTextures( SharedPtr<Moonlight::Material> newMaterial, aiMaterial* mat, aiTextureType type, const Moonlight::TextureType& typeName )
+bool ModelResource::LoadMaterialTexture( SharedPtr<Moonlight::Material> InMaterial, const std::string& InReference, Moonlight::TextureType InType, aiTextureMapMode InWrap )
 {
-    for( unsigned int i = 0; i < mat->GetTextureCount( type ); i++ )
+    if( InReference.empty() || InReference == "." ) return false;
+    Moonlight::WrapMode wrap = Moonlight::WrapMode::Wrap;
+    if( InWrap == aiTextureMapMode_Clamp ) wrap = Moonlight::WrapMode::Clamp;
+    else if( InWrap == aiTextureMapMode_Mirror ) wrap = Moonlight::WrapMode::Mirror;
+    else if( InWrap == aiTextureMapMode_Decal ) wrap = Moonlight::WrapMode::Decal;
+    std::shared_ptr<Moonlight::Texture> texture;
+    const Path absolute( InReference );
+    const Path relative( FilePath.GetDirectoryString() + InReference );
+    if( relative.Exists ) texture = ResourceCache::GetInstance().GetAsync<Moonlight::Texture>( relative, wrap );
+    else if( absolute.Exists ) texture = ResourceCache::GetInstance().GetAsync<Moonlight::Texture>( absolute, wrap );
+    if( !texture )
     {
-        aiString str;
-        aiTextureMapping texMapping;
-        aiTextureMapMode mapMode;
-        mat->GetTexture( type, i, &str, &texMapping, nullptr, nullptr, nullptr, &mapMode );
-        std::string stdString = std::string( str.C_Str() );
-        if( stdString != "." )
-        {
-            BRUH( "Loading: " + stdString );
-            std::string& texturePath = stdString;
-            std::shared_ptr<Moonlight::Texture> texture;
-
-            Moonlight::WrapMode wrapMode = Moonlight::WrapMode::Wrap;
-            switch( mapMode )
-            {
-            case aiTextureMapMode_Wrap:
-                wrapMode = Moonlight::WrapMode::Wrap;
-                break;
-            case aiTextureMapMode_Decal:
-                wrapMode = Moonlight::WrapMode::Decal;
-                break;
-            case aiTextureMapMode_Mirror:
-                wrapMode = Moonlight::WrapMode::Mirror;
-                break;
-            case aiTextureMapMode_Clamp:
-                wrapMode = Moonlight::WrapMode::Clamp;
-                break;
-            case _aiTextureMapMode_Force32Bit:
-            default:
-                wrapMode = Moonlight::WrapMode::Wrap;
-                break;
-            }
-
-            Path filePath( texturePath );
-            if( filePath.Exists )
-            {
-                texture = ResourceCache::GetInstance().GetAsync<Moonlight::Texture>( filePath, wrapMode );
-            }
-            else
-            {
-                Path relativePath = Path( FilePath.GetDirectoryString() + texturePath );
-                if( relativePath.Exists )
-                {
-                    texture = ResourceCache::GetInstance().GetAsync<Moonlight::Texture>( relativePath, wrapMode );
-                }
-            }
-
-            if( !texture )
-            {
-                // The model points somewhere that doesn't exist here: relink by name.
-                const std::string found = FindTextureNear( FilePath.FullPath, texturePath );
-                if( !found.empty() )
-                {
-                    const Path relinked( found );
-                    CLog::Log( CLog::LogType::Warning, "Model " + FilePath.GetLocalPathString() + ": texture '" + texturePath + "' relinked to " + relinked.GetLocalPathString() );
-                    texture = ResourceCache::GetInstance().GetAsync<Moonlight::Texture>( relinked, wrapMode );
-                }
-            }
-
-#if USING( ME_TOOLS )
-            if( !texture )
-            {
-                std::string fileName = texturePath;
-                std::replace( fileName.begin(), fileName.end(), '\\', '/' );
-                fileName = fileName.substr( fileName.find_last_of( '/' ) + 1 );
-                Path desperationPath = ResourceCache::GetInstance().FindByName( Path( "Assets" ), fileName );
-                if( desperationPath.Exists )
-                {
-                    texture = ResourceCache::GetInstance().GetAsync<Moonlight::Texture>( desperationPath, wrapMode );
-                }
-            }
-#endif
-
-            if( !texture )
-            {
-                BRUH( "Model " + FilePath.GetLocalPathString() + ": texture '" + texturePath + "' not found" );
-                return false;
-            }
-            texture->Type = typeName;
-            newMaterial->SetTexture( typeName, texture );
-            return true;
-        }
-        YIKES( "OOPS NO TEXTURE???" );
+        const std::string found = FindTextureNear( FilePath.FullPath, InReference );
+        if( !found.empty() ) texture = ResourceCache::GetInstance().GetAsync<Moonlight::Texture>( Path( found ), wrap );
     }
-    return false;
+#if USING( ME_TOOLS )
+    if( !texture )
+    {
+        std::string name = InReference;
+        std::replace( name.begin(), name.end(), '\\', '/' );
+        name = name.substr( name.find_last_of( '/' ) + 1 );
+        const Path found = ResourceCache::GetInstance().FindByName( Path( "Assets" ), name );
+        if( found.Exists ) texture = ResourceCache::GetInstance().GetAsync<Moonlight::Texture>( found, wrap );
+    }
+#endif
+    if( !texture )
+    {
+        BRUH( "Model " + FilePath.GetLocalPathString() + ": texture '" + InReference + "' not found" );
+        return false;
+    }
+    texture->Type = InType;
+    InMaterial->SetTexture( InType, texture );
+    return true;
 }
 
 

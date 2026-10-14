@@ -149,6 +149,8 @@ namespace Moonlight
         std::string ShaderName;
         RenderFaceMode FaceMode = RenderFaceMode::Front;
         BlendMode AlphaBlendMode = BlendMode::Alpha;
+        // Defaults produced by the former importer, used to migrate saved model materials.
+        json LegacyImportDefaults;
 
         Moonlight::ShaderCommand MeshShader;
         const std::string& GetTypeName() const;

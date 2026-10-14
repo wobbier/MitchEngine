@@ -299,6 +299,8 @@ private:
     bgfx::UniformHandle s_texMetallicRoughness = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle s_texEmissive = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle s_texOcclusion = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle s_texMetallic = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle s_texRoughness = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle u_shadowMatrix = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle u_cascadeSplits = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle u_cascadeTexel = BGFX_INVALID_HANDLE;
