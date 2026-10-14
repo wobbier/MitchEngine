@@ -5,6 +5,8 @@
 #include <commdlg.h>
 #include <shlobj.h>
 #include <shobjidl.h>
+#elif USING( ME_PLATFORM_LINUX )
+#include <gtk/gtk.h>
 #endif
 
 #if USING( ME_PLATFORM_WIN64 )
@@ -83,5 +85,39 @@ Path HUB::ShowOpenFilePrompt( void* hwnd )
     // Uninitialize COM
     CoUninitialize();
     return foundPath;
+}
+#elif USING( ME_PLATFORM_LINUX )
+
+Path HUB::ShowOpenFilePrompt( void* hwnd )
+{
+    // The SDL native handle is not a GtkWindow, so this dialog has no GTK parent.
+    (void)hwnd;
+    if( !gtk_init_check( nullptr, nullptr ) )
+    {
+        CLog::Log( CLog::LogType::Error, "Could not initialize GTK for the project folder picker." );
+        return {};
+    }
+
+    GtkFileChooserNative* dialog = gtk_file_chooser_native_new(
+        "Select a Project Folder", nullptr, GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER, "Select", "Cancel" );
+    gtk_file_chooser_set_local_only( GTK_FILE_CHOOSER( dialog ), TRUE );
+
+    Path selectedPath;
+    if( gtk_native_dialog_run( GTK_NATIVE_DIALOG( dialog ) ) == GTK_RESPONSE_ACCEPT )
+    {
+        char* folder = gtk_file_chooser_get_filename( GTK_FILE_CHOOSER( dialog ) );
+        if( folder )
+        {
+            Path candidate( folder );
+            if( candidate.Exists && candidate.IsFolder )
+            {
+                selectedPath = candidate;
+            }
+            g_free( folder );
+        }
+    }
+
+    g_object_unref( dialog );
+    return selectedPath;
 }
 #endif

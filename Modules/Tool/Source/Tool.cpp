@@ -14,6 +14,7 @@
 
 extern bool ImGui_ImplSDL2_InitForMetal( SDL_Window* window );
 extern bool ImGui_ImplSDL2_InitForD3D( SDL_Window* window );
+extern bool ImGui_ImplSDL2_InitForVulkan( SDL_Window* window );
 static SDL_Cursor* g_imgui_to_sdl_cursor[ImGuiMouseCursor_COUNT];
 
 Tool::Tool( ToolCreationFlags& inToolCreationFlags )
@@ -51,6 +52,9 @@ void Tool::Start()
     ResizeFunc( Vector2( 1280, 720 ) );
     RendererCreationSettings set;
     set.WindowPtr = m_window->GetWindowPtr();
+    set.DisplayPtr = static_cast<SDLWindow*>( m_window )->GetDisplayPtr();
+    set.WindowType = static_cast<SDLWindow*>( m_window )->GetWindowType();
+    set.InitialSize = m_window->GetSize();
     set.InitAssets = false;
     m_renderer->Create( set );
 
@@ -59,6 +63,9 @@ void Tool::Start()
 #endif
 #if USING( ME_PLATFORM_MACOS )
     ImGui_ImplSDL2_InitForMetal( static_cast<SDLWindow*>( m_window )->WindowHandle );
+#endif
+#if USING( ME_PLATFORM_LINUX )
+    ImGui_ImplSDL2_InitForVulkan( static_cast<SDLWindow*>( m_window )->WindowHandle );
 #endif
 
     g_imgui_to_sdl_cursor[ImGuiMouseCursor_Arrow] = SDL_CreateSystemCursor( SDL_SYSTEM_CURSOR_ARROW );

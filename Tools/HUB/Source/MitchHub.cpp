@@ -40,7 +40,7 @@ void MitchHub::OnStart()
 
 void MitchHub::OnUpdate()
 {
-#if USING( ME_PLATFORM_WIN64 )
+#if USING( ME_PLATFORM_WIN64 ) || USING( ME_PLATFORM_LINUX )
     if( m_input.WasKeyPressed( KeyCode::A ) )
     {
         HUB::ShowOpenFilePrompt( m_window->GetWindowPtr() );
@@ -89,7 +89,7 @@ void MitchHub::OnUpdate()
                 }
                 if( ImGui::Button( "Add Project", { -1.f, 0.f } ) )
                 {
-#if USING( ME_PLATFORM_WIN64 )
+#if USING( ME_PLATFORM_WIN64 ) || USING( ME_PLATFORM_LINUX )
                     Path path = HUB::ShowOpenFilePrompt( m_window->GetWindowPtr() );
                     if( path.Exists )
                     {

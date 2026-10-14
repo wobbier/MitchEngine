@@ -1,6 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include <filesystem>
 #include <assert.h>
 #include "Texture.h"
 #include "CLog.h"
@@ -16,6 +17,50 @@
 
 namespace
 {
+#if USING( ME_PLATFORM_LINUX ) && USING( ME_TOOLS )
+    std::filesystem::path FindTextureCompilerLauncher()
+    {
+        namespace fs = std::filesystem;
+        std::error_code error;
+        const fs::path executable = fs::read_symlink( "/proc/self/exe", error );
+        const fs::path workingDirectory = fs::current_path( error );
+        // HUB runs from Engine/Tools/HUB; executables normally live in .build/<config>.
+        for( fs::path directory : { executable.parent_path(), workingDirectory } )
+        {
+            while( !directory.empty() )
+            {
+                for( const char* relative : { "Engine/Tools/RunTextureCompiler.sh", "Tools/RunTextureCompiler.sh" } )
+                {
+                    const fs::path candidate = directory / relative;
+                    if( fs::is_regular_file( candidate, error ) )
+                    {
+                        return candidate;
+                    }
+                }
+                const fs::path parent = directory.parent_path();
+                if( parent == directory )
+                {
+                    break;
+                }
+                directory = parent;
+            }
+        }
+        return {};
+    }
+
+
+    std::string ShellQuote( const std::string& text )
+    {
+        std::string quoted = "'";
+        for( char c : text )
+        {
+            quoted += c == '\'' ? "'\\''" : std::string( 1, c );
+        }
+        return quoted + "'";
+    }
+#endif
+
+
     void ImageReleaseCb( void*, void* inUserData )
     {
         bimg::imageFree( static_cast<bimg::ImageContainer*>( inUserData ) );
@@ -491,13 +536,20 @@ void TextureResourceMetadata::Export()
 
 #elif USING( ME_PLATFORM_LINUX )
 
-    Path texturecPath = Path( "Engine/Tools/linux/texturec" );
-
-    std::string progArgs = "-f \"";
-    progArgs += FilePath.FullPath;
-    progArgs += "\" -o \"" + FilePath.FullPath + ".dds\"" + exportType;
-    CLog::GetInstance().Log( CLog::LogType::Info, progArgs );
-    PlatformUtils::SystemCall( texturecPath, progArgs );
+    const std::filesystem::path launcher = FindTextureCompilerLauncher();
+    if( launcher.empty() )
+    {
+        YIKES( "Could not locate Engine/Tools/RunTextureCompiler.sh for texture export." );
+        return;
+    }
+    const std::string command = ShellQuote( launcher.string() )
+        + " -f " + ShellQuote( FilePath.FullPath )
+        + " -o " + ShellQuote( FilePath.FullPath + ".dds" ) + exportType;
+    std::string output;
+    if( PlatformUtils::RunCommand( command, output ) != 0 )
+    {
+        YIKES( "Texture export failed for " + FilePath.FullPath + ": " + output );
+    }
 
 #endif
 }
