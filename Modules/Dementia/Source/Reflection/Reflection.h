@@ -77,6 +77,7 @@ namespace Reflection
             Angle = 1 << 5,         // Float stored in radians, edited in degrees.
             Multiline = 1 << 6,     // String edited in a multi-line box.
             Asset = 1 << 7,         // String holds an asset path; AssetFilter names the asset kind.
+            CustomInspector = 1 << 8, // Custom single-object UI; use reflection when multi-editing.
         };
     }
 
@@ -359,6 +360,7 @@ namespace Reflection
         FieldBuilder& Range( float min, float max ) { Field().HasRange = true; Field().Min = min; Field().Max = max; return *this; }
         FieldBuilder& Speed( float speed ) { Field().Speed = speed; return *this; }
         FieldBuilder& Hidden() { Field().Flags |= FieldFlags::Hidden; return *this; }
+        FieldBuilder& CustomInspector() { Field().Flags |= FieldFlags::CustomInspector; return *this; }
         FieldBuilder& ReadOnly() { Field().Flags |= FieldFlags::ReadOnly; return *this; }
         FieldBuilder& NoSerialize() { Field().Flags |= FieldFlags::NoSerialize; return *this; }
         FieldBuilder& Color() { Field().Flags |= FieldFlags::Color; return *this; }

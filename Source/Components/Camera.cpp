@@ -6,11 +6,9 @@
 #include "Resource/ResourceCache.h"
 #include "Utils/HavanaUtils.h"
 #include <Graphics/Material.h>
+#include <cmath>
 
 #if USING( ME_EDITOR )
-#include <Renderer.h>
-#include <Graphics/DynamicSky.h>
-#include <Engine/Engine.h>
 #include "Events/EditorEvents.h"
 #include "Events/HavanaEvents.h"
 #include "Types/AssetDescriptor.h"
@@ -19,14 +17,23 @@
 ME_REFLECT_ENUM( Moonlight::ProjectionType, { { "Perspective", Moonlight::ProjectionType::Perspective }, { "Orthographic", Moonlight::ProjectionType::Orthographic } } )
 ME_REFLECT_ENUM( Moonlight::ClearColorType, { { "Color", Moonlight::ClearColorType::Color }, { "Skybox", Moonlight::ClearColorType::Skybox }, { "Procedural", Moonlight::ClearColorType::Procedural } } )
 
+ME_REFLECT_BEGIN( Moonlight::ProceduralSkySettings )
+    ME_FIELD( Time ).Display( "Time of Day" ).Range( 0.f, 24.f );
+    ME_FIELD( TimeScale ).Display( "Time Scale" ).Range( 0.f, 1.f );
+    ME_FIELD( Latitude ).Range( -90.f, 90.f );
+    ME_FIELD( Turbidity ).Range( 1.9f, 10.f );
+    ME_FIELD( Month ).Range( 0.f, 11.f );
+ME_REFLECT_END()
+
 ME_REFLECT_BEGIN( Camera )
     ME_FIELD( Projection );
     ME_FIELD_NAMED( m_FOV, "FieldOfView" ).Display( "Field of View" ).Range( 1.f, 179.f );
     ME_FIELD( OrthographicSize ).Display( "Orthographic Size (m)" ).Range( 0.01f, 1000.f ).Tooltip( "Half the view height in metres" );
     ME_FIELD( Near ).Display( "Near Clip (m)" ).Speed( 0.01f ).Tooltip( "Distance to the near clipping plane in metres" );
     ME_FIELD( Far ).Display( "Far Clip (m)" ).Speed( 1.f ).Tooltip( "Distance to the far clipping plane in metres" );
-    ME_FIELD( ClearType );
-    ME_FIELD( ClearColor ).Color();
+    ME_FIELD( ClearType ).Display( "Background" ).CustomInspector();
+    ME_FIELD( ClearColor ).Color().CustomInspector();
+    ME_FIELD( ProceduralSky ).Display( "Procedural Sky" ).CustomInspector();
     ME_FIELD( Zoom ).Hidden();
 ME_REFLECT_END()
 
@@ -63,6 +70,22 @@ void Camera::OnPropertyChanged( const std::string& InFieldName )
 {
     Near = std::max( Near, 0.01f );
     Far = std::max( Far, Near + 0.01f );
+    ProceduralSky.Clamp();
+}
+
+Moonlight::ProceduralSkySettings Camera::GetSkySettings( float deltaTime )
+{
+    if( m_skyStartTime != ProceduralSky.Time )
+    {
+        m_skyStartTime = m_skyTime = ProceduralSky.Time;
+    }
+    if( ClearType == Moonlight::ClearColorType::Procedural && ProceduralSky.TimeScale > 0.f && deltaTime > 0.f )
+    {
+        m_skyTime = std::fmod( m_skyTime + ProceduralSky.TimeScale * deltaTime, 24.f );
+    }
+    Moonlight::ProceduralSkySettings settings = ProceduralSky;
+    settings.Time = m_skyTime;
+    return settings;
 }
 
 Matrix4 Camera::GetViewMatrix()
@@ -179,6 +202,7 @@ void Camera::OnDeserialize( const json& inJson )
 {
     Reflection::FromJson( StaticType(), this, inJson );
     OnPropertyChanged( "" );
+    m_skyStartTime = m_skyTime = ProceduralSky.Time;
     if( inJson.contains( "Skybox" ) && inJson["Skybox"].is_string() )
     {
         Skybox = new Moonlight::SkyBox( inJson["Skybox"].get<std::string>() );
@@ -203,113 +227,110 @@ void Camera::OnSerialize( json& outJson )
 
 #if USING( ME_EDITOR )
 
+namespace
+{
+    void CameraTooltip( const char* text )
+    {
+        if( ImGui::IsItemHovered( ImGuiHoveredFlags_DelayShort ) )
+        {
+            ImGui::SetTooltip( "%s", text );
+        }
+    }
+}
+
 void Camera::OnEditorInspect()
 {
-    // Projection, FOV, clipping and clear settings are drawn from reflection.
+    ImGui::SeparatorText( "Camera Output" );
     if( this != EditorCamera )
     {
-        ImGui::BeginDisabled( IsCurrent() );
-        if( ImGui::Button( IsCurrent() ? "Current Camera" : "Set Current" ) )
+        const float width = HavanaUtils::Label( "Render Camera" );
+        if( IsCurrent() )
         {
-            SetCurrent();
+            ImGui::AlignTextToFramePadding();
+            ImGui::TextColored( ImGui::GetStyleColorVec4( ImGuiCol_ButtonHovered ), "Active Camera" );
+            CameraTooltip( "This camera supplies the Game View." );
         }
-        ImGui::EndDisabled();
+        else
+        {
+            ImGui::PushStyleVar( ImGuiStyleVar_FrameRounding, 4.f );
+            if( ImGui::Button( "Make Current", ImVec2( width, 0.f ) ) )
+            {
+                SetCurrent();
+            }
+            ImGui::PopStyleVar();
+            CameraTooltip( "Use this camera for the Game View." );
+        }
     }
 
-    if( ClearType == Moonlight::ClearColorType::Skybox )
+    HavanaUtils::Label( "Background" );
+    const char* backgrounds[] = { "Solid Color", "Skybox Texture", "Procedural Sky" };
+    int background = static_cast<int>( ClearType );
+    if( ImGui::Combo( "##Background", &background, backgrounds, 3 ) )
     {
-        const Moonlight::Texture* skyboxTexture = nullptr;
-        if( Skybox && Skybox->SkyMaterial )
-        {
-            skyboxTexture = Skybox->SkyMaterial->GetTexture( Moonlight::TextureType::Diffuse );
-        }
+        ClearType = static_cast<Moonlight::ClearColorType>( background );
+    }
 
-        float widgetWidth = HavanaUtils::Label( "Skybox Texture" );
-        // #TODO: fix this tf?
-        //std::string label( "##Texture" );
-        //if ( texture && bgfx::isValid( texture->TexHandle ) )
-        //{
-        //	if ( ImGui::ImageButton( texture->TexHandle, ImVec2( 30, 30 ) ) )
-        //	{
-        //		PreviewResourceEvent evt;
-        //		evt.Subject = texture;
-        //		evt.Fire();
-        //	}
-        //	static bool ViewTexture = true;
-        //	if ( ImGui::BeginPopupModal( "ViewTexture", &ViewTexture, ImGuiWindowFlags_MenuBar ) )
-        //	{
-        //		if ( texture )
-        //		{
-        //			// Get the current cursor position (where your window is)
-        //			ImVec2 pos = ImGui::GetCursorScreenPos();
-        //			ImVec2 maxPos = ImVec2( pos.x + ImGui::GetWindowSize().x, pos.y + ImGui::GetWindowSize().y );
-        //			Vector2 RenderSize = Vector2( ImGui::GetWindowSize().x, ImGui::GetWindowSize().y );
-        //
-        //			// Ask ImGui to draw it as an image:
-        //			// Under OpenGL the ImGUI image type is GLuint
-        //			// So make sure to use "(void *)tex" but not "&tex"
-        //			/*ImGui::GetWindowDrawList()->AddImage(
-        //				(void*)texture->TexHandle,
-        //				ImVec2(pos.x, pos.y),
-        //				ImVec2(maxPos));*/
-        //				//ImVec2(WorldViewRenderSize.X() / RenderSize.X(), WorldViewRenderSize.Y() / RenderSize.Y()));
-        //
-        //		}
-        //		if ( ImGui::Button( "Close" ) )
-        //		{
-        //			ViewTexture = false;
-        //			ImGui::CloseCurrentPopup();
-        //		}
-        //		ImGui::EndPopup();
-        //	}
-        //	ImGui::SameLine();
-        //}
-
-        ImVec2 selectorSize( widgetWidth, 0.f );
-        if( ImGui::Button( ( ( skyboxTexture ) ? skyboxTexture->GetPath().GetLocalPath().data() : "Select Asset" ), selectorSize ) )
+    if( ClearType == Moonlight::ClearColorType::Color )
+    {
+        HavanaUtils::Label( "Clear Color" );
+        ImGui::ColorEdit3( "##ClearColor", &ClearColor.x, ImGuiColorEditFlags_NoInputs );
+    }
+    else if( ClearType == Moonlight::ClearColorType::Skybox )
+    {
+        const Moonlight::Texture* texture = Skybox && Skybox->SkyMaterial
+            ? Skybox->SkyMaterial->GetTexture( Moonlight::TextureType::Diffuse ) : nullptr;
+        const float width = HavanaUtils::Label( "Skybox Texture" );
+        const float clearWidth = texture ? ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.x : 0.f;
+        const std::string name = texture ? texture->GetPath().GetFileNameString() : "Select Texture...";
+        auto assignTexture = [this]( Path path ) {
+            if( !Skybox ) Skybox = new Moonlight::SkyBox( path.FullPath );
+            Skybox->SkyMaterial->SetTexture( Moonlight::TextureType::Diffuse, ResourceCache::GetInstance().Get<Moonlight::Texture>( path ) );
+        };
+        if( ImGui::Button( ( name + "##SkyboxTexture" ).c_str(), ImVec2( std::max( width - clearWidth, 1.f ), 0.f ) ) )
         {
-            RequestAssetSelectionEvent evt( [this]( Path selectedAsset )
-                {
-                    if( !Skybox )
-                    {
-                        Skybox = new Moonlight::SkyBox( selectedAsset.FullPath );
-                    }
-                    Skybox->SkyMaterial->SetTexture( Moonlight::TextureType::Diffuse, ResourceCache::GetInstance().Get<Moonlight::Texture>( selectedAsset ) );
-                }, AssetType::Texture );
+            RequestAssetSelectionEvent evt( assignTexture, AssetType::Texture );
             evt.Fire();
         }
-
+        CameraTooltip( texture ? std::string( texture->GetPath().GetLocalPath() ).c_str() : "Select a skybox texture or drop one here." );
         if( ImGui::BeginDragDropTarget() )
         {
-            if( const ImGuiPayload* payload = ImGui::AcceptDragDropPayload( AssetDescriptor::kDragAndDropPayload ) )
+            if( ImGui::AcceptDragDropPayload( AssetDescriptor::kDragAndDropPayload ) )
             {
-                AssetDescriptor* _p = AssetDescriptor::GetDragged();
-                if( !_p ) return;
-                AssetDescriptor& payload_n = *_p;
-
-                if( payload_n.Type == AssetType::Texture )
-                {
-                    if( !Skybox )
-                    {
-                        Skybox = new Moonlight::SkyBox( payload_n.FullPath.FullPath );
-                    }
-                    Skybox->SkyMaterial->SetTexture( Moonlight::TextureType::Diffuse, ResourceCache::GetInstance().Get<Moonlight::Texture>( payload_n.FullPath ) );
-                }
+                AssetDescriptor* asset = AssetDescriptor::GetDragged();
+                if( asset && asset->Type == AssetType::Texture ) assignTexture( asset->FullPath );
             }
             ImGui::EndDragDropTarget();
         }
-        if( skyboxTexture )
+        if( texture )
         {
             ImGui::SameLine();
-            if( ImGui::Button( "X" ) )
+            if( ImGui::Button( "X##ClearSkybox", ImVec2( ImGui::GetFrameHeight(), 0.f ) ) )
             {
                 Skybox->SkyMaterial->SetTexture( Moonlight::TextureType::Diffuse, nullptr );
             }
+            CameraTooltip( "Clear skybox texture" );
         }
     }
     else if( ClearType == Moonlight::ClearColorType::Procedural )
     {
-        GetEngine().GetRenderer().GetSky()->DrawImGui();
+        ImGui::SeparatorText( "Procedural Sky" );
+        HavanaUtils::Label( "Time of Day" );
+        bool changed = ImGui::SliderFloat( "##SkyTime", &ProceduralSky.Time, 0.f, 24.f, "%.2f h", ImGuiSliderFlags_AlwaysClamp );
+        CameraTooltip( "24-hour local solar time. Changing this restarts the sky clock." );
+        HavanaUtils::Label( "Time Scale" );
+        changed |= ImGui::DragFloat( "##SkyTimeScale", &ProceduralSky.TimeScale, 0.01f, 0.f, 1.f, "%.2f h/s", ImGuiSliderFlags_AlwaysClamp );
+        CameraTooltip( "Sky hours per real second. Set to zero to hold the time of day." );
+        HavanaUtils::Label( "Latitude" );
+        changed |= ImGui::DragFloat( "##SkyLatitude", &ProceduralSky.Latitude, 0.1f, -90.f, 90.f, "%.1f deg", ImGuiSliderFlags_AlwaysClamp );
+        CameraTooltip( "Sun position: -90 degrees at the South Pole, 0 at the equator, 90 at the North Pole." );
+        HavanaUtils::Label( "Month" );
+        const char* months[] = { "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December" };
+        changed |= ImGui::Combo( "##SkyMonth", &ProceduralSky.Month, months, 12 );
+        CameraTooltip( "Season used to calculate the sun's orbit." );
+        HavanaUtils::Label( "Turbidity" );
+        changed |= ImGui::DragFloat( "##SkyTurbidity", &ProceduralSky.Turbidity, 0.01f, 1.9f, 10.f, "%.2f", ImGuiSliderFlags_AlwaysClamp );
+        CameraTooltip( "Atmospheric haze. Lower values give a clear sky; higher values scatter more sunlight." );
+        if( changed ) OnPropertyChanged( "ProceduralSky" );
     }
 }
 

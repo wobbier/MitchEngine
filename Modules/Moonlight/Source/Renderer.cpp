@@ -1020,32 +1020,7 @@ void BGFXRenderer::PrepareFrameLighting()
     }
     int directionalCount = static_cast<int>( directional.size() );
 
-    // Scenes without a directional light are lit (and shadowed) by the procedural sky's sun.
-    if( directionalCount == 0 && m_dynamicSky )
-    {
-        const bx::Vec3& sunDir = m_dynamicSky->m_sun.m_sunDir;
-        bx::Vec3 sunRgb = m_dynamicSky->xyzToRgb( m_dynamicSky->m_sunLuminanceXYZ.GetValue( m_dynamicSky->m_time ) );
-        const float peak = std::max( { sunRgb.x, sunRgb.y, sunRgb.z, 1e-4f } );
-        const float elevation = std::clamp( sunDir.y * 4.f, 0.f, 1.f );
-        const float intensity = 3.f * elevation;
-        float* direction = m_lighting.DirectionalDirection[0];
-        float* color = m_lighting.DirectionalColor[0];
-        direction[0] = -sunDir.x; direction[1] = -sunDir.y; direction[2] = -sunDir.z; direction[3] = shadowsOn ? 1.f : 0.f;
-        color[0] = sunRgb.x / peak * intensity; color[1] = sunRgb.y / peak * intensity; color[2] = sunRgb.z / peak * intensity;
-        directionalCount = 1;
-        if( shadowsOn && elevation > 0.f )
-        {
-            m_hasSunShadow = true;
-            m_sunShadowLight = Moonlight::LightCommand();
-            m_sunShadowLight.Type = Moonlight::LightType::Directional;
-            m_sunShadowLight.Direction = Vector3( -sunDir.x, -sunDir.y, -sunDir.z );
-            m_sunShadowLight.CastShadows = true;
-        }
-        else
-        {
-            direction[3] = 0.f;
-        }
-    }
+    m_directionalLightCount = directionalCount;
 
     m_lighting.Params[0] = static_cast<float>( directionalCount );
     m_lighting.Params[1] = static_cast<float>( m_localLights.size() );
@@ -1150,6 +1125,37 @@ void BGFXRenderer::PrepareFrameLighting()
 void BGFXRenderer::PrepareCameraLighting( Moonlight::CameraData& camera )
 {
     OPTICK_EVENT( "Renderer::PrepareCameraLighting" );
+    // Set the sky before lighting, shadows and environment captures consume its uniforms.
+    if( m_dynamicSky ) m_dynamicSky->ApplySettings( camera.ProceduralSky );
+    // Scenes without a directional light are lit (and shadowed) by the procedural sky's sun.
+    if( m_directionalLightCount == 0 && m_dynamicSky )
+    {
+        const bool shadowsOn = Shadows.Enabled && m_shadowsSupported;
+        m_hasSunShadow = false;
+        const bx::Vec3& sunDir = m_dynamicSky->m_sun.m_sunDir;
+        bx::Vec3 sunRgb = m_dynamicSky->xyzToRgb( m_dynamicSky->m_sunLuminanceXYZ.GetValue( m_dynamicSky->m_time ) );
+        const float peak = std::max( { sunRgb.x, sunRgb.y, sunRgb.z, 1e-4f } );
+        const float elevation = std::clamp( sunDir.y * 4.f, 0.f, 1.f );
+        const float intensity = 3.f * elevation;
+        float* direction = m_lighting.DirectionalDirection[0];
+        float* color = m_lighting.DirectionalColor[0];
+        direction[0] = -sunDir.x; direction[1] = -sunDir.y; direction[2] = -sunDir.z; direction[3] = shadowsOn ? 1.f : 0.f;
+        color[0] = sunRgb.x / peak * intensity; color[1] = sunRgb.y / peak * intensity; color[2] = sunRgb.z / peak * intensity;
+        m_lighting.Params[0] = 1.f;
+        if( shadowsOn && elevation > 0.f )
+        {
+            m_hasSunShadow = true;
+            m_sunShadowLight = Moonlight::LightCommand();
+            m_sunShadowLight.Type = Moonlight::LightType::Directional;
+            m_sunShadowLight.Direction = Vector3( -sunDir.x, -sunDir.y, -sunDir.z );
+            m_sunShadowLight.CastShadows = true;
+        }
+        else
+        {
+            direction[3] = 0.f;
+        }
+    }
+
     Moonlight::FrameBuffer& buffer = *camera.Buffer;
     m_lighting.ClusterGridTexture = buffer.ClusterGrid;
     m_lighting.ClusterIndexTexture = buffer.ClusterIndices;

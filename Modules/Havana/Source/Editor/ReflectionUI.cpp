@@ -514,7 +514,8 @@ namespace ReflectionUI
         bool categoryOpen = true;
 
         InType.ForEachField( InInstance, [&]( const Reflection::FieldInfo& field, void* owner ) {
-            if( field.Has( Reflection::FieldFlags::Hidden ) )
+            if( field.Has( Reflection::FieldFlags::Hidden )
+                || ( field.Has( Reflection::FieldFlags::CustomInspector ) && InContext.Others.empty() ) )
             {
                 return;
             }

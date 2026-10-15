@@ -68,6 +68,7 @@ void CameraCore::LateUpdate( const UpdateContext& inUpdateContext )
             CamData->Skybox = CameraComponent.Skybox;
             CamData->ClearColor = CameraComponent.ClearColor;
             CamData->ClearType = CameraComponent.ClearType;
+            CamData->ProceduralSky = CameraComponent.GetSkySettings( inUpdateContext.GetUnscaledDeltaTime() );
             CamData->Projection = CameraComponent.Projection;
             CamData->OrthographicSize = CameraComponent.OrthographicSize;
             CamData->IsMain = CameraComponent.IsMain();
@@ -137,6 +138,7 @@ Moonlight::CameraData CameraCore::CreateCameraData( Transform& InTransform, Came
     CamData.Skybox = InCamera.Skybox;
     CamData.ClearColor = InCamera.ClearColor;
     CamData.ClearType = InCamera.ClearType;
+    CamData.ProceduralSky = InCamera.GetSkySettings();
     CamData.Projection = InCamera.Projection;
     CamData.OrthographicSize = InCamera.OrthographicSize;
     CamData.IsMain = InCamera.IsMain();

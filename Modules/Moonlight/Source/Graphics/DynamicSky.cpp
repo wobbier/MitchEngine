@@ -1,8 +1,7 @@
 #include "DynamicSky.h"
 #include "ShaderStructures.h"
 #include <memory>
-#include <imgui.h>
-#include <bx/timer.h>
+#include "Camera/ProceduralSkySettings.h"
 #include "Materials/DynamicSkyMaterial.h"
 #include <Pointers.h>
 
@@ -137,51 +136,22 @@ namespace Moonlight
         m_sunLuminanceXYZ.SetMap( sunLuminanceXYZTable );
         m_skyLuminanceXYZ.SetMap( skyLuminanceXYZTable );
 
-        m_timeOffset = bx::getHPCounter();
         m_time = 15.0f;
-        m_timeScale = 0.0f;
 
         m_turbidity = 1.9f;
     }
 
-    void DynamicSky::DrawImGui()
+    void DynamicSky::ApplySettings( const ProceduralSkySettings& settings )
     {
-        ImGui::SliderFloat( "Time scale", &m_timeScale, 0.0f, 1.0f );
-        ImGui::SliderFloat( "Time", &m_time, 0.0f, 24.0f );
-        ImGui::SliderFloat( "Latitude", &m_sun.m_latitude, -90.0f, 90.0f );
-        ImGui::SliderFloat( "Turbidity", &m_turbidity, 1.9f, 10.0f );
-
-        const char* items[] =
-        {
-            "January",
-            "February",
-            "March",
-            "April",
-            "May",
-            "June",
-            "July",
-            "August",
-            "September",
-            "October",
-            "November",
-            "December"
-        };
-
-        ImGui::Combo( "Month", (int*)&m_sun.m_month, items, 12 );
+        m_time = settings.Time;
+        m_turbidity = settings.Turbidity;
+        m_sun.m_latitude = settings.Latitude;
+        m_sun.m_month = static_cast<SunController::Month>( settings.Month );
+        m_sun.Update( m_time );
     }
 
     void DynamicSky::Draw( uint32_t inViewId )
     {
-        int64_t now = bx::getHPCounter();
-        static int64_t last = now;
-        const int64_t frameTime = now - last;
-        last = now;
-        const double freq = double( bx::getHPFrequency() );
-        const float deltaTime = float( frameTime / freq );
-        m_time += m_timeScale * deltaTime;
-        m_time = bx::mod( m_time, 24.0f );
-        m_sun.Update( m_time );
-
         SetUniforms();
 
         bgfx::setState( BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_EQUAL );

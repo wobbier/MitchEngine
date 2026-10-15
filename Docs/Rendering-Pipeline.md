@@ -122,7 +122,7 @@ bgfx runs views in ascending ID order, so producers must have lower IDs than the
    - The cluster textures.
    - `ParticleBuffer`: HDR colour *without* depth.
 2. **Lighting setup**:
-   - `PrepareCameraLighting` builds the clusters and the ambient fallback.
+   - `PrepareCameraLighting` applies the camera's procedural sky settings, updates the fallback sun, and builds the clusters and ambient fallback.
    - `EnvironmentLighting::Prepare` picks or refreshes the IBL probe.
    - `RenderSunShadows` renders the cascades.
 3. **Opaque view** on `SceneBuffer`:
@@ -352,7 +352,7 @@ Missing maps fall back to neutral 1×1 textures (white; flat normal). `BindLight
 - **Cluster capacity**: more than 64 lights in one froxel silently drops the extras; more than 256 point/spot lights per frame are ignored.
 - **Shadow budgets are fixed**: 4 spots, 2 point lights (12 extra shadow views a frame) and 1 directional light get shadows; further shadowed lights render unshadowed.
 - **One sun in post**: only directional light 0 is shadowed; additional directionals are unshadowed.
-- **Probe refresh hitch**: a sky probe refresh costs ~60 tiny passes over two frames. An animated time of day (`DynamicSky::m_timeScale > 0`) refreshes about every 3 in-game minutes.
+- **Probe refresh hitch**: a sky probe refresh costs ~60 tiny passes over two frames. An animated time of day (`Camera::ProceduralSky.TimeScale > 0`) refreshes about every 3 in-game minutes.
 - **Fog is screen-space, not froxels**: volumetric lighting exists only in front of opaque surfaces. Transparents and particles get analytic fog (no shafts). Fog uses the final HDR temporal AA resolve when enabled, with no separate fog history. Without temporal AA the sample pattern stays fixed and only the depth-aware blur hides it; bright point sources and thin shafts can still need more steps. The march costs `VolumetricSteps` shadow taps plus cluster light loops per half-resolution pixel.
 - **Lit particles are per-pixel and isotropic**: no forward-scattering phase function, no self-shadowing within a plume, and each lit pixel walks its cluster's lights, which costs fill rate on big smoke.
 - **Skinned meshes aren't instanced**: each costs one draw per view (camera, cascade, spot light), and its palette is uploaded with every draw.

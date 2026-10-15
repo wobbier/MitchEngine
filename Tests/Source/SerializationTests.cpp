@@ -7,6 +7,7 @@
 #include "ECS/Core.h"
 #include "Components/Transform.h"
 #include "Components/Camera.h"
+#include "Graphics/DynamicSky.h"
 #include <filesystem>
 #include <fstream>
 #include <functional>
@@ -469,4 +470,107 @@ TEST_CASE( "Camera: metre defaults and clipping settings survive serialization" 
     restored.Near = 500.f;
     restored.OnPropertyChanged( "Near" );
     CHECK( restored.Far > restored.Near );
+}
+
+TEST_CASE( "Camera: procedural sky settings round-trip independently of the renderer and background mode" )
+{
+    Camera camera;
+    camera.Deserialize( json{
+        { "ClearType", "Procedural" },
+        { "ProceduralSky", { { "Time", 6.25f }, { "TimeScale", 0.2f }, { "Latitude", 43.7f }, { "Turbidity", 4.5f }, { "Month", 9 } } }
+    } );
+    json saved;
+    camera.Serialize( saved );
+    CHECK( saved["ProceduralSky"]["Time"].get<float>() == doctest::Approx( 6.25f ) );
+
+    Camera restored;
+    restored.Deserialize( saved );
+    CHECK( restored.ClearType == Moonlight::ClearColorType::Procedural );
+    CHECK( restored.ProceduralSky.Time == doctest::Approx( 6.25f ) );
+    CHECK( restored.ProceduralSky.TimeScale == doctest::Approx( 0.2f ) );
+    CHECK( restored.ProceduralSky.Latitude == doctest::Approx( 43.7f ) );
+    CHECK( restored.ProceduralSky.Turbidity == doctest::Approx( 4.5f ) );
+    CHECK( restored.ProceduralSky.Month == 9 );
+
+    // Switching backgrounds keeps the authored sky, including through save/load.
+    restored.ClearType = Moonlight::ClearColorType::Color;
+    json solid;
+    restored.Serialize( solid );
+    CHECK( solid["ProceduralSky"] == saved["ProceduralSky"] );
+    Camera other;
+    other.Deserialize( solid );
+    other.ClearType = Moonlight::ClearColorType::Procedural;
+    CHECK( other.GetSkySettings().Time == doctest::Approx( 6.25f ) );
+
+    // Older scenes have no sky data and retain the original renderer defaults.
+    Camera legacy;
+    legacy.Deserialize( json{ { "ClearType", "Procedural" } } );
+    CHECK( legacy.ProceduralSky.Time == doctest::Approx( 15.f ) );
+    CHECK( legacy.ProceduralSky.TimeScale == doctest::Approx( 0.f ) );
+    CHECK( legacy.ProceduralSky.Latitude == doctest::Approx( -6.f ) );
+    CHECK( legacy.ProceduralSky.Turbidity == doctest::Approx( 1.9f ) );
+    CHECK( legacy.ProceduralSky.Month == 5 );
+}
+
+TEST_CASE( "Camera: sky clocks are independent and do not change serialized settings" )
+{
+    Camera first;
+    first.ClearType = Moonlight::ClearColorType::Procedural;
+    first.ProceduralSky.Time = 23.5f;
+    first.ProceduralSky.TimeScale = 1.f;
+    Camera second;
+    second.ClearType = Moonlight::ClearColorType::Procedural;
+    second.ProceduralSky.Time = 6.f;
+    second.ProceduralSky.TimeScale = 0.5f;
+    json before;
+    first.Serialize( before );
+    CHECK( first.GetSkySettings( 2.f ).Time == doctest::Approx( 1.5f ) );
+    CHECK( second.GetSkySettings( 2.f ).Time == doctest::Approx( 7.f ) );
+    // Additional views read the same clock without advancing it.
+    CHECK( first.GetSkySettings().Time == doctest::Approx( 1.5f ) );
+    json after;
+    first.Serialize( after );
+    CHECK( after == before );
+    first.ProceduralSky.TimeScale = 0.f;
+    CHECK( first.GetSkySettings( 10.f ).Time == doctest::Approx( 1.5f ) );
+    first.ProceduralSky.Time = 12.f;
+    CHECK( first.GetSkySettings().Time == doctest::Approx( 12.f ) );
+    // Undo/load restores the authored time and starts a fresh preview clock.
+    first.Deserialize( before );
+    CHECK( first.GetSkySettings().Time == doctest::Approx( 23.5f ) );
+}
+
+TEST_CASE( "Camera: procedural sky settings survive scene snapshots and clamp invalid values" )
+{
+    auto source = MakeWorld();
+    EntityHandle entity = source->CreateEntity( "Sky Camera" );
+    entity->AddComponent<Transform>();
+    Camera& camera = entity->AddComponent<Camera>();
+    camera.Deserialize( json{ { "ClearType", "Procedural" }, { "ProceduralSky", { { "Time", 9.f }, { "Latitude", 65.f }, { "Month", 11 } } } } );
+    const json saved = SceneSerializer::SerializeEntities( *source, { entity.Get() } );
+    auto destination = MakeWorld();
+    const auto roots = SceneSerializer::Deserialize( *destination, saved, SceneSerializer::LoadOptions() );
+    REQUIRE( roots.size() == 1 );
+    Camera& restored = roots.front()->GetComponent<Camera>();
+    CHECK( restored.ProceduralSky.Time == doctest::Approx( 9.f ) );
+    CHECK( restored.ProceduralSky.Latitude == doctest::Approx( 65.f ) );
+    CHECK( restored.ProceduralSky.Month == 11 );
+
+    restored.Deserialize( json{ { "ProceduralSky", { { "Time", -4.f }, { "TimeScale", 8.f }, { "Latitude", 120.f }, { "Turbidity", -2.f }, { "Month", 20 } } } } );
+    CHECK( restored.ProceduralSky.Time == doctest::Approx( 0.f ) );
+    CHECK( restored.ProceduralSky.TimeScale == doctest::Approx( 1.f ) );
+    CHECK( restored.ProceduralSky.Latitude == doctest::Approx( 90.f ) );
+    CHECK( restored.ProceduralSky.Turbidity == doctest::Approx( 1.9f ) );
+    CHECK( restored.ProceduralSky.Month == 11 );
+}
+
+TEST_CASE( "Procedural sky: luminance interpolation handles midnight and table boundaries" )
+{
+    Moonlight::DynamicValueController luminance;
+    CHECK( luminance.GetValue( 0.f ).x == 0.f );
+    luminance.SetMap( { { 5.f, { 0.f, 0.f, 0.f } }, { 7.f, { 2.f, 4.f, 6.f } } } );
+    CHECK( luminance.GetValue( 0.f ).x == 0.f );
+    CHECK( luminance.GetValue( 5.f ).x == 0.f );
+    CHECK( luminance.GetValue( 6.f ).y == doctest::Approx( 2.f ) );
+    CHECK( luminance.GetValue( 24.f ).z == doctest::Approx( 6.f ) );
 }

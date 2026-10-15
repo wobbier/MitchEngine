@@ -6,6 +6,7 @@
 
 namespace Moonlight
 {
+    struct ProceduralSkySettings;
     typedef bx::Vec3 Color;
 
     // Performs piecewise linear interpolation of a Color parameter.
@@ -30,14 +31,11 @@ namespace Moonlight
 
         ValueType GetValue( float time ) const
         {
+            if( m_keyMap.empty() ) return { 0.f, 0.f, 0.f };
             typename KeyMap::const_iterator itUpper = m_keyMap.upper_bound( time + 1e-6f );
+            if( itUpper == m_keyMap.begin() ) return itUpper->second;
             typename KeyMap::const_iterator itLower = itUpper;
             --itLower;
-
-            if( itLower == m_keyMap.end() )
-            {
-                return itUpper->second;
-            }
 
             if( itUpper == m_keyMap.end() )
             {
@@ -116,7 +114,7 @@ namespace Moonlight
         DynamicSky( uint32_t inWidth, uint32_t inHeight );
         ~DynamicSky();
 
-        void DrawImGui();
+        void ApplySettings( const ProceduralSkySettings& settings );
         void Draw( uint32_t inViewId );
         // Sky uniforms for the current time of day (also used to capture the sky for lighting).
         void SetUniforms();
@@ -134,8 +132,6 @@ namespace Moonlight
         DynamicValueController m_skyLuminanceXYZ;
 
         float m_time;
-        float m_timeScale;
-        int64_t m_timeOffset;
         UniquePtr<DynamicSkyMaterial> m_material;
 
         float m_turbidity;

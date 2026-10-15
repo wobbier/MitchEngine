@@ -124,6 +124,7 @@ void EditorApp::OnUpdate( const UpdateContext& inUpdateContext )
     Transform* root = GetEngine().SceneNodes->GetRootTransform();
 
     EditorSceneManager->Update( inUpdateContext, root );
+    Camera::EditorCamera->GetSkySettings( inUpdateContext.GetUnscaledDeltaTime() );
     Editor->UpdateWorld( root, EditorSceneManager->GetEntities() );
 
     UpdateCameras();
@@ -169,6 +170,7 @@ void EditorApp::UpdateCameras()
     EditorCamera.Skybox = environmentCamera->Skybox;
     EditorCamera.ClearColor = environmentCamera->ClearColor;
     EditorCamera.ClearType = environmentCamera->ClearType;
+    EditorCamera.ProceduralSky = environmentCamera->GetSkySettings();
     // The scene view shows the main camera's image settings (without its auto exposure state).
     {
         const PostProcess* post = Camera::CurrentCamera->Parent ? Camera::CurrentCamera->Parent->TryGetComponent<PostProcess>() : nullptr;

@@ -206,6 +206,7 @@ private:
     std::vector<uint32_t> m_shadowCasterViews;  // per caster: bit v = inside the pass's view v
     std::unordered_map<uint64_t, uint32_t> m_shadowBatchLookup;
     bool m_shadowsSupported = false;
+    int m_directionalLightCount = 0;
     bool m_hasSunShadow = false;
     Moonlight::LightCommand m_sunShadowLight;
     AABB m_casterBounds;

@@ -5,6 +5,7 @@
 #include <Math/Matrix4.h>
 #include "Math/Frustrum.h"
 #include "Camera/PostProcessSettings.h"
+#include "Camera/ProceduralSkySettings.h"
 
 #include <vector>
 
@@ -37,6 +38,7 @@ namespace Moonlight
         Vector3 Up = Vector3( 0.f, 1.f, 0.f );
         Vector3 ClearColor;
         ClearColorType ClearType = ClearColorType::Color;
+        ProceduralSkySettings ProceduralSky;
         Vector2 OutputSize;
         ProjectionType Projection = ProjectionType::Perspective;
         float FOV = 45.0f;
