@@ -200,7 +200,10 @@ namespace Moonlight
         FogUniforms( settings, fogParams, fogColor, fogVolume );
         const bool volumetric = fogVolume[3] > 0.f;
         const float fogProjection[4] = { projection[2][2], projection[3][2], InCamera.Projection == ProjectionType::Orthographic ? 1.f : 0.f, bgfx::getCaps()->homogeneousDepth ? 1.f : 0.f };
-        const float fogProjection2[4] = { projection[0][0], projection[1][1], InCamera.Far, 0.f };
+        // Rotate the march samples when temporal AA can accumulate them. A fixed screen-space
+        // pattern survives the resolve as diagonal bands around bright, small local lights.
+        const float fogJitter = InCamera.Post.TemporalAA ? static_cast<float>( InTargets.TemporalFrame % 32 ) * 0.61803398875f : 0.f;
+        const float fogProjection2[4] = { projection[0][0], projection[1][1], InCamera.Far, fogJitter };
         const float fogScreen[4] = { static_cast<float>( InTargets.Width ), static_cast<float>( InTargets.Height ), static_cast<float>( InTargets.FogBuffer.Width ), static_cast<float>( InTargets.FogBuffer.Height ) };
         const uint64_t pointClamp = BGFX_SAMPLER_MIN_POINT | BGFX_SAMPLER_MAG_POINT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP;
         auto setFogState = [&]() {

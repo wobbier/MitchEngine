@@ -33,9 +33,9 @@ void main()
 	float isotropic = u_fogVolume.x / (4.0 * PI);
 
 	float marchEnd = min(distance, u_fogVolume.z);
+	float marchStart = min(u_fogParams.w, marchEnd);
 	int steps = int(u_fogVolume.w);
-	float stepLength = marchEnd / max(u_fogVolume.w, 1.0);
-	float jitter = interleavedGradientNoise(gl_FragCoord.xy);
+	float jitter = fract(interleavedGradientNoise(gl_FragCoord.xy) + u_fogProjection2.w);
 	vec2 pixel = uv * u_fogScreen.xy;   // full-resolution pixel from the top-left, for the clusters
 
 	vec3 scattered = vec3_splat(0.0);
@@ -46,9 +46,16 @@ void main()
 		{
 			break;
 		}
-		float t = (float(i) + jitter) * stepLength;
+		// Quadratic spacing spends the sample budget near the camera, where small local lights
+		// otherwise fall between metre-long steps. Keep each sample inside its integration interval.
+		float startFraction = float(i) / max(u_fogVolume.w, 1.0);
+		float endFraction = float(i + 1) / max(u_fogVolume.w, 1.0);
+		float stepStart = mix(marchStart, marchEnd, startFraction * startFraction);
+		float stepEnd = mix(marchStart, marchEnd, endFraction * endFraction);
+		float stepLength = stepEnd - stepStart;
+		float t = mix(stepStart, stepEnd, jitter);
 		vec3 p = origin + dir * t;
-		float sigma = t >= u_fogParams.w ? fogDensity(p.y) : 0.0;
+		float sigma = fogDensity(p.y);
 		if (sigma > 0.0)
 		{
 			float stepViewZ = originViewZ + t * viewZPerMetre;

@@ -7,7 +7,7 @@ uniform vec4 u_fogParams;       // x density at the base height, y base height, 
 uniform vec4 u_fogColor;        // rgb ambient in-scattering (linear radiance), w max opacity
 uniform vec4 u_fogVolume;       // x direct light intensity, y anisotropy, z raymarch distance, w steps (0 = analytic only)
 uniform vec4 u_fogProjection;   // x P[2][2], y P[3][2], z 1 = orthographic, w 1 = depth range -1..1
-uniform vec4 u_fogProjection2;  // x P[0][0], y P[1][1], z far distance (sky), w unused
+uniform vec4 u_fogProjection2;  // x P[0][0], y P[1][1], z far distance (sky), w temporal march jitter
 uniform vec4 u_fogScreen;       // xy full-resolution size, zw half-resolution (raymarch) size
 uniform mat4 u_fogInvView;      // view -> world
 uniform vec4 u_fogForward;      // x 1 = forward-shaded surfaces drawn after the fog pass apply it themselves
