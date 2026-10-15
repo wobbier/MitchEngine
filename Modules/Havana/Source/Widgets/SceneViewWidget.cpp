@@ -43,12 +43,47 @@
 namespace
 {
 	const char* kOperationNames[] = { "Move", "Rotate", "Scale", "Universal" };
-	const char* kShadingNames[] = { "Lit", "Unlit", "Solid", "Normals" };
-	const char* kShadingDescriptions[] = {
-		"Scene lighting and camera post-processing",
-		"Base colors and textures without lighting, fog or exposure",
-		"Neutral surfaces with camera lighting for navigating dark levels",
-		"World-space surface normals"
+	struct ShadingOption
+	{
+		const char* Name;
+		const char* Id;
+		const char* Tooltip;
+	};
+	const ShadingOption kShadingOptions[] = {
+		{ "Lit", "Lit", "Scene lighting and camera post-processing" },
+		{ "Unlit", "Unlit", "Base colors and textures without lighting, fog or exposure" },
+		{ "Solid", "Solid", "Neutral surfaces with camera lighting for navigating dark levels" },
+		{ "Normals", "Normals", "World-space surface normals, including normal maps" },
+		{ "Wireframe", "Wireframe", "Triangle edges at the current level of detail, including animated meshes" },
+		{ "Vertex Normals", "VertexNormals", "World-space mesh normals without normal maps" },
+		{ "Metallic", "Metallic", "Final metallic value: black = dielectric, white = metal" },
+		{ "Roughness", "Roughness", "Final roughness: black = smooth, white = rough" },
+		{ "Occlusion", "Occlusion", "Material occlusion map and strength (white = unoccluded)" },
+		{ "Emissive", "Emissive", "Emissive texture, color and intensity" },
+		{ "UV Checker", "UVChecker", "UV0 checker pattern with material tiling applied" },
+		{ "Depth", "Depth", "Linear camera depth: near = white, depth range and beyond = black" },
+		{ "Lighting Only", "LightingOnly", "Scene lighting on neutral nonmetallic surfaces, with normal maps and shadows" }
+	};
+	constexpr int kShadingCount = static_cast<int>(Moonlight::ViewShadingMode::Count);
+	static_assert(sizeof(kShadingOptions) / sizeof(kShadingOptions[0]) == kShadingCount);
+
+	struct ViewOption
+	{
+		const char* Id;
+		const char* Name;
+		const char* Tooltip;
+		bool Moonlight::ViewRenderOptions::*Member;
+	};
+	const ViewOption kViewOptions[] = {
+		{ "PostProcessing", "Post-processing", "Camera exposure, tonemapping, grading, bloom and ambient occlusion in lit views", &Moonlight::ViewRenderOptions::PostProcessing },
+		{ "Fog", "Fog", "Camera fog in lit views with post-processing enabled", &Moonlight::ViewRenderOptions::Fog },
+		{ "Background", "Sky / Background", "Skybox or procedural sky (wireframe and depth always use a dark background)", &Moonlight::ViewRenderOptions::Background },
+		{ "Transparencies", "Transparent Meshes", "Show meshes using transparent materials", &Moonlight::ViewRenderOptions::Transparencies },
+		{ "Particles", "Particles", "Show particles in Lit shading", &Moonlight::ViewRenderOptions::Particles },
+		{ "Decals", "Decals", "Show decals in Lit shading", &Moonlight::ViewRenderOptions::Decals },
+		{ "DebugDraw", "Debug Draw / Gizmos", "Grid, bounds, component icons and debug geometry", &Moonlight::ViewRenderOptions::DebugDraw },
+		{ "BackfaceCulling", "Backface Culling", "Use material face culling; disable to see both sides of surfaces", &Moonlight::ViewRenderOptions::BackfaceCulling },
+		{ "GameUI", "Game UI", "Composite game UI in this viewport", &Moonlight::ViewRenderOptions::GameUI }
 	};
 
 	ImGuizmo::OPERATION ToImGuizmo(SceneViewWidget::GizmoOperation op)
@@ -115,15 +150,33 @@ void SceneViewWidget::Init()
 	EditorConfig& config = EditorConfig::GetInstance();
 	MaximizeOnPlayPreference = config.GetPreference<bool>("GameView.MaximizeOnPlay", false);
 	m_shadingMode = static_cast<Moonlight::ViewShadingMode>(std::clamp(
-		config.GetPreference<int>(EnableSceneTools ? "Scene.ShadingMode" : "GameView.ShadingMode", 0), 0, 3));
-	for (int i = 0; i < 4; ++i)
+		config.GetPreference<int>(EnableSceneTools ? "Scene.ShadingMode" : "GameView.ShadingMode", 0), 0, kShadingCount - 1));
+	for (int i = 0; i < kShadingCount; ++i)
 	{
 		const auto mode = static_cast<Moonlight::ViewShadingMode>(i);
 		const std::string prefix = EnableSceneTools ? "View.Shading." : "GameView.Shading.";
-		EditorActions::Get().Register({ prefix + kShadingNames[i],
-			std::string(EnableSceneTools ? "Scene Shading: " : "Game Shading: ") + kShadingNames[i],
+		EditorActions::Get().Register({ prefix + kShadingOptions[i].Id,
+			std::string(EnableSceneTools ? "Scene Shading: " : "Game Shading: ") + kShadingOptions[i].Name,
 			EnableSceneTools ? "Scene View" : "Game View", 0, 0, [this, mode]() { SetShadingMode(mode); } });
 	}
+	const std::string prefix = EnableSceneTools ? "View." : "GameView.";
+	const std::string preferencePrefix = EnableSceneTools ? "Scene.View." : "GameView.View.";
+	const Moonlight::ViewRenderOptions defaults;
+	for (const ViewOption& option : kViewOptions)
+	{
+		m_viewOptions.*option.Member = config.GetPreference<bool>(preferencePrefix + option.Id, defaults.*option.Member);
+		const auto member = option.Member;
+		EditorActions::Get().Register({ prefix + "Toggle." + option.Id,
+			std::string(EnableSceneTools ? "Scene View: " : "Game View: ") + option.Name,
+			EnableSceneTools ? "Scene View" : "Game View", 0, 0, [this, member]() {
+				m_viewOptions.*member = !(m_viewOptions.*member);
+				SavePreferences();
+			} });
+	}
+	m_viewOptions.Exposure = std::clamp(config.GetPreference<float>(preferencePrefix + "Exposure", 0.f), -8.f, 8.f);
+	m_viewOptions.DepthRange = std::clamp(config.GetPreference<float>(preferencePrefix + "DepthRange", 50.f), 0.1f, 10000.f);
+	EditorActions::Get().Register({ prefix + "ResetOptions", EnableSceneTools ? "Reset Scene View Options" : "Reset Game View Options",
+		EnableSceneTools ? "Scene View" : "Game View", 0, 0, [this]() { ResetViewOptions(); } });
 	if (!EnableSceneTools)
 	{
 		return;
@@ -172,6 +225,7 @@ void SceneViewWidget::SetData(Moonlight::CameraData& data)
 {
 	MainCamera = &data;
 	MainCamera->Shading = m_shadingMode;
+	MainCamera->ViewOptions = m_viewOptions;
 }
 
 
@@ -185,6 +239,13 @@ void SceneViewWidget::SavePreferences() const
 	EditorConfig& config = EditorConfig::GetInstance();
 	config.SetPreference("GameView.MaximizeOnPlay", MaximizeOnPlayPreference);
 	config.SetPreference(EnableSceneTools ? "Scene.ShadingMode" : "GameView.ShadingMode", static_cast<int>(m_shadingMode));
+	const std::string prefix = EnableSceneTools ? "Scene.View." : "GameView.View.";
+	for (const ViewOption& option : kViewOptions)
+	{
+		config.SetPreference(prefix + option.Id, m_viewOptions.*option.Member);
+	}
+	config.SetPreference(prefix + "Exposure", m_viewOptions.Exposure);
+	config.SetPreference(prefix + "DepthRange", m_viewOptions.DepthRange);
 	if (!EnableSceneTools)
 	{
 		return;
@@ -229,7 +290,14 @@ void SceneViewWidget::ToggleSnapping()
 
 void SceneViewWidget::SetShadingMode(Moonlight::ViewShadingMode mode)
 {
-	m_shadingMode = mode;
+	m_shadingMode = static_cast<Moonlight::ViewShadingMode>(std::clamp(static_cast<int>(mode), 0, kShadingCount - 1));
+	SavePreferences();
+}
+
+
+void SceneViewWidget::ResetViewOptions()
+{
+	m_viewOptions = Moonlight::ViewRenderOptions();
 	SavePreferences();
 }
 
@@ -346,6 +414,7 @@ void SceneViewWidget::Render()
 	if (ImGui::BeginMenuBar())
 	{
 		DrawShadingMenu();
+		DrawViewMenu();
 		ImGui::Separator();
 		if (EnableSceneTools)
 		{
@@ -360,6 +429,7 @@ void SceneViewWidget::Render()
 	if (MainCamera)
 	{
 		MainCamera->Shading = m_shadingMode;
+		MainCamera->ViewOptions = m_viewOptions;
 	}
 
 	SceneViewRenderLocation = Vector2(ImGui::GetCursorPos().x, ImGui::GetCursorPos().y);
@@ -420,7 +490,8 @@ void SceneViewWidget::Render()
 			ImVec2(0, 0),
 			ImVec2(Mathf::Clamp(0.f, 1.0f, SceneViewRenderSize.x / currentView->Width), Mathf::Clamp(0.f, 1.0f, SceneViewRenderSize.y / currentView->Height)));
 
-		IsViewportHovered = ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
+		// Panel resize grips and dock splitters own their drags, even over the image.
+		IsViewportHovered = ImGui::IsItemHovered();
 		const ImVec2 mouse = ImGui::GetIO().MousePos;
 		ViewportMousePosition = Vector2(mouse.x - imageScreenPos.x, mouse.y - imageScreenPos.y) * (SceneViewRenderSize.x / std::max(viewportRenderSize.x, 1.f));
 		if (m_hasRequestedClick)
@@ -441,7 +512,7 @@ void SceneViewWidget::Render()
 	if (EnableSceneTools && MainCamera)
 	{
 		DrawStatsOverlay();
-		DrawIcons();
+		if (m_viewOptions.DebugDraw) DrawIcons();
 		DrawManipulator();
 		DrawViewCube();
 		HandleMouse();
@@ -455,20 +526,69 @@ void SceneViewWidget::Render()
 
 void SceneViewWidget::DrawShadingMenu()
 {
-	const std::string label = std::string("Shading: ") + kShadingNames[static_cast<int>(m_shadingMode)];
+	const std::string label = std::string("Shading: ") + kShadingOptions[static_cast<int>(m_shadingMode)].Name;
 	if (ImGui::BeginMenu(label.c_str()))
 	{
-		for (int i = 0; i < 4; ++i)
+		for (int i = 0; i < kShadingCount; ++i)
 		{
-			if (ImGui::MenuItem(kShadingNames[i], nullptr, static_cast<int>(m_shadingMode) == i))
+			if (ImGui::MenuItem(kShadingOptions[i].Name, nullptr, static_cast<int>(m_shadingMode) == i))
 			{
 				SetShadingMode(static_cast<Moonlight::ViewShadingMode>(i));
 			}
-			ImGui::SetItemTooltip("%s", kShadingDescriptions[i]);
+			ImGui::SetItemTooltip("%s", kShadingOptions[i].Tooltip);
 		}
 		ImGui::EndMenu();
 	}
 	ImGui::SetItemTooltip("Shading override for this viewport (saved in editor preferences)");
+}
+
+
+void SceneViewWidget::DrawViewMenu()
+{
+	if (!ImGui::BeginMenu("View")) return;
+	bool changed = false;
+	for (const ViewOption& option : kViewOptions)
+	{
+		changed |= ImGui::MenuItem(option.Name, nullptr, &(m_viewOptions.*option.Member));
+		ImGui::SetItemTooltip("%s", option.Tooltip);
+	}
+	ImGui::Separator();
+	ImGui::SetNextItemWidth(140.f);
+	changed |= ImGui::SliderFloat("Exposure (EV)", &m_viewOptions.Exposure, -8.f, 8.f, "%+.1f");
+	ImGui::SetItemTooltip("Additional exposure for this viewport in Lit and Lighting Only modes");
+	ImGui::SetNextItemWidth(140.f);
+	changed |= ImGui::DragFloat("Depth Range (m)", &m_viewOptions.DepthRange, 0.5f, 0.1f, 10000.f, "%.1f", ImGuiSliderFlags_AlwaysClamp);
+	ImGui::SetItemTooltip("Distance where the Depth view fades to black");
+	if (changed) SavePreferences();
+	if (ImGui::MenuItem("Reset View Options")) ResetViewOptions();
+	if (EnableSceneTools)
+	{
+		ImGui::Separator();
+		EditorConfig& config = EditorConfig::GetInstance();
+		bool showGrid = config.GetPreference<bool>("Scene.ShowGrid", true);
+		bool showGizmos = config.GetPreference<bool>("Scene.ShowGizmos", true);
+		bool showSelection = config.GetPreference<bool>("Scene.ShowSelection", true);
+		bool showStats = config.GetPreference<bool>("Scene.ShowStats", true);
+		if (ImGui::MenuItem("Stats", nullptr, &showStats)) config.SetPreference("Scene.ShowStats", showStats);
+		if (ImGui::MenuItem("Grid", nullptr, &showGrid)) config.SetPreference("Scene.ShowGrid", showGrid);
+		if (ImGui::MenuItem("Component Gizmos", nullptr, &showGizmos)) config.SetPreference("Scene.ShowGizmos", showGizmos);
+		if (ImGui::MenuItem("Selection Bounds", nullptr, &showSelection)) config.SetPreference("Scene.ShowSelection", showSelection);
+		ImGui::Separator();
+		EditorActions& actions = EditorActions::Get();
+		actions.MenuItem("View.CameraSettings");
+		actions.MenuItem("View.FrameSelected");
+		actions.MenuItem("View.Perspective");
+		actions.MenuItem("View.Top");
+		actions.MenuItem("View.Front");
+		actions.MenuItem("View.Right");
+		ImGui::Separator();
+		BGFXRenderer& renderer = GetEngine().GetRenderer();
+		ImGui::MenuItem("Shadows", nullptr, &renderer.Shadows.Enabled);
+		ImGui::MenuItem("Shadow Cascades", nullptr, &renderer.Shadows.DebugCascades);
+		ImGui::MenuItem("Physics", nullptr, &PhysicsCore::DebugDrawEnabled);
+		ImGui::MenuItem("Navigation", nullptr, &NavigationCore::DebugDrawEnabled);
+	}
+	ImGui::EndMenu();
 }
 
 
@@ -519,34 +639,6 @@ void SceneViewWidget::DrawSceneToolbar()
 		ImGui::EndPopup();
 	}
 
-	ImGui::Separator();
-	EditorConfig& config = EditorConfig::GetInstance();
-	if (ImGui::BeginMenu("View"))
-	{
-		bool showGrid = config.GetPreference<bool>("Scene.ShowGrid", true);
-		bool showGizmos = config.GetPreference<bool>("Scene.ShowGizmos", true);
-		bool showSelection = config.GetPreference<bool>("Scene.ShowSelection", true);
-		bool showStats = config.GetPreference<bool>("Scene.ShowStats", true);
-		if (ImGui::MenuItem("Stats", nullptr, &showStats)) config.SetPreference("Scene.ShowStats", showStats);
-		if (ImGui::MenuItem("Grid", nullptr, &showGrid)) config.SetPreference("Scene.ShowGrid", showGrid);
-		if (ImGui::MenuItem("Component Gizmos", nullptr, &showGizmos)) config.SetPreference("Scene.ShowGizmos", showGizmos);
-		if (ImGui::MenuItem("Selection Bounds", nullptr, &showSelection)) config.SetPreference("Scene.ShowSelection", showSelection);
-		ImGui::Separator();
-		EditorActions& actions = EditorActions::Get();
-		actions.MenuItem("View.CameraSettings");
-		actions.MenuItem("View.FrameSelected");
-		actions.MenuItem("View.Perspective");
-		actions.MenuItem("View.Top");
-		actions.MenuItem("View.Front");
-		actions.MenuItem("View.Right");
-		ImGui::Separator();
-		BGFXRenderer& renderer = GetEngine().GetRenderer();
-		ImGui::MenuItem("Shadows", nullptr, &renderer.Shadows.Enabled);
-		ImGui::MenuItem("Shadow Cascades", nullptr, &renderer.Shadows.DebugCascades);
-		ImGui::MenuItem("Physics", nullptr, &PhysicsCore::DebugDrawEnabled);
-		ImGui::MenuItem("Navigation", nullptr, &NavigationCore::DebugDrawEnabled);
-		ImGui::EndMenu();
-	}
 	ImGui::PopStyleVar();
 }
 

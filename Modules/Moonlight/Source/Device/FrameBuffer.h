@@ -63,6 +63,15 @@ namespace Moonlight
         float ViewProjection[16] = {};                      // this frame's (unjittered)
         void EnsureTemporalTargets();
 
+        // Procedural sky clouds (created on first use): half resolution, rgb in-scattering and a
+        // transmittance, accumulated over frames (ping-pong with the history they blend).
+        Mip CloudHistory[2];
+        uint32_t CloudIndex = 0;            // the target written last
+        bool CloudValid = false;            // CloudHistory[CloudIndex] holds last frame's clouds
+        uint32_t CloudFrame = 0;            // position in the sub-pixel jitter sequence
+        float CloudPreviousBasis[9] = {};   // last frame's right / tan, up / tan, forward (see DynamicSky)
+        void EnsureCloudTargets();
+
         // This frame's HDR image for bloom, exposure and tonemapping: the temporal resolve, or
         // SceneColor.
         bgfx::TextureHandle PostInput = BGFX_INVALID_HANDLE;

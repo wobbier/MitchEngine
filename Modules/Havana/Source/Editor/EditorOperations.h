@@ -34,6 +34,8 @@ namespace EditorOps
     void CutSelection();
     void Paste( Transform* InParent = nullptr );
     bool ClipboardHasEntities();
+    bool CompactModel( Entity& InEntity );
+    EntityHandle ExposeModelNode( Entity& InEntity, const std::string& InNodePath );
 
     // Moves entities under a new parent (null = scene root) at InSiblingIndex (-1 = last).
     void Reparent( const std::vector<Entity*>& InEntities, Transform* InNewParent, int InSiblingIndex = -1, bool InKeepWorldTransform = true );

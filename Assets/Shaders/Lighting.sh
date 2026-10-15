@@ -1,12 +1,12 @@
 #ifndef __LIGHTING_SH__
 #define __LIGHTING_SH__
 // Physically based shading: GGX / Smith-GGX correlated / Schlick, Lambert diffuse.
-// Directional lights come from uniforms; point and spot lights from clustered light lists.
+// Directional lights come from uniforms; local lights from clustered light lists.
 
 #define PI 3.14159265359
 #define MAX_DIRECTIONAL_LIGHTS 4
-#define LIGHT_DATA_WIDTH 2048.0      // 5 texels per light, 256 lights
-#define LIGHT_DATA_TEXELS 5.0
+#define LIGHT_DATA_WIDTH 2048.0      // 8 texels per light, 256 lights
+#define LIGHT_DATA_TEXELS 8.0
 #define CLUSTER_INDEX_WIDTH 1024.0
 #define CLUSTER_INDEX_HEIGHT 128.0
 #define MAX_LIGHTS_PER_CLUSTER 64
@@ -285,21 +285,85 @@ float pointShadow(Surface _s, vec3 _L, float _distance, vec4 _info)
 	return localShadow(_s, _L, _distance, _info, 4.0 + _info.x * 6.0 + face);
 }
 
-// Light data texels: 0 position.xyz range | 1 colour.rgb type (1 point, 2 spot) | 2 direction.xyz cosOuter
-// | 3 cosInner | 4 shadow slot (-1 none), texel size per unit distance, depth bias, normal bias
+// Light data texels: 0 position.xyz range | 1 colour.rgb type (1 point, 2 spot, 3 bar, 4 box, 5 rectangle)
+// | 2 direction.xyz cosOuter | 3 cosInner, bar radius | 4 shadow info
+// | 5/6/7 world X/Y/Z axis.xyz, half dimension. Bar: X half segment length.
+// Closest-source approximation: a continuous capsule/cuboid/face, without extra point lights.
+// Surface distance drives falloff; direction points at the closest point on the source.
+// Shared by surface, fog and particle lighting so their range and shape agree.
+vec4 localLightGeometry(vec3 _position, float _light, vec4 _source, float _type)
+{
+	vec3 toLight = _source.xyz - _position;
+	if (_type < 2.5)
+	{
+		float distanceSq = dot(toLight, toLight);
+		return vec4(toLight * inversesqrt(max(distanceSq, 1e-8)), distanceSq);
+	}
+	float radius = 0.0;
+	if (_type > 2.5)
+	{
+		vec4 axisX = fetchLightTexel(_light, 5.0);
+		vec3 delta = _position - _source.xyz;
+		toLight += axisX.xyz * clamp(dot(delta, axisX.xyz), -axisX.w, axisX.w);
+		if (_type < 3.5)
+		{
+			radius = fetchLightTexel(_light, 3.0).y;
+		}
+		else
+		{
+			vec4 axisY = fetchLightTexel(_light, 6.0);
+			toLight += axisY.xyz * clamp(dot(delta, axisY.xyz), -axisY.w, axisY.w);
+			if (_type < 4.5)
+			{
+				vec4 axisZ = fetchLightTexel(_light, 7.0);
+				toLight += axisZ.xyz * clamp(dot(delta, axisZ.xyz), -axisZ.w, axisZ.w);
+			}
+		}
+	}
+	float distanceSq = dot(toLight, toLight);
+	float distance = max(sqrt(distanceSq) - radius, 0.0);
+	// Inside a cuboid, or exactly on the bar axis, use a finite direction towards the centre.
+	if (distanceSq < 1e-8 && _type > 2.5)
+	{
+		toLight = _source.xyz - _position;
+		if (dot(toLight, toLight) < 1e-8)
+		{
+			toLight = vec3(0.0, 1.0, 0.0);
+		}
+	}
+	return vec4(toLight * inversesqrt(max(dot(toLight, toLight), 1e-8)), distance * distance);
+}
+
+// Rectangles emit from the front face only, fading with the emission angle. The explicit plane
+// test also excludes points exactly on the face, where the closest-source direction is undefined.
+float localLightAttenuation(vec3 _position, vec4 _geometry, float _light, vec4 _source, float _type)
+{
+	float attenuation = distanceAttenuation(_geometry.w, _source.w);
+	if (_type > 4.5)
+	{
+		vec3 forward = fetchLightTexel(_light, 2.0).xyz;
+		if (dot(_position - _source.xyz, forward) <= 0.0)
+		{
+			return 0.0;
+		}
+		attenuation *= clamp(dot(-_geometry.xyz, forward), 0.0, 1.0);
+	}
+	return attenuation;
+}
+
 vec3 shadeLocalLight(Surface _s, float _light)
 {
 	vec4 t0 = fetchLightTexel(_light, 0.0);
 	vec4 t1 = fetchLightTexel(_light, 1.0);
-	vec3 toLight = t0.xyz - _s.position;
-	float distanceSq = dot(toLight, toLight);
+	vec4 geometry = localLightGeometry(_s.position, _light, t0, t1.w);
+	float distanceSq = geometry.w;
 	if (distanceSq > t0.w * t0.w)
 	{
 		return vec3_splat(0.0);
 	}
-	vec3 L = toLight * inversesqrt(max(distanceSq, 1e-8));
-	float attenuation = distanceAttenuation(distanceSq, t0.w);
-	if (t1.w > 1.5)
+	vec3 L = geometry.xyz;
+	float attenuation = localLightAttenuation(_s.position, geometry, _light, t0, t1.w);
+	if (t1.w > 1.5 && t1.w < 2.5)
 	{
 		vec4 t2 = fetchLightTexel(_light, 2.0);
 		vec4 t3 = fetchLightTexel(_light, 3.0);
@@ -312,7 +376,7 @@ vec3 shadeLocalLight(Surface _s, float _light)
 			attenuation *= spotShadow(_s, L, sqrt(distanceSq), t4);
 		}
 	}
-	else if (attenuation > 0.0)
+	else if (t1.w < 1.5 && attenuation > 0.0)
 	{
 		vec4 t4 = fetchLightTexel(_light, 4.0);
 		if (t4.x > -0.5)
@@ -355,7 +419,7 @@ float clusterLight(vec2 _range, int _i)
 	return texture2DLod(s_clusterIndices, indexUv, 0.0).r;
 }
 
-// Point and spot lights from this fragment's cluster.
+// Local lights from this fragment's cluster.
 vec3 shadeClusteredLights(Surface _s, vec2 _fragCoord, float _viewZ)
 {
 	if (u_lightParams.y < 0.5)
@@ -392,22 +456,22 @@ Surface volumeSurface(vec3 _position, vec3 _L)
 	return s;
 }
 
-// Radiance reaching _position from one point / spot light, shadows included.
+// Radiance reaching _position from one local light, shadows included where supported.
 vec3 volumeLocalLight(vec3 _position, float _light)
 {
 	vec4 t0 = fetchLightTexel(_light, 0.0);
 	vec4 t1 = fetchLightTexel(_light, 1.0);
-	vec3 toLight = t0.xyz - _position;
-	float distanceSq = dot(toLight, toLight);
+	vec4 geometry = localLightGeometry(_position, _light, t0, t1.w);
+	float distanceSq = geometry.w;
 	if (distanceSq > t0.w * t0.w)
 	{
 		return vec3_splat(0.0);
 	}
-	vec3 L = toLight * inversesqrt(max(distanceSq, 1e-8));
-	float attenuation = distanceAttenuation(distanceSq, t0.w);
-	vec4 t4 = fetchLightTexel(_light, 4.0);
-	if (t1.w > 1.5)
+	vec3 L = geometry.xyz;
+	float attenuation = localLightAttenuation(_position, geometry, _light, t0, t1.w);
+	if (t1.w > 1.5 && t1.w < 2.5)
 	{
+		vec4 t4 = fetchLightTexel(_light, 4.0);
 		vec4 t2 = fetchLightTexel(_light, 2.0);
 		vec4 t3 = fetchLightTexel(_light, 3.0);
 		float spot = clamp((dot(-L, t2.xyz) - t2.w) / max(t3.x - t2.w, 1e-4), 0.0, 1.0);
@@ -417,15 +481,19 @@ vec3 volumeLocalLight(vec3 _position, float _light)
 			attenuation *= spotShadow(volumeSurface(_position, L), L, sqrt(distanceSq), t4);
 		}
 	}
-	else if (t4.x > -0.5 && attenuation > 0.0)
+	else if (t1.w < 1.5 && attenuation > 0.0)
 	{
-		attenuation *= pointShadow(volumeSurface(_position, L), L, sqrt(distanceSq), t4);
+		vec4 t4 = fetchLightTexel(_light, 4.0);
+		if (t4.x > -0.5)
+		{
+			attenuation *= pointShadow(volumeSurface(_position, L), L, sqrt(distanceSq), t4);
+		}
 	}
 	return t1.rgb * attenuation;
 }
 
-// All light reaching a point in a volume: directional (the sun with its shadow), clustered point and
-// spot lights, and ambient. Scattering is isotropic, so a lit particle shows albedo * this.
+// All light reaching a point in a volume: directional (the sun with its shadow), clustered local
+// lights, and ambient. Scattering is isotropic, so a lit particle shows albedo * this.
 vec3 volumeLighting(vec3 _position, vec2 _fragCoord, float _viewZ)
 {
 	vec3 radiance = vec3_splat(0.0);

@@ -79,9 +79,28 @@ Rules:
   - `ModelResource` reads the cooked `.assbin` with Assimp and builds the animation clips in `LoadAsync`. It makes meshes (GPU buffers), materials and the node tree in `FinishAsyncLoad`.
 - **First-time cooks happen in the background too** (tools builds). When `GetAsync` finds an asset that needs cooking (no compiled file, or flagged for export) and its meta says the cook is safe off the main thread (`MetaBase::ExportsInBackground`: textures and models), the loader thread runs `Export()` and saves the meta before `LoadAsync`. The main thread only records the result in the meta cache, in `FinishAsyncLoad`. A scene full of new assets therefore opens at once, and its textures and models pop in as `texturec` and Assimp finish (several in parallel). A synchronous `Get` still cooks on the spot.
 - **File-watcher changes never wait for an initial import.** A sidecar notification with unchanged import settings and GUID is ignored (the importer wrote it itself). Actual changes arriving while a resource loads are deferred until it is ready, with edited settings preserved if the first cook saves its older metadata. `PumpReimports` processes them without blocking; `WaitForReimports` explicitly drains the initial loads first.
-- **Models expand when ready.** `Model::Init` requests its model with `GetAsync`, and while the model is loading the component waits in a pending list. `Model::ExpandPendingModels` runs right after the engine finishes loads each frame, before the cameras' late update and rendering, and creates the node entities and meshes then. Children saved in the scene exist meanwhile, without geometry. An `Animator` doesn't bind until its entity's `Model` is ready (`Model::IsReady`).
+- **Models expand when ready.** `Model::Init` requests its model with `GetAsync`, and while the model is loading the component waits in a pending list. `Model::ExpandPendingModels` runs right after the engine finishes loads each frame, before the cameras' late update and rendering, and creates private poses/render parts (or the legacy node entities) then. Expanded children saved in the scene exist meanwhile, without geometry. An `Animator` doesn't bind until its entity's `Model` is ready (`Model::IsReady`).
 
-Model nodes retain their local transforms, including FBX pivot nodes. Only identity wrappers without animation are collapsed; a transformed import root gets its own entity below the placed Model entity. Material splits with empty or repeated mesh names receive stable names (`<node>_Mesh_<index>`), so every split keeps its geometry and material when a scene is reopened.
+New model instances use a compact hierarchy: the Model owns private node transforms and render
+parts, including FBX pivots and material splits. They retain individual bounds, LODs, materials,
+shadow draws and picking without creating an entity for each part. Picking selects the model or
+the nearest exposed node. The Model inspector lists source nodes and their materials; **Expose as
+entity** creates a regular child with a `ModelNode` component. Parent cameras, lights, props and
+scripts beneath it. Its source path is independent of the entity's name. Moving the exposed
+entity edits a persistent attachment offset; its source node continues to drive the mesh.
+
+Files without `Compact` keep their expanded hierarchy. **Compact hierarchy** is an undoable
+conversion: it stores node/material edits in the Model and removes generated entities, while
+preserving entities with custom components, authored children or component references and their
+GUIDs. Existing mesh entities needed by those components remain renderable. The editor automation
+commands are `model-compact` and `model-expose <source path or name>` on the selected Model.
+
+Compact model files store `Compact: true`, `Parts` keyed by source-node/mesh paths, and authored
+`Nodes` overrides. Path segments escape separators and distinguish duplicate sibling names by
+occurrence, so unrelated siblings can be reordered without changing identities. Reordering
+identically named siblings or renaming a source node still changes its path. Expanded imports
+retain the earlier naming rules: identity wrappers without animation may collapse, and material
+splits with empty/repeated names use `<node>_Mesh_<index>`.
 
 Keep Assimp optimized even in engine Debug builds: `Tools/BuildAssimp.sh` builds the Linux static FBX/OBJ/Assbin importer and Assbin exporter with `CMAKE_BUILD_TYPE=Release`, then installs Assimp and zlib into `ThirdParty/Lib/Assimp/linux/Release`. An empty CMake build type produces unoptimized tangent-generation code. The 10,000-candle FBX has 19.54 million triangles; its optimized first cook took approximately 117 seconds on this development machine.
 

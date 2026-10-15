@@ -46,3 +46,11 @@ public:
     {
     }
 };
+
+// Queued from component inspectors so structural changes happen after drawing the inspector.
+class ModelHierarchyEvent : public Event<ModelHierarchyEvent>
+{
+public:
+    EntityHandle Target;
+    std::string NodePath; // empty: compact the hierarchy; otherwise expose this source node
+};

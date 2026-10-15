@@ -1,141 +1,169 @@
 #pragma once
-#include "ShaderCommand.h"
+#include "Camera/ProceduralSkySettings.h"
+#include "Graphics/ShaderCommand.h"
+#include "bgfx/bgfx.h"
 #include "bx/math.h"
-#include <map>
-#include <Materials/DynamicSkyMaterial.h>
+#include <cstdint>
+#include <thread>
+#include <vector>
 
 namespace Moonlight
 {
-    struct ProceduralSkySettings;
-    typedef bx::Vec3 Color;
+    struct CameraData;
+    class ViewAllocator;
 
-    // Performs piecewise linear interpolation of a Color parameter.
-    class DynamicValueController
+    // Where the sky's bodies are for a date, time and latitude (world: +Y up, +Z north, +X east).
+    struct SkyCelestial
     {
-        typedef Color ValueType;
-        typedef std::map<float, ValueType> KeyMap;
-
-    public:
-        DynamicValueController()
-        {
-        }
-
-        ~DynamicValueController()
-        {
-        }
-
-        void SetMap( const KeyMap& keymap )
-        {
-            m_keyMap = keymap;
-        }
-
-        ValueType GetValue( float time ) const
-        {
-            if( m_keyMap.empty() ) return { 0.f, 0.f, 0.f };
-            typename KeyMap::const_iterator itUpper = m_keyMap.upper_bound( time + 1e-6f );
-            if( itUpper == m_keyMap.begin() ) return itUpper->second;
-            typename KeyMap::const_iterator itLower = itUpper;
-            --itLower;
-
-            if( itUpper == m_keyMap.end() )
-            {
-                return itLower->second;
-            }
-
-            float lowerTime = itLower->first;
-            const ValueType& lowerVal = itLower->second;
-            float upperTime = itUpper->first;
-            const ValueType& upperVal = itUpper->second;
-
-            if( lowerTime == upperTime )
-            {
-                return lowerVal;
-            }
-
-            return interpolate( lowerTime, lowerVal, upperTime, upperVal, time );
-        };
-
-        void Clear()
-        {
-            m_keyMap.clear();
-        };
-
-    private:
-        ValueType interpolate( float lowerTime, const ValueType& lowerVal, float upperTime, const ValueType& upperVal, float time ) const
-        {
-            const float tt = ( time - lowerTime ) / ( upperTime - lowerTime );
-            const ValueType result = bx::lerp( lowerVal, upperVal, tt );
-            return result;
-        };
-
-        KeyMap	m_keyMap;
+        bx::Vec3 Sun = { 0.f, 1.f, 0.f };           // towards the sun
+        bx::Vec3 Moon = { 0.f, -1.f, 0.f };         // towards the moon
+        bx::Vec3 MoonUp = { 0.f, 0.f, 1.f };        // celestial north across the moon's disc
+        bx::Vec3 Equatorial[3] = { { 1.f, 0.f, 0.f }, { 0.f, 1.f, 0.f }, { 0.f, 0.f, 1.f } };   // the equatorial frame's axes in the world
+        bx::Vec3 GalaxyPole = { 0.f, 1.f, 0.f };
+        bx::Vec3 GalaxyCentre = { 1.f, 0.f, 0.f };
+        float MoonLitFraction = 0.f;                // of the disc we see
+        float MoonBrightness = 0.f;                 // Lambert phase law: 1 full, 1/pi at the quarters, 0 new
     };
-    class SunController
-    {
-    public:
-        enum Month : int
-        {
-            January = 0,
-            February,
-            March,
-            April,
-            May,
-            June,
-            July,
-            August,
-            September,
-            October,
-            November,
-            December
-        };
+    SkyCelestial ComputeSkyCelestial( const ProceduralSkySettings& InSettings );
 
-        SunController();
+    // Fraction of a light disc's light (angular radius InRadius, zenith cosine InMu) that reaches
+    // InAltitudeKm through the atmosphere (aerosol density InAerosol), zero below the horizon.
+    bx::Vec3 ComputeSkyTransmittance( float InAltitudeKm, float InMu, float InAerosol, float InRadius );
 
-        void Update( float _time );
-
-        bx::Vec3 m_northDir;
-        bx::Vec3 m_sunDir;
-        bx::Vec3 m_upDir;
-        float m_latitude;
-        Month m_month;
-
-    private:
-        void CalculateSunOrbit();
-
-        void UpdateSunPosition( float _hour );
-
-        float m_eclipticObliquity;
-        float m_delta;
-    };
-
+    // The procedural sky (Camera background "Procedural Sky"):
+    //   - a physically based atmosphere (Rayleigh, Mie and ozone; Hillaire 2020 lookup tables), its
+    //     haze set by the turbidity;
+    //   - the sun and a phase-lit moon placed by the date, time of day and latitude, and a star field
+    //     with the Milky Way turning with the sidereal time;
+    //   - raymarched volumetric clouds (Schneider 2015 style noise, generated at start-up on worker
+    //     threads) accumulated over frames at half resolution.
+    // World directions: +Y up, +Z north, +X east. Scenes without a directional light are lit by the
+    // sun or the moon through GetSceneLight().
     class DynamicSky
     {
     public:
-        DynamicSky( uint32_t inWidth, uint32_t inHeight );
+        DynamicSky();
         ~DynamicSky();
 
-        void ApplySettings( const ProceduralSkySettings& settings );
-        void Draw( uint32_t inViewId );
-        // Sky uniforms for the current time of day (also used to capture the sky for lighting).
-        void SetUniforms();
+        // Per camera, before anything uses the sky this frame: places the sun, moon and stars for the
+        // settings and the camera, and works out the light they cast. InTimeSeconds moves the clouds.
+        void ApplySettings( const ProceduralSkySettings& InSettings, const CameraData& InCamera, float InTimeSeconds );
 
-        void computePerezCoeff( float _turbidity, float* _outPerezCoeff );
-        // Converts color repesentation from CIE XYZ to RGB color-space.
-        Color xyzToRgb( const Color& xyz );;
-        bgfx::VertexBufferHandle m_vbh;
-        bgfx::IndexBufferHandle m_ibh;
+        // The camera's sky passes (lookup tables, clouds); before its scene view and environment probe.
+        void Prepare( ViewAllocator& InViews, CameraData& InCamera );
 
-        // Shader stuff
-        SunController m_sun;
+        // Draws the sky behind everything already in the depth buffer (submit after the opaque scene).
+        void Draw( bgfx::ViewId InView, const CameraData& InCamera );
 
-        DynamicValueController m_sunLuminanceXYZ;
-        DynamicValueController m_skyLuminanceXYZ;
+        // Binds the sky for an environment probe face and returns the program to submit.
+        const ShaderCommand& BindCapture();
 
-        float m_time;
-        UniquePtr<DynamicSkyMaterial> m_material;
+        struct SceneLight
+        {
+            bx::Vec3 Direction = { 0.f, 1.f, 0.f };  // towards the light
+            bx::Vec3 Color = { 0.f, 0.f, 0.f };      // linear, intensity included
+            bool IsMoon = false;
+        };
+        // The sun by day, the moon by night (dimmed when clouds cover it).
+        const SceneLight& GetSceneLight() const { return m_sceneLight; }
+        // Sky ambient for the hemisphere fallback (used until an environment probe is ready).
+        const bx::Vec3& GetAmbientSky() const { return m_ambientSky; }
+        // Changes whenever the sky looks different enough to recapture an environment probe.
+        uint64_t GetEnvironmentKey() const { return m_environmentKey; }
 
-        float m_turbidity;
 
+    private:
+        struct Noise
+        {
+            std::vector<uint8_t> Shape;     // kShapeSize^3, R8
+            std::vector<uint8_t> Detail;    // kDetailSize^3, R8
+            std::vector<uint8_t> Weather;   // kWeatherSize^2, RG8: coverage, cloud type
+        };
+        static void GenerateNoise( Noise& OutNoise );
 
+        bool EnsureNoise();
+        bool CloudsEnabled() const;
+        float CloudVisibility( const bx::Vec3& InLightDir ) const;
+        float CloudDensity( float InX, float InAltitude, float InZ ) const;
+        void UpdateSceneLight();
+        void SetCommonUniforms( bool InClouds, float InSteps, float InLightSteps );
+        void BindTextures( bool InClouds );
+        void RenderLuts( ViewAllocator& InViews );
+        void RenderClouds( ViewAllocator& InViews, CameraData& InCamera );
+        void ComputeBasis( const CameraData& InCamera, float OutRight[4], float OutUp[4], float OutForward[4], float& OutTanX, float& OutTanY ) const;
+
+        // Programs (hot reloadable)
+        ShaderCommand m_skyProgram;
+        ShaderCommand m_transmittanceProgram;
+        ShaderCommand m_multiScatterProgram;
+        ShaderCommand m_skyViewProgram;
+        ShaderCommand m_cloudProgram;
+        ShaderCommand m_captureProgram;
+
+        // Lookup tables
+        bgfx::TextureHandle m_transmittanceLut = BGFX_INVALID_HANDLE;
+        bgfx::TextureHandle m_multiScatterLut = BGFX_INVALID_HANDLE;
+        bgfx::TextureHandle m_skyViewLut = BGFX_INVALID_HANDLE;
+        bgfx::FrameBufferHandle m_transmittanceBuffer = BGFX_INVALID_HANDLE;
+        bgfx::FrameBufferHandle m_multiScatterBuffer = BGFX_INVALID_HANDLE;
+        bgfx::FrameBufferHandle m_skyViewBuffer = BGFX_INVALID_HANDLE;
+        float m_lutAerosol = -1.f;          // what the transmittance/multiple scattering tables hold
+
+        // Cloud noise: generated on a worker thread, uploaded on first use.
+        std::thread m_noiseThread;
+        Noise m_noise;
+        bool m_noiseReady = false;
+        bgfx::TextureHandle m_shapeTexture = BGFX_INVALID_HANDLE;
+        bgfx::TextureHandle m_detailTexture = BGFX_INVALID_HANDLE;
+        bgfx::TextureHandle m_weatherTexture = BGFX_INVALID_HANDLE;
+        bgfx::TextureHandle m_blackTexture = BGFX_INVALID_HANDLE;
+        bgfx::TextureHandle m_blackVolume = BGFX_INVALID_HANDLE;
+
+        // Uniforms
+        bgfx::UniformHandle u_skySun = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_skySunColor = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_skyMoon = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_skyMoonColor = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_skyAtmosphere = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_skyCamera = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_skyScattering = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_skyBasisRight = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_skyBasisUp = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_skyBasisForward = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_skyStarsX = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_skyStarsY = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_skyStarsZ = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_skyGalaxy = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_skyGalaxyCentre = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_skyMoonUp = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_cloudLayer = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_cloudWind = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_cloudMarch = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_cloudHistoryRight = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_cloudHistoryUp = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_cloudHistoryForward = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_cloudFrame = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle s_skyTransmittance = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle s_skyMultiScatter = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle s_skyView = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle s_skyClouds = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle s_cloudHistory = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle s_cloudShape = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle s_cloudDetail = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle s_cloudWeather = BGFX_INVALID_HANDLE;
+
+        // This camera's sky (ApplySettings)
+        ProceduralSkySettings m_settings;
+        float m_timeSeconds = 0.f;
+        bx::Vec3 m_cameraKm = { 0.f, 0.01f, 0.f };   // x, altitude, z
+        SkyCelestial m_bodies;
+        bx::Vec3 m_sunIlluminance = { 0.f, 0.f, 0.f };
+        bx::Vec3 m_moonIlluminance = { 0.f, 0.f, 0.f };
+        float m_aerosol = 1.f;
+        float m_windOffset[3] = { 0.f, 0.f, 0.f };
+        bool m_showsSky = false;                    // the camera's background is this sky
+        SceneLight m_sceneLight;
+        bx::Vec3 m_ambientSky = { 0.f, 0.f, 0.f };
+        uint64_t m_environmentKey = 0;
     };
 }

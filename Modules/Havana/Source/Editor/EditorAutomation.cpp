@@ -14,6 +14,7 @@
 #include "Widgets/SceneViewWidget.h"
 #include "Components/Audio/AudioSource.h"
 #include "Components/Transform.h"
+#include "Components/Graphics/Model.h"
 #include "Core/CommandLine.h"
 #include "Cores/SceneCore.h"
 #include "Engine/Engine.h"
@@ -261,6 +262,16 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
     if( command == "wait" )
     {
         m_waitFrames = std::max( 1, std::atoi( args.c_str() ) );
+    }
+    else if( command == "model-compact" || command == "model-expose" )
+    {
+        EntityHandle selected = Selection::Get().GetActive();
+        if( !selected ) Fail( command + ": select a model first" );
+        else if( command == "model-compact" )
+        {
+            if( !EditorOps::CompactModel( *selected.Get() ) ) Fail( "model-compact: selected model is not ready or is already compact" );
+        }
+        else if( !EditorOps::ExposeModelNode( *selected.Get(), args ) ) Fail( "model-expose: no matching model node" );
     }
     else if( command == "show-assets" )
     {

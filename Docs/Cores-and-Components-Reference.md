@@ -14,7 +14,7 @@ Cores come in two flavors (see `Docs/Architecture.md`): **engine-owned** (create
 |------|--------|--------|-----------|
 | `SceneCore` (`Source/Cores/SceneCore.h`) | `Transform` | engine-owned | Owns the root transform entity and the scene hierarchy |
 | `CameraCore` (`Source/Cores/Cameras/CameraCore.h`) | `Camera` + `Transform` | engine-owned | Builds `Moonlight::CameraData` commands; manages `Camera::CurrentCamera` |
-| `RenderCore` (`Source/Cores/Rendering/RenderCore.h`) | `Transform` + `Mesh` | engine-owned | Gathers `Light`s, parallel AABB cull + `MeshCommand` fill for every mesh — see `Docs/Rendering-Pipeline.md` |
+| `RenderCore` (`Source/Cores/Rendering/RenderCore.h`) | `Transform` + (`Mesh` or `Model`) | engine-owned | Gathers `Light`s, parallel AABB cull + `MeshCommand` fill for every mesh — see `Docs/Rendering-Pipeline.md` |
 | `ParticleCore` (`Source/Cores/Rendering/ParticleCore.h`) | `Transform` + `ParticleSystem` | engine-owned | Simulates particle systems (job per system) into renderer batches; runs in edit mode too, so effects preview live |
 | `AudioCore` (`Source/Cores/AudioCore.h`) | `AudioSource` | engine-owned | FMOD: mixer buses, listener placement, 3D source sync, overlapping one-shots, pause with the game — see `Docs/Audio.md` |
 | `UICore` (`Source/Cores/UI/UICore.h`) | `BasicUIView` | engine-owned | Ultralight HTML views — see `Docs/UI-Ultralight-and-ImGui.md` |
@@ -53,12 +53,12 @@ Audio (FMOD) has its own deep dive: `Docs/Audio.md`.
 | Component | File | Purpose |
 |-----------|------|---------|
 | `Transform` | `Source/Components/Transform.h` | Hierarchy node: position/rotation/scale, parent/children (`SharedPtr<Transform>` links), name. Dirty-flag cached matrices — see below |
-| `Camera` | `Source/Components/Camera.h` | Projection (perspective, or orthographic with `OrthographicSize` = half the view height in metres), FOV, near/far (metres, default 0.1/1000), clear type (color/skybox/procedural), per-camera `ProceduralSky` (time of day, time scale, latitude, turbidity, month), main-camera flag; statics `Camera::CurrentCamera` / `Camera::EditorCamera` |
+| `Camera` | `Source/Components/Camera.h` | Projection (perspective, or orthographic with `OrthographicSize` = half the view height in metres), FOV, near/far (metres, default 0.1/1000), clear type (color/skybox/procedural), per-camera `ProceduralSky` (time of day, time scale, latitude, turbidity, month; moon phase, sun/moon size, moon and star brightness; cloud coverage, density, altitude, thickness, wind speed and direction; see `Docs/Rendering-Pipeline.md`, Procedural sky), main-camera flag; statics `Camera::CurrentCamera` / `Camera::EditorCamera` |
 | `Mesh` | `Source/Components/Graphics/Mesh.h` | One renderable mesh: `MeshData*` (primitives share one geometry per shape: Plane, Cube, Sphere, Cylinder, Capsule), per-instance material (default `StandardMaterial`), `CastShadows`, renderer cache slot `Id`. Skinned meshes resolve their bone entities by name and build a bone palette each frame (`UpdateSkin`) |
-| `Model` | `Source/Components/Graphics/Model.h` | Assimp model reference; `Init()` **expands the model's node tree into real child entities** with `Transform` + `Mesh` components (bones included, reusing existing children by name); the inspector lists the model's animation clips |
+| `Model` | `Source/Components/Graphics/Model.h` | Assimp model instance with private node poses and render parts. Expose selected source nodes as ordinary `ModelNode` entities. Legacy files retain their expanded hierarchy; the inspector provides an undoable compact conversion and lists animation clips |
 | `TwoBoneIK` / `LookAtIK` | `Source/Components/Animation/IKConstraints.h` | Inverse kinematics on bones after the poses are written: a limb reaching a target (with a pole), or a bone chain aiming at one (angle limit) — see `Docs/Animation.md` |
-| `Animator` | `Source/Components/Animation/Animator.h` | Plays the Model's (or `ClipSource`'s, or code-built) clips on the node entities below it: states, 1D blends, parameter / exit-time transitions with cross-fades, event markers; `Play`, `SetFloat` / `SetBool` / `SetTrigger` |
-| `Light` | `Source/Components/Lighting/Light.h` | Directional / Point / Spot: colour, intensity, range, cone angles, shadows (texel-unit biases, shadow distance). Scenes' old `DirectionalLight` components migrate on load |
+| `Animator` | `Source/Components/Animation/Animator.h` | Plays the Model's (or `ClipSource`'s, or code-built) clips on private model poses or expanded node entities: states, 1D blends, parameter / exit-time transitions with cross-fades, event markers; `Play`, `SetFloat` / `SetBool` / `SetTrigger` |
+| `Light` | `Source/Components/Lighting/Light.h` | Directional / Point / Spot / Bar / Box / Rectangle: colour, intensity, range, cone angles; bar length/radius along local X, box XYZ size, rectangle face width/height on local XY emitting along forward (+Z). Bar/box/rectangle are unshadowed extended emitters. Other types support shadows (texel-unit biases, shadow distance). Scenes' old `DirectionalLight` components migrate on load |
 | `PostProcess` | `Source/Components/Graphics/PostProcess.h` | Per-camera exposure (manual / auto), tonemapper, bloom, SSAO, colour grading, vignette, FXAA |
 | `ParticleSystem` | `Source/Components/Effects/ParticleSystem.h` | CPU emitter: shapes, rate + burst, randomized ranges, over-lifetime size/colour/alpha, gravity/drag/noise, world or local space, billboard/stretched/flat soft particles with flipbooks |
 | `Rigidbody` | `Source/Components/Physics/Rigidbody.h` | Static / kinematic / dynamic body: mass, damping, gravity scale, CCD, axis locks, interpolation; forces, velocities, `MoveTo`, `Teleport` |
@@ -91,7 +91,7 @@ Matrix recompute is **lazy** — `GetLocalToWorldMatrix()` rebuilds (parent-firs
 
 ## Caveats & Fragility
 
-- **`Model::Init` creates real entities** as children — deleting a Model component does not delete the entities it spawned, and re-`Init` is guarded only by an in-memory `IsInitialized` flag.
+- **Expanded legacy models keep their generated entities.** New compact models own their render parts; exposed `ModelNode` entities remain ordinary scene children. Removing a Model leaves those children, but they no longer follow a source pose.
 - **`Camera::CurrentCamera`/`EditorCamera` are mutable statics** used by resize, UI sizing, and picking; scenes without a main camera silently skip those paths.
 - **Component headers pull editor includes**: several component headers include `imgui.h`/`HavanaUtils.h` unconditionally (e.g. `Source/Cores/Utility/SelfDestructCore.h`) — kept building by ImGui being present in most configs (`ME_IMGUI` covers editor, tools, and profiling builds).
 - **`SelfDestructor` vs "SelfDestructCore"** naming mismatch — grep for the class, not the filename.

@@ -101,6 +101,12 @@ void Moonlight::FrameBuffer::Release()
         DestroyIfValid( history.Color );
     }
     TemporalValid = false;
+    for( Mip& clouds : CloudHistory )
+    {
+        DestroyIfValid( clouds.Buffer );
+        DestroyIfValid( clouds.Color );
+    }
+    CloudValid = false;
     PostInput = BGFX_INVALID_HANDLE;
     DestroyIfValid( ParticleBuffer );
     DestroyIfValid( ClusterGrid );
@@ -120,6 +126,19 @@ void Moonlight::FrameBuffer::EnsureTemporalTargets()
         {
             history = CreateColorTarget( static_cast<uint16_t>( std::max<uint32_t>( Width, 1 ) ), static_cast<uint16_t>( std::max<uint32_t>( Height, 1 ) ), bgfx::TextureFormat::RGBA16F, "Temporal AA History" );
             TemporalValid = false;
+        }
+    }
+}
+
+
+void Moonlight::FrameBuffer::EnsureCloudTargets()
+{
+    for( Mip& clouds : CloudHistory )
+    {
+        if( !bgfx::isValid( clouds.Color ) )
+        {
+            clouds = CreateColorTarget( static_cast<uint16_t>( std::max<uint32_t>( Width / 2, 1 ) ), static_cast<uint16_t>( std::max<uint32_t>( Height / 2, 1 ) ), bgfx::TextureFormat::RGBA16F, "Sky Clouds" );
+            CloudValid = false;
         }
     }
 }

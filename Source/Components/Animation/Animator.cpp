@@ -4,12 +4,30 @@
 #include "Scene/AnimationClip.h"
 #include "Cores/AnimationCore.h"
 #include "Engine/Engine.h"
+#include "Components/Graphics/Model.h"
+#include "Components/Transform.h"
 #include <algorithm>
 #include <cmath>
 
 #if USING( ME_EDITOR )
 #include <imgui.h>
 #endif
+
+Transform* Animator::Binding::GetTransform() const
+{
+    if( !Node ) return nullptr;
+    if( ModelNodeIndex < 0 ) return Node->TryGetComponent<Transform>();
+    Model* model = Node->TryGetComponent<Model>();
+    return model ? model->GetNodeTransform( ModelNodeIndex ) : nullptr;
+}
+
+Matrix4 Animator::Binding::GetParentWorld() const
+{
+    Transform* node = GetTransform();
+    Transform* parent = node ? node->GetParentTransform() : nullptr;
+    const Matrix4 local = parent ? parent->GetLocalToWorldMatrix() : Matrix4();
+    return ModelNodeIndex >= 0 && Node ? Node->GetComponent<Transform>().GetLocalToWorldMatrix() * local : local;
+}
 
 ME_REFLECT_ENUM( AnimatorLayerBlending, { { "Override", AnimatorLayerBlending::Override }, { "Additive", AnimatorLayerBlending::Additive } } )
 ME_REFLECT_ENUM( AnimatorParameterType, { { "Float", AnimatorParameterType::Float }, { "Bool", AnimatorParameterType::Bool }, { "Trigger", AnimatorParameterType::Trigger } } )

@@ -124,3 +124,38 @@ TEST_CASE( "ClusterBuilder: per-cluster lists cap at the maximum and offsets sta
     CHECK( packed );
     CHECK( fixture.Builder.GetUsedIndexRows() >= 1 );
 }
+
+TEST_CASE( "ClusterBuilder: extended emitters remain visible when their centre range is offscreen" )
+{
+    ClusterFixture fixture;
+    Moonlight::LightCommand light = PointLight( Vector3( 15.f, 0.f, 10.f ), 0.5f );
+    fixture.Build( { light } );
+    REQUIRE( fixture.TotalAssignments() == 0 );
+
+    // The segment reaches into the view even though its centre is outside it.
+    light.Type = Moonlight::LightType::Bar;
+    light.HalfSize = Vector3( 12.f, 0.1f, 0.1f );
+    fixture.Build( { light } );
+    CHECK( fixture.Count( 15, 4, static_cast<uint32_t>( fixture.Slice( 10.f ) ) ) == 1 );
+
+    light.Type = Moonlight::LightType::Box;
+    fixture.Build( { light } );
+    CHECK( fixture.Count( 15, 4, static_cast<uint32_t>( fixture.Slice( 10.f ) ) ) == 1 );
+
+    light.Type = Moonlight::LightType::Rectangle;
+    light.HalfSize.z = 0.f;
+    fixture.Build( { light } );
+    CHECK( fixture.Count( 15, 4, static_cast<uint32_t>( fixture.Slice( 10.f ) ) ) == 1 );
+}
+
+TEST_CASE( "ClusterBuilder: a bar end can reach the near plane from behind the camera" )
+{
+    ClusterFixture fixture;
+    Moonlight::LightCommand light = PointLight( Vector3( 0.f, 0.f, -5.f ), 0.5f );
+    light.Type = Moonlight::LightType::Bar;
+    light.AxisX = Vector3( 0.f, 0.f, 1.f );
+    light.HalfSize = Vector3( 6.f, 0.1f, 0.1f );
+    fixture.Build( { light } );
+    CHECK( fixture.Count( 7, 4, 0 ) == 1 );
+    CHECK( fixture.Count( 8, 4, static_cast<uint32_t>( fixture.Slice( 1.f ) ) ) == 1 );
+}

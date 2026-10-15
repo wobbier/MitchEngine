@@ -87,6 +87,8 @@ namespace Moonlight
         bgfx::IndexBufferHandle GetIndexBuffer( uint8_t InLod ) const {
             return InLod == 0 || InLod > m_lodIbh.size() ? m_ibh : m_lodIbh[InLod - 1];
         }
+        // Triangle edges, uploaded on first use. Reuses the same static/posed/skinned vertices.
+        bgfx::IndexBufferHandle GetWireframeIndexBuffer( uint8_t InLod );
         uint32_t GetIndexCount( uint8_t InLod ) const {
             return InLod == 0 || InLod > m_lodIndexCounts.size() ? m_indexCount : m_lodIndexCounts[InLod - 1];
         }
@@ -105,6 +107,8 @@ namespace Moonlight
         bgfx::IndexBufferHandle m_ibh = BGFX_INVALID_HANDLE;
         bgfx::VertexBufferHandle m_skinVbh = BGFX_INVALID_HANDLE;
         std::vector<bgfx::IndexBufferHandle> m_lodIbh;
+        std::vector<std::vector<uint32_t>> m_lodIndices;
+        std::vector<bgfx::IndexBufferHandle> m_wireframeIbh;
         std::vector<uint32_t> m_lodIndexCounts;
         std::vector<float> m_lodHeights;
     };

@@ -38,6 +38,10 @@ namespace Moonlight
                 bgfx::destroy( lod );
             }
         }
+        for( bgfx::IndexBufferHandle wireframe : m_wireframeIbh )
+        {
+            if( bgfx::isValid( wireframe ) ) bgfx::destroy( wireframe );
+        }
     }
 
 
@@ -55,10 +59,32 @@ namespace Moonlight
                 break;
             }
             m_lodIbh.push_back( handle );
+            m_lodIndices.push_back( lod.Indices );
             m_lodIndexCounts.push_back( static_cast<uint32_t>( lod.Indices.size() ) );
             m_lodHeights.push_back( lod.ScreenHeight );
         }
     }
+
+
+    bgfx::IndexBufferHandle MeshData::GetWireframeIndexBuffer( uint8_t InLod )
+    {
+        const size_t level = InLod <= m_lodIndices.size() ? InLod : 0;
+        while( m_wireframeIbh.size() <= level ) m_wireframeIbh.push_back( BGFX_INVALID_HANDLE );
+        if( bgfx::isValid( m_wireframeIbh[level] ) ) return m_wireframeIbh[level];
+
+        const auto& triangles = level == 0 ? CollisionIndices : m_lodIndices[level - 1];
+        if( triangles.empty() ) return BGFX_INVALID_HANDLE;
+        std::vector<uint32_t> edges;
+        edges.reserve( triangles.size() * 2 );
+        for( size_t i = 0; i + 2 < triangles.size(); i += 3 )
+        {
+            const uint32_t a = triangles[i], b = triangles[i + 1], c = triangles[i + 2];
+            edges.insert( edges.end(), { a, b, b, c, c, a } );
+        }
+        m_wireframeIbh[level] = bgfx::createIndexBuffer( bgfx::copy( edges.data(), static_cast<uint32_t>( edges.size() * sizeof( uint32_t ) ) ), BGFX_BUFFER_INDEX32 );
+        return m_wireframeIbh[level];
+    }
+
 
     void MeshData::InitSkin( const std::vector<SkinWeightsVertex>& InWeights )
     {

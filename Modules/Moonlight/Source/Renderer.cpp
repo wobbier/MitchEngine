@@ -184,9 +184,7 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
 
         m_timeOffset = bx::getHPCounter();
 
-        m_dynamicSky = MakeShared<Moonlight::DynamicSky>( 32, 32 );
-
-        m_dynamicSky->m_sun.Update( 0 );
+        m_dynamicSky = MakeShared<Moonlight::DynamicSky>();
         m_defaultOpacityTexture = ResourceCache::GetInstance().Get<Moonlight::Texture>( Path( "Assets/Textures/DefaultAlpha.png" ) );
 
         auto makeSolidTexture = []( uint32_t rgba, const char* name ) {
@@ -605,8 +603,13 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
             Camera.Post = Post;
         }
     } restoreCamera{ camera, camera.ProjectionMatrix, camera.Post };
-    const bool lit = camera.Shading == Moonlight::ViewShadingMode::Lit;
-    if( !lit )
+    const auto& options = camera.ViewOptions;
+    const bool lit = camera.Shading == Moonlight::ViewShadingMode::Lit || camera.Shading == Moonlight::ViewShadingMode::LightingOnly;
+    const bool sceneEffects = camera.Shading == Moonlight::ViewShadingMode::Lit;
+    const bool wireframe = camera.Shading == Moonlight::ViewShadingMode::Wireframe;
+    const bool depthView = camera.Shading == Moonlight::ViewShadingMode::Depth;
+    const bool background = options.Background && !wireframe && !depthView;
+    if( !lit || !options.PostProcessing )
     {
         // Inspection modes need a neutral display transform, independent of scene settings.
         // Keep the camera's authored post settings intact when this render finishes.
@@ -616,6 +619,8 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
         camera.Post.AmbientOcclusion = false;
         camera.Post.VignetteIntensity = 0.f;
     }
+    if( lit ) camera.Post.ExposureCompensation += options.Exposure;
+    camera.Post.Fog = camera.Post.Fog && options.Fog;
     {
         const glm::mat4 viewProjection = camera.ProjectionMatrix.GetInternalMatrix() * camera.View.GetInternalMatrix();
         std::copy( &viewProjection[0][0], &viewProjection[0][0] + 16, targets.ViewProjection );
@@ -663,7 +668,7 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
 
     const char* label = camera.IsEditorView ? "Editor" : ( camera.IsMain ? "Main" : "Camera" );
     char viewName[64];
-    const bool hasSkybox = camera.ClearType == Moonlight::ClearColorType::Skybox && camera.Skybox
+    const bool hasSkybox = background && camera.ClearType == Moonlight::ClearColorType::Skybox && camera.Skybox
         && camera.Skybox->SkyModel && !camera.Skybox->SkyModel->GetAllMeshes().empty();
     bx::snprintf( viewName, sizeof( viewName ), "%s Skybox", label );
     const bgfx::ViewId skyView = hasSkybox ? m_views.Allocate( viewName ) : UINT16_MAX;
@@ -690,14 +695,10 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
 
     // Clear colours are authored in sRGB.
     auto toLinear = []( float c ) { return c <= 0.04045f ? c / 12.92f : std::pow( ( c + 0.055f ) / 1.055f, 2.4f ); };
-    const uint32_t color = Moonlight::PackClearColor( toLinear( camera.ClearColor.x ), toLinear( camera.ClearColor.y ), toLinear( camera.ClearColor.z ) );
+    const uint32_t color = depthView ? 0x000000ff : ( !background ? 0x050508ff : Moonlight::PackClearColor( toLinear( camera.ClearColor.x ), toLinear( camera.ClearColor.y ), toLinear( camera.ClearColor.z ) ) );
     bgfx::setViewClear( id, hasSkybox ? BGFX_CLEAR_NONE : BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, color, 1.0f, 0 );
 
-    if( camera.ClearType == Moonlight::ClearColorType::Procedural )
-    {
-        m_dynamicSky->Draw( id );
-    }
-    else if( hasSkybox )
+    if( hasSkybox )
     {
         // The environment is infinitely distant. Give it a rotation-only view and its own clip
         // range, so neither metre conversion nor scene clipping/orthographic zoom cuts it off.
@@ -802,7 +803,7 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
 
                 if( mesh.IsTransparent )
                 {
-                    TransparentIndicies.push_back( i );
+                    if( options.Transparencies ) TransparentIndicies.push_back( i );
                     continue;
                 }
 
@@ -839,6 +840,13 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
         }
     }
 
+    // The procedural sky goes behind the opaque scene: drawn last, it only shades the pixels the
+    // scene left at the far plane.
+    if( background && camera.ClearType == Moonlight::ClearColorType::Procedural && m_dynamicSky )
+    {
+        m_dynamicSky->Draw( id, camera );
+    }
+
     {
         OPTICK_CATEGORY( "Transparent Sorting", Optick::Category::Camera );
         ME_ASSERT_MSG( TransparentIndicies.size() < kMeshTransparencyTempSize, "Transparent Indicies vector was resized, consider upping the cached size." );
@@ -856,7 +864,7 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
 
     // Decals land on the opaque surfaces; ambient occlusion then darkens both before transparents
     // are composited on top, and fog covers it all.
-    if( lit ) RenderDecals( camera );
+    if( sceneEffects && options.Decals ) RenderDecals( camera );
     m_postProcess->RenderAmbientOcclusion( m_views, camera, *camera.Buffer );
     m_postProcess->RenderFog( m_views, camera, *camera.Buffer, [this]() { BindLighting(); } );
     // Everything drawn from here on (transparents, particles) is in front of the fogged scene.
@@ -872,7 +880,7 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     {
         setupSceneView( transparentView );
     }
-    if( EnableDebugDraw )
+    if( EnableDebugDraw && options.DebugDraw )
     {
         m_debugDraw->Begin( transparentView, true );
     }
@@ -906,7 +914,7 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
             }
     }
 
-    if( EnableDebugDraw )
+    if( EnableDebugDraw && options.DebugDraw )
     {
         m_guizmoCallback( m_debugDraw.get() );
 
@@ -922,8 +930,8 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
 
         m_debugDraw->End();
     }
-    SubmitDebugLines( camera, transparentView );
-    if( lit ) RenderParticles( camera );
+    if( options.DebugDraw ) SubmitDebugLines( camera, transparentView );
+    if( sceneEffects && options.Particles ) RenderParticles( camera );
 
     // HDR -> final image (bloom, exposure, tonemapping, grading, FXAA).
     m_postProcess->RenderTemporalAA( m_views, camera, *camera.Buffer );
@@ -940,7 +948,7 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     }
 
     float m_texelHalf = 0.0f;
-    if( EnableUIComposite && camera.IsMain && bgfx::isValid( camera.UITexture ) )
+    if( EnableUIComposite && options.GameUI && camera.IsMain && bgfx::isValid( camera.UITexture ) )
     {
         // Runs after the UI resolve and all camera views, so the UI texture is from this frame.
         const bgfx::ViewId view = Moonlight::RenderView::UIComposite;
@@ -1057,7 +1065,7 @@ void BGFXRenderer::PrepareFrameLighting()
     uint32_t spotCount = 0;
     uint32_t pointCount = 0;
 
-    // Light data: 5 RGBA32F texels per point/spot light.
+    // Light data: 8 RGBA32F texels per local light (256 lights fit the 2048-wide texture).
     if( !m_localLights.empty() && bgfx::isValid( m_lightDataTexture ) )
     {
         for( size_t i = 0; i < m_localLights.size(); ++i )
@@ -1111,15 +1119,18 @@ void BGFXRenderer::PrepareFrameLighting()
                 texelScale = std::tan( glm::radians( fov ) * 0.5f ) * 2.f / static_cast<float>( pointTile );
                 ++pointCount;
             }
-            const float values[20] = {
+            const float values[32] = {
                 light.Position.x, light.Position.y, light.Position.z, light.Range,
-                light.Color.x, light.Color.y, light.Color.z, light.Type == Moonlight::LightType::Spot ? 2.f : 1.f,
+                light.Color.x, light.Color.y, light.Color.z, static_cast<float>( light.Type ),
                 dir.x, dir.y, dir.z, light.CosOuter,
-                light.CosInner, 0.f, 0.f, 0.f,
-                shadowSlot, texelScale, light.ShadowBias, light.ShadowNormalBias };
-            std::memcpy( &m_lightData[i * 20], values, sizeof( values ) );
+                light.CosInner, light.Type == Moonlight::LightType::Bar ? light.HalfSize.y : 0.f, 0.f, 0.f,
+                shadowSlot, texelScale, light.ShadowBias, light.ShadowNormalBias,
+                light.AxisX.x, light.AxisX.y, light.AxisX.z, light.HalfSize.x,
+                light.AxisY.x, light.AxisY.y, light.AxisY.z, light.HalfSize.y,
+                light.AxisZ.x, light.AxisZ.y, light.AxisZ.z, light.HalfSize.z };
+            std::memcpy( &m_lightData[i * 32], values, sizeof( values ) );
         }
-        const uint16_t width = static_cast<uint16_t>( m_localLights.size() * 5 );
+        const uint16_t width = static_cast<uint16_t>( m_localLights.size() * 8 );
         bgfx::updateTexture2D( m_lightDataTexture, 0, 0, 0, 0, width, 1, bgfx::copy( m_lightData.data(), width * 4 * sizeof( float ) ) );
     }
     const float width = std::max<float>( m_spotShadowAtlas.Width, 1.f );
@@ -1140,29 +1151,38 @@ void BGFXRenderer::PrepareCameraLighting( Moonlight::CameraData& camera )
 {
     OPTICK_EVENT( "Renderer::PrepareCameraLighting" );
     m_lighting.ViewShading[0] = static_cast<float>( camera.Shading );
-    // Set the sky before lighting, shadows and environment captures consume its uniforms.
-    if( m_dynamicSky ) m_dynamicSky->ApplySettings( camera.ProceduralSky );
-    // Scenes without a directional light are lit (and shadowed) by the procedural sky's sun.
+    m_lighting.ViewShading[1] = std::max( camera.ViewOptions.DepthRange, 0.1f );
+    m_lighting.Wireframe = camera.Shading == Moonlight::ViewShadingMode::Wireframe;
+    m_lighting.BackfaceCulling = camera.ViewOptions.BackfaceCulling;
+    // Set the sky (and render its tables and clouds) before lighting, shadows and environment
+    // captures use it.
+    if( m_dynamicSky )
+    {
+        m_dynamicSky->ApplySettings( camera.ProceduralSky, camera, m_time.y );
+        if( camera.ClearType == Moonlight::ClearColorType::Procedural )
+        {
+            m_dynamicSky->Prepare( m_views, camera );
+        }
+    }
+    // Scenes without a directional light are lit (and shadowed) by the procedural sky: the sun by
+    // day, the moon by night.
     if( m_directionalLightCount == 0 && m_dynamicSky )
     {
         const bool shadowsOn = Shadows.Enabled && m_shadowsSupported;
         m_hasSunShadow = false;
-        const bx::Vec3& sunDir = m_dynamicSky->m_sun.m_sunDir;
-        bx::Vec3 sunRgb = m_dynamicSky->xyzToRgb( m_dynamicSky->m_sunLuminanceXYZ.GetValue( m_dynamicSky->m_time ) );
-        const float peak = std::max( { sunRgb.x, sunRgb.y, sunRgb.z, 1e-4f } );
-        const float elevation = std::clamp( sunDir.y * 4.f, 0.f, 1.f );
-        const float intensity = 3.f * elevation;
+        const Moonlight::DynamicSky::SceneLight& light = m_dynamicSky->GetSceneLight();
+        const bool visible = std::max( { light.Color.x, light.Color.y, light.Color.z } ) > 1e-4f && light.Direction.y > 0.f;
         float* direction = m_lighting.DirectionalDirection[0];
         float* color = m_lighting.DirectionalColor[0];
-        direction[0] = -sunDir.x; direction[1] = -sunDir.y; direction[2] = -sunDir.z; direction[3] = shadowsOn ? 1.f : 0.f;
-        color[0] = sunRgb.x / peak * intensity; color[1] = sunRgb.y / peak * intensity; color[2] = sunRgb.z / peak * intensity;
+        direction[0] = -light.Direction.x; direction[1] = -light.Direction.y; direction[2] = -light.Direction.z; direction[3] = shadowsOn ? 1.f : 0.f;
+        color[0] = light.Color.x; color[1] = light.Color.y; color[2] = light.Color.z;
         m_lighting.Params[0] = 1.f;
-        if( shadowsOn && elevation > 0.f )
+        if( shadowsOn && visible )
         {
             m_hasSunShadow = true;
             m_sunShadowLight = Moonlight::LightCommand();
             m_sunShadowLight.Type = Moonlight::LightType::Directional;
-            m_sunShadowLight.Direction = Vector3( -sunDir.x, -sunDir.y, -sunDir.z );
+            m_sunShadowLight.Direction = Vector3( -light.Direction.x, -light.Direction.y, -light.Direction.z );
             m_sunShadowLight.CastShadows = true;
         }
         else
@@ -1201,10 +1221,8 @@ void BGFXRenderer::PrepareCameraLighting( Moonlight::CameraData& camera )
     Vector3 sky( 0.3f, 0.32f, 0.36f );
     if( camera.ClearType == Moonlight::ClearColorType::Procedural && m_dynamicSky )
     {
-        const bx::Vec3 skyRgb = m_dynamicSky->xyzToRgb( m_dynamicSky->m_skyLuminanceXYZ.GetValue( m_dynamicSky->m_time ) );
-        const float peak = std::max( { skyRgb.x, skyRgb.y, skyRgb.z, 1e-4f } );
-        const float daylight = std::clamp( m_dynamicSky->m_sun.m_sunDir.y * 3.f + 0.3f, 0.05f, 1.f );
-        sky = Vector3( skyRgb.x / peak, skyRgb.y / peak, skyRgb.z / peak ) * ( 0.6f * daylight );
+        const bx::Vec3& skyAmbient = m_dynamicSky->GetAmbientSky();
+        sky = Vector3( skyAmbient.x, skyAmbient.y, skyAmbient.z );
     }
     else if( camera.ClearType == Moonlight::ClearColorType::Color )
     {
@@ -1866,7 +1884,7 @@ bgfx::ProgramHandle BGFXRenderer::BindMeshDrawState( const Moonlight::MeshComman
 {
     // Set vertex and index buffer.
     mesh.SingleMesh->BindVertexBuffer( mesh.PosedVertices );
-    bgfx::setIndexBuffer( mesh.SingleMesh->GetIndexBuffer( mesh.Lod ) );
+    bgfx::setIndexBuffer( m_lighting.Wireframe ? mesh.SingleMesh->GetWireframeIndexBuffer( mesh.Lod ) : mesh.SingleMesh->GetIndexBuffer( mesh.Lod ) );
 
     // Every sampler gets a texture: a missing map falls back to a neutral 1x1 so the material's
     // colour shows through instead of whatever the backend leaves bound.
@@ -1887,7 +1905,13 @@ bgfx::ProgramHandle BGFXRenderer::BindMeshDrawState( const Moonlight::MeshComman
     mesh.MeshMaterial->Use();
 
     // Set render states.
-    bgfx::setState( mesh.MeshMaterial->GetRenderState( state ) );
+    state = mesh.MeshMaterial->GetRenderState( state );
+    if( !m_lighting.BackfaceCulling ) state &= ~BGFX_STATE_CULL_MASK;
+    if( m_lighting.Wireframe )
+    {
+        state = ( state & ~( BGFX_STATE_PT_MASK | BGFX_STATE_CULL_MASK | BGFX_STATE_BLEND_MASK ) ) | BGFX_STATE_PT_LINES | BGFX_STATE_WRITE_Z;
+    }
+    bgfx::setState( state );
 
     return mesh.MeshMaterial->MeshShader.GetProgram();
 }

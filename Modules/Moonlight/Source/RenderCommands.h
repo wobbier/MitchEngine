@@ -93,6 +93,9 @@ namespace Moonlight
         Directional = 0,
         Point,
         Spot,
+        Bar,
+        Box,
+        Rectangle,
     };
 
     // One decal for this frame, gathered from Decal components by RenderCore: a unit box (-0.5..0.5)
@@ -122,6 +125,21 @@ namespace Moonlight
         float Range = 10.f;
         float CosInner = 0.9f;
         float CosOuter = 0.8f;
+        // Extended emitters: orthonormal world axes and scaled half dimensions. Bars run along X;
+        // HalfSize.x is half the segment length, HalfSize.y/z the capsule radius. Rectangles lie in
+        // local XY with zero Z thickness, emitting only along Direction (local +Z).
+        Vector3 AxisX = Vector3( 1.f, 0.f, 0.f );
+        Vector3 AxisY = Vector3( 0.f, 1.f, 0.f );
+        Vector3 AxisZ = Vector3( 0.f, 0.f, 1.f );
+        Vector3 HalfSize;
+
+        float GetBoundingRadius() const
+        {
+            if( Type == LightType::Bar ) return Range + HalfSize.x + HalfSize.y;
+            if( Type == LightType::Box || Type == LightType::Rectangle ) return Range + HalfSize.Length();
+            return Range;
+        }
+
         bool CastShadows = false;
         // Biases are in shadow texels, so they hold across cascade sizes and spot distances.
         float ShadowBias = 0.5f;          // receiver pushed towards the light

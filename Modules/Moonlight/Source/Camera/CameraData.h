@@ -38,7 +38,33 @@ namespace Moonlight
         Lit = 0,
         Unlit,
         Solid,
-        Normals
+        Normals,
+        Wireframe,
+        VertexNormals,
+        Metallic,
+        Roughness,
+        Occlusion,
+        Emissive,
+        UVChecker,
+        Depth,
+        LightingOnly,
+        Count
+    };
+
+    // Editor viewport overrides. Defaults preserve the camera's authored rendering.
+    struct ViewRenderOptions
+    {
+        bool PostProcessing = true;
+        bool Fog = true;
+        bool Background = true;
+        bool Transparencies = true;
+        bool Particles = true;
+        bool Decals = true;
+        bool DebugDraw = true;
+        bool BackfaceCulling = true;
+        bool GameUI = true;
+        float Exposure = 0.f;       // additional EV for lit views
+        float DepthRange = 50.f;    // metres, near = white, range and beyond = black
     };
 
     struct CameraData
@@ -70,6 +96,7 @@ namespace Moonlight
         // The editor scene view (gets editor-only debug drawing: grid, selection, gizmos).
         bool IsEditorView = false;
         ViewShadingMode Shading = ViewShadingMode::Lit;
+        ViewRenderOptions ViewOptions;
 
         PostProcessSettings Post;
 

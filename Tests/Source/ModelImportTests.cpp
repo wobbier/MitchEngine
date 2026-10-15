@@ -3,6 +3,10 @@
 #include "Path.h"
 #include "Components/Graphics/Model.h"
 #include "Components/Transform.h"
+#include "Components/Animation/Animator.h"
+#include "Components/Animation/IKConstraints.h"
+#include "Cores/AnimationCore.h"
+#include "World/SceneSerializer.h"
 #include "Engine/World.h"
 #include "Graphics/ImportedMaterial.h"
 #include "Graphics/ImportedMaterialMerge.h"
@@ -256,6 +260,7 @@ TEST_CASE( "Models: expansion keeps the imported root and sole child's transform
     EntityHandle instance = AddNode( world, {}, "Instance", Vector3( 10.f, 0.f, 0.f ) );
     instance->GetComponent<Transform>().SetScale( 2.f );
     Model& component = instance->AddComponent<Model>();
+    component.Deserialize( json{ { "ModelPath", "" } } ); // legacy expanded import
     component.ModelHandle = EmptyModel();
     auto& root = component.ModelHandle->RootNode;
     root.Position = Vector3( 3.f, 0.f, 0.f );
@@ -280,6 +285,7 @@ TEST_CASE( "Models: expansion keeps the imported root and sole child's transform
 
     EntityHandle other = AddNode( world, {}, "IdentityRootInstance", Vector3() );
     Model& single = other->AddComponent<Model>();
+    single.Deserialize( json{ { "ModelPath", "" } } );
     single.ModelHandle = EmptyModel();
     single.ModelHandle->RootNode.Nodes.push_back( child );
     single.Init();
@@ -327,6 +333,7 @@ TEST_CASE( "Models: legacy scenes migrate consistent unit mismatches and keep is
     auto first = AddNode( world, instance, "First", Vector3( 100.f, 0.f, 0.f ) );
     auto second = AddNode( world, instance, "Second", Vector3( 0.f, 200.f, 0.f ) );
     Model& component = instance->AddComponent<Model>();
+    component.Deserialize( json{ { "ModelPath", "" } } );
     component.ModelHandle = EmptyModel();
     auto& root = component.ModelHandle->RootNode;
     root.Nodes.resize( 2 );
@@ -345,10 +352,183 @@ TEST_CASE( "Models: legacy scenes migrate consistent unit mismatches and keep is
     auto editedFirst = AddNode( world, edited, "First", Vector3( 100.f, 0.f, 0.f ) );
     auto editedSecond = AddNode( world, edited, "Second", Vector3( 0.f, 2.f, 0.f ) );
     Model& other = edited->AddComponent<Model>();
+    other.Deserialize( json{ { "ModelPath", "" } } );
     other.ModelHandle = component.ModelHandle;
     other.Init();
     CHECK( editedFirst->GetComponent<Transform>().GetPosition().x == doctest::Approx( 100.f ) );
     CHECK( editedSecond->GetComponent<Transform>().GetPosition().y == doctest::Approx( 2.f ) );
+}
+
+TEST_CASE( "Models: compact instances retain pivots and expose only requested nodes" )
+{
+    World world;
+    world.IsLoading = false;
+    auto instance = AddNode( world, {}, "Instance", Vector3( 10.f, 0.f, 0.f ) );
+    instance->GetComponent<Transform>().SetScale( 2.f );
+    Model& model = instance->AddComponent<Model>();
+    model.ModelHandle = EmptyModel();
+    auto& root = model.ModelHandle->RootNode;
+    root.Position = Vector3( 3.f, 0.f, 0.f );
+    root.Scale = Vector3( 0.5f );
+    root.Rotation = Quaternion::FromEulerDegrees( Vector3( 0.f, 0.f, 90.f ) );
+    root.Nodes.resize( 3 );
+    for( auto& child : root.Nodes ) { child.Name = "Head"; child.Position = Vector3( 4.f, 0.f, 0.f ); }
+    root.Nodes[2].Name = "Head/#%";
+    model.Init();
+    CHECK( model.IsCompact() );
+    CHECK( instance->GetComponent<Transform>().GetChildren().empty() );
+    REQUIRE( model.GetNodes().size() == 4 );
+    CHECK( model.GetNodes()[1].Path != model.GetNodes()[2].Path );
+    CHECK( model.GetNodes()[3].Path.find( "%2F%23%25" ) != std::string::npos );
+    CHECK( model.GetNodeWorld( 1 ).GetPosition().x == doctest::Approx( 16.f ) );
+    CHECK( model.GetNodeWorld( 1 ).GetPosition().y == doctest::Approx( 4.f ) );
+    auto exposed = model.ExposeNode( model.GetNodes()[1].Path );
+    REQUIRE( exposed );
+    CHECK( instance->GetComponent<Transform>().GetChildren().size() == 1 );
+    CHECK( model.ExposeNode( model.GetNodes()[1].Path ) == exposed );
+    const uint64_t guid = exposed->GetGUID();
+    exposed->SetName( "Camera mount" );
+    CHECK( model.ExposeNode( model.GetNodes()[1].Path )->GetGUID() == guid );
+    auto camera = AddNode( world, exposed, "Camera", Vector3( 0.f, 1.f, 0.f ) );
+    CHECK( camera->GetComponent<Transform>().GetWorldPosition().x == doctest::Approx( 15.f ) );
+    exposed->GetComponent<Transform>().Translate( Vector3( 2.f, 0.f, 0.f ) );
+    Model::CaptureExposedEdits( world );
+    Model::UpdateExposedNodes( world );
+    CHECK( exposed->GetComponent<Transform>().GetWorldPosition().x == doctest::Approx( 18.f ) );
+    json attachment;
+    exposed->GetComponent<ModelNode>().Serialize( attachment );
+    CHECK( attachment["NodePath"] == model.GetNodes()[1].Path );
+    CHECK( root.Nodes[0].Position.x == doctest::Approx( 4.f ) ); // resource is immutable
+}
+
+TEST_CASE( "Models: compact animation drives attachments and keeps instance poses independent" )
+{
+    AnimationCore core;
+    World world;
+    world.IsLoading = false;
+    world.AddCore( core );
+    auto resource = EmptyModel();
+    resource->RootNode.Nodes.emplace_back();
+    resource->RootNode.Nodes[0].Name = "Head";
+    resource->RootNode.Nodes[0].Position = Vector3( 0.f, 5.f, 0.f );
+    auto first = AddNode( world, {}, "First", Vector3( 10.f, 0.f, 0.f ) );
+    auto second = AddNode( world, {}, "Second", Vector3() );
+    for( auto entity : { first, second } )
+    {
+        auto& model = entity->AddComponent<Model>(); model.ModelHandle = resource; model.Init();
+    }
+    auto& model = first->GetComponent<Model>();
+    auto head = model.ExposeNode( "Head" );
+    auto camera = AddNode( world, head, "Camera", Vector3( 0.f, 1.f, 0.f ) );
+    auto clips = std::make_shared<std::vector<Moonlight::AnimationClip>>();
+    Moonlight::AnimationClip clip;
+    clip.Name = "Move"; clip.Duration = 2.f;
+    Moonlight::AnimationChannel channel; channel.NodeName = "Head";
+    channel.PositionTimes = { 0.f, 2.f }; channel.Positions = { Vector3( 0.f, 5.f, 0.f ), Vector3( 4.f, 5.f, 0.f ) };
+    clip.Channels.push_back( channel ); clips->push_back( clip );
+    Animator& animator = first->AddComponent<Animator>(); animator.UseClips( clips );
+    world.Simulate(); core.OnStart(); core.Advance( 0.5f );
+    CHECK( camera->GetComponent<Transform>().GetWorldPosition().x == doctest::Approx( 11.f ) );
+    CHECK( camera->GetComponent<Transform>().GetWorldPosition().y == doctest::Approx( 6.f ) );
+    CHECK( second->GetComponent<Model>().GetNodeTransform( 1 )->GetPosition().x == doctest::Approx( 0.f ) );
+    CHECK( resource->RootNode.Nodes[0].Position.x == doctest::Approx( 0.f ) );
+    core.OnStop(); animator.InvalidateBindings(); animator.StartPreview( "Move" ); animator.PreviewPlaying = false; animator.PreviewTime = 1.f;
+    core.UpdatePreviews( 0.f );
+    CHECK( camera->GetComponent<Transform>().GetWorldPosition().x == doctest::Approx( 12.f ) );
+    core.StopAllPreviews();
+    // Preview restores the pose it bound to, which was the last authored pose in this fixture.
+    CHECK( camera->GetComponent<Transform>().GetWorldPosition().x == doctest::Approx( 11.f ) );
+    CHECK( model.GetNodes().size() == 2 );
+    CHECK( first->GetComponent<Transform>().GetChildren().size() == 1 );
+}
+
+TEST_CASE( "Models: compaction keeps authored children and referenced entities with their GUIDs" )
+{
+    World world;
+    world.IsLoading = false;
+    auto instance = AddNode( world, {}, "Instance", Vector3( 10.f, 0.f, 0.f ) );
+    auto& model = instance->AddComponent<Model>();
+    model.Deserialize( json{ { "ModelPath", "" } } );
+    model.ModelHandle = EmptyModel();
+    auto& root = model.ModelHandle->RootNode;
+    root.Nodes.resize( 3 );
+    root.Nodes[0].Name = "Referenced"; root.Nodes[0].Position = Vector3( 1.f, 0.f, 0.f );
+    root.Nodes[1].Name = "Authored"; root.Nodes[1].Position = Vector3( 0.f, 2.f, 0.f );
+    root.Nodes[2].Name = "Import detail";
+    model.Init();
+    auto& transform = instance->GetComponent<Transform>();
+    EntityHandle referenced = transform.GetChildByName( "Referenced" )->Parent;
+    const uint64_t guid = referenced->GetGUID();
+    auto custom = AddNode( world, transform.GetChildByName( "Authored" )->Parent, "My camera", Vector3( 0.f, 3.f, 0.f ) );
+    auto controller = AddNode( world, {}, "Controller", Vector3() );
+    controller->AddComponent<LookAtIK>().Bone = referenced;
+    referenced->GetComponent<Transform>().SetPosition( Vector3( 3.f, 0.f, 0.f ) );
+    REQUIRE( model.CompactHierarchy() ); world.Simulate();
+    CHECK( referenced->GetGUID() == guid );
+    CHECK( referenced->HasComponent<ModelNode>() );
+    CHECK( controller->GetComponent<LookAtIK>().Bone == referenced );
+    CHECK( custom->GetComponent<Transform>().GetWorldPosition().y == doctest::Approx( 5.f ) );
+    CHECK( transform.GetChildren().size() == 2 );
+    CHECK( model.GetNodeWorld( model.FindNode( "Referenced" ) ).GetPosition().x == doctest::Approx( 13.f ) );
+    json saved; model.Serialize( saved );
+    CHECK( saved["Compact"].get<bool>() );
+    CHECK( saved["Nodes"].size() == 3 );
+    CHECK_FALSE( model.CompactHierarchy() );
+}
+
+TEST_CASE( "Models: compact attachments and inactive roots survive scene serialization" )
+{
+    World world;
+    world.IsLoading = false;
+    auto instance = AddNode( world, {}, "Instance", Vector3( 10.f, 0.f, 0.f ) );
+    auto& model = instance->AddComponent<Model>();
+    auto resource = EmptyModel();
+    resource->RootNode.Nodes.emplace_back();
+    resource->RootNode.Nodes[0].Name = "Head";
+    resource->RootNode.Nodes[0].Position = Vector3( 0.f, 3.f, 0.f );
+    model.ModelHandle = resource; model.Init();
+    auto exposed = model.ExposeNode( "Head" );
+    exposed->SetName( "Head camera" );
+    exposed->GetComponent<Transform>().Translate( Vector3( 2.f, 0.f, 0.f ) );
+    // Save immediately after editing, before the next animation phase captures the offset.
+    const uint64_t guid = exposed->GetGUID();
+    auto inactive = AddNode( world, {}, "Inactive model", Vector3() );
+    inactive->SetActive( false ); world.Simulate();
+    const json saved = SceneSerializer::SerializeWorld( world, nullptr );
+    REQUIRE( saved["Entities"].size() == 3 );
+    World restored;
+    restored.IsLoading = false;
+    SceneSerializer::LoadOptions options;
+    SceneSerializer::Deserialize( restored, saved, options );
+    auto instanceCopy = restored.FindEntityByGUID( instance->GetGUID() );
+    auto& loaded = instanceCopy->GetComponent<Model>(); loaded.ModelHandle = resource; loaded.Init();
+    Model::UpdateExposedNodes( restored );
+    auto attachmentCopy = restored.FindEntityByGUID( guid );
+    REQUIRE( attachmentCopy );
+    CHECK( loaded.ExposeNode( "Head" )->GetGUID() == guid );
+    CHECK( attachmentCopy->GetName() == "Head camera" );
+    CHECK( attachmentCopy->GetComponent<Transform>().GetWorldPosition().x == doctest::Approx( 12.f ) );
+    CHECK( attachmentCopy->GetComponent<Transform>().GetWorldPosition().y == doctest::Approx( 3.f ) );
+    CHECK_FALSE( restored.FindEntityByGUID( inactive->GetGUID() )->IsActiveSelf() );
+}
+
+TEST_CASE( "Models: compact IK solves internal bones and publishes the solved attachment" )
+{
+    World world;
+    world.IsLoading = false;
+    auto instance = AddNode( world, {}, "Rig", Vector3( 10.f, 0.f, 0.f ) );
+    auto& model = instance->AddComponent<Model>(); model.ModelHandle = EmptyModel();
+    auto& root = model.ModelHandle->RootNode; root.Name = "Hip";
+    root.Nodes.emplace_back(); auto& knee = root.Nodes[0]; knee.Name = "Knee"; knee.Position = Vector3( 1.f, 0.f, 0.f );
+    knee.Nodes.emplace_back(); auto& foot = knee.Nodes[0]; foot.Name = "Foot"; foot.Position = Vector3( 1.f, 0.f, 0.f );
+    model.Init(); auto tip = model.ExposeNode( "Foot" );
+    auto target = AddNode( world, {}, "Target", Vector3( 11.f, 1.f, 0.f ) );
+    auto& ik = instance->AddComponent<TwoBoneIK>(); ik.Tip = tip; ik.Target = target;
+    world.Simulate(); AnimationCore::SolveIK( world );
+    CHECK( ik.IsReached() );
+    CHECK( tip->GetComponent<Transform>().GetWorldPosition().x == doctest::Approx( 11.f ) );
+    CHECK( tip->GetComponent<Transform>().GetWorldPosition().y == doctest::Approx( 1.f ) );
+    CHECK( instance->GetComponent<Transform>().GetChildren().size() == 1 );
 }
 
 TEST_CASE( "Models: Max Physical materials retain PBR maps and use mapped values instead of scalar placeholders" )

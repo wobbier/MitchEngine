@@ -338,7 +338,10 @@ namespace SceneSerializer
         }
         Entity* sceneRootEntity = InSceneRoot ? InSceneRoot->Parent.Get() : nullptr;
         InWorld.ForEachEntity( [&InWorld, &roots, sceneRootEntity]( Entity& entity ) {
-            if( &entity != sceneRootEntity && !entity.HasComponent<Transform>() && InWorld.GetEntityScene( entity.GetId() ) == 0 )
+            Transform* transform = entity.TryGetComponent<Transform>();
+            // Inactive roots may never have joined SceneCore, so they are not necessarily linked
+            // to its synthetic scene root. They still belong in the saved scene.
+            if( &entity != sceneRootEntity && ( !transform || !transform->GetParentTransform() ) && InWorld.GetEntityScene( entity.GetId() ) == 0 )
             {
                 roots.push_back( &entity );
             }

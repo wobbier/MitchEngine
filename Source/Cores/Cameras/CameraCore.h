@@ -24,5 +24,9 @@ public:
     void OnEntityRemoved( Entity& InEntity ) override;
 
 private:
+    void OnStart() override;
+    void OnStop() override;
+
+    bool m_running = false;
     class Camera* DefaultCamera;
 };

@@ -517,6 +517,11 @@ bool Mesh::BeginVertexAnimation()
         }
     }
     const auto& cache = *MeshReferece->VertexCache;
+    if( model && model->Parent )
+    {
+        Model* instance = model->Parent->TryGetComponent<Model>();
+        if( instance && instance->IsCompact() ) clock = instance->GetNodeTransform( instance->FindNode( "__VertexAnimationClock" ) );
+    }
     const float time = std::clamp( clock ? clock->GetScale().x - 1.f : 0.f,
         0.f, ( cache.FrameCount - 1 ) / cache.FramesPerSecond );
     m_nextVertexAnimationTime = time;
@@ -569,12 +574,15 @@ void Mesh::UploadVertexAnimation()
 AABB Mesh::UpdateSkin( const glm::mat4& InMeshWorld )
 {
     const size_t count = MeshReferece->BoneNames.size();
+    Model* compact = Parent ? Parent->TryGetComponent<Model>() : nullptr;
+    if( !compact && Parent ) if( ModelNode* node = Parent->TryGetComponent<ModelNode>() ) compact = node->GetModel();
+    if( compact && !compact->IsCompact() ) compact = nullptr;
     bool valid = m_bonesResolved && m_bones.size() == count;
     for( size_t i = 0; valid && i < count; ++i )
     {
         valid = static_cast<bool>( m_bones[i] );
     }
-    if( !valid )
+    if( !valid && !compact )
     {
         m_bonesResolved = ResolveBones();
     }
@@ -585,7 +593,9 @@ AABB Mesh::UpdateSkin( const glm::mat4& InMeshWorld )
     for( size_t i = 0; i < count; ++i )
     {
         Transform* bone = i < m_bones.size() && m_bones[i] ? m_bones[i]->TryGetComponent<Transform>() : nullptr;
-        const glm::mat4 boneWorld = bone ? bone->GetLocalToWorldMatrix().GetInternalMatrix() : InMeshWorld * glm::inverse( MeshReferece->BoneOffsets[i] );
+        const int modelBone = compact ? compact->FindNode( MeshReferece->BoneNames[i] ) : -1;
+        const glm::mat4 boneWorld = modelBone >= 0 ? compact->GetNodeWorld( modelBone ).GetInternalMatrix()
+            : bone ? bone->GetLocalToWorldMatrix().GetInternalMatrix() : InMeshWorld * glm::inverse( MeshReferece->BoneOffsets[i] );
         m_skinPalette[i] = meshInverse * boneWorld * MeshReferece->BoneOffsets[i];
         // Every vertex a bone moves stays within its radius of the bone.
         const float scale = std::max( { glm::length( glm::vec3( boneWorld[0] ) ), glm::length( glm::vec3( boneWorld[1] ) ), glm::length( glm::vec3( boneWorld[2] ) ) } );

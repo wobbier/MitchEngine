@@ -5,8 +5,11 @@
 
 // A light source. Directional lights shine along the entity's forward axis (the first shadowed one
 // is the "sun" with cascaded shadows); point lights radiate from the entity's position out to
-// Range; spot lights are cones along forward with inner/outer angles. Colours are sRGB, intensity
-// is an HDR multiplier.
+// Range; spot lights are cones along forward with inner/outer angles. Bars emit along a capsule on
+// local X (for fluorescent tubes); boxes emit from a local cuboid; rectangles emit from a local XY
+// face into the forward (+Z) hemisphere. Extended emitters follow world
+// rotation/scale; Range measures the fade distance from their surface. Colours are sRGB, intensity
+// is an HDR multiplier. Extended lighting uses a closest-source approximation and has no shadows.
 class Light
     : public Component<Light>
 {
@@ -26,6 +29,11 @@ public:
     float Range = 10.f;
     float InnerConeAngle = 20.f;
     float OuterConeAngle = 30.f;
+    float Length = 1.2f;
+    float Radius = 0.025f;
+    Vector3 Size { 1.f, 0.2f, 0.2f };
+    float RectangleWidth = 2.f;
+    float RectangleHeight = 1.f;
     bool CastShadows = false;
     // In shadow-map texels: depth bias pushes receivers towards the light, normal bias along their
     // surface normal. Raise them for acne, lower them for detached ("peter panning") shadows.

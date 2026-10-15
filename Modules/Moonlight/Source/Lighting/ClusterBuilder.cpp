@@ -30,7 +30,7 @@ namespace Moonlight
         {
             const LightCommand& light = InLights[lightIndex];
             const glm::vec4 center = view * glm::vec4( light.Position.InternalVector, 1.f );
-            const float radius = light.Range;
+            const float radius = light.GetBoundingRadius();
             if( center.z + radius < nearPlane || center.z - radius > farPlane )
             {
                 continue;

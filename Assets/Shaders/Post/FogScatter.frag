@@ -2,7 +2,7 @@ $input v_texcoord0
 
 // Volumetric fog at half resolution: marches each view ray through the height fog and lights every
 // step with the ambient fog colour, the sun through its cascaded shadow (Henyey-Greenstein phase)
-// and the cluster's point and spot lights with their shadows. Fog beyond the march distance is added
+// and the cluster's local lights (point/spot shadows, extended bar/box sources). Fog beyond the march distance is added
 // analytically. Output: rgb in-scattered light, a transmittance.
 #include "../Common.sh"
 #include "PostCommon.sh"

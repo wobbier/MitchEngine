@@ -260,6 +260,8 @@ private:
     struct LightingUniforms
     {
         float ViewShading[4] = {};
+        bool Wireframe = false;
+        bool BackfaceCulling = true;
         float Params[4] = { 0.f, 0.f, 1.f, 0.f };
         float DirectionalDirection[4][4] = {};
         float DirectionalColor[4][4] = {};

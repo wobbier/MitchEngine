@@ -32,6 +32,44 @@ action View.Shading.Normals
 action GameView.Shading.Normals
 wait 5
 screenshot .tmp/ShadingModes-normals.png
+action View.Shading.Wireframe
+action GameView.Shading.Solid
+wait 5
+screenshot .tmp/ShadingModes-wireframe.png
+action View.Shading.Metallic
+action GameView.Shading.Roughness
+wait 5
+screenshot .tmp/ShadingModes-metallic-roughness.png
+action View.Shading.Occlusion
+action GameView.Shading.Emissive
+wait 5
+screenshot .tmp/ShadingModes-occlusion-emissive.png
+action View.Shading.UVChecker
+action GameView.Shading.Depth
+wait 5
+screenshot .tmp/ShadingModes-uv-depth.png
+action View.Shading.VertexNormals
+action GameView.Shading.LightingOnly
+wait 5
+screenshot .tmp/ShadingModes-vertex-lighting.png
+action View.Shading.Lit
+action GameView.Shading.Lit
+action View.Toggle.PostProcessing
+action GameView.Toggle.Fog
+action View.Toggle.Background
+action GameView.Toggle.Transparencies
+action View.Toggle.DebugDraw
+action GameView.Toggle.BackfaceCulling
+action View.Toggle.Particles
+action GameView.Toggle.Decals
+action GameView.Toggle.GameUI
+wait 5
+assert-dirty 0
+assert-field Main Camera | PostProcess.ExposureCompensation | -4
+assert-field Main Camera | PostProcess.Fog | true
+screenshot .tmp/ShadingModes-view-options.png
+action View.ResetOptions
+action GameView.ResetOptions
 play
 wait 10
 action View.Shading.Unlit

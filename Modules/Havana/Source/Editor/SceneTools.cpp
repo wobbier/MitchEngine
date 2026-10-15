@@ -7,6 +7,7 @@
 #include "Components/Audio/AudioSource.h"
 #include "Components/Camera.h"
 #include "Components/Graphics/Mesh.h"
+#include "Components/Graphics/Model.h"
 #include "Components/Lighting/Light.h"
 #include "Components/Effects/ParticleSystem.h"
 #include "Components/Physics/CharacterController.h"
@@ -35,6 +36,21 @@ namespace SceneTools
                 if( bounds.IsValid() )
                 {
                     OutBounds.Encapsulate( bounds );
+                }
+                if( Model* model = entity->TryGetComponent<Model>(); model && model->IsCompact() )
+                {
+                    const AABB modelBounds = model->GetWorldBounds();
+                    if( modelBounds.IsValid() ) OutBounds.Encapsulate( modelBounds );
+                }
+                if( ModelNode* node = entity->TryGetComponent<ModelNode>() )
+                {
+                    Model* model = node->GetModel();
+                    const int index = model ? model->FindNode( node->NodePath ) : -1;
+                    if( index >= 0 )
+                    {
+                        const AABB nodeBounds = model->GetWorldBounds( index );
+                        if( nodeBounds.IsValid() ) OutBounds.Encapsulate( nodeBounds );
+                    }
                 }
             }
             if( InRecursive )
@@ -368,6 +384,59 @@ namespace SceneTools
                             DebugDraw::Cone( position, transform->Front(), light->Range, light->InnerConeAngle, Vector4( color.x, color.y, color.z, 0.35f ), 0.f, DebugDraw::EditorOnly );
                         }
                         break;
+                    case Moonlight::LightType::Bar:
+                    {
+                        const Moonlight::LightCommand command = light->BuildCommand( *transform );
+                        const Vector3 offset = command.AxisX * command.HalfSize.x;
+                        DebugDraw::Capsule( position - offset, position + offset, command.HalfSize.y, color, 0.f, DebugDraw::EditorOnly );
+                        if( selected )
+                        {
+                            DebugDraw::Capsule( position - offset, position + offset, command.HalfSize.y + command.Range, Vector4( color.x, color.y, color.z, 0.35f ), 0.f, DebugDraw::EditorOnly );
+                        }
+                        break;
+                    }
+                    case Moonlight::LightType::Rectangle:
+                    {
+                        const Moonlight::LightCommand command = light->BuildCommand( *transform );
+                        const Vector3 x = command.AxisX * command.HalfSize.x;
+                        const Vector3 y = command.AxisY * command.HalfSize.y;
+                        const Vector3 corners[4] = { position - x - y, position + x - y, position + x + y, position - x + y };
+                        for( int i = 0; i < 4; ++i )
+                        {
+                            DebugDraw::Line( corners[i], corners[( i + 1 ) % 4], color, 0.f, DebugDraw::EditorOnly );
+                        }
+                        DebugDraw::Arrow( position, position + command.Direction * std::min( command.Range, selected ? 2.f : 1.f ), color, 0.2f, 0.f, DebugDraw::EditorOnly );
+                        if( selected )
+                        {
+                            glm::mat4 axes( 1.f );
+                            axes[0] = glm::vec4( command.AxisX.InternalVector, 0.f );
+                            axes[1] = glm::vec4( command.AxisY.InternalVector, 0.f );
+                            axes[2] = glm::vec4( command.AxisZ.InternalVector, 0.f );
+                            axes[3] = glm::vec4( ( position + command.Direction * ( command.Range * 0.5f ) ).InternalVector, 1.f );
+                            // Encloses the rounded fade volume, entirely in front of the face.
+                            const Vector3 extents( command.HalfSize.x + command.Range, command.HalfSize.y + command.Range, command.Range * 0.5f );
+                            DebugDraw::Box( Matrix4( axes ), AABB::FromCenterExtents( Vector3(), extents ), Vector4( color.x, color.y, color.z, 0.35f ), 0.f, DebugDraw::EditorOnly );
+                        }
+                        break;
+                    }
+                    case Moonlight::LightType::Box:
+                    {
+                        const Moonlight::LightCommand command = light->BuildCommand( *transform );
+                        glm::mat4 axes( 1.f );
+                        axes[0] = glm::vec4( command.AxisX.InternalVector, 0.f );
+                        axes[1] = glm::vec4( command.AxisY.InternalVector, 0.f );
+                        axes[2] = glm::vec4( command.AxisZ.InternalVector, 0.f );
+                        axes[3] = glm::vec4( position.InternalVector, 1.f );
+                        const Matrix4 world( axes );
+                        DebugDraw::Box( world, AABB::FromCenterExtents( Vector3(), command.HalfSize ), color, 0.f, DebugDraw::EditorOnly );
+                        if( selected )
+                        {
+                            // Encloses the rounded fade volume; the inner box is the emitter itself.
+                            const Vector3 range( command.Range, command.Range, command.Range );
+                            DebugDraw::Box( world, AABB::FromCenterExtents( Vector3(), command.HalfSize + range ), Vector4( color.x, color.y, color.z, 0.35f ), 0.f, DebugDraw::EditorOnly );
+                        }
+                        break;
+                    }
                     }
                 }
             } );
@@ -437,6 +506,21 @@ namespace SceneTools
                 OutHit.Point = worldPoint;
                 OutHit.Entity = entity.GetHandle();
                 hit = true;
+            }
+        } );
+        EditorOps::GetWorld().Each<Model>( [&]( Entity&, Model& model ) {
+            if( !model.IsCompact() ) return;
+            for( const auto& part : model.GetRenderParts() )
+            {
+                if( model.IsPartExternal( part ) ) continue;
+                const AABB bounds = part.Renderer->GetWorldBounds( model.GetPartWorld( part ) );
+                if( !bounds.IsValid() ) continue;
+                const float distance = InRay.Intersect( bounds );
+                EntityHandle owner = model.GetNodeEntity( part.NodeIndex );
+                if( distance >= 0.f && distance < OutHit.Distance && owner->IsActiveInHierarchy() )
+                {
+                    OutHit.Distance = distance; OutHit.Point = InRay.GetPoint( distance ); OutHit.Entity = owner; hit = true;
+                }
             }
         } );
         return hit;

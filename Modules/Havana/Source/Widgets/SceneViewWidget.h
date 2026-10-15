@@ -55,6 +55,7 @@ public:
 	void TogglePivotMode();
 	void ToggleSnapping();
 	void SetShadingMode(Moonlight::ViewShadingMode mode);
+	void ResetViewOptions();
 
 	// A left click (press + release without dragging) landed on the viewport this frame.
 	bool ConsumeClick();
@@ -84,6 +85,7 @@ public:
 
 private:
 	void DrawShadingMenu();
+	void DrawViewMenu();
 	void DrawSceneToolbar();
 	void DrawGameToolbar();
 	void DrawManipulator();
@@ -100,6 +102,7 @@ private:
 
 	GizmoOperation m_operation = GizmoOperation::Translate;
 	Moonlight::ViewShadingMode m_shadingMode = Moonlight::ViewShadingMode::Lit;
+	Moonlight::ViewRenderOptions m_viewOptions;
 	ImGuizmo::MODE m_mode = ImGuizmo::LOCAL;
 	PivotMode m_pivotMode = PivotMode::Pivot;
 	bool m_snapEnabled = false;

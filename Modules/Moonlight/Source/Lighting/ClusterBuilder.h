@@ -7,7 +7,7 @@
 
 namespace Moonlight
 {
-    // Assigns point/spot lights to a 16x9x24 froxel grid (screen tiles x exponential depth slices)
+    // Assigns local lights to a 16x9x24 froxel grid (screen tiles x exponential depth slices)
     // for one camera. Lights are tested as bounding spheres against each slice and their projected
     // screen rectangle, which is conservative but cheap.
     class ClusterBuilder
@@ -30,7 +30,7 @@ namespace Moonlight
             float SliceBias = 0.f;
         };
 
-        // InLights are the frame's point/spot lights; cluster lists store indices into it.
+        // InLights are the frame's local lights; cluster lists store indices into it.
         void Build( const std::vector<LightCommand>& InLights, const Matrix4& InView, const Matrix4& InProjection, float InNear, float InFar, float InWidth, float InHeight );
 
         // RGBA32F: x offset into the index list, y count (per cluster, x + y * kGridX columns, z rows).

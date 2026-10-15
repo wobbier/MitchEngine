@@ -1,6 +1,7 @@
 #include "PCH.h"
 #include "NavigationCore.h"
 #include "Components/Graphics/Mesh.h"
+#include "Components/Graphics/Model.h"
 #include "Components/Navigation/NavMeshAgent.h"
 #include "Components/Navigation/NavMeshModifiers.h"
 #include "Components/Navigation/NavMeshSurface.h"
@@ -678,6 +679,19 @@ NavBuildInput NavigationCore::GatherInput( NavMeshSurface& InSurface )
                 return;
             }
             sink.Add( transform.GetLocalToWorldMatrix().GetInternalMatrix(), mesh.MeshReferece->CollisionPositions, mesh.MeshReferece->CollisionIndices, area );
+        } );
+        world.Each<Model>( [&]( Entity&, Model& model ) {
+            if( !model.IsCompact() ) return;
+            model.UpdatePoseMatrices();
+            for( const auto& part : model.GetRenderParts() )
+            {
+                const Mesh& mesh = *part.Renderer;
+                EntityHandle entity = model.GetNodeEntity( part.NodeIndex );
+                uint8_t area = 0;
+                if( model.IsPartExternal( part ) || !entity->IsActiveInHierarchy() || !mesh.MeshReferece
+                    || mesh.IsSkinned() || !classify( *entity.Get(), area ) ) continue;
+                sink.Add( model.GetPartWorld( part ).GetInternalMatrix(), mesh.MeshReferece->CollisionPositions, mesh.MeshReferece->CollisionIndices, area );
+            }
         } );
     }
 

@@ -1,6 +1,7 @@
 #include "PCH.h"
 #include "CameraCore.h"
 #include "Components/Camera.h"
+#include "Components/Cameras/CameraSway.h"
 #include "Engine/Engine.h"
 #include "Window/IWindow.h"
 #include "Math/Frustrum.h"
@@ -28,6 +29,26 @@ void CameraCore::Init()
 void CameraCore::Update( const UpdateContext& inUpdateContext )
 {
 }
+
+
+void CameraCore::OnStart()
+{
+    m_running = true;
+}
+
+
+void CameraCore::OnStop()
+{
+    m_running = false;
+    for( Entity& entity : GetEntities() )
+    {
+        if( CameraSway* sway = entity.TryGetComponent<CameraSway>() )
+        {
+            sway->Reset();
+        }
+    }
+}
+
 
 void CameraCore::LateUpdate( const UpdateContext& inUpdateContext )
 {
@@ -60,9 +81,25 @@ void CameraCore::LateUpdate( const UpdateContext& inUpdateContext )
             // The viewport reapplies its override after camera updates. Cameras switched out of
             // Game View return to lit rendering (for example when used as a render texture).
             CamData->Shading = Moonlight::ViewShadingMode::Lit;
+            CamData->ViewOptions = Moonlight::ViewRenderOptions();
             CamData->Position = TransformComponent.GetWorldPosition();
             CamData->Front = TransformComponent.Front();
             CamData->Up = TransformComponent.Up();
+            if( CameraSway* sway = InEntity.TryGetComponent<CameraSway>() )
+            {
+                if( m_running && sway->IsEnabled() )
+                {
+                    sway->Advance( inUpdateContext.GetDeltaTime() );
+                    Quaternion rotation = TransformComponent.GetWorldRotation();
+                    sway->Apply( CamData->Position, rotation );
+                    CamData->Front = rotation * Vector3::Front;
+                    CamData->Up = rotation * Vector3::Up;
+                }
+                else
+                {
+                    sway->Reset();
+                }
+            }
             CamData->OutputSize = { Mathf::Abs( CameraComponent.OutputSize.x ), Mathf::Abs( CameraComponent.OutputSize.y ) };
 
             CamData->FOV = CameraComponent.GetFOV();

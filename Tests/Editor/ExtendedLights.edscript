@@ -1,0 +1,81 @@
+# Bar/box/rectangle editing, undo, serialization and play-mode restoration.
+# Havana --scene Assets/Scenes/Tests/LightingTest.lvl --editor-exec Engine/Tests/Editor/ExtendedLights.edscript
+wait 20
+create FluorescentTube
+add-component Light
+set Light.LightType "Bar"
+set Transform.Position [-2,2,1]
+set Light.Intensity 10
+set Light.Length 3
+set Light.Radius 0.018
+assert-field FluorescentTube | Light.LightType | "Bar"
+assert-field FluorescentTube | Light.Length | 3
+assert-field FluorescentTube | Light.Radius | 0.018
+undo
+assert-field FluorescentTube | Light.Radius | 0.025
+redo
+assert-field FluorescentTube | Light.Radius | 0.018
+
+create BoxEmitter
+add-component Light
+set Light.LightType "Box"
+set Transform.Position [2,2,1]
+set Transform.Rotation [0,0,25]
+set Light.Size [2,0.5,1]
+set Light.Intensity 10
+assert-field BoxEmitter | Light.LightType | "Box"
+assert-field BoxEmitter | Light.Size | [2,0.5,1]
+undo
+redo
+assert-field BoxEmitter | Light.Intensity | 10
+
+create RectanglePanel
+add-component Light
+set Light.LightType "Rectangle"
+set Transform.Position [0,3,1]
+set Transform.Rotation [90,0,0]
+set Light.RectangleWidth 2
+set Light.RectangleHeight 1
+set Light.Intensity 10
+assert-field RectanglePanel | Light.LightType | "Rectangle"
+assert-field RectanglePanel | Light.RectangleWidth | 2
+assert-field RectanglePanel | Light.RectangleHeight | 1
+select RectanglePanel
+set Light.RectangleWidth 3
+undo
+assert-field RectanglePanel | Light.RectangleWidth | 2
+redo
+assert-field RectanglePanel | Light.RectangleWidth | 3
+set Light.RectangleHeight 0.5
+undo
+assert-field RectanglePanel | Light.RectangleHeight | 1
+redo
+assert-field RectanglePanel | Light.RectangleHeight | 0.5
+
+save-as .tmp/ExtendedLights.lvl
+play
+wait 10
+assert-field FluorescentTube | Light.LightType | "Bar"
+assert-field BoxEmitter | Light.Size | [2,0.5,1]
+assert-field RectanglePanel | Light.LightType | "Rectangle"
+assert-field RectanglePanel | Light.RectangleWidth | 3
+assert-field RectanglePanel | Light.RectangleHeight | 0.5
+stop
+wait 5
+assert-field FluorescentTube | Light.Length | 3
+assert-field FluorescentTube | Light.Radius | 0.018
+assert-field BoxEmitter | Light.LightType | "Box"
+assert-field BoxEmitter | Light.Size | [2,0.5,1]
+assert-field RectanglePanel | Light.LightType | "Rectangle"
+assert-field RectanglePanel | Light.RectangleWidth | 3
+assert-field RectanglePanel | Light.RectangleHeight | 0.5
+load .tmp/ExtendedLights.lvl
+wait 5
+assert-field RectanglePanel | Light.LightType | "Rectangle"
+assert-field RectanglePanel | Light.RectangleWidth | 3
+assert-field RectanglePanel | Light.RectangleHeight | 0.5
+select RectanglePanel
+action View.FrameSelected
+wait 20
+screenshot .tmp/ExtendedLights-editor.png
+wait 5

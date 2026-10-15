@@ -800,6 +800,18 @@ void SceneHierarchyWidget::DrawCreateTemplates(Transform* parent)
 		{
 			create("Spot Light", json::array({ json{ { "Type", "Transform" }, { "Rotation", { 90.0, 0.0, 0.0 } } }, json{ { "Type", "Light" }, { "LightType", "Spot" }, { "Intensity", 20.0 }, { "Range", 15.0 } } }));
 		}
+		if (ImGui::MenuItem("Bar Light"))
+		{
+			create("Bar Light", json::array({ json{ { "Type", "Transform" } }, json{ { "Type", "Light" }, { "LightType", "Bar" }, { "Intensity", 10.0 }, { "Range", 10.0 }, { "Length", 1.2 }, { "Radius", 0.025 } } }));
+		}
+		if (ImGui::MenuItem("Box Light"))
+		{
+			create("Box Light", json::array({ json{ { "Type", "Transform" } }, json{ { "Type", "Light" }, { "LightType", "Box" }, { "Intensity", 10.0 }, { "Range", 10.0 }, { "Size", { 1.0, 0.2, 0.2 } } } }));
+		}
+		if (ImGui::MenuItem("Rectangle Light"))
+		{
+			create("Rectangle Light", json::array({ json{ { "Type", "Transform" }, { "Rotation", { 90.0, 0.0, 0.0 } } }, json{ { "Type", "Light" }, { "LightType", "Rectangle" }, { "Intensity", 10.0 }, { "Range", 10.0 }, { "RectangleWidth", 2.0 }, { "RectangleHeight", 1.0 } } }));
+		}
 		ImGui::EndMenu();
 	}
 	if (ImGui::BeginMenu("Effects"))

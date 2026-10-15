@@ -110,11 +110,10 @@ namespace Moonlight
         SourceDesc source;
         if( InCamera.ClearType == ClearColorType::Procedural && InSky )
         {
-            // The sky changes with the time of day; refresh when the sun moves about half a degree.
+            // The sky changes with the time of day and the weather; DynamicSky says when it has changed
+            // enough to recapture (the sun or moon moving about half a degree, the clouds drifting).
             source.Type = ProceduralSource;
-            const bx::Vec3& sun = InSky->m_sun.m_sunDir;
-            source.Key = Mix( Mix( Mix( 0x5ca1ab1eULL, Quantize( sun.x, 120.f ) ), Quantize( sun.y, 120.f ) ), Quantize( sun.z, 120.f ) );
-            source.Key = Mix( Mix( source.Key, Quantize( InSky->m_turbidity, 100.f ) ), Quantize( InSky->m_time, 20.f ) );
+            source.Key = InSky->GetEnvironmentKey();
             return source;
         }
         if( InCamera.ClearType == ClearColorType::Skybox && InCamera.Skybox && InCamera.Skybox->SkyMaterial )
@@ -353,7 +352,9 @@ namespace Moonlight
             bgfx::setUniform( u_envColor, InSource.Color );
             if( InSource.Type == ProceduralSource && InSky )
             {
-                InSky->SetUniforms();
+                // The sky's own capture program: the atmosphere and clouds without the sun's disc.
+                Submit( view, InSky->BindCapture() );
+                continue;
             }
             if( InSource.Type == PanoramaSource )
             {

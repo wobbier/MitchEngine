@@ -21,8 +21,19 @@ ME_REFLECT_BEGIN( Moonlight::ProceduralSkySettings )
     ME_FIELD( Time ).Display( "Time of Day" ).Range( 0.f, 24.f );
     ME_FIELD( TimeScale ).Display( "Time Scale" ).Range( 0.f, 1.f );
     ME_FIELD( Latitude ).Range( -90.f, 90.f );
-    ME_FIELD( Turbidity ).Range( 1.9f, 10.f );
+    ME_FIELD( Turbidity ).Range( 1.f, 10.f );
     ME_FIELD( Month ).Range( 0.f, 11.f );
+    ME_FIELD( MoonPhase ).Display( "Moon Phase" ).Range( 0.f, 1.f );
+    ME_FIELD( SunSize ).Display( "Sun Size" ).Range( 0.1f, 10.f );
+    ME_FIELD( MoonSize ).Display( "Moon Size" ).Range( 0.1f, 10.f );
+    ME_FIELD( MoonBrightness ).Display( "Moon Brightness" ).Range( 0.f, 10.f );
+    ME_FIELD( StarBrightness ).Display( "Star Brightness" ).Range( 0.f, 10.f );
+    ME_FIELD( CloudCoverage ).Display( "Cloud Coverage" ).Range( 0.f, 1.f );
+    ME_FIELD( CloudDensity ).Display( "Cloud Density" ).Range( 0.f, 4.f );
+    ME_FIELD( CloudAltitude ).Display( "Cloud Altitude (m)" ).Range( 100.f, 10000.f );
+    ME_FIELD( CloudThickness ).Display( "Cloud Thickness (m)" ).Range( 100.f, 8000.f );
+    ME_FIELD( WindSpeed ).Display( "Wind Speed (m/s)" ).Range( 0.f, 100.f );
+    ME_FIELD( WindDirection ).Display( "Wind Direction" ).Range( 0.f, 360.f );
 ME_REFLECT_END()
 
 ME_REFLECT_BEGIN( Camera )
@@ -79,12 +90,20 @@ Moonlight::ProceduralSkySettings Camera::GetSkySettings( float deltaTime )
     {
         m_skyStartTime = m_skyTime = ProceduralSky.Time;
     }
+    if( m_moonStartPhase != ProceduralSky.MoonPhase )
+    {
+        m_moonStartPhase = m_moonPhase = ProceduralSky.MoonPhase;
+    }
     if( ClearType == Moonlight::ClearColorType::Procedural && ProceduralSky.TimeScale > 0.f && deltaTime > 0.f )
     {
-        m_skyTime = std::fmod( m_skyTime + ProceduralSky.TimeScale * deltaTime, 24.f );
+        const float hours = ProceduralSky.TimeScale * deltaTime;
+        m_skyTime = std::fmod( m_skyTime + hours, 24.f );
+        // A lunar month is 29.53 days: the moon rises about 50 minutes later each day.
+        m_moonPhase = std::fmod( m_moonPhase + hours / ( 24.f * 29.53f ), 1.f );
     }
     Moonlight::ProceduralSkySettings settings = ProceduralSky;
     settings.Time = m_skyTime;
+    settings.MoonPhase = m_moonPhase;
     return settings;
 }
 
@@ -203,6 +222,7 @@ void Camera::OnDeserialize( const json& inJson )
     Reflection::FromJson( StaticType(), this, inJson );
     OnPropertyChanged( "" );
     m_skyStartTime = m_skyTime = ProceduralSky.Time;
+    m_moonStartPhase = m_moonPhase = ProceduralSky.MoonPhase;
     if( inJson.contains( "Skybox" ) && inJson["Skybox"].is_string() )
     {
         Skybox = new Moonlight::SkyBox( inJson["Skybox"].get<std::string>() );
@@ -235,6 +255,18 @@ namespace
         {
             ImGui::SetTooltip( "%s", text );
         }
+    }
+
+    const char* MoonPhaseFormat( float phase )
+    {
+        if( phase < 0.03f || phase >= 0.97f ) return "%.2f  New Moon";
+        if( phase < 0.22f ) return "%.2f  Waxing Crescent";
+        if( phase < 0.28f ) return "%.2f  First Quarter";
+        if( phase < 0.47f ) return "%.2f  Waxing Gibbous";
+        if( phase < 0.53f ) return "%.2f  Full Moon";
+        if( phase < 0.72f ) return "%.2f  Waning Gibbous";
+        if( phase < 0.78f ) return "%.2f  Last Quarter";
+        return "%.2f  Waning Crescent";
     }
 }
 
@@ -328,8 +360,45 @@ void Camera::OnEditorInspect()
         changed |= ImGui::Combo( "##SkyMonth", &ProceduralSky.Month, months, 12 );
         CameraTooltip( "Season used to calculate the sun's orbit." );
         HavanaUtils::Label( "Turbidity" );
-        changed |= ImGui::DragFloat( "##SkyTurbidity", &ProceduralSky.Turbidity, 0.01f, 1.9f, 10.f, "%.2f", ImGuiSliderFlags_AlwaysClamp );
-        CameraTooltip( "Atmospheric haze. Lower values give a clear sky; higher values scatter more sunlight." );
+        changed |= ImGui::DragFloat( "##SkyTurbidity", &ProceduralSky.Turbidity, 0.01f, 1.f, 10.f, "%.2f", ImGuiSliderFlags_AlwaysClamp );
+        CameraTooltip( "Haze (aerosols) in the air. 1 is perfectly clean air, 2 a clear day, 4 and up hazy." );
+
+        ImGui::SeparatorText( "Sun, Moon & Stars" );
+        HavanaUtils::Label( "Moon Phase" );
+        changed |= ImGui::SliderFloat( "##SkyMoonPhase", &ProceduralSky.MoonPhase, 0.f, 1.f, MoonPhaseFormat( ProceduralSky.MoonPhase ), ImGuiSliderFlags_AlwaysClamp );
+        CameraTooltip( "0 new moon, 0.25 first quarter, 0.5 full moon, 0.75 last quarter. The moon's position in the sky follows from it, and it advances with the time scale." );
+        HavanaUtils::Label( "Sun Size" );
+        changed |= ImGui::DragFloat( "##SkySunSize", &ProceduralSky.SunSize, 0.01f, 0.1f, 10.f, "%.2fx", ImGuiSliderFlags_AlwaysClamp );
+        CameraTooltip( "Angular size of the sun's disc; 1 is the real sun." );
+        HavanaUtils::Label( "Moon Size" );
+        changed |= ImGui::DragFloat( "##SkyMoonSize", &ProceduralSky.MoonSize, 0.01f, 0.1f, 10.f, "%.2fx", ImGuiSliderFlags_AlwaysClamp );
+        CameraTooltip( "Angular size of the moon's disc; 1 is the real moon." );
+        HavanaUtils::Label( "Moon Brightness" );
+        changed |= ImGui::DragFloat( "##SkyMoonBrightness", &ProceduralSky.MoonBrightness, 0.01f, 0.f, 10.f, "%.2f", ImGuiSliderFlags_AlwaysClamp );
+        CameraTooltip( "Moonlight on the scene and in the night sky." );
+        HavanaUtils::Label( "Star Brightness" );
+        changed |= ImGui::DragFloat( "##SkyStarBrightness", &ProceduralSky.StarBrightness, 0.01f, 0.f, 10.f, "%.2f", ImGuiSliderFlags_AlwaysClamp );
+        CameraTooltip( "Stars and the Milky Way. They fade as the sky brightens." );
+
+        ImGui::SeparatorText( "Clouds" );
+        HavanaUtils::Label( "Coverage" );
+        changed |= ImGui::SliderFloat( "##SkyCloudCoverage", &ProceduralSky.CloudCoverage, 0.f, 1.f, "%.2f", ImGuiSliderFlags_AlwaysClamp );
+        CameraTooltip( "0 clear sky, 0.3 scattered clouds, 0.6 broken cloud, 1 overcast." );
+        HavanaUtils::Label( "Density" );
+        changed |= ImGui::DragFloat( "##SkyCloudDensity", &ProceduralSky.CloudDensity, 0.01f, 0.f, 4.f, "%.2f", ImGuiSliderFlags_AlwaysClamp );
+        CameraTooltip( "How thick the clouds are: low values give wispy, translucent clouds." );
+        HavanaUtils::Label( "Altitude" );
+        changed |= ImGui::DragFloat( "##SkyCloudAltitude", &ProceduralSky.CloudAltitude, 10.f, 100.f, 10000.f, "%.0f m", ImGuiSliderFlags_AlwaysClamp );
+        CameraTooltip( "Height of the cloud base above the ground (world Y = 0)." );
+        HavanaUtils::Label( "Thickness" );
+        changed |= ImGui::DragFloat( "##SkyCloudThickness", &ProceduralSky.CloudThickness, 10.f, 100.f, 8000.f, "%.0f m", ImGuiSliderFlags_AlwaysClamp );
+        CameraTooltip( "Depth of the cloud layer: the tallest clouds reach its top." );
+        HavanaUtils::Label( "Wind Speed" );
+        changed |= ImGui::DragFloat( "##SkyWindSpeed", &ProceduralSky.WindSpeed, 0.1f, 0.f, 100.f, "%.1f m/s", ImGuiSliderFlags_AlwaysClamp );
+        CameraTooltip( "How fast the clouds drift." );
+        HavanaUtils::Label( "Wind Direction" );
+        changed |= ImGui::SliderFloat( "##SkyWindDirection", &ProceduralSky.WindDirection, 0.f, 360.f, "%.0f deg", ImGuiSliderFlags_AlwaysClamp );
+        CameraTooltip( "Where the wind blows towards, clockwise from north (+Z): 90 is east (+X)." );
         if( changed ) OnPropertyChanged( "ProceduralSky" );
     }
 }

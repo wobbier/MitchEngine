@@ -5,6 +5,7 @@
 #include "Device/IDevice.h"
 #include "Graphics/ModelResource.h"
 #include "Jobs/JobSystem.h"
+#include <unordered_map>
 
 class Mesh;
 
@@ -43,6 +44,8 @@ public:
 #endif
 
 private:
+    std::unordered_map<uint64_t, std::vector<unsigned int>> m_compactCommands;
+    std::unordered_map<uint64_t, unsigned int> m_meshCommands;
     bool EnableDebugDraw = false;
     // The world is playing (editor: levels of detail then follow the game camera).
     bool m_playing = false;

@@ -3,10 +3,17 @@
 Skeletal animation runs in three stages:
 
 - **Import:** `ModelResource` turns Assimp animations into `AnimationClip`s, and turns skin weights into a second vertex stream.
-- **Playback:** the engine-owned `AnimationCore` plays `Animator` components. It writes poses straight onto the model's **node entities**, which `Model::Init` creates for every node, bones included.
-- **Skinning:** `RenderCore` builds a bone palette per skinned `Mesh` from those entities, and the renderer skins on the GPU in the main, shadow and picking passes.
+- **Playback:** the engine-owned `AnimationCore` plays `Animator` components. It writes poses to the compact Model's private node transforms, or to node entities in legacy expanded imports.
+- **Skinning:** `RenderCore` builds a bone palette per skinned render part from the evaluated nodes, and the renderer skins on the GPU in the main, shadow and picking passes.
 
-Because bones are ordinary entities, anything parented to a bone (a weapon, a hat, a particle emitter) follows the animation without extra setup. The editor's play snapshot restores the authored pose on Stop.
+Expose a source node from the Model inspector to create an ordinary attachment entity. Its children
+(a camera, weapon, hat or emitter) follow the evaluated pose, including IK, before late-update
+consumers read it. Renaming that entity does not change its animation binding. Expanded imports
+still support direct bone parenting. The editor's play snapshot restores the authored pose on Stop.
+
+Baked vertex animation moves vertices, not source-node transforms. Exposing a material group on
+the Sponza knight therefore does not create a moving head/hand socket. Such attachments require
+separately authored/baked transform tracks or a skeletal export.
 
 > Verified against engine commit 07617c5f, 2026-10-09 (overhaul Wave 4); layers, 2D blends and root motion against b0f082f8, 2026-10-10; additive layers and editor previews against 2d07489b, 2026-10-10.
 
@@ -80,7 +87,7 @@ control curves and no exported skin clusters/weights.
    2. the clips of the model at `ClipSource`, which lets several characters share one rig's clips;
    3. the clips of the `Model` on the same entity.
 2. **Build the states.** If `States` is empty, every clip becomes a state of the same name.
-3. **Bind channels to nodes.** Each channel's `NodeName` is matched against the Animator entity and its descendants. A name found more than once binds to its first match, with ancestors before descendants. Each binding remembers the node's local position, rotation and scale as its bind pose.
+3. **Bind channels to nodes.** For compact Models, each channel's `NodeName` first matches the private source-node tree. For expanded imports it matches the Animator entity and its descendants. A name found more than once binds to its first match, with ancestors before descendants. Each binding remembers the node's local position, rotation and scale as its bind pose.
 4. **Layers.** The base layer drives every binding. Each `AnimatorLayer` gets a bone mask: a binding is in it when its node, or any ancestor up to the Animator, is named in `Mask`. An empty mask means every binding.
 5. **Root.** The root binding is the `RootBone` binding, or the animated node closest to the Animator. World up is stored in its parent's space, which is what "horizontal" means for root motion.
 6. **Start playing.** With `PlayOnStart`, `DefaultState` starts on the base layer (the first base-layer state when empty), and every layer with a `DefaultState` starts it.
@@ -106,7 +113,7 @@ control curves and no exported skin clusters/weights.
      - **Override** layers replace the pose (blended by weight).
      - **Additive** layers add their motion. The layer's state is also sampled at its first frame (time 0, same blend weights), its *reference*. The difference between the pose and the reference is added on top: the position offset, the rotation `inverse(reference) × pose` applied in the bone's frame (slerped from identity by weight), and the scale ratio. Cross-fades blend the two states' differences. So a breathing or flinch clip authored on any pose adds just its motion to whatever plays below.
    - **Root motion** (base layer). The root binding's travel since last frame is summed over the weighted clips (and cross-faded), handling loop wraps, and its vertical part dropped. So is its **turn**: the change in its heading about up, from a swing-twist decomposition of each clip's rotation change. `GetRootMotion()` reports the travel in world space, and `GetRootTurn()` the turn in degrees about world up.
-3. **Write** (serial): `SetPosition` / `SetRotation` / `SetScale` on each node's `Transform`.
+3. **Write** (serial): `SetPosition` / `SetRotation` / `SetScale` on each private or entity node's `Transform`. Exposed attachment entities are synchronized from the resulting model-space pose.
 4. **Root motion** (with `ApplyRootMotion`): the root bone is held above the entity horizontally (vertical motion stays in the bone), and the entity moves by the travel instead: through `CharacterController::Move` when it has one, so it still collides, or by moving its Transform. With `RootRotation` (on by default) the root also keeps its bind heading (tilt and roll stay in the bone), and the entity turns by the turn about world up.
 
 5. **Inverse kinematics** (`AnimationCore::SolveIK`, serial, after every pose is written): each active `TwoBoneIK`, then each `LookAtIK`, in the world. They work on any bones, animated or not, so procedural rigs work too. The late update then sees the solved pose (`Docs/Architecture.md`).
@@ -180,7 +187,7 @@ Bone indices are stored as normalized `Uint8`. `skinMatrix` multiplies them by 2
 - **Locomotion:** a 2D blend state over `MoveX` / `MoveY` parameters (idle at 0,0, walks and runs around it), an "UpperBody" layer masked to the spine for aiming or waving, an additive "Breathing" layer, and `ApplyRootMotion` with a `CharacterController` so the feet don't slide.
 - **Drive an Animator from gameplay:** call `SetFloat` / `SetBool` / `SetTrigger` in `OnUpdate`, and `Play("State", fade)` for direct control. Listen for `AnimationEvent` (an `EventReceiver` registered for `AnimationEvent::GetEventId()`) for footsteps, hit frames and similar.
 - **Procedural clips:** build `Moonlight::AnimationClip`s in code and pass them with `UseClips`. The unit tests do exactly this.
-- **Attach props:** parent the prop entity to the bone entity (found by name under the model). It follows the pose with no further setup.
+- **Attach props:** expose the source bone in the Model inspector, then parent the prop to the resulting entity. In expanded imports, parent directly to the bone entity.
 - **A new skinned material:** override `GetSkinnedProgram()`. Pair a vertex shader that includes `Skinning.sh` and declares `a_indices` / `a_weight` in its `.var` with the material's fragment shader.
 
 ## Caveats & Fragility
@@ -189,7 +196,7 @@ Bone indices are stored as normalized `Uint8`. `skinMatrix` multiplies them by 2
 - **Root motion comes from the base layer**, as horizontal travel plus the turn about up. Pitch and roll stay in the bone, and the travel isn't re-oriented by the turn within a frame.
 - **2D blends use one family.** Freeform cartesian only (no directional or polar variants). Clips are phase-matched to the first clip's length, so clips of very different lengths drift.
 - **Previews show one state.** An edit-mode preview plays a single state, without transitions, other layers or parameters changing. Posing bones by hand in edit mode (without a preview) is saved with the scene.
-- **Name-based binding.** Clips and skins find nodes by name. Two descendants with the same name bind to the first one found, and renamed bone entities stop animating or skinning.
+- **Name-based clip binding.** Clips and skins find source nodes by name. Duplicate names bind to the first match. Compact attachments use escaped source paths and survive entity renaming; renaming bones in an expanded hierarchy still breaks name-based binding.
 - **Linear key interpolation only.** FBX cubic tangents are lost on import. Keys are found by linear scan, so very long clips cost more per sample.
 - **Model units default to metres.** Declared source units (e.g. centimetres in Synty FBX) are converted while cooking vertices, node translations, bone offsets and animation positions together. Files without unit metadata are assumed to use metres. `ImportScale` is an additional multiplier; an explicit `ConvertUnits: false` opts out for incorrect source metadata. Old sidecars without `ConvertUnits` are recooked once under the metre default.
 - **Linux Assimp importers:** the prebuilt Linux Assimp library includes only the FBX, OBJ and Assbin importers. glTF / GLB models don't load there.

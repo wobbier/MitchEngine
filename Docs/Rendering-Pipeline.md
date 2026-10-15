@@ -47,6 +47,9 @@ Backend selection: Vulkan is forced on Linux and D3D11 on UWP; other platforms t
 | `Modules/Moonlight/Source/Lighting/ClusterBuilder.cpp` | CPU light-to-froxel assignment for clustered forward |
 | `Modules/Moonlight/Source/Lighting/ShadowCascades.cpp` | Cascade splits and stable, texel-snapped fitting |
 | `Modules/Moonlight/Source/Lighting/EnvironmentLighting.cpp` | IBL probes: capture, prefilter, irradiance, BRDF LUT |
+| `Modules/Moonlight/Source/Graphics/DynamicSky.cpp` | Procedural sky: atmosphere tables, sun/moon/star placement, cloud noise and passes, the sky's scene light |
+| `Assets/Shaders/Sky/Atmosphere.sh`, `Clouds.sh` | Atmosphere media and table lookups; cloud density, lighting and raymarch |
+| `Assets/Shaders/Sky/ProceduralSky.frag`, `Clouds.frag`, `SkyViewLut.frag`, `SkyCapture.frag` | The sky backdrop (stars, Milky Way, moon, sun), the half-resolution cloud pass, the per-camera sky table, the probe capture |
 | `Modules/Moonlight/Source/RenderPasses/PostProcess.cpp` | SSAO, fog (`RenderFog`, `FogUniforms`), temporal AA (`RenderTemporalAA`, `TemporalJitter`), bloom, eye adaptation, tonemap + grading, FXAA |
 | `Modules/Moonlight/Source/RenderPasses/PickingPass.cpp` | Editor entity-ID pass (see `Docs/Editor-Havana.md`) |
 | `Modules/Moonlight/Source/Debug/DebugDraw.h` | Immediate-mode debug line API |
@@ -122,13 +125,13 @@ bgfx runs views in ascending ID order, so producers must have lower IDs than the
    - The cluster textures.
    - `ParticleBuffer`: HDR colour *without* depth.
 2. **Lighting setup**:
-   - `PrepareCameraLighting` applies the camera's procedural sky settings, updates the fallback sun, and builds the clusters and ambient fallback.
+   - `PrepareCameraLighting` applies the camera's procedural sky settings (`DynamicSky::ApplySettings`), renders the sky's tables and clouds for a procedural background (`DynamicSky::Prepare`), sets the sky's sun or moon as the light when the scene has no directional light, and builds the clusters and ambient fallback.
    - `EnvironmentLighting::Prepare` picks or refreshes the IBL probe.
    - `RenderSunShadows` renders the cascades.
 3. **Opaque view** on `SceneBuffer`:
-   - Clear to the linearised clear colour.
-   - Procedural sky (`DynamicSky`). A textured skybox gets a preceding view on the same HDR target: its mesh bounds are normalized to a unit cube, with a rotation-only view and fixed clipping. Source units, scene clip distances and orthographic zoom cannot clip the background.
+   - Clear to the linearised clear colour. A textured skybox gets a preceding view on the same HDR target: its mesh bounds are normalized to a unit cube, with a rotation-only view and fixed clipping. Source units, scene clip distances and orthographic zoom cannot clip the background.
    - Opaque meshes: instanced batches keyed `(vertexBuffer, indexBuffer, BatchKey)` plus singles.
+   - Procedural sky (`DynamicSky::Draw`), last: a far-plane triangle with `DEPTH_TEST_LEQUAL`, so it only shades pixels the scene left empty (see Procedural sky below).
 4. **SSAO** multiplies the opaque HDR colour (before transparents).
 5. **Fog** covers the opaque HDR colour (see Fog below). From here on, forward shaders fog themselves (`u_fogForward`).
 6. **Transparent view**: meshes sorted back to front, depth-write off; then legacy gizmo callbacks and the Debug Draw v2 lines.
@@ -163,26 +166,40 @@ transform, without fog, exposure, grading, bloom, SSAO or vignette. The renderer
 camera's post settings after rendering each view. These inspection modes skip sun shadows,
 environment probe preparation, decals and particles, and set `u_viewShading` per mesh draw;
 Standard.frag shares the override across static, instanced, skinned and posed meshes while
-retaining material alpha. Shading choices are per-user viewport preferences, not scene data.
+retaining material alpha. Shading choices are per-user viewport preferences, not scene data. The additional
+material diagnostics (metallic, roughness, occlusion, emissive, UVs, vertex normals, linear depth)
+use the same path. Lighting Only retains scene lighting and post-processing on a neutral material.
+`CameraData::ViewOptions` carries per-viewport visibility, effects, culling, exposure and depth
+range overrides. Wireframe lazily creates line-list index buffers per mesh / LOD in MeshData;
+vertices, skinning and animation remain shared, and the buffers are destroyed with the mesh.
+Secondary cameras reset to the default options when they leave Game View.
 
 ### Lights and clustered forward
 
-`Light` components (Directional / Point / Spot) become `LightCommand`s every frame. Colour is linearised and multiplied by intensity; direction is the entity's forward axis.
+`Light` components (Directional / Point / Spot / Bar / Box / Rectangle) become `LightCommand`s every frame. Colour is linearised and multiplied by intensity; direction is the entity's forward axis.
+
+Create them from the hierarchy's **Light → Bar Light / Box Light / Rectangle Light** menu, or change an existing Light's **Type**. A **Bar** is a continuous capsule along local X: **Bar Length** sets the segment length (default 1.2 m), and **Bar Radius** sets the tube radius (default 0.025 m). Centre it on a fluorescent tube and rotate its X axis along the tube. Rounded ends extend by the radius. A **Box** emits in every direction from a cuboid controlled by **Box Size**, its full local X/Y/Z dimensions. A **Rectangle** emits from a flat local XY face into its forward (+Z) hemisphere, with cosine angular falloff and no light behind the face. **Rectangle Width** and **Rectangle Height** set independent dimensions along local X/Y (default 2 m × 1 m); the creation preset points downwards. All follow the entity and parent rotation/scale; a bar uses the larger perpendicular scale for its circular radius, and X/Y scale stretches the corresponding rectangle dimensions. Their **Range** is the fade distance from the emitter surface, independent of transform scale. Gizmos show the emitter and, when selected, its fade volume (an enclosing box for Box/Rectangle). The rectangle's arrow shows its emitting side.
+
+Bar/box/rectangle shading uses the closest point on the source for a continuous, inexpensive approximation, with the same surface-distance and angular falloff in materials, lit particles and volumetric fog. These are unshadowed extended sources, without physical area-light integration or soft shadows. They illuminate geometry but do not draw a visible fixture; use an emissive mesh for the tube or panel itself. Under a rotated, nonuniformly scaled parent, the source uses an orthonormal orientation and approximate world dimensions rather than a sheared emitter.
 
 `PrepareFrameLighting` handles the lights frame-wide:
 
-- **Directional lights**: up to 4, uploaded as uniforms. The first shadow caster takes slot 0 and becomes "the sun". With no directional light at all, `DynamicSky`'s sun lights and shadows the scene.
-- **Point and spot lights**: up to 256. Each is packed into **5 RGBA32F texels** of the light-data texture:
+- **Directional lights**: up to 4, uploaded as uniforms. The first shadow caster takes slot 0 and becomes "the sun". With no directional light at all, the procedural sky's sun (by day) or moon (by night) lights and shadows the scene, dimmed while clouds cover it.
+- **Local lights (Point / Spot / Bar / Box / Rectangle)**: up to 256. Each is packed into **8 RGBA32F texels** of the 2048-wide light-data texture:
   1. Position and range.
-  2. Colour and type.
+  2. Colour and type (1 point, 2 spot, 3 bar, 4 box, 5 rectangle).
   3. Direction and cos(outer angle).
-  4. cos(inner angle).
+  4. cos(inner angle) and bar radius.
   5. Shadow slot (spot tile, or point light 0-1), texel scale and biases.
+  6. World X axis and half length/width.
+  7. World Y axis and half height.
+  8. World Z axis and half depth.
 
-Per camera, `ClusterBuilder` bins point and spot lights into a **16×9×24 froxel grid**:
+Per camera, `ClusterBuilder` bins local lights into a **16×9×24 froxel grid**:
 
 - Screen tiles × exponential depth slices.
 - Each light is tested as a sphere: the slice range comes from its view depth, and the tile rectangle from the projected corners of its view-space box (full screen if it crosses the near plane).
+- Bar/box/rectangle bounds include the emitter dimensions plus Range, so their ends remain lit when the centre is outside the view.
 - The grid (offset, count) and the flattened index list go up as float textures (144×24 RGBA32F and 1024×128 R32F), so no compute shaders are needed.
 - Limits: 64 lights per cluster and 131072 indices.
 
@@ -212,7 +229,7 @@ Shading (`Lighting.sh`) is GGX distribution, height-correlated Smith visibility,
 
 `EnvironmentLighting` keeps up to 3 probes, one per distinct background source:
 
-- the procedural sky, captured per pixel from the Perez model without the sun disc and with a dim ground below the horizon;
+- the procedural sky, captured by its own program (`Sky/SkyCapture.frag`: the sky table and a cheaper cloud march, no sun or moon disc, no stars), the planet's lit ground below the horizon;
 - a skybox panorama, sampled as equirectangular;
 - the clear colour.
 
@@ -224,7 +241,7 @@ A probe holds:
 
 A shared split-sum BRDF table is rendered once.
 
-- **Refresh**: probes refresh only when their source key changes (the sky's sun position and time of day, the panorama texture, or the clear colour). A refresh is split over two frames, one step per frame engine-wide, after checking frame-buffer headroom.
+- **Refresh**: probes refresh only when their source key changes (`DynamicSky::GetEnvironmentKey`: the sun and moon moving about half a degree, the moonlight, the haze, the cloud settings and every 250 m the wind carries the clouds; the panorama texture; or the clear colour). A refresh is split over two frames, one step per frame engine-wide, after checking frame-buffer headroom.
 - **Face addressing**: faces are addressed through `gl_FragCoord`, which maps to the same face texel on every backend.
 - **Shading**:
   - Split-sum specular with Fdez-Agüera multiple-scattering compensation.
@@ -232,6 +249,24 @@ A shared split-sum BRDF table is rendered once.
   - Specular occlusion from material and SSAO occlusion.
   - Falls back to a hemisphere ambient until a probe is ready.
 - **Controls**: `BGFXRenderer::EnableEnvironmentLighting` / `EnvironmentIntensity` (RenderCore inspector).
+
+### Procedural sky
+
+`DynamicSky` draws the camera background **Procedural Sky** and, in scenes without a directional light, lights them. World directions: +Y up, +Z north, +X east. Everything is per camera (`ProceduralSkySettings` on the `Camera`), recomputed in `PrepareCameraLighting`.
+
+- **Atmosphere** (Hillaire 2020): Rayleigh and Mie scattering plus ozone absorption over a 6360 km planet, in kilometres.
+  - *Transmittance* (256×64) and *multiple scattering* (32×32, Hillaire's isotropic `1 / (1 - f)` approximation) tables are re-rendered only when the haze changes. `Turbidity` follows Linke: 1 is clean air, aerosol density `9 · (T - 1)`.
+  - The *sky-view* table (256×128 RGBA16F) is rendered per camera each frame: world azimuth (wrapping) by a zenith angle squeezed towards the horizon at the camera's altitude, single scattering of both the sun and the moon plus the multiple-scattering term, and the lit planet surface below the horizon.
+- **Sun, moon and stars**: the sun moves along the ecliptic for `Month`; `Time` is local solar time, which sets the sidereal time. The moon is `MoonPhase` of a turn ahead of the sun on the ecliptic, so its position, rising time and phase all follow (full = opposite the sun); its phase advances with `TimeScale`.
+  - The **moon** is a sphere lit by the actual sun direction (Lommel-Seeliger). Its near side carries the real maria layout, Tycho/Copernicus/Kepler rays and three octaves of analytic crater bowls and rims whose relief shows along the terminator, and earthshine shows on its night side. Celestial north is up on its disc.
+  - **Stars**: Pareto-distributed brightness in a cube-mapped cell grid in the equatorial frame (one candidate per cell, 3×3 neighbours), temperature-tinted, about a pixel wide, twinkling, and extinguished by the atmosphere. The **Milky Way** is a band about the real galactic plane, brightest towards the galactic centre, with dust lanes. Both drown as the sky brightens.
+- **Clouds** (Schneider 2015 noise, Hillaire 2016 integration, Wrenninge octaves): a shell from `CloudAltitude` to `+CloudThickness`.
+  - Noise is generated at start-up on worker threads (128³ Perlin-Worley shape, 32³ Worley detail, 256² coverage/type weather map, all equalized so a threshold `t` keeps `1 - t` of the volume) and uploaded when clouds are first needed. The join there keeps captures repeatable.
+  - Each camera marches 48 jittered samples (6 towards each light, sun and moon) at **half resolution** into `FrameBuffer::CloudHistory`, blended 10% per frame into last frame's result reprojected as if at infinity. The backdrop upsamples it bilinearly.
+  - Wind carries the weather map and shapes towards `WindDirection` at `WindSpeed`, and the shapes slowly evolve. Far clouds fade into the haze over ~50 km.
+- **The sky's scene light**: the sun or the moon, whichever is brighter after the atmosphere, faded by its lead at dusk so the hand-over never pops. The CPU marches the cloud density (the same noise, detail erosion averaged) from the camera towards it, so the whole scene dims while a cloud covers the sun. The hemisphere-ambient fallback is a skylight estimate.
+- **Art constants** (top of `DynamicSky.cpp`): sun illuminance 3.4 (about 3 on the ground at noon); `kSkyBrightness` and `kCloudBrightness` lift the scattered light, since a clean-air model and the octave approximation come out darker than real skies next to sunlit ground; `kTwilightLift` raises the setting sun's light up to 6× (an eye-adaptation stand-in, as the default exposure is fixed); full moonlight is 6% of the sun with a cool tint; night glow and the Milky Way sit just above the ACES toe (~0.0035).
+- **Orthographic cameras** see the sky as a 60° perspective tilted up 25°, so 2D scenes get a horizon near the bottom of the screen.
 
 ### Post-processing
 
@@ -348,7 +383,7 @@ Missing maps fall back to neutral 1×1 textures (white; flat normal). `BindLight
 ## How to Extend
 
 - **New pass that reads another pass's output**: allocate its view *after* the producer's (`m_views.Allocate`) and skip the pass when it returns `UINT16_MAX`.
-- **New per-light data**: extend `LightCommand`, pack it into the light-data texels (`PrepareFrameLighting`, 5 texels per light today; the texture is 2048 wide) and read it in `shadeLocalLight` (`Lighting.sh`).
+- **New per-light data**: extend `LightCommand`, pack it into the light-data texels (`PrepareFrameLighting`, 8 texels per light; the texture is 2048 wide) and read it in surface and volume lighting (`Lighting.sh`).
 - **New lit material**: include `Lighting.sh`, build a `Surface` and call `shadeLight` / `shadeClusteredLights` / `ambientLighting` like `Standard.frag`. See `Docs/Materials-and-Shaders.md`.
 
 ## Caveats & Fragility
@@ -358,7 +393,10 @@ Missing maps fall back to neutral 1×1 textures (white; flat normal). `BindLight
 - **Cluster capacity**: more than 64 lights in one froxel silently drops the extras; more than 256 point/spot lights per frame are ignored.
 - **Shadow budgets are fixed**: 4 spots, 2 point lights (12 extra shadow views a frame) and 1 directional light get shadows; further shadowed lights render unshadowed.
 - **One sun in post**: only directional light 0 is shadowed; additional directionals are unshadowed.
-- **Probe refresh hitch**: a sky probe refresh costs ~60 tiny passes over two frames. An animated time of day (`Camera::ProceduralSky.TimeScale > 0`) refreshes about every 3 in-game minutes.
+- **Probe refresh hitch**: a sky probe refresh costs ~60 tiny passes over two frames, and the capture marches the clouds for six 128² faces. An animated time of day (`Camera::ProceduralSky.TimeScale > 0`) refreshes about every 3 in-game minutes, drifting clouds every 250 m of wind.
+- **Cloud cost**: a half-resolution march of 48 samples, each sample inside a cloud adding 6 more towards each light; the most expensive pass of a cloudy frame. `CloudCoverage = 0` skips it. The history assumes the clouds are infinitely far, so a camera flying fast through them smears a little.
+- **Cloud shadows are global**: the sun dims for the whole scene when a cloud covers it as seen from the camera; there are no moving shadow patches on the ground yet.
+- **Sky noise start-up**: generating the cloud noise takes ~0.25 s on 32 threads in a `-O0` debug build (a worker thread, overlapped with loading).
 - **Fog is screen-space, not froxels**: volumetric lighting exists only in front of opaque surfaces. Transparents and particles get analytic fog (no shafts). Fog uses the final HDR temporal AA resolve when enabled, with no separate fog history. Without temporal AA the sample pattern stays fixed and only the depth-aware blur hides it; bright point sources and thin shafts can still need more steps. The march costs `VolumetricSteps` shadow taps plus cluster light loops per half-resolution pixel.
 - **Lit particles are per-pixel and isotropic**: no forward-scattering phase function, no self-shadowing within a plume, and each lit pixel walks its cluster's lights, which costs fill rate on big smoke.
 - **Skinned meshes aren't instanced**: each costs one draw per view (camera, cascade, spot light), and its palette is uploaded with every draw.

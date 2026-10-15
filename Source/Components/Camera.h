@@ -69,6 +69,8 @@ public:
 private:
     float m_skyTime = 15.f;
     float m_skyStartTime = 15.f;
+    float m_moonPhase = 0.4f;
+    float m_moonStartPhase = 0.4f;
     float m_FOV = 60.f;
     unsigned int m_id = 0;
     glm::vec4 ObliqueMatData;

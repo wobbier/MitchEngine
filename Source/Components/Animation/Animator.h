@@ -1,4 +1,6 @@
 #pragma once
+#include "Math/Matrix4.h"
+class Transform;
 #include "ECS/Component.h"
 #include "ECS/ComponentDetail.h"
 #include "ECS/EntityHandle.h"
@@ -180,6 +182,7 @@ public:
     std::vector<std::string> GetClipNames() const;
     // Plays these clips instead of a model's (procedural or code-built animation). Rebinds.
     void UseClips( SharedPtr<std::vector<Moonlight::AnimationClip>> InClips );
+    void InvalidateBindings() { Unbind(); }
 
     // Editor preview: in edit mode, poses the model with a state (empty = the default one), playing
     // or held at PreviewTime, without running the state machine, events or root motion. Stopping it,
@@ -207,6 +210,9 @@ private:
     struct Binding
     {
         EntityHandle Node;
+        int ModelNodeIndex = -1;  // compact model node; Node owns the model, not a bone entity
+        Transform* GetTransform() const;
+        Matrix4 GetParentWorld() const;
         Vector3 BindPosition;
         Quaternion BindRotation;
         Vector3 BindScale;

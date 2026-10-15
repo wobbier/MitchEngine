@@ -8,6 +8,7 @@
 #include "Components/Transform.h"
 #include "Components/Camera.h"
 #include "Graphics/DynamicSky.h"
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <functional>
@@ -556,21 +557,84 @@ TEST_CASE( "Camera: procedural sky settings survive scene snapshots and clamp in
     CHECK( restored.ProceduralSky.Latitude == doctest::Approx( 65.f ) );
     CHECK( restored.ProceduralSky.Month == 11 );
 
-    restored.Deserialize( json{ { "ProceduralSky", { { "Time", -4.f }, { "TimeScale", 8.f }, { "Latitude", 120.f }, { "Turbidity", -2.f }, { "Month", 20 } } } } );
+    restored.Deserialize( json{ { "ProceduralSky", { { "Time", -4.f }, { "TimeScale", 8.f }, { "Latitude", 120.f }, { "Turbidity", -2.f }, { "Month", 20 },
+        { "MoonPhase", -1.f }, { "CloudCoverage", 3.f }, { "CloudAltitude", 0.f }, { "WindDirection", 400.f } } } } );
     CHECK( restored.ProceduralSky.Time == doctest::Approx( 0.f ) );
     CHECK( restored.ProceduralSky.TimeScale == doctest::Approx( 1.f ) );
     CHECK( restored.ProceduralSky.Latitude == doctest::Approx( 90.f ) );
-    CHECK( restored.ProceduralSky.Turbidity == doctest::Approx( 1.9f ) );
+    CHECK( restored.ProceduralSky.Turbidity == doctest::Approx( 1.f ) );
     CHECK( restored.ProceduralSky.Month == 11 );
+    CHECK( restored.ProceduralSky.MoonPhase == doctest::Approx( 0.f ) );
+    CHECK( restored.ProceduralSky.CloudCoverage == doctest::Approx( 1.f ) );
+    CHECK( restored.ProceduralSky.CloudAltitude == doctest::Approx( 100.f ) );
+    CHECK( restored.ProceduralSky.WindDirection == doctest::Approx( 360.f ) );
 }
 
-TEST_CASE( "Procedural sky: luminance interpolation handles midnight and table boundaries" )
+TEST_CASE( "Procedural sky: the sun rises in the east, stands in the south at noon and sets in the west" )
 {
-    Moonlight::DynamicValueController luminance;
-    CHECK( luminance.GetValue( 0.f ).x == 0.f );
-    luminance.SetMap( { { 5.f, { 0.f, 0.f, 0.f } }, { 7.f, { 2.f, 4.f, 6.f } } } );
-    CHECK( luminance.GetValue( 0.f ).x == 0.f );
-    CHECK( luminance.GetValue( 5.f ).x == 0.f );
-    CHECK( luminance.GetValue( 6.f ).y == doctest::Approx( 2.f ) );
-    CHECK( luminance.GetValue( 24.f ).z == doctest::Approx( 6.f ) );
+    // 35 degrees north in June (+X east, +Y up, +Z north).
+    Moonlight::ProceduralSkySettings settings;
+    settings.Latitude = 35.f;
+    settings.Month = 5;
+    settings.Time = 12.f;
+    const bx::Vec3 noon = Moonlight::ComputeSkyCelestial( settings ).Sun;
+    CHECK( noon.y > 0.95f );    // ~78 degrees up
+    CHECK( noon.z < 0.f );      // towards the south
+    CHECK( std::abs( noon.x ) < 1e-3f );
+    settings.Time = 7.f;
+    const bx::Vec3 morning = Moonlight::ComputeSkyCelestial( settings ).Sun;
+    CHECK( morning.x > 0.5f );
+    CHECK( morning.y > 0.f );
+    settings.Time = 17.f;
+    const bx::Vec3 evening = Moonlight::ComputeSkyCelestial( settings ).Sun;
+    CHECK( evening.x == doctest::Approx( -morning.x ).epsilon( 1e-3 ) );
+    settings.Time = 0.f;
+    CHECK( Moonlight::ComputeSkyCelestial( settings ).Sun.y < -0.3f );
+
+    // South of the equator the noon sun is in the north.
+    settings.Latitude = -35.f;
+    settings.Time = 12.f;
+    CHECK( Moonlight::ComputeSkyCelestial( settings ).Sun.z > 0.f );
+}
+
+TEST_CASE( "Procedural sky: the moon's place and light follow its phase" )
+{
+    Moonlight::ProceduralSkySettings settings;
+    settings.Latitude = 35.f;
+    settings.Time = 0.f;
+    settings.MoonPhase = 0.5f;
+    const Moonlight::SkyCelestial full = Moonlight::ComputeSkyCelestial( settings );
+    CHECK( bx::dot( full.Sun, full.Moon ) < -0.99f );   // opposite the sun, up at midnight
+    CHECK( full.Moon.y > 0.f );
+    CHECK( full.MoonLitFraction == doctest::Approx( 1.f ).epsilon( 1e-3 ) );
+    CHECK( full.MoonBrightness == doctest::Approx( 1.f ).epsilon( 1e-3 ) );
+
+    settings.MoonPhase = 0.25f;   // first quarter: half lit, 90 degrees east of the sun
+    const Moonlight::SkyCelestial quarter = Moonlight::ComputeSkyCelestial( settings );
+    CHECK( std::abs( bx::dot( quarter.Sun, quarter.Moon ) ) < 0.02f );
+    CHECK( quarter.MoonLitFraction == doctest::Approx( 0.5f ).epsilon( 0.02 ) );
+    CHECK( quarter.MoonBrightness == doctest::Approx( 1.f / 3.14159265f ).epsilon( 0.02 ) );
+
+    settings.MoonPhase = 0.f;
+    CHECK( Moonlight::ComputeSkyCelestial( settings ).MoonBrightness < 1e-3f );
+    CHECK( bx::length( full.MoonUp ) == doctest::Approx( 1.f ) );
+    CHECK( std::abs( bx::dot( full.MoonUp, full.Moon ) ) < 1e-4f );
+}
+
+TEST_CASE( "Procedural sky: the atmosphere dims and reddens a low sun and the planet hides a set one" )
+{
+    const float sunRadius = 0.0047f;
+    const bx::Vec3 overhead = Moonlight::ComputeSkyTransmittance( 0.01f, 1.f, 8.f, sunRadius );
+    CHECK( overhead.y > 0.8f );
+    CHECK( overhead.y < 1.f );
+    CHECK( overhead.x > overhead.z );   // blue scatters most
+    const bx::Vec3 low = Moonlight::ComputeSkyTransmittance( 0.01f, 0.05f, 8.f, sunRadius );
+    CHECK( low.y < overhead.y * 0.5f );
+    CHECK( low.x > low.z * 4.f );
+    const bx::Vec3 set = Moonlight::ComputeSkyTransmittance( 0.01f, -0.05f, 8.f, sunRadius );
+    CHECK( set.x == 0.f );
+    // Up a mountain the light still reaches below the horizontal.
+    CHECK( Moonlight::ComputeSkyTransmittance( 3.f, -0.02f, 8.f, sunRadius ).x > 0.f );
+    // Haze dims the sun.
+    CHECK( Moonlight::ComputeSkyTransmittance( 0.01f, 1.f, 60.f, sunRadius ).y < overhead.y );
 }

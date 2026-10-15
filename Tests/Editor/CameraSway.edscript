@@ -1,0 +1,29 @@
+# Camera sway settings, undo, scene reload and Play/Stop preserve the camera's authored pose.
+# Havana --scene Assets/Scenes/Terem.lvl --editor-exec Engine/Tests/Editor/CameraSway.edscript
+wait 20
+select Camera
+assert-field Camera | CameraSway.Frequency | 0.18
+assert-field Camera | CameraSway.PositionAmplitude | [0.015,0.025,0.01]
+assert-field Camera | CameraSway.RotationAmplitude | [0.25,0.35,0.15]
+set CameraSway.Frequency 0.3
+undo
+assert-field Camera | CameraSway.Frequency | 0.18
+redo
+assert-field Camera | CameraSway.Frequency | 0.3
+set Transform.Position [1,2,3]
+set Transform.Rotation [10,30,5]
+save-as .tmp/CameraSway.lvl
+load .tmp/CameraSway.lvl
+wait 20
+assert-field Camera | CameraSway.Frequency | 0.3
+assert-field Camera | CameraSway.Handheld | 0.15
+play
+wait 60
+assert-playing 1
+assert-field Camera | Transform.Position | [1,2,3]
+assert-field Camera | CameraSway.Frequency | 0.3
+stop
+wait 5
+assert-playing 0
+assert-field Camera | Transform.Position | [1,2,3]
+assert-field Camera | CameraSway.Frequency | 0.3

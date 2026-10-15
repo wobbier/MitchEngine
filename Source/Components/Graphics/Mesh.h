@@ -9,6 +9,7 @@
 #include "Graphics/ShaderCommand.h"
 #include "Graphics/MaterialDetail.h"
 #include "Pointers.h"
+#include <limits>
 class MaterialTest
 {
 public:
@@ -20,6 +21,7 @@ class Mesh
 {
     friend class RenderCore;
     friend class EditorCore;
+    friend class Model;
 public:
     Mesh();
     Mesh( Moonlight::MeshType InType, Moonlight::Material* InMaterial );
@@ -50,7 +52,7 @@ public:
     virtual void OnSerialize( json& outJson ) final;
     virtual void OnDeserialize( const json& inJson ) final;
 private:
-    unsigned int Id = 0;
+    unsigned int Id = std::numeric_limits<unsigned int>::max();
     std::vector<EntityHandle> m_bones;
     bool m_bonesResolved = false;
     std::vector<glm::mat4> m_skinPalette;

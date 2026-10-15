@@ -62,6 +62,22 @@ namespace
             }
         }
     }
+
+    Transform* ResolveIKBone( Entity& InEntity, Model*& OutModel )
+    {
+        OutModel = nullptr;
+        if( ModelNode* node = InEntity.TryGetComponent<ModelNode>() )
+        {
+            Model* model = node->GetModel();
+            const int index = model ? model->FindNode( node->NodePath ) : -1;
+            if( model && model->IsCompact() && index >= 0 )
+            {
+                OutModel = model;
+                return model->GetNodeTransform( index );
+            }
+        }
+        return InEntity.TryGetComponent<Transform>();
+    }
 }
 
 
@@ -108,13 +124,14 @@ void AnimationCore::WriteBindPose( Animator& InAnimator )
 {
     for( const Animator::Binding& binding : InAnimator.m_bindings )
     {
-        if( Transform* transform = binding.Node ? binding.Node->TryGetComponent<Transform>() : nullptr )
+        if( Transform* transform = binding.GetTransform() )
         {
             transform->SetPosition( binding.BindPosition );
             transform->SetRotation( binding.BindRotation );
             transform->SetScale( binding.BindScale );
         }
     }
+    if( InAnimator.Parent ) Model::UpdateExposedNodes( *InAnimator.Parent.GetWorld() );
 }
 
 
@@ -155,6 +172,7 @@ void AnimationCore::StopAllPreviews()
 void AnimationCore::UpdatePreviews( float InDeltaSeconds )
 {
     OPTICK_EVENT( "AnimationCore::UpdatePreviews" );
+    Model::CaptureExposedEdits( GetWorld() );
     std::vector<Animator*> previewing;
     for( Entity& entity : GetEntities() )
     {
@@ -212,6 +230,7 @@ void AnimationCore::UpdatePreviews( float InDeltaSeconds )
         SamplePose( *animator );
         WritePose( *animator );   // root motion stays in place: nothing moves the entity
     }
+    Model::UpdateExposedNodes( GetWorld() );
 }
 
 
@@ -270,6 +289,8 @@ void AnimationCore::Bind( Entity& InEntity, Animator& InAnimator )
     Transform& root = InEntity.GetComponent<Transform>();
     nodes.emplace( root.GetName(), &root );
     CollectNodes( root, nodes );
+    Model* compact = InEntity.TryGetComponent<Model>();
+    if( compact && !compact->IsCompact() ) compact = nullptr;
     std::unordered_map<std::string, size_t> bindingByName;
     for( size_t clipIndex = 0; clipIndex < clips.size(); ++clipIndex )
     {
@@ -278,7 +299,8 @@ void AnimationCore::Bind( Entity& InEntity, Animator& InAnimator )
         {
             const std::string& name = clip.Channels[channelIndex].NodeName;
             auto node = nodes.find( name );
-            if( node == nodes.end() )
+            const int modelNode = compact ? compact->FindNode( name ) : -1;
+            if( node == nodes.end() && modelNode < 0 )
             {
                 continue;
             }
@@ -286,10 +308,12 @@ void AnimationCore::Bind( Entity& InEntity, Animator& InAnimator )
             if( existing == bindingByName.end() )
             {
                 Animator::Binding binding;
-                binding.Node = node->second->Parent;
-                binding.BindPosition = node->second->GetPosition();
-                binding.BindRotation = node->second->GetRotation();
-                binding.BindScale = node->second->GetScale();
+                binding.Node = modelNode >= 0 ? InEntity.GetHandle() : node->second->Parent;
+                binding.ModelNodeIndex = modelNode;
+                Transform* target = binding.GetTransform();
+                binding.BindPosition = target->GetPosition();
+                binding.BindRotation = target->GetRotation();
+                binding.BindScale = target->GetScale();
                 binding.Channels.assign( clips.size(), -1 );
                 existing = bindingByName.emplace( name, InAnimator.m_bindings.size() ).first;
                 InAnimator.m_bindings.push_back( std::move( binding ) );
@@ -320,7 +344,8 @@ void AnimationCore::Bind( Entity& InEntity, Animator& InAnimator )
         for( size_t i = 0; i < a.m_bindings.size(); ++i )
         {
             bool inMask = false;
-            for( Transform* node = a.m_bindings[i].Node ? &a.m_bindings[i].Node->GetComponent<Transform>() : nullptr; node && !inMask; node = node->GetParentTransform() )
+            if( a.m_bindings[i].ModelNodeIndex >= 0 ) inMask = std::find( settings.Mask.begin(), settings.Mask.end(), root.GetName() ) != settings.Mask.end();
+            for( Transform* node = a.m_bindings[i].GetTransform(); node && !inMask; node = node->GetParentTransform() )
             {
                 inMask = std::find( settings.Mask.begin(), settings.Mask.end(), node->GetName() ) != settings.Mask.end();
                 if( node == &root )
@@ -342,11 +367,11 @@ void AnimationCore::Bind( Entity& InEntity, Animator& InAnimator )
     int bestDepth = INT_MAX;
     for( size_t i = 0; i < a.m_bindings.size(); ++i )
     {
-        if( !a.m_bindings[i].Node )
+        if( !a.m_bindings[i].GetTransform() )
         {
             continue;
         }
-        Transform& node = a.m_bindings[i].Node->GetComponent<Transform>();
+        Transform& node = *a.m_bindings[i].GetTransform();
         if( !a.RootBone.empty() )
         {
             if( node.GetName() == a.RootBone )
@@ -369,13 +394,10 @@ void AnimationCore::Bind( Entity& InEntity, Animator& InAnimator )
     }
     if( a.m_rootBinding >= 0 )
     {
-        Transform* parent = a.m_bindings[a.m_rootBinding].Node->GetComponent<Transform>().GetParentTransform();
-        if( parent )
-        {
-            const glm::mat4 toLocal = glm::inverse( parent->GetLocalToWorldMatrix().GetInternalMatrix() );
-            const glm::vec3 up = glm::vec3( toLocal * glm::vec4( 0.f, 1.f, 0.f, 0.f ) );
-            a.m_rootUp = glm::length( up ) > 0.f ? Vector3( glm::normalize( up ) ) : Vector3( 0.f, 1.f, 0.f );
-        }
+        const Matrix4 parentWorld = a.m_bindings[a.m_rootBinding].GetParentWorld();
+        const glm::mat4 toLocal = glm::inverse( parentWorld.GetInternalMatrix() );
+        const glm::vec3 up = glm::vec3( toLocal * glm::vec4( 0.f, 1.f, 0.f, 0.f ) );
+        a.m_rootUp = glm::length( up ) > 0.f ? Vector3( glm::normalize( up ) ) : Vector3( 0.f, 1.f, 0.f );
     }
 
     if( a.PlayOnStart && !a.m_states.empty() )
@@ -971,11 +993,12 @@ void AnimationCore::WritePose( Animator& InAnimator )
     for( size_t i = 0; i < InAnimator.m_bindings.size(); ++i )
     {
         const Animator::Binding& binding = InAnimator.m_bindings[i];
-        if( !binding.Node )
+        Transform* target = binding.GetTransform();
+        if( !target )
         {
             continue;
         }
-        Transform& transform = binding.Node->GetComponent<Transform>();
+        Transform& transform = *target;
         const Animator::Pose& pose = InAnimator.m_pose[i];
         transform.SetPosition( pose.Position );
         transform.SetRotation( pose.Rotation );
@@ -987,6 +1010,7 @@ void AnimationCore::WritePose( Animator& InAnimator )
 void AnimationCore::Advance( float InDeltaSeconds )
 {
     OPTICK_EVENT( "AnimationCore::Advance" );
+    Model::CaptureExposedEdits( GetWorld() );
     std::vector<Animator*> active;
     for( Entity& entity : GetEntities() )
     {
@@ -1022,6 +1046,7 @@ void AnimationCore::Advance( float InDeltaSeconds )
         WritePose( *animator );
         ApplyRootMotion( *animator );
     }
+    Model::UpdateExposedNodes( GetWorld() );
     SolveIK( GetWorld() );
 }
 
@@ -1037,7 +1062,8 @@ void AnimationCore::SolveIK( World& InWorld )
         {
             return;
         }
-        Transform* tip = tipEntity->TryGetComponent<Transform>();
+        Model* compact = nullptr;
+        Transform* tip = ResolveIKBone( *tipEntity, compact );
         Transform* mid = tip ? tip->GetParentTransform() : nullptr;
         Transform* root = mid ? mid->GetParentTransform() : nullptr;
         Transform* target = targetEntity->TryGetComponent<Transform>();
@@ -1048,16 +1074,19 @@ void AnimationCore::SolveIK( World& InWorld )
             return;
         }
         const float weight = std::min( InIK.Weight, 1.f );
-        const IK::TwoBoneSolution solution = IK::SolveTwoBone( root->GetWorldPosition(), mid->GetWorldPosition(), tip->GetWorldPosition(), target->GetWorldPosition(), pole ? pole->GetWorldPosition() : Vector3(), pole != nullptr );
+        const Matrix4 toRig = compact ? compact->Parent->GetComponent<Transform>().GetWorldToLocalMatrix() : Matrix4();
+        const IK::TwoBoneSolution solution = IK::SolveTwoBone( root->GetWorldPosition(), mid->GetWorldPosition(), tip->GetWorldPosition(), toRig.TransformPoint( target->GetWorldPosition() ), pole ? toRig.TransformPoint( pole->GetWorldPosition() ) : Vector3(), pole != nullptr );
         InIK.m_reached = solution.Reached;
         root->SetWorldRotation( IK::Then( root->GetWorldRotation(), IK::Scale( solution.RootDelta, weight ) ) );
         mid->SetWorldRotation( IK::Then( mid->GetWorldRotation(), IK::Scale( solution.MidDelta, weight ) ) );
         if( InIK.MatchTargetRotation )
         {
-            tip->SetWorldRotation( Quaternion::Slerp( tip->GetWorldRotation(), target->GetWorldRotation(), weight ) );
+            const Quaternion targetRotation = compact ? compact->Parent->GetComponent<Transform>().GetWorldRotation().Inverse() * target->GetWorldRotation() : target->GetWorldRotation();
+            tip->SetWorldRotation( Quaternion::Slerp( tip->GetWorldRotation(), targetRotation, weight ) );
         }
     } );
 
+    Model::UpdateExposedNodes( InWorld );
     InWorld.Each<LookAtIK>( []( Entity& InEntity, LookAtIK& InIK ) {
         Entity* boneEntity = InIK.Bone.Get() ? InIK.Bone.Get() : &InEntity;
         Entity* targetEntity = InIK.Target.Get();
@@ -1065,7 +1094,8 @@ void AnimationCore::SolveIK( World& InWorld )
         {
             return;
         }
-        Transform* bone = boneEntity->TryGetComponent<Transform>();
+        Model* compact = nullptr;
+        Transform* bone = ResolveIKBone( *boneEntity, compact );
         Transform* target = targetEntity->TryGetComponent<Transform>();
         if( !bone || !target || InIK.AimAxis.LengthSquared() < 1e-8f )
         {
@@ -1083,11 +1113,12 @@ void AnimationCore::SolveIK( World& InWorld )
 
         const Vector3 axis = InIK.AimAxis.Normalized();
         const Vector3 animatedAim = IK::Rotate( bone->GetWorldRotation(), axis );
+        const Matrix4 toRig = compact ? compact->Parent->GetComponent<Transform>().GetWorldToLocalMatrix() : Matrix4();
         const float weight = std::min( InIK.Weight, 1.f );
         // Each bone takes its share of what's left: the last one finishes the turn exactly.
         for( int i = 0; i < count; ++i )
         {
-            const Vector3 toTarget = target->GetWorldPosition() - bone->GetWorldPosition();
+            const Vector3 toTarget = toRig.TransformPoint( target->GetWorldPosition() ) - bone->GetWorldPosition();
             if( toTarget.LengthSquared() < 1e-10f )
             {
                 return;
@@ -1099,6 +1130,7 @@ void AnimationCore::SolveIK( World& InWorld )
             chain[i]->SetWorldRotation( IK::Then( chain[i]->GetWorldRotation(), step ) );
         }
     } );
+    Model::UpdateExposedNodes( InWorld );
 }
 
 
@@ -1111,23 +1143,16 @@ void AnimationCore::ApplyRootMotion( Animator& InAnimator )
         return;
     }
     // The bone's horizontal travel, from its parent's space to the world.
-    Transform* parent = a.m_bindings[a.m_rootBinding].Node->GetComponent<Transform>().GetParentTransform();
-    glm::vec4 world( a.m_rootMotion.InternalVector, 0.f );
-    if( parent )
-    {
-        world = parent->GetLocalToWorldMatrix().GetInternalMatrix() * world;
-    }
+    const Matrix4 parentWorld = a.m_bindings[a.m_rootBinding].GetParentWorld();
+    const glm::vec4 world = parentWorld.GetInternalMatrix() * glm::vec4( a.m_rootMotion.InternalVector, 0.f );
     a.m_rootMotionWorld = Vector3( world.x, 0.f, world.z );
     // The turn about the parent's up axis, as degrees about world up (a mirrored parent flips it).
     float turn = a.m_rootTurn;
-    if( parent )
+    const glm::mat4& toWorld = parentWorld.GetInternalMatrix();
+    const glm::vec3 upWorld = glm::vec3( toWorld * glm::vec4( a.m_rootUp.InternalVector, 0.f ) );
+    if( glm::determinant( glm::mat3( toWorld ) ) * upWorld.y < 0.f )
     {
-        const glm::mat4& toWorld = parent->GetLocalToWorldMatrix().GetInternalMatrix();
-        const glm::vec3 upWorld = glm::vec3( toWorld * glm::vec4( a.m_rootUp.InternalVector, 0.f ) );
-        if( glm::determinant( glm::mat3( toWorld ) ) * upWorld.y < 0.f )
-        {
-            turn = -turn;
-        }
+        turn = -turn;
     }
     a.m_rootTurnDegrees = glm::degrees( turn );
     Entity* owner = a.Parent.Get();

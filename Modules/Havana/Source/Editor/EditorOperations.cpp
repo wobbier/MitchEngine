@@ -5,6 +5,8 @@
 #include "Selection.h"
 #include "UndoStack.h"
 #include "Components/Transform.h"
+#include "Components/Graphics/Model.h"
+#include "Cores/AnimationCore.h"
 #include "Cores/SceneCore.h"
 #include "Engine/Engine.h"
 #include "Engine/World.h"
@@ -148,6 +150,25 @@ namespace EditorOps
             std::vector<uint64_t> m_selectionBefore;
         };
 
+
+        class ModelHierarchyCommand : public UndoCommand
+        {
+        public:
+            ModelHierarchyCommand( Placement InPlacement, json InBefore, json InAfter )
+                : m_placement( InPlacement ), m_before( std::move( InBefore ) ), m_after( std::move( InAfter ) ) {}
+            void Undo() override { Restore( m_before ); }
+            void Redo() override { Restore( m_after ); }
+            std::string GetName() const override { return "Compact model hierarchy"; }
+        private:
+            void Restore( const json& InData )
+            {
+                DestroyByGUIDs( { m_placement } );
+                RestoreFromData( InData, { m_placement } );
+                Selection::Get().Set( GetWorld().FindEntityByGUID( m_placement.GUID ) );
+            }
+            Placement m_placement;
+            json m_before, m_after;
+        };
 
         struct ComponentState
         {
@@ -450,6 +471,40 @@ namespace EditorOps
         return roots;
     }
 
+
+    bool CompactModel( Entity& InEntity )
+    {
+        Model* model = InEntity.TryGetComponent<Model>();
+        if( !model || model->IsCompact() || !model->IsReady() ) return false;
+        if( GetEngine().Animation ) GetEngine().Animation->StopAllPreviews();
+        const Placement placement = CapturePlacement( InEntity );
+        json before = SceneSerializer::SerializeEntities( GetWorld(), { &InEntity } );
+        if( !model->CompactHierarchy() ) return false;
+        GetWorld().Simulate();
+        json after = SceneSerializer::SerializeEntities( GetWorld(), { &InEntity } );
+        UndoStack::Get().Push( std::make_unique<ModelHierarchyCommand>( placement, std::move( before ), std::move( after ) ) );
+        Selection::Get().Set( InEntity.GetHandle() );
+        return true;
+    }
+
+    EntityHandle ExposeModelNode( Entity& InEntity, const std::string& InNodePath )
+    {
+        Model* model = InEntity.TryGetComponent<Model>();
+        if( !model || !model->IsCompact() ) return {};
+        const int index = model->FindNode( InNodePath );
+        if( index < 0 ) return {};
+        EntityHandle previous = model->GetNodeEntity( index );
+        EntityHandle entity = model->ExposeNode( InNodePath );
+        if( !entity ) return {};
+        if( entity != previous )
+        {
+            GetWorld().Simulate();
+            json data = SceneSerializer::SerializeEntities( GetWorld(), { entity.Get() } );
+            UndoStack::Get().Push( std::make_unique<EntityStructureCommand>( "Expose model node", std::move( data ), CapturePlacements( { entity } ), true ) );
+        }
+        Selection::Get().Set( entity );
+        return entity;
+    }
 
     void DeleteEntities( const std::vector<Entity*>& InRoots )
     {

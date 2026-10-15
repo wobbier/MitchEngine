@@ -18,7 +18,6 @@ A material type *is* a C++ class that knows its shader pair, its uniforms, and h
 | `Modules/Moonlight/Source/Materials/StandardMaterial.h` / `.cpp` | PBR material (the default for meshes, primitives and imported models) |
 | `Modules/Moonlight/Source/Materials/DiffuseMaterial.h` | Legacy names `DiffuseMaterial` / `WhiteMaterial`, now `StandardMaterial` subclasses so old scenes load |
 | `Modules/Moonlight/Source/Shaders/UnlitMaterial.h` | Unlit material (note: under `Shaders/`, not `Materials/`) |
-| `Modules/Moonlight/Source/Materials/DynamicSkyMaterial.h` | Procedural sky |
 | `Modules/Moonlight/Source/Materials/ShaderGraphMaterial.h` | Half-finished node-graph material |
 | `Modules/Moonlight/Source/Graphics/ShaderCommand.h` | A shader pair's program; shares a hot-reloadable `ProgramRef` |
 | `Modules/Moonlight/Source/Utils/BGFXUtils.cpp` | Program registry (`AcquireProgram`, `RebuildProgramsUsing`), `LoadProgram`, `GetPlatformString` |
@@ -38,7 +37,6 @@ classDiagram
     StandardMaterial <|-- DiffuseMaterial
     StandardMaterial <|-- WhiteMaterial
     Material <|-- UnlitMaterial
-    Material <|-- DynamicSkyMaterial
     Material <|-- ShaderGraphMaterial
     class Material {
         RenderingMode RenderMode
@@ -64,7 +62,7 @@ classDiagram
     }
 ```
 
-`ME_REGISTER_MATERIAL_NAME(Type, "Display name")` registers a material under its **class name**. Scene JSON stores that name as `"Type"`, and the material's constructor `TypeName` must match it. The registered names are `StandardMaterial`, `DiffuseMaterial`, `WhiteMaterial`, `UnlitMaterial`, `DynamicSkyMaterial` and `ShaderGraphMaterial`. The display names ("Standard (PBR)", "Diffuse (legacy)", …) appear in the editor's material dropdown.
+`ME_REGISTER_MATERIAL_NAME(Type, "Display name")` registers a material under its **class name**. Scene JSON stores that name as `"Type"`, and the material's constructor `TypeName` must match it. The registered names are `StandardMaterial`, `DiffuseMaterial`, `WhiteMaterial`, `UnlitMaterial` and `ShaderGraphMaterial`. The display names ("Standard (PBR)", "Diffuse (legacy)", …) appear in the editor's material dropdown.
 
 ### StandardMaterial
 
@@ -77,7 +75,7 @@ classDiagram
 | Emissive | `EmissiveColor` × `EmissiveIntensity` (HDR) × Emissive texture |
 | Opacity | Alpha of base colour × Opacity texture R; `AlphaCutoff > 0` alpha-tests (also in shadow maps) |
 
-`Standard.frag` evaluates the sun (shadowed) and the other directional lights, the clustered point and spot lights (spots optionally shadowed) and image-based ambient. See `Docs/Rendering-Pipeline.md`.
+`Standard.frag` evaluates the sun (shadowed) and the other directional lights, clustered point/spot lights (optionally shadowed), unshadowed bar/box/rectangle emitters, and image-based ambient. See `Docs/Rendering-Pipeline.md`.
 
 Model import (`ModelResource.cpp`) maps assimp's PBR keys onto these fields:
 

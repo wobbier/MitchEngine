@@ -4,6 +4,7 @@
 #include "SceneSerializer.h"
 #include "Engine/Engine.h"
 #include "Cores/AnimationCore.h"
+#include "Cores/SceneCore.h"
 #include "CLog.h"
 
 
@@ -60,6 +61,7 @@ bool Scene::Load( SharedPtr<World> InWorld )
         OPTICK_EVENT( "Scene::Load::Entities" );
         SceneSerializer::LoadOptions options;
         options.LoadCores = true;
+        if( SceneCore* scene = GameWorld->GetCore<SceneCore>() ) options.Parent = scene->GetRootTransform();
         SceneSerializer::Deserialize( *GameWorld, level, options );
     }
     GameWorld->IsLoading = false;

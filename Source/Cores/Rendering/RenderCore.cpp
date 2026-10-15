@@ -25,10 +25,12 @@
 #include "Utils/ImGuiUtils.h"
 #include "Core/CommandLine.h"
 #include "Profiling/FrameStats.h"
+#include <limits>
+#include <unordered_set>
 
 
 RenderCore::RenderCore()
-    : Base( ComponentFilter().Requires<Transform>().Requires<Mesh>() )
+    : Base( ComponentFilter().Requires<Transform>().RequiresOneOf<Mesh>().RequiresOneOf<Model>() )
 {
     SetIsSerializable( false );
     //m_renderer = &GetEngine().GetRenderer();
@@ -48,15 +50,26 @@ void RenderCore::OnEntityAdded( Entity& NewEntity )
     if( NewEntity.HasComponent<Mesh>() )
     {
         NewEntity.GetComponent<Mesh>().Id = GetEngine().GetRenderer().GetMeshCache().Push( Moonlight::MeshCommand() );
+        m_meshCommands[NewEntity.GetId().Value()] = NewEntity.GetComponent<Mesh>().Id;
     }
 }
 
 void RenderCore::OnEntityRemoved( Entity& InEntity )
 {
-    if( InEntity.HasComponent<Mesh>() )
+    auto parts = m_compactCommands.find( InEntity.GetId().Value() );
+    if( parts != m_compactCommands.end() )
     {
-        Mesh& mesh = InEntity.GetComponent<Mesh>();
-        GetEngine().GetRenderer().GetMeshCache().Pop( mesh.Id );
+        for( unsigned int id : parts->second ) GetEngine().GetRenderer().GetMeshCache().Pop( id );
+        m_compactCommands.erase( parts );
+        if( Model* model = InEntity.TryGetComponent<Model>() )
+            for( auto& part : model->GetRenderParts() ) part.Renderer->Id = std::numeric_limits<unsigned int>::max();
+    }
+    auto direct = m_meshCommands.find( InEntity.GetId().Value() );
+    if( direct != m_meshCommands.end() )
+    {
+        GetEngine().GetRenderer().GetMeshCache().Pop( direct->second );
+        m_meshCommands.erase( direct );
+        if( Mesh* mesh = InEntity.TryGetComponent<Mesh>() ) mesh->Id = std::numeric_limits<unsigned int>::max();
     }
 }
 
@@ -79,6 +92,58 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
 
     // Resolve dirty world matrices first so the light gather and mesh jobs below only read them.
     Transform::UpdateAll( GetWorld() );
+    struct RenderItem
+    {
+        Mesh* Instance;
+        Matrix4 World;
+        EntityHandle Owner;
+    };
+    std::vector<RenderItem> items;
+    std::unordered_set<uint64_t> compactModels;
+    for( Entity& entity : Renderables )
+    {
+        Mesh* directMesh = entity.TryGetComponent<Mesh>();
+        if( Mesh* mesh = directMesh; mesh && mesh->IsEnabled() )
+        {
+            if( mesh->Id == std::numeric_limits<unsigned int>::max() ) mesh->Id = renderer.GetMeshCache().Push( Moonlight::MeshCommand() );
+            m_meshCommands[entity.GetId().Value()] = mesh->Id;
+            items.push_back( { mesh, entity.GetComponent<Transform>().GetLocalToWorldMatrix(), entity.GetHandle() } );
+        }
+        else
+        {
+            auto previous = m_meshCommands.find( entity.GetId().Value() );
+            if( previous != m_meshCommands.end() )
+            {
+                renderer.GetMeshCache().Pop( previous->second ); m_meshCommands.erase( previous );
+                if( directMesh ) directMesh->Id = std::numeric_limits<unsigned int>::max();
+            }
+        }
+        Model* model = entity.TryGetComponent<Model>();
+        if( !model || !model->IsEnabled() || !model->IsCompact() ) continue;
+        compactModels.insert( entity.GetId().Value() );
+        model->UpdatePoseMatrices();
+        auto& ids = m_compactCommands[entity.GetId().Value()];
+        for( auto& part : model->GetRenderParts() )
+        {
+            if( model->IsPartExternal( part ) ) continue;
+            Mesh& mesh = *part.Renderer;
+            if( mesh.Id == std::numeric_limits<unsigned int>::max() )
+            {
+                mesh.Id = renderer.GetMeshCache().Push( Moonlight::MeshCommand() );
+                ids.push_back( mesh.Id );
+            }
+            items.push_back( { &mesh, model->GetPartWorld( part ), model->GetNodeEntity( part.NodeIndex ) } );
+        }
+    }
+    for( auto it = m_compactCommands.begin(); it != m_compactCommands.end(); )
+    {
+        if( compactModels.count( it->first ) ) { ++it; continue; }
+        for( unsigned int id : it->second ) renderer.GetMeshCache().Pop( id );
+        EntityHandle entity = GetWorld().FindEntityByIDValue( it->first );
+        if( entity ) if( Model* model = entity->TryGetComponent<Model>() )
+            for( auto& part : model->GetRenderParts() ) part.Renderer->Id = std::numeric_limits<unsigned int>::max();
+        it = m_compactCommands.erase( it );
+    }
 
     // Lights are rebuilt every frame (cheap: a handful of POD commands).
     {
@@ -92,7 +157,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
         } );
     }
 
-    if( Renderables.empty() )
+    if( items.empty() )
     {
         return;
     }
@@ -107,9 +172,9 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
     };
     std::vector<Mesh*> vertexAnimations;
     std::vector<VertexAnimationJob> vertexJobs;
-    for( Entity& entity : Renderables )
+    for( const RenderItem& item : items )
     {
-        Mesh& mesh = entity.GetComponent<Mesh>();
+        Mesh& mesh = *item.Instance;
         if( mesh.HasVertexAnimation() || bgfx::isValid( mesh.m_posedVertices ) ) mesh.PrepareVertexAnimation();
         if( mesh.HasVertexAnimation() && mesh.BeginVertexAnimation() )
         {
@@ -160,25 +225,24 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
 #if USING( ME_EDITOR )
     Moonlight::CameraData& editorCamera = engine.EditorCamera;
     editorCamera.VisibleFlags.clear();
-    editorCamera.VisibleFlags.resize( Renderables.size() );
+    editorCamera.VisibleFlags.resize( items.size() );
 #endif
 
     for( Moonlight::CameraData& cam : cameras.Commands )
     {
         cam.VisibleFlags.clear();
-        cam.VisibleFlags.resize( Renderables.size() );
+        cam.VisibleFlags.resize( items.size() );
     }
 
-    engine.GetJobSystem().ParallelFor( static_cast<uint32_t>( Renderables.size() ), 128, [&]( uint32_t batchBegin, uint32_t batchEnd )
+    engine.GetJobSystem().ParallelFor( static_cast<uint32_t>( items.size() ), 128, [&]( uint32_t batchBegin, uint32_t batchEnd )
             {
                 OPTICK_CATEGORY( "Mesh Job", Optick::Category::Debug );
                 for( uint32_t entIndex = batchBegin; entIndex < batchEnd; ++entIndex )
                 {
                     //OPTICK_CATEGORY( "Update Transform", Optick::Category::Scene );
-                    auto& InEntity = Renderables[entIndex];
+                    const RenderItem& item = items[entIndex];
                     {
-                        Transform& transform = InEntity.GetComponent<Transform>();
-                        Mesh& model = InEntity.GetComponent<Mesh>();
+                        Mesh& model = *item.Instance;
                         // Meshes without geometry (e.g. a Model still loading) have nothing to draw.
                         if( !model.MeshReferece || !model.MeshMaterial )
                         {
@@ -186,13 +250,13 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                         }
 
                         bool isVisible = false;
-                        const glm::mat4& meshMatrix = transform.GetLocalToWorldMatrix().GetInternalMatrix();
+                        const glm::mat4& meshMatrix = item.World.GetInternalMatrix();
                         // Cull the mesh's world-space bounding box, not just its origin: big
                         // objects whose pivot leaves the view must still be drawn.
                         // Skinned meshes are bounded by their bones' reach in the current pose.
                         const bool skinned = model.IsSkinned();
-                        const AABB worldBounds = model.HasVertexAnimation() ? model.GetWorldBounds( transform.GetLocalToWorldMatrix() )
-                            : skinned ? model.UpdateSkin( meshMatrix ) : model.MeshReferece->Bounds.Transformed( transform.GetLocalToWorldMatrix() );
+                        const AABB worldBounds = model.HasVertexAnimation() ? model.GetWorldBounds( item.World )
+                            : skinned ? model.UpdateSkin( meshMatrix ) : model.MeshReferece->Bounds.Transformed( item.World );
 
                         {
                             for( Moonlight::CameraData& cam : cameras.Commands )
@@ -228,15 +292,15 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                         // match this frame's visibility flags.
                         {
                             Moonlight::MeshCommand command;
-                            command.Visible = isVisible;
+                            command.Visible = isVisible && item.Owner->IsActiveInHierarchy();
                             command.WorldBounds = worldBounds;
-                            command.CastShadows = model.CastShadows;
+                            command.CastShadows = model.CastShadows && item.Owner->IsActiveInHierarchy();
                             command.SingleMesh = model.MeshReferece;
                             command.MeshMaterial = model.MeshMaterial;
                             command.Transform = meshMatrix;
                             command.Type = model.GetType();
                             command.VisibilityIndex = entIndex;
-                            command.ID = InEntity.GetId().Value();
+                            command.ID = item.Owner->GetId().Value();
 
                             if( model.MeshMaterial )
                             {
@@ -300,6 +364,13 @@ void RenderCore::OnStart()
 void RenderCore::OnStop()
 {
     m_playing = false;
+    for( Entity& entity : GetEntities() )
+    {
+        if( Mesh* mesh = entity.TryGetComponent<Mesh>() ) mesh->Id = std::numeric_limits<unsigned int>::max();
+        if( Model* model = entity.TryGetComponent<Model>() )
+            for( auto& part : model->GetRenderParts() ) part.Renderer->Id = std::numeric_limits<unsigned int>::max();
+    }
+    m_compactCommands.clear(); m_meshCommands.clear();
     GetEngine().GetRenderer().ClearMeshes();
     //m_renderer->ClearDebugColliders();
 }

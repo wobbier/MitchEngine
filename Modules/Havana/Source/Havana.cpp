@@ -43,6 +43,7 @@
 #include "Widgets/ProfilerWidget.h"
 #include "Widgets/SettingsWidgets.h"
 #include "Editor/EditorActions.h"
+#include "Editor/EditorOperations.h"
 #include "Editor/DefaultEditorActions.h"
 #include "Editor/ReflectionUI.h"
 #include "Engine/AutomationRunner.h"
@@ -86,6 +87,7 @@ Havana::Havana( Engine* GameEngine, EditorApp* app )
     std::vector<TypeId> events;
     events.push_back( TestEditorEvent::GetEventId() );
     events.push_back( LoadSceneEvent::GetEventId() );
+    events.push_back( ModelHierarchyEvent::GetEventId() );
     EventManager::GetInstance().RegisterReceiver( this, events );
     Renderer = &GameEngine->GetRenderer();
 
@@ -106,6 +108,7 @@ Havana::Havana( Engine* GameEngine, EditorApp* app )
     GameSceneView.reset( new SceneViewWidget( "Game View" ) );
     RegisteredWidgets.push_back( GameSceneView );
 
+   // ME_ASSERT( false, "MainSceneView->App should be nullptr" );;
     SceneHierarchy.reset( new SceneHierarchyWidget() );
     RegisteredWidgets.push_back( SceneHierarchy );
 
@@ -527,6 +530,16 @@ Vector2 Havana::GetWorldEditorRenderSize() const
 
 bool Havana::OnEvent( const BaseEvent& event )
 {
+    if( event.GetEventId() == ModelHierarchyEvent::GetEventId() )
+    {
+        const auto& request = static_cast<const ModelHierarchyEvent&>( event );
+        if( request.Target )
+        {
+            if( request.NodePath.empty() ) EditorOps::CompactModel( *request.Target.Get() );
+            else EditorOps::ExposeModelNode( *request.Target.Get(), request.NodePath );
+        }
+        return true;
+    }
     if( event.GetEventId() == TestEditorEvent::GetEventId() )
     {
         //const TestEditorEvent& test = static_cast<const TestEditorEvent&>(evt);
