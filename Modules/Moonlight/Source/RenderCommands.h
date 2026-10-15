@@ -117,8 +117,9 @@ namespace Moonlight
         bgfx::TextureHandle Albedo = BGFX_INVALID_HANDLE;   // invalid: a solid tint
         bgfx::TextureHandle Normal = BGFX_INVALID_HANDLE;   // invalid: no normal detail
         float Color[4] = { 1.f, 1.f, 1.f, 1.f };            // linear tint, a opacity
-        float Emissive[4] = { 0.f, 0.f, 0.f, 0.f };         // linear emitted radiance
-        float Surface[4] = { 0.f, 0.6f, 1.f, 0.f };         // x metallic, y roughness, z normal strength, w cos(fade angle)
+        float Emissive[4] = { 0.f, 0.f, 0.f, 1.f };         // rgb linear emitted radiance, w cos(fade start angle)
+        float Surface[4] = { 0.f, 0.6f, 1.f, 0.f };         // x metallic, y roughness, z normal strength, w cos(fade end angle)
+        float TextureSize[4] = { 1.f, 1.f, 1.f, 1.f };      // texels: albedo width, height, normal map width, height (for mip selection)
         AABB WorldBounds;
         int SortOrder = 0;
     };

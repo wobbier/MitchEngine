@@ -16,6 +16,7 @@
 #include "Graphics/ModelResource.h"
 #include "RenderCommands.h"
 #include "Components/Lighting/Light.h"
+#include "Components/Graphics/Decal.h"
 #include "Components/Graphics/Mesh.h"
 #include "Engine/Engine.h"
 #include "Work/Burst.h"
@@ -153,6 +154,23 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
             if( entity.IsActiveInHierarchy() && light.IsEnabled() )
             {
                 lights.push_back( light.BuildCommand( transform ) );
+            }
+        } );
+    }
+
+    // Decals likewise. One whose albedo is still streaming in waits rather than drawing a solid tint.
+    {
+        std::vector<Moonlight::DecalCommand>& decals = renderer.GetDecals();
+        decals.clear();
+        GetWorld().Each<Transform, Decal>( [&]( Entity& entity, Transform& transform, Decal& decal ) {
+            if( entity.IsActiveInHierarchy() && decal.IsEnabled() && decal.Resolve() )
+            {
+                Moonlight::DecalCommand command = decal.BuildCommand( transform );
+                // A zero scale can't be projected through.
+                if( std::abs( glm::determinant( command.World ) ) > 1e-12f )
+                {
+                    decals.push_back( command );
+                }
             }
         } );
     }
@@ -391,7 +409,7 @@ void RenderCore::OnEditorInspect()
         {
             ImGui::Text( "Backend: %s", bgfx::getRendererName( caps->rendererType ) );
         }
-        ImGui::Text( "Cameras: %zu | Lights: %zu", renderer.GetCameraCache().Commands.size(), renderer.GetLights().size() );
+        ImGui::Text( "Cameras: %zu | Lights: %zu | Decals: %zu", renderer.GetCameraCache().Commands.size(), renderer.GetLights().size(), renderer.GetDecals().size() );
         if( ImGui::Checkbox( "Enable Debug Draw", &EnableDebugDraw ) )
         {
             renderer.SetDebugDrawEnabled( EnableDebugDraw );

@@ -291,7 +291,7 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
             s_sceneDepth = bgfx::createUniform( "s_sceneDepth", bgfx::UniformType::Sampler );
             m_particleProgram = Moonlight::ShaderCommand( "Assets/Shaders/Particle" );
         }
-        // Decals: a unit box (outward faces counter-clockwise) and the decal shader.
+        // Decals: a unit box (its outward faces wind clockwise seen from outside) and the decal shader.
         {
             Moonlight::PosTexCoordVertex box[8];
             for( int i = 0; i < 8; ++i )
@@ -307,6 +307,7 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
             u_decalEmissive = bgfx::createUniform( "u_decalEmissive", bgfx::UniformType::Vec4 );
             u_decalSurface = bgfx::createUniform( "u_decalSurface", bgfx::UniformType::Vec4 );
             u_decalDepth = bgfx::createUniform( "u_decalDepth", bgfx::UniformType::Vec4 );
+            u_decalTexSize = bgfx::createUniform( "u_decalTexSize", bgfx::UniformType::Vec4 );
             u_decalWorldToLocal = bgfx::createUniform( "u_decalWorldToLocal", bgfx::UniformType::Mat4 );
             u_decalAxes = bgfx::createUniform( "u_decalAxes", bgfx::UniformType::Mat4 );
             m_decalProgram = Moonlight::ShaderCommand( "Assets/Shaders/Decal" );
@@ -361,7 +362,7 @@ void BGFXRenderer::Destroy()
         u_shadowMatrix, u_cascadeSplits, u_cascadeTexel, u_shadowParams, u_localShadowMatrix, u_spotShadowParams, u_pointShadowParams, u_shadowAlpha, s_shadowMap, s_spotShadowMap,
         s_envSpecular, s_envIrradiance, s_brdfLut, u_envParams, u_fogParams, u_fogColor, u_fogVolume, u_fogForward,
         u_particleParams, u_particleParams2, u_particleDepth, s_texParticle, s_sceneDepth, u_bones,
-        s_decalAlbedo, s_decalNormal, u_decalColor, u_decalEmissive, u_decalSurface, u_decalDepth, u_decalWorldToLocal, u_decalAxes };
+        s_decalAlbedo, s_decalNormal, u_decalColor, u_decalEmissive, u_decalSurface, u_decalDepth, u_decalTexSize, u_decalWorldToLocal, u_decalAxes };
     m_particleProgram = Moonlight::ShaderCommand();
     m_decalProgram = Moonlight::ShaderCommand();
     if( bgfx::isValid( m_decalBoxVB ) )
@@ -1778,23 +1779,27 @@ void BGFXRenderer::RenderDecals( Moonlight::CameraData& camera )
     const glm::mat4& projection = camera.ProjectionMatrix.GetInternalMatrix();
     const float depthParams[4] = { projection[2][2], projection[3][2], camera.Projection == Moonlight::ProjectionType::Orthographic ? 1.f : 0.f, bgfx::getCaps()->homogeneousDepth ? 1.f : 0.f };
     const uint32_t pointClamp = BGFX_SAMPLER_POINT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP;
+    // Clamped, so filtering at the box's edges never pulls in the texture's opposite side.
+    const uint32_t clamp = BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP;
     for( const Moonlight::DecalCommand* decal : m_decalOrder )
     {
         bgfx::setTransform( &decal->World[0][0] );
         bgfx::setVertexBuffer( 0, m_decalBoxVB );
         bgfx::setIndexBuffer( m_decalBoxIB );
-        bgfx::setTexture( 0, s_decalAlbedo, bgfx::isValid( decal->Albedo ) ? decal->Albedo : m_whiteTexture );
-        bgfx::setTexture( 1, s_decalNormal, bgfx::isValid( decal->Normal ) ? decal->Normal : m_flatNormalTexture );
+        bgfx::setTexture( 0, s_decalAlbedo, bgfx::isValid( decal->Albedo ) ? decal->Albedo : m_whiteTexture, clamp );
+        bgfx::setTexture( 1, s_decalNormal, bgfx::isValid( decal->Normal ) ? decal->Normal : m_flatNormalTexture, clamp );
         bgfx::setTexture( 2, s_sceneDepth, buffer.DepthTexture, pointClamp );
         bgfx::setUniform( u_decalColor, decal->Color );
         bgfx::setUniform( u_decalEmissive, decal->Emissive );
         bgfx::setUniform( u_decalSurface, decal->Surface );
         bgfx::setUniform( u_decalDepth, depthParams );
+        bgfx::setUniform( u_decalTexSize, decal->TextureSize );
         bgfx::setUniform( u_decalWorldToLocal, &decal->WorldToLocal[0][0] );
         bgfx::setUniform( u_decalAxes, &decal->Axes[0][0] );
         BindLighting();
-        // Only the box's far faces: each covered pixel shades once, even with the camera inside.
-        bgfx::setState( BGFX_STATE_WRITE_RGB | BGFX_STATE_BLEND_ALPHA | BGFX_STATE_CULL_CCW );
+        // Only the box's far faces (culling the clockwise near ones): each covered pixel shades once,
+        // and the camera can stand inside the box.
+        bgfx::setState( BGFX_STATE_WRITE_RGB | BGFX_STATE_BLEND_ALPHA | BGFX_STATE_CULL_CW );
         bgfx::submit( view, m_decalProgram.GetProgram() );
     }
 }

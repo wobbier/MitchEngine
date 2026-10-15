@@ -11,6 +11,7 @@
 #include "Components/Transform.h"
 #include "Components/Camera.h"
 #include "Components/Lighting/Light.h"
+#include "Components/Graphics/Decal.h"
 #include "Components/Effects/ParticleSystem.h"
 #include "Cores/PhysicsCore.h"
 #include "Cores/NavigationCore.h"
@@ -868,7 +869,8 @@ void SceneViewWidget::DrawIcons()
 		const bool isLight = entity.HasComponent<Light>();
 		const bool isAudio = entity.HasComponent<AudioSource>();
 		const bool isParticles = entity.HasComponent<ParticleSystem>();
-		if (!isCamera && !isLight && !isAudio && !isParticles)
+		const bool isDecal = entity.HasComponent<Decal>();
+		if (!isCamera && !isLight && !isAudio && !isParticles && !isDecal)
 		{
 			return;
 		}
@@ -909,6 +911,13 @@ void SceneViewWidget::DrawIcons()
 				const float angle = i * 3.14159265f / 3.f + 0.3f;
 				drawList->AddCircleFilled(ImVec2(center.x + std::cos(angle) * 7.f, center.y + std::sin(angle) * 7.f), 1.8f, color);
 			}
+		}
+		else if (isDecal)
+		{
+			// A sticker with a peeled corner.
+			drawList->AddQuadFilled(ImVec2(center.x - 7.f, center.y - 7.f), ImVec2(center.x + 2.f, center.y - 7.f), ImVec2(center.x + 7.f, center.y - 2.f), ImVec2(center.x + 7.f, center.y + 7.f), color);
+			drawList->AddTriangleFilled(ImVec2(center.x - 7.f, center.y - 7.f), ImVec2(center.x + 7.f, center.y + 7.f), ImVec2(center.x - 7.f, center.y + 7.f), color);
+			drawList->AddTriangleFilled(ImVec2(center.x + 2.f, center.y - 7.f), ImVec2(center.x + 2.f, center.y - 2.f), ImVec2(center.x + 7.f, center.y - 2.f), shadow);
 		}
 		else
 		{
@@ -997,7 +1006,7 @@ void SceneViewWidget::HandleMouse()
 			return;
 		}
 		const AABB bounds = SceneTools::ComputeWorldBounds(entity, false);
-		const bool pickable = bounds.IsValid() || entity.HasComponent<Camera>() || entity.HasComponent<Light>() || entity.HasComponent<AudioSource>() || entity.HasComponent<ParticleSystem>();
+		const bool pickable = bounds.IsValid() || entity.HasComponent<Camera>() || entity.HasComponent<Light>() || entity.HasComponent<AudioSource>() || entity.HasComponent<ParticleSystem>() || entity.HasComponent<Decal>();
 		if (!pickable)
 		{
 			return;

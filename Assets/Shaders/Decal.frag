@@ -8,34 +8,78 @@ uniform vec4 u_decalColor;
 uniform vec4 u_decalEmissive;
 uniform vec4 u_decalSurface;
 uniform vec4 u_decalDepth;
+uniform vec4 u_decalTexSize;    // texels: xy albedo, zw normal map
 uniform mat4 u_decalWorldToLocal;
 uniform mat4 u_decalAxes;
+
+// View-space position of the opaque surface under a screen position.
+vec3 sceneViewPosition(vec2 _screenUV)
+{
+    float depth = texture2D(s_sceneDepth, _screenUV).r;
+    vec2 ndc = _screenUV * 2.0 - 1.0;
+    if (u_clusterGrid.w < 0.5) ndc.y = -ndc.y;
+    float z = u_decalDepth.w > 0.5 ? depth * 2.0 - 1.0 : depth;
+    vec4 viewPos = mul(u_invProj, vec4(ndc, z, 1.0));
+    return viewPos.xyz / viewPos.w;
+}
+
+vec3 decalLocal(vec3 _viewPos)
+{
+    return mul(u_decalWorldToLocal, mul(u_invView, vec4(_viewPos, 1.0))).xyz;
+}
+
+// The texture's right is the box's X, its up the box's Y.
+vec2 decalUV(vec3 _local)
+{
+    return vec2(_local.x + 0.5, 0.5 - _local.y);
+}
+
+float mipLevel(vec2 _uvDx, vec2 _uvDy, vec2 _size)
+{
+    vec2 x = _uvDx * _size;
+    vec2 y = _uvDy * _size;
+    return max(0.5 * log2(max(max(dot(x, x), dot(y, y)), 1e-8)), 0.0);
+}
 
 void main()
 {
     vec2 screenUV = (gl_FragCoord.xy - u_viewRect.xy) / u_viewRect.zw;
-    float depth = texture2D(s_sceneDepth, screenUV).r;
-    if (depth >= 1.0) discard;
-    vec2 ndc = screenUV * 2.0 - 1.0;
-    if (u_clusterGrid.w < 0.5) ndc.y = -ndc.y;
-    float z = u_decalDepth.w > 0.5 ? depth * 2.0 - 1.0 : depth;
-    vec4 viewPos = mul(u_invProj, vec4(ndc, z, 1.0));
-    viewPos /= viewPos.w;
-    vec3 worldPos = mul(u_invView, viewPos).xyz;
-    vec3 local = mul(u_decalWorldToLocal, vec4(worldPos, 1.0)).xyz;
+    if (texture2D(s_sceneDepth, screenUV).r >= 1.0) discard;
+    vec3 viewPos = sceneViewPosition(screenUV);
+    vec3 local = decalLocal(viewPos);
     if (any(greaterThan(abs(local), vec3_splat(0.5)))) discard;
+    vec3 worldPos = mul(u_invView, vec4(viewPos, 1.0)).xyz;
+
+    // One-pixel steps towards the neighbour on the flatter side in each screen axis. They give a
+    // per-pixel surface normal and texture footprint: 2x2 quad derivatives would light curved
+    // surfaces in blocks and drop to the smallest mip along every depth edge inside the box.
+    vec2 dx = vec2(u_viewTexel.x, 0.0);
+    vec2 dy = vec2(0.0, u_viewTexel.y);
+    vec3 left = sceneViewPosition(screenUV - dx);
+    vec3 right = sceneViewPosition(screenUV + dx);
+    vec3 below = sceneViewPosition(screenUV - dy);
+    vec3 above = sceneViewPosition(screenUV + dy);
+    vec3 stepX = abs(right.z - viewPos.z) < abs(viewPos.z - left.z) ? right - viewPos : viewPos - left;
+    vec3 stepY = abs(above.z - viewPos.z) < abs(viewPos.z - below.z) ? above - viewPos : viewPos - below;
+    vec3 viewNormal = normalize(cross(stepY, stepX));
+    if (dot(viewNormal, viewPos) > 0.0) viewNormal = -viewNormal;
+    vec3 N = normalize(mul(u_invView, vec4(viewNormal, 0.0)).xyz);
 
     vec3 cameraPos = mul(u_invView, vec4(0.0, 0.0, 0.0, 1.0)).xyz;
     vec3 V = normalize(cameraPos - worldPos);
-    vec3 N = normalize(cross(dFdx(worldPos), dFdy(worldPos)));
-    if (dot(N, V) < 0.0) N = -N;
     vec3 projector = mul(u_decalAxes, vec4(0.0, 0.0, 1.0, 0.0)).xyz;
-    float fade = clamp((dot(N, -normalize(projector)) - u_decalSurface.w) / max(1.0 - u_decalSurface.w, 1e-4), 0.0, 1.0);
-    vec2 uv = vec2(local.x + 0.5, 0.5 - local.y);
-    vec4 base = toLinear(texture2D(s_decalAlbedo, uv)) * u_decalColor;
+    // Full coverage on surfaces facing the projector, fading out between the start (u_decalEmissive.w)
+    // and end (u_decalSurface.w) angle cosines.
+    float facing = dot(N, -normalize(projector));
+    float fade = smoothstep(u_decalSurface.w, max(u_decalEmissive.w, u_decalSurface.w + 1e-4), facing);
+
+    vec2 uv = decalUV(local);
+    vec2 uvDx = decalUV(decalLocal(viewPos + stepX)) - uv;
+    vec2 uvDy = decalUV(decalLocal(viewPos + stepY)) - uv;
+    vec4 base = toLinear(texture2DLod(s_decalAlbedo, uv, mipLevel(uvDx, uvDy, u_decalTexSize.xy))) * u_decalColor;
     float alpha = base.a * fade;
     if (alpha <= 0.001) discard;
-    vec2 normalXY = (texture2D(s_decalNormal, uv).xy * 2.0 - 1.0) * u_decalSurface.z;
+    vec2 normalXY = (texture2DLod(s_decalNormal, uv, mipLevel(uvDx, uvDy, u_decalTexSize.zw)).xy * 2.0 - 1.0) * u_decalSurface.z;
     vec3 T = mul(u_decalAxes, vec4(1.0, 0.0, 0.0, 0.0)).xyz;
     vec3 B = mul(u_decalAxes, vec4(0.0, 1.0, 0.0, 0.0)).xyz;
     T = normalize(T - N * dot(T, N));

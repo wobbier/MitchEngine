@@ -251,6 +251,7 @@ private:
     bgfx::UniformHandle u_decalEmissive = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle u_decalSurface = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle u_decalDepth = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle u_decalTexSize = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle u_decalWorldToLocal = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle u_decalAxes = BGFX_INVALID_HANDLE;
     std::vector<Moonlight::LightCommand> m_localLights;

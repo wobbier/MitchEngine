@@ -6,6 +6,7 @@
 #include "Selection.h"
 #include "Components/Audio/AudioSource.h"
 #include "Components/Camera.h"
+#include "Components/Graphics/Decal.h"
 #include "Components/Graphics/Mesh.h"
 #include "Components/Graphics/Model.h"
 #include "Components/Lighting/Light.h"
@@ -51,6 +52,10 @@ namespace SceneTools
                         const AABB nodeBounds = model->GetWorldBounds( index );
                         if( nodeBounds.IsValid() ) OutBounds.Encapsulate( nodeBounds );
                     }
+                }
+                if( Decal* decal = entity->TryGetComponent<Decal>() )
+                {
+                    OutBounds.Encapsulate( AABB::FromCenterExtents( Vector3(), Vector3( 0.5f, 0.5f, 0.5f ) ).Transformed( Decal::BoxMatrix( InTransform, decal->Size ) ) );
                 }
             }
             if( InRecursive )
@@ -437,6 +442,22 @@ namespace SceneTools
                         }
                         break;
                     }
+                    }
+                }
+                if( Decal* decal = entity.TryGetComponent<Decal>() )
+                {
+                    // The projection box, the direction it projects in and (selected) the texture's up.
+                    const Matrix4 box = Decal::BoxMatrix( *transform, decal->Size );
+                    const glm::mat4& matrix = box.GetInternalMatrix();
+                    const Vector4 color = selected ? Vector4( 0.95f, 0.7f, 1.f, 1.f ) : Vector4( 0.85f, 0.6f, 1.f, 0.45f );
+                    DebugDraw::Box( box, AABB::FromCenterExtents( Vector3(), Vector3( 0.5f, 0.5f, 0.5f ) ), color, 0.f, DebugDraw::EditorOnly );
+                    const Vector3 back = Transform3( matrix, Vector3( 0.f, 0.f, -0.5f ), 1.f );
+                    const Vector3 front = Transform3( matrix, Vector3( 0.f, 0.f, 0.5f ), 1.f );
+                    DebugDraw::Arrow( back, front, color, std::min( ( front - back ).Length() * 0.25f, 0.25f ), 0.f, DebugDraw::EditorOnly );
+                    if( selected )
+                    {
+                        const Vector3 center = Transform3( matrix, Vector3(), 1.f );
+                        DebugDraw::Line( center, Transform3( matrix, Vector3( 0.f, 0.5f, 0.f ), 1.f ), Vector4( 0.45f, 1.f, 0.45f, 1.f ), 0.f, DebugDraw::EditorOnly | DebugDraw::NoDepthTest );
                     }
                 }
             } );

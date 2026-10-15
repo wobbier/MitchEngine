@@ -835,6 +835,11 @@ void SceneHierarchyWidget::DrawCreateTemplates(Transform* parent)
 			create("Sparks", json::array({ json{ { "Type", "Transform" } }, particles({ { "Shape", "Hemisphere" }, { "EmissionRate", 60.0 }, { "Lifetime", { 0.4, 0.9 } }, { "Speed", { 3.0, 7.0 } }, { "Size", { 0.03, 0.06 } }, { "EndSize", 0.5 },
 				{ "StartColor", { 1.0, 0.8, 0.4 } }, { "StartColor2", { 1.0, 0.95, 0.7 } }, { "EndColor", { 1.0, 0.3, 0.05 } }, { "Intensity", 6.0 }, { "Gravity", 1.0 }, { "Drag", 0.2 }, { "NoiseStrength", 0.0 }, { "Alignment", "Stretched" }, { "StretchFactor", 0.06 } }) }));
 		}
+		if (ImGui::MenuItem("Decal"))
+		{
+			// Projecting straight down onto whatever it's placed over.
+			create("Decal", json::array({ json{ { "Type", "Transform" }, { "Rotation", { 90.0, 0.0, 0.0 } } }, json{ { "Type", "Decal" }, { "Size", { 2.0, 2.0, 1.0 } } } }));
+		}
 		ImGui::EndMenu();
 	}
 	if (ImGui::MenuItem("Audio Source"))

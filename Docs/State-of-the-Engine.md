@@ -16,7 +16,7 @@ Ratings: **Solid** (rely on it) · **Usable** (works, know the sharp edges) · *
 | Frame loop & timing | **Usable** | Fixed timestep + pause/step/time scale/frame cap, deterministic `--frame-time`, full GPU teardown on exit; game code picks a stage (fixed / update / late update after animation), core dependencies, script `[ExecutionOrder]`; the engine's own stage order is fixed by design | [Architecture.md](Architecture.md) |
 | Jobs | **Solid** | Work stealing, helping waits, allocation-free ParallelFor, stress tested | [Jobs-and-Events.md](Jobs-and-Events.md) |
 | Events | **Usable** | Thread-safe queue, auto-deregistering receivers, safe re-entrant dispatch; still string-free but untyped `OnEvent` switches | [Jobs-and-Events.md](Jobs-and-Events.md) |
-| Rendering pipeline | **Solid** | Zero-virtual submit + auto-instancing, AABB culling, generated mesh LODs picked by screen size, a view allocator, linear HDR with a full post stack (temporal AA with variance clipping), soft particles; unverified on non-Vulkan backends and unmeasured on GPUs at 57k-mesh scale with shadows | [Rendering-Pipeline.md](Rendering-Pipeline.md) |
+| Rendering pipeline | **Solid** | Zero-virtual submit + auto-instancing, AABB culling, generated mesh LODs picked by screen size, a view allocator, linear HDR with a full post stack (temporal AA with variance clipping), soft particles, lit projected decals; unverified on non-Vulkan backends and unmeasured on GPUs at 57k-mesh scale with shadows | [Rendering-Pipeline.md](Rendering-Pipeline.md) |
 | Lighting & shadows | **Usable** | PBR + clustered point/spot lights, stable CSM sun shadows, spot and point-light shadows (cube faces in one atlas), IBL probes, lit smoke, height fog with volumetric light shafts (sun, point and spot lights); one shadowed sun, fixed shadow budgets, screen-space (not froxel) volumetrics | [Rendering-Pipeline.md](Rendering-Pipeline.md) |
 | Materials & shaders | **Usable** | Metallic-roughness StandardMaterial, live shader hot reload with include tracking that compiles in the background; batch-key discipline is manual; ShaderGraph half-finished; first-time cooks block the main thread | [Materials-and-Shaders.md](Materials-and-Shaders.md) |
 | Resources & assets | **Usable** | Hot reload, keep-alive cache, asset GUIDs, background texture and model loads and first-time cooks (the main thread only uploads and builds), hot-reload recompiles in the background, model unit conversion, unit tested; shader loads and synchronous `Get` cooks still block the main thread | [Resources-and-Assets.md](Resources-and-Assets.md) |
@@ -75,6 +75,8 @@ Impact (H/M/L) × Effort (S/M/L). Grouped so related items can share one work se
 | ~~Point-light shadows~~ | — | — | Done: six faces per light in the local shadow atlas |
 | ~~Lit particles~~ | — | — | Done: `ParticleSystem::Lit` shades smoke with the sun, local lights, their shadows and ambient |
 | ~~Parallel shadow caster culling~~ | — | — | Done: one gather per frame, one parallel cull per pass for all its views (-24% CPU at 57k meshes on a busy machine) |
+| ~~Decals~~ | — | — | Done: `Decal` component, projected through a box onto opaque surfaces, lit with normal maps, angle fade and sort order |
+| Decal receiver masks / DBuffer | M | M | Decals paint everything in their box and replace the surface's shading; a stencil or per-mesh "receives decals" bit, and a DBuffer for normal/roughness-only decals |
 | ShaderGraph finish-or-delete | M | M/L | Decide before any new material work builds on it |
 
 ### C. Scripting

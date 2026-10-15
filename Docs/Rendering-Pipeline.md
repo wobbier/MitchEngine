@@ -2,21 +2,22 @@
 
 Rendering is split into CPU **producers** and a serial **consumer**:
 
-- **Producers** are `RenderCore` and `ParticleCore`. `RenderCore` runs a parallel job that fills one POD `MeshCommand` per mesh and gathers a `LightCommand` per light; `ParticleCore` simulates particle systems into per-system batches.
+- **Producers** are `RenderCore` and `ParticleCore`. `RenderCore` runs a parallel job that fills one POD `MeshCommand` per mesh and gathers a `LightCommand` per light and a `DecalCommand` per decal; `ParticleCore` simulates particle systems into per-system batches.
 - **The consumer** is `BGFXRenderer`. It renders every camera through the same chain into HDR targets:
   1. Shadow cascades.
   2. Clustered-forward PBR opaque pass.
-  3. SSAO.
-  4. Height fog, optionally volumetric (light shafts, lit by every light).
-  5. Transparent meshes.
-  6. Particles.
-  7. Temporal anti-aliasing (optional).
-  8. Bloom, eye adaptation, tonemapping, grading and FXAA.
-  9. UI composite.
+  3. Decals, projected onto the opaque surfaces and lit like them.
+  4. SSAO.
+  5. Height fog, optionally volumetric (light shafts, lit by every light).
+  6. Transparent meshes.
+  7. Particles.
+  8. Temporal anti-aliasing (optional).
+  9. Bloom, eye adaptation, tonemapping, grading and FXAA.
+  10. UI composite.
 
 Ambient light comes from per-camera image-based-lighting probes. This doc maps the frame, the view-ID scheme, the lighting data paths and the sharp edges.
 
-> Verified against engine commit 1fa55311, 2026-10-09 (overhaul Wave 3); skinned meshes against 07617c5f, 2026-10-09; fog against b7c61e56, 2026-10-10.
+> Verified against engine commit 1fa55311, 2026-10-09 (overhaul Wave 3); skinned meshes against 07617c5f, 2026-10-09; fog against b7c61e56, 2026-10-10; decals against 8d958c0b plus the `Decal` component, 2026-10-15.
 
 ## Overview
 
@@ -132,11 +133,12 @@ bgfx runs views in ascending ID order, so producers must have lower IDs than the
    - Clear to the linearised clear colour. A textured skybox gets a preceding view on the same HDR target: its mesh bounds are normalized to a unit cube, with a rotation-only view and fixed clipping. Source units, scene clip distances and orthographic zoom cannot clip the background.
    - Opaque meshes: instanced batches keyed `(vertexBuffer, indexBuffer, BatchKey)` plus singles.
    - Procedural sky (`DynamicSky::Draw`), last: a far-plane triangle with `DEPTH_TEST_LEQUAL`, so it only shades pixels the scene left empty (see Procedural sky below).
-4. **SSAO** multiplies the opaque HDR colour (before transparents).
-5. **Fog** covers the opaque HDR colour (see Fog below). From here on, forward shaders fog themselves (`u_fogForward`).
-6. **Transparent view**: meshes sorted back to front, depth-write off; then legacy gizmo callbacks and the Debug Draw v2 lines.
-7. **Particles** (see below).
-8. **Post** into the final target, then the **UI composite** for the main camera.
+4. **Decals** blend onto the opaque HDR colour (see Decals below), so the SSAO and fog that follow cover them too.
+5. **SSAO** multiplies the opaque HDR colour (before transparents).
+6. **Fog** covers the opaque HDR colour (see Fog below). From here on, forward shaders fog themselves (`u_fogForward`).
+7. **Transparent view**: meshes sorted back to front, depth-write off; then legacy gizmo callbacks and the Debug Draw v2 lines.
+8. **Particles** (see below).
+9. **Post** into the final target, then the **UI composite** for the main camera.
 
 ### Anti-aliasing and RenderCore controls
 
@@ -311,6 +313,21 @@ Exponential height fog, set per camera on the `PostProcess` component: `Fog`, `F
 
 `Assets/Scenes/Showcase/Fog.lvl` (dusk sun through a slatted wall, a shadowed spot lamp, lanterns) is the visual reference.
 
+### Decals
+
+A `Decal` component (`Source/Components/Graphics/Decal.h`) projects a texture through a box: the entity's transform scaled by `Size` (metres). The texture's right is the box's X axis, its up the Y axis, and it projects along forward (Z), reaching `Size.z` deep. Each decal has an albedo (sRGB, alpha is coverage; empty projects a solid `Color`), an optional tangent-space normal map, metallic, roughness, normal strength, emissive colour and intensity, and `Opacity`. `AngleFade` / `AngleFadeWidth` fade the decal out on surfaces turned away from the projection; by default it is full up to 50° and gone at 70°. Overlapping decals draw in ascending `SortOrder`, then in gather order.
+
+`RenderCore` rebuilds the `DecalCommand`s every frame, next to the lights. A decal whose albedo is still streaming in is left out, so it never flashes as a solid tint, and so is a decal with a zero scale. `BGFXRenderer::RenderDecals` then draws them:
+
+- **View**: a sequential view on `ParticleBuffer` (HDR colour without depth), after the opaque pass and before SSAO. Only lit views draw decals; the inspection shading modes skip them.
+- **Culling and order**: decals are culled by the box's world bounds against the frustum and stable-sorted by `SortOrder`.
+- **Geometry**: the box's far faces only (`CULL_CW`), so each covered pixel shades once and the camera can stand inside a box.
+- **Projection** (`Decal.frag`): the opaque surface's position is rebuilt from the scene depth and moved into the box's space; pixels outside the box are discarded.
+- **Normals and footprint**: one-pixel steps towards the neighbour on the flatter side in each screen axis give a per-pixel surface normal and texture footprint, the same reconstruction SSAO uses. 2×2 quad derivatives would light curved surfaces in blocks and drop to the smallest mip along depth edges. The mip comes from that footprint and the texture size (`texture2DLod`). Textures are clamped, so filtering never wraps across the box.
+- **Lighting**: the decal normal map bends the reconstructed normal (tangent = box X, bitangent = box Y), and the result is lit like `Standard.frag`: the sun with its cascaded shadow, the clustered point and spot lights, image-based ambient, plus emissive. It is alpha-blended over the lit surface.
+
+The editor draws each decal's box with an arrow along the projection (and the texture's up when selected), a clickable icon, and **Create > Effects > Decal** (a 2×2 m decal projecting down). `Assets/Scenes/Showcase/Decals.lvl` exercises wrapping, angle fade, normal maps, emissive and sort order.
+
 ### Particles
 
 `ParticleCore` (engine-owned, so it also runs in the editor) handles the CPU side:
@@ -402,6 +419,8 @@ Missing maps fall back to neutral 1×1 textures (white; flat normal). `BindLight
 - **Fog is screen-space, not froxels**: volumetric lighting exists only in front of opaque surfaces. Transparents and particles get analytic fog (no shafts). Fog uses the final HDR temporal AA resolve when enabled, with no separate fog history. Without temporal AA the sample pattern stays fixed and only the depth-aware blur hides it; bright point sources and thin shafts can still need more steps. The march costs `VolumetricSteps` shadow taps plus cluster light loops per half-resolution pixel.
 - **Lit particles are per-pixel and isotropic**: no forward-scattering phase function, no self-shadowing within a plume, and each lit pixel walks its cluster's lights, which costs fill rate on big smoke.
 - **Skinned meshes aren't instanced**: each costs one draw per view (camera, cascade, spot light), and its palette is uploaded with every draw.
+- **Decals paint everything opaque in their box**: there is no receiver mask, so a character walking through a floor decal gets it projected onto its legs. Transparents and particles never receive decals (they draw later).
+- **Decals replace, they don't modulate**: a decal is lit and alpha-blended over the finished surface. It can't change only the roughness or normal of what's underneath (no DBuffer), and the surface's own normal map doesn't show through its coverage.
 - **Transparent sorting is per object** (plus per particle within alpha systems); intersecting transparents sort wrong (no OIT).
 - **`CommandCache::Update`/`Pop` are unlocked**: safe only because mesh jobs write distinct slots and nothing `Push`es while they run.
 - **Uniform names are global in bgfx**: the lighting uniforms (`u_lightParams`, `u_shadowMatrix`, `s_envSpecular`, …) must not be reused with other types.
