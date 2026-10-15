@@ -20,6 +20,7 @@ uniform vec4 u_pbrParams;   // x metallic, y roughness, z normal strength, w occ
 uniform vec4 u_emissive;    // rgb linear * intensity, w alpha cutoff (0 = off)
 uniform vec4 u_uvTransform; // xy tiling, zw offset
 uniform vec4 u_pbrTextureParams; // xy separate metallic/roughness maps, z invert roughness
+uniform vec4 u_viewShading; // x: 0 lit, 1 unlit, 2 solid, 3 world normals
 
 void main()
 {
@@ -31,13 +32,21 @@ void main()
 		discard;
 	}
 
-	vec3 mr = texture2D(s_texMetallicRoughness, uv).rgb;
-	float metalMap = mix(mr.b, texture2D(s_texMetallic, uv).r, u_pbrTextureParams.x);
-	float roughMap = mix(mr.g, texture2D(s_texRoughness, uv).r, u_pbrTextureParams.y);
-	roughMap = mix(roughMap, 1.0 - roughMap, u_pbrTextureParams.z);
-	float metallic = clamp(u_pbrParams.x * metalMap, 0.0, 1.0);
-	float roughness = clamp(u_pbrParams.y * roughMap, 0.045, 1.0);
-	float occlusion = mix(1.0, texture2D(s_texOcclusion, uv).r, u_pbrParams.w);
+	if (u_viewShading.x > 0.5 && u_viewShading.x < 1.5)
+	{
+		gl_FragColor = vec4(base.rgb, alpha);
+		return;
+	}
+
+	vec3 cameraPos = mul(u_invView, vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+	vec3 viewDirection = normalize(cameraPos - v_worldPos);
+	if (u_viewShading.x > 1.5 && u_viewShading.x < 2.5)
+	{
+		// A soft headlight makes the geometry readable even inside an unlit room.
+		float light = 0.16 + 0.5 * abs(dot(normalize(v_normal), viewDirection));
+		gl_FragColor = vec4(vec3_splat(light), alpha);
+		return;
+	}
 
 	// Tangent-space normal (z reconstructed, so two-channel BC5 maps work too).
 	vec3 N = normalize(v_normal);
@@ -50,14 +59,27 @@ void main()
 		N = normalize(mul(TBN, tangentNormal));
 	}
 
-	vec3 cameraPos = mul(u_invView, vec4(0.0, 0.0, 0.0, 1.0)).xyz;
 	Surface s;
 	s.position = v_worldPos;
-	s.view = normalize(cameraPos - v_worldPos);
+	s.view = viewDirection;
 	if (dot(N, s.view) < 0.0 && !gl_FrontFacing)
 	{
 		N = -N;   // double-sided materials
 	}
+	if (u_viewShading.x > 2.5)
+	{
+		// The display pass gamma-encodes this; preserve the conventional normal colors.
+		gl_FragColor = vec4(toLinearAccurate(N * 0.5 + 0.5), alpha);
+		return;
+	}
+
+	vec3 mr = texture2D(s_texMetallicRoughness, uv).rgb;
+	float metalMap = mix(mr.b, texture2D(s_texMetallic, uv).r, u_pbrTextureParams.x);
+	float roughMap = mix(mr.g, texture2D(s_texRoughness, uv).r, u_pbrTextureParams.y);
+	roughMap = mix(roughMap, 1.0 - roughMap, u_pbrTextureParams.z);
+	float metallic = clamp(u_pbrParams.x * metalMap, 0.0, 1.0);
+	float roughness = clamp(u_pbrParams.y * roughMap, 0.045, 1.0);
+	float occlusion = mix(1.0, texture2D(s_texOcclusion, uv).r, u_pbrParams.w);
 	s.normal = N;
 	s.diffuseColor = base.rgb * (1.0 - metallic);
 	s.f0 = mix(vec3_splat(0.04), base.rgb, metallic);

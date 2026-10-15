@@ -43,6 +43,13 @@
 namespace
 {
 	const char* kOperationNames[] = { "Move", "Rotate", "Scale", "Universal" };
+	const char* kShadingNames[] = { "Lit", "Unlit", "Solid", "Normals" };
+	const char* kShadingDescriptions[] = {
+		"Scene lighting and camera post-processing",
+		"Base colors and textures without lighting, fog or exposure",
+		"Neutral surfaces with camera lighting for navigating dark levels",
+		"World-space surface normals"
+	};
 
 	ImGuizmo::OPERATION ToImGuizmo(SceneViewWidget::GizmoOperation op)
 	{
@@ -107,6 +114,16 @@ void SceneViewWidget::Init()
 
 	EditorConfig& config = EditorConfig::GetInstance();
 	MaximizeOnPlayPreference = config.GetPreference<bool>("GameView.MaximizeOnPlay", false);
+	m_shadingMode = static_cast<Moonlight::ViewShadingMode>(std::clamp(
+		config.GetPreference<int>(EnableSceneTools ? "Scene.ShadingMode" : "GameView.ShadingMode", 0), 0, 3));
+	for (int i = 0; i < 4; ++i)
+	{
+		const auto mode = static_cast<Moonlight::ViewShadingMode>(i);
+		const std::string prefix = EnableSceneTools ? "View.Shading." : "GameView.Shading.";
+		EditorActions::Get().Register({ prefix + kShadingNames[i],
+			std::string(EnableSceneTools ? "Scene Shading: " : "Game Shading: ") + kShadingNames[i],
+			EnableSceneTools ? "Scene View" : "Game View", 0, 0, [this, mode]() { SetShadingMode(mode); } });
+	}
 	if (!EnableSceneTools)
 	{
 		return;
@@ -154,6 +171,7 @@ void SceneViewWidget::Destroy()
 void SceneViewWidget::SetData(Moonlight::CameraData& data)
 {
 	MainCamera = &data;
+	MainCamera->Shading = m_shadingMode;
 }
 
 
@@ -166,6 +184,7 @@ void SceneViewWidget::SavePreferences() const
 {
 	EditorConfig& config = EditorConfig::GetInstance();
 	config.SetPreference("GameView.MaximizeOnPlay", MaximizeOnPlayPreference);
+	config.SetPreference(EnableSceneTools ? "Scene.ShadingMode" : "GameView.ShadingMode", static_cast<int>(m_shadingMode));
 	if (!EnableSceneTools)
 	{
 		return;
@@ -204,6 +223,13 @@ void SceneViewWidget::TogglePivotMode()
 void SceneViewWidget::ToggleSnapping()
 {
 	m_snapEnabled = !m_snapEnabled;
+	SavePreferences();
+}
+
+
+void SceneViewWidget::SetShadingMode(Moonlight::ViewShadingMode mode)
+{
+	m_shadingMode = mode;
 	SavePreferences();
 }
 
@@ -319,6 +345,8 @@ void SceneViewWidget::Render()
 
 	if (ImGui::BeginMenuBar())
 	{
+		DrawShadingMenu();
+		ImGui::Separator();
 		if (EnableSceneTools)
 		{
 			DrawSceneToolbar();
@@ -328,6 +356,10 @@ void SceneViewWidget::Render()
 			DrawGameToolbar();
 		}
 		ImGui::EndMenuBar();
+	}
+	if (MainCamera)
+	{
+		MainCamera->Shading = m_shadingMode;
 	}
 
 	SceneViewRenderLocation = Vector2(ImGui::GetCursorPos().x, ImGui::GetCursorPos().y);
@@ -418,6 +450,25 @@ void SceneViewWidget::Render()
 	ImGui::End();
 	ImGui::PopStyleVar(3);
 	ImGui::PopStyleColor(2);
+}
+
+
+void SceneViewWidget::DrawShadingMenu()
+{
+	const std::string label = std::string("Shading: ") + kShadingNames[static_cast<int>(m_shadingMode)];
+	if (ImGui::BeginMenu(label.c_str()))
+	{
+		for (int i = 0; i < 4; ++i)
+		{
+			if (ImGui::MenuItem(kShadingNames[i], nullptr, static_cast<int>(m_shadingMode) == i))
+			{
+				SetShadingMode(static_cast<Moonlight::ViewShadingMode>(i));
+			}
+			ImGui::SetItemTooltip("%s", kShadingDescriptions[i]);
+		}
+		ImGui::EndMenu();
+	}
+	ImGui::SetItemTooltip("Shading override for this viewport (saved in editor preferences)");
 }
 
 

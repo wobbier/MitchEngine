@@ -57,6 +57,9 @@ void CameraCore::LateUpdate( const UpdateContext& inUpdateContext )
         Moonlight::CameraData* CamData = cameraCache.Get( CameraComponent.m_id );
         if( CamData )
         {
+            // The viewport reapplies its override after camera updates. Cameras switched out of
+            // Game View return to lit rendering (for example when used as a render texture).
+            CamData->Shading = Moonlight::ViewShadingMode::Lit;
             CamData->Position = TransformComponent.GetWorldPosition();
             CamData->Front = TransformComponent.Front();
             CamData->Up = TransformComponent.Up();

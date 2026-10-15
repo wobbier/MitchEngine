@@ -210,6 +210,7 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
         bgfx::setName( m_lightDataTexture, "Light Data" );
         m_lightData.assign( 2048 * 4, 0.f );
         u_lightParams = bgfx::createUniform( "u_lightParams", bgfx::UniformType::Vec4 );
+        u_viewShading = bgfx::createUniform( "u_viewShading", bgfx::UniformType::Vec4 );
         u_dirLightDirection = bgfx::createUniform( "u_dirLightDirection", bgfx::UniformType::Vec4, 4 );
         u_dirLightColor = bgfx::createUniform( "u_dirLightColor", bgfx::UniformType::Vec4, 4 );
         u_clusterParams = bgfx::createUniform( "u_clusterParams", bgfx::UniformType::Vec4 );
@@ -354,7 +355,7 @@ void BGFXRenderer::Destroy()
     EditorCameraBuffer = nullptr;
 
     const bgfx::UniformHandle uniforms[] = { s_texDiffuse, s_texNormal, s_texAlpha, s_texUI, s_time,
-        u_lightParams, u_dirLightDirection, u_dirLightColor, u_clusterParams, u_clusterGrid, u_ambientSky, u_ambientGround,
+        u_lightParams, u_viewShading, u_dirLightDirection, u_dirLightColor, u_clusterParams, u_clusterGrid, u_ambientSky, u_ambientGround,
         s_lightData, s_clusterGrid, s_clusterIndices, s_texMetallicRoughness, s_texEmissive, s_texOcclusion, s_texMetallic, s_texRoughness,
         u_shadowMatrix, u_cascadeSplits, u_cascadeTexel, u_shadowParams, u_localShadowMatrix, u_spotShadowParams, u_pointShadowParams, u_shadowAlpha, s_shadowMap, s_spotShadowMap,
         s_envSpecular, s_envIrradiance, s_brdfLut, u_envParams, u_fogParams, u_fogColor, u_fogVolume, u_fogForward,
@@ -593,15 +594,28 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     // Temporal AA: this frame's unjittered view-projection (for reprojection), then a sub-pixel
     // jitter on the projection the scene draws with (restored when the view is done).
     Moonlight::FrameBuffer& targets = *camera.Buffer;
-    struct ProjectionRestore
+    struct CameraRestore
     {
         Moonlight::CameraData& Camera;
         Matrix4 Projection;
-        ~ProjectionRestore()
+        Moonlight::PostProcessSettings Post;
+        ~CameraRestore()
         {
             Camera.ProjectionMatrix = Projection;
+            Camera.Post = Post;
         }
-    } restoreProjection{ camera, camera.ProjectionMatrix };
+    } restoreCamera{ camera, camera.ProjectionMatrix, camera.Post };
+    const bool lit = camera.Shading == Moonlight::ViewShadingMode::Lit;
+    if( !lit )
+    {
+        // Inspection modes need a neutral display transform, independent of scene settings.
+        // Keep the camera's authored post settings intact when this render finishes.
+        camera.Post = Moonlight::PostProcessSettings();
+        camera.Post.Operator = Moonlight::Tonemapper::None;
+        camera.Post.Bloom = false;
+        camera.Post.AmbientOcclusion = false;
+        camera.Post.VignetteIntensity = 0.f;
+    }
     {
         const glm::mat4 viewProjection = camera.ProjectionMatrix.GetInternalMatrix() * camera.View.GetInternalMatrix();
         std::copy( &viewProjection[0][0], &viewProjection[0][0] + 16, targets.ViewProjection );
@@ -631,14 +645,14 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     PrepareCameraLighting( camera );
 
     // Ambient: the camera's environment probe (captured and filtered on demand).
-    const Moonlight::EnvironmentLighting::Probe* probe = EnableEnvironmentLighting ? m_environment->Prepare( m_views, camera, m_dynamicSky.get(), m_frameIndex ) : nullptr;
+    const Moonlight::EnvironmentLighting::Probe* probe = lit && EnableEnvironmentLighting ? m_environment->Prepare( m_views, camera, m_dynamicSky.get(), m_frameIndex ) : nullptr;
     m_lighting.EnvSpecular = probe ? probe->Specular : m_environment->GetFallbackCube();
     m_lighting.EnvIrradiance = probe ? probe->Irradiance : m_environment->GetFallbackCube();
     m_lighting.EnvParams[0] = EnvironmentIntensity;
     m_lighting.EnvParams[1] = static_cast<float>( Moonlight::EnvironmentLighting::kSpecularMips - 1 );
     m_lighting.EnvParams[2] = probe ? 1.f : 0.f;
 
-    if( Shadows.Enabled && m_shadowsSupported )
+    if( lit && Shadows.Enabled && m_shadowsSupported )
     {
         RenderSunShadows( camera );
     }
@@ -842,7 +856,7 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
 
     // Decals land on the opaque surfaces; ambient occlusion then darkens both before transparents
     // are composited on top, and fog covers it all.
-    RenderDecals( camera );
+    if( lit ) RenderDecals( camera );
     m_postProcess->RenderAmbientOcclusion( m_views, camera, *camera.Buffer );
     m_postProcess->RenderFog( m_views, camera, *camera.Buffer, [this]() { BindLighting(); } );
     // Everything drawn from here on (transparents, particles) is in front of the fogged scene.
@@ -909,7 +923,7 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
         m_debugDraw->End();
     }
     SubmitDebugLines( camera, transparentView );
-    RenderParticles( camera );
+    if( lit ) RenderParticles( camera );
 
     // HDR -> final image (bloom, exposure, tonemapping, grading, FXAA).
     m_postProcess->RenderTemporalAA( m_views, camera, *camera.Buffer );
@@ -1125,6 +1139,7 @@ void BGFXRenderer::PrepareFrameLighting()
 void BGFXRenderer::PrepareCameraLighting( Moonlight::CameraData& camera )
 {
     OPTICK_EVENT( "Renderer::PrepareCameraLighting" );
+    m_lighting.ViewShading[0] = static_cast<float>( camera.Shading );
     // Set the sky before lighting, shadows and environment captures consume its uniforms.
     if( m_dynamicSky ) m_dynamicSky->ApplySettings( camera.ProceduralSky );
     // Scenes without a directional light are lit (and shadowed) by the procedural sky's sun.
@@ -1807,6 +1822,7 @@ void BGFXRenderer::BindLighting()
 {
     // Uniform state is part of each draw in bgfx, so these go with every submit.
     bgfx::setUniform( u_lightParams, m_lighting.Params );
+    bgfx::setUniform( u_viewShading, m_lighting.ViewShading );
     bgfx::setUniform( u_dirLightDirection, m_lighting.DirectionalDirection, 4 );
     bgfx::setUniform( u_dirLightColor, m_lighting.DirectionalColor, 4 );
     bgfx::setUniform( u_clusterParams, m_lighting.ClusterParams );

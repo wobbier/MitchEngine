@@ -31,6 +31,16 @@ namespace Moonlight
         Procedural
     };
 
+    // Per-viewport inspection override; never serialized into a scene's camera or materials.
+    // Values match u_viewShading.x in Standard.frag.
+    enum class ViewShadingMode : uint8_t
+    {
+        Lit = 0,
+        Unlit,
+        Solid,
+        Normals
+    };
+
     struct CameraData
     {
         Vector3 Position = Vector3( 0.f, 0.f, 0.f );
@@ -59,6 +69,7 @@ namespace Moonlight
         bool ShouldCull = true;
         // The editor scene view (gets editor-only debug drawing: grid, selection, gizmos).
         bool IsEditorView = false;
+        ViewShadingMode Shading = ViewShadingMode::Lit;
 
         PostProcessSettings Post;
 

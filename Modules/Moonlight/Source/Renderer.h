@@ -259,6 +259,7 @@ private:
     UniquePtr<Moonlight::ClusterBuilder> m_clusterBuilder;
     struct LightingUniforms
     {
+        float ViewShading[4] = {};
         float Params[4] = { 0.f, 0.f, 1.f, 0.f };
         float DirectionalDirection[4][4] = {};
         float DirectionalColor[4][4] = {};
@@ -288,6 +289,7 @@ private:
     UniquePtr<Moonlight::EnvironmentLighting> m_environment;
     uint64_t m_frameIndex = 0;
     bgfx::UniformHandle u_lightParams = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle u_viewShading = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle u_dirLightDirection = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle u_dirLightColor = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle u_clusterParams = BGFX_INVALID_HANDLE;

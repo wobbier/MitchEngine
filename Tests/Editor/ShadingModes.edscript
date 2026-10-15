@@ -1,0 +1,52 @@
+# Per-view shading, neutral inspection rendering and authored post settings across Play/Stop.
+# Havana --scene Assets/Scenes/Tests/LightingTest.lvl --editor-exec Engine/Tests/Editor/ShadingModes.edscript
+wait 20
+select Main Camera
+add-component PostProcess
+set PostProcess.ExposureCompensation -4
+set PostProcess.Fog true
+set PostProcess.FogDensity 0.2
+set PostProcess.TemporalAA true
+save-as .tmp/ShadingModes.lvl
+focus-window World View
+select-none
+action View.FrameSelected
+action View.Shading.Lit
+action GameView.Shading.Lit
+wait 20
+screenshot .tmp/ShadingModes-lit.png
+action View.Shading.Unlit
+wait 5
+assert-dirty 0
+assert-field Main Camera | PostProcess.ExposureCompensation | -4
+assert-field Main Camera | PostProcess.Fog | true
+screenshot .tmp/ShadingModes-scene-unlit.png
+action GameView.Shading.Solid
+wait 5
+screenshot .tmp/ShadingModes-game-solid.png
+action View.Shading.Solid
+action GameView.Shading.Unlit
+wait 5
+screenshot .tmp/ShadingModes-solid-unlit.png
+action View.Shading.Normals
+action GameView.Shading.Normals
+wait 5
+screenshot .tmp/ShadingModes-normals.png
+play
+wait 10
+action View.Shading.Unlit
+action GameView.Shading.Solid
+wait 5
+stop
+wait 5
+assert-dirty 0
+assert-field Main Camera | PostProcess.ExposureCompensation | -4
+assert-field Main Camera | PostProcess.Fog | true
+assert-field Main Camera | PostProcess.TemporalAA | true
+action View.Shading.Lit
+action GameView.Shading.Lit
+wait 20
+screenshot .tmp/ShadingModes-restored.png
+load Assets/Scenes/Tests/LightingTest.lvl
+wait 10
+assert-dirty 0

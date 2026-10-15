@@ -156,8 +156,14 @@ timings. Shadow resolution choices account for the full atlas size and the GPU t
 
 **Camera Post-processing** follows the main camera by default and can target another scene
 camera. It reuses the component inspector, including undo, reset/copy/paste, prefab overrides,
-and scene serialization. **Add PostProcess** creates the component as an undoable edit. The
-Scene View continues to follow the main camera's post settings.
+and scene serialization. **Add PostProcess** creates the component as an undoable edit.
+In Lit shading, Scene View continues to follow the main camera's post settings. The World and
+Game View toolbar shading overrides (Unlit, Solid, Normals) instead use a neutral display
+transform, without fog, exposure, grading, bloom, SSAO or vignette. The renderer restores the
+camera's post settings after rendering each view. These inspection modes skip sun shadows,
+environment probe preparation, decals and particles, and set `u_viewShading` per mesh draw;
+Standard.frag shares the override across static, instanced, skinned and posed meshes while
+retaining material alpha. Shading choices are per-user viewport preferences, not scene data.
 
 ### Lights and clustered forward
 
