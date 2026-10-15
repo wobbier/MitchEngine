@@ -183,7 +183,7 @@ vec4 cloudMarch(vec3 _origin, vec3 _dir, float _jitter)
 	// Ambient: the sky above (zenith and around the horizon) and light bounced off the ground below.
 	vec3 skyAbove = skyViewLuminance(vec3(0.0, 1.0, 0.0)) * 0.5
 		+ (skyViewLuminance(normalize(vec3(sunDir.x, 0.3, sunDir.z))) + skyViewLuminance(normalize(vec3(-sunDir.x, 0.3, -sunDir.z)))) * 0.25;
-	vec3 groundIrradiance = u_skySunColor.rgb * skyTransmittance(SKY_BOTTOM_RADIUS + 0.01, sunDir.y) * saturate(sunDir.y) + skyAbove * SKY_PI;
+	vec3 groundIrradiance = u_skySunColor.rgb * skySolarVisibility(_origin) * skyTransmittance(SKY_BOTTOM_RADIUS + 0.01, sunDir.y) * saturate(sunDir.y) + skyAbove * SKY_PI;
 	if (moonLit)
 	{
 		groundIrradiance += u_skyMoonColor.rgb * skyTransmittance(SKY_BOTTOM_RADIUS + 0.01, moonDir.y) * saturate(moonDir.y);
@@ -211,7 +211,7 @@ vec4 cloudMarch(vec3 _origin, vec3 _dir, float _jitter)
 		if (density > 0.0)
 		{
 			float extinction = density * u_cloudLayer.w;
-			vec3 light = u_skySunColor.rgb * skyLightTransmittance(pos, sunDir, u_skySun.w)
+			vec3 light = u_skySunColor.rgb * skySolarVisibility(pos) * skyLightTransmittance(pos, sunDir, u_skySun.w)
 				* cloudLightScattering(cloudLightDepth(pos, sunDir), cosSun);
 			if (moonLit)
 			{

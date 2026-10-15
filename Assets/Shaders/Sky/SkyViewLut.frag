@@ -47,7 +47,8 @@ void main()
 		vec3 extinction;
 		skyMedium(r - SKY_BOTTOM_RADIUS, rayleigh, mie, extinction);
 		extinction = max(extinction, vec3_splat(1e-7));
-		vec3 source = skyInScattering(pos, up, r, dir, sunDir, u_skySun.w, u_skySunColor.rgb, rayleigh, mie);
+		float sunlight = skySolarVisibility(pos + vec3(u_skyCamera.x, 0.0, u_skyCamera.z));
+		vec3 source = skyInScattering(pos, up, r, dir, sunDir, u_skySun.w, u_skySunColor.rgb * sunlight, rayleigh, mie);
 		if (moonLit)
 		{
 			source += skyInScattering(pos, up, r, dir, moonDir, u_skyMoon.w, u_skyMoonColor.rgb, rayleigh, mie);
@@ -63,7 +64,7 @@ void main()
 		// The planet's surface, lit directly and by the sky (roughly a quarter of the sun's share).
 		vec3 pos = origin + dir * tGround;
 		vec3 normal = normalize(pos);
-		vec3 lit = u_skySunColor.rgb * skyLightTransmittance(pos, sunDir, u_skySun.w) * (saturate(dot(normal, sunDir)) + 0.08);
+		vec3 lit = u_skySunColor.rgb * skySolarVisibility(pos + vec3(u_skyCamera.x, 0.0, u_skyCamera.z)) * skyLightTransmittance(pos, sunDir, u_skySun.w) * (saturate(dot(normal, sunDir)) + 0.08);
 		if (moonLit)
 		{
 			lit += u_skyMoonColor.rgb * skyLightTransmittance(pos, moonDir, u_skyMoon.w) * (saturate(dot(normal, moonDir)) + 0.08);

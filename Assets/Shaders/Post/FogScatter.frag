@@ -59,7 +59,7 @@ void main()
 		if (sigma > 0.0)
 		{
 			float stepViewZ = originViewZ + t * viewZPerMetre;
-			vec3 light = u_fogColor.rgb + sunRadiance * sunShadowVolume(p, stepViewZ);
+			vec3 light = u_fogColor.rgb + sunRadiance * directionalEclipse(0, p) * sunShadowVolume(p, stepViewZ);
 			if (u_lightParams.y > 0.5)
 			{
 				vec2 range = clusterRangeAt(pixel, stepViewZ);
@@ -78,6 +78,6 @@ void main()
 			transmittance *= stepTransmittance;
 		}
 	}
-	vec4 rest = fogAnalytic(origin, dir, marchEnd, distance, sunRadiance);
+	vec4 rest = fogAnalytic(origin, dir, marchEnd, distance, sunRadiance * directionalEclipse(0, origin + dir * ((marchEnd + distance) * 0.5)));
 	gl_FragColor = fogClampOpacity(vec4(scattered + transmittance * rest.rgb, transmittance * rest.a));
 }

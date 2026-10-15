@@ -17,6 +17,8 @@ namespace Moonlight
 
         // Sun, moon and stars
         float MoonPhase = 0.4f;         // 0 new, 0.25 first quarter, 0.5 full, 0.75 last quarter
+        float MoonOrbitInclination = 5.145f; // degrees relative to the ecliptic; zero aligns a new moon for an eclipse
+        float MoonAscendingNode = 125.08f;   // degrees along the ecliptic where the moon crosses north
         float SunSize = 1.5f;           // angular size relative to the real sun
         float MoonSize = 3.f;           // angular size relative to the real moon
         float MoonBrightness = 1.f;     // scales moonlight on the scene and in the sky
@@ -38,6 +40,8 @@ namespace Moonlight
             Turbidity = std::clamp( Turbidity, 1.f, 10.f );
             Month = std::clamp( Month, 0, 11 );
             MoonPhase = std::clamp( MoonPhase, 0.f, 1.f );
+            MoonOrbitInclination = std::clamp( MoonOrbitInclination, 0.f, 10.f );
+            MoonAscendingNode = std::clamp( MoonAscendingNode, 0.f, 360.f );
             SunSize = std::clamp( SunSize, 0.1f, 10.f );
             MoonSize = std::clamp( MoonSize, 0.1f, 10.f );
             MoonBrightness = std::clamp( MoonBrightness, 0.f, 10.f );

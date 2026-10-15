@@ -211,6 +211,9 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
         u_viewShading = bgfx::createUniform( "u_viewShading", bgfx::UniformType::Vec4 );
         u_dirLightDirection = bgfx::createUniform( "u_dirLightDirection", bgfx::UniformType::Vec4, 4 );
         u_dirLightColor = bgfx::createUniform( "u_dirLightColor", bgfx::UniformType::Vec4, 4 );
+        u_eclipseSun = bgfx::createUniform( "u_eclipseSun", bgfx::UniformType::Vec4 );
+        u_eclipseMoon = bgfx::createUniform( "u_eclipseMoon", bgfx::UniformType::Vec4 );
+        u_eclipseParams = bgfx::createUniform( "u_eclipseParams", bgfx::UniformType::Vec4 );
         u_clusterParams = bgfx::createUniform( "u_clusterParams", bgfx::UniformType::Vec4 );
         u_clusterGrid = bgfx::createUniform( "u_clusterGrid", bgfx::UniformType::Vec4 );
         u_ambientSky = bgfx::createUniform( "u_ambientSky", bgfx::UniformType::Vec4 );
@@ -353,7 +356,7 @@ void BGFXRenderer::Destroy()
     EditorCameraBuffer = nullptr;
 
     const bgfx::UniformHandle uniforms[] = { s_texDiffuse, s_texNormal, s_texAlpha, s_texUI, s_time,
-        u_lightParams, u_viewShading, u_dirLightDirection, u_dirLightColor, u_clusterParams, u_clusterGrid, u_ambientSky, u_ambientGround,
+        u_lightParams, u_viewShading, u_dirLightDirection, u_dirLightColor, u_eclipseSun, u_eclipseMoon, u_eclipseParams, u_clusterParams, u_clusterGrid, u_ambientSky, u_ambientGround,
         s_lightData, s_clusterGrid, s_clusterIndices, s_texMetallicRoughness, s_texEmissive, s_texOcclusion, s_texMetallic, s_texRoughness,
         u_shadowMatrix, u_cascadeSplits, u_cascadeTexel, u_shadowParams, u_localShadowMatrix, u_spotShadowParams, u_pointShadowParams, u_shadowAlpha, s_shadowMap, s_spotShadowMap,
         s_envSpecular, s_envIrradiance, s_brdfLut, u_envParams, u_fogParams, u_fogColor, u_fogVolume, u_fogForward,
@@ -1001,50 +1004,14 @@ void BGFXRenderer::PrepareFrameLighting()
         EnsureLocalShadowAtlas( Shadows.SpotResolution, Shadows.PointResolution );
     }
 
-    // Directional lights go to uniforms; the first shadow caster takes slot 0 (the "sun").
-    std::vector<const Moonlight::LightCommand*> directional;
+    // Directionals are resolved per camera, since each camera can have a different sky.
+    m_directionalLightCount = 0;
     m_localLights.clear();
     for( const Moonlight::LightCommand& light : m_lights )
     {
-        if( light.Type == Moonlight::LightType::Directional )
-        {
-            if( directional.size() < 4 )
-            {
-                directional.push_back( &light );
-            }
-        }
-        else if( m_localLights.size() < 256 )
-        {
-            m_localLights.push_back( light );
-        }
+        if( light.Type == Moonlight::LightType::Directional ) ++m_directionalLightCount;
+        else if( m_localLights.size() < 256 ) m_localLights.push_back( light );
     }
-    auto sun = std::find_if( directional.begin(), directional.end(), []( const Moonlight::LightCommand* light ) { return light->CastShadows; } );
-    if( sun != directional.end() )
-    {
-        std::iter_swap( directional.begin(), sun );
-    }
-
-    m_hasSunShadow = false;
-    for( size_t i = 0; i < directional.size(); ++i )
-    {
-        const Moonlight::LightCommand& light = *directional[i];
-        float* direction = m_lighting.DirectionalDirection[i];
-        float* color = m_lighting.DirectionalColor[i];
-        const Vector3 dir = light.Direction.Normalized();
-        const bool shadowed = i == 0 && light.CastShadows && shadowsOn;
-        direction[0] = dir.x; direction[1] = dir.y; direction[2] = dir.z; direction[3] = shadowed ? 1.f : 0.f;
-        color[0] = light.Color.x; color[1] = light.Color.y; color[2] = light.Color.z; color[3] = 0.f;
-        if( shadowed )
-        {
-            m_hasSunShadow = true;
-            m_sunShadowLight = light;
-        }
-    }
-    int directionalCount = static_cast<int>( directional.size() );
-
-    m_directionalLightCount = directionalCount;
-
-    m_lighting.Params[0] = static_cast<float>( directionalCount );
     m_lighting.Params[1] = static_cast<float>( m_localLights.size() );
     m_lighting.Params[2] = 1.f;
 
@@ -1164,32 +1131,29 @@ void BGFXRenderer::PrepareCameraLighting( Moonlight::CameraData& camera )
             m_dynamicSky->Prepare( m_views, camera );
         }
     }
-    // Scenes without a directional light are lit (and shadowed) by the procedural sky: the sun by
-    // day, the moon by night.
-    if( m_directionalLightCount == 0 && m_dynamicSky )
+    // A procedural sky drives the primary directional (or creates one). Explicit Sun/Moon
+    // sources share this path, including CSM, fog, decals and particles. Solid/skybox cameras
+    // retain authored directionals and the legacy sky fallback when no light exists.
+    const bool useSky = m_dynamicSky && ( camera.ClearType == Moonlight::ClearColorType::Procedural || m_directionalLightCount == 0 );
+    const Moonlight::SkyDirectionalLights* skyLights = useSky ? &m_dynamicSky->GetDirectionalLights() : nullptr;
+    const Moonlight::DirectionalLighting directionals = Moonlight::ResolveDirectionalLighting( m_lights, skyLights );
+    m_lighting.EclipseParams[1] = 0.f;
+    if( useSky ) m_dynamicSky->GetEclipse().Uniforms( m_lighting.EclipseSun, m_lighting.EclipseMoon, m_lighting.EclipseParams );
+    m_hasSunShadow = false;
+    const bool shadowsOn = Shadows.Enabled && m_shadowsSupported;
+    for( size_t i = 0; i < directionals.Count; ++i )
     {
-        const bool shadowsOn = Shadows.Enabled && m_shadowsSupported;
-        m_hasSunShadow = false;
-        const Moonlight::DynamicSky::SceneLight& light = m_dynamicSky->GetSceneLight();
-        const bool visible = std::max( { light.Color.x, light.Color.y, light.Color.z } ) > 1e-4f && light.Direction.y > 0.f;
-        float* direction = m_lighting.DirectionalDirection[0];
-        float* color = m_lighting.DirectionalColor[0];
-        direction[0] = -light.Direction.x; direction[1] = -light.Direction.y; direction[2] = -light.Direction.z; direction[3] = shadowsOn ? 1.f : 0.f;
-        color[0] = light.Color.x; color[1] = light.Color.y; color[2] = light.Color.z;
-        m_lighting.Params[0] = 1.f;
-        if( shadowsOn && visible )
-        {
-            m_hasSunShadow = true;
-            m_sunShadowLight = Moonlight::LightCommand();
-            m_sunShadowLight.Type = Moonlight::LightType::Directional;
-            m_sunShadowLight.Direction = Vector3( -light.Direction.x, -light.Direction.y, -light.Direction.z );
-            m_sunShadowLight.CastShadows = true;
-        }
-        else
-        {
-            direction[3] = 0.f;
-        }
+        const Moonlight::LightCommand& light = directionals.Lights[i];
+        const Vector3 dir = light.Direction.Normalized();
+        const bool visible = std::max( { light.Color.x, light.Color.y, light.Color.z } ) > 1e-6f;
+        const bool shadowed = i == 0 && light.CastShadows && shadowsOn && visible;
+        float* direction = m_lighting.DirectionalDirection[i];
+        float* color = m_lighting.DirectionalColor[i];
+        direction[0] = dir.x; direction[1] = dir.y; direction[2] = dir.z; direction[3] = shadowed ? 1.f : 0.f;
+        color[0] = light.Color.x; color[1] = light.Color.y; color[2] = light.Color.z; color[3] = light.SkySun ? 1.f : 0.f;
+        if( shadowed ) { m_hasSunShadow = true; m_sunShadowLight = light; }
     }
+    m_lighting.Params[0] = static_cast<float>( directionals.Count );
 
     Moonlight::FrameBuffer& buffer = *camera.Buffer;
     m_lighting.ClusterGridTexture = buffer.ClusterGrid;
@@ -1843,6 +1807,9 @@ void BGFXRenderer::BindLighting()
     bgfx::setUniform( u_viewShading, m_lighting.ViewShading );
     bgfx::setUniform( u_dirLightDirection, m_lighting.DirectionalDirection, 4 );
     bgfx::setUniform( u_dirLightColor, m_lighting.DirectionalColor, 4 );
+    bgfx::setUniform( u_eclipseSun, m_lighting.EclipseSun );
+    bgfx::setUniform( u_eclipseMoon, m_lighting.EclipseMoon );
+    bgfx::setUniform( u_eclipseParams, m_lighting.EclipseParams );
     bgfx::setUniform( u_clusterParams, m_lighting.ClusterParams );
     bgfx::setUniform( u_clusterGrid, m_lighting.ClusterGrid );
     bgfx::setUniform( u_ambientSky, m_lighting.AmbientSky );

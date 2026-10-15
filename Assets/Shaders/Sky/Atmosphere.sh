@@ -1,5 +1,6 @@
 #ifndef __ATMOSPHERE_SH__
 #define __ATMOSPHERE_SH__
+#include "../SolarEclipse.sh"
 // Physically based atmosphere after Hillaire 2020 ("A Scalable and Production Ready Sky and
 // Atmosphere Rendering Technique"): Rayleigh and Mie scattering plus ozone absorption over a
 // spherical planet, with lookup tables for the transmittance, the multiple scattering and the sky as
@@ -28,11 +29,17 @@ uniform vec4 u_skyMoon;         // xyz unit direction towards the moon, w disc a
 uniform vec4 u_skyMoonColor;    // rgb moonlight illuminance outside the atmosphere, w disc luminance per unit illuminance
 uniform vec4 u_skyAtmosphere;   // x aerosol density scale, y camera altitude (km), z ground albedo, w night sky luminance
 uniform vec4 u_skyCamera;       // xyz camera position (km: world x, altitude, world z), w 1 = clouds enabled
-uniform vec4 u_skyScattering;   // x sky brightness, y cloud brightness (art scales on the scattered light)
+uniform vec4 u_skyScattering;   // x sky brightness, y cloud brightness, z solar visibility at camera
 
 SAMPLER2D(s_skyTransmittance, 0);
 SAMPLER2D(s_skyMultiScatter, 1);
 SAMPLER2D(s_skyView, 2);
+
+// Atmospheric positions are km from the planet centre; the eclipse uses world metres.
+float skySolarVisibility(vec3 _planetPosition)
+{
+    return solarVisibility((_planetPosition - vec3(0.0, SKY_BOTTOM_RADIUS, 0.0)) * 1000.0);
+}
 
 // Scattering and extinction (per km) at an altitude (km).
 void skyMedium(float _altitude, out vec3 _rayleigh, out vec3 _mie, out vec3 _extinction)

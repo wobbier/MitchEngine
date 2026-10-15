@@ -1,5 +1,6 @@
 #ifndef __LIGHTING_SH__
 #define __LIGHTING_SH__
+#include "SolarEclipse.sh"
 // Physically based shading: GGX / Smith-GGX correlated / Schlick, Lambert diffuse.
 // Directional lights come from uniforms; local lights from clustered light lists.
 
@@ -13,7 +14,17 @@
 
 uniform vec4 u_lightParams;                              // x directional count, y local light count, z ambient intensity, w IBL enabled
 uniform vec4 u_dirLightDirection[MAX_DIRECTIONAL_LIGHTS]; // xyz direction light travels, w shadowed (1)
-uniform vec4 u_dirLightColor[MAX_DIRECTIONAL_LIGHTS];     // rgb linear colour * intensity
+uniform vec4 u_dirLightColor[MAX_DIRECTIONAL_LIGHTS];     // rgb linear colour * intensity, w 1 = sky sun (eclipsed)
+
+float directionalEclipse(int _index, vec3 _position)
+{
+    return u_dirLightColor[_index].w > 0.5 ? solarVisibility(_position) : 1.0;
+}
+
+vec3 directionalRadiance(int _index, vec3 _position)
+{
+    return u_dirLightColor[_index].rgb * directionalEclipse(_index, _position);
+}
 uniform vec4 u_clusterParams;                            // x tile width px, y tile height px, z slice scale, w slice bias
 uniform vec4 u_clusterGrid;                              // x, y, z grid size, w 1 = gl_FragCoord origin bottom-left
 uniform vec4 u_ambientSky;                               // rgb sky ambient (linear)
@@ -509,7 +520,7 @@ vec3 volumeLighting(vec3 _position, vec2 _fragCoord, float _viewZ)
 		{
 			visibility = sunShadow(volumeSurface(_position, L), L, _viewZ);
 		}
-		radiance += u_dirLightColor[i].rgb * visibility;
+		radiance += directionalRadiance(i, _position) * visibility;
 	}
 	if (u_lightParams.y > 0.5)
 	{

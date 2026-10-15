@@ -1,6 +1,7 @@
 #pragma once
 #include "Camera/ProceduralSkySettings.h"
 #include "Graphics/ShaderCommand.h"
+#include "Lighting/DirectionalLighting.h"
 #include "bgfx/bgfx.h"
 #include "bx/math.h"
 #include <cstdint>
@@ -26,6 +27,20 @@ namespace Moonlight
     };
     SkyCelestial ComputeSkyCelestial( const ProceduralSkySettings& InSettings );
 
+    // Uncovered fraction of a solar disc: handles disjoint, partial, annular and total eclipses.
+    float ComputeDiscVisibility( float InSunRadius, float InMoonRadius, float InSeparation );
+    struct SolarEclipse
+    {
+        bx::Vec3 Sun = { 0.f, 1.f, 0.f };
+        bx::Vec3 Moon = { 0.f, -1.f, 0.f };
+        float SunRadius = 0.004654f;
+        float MoonRadius = 0.004520f;
+        // World metres. Parallax projects the lunar umbra and penumbra onto scene receivers.
+        static constexpr float MoonDistance = 384400000.f;
+        float Visibility( const bx::Vec3& InWorldPosition ) const;
+        void Uniforms( float OutSun[4], float OutMoon[4], float OutParams[4] ) const;
+    };
+
     // Fraction of a light disc's light (angular radius InRadius, zenith cosine InMu) that reaches
     // InAltitudeKm through the atmosphere (aerosol density InAerosol), zero below the horizon.
     bx::Vec3 ComputeSkyTransmittance( float InAltitudeKm, float InMu, float InAerosol, float InRadius );
@@ -37,8 +52,8 @@ namespace Moonlight
     //     with the Milky Way turning with the sidereal time;
     //   - raymarched volumetric clouds (Schneider 2015 style noise, generated at start-up on worker
     //     threads) accumulated over frames at half resolution.
-    // World directions: +Y up, +Z north, +X east. Scenes without a directional light are lit by the
-    // sun or the moon through GetSceneLight().
+    // World directions: +Y up, +Z north, +X east. The primary directional light follows these
+    // bodies for procedural skies; scenes without one get an automatic shadow-casting light.
     class DynamicSky
     {
     public:
@@ -58,14 +73,8 @@ namespace Moonlight
         // Binds the sky for an environment probe face and returns the program to submit.
         const ShaderCommand& BindCapture();
 
-        struct SceneLight
-        {
-            bx::Vec3 Direction = { 0.f, 1.f, 0.f };  // towards the light
-            bx::Vec3 Color = { 0.f, 0.f, 0.f };      // linear, intensity included
-            bool IsMoon = false;
-        };
-        // The sun by day, the moon by night (dimmed when clouds cover it).
-        const SceneLight& GetSceneLight() const { return m_sceneLight; }
+        const SkyDirectionalLights& GetDirectionalLights() const { return m_directionalLights; }
+        const SolarEclipse& GetEclipse() const { return m_eclipse; }
         // Sky ambient for the hemisphere fallback (used until an environment probe is ready).
         const bx::Vec3& GetAmbientSky() const { return m_ambientSky; }
         // Changes whenever the sky looks different enough to recapture an environment probe.
@@ -136,6 +145,9 @@ namespace Moonlight
         bgfx::UniformHandle u_skyGalaxy = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_skyGalaxyCentre = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_skyMoonUp = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_eclipseSun = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_eclipseMoon = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_eclipseParams = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_cloudLayer = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_cloudWind = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_cloudMarch = BGFX_INVALID_HANDLE;
@@ -162,7 +174,8 @@ namespace Moonlight
         float m_aerosol = 1.f;
         float m_windOffset[3] = { 0.f, 0.f, 0.f };
         bool m_showsSky = false;                    // the camera's background is this sky
-        SceneLight m_sceneLight;
+        SkyDirectionalLights m_directionalLights;
+        SolarEclipse m_eclipse;
         bx::Vec3 m_ambientSky = { 0.f, 0.f, 0.f };
         uint64_t m_environmentKey = 0;
     };

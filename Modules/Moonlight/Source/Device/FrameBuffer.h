@@ -68,6 +68,7 @@ namespace Moonlight
         Mip CloudHistory[2];
         uint32_t CloudIndex = 0;            // the target written last
         bool CloudValid = false;            // CloudHistory[CloudIndex] holds last frame's clouds
+        uint64_t CloudSkyKey = 0;           // reset history when time, orbit, weather or eclipse changes
         uint32_t CloudFrame = 0;            // position in the sub-pixel jitter sequence
         float CloudPreviousBasis[9] = {};   // last frame's right / tan, up / tan, forward (see DynamicSky)
         void EnsureCloudTargets();

@@ -139,7 +139,7 @@ void main()
 		{
 			visibility = sunShadow(s, L, v_viewPos.z);
 		}
-		color += shadeLight(s, L, u_dirLightColor[i].rgb) * visibility;
+		color += shadeLight(s, L, directionalRadiance(i, s.position)) * visibility;
 	}
 	color += shadeClusteredLights(s, gl_FragCoord.xy, v_viewPos.z);
 	color += ambientLighting(s, occlusion);
@@ -148,7 +148,7 @@ void main()
 	color *= cascadeDebugTint(v_viewPos.z);
 
 	// Transparent surfaces are drawn after the fog pass, so they fog themselves.
-	vec3 sunColor = u_lightParams.x > 0.5 ? u_dirLightColor[0].rgb : vec3_splat(0.0);
+	vec3 sunColor = u_lightParams.x > 0.5 ? directionalRadiance(0, v_worldPos) : vec3_splat(0.0);
 	vec4 fog = fogForward(cameraPos, v_worldPos, sunColor, u_dirLightDirection[0].xyz);
 	color = color * fog.a + fog.rgb;
 

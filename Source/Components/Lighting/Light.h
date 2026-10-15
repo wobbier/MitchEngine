@@ -3,8 +3,9 @@
 #include "ECS/ComponentDetail.h"
 #include "RenderCommands.h"
 
-// A light source. Directional lights shine along the entity's forward axis (the first shadowed one
-// is the "sun" with cascaded shadows); point lights radiate from the entity's position out to
+// A light source. Directional lights use the entity's forward axis, or follow procedural sky bodies
+// through DirectionalSource (Automatic follows the sky for the primary light). The first visible
+// shadow caster uses cascaded shadows. Point lights radiate from the entity's position out to
 // Range; spot lights are cones along forward with inner/outer angles. Bars emit along a capsule on
 // local X (for fluorescent tubes); boxes emit from a local cuboid; rectangles emit from a local XY
 // face into the forward (+Z) hemisphere. Extended emitters follow world
@@ -24,6 +25,7 @@ public:
     Moonlight::LightCommand BuildCommand( const class Transform& InTransform ) const;
 
     Moonlight::LightType LightType = Moonlight::LightType::Point;
+    Moonlight::DirectionalSource DirectionalSource = Moonlight::DirectionalSource::Automatic;
     Vector3 Color { 1.f, 1.f, 1.f };
     float Intensity = 1.f;
     float Range = 10.f;

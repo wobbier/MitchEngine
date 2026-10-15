@@ -30,7 +30,7 @@ void main()
 		vec3 sunRadiance = vec3_splat(0.0);
 		if (u_lightParams.x > 0.5)
 		{
-			sunRadiance = u_dirLightColor[0].rgb * henyeyGreenstein(dot(dir, -u_dirLightDirection[0].xyz), u_fogVolume.y) * u_fogVolume.x;
+			sunRadiance = directionalRadiance(0, origin + dir * (distance * 0.5)) * henyeyGreenstein(dot(dir, -u_dirLightDirection[0].xyz), u_fogVolume.y) * u_fogVolume.x;
 		}
 		gl_FragColor = fogClampOpacity(fogAnalytic(origin, dir, 0.0, distance, sunRadiance));
 		return;

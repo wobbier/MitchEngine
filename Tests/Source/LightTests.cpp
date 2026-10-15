@@ -2,7 +2,145 @@
 #include "Components/Lighting/Light.h"
 #include "Components/Transform.h"
 #include "Engine/World.h"
+#include "Lighting/DirectionalLighting.h"
+#include "Graphics/DynamicSky.h"
 #include <cmath>
+
+TEST_CASE( "Directional lights: each camera resolves sky direction, radiance and authored shadows independently" )
+{
+    Moonlight::SkyDirectionalLights sky;
+    sky.Sun = { Vector3( 0.6f, 0.8f, 0.f ), Vector3( 3.f, 2.f, 1.f ) };
+    sky.Moon = { Vector3( -0.8f, 0.6f, 0.f ), Vector3( 0.02f, 0.03f, 0.04f ) };
+    Moonlight::LightCommand authored;
+    authored.Type = Moonlight::LightType::Directional;
+    authored.Direction = Vector3( 0.f, 0.f, 1.f );
+    authored.Color = Vector3( 0.5f, 0.75f, 1.f );
+    authored.CastShadows = true;
+    authored.ShadowDistance = 213.f;
+    authored.ShadowBias = 0.25f;
+    authored.ShadowNormalBias = 1.25f;
+    std::vector<Moonlight::LightCommand> lights { authored };
+    auto day = Moonlight::ResolveDirectionalLighting( lights, &sky );
+    CHECK( day.Count == 1 );
+    CHECK( ( day.Lights[0].Direction == sky.Sun.Direction * -1.f ) );
+    CHECK( ( day.Lights[0].Color == Vector3( 1.5f, 1.5f, 1.f ) ) );
+    CHECK( day.Lights[0].SkySun );
+    CHECK( day.Lights[0].CastShadows );
+    CHECK( day.Lights[0].ShadowDistance == 213.f );
+    CHECK( day.Lights[0].ShadowBias == 0.25f );
+    CHECK( day.Lights[0].ShadowNormalBias == 1.25f );
+
+    sky.Sun.Color = Vector3();
+    auto night = Moonlight::ResolveDirectionalLighting( lights, &sky );
+    CHECK( ( night.Lights[0].Direction == sky.Moon.Direction * -1.f ) );
+    CHECK( night.Lights[0].CastShadows );
+    CHECK_FALSE( night.Lights[0].SkySun );
+    auto solid = Moonlight::ResolveDirectionalLighting( lights, nullptr );
+    CHECK( ( solid.Lights[0].Direction == authored.Direction ) );
+    CHECK( ( solid.Lights[0].Color == authored.Color ) );
+    CHECK( ( lights[0].Direction == authored.Direction ) );
+    CHECK( ( lights[0].Color == authored.Color ) );
+    CHECK_FALSE( solid.Lights[0].SkySun );
+}
+
+TEST_CASE( "Directional lights: automatic primary, explicit bodies and transform sources share the CSM path" )
+{
+    Moonlight::SkyDirectionalLights sky;
+    sky.Sun = { Vector3( 1.f, 0.f, 0.f ), Vector3( 3.f, 3.f, 3.f ) };
+    sky.Moon = { Vector3( 0.f, 1.f, 0.f ), Vector3( 0.1f, 0.1f, 0.1f ) };
+    std::vector<Moonlight::LightCommand> lights( 3 );
+    for( auto& light : lights ) light.Type = Moonlight::LightType::Directional;
+    lights[1].CastShadows = true;
+    lights[1].Source = Moonlight::DirectionalSource::Moon;
+    lights[2].Source = Moonlight::DirectionalSource::Sun;
+    auto resolved = Moonlight::ResolveDirectionalLighting( lights, &sky );
+    CHECK( resolved.Count == 3 );
+    CHECK( ( resolved.Lights[0].Direction == sky.Moon.Direction * -1.f ) );
+    CHECK( ( resolved.Lights[1].Direction == lights[0].Direction ) ); // secondary Automatic stays authored
+    CHECK( resolved.Lights[2].SkySun );
+    lights[1].Source = Moonlight::DirectionalSource::Transform;
+    resolved = Moonlight::ResolveDirectionalLighting( lights, &sky );
+    CHECK( ( resolved.Lights[0].Direction == lights[1].Direction ) );
+
+    auto fallback = Moonlight::ResolveDirectionalLighting( {}, &sky );
+    CHECK( fallback.Count == 1 );
+    CHECK( fallback.Lights[0].CastShadows );
+    CHECK( fallback.Lights[0].SkySun );
+    sky.SunVisibility = 0.f;
+    resolved = Moonlight::ResolveDirectionalLighting( {}, &sky );
+    CHECK( resolved.Lights[0].SkySun ); // sunlit receivers outside the camera's umbra still need sunlight
+    CHECK( ( resolved.Lights[0].Direction == sky.Sun.Direction * -1.f ) );
+    CHECK( Moonlight::ResolveDirectionalLighting( {}, nullptr ).Count == 0 );
+}
+
+TEST_CASE( "Directional lights: celestial source survives component serialization" )
+{
+    Light source;
+    source.LightType = Moonlight::LightType::Directional;
+    source.DirectionalSource = Moonlight::DirectionalSource::Moon;
+    json saved;
+    source.Serialize( saved );
+    CHECK( saved["DirectionalSource"] == "Moon" );
+    Light restored;
+    restored.Deserialize( saved );
+    CHECK( restored.BuildCommand( Transform() ).Source == Moonlight::DirectionalSource::Moon );
+    Light legacy;
+    legacy.Deserialize( json { { "LightType", "Directional" } } );
+    CHECK( legacy.DirectionalSource == Moonlight::DirectionalSource::Automatic );
+}
+
+TEST_CASE( "Solar eclipse: disc overlap covers clear, partial, annular and total contacts" )
+{
+    using Moonlight::ComputeDiscVisibility;
+    CHECK( ComputeDiscVisibility( 1.f, 1.f, 2.f ) == 1.f );
+    CHECK( ComputeDiscVisibility( 1.f, 0.f, 0.f ) == 1.f );
+    CHECK( ComputeDiscVisibility( 1.f, 1.f, 0.f ) == 0.f );
+    CHECK( ComputeDiscVisibility( 1.f, 1.2f, 0.1f ) == 0.f );
+    CHECK( ComputeDiscVisibility( 1.f, 0.5f, 0.f ) == doctest::Approx( 0.75f ) );
+    CHECK( ComputeDiscVisibility( 1.f, 1.f, 1.f ) == doctest::Approx( 0.6089978f ) );
+    float previous = 0.f;
+    for( int i = 0; i <= 1000; ++i )
+    {
+        float visibility = ComputeDiscVisibility( 0.004654f, 0.004520f, i * 0.00001f );
+        CHECK( std::isfinite( visibility ) );
+        CHECK( visibility >= previous - 1e-6f );
+        CHECK( visibility >= 0.f );
+        CHECK( visibility <= 1.f );
+        previous = visibility;
+    }
+}
+
+TEST_CASE( "Solar eclipse: lunar parallax casts an umbra and penumbra across world positions" )
+{
+    Moonlight::SolarEclipse eclipse;
+    eclipse.Sun = eclipse.Moon = { 0.f, 1.f, 0.f };
+    eclipse.SunRadius = 0.004654f;
+    eclipse.MoonRadius = 0.005f;
+    CHECK( eclipse.Visibility( { 0.f, 0.f, 0.f } ) == 0.f );
+    const float penumbra = eclipse.Visibility( { 1000000.f, 0.f, 0.f } );
+    CHECK( penumbra > 0.f );
+    CHECK( penumbra < 1.f );
+    CHECK( eclipse.Visibility( { 4000000.f, 0.f, 0.f } ) == 1.f );
+    CHECK( eclipse.Visibility( { -1000000.f, 0.f, 0.f } ) == doctest::Approx( penumbra ) );
+}
+
+TEST_CASE( "Solar eclipse: a tilted lunar orbit avoids an eclipse every new moon" )
+{
+    Moonlight::ProceduralSkySettings settings;
+    settings.Time = 12.f;
+    settings.MoonPhase = 0.f;
+    const auto tilted = Moonlight::ComputeSkyCelestial( settings );
+    Moonlight::SolarEclipse eclipse;
+    eclipse.Sun = tilted.Sun;
+    eclipse.Moon = tilted.Moon;
+    CHECK( eclipse.Visibility( { 0.f, 0.f, 0.f } ) == 1.f );
+    settings.MoonOrbitInclination = 0.f;
+    const auto aligned = Moonlight::ComputeSkyCelestial( settings );
+    eclipse.Sun = aligned.Sun;
+    eclipse.Moon = aligned.Moon;
+    eclipse.MoonRadius = eclipse.SunRadius * 1.1f;
+    CHECK( eclipse.Visibility( { 0.f, 0.f, 0.f } ) == 0.f );
+}
 
 TEST_CASE( "Light: extended emitter properties round-trip through component serialization" )
 {

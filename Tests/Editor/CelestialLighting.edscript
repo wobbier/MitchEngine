@@ -1,0 +1,46 @@
+# Directional sky sources and lunar orbit controls: editing, undo, save/load and play restoration.
+# Havana --scene Assets/Scenes/Tests/LightingTest.lvl --editor-exec Engine/Tests/Editor/CelestialLighting.edscript
+wait 20
+select Main Camera
+set Camera.ClearType "Procedural"
+set Camera.ProceduralSky.Time 12
+set Camera.ProceduralSky.MoonPhase 0
+set Camera.ProceduralSky.MoonOrbitInclination 0
+set Camera.ProceduralSky.MoonAscendingNode 90
+set Camera.ProceduralSky.MoonSize 1.1
+set Camera.ProceduralSky.SunSize 1
+assert-field Main Camera | Camera.ProceduralSky.MoonOrbitInclination | 0
+assert-field Main Camera | Camera.ProceduralSky.MoonAscendingNode | 90
+undo
+redo
+
+create CelestialDirectional
+add-component Light
+set Light.LightType "Directional"
+set Light.DirectionalSource "Moon"
+set Light.CastShadows true
+set Light.ShadowDistance 150
+assert-field CelestialDirectional | Light.DirectionalSource | "Moon"
+set Light.DirectionalSource "Sun"
+undo
+assert-field CelestialDirectional | Light.DirectionalSource | "Moon"
+redo
+assert-field CelestialDirectional | Light.DirectionalSource | "Sun"
+set Light.DirectionalSource "Transform"
+assert-field CelestialDirectional | Light.DirectionalSource | "Transform"
+set Light.DirectionalSource "Automatic"
+save-as .tmp/CelestialLighting.lvl
+play
+wait 10
+assert-field CelestialDirectional | Light.DirectionalSource | "Automatic"
+assert-field Main Camera | Camera.ProceduralSky.MoonOrbitInclination | 0
+stop
+wait 5
+load .tmp/CelestialLighting.lvl
+wait 10
+assert-field CelestialDirectional | Light.DirectionalSource | "Automatic"
+assert-field CelestialDirectional | Light.ShadowDistance | 150
+assert-field Main Camera | Camera.ProceduralSky.MoonAscendingNode | 90
+select Main Camera
+screenshot .tmp/CelestialLighting-editor.png
+wait 5

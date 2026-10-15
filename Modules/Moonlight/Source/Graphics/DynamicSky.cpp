@@ -43,6 +43,9 @@ namespace Moonlight
         // moonlight is ~1/400000 of sunlight, which no fixed exposure could show next to daylight.
         constexpr float kMoonIlluminance = 0.06f;
         constexpr float kMoonDiscLuminance = 1.6f;
+        // Scene moonlight is lifted for a fixed exposure. Scattering keeps a much lower level so
+        // that the moon doesn't turn surrounding clouds and haze into a second daylight sky.
+        constexpr float kMoonScattering = 0.06f;
         constexpr float kMoonTint[3] = { 0.62f, 0.78f, 1.f };
         // Art scales on the light the air and the clouds scatter. A clean-air model (and the octave
         // approximation of the clouds' multiple scattering) comes out darker than real skies next to
@@ -435,6 +438,37 @@ namespace Moonlight
 
 
     // The air in the way and the planet below the horizon, as in Atmosphere.sh.
+    float ComputeDiscVisibility( float InSunRadius, float InMoonRadius, float InSeparation )
+    {
+        const double s = std::max<double>( InSunRadius, 1e-8 );
+        const double m = std::max<double>( InMoonRadius, 0.0 );
+        const double d = std::max<double>( InSeparation, 0.0 );
+        if( d >= s + m ) return 1.f;
+        if( d <= std::abs( s - m ) ) return static_cast<float>( std::max( 0.0, 1.0 - m * m / ( s * s ) ) );
+        const double a = std::acos( std::clamp( ( d * d + s * s - m * m ) / ( 2.0 * d * s ), -1.0, 1.0 ) );
+        const double b = std::acos( std::clamp( ( d * d + m * m - s * s ) / ( 2.0 * d * m ), -1.0, 1.0 ) );
+        const double lens = std::sqrt( std::max( ( -d + s + m ) * ( d + s - m ) * ( d - s + m ) * ( d + s + m ), 0.0 ) );
+        return static_cast<float>( std::clamp( 1.0 - ( s * s * a + m * m * b - 0.5 * lens ) / ( 3.141592653589793 * s * s ), 0.0, 1.0 ) );
+    }
+
+    float SolarEclipse::Visibility( const bx::Vec3& InWorldPosition ) const
+    {
+        const bx::Vec3 moon = bx::normalize( bx::sub( bx::mul( Moon, MoonDistance ), InWorldPosition ) );
+        const float separation = std::atan2( bx::length( bx::cross( Sun, moon ) ), bx::dot( Sun, moon ) );
+        const float radius = MoonRadius * MoonDistance / std::max( bx::length( bx::sub( bx::mul( Moon, MoonDistance ), InWorldPosition ) ), 1.f );
+        return ComputeDiscVisibility( SunRadius, radius, separation );
+    }
+
+    void SolarEclipse::Uniforms( float OutSun[4], float OutMoon[4], float OutParams[4] ) const
+    {
+        const float sun[4] = { Sun.x, Sun.y, Sun.z, SunRadius };
+        const float moon[4] = { Moon.x, Moon.y, Moon.z, MoonRadius };
+        const float params[4] = { 1.f / MoonDistance, 1.f, 0.f, 0.f };
+        std::copy( sun, sun + 4, OutSun );
+        std::copy( moon, moon + 4, OutMoon );
+        std::copy( params, params + 4, OutParams );
+    }
+
     bx::Vec3 ComputeSkyTransmittance( float InAltitudeKm, float InMu, float InAerosol, float InRadius )
     {
         const float r = kBottomRadius + InAltitudeKm;
@@ -496,7 +530,18 @@ namespace Moonlight
         // The moon runs ahead of the sun along the ecliptic by its phase (full: opposite the sun).
         float moonRightAscension = 0.f;
         float moonDeclination = 0.f;
-        EclipticToEquatorial( sunLongitude + InSettings.MoonPhase * 2.f * kPi, moonRightAscension, moonDeclination );
+        const float moonLongitude = sunLongitude + InSettings.MoonPhase * 2.f * kPi;
+        const float node = InSettings.MoonAscendingNode * kDegrees;
+        const float inclination = InSettings.MoonOrbitInclination * kDegrees;
+        const float argument = moonLongitude - node;
+        const float x = std::cos( node ) * std::cos( argument ) - std::sin( node ) * std::sin( argument ) * std::cos( inclination );
+        const float y = std::sin( node ) * std::cos( argument ) + std::cos( node ) * std::sin( argument ) * std::cos( inclination );
+        const float z = std::sin( argument ) * std::sin( inclination );
+        const float obliquity = 23.44f * kDegrees;
+        const float eqY = y * std::cos( obliquity ) - z * std::sin( obliquity );
+        const float eqZ = y * std::sin( obliquity ) + z * std::cos( obliquity );
+        moonRightAscension = std::atan2( eqY, x );
+        moonDeclination = std::asin( std::clamp( eqZ, -1.f, 1.f ) );
         bodies.Moon = toWorld( Equatorial( moonRightAscension, moonDeclination ) );
         const bx::Vec3 up = bx::sub( bodies.Equatorial[2], bx::mul( bodies.Moon, bx::dot( bodies.Equatorial[2], bodies.Moon ) ) );
         bodies.MoonUp = bx::length( up ) > 1e-4f ? bx::normalize( up ) : bx::Vec3{ 1.f, 0.f, 0.f };
@@ -605,6 +650,7 @@ namespace Moonlight
             { &u_skyAtmosphere, "u_skyAtmosphere" }, { &u_skyCamera, "u_skyCamera" }, { &u_skyScattering, "u_skyScattering" }, { &u_skyBasisRight, "u_skyBasisRight" },
             { &u_skyBasisUp, "u_skyBasisUp" }, { &u_skyBasisForward, "u_skyBasisForward" }, { &u_skyStarsX, "u_skyStarsX" },
             { &u_skyStarsY, "u_skyStarsY" }, { &u_skyStarsZ, "u_skyStarsZ" }, { &u_skyGalaxy, "u_skyGalaxy" },
+            { &u_eclipseSun, "u_eclipseSun" }, { &u_eclipseMoon, "u_eclipseMoon" }, { &u_eclipseParams, "u_eclipseParams" },
             { &u_skyGalaxyCentre, "u_skyGalaxyCentre" }, { &u_skyMoonUp, "u_skyMoonUp" }, { &u_cloudLayer, "u_cloudLayer" },
             { &u_cloudWind, "u_cloudWind" }, { &u_cloudMarch, "u_cloudMarch" }, { &u_cloudHistoryRight, "u_cloudHistoryRight" },
             { &u_cloudHistoryUp, "u_cloudHistoryUp" }, { &u_cloudHistoryForward, "u_cloudHistoryForward" }, { &u_cloudFrame, "u_cloudFrame" } };
@@ -663,7 +709,7 @@ namespace Moonlight
             DestroyIfValid( *buffer );
         }
         for( bgfx::UniformHandle* uniform : { &u_skySun, &u_skySunColor, &u_skyMoon, &u_skyMoonColor, &u_skyAtmosphere, &u_skyCamera, &u_skyScattering, &u_skyBasisRight,
-            &u_skyBasisUp, &u_skyBasisForward, &u_skyStarsX, &u_skyStarsY, &u_skyStarsZ, &u_skyGalaxy, &u_skyGalaxyCentre, &u_skyMoonUp, &u_cloudLayer,
+            &u_skyBasisUp, &u_skyBasisForward, &u_skyStarsX, &u_skyStarsY, &u_skyStarsZ, &u_skyGalaxy, &u_skyGalaxyCentre, &u_skyMoonUp, &u_eclipseSun, &u_eclipseMoon, &u_eclipseParams, &u_cloudLayer,
             &u_cloudWind, &u_cloudMarch, &u_cloudHistoryRight, &u_cloudHistoryUp, &u_cloudHistoryForward, &u_cloudFrame, &s_skyTransmittance,
             &s_skyMultiScatter, &s_skyView, &s_skyClouds, &s_cloudHistory, &s_cloudShape, &s_cloudDetail, &s_cloudWeather } )
         {
@@ -718,6 +764,10 @@ namespace Moonlight
         m_aerosol = 9.f * ( m_settings.Turbidity - 1.f );
 
         m_bodies = ComputeSkyCelestial( m_settings );
+        m_eclipse.Sun = m_bodies.Sun;
+        m_eclipse.Moon = m_bodies.Moon;
+        m_eclipse.SunRadius = kSunRadius * m_settings.SunSize;
+        m_eclipse.MoonRadius = kMoonRadius * m_settings.MoonSize;
 
         // The wind carries the cloud field towards WindDirection; the shapes slowly evolve.
         const float windAngle = m_settings.WindDirection * kDegrees;
@@ -731,11 +781,11 @@ namespace Moonlight
             EnsureNoise();
         }
 
-        // Light outside the atmosphere. Moonlight only shows once the sun is down.
+        // The moon can be visible in daylight too. Its sky scattering and its lifted scene lighting
+        // have separate scales; lunar phase comes from the same geometry as the visible terminator.
         const float lift = 1.f + ( kTwilightLift - 1.f ) * ( 1.f - Smoothstep( -0.15f, 0.1f, m_bodies.Sun.y ) );
         m_sunIlluminance = { kSunIlluminance * lift, kSunIlluminance * lift, kSunIlluminance * lift };
-        const float night = 1.f - Smoothstep( -0.1f, 0.02f, m_bodies.Sun.y );
-        const float moon = kSunIlluminance * kMoonIlluminance * m_bodies.MoonBrightness * m_settings.MoonBrightness * night;
+        const float moon = kSunIlluminance * kMoonIlluminance * m_bodies.MoonBrightness * m_settings.MoonBrightness;
         m_moonIlluminance = { moon * kMoonTint[0], moon * kMoonTint[1], moon * kMoonTint[2] };
 
         UpdateSceneLight();
@@ -746,10 +796,15 @@ namespace Moonlight
             key = Mix( Mix( Mix( key, Quantize( direction->x, 120.f ) ), Quantize( direction->y, 120.f ) ), Quantize( direction->z, 120.f ) );
         }
         key = Mix( Mix( key, Quantize( std::sqrt( Luminance( m_moonIlluminance ) ), 200.f ) ), Quantize( m_aerosol, 50.f ) );
+        key = Mix( key, Quantize( m_cameraKm.y, 100.f ) );
+        // Eclipse contacts move much faster than the usual quantised sky directions.
+        key = Mix( key, Quantize( m_directionalLights.SunVisibility, 1000.f ) );
+        key = Mix( Mix( key, Quantize( m_eclipse.SunRadius, 100000.f ) ), Quantize( m_eclipse.MoonRadius, 100000.f ) );
         if( CloudsEnabled() )
         {
             key = Mix( Mix( Mix( key, Quantize( m_settings.CloudCoverage, 100.f ) ), Quantize( m_settings.CloudDensity, 50.f ) ), Quantize( m_settings.CloudAltitude, 0.01f ) );
             key = Mix( Mix( Mix( key, Quantize( m_settings.CloudThickness, 0.01f ) ), Quantize( m_windOffset[0], 4.f ) ), Quantize( m_windOffset[1], 4.f ) );
+            key = Mix( Mix( key, Quantize( m_cameraKm.x, 4.f ) ), Quantize( m_cameraKm.z, 4.f ) );
         }
         m_environmentKey = key;
     }
@@ -821,23 +876,16 @@ namespace Moonlight
             moon = bx::mul( Scale( m_moonIlluminance, ComputeSkyTransmittance( m_cameraKm.y, m_bodies.Moon.y, m_aerosol, moonRadius ) ), CloudVisibility( m_bodies.Moon ) );
         }
 
-        // One light: whichever of the two is brighter, faded by its lead so the hand-over at dusk
-        // (both dim) doesn't pop.
-        const float sunLuminance = Luminance( sun );
-        const float moonLuminance = Luminance( moon );
-        const bool moonWins = moonLuminance > sunLuminance;
-        const float strongest = std::max( sunLuminance, moonLuminance );
-        const float lead = strongest > 1e-6f ? ( strongest - std::min( sunLuminance, moonLuminance ) ) / strongest : 0.f;
-        m_sceneLight.Direction = moonWins ? m_bodies.Moon : m_bodies.Sun;
-        m_sceneLight.Color = bx::mul( moonWins ? moon : sun, lead );
-        m_sceneLight.IsMoon = moonWins;
+        m_directionalLights.Sun = { Vector3( m_bodies.Sun.x, m_bodies.Sun.y, m_bodies.Sun.z ), Vector3( sun.x, sun.y, sun.z ) };
+        m_directionalLights.Moon = { Vector3( m_bodies.Moon.x, m_bodies.Moon.y, m_bodies.Moon.z ), Vector3( moon.x, moon.y, moon.z ) };
+        m_directionalLights.SunVisibility = m_eclipse.Visibility( { m_cameraKm.x * 1000.f, m_cameraKm.y * 1000.f, m_cameraKm.z * 1000.f } );
 
         // Hemisphere ambient (only until the environment probe is ready): skylight from the sun and
         // the moon (bluer than their direct light), plus the night glow.
         const bx::Vec3 sunSky = Scale( m_sunIlluminance, ComputeSkyTransmittance( m_cameraKm.y, std::max( m_bodies.Sun.y, 0.05f ), m_aerosol, sunRadius ) );
         const bx::Vec3 moonSky = Scale( m_moonIlluminance, ComputeSkyTransmittance( m_cameraKm.y, std::max( m_bodies.Moon.y, 0.05f ), m_aerosol, moonRadius ) );
-        const float sunUp = Smoothstep( -0.2f, 0.3f, m_bodies.Sun.y );
-        const float moonUp = Smoothstep( -0.2f, 0.3f, m_bodies.Moon.y );
+        const float sunUp = Smoothstep( -0.2f, 0.3f, m_bodies.Sun.y ) * m_directionalLights.SunVisibility;
+        const float moonUp = Smoothstep( -0.2f, 0.3f, m_bodies.Moon.y ) * kMoonScattering;
         const bx::Vec3 skyTint = { 0.45f, 0.62f, 1.f };
         m_ambientSky = Scale( bx::add( bx::mul( sunSky, 0.16f * sunUp ), bx::mul( moonSky, 0.16f * moonUp ) ), skyTint );
         m_ambientSky = bx::add( m_ambientSky, bx::Vec3{ kNightGlow * 4.f, kNightGlow * 5.f, kNightGlow * 8.f } );
@@ -878,8 +926,10 @@ namespace Moonlight
     {
         const float sun[4] = { m_bodies.Sun.x, m_bodies.Sun.y, m_bodies.Sun.z, kSunRadius * m_settings.SunSize };
         const float sunColor[4] = { m_sunIlluminance.x, m_sunIlluminance.y, m_sunIlluminance.z, kSunDiscLuminance };
-        const float moon[4] = { m_bodies.Moon.x, m_bodies.Moon.y, m_bodies.Moon.z, kMoonRadius * m_settings.MoonSize };
-        const float moonColor[4] = { m_moonIlluminance.x, m_moonIlluminance.y, m_moonIlluminance.z, kMoonDiscLuminance * m_settings.MoonBrightness };
+        const bx::Vec3 moonPosition = bx::sub( bx::mul( m_bodies.Moon, SolarEclipse::MoonDistance ), bx::mul( m_cameraKm, 1000.f ) );
+        const bx::Vec3 moonDirection = bx::normalize( moonPosition );
+        const float moon[4] = { moonDirection.x, moonDirection.y, moonDirection.z, kMoonRadius * m_settings.MoonSize * SolarEclipse::MoonDistance / bx::length( moonPosition ) };
+        const float moonColor[4] = { m_moonIlluminance.x * kMoonScattering, m_moonIlluminance.y * kMoonScattering, m_moonIlluminance.z * kMoonScattering, kMoonDiscLuminance * m_settings.MoonBrightness };
         const float atmosphere[4] = { m_aerosol, m_cameraKm.y, kGroundAlbedo, kNightGlow };
         const float camera[4] = { m_cameraKm.x, m_cameraKm.y, m_cameraKm.z, InClouds ? 1.f : 0.f };
         const float base = m_settings.CloudAltitude * 0.001f;
@@ -892,8 +942,13 @@ namespace Moonlight
         bgfx::setUniform( u_skyMoonColor, moonColor );
         bgfx::setUniform( u_skyAtmosphere, atmosphere );
         bgfx::setUniform( u_skyCamera, camera );
-        const float scattering[4] = { kSkyBrightness, kCloudBrightness, 0.f, 0.f };
+        const float scattering[4] = { kSkyBrightness, kCloudBrightness, m_directionalLights.SunVisibility, 0.f };
         bgfx::setUniform( u_skyScattering, scattering );
+        float eclipseSun[4], eclipseMoon[4], eclipseParams[4];
+        m_eclipse.Uniforms( eclipseSun, eclipseMoon, eclipseParams );
+        bgfx::setUniform( u_eclipseSun, eclipseSun );
+        bgfx::setUniform( u_eclipseMoon, eclipseMoon );
+        bgfx::setUniform( u_eclipseParams, eclipseParams );
         bgfx::setUniform( u_cloudLayer, layer );
         bgfx::setUniform( u_cloudWind, wind );
         bgfx::setUniform( u_cloudMarch, march );
@@ -965,6 +1020,8 @@ namespace Moonlight
             return;
         }
         FrameBuffer& targets = *InCamera.Buffer;
+        if( targets.CloudSkyKey != m_environmentKey ) targets.CloudValid = false;
+        targets.CloudSkyKey = m_environmentKey;
         if( !CloudsEnabled() )
         {
             targets.CloudValid = false;
@@ -1058,7 +1115,7 @@ namespace Moonlight
         const float starsZ[4] = { m_bodies.Equatorial[2].x, m_bodies.Equatorial[2].y, m_bodies.Equatorial[2].z, 2.f * tanY / height };
         const float galaxy[4] = { m_bodies.GalaxyPole.x, m_bodies.GalaxyPole.y, m_bodies.GalaxyPole.z, kMilkyWayBrightness * m_settings.StarBrightness };
         const float galaxyCentre[4] = { m_bodies.GalaxyCentre.x, m_bodies.GalaxyCentre.y, m_bodies.GalaxyCentre.z, 0.f };
-        const float moonUp[4] = { m_bodies.MoonUp.x, m_bodies.MoonUp.y, m_bodies.MoonUp.z, 0.025f * ( 1.f - m_bodies.MoonLitFraction ) };
+        const float moonUp[4] = { m_bodies.MoonUp.x, m_bodies.MoonUp.y, m_bodies.MoonUp.z, 0.025f * ( 1.f - m_bodies.MoonLitFraction ) * ( 1.f - Smoothstep( -0.1f, 0.05f, m_bodies.Sun.y ) ) };
         bgfx::setUniform( u_skyStarsX, starsX );
         bgfx::setUniform( u_skyStarsY, starsY );
         bgfx::setUniform( u_skyStarsZ, starsZ );

@@ -98,6 +98,14 @@ namespace Moonlight
         Rectangle,
     };
 
+    enum class DirectionalSource : uint8_t
+    {
+        Automatic = 0, // primary directional follows a procedural sky; other lights use their transform
+        Transform,
+        Sun,
+        Moon,
+    };
+
     // One decal for this frame, gathered from Decal components by RenderCore: a unit box (-0.5..0.5)
     // projecting along its +Z onto whatever the opaque pass drew inside it.
     struct DecalCommand
@@ -119,6 +127,8 @@ namespace Moonlight
     struct LightCommand
     {
         LightType Type = LightType::Point;
+        DirectionalSource Source = DirectionalSource::Automatic;
+        bool SkySun = false; // resolved per camera; receives the moon's eclipse shadow
         Vector3 Position;
         Vector3 Direction = Vector3( 0.f, -1.f, 0.f );   // world space, where the light points
         Vector3 Color = Vector3( 1.f, 1.f, 1.f );         // linear RGB * intensity

@@ -5,9 +5,11 @@
 #include <cmath>
 
 ME_REFLECT_ENUM( Moonlight::LightType, { { "Directional", Moonlight::LightType::Directional }, { "Point", Moonlight::LightType::Point }, { "Spot", Moonlight::LightType::Spot }, { "Bar", Moonlight::LightType::Bar }, { "Box", Moonlight::LightType::Box }, { "Rectangle", Moonlight::LightType::Rectangle } } )
+ME_REFLECT_ENUM( Moonlight::DirectionalSource, { { "Automatic", Moonlight::DirectionalSource::Automatic }, { "Transform", Moonlight::DirectionalSource::Transform }, { "Sun", Moonlight::DirectionalSource::Sun }, { "Moon", Moonlight::DirectionalSource::Moon } } )
 
 ME_REFLECT_BEGIN( Light )
     ME_FIELD( LightType ).Display( "Type" );
+    ME_FIELD( DirectionalSource ).Display( "Directional Source" ).Tooltip( "With a procedural sky: Automatic makes the primary directional follow the sun or moon; Sun/Moon follow that body explicitly. Transform uses the entity rotation. Color and intensity tint/scale the sky light; shadow controls still apply." );
     ME_FIELD( Color ).Color();
     ME_FIELD( Intensity ).Range( 0.f, 100.f ).Speed( 0.05f );
     ME_FIELD( Range ).Display( "Range (m)" ).Range( 0.01f, 1000.f ).Tooltip( "Local lights: fade distance from the source; bar/box/rectangle: measured from the emitter surface" );
@@ -67,6 +69,7 @@ Moonlight::LightCommand Light::BuildCommand( const Transform& InTransform ) cons
 
     Moonlight::LightCommand command;
     command.Type = LightType;
+    command.Source = DirectionalSource;
     command.Position = transform.GetWorldPosition();
     command.Direction = transform.Front().Normalized();
     command.Color = Vector3( toLinear( Color.x ), toLinear( Color.y ), toLinear( Color.z ) ) * Intensity;

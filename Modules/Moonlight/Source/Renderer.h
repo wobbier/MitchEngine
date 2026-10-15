@@ -265,6 +265,9 @@ private:
         float Params[4] = { 0.f, 0.f, 1.f, 0.f };
         float DirectionalDirection[4][4] = {};
         float DirectionalColor[4][4] = {};
+        float EclipseSun[4] = {};
+        float EclipseMoon[4] = {};
+        float EclipseParams[4] = {};
         float ClusterParams[4] = {};
         float ClusterGrid[4] = {};
         float AmbientSky[4] = {};
@@ -294,6 +297,9 @@ private:
     bgfx::UniformHandle u_viewShading = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle u_dirLightDirection = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle u_dirLightColor = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle u_eclipseSun = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle u_eclipseMoon = BGFX_INVALID_HANDLE;
+    bgfx::UniformHandle u_eclipseParams = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle u_clusterParams = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle u_clusterGrid = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle u_ambientSky = BGFX_INVALID_HANDLE;

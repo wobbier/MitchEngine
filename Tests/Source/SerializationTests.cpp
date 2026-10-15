@@ -600,6 +600,7 @@ TEST_CASE( "Procedural sky: the sun rises in the east, stands in the south at no
 TEST_CASE( "Procedural sky: the moon's place and light follow its phase" )
 {
     Moonlight::ProceduralSkySettings settings;
+    settings.MoonOrbitInclination = 0.f; // exact phase fractions for a coplanar orbit
     settings.Latitude = 35.f;
     settings.Time = 0.f;
     settings.MoonPhase = 0.5f;

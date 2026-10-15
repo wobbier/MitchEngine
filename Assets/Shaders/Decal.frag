@@ -56,7 +56,7 @@ void main()
         if (float(i) >= u_lightParams.x) break;
         vec3 L = -u_dirLightDirection[i].xyz;
         float visibility = i == 0 && u_dirLightDirection[0].w > 0.5 ? sunShadow(s, L, viewPos.z) : 1.0;
-        color += shadeLight(s, L, u_dirLightColor[i].rgb) * visibility;
+        color += shadeLight(s, L, directionalRadiance(i, s.position)) * visibility;
     }
     color += shadeClusteredLights(s, gl_FragCoord.xy, viewPos.z);
     gl_FragColor = vec4(color, alpha);

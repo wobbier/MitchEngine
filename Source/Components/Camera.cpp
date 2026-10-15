@@ -24,6 +24,8 @@ ME_REFLECT_BEGIN( Moonlight::ProceduralSkySettings )
     ME_FIELD( Turbidity ).Range( 1.f, 10.f );
     ME_FIELD( Month ).Range( 0.f, 11.f );
     ME_FIELD( MoonPhase ).Display( "Moon Phase" ).Range( 0.f, 1.f );
+    ME_FIELD( MoonOrbitInclination ).Display( "Moon Orbit Inclination" ).Range( 0.f, 10.f ).Tooltip( "Degrees from the ecliptic. Set to 0 with Moon Phase 0 for a solar eclipse; relative Sun/Moon Size controls partial, total or annular coverage." );
+    ME_FIELD( MoonAscendingNode ).Display( "Moon Ascending Node" ).Range( 0.f, 360.f ).Tooltip( "Degrees along the ecliptic where the tilted lunar orbit crosses it; eclipses occur near a node." );
     ME_FIELD( SunSize ).Display( "Sun Size" ).Range( 0.1f, 10.f );
     ME_FIELD( MoonSize ).Display( "Moon Size" ).Range( 0.1f, 10.f );
     ME_FIELD( MoonBrightness ).Display( "Moon Brightness" ).Range( 0.f, 10.f );
@@ -367,6 +369,12 @@ void Camera::OnEditorInspect()
         HavanaUtils::Label( "Moon Phase" );
         changed |= ImGui::SliderFloat( "##SkyMoonPhase", &ProceduralSky.MoonPhase, 0.f, 1.f, MoonPhaseFormat( ProceduralSky.MoonPhase ), ImGuiSliderFlags_AlwaysClamp );
         CameraTooltip( "0 new moon, 0.25 first quarter, 0.5 full moon, 0.75 last quarter. The moon's position in the sky follows from it, and it advances with the time scale." );
+        HavanaUtils::Label( "Orbit Inclination" );
+        changed |= ImGui::DragFloat( "##SkyMoonOrbitInclination", &ProceduralSky.MoonOrbitInclination, 0.01f, 0.f, 10.f, "%.3f deg", ImGuiSliderFlags_AlwaysClamp );
+        CameraTooltip( "Moon orbit tilt. Set to 0 with Moon Phase 0 for a solar eclipse. A moon larger than the sun gives totality; a smaller moon leaves an annular ring." );
+        HavanaUtils::Label( "Ascending Node" );
+        changed |= ImGui::DragFloat( "##SkyMoonAscendingNode", &ProceduralSky.MoonAscendingNode, 0.1f, 0.f, 360.f, "%.2f deg", ImGuiSliderFlags_AlwaysClamp );
+        CameraTooltip( "Where the lunar orbit crosses the ecliptic, in degrees. With a tilted orbit, eclipses occur near these crossings." );
         HavanaUtils::Label( "Sun Size" );
         changed |= ImGui::DragFloat( "##SkySunSize", &ProceduralSky.SunSize, 0.01f, 0.1f, 10.f, "%.2fx", ImGuiSliderFlags_AlwaysClamp );
         CameraTooltip( "Angular size of the sun's disc; 1 is the real sun." );
@@ -375,7 +383,7 @@ void Camera::OnEditorInspect()
         CameraTooltip( "Angular size of the moon's disc; 1 is the real moon." );
         HavanaUtils::Label( "Moon Brightness" );
         changed |= ImGui::DragFloat( "##SkyMoonBrightness", &ProceduralSky.MoonBrightness, 0.01f, 0.f, 10.f, "%.2f", ImGuiSliderFlags_AlwaysClamp );
-        CameraTooltip( "Moonlight on the scene and in the night sky." );
+        CameraTooltip( "Moon disc brightness and scene moonlight, including the daytime moon. Cloud and atmospheric scattering stay dimmer than the lifted scene lighting." );
         HavanaUtils::Label( "Star Brightness" );
         changed |= ImGui::DragFloat( "##SkyStarBrightness", &ProceduralSky.StarBrightness, 0.01f, 0.f, 10.f, "%.2f", ImGuiSliderFlags_AlwaysClamp );
         CameraTooltip( "Stars and the Milky Way. They fade as the sky brightens." );
