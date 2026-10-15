@@ -7,8 +7,50 @@
 #include "Engine/World.h"
 #include "Events/EventReceiver.h"
 #include "Scene/AnimationClip.h"
+#include "Graphics/VertexAnimation.h"
 #include <cmath>
 #include <memory>
+
+TEST_CASE( "Animation: baked vertices preserve deformation, shading bases and independent poses" )
+{
+    Moonlight::VertexAnimation cache;
+    cache.VertexCount = 3;
+    cache.FrameCount = 2;
+    cache.FramesPerSecond = 2.f;
+    // A triangle moves, rotates 90 degrees, and stretches between authored samples.
+    cache.Positions = { Vector3( 1.f, 0.f, 0.f ), Vector3( 2.f, 0.f, 0.f ), Vector3( 1.f, 1.f, 0.f ),
+        Vector3( 3.f, 1.f, 0.f ), Vector3( 3.f, 3.f, 0.f ), Vector3( 2.f, 1.f, 0.f ) };
+    cache.Neighbors = { { 1, 2 }, { 2, 0 }, { 0, 1 } };
+    Moonlight::PosNormTexTanBiVertex bind;
+    bind.Normal = Vector3( 0.f, 0.f, 1.f );
+    bind.Tangent = Vector3( 1.f, 0.f, 0.f );
+    bind.BiTangent = Vector3( 0.f, 1.f, 0.f );
+    bind.TextureCoord = Vector2( 0.25f, 0.75f );
+    Moonlight::PosNormTexTanBiVertex first, second;
+    cache.Pose( cache.Span( 0.f ), 0, bind, first );
+    cache.Pose( cache.Span( 0.5f ), 0, bind, second );
+    CHECK( first.Position.x == doctest::Approx( 1.f ) );
+    CHECK( second.Position.x == doctest::Approx( 3.f ) );
+    CHECK( second.Position.y == doctest::Approx( 1.f ) );
+    CHECK( second.Tangent.x == doctest::Approx( 0.f ) );
+    CHECK( second.Tangent.y == doctest::Approx( 1.f ) );
+    CHECK( second.Normal.z == doctest::Approx( 1.f ) );
+    CHECK( second.TextureCoord.x == doctest::Approx( 0.25f ) );
+    CHECK( second.TextureCoord.y == doctest::Approx( 0.75f ) );
+    CHECK( first.Position.x == doctest::Approx( 1.f ) );  // sampling another instance did not alter it
+    cache.Pose( cache.Span( 0.25f ), 0, bind, second );
+    CHECK( second.Position.x == doctest::Approx( 2.f ) );
+    CHECK( second.Position.y == doctest::Approx( 0.5f ) );
+    cache.Pose( cache.Span( -1.f ), 0, bind, second );
+    CHECK( second.Position.x == doctest::Approx( 1.f ) );
+    cache.Pose( cache.Span( 3.f ), 0, bind, second );
+    CHECK( second.Position.x == doctest::Approx( 3.f ) );
+    // Degenerate faces still place vertices correctly and yield finite shading vectors.
+    cache.Neighbors[0] = { 0, 0 };
+    cache.Pose( cache.Span( 0.5f ), 0, bind, second );
+    CHECK( second.Position.x == doctest::Approx( 3.f ) );
+    CHECK( second.Normal.z == doctest::Approx( 1.f ) );
+}
 
 namespace AnimationTest
 {

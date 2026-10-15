@@ -59,6 +59,7 @@ namespace Moonlight
             MeshMaterial = nullptr;
             Transform = glm::mat4( 1.f );
             ID = 0u;
+            PosedVertices = BGFX_INVALID_HANDLE;
         }
         MeshData* SingleMesh = nullptr;
         SharedPtr<Material> MeshMaterial = nullptr;
@@ -84,6 +85,7 @@ namespace Moonlight
         // until the next RenderCore update). Skinned meshes are drawn one at a time.
         const glm::mat4* SkinPalette = nullptr;
         uint16_t SkinBoneCount = 0;
+        bgfx::DynamicVertexBufferHandle PosedVertices = BGFX_INVALID_HANDLE;
     };
 
     enum class LightType : uint8_t

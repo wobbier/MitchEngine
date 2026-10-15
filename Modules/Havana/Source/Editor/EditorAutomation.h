@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include "Dementia.h"
+#include "JSON.h"
 #include <string>
 #include <vector>
 
@@ -41,6 +42,8 @@ private:
     std::string m_resultPath;
     bool m_isActive = false;
     bool m_isFinished = false;
+    bool m_recordProfile = false;
+    json m_profileFrames = json::array();
 };
 
 #endif

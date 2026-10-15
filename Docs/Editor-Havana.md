@@ -158,6 +158,8 @@ The script runs one command per frame after a short warm-up and logs `[editor-ex
 | Command | Effect |
 |------|------|
 | `wait N`, `log text` | Wait frames, log |
+| `profile-start`, `profile-stop path.json` | Record steady-state frame/GPU timings, draw counts, and CPU scopes to JSON; place a `wait N` between them and warm up before recording |
+| `trace-start`, `trace-stop path` | Capture detailed CPU scopes to an Optick/Chrome Trace file (the Linux tracer writes `.json`) |
 | `action Id`, `undo`, `redo` | Run an editor action / undo / redo |
 | `select a,b`, `select-add a`, `select-none` | Selection (names, or `Parent/Child` paths) |
 | `pick fx fy` | Clicks the scene view at that fraction of its size; GPU picking selects what is drawn there |

@@ -1,0 +1,19 @@
+# Profile Sponza using the same view and timing on successive builds.
+# Havana --scene Assets/Scenes/Tests/Sponza.lvl --frame-time 0.041666667
+# --editor-exec Engine/Tests/Editor/SponzaPerformance.edscript
+wait 30
+select Spartain
+focus-window World View
+action View.Front
+action View.FrameSelected
+wait 30
+profile-start
+wait 120
+profile-stop .tmp/Sponza-edit-profile.json
+play
+wait 30
+profile-start
+wait 120
+profile-stop .tmp/Sponza-play-profile.json
+stop
+wait 5

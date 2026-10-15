@@ -43,6 +43,7 @@ public:
     // Skinned meshes: the bone node entities (found by name below the owning Model) and this
     // frame's palette of mesh-space bone matrices.
     bool IsSkinned() const;
+    bool HasVertexAnimation() const { return MeshReferece && MeshReferece->VertexCache; }
     // World-space bounds: the last skinned pose for skinned meshes, else the mesh bounds placed by InWorld.
     AABB GetWorldBounds( const Matrix4& InWorld ) const;
 
@@ -58,6 +59,19 @@ private:
     bool ResolveBones();
     // Fills the palette from the bones' world matrices; returns the skinned world bounds.
     AABB UpdateSkin( const glm::mat4& InMeshWorld );
+    // Allocation/uploads run on the render API thread; sampling can run in mesh jobs.
+    void PrepareVertexAnimation();
+    bool BeginVertexAnimation();
+    AABB SampleVertexAnimation( size_t InBegin, size_t InEnd );
+    void EndVertexAnimation( const AABB& InBounds );
+    void UploadVertexAnimation();
+    bgfx::DynamicVertexBufferHandle m_posedVertices = BGFX_INVALID_HANDLE;
+    Moonlight::MeshData* m_vertexAnimationSource = nullptr;
+    std::vector<Moonlight::PosNormTexTanBiVertex> m_vertexAnimationVertices;
+    float m_vertexAnimationTime = -1.f;
+    float m_nextVertexAnimationTime = 0.f;
+    bool m_vertexAnimationUpload = false;
+    AABB m_vertexAnimationBounds;
     Moonlight::MeshType Type;
     Path MaterialAssetPath;
     json m_importedMaterialDefaults;

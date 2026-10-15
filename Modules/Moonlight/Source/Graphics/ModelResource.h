@@ -53,6 +53,9 @@ private:
     std::vector<Moonlight::MeshData*> m_allMeshData;
     std::vector<Moonlight::AnimationClip> m_animations;
     float m_bakedImportScale = 0.f;
+    SharedPtr<Moonlight::VertexAnimation> m_vertexCache;
+    json m_vertexCacheMeshes;
+    bool m_vertexCacheUsesIds = false;
     // Levels of detail per aiMesh, built by LoadAsync (import settings), uploaded with the meshes.
     std::vector<std::vector<Moonlight::MeshLod>> m_pendingLods;
 

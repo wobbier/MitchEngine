@@ -94,6 +94,55 @@ namespace ModelImportTest
 
 using namespace ModelImportTest;
 
+TEST_CASE( "Models: combined FBX animation keys are local to preserved helper chains" )
+{
+    const std::string path = ".tmp/Tests/Models/AnimatedPivot.fbx";
+    std::filesystem::create_directories( ".tmp/Tests/Models" );
+    aiScene scene;
+    scene.mRootNode = new aiNode( "RootNode" );
+    auto* helper = new aiNode( "Bone_$AssimpFbx$_PreRotation" );
+    auto* bone = new aiNode( "Bone" );
+    scene.mRootNode->addChildren( 1, &helper );
+    helper->addChildren( 1, &bone );
+    aiMatrix4x4::RotationZ( 0.5f, helper->mTransformation );
+    helper->mTransformation.a4 = 2.f;
+    helper->mTransformation.b4 = 3.f;
+    scene.mNumAnimations = 1;
+    scene.mAnimations = new aiAnimation*[1]{ new aiAnimation() };
+    aiAnimation& animation = *scene.mAnimations[0];
+    animation.mTicksPerSecond = 1.0;
+    animation.mDuration = 1.0;
+    animation.mNumChannels = 1;
+    animation.mChannels = new aiNodeAnim*[1]{ new aiNodeAnim() };
+    aiNodeAnim& channel = *animation.mChannels[0];
+    channel.mNodeName = aiString( "Bone" );
+    channel.mNumPositionKeys = 2;
+    channel.mPositionKeys = new aiVectorKey[2]{ { 0.0, aiVector3D( 2.f, 3.f, 0.f ) },
+        { 1.0, helper->mTransformation * aiVector3D( 1.f, 0.f, 0.f ) } };
+    channel.mNumRotationKeys = 1;
+    channel.mRotationKeys = new aiQuatKey[1]{ { 0.0, aiQuaternion( aiVector3D( 0.f, 0.f, 1.f ), 0.5f ) } };
+    Assimp::Exporter exporter;
+    REQUIRE( exporter.Export( &scene, "assbin", path + ".assbin" ) == AI_SUCCESS );
+    ModelResource model{ Path( path ) };
+    REQUIRE( model.LoadAsync() );
+    REQUIRE( model.GetAnimations().size() == 1 );
+    const auto& imported = model.GetAnimations()[0].Channels[0];
+    Vector3 position, scale( 1.f );
+    Quaternion rotation;
+    Moonlight::AnimationClip::Sample( imported, 0.5f, position, rotation, scale );
+    CHECK( position.x == doctest::Approx( 0.5f ) );
+    CHECK( position.y == doctest::Approx( 0.f ).epsilon( 0.00001 ) );
+    CHECK( std::abs( rotation.w ) == doctest::Approx( 1.f ) );
+    CHECK( rotation.z == doctest::Approx( 0.f ).epsilon( 0.00001 ) );
+
+    // Explicit helper channels already contain local keys and must be left alone.
+    channel.mNodeName = helper->mName;
+    REQUIRE( exporter.Export( &scene, "assbin", path + ".assbin" ) == AI_SUCCESS );
+    ModelResource explicitHelper{ Path( path ) };
+    REQUIRE( explicitHelper.LoadAsync() );
+    CHECK( explicitHelper.GetAnimations()[0].Channels[0].Positions[0].x == doctest::Approx( 2.f ) );
+}
+
 TEST_CASE( "Models: import scale and unit conversion are baked into the cooked model" )
 {
     namespace fs = std::filesystem;

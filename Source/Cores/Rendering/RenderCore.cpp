@@ -97,6 +97,45 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
         return;
     }
 
+    // Allocation/uploads stay on this thread. Workers fill disjoint vertex ranges so a
+    // large material mesh doesn't monopolize one worker, and paused poses do no sampling.
+    struct VertexAnimationJob
+    {
+        Mesh* Instance;
+        size_t Begin, End;
+        AABB Bounds;
+    };
+    std::vector<Mesh*> vertexAnimations;
+    std::vector<VertexAnimationJob> vertexJobs;
+    for( Entity& entity : Renderables )
+    {
+        Mesh& mesh = entity.GetComponent<Mesh>();
+        if( mesh.HasVertexAnimation() || bgfx::isValid( mesh.m_posedVertices ) ) mesh.PrepareVertexAnimation();
+        if( mesh.HasVertexAnimation() && mesh.BeginVertexAnimation() )
+        {
+            vertexAnimations.push_back( &mesh );
+            const size_t count = mesh.m_vertexAnimationVertices.size();
+            for( size_t begin = 0; begin < count; begin += 4096 )
+                vertexJobs.push_back( { &mesh, begin, std::min( begin + 4096, count ), AABB() } );
+        }
+    }
+    engine.GetJobSystem().ParallelFor( static_cast<uint32_t>( vertexJobs.size() ), 1,
+        [&]( uint32_t begin, uint32_t end ) {
+            OPTICK_EVENT( "Vertex Animation" );
+            for( uint32_t i = begin; i < end; ++i )
+            {
+                auto& job = vertexJobs[i];
+                job.Bounds = job.Instance->SampleVertexAnimation( job.Begin, job.End );
+            }
+        } );
+    size_t job = 0;
+    for( Mesh* mesh : vertexAnimations )
+    {
+        AABB bounds;
+        while( job < vertexJobs.size() && vertexJobs[job].Instance == mesh ) bounds.Encapsulate( vertexJobs[job++].Bounds );
+        mesh->EndVertexAnimation( bounds );
+    }
+
     auto& cameras = renderer.GetCameraCache();
 
     // Levels of detail follow the view being looked through: the scene view's camera while
@@ -152,7 +191,8 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                         // objects whose pivot leaves the view must still be drawn.
                         // Skinned meshes are bounded by their bones' reach in the current pose.
                         const bool skinned = model.IsSkinned();
-                        const AABB worldBounds = skinned ? model.UpdateSkin( meshMatrix ) : model.MeshReferece->Bounds.Transformed( transform.GetLocalToWorldMatrix() );
+                        const AABB worldBounds = model.HasVertexAnimation() ? model.GetWorldBounds( transform.GetLocalToWorldMatrix() )
+                            : skinned ? model.UpdateSkin( meshMatrix ) : model.MeshReferece->Bounds.Transformed( transform.GetLocalToWorldMatrix() );
 
                         {
                             for( Moonlight::CameraData& cam : cameras.Commands )
@@ -218,6 +258,11 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                                 command.VertexBufferIdx = model.MeshReferece->GetVertexBuffer().idx;
                                 command.IndexBufferIdx = model.MeshReferece->GetIndexBuffer( command.Lod ).idx;
                             }
+                            if( model.HasVertexAnimation() )
+                            {
+                                command.PosedVertices = model.m_posedVertices;
+                                command.SupportsInstancing = false;
+                            }
                             if( skinned )
                             {
                                 command.SkinPalette = model.m_skinPalette.data();
@@ -230,6 +275,8 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                     }
                 }
             } );
+
+    for( Mesh* mesh : vertexAnimations ) mesh->UploadVertexAnimation();
 
 #if USING( ME_EDITOR )
     renderer.SetDebugDrawEnabled( EnableDebugDraw );

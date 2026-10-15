@@ -43,6 +43,25 @@ Because bones are ordinary entities, anything parented to a bone (a weapon, a ha
 
 ### Import
 
+FBX combined animation channels are rebased when Assimp retains a static helper chain above
+their target node. This prevents pre-rotations and bind translations from being applied twice;
+channels targeting the helper nodes themselves retain their original local keys.
+
+For assets supplied as baked USD vertex animation, `Tools/BakeUsdVertexAnimation.py INPUT.usd
+OUTPUT.obj` creates an OBJ, MTL, and `.obj.vertexcache` sidecar (requires Python `usd-core` and
+`numpy`). The cache retains every authored vertex position and interpolates between frames.
+The OBJ groups geometry by material. Source vertex IDs stored in its color channel survive
+Assimp welding, UV/normal splits and vertex reordering, including coincident vertices with
+different motion. Each instance samples into a dynamic vertex buffer once when its clock changes;
+main, shadow and picking passes reuse that posed buffer with the regular shaders. Sampling jobs
+cover disjoint vertex ranges, shading bases follow the posed neighboring triangle, and posed
+bounds are combined from those ranges. A paused/edit-mode pose performs no sampling or upload.
+Keep the vertex-cache sidecar beside the OBJ when distributing the asset. The importer adds a
+`Baked animation` clip and a `__VertexAnimationClock` node; ordinary Animator playback, preview,
+scrubbing, and Stop drive/restore its clock. Each model instance owns its posed buffers; samples are
+shared as immutable data. Sponza's knight uses this path because the supplied FBX contains Maya
+control curves and no exported skin clusters/weights.
+
 `ModelResource::Load` (and the `.assbin` export in `ModelResourceMetadata::Export`) read with `aiProcess_LimitBoneWeights` in addition to the usual flags.
 
 - **Clips.** `ProcessAnimations` creates one `AnimationClip` per `aiAnimation`. Key times are divided by `mTicksPerSecond` (25 when the file leaves it at 0). An unnamed animation is called `Animation N`.

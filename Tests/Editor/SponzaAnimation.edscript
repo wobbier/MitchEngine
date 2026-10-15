@@ -1,0 +1,49 @@
+# Sponza character regression: preserved FBX pivots and the knight's baked USD motion.
+# Run with Havana --scene Assets/Scenes/Tests/Sponza.lvl --frame-time 0.041666667
+# --editor-exec Engine/Tests/Editor/SponzaAnimation.edscript
+wait 30
+assert-exists Knight/__VertexAnimationClock
+assert-children Knight | 9
+assert-field Knight/__VertexAnimationClock | Transform.Scale | [1.0, 1.0, 1.0]
+mark-count
+select Knight
+focus-window World View
+action View.Front
+action View.FrameSelected
+wait 5
+screenshot .tmp/SkinDiagnostics/sponza-bind.png
+# Scrub the baked motion directly and frame the posed geometry.
+select Knight/__VertexAnimationClock
+set Transform.Scale [10.0, 1.0, 1.0]
+select Knight
+action View.FrameSelected
+wait 5
+screenshot .tmp/SkinDiagnostics/sponza-knight-frame216.png
+undo
+assert-field Knight/__VertexAnimationClock | Transform.Scale | [1.0, 1.0, 1.0]
+# Preview follows the same clock and restores its authored value.
+select Knight
+action Animation.PreviewSelected
+wait 10
+assert-playing 0
+assert-field Knight/__VertexAnimationClock | Transform.Scale | != [1.0, 1.0, 1.0]
+action Animation.StopPreviews
+wait 3
+assert-field Knight/__VertexAnimationClock | Transform.Scale | [1.0, 1.0, 1.0]
+play
+wait 150
+assert-playing 1
+assert-field Knight/__VertexAnimationClock | Transform.Scale | != [1.0, 1.0, 1.0]
+screenshot .tmp/SkinDiagnostics/sponza-play.png
+stop
+wait 5
+assert-playing 0
+assert-field Knight/__VertexAnimationClock | Transform.Scale | [1.0, 1.0, 1.0]
+assert-count-delta 0
+select Spartain
+action View.FrameSelected
+action Animation.PreviewSelected
+wait 20
+screenshot .tmp/SkinDiagnostics/sponza-spartan-preview.png
+action Animation.StopPreviews
+wait 3

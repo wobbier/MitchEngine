@@ -8,6 +8,7 @@
 #include "Graphics/MeshLod.h"
 #include <bgfx/bgfx.h>
 #include <glm/mat4x4.hpp>
+#include "Graphics/VertexAnimation.h"
 
 namespace Moonlight
 {
@@ -40,6 +41,11 @@ namespace Moonlight
         const bgfx::IndexBufferHandle& GetIndexuffer() const {
             return m_ibh;
         }
+        // A baked animation instance supplies its posed buffer to every render pass.
+        void BindVertexBuffer( bgfx::DynamicVertexBufferHandle InPosed ) const {
+            if( bgfx::isValid( InPosed ) ) bgfx::setVertexBuffer( 0, InPosed );
+            else bgfx::setVertexBuffer( 0, m_vbh );
+        }
 
         // Skinning. Bone i deforms vertices through inverse(meshWorld) * boneWorld * BoneOffsets[i]
         // (the offset maps bind-pose mesh space into the bone's space). Bones are found by name in
@@ -48,6 +54,11 @@ namespace Moonlight
         std::vector<std::string> BoneNames;
         std::vector<glm::mat4> BoneOffsets;
         std::vector<float> BoneRadii;   // furthest influenced vertex from each bone, for skinned bounds
+        // Baked animation shares immutable positions/templates; instances own posed buffers.
+        SharedPtr<VertexAnimation> VertexCache;
+        std::vector<uint32_t> VertexCacheIndices;
+        // Normals/tangents are expressed in the cached vertex's bind frame, once on import.
+        std::vector<PosNormTexTanBiVertex> VertexCacheTemplate;
         bool IsSkinned() const {
             return bgfx::isValid( m_skinVbh );
         }

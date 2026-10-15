@@ -25,6 +25,8 @@
 #include <cmath>
 #include <imgui.h>
 #include <sstream>
+#include "Profiling/FrameStats.h"
+#include <optick.h>
 
 namespace
 {
@@ -187,6 +189,16 @@ void EditorAutomation::Tick( EditorApp& InApp )
     {
         return;
     }
+    if( m_recordProfile )
+    {
+        const auto& stats = FrameStats::Get();
+        const auto& render = stats.GetRenderStats();
+        json scopes = json::object();
+        for( const auto& scope : stats.GetScopes() ) scopes[scope.Name] = scope.Milliseconds;
+        m_profileFrames.push_back( { { "FrameMs", stats.GetFrameMilliseconds() },
+            { "GpuMs", render.GpuMilliseconds }, { "RenderThreadMs", render.RenderThreadMilliseconds },
+            { "DrawCalls", render.DrawCalls }, { "Triangles", render.Triangles }, { "Scopes", scopes } } );
+    }
     if( m_waitFrames > 0 )
     {
         --m_waitFrames;
@@ -300,6 +312,27 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
     else if( command == "focus-window" )
     {
         ImGui::SetWindowFocus( args.c_str() );
+    }
+    else if( command == "trace-start" )
+    {
+        OPTICK_START_CAPTURE();
+    }
+    else if( command == "trace-stop" )
+    {
+        OPTICK_STOP_CAPTURE();
+        if( args.empty() ) Fail( "trace-stop: expected an output trace path" );
+        else OPTICK_SAVE_CAPTURE( args.c_str() );
+    }
+    else if( command == "profile-start" )
+    {
+        m_profileFrames = json::array();
+        m_recordProfile = true;
+    }
+    else if( command == "profile-stop" )
+    {
+        m_recordProfile = false;
+        if( args.empty() ) Fail( "profile-stop: expected an output JSON path" );
+        else File( Path( args ) ).Write( m_profileFrames.dump() );
     }
     else if( command == "log" )
     {

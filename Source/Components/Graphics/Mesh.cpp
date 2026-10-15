@@ -3,7 +3,9 @@
 #include "Model.h"
 #include "Components/Transform.h"
 #include <algorithm>
+#include <limits>
 #include <unordered_map>
+#include "Utils/BGFXUtils.h"
 
 #include "Graphics/MeshData.h"
 #include "Graphics/Texture.h"
@@ -59,6 +61,7 @@ Mesh::Mesh( Moonlight::MeshData* mesh )
 
 Mesh::~Mesh()
 {
+    if( Moonlight::IsGpuAlive() && bgfx::isValid( m_posedVertices ) ) bgfx::destroy( m_posedVertices );
     MeshMaterial.reset();
 }
 
@@ -477,6 +480,92 @@ bool Mesh::ResolveBones()
 }
 
 
+void Mesh::PrepareVertexAnimation()
+{
+    if( m_vertexAnimationSource == MeshReferece ) return;
+    if( bgfx::isValid( m_posedVertices ) ) bgfx::destroy( m_posedVertices );
+    m_posedVertices = BGFX_INVALID_HANDLE;
+    m_vertexAnimationSource = MeshReferece;
+    m_vertexAnimationVertices.clear();
+    m_vertexAnimationBounds = AABB();
+    m_vertexAnimationTime = -1.f;
+    m_vertexAnimationUpload = false;
+    if( HasVertexAnimation() )
+    {
+        m_posedVertices = bgfx::createDynamicVertexBuffer( MeshReferece->GetVertexCount(),
+            Moonlight::PosNormTexTanBiVertex::ms_layout );
+        m_vertexAnimationVertices = MeshReferece->VertexCacheTemplate;
+    }
+}
+
+
+bool Mesh::BeginVertexAnimation()
+{
+    // The ordinary Animator clock supports preview, scrub, independent instances and Stop.
+    Transform* model = Parent->TryGetComponent<Transform>();
+    while( model && !( model->Parent && model->Parent->HasComponent<Model>() ) ) model = model->GetParentTransform();
+    Transform* clock = model ? model->GetChildByName( "__VertexAnimationClock" ) : nullptr;
+    if( !clock && model )
+    {
+        std::vector<Transform*> pending{ model };
+        while( !pending.empty() && !clock )
+        {
+            Transform* node = pending.back();
+            pending.pop_back();
+            if( node->GetName() == "__VertexAnimationClock" ) clock = node;
+            else for( Transform* child : node->GetChildren() ) if( child ) pending.push_back( child );
+        }
+    }
+    const auto& cache = *MeshReferece->VertexCache;
+    const float time = std::clamp( clock ? clock->GetScale().x - 1.f : 0.f,
+        0.f, ( cache.FrameCount - 1 ) / cache.FramesPerSecond );
+    m_nextVertexAnimationTime = time;
+    return time != m_vertexAnimationTime;
+}
+
+
+AABB Mesh::SampleVertexAnimation( size_t InBegin, size_t InEnd )
+{
+    const auto& cache = *MeshReferece->VertexCache;
+    const auto span = cache.Span( m_nextVertexAnimationTime );
+    glm::vec3 min( std::numeric_limits<float>::max() );
+    glm::vec3 max( -std::numeric_limits<float>::max() );
+    for( size_t i = InBegin; i < InEnd; ++i )
+    {
+        const uint32_t index = MeshReferece->VertexCacheIndices[i];
+        const auto& bind = MeshReferece->VertexCacheTemplate[i];
+        auto& posed = m_vertexAnimationVertices[i];
+        cache.Pose( span, index, bind, posed );
+        const glm::vec3 position = posed.Position.InternalVector;
+        min = glm::min( min, position );
+        max = glm::max( max, position );
+    }
+    AABB bounds;
+    bounds.Encapsulate( Vector3( min ) );
+    bounds.Encapsulate( Vector3( max ) );
+    return bounds;
+}
+
+
+void Mesh::EndVertexAnimation( const AABB& InBounds )
+{
+    m_vertexAnimationBounds = InBounds;
+    m_vertexAnimationTime = m_nextVertexAnimationTime;
+    m_vertexAnimationUpload = true;
+}
+
+
+void Mesh::UploadVertexAnimation()
+{
+    if( m_vertexAnimationUpload && bgfx::isValid( m_posedVertices ) )
+    {
+        bgfx::update( m_posedVertices, 0, bgfx::copy( m_vertexAnimationVertices.data(),
+            static_cast<uint32_t>( m_vertexAnimationVertices.size() * sizeof( Moonlight::PosNormTexTanBiVertex ) ) ) );
+        m_vertexAnimationUpload = false;
+    }
+}
+
+
 AABB Mesh::UpdateSkin( const glm::mat4& InMeshWorld )
 {
     const size_t count = MeshReferece->BoneNames.size();
@@ -513,6 +602,7 @@ AABB Mesh::UpdateSkin( const glm::mat4& InMeshWorld )
 
 AABB Mesh::GetWorldBounds( const Matrix4& InWorld ) const
 {
+    if( HasVertexAnimation() && m_vertexAnimationBounds.IsValid() ) return m_vertexAnimationBounds.Transformed( InWorld );
     if( IsSkinned() && m_skinBounds.IsValid() )
     {
         return m_skinBounds;

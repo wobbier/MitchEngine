@@ -23,6 +23,10 @@
 #include <cmath>
 #include <cctype>
 #include <filesystem>
+#include <fstream>
+#include <cstring>
+#include <limits>
+#include <stdexcept>
 
 namespace
 {
@@ -223,6 +227,57 @@ bool ModelResource::LoadAsync()
         m_pendingScene->mRootNode->mMetaData->Get( "MitchEngineImportScale", m_bakedImportScale );
     }
     ProcessAnimations( m_pendingScene );
+    // Optional baked vertex cache (e.g. a USD/Alembic animation whose FBX has only rig controls).
+    // Stored in metres in right-handed source space; the OBJ cook uses ConvertToLeftHanded.
+    std::ifstream cacheFile( FilePath.FullPath + ".vertexcache", std::ios::binary );
+    if( cacheFile )
+    {
+        char magic[8];
+        uint32_t headerSize = 0;
+        cacheFile.read( magic, sizeof( magic ) );
+        cacheFile.read( reinterpret_cast<char*>( &headerSize ), sizeof( headerSize ) );
+        if( !cacheFile || std::memcmp( magic, "MEVC0001", 8 ) != 0 || headerSize > 16 * 1024 * 1024 ) return false;
+        std::string headerText( headerSize, '\0' );
+        cacheFile.read( headerText.data(), headerSize );
+        const json header = json::parse( headerText, nullptr, false );
+        if( header.is_discarded() || ( header.value( "version", 0 ) != 1 && header.value( "version", 0 ) != 2 ) ) return false;
+        auto cache = MakeShared<Moonlight::VertexAnimation>();
+        cache->VertexCount = header.value( "vertices", 0u );
+        cache->FrameCount = header.value( "frames", 0u );
+        cache->FramesPerSecond = header.value( "fps", 0.f );
+        if( cache->VertexCount == 0 || cache->FrameCount < 2 || !std::isfinite( cache->FramesPerSecond ) || cache->FramesPerSecond <= 0.f ) return false;
+        const uint64_t positionCount = static_cast<uint64_t>( cache->VertexCount ) * cache->FrameCount;
+        const auto dataStart = cacheFile.tellg();
+        cacheFile.seekg( 0, std::ios::end );
+        if( cacheFile.tellg() - dataStart != static_cast<std::streamoff>( positionCount * sizeof( Vector3 ) ) ) return false;
+        cacheFile.seekg( dataStart );
+        cache->Positions.resize( positionCount );
+        cacheFile.read( reinterpret_cast<char*>( cache->Positions.data() ), positionCount * sizeof( Vector3 ) );
+        if( !cacheFile ) return false;
+        const float importScale = m_bakedImportScale > 0.f ? m_bakedImportScale : 1.f;
+        for( Vector3& position : cache->Positions )
+        {
+            position = position * importScale;
+            position.z = -position.z;
+        }
+        cache->Neighbors = header.at( "neighbors" ).get<std::vector<std::array<uint32_t, 2>>>();
+        if( cache->Neighbors.size() != cache->VertexCount ) return false;
+        for( const auto& neighbors : cache->Neighbors )
+            if( neighbors[0] >= cache->VertexCount || neighbors[1] >= cache->VertexCount ) return false;
+        m_vertexCacheMeshes = header.at( "meshes" );
+        m_vertexCacheUsesIds = header.value( "vertex_ids", std::string() ) == "color.r";
+        m_vertexCache = cache;
+        Moonlight::AnimationClip clip;
+        clip.Name = "Baked animation";
+        clip.Duration = ( cache->FrameCount - 1 ) / cache->FramesPerSecond;
+        Moonlight::AnimationChannel clock;
+        clock.NodeName = "__VertexAnimationClock";
+        // Scale carries the clock without being mistaken for root-motion travel.
+        clock.ScaleTimes = { 0.f, clip.Duration };
+        clock.Scales = { Vector3( 1.f ), Vector3( 1.f + clip.Duration, 1.f, 1.f ) };
+        clip.Channels.push_back( std::move( clock ) );
+        m_animations.push_back( std::move( clip ) );
+    }
     BuildLods( m_pendingScene );
     return true;
 }
@@ -281,6 +336,11 @@ bool ModelResource::FinishAsyncLoad()
 
     RootNode.Name = std::string( scene->mRootNode->mName.C_Str() );
     ProcessNode( scene->mRootNode, scene, RootNode );
+    if( m_vertexCache )
+    {
+        RootNode.Nodes.emplace_back();
+        RootNode.Nodes.back().Name = "__VertexAnimationClock";
+    }
 
     m_pendingScene = nullptr;
     m_importer.reset();
@@ -621,6 +681,64 @@ Moonlight::MeshData* ModelResource::ProcessMesh( aiMesh* mesh, Moonlight::Node& 
     Moonlight::MeshData* output = new Moonlight::MeshData( vertices, indices, newMaterial );
     output->Name = std::string( mesh->mName.C_Str() );
     ProcessSkin( mesh, *output, positions );
+    if( m_vertexCache && m_vertexCacheMeshes.contains( inParent.Name ) )
+    {
+        const auto& range = m_vertexCacheMeshes.at( inParent.Name );
+        const uint32_t first = range.at( 0 ).get<uint32_t>();
+        const uint32_t count = range.at( 1 ).get<uint32_t>();
+        if( count == 0 || first >= m_vertexCache->VertexCount
+            || count > m_vertexCache->VertexCount - first )
+        {
+            delete output;
+            throw std::runtime_error( "Invalid baked animation mesh: " + inParent.Name );
+        }
+        output->VertexCache = m_vertexCache;
+        output->VertexCacheTemplate = vertices;
+        for( unsigned int v = 0; v < mesh->mNumVertices; ++v )
+        {
+            uint32_t closest = first;
+            if( m_vertexCacheUsesIds )
+            {
+                if( !mesh->HasVertexColors( 0 ) || !std::isfinite( mesh->mColors[0][v].r )
+                    || mesh->mColors[0][v].r < 0.f || mesh->mColors[0][v].r >= m_vertexCache->VertexCount )
+                {
+                    delete output;
+                    throw std::runtime_error( "Missing baked vertex IDs: " + inParent.Name );
+                }
+                closest = static_cast<uint32_t>( std::round( mesh->mColors[0][v].r ) );
+                if( closest >= m_vertexCache->VertexCount )
+                {
+                    delete output;
+                    throw std::runtime_error( "Invalid baked vertex ID: " + inParent.Name );
+                }
+            }
+            else
+            {
+                // Legacy caches: locate each cooked vertex within its original source piece.
+                float distance = std::numeric_limits<float>::max();
+                for( uint32_t source = first; source < first + count; ++source )
+                {
+                    const float candidate = ( vertices[v].Position - m_vertexCache->Positions[source] ).LengthSquared();
+                    if( candidate < distance ) { distance = candidate; closest = source; }
+                }
+            }
+            if( ( vertices[v].Position - m_vertexCache->Positions[closest] ).LengthSquared() > 1e-8f )
+            {
+                delete output;
+                throw std::runtime_error( "Baked animation does not match cooked geometry: " + inParent.Name );
+            }
+            output->VertexCacheIndices.push_back( closest );
+            const auto& neighbors = m_vertexCache->Neighbors[closest];
+            const glm::vec3 bind = m_vertexCache->Positions[closest].InternalVector;
+            const glm::mat3 toFrame = glm::transpose( Moonlight::VertexAnimation::Basis(
+                m_vertexCache->Positions[neighbors[0]].InternalVector - bind,
+                m_vertexCache->Positions[neighbors[1]].InternalVector - bind ) );
+            auto& vertex = output->VertexCacheTemplate[v];
+            vertex.Normal = Vector3( toFrame * vertex.Normal.InternalVector );
+            vertex.Tangent = Vector3( toFrame * vertex.Tangent.InternalVector );
+            vertex.BiTangent = Vector3( toFrame * vertex.BiTangent.InternalVector );
+        }
+    }
     return output;
 }
 
