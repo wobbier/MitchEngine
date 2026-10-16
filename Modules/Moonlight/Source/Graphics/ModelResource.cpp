@@ -789,6 +789,7 @@ void ModelResourceMetadata::OnSerialize( json& inJson )
     }
     // Always store this setting: old sidecars omitted it when conversion was opt-in.
     inJson["ConvertUnits"] = ConvertUnits;
+    if( !TextureRemaps.empty() ) inJson["TextureRemaps"] = TextureRemaps;
     if( GenerateLODs )
     {
         // Rounded, so a float like 0.02 isn't saved as 0.019999999552965164.
@@ -809,6 +810,19 @@ void ModelResourceMetadata::OnDeserialize( const json& inJson )
     // Rebuild old cooks once, even when the source timestamp hasn't changed. Explicit opt-outs
     // remain valid for files with incorrect unit metadata.
     FlaggedForExport = FlaggedForExport || !inJson.contains( "ConvertUnits" );
+    TextureRemaps = inJson.value( "TextureRemaps", std::map<std::string, std::string>() );
+    if( !TextureRemaps.empty() )
+    {
+        // Sidecars can be edited while the editor is closed; the asset timestamp cache only
+        // tracks the source model. Rebuild an existing cook when its remaps have changed.
+        std::error_code error;
+        const auto metaTime = std::filesystem::last_write_time( FilePath.FullPath + ".meta", error );
+        if( !error )
+        {
+            const auto cookTime = std::filesystem::last_write_time( FilePath.FullPath + ".assbin", error );
+            FlaggedForExport = FlaggedForExport || ( !error && metaTime > cookTime );
+        }
+    }
     const Moonlight::MeshLodSettings defaults;
     GenerateLODs = inJson.value( "GenerateLODs", false );
     LODs.Levels = std::clamp( inJson.value( "LODLevels", defaults.Levels ), 0, 4 );
@@ -951,6 +965,31 @@ void ModelResourceMetadata::Export()
     {
         std::cout << "ERROR::ASSIMP:: " << importer.GetErrorString() << std::endl;
         return;
+    }
+
+    for( unsigned int m = 0; m < scene->mNumMaterials && !TextureRemaps.empty(); ++m )
+    {
+        aiMaterial& material = *scene->mMaterials[m];
+        for( unsigned int p = 0; p < material.mNumProperties; ++p )
+        {
+            const aiMaterialProperty& property = *material.mProperties[p];
+            const std::string key = property.mKey.C_Str();
+            // Include raw FBX file properties, used by the Max Physical material importer.
+            if( property.mType != aiPTI_String || ( key != "$tex.file" && !key.ends_with( "|file" ) ) ) continue;
+            aiString reference;
+            if( material.Get( key.c_str(), property.mSemantic, property.mIndex, reference ) != AI_SUCCESS ) continue;
+            std::string name = reference.C_Str();
+            std::replace( name.begin(), name.end(), '\\', '/' );
+            name = name.substr( name.find_last_of( '/' ) + 1 );
+            const auto remap = TextureRemaps.find( name );
+            if( remap == TextureRemaps.end() || remap->second.empty() ) continue;
+            std::string path = remap->second;
+            std::replace( path.begin(), path.end(), '\\', '/' );
+            const aiString replacement( path );
+            // AddProperty replaces the existing property; copy its identity before that deletes it.
+            const unsigned int semantic = property.mSemantic, index = property.mIndex;
+            material.AddProperty( &replacement, key.c_str(), semantic, index );
+        }
     }
 
 

@@ -15,6 +15,7 @@
 #include <assimp/Exporter.hpp>
 #include <assimp/scene.h>
 #include <filesystem>
+#include <fstream>
 #include <limits>
 #include <set>
 
@@ -227,6 +228,89 @@ TEST_CASE( "Models: metres are the default and legacy cooks are invalidated once
     reopened.OnDeserialize( optedOut );
     CHECK_FALSE( reopened.ConvertUnits );
     CHECK_FALSE( reopened.FlaggedForExport );
+}
+
+TEST_CASE( "Models: texture remaps survive metadata saves and repair cooked material paths" )
+{
+    namespace fs = std::filesystem;
+    const fs::path directory = ".tmp/Tests/TextureRemaps";
+    fs::create_directories( directory );
+    const std::string source = ( directory / "Model.assbin" ).string();
+    aiScene scene;
+    scene.mRootNode = new aiNode( "RootNode" );
+    scene.mRootNode->mNumMeshes = 1;
+    scene.mRootNode->mMeshes = new unsigned int[1]{ 0 };
+    scene.mNumMeshes = 1;
+    scene.mMeshes = new aiMesh*[1]{ new aiMesh() };
+    aiMesh& mesh = *scene.mMeshes[0];
+    mesh.mPrimitiveTypes = aiPrimitiveType_TRIANGLE;
+    mesh.mNumVertices = 3;
+    mesh.mVertices = new aiVector3D[3]{ { 0.f, 0.f, 0.f }, { 1.f, 0.f, 0.f }, { 0.f, 1.f, 0.f } };
+    mesh.mNumFaces = 1;
+    mesh.mFaces = new aiFace[1];
+    mesh.mFaces[0].mNumIndices = 3;
+    mesh.mFaces[0].mIndices = new unsigned int[3]{ 0, 1, 2 };
+    scene.mNumMaterials = 1;
+    scene.mMaterials = new aiMaterial*[1]{ new aiMaterial() };
+    aiMaterial& material = *scene.mMaterials[0];
+    const aiString diffuse( "..\\Artist\\Textures\\Old_Color.png" );
+    const aiString normal( "/artist/textures/Old_Normal.png" );
+    const aiString untouched( "Other.png" ), embedded( "*0" ), name( "Old_Color.png" );
+    material.AddProperty( &diffuse, AI_MATKEY_TEXTURE_DIFFUSE( 0 ) );
+    material.AddProperty( &normal, AI_MATKEY_TEXTURE_NORMALS( 0 ) );
+    material.AddProperty( &normal, "$raw.3dsMax|Parameters|normalCamera|file", aiTextureType_UNKNOWN );
+    material.AddProperty( &untouched, AI_MATKEY_TEXTURE_SPECULAR( 0 ) );
+    material.AddProperty( &embedded, AI_MATKEY_TEXTURE_OPACITY( 0 ) );
+    material.AddProperty( &name, AI_MATKEY_NAME );
+    const int wrap = aiTextureMapMode_Clamp;
+    material.AddProperty( &wrap, 1, AI_MATKEY_MAPPINGMODE_U_DIFFUSE( 0 ) );
+    Assimp::Exporter exporter;
+    REQUIRE( exporter.Export( &scene, "assbin", source ) == AI_SUCCESS );
+
+    ModelResourceMetadata meta{ Path( source ) };
+    meta.TextureRemaps = { { "Old_Color.png", "..\\Textures\\New_Color.png" },
+        { "Old_Normal.png", "../Textures/New_Normal.png" } };
+    json saved;
+    meta.OnSerialize( saved );
+    ModelResourceMetadata loaded{ Path( source ) };
+    loaded.OnDeserialize( saved );
+    CHECK( loaded.TextureRemaps == meta.TextureRemaps );
+    loaded.Export();
+    Assimp::Importer importer;
+    const aiScene* cooked = importer.ReadFile( source + ".assbin", 0 );
+    REQUIRE( cooked );
+    REQUIRE( cooked->mNumMaterials == 1 );
+    const aiMaterial& result = *cooked->mMaterials[0];
+    const auto imported = Moonlight::ReadImportedMaterial( result );
+    CHECK( imported.Textures[Moonlight::TextureType::Diffuse] == "../Textures/New_Color.png" );
+    CHECK( imported.Textures[Moonlight::TextureType::Normal] == "../Textures/New_Normal.png" );
+    CHECK( imported.Textures[Moonlight::TextureType::Specular] == "Other.png" );
+    CHECK( imported.Textures[Moonlight::TextureType::Opacity] == "*0" );
+    CHECK( imported.Wrap[Moonlight::TextureType::Diffuse] == aiTextureMapMode_Clamp );
+    aiString raw, materialName;
+    REQUIRE( result.Get( "$raw.3dsMax|Parameters|normalCamera|file", aiTextureType_UNKNOWN, 0, raw ) == AI_SUCCESS );
+    CHECK( raw == aiString( "../Textures/New_Normal.png" ) );
+    REQUIRE( result.Get( AI_MATKEY_NAME, materialName ) == AI_SUCCESS );
+    CHECK( materialName == name );
+
+    // A sidecar edited offline must invalidate an older cook, but not a newer one.
+    { std::ofstream file( source + ".meta" ); file << saved.dump( 4 ); }
+    const auto time = fs::file_time_type::clock::now();
+    fs::last_write_time( source + ".assbin", time - std::chrono::seconds( 2 ) );
+    fs::last_write_time( source + ".meta", time );
+    loaded.FlaggedForExport = false;
+    loaded.OnDeserialize( saved );
+    CHECK( loaded.FlaggedForExport );
+    fs::last_write_time( source + ".assbin", time + std::chrono::seconds( 2 ) );
+    loaded.FlaggedForExport = false;
+    loaded.OnDeserialize( saved );
+    CHECK_FALSE( loaded.FlaggedForExport );
+    loaded.OnDeserialize( json{ { "ConvertUnits", true } } );
+    CHECK( loaded.TextureRemaps.empty() );
+    json defaults;
+    loaded.OnSerialize( defaults );
+    CHECK_FALSE( defaults.contains( "TextureRemaps" ) );
+    fs::remove_all( directory );
 }
 
 TEST_CASE( "Models: material splits have distinct stable names, including empty and duplicate names" )

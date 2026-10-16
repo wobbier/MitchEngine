@@ -4,6 +4,7 @@
 #include "Resource/Resource.h"
 #include "Path.h"
 #include <memory>
+#include <map>
 #include <string>
 #include <vector>
 #include "Scene/Node.h"
@@ -91,6 +92,10 @@ struct ModelResourceMetadata
     bool ConvertUnits = true;
     // The scale the cook applies for a file declaring InUnitScaleFactor (FBX: centimetres per unit).
     float GetBakedScale( double InUnitScaleFactor ) const;
+
+    // Source texture filename -> replacement path, relative to the model (or project asset path).
+    // Baked into the cook so renamed textures work without filename guessing at runtime.
+    std::map<std::string, std::string> TextureRemaps;
 
     // Levels of detail, simplified from each mesh when the model loads (not baked into the cook, so
     // changes apply the next time the model loads).
