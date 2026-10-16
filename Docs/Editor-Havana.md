@@ -42,7 +42,7 @@ Every scene edit goes through `EditorOps`, which applies the change and pushes a
 
 - Create/delete/duplicate/paste serialize the affected subtrees (`SceneSerializer::SerializeEntities`) and restore them with identical GUIDs and sibling positions. Undoing a create re-selects what was selected before.
 - Reparent/reorder records parent, sibling index and transform state before and after (world transforms are kept).
-- Component edits store before/after JSON. The inspector captures them generically: it snapshots each inspected component and commits when the interaction in that component's UI ends. Custom `OnEditorInspect` code therefore gets undo for free. Gizmo drags record one step per drag.
+- Component edits store before/after JSON. The inspector captures them generically: it keeps a baseline snapshot, refreshes it before inspector input, and commits when the interaction in that component's UI ends. Pending edits keep their original baseline. Idle selection does not repeatedly serialize large models. Custom `OnEditorInspect` code therefore gets undo for free. Gizmo drags record one step per drag.
 
 `UndoStack` supports transactions (`UndoTransaction` RAII), merging consecutive commands with the same merge key, a 256-entry cap, and dirty tracking: the scene is dirty when the undo cursor isn't at the saved position, which drives the `*` in the title and the unsaved-changes prompts. While playing, the stack is **suspended**: pushes are dropped and undo/redo are disabled.
 

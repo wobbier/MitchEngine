@@ -371,10 +371,28 @@ void PropertiesWidget::DrawComponentGroup(const std::string& typeName, std::vect
 	BaseComponent* primary = instances.front().Component;
 	const std::string& groupKey = instances.front().Key;
 	const bool pending = m_pendingEdits[groupKey];
+	// Refresh the undo baseline before input can change a control, including custom inspectors
+	// and their popups. Idle inspection must not serialize an entire model every frame.
+	bool input = false;
+	if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)
+		|| ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows | ImGuiHoveredFlags_AllowWhenBlockedByPopup | ImGuiHoveredFlags_AllowWhenBlockedByActiveItem))
+	{
+		const ImGuiIO& io = ImGui::GetIO();
+		input = !io.InputQueueCharacters.empty() || io.MouseWheel != 0.f || io.MouseWheelH != 0.f;
+		for (int button = 0; button < ImGuiMouseButton_COUNT && !input; ++button)
+		{
+			input = ImGui::IsMouseClicked(button) || ImGui::IsMouseReleased(button)
+				|| (ImGui::IsMouseDown(button) && (io.MouseDelta.x != 0.f || io.MouseDelta.y != 0.f));
+		}
+		for (int key = ImGuiKey_NamedKey_BEGIN; key < ImGuiKey_NamedKey_END && !input; ++key)
+		{
+			input = ImGui::IsKeyPressed(static_cast<ImGuiKey>(key));
+		}
+	}
 	for (Instance& instance : instances)
 	{
 		json& snapshot = m_snapshots[instance.Key];
-		if (!pending || snapshot.is_null())
+		if (snapshot.is_null() || (!pending && input))
 		{
 			snapshot = json();
 			instance.Component->Serialize(snapshot);
