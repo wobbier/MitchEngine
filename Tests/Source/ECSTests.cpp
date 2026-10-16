@@ -5,6 +5,10 @@
 #include "Components/Transform.h"
 #include "Math/Bounds.h"
 #include "World/SceneSerializer.h"
+#if USING( ME_SCRIPTING )
+#include "Scripting/Bindings/BindingContext.h"
+#include "Scripting/Bindings/Components/Transform.bindings.h"
+#endif
 #include <memory>
 #include <string>
 #include <vector>
@@ -397,6 +401,51 @@ TEST_CASE( "Transform: world space setters, rotation and reparenting" )
     looker.Translate( Vector3( 0.f, 0.f, 2.f ), TransformSpace::Self );
     CHECK( looker.GetWorldPosition().x == doctest::Approx( 2.f ).epsilon( 0.001 ) );
 }
+
+
+#if USING( ME_SCRIPTING )
+TEST_CASE( "Transform: script rotation stays continuous through full turns on every local axis" )
+{
+    auto world = MakeWorld();
+    const WeakPtr<World> previousWorld = ScriptBindings::GetWorld();
+    ScriptBindings::SetWorld( world );
+    ScriptEngineAPI api{};
+    Register_TransformBindings( api );
+
+    Transform& parent = world->CreateEntity()->AddComponent<Transform>();
+    parent.SetRotation( Vector3( -20.f, 35.f, 10.f ) );
+    EntityHandle entity = world->CreateEntity();
+    Transform& transform = entity->AddComponent<Transform>();
+    transform.SetParent( parent );
+    const Quaternion initial = Quaternion::FromEulerDegrees( Vector3( 15.f, 100.f, -25.f ) );
+
+    for( int axis = 0; axis < 3; ++axis )
+    {
+        for( float direction : { -1.f, 1.f } )
+        {
+            transform.SetRotation( initial );
+            Vector3 delta;
+            delta[axis] = direction;
+            for( int step = 1; step <= 720; ++step )
+            {
+                api.Transform_Rotate( entity.GetID(), &delta );
+                Vector3 total;
+                total[axis] = direction * static_cast<float>( step );
+                const Quaternion expected = parent.GetRotation() * initial * Quaternion::FromEulerDegrees( total );
+                // Check the rendered orientation, not its non-unique Euler representation.
+                CHECK( ( transform.Front() - expected * Vector3::Front ).Length() < 0.001f );
+                CHECK( ( transform.Up() - expected * Vector3::Up ).Length() < 0.001f );
+            }
+
+            const Quaternion beforePause = transform.GetRotation();
+            const Vector3 zero;
+            api.Transform_Rotate( entity.GetID(), &zero );
+            CHECK( transform.GetRotation().Dot( beforePause ) == doctest::Approx( beforePause.Dot( beforePause ) ) );
+        }
+    }
+    ScriptBindings::SetWorld( previousWorld );
+}
+#endif
 
 
 TEST_CASE( "Transform: serializes rotation as a quaternion and reads legacy Euler" )

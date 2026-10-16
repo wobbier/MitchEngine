@@ -14,11 +14,18 @@ public class Transform : Component
         set { unsafe { Engine._api.Transform_SetScale(Entity, &value); } }
     }
 
-    // Euler
+    // Local Euler angles in degrees. Readback can return an equivalent set of angles;
+    // use Rotate for continuous motion instead of reading and incrementing one Euler axis.
     public Vector3 Rotation
     {
         get { unsafe { Vector3 v; Engine._api.Transform_GetRotation(Entity, &v); return v; } }
         set { unsafe { Engine._api.Transform_SetRotation(Entity, &value); } }
+    }
+
+    // Rotates by degrees about the local axes using quaternion composition.
+    public void Rotate(Vector3 degrees)
+    {
+        unsafe { Engine._api.Transform_Rotate(Entity, &degrees); }
     }
 
     public Vector3 WorldPosition

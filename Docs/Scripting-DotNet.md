@@ -165,8 +165,7 @@ public class Spinner : Script
 
     public override void OnUpdate(float deltaTime)
     {
-        var rotation = transform.Rotation;
-        transform.Rotation = new Vector3(rotation.x, rotation.y + Speed * deltaTime, rotation.z);
+        transform.Rotate(new Vector3(0f, Speed * deltaTime, 0f));
         if (Input.WasActionPressed("Jump"))
         {
             Audio.PlayOneShot("Assets/Sounds/Jump.wav");
@@ -176,6 +175,8 @@ public class Spinner : Script
 ```
 
 Save it anywhere under `Assets/`. The editor builds it on the next start, or hot reloads it if already running. Then add a `ScriptComponent` naming `Spinner` to an entity. `Assets/Scripts/Tests/ScriptProbe.cs` and `Assets/Scenes/Tests/ScriptTest.lvl` are a working example that `ScriptFlows.edscript` drives headlessly.
+
+`Transform.Rotate` composes a rotation in degrees about the entity's local axes directly with its quaternion. Use it for continuous rotation. `Transform.Rotation` sets an absolute local rotation in Euler degrees; its getter can return an equivalent Euler representation (for example, `(0, 100, 0)` becomes `(180, 80, 180)`). Reading that representation and replacing just one axis can make rotation alternate between different poses.
 
 ## Caveats & Fragility
 

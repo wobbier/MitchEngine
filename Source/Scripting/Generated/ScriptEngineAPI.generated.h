@@ -158,4 +158,7 @@ struct ScriptEngineAPI
     int ( *World_LoadSceneAdditive )( const uint8_t* scene, bool async );
     bool ( *World_UnloadScene )( int scene );
     int ( *World_GetSceneState )( int scene );
+
+    // Incremental local rotation (quaternion composition, avoiding Euler readback)
+    void ( *Transform_Rotate )( EntityID id, const Vector3* degrees );
 };

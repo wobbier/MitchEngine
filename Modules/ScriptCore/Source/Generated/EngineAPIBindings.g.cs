@@ -147,4 +147,7 @@ public unsafe struct EngineAPIBindings
     public delegate* unmanaged<byte*, byte, int> World_LoadSceneAdditive;
     public delegate* unmanaged<int, byte> World_UnloadScene;
     public delegate* unmanaged<int, int> World_GetSceneState;
+
+    // Incremental local rotation (quaternion composition, avoiding Euler readback)
+    public delegate* unmanaged<Entity, Vector3*, void> Transform_Rotate;
 }

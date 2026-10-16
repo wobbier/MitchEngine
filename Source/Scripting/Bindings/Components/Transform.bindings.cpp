@@ -69,6 +69,16 @@ static void Eng_Transform_SetRotation( EntityID inId, const Vector3* inEuler )
 }
 
 
+static void Eng_Transform_Rotate( EntityID inId, const Vector3* inDegrees )
+{
+    EntityHandle handle = MakeHandle( inId );
+    if( handle )
+    {
+        handle->GetComponent<Transform>().Rotate( *inDegrees );
+    }
+}
+
+
 void Register_TransformBindings( ScriptEngineAPI& inAPI )
 {
     ScriptBindings::RegisterComponent<Transform>( "Transform" );
@@ -79,6 +89,7 @@ void Register_TransformBindings( ScriptEngineAPI& inAPI )
     inAPI.Transform_SetScale       = Eng_Transform_SetScale;
     inAPI.Transform_GetRotation    = Eng_Transform_GetRotation;
     inAPI.Transform_SetRotation    = Eng_Transform_SetRotation;
+    inAPI.Transform_Rotate         = Eng_Transform_Rotate;
 }
 
 #endif
