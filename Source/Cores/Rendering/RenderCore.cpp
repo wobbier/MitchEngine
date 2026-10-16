@@ -19,7 +19,6 @@
 #include "Components/Graphics/Decal.h"
 #include "Components/Graphics/Mesh.h"
 #include "Engine/Engine.h"
-#include "Work/Burst.h"
 #include "Renderer.h"
 #include "Camera/CameraData.h"
 #include "RenderPasses/PickingPass.h"

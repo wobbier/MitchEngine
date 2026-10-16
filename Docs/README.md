@@ -8,7 +8,7 @@ Technical documentation for MitchEngine — a C++20, ECS-based game engine built
 |-----|----------------|
 | [Architecture.md](Architecture.md) | Module layout, `Engine` singleton lifecycle, the verified frame loop, engine-owned vs scene-loaded cores, feature flags |
 | [ECS.md](ECS.md) | `EntityID` packing, component storage, `ComponentFilter`, `World` caches and `Simulate()`, registration macros, add-a-component / add-a-core recipes |
-| [Jobs-and-Events.md](Jobs-and-Events.md) | `SimpleJobSystem`, `Burst` chunking, main-thread work stealing, `EventManager` — **the threading rulebook** |
+| [Jobs-and-Events.md](Jobs-and-Events.md) | `Jobs::JobSystem` (work stealing, helping waits, `ParallelFor`), `EventManager` — **the threading rulebook** |
 | [Rendering-Pipeline.md](Rendering-Pipeline.md) | `RenderCore` parallel command build → `BGFXRenderer` submit, view-ID map (editor vs game), instancing, transparency, lighting reality |
 | [Materials-and-Shaders.md](Materials-and-Shaders.md) | Material hierarchy, instance batch keys, offline `shaderc` cooking via the MetaFile system |
 | [Resources-and-Assets.md](Resources-and-Assets.md) | `ResourceCache` load flow, `.meta` sidecars, export/cooking, eviction, resource type inventory |

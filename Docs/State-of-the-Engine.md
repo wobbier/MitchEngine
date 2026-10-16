@@ -52,7 +52,6 @@ The stated bar (per the game project's conventions) is: Win64/macOS/Linux must c
 |------|----------|-------|---------|
 | `ShaderGraphMaterial` + ShaderEditor | `Modules/Moonlight/Source/Materials/ShaderGraphMaterial.h`, `Tools/ShaderEditor` | Texture-slot-3 bug, per-instance uniform creation, external tool dependency | **Decide** — finish (fix slots, ship the tool) or delete and stay code-material-only |
 | Ultralight | `Source/UI/`, `Source/Cores/UI/` | Removal declared in commit history; Vue/web direction visible in `../flake.nix` | **Finish the removal** |
-| `IsRunning` check in `Simulate` | `Source/Engine/World.cpp` (`//continue;`) | Deliberately (?) disabled | **Decide** the intended semantics and either restore or remove the dead check |
 
 ## 4. Improvement Themes
 
@@ -97,7 +96,7 @@ Impact (H/M/L) × Effort (S/M/L). Grouped so related items can share one work se
 | ~~Async first-time cooking~~ | — | — | Done: a `GetAsync` of an uncooked texture or model cooks it on the loader thread; hot-reload recompiles (shaders too) run on reimport threads |
 
 ### E. Debt removal (one satisfying purge)
-Done (overhaul): the legacy job systems, Mono files, `Canvas.h`, `UpdateMesh`, `UWPWindow` and the boot-log noise are gone. The legacy `Collider2D` is gone too (Box2D colliders replaced it). Left: stale includes in `Source/Engine/Engine.h`.
+Done (overhaul): the legacy job systems, Mono files, `Canvas.h`, `UpdateMesh`, `UWPWindow` and the boot-log noise are gone. The legacy `Collider2D` is gone too (Box2D colliders replaced it). The dead `Burst` chunking helpers and `Engine.h`'s stale includes are gone too, and `Engine` builds without `ME_TOOLS` again (additive scene streaming is part of every build).
 
 ```mermaid
 quadrantChart

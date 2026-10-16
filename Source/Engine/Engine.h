@@ -2,7 +2,6 @@
 #include "World.h"
 #include "Dementia.h"
 #include "Clock.h"
-#include "File.h"
 #include "Events/EventReceiver.h"
 #include "World/Scene.h"
 #include "World/SceneStreaming.h"
@@ -11,7 +10,6 @@
 #include <chrono>
 #include "Config/EngineConfig.h"
 #include "Input.h"
-#include "Work/Burst.h"
 #include "Jobs/JobSystem.h"
 #include "Core/ISystem.h"
 
@@ -162,10 +160,10 @@ public:
 
 private:
     AutomationRunner m_automation;
+    SceneStreaming m_sceneStreaming;
 #if USING( ME_TOOLS )
     void PollAssetChanges();
     FileWatcher m_assetWatcher;
-    SceneStreaming m_sceneStreaming;
 #endif
 };
 

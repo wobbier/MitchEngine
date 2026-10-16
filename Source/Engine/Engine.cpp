@@ -33,7 +33,6 @@
 #endif
 #include "Resource/ResourceCache.h"
 #include "optick.h"
-#include "Work/Burst.h"
 #include "Profiling/BasicFrameProfile.h"
 #include "Renderer.h"
 #include "Window/SDLWindow.h"

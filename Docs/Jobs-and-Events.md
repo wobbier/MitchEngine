@@ -15,7 +15,6 @@ The engine's two cross-cutting runtime services: `Jobs::JobSystem`, a work-steal
 | Path | Role |
 |------|------|
 | `Modules/Dementia/Source/Jobs/JobSystem.h` / `Modules/Dementia/Source/Jobs/JobSystem.cpp` | `Jobs::JobSystem`, `Jobs::Counter`, `ParallelFor`, `Submit` |
-| `Modules/Dementia/Source/Work/Burst.h` | `Burst::GenerateChunks` range helper (legacy; no engine callers left) |
 | `Source/Cores/PhysicsCore.cpp` | `PhysicsCore::EnqueueTask` / `FinishTask`: Box3D's solver tasks run as jobs (`Docs/Physics.md`) |
 | `Modules/Dementia/Source/Events/Event.h` | `Event<T>` CRTP: `GetEventId`, `Fire`, `Queue` |
 | `Modules/Dementia/Source/Events/EventManager.h` / `Modules/Dementia/Source/Events/EventManager.cpp` | Receiver registry, dispatch, the cross-thread queue |
