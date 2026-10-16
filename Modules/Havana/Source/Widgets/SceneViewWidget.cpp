@@ -510,7 +510,8 @@ void SceneViewWidget::Render()
 	}
 	IsFocused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
 
-	if (EnableSceneTools && MainCamera)
+	// Hidden behind another tab (e.g. a shader graph): no overlays, gizmos or input.
+	if (EnableSceneTools && MainCamera && shouldRender)
 	{
 		DrawStatsOverlay();
 		if (m_viewOptions.DebugDraw) DrawIcons();

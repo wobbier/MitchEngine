@@ -25,6 +25,7 @@ class HistoryWidget;
 class ProfilerWidget;
 class PreferencesWidget;
 class ProjectSettingsWidget;
+class ShaderGraphWidget;
 
 #if USING( ME_EDITOR )
 
@@ -85,6 +86,8 @@ private:
 	SharedPtr<ProfilerWidget> Profiler;
 	SharedPtr<PreferencesWidget> Preferences;
 	SharedPtr<ProjectSettingsWidget> ProjectSettingsView;
+	// Open shader graph documents (not a single window, so not in RegisteredWidgets).
+	SharedPtr<ShaderGraphWidget> ShaderGraphs;
 
     std::vector<SharedPtr<HavanaWidget>> RegisteredWidgets;
     std::vector<SharedPtr<HavanaWidget>> CustomRegisteredWidgets;

@@ -63,6 +63,11 @@ public:
     // Editor state the shortcut filter needs (set by Havana).
     std::function<bool( ActionContext )> IsContextActive;
     std::function<bool()> IsGameFocused;
+    // The focused document window (e.g. a shader graph) can take over actions such as Save, Undo,
+    // Copy or Delete while it has focus: DocumentClaims says whether it wants InId right now, and
+    // DocumentExecute runs it. Shortcuts, menus, the palette and automation all route through it.
+    std::function<bool( const std::string& )> DocumentClaims;
+    std::function<void( const std::string& )> DocumentExecute;
     // Set while a shortcut is being captured for rebinding.
     bool ShortcutsSuspended = false;
 

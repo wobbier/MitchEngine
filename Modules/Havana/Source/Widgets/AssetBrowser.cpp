@@ -24,6 +24,7 @@
 #include "Events/HavanaEvents.h"
 #include "Events/EditorEvents.h"
 #include "optick.h"
+#include "ShaderGraph/Graph.h"
 #include <Utils/CommonUtils.h>
 #include <Utils/EditorConfig.h>
 #include <CLog.h>
@@ -1127,6 +1128,13 @@ void AssetBrowserWidget::OpenEntry( Entry& InEntry )
         std::snprintf( m_saveName, sizeof( m_saveName ), "%s", fs::path( InEntry.Name ).stem().string().c_str() );
         return;
     }
+    if( InEntry.Type == AssetType::ShaderGraph )
+    {
+        OpenShaderGraphEvent evt;
+        evt.GraphPath = LocalPath( InEntry.FullPath );
+        evt.Fire();
+        return;
+    }
     if( InEntry.Type == AssetType::Level )
     {
         if( EditorApp* app = static_cast<EditorApp*>( GetEngine().GetGame() ) )
@@ -1218,6 +1226,23 @@ void AssetBrowserWidget::DrawBackgroundContextMenu()
         if( ImGui::MenuItem( "Material" ) )
         {
             CreateAsset( "New Material", ".mat", json{ { "Type", "DiffuseMaterial" }, { "DiffuseColor", { 1.0, 1.0, 1.0 } } }.dump( 4 ) );
+        }
+        if( ImGui::BeginMenu( "Shader Graph" ) )
+        {
+            static const std::pair<const char*, ShaderGraph::Target> kTargets[] = {
+                { "Lit", ShaderGraph::Target::Lit }, { "Unlit", ShaderGraph::Target::Unlit }, { "Particle", ShaderGraph::Target::Particle },
+                { "Decal", ShaderGraph::Target::Decal }, { "Post Process", ShaderGraph::Target::PostProcess }
+            };
+            for( const auto& target : kTargets )
+            {
+                if( ImGui::MenuItem( target.first ) )
+                {
+                    json contents;
+                    ShaderGraph::Graph::CreateDefault( target.second ).Serialize( contents );
+                    CreateAsset( std::string( "New " ) + target.first + " Graph", ShaderGraph::Graph::kExtension, contents.dump( 1, '\t' ) );
+                }
+            }
+            ImGui::EndMenu();
         }
         if( ImGui::MenuItem( "Input Actions" ) )
         {

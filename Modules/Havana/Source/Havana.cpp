@@ -42,6 +42,7 @@
 #include "Widgets/HistoryWidget.h"
 #include "Widgets/ProfilerWidget.h"
 #include "Widgets/SettingsWidgets.h"
+#include "Widgets/ShaderGraph/ShaderGraphWidget.h"
 #include "Editor/EditorActions.h"
 #include "Editor/EditorOperations.h"
 #include "Editor/DefaultEditorActions.h"
@@ -133,6 +134,8 @@ Havana::Havana( Engine* GameEngine, EditorApp* app )
 
     ProjectSettingsView.reset( new ProjectSettingsWidget() );
     RegisteredWidgets.push_back( ProjectSettingsView );
+
+    ShaderGraphs.reset( new ShaderGraphWidget() );
 
     EditorActions& actions = EditorActions::Get();
     actions.IsContextActive = [this]( ActionContext context ) {
@@ -307,6 +310,8 @@ void Havana::InitUI()
         customWidget->Init();
     }
 
+    ShaderGraphs->Init();
+
     Input& gameInput = GetEngine().GetInput();
     gameInput.Stop();
 }
@@ -371,6 +376,7 @@ void Havana::NewFrame()
     Profiler->Render();
     Preferences->Render();
     ProjectSettingsView->Render();
+    ShaderGraphs->Render();
     EditorActions::Get().DrawPalette();
 }
 

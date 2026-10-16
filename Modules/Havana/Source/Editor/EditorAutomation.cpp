@@ -12,6 +12,7 @@
 #include "Havana.h"
 #include "Widgets/AssetBrowser.h"
 #include "Widgets/SceneViewWidget.h"
+#include "Widgets/ShaderGraph/ShaderGraphAutomation.h"
 #include "Components/Audio/AudioSource.h"
 #include "Components/Transform.h"
 #include "Components/Graphics/Model.h"
@@ -259,7 +260,15 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
     auto [command, args] = SplitWord( InLine );
     World& world = EditorOps::GetWorld();
 
-    if( command == "wait" )
+    if( command.rfind( "sg-", 0 ) == 0 )
+    {
+        std::string error;
+        if( !ShaderGraphAutomation::Execute( command, args, error ) )
+        {
+            Fail( command + ": " + error );
+        }
+    }
+    else if( command == "wait" )
     {
         m_waitFrames = std::max( 1, std::atoi( args.c_str() ) );
     }

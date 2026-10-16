@@ -235,7 +235,7 @@ TEST_CASE( "ShaderGraph: dynamic vectors widen to the widest input" )
     CHECK( result.PinTypes[{ add, "out:Out" }] == ValueType::Vec3 );
     CHECK( result.PinTypes[{ add, "in:B" }] == ValueType::Vec3 );
     const std::string fragment = FileText( result, "Forward.frag" );
-    CHECK( fragment.find( "vec3 n" + std::to_string( add ) + "_Out = (vec3(1.0, 0.5, 0.25)) + (vec3_splat(2.0));" ) != std::string::npos );
+    CHECK( fragment.find( "vec3 n" + std::to_string( add ) + "_Out = vec3(1.0, 0.5, 0.25) + vec3_splat(2.0);" ) != std::string::npos );
 }
 
 TEST_CASE( "ShaderGraph: loops, bad links and stage misuse are reported on their nodes" )

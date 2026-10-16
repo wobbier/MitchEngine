@@ -1,4 +1,7 @@
 #include "Event.h"
+#include "Path.h"
+#include "Pointers.h"
+#include <functional>
 #include "Types/AssetType.h"
 #include <string>
 #include <vector>

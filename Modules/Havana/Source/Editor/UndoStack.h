@@ -28,7 +28,10 @@ public:
 class UndoStack
 {
 public:
+    // The editor's scene history; documents (shader graphs) keep their own stacks.
     static UndoStack& Get();
+    UndoStack();
+    ~UndoStack();
 
     void Push( std::unique_ptr<UndoCommand> InCommand );
 

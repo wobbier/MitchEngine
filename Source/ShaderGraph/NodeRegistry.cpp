@@ -50,6 +50,45 @@ namespace ShaderGraph
         }
 
 
+        // Expressions that need no parentheses when substituted into another: identifiers (with
+        // member/array access), unsigned literals and single function calls.
+        bool IsAtomic( const std::string& InExpression )
+        {
+            if( InExpression.empty() )
+            {
+                return false;
+            }
+            auto plain = []( char c ) { return std::isalnum( static_cast<unsigned char>( c ) ) || c == '_' || c == '.' || c == '[' || c == ']'; };
+            if( std::all_of( InExpression.begin(), InExpression.end(), plain ) )
+            {
+                return true;
+            }
+            // name(...) where the first '(' closes at the very end.
+            const size_t open = InExpression.find( '(' );
+            if( open == 0 || open == std::string::npos || !std::all_of( InExpression.begin(), InExpression.begin() + static_cast<long>( open ), plain ) )
+            {
+                return false;
+            }
+            int depth = 0;
+            for( size_t i = open; i < InExpression.size(); ++i )
+            {
+                depth += InExpression[i] == '(' ? 1 : InExpression[i] == ')' ? -1 : 0;
+                if( depth == 0 )
+                {
+                    // Allow a trailing swizzle after the call: f(x).xyz
+                    return i + 1 == InExpression.size() || std::all_of( InExpression.begin() + static_cast<long>( i + 1 ), InExpression.end(), plain );
+                }
+            }
+            return false;
+        }
+
+
+        std::string Wrap( const std::string& InExpression )
+        {
+            return IsAtomic( InExpression ) ? InExpression : "(" + InExpression + ")";
+        }
+
+
         // The resolved type of a dynamic group, from its first pin.
         ValueType GroupType( EmitContext& InContext, const NodeDef& InDef, int InGroup )
         {
@@ -220,11 +259,11 @@ namespace ShaderGraph
             {
                 // An input converted to dynamic group 0's type (a Float pin used against a vector).
                 const std::string pin = token.substr( 1 );
-                result += "(" + ConvertExpression( InContext.In( pin ), InContext.InType( pin ), GroupType( InContext, InDef, 0 ) ) + ")";
+                result += Wrap( ConvertExpression( InContext.In( pin ), InContext.InType( pin ), GroupType( InContext, InDef, 0 ) ) );
             }
             else
             {
-                result += "(" + InContext.In( token ) + ")";
+                result += Wrap( InContext.In( token ) );
             }
         }
         return result;

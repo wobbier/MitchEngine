@@ -109,6 +109,11 @@ bool EditorActions::Execute( const std::string& InId )
         BRUH( "Unknown editor action: " + InId );
         return false;
     }
+    if( DocumentClaims && DocumentExecute && DocumentClaims( InId ) )
+    {
+        DocumentExecute( InId );
+        return true;
+    }
     if( !IsEnabled( InId ) )
     {
         return false;
@@ -150,7 +155,9 @@ void EditorActions::ProcessShortcuts()
         {
             continue;
         }
-        if( action.Context != ActionContext::Global && IsContextActive && !IsContextActive( action.Context ) )
+        // A focused document takes the action regardless of its scene context (Execute routes it).
+        const bool claimed = DocumentClaims && DocumentClaims( action.Id );
+        if( !claimed && action.Context != ActionContext::Global && IsContextActive && !IsContextActive( action.Context ) )
         {
             continue;
         }
@@ -203,9 +210,10 @@ bool EditorActions::MenuItem( const std::string& InId, const char* InLabelOverri
         return false;
     }
     const std::string shortcut = ShortcutToString( action->Shortcut );
-    if( ImGui::MenuItem( InLabelOverride ? InLabelOverride : action->DisplayName.c_str(), shortcut.empty() ? nullptr : shortcut.c_str(), false, IsEnabled( InId ) ) )
+    const bool claimed = DocumentClaims && DocumentClaims( InId );
+    if( ImGui::MenuItem( InLabelOverride ? InLabelOverride : action->DisplayName.c_str(), shortcut.empty() ? nullptr : shortcut.c_str(), false, claimed || IsEnabled( InId ) ) )
     {
-        action->Execute();
+        Execute( InId );
         return true;
     }
     return false;

@@ -35,6 +35,12 @@ private:
 };
 
 
+UndoStack::UndoStack() = default;
+
+
+UndoStack::~UndoStack() = default;
+
+
 UndoStack& UndoStack::Get()
 {
     static UndoStack instance;
