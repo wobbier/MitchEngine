@@ -84,11 +84,15 @@ Havana::Havana( Engine* GameEngine, EditorApp* app )
 //			CLog::GetInstance().Log(CLog::LogType::Error, "Error! Unknown file status.");
 //		}
 //		});
-    std::vector<TypeId> events;
-    events.push_back( TestEditorEvent::GetEventId() );
-    events.push_back( LoadSceneEvent::GetEventId() );
-    events.push_back( ModelHierarchyEvent::GetEventId() );
-    EventManager::GetInstance().RegisterReceiver( this, events );
+    Listen<ModelHierarchyEvent>( []( const ModelHierarchyEvent& InEvent ) {
+        if( InEvent.Target )
+        {
+            if( InEvent.NodePath.empty() ) EditorOps::CompactModel( *InEvent.Target.Get() );
+            else EditorOps::ExposeModelNode( *InEvent.Target.Get(), InEvent.NodePath );
+        }
+        return true;
+    } );
+    Listen<LoadSceneEvent>( []( const LoadSceneEvent& ) { ClearInspectEvent().Fire(); } );
     Renderer = &GameEngine->GetRenderer();
 
     MainMenu.reset( new MainMenuWidget( this ) );
@@ -526,34 +530,6 @@ const Vector2& Havana::GetGameOutputSize() const
 Vector2 Havana::GetWorldEditorRenderSize() const
 {
     return MainSceneView->SceneViewRenderSize;
-}
-
-bool Havana::OnEvent( const BaseEvent& event )
-{
-    if( event.GetEventId() == ModelHierarchyEvent::GetEventId() )
-    {
-        const auto& request = static_cast<const ModelHierarchyEvent&>( event );
-        if( request.Target )
-        {
-            if( request.NodePath.empty() ) EditorOps::CompactModel( *request.Target.Get() );
-            else EditorOps::ExposeModelNode( *request.Target.Get(), request.NodePath );
-        }
-        return true;
-    }
-    if( event.GetEventId() == TestEditorEvent::GetEventId() )
-    {
-        //const TestEditorEvent& test = static_cast<const TestEditorEvent&>(evt);
-        //Logger::GetInstance().Log(Logger::LogType::Info, "We did it fam" + test.Path);
-        return true;
-    }
-    if( event.GetEventId() == LoadSceneEvent::GetEventId() )
-    {
-        //const LoadSceneEvent& test = static_cast<const LoadSceneEvent&>(event);
-        ClearInspectEvent evt;
-        evt.Fire();
-    }
-
-    return false;
 }
 
 void Havana::Save()

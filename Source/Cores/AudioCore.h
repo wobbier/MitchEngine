@@ -11,6 +11,8 @@
 #include <vector>
 
 class AudioSource;
+class PlayAudioEvent;
+class StopAudioEvent;
 class AudioReverbZone;
 class Sound;
 class Transform;
@@ -46,7 +48,6 @@ public:
 
     void OnEntityAdded( Entity& InEntity ) final;
     void OnEntityRemoved( Entity& InEntity ) final;
-    bool OnEvent( const BaseEvent& InEvent ) final;
 
     // Fire-and-forget: every call gets a new voice, up to InMaxVoices of the same clip at once (the
     // oldest is stopped beyond that).
@@ -94,6 +95,8 @@ public:
     void Shutdown();
 
 private:
+    bool OnPlayAudio( const PlayAudioEvent& evt );
+    void OnStopAudio( const StopAudioEvent& evt );
     void OnStart() final;
     void OnStop() final;
 

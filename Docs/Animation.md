@@ -185,7 +185,7 @@ Bone indices are stored as normalized `Uint8`. `skinMatrix` multiplies them by 2
 ## How to Extend
 
 - **Locomotion:** a 2D blend state over `MoveX` / `MoveY` parameters (idle at 0,0, walks and runs around it), an "UpperBody" layer masked to the spine for aiming or waving, an additive "Breathing" layer, and `ApplyRootMotion` with a `CharacterController` so the feet don't slide.
-- **Drive an Animator from gameplay:** call `SetFloat` / `SetBool` / `SetTrigger` in `OnUpdate`, and `Play("State", fade)` for direct control. Listen for `AnimationEvent` (an `EventReceiver` registered for `AnimationEvent::GetEventId()`) for footsteps, hit frames and similar.
+- **Drive an Animator from gameplay:** call `SetFloat` / `SetBool` / `SetTrigger` in `OnUpdate`, and `Play("State", fade)` for direct control. Listen for `AnimationEvent` (`Listen<AnimationEvent>` on an `EventReceiver`) for footsteps, hit frames and similar.
 - **Procedural clips:** build `Moonlight::AnimationClip`s in code and pass them with `UseClips`. The unit tests do exactly this.
 - **Attach props:** expose the source bone in the Model inspector, then parent the prop to the resulting entity. In expanded imports, parent directly to the bone entity.
 - **A new skinned material:** override `GetSkinnedProgram()`. Pair a vertex shader that includes `Skinning.sh` and declares `a_indices` / `a_weight` in its `.var` with the material's fragment shader.

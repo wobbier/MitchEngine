@@ -57,7 +57,10 @@ namespace
 SceneHierarchyWidget::SceneHierarchyWidget()
 	: HavanaWidget("Hierarchy")
 {
-	EventManager::GetInstance().RegisterReceiver(this, { PickingEvent::GetEventId() });
+	// Selection handles the pick itself; the hierarchy reveals the picked row.
+	Listen<PickingEvent>( [this]( const PickingEvent& InEvent ) {
+		m_scrollTo = GetEngine().GetWorld().lock()->FindEntityByIDValue( InEvent.RawEntityID );
+	} );
 }
 
 
@@ -71,18 +74,6 @@ void SceneHierarchyWidget::Destroy()
 {
 	App = nullptr;
 	Entities = nullptr;
-}
-
-
-bool SceneHierarchyWidget::OnEvent(const BaseEvent& evt)
-{
-	if (evt.GetEventId() == PickingEvent::GetEventId())
-	{
-		// Selection handles the pick itself; the hierarchy reveals the picked row.
-		const PickingEvent& event = static_cast<const PickingEvent&>(evt);
-		m_scrollTo = GetEngine().GetWorld().lock()->FindEntityByIDValue(event.RawEntityID);
-	}
-	return false;
 }
 
 

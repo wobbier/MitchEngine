@@ -15,23 +15,27 @@ namespace EventTest
         int Value = 0;
     };
 
+    class PongEvent
+        : public Event<PongEvent>
+    {
+    public:
+        float Value = 0.f;
+    };
+
     struct Counter
         : public EventReceiver
     {
         explicit Counter( bool consume = false ) : Consume( consume )
         {
-            EventManager::GetInstance().RegisterReceiver( this, { PingEvent::GetEventId() } );
-        }
-
-        bool OnEvent( const BaseEvent& evt ) override
-        {
-            ++Received;
-            Last = static_cast<const PingEvent&>( evt ).Value;
-            if( OnReceive )
-            {
-                OnReceive();
-            }
-            return Consume;
+            Listen<PingEvent>( [this]( const PingEvent& evt ) {
+                ++Received;
+                Last = evt.Value;
+                if( OnReceive )
+                {
+                    OnReceive();
+                }
+                return Consume;
+            } );
         }
 
         int Received = 0;
@@ -138,4 +142,107 @@ TEST_CASE( "Events: lambda subscriptions" )
     evt.Value = 100;
     evt.Fire();
     CHECK( sum == 10 );
+}
+
+
+TEST_CASE( "Events: typed handlers, void handlers and several types on one receiver" )
+{
+    struct Both
+        : public EventReceiver
+    {
+        Both()
+        {
+            Listen<PingEvent>( [this]( const PingEvent& evt ) { Pings += evt.Value; } );  // void: never consumes
+            Listen<PongEvent>( [this]( const PongEvent& evt ) { Pongs += evt.Value; return false; } );
+        }
+        int Pings = 0;
+        float Pongs = 0.f;
+    };
+    Both both;
+    Counter after;
+
+    PingEvent ping;
+    ping.Value = 2;
+    ping.Fire();
+    PongEvent pong;
+    pong.Value = 0.5f;
+    pong.Fire();
+    pong.Fire();
+
+    CHECK( both.Pings == 2 );
+    CHECK( both.Pongs == doctest::Approx( 1.f ) );
+    CHECK( after.Received == 1 );   // the void handler let the ping through
+}
+
+
+TEST_CASE( "Events: handlers for one type run in Listen order until one consumes" )
+{
+    struct Twice
+        : public EventReceiver
+    {
+        Twice()
+        {
+            Listen<PingEvent>( [this]( const PingEvent& ) { Order.push_back( 1 ); return ConsumeFirst; } );
+            Listen<PingEvent>( [this]( const PingEvent& ) { Order.push_back( 2 ); } );
+        }
+        std::vector<int> Order;
+        bool ConsumeFirst = false;
+    };
+    Twice twice;
+    Counter after;
+    PingEvent().Fire();
+    CHECK( twice.Order == std::vector<int>{ 1, 2 } );
+    CHECK( after.Received == 1 );
+
+    twice.ConsumeFirst = true;
+    twice.Order.clear();
+    PingEvent().Fire();
+    CHECK( twice.Order == std::vector<int>{ 1 } );
+    CHECK( after.Received == 1 );
+}
+
+
+TEST_CASE( "Events: a handler may destroy its own receiver or listen for more" )
+{
+    struct Grower
+        : public EventReceiver
+    {
+        Grower()
+        {
+            Listen<PingEvent>( [this]( const PingEvent& ) {
+                ++First;
+                if( First == 1 )
+                {
+                    Listen<PingEvent>( [this]( const PingEvent& ) { ++Second; } );
+                }
+            } );
+        }
+        int First = 0;
+        int Second = 0;
+    };
+    Grower grower;
+    PingEvent().Fire();
+    CHECK( grower.First == 1 );
+    CHECK( grower.Second == 0 );   // added mid-dispatch: waits for the next event
+    PingEvent().Fire();
+    CHECK( grower.First == 2 );
+    CHECK( grower.Second == 1 );
+
+    struct SelfDestruct
+        : public EventReceiver
+    {
+        SelfDestruct( std::unique_ptr<SelfDestruct>& InOwner, int& InLaterCalls )
+        {
+            Listen<PingEvent>( [&InOwner]( const PingEvent& ) { InOwner.reset(); } );
+            Listen<PingEvent>( [&InLaterCalls]( const PingEvent& ) { ++InLaterCalls; } );  // must not run: its receiver is gone
+        }
+    };
+    int laterCalls = 0;
+    std::unique_ptr<SelfDestruct> self;
+    self = std::make_unique<SelfDestruct>( self, laterCalls );
+    Counter after;
+    PingEvent().Fire();
+    CHECK_FALSE( self );
+    CHECK( laterCalls == 0 );
+    CHECK( after.Received == 1 );
 }

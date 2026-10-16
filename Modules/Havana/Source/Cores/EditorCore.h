@@ -27,8 +27,6 @@ public:
 
 	virtual void Update(const UpdateContext& inUpdateContext) final;
 
-	virtual bool OnEvent(const BaseEvent& evt);
-
 	void Update(const UpdateContext& inUpdateContext, Transform* rootTransform);
 
 	Transform* RootTransform = nullptr;
@@ -43,6 +41,7 @@ public:
 	void FrameSelection();
 
 private:
+	void OnSaveScene( const class SaveSceneEvent& event );
 	void RegisterViewActions();
 	void SaveCameraState();
 

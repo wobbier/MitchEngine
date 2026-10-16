@@ -304,7 +304,8 @@ AudioCore::AudioCore( AudioOutput InOutput )
         SetBusVolume( static_cast<AudioBus>( bus ), settings.BusVolumes[bus] );
     }
 
-    EventManager::GetInstance().RegisterReceiver( this, { PlayAudioEvent::GetEventId(), StopAudioEvent::GetEventId() } );
+    Listen<PlayAudioEvent>( [this]( const PlayAudioEvent& InEvent ) { return OnPlayAudio( InEvent ); } );
+    Listen<StopAudioEvent>( [this]( const StopAudioEvent& InEvent ) { OnStopAudio( InEvent ); } );
     s_instance = this;
 }
 
@@ -881,84 +882,78 @@ void AudioCore::Tick( float InDeltaSeconds, bool InPaused )
 }
 
 
-bool AudioCore::OnEvent( const BaseEvent& InEvent )
+bool AudioCore::OnPlayAudio( const PlayAudioEvent& evt )
 {
-    if( InEvent.GetEventId() == PlayAudioEvent::GetEventId() )
+    const Path soundPath( evt.SourceName );
+    const std::string sound = soundPath.GetLocalPathString();
+    if( sound.empty() )
     {
-        const PlayAudioEvent& evt = static_cast<const PlayAudioEvent&>( InEvent );
-        const Path soundPath( evt.SourceName );
-        const std::string sound = soundPath.GetLocalPathString();
-        if( sound.empty() )
-        {
-            return true;
-        }
-
-        if( !evt.Callback )
-        {
-            // Fire-and-forget: overlapping plays each get a voice.
-            AudioPlayParams params;
-            params.Bus = evt.Bus;
-            params.Volume = evt.Volume;
-            if( evt.Spatial )
-            {
-                params.SpatialBlend = 1.f;
-                params.Position = evt.Position;
-            }
-            AudioVoice voice = PlayOneShot( soundPath, params );
-            if( evt.StartPercent > 0.f )
-            {
-                SharedPtr<Sound> loaded = LoadSound( soundPath );
-                unsigned int length = 0;
-#if USING( ME_FMOD )
-                if( loaded && loaded->Handle )
-                {
-                    loaded->Handle->getLength( &length, FMOD_TIMEUNIT_MS );
-                }
-#endif
-                voice.SetPositionMs( static_cast<unsigned int>( length * evt.StartPercent ) );
-            }
-            return true;
-        }
-
-        // Callers that want the source back get one cached source per path (it restarts on replay).
-        auto cached = m_cachedSounds.find( sound );
-        if( cached == m_cachedSounds.end() )
-        {
-            cached = m_cachedSounds.emplace( sound, MakeShared<AudioSource>( sound ) ).first;
-            cached->second->Bus = evt.Bus;
-            InitComponent( *cached->second );
-        }
-        SharedPtr<AudioSource> source = cached->second;
-        source->Play( false );
-        source->SetVolume( evt.Volume );
-        source->SetPositionMs( static_cast<unsigned int>( source->GetLength() * evt.StartPercent ) );
-        evt.Callback( source );
         return true;
     }
 
-    if( InEvent.GetEventId() == StopAudioEvent::GetEventId() )
+    if( !evt.Callback )
     {
-        const StopAudioEvent& evt = static_cast<const StopAudioEvent&>( InEvent );
-        const std::string sound = Path( evt.SourceName ).GetLocalPathString();
-        auto cached = m_cachedSounds.find( sound );
-        if( cached != m_cachedSounds.end() )
+        // Fire-and-forget: overlapping plays each get a voice.
+        AudioPlayParams params;
+        params.Bus = evt.Bus;
+        params.Volume = evt.Volume;
+        if( evt.Spatial )
         {
-            cached->second->Stop();
-            m_cachedSounds.erase( cached );
+            params.SpatialBlend = 1.f;
+            params.Position = evt.Position;
         }
-        if( SharedPtr<Sound> loaded = sound.empty() ? nullptr : LoadSound( Path( sound ) ) )
+        AudioVoice voice = PlayOneShot( soundPath, params );
+        if( evt.StartPercent > 0.f )
         {
-            auto voices = m_oneShots.find( loaded.get() );
-            if( voices != m_oneShots.end() )
+            SharedPtr<Sound> loaded = LoadSound( soundPath );
+            unsigned int length = 0;
+#if USING( ME_FMOD )
+            if( loaded && loaded->Handle )
             {
-                for( AudioVoice& voice : voices->second )
-                {
-                    voice.Stop();
-                }
-                m_oneShots.erase( voices );
+                loaded->Handle->getLength( &length, FMOD_TIMEUNIT_MS );
             }
+#endif
+            voice.SetPositionMs( static_cast<unsigned int>( length * evt.StartPercent ) );
         }
+        return true;
     }
 
-    return false;
+    // Callers that want the source back get one cached source per path (it restarts on replay).
+    auto cached = m_cachedSounds.find( sound );
+    if( cached == m_cachedSounds.end() )
+    {
+        cached = m_cachedSounds.emplace( sound, MakeShared<AudioSource>( sound ) ).first;
+        cached->second->Bus = evt.Bus;
+        InitComponent( *cached->second );
+    }
+    SharedPtr<AudioSource> source = cached->second;
+    source->Play( false );
+    source->SetVolume( evt.Volume );
+    source->SetPositionMs( static_cast<unsigned int>( source->GetLength() * evt.StartPercent ) );
+    evt.Callback( source );
+    return true;
+}
+
+
+void AudioCore::OnStopAudio( const StopAudioEvent& evt )
+{
+    const std::string sound = Path( evt.SourceName ).GetLocalPathString();
+    auto cached = m_cachedSounds.find( sound );
+    if( cached != m_cachedSounds.end() )
+    {
+        cached->second->Stop();
+        m_cachedSounds.erase( cached );
+    }
+    if( SharedPtr<Sound> loaded = sound.empty() ? nullptr : LoadSound( Path( sound ) ) )
+    {
+        auto voices = m_oneShots.find( loaded.get() );
+        if( voices != m_oneShots.end() )
+        {
+            for( AudioVoice& voice : voices->second )
+            {
+                voice.Stop();
+            }
+            m_oneShots.erase( voices );
+        }
+    }
 }

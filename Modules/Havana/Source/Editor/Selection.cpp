@@ -23,7 +23,10 @@ Selection& Selection::Get()
 
 Selection::Selection()
 {
-    EventManager::GetInstance().RegisterReceiver( this, { InspectEvent::GetEventId(), ClearInspectEvent::GetEventId(), PickingEvent::GetEventId() } );
+    // Selection's own notifications can fire these back at it; m_isNotifying ignores them.
+    Listen<InspectEvent>( [this]( const InspectEvent& InEvent ) { if( !m_isNotifying ) OnInspect( InEvent ); } );
+    Listen<ClearInspectEvent>( [this]( const ClearInspectEvent& ) { if( !m_isNotifying ) Clear(); } );
+    Listen<PickingEvent>( [this]( const PickingEvent& InEvent ) { if( !m_isNotifying ) OnPicking( InEvent ); } );
 }
 
 
@@ -291,61 +294,49 @@ EntityHandle Selection::ResolvePickTarget( const EntityHandle& InPicked, const E
 }
 
 
-bool Selection::OnEvent( const BaseEvent& evt )
+void Selection::OnInspect( const InspectEvent& inspect )
 {
-    if( m_isNotifying )
+    if( inspect.SelectedCore )
     {
-        return false;
+        SetCore( inspect.SelectedCore );
     }
-    if( evt.GetEventId() == InspectEvent::GetEventId() )
+    else if( inspect.SelectedEntity )
     {
-        const InspectEvent& inspect = static_cast<const InspectEvent&>( evt );
-        if( inspect.SelectedCore )
-        {
-            SetCore( inspect.SelectedCore );
-        }
-        else if( inspect.SelectedEntity )
-        {
-            Set( inspect.SelectedEntity );
-        }
-        else if( Transform* transform = inspect.SelectedTransform.Get() )
-        {
-            Set( transform->Parent );
-        }
+        Set( inspect.SelectedEntity );
     }
-    else if( evt.GetEventId() == ClearInspectEvent::GetEventId() )
+    else if( Transform* transform = inspect.SelectedTransform.Get() )
     {
-        Clear();
+        Set( transform->Parent );
     }
-    else if( evt.GetEventId() == PickingEvent::GetEventId() )
+}
+
+
+// Scene view click: empty space clears, Ctrl toggles, otherwise replaces.
+void Selection::OnPicking( const PickingEvent& picking )
+{
+    const ImGuiIO& io = ImGui::GetIO();
+    EntityHandle picked = picking.RawEntityID ? GetEngine().GetWorld().lock()->FindEntityByIDValue( picking.RawEntityID ) : EntityHandle();
+    if( !picked )
     {
-        // Scene view click: empty space clears, Ctrl toggles, otherwise replaces.
-        const PickingEvent& picking = static_cast<const PickingEvent&>( evt );
-        const ImGuiIO& io = ImGui::GetIO();
-        EntityHandle picked = picking.RawEntityID ? GetEngine().GetWorld().lock()->FindEntityByIDValue( picking.RawEntityID ) : EntityHandle();
-        if( !picked )
+        if( !io.KeyCtrl && !io.KeyShift )
         {
-            if( !io.KeyCtrl && !io.KeyShift )
-            {
-                Clear();
-            }
-            return false;
+            Clear();
         }
-        EntityHandle target = ResolvePickTarget( picked, GetActive() );
-        if( io.KeyCtrl )
-        {
-            Toggle( target );
-        }
-        else if( io.KeyShift )
-        {
-            Add( target );
-        }
-        else
-        {
-            Set( target );
-        }
+        return;
     }
-    return false;
+    EntityHandle target = ResolvePickTarget( picked, GetActive() );
+    if( io.KeyCtrl )
+    {
+        Toggle( target );
+    }
+    else if( io.KeyShift )
+    {
+        Add( target );
+    }
+    else
+    {
+        Set( target );
+    }
 }
 
 #endif

@@ -2,7 +2,7 @@
 
 The engine's two cross-cutting runtime services: `Jobs::JobSystem`, a work-stealing job system with counters and `ParallelFor`, and `EventManager`, a typed publish/subscribe bus with immediate and queued delivery. This doc is the **threading rulebook** — what may run on a job and what must stay on the main thread.
 
-> Verified against engine commit dab803a2, 2026-10-08; the physics task bridge against bdfedae8, 2026-10-09.
+> Verified against engine commit dab803a2, 2026-10-08; the physics task bridge against bdfedae8, 2026-10-09; typed `Listen` receivers against 07595696 plus the typed-events change, 2026-10-16.
 
 ## Overview
 
@@ -18,7 +18,7 @@ The engine's two cross-cutting runtime services: `Jobs::JobSystem`, a work-steal
 | `Source/Cores/PhysicsCore.cpp` | `PhysicsCore::EnqueueTask` / `FinishTask`: Box3D's solver tasks run as jobs (`Docs/Physics.md`) |
 | `Modules/Dementia/Source/Events/Event.h` | `Event<T>` CRTP: `GetEventId`, `Fire`, `Queue` |
 | `Modules/Dementia/Source/Events/EventManager.h` / `Modules/Dementia/Source/Events/EventManager.cpp` | Receiver registry, dispatch, the cross-thread queue |
-| `Modules/Dementia/Source/Events/EventReceiver.h` / `Modules/Dementia/Source/Events/EventReceiver.cpp` | `EventReceiver` (auto-deregistering), `EventSubscription` (lambda) |
+| `Modules/Dementia/Source/Events/EventReceiver.h` / `Modules/Dementia/Source/Events/EventReceiver.cpp` | `EventReceiver` (typed `Listen<T>` handlers, auto-deregistering), `EventSubscription` (lambda) |
 | `Source/Cores/Rendering/RenderCore.cpp` | Canonical `ParallelFor` user (mesh command build) |
 | `Source/Components/Transform.cpp` | `Transform::UpdateAll` (parallel world-matrix resolve) |
 
@@ -54,24 +54,38 @@ evt.Fire();     // now, on this (main) thread
 evt.Queue();    // copied; delivered by FirePendingEvents at the start of the next frame
 
 class Thing : public EventReceiver {
-    Thing() { EventManager::GetInstance().RegisterReceiver( this, { SceneLoadedEvent::GetEventId() } ); }
-    bool OnEvent( const BaseEvent& evt ) override {
-        // return true to consume (receivers registered later won't see it)
-        return false;
+    Thing() {
+        Listen<SceneLoadedEvent>( [this]( const SceneLoadedEvent& evt ) { OnLoaded( evt ); } );  // void: never consumes
+        Listen<PlayAudioEvent>( [this]( const PlayAudioEvent& evt ) { return Play( evt ); } );   // bool: true consumes
     }
 };   // destructor deregisters automatically
 
 // Lambda form, alive as long as the returned object:
 std::unique_ptr<EventSubscription> sub = EventSubscription::Create<SceneLoadedEvent>(
-    []( const SceneLoadedEvent& e ) { return false; } );
+    []( const SceneLoadedEvent& evt ) { ... } );
 ```
 
-- Dispatch order is registration order; duplicate registrations are ignored.
-- Receivers may register, deregister or be destroyed **during** dispatch: removed receivers are skipped, new ones are appended and also see the current event.
+- `Listen<T>( handler )` registers the receiver for `T`. The handler takes `const T&`; the cast from `BaseEvent` happens once, inside the template, so handlers never switch on `GetEventId()`. A handler returning `bool` consumes the event by returning `true` (receivers after it don't see it); a `void` handler never consumes. Anything else fails to compile.
+- One receiver may listen to several types, and to one type more than once: its handlers for a type run in `Listen` order until one consumes.
+- Across receivers, dispatch order is the order in which they first listened to that type.
+- Receivers may listen, deregister or be destroyed **during** dispatch: removed receivers are skipped; a receiver listening to a type for the first time is appended and also sees the current event; a handler added to a receiver that is already dispatching waits for the next event; a handler may destroy its own receiver (its remaining handlers are skipped).
+- There is no per-type unsubscribe: destroy the receiver (or the `EventSubscription`) to stop listening.
 - `Fire` asserts it's called on the thread that created the `EventManager` (the main thread).
 - Events queued while `FirePendingEvents` runs are delivered the following frame.
 
-Event inventory: `Source/Events/SceneEvents.h` (`LoadSceneEvent`, `SceneLoadedEvent`, `SaveSceneEvent`, `NewSceneEvent`), `Source/Events/PlatformEvents.h` (`WindowResizedEvent`, `WindowMovedEvent`), `Source/Events/AudioEvents.h` (`PlayAudioEvent`, `StopAudioEvent`), `Source/Events/HavanaEvents.h` (editor: `PickingEvent`, `PreviewResourceEvent`, `RequestAssetSelectionEvent`, `InspectEvent`), `Modules/Dementia/Source/Events/EditorEvents.h` (`ClearInspectEvent`, `TestEditorEvent`).
+Event inventory:
+
+| Header | Events |
+|--------|--------|
+| `Source/Events/SceneEvents.h` | `LoadSceneEvent`, `SceneLoadedEvent`, `SaveSceneEvent`, `NewSceneEvent`, `AdditiveSceneEvent` |
+| `Source/Events/PlatformEvents.h` | `WindowResizedEvent`, `WindowMovedEvent` |
+| `Source/Events/AudioEvents.h` | `PlayAudioEvent`, `StopAudioEvent` |
+| `Source/Engine/Input.h`, `Source/Input/Gamepads.h`, `Source/Input/InputPlayers.h` | `KeyPressEvent`, `MouseScrollEvent`, `GamepadConnectionEvent`, `InputPlayerEvent` |
+| `Source/Physics/PhysicsTypes.h` | `CollisionEvent` (3D and 2D contacts and triggers) |
+| `Source/Components/Animation/Animator.h` | `AnimationEvent` |
+| `Source/Events/HavanaEvents.h` (editor) | `InspectEvent`, `ClearInspectEvent`, `ModelHierarchyEvent` |
+| `Modules/Dementia/Source/Events/EditorEvents.h` (editor) | `PickingEvent`, `PreviewResourceEvent`, `RequestAssetSelectionEvent`, `AssetsChangedEvent` |
+| `Modules/Havana/Source/Editor/Selection.h` (editor) | `SelectionChangedEvent` |
 
 ## The Threading Rulebook
 

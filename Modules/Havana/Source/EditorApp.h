@@ -55,12 +55,13 @@ public:
 	std::unique_ptr<Havana> Editor;
 	class EditorCore* EditorSceneManager = nullptr;
 
-	virtual bool OnEvent(const BaseEvent& evt) override;
 	bool m_isGameRunning = false;
 	bool m_isGamePaused = false;
 	std::string InitialLevel;
 
 private:
+	void OnNewScene( const class NewSceneEvent& InEvent );
+	void OnSceneLoaded( const class SceneLoadedEvent& InEvent );
 	void StartGame();
 	void StopGame();
 

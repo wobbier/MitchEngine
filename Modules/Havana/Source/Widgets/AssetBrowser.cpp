@@ -239,7 +239,16 @@ void AssetBrowserWidget::Init()
     Icons["CS"] = ResourceCache::GetInstance().Get<Moonlight::Texture>( Path( "Assets/Havana/UI/CSharp.png" ) );
     Icons["UI"] = ResourceCache::GetInstance().Get<Moonlight::Texture>( Path( "Assets/Havana/UI/UI.png" ) );
 
-    EventManager::GetInstance().RegisterReceiver( this, { RequestAssetSelectionEvent::GetEventId(), AssetsChangedEvent::GetEventId() } );
+    Listen<RequestAssetSelectionEvent>( [this]( const RequestAssetSelectionEvent& InEvent ) {
+        RequestOverlay( InEvent.Callback, InEvent.ForcedFilter, InEvent.IsRequestingSave );
+    } );
+    Listen<AssetsChangedEvent>( [this]( const AssetsChangedEvent& InEvent ) {
+        for( const std::string& path : InEvent.Paths )
+        {
+            m_thumbnails.erase( ToGeneric( fs::path( path ) ) );
+        }
+        Refresh();
+    } );
 
     EditorConfig& config = EditorConfig::GetInstance();
     m_currentFolder = AbsoluteFolder( config.GetPreference<std::string>( "AssetBrowser.Folder", "Assets" ) );
@@ -258,26 +267,6 @@ void AssetBrowserWidget::Destroy()
     m_thumbnailOrder.clear();
     Icons.clear();
     TryDestroyMetaFile();
-}
-
-
-bool AssetBrowserWidget::OnEvent( const BaseEvent& evt )
-{
-    if( evt.GetEventId() == RequestAssetSelectionEvent::GetEventId() )
-    {
-        const RequestAssetSelectionEvent& event = static_cast<const RequestAssetSelectionEvent&>( evt );
-        RequestOverlay( event.Callback, event.ForcedFilter, event.IsRequestingSave );
-    }
-    else if( evt.GetEventId() == AssetsChangedEvent::GetEventId() )
-    {
-        const AssetsChangedEvent& event = static_cast<const AssetsChangedEvent&>( evt );
-        for( const std::string& path : event.Paths )
-        {
-            m_thumbnails.erase( ToGeneric( fs::path( path ) ) );
-        }
-        Refresh();
-    }
-    return false;
 }
 
 

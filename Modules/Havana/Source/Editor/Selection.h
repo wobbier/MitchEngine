@@ -57,14 +57,14 @@ public:
     std::vector<uint64_t> SaveGUIDs() const;
     void RestoreGUIDs( World& InWorld, const std::vector<uint64_t>& InGUIDs );
 
-    bool OnEvent( const BaseEvent& evt ) override;
-
     // What a scene-view click on InPicked should select: the outermost model/prefab instance root
     // first, then one level deeper per click while InCurrent is already on that branch.
     static EntityHandle ResolvePickTarget( const EntityHandle& InPicked, const EntityHandle& InCurrent );
 
 private:
     Selection();
+    void OnInspect( const class InspectEvent& inspect );
+    void OnPicking( const class PickingEvent& picking );
     void Prune() const;
     void Changed();
 

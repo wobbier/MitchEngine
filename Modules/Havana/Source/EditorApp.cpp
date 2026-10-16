@@ -49,10 +49,8 @@
 EditorApp::EditorApp( int argc, char** argv )
     : Game( argc, argv )
 {
-    std::vector<TypeId> events;
-    events.push_back( NewSceneEvent::GetEventId() );
-    events.push_back( SceneLoadedEvent::GetEventId() );
-    EventManager::GetInstance().RegisterReceiver( this, events );
+    Listen<NewSceneEvent>( [this]( const NewSceneEvent& InEvent ) { OnNewScene( InEvent ); } );
+    Listen<SceneLoadedEvent>( [this]( const SceneLoadedEvent& InEvent ) { OnSceneLoaded( InEvent ); } );
 
     // 0x0100 is the default, so we put the transform component decently high up.
     REGISTER_EDITORCOMPONENTCACHE_ORDERDATA( Transform, 0x0F00 );
@@ -626,35 +624,30 @@ const bool EditorApp::IsGamePaused() const
 }
 
 
-bool EditorApp::OnEvent( const BaseEvent& evt )
+void EditorApp::OnNewScene( const NewSceneEvent& )
 {
-    if( evt.GetEventId() == NewSceneEvent::GetEventId() )
+    if( !m_isRestoringSnapshot )
     {
-        if( !m_isRestoringSnapshot )
-        {
-            EditorOps::ResetForNewScene();
-        }
-        GetEngine().LoadScene( "" );
-        GetEngine().InitGame();
-        GetEngine().GetWorld().lock()->Simulate();
+        EditorOps::ResetForNewScene();
     }
-    else if( evt.GetEventId() == SceneLoadedEvent::GetEventId() )
+    GetEngine().LoadScene( "" );
+    GetEngine().InitGame();
+    GetEngine().GetWorld().lock()->Simulate();
+}
+
+
+void EditorApp::OnSceneLoaded( const SceneLoadedEvent& InEvent )
+{
+    if( !m_isRestoringSnapshot && !m_isGameRunning )
     {
-        const SceneLoadedEvent& test = static_cast<const SceneLoadedEvent&>( evt );
-
-        if( !m_isRestoringSnapshot && !m_isGameRunning )
-        {
-            EditorOps::ResetForNewScene();
-        }
-        const std::string scenePath = test.LoadedScene->FilePath.GetLocalPathString();
-        Editor->SetWindowTitle( "Havana - " + ( scenePath.empty() ? std::string( "Untitled" ) : scenePath ) );
-        if( m_isGameRunning )
-        {
-            GetEngine().GetWorld().lock()->Start();
-        }
+        EditorOps::ResetForNewScene();
     }
-
-    return false;
+    const std::string scenePath = InEvent.LoadedScene->FilePath.GetLocalPathString();
+    Editor->SetWindowTitle( "Havana - " + ( scenePath.empty() ? std::string( "Untitled" ) : scenePath ) );
+    if( m_isGameRunning )
+    {
+        GetEngine().GetWorld().lock()->Start();
+    }
 }
 
 #endif

@@ -62,7 +62,7 @@ Lifecycle: loaded in `Engine::Init` from `Assets\Config\Engine.cfg`; **saved onc
 - **A crash loses config changes** — save happens only on clean exit; there's no periodic flush.
 - **Scancode-based keys**: bindings are physical positions; non-QWERTY layouts get positional (usually desirable for games, surprising for text-like input). There's no text-input path besides ImGui's.
 - **Both Input instances see everything** — gating is by `Pause`/`Stop` state per instance, not by routing; new tooling must remember to check the right instance (game vs editor) or keys will double-trigger.
-- **Event-vs-poll duality**: key *events* fire during the pump; polled state updates later in `Input::Update`. Code mixing `OnEvent(KeyPressEvent)` with `IsKeyDown` in the same frame can see them disagree for one frame.
+- **Event-vs-poll duality**: key *events* fire during the pump; polled state updates later in `Input::Update`. Code mixing `Listen<KeyPressEvent>` with `IsKeyDown` in the same frame can see them disagree for one frame.
 - **No high-DPI handling** — sizes are raw pixels; scale factors aren't queried anywhere.
 - **UWP runs through `SDLWindow`** + `SDL_WinRTRunApp` (`Docs/Architecture.md`); the old dedicated `UWPWindow` was removed.
 - **`GetKeyCodeName` does an uncached lookup** (in-code TODO "Cache this :/") — fine for tooling, don't call per-frame per-key.

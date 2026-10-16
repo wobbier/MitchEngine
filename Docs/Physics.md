@@ -192,7 +192,7 @@ Joints have their own signature and are re-created when it changes.
 
 ## How to Extend
 
-- **React to collisions:** in C#, override `OnCollisionEnter` / `OnTriggerEnter` on a script of either entity. In C++, register an `EventReceiver` for `CollisionEvent::GetEventId()` and compare `A` / `B` against your entities (see `PhysicsTest::CollisionLog` in the tests).
+- **React to collisions:** in C#, override `OnCollisionEnter` / `OnTriggerEnter` on a script of either entity. In C++, `Listen<CollisionEvent>` on an `EventReceiver` and compare `A` / `B` against your entities (see `PhysicsTest::CollisionLog` in the tests).
 - **A new collider shape:**
   1. Add a component that mixes in `ColliderSettings`, and register it with `ME_COLLIDER_FIELDS()`.
   2. Add it to `PhysicsCore`'s filter (`RequiresOneOf`) and to `HasAnyCollider`.

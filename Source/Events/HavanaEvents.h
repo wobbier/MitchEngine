@@ -13,17 +13,6 @@ namespace Moonlight {
     class Texture;
 }
 
-class TestEditorEvent
-    : public Event<TestEditorEvent>
-{
-public:
-    TestEditorEvent()
-        : Event()
-    {
-    }
-    std::string Path;
-};
-
 class InspectEvent
     : public Event<InspectEvent>
 {

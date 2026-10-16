@@ -60,8 +60,6 @@ public:
 	const Vector2& GetGameOutputSize() const;
 	Vector2 GetWorldEditorRenderSize() const;
 
-	virtual bool OnEvent(const BaseEvent& evt) override;
-
 	void Save();
 
 	ImVec2 DockPos;

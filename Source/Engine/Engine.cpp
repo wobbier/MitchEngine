@@ -67,10 +67,14 @@ Engine& GetEngine()
 Engine::Engine()
     : Running( true )
 {
-    std::vector<TypeId> events;
-    events.push_back( LoadSceneEvent::GetEventId() );
-    events.push_back( WindowMovedEvent::GetEventId() );
-    EventManager::GetInstance().RegisterReceiver( this, events );
+    Listen<LoadSceneEvent>( [this]( const LoadSceneEvent& InEvent ) {
+        LoadScene( InEvent.Level );
+        if( InEvent.Callback )
+        {
+            InEvent.Callback();
+        }
+    } );
+    Listen<WindowMovedEvent>( [this]( const WindowMovedEvent& InEvent ) { engineConfig.WindowPosition = InEvent.NewPosition; } );
 }
 
 Engine::~Engine()
@@ -817,28 +821,6 @@ void Engine::SetMaxFrameRate( float InFramesPerSecond )
     m_maxFrameRate = std::max( 0.f, InFramesPerSecond );
 }
 
-
-bool Engine::OnEvent( const BaseEvent& evt )
-{
-    if( evt.GetEventId() == LoadSceneEvent::GetEventId() )
-    {
-        const LoadSceneEvent& loadSceneEvent = static_cast<const LoadSceneEvent&>( evt );
-        //InputEnabled = test.Enabled;
-        LoadScene( loadSceneEvent.Level );
-        if( loadSceneEvent.Callback )
-        {
-            loadSceneEvent.Callback();
-        }
-    }
-
-    if( evt.GetEventId() == WindowMovedEvent::GetEventId() )
-    {
-        const WindowMovedEvent& test = static_cast<const WindowMovedEvent&>( evt );
-        engineConfig.WindowPosition = test.NewPosition;
-    }
-
-    return false;
-}
 
 BGFXRenderer& Engine::GetRenderer() const
 {

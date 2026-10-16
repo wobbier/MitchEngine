@@ -26,7 +26,7 @@ ScriptCore::ScriptCore()
 
 #if USING( ME_SCRIPTING )
     ScriptEngine::Init();
-    EventManager::GetInstance().RegisterReceiver( this, { CollisionEvent::GetEventId() } );
+    Listen<CollisionEvent>( [this]( const CollisionEvent& InEvent ) { OnCollision( InEvent ); } );
 #endif
 }
 
@@ -233,14 +233,13 @@ void ScriptCore::OnEntityRemoved( Entity& InEntity )
 }
 
 
-bool ScriptCore::OnEvent( const BaseEvent& InEvent )
+void ScriptCore::OnCollision( const CollisionEvent& collision )
 {
 #if USING( ME_SCRIPTING )
-    if( !m_running || InEvent.GetEventId() != CollisionEvent::GetEventId() )
+    if( !m_running )
     {
-        return false;
+        return;
     }
-    const CollisionEvent& collision = static_cast<const CollisionEvent&>( InEvent );
     const bool enter = collision.State == CollisionEvent::Phase::Enter;
     const ScriptEngine::CollisionCallback kind = collision.IsTrigger
         ? ( enter ? ScriptEngine::CollisionCallback::TriggerEnter : ScriptEngine::CollisionCallback::TriggerExit )
@@ -249,7 +248,6 @@ bool ScriptCore::OnEvent( const BaseEvent& InEvent )
     DeliverCollision( collision.A, collision.B, static_cast<int>( kind ), collision.Point, collision.Normal );
     DeliverCollision( collision.B, collision.A, static_cast<int>( kind ), collision.Point, collision.Normal * -1.f );
 #endif
-    return false;
 }
 
 

@@ -262,14 +262,9 @@ namespace InputPlayersTest
     {
         PlayerLog()
         {
-            EventManager::GetInstance().RegisterReceiver( this, { InputPlayerEvent::GetEventId() } );
-        }
-
-        bool OnEvent( const BaseEvent& InEvent ) override
-        {
-            const InputPlayerEvent& event = static_cast<const InputPlayerEvent&>( InEvent );
-            Events.push_back( { event.Player, event.GamepadSlot, event.Type } );
-            return false;
+            Listen<InputPlayerEvent>( [this]( const InputPlayerEvent& InEvent ) {
+                Events.push_back( { InEvent.Player, InEvent.GamepadSlot, InEvent.Type } );
+            } );
         }
 
         struct Entry

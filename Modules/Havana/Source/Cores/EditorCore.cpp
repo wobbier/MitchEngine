@@ -36,7 +36,7 @@ EditorCore::EditorCore( Havana* editor )
     EditorCameraTransform = MakeShared<Transform>();
     EditorCamera = new Camera();
 
-    EventManager::GetInstance().RegisterReceiver( this, { SaveSceneEvent::GetEventId() } );
+    Listen<SaveSceneEvent>( [this]( const SaveSceneEvent& InEvent ) { OnSaveScene( InEvent ); return true; } );
     RegisterViewActions();
 }
 
@@ -203,32 +203,26 @@ void EditorCore::Update( const UpdateContext& inUpdateContext, Transform* rootTr
 }
 
 
-bool EditorCore::OnEvent( const BaseEvent& evt )
+void EditorCore::OnSaveScene( const SaveSceneEvent& event )
 {
-    if( evt.GetEventId() == SaveSceneEvent::GetEventId() )
+    if( GetEngine().CurrentScene->IsNewScene() || event.SaveAs )
     {
-        const SaveSceneEvent& event = static_cast<const SaveSceneEvent&>( evt );
-        if( GetEngine().CurrentScene->IsNewScene() || event.SaveAs )
-        {
-            RequestAssetSelectionEvent evt( [this]( const Path& inPath ) {
-                GetEngine().CurrentScene->Save( inPath.GetLocalPath().data(), RootTransform );
-                UndoStack::Get().MarkSaved();
-                GetEngine().GetConfig().SetValue( std::string( "CurrentScene" ), inPath.GetLocalPath().data() );
-                GetEngine().GetConfig().Save();
-                EditorConfig::GetInstance().AddRecentScene( std::string( inPath.GetLocalPath() ) );
-                }, AssetType::Level, true );
-            evt.Fire();
-        }
-        else
-        {
-            GetEngine().CurrentScene->Save( GetEngine().CurrentScene->FilePath.GetLocalPath().data(), RootTransform );
+        RequestAssetSelectionEvent evt( [this]( const Path& inPath ) {
+            GetEngine().CurrentScene->Save( inPath.GetLocalPath().data(), RootTransform );
             UndoStack::Get().MarkSaved();
-            GetEngine().GetConfig().SetValue( std::string( "CurrentScene" ), GetEngine().CurrentScene->FilePath.GetLocalPath().data() );
+            GetEngine().GetConfig().SetValue( std::string( "CurrentScene" ), inPath.GetLocalPath().data() );
             GetEngine().GetConfig().Save();
-        }
-        return true;
+            EditorConfig::GetInstance().AddRecentScene( std::string( inPath.GetLocalPath() ) );
+            }, AssetType::Level, true );
+        evt.Fire();
     }
-    return false;
+    else
+    {
+        GetEngine().CurrentScene->Save( GetEngine().CurrentScene->FilePath.GetLocalPath().data(), RootTransform );
+        UndoStack::Get().MarkSaved();
+        GetEngine().GetConfig().SetValue( std::string( "CurrentScene" ), GetEngine().CurrentScene->FilePath.GetLocalPath().data() );
+        GetEngine().GetConfig().Save();
+    }
 }
 
 

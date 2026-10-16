@@ -38,8 +38,6 @@ public:
     void Init() override;
     void Destroy() override;
 
-    bool OnEvent( const BaseEvent& evt ) final;
-
     void Update() override;
     void Render() override;
 

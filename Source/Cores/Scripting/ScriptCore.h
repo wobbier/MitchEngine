@@ -4,6 +4,7 @@
 #include "ECS/CoreDetail.h"
 #include "Events/EventReceiver.h"
 
+class CollisionEvent;
 class ScriptComponent;
 
 // Runs C# scripts (engine-owned in scripting builds; scenes that still list "ScriptCore" get this
@@ -29,7 +30,6 @@ public:
 
     void OnEntityAdded( Entity& NewEntity ) final;
     void OnEntityRemoved( Entity& InEntity ) final;
-    bool OnEvent( const BaseEvent& InEvent ) final;
 
 #if USING( ME_EDITOR )
     void OnEditorInspect() final;
@@ -48,6 +48,7 @@ private:
     const std::vector<ScriptComponent*>& RunList( uint32_t InCallback );
     static void RefreshSchedule( ScriptComponent& InScript );
     static bool RunsBefore( const ScriptComponent* InA, const ScriptComponent* InB );
+    void OnCollision( const CollisionEvent& InEvent );
     void DeliverCollision( const EntityHandle& InSelf, const EntityHandle& InOther, int InKind, const Vector3& InPoint, const Vector3& InNormal );
 };
 

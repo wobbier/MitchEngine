@@ -66,7 +66,6 @@ public:
     void Run();
     // Orderly teardown after the main loop: world, jobs, logging.
     void Shutdown();
-    virtual bool OnEvent( const BaseEvent& evt );
 
     BGFXRenderer& GetRenderer() const;
 

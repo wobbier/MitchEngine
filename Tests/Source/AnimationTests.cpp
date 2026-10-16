@@ -120,13 +120,7 @@ namespace AnimationTest
     {
         EventLog()
         {
-            EventManager::GetInstance().RegisterReceiver( this, { AnimationEvent::GetEventId() } );
-        }
-
-        bool OnEvent( const BaseEvent& InEvent ) override
-        {
-            Names.push_back( static_cast<const AnimationEvent&>( InEvent ).Name );
-            return false;
+            Listen<AnimationEvent>( [this]( const AnimationEvent& InEvent ) { Names.push_back( InEvent.Name ); } );
         }
 
         std::vector<std::string> Names;

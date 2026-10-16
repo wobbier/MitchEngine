@@ -440,8 +440,6 @@ public:
     Input();
     ~Input() = default;
 
-    virtual bool OnEvent( const BaseEvent& evt );
-
     void Pause();
     void Resume();
     void Stop();

@@ -27,7 +27,6 @@ public:
 	void Init() override;
 	void Destroy() override;
 
-	bool OnEvent(const BaseEvent& evt) override;
 	void SetData(Transform* inRoot, std::vector<Entity>& inEntities);
 
 	void Update() override;

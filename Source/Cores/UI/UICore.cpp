@@ -34,10 +34,6 @@ UICore::UICore( IWindow* window, BGFXRenderer* renderer )
     SetIsSerializable( false );
     ///DestroyOnLoad = false;
 
-    std::vector<TypeId> events;
-    events.push_back( SceneLoadedEvent::GetEventId() );
-    EventManager::GetInstance().RegisterReceiver( this, events );
-
     m_renderer = renderer;
 
     UIProgram = Moonlight::LoadProgram( "Assets/Shaders/UI.vert", "Assets/Shaders/UI.frag" );
@@ -89,7 +85,6 @@ UICore::UICore( IWindow* window, BGFXRenderer* renderer )
 UICore::~UICore()
 {
     CLog::Log( CLog::LogType::Debug, "UICore Destroyed..." );
-    EventManager::GetInstance().DeRegisterReciever( this );
 
 #if USING( ME_UI )
     for( int ui_cursor = 0; ui_cursor < (int)ultralight::kCursor_Custom; ui_cursor++ )
@@ -527,17 +522,6 @@ void UICore::OnAddConsoleMessage( ultralight::View* caller, const ultralight::Co
 
 
 #endif
-
-bool UICore::OnEvent( const BaseEvent& evt )
-{
-    if( evt.GetEventId() == SceneLoadedEvent::GetEventId() )
-    {
-        const SceneLoadedEvent& event = static_cast<const SceneLoadedEvent&>( evt );
-        //m_overlays.clear();
-        // O_O
-    }
-    return false;
-}
 
 #if USING( ME_EDITOR )
 

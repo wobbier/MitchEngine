@@ -25,41 +25,22 @@ Input::Input()
     KeyboardState = SDL_GetKeyboardState( nullptr );
     MouseState = SDL_GetMouseState( nullptr, nullptr );// use these params
 
-    std::vector<TypeId> events;
-    events.push_back( MouseScrollEvent::GetEventId() );
-    events.push_back( KeyPressEvent::GetEventId() );
-    EventManager::GetInstance().RegisterReceiver( this, events );
+    Listen<MouseScrollEvent>( [this]( const MouseScrollEvent& InEvent ) {
+        if( CaptureInput )
+        {
+            MouseScroll = MouseScroll + InEvent.Scroll;
+        }
+    } );
+    Listen<KeyPressEvent>( [this]( const KeyPressEvent& InEvent ) {
+        if( CaptureInput )
+        {
+            LastKeyPressed = (KeyCode)InEvent.Key;
+            m_keyEventsThisFrame.push_back( InEvent );
+        }
+    } );
 
     PreviousKeyboardState = static_cast<const uint8_t*>( malloc( sizeof( uint8_t ) * SDL_NUM_SCANCODES ) );
     PostUpdate();
-}
-
-bool Input::OnEvent( const BaseEvent& evt )
-{
-    if( CaptureInput )
-    {
-        if( evt.GetEventId() == MouseScrollEvent::GetEventId() )
-        {
-            if( CaptureInput )
-            {
-                const MouseScrollEvent& event = static_cast<const MouseScrollEvent&>( evt );
-                MouseScroll = MouseScroll + event.Scroll;
-            }
-        }
-        if( evt.GetEventId() == KeyPressEvent::GetEventId() )
-        {
-            if( CaptureInput )
-            {
-                const KeyPressEvent& event = static_cast<const KeyPressEvent&>( evt );
-                LastKeyPressed = (KeyCode)event.Key;
-
-                //BRUH_FMT( "KeyEvent: Key %i, State %i", event.Key, event.State );
-                m_keyEventsThisFrame.push_back( event );
-            }
-        }
-    }
-
-    return false;
 }
 
 void Input::Pause()

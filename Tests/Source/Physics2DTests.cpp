@@ -97,13 +97,7 @@ namespace Physics2DTest
     {
         CollisionLog()
         {
-            EventManager::GetInstance().RegisterReceiver( this, { CollisionEvent::GetEventId() } );
-        }
-
-        bool OnEvent( const BaseEvent& InEvent ) override
-        {
-            Events.push_back( static_cast<const CollisionEvent&>( InEvent ) );
-            return false;
+            Listen<CollisionEvent>( [this]( const CollisionEvent& InEvent ) { Events.push_back( InEvent ); } );
         }
 
         int Count( CollisionEvent::Phase InPhase, bool InTrigger ) const

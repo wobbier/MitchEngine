@@ -17,7 +17,6 @@
 #endif
 
 #include <Renderer.h>
-#include "Events/EventReceiver.h"
 
 class IWindow;
 class OverlayManager;
@@ -25,7 +24,6 @@ class UIDriver;
 
 class UICore final
     : public Core<UICore>
-    , public EventReceiver
 #if USING( ME_UI )
     , public ultralight::ViewListener
 #endif
@@ -76,8 +74,6 @@ private:
 #endif
 
     BGFXRenderer* m_renderer;
-
-    bool OnEvent( const BaseEvent& evt ) override;
 
 
 #if USING( ME_UI )

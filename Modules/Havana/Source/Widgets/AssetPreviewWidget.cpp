@@ -11,7 +11,11 @@
 AssetPreviewWidget::AssetPreviewWidget()
 	: HavanaWidget("Preview")
 {
-	EventManager::GetInstance().RegisterReceiver(this, { PreviewResourceEvent::GetEventId() });
+	Listen<PreviewResourceEvent>( [this]( const PreviewResourceEvent& InEvent ) {
+		ViewTexture = InEvent.Subject;
+		IsOpen = true;
+		return true;
+	} );
 }
 
 void AssetPreviewWidget::Init()
@@ -21,18 +25,6 @@ void AssetPreviewWidget::Init()
 
 void AssetPreviewWidget::Destroy()
 {
-}
-
-bool AssetPreviewWidget::OnEvent(const BaseEvent& evt)
-{
-	if (evt.GetEventId() == PreviewResourceEvent::GetEventId())
-	{
-		const PreviewResourceEvent& event = static_cast<const PreviewResourceEvent&>(evt);
-		ViewTexture = event.Subject;
-		IsOpen = true;
-		return true;
-	}
-	return false;
 }
 
 void AssetPreviewWidget::Update()
