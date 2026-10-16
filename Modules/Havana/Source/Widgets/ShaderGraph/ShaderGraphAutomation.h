@@ -18,10 +18,12 @@
 //   sg-assert-code <file> | <text>, sg-assert-no-code <file> | <text>
 //   sg-assert-dirty <true|false>, sg-assert-compiles <n> (compile count since the last mark),
 //   sg-mark-compiles
+//   sg-wait-preview (until the preview program is compiled), sg-assert-preview,
+//   sg-mark-previews, sg-assert-preview-programs <n> (preview programs built since the mark)
 namespace ShaderGraphAutomation
 {
-    // False with OutError set on failure.
-    bool Execute( const std::string& InCommand, const std::string& InArgs, std::string& OutError );
+    // False with OutError set on failure. OutRetry: run the same line again next frame (waits).
+    bool Execute( const std::string& InCommand, const std::string& InArgs, std::string& OutError, bool& OutRetry );
     // Clears aliases (a new script run).
     void Reset();
 }

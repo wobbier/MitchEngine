@@ -6,6 +6,7 @@
 #include "Path.h"
 #include "ShaderGraph/NodeDef.h"
 #include "ShaderGraphDocument.h"
+#include "ShaderGraphPreview.h"
 #include "ShaderGraphWidget.h"
 
 using namespace ShaderGraph;
@@ -14,6 +15,8 @@ namespace
 {
     std::map<std::string, uint32_t> s_aliases;
     uint32_t s_compileMark = 0;
+    uint32_t s_previewMark = 0;
+    int s_retryFrames = 0;
 
 
     std::string Trim( const std::string& InText )
@@ -99,8 +102,9 @@ void ShaderGraphAutomation::Reset()
 }
 
 
-bool ShaderGraphAutomation::Execute( const std::string& InCommand, const std::string& InArgs, std::string& OutError )
+bool ShaderGraphAutomation::Execute( const std::string& InCommand, const std::string& InArgs, std::string& OutError, bool& OutRetry )
 {
+    OutRetry = false;
     ShaderGraphWidget* widget = ShaderGraphWidget::Get();
     if( !widget )
     {
@@ -283,6 +287,54 @@ bool ShaderGraphAutomation::Execute( const std::string& InCommand, const std::st
             return false;
         }
         document->RemoveNodes( { node } );
+        return true;
+    }
+    if( InCommand == "sg-wait-preview" )
+    {
+        ShaderGraphPreview& preview = document->GetPreview();
+        // Edits compile after a short debounce; then the preview compiles in the background.
+        const bool waiting = preview.IsCompiling() || ( !preview.HasProgram() && preview.GetShaderErrors().empty() );
+        if( waiting && ++s_retryFrames < 1800 )
+        {
+            OutRetry = true;
+            return true;
+        }
+        const bool timedOut = waiting;
+        s_retryFrames = 0;
+        if( timedOut )
+        {
+            OutError = "timed out waiting for the preview";
+            return false;
+        }
+        return true;
+    }
+    if( InCommand == "sg-assert-preview" )
+    {
+        ShaderGraphPreview& preview = document->GetPreview();
+        if( !preview.HasProgram() || !preview.GetShaderErrors().empty() )
+        {
+            OutError = "no working preview";
+            for( const Diagnostic& diagnostic : preview.GetShaderErrors() )
+            {
+                OutError += "\n" + diagnostic.Message;
+            }
+            return false;
+        }
+        return true;
+    }
+    if( InCommand == "sg-mark-previews" )
+    {
+        s_previewMark = document->GetPreview().GetProgramCount();
+        return true;
+    }
+    if( InCommand == "sg-assert-preview-programs" )
+    {
+        const uint32_t count = document->GetPreview().GetProgramCount() - s_previewMark;
+        if( count != static_cast<uint32_t>( std::atoi( InArgs.c_str() ) ) )
+        {
+            OutError = "preview programs since mark: " + std::to_string( count ) + " != " + InArgs;
+            return false;
+        }
         return true;
     }
     if( InCommand == "sg-frame" )

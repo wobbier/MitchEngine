@@ -263,9 +263,15 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
     if( command.rfind( "sg-", 0 ) == 0 )
     {
         std::string error;
-        if( !ShaderGraphAutomation::Execute( command, args, error ) )
+        bool retry = false;
+        if( !ShaderGraphAutomation::Execute( command, args, error, retry ) )
         {
             Fail( command + ": " + error );
+        }
+        else if( retry )
+        {
+            // Run this line again next frame (sg-wait-* commands).
+            --m_nextLine;
         }
     }
     else if( command == "wait" )

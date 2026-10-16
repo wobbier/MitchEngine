@@ -230,6 +230,34 @@ namespace ShaderGraph
     }
 
 
+    const BuiltinSource* GetPreviewBuiltin( Builtin InBuiltin )
+    {
+        // Template locals: sgN (surface normal), sgP (position), sgSphere, v_texcoord0.
+        static const BuiltinTable table = {
+            { Builtin::UV0, { "vec2 sg_UV0 = sgSphere ? vec2(atan2(sgN.x, sgN.z) * 0.15915494 + 0.5, acos(clamp(sgN.y, -1.0, 1.0)) * 0.31830989) : v_texcoord0;", {} } },
+            { Builtin::PositionObject, { "vec3 sg_PositionObject = sgP;", {} } },
+            { Builtin::PositionWorld, { "vec3 sg_PositionWorld = sgP;", {} } },
+            { Builtin::PositionView, { "vec3 sg_PositionView = sgP - vec3(0.0, 0.0, 2.5);", {} } },
+            { Builtin::NormalObject, { "vec3 sg_NormalObject = sgN;", {} } },
+            { Builtin::NormalWorld, { "vec3 sg_NormalWorld = sgN;", {} } },
+            { Builtin::TangentWorld, { "vec3 sg_TangentWorld = sgSafeNormalize(vec3(sgN.z, 0.0, -sgN.x));", {} } },
+            { Builtin::BitangentWorld, { "vec3 sg_BitangentWorld = cross(sgN, sg_TangentWorld);", { Builtin::TangentWorld } } },
+            { Builtin::ViewDirectionWorld, { "vec3 sg_ViewDirectionWorld = vec3(0.0, 0.0, 1.0);", {} } },
+            { Builtin::CameraPosition, { "vec3 sg_CameraPosition = vec3(0.0, 0.0, 2.5);", {} } },
+            { Builtin::ScreenUV, { "vec2 sg_ScreenUV = v_texcoord0;", {} } },
+            { Builtin::ScreenPixel, { "vec2 sg_ScreenPixel = v_texcoord0 * 256.0;", {} } },
+            { Builtin::Time, { "float sg_Time = u_time.y;", {} } },
+            { Builtin::DeltaTime, { "float sg_DeltaTime = u_time.x;", {} } },
+            { Builtin::VertexColor, { "vec4 sg_VertexColor = vec4(1.0, 1.0, 1.0, 1.0);", {} } },
+            { Builtin::FrontFacing, { "bool sg_FrontFacing = true;", {} } },
+            { Builtin::ParticleRotation, { "float sg_ParticleRotation = 0.0;", {} } },
+            { Builtin::ParticleVelocity, { "vec3 sg_ParticleVelocity = vec3(0.0, 1.0, 0.0);", {} } },
+            { Builtin::DecalFade, { "float sg_DecalFade = 1.0;", {} } },
+        };
+        return FindBuiltin( table, InBuiltin );
+    }
+
+
     std::string GetTemplateDirectory()
     {
         return Path( "Engine/Assets/Shaders/ShaderGraph/Templates" ).FullPath;

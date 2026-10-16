@@ -13,6 +13,9 @@
 #include "ShaderGraph/Compiler.h"
 #include "ShaderGraph/Graph.h"
 #include "imgui.h"
+#include <bgfx/bgfx.h>
+
+class ShaderGraphPreview;
 
 namespace ax::NodeEditor { struct EditorContext; }
 namespace ShaderGraph { class NodeDef; struct PinDef; }
@@ -34,6 +37,12 @@ public:
     // Draws the document window. Returns false once it has been closed (after the unsaved-changes
     // prompt, if any).
     bool Draw();
+    // Renders the node previews and the main preview into two offscreen views (before Draw).
+    void RenderPreviews( bgfx::ViewId InTileView, bgfx::ViewId InMainView );
+    ShaderGraphPreview& GetPreview()
+    {
+        return *m_preview;
+    }
     void RequestFocus();
     // Fits the whole graph in the canvas on the next draw.
     void RequestFrameAll()
@@ -97,6 +106,7 @@ private:
 
     void DrawToolbar();
     void DrawSidePanel( float InWidth );
+    void DrawMainPreview( float InWidth );
     void DrawBlackboard();
     void DrawGraphSettings();
     void DrawNodeInspector();
@@ -136,6 +146,8 @@ private:
     ShaderGraph::CompileResult m_result;
     UndoStack m_undo;
     ax::NodeEditor::EditorContext* m_editor = nullptr;
+    std::unique_ptr<ShaderGraphPreview> m_preview;
+    bool m_isVisible = false;
 
     // Edit in progress.
     json m_editBefore;

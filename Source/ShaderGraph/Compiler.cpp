@@ -204,6 +204,15 @@ namespace ShaderGraph
             std::vector<int> CollectReachable( const std::vector<int>& InRootInputs ) const;
             std::string EmitStage( Stage InStage, const std::vector<std::string>& InPins );
             std::string BuiltinLocals( Stage InStage ) const;
+            const BuiltinSource* FindBuiltin( Builtin InBuiltin, Stage InStage ) const
+            {
+                if( Options.Preview )
+                {
+                    return GetPreviewBuiltin( InBuiltin );
+                }
+                return TargetInfo ? TargetInfo->GetBuiltin( InBuiltin, InStage ) : nullptr;
+            }
+            void GeneratePreview();
             std::string Declarations() const;
             void BuildManifest( const json& InPrograms );
             void GenerateFiles();
@@ -371,7 +380,7 @@ namespace ShaderGraph
                 UsesSpatialInputs = true;
             }
             const std::string name = std::string( "sg_" ) + GetBuiltinName( InBuiltin );
-            if( !m_state.TargetInfo || !m_state.TargetInfo->GetBuiltin( InBuiltin, m_stage ) )
+            if( !m_state.FindBuiltin( InBuiltin, m_stage ) )
             {
                 Error( std::string( GetBuiltinName( InBuiltin ) ) + " isn't available in the " + GetStageName( m_stage ) + " stage of " + GetTargetName( GetTarget() ) + " graphs." );
                 return ConvertExpression( "0.0", ValueType::Float, GetBuiltinType( InBuiltin ) );
@@ -899,7 +908,7 @@ namespace ShaderGraph
                 {
                     return;
                 }
-                if( const BuiltinSource* source = TargetInfo->GetBuiltin( InBuiltin, InStage ) )
+                if( const BuiltinSource* source = FindBuiltin( InBuiltin, InStage ) )
                 {
                     for( const Builtin dependency : source->Depends )
                     {
@@ -919,7 +928,7 @@ namespace ShaderGraph
                     return;
                 }
                 declared.insert( InBuiltin );
-                const BuiltinSource* source = TargetInfo->GetBuiltin( InBuiltin, InStage );
+                const BuiltinSource* source = FindBuiltin( InBuiltin, InStage );
                 if( !source )
                 {
                     return;
@@ -1112,6 +1121,150 @@ namespace ShaderGraph
             }
             BuildManifest( programs );
         }
+
+
+        void CompilerState::GeneratePreview()
+        {
+            // Every node (connected or not) in the fragment stage, in dependency order.
+            const Stage stage = Stage::Fragment;
+            Emitted.clear();
+            UsedBuiltins[static_cast<int>( stage )].clear();
+            std::string code;
+            for( const int index : Order )
+            {
+                if( index == OutputIndex )
+                {
+                    continue;
+                }
+                const NodeState& node = Nodes[index];
+                EmitContextImpl context( *this, index, stage );
+                node.Def->Emit( context );
+                for( const auto& value : context.Outputs )
+                {
+                    Emitted[{ index, value.first }] = value.second;
+                }
+                if( context.UsesSpatialInputs )
+                {
+                    SpatialNodes.insert( index );
+                }
+                if( !context.Code.empty() )
+                {
+                    code += "// " + node.Def->GetTitle( GraphRef, *node.Source ) + " #" + std::to_string( node.Source->Id ) + "\n" + context.Code;
+                }
+            }
+
+            // The output node's inputs, then what each draw shows.
+            const NodeState& output = Nodes[OutputIndex];
+            EmitContextImpl outputContext( *this, OutputIndex, stage );
+            auto hasPin = [&output]( const char* InName ) { return output.FindInput( InName ) >= 0; };
+            for( size_t input = 0; input < output.Inputs.size(); ++input )
+            {
+                const PinDef& pin = output.Inputs[input];
+                outputContext.Line( std::string( GetShaderTypeName( output.InputTypes[input] ) ) + " sgOut_" + SanitizeIdentifier( pin.Name ) + " = " + outputContext.In( pin.Name ) + ";" );
+            }
+            code += "// Outputs\n" + outputContext.Code;
+
+            std::string select = "if (u_sgPreviewSelect.x < -0.5)\n{\n";
+            if( hasPin( "Base Color" ) )
+            {
+                const std::string normal = GraphRef.Settings.FragmentNormalSpace == NormalSpace::World ? "sgSafeNormalize(sgOut_Normal)"
+                    : "sgTangentToWorld(sgOut_Normal, " + outputContext.BuiltinValue( Builtin::TangentWorld ) + ", " + outputContext.BuiltinValue( Builtin::BitangentWorld ) + ", " + outputContext.BuiltinValue( Builtin::NormalWorld ) + ")";
+                select += "\tsgColor = sgPreviewLit(sgOut_BaseColor, " + normal + ", sgOut_Metallic, sgOut_Roughness, sgOut_Emission, sgOut_Occlusion);\n";
+            }
+            else if( hasPin( "Color" ) )
+            {
+                const int input = output.FindInput( "Color" );
+                select += "\tsgColor = sgPreviewDisplay(" + ConvertExpression( "sgOut_Color", output.InputTypes[input], ValueType::Vec3 ) + ");\n";
+            }
+            if( hasPin( "Alpha" ) )
+            {
+                if( GraphRef.Settings.AlphaClip && hasPin( "Alpha Clip Threshold" ) )
+                {
+                    select += "\tif (sgOut_Alpha < sgOut_AlphaClipThreshold)\n\t{\n\t\tsgColor = vec4(0.0, 0.0, 0.0, 0.0);\n\t}\n";
+                }
+                else if( GraphRef.Settings.Surface == SurfaceType::Transparent )
+                {
+                    select += "\tsgColor.a = clamp(sgOut_Alpha, 0.0, 1.0);\n";
+                }
+            }
+            select += "}\n";
+
+            int previewIndex = 0;
+            for( const int index : Order )
+            {
+                if( index == OutputIndex || !Nodes[index].Def->HasPreview )
+                {
+                    continue;
+                }
+                const NodeState& node = Nodes[index];
+                for( size_t out = 0; out < node.Outputs.size(); ++out )
+                {
+                    auto emitted = Emitted.find( { index, static_cast<int>( out ) } );
+                    if( emitted == Emitted.end() )
+                    {
+                        continue;
+                    }
+                    const ValueType type = emitted->second.Type;
+                    std::string display;
+                    if( IsVectorType( type ) || type == ValueType::Bool )
+                    {
+                        const ValueType from = type == ValueType::Bool ? ValueType::Float : type;
+                        const std::string value = ConvertExpression( emitted->second.Expression, type, from );
+                        display = "sgPreviewDisplay(" + ConvertExpression( value, from, GetComponentCount( from ) == 2 ? ValueType::Vec2 : ValueType::Vec3 ) + ")";
+                        if( GetComponentCount( from ) == 2 )
+                        {
+                            // UVs and other 2D values: red/green.
+                            display = "sgPreviewDisplay(vec3(" + ConvertExpression( value, from, ValueType::Vec2 ) + ", 0.0))";
+                        }
+                    }
+                    else if( type == ValueType::Texture2D )
+                    {
+                        display = "sgPreviewDisplay(toLinear(texture2D(" + emitted->second.Expression + ", " + outputContext.BuiltinValue( Builtin::UV0 ) + ")).xyz)";
+                    }
+                    else if( type == ValueType::TextureCube )
+                    {
+                        display = "sgPreviewDisplay(textureCube(" + emitted->second.Expression + ", sgN).xyz)";
+                    }
+                    else
+                    {
+                        continue;
+                    }
+                    select += "else if (abs(u_sgPreviewSelect.x - " + FloatLiteral( static_cast<float>( previewIndex ) ) + ") < 0.5)\n{\n\tsgColor = " + display + ";\n}\n";
+                    Result.PreviewOutputs.push_back( { node.Source->Id, node.Outputs[out].Name, type, previewIndex, SpatialNodes.count( index ) > 0 } );
+                    ++previewIndex;
+                    break;
+                }
+            }
+
+            const std::string locals = BuiltinLocals( stage );
+            const std::string declarations = Declarations();
+            const std::string templateDirectory = GetTemplateDirectory();
+            bool ok = true;
+            std::string fragment = ReadTextFile( templateDirectory + "/Preview.frag.sgt", &ok );
+            const std::string vertex = ReadTextFile( templateDirectory + "/Preview.vert.sgt", &ok );
+            const std::string varyings = ReadTextFile( templateDirectory + "/Preview.var", &ok );
+            if( !ok )
+            {
+                AddDiagnostic( Diagnostic::Severity::Error, 0, "Missing the shader graph preview templates." );
+                return;
+            }
+            std::vector<std::string> defines;
+            TargetInfo->GetDefines( GraphRef.Settings, defines );
+            std::string defineText;
+            for( const std::string& define : defines )
+            {
+                defineText += "#define " + define + "\n";
+            }
+            fragment = ReplaceAll( fragment, "{{GRAPH}}", Options.GraphPath.empty() ? "a shader graph" : Options.GraphPath );
+            fragment = ReplaceAll( fragment, "{{DEFINES}}", defineText );
+            fragment = ReplaceAll( fragment, "{{DECLARATIONS}}", declarations );
+            fragment = ReplaceAll( fragment, "{{LOCALS}}", Indent( locals, "\t" ) );
+            fragment = ReplaceAll( fragment, "{{BODY}}", Indent( code, "\t" ) );
+            fragment = ReplaceAll( fragment, "{{SELECT}}", Indent( select, "\t" ) );
+            Result.Files.push_back( { "Preview.frag", fragment, "fragment" } );
+            Result.Files.push_back( { "Preview.vert", vertex, "vertex" } );
+            Result.Files.push_back( { "Preview.var", varyings, "varyings" } );
+        }
     }
 
 
@@ -1168,7 +1321,14 @@ namespace ShaderGraph
         state.SortNodes();
         state.ResolveTypes();
         state.AssignSlots();
-        state.GenerateFiles();
+        if( InOptions.Preview )
+        {
+            state.GeneratePreview();
+        }
+        else
+        {
+            state.GenerateFiles();
+        }
         result.Success = !result.HasErrors();
         return result;
     }

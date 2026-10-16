@@ -6,6 +6,7 @@
 #include "Events/EditorEvents.h"
 #include "Path.h"
 #include "ShaderGraphDocument.h"
+#include "RenderViews.h"
 #include "imgui_internal.h"
 
 namespace
@@ -78,6 +79,18 @@ void ShaderGraphWidget::Update()
 
 void ShaderGraphWidget::Render()
 {
+    // Two offscreen views per document (node tiles, main preview), drawn before ImGui samples them.
+    bgfx::ViewId view = Moonlight::RenderView::EditorOffscreenFirst;
+    for( const auto& document : m_documents )
+    {
+        if( view + 1 >= Moonlight::RenderView::EditorOffscreenFirst + Moonlight::RenderView::EditorOffscreenCount )
+        {
+            break;
+        }
+        document->RenderPreviews( view, static_cast<bgfx::ViewId>( view + 1 ) );
+        view = static_cast<bgfx::ViewId>( view + 2 );
+    }
+
     ShaderGraphDocument* focused = nullptr;
     for( auto it = m_documents.begin(); it != m_documents.end(); )
     {

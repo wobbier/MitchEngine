@@ -70,6 +70,10 @@ namespace ShaderGraph
     // Null for targets without a template yet.
     const TargetDef* GetTargetDef( Target InTarget );
 
+    // Builtins in the editor's preview shader (Preview.frag.sgt): a flat swatch or an analytic
+    // sphere, so every builtin exists there (scene and particle inputs are stand-ins).
+    const BuiltinSource* GetPreviewBuiltin( Builtin InBuiltin );
+
     // Engine/Assets/Shaders/ShaderGraph/Templates
     std::string GetTemplateDirectory();
 }

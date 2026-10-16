@@ -1,4 +1,5 @@
 #include "ShaderGraphDocument.h"
+#include "ShaderGraphPreview.h"
 
 #if USING( ME_EDITOR )
 #include <algorithm>
@@ -12,6 +13,7 @@
 #include "imgui_internal.h"
 #include "imgui_node_editor.h"
 #include "misc/cpp/imgui_stdlib.h"
+#include "Utils/ImGuiUtils.h"
 
 namespace ed = ax::NodeEditor;
 using namespace ShaderGraph;
@@ -224,6 +226,7 @@ ShaderGraphDocument::ShaderGraphDocument( const std::string& InPath )
     // Node positions live in the graph (undoable, versioned), not in a settings file.
     config.SettingsFile = nullptr;
     m_editor = ed::CreateEditor( &config );
+    m_preview = std::make_unique<ShaderGraphPreview>( InPath );
     m_lastEdit = std::chrono::steady_clock::now();
 }
 
@@ -429,6 +432,13 @@ bool ShaderGraphDocument::CanConnect( uint32_t InFromNode, const std::string& In
 std::vector<std::string> ShaderGraphDocument::GetNodeErrors( uint32_t InNode ) const
 {
     std::vector<std::string> errors;
+    for( const Diagnostic& diagnostic : m_preview->GetShaderErrors() )
+    {
+        if( diagnostic.NodeId == InNode )
+        {
+            errors.push_back( "Shader: " + diagnostic.Message );
+        }
+    }
     for( const Diagnostic& diagnostic : m_result.Diagnostics )
     {
         if( diagnostic.NodeId == InNode )
@@ -614,6 +624,11 @@ void ShaderGraphDocument::CompileNow()
     m_result = Compile( m_graph, options );
     m_needsCompile = false;
     ++m_compileCount;
+    // The preview program: recompiled in the background only when its code changed (editing a
+    // constant just updates uniforms).
+    CompileOptions previewOptions = options;
+    previewOptions.Preview = true;
+    m_preview->Update( Compile( m_graph, previewOptions ), m_graph );
     // Live: successful compiles go straight to the scene (hot reload picks the files up).
     m_exportPending = m_liveExport && m_result.Success;
 }
@@ -961,6 +976,7 @@ bool ShaderGraphDocument::Draw()
     bool open = true;
     const bool visible = ImGui::Begin( windowName.c_str(), &open, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ( IsDirty() ? ImGuiWindowFlags_UnsavedDocument : 0 ) );
     ImGui::PopStyleVar();
+    m_isVisible = visible;
     m_isFocused = ImGui::IsWindowFocused( ImGuiFocusedFlags_RootAndChildWindows );
     if( !open )
     {
@@ -976,7 +992,8 @@ bool ShaderGraphDocument::Draw()
     if( visible )
     {
         DrawToolbar();
-        const float messagesHeight = m_result.Diagnostics.empty() ? 0.f : std::min( 24.f + 18.f * static_cast<float>( m_result.Diagnostics.size() ), 120.f );
+        const size_t messageCount = m_result.Diagnostics.size() + m_preview->GetShaderErrors().size();
+        const float messagesHeight = messageCount == 0 ? 0.f : std::min( 24.f + 18.f * static_cast<float>( messageCount ), 140.f );
         ImGui::BeginChild( "SidePanel", ImVec2( m_sidePanelWidth, 0.f ), true );
         DrawSidePanel( m_sidePanelWidth );
         ImGui::EndChild();
@@ -1084,8 +1101,43 @@ void ShaderGraphDocument::DrawToolbar()
 }
 
 
-void ShaderGraphDocument::DrawSidePanel( float )
+void ShaderGraphDocument::RenderPreviews( bgfx::ViewId InTileView, bgfx::ViewId InMainView )
 {
+    if( m_isVisible )
+    {
+        m_preview->Render( InTileView, InMainView );
+    }
+}
+
+
+void ShaderGraphDocument::DrawMainPreview( float InWidth )
+{
+    const float size = std::min( InWidth - 16.f, 320.f );
+    ImVec2 uv0;
+    ImVec2 uv1;
+    if( m_preview->GetMain( uv0, uv1 ) )
+    {
+        ImGui::SetCursorPosX( ImGui::GetCursorPosX() + ( ImGui::GetContentRegionAvail().x - size ) * 0.5f );
+        ImGui::Image( m_preview->GetMainTexture(), ImVec2( size, size ), uv0, uv1 );
+    }
+    else
+    {
+        ImGui::Dummy( ImVec2( size, size * 0.25f ) );
+        ImGui::TextDisabled( m_preview->IsCompiling() ? "Compiling preview..." : "No preview yet." );
+    }
+    if( m_preview->IsCompiling() && m_preview->HasProgram() )
+    {
+        ImGui::TextDisabled( "updating..." );
+    }
+}
+
+
+void ShaderGraphDocument::DrawSidePanel( float InWidth )
+{
+    if( ImGui::CollapsingHeader( "Preview", ImGuiTreeNodeFlags_DefaultOpen ) )
+    {
+        DrawMainPreview( InWidth );
+    }
     if( ImGui::CollapsingHeader( "Graph", ImGuiTreeNodeFlags_DefaultOpen ) )
     {
         DrawGraphSettings();
@@ -1940,6 +1992,10 @@ void ShaderGraphDocument::DrawNode( Node& InNode )
             ( diagnostic.Level == Diagnostic::Severity::Error ? hasError : hasWarning ) = true;
         }
     }
+    for( const Diagnostic& diagnostic : m_preview->GetShaderErrors() )
+    {
+        hasError = hasError || diagnostic.NodeId == id;
+    }
 
     ed::PushStyleVar( ed::StyleVar_NodePadding, ImVec4( 8.f, 6.f, 8.f, 8.f ) );
     if( hasError )
@@ -2042,6 +2098,13 @@ void ShaderGraphDocument::DrawNode( Node& InNode )
         ed::EndPin();
     }
     ImGui::EndGroup();
+
+    ImVec2 uv0;
+    ImVec2 uv1;
+    if( def && def->HasPreview && InNode.PreviewExpanded && m_preview->GetTile( id, uv0, uv1 ) )
+    {
+        ImGui::Image( m_preview->GetAtlas(), ImVec2( 112.f, 112.f ), uv0, uv1 );
+    }
 
     ImGui::PopID();
     ed::EndNode();
@@ -2536,9 +2599,15 @@ void ShaderGraphDocument::DrawContextMenus()
 
 void ShaderGraphDocument::DrawMessages()
 {
-    for( size_t i = 0; i < m_result.Diagnostics.size(); ++i )
+    std::vector<Diagnostic> all = m_result.Diagnostics;
+    for( Diagnostic diagnostic : m_preview->GetShaderErrors() )
     {
-        const Diagnostic& diagnostic = m_result.Diagnostics[i];
+        diagnostic.Message = "shader: " + diagnostic.Message;
+        all.push_back( diagnostic );
+    }
+    for( size_t i = 0; i < all.size(); ++i )
+    {
+        const Diagnostic& diagnostic = all[i];
         const bool error = diagnostic.Level == Diagnostic::Severity::Error;
         ImGui::PushStyleColor( ImGuiCol_Text, error ? ImVec4( 1.f, 0.45f, 0.4f, 1.f ) : ImVec4( 1.f, 0.8f, 0.3f, 1.f ) );
         std::string label = error ? "error  " : "warning  ";

@@ -291,6 +291,42 @@ TEST_CASE( "ShaderGraph: loops, bad links and stage misuse are reported on their
     }
 }
 
+TEST_CASE( "ShaderGraph: previews route constants through uniforms and show every node" )
+{
+    Graph graph = Graph::CreateDefault( Target::Lit );
+    const uint32_t constant = graph.AddNode( "Float" ).Id;
+    graph.FindNode( constant )->Settings["Value"] = 0.25f;
+    const uint32_t noise = graph.AddNode( "GradientNoise" ).Id;
+    const uint32_t dangling = graph.AddNode( "Voronoi" ).Id;
+    graph.Connect( constant, "Out", noise, "Scale" );
+    graph.Connect( noise, "Out", OutputOf( graph ).Id, "Base Color" );
+    CompileOptions options;
+    options.Preview = true;
+    const CompileResult preview = Compile( graph, options );
+    DOCTEST_INFO( preview.FormatDiagnostics( graph ) );
+    REQUIRE( preview.Success );
+    const std::string fragment = FileText( preview, "Preview.frag" );
+    CHECK( fragment.find( "0.25" ) == std::string::npos );
+    bool found = false;
+    for( const PreviewConstant& entry : preview.PreviewConstants )
+    {
+        found = found || ( entry.NodeId == constant && entry.Value.x == 0.25f );
+    }
+    CHECK( found );
+    // Unconnected nodes get previews too.
+    bool danglingPreview = false;
+    for( const PreviewOutput& output : preview.PreviewOutputs )
+    {
+        danglingPreview = danglingPreview || output.NodeId == dangling;
+    }
+    CHECK( danglingPreview );
+
+    // Changing the constant changes no code (the editor then skips shaderc).
+    graph.FindNode( constant )->Settings["Value"] = 0.75f;
+    CHECK( FileText( Compile( graph, options ), "Preview.frag" ) == fragment );
+}
+
+
 TEST_CASE( "ShaderGraph: identical nodes are emitted once" )
 {
     Graph graph = Graph::CreateDefault( Target::Unlit );
@@ -415,6 +451,18 @@ TEST_CASE( "ShaderGraph: every node compiles with shaderc in every target" * doc
             const std::string failures = CompileWithShaderc( result, name );
             DOCTEST_INFO( failures );
             CHECK( failures.empty() );
+            // The editor's preview program evaluates every node in one fragment shader.
+            CompileOptions previewOptions;
+            previewOptions.GraphPath = "Tests/" + name + ".shadergraph";
+            previewOptions.Preview = true;
+            const CompileResult preview = Compile( graph, previewOptions );
+            DOCTEST_INFO( preview.FormatDiagnostics( graph ) );
+            CHECK( preview.Success );
+            CHECK( preview.PreviewOutputs.size() > 10 );
+            CHECK( preview.PreviewConstants.size() > 0 );
+            const std::string previewFailures = CompileWithShaderc( preview, name + "_preview" );
+            DOCTEST_INFO( previewFailures );
+            CHECK( previewFailures.empty() );
             if( !failures.empty() )
             {
                 for( const Diagnostic& diagnostic : MapShaderErrors( failures ) )

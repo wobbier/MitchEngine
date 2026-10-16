@@ -10,7 +10,7 @@
 //
 // Frame order:
 //   Clear -> Ultralight buffers -> UI resolve -> per-camera passes (dynamic) -> picking
-//   -> UI composite -> ImGui
+//   -> UI composite -> editor offscreen (previews) -> ImGui
 namespace Moonlight::RenderView
 {
     // Backbuffer clear.
@@ -36,11 +36,15 @@ namespace Moonlight::RenderView
     // Composites the UI texture over the main camera's output.
     constexpr bgfx::ViewId UIComposite = PickingBlit + 1;
 
+    // Editor offscreen work submitted from the UI (shader graph node previews), sampled by ImGui.
+    constexpr bgfx::ViewId EditorOffscreenFirst = UIComposite + 1;
+    constexpr bgfx::ViewId EditorOffscreenCount = 16;
+
     // ImGui platform windows count down from ImGuiPlatformLast; the main ImGui pass is last.
     constexpr bgfx::ViewId ImGuiPlatformLast = 254;
     constexpr bgfx::ViewId ImGuiMain = 255;
 
-    static_assert( UIComposite < ImGuiPlatformLast, "Render view bands overlap the ImGui band." );
+    static_assert( EditorOffscreenFirst + EditorOffscreenCount <= ImGuiPlatformLast - 8, "Render view bands overlap the ImGui band." );
 }
 
 namespace Moonlight
