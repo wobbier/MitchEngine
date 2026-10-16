@@ -218,18 +218,10 @@ void NavigationCore::Init()
 
 void NavigationCore::OnRemovedFromWorld()
 {
+    m_running = false;
     for( auto& [id, record] : m_surfaces )
     {
-        CancelBake( record );
-        if( record.Carve )
-        {
-            record.Carve->Cancel = true;
-            if( record.Carve->Thread.joinable() )
-            {
-                record.Carve->Thread.join();
-            }
-        }
-        DestroyCrowd( record );
+        DestroySurface( record );
     }
     m_surfaces.clear();
     m_agents.clear();
@@ -282,10 +274,10 @@ void NavigationCore::OnEntityRemoved( Entity& InEntity )
         m_agents.erase( agent );
     }
     auto surface = m_surfaces.find( id );
-    if( surface != m_surfaces.end() && !InEntity.TryGetComponent<NavMeshSurface>() )
+    // ECS removal callbacks run while components still exist (including during destruction).
+    if( surface != m_surfaces.end() )
     {
-        CancelBake( surface->second );
-        DestroyCrowd( surface->second );
+        DestroySurface( surface->second );
         for( auto& [agentId, record] : m_agents )
         {
             if( record.Surface == id )
@@ -365,9 +357,23 @@ const NavigationCore::SurfaceRecord* NavigationCore::FindSurface( const NavMeshS
 
 void NavigationCore::SyncSurfaces()
 {
+    // A surface can stop matching while its entity remains in this core through NavMeshAgent.
+    for( auto it = m_surfaces.begin(); it != m_surfaces.end(); )
+    {
+        Entity* entity = it->second.Surface.Get();
+        if( !entity || !Contains( entity->GetId().Index ) || !Enabled<NavMeshSurface>( *entity ) )
+        {
+            DestroySurface( it->second );
+            it = m_surfaces.erase( it );
+        }
+        else
+        {
+            ++it;
+        }
+    }
     for( Entity& entity : GetEntities() )
     {
-        NavMeshSurface* surface = entity.TryGetComponent<NavMeshSurface>();
+        NavMeshSurface* surface = Enabled<NavMeshSurface>( entity );
         if( !surface )
         {
             continue;
@@ -421,6 +427,22 @@ void NavigationCore::SetMesh( SurfaceRecord& InRecord, const NavMeshData& InData
         InRecord.LastError = "the navmesh data is invalid";
         InRecord.Mesh.reset();
     }
+}
+
+
+void NavigationCore::DestroySurface( SurfaceRecord& InRecord )
+{
+    CancelBake( InRecord );
+    if( InRecord.Carve )
+    {
+        InRecord.Carve->Cancel = true;
+        if( InRecord.Carve->Thread.joinable() )
+        {
+            InRecord.Carve->Thread.join();
+        }
+        InRecord.Carve.reset();
+    }
+    DestroyCrowd( InRecord );
 }
 
 

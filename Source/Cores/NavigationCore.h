@@ -166,6 +166,7 @@ private:
     void PollBakes();
     void LoadSurface( SurfaceRecord& InRecord, NavMeshSurface& InSurface );
     void SetMesh( SurfaceRecord& InRecord, const NavMeshData& InData );
+    void DestroySurface( SurfaceRecord& InRecord );
     void DestroyCrowd( SurfaceRecord& InRecord );
     void EnsureCrowd( SurfaceRecord& InRecord, float InRadius );
     void RemoveAgent( AgentRecord& InAgent );

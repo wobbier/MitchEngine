@@ -7,6 +7,7 @@
 #include "Components/Transform.h"
 #include "Core/UpdateContext.h"
 #include "Cores/NavigationCore.h"
+#include "Debug/DebugDraw.h"
 #include "Engine/ProjectSettings.h"
 #include "Engine/World.h"
 #include "Navigation/NavMesh.h"
@@ -76,6 +77,13 @@ namespace NavigationTest
     struct TestContext
         : public UpdateContext
     {
+    };
+
+    struct DebugScope
+    {
+        bool WasEnabled = NavigationCore::DebugDrawEnabled;
+        DebugScope() { NavigationCore::DebugDrawEnabled = true; DebugDraw::Clear(); }
+        ~DebugScope() { NavigationCore::DebugDrawEnabled = WasEnabled; DebugDraw::Clear(); }
     };
 
     // A world with the navigation core. The core is declared first so it outlives the world.
@@ -369,6 +377,112 @@ TEST_CASE( "Navigation: the core bakes scene colliders and agents walk around ob
     CHECK( std::abs( end.x ) < 0.3f );
     CHECK( closestToWallCenter > 5.5f );   // went round the end of the wall, never through it
     CHECK( agent.GetRemainingDistance() < 0.2f );
+}
+
+
+TEST_CASE( "Navigation: play-stop and level loads release old surfaces and debug geometry" )
+{
+    DebugScope debug;
+    Scene scene;
+    DebugDraw::FrameLines lines;
+    size_t fillCount = 0;
+    bool unload = false;
+    SUBCASE( "editor Stop destroys entities and restores the snapshot in the same world" ) { unload = false; }
+    SUBCASE( "loading a level unloads entities but keeps the navigation core" ) { unload = true; }
+    for( int cycle = 0; cycle < 3; ++cycle )
+    {
+        scene.Box( "Ground", Vector3( 0.f, -0.5f, 0.f ), Vector3( 20.f, 1.f, 20.f ) );
+        NavMeshSurface& surface = scene.Surface();
+        REQUIRE( scene.Navigation.Bake( surface, false ) );
+        scene.Run( 1.f / 60.f );
+        DebugDraw::CollectFrame( lines );
+        REQUIRE_FALSE( lines.EditorFill.empty() );
+        if( cycle == 0 )
+        {
+            fillCount = lines.EditorFill.size();
+        }
+        CHECK( scene.Navigation.GetSurfaceCount() == 1 );
+        CHECK( lines.EditorFill.size() == fillCount );
+        DebugDraw::EndFrame( 0.f );
+
+        if( unload )
+        {
+            scene.GameWorld->Unload();
+        }
+        else
+        {
+            scene.GameWorld->Start();
+            scene.GameWorld->Destroy();
+            scene.GameWorld->Stop();
+        }
+        scene.Run( 1.f / 60.f );
+        CHECK( scene.Navigation.GetSurfaceCount() == 0 );
+        CHECK( scene.Navigation.GetNavMesh( Vector3() ) == nullptr );
+        DebugDraw::CollectFrame( lines );
+        CHECK( lines.EditorFill.empty() );
+        CHECK( lines.EditorDepth.empty() );
+        DebugDraw::EndFrame( 0.f );
+    }
+}
+
+
+TEST_CASE( "Navigation: removed or disabled surfaces stop drawing and answering queries" )
+{
+    DebugScope debug;
+    Scene scene;
+    scene.Box( "Ground", Vector3( 0.f, -0.5f, 0.f ), Vector3( 20.f, 1.f, 20.f ) );
+    NavMeshSurface& surface = scene.Surface();
+    const EntityHandle owner = surface.Parent;
+    // Keeps the entity in the navigation core when just the surface is removed or disabled.
+    owner->AddComponent<NavMeshAgent>();
+    scene.GameWorld->Simulate();
+    REQUIRE( scene.Navigation.Bake( surface, false ) );
+
+    SUBCASE( "destroy entity" ) { owner->MarkForDelete(); }
+    SUBCASE( "remove surface" ) { owner->RemoveComponent<NavMeshSurface>(); }
+    SUBCASE( "remove transform" ) { owner->RemoveComponent<Transform>(); }
+    SUBCASE( "disable surface" ) { surface.SetEnabled( false ); }
+    SUBCASE( "deactivate entity" ) { owner->SetActive( false ); }
+    scene.Run( 1.f / 60.f );
+    CHECK( scene.Navigation.GetSurfaceCount() == 0 );
+    CHECK( scene.Navigation.GetNavMesh( Vector3() ) == nullptr );
+    DebugDraw::FrameLines lines;
+    DebugDraw::CollectFrame( lines );
+    CHECK( lines.EditorFill.empty() );
+    CHECK( lines.EditorDepth.empty() );
+}
+
+
+TEST_CASE( "Navigation: deleting a surface joins its running bake or carve" )
+{
+    Scene scene;
+    scene.Box( "Ground", Vector3( 0.f, -0.5f, 0.f ), Vector3( 20.f, 1.f, 20.f ) );
+    NavMeshSurface& surface = scene.Surface();
+    const EntityHandle owner = surface.Parent;
+    REQUIRE( scene.Navigation.Bake( surface, false ) );
+
+    SUBCASE( "bake" )
+    {
+        REQUIRE( scene.Navigation.Bake( surface, true ) );
+        REQUIRE( scene.Navigation.IsBaking() );
+    }
+    SUBCASE( "obstacle carve" )
+    {
+        EntityHandle crate = scene.Create( "Crate", Vector3( 0.f, 0.5f, 0.f ) );
+        NavMeshObstacle& obstacle = crate->AddComponent<NavMeshObstacle>();
+        obstacle.Size = Vector3( 4.f, 1.f, 4.f );
+        obstacle.CarveDelay = 0.f;
+        scene.GameWorld->Simulate();
+        scene.GameWorld->Start();
+        scene.Run( 1.f / 60.f );
+        REQUIRE( scene.Navigation.IsCarving() );
+    }
+    owner->MarkForDelete();
+    scene.GameWorld->Simulate();
+    CHECK( scene.Navigation.GetSurfaceCount() == 0 );
+    CHECK_FALSE( scene.Navigation.IsBaking() );
+    CHECK_FALSE( scene.Navigation.IsCarving() );
+    scene.Navigation.WaitForBakes();
 }
 
 
