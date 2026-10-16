@@ -369,6 +369,8 @@ private:
     int64_t m_timeOffset;
     Moonlight::CameraData DummyCameraData;
     SharedPtr<Moonlight::Texture> m_defaultOpacityTexture;
+    // Loaded at startup and kept cached for the renderer's lifetime (PrefetchShaders).
+    std::vector<SharedPtr<Moonlight::ShaderFile>> m_engineShaders;
     // 1x1 fallbacks bound when a material has no texture in a slot.
     bgfx::TextureHandle m_whiteTexture = BGFX_INVALID_HANDLE;
     bgfx::TextureHandle m_blackTexture = BGFX_INVALID_HANDLE;

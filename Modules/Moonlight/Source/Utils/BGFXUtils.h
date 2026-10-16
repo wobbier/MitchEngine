@@ -5,6 +5,9 @@
 #include "bx/file.h"
 #include "Path.h"
 #include "Pointers.h"
+#include <cstdint>
+#include <string>
+#include <vector>
 
 namespace Moonlight
 {
@@ -64,9 +67,25 @@ namespace Moonlight
         bgfx::ProgramHandle Handle = BGFX_INVALID_HANDLE;
     };
 
-    SharedPtr<ProgramRef> AcquireProgram( const std::string& vsName, const std::string& fsName );
-    // Recreates every acquired program that uses InShader (called after it reloads).
+    // Blocking loads (and first-time cooks) the shaders now. Async requests them from the loader
+    // threads and hands back a ProgramRef whose Handle stays invalid until both have loaded
+    // (ShaderCommand::IsLoaded); shaders that are already loaded give a ready program either way.
+    enum class ShaderLoad : uint8_t
+    {
+        Blocking,
+        Async,
+    };
+
+    SharedPtr<ProgramRef> AcquireProgram( const std::string& vsName, const std::string& fsName, ShaderLoad InLoad = ShaderLoad::Blocking );
+    // Creates or recreates every acquired program that uses InShader (called when it finishes
+    // loading or reloads); programs whose other shader is still loading wait for that one.
     void RebuildProgramsUsing( const ShaderFile* InShader );
+    // Requests InStages (shader source paths) at once, so first-time cooks and binary reads run in
+    // parallel on the loader threads, and waits for them. Returns the loaded shaders: hold on to
+    // them to keep them cached.
+    std::vector<SharedPtr<ShaderFile>> PrefetchShaders( const std::vector<std::string>& InStages );
+    // Every .vert / .frag under the engine's Assets/Shaders, as "Assets/Shaders/..." paths.
+    std::vector<std::string> FindEngineShaderStages();
     // Drops the registry's shader references (before the renderer shuts down).
     void ReleaseProgramRegistry();
 

@@ -175,6 +175,9 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
             bgfx::makeRef( Moonlight::s_cubeTriList, sizeof( Moonlight::s_cubeTriList ) )
         );
         OPTICK_EVENT( "BGFXRenderer::LoadShaders" );
+        // Every engine shader at once: first-time cooks and binary reads run on the loader threads
+        // in parallel, then the passes below (and later materials) find them loaded.
+        m_engineShaders = Moonlight::PrefetchShaders( Moonlight::FindEngineShaderStages() );
         UIProgram = Moonlight::LoadProgram( "Assets/Shaders/UI.vert", "Assets/Shaders/UI.frag" );
         s_texDiffuse = bgfx::createUniform( "s_texDiffuse", bgfx::UniformType::Sampler );
         s_texNormal = bgfx::createUniform( "s_texNormal", bgfx::UniformType::Sampler );
@@ -353,6 +356,7 @@ void BGFXRenderer::Destroy()
     m_dynamicSky.reset();
     m_debugDraw.reset();
     m_defaultOpacityTexture.reset();
+    m_engineShaders.clear();
     delete EditorCameraBuffer;
     EditorCameraBuffer = nullptr;
 
@@ -673,7 +677,8 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     const char* label = camera.IsEditorView ? "Editor" : ( camera.IsMain ? "Main" : "Camera" );
     char viewName[64];
     const bool hasSkybox = background && camera.ClearType == Moonlight::ClearColorType::Skybox && camera.Skybox
-        && camera.Skybox->SkyModel && !camera.Skybox->SkyModel->GetAllMeshes().empty();
+        && camera.Skybox->SkyModel && !camera.Skybox->SkyModel->GetAllMeshes().empty()
+        && camera.Skybox->SkyMaterial && camera.Skybox->SkyMaterial->MeshShader.IsLoaded();
     bx::snprintf( viewName, sizeof( viewName ), "%s Skybox", label );
     const bgfx::ViewId skyView = hasSkybox ? m_views.Allocate( viewName ) : UINT16_MAX;
     bx::snprintf( viewName, sizeof( viewName ), "%s Opaque", label );

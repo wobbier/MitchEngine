@@ -260,8 +260,9 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                     const RenderItem& item = items[entIndex];
                     {
                         Mesh& model = *item.Instance;
-                        // Meshes without geometry (e.g. a Model still loading) have nothing to draw.
-                        if( !model.MeshReferece || !model.MeshMaterial )
+                        // Meshes without geometry (e.g. a Model still loading) or whose material's
+                        // shaders are still loading have nothing to draw yet.
+                        if( !model.MeshReferece || !model.MeshMaterial || !model.MeshMaterial->MeshShader.IsLoaded() )
                         {
                             continue;
                         }

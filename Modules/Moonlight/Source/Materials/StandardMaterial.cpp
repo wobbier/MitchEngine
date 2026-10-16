@@ -52,7 +52,7 @@ bgfx::ProgramHandle StandardMaterial::GetSkinnedProgram()
     if( !m_skinnedShaderRequested )
     {
         m_skinnedShaderRequested = true;
-        m_skinnedShader = Moonlight::ShaderCommand( "Assets/Shaders/StandardSkinned", "Assets/Shaders/Standard" );
+        m_skinnedShader = Moonlight::ShaderCommand( "Assets/Shaders/StandardSkinned", "Assets/Shaders/Standard", Moonlight::ShaderLoad::Async );
     }
     return m_skinnedShader.GetProgram();
 }

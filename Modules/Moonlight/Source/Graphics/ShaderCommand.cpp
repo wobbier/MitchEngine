@@ -23,15 +23,16 @@ namespace Moonlight
     }
 
 
-    ShaderCommand::ShaderCommand( const std::string& InShaderFile )
+    ShaderCommand::ShaderCommand( const std::string& InShaderFile, ShaderLoad InLoad )
     {
         OPTICK_EVENT( "ShaderCommand(string)" );
-        m_programRef = Moonlight::AcquireProgram( InShaderFile + ".vert", InShaderFile + ".frag" );
+        m_programRef = Moonlight::AcquireProgram( InShaderFile + ".vert", InShaderFile + ".frag", InLoad );
     }
 
 
-    ShaderCommand::ShaderCommand( const std::string& InVertexShaderPath, const std::string& InFragShaderPath )
+    ShaderCommand::ShaderCommand( const std::string& InVertexShaderPath, const std::string& InFragShaderPath, ShaderLoad InLoad )
     {
-        m_programRef = Moonlight::AcquireProgram( InVertexShaderPath + ".vert", InFragShaderPath + ".frag" );
+        OPTICK_EVENT( "ShaderCommand(vert, frag)" );
+        m_programRef = Moonlight::AcquireProgram( InVertexShaderPath + ".vert", InFragShaderPath + ".frag", InLoad );
     }
 }

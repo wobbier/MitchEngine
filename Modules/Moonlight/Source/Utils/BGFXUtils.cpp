@@ -4,7 +4,11 @@
 #include "Graphics/ShaderFile.h"
 #include "Resource/ResourceCache.h"
 #include "Pointers.h"
+#include "Dementia.h"
 #include <algorithm>
+#if !USING( ME_PLATFORM_UWP )
+#include <filesystem>
+#endif
 #include <memory>
 #include <mutex>
 #include <vector>
@@ -84,6 +88,40 @@ namespace
         static std::mutex mutex;
         return mutex;
     }
+
+    // Call with the registry locked.
+    SharedPtr<Moonlight::ProgramRef> FindProgram( const std::string& InKey )
+    {
+        std::vector<ProgramEntry>& registry = ProgramRegistry();
+        registry.erase( std::remove_if( registry.begin(), registry.end(), []( const ProgramEntry& entry ) { return entry.Ref.expired(); } ), registry.end() );
+        for( const ProgramEntry& entry : registry )
+        {
+            if( entry.Key == InKey )
+            {
+                if( SharedPtr<Moonlight::ProgramRef> existing = entry.Ref.lock() )
+                {
+                    return existing;
+                }
+            }
+        }
+        return nullptr;
+    }
+
+    // InFinishing is the shader whose load is completing right now (it still reports IsLoading).
+    bool IsStageReady( const SharedPtr<Moonlight::ShaderFile>& InStage, const Moonlight::ShaderFile* InFinishing )
+    {
+        return InStage && ( InStage.get() == InFinishing || !InStage->IsLoading() ) && bgfx::isValid( InStage->Handle );
+    }
+
+    // The entry's program, or invalid while one of its shaders is still loading (or failed).
+    bgfx::ProgramHandle CreateProgram( const ProgramEntry& InEntry, const Moonlight::ShaderFile* InFinishing = nullptr )
+    {
+        if( !IsStageReady( InEntry.Vertex, InFinishing ) || ( InEntry.Fragment && !IsStageReady( InEntry.Fragment, InFinishing ) ) )
+        {
+            return BGFX_INVALID_HANDLE;
+        }
+        return bgfx::createProgram( InEntry.Vertex->Handle, InEntry.Fragment ? InEntry.Fragment->Handle : bgfx::ShaderHandle( BGFX_INVALID_HANDLE ), false );
+    }
 }
 
 
@@ -96,33 +134,36 @@ Moonlight::ProgramRef::~ProgramRef()
 }
 
 
-SharedPtr<Moonlight::ProgramRef> Moonlight::AcquireProgram( const std::string& vsName, const std::string& fsName )
+SharedPtr<Moonlight::ProgramRef> Moonlight::AcquireProgram( const std::string& vsName, const std::string& fsName, ShaderLoad InLoad )
 {
-    std::lock_guard<std::mutex> lock( ProgramRegistryMutex() );
-    std::vector<ProgramEntry>& registry = ProgramRegistry();
-    registry.erase( std::remove_if( registry.begin(), registry.end(), []( const ProgramEntry& entry ) { return entry.Ref.expired(); } ), registry.end() );
-
     const std::string key = vsName + "|" + fsName;
-    for( const ProgramEntry& entry : registry )
     {
-        if( entry.Key == key )
+        std::lock_guard<std::mutex> lock( ProgramRegistryMutex() );
+        if( SharedPtr<ProgramRef> existing = FindProgram( key ) )
         {
-            if( SharedPtr<ProgramRef> existing = entry.Ref.lock() )
-            {
-                return existing;
-            }
+            return existing;
         }
     }
 
+    // Not under the registry lock: a blocking Get may cook, and finishing a shader's load rebuilds
+    // the programs waiting for it (which takes the lock).
+    ResourceCache& cache = ResourceCache::GetInstance();
+    auto request = [&cache, InLoad]( const std::string& InStage ) {
+        return InLoad == ShaderLoad::Async ? cache.GetAsync<ShaderFile>( Path( InStage ) ) : cache.Get<ShaderFile>( Path( InStage ) );
+    };
     ProgramEntry entry;
     entry.Key = key;
-    entry.Vertex = ResourceCache::GetInstance().Get<ShaderFile>( Path( vsName ) );
-    entry.Fragment = fsName.empty() ? nullptr : ResourceCache::GetInstance().Get<ShaderFile>( Path( fsName ) );
-    const bgfx::ShaderHandle vertex = entry.Vertex ? entry.Vertex->Handle : bgfx::ShaderHandle( BGFX_INVALID_HANDLE );
-    const bgfx::ShaderHandle fragment = entry.Fragment ? entry.Fragment->Handle : bgfx::ShaderHandle( BGFX_INVALID_HANDLE );
-    SharedPtr<ProgramRef> ref = MakeShared<ProgramRef>( bgfx::isValid( vertex ) ? bgfx::createProgram( vertex, fragment, false ) : bgfx::ProgramHandle( BGFX_INVALID_HANDLE ) );
+    entry.Vertex = request( vsName );
+    entry.Fragment = fsName.empty() ? nullptr : request( fsName );
+
+    std::lock_guard<std::mutex> lock( ProgramRegistryMutex() );
+    if( SharedPtr<ProgramRef> existing = FindProgram( key ) )
+    {
+        return existing;
+    }
+    SharedPtr<ProgramRef> ref = MakeShared<ProgramRef>( CreateProgram( entry ) );
     entry.Ref = ref;
-    registry.push_back( std::move( entry ) );
+    ProgramRegistry().push_back( std::move( entry ) );
     return ref;
 }
 
@@ -133,11 +174,11 @@ void Moonlight::RebuildProgramsUsing( const ShaderFile* InShader )
     for( ProgramEntry& entry : ProgramRegistry() )
     {
         SharedPtr<ProgramRef> ref = entry.Ref.lock();
-        if( !ref || ( entry.Vertex.get() != InShader && entry.Fragment.get() != InShader ) || !entry.Vertex )
+        if( !ref || ( entry.Vertex.get() != InShader && entry.Fragment.get() != InShader ) )
         {
             continue;
         }
-        const bgfx::ProgramHandle rebuilt = bgfx::createProgram( entry.Vertex->Handle, entry.Fragment ? entry.Fragment->Handle : bgfx::ShaderHandle( BGFX_INVALID_HANDLE ), false );
+        const bgfx::ProgramHandle rebuilt = CreateProgram( entry, InShader );
         if( bgfx::isValid( rebuilt ) )
         {
             if( bgfx::isValid( ref->Handle ) )
@@ -172,6 +213,46 @@ void Moonlight::ReleaseProgramRegistry()
 {
     std::lock_guard<std::mutex> lock( ProgramRegistryMutex() );
     ProgramRegistry().clear();
+}
+
+
+std::vector<SharedPtr<Moonlight::ShaderFile>> Moonlight::PrefetchShaders( const std::vector<std::string>& InStages )
+{
+    ResourceCache& cache = ResourceCache::GetInstance();
+    std::vector<SharedPtr<ShaderFile>> shaders;
+    shaders.reserve( InStages.size() );
+    for( const std::string& stage : InStages )
+    {
+        if( SharedPtr<ShaderFile> shader = cache.GetAsync<ShaderFile>( Path( stage ) ) )
+        {
+            shaders.push_back( std::move( shader ) );
+        }
+    }
+    // Finishes in request order, so shader handles are created in the same order every run.
+    cache.WaitForAsyncLoads();
+    return shaders;
+}
+
+
+std::vector<std::string> Moonlight::FindEngineShaderStages()
+{
+    std::vector<std::string> stages;
+#if !USING( ME_PLATFORM_UWP )
+    // Resolve the folder through a stage only the engine ships, so a game's own Assets/Shaders
+    // folder can't shadow it.
+    const std::filesystem::path root = std::filesystem::path( Path( "Assets/Shaders/Standard.vert" ).FullPath ).parent_path();
+    std::error_code error;
+    for( std::filesystem::recursive_directory_iterator it( root, error ), end; !error && it != end; it.increment( error ) )
+    {
+        const std::filesystem::path& file = it->path();
+        if( it->is_regular_file() && ( file.extension() == ".vert" || file.extension() == ".frag" ) )
+        {
+            stages.push_back( "Assets/Shaders/" + std::filesystem::relative( file, root ).generic_string() );
+        }
+    }
+    std::sort( stages.begin(), stages.end() );
+#endif
+    return stages;
 }
 
 

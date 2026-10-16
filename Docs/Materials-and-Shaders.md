@@ -4,7 +4,7 @@ Materials are code-defined `Material` subclasses (a `Resource` specialization) r
 
 Shaders are bgfx `.vert`/`.frag` sources compiled to per-backend binaries by `shaderc`, either in batch (`Tools/BuildShaders.sh`) or on demand by the resource-metadata cook. In tools builds they **hot reload**: editing a shader, a shared `.sh` include or a `.var` file recompiles it and swaps the program in place. This doc covers the material contract, the instancing batch key, the shader pipeline and how to add a material.
 
-> Verified against engine commit 1fa55311, 2026-10-09 (overhaul Wave 3).
+> Verified against engine commit 1fa55311, 2026-10-09 (overhaul Wave 3); shader loading and the program registry against 488b07f1 plus the non-blocking shaders change, 2026-10-16.
 
 ## Overview
 
@@ -20,7 +20,7 @@ A material type *is* a C++ class that knows its shader pair, its uniforms, and h
 | `Modules/Moonlight/Source/Shaders/UnlitMaterial.h` | Unlit material (note: under `Shaders/`, not `Materials/`) |
 | `Modules/Moonlight/Source/Materials/ShaderGraphMaterial.h` | Half-finished node-graph material |
 | `Modules/Moonlight/Source/Graphics/ShaderCommand.h` | A shader pair's program; shares a hot-reloadable `ProgramRef` |
-| `Modules/Moonlight/Source/Utils/BGFXUtils.cpp` | Program registry (`AcquireProgram`, `RebuildProgramsUsing`), `LoadProgram`, `GetPlatformString` |
+| `Modules/Moonlight/Source/Utils/BGFXUtils.cpp` | Program registry (`AcquireProgram`, `RebuildProgramsUsing`), startup prefetch (`PrefetchShaders`, `FindEngineShaderStages`), `LoadProgram`, `GetPlatformString` |
 | `Modules/Moonlight/Source/Graphics/ShaderFile.h` | Compiled-shader resource, `Reload`, and the `shaderc` cook (`ShaderFileMetadata::Export`) |
 | `Modules/Moonlight/Source/Graphics/ShaderDependencies.cpp` | Maps changed `.sh` includes / `.var` files to the shaders built from them |
 | `Assets/Shaders/Standard.vert` / `.frag`, `Lighting.sh` | The PBR shader and the shared lighting library |
@@ -116,7 +116,7 @@ Each program is `Foo.vert` + `Foo.frag` + **`Foo.var`** (bgfx varying definition
 
 ```mermaid
 flowchart LR
-    S["Foo.vert / Foo.frag / Foo.var<br/>(+ .sh includes)"] -->|"ResourceCache::Get&lt;ShaderFile&gt;<br/>(tools: cook if flagged)"| E["ShaderFileMetadata::Export<br/>shaderc --depends"]
+    S["Foo.vert / Foo.frag / Foo.var<br/>(+ .sh includes)"] -->|"ResourceCache::Get / GetAsync&lt;ShaderFile&gt;<br/>(tools: cook if flagged)"| E["ShaderFileMetadata::Export<br/>shaderc --depends"]
     E --> B["Foo.frag.spirv.bin<br/>+ .d depfile"]
     B --> SF["ShaderFile: bgfx::createShader"]
     SF --> REG["AcquireProgram(vert, frag)<br/>shared ProgramRef"]
@@ -125,6 +125,9 @@ flowchart LR
     HR -->|"RebuildProgramsUsing"| REG
 ```
 
+- **Loading**: `ShaderFile` loads like a texture. `ResourceCache::GetAsync` cooks it if needed and reads the binary on a loader thread, then creates the shader on the main thread; `Get` does both on the spot.
+  - At startup `BGFXRenderer::Create` requests every `.vert` / `.frag` under the engine's `Assets/Shaders` at once (`PrefetchShaders( FindEngineShaderStages() )`) and keeps them. Cold cooks therefore run in parallel (all 48 stages added about 0.55 s to a cold start on the dev machine, against about 1.9 s for the 41 that used to cook one at a time), and the passes created next, with their shadow / IBL "supported" checks, find their shaders loaded.
+  - `AcquireProgram( vert, frag, ShaderLoad::Async )` never blocks. It hands back a `ProgramRef` that stays invalid until both shaders have loaded; finishing a shader builds the programs waiting for it. Materials (`Material::LoadShader`, the skinned variant of `StandardMaterial`) load this way, and `RenderCore` skips a mesh, as the renderer skips the sky, until `ShaderCommand::IsLoaded()`. The engine's own shaders are loaded by then, so only shaders a game adds take a frame or more.
 - **Cook**: `Export` runs the platform's `shaderc` with absolute paths. Linux uses `Engine/Tools/RunShaderCompiler.sh` so vendored binaries can run with the current Nix loader:
   - `-i Engine/Assets/Shaders` so engine includes resolve;
   - the profile picked from the running renderer (`spirv` / `150` / `s_5_0` / `metal` / `320_es`);
@@ -185,7 +188,7 @@ ME_REGISTER_MATERIAL_NAME( ClearcoatMaterial, "Clearcoat" )
 
 - **Batch-key completeness is on you.** A missing field causes silent, scene-dependent mis-batching.
 - **Uniform names are global in bgfx.** Two materials declaring the same name with different types collide; the lighting library reserves `u_light*`, `u_cluster*`, `u_shadow*`, `u_cascade*`, `u_spotShadow*`, `u_env*`, `u_ambient*` and samplers on stages 8–15.
-- **First cooks are synchronous.** A shader without a binary is compiled when it's first loaded, blocking the main thread for the `shaderc` call. Hot reloads compile in the background, and until a recompile lands the old program keeps drawing. Editing `Common.sh` recompiles every loaded shader.
+- **Blocking requests still block.** `ShaderLoad::Blocking`, `ShaderCommand`'s default, cooks and loads a missing shader on the spot; the renderer's passes ask that way, right after the startup prefetch has loaded everything. Hot reloads compile in the background, and until a recompile lands the old program keeps drawing. Editing `Common.sh` recompiles every loaded shader.
 - **`ShaderGraphMaterial` is half-finished**: all graph textures bind to stage 3, it recreates uniforms per instance, and it depends on the external `Tools/ShaderEditor/` app.
 - **`.mat` metadata is vestigial.** Materials live inside `Mesh` JSON.
 - **Unknown material names become `StandardMaterial`** (`Mesh::OnDeserialize` fallback); a renamed material class degrades scenes without errors.

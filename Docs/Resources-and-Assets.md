@@ -1,8 +1,8 @@
 # Resources and Assets
 
-All asset loading funnels through the `ResourceCache` singleton: a thread-safe, string-keyed map of `SharedPtr<Resource>` with synchronous loading plus **background loading** for textures and models, `.meta` JSON sidecars per asset (carrying asset GUIDs), and an editor/tools-only cook step (`Export()`) that compiles sources (`.png`, `.fbx`, `.vert`…) into runtime formats (`.dds`, `.assbin`, `.<platform>.bin`). Unreferenced resources are kept alive for a grace period, and tools builds hot reload assets when files change. This doc covers the load flow, async loads, the metadata/cook system, hot reload, the resource type inventory, and how to add a new type.
+All asset loading funnels through the `ResourceCache` singleton: a thread-safe, string-keyed map of `SharedPtr<Resource>` with synchronous loading plus **background loading** for textures, models and shaders, `.meta` JSON sidecars per asset (carrying asset GUIDs), and an editor/tools-only cook step (`Export()`) that compiles sources (`.png`, `.fbx`, `.vert`…) into runtime formats (`.dds`, `.assbin`, `.<platform>.bin`). Unreferenced resources are kept alive for a grace period, and tools builds hot reload assets when files change. This doc covers the load flow, async loads, the metadata/cook system, hot reload, the resource type inventory, and how to add a new type.
 
-> Verified against engine commit dab803a2, 2026-10-08; model import (animation and skin data) against 07617c5f, 2026-10-09; pass-through assets against afce7083, 2026-10-09; async loading against 4d4de548, 2026-10-10.
+> Verified against engine commit dab803a2, 2026-10-08; model import (animation and skin data) against 07617c5f, 2026-10-09; pass-through assets against afce7083, 2026-10-09; async loading against 4d4de548, 2026-10-10; async shader loads against 488b07f1 plus the non-blocking shaders change, 2026-10-16.
 
 ## Overview
 
@@ -77,7 +77,8 @@ Rules:
 - To make a type async, override the three virtuals. Types that don't opt in load synchronously through `Load()` even when requested with `GetAsync`. Each async type's `Load()` is simply both parts:
   - `Texture` reads and parses the DDS in `LoadAsync` (`m_pendingImage`) and creates the bgfx texture in `FinishAsyncLoad`.
   - `ModelResource` reads the cooked `.assbin` with Assimp and builds the animation clips in `LoadAsync`. It makes meshes (GPU buffers), materials and the node tree in `FinishAsyncLoad`.
-- **First-time cooks happen in the background too** (tools builds). When `GetAsync` finds an asset that needs cooking (no compiled file, or flagged for export) and its meta says the cook is safe off the main thread (`MetaBase::ExportsInBackground`: textures and models), the loader thread runs `Export()` and saves the meta before `LoadAsync`. The main thread only records the result in the meta cache, in `FinishAsyncLoad`. A scene full of new assets therefore opens at once, and its textures and models pop in as `texturec` and Assimp finish (several in parallel). A synchronous `Get` still cooks on the spot.
+  - `ShaderFile` reads its compiled binary in `LoadAsync` and creates the bgfx shader in `FinishAsyncLoad`, which also builds the programs that were waiting for it (`Docs/Materials-and-Shaders.md`).
+- **First-time cooks happen in the background too** (tools builds). When `GetAsync` finds an asset that needs cooking (no compiled file, or flagged for export) and its meta says the cook is safe off the main thread (`MetaBase::ExportsInBackground`: textures, models and shaders), the loader thread runs `Export()` and saves the meta before `LoadAsync`. The main thread only records the result in the meta cache, in `FinishAsyncLoad`. A scene full of new assets therefore opens at once, and its textures and models pop in as `texturec` and Assimp finish (several in parallel). A synchronous `Get` still cooks on the spot.
 - **File-watcher changes never wait for an initial import.** A sidecar notification with unchanged import settings and GUID is ignored (the importer wrote it itself). Actual changes arriving while a resource loads are deferred until it is ready, with edited settings preserved if the first cook saves its older metadata. `PumpReimports` processes them without blocking; `WaitForReimports` explicitly drains the initial loads first.
 - **Models expand when ready.** `Model::Init` requests its model with `GetAsync`, and while the model is loading the component waits in a pending list. `Model::ExpandPendingModels` runs right after the engine finishes loads each frame, before the cameras' late update and rendering, and creates private poses/render parts (or the legacy node entities) then. Expanded children saved in the scene exist meanwhile, without geometry. An `Animator` doesn't bind until its entity's `Model` is ready (`Model::IsReady`).
 
@@ -190,7 +191,7 @@ ME_REGISTER_METADATA( "curve", CurveMetadata );
 
 ## Caveats & Fragility
 
-- **Shaders and synchronous cooks still block.** Shader loads, and a cook requested with `Get` (or for a type without a background cook), run on the main thread, as does the main-thread half of a model (meshes, materials, nodes: about a third of its load).
+- **Synchronous cooks still block.** A cook requested with `Get` (or for a type without a background cook) runs on the main thread, as does the main-thread half of a model (meshes, materials, nodes: about a third of its load).
 - **The cache is thread safe, GPU resources aren't**: `Get` takes a recursive mutex (held during `Load`), but loading textures/shaders/models creates bgfx objects, so call `Get`/`GetAsync` from the main thread (see `Docs/Jobs-and-Events.md`); only `LoadAsync` runs elsewhere.
 - **Type-mismatched cache hits return null** (logged as an error). Two systems loading the same path as different types is still a bug.
 - **Keep-alive is time-based, not budget-based**: there is no memory cap.

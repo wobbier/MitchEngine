@@ -5,6 +5,8 @@
 #include <iostream>
 #include "Resource/MetaRegistry.h"
 #include <string>
+#include <cstring>
+#include <vector>
 #include "Utils/StringUtils.h"
 #include "Utils/BGFXUtils.h"
 #include "bx/readerwriter.h"
@@ -21,13 +23,60 @@ namespace Moonlight
         ShaderFile( const Path& InPath )
             : Resource( InPath )
         {
-            const Path fullPath = BinaryPath();
+        }
 
-            //fullPath = fullPath.substr(0, fullPath.rfind(".")) + ".bin";
-            ME_ASSERT_MSG( fullPath.Exists, "Shader doesn't exist." );
-            // createShader consumes the memory, so don't hold on to it.
-            Handle = bgfx::createShader( Moonlight::LoadMemory( fullPath ) );
-            bgfx::setName( Handle, InPath.GetLocalPath().data() );
+        // ResourceCache::Get: read and create in one go.
+        bool Load() override
+        {
+            return LoadAsync() && FinishAsyncLoad();
+        }
+
+        // ResourceCache::GetAsync: a first-time cook (shaderc) and the binary read run on a loader
+        // thread; the shader and the programs waiting for it are created on the main thread.
+        bool SupportsAsyncLoad() const override
+        {
+            return true;
+        }
+
+        // Loader thread: plain file IO (the shared bx reader isn't thread safe).
+        bool LoadAsync() override
+        {
+            const Path binary = BinaryPath();
+            std::ifstream file( binary.FullPath, std::ios::binary | std::ios::ate );
+            if( !file )
+            {
+                YIKES( "Shader binary is missing: " + binary.FullPath );
+                return false;
+            }
+            m_pendingBinary.resize( static_cast<size_t>( file.tellg() ) );
+            file.seekg( 0 );
+            return !m_pendingBinary.empty() && static_cast<bool>( file.read( m_pendingBinary.data(), static_cast<std::streamsize>( m_pendingBinary.size() ) ) );
+        }
+
+        bool FinishAsyncLoad() override
+        {
+            const std::vector<char> binary = std::move( m_pendingBinary );
+            m_pendingBinary = {};
+            if( binary.empty() )
+            {
+                return false;
+            }
+            if( !IsGpuAlive() )
+            {
+                return true;
+            }
+            // Null-terminated like LoadMemory: some backends read the binary as text.
+            const bgfx::Memory* memory = bgfx::alloc( static_cast<uint32_t>( binary.size() + 1 ) );
+            std::memcpy( memory->data, binary.data(), binary.size() );
+            memory->data[binary.size()] = '\0';
+            Handle = bgfx::createShader( memory );
+            if( !bgfx::isValid( Handle ) )
+            {
+                return false;
+            }
+            bgfx::setName( Handle, FilePath.GetLocalPath().data() );
+            Moonlight::RebuildProgramsUsing( this );
+            return true;
         }
 
         // Recreates the shader from the freshly compiled binary and rebuilds every program using it
@@ -63,7 +112,7 @@ namespace Moonlight
         // Programs hold their own reference to the shader, so this is safe while they're alive.
         ~ShaderFile()
         {
-            if( bgfx::isValid( Handle ) )
+            if( bgfx::isValid( Handle ) && IsGpuAlive() )
             {
                 bgfx::destroy( Handle );
             }
@@ -80,6 +129,9 @@ namespace Moonlight
         }
 
         bgfx::ShaderHandle Handle = BGFX_INVALID_HANDLE;
+
+    private:
+        std::vector<char> m_pendingBinary;
     };
 }
 

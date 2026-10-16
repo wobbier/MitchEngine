@@ -35,7 +35,9 @@ namespace Moonlight
         ShaderName = inShaderName;
         if( inShaderName.length() > 0 )
         {
-            MeshShader = ShaderCommand( inShaderName );
+            // Materials come and go with scenes, spawns and model loads: never block on a shader
+            // (meshes draw once it's ready; the engine's own shaders are loaded at startup).
+            MeshShader = ShaderCommand( inShaderName, ShaderLoad::Async );
         }
     }
 
