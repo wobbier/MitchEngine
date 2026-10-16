@@ -50,7 +50,7 @@ class BGFXRenderer
     : public ISystem
 {
     static constexpr bgfx::ViewId kClearView = Moonlight::RenderView::Clear;
-    static constexpr std::size_t kMeshTransparencyTempSize = 60;
+    static constexpr std::size_t kMeshTransparencyTempSize = 128;
     friend class RenderCore;
 public:
     ME_SYSTEM_ID( BGFXRenderer );
