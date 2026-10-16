@@ -15,7 +15,7 @@ Baked vertex animation moves vertices, not source-node transforms. Exposing a ma
 the Sponza knight therefore does not create a moving head/hand socket. Such attachments require
 separately authored/baked transform tracks or a skeletal export.
 
-> Verified against engine commit 07617c5f, 2026-10-09 (overhaul Wave 4); layers, 2D blends and root motion against b0f082f8, 2026-10-10; additive layers and editor previews against 2d07489b, 2026-10-10.
+> Verified against engine commit 07617c5f, 2026-10-09 (overhaul Wave 4); layers, 2D blends and root motion against b0f082f8, 2026-10-10; additive layers and editor previews against 2d07489b, 2026-10-10; `ClipSource` background loads against ac23d33f plus the background loads change, 2026-10-16.
 
 ## Overview
 
@@ -84,7 +84,7 @@ control curves and no exported skin clusters/weights.
 
 1. **Find the clips.** In order:
    1. clips handed over with `Animator::UseClips` (procedural or code-built animation);
-   2. the clips of the model at `ClipSource`, which lets several characters share one rig's clips;
+   2. the clips of the model at `ClipSource`, which lets several characters share one rig's clips. That model loads in the background, and the Animator binds on the first update after it's ready (as it already waits for its own `Model`);
    3. the clips of the `Model` on the same entity.
 2. **Build the states.** If `States` is empty, every clip becomes a state of the same name.
 3. **Bind channels to nodes.** For compact Models, each channel's `NodeName` first matches the private source-node tree. For expanded imports it matches the Animator entity and its descendants. A name found more than once binds to its first match, with ancestors before descendants. Each binding remembers the node's local position, rotation and scale as its bind pose.

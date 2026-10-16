@@ -678,7 +678,8 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     char viewName[64];
     const bool hasSkybox = background && camera.ClearType == Moonlight::ClearColorType::Skybox && camera.Skybox
         && camera.Skybox->SkyModel && !camera.Skybox->SkyModel->GetAllMeshes().empty()
-        && camera.Skybox->SkyMaterial && camera.Skybox->SkyMaterial->MeshShader.IsLoaded();
+        && camera.Skybox->SkyMaterial && camera.Skybox->SkyMaterial->MeshShader.IsLoaded()
+        && ( !camera.Skybox->SkyMap || !camera.Skybox->SkyMap->IsLoading() );
     bx::snprintf( viewName, sizeof( viewName ), "%s Skybox", label );
     const bgfx::ViewId skyView = hasSkybox ? m_views.Allocate( viewName ) : UINT16_MAX;
     bx::snprintf( viewName, sizeof( viewName ), "%s Opaque", label );
@@ -739,13 +740,10 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
         bgfx::setVertexBuffer( 0, skyMesh->GetVertexBuffer() );
         bgfx::setIndexBuffer( skyMesh->GetIndexuffer() );
 
-        if( const Moonlight::Texture* diffuse = camera.Skybox->SkyMaterial->GetTexture( Moonlight::TextureType::Diffuse ) )
-        {
-            if( bgfx::isValid( diffuse->TexHandle ) )
-            {
-                bgfx::setTexture( 0, s_texDiffuse, diffuse->TexHandle );
-            }
-        }
+        // The sky shader always samples its panorama: a missing or failed one samples black (an
+        // unbound sampler isn't safe on every backend).
+        const Moonlight::Texture* diffuse = camera.Skybox->SkyMaterial->GetTexture( Moonlight::TextureType::Diffuse );
+        bgfx::setTexture( 0, s_texDiffuse, diffuse && bgfx::isValid( diffuse->TexHandle ) ? diffuse->TexHandle : m_blackTexture );
 
         //mesh.MeshMaterial->Use();
 

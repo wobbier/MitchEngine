@@ -242,6 +242,15 @@ void AnimationCore::Bind( Entity& InEntity, Animator& InAnimator )
     {
         return;
     }
+    // Shared clips from another model load in the background too (it may be requested mid-play).
+    if( !InAnimator.m_ownClips && !InAnimator.ClipSource.empty() )
+    {
+        InAnimator.m_clipModel = ResourceCache::GetInstance().GetAsync<ModelResource>( Path( InAnimator.ClipSource ) );
+        if( InAnimator.m_clipModel && InAnimator.m_clipModel->IsLoading() )
+        {
+            return;
+        }
+    }
     InAnimator.m_bound = true;
     if( InAnimator.m_ownClips )
     {
@@ -252,7 +261,7 @@ void AnimationCore::Bind( Entity& InEntity, Animator& InAnimator )
         SharedPtr<ModelResource> model;
         if( !InAnimator.ClipSource.empty() )
         {
-            model = ResourceCache::GetInstance().Get<ModelResource>( Path( InAnimator.ClipSource ) );
+            model = InAnimator.m_clipModel;
         }
         else if( Model* component = InEntity.TryGetComponent<Model>() )
         {

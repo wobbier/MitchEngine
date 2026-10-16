@@ -13,8 +13,10 @@ namespace Moonlight
     {
         Path SystemPath( InPath );
 
-        SkyMap = ResourceCache::GetInstance().Get<Texture>( SystemPath );
-        SkyModel = ResourceCache::GetInstance().Get<ModelResource>( Path( "Assets/Skybox/Skybox.fbx" ) );
+        // Both load in the background (scenes create sky boxes while they load); the renderer draws
+        // the sky once the mesh is there and samples the panorama once it has uploaded.
+        SkyMap = ResourceCache::GetInstance().GetAsync<Texture>( SystemPath );
+        SkyModel = ResourceCache::GetInstance().GetAsync<ModelResource>( Path( "Assets/Skybox/Skybox.fbx" ) );
         SkyMaterial = MakeShared<UnlitMaterial>();
         SkyMaterial->Init();
         SkyMaterial->SetTexture( TextureType::Diffuse, SkyMap );
