@@ -81,7 +81,8 @@ namespace Moonlight
         bgfx::UniformHandle u_bloom = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_ssao = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_ssaoProjection = BGFX_INVALID_HANDLE;
-        bgfx::UniformHandle u_ssaoProjection2 = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_ssaoScreen = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_ssaoInvProjection = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_adapt = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_fogProjection = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_fogProjection2 = BGFX_INVALID_HANDLE;

@@ -1,84 +1,89 @@
 $input v_texcoord0
 
-// Screen-space ambient occlusion (Alchemy / McGuire 2011) from the camera depth at half resolution.
+// Horizon-based ambient occlusion from full-resolution depth, evaluated at half resolution.
 #include "../Common.sh"
 #include "PostCommon.sh"
+#include "SSAOCommon.sh"
 
-SAMPLER2D(s_input0, 0);         // camera depth
-uniform vec4 u_ssao;            // x world radius, y intensity, z bias, w projection scale (P[1][1])
-uniform vec4 u_ssaoProjection;  // x P[2][2], y P[3][2], z 1 = orthographic, w 1 = depth range -1..1
-uniform vec4 u_ssaoProjection2; // x P[0][0], y P[1][1], zw 1 / full-resolution depth size
-
-float viewDepth(vec2 _uv)
-{
-	float d = texture2D(s_input0, _uv).r;
-	float ndc = u_ssaoProjection.w > 0.5 ? d * 2.0 - 1.0 : d;
-	if (u_ssaoProjection.z > 0.5)
-	{
-		return (ndc - u_ssaoProjection.y) / u_ssaoProjection.x;
-	}
-	return u_ssaoProjection.y / (ndc - u_ssaoProjection.x);
-}
-
-// Half-resolution pixel centres land exactly between full-resolution depth texels, where point
-// sampling rounds either way; snap to a texel centre and rebuild the ray from that same spot so the
-// depth and the position always agree (otherwise one row of normals comes out wrong).
-vec2 depthTexelCenter(vec2 _uv)
-{
-	return (floor(_uv / u_ssaoProjection2.zw) + 0.5) * u_ssaoProjection2.zw;
-}
+SAMPLER2D(s_input0, 0); // camera depth (point sampled)
 
 vec3 viewPosition(vec2 _uv)
 {
-	_uv = depthTexelCenter(_uv);
-	float z = viewDepth(_uv);
-	vec2 ndc = vec2(_uv.x * 2.0 - 1.0, 1.0 - _uv.y * 2.0);
-	return vec3(ndc.x * z / u_ssaoProjection2.x, ndc.y * z / u_ssaoProjection2.y, z);
+	_uv = aoDepthUv(_uv);
+	return aoViewPosition(_uv, texture2DLod(s_input0, _uv, 0.0).r);
 }
 
 void main()
 {
-	vec2 uv = v_texcoord0;
-	float rawDepth = texture2D(s_input0, depthTexelCenter(uv)).r;
-	if (rawDepth >= 0.99999)
+	vec2 halfUv = (floor(v_texcoord0 * u_ssaoScreen.zw) + 0.5) / u_ssaoScreen.zw;
+	vec2 uv = aoDepthUv(halfUv);
+	float rawDepth = texture2DLod(s_input0, uv, 0.0).r;
+	if (rawDepth >= 1.0)
 	{
-		gl_FragColor = vec4_splat(1.0);   // sky
+		gl_FragColor = vec4_splat(1.0);
 		return;
 	}
-	vec3 p = viewPosition(uv);
-	// Normal from the neighbour on the flatter side in each axis (avoids smearing across edges).
-	vec2 dx = vec2(u_viewTexel.x, 0.0);
-	vec2 dy = vec2(0.0, u_viewTexel.y);
-	vec3 pl = viewPosition(uv - dx);
-	vec3 pr = viewPosition(uv + dx);
-	vec3 pd = viewPosition(uv - dy);
-	vec3 pu = viewPosition(uv + dy);
-	vec3 ddx = abs(pr.z - p.z) < abs(p.z - pl.z) ? pr - p : p - pl;
-	vec3 ddy = abs(pu.z - p.z) < abs(p.z - pd.z) ? pu - p : p - pd;
-	vec3 n = normalize(cross(ddy, ddx));
-	if (dot(n, p) > 0.0)
-	{
-		n = -n;
-	}
+	vec3 p = aoViewPosition(uv, rawDepth);
+	// Reconstruct at full-resolution spacing to retain small contacts and thin geometry. Select
+	// the flatter side independently in each axis, without choosing a zero step at screen borders.
+	vec2 dx = vec2(u_ssaoScreen.x, 0.0);
+	vec2 dy = vec2(0.0, u_ssaoScreen.y);
+	vec3 left = p - viewPosition(uv - dx);
+	vec3 right = viewPosition(uv + dx) - p;
+	vec3 below = p - viewPosition(uv - dy);
+	vec3 above = viewPosition(uv + dy) - p;
+	vec3 stepX = abs(left.z) < abs(right.z) ? left : right;
+	vec3 stepY = abs(below.z) < abs(above.z) ? below : above;
+	if (dot(stepX, stepX) < 1e-16) stepX = left + right;
+	if (dot(stepY, stepY) < 1e-16) stepY = below + above;
+	vec3 n = cross(stepY, stepX);
+	n *= inversesqrt(max(dot(n, n), 1e-20));
+	vec3 toCamera = u_ssaoProjection.z > 0.5 ? vec3(0.0, 0.0, -1.0) : -p;
+	if (dot(n, toCamera) < 0.0) n = -n;
 
-	const int kSamples = 12;
-	float screenRadius = u_ssao.x * u_ssao.w / max(p.z, 0.01) * 0.5;
-	screenRadius = min(screenRadius, 0.15);
-	float angle = interleavedGradientNoise(gl_FragCoord.xy) * 6.2831853;
+	float viewScale = u_ssaoProjection.z > 0.5 ? 1.0 : max(abs(p.z), 0.01);
+	// Project the radius in both axes: a world-space circle stays circular on wide viewports.
+	vec2 radiusUv = 0.5 * u_ssao.x * abs(u_ssaoProjection.xy) / viewScale;
+	vec2 radiusPixels = radiusUv * u_ssaoScreen.zw;
+	float maxRadius = max(radiusPixels.x, radiusPixels.y);
+	// Limit the near-camera sampling footprint without changing the projected circle's aspect ratio.
+	radiusUv *= min(1.0, 64.0 / max(maxRadius, 1e-5));
+
+	const int kDirections = 8;
+	const int kSteps = 4;
+	float noise = interleavedGradientNoise(gl_FragCoord.xy);
+	float angle = noise * 6.2831853;
+	float jitter = fract(noise * 17.0 + 0.5);
+	float radiusSquared = u_ssao.x * u_ssao.x;
 	float occlusion = 0.0;
-	for (int i = 0; i < kSamples; ++i)
+	for (int direction = 0; direction < kDirections; ++direction)
 	{
-		float t = (float(i) + 0.5) / float(kSamples);
-		float a = angle + t * 6.2831853 * 3.0;
-		vec2 offset = vec2(cos(a), sin(a)) * (t * screenRadius);
-		vec3 q = viewPosition(uv + offset);
-		vec3 v = q - p;
-		float vv = dot(v, v);
-		float vn = dot(v, n);
-		float falloff = max(0.0, 1.0 - vv / (u_ssao.x * u_ssao.x));
-		// The bias scales with the radius and distance so flat surfaces don't self-occlude.
-		occlusion += max(0.0, vn - (0.03 * u_ssao.x + u_ssao.z * p.z)) / (vv + 0.0001) * falloff;
+		float a = angle + float(direction) * (6.2831853 / float(kDirections));
+		vec2 ray = vec2(cos(a), sin(a));
+		float horizon = u_ssao.z;
+		for (int step = 0; step < kSteps; ++step)
+		{
+			// Quadratic spacing spends more samples near the contact. Start one full-resolution
+			// pixel away to avoid repeatedly sampling the centre for small projected radii.
+			float t = (float(step) + 0.5 + 0.5 * jitter) / float(kSteps);
+			vec2 sampleUv = uv + ray * (u_ssaoScreen.xy + radiusUv * t * t);
+			if (any(lessThan(sampleUv, vec2_splat(0.0))) || any(greaterThanEqual(sampleUv, vec2_splat(1.0)))) continue;
+			sampleUv = aoDepthUv(sampleUv);
+			float sampleDepth = texture2DLod(s_input0, sampleUv, 0.0).r;
+			if (sampleDepth >= 1.0) continue;
+			vec3 v = aoViewPosition(sampleUv, sampleDepth) - p;
+			float distanceSquared = dot(v, v);
+			if (distanceSquared < 1e-10 || distanceSquared >= radiusSquared) continue;
+			float elevation = dot(n, v) * inversesqrt(distanceSquared);
+			float falloff = 1.0 - distanceSquared / radiusSquared;
+			// Only newly hidden angles contribute: several samples on the same occluder must
+			// not count it repeatedly. Normalised angles also make AO independent of scene scale.
+			occlusion += max(elevation - horizon, 0.0) * falloff;
+			horizon = max(horizon, elevation);
+		}
 	}
-	occlusion = max(0.0, 1.0 - 2.0 * u_ssao.y * occlusion / float(kSamples));
-	gl_FragColor = vec4_splat(occlusion);
+	occlusion /= float(kDirections) * (1.0 - u_ssao.z);
+	// Fade out sub-pixel radii, where the depth buffer cannot resolve the requested geometry.
+	float visibility = 1.0 - clamp(occlusion, 0.0, 1.0) * clamp(maxRadius, 0.0, 1.0);
+	gl_FragColor = vec4_splat(visibility);
 }
