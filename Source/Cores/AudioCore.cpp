@@ -238,6 +238,7 @@ float AudioVoice::GetAudibility() const
 AudioCore::AudioCore( AudioOutput InOutput )
     : Base( ComponentFilter().RequiresOneOf<AudioSource>().RequiresOneOf<AudioReverbZone>() )
     , m_output( InOutput )
+    , m_backgroundLoads( InOutput != AudioOutput::Manual )
 {
     SetIsSerializable( false );
     m_busVolumes.fill( 1.f );
@@ -465,17 +466,24 @@ void AudioCore::StopAll()
     }
 #endif
     m_oneShots.clear();
+    m_deferredPlays.clear();
 }
 
 
-SharedPtr<Sound> AudioCore::LoadSound( const Path& InClip )
+SharedPtr<Sound> AudioCore::LoadSound( const Path& InClip, bool InWait )
 {
 #if USING( ME_FMOD )
     if( !m_system || InClip.GetLocalPathString().empty() )
     {
         return nullptr;
     }
-    return ResourceCache::GetInstance().Get<Sound>( InClip, m_system, SoundFlags::Default );
+    // The flags only matter for the first request: the cache shares that Sound afterwards.
+    SharedPtr<Sound> sound = ResourceCache::GetInstance().Get<Sound>( InClip, m_system, m_backgroundLoads ? SoundFlags::NonBlocking : SoundFlags::Default );
+    if( sound && ( InWait || !m_backgroundLoads ) )
+    {
+        sound->WaitUntilReady();
+    }
+    return sound;
 #else
     return nullptr;
 #endif
@@ -493,15 +501,20 @@ void AudioCore::InitComponent( AudioSource& InSource )
     if( InSource.Stream && m_system )
     {
         // Each streaming source opens its own stream (a stream can't feed two voices).
-        InSource.SoundInstance = std::make_shared<Sound>( InSource.FilePath, m_system, SoundFlags::CreateStream );
+        InSource.SoundInstance = std::make_shared<Sound>( InSource.FilePath, m_system, m_backgroundLoads ? SoundFlags::CreateStream | SoundFlags::NonBlocking : SoundFlags::CreateStream );
         if( !InSource.SoundInstance->Handle )
         {
             InSource.SoundInstance = nullptr;
         }
+        else if( InSource.Preload || !m_backgroundLoads )
+        {
+            InSource.SoundInstance->WaitUntilReady();
+        }
     }
     else
     {
-        InSource.SoundInstance = LoadSound( InSource.FilePath );
+        // Preload: the clip is ready before the source's first Play (the load blocks instead).
+        InSource.SoundInstance = LoadSound( InSource.FilePath, InSource.Preload );
     }
     if( !InSource.SoundInstance && m_system )
     {
@@ -514,7 +527,7 @@ void AudioCore::InitComponent( AudioSource& InSource )
 AudioVoice AudioCore::Play( const SharedPtr<Sound>& InSound, const AudioPlayParams& InParams )
 {
 #if USING( ME_FMOD )
-    if( !m_system || !InSound || !InSound->Handle )
+    if( !m_system || !InSound || !InSound->Handle || !InSound->IsReady() )
     {
         return AudioVoice();
     }
@@ -527,6 +540,14 @@ AudioVoice AudioCore::Play( const SharedPtr<Sound>& InSound, const AudioPlayPara
     AudioVoice voice( channel );
     ApplyParams( voice, InParams );
     channel->setPriority( std::clamp( InParams.Priority, 0, 256 ) );
+    if( InParams.StartFraction > 0.f )
+    {
+        unsigned int length = 0;
+        if( InSound->Handle->getLength( &length, FMOD_TIMEUNIT_MS ) == FMOD_OK )
+        {
+            channel->setPosition( static_cast<unsigned int>( length * std::clamp( InParams.StartFraction, 0.f, 1.f ) ), FMOD_TIMEUNIT_MS );
+        }
+    }
     channel->setPaused( InParams.StartPaused );
     return voice;
 #else
@@ -594,6 +615,55 @@ AudioVoice AudioCore::PlayOneShot( const Path& InClip, const AudioPlayParams& In
     {
         return AudioVoice();
     }
+    if( !sound->IsReady() )
+    {
+        DeferUntilLoaded( sound, [this, sound, InParams, InMaxVoices]() { StartOneShot( sound, InParams, InMaxVoices ); } );
+        return AudioVoice();
+    }
+    return StartOneShot( sound, InParams, InMaxVoices );
+}
+
+
+void AudioCore::DeferUntilLoaded( const SharedPtr<Sound>& InClip, std::function<void()> InStart )
+{
+    if( !InClip || !InStart || InClip->HasFailed() )
+    {
+        return;
+    }
+    m_deferredPlays.push_back( { InClip, std::move( InStart ) } );
+}
+
+
+void AudioCore::StartDeferredPlays()
+{
+    if( m_deferredPlays.empty() )
+    {
+        return;
+    }
+    // A start may defer another play: work on a copy of the list.
+    std::vector<DeferredPlay> waiting;
+    waiting.swap( m_deferredPlays );
+    for( DeferredPlay& play : waiting )
+    {
+        if( play.Clip->IsReady() )
+        {
+            play.Start();
+        }
+        else if( play.Clip->HasFailed() )
+        {
+            YIKES_FMT( "Failed to load sound: %s", play.Clip->GetPath().GetLocalPathString().c_str() );
+        }
+        else
+        {
+            m_deferredPlays.push_back( std::move( play ) );
+        }
+    }
+}
+
+
+AudioVoice AudioCore::StartOneShot( const SharedPtr<Sound>& InSound, const AudioPlayParams& InParams, int InMaxVoices )
+{
+    SharedPtr<Sound> sound = InSound;
     std::vector<AudioVoice>& voices = m_oneShots[sound.get()];
     voices.erase( std::remove_if( voices.begin(), voices.end(), []( const AudioVoice& InVoice ) { return !InVoice.IsValid(); } ), voices.end() );
     while( !voices.empty() && static_cast<int>( voices.size() ) >= std::max( InMaxVoices, 1 ) )
@@ -837,6 +907,7 @@ void AudioCore::Tick( float InDeltaSeconds, bool InPaused )
     }
 
     UpdateListener( InDeltaSeconds );
+    StartDeferredPlays();
 
     for( Entity& entity : GetEntities() )
     {
@@ -867,7 +938,13 @@ void AudioCore::Tick( float InDeltaSeconds, bool InPaused )
             position = transform->GetWorldPosition();
         }
         const Vector3 velocity = source.m_hasPosition ? MotionVelocity( source.m_position, position, InDeltaSeconds ) : Vector3();
-        if( source.m_pendingPlay && source.SoundInstance && entity.IsActiveInHierarchy() && source.IsEnabled() )
+        if( source.m_pendingPlay && source.SoundInstance && source.SoundInstance->HasFailed() )
+        {
+            YIKES_FMT( "Failed to load sound: %s", source.FilePath.GetLocalPathString().c_str() );
+            source.m_pendingPlay = false;
+        }
+        // Clips load in the background: a source waits for its clip before it starts.
+        if( source.m_pendingPlay && source.SoundInstance && source.SoundInstance->IsReady() && entity.IsActiveInHierarchy() && source.IsEnabled() )
         {
             source.m_position = position;
             source.m_hasPosition = true;
@@ -902,19 +979,8 @@ bool AudioCore::OnPlayAudio( const PlayAudioEvent& evt )
             params.SpatialBlend = 1.f;
             params.Position = evt.Position;
         }
-        AudioVoice voice = PlayOneShot( soundPath, params );
-        if( evt.StartPercent > 0.f )
-        {
-            SharedPtr<Sound> loaded = LoadSound( soundPath );
-            unsigned int length = 0;
-#if USING( ME_FMOD )
-            if( loaded && loaded->Handle )
-            {
-                loaded->Handle->getLength( &length, FMOD_TIMEUNIT_MS );
-            }
-#endif
-            voice.SetPositionMs( static_cast<unsigned int>( length * evt.StartPercent ) );
-        }
+        params.StartFraction = evt.StartPercent;
+        PlayOneShot( soundPath, params );
         return true;
     }
 
@@ -944,8 +1010,11 @@ void AudioCore::OnStopAudio( const StopAudioEvent& evt )
         cached->second->Stop();
         m_cachedSounds.erase( cached );
     }
-    if( SharedPtr<Sound> loaded = sound.empty() ? nullptr : LoadSound( Path( sound ) ) )
+    // Only a clip that's already loaded can have voices: look it up without loading it.
+    SharedPtr<Sound> loaded = sound.empty() ? nullptr : std::dynamic_pointer_cast<Sound>( ResourceCache::GetInstance().GetCached( Path( sound ) ) );
+    if( loaded )
     {
+        m_deferredPlays.erase( std::remove_if( m_deferredPlays.begin(), m_deferredPlays.end(), [&loaded]( const DeferredPlay& InPlay ) { return InPlay.Clip == loaded; } ), m_deferredPlays.end() );
         auto voices = m_oneShots.find( loaded.get() );
         if( voices != m_oneShots.end() )
         {

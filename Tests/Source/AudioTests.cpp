@@ -12,6 +12,7 @@
 #include <filesystem>
 #include <fstream>
 #include <memory>
+#include <set>
 
 #if USING( ME_FMOD )
 
@@ -19,12 +20,13 @@
 
 namespace AudioTest
 {
-    // A mono 16-bit sine tone, written once per run.
-    Path ToneClip()
+    // A mono 16-bit sine tone, written once per run. InName gives a clip of its own (the sound
+    // cache is shared by every test).
+    Path ToneClip( const std::string& InName = "AudioTone" )
     {
-        static const std::string kPath = ".tmp/Tests/AudioTone.wav";
-        static bool written = false;
-        if( !written )
+        const std::string kPath = ".tmp/Tests/" + InName + ".wav";
+        static std::set<std::string> written;
+        if( written.insert( kPath ).second )
         {
             std::filesystem::create_directories( ".tmp/Tests" );
             const uint32_t rate = 48000;
@@ -49,7 +51,6 @@ namespace AudioTest
             {
                 u16( static_cast<uint16_t>( static_cast<int16_t>( std::sin( i * 2.0 * 3.14159265 * 440.0 / rate ) * 16000.0 ) ) );
             }
-            written = true;
         }
         return Path( kPath );
     }
@@ -413,5 +414,81 @@ TEST_CASE( "Audio: reverb zones follow their entity and preset; 3D sources feed 
     scene.GameWorld->Simulate();
     Mix( scene.Core );
 }
+
+TEST_CASE( "Audio: clips load in the background; plays wait for them" )
+{
+    Scene scene;
+    scene.Core.SetBackgroundLoads( true );
+    CHECK( scene.Core.UsesBackgroundLoads() );
+    const Path clip = ToneClip( "AudioToneBackground" );
+    EntityHandle entity = scene.AddSource( Vector3( 0.f, 0.f, 0.f ) );
+    AudioSource& source = entity->GetComponent<AudioSource>();
+    source.FilePath = clip;
+    source.PlayOnAwake = true;
+    scene.Start();
+
+    // Whether or not FMOD has opened it yet, a one-shot and the source start once it has.
+    scene.Core.PlayOneShot( clip );
+    SharedPtr<Sound> sound = scene.Core.LoadSound( clip );
+    REQUIRE( sound );
+    REQUIRE( sound->WaitUntilReady() );
+    Mix( scene.Core );
+    CHECK( source.IsPlaying() );
+    int channels = 0;
+    scene.Core.GetSystem()->getChannelsPlaying( &channels, nullptr );
+    CHECK( channels == 2 );   // the source's voice and the one-shot (started now or deferred)
+
+    // Deferred starts run on the next update, never inside the call.
+    bool started = false;
+    scene.Core.DeferUntilLoaded( sound, [&started]() { started = true; } );
+    CHECK_FALSE( started );
+    Mix( scene.Core, 1 );
+    CHECK( started );
+
+    // Stopping everything drops plays still waiting; a clip that fails to open never plays.
+    started = false;
+    scene.Core.DeferUntilLoaded( sound, [&started]() { started = true; } );
+    scene.Core.StopAll();
+    Mix( scene.Core, 1 );
+    CHECK_FALSE( started );
+    SharedPtr<Sound> missing = scene.Core.LoadSound( Path( ".tmp/Tests/NoSuchClip.wav" ) );
+    if( missing )
+    {
+        CHECK_FALSE( missing->WaitUntilReady() );
+        CHECK( missing->HasFailed() );
+        scene.Core.DeferUntilLoaded( missing, [&started]() { started = true; } );
+        Mix( scene.Core, 1 );
+        CHECK_FALSE( started );
+    }
+}
+
+
+TEST_CASE( "Audio: Manual output and Preload load clips before the first Play; one-shots can start part way in" )
+{
+    AudioCore core( AudioOutput::Manual );
+    CHECK_FALSE( core.UsesBackgroundLoads() );   // deterministic mixing
+    SharedPtr<Sound> sound = core.LoadSound( ToneClip() );
+    REQUIRE( sound );
+    CHECK( sound->IsReady() );
+
+    AudioPlayParams params;
+    params.StartFraction = 0.5f;   // one second into the two second tone
+    AudioVoice voice = core.PlayOneShot( ToneClip(), params );
+    REQUIRE( voice.IsValid() );
+    CHECK( voice.GetPositionMs() >= 990u );
+    CHECK( voice.GetPositionMs() <= 1200u );
+
+    Scene scene;
+    scene.Core.SetBackgroundLoads( true );
+    EntityHandle entity = scene.AddSource( Vector3( 0.f, 0.f, 0.f ) );
+    AudioSource& source = entity->GetComponent<AudioSource>();
+    source.FilePath = ToneClip( "AudioTonePreload" );
+    source.Preload = true;
+    scene.GameWorld->Simulate();
+    scene.Core.InitComponent( source );
+    REQUIRE( source.SoundInstance );
+    CHECK( source.SoundInstance->IsReady() );
+}
+
 
 #endif

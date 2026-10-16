@@ -43,6 +43,8 @@ struct AudioPlayParams
     float Pitch = 1.f;
     bool Loop = false;
     bool StartPaused = false;
+    // Where the voice starts, as a fraction of the clip's length (0..1).
+    float StartFraction = 0.f;
     // 0 = 2D (no panning or distance fade), 1 = fully positioned in 3D.
     float SpatialBlend = 0.f;
     Vector3 Position;

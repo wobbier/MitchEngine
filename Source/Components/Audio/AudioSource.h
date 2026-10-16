@@ -42,6 +42,8 @@ public:
     float DopplerLevel = 1.f;
     int Priority = 128;
     int MaxOneShots = 8;        // overlapping PlayOneShot voices; the oldest stops beyond this
+    // Load the clip when the source joins the world, blocking, so the first Play starts at once
+    // (clips otherwise load in the background and a Play waits for them).
     bool Preload = false;
     // Read the clip from disk while it plays (music, long ambience): no load hitch and little memory,
     // but one voice at a time (one-shots of the clip still load it whole).
@@ -117,6 +119,7 @@ private:
 
     // Called by AudioCore every frame with the entity's world position and velocity.
     void UpdateVoices( const Vector3& InPosition, const Vector3& InVelocity );
+    AudioVoice StartOneShot( const SharedPtr<Sound>& sound, float InVolumeScale );
     Vector3 GetWorldPosition() const;
 
     AudioVoice m_voice;

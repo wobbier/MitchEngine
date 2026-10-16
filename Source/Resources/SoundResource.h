@@ -60,7 +60,12 @@ public:
     Sound( const char* url, void* fmodSystem = nullptr );
     ~Sound();
 
+    // Opened and playable. A sound created with NonBlocking opens on FMOD's loader thread first.
     bool IsReady() const;
+    // Opening failed (missing or unreadable file).
+    bool HasFailed() const;
+    // Blocks until a NonBlocking open finishes; true when the sound can play.
+    bool WaitUntilReady() const;
     // Read from disk while playing (opened with CreateStream).
     bool IsStream() const;
     // Frees the FMOD sound now (before its system is released); the resource is empty afterwards.

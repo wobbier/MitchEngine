@@ -34,6 +34,7 @@ ME_REFLECT_BEGIN( AudioSource )
     ME_FIELD( OcclusionAmount ).Range( 0.f, 1.f ).Tooltip( "How much each obstacle muffles" );
     ME_FIELD( ReverbMix ).Range( 0.f, 1.f ).Tooltip( "How much the sound feeds reverb zones (3D)" );
     ME_FIELD( Stream ).Tooltip( "Read from disk while playing (music, long ambience): no load hitch, little memory, one voice at a time" );
+    ME_FIELD( Preload ).Tooltip( "Load the clip while the source joins the world (blocking) instead of in the background, so its first Play starts at once" );
     ME_FIELD( MaxOneShots ).Range( 1.f, 64.f ).Tooltip( "Overlapping PlayOneShot voices; the oldest stops beyond this" );
     ME_FIELD( SpatialBlend ).Category( "3D Sound" ).Range( 0.f, 1.f ).Tooltip( "0 = 2D (no panning or distance fade), 1 = positioned at this entity" );
     ME_FIELD( MinDistance ).Category( "3D Sound" ).Range( 0.f, 1000.f ).Tooltip( "Metres at full volume" );
@@ -118,9 +119,10 @@ void AudioSource::Play( bool ShouldLoop, bool StartPaused )
     {
         core->InitComponent( *this );
     }
-    if( !core || !SoundInstance )
+    if( !core || !SoundInstance || !SoundInstance->IsReady() )
     {
-        // Not loaded yet (no audio core, or no clip): AudioCore starts it once it is.
+        // Not loaded yet (no audio core, no clip, or the clip is still loading in the
+        // background): AudioCore starts it once it is.
         m_pendingPlay = !FilePath.GetLocalPathString().empty();
         m_voiceLoops = ShouldLoop;
         return;
@@ -154,6 +156,29 @@ AudioVoice AudioSource::PlayOneShot( const Path& InClip, float InVolumeScale )
     // A stream feeds one voice, so one-shots of a streamed source use the clip loaded whole.
     SharedPtr<Sound> sound = InClip.GetLocalPathString() == FilePath.GetLocalPathString() && SoundInstance && !Stream ? SoundInstance : core->LoadSound( InClip );
     if( !sound )
+    {
+        return AudioVoice();
+    }
+    if( !sound->IsReady() )
+    {
+        // Still loading: start it (at the source's position then) once it's ready, if the source
+        // is still around.
+        core->DeferUntilLoaded( sound, [owner = Parent, sound, InVolumeScale]() {
+            if( AudioSource* source = owner ? owner->TryGetComponent<AudioSource>() : nullptr )
+            {
+                source->StartOneShot( sound, InVolumeScale );
+            }
+        } );
+        return AudioVoice();
+    }
+    return StartOneShot( sound, InVolumeScale );
+}
+
+
+AudioVoice AudioSource::StartOneShot( const SharedPtr<Sound>& sound, float InVolumeScale )
+{
+    AudioCore* core = AudioCore::Get();
+    if( !core )
     {
         return AudioVoice();
     }

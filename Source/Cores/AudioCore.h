@@ -50,11 +50,25 @@ public:
     void OnEntityRemoved( Entity& InEntity ) final;
 
     // Fire-and-forget: every call gets a new voice, up to InMaxVoices of the same clip at once (the
-    // oldest is stopped beyond that).
+    // oldest is stopped beyond that). A clip still loading starts as soon as it's ready (the voice
+    // returned then is empty).
     AudioVoice PlayOneShot( const Path& InClip, const AudioPlayParams& InParams = AudioPlayParams(), int InMaxVoices = 16 );
-    // Starts a voice of an already loaded sound.
+    // Starts a voice of a ready sound (Sound::IsReady).
     AudioVoice Play( const SharedPtr<Sound>& InSound, const AudioPlayParams& InParams );
-    SharedPtr<Sound> LoadSound( const Path& InClip );
+    // Clips load in the background (FMOD's non-blocking open) unless InWait, or the output is
+    // Manual (deterministic mixing); the cache shares one Sound per clip.
+    SharedPtr<Sound> LoadSound( const Path& InClip, bool InWait = false );
+    // Runs InStart on the first update after InClip is ready (dropped if it fails to load, or when
+    // play stops).
+    void DeferUntilLoaded( const SharedPtr<Sound>& InClip, std::function<void()> InStart );
+    void SetBackgroundLoads( bool InBackground )
+    {
+        m_backgroundLoads = InBackground;
+    }
+    bool UsesBackgroundLoads() const
+    {
+        return m_backgroundLoads;
+    }
     // Loads an AudioSource's clip now (sources added to the world load on their own).
     void InitComponent( AudioSource& InSource );
 
@@ -100,6 +114,9 @@ private:
     void OnStart() final;
     void OnStop() final;
 
+    AudioVoice StartOneShot( const SharedPtr<Sound>& InSound, const AudioPlayParams& InParams, int InMaxVoices );
+    void StartDeferredPlays();
+
     void UpdateListener( float InDeltaSeconds );
     Transform* FindListener();
     void UpdateReverbZone( Entity& InEntity, AudioReverbZone& InZone );
@@ -108,6 +125,7 @@ private:
     FMOD::ChannelGroup* GetBusGroup( AudioBus InBus ) const;
 
     AudioOutput m_output = AudioOutput::Device;
+    bool m_backgroundLoads = true;
     bool m_started = false;
     bool m_paused = false;
     Vector3 m_listenerPosition;
@@ -121,6 +139,13 @@ private:
     std::map<std::string, SharedPtr<AudioSource>> m_cachedSounds;
     // Live one-shot voices per clip, for the per-clip voice limit.
     std::map<const Sound*, std::vector<AudioVoice>> m_oneShots;
+    // Plays waiting for their clip to finish loading.
+    struct DeferredPlay
+    {
+        SharedPtr<Sound> Clip;
+        std::function<void()> Start;
+    };
+    std::vector<DeferredPlay> m_deferredPlays;
 
 #if USING( ME_FMOD )
     FMOD::System* m_system = nullptr;

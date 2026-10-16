@@ -1,6 +1,9 @@
 #include "PCH.h"
 #include "SoundResource.h"
 
+#include <chrono>
+#include <thread>
+
 #if USING( ME_FMOD )
 #include <fmod.hpp>
 #endif
@@ -87,12 +90,43 @@ bool Sound::IsReady() const
     {
         return false;
     }
-    FMOD_OPENSTATE openstate;
-    unsigned int    percent = 0;
-    bool            starving = false;
-    bool result = Handle->getOpenState( &openstate, &percent, &starving, nullptr );
-    return openstate == FMOD_OPENSTATE_READY || openstate == FMOD_OPENSTATE_PLAYING;
+    FMOD_OPENSTATE openstate = FMOD_OPENSTATE_ERROR;
+    if( Handle->getOpenState( &openstate, nullptr, nullptr, nullptr ) != FMOD_OK )
+    {
+        return false;
+    }
+    // Buffering / seeking streams can still be played; only an unfinished or failed open can't.
+    return openstate != FMOD_OPENSTATE_LOADING && openstate != FMOD_OPENSTATE_CONNECTING && openstate != FMOD_OPENSTATE_ERROR;
 #else
     return true;
 #endif
+}
+
+
+bool Sound::HasFailed() const
+{
+#if USING( ME_FMOD )
+    if( !Handle )
+    {
+        return true;
+    }
+    FMOD_OPENSTATE openstate = FMOD_OPENSTATE_ERROR;
+    return Handle->getOpenState( &openstate, nullptr, nullptr, nullptr ) != FMOD_OK || openstate == FMOD_OPENSTATE_ERROR;
+#else
+    return false;
+#endif
+}
+
+
+bool Sound::WaitUntilReady() const
+{
+    while( !IsReady() )
+    {
+        if( HasFailed() )
+        {
+            return false;
+        }
+        std::this_thread::sleep_for( std::chrono::milliseconds( 1 ) );
+    }
+    return true;
 }

@@ -10,7 +10,7 @@ Audio runs on FMOD Core through the engine-owned `AudioCore`. The building block
 
 Automated runs never use the speakers.
 
-> Verified against engine commit afce7083, 2026-10-09 (overhaul Wave 4); reverb zones and occlusion against 21312974, 2026-10-10.
+> Verified against engine commit afce7083, 2026-10-09 (overhaul Wave 4); reverb zones and occlusion against 21312974, 2026-10-10; background clip loads against ac23d33f plus the background loads change, 2026-10-16.
 
 ## Overview
 
@@ -50,7 +50,7 @@ Units are metres and seconds. The 3D space matches the engine's: left-handed, +Y
 |------|------|-------------|
 | `Device` | Interactive runs | The default device. If it can't be opened, falls back to `Silent` with a warning |
 | `Silent` | `--no-audio`, or any unattended run (`--frames`, `--screenshot`, `--editor-exec`, …; `AutomationRunner::IsUnattendedRun`) unless `--audio` is passed | `FMOD_OUTPUTTYPE_NOSOUND`: mixes in real time, plays nothing |
-| `Manual` | Unit tests | `FMOD_OUTPUTTYPE_NOSOUND_NRT`: mixes only on update, deterministic |
+| `Manual` | Unit tests | `FMOD_OUTPUTTYPE_NOSOUND_NRT`: mixes only on update, deterministic; clips load before the call that asked for them returns |
 
 The chosen mode is logged at startup (`Audio: FMOD output …`). `IsSilent()` reports it. The Project Settings Audio section shows a note when audio is silent. FMOD's logging build writes warnings and errors to `fmod_log.txt`.
 
@@ -94,8 +94,8 @@ Velocities faster than sound (340 m/s) are treated as teleports (scene loads, ca
 
 ### One-shots
 
-- **Core one-shots.** `AudioCore::PlayOneShot( clip, params, maxVoices = 16 )` loads the clip through the cache and starts a voice. More than `maxVoices` live voices of the same clip stop the oldest.
-- **Source one-shots.** `AudioSource::PlayOneShot( volumeScale )` (or with another clip) plays at the source with its settings. These voices follow the source every frame. `MaxOneShots` (default 8) is the per-source limit.
+- **Core one-shots.** `AudioCore::PlayOneShot( clip, params, maxVoices = 16 )` loads the clip through the cache and starts a voice. More than `maxVoices` live voices of the same clip stop the oldest. A clip still loading starts on the first update after it's ready, and the voice returned by the call is then empty. `AudioPlayParams::StartFraction` starts part way in (it applies to deferred starts too).
+- **Source one-shots.** `AudioSource::PlayOneShot( volumeScale )` (or with another clip) plays at the source with its settings. These voices follow the source every frame. `MaxOneShots` (default 8) is the per-source limit. A clip still loading starts later at the source's position then, unless the source is gone.
 - **`PlayAudioEvent`.**
   - Without a `Callback`, it is a core one-shot. It has a `Bus`, `Volume`, an optional `Spatial` + `Position`, and a `StartPercent`.
   - With a `Callback`, it keeps the older behaviour: one cached `AudioSource` per path, restarted on replay and handed to the callback. The asset inspector's preview uses this, and so does `BasicUIView::PlaySound` when its view has a callback set.
@@ -121,9 +121,9 @@ A 3D source whose line to the listener is blocked sounds muffled. FMOD's 3D occl
 
 | Event | Effect |
 |-------|--------|
-| A source joins the world (`OnEntityAdded`) | Its clip loads |
+| A source joins the world (`OnEntityAdded`) | Its clip starts loading in the background (`Preload`: loads now, blocking) |
 | `World::Start` (`OnStart`) | `PlayOnAwake` sources are queued |
-| `World::Stop` (`OnStop`) | Every voice stops, cached legacy sources clear, and pause is lifted. Leaving play mode is silent |
+| `World::Stop` (`OnStop`) | Every voice stops, plays still waiting for their clip are dropped, cached legacy sources clear, and pause is lifted. Leaving play mode is silent |
 | A source leaves the world (`OnEntityRemoved`) | Its voices stop |
 | A reverb zone leaves the world | Its FMOD reverb is released |
 | `Engine::Shutdown` → `AudioCore::Shutdown` | Every voice stops. Each `Sound` of this system is released and evicted from `ResourceCache` (holders keep an empty `Sound`). The buses and the FMOD system are released |
@@ -145,7 +145,7 @@ A 3D source whose line to the listener is blocked sounds muffled. FMOD's 3D occl
 
 ## Caveats & Fragility
 
-- **Clips load synchronously** as decompressed samples on the main thread, unless the source sets `Stream`: then the source opens its own FMOD stream (read from disk while playing; no load hitch, little memory). A stream feeds one voice, so a streamed source's one-shots load the clip whole. There is no async load of whole clips.
+- **Clips load in the background** through FMOD's non-blocking open (`FMOD_NONBLOCKING`), decompressed into memory, one shared `Sound` per clip in the cache. Plays wait for them: a source's `Play` stays pending, and one-shots are deferred (`AudioCore::DeferUntilLoaded`). `AudioSource::Preload` loads the clip when the source joins the world instead, blocking, so its first `Play` is immediate; `Manual` output always loads that way. A source that sets `Stream` opens its own FMOD stream (read from disk while playing; little memory), also non-blocking. A stream feeds one voice, so a streamed source's one-shots load the clip whole. A clip that fails to open is logged and its waiting plays are dropped.
 - **One listener.** FMOD supports several (split-screen), but the core places only listener 0.
 - **Occlusion is a ray, not propagation.** Sound doesn't bend around corners or through doorways: a source behind a wall is muffled even with an open door beside it. Every collider counts the same (`OcclusionAmount` is per source, not per material).
 - **No DSP effects on buses.** Buses have only volume and mute; the reverb is FMOD's single 3D reverb (instance 0).
