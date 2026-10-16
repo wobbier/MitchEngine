@@ -7,7 +7,7 @@ Physics comes in two engine-owned cores, each built on a library compiled from s
 
 Both cores step at the fixed rate while the world is started, then interpolate the poses they write to Transforms. Outside play mode, bodies follow their Transforms instead, so queries and gizmos stay in sync. Contacts and triggers are reported through `CollisionEvent`. Layers and a Project Settings collision matrix filter both collisions and queries. Solver work runs on the engine job system. Most of this doc describes the 3D core; [2D physics](#2d-physics-box2d) covers where the 2D core differs.
 
-> Verified against engine commit 8fdd99b1, 2026-10-09 (overhaul Wave 4).
+> Verified against engine commit 8fdd99b1, 2026-10-09 (overhaul Wave 4); collision events and `CollisionRouter` against d6a8e92a plus the per-entity callbacks change, 2026-10-16.
 
 ## Overview
 
@@ -19,7 +19,7 @@ Both cores step at the fixed rate while the world is started, then interpolate t
 | Compound body | colliders on children of an entity with a `Rigidbody` | several shapes on one body |
 | Constraint | `PhysicsJoint` | weld / revolute / spherical / prismatic / distance joint |
 | Character | `CharacterController` | Box3D mover + a kinematic capsule body |
-| Collision callbacks | `CollisionEvent` (`Modules/Dementia/Source/Events/Event.h` event) | contact and sensor begin/end events |
+| Collision callbacks | `CollisionEvent` (`Source/Physics/PhysicsTypes.h`), per entity through `CollisionRouter` (`Engine::Collisions`) | contact and sensor begin/end events |
 
 Units are metres, kilograms and seconds. Angles on components are degrees; Box3D gets radians.
 
@@ -33,6 +33,7 @@ Units are metres, kilograms and seconds. Angles on components are degrees; Box3D
 | `Source/Components/Physics/CharacterController.h` | Capsule character settings and API (`SetMoveInput`, `Move`, `Jump`, `IsOnGround`); also scriptable from C# (`Docs/Scripting-DotNet.md`) |
 | `Source/Components/Physics/PhysicsJoint.h` | Joint type, anchors, axis, limits, motor, spring, break force |
 | `Source/Physics/PhysicsTypes.h` | `PhysicsLayers`, `ForceMode`, `RaycastHit`, `CollisionEvent` |
+| `Source/Physics/CollisionRouter.h` / `Source/Physics/CollisionRouter.cpp` | Per-entity C++ collision callbacks (`Subscribe`, `Collision`), shared contact-target resolution |
 | `Source/Physics/Box3DUtils.h` | Vector / quaternion conversions; packing Box3D ids into `uint64_t` so headers don't include Box3D |
 | `Source/Physics/PhysicsDebugDraw.cpp` | `b3DebugDraw` callbacks routed to `DebugDraw` |
 | `Source/Engine/ProjectSettings.h` | Layer collision matrix and gravity (the project's `ProjectSettings.json` under `Assets/Config`) |
@@ -110,7 +111,19 @@ After each step, `ProcessEvents` reads Box3D's contact begin/end events and sens
 - `IsTrigger` and `State` (Enter / Exit) are set on every event.
 - `Point` and `Normal` are filled for contact Enter events.
 
-All events of a step are collected first and fired afterwards, so handlers may change the world. C# scripts get them as `OnCollisionEnter` / `OnTriggerEnter` and friends on both entities (`Docs/Scripting-DotNet.md`). Every shape enables sensor and contact events. Joints whose break force was exceeded are destroyed from Box3D's joint events, and `PhysicsJoint` remembers that it broke.
+All events of a step are collected first and fired afterwards, so handlers may change the world. They fire before `World::Simulate` flushes deferred destroys, so every handle in an event still resolves while handlers run. C# scripts get them as `OnCollisionEnter` / `OnTriggerEnter` and friends on both entities (`Docs/Scripting-DotNet.md`).
+
+C++ code subscribes per entity through the engine's `CollisionRouter` (`GetEngine().Collisions`), which listens to `CollisionEvent` (3D and 2D) and calls each side's subscribers:
+
+```cpp
+m_hits = GetEngine().Collisions->Subscribe( entity, [this]( const Collision& hit ) {
+    if( hit.State == CollisionEvent::Phase::Enter && !hit.IsTrigger ) { /* hit.Other, hit.Point, hit.Normal */ }
+} );   // a std::unique_ptr<CollisionSubscription>: destroying it unsubscribes
+```
+
+- Each contact reaches both sides. `Collision::Self` is the subscribed entity and `Normal` points from it towards `Other`.
+- The receivers on a side are the collider's entity and, when that has no body, the nearest ancestor with a `Rigidbody` / `Rigidbody2D` (compound bodies); `Collision::Collider` names the child collider. Scripts resolve targets the same way (`CollisionRouter::ResolveTargets`).
+- Subscribing or unsubscribing from a callback is safe (a new subscription hears the next contact change), and so is destroying a subscription after the router. Subscriptions are keyed by generational entity ids, so a recycled entity slot never inherits callbacks; entries of destroyed entities are dropped as new subscriptions come in. Every shape enables sensor and contact events. Joints whose break force was exceeded are destroyed from Box3D's joint events, and `PhysicsJoint` remembers that it broke.
 
 ### Queries
 
@@ -192,7 +205,7 @@ Joints have their own signature and are re-created when it changes.
 
 ## How to Extend
 
-- **React to collisions:** in C#, override `OnCollisionEnter` / `OnTriggerEnter` on a script of either entity. In C++, `Listen<CollisionEvent>` on an `EventReceiver` and compare `A` / `B` against your entities (see `PhysicsTest::CollisionLog` in the tests).
+- **React to collisions:** in C#, override `OnCollisionEnter` / `OnTriggerEnter` on a script of either entity. In C++, `GetEngine().Collisions->Subscribe( entity, callback )` and keep the returned subscription; `Listen<CollisionEvent>` on an `EventReceiver` still sees every contact when you need them all (see `PhysicsTest::CollisionLog` in the tests).
 - **A new collider shape:**
   1. Add a component that mixes in `ColliderSettings`, and register it with `ME_COLLIDER_FIELDS()`.
   2. Add it to `PhysicsCore`'s filter (`RequiresOneOf`) and to `HasAnyCollider`.
@@ -210,7 +223,7 @@ Joints have their own signature and are re-created when it changes.
 - **Static bodies moved in play mode teleport** and won't carry or push anything.
 - **Sphere and capsule colliders don't support non-uniform scale**; they take the largest relevant axis.
 - **The hull cache is keyed by `MeshData*`.** If a mesh is freed and another is allocated at the same address with the same component pointer, the stale hull is kept until the collider's shape signature changes.
-- **`CollisionEvent` is global.** Every receiver sees every contact and filters by entity.
+- **Exit events have gaps.** Stopping play or destroying the world sends no Exit events. A collider destroyed mid-contact still produces an Exit, but its side's handle is empty (the shape is gone), so only the other side hears it. Changing a collider's settings rebuilds its shapes, which can report a spurious Exit / Enter pair.
 - **Gravity:** edit mode resets the world's gravity to Project Settings every frame. `PhysicsCore::SetGravity` during play lasts until the next stop.
 - **Triangle mesh colliders on dynamic bodies silently become hulls.**
 - **Box3D is pre-1.0** (a pinned `ThirdParty/box3d` submodule commit). Its API is still moving, and an update may need `Box3DUtils` / `PhysicsCore` changes.

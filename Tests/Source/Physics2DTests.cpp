@@ -8,6 +8,7 @@
 #include "Cores/Physics2DCore.h"
 #include "Engine/World.h"
 #include "Events/EventReceiver.h"
+#include "Physics/CollisionRouter.h"
 #include <cmath>
 #include <memory>
 
@@ -368,3 +369,23 @@ TEST_CASE( "Physics 2D: bodies keep their X/Y tilt while spinning about Z" )
     CHECK( std::abs( axis.z ) == doctest::Approx( 1.f ).epsilon( 0.001 ) );
 }
 
+
+
+TEST_CASE( "Physics 2D: per-entity collision callbacks" )
+{
+    Scene scene;
+    CollisionRouter router;
+    EntityHandle ground = scene.Ground();
+    EntityHandle box = scene.DynamicBox( "Box", Vector3( 0.f, 3.f, 0.f ) );
+    std::vector<Collision> hits;
+    std::unique_ptr<CollisionSubscription> sub = router.Subscribe( box, [&]( const Collision& hit ) { hits.push_back( hit ); } );
+    scene.Start();
+    scene.Run( 2.f );
+
+    REQUIRE_FALSE( hits.empty() );
+    CHECK( hits.front().Self == box );
+    CHECK( hits.front().Other == ground );
+    CHECK( hits.front().Is2D );
+    CHECK( hits.front().State == CollisionEvent::Phase::Enter );
+    CHECK( hits.front().Normal.y < -0.9f );
+}

@@ -2,7 +2,7 @@
 
 MitchEngine is a C++20 game engine organized as a small set of static-library modules around an ECS runtime. A singleton `Engine` owns the window, renderer, job system, and `World`; games subclass `Game` and are wired in with the `ME_APPLICATION_MAIN` macro. This doc covers the module layout, the engine lifecycle (init → frame loop → shutdown), the split between engine-owned and scene-loaded cores, and the compile-time feature-flag system that gates everything else.
 
-> Verified against engine commit 7e869c6e, 2026-10-09; engine-owned cores and physics against 8fdd99b1, 2026-10-09; animation against 07617c5f, 2026-10-09; audio against afce7083, 2026-10-09; scripting against 6a4b006f, 2026-10-09; navigation against 8d6769a5, 2026-10-10; `--frame-time` and screenshot regression against 8ef02b56, 2026-10-10.
+> Verified against engine commit 7e869c6e, 2026-10-09; engine-owned cores and physics against 8fdd99b1, 2026-10-09; animation against 07617c5f, 2026-10-09; audio against afce7083, 2026-10-09; scripting against 6a4b006f, 2026-10-09; navigation against 8d6769a5, 2026-10-10; `--frame-time` and screenshot regression against 8ef02b56, 2026-10-10; `Engine::Collisions` against d6a8e92a plus the per-entity callbacks change, 2026-10-16.
 
 ## Overview
 
@@ -78,7 +78,7 @@ Games implement the pure-virtual `Game` interface (`Source/Game.h`): `OnInitiali
 4. `SDLWindow` is created on **all** platforms — including UWP (the old dedicated `UWPWindow` is gone). The window gets a `ResizeFunc` lambda that forwards resizes to the renderer, `UICore`, config, and a `WindowResizedEvent`.
 5. `BGFXRenderer::Create` — on Linux the SDL display pointer and window type (X11/Wayland) are passed through.
 6. ImGui SDL2 backend init, chosen per platform: D3D (Win64), Metal (macOS), Vulkan (Linux).
-7. `World` is created, then the **engine-owned cores** are `new`ed: `CameraCore`, `SceneCore`, `RenderCore`, `ParticleCore`, `PhysicsCore`, `Physics2DCore`, `AnimationCore`, `NavigationCore`, `AudioCore`, `UICore`, and in scripting builds `ScriptCore` (held as raw public members `Cameras`, `SceneNodes`, `ModelRenderer`, `Particles`, `Physics`, `Physics2D`, `Animation`, `Navigation`, `AudioThread`, `UI`, `Scripts`). Constructing `ScriptCore` starts .NET (`Docs/Scripting-DotNet.md`).
+7. `World` is created, then the **engine-owned cores** are `new`ed: `CameraCore`, `SceneCore`, `RenderCore`, `ParticleCore`, `PhysicsCore`, `Physics2DCore`, `AnimationCore`, `NavigationCore`, `AudioCore`, `UICore`, and in scripting builds `ScriptCore` (held as raw public members `Cameras`, `SceneNodes`, `ModelRenderer`, `Particles`, `Physics`, `Physics2D`, `Animation`, `Navigation`, `AudioThread`, `UI`, `Scripts`). Constructing `ScriptCore` starts .NET (`Docs/Scripting-DotNet.md`). Next to the physics cores the engine also creates `Collisions`, a `CollisionRouter` (not a core) that turns `CollisionEvent`s into per-entity C++ callbacks (`Docs/Physics.md`).
 8. A gizmo-draw callback is registered on the renderer that iterates every core's `OnDrawGuizmo`.
 9. `Engine::InitGame` adds those cores to the world via `World::AddCore<T>` and calls `Game::OnInitialize()`. (It also unconditionally logs the error-level marker `YIKES("Engine::InitGame")` — a leftover.)
 10. `ResizeFunc` is fired once manually, and `SystemRegistry` registers `Engine`, the renderer, and the `Jobs::JobSystem` so they are reachable through `UpdateContext`.

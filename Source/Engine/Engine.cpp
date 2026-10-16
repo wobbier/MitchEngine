@@ -21,6 +21,7 @@
 #include "Components/Cameras/FlyingCamera.h"
 #include "Cores/Cameras/FlyingCameraCore.h"
 #include "Cores/AudioCore.h"
+#include "Physics/CollisionRouter.h"
 #include "Components/Graphics/Model.h"
 #include "Audio/AudioOcclusion.h"
 #include "Input/Gamepads.h"
@@ -230,6 +231,7 @@ void Engine::Init( Game* game )
         Particles = new ParticleCore();
         Physics = new PhysicsCore();
         Physics2D = new Physics2DCore();
+        Collisions = new CollisionRouter();
         Animation = new AnimationCore();
         Navigation = new NavigationCore();
         // Automated runs (captures, editor scripts) and --no-audio never play through the speakers.

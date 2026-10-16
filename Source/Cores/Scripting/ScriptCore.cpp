@@ -6,10 +6,9 @@
 #include "Cores/NavigationCore.h"
 #include "Cores/Physics2DCore.h"
 #include "Cores/PhysicsCore.h"
-#include "Components/Physics/Rigidbody.h"
-#include "Components/Physics/Rigidbody2D.h"
 #include "Components/Transform.h"
 #include "Events/EventManager.h"
+#include "Physics/CollisionRouter.h"
 #include "Physics/PhysicsTypes.h"
 #include "Engine/Engine.h"
 #include "optick.h"
@@ -259,16 +258,8 @@ void ScriptCore::DeliverCollision( const EntityHandle& InSelf, const EntityHandl
         return;
     }
     // The collider's entity, and the body it belongs to when that's an ancestor (compound bodies).
-    Entity* targets[2] = { InSelf.Get(), nullptr };
-    for( Transform* parent = InSelf->GetComponent<Transform>().GetParentTransform(); parent && !InSelf->TryGetComponent<Rigidbody>() && !InSelf->TryGetComponent<Rigidbody2D>(); parent = parent->GetParentTransform() )
-    {
-        Entity* candidate = parent->Parent.Get();
-        if( candidate && ( candidate->TryGetComponent<Rigidbody>() || candidate->TryGetComponent<Rigidbody2D>() ) )
-        {
-            targets[1] = candidate;
-            break;
-        }
-    }
+    Entity* targets[2] = {};
+    CollisionRouter::ResolveTargets( *InSelf.Get(), targets );
     const EntityID other = InOther ? InOther.GetID() : EntityID{};
     for( Entity* target : targets )
     {

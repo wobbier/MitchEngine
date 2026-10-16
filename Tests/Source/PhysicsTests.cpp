@@ -10,6 +10,7 @@
 #include "Engine/ProjectSettings.h"
 #include "Engine/World.h"
 #include "Events/EventReceiver.h"
+#include "Physics/CollisionRouter.h"
 #include "World/SceneSerializer.h"
 #include <cmath>
 #include <memory>
@@ -507,4 +508,156 @@ TEST_CASE( "Physics: audio occlusion counts the objects between the listener and
     CHECK( CountAudioObstacles( scene.Physics, ear, Vector3( 8.f, 1.f, 0.f ), listener.Get(), *speaker.Get() ) == 0 );
     // Without the listener's entity its own collider would count.
     CHECK( CountAudioObstacles( scene.Physics, Vector3( 0.f, 1.f, -1.f ), PositionOf( speaker ), nullptr, *speaker.Get() ) == 3 );
+}
+
+
+TEST_CASE( "Physics: per-entity collision callbacks reach each side with its own normal" )
+{
+    Scene scene;
+    CollisionRouter router;
+    EntityHandle ground = scene.Ground();
+    EntityHandle box = scene.DynamicBox( "Box", Vector3( 0.f, 3.f, 0.f ) );
+    EntityHandle other = scene.DynamicBox( "Other", Vector3( 10.f, 3.f, 0.f ) );   // nobody subscribes to it
+
+    std::vector<Collision> boxHits;
+    std::vector<Collision> groundHits;
+    std::unique_ptr<CollisionSubscription> boxSub = router.Subscribe( box, [&]( const Collision& hit ) { boxHits.push_back( hit ); } );
+    std::unique_ptr<CollisionSubscription> groundSub = router.Subscribe( ground, [&]( const Collision& hit ) { groundHits.push_back( hit ); } );
+    REQUIRE( boxSub );
+    scene.Start();
+    scene.Run( 2.f );
+
+    REQUIRE_FALSE( boxHits.empty() );
+    const Collision& landed = boxHits.front();
+    CHECK( landed.Self == box );
+    CHECK( landed.Collider == box );
+    CHECK( landed.Other == ground );
+    CHECK( landed.State == CollisionEvent::Phase::Enter );
+    CHECK_FALSE( landed.IsTrigger );
+    CHECK_FALSE( landed.Is2D );
+    CHECK( landed.Normal.y < -0.9f );   // from the box down into the ground
+    CHECK( landed.Point.y == doctest::Approx( 0.f ).epsilon( 0.05 ) );
+    for( const Collision& hit : boxHits )
+    {
+        CHECK( hit.Other == ground );   // never the box nobody subscribed to
+    }
+
+    bool groundSawBox = false;
+    bool groundSawOther = false;
+    for( const Collision& hit : groundHits )
+    {
+        CHECK( hit.Self == ground );
+        groundSawBox |= hit.Other == box;
+        groundSawOther |= hit.Other == other;
+        if( hit.State == CollisionEvent::Phase::Enter )
+        {
+            CHECK( hit.Normal.y > 0.9f );   // from the ground up into the box
+        }
+    }
+    CHECK( groundSawBox );
+    CHECK( groundSawOther );
+}
+
+
+TEST_CASE( "Physics: collision subscriptions survive changes made from their own callbacks" )
+{
+    Scene scene;
+    CollisionRouter router;
+    // A ball falls through two trigger zones: enter, exit, enter, exit.
+    for( float y : { 2.f, -2.f } )
+    {
+        EntityHandle zone = scene.Create( "Zone", Vector3( 0.f, y, 0.f ) );
+        BoxCollider& trigger = zone->AddComponent<BoxCollider>();
+        trigger.Size = Vector3( 4.f, 1.f, 4.f );
+        trigger.IsTrigger = true;
+    }
+    EntityHandle ball = scene.Create( "Ball", Vector3( 0.f, 5.f, 0.f ) );
+    ball->AddComponent<Rigidbody>();
+    ball->AddComponent<SphereCollider>().Radius = 0.25f;
+
+    std::vector<CollisionEvent::Phase> phases;
+    int onceCalls = 0;
+    int lateCalls = 0;
+    std::unique_ptr<CollisionSubscription> late;
+    std::unique_ptr<CollisionSubscription> once;
+    once = router.Subscribe( ball, [&]( const Collision& ) {
+        ++onceCalls;
+        once.reset();   // unsubscribe from inside the callback
+        late = router.Subscribe( ball, [&]( const Collision& ) { ++lateCalls; } );   // hears the next change
+    } );
+    std::unique_ptr<CollisionSubscription> all = router.Subscribe( ball, [&]( const Collision& hit ) {
+        CHECK( hit.IsTrigger );
+        CHECK( hit.Self == ball );
+        phases.push_back( hit.State );
+    } );
+    scene.Start();
+    scene.Run( 2.5f );
+
+    REQUIRE( PositionOf( ball ).y < -3.f );
+    CHECK( phases == std::vector<CollisionEvent::Phase>{ CollisionEvent::Phase::Enter, CollisionEvent::Phase::Exit, CollisionEvent::Phase::Enter, CollisionEvent::Phase::Exit } );
+    CHECK( onceCalls == 1 );
+    CHECK_FALSE( once );
+    CHECK( lateCalls == 3 );
+}
+
+
+TEST_CASE( "Physics: compound colliders route to their body, dead entities and routers are safe" )
+{
+    Scene scene;
+    scene.Ground();
+    EntityHandle dumbbell = scene.Create( "Dumbbell", Vector3( 0.f, 3.f, 0.f ) );
+    dumbbell->AddComponent<Rigidbody>().Mass = 2.f;
+    EntityHandle weight = scene.Create( "Weight", Vector3( 0.f, 0.f, 0.f ) );
+    weight->GetComponent<Transform>().SetParent( dumbbell->GetComponent<Transform>() );
+    weight->AddComponent<SphereCollider>().Radius = 0.5f;
+
+    std::unique_ptr<CollisionSubscription> outlivesRouter;
+    {
+        CollisionRouter router;
+        std::vector<Collision> bodyHits;
+        std::vector<Collision> childHits;
+        std::unique_ptr<CollisionSubscription> body = router.Subscribe( dumbbell, [&]( const Collision& hit ) { bodyHits.push_back( hit ); } );
+        std::unique_ptr<CollisionSubscription> child = router.Subscribe( weight, [&]( const Collision& hit ) { childHits.push_back( hit ); } );
+        outlivesRouter = router.Subscribe( weight, []( const Collision& ) {} );
+        scene.Start();
+        scene.Run( 2.f );
+
+        REQUIRE_FALSE( bodyHits.empty() );
+        CHECK( bodyHits.front().Self == dumbbell );
+        CHECK( bodyHits.front().Collider == weight );
+        REQUIRE_FALSE( childHits.empty() );
+        CHECK( childHits.front().Self == weight );
+        CHECK( childHits.front().Collider == weight );
+
+        // A destroyed entity can't be subscribed to.
+        EntityHandle doomed = scene.Create( "Doomed", Vector3( 5.f, 5.f, 0.f ) );
+        scene.GameWorld->DestroyEntity( doomed );
+        scene.GameWorld->Simulate();
+        CHECK_FALSE( doomed );
+        CHECK_FALSE( router.Subscribe( doomed, []( const Collision& ) {} ) );
+    }
+    outlivesRouter.reset();   // the router is gone: unsubscribing is a no-op
+}
+
+
+TEST_CASE( "Physics: destroying a collider mid-contact sends a one-sided Exit" )
+{
+    Scene scene;
+    CollisionRouter router;
+    EntityHandle ground = scene.Ground();
+    EntityHandle box = scene.DynamicBox( "Box", Vector3( 0.f, 0.5f, 0.f ) );
+    std::vector<Collision> hits;
+    std::unique_ptr<CollisionSubscription> sub = router.Subscribe( ground, [&]( const Collision& hit ) { hits.push_back( hit ); } );
+    scene.Start();
+    scene.Run( 0.5f );
+    REQUIRE_FALSE( hits.empty() );
+    CHECK( hits.back().State == CollisionEvent::Phase::Enter );
+
+    hits.clear();
+    scene.GameWorld->DestroyEntity( box );
+    scene.Run( 0.1f );
+    REQUIRE( hits.size() == 1 );
+    CHECK( hits[0].State == CollisionEvent::Phase::Exit );
+    CHECK( hits[0].Self == ground );
+    CHECK_FALSE( hits[0].Other );   // the destroyed side's shape is gone
 }

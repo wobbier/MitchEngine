@@ -91,6 +91,8 @@ public:
     class ParticleCore* Particles = nullptr;
     class PhysicsCore* Physics = nullptr;
     class Physics2DCore* Physics2D = nullptr;
+    // Per-entity C++ collision callbacks (Physics/CollisionRouter.h).
+    class CollisionRouter* Collisions = nullptr;
     class AnimationCore* Animation = nullptr;
     class NavigationCore* Navigation = nullptr;
     class AudioCore* AudioThread = nullptr;
