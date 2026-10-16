@@ -1219,6 +1219,14 @@ void ShaderGraphDocument::DrawGraphSettings()
     {
         checkbox( "Fog", settings.Fog, "Transparent surfaces apply height fog themselves." );
     }
+    if( target == Target::PostProcess )
+    {
+        combo( "Injection", settings.Injection, { "Before Tonemap", "After Tonemap" } );
+        if( ImGui::IsItemHovered() )
+        {
+            ImGui::SetTooltip( "Before: on HDR scene light (bloom and exposure see the result). After: on the display image." );
+        }
+    }
     ImGui::PopItemWidth();
 
     if( changed )

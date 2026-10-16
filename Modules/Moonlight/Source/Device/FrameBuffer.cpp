@@ -107,6 +107,11 @@ void Moonlight::FrameBuffer::Release()
         DestroyIfValid( clouds.Color );
     }
     CloudValid = false;
+    for( Mip* graph : { &GraphHdr[0], &GraphHdr[1], &GraphLdr[0], &GraphLdr[1] } )
+    {
+        DestroyIfValid( graph->Buffer );
+        DestroyIfValid( graph->Color );
+    }
     PostInput = BGFX_INVALID_HANDLE;
     DestroyIfValid( ParticleBuffer );
     DestroyIfValid( ClusterGrid );
@@ -139,6 +144,24 @@ void Moonlight::FrameBuffer::EnsureCloudTargets()
         {
             clouds = CreateColorTarget( static_cast<uint16_t>( std::max<uint32_t>( Width / 2, 1 ) ), static_cast<uint16_t>( std::max<uint32_t>( Height / 2, 1 ) ), bgfx::TextureFormat::RGBA16F, "Sky Clouds" );
             CloudValid = false;
+        }
+    }
+}
+
+
+void Moonlight::FrameBuffer::EnsureGraphTargets( bool InHdr, bool InLdr )
+{
+    const uint16_t width = static_cast<uint16_t>( std::max<uint32_t>( Width, 1 ) );
+    const uint16_t height = static_cast<uint16_t>( std::max<uint32_t>( Height, 1 ) );
+    for( int i = 0; i < 2; ++i )
+    {
+        if( InHdr && !bgfx::isValid( GraphHdr[i].Color ) )
+        {
+            GraphHdr[i] = CreateColorTarget( width, height, bgfx::TextureFormat::RGBA16F, "Shader Graph Post (HDR)" );
+        }
+        if( InLdr && !bgfx::isValid( GraphLdr[i].Color ) )
+        {
+            GraphLdr[i] = CreateColorTarget( width, height, bgfx::TextureFormat::RGBA8, "Shader Graph Post (LDR)" );
         }
     }
 }

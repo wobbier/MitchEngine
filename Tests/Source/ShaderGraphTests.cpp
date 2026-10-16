@@ -98,7 +98,7 @@ namespace
         propertyIds.push_back( graph.AddProperty( "Bool Property", ValueType::Bool ).Id );
 
         const uint32_t outputNode = OutputOf( graph ).Id;
-        const std::string sink = InStage == Stage::Vertex ? "Position Offset" : ( InTarget == Target::Unlit || InTarget == Target::Particle ? "Color" : "Base Color" );
+        const std::string sink = InStage == Stage::Vertex ? "Position Offset" : ( InTarget == Target::Unlit || InTarget == Target::Particle || InTarget == Target::PostProcess ? "Color" : "Base Color" );
         uint32_t accumulator = 0;
         std::string accumulatorPin;
         auto fold = [&]( uint32_t InNode, const std::string& InPin ) {
@@ -498,6 +498,11 @@ TEST_CASE( "ShaderGraph: generated stages agree on varyings" )
         REQUIRE( result.Success );
         CHECK( Varyings( FileText( result, "Decal.frag" ), "$input" ) == Varyings( EngineShader( "Decal.vert" ), "$output" ) );
     }
+    {
+        const CompileResult result = Compile( Graph::CreateDefault( Target::PostProcess ) );
+        REQUIRE( result.Success );
+        CHECK( Varyings( FileText( result, "Post.frag" ), "$input" ) == Varyings( EngineShader( "Post/Fullscreen.vert" ), "$output" ) );
+    }
     CompileOptions preview;
     preview.Preview = true;
     const CompileResult result = Compile( Graph::CreateDefault( Target::Lit ), preview );
@@ -514,12 +519,12 @@ TEST_CASE( "ShaderGraph: shaderc errors map back to nodes" )
 
 TEST_CASE( "ShaderGraph: every node compiles with shaderc in every target" * doctest::timeout( 600 ) )
 {
-    for( const Target target : { Target::Lit, Target::Unlit, Target::Particle, Target::Decal } )
+    for( const Target target : { Target::Lit, Target::Unlit, Target::Particle, Target::Decal, Target::PostProcess } )
     {
         for( const Stage stage : { Stage::Fragment, Stage::Vertex } )
         {
-            // Particle and decal graphs only have fragment outputs (the engine draws the geometry).
-            if( stage == Stage::Vertex && ( target == Target::Particle || target == Target::Decal ) )
+            // Particle, decal and post graphs only have fragment outputs (the engine draws the geometry).
+            if( stage == Stage::Vertex && ( target == Target::Particle || target == Target::Decal || target == Target::PostProcess ) )
             {
                 continue;
             }

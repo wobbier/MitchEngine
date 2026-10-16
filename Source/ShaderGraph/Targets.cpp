@@ -323,6 +323,65 @@ namespace ShaderGraph
     }
 
 
+    namespace
+    {
+        // Full-screen passes on the camera's image (PostProcess.Graphs).
+        class PostProcessTargetDef
+            : public TargetDef
+        {
+        public:
+            PostProcessTargetDef()
+            {
+                Id = Target::PostProcess;
+                DisplayName = "Post Process";
+                Description = "A full-screen pass on the camera's image (add it to a PostProcess component's Graphs). Before tonemapping it works on HDR scene light; after, on the display image.";
+                HasSceneColor = true;
+                HasSceneDepth = true;
+                // Stage 6: the scene colour, 7: the scene depth.
+                MaxTextures = 6;
+            }
+
+            void BuildOutputPins( const TargetSettings&, std::vector<PinDef>& OutPins ) const override
+            {
+                OutPins.push_back( PinDef( "Color", ValueType::Vec3 ).Bind( Builtin::SceneColorInput ).Color().StageOnly( StageFragment ).Tip( "The new image (unconnected: unchanged)." ) );
+            }
+
+            const BuiltinSource* GetBuiltin( Builtin InBuiltin, Stage InStage ) const override
+            {
+                static const BuiltinTable table = {
+                    { Builtin::UV0, { "vec2 sg_UV0 = v_texcoord0;", {} } },
+                    { Builtin::ScreenUV, { "vec2 sg_ScreenUV = v_texcoord0;", {} } },
+                    { Builtin::ScreenPixel, { "vec2 sg_ScreenPixel = sg_fragCoord.xy;", {} } },
+                    { Builtin::SceneColorInput, { "vec3 sg_SceneColorInput = sgSceneColor(v_texcoord0);", {} } },
+                    { Builtin::PositionView, { "vec3 sg_PositionView = sgViewPosition(v_texcoord0);", {} } },
+                    { Builtin::PositionWorld, { "vec3 sg_PositionWorld = mul(u_sgPostInvView, vec4(sg_PositionView, 1.0)).xyz;", { Builtin::PositionView } } },
+                    { Builtin::CameraPosition, { "vec3 sg_CameraPosition = mul(u_sgPostInvView, vec4(0.0, 0.0, 0.0, 1.0)).xyz;", {} } },
+                    { Builtin::ViewDirectionWorld, { "vec3 sg_ViewDirectionWorld = sgSafeNormalize(sg_CameraPosition - sg_PositionWorld);", { Builtin::CameraPosition, Builtin::PositionWorld } } },
+                    { Builtin::NormalWorld, { "vec3 sg_NormalWorld = sgSafeNormalize(mul(u_sgPostInvView, vec4(sgViewNormal(v_texcoord0), 0.0)).xyz);", {} } },
+                    { Builtin::TangentWorld, { "vec3 sg_TangentWorld = sgSafeNormalize(cross(abs(sg_NormalWorld.y) < 0.99 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0), sg_NormalWorld));", { Builtin::NormalWorld } } },
+                    { Builtin::BitangentWorld, { "vec3 sg_BitangentWorld = cross(sg_NormalWorld, sg_TangentWorld);", { Builtin::NormalWorld, Builtin::TangentWorld } } },
+                    { Builtin::FrontFacing, { "bool sg_FrontFacing = true;", {} } },
+                    { Builtin::Time, { "float sg_Time = u_time.y;", {} } },
+                    { Builtin::DeltaTime, { "float sg_DeltaTime = u_time.x;", {} } },
+                };
+                return InStage == Stage::Fragment ? FindBuiltin( table, InBuiltin ) : nullptr;
+            }
+
+            void GetDefines( const TargetSettings&, std::vector<std::string>& OutDefines ) const override
+            {
+                OutDefines.push_back( "SG_TARGET_POST 1" );
+            }
+
+            void GetFiles( const TargetSettings&, const GraphFacts&, std::vector<TemplateFile>& OutFiles, json& OutPrograms ) const override
+            {
+                OutFiles.push_back( { "Post.var", "../../Post/Fullscreen.var", TemplateFile::Kind::Varyings } );
+                OutFiles.push_back( { "Post.frag", "PostProcess.frag.sgt", TemplateFile::Kind::Fragment } );
+                OutPrograms["Forward"] = json::array( { "@Assets/Shaders/Post/Fullscreen", "Post" } );
+            }
+        };
+    }
+
+
     void TargetDef::GetDefines( const TargetSettings& InSettings, std::vector<std::string>& OutDefines ) const
     {
         if( InSettings.AlphaClip )
@@ -346,6 +405,7 @@ namespace ShaderGraph
         static const UnlitTargetDef unlit;
         static const ParticleTargetDef particle;
         static const DecalTargetDef decal;
+        static const PostProcessTargetDef post;
         switch( InTarget )
         {
         case Target::Lit:
@@ -356,6 +416,8 @@ namespace ShaderGraph
             return &particle;
         case Target::Decal:
             return &decal;
+        case Target::PostProcess:
+            return &post;
         default:
             return nullptr;
         }
@@ -386,6 +448,7 @@ namespace ShaderGraph
             { Builtin::ParticleVelocity, { "vec3 sg_ParticleVelocity = vec3(0.0, 1.0, 0.0);", {} } },
             { Builtin::DecalFade, { "float sg_DecalFade = 1.0;", {} } },
             { Builtin::ParticleQuadUV, { "vec2 sg_ParticleQuadUV = v_texcoord0;", {} } },
+            { Builtin::SceneColorInput, { "vec3 sg_SceneColorInput = sgSceneColor(v_texcoord0);", {} } },
         };
         return FindBuiltin( table, InBuiltin );
     }

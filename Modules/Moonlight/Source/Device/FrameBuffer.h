@@ -72,6 +72,11 @@ namespace Moonlight
         uint32_t CloudFrame = 0;            // position in the sub-pixel jitter sequence
         float CloudPreviousBasis[9] = {};   // last frame's right / tan, up / tan, forward (see DynamicSky)
         void EnsureCloudTargets();
+        // Shader graph post-process passes (created on first use): ping-pong targets for passes on
+        // the HDR scene (RGBA16F) and on the display image (RGBA8).
+        Mip GraphHdr[2];
+        Mip GraphLdr[2];
+        void EnsureGraphTargets( bool InHdr, bool InLdr );
 
         // This frame's HDR image for bloom, exposure and tonemapping: the temporal resolve, or
         // SceneColor.

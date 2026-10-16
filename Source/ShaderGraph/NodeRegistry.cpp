@@ -34,6 +34,7 @@ namespace ShaderGraph
             { "ParticleVelocity", ValueType::Vec3 },
             { "DecalFade", ValueType::Float },
             { "ParticleQuadUV", ValueType::Vec2 },
+            { "SceneColorInput", ValueType::Vec3 },
         };
         static_assert( sizeof( kBuiltins ) / sizeof( kBuiltins[0] ) == static_cast<size_t>( Builtin::Count ), "Builtin table out of sync" );
 

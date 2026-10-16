@@ -2,6 +2,9 @@
 #include "ECS/Component.h"
 #include "ECS/ComponentDetail.h"
 #include "Camera/PostProcessSettings.h"
+#include "Path.h"
+#include <string>
+#include <vector>
 
 // Image settings for the camera on the same entity: exposure, tonemapping, bloom, ambient
 // occlusion, colour grading, vignette and anti-aliasing. Cameras without one use the defaults.
@@ -64,6 +67,13 @@ public:
     bool FXAA = true;
     bool TemporalAA = false;
     float TemporalSharpness = 0.25f;
+
+    // Post Process shader graphs, applied in order.
+    std::vector<Path> Graphs;
+
+private:
+    // Loaded graphs by path (resolved on the main thread in ToSettings).
+    mutable std::vector<std::pair<std::string, SharedPtr<Moonlight::ShaderGraphAsset>>> m_graphs;
 };
 
 ME_REGISTER_COMPONENT_FOLDER( PostProcess, "Rendering" )

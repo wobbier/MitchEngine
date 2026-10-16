@@ -1,5 +1,7 @@
 #include "PCH.h"
 #include "PostProcess.h"
+#include "Materials/ShaderGraphAsset.h"
+#include "Resource/ResourceCache.h"
 
 ME_REFLECT_ENUM( Moonlight::Tonemapper, { { "None", Moonlight::Tonemapper::None }, { "ACES", Moonlight::Tonemapper::ACES }, { "AgX", Moonlight::Tonemapper::AgX }, { "Reinhard", Moonlight::Tonemapper::Reinhard } } )
 
@@ -40,6 +42,7 @@ ME_REFLECT_BEGIN( PostProcess )
     ME_FIELD( Lift ).Category( "Color Grading" ).Range( -0.5f, 0.5f );
     ME_FIELD( Gain ).Category( "Color Grading" ).Range( 0.f, 2.f );
     ME_FIELD( VignetteIntensity ).Category( "Vignette" ).Range( 0.f, 1.f );
+    ME_FIELD( Graphs ).Category( "Shader Graphs" ).Asset( "ShaderGraph" ).Tooltip( "Post Process shader graphs, applied in order (each before or after tonemapping, per the graph)" );
     ME_FIELD( VignetteSmoothness ).Category( "Vignette" ).Range( 0.01f, 2.f );
 ME_REFLECT_END()
 
@@ -92,5 +95,23 @@ Moonlight::PostProcessSettings PostProcess::ToSettings() const
     settings.FXAA = FXAA;
     settings.TemporalAA = TemporalAA;
     settings.TemporalSharpness = TemporalSharpness;
+    // Graphs: loaded once per path (Material.json is small; its programs load in the background).
+    if( m_graphs.size() != Graphs.size() )
+    {
+        m_graphs.resize( Graphs.size() );
+    }
+    for( size_t i = 0; i < Graphs.size(); ++i )
+    {
+        const std::string& path = Graphs[i].GetLocalPathString();
+        if( m_graphs[i].first != path )
+        {
+            m_graphs[i].first = path;
+            m_graphs[i].second = path.empty() ? nullptr : ResourceCache::GetInstance().Get<Moonlight::ShaderGraphAsset>( Moonlight::ShaderGraphAsset::ManifestPathFor( path ) );
+        }
+        if( m_graphs[i].second && m_graphs[i].second->IsValid() && m_graphs[i].second->GetTarget() == "PostProcess" )
+        {
+            settings.Graphs.push_back( m_graphs[i].second );
+        }
+    }
     return settings;
 }

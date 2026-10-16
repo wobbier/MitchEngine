@@ -364,6 +364,82 @@ namespace
     }
 
 
+    bgfx::UniformHandle GraphUniform( const char* InName, bgfx::UniformType::Enum InType )
+    {
+        auto found = GraphSamplers().find( InName );
+        if( found == GraphSamplers().end() )
+        {
+            found = GraphSamplers().emplace( InName, bgfx::createUniform( InName, InType ) ).first;
+        }
+        return found->second;
+    }
+
+
+    // Post Process shader graphs injected at InInjection, in order: each reads the previous image
+    // (InInput) and writes the next. The last writes InFinal when given (after tonemapping),
+    // otherwise the passes ping-pong in the HDR targets and the last image is returned.
+    bgfx::TextureHandle RenderGraphPostPasses( Moonlight::ViewAllocator& InViews, const Moonlight::CameraData& InCamera, Moonlight::FrameBuffer& InTargets, const char* InInjection, bgfx::TextureHandle InInput, bgfx::FrameBufferHandle InFinal, uint16_t InFinalWidth, uint16_t InFinalHeight )
+    {
+        std::vector<const Moonlight::ShaderGraphAsset*> passes;
+        for( const SharedPtr<Moonlight::ShaderGraphAsset>& graph : InCamera.Post.Graphs )
+        {
+            if( graph && graph->GetManifest().value( "Injection", std::string( "BeforeTonemap" ) ) == InInjection && bgfx::isValid( graph->GetProgramHandle( "Forward" ) ) )
+            {
+                passes.push_back( graph.get() );
+            }
+        }
+        if( passes.empty() )
+        {
+            return InInput;
+        }
+        const bool hdr = !bgfx::isValid( InFinal ) && InFinalWidth == 0;
+        InTargets.EnsureGraphTargets( hdr, !hdr );
+        Moonlight::FrameBuffer::Mip* pingPong = hdr ? InTargets.GraphHdr : InTargets.GraphLdr;
+
+        const glm::mat4& projection = InCamera.ProjectionMatrix.GetInternalMatrix();
+        const float projection1[4] = { projection[2][2], projection[3][2], InCamera.Projection == Moonlight::ProjectionType::Orthographic ? 1.f : 0.f, bgfx::getCaps()->homogeneousDepth ? 1.f : 0.f };
+        const float projection2[4] = { projection[0][0], projection[1][1], InCamera.Far, 0.f };
+        const glm::mat4 invView = glm::inverse( InCamera.View.GetInternalMatrix() );
+        float ortho[16];
+        bx::mtxOrtho( ortho, 0.f, 1.f, 1.f, 0.f, 0.f, 100.f, 0.f, bgfx::getCaps()->homogeneousDepth );
+
+        bgfx::TextureHandle input = InInput;
+        // After tonemapping the first pass reads InInput (the tonemapped image in GraphLdr[0]).
+        int write = hdr ? 0 : 1;
+        for( size_t i = 0; i < passes.size(); ++i )
+        {
+            const bool last = i + 1 == passes.size();
+            const bgfx::ViewId view = InViews.Allocate( hdr ? "Shader Graph Post (HDR)" : "Shader Graph Post" );
+            if( view == UINT16_MAX )
+            {
+                break;
+            }
+            Moonlight::FrameBuffer::Mip& target = pingPong[write];
+            const bool toFinal = last && !hdr;
+            bgfx::setViewFrameBuffer( view, toFinal ? InFinal : target.Buffer );
+            bgfx::setViewRect( view, 0, 0, toFinal ? InFinalWidth : target.Width, toFinal ? InFinalHeight : target.Height );
+            bgfx::setViewTransform( view, nullptr, ortho );
+            bgfx::touch( view );
+
+            Vector4 parameters[Moonlight::ShaderGraphAsset::kMaxParameters];
+            passes[i]->PackParameters( {}, parameters );
+            passes[i]->Bind( parameters, {} );
+            bgfx::setTexture( 6, GraphUniform( "s_sgSceneColor", bgfx::UniformType::Sampler ), input, BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP );
+            bgfx::setTexture( 7, GraphUniform( "s_sgSceneDepth", bgfx::UniformType::Sampler ), InTargets.DepthTexture, BGFX_SAMPLER_POINT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP );
+            bgfx::setUniform( GraphUniform( "u_sgPostProjection", bgfx::UniformType::Vec4 ), projection1 );
+            bgfx::setUniform( GraphUniform( "u_sgPostProjection2", bgfx::UniformType::Vec4 ), projection2 );
+            bgfx::setUniform( GraphUniform( "u_sgPostInvView", bgfx::UniformType::Mat4 ), &invView[0][0] );
+            bgfx::setState( BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A );
+            Moonlight::screenSpaceQuad( 1.f, 1.f, 0.f, bgfx::getCaps()->originBottomLeft );
+            bgfx::submit( view, passes[i]->GetProgramHandle( "Forward" ) );
+
+            input = target.Color;
+            write = 1 - write;
+        }
+        return input;
+    }
+
+
     bgfx::UniformHandle GraphSampler( const char* InName )
     {
         // Not operator[]: a value-initialised handle is index 0, a valid (someone else's) uniform.
@@ -989,10 +1065,26 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     if( options.DebugDraw ) SubmitDebugLines( camera, transparentView );
     if( sceneEffects && options.Particles ) RenderParticles( camera );
 
-    // HDR -> final image (bloom, exposure, tonemapping, grading, FXAA).
+    // HDR -> final image (bloom, exposure, tonemapping, grading, FXAA), with any Post Process shader
+    // graphs on the HDR scene (they replace the image bloom and tonemapping read) and on the display
+    // image (the stock chain then renders into a ping-pong target, and the last graph writes target).
     m_postProcess->RenderTemporalAA( m_views, camera, *camera.Buffer );
+    camera.Buffer->PostInput = RenderGraphPostPasses( m_views, camera, *camera.Buffer, "BeforeTonemap", camera.Buffer->PostInput, BGFX_INVALID_HANDLE, 0, 0 );
     m_postProcess->DeltaSeconds = std::max( m_time.x, 0.0001f );
-    m_postProcess->Render( m_views, camera, *camera.Buffer, target, targetWidth, targetHeight );
+    const bool displayGraphs = std::any_of( camera.Post.Graphs.begin(), camera.Post.Graphs.end(), []( const SharedPtr<Moonlight::ShaderGraphAsset>& InGraph ) {
+        return InGraph && InGraph->GetManifest().value( "Injection", std::string() ) == "AfterTonemap" && bgfx::isValid( InGraph->GetProgramHandle( "Forward" ) );
+    } );
+    if( displayGraphs )
+    {
+        Moonlight::FrameBuffer& buffer = *camera.Buffer;
+        buffer.EnsureGraphTargets( false, true );
+        m_postProcess->Render( m_views, camera, buffer, buffer.GraphLdr[0].Buffer, buffer.GraphLdr[0].Width, buffer.GraphLdr[0].Height );
+        RenderGraphPostPasses( m_views, camera, buffer, "AfterTonemap", buffer.GraphLdr[0].Color, target, targetWidth, targetHeight );
+    }
+    else
+    {
+        m_postProcess->Render( m_views, camera, *camera.Buffer, target, targetWidth, targetHeight );
+    }
 
     float orthoProj[16];
     bx::mtxOrtho( orthoProj, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, bgfx::getCaps()->homogeneousDepth );

@@ -365,7 +365,9 @@ namespace ReflectionUI
                 {
                     ImGui::PushID( static_cast<int>( i ) );
                     const std::string elementLabel = "[" + std::to_string( i ) + "]";
-                    changed |= DrawValue( elementLabel.c_str(), nullptr, *InOps.Element, InOps.ArrayAt( InValue, i ), false );
+                    // Asset lists (std::vector<Path>) pick each element from their filter.
+                    const FieldInfo* elementField = InField && InField->Has( FieldFlags::Asset ) ? InField : nullptr;
+                    changed |= DrawValue( elementLabel.c_str(), elementField, *InOps.Element, InOps.ArrayAt( InValue, i ), false );
                     ImGui::PopID();
                 }
                 ImGui::TreePop();

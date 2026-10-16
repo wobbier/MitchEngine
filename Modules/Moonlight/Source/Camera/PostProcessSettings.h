@@ -1,8 +1,12 @@
 #pragma once
 #include <cstdint>
+#include <vector>
+#include "Pointers.h"
 
 namespace Moonlight
 {
+    class ShaderGraphAsset;
+
     enum class Tonemapper : uint8_t
     {
         None = 0,   // clamp
@@ -66,5 +70,9 @@ namespace Moonlight
         // image is resolved against the reprojected history (camera motion through the depth).
         bool TemporalAA = false;
         float TemporalSharpness = 0.25f;    // counters the resolve's softening (0 = none)
+
+        // Post Process shader graphs, in order (each runs before or after tonemapping per its
+        // Injection setting).
+        std::vector<SharedPtr<ShaderGraphAsset>> Graphs;
     };
 }

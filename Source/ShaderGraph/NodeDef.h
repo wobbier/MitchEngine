@@ -35,6 +35,7 @@ namespace ShaderGraph
         ParticleVelocity,  // world units / second
         DecalFade,         // angle fade 0..1
         ParticleQuadUV,    // the particle quad's own 0..1 UV (UV0 is the flipbook cell's)
+        SceneColorInput,   // post-process: the image under this pixel (what the pass replaces)
         Count,
         None = Count
     };
