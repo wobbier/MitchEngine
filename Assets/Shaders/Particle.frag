@@ -1,4 +1,4 @@
-$input v_texcoord0, v_color0, v_viewPos, v_worldPos
+$input v_texcoord0, v_color0, v_viewPos, v_worldPos, v_particleData, v_particleVelocity
 
 // Particles in linear HDR. No depth buffer is bound (so the scene depth can be read as a texture):
 // the depth test happens here, and particles fade out where they meet geometry (soft particles).

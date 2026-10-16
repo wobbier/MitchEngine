@@ -131,6 +131,8 @@ namespace Moonlight
         // <Graph>.sg/Material.json for a graph path (accepts the manifest path itself).
         static Path ManifestPathFor( const std::string& InGraphPath );
         static void CreateUniforms();
+        // Renderer teardown.
+        static void DestroyUniforms();
 
     private:
         bool Parse();

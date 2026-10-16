@@ -1,6 +1,7 @@
 #include "PCH.h"
 #include "ParticleSystem.h"
 #include "Graphics/Texture.h"
+#include "Materials/ShaderGraphAsset.h"
 #include "Resource/ResourceCache.h"
 #include <algorithm>
 #include <cmath>
@@ -51,6 +52,7 @@ ME_REFLECT_BEGIN( ParticleSystem )
     ME_FIELD( FlipbookRows ).Category( "Rendering" ).Range( 1.f, 64.f );
     ME_FIELD( FlipbookFps ).Category( "Rendering" ).Range( 0.f, 120.f ).Tooltip( "0 plays the flipbook once over each particle's life" );
     ME_FIELD( SoftParticleDistance ).Category( "Rendering" ).Range( 0.f, 10.f ).Tooltip( "Fade where particles meet geometry (0 = hard edges)" );
+    ME_FIELD( Graph ).Category( "Rendering" ).Asset( "ShaderGraph" ).Tooltip( "A Particle shader graph for the quads' colour (it can still read the Texture and the colour over life)" );
     ME_FIELD( Lit ).Category( "Rendering" ).Tooltip( "Shade with the sun, point / spot lights (and their shadows) and ambient light, like smoke; additive glows usually stay unlit" );
 ME_REFLECT_END()
 
@@ -101,6 +103,12 @@ float ParticleSystem::RandomRange( const Vector2& InRange )
 
 void ParticleSystem::ResolveTexture()
 {
+    const std::string& graph = Graph.GetLocalPathString();
+    if( graph != m_loadedGraph )
+    {
+        m_loadedGraph = graph;
+        m_graph = graph.empty() ? nullptr : ResourceCache::GetInstance().Get<Moonlight::ShaderGraphAsset>( Moonlight::ShaderGraphAsset::ManifestPathFor( graph ) );
+    }
     const std::string& path = Texture.GetLocalPathString();
     if( path == m_loadedTexture )
     {
@@ -253,6 +261,7 @@ void ParticleSystem::FillBatch( Moonlight::ParticleBatch& OutBatch, const glm::m
     OutBatch.StretchFactor = StretchFactor;
     OutBatch.Softness = SoftParticleDistance;
     OutBatch.Lit = Lit;
+    OutBatch.Graph = m_graph && m_graph->IsValid() && m_graph->GetTarget() == "Particle" ? m_graph : nullptr;
     OutBatch.FlipbookColumns = static_cast<uint16_t>( std::clamp( FlipbookColumns, 1, 64 ) );
     OutBatch.FlipbookRows = static_cast<uint16_t>( std::clamp( FlipbookRows, 1, 64 ) );
     OutBatch.Bounds = AABB();

@@ -247,6 +247,53 @@ namespace ShaderGraph
             node.Expressions = { { "UV", "{B:ScreenUV}" }, { "Pixel", "{B:ScreenPixel}" } };
         }
         {
+            ExpressionNode& node = InRegistry.Expression( "SceneDepth", "Scene Depth", "Input/Scene" );
+            node.Keywords = "depth buffer distance z soft intersection";
+            node.Description = "Linear view depth (distance along the view) of the opaque scene under a screen position.";
+            node.Stages = StageFragment;
+            node.Targets = TargetBit( Target::Particle ) | TargetBit( Target::Decal ) | TargetBit( Target::PostProcess );
+            node.Inputs = { Pin( "UV", ValueType::Vec2 ).Bind( Builtin::ScreenUV ) };
+            node.Outputs = { Pin( "Out", ValueType::Float ) };
+            node.Expressions = { { "Out", "sgSceneDepth({UV})" } };
+        }
+        {
+            ExpressionNode& node = InRegistry.Expression( "SceneColor", "Scene Color", "Input/Scene" );
+            node.Keywords = "screen color frame buffer grab distortion";
+            node.Description = "The rendered image under a screen position (HDR before tonemapping, display colour after).";
+            node.Stages = StageFragment;
+            node.Targets = TargetBit( Target::PostProcess );
+            node.Inputs = { Pin( "UV", ValueType::Vec2 ).Bind( Builtin::ScreenUV ) };
+            node.Outputs = { Pin( "Out", ValueType::Vec3 ) };
+            node.Expressions = { { "Out", "sgSceneColor({UV})" } };
+        }
+        {
+            ExpressionNode& node = InRegistry.Expression( "Particle", "Particle", "Input/Particle" );
+            node.Keywords = "particle colour color rotation velocity quad uv";
+            node.Description = "The particle's colour (with alpha, over its life), its own quad UV, rotation (radians) and velocity.";
+            node.Targets = TargetBit( Target::Particle );
+            node.Outputs = { Pin( "Color", ValueType::Vec4 ), Pin( "Quad UV", ValueType::Vec2 ), Pin( "Rotation", ValueType::Float ), Pin( "Velocity", ValueType::Vec3 ) };
+            node.AliasOutputs = true;
+            node.Expressions = { { "Color", "{B:VertexColor}" }, { "Quad UV", "{B:ParticleQuadUV}" }, { "Rotation", "{B:ParticleRotation}" }, { "Velocity", "{B:ParticleVelocity}" } };
+        }
+        {
+            ExpressionNode& node = InRegistry.Expression( "ParticleTexture", "Particle Texture", "Input/Particle" );
+            node.Keywords = "particle texture sprite main";
+            node.Description = "The ParticleSystem's Texture (sample it with UV for the flipbook cell).";
+            node.Targets = TargetBit( Target::Particle );
+            node.Outputs = { Pin( "Out", ValueType::Texture2D ) };
+            node.AliasOutputs = true;
+            node.Expressions = { { "Out", "sgParticleTexture" } };
+        }
+        {
+            ExpressionNode& node = InRegistry.Expression( "Decal", "Decal", "Input/Decal" );
+            node.Keywords = "decal fade box projection";
+            node.Description = "The decal's angle fade and the position inside its box (-0.5..0.5).";
+            node.Targets = TargetBit( Target::Decal );
+            node.Outputs = { Pin( "Fade", ValueType::Float ), Pin( "Box Position", ValueType::Vec3 ) };
+            node.AliasOutputs = true;
+            node.Expressions = { { "Fade", "{B:DecalFade}" }, { "Box Position", "{B:PositionObject}" } };
+        }
+        {
             ExpressionNode& node = InRegistry.Expression( "IsFrontFace", "Is Front Face", "Input/Geometry" );
             node.Keywords = "backface two sided double";
             node.Stages = StageFragment;

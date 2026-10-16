@@ -52,7 +52,7 @@ vec4 sgPreviewLit(vec3 _base, vec3 _normal, float _metallic, float _roughness, v
 }
 
 // Stand-ins for the scene inputs post-process / decal / particle graphs read.
-vec3 sgPreviewSceneColor(vec2 _uv)
+vec3 sgSceneColor(vec2 _uv)
 {
 	vec3 sky = mix(vec3(0.62, 0.74, 0.95), vec3(0.2, 0.33, 0.62), clamp(_uv.y * 1.6, 0.0, 1.0));
 	vec2 checks = floor(_uv * vec2(8.0, 6.0));
@@ -61,7 +61,7 @@ vec3 sgPreviewSceneColor(vec2 _uv)
 	return _uv.y < 0.55 ? sky * (1.4 - _uv.y) : ground;
 }
 
-float sgPreviewSceneDepth(vec2 _uv)
+float sgSceneDepth(vec2 _uv)
 {
 	return _uv.y < 0.55 ? 1000.0 : mix(30.0, 2.0, (_uv.y - 0.55) / 0.45);
 }

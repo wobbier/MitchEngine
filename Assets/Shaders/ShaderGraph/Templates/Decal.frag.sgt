@@ -1,0 +1,38 @@
+// Generated from {{GRAPH}} by the shader graph compiler: edit the graph, not this file.
+// Pairs with the engine's Decal.vert: the graph supplies the decal's surface, DecalCommon.sh
+// projects and lights it like Decal.frag.
+{{DEFINES}}
+#include "Common.sh"
+
+SAMPLER2D(s_sgSceneDepth, 7);
+#define DECAL_SCENE_DEPTH s_sgSceneDepth
+#include "DecalCommon.sh"
+#include "ShaderGraph/SGLib.sh"
+
+// Linear view depth of the opaque scene under a screen UV.
+float sgSceneDepth(vec2 _uv)
+{
+	return sceneViewPosition(_uv).z;
+}
+
+{{DECLARATIONS}}
+
+void main()
+{
+	vec4 sg_fragCoord = gl_FragCoord;
+	DecalGeometry sgDecal;
+	if (!decalGeometry(gl_FragCoord.xy, sgDecal))
+	{
+		discard;
+	}
+{{LOCALS}}
+{{BODY}}
+	float alpha = sgOut_Alpha * sgDecal.fade;
+	if (alpha <= 0.001)
+	{
+		discard;
+	}
+	vec3 N = decalWorldNormal(sgDecal, sgSafeNormalize(sgOut_Normal));
+	vec3 color = shadeDecal(sgDecal, sgOut_BaseColor, N, sgOut_Metallic, sgOut_Roughness, sgOut_Emission, gl_FragCoord.xy);
+	gl_FragColor = vec4(color, alpha);
+}

@@ -10,7 +10,7 @@
 #include <vector>
 
 class Transform;
-namespace Moonlight { class Texture; }
+namespace Moonlight { class Texture; class ShaderGraphAsset; }
 
 enum class ParticleShape : uint8_t
 {
@@ -87,12 +87,14 @@ public:
     float FlipbookFps = 0.f;        // 0 = play the flipbook once over each particle's life
     float SoftParticleDistance = 0.4f;
     bool Lit = false;               // shade with the scene's lights (smoke, dust); glows stay unlit
+    // A Particle shader graph colouring the quads (empty: the texture and colour over life as is).
+    Path Graph;
 
     // Runtime
     void Simulate( float InDeltaSeconds, const glm::mat4& InWorld );
     void FillBatch( Moonlight::ParticleBatch& OutBatch, const glm::mat4& InWorld ) const;
     void Restart();
-    // Loads the texture when it changed (main thread).
+    // Loads the texture and graph when they changed (main thread).
     void ResolveTexture();
     size_t GetParticleCount() const { return m_particles.size(); }
     bool IsEmitting() const { return Looping || m_time < Duration; }
@@ -126,6 +128,8 @@ private:
     uint32_t m_rng = 0x9e3779b9u;
     SharedPtr<Moonlight::Texture> m_texture;
     std::string m_loadedTexture;
+    SharedPtr<Moonlight::ShaderGraphAsset> m_graph;
+    std::string m_loadedGraph;
 
     void OnDeserialize( const json& InJson ) override;
 };

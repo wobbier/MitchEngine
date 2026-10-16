@@ -22,6 +22,7 @@ namespace Moonlight {
 }
 namespace Moonlight {
     class SkyBox;
+    class ShaderGraphAsset;
 }
 
 namespace Moonlight
@@ -124,6 +125,8 @@ namespace Moonlight
         float TextureSize[4] = { 1.f, 1.f, 1.f, 1.f };      // texels: albedo width, height, normal map width, height (for mip selection)
         AABB WorldBounds;
         int SortOrder = 0;
+        // A Decal-target shader graph replacing the built-in decal surface (null: the built-in one).
+        SharedPtr<ShaderGraphAsset> Graph;
     };
 
     // One light for this frame, gathered from Light components by RenderCore.
@@ -196,5 +199,7 @@ namespace Moonlight
         uint16_t FlipbookRows = 1;
         AABB Bounds;
         std::vector<ParticleInstance> Instances;
+        // A Particle-target shader graph colouring the quads (null: the built-in particle shader).
+        SharedPtr<ShaderGraphAsset> Graph;
     };
 }

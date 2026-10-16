@@ -15,6 +15,7 @@
 #include "Graphics/MeshData.h"
 #include "Graphics/ShaderCommand.h"
 #include "Graphics/DefaultTextures.h"
+#include "Materials/ShaderGraphAsset.h"
 #include <algorithm>
 #include <cstring>
 #include "Resource/ResourceCache.h"
@@ -23,6 +24,7 @@
 #include <Graphics/DynamicSky.h>
 #include <Graphics/ModelResource.h>
 #include <Debug/DebugDrawer.h>
+#include <map>
 #include <stack>
 #include <Mathf.h>
 #include "Core/Assert.h"
@@ -352,6 +354,29 @@ BGFXRenderer::BGFXRenderer()
 BGFXRenderer::~BGFXRenderer() = default;
 
 
+namespace
+{
+    // Samplers of the shader graph particle / decal templates (stages 6 and 7, after the graph's own).
+    std::map<std::string, bgfx::UniformHandle>& GraphSamplers()
+    {
+        static std::map<std::string, bgfx::UniformHandle> samplers;
+        return samplers;
+    }
+
+
+    bgfx::UniformHandle GraphSampler( const char* InName )
+    {
+        // Not operator[]: a value-initialised handle is index 0, a valid (someone else's) uniform.
+        auto found = GraphSamplers().find( InName );
+        if( found == GraphSamplers().end() )
+        {
+            found = GraphSamplers().emplace( InName, bgfx::createUniform( InName, bgfx::UniformType::Sampler ) ).first;
+        }
+        return found->second;
+    }
+}
+
+
 void BGFXRenderer::Destroy()
 {
     // Release everything the renderer owns before shutting bgfx down.
@@ -359,6 +384,18 @@ void BGFXRenderer::Destroy()
     m_pickingPass.reset();
 #endif
     m_postProcess.reset();
+    // Commands can hold shader graph assets (and so programs): drop them while bgfx is alive.
+    m_particleBatches.clear();
+    m_decals.clear();
+    for( auto& sampler : GraphSamplers() )
+    {
+        if( bgfx::isValid( sampler.second ) )
+        {
+            bgfx::destroy( sampler.second );
+        }
+    }
+    GraphSamplers().clear();
+    Moonlight::ShaderGraphAsset::DestroyUniforms();
     Moonlight::Primitives::Shutdown();
     m_dynamicSky.reset();
     m_debugDraw.reset();
@@ -1741,6 +1778,13 @@ void BGFXRenderer::RenderParticles( Moonlight::CameraData& camera )
             ? BGFX_STATE_BLEND_FUNC( BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_ONE )
             : BGFX_STATE_BLEND_ALPHA;
         const bgfx::TextureHandle texture = bgfx::isValid( batch.Texture ) ? batch.Texture : m_particleTexture;
+        // A particle shader graph replaces the fragment shader (it keeps Particle.vert).
+        const bgfx::ProgramHandle graphProgram = batch.Graph ? batch.Graph->GetProgramHandle( "Forward" ) : bgfx::ProgramHandle( BGFX_INVALID_HANDLE );
+        Vector4 graphParameters[Moonlight::ShaderGraphAsset::kMaxParameters];
+        if( bgfx::isValid( graphProgram ) )
+        {
+            batch.Graph->PackParameters( {}, graphParameters );
+        }
 
         const uint32_t count = static_cast<uint32_t>( batch.Instances.size() );
         uint32_t offset = 0;
@@ -1757,15 +1801,24 @@ void BGFXRenderer::RenderParticles( Moonlight::CameraData& camera )
             bgfx::setVertexBuffer( 0, m_particleQuadVB );
             bgfx::setIndexBuffer( m_particleQuadIB );
             bgfx::setInstanceDataBuffer( &idb );
-            bgfx::setTexture( 0, s_texParticle, texture );
-            bgfx::setTexture( 1, s_sceneDepth, buffer.DepthTexture, BGFX_SAMPLER_POINT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP );
+            if( bgfx::isValid( graphProgram ) )
+            {
+                batch.Graph->Bind( graphParameters, {} );
+                bgfx::setTexture( 6, GraphSampler( "s_sgParticleTexture" ), texture );
+                bgfx::setTexture( 7, GraphSampler( "s_sgSceneDepth" ), buffer.DepthTexture, BGFX_SAMPLER_POINT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP );
+            }
+            else
+            {
+                bgfx::setTexture( 0, s_texParticle, texture );
+                bgfx::setTexture( 1, s_sceneDepth, buffer.DepthTexture, BGFX_SAMPLER_POINT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP );
+            }
             bgfx::setUniform( u_particleParams, params );
             bgfx::setUniform( u_particleParams2, params2 );
             bgfx::setUniform( u_particleDepth, depthParams );
             // The particle shader includes the lighting code, so its samplers are always bound.
             BindLighting();
             bgfx::setState( BGFX_STATE_WRITE_RGB | blend );
-            bgfx::submit( view, m_particleProgram.GetProgram() );
+            bgfx::submit( view, bgfx::isValid( graphProgram ) ? graphProgram : m_particleProgram.GetProgram() );
             offset += available;
         }
     }
@@ -1817,9 +1870,21 @@ void BGFXRenderer::RenderDecals( Moonlight::CameraData& camera )
         bgfx::setTransform( &decal->World[0][0] );
         bgfx::setVertexBuffer( 0, m_decalBoxVB );
         bgfx::setIndexBuffer( m_decalBoxIB );
-        bgfx::setTexture( 0, s_decalAlbedo, bgfx::isValid( decal->Albedo ) ? decal->Albedo : m_whiteTexture, clamp );
-        bgfx::setTexture( 1, s_decalNormal, bgfx::isValid( decal->Normal ) ? decal->Normal : m_flatNormalTexture, clamp );
-        bgfx::setTexture( 2, s_sceneDepth, buffer.DepthTexture, pointClamp );
+        // A decal shader graph replaces the surface (Decal.vert and the projection stay).
+        const bgfx::ProgramHandle graphProgram = decal->Graph ? decal->Graph->GetProgramHandle( "Forward" ) : bgfx::ProgramHandle( BGFX_INVALID_HANDLE );
+        if( bgfx::isValid( graphProgram ) )
+        {
+            Vector4 parameters[Moonlight::ShaderGraphAsset::kMaxParameters];
+            decal->Graph->PackParameters( {}, parameters );
+            decal->Graph->Bind( parameters, {} );
+            bgfx::setTexture( 7, GraphSampler( "s_sgSceneDepth" ), buffer.DepthTexture, pointClamp );
+        }
+        else
+        {
+            bgfx::setTexture( 0, s_decalAlbedo, bgfx::isValid( decal->Albedo ) ? decal->Albedo : m_whiteTexture, clamp );
+            bgfx::setTexture( 1, s_decalNormal, bgfx::isValid( decal->Normal ) ? decal->Normal : m_flatNormalTexture, clamp );
+            bgfx::setTexture( 2, s_sceneDepth, buffer.DepthTexture, pointClamp );
+        }
         bgfx::setUniform( u_decalColor, decal->Color );
         bgfx::setUniform( u_decalEmissive, decal->Emissive );
         bgfx::setUniform( u_decalSurface, decal->Surface );
@@ -1831,7 +1896,7 @@ void BGFXRenderer::RenderDecals( Moonlight::CameraData& camera )
         // Only the box's far faces (culling the clockwise near ones): each covered pixel shades once,
         // and the camera can stand inside the box.
         bgfx::setState( BGFX_STATE_WRITE_RGB | BGFX_STATE_BLEND_ALPHA | BGFX_STATE_CULL_CW );
-        bgfx::submit( view, m_decalProgram.GetProgram() );
+        bgfx::submit( view, bgfx::isValid( graphProgram ) ? graphProgram : m_decalProgram.GetProgram() );
     }
 }
 

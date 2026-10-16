@@ -473,9 +473,10 @@ namespace ShaderGraph
                 return "s_sgTex" + std::to_string( found->second );
             }
             const int slot = static_cast<int>( m_state.Result.Textures.size() );
-            if( slot >= kMaxTextures )
+            const int maxTextures = m_state.TargetInfo ? m_state.TargetInfo->MaxTextures : kMaxTextures;
+            if( slot >= maxTextures )
             {
-                Error( "Too many textures (a graph can sample at most " + std::to_string( kMaxTextures ) + ")." );
+                Error( "Too many textures (" + std::string( GetTargetName( GetTarget() ) ) + " graphs can sample at most " + std::to_string( maxTextures ) + ")." );
                 return "s_sgTex0";
             }
             TextureSlot texture;
@@ -729,9 +730,9 @@ namespace ShaderGraph
                 if( IsTextureType( property.Type ) )
                 {
                     const int slot = static_cast<int>( Result.Textures.size() );
-                    if( slot >= kMaxTextures )
+                    if( slot >= TargetInfo->MaxTextures )
                     {
-                        AddDiagnostic( Diagnostic::Severity::Error, 0, "Too many texture properties (at most " + std::to_string( kMaxTextures ) + ")." );
+                        AddDiagnostic( Diagnostic::Severity::Error, 0, "Too many texture properties (at most " + std::to_string( TargetInfo->MaxTextures ) + " in " + GetTargetName( GraphRef.Settings.GraphTarget ) + " graphs)." );
                         continue;
                     }
                     TextureSlot texture;
@@ -1169,7 +1170,13 @@ namespace ShaderGraph
             {
                 const std::string normal = GraphRef.Settings.FragmentNormalSpace == NormalSpace::World ? "sgSafeNormalize(sgOut_Normal)"
                     : "sgTangentToWorld(sgOut_Normal, " + outputContext.BuiltinValue( Builtin::TangentWorld ) + ", " + outputContext.BuiltinValue( Builtin::BitangentWorld ) + ", " + outputContext.BuiltinValue( Builtin::NormalWorld ) + ")";
-                select += "\tsgColor = sgPreviewLit(sgOut_BaseColor, " + normal + ", sgOut_Metallic, sgOut_Roughness, sgOut_Emission, sgOut_Occlusion);\n";
+                // Targets without some surface inputs (decals have no occlusion) use neutral values.
+                auto pinOr = [&hasPin]( const char* InPin, const std::string& InVariable, const char* InFallback ) {
+                    return hasPin( InPin ) ? InVariable : std::string( InFallback );
+                };
+                select += "\tsgColor = sgPreviewLit(sgOut_BaseColor, " + ( hasPin( "Normal" ) ? normal : std::string( "sgN" ) ) + ", "
+                    + pinOr( "Metallic", "sgOut_Metallic", "0.0" ) + ", " + pinOr( "Roughness", "sgOut_Roughness", "0.5" ) + ", "
+                    + pinOr( "Emission", "sgOut_Emission", "vec3_splat(0.0)" ) + ", " + pinOr( "Occlusion", "sgOut_Occlusion", "1.0" ) + ");\n";
             }
             else if( hasPin( "Color" ) )
             {

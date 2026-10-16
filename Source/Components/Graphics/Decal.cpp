@@ -1,5 +1,6 @@
 #include "PCH.h"
 #include "Decal.h"
+#include "Materials/ShaderGraphAsset.h"
 #include "Components/Transform.h"
 #include "Graphics/Texture.h"
 #include "Resource/ResourceCache.h"
@@ -14,6 +15,7 @@ ME_REFLECT_BEGIN( Decal )
     ME_FIELD( Opacity ).Range( 0.f, 1.f ).Speed( 0.01f );
     ME_FIELD( Size ).Display( "Size (m)" ).Tooltip( "The projection box: width, height and depth" );
     ME_FIELD( SortOrder ).Tooltip( "Overlapping decals draw in ascending order (higher lands on top)" );
+    ME_FIELD( Graph ).Asset( "ShaderGraph" ).Tooltip( "A Decal shader graph for the projected surface (replaces the textures and surface values)" );
     ME_FIELD( Metallic ).Category( "Surface" ).Range( 0.f, 1.f ).Speed( 0.01f );
     ME_FIELD( Roughness ).Category( "Surface" ).Range( 0.f, 1.f ).Speed( 0.01f );
     ME_FIELD( NormalStrength ).Category( "Surface" ).Range( 0.f, 4.f ).Speed( 0.01f );
@@ -42,6 +44,12 @@ bool Decal::Resolve()
     };
     resolve( Albedo, m_loadedAlbedo, m_albedo );
     resolve( NormalMap, m_loadedNormal, m_normal );
+    const std::string& graph = Graph.GetLocalPathString();
+    if( graph != m_loadedGraph )
+    {
+        m_loadedGraph = graph;
+        m_graph = graph.empty() ? nullptr : ResourceCache::GetInstance().Get<Moonlight::ShaderGraphAsset>( Moonlight::ShaderGraphAsset::ManifestPathFor( graph ) );
+    }
     return !m_albedo || !m_albedo->IsLoading();
 }
 
@@ -109,5 +117,6 @@ Moonlight::DecalCommand Decal::BuildCommand( Transform& InTransform ) const
 
     command.WorldBounds = AABB::FromCenterExtents( Vector3(), Vector3( 0.5f, 0.5f, 0.5f ) ).Transformed( box );
     command.SortOrder = SortOrder;
+    command.Graph = m_graph && m_graph->IsValid() && m_graph->GetTarget() == "Decal" ? m_graph : nullptr;
     return command;
 }

@@ -44,6 +44,8 @@ public:
     Vector3 Size { 1.f, 1.f, 1.f };
     // Overlapping decals draw in ascending order, so higher values land on top.
     int SortOrder = 0;
+    // A Decal shader graph for the projected surface (replaces Albedo / NormalMap / the surface values).
+    Path Graph;
 
     // Starts loading the textures (when they change) and reports whether the decal can draw: it waits
     // for its albedo to stream in rather than flash a solid tint.
@@ -58,5 +60,7 @@ private:
     SharedPtr<Moonlight::Texture> m_normal;
     std::string m_loadedAlbedo;
     std::string m_loadedNormal;
+    SharedPtr<Moonlight::ShaderGraphAsset> m_graph;
+    std::string m_loadedGraph;
 };
 ME_REGISTER_COMPONENT_FOLDER( Decal, "Rendering" )

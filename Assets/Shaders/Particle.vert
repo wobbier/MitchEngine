@@ -1,5 +1,5 @@
 $input a_position, a_texcoord0, i_data0, i_data1, i_data2, i_data3
-$output v_texcoord0, v_color0, v_viewPos, v_worldPos
+$output v_texcoord0, v_color0, v_viewPos, v_worldPos, v_particleData, v_particleVelocity
 
 // Instanced particle quads. Instance: i_data0 position + size, i_data1 colour, i_data2 rotation +
 // flipbook frame, i_data3 velocity. Camera axes come from u_invView (camera to world), which holds
@@ -47,4 +47,7 @@ void main()
 	vec2 cell = vec2(mod(frame, grid.x), floor(frame / grid.x));
 	v_texcoord0 = (cell + a_texcoord0) / grid;
 	v_color0 = i_data1;
+	// For shader graph particles: rotation, flipbook frame, the quad's own UV; the velocity.
+	v_particleData = vec4(i_data2.x, i_data2.y, a_texcoord0);
+	v_particleVelocity = velocity;
 }

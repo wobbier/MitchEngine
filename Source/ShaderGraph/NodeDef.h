@@ -34,6 +34,7 @@ namespace ShaderGraph
         ParticleRotation,  // radians
         ParticleVelocity,  // world units / second
         DecalFade,         // angle fade 0..1
+        ParticleQuadUV,    // the particle quad's own 0..1 UV (UV0 is the flipbook cell's)
         Count,
         None = Count
     };

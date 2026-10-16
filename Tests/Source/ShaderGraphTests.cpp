@@ -5,7 +5,9 @@
 #include "ShaderGraph/Targets.h"
 #include "Graphics/ShaderCompiler.h"
 #include "Path.h"
+#include <cstring>
 #include <filesystem>
+#include <set>
 #include <cstdlib>
 #include <fstream>
 #include <sstream>
@@ -96,7 +98,7 @@ namespace
         propertyIds.push_back( graph.AddProperty( "Bool Property", ValueType::Bool ).Id );
 
         const uint32_t outputNode = OutputOf( graph ).Id;
-        const std::string sink = InStage == Stage::Vertex ? "Position Offset" : ( InTarget == Target::Unlit ? "Color" : "Base Color" );
+        const std::string sink = InStage == Stage::Vertex ? "Position Offset" : ( InTarget == Target::Unlit || InTarget == Target::Particle ? "Color" : "Base Color" );
         uint32_t accumulator = 0;
         std::string accumulatorPin;
         auto fold = [&]( uint32_t InNode, const std::string& InPin ) {
@@ -429,6 +431,80 @@ TEST_CASE( "ShaderGraph: graphs round-trip through JSON" )
     CHECK( loaded.AddNode( "Float" ).Id > pannerId );
 }
 
+namespace
+{
+    // The varyings a shader declares on its $input / $output line, sorted.
+    std::set<std::string> Varyings( const std::string& InSource, const char* InDirective )
+    {
+        std::set<std::string> names;
+        std::stringstream lines( InSource );
+        std::string line;
+        while( std::getline( lines, line ) )
+        {
+            if( line.rfind( InDirective, 0 ) != 0 )
+            {
+                continue;
+            }
+            std::stringstream list( line.substr( std::strlen( InDirective ) ) );
+            std::string name;
+            while( std::getline( list, name, ',' ) )
+            {
+                name.erase( 0, name.find_first_not_of( " \t" ) );
+                name.erase( name.find_last_not_of( " \t\r" ) + 1 );
+                // Vertex attributes / instance data aren't varyings.
+                if( !name.empty() && name.rfind( "a_", 0 ) != 0 && name.rfind( "i_", 0 ) != 0 )
+                {
+                    names.insert( name );
+                }
+            }
+        }
+        return names;
+    }
+
+    std::string EngineShader( const std::string& InName )
+    {
+        std::ifstream file( Path( "Engine/Assets/Shaders/" + InName ).FullPath );
+        std::stringstream contents;
+        contents << file.rdbuf();
+        return contents.str();
+    }
+}
+
+// bgfx's SPIR-V path gives varyings locations in name order over what each stage declares, so a
+// fragment shader must take exactly the varyings its vertex shader writes (or they scramble).
+TEST_CASE( "ShaderGraph: generated stages agree on varyings" )
+{
+    for( const Target target : { Target::Lit, Target::Unlit } )
+    {
+        Graph graph = Graph::CreateDefault( target );
+        graph.Settings.AlphaClip = true;
+        const CompileResult result = Compile( graph );
+        REQUIRE( result.Success );
+        const std::set<std::string> vertex = Varyings( FileText( result, "Forward.vert" ), "$output" );
+        CHECK( !vertex.empty() );
+        CHECK( Varyings( FileText( result, "Skinned.vert" ), "$output" ) == vertex );
+        CHECK( Varyings( FileText( result, "Forward.frag" ), "$input" ) == vertex );
+        CHECK( Varyings( FileText( result, "Shadow.frag" ), "$input" ) == vertex );
+    }
+    {
+        const CompileResult result = Compile( Graph::CreateDefault( Target::Particle ) );
+        REQUIRE( result.Success );
+        const std::set<std::string> vertex = Varyings( EngineShader( "Particle.vert" ), "$output" );
+        CHECK( Varyings( FileText( result, "Particle.frag" ), "$input" ) == vertex );
+        CHECK( Varyings( EngineShader( "Particle.frag" ), "$input" ) == vertex );
+    }
+    {
+        const CompileResult result = Compile( Graph::CreateDefault( Target::Decal ) );
+        REQUIRE( result.Success );
+        CHECK( Varyings( FileText( result, "Decal.frag" ), "$input" ) == Varyings( EngineShader( "Decal.vert" ), "$output" ) );
+    }
+    CompileOptions preview;
+    preview.Preview = true;
+    const CompileResult result = Compile( Graph::CreateDefault( Target::Lit ), preview );
+    CHECK( Varyings( FileText( result, "Preview.frag" ), "$input" ) == Varyings( FileText( result, "Preview.vert" ), "$output" ) );
+}
+
+
 TEST_CASE( "ShaderGraph: shaderc errors map back to nodes" )
 {
     const std::vector<Diagnostic> diagnostics = MapShaderErrors( "Forward.frag(42): error: 'n17_Out' : undeclared identifier\nsome noise\n" );
@@ -438,10 +514,15 @@ TEST_CASE( "ShaderGraph: shaderc errors map back to nodes" )
 
 TEST_CASE( "ShaderGraph: every node compiles with shaderc in every target" * doctest::timeout( 600 ) )
 {
-    for( const Target target : { Target::Lit, Target::Unlit } )
+    for( const Target target : { Target::Lit, Target::Unlit, Target::Particle, Target::Decal } )
     {
         for( const Stage stage : { Stage::Fragment, Stage::Vertex } )
         {
+            // Particle and decal graphs only have fragment outputs (the engine draws the geometry).
+            if( stage == Stage::Vertex && ( target == Target::Particle || target == Target::Decal ) )
+            {
+                continue;
+            }
             const Graph graph = BuildEveryNodeGraph( target, stage );
             const std::string name = std::string( GetTargetName( target ) ) + "_" + GetStageName( stage );
             const CompileResult result = Compile( graph, { "Tests/" + name + ".shadergraph" } );

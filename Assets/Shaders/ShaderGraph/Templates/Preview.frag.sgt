@@ -6,6 +6,10 @@ $input v_texcoord0
 #include "Common.sh"
 #include "ShaderGraph/SGLib.sh"
 #include "ShaderGraph/SGPreview.sh"
+#if SG_TARGET_PARTICLE
+SAMPLER2D(s_sgPreviewParticle, 6);
+#define sgParticleTexture s_sgPreviewParticle
+#endif
 
 {{DECLARATIONS}}
 

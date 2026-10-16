@@ -90,6 +90,24 @@ namespace Moonlight
     }
 
 
+    void ShaderGraphAsset::DestroyUniforms()
+    {
+        if( bgfx::isValid( s_params ) )
+        {
+            bgfx::destroy( s_params );
+            s_params = BGFX_INVALID_HANDLE;
+        }
+        for( bgfx::UniformHandle& sampler : s_samplers )
+        {
+            if( bgfx::isValid( sampler ) )
+            {
+                bgfx::destroy( sampler );
+                sampler = BGFX_INVALID_HANDLE;
+            }
+        }
+    }
+
+
     bool ShaderGraphAsset::Load()
     {
         CreateUniforms();
@@ -143,8 +161,13 @@ namespace Moonlight
                 {
                     continue;
                 }
-                const std::string vertex = Path( directory + pair[0].get<std::string>() ).GetLocalPathString();
-                const std::string fragment = Path( directory + pair[1].get<std::string>() ).GetLocalPathString();
+                // "@Assets/Shaders/Particle": a project/engine shader (the target's fixed stage);
+                // anything else sits next to the manifest.
+                auto resolve = [&directory]( const std::string& InName ) {
+                    return !InName.empty() && InName[0] == '@' ? InName.substr( 1 ) : Path( directory + InName ).GetLocalPathString();
+                };
+                const std::string vertex = resolve( pair[0].get<std::string>() );
+                const std::string fragment = resolve( pair[1].get<std::string>() );
                 programs[it.key()] = ShaderCommand( vertex, fragment, ShaderLoad::Async );
             }
         }

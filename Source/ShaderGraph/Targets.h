@@ -56,6 +56,8 @@ namespace ShaderGraph
         std::string Description;
         bool HasSceneColor = false;
         bool HasSceneDepth = false;
+        // Texture slots graphs can use (stages 0..MaxTextures-1; the target uses the rest).
+        int MaxTextures = 8;
 
         // The output node's inputs for these settings.
         virtual void BuildOutputPins( const TargetSettings& InSettings, std::vector<PinDef>& OutPins ) const = 0;
