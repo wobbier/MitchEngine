@@ -1359,6 +1359,17 @@ namespace ShaderGraph
             {
                 return true;
             }
+            // Stale binaries of a rewritten shader go too: game builds only cook missing ones.
+            const std::filesystem::path source( InPath );
+            for( const auto& sibling : std::filesystem::directory_iterator( source.parent_path(), error ) )
+            {
+                const std::string name = sibling.path().filename().string();
+                const std::string prefix = source.filename().string() + ".";
+                if( name.rfind( prefix, 0 ) == 0 && ( name.find( ".bin" ) != std::string::npos ) )
+                {
+                    std::filesystem::remove( sibling.path(), error );
+                }
+            }
             std::ofstream file( InPath, std::ios::binary | std::ios::trunc );
             file << InContents;
             if( !file && OutError )
@@ -1384,6 +1395,12 @@ namespace ShaderGraph
             const std::string name = entry.path().filename().string();
             const std::string extension = entry.path().extension().string();
             if( ( extension == ".vert" || extension == ".frag" || extension == ".var" ) && !written.count( name ) )
+            {
+                std::filesystem::remove( entry.path(), error );
+            }
+            // ...and the binaries / metadata of sources that are gone.
+            const size_t dot = name.find( ".vert." ) != std::string::npos ? name.find( ".vert." ) : name.find( ".frag." );
+            if( dot != std::string::npos && !written.count( name.substr( 0, dot + 5 ) ) )
             {
                 std::filesystem::remove( entry.path(), error );
             }

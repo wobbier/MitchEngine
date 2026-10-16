@@ -18,7 +18,7 @@ Ratings: **Solid** (rely on it) · **Usable** (works, know the sharp edges) · *
 | Events | **Solid** | Typed `Listen<T>` handlers (no id switches or casts), thread-safe queue, auto-deregistering receivers, safe re-entrant dispatch (handlers may destroy their own receiver), unit tested; no per-type unsubscribe | [Jobs-and-Events.md](Jobs-and-Events.md) |
 | Rendering pipeline | **Solid** | Zero-virtual submit + auto-instancing, AABB culling, generated mesh LODs picked by screen size, a view allocator, linear HDR with a full post stack (temporal AA with variance clipping), soft particles, lit projected decals; unverified on non-Vulkan backends and unmeasured on GPUs at 57k-mesh scale with shadows | [Rendering-Pipeline.md](Rendering-Pipeline.md) |
 | Lighting & shadows | **Usable** | PBR + clustered point/spot lights, stable CSM sun shadows, spot and point-light shadows (cube faces in one atlas), IBL probes, lit smoke, height fog with volumetric light shafts (sun, point and spot lights); one shadowed sun, fixed shadow budgets, screen-space (not froxel) volumetrics | [Rendering-Pipeline.md](Rendering-Pipeline.md) |
-| Materials & shaders | **Usable** | Metallic-roughness StandardMaterial, live shader hot reload with include tracking that compiles in the background, shaders that load and first-cook on loader threads (all engine shaders in parallel at startup, materials never block); batch-key discipline is manual; ShaderGraph half-finished | [Materials-and-Shaders.md](Materials-and-Shaders.md) |
+| Materials & shaders | **Usable** | Metallic-roughness StandardMaterial, live shader hot reload with include tracking that compiles in the background, shaders that load and first-cook on loader threads (all engine shaders in parallel at startup, materials never block); shader graphs in the editor (Lit, Unlit, Particle, Decal, Post Process; typed compiler checked against shaderc on SPIR-V/GLSL/Metal; live per-node previews); batch-key discipline is manual; graphs on particles/decals/post have no per-instance overrides | [Materials-and-Shaders.md](Materials-and-Shaders.md) |
 | Resources & assets | **Usable** | Hot reload, keep-alive cache, asset GUIDs, background texture and model loads and first-time cooks (the main thread only uploads and builds), background shader loads, hot-reload recompiles in the background, model unit conversion, unit tested; synchronous `Get` cooks and a model's main-thread half still block | [Resources-and-Assets.md](Resources-and-Assets.md) |
 | Serialization & scenes | **Solid** | Versioned v2 format with GUIDs, references, migration and prefab links with stable source GUIDs; asset references are paths backed by asset GUIDs that follow moves and renames; declared renames (component, core, field and script aliases) keep old data loading; additive scenes stream in the background and unload as a unit (runtime only, no multi-scene editing) | [Serialization-and-Scenes.md](Serialization-and-Scenes.md) |
 | Physics | **Solid** | Box3D and Box2D cores with the same model: fixed step + interpolation, compound bodies, joints, mover-based 3D and platformer characters, layer matrix, events and queries, unit + editor-flow tested; per-entity collision callbacks for C++ (`CollisionRouter`) and scripts; Box3D is pre-1.0, and Exit events have gaps (none on Stop, one-sided when a collider is destroyed mid-contact) | [Physics.md](Physics.md) |
@@ -50,7 +50,6 @@ The stated bar (per the game project's conventions) is: Win64/macOS/Linux must c
 
 | Item | Location | State | Verdict |
 |------|----------|-------|---------|
-| `ShaderGraphMaterial` + ShaderEditor | `Modules/Moonlight/Source/Materials/ShaderGraphMaterial.h`, `Tools/ShaderEditor` | Texture-slot-3 bug, per-instance uniform creation, external tool dependency | **Decide** — finish (fix slots, ship the tool) or delete and stay code-material-only |
 | Ultralight | `Source/UI/`, `Source/Cores/UI/` | Removal declared in commit history; Vue/web direction visible in `../flake.nix` | **Finish the removal** |
 
 ## 4. Improvement Themes
@@ -76,7 +75,8 @@ Impact (H/M/L) × Effort (S/M/L). Grouped so related items can share one work se
 | ~~Parallel shadow caster culling~~ | — | — | Done: one gather per frame, one parallel cull per pass for all its views (-24% CPU at 57k meshes on a busy machine) |
 | ~~Decals~~ | — | — | Done: `Decal` component, projected through a box onto opaque surfaces, lit with normal maps, angle fade and sort order |
 | Decal receiver masks / DBuffer | M | M | Decals paint everything in their box and replace the surface's shading; a stencil or per-mesh "receives decals" bit, and a DBuffer for normal/roughness-only decals |
-| ShaderGraph finish-or-delete | M | M/L | Decide before any new material work builds on it |
+| ~~ShaderGraph finish-or-delete~~ | — | — | Done: rebuilt in Havana (`Docs/ShaderGraph.md`): five targets, live previews, shaderc-checked codegen |
+| Shader graph follow-ups | M | M | Per-instance parameter overrides on particles / decals / post stacks; subgraphs; graph-driven picking (vertex offset) |
 
 ### C. Scripting
 | Item | Impact | Effort | Notes |

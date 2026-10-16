@@ -1570,6 +1570,12 @@ bool ShaderGraphDocument::DrawInlineValue( Node& InNode, const PinDef& InPin, Va
     }
     if( changed )
     {
+        // A dynamic input edited at one component keeps that value on every component, so it
+        // still means the same thing once a wider vector widens the node.
+        if( InPin.DynamicGroup >= 0 && GetComponentCount( InType ) == 1 )
+        {
+            value = Vector4( value.x );
+        }
         SetInputDefault( id, InPin.Name, value );
     }
     return changed;

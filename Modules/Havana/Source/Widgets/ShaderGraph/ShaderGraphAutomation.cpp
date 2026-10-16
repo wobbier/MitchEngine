@@ -261,7 +261,8 @@ bool ShaderGraphAutomation::Execute( const std::string& InCommand, const std::st
         Vector4 vector;
         if( value.is_number() )
         {
-            vector = Vector4( value.get<float>(), 0.f, 0.f, 0.f );
+            // A scalar fills every component (as the editor stores scalar edits).
+            vector = Vector4( value.get<float>() );
         }
         else if( value.is_array() )
         {

@@ -198,6 +198,7 @@ ME_REGISTER_MATERIAL_NAME( ClearcoatMaterial, "Clearcoat" )
 
 ## Related Docs
 
+- `Docs/ShaderGraph.md` — node-based materials, particle / decal / post-process graphs
 - `Docs/Rendering-Pipeline.md` — where `Use`, batching, lighting and shadows execute
 - `Docs/Resources-and-Assets.md` — the metadata, cook and file-watcher machinery
 - `Docs/Serialization-and-Scenes.md` — the `Mesh` JSON that embeds materials
