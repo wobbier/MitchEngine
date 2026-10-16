@@ -57,3 +57,15 @@ public:
     AssetType ForcedFilter;
     bool IsRequestingSave = false;
 };
+
+// Opens a shader graph (project path) in the editor's Shader Graph window.
+class OpenShaderGraphEvent
+    : public Event<OpenShaderGraphEvent>
+{
+public:
+    OpenShaderGraphEvent()
+        : Event()
+    {
+    }
+    std::string GraphPath;
+};

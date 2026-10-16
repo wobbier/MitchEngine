@@ -33,6 +33,15 @@ public class ImGui : BaseProject
 
         SourceFiles.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/ImGuizmo/src/ImGuizmo.h"));
         SourceFiles.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/ImGuizmo/src/ImGuizmo.cpp"));
+
+        SourceFiles.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/imgui-node-editor/imgui_node_editor.h"));
+        SourceFiles.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/imgui-node-editor/imgui_node_editor.cpp"));
+        SourceFiles.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/imgui-node-editor/imgui_node_editor_api.cpp"));
+        SourceFiles.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/imgui-node-editor/imgui_node_editor_internal.h"));
+        SourceFiles.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/imgui-node-editor/imgui_canvas.h"));
+        SourceFiles.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/imgui-node-editor/imgui_canvas.cpp"));
+        SourceFiles.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/imgui-node-editor/crude_json.h"));
+        SourceFiles.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/imgui-node-editor/crude_json.cpp"));
     }
 
     public override void ConfigureAll(Project.Configuration conf, CommonTarget target)
@@ -49,6 +58,7 @@ public class ImGui : BaseProject
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/SDL/include"));
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/ImGui"));
         conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/ImGuizmo/src"));
+        conf.IncludePaths.Add(Path.Combine("[project.SharpmakeCsPath]", "../../ThirdParty/imgui-node-editor"));
         conf.IncludePaths.Add("[project.SourceRootPath]");
         conf.AddPublicDependency<Dementia>(target);
         //conf.LibraryFiles.Add("ImGui");

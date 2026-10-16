@@ -13,6 +13,7 @@
 #include <Utils/PlatformUtils.h>
 #include <bgfx/bgfx.h>
 #include "Core/Assert.h"
+#include "Graphics/ShaderCompiler.h"
 
 namespace Moonlight
 {
@@ -168,56 +169,15 @@ struct ShaderFileMetadata
     // errors go to the log.
     void Export() override
     {
-#if USING( ME_PLATFORM_WIN64 )
-        const Path shadercPath = Path( "Engine/Tools/Win64/shaderc.exe" );
-        const char* platform = "windows";
-#elif USING( ME_PLATFORM_MACOS )
-        const Path shadercPath = Path( "Engine/Tools/macOS/shaderc" );
-        const char* platform = "osx";
-#else
-        const Path shadercPath = Path( "Engine/Tools/RunShaderCompiler.sh" );
-        const char* platform = "linux";
-#endif
-        const std::string extension = FilePath.GetExtension();
-        const std::string type = extension == "frag" ? "fragment" : "vertex";
-
-        const std::string renderer = Moonlight::GetPlatformString();
-        std::string profile = "spirv";
-        if( renderer == "dx11" )
+        Moonlight::ShaderCompiler::Request request;
+        request.SourcePath = FilePath.FullPath;
+        request.OutputPath = FilePath.FullPath + "." + GetExtension2();
+        request.ShaderStage = Moonlight::ShaderCompiler::StageFromPath( FilePath.FullPath );
+        request.WriteDepends = true;
+        const Moonlight::ShaderCompiler::Result result = Moonlight::ShaderCompiler::Compile( request );
+        if( !result.Success )
         {
-            profile = "s_5_0";
-        }
-        else if( renderer == "glsl" )
-        {
-            profile = "150";
-        }
-        else if( renderer == "metal" )
-        {
-            profile = "metal";
-        }
-        else if( renderer == "essl" )
-        {
-            profile = "320_es";
-        }
-
-        const std::string source = FilePath.FullPath;
-        const std::string directory = FilePath.GetDirectoryString();
-        std::string fileName = source.substr( source.find_last_of( "/\\" ) + 1 );
-        const std::string baseName = fileName.substr( 0, fileName.rfind( '.' ) );
-        auto quote = []( const std::string& InText ) { return "\"" + InText + "\""; };
-
-        std::string command = quote( shadercPath.FullPath );
-        command += " -f " + quote( source );
-        command += " -o " + quote( source + "." + GetExtension2() );
-        command += " --varyingdef " + quote( directory + baseName + ".var" );
-        command += " -i " + quote( Path( "Engine/Assets/Shaders" ).FullPath );
-        command += std::string( " --platform " ) + platform + " -p " + profile + " --type " + type + " --depends";
-
-        std::string output;
-        const int result = PlatformUtils::RunCommand( command, output );
-        if( result != 0 )
-        {
-            YIKES( "Shader compile failed: " + FilePath.GetLocalPathString() + "\n" + output );
+            YIKES( "Shader compile failed: " + FilePath.GetLocalPathString() + "\n" + result.Log );
         }
         else
         {

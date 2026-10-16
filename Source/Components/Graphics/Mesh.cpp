@@ -26,6 +26,7 @@
 #include "CLog.h"
 #include "Utils/ImGuiUtils.h"
 #include <Materials/DiffuseMaterial.h>
+#include <Materials/ShaderGraphMaterial.h>
 #include "Types/AssetDescriptor.h"
 #include "Primitives/Primitives.h"
 #include "Events/EditorEvents.h"
@@ -340,24 +341,17 @@ void Mesh::OnEditorInspect()
 
     if( MeshMaterial )
     {
-        if( ImGui::Button( "Select Shader" ) )
+        // Shaders hot reload on their own; graphs are picked here (or in the graph material's inspector).
+        if( !dynamic_cast<ShaderGraphMaterial*>( MeshMaterial.get() ) && ImGui::Button( "Use Shader Graph..." ) )
         {
             RequestAssetSelectionEvent evt( [this]( Path selectedAsset )
                 {
-                    std::string path = selectedAsset.GetLocalPathString();
-                    size_t pos = path.rfind( selectedAsset.GetExtension() );
-                    if( pos != std::string::npos )
-                    {
-                        path.erase( pos - 1, path.length() );
-                    }
-                    MeshMaterial->LoadShader( path );
+                    SharedPtr<ShaderGraphMaterial> material = MakeShared<ShaderGraphMaterial>();
+                    material->Init();
+                    material->SetGraph( selectedAsset.GetLocalPathString() );
+                    MeshMaterial = material;
                 }, AssetType::ShaderGraph );
             evt.Fire();
-        }
-
-        if( MeshMaterial->MeshShader.IsLoaded() && ImGui::Button( "Reload Shader" ) )
-        {
-            MeshMaterial->LoadShader( MeshMaterial->ShaderName );
         }
         if( ImGui::Button("Save As Material File: ") )
         {

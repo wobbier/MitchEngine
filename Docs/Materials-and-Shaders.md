@@ -8,7 +8,7 @@ Shaders are bgfx `.vert`/`.frag` sources compiled to per-backend binaries by `sh
 
 ## Overview
 
-A material type *is* a C++ class that knows its shader pair, its uniforms, and how to upload them in `Use()`. Materials ride inside `Mesh` JSON; the `.mat` extension has a registered metadata type that isn't used in practice. `ShaderGraphMaterial` (fed by the `Tools/ShaderEditor/` node editor) is the half-finished exception.
+A material type *is* a C++ class that knows its shader pair, its uniforms, and how to upload them in `Use()`. Materials ride inside `Mesh` JSON; the `.mat` extension has a registered metadata type that isn't used in practice. `ShaderGraphMaterial` is the exception: its shaders, parameters and render state come from a compiled shader graph (`<Graph>.sg/Material.json`, `Source/ShaderGraph/`).
 
 ## Key Files
 
@@ -18,7 +18,9 @@ A material type *is* a C++ class that knows its shader pair, its uniforms, and h
 | `Modules/Moonlight/Source/Materials/StandardMaterial.h` / `.cpp` | PBR material (the default for meshes, primitives and imported models) |
 | `Modules/Moonlight/Source/Materials/DiffuseMaterial.h` | Legacy names `DiffuseMaterial` / `WhiteMaterial`, now `StandardMaterial` subclasses so old scenes load |
 | `Modules/Moonlight/Source/Shaders/UnlitMaterial.h` | Unlit material (note: under `Shaders/`, not `Materials/`) |
-| `Modules/Moonlight/Source/Materials/ShaderGraphMaterial.h` | Half-finished node-graph material |
+| `Modules/Moonlight/Source/Materials/ShaderGraphMaterial.h` | Node-graph material: per-material values for a compiled graph (`ShaderGraphAsset`) |
+| `Source/ShaderGraph/` | Shader graph model, node library and compiler (bgfx shader sources from `.shadergraph` files) |
+| `Assets/Shaders/StandardSurface.sh` | `shadeStandardSurface`: the forward shading shared by `Standard.frag` and Lit graphs |
 | `Modules/Moonlight/Source/Graphics/ShaderCommand.h` | A shader pair's program; shares a hot-reloadable `ProgramRef` |
 | `Modules/Moonlight/Source/Utils/BGFXUtils.cpp` | Program registry (`AcquireProgram`, `RebuildProgramsUsing`), startup prefetch (`PrefetchShaders`, `FindEngineShaderStages`), `LoadProgram`, `GetPlatformString` |
 | `Modules/Moonlight/Source/Graphics/ShaderFile.h` | Compiled-shader resource, `Reload`, and the `shaderc` cook (`ShaderFileMetadata::Export`) |
@@ -189,7 +191,7 @@ ME_REGISTER_MATERIAL_NAME( ClearcoatMaterial, "Clearcoat" )
 - **Batch-key completeness is on you.** A missing field causes silent, scene-dependent mis-batching.
 - **Uniform names are global in bgfx.** Two materials declaring the same name with different types collide; the lighting library reserves `u_light*`, `u_cluster*`, `u_shadow*`, `u_cascade*`, `u_spotShadow*`, `u_env*`, `u_ambient*` and samplers on stages 8–15.
 - **Blocking requests still block.** `ShaderLoad::Blocking`, `ShaderCommand`'s default, cooks and loads a missing shader on the spot; the renderer's passes ask that way, right after the startup prefetch has loaded everything. Hot reloads compile in the background, and until a recompile lands the old program keeps drawing. Editing `Common.sh` recompiles every loaded shader.
-- **`ShaderGraphMaterial` is half-finished**: all graph textures bind to stage 3, it recreates uniforms per instance, and it depends on the external `Tools/ShaderEditor/` app.
+- **Shader graph limits**: 16 parameter vec4s (`u_sgParams`) and 8 textures (stages 0-7) per graph; picking ignores a graph's vertex offset.
 - **`.mat` metadata is vestigial.** Materials live inside `Mesh` JSON.
 - **Unknown material names become `StandardMaterial`** (`Mesh::OnDeserialize` fallback); a renamed material class degrades scenes without errors.
 - **Windows/macOS cook paths** were rewritten during the overhaul but are only verified on Linux.
@@ -199,4 +201,3 @@ ME_REGISTER_MATERIAL_NAME( ClearcoatMaterial, "Clearcoat" )
 - `Docs/Rendering-Pipeline.md` — where `Use`, batching, lighting and shadows execute
 - `Docs/Resources-and-Assets.md` — the metadata, cook and file-watcher machinery
 - `Docs/Serialization-and-Scenes.md` — the `Mesh` JSON that embeds materials
-- `Docs/State-of-the-Engine.md` — ShaderGraph finish-or-delete recommendation

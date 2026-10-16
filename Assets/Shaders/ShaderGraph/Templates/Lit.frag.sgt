@@ -1,0 +1,45 @@
+$input v_worldPos, v_normal, v_tangent, v_bitangent, v_texcoord0, v_viewPos, v_objectPos, v_objectNormal
+
+// Generated from {{GRAPH}} by the shader graph compiler: edit the graph, not this file.
+{{DEFINES}}
+#include "Common.sh"
+#include "StandardSurface.sh"
+#include "ShaderGraph/SGLib.sh"
+
+{{DECLARATIONS}}
+
+void main()
+{
+	vec4 sg_fragCoord = gl_FragCoord;
+	bool sg_frontFacing = gl_FrontFacing;
+{{LOCALS}}
+{{BODY}}
+#if SG_ALPHA_CLIP
+	if (sgOut_Alpha < sgOut_AlphaClipThreshold)
+	{
+		discard;
+	}
+#endif
+
+#if SG_NORMAL_WORLD
+	vec3 N = sgSafeNormalize(sgOut_Normal);
+#else
+	vec3 N = sgSafeNormalize(v_normal);
+	if (dot(v_tangent, v_tangent) > 1e-6 && dot(v_bitangent, v_bitangent) > 1e-6)
+	{
+		mat3 TBN = mtxFromCols(normalize(v_tangent), normalize(v_bitangent), N);
+		N = sgSafeNormalize(mul(TBN, sgOut_Normal));
+	}
+#endif
+
+	SurfaceInput surface;
+	surface.baseColor = sgOut_BaseColor;
+	surface.alpha = sgOut_Alpha;
+	surface.normal = N;
+	surface.metallic = sgOut_Metallic;
+	surface.roughness = sgOut_Roughness;
+	surface.occlusion = sgOut_Occlusion;
+	surface.emissive = sgOut_Emission;
+	surface.uv = v_texcoord0;
+	gl_FragColor = shadeStandardSurface(surface, v_worldPos, v_normal, v_viewPos, sg_fragCoord.xy, sg_frontFacing);
+}

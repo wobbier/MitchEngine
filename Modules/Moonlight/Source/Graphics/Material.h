@@ -182,6 +182,22 @@ namespace Moonlight
         {
             return BGFX_INVALID_HANDLE;
         }
+        // The depth-only program shadow casters draw with (Use() binds its parameters); invalid =
+        // the renderer's stock caster, which only knows about AlphaCutoff and the diffuse/opacity maps.
+        virtual bgfx::ProgramHandle GetShadowProgram( bool InSkinned )
+        {
+            return BGFX_INVALID_HANDLE;
+        }
+        // False for materials that never cast (the mesh's own CastShadows still applies).
+        virtual bool CastsShadows() const
+        {
+            return true;
+        }
+        // Once per frame per drawn mesh, before its shader is checked (on a render job thread: only
+        // touch this material). Materials whose program comes from a reloadable asset sync here.
+        virtual void PrepareForDraw()
+        {
+        }
 
         virtual uint64_t GetInstanceBatchKey() const
         {

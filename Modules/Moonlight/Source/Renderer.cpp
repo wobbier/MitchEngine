@@ -14,6 +14,7 @@
 #include "Primitives/Cube.h"
 #include "Graphics/MeshData.h"
 #include "Graphics/ShaderCommand.h"
+#include "Graphics/DefaultTextures.h"
 #include <algorithm>
 #include <cstring>
 #include "Resource/ResourceCache.h"
@@ -199,6 +200,11 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
         m_whiteTexture = makeSolidTexture( 0xFFFFFFFFu, "Default White" );
         m_blackTexture = makeSolidTexture( 0xFF000000u, "Default Black" );
         m_flatNormalTexture = makeSolidTexture( 0xFFFF8080u, "Default Flat Normal" );
+        m_grayTexture = makeSolidTexture( 0xFF808080u, "Default Gray" );
+        Moonlight::SetDefaultTexture( Moonlight::DefaultTexture::White, m_whiteTexture );
+        Moonlight::SetDefaultTexture( Moonlight::DefaultTexture::Black, m_blackTexture );
+        Moonlight::SetDefaultTexture( Moonlight::DefaultTexture::Gray, m_grayTexture );
+        Moonlight::SetDefaultTexture( Moonlight::DefaultTexture::FlatNormal, m_flatNormalTexture );
 
 #if USING( ME_EDITOR )
         m_pickingPass = MakeShared<Moonlight::PickingPass>();
@@ -259,6 +265,7 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
         u_fogForward = bgfx::createUniform( "u_fogForward", bgfx::UniformType::Vec4 );
         m_environment = MakeUnique<Moonlight::EnvironmentLighting>();
         m_environment->Init();
+        Moonlight::SetDefaultTexture( Moonlight::DefaultTexture::BlackCube, m_environment->GetFallbackCube() );
 
         // Particles: a unit quad, a soft round default texture and the particle shader.
         {
@@ -377,12 +384,17 @@ void BGFXRenderer::Destroy()
     {
         bgfx::destroy( m_decalBoxIB );
     }
-    for( bgfx::TextureHandle* texture : { &m_particleTexture, &m_flatNormalTexture } )
+    for( bgfx::TextureHandle* texture : { &m_particleTexture, &m_flatNormalTexture, &m_grayTexture } )
     {
         if( bgfx::isValid( *texture ) )
         {
             bgfx::destroy( *texture );
+            *texture = BGFX_INVALID_HANDLE;
         }
+    }
+    for( unsigned int i = 0; i < static_cast<unsigned int>( Moonlight::DefaultTexture::Count ); ++i )
+    {
+        Moonlight::SetDefaultTexture( static_cast<Moonlight::DefaultTexture>( i ), BGFX_INVALID_HANDLE );
     }
     if( bgfx::isValid( m_particleQuadVB ) )
     {
@@ -1362,8 +1374,9 @@ void BGFXRenderer::GatherShadowCasters()
                 }
                 ShadowCaster caster;
                 caster.Command = i;
-                // Opaque casters only differ by geometry; alpha-tested ones also by their textures.
-                caster.MaterialKey = mesh.AlphaCutoff > 0.f ? mesh.BatchKey : 0u;
+                // Opaque casters only differ by geometry; alpha-tested ones and materials with their
+                // own caster program also by their material.
+                caster.MaterialKey = ( mesh.AlphaCutoff > 0.f || mesh.CustomShadow ) ? mesh.BatchKey : 0u;
                 caster.VertexBuffer = mesh.VertexBufferIdx;
                 caster.IndexBuffer = mesh.IndexBufferIdx;
                 caster.Skinned = mesh.SkinBoneCount > 0 || bgfx::isValid( mesh.PosedVertices );
@@ -1446,6 +1459,19 @@ void BGFXRenderer::CullShadowCasters( const Frustum* InFrustums, uint32_t InCoun
 }
 
 
+void BGFXRenderer::BindStockShadowCaster( const Moonlight::MeshCommand& InMesh, const float InAlpha[4] )
+{
+    bgfx::setUniform( u_shadowAlpha, InAlpha );
+    if( InMesh.AlphaCutoff > 0.f )
+    {
+        const Moonlight::Texture* diffuse = InMesh.MeshMaterial->GetTexture( Moonlight::TextureType::Diffuse );
+        const Moonlight::Texture* opacity = InMesh.MeshMaterial->GetTexture( Moonlight::TextureType::Opacity );
+        bgfx::setTexture( 0, s_texDiffuse, diffuse && bgfx::isValid( diffuse->TexHandle ) ? diffuse->TexHandle : m_whiteTexture );
+        bgfx::setTexture( 2, s_texAlpha, opacity && bgfx::isValid( opacity->TexHandle ) ? opacity->TexHandle : m_whiteTexture );
+    }
+}
+
+
 void BGFXRenderer::SubmitShadowCasters( bgfx::ViewId view, uint32_t InViewIndex )
 {
     OPTICK_EVENT( "Renderer::SubmitShadowCasters" );
@@ -1506,16 +1532,17 @@ void BGFXRenderer::SubmitShadowCasters( bgfx::ViewId view, uint32_t InViewIndex 
             mesh.SingleMesh->BindVertexBuffer( mesh.PosedVertices );
             bgfx::setIndexBuffer( mesh.SingleMesh->GetIndexBuffer( mesh.Lod ) );
             bgfx::setInstanceDataBuffer( &idb );
-            bgfx::setUniform( u_shadowAlpha, alpha );
-            if( mesh.AlphaCutoff > 0.f )
+            const bgfx::ProgramHandle custom = mesh.CustomShadow ? mesh.MeshMaterial->GetShadowProgram( false ) : bgfx::ProgramHandle( BGFX_INVALID_HANDLE );
+            if( bgfx::isValid( custom ) )
             {
-                const Moonlight::Texture* diffuse = mesh.MeshMaterial->GetTexture( Moonlight::TextureType::Diffuse );
-                const Moonlight::Texture* opacity = mesh.MeshMaterial->GetTexture( Moonlight::TextureType::Opacity );
-                bgfx::setTexture( 0, s_texDiffuse, diffuse && bgfx::isValid( diffuse->TexHandle ) ? diffuse->TexHandle : m_whiteTexture );
-                bgfx::setTexture( 2, s_texAlpha, opacity && bgfx::isValid( opacity->TexHandle ) ? opacity->TexHandle : m_whiteTexture );
+                mesh.MeshMaterial->Use();
+            }
+            else
+            {
+                BindStockShadowCaster( mesh, alpha );
             }
             bgfx::setState( state );
-            bgfx::submit( view, m_shadowProgram.GetProgram() );
+            bgfx::submit( view, bgfx::isValid( custom ) ? custom : m_shadowProgram.GetProgram() );
             offset += available;
         }
     }
@@ -1525,7 +1552,8 @@ void BGFXRenderer::SubmitShadowCasters( bgfx::ViewId view, uint32_t InViewIndex 
     {
         const Moonlight::MeshCommand& mesh = m_meshCache.Commands[index];
         const bool skinned = mesh.SkinBoneCount > 0;
-        const bgfx::ProgramHandle program = skinned ? skinnedProgram : m_shadowProgram.GetProgram();
+        const bgfx::ProgramHandle custom = mesh.CustomShadow ? mesh.MeshMaterial->GetShadowProgram( skinned ) : bgfx::ProgramHandle( BGFX_INVALID_HANDLE );
+        const bgfx::ProgramHandle program = bgfx::isValid( custom ) ? custom : ( skinned ? skinnedProgram : m_shadowProgram.GetProgram() );
         if( !bgfx::isValid( program ) || ( skinned && !bgfx::isValid( mesh.SingleMesh->GetSkinBuffer() ) ) || bgfx::getAvailInstanceDataBuffer( 1, kInstanceStride ) == 0 )
         {
             continue;
@@ -1538,14 +1566,14 @@ void BGFXRenderer::SubmitShadowCasters( bgfx::ViewId view, uint32_t InViewIndex 
         if( skinned ) bgfx::setVertexBuffer( 1, mesh.SingleMesh->GetSkinBuffer() );
         bgfx::setIndexBuffer( mesh.SingleMesh->GetIndexBuffer( mesh.Lod ) );
         bgfx::setInstanceDataBuffer( &idb );
-        bgfx::setUniform( u_shadowAlpha, alpha );
         if( skinned ) bgfx::setUniform( u_bones, mesh.SkinPalette, mesh.SkinBoneCount );
-        if( mesh.AlphaCutoff > 0.f )
+        if( bgfx::isValid( custom ) )
         {
-            const Moonlight::Texture* diffuse = mesh.MeshMaterial->GetTexture( Moonlight::TextureType::Diffuse );
-            const Moonlight::Texture* opacity = mesh.MeshMaterial->GetTexture( Moonlight::TextureType::Opacity );
-            bgfx::setTexture( 0, s_texDiffuse, diffuse && bgfx::isValid( diffuse->TexHandle ) ? diffuse->TexHandle : m_whiteTexture );
-            bgfx::setTexture( 2, s_texAlpha, opacity && bgfx::isValid( opacity->TexHandle ) ? opacity->TexHandle : m_whiteTexture );
+            mesh.MeshMaterial->Use();
+        }
+        else
+        {
+            BindStockShadowCaster( mesh, alpha );
         }
         bgfx::setState( state );
         bgfx::submit( view, program );

@@ -80,6 +80,8 @@ namespace Moonlight
         // Shadow passes: casters are culled per cascade / spot light by their world bounds, and
         // alpha-tested materials discard in the depth pass too.
         float AlphaCutoff = 0.f;
+        // The material draws its own shadow caster program (shader graphs with vertex offset or clip).
+        bool CustomShadow = false;
         AABB WorldBounds;
         // Skinned meshes: this frame's mesh-space bone palette (owned by the Mesh component, valid
         // until the next RenderCore update). Skinned meshes are drawn one at a time.

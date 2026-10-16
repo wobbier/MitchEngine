@@ -217,7 +217,7 @@ AssetType AssetBrowserWidget::GetAssetType( const std::string& InPath )
         return AssetType::CS;
     if( EndsWith( path, ".mat" ) )
         return AssetType::Material;
-    if( EndsWith( path, ".shader" ) )
+    if( EndsWith( path, ".shadergraph" ) )
         return AssetType::ShaderGraph;
     if( EndsWith( path, ".vert" ) || EndsWith( path, ".frag" ) || EndsWith( path, ".sh" ) || EndsWith( path, ".sc" ) )
         return AssetType::Shader;

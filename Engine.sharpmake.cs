@@ -14,7 +14,6 @@ using Sharpmake;
 [module: Sharpmake.Include("Tools/HUB/MitchHub.sharpmake.cs")]
 [module: Sharpmake.Include("Tools/SharpmakeProject.sharpmake.cs")]
 [module: Sharpmake.Include("Tools/BaseTool.sharpmake.cs")]
-[module: Sharpmake.Include("Tools/ShaderEditor/ShaderEditor.sharpmake.cs")]
 [module: Sharpmake.Include("ThirdParty/Box2D.sharpmake.cs")]
 [module: Sharpmake.Include("ThirdParty/Box3D.sharpmake.cs")]
 [module: Sharpmake.Include("ThirdParty/RecastNavigation.sharpmake.cs")]
@@ -542,7 +541,6 @@ public class BaseGameSolution : Solution
         {
             conf.AddProject<Havana>(target);
             conf.AddProject<MitchHubProject>(target);
-            conf.AddProject<ShaderEditor>(target);
         }
         else
         {

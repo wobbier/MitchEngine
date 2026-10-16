@@ -260,6 +260,10 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                     const RenderItem& item = items[entIndex];
                     {
                         Mesh& model = *item.Instance;
+                        if( model.MeshMaterial )
+                        {
+                            model.MeshMaterial->PrepareForDraw();
+                        }
                         // Meshes without geometry (e.g. a Model still loading) or whose material's
                         // shaders are still loading have nothing to draw yet.
                         if( !model.MeshReferece || !model.MeshMaterial || !model.MeshMaterial->MeshShader.IsLoaded() )
@@ -312,7 +316,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                             Moonlight::MeshCommand command;
                             command.Visible = isVisible && item.Owner->IsActiveInHierarchy();
                             command.WorldBounds = worldBounds;
-                            command.CastShadows = model.CastShadows && item.Owner->IsActiveInHierarchy();
+                            command.CastShadows = model.CastShadows && item.Owner->IsActiveInHierarchy() && ( !model.MeshMaterial || model.MeshMaterial->CastsShadows() );
                             command.SingleMesh = model.MeshReferece;
                             command.MeshMaterial = model.MeshMaterial;
                             command.Transform = meshMatrix;
@@ -326,6 +330,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
                                 command.SupportsInstancing = model.MeshMaterial->SupportsInstancing;
                                 command.BatchKey = model.MeshMaterial->GetInstanceBatchKey();
                                 command.AlphaCutoff = model.MeshMaterial->GetAlphaCutoff();
+                                command.CustomShadow = bgfx::isValid( model.MeshMaterial->GetShadowProgram( false ) );
                             }
                             if( model.MeshReferece )
                             {

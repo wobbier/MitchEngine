@@ -45,7 +45,7 @@ flowchart TD
     GL --> EP["EntryPointGameProject<br/>Game_EntryPoint exe (+UWP variant)"]
     SC["ScriptCore (C# net8.0)"] -.script assembly.-> EP
     UGS["UserGameScript (C#)<br/>→ Game.Script.dll"] -.-> EP
-    BT["BaseTool"] --> SE2["ShaderEditor / HUB apps"]
+    BT["BaseTool"] --> SE2["HUB app"]
     BP --- E
 ```
 
@@ -88,7 +88,7 @@ Because these are **generation-time filesystem checks**, two machines with diffe
 
 ### Tools (`Tools/` at engine root)
 
-Prebuilt per-platform binaries in `Tools/Win64|macOS|linux/` (**`shaderc`**, `texturec` — used by the asset cook, `Docs/Resources-and-Assets.md`), the vendored **Sharpmake** application, **Optick.exe** (profiler viewer), and standalone tool apps: **ShaderEditor** (node-graph shader authoring feeding `ShaderGraphMaterial`) and **HUB** (MitchHub project launcher), plus `ProjectTemplate`/`NewProjectSetup` scripts for spinning up new game projects. Python helpers: `GenerateScriptAPI.py` (the script ABI, `Docs/Scripting-DotNet.md`) and `ScreenshotRegression.py` (capture scenes with `--frame-time` and compare with reference PNGs; `Docs/Architecture.md`).
+Prebuilt per-platform binaries in `Tools/Win64|macOS|linux/` (**`shaderc`**, `texturec` — used by the asset cook, `Docs/Resources-and-Assets.md`), the vendored **Sharpmake** application, **Optick.exe** (profiler viewer), and the standalone **HUB** app (MitchHub project launcher; shader graphs are edited inside Havana, `Docs/Materials-and-Shaders.md`), plus `ProjectTemplate`/`NewProjectSetup` scripts for spinning up new game projects. Python helpers: `GenerateScriptAPI.py` (the script ABI, `Docs/Scripting-DotNet.md`) and `ScreenshotRegression.py` (capture scenes with `--frame-time` and compare with reference PNGs; `Docs/Architecture.md`).
 
 **Checks (Linux).** One command guards the engine. Run it from the project root inside the dev shell:
 

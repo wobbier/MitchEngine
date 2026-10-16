@@ -175,6 +175,8 @@ private:
     // of a pass's views in one parallel sweep (a bit per view), then submitted view by view.
     void GatherShadowCasters();
     void CullShadowCasters( const Frustum* InFrustums, uint32_t InCount );
+    // The renderer's own depth-only caster: alpha cutoff, tiling and the diffuse/opacity maps.
+    void BindStockShadowCaster( const Moonlight::MeshCommand& InMesh, const float InAlpha[4] );
     void SubmitShadowCasters( bgfx::ViewId InView, uint32_t InViewIndex );
     // World -> atlas uv / depth for one tile of a 2x2 atlas.
     glm::mat4 ShadowAtlasMatrix( uint32_t tile, const glm::mat4& viewProjection ) const;
@@ -375,6 +377,7 @@ private:
     bgfx::TextureHandle m_whiteTexture = BGFX_INVALID_HANDLE;
     bgfx::TextureHandle m_blackTexture = BGFX_INVALID_HANDLE;
     bgfx::TextureHandle m_flatNormalTexture = BGFX_INVALID_HANDLE;
+    bgfx::TextureHandle m_grayTexture = BGFX_INVALID_HANDLE;
     SharedPtr<Moonlight::DynamicSky> m_dynamicSky;
     bool EnableDebugDraw = false;
     UniquePtr<DebugDrawer> m_debugDraw;
