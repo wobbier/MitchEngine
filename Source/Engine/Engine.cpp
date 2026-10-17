@@ -41,6 +41,10 @@
 #include "SDL.h"
 #include "SDL_video.h"
 #include <imgui.h>
+#if USING( ME_IMGUI )
+#include <backends/imgui_impl_sdl2.h>
+#include <Window/PlatformWindowHooks.h>
+#endif
 #include <Debug/DebugDrawer.h>
 #include <Debug/DebugDraw.h>
 #include "Engine/ProjectSettings.h"
@@ -82,11 +86,6 @@ Engine::~Engine()
 {
 }
 
-extern bool ImGui_ImplSDL2_InitForD3D( SDL_Window* window );
-extern bool ImGui_ImplSDL2_InitForMetal( SDL_Window* window );
-extern bool ImGui_ImplSDL2_InitForOpenGL(SDL_Window* window, void* sdl_gl_context);
-extern bool ImGui_ImplSDL2_InitForVulkan( SDL_Window* window );
-extern bool ImGui_ImplWin32_Init( void* window );
 void Engine::Init( Game* game )
 {
     OPTICK_EVENT( "Engine::Init" );
@@ -211,12 +210,13 @@ void Engine::Init( Game* game )
     }
     CLog::GetInstance().Log( CLog::LogType::Info, "After the Renderer." );
 #if USING( ME_IMGUI )
-#if USING( ME_PLATFORM_WIN64 )
-    ImGui_ImplSDL2_InitForD3D( static_cast<SDLWindow*>( GameWindow )->WindowHandle );
-#elif USING( ME_PLATFORM_MACOS )
-    ImGui_ImplSDL2_InitForMetal( static_cast<SDLWindow*>( GameWindow )->WindowHandle );
-#elif USING( ME_PLATFORM_LINUX )
-    ImGui_ImplSDL2_InitForVulkan( static_cast<SDLWindow*>( GameWindow )->WindowHandle );
+#if USING( ME_PLATFORM_WIN64 ) || USING( ME_PLATFORM_MACOS ) || USING( ME_PLATFORM_LINUX )
+    // Enable before SDL initialization so it installs its viewport platform interface. bgfx
+    // creates the graphics surfaces itself, so SDL windows need no OpenGL/Vulkan context.
+    if( ImGui::GetIO().BackendFlags & ImGuiBackendFlags_RendererHasViewports )
+        ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+    ImGui_ImplSDL2_InitForOther( static_cast<SDLWindow*>( GameWindow )->WindowHandle );
+    ImGui::InitHooks();
 #endif
 #endif
     //m_renderer = new Moonlight::Renderer();
@@ -312,10 +312,6 @@ void Engine::StopGame()
 {
     m_game->OnEnd();
 }
-
-#if USING( ME_IMGUI )
-extern void ImGui_ImplSDL2_NewFrame();
-#endif
 
 void Engine::Run()
 {
@@ -763,6 +759,10 @@ void Engine::Shutdown()
     // GPU teardown: drop the cached assets, then the renderer and bgfx. GPU objects released after
     // this (static caches, the game object) skip their handles (Moonlight::IsGpuAlive).
     ResourceCache::GetInstance().ReleaseAll();
+#if USING( ME_IMGUI )
+    if( ImGui::GetCurrentContext() && ImGui::GetIO().BackendPlatformUserData )
+        ImGui_ImplSDL2_Shutdown();
+#endif
     if( NewRenderer )
     {
         NewRenderer->Destroy();

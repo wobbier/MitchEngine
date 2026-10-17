@@ -270,8 +270,11 @@ void PickingPass::Render( BGFXRenderer* inRenderer, CameraData* inCamData, Frame
     if( m_reading == 0 && inFrameSettings.WasLeftPressed)
     {
         // Blit and read
-        bgfx::blit( RENDER_PASS_BLIT, m_blitTex, 0, 0, m_pickingRT );
-        m_reading = bgfx::readTexture( m_blitTex, m_blitData );
+        bgfx::TextureRegion readback, picking;
+        readback.init( m_blitTex );
+        picking.init( m_pickingRT );
+        bgfx::blit( RENDER_PASS_BLIT, readback, picking );
+        m_reading = bgfx::read( readback, m_blitData );
     }
 }
 

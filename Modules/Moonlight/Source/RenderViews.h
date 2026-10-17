@@ -40,11 +40,12 @@ namespace Moonlight::RenderView
     constexpr bgfx::ViewId EditorOffscreenFirst = UIComposite + 1;
     constexpr bgfx::ViewId EditorOffscreenCount = 16;
 
-    // ImGui platform windows count down from ImGuiPlatformLast; the main ImGui pass is last.
+    // Stable IDs for detached ImGui windows; the main ImGui pass is last.
+    constexpr bgfx::ViewId ImGuiPlatformFirst = EditorOffscreenFirst + EditorOffscreenCount;
     constexpr bgfx::ViewId ImGuiPlatformLast = 254;
     constexpr bgfx::ViewId ImGuiMain = 255;
 
-    static_assert( EditorOffscreenFirst + EditorOffscreenCount <= ImGuiPlatformLast - 8, "Render view bands overlap the ImGui band." );
+    static_assert( ImGuiPlatformFirst <= ImGuiPlatformLast - 8, "Render view bands overlap the ImGui band." );
 }
 
 namespace Moonlight

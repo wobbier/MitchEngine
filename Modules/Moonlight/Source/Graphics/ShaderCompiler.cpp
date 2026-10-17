@@ -85,7 +85,7 @@ namespace Moonlight::ShaderCompiler
         }
         if( renderer == "glsl" )
         {
-            return { HostPlatform(), "150" };
+            return { HostPlatform(), "430" };
         }
         if( renderer == "metal" )
         {
@@ -101,7 +101,7 @@ namespace Moonlight::ShaderCompiler
 
     std::vector<Profile> GetPortableProfiles()
     {
-        std::vector<Profile> profiles = { { "linux", "spirv" }, { "linux", "150" }, { "osx", "metal" } };
+        std::vector<Profile> profiles = { { "linux", "spirv" }, { "linux", "430" }, { "osx", "metal" } };
 #if USING( ME_PLATFORM_WIN64 )
         profiles.push_back( { "windows", "s_5_0" } );
 #endif

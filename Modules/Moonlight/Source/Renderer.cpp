@@ -1,7 +1,6 @@
 #include <Renderer.h>
 
 #include <bgfx/bgfx.h>
-#include <bgfx/platform.h>
 #include <ImGui/ImGuiRenderer.h>
 #include "optick.h"
 #include "Jobs/JobSystem.h"
@@ -103,16 +102,16 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
     bgfx::renderFrame();
     // Initialize bgfx using the native window handle and window resolution.
     bgfx::Init init;
-    init.platformData.nwh  = settings.WindowPtr;
-    init.platformData.ndt  = settings.DisplayPtr;
+    init.swapChain.nwh  = settings.WindowPtr;
+    init.swapChain.ndt  = settings.DisplayPtr;
     init.platformData.type = settings.WindowType;
     init.callback = &m_bgfxCallback;
-    init.resolution.width  = static_cast<uint32_t>( PreviousSize.x );
-    init.resolution.height = static_cast<uint32_t>( PreviousSize.y );
+    init.swapChain.width  = static_cast<uint32_t>( PreviousSize.x );
+    init.swapChain.height = static_cast<uint32_t>( PreviousSize.y );
 #if USING( ME_PLATFORM_MACOS )
-    init.resolution.reset = BGFX_RESET_VSYNC;
+    init.reset = BGFX_RESET_VSYNC;
 #else
-    init.resolution.reset = BGFX_RESET_NONE;// | BGFX_RESET_MSAA_X16;
+    init.reset = BGFX_RESET_NONE;// | BGFX_RESET_MSAA_X16;
 #endif
 
 #if USING( ME_PLATFORM_UWP )
@@ -121,7 +120,7 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
 #elif USING( ME_PLATFORM_LINUX )
     init.type = bgfx::RendererType::Vulkan;
 #endif
-    m_resetFlags = init.resolution.reset;
+    m_resetFlags = init.reset;
     CurrentSize = settings.InitialSize;
 #if USING( ME_ENABLE_RENDERDOC )
     RenderDoc = new RenderDocManager();
@@ -146,7 +145,7 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
 
     if( settings.InitAssets )
     {
-        EditorCameraBuffer = new Moonlight::FrameBuffer( init.resolution.width, init.resolution.height );
+        EditorCameraBuffer = new Moonlight::FrameBuffer( init.swapChain.width, init.swapChain.height );
         EditorCameraBuffer->ReCreate( m_resetFlags );
 
         m_debugDraw.reset( new DebugDrawer() );
@@ -252,7 +251,7 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
         m_shadowProgram = Moonlight::ShaderCommand( "Assets/Shaders/ShadowDepth" );
         m_shadowSkinnedProgram = Moonlight::ShaderCommand( "Assets/Shaders/ShadowDepthSkinned", "Assets/Shaders/ShadowDepth" );
         u_bones = bgfx::createUniform( "u_bones", bgfx::UniformType::Mat4, Moonlight::MeshData::kMaxBones );
-        m_shadowsSupported = ( bgfx::getCaps()->supported & BGFX_CAPS_TEXTURE_COMPARE_LEQUAL ) != 0 && m_shadowProgram.IsLoaded();
+        m_shadowsSupported = m_shadowProgram.IsLoaded();
         if( !m_shadowsSupported )
         {
             YIKES( "Shadows disabled: the renderer has no depth compare samplers or the shadow shader failed to load." );
@@ -340,9 +339,22 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
 #endif
 
 
-    bgfx::reset( (uint32_t)CurrentSize.x, (uint32_t)CurrentSize.y, m_resetFlags );
+    ResetMainSwapChain();
     bgfx::setViewRect( kClearView, 0, 0, bgfx::BackbufferRatio::Equal );
 }
+
+
+void BGFXRenderer::ResetMainSwapChain()
+{
+    constexpr uint32_t swapChainFlags = BGFX_SWAP_CHAIN_MSAA_MASK | BGFX_SWAP_CHAIN_SRGB_BACKBUFFER | BGFX_SWAP_CHAIN_HDR10
+        | BGFX_SWAP_CHAIN_HIDPI | BGFX_SWAP_CHAIN_TRANSPARENT_BACKBUFFER;
+    bgfx::SwapChain swapChain;
+    swapChain.width = static_cast<uint32_t>( CurrentSize.x );
+    swapChain.height = static_cast<uint32_t>( CurrentSize.y );
+    swapChain.flags = m_resetFlags & swapChainFlags;
+    bgfx::reset( m_resetFlags & ~swapChainFlags, &swapChain );
+}
+
 
 BGFXRenderer::BGFXRenderer()
     : m_pt( 0 )
@@ -466,6 +478,14 @@ namespace
 void BGFXRenderer::Destroy()
 {
     // Release everything the renderer owns before shutting bgfx down.
+#if USING( ME_IMGUI )
+    if( ImGuiRender )
+    {
+        ImGuiRender->Destroy();
+        delete ImGuiRender;
+        ImGuiRender = nullptr;
+    }
+#endif
 #if USING( ME_EDITOR )
     m_pickingPass.reset();
 #endif
@@ -606,7 +626,7 @@ void BGFXRenderer::Render( Moonlight::CameraData& EditorCamera, FrameRenderData&
     {
         PreviousSize = CurrentSize;
 
-        bgfx::reset( (uint32_t)CurrentSize.x, (uint32_t)CurrentSize.y, m_resetFlags );
+        ResetMainSwapChain();
         //bgfx::setViewRect( kClearView, 0, 0, bgfx::BackbufferRatio::Equal );
         if( NeedsReset )
         {

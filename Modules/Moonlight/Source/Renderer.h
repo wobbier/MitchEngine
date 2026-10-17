@@ -351,6 +351,9 @@ private:
     Vector2 PreviousSize;
     Vector2 CurrentSize;
     uint32_t m_resetFlags = 0u;
+    // Applies CurrentSize and m_resetFlags to the main window. bgfx takes per-surface flags
+    // (MSAA, sRGB) on the swap chain and the rest on reset, so this splits m_resetFlags.
+    void ResetMainSwapChain();
 
     CommandCache<Moonlight::CameraData> m_cameraCache;
     CommandCache<Moonlight::MeshCommand> m_meshCache;

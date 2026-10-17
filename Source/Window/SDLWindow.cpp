@@ -31,7 +31,6 @@
 
 #include <bgfx/bgfx.h>
 
-#include "bgfx/platform.h"
 #include "CLog.h"
 #include "Engine/AutomationRunner.h"
 #include "Input/Gamepads.h"
@@ -105,6 +104,12 @@ SDLWindow::SDLWindow( const std::string& title, std::function<void( const Vector
     {
         subsystems &= ~( SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER | SDL_INIT_HAPTIC | SDL_INIT_SENSOR );
     }
+#if USING( ME_EDITOR ) && USING( ME_PLATFORM_LINUX )
+    // ImGui needs global coordinates to detach panels, which native Wayland cannot provide.
+    // Prefer X11/XWayland for the editor, falling back to Wayland when X11 is unavailable.
+    // An explicit SDL_VIDEODRIVER environment setting takes precedence over this hint.
+    SDL_SetHint( SDL_HINT_VIDEODRIVER, "x11,wayland" );
+#endif
     SDL_Init( subsystems );
     int xPos = ( X == 0 ) ? SDL_WINDOWPOS_CENTERED : X;
     int yPos = ( Y == 0 ) ? SDL_WINDOWPOS_UNDEFINED : Y;
@@ -928,7 +933,7 @@ void SDLWindow::Exit()
 
 void* SDLWindow::GetWindowPtr()
 {
-    return PlatformInfo.nwh;
+    return NativeWindow;
 }
 
 void SDLWindow::CanMoveWindow( bool param1 )
@@ -977,30 +982,30 @@ void SDLWindow::SetWindow( SDL_Window* window )
     printf("Subsystem: %d\n", wmi.subsystem);
 
 #if USING( ME_PLATFORM_WIN64 )
-    PlatformInfo.ndt = nullptr;
-    PlatformInfo.nwh = wmi.info.win.window;
+    NativeDisplay = nullptr;
+    NativeWindow = wmi.info.win.window;
 #endif
 #if USING( ME_PLATFORM_MACOS )
-    PlatformInfo.ndt = nullptr;
-    PlatformInfo.nwh = wmi.info.cocoa.window;
+    NativeDisplay = nullptr;
+    NativeWindow = wmi.info.cocoa.window;
 #endif
 #if USING( ME_PLATFORM_UWP )
-    PlatformInfo.ndt = nullptr;
-    PlatformInfo.nwh = wmi.info.win.window;
+    NativeDisplay = nullptr;
+    NativeWindow = wmi.info.win.window;
 #endif
 #if USING( ME_PLATFORM_LINUX )
     switch (wmi.subsystem)
     {
         case SDL_SYSWM_WAYLAND:
-            PlatformInfo.ndt  = wmi.info.wl.display;
-            PlatformInfo.nwh  = wmi.info.wl.surface;
-            PlatformInfo.type = bgfx::NativeWindowHandleType::Wayland;
+            NativeDisplay  = wmi.info.wl.display;
+            NativeWindow  = wmi.info.wl.surface;
+            NativeWindowType = bgfx::NativeWindowHandleType::Wayland;
             break;
 
         case SDL_SYSWM_X11:
             // X11: ndt = Display*, nwh = Window
-            PlatformInfo.ndt = wmi.info.x11.display;
-            PlatformInfo.nwh = (void*)(uintptr_t)wmi.info.x11.window;
+            NativeDisplay = wmi.info.x11.display;
+            NativeWindow = (void*)(uintptr_t)wmi.info.x11.window;
             break;
 
         default:
@@ -1008,13 +1013,14 @@ void SDLWindow::SetWindow( SDL_Window* window )
             break;
     }
 #endif
-    PlatformInfo.context = nullptr;
-    PlatformInfo.backBuffer = nullptr;
-    PlatformInfo.backBufferDS = nullptr;
 }
 
 void SDLWindow::HandleWindowEvent( const SDL_WindowEvent& event )
 {
+    // ImGui's SDL backend handles detached window events. They must not resize, move or close
+    // the engine's main window (closing a panel used to quit the editor here).
+    if( event.windowID != SDL_GetWindowID( WindowHandle ) )
+        return;
     if( event.type != SDL_WINDOWEVENT )
     {
         YIKES( "Event Type Mismatch: Expected WindowEvent" );

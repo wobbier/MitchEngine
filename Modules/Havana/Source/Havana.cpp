@@ -35,7 +35,6 @@
 #include <backends/imgui_impl_sdl2.h>
 #include "UI/Colors.h"
 #include <Utils/EditorConfig.h>
-#include <Window/PlatformWindowHooks.h>
 #include "HavanaWidget.h"
 #include "Editor/WidgetRegistry.h"
 #include "Window/IWindow.h"
@@ -177,11 +176,6 @@ void Havana::InitUI()
         io.IniFilename = nullptr;
     }
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-#if !USING( ME_PLATFORM_LINUX )
-    io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
-    io.BackendFlags |= ImGuiBackendFlags_PlatformHasViewports;
-    io.BackendFlags |= ImGuiBackendFlags_RendererHasViewports;
-#endif
     //io.MouseDrawCursor = true;
 
     g_imgui_to_sdl_cursor[ImGuiMouseCursor_Arrow] = SDL_CreateSystemCursor( SDL_SYSTEM_CURSOR_ARROW );
@@ -276,7 +270,6 @@ void Havana::InitUI()
     window->SetCustomDragCallback(cb);*/
     //m_engine->GetInput().Stop();
     //GetInput().GetMouse().SetWindow(GetActiveWindow());
-    ImGui::InitHooks( (SDLWindow*)m_engine->GetWindow(), Renderer->GetImGuiRenderer() );
     //MainMenu->Init();
     //LogPanel->Init();
     //ResourceMonitor->Init();

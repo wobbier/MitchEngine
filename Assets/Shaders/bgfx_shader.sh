@@ -1,32 +1,44 @@
 /*
- * Copyright 2011-2021 Branimir Karadzic. All rights reserved.
- * License: https://github.com/bkaradzic/bgfx#license-bsd-2-clause
+ * Copyright 2011-2026 Branimir Karadzic. All rights reserved.
+ * License: https://github.com/bkaradzic/bgfx/blob/master/LICENSE
  */
 
 #ifndef BGFX_SHADER_H_HEADER_GUARD
 #define BGFX_SHADER_H_HEADER_GUARD
 
 #if !defined(BGFX_CONFIG_MAX_BONES)
-#	define BGFX_CONFIG_MAX_BONES 32
+#	define BGFX_CONFIG_MAX_BONES 1
 #endif // !defined(BGFX_CONFIG_MAX_BONES)
 
 #ifndef __cplusplus
 
-#if BGFX_SHADER_LANGUAGE_HLSL > 300
-#	define BRANCH [branch]
-#	define LOOP   [loop]
-#	define UNROLL [unroll]
-#else
+#define __CONCAT(_x, _y)    __CONCAT_XX(_x, _y)
+#define __CONCAT_XX(_x, _y) _x ## _y
+
+#if BGFX_SHADER_LANGUAGE_GLSL
 #	define BRANCH
 #	define LOOP
 #	define UNROLL
-#endif // BGFX_SHADER_LANGUAGE_HLSL > 300
-
-#if BGFX_SHADER_LANGUAGE_HLSL > 300 && BGFX_SHADER_TYPE_FRAGMENT
-#	define EARLY_DEPTH_STENCIL [earlydepthstencil]
 #else
-#	define EARLY_DEPTH_STENCIL
-#endif // BGFX_SHADER_LANGUAGE_HLSL > 300 && BGFX_SHADER_TYPE_FRAGMENT
+#	define BRANCH [branch]
+#	define LOOP   [loop]
+#	define UNROLL [unroll]
+#endif // BGFX_SHADER_LANGUAGE_GLSL
+
+#define BGFX_SHADER_MATRIX_COLUMN_MAJOR (0 \
+	|| BGFX_SHADER_LANGUAGE_GLSL           \
+	)
+
+#if BGFX_SHADER_TYPE_FRAGMENT
+#	if BGFX_SHADER_LANGUAGE_HLSL  \
+	|| BGFX_SHADER_LANGUAGE_METAL \
+	|| BGFX_SHADER_LANGUAGE_SPIRV \
+	|| BGFX_SHADER_LANGUAGE_WGSL
+#		define EARLY_DEPTH_STENCIL [earlydepthstencil]
+	#else
+#		define EARLY_DEPTH_STENCIL
+#	endif // BGFX_SHADER_LANGUAGE_...
+#endif // BGFX_SHADER_TYPE_FRAGMENT
 
 #if BGFX_SHADER_LANGUAGE_GLSL
 #	define ARRAY_BEGIN(_type, _name, _count) _type _name[_count] = _type[](
@@ -36,42 +48,51 @@
 #	define ARRAY_END() }
 #endif // BGFX_SHADER_LANGUAGE_GLSL
 
-#if BGFX_SHADER_LANGUAGE_HLSL \
- || BGFX_SHADER_LANGUAGE_PSSL \
+#if BGFX_SHADER_LANGUAGE_HLSL  \
+ || BGFX_SHADER_LANGUAGE_PSSL  \
  || BGFX_SHADER_LANGUAGE_SPIRV \
- || BGFX_SHADER_LANGUAGE_METAL
+ || BGFX_SHADER_LANGUAGE_METAL \
+ || BGFX_SHADER_LANGUAGE_WGSL
 #	define CONST(_x) static const _x
 #	define dFdx(_x) ddx(_x)
-#	define dFdy(_y) ddy(-_y)
+#	define dFdy(_y) ddy(-(_y))
 #	define inversesqrt(_x) rsqrt(_x)
 #	define fract(_x) frac(_x)
+#	define not(_x) (!_x)
 
 #	define bvec2 bool2
 #	define bvec3 bool3
 #	define bvec4 bool4
 
-// To be able to patch the uav registers on the DXBC SPDB Chunk (D3D11 renderer) the whitespaces around
-// '_type[_reg]' are necessary. This only affects shaders with debug info (i.e., those that have the SPDB Chunk).
-#	if BGFX_SHADER_LANGUAGE_HLSL > 400
-#		define REGISTER(_type, _reg) register( _type[_reg] )
-#	else
+#	if BGFX_SHADER_LANGUAGE_HLSL  \
+	|| BGFX_SHADER_LANGUAGE_PSSL  \
+	|| BGFX_SHADER_LANGUAGE_SPIRV \
+	|| BGFX_SHADER_LANGUAGE_METAL \
+	|| BGFX_SHADER_LANGUAGE_WGSL
+
 #		define REGISTER(_type, _reg) register(_type ## _reg)
-#	endif // BGFX_SHADER_LANGUAGE_HLSL
+#	endif // BGFX_SHADER_LANGUAGE_*
 
-#	if BGFX_SHADER_LANGUAGE_HLSL > 300 || BGFX_SHADER_LANGUAGE_PSSL || BGFX_SHADER_LANGUAGE_SPIRV || BGFX_SHADER_LANGUAGE_METAL
-#		if BGFX_SHADER_LANGUAGE_HLSL > 400 || BGFX_SHADER_LANGUAGE_PSSL || BGFX_SHADER_LANGUAGE_SPIRV || BGFX_SHADER_LANGUAGE_METAL
-#			define dFdxCoarse(_x) ddx_coarse(_x)
-#			define dFdxFine(_x)   ddx_fine(_x)
-#			define dFdyCoarse(_y) ddy_coarse(-_y)
-#			define dFdyFine(_y)   ddy_fine(-_y)
-#		endif // BGFX_SHADER_LANGUAGE_HLSL > 400
+#	if BGFX_SHADER_LANGUAGE_HLSL  \
+	|| BGFX_SHADER_LANGUAGE_PSSL  \
+	|| BGFX_SHADER_LANGUAGE_SPIRV \
+	|| BGFX_SHADER_LANGUAGE_METAL \
+	|| BGFX_SHADER_LANGUAGE_WGSL
 
-#		if BGFX_SHADER_LANGUAGE_HLSL || BGFX_SHADER_LANGUAGE_SPIRV || BGFX_SHADER_LANGUAGE_METAL
+#		define dFdxCoarse(_x) ddx_coarse(_x)
+#		define dFdxFine(_x)   ddx_fine(_x)
+#		define dFdyCoarse(_y) ddy_coarse(-(_y))
+#		define dFdyFine(_y)   ddy_fine(-(_y))
+
+#		if BGFX_SHADER_LANGUAGE_HLSL  \
+		|| BGFX_SHADER_LANGUAGE_SPIRV \
+		|| BGFX_SHADER_LANGUAGE_METAL \
+		|| BGFX_SHADER_LANGUAGE_WGSL
 float intBitsToFloat(int   _x) { return asfloat(_x); }
 vec2  intBitsToFloat(uint2 _x) { return asfloat(_x); }
 vec3  intBitsToFloat(uint3 _x) { return asfloat(_x); }
 vec4  intBitsToFloat(uint4 _x) { return asfloat(_x); }
-#		endif // BGFX_SHADER_LANGUAGE_HLSL || BGFX_SHADER_LANGUAGE_SPIRV || BGFX_SHADER_LANGUAGE_METAL
+#		endif // BGFX_SHADER_LANGUAGE_*
 
 float uintBitsToFloat(uint  _x) { return asfloat(_x); }
 vec2  uintBitsToFloat(uint2 _x) { return asfloat(_x); }
@@ -161,6 +182,12 @@ struct BgfxSamplerCube
 	TextureCube m_texture;
 };
 
+struct BgfxSamplerCubeArray
+{
+	SamplerState m_sampler;
+	TextureCubeArray m_texture;
+};
+
 struct BgfxSamplerCubeShadow
 {
 	SamplerComparisonState m_sampler;
@@ -170,6 +197,11 @@ struct BgfxSamplerCubeShadow
 struct BgfxSampler2DMS
 {
 	Texture2DMS<vec4> m_texture;
+};
+
+struct BgfxSampler2DMSArray
+{
+	Texture2DMSArray<vec4> m_texture;
 };
 
 vec4 bgfxTexture2D(BgfxSampler2D _sampler, vec2 _coord)
@@ -224,6 +256,14 @@ vec4 bgfxTexture2DArrayLodOffset(BgfxSampler2DArray _sampler, vec3 _coord, float
 	return _sampler.m_texture.SampleLevel(_sampler.m_sampler, _coord, _level, _offset);
 }
 
+vec3 bgfxTextureSize(BgfxSampler2DArray _sampler, int _lod)
+{
+	vec3 result;
+	float numberOfMipMapLevels;
+	_sampler.m_texture.GetDimensions(_lod, result.x, result.y, result.z, numberOfMipMapLevels);
+	return result;
+}
+
 float bgfxShadow2D(BgfxSampler2DShadow _sampler, vec3 _coord)
 {
 	return _sampler.m_texture.SampleCmpLevelZero(_sampler.m_sampler, _coord.xy, _coord.z);
@@ -235,9 +275,25 @@ float bgfxShadow2DProj(BgfxSampler2DShadow _sampler, vec4 _coord)
 	return _sampler.m_texture.SampleCmpLevelZero(_sampler.m_sampler, coord.xy, coord.z);
 }
 
-vec4 bgfxShadow2DArray(BgfxSampler2DArrayShadow _sampler, vec4 _coord)
+vec2 bgfxTextureSize(BgfxSampler2DShadow _sampler, int _lod)
+{
+	vec2 result;
+	float numberOfMipMapLevels;
+	_sampler.m_texture.GetDimensions(_lod, result.x, result.y, numberOfMipMapLevels);
+	return result;
+}
+
+float bgfxShadow2DArray(BgfxSampler2DArrayShadow _sampler, vec4 _coord)
 {
 	return _sampler.m_texture.SampleCmpLevelZero(_sampler.m_sampler, _coord.xyz, _coord.w);
+}
+
+vec3 bgfxTextureSize(BgfxSampler2DArrayShadow _sampler, int _lod)
+{
+	vec3 result;
+	float numberOfMipMapLevels;
+	_sampler.m_texture.GetDimensions(_lod, result.x, result.y, result.z, numberOfMipMapLevels);
+	return result;
 }
 
 vec4 bgfxTexture3D(BgfxSampler3D _sampler, vec3 _coord)
@@ -274,9 +330,48 @@ vec4 bgfxTextureCubeBias(BgfxSamplerCube _sampler, vec3 _coord, float _bias)
 	return _sampler.m_texture.SampleBias(_sampler.m_sampler, _coord, _bias);
 }
 
+vec4 bgfxTextureCubeArray(BgfxSamplerCubeArray _sampler, vec4 _coord)
+{
+	return _sampler.m_texture.Sample(_sampler.m_sampler, _coord);
+}
+
+vec4 bgfxTextureCubeArrayLod(BgfxSamplerCubeArray _sampler, vec4 _coord, float _level)
+{
+	return _sampler.m_texture.SampleLevel(_sampler.m_sampler, _coord, _level);
+}
+
 vec4 bgfxTextureCubeLod(BgfxSamplerCube _sampler, vec3 _coord, float _level)
 {
 	return _sampler.m_texture.SampleLevel(_sampler.m_sampler, _coord, _level);
+}
+
+vec4 bgfxTextureCubeGrad(BgfxSamplerCube _sampler, vec3 _coord, vec3 _dPdx, vec3 _dPdy)
+{
+	return _sampler.m_texture.SampleGrad(_sampler.m_sampler, _coord, _dPdx, _dPdy);
+}
+
+vec2 bgfxTextureSize(BgfxSamplerCube _sampler, int _lod)
+{
+	vec2 result;
+	float numberOfMipMapLevels;
+	_sampler.m_texture.GetDimensions(_lod, result.x, result.y, numberOfMipMapLevels);
+	return result;
+}
+
+vec3 bgfxTextureSize(BgfxSamplerCubeArray _sampler, int _lod)
+{
+	vec3 result;
+	float numberOfMipMapLevels;
+	_sampler.m_texture.GetDimensions(_lod, result.x, result.y, result.z, numberOfMipMapLevels);
+	return result;
+}
+
+vec2 bgfxTextureSize(BgfxSamplerCubeShadow _sampler, int _lod)
+{
+	vec2 result;
+	float numberOfMipMapLevels;
+	_sampler.m_texture.GetDimensions(_lod, result.x, result.y, numberOfMipMapLevels);
+	return result;
 }
 
 float bgfxShadowCube(BgfxSamplerCubeShadow _sampler, vec4 _coord)
@@ -297,21 +392,85 @@ vec4 bgfxTexelFetchOffset(BgfxSampler2D _sampler, ivec2 _coord, int _lod, ivec2 
 vec2 bgfxTextureSize(BgfxSampler2D _sampler, int _lod)
 {
 	vec2 result;
-	_sampler.m_texture.GetDimensions(result.x, result.y);
+	float numberOfMipMapLevels;
+	_sampler.m_texture.GetDimensions(_lod, result.x, result.y, numberOfMipMapLevels);
 	return result;
 }
 
-vec4 bgfxTextureGather(BgfxSampler2D _sampler, vec2 _coord)
+vec2 bgfxTextureSize(BgfxISampler2D _sampler, int _lod)
 {
-	return _sampler.m_texture.GatherRed(_sampler.m_sampler, _coord );
+	vec2 result;
+	float numberOfMipMapLevels;
+	_sampler.m_texture.GetDimensions(_lod, result.x, result.y, numberOfMipMapLevels);
+	return result;
 }
-vec4 bgfxTextureGatherOffset(BgfxSampler2D _sampler, vec2 _coord, ivec2 _offset)
+
+vec2 bgfxTextureSize(BgfxUSampler2D _sampler, int _lod)
 {
-	return _sampler.m_texture.GatherRed(_sampler.m_sampler, _coord, _offset );
+	vec2 result;
+	float numberOfMipMapLevels;
+	_sampler.m_texture.GetDimensions(_lod, result.x, result.y, numberOfMipMapLevels);
+	return result;
 }
-vec4 bgfxTextureGather(BgfxSampler2DArray _sampler, vec3 _coord)
+
+vec4 bgfxTextureGather0(BgfxSampler2D _sampler, vec2 _coord)
 {
-	return _sampler.m_texture.GatherRed(_sampler.m_sampler, _coord );
+	return _sampler.m_texture.GatherRed(_sampler.m_sampler, _coord);
+}
+
+vec4 bgfxTextureGather1(BgfxSampler2D _sampler, vec2 _coord)
+{
+	return _sampler.m_texture.GatherGreen(_sampler.m_sampler, _coord);
+}
+
+vec4 bgfxTextureGather2(BgfxSampler2D _sampler, vec2 _coord)
+{
+	return _sampler.m_texture.GatherBlue(_sampler.m_sampler, _coord);
+}
+
+vec4 bgfxTextureGather3(BgfxSampler2D _sampler, vec2 _coord)
+{
+	return _sampler.m_texture.GatherAlpha(_sampler.m_sampler, _coord);
+}
+
+vec4 bgfxTextureGatherOffset0(BgfxSampler2D _sampler, vec2 _coord, ivec2 _offset)
+{
+	return _sampler.m_texture.GatherRed(_sampler.m_sampler, _coord, _offset);
+}
+
+vec4 bgfxTextureGatherOffset1(BgfxSampler2D _sampler, vec2 _coord, ivec2 _offset)
+{
+	return _sampler.m_texture.GatherGreen(_sampler.m_sampler, _coord, _offset);
+}
+
+vec4 bgfxTextureGatherOffset2(BgfxSampler2D _sampler, vec2 _coord, ivec2 _offset)
+{
+	return _sampler.m_texture.GatherBlue(_sampler.m_sampler, _coord, _offset);
+}
+
+vec4 bgfxTextureGatherOffset3(BgfxSampler2D _sampler, vec2 _coord, ivec2 _offset)
+{
+	return _sampler.m_texture.GatherAlpha(_sampler.m_sampler, _coord, _offset);
+}
+
+vec4 bgfxTextureGather0(BgfxSampler2DArray _sampler, vec3 _coord)
+{
+	return _sampler.m_texture.GatherRed(_sampler.m_sampler, _coord);
+}
+
+vec4 bgfxTextureGather1(BgfxSampler2DArray _sampler, vec3 _coord)
+{
+	return _sampler.m_texture.GatherGreen(_sampler.m_sampler, _coord);
+}
+
+vec4 bgfxTextureGather2(BgfxSampler2DArray _sampler, vec3 _coord)
+{
+	return _sampler.m_texture.GatherBlue(_sampler.m_sampler, _coord);
+}
+
+vec4 bgfxTextureGather3(BgfxSampler2DArray _sampler, vec3 _coord)
+{
+	return _sampler.m_texture.GatherAlpha(_sampler.m_sampler, _coord);
 }
 
 ivec4 bgfxTexelFetch(BgfxISampler2D _sampler, ivec2 _coord, int _lod)
@@ -329,6 +488,11 @@ vec4 bgfxTexelFetch(BgfxSampler2DMS _sampler, ivec2 _coord, int _sampleIdx)
 	return _sampler.m_texture.Load(_coord, _sampleIdx);
 }
 
+vec4 bgfxTexelFetch(BgfxSampler2DMSArray _sampler, ivec3 _coord, int _sampleIdx)
+{
+	return _sampler.m_texture.Load(_coord, _sampleIdx);
+}
+
 vec4 bgfxTexelFetch(BgfxSampler2DArray _sampler, ivec3 _coord, int _lod)
 {
 	return _sampler.m_texture.Load(ivec4(_coord, _lod) );
@@ -339,11 +503,48 @@ vec4 bgfxTexelFetch(BgfxSampler3D _sampler, ivec3 _coord, int _lod)
 	return _sampler.m_texture.Load(ivec4(_coord, _lod) );
 }
 
+ivec4 bgfxTexelFetch(BgfxISampler3D _sampler, ivec3 _coord, int _lod)
+{
+	return _sampler.m_texture.Load(ivec4(_coord, _lod) );
+}
+
+uvec4 bgfxTexelFetch(BgfxUSampler3D _sampler, ivec3 _coord, int _lod)
+{
+	return _sampler.m_texture.Load(ivec4(_coord, _lod) );
+}
+
 vec3 bgfxTextureSize(BgfxSampler3D _sampler, int _lod)
 {
 	vec3 result;
-	_sampler.m_texture.GetDimensions(result.x, result.y, result.z);
+	float numberOfMipMapLevels;
+	_sampler.m_texture.GetDimensions(_lod, result.x, result.y, result.z, numberOfMipMapLevels);
 	return result;
+}
+
+vec3 bgfxTextureSize(BgfxISampler3D _sampler, int _lod)
+{
+	vec3 result;
+	float numberOfMipMapLevels;
+	_sampler.m_texture.GetDimensions(_lod, result.x, result.y, result.z, numberOfMipMapLevels);
+	return result;
+}
+
+vec3 bgfxTextureSize(BgfxUSampler3D _sampler, int _lod)
+{
+	vec3 result;
+	float numberOfMipMapLevels;
+	_sampler.m_texture.GetDimensions(_lod, result.x, result.y, result.z, numberOfMipMapLevels);
+	return result;
+}
+
+vec4 bgfxTexture3DGrad(BgfxSampler3D _sampler, vec3 _coord, vec3 _dPdx, vec3 _dPdy)
+{
+	return _sampler.m_texture.SampleGrad(_sampler.m_sampler, _coord, _dPdx, _dPdy);
+}
+
+vec4 bgfxTexture3DLodOffset(BgfxSampler3D _sampler, vec3 _coord, float _level, ivec3 _offset)
+{
+	return _sampler.m_texture.SampleLevel(_sampler.m_sampler, _coord, _level, _offset);
 }
 
 #		define SAMPLER2D(_name, _reg) \
@@ -372,6 +573,11 @@ vec3 bgfxTextureSize(BgfxSampler3D _sampler, int _lod)
 #		define texture2DArray(_sampler, _coord) bgfxTexture2DArray(_sampler, _coord)
 #		define texture2DArrayLod(_sampler, _coord, _lod) bgfxTexture2DArrayLod(_sampler, _coord, _lod)
 #		define texture2DArrayLodOffset(_sampler, _coord, _level, _offset) bgfxTexture2DArrayLodOffset(_sampler, _coord, _level, _offset)
+
+#		define SAMPLER2DMSARRAY(_name, _reg) \
+			uniform Texture2DMSArray<vec4> _name ## Texture : REGISTER(t, _reg); \
+			static BgfxSampler2DMSArray _name = { _name ## Texture }
+#		define sampler2DMSArray BgfxSampler2DMSArray
 
 #		define SAMPLER2DMS(_name, _reg) \
 			uniform Texture2DMS<vec4> _name ## Texture : REGISTER(t, _reg); \
@@ -406,6 +612,8 @@ vec3 bgfxTextureSize(BgfxSampler3D _sampler, int _lod)
 #		define sampler3D BgfxSampler3D
 #		define texture3D(_sampler, _coord) bgfxTexture3D(_sampler, _coord)
 #		define texture3DLod(_sampler, _coord, _level) bgfxTexture3DLod(_sampler, _coord, _level)
+#		define texture3DLodOffset(_sampler, _coord, _level, _offset) bgfxTexture3DLodOffset(_sampler, _coord, _level, _offset)
+#		define texture3DGrad(_sampler, _coord, _dPdx, _dPdy) bgfxTexture3DGrad(_sampler, _coord, _dPdx, _dPdy)
 
 #		define SAMPLERCUBE(_name, _reg) \
 			uniform SamplerState _name ## Sampler : REGISTER(s, _reg); \
@@ -415,6 +623,15 @@ vec3 bgfxTextureSize(BgfxSampler3D _sampler, int _lod)
 #		define textureCube(_sampler, _coord) bgfxTextureCube(_sampler, _coord)
 #		define textureCubeBias(_sampler, _coord, _bias) bgfxTextureCubeBias(_sampler, _coord, _bias)
 #		define textureCubeLod(_sampler, _coord, _level) bgfxTextureCubeLod(_sampler, _coord, _level)
+#		define textureCubeGrad(_sampler, _coord, _dPdx, _dPdy) bgfxTextureCubeGrad(_sampler, _coord, _dPdx, _dPdy)
+
+#		define SAMPLERCUBEARRAY(_name, _reg) \
+			uniform SamplerState _name ## Sampler : REGISTER(s, _reg); \
+			uniform TextureCubeArray _name ## Texture : REGISTER(t, _reg); \
+			static BgfxSamplerCubeArray _name = { _name ## Sampler, _name ## Texture }
+#		define samplerCubeArray BgfxSamplerCubeArray
+#		define textureCubeArray(_sampler, _coord) bgfxTextureCubeArray(_sampler, _coord)
+#		define textureCubeArrayLod(_sampler, _coord, _level) bgfxTextureCubeArrayLod(_sampler, _coord, _level)
 
 #		define SAMPLERCUBESHADOW(_name, _reg) \
 			uniform SamplerComparisonState _name ## SamplerComparison : REGISTER(s, _reg); \
@@ -426,8 +643,8 @@ vec3 bgfxTextureSize(BgfxSampler3D _sampler, int _lod)
 #		define texelFetch(_sampler, _coord, _lod) bgfxTexelFetch(_sampler, _coord, _lod)
 #		define texelFetchOffset(_sampler, _coord, _lod, _offset) bgfxTexelFetchOffset(_sampler, _coord, _lod, _offset)
 #		define textureSize(_sampler, _lod) bgfxTextureSize(_sampler, _lod)
-#		define textureGather(_sampler, _coord) bgfxTextureGather(_sampler, _coord)
-#		define textureGatherOffset(_sampler, _coord, _offset) bgfxTextureGatherOffset(_sampler, _coord, _offset)
+#		define textureGather(_sampler, _coord, _comp) bgfxTextureGather ## _comp(_sampler, _coord)
+#		define textureGatherOffset(_sampler, _coord, _offset, _comp) bgfxTextureGatherOffset ## _comp(_sampler, _coord, _offset)
 #	else
 
 #		define sampler2DShadow sampler2D
@@ -487,12 +704,7 @@ float bgfxShadow2DProj(sampler2DShadow _sampler, vec4 _coord)
 #		define texture3DLod(_sampler, _coord, _level) tex3Dlod(_sampler, vec4( (_coord).xyz, _level) )
 #		define textureCubeLod(_sampler, _coord, _level) texCUBElod(_sampler, vec4( (_coord).xyz, _level) )
 
-#	endif // BGFX_SHADER_LANGUAGE_HLSL > 300
-
-vec3 instMul(vec3 _vec, mat3 _mtx) { return mul(_mtx, _vec); }
-vec3 instMul(mat3 _mtx, vec3 _vec) { return mul(_vec, _mtx); }
-vec4 instMul(vec4 _vec, mat4 _mtx) { return mul(_mtx, _vec); }
-vec4 instMul(mat4 _mtx, vec4 _vec) { return mul(_vec, _mtx); }
+#	endif // BGFX_SHADER_LANGUAGE_*
 
 bvec2 lessThan(vec2 _a, vec2 _b) { return _a < _b; }
 bvec3 lessThan(vec3 _a, vec3 _b) { return _a < _b; }
@@ -531,7 +743,6 @@ vec4  mod(vec4  _a, vec4  _b) { return _a - _b * floor(_a / _b); }
 #else
 #	define CONST(_x) const _x
 #	define atan2(_x, _y) atan(_x, _y)
-#	define mul(_a, _b) ( (_a) * (_b) )
 #	define saturate(_x) clamp(_x, 0.0, 1.0)
 #	define SAMPLER2D(_name, _reg)       uniform sampler2D _name
 #	define SAMPLER2DMS(_name, _reg)     uniform sampler2DMS _name
@@ -543,27 +754,34 @@ vec4  mod(vec4  _a, vec4  _b) { return _a - _b * floor(_a / _b); }
 #	define SAMPLER2DMSARRAY(_name, _reg)     uniform sampler2DMSArray _name
 #	define SAMPLERCUBEARRAY(_name, _reg)     uniform samplerCubeArray _name
 #	define SAMPLER2DARRAYSHADOW(_name, _reg) uniform sampler2DArrayShadow _name
+#	define SAMPLERCUBESHADOW(_name, _reg)    uniform samplerCubeShadow _name
 
 #	define ISAMPLER2D(_name, _reg) uniform isampler2D _name
 #	define USAMPLER2D(_name, _reg) uniform usampler2D _name
 #	define ISAMPLER3D(_name, _reg) uniform isampler3D _name
 #	define USAMPLER3D(_name, _reg) uniform usampler3D _name
 
-#	define texture2DBias(_sampler, _coord, _bias)      texture2D(_sampler, _coord, _bias)
-#	define textureCubeBias(_sampler, _coord, _bias)    textureCube(_sampler, _coord, _bias)
-
-#	if BGFX_SHADER_LANGUAGE_GLSL >= 130
-#		define texture2D(_sampler, _coord)      texture(_sampler, _coord)
-#		define texture2DArray(_sampler, _coord) texture(_sampler, _coord)
-#		define texture3D(_sampler, _coord)      texture(_sampler, _coord)
-#		define texture2DLod(_sampler, _coord, _lod)                textureLod(_sampler, _coord, _lod)
-#		define texture2DLodOffset(_sampler, _coord, _lod, _offset) textureLodOffset(_sampler, _coord, _lod, _offset)
-#	endif // BGFX_SHADER_LANGUAGE_GLSL >= 130
-
-vec3 instMul(vec3 _vec, mat3 _mtx) { return mul(_vec, _mtx); }
-vec3 instMul(mat3 _mtx, vec3 _vec) { return mul(_mtx, _vec); }
-vec4 instMul(vec4 _vec, mat4 _mtx) { return mul(_vec, _mtx); }
-vec4 instMul(mat4 _mtx, vec4 _vec) { return mul(_mtx, _vec); }
+#	define texture2D(_sampler, _coord)      texture(_sampler, _coord)
+#	define texture2DProj(_sampler, _coord)  textureProj(_sampler, _coord)
+#	define texture2DArray(_sampler, _coord) texture(_sampler, _coord)
+#	define shadow2DArray(_sampler, _coord)  texture(_sampler, _coord)
+#	define shadowCube(_sampler, _coord)     texture(_sampler, _coord)
+#	define texture3D(_sampler, _coord)      texture(_sampler, _coord)
+#	define textureCube(_sampler, _coord)    texture(_sampler, _coord)
+#	define textureCubeArray(_sampler, _coord) texture(_sampler, _coord)
+#	define texture2DLod(_sampler, _coord, _lod)                     textureLod(_sampler, _coord, _lod)
+#	define texture2DLodOffset(_sampler, _coord, _lod, _offset)      textureLodOffset(_sampler, _coord, _lod, _offset)
+#	define texture2DArrayLod(_sampler, _coord, _lod)                textureLod(_sampler, _coord, _lod)
+#	define texture2DArrayLodOffset(_sampler, _coord, _lod, _offset) textureLodOffset(_sampler, _coord, _lod, _offset)
+#	define texture3DLod(_sampler, _coord, _lod)                     textureLod(_sampler, _coord, _lod)
+#	define texture3DLodOffset(_sampler, _coord, _lod, _offset)      textureLodOffset(_sampler, _coord, _lod, _offset)
+#	define textureCubeLod(_sampler, _coord, _lod)                   textureLod(_sampler, _coord, _lod)
+#	define textureCubeArrayLod(_sampler, _coord, _lod)              textureLod(_sampler, _coord, _lod)
+#	define texture2DGrad(_sampler, _coord, _dPdx, _dPdy)            textureGrad(_sampler, _coord, _dPdx, _dPdy)
+#	define texture3DGrad(_sampler, _coord, _dPdx, _dPdy)            textureGrad(_sampler, _coord, _dPdx, _dPdy)
+#	define textureCubeGrad(_sampler, _coord, _dPdx, _dPdy)          textureGrad(_sampler, _coord, _dPdx, _dPdy)
+#	define texture2DBias(_sampler, _coord, _bias)      texture(_sampler, _coord, _bias)
+#	define textureCubeBias(_sampler, _coord, _bias)    texture(_sampler, _coord, _bias)
 
 float rcp(float _a) { return 1.0/_a; }
 vec2  rcp(vec2  _a) { return vec2(1.0)/_a; }
@@ -575,70 +793,181 @@ vec2 vec2_splat(float _x) { return vec2(_x, _x); }
 vec3 vec3_splat(float _x) { return vec3(_x, _x, _x); }
 vec4 vec4_splat(float _x) { return vec4(_x, _x, _x, _x); }
 
-#if BGFX_SHADER_LANGUAGE_GLSL >= 130 || BGFX_SHADER_LANGUAGE_HLSL || BGFX_SHADER_LANGUAGE_PSSL || BGFX_SHADER_LANGUAGE_SPIRV || BGFX_SHADER_LANGUAGE_METAL
 uvec2 uvec2_splat(uint _x) { return uvec2(_x, _x); }
 uvec3 uvec3_splat(uint _x) { return uvec3(_x, _x, _x); }
 uvec4 uvec4_splat(uint _x) { return uvec4(_x, _x, _x, _x); }
-#endif // BGFX_SHADER_LANGUAGE_GLSL >= 130 || BGFX_SHADER_LANGUAGE_HLSL || BGFX_SHADER_LANGUAGE_PSSL || BGFX_SHADER_LANGUAGE_SPIRV || BGFX_SHADER_LANGUAGE_METAL
+
+#if BGFX_SHADER_LANGUAGE_GLSL
+#	define mul(_a, _b) ( (_a) * (_b) )
+#elif BGFX_SHADER_LANGUAGE_WGSL && BGFX_SHADER_MATRIX_COLUMN_MAJOR
+#	define mul(_a, _b) mul(_b, _a)
+#	define mat3x4 float3x4
+#	define mat4x3 float4x3
+#else
+#	define mul(_a, _b) mul(_a, _b)
+#	define mat3x4 float4x3
+#	define mat4x3 float3x4
+#endif // BGFX_SHADER_LANGUAGE_*
 
 mat4 mtxFromRows(vec4 _0, vec4 _1, vec4 _2, vec4 _3)
 {
-#if BGFX_SHADER_LANGUAGE_GLSL
+#if BGFX_SHADER_MATRIX_COLUMN_MAJOR
 	return transpose(mat4(_0, _1, _2, _3) );
 #else
 	return mat4(_0, _1, _2, _3);
 #endif // BGFX_SHADER_LANGUAGE_GLSL
 }
+
 mat4 mtxFromCols(vec4 _0, vec4 _1, vec4 _2, vec4 _3)
 {
-#if BGFX_SHADER_LANGUAGE_GLSL
+#if BGFX_SHADER_MATRIX_COLUMN_MAJOR
 	return mat4(_0, _1, _2, _3);
 #else
 	return transpose(mat4(_0, _1, _2, _3) );
 #endif // BGFX_SHADER_LANGUAGE_GLSL
 }
+
 mat3 mtxFromRows(vec3 _0, vec3 _1, vec3 _2)
 {
-#if BGFX_SHADER_LANGUAGE_GLSL
+#if BGFX_SHADER_MATRIX_COLUMN_MAJOR
 	return transpose(mat3(_0, _1, _2) );
 #else
 	return mat3(_0, _1, _2);
 #endif // BGFX_SHADER_LANGUAGE_GLSL
 }
+
 mat3 mtxFromCols(vec3 _0, vec3 _1, vec3 _2)
 {
-#if BGFX_SHADER_LANGUAGE_GLSL
+#if BGFX_SHADER_MATRIX_COLUMN_MAJOR
 	return mat3(_0, _1, _2);
 #else
 	return transpose(mat3(_0, _1, _2) );
 #endif // BGFX_SHADER_LANGUAGE_GLSL
 }
 
-#if BGFX_SHADER_LANGUAGE_GLSL
-#define mtxFromRows3(_0, _1, _2)     transpose(mat3(_0, _1, _2) )
-#define mtxFromRows4(_0, _1, _2, _3) transpose(mat4(_0, _1, _2, _3) )
-#define mtxFromCols3(_0, _1, _2)               mat3(_0, _1, _2)
-#define mtxFromCols4(_0, _1, _2, _3)           mat4(_0, _1, _2, _3)
+mat4x3 mtxFromRows(vec4 _0, vec4 _1, vec4 _2)
+{
+#if BGFX_SHADER_MATRIX_COLUMN_MAJOR
+    return transpose(mat3x4(_0, _1, _2) );
 #else
-#define mtxFromRows3(_0, _1, _2)               mat3(_0, _1, _2)
-#define mtxFromRows4(_0, _1, _2, _3)           mat4(_0, _1, _2, _3)
-#define mtxFromCols3(_0, _1, _2)     transpose(mat3(_0, _1, _2) )
-#define mtxFromCols4(_0, _1, _2, _3) transpose(mat4(_0, _1, _2, _3) )
+	return mat4x3(_0, _1, _2);
 #endif // BGFX_SHADER_LANGUAGE_GLSL
+}
 
-uniform vec4  u_viewRect;
-uniform vec4  u_viewTexel;
-uniform mat4  u_view;
-uniform mat4  u_invView;
-uniform mat4  u_proj;
-uniform mat4  u_invProj;
-uniform mat4  u_viewProj;
-uniform mat4  u_invViewProj;
-uniform mat4  u_model[BGFX_CONFIG_MAX_BONES];
-uniform mat4  u_modelView;
-uniform mat4  u_modelViewProj;
-uniform vec4  u_alphaRef4;
+vec3 mtxGetRow(mat3 _mtx, int _row)
+{
+#if BGFX_SHADER_MATRIX_COLUMN_MAJOR
+    return vec3(_mtx[0][_row], _mtx[1][_row], _mtx[2][_row]);
+#else
+    return vec3(_mtx[_row]);
+#endif // BGFX_SHADER_LANGUAGE_GLSL
+}
+
+vec3 mtxGetColumn(mat3 _mtx, int _column)
+{
+#if BGFX_SHADER_MATRIX_COLUMN_MAJOR
+    return vec3(_mtx[_column]);
+#else
+    return vec3(_mtx[0][_column], _mtx[1][_column], _mtx[2][_column]);
+#endif // BGFX_SHADER_LANGUAGE_GLSL
+}
+
+vec4 mtxGetRow(mat4x3 _mtx, int _row)
+{
+#if BGFX_SHADER_MATRIX_COLUMN_MAJOR
+    return vec4(_mtx[0][_row], _mtx[1][_row], _mtx[2][_row], _mtx[3][_row]);
+#else
+    return vec4(_mtx[_row]);
+#endif // BGFX_SHADER_LANGUAGE_GLSL
+}
+
+vec3 mtxGetColumn(mat4x3 _mtx, int _column)
+{
+#if BGFX_SHADER_MATRIX_COLUMN_MAJOR
+    return vec3(_mtx[_column]);
+#else
+    return vec3(_mtx[0][_column], _mtx[1][_column], _mtx[2][_column]);
+#endif // BGFX_SHADER_LANGUAGE_GLSL
+}
+
+vec4 mtxGetRow(mat4 _mtx, int _row)
+{
+#if BGFX_SHADER_MATRIX_COLUMN_MAJOR
+    return vec4(_mtx[0][_row], _mtx[1][_row], _mtx[2][_row], _mtx[3][_row]);
+#else
+    return vec4(_mtx[_row]);
+#endif // BGFX_SHADER_LANGUAGE_GLSL
+}
+
+vec4 mtxGetColumn(mat4 _mtx, int _column)
+{
+#if BGFX_SHADER_MATRIX_COLUMN_MAJOR
+    return vec4(_mtx[_column]);
+#else
+    return vec4(_mtx[0][_column], _mtx[1][_column], _mtx[2][_column], _mtx[3][_column]);
+#endif // BGFX_SHADER_LANGUAGE_GLSL
+}
+
+float mtxGetElement(mat3 _mtx, int _column, int _row)
+{
+#if BGFX_SHADER_MATRIX_COLUMN_MAJOR
+    return _mtx[_column][_row];
+#else
+    return _mtx[_row][_column];
+#endif // BGFX_SHADER_LANGUAGE_GLSL
+}
+
+float mtxGetElement(mat4 _mtx, int _column, int _row)
+{
+#if BGFX_SHADER_MATRIX_COLUMN_MAJOR
+    return _mtx[_column][_row];
+#else
+    return _mtx[_row][_column];
+#endif // BGFX_SHADER_LANGUAGE_GLSL
+}
+
+#if !BGFX_SHADER_LANGUAGE_DXIL
+float select(bool  _cond, float _true, float _false) { return _cond ? _true : _false; }
+vec2  select(bool  _cond, vec2  _true, vec2  _false) { return _cond ? _true : _false; }
+vec3  select(bool  _cond, vec3  _true, vec3  _false) { return _cond ? _true : _false; }
+vec4  select(bool  _cond, vec4  _true, vec4  _false) { return _cond ? _true : _false; }
+vec2  select(bvec2 _cond, vec2  _true, vec2  _false) { return (vec2(_cond) * _true) + (vec2(not(_cond) ) * _false); }
+vec3  select(bvec3 _cond, vec3  _true, vec3  _false) { return (vec3(_cond) * _true) + (vec3(not(_cond) ) * _false); }
+vec4  select(bvec4 _cond, vec4  _true, vec4  _false) { return (vec4(_cond) * _true) + (vec4(not(_cond) ) * _false); }
+int   select(bool  _cond, int   _true, int   _false) { return _cond ? _true : _false; }
+ivec2 select(bool  _cond, ivec2 _true, ivec2 _false) { return _cond ? _true : _false; }
+ivec3 select(bool  _cond, ivec3 _true, ivec3 _false) { return _cond ? _true : _false; }
+ivec4 select(bool  _cond, ivec4 _true, ivec4 _false) { return _cond ? _true : _false; }
+ivec2 select(bvec2 _cond, ivec2 _true, ivec2 _false) { return (ivec2(_cond) * _true) + (ivec2(not(_cond) ) * _false); }
+ivec3 select(bvec3 _cond, ivec3 _true, ivec3 _false) { return (ivec3(_cond) * _true) + (ivec3(not(_cond) ) * _false); }
+ivec4 select(bvec4 _cond, ivec4 _true, ivec4 _false) { return (ivec4(_cond) * _true) + (ivec4(not(_cond) ) * _false); }
+uint  select(bool  _cond, uint  _true, uint  _false) { return _cond ? _true : _false; }
+uvec2 select(bool  _cond, uvec2 _true, uvec2 _false) { return _cond ? _true : _false; }
+uvec3 select(bool  _cond, uvec3 _true, uvec3 _false) { return _cond ? _true : _false; }
+uvec4 select(bool  _cond, uvec4 _true, uvec4 _false) { return _cond ? _true : _false; }
+uvec2 select(bvec2 _cond, uvec2 _true, uvec2 _false) { return (uvec2(_cond) * _true) + (uvec2(not(_cond) ) * _false); }
+uvec3 select(bvec3 _cond, uvec3 _true, uvec3 _false) { return (uvec3(_cond) * _true) + (uvec3(not(_cond) ) * _false); }
+uvec4 select(bvec4 _cond, uvec4 _true, uvec4 _false) { return (uvec4(_cond) * _true) + (uvec4(not(_cond) ) * _false); }
+#endif // !BGFX_SHADER_LANGUAGE_DXIL
+
+uniform vec4 u_viewRect;
+uniform vec4 u_viewTexel;
+uniform mat4 u_view;
+uniform mat4 u_invView;
+uniform mat4 u_proj;
+uniform mat4 u_invProj;
+uniform mat4 u_viewProj;
+uniform mat4 u_invViewProj;
+uniform mat4 u_modelView;
+uniform mat4 u_invModelView;
+uniform mat4 u_modelViewProj;
+uniform vec4 u_alphaRef4;
 #define u_alphaRef u_alphaRef4.x
+uniform mat4 u_model[BGFX_CONFIG_MAX_BONES];
+
+#if BGFX_SHADER_LANGUAGE_GLSL
+uniform vec4 bgfx_ndc;
+#endif // BGFX_SHADER_LANGUAGE_GLSL
 
 #endif // __cplusplus
 

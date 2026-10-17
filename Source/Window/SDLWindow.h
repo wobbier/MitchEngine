@@ -45,12 +45,14 @@ public:
 
 #if USING( ME_PLATFORM_LINUX )
     void* GetGLContext() const { return GLContext; }
-    void* GetDisplayPtr() const { return PlatformInfo.ndt; }
-    bgfx::NativeWindowHandleType::Enum GetWindowType() const { return PlatformInfo.type; }
+    void* GetDisplayPtr() const { return NativeDisplay; }
+    bgfx::NativeWindowHandleType::Enum GetWindowType() const { return NativeWindowType; }
 #endif
 
 private:
-    bgfx::PlatformData PlatformInfo;
+    void* NativeWindow = nullptr;
+    void* NativeDisplay = nullptr;
+    bgfx::NativeWindowHandleType::Enum NativeWindowType = bgfx::NativeWindowHandleType::Default;
     std::function<void(const Vector2&)> ResizeCB;
 
     void SetWindow(SDL_Window* window);

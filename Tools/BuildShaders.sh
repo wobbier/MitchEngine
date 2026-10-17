@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Compiles engine shaders (Engine/Assets/Shaders/**/*.vert|*.frag) for Linux/Vulkan (spirv) and
-# OpenGL (glsl 150), writing <name>.<platform>.bin next to each source. If the game repository has
+# OpenGL (glsl 430), writing <name>.<platform>.bin next to each source. If the game repository has
 # a compiled copy of the same shader under Assets/Shaders (it shadows the engine copy at runtime),
 # that copy is refreshed too. Windows (dx11) and macOS (metal) compile at load time through
 # ShaderFileMetadata::Export.
@@ -40,7 +40,7 @@ while IFS= read -r -d '' source; do
     if [[ $CHANGED_ONLY -eq 1 && -f "$source.spirv.bin" && "$source.spirv.bin" -nt "$source" ]]; then
         continue
     fi
-    for profile in spirv 150; do
+    for profile in spirv 430; do
         if [[ "$profile" == "spirv" ]]; then ext=spirv; else ext=glsl; fi
         output="$source.$ext.bin"
         had_output=0
@@ -48,7 +48,7 @@ while IFS= read -r -d '' source; do
         if ! "$SHADERC" -f "$source" -o "$output" --varyingdef "$varying" --platform linux -p "$profile" --type "$type" -i "$SHADERS" --depends > /tmp/shaderc_$$.log 2>&1; then
             # Some shaders (Ultralight UI) are Vulkan-only; only count GL failures for shaders
             # that have built for GL before, or for new shaders.
-            if [[ "$profile" == "150" && $had_output -eq 0 && -f "$source.spirv.bin" && ! "$source" -nt "$source.spirv.bin" && "$relative" == UI* ]]; then
+            if [[ "$profile" == "430" && $had_output -eq 0 && -f "$source.spirv.bin" && ! "$source" -nt "$source.spirv.bin" && "$relative" == UI* ]]; then
                 continue
             fi
             echo "FAILED: $relative ($profile)"

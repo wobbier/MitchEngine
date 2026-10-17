@@ -1,180 +1,172 @@
 #include "PCH.h"
-#include <Window/SDLWindow.h>
-#include <Window/PlatformWindow.h>
+#include "PlatformWindowHooks.h"
+#include <ImGui/ImGuiRenderer.h>
+#include <SDL.h>
 #include <imgui.h>
+#include <array>
 
-#define SDL_HAS_CAPTURE_AND_GLOBAL_MOUSE    (SDL_VERSION_ATLEAST(2,0,4) && !defined(__EMSCRIPTEN__) && !defined(__ANDROID__) && !(defined(__APPLE__) && TARGET_OS_IOS))
-#define SDL_HAS_MOUSE_FOCUS_CLICKTHROUGH    SDL_VERSION_ATLEAST(2,0,5)
-#define SDL_HAS_WINDOW_ALPHA                SDL_VERSION_ATLEAST(2,0,5)
-#define SDL_HAS_ALWAYS_ON_TOP               SDL_VERSION_ATLEAST(2,0,5)
-#define SDL_HAS_USABLE_DISPLAY_BOUNDS       SDL_VERSION_ATLEAST(2,0,5)
-#define SDL_HAS_PER_MONITOR_DPI             SDL_VERSION_ATLEAST(2,0,4)
-#define SDL_HAS_VULKAN                      SDL_VERSION_ATLEAST(2,0,6)
+#if USING( ME_PLATFORM_LINUX )
+// SDL_syswm includes Xlib, whose names collide with engine and ImGui types.
+#define KeyCode X11KeyCode
+#define Window X11Window
+#ifndef SDL_VIDEO_DRIVER_X11
+#define SDL_VIDEO_DRIVER_X11 1
+#endif
+#include <SDL_syswm.h>
+#undef KeyCode
+#undef Window
+#undef None
+#endif
 
-static void Platform_CreateWindow( ImGuiViewport* viewport )
+namespace
+{
+    std::array<bool, Moonlight::RenderView::ImGuiPlatformLast - Moonlight::RenderView::ImGuiPlatformFirst + 1> ViewIdsInUse = {};
+
+    struct ViewportRenderData
+    {
+        bgfx::FrameBufferHandle Buffer = BGFX_INVALID_HANDLE;
+        bgfx::ViewId ViewId = UINT16_MAX;
+        int Width = 0;
+        int Height = 0;
+    };
+
+    void ResizeRenderTarget( ImGuiViewport* viewport, ImVec2 )
+    {
+        auto* data = static_cast<ViewportRenderData*>( viewport->RendererUserData );
+        if( !data || data->ViewId == UINT16_MAX )
+            return;
+
+        auto* window = static_cast<SDL_Window*>( viewport->PlatformHandle );
+        int width = 0, height = 0;
+        SDL_GetWindowSizeInPixels( window, &width, &height );
+        if( width <= 0 || height <= 0 || ( data->Width == width && data->Height == height ) )
+            return;
+
+        bgfx::SwapChain swapChain;
+        swapChain.width = static_cast<uint32_t>( width );
+        swapChain.height = static_cast<uint32_t>( height );
+        data->Width = width;
+        data->Height = height;
+        if( bgfx::isValid( data->Buffer ) )
+        {
+            // Resizing in place keeps the handle and avoids a GPU wait to release the old swap chain.
+            bgfx::updateSwapChain( data->Buffer, swapChain );
+            return;
+        }
+
+        void* nativeWindow = viewport->PlatformHandleRaw;
+#if USING( ME_PLATFORM_LINUX )
+        SDL_SysWMinfo info = {};
+        SDL_VERSION( &info.version );
+        if( SDL_GetWindowWMInfo( window, &info ) && info.subsystem == SDL_SYSWM_X11 )
+            nativeWindow = reinterpret_cast<void*>( static_cast<uintptr_t>( info.info.x11.window ) );
+#endif
+        if( !nativeWindow )
+        {
+            data->Width = data->Height = 0;
+            return;
+        }
+
+        swapChain.nwh = nativeWindow;
+        data->Buffer = bgfx::createFrameBuffer( swapChain );
+        bgfx::setViewFrameBuffer( data->ViewId, data->Buffer );
+    }
+
+    void CreateRenderTarget( ImGuiViewport* viewport )
+    {
+        auto* data = new ViewportRenderData();
+        viewport->RendererUserData = data;
+
+        // A viewport keeps its ID until destruction, including while minimized. Never borrow
+        // views from camera passes or shader previews when more windows are opened.
+        // Track ownership independently of PlatformIO.Viewports, which only lists active windows.
+        for( size_t index = 0; index < ViewIdsInUse.size(); ++index )
+        {
+            if( !ViewIdsInUse[index] )
+            {
+                ViewIdsInUse[index] = true;
+                data->ViewId = static_cast<bgfx::ViewId>( Moonlight::RenderView::ImGuiPlatformFirst + index );
+                break;
+            }
+        }
+        if( data->ViewId == UINT16_MAX )
+        {
+            SDL_LogError( SDL_LOG_CATEGORY_RENDER, "ImGui platform window render views exhausted." );
+            return;
+        }
+        ResizeRenderTarget( viewport, viewport->Size );
+    }
+
+    void DestroyRenderTarget( ImGuiViewport* viewport )
+    {
+        auto* data = static_cast<ViewportRenderData*>( viewport->RendererUserData );
+        if( !data )
+            return;
+        if( data->ViewId != UINT16_MAX )
+            bgfx::resetView( data->ViewId );
+        if( bgfx::isValid( data->Buffer ) )
+        {
+            bgfx::destroy( data->Buffer );
+            // bgfx defers resource destruction. Drain both command frames before SDL destroys the
+            // native window backing this swap chain (the platform callback runs immediately next).
+            bgfx::frame();
+            bgfx::frame();
+        }
+        if( data->ViewId != UINT16_MAX )
+            ViewIdsInUse[data->ViewId - Moonlight::RenderView::ImGuiPlatformFirst] = false;
+        delete data;
+        viewport->RendererUserData = nullptr;
+    }
+
+    void RenderWindow( ImGuiViewport* viewport, void* )
+    {
+        // Check drawable size here too: moving between monitors can change the pixel density.
+        ResizeRenderTarget( viewport, viewport->Size );
+        auto* data = static_cast<ViewportRenderData*>( viewport->RendererUserData );
+        if( !data || !bgfx::isValid( data->Buffer ) || !viewport->DrawData || viewport->Size.x <= 0 || viewport->Size.y <= 0 )
+            return;
+
+        viewport->DrawData->FramebufferScale = ImVec2( data->Width / viewport->Size.x, data->Height / viewport->Size.y );
+        bgfx::setViewFrameBuffer( data->ViewId, data->Buffer );
+        bgfx::setViewClear( data->ViewId, BGFX_CLEAR_COLOR, 0x000000ff );
+        bgfx::touch( data->ViewId );
+        auto* renderer = static_cast<ImGuiRenderer*>( ImGui::GetIO().BackendRendererUserData );
+        renderer->Render( viewport->DrawData, data->ViewId );
+    }
+
+#if USING( ME_PLATFORM_LINUX )
+    void ( *SDLCreateWindow )( ImGuiViewport* ) = nullptr;
+
+    void CreateResizableWindow( ImGuiViewport* viewport )
+    {
+        // SDL creates undecorated windows non-resizable, which pins their min and max size hints
+        // to the current size, so window managers (Hyprland, i3) refuse border resizes. ImGui
+        // follows a resize made by the window manager through SDL's resize event.
+        SDLCreateWindow( viewport );
+        SDL_SetWindowResizable( static_cast<SDL_Window*>( viewport->PlatformHandle ), SDL_TRUE );
+    }
+#endif
+}
+
+void ImGui::InitHooks()
 {
     ImGuiIO& io = ImGui::GetIO();
-    //MitchHub& gui = *(MitchHub*)io.BackendPlatformUserData;
-
-    ImGuiViewport* main_viewport = ImGui::GetMainViewport();
-    PlatformWindow& app = *(PlatformWindow*)main_viewport->PlatformUserData;
-
-    uint32_t sdl_flags = 0;
-    //sdl_flags |= SDL_GetWindowFlags(app.m_window->GetWindowPtr()) & SDL_WINDOW_ALLOW_HIGHDPI;
-    sdl_flags |= SDL_WINDOW_HIDDEN;
-    sdl_flags |= ( viewport->Flags & ImGuiViewportFlags_NoDecoration ) ? SDL_WINDOW_BORDERLESS : 0;
-    sdl_flags |= ( viewport->Flags & ImGuiViewportFlags_NoDecoration ) ? 0 : SDL_WINDOW_RESIZABLE;
-#if !defined(_WIN32)
-    // See SDL hack in Platform_ShowWindow().
-    sdl_flags |= ( viewport->Flags & ImGuiViewportFlags_NoTaskBarIcon ) ? SDL_WINDOW_SKIP_TASKBAR : 0;
-#endif
-#if SDL_HAS_ALWAYS_ON_TOP
-    sdl_flags |= ( viewport->Flags & ImGuiViewportFlags_TopMost ) ? SDL_WINDOW_ALWAYS_ON_TOP : 0;
-#endif
-    PlatformWindowParams params;
-    params.Name = "No Title Yet";
-    params.Flags = sdl_flags;
-    params.Position = { viewport->Pos.x, viewport->Pos.y };
-    params.Size = { viewport->Size.x, viewport->Size.y };
-
-    PlatformWindow* vp = new PlatformWindow( params );
-    vp->Create();
-    vp->Viewport = viewport;
-    vp->Renderer = app.Renderer;
-
-    viewport->PlatformUserData = vp;
-    viewport->PlatformHandle = (void*)vp->WindowPtr;
-    viewport->PlatformHandleRaw = vp->GetHWND();
-
-}
-
-static void Platform_DestroyWindow( ImGuiViewport* viewport )
-{
-    if( viewport != ImGui::GetMainViewport() )
+    ImGuiPlatformIO& platformIO = ImGui::GetPlatformIO();
+    if( !( io.BackendFlags & ImGuiBackendFlags_PlatformHasViewports ) || !( io.BackendFlags & ImGuiBackendFlags_RendererHasViewports ) || !platformIO.Platform_CreateWindow )
     {
-        PlatformWindow* app = (PlatformWindow*)viewport->PlatformUserData;
-        app->Destroy();
-
-        delete app;
+        // For example, SDL's Wayland backend cannot supply the global mouse coordinates ImGui needs.
+        io.ConfigFlags &= ~ImGuiConfigFlags_ViewportsEnable;
+        return;
     }
-    viewport->PlatformUserData = nullptr;
-    viewport->PlatformHandle = nullptr;
-}
 
-static void Platform_ShowWindow( ImGuiViewport* viewport )
-{
-    PlatformWindow& app = *(PlatformWindow*)viewport->PlatformUserData;
-    app.Show();
-}
-
-static ImVec2 Platform_GetWindowPos( ImGuiViewport* viewport )
-{
-    PlatformWindow& app = *(PlatformWindow*)viewport->PlatformUserData;
-    Vector2 pos = app.GetPosition();
-    return { pos.x, pos.y };
-}
-
-static void Platform_SetWindowPos( ImGuiViewport* viewport, ImVec2 pos )
-{
-    PlatformWindow& app = *(PlatformWindow*)viewport->PlatformUserData;
-    app.SetPosition( { pos.x, pos.y } );
-}
-
-static ImVec2 Platform_GetWindowSize( ImGuiViewport* viewport )
-{
-    PlatformWindow& app = *(PlatformWindow*)viewport->PlatformUserData;
-    Vector2 size = app.GetSize();
-    return { size.x, size.y };
-}
-
-static void Platform_SetWindowSize( ImGuiViewport* viewport, ImVec2 size )
-{
-    PlatformWindow& app = *(PlatformWindow*)viewport->PlatformUserData;
-    app.SetSize( { size.x, size.y } );
-    app.Reset();
-}
-
-static void Platform_SetWindowTitle( ImGuiViewport* viewport, const char* title )
-{
-    PlatformWindow& wnd = *(PlatformWindow*)viewport->PlatformUserData;
-    SDL_SetWindowTitle( wnd.WindowPtr, title );
-}
-
-static bool Platform_GetWindowFocus( ImGuiViewport* viewport )
-{
-    PlatformWindow& wnd = *(PlatformWindow*)viewport->PlatformUserData;
-    return ( SDL_GetWindowFlags( wnd.WindowPtr ) & SDL_WINDOW_INPUT_FOCUS ) != 0;
-}
-
-static void Platform_SetWindowFocus( ImGuiViewport* viewport )
-{
-    PlatformWindow& wnd = *(PlatformWindow*)viewport->PlatformUserData;
-    SDL_RaiseWindow( wnd.WindowPtr );
-}
-
-static bool Platform_GetWindowMinimized( ImGuiViewport* viewport )
-{
-    if( !viewport->DrawData )
-    {
-        return false;
-    }
-    PlatformWindow& wnd = *(PlatformWindow*)viewport->PlatformUserData;
-    return ( SDL_GetWindowFlags( wnd.WindowPtr ) & SDL_WINDOW_MINIMIZED ) != 0;
-}
-
-static void Platform_RenderWindow( ImGuiViewport* viewport, void* platformIndex )
-{
-    PlatformWindow& wnd = *(PlatformWindow*)viewport->PlatformUserData;
-    uint16_t layer = *(uint16_t*)platformIndex;
-    if( wnd.ViewId != layer )
-    {
-        wnd.ViewId = layer;
-        wnd.Reset( true );
-    }
-    wnd.Render();
-}
-
-#if SDL_HAS_WINDOW_ALPHA
-static void Platform_SetWindowAlpha( ImGuiViewport* viewport, float alpha )
-{
-}
+    // SDL owns PlatformUserData and all native window/input callbacks. Only install the bgfx
+    // renderer half of the interface, so SDL's focus, close, IME and Windows tool-window handling work.
+    platformIO.Renderer_CreateWindow = CreateRenderTarget;
+    platformIO.Renderer_DestroyWindow = DestroyRenderTarget;
+    platformIO.Renderer_SetWindowSize = ResizeRenderTarget;
+    platformIO.Renderer_RenderWindow = RenderWindow;
+#if USING( ME_PLATFORM_LINUX )
+    SDLCreateWindow = platformIO.Platform_CreateWindow;
+    platformIO.Platform_CreateWindow = CreateResizableWindow;
 #endif
-
-namespace ImGui
-{
-    void InitHooks( SDLWindow* window, ImGuiRenderer* renderer )
-    {
-        ImGuiPlatformIO& io = ImGui::GetPlatformIO();
-        io.Platform_CreateWindow = Platform_CreateWindow;
-        io.Platform_DestroyWindow = Platform_DestroyWindow;
-        io.Platform_ShowWindow = Platform_ShowWindow;
-        io.Platform_SetWindowPos = Platform_SetWindowPos;
-        io.Platform_GetWindowPos = Platform_GetWindowPos;
-        io.Platform_SetWindowSize = Platform_SetWindowSize;
-        io.Platform_GetWindowSize = Platform_GetWindowSize;
-        io.Platform_SetWindowFocus = Platform_SetWindowFocus;
-        io.Platform_GetWindowFocus = Platform_GetWindowFocus;
-        io.Platform_GetWindowMinimized = Platform_GetWindowMinimized;
-        io.Platform_SetWindowTitle = Platform_SetWindowTitle;
-        io.Platform_RenderWindow = Platform_RenderWindow;
-#if SDL_HAS_WINDOW_ALPHA
-        io.Platform_SetWindowAlpha = Platform_SetWindowAlpha;
-#endif
-
-        // Asserts on start are because of the classes being built different,
-        // move stuff to IWindow 
-        // viewport->PlatformUserData is MitchHub here, but is expected as a PlatformWindow in the callbacks
-        PlatformWindowParams p;
-        p.Name = "LMAO";
-        p.Size = { 1920, 1080 };
-
-        PlatformWindow* win = new PlatformWindow( p );
-        win->WindowPtr = window->WindowHandle;
-        win->Renderer = renderer;
-
-        ImGuiViewport* viewport = ImGui::GetMainViewport();
-        viewport->PlatformUserData = win;
-        viewport->PlatformHandle = window->WindowHandle;
-        viewport->PlatformHandleRaw = window->GetWindowPtr();
-    }
 }

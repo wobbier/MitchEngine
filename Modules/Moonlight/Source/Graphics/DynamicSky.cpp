@@ -683,10 +683,7 @@ namespace Moonlight
         m_blackVolume = bgfx::createTexture3D( 1, 1, 1, false, bgfx::TextureFormat::R8, BGFX_SAMPLER_NONE, bgfx::copy( &black, 1 ) );
 
         // The noise takes a moment; it runs while the scene loads and is waited for on first use.
-        if( bgfx::getCaps()->supported & BGFX_CAPS_TEXTURE_3D )
-        {
-            m_noiseThread = std::thread( [this]() { GenerateNoise( m_noise ); } );
-        }
+        m_noiseThread = std::thread( [this]() { GenerateNoise( m_noise ); } );
     }
 
 

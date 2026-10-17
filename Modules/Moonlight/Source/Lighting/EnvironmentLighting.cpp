@@ -278,7 +278,7 @@ namespace Moonlight
             return view;
         }
         bgfx::Attachment attachment;
-        attachment.init( InTarget, bgfx::Access::Write, InLayer, 1, InMip, BGFX_RESOLVE_NONE );
+        attachment.init( InTarget, bgfx::Access::Write, InLayer, 1, InMip, BGFX_ATTACHMENT_NONE );
         const bgfx::FrameBufferHandle frameBuffer = bgfx::createFrameBuffer( 1, &attachment, false );
         m_frameBuffers.push_back( frameBuffer );
 

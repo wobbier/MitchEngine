@@ -3,6 +3,9 @@
 #include <bgfx/embedded_shader.h>
 #include <bx/math.h>
 #include <imgui.h>
+#include <algorithm>
+#include <cmath>
+#include <fstream>
 #include <ImGui/Resources/vs_ocornut_imgui.bin.hpp>
 #include <ImGui/Resources/fs_ocornut_imgui.bin.hpp>
 #include <ImGui/Resources/vs_imgui_image.bin.hpp>
@@ -14,10 +17,6 @@
 #include "optick.h"
 #include <Utils/BGFXUtils.h>
 #include <Utils/ImGuiUtils.h>
-
-#define IMGUI_MBUT_LEFT   0x01
-#define IMGUI_MBUT_RIGHT  0x02
-#define IMGUI_MBUT_MIDDLE 0x04
 
 static const bgfx::EmbeddedShader s_embeddedShaders[] =
 {
@@ -45,7 +44,11 @@ void ImGuiRenderer::Create()
     io.DisplaySize = ImVec2( 1280, 720 );
     io.DeltaTime = 1.f / 140.f;
     io.IniFilename = nullptr;
-    //io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset;
+    io.BackendRendererName = "imgui_impl_bgfx";
+    io.BackendRendererUserData = this;
+    io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset;
+    if( bgfx::getCaps()->supported & BGFX_CAPS_SWAP_CHAIN )
+        io.BackendFlags |= ImGuiBackendFlags_RendererHasViewports;
 
     auto renderType = bgfx::getRendererType();
 
@@ -68,14 +71,61 @@ void ImGuiRenderer::Create()
 
     sTexture = bgfx::createUniform( "s_tex", bgfx::UniformType::Sampler );
 
+    BuildFontAtlas();
+}
+
+
+void ImGuiRenderer::SetFont( const std::string& ttfPath, float sizePixels )
+{
+    sizePixels = std::max( kMinFontSize, std::isfinite( sizePixels ) ? std::round( sizePixels ) : kMinFontSize );
+    if( ttfPath == FontPath && sizePixels == FontSize )
+        return;
+    FontPath = ttfPath;
+    FontSize = sizePixels;
+    FontDirty = true;
+}
+
+
+void ImGuiRenderer::BuildFontAtlas()
+{
+    OPTICK_EVENT( "ImGui::FontAtlasBuild" );
+    FontDirty = false;
+    ImGuiIO& io = ImGui::GetIO();
+    io.Fonts->Clear();
+
+    ImFontConfig config;
+    config.OversampleH = 2;
+    config.OversampleV = 1;
+    ImFont* font = nullptr;
+    if( !FontPath.empty() )
+    {
+        std::ifstream file( FontPath, std::ios::binary | std::ios::ate );
+        const std::streamsize size = file ? static_cast<std::streamsize>( file.tellg() ) : 0;
+        if( size > 0 )
+        {
+            // The atlas takes ownership and frees this with ImGui::MemFree.
+            void* data = ImGui::MemAlloc( static_cast<size_t>( size ) );
+            file.seekg( 0 );
+            if( file.read( static_cast<char*>( data ), size ) )
+                font = io.Fonts->AddFontFromMemoryTTF( data, static_cast<int>( size ), FontSize, &config );
+            else
+                ImGui::MemFree( data );
+        }
+    }
+    if( !font )
+    {
+        config.FontDataOwnedByAtlas = false;
+        io.Fonts->AddFontFromMemoryTTF( (void*)s_robotoRegularTtf, sizeof( s_robotoRegularTtf ), FontSize, &config );
+    }
+
     uint8_t* data;
     int32_t width;
     int32_t height;
-    {
-        OPTICK_EVENT( "ImGui::FontAtlasBuild" );
-        io.Fonts->GetTexDataAsRGBA32( &data, &width, &height );
-    }
+    io.Fonts->GetTexDataAsRGBA32( &data, &width, &height );
 
+    // bgfx defers the destroy until frames already submitted with the old atlas are done.
+    if( bgfx::isValid( mTexture ) )
+        bgfx::destroy( mTexture );
     mTexture = bgfx::createTexture2D(
         (uint16_t)width
         , (uint16_t)height
@@ -85,6 +135,25 @@ void ImGuiRenderer::Create()
         , 0
         , bgfx::copy( data, width * height * 4 )
     );
+}
+
+void ImGuiRenderer::Destroy()
+{
+    if( !Context )
+        return;
+    ImGui::SetCurrentContext( Context );
+    ImGui::DestroyPlatformWindows();
+    bgfx::destroy( mTexture );
+    bgfx::destroy( sTexture );
+    bgfx::destroy( ImageLODEnabled );
+    bgfx::destroy( Program );
+    bgfx::destroy( ImageProgram );
+    ImGuiIO& io = ImGui::GetIO();
+    io.BackendRendererUserData = nullptr;
+    io.BackendRendererName = nullptr;
+    io.BackendFlags &= ~( ImGuiBackendFlags_RendererHasVtxOffset | ImGuiBackendFlags_RendererHasViewports );
+    ImGui::DestroyContext( Context );
+    Context = nullptr;
 }
 
 void ImGuiRenderer::NewFrame( const Vector2& mousePosition, uint8_t mouseButton, int32_t scroll, Vector2 outputSize, int inputChar, bgfx::ViewId viewId )
@@ -97,11 +166,11 @@ void ImGuiRenderer::NewFrame( const Vector2& mousePosition, uint8_t mouseButton,
         io.AddInputCharacter( inputChar );
     }
     io.DisplaySize = ImVec2( outputSize.x, outputSize.y );
+    if( FontDirty )
+        BuildFontAtlas();
 
-    io.MousePos = ImVec2( mousePosition.x, mousePosition.y );
-    io.MouseDown[0] = ( mouseButton & IMGUI_MBUT_LEFT ) != 0;
-    io.MouseDown[1] = ( mouseButton & IMGUI_MBUT_RIGHT ) != 0;
-    io.MouseDown[2] = ( mouseButton & IMGUI_MBUT_MIDDLE ) != 0;
+    // SDL feeds ImGui's input event queue for every viewport. Overwriting MousePos/MouseDown
+    // here mixes the legacy API with queued events and loses clicks in detached windows.
 
     ImGui::NewFrame();
 }
@@ -110,29 +179,13 @@ void ImGuiRenderer::EndFrame()
 {
     ImGui::Render();
 
+    bgfx::setViewFrameBuffer( ViewId, BGFX_INVALID_HANDLE );
+    Render( ImGui::GetDrawData(), ViewId );
+
     if( ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable )
     {
-        ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
-
-        // I need to bind this to the window with a framebuffer
-        Render( ImGui::GetDrawData(), ViewId );
-
         ImGui::UpdatePlatformWindows();
-        for( int i = 1; i < platform_io.Viewports.Size; i++ )
-        {
-            // Weird issue when creating / destroying windows, need to assign proper ids
-            ImGuiViewport* viewport = platform_io.Viewports[i];
-
-            // TODO: Find out why this was removed??
-            //if ( viewport->Flags & ImGuiViewportFlags_Minimized )
-            //    continue;
-            uint16_t platformIndex = static_cast<uint16_t>( Moonlight::RenderView::ImGuiPlatformLast - platform_io.Viewports.Size ) + i;
-            if( platform_io.Platform_RenderWindow ) platform_io.Platform_RenderWindow( viewport, &platformIndex );
-        }
-    }
-    else
-    {
-        Render( ImGui::GetDrawData(), ViewId );
+        ImGui::RenderPlatformWindowsDefault();
     }
 }
 
@@ -140,6 +193,7 @@ void ImGuiRenderer::Render( ImDrawData* drawData, bgfx::ViewId viewId )
 {
     OPTICK_EVENT( "ImGuiRenderer::Render", Optick::Category::Rendering );
     // Avoid rendering when minimized, scale coordinates for retina displays (screen coordinates != framebuffer coordinates)
+    if( !drawData ) return;
     int fb_width = (int)( drawData->DisplaySize.x * drawData->FramebufferScale.x );
     int fb_height = (int)( drawData->DisplaySize.y * drawData->FramebufferScale.y );
     if( fb_width <= 0 || fb_height <= 0 ) return;
@@ -158,7 +212,7 @@ void ImGuiRenderer::Render( ImDrawData* drawData, bgfx::ViewId viewId )
 
         bx::mtxOrtho( ortho, x, x + ( width ), y + height, y, 0.0f, 1000.0f, 0.0f, caps->homogeneousDepth );
         bgfx::setViewTransform( viewId, NULL, ortho );
-        bgfx::setViewRect( viewId, 0, 0, uint16_t( width ), uint16_t( height ) );
+        bgfx::setViewRect( viewId, 0, 0, uint16_t( fb_width ), uint16_t( fb_height ) );
     }
 
     const ImVec2 clipPos = drawData->DisplayPos;         // (0,0) unless using multi-viewports
@@ -195,6 +249,11 @@ void ImGuiRenderer::Render( ImDrawData* drawData, bgfx::ViewId viewId )
         for( const ImDrawCmd* cmd = drawList->CmdBuffer.begin(), *cmdEnd = drawList->CmdBuffer.end(); cmd != cmdEnd; ++cmd )
         {
             OPTICK_EVENT( "ImGuiRenderer::Command", Optick::Category::Rendering );
+            if( cmd->UserCallback == ImDrawCallback_ResetRenderState )
+            {
+                // Each draw command below binds the complete render state.
+                continue;
+            }
             if( cmd->UserCallback )
             {
                 cmd->UserCallback( drawList, cmd );
@@ -257,7 +316,7 @@ void ImGuiRenderer::Render( ImDrawData* drawData, bgfx::ViewId viewId )
 
                     encoder->setState( state );
                     encoder->setTexture( 0, sTexture, th );
-                    encoder->setVertexBuffer( 0, &tvb, cmd->VtxOffset, numVertices );
+                    encoder->setVertexBuffer( 0, &tvb, cmd->VtxOffset, numVertices - cmd->VtxOffset );
                     encoder->setIndexBuffer( &tib, cmd->IdxOffset, cmd->ElemCount );
                     encoder->submit( viewId, program );
                 }

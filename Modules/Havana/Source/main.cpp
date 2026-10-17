@@ -13,9 +13,7 @@ int main( int argc, char** argv )
         if( std::string( argv[i] ) == "-CompileAssets" )
         {
             bgfx::Init init;
-            init.resolution.width = static_cast<uint32_t>( 0 );
-            init.resolution.height = static_cast<uint32_t>( 0 );
-            init.resolution.reset = BGFX_RESET_VSYNC;
+            init.reset = BGFX_RESET_VSYNC;
 
             bgfx::init( init );
             AssetBrowserWidget browser = AssetBrowserWidget( nullptr );
