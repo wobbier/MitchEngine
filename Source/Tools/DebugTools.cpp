@@ -6,6 +6,7 @@
 #include "imgui.h"
 #include "Window/SDLWindow.h"
 #include "Engine/Engine.h"
+#include "Core/CommandLine.h"
 #include "Renderer.h"
 
 static SDL_Cursor* g_imgui_to_sdl_cursor[ImGuiMouseCursor_COUNT];
@@ -43,6 +44,11 @@ void DebugTools::Init()
 
 void DebugTools::Render()
 {
+    if( CommandLine::Has( "--no-debug-overlay" ) )
+    {
+        return;
+    }
+
     ImGui::Begin( "Debug Tools" );
 
     if( ImGui::BeginMenu( "View" ) )

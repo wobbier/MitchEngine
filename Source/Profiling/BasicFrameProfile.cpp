@@ -5,6 +5,7 @@
 
 #include <imgui.h>
 #include <Engine/Engine.h>
+#include "Core/CommandLine.h"
 #include "UI/Colors.h"
 #include <chrono>
 
@@ -42,6 +43,11 @@ bool sortByVal( const std::pair<std::string, ProfileInfo>& a,
 
 void FrameProfile::Render( const Vector2& inPosition, const Vector2& inSize )
 {
+    if( CommandLine::Has( "--no-debug-overlay" ) )
+    {
+        return;
+    }
+
     const ImU32 flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar /*| ImGuiWindowFlags_NoInputs*/ | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoBringToFrontOnFocus;
     ImGui::SetNextWindowSize( ImVec2( inSize.x, (float)CurrentProfilerSize ) );
     ImGui::SetNextWindowPos( ImVec2( inPosition.x, inPosition.y - ( ( CurrentProfilerSize == kMinProfilerSize ) ? 0 : CurrentProfilerSize - 6.f ) ) );
