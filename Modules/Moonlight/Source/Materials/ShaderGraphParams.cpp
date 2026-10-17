@@ -9,6 +9,7 @@
 #if USING( ME_TOOLS )
 #include "Events/EditorEvents.h"
 #include "Utils/HavanaUtils.h"
+#include "ImGuiTheme.h"
 #include <imgui.h>
 #endif
 
@@ -188,7 +189,8 @@ namespace Moonlight
         }
 
         bool changed = false;
-        const float resetWidth = ImGui::CalcTextSize( "Reset" ).x + ImGui::GetStyle().FramePadding.x * 2.f + ImGui::GetStyle().ItemSpacing.x;
+        // Overridden values end with a Reset button, part of the same field.
+        const float resetWidth = ImGuiTheme::ButtonWidth( "Reset" ) + ImGuiTheme::InnerGap();
         for( const ShaderGraphAsset::Parameter& parameter : Asset->GetParameters() )
         {
             if( !parameter.Exposed )
@@ -200,7 +202,7 @@ namespace Moonlight
             const bool overridden = Values.count( parameter.Name ) > 0;
             bool edited = false;
             const float width = HavanaUtils::Label( parameter.Name );
-            ImGui::SetNextItemWidth( overridden ? std::max( width - resetWidth, 40.f ) : width );
+            ImGui::SetNextItemWidth( overridden ? std::max( width - resetWidth, ImGuiTheme::Em( 2.f ) ) : width );
             if( parameter.Type == "Bool" )
             {
                 bool enabled = value.x != 0.f;
@@ -221,7 +223,7 @@ namespace Moonlight
             }
             else
             {
-                edited = ImGui::DragScalarN( "##Value", ImGuiDataType_Float, &value.x, parameter.Components, 0.01f );
+                edited = HavanaUtils::DragAxes( "##Value", &value.x, parameter.Components, 0.01f, "%.3f" );
             }
             if( edited )
             {
@@ -230,8 +232,8 @@ namespace Moonlight
             }
             if( overridden )
             {
-                ImGui::SameLine();
-                if( ImGui::SmallButton( "Reset" ) )
+                ImGui::SameLine( 0.f, ImGuiTheme::InnerGap() );
+                if( ImGui::Button( "Reset" ) )
                 {
                     Reset( parameter.Name );
                     changed = true;
@@ -253,7 +255,7 @@ namespace Moonlight
             const std::string current = isOverridden ? overridden->second : ( texture.Asset.empty() ? std::string( "(default)" ) : texture.Asset );
             const float width = HavanaUtils::Label( texture.Name );
             const ImGuiID pickerId = ImGui::GetID( "TexturePicker" );
-            if( ImGui::Button( ( current + "##Texture" ).c_str(), ImVec2( isOverridden ? std::max( width - resetWidth, 40.f ) : width, 0.f ) ) )
+            if( ImGui::Button( ( current + "##Texture" ).c_str(), ImVec2( isOverridden ? std::max( width - resetWidth, ImGuiTheme::Em( 2.f ) ) : width, 0.f ) ) )
             {
                 RequestAssetSelectionEvent evt( [pickerId]( Path InSelected ) {
                     PickedTextures()[pickerId] = InSelected.GetLocalPathString();
@@ -269,8 +271,8 @@ namespace Moonlight
             }
             if( isOverridden )
             {
-                ImGui::SameLine();
-                if( ImGui::SmallButton( "Reset" ) )
+                ImGui::SameLine( 0.f, ImGuiTheme::InnerGap() );
+                if( ImGui::Button( "Reset" ) )
                 {
                     SetTexture( texture.Name, "" );
                     changed = true;
@@ -370,7 +372,7 @@ namespace Moonlight
             const std::string& path = m_order[i];
             ImGui::PushID( static_cast<int>( i ) );
             const std::string name = std::filesystem::path( path ).stem().string();
-            const bool open = ImGui::TreeNodeEx( "Graph", ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanAvailWidth, "%s", name.c_str() );
+            const bool open = ImGui::TreeNodeEx( "Graph", ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding, "%s", name.c_str() );
             ImGui::SetItemTooltip( "%s", path.c_str() );
             if( open )
             {

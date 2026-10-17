@@ -264,11 +264,10 @@ void Mesh::OnEditorInspect()
 
     if( MeshReferece )
     {
-        ImGui::Text( "Vertices: %u", MeshReferece->GetVertexCount() );
+        HavanaUtils::Label( "Vertices" );
+        ImGui::Text( "%u", MeshReferece->GetVertexCount() );
     }
-
-
-    ImGui::Text( "" );
+    ImGuiTheme::SectionGap();
 
     std::map<std::string, MaterialTest> folders;
     MaterialRegistry& reg = GetMaterialRegistry();
@@ -342,7 +341,13 @@ void Mesh::OnEditorInspect()
     if( MeshMaterial )
     {
         // Shaders hot reload on their own; graphs are picked here (or in the graph material's inspector).
-        if( !dynamic_cast<ShaderGraphMaterial*>( MeshMaterial.get() ) && ImGui::Button( "Use Shader Graph..." ) )
+        // Material actions line up under the Material Type value.
+        const bool usesGraph = dynamic_cast<ShaderGraphMaterial*>( MeshMaterial.get() ) != nullptr;
+        if( !usesGraph || reg.count( "StandardMaterial" ) )
+        {
+            HavanaUtils::SkipLabel();
+        }
+        if( !usesGraph && ImGui::Button( "Use Shader Graph..." ) )
         {
             RequestAssetSelectionEvent evt( [this]( Path selectedAsset )
                 {
@@ -353,7 +358,7 @@ void Mesh::OnEditorInspect()
                 }, AssetType::ShaderGraph );
             evt.Fire();
         }
-        if( dynamic_cast<ShaderGraphMaterial*>( MeshMaterial.get() ) && reg.count( "StandardMaterial" ) && ImGui::Button( "Remove Shader Graph" ) )
+        if( usesGraph && reg.count( "StandardMaterial" ) && ImGui::Button( "Remove Shader Graph" ) )
         {
             const Vector2 tiling = MeshMaterial->Tiling;
             const Vector3 diffuse = MeshMaterial->DiffuseColor;
@@ -362,7 +367,8 @@ void Mesh::OnEditorInspect()
             MeshMaterial->DiffuseColor = diffuse;
             MeshMaterial->Tiling = tiling;
         }
-        if( ImGui::Button("Save As Material File: ") )
+        HavanaUtils::SkipLabel();
+        if( ImGui::Button( "Save As Material File..." ) )
         {
             RequestAssetSelectionEvent evt( [this]( const Path& inPath )
                 {
@@ -372,10 +378,10 @@ void Mesh::OnEditorInspect()
                 }, AssetType::Material, true );
             evt.Fire();
         }
-        bool shouldClose = true;
-        if( ImGui::CollapsingHeader( "Material Properties", &shouldClose, ImGuiTreeNodeFlags_DefaultOpen ) )
+        if( ImGui::TreeNodeEx( "Material Properties", ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding ) )
         {
             MeshMaterial->OnEditorInspect();
+            ImGui::TreePop();
         }
     }
 }

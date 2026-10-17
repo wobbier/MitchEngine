@@ -57,7 +57,7 @@ Don't — for Ultralight. New UI work should wait for (or be) the replacement. I
 
 1. HTML/CSS/JS lives under the game's `Assets/UI`; views load via the `BasicUIView::FilePath`.
 2. Game-side C++ hooks go in a `BasicUIView` subclass's `OnUILoad` (bind JS callbacks there), not in `UICore`.
-3. For editor/debug UI, prefer ImGui: override `OnEditorInspect` on your component/core (free in editor builds), or extend `DebugTools` for game-tools builds.
+3. For editor/debug UI, prefer ImGui: override `OnEditorInspect` on your component/core (free in editor builds), or extend `DebugTools` for game-tools builds. Lay it out with property rows and the `ImGuiTheme` size and color tokens (see "Lay out editor UI" in `Docs/Editor-Havana.md`) so it matches the rest of the editor.
 
 ## Caveats & Fragility
 

@@ -227,9 +227,9 @@ void ShaderGraphMaterial::OnDeserialize( const json& InJson )
 #if USING( ME_TOOLS )
 void ShaderGraphMaterial::OnEditorInspect()
 {
-    HavanaUtils::Label( "Graph" );
+    const float width = HavanaUtils::Label( "Graph" );
     const std::string label = m_graphPath.empty() ? std::string( "(none)" ) : m_graphPath;
-    if( ImGui::Button( ( label + "##ShaderGraphPicker" ).c_str(), ImVec2( -1.f, 0.f ) ) )
+    if( ImGui::Button( ( label + "##ShaderGraphPicker" ).c_str(), ImVec2( width, 0.f ) ) )
     {
         RequestAssetSelectionEvent evt( [this]( Path InSelected ) {
             SetGraph( InSelected.GetLocalPathString() );
@@ -240,7 +240,7 @@ void ShaderGraphMaterial::OnEditorInspect()
     {
         return;
     }
-    if( ImGui::Button( "Open in Shader Graph", ImVec2( -1.f, 0.f ) ) )
+    if( ImGui::Button( "Open in Shader Graph", ImVec2( HavanaUtils::SkipLabel(), 0.f ) ) )
     {
         OpenShaderGraphEvent evt;
         evt.GraphPath = m_graphPath;

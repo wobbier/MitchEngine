@@ -1,6 +1,7 @@
 #include "ProfilerWidget.h"
 #include "Profiling/FrameStats.h"
 #include <imgui.h>
+#include <ImGuiTheme.h>
 #include <algorithm>
 #include <vector>
 
@@ -52,25 +53,25 @@ void ProfilerWidget::Render()
 	ImGui::Text("Draw calls %u | Triangles %u | GPU memory %.1f / %.1f MB", render.DrawCalls, render.Triangles, render.GpuMemoryUsed / (1024.0 * 1024.0), render.GpuMemoryMax / (1024.0 * 1024.0));
 
 	const float maxFrame = std::max(16.7f, *std::max_element(s_frozenFrames.begin(), s_frozenFrames.end()) * 1.1f);
-	ImGui::PlotLines("##CpuHistory", s_frozenFrames.data(), static_cast<int>(s_frozenFrames.size()), 0, "CPU frame (ms)", 0.f, maxFrame, ImVec2(-1.f, 70.f));
-	ImGui::PlotLines("##GpuHistory", s_frozenGpu.data(), static_cast<int>(s_frozenGpu.size()), 0, "GPU (ms)", 0.f, maxFrame, ImVec2(-1.f, 50.f));
+	ImGui::PlotLines("##CpuHistory", s_frozenFrames.data(), static_cast<int>(s_frozenFrames.size()), 0, "CPU frame (ms)", 0.f, maxFrame, ImVec2(-1.f, ImGuiTheme::Em(4.f)));
+	ImGui::PlotLines("##GpuHistory", s_frozenGpu.data(), static_cast<int>(s_frozenGpu.size()), 0, "GPU (ms)", 0.f, maxFrame, ImVec2(-1.f, ImGuiTheme::Em(2.75f)));
 
 	if (ImGui::CollapsingHeader("CPU (last frame, smoothed)", ImGuiTreeNodeFlags_DefaultOpen))
 	{
 		if (ImGui::BeginTable("##Scopes", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingStretchProp))
 		{
 			ImGui::TableSetupColumn("Scope", ImGuiTableColumnFlags_WidthStretch);
-			ImGui::TableSetupColumn("ms", ImGuiTableColumnFlags_WidthFixed, 70.f);
-			ImGui::TableSetupColumn("% frame", ImGuiTableColumnFlags_WidthFixed, 120.f);
+			ImGui::TableSetupColumn("ms", ImGuiTableColumnFlags_WidthFixed, ImGuiTheme::Em(4.f));
+			ImGui::TableSetupColumn("% frame", ImGuiTableColumnFlags_WidthFixed, ImGuiTheme::Em(6.5f));
 			ImGui::TableHeadersRow();
 			const double frame = std::max(stats.GetSmoothedFrameMilliseconds(), 0.001);
 			for (const FrameStats::Scope& scope : stats.GetScopes())
 			{
 				ImGui::TableNextRow();
 				ImGui::TableSetColumnIndex(0);
-				ImGui::Indent(scope.Depth * 14.f + 1.f);
+				// Nested scopes step in by a fraction of a tree indent (scopes nest deeply).
+				ImGui::SetCursorPosX(ImGui::GetCursorPosX() + static_cast<float>(scope.Depth) * ImGuiTheme::Em(0.75f));
 				ImGui::TextUnformatted(scope.Name.c_str());
-				ImGui::Unindent(scope.Depth * 14.f + 1.f);
 				ImGui::TableSetColumnIndex(1);
 				ImGui::Text("%.3f", scope.Smoothed);
 				ImGui::TableSetColumnIndex(2);
@@ -90,8 +91,8 @@ void ProfilerWidget::Render()
 		else if (ImGui::BeginTable("##Views", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV))
 		{
 			ImGui::TableSetupColumn("View", ImGuiTableColumnFlags_WidthStretch);
-			ImGui::TableSetupColumn("CPU ms", ImGuiTableColumnFlags_WidthFixed, 70.f);
-			ImGui::TableSetupColumn("GPU ms", ImGuiTableColumnFlags_WidthFixed, 70.f);
+			ImGui::TableSetupColumn("CPU ms", ImGuiTableColumnFlags_WidthFixed, ImGuiTheme::Em(4.f));
+			ImGui::TableSetupColumn("GPU ms", ImGuiTableColumnFlags_WidthFixed, ImGuiTheme::Em(4.f));
 			ImGui::TableHeadersRow();
 			for (const FrameStats::GpuView& view : render.Views)
 			{

@@ -33,7 +33,6 @@
 #include <Renderer.h>
 #include <Window/SDLWindow.h>
 #include <backends/imgui_impl_sdl2.h>
-#include "UI/Colors.h"
 #include <Utils/EditorConfig.h>
 #include "HavanaWidget.h"
 #include "Editor/WidgetRegistry.h"
@@ -186,75 +185,7 @@ void Havana::InitUI()
     g_imgui_to_sdl_cursor[ImGuiMouseCursor_ResizeNESW] = SDL_CreateSystemCursor( SDL_SYSTEM_CURSOR_SIZENESW );
     g_imgui_to_sdl_cursor[ImGuiMouseCursor_ResizeNWSE] = SDL_CreateSystemCursor( SDL_SYSTEM_CURSOR_SIZENWSE );
 
-    ImVec4* colors = ImGui::GetStyle().Colors;
-    colors[ImGuiCol_Text] = COLOR_TEXT;
-    colors[ImGuiCol_TextDisabled] = ImVec4( 0.50f, 0.50f, 0.50f, 1.00f );
-    colors[ImGuiCol_WindowBg] = COLOR_FOREGROUND;
-    colors[ImGuiCol_ChildBg] = ImVec4( 1.00f, 1.00f, 1.00f, 0.00f );
-    colors[ImGuiCol_PopupBg] = ImVec4( 0.08f, 0.08f, 0.08f, 0.94f );
-    colors[ImGuiCol_Border] = COLOR_BACKGROUND_BORDER;
-    colors[ImGuiCol_BorderShadow] = ImVec4( 0.00f, 0.00f, 0.00f, 0.00f );
-    colors[ImGuiCol_FrameBg] = COLOR_DROPDOWN;
-    colors[ImGuiCol_FrameBgHovered] = ImVec4( 0.40f, 0.40f, 0.40f, 0.40f );
-    colors[ImGuiCol_FrameBgActive] = ImVec4( 0.18f, 0.18f, 0.18f, 0.67f );
-    colors[ImGuiCol_TitleBg] = COLOR_BACKGROUND_BORDER;
-    colors[ImGuiCol_TitleBgActive] = COLOR_BACKGROUND_BORDER;
-    colors[ImGuiCol_TitleBgCollapsed] = ImVec4( 0.00f, 0.00f, 0.00f, 0.51f );
-    colors[ImGuiCol_MenuBarBg] = COLOR_FOREGROUND;
-    colors[ImGuiCol_ScrollbarBg] = COLOR_FOREGROUND;
-    colors[ImGuiCol_ScrollbarGrab] = COLOR_WHITE_25;
-    colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4( 0.41f, 0.41f, 0.41f, 1.00f );
-    colors[ImGuiCol_ScrollbarGrabActive] = ImVec4( 0.51f, 0.51f, 0.51f, 1.00f );
-    colors[ImGuiCol_CheckMark] = ImVec4( 0.94f, 0.94f, 0.94f, 1.00f );
-    colors[ImGuiCol_SliderGrab] = ImVec4( 0.51f, 0.51f, 0.51f, 1.00f );
-    colors[ImGuiCol_SliderGrabActive] = ImVec4( 0.86f, 0.86f, 0.86f, 1.00f );
-    colors[ImGuiCol_Button] = COLOR_DROPDOWN;
-    colors[ImGuiCol_ButtonHovered] = COLOR_PRIMARY_HOVER;
-    colors[ImGuiCol_ButtonActive] = COLOR_PRIMARY_PRESS;
-    colors[ImGuiCol_Header] = COLOR_WHITE_25;
-    colors[ImGuiCol_HeaderHovered] = COLOR_PRIMARY_HOVER;
-    colors[ImGuiCol_HeaderActive] = COLOR_PRIMARY_PRESS;
-    colors[ImGuiCol_Separator] = COLOR_BACKGROUND_BORDER;
-    colors[ImGuiCol_SeparatorHovered] = COLOR_PRIMARY_HOVER;
-    colors[ImGuiCol_SeparatorActive] = COLOR_PRIMARY_PRESS;
-    colors[ImGuiCol_ResizeGrip] = ImVec4( 0.91f, 0.91f, 0.91f, 0.25f );
-    colors[ImGuiCol_ResizeGripHovered] = COLOR_PRIMARY_HOVER;
-    colors[ImGuiCol_ResizeGripActive] = ImVec4( 0.46f, 0.46f, 0.46f, 0.95f );
-    colors[ImGuiCol_PlotLines] = ImVec4( 0.61f, 0.61f, 0.61f, 1.00f );
-    colors[ImGuiCol_PlotLinesHovered] = ImVec4( 1.00f, 0.43f, 0.35f, 1.00f );
-    colors[ImGuiCol_PlotHistogram] = ImVec4( 0.73f, 0.60f, 0.15f, 1.00f );
-    colors[ImGuiCol_PlotHistogramHovered] = ImVec4( 1.00f, 0.60f, 0.00f, 1.00f );
-    colors[ImGuiCol_TextSelectedBg] = ImVec4( 0.87f, 0.87f, 0.87f, 0.35f );
-    //colors[ImGuiCol_ModalWindowDarkening] = ImVec4(0.80f, 0.80f, 0.80f, 0.35f);
-    colors[ImGuiCol_DragDropTarget] = ImVec4( 1.00f, 1.00f, 0.00f, 0.90f );
-    colors[ImGuiCol_NavHighlight] = ImVec4( 0.60f, 0.60f, 0.60f, 1.00f );
-    colors[ImGuiCol_NavWindowingHighlight] = ImVec4( 1.00f, 1.00f, 1.00f, 0.70f );
-    colors[ImGuiCol_Tab] = COLOR_FOREGROUND;
-    colors[ImGuiCol_TabHovered] = COLOR_PRIMARY_HOVER;
-    colors[ImGuiCol_TabActive] = COLOR_PRIMARY;
-    colors[ImGuiCol_TabUnfocused] = COLOR_TITLE;
-    colors[ImGuiCol_TabUnfocusedActive] = COLOR_FOREGROUND;
-    colors[ImGuiCol_TableHeaderBg] = COLOR_HEADER;
-    colors[ImGuiCol_TableRowBg] = COLOR_TITLE;
-    colors[ImGuiCol_TableRowBgAlt] = COLOR_RECESSED;
-    //ImGui::StyleColorsDark();
-    ImGuiStyle& style = ImGui::GetStyle();
-    if( io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable )
-    {
-        style.Colors[ImGuiCol_WindowBg].w = 1.0f;
-    }
-    style.WindowRounding = 3.0f;
-    style.WindowMinSize = ImVec2( 50.f, 50.f );
-    style.WindowBorderSize = 0.f;
-    style.ScrollbarSize = 14.f;
-    style.ChildBorderSize = 0.f;
-    style.WindowMenuButtonPosition = ImGuiDir_None;
-    style.AntiAliasedFill = false;
-    style.TabRounding = 2.f;
-    style.ColorButtonPosition = ImGuiDir_Left;
-    style.WindowTitleAlign = { .5f, .5f };
-    style.DockingSeparatorSize = 6.f;
-    //style.FramePadding = { 8.f, 3.f };
+    PreferencesWidget::ApplyAppearancePreferences();
 
     //auto cb = [this](const Vector2& pos) -> std::optional<SDL_HitTestResult>
     //{
@@ -313,6 +244,7 @@ void Havana::NewFrame()
 {
     OPTICK_EVENT( "Havana::NewFrame" );
 
+    Preferences->ApplyPendingAppearance();
     ImGuizmo::BeginFrame();
 
     EditorActions::Get().ProcessShortcuts();
@@ -328,14 +260,12 @@ void Havana::NewFrame()
     {
         OPTICK_EVENT( "Dockspace Setup", Optick::Category::UI );
         ImGuiViewport* viewport = ImGui::GetMainViewport();
-        ImVec2 MainMenuSize;
-        MainMenuSize.x = 0.f;
-        MainMenuSize.y = 36.f;
-        DockSize = viewport->Size;
-        DockSize.x -= 6.f * 2.f;
-        DockSize.y = viewport->Size.y - MainMenuSize.y - ( 6.f * 3.f );
-        DockPos = ImVec2( viewport->Pos.x + 6.f, viewport->Pos.y + 36.f );
-        //DockPos.y = viewport->Pos.y + MainMenuSize.y;
+        // BeginMainMenuBar reserves its actual height in the viewport work area. The gutter
+        // around the dock space is as wide as the splitters between docked panels.
+        const float dockMargin = ImGui::GetStyle().DockingSeparatorSize;
+        DockPos = ImVec2( viewport->WorkPos.x + dockMargin, viewport->WorkPos.y + dockMargin );
+        DockSize = ImVec2( std::max( 1.f, viewport->WorkSize.x - dockMargin * 2.f ),
+            std::max( 1.f, viewport->WorkSize.y - dockMargin * 2.f ) );
 
         ImGui::SetNextWindowPos( DockPos );
         ImGui::SetNextWindowSize( DockSize );

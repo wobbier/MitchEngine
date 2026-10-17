@@ -2,42 +2,97 @@
 
 #include <imgui.h>
 #include <imgui_internal.h>
-#include "imgui_stacklayout.h"
+#include <ImGuiTheme.h>
+#include <algorithm>
+#include <cstdio>
+#include <cstring>
+
+namespace
+{
+    // The current window's row span in screen space: its content area without indentation.
+    // Panels that zero WindowPadding (so headers run edge to edge) and borderless child
+    // windows still get the standard inset. A table cell spans the cell.
+    void RowSpan( float& OutLeft, float& OutRight )
+    {
+        ImGuiContext& g = *GImGui;
+        ImGuiWindow* window = g.CurrentWindow;
+        if( g.CurrentTable || window->DC.CurrentColumns )
+        {
+            OutLeft = window->WorkRect.Min.x;
+            OutRight = window->WorkRect.Max.x;
+            return;
+        }
+        const float inset = std::max( 0.f, g.Style.WindowPadding.x - window->WindowPadding.x );
+        OutLeft = window->ContentRegionRect.Min.x + inset;
+        OutRight = std::max( OutLeft, window->ContentRegionRect.Max.x - inset );
+    }
+}
+
+
+float HavanaUtils::ValueColumnX()
+{
+    float left = 0.f;
+    float right = 0.f;
+    RowSpan( left, right );
+    return left + std::min( std::round( ( right - left ) * ImGuiTheme::kLabelColumn ), ImGuiTheme::Em( ImGuiTheme::kMaxLabelColumn ) );
+}
+
+
+float HavanaUtils::RowRight()
+{
+    float left = 0.f;
+    float right = 0.f;
+    RowSpan( left, right );
+    return right;
+}
+
+
+float HavanaUtils::RowWidth()
+{
+    return std::max( RowRight() - ImGui::GetCursorScreenPos().x, 1.f );
+}
+
 
 float HavanaUtils::Label( const std::string& Name, float customWidth )
 {
     ImGuiWindow* window = ImGui::GetCurrentWindow();
-    float fullWidth = ( customWidth >= 0 ) ? customWidth : ImGui::GetContentRegionAvail().x;
-    float itemWidth = ( fullWidth * 0.65f );
-    ImVec2 textSize = ImGui::CalcTextSize( Name.c_str() );
-    ImRect textRect;
-    textRect.Min = ImGui::GetCursorScreenPos();
-    textRect.Min.x += ImGui::GetStyle().WindowPadding.x;
-    textRect.Max = textRect.Min;
-    textRect.Max.x += fullWidth - itemWidth - ImGui::GetStyle().WindowPadding.x;
-    textRect.Max.y += textSize.y;
-
-    ImGui::SetCursorScreenPos( textRect.Min );
+    const float right = RowRight();
+    const ImVec2 start = ImGui::GetCursorScreenPos();
+    // Deep indentation can reach the value column: the label then shrinks to nothing.
+    const float valueX = std::max( customWidth >= 0.f ? right - customWidth : ValueColumnX(), start.x );
+    const float labelWidth = std::max( valueX - ImGuiTheme::InnerGap() - start.x, 0.f );
 
     ImGui::AlignTextToFramePadding();
-    textRect.Min.y += window->DC.CurrLineTextBaseOffset;
-    textRect.Max.y += window->DC.CurrLineTextBaseOffset;
-
-    ImGui::ItemSize( textRect );
-    if( ImGui::ItemAdd( textRect, window->GetID( Name.c_str() ) ) )
+    const ImVec2 textSize = ImGui::CalcTextSize( Name.c_str(), nullptr, true );
+    const ImVec2 textPos( start.x, start.y + window->DC.CurrLineTextBaseOffset );
+    const ImRect bb( textPos, ImVec2( textPos.x + labelWidth, textPos.y + textSize.y ) );
+    ImGui::ItemSize( ImVec2( labelWidth, textSize.y ), 0.f );
+    if( ImGui::ItemAdd( bb, window->GetID( Name.c_str() ) ) )
     {
-        ImGui::RenderTextEllipsis( ImGui::GetWindowDrawList(), textRect.Min, textRect.Max, textRect.Max.x,
-            textRect.Max.x, Name.c_str(), nullptr, &textSize );
-
-        if( textRect.GetWidth() < textSize.x && ImGui::IsItemHovered() )
+        ImGui::RenderTextEllipsis( window->DrawList, bb.Min, bb.Max, bb.Max.x, bb.Max.x, Name.c_str(), nullptr, &textSize );
+        if( textSize.x > labelWidth && ImGui::IsItemHovered() )
+        {
             ImGui::SetTooltip( "%s", Name.c_str() );
+        }
     }
-    ImGui::SetCursorScreenPos( { textRect.Max.x, textSize.y + window->DC.CurrLineTextBaseOffset } );
-    ImGui::SameLine();
-    ImGui::SetNextItemWidth( itemWidth - ( ImGui::GetStyle().WindowPadding.x / 2.f ) );
 
-    return itemWidth - ( ImGui::GetStyle().WindowPadding.x / 2.f );
+    ImGui::SameLine( 0.f, 0.f );
+    ImGui::SetCursorScreenPos( ImVec2( valueX, ImGui::GetCursorScreenPos().y ) );
+    const float width = std::max( right - valueX, 1.f );
+    ImGui::SetNextItemWidth( width );
+    return width;
 }
+
+
+float HavanaUtils::SkipLabel()
+{
+    const float valueX = std::max( ValueColumnX(), ImGui::GetCursorScreenPos().x );
+    ImGui::SetCursorScreenPos( ImVec2( valueX, ImGui::GetCursorScreenPos().y ) );
+    const float width = std::max( RowRight() - valueX, 1.f );
+    ImGui::SetNextItemWidth( width );
+    return width;
+}
+
 
 void HavanaUtils::Text( const std::string& Name, const Vector2& Vector )
 {
@@ -47,6 +102,7 @@ void HavanaUtils::Text( const std::string& Name, const Vector2& Vector )
     ImGui::SameLine();
     ImGui::Text( "Y: %f", Vector.y );
 }
+
 
 void HavanaUtils::Text( const std::string& Name, const Vector3& Vector )
 {
@@ -59,217 +115,87 @@ void HavanaUtils::Text( const std::string& Name, const Vector3& Vector )
     ImGui::Text( "Z: %f", Vector.z );
 }
 
+
+bool HavanaUtils::DragAxes( const char* InId, float* InOutValues, int InCount, float InSpeed, const char* InFormat, bool* OutActive, const float* InResetValue )
+{
+    static const char* kAxisNames[4] = { "X", "Y", "Z", "W" };
+    bool changed = false;
+    ImGui::PushID( InId );
+    // One group, so callers can ask IsItemActive / IsItemDeactivatedAfterEdit of the vector.
+    ImGui::BeginGroup();
+    const float gap = ImGuiTheme::InnerGap();
+    const float width = std::max( ( ImGui::CalcItemWidth() - gap * static_cast<float>( InCount - 1 ) ) / static_cast<float>( InCount ), 1.f );
+    const float marker = std::max( 2.f, std::round( ImGui::GetFontSize() / 6.f ) );
+    for( int i = 0; i < InCount; ++i )
+    {
+        ImGui::PushID( i );
+        if( i > 0 )
+        {
+            ImGui::SameLine( 0.f, gap );
+        }
+        ImGui::SetNextItemWidth( width );
+        changed |= ImGui::DragFloat( "##axis", &InOutValues[i], InSpeed, 0.f, 0.f, InFormat );
+        if( OutActive && ImGui::IsItemActive() )
+        {
+            *OutActive = true;
+        }
+        const ImVec2 min = ImGui::GetItemRectMin();
+        const ImVec2 max = ImGui::GetItemRectMax();
+        ImGui::GetWindowDrawList()->AddRectFilled( min, ImVec2( min.x + marker, max.y ), ImGuiTheme::AxisColor( i ), ImGui::GetStyle().FrameRounding, ImDrawFlags_RoundCornersLeft );
+        if( InResetValue && ImGui::BeginPopupContextItem( "AxisContext" ) )
+        {
+            char label[48];
+            std::snprintf( label, sizeof( label ), "Reset %s to %g", kAxisNames[std::min( i, 3 )], *InResetValue );
+            if( ImGui::MenuItem( label ) )
+            {
+                InOutValues[i] = *InResetValue;
+                changed = true;
+            }
+            if( ImGui::MenuItem( "Reset All" ) )
+            {
+                std::fill( InOutValues, InOutValues + InCount, *InResetValue );
+                changed = true;
+            }
+            ImGui::EndPopup();
+        }
+        ImGui::PopID();
+    }
+    ImGui::EndGroup();
+    ImGui::PopID();
+    return changed;
+}
+
+
 bool HavanaUtils::EditableVector3( const std::string& Name, Vector3& Vector, float ResetValue /*= 0.f*/, float customWidth )
 {
     ImGui::PushID( Name.c_str() );
-
-    float widgetWidth = Label( Name, customWidth );
-    ImGui::PushStyleVar( ImGuiStyleVar_ItemSpacing, { 0.f, 0.f } );
-    ImGui::PushStyleVar( ImGuiStyleVar_CellPadding, { 2.f, 2.f } );
-    float paddingX = 0.f;// ImGui::GetStyle().WindowPadding.x;
-    Vector3 tempVec = Vector;
-    if( ImGui::BeginTable( "##vec", 3, 0, { widgetWidth - paddingX, 0.f } ) )
-    {
-
-        ImGui::TableNextRow();
-
-        float lineHeight = GImGui->Font->FontSize + GImGui->Style.FramePadding.y * 2.f;
-        ImVec2 buttonSize = { lineHeight + 3.f, lineHeight };
-
-        float dragWidths = ( widgetWidth - ( buttonSize.x * 3 ) ) / 3.f;
-
-        {
-            ImGui::TableSetColumnIndex( 0 );
-            ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 1.f, 51.f / 255.f, 82.f / 255.f, .66f ) );
-            ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4( 1.f, 51.f / 255.f, 82.f / 255.f, 1.f ) );
-            if( ImGui::Button( "X", buttonSize ) )
-            {
-                Vector.x = ResetValue;
-            }
-            ImGui::PopStyleColor( 2 );
-            ImGui::SameLine();
-            ImGui::PushItemWidth( dragWidths );
-            ImGui::DragFloat( "##X", &Vector.x, 0.1f, 0.f, 0.f, "%.6f");
-            ImGui::PopItemWidth();
-        }
-
-        {
-            ImGui::TableSetColumnIndex( 1 );
-            ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 139.f / 255.f, 220.f / 255.f, 0.f, .66f ) );
-            ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4( 139.f / 255.f, 220.f / 255.f, 0.f, 1.f ) );
-            if( ImGui::Button( "Y", buttonSize ) )
-            {
-                Vector.y = ResetValue;
-            }
-            ImGui::PopStyleColor( 2 );
-            ImGui::SameLine();
-            ImGui::PushItemWidth( dragWidths );
-            ImGui::DragFloat( "##Y", &Vector.y, 0.1f, 0.f, 0.f, "%.6f" );
-            ImGui::PopItemWidth();
-        }
-
-        {
-            ImGui::TableSetColumnIndex( 2 );
-            ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 40.f / 255.f, 143.f / 255.f, 253.f / 255.f, .66f ) );
-            ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4( 40.f / 255.f, 143.f / 255.f, 253.f / 255.f, 1.f ) );
-            if( ImGui::Button( "Z", buttonSize ) )
-            {
-                Vector.z = ResetValue;
-            }
-            ImGui::PopStyleColor( 2 );
-            ImGui::SameLine();
-            ImGui::PushItemWidth( dragWidths );
-            ImGui::DragFloat( "##Z", &Vector.z, 0.1f, 0.f, 0.f, "%.6f" );
-            ImGui::PopItemWidth();
-        }
-
-        ImGui::EndTable();
-
-    }
-
-    ImGui::PopStyleVar( 2 );
+    Label( Name, customWidth );
+    const bool changed = DragAxes( "##vec", &Vector.x, 3, 0.1f, "%.3f", nullptr, &ResetValue );
     ImGui::PopID();
-
-    return tempVec != Vector;
+    return changed;
 }
+
 
 bool HavanaUtils::EditableVector3Spring( const std::string& Name, Vector3& Vector, float ResetValue /*= 0.f*/, float customWidth /*= -1 */ )
 {
-    //ImGui::PushID( Name.c_str() );
-
-    ImGui::BeginHorizontal( Name.c_str() );
-
-    float widgetWidth = Label( Name, customWidth );
-    ImGui::PushStyleVar( ImGuiStyleVar_ItemSpacing, { 0.f, 0.f } );
-    ImGui::PushStyleVar( ImGuiStyleVar_CellPadding, { 2.f, 2.f } );
-    float paddingX = 0.f;// ImGui::GetStyle().WindowPadding.x;
-    Vector3 tempVec = Vector;
-    if( ImGui::BeginTable( "##vec", 3, 0, { widgetWidth - paddingX, 0.f } ) )
-    {
-        ImGui::TableNextRow();
-
-        float lineHeight = GImGui->Font->FontSize + GImGui->Style.FramePadding.y * 2.f;
-        ImVec2 buttonSize = { lineHeight + 3.f, lineHeight };
-
-        float dragWidths = ( widgetWidth - ( buttonSize.x * 3 ) ) / 3.f;
-
-        {
-            ImGui::TableSetColumnIndex( 0 );
-            ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 1.f, 51.f / 255.f, 82.f / 255.f, .66f ) );
-            ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4( 1.f, 51.f / 255.f, 82.f / 255.f, 1.f ) );
-            if( ImGui::Button( "X", buttonSize ) )
-            {
-                Vector.x = ResetValue;
-            }
-            ImGui::PopStyleColor( 2 );
-            ImGui::SameLine();
-            ImGui::PushItemWidth( dragWidths );
-            ImGui::DragFloat( "##X", &Vector.x, 0.1f );
-            ImGui::PopItemWidth();
-        }
-
-        {
-            ImGui::TableSetColumnIndex( 1 );
-            ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 139.f / 255.f, 220.f / 255.f, 0.f, .66f ) );
-            ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4( 139.f / 255.f, 220.f / 255.f, 0.f, 1.f ) );
-            if( ImGui::Button( "Y", buttonSize ) )
-            {
-                Vector.y = ResetValue;
-            }
-            ImGui::PopStyleColor( 2 );
-            ImGui::SameLine();
-            ImGui::PushItemWidth( dragWidths );
-            ImGui::DragFloat( "##Y", &Vector.y, 0.1f );
-            ImGui::PopItemWidth();
-        }
-
-        {
-            ImGui::TableSetColumnIndex( 2 );
-            ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 40.f / 255.f, 143.f / 255.f, 253.f / 255.f, .66f ) );
-            ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4( 40.f / 255.f, 143.f / 255.f, 253.f / 255.f, 1.f ) );
-            if( ImGui::Button( "Z", buttonSize ) )
-            {
-                Vector.z = ResetValue;
-            }
-            ImGui::PopStyleColor( 2 );
-            ImGui::SameLine();
-            ImGui::PushItemWidth( dragWidths );
-            ImGui::DragFloat( "##Z", &Vector.z, 0.1f );
-            ImGui::PopItemWidth();
-        }
-
-        ImGui::EndTable();
-    }
-
-    ImGui::PopStyleVar( 2 );
-
-    //ImGui::PopID();
-    ImGui::EndHorizontal();
-
-    return tempVec != Vector;
+    return EditableVector3( Name, Vector, ResetValue, customWidth );
 }
+
 
 bool HavanaUtils::EditableVector( const std::string& Name, Vector2& Vector, float ResetValue /*= 0.f*/, float customWidth )
 {
     ImGui::PushID( Name.c_str() );
-
-    float widgetSize = Label( Name, customWidth );
-
-    ImGui::PushStyleVar( ImGuiStyleVar_ItemSpacing, { 0.f, 0.f } );
-    ImGui::PushStyleVar( ImGuiStyleVar_CellPadding, { 2.f, 2.f } );
-
-    Vector2 tempVec = Vector;
-    if( ImGui::BeginTable( "##vec", 2, 0, { widgetSize, 0.f } ) )
-    {
-        ImGui::TableNextRow();
-
-        float lineHeight = GImGui->Font->FontSize + GImGui->Style.FramePadding.y * 2.f;
-        ImVec2 buttonSize = { lineHeight + 3.f, lineHeight };
-
-        {
-            ImGui::TableSetColumnIndex( 0 );
-            ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 1.f, 51.f / 255.f, 82.f / 255.f, .66f ) );
-            ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4( 1.f, 51.f / 255.f, 82.f / 255.f, 1.f ) );
-            if( ImGui::Button( "X", buttonSize ) )
-            {
-                Vector.x = ResetValue;
-            }
-            ImGui::PopStyleColor( 2 );
-            ImGui::SameLine();
-            ImGui::PushItemWidth( -1 );
-            ImGui::DragFloat( "##X", &Vector.x, 0.1f );
-            ImGui::PopItemWidth();
-        }
-
-        {
-            ImGui::TableSetColumnIndex( 1 );
-            ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 139.f / 255.f, 220.f / 255.f, 0.f, .66f ) );
-            ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4( 139.f / 255.f, 220.f / 255.f, 0.f, 1.f ) );
-            if( ImGui::Button( "Y", buttonSize ) )
-            {
-                Vector.y = ResetValue;
-            }
-            ImGui::PopStyleColor( 2 );
-            ImGui::SameLine();
-            ImGui::PushItemWidth( -1 );
-            ImGui::DragFloat( "##Y", &Vector.y, 0.1f );
-            ImGui::PopItemWidth();
-        }
-
-        ImGui::EndTable();
-    }
-
-    ImGui::PopStyleVar( 2 );
-
+    Label( Name, customWidth );
+    const bool changed = DragAxes( "##vec", &Vector.x, 2, 0.1f, "%.3f", nullptr, &ResetValue );
     ImGui::PopID();
-
-    return tempVec != Vector;
+    return changed;
 }
+
 
 bool HavanaUtils::Float( const std::string& Name, float& value )
 {
     ImGui::PushID( Name.c_str() );
-    float size = Label( Name );
+    Label( Name );
 
     bool res = ImGui::DragFloat( "##float", &value );
 
@@ -278,10 +204,11 @@ bool HavanaUtils::Float( const std::string& Name, float& value )
     return res;
 }
 
+
 bool HavanaUtils::Double( const std::string& Name, double& value )
 {
     ImGui::PushID( Name.c_str() );
-    float size = Label( Name );
+    Label( Name );
 
     bool res = ImGui::DragScalar( "##float", ImGuiDataType_Double, &value );
 
@@ -290,10 +217,11 @@ bool HavanaUtils::Double( const std::string& Name, double& value )
     return res;
 }
 
+
 bool HavanaUtils::Int( const std::string& Name, int32_t& value )
 {
     ImGui::PushID( Name.c_str() );
-    float size = Label( Name );
+    Label( Name );
 
     bool res = ImGui::DragScalar( "##int", ImGuiDataType_S32, &value );
 
@@ -302,10 +230,11 @@ bool HavanaUtils::Int( const std::string& Name, int32_t& value )
     return res;
 }
 
+
 bool HavanaUtils::Int( const std::string& Name, int16_t& value )
 {
     ImGui::PushID( Name.c_str() );
-    float size = Label( Name );
+    Label( Name );
 
     bool res = ImGui::DragScalar( "##int", ImGuiDataType_S16, &value );
 
@@ -314,10 +243,11 @@ bool HavanaUtils::Int( const std::string& Name, int16_t& value )
     return res;
 }
 
+
 bool HavanaUtils::Int( const std::string& Name, int64_t& value )
 {
     ImGui::PushID( Name.c_str() );
-    float size = Label( Name );
+    Label( Name );
 
     bool res = ImGui::DragScalar( "##int", ImGuiDataType_S64, &value );
 
@@ -326,10 +256,11 @@ bool HavanaUtils::Int( const std::string& Name, int64_t& value )
     return res;
 }
 
+
 bool HavanaUtils::UInt( const std::string& Name, uint32_t& value )
 {
     ImGui::PushID( Name.c_str() );
-    float size = Label( Name );
+    Label( Name );
 
     bool res = ImGui::DragScalar( "##uint", ImGuiDataType_U32, &value );
 
@@ -338,10 +269,11 @@ bool HavanaUtils::UInt( const std::string& Name, uint32_t& value )
     return res;
 }
 
+
 bool HavanaUtils::UInt( const std::string& Name, uint16_t& value )
 {
     ImGui::PushID( Name.c_str() );
-    float size = Label( Name );
+    Label( Name );
 
     bool res = ImGui::DragScalar( "##uint", ImGuiDataType_U16, &value );
 
@@ -350,10 +282,11 @@ bool HavanaUtils::UInt( const std::string& Name, uint16_t& value )
     return res;
 }
 
+
 bool HavanaUtils::UInt( const std::string& Name, uint64_t& value )
 {
     ImGui::PushID( Name.c_str() );
-    float size = Label( Name );
+    Label( Name );
 
     bool res = ImGui::DragScalar( "##uint", ImGuiDataType_U64, &value );
 
@@ -361,6 +294,7 @@ bool HavanaUtils::UInt( const std::string& Name, uint64_t& value )
 
     return res;
 }
+
 
 void HavanaUtils::ColorButton( const std::string& Name, Vector3& arr )
 {
@@ -383,8 +317,6 @@ void HavanaUtils::ColorButton( const std::string& Name, Vector3& arr )
 
     static ImVec4 backup_color;
     bool open_popup = ImGui::ColorButton( "MyColor##3b", color, 0 | ImGuiColorEditFlags_NoBorder | ImGuiColorEditFlags_NoAlpha, { size, 0.f } );
-    //ImGui::SameLine(0, ImGui::GetStyle().ItemInnerSpacing.x);
-    //open_popup |= ImGui::Button("Palette");
     if( open_popup )
     {
         ImGui::OpenPopup( "mypicker" );
@@ -392,16 +324,16 @@ void HavanaUtils::ColorButton( const std::string& Name, Vector3& arr )
     }
     if( ImGui::BeginPopup( "mypicker" ) )
     {
-        ImGui::Text( "\n" );
-        ImGui::Separator();
         ImGui::ColorPicker4( "##picker", (float*)&color, 0 | ImGuiColorEditFlags_NoSidePreview | ImGuiColorEditFlags_NoSmallPreview | ImGuiColorEditFlags_NoAlpha );
         ImGui::SameLine();
 
+        const ImVec2 previewSize( ImGuiTheme::Em( 3.3f ), ImGuiTheme::Em( 2.2f ) );
+        const ImVec2 swatchSize( ImGuiTheme::Em( 1.1f ), ImGuiTheme::Em( 1.1f ) );
         ImGui::BeginGroup(); // Lock X position
         ImGui::Text( "Current" );
-        ImGui::ColorButton( "##current", color, ImGuiColorEditFlags_NoPicker | ImGuiColorEditFlags_AlphaPreviewHalf | ImGuiColorEditFlags_NoAlpha, ImVec2( 60, 40 ) );
+        ImGui::ColorButton( "##current", color, ImGuiColorEditFlags_NoPicker | ImGuiColorEditFlags_AlphaPreviewHalf | ImGuiColorEditFlags_NoAlpha, previewSize );
         ImGui::Text( "Previous" );
-        if( ImGui::ColorButton( "##previous", backup_color, ImGuiColorEditFlags_NoPicker | ImGuiColorEditFlags_AlphaPreviewHalf | ImGuiColorEditFlags_NoAlpha, ImVec2( 60, 40 ) ) )
+        if( ImGui::ColorButton( "##previous", backup_color, ImGuiColorEditFlags_NoPicker | ImGuiColorEditFlags_AlphaPreviewHalf | ImGuiColorEditFlags_NoAlpha, previewSize ) )
             color = backup_color;
         ImGui::Separator();
         ImGui::Text( "Palette" );
@@ -412,7 +344,7 @@ void HavanaUtils::ColorButton( const std::string& Name, Vector3& arr )
                 ImGui::SameLine( 0.0f, ImGui::GetStyle().ItemSpacing.y );
 
             ImGuiColorEditFlags palette_button_flags = ImGuiColorEditFlags_NoAlpha | ImGuiColorEditFlags_NoPicker | ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_NoAlpha;
-            if( ImGui::ColorButton( "##palette", saved_palette[n], palette_button_flags, ImVec2( 20, 20 ) ) )
+            if( ImGui::ColorButton( "##palette", saved_palette[n], palette_button_flags, swatchSize ) )
                 color = ImVec4( saved_palette[n].x, saved_palette[n].y, saved_palette[n].z, color.w ); // Preserve alpha!
 
             // Allow user to drop colors into each palette entry. Note that ColorButton() is already a
@@ -429,7 +361,6 @@ void HavanaUtils::ColorButton( const std::string& Name, Vector3& arr )
             ImGui::PopID();
         }
         ImGui::EndGroup();
-        ImGui::Text( "\n" );
         ImGui::EndPopup();
     }
     ImGui::PopID();
@@ -440,12 +371,12 @@ void HavanaUtils::ColorButton( const std::string& Name, Vector3& arr )
 }
 
 
-
 bool HavanaUtils::ToggleButton( const std::string& InName, bool& OutPressed )
 {
-    if (ImGui::Button("Toggle Fullscreen", ImVec2(150.f, 20.f)))
+    if( ImGui::Button( InName.c_str() ) )
     {
         OutPressed = !OutPressed;
+        return true;
     }
     return false;
 }

@@ -1762,8 +1762,11 @@ void NavigationCore::DrawDebug()
 #if USING( ME_EDITOR )
 void NavigationCore::OnEditorInspect()
 {
-    ImGui::Checkbox( "Draw Navigation", &DebugDrawEnabled );
-    ImGui::Text( "%zu surface(s), %zu agent(s)", m_surfaces.size(), m_agents.size() );
+    HavanaUtils::Label( "Draw Navigation" );
+    ImGui::Checkbox( "##DrawNavigation", &DebugDrawEnabled );
+    HavanaUtils::Label( "Surfaces / Agents" );
+    ImGui::Text( "%zu / %zu", m_surfaces.size(), m_agents.size() );
+    HavanaUtils::SkipLabel();
     if( ImGui::Button( "Bake All" ) )
     {
         BakeAll( true );

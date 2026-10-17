@@ -14,7 +14,8 @@
 #include <Components/Graphics/Model.h>
 #include <Types/AssetType.h>
 #include "Types/AssetDescriptor.h"
-#include "UI/Colors.h"
+#include <ImGuiTheme.h>
+#include <Utils/HavanaUtils.h>
 #include "Events/EditorEvents.h"
 #include "World/SceneSerializer.h"
 #include "Editor/Selection.h"
@@ -181,7 +182,8 @@ void SceneHierarchyWidget::Render()
 			}
 			ImGui::EndMenu();
 		}
-		ImGui::SetNextItemWidth(-1.f);
+		// The window has no padding: keep the panel inset on the right like the left.
+		ImGui::SetNextItemWidth(-ImGuiTheme::PanelInset());
 		ImGui::InputTextWithHint("##HierarchyFilter", "Search (t:Type)", m_filter, sizeof(m_filter));
 		ImGui::EndMenuBar();
 	}
@@ -210,7 +212,7 @@ void SceneHierarchyWidget::Render()
 		}
 
 		OPTICK_CATEGORY("Entity List", Optick::Category::GameLogic);
-		ImGui::PushStyleColor(ImGuiCol_Header, COLOR_PRIMARY);
+		ImGui::PushStyleColor(ImGuiCol_Header, ImGui::GetStyleColorVec4(ImGuiCol_HeaderActive));
 		if (RootTransform)
 		{
 			// Copy: drag-and-drop below may reorder the root's children mid-draw.
@@ -221,7 +223,7 @@ void SceneHierarchyWidget::Render()
 			}
 		}
 		ImGui::PopStyleColor();
-		ImGui::Dummy(ImVec2(0.f, 8.f));
+		ImGuiTheme::SectionGap();
 	}
 
 	DrawTransformlessEntities(*world);
@@ -300,7 +302,7 @@ void SceneHierarchyWidget::DrawRowContents(Entity& entity, Transform* transform,
 	}
 
 	const bool active = entity.IsActiveInHierarchy();
-	ImVec4 textColor = IsPrefabInstance(entity) ? ImVec4(ACCENT_BLUE) : ImGui::GetStyleColorVec4(ImGuiCol_Text);
+	ImVec4 textColor = IsPrefabInstance(entity) ? ImGuiTheme::AccentText() : ImGui::GetStyleColorVec4(ImGuiCol_Text);
 	if (!active)
 	{
 		textColor.w *= 0.45f;
@@ -334,8 +336,10 @@ void SceneHierarchyWidget::DrawRowContents(Entity& entity, Transform* transform,
 	// Inline rename field over the row label.
 	if (renaming)
 	{
-		ImGui::SetCursorScreenPos(ImVec2(rowRect.Min.x + ImGui::GetTreeNodeToLabelSpacing(), rowRect.Min.y));
-		ImGui::SetNextItemWidth(std::max(60.f, rowRect.GetWidth() - ImGui::GetTreeNodeToLabelSpacing() - 30.f));
+		// Over the label, up to the active toggle at the end of the row.
+		const float renameX = rowRect.Min.x + ImGui::GetTreeNodeToLabelSpacing();
+		ImGui::SetCursorScreenPos(ImVec2(renameX, rowRect.Min.y));
+		ImGui::SetNextItemWidth(std::max(ImGuiTheme::Em(3.f), HavanaUtils::RowRight() - ImGui::GetFrameHeight() - ImGui::GetStyle().ItemSpacing.x - renameX));
 		if (m_focusRename)
 		{
 			ImGui::SetKeyboardFocusHere();
@@ -353,8 +357,9 @@ void SceneHierarchyWidget::DrawRowContents(Entity& entity, Transform* transform,
 		}
 	}
 
-	// Active toggle at the right edge of the row.
-	ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - ImGui::GetFrameHeight() - 4.f);
+	// Active toggle at the end of the row (the panel inset from the right edge).
+	ImGui::SameLine();
+	ImGui::SetCursorScreenPos(ImVec2(HavanaUtils::RowRight() - ImGui::GetFrameHeight(), ImGui::GetCursorScreenPos().y));
 	bool selfActive = entity.IsActiveSelf();
 	if (ImGui::Checkbox("##active", &selfActive))
 	{
@@ -600,7 +605,7 @@ void SceneHierarchyWidget::DrawTransformlessEntities(World& world)
 
 	if (ImGui::CollapsingHeader("Utility", ImGuiTreeNodeFlags_DefaultOpen))
 	{
-		ImGui::PushStyleColor(ImGuiCol_Header, COLOR_PRIMARY);
+		ImGui::PushStyleColor(ImGuiCol_Header, ImGui::GetStyleColorVec4(ImGuiCol_HeaderActive));
 		for (EntityHandle& handle : utility)
 		{
 			Entity* entity = handle.Get();
@@ -615,7 +620,7 @@ void SceneHierarchyWidget::DrawTransformlessEntities(World& world)
 			ImGui::PopID();
 		}
 		ImGui::PopStyleColor();
-		ImGui::Dummy(ImVec2(0.f, 8.f));
+		ImGuiTheme::SectionGap();
 	}
 }
 
@@ -646,7 +651,7 @@ void SceneHierarchyWidget::DrawEditorEntities()
 	if (ImGui::IsItemClicked()) EditorActions::Get().Execute("View.CameraSettings");
 	if (ImGui::IsItemHovered()) ImGui::SetTooltip("Editor camera settings. Saved in your editor preferences.");
 	ImGui::PopID();
-	ImGui::Dummy(ImVec2(0.f, 8.f));
+	ImGuiTheme::SectionGap();
 }
 
 
@@ -656,7 +661,7 @@ void SceneHierarchyWidget::DrawCores(World& world)
 	{
 		return;
 	}
-	ImGui::PushStyleColor(ImGuiCol_Header, COLOR_PRIMARY);
+	ImGui::PushStyleColor(ImGuiCol_Header, ImGui::GetStyleColorVec4(ImGuiCol_HeaderActive));
 	OPTICK_CATEGORY("Entity Cores", Optick::Category::Debug);
 	for (BaseCore* core : world.GetAllCores())
 	{

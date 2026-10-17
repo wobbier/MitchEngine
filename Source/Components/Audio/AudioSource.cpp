@@ -380,6 +380,7 @@ void AudioSource::OnEditorInspect()
     {
         return;
     }
+    HavanaUtils::Label( "Playback" );
     if( IsPlaying() )
     {
         if( ImGui::Button( "Stop" ) )
@@ -406,19 +407,23 @@ void AudioSource::OnEditorInspect()
     if( IsPlaying() && length > 0 )
     {
         float position = static_cast<float>( GetPositionMs() ) / 1000.f;
+        HavanaUtils::Label( "Position" );
         if( ImGui::SliderFloat( "##Seek", &position, 0.f, length / 1000.f, "%.2f s" ) )
         {
             SetPositionMs( static_cast<unsigned int>( position * 1000.f ) );
         }
-        ImGui::ProgressBar( GetAudibility(), ImVec2( -1.f, 0.f ), "Audibility" );
+        const float width = HavanaUtils::Label( "Audibility" );
+        ImGui::ProgressBar( GetAudibility(), ImVec2( width, 0.f ) );
     }
     else if( length > 0 )
     {
+        HavanaUtils::Label( "Length" );
         ImGui::TextDisabled( "%.2f s", length / 1000.f );
     }
     if( !m_oneShots.empty() )
     {
-        ImGui::TextDisabled( "%zu one-shot voice(s)", m_oneShots.size() );
+        HavanaUtils::Label( "One-Shots" );
+        ImGui::TextDisabled( "%zu voice(s)", m_oneShots.size() );
     }
 }
 #endif

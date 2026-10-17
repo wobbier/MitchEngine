@@ -169,9 +169,8 @@ ultralight::JSValue BasicUIView::AreToolsEnabled( const ultralight::JSObject& th
 
 void BasicUIView::OnEditorInspect()
 {
-    ImVec2 selectorSize( -1.f, 19.f );
-    HavanaUtils::Label( "Source" );
-    if( ImGui::Button( ( ( !FilePath.GetLocalPath().empty() ) ? FilePath.GetLocalPath().data() : "Select Asset" ), selectorSize ) )
+    const float width = HavanaUtils::Label( "Source" );
+    if( ImGui::Button( ( ( !FilePath.GetLocalPath().empty() ) ? FilePath.GetLocalPath().data() : "Select Asset" ), ImVec2( width, 0.f ) ) )
     {
         RequestAssetSelectionEvent evt( [this]( Path selectedAsset ) {
             FilePath = selectedAsset;

@@ -89,7 +89,8 @@ void ScriptComponent::OnEditorInspect()
     if( m_dotnetHandle < 0 )
     {
         int count = ScriptEngine::GetScriptCount();
-        if( ImGui::BeginCombo( "Script Name", ScriptName.empty() ? "" : ScriptName.c_str() ) )
+        HavanaUtils::Label( "Script Name" );
+        if( ImGui::BeginCombo( "##ScriptName", ScriptName.empty() ? "" : ScriptName.c_str() ) )
         {
             for( int i = 0; i < count; ++i )
             {
@@ -106,7 +107,8 @@ void ScriptComponent::OnEditorInspect()
     }
     else
     {
-        ImGui::Text( "%s (handle: %d)", ScriptName.c_str(), m_dotnetHandle );
+        HavanaUtils::Label( "Script" );
+        ImGui::Text( "%s (handle %d)", ScriptName.c_str(), m_dotnetHandle );
         ScriptEngine::ScriptOnEditorInspect( m_dotnetHandle );
     }
 #endif

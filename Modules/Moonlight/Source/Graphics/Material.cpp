@@ -4,6 +4,7 @@
 #include "Resource/ResourceCache.h"
 #include "bgfx/defines.h"
 #include "Utils/HavanaUtils.h"
+#include "ImGuiTheme.h"
 #include "Utils/ImGuiUtils.h"
 #include "Events/EditorEvents.h"
 #include "Types/AssetDescriptor.h"
@@ -280,9 +281,11 @@ namespace Moonlight
             {
                 float widgetWidth = HavanaUtils::Label( Moonlight::Texture::ToString( static_cast<Moonlight::TextureType>( i ) ) );
                 std::string label( "##Texture" + std::to_string( i ) );
-                if( texture && bgfx::isValid( texture->TexHandle ) )
+                // A field-height thumbnail, the path, then a clear button: one row like any field.
+                const bool hasThumbnail = texture && bgfx::isValid( texture->TexHandle );
+                if( hasThumbnail )
                 {
-                    if( ImGui::ImageButton( texture->TexHandle, ImVec2( 30, 30 ) ) )
+                    if( ImGui::ImageButton( texture->TexHandle, ImGuiTheme::IconButtonSize(), ImVec2( 0.f, 0.f ), ImVec2( 1.f, 1.f ), 0 ) )
                     {
                         PreviewResourceEvent evt;
                         evt.Subject = texture;
@@ -315,15 +318,11 @@ namespace Moonlight
                         }
                         ImGui::EndPopup();
                     }
-                    ImGui::SameLine();
+                    ImGui::SameLine( 0.f, ImGuiTheme::InnerGap() );
                 }
 
-                ImVec2 selectorSize( widgetWidth, 0.f );
-
-                if( texture )
-                {
-                    selectorSize = ImVec2( widgetWidth - 54.f, 0.f );
-                }
+                const int iconButtons = ( hasThumbnail ? 1 : 0 ) + ( texture ? 1 : 0 );
+                const ImVec2 selectorSize( std::max( widgetWidth - ImGuiTheme::IconButtonsWidth( iconButtons ), 1.f ), 0.f );
                 ImGui::PushID( i );
                 if( ImGui::Button( ( ( texture ) ? texture->GetPath().GetLocalPath().data() : "Select Asset" ), selectorSize ) )
                 {
@@ -351,8 +350,8 @@ namespace Moonlight
                 }
                 if( texture )
                 {
-                    ImGui::SameLine();
-                    if( ImGui::Button( "X" ) )
+                    ImGui::SameLine( 0.f, ImGuiTheme::InnerGap() );
+                    if( ImGui::Button( "x", ImGuiTheme::IconButtonSize() ) )
                     {
                         SetTexture( static_cast<Moonlight::TextureType>( i ), nullptr );
                     }

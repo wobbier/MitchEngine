@@ -43,6 +43,7 @@
 #include "CLog.h"
 #include "Types/AssetType.h"
 #include "bx/math.h"
+#include <ImGuiTheme.h>
 
 #if USING( ME_EDITOR )
 
@@ -488,14 +489,14 @@ void EditorApp::DrawEditorModals()
         std::function<void()> runPending;
         if( !scenePath.empty() )
         {
-            if( ImGui::Button( "Save", ImVec2( 120.f, 0.f ) ) )
+            if( ImGui::Button( "Save", ImGuiTheme::DialogButtonSize() ) )
             {
                 SaveScene( false );
                 ImGui::CloseCurrentPopup();
                 runPending.swap( m_pendingAction );
             }
         }
-        else if( ImGui::Button( "Save As...", ImVec2( 120.f, 0.f ) ) )
+        else if( ImGui::Button( "Save As...", ImGuiTheme::DialogButtonSize() ) )
         {
             // The save dialog is asynchronous; the user repeats the action afterwards.
             SaveScene( true );
@@ -503,14 +504,14 @@ void EditorApp::DrawEditorModals()
             ImGui::CloseCurrentPopup();
         }
         ImGui::SameLine();
-        if( ImGui::Button( "Don't Save", ImVec2( 120.f, 0.f ) ) )
+        if( ImGui::Button( "Don't Save", ImGuiTheme::DialogButtonSize() ) )
         {
             ImGui::CloseCurrentPopup();
             UndoStack::Get().MarkSaved();
             runPending.swap( m_pendingAction );
         }
         ImGui::SameLine();
-        if( ImGui::Button( "Cancel", ImVec2( 120.f, 0.f ) ) || ImGui::IsKeyPressed( ImGuiKey_Escape ) )
+        if( ImGui::Button( "Cancel", ImGuiTheme::DialogButtonSize() ) || ImGui::IsKeyPressed( ImGuiKey_Escape ) )
         {
             m_pendingAction = nullptr;
             ImGui::CloseCurrentPopup();
@@ -529,7 +530,7 @@ void EditorApp::DrawEditorModals()
         ImGui::Text( "Havana didn't shut down cleanly last time." );
         ImGui::Text( "An autosave of %s is available.", m_recoveryScenePath.empty() ? "an untitled scene" : m_recoveryScenePath.c_str() );
         ImGui::Spacing();
-        if( ImGui::Button( "Recover", ImVec2( 120.f, 0.f ) ) )
+        if( ImGui::Button( "Recover", ImGuiTheme::DialogButtonSize() ) )
         {
             GetEngine().LoadSceneFromData( m_recoveryData, m_recoveryScenePath );
             UndoStack::Get().MarkDirty();
@@ -537,7 +538,7 @@ void EditorApp::DrawEditorModals()
             ImGui::CloseCurrentPopup();
         }
         ImGui::SameLine();
-        if( ImGui::Button( "Discard", ImVec2( 120.f, 0.f ) ) )
+        if( ImGui::Button( "Discard", ImGuiTheme::DialogButtonSize() ) )
         {
             ClearAutosave();
             m_recoveryData = json();

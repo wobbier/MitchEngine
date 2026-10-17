@@ -18,6 +18,7 @@
 #include "Editor/ReflectionUI.h"
 #include "Widgets/SceneViewWidget.h"
 #include <imgui.h>
+#include <Utils/HavanaUtils.h>
 #include <algorithm>
 #include <Renderer.h>
 #include <Cores/PhysicsCore.h>
@@ -244,19 +245,25 @@ void EditorCore::OnEditorInspect()
     ImGui::SeparatorText( "Navigation" );
     Vector3 position = EditorCameraTransform->GetPosition();
     Vector2 angles( m_camera.GetPitch(), m_camera.GetYaw() );
-    bool poseChanged = ImGui::DragFloat3( "Position (m)", &position.x, 0.1f );
-    poseChanged |= ImGui::DragFloat2( "Pitch / Yaw (deg)", &angles.x, 0.5f );
+    HavanaUtils::Label( "Position (m)" );
+    bool poseChanged = HavanaUtils::DragAxes( "##Position", &position.x, 3, 0.1f, "%.3f" );
+    HavanaUtils::Label( "Pitch / Yaw (deg)" );
+    poseChanged |= HavanaUtils::DragAxes( "##Angles", &angles.x, 2, 0.5f, "%.2f" );
     if( poseChanged ) m_camera.SetPose( position, angles.x, angles.y );
     float speed = m_camera.GetFlySpeed();
-    if( ImGui::DragFloat( "Fly Speed (m/s)", &speed, 0.1f, 0.1f, 500.f ) )
+    HavanaUtils::Label( "Fly Speed (m/s)" );
+    if( ImGui::DragFloat( "##FlySpeed", &speed, 0.1f, 0.1f, 500.f ) )
     {
         m_camera.SetFlySpeed( speed );
     }
-    ImGui::DragFloat( "Look Sensitivity", &m_camera.LookSensitivity, 0.01f, 0.01f, 2.f );
-    ImGui::DragFloat( "Focus Smoothing", &m_camera.FocusSmoothing, 0.1f, 1.f, 60.f );
+    HavanaUtils::Label( "Look Sensitivity" );
+    ImGui::DragFloat( "##LookSensitivity", &m_camera.LookSensitivity, 0.01f, 0.01f, 2.f );
+    HavanaUtils::Label( "Focus Smoothing" );
+    ImGui::DragFloat( "##FocusSmoothing", &m_camera.FocusSmoothing, 0.1f, 1.f, 60.f );
 
     ImGui::SeparatorText( "Camera" );
-    ImGui::Checkbox( "Use Scene Environment", &m_useSceneEnvironment );
+    HavanaUtils::Label( "Use Scene Environment" );
+    ImGui::Checkbox( "##UseSceneEnvironment", &m_useSceneEnvironment );
     if( m_useSceneEnvironment )
     {
         ImGui::TextWrapped( "Clear settings follow the main camera while Use Scene Environment is enabled." );

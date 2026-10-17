@@ -148,6 +148,7 @@ A folder tree (Assets and Engine Assets, tracked by absolute path) plus grid or 
 - **History**: the undo stack; click an entry to jump there.
 - **Profiler**: CPU/GPU frame history, per-phase and per-core CPU scopes from `FrameStats` (`ME_STAT_SCOPE`), per-view GPU timings (the bgfx profiler is enabled only while this window is open).
 - **Preferences** (per user) and **Project Settings**, tabbed into Time, Layers, Physics, Input, Audio and Navigation. Time holds the fixed update rate and frame cap in `Engine.cfg`. The rest live in the project's `ProjectSettings.json` under `Assets/Config`: layer names, gravity, the triangular layer collision matrix over the named layers, the action map path (with connected pads and a live action table), the audio bus volumes, and the navigation area names and costs.
+- **Appearance** (Edit > Preferences): dark or light theme, typeface and size, and an accent color (blue by default; Pink, Lavender, Mint, Amber presets or a custom hex). The dark palette is the editor's original one (near-black chrome, charcoal panels, lighter controls) with the accent filling hovered, pressed and focused-tab surfaces, darkened when needed so labels keep 4.5:1 contrast. Fonts are bundled in `Engine/Assets/Fonts` with their licenses: Inter (default), Inconsolata (a Consolas look-alike), JetBrains Mono and Hack, plus the renderer's embedded Roboto as fallback. Sizes run 18 to 28 px; `ImGuiRenderer::kMinFontSize` (18) is enforced for every ImGui font, and `ImGuiRenderer::SetFont` rebuilds the atlas before the next frame. Padding, spacing, indents and roundings are authored at 18 px and scale with the font in whole pixels, as do the layout tokens below, so every size keeps the same proportions. Everything applies live and saves to `Appearance.Theme` / `Accent` / `Font` / `FontSize` in `.tmp/Havana.cfg`. The palette lives in `Modules/ImGUI/Source/ImGuiTheme.h`; it assigns every ImGui color slot, and a compile-time count check catches new slots when ImGui changes.
 
 ### Automation: `--editor-exec`
 
@@ -172,7 +173,8 @@ The script runs one command per frame after a short warm-up and logs `[editor-ex
 | `create Name [| Parent]`, `rename Name`, `reparent Child | Parent|root` | Structural edits |
 | `add-component T`, `remove-component T`, `set Type.Field <json>`, `set-ref Type.Field | Entity/Path` | Component edits on the active entity (`set-ref` fills an entity reference with that entity's GUID) |
 | `create-prefab Entity | path`, `instantiate path`, `prefab-apply/-revert/-unpack Entity` | Prefab workflow |
-| `play`, `stop`, `load path`, `save-as path`, `show-assets folder`, `focus-window name`, `screenshot path`, `quit` | Editor state |
+| `play`, `stop`, `load path`, `save-as path`, `show-assets folder`, `show-window Title` (opens a panel), `focus-window name`, `screenshot path`, `quit` | Editor state |
+| `preference Key | <json>` | Set an editor preference for this run (never saved by unattended runs); `Appearance.*` keys re-apply the theme, e.g. `preference Appearance.FontSize | 28` or `preference Appearance.Theme | "Light"` |
 | `mark-count`, `assert-count N`, `assert-count-delta N` | Entity counts |
 | `assert-exists/-missing Name`, `assert-selected N`, `assert-active Name`, `assert-parent Child | Parent`, `assert-children Name | N`, `assert-near A | B | metres` (world positions) | Scene structure |
 | `assert-field Name | Type.Field | <json>` (numbers within 1e-3; append `~ tolerance` to widen; prefix `!=` to require a different value; `Type.Field.N` indexes arrays), `assert-dirty 0/1`, `assert-playing 0/1`, `assert-audio Name | 0/1` (its AudioSource is playing), `assert-prefab Name | path/none`, `assert-overridden Name | Type.Field | 0/1` | State |
@@ -193,6 +195,13 @@ EditorActions::Get().Register( action );
 **Make an edit undoable**: change the scene through `EditorOps` where an operation exists. Otherwise capture `EditorOps::CaptureComponent` before and after and call `EditorOps::RecordComponentEdit`, or push your own `UndoCommand` that identifies entities by GUID.
 
 **Get an inspector for a component**: reflect its fields (`Docs/ECS.md`). Override `OnEditorInspect` only for extra UI such as buttons or previews.
+
+**Lay out editor UI** (inspectors, settings, panels) so it matches the rest at every font size:
+
+- Forms are property rows: `HavanaUtils::Label( "Name" )`, then the widget with a `##id` label (Label sets its width and returns it). Values start at one column per window whatever the indentation (40% of the row, at most 14 em) and end one panel inset from the right edge, in padded and unpadded panels alike. `HavanaUtils::SkipLabel()` puts a button or note under the values; `HavanaUtils::RowWidth()` replaces `-1` widths, which run to the window edge in panels without padding. Vectors use `HavanaUtils::DragAxes`.
+- Sizes come from `ImGuiTheme` (`Modules/ImGUI/Source/ImGuiTheme.h`), never pixel literals: `Em( n )` for fixed widths, table columns and popup or list sizes; `InnerGap()` between the parts of one control (a field and its buttons, vector components); `IconButtonSize()` / `IconButtonsWidth( n )` for square browse, clear, add and remove buttons; `ButtonWidth( label )`; `DialogButtonSize()` for dialog footers; `SectionGap()` between stacked groups; `PanelInset()` where a panel zeroes its padding.
+- Every control is one frame tall: use `Button`, not `SmallButton`, next to fields and in toolbars, and give inspector tree nodes `ImGuiTreeNodeFlags_FramePadding`. Inside an inspector, sub-sections are tree nodes or `SeparatorText`; full-width collapsing headers are for component groups.
+- Colors come from the style or the theme: `ImGuiTheme::AccentText()` for accent text (prefab instances, overrides), `InfoText()`, `SuccessText()`, `WarningText()`, `ErrorText()` for status. They stay readable in both themes. Viewport overlays (stats, gizmo icons) keep fixed light-on-dark colors so they read over any scene.
 
 ## Caveats & Fragility
 

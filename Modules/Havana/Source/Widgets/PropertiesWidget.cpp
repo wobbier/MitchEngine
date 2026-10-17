@@ -19,9 +19,10 @@
 #include "Editor/UndoStack.h"
 #include "World/SceneSerializer.h"
 #include <Utils/HavanaUtils.h>
-#include "UI/Colors.h"
+#include <ImGuiTheme.h>
 #include <imgui.h>
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 
@@ -147,12 +148,14 @@ void PropertiesWidget::Render()
 	else if (BaseCore* core = selection.GetCore())
 	{
 		OPTICK_CATEGORY("Core::OnEditorInspect", Optick::Category::GameLogic);
-		ImGui::Dummy(ImVec2(0.f, 4.f));
-		ImGui::Indent(8.f);
+		// The window has no padding (headers run edge to edge); free-standing content is inset.
+		const float inset = ImGuiTheme::PanelInset();
+		ImGuiTheme::SectionGap();
+		ImGui::Indent(inset);
 		ImGui::TextUnformatted(core->GetTypeIdInternal() == EditorCore::GetTypeId() ? "Scene Camera" : core->GetName().c_str());
-		ImGui::Unindent(8.f);
 		ImGui::Separator();
 		core->OnEditorInspect();
+		ImGui::Unindent(inset);
 		if (core->GetTypeIdInternal() == RenderCore::GetTypeId())
 		{
 			DrawRenderCameraSettings(core->GetWorld());
@@ -160,10 +163,10 @@ void PropertiesWidget::Render()
 	}
 	else
 	{
-		ImGui::Dummy(ImVec2(0.f, 8.f));
-		ImGui::Indent(8.f);
+		ImGuiTheme::SectionGap();
+		ImGui::Indent(ImGuiTheme::PanelInset());
 		ImGui::TextDisabled("Nothing selected");
-		ImGui::Unindent(8.f);
+		ImGui::Unindent(ImGuiTheme::PanelInset());
 	}
 	ImGui::End();
 }
@@ -176,6 +179,8 @@ void PropertiesWidget::DrawRenderCameraSettings(World& world)
 		return;
 	}
 	ImGui::PushID("RenderCameraSettings");
+	const float inset = ImGuiTheme::PanelInset();
+	ImGui::Indent(inset);
 	EntityHandle cameraEntity = world.FindEntityByGUID(m_renderCameraGUID);
 	if (!cameraEntity || !cameraEntity->HasComponent<Camera>())
 	{
@@ -187,7 +192,8 @@ void PropertiesWidget::DrawRenderCameraSettings(World& world)
 		cameraEntity = Camera::CurrentCamera->Parent;
 	}
 	const std::string preview = m_renderCameraGUID == 0 ? "Main Camera" : cameraEntity->GetName();
-	if (ImGui::BeginCombo("Camera", preview.c_str()))
+	HavanaUtils::Label("Camera");
+	if (ImGui::BeginCombo("##Camera", preview.c_str()))
 	{
 		if (ImGui::Selectable("Main Camera", m_renderCameraGUID == 0))
 		{
@@ -231,27 +237,33 @@ void PropertiesWidget::DrawRenderCameraSettings(World& world)
 			{
 				ImGui::SetTooltip("FXAA smooths the final image. TAA combines jittered frames using depth reprojection; moving objects may ghost. Both can be enabled together. SMAA is not implemented.");
 			}
+			// The component group draws its own edge-to-edge header.
+			ImGui::Unindent(inset);
 			std::vector<Instance> instances = { { cameraEntity.Get(), post, EditKey(*cameraEntity.Get(), *post) } };
 			DrawComponentGroup("PostProcess", instances);
+			ImGui::Indent(inset);
 		}
 	}
 	else
 	{
 		ImGui::TextWrapped("No scene camera is selected. Add a Camera to the scene to customize post-processing.");
 	}
+	ImGui::Unindent(inset);
 	ImGui::PopID();
 }
 
 
 void PropertiesWidget::DrawEntityHeader(Entity& entity)
 {
-	ImGui::Dummy(ImVec2(0.f, 4.f));
-	ImGui::Indent(8.f);
+	// The window has no padding (headers run edge to edge); the entity header is inset.
+	const float inset = ImGuiTheme::PanelInset();
+	ImGuiTheme::SectionGap();
+	ImGui::Indent(inset);
 
 	const size_t selectedCount = Selection::Get().Count();
 	if (selectedCount > 1)
 	{
-		ImGui::TextColored(ImVec4(ACCENT_YELLOW), "%zu entities selected: editing shared components", selectedCount);
+		ImGui::TextColored(ImGuiTheme::WarningText(), "%zu entities selected: editing shared components", selectedCount);
 	}
 
 	bool active = entity.IsActiveSelf();
@@ -266,7 +278,10 @@ void PropertiesWidget::DrawEntityHeader(Entity& entity)
 		std::snprintf(m_nameBuffer, sizeof(m_nameBuffer), "%s", entity.GetName().c_str());
 		m_nameEntityGUID = entity.GetGUID();
 	}
-	ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 90.f);
+	// Name fills the row up to the layer picker, which ends where property values end.
+	const float layerWidth = ImGuiTheme::Em(5.f);
+	const float nameWidth = HavanaUtils::RowRight() - ImGui::GetCursorScreenPos().x - layerWidth - ImGui::GetStyle().ItemSpacing.x;
+	ImGui::SetNextItemWidth(std::max(nameWidth, ImGuiTheme::Em(3.f)));
 	ImGui::InputText("##EntityName", m_nameBuffer, sizeof(m_nameBuffer));
 	m_nameEditing = ImGui::IsItemActive();
 	if (ImGui::IsItemDeactivatedAfterEdit())
@@ -275,7 +290,7 @@ void PropertiesWidget::DrawEntityHeader(Entity& entity)
 	}
 
 	ImGui::SameLine();
-	ImGui::SetNextItemWidth(80.f);
+	ImGui::SetNextItemWidth(layerWidth);
 	int layer = entity.GetLayer();
 	const ProjectSettings& settings = ProjectSettings::Get();
 	if (ImGui::BeginCombo("##Layer", settings.GetLayerLabel(layer).c_str()))
@@ -312,8 +327,8 @@ void PropertiesWidget::DrawEntityHeader(Entity& entity)
 			m_prefabCheckRoot = root->GetGUID();
 		}
 		const std::string asset = PrefabTools::GetPrefabAsset(*root);
-		ImGui::TextColored(ImVec4(ACCENT_BLUE), "Prefab%s: %s", m_prefabHasOverrides ? " (modified)" : "", asset.c_str());
-		if (root != &entity && ImGui::SmallButton("Select Root"))
+		ImGui::TextColored(ImGuiTheme::AccentText(), "Prefab%s: %s", m_prefabHasOverrides ? " (modified)" : "", asset.c_str());
+		if (root != &entity && ImGui::Button("Select Root"))
 		{
 			Selection::Get().Set(root->GetHandle());
 		}
@@ -322,28 +337,28 @@ void PropertiesWidget::DrawEntityHeader(Entity& entity)
 			ImGui::SameLine();
 		}
 		ImGui::BeginDisabled(!m_prefabHasOverrides);
-		if (ImGui::SmallButton("Apply All"))
+		if (ImGui::Button("Apply All"))
 		{
 			PrefabTools::ApplyAll(*root);
 			m_prefabCheckTime = 0.0;
 		}
 		ImGui::SetItemTooltip("Write this instance's changes into %s and update its other instances", asset.c_str());
 		ImGui::SameLine();
-		if (ImGui::SmallButton("Revert All"))
+		if (ImGui::Button("Revert All"))
 		{
 			PrefabTools::RevertAll(*root);
 			m_prefabCheckTime = 0.0;
 		}
 		ImGui::EndDisabled();
 		ImGui::SameLine();
-		if (ImGui::SmallButton("Unpack"))
+		if (ImGui::Button("Unpack"))
 		{
 			PrefabTools::Unpack(*root);
 		}
 		ImGui::SetItemTooltip("Break the link to the prefab");
 	}
 
-	ImGui::Unindent(8.f);
+	ImGui::Unindent(inset);
 	ImGui::Separator();
 }
 
@@ -403,30 +418,39 @@ void PropertiesWidget::DrawComponentGroup(const std::string& typeName, std::vect
 
 	bool keep = true;
 	const bool isTransform = typeName == "Transform";
+	const float headerLabelX = ImGui::GetCursorPosX() + ImGui::GetTreeNodeToLabelSpacing();
 	const bool open = ImGui::CollapsingHeader("##header", isTransform ? nullptr : &keep, ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_AllowOverlap);
 	DrawComponentContextMenu(typeName, instances);
 
 	// Enabled toggle + name drawn over the header.
-	ImGui::SameLine(ImGui::GetTreeNodeToLabelSpacing());
+	ImGui::SameLine(headerLabelX);
 	bool enabled = primary->IsEnabled();
-	ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(1.f, 1.f));
-	if (!isTransform && ImGui::Checkbox("##enabled", &enabled))
+	if (!isTransform)
 	{
-		for (Instance& instance : instances)
+		// A compact checkbox, centered in the header row.
+		const float framePadding = ImGui::GetStyle().FramePadding.y;
+		const float compact = std::max(1.f, std::round(framePadding * 0.25f));
+		ImGui::SetCursorPosY(ImGui::GetCursorPosY() + framePadding - compact);
+		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(compact, compact));
+		if (ImGui::Checkbox("##enabled", &enabled))
 		{
-			instance.Component->SetEnabled(enabled);
+			for (Instance& instance : instances)
+			{
+				instance.Component->SetEnabled(enabled);
+			}
+			GetEngine().GetWorld().lock()->Simulate();
+			CommitEdits(typeName, instances, (enabled ? "Enable " : "Disable ") + typeName);
 		}
-		GetEngine().GetWorld().lock()->Simulate();
-		CommitEdits(typeName, instances, (enabled ? "Enable " : "Disable ") + typeName);
+		ImGui::PopStyleVar();
+		ImGui::SameLine();
 	}
-	ImGui::PopStyleVar();
-	ImGui::SameLine();
 	ImGui::TextUnformatted(typeName.c_str());
 
 	if (open)
 	{
-		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 20.f, 0.f });
-		ImGui::Indent(8.f);
+		// Fields line up under the component's name; values end a panel inset from the edge.
+		const float bodyIndent = headerLabelX - ImGui::GetCursorPosX();
+		ImGui::Indent(bodyIndent);
 		ImGui::BeginGroup();
 		ImGui::BeginDisabled(!primary->IsEnabled());
 
@@ -479,8 +503,7 @@ void PropertiesWidget::DrawComponentGroup(const std::string& typeName, std::vect
 
 		ImGui::EndDisabled();
 		ImGui::EndGroup();
-		ImGui::Unindent(8.f);
-		ImGui::PopStyleVar();
+		ImGui::Unindent(bodyIndent);
 
 		const bool active = ImGui::IsItemActive();
 		const bool edited = ImGui::IsItemEdited();
@@ -498,7 +521,7 @@ void PropertiesWidget::DrawComponentGroup(const std::string& typeName, std::vect
 			CommitEdits(typeName, instances, "Edit " + typeName);
 			m_pendingEdits[groupKey] = false;
 		}
-		ImGui::Dummy(ImVec2(0.f, 6.f));
+		ImGuiTheme::SectionGap();
 	}
 	ImGui::PopID();
 
@@ -592,13 +615,15 @@ void PropertiesWidget::DrawComponentContextMenu(const std::string& typeName, std
 
 void PropertiesWidget::AddComponentPopup(Entity& entity)
 {
-	ImGui::Dummy(ImVec2(0.f, 4.f));
-	ImGui::Indent(20.f);
-	if (ImGui::Button("Add Component", { ImGui::GetContentRegionAvail().x - 20.f, 26.f }))
+	// A full-width action at the end of the inspector, inset like the rows above it.
+	ImGuiTheme::SectionGap();
+	const float inset = ImGuiTheme::PanelInset();
+	ImGui::Indent(inset);
+	if (ImGui::Button("Add Component", ImVec2(HavanaUtils::RowRight() - ImGui::GetCursorScreenPos().x, 0.f)))
 	{
 		ImGui::OpenPopup("AddComponentPopup");
 	}
-	ImGui::Unindent(20.f);
+	ImGui::Unindent(inset);
 
 	if (ImGui::BeginPopup("AddComponentPopup"))
 	{

@@ -14,6 +14,8 @@
 #include "imgui_node_editor.h"
 #include "misc/cpp/imgui_stdlib.h"
 #include "Utils/ImGuiUtils.h"
+#include "Utils/HavanaUtils.h"
+#include "ImGuiTheme.h"
 
 namespace ed = ax::NodeEditor;
 using namespace ShaderGraph;
@@ -969,10 +971,12 @@ bool ShaderGraphDocument::Draw()
             }
         }
         ImGui::SetNextWindowFocus();
-        ImGui::SetNextWindowSize( ImVec2( 1280.f, 760.f ), ImGuiCond_FirstUseEver );
+        ImGui::SetNextWindowSize( ImVec2( ImGuiTheme::Em( 71.f ), ImGuiTheme::Em( 42.f ) ), ImGuiCond_FirstUseEver );
         m_focusRequested = false;
     }
-    ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2( 4.f, 4.f ) );
+    // Half the usual padding: the canvas is the document and should use the space.
+    const float padding = std::round( ImGuiTheme::PanelInset() * 0.5f );
+    ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2( padding, padding ) );
     bool open = true;
     const bool visible = ImGui::Begin( windowName.c_str(), &open, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ( IsDirty() ? ImGuiWindowFlags_UnsavedDocument : 0 ) );
     ImGui::PopStyleVar();
@@ -993,16 +997,17 @@ bool ShaderGraphDocument::Draw()
     {
         DrawToolbar();
         const size_t messageCount = m_result.Diagnostics.size() + m_preview->GetShaderErrors().size();
-        const float messagesHeight = messageCount == 0 ? 0.f : std::min( 24.f + 18.f * static_cast<float>( messageCount ), 140.f );
+        const float messagesHeight = messageCount == 0 ? 0.f
+            : std::min( ImGui::GetStyle().WindowPadding.y * 2.f + ImGui::GetTextLineHeightWithSpacing() * static_cast<float>( messageCount ), ImGuiTheme::Em( 7.75f ) );
         ImGui::BeginChild( "SidePanel", ImVec2( m_sidePanelWidth, 0.f ), true );
         DrawSidePanel( m_sidePanelWidth );
         ImGui::EndChild();
         ImGui::SameLine( 0.f, 0.f );
-        // Splitter.
-        ImGui::InvisibleButton( "Splitter", ImVec2( 6.f, ImGui::GetContentRegionAvail().y ) );
+        // Splitter, as thick as the dock splitters.
+        ImGui::InvisibleButton( "Splitter", ImVec2( ImGui::GetStyle().DockingSeparatorSize, ImGui::GetContentRegionAvail().y ) );
         if( ImGui::IsItemActive() )
         {
-            m_sidePanelWidth = std::clamp( m_sidePanelWidth + ImGui::GetIO().MouseDelta.x, 180.f, 700.f );
+            m_sidePanelWidth = std::clamp( m_sidePanelWidth + ImGui::GetIO().MouseDelta.x, ImGuiTheme::Em( 10.f ), ImGuiTheme::Em( 39.f ) );
         }
         if( ImGui::IsItemHovered() || ImGui::IsItemActive() )
         {
@@ -1085,16 +1090,16 @@ void ShaderGraphDocument::DrawToolbar()
     }
     else if( errors > 0 )
     {
-        ImGui::TextColored( ImVec4( 1.f, 0.4f, 0.35f, 1.f ), "%d error%s", errors, errors == 1 ? "" : "s" );
+        ImGui::TextColored( ImGuiTheme::ErrorText(), "%d error%s", errors, errors == 1 ? "" : "s" );
     }
     else
     {
-        ImGui::TextColored( ImVec4( 0.45f, 0.85f, 0.45f, 1.f ), "compiled" );
+        ImGui::TextColored( ImGuiTheme::SuccessText(), "compiled" );
     }
     if( warnings > 0 )
     {
         ImGui::SameLine();
-        ImGui::TextColored( ImVec4( 1.f, 0.8f, 0.3f, 1.f ), "%d warning%s", warnings, warnings == 1 ? "" : "s" );
+        ImGui::TextColored( ImGuiTheme::WarningText(), "%d warning%s", warnings, warnings == 1 ? "" : "s" );
     }
     ImGui::SameLine();
     ImGui::TextDisabled( "|  Space: add node   F: frame   right-drag: pan" );
@@ -1112,7 +1117,7 @@ void ShaderGraphDocument::RenderPreviews( bgfx::ViewId InTileView, bgfx::ViewId 
 
 void ShaderGraphDocument::DrawMainPreview( float InWidth )
 {
-    const float size = std::min( InWidth - 16.f, 320.f );
+    const float size = std::min( ImGui::GetContentRegionAvail().x, ImGuiTheme::Em( 17.75f ) );
     ImVec2 uv0;
     ImVec2 uv1;
     if( m_preview->GetMain( uv0, uv1 ) )
@@ -1157,13 +1162,10 @@ void ShaderGraphDocument::DrawGraphSettings()
 {
     TargetSettings settings = m_graph.Settings;
     bool changed = false;
-    ImGui::PushItemWidth( -1.f );
 
     auto combo = [&changed]( const char* InLabel, auto& InValue, const std::vector<const char*>& InNames ) {
-        ImGui::TextUnformatted( InLabel );
-        ImGui::SameLine( 120.f );
+        HavanaUtils::Label( InLabel );
         int index = static_cast<int>( InValue );
-        ImGui::SetNextItemWidth( -1.f );
         if( ImGui::Combo( ( std::string( "##" ) + InLabel ).c_str(), &index, InNames.data(), static_cast<int>( InNames.size() ) ) )
         {
             InValue = static_cast<std::remove_reference_t<decltype( InValue )>>( index );
@@ -1171,7 +1173,8 @@ void ShaderGraphDocument::DrawGraphSettings()
         }
     };
     auto checkbox = [&changed]( const char* InLabel, bool& InValue, const char* InTooltip ) {
-        if( ImGui::Checkbox( InLabel, &InValue ) )
+        HavanaUtils::Label( InLabel );
+        if( ImGui::Checkbox( ( std::string( "##" ) + InLabel ).c_str(), &InValue ) )
         {
             changed = true;
         }
@@ -1186,7 +1189,6 @@ void ShaderGraphDocument::DrawGraphSettings()
     if( target != settings.GraphTarget )
     {
         SetTarget( target );
-        ImGui::PopItemWidth();
         return;
     }
     if( const TargetDef* def = GetTargetDef( target ) )
@@ -1195,7 +1197,7 @@ void ShaderGraphDocument::DrawGraphSettings()
     }
     else
     {
-        ImGui::TextColored( ImVec4( 1.f, 0.6f, 0.3f, 1.f ), "This target isn't available yet." );
+        ImGui::TextColored( ImGuiTheme::WarningText(), "This target isn't available yet." );
     }
 
     const bool mesh = target == Target::Lit || target == Target::Unlit;
@@ -1227,7 +1229,6 @@ void ShaderGraphDocument::DrawGraphSettings()
             ImGui::SetTooltip( "Before: on HDR scene light (bloom and exposure see the result). After: on the display image." );
         }
     }
-    ImGui::PopItemWidth();
 
     if( changed )
     {
@@ -1285,9 +1286,12 @@ void ShaderGraphDocument::DrawBlackboard()
         ImGui::Bullet();
         ImGui::PopStyleColor();
         ImGui::SameLine();
+        // The type name ends the row; the name takes the rest.
+        const char* typeName = property.IsColor ? "Color" : GetValueTypeDisplayName( property.Type );
+        const float typeWidth = ImGui::CalcTextSize( typeName ).x + ImGui::GetStyle().ItemSpacing.x;
         if( m_renamingProperty == property.Id )
         {
-            ImGui::SetNextItemWidth( -60.f );
+            ImGui::SetNextItemWidth( -typeWidth );
             ImGui::SetKeyboardFocusHere();
             if( ImGui::InputText( "##Rename", m_renameBuffer, sizeof( m_renameBuffer ), ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll ) || ImGui::IsItemDeactivated() )
             {
@@ -1301,7 +1305,7 @@ void ShaderGraphDocument::DrawBlackboard()
         }
         else
         {
-            if( ImGui::Selectable( property.Name.c_str(), selected, ImGuiSelectableFlags_AllowDoubleClick, ImVec2( ImGui::GetContentRegionAvail().x - 60.f, 0.f ) ) )
+            if( ImGui::Selectable( property.Name.c_str(), selected, ImGuiSelectableFlags_AllowDoubleClick, ImVec2( ImGui::GetContentRegionAvail().x - typeWidth, 0.f ) ) )
             {
                 m_inspectedProperty = property.Id;
                 m_inspectedNode = 0;
@@ -1319,7 +1323,7 @@ void ShaderGraphDocument::DrawBlackboard()
             }
         }
         ImGui::SameLine();
-        ImGui::TextDisabled( "%s", property.IsColor ? "Color" : GetValueTypeDisplayName( property.Type ) );
+        ImGui::TextDisabled( "%s", typeName );
         ImGui::PopID();
     }
 
@@ -1329,17 +1333,15 @@ void ShaderGraphDocument::DrawBlackboard()
     {
         return;
     }
-    ImGui::Separator();
     ImGui::PushID( "PropertyDetails" );
-    ImGui::Text( "%s", property->Name.c_str() );
+    ImGui::SeparatorText( property->Name.c_str() );
     Property edited = *property;
     bool changed = false;
     bool interactive = false;
     if( IsTextureType( edited.Type ) )
     {
-        ImGui::TextUnformatted( "Texture" );
-        ImGui::SameLine( 120.f );
-        if( ImGui::Button( ( edited.Texture.empty() ? std::string( "(none)" ) : edited.Texture ).c_str(), ImVec2( -1.f, 0.f ) ) )
+        const float textureWidth = HavanaUtils::Label( "Texture" );
+        if( ImGui::Button( ( edited.Texture.empty() ? std::string( "(none)" ) : edited.Texture ).c_str(), ImVec2( textureWidth, 0.f ) ) )
         {
             const std::string id = edited.Id;
             RequestAssetSelectionEvent evt( [this, id]( Path InSelected ) {
@@ -1351,16 +1353,18 @@ void ShaderGraphDocument::DrawBlackboard()
             }, AssetType::Texture );
             evt.Fire();
         }
-        if( !edited.Texture.empty() && ImGui::SmallButton( "Clear Texture" ) )
+        if( !edited.Texture.empty() )
         {
-            edited.Texture.clear();
-            changed = true;
+            HavanaUtils::SkipLabel();
+            if( ImGui::Button( "Clear Texture" ) )
+            {
+                edited.Texture.clear();
+                changed = true;
+            }
         }
         int fallback = edited.DefaultTexture == "black" ? 1 : edited.DefaultTexture == "gray" ? 2 : edited.DefaultTexture == "normal" ? 3 : 0;
         const char* fallbacks[] = { "white", "black", "gray", "normal" };
-        ImGui::TextUnformatted( "Fallback" );
-        ImGui::SameLine( 120.f );
-        ImGui::SetNextItemWidth( -1.f );
+        HavanaUtils::Label( "Fallback" );
         if( ImGui::Combo( "##Fallback", &fallback, fallbacks, 4 ) )
         {
             edited.DefaultTexture = fallbacks[fallback];
@@ -1370,7 +1374,8 @@ void ShaderGraphDocument::DrawBlackboard()
     else if( edited.Type == ValueType::Bool )
     {
         bool value = edited.Default.x != 0.f;
-        if( ImGui::Checkbox( "Default", &value ) )
+        HavanaUtils::Label( "Default" );
+        if( ImGui::Checkbox( "##Default", &value ) )
         {
             edited.Default.x = value ? 1.f : 0.f;
             changed = true;
@@ -1378,9 +1383,7 @@ void ShaderGraphDocument::DrawBlackboard()
     }
     else
     {
-        ImGui::TextUnformatted( "Default" );
-        ImGui::SameLine( 120.f );
-        ImGui::SetNextItemWidth( -1.f );
+        HavanaUtils::Label( "Default" );
         const int components = GetComponentCount( edited.Type );
         if( edited.IsColor && components >= 3 )
         {
@@ -1399,7 +1402,8 @@ void ShaderGraphDocument::DrawBlackboard()
         if( components == 1 )
         {
             bool slider = edited.Min != edited.Max;
-            if( ImGui::Checkbox( "Slider", &slider ) )
+            HavanaUtils::Label( "Slider" );
+            if( ImGui::Checkbox( "##Slider", &slider ) )
             {
                 edited.Min = 0.f;
                 edited.Max = slider ? 1.f : 0.f;
@@ -1408,7 +1412,7 @@ void ShaderGraphDocument::DrawBlackboard()
             if( slider )
             {
                 ImGui::SameLine();
-                ImGui::SetNextItemWidth( -1.f );
+                ImGui::SetNextItemWidth( HavanaUtils::RowRight() - ImGui::GetCursorScreenPos().x );
                 float range[2] = { edited.Min, edited.Max };
                 if( ImGui::DragFloat2( "##Range", range, 0.01f ) )
                 {
@@ -1421,7 +1425,8 @@ void ShaderGraphDocument::DrawBlackboard()
         }
         if( components >= 3 )
         {
-            changed |= ImGui::Checkbox( "Color", &edited.IsColor );
+            HavanaUtils::Label( "Color" );
+            changed |= ImGui::Checkbox( "##IsColor", &edited.IsColor );
             if( edited.IsColor )
             {
                 ImGui::SameLine();
@@ -1429,11 +1434,13 @@ void ShaderGraphDocument::DrawBlackboard()
             }
         }
     }
-    changed |= ImGui::Checkbox( "Exposed", &edited.Exposed );
+    HavanaUtils::Label( "Exposed" );
+    changed |= ImGui::Checkbox( "##Exposed", &edited.Exposed );
     if( ImGui::IsItemHovered() )
     {
         ImGui::SetTooltip( "Shown in the material inspector and settable per material." );
     }
+    HavanaUtils::SkipLabel();
     if( ImGui::Button( "Delete Property" ) )
     {
         GraphEditScope edit( *this, "Delete Property" );
@@ -1500,7 +1507,7 @@ void ShaderGraphDocument::DrawNodeInspector()
     }
     for( const std::string& error : GetNodeErrors( id ) )
     {
-        ImGui::PushStyleColor( ImGuiCol_Text, error.rfind( "Error", 0 ) == 0 ? ImVec4( 1.f, 0.45f, 0.4f, 1.f ) : ImVec4( 1.f, 0.8f, 0.3f, 1.f ) );
+        ImGui::PushStyleColor( ImGuiCol_Text, error.rfind( "Error", 0 ) == 0 ? ImGuiTheme::ErrorText() : ImGuiTheme::WarningText() );
         ImGui::TextWrapped( "%s", error.c_str() );
         ImGui::PopStyleColor();
     }
@@ -1526,8 +1533,7 @@ void ShaderGraphDocument::DrawNodeInspector()
             header = true;
         }
         ImGui::PushID( pin.Name.c_str() );
-        ImGui::TextUnformatted( pin.Name.c_str() );
-        ImGui::SameLine( 120.f );
+        HavanaUtils::Label( pin.Name );
         DrawInlineValue( *m_graph.FindNode( id ), pin, GetPinType( id, pin.Name, false ), -1.f );
         if( !pin.Tooltip.empty() && ImGui::IsItemHovered() )
         {
@@ -1592,16 +1598,24 @@ bool ShaderGraphDocument::DrawSettingEditor( Node& InNode, const NodeDef& InDef,
     ImGui::PushID( setting.Name.c_str() );
     if( !InCompact )
     {
-        ImGui::TextUnformatted( setting.Name.c_str() );
+        // Code and pin lists take the full width below their name; the rest are property rows.
+        const bool block = setting.Kind == SettingKind::Code || setting.Kind == SettingKind::PinList;
+        if( block )
+        {
+            ImGui::TextUnformatted( setting.Name.c_str() );
+        }
+        else
+        {
+            HavanaUtils::Label( setting.Name );
+        }
         if( !setting.Tooltip.empty() && ImGui::IsItemHovered() )
         {
             ImGui::SetTooltip( "%s", setting.Tooltip.c_str() );
         }
-        if( setting.Kind != SettingKind::Code && setting.Kind != SettingKind::PinList )
+        if( block )
         {
-            ImGui::SameLine( 120.f );
+            ImGui::SetNextItemWidth( -1.f );
         }
-        ImGui::SetNextItemWidth( -1.f );
     }
     switch( setting.Kind )
     {
@@ -1756,7 +1770,7 @@ bool ShaderGraphDocument::DrawSettingEditor( Node& InNode, const NodeDef& InDef,
             }
             ImGui::SameLine();
             const std::string type = list[i].value( "Type", std::string( "Float" ) );
-            ImGui::SetNextItemWidth( ImGui::GetContentRegionAvail().x - 24.f );
+            ImGui::SetNextItemWidth( ImGui::GetContentRegionAvail().x - ImGuiTheme::IconButtonsWidth( 1 ) );
             if( ImGui::BeginCombo( "##Type", type.c_str() ) )
             {
                 for( const char* option : kTypes )
@@ -1769,8 +1783,8 @@ bool ShaderGraphDocument::DrawSettingEditor( Node& InNode, const NodeDef& InDef,
                 }
                 ImGui::EndCombo();
             }
-            ImGui::SameLine();
-            if( ImGui::SmallButton( "x" ) )
+            ImGui::SameLine( 0.f, ImGuiTheme::InnerGap() );
+            if( ImGui::Button( "x", ImGuiTheme::IconButtonSize() ) )
             {
                 remove = static_cast<int>( i );
             }
@@ -1781,7 +1795,7 @@ bool ShaderGraphDocument::DrawSettingEditor( Node& InNode, const NodeDef& InDef,
             list.erase( static_cast<size_t>( remove ) );
             changed = true;
         }
-        if( ImGui::SmallButton( "+ Add" ) )
+        if( ImGui::Button( "+ Add" ) )
         {
             list.push_back( { { "Name", "Value" + std::to_string( list.size() ) }, { "Type", "Float" } } );
             changed = true;
@@ -2024,7 +2038,7 @@ void ShaderGraphDocument::DrawNode( Node& InNode )
     if( hasWarning && !hasError )
     {
         ImGui::SameLine();
-        ImGui::TextColored( ImVec4( 1.f, 0.8f, 0.3f, 1.f ), "!" );
+        ImGui::TextColored( ImGuiTheme::WarningText(), "!" );
     }
     const float headerBottom = ImGui::GetItemRectMax().y + 6.f;
     ImGui::Dummy( ImVec2( 0.f, 4.f ) );
@@ -2324,7 +2338,7 @@ void ShaderGraphDocument::DrawPalette()
         ImGui::EndPopup();
     }
 
-    ImGui::SetNextWindowSizeConstraints( ImVec2( 280.f, 120.f ), ImVec2( 360.f, 460.f ) );
+    ImGui::SetNextWindowSizeConstraints( ImVec2( ImGuiTheme::Em( 15.5f ), ImGuiTheme::Em( 6.75f ) ), ImVec2( ImGuiTheme::Em( 20.f ), ImGuiTheme::Em( 25.5f ) ) );
     if( !ImGui::BeginPopup( "SGPalette" ) )
     {
         return;
@@ -2435,7 +2449,7 @@ void ShaderGraphDocument::DrawPalette()
         chosen = &entries[m_paletteSelection];
     }
 
-    ImGui::BeginChild( "Entries", ImVec2( 0.f, 360.f ) );
+    ImGui::BeginChild( "Entries", ImVec2( 0.f, ImGuiTheme::Em( 20.f ) ) );
     std::string lastCategory;
     for( size_t i = 0; i < entries.size(); ++i )
     {
@@ -2623,7 +2637,7 @@ void ShaderGraphDocument::DrawMessages()
     {
         const Diagnostic& diagnostic = all[i];
         const bool error = diagnostic.Level == Diagnostic::Severity::Error;
-        ImGui::PushStyleColor( ImGuiCol_Text, error ? ImVec4( 1.f, 0.45f, 0.4f, 1.f ) : ImVec4( 1.f, 0.8f, 0.3f, 1.f ) );
+        ImGui::PushStyleColor( ImGuiCol_Text, error ? ImGuiTheme::ErrorText() : ImGuiTheme::WarningText() );
         std::string label = error ? "error  " : "warning  ";
         const Node* node = diagnostic.NodeId ? m_graph.FindNode( diagnostic.NodeId ) : nullptr;
         if( node )
@@ -2647,7 +2661,7 @@ void ShaderGraphDocument::DrawMessages()
 
 void ShaderGraphDocument::DrawCodeWindow()
 {
-    ImGui::SetNextWindowSize( ImVec2( 760.f, 640.f ), ImGuiCond_FirstUseEver );
+    ImGui::SetNextWindowSize( ImVec2( ImGuiTheme::Em( 42.f ), ImGuiTheme::Em( 35.5f ) ), ImGuiCond_FirstUseEver );
     if( ImGui::Begin( ( m_title + " - Generated Code###SGCode:" + m_path ).c_str(), &m_showCode ) )
     {
         if( ImGui::BeginTabBar( "Files" ) )

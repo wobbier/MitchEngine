@@ -307,9 +307,10 @@ void ParticleSystem::OnEditorInspect()
 {
     // Keeps the Graph Properties above in step with Graph even when nothing renders the system.
     ResolveTexture();
-    ImGui::Text( "Particles: %zu / %d", m_particles.size(), MaxParticles );
+    HavanaUtils::Label( "Particles" );
+    ImGui::Text( "%zu / %d", m_particles.size(), MaxParticles );
     ImGui::SameLine();
-    if( ImGui::SmallButton( "Restart" ) )
+    if( ImGui::Button( "Restart" ) )
     {
         Restart();
     }

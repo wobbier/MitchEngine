@@ -30,8 +30,9 @@ void ResourceMonitorWidget::Render()
     {
         OPTICK_CATEGORY( "Resource Monitor", Optick::Category::UI );
         ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2( 0.f, 0.f ) );
-        ImGui::PushStyleVar( ImGuiStyleVar_FramePadding, ImVec2( 12.f, ImGui::GetStyle().FramePadding.y ) );
-        if( ImGui::Begin( "Resource Monitor", &IsOpen ) )
+        const bool open = ImGui::Begin( "Resource Monitor", &IsOpen );
+        ImGui::PopStyleVar();
+        if( open )
         {
             ResourceStack& resources = ResourceCache::GetInstance().GetResouceStack();
 
@@ -62,7 +63,7 @@ void ResourceMonitorWidget::Render()
             if( ImGui::BeginTable( "##ResourceTable", 2, flags, size ) )
             {
                 ImGui::TableSetupColumn( "Resource Path", ImGuiTableColumnFlags_WidthStretch, -1.f, Sort_LocalPath );
-                ImGui::TableSetupColumn( "References", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, 15.f, Sort_RefCount );
+                ImGui::TableSetupColumn( "References", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, ImGui::CalcTextSize( "References" ).x, Sort_RefCount );
                 ImGui::TableSetupScrollFreeze( 1, 1 );
                 ImGui::TableHeadersRow();
 
@@ -81,7 +82,7 @@ void ResourceMonitorWidget::Render()
                 ItemsNeedSorted = false;
 
                 ImGuiListClipper clipper;
-                clipper.Begin( static_cast<int>( resourceList.size() ), 17.f );
+                clipper.Begin( static_cast<int>( resourceList.size() ) );
                 OPTICK_CATEGORY( "List Clipper", Optick::Category::UI );
                 while( clipper.Step() )
                 {
@@ -100,14 +101,14 @@ void ResourceMonitorWidget::Render()
                             ImGui::TableSetColumnIndex( 0 );
                             {
                                 OPTICK_EVENT( "Name" );
-                                ImGui::Text( resourceList[row].lock()->GetPath().GetLocalPath().data() );
+                                ImGui::TextUnformatted( resourceList[row].lock()->GetPath().GetLocalPath().data() );
                             }
 
                             ImGui::TableSetColumnIndex( 1 );
                             {
                                 OPTICK_EVENT( "Use Count" );
                                 // I'm negating 1 here for the actual pointer stored in the ResourceCache
-                                ImGui::Text( std::to_string( resourceList[row].use_count() - 1 ).c_str() );
+                                ImGui::TextUnformatted( std::to_string( resourceList[row].use_count() - 1 ).c_str() );
                             }
                         }
 
@@ -117,7 +118,6 @@ void ResourceMonitorWidget::Render()
             }
         }
         ImGui::End();
-        ImGui::PopStyleVar( 2 );
     }
 }
 

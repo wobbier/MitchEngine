@@ -448,7 +448,7 @@ void Animator::OnEditorInspect()
         m_previewIdleUpdates = 0;
         if( !m_previewRequested )
         {
-            if( ImGui::Button( "Preview", ImVec2( -1.f, 0.f ) ) )
+            if( ImGui::Button( "Preview", ImVec2( HavanaUtils::RowWidth(), 0.f ) ) )
             {
                 StartPreview( DefaultState );
             }
@@ -459,7 +459,8 @@ void Animator::OnEditorInspect()
             ImGui::TextDisabled( "Binding..." );
             return;
         }
-        if( ImGui::BeginCombo( "Preview State", m_previewState.c_str() ) )
+        HavanaUtils::Label( "Preview State" );
+        if( ImGui::BeginCombo( "##PreviewState", m_previewState.c_str() ) )
         {
             for( const AnimatorState& state : m_states )
             {
@@ -471,18 +472,22 @@ void Animator::OnEditorInspect()
             }
             ImGui::EndCombo();
         }
-        if( ImGui::Button( PreviewPlaying ? "Pause" : "Play" ) )
+        // Play/Pause, the time slider and Stop share the value column.
+        const float width = HavanaUtils::Label( "Playback" );
+        const float gap = ImGuiTheme::InnerGap();
+        const float playWidth = std::max( ImGuiTheme::ButtonWidth( "Play" ), ImGuiTheme::ButtonWidth( "Pause" ) );
+        if( ImGui::Button( PreviewPlaying ? "Pause" : "Play", ImVec2( playWidth, 0.f ) ) )
         {
             PreviewPlaying = !PreviewPlaying;
         }
-        ImGui::SameLine();
+        ImGui::SameLine( 0.f, gap );
         const float duration = GetPreviewDuration();
-        ImGui::SetNextItemWidth( -90.f );
+        ImGui::SetNextItemWidth( std::max( width - playWidth - ImGuiTheme::ButtonWidth( "Stop" ) - gap * 2.f, ImGuiTheme::Em( 2.f ) ) );
         if( ImGui::SliderFloat( "##PreviewTime", &PreviewTime, 0.f, std::max( duration, 0.001f ), "%.2f s" ) )
         {
             PreviewPlaying = false;
         }
-        ImGui::SameLine();
+        ImGui::SameLine( 0.f, gap );
         if( ImGui::Button( "Stop" ) )
         {
             StopPreview();
@@ -506,7 +511,7 @@ void Animator::OnEditorInspect()
     {
         ImGui::Text( "Root motion: %.3f, %.3f, %.3f", m_rootMotionWorld.x, m_rootMotionWorld.y, m_rootMotionWorld.z );
     }
-    if( ImGui::TreeNode( "Clips" ) )
+    if( ImGui::TreeNodeEx( "Clips", ImGuiTreeNodeFlags_FramePadding ) )
     {
         for( const std::string& name : GetClipNames() )
         {

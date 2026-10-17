@@ -12,6 +12,7 @@
 #include <bimg/decode.h>
 #include <bx/allocator.h>
 #include <Utils/HavanaUtils.h>
+#include <ImGuiTheme.h>
 #include <Device/FrameBuffer.h>
 
 
@@ -470,7 +471,8 @@ void TextureResourceMetadata::OnEditorInspect()
         }
     }
 
-    ImGui::Checkbox( "Generate MIPs", &GenerateMIPs );
+    HavanaUtils::Label( "Generate MIPs" );
+    ImGui::Checkbox( "##GenerateMIPs", &GenerateMIPs );
 }
 
 #endif

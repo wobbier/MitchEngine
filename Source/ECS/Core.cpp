@@ -122,8 +122,10 @@ void BaseCore::SetIsSerializable( bool value )
 
 void BaseCore::OnEditorInspect()
 {
-    ImGui::Text( "Entity Count: %i", Entities.size() );
-    ImGui::Checkbox( "Destroy On Load", &DestroyOnLoad );
+    HavanaUtils::Label( "Entity Count" );
+    ImGui::Text( "%d", static_cast<int>( Entities.size() ) );
+    HavanaUtils::Label( "Destroy On Load" );
+    ImGui::Checkbox( "##DestroyOnLoad", &DestroyOnLoad );
 }
 
 #endif

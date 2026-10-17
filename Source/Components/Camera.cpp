@@ -5,6 +5,7 @@
 #include "Math/Frustrum.h"
 #include "Resource/ResourceCache.h"
 #include "Utils/HavanaUtils.h"
+#include "ImGuiTheme.h"
 #include <Graphics/Material.h>
 #include <cmath>
 
@@ -281,17 +282,15 @@ void Camera::OnEditorInspect()
         if( IsCurrent() )
         {
             ImGui::AlignTextToFramePadding();
-            ImGui::TextColored( ImGui::GetStyleColorVec4( ImGuiCol_ButtonHovered ), "Active Camera" );
+            ImGui::TextColored( ImGuiTheme::AccentText(), "Active Camera" );
             CameraTooltip( "This camera supplies the Game View." );
         }
         else
         {
-            ImGui::PushStyleVar( ImGuiStyleVar_FrameRounding, 4.f );
             if( ImGui::Button( "Make Current", ImVec2( width, 0.f ) ) )
             {
                 SetCurrent();
             }
-            ImGui::PopStyleVar();
             CameraTooltip( "Use this camera for the Game View." );
         }
     }
@@ -307,14 +306,14 @@ void Camera::OnEditorInspect()
     if( ClearType == Moonlight::ClearColorType::Color )
     {
         HavanaUtils::Label( "Clear Color" );
-        ImGui::ColorEdit3( "##ClearColor", &ClearColor.x, ImGuiColorEditFlags_NoInputs );
+        ImGui::ColorEdit3( "##ClearColor", &ClearColor.x, ImGuiColorEditFlags_Float );
     }
     else if( ClearType == Moonlight::ClearColorType::Skybox )
     {
         const Moonlight::Texture* texture = Skybox && Skybox->SkyMaterial
             ? Skybox->SkyMaterial->GetTexture( Moonlight::TextureType::Diffuse ) : nullptr;
         const float width = HavanaUtils::Label( "Skybox Texture" );
-        const float clearWidth = texture ? ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.x : 0.f;
+        const float clearWidth = texture ? ImGuiTheme::IconButtonsWidth( 1 ) : 0.f;
         const std::string name = texture ? texture->GetPath().GetFileNameString() : "Select Texture...";
         auto assignTexture = [this]( Path path ) {
             if( !Skybox ) Skybox = new Moonlight::SkyBox( path.FullPath );
@@ -337,8 +336,8 @@ void Camera::OnEditorInspect()
         }
         if( texture )
         {
-            ImGui::SameLine();
-            if( ImGui::Button( "X##ClearSkybox", ImVec2( ImGui::GetFrameHeight(), 0.f ) ) )
+            ImGui::SameLine( 0.f, ImGuiTheme::InnerGap() );
+            if( ImGui::Button( "x##ClearSkybox", ImGuiTheme::IconButtonSize() ) )
             {
                 Skybox->SkyMaterial->SetTexture( Moonlight::TextureType::Diffuse, nullptr );
             }

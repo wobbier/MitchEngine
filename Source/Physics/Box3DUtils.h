@@ -20,7 +20,9 @@ namespace Box3DUtils
 
     inline b3Quat ToB3( const Quaternion& InRotation )
     {
-        return b3Quat{ b3Vec3{ InRotation.x, InRotation.y, InRotation.z }, InRotation.w };
+        // Box3D asserts on rotations more than ~20 epsilon from unit length. Engine rotations
+        // (decomposed from world matrices, or accumulated every frame by scripts) drift past that.
+        return b3NormalizeQuat( b3Quat{ b3Vec3{ InRotation.x, InRotation.y, InRotation.z }, InRotation.w } );
     }
 
     inline Quaternion FromB3( const b3Quat& InRotation )

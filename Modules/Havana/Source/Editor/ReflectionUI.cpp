@@ -13,6 +13,7 @@
 #include "Utils/CommonUtils.h"
 #include "Selection.h"
 #include <Utils/HavanaUtils.h>
+#include <ImGuiTheme.h>
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <misc/cpp/imgui_stdlib.h>
@@ -216,9 +217,8 @@ namespace ReflectionUI
         {
             bool changed = false;
             ImGui::PushID( InLabel );
-            const float buttonWidth = ImGui::GetFrameHeight();
-            const float fullWidth = ImGui::CalcItemWidth();
-            ImGui::SetNextItemWidth( std::max( fullWidth - buttonWidth * 2.f - 4.f, 40.f ) );
+            const float gap = ImGuiTheme::InnerGap();
+            ImGui::SetNextItemWidth( std::max( ImGui::CalcItemWidth() - ImGuiTheme::IconButtonsWidth( 2 ), ImGuiTheme::Em( 2.f ) ) );
             changed |= ImGui::InputTextWithHint( "##path", "None", &InOutPath, ImGuiInputTextFlags_EnterReturnsTrue );
             if( ImGui::BeginDragDropTarget() )
             {
@@ -232,10 +232,10 @@ namespace ReflectionUI
                 }
                 ImGui::EndDragDropTarget();
             }
-            ImGui::SameLine( 0.f, 2.f );
+            ImGui::SameLine( 0.f, gap );
             // The picker answers asynchronously (a later frame); results are keyed by widget ID.
             const ImGuiID pickerId = ImGui::GetID( "picker" );
-            if( ImGui::Button( "...", ImVec2( buttonWidth, 0.f ) ) )
+            if( ImGui::Button( "...", ImGuiTheme::IconButtonSize() ) )
             {
                 const AssetType filter = InField ? AssetTypeFromFilter( InField->AssetFilter ) : AssetType::Unknown;
                 RequestAssetSelectionEvent evt( [pickerId]( Path selected ) {
@@ -244,9 +244,9 @@ namespace ReflectionUI
                 evt.Fire();
             }
             ImGui::SetItemTooltip( "Pick an asset" );
-            ImGui::SameLine( 0.f, 2.f );
+            ImGui::SameLine( 0.f, gap );
             ImGui::BeginDisabled( InOutPath.empty() );
-            if( ImGui::Button( "x", ImVec2( buttonWidth, 0.f ) ) )
+            if( ImGui::Button( "x", ImGuiTheme::IconButtonSize() ) )
             {
                 InOutPath.clear();
                 changed = true;
@@ -264,36 +264,6 @@ namespace ReflectionUI
             return changed;
         }
 
-        // N drag fields side by side with a coloured axis marker (X red, Y green, Z blue, W gray).
-        bool DragAxes( const char* InLabel, float* InValues, int InCount, float InSpeed, const char* InFormat, bool* OutActive = nullptr )
-        {
-            static const ImU32 kAxisColors[4] = { IM_COL32( 230, 70, 80, 255 ), IM_COL32( 120, 200, 40, 255 ), IM_COL32( 50, 140, 250, 255 ), IM_COL32( 150, 150, 150, 255 ) };
-            bool changed = false;
-            ImGui::PushID( InLabel );
-            const float spacing = 2.f;
-            const float width = ( ImGui::CalcItemWidth() - spacing * ( InCount - 1 ) ) / InCount;
-            for( int i = 0; i < InCount; ++i )
-            {
-                ImGui::PushID( i );
-                if( i > 0 )
-                {
-                    ImGui::SameLine( 0.f, spacing );
-                }
-                ImGui::SetNextItemWidth( width );
-                changed |= ImGui::DragFloat( "##axis", &InValues[i], InSpeed, 0.f, 0.f, InFormat );
-                if( OutActive && ImGui::IsItemActive() )
-                {
-                    *OutActive = true;
-                }
-                const ImVec2 min = ImGui::GetItemRectMin();
-                const ImVec2 max = ImGui::GetItemRectMax();
-                ImGui::GetWindowDrawList()->AddRectFilled( min, ImVec2( min.x + 3.f, max.y ), kAxisColors[i], 2.f, ImDrawFlags_RoundCornersLeft );
-                ImGui::PopID();
-            }
-            ImGui::PopID();
-            return changed;
-        }
-
         bool DrawVector( const char* InLabel, const FieldInfo* InField, const ValueOps& InOps, void* InValue )
         {
             const bool isColor = InField && InField->Has( FieldFlags::Color );
@@ -302,7 +272,7 @@ namespace ReflectionUI
             switch( InOps.Type )
             {
             case PropertyType::Vector2:
-                return DragAxes( InLabel, &static_cast<Vector2*>( InValue )->x, 2, speed, "%.3f" );
+                return HavanaUtils::DragAxes( InLabel, &static_cast<Vector2*>( InValue )->x, 2, speed, "%.3f" );
             case PropertyType::Vector3:
             {
                 Vector3& value = *static_cast<Vector3*>( InValue );
@@ -310,7 +280,7 @@ namespace ReflectionUI
                 {
                     return ImGui::ColorEdit3( InLabel, &value.x, colorFlags );
                 }
-                return DragAxes( InLabel, &value.x, 3, speed, "%.3f" );
+                return HavanaUtils::DragAxes( InLabel, &value.x, 3, speed, "%.3f" );
             }
             case PropertyType::Vector4:
             {
@@ -319,7 +289,7 @@ namespace ReflectionUI
                 {
                     return ImGui::ColorEdit4( InLabel, &value.x, colorFlags | ImGuiColorEditFlags_AlphaBar );
                 }
-                return DragAxes( InLabel, &value.x, 4, speed, "%.3f" );
+                return HavanaUtils::DragAxes( InLabel, &value.x, 4, speed, "%.3f" );
             }
             case PropertyType::Quaternion:
             {
@@ -328,7 +298,7 @@ namespace ReflectionUI
                 auto& cache = EulerCache();
                 Vector3 euler = cache.count( id ) ? cache[id] : Quaternion::ToEulerAngles( value );
                 bool active = false;
-                const bool changed = DragAxes( InLabel, &euler.x, 3, 0.5f, "%.2f", &active );
+                const bool changed = HavanaUtils::DragAxes( InLabel, &euler.x, 3, 0.5f, "%.2f", &active );
                 if( active )
                 {
                     cache[id] = euler;
@@ -352,19 +322,17 @@ namespace ReflectionUI
         {
             bool changed = false;
             const size_t size = InOps.ArraySize( InValue );
-            const float buttonWidth = ImGui::GetFrameHeight();
-            const float spacing = ImGui::GetStyle().ItemInnerSpacing.x;
-            // Same right edge as the value column (HavanaUtils::Label keeps half the padding free).
-            const float rowRight = ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - ImGui::GetStyle().WindowPadding.x * 0.5f;
-            const float smallWidth = ImGui::CalcTextSize( "+" ).x + ImGui::GetStyle().FramePadding.x * 2.f;
+            const float gap = ImGuiTheme::InnerGap();
             // AllowOverlap: otherwise the full-width node takes the clicks meant for + and -.
             // Asset lists (a few paths) start open so their entries are in view.
             const ImGuiTreeNodeFlags openFlag = InField && InField->Has( FieldFlags::Asset ) ? ImGuiTreeNodeFlags_DefaultOpen : 0;
-            const bool open = ImGui::TreeNodeEx( InLabel, ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_AllowOverlap | openFlag, "%s [%zu]", InLabel, size );
+            const bool open = ImGui::TreeNodeEx( InLabel, ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_AllowOverlap | ImGuiTreeNodeFlags_FramePadding | openFlag, "%s [%zu]", InLabel, size );
             Tooltip( InField );
-            ImGui::SameLine( rowRight - smallWidth * 2.f - spacing );
+            // + and - end the row where the values end.
+            ImGui::SameLine();
+            ImGui::SetCursorScreenPos( ImVec2( HavanaUtils::RowRight() - ImGuiTheme::IconButtonsWidth( 2 ) + gap, ImGui::GetCursorScreenPos().y ) );
             ImGui::PushID( InLabel );
-            if( ImGui::SmallButton( "+" ) )
+            if( ImGui::Button( "+", ImGuiTheme::IconButtonSize() ) )
             {
                 InOps.ArrayResize( InValue, size + 1 );
                 changed = true;
@@ -372,9 +340,9 @@ namespace ReflectionUI
                 ImGui::GetStateStorage()->SetInt( ImGui::GetID( InLabel ), 1 );
             }
             ImGui::SetItemTooltip( "Add an element" );
-            ImGui::SameLine( 0.f, spacing );
+            ImGui::SameLine( 0.f, gap );
             ImGui::BeginDisabled( size == 0 );
-            if( ImGui::SmallButton( "-" ) )
+            if( ImGui::Button( "-", ImGuiTheme::IconButtonSize() ) )
             {
                 InOps.ArrayResize( InValue, size - 1 );
                 changed = true;
@@ -393,10 +361,10 @@ namespace ReflectionUI
                     ImGui::PushID( static_cast<int>( i ) );
                     const std::string elementLabel = "[" + std::to_string( i ) + "]";
                     const ImVec2 rowStart = ImGui::GetCursorScreenPos();
-                    const float labelWidth = ImGui::GetContentRegionAvail().x * 0.35f;
                     // Remove button at the end of the label column (the index label is short).
-                    ImGui::SetCursorScreenPos( ImVec2( rowStart.x + labelWidth - buttonWidth, rowStart.y ) );
-                    if( ImGui::Button( "-", ImVec2( buttonWidth, 0.f ) ) )
+                    const float removeX = HavanaUtils::ValueColumnX() - gap - ImGui::GetFrameHeight();
+                    ImGui::SetCursorScreenPos( ImVec2( removeX, rowStart.y ) );
+                    if( ImGui::Button( "-", ImGuiTheme::IconButtonSize() ) )
                     {
                         edit = Edit::Remove;
                         editIndex = i;
@@ -406,7 +374,7 @@ namespace ReflectionUI
                     // Asset lists (std::vector<Path>) pick each element from their filter.
                     const FieldInfo* elementField = InField && InField->Has( FieldFlags::Asset ) ? InField : nullptr;
                     changed |= DrawValue( elementLabel.c_str(), elementField, *InOps.Element, InOps.ArrayAt( InValue, i ), false );
-                    if( ImGui::IsMouseHoveringRect( rowStart, ImVec2( rowStart.x + labelWidth - buttonWidth, rowStart.y + ImGui::GetFrameHeight() ) ) && ImGui::IsMouseClicked( ImGuiMouseButton_Right ) )
+                    if( ImGui::IsMouseHoveringRect( rowStart, ImVec2( removeX, rowStart.y + ImGui::GetFrameHeight() ) ) && ImGui::IsMouseClicked( ImGuiMouseButton_Right ) )
                     {
                         ImGui::OpenPopup( "ElementContext" );
                     }
@@ -470,7 +438,7 @@ namespace ReflectionUI
             // Structs and arrays get a tree node instead of a label column.
             if( InOps.Type == PropertyType::Struct )
             {
-                if( ImGui::TreeNodeEx( InLabel, ImGuiTreeNodeFlags_SpanAvailWidth ) )
+                if( ImGui::TreeNodeEx( InLabel, ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding ) )
                 {
                     changed = DrawFieldsOf( InOps.GetStructType(), InValue );
                     ImGui::TreePop();
@@ -487,7 +455,7 @@ namespace ReflectionUI
 
             if( InMixed )
             {
-                ImGui::PushStyleColor( ImGuiCol_Text, ImVec4( 1.f, 0.8f, 0.3f, 1.f ) );
+                ImGui::PushStyleColor( ImGuiCol_Text, ImGuiTheme::WarningText() );
             }
             HavanaUtils::Label( InLabel );
             if( InMixed )
@@ -525,7 +493,7 @@ namespace ReflectionUI
                 }
                 else if( InField && InField->Has( FieldFlags::Multiline ) )
                 {
-                    changed = ImGui::InputTextMultiline( "##value", &text, ImVec2( -1.f, ImGui::GetTextLineHeight() * 4.f ) );
+                    changed = ImGui::InputTextMultiline( "##value", &text, ImVec2( ImGui::CalcItemWidth(), ImGui::GetTextLineHeight() * 4.f ) );
                 }
                 else
                 {
@@ -609,7 +577,7 @@ namespace ReflectionUI
                     ImGui::TreePop();
                 }
                 currentCategory = field.Category;
-                categoryOpen = currentCategory.empty() || ImGui::TreeNodeEx( currentCategory.c_str(), ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanAvailWidth );
+                categoryOpen = currentCategory.empty() || ImGui::TreeNodeEx( currentCategory.c_str(), ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding );
             }
             if( !categoryOpen )
             {
@@ -634,13 +602,12 @@ namespace ReflectionUI
 
             const bool overridden = InContext.IsOverridden && InContext.IsOverridden( field.Name );
             const ImVec2 rowStart = ImGui::GetCursorScreenPos();
-            const float rowWidth = ImGui::GetContentRegionAvail().x;
 
             const bool readOnly = field.Has( Reflection::FieldFlags::ReadOnly );
             ImGui::BeginDisabled( readOnly );
             if( overridden )
             {
-                ImGui::PushStyleColor( ImGuiCol_Text, ImVec4( 0.45f, 0.75f, 1.f, 1.f ) );
+                ImGui::PushStyleColor( ImGuiCol_Text, ImGuiTheme::AccentText() );
             }
             const bool changed = DrawValue( field.DisplayName.c_str(), &field, *field.Ops, field.Get( owner ), mixed );
             if( overridden )
@@ -649,11 +616,13 @@ namespace ReflectionUI
             }
             ImGui::EndDisabled();
 
-            // Prefab override marker and label context menu.
-            const ImVec2 labelMax( rowStart.x + rowWidth * 0.35f, rowStart.y + ImGui::GetFrameHeight() );
+            // Prefab override marker (in the indent, left of the label) and label context menu.
+            const ImVec2 labelMax( HavanaUtils::ValueColumnX(), rowStart.y + ImGui::GetFrameHeight() );
             if( overridden )
             {
-                ImGui::GetWindowDrawList()->AddRectFilled( ImVec2( rowStart.x - 6.f, rowStart.y + 1.f ), ImVec2( rowStart.x - 3.f, labelMax.y - 1.f ), IM_COL32( 60, 160, 255, 255 ) );
+                const float markerRight = rowStart.x - ImGuiTheme::InnerGap() * 0.5f;
+                const float markerWidth = std::max( 2.f, std::round( ImGui::GetFontSize() / 6.f ) );
+                ImGui::GetWindowDrawList()->AddRectFilled( ImVec2( markerRight - markerWidth, rowStart.y + 1.f ), ImVec2( markerRight, labelMax.y - 1.f ), ImGui::GetColorU32( ImGuiTheme::AccentText() ) );
             }
             if( InContext.OnPrefabAction )
             {
@@ -736,9 +705,8 @@ namespace ReflectionUI
             EntityHandle& handle = *static_cast<EntityHandle*>( InValue );
             bool changed = false;
             ImGui::PushID( InLabel );
-            const float clearWidth = ImGui::GetFrameHeight();
             const std::string name = handle ? ( handle->GetName().empty() ? std::string( "(unnamed)" ) : handle->GetName() ) : std::string( "None" );
-            if( ImGui::Button( name.c_str(), ImVec2( std::max( ImGui::CalcItemWidth() - clearWidth - 2.f, 40.f ), 0.f ) ) && handle )
+            if( ImGui::Button( name.c_str(), ImVec2( std::max( ImGui::CalcItemWidth() - ImGuiTheme::IconButtonsWidth( 1 ), ImGuiTheme::Em( 2.f ) ), 0.f ) ) && handle )
             {
                 Selection::Get().Set( handle );
             }
@@ -756,8 +724,8 @@ namespace ReflectionUI
                 }
                 ImGui::EndDragDropTarget();
             }
-            ImGui::SameLine( 0.f, 2.f );
-            if( ImGui::Button( "x", ImVec2( clearWidth, 0.f ) ) && handle )
+            ImGui::SameLine( 0.f, ImGuiTheme::InnerGap() );
+            if( ImGui::Button( "x", ImGuiTheme::IconButtonSize() ) && handle )
             {
                 handle = EntityHandle();
                 changed = true;

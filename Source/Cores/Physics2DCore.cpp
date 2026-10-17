@@ -1490,16 +1490,25 @@ std::vector<EntityHandle> Physics2DCore::OverlapPoint( const Vector2& InPoint, u
 void Physics2DCore::OnEditorInspect()
 {
     Base::OnEditorInspect();
-    ImGui::Text( "Bodies: %zu  %s", m_bodies.size(), m_simulating ? "simulating" : "edit mode" );
+    HavanaUtils::Label( "Bodies" );
+    ImGui::Text( "%zu (%s)", m_bodies.size(), m_simulating ? "simulating" : "edit mode" );
     if( m_world != 0 )
     {
         const b2Counters counters = b2World_GetCounters( WorldId( m_world ) );
-        ImGui::Text( "Shapes: %d  Contacts: %d  Joints: %d  Awake: %d", counters.shapeCount, counters.contactCount, counters.jointCount, b2World_GetAwakeBodyCount( WorldId( m_world ) ) );
+        HavanaUtils::Label( "Shapes / Contacts" );
+        ImGui::Text( "%d / %d", counters.shapeCount, counters.contactCount );
+        HavanaUtils::Label( "Joints" );
+        ImGui::Text( "%d", counters.jointCount );
+        HavanaUtils::Label( "Awake Bodies" );
+        ImGui::Text( "%d", b2World_GetAwakeBodyCount( WorldId( m_world ) ) );
     }
-    ImGui::Text( "Step: %.2f ms", m_lastStepMs );
-    ImGui::Checkbox( "Draw Physics", &PhysicsCore::DebugDrawEnabled );
+    HavanaUtils::Label( "Step" );
+    ImGui::Text( "%.2f ms", m_lastStepMs );
+    HavanaUtils::Label( "Draw Physics" );
+    ImGui::Checkbox( "##DrawPhysics", &PhysicsCore::DebugDrawEnabled );
     Vector2 gravity = GetGravity();
-    if( ImGui::DragFloat2( "Gravity", &gravity.x, 0.05f ) )
+    HavanaUtils::Label( "Gravity" );
+    if( HavanaUtils::DragAxes( "##Gravity", &gravity.x, 2, 0.05f, "%.2f" ) )
     {
         SetGravity( gravity );
     }

@@ -19,6 +19,7 @@
 #include "assimp/material.h"
 #include "Materials/DiffuseMaterial.h"
 #include "Core/Assert.h"
+#include "Utils/HavanaUtils.h"
 #include <algorithm>
 #include <cmath>
 #include <cctype>
@@ -851,27 +852,34 @@ void ModelResourceMetadata::OnEditorInspect()
 {
     MetaBase::OnEditorInspect();
 
-    ImGui::DragFloat( "Import Scale", &ImportScale, 0.001f, 0.0001f, 10000.f, "%.4f" );
-    ImGui::Checkbox( "Convert Units To Metres", &ConvertUnits );
+    HavanaUtils::Label( "Import Scale" );
+    ImGui::DragFloat( "##ImportScale", &ImportScale, 0.001f, 0.0001f, 10000.f, "%.4f" );
+    HavanaUtils::Label( "Convert Units To Metres" );
+    ImGui::Checkbox( "##ConvertUnits", &ConvertUnits );
     if( ImGui::IsItemHovered() )
     {
         ImGui::SetTooltip( "Use the file's unit (FBX UnitScaleFactor): centimetre assets import at metre size" );
     }
-    ImGui::Checkbox( "Generate LODs", &GenerateLODs );
+    HavanaUtils::Label( "Generate LODs" );
+    ImGui::Checkbox( "##GenerateLODs", &GenerateLODs );
     if( ImGui::IsItemHovered() )
     {
         ImGui::SetTooltip( "Simplified versions of each mesh, drawn when it's small on screen (meshoptimizer)" );
     }
     if( GenerateLODs )
     {
-        ImGui::SliderInt( "LOD Levels", &LODs.Levels, 1, 4 );
-        ImGui::SliderFloat( "Triangles Kept Per Level", &LODs.Reduction, 0.1f, 0.9f, "%.2f" );
-        ImGui::SliderFloat( "First LOD Below Screen Height", &LODs.TransitionHeight, 0.01f, 1.f, "%.2f" );
+        HavanaUtils::Label( "LOD Levels" );
+        ImGui::SliderInt( "##LODLevels", &LODs.Levels, 1, 4 );
+        HavanaUtils::Label( "Triangles Kept Per Level" );
+        ImGui::SliderFloat( "##LODReduction", &LODs.Reduction, 0.1f, 0.9f, "%.2f" );
+        HavanaUtils::Label( "First LOD Below Screen Height" );
+        ImGui::SliderFloat( "##LODTransition", &LODs.TransitionHeight, 0.01f, 1.f, "%.2f" );
         if( ImGui::IsItemHovered() )
         {
             ImGui::SetTooltip( "Level 1 draws when the mesh covers less than this fraction of the view's height; each further level at half that" );
         }
-        ImGui::SliderFloat( "Max Error", &LODs.MaxError, 0.001f, 0.2f, "%.3f" );
+        HavanaUtils::Label( "Max Error" );
+        ImGui::SliderFloat( "##LODMaxError", &LODs.MaxError, 0.001f, 0.2f, "%.3f" );
         if( ImGui::IsItemHovered() )
         {
             ImGui::SetTooltip( "Largest deviation of level 1, relative to the mesh's size (doubles each level)" );

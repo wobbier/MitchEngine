@@ -5,6 +5,7 @@
 #include "World/SceneSerializer.h"
 #include "Editor/EditorOperations.h"
 #include <imgui.h>
+#include <ImGuiTheme.h>
 #include <algorithm>
 #include <cctype>
 #include <cstring>
@@ -40,17 +41,34 @@ bool CommonUtils::DrawAddComponentList(const EntityHandle& entity, char* filterB
 		return false;
 	}
 
-	if (ImGui::IsWindowAppearing())
+	ImGuiStorage* storage = ImGui::GetStateStorage();
+	const ImGuiID selectionId = ImGui::GetID("##AddComponentSelection");
+	int selection = storage->GetInt(selectionId);
+	bool scrollToSelection = ImGui::IsWindowAppearing();
+	if (scrollToSelection)
 	{
 		filterBuffer[0] = '\0';
+		selection = 0;
 		ImGui::SetKeyboardFocusHere();
 	}
+	int selectionDelta = 0;
+	auto navigate = [](ImGuiInputTextCallbackData* data) {
+		*static_cast<int*>(data->UserData) = data->EventKey == ImGuiKey_DownArrow ? 1 : -1;
+		return 0;
+	};
 	ImGui::SetNextItemWidth(-1.f);
-	const bool submitted = ImGui::InputTextWithHint("##AddComponentFilter", "Search components", filterBuffer, filterBufferSize, ImGuiInputTextFlags_EnterReturnsTrue);
+	const bool submitted = ImGui::InputTextWithHint("##AddComponentFilter", "Search components", filterBuffer, filterBufferSize,
+		ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CallbackHistory, navigate, &selectionDelta);
+	if (ImGui::IsItemEdited())
+	{
+		selection = 0;
+		scrollToSelection = true;
+	}
 	ImGui::Separator();
 
 	// Folder -> components, skipping ones the entity already has.
 	std::map<std::string, std::vector<std::string>> byFolder;
+	int matchCount = 0;
 	for (auto& [name, info] : GetComponentRegistry())
 	{
 		if (entity->GetComponentByName(name) || !ContainsInsensitive(name, filterBuffer))
@@ -58,11 +76,16 @@ bool CommonUtils::DrawAddComponentList(const EntityHandle& entity, char* filterB
 			continue;
 		}
 		byFolder[info.Folder].push_back(name);
+		++matchCount;
 	}
+	selection += selectionDelta;
+	scrollToSelection |= selectionDelta != 0;
+	selection = matchCount == 0 ? 0 : std::clamp(selection, 0, matchCount - 1);
+	storage->SetInt(selectionId, selection);
 
 	std::string chosen;
-	size_t shown = 0;
-	ImGui::BeginChild("##AddComponentList", ImVec2(260.f, 320.f));
+	int shown = 0;
+	ImGui::BeginChild("##AddComponentList", ImVec2(ImGuiTheme::Em(14.5f), ImGuiTheme::Em(18.f)));
 	for (auto& [folder, names] : byFolder)
 	{
 		if (!folder.empty())
@@ -71,13 +94,16 @@ bool CommonUtils::DrawAddComponentList(const EntityHandle& entity, char* filterB
 		}
 		for (const std::string& name : names)
 		{
-			if (ImGui::Selectable(name.c_str()))
+			if (ImGui::Selectable(name.c_str(), shown == selection))
 			{
 				chosen = name;
 			}
-			if (submitted && shown == 0 && chosen.empty())
+			if (scrollToSelection && shown == selection)
 			{
-				// Enter picks the first match.
+				ImGui::SetScrollHereY();
+			}
+			if (submitted && shown == selection && chosen.empty())
+			{
 				chosen = name;
 			}
 			++shown;

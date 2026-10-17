@@ -132,7 +132,7 @@ void NavMeshSurface::OnEditorInspect()
     ImGui::Separator();
     if( info.Baking )
     {
-        ImGui::ProgressBar( info.Progress, ImVec2( -1.f, 0.f ), "Baking..." );
+        ImGui::ProgressBar( info.Progress, ImVec2( HavanaUtils::RowWidth(), 0.f ), "Baking..." );
     }
     else
     {
@@ -152,7 +152,7 @@ void NavMeshSurface::OnEditorInspect()
     {
         if( !info.Baking && core->IsOutOfDate( *this ) )
         {
-            ImGui::TextColored( ImVec4( 1.f, 0.75f, 0.3f, 1.f ), "Out of date: the scene or settings changed since the bake" );
+            ImGui::TextColored( ImGuiTheme::WarningText(), "Out of date: the scene or settings changed since the bake" );
         }
         ImGui::TextDisabled( "%d tile(s), %d polygon(s)", info.Tiles, info.Polygons );
         if( info.BakeMilliseconds > 0.f )
@@ -166,11 +166,11 @@ void NavMeshSurface::OnEditorInspect()
     }
     else if( !info.Baking )
     {
-        ImGui::TextColored( ImVec4( 1.f, 0.75f, 0.3f, 1.f ), "Not baked" );
+        ImGui::TextColored( ImGuiTheme::WarningText(), "Not baked" );
     }
     if( !info.LastError.empty() )
     {
-        ImGui::TextColored( ImVec4( 1.f, 0.4f, 0.4f, 1.f ), "%s", info.LastError.c_str() );
+        ImGui::TextColored( ImGuiTheme::ErrorText(), "%s", info.LastError.c_str() );
     }
     ImGui::TextDisabled( "%s", info.DataPath.empty() ? "Save the scene to bake to a file" : info.DataPath.c_str() );
 }

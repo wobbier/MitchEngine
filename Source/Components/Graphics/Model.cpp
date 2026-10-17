@@ -631,21 +631,20 @@ void Model::OnEditorInspect()
 {
     if( ModelHandle )
     {
-        ImGui::Text( "Loaded Path" );
-        ImGui::SameLine();
-        ImGui::Text("%s", ModelPath.GetLocalPath().data());
+        HavanaUtils::Label( "Loaded Path" );
+        ImGui::TextUnformatted( ModelPath.GetLocalPath().data() );
         if( m_compact )
         {
             ImGui::Text( "%zu render parts, %zu exposed nodes", m_parts.size(), m_exposed.size() );
-            if( ImGui::TreeNode( "Model nodes" ) )
+            if( ImGui::TreeNodeEx( "Model nodes", ImGuiTreeNodeFlags_FramePadding ) )
             {
                 std::function<void( int )> draw = [&]( int index ) {
                     const auto& node = m_nodes[index];
                     ImGui::PushID( node.Path.c_str() );
-                    const bool open = ImGui::TreeNode( "node", "%s", node.Source->Name.c_str() );
+                    const bool open = ImGui::TreeNodeEx( "node", ImGuiTreeNodeFlags_FramePadding, "%s", node.Source->Name.c_str() );
                     ImGui::SameLine();
                     if( m_exposed.count( index ) ) ImGui::TextDisabled( "Exposed" );
-                    else if( ImGui::SmallButton( "Expose as entity" ) )
+                    else if( ImGui::Button( "Expose as entity" ) )
                     {
                         ModelHierarchyEvent event; event.Target = Parent; event.NodePath = node.Path; event.Queue();
                     }
@@ -654,7 +653,7 @@ void Model::OnEditorInspect()
                         for( auto& part : m_parts ) if( part.NodeIndex == index )
                         {
                             ImGui::PushID( part.Path.c_str() );
-                            if( ImGui::TreeNode( "Material" ) ) { part.Renderer->OnEditorInspect(); ImGui::TreePop(); }
+                            if( ImGui::TreeNodeEx( "Material", ImGuiTreeNodeFlags_FramePadding ) ) { part.Renderer->OnEditorInspect(); ImGui::TreePop(); }
                             ImGui::PopID();
                         }
                         for( size_t child = index + 1; child < m_nodes.size(); ++child )
@@ -675,7 +674,7 @@ void Model::OnEditorInspect()
                 ModelHierarchyEvent event; event.Target = Parent; event.Queue();
             }
         }
-        if( !ModelHandle->GetAnimations().empty() && ImGui::TreeNode( "Animations" ) )
+        if( !ModelHandle->GetAnimations().empty() && ImGui::TreeNodeEx( "Animations", ImGuiTreeNodeFlags_FramePadding ) )
         {
             for( const Moonlight::AnimationClip& clip : ModelHandle->GetAnimations() )
             {
@@ -686,9 +685,8 @@ void Model::OnEditorInspect()
     }
     else
     {
-        ImVec2 selectorSize( -1.f, 19.f );
-        HavanaUtils::Label( "Model" );
-        if( ImGui::Button( ( ( !ModelPath.GetLocalPath().empty() ) ? ModelPath.GetLocalPath().data() : "Select Asset" ), selectorSize ) )
+        const float width = HavanaUtils::Label( "Model" );
+        if( ImGui::Button( ( ( !ModelPath.GetLocalPath().empty() ) ? ModelPath.GetLocalPath().data() : "Select Asset" ), ImVec2( width, 0.f ) ) )
         {
             RequestAssetSelectionEvent evt( [this]( Path selectedAsset )
                 {

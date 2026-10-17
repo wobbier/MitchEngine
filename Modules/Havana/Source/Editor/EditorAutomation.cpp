@@ -12,6 +12,8 @@
 #include "Havana.h"
 #include "Widgets/AssetBrowser.h"
 #include "Widgets/SceneViewWidget.h"
+#include "Widgets/SettingsWidgets.h"
+#include "Utils/EditorConfig.h"
 #include "Widgets/ShaderGraph/ShaderGraphAutomation.h"
 #include "Components/Audio/AudioSource.h"
 #include "Components/Transform.h"
@@ -338,6 +340,32 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
     else if( command == "focus-window" )
     {
         ImGui::SetWindowFocus( args.c_str() );
+    }
+    else if( command == "show-window" )
+    {
+        // show-window Log   (opens an editor panel by its title)
+        if( InApp.Editor )
+        {
+            InApp.Editor->ShowWidget( args );
+        }
+    }
+    else if( command == "preference" )
+    {
+        // preference Appearance.FontSize | 28   (for this session: unattended runs never save it)
+        auto [key, value] = SplitArgs( args );
+        const json parsed = json::parse( value, nullptr, false );
+        if( key.empty() || parsed.is_discarded() )
+        {
+            Fail( "preference: expected Key | <json value>" );
+        }
+        else
+        {
+            EditorConfig::GetInstance().SetPreference( key, parsed );
+            if( key.rfind( "Appearance.", 0 ) == 0 )
+            {
+                PreferencesWidget::ApplyAppearancePreferences();
+            }
+        }
     }
     else if( command == "trace-start" )
     {

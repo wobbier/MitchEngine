@@ -20,15 +20,21 @@ public:
 
 	// Applies persisted preferences that live outside EditorConfig (shortcuts, code editor).
 	static void ApplyStartupPreferences();
+	static void ApplyAppearancePreferences();
+	// Run before drawing windows so live changes never overwrite a pushed style.
+	void ApplyPendingAppearance();
 
 private:
 	void DrawGeneral();
+	void DrawAppearance();
 	void DrawSceneView();
 	void DrawShortcuts();
 	void SaveShortcuts();
 
 	std::string m_capturingAction;
 	char m_shortcutFilter[64] = {};
+	bool m_appearancePending = false;
+	bool m_appearanceUnsaved = false;
 };
 
 // Project-wide settings: timing (Engine.cfg) and layer names (ProjectSettings.json).

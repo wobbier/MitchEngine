@@ -15,9 +15,9 @@
 #include <Utils/PlatformUtils.h>
 #include <Events/HavanaEvents.h>
 #include <Window/SDLWindow.h>
-#include "UI/Colors.h"
 #include "Config.h"
 #include "Events/EditorEvents.h"
+#include <ImGuiTheme.h>
 
 #if USING( ME_EDITOR )
 
@@ -91,17 +91,38 @@ void MainMenuWidget::Render()
     OPTICK_EVENT( "MainMenuWidget::Render", Optick::Category::UI );
     EditorActions& actions = EditorActions::Get();
 
-    ImGui::PushStyleVar( ImGuiStyleVar_FramePadding, ImVec2( 0.0f, 12.f ) );
-    ImGui::PushStyleColor( ImGuiCol_MenuBarBg, COLOR_BACKGROUND_BORDER );
-    if( ImGui::BeginMainMenuBar() )
+    // The title bar is a menu bar with three times the frame padding; its icon buttons are
+    // squares of one icon (a glyph's size) plus padding, centered vertically.
+    const ImVec2 framePadding = ImGui::GetStyle().FramePadding;
+    const float spacing = ImGui::GetStyle().ItemSpacing.x;
+    const float iconSize = ImGui::GetFontSize();
+    const float iconPadding = ImGuiTheme::Em( 0.4f );
+    const float iconButtonSize = iconSize + iconPadding * 2.f;
+    const float iconGap = std::round( spacing * 0.5f );
+    ImGui::PushStyleVar( ImGuiStyleVar_FramePadding, ImVec2( spacing, framePadding.y * 3.f ) );
+    const bool menuOpen = ImGui::BeginMainMenuBar();
+    ImGui::PopStyleVar();
+    if( menuOpen )
     {
-        ImGui::PopStyleColor();
-        ImGui::PopStyleVar( 1 );
-
         Input& editorInput = GetEngine().GetEditorInput();
-
         MainMenuSize = ImGui::GetWindowSize();
-        ImGui::Image( Icons["Logo"]->TexHandle, ImVec2( 35, 35 ) );
+        const float menuY = ImGui::GetCursorPosY();
+        const ImVec4 iconTint = ImGui::GetStyleColorVec4( ImGuiCol_Text );
+        auto iconButton = [&]( const char* name, const char* tooltip ) {
+            ImGui::SetCursorPosY( ( MainMenuSize.y - iconButtonSize ) * 0.5f );
+            ImGui::PushStyleVar( ImGuiStyleVar_FramePadding, ImVec2( iconPadding, iconPadding ) );
+            const bool pressed = ImGui::ImageButton( name, ImGui::toId( Icons[name]->TexHandle, IMGUI_FLAGS_ALPHA_BLEND, 0 ), ImVec2( iconSize, iconSize ),
+                ImVec2( 0, 0 ), ImVec2( 1, 1 ), ImVec4( 0, 0, 0, 0 ), iconTint );
+            ImGui::PopStyleVar();
+            if( tooltip ) ImGui::SetItemTooltip( "%s", tooltip );
+            ImGui::SetCursorPosY( menuY );
+            return pressed;
+        };
+
+        const float logoSize = ImGuiTheme::Em( 1.45f );
+        ImGui::SetCursorPosY( ( MainMenuSize.y - logoSize ) * 0.5f );
+        ImGui::Image( Icons["Logo"]->TexHandle, ImVec2( logoSize, logoSize ), ImVec2( 0, 0 ), ImVec2( 1, 1 ), iconTint );
+        ImGui::SetCursorPosY( menuY );
         if( ImGui::BeginMenu( "File" ) )
         {
             actions.MenuItem( "File.NewScene" );
@@ -207,161 +228,87 @@ void MainMenuWidget::Render()
             ImGui::EndMenu();
         }
 
-        // Play controls.
+        // Compact, consistently sized transport controls.
+        ImGui::PushStyleVar( ImGuiStyleVar_ItemSpacing, ImVec2( iconGap, 0.f ) );
         if( !App->IsGameRunning() )
         {
-            if( ImGui::ImageButton( Icons["Play"]->TexHandle, ImVec2( 30.f, 30.f ) ) )
-            {
-                actions.Execute( "Play.Toggle" );
-            }
+            if( iconButton( "Play", nullptr ) ) actions.Execute( "Play.Toggle" );
             ImGui::SetItemTooltip( "Play (%s)", EditorActions::ShortcutToString( actions.Find( "Play.Toggle" )->Shortcut ).c_str() );
         }
         else
         {
-            ImGui::PushStyleColor( ImGuiCol_Button, App->IsGamePaused() ? ImVec4( COLOR_PRIMARY ) : ImGui::GetStyleColorVec4( ImGuiCol_Button ) );
-            if( ImGui::ImageButton( Icons["Pause"]->TexHandle, ImVec2( 30.f, 30.f ) ) )
-            {
-                actions.Execute( "Play.Pause" );
-            }
+            ImGui::PushStyleColor( ImGuiCol_Button, App->IsGamePaused() ? ImGui::GetStyleColorVec4( ImGuiCol_HeaderActive ) : ImGui::GetStyleColorVec4( ImGuiCol_Button ) );
+            if( iconButton( "Pause", App->IsGamePaused() ? "Resume" : "Pause" ) ) actions.Execute( "Play.Pause" );
             ImGui::PopStyleColor();
-            ImGui::SetItemTooltip( App->IsGamePaused() ? "Resume" : "Pause" );
-
-            if( ImGui::ImageButton( Icons["Stop"]->TexHandle, ImVec2( 30.f, 30.f ) ) )
-            {
-                actions.Execute( "Play.Toggle" );
-            }
-            ImGui::SetItemTooltip( "Stop" );
+            if( iconButton( "Stop", "Stop" ) ) actions.Execute( "Play.Toggle" );
 
             if( App->IsGamePaused() )
             {
-                if( ImGui::Button( "Step", ImVec2( 0.f, 30.f ) ) )
-                {
-                    actions.Execute( "Play.Step" );
-                }
+                ImGui::SetCursorPosY( ( MainMenuSize.y - iconButtonSize ) * 0.5f );
+                if( ImGui::Button( "Step", ImVec2( 0.f, iconButtonSize ) ) ) actions.Execute( "Play.Step" );
+                ImGui::SetItemTooltip( "Advance one frame" );
+                ImGui::SetCursorPosY( menuY );
             }
 
             float timeScale = GetEngine().GetTimeScale();
-            ImGui::SetNextItemWidth( 70.f );
-            if( ImGui::SliderFloat( "##TimeScale", &timeScale, 0.f, 4.f, "x%.2f" ) )
-            {
-                GetEngine().SetTimeScale( timeScale );
-            }
+            ImGui::SetCursorPosY( ( MainMenuSize.y - ImGui::GetFrameHeight() ) * 0.5f );
+            ImGui::SetNextItemWidth( ImGuiTheme::Em( 4.25f ) );
+            if( ImGui::SliderFloat( "##TimeScale", &timeScale, 0.f, 4.f, "x%.2f" ) ) GetEngine().SetTimeScale( timeScale );
             ImGui::SetItemTooltip( "Time scale (right-click resets)" );
-            if( ImGui::IsItemClicked( ImGuiMouseButton_Right ) )
-            {
-                GetEngine().SetTimeScale( 1.f );
-            }
+            if( ImGui::IsItemClicked( ImGuiMouseButton_Right ) ) GetEngine().SetTimeScale( 1.f );
+            ImGui::SetCursorPosY( menuY );
         }
 
         const float endOfMenu = ImGui::GetCursorPosX();
-        const float buttonWidth = 40.f;
-        TitleBarDragPosition = Vector2( endOfMenu, 10.f );
+        const float buttonWidth = iconButtonSize + iconGap;
         const float winWidth = ImGui::GetWindowWidth();
-        TitleBarDragSize = Vector2( winWidth - endOfMenu - ( buttonWidth * 5.f ), MainMenuSize.y - 10.f );
-
-        // Window Maximize
-        {
-            const Vector2 pos = editorInput.GetMousePosition();
-
-            if( ImGui::IsMouseDoubleClicked( 0 ) && ( pos > TitleBarDragPosition && pos < TitleBarDragPosition + TitleBarDragSize ) )
-            {
-                GetEngine().GetWindow()->Maximize();
-            }
-        }
-
-        ImGui::SetCursorPosX( std::max( endOfMenu + 16.f, ( ImGui::GetWindowWidth() / 2.f ) - ( ImGui::CalcTextSize( WindowTitle.c_str() ).x / 2.f ) ) );
-        const std::string title = UndoStack::Get().IsDirty() ? WindowTitle + " *" : WindowTitle;
-        ImGui::TextUnformatted( title.c_str() );
-
-        ImGui::BeginGroup();
-        ImGui::PushStyleColor( ImGuiCol_Button, static_cast<ImVec4>( ImColor::HSV( 0.0f, 0.6f, 0.6f, 0.f ) ) );
-        ImGui::PushStyleColor( ImGuiCol_ButtonActive, static_cast<ImVec4>( ImColor::HSV( 0.f, 0.8f, 0.8f, 0.f ) ) );
+        const float controlsLeft = winWidth - buttonWidth * 3.f - iconGap;
+        float utilityLeft = controlsLeft;
 #if USING( ME_OPTICK )
-        ImGui::SetCursorPosX( ImGui::GetWindowWidth() - ( buttonWidth * 4.25f ) );
-        if( ImGui::ImageButton( Icons["Profiler"]->TexHandle, ImVec2( 30.f, 30.f ) ) )
-        {
-            const Path optickPath = Path( "Engine/Tools/Optick.exe" );
-            // additional information
-            PlatformUtils::RunProcess( optickPath );
-        }
+        utilityLeft -= buttonWidth;
 #endif
-        //if (ImGui::ImageButton(Icons["Info"]->TexHandle, ImVec2(30.f, 30.f)))
-        //{
-        //	if (m_engine->CurrentScene && !std::filesystem::exists(m_engine->CurrentScene->FilePath.FullPath))
-        //	{
-        //		ImGui::OpenPopup("help_popup");
-        //	}
-        //}
-
-        //if (ImGui::BeginPopup("help_popup"))
-        //{
-        //	ImGui::Text("Components");
-        //	ImGui::Separator();
-
-        //	ComponentRegistry& reg = GetComponentRegistry();
-
-        //	for (auto& thing : reg)
-        //	{
-        //		if (ImGui::Selectable(thing.first.c_str()))
-        //		{
-        //			if (SelectedEntity)
-        //			{
-        //				AddComponentCommand* compCmd = new AddComponentCommand(thing.first, SelectedEntity);
-        //				EditorCommands.Push(compCmd);
-        //			}
-        //			if (SelectedTransform)
-        //			{
-        //				AddComponentCommand* compCmd = new AddComponentCommand(thing.first, SelectedTransform->Parent);
-        //				EditorCommands.Push(compCmd);
-        //			}
-        //		}
-        //	}
-        //	ImGui::EndPopup();
-        //}
-        const float RightShift = 2.f;
-        //		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ACCENT_GREEN);
-        //		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - (buttonWidth * 4.f));
-        //		if (ImGui::ImageButton(Icons["BugReport"]->TexHandle, ImVec2(30.f, 30.f)))
-        //		{
-        //#if USING( ME_PLATFORM_WIN64 )
-        //			ShellExecute(0, 0, L"https://github.com/wobbier/MitchEngine/issues", 0, 0, SW_SHOW);
-        //#endif
-        //		}
-        //		ImGui::PopStyleColor(1);
-
-        ImGui::SetCursorPosX( ImGui::GetWindowWidth() - ( buttonWidth * 3.f ) + RightShift );
-        if( ImGui::ImageButton( Icons["Minimize"]->TexHandle, ImVec2( 30.f, 30.f ) ) )
+        TitleBarDragPosition = Vector2( endOfMenu, 0.f );
+        TitleBarDragSize = Vector2( std::max( 0.f, utilityLeft - endOfMenu ), MainMenuSize.y );
+        const Vector2 pos = editorInput.GetMousePosition();
+        if( ImGui::IsMouseDoubleClicked( 0 ) && pos > TitleBarDragPosition && pos < TitleBarDragPosition + TitleBarDragSize )
         {
-            GetEngine().GetWindow()->Minimize();
+            if( GetEngine().GetWindow()->IsMaximized() ) GetEngine().GetWindow()->ExitMaximize();
+            else GetEngine().GetWindow()->Maximize();
         }
 
+        // Clip long scene titles to the free space between menus and window buttons.
+        const std::string title = UndoStack::Get().IsDirty() ? WindowTitle + " *" : WindowTitle;
+        const float titleLeft = endOfMenu + spacing * 2.f, titleRight = utilityLeft - spacing * 1.5f;
+        if( titleRight > titleLeft )
+        {
+            const ImVec2 origin = ImGui::GetWindowPos();
+            const float titleX = std::max( titleLeft, ( winWidth - ImGui::CalcTextSize( title.c_str() ).x ) * 0.5f );
+            ImDrawList* drawList = ImGui::GetWindowDrawList();
+            drawList->PushClipRect( ImVec2( origin.x + titleLeft, origin.y ), ImVec2( origin.x + titleRight, origin.y + MainMenuSize.y ), true );
+            drawList->AddText( ImVec2( origin.x + titleX, origin.y + ( MainMenuSize.y - ImGui::GetFontSize() ) * 0.5f ), ImGui::GetColorU32( ImGuiCol_TextDisabled ), title.c_str() );
+            drawList->PopClipRect();
+        }
+
+        ImGui::PushStyleColor( ImGuiCol_Button, ImVec4( 0, 0, 0, 0 ) );
+#if USING( ME_OPTICK )
+        ImGui::SetCursorPosX( utilityLeft );
+        if( iconButton( "Profiler", "Open Optick profiler" ) ) PlatformUtils::RunProcess( Path( "Engine/Tools/Optick.exe" ) );
+#endif
+        ImGui::SetCursorPosX( controlsLeft );
+        if( iconButton( "Minimize", "Minimize" ) ) GetEngine().GetWindow()->Minimize();
+        ImGui::SetCursorPosX( controlsLeft + buttonWidth );
         if( GetEngine().GetWindow()->IsMaximized() )
         {
-            ImGui::SetCursorPosX( ImGui::GetWindowWidth() - ( buttonWidth * 2.f ) + RightShift );
-            if( ImGui::ImageButton( Icons["ExitMaximize"]->TexHandle, ImVec2( 30.f, 30.f ) ) )
-            {
-                GetEngine().GetWindow()->ExitMaximize();
-            }
+            if( iconButton( "ExitMaximize", "Restore window" ) ) GetEngine().GetWindow()->ExitMaximize();
         }
-        else
-        {
-            ImGui::SetCursorPosX( ImGui::GetWindowWidth() - ( buttonWidth * 2.f ) + RightShift );
-            if( ImGui::ImageButton( Icons["Maximize"]->TexHandle, ImVec2( 30.f, 30.f ) ) )
-            {
-                GetEngine().GetWindow()->Maximize();
-            }
-        }
+        else if( iconButton( "Maximize", "Maximize" ) ) GetEngine().GetWindow()->Maximize();
 
-        ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ACCENT_RED );
-        ImGui::SetCursorPosX( ImGui::GetWindowWidth() - buttonWidth + RightShift );
-        //ImGui::SameLine(0.f);
-        if( ImGui::ImageButton( Icons["Close"]->TexHandle, ImVec2( 30.f, 30.f ) ) )
-        {
-            GetEngine().GetWindow()->Exit();
-        }
+        ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImGuiTheme::WithAlpha( ImGuiTheme::ErrorText(), 0.35f ) );
+        ImGui::PushStyleColor( ImGuiCol_ButtonActive, ImGuiTheme::WithAlpha( ImGuiTheme::ErrorText(), 0.5f ) );
+        ImGui::SetCursorPosX( controlsLeft + buttonWidth * 2.f );
+        if( iconButton( "Close", "Close editor" ) ) GetEngine().GetWindow()->Exit();
         ImGui::PopStyleColor( 3 );
-        ImGui::EndGroup();
-
+        ImGui::PopStyleVar();
         ImGui::EndMainMenuBar();
     }
 
@@ -375,7 +322,7 @@ void MainMenuWidget::Render()
 
     if( ImGui::BeginPopupModal( "About", &ShowAboutWindow, ImGuiWindowFlags_AlwaysAutoResize ) )
     {
-        ImGui::Image( Icons["Logo"]->TexHandle, ImVec2( 35, 35 ) );
+        ImGui::Image( Icons["Logo"]->TexHandle, ImVec2( ImGuiTheme::Em( 2.f ), ImGuiTheme::Em( 2.f ) ), ImVec2( 0, 0 ), ImVec2( 1, 1 ), ImGui::GetStyleColorVec4( ImGuiCol_Text ) );
         ImGui::SameLine();
         ImGui::Text( "A hobby game engine project for making simple games.\nMitch Andrews 2023\n" );
         ImGui::Separator();

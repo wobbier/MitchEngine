@@ -278,18 +278,21 @@ void ScriptCore::OnEditorInspect()
 {
 #if USING( ME_SCRIPTING )
     OPTICK_EVENT( "ScriptCore::OnEditorInspect" );
-    ImGui::Text( "Scripting: %s", ScriptEngine::IsAvailable() ? "running" : "unavailable" );
+    HavanaUtils::Label( "Scripting" );
+    ImGui::TextUnformatted( ScriptEngine::IsAvailable() ? "running" : "unavailable" );
+    HavanaUtils::SkipLabel();
     if( ImGui::Button( "Rebuild && Reload Scripts" ) )
     {
         ScriptEngine::RequestReload();
     }
-    if( ImGui::CollapsingHeader( "Script Classes" ) )
+    if( ImGui::TreeNodeEx( "Script Classes", ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding ) )
     {
         const int count = ScriptEngine::GetScriptCount();
         for( int i = 0; i < count; ++i )
         {
             ImGui::BulletText( "%s", ScriptEngine::GetScriptName( i ).c_str() );
         }
+        ImGui::TreePop();
     }
 #endif
 }

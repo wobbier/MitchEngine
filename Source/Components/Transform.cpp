@@ -651,7 +651,7 @@ void Transform::OnDeserialize( const json& inJson )
 void Transform::OnEditorInspect()
 {
     // Local position/rotation/scale are drawn from reflection; this adds world-space editing.
-    if( !ImGui::TreeNodeEx( "World Space", ImGuiTreeNodeFlags_SpanAvailWidth ) )
+    if( !ImGui::TreeNodeEx( "World Space", ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding ) )
     {
         return;
     }

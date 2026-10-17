@@ -29,7 +29,7 @@
 #include <Utils/EditorConfig.h>
 #include <CLog.h>
 #include "Utils/PlatformUtils.h"
-#include "UI/Colors.h"
+#include <ImGuiTheme.h>
 #include "Utils/ImGuiUtils.h"
 #include <algorithm>
 #include <cctype>
@@ -525,7 +525,7 @@ void AssetBrowserWidget::Render()
     if( picking )
     {
         ImGui::PushStyleVar( ImGuiStyleVar_WindowBorderSize, 1.f );
-        ImGui::PushStyleColor( ImGuiCol_Border, { 0.447f, .905f, .39f, .6f } );
+        ImGui::PushStyleColor( ImGuiCol_Border, ImGuiTheme::WithAlpha( ImGuiTheme::SuccessText(), 0.6f ) );
     }
     const bool open = ImGui::Begin( "Asset Directory", &IsOpen, ImGuiWindowFlags_NoScrollbar );
     if( picking )
@@ -547,14 +547,14 @@ void AssetBrowserWidget::Render()
     if( picking )
     {
         const std::string what = m_forcedType != AssetType::Unknown ? AssetTypeToString( m_forcedType ) : std::string( "asset" );
-        ImGui::TextColored( ImVec4( 0.45f, 0.9f, 0.4f, 1.f ), m_isSaveDialog ? "Save %s: pick a folder and a name" : "Select a %s (double-click)", what.c_str() );
+        ImGui::TextColored( ImGuiTheme::SuccessText(), m_isSaveDialog ? "Save %s: pick a folder and a name" : "Select a %s (double-click)", what.c_str() );
     }
     DrawToolbar();
 
-    const float footer = picking ? ImGui::GetFrameHeightWithSpacing() + 6.f : 0.f;
-    const float height = std::max( ImGui::GetContentRegionAvail().y - footer, 50.f );
-    const float treeWidth = 180.f;
-    const float detailsWidth = m_showDetails ? 260.f : 0.f;
+    const float footer = picking ? ImGui::GetFrameHeightWithSpacing() + ImGui::GetStyle().ItemSpacing.y : 0.f;
+    const float height = std::max( ImGui::GetContentRegionAvail().y - footer, ImGui::GetFrameHeightWithSpacing() * 2.f );
+    const float treeWidth = ImGuiTheme::Em( 10.f );
+    const float detailsWidth = m_showDetails ? ImGuiTheme::Em( 14.5f ) : 0.f;
 
     ImGui::BeginChild( "##AssetTree", ImVec2( treeWidth, height ), true );
     DrawFolderTree( AbsoluteFolder( "Assets" ), "Assets" );
@@ -565,7 +565,7 @@ void AssetBrowserWidget::Render()
     ImGui::EndChild();
 
     ImGui::SameLine();
-    ImGui::BeginChild( "##AssetContents", ImVec2( m_showDetails ? ImGui::GetContentRegionAvail().x - detailsWidth - 6.f : 0.f, height ), true );
+    ImGui::BeginChild( "##AssetContents", ImVec2( m_showDetails ? ImGui::GetContentRegionAvail().x - detailsWidth - ImGui::GetStyle().ItemSpacing.x : 0.f, height ), true );
     DrawContents();
     ImGui::EndChild();
 
@@ -635,17 +635,17 @@ void AssetBrowserWidget::DrawToolbar()
         if( !segment.empty() )
         {
             ImGui::PushID( accumulated.c_str() );
-            if( ImGui::SmallButton( segment.c_str() ) && accumulated != "Engine" )
+            if( ImGui::Button( segment.c_str() ) && accumulated != "Engine" )
             {
                 Navigate( AbsoluteFolder( accumulated ) );
             }
             AcceptDropInto( AbsoluteFolder( accumulated ) );
             ImGui::PopID();
-            ImGui::SameLine( 0.f, 2.f );
+            ImGui::SameLine( 0.f, ImGuiTheme::InnerGap() );
             if( slash != std::string::npos )
             {
                 ImGui::TextDisabled( "/" );
-                ImGui::SameLine( 0.f, 2.f );
+                ImGui::SameLine( 0.f, ImGuiTheme::InnerGap() );
             }
         }
         if( slash == std::string::npos )
@@ -655,13 +655,28 @@ void AssetBrowserWidget::DrawToolbar()
         start = slash + 1;
     }
 
-    // Right side: search, type filter, view options.
-    const float rightWidth = 430.f;
-    ImGui::SameLine( std::max( ImGui::GetCursorPosX() + 8.f, ImGui::GetWindowContentRegionMax().x - rightWidth ) );
-    ImGui::SetNextItemWidth( 160.f );
+    // Right side: search, type filter, view options, right-aligned (or straight after the
+    // breadcrumbs when the window is narrow).
+    EditorConfig& config = EditorConfig::GetInstance();
+    bool listView = config.GetPreference<bool>( "AssetBrowser.ListView", false );
+    const float spacing = ImGui::GetStyle().ItemSpacing.x;
+    const float searchWidth = ImGuiTheme::Em( 9.f );
+    const float typeWidth = ImGuiTheme::Em( 6.f );
+    const float tileSliderWidth = ImGuiTheme::Em( 3.5f );
+    const char* viewLabel = listView ? "Grid" : "List";
+    const char* detailsLabel = m_showDetails ? "Details >" : "< Details";
+    float rightWidth = searchWidth + typeWidth + ImGuiTheme::ButtonWidth( viewLabel ) + ImGuiTheme::ButtonWidth( "Refresh" ) + ImGuiTheme::ButtonWidth( detailsLabel ) + spacing * 4.f;
+    if( !listView )
+    {
+        rightWidth += tileSliderWidth + spacing;
+    }
+    ImGui::SameLine();
+    const ImVec2 cursor = ImGui::GetCursorScreenPos();
+    ImGui::SetCursorScreenPos( ImVec2( std::max( cursor.x + spacing, cursor.x + ImGui::GetContentRegionAvail().x - rightWidth ), cursor.y ) );
+    ImGui::SetNextItemWidth( searchWidth );
     ImGui::InputTextWithHint( "##AssetSearch", "Search (recursive)", m_search, sizeof( m_search ) );
     ImGui::SameLine();
-    ImGui::SetNextItemWidth( 100.f );
+    ImGui::SetNextItemWidth( typeWidth );
     ImGui::BeginDisabled( m_forcedType != AssetType::Unknown );
     const AssetType shownFilter = m_forcedType != AssetType::Unknown ? m_forcedType : m_typeFilter;
     if( ImGui::BeginCombo( "##AssetType", shownFilter == AssetType::Unknown ? "All types" : AssetTypeToString( shownFilter ).c_str() ) )
@@ -684,10 +699,8 @@ void AssetBrowserWidget::DrawToolbar()
     }
     ImGui::EndDisabled();
 
-    EditorConfig& config = EditorConfig::GetInstance();
-    bool listView = config.GetPreference<bool>( "AssetBrowser.ListView", false );
     ImGui::SameLine();
-    if( ImGui::SmallButton( listView ? "Grid" : "List" ) )
+    if( ImGui::Button( viewLabel ) )
     {
         config.SetPreference( "AssetBrowser.ListView", !listView );
     }
@@ -695,21 +708,21 @@ void AssetBrowserWidget::DrawToolbar()
     {
         ImGui::SameLine();
         float tileSize = config.GetPreference<float>( "AssetBrowser.TileSize", 72.f );
-        ImGui::SetNextItemWidth( 60.f );
+        ImGui::SetNextItemWidth( tileSliderWidth );
         if( ImGui::SliderFloat( "##TileSize", &tileSize, 40.f, 160.f, "" ) )
         {
             config.SetPreference( "AssetBrowser.TileSize", tileSize );
         }
     }
     ImGui::SameLine();
-    if( ImGui::SmallButton( "Refresh" ) )
+    if( ImGui::Button( "Refresh" ) )
     {
         Refresh();
         m_thumbnails.clear();
         m_thumbnailOrder.clear();
     }
     ImGui::SameLine();
-    if( ImGui::SmallButton( m_showDetails ? "Details >" : "< Details" ) )
+    if( ImGui::Button( detailsLabel ) )
     {
         m_showDetails = !m_showDetails;
         config.SetPreference( "AssetBrowser.Details", m_showDetails );
@@ -835,10 +848,12 @@ void AssetBrowserWidget::DrawContents()
 void AssetBrowserWidget::DrawGrid()
 {
     const float tileSize = EditorConfig::GetInstance().GetPreference<float>( "AssetBrowser.TileSize", 72.f );
-    const float padding = 10.f;
+    const float padding = ImGui::GetStyle().ItemSpacing.x;
     const float cellWidth = tileSize + padding;
     const int columns = std::max( 1, static_cast<int>( ImGui::GetContentRegionAvail().x / cellWidth ) );
-    const float labelHeight = ImGui::GetTextLineHeight() * 2.f + 4.f;
+    // Two lines of name below the tile, inset a little from its edges.
+    const float labelInset = std::round( ImGuiTheme::InnerGap() * 0.5f );
+    const float labelHeight = ImGui::GetTextLineHeight() * 2.f + labelInset * 2.f;
 
     if( m_entries.empty() )
     {
@@ -876,7 +891,7 @@ void AssetBrowserWidget::DrawGrid()
                 const ImVec2 tileMax( tileMin.x + tileSize, tileMin.y + tileSize + labelHeight );
                 if( selected || hovered )
                 {
-                    drawList->AddRectFilled( tileMin, tileMax, selected ? IM_COL32( 0, 112, 224, 110 ) : IM_COL32( 255, 255, 255, 25 ), 4.f );
+                    drawList->AddRectFilled( tileMin, tileMax, ImGui::GetColorU32( selected ? ImGuiCol_HeaderActive : ImGuiCol_HeaderHovered ), ImGui::GetStyle().FrameRounding );
                 }
 
                 // The type icon stands in while a thumbnail loads.
@@ -893,7 +908,7 @@ void AssetBrowserWidget::DrawGrid()
                 }
                 else if( image && bgfx::isValid( image->TexHandle ) )
                 {
-                    const float inset = isThumbnail ? 4.f : tileSize * 0.22f;
+                    const float inset = isThumbnail ? labelInset : tileSize * 0.22f;
                     float w = tileSize - inset * 2.f;
                     float h = w;
                     if( isThumbnail && image->mWidth > 0 && image->mHeight > 0 )
@@ -902,13 +917,14 @@ void AssetBrowserWidget::DrawGrid()
                         if( aspect > 1.f ) h = w / aspect; else w = h * aspect;
                     }
                     const ImVec2 imageMin( tileMin.x + ( tileSize - w ) * 0.5f, tileMin.y + ( tileSize - h ) * 0.5f );
-                    drawList->AddImage( ImGui::toId( image->TexHandle, IMGUI_FLAGS_ALPHA_BLEND, 0 ), imageMin, ImVec2( imageMin.x + w, imageMin.y + h ) );
+                    drawList->AddImage( ImGui::toId( image->TexHandle, IMGUI_FLAGS_ALPHA_BLEND, 0 ), imageMin, ImVec2( imageMin.x + w, imageMin.y + h ),
+                        ImVec2( 0, 0 ), ImVec2( 1, 1 ), isThumbnail ? IM_COL32_WHITE : ImGui::GetColorU32( ImGuiCol_Text ) );
                 }
 
                 // Label (or inline rename field)
                 if( m_renamingPath == entry.FullPath )
                 {
-                    ImGui::SetCursorScreenPos( ImVec2( tileMin.x, tileMin.y + tileSize + 2.f ) );
+                    ImGui::SetCursorScreenPos( ImVec2( tileMin.x, tileMin.y + tileSize + labelInset ) );
                     ImGui::SetNextItemWidth( tileSize );
                     if( m_focusRename )
                     {
@@ -928,7 +944,7 @@ void AssetBrowserWidget::DrawGrid()
                 else
                 {
                     const ImVec4 clip( tileMin.x, tileMin.y + tileSize, tileMax.x, tileMax.y );
-                    drawList->AddText( ImGui::GetFont(), ImGui::GetFontSize(), ImVec2( tileMin.x + 2.f, tileMin.y + tileSize + 2.f ), IM_COL32( 230, 230, 230, 255 ), entry.Name.c_str(), nullptr, tileSize - 4.f, &clip );
+                    drawList->AddText( ImGui::GetFont(), ImGui::GetFontSize(), ImVec2( tileMin.x + labelInset, tileMin.y + tileSize + labelInset ), ImGui::GetColorU32( ImGuiCol_Text ), entry.Name.c_str(), nullptr, tileSize - labelInset * 2.f, &clip );
                 }
                 if( hovered && ImGui::IsMouseHoveringRect( tileMin, tileMax ) )
                 {
@@ -951,9 +967,9 @@ void AssetBrowserWidget::DrawList()
     }
     ImGui::TableSetupScrollFreeze( 0, 1 );
     ImGui::TableSetupColumn( "Name", ImGuiTableColumnFlags_WidthStretch );
-    ImGui::TableSetupColumn( "Type", ImGuiTableColumnFlags_WidthFixed, 80.f );
-    ImGui::TableSetupColumn( "Size", ImGuiTableColumnFlags_WidthFixed, 70.f );
-    ImGui::TableSetupColumn( "Modified", ImGuiTableColumnFlags_WidthFixed, 120.f );
+    ImGui::TableSetupColumn( "Type", ImGuiTableColumnFlags_WidthFixed, ImGuiTheme::Em( 5.f ) );
+    ImGui::TableSetupColumn( "Size", ImGuiTableColumnFlags_WidthFixed, ImGuiTheme::Em( 4.f ) );
+    ImGui::TableSetupColumn( "Modified", ImGuiTableColumnFlags_WidthFixed, ImGuiTheme::Em( 6.5f ) );
     ImGui::TableHeadersRow();
 
     ImGuiListClipper clipper;
@@ -966,16 +982,18 @@ void AssetBrowserWidget::DrawList()
             ImGui::PushID( entry.FullPath.c_str() );
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex( 0 );
+            // Icons are one text line square, so rows keep the text height.
+            const float iconSize = ImGui::GetTextLineHeight();
             if( entry.IsDirectory )
             {
-                DrawFolderGlyph( ImGui::GetWindowDrawList(), ImGui::GetCursorScreenPos(), 16.f, IM_COL32( 225, 185, 90, 255 ) );
-                ImGui::Dummy( ImVec2( 16.f, 16.f ) );
-                ImGui::SameLine();
+                DrawFolderGlyph( ImGui::GetWindowDrawList(), ImGui::GetCursorScreenPos(), iconSize, IM_COL32( 225, 185, 90, 255 ) );
+                ImGui::Dummy( ImVec2( iconSize, iconSize ) );
+                ImGui::SameLine( 0.f, ImGuiTheme::InnerGap() );
             }
             else if( SharedPtr<Moonlight::Texture> icon = GetIcon( entry ); icon && bgfx::isValid( icon->TexHandle ) )
             {
-                ImGui::Image( icon->TexHandle, ImVec2( 16.f, 16.f ) );
-                ImGui::SameLine();
+                ImGui::Image( icon->TexHandle, ImVec2( iconSize, iconSize ), ImVec2( 0, 0 ), ImVec2( 1, 1 ), ImGui::GetStyleColorVec4( ImGuiCol_Text ) );
+                ImGui::SameLine( 0.f, ImGuiTheme::InnerGap() );
             }
             if( m_renamingPath == entry.FullPath )
             {
@@ -1365,7 +1383,7 @@ void AssetBrowserWidget::DrawDetails()
     if( m_metafile && m_metafile->GetEditableType() && m_metafile->GetEditableData() )
     {
         // Data asset: its contents are edited in place and written back on Save.
-        ImGui::TextUnformatted( "Contents" );
+        ImGui::SeparatorText( "Contents" );
         ReflectionUI::Context context;
         if( ReflectionUI::DrawType( *m_metafile->GetEditableType(), m_metafile->GetEditableData(), context ) )
         {
@@ -1376,12 +1394,11 @@ void AssetBrowserWidget::DrawDetails()
             m_metafile->SaveEditableData();
             m_editableDirty = false;
         }
-        ImGui::Separator();
     }
 
     if( m_metafile )
     {
-        ImGui::TextUnformatted( "Import Settings" );
+        ImGui::SeparatorText( "Import Settings" );
         m_metafile->OnEditorInspect();
         if( ImGui::Button( "Apply", ImVec2( -1.f, 0.f ) ) )
         {
@@ -1446,11 +1463,13 @@ void AssetBrowserWidget::DrawPickerFooter()
 {
     if( m_isSaveDialog )
     {
-        ImGui::SetNextItemWidth( ImGui::GetContentRegionAvail().x - 170.f );
+        // The name fills the row up to the two dialog buttons.
+        const float buttons = ( ImGuiTheme::DialogButtonSize().x + ImGui::GetStyle().ItemSpacing.x ) * 2.f;
+        ImGui::SetNextItemWidth( std::max( ImGui::GetContentRegionAvail().x - buttons, ImGuiTheme::Em( 6.f ) ) );
         const bool enter = ImGui::InputTextWithHint( "##SaveName", "Name", m_saveName, sizeof( m_saveName ), ImGuiInputTextFlags_EnterReturnsTrue );
         ImGui::SameLine();
         ImGui::BeginDisabled( m_saveName[0] == '\0' );
-        if( ImGui::Button( "Save", ImVec2( 80.f, 0.f ) ) || ( enter && m_saveName[0] != '\0' ) )
+        if( ImGui::Button( "Save", ImGuiTheme::DialogButtonSize() ) || ( enter && m_saveName[0] != '\0' ) )
         {
             std::string name = m_saveName;
             const std::string extension = ExtensionFor( m_forcedType );
@@ -1467,7 +1486,7 @@ void AssetBrowserWidget::DrawPickerFooter()
         ImGui::EndDisabled();
         ImGui::SameLine();
     }
-    if( ImGui::Button( "Cancel", ImVec2( 80.f, 0.f ) ) )
+    if( ImGui::Button( "Cancel", ImGuiTheme::DialogButtonSize() ) )
     {
         IsOpen = false;
         m_pickCallback = nullptr;
@@ -1494,7 +1513,7 @@ void AssetBrowserWidget::DrawModals()
             ImGui::TextDisabled( "..." );
         }
         ImGui::Separator();
-        if( ImGui::Button( "Delete", ImVec2( 120.f, 0.f ) ) || ImGui::IsKeyPressed( ImGuiKey_Enter ) )
+        if( ImGui::Button( "Delete", ImGuiTheme::DialogButtonSize() ) || ImGui::IsKeyPressed( ImGuiKey_Enter ) )
         {
             for( const std::string& path : m_pendingDelete )
             {
@@ -1515,7 +1534,7 @@ void AssetBrowserWidget::DrawModals()
             ImGui::CloseCurrentPopup();
         }
         ImGui::SameLine();
-        if( ImGui::Button( "Cancel", ImVec2( 120.f, 0.f ) ) || ImGui::IsKeyPressed( ImGuiKey_Escape ) )
+        if( ImGui::Button( "Cancel", ImGuiTheme::DialogButtonSize() ) || ImGui::IsKeyPressed( ImGuiKey_Escape ) )
         {
             m_pendingDelete.clear();
             ImGui::CloseCurrentPopup();

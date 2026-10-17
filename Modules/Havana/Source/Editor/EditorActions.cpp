@@ -3,6 +3,7 @@
 #if USING( ME_EDITOR )
 
 #include "CLog.h"
+#include <ImGuiTheme.h>
 #include <algorithm>
 #include <cctype>
 
@@ -266,19 +267,31 @@ void EditorActions::DrawPalette()
     }
 
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
-    ImGui::SetNextWindowPos( ImVec2( viewport->Pos.x + viewport->Size.x * 0.5f, viewport->Pos.y + 80.f ), ImGuiCond_Always, ImVec2( 0.5f, 0.f ) );
-    ImGui::SetNextWindowSize( ImVec2( 520.f, 0.f ) );
+    ImGui::SetNextWindowPos( ImVec2( viewport->Pos.x + viewport->Size.x * 0.5f, viewport->Pos.y + ImGuiTheme::Em( 4.5f ) ), ImGuiCond_Always, ImVec2( 0.5f, 0.f ) );
+    ImGui::SetNextWindowSize( ImVec2( ImGuiTheme::Em( 29.f ), 0.f ) );
     if( !ImGui::BeginPopup( "Command Palette" ) )
     {
         return;
     }
 
-    if( ImGui::IsWindowAppearing() )
+    bool scrollToSelection = ImGui::IsWindowAppearing();
+    if( scrollToSelection )
     {
         ImGui::SetKeyboardFocusHere();
     }
+    int selectionDelta = 0;
+    auto navigate = []( ImGuiInputTextCallbackData* data ) {
+        *static_cast<int*>( data->UserData ) = data->EventKey == ImGuiKey_DownArrow ? 1 : -1;
+        return 0;
+    };
     ImGui::SetNextItemWidth( -1.f );
-    const bool submitted = ImGui::InputTextWithHint( "##PaletteFilter", "Type a command...", m_paletteFilter, sizeof( m_paletteFilter ), ImGuiInputTextFlags_EnterReturnsTrue );
+    const bool submitted = ImGui::InputTextWithHint( "##PaletteFilter", "Type a command...", m_paletteFilter, sizeof( m_paletteFilter ),
+        ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CallbackHistory, navigate, &selectionDelta );
+    if( ImGui::IsItemEdited() )
+    {
+        m_paletteSelection = 0;
+        scrollToSelection = true;
+    }
 
     std::vector<std::pair<int, const EditorAction*>> matches;
     for( const EditorAction& action : m_actions )
@@ -295,18 +308,12 @@ void EditorActions::DrawPalette()
     }
     std::stable_sort( matches.begin(), matches.end(), []( const auto& a, const auto& b ) { return a.first < b.first; } );
 
-    if( ImGui::IsKeyPressed( ImGuiKey_DownArrow ) )
-    {
-        ++m_paletteSelection;
-    }
-    if( ImGui::IsKeyPressed( ImGuiKey_UpArrow ) )
-    {
-        --m_paletteSelection;
-    }
+    m_paletteSelection += selectionDelta;
+    scrollToSelection |= selectionDelta != 0;
     m_paletteSelection = matches.empty() ? 0 : std::clamp( m_paletteSelection, 0, static_cast<int>( matches.size() ) - 1 );
 
     const EditorAction* chosen = nullptr;
-    ImGui::BeginChild( "##PaletteResults", ImVec2( 0.f, std::min( 12, static_cast<int>( matches.size() ) ) * ImGui::GetTextLineHeightWithSpacing() + 4.f ) );
+    ImGui::BeginChild( "##PaletteResults", ImVec2( 0.f, std::min( 12, static_cast<int>( matches.size() ) ) * ImGui::GetTextLineHeightWithSpacing() + ImGui::GetStyle().ItemSpacing.y ) );
     for( int i = 0; i < static_cast<int>( matches.size() ); ++i )
     {
         const EditorAction& action = *matches[i].second;
@@ -318,15 +325,16 @@ void EditorActions::DrawPalette()
             chosen = &action;
         }
         ImGui::EndDisabled();
+        // Follow keyboard selection changes without fighting mouse-wheel scrolling.
+        if( scrollToSelection && i == m_paletteSelection )
+        {
+            ImGui::SetScrollHereY();
+        }
         const std::string shortcut = ShortcutToString( action.Shortcut );
         if( !shortcut.empty() )
         {
-            ImGui::SameLine( ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize( shortcut.c_str() ).x + ImGui::GetCursorPosX() - 8.f );
+            ImGui::SameLine( ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize( shortcut.c_str() ).x + ImGui::GetCursorPosX() - ImGuiTheme::PanelInset() );
             ImGui::TextDisabled( "%s", shortcut.c_str() );
-        }
-        if( i == m_paletteSelection )
-        {
-            ImGui::SetScrollHereY();
         }
     }
     ImGui::EndChild();

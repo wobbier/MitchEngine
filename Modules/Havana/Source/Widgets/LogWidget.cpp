@@ -2,6 +2,7 @@
 #include <optick.h>
 #include <Utils/PlatformUtils.h>
 #include <imgui_internal.h>
+#include <ImGuiTheme.h>
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
@@ -16,12 +17,11 @@ namespace
 	{
 		switch (type)
 		{
-		case CLog::LogType::Error: return ImVec4(1.f, 0.36f, 0.36f, 1.f);
-		case CLog::LogType::Warning: return ImVec4(1.f, 0.8f, 0.3f, 1.f);
-		case CLog::LogType::Info: return ImVec4(0.85f, 0.85f, 0.85f, 1.f);
-		case CLog::LogType::Debug: return ImVec4(0.45f, 0.75f, 1.f, 1.f);
-		case CLog::LogType::Trace: return ImVec4(0.55f, 0.55f, 0.55f, 1.f);
-		default: return ImVec4(0.7f, 0.7f, 0.7f, 1.f);
+		case CLog::LogType::Error: return ImGuiTheme::ErrorText();
+		case CLog::LogType::Warning: return ImGuiTheme::WarningText();
+		case CLog::LogType::Debug: return ImGuiTheme::InfoText();
+		case CLog::LogType::Info: return ImGui::GetStyleColorVec4(ImGuiCol_Text);
+		default: return ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled);
 		}
 	}
 
@@ -209,21 +209,23 @@ void LogWidget::Render()
 			ImGui::PopID();
 		}
 		ImGui::Separator();
-		ImGui::SetNextItemWidth(std::max(ImGui::GetContentRegionAvail().x - 8.f, 80.f));
+		// The window has no padding: end the field a panel inset from the edge.
+		ImGui::SetNextItemWidth(std::max(ImGui::GetContentRegionAvail().x - ImGuiTheme::PanelInset(), ImGuiTheme::Em(4.5f)));
 		ImGui::InputTextWithHint("##LogSearch", "Search", m_search, sizeof(m_search));
 		ImGui::EndMenuBar();
 	}
 
 	const bool hasSelection = m_selectedRow >= 0 && m_selectedRow < static_cast<int>(m_rows.size());
-	const float listHeight = hasSelection ? std::max(ImGui::GetContentRegionAvail().y - m_detailHeight - 6.f, 40.f) : 0.f;
+	// The splitter is as thick as the dock splitters.
+	const float splitter = ImGui::GetStyle().DockingSeparatorSize;
+	const float listHeight = hasSelection ? std::max(ImGui::GetContentRegionAvail().y - m_detailHeight - splitter, ImGui::GetFrameHeightWithSpacing() * 2.f) : 0.f;
 
 	const ImGuiTableFlags flags = ImGuiTableFlags_Resizable | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_BordersInnerV;
-	ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(6.f, 1.f));
 	if (ImGui::BeginTable("##LogTable", 3, flags, ImVec2(0.f, listHeight)))
 	{
 		ImGui::TableSetupScrollFreeze(0, 1);
-		ImGui::TableSetupColumn("Time", ImGuiTableColumnFlags_WidthFixed, 80.f);
-		ImGui::TableSetupColumn("Level", ImGuiTableColumnFlags_WidthFixed, 60.f);
+		ImGui::TableSetupColumn("Time", ImGuiTableColumnFlags_WidthFixed, ImGui::CalcTextSize("00:00.000").x);
+		ImGui::TableSetupColumn("Level", ImGuiTableColumnFlags_WidthFixed, ImGui::CalcTextSize("Warning").x);
 		ImGui::TableSetupColumn("Message", ImGuiTableColumnFlags_WidthStretch);
 		ImGui::TableHeadersRow();
 
@@ -281,8 +283,14 @@ void LogWidget::Render()
 				}
 				if (entryRow.Count > 1)
 				{
-					ImGui::SameLine(ImGui::GetContentRegionMax().x - 40.f);
-					ImGui::TextDisabled("x%u", entryRow.Count);
+					// Right-aligned in the message cell.
+					char count[16];
+					std::snprintf(count, sizeof(count), "x%u", entryRow.Count);
+					ImGui::SameLine();
+					const ImVec2 cursor = ImGui::GetCursorScreenPos();
+					const float right = cursor.x + ImGui::GetContentRegionAvail().x;
+					ImGui::SetCursorScreenPos(ImVec2(std::max(cursor.x, right - ImGui::CalcTextSize(count).x), cursor.y));
+					ImGui::TextDisabled("%s", count);
 				}
 				ImGui::PopID();
 			}
@@ -300,28 +308,25 @@ void LogWidget::Render()
 		}
 		ImGui::EndTable();
 	}
-	ImGui::PopStyleVar();
 
 	if (hasSelection)
 	{
 		// Splitter + full message of the selected row.
-		ImGui::InvisibleButton("##LogSplitter", ImVec2(-1.f, 6.f));
+		ImGui::InvisibleButton("##LogSplitter", ImVec2(-1.f, splitter));
 		if (ImGui::IsItemHovered() || ImGui::IsItemActive())
 		{
 			ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNS);
 		}
 		if (ImGui::IsItemActive())
 		{
-			m_detailHeight = std::clamp(m_detailHeight - ImGui::GetIO().MouseDelta.y, 30.f, 600.f);
+			m_detailHeight = std::clamp(m_detailHeight - ImGui::GetIO().MouseDelta.y, ImGui::GetFrameHeight(), ImGuiTheme::Em(33.f));
 		}
 		const CLog::LogEntry& entry = CLog::Messages[m_rows[m_selectedRow].Index];
-		ImGui::BeginChild("##LogDetail", ImVec2(0.f, 0.f), false);
-		ImGui::Indent(6.f);
+		ImGui::BeginChild("##LogDetail", ImVec2(0.f, 0.f), ImGuiChildFlags_AlwaysUseWindowPadding);
 		ImGui::PushTextWrapPos(0.f);
 		ImGui::TextUnformatted(entry.Message.c_str());
 		ImGui::PopTextWrapPos();
 		ImGui::TextDisabled("thread %u", entry.ThreadId);
-		ImGui::Unindent(6.f);
 		ImGui::EndChild();
 	}
 

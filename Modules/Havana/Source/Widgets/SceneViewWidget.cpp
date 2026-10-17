@@ -20,7 +20,8 @@
 #include <bgfx/bgfx.h>
 #include <Camera/CameraData.h>
 #include <Mathf.h>
-#include "UI/Colors.h"
+#include <ImGuiTheme.h>
+#include <Utils/HavanaUtils.h>
 #include "Types/AssetDescriptor.h"
 #include "Types/AssetType.h"
 #include "World/SceneSerializer.h"
@@ -107,7 +108,7 @@ namespace
 	{
 		if (active)
 		{
-			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(COLOR_PRIMARY));
+			ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_HeaderActive));
 		}
 		const bool pressed = ImGui::Button(label);
 		if (active)
@@ -387,8 +388,8 @@ void SceneViewWidget::Render()
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-	ImGui::PushStyleColor(ImGuiCol_WindowBg, COLOR_BACKGROUND_BORDER);
-	ImGui::PushStyleColor(ImGuiCol_ChildBg, COLOR_BACKGROUND_BORDER);
+	ImGui::PushStyleColor(ImGuiCol_WindowBg, ImGui::GetStyleColorVec4(ImGuiCol_DockingEmptyBg));
+	ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyleColorVec4(ImGuiCol_DockingEmptyBg));
 
 	bool shouldRender = false;
 	if (MaximizeOnPlay && App && App->Editor)
@@ -555,10 +556,10 @@ void SceneViewWidget::DrawViewMenu()
 		ImGui::SetItemTooltip("%s", option.Tooltip);
 	}
 	ImGui::Separator();
-	ImGui::SetNextItemWidth(140.f);
+	ImGui::SetNextItemWidth(ImGuiTheme::Em(8.f));
 	changed |= ImGui::SliderFloat("Exposure (EV)", &m_viewOptions.Exposure, -8.f, 8.f, "%+.1f");
 	ImGui::SetItemTooltip("Additional exposure for this viewport in Lit and Lighting Only modes");
-	ImGui::SetNextItemWidth(140.f);
+	ImGui::SetNextItemWidth(ImGuiTheme::Em(8.f));
 	changed |= ImGui::DragFloat("Depth Range (m)", &m_viewOptions.DepthRange, 0.5f, 0.1f, 10000.f, "%.1f", ImGuiSliderFlags_AlwaysClamp);
 	ImGui::SetItemTooltip("Distance where the Depth view fades to black");
 	if (changed) SavePreferences();
@@ -596,7 +597,6 @@ void SceneViewWidget::DrawViewMenu()
 
 void SceneViewWidget::DrawSceneToolbar()
 {
-	ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6.f, 2.f));
 	for (int i = 0; i < 4; ++i)
 	{
 		static const char* shortcuts[] = { "Move (W)", "Rotate (E)", "Scale (R)", "Universal (T)" };
@@ -621,33 +621,33 @@ void SceneViewWidget::DrawSceneToolbar()
 	{
 		ToggleSnapping();
 	}
+	// The snap toggle and its settings arrow read as one split button.
 	ImGui::SameLine(0.f, 0.f);
 	if (ImGui::ArrowButton("##SnapSettings", ImGuiDir_Down))
 	{
 		ImGui::OpenPopup("SnapSettings");
 	}
+	// Fixed width: property rows size themselves from the window.
+	ImGui::SetNextWindowSize(ImVec2(ImGuiTheme::Em(16.f), 0.f));
 	if (ImGui::BeginPopup("SnapSettings"))
 	{
-		ImGui::SetNextItemWidth(100.f);
-		bool changed = ImGui::DragFloat("Move (m)", &m_snapTranslate, 0.05f, 0.001f, 1000.f, "%.3f");
-		ImGui::SetNextItemWidth(100.f);
-		changed |= ImGui::DragFloat("Rotate", &m_snapRotate, 1.f, 0.1f, 180.f, "%.1f deg");
-		ImGui::SetNextItemWidth(100.f);
-		changed |= ImGui::DragFloat("Scale", &m_snapScale, 0.01f, 0.001f, 10.f, "%.3f");
+		HavanaUtils::Label("Move (m)");
+		bool changed = ImGui::DragFloat("##Move", &m_snapTranslate, 0.05f, 0.001f, 1000.f, "%.3f");
+		HavanaUtils::Label("Rotate");
+		changed |= ImGui::DragFloat("##Rotate", &m_snapRotate, 1.f, 0.1f, 180.f, "%.1f deg");
+		HavanaUtils::Label("Scale");
+		changed |= ImGui::DragFloat("##Scale", &m_snapScale, 0.01f, 0.001f, 10.f, "%.3f");
 		if (changed)
 		{
 			SavePreferences();
 		}
 		ImGui::EndPopup();
 	}
-
-	ImGui::PopStyleVar();
 }
 
 
 void SceneViewWidget::DrawGameToolbar()
 {
-	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4.0f, 4.0f));
 	if (ImGui::BeginMenu(CurrentDisplayParams.Name.c_str()))
 	{
 		for (auto& params : DisplayOptions)
@@ -668,7 +668,6 @@ void SceneViewWidget::DrawGameToolbar()
 		}
 		ImGui::EndMenu();
 	}
-	ImGui::PopStyleVar(1);
 
 	if (ImGui::MenuItem("Maximize On Play", nullptr, &MaximizeOnPlayPreference))
 	{
@@ -812,10 +811,13 @@ void SceneViewWidget::DrawStatsOverlay()
 	std::snprintf(text, sizeof(text), "%.0f fps  %.2f ms\nGPU %.2f ms  Draws %u\nTris %.1fk  Entities %zu",
 		stats.GetFramesPerSecond(), stats.GetSmoothedFrameMilliseconds(), render.GpuMilliseconds, render.DrawCalls,
 		render.Triangles / 1000.f, EditorOps::GetWorld().GetEntityCount());
+	// Fixed light-on-dark colors: the overlay has to read over any scene, in either theme.
 	ImDrawList* drawList = ImGui::GetWindowDrawList();
-	const ImVec2 position(m_viewportScreenMin.x + 8.f, m_viewportScreenMin.y + 8.f);
+	const ImVec2 padding = ImGui::GetStyle().FramePadding;
+	const float margin = ImGuiTheme::PanelInset();
+	const ImVec2 position(m_viewportScreenMin.x + margin + padding.x, m_viewportScreenMin.y + margin + padding.y);
 	const ImVec2 size = ImGui::CalcTextSize(text);
-	drawList->AddRectFilled(ImVec2(position.x - 4.f, position.y - 3.f), ImVec2(position.x + size.x + 4.f, position.y + size.y + 3.f), IM_COL32(0, 0, 0, 140), 3.f);
+	drawList->AddRectFilled(ImVec2(position.x - padding.x, position.y - padding.y), ImVec2(position.x + size.x + padding.x, position.y + size.y + padding.y), IM_COL32(0, 0, 0, 140), ImGui::GetStyle().FrameRounding);
 	drawList->AddText(position, IM_COL32(230, 230, 230, 255), text);
 }
 
@@ -827,8 +829,9 @@ void SceneViewWidget::DrawViewCube()
 		return;
 	}
 	EditorCameraController& controller = App->EditorSceneManager->GetCameraController();
-	const float size = 96.f;
-	const ImVec2 position(m_viewportScreenMin.x + m_viewportScreenSize.x - size - 8.f, m_viewportScreenMin.y + 8.f);
+	const float size = ImGuiTheme::Em(5.33f);
+	const float margin = ImGuiTheme::PanelInset();
+	const ImVec2 position(m_viewportScreenMin.x + m_viewportScreenSize.x - size - margin, m_viewportScreenMin.y + margin);
 	Matrix4 view = MainCamera->View;
 	const glm::mat4 before = view.GetInternalMatrix();
 	ImGuizmo::ViewManipulate(&view.GetInternalMatrix()[0][0], std::max((controller.GetPivot() - MainCamera->Position).Length(), 1.f), position, ImVec2(size, size), 0x10101010);

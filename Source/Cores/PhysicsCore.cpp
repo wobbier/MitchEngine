@@ -505,6 +505,12 @@ void PhysicsCore::BuildShapes( BodyRecord& InRecord, const std::vector<ColliderE
             }
         }
     }
+
+    // Shapes defer their mass update (updateBodyMass = false), which leaves the body flagged until mass
+    // is applied. Box3D asserts on any flagged body that reaches the solver, kinematic ones included,
+    // and the pass also computes the extents it uses for continuous collision and sleeping.
+    // ApplyBodySettings overrides this for dynamic bodies with an explicit Rigidbody mass.
+    b3Body_ApplyMassFromShapes( body );
 }
 
 
@@ -1566,16 +1572,23 @@ std::vector<EntityHandle> PhysicsCore::OverlapBox( const Vector3& InCenter, cons
 void PhysicsCore::OnEditorInspect()
 {
     Base::OnEditorInspect();
-    ImGui::Text( "Bodies: %zu  %s", m_bodies.size(), m_simulating ? "simulating" : "edit mode" );
+    HavanaUtils::Label( "Bodies" );
+    ImGui::Text( "%zu (%s)", m_bodies.size(), m_simulating ? "simulating" : "edit mode" );
     if( m_world != 0 )
     {
         const b3Counters counters = b3World_GetCounters( WorldId( m_world ) );
-        ImGui::Text( "Shapes: %d  Contacts: %d  Awake: %d", counters.shapeCount, counters.contactCount, b3World_GetAwakeBodyCount( WorldId( m_world ) ) );
+        HavanaUtils::Label( "Shapes / Contacts" );
+        ImGui::Text( "%d / %d", counters.shapeCount, counters.contactCount );
+        HavanaUtils::Label( "Awake Bodies" );
+        ImGui::Text( "%d", b3World_GetAwakeBodyCount( WorldId( m_world ) ) );
     }
-    ImGui::Text( "Step: %.2f ms", m_lastStepMs );
-    ImGui::Checkbox( "Draw Physics", &DebugDrawEnabled );
+    HavanaUtils::Label( "Step" );
+    ImGui::Text( "%.2f ms", m_lastStepMs );
+    HavanaUtils::Label( "Draw Physics" );
+    ImGui::Checkbox( "##DrawPhysics", &DebugDrawEnabled );
     Vector3 gravity = GetGravity();
-    if( ImGui::DragFloat3( "Gravity", &gravity.x, 0.05f ) )
+    HavanaUtils::Label( "Gravity" );
+    if( HavanaUtils::DragAxes( "##Gravity", &gravity.x, 3, 0.05f, "%.2f" ) )
     {
         SetGravity( gravity );
     }

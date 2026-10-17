@@ -529,42 +529,53 @@ void UICore::OnEditorInspect()
 {
     Base::OnEditorInspect();
 #if USING ( ME_UI )
-    ImGui::Text( "Clear Calls %i", m_driver->m_uiDrawInfo.m_numClearCalls );
-    ImGui::Text( "Fill Calls %i", m_driver->m_uiDrawInfo.m_numDrawFillCalls );
-    ImGui::Text( "Fill Path Calls %i", m_driver->m_uiDrawInfo.m_numDrawFillPathCalls );
-    if( ImGui::CollapsingHeader( "Settings", ImGuiTreeNodeFlags_DefaultOpen ) )
+    HavanaUtils::Label( "Clear Calls" );
+    ImGui::Text( "%i", m_driver->m_uiDrawInfo.m_numClearCalls );
+    HavanaUtils::Label( "Fill Calls" );
+    ImGui::Text( "%i", m_driver->m_uiDrawInfo.m_numDrawFillCalls );
+    HavanaUtils::Label( "Fill Path Calls" );
+    ImGui::Text( "%i", m_driver->m_uiDrawInfo.m_numDrawFillPathCalls );
+    // Sub-sections of the core's inspector, laid out like a component's categories.
+    const ImGuiTreeNodeFlags section = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding;
+    if( ImGui::TreeNodeEx( "Settings", section ) )
     {
-        ImGui::Checkbox( "Use Web URL", &m_useWebUrl );
-        if( ImGui::Checkbox( "Force Repaint", &m_config.force_repaint ) )
+        HavanaUtils::Label( "Use Web URL" );
+        ImGui::Checkbox( "##UseWebURL", &m_useWebUrl );
+        HavanaUtils::Label( "Force Repaint" );
+        if( ImGui::Checkbox( "##ForceRepaint", &m_config.force_repaint ) )
         {
             ultralight::Platform::instance().set_config( m_config );
         }
+        ImGui::TreePop();
     }
 
-    if( ImGui::CollapsingHeader( "Final UI Texture", ImGuiTreeNodeFlags_DefaultOpen ) )
+    if( ImGui::TreeNodeEx( "Final UI Texture", section ) )
     {
         ImGui::Image( m_uiTexture, ImVec2( UISize.x, UISize.y ) );
+        ImGui::TreePop();
     }
 
-    if( ImGui::CollapsingHeader( "UI Buffers", ImGuiTreeNodeFlags_DefaultOpen ) )
+    if( ImGui::TreeNodeEx( "UI Buffers", section ) )
     {
         for( auto& buffer : m_driver->m_buffers )
         {
-            ImGui::Text( std::string( "Frame Buffer: " + std::to_string( buffer.first ) + ", " + std::to_string( buffer.second.FrameBufferTexture ) ).c_str() );
+            ImGui::Text( "Frame Buffer: %s, %s", std::to_string( buffer.first ).c_str(), std::to_string( buffer.second.FrameBufferTexture ).c_str() );
             ImGui::Image( buffer.second.TexHandle, ImVec2( m_driver->m_storedTextures[buffer.second.FrameBufferTexture].Width, m_driver->m_storedTextures[buffer.second.FrameBufferTexture].Height ) );
         }
+        ImGui::TreePop();
     }
 
-    if( ImGui::CollapsingHeader( "UI Textures", ImGuiTreeNodeFlags_DefaultOpen ) )
+    if( ImGui::TreeNodeEx( "UI Textures", section ) )
     {
         for( auto& buffer : m_driver->m_storedTextures )
         {
             if( !buffer.second.IsRenderTexture )
             {
-                ImGui::Text( std::string( "Texture: " + std::to_string( buffer.first ) ).c_str() );
+                ImGui::Text( "Texture: %s", std::to_string( buffer.first ).c_str() );
                 ImGui::Image( buffer.second.Handle, ImVec2( buffer.second.Width, buffer.second.Height ) );
             }
         }
+        ImGui::TreePop();
     }
 #endif
 }
