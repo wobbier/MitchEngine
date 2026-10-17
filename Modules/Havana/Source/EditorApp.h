@@ -80,6 +80,7 @@ private:
 	std::string m_recoveryScenePath;
 	float m_autosaveTimer = 0.f;
 	bool m_checkedRecovery = false;
+	bool m_hasAutosave = false;
 
 	json m_playSnapshot;
 	std::vector<uint64_t> m_playSelection;

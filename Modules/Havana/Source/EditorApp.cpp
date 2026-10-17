@@ -551,6 +551,13 @@ void EditorApp::DrawEditorModals()
 
 void EditorApp::UpdateAutosave( float InDeltaSeconds )
 {
+    // A saved (or undone-to-saved) scene has nothing to recover; drop the stale snapshot.
+    // Kept while the recovery prompt is still open so Discard/Recover decides.
+    if( m_hasAutosave && !UndoStack::Get().IsDirty() && !m_isGameRunning && m_recoveryData.is_null() )
+    {
+        ClearAutosave();
+    }
+
     const float interval = EditorConfig::GetInstance().GetPreference<float>( "Autosave.IntervalSeconds", 120.f );
     if( interval <= 0.f || m_isGameRunning || !UndoStack::Get().IsDirty() || !EditorSceneManager || !EditorSceneManager->RootTransform )
     {
@@ -576,6 +583,7 @@ void EditorApp::UpdateAutosave( float InDeltaSeconds )
     session["Scene"] = CurrentScenePath();
     session["Time"] = static_cast<int64_t>( std::time( nullptr ) );
     File( Path( kAutosaveSession ) ).Write( session.dump( 4 ) );
+    m_hasAutosave = true;
     CLog::Log( CLog::LogType::Info, "Autosaved scene to " + std::string( kAutosaveScene ) );
 }
 
@@ -600,6 +608,20 @@ void EditorApp::CheckForRecovery()
         return;
     }
     m_recoveryScenePath = session.value( "Scene", std::string() );
+    // The scene was saved after the snapshot was taken (an exit that skipped OnEnd left it behind).
+    if( !m_recoveryScenePath.empty() )
+    {
+        Path savedScene( m_recoveryScenePath );
+        std::error_code savedError, autosaveError;
+        const auto savedTime = std::filesystem::last_write_time( savedScene.FullPath, savedError );
+        const auto autosaveTime = std::filesystem::last_write_time( scenePath.FullPath, autosaveError );
+        if( savedScene.Exists && !savedError && !autosaveError && savedTime >= autosaveTime )
+        {
+            ClearAutosave();
+            return;
+        }
+    }
+    m_hasAutosave = true;
     m_recoveryData = std::move( scene );
     m_openRecoveryPrompt = true;
 }
@@ -610,6 +632,7 @@ void EditorApp::ClearAutosave()
     std::error_code error;
     std::filesystem::remove( Path( kAutosaveSession ).FullPath, error );
     std::filesystem::remove( Path( kAutosaveScene ).FullPath, error );
+    m_hasAutosave = false;
 }
 
 
