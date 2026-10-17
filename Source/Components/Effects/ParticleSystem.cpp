@@ -53,6 +53,7 @@ ME_REFLECT_BEGIN( ParticleSystem )
     ME_FIELD( FlipbookFps ).Category( "Rendering" ).Range( 0.f, 120.f ).Tooltip( "0 plays the flipbook once over each particle's life" );
     ME_FIELD( SoftParticleDistance ).Category( "Rendering" ).Range( 0.f, 10.f ).Tooltip( "Fade where particles meet geometry (0 = hard edges)" );
     ME_FIELD( Graph ).Category( "Rendering" ).Asset( "ShaderGraph" ).Tooltip( "A Particle shader graph for the quads' colour (it can still read the Texture and the colour over life)" );
+    ME_FIELD( GraphParams ).Category( "Rendering" ).Display( "Graph Properties" ).Tooltip( "This system's values for the graph's exposed properties" );
     ME_FIELD( Lit ).Category( "Rendering" ).Tooltip( "Shade with the sun, point / spot lights (and their shadows) and ambient light, like smoke; additive glows usually stay unlit" );
 ME_REFLECT_END()
 
@@ -109,6 +110,7 @@ void ParticleSystem::ResolveTexture()
         m_loadedGraph = graph;
         m_graph = graph.empty() ? nullptr : ResourceCache::GetInstance().Get<Moonlight::ShaderGraphAsset>( Moonlight::ShaderGraphAsset::ManifestPathFor( graph ) );
     }
+    GraphParams.Asset = m_graph;
     const std::string& path = Texture.GetLocalPathString();
     if( path == m_loadedTexture )
     {
@@ -262,6 +264,10 @@ void ParticleSystem::FillBatch( Moonlight::ParticleBatch& OutBatch, const glm::m
     OutBatch.Softness = SoftParticleDistance;
     OutBatch.Lit = Lit;
     OutBatch.Graph = m_graph && m_graph->IsValid() && m_graph->GetTarget() == "Particle" ? m_graph : nullptr;
+    if( OutBatch.Graph )
+    {
+        GraphParams.Fill( OutBatch.GraphBinding );
+    }
     OutBatch.FlipbookColumns = static_cast<uint16_t>( std::clamp( FlipbookColumns, 1, 64 ) );
     OutBatch.FlipbookRows = static_cast<uint16_t>( std::clamp( FlipbookRows, 1, 64 ) );
     OutBatch.Bounds = AABB();
@@ -299,6 +305,8 @@ void ParticleSystem::FillBatch( Moonlight::ParticleBatch& OutBatch, const glm::m
 #if USING( ME_EDITOR )
 void ParticleSystem::OnEditorInspect()
 {
+    // Keeps the Graph Properties above in step with Graph even when nothing renders the system.
+    ResolveTexture();
     ImGui::Text( "Particles: %zu / %d", m_particles.size(), MaxParticles );
     ImGui::SameLine();
     if( ImGui::SmallButton( "Restart" ) )

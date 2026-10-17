@@ -381,11 +381,14 @@ namespace
     bgfx::TextureHandle RenderGraphPostPasses( Moonlight::ViewAllocator& InViews, const Moonlight::CameraData& InCamera, Moonlight::FrameBuffer& InTargets, const char* InInjection, bgfx::TextureHandle InInput, bgfx::FrameBufferHandle InFinal, uint16_t InFinalWidth, uint16_t InFinalHeight )
     {
         std::vector<const Moonlight::ShaderGraphAsset*> passes;
-        for( const SharedPtr<Moonlight::ShaderGraphAsset>& graph : InCamera.Post.Graphs )
+        std::vector<const Moonlight::ShaderGraphBinding*> bindings;
+        for( size_t i = 0; i < InCamera.Post.Graphs.size(); ++i )
         {
+            const SharedPtr<Moonlight::ShaderGraphAsset>& graph = InCamera.Post.Graphs[i];
             if( graph && graph->GetManifest().value( "Injection", std::string( "BeforeTonemap" ) ) == InInjection && bgfx::isValid( graph->GetProgramHandle( "Forward" ) ) )
             {
                 passes.push_back( graph.get() );
+                bindings.push_back( i < InCamera.Post.GraphBindings.size() ? &InCamera.Post.GraphBindings[i] : nullptr );
             }
         }
         if( passes.empty() )
@@ -421,9 +424,16 @@ namespace
             bgfx::setViewTransform( view, nullptr, ortho );
             bgfx::touch( view );
 
-            Vector4 parameters[Moonlight::ShaderGraphAsset::kMaxParameters];
-            passes[i]->PackParameters( {}, parameters );
-            passes[i]->Bind( parameters, {} );
+            if( bindings[i] )
+            {
+                passes[i]->Bind( *bindings[i] );
+            }
+            else
+            {
+                Vector4 parameters[Moonlight::ShaderGraphAsset::kMaxParameters];
+                passes[i]->PackParameters( {}, parameters );
+                passes[i]->Bind( parameters, {} );
+            }
             bgfx::setTexture( 6, GraphUniform( "s_sgSceneColor", bgfx::UniformType::Sampler ), input, BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP );
             bgfx::setTexture( 7, GraphUniform( "s_sgSceneDepth", bgfx::UniformType::Sampler ), InTargets.DepthTexture, BGFX_SAMPLER_POINT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP );
             bgfx::setUniform( GraphUniform( "u_sgPostProjection", bgfx::UniformType::Vec4 ), projection1 );
@@ -1872,11 +1882,6 @@ void BGFXRenderer::RenderParticles( Moonlight::CameraData& camera )
         const bgfx::TextureHandle texture = bgfx::isValid( batch.Texture ) ? batch.Texture : m_particleTexture;
         // A particle shader graph replaces the fragment shader (it keeps Particle.vert).
         const bgfx::ProgramHandle graphProgram = batch.Graph ? batch.Graph->GetProgramHandle( "Forward" ) : bgfx::ProgramHandle( BGFX_INVALID_HANDLE );
-        Vector4 graphParameters[Moonlight::ShaderGraphAsset::kMaxParameters];
-        if( bgfx::isValid( graphProgram ) )
-        {
-            batch.Graph->PackParameters( {}, graphParameters );
-        }
 
         const uint32_t count = static_cast<uint32_t>( batch.Instances.size() );
         uint32_t offset = 0;
@@ -1895,7 +1900,7 @@ void BGFXRenderer::RenderParticles( Moonlight::CameraData& camera )
             bgfx::setInstanceDataBuffer( &idb );
             if( bgfx::isValid( graphProgram ) )
             {
-                batch.Graph->Bind( graphParameters, {} );
+                batch.Graph->Bind( batch.GraphBinding );
                 bgfx::setTexture( 6, GraphSampler( "s_sgParticleTexture" ), texture );
                 bgfx::setTexture( 7, GraphSampler( "s_sgSceneDepth" ), buffer.DepthTexture, BGFX_SAMPLER_POINT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP );
             }
@@ -1966,9 +1971,7 @@ void BGFXRenderer::RenderDecals( Moonlight::CameraData& camera )
         const bgfx::ProgramHandle graphProgram = decal->Graph ? decal->Graph->GetProgramHandle( "Forward" ) : bgfx::ProgramHandle( BGFX_INVALID_HANDLE );
         if( bgfx::isValid( graphProgram ) )
         {
-            Vector4 parameters[Moonlight::ShaderGraphAsset::kMaxParameters];
-            decal->Graph->PackParameters( {}, parameters );
-            decal->Graph->Bind( parameters, {} );
+            decal->Graph->Bind( decal->GraphBinding );
             bgfx::setTexture( 7, GraphSampler( "s_sgSceneDepth" ), buffer.DepthTexture, pointClamp );
         }
         else

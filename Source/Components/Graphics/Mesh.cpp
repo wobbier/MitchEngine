@@ -353,6 +353,15 @@ void Mesh::OnEditorInspect()
                 }, AssetType::ShaderGraph );
             evt.Fire();
         }
+        if( dynamic_cast<ShaderGraphMaterial*>( MeshMaterial.get() ) && reg.count( "StandardMaterial" ) && ImGui::Button( "Remove Shader Graph" ) )
+        {
+            const Vector2 tiling = MeshMaterial->Tiling;
+            const Vector3 diffuse = MeshMaterial->DiffuseColor;
+            MeshMaterial = reg["StandardMaterial"].CreateFunc();
+            MeshMaterial->Init();
+            MeshMaterial->DiffuseColor = diffuse;
+            MeshMaterial->Tiling = tiling;
+        }
         if( ImGui::Button("Save As Material File: ") )
         {
             RequestAssetSelectionEvent evt( [this]( const Path& inPath )

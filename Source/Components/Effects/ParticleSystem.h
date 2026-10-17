@@ -89,6 +89,8 @@ public:
     bool Lit = false;               // shade with the scene's lights (smoke, dust); glows stay unlit
     // A Particle shader graph colouring the quads (empty: the texture and colour over life as is).
     Path Graph;
+    // Values for the graph's exposed properties (the graph's defaults where unset).
+    Moonlight::ShaderGraphParams GraphParams;
 
     // Runtime
     void Simulate( float InDeltaSeconds, const glm::mat4& InWorld );

@@ -6,6 +6,7 @@
 #include "ECS/Entity.h"
 #include "Components/Transform.h"
 #include "Events/EditorEvents.h"
+#include "Materials/ShaderGraphParams.h"
 #include "Math/Quaternion.h"
 #include "Types/AssetDescriptor.h"
 #include "Types/AssetType.h"
@@ -217,7 +218,7 @@ namespace ReflectionUI
             ImGui::PushID( InLabel );
             const float buttonWidth = ImGui::GetFrameHeight();
             const float fullWidth = ImGui::CalcItemWidth();
-            ImGui::SetNextItemWidth( std::max( fullWidth - buttonWidth - 2.f, 40.f ) );
+            ImGui::SetNextItemWidth( std::max( fullWidth - buttonWidth * 2.f - 4.f, 40.f ) );
             changed |= ImGui::InputTextWithHint( "##path", "None", &InOutPath, ImGuiInputTextFlags_EnterReturnsTrue );
             if( ImGui::BeginDragDropTarget() )
             {
@@ -242,6 +243,16 @@ namespace ReflectionUI
                 }, filter );
                 evt.Fire();
             }
+            ImGui::SetItemTooltip( "Pick an asset" );
+            ImGui::SameLine( 0.f, 2.f );
+            ImGui::BeginDisabled( InOutPath.empty() );
+            if( ImGui::Button( "x", ImVec2( buttonWidth, 0.f ) ) )
+            {
+                InOutPath.clear();
+                changed = true;
+            }
+            ImGui::SetItemTooltip( "Clear" );
+            ImGui::EndDisabled();
             auto result = PickerResults().find( pickerId );
             if( result != PickerResults().end() )
             {
@@ -341,34 +352,104 @@ namespace ReflectionUI
         {
             bool changed = false;
             const size_t size = InOps.ArraySize( InValue );
-            const bool open = ImGui::TreeNodeEx( InLabel, ImGuiTreeNodeFlags_SpanAvailWidth, "%s [%zu]", InLabel, size );
-            ImGui::SameLine( ImGui::GetContentRegionMax().x - ImGui::GetFrameHeight() * 2.f - 4.f );
+            const float buttonWidth = ImGui::GetFrameHeight();
+            const float spacing = ImGui::GetStyle().ItemInnerSpacing.x;
+            // Same right edge as the value column (HavanaUtils::Label keeps half the padding free).
+            const float rowRight = ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - ImGui::GetStyle().WindowPadding.x * 0.5f;
+            const float smallWidth = ImGui::CalcTextSize( "+" ).x + ImGui::GetStyle().FramePadding.x * 2.f;
+            // AllowOverlap: otherwise the full-width node takes the clicks meant for + and -.
+            // Asset lists (a few paths) start open so their entries are in view.
+            const ImGuiTreeNodeFlags openFlag = InField && InField->Has( FieldFlags::Asset ) ? ImGuiTreeNodeFlags_DefaultOpen : 0;
+            const bool open = ImGui::TreeNodeEx( InLabel, ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_AllowOverlap | openFlag, "%s [%zu]", InLabel, size );
+            Tooltip( InField );
+            ImGui::SameLine( rowRight - smallWidth * 2.f - spacing );
             ImGui::PushID( InLabel );
             if( ImGui::SmallButton( "+" ) )
             {
                 InOps.ArrayResize( InValue, size + 1 );
                 changed = true;
+                // Show the new element.
+                ImGui::GetStateStorage()->SetInt( ImGui::GetID( InLabel ), 1 );
             }
-            ImGui::SameLine();
+            ImGui::SetItemTooltip( "Add an element" );
+            ImGui::SameLine( 0.f, spacing );
             ImGui::BeginDisabled( size == 0 );
             if( ImGui::SmallButton( "-" ) )
             {
                 InOps.ArrayResize( InValue, size - 1 );
                 changed = true;
             }
+            ImGui::SetItemTooltip( "Remove the last element" );
             ImGui::EndDisabled();
             ImGui::PopID();
             if( open )
             {
+                // Element moves and removals go through the array's JSON (ValueOps has no erase).
+                enum class Edit { None, Remove, Up, Down } edit = Edit::None;
+                size_t editIndex = 0;
                 const size_t count = InOps.ArraySize( InValue );
                 for( size_t i = 0; i < count; ++i )
                 {
                     ImGui::PushID( static_cast<int>( i ) );
                     const std::string elementLabel = "[" + std::to_string( i ) + "]";
+                    const ImVec2 rowStart = ImGui::GetCursorScreenPos();
+                    const float labelWidth = ImGui::GetContentRegionAvail().x * 0.35f;
+                    // Remove button at the end of the label column (the index label is short).
+                    ImGui::SetCursorScreenPos( ImVec2( rowStart.x + labelWidth - buttonWidth, rowStart.y ) );
+                    if( ImGui::Button( "-", ImVec2( buttonWidth, 0.f ) ) )
+                    {
+                        edit = Edit::Remove;
+                        editIndex = i;
+                    }
+                    ImGui::SetItemTooltip( "Remove this element (right-click the index to reorder)" );
+                    ImGui::SetCursorScreenPos( rowStart );
                     // Asset lists (std::vector<Path>) pick each element from their filter.
                     const FieldInfo* elementField = InField && InField->Has( FieldFlags::Asset ) ? InField : nullptr;
                     changed |= DrawValue( elementLabel.c_str(), elementField, *InOps.Element, InOps.ArrayAt( InValue, i ), false );
+                    if( ImGui::IsMouseHoveringRect( rowStart, ImVec2( rowStart.x + labelWidth - buttonWidth, rowStart.y + ImGui::GetFrameHeight() ) ) && ImGui::IsMouseClicked( ImGuiMouseButton_Right ) )
+                    {
+                        ImGui::OpenPopup( "ElementContext" );
+                    }
+                    if( ImGui::BeginPopup( "ElementContext" ) )
+                    {
+                        if( ImGui::MenuItem( "Move Up", nullptr, false, i > 0 ) )
+                        {
+                            edit = Edit::Up;
+                            editIndex = i;
+                        }
+                        if( ImGui::MenuItem( "Move Down", nullptr, false, i + 1 < count ) )
+                        {
+                            edit = Edit::Down;
+                            editIndex = i;
+                        }
+                        ImGui::Separator();
+                        if( ImGui::MenuItem( "Remove" ) )
+                        {
+                            edit = Edit::Remove;
+                            editIndex = i;
+                        }
+                        ImGui::EndPopup();
+                    }
                     ImGui::PopID();
+                }
+                if( edit != Edit::None )
+                {
+                    json elements;
+                    ValueToJson( InOps, InValue, elements );
+                    if( elements.is_array() && editIndex < elements.size() )
+                    {
+                        if( edit == Edit::Remove )
+                        {
+                            elements.erase( elements.begin() + static_cast<std::ptrdiff_t>( editIndex ) );
+                        }
+                        else
+                        {
+                            const size_t other = edit == Edit::Up ? editIndex - 1 : editIndex + 1;
+                            std::swap( elements[editIndex], elements[other] );
+                        }
+                        ValueFromJson( InOps, InValue, elements );
+                        changed = true;
+                    }
                 }
                 ImGui::TreePop();
             }
@@ -640,6 +721,15 @@ namespace ReflectionUI
                 return true;
             }
             return false;
+        } );
+
+        // Shader graph property values (Decal, ParticleSystem, PostProcess): the graph's exposed
+        // properties, laid out below the field's label.
+        RegisterCustomDrawer( "ShaderGraphParams", []( const char*, const Reflection::FieldInfo*, void* InValue ) {
+            return static_cast<Moonlight::ShaderGraphParams*>( InValue )->OnEditorInspect();
+        } );
+        RegisterCustomDrawer( "ShaderGraphParamsList", []( const char*, const Reflection::FieldInfo*, void* InValue ) {
+            return static_cast<Moonlight::ShaderGraphParamsList*>( InValue )->OnEditorInspect();
         } );
 
         RegisterCustomDrawer( "EntityHandle", []( const char* InLabel, const Reflection::FieldInfo*, void* InValue ) {

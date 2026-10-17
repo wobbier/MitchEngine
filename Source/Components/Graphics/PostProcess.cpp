@@ -42,8 +42,9 @@ ME_REFLECT_BEGIN( PostProcess )
     ME_FIELD( Lift ).Category( "Color Grading" ).Range( -0.5f, 0.5f );
     ME_FIELD( Gain ).Category( "Color Grading" ).Range( 0.f, 2.f );
     ME_FIELD( VignetteIntensity ).Category( "Vignette" ).Range( 0.f, 1.f );
-    ME_FIELD( Graphs ).Category( "Shader Graphs" ).Asset( "ShaderGraph" ).Tooltip( "Post Process shader graphs, applied in order (each before or after tonemapping, per the graph)" );
     ME_FIELD( VignetteSmoothness ).Category( "Vignette" ).Range( 0.01f, 2.f );
+    ME_FIELD( Graphs ).Category( "Shader Graphs" ).Asset( "ShaderGraph" ).Tooltip( "Post Process shader graphs, applied in order (each before or after tonemapping, per the graph)" );
+    ME_FIELD( GraphParams ).Category( "Shader Graphs" ).Display( "Graph Properties" ).Tooltip( "This volume's values for each graph's exposed properties" );
 ME_REFLECT_END()
 
 
@@ -51,6 +52,34 @@ PostProcess::PostProcess()
     : Component( "PostProcess" )
 {
 }
+
+
+void PostProcess::ResolveGraphs() const
+{
+    // Loaded once per path (Material.json is small; its programs load in the background).
+    if( m_graphs.size() != Graphs.size() )
+    {
+        m_graphs.resize( Graphs.size() );
+    }
+    for( size_t i = 0; i < Graphs.size(); ++i )
+    {
+        const std::string& path = Graphs[i].GetLocalPathString();
+        if( m_graphs[i].first != path )
+        {
+            m_graphs[i].first = path;
+            m_graphs[i].second = path.empty() ? nullptr : ResourceCache::GetInstance().Get<Moonlight::ShaderGraphAsset>( Moonlight::ShaderGraphAsset::ManifestPathFor( path ) );
+        }
+    }
+    GraphParams.Sync( m_graphs );
+}
+
+
+#if USING( ME_EDITOR )
+void PostProcess::OnEditorInspect()
+{
+    ResolveGraphs();
+}
+#endif
 
 
 Moonlight::PostProcessSettings PostProcess::ToSettings() const
@@ -95,22 +124,21 @@ Moonlight::PostProcessSettings PostProcess::ToSettings() const
     settings.FXAA = FXAA;
     settings.TemporalAA = TemporalAA;
     settings.TemporalSharpness = TemporalSharpness;
-    // Graphs: loaded once per path (Material.json is small; its programs load in the background).
-    if( m_graphs.size() != Graphs.size() )
+    ResolveGraphs();
+    for( const auto& graph : m_graphs )
     {
-        m_graphs.resize( Graphs.size() );
-    }
-    for( size_t i = 0; i < Graphs.size(); ++i )
-    {
-        const std::string& path = Graphs[i].GetLocalPathString();
-        if( m_graphs[i].first != path )
+        if( graph.second && graph.second->IsValid() && graph.second->GetTarget() == "PostProcess" )
         {
-            m_graphs[i].first = path;
-            m_graphs[i].second = path.empty() ? nullptr : ResourceCache::GetInstance().Get<Moonlight::ShaderGraphAsset>( Moonlight::ShaderGraphAsset::ManifestPathFor( path ) );
-        }
-        if( m_graphs[i].second && m_graphs[i].second->IsValid() && m_graphs[i].second->GetTarget() == "PostProcess" )
-        {
-            settings.Graphs.push_back( m_graphs[i].second );
+            settings.Graphs.push_back( graph.second );
+            settings.GraphBindings.emplace_back();
+            if( const Moonlight::ShaderGraphParams* params = GraphParams.Find( graph.first ) )
+            {
+                params->Fill( settings.GraphBindings.back() );
+            }
+            else
+            {
+                graph.second->PackParameters( {}, settings.GraphBindings.back().Block );
+            }
         }
     }
     return settings;

@@ -16,6 +16,7 @@ ME_REFLECT_BEGIN( Decal )
     ME_FIELD( Size ).Display( "Size (m)" ).Tooltip( "The projection box: width, height and depth" );
     ME_FIELD( SortOrder ).Tooltip( "Overlapping decals draw in ascending order (higher lands on top)" );
     ME_FIELD( Graph ).Asset( "ShaderGraph" ).Tooltip( "A Decal shader graph for the projected surface (replaces the textures and surface values)" );
+    ME_FIELD( GraphParams ).Display( "Graph Properties" ).Tooltip( "This decal's values for the graph's exposed properties" );
     ME_FIELD( Metallic ).Category( "Surface" ).Range( 0.f, 1.f ).Speed( 0.01f );
     ME_FIELD( Roughness ).Category( "Surface" ).Range( 0.f, 1.f ).Speed( 0.01f );
     ME_FIELD( NormalStrength ).Category( "Surface" ).Range( 0.f, 4.f ).Speed( 0.01f );
@@ -50,8 +51,17 @@ bool Decal::Resolve()
         m_loadedGraph = graph;
         m_graph = graph.empty() ? nullptr : ResourceCache::GetInstance().Get<Moonlight::ShaderGraphAsset>( Moonlight::ShaderGraphAsset::ManifestPathFor( graph ) );
     }
+    GraphParams.Asset = m_graph;
     return !m_albedo || !m_albedo->IsLoading();
 }
+
+
+#if USING( ME_EDITOR )
+void Decal::OnEditorInspect()
+{
+    Resolve();
+}
+#endif
 
 
 Matrix4 Decal::BoxMatrix( Transform& InTransform, const Vector3& InSize )
@@ -118,5 +128,9 @@ Moonlight::DecalCommand Decal::BuildCommand( Transform& InTransform ) const
     command.WorldBounds = AABB::FromCenterExtents( Vector3(), Vector3( 0.5f, 0.5f, 0.5f ) ).Transformed( box );
     command.SortOrder = SortOrder;
     command.Graph = m_graph && m_graph->IsValid() && m_graph->GetTarget() == "Decal" ? m_graph : nullptr;
+    if( command.Graph )
+    {
+        GraphParams.Fill( command.GraphBinding );
+    }
     return command;
 }

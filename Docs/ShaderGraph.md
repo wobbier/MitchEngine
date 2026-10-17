@@ -27,6 +27,7 @@ Node-based shaders, edited in Havana and compiled to ordinary bgfx shader source
 | Export | `WriteGeneratedFiles` / `CompileAndExport` | Writes `<Name>.sg/` (only files that changed, dropping their stale binaries) |
 | Runtime asset | `Moonlight::ShaderGraphAsset` | `Material.json` + programs (`Forward`, `Skinned`, `Shadow`, `ShadowSkinned`); packs and binds parameters |
 | Material | `ShaderGraphMaterial` | Per-mesh parameter / texture overrides for a Lit or Unlit graph |
+| Per-object values | `Moonlight::ShaderGraphParams` / `ShaderGraphParamsList` (`ShaderGraphParams.h`) | Exposed-property values and texture overrides by name, their inspector, and the `ShaderGraphBinding` (packed block + textures) render commands carry |
 
 ## Key Files
 
@@ -54,8 +55,10 @@ Node-based shaders, edited in Havana and compiled to ordinary bgfx shader source
 
 ## Using it
 
-- **Create:** in the asset browser, right-click > Create > Shader Graph > Lit / Unlit / Particle / Decal / Post Process.
-- **Open:** double-click a `.shadergraph`, or click **Open in Shader Graph** on a graph material.
+- **Create:**
+  - **File > New Shader Graph > Lit / Unlit / Particle / Decal / Post Process...** picks a location and opens the new graph.
+  - Or the asset browser's **+ Create** button (or right-click > Create) > Shader Graph, in the current folder.
+- **Open:** **File > Open Shader Graph...**, double-click a `.shadergraph`, or click **Open in Shader Graph** on a graph material.
 - **Edit:**
   - **Space** or right-click on the canvas opens the node palette. Its search covers names, keywords and categories, and lists blackboard properties too.
   - Drag from a pin into empty space for a palette of compatible nodes; the new node connects itself.
@@ -77,12 +80,17 @@ Node-based shaders, edited in Havana and compiled to ordinary bgfx shader source
 
 | Target | Where | Notes |
 |--------|-------|-------|
-| Lit / Unlit | Mesh > **Use Shader Graph...** (or Material Type: Shader Graph) | `ShaderGraphMaterial`: exposed properties appear in the inspector; per-mesh overrides serialize as `Params` / `Textures` |
+| Lit / Unlit | Mesh > **Use Shader Graph...** (or Material Type: Shader Graph); **Remove Shader Graph** goes back to Standard | `ShaderGraphMaterial`: exposed properties appear in the inspector; per-mesh overrides serialize as `Params` / `Textures` |
 | Particle | `ParticleSystem.Graph` | Replaces the particle fragment shader; the system's Texture is the **Particle Texture** node |
 | Decal | `Decal.Graph` | Replaces the decal's textures and surface values; angle fade still applies |
 | Post Process | `PostProcess.Graphs` (a list, applied in order) | **Injection**: Before Tonemap (HDR, bloom and exposure see it) or After Tonemap (display image) |
 
-Particle, decal and post graphs use their graph's defaults (no per-instance overrides yet).
+Every user sets the graph's **Exposed** properties per object, under **Graph Properties** in its inspector. Unset values follow the graph's defaults, and **Reset** returns to them.
+- Particle systems and decals keep theirs in `GraphParams` (`{ "Params": { name: [x, y, z, w] }, "Textures": { name: path } }`, like a material).
+- A post process keeps one set per graph in `GraphParams`, keyed by graph path. A graph listed twice shares one set; removing a graph from the list drops its values.
+- A new graph has no properties: add them on the blackboard, tick **Exposed**, and save before they show up.
+
+Asset fields have a picker (**..**) and a clear button (**x**). List fields (`PostProcess.Graphs`) add with **+**, remove the last with **-**, remove an entry with its own **-**, and reorder by right-clicking an entry's index.
 
 ## How It Works
 
@@ -205,7 +213,6 @@ node.Expressions = { { "Out", "{In} / ((1.0 / {Bias} - 2.0) * (1.0 - {In}) + 1.0
 - **Budgets:** 16 parameter vec4s per graph. Textures: 8 for Lit/Unlit, 7 for decals, 6 for particles and post.
 - **Picking** ignores vertex offsets.
 - **Decal graph texture samples** use implicit derivatives, so mips can pop along depth edges (the built-in decal uses one-pixel footprints).
-- **No per-instance overrides** for particle, decal and post graphs yet: they use the graph's defaults.
 - **Dynamic inputs:** the inline value of an unconnected dynamic input is a full vec4. The editor stores scalar edits on every component, so widening keeps their meaning; values written by hand in the JSON as `[v, 0, 0, 0]` widen to `(v, 0, 0)`.
 - **Unsaved edits on quit:** quitting the editor with an unsaved graph (and Live on) leaves the exported shaders ahead of the saved graph. The project-graph test reports it.
 - **Not verified here:** D3D (`s_5_0`) only compiles on Windows, and Metal/D3D rendering hasn't been run.

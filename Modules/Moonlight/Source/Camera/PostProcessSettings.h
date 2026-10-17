@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <vector>
 #include "Pointers.h"
+#include "Materials/ShaderGraphParams.h"
 
 namespace Moonlight
 {
@@ -74,5 +75,7 @@ namespace Moonlight
         // Post Process shader graphs, in order (each runs before or after tonemapping per its
         // Injection setting).
         std::vector<SharedPtr<ShaderGraphAsset>> Graphs;
+        // Each graph's property values (parallel to Graphs).
+        std::vector<ShaderGraphBinding> GraphBindings;
     };
 }

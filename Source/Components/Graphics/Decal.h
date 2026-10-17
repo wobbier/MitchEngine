@@ -2,6 +2,7 @@
 #include "ECS/Component.h"
 #include "ECS/ComponentDetail.h"
 #include "RenderCommands.h"
+#include "Materials/ShaderGraphParams.h"
 #include "Path.h"
 #include "Pointers.h"
 #include "Math/Matrix4.h"
@@ -46,6 +47,8 @@ public:
     int SortOrder = 0;
     // A Decal shader graph for the projected surface (replaces Albedo / NormalMap / the surface values).
     Path Graph;
+    // Values for the graph's exposed properties (the graph's defaults where unset).
+    Moonlight::ShaderGraphParams GraphParams;
 
     // Starts loading the textures (when they change) and reports whether the decal can draw: it waits
     // for its albedo to stream in rather than flash a solid tint.
@@ -54,6 +57,11 @@ public:
     Moonlight::DecalCommand BuildCommand( Transform& InTransform ) const;
     // The projection box in world space.
     static Matrix4 BoxMatrix( Transform& InTransform, const Vector3& InSize );
+
+#if USING( ME_EDITOR )
+    // Keeps the Graph Properties in step with Graph even when nothing renders the decal.
+    void OnEditorInspect() override;
+#endif
 
 private:
     SharedPtr<Moonlight::Texture> m_albedo;

@@ -118,6 +118,17 @@ void MainMenuWidget::Render()
                 ImGui::EndMenu();
             }
             ImGui::Separator();
+            if( ImGui::BeginMenu( "New Shader Graph" ) )
+            {
+                actions.MenuItem( "ShaderGraph.NewLit", "Lit..." );
+                actions.MenuItem( "ShaderGraph.NewUnlit", "Unlit..." );
+                actions.MenuItem( "ShaderGraph.NewParticle", "Particle..." );
+                actions.MenuItem( "ShaderGraph.NewDecal", "Decal..." );
+                actions.MenuItem( "ShaderGraph.NewPostProcess", "Post Process..." );
+                ImGui::EndMenu();
+            }
+            actions.MenuItem( "ShaderGraph.Open" );
+            ImGui::Separator();
             actions.MenuItem( "File.Save" );
             actions.MenuItem( "File.SaveAs" );
             ImGui::Separator();

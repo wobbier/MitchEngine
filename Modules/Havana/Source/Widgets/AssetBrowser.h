@@ -73,6 +73,7 @@ private:
     void DrawList();
     void DrawEntryContextMenu( Entry& InEntry );
     void DrawBackgroundContextMenu();
+    void DrawCreateMenuItems();
     void DrawDetails();
     void DrawPickerFooter();
     void DrawModals();

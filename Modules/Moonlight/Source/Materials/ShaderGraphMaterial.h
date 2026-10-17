@@ -57,9 +57,7 @@ private:
 
     std::string m_graphPath;
     SharedPtr<Moonlight::ShaderGraphAsset> m_asset;
-    std::map<std::string, Vector4> m_parameters;
-    std::map<std::string, std::string> m_texturePaths;
-    std::map<std::string, SharedPtr<Moonlight::Texture>> m_textures;
+    Moonlight::ShaderGraphParams m_params;
     Vector4 m_block[Moonlight::ShaderGraphAsset::kMaxParameters];
     uint64_t m_blockHash = 0;
     uint32_t m_syncedRevision = 0;

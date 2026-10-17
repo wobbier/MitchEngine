@@ -9,6 +9,7 @@
 #include "Math/Vector4.h"
 #include "Pointers.h"
 #include "Resource/Resource.h"
+#include "Materials/ShaderGraphParams.h"
 
 namespace Moonlight
 {
@@ -121,6 +122,10 @@ namespace Moonlight
         // Uploads a packed block and binds every texture slot (overrides by name, then the graph's
         // asset, then its fallback). Call before submitting a draw with one of the programs.
         void Bind( const Vector4 InBlock[kMaxParameters], const std::map<std::string, SharedPtr<Texture>>& InTextures ) const;
+        void Bind( const ShaderGraphBinding& InBinding ) const
+        {
+            Bind( InBinding.Block, InBinding.Textures );
+        }
 
         // The graph's project path ("Assets/Foo.shadergraph").
         const std::string& GetGraphPath() const

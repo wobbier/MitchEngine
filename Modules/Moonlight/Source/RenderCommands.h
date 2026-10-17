@@ -9,6 +9,7 @@
 #include "Pointers.h"
 #include <bgfx/bgfx.h>
 #include <glm/glm.hpp>
+#include "Materials/ShaderGraphParams.h"
 
 namespace Moonlight {
     class ShaderCommand;
@@ -127,6 +128,8 @@ namespace Moonlight
         int SortOrder = 0;
         // A Decal-target shader graph replacing the built-in decal surface (null: the built-in one).
         SharedPtr<ShaderGraphAsset> Graph;
+        // The decal's values for the graph's properties.
+        ShaderGraphBinding GraphBinding;
     };
 
     // One light for this frame, gathered from Light components by RenderCore.
@@ -201,5 +204,7 @@ namespace Moonlight
         std::vector<ParticleInstance> Instances;
         // A Particle-target shader graph colouring the quads (null: the built-in particle shader).
         SharedPtr<ShaderGraphAsset> Graph;
+        // The particle system's values for the graph's properties.
+        ShaderGraphBinding GraphBinding;
     };
 }

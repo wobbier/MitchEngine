@@ -154,6 +154,7 @@ namespace
         case AssetType::Prefab: return ".prefab";
         case AssetType::Material: return ".mat";
         case AssetType::CS: return ".cs";
+        case AssetType::ShaderGraph: return ".shadergraph";
         default: return {};
         }
     }
@@ -609,6 +610,17 @@ void AssetBrowserWidget::DrawToolbar()
         Navigate( ToGeneric( current.parent_path() ) );
     }
     ImGui::EndDisabled();
+    ImGui::SameLine();
+    if( ImGui::Button( "+ Create" ) )
+    {
+        ImGui::OpenPopup( "CreateAssetMenu" );
+    }
+    ImGui::SetItemTooltip( "Create an asset in this folder (also on right-click)" );
+    if( ImGui::BeginPopup( "CreateAssetMenu" ) )
+    {
+        DrawCreateMenuItems();
+        ImGui::EndPopup();
+    }
 
     // Breadcrumbs: each segment is a button and a drop target.
     ImGui::SameLine();
@@ -1209,93 +1221,7 @@ void AssetBrowserWidget::DrawBackgroundContextMenu()
     }
     if( ImGui::BeginMenu( "Create" ) )
     {
-        if( ImGui::MenuItem( "Folder" ) )
-        {
-            CreateFolder();
-        }
-        ImGui::Separator();
-        if( ImGui::MenuItem( "Scene" ) )
-        {
-            CreateAsset( "New Scene", ".lvl", json{ { "Version", SceneSerializer::kVersion }, { "Cores", json::array() }, { "Entities", json::array() } }.dump( 4 ) );
-        }
-        if( ImGui::MenuItem( "Prefab" ) )
-        {
-            const json prefab = { { "Version", SceneSerializer::kVersion }, { "Entities", json::array( { json{ { "GUID", SceneSerializer::GUIDToString( 1 ) }, { "Name", "New Prefab" }, { "Components", json::array( { json{ { "Type", "Transform" } } } ) } } } ) } };
-            CreateAsset( "New Prefab", ".prefab", prefab.dump( 4 ) );
-        }
-        if( ImGui::MenuItem( "Material" ) )
-        {
-            CreateAsset( "New Material", ".mat", json{ { "Type", "DiffuseMaterial" }, { "DiffuseColor", { 1.0, 1.0, 1.0 } } }.dump( 4 ) );
-        }
-        if( ImGui::BeginMenu( "Shader Graph" ) )
-        {
-            static const std::pair<const char*, ShaderGraph::Target> kTargets[] = {
-                { "Lit", ShaderGraph::Target::Lit }, { "Unlit", ShaderGraph::Target::Unlit }, { "Particle", ShaderGraph::Target::Particle },
-                { "Decal", ShaderGraph::Target::Decal }, { "Post Process", ShaderGraph::Target::PostProcess }
-            };
-            for( const auto& target : kTargets )
-            {
-                if( ImGui::MenuItem( target.first ) )
-                {
-                    json contents;
-                    ShaderGraph::Graph::CreateDefault( target.second ).Serialize( contents );
-                    CreateAsset( std::string( "New " ) + target.first + " Graph", ShaderGraph::Graph::kExtension, contents.dump( 1, '\t' ) );
-                }
-            }
-            ImGui::EndMenu();
-        }
-        if( ImGui::MenuItem( "Input Actions" ) )
-        {
-            // A starter map: move, look and jump on keyboard / mouse and gamepad.
-            InputActionMap map;
-            InputContext gameplay;
-            gameplay.Name = "Gameplay";
-            InputAction move{ "Move", InputActionType::Vector2 };
-            InputBinding wasd;
-            wasd.Kind = InputBindingKind::Vector2;
-            wasd.Up = "Keyboard/W";
-            wasd.Down = "Keyboard/S";
-            wasd.Left = "Keyboard/A";
-            wasd.Right = "Keyboard/D";
-            InputBinding leftStick;
-            leftStick.Control = "Gamepad/LeftStick";
-            move.Bindings = { wasd, leftStick };
-            InputAction look{ "Look", InputActionType::Vector2 };
-            InputBinding mouse;
-            mouse.Control = "Mouse/Delta";
-            mouse.Scale = 0.1f;
-            InputBinding rightStick;
-            rightStick.Control = "Gamepad/RightStick";
-            look.Bindings = { mouse, rightStick };
-            InputAction jump{ "Jump", InputActionType::Button };
-            InputBinding space;
-            space.Control = "Keyboard/Space";
-            InputBinding south;
-            south.Control = "Gamepad/South";
-            jump.Bindings = { space, south };
-            gameplay.Actions = { move, look, jump };
-            map.Contexts = { gameplay };
-            json contents;
-            Reflection::ToJson( InputActionMap::StaticType(), &map, contents );
-            CreateAsset( "New Input Actions", ".inputactions", contents.dump( 4 ) );
-        }
-        if( ImGui::MenuItem( "C# Script" ) )
-        {
-            const std::string name = fs::path( UniquePath( m_currentFolder, "NewScript", ".cs" ) ).stem().string();
-            const std::string script =
-                "using System;\n"
-                "using ScriptCore;\n\n"
-                "public class " + name + " : Script\n"
-                "{\n"
-                "    public override void OnStart()\n"
-                "    {\n"
-                "    }\n\n"
-                "    public override void OnUpdate(float dt)\n"
-                "    {\n"
-                "    }\n"
-                "}\n";
-            CreateAsset( name, ".cs", script );
-        }
+        DrawCreateMenuItems();
         ImGui::EndMenu();
     }
     ImGui::Separator();
@@ -1312,6 +1238,99 @@ void AssetBrowserWidget::DrawBackgroundContextMenu()
         BuildAssets();
     }
     ImGui::EndPopup();
+}
+
+
+// Shared by the toolbar's Create button and the background context menu's Create submenu.
+void AssetBrowserWidget::DrawCreateMenuItems()
+{
+    if( ImGui::MenuItem( "Folder" ) )
+    {
+        CreateFolder();
+    }
+    ImGui::Separator();
+    if( ImGui::MenuItem( "Scene" ) )
+    {
+        CreateAsset( "New Scene", ".lvl", json{ { "Version", SceneSerializer::kVersion }, { "Cores", json::array() }, { "Entities", json::array() } }.dump( 4 ) );
+    }
+    if( ImGui::MenuItem( "Prefab" ) )
+    {
+        const json prefab = { { "Version", SceneSerializer::kVersion }, { "Entities", json::array( { json{ { "GUID", SceneSerializer::GUIDToString( 1 ) }, { "Name", "New Prefab" }, { "Components", json::array( { json{ { "Type", "Transform" } } } ) } } } ) } };
+        CreateAsset( "New Prefab", ".prefab", prefab.dump( 4 ) );
+    }
+    if( ImGui::MenuItem( "Material" ) )
+    {
+        CreateAsset( "New Material", ".mat", json{ { "Type", "DiffuseMaterial" }, { "DiffuseColor", { 1.0, 1.0, 1.0 } } }.dump( 4 ) );
+    }
+    if( ImGui::BeginMenu( "Shader Graph" ) )
+    {
+        static const std::pair<const char*, ShaderGraph::Target> kTargets[] = {
+            { "Lit", ShaderGraph::Target::Lit }, { "Unlit", ShaderGraph::Target::Unlit }, { "Particle", ShaderGraph::Target::Particle },
+            { "Decal", ShaderGraph::Target::Decal }, { "Post Process", ShaderGraph::Target::PostProcess }
+        };
+        for( const auto& target : kTargets )
+        {
+            if( ImGui::MenuItem( target.first ) )
+            {
+                json contents;
+                ShaderGraph::Graph::CreateDefault( target.second ).Serialize( contents );
+                CreateAsset( std::string( "New " ) + target.first + " Graph", ShaderGraph::Graph::kExtension, contents.dump( 1, '\t' ) );
+            }
+        }
+        ImGui::EndMenu();
+    }
+    if( ImGui::MenuItem( "Input Actions" ) )
+    {
+        // A starter map: move, look and jump on keyboard / mouse and gamepad.
+        InputActionMap map;
+        InputContext gameplay;
+        gameplay.Name = "Gameplay";
+        InputAction move{ "Move", InputActionType::Vector2 };
+        InputBinding wasd;
+        wasd.Kind = InputBindingKind::Vector2;
+        wasd.Up = "Keyboard/W";
+        wasd.Down = "Keyboard/S";
+        wasd.Left = "Keyboard/A";
+        wasd.Right = "Keyboard/D";
+        InputBinding leftStick;
+        leftStick.Control = "Gamepad/LeftStick";
+        move.Bindings = { wasd, leftStick };
+        InputAction look{ "Look", InputActionType::Vector2 };
+        InputBinding mouse;
+        mouse.Control = "Mouse/Delta";
+        mouse.Scale = 0.1f;
+        InputBinding rightStick;
+        rightStick.Control = "Gamepad/RightStick";
+        look.Bindings = { mouse, rightStick };
+        InputAction jump{ "Jump", InputActionType::Button };
+        InputBinding space;
+        space.Control = "Keyboard/Space";
+        InputBinding south;
+        south.Control = "Gamepad/South";
+        jump.Bindings = { space, south };
+        gameplay.Actions = { move, look, jump };
+        map.Contexts = { gameplay };
+        json contents;
+        Reflection::ToJson( InputActionMap::StaticType(), &map, contents );
+        CreateAsset( "New Input Actions", ".inputactions", contents.dump( 4 ) );
+    }
+    if( ImGui::MenuItem( "C# Script" ) )
+    {
+        const std::string name = fs::path( UniquePath( m_currentFolder, "NewScript", ".cs" ) ).stem().string();
+        const std::string script =
+            "using System;\n"
+            "using ScriptCore;\n\n"
+            "public class " + name + " : Script\n"
+            "{\n"
+            "    public override void OnStart()\n"
+            "    {\n"
+            "    }\n\n"
+            "    public override void OnUpdate(float dt)\n"
+            "    {\n"
+            "    }\n"
+            "}\n";
+        CreateAsset( name, ".cs", script );
+    }
 }
 
 

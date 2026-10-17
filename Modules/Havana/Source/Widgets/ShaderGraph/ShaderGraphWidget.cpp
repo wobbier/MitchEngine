@@ -4,7 +4,9 @@
 #include "CLog.h"
 #include "Editor/EditorActions.h"
 #include "Events/EditorEvents.h"
+#include "File.h"
 #include "Path.h"
+#include "ShaderGraph/Graph.h"
 #include "ShaderGraphDocument.h"
 #include "RenderViews.h"
 #include "imgui_internal.h"
@@ -12,6 +14,20 @@
 namespace
 {
     ShaderGraphWidget* s_instance = nullptr;
+
+    struct NewGraphTarget
+    {
+        const char* ActionId;
+        const char* Name;
+        ShaderGraph::Target Target;
+    };
+    const NewGraphTarget kNewGraphTargets[] = {
+        { "ShaderGraph.NewLit", "Lit", ShaderGraph::Target::Lit },
+        { "ShaderGraph.NewUnlit", "Unlit", ShaderGraph::Target::Unlit },
+        { "ShaderGraph.NewParticle", "Particle", ShaderGraph::Target::Particle },
+        { "ShaderGraph.NewDecal", "Decal", ShaderGraph::Target::Decal },
+        { "ShaderGraph.NewPostProcess", "Post Process", ShaderGraph::Target::PostProcess },
+    };
 
 
     std::string NormalizePath( const std::string& InPath )
@@ -60,6 +76,31 @@ void ShaderGraphWidget::Init()
             m_focused->ExecuteAction( InId );
         }
     };
+
+    // File > New Shader Graph / Open Shader Graph... (and the command palette).
+    actions.Register( { "ShaderGraph.Open", "Open Shader Graph...", "File", 0, 0, []() {
+        RequestAssetSelectionEvent evt( []( Path InSelected ) {
+            OpenShaderGraphEvent open;
+            open.GraphPath = InSelected.GetLocalPathString();
+            open.Fire();
+        }, AssetType::ShaderGraph );
+        evt.Fire();
+    } } );
+    for( const auto& target : kNewGraphTargets )
+    {
+        const ShaderGraph::Target graphTarget = target.Target;
+        actions.Register( { target.ActionId, std::string( "New " ) + target.Name + " Shader Graph...", "File", 0, 0, [graphTarget]() {
+            RequestAssetSelectionEvent evt( [graphTarget]( Path InSelected ) {
+                json contents;
+                ShaderGraph::Graph::CreateDefault( graphTarget ).Serialize( contents );
+                File( InSelected ).Write( contents.dump( 1, '\t' ) );
+                OpenShaderGraphEvent open;
+                open.GraphPath = InSelected.GetLocalPathString();
+                open.Fire();
+            }, AssetType::ShaderGraph, true );
+            evt.Fire();
+        } } );
+    }
 }
 
 

@@ -70,8 +70,19 @@ public:
 
     // Post Process shader graphs, applied in order.
     std::vector<Path> Graphs;
+    // Values for each graph's exposed properties, by graph (resolved alongside the graphs in
+    // ToSettings, hence mutable).
+    mutable Moonlight::ShaderGraphParamsList GraphParams;
+
+#if USING( ME_EDITOR )
+    // Keeps the Graph Properties in step with Graphs even when no camera uses this component.
+    void OnEditorInspect() override;
+#endif
 
 private:
+    // Loads Graphs (when they changed) into m_graphs and syncs GraphParams with them (main thread).
+    void ResolveGraphs() const;
+
     // Loaded graphs by path (resolved on the main thread in ToSettings).
     mutable std::vector<std::pair<std::string, SharedPtr<Moonlight::ShaderGraphAsset>>> m_graphs;
 };
