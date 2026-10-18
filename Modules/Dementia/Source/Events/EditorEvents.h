@@ -72,3 +72,10 @@ public:
     }
     std::string GraphPath;
 };
+
+// Opens a source terrain asset in Havana's terrain authoring panel.
+class OpenTerrainEvent : public Event<OpenTerrainEvent>
+{
+public:
+    std::string AssetPath;
+};

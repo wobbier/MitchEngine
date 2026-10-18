@@ -3,6 +3,21 @@
 #include "Resource/ResourceCache.h"
 #include "Resource/AssetDatabase.h"
 #include "Resources/TerrainResource.h"
+#if USING( ME_EDITOR )
+#include "Events/EditorEvents.h"
+#include <filesystem>
+#include <map>
+namespace
+{
+    std::map<std::string, std::shared_ptr<const TerrainData::ResidentTerrain>> s_editorTerrainPreviews;
+    std::string PreviewKey( const Path& path ) { return std::filesystem::path( path.FullPath ).lexically_normal().generic_string(); }
+}
+void Terrain::SetEditorPreview( const Path& asset, std::shared_ptr<const TerrainData::ResidentTerrain> data )
+{
+    if( data ) s_editorTerrainPreviews[PreviewKey( asset )] = std::move( data );
+    else s_editorTerrainPreviews.erase( PreviewKey( asset ) );
+}
+#endif
 
 ME_REFLECT_BEGIN( Terrain )
     ME_FIELD( Asset ).Asset( "Terrain" ).Tooltip( "A terrain manifest (.terrain) or cooked terrain (.terrainc)" );
@@ -32,6 +47,17 @@ void Terrain::ReloadAsset()
 void Terrain::Resolve( bool InWait )
 {
     const std::string path = Asset.GetLocalPathString();
+#if USING( ME_EDITOR )
+    if( !path.empty() )
+    {
+        auto preview = s_editorTerrainPreviews.find( PreviewKey( Asset ) );
+        if( preview != s_editorTerrainPreviews.end() )
+        {
+            m_data = preview->second; m_valid = true; m_error.clear();
+            return;
+        }
+    }
+#endif
     if( path != m_loadedAsset )
     {
         m_loadedAsset = path; m_resource.reset(); m_data.reset();
@@ -53,6 +79,10 @@ void Terrain::Resolve( bool InWait )
 #if USING( ME_EDITOR )
 void Terrain::OnEditorInspect()
 {
+    if( std::string_view( Asset.GetExtension() ) == "terrain" && ImGui::Button( "Edit Terrain" ) )
+    {
+        OpenTerrainEvent event; event.AssetPath = Asset.GetLocalPathString(); event.Fire();
+    }
     if( !Asset.GetLocalPathString().empty() && !IsLoading() && ImGui::Button( "Reload Terrain" ) ) ReloadAsset();
     if( !m_error.empty() ) ImGui::TextWrapped( "%s", m_error.c_str() );
     if( auto data = GetData() )

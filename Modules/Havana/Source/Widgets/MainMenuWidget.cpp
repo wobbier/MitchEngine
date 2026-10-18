@@ -152,6 +152,7 @@ void MainMenuWidget::Render()
             ImGui::Separator();
             actions.MenuItem( "File.Save" );
             actions.MenuItem( "File.SaveAs" );
+            actions.MenuItem( "File.SaveAll" );
             ImGui::Separator();
             actions.MenuItem( "File.Quit" );
             ImGui::EndMenu();

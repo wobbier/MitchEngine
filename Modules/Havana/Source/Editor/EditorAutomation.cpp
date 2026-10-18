@@ -15,6 +15,7 @@
 #include "Widgets/SettingsWidgets.h"
 #include "Utils/EditorConfig.h"
 #include "Widgets/ShaderGraph/ShaderGraphAutomation.h"
+#include "Widgets/Terrain/TerrainAutomation.h"
 #include "Components/Audio/AudioSource.h"
 #include "Components/Transform.h"
 #include "Components/Graphics/Model.h"
@@ -262,7 +263,12 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
     auto [command, args] = SplitWord( InLine );
     World& world = EditorOps::GetWorld();
 
-    if( command.rfind( "sg-", 0 ) == 0 )
+    if( command.rfind( "terrain-", 0 ) == 0 )
+    {
+        std::string error;
+        if( !TerrainAutomation::Execute( command, args, error ) ) Fail( command + ": " + error );
+    }
+    else if( command.rfind( "sg-", 0 ) == 0 )
     {
         std::string error;
         bool retry = false;

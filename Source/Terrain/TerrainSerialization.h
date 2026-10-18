@@ -35,8 +35,8 @@ namespace TerrainData
         double QuantizationErrorBound = 0.0; // Includes Float32 decode rounding.
     };
 
-    // Version 1 codecs operate on buffers only. Disk publication and asset registration belong
-    // to the later resource/editor adapters. Every failure preserves the caller's output.
+    // Version 1 codecs operate on buffers only. TerrainAsset supplies source file publication;
+    // resource/editor adapters own asset registration. Failures preserve the caller's output.
     bool SerializeManifest( const Manifest& InManifest, std::string& OutText, std::string& OutError );
     bool DeserializeManifest( std::string_view InText, Manifest& OutManifest, std::string& OutError );
     bool SerializePage( const Heightfield& InField, TileCoord InTile, std::vector<uint8_t>& OutData, std::string& OutError );

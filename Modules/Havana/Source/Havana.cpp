@@ -41,6 +41,7 @@
 #include "Widgets/ProfilerWidget.h"
 #include "Widgets/SettingsWidgets.h"
 #include "Widgets/ShaderGraph/ShaderGraphWidget.h"
+#include "Widgets/Terrain/TerrainWidget.h"
 #include "Editor/EditorActions.h"
 #include "Editor/EditorOperations.h"
 #include "Editor/DefaultEditorActions.h"
@@ -133,6 +134,8 @@ Havana::Havana( Engine* GameEngine, EditorApp* app )
     ProjectSettingsView.reset( new ProjectSettingsWidget() );
     RegisteredWidgets.push_back( ProjectSettingsView );
 
+    TerrainPanel.reset( new TerrainWidget() );
+    RegisteredWidgets.push_back( TerrainPanel );
     ShaderGraphs.reset( new ShaderGraphWidget() );
 
     EditorActions& actions = EditorActions::Get();
@@ -235,6 +238,7 @@ void Havana::InitUI()
     }
 
     ShaderGraphs->Init();
+    TerrainPanel->InstallActionRouting();
 
     Input& gameInput = GetEngine().GetInput();
     gameInput.Stop();
@@ -300,6 +304,7 @@ void Havana::NewFrame()
     Preferences->Render();
     ProjectSettingsView->Render();
     ShaderGraphs->Render();
+    TerrainPanel->Render();
     EditorActions::Get().DrawPalette();
 }
 

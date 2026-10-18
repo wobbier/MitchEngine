@@ -36,6 +36,7 @@
 #include "Engine/AutomationRunner.h"
 #include "Editor/Selection.h"
 #include "Editor/UndoStack.h"
+#include "Widgets/Terrain/TerrainWidget.h"
 #include "World/SceneSerializer.h"
 #include <imgui.h>
 #include <filesystem>
@@ -394,6 +395,11 @@ void EditorApp::RunWithUnsavedCheck( std::function<void()> InAction )
     {
         Stop();
     }
+    if( TerrainWidget::Get() && TerrainWidget::Get()->HasUnsaved() )
+    {
+        TerrainWidget::Get()->ConfirmUnsaved( [this, action = std::move( InAction )]() mutable { RunWithUnsavedCheck( std::move( action ) ); } );
+        return;
+    }
     if( !UndoStack::Get().IsDirty() )
     {
         InAction();
@@ -456,7 +462,7 @@ void EditorApp::RequestQuit()
 
 bool EditorApp::OnQuitRequested()
 {
-    if( !UndoStack::Get().IsDirty() && !m_isGameRunning )
+    if( !UndoStack::Get().IsDirty() && !m_isGameRunning && !( TerrainWidget::Get() && TerrainWidget::Get()->HasUnsaved() ) )
     {
         return true;
     }

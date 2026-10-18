@@ -1,4 +1,5 @@
 #include "AssetBrowser.h"
+#include "Widgets/Terrain/TerrainWidget.h"
 #include "World/SceneSerializer.h"
 #include "Editor/PrefabTools.h"
 #include "Editor/EditorActions.h"
@@ -155,6 +156,7 @@ namespace
         case AssetType::Material: return ".mat";
         case AssetType::CS: return ".cs";
         case AssetType::ShaderGraph: return ".shadergraph";
+        case AssetType::Terrain: return ".terrain";
         default: return {};
         }
     }
@@ -1158,6 +1160,11 @@ void AssetBrowserWidget::OpenEntry( Entry& InEntry )
     if( m_isSaveDialog )
     {
         std::snprintf( m_saveName, sizeof( m_saveName ), "%s", fs::path( InEntry.Name ).stem().string().c_str() );
+        return;
+    }
+    if( InEntry.Type == AssetType::Terrain )
+    {
+        if( TerrainWidget::Get() ) TerrainWidget::Get()->Open( LocalPath( InEntry.FullPath ) );
         return;
     }
     if( InEntry.Type == AssetType::ShaderGraph )

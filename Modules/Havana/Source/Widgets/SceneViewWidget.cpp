@@ -1,4 +1,5 @@
 #include "SceneViewWidget.h"
+#include "Widgets/Terrain/TerrainWidget.h"
 #include <EditorApp.h>
 #include "Cores/EditorCore.h"
 #include <Engine/Engine.h>
@@ -516,9 +517,21 @@ void SceneViewWidget::Render()
 	{
 		DrawStatsOverlay();
 		if (m_viewOptions.DebugDraw) DrawIcons();
-		DrawManipulator();
+		IsUsingGuizmo = false;
 		DrawViewCube();
-		HandleMouse();
+		const bool cubeOwnsMouse = IsUsingGuizmo;
+		const bool terrainOwnsMouse = TerrainWidget::Get() && TerrainWidget::Get()->DrawViewport(*this, m_viewportScreenMin, m_viewportScreenSize);
+		if (!terrainOwnsMouse)
+		{
+			DrawManipulator();
+			IsUsingGuizmo |= cubeOwnsMouse;
+			HandleMouse();
+		}
+		else
+		{
+			m_pressed = m_marquee = m_clicked = false;
+			IsUsingGuizmo |= ImGui::IsMouseDown(ImGuiMouseButton_Left) && !ImGui::GetIO().KeyAlt;
+		}
 	}
 
 	ImGui::End();

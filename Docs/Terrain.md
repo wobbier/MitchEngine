@@ -1,8 +1,8 @@
 # Terrain
 
-> Verified against engine commit `73fbac9d` plus the resident terrain integration change, 2026-10-18.
+> Verified against engine commit `1bd89ef9` plus the terrain authoring change, 2026-10-18.
 
-The terrain system loads a fully resident tiled heightfield into one `Terrain` scene component, renders internal patches through the ordinary lit mesh path, and provides static triangle-mesh collision at canonical sample resolution. The `TerrainData` library supplies signed addressing, shared-border edits, normals and queries, patch geometry, and source/cooked serialization. Runtime LOD selection, streaming, and sculpting tools are not implemented yet.
+The terrain system loads a fully resident tiled heightfield into one `Terrain` scene component, renders internal patches through the ordinary lit mesh path, and provides static triangle-mesh collision at canonical sample resolution. The `TerrainData` library supplies signed addressing, shared-border edits, normals and queries, patch geometry, source/cooked serialization, brush strokes and source publication. Havana provides a terrain authoring panel with four sculpting tools. Runtime LOD selection and streaming are not implemented yet.
 
 ## Overview
 
@@ -17,6 +17,10 @@ A `Heightfield` owns validated `Settings` and a map of resident tiles. Each tile
 | `Source/Terrain/Heightfield.h` / `Source/Terrain/Heightfield.cpp` | Settings, coordinates, resident pages, revisions, dirty samples, edits and queries |
 | `Source/Terrain/TerrainMesh.h` / `Source/Terrain/TerrainMesh.cpp` | CPU patch vertices, local bounds, full/coarse index lists, geometric errors |
 | `Source/Terrain/TerrainSerialization.h` / `Source/Terrain/TerrainSerialization.cpp` | JSON manifest, binary source pages, independently checksummed cooked tile blocks |
+| `Source/Terrain/TerrainEditing.h` / `Source/Terrain/TerrainEditing.cpp` | Distance-spaced strokes, sample deltas and source triangle picking |
+| `Source/Terrain/TerrainAsset.h` / `Source/Terrain/TerrainAsset.cpp` | Source loading and generation-based manifest publication |
+| `Modules/Havana/Source/Widgets/Terrain/TerrainWidget.h` / `Modules/Havana/Source/Widgets/Terrain/TerrainDocument.h` | Terrain panel, document history and shared previews |
+| `Tests/Source/TerrainEditingTests.cpp` | Cross-tile strokes, source picking and publication failures |
 | `Tests/Source/TerrainTests.cpp` | Addressing, shared borders, missing data, query/mesh agreement, serialization and malformed input |
 | `Source/Terrain/ResidentTerrain.h` / `Source/Terrain/ResidentTerrain.cpp` | Immutable CPU snapshots, patch preparation, collision tiles and translation validation |
 | `Source/Resources/TerrainResource.h` / `Source/Resources/TerrainResource.cpp` | Background source/cooked loading, metadata registration and snapshot publication |
@@ -116,3 +120,23 @@ The focused test filter is `--test-case=Terrain:*` on `MitchEngine_Tests`. The s
 - [Rendering pipeline](Rendering-Pipeline.md) — the existing mesh command path
 - [Resources and assets](Resources-and-Assets.md) — metadata and background loading
 - [Jobs and events](Jobs-and-Events.md) — worker and main-thread boundaries
+
+## Editor authoring
+
+Open **View > Terrain**, use the command palette's **New Terrain...** / **Open Terrain...**, double-click a `.terrain` in the asset browser, or use **Edit Terrain** on a component. New Terrain creates a saved flat source asset with configurable tile counts, quads per tile, spacing and starting height. **Place in Scene** adds one undoable terrain instance and frames it. The creation dialog caps source data at one million stored samples; terrain rendering still uses resident data and full-resolution patches.
+
+The panel has six workspaces: **Sculpt**, **Paint**, **Tiles**, **Foliage**, **Splines** and **Inspect**. Sculpt implements **Raise**, **Lower**, **Smooth** and **Flatten**. Other tool buttons are disabled placeholders with explanatory tooltips, including heightmap import, material layers, erosion, tile streaming, vegetation, roads, LOD diagnostics and cooking. **Asset & Build** contains save/revert controls and the planned asset operations. Icons come from `Assets/Icons/outline/` and are decoded as SVGs into theme-tinted editor textures; the panel releases its textures before renderer shutdown.
+
+Select a terrain instance, open its source document, then select a sculpt tool or enable the brush. Drag in World View to sculpt. The outer ring marks radius; the inner ring marks the fully weighted center. Shift swaps Raise and Lower for a new stroke. Radius, strength, falloff and spacing persist as editor preferences. Strength is metres per stamp for Raise/Lower and a clamped blend fraction for Smooth/Flatten. Stamps are spaced by `Radius * Spacing`; holding still adds no stamps. Flatten picks its target elevation at gesture start. Smooth gathers the whole stamp's results before changing samples so traversal order cannot change its neighborhood inputs.
+
+`TerrainData::RaycastHeightfield` picks canonical source triangles using a quad DDA, independently of collision and rendering. `BrushStroke` requires all source pages, modifies shared samples through `Heightfield::SetSample`, and returns one deduplicated before/after delta array. A stroke can span four tiles. The tool owns the mouse gesture so picking, marquee selection and transform gizmos do not also consume it. Release outside the image completes a stroke; Escape or application focus loss cancels it. Switching tools/documents, navigation, selection changes and Play finish it. Painting is disabled during Play and for unsupported transforms.
+
+Each `TerrainDocument` owns an `UndoStack`, a mutable CPU field and an immutable preview. Undo/Redo/Save route to the document while its panel or active brush viewport has focus; scene operations keep their separate history. The panel's undo/redo buttons always target its document. A stroke is limited to one million changed samples. History has a conservative 64 MiB delta budget in addition to the stack's command cap; reaching the byte budget releases older history before recording the latest stroke.
+
+Preview publication rebuilds a complete resident snapshot, at most ten times per second during a stroke and once on completion. `Terrain::SetEditorPreview` shares it with every instance referencing that asset while preserving the serialized asset path. Play uses that immutable authoring snapshot; authoring is disabled until Stop restores the scene. Preview rebuilds currently include full render patches and collision data; incremental rebuilds and asynchronous authoring jobs are future work.
+
+**Save Terrain** saves only the active asset; **Save All Terrains** saves all dirty terrain documents. **File > Save All** saves those documents and the scene. New/Open Scene and Quit check terrain dirtiness before the normal scene prompt. Closing the panel preserves its open documents; their unsaved state still participates in these prompts. **Revert from Disk** confirms discarding the active document, and **Save Copy** creates a separate asset identity without rebinding scene instances. Crash autosave/recovery and automatic companion handling for asset-browser moves remain future work.
+
+`TerrainData::SaveSource` writes all source pages to a fresh `<Name>.terrain-data/<generation>/` directory, then stages a neighboring manifest and atomically replaces the `.terrain` file. Windows uses `MoveFileExW`; macOS/Linux use same-directory rename. Serialization/write/publication failure removes the incomplete generation and leaves the previous manifest and pages intact. Successful saves retain previous generations; compaction is not implemented. The document checks the expected manifest text before staging and immediately before publishing to detect external manifest changes. This is an application-level publication guarantee, not a power-loss durability guarantee or a lock against concurrent external writers. Reopen validates every page and shared border before publishing a new preview.
+
+Authoring code lives in `Modules/Havana/Source/Widgets/Terrain/`. CPU brush/picking and source file adapters live in `Source/Terrain/TerrainEditing.*` and `Source/Terrain/TerrainAsset.*`. `Tests/Source/TerrainEditingTests.cpp` covers cross-tile deltas, cancellation, event-independent spacing, stable smoothing, flattening, range limits, source picking, generation retention and failed/conflicting saves. The game repository's `Assets/Scenes/Tests/TerrainAuthoringFlows.edscript` exercises document routing, shared instances, save/reopen, cancellation, panel workspaces, large fonts and Play/Stop.

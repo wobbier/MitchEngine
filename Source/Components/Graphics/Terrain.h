@@ -33,6 +33,8 @@ public:
 
 #if USING( ME_EDITOR )
     void OnEditorInspect() override;
+    // Asset-document previews are immutable, shared across instances, and preserve scene refs.
+    static void SetEditorPreview( const Path& InAsset, std::shared_ptr<const TerrainData::ResidentTerrain> InData );
 #endif
 
 private:

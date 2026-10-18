@@ -1,0 +1,541 @@
+#include "TerrainWidget.h"
+#if USING( ME_EDITOR )
+#include "Editor/EditorActions.h"
+#include "Editor/EditorOperations.h"
+#include "Editor/SceneTools.h"
+#include "Editor/Selection.h"
+#include "EditorApp.h"
+#include "Engine/Engine.h"
+#include "Engine/World.h"
+#include "Components/Graphics/Terrain.h"
+#include "Components/Transform.h"
+#include "Events/EditorEvents.h"
+#include "Widgets/SceneViewWidget.h"
+#include "Utils/EditorConfig.h"
+#include "Utils/HavanaUtils.h"
+#include "Utils/ImGuiUtils.h"
+#include "ImGuiTheme.h"
+#include "imgui_internal.h"
+#include <bimg/decode.h>
+#include <bx/allocator.h>
+#include <algorithm>
+#include <cmath>
+#include <fstream>
+
+namespace
+{
+    TerrainWidget* s_terrainWidget = nullptr;
+    const char* kCategories[] = { "Sculpt", "Paint", "Tiles", "Foliage", "Splines", "Inspect" };
+    const char* kCategoryIcons[] = { "mountain", "paint", "layout-grid", "plant", "route", "eye" };
+    const char* kToolNames[] = { "Raise", "Lower", "Smooth", "Flatten" };
+    const char* kToolIcons[] = { "arrow-up", "arrow-down", "blur", "equal" };
+    std::string Key( const std::string& path ) { return std::filesystem::path( Path( path ).FullPath ).lexically_normal().generic_string(); }
+}
+
+TerrainWidget::TerrainWidget() : HavanaWidget( "Terrain" )
+{
+    s_terrainWidget = this; IsOpen = false;
+    Listen<OpenTerrainEvent>( [this]( const OpenTerrainEvent& event ) { Open( event.AssetPath ); return true; } );
+}
+TerrainWidget::~TerrainWidget() { if( s_terrainWidget == this ) s_terrainWidget = nullptr; }
+TerrainWidget* TerrainWidget::Get() { return s_terrainWidget; }
+bool TerrainWidget::IsPlaying() const { return static_cast<EditorApp*>( GetEngine().GetGame() )->IsGameRunning(); }
+
+void TerrainWidget::Init()
+{
+    auto& config = EditorConfig::GetInstance();
+    Brush.Radius = std::clamp( config.GetPreference<float>( "Terrain.Radius", 4.f ), 0.25f, 128.f );
+    Brush.Strength = std::clamp( config.GetPreference<float>( "Terrain.Strength", 0.5f ), 0.001f, 100.f );
+    Brush.Falloff = std::clamp( config.GetPreference<float>( "Terrain.Falloff", 0.65f ), 0.f, 1.f );
+    Brush.Spacing = std::clamp( config.GetPreference<float>( "Terrain.Spacing", 0.2f ), 0.05f, 1.f );
+    auto& actions = EditorActions::Get();
+    actions.Register( { "View.Terrain", "Terrain", "View", 0, 0, [this]() { IsOpen = true; m_focusRequested = true; } } );
+    actions.Register( { "Terrain.New", "New Terrain...", "Terrain", 0, 0, [this]() { NewDialog(); }, [this]() { return !IsPlaying(); } } );
+    actions.Register( { "Terrain.Open", "Open Terrain...", "Terrain", 0, 0, [this]() {
+        RequestAssetSelectionEvent event( [this]( Path path ) { Open( path.GetLocalPathString() ); }, AssetType::Terrain ); event.Fire();
+    } } );
+    actions.Register( { "Terrain.SaveAll", "Save All Terrains", "Terrain", 0, 0, [this]() { SaveAll(); }, [this]() { return !IsPlaying() && HasUnsaved(); } } );
+    actions.Register( { "File.SaveAll", "Save All", "File", 0, 0, [this]() {
+        if( SaveAll() ) static_cast<EditorApp*>( GetEngine().GetGame() )->SaveScene( false );
+    }, [this]() { return !IsPlaying(); } } );
+    actions.Register( { "Terrain.StopBrush", "Stop Terrain Brush", "Terrain", 0, 0, [this]() { if( m_active ) m_active->EndStroke(); BrushEnabled = false; } } );
+}
+
+void TerrainWidget::InstallActionRouting()
+{
+    auto& actions = EditorActions::Get();
+    auto previousClaims = actions.DocumentClaims;
+    auto previousExecute = actions.DocumentExecute;
+    actions.DocumentClaims = [this, previousClaims]( const std::string& id ) { return ClaimsAction( id ) || ( previousClaims && previousClaims( id ) ); };
+    actions.DocumentExecute = [this, previousExecute]( const std::string& id ) {
+        if( ClaimsAction( id ) )
+        {
+            m_active->EndStroke();
+            if( id == "File.Save" ) m_active->Save();
+            else if( id == "Edit.Undo" ) m_active->GetUndo().Undo();
+            else if( id == "Edit.Redo" ) m_active->GetUndo().Redo();
+        }
+        else if( previousExecute ) previousExecute( id );
+    };
+}
+
+bool TerrainWidget::ClaimsAction( const std::string& id ) const
+{
+    if( !IsOpen ) return false;
+    return m_active && !IsPlaying() && ( m_focused || m_viewportOwnsActions || m_active->IsStroking() ) &&
+        ( id == "File.Save" || id == "Edit.Undo" || id == "Edit.Redo" );
+}
+
+void TerrainWidget::Destroy()
+{
+    m_active = nullptr; m_documents.clear();
+    for( const auto& [name, handle] : m_icons ) if( bgfx::isValid( handle ) ) bgfx::destroy( handle );
+    m_icons.clear();
+}
+
+TerrainDocument* TerrainWidget::Open( const std::string& path )
+{
+    if( Path( path ).GetExtension() != std::string_view( "terrain" ) )
+    { m_error = "Open the source .terrain asset to author heights. Cooked terrain is read-only."; IsOpen = true; return nullptr; }
+    for( auto& document : m_documents ) if( Key( document->GetPath() ) == Key( path ) )
+    {
+        if( m_active ) m_active->EndStroke();
+        m_active = document.get(); IsOpen = true; m_focusRequested = true; return m_active;
+    }
+    auto document = std::make_unique<TerrainDocument>( path );
+    if( !document->Load() ) { m_error = document->GetError(); IsOpen = true; return nullptr; }
+    if( m_active ) m_active->EndStroke();
+    m_active = document.get(); m_documents.push_back( std::move( document ) );
+    IsOpen = true; m_focusRequested = true; m_error.clear();
+    return m_active;
+}
+
+TerrainDocument* TerrainWidget::Create( const std::string& path, const TerrainData::Settings& settings, float height )
+{
+    if( IsPlaying() ) return nullptr;
+    auto document = std::make_unique<TerrainDocument>( path );
+    if( !document->CreateFlat( settings, height ) ) { m_error = document->GetError(); IsOpen = true; return nullptr; }
+    if( m_active ) m_active->EndStroke();
+    m_active = document.get(); m_documents.push_back( std::move( document ) );
+    IsOpen = true; m_focusRequested = true; m_error.clear();
+    return m_active;
+}
+
+bool TerrainWidget::HasUnsaved() const
+{
+    for( const auto& document : m_documents ) if( document->IsDirty() ) return true;
+    return false;
+}
+bool TerrainWidget::SaveAll()
+{
+    if( IsPlaying() ) return false;
+    for( auto& document : m_documents ) if( document->IsDirty() && !document->Save() )
+    { m_error = document->GetError(); IsOpen = true; return false; }
+    return true;
+}
+void TerrainWidget::ConfirmUnsaved( std::function<void()> action ) { m_pending = std::move( action ); m_confirmRequested = true; }
+void TerrainWidget::NewDialog() { IsOpen = true; m_newRequested = true; }
+
+bgfx::TextureHandle TerrainWidget::Icon( const char* name )
+{
+    auto found = m_icons.find( name );
+    if( found != m_icons.end() ) return found->second;
+    bgfx::TextureHandle handle = BGFX_INVALID_HANDLE;
+    std::ifstream file( Path( std::string( "Assets/Icons/outline/" ) + name + ".svg" ).FullPath );
+    if( file )
+    {
+        std::string svg( ( std::istreambuf_iterator<char>( file ) ), std::istreambuf_iterator<char>() );
+        size_t pos = 0;
+        while( ( pos = svg.find( "currentColor", pos ) ) != std::string::npos ) { svg.replace( pos, 12, "#ffffff" ); pos += 7; }
+        static bx::DefaultAllocator allocator;
+        if( auto* image = bimg::imageParseSvg( &allocator, svg.data(), static_cast<uint32_t>( svg.size() ), 64, 64 ) )
+        {
+            handle = bgfx::createTexture2D( static_cast<uint16_t>( image->m_width ), static_cast<uint16_t>( image->m_height ), false, 1,
+                bgfx::TextureFormat::RGBA8, BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP, bgfx::copy( image->m_data, image->m_size ) );
+            bimg::imageFree( image );
+        }
+    }
+    m_icons.emplace( name, handle );
+    return handle;
+}
+
+bool TerrainWidget::Button( const char* icon, const char* label, const char* description, bool enabled, bool selected, bool compact )
+{
+    ImGui::PushID( label );
+    ImGui::BeginDisabled( !enabled );
+    if( selected ) ImGui::PushStyleColor( ImGuiCol_Button, ImGui::GetStyleColorVec4( ImGuiCol_ButtonActive ) );
+    // Tables set an explicit width for each full-size tile.
+    const float tileWidth = compact ? ImGui::GetFrameHeight() : ImGui::GetContentRegionAvail().x;
+    const ImVec2 size( tileWidth, compact ? tileWidth : ImGuiTheme::Em( 3.55f ) );
+    const ImVec2 start = ImGui::GetCursorScreenPos();
+    const bool clicked = ImGui::Button( "##tool", size );
+    if( selected ) ImGui::PopStyleColor();
+    const float iconSize = compact ? ImGuiTheme::Em( 1.05f ) : ImGuiTheme::Em( 1.5f );
+    const float iconY = start.y + ( compact ? ( size.y - iconSize ) * 0.5f : ImGui::GetStyle().FramePadding.y );
+    const auto texture = Icon( icon );
+    ImDrawList* draw = ImGui::GetWindowDrawList();
+    const ImU32 color = ImGui::GetColorU32( ImGuiCol_Text );
+    if( bgfx::isValid( texture ) )
+        draw->AddImage( ImGui::toId( texture, IMGUI_FLAGS_ALPHA_BLEND, 0 ), ImVec2( start.x + ( size.x - iconSize ) * 0.5f, iconY ),
+            ImVec2( start.x + ( size.x + iconSize ) * 0.5f, iconY + iconSize ), ImVec2( 0, 0 ), ImVec2( 1, 1 ), color );
+    else draw->AddText( ImVec2( start.x + size.x * 0.4f, iconY ), color, "?" );
+    if( !compact )
+    {
+        const float textWidth = ImGui::CalcTextSize( label ).x;
+        draw->PushClipRect( start, ImVec2( start.x + size.x, start.y + size.y ), true );
+        draw->AddText( ImVec2( start.x + std::max( 0.f, ( size.x - textWidth ) * 0.5f ), start.y + size.y - ImGui::GetTextLineHeight() - ImGui::GetStyle().FramePadding.y ), color, label );
+        draw->PopClipRect();
+    }
+    ImGui::EndDisabled();
+    if( ImGui::IsItemHovered( ImGuiHoveredFlags_AllowWhenDisabled ) )
+    {
+        ImGui::BeginTooltip(); ImGui::TextUnformatted( label );
+        ImGui::PushTextWrapPos( ImGuiTheme::Em( 22 ) ); ImGui::TextUnformatted( description ); ImGui::PopTextWrapPos(); ImGui::EndTooltip();
+    }
+    ImGui::PopID();
+    return clicked;
+}
+void TerrainWidget::Planned( const char* icon, const char* label, const char* description )
+{
+    ImGui::TableNextColumn();
+    Button( icon, label, ( std::string( "Planned: " ) + description ).c_str(), false );
+}
+
+void TerrainWidget::DrawTools()
+{
+    ImGui::SeparatorText( kCategories[m_category] );
+    if( ImGui::BeginTable( "Tool shelf", 3, ImGuiTableFlags_SizingStretchSame ) )
+    {
+        if( m_category == 0 )
+        {
+            for( int i = 0; i < 4; ++i )
+            {
+                ImGui::TableNextColumn();
+                if( Button( kToolIcons[i], kToolNames[i], i == 3 ? "Flatten toward the height picked at the start of the stroke." : "Drag over the selected terrain in World View. Shift reverses Raise / Lower.", !IsPlaying(), BrushEnabled && static_cast<int>( Brush.Tool ) == i ) )
+                { if( m_active ) m_active->EndStroke(); Brush.Tool = static_cast<TerrainData::BrushTool>( i ); BrushEnabled = true; }
+            }
+            Planned( "wave-sine", "Noise", "Add procedural height variation." );
+            Planned( "photo", "Stamp", "Sculpt with a height stamp or brush alpha." );
+            Planned( "droplet", "Erosion", "Simulate hydraulic erosion." );
+            Planned( "mountain-off", "Thermal", "Relax slopes with thermal erosion." );
+            Planned( "stairs", "Terrace", "Create stepped elevation bands." );
+            Planned( "ripple", "Ramp", "Build a slope between two picked heights." );
+            Planned( "scissors", "Holes", "Cut holes for caves and entrances." );
+            Planned( "mask", "Mask", "Protect regions from sculpting." );
+        }
+        else if( m_category == 1 )
+        {
+            Planned( "brush", "Paint", "Paint terrain material weights." );
+            Planned( "eraser", "Erase", "Remove weights from the active layer." );
+            Planned( "blur", "Blend", "Smooth transitions between material layers." );
+            Planned( "bucket", "Fill", "Fill a tile or selection with a layer." );
+            Planned( "color-swatch", "Layers", "Create and reorder terrain material layers." );
+            Planned( "plus", "Add Layer", "Add a surface material to the terrain palette." );
+            Planned( "ruler", "Slope", "Paint using slope limits." );
+            Planned( "mountain", "Altitude", "Paint within an elevation band." );
+            Planned( "mask", "Masks", "Combine procedural painting masks." );
+            Planned( "sphere", "Material", "Edit terrain surface shading and tiling." );
+            Planned( "upload", "Import", "Import weight maps without color conversion." );
+            Planned( "download", "Export", "Export terrain layer weight maps." );
+        }
+        else if( m_category == 2 )
+        {
+            Planned( "plus", "Add Tile", "Grow terrain with consistent shared borders." );
+            Planned( "minus", "Remove", "Remove a tile and update its neighbors." );
+            Planned( "arrows-move", "Move", "Reposition terrain tiles on the source grid." );
+            Planned( "copy", "Duplicate", "Duplicate tiles and resolve shared borders." );
+            Planned( "border-all", "Stitch", "Inspect and repair imported page borders." );
+            Planned( "arrows-maximize", "Resize", "Change terrain extents and sample density." );
+            Planned( "upload", "Heightmap", "Import RAW height data with dimensions, endian, scale and orientation controls." );
+            Planned( "download", "Export", "Export Float32 or UInt16 height data." );
+            Planned( "map-2", "Overview", "Navigate a large tiled terrain map." );
+            Planned( "hand-stop", "Pin", "Keep selected source pages resident." );
+            Planned( "refresh", "Stream", "Preview tile residency and streaming budgets." );
+            Planned( "package", "Cook", "Publish optimized runtime terrain data." );
+        }
+        else if( m_category == 3 )
+        {
+            Planned( "tree", "Trees", "Paint instanced trees with species and density settings." );
+            Planned( "plant", "Grass", "Paint grass and ground cover." );
+            Planned( "flower", "Details", "Scatter rocks, flowers and small props." );
+            Planned( "eraser", "Erase", "Remove foliage within the brush." );
+            Planned( "grid-dots", "Density", "Paint a foliage density mask." );
+            Planned( "ruler", "Scale", "Set instance scale and rotation ranges." );
+            Planned( "mask", "Exclusion", "Keep vegetation away from paths and buildings." );
+            Planned( "refresh", "Reseed", "Regenerate deterministic placement." );
+            Planned( "eye", "Visibility", "Preview foliage culling and draw distances." );
+        }
+        else if( m_category == 4 )
+        {
+            Planned( "road", "Road", "Author a terrain-conforming road spline." );
+            Planned( "ripple", "River", "Carve river beds and shorelines." );
+            Planned( "route", "Path", "Lay trails and material strips." );
+            Planned( "vector-bezier", "Points", "Add, move and remove spline control points." );
+            Planned( "ruler", "Width", "Vary the spline corridor width." );
+            Planned( "magnet", "Conform", "Fit heights along a spline." );
+            Planned( "blur", "Shoulder", "Blend spline edges into surrounding terrain." );
+            Planned( "paint", "Surface", "Paint a material along the spline." );
+            Planned( "package", "Bake", "Bake spline edits into source pages." );
+        }
+        else
+        {
+            Planned( "layout-grid", "Patches", "Display render patch boundaries." );
+            Planned( "chart-area-line", "LODs", "Inspect selected patch LODs and error." );
+            Planned( "border-all", "Seams", "Highlight shared tile edges." );
+            Planned( "mountain", "Heights", "Visualize source elevations." );
+            Planned( "color-swatch", "Weights", "Inspect material layer weights." );
+            Planned( "sphere", "Normals", "Visualize heightfield normals." );
+            Planned( "world", "Collision", "Compare static collision with the authoring surface." );
+            Planned( "grid-dots", "Navmesh", "Inspect navigation rebuild status." );
+            Planned( "refresh", "Residency", "Inspect loaded, pending and evicted tiles." );
+            Planned( "search", "Validate", "Check source generations, borders and derived data." );
+            Planned( "settings", "Budgets", "Tune mesh, residency and history budgets." );
+            Planned( "tools", "Repair", "Repair or compact terrain asset data." );
+        }
+        ImGui::EndTable();
+    }
+    ImGui::TextDisabled( "Dimmed tools are planned. Hover for details." );
+}
+
+void TerrainWidget::DrawBrush()
+{
+    ImGui::SeparatorText( "Brush" );
+    if( Button( BrushEnabled ? "hand-stop" : "pointer", BrushEnabled ? "Stop sculpting" : "Enable brush", "Enable or release terrain input in World View.", m_active && !IsPlaying(), BrushEnabled, true ) )
+    { if( m_active ) m_active->EndStroke(); BrushEnabled = !BrushEnabled; }
+    ImGui::SameLine(); ImGui::Text( "%s  /  %s", kToolNames[static_cast<int>( Brush.Tool )], BrushEnabled ? "Active" : "Idle" );
+    const float spacing = m_active ? m_active->GetField().GetSettings().SampleSpacing : 1.f;
+    bool edited = false;
+    ImGui::BeginDisabled( IsPlaying() || ( m_active && m_active->IsStroking() ) );
+    HavanaUtils::Label( "Radius" ); edited |= ImGui::DragFloat( "##radius", &Brush.Radius, spacing * 0.1f, spacing * 0.25f, spacing * 128, "%.2f m", ImGuiSliderFlags_AlwaysClamp );
+    HavanaUtils::Label( "Strength" ); edited |= ImGui::DragFloat( "##strength", &Brush.Strength, 0.01f, 0.001f, 100.f, static_cast<int>( Brush.Tool ) >= 2 ? "%.3f blend" : "%.3f m / stamp", ImGuiSliderFlags_AlwaysClamp );
+    HavanaUtils::Label( "Falloff" ); edited |= ImGui::SliderFloat( "##falloff", &Brush.Falloff, 0.f, 1.f, "%.2f" );
+    HavanaUtils::Label( "Spacing" ); edited |= ImGui::SliderFloat( "##spacing", &Brush.Spacing, 0.05f, 1.f, "%.2f radii" );
+    ImGui::EndDisabled();
+    if( edited )
+    {
+        auto& config = EditorConfig::GetInstance();
+        config.SetPreference( "Terrain.Radius", Brush.Radius ); config.SetPreference( "Terrain.Strength", Brush.Strength );
+        config.SetPreference( "Terrain.Falloff", Brush.Falloff ); config.SetPreference( "Terrain.Spacing", Brush.Spacing );
+    }
+    ImGui::TextDisabled( "Drag to sculpt  /  Shift reverses raise & lower" );
+    ImGui::TextDisabled( "Esc cancels stroke  /  RMB navigates" );
+}
+
+void TerrainWidget::Render()
+{
+    DrawModals();
+    if( m_active && m_active->IsStroking() )
+    {
+        if( ImGui::GetIO().AppFocusLost || ImGui::IsKeyPressed( ImGuiKey_Escape ) ) m_active->EndStroke( true );
+        else if( IsPlaying() || !ImGui::IsMouseDown( ImGuiMouseButton_Left ) ) m_active->EndStroke();
+    }
+    if( !IsOpen ) { if( m_active ) m_active->EndStroke(); BrushEnabled = false; m_focused = false; return; }
+    if( m_focusRequested ) { ImGui::SetNextWindowFocus(); m_focusRequested = false; }
+    ImGui::SetNextWindowSize( ImVec2( ImGuiTheme::Em( 25 ), ImGuiTheme::Em( 52 ) ), ImGuiCond_FirstUseEver );
+    if( !ImGui::Begin( Name.c_str(), &IsOpen, m_active && m_active->IsDirty() ? ImGuiWindowFlags_UnsavedDocument : 0 ) )
+    { m_focused = false; ImGui::End(); return; }
+    const ImGuiWindow* nav = ImGui::GetCurrentContext()->NavWindow;
+    const bool transient = nav && ( nav->Flags & ( ImGuiWindowFlags_Popup | ImGuiWindowFlags_MenuBar ) );
+    if( !transient ) m_focused = ImGui::IsWindowFocused( ImGuiFocusedFlags_RootAndChildWindows );
+    const bool editing = !IsPlaying();
+    if( Button( "file-plus", "New Terrain", "Create a flat source terrain asset.", editing, false, true ) ) NewDialog();
+    ImGui::SameLine( 0, ImGuiTheme::InnerGap() );
+    if( Button( "folder-open", "Open Terrain", "Open an existing source terrain asset.", true, false, true ) ) EditorActions::Get().Execute( "Terrain.Open" );
+    ImGui::SameLine( 0, ImGuiTheme::InnerGap() );
+    if( Button( "device-floppy", "Save Terrain", "Save this terrain asset. Scene references are saved separately.", editing && m_active && m_active->IsDirty(), false, true ) ) m_active->Save();
+    ImGui::SameLine( 0, ImGuiTheme::InnerGap() );
+    if( Button( "copy", "Save Copy", "Save the current heights as a new independent asset.", editing && m_active, false, true ) )
+    {
+        TerrainDocument* source = m_active;
+        RequestAssetSelectionEvent event( [this, source]( Path path ) { if( !source->SaveCopy( path.GetLocalPathString() ) ) m_error = source->GetError(); }, AssetType::Terrain, true ); event.Fire();
+    }
+    ImGui::SameLine( 0, ImGuiTheme::InnerGap() );
+    if( Button( "arrow-back-up", "Undo Stroke", "Undo a stroke in this terrain document.", editing && m_active && m_active->GetUndo().CanUndo(), false, true ) ) { m_active->EndStroke(); m_active->GetUndo().Undo(); }
+    ImGui::SameLine( 0, ImGuiTheme::InnerGap() );
+    if( Button( "arrow-forward-up", "Redo Stroke", "Redo a stroke in this terrain document.", editing && m_active && m_active->GetUndo().CanRedo(), false, true ) ) { m_active->EndStroke(); m_active->GetUndo().Redo(); }
+    ImGuiTheme::SectionGap();
+    if( m_active )
+    {
+        const std::string title = std::filesystem::path( m_active->GetPath() ).stem().string() + ( m_active->IsDirty() ? " *" : "" );
+        ImGui::SetNextItemWidth( -1 );
+        if( ImGui::BeginCombo( "##document", title.c_str() ) )
+        {
+            for( auto& document : m_documents ) if( ImGui::Selectable( ( document->GetPath() + ( document->IsDirty() ? " *" : "" ) ).c_str(), document.get() == m_active ) )
+            { m_active->EndStroke(); m_active = document.get(); }
+            ImGui::EndCombo();
+        }
+        const auto& s = m_active->GetField().GetSettings();
+        ImGui::TextDisabled( "%u x %u tiles  /  %.0f x %.0f m", s.TilesX, s.TilesZ, s.TilesX * s.TileQuads * s.SampleSpacing, s.TilesZ * s.TileQuads * s.SampleSpacing );
+        if( ImGui::IsItemHovered() ) ImGui::SetTooltip( "%s", m_active->GetPath().c_str() );
+        ImGui::BeginDisabled( !editing );
+        if( ImGui::Button( "Place in Scene", ImVec2( -1, 0 ) ) ) PlaceInScene();
+        ImGui::EndDisabled();
+    }
+    else ImGui::TextWrapped( "Create a terrain or open a .terrain asset to start authoring." );
+    if( !m_error.empty() ) { ImGui::TextColored( ImGuiTheme::ErrorText(), "%s", m_error.c_str() ); }
+    if( m_active && !m_active->GetError().empty() ) ImGui::TextWrapped( "%s", m_active->GetError().c_str() );
+    if( !editing ) ImGui::TextColored( ImGuiTheme::WarningText(), "Stop Play to edit terrain." );
+    ImGuiTheme::SectionGap();
+    if( ImGui::BeginTable( "Modes", 3, ImGuiTableFlags_SizingStretchSame ) )
+    {
+        for( int i = 0; i < 6; ++i )
+        {
+            ImGui::TableNextColumn();
+            if( Button( kCategoryIcons[i], kCategories[i], i ? "Browse the planned tools in this workspace." : "Sculpt source heights in World View.", true, m_category == i ) ) m_category = i;
+        }
+        ImGui::EndTable();
+    }
+    DrawTools();
+    if( m_category == 0 ) DrawBrush();
+    if( ImGui::CollapsingHeader( "Asset & Build" ) )
+    {
+        if( ImGui::Button( "Save All Terrains", ImVec2( -1, 0 ) ) && editing ) SaveAll();
+        if( ImGui::Button( "Revert from Disk...", ImVec2( -1, 0 ) ) && m_active && editing )
+        {
+            // Revert confirmation applies to the active document only.
+            m_revertTarget = m_active; ImGui::OpenPopup( "Revert terrain?" );
+        }
+        if( ImGui::BeginPopupModal( "Revert terrain?", nullptr, ImGuiWindowFlags_AlwaysAutoResize ) )
+        {
+            ImGui::TextUnformatted( "Discard this terrain's unsaved sculpting?" );
+            if( ImGui::Button( "Revert" ) ) { if( m_revertTarget ) m_revertTarget->Load(); m_revertTarget = nullptr; ImGui::CloseCurrentPopup(); }
+            ImGui::SameLine(); if( ImGui::Button( "Cancel" ) ) { m_revertTarget = nullptr; ImGui::CloseCurrentPopup(); }
+            ImGui::EndPopup();
+        }
+        if( ImGui::BeginTable( "Future asset tools", 3, ImGuiTableFlags_SizingStretchSame ) )
+        {
+            Planned( "copy", "Make Unique", "Fork the selected instance and its companion pages." );
+            Planned( "device-floppy", "Recovery", "Autosave dirty terrain documents and recover after a crash." );
+            Planned( "package", "Build", "Cook heights, collision and material data." );
+            Planned( "trash", "Compact", "Remove source generations no longer referenced." );
+            Planned( "refresh", "Rebuild", "Rebuild all derived terrain caches." );
+            Planned( "settings", "Settings", "Edit source ranges, resolution and streaming configuration." );
+            ImGui::EndTable();
+        }
+    }
+    ImGui::End();
+}
+
+void TerrainWidget::PlaceInScene()
+{
+    if( !m_active || IsPlaying() ) return;
+    UndoTransaction transaction( "Place terrain" );
+    auto entity = EditorOps::CreateEntity( std::filesystem::path( m_active->GetPath() ).stem().string() );
+    EditorOps::AddComponent( *entity.Get(), "Terrain" );
+    const auto before = EditorOps::CaptureComponent( *entity.Get(), "Terrain" );
+    entity->GetComponent<Terrain>().Asset = Path( m_active->GetPath() );
+    EditorOps::RecordComponentEdit( *entity.Get(), "Terrain", before, EditorOps::CaptureComponent( *entity.Get(), "Terrain" ), "Set terrain asset" );
+    Selection::Get().Set( entity );
+    EditorActions::Get().Execute( "View.FrameSelected" );
+}
+
+void TerrainWidget::DrawModals()
+{
+    if( m_newRequested ) { ImGui::OpenPopup( "New Terrain" ); m_newRequested = false; }
+    if( m_confirmRequested ) { ImGui::OpenPopup( "Unsaved Terrains" ); m_confirmRequested = false; }
+    if( ImGui::BeginPopupModal( "New Terrain", nullptr, ImGuiWindowFlags_AlwaysAutoResize ) )
+    {
+        ImGui::TextUnformatted( "Create a flat heightfield" );
+        ImGui::SetNextItemWidth( ImGuiTheme::Em( 18 ) ); ImGui::InputInt2( "Tiles X / Z", m_tiles );
+        const char* sizes[] = { "32", "64", "128", "256" };
+        int sizeIndex = m_quads == 32 ? 0 : m_quads == 64 ? 1 : m_quads == 128 ? 2 : 3;
+        if( ImGui::Combo( "Quads per tile", &sizeIndex, sizes, 4 ) ) m_quads = 32 << sizeIndex;
+        ImGui::DragFloat( "Sample spacing (m)", &m_spacing, 0.1f, 0.1f, 100.f, "%.2f", ImGuiSliderFlags_AlwaysClamp );
+        ImGui::DragFloat( "Starting height (m)", &m_flatHeight, 0.1f, -512.f, 512.f, "%.2f", ImGuiSliderFlags_AlwaysClamp );
+        ImGui::TextDisabled( "Height range: -512 to +512 m. Up to 1M source samples." );
+        if( ImGui::Button( "Choose Asset Path..." ) )
+        {
+            TerrainData::Settings settings; settings.TilesX = std::clamp( m_tiles[0], 1, 16 ); settings.TilesZ = std::clamp( m_tiles[1], 1, 16 );
+            settings.TileQuads = m_quads; settings.PatchQuads = std::min( m_quads, 64 ); settings.SampleSpacing = m_spacing;
+            const float height = m_flatHeight;
+            RequestAssetSelectionEvent event( [this, settings, height]( Path path ) { Create( path.GetLocalPathString(), settings, height ); }, AssetType::Terrain, true ); event.Fire();
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine(); if( ImGui::Button( "Cancel" ) ) ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+    }
+    if( ImGui::BeginPopupModal( "Unsaved Terrains", nullptr, ImGuiWindowFlags_AlwaysAutoResize ) )
+    {
+        ImGui::TextUnformatted( "Save terrain asset changes before continuing?" );
+        for( const auto& document : m_documents ) if( document->IsDirty() ) ImGui::BulletText( "%s", document->GetPath().c_str() );
+        std::function<void()> pending;
+        if( ImGui::Button( "Save All", ImGuiTheme::DialogButtonSize() ) && SaveAll() ) { pending.swap( m_pending ); ImGui::CloseCurrentPopup(); }
+        ImGui::SameLine();
+        if( ImGui::Button( "Discard", ImGuiTheme::DialogButtonSize() ) )
+        {
+            bool reverted = true;
+            for( auto& document : m_documents ) if( document->IsDirty() && !document->Load() ) { m_error = document->GetError(); reverted = false; }
+            if( reverted ) { pending.swap( m_pending ); ImGui::CloseCurrentPopup(); }
+        }
+        ImGui::SameLine(); if( ImGui::Button( "Cancel", ImGuiTheme::DialogButtonSize() ) ) { m_pending = nullptr; ImGui::CloseCurrentPopup(); }
+        if( !m_error.empty() ) ImGui::TextWrapped( "%s", m_error.c_str() );
+        ImGui::EndPopup();
+        if( pending ) pending();
+    }
+}
+
+bool TerrainWidget::WantsViewport() const
+{
+    if( !IsOpen || !BrushEnabled || m_category != 0 || !m_active || IsPlaying() ) return false;
+    auto entity = Selection::Get().GetActive();
+    if( !entity || !entity->IsActiveInHierarchy() ) return false;
+    const auto* terrain = entity->TryGetComponent<Terrain>();
+    auto* transform = entity->TryGetComponent<Transform>();
+    return terrain && transform && terrain->GetData() && Key( terrain->Asset.GetLocalPathString() ) == Key( m_active->GetPath() ) && TerrainData::IsTranslationOnly( transform->GetLocalToWorldMatrix() );
+}
+
+bool TerrainWidget::DrawViewport( SceneViewWidget& view, const Vector2& screenMin, const Vector2& screenSize )
+{
+    m_viewportOwnsActions = false;
+    auto entity = Selection::Get().GetActive();
+    if( !WantsViewport() || !view.MainCamera ) { if( m_active ) m_active->EndStroke(); return false; }
+    ImGuiIO& io = ImGui::GetIO();
+    m_viewportOwnsActions = view.IsFocused;
+    if( m_active->IsStroking() && ( entity->GetGUID() != m_strokeEntity || io.AppFocusLost || ImGui::IsKeyPressed( ImGuiKey_Escape ) ) )
+    { m_active->EndStroke( true ); return true; }
+    if( m_active->IsStroking() && ( !ImGui::IsMouseDown( ImGuiMouseButton_Left ) || !view.IsFocused ) ) m_active->EndStroke();
+    if( io.KeyAlt || ImGui::IsMouseDown( ImGuiMouseButton_Right ) || ImGui::IsMouseDown( ImGuiMouseButton_Middle ) || view.IsUsingGuizmo )
+    { m_active->EndStroke(); return true; }
+    if( !view.IsViewportHovered ) return true;
+    const auto translation = entity->GetComponent<Transform>().GetWorldPosition();
+    const Ray worldRay = SceneTools::ScreenRay( view.ViewportMousePosition, view.SceneViewRenderSize, view.MainCamera->View, view.MainCamera->ProjectionMatrix );
+    Vector3 point;
+    if( !TerrainData::RaycastHeightfield( m_active->GetField(), Ray( worldRay.Origin - translation, worldRay.Direction ), point ) ) return true;
+    ImDrawList* draw = ImGui::GetWindowDrawList();
+    draw->PushClipRect( ImVec2( screenMin.x, screenMin.y ), ImVec2( screenMin.x + screenSize.x, screenMin.y + screenSize.y ), true );
+    const Matrix4 vp( view.MainCamera->ProjectionMatrix.GetInternalMatrix() * view.MainCamera->View.GetInternalMatrix() );
+    auto ring = [&]( float radius, ImU32 color ) {
+        Vector2 previous; bool hasPrevious = false;
+        for( int i = 0; i <= 96; ++i )
+        {
+            const double a = i * 6.28318530718 / 96;
+            Vector3 sample( point.x + radius * std::cos( a ), 0, point.z + radius * std::sin( a ) );
+            const auto height = m_active->GetField().Query( sample.x, sample.z );
+            if( height.Status != TerrainData::QueryStatus::Ready ) { hasPrevious = false; continue; }
+            sample.y = height.Height + 0.025f;
+            Vector2 pixel;
+            if( !SceneTools::WorldToScreen( sample + translation, view.SceneViewRenderSize, vp, pixel ) ) { hasPrevious = false; continue; }
+            pixel = screenMin + Vector2( pixel.x * screenSize.x / view.SceneViewRenderSize.x, pixel.y * screenSize.y / view.SceneViewRenderSize.y );
+            if( hasPrevious ) { draw->AddLine( ImVec2( previous.x, previous.y ), ImVec2( pixel.x, pixel.y ), IM_COL32( 0, 0, 0, 200 ), 4 ); draw->AddLine( ImVec2( previous.x, previous.y ), ImVec2( pixel.x, pixel.y ), color, 2 ); }
+            previous = pixel; hasPrevious = true;
+        }
+    };
+    ring( Brush.Radius, IM_COL32( 255, 215, 90, 255 ) );
+    if( Brush.Falloff > 0 && Brush.Falloff < 1 ) ring( Brush.Radius * ( 1 - Brush.Falloff ), IM_COL32( 255, 255, 255, 160 ) );
+    draw->PopClipRect();
+    if( ImGui::IsMouseClicked( ImGuiMouseButton_Left ) )
+    {
+        ImGui::SetWindowFocus();
+        auto brush = Brush;
+        const float spacing = m_active->GetField().GetSettings().SampleSpacing;
+        brush.Radius = std::clamp( brush.Radius, spacing * 0.25f, spacing * 128 );
+        if( io.KeyShift && ( brush.Tool == TerrainData::BrushTool::Raise || brush.Tool == TerrainData::BrushTool::Lower ) )
+            brush.Tool = brush.Tool == TerrainData::BrushTool::Raise ? TerrainData::BrushTool::Lower : TerrainData::BrushTool::Raise;
+        if( m_active->BeginStroke( brush, point.x, point.z ) ) m_strokeEntity = entity->GetGUID();
+    }
+    else if( m_active->IsStroking() && !m_active->MoveStroke( point.x, point.z ) ) m_active->EndStroke();
+    if( m_active->IsStroking() && ImGui::GetTime() - m_lastPreviewTime >= 0.1 )
+    { m_active->PublishPreview(); m_lastPreviewTime = ImGui::GetTime(); }
+    return true;
+}
+#endif
