@@ -1,5 +1,6 @@
 #include "AssetBrowser.h"
 #include "Widgets/Terrain/TerrainWidget.h"
+#include "Widgets/Terrain/TerrainAssetActions.h"
 #include "World/SceneSerializer.h"
 #include "Editor/PrefabTools.h"
 #include "Editor/EditorActions.h"
@@ -62,7 +63,7 @@ namespace
     // Generated / intermediate files never shown in the browser.
     bool IsHiddenFile( const std::string& name )
     {
-        static const char* kHidden[] = { ".meta", ".dds", ".assbin", ".pdn", ".blend", ".bin", ".d", ".DS_Store", ".ktx" };
+        static const char* kHidden[] = { ".meta", ".dds", ".assbin", ".pdn", ".blend", ".bin", ".d", ".DS_Store", ".ktx", ".thp", ".terrain-data" };
         for( const char* suffix : kHidden )
         {
             if( EndsWith( name, suffix ) )
@@ -169,12 +170,22 @@ namespace
 
     // Moves a file (or folder) and its .meta sidecar. References follow by GUID: the asset database
     // learns the new path, and prefab instances in the open scene are relinked. Returns false on failure.
-    bool MoveWithMeta( const std::string& from, const std::string& to )
+    bool MoveWithMeta( const std::string& from, const std::string& to, std::string& message )
     {
+        std::string terrainError;
+        if( TerrainAssetActions::IsSource( from ) )
+        {
+            const bool moved = TerrainAssetActions::Move( from, to, terrainError );
+            if( !moved ) { message = terrainError; YIKES( "Terrain move failed: " + terrainError ); }
+            return moved;
+        }
+        if( auto* terrain = TerrainWidget::Get(); terrain && !terrain->CanMoveAssets( from, to, terrainError ) )
+        { message = terrainError; YIKES( terrainError ); return false; }
         std::error_code error;
         fs::rename( from, to, error );
         if( error )
         {
+            message = error.message();
             YIKES( "Couldn't move " + from + " -> " + to + ": " + error.message() );
             return false;
         }
@@ -184,6 +195,7 @@ namespace
         }
         AssetDatabase::Get().Move( ProjectRelative( from ), ProjectRelative( to ) );
         PrefabTools::OnAssetsMoved( ProjectRelative( from ), ProjectRelative( to ) );
+        if( auto* terrain = TerrainWidget::Get() ) terrain->OnAssetsMoved( from, to );
         return true;
     }
 }
@@ -380,7 +392,7 @@ void AssetBrowserWidget::RebuildEntries()
         {
             return;
         }
-        if( entry.IsDirectory && !name.empty() && name[0] == '.' )
+        if( entry.IsDirectory && ( ( !name.empty() && name[0] == '.' ) || EndsWith( name, ".terrain-data" ) ) )
         {
             return;
         }
@@ -445,7 +457,7 @@ std::vector<std::string> AssetBrowserWidget::ListSubfolders( const std::string& 
     for( fs::directory_iterator it( InPath, error ), end; it != end; it.increment( error ) )
     {
         const std::string name = it->path().filename().string();
-        if( it->is_directory( error ) && !name.empty() && name[0] != '.' )
+        if( it->is_directory( error ) && !name.empty() && name[0] != '.' && !EndsWith( name, ".terrain-data" ) )
         {
             folders.push_back( ToGeneric( it->path() ) );
         }
@@ -543,6 +555,14 @@ void AssetBrowserWidget::Render()
         return;
     }
 
+    if( !m_fileOperationError.empty() )
+    {
+        ImGui::PushStyleColor( ImGuiCol_Text, ImGuiTheme::ErrorText() );
+        ImGui::TextWrapped( "%s", m_fileOperationError.c_str() );
+        ImGui::PopStyleColor();
+        if( ImGui::SmallButton( "Dismiss error" ) ) m_fileOperationError.clear();
+        ImGui::Separator();
+    }
     if( m_entriesDirty || m_builtSearch != m_search )
     {
         RebuildEntries();
@@ -1526,9 +1546,11 @@ void AssetBrowserWidget::DrawModals()
         {
             for( const std::string& path : m_pendingDelete )
             {
-                if( !PlatformUtils::MoveToTrash( Path( path ), ".tmp/Trash" ) )
+                std::string trashPath, error;
+                if( !TerrainAssetActions::Trash( path, trashPath, error ) )
                 {
-                    YIKES( "Failed to move asset to trash: " + path );
+                    m_fileOperationError = error;
+                    YIKES( "Failed to move asset to trash: " + path + ": " + error );
                 }
                 else
                 {
@@ -1609,7 +1631,7 @@ void AssetBrowserWidget::CommitRename()
         BRUH( "Can't rename: " + LocalPath( to ) + " already exists." );
         return;
     }
-    if( MoveWithMeta( from, to ) )
+    if( MoveWithMeta( from, to, m_fileOperationError ) )
     {
         m_thumbnails.erase( from );
         m_selection = { to };
@@ -1629,6 +1651,12 @@ void AssetBrowserWidget::DuplicateSelection()
         }
         // The copy gets a fresh .meta (and GUID) on first use; a prefab's GUID is inside it.
         const std::string destination = UniquePath( ToGeneric( source.parent_path() ), source.stem().string() + " Copy", source.extension().string() );
+        if( TerrainAssetActions::IsSource( path ) )
+        {
+            std::string error;
+            if( !TerrainAssetActions::Duplicate( path, destination, error ) ) { m_fileOperationError = error; YIKES( "Terrain duplicate failed: " + error ); }
+            continue;
+        }
         std::error_code error;
         fs::copy_file( source, destination, error );
         if( error )
@@ -1669,7 +1697,7 @@ void AssetBrowserWidget::MoveSelectionTo( const std::string& InFolder )
             BRUH( "Can't move: " + LocalPath( destination ) + " already exists." );
             continue;
         }
-        if( MoveWithMeta( path, destination ) )
+        if( MoveWithMeta( path, destination, m_fileOperationError ) )
         {
             ++moved;
         }

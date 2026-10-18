@@ -1,5 +1,6 @@
 #include "TerrainAutomation.h"
 #include "TerrainRecoveryAutomation.h"
+#include "TerrainFileAutomation.h"
 #if USING( ME_EDITOR )
 #include "TerrainWidget.h"
 #include "Editor/EditorOperations.h"
@@ -29,9 +30,12 @@ namespace TerrainAutomation
         std::string s_rawFile;
         TerrainData::Settings s_rawSettings;
         TerrainData::RawHeightmap s_rawFormat;
+        float s_brushMark[4] = {};
+        bool s_hasBrushMark[4] = {};
     }
     bool Execute( const std::string& command, const std::string& args, std::string& error )
     {
+        if( command.rfind( "terrain-file-", 0 ) == 0 ) return TerrainFileAutomation::Execute( command, args, error );
         if( command.rfind( "terrain-recovery-", 0 ) == 0 ) return TerrainRecoveryAutomation::Execute( command, args, error );
         auto* widget = TerrainWidget::Get();
         if( !widget ) { error = "Terrain panel is unavailable"; return false; }
@@ -57,7 +61,7 @@ namespace TerrainAutomation
             return true;
         }
         if( command == "terrain-escape" ) { ImGui::GetIO().AddKeyEvent( ImGuiKey_Escape, args == "true" ); return true; }
-        if( command == "terrain-brush-setting" || command == "terrain-brush-assert" || command == "terrain-brush-pointer" )
+        if( command == "terrain-brush-setting" || command == "terrain-brush-assert" || command == "terrain-brush-pointer" || command == "terrain-brush-mark" || command == "terrain-brush-assert-mark" )
         {
             std::istringstream stream( args ); std::string name; stream >> name;
             const char* names[] = { "Radius", "Strength", "Falloff", "Spacing" };
@@ -75,12 +79,18 @@ namespace TerrainAutomation
                 else if( state != "hover" ) return false;
                 return true;
             }
+            const float values[] = { widget->Brush.Radius, widget->Brush.Strength, widget->Brush.Falloff, widget->Brush.Spacing };
+            if( command == "terrain-brush-mark" ) { s_brushMark[index] = values[index]; s_hasBrushMark[index] = true; return true; }
             float value;
-            if( !( stream >> value ) ) { error = "Expected a finite brush parameter value"; return false; }
+            if( command == "terrain-brush-assert-mark" )
+            {
+                if( !s_hasBrushMark[index] ) { error = "Mark this brush parameter first"; return false; }
+                value = s_brushMark[index];
+            }
+            else if( !( stream >> value ) ) { error = "Expected a finite brush parameter value"; return false; }
             if( command == "terrain-brush-setting" ) widget->SetBrushParameter( parameter, value );
             else
             {
-                const float values[] = { widget->Brush.Radius, widget->Brush.Strength, widget->Brush.Falloff, widget->Brush.Spacing };
                 if( std::abs( values[index] - value ) > 0.0001f || std::abs( EditorConfig::GetInstance().GetPreference<float>( "Terrain." + name, -1.f ) - value ) > 0.0001f )
                 { error = "Brush value/preference did not match: " + name; return false; }
             }

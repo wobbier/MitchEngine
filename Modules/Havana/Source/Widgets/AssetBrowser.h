@@ -56,6 +56,7 @@ public:
     void ShowAsset( const std::string& InAsset );
 
 private:
+    friend class TerrainFileAutomation;
     struct Entry
     {
         std::string FullPath;
@@ -128,6 +129,7 @@ private:
     // Rename
     std::string m_renamingPath;
     char m_renameBuffer[256] = {};
+    std::string m_fileOperationError;
     bool m_focusRename = false;
 
     // Dragging

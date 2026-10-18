@@ -29,6 +29,10 @@ public:
     bool MakeUnique( const std::string& InPath, uint64_t InEntityGUID = 0 );
     TerrainDocument* GetActive() const { return m_active; }
     bool HasUnsaved() const;
+    bool CanMoveAssets( const std::string& InFrom, const std::string& InTo, std::string& OutError ) const;
+    bool CanRemoveAssets( const std::string& InPath, std::string& OutError ) const;
+    void OnAssetsMoved( const std::string& InFrom, const std::string& InTo, const std::string& InBefore = {}, const std::string& InAfter = {} );
+    void OnAssetsRemoved( const std::string& InPath );
     bool SaveAll();
     bool ConfigureRecovery( const std::filesystem::path& InDirectory );
     bool WriteRecoveries();

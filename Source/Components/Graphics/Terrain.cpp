@@ -46,6 +46,11 @@ void Terrain::ReloadAsset()
 
 void Terrain::Resolve( bool InWait )
 {
+#if USING( ME_EDITOR )
+    // Scene undo can restore a former path after an asset move. Keep its shared preview usable.
+    const auto moved = AssetDatabase::Get().FindMovedPath( Asset.GetLocalPathString() );
+    if( !moved.empty() && !std::filesystem::exists( Asset.FullPath ) ) Asset = Path( moved );
+#endif
     const std::string path = Asset.GetLocalPathString();
 #if USING( ME_EDITOR )
     if( !path.empty() )

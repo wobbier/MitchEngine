@@ -16,6 +16,7 @@ public:
     bool CreateFlat( const TerrainData::Settings& InSettings, float InHeight );
     bool CreateFromField( TerrainData::Heightfield InField );
     bool Save();
+    void Relocate( const std::string& InPath, const std::string& InBeforeManifest, const std::string& InAfterManifest );
     bool SaveCopy( const std::string& InPath );
     bool SaveRecovery( const std::filesystem::path& InPath );
     bool RestoreRecovery( const std::filesystem::path& InPath );

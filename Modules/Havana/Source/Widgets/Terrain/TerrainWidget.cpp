@@ -8,6 +8,7 @@
 #include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "Components/Graphics/Terrain.h"
+#include "Resource/AssetDatabase.h"
 #include "Components/Transform.h"
 #include "Events/EditorEvents.h"
 #include "Widgets/SceneViewWidget.h"
@@ -124,8 +125,14 @@ void TerrainWidget::Destroy()
     m_icons.clear();
 }
 
-TerrainDocument* TerrainWidget::Open( const std::string& path )
+TerrainDocument* TerrainWidget::Open( const std::string& requested )
 {
+    std::string path = requested;
+    if( !std::filesystem::exists( Path( path ).FullPath ) )
+    {
+        const auto moved = AssetDatabase::Get().FindMovedPath( Path( path ).GetLocalPathString() );
+        if( !moved.empty() ) path = moved;
+    }
     if( Path( path ).GetExtension() != std::string_view( "terrain" ) )
     { m_error = "Open the source .terrain asset to author heights. Cooked terrain is read-only."; IsOpen = true; return nullptr; }
     for( auto& document : m_documents ) if( Key( document->GetPath() ) == Key( path ) )
@@ -429,8 +436,12 @@ void TerrainWidget::Render()
     ImGui::SameLine( 0, ImGuiTheme::InnerGap() );
     if( Button( "copy", "Save Copy", "Save the current heights as a new independent asset.", editing && m_active, false, true ) )
     {
-        TerrainDocument* source = m_active;
-        RequestAssetSelectionEvent event( [this, source]( Path path ) { if( !source->SaveCopy( path.GetLocalPathString() ) ) m_error = source->GetError(); }, AssetType::Terrain, true ); event.Fire();
+        const uint64_t sourceGUID = m_active->GetGUID();
+        RequestAssetSelectionEvent event( [this, sourceGUID]( Path path ) {
+            for( auto& source : m_documents ) if( source->GetGUID() == sourceGUID )
+            { if( !source->SaveCopy( path.GetLocalPathString() ) ) m_error = source->GetError(); return; }
+            m_error = "The terrain document was closed. Reopen it before saving a copy.";
+        }, AssetType::Terrain, true ); event.Fire();
     }
     ImGui::SameLine( 0, ImGuiTheme::InnerGap() );
     if( Button( "arrow-back-up", "Undo Terrain", "Undo the latest terrain stroke or brush setting.", editing && GetHistory().CanUndo(), false, true ) ) { if( m_active ) m_active->EndStroke(); GetHistory().Undo(); }

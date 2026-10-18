@@ -113,6 +113,19 @@ bool TerrainDocument::SaveCopy( const std::string& path )
     return true;
 }
 
+void TerrainDocument::Relocate( const std::string& path, const std::string& before, const std::string& after )
+{
+    EndStroke();
+    Terrain::SetEditorPreview( Path( m_path ), nullptr );
+    m_path = Path( path ).GetLocalPathString();
+    // Preserve an existing conflict: moving is not permission to overwrite external source edits.
+    if( m_manifestText == before ) m_manifestText = after;
+    m_hasRecoveryRevision = false;
+    Terrain::SetEditorPreview( Path( m_path ), m_preview );
+    if( IsDirty() && !m_recoveryPath.empty() && !SaveRecovery( m_recoveryPath ) ) BRUH( m_error );
+}
+
+
 bool TerrainDocument::CheckSourceIdentity()
 {
     try
