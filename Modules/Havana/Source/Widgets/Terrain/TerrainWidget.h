@@ -51,6 +51,7 @@ public:
     enum class BrushParameter { Radius, Strength, Falloff, Spacing };
     void SetBrushParameter( BrushParameter InParameter, float InValue, bool InRecord = true );
     Vector2 GetBrushControlCenter( BrushParameter InParameter ) const { return m_brushCenters[static_cast<int>( InParameter )]; }
+    Vector2 GetLodButtonCenter( bool InPatches ) const { return m_lodButtonCenters[InPatches ? 0 : 1]; }
     UndoStack& GetHistory() { return m_active ? m_active->GetUndo() : m_brushHistory; }
     TerrainData::BrushSettings Brush;
     bool BrushEnabled = false;
@@ -70,6 +71,8 @@ private:
     void DrawBrush();
     void RecordBrushParameter( BrushParameter InParameter, float InBefore );
     void DrawTools();
+    void DrawLodButtons();
+    void DrawLodControls();
     void PlaceInScene();
     bgfx::TextureHandle Icon( const char* InName );
     bool Button( const char* InIcon, const char* InLabel, const char* InDescription, bool InEnabled = true, bool InSelected = false, bool InCompact = false );
@@ -92,6 +95,7 @@ private:
     UndoStack m_brushHistory;
     float m_brushBefore = 0;
     Vector2 m_brushCenters[4];
+    Vector2 m_lodButtonCenters[2];
     uint64_t m_strokeEntity = 0;
     double m_lastPreviewTime = 0;
     struct RecoveryEntry

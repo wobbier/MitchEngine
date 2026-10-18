@@ -360,8 +360,7 @@ void TerrainWidget::DrawTools()
         }
         else
         {
-            Planned( "layout-grid", "Patches", "Display render patch boundaries." );
-            Planned( "chart-area-line", "LODs", "Inspect selected patch LODs and error." );
+            DrawLodButtons();
             Planned( "border-all", "Seams", "Highlight shared tile edges." );
             Planned( "mountain", "Heights", "Visualize source elevations." );
             Planned( "color-swatch", "Weights", "Inspect material layer weights." );
@@ -376,6 +375,7 @@ void TerrainWidget::DrawTools()
         ImGui::EndTable();
     }
     ImGui::TextDisabled( "Dimmed tools are planned. Hover for details." );
+    if( m_category == 5 ) DrawLodControls();
 }
 
 void TerrainWidget::DrawBrush()

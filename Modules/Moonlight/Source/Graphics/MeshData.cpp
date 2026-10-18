@@ -68,6 +68,7 @@ namespace Moonlight
 
     bgfx::IndexBufferHandle MeshData::GetWireframeIndexBuffer( uint8_t InLod )
     {
+        if( m_topology ) return m_topology->GetWireframe();
         const size_t level = InLod <= m_lodIndices.size() ? InLod : 0;
         while( m_wireframeIbh.size() <= level ) m_wireframeIbh.push_back( BGFX_INVALID_HANDLE );
         if( bgfx::isValid( m_wireframeIbh[level] ) ) return m_wireframeIbh[level];

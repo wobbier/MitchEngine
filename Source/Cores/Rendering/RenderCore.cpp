@@ -20,6 +20,7 @@
 #include "Components/Graphics/Mesh.h"
 #include "Components/Graphics/Terrain.h"
 #include "Materials/StandardMaterial.h"
+#include "Debug/DebugDraw.h"
 #include "Utils/BGFXUtils.h"
 #include <glm/gtc/matrix_transform.hpp>
 #include "Engine/Engine.h"
@@ -39,6 +40,9 @@ struct RenderCore::TerrainDraw
     std::vector<std::unique_ptr<Moonlight::MeshData>> Geometry;
     std::vector<std::unique_ptr<Mesh>> Parts;
     SharedPtr<StandardMaterial> Surface;
+    std::vector<TerrainData::PatchLodChoice> Choices;
+    uint16_t RetryFrames = 0;
+    std::string RetryError;
 };
 
 void RenderCore::RemoveTerrainDraw( uint64_t InEntityID )
@@ -54,11 +58,12 @@ void RenderCore::RemoveTerrainDraw( uint64_t InEntityID )
 void RenderCore::ClearTerrainDraws()
 {
     while( !m_terrainDraws.empty() ) RemoveTerrainDraw( m_terrainDraws.begin()->first );
+    m_terrainTopology.clear();
 }
 
 void RenderCore::OnRemovedFromWorld() { ClearTerrainDraws(); }
 
-RenderCore::TerrainDraw* RenderCore::PrepareTerrainDraw( Entity& InEntity, Terrain& InTerrain )
+RenderCore::TerrainDraw* RenderCore::PrepareTerrainDraw( Entity& InEntity, Terrain& InTerrain, std::span<const TerrainData::LodView> views )
 {
     auto data = InTerrain.GetData();
     const uint64_t id = InEntity.GetId().Value();
@@ -105,13 +110,61 @@ RenderCore::TerrainDraw* RenderCore::PrepareTerrainDraw( Entity& InEntity, Terra
         }
         draw->Source = data;
     }
-    for( auto& part : draw->Parts )
+    const auto translation = InEntity.GetComponent<Transform>().GetWorldPosition();
+    TerrainData::LodSettings settings{ InTerrain.LodPixelError, InTerrain.LodHysteresis, InTerrain.ForcedLod };
+    std::vector<TerrainData::PatchLodChoice> choices;
+    std::string error;
+    bool ready = TerrainData::SelectTerrainLods( *data, translation, views, settings, draw->Choices, choices, error );
+    if( ready && draw->RetryFrames ) { --draw->RetryFrames; ready = false; error = draw->RetryError; }
+    std::vector<std::shared_ptr<Moonlight::MeshIndexData>> topologies( data->Patches.size() );
+    const uint32_t q = data->Heights->GetSettings().PatchQuads;
+    if( ready ) for( size_t i = 0; i < choices.size(); ++i )
     {
-        // Materials prepare themselves in parallel mesh jobs, so each patch keeps its own instance.
+        const auto choice = choices[i];
+        if( !choice.Level && !choice.Edges ) continue; // Existing full-detail buffer.
+        const uint64_t key = ( static_cast<uint64_t>( q ) << 16 ) | ( static_cast<uint64_t>( choice.Level ) << 8 ) | choice.Edges;
+        auto found = m_terrainTopology.find( key );
+        if( found == m_terrainTopology.end() )
+        {
+            std::vector<uint32_t> indices;
+            if( !TerrainData::BuildStitchedIndices( q, 1u << choice.Level, choice.Edges, indices, error ) ) { ready = false; break; }
+            auto topology = std::make_shared<Moonlight::MeshIndexData>( std::move( indices ) );
+            if( !bgfx::isValid( topology->GetBuffer() ) )
+            {
+                error = "Terrain topology upload failed; drawing full detail"; ready = false;
+                draw->RetryFrames = 120; draw->RetryError = error; break;
+            }
+            found = m_terrainTopology.emplace( key, std::move( topology ) ).first;
+        }
+        topologies[i] = found->second;
+    }
+    if( !ready )
+    {
+        choices.assign( data->Patches.size(), {} );
+        for( auto& topology : topologies ) topology.reset(); // Uniform fallback is seam safe.
+    }
+    InTerrain.m_lodError = error;
+    draw->Choices = std::move( choices ); InTerrain.m_patchLods = draw->Choices;
+    InTerrain.m_lodTriangles = InTerrain.m_fullTriangles = 0;
+    static const Vector3 colors[] = { { 0.2f, 0.85f, 0.3f }, { 0.95f, 0.8f, 0.15f }, { 1.f, 0.4f, 0.15f }, { 0.2f, 0.65f, 1.f }, { 0.65f, 0.3f, 1.f }, { 0.95f, 0.3f, 0.7f } };
+    for( size_t i = 0; i < draw->Parts.size(); ++i )
+    {
+        auto& part = draw->Parts[i];
+        draw->Geometry[i]->SetIndexTopology( std::move( topologies[i] ) );
+        InTerrain.m_lodTriangles += draw->Geometry[i]->GetIndexCount() / 3;
+        InTerrain.m_fullTriangles += data->Patches[i]->Mesh.Lods.front().Indices.size() / 3;
+        // Materials prepare themselves in parallel jobs, so each patch keeps its own instance.
         auto& material = static_cast<StandardMaterial&>( *part->MeshMaterial );
-        material.DiffuseColor = InTerrain.Color;
+        material.DiffuseColor = InTerrain.ShowLods ? colors[draw->Choices[i].Level % 6] : InTerrain.Color;
         material.Roughness = std::clamp( InTerrain.Roughness, 0.f, 1.f );
         part->CastShadows = InTerrain.CastShadows;
+        if( InTerrain.ShowPatches )
+        {
+            AABB bounds = data->Patches[i]->Mesh.Bounds;
+            bounds.Min += data->Patches[i]->Offset + translation; bounds.Max += data->Patches[i]->Offset + translation;
+            const auto color = colors[draw->Choices[i].Level % 6];
+            DebugDraw::Box( bounds, Vector4( color.x, color.y, color.z, 1.f ), 0, DebugDraw::EditorOnly );
+        }
     }
     return draw.get();
 }
@@ -191,12 +244,28 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
     std::vector<RenderItem> items;
     std::unordered_set<uint64_t> compactModels;
     std::unordered_set<uint64_t> terrains;
+    // Terrain honors every rendering camera plus World View, using the current late-update snapshot.
+    std::vector<TerrainData::LodView> terrainViews;
+    const auto addTerrainView = [&]( const Moonlight::CameraData& camera ) {
+        if( !camera.ShouldRender || camera.OutputSize.x <= 0 || camera.OutputSize.y <= 0 ) return;
+        const auto& projection = camera.ProjectionMatrix.GetInternalMatrix();
+        TerrainData::LodView view;
+        view.Position = camera.Position; view.Forward = camera.Front; view.Up = camera.Up;
+        view.PixelsX = std::abs( projection[0][0] ) * camera.OutputSize.x * 0.5;
+        view.PixelsY = std::abs( projection[1][1] ) * camera.OutputSize.y * 0.5;
+        view.Near = camera.Near; view.Orthographic = camera.Projection == Moonlight::ProjectionType::Orthographic; view.ForceFine = camera.IsOblique;
+        terrainViews.push_back( view );
+    };
+    for( const auto& camera : renderer.GetCameraCache().Commands ) addTerrainView( camera );
+#if USING( ME_EDITOR )
+    addTerrainView( engine.EditorCamera );
+#endif
     for( Entity& entity : Renderables )
     {
         if( auto* terrain = entity.TryGetComponent<Terrain>(); terrain && terrain->IsEnabled() && entity.IsActiveInHierarchy() && terrain->GetData() )
         {
             terrains.insert( entity.GetId().Value() );
-            TerrainDraw* draw = PrepareTerrainDraw( entity, *terrain );
+            TerrainDraw* draw = PrepareTerrainDraw( entity, *terrain, terrainViews );
             const auto& world = entity.GetComponent<Transform>().GetLocalToWorldMatrix().GetInternalMatrix();
             for( size_t i = 0; i < draw->Parts.size(); ++i )
                 items.push_back( { draw->Parts[i].get(), Matrix4( glm::translate( world, draw->Source->Patches[i]->Offset.InternalVector ) ), entity.GetHandle() } );
@@ -240,6 +309,10 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
         ++it;
         if( !terrains.contains( id ) ) RemoveTerrainDraw( id );
     }
+    // Patterns are shared across instances; release unused patterns after every instance updates.
+    for( auto it = m_terrainTopology.begin(); it != m_terrainTopology.end(); )
+        if( it->second.use_count() == 1 ) it = m_terrainTopology.erase( it ); else ++it;
+
     for( auto it = m_compactCommands.begin(); it != m_compactCommands.end(); )
     {
         if( compactModels.count( it->first ) ) { ++it; continue; }

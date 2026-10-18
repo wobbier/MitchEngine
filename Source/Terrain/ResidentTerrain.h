@@ -2,6 +2,7 @@
 
 #include "Terrain/TerrainMesh.h"
 #include <memory>
+#include <array>
 
 namespace TerrainData
 {
@@ -25,6 +26,8 @@ namespace TerrainData
         std::shared_ptr<const Heightfield> Heights;
         std::vector<std::shared_ptr<const ResidentPatch>> Patches;
         std::vector<std::shared_ptr<const CollisionTile>> CollisionTiles;
+        // MinX, MaxX, MinZ, MaxZ; -1 is the finite outside boundary.
+        std::vector<std::array<int32_t, 4>> PatchNeighbors;
         size_t BuiltPatches = 0;
         size_t BuiltCollisionTiles = 0;
         AABB Bounds;

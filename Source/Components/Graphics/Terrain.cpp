@@ -24,6 +24,11 @@ ME_REFLECT_BEGIN( Terrain )
     ME_FIELD( Color ).Color();
     ME_FIELD( Roughness ).Range( 0.f, 1.f ).Speed( 0.01f );
     ME_FIELD( CastShadows );
+    ME_FIELD( LodPixelError ).Category( "LOD" ).Range( 0.25f, 32.f );
+    ME_FIELD( LodHysteresis ).Category( "LOD" ).Range( 0.f, 0.9f );
+    ME_FIELD( ForcedLod ).Category( "LOD" ).NoSerialize().Range( -1, 10 ).Tooltip( "-1 selects by pixel error; 0 is full detail" );
+    ME_FIELD( ShowLods ).Category( "LOD" ).NoSerialize();
+    ME_FIELD( ShowPatches ).Category( "LOD" ).NoSerialize();
     ME_FIELD( Collision ).Category( "Collision" );
     ME_FIELD( Friction ).Category( "Collision" ).Range( 0.f, 2.f );
     ME_FIELD( Restitution ).Category( "Collision" ).Range( 0.f, 1.f );
@@ -32,6 +37,7 @@ ME_REFLECT_END()
 void Terrain::SetData( std::shared_ptr<const TerrainData::ResidentTerrain> InData )
 {
     Asset = Path(); m_loadedAsset.clear(); m_resource.reset();
+    m_patchLods.clear(); m_lodTriangles = m_fullTriangles = 0; m_lodError.clear();
     m_data = std::move( InData ); m_valid = false; m_error.clear();
 }
 
@@ -42,6 +48,7 @@ void Terrain::ReloadAsset()
     if( Asset.GetLocalPathString().empty() ) return;
     if( m_resource ) ResourceCache::GetInstance().Evict( m_resource->GetPath().FullPath );
     m_resource.reset(); m_data.reset(); m_loadedAsset.clear(); m_valid = false;
+    m_patchLods.clear(); m_lodTriangles = m_fullTriangles = 0; m_lodError.clear();
 }
 
 void Terrain::Resolve( bool InWait )

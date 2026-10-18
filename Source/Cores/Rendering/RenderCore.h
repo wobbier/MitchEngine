@@ -6,6 +6,8 @@
 #include "Graphics/ModelResource.h"
 #include "Jobs/JobSystem.h"
 #include <unordered_map>
+#include "Terrain/TerrainLod.h"
+namespace Moonlight { class MeshIndexData; }
 
 class Mesh;
 class Terrain;
@@ -28,7 +30,7 @@ public:
     virtual void OnEntityRemoved( Entity& InEntity ) final;
     void OnRemovedFromWorld() override;
 
-    // Levels of detail: the relative screen height of each mesh is scaled by this before its level
+    // Levels of detail: the relative screen height of each imported mesh is scaled by this before its level
     // is picked (above 1 keeps detail longer, 0 always draws the coarsest level). --lod-bias sets it.
     float LodBias = 1.f;
 
@@ -47,10 +49,11 @@ public:
 
 private:
     struct TerrainDraw;
-    TerrainDraw* PrepareTerrainDraw( Entity& InEntity, Terrain& InTerrain );
+    TerrainDraw* PrepareTerrainDraw( Entity& InEntity, Terrain& InTerrain, std::span<const TerrainData::LodView> InViews );
     void RemoveTerrainDraw( uint64_t InEntityID );
     void ClearTerrainDraws();
     std::unordered_map<uint64_t, std::unique_ptr<TerrainDraw>> m_terrainDraws;
+    std::unordered_map<uint64_t, std::shared_ptr<Moonlight::MeshIndexData>> m_terrainTopology;
     std::unordered_map<uint64_t, std::vector<unsigned int>> m_compactCommands;
     std::unordered_map<uint64_t, unsigned int> m_meshCommands;
     bool EnableDebugDraw = false;

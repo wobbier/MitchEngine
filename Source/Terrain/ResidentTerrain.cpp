@@ -114,6 +114,29 @@ namespace TerrainData
                 }
                 data->CollisionTiles.push_back( std::move( collision ) ); ++tileIndex; ++data->BuiltCollisionTiles;
             }
+            if( compatible && InPrevious->PatchNeighbors.size() == data->Patches.size() ) data->PatchNeighbors = InPrevious->PatchNeighbors;
+            else
+            {
+                std::map<std::pair<int64_t, int64_t>, int32_t> addresses;
+                for( size_t i = 0; i < data->Patches.size(); ++i )
+                {
+                    const auto sample = data->Patches[i]->Mesh.SampleOrigin;
+                    addresses[{ sample.X, sample.Z }] = static_cast<int32_t>( i );
+                }
+                const int64_t q = s.PatchQuads;
+                const SampleCoord directions[] = { { -q, 0 }, { q, 0 }, { 0, -q }, { 0, q } };
+                for( const auto& patch : data->Patches )
+                {
+                    std::array<int32_t, 4> neighbors{ -1, -1, -1, -1 };
+                    for( size_t edge = 0; edge < 4; ++edge )
+                    {
+                        const auto origin = patch->Mesh.SampleOrigin;
+                        const auto found = addresses.find( { origin.X + directions[edge].X, origin.Z + directions[edge].Z } );
+                        if( found != addresses.end() ) neighbors[edge] = found->second;
+                    }
+                    data->PatchNeighbors.push_back( neighbors );
+                }
+            }
             OutData = std::move( data );
             return true;
         }

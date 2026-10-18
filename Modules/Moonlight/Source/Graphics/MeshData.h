@@ -6,6 +6,8 @@
 #include <Pointers.h>
 #include "Math/Bounds.h"
 #include "Graphics/MeshLod.h"
+#include "Graphics/MeshIndexData.h"
+#include <memory>
 #include <bgfx/bgfx.h>
 #include <glm/mat4x4.hpp>
 #include "Graphics/VertexAnimation.h"
@@ -71,12 +73,14 @@ namespace Moonlight
             return m_vertexCount;
         }
         uint32_t GetIndexCount() const {
-            return m_indexCount;
+            return m_topology ? m_topology->GetCount() : m_indexCount;
         }
 
         // Levels of detail (a model's import settings): index buffers over this mesh's vertices,
         // coarser each level, each drawn below a relative screen height. Level 0 is the full mesh.
         void SetLods( const std::vector<MeshLod>& InLods );
+        // Overrides visual topology in every pass; canonical CPU collision remains unchanged.
+        void SetIndexTopology( std::shared_ptr<MeshIndexData> InTopology ) { m_topology = std::move( InTopology ); }
         // Simplified levels (not counting the full mesh).
         uint8_t GetLodCount() const {
             return static_cast<uint8_t>( m_lodIbh.size() );
@@ -85,12 +89,12 @@ namespace Moonlight
             return m_lodHeights.data();
         }
         bgfx::IndexBufferHandle GetIndexBuffer( uint8_t InLod ) const {
-            return InLod == 0 || InLod > m_lodIbh.size() ? m_ibh : m_lodIbh[InLod - 1];
+            return m_topology ? m_topology->GetBuffer() : ( InLod == 0 || InLod > m_lodIbh.size() ? m_ibh : m_lodIbh[InLod - 1] );
         }
         // Triangle edges, uploaded on first use. Reuses the same static/posed/skinned vertices.
         bgfx::IndexBufferHandle GetWireframeIndexBuffer( uint8_t InLod );
         uint32_t GetIndexCount( uint8_t InLod ) const {
-            return InLod == 0 || InLod > m_lodIndexCounts.size() ? m_indexCount : m_lodIndexCounts[InLod - 1];
+            return m_topology ? m_topology->GetCount() : ( InLod == 0 || InLod > m_lodIndexCounts.size() ? m_indexCount : m_lodIndexCounts[InLod - 1] );
         }
 
 // render the mesh
@@ -101,6 +105,7 @@ namespace Moonlight
         void InitMesh();
 
     private:
+        std::shared_ptr<MeshIndexData> m_topology;
         uint32_t m_vertexCount = 0;
         uint32_t m_indexCount = 0;
         bgfx::VertexBufferHandle m_vbh = BGFX_INVALID_HANDLE;

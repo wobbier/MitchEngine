@@ -1,8 +1,8 @@
 # Terrain
 
-> Verified against engine commit `fa3bf474` plus the terrain asset-operations change, 2026-10-18.
+> Verified against engine commit `ace12e2e` plus the terrain LOD change, 2026-10-18.
 
-The terrain system loads a fully resident tiled heightfield into one `Terrain` scene component, renders internal patches through the ordinary lit mesh path, and provides static triangle-mesh collision at canonical sample resolution. The `TerrainData` library supplies signed addressing, shared-border edits, normals and queries, patch geometry, source/cooked serialization, brush strokes and source publication. Havana provides a terrain authoring panel with four sculpting tools, RAW heightmap exchange and recovery snapshots. Runtime LOD selection and streaming are not implemented yet.
+The terrain system loads a fully resident tiled heightfield into one `Terrain` scene component, renders internal patches through the ordinary lit mesh path, and provides static triangle-mesh collision at canonical sample resolution. The `TerrainData` library supplies signed addressing, shared-border edits, normals and queries, patch geometry, source/cooked serialization, brush strokes and source publication. Havana provides a terrain authoring panel with four sculpting tools, RAW heightmap exchange and recovery snapshots. Runtime patches select stitched LODs from camera pixel error. Streaming remains planned.
 
 ## Overview
 
@@ -16,6 +16,11 @@ A `Heightfield` owns validated `Settings` and a map of resident tiles. Each tile
 | --- | --- |
 | `Source/Terrain/Heightfield.h` / `Source/Terrain/Heightfield.cpp` | Settings, coordinates, resident pages, revisions, dirty samples, edits and queries |
 | `Source/Terrain/TerrainMesh.h` / `Source/Terrain/TerrainMesh.cpp` | CPU patch vertices, local bounds, full/coarse index lists, geometric errors |
+| `Source/Terrain/TerrainLod.h` / `Source/Terrain/TerrainLod.cpp` | Camera error bounds, hysteresis, neighbor balancing and common LOD selection |
+| `Source/Terrain/TerrainTopology.cpp` | All sixteen stitched edge/corner index patterns |
+| `Modules/Moonlight/Source/Graphics/MeshIndexData.h` / `Modules/Moonlight/Source/Graphics/MeshIndexData.cpp` | Shared index buffers and lazy matching wireframe topology |
+| `Modules/Havana/Source/Widgets/Terrain/TerrainLodWidget.cpp` | Inspect buttons, LOD statistics and forced-level diagnostics |
+| `Tests/Source/TerrainLodTests.cpp` | Topology coverage/winding, transition errors, camera demand and hysteresis |
 | `Source/Terrain/TerrainSerialization.h` / `Source/Terrain/TerrainSerialization.cpp` | JSON manifest, binary source pages, independently checksummed cooked tile blocks |
 | `Source/Terrain/TerrainEditing.h` / `Source/Terrain/TerrainEditing.cpp` | Distance-spaced strokes, sample deltas and source triangle picking |
 | `Source/Terrain/TerrainAsset.h` / `Source/Terrain/TerrainAsset.cpp` | Source loading and generation-based manifest publication |
@@ -51,7 +56,7 @@ At play start, required collision assets are completed before `PhysicsCore` star
 
 `RenderCore` creates internal `MeshData` and mesh instances from the prepared patches, using `StandardMaterial` and the component's color/roughness. Patches share the owning terrain entity's selection ID and use the same visibility-index allocation as ordinary meshes/models. Each patch owns its material instance because material preparation runs in parallel jobs. Terrain bounds participate in editor selection bounds and Frame Selected. Render preparation now runs after resource finalization and camera late updates, so culling uses the current camera snapshot.
 
-Terrain draws only full-resolution topology. Camera culling does not remove off-camera shadow casters. On replacement, disable, removal, scene unload, or Play/Stop, the render bridge removes command references before releasing GPU geometry. No patch becomes a scene entity.
+Terrain chooses a common stitched topology for all camera and shadow passes (see Runtime LODs below). Camera culling does not remove off-camera shadow casters. On replacement, disable, removal, scene unload, or Play/Stop, the render bridge removes command references before releasing GPU geometry. No patch becomes a scene entity.
 
 The GPU picking pass uses the camera's visible ray segment rather than a fixed 100 m range. Framing a large terrain can therefore move the editor camera beyond 100 m while its rendered patches remain selectable.
 
@@ -78,6 +83,20 @@ The GPU picking pass uses the camera's visible ray segment rather than a fixed 1
 `BuildPatch` reads an immutable heightfield snapshot and creates patch-local positions, smooth normals, normalized UVs, bounds, and triangle index lists. `SampleOrigin` preserves the integer terrain location independently of Float32 local vertex positions. Levels use strides 1, 2, 4, … through the patch size over one full-resolution vertex array.
 
 `PatchLod::MaxError` conservatively bounds vertical deviation from the fine triangle surface. The nested diagonals align, so the maximum of the piecewise linear difference occurs at a fine-grid vertex. Errors are rounded upward when conversion to Float32 would otherwise underestimate them. `PatchMesh::Revision` identifies the heightfield snapshot used to build it.
+
+### Runtime LODs
+
+`Terrain::LodPixelError` defaults to 2 pixels, and `LodHysteresis` defaults to 0.2. Both serialize with the component and are editable in the inspector. For each resident patch, `SelectTerrainLods` chooses the coarsest power-of-two stride whose geometric error fits the budget. Coarsening waits until the error falls below `(1 - hysteresis) * budget`; refinement uses the full budget. Regular errors use a monotone envelope of `PatchLod::MaxError`.
+
+Every rendering camera with a positive output size participates, including World View in editor builds. Projection diagonals and actual output dimensions provide pixels per metre. Perspective bounds include both image-plane motion and depth changes caused by vertical displacement; orthographic views use their constant scale. Selection combines camera demands into one conservative result, then refines neighbors to keep adjacent strides within 2:1 across patch and signed tile boundaries. Off-camera patches remain available to shadows.
+
+The finer patch collapses alternate boundary samples onto its coarser neighbor. All sixteen edge masks handle corners without skirts. Each stitched triangle lies inside one next-coarser regular triangle; twice that level's error bounds the stitched surface against canonical heights. Neighbor refinement also enforces this extra transition error within the pixel budget. Forward, shadow, picking and wireframe passes read the selected index topology through `MeshData`; they share vertices, canonical normals and one choice per patch. Collision and source queries never switch levels.
+
+`RenderCore` shares index patterns by patch resolution, level and edge mask across instances. It creates a pattern when first requested and retires unused patterns after all instances update. Visual changes preserve patch vertex buffers and collision cooks. Invalid settings or failed topology upload fall back to uniform full detail for the whole instance; upload failures back off before retrying, and the Inspect panel displays the error.
+
+In **Terrain > Inspect**, **Patches** outlines patch bounds and **LODs** colors levels 0–5 green, yellow, orange, blue, purple and pink (repeating for higher levels). Counts cover the entire resident instance, including off-camera patches. **Force level** uses -1 for automatic selection and clamps other values to the available levels. Forced levels bypass the pixel budget. Forced levels and debug flags are transient and do not serialize; the global imported-mesh `--lod-bias` does not affect terrain.
+
+`Tests/Source/TerrainLodTests.cpp` covers all edge masks at multiple resolutions/strides, corner coverage, winding, matching boundary steps, nested diagonals, signed cross-tile neighbors, projection error bounds, perspective/orthographic demand and hysteresis. The game fixture `../Assets/Scenes/Tests/TerrainLodFlows.edscript` clicks the actual Inspect buttons, captures colored/wireframe levels, checks multi-camera refinement and forced levels, verifies stable vertex buffers/collision cooks, saves a runtime scene and exercises Play/Stop.
 
 ### Source formats
 
@@ -108,17 +127,18 @@ Float32 cooking preserves source height bits. UInt16 cooking uses the asset-wide
 
 Use the pure data headers without renderer or editor headers. Capture a `Heightfield` copy before launching worker work; mutations of the same instance are not thread safe. After building a patch, compare its revision with the current source revision before publishing derived results. `BuildResidentTerrain` prepares a complete immutable snapshot for `Terrain::SetData`, which also supports procedural CPU input without adding scene children.
 
-The focused test filter is `--test-case=Terrain:*` on `MitchEngine_Tests`. The source and cooked codecs work on buffers; callers supply disk I/O and publication behavior.
+The focused test filter is `--test-case=Terrain*` on `MitchEngine_Tests`. The source and cooked codecs work on buffers; callers supply disk I/O and publication behavior.
 
 ## Caveats & Fragility
 
-- Source publication, automatic cooking, and sculpting tools are not implemented. Source-page changes do not automatically trigger a manifest reload; use **Reload Terrain**. Companion-directory move/duplicate operations are not yet grouped as one authoring operation.
-- Patch builds require owner samples and normal halos to be resident. Canonical height queries describe source data, not a separately coarsened collision surface.
-- Coarse patch topology has no neighbor stitching or runtime LOD selection yet. Rendering uses the full vertex array and finest index list; `MeshData` also retains its ordinary CPU collision copies, independently of the terrain collision adapter.
-- Cooked blocks currently contain complete tiles at one encoding, without compressed or independently streamed detail levels. The decoder eagerly reads all tiles.
-- The material currently exposes solid base color and roughness. Layer weights, terrain raycasts, brush operations, terrain-specific authoring history, and C# terrain bindings are not implemented.
-- Required terrain load failure holds 3D physics stepping; other gameplay/script updates continue. The resident CPU/GPU/collision data has no streaming or upload budget yet.
-- Copies are deep CPU snapshots. Snapshot sharing and asynchronous lifetime management are not part of this library.
+- Source-page edits outside the editor do not automatically reload manifests; use **Reload Terrain**. Automatic cooking and source-generation compaction remain planned.
+- Patch builds require owner samples and normal halos to be resident. Canonical height queries and collision remain at full sample resolution while visual topology coarsens.
+- LOD changes reduce submitted triangles, not resident vertex memory or patch count. Full-resolution vertex buffers and ordinary `MeshData` CPU collision copies remain allocated alongside terrain collision data.
+- Selection is deliberately conservative for bounds touching/behind a camera's near plane, oblique projections and invalid view data. Such views retain full detail; opposed cameras can therefore reduce the triangle savings. No geomorphing is implemented, so discrete transitions can pop.
+- Cooked blocks contain complete tiles at one encoding. The decoder eagerly reads all tiles; CPU/GPU/collision residency and uploads have no streaming budget yet.
+- The material exposes solid base color and roughness. Surface layers, navigation source integration and C# terrain bindings remain planned.
+- Required terrain load failure holds 3D physics stepping; other gameplay/script updates continue.
+- Authoring still deep-copies canonical heights for immutable snapshots. Unchanged patch/collision arrays and cooked shapes are shared; incremental authoring preparation remains on the editor thread.
 
 ## Related Docs
 
@@ -129,9 +149,9 @@ The focused test filter is `--test-case=Terrain:*` on `MitchEngine_Tests`. The s
 
 ## Editor authoring
 
-Open **View > Terrain**, use the command palette's **New Terrain...** / **Open Terrain...**, double-click a `.terrain` in the asset browser, or use **Edit Terrain** on a component. New Terrain creates a saved flat source asset with configurable tile counts, quads per tile, spacing and starting height. **Place in Scene** adds one undoable terrain instance and frames it. The creation dialog caps source data at one million stored samples; terrain rendering still uses resident data and full-resolution patches.
+Open **View > Terrain**, use the command palette's **New Terrain...** / **Open Terrain...**, double-click a `.terrain` in the asset browser, or use **Edit Terrain** on a component. New Terrain creates a saved flat source asset with configurable tile counts, quads per tile, spacing and starting height. **Place in Scene** adds one undoable terrain instance and frames it. The creation dialog caps source data at one million stored samples; terrain rendering still retains all patches and full-resolution vertex buffers.
 
-The panel has six workspaces: **Sculpt**, **Paint**, **Tiles**, **Foliage**, **Splines** and **Inspect**. Sculpt implements **Raise**, **Lower**, **Smooth** and **Flatten**. The Tiles workspace also implements RAW heightmap import/export. **Make Unique** in Asset & Build copies the active heights to a separate source asset and rebinds only the selected instance. Other tool buttons are disabled placeholders with explanatory tooltips, including material layers, erosion, tile streaming, vegetation, roads, LOD diagnostics and cooking. **Asset & Build** contains save/revert controls and the planned asset operations. Icons come from `Assets/Icons/outline/` and are decoded as SVGs into theme-tinted editor textures; the panel releases its textures before renderer shutdown.
+The panel has six workspaces: **Sculpt**, **Paint**, **Tiles**, **Foliage**, **Splines** and **Inspect**. Sculpt implements **Raise**, **Lower**, **Smooth** and **Flatten**. The Tiles workspace also implements RAW heightmap import/export. **Make Unique** in Asset & Build copies the active heights to a separate source asset and rebinds only the selected instance. Inspect implements **Patches** and **LODs**, with per-level patch counts, stitched counts, triangle totals and a forced-level slider for the selected instance. Other tool buttons are disabled placeholders with explanatory tooltips, including material layers, erosion, tile streaming, vegetation, roads, further diagnostics and cooking. **Asset & Build** contains save/revert controls and the planned asset operations. Icons come from `Assets/Icons/outline/` and are decoded as SVGs into theme-tinted editor textures; the panel releases its textures before renderer shutdown.
 
 Select a terrain instance, open its source document, then select a sculpt tool or enable the brush. Drag in World View to sculpt. The outer ring marks radius; the inner ring marks the fully weighted center. Shift swaps Raise and Lower for a new stroke. Radius, strength, falloff and spacing persist as editor preferences. Strength is metres per stamp for Raise/Lower and a clamped blend fraction for Smooth/Flatten. Stamps are spaced by `Radius * Spacing`; holding still adds no stamps. Flatten picks its target elevation at gesture start. Smooth gathers the whole stamp's results before changing samples so traversal order cannot change its neighborhood inputs.
 
