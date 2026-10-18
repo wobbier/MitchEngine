@@ -221,6 +221,8 @@ AssetType AssetBrowserWidget::GetAssetType( const std::string& InPath )
         return AssetType::Material;
     if( EndsWith( path, ".shadergraph" ) )
         return AssetType::ShaderGraph;
+    if( EndsWith( path, ".terrain" ) || EndsWith( path, ".terrainc" ) )
+        return AssetType::Terrain;
     if( EndsWith( path, ".vert" ) || EndsWith( path, ".frag" ) || EndsWith( path, ".sh" ) || EndsWith( path, ".sc" ) )
         return AssetType::Shader;
     if( EndsWith( path, ".cpp" ) || EndsWith( path, ".h" ) )

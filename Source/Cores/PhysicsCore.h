@@ -7,6 +7,7 @@
 #include "Math/Vector3.h"
 #include <array>
 #include <cstdint>
+#include <memory>
 #include <unordered_map>
 #include <vector>
 
@@ -16,6 +17,7 @@ class CharacterController;
 class PhysicsJoint;
 struct ColliderSettings;
 namespace Moonlight { class MeshData; }
+namespace TerrainData { struct ResidentTerrain; }
 
 // 3D physics (Box3D). Engine-owned: always present, builds bodies from Rigidbody / collider /
 // CharacterController / PhysicsJoint components, and steps at the fixed rate while the world is
@@ -79,6 +81,7 @@ private:
         uint64_t ShapeSignature = 0;
         std::vector<uint64_t> Shapes;
         std::vector<Moonlight::MeshData*> Meshes;   // cached hull / triangle data in use
+        std::shared_ptr<const TerrainData::ResidentTerrain> TerrainSource;
         bool HasRigidbody = false;
         bool Seen = false;
         // Pose last applied to / read from the body, and the two fixed-step poses to interpolate.
@@ -108,7 +111,7 @@ private:
     void DestroyWorld();
     void SyncBodies();
     void SyncJoints();
-    void BuildShapes( BodyRecord& InRecord, const std::vector<ColliderEntry>& InColliders );
+    bool BuildShapes( BodyRecord& InRecord, const std::vector<ColliderEntry>& InColliders );
     void ApplyBodySettings( BodyRecord& InRecord, Rigidbody* InRigidbody );
     void DestroyRecord( BodyRecord& InRecord );
     void StepCharacters( float InDeltaSeconds );
@@ -120,6 +123,7 @@ private:
     void RelativePose( Transform& InCollider, Transform& InOwner, Vector3& OutPosition, Quaternion& OutRotation ) const;
     const void* GetHull( Moonlight::MeshData* InMesh );
     const void* GetTriangleMesh( Moonlight::MeshData* InMesh );
+    const std::vector<void*>* GetTerrainMeshes( std::shared_ptr<const TerrainData::ResidentTerrain> InData );
     uint64_t EnsureGroundBody();
     // Frees cached hull / triangle data no body uses any more.
     void CollectMeshCache();
@@ -134,6 +138,12 @@ private:
     std::unordered_map<uint64_t, BodyRecord> m_bodies;  // by owner entity id
     std::unordered_map<Moonlight::MeshData*, void*> m_hulls;
     std::unordered_map<Moonlight::MeshData*, void*> m_meshes;
+    struct TerrainMeshCache
+    {
+        std::shared_ptr<const TerrainData::ResidentTerrain> Source;
+        std::vector<void*> Meshes;
+    };
+    std::unordered_map<const TerrainData::ResidentTerrain*, TerrainMeshCache> m_terrainMeshes;
     std::array<PhysicsTask, 128> m_tasks;
     int m_taskCount = 0;
     std::vector<CollisionEvent> m_pendingEvents;

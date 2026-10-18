@@ -1,8 +1,8 @@
 # Resources and Assets
 
-All asset loading funnels through the `ResourceCache` singleton: a thread-safe, string-keyed map of `SharedPtr<Resource>` with synchronous loading plus **background loading** for textures, models and shaders, `.meta` JSON sidecars per asset (carrying asset GUIDs), and an editor/tools-only cook step (`Export()`) that compiles sources (`.png`, `.fbx`, `.vert`…) into runtime formats (`.dds`, `.assbin`, `.<platform>.bin`). Unreferenced resources are kept alive for a grace period, and tools builds hot reload assets when files change. This doc covers the load flow, async loads, the metadata/cook system, hot reload, the resource type inventory, and how to add a new type.
+All asset loading funnels through the `ResourceCache` singleton: a thread-safe, string-keyed map of `SharedPtr<Resource>` with synchronous loading plus **background loading** for textures, models, shaders and resident terrain, `.meta` JSON sidecars per asset (carrying asset GUIDs), and an editor/tools-only cook step (`Export()`) that compiles sources (`.png`, `.fbx`, `.vert`…) into runtime formats (`.dds`, `.assbin`, `.<platform>.bin`). Unreferenced resources are kept alive for a grace period, and tools builds hot reload assets when files change. This doc covers the load flow, async loads, the metadata/cook system, hot reload, the resource type inventory, and how to add a new type.
 
-> Verified against engine commit dab803a2, 2026-10-08; model import (animation and skin data) against 07617c5f, 2026-10-09; pass-through assets against afce7083, 2026-10-09; async loading against 4d4de548, 2026-10-10; async shader loads against 488b07f1 plus the non-blocking shaders change, 2026-10-16.
+> Verified against engine commit dab803a2, 2026-10-08; model import (animation and skin data) against 07617c5f, 2026-10-09; pass-through assets against afce7083, 2026-10-09; async loading against 4d4de548, 2026-10-10; async shader loads against 488b07f1 plus the non-blocking shaders change, 2026-10-16; terrain resources against `73fbac9d` plus the resident terrain change, 2026-10-18.
 
 ## Overview
 
@@ -125,6 +125,7 @@ Registered metadata types:
 | `wav`, `mp3` | `AudioResourceMetadata` (+Mp3) — declared in `Source/Components/Audio/AudioSource.h` | — | none (pass-through: loaded by FMOD as is, see `Docs/Audio.md`) |
 | `mat` | `MaterialResourceMetadata` (declared in `Modules/Moonlight/Source/Graphics/Material.h`) | `mat` | none (pass-through) |
 | `inputactions` | `InputActionsMetadata` (`Source/Input/InputActionsAsset.h`) | `inputactions` | none (pass-through); a data asset, edited in the asset browser |
+| `terrain`, `terrainc` | `TerrainMetadata`, `TerrainCookedMetadata` | same extension (pass-through) | Source manifest/pages or an explicit cooked package; `TerrainResource` decodes and prepares immutable resident CPU geometry in a background load (`Docs/Terrain.md`) |
 
 A metadata type can make its asset a **data asset** by returning a reflected object from `MetaBase::GetEditableType` / `GetEditableData`: the asset browser then draws it with the reflection inspector and writes it back through `SaveEditableData` (see `InputActionsMetadata`).
 

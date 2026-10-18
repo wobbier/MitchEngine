@@ -8,6 +8,7 @@
 #include <unordered_map>
 
 class Mesh;
+class Terrain;
 
 class RenderCore final
     : public Core<RenderCore>
@@ -25,6 +26,7 @@ public:
 
     virtual void OnEntityAdded( Entity& NewEntity ) final;
     virtual void OnEntityRemoved( Entity& InEntity ) final;
+    void OnRemovedFromWorld() override;
 
     // Levels of detail: the relative screen height of each mesh is scaled by this before its level
     // is picked (above 1 keeps detail longer, 0 always draws the coarsest level). --lod-bias sets it.
@@ -44,6 +46,11 @@ public:
 #endif
 
 private:
+    struct TerrainDraw;
+    TerrainDraw* PrepareTerrainDraw( Entity& InEntity, Terrain& InTerrain );
+    void RemoveTerrainDraw( uint64_t InEntityID );
+    void ClearTerrainDraws();
+    std::unordered_map<uint64_t, std::unique_ptr<TerrainDraw>> m_terrainDraws;
     std::unordered_map<uint64_t, std::vector<unsigned int>> m_compactCommands;
     std::unordered_map<uint64_t, unsigned int> m_meshCommands;
     bool EnableDebugDraw = false;

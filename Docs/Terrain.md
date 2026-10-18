@@ -1,8 +1,8 @@
-# Terrain Data Foundation
+# Terrain
 
-> Verified against engine commit `5e92b9b5` plus the terrain data foundation change, 2026-10-18.
+> Verified against engine commit `73fbac9d` plus the resident terrain integration change, 2026-10-18.
 
-The `TerrainData` namespace provides a CPU heightfield library: signed sample addressing, resident source tiles, shared-border edits, normals and height queries, patch mesh generation, and source/cooked serialization. It has no scene component, render submission, streaming scheduler, or editor tool yet.
+The terrain system loads a fully resident tiled heightfield into one `Terrain` scene component, renders internal patches through the ordinary lit mesh path, and provides static triangle-mesh collision at canonical sample resolution. The `TerrainData` library supplies signed addressing, shared-border edits, normals and queries, patch geometry, and source/cooked serialization. Runtime LOD selection, streaming, and sculpting tools are not implemented yet.
 
 ## Overview
 
@@ -18,8 +18,38 @@ A `Heightfield` owns validated `Settings` and a map of resident tiles. Each tile
 | `Source/Terrain/TerrainMesh.h` / `Source/Terrain/TerrainMesh.cpp` | CPU patch vertices, local bounds, full/coarse index lists, geometric errors |
 | `Source/Terrain/TerrainSerialization.h` / `Source/Terrain/TerrainSerialization.cpp` | JSON manifest, binary source pages, independently checksummed cooked tile blocks |
 | `Tests/Source/TerrainTests.cpp` | Addressing, shared borders, missing data, query/mesh agreement, serialization and malformed input |
+| `Source/Terrain/ResidentTerrain.h` / `Source/Terrain/ResidentTerrain.cpp` | Immutable CPU snapshots, patch preparation, collision tiles and translation validation |
+| `Source/Resources/TerrainResource.h` / `Source/Resources/TerrainResource.cpp` | Background source/cooked loading, metadata registration and snapshot publication |
+| `Source/Components/Graphics/Terrain.h` / `Source/Components/Graphics/Terrain.cpp` | Reflected asset/material/collision settings and resource readiness |
+| `Source/Cores/TerrainCore.h` / `Source/Cores/TerrainCore.cpp` | Engine-owned publication, supported-transform checks and collision readiness |
+| `Source/Cores/Rendering/RenderCore.cpp` | Internal patch meshes, GPU ownership, shared visibility indexing and terrain selection IDs |
+| `Source/Cores/PhysicsCore.cpp` | Static collision, shared immutable-source cache and replacement/teardown |
+| `Tests/Source/TerrainRuntimeTests.cpp` | Resident resource publication, scene settings, collision, readiness and lifecycle tests |
+| `Tools/BuildTerrainTest.py` | Regenerates the four-tile demo asset and the game repository's terrain test scene |
 
 ## How It Works
+
+### Resident scene integration
+
+Add a `Terrain` component to an entity with a `Transform` and choose a `.terrain` manifest or `.terrainc` cooked package. The asset browser recognizes both as Terrain assets. Reflected fields cover the asset reference, base color, roughness, shadow casting, collision, friction, and restitution. Scene and prefab serialization stores those settings, not height arrays or generated children.
+
+`TerrainResource::LoadAsync` reads and validates the asset and source pages, then prepares `ResidentTerrain` CPU geometry on a resource loader thread. `FinishAsyncLoad` publishes one immutable snapshot. `ResourceCache` shares the resource between instances; render and physics adapters retain snapshot references independently. When a `.meta` GUID exists, it supplies the runtime asset identity; standalone loads use the GUID embedded in the manifest/package. Metadata is pass-through and does not invoke the texture/model importers.
+
+`TerrainCore` is engine-owned and explicitly registered/scheduled by `Engine`. It validates the final world matrix, including parents: translation is supported, rotation and scaling are rejected, and terrain cannot belong to a dynamic/kinematic rigidbody. Errors appear in the component inspector. **Reload Terrain** retries a file load asynchronously, including a previously failed load.
+
+At play start, required collision assets are completed before `PhysicsCore` starts. Each physics synchronization refreshes terrain readiness. If required terrain is missing, invalid, or failed, 3D physics stepping waits while its error remains inspectable; repairing the source and reloading it resumes physics. This is a resident-scene readiness barrier, not an asynchronous gameplay streaming system. Terrain with collision disabled does not impose that barrier.
+
+`RenderCore` creates internal `MeshData` and mesh instances from the prepared patches, using `StandardMaterial` and the component's color/roughness. Patches share the owning terrain entity's selection ID and use the same visibility-index allocation as ordinary meshes/models. Each patch owns its material instance because material preparation runs in parallel jobs. Terrain bounds participate in editor selection bounds and Frame Selected. Render preparation now runs after resource finalization and camera late updates, so culling uses the current camera snapshot.
+
+Terrain draws only full-resolution topology. Camera culling does not remove off-camera shadow casters. On replacement, disable, removal, scene unload, or Play/Stop, the render bridge removes command references before releasing GPU geometry. No patch becomes a scene entity.
+
+The GPU picking pass uses the camera's visible ray segment rather than a fixed 100 m range. Framing a large terrain can therefore move the editor camera beyond 100 m while its rendered patches remain selectable.
+
+`PhysicsCore` builds one static mesh shape per storage tile, with the same canonical triangle split as height queries. Cache entries retain immutable terrain snapshots and can serve multiple instances. Collision has no dependency on GPU mesh buffers or visual culling. Replacement collision meshes are prepared before live shapes are removed; inactive/removed instances release their shapes and unused cache entries. Entity layers and the project collision matrix apply to terrain queries/contacts.
+
+### Demo and checks
+
+`Tools/BuildTerrainTest.py` writes `../Assets/Terrain/ResidentDemo.terrain`, four source pages, and `../Assets/Scenes/Tests/TerrainTest.lvl` in the game repository. The scene contains one terrain, a camera, a directional light, and three physics boxes. `../Assets/Scenes/Tests/TerrainFlows.edscript` exercises selection, settings undo, save/reopen, and Play/Stop. Generated source pages use the documented version 1 format.
 
 ### Residency, borders, and editing
 
@@ -66,17 +96,18 @@ Float32 cooking preserves source height bits. UInt16 cooking uses the asset-wide
 
 ## How to Extend
 
-Use the public headers without renderer or editor headers. Capture a `Heightfield` copy before launching worker work; mutations of the same instance are not thread safe. After building a patch, compare its revision with the current source revision before publishing derived results.
+Use the pure data headers without renderer or editor headers. Capture a `Heightfield` copy before launching worker work; mutations of the same instance are not thread safe. After building a patch, compare its revision with the current source revision before publishing derived results. `BuildResidentTerrain` prepares a complete immutable snapshot for `Terrain::SetData`, which also supports procedural CPU input without adding scene children.
 
 The focused test filter is `--test-case=Terrain:*` on `MitchEngine_Tests`. The source and cooked codecs work on buffers; callers supply disk I/O and publication behavior.
 
 ## Caveats & Fragility
 
-- There is no asset-type registration, `.meta` integration, file publication, scene serialization adapter, GPU mesh, collider, or editor tool yet. Manifest GUIDs are data only until connected to the asset database.
+- Source publication, automatic cooking, and sculpting tools are not implemented. Source-page changes do not automatically trigger a manifest reload; use **Reload Terrain**. Companion-directory move/duplicate operations are not yet grouped as one authoring operation.
 - Patch builds require owner samples and normal halos to be resident. Canonical height queries describe source data, not a separately coarsened collision surface.
-- Coarse patch topology has no neighbor stitching or runtime LOD selection yet. The full vertex array remains allocated at every level.
+- Coarse patch topology has no neighbor stitching or runtime LOD selection yet. Rendering uses the full vertex array and finest index list; `MeshData` also retains its ordinary CPU collision copies, independently of the terrain collision adapter.
 - Cooked blocks currently contain complete tiles at one encoding, without compressed or independently streamed detail levels. The decoder eagerly reads all tiles.
-- Source editing stores heights only; layer weights, raycasts, brush operations, and authoring history are not implemented.
+- The material currently exposes solid base color and roughness. Layer weights, terrain raycasts, brush operations, terrain-specific authoring history, and C# terrain bindings are not implemented.
+- Required terrain load failure holds 3D physics stepping; other gameplay/script updates continue. The resident CPU/GPU/collision data has no streaming or upload budget yet.
 - Copies are deep CPU snapshots. Snapshot sharing and asynchronous lifetime management are not part of this library.
 
 ## Related Docs

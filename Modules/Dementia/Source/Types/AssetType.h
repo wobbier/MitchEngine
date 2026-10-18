@@ -15,6 +15,7 @@ enum class AssetType : unsigned int
     UI,
     Code,
     CS,
+    Terrain,
     Count
 };
 
@@ -45,6 +46,8 @@ namespace {
             return "Code";
         case AssetType::CS:
             return "Script";
+        case AssetType::Terrain:
+            return "Terrain";
         case AssetType::Material:
             return "Material";
         case AssetType::Count:

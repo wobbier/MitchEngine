@@ -8,6 +8,7 @@
 #include "Components/Camera.h"
 #include "Components/Graphics/Decal.h"
 #include "Components/Graphics/Mesh.h"
+#include "Components/Graphics/Terrain.h"
 #include "Components/Graphics/Model.h"
 #include "Components/Lighting/Light.h"
 #include "Components/Effects/ParticleSystem.h"
@@ -53,6 +54,8 @@ namespace SceneTools
                         if( nodeBounds.IsValid() ) OutBounds.Encapsulate( nodeBounds );
                     }
                 }
+                if( auto* terrain = entity->TryGetComponent<Terrain>(); terrain && terrain->IsEnabled() )
+                    if( auto data = terrain->GetData() ) OutBounds.Encapsulate( data->Bounds.Transformed( InTransform.GetLocalToWorldMatrix() ) );
                 if( Decal* decal = entity->TryGetComponent<Decal>() )
                 {
                     OutBounds.Encapsulate( AABB::FromCenterExtents( Vector3(), Vector3( 0.5f, 0.5f, 0.5f ) ).Transformed( Decal::BoxMatrix( InTransform, decal->Size ) ) );

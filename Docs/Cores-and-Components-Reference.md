@@ -2,7 +2,7 @@
 
 The catalog: every core (system) and component the engine ships, what each core filters on, when it updates, and which components are decorative or orphaned. Audio, Physics, Animation, Navigation, Rendering, UI, and Scripting have their own docs.
 
-> Verified against engine commit 047f57b8, 2026-07-10; the rendering rows (RenderCore, ParticleCore, Mesh, Light, PostProcess, ParticleSystem) against 1fa55311, 2026-10-09 (overhaul Wave 3); the physics rows against 8fdd99b1, 2026-10-09 (overhaul Wave 4); the animation rows (AnimationCore, Animator, Model, Mesh skinning) against 07617c5f, 2026-10-09; the audio rows against afce7083, 2026-10-09; the scripting rows against 6a4b006f, 2026-10-09; the navigation rows against 8d6769a5, 2026-10-10.
+> Verified against engine commit 047f57b8, 2026-07-10; the rendering rows (RenderCore, ParticleCore, Mesh, Light, PostProcess, ParticleSystem) against 1fa55311, 2026-10-09 (overhaul Wave 3); the physics rows against 8fdd99b1, 2026-10-09 (overhaul Wave 4); the animation rows (AnimationCore, Animator, Model, Mesh skinning) against 07617c5f, 2026-10-09; the audio rows against afce7083, 2026-10-09; the scripting rows against 6a4b006f, 2026-10-09; the navigation rows against 8d6769a5, 2026-10-10; resident terrain and render ordering against `73fbac9d` plus the resident terrain change, 2026-10-18.
 
 ## Overview
 
@@ -14,11 +14,12 @@ Cores come in two flavors (see `Docs/Architecture.md`): **engine-owned** (create
 |------|--------|--------|-----------|
 | `SceneCore` (`Source/Cores/SceneCore.h`) | `Transform` | engine-owned | Owns the root transform entity and the scene hierarchy |
 | `CameraCore` (`Source/Cores/Cameras/CameraCore.h`) | `Camera` + `Transform` | engine-owned | Builds `Moonlight::CameraData` commands; manages `Camera::CurrentCamera` |
-| `RenderCore` (`Source/Cores/Rendering/RenderCore.h`) | `Transform` + (`Mesh` or `Model`) | engine-owned | Gathers `Light`s and `Decal`s, parallel AABB cull + `MeshCommand` fill for every mesh — see `Docs/Rendering-Pipeline.md` |
+| `RenderCore` (`Source/Cores/Rendering/RenderCore.h`) | `Transform` + (`Mesh`, `Model` or `Terrain`) | engine-owned | Gathers `Light`s and `Decal`s, parallel AABB cull + `MeshCommand` fill for every mesh — see `Docs/Rendering-Pipeline.md` |
 | `ParticleCore` (`Source/Cores/Rendering/ParticleCore.h`) | `Transform` + `ParticleSystem` | engine-owned | Simulates particle systems (job per system) into renderer batches; runs in edit mode too, so effects preview live |
 | `AudioCore` (`Source/Cores/AudioCore.h`) | `AudioSource` | engine-owned | FMOD: mixer buses, listener placement, 3D source sync, overlapping one-shots, pause with the game — see `Docs/Audio.md` |
 | `UICore` (`Source/Cores/UI/UICore.h`) | `BasicUIView` | engine-owned | Ultralight HTML views — see `Docs/UI-Ultralight-and-ImGui.md` |
-| `PhysicsCore` (`Source/Cores/PhysicsCore.h`) | `Transform` + one of (`Rigidbody`, a collider, `CharacterController`, `PhysicsJoint`) | engine-owned | Box3D world: fixed-step simulation (play mode), interpolated poses, edit-mode body sync, `CollisionEvent`s, queries, character mover — see `Docs/Physics.md`. Old scenes' `"PhysicsCore"` core entries resolve to it |
+| `TerrainCore` (`Source/Cores/TerrainCore.h`) | `Transform` + `Terrain` | engine-owned | Publishes/validates resident terrain, completes required collision assets before play, and reports collision readiness — see `Docs/Terrain.md` |
+| `PhysicsCore` (`Source/Cores/PhysicsCore.h`) | `Transform` + one of (`Rigidbody`, a collider, `Terrain`, `CharacterController`, `PhysicsJoint`) | engine-owned | Box3D world: fixed-step simulation (play mode), interpolated poses, edit-mode body sync, `CollisionEvent`s, queries, character mover — see `Docs/Physics.md`. Old scenes' `"PhysicsCore"` core entries resolve to it |
 | `Physics2DCore` (`Source/Cores/Physics2DCore.h`) | `Transform` + one of (`Rigidbody2D`, a 2D collider, `CharacterController2D`, `PhysicsJoint2D`) | engine-owned | The Box2D counterpart in the XY plane: same lifecycle, events (`Is2D`), layers and queries — see `Docs/Physics.md` |
 | `AnimationCore` (`Source/Cores/AnimationCore.h`) | `Transform` + `Animator` | engine-owned | Plays Animators while the world is started: binds clips to node entities by name, steps state machines, samples poses in parallel, writes Transforms, fires `AnimationEvent`s — see `Docs/Animation.md` |
 | `NavigationCore` (`Source/Cores/NavigationCore.h`) | `Transform` + one of (`NavMeshSurface`, `NavMeshAgent`) | engine-owned | Recast / Detour: loads or bakes (async, saved next to the scene) each surface's navmesh, runs a DetourCrowd per navmesh while the world is started, path / sample / raycast queries, debug draw — see `Docs/Navigation.md` |
@@ -31,15 +32,19 @@ Cores come in two flavors (see `Docs/Architecture.md`): **engine-owned** (create
 
 ```mermaid
 flowchart TD
-    A["World::Simulate<br/>(membership churn — ALWAYS runs, even edit mode)"] --> P["Fixed loop: FixedUpdateLoadedCores → ScriptCore FixedUpdate → Game::OnFixedUpdate → PhysicsCore / Physics2DCore FixedUpdate<br/>then their Update (interpolated poses / edit-mode sync)"]
-    P --> B["UpdateLoadedCores (SelfDestructor · game cores) → ScriptCore Update<br/>(gated by World::Start — dormant in edit mode)"]
-    B --> C["SceneNodes->Update → Game::OnUpdate"]
-    C --> N["Navigation->Update — bakes swap in, crowds step, agents move (started worlds only)"]
-    N --> D2["Animation->Update — state machines, parallel sampling, pose writes (started worlds only)"]
-    D2 --> D["AudioThread->Update — listener, sources, buses, FMOD update"]
-    D --> E["ModelRenderer->Update — parallel mesh job, skin palettes"]
-    E --> F["UI->Update"]
-    F --> G["LateUpdate block:<br/>LateUpdateLoadedCores → Cameras->Update →<br/>SceneNodes/Cameras/Audio/ModelRenderer/UI LateUpdate"]
+    A["World::Simulate: membership synchronization"] --> T["TerrainCore: resident data and transform validation"]
+    T --> P["Fixed steps: game cores, scripts and Game fixed update, then physics"]
+    P --> B["Game cores and ScriptCore Update"]
+    B --> C["SceneNodes Update and Game OnUpdate"]
+    C --> N["Navigation Update"]
+    N --> D2["Animation Update"]
+    D2 --> LU["Game cores and scripts LateUpdate"]
+    LU --> D["Audio Update"]
+    D --> E["Particles Update"]
+    E --> F["UI Update"]
+    F --> R["Resource finalization and pending model expansion"]
+    R --> G["Cameras Update, engine-owned LateUpdate hooks"]
+    G --> M["Terrain publication and RenderCore command preparation"]
 ```
 
 `CameraCore::Update` runs **only inside the LateUpdate block** — camera moves made in `Game::OnUpdate`/scripts apply the same frame; camera *reads* during update see last frame's matrices.
@@ -54,6 +59,7 @@ Audio (FMOD) has its own deep dive: `Docs/Audio.md`.
 |-----------|------|---------|
 | `Transform` | `Source/Components/Transform.h` | Hierarchy node: position/rotation/scale, parent/children (`SharedPtr<Transform>` links), name. Dirty-flag cached matrices — see below |
 | `Camera` | `Source/Components/Camera.h` | Projection (perspective, or orthographic with `OrthographicSize` = half the view height in metres), FOV, near/far (metres, default 0.1/1000), clear type (color/skybox/procedural), per-camera `ProceduralSky` (time of day, time scale, latitude, turbidity, month; moon phase, sun/moon size, moon and star brightness; cloud coverage, density, altitude, thickness, wind speed and direction; see `Docs/Rendering-Pipeline.md`, Procedural sky), main-camera flag; statics `Camera::CurrentCamera` / `Camera::EditorCamera` |
+| `Terrain` | `Source/Components/Graphics/Terrain.h` | Resident terrain asset reference, lit surface settings and static collision; internal patches remain outside the entity hierarchy — see `Docs/Terrain.md` |
 | `Mesh` | `Source/Components/Graphics/Mesh.h` | One renderable mesh: `MeshData*` (primitives share one geometry per shape: Plane, Cube, Sphere, Cylinder, Capsule), per-instance material (default `StandardMaterial`), `CastShadows`, renderer cache slot `Id`. Skinned meshes resolve their bone entities by name and build a bone palette each frame (`UpdateSkin`) |
 | `Model` | `Source/Components/Graphics/Model.h` | Assimp model instance with private node poses and render parts. Expose selected source nodes as ordinary `ModelNode` entities. Legacy files retain their expanded hierarchy; the inspector provides an undoable compact conversion and lists animation clips |
 | `TwoBoneIK` / `LookAtIK` | `Source/Components/Animation/IKConstraints.h` | Inverse kinematics on bones after the poses are written: a limb reaching a target (with a pole), or a bone chain aiming at one (angle limit) — see `Docs/Animation.md` |

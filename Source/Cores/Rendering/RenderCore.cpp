@@ -18,6 +18,10 @@
 #include "Components/Lighting/Light.h"
 #include "Components/Graphics/Decal.h"
 #include "Components/Graphics/Mesh.h"
+#include "Components/Graphics/Terrain.h"
+#include "Materials/StandardMaterial.h"
+#include "Utils/BGFXUtils.h"
+#include <glm/gtc/matrix_transform.hpp>
 #include "Engine/Engine.h"
 #include "Renderer.h"
 #include "Camera/CameraData.h"
@@ -29,8 +33,80 @@
 #include <unordered_set>
 
 
+struct RenderCore::TerrainDraw
+{
+    std::shared_ptr<const TerrainData::ResidentTerrain> Source;
+    std::vector<std::unique_ptr<Moonlight::MeshData>> Geometry;
+    std::vector<std::unique_ptr<Mesh>> Parts;
+    SharedPtr<StandardMaterial> Surface;
+};
+
+void RenderCore::RemoveTerrainDraw( uint64_t InEntityID )
+{
+    auto found = m_terrainDraws.find( InEntityID );
+    if( found == m_terrainDraws.end() ) return;
+    // Commands contain raw geometry pointers: retire them before destroying their buffers.
+    if( Moonlight::IsGpuAlive() )
+        for( auto& mesh : found->second->Parts ) GetEngine().GetRenderer().GetMeshCache().Pop( mesh->GetId() );
+    m_terrainDraws.erase( found );
+}
+
+void RenderCore::ClearTerrainDraws()
+{
+    while( !m_terrainDraws.empty() ) RemoveTerrainDraw( m_terrainDraws.begin()->first );
+}
+
+void RenderCore::OnRemovedFromWorld() { ClearTerrainDraws(); }
+
+RenderCore::TerrainDraw* RenderCore::PrepareTerrainDraw( Entity& InEntity, Terrain& InTerrain )
+{
+    auto data = InTerrain.GetData();
+    const uint64_t id = InEntity.GetId().Value();
+    auto previous = m_terrainDraws.find( id );
+    if( previous != m_terrainDraws.end() && previous->second->Source != data ) RemoveTerrainDraw( id );
+    auto& draw = m_terrainDraws[id];
+    if( !draw )
+    {
+        draw = std::make_unique<TerrainDraw>();
+        draw->Source = data;
+        draw->Surface = MakeShared<StandardMaterial>();
+        draw->Surface->Init();
+        for( const auto& patch : data->Patches )
+        {
+            std::vector<Moonlight::PosNormTexTanBiVertex> vertices;
+            vertices.reserve( patch.Mesh.Vertices.size() );
+            for( const auto& v : patch.Mesh.Vertices )
+            {
+                Moonlight::PosNormTexTanBiVertex vertex;
+                vertex.Position = v.Position; vertex.Normal = v.Normal;
+                vertex.TextureCoord = Vector2( v.U, v.V );
+                const auto n = v.Normal.InternalVector;
+                auto tangent = glm::vec3( 1.f, 0.f, 0.f ) - n * n.x;
+                if( glm::dot( tangent, tangent ) < 1e-8f ) tangent = glm::vec3( 0.f, 0.f, 1.f );
+                tangent = glm::normalize( tangent );
+                vertex.Tangent = Vector3( tangent ); vertex.BiTangent = Vector3( glm::normalize( glm::cross( tangent, n ) ) );
+                vertices.push_back( vertex );
+            }
+            auto geometry = std::make_unique<Moonlight::MeshData>( std::move( vertices ), patch.Mesh.Lods.front().Indices, draw->Surface );
+            auto mesh = std::make_unique<Mesh>( geometry.get() );
+            mesh->Id = GetEngine().GetRenderer().GetMeshCache().Push( Moonlight::MeshCommand() );
+            draw->Geometry.push_back( std::move( geometry ) );
+            draw->Parts.push_back( std::move( mesh ) );
+        }
+    }
+    for( auto& part : draw->Parts )
+    {
+        // Materials prepare themselves in parallel mesh jobs, so each patch keeps its own instance.
+        auto& material = static_cast<StandardMaterial&>( *part->MeshMaterial );
+        material.DiffuseColor = InTerrain.Color;
+        material.Roughness = std::clamp( InTerrain.Roughness, 0.f, 1.f );
+        part->CastShadows = InTerrain.CastShadows;
+    }
+    return draw.get();
+}
+
 RenderCore::RenderCore()
-    : Base( ComponentFilter().Requires<Transform>().RequiresOneOf<Mesh>().RequiresOneOf<Model>() )
+    : Base( ComponentFilter().Requires<Transform>().RequiresOneOf<Mesh>().RequiresOneOf<Model>().RequiresOneOf<Terrain>() )
 {
     SetIsSerializable( false );
     //m_renderer = &GetEngine().GetRenderer();
@@ -42,6 +118,7 @@ void RenderCore::Init()
     CLog::GetInstance().Log( CLog::LogType::Debug, "RenderCore Initialized..." );
     LodBias = CommandLine::GetFloat( "--lod-bias", LodBias );
     //m_renderer->ClearDebugColliders();
+    ClearTerrainDraws();
     GetEngine().GetRenderer().ClearMeshes();
 }
 
@@ -56,6 +133,7 @@ void RenderCore::OnEntityAdded( Entity& NewEntity )
 
 void RenderCore::OnEntityRemoved( Entity& InEntity )
 {
+    RemoveTerrainDraw( InEntity.GetId().Value() );
     auto parts = m_compactCommands.find( InEntity.GetId().Value() );
     if( parts != m_compactCommands.end() )
     {
@@ -75,6 +153,7 @@ void RenderCore::OnEntityRemoved( Entity& InEntity )
 
 RenderCore::~RenderCore()
 {
+    ClearTerrainDraws();
     CLog::GetInstance().Log( CLog::LogType::Debug, "RenderCore Destroyed..." );
 }
 
@@ -100,8 +179,17 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
     };
     std::vector<RenderItem> items;
     std::unordered_set<uint64_t> compactModels;
+    std::unordered_set<uint64_t> terrains;
     for( Entity& entity : Renderables )
     {
+        if( auto* terrain = entity.TryGetComponent<Terrain>(); terrain && terrain->IsEnabled() && entity.IsActiveInHierarchy() && terrain->GetData() )
+        {
+            terrains.insert( entity.GetId().Value() );
+            TerrainDraw* draw = PrepareTerrainDraw( entity, *terrain );
+            const auto& world = entity.GetComponent<Transform>().GetLocalToWorldMatrix().GetInternalMatrix();
+            for( size_t i = 0; i < draw->Parts.size(); ++i )
+                items.push_back( { draw->Parts[i].get(), Matrix4( glm::translate( world, draw->Source->Patches[i].Offset.InternalVector ) ), entity.GetHandle() } );
+        }
         Mesh* directMesh = entity.TryGetComponent<Mesh>();
         if( Mesh* mesh = directMesh; mesh && mesh->IsEnabled() )
         {
@@ -134,6 +222,12 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
             }
             items.push_back( { &mesh, model->GetPartWorld( part ), model->GetNodeEntity( part.NodeIndex ) } );
         }
+    }
+    for( auto it = m_terrainDraws.begin(); it != m_terrainDraws.end(); )
+    {
+        const uint64_t id = it->first;
+        ++it;
+        if( !terrains.contains( id ) ) RemoveTerrainDraw( id );
     }
     for( auto it = m_compactCommands.begin(); it != m_compactCommands.end(); )
     {
@@ -387,6 +481,7 @@ void RenderCore::OnStart()
 void RenderCore::OnStop()
 {
     m_playing = false;
+    ClearTerrainDraws();
     for( Entity& entity : GetEntities() )
     {
         if( Mesh* mesh = entity.TryGetComponent<Mesh>() ) mesh->Id = std::numeric_limits<unsigned int>::max();

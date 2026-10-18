@@ -1,12 +1,12 @@
 # Terrain system plan
 
-> Draft proposal, 2026-10-18. Repository integration points reviewed against engine commit `5e92b9b5` and the current working tree. Milestone 1 is implemented in the working tree; later milestones remain proposed work.
+> Draft proposal, 2026-10-18. Repository integration points reviewed against engine commit `5e92b9b5` and the current working tree. Milestones 1 and 2 are implemented; later milestones remain proposed work.
 
 Build a tiled heightfield system with separate authoring data, runtime residency, and render patches. Start with a small, fully resident terrain that can be saved and edited, then add patch LODs and bounded streaming without changing how scenes reference terrain.
 
 This plan lives outside `Docs/` because that directory documents implemented behavior. The implemented CPU data foundation is described in [the terrain reference](../Docs/Terrain.md).
 
-**Implementation status:** milestone 1 now has validated settings, signed sample addressing, atomic shared-border edits, dirty normal halos, triangle-based queries, deterministic patch meshes and LOD errors, source manifest/page codecs, and Float32/UInt16 cooking with a checksummed tile directory. Focused tests exercise these contracts. File publication, asset registration, scene components, GPU submission, and editor tools remain later work. The next slice is milestone 2's resident terrain integration.
+**Implementation status:** milestone 1 supplies the CPU data foundation and versioned codecs. Milestone 2 adds background resident assets, a reflected `Terrain` component, an explicitly scheduled `TerrainCore`, internal lit render patches, selection bounds/IDs, and canonical static collision independent of visual geometry. Lifecycle/readiness tests and a four-tile demo cover the integration. Required terrain failures hold 3D physics rather than allowing bodies to fall through missing ground. File publication and authoring remain later work. The next slice is milestone 3's terrain document and basic sculpting workflow.
 
 ## Initial scope and assumptions
 
@@ -156,7 +156,7 @@ Each milestone should remain usable on its own. Streaming can follow the LOD wor
 | Milestone | Deliverable | Acceptance gate |
 | --- | --- | --- |
 | **1. Data foundation — implemented** | Pure heightfield library, addressing/borders, versioned source manifest/pages, simple cooker and height queries | Round trip a 2 × 2 terrain; negative coordinates and shared corners agree; invalid input fails cleanly; quantization error is bounded |
-| **2. Resident terrain** | Registered `Terrain` and explicitly scheduled `TerrainCore`, generated patches, one lit material, scene references, static collision adapter | Terrain renders and picks as one entity in editor/game; character crosses tile borders; save/reopen and Play/Stop work; unload leaves no terrain commands or bodies |
+| **2. Resident terrain — implemented** | Registered `Terrain` and explicitly scheduled `TerrainCore`, generated patches, one lit material, scene references, static collision adapter | Terrain renders and picks as one entity in editor/game; character crosses tile borders; save/reopen and Play/Stop work; unload leaves no terrain commands or bodies |
 | **3. Basic authoring** | Terrain document, flat creation/import, raise/lower brush, cross-tile delta undo and safe asset saving | One stroke across four tiles undoes/redoes exactly; reopen preserves borders; failed save preserves the previous generation; editing never creates scene patch entities |
 | **4. Terrain LODs** | Error-based selection, neighbor balancing, stitch variants, hysteresis and LOD debug view | Slow camera sweeps and forced levels show no internal cracks; two cameras both retain requested detail; collision/queries stay stable as visual levels change |
 | **5. Streaming** | Cooked block directory/coarse coverage, priority scheduler, independent residency budgets, incremental uploads, collision readiness and cancellation | Traverse and teleport across a dataset larger than cache budgets; memory plateaus; missing pages retain coverage; no absent gameplay collision or stale publication after unload |

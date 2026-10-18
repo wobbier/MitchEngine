@@ -2,7 +2,7 @@
 
 MitchEngine is a C++20 game engine organized as a small set of static-library modules around an ECS runtime. A singleton `Engine` owns the window, renderer, job system, and `World`; games subclass `Game` and are wired in with the `ME_APPLICATION_MAIN` macro. This doc covers the module layout, the engine lifecycle (init → frame loop → shutdown), the split between engine-owned and scene-loaded cores, and the compile-time feature-flag system that gates everything else.
 
-> Verified against engine commit 7e869c6e, 2026-10-09; engine-owned cores and physics against 8fdd99b1, 2026-10-09; animation against 07617c5f, 2026-10-09; audio against afce7083, 2026-10-09; scripting against 6a4b006f, 2026-10-09; navigation against 8d6769a5, 2026-10-10; `--frame-time` and screenshot regression against 8ef02b56, 2026-10-10; `Engine::Collisions` against d6a8e92a plus the per-entity callbacks change, 2026-10-16.
+> Verified against engine commit 7e869c6e, 2026-10-09; engine-owned cores and physics against 8fdd99b1, 2026-10-09; animation against 07617c5f, 2026-10-09; audio against afce7083, 2026-10-09; scripting against 6a4b006f, 2026-10-09; navigation against 8d6769a5, 2026-10-10; `--frame-time` and screenshot regression against 8ef02b56, 2026-10-10; `Engine::Collisions` against d6a8e92a plus the per-entity callbacks change, 2026-10-16; resident terrain and render ordering against `73fbac9d` plus the resident terrain change, 2026-10-18.
 
 ## Overview
 
@@ -78,7 +78,7 @@ Games implement the pure-virtual `Game` interface (`Source/Game.h`): `OnInitiali
 4. `SDLWindow` is created on **all** platforms — including UWP (the old dedicated `UWPWindow` is gone). The window gets a `ResizeFunc` lambda that forwards resizes to the renderer, `UICore`, config, and a `WindowResizedEvent`.
 5. `BGFXRenderer::Create` — on Linux the SDL display pointer and window type (X11/Wayland) are passed through.
 6. ImGui SDL2 backend init, chosen per platform: D3D (Win64), Metal (macOS), Vulkan (Linux).
-7. `World` is created, then the **engine-owned cores** are `new`ed: `CameraCore`, `SceneCore`, `RenderCore`, `ParticleCore`, `PhysicsCore`, `Physics2DCore`, `AnimationCore`, `NavigationCore`, `AudioCore`, `UICore`, and in scripting builds `ScriptCore` (held as raw public members `Cameras`, `SceneNodes`, `ModelRenderer`, `Particles`, `Physics`, `Physics2D`, `Animation`, `Navigation`, `AudioThread`, `UI`, `Scripts`). Constructing `ScriptCore` starts .NET (`Docs/Scripting-DotNet.md`). Next to the physics cores the engine also creates `Collisions`, a `CollisionRouter` (not a core) that turns `CollisionEvent`s into per-entity C++ callbacks (`Docs/Physics.md`).
+7. `World` is created, then the **engine-owned cores** are `new`ed: `CameraCore`, `SceneCore`, `RenderCore`, `ParticleCore`, `TerrainCore`, `PhysicsCore`, `Physics2DCore`, `AnimationCore`, `NavigationCore`, `AudioCore`, `UICore`, and in scripting builds `ScriptCore` (held as raw public members `Cameras`, `SceneNodes`, `ModelRenderer`, `Particles`, `Terrains`, `Physics`, `Physics2D`, `Animation`, `Navigation`, `AudioThread`, `UI`, `Scripts`). Constructing `ScriptCore` starts .NET (`Docs/Scripting-DotNet.md`). Next to the physics cores the engine also creates `Collisions`, a `CollisionRouter` (not a core) that turns `CollisionEvent`s into per-entity C++ callbacks (`Docs/Physics.md`).
 8. A gizmo-draw callback is registered on the renderer that iterates every core's `OnDrawGuizmo`.
 9. `Engine::InitGame` adds those cores to the world via `World::AddCore<T>` and calls `Game::OnInitialize()`. (It also unconditionally logs the error-level marker `YIKES("Engine::InitGame")` — a leftover.)
 10. `ResizeFunc` is fired once manually, and `SystemRegistry` registers `Engine`, the renderer, and the `Jobs::JobSystem` so they are reachable through `UpdateContext`.
@@ -87,7 +87,7 @@ Games implement the pure-virtual `Game` interface (`Source/Game.h`): `OnInitiali
 
 This is a load-bearing architectural split:
 
-- **Engine-owned cores** (`CameraCore`, `SceneCore`, `RenderCore`, `ParticleCore`, `PhysicsCore`, `Physics2DCore`, `AnimationCore`, `NavigationCore`, `AudioCore`, `UICore`, `ScriptCore`) are created in `Engine::Init`, held as raw pointers on `Engine`, and updated **explicitly by name** in the frame loop. The two physics cores step inside the fixed-step loop and write interpolated poses right after it (`Docs/Physics.md`). `AnimationCore` runs after gameplay, then `AudioCore` (so sources on animated bones are heard where they're drawn), before render preparation (`Docs/Animation.md`, `Docs/Audio.md`). `NavigationCore` runs after gameplay and before animation, so agents move with this frame's destinations (`Docs/Navigation.md`). `ScriptCore` runs `OnFixedUpdate` in each fixed step before physics steps, `OnUpdate` right after the scene-loaded cores and `OnLateUpdate` right after their `LateUpdate` (`Docs/Scripting-DotNet.md`).
+- **Engine-owned cores** (`CameraCore`, `SceneCore`, `RenderCore`, `ParticleCore`, `TerrainCore`, `PhysicsCore`, `Physics2DCore`, `AnimationCore`, `NavigationCore`, `AudioCore`, `UICore`, `ScriptCore`) are created in `Engine::Init`, held as raw pointers on `Engine`, and updated **explicitly by name** in the frame loop. The two physics cores step inside the fixed-step loop and write interpolated poses right after it (`Docs/Physics.md`). `AnimationCore` runs after gameplay, then `AudioCore` (so sources on animated bones are heard where they're drawn), before render preparation (`Docs/Animation.md`, `Docs/Audio.md`). `NavigationCore` runs after gameplay and before animation, so agents move with this frame's destinations (`Docs/Navigation.md`). `ScriptCore` runs `OnFixedUpdate` in each fixed step before physics steps, `OnUpdate` right after the scene-loaded cores and `OnLateUpdate` right after their `LateUpdate` (`Docs/Scripting-DotNet.md`).
 - **Scene-loaded cores** (`SelfDestructor` and any game-defined cores) are *not* created by the engine. They are instantiated by name from the `"Cores"` array of a `.lvl` scene file (see `Docs/Serialization-and-Scenes.md`) and live in `World::m_loadedCores`, updated via `World::FixedUpdateLoadedCores` / `UpdateLoadedCores` / `LateUpdateLoadedCores`.
 
 **Where game code runs.** The order of the engine's own stages is fixed, because each one feeds the next. Game code picks its stage:
@@ -114,7 +114,8 @@ flowchart TD
     D --> E["Input::Update (+ EditorInput in editor)"]
     E --> F["ImGui NewFrame + Renderer::BeginFrame"]
     F --> G["World::Simulate() sync point"]
-    G --> H["Fixed steps: FixedUpdateLoadedCores + Scripts->FixedUpdate + Game::OnFixedUpdate + physics step + Simulate, repeated while the accumulator holds a step"]
+    G --> T["Terrains->Update(): resident data publication and transform validation"]
+    T --> H["Fixed steps: FixedUpdateLoadedCores + Scripts->FixedUpdate + Game::OnFixedUpdate + physics step + Simulate, repeated while the accumulator holds a step"]
     H --> I["World::UpdateLoadedCores() + Scripts->Update() + Simulate"]
     I --> J["SceneNodes->Update()"]
     J --> K["Game::OnUpdate() + Simulate"]
@@ -123,10 +124,11 @@ flowchart TD
     L2 --> LU["Late update: LateUpdateLoadedCores + Scripts->LateUpdate + Simulate"]
     LU --> L["AudioThread->Update(): listener, sources, buses, FMOD update"]
     L --> L3["Particles->Update()"]
-    L3 --> M["ModelRenderer->Update(): Transform::UpdateAll, parallel mesh jobs, skin palettes"]
-    M --> N["UI->OnResize + UI->Update()"]
-    N --> O["Engine late update: Cameras, SceneNodes, Audio, Renderer, UI"]
-    O --> P["Render: Game::PreRender, UI->Render, Renderer::Render, UI->PostRender, Game::PostRender"]
+    L3 --> N["UI->OnResize + UI->Update()"]
+    N --> R["ResourceCache load finalization + pending model expansion"]
+    R --> O["Engine late update: Cameras, SceneNodes, Audio, Renderer, UI"]
+    O --> M["Terrains->Update + ModelRenderer->Update(): current camera culling, mesh jobs and skin palettes"]
+    M --> P["Render: Game::PreRender, UI->Render, Renderer::Render, UI->PostRender, Game::PostRender"]
     P --> P2["DebugDraw::EndFrame, FrameStats::EndFrame"]
     P2 --> Q["Automation hooks, Input::PostUpdate, ResourceCache::Dump, frame-rate limiter"]
     Q --> A
@@ -137,6 +139,7 @@ Timing details worth knowing:
 - **Delta**: the clock delta is clamped to `m_maxFrameDelta` (250 ms) so hitches don't produce a burst of catch-up steps. While paused the scaled delta is 0, except after `Engine::StepFrame`, which advances exactly one fixed step.
 - **Fixed steps**: the accumulator gains the scaled delta and runs up to 8 steps of `Engine::GetFixedTimeStep()` (default 1/60 s); a larger backlog is dropped. `UpdateContext::GetInterpolationAlpha()` reports progress toward the next step for smoothing. Inside `FixedUpdate`, `GetDeltaTime()` returns the fixed delta.
 - **Settings**: `FixedTimeStep` and `MaxFrameRate` in `Engine.cfg`, overridable with `--fixed-step` / `--max-fps`. `Engine::SetTimeScale`, `SetPaused`, `StepFrame` and `SetMaxFrameRate` are available at runtime.
+- `TerrainCore` publishes resident terrain before physics synchronization and again before render preparation. Required terrain failures hold 3D physics stepping; other gameplay updates continue. Render commands are built after resource finalization and the cameras' late updates (`Docs/Terrain.md`).
 - `CameraCore` (`Cameras`) has **no early update** — its `Update` runs in the late-update block, after game logic.
 - In non-editor builds, `EditorCamera.OutputSize` is refreshed from the window each frame inside the render block — the member named "EditorCamera" is used as the backbuffer camera descriptor in game builds too.
 - **Shutdown of scripting**: `ScriptEngine::Shutdown` closes the .NET host in `Engine::Shutdown`, before static destructors run.

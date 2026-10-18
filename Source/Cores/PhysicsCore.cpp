@@ -1,6 +1,8 @@
 #include "PCH.h"
 #include "PhysicsCore.h"
 #include "Components/Graphics/Mesh.h"
+#include "Components/Graphics/Terrain.h"
+#include "Cores/TerrainCore.h"
 #include "Components/Physics/CharacterController.h"
 #include "Components/Physics/Colliders.h"
 #include "Components/Physics/PhysicsJoint.h"
@@ -18,6 +20,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstring>
+#include <set>
 
 #if USING( ME_EDITOR )
 #include <imgui.h>
@@ -135,20 +138,23 @@ namespace
 
     bool HasAnyCollider( Entity& InEntity )
     {
-        return Enabled<BoxCollider>( InEntity ) || Enabled<SphereCollider>( InEntity ) || Enabled<CapsuleCollider>( InEntity ) || Enabled<MeshCollider>( InEntity );
+        Terrain* terrain = Enabled<Terrain>( InEntity );
+        return Enabled<BoxCollider>( InEntity ) || Enabled<SphereCollider>( InEntity ) || Enabled<CapsuleCollider>( InEntity ) || Enabled<MeshCollider>( InEntity )
+            || ( terrain && terrain->Collision && terrain->GetData() );
     }
 
     bool HasTriangleMesh( Entity& InEntity )
     {
         MeshCollider* collider = Enabled<MeshCollider>( InEntity );
-        return collider && !collider->Convex;
+        Terrain* terrain = Enabled<Terrain>( InEntity );
+        return ( collider && !collider->Convex ) || ( terrain && terrain->Collision && terrain->GetData() );
     }
 }
 
 
 PhysicsCore::PhysicsCore()
     : Base( ComponentFilter().Requires<Transform>().RequiresOneOf<Rigidbody>().RequiresOneOf<BoxCollider>().RequiresOneOf<SphereCollider>()
-        .RequiresOneOf<CapsuleCollider>().RequiresOneOf<MeshCollider>().RequiresOneOf<CharacterController>().RequiresOneOf<PhysicsJoint>() )
+        .RequiresOneOf<CapsuleCollider>().RequiresOneOf<MeshCollider>().RequiresOneOf<CharacterController>().RequiresOneOf<PhysicsJoint>().RequiresOneOf<Terrain>() )
 {
     SetIsSerializable( false );
 }
@@ -231,6 +237,9 @@ void PhysicsCore::DestroyWorld()
         b3DestroyMesh( static_cast<b3MeshData*>( data ) );
     }
     m_meshes.clear();
+    for( auto& [source, cache] : m_terrainMeshes )
+        for( void* mesh : cache.Meshes ) b3DestroyMesh( static_cast<b3MeshData*>( mesh ) );
+    m_terrainMeshes.clear();
 }
 
 
@@ -317,6 +326,11 @@ uint64_t PhysicsCore::ComputeShapeSignature( Entity& InOwner, const std::vector<
         {
             Mesh* mesh = entity.TryGetComponent<Mesh>();
             h = Mix( Mix( Mix( Mix( h, 4 ), meshCollider->SettingsHash() ), meshCollider->Convex ? 1 : 0 ), reinterpret_cast<uintptr_t>( mesh ? mesh->MeshReferece : nullptr ) );
+        }
+        if( Terrain* terrain = Enabled<Terrain>( entity ); terrain && terrain->Collision )
+        {
+            h = Mix( Mix( h, 5 ), reinterpret_cast<uintptr_t>( terrain->GetData().get() ) );
+            h = Mix( Mix( h, Bits( terrain->Friction ) ), Bits( terrain->Restitution ) );
         }
     }
     return h;
@@ -410,8 +424,40 @@ uint64_t PhysicsCore::EnsureGroundBody()
 }
 
 
-void PhysicsCore::BuildShapes( BodyRecord& InRecord, const std::vector<ColliderEntry>& InColliders )
+const std::vector<void*>* PhysicsCore::GetTerrainMeshes( std::shared_ptr<const TerrainData::ResidentTerrain> InData )
 {
+    if( auto found = m_terrainMeshes.find( InData.get() ); found != m_terrainMeshes.end() ) return &found->second.Meshes;
+    TerrainMeshCache cache;
+    cache.Source = InData;
+    for( const auto& tile : InData->CollisionTiles )
+    {
+        std::vector<b3Vec3> positions;
+        positions.reserve( tile.Positions.size() );
+        for( const Vector3& p : tile.Positions ) positions.push_back( ToB3( p ) );
+        std::vector<int32_t> indices( tile.Indices.begin(), tile.Indices.end() );
+        b3MeshDef def{};
+        def.vertices = positions.data(); def.stride = sizeof( b3Vec3 ); def.vertexCount = static_cast<int>( positions.size() );
+        def.indices = indices.data(); def.triangleCount = static_cast<int>( indices.size() / 3 );
+        def.weldVertices = true; def.weldTolerance = 0.0001f; def.identifyEdges = true;
+        b3MeshData* mesh = b3CreateMesh( &def, nullptr, 0 );
+        if( !mesh )
+        {
+            for( void* created : cache.Meshes ) b3DestroyMesh( static_cast<b3MeshData*>( created ) );
+            BRUH( "Physics: couldn't build terrain collision; keeping the previous shapes" );
+            return nullptr;
+        }
+        cache.Meshes.push_back( mesh );
+    }
+    auto [entry, inserted] = m_terrainMeshes.emplace( InData.get(), std::move( cache ) );
+    return &entry->second.Meshes;
+}
+
+bool PhysicsCore::BuildShapes( BodyRecord& InRecord, const std::vector<ColliderEntry>& InColliders )
+{
+    // Prepare a replacement before removing live ground. Cache data is independent of render meshes.
+    for( const auto& entry : InColliders )
+        if( Terrain* terrain = Enabled<Terrain>( *entry.Entity.Get() ); terrain && terrain->Collision )
+            if( auto data = terrain->GetData(); data && !GetTerrainMeshes( data ) ) return false;
     const b3BodyId body = Body( InRecord.Body );
     for( uint64_t shape : InRecord.Shapes )
     {
@@ -423,6 +469,7 @@ void PhysicsCore::BuildShapes( BodyRecord& InRecord, const std::vector<ColliderE
     }
     InRecord.Shapes.clear();
     InRecord.Meshes.clear();
+    InRecord.TerrainSource.reset();
 
     Transform& owner = InRecord.Owner->GetComponent<Transform>();
     const bool dynamic = b3Body_GetType( body ) == b3_dynamicBody;
@@ -504,6 +551,18 @@ void PhysicsCore::BuildShapes( BodyRecord& InRecord, const std::vector<ColliderE
                 InRecord.Shapes.push_back( Pack( b3CreateMeshShape( body, &def, triangles, ToB3( scale ) ) ) );
             }
         }
+        if( Terrain* terrain = Enabled<Terrain>( entity ); terrain && terrain->Collision )
+            if( auto data = terrain->GetData() )
+            {
+                InRecord.TerrainSource = data;
+                b3ShapeDef def = b3DefaultShapeDef();
+                def.userData = UserDataFor( entity ); def.filter = FilterFor( entity );
+                def.baseMaterial.friction = std::clamp( terrain->Friction, 0.f, 2.f );
+                def.baseMaterial.restitution = std::clamp( terrain->Restitution, 0.f, 1.f );
+                def.enableContactEvents = true; def.updateBodyMass = false;
+                for( void* mesh : *GetTerrainMeshes( data ) )
+                    InRecord.Shapes.push_back( Pack( b3CreateMeshShape( body, &def, static_cast<b3MeshData*>( mesh ), b3Vec3{ 1.f, 1.f, 1.f } ) ) );
+            }
     }
 
     // Shapes defer their mass update (updateBodyMass = false), which leaves the body flagged until mass
@@ -511,6 +570,7 @@ void PhysicsCore::BuildShapes( BodyRecord& InRecord, const std::vector<ColliderE
     // and the pass also computes the extents it uses for continuous collision and sleeping.
     // ApplyBodySettings overrides this for dynamic bodies with an explicit Rigidbody mass.
     b3Body_ApplyMassFromShapes( body );
+    return true;
 }
 
 
@@ -583,12 +643,13 @@ void PhysicsCore::DestroyRecord( BodyRecord& InRecord )
     InRecord.Body = 0;
     InRecord.Shapes.clear();
     InRecord.Meshes.clear();
+    InRecord.TerrainSource.reset();
 }
 
 
 void PhysicsCore::CollectMeshCache()
 {
-    if( m_hulls.empty() && m_meshes.empty() )
+    if( m_hulls.empty() && m_meshes.empty() && m_terrainMeshes.empty() )
     {
         return;
     }
@@ -625,6 +686,14 @@ void PhysicsCore::CollectMeshCache()
             ++it;
         }
     }
+    std::set<const TerrainData::ResidentTerrain*> terrainSources;
+    for( const auto& [id, record] : m_bodies ) if( record.TerrainSource ) terrainSources.insert( record.TerrainSource.get() );
+    for( auto it = m_terrainMeshes.begin(); it != m_terrainMeshes.end(); )
+    {
+        if( terrainSources.contains( it->first ) ) { ++it; continue; }
+        for( void* mesh : it->second.Meshes ) b3DestroyMesh( static_cast<b3MeshData*>( mesh ) );
+        it = m_terrainMeshes.erase( it );
+    }
 }
 
 
@@ -641,6 +710,8 @@ void PhysicsCore::SyncBodies()
     {
         return;
     }
+
+    if( auto* terrain = GetWorld().GetCore<TerrainCore>() ) terrain->SyncNow( m_simulating );
 
     // Resolve which body every collider belongs to.
     std::unordered_map<uint64_t, std::vector<ColliderEntry>> collidersByOwner;
@@ -738,7 +809,7 @@ void PhysicsCore::SyncBodies()
         if( shapesChanged )
         {
             rebuilt = true;
-            BuildShapes( record, colliders );
+            if( !BuildShapes( record, colliders ) ) continue;
             record.ShapeSignature = shapeSignature;
         }
         if( shapesChanged || bodySignature != record.BodySignature )
@@ -1125,6 +1196,8 @@ void PhysicsCore::FixedUpdate( const UpdateContext& inUpdateContext )
     OPTICK_CATEGORY( "PhysicsCore::FixedUpdate", Optick::Category::Physics );
     const float dt = inUpdateContext.GetFixedDeltaTime();
     SyncBodies();
+    // A failed required terrain stays inspectable while bodies wait instead of falling through it.
+    if( auto* terrain = GetWorld().GetCore<TerrainCore>(); terrain && !terrain->IsCollisionReady() ) return;
     SyncJoints();
 
     // Bodies whose Transform was moved by something else (scripts, the gizmo) follow it.

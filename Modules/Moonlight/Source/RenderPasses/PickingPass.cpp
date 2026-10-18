@@ -143,9 +143,12 @@ void PickingPass::Render( BGFXRenderer* inRenderer, CameraData* inCamData, Frame
     float pickView[16];
     bx::mtxLookAt( pickView, pickEye, pickAt );
 
-    // Tight FOV is best for picking
+    // Cover the visible ray segment, including off-axis rays whose distance is greater than
+    // camera.Far (an axial depth). Framing a large terrain can place it beyond 100 metres.
+    const float pickFar = std::max( bx::length( bx::sub( pickAt, pickEye ) ), 0.01f );
+    // Tight FOV is best for picking.
     float pickProj[16];
-    bx::mtxProj( pickProj, m_fov, 1, 0.1f, 100.0f, caps->homogeneousDepth );
+    bx::mtxProj( pickProj, m_fov, 1, 0.001f, pickFar, caps->homogeneousDepth );
 
     // View rect and transforms for picking pass
     //bgfx::setViewRect( RENDER_PASS_ID, 0, 0, ID_DIM, ID_DIM );

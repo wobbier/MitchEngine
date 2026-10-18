@@ -89,6 +89,7 @@ public:
     class SceneCore* SceneNodes = nullptr;
     class RenderCore* ModelRenderer = nullptr;
     class ParticleCore* Particles = nullptr;
+    class TerrainCore* Terrains = nullptr;
     class PhysicsCore* Physics = nullptr;
     class Physics2DCore* Physics2D = nullptr;
     // Per-entity C++ collision callbacks (Physics/CollisionRouter.h).

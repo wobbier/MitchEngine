@@ -4,6 +4,7 @@
 #include "Config/EngineConfig.h"
 #include "Events/EventManager.h"
 #include "Cores/PhysicsCore.h"
+#include "Cores/TerrainCore.h"
 #include "Cores/Physics2DCore.h"
 #include "Cores/AnimationCore.h"
 #include "Cores/NavigationCore.h"
@@ -229,6 +230,7 @@ void Engine::Init( Game* game )
         SceneNodes = new SceneCore();
         ModelRenderer = new RenderCore();
         Particles = new ParticleCore();
+        Terrains = new TerrainCore();
         Physics = new PhysicsCore();
         Physics2D = new Physics2DCore();
         Collisions = new CollisionRouter();
@@ -283,6 +285,7 @@ void Engine::InitGame()
         GameWorld->AddCore<SceneCore>( *SceneNodes );
         GameWorld->AddCore<RenderCore>( *ModelRenderer );
         GameWorld->AddCore<ParticleCore>( *Particles );
+        GameWorld->AddCore<TerrainCore>( *Terrains );
         GameWorld->AddCore<PhysicsCore>( *Physics );
         GameWorld->AddCore<Physics2DCore>( *Physics2D );
         GameWorld->AddCore<AnimationCore>( *Animation );
@@ -456,6 +459,8 @@ void Engine::Run()
         m_debugTools.Render();
 #endif
 
+            Terrains->Update( updateContext );
+
             // Fixed-step simulation (physics, deterministic gameplay): zero or more steps per frame.
             {
                 OPTICK_EVENT( "FixedUpdate" );
@@ -563,13 +568,6 @@ void Engine::Run()
                 Particles->Update( updateContext );
             }
 
-            // Model Renderer Update
-            {
-                ME_FRAMEPROFILE_SCOPED( "ModelRenderer", ProfileCategory::Rendering );
-                ME_STAT_SCOPE( "Render Prep" );
-                ModelRenderer->Update( updateContext );
-            }
-
             // UI Update
             {
                 OPTICK_CATEGORY( "UICore::Update", Optick::Category::Rendering )
@@ -608,6 +606,15 @@ void Engine::Run()
                 AudioThread->LateUpdate( updateContext );
                 ModelRenderer->LateUpdate( updateContext );
                 UI->LateUpdate( updateContext );
+            }
+
+            // Prepare commands after uploads and camera late updates: visibility and terrain
+            // bounds use this frame's camera snapshot, including cameras moved in LateUpdate.
+            {
+                ME_FRAMEPROFILE_SCOPED( "ModelRenderer", ProfileCategory::Rendering );
+                ME_STAT_SCOPE( "Render Prep" );
+                Terrains->Update( updateContext );
+                ModelRenderer->Update( updateContext );
             }
 
             // Render

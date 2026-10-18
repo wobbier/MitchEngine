@@ -1,0 +1,61 @@
+#include "PCH.h"
+#include "Terrain.h"
+#include "Resource/ResourceCache.h"
+#include "Resource/AssetDatabase.h"
+#include "Resources/TerrainResource.h"
+
+ME_REFLECT_BEGIN( Terrain )
+    ME_FIELD( Asset ).Asset( "Terrain" ).Tooltip( "A terrain manifest (.terrain) or cooked terrain (.terrainc)" );
+    ME_FIELD( Color ).Color();
+    ME_FIELD( Roughness ).Range( 0.f, 1.f ).Speed( 0.01f );
+    ME_FIELD( CastShadows );
+    ME_FIELD( Collision ).Category( "Collision" );
+    ME_FIELD( Friction ).Category( "Collision" ).Range( 0.f, 2.f );
+    ME_FIELD( Restitution ).Category( "Collision" ).Range( 0.f, 1.f );
+ME_REFLECT_END()
+
+void Terrain::SetData( std::shared_ptr<const TerrainData::ResidentTerrain> InData )
+{
+    Asset = Path(); m_loadedAsset.clear(); m_resource.reset();
+    m_data = std::move( InData ); m_valid = false; m_error.clear();
+}
+
+bool Terrain::IsLoading() const { return m_resource && m_resource->IsLoading(); }
+
+void Terrain::ReloadAsset()
+{
+    if( Asset.GetLocalPathString().empty() ) return;
+    if( m_resource ) ResourceCache::GetInstance().Evict( m_resource->GetPath().FullPath );
+    m_resource.reset(); m_data.reset(); m_loadedAsset.clear(); m_valid = false;
+}
+
+void Terrain::Resolve( bool InWait )
+{
+    const std::string path = Asset.GetLocalPathString();
+    if( path != m_loadedAsset )
+    {
+        m_loadedAsset = path; m_resource.reset(); m_data.reset();
+        const Path current( path );
+        if( !path.empty() && ( current.Exists || !AssetDatabase::Get().FindMovedPath( path ).empty() ) )
+            m_resource = ResourceCache::GetInstance().GetAsync<TerrainResource>( current );
+    }
+    if( m_resource )
+    {
+        if( InWait && m_resource->IsLoading() ) ResourceCache::GetInstance().CompleteLoad( m_resource );
+        if( m_resource->IsLoading() ) { m_error = "Loading terrain"; m_valid = false; return; }
+        if( m_resource->HasLoadFailed() ) { m_error = m_resource->GetError(); m_valid = false; return; }
+        m_data = m_resource->GetData();
+    }
+    m_valid = m_data != nullptr;
+    m_error = m_valid ? "" : ( path.empty() ? "Select a terrain asset" : "Terrain asset could not be loaded" );
+}
+
+#if USING( ME_EDITOR )
+void Terrain::OnEditorInspect()
+{
+    if( !Asset.GetLocalPathString().empty() && !IsLoading() && ImGui::Button( "Reload Terrain" ) ) ReloadAsset();
+    if( !m_error.empty() ) ImGui::TextWrapped( "%s", m_error.c_str() );
+    if( auto data = GetData() )
+        ImGui::Text( "%zu tiles, %zu render patches", data->CollisionTiles.size(), data->Patches.size() );
+}
+#endif
