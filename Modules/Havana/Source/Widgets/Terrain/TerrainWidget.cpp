@@ -86,6 +86,7 @@ void TerrainWidget::Init()
         if( SaveAll() ) static_cast<EditorApp*>( GetEngine().GetGame() )->SaveScene( false );
     }, [this]() { return !IsPlaying(); } } );
     actions.Register( { "Terrain.StopBrush", "Stop Terrain Brush", "Terrain", 0, 0, [this]() { if( m_active ) m_active->EndStroke(); BrushEnabled = false; } } );
+    InitRecovery();
 }
 
 void TerrainWidget::InstallActionRouting()
@@ -115,7 +116,10 @@ bool TerrainWidget::ClaimsAction( const std::string& id ) const
 
 void TerrainWidget::Destroy()
 {
+    for( auto& document : m_documents ) document->EndStroke();
+    if( AutomaticRecoveryEnabled() ) WriteRecoveries();
     m_active = nullptr; m_documents.clear();
+    m_recoveryDirtyDocuments.clear();
     for( const auto& [name, handle] : m_icons ) if( bgfx::isValid( handle ) ) bgfx::destroy( handle );
     m_icons.clear();
 }
@@ -393,6 +397,8 @@ void TerrainWidget::DrawBrush()
 
 void TerrainWidget::Render()
 {
+    UpdateRecovery();
+    DrawRecovery();
     DrawModals();
     if( m_active && m_active->IsStroking() )
     {
@@ -483,13 +489,23 @@ void TerrainWidget::Render()
             auto* selectedTerrain = selected ? selected->TryGetComponent<Terrain>() : nullptr;
             const bool canFork = m_active && selectedTerrain && Key( selectedTerrain->Asset.GetLocalPathString() ) == Key( m_active->GetPath() );
             if( Button( "copy", "Make Unique", "Copy the active heights to a new asset and rebind only the selected instance.", canFork && editing ) ) MakeUniqueDialog();
-            Planned( "device-floppy", "Recovery", "Autosave dirty terrain documents and recover after a crash." );
+            ImGui::TableNextColumn();
+            if( Button( "device-floppy", "Recovery", "Browse and restore unsaved terrain snapshots. Restoring keeps source conflict checks." ) )
+            { ScanRecoveries(); m_showRecoveryRequested = true; }
             Planned( "package", "Build", "Cook heights, collision and material data." );
             Planned( "trash", "Compact", "Remove source generations no longer referenced." );
             Planned( "refresh", "Rebuild", "Rebuild all derived terrain caches." );
             Planned( "settings", "Settings", "Edit source ranges, resolution and streaming configuration." );
             ImGui::EndTable();
         }
+        bool autosave = EditorConfig::GetInstance().GetPreference<bool>( "Terrain.Autosave", true );
+        if( ImGui::Checkbox( "Autosave terrain", &autosave ) ) EditorConfig::GetInstance().SetPreference( "Terrain.Autosave", autosave );
+        const float interval = EditorConfig::GetInstance().GetPreference<float>( "Autosave.IntervalSeconds", 120.f );
+        if( autosave && interval > 0 ) ImGui::TextDisabled( "Recovery interval: %.0f seconds", interval );
+        ImGui::BeginDisabled( !editing || !HasUnsaved() );
+        if( ImGui::Button( "Save Recovery Now", ImVec2( -1, 0 ) ) ) { if( m_active ) m_active->EndStroke(); WriteRecoveries(); }
+        ImGui::EndDisabled();
+        if( !m_recoveryMessage.empty() ) ImGui::TextWrapped( "%s", m_recoveryMessage.c_str() );
     }
     ImGui::End();
 }

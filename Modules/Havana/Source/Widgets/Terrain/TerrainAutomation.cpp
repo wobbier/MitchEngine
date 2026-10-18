@@ -1,4 +1,5 @@
 #include "TerrainAutomation.h"
+#include "TerrainRecoveryAutomation.h"
 #if USING( ME_EDITOR )
 #include "TerrainWidget.h"
 #include "Editor/EditorOperations.h"
@@ -30,6 +31,7 @@ namespace TerrainAutomation
     }
     bool Execute( const std::string& command, const std::string& args, std::string& error )
     {
+        if( command.rfind( "terrain-recovery-", 0 ) == 0 ) return TerrainRecoveryAutomation::Execute( command, args, error );
         auto* widget = TerrainWidget::Get();
         if( !widget ) { error = "Terrain panel is unavailable"; return false; }
         auto* document = widget->GetActive();
@@ -41,6 +43,7 @@ namespace TerrainAutomation
             return widget->Create( s_fixture, settings ) != nullptr;
         }
         if( command == "terrain-open" ) return widget->Open( args ) != nullptr;
+        if( command == "terrain-escape" ) { ImGui::GetIO().AddKeyEvent( ImGuiKey_Escape, args == "true" ); return true; }
         if( !document ) { error = "Open a terrain first"; return false; }
         if( command == "terrain-stroke" )
         {
@@ -114,7 +117,6 @@ namespace TerrainAutomation
                 ImGui::SetWindowSize( window, ImVec2( ImGuiTheme::Em( 25 ), std::min( ImGuiTheme::Em( 52 ), viewport->WorkSize.y - ImGuiTheme::Em( 4 ) ) ), ImGuiCond_Always );
             }
         }
-        else if( command == "terrain-escape" ) ImGui::GetIO().AddKeyEvent( ImGuiKey_Escape, args == "true" );
         else if( command == "terrain-export-fixture" )
         {
             s_rawSettings = document->GetField().GetSettings();

@@ -9,6 +9,7 @@
 #include <bgfx/bgfx.h>
 #include <functional>
 #include <map>
+#include <set>
 
 class SceneViewWidget;
 class TerrainWidget : public HavanaWidget, public EventReceiver
@@ -29,6 +30,15 @@ public:
     TerrainDocument* GetActive() const { return m_active; }
     bool HasUnsaved() const;
     bool SaveAll();
+    bool ConfigureRecovery( const std::filesystem::path& InDirectory );
+    bool WriteRecoveries();
+    void ScanRecoveries();
+    bool RestoreRecovery( size_t InIndex );
+    bool RestoreAssetRecovery( const std::string& InAssetPath );
+    bool DiscardRecovery( size_t InIndex );
+    size_t GetRecoveryCount() const { return m_recoveries.size(); }
+    void PrepareForPlay();
+    void RequestStartupRecovery() { m_showRecoveryRequested = !m_recoveries.empty(); }
     void ConfirmUnsaved( std::function<void()> InAction );
     // Drawn from the world viewport. True owns the entire gesture (gizmos and picking abstain).
     bool DrawViewport( SceneViewWidget& InView, const Vector2& InScreenMin, const Vector2& InScreenSize );
@@ -45,6 +55,10 @@ private:
     void ExportDialog();
     void MakeUniqueDialog();
     void DrawModals();
+    void InitRecovery();
+    void UpdateRecovery();
+    void DrawRecovery();
+    bool AutomaticRecoveryEnabled() const;
     void DrawBrush();
     void DrawTools();
     void PlaceInScene();
@@ -68,5 +82,18 @@ private:
     std::string m_error;
     uint64_t m_strokeEntity = 0;
     double m_lastPreviewTime = 0;
+    struct RecoveryEntry
+    {
+        std::filesystem::path File;
+        TerrainData::RecoveryInfo Info;
+        std::string Error;
+    };
+    std::filesystem::path m_recoveryDirectory;
+    std::vector<RecoveryEntry> m_recoveries;
+    uint64_t m_recoverySession = 0;
+    double m_nextRecoveryAt = 0;
+    bool m_showRecoveryRequested = false;
+    std::string m_recoveryMessage;
+    std::set<TerrainDocument*> m_recoveryDirtyDocuments;
 };
 #endif

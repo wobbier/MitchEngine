@@ -4,6 +4,7 @@
 #include "Editor/UndoStack.h"
 #include "Terrain/TerrainEditing.h"
 #include "Terrain/ResidentTerrain.h"
+#include "Terrain/TerrainRecovery.h"
 
 // One editable source asset, shared by every scene instance. Scene history is independent.
 class TerrainDocument
@@ -16,6 +17,10 @@ public:
     bool CreateFromField( TerrainData::Heightfield InField );
     bool Save();
     bool SaveCopy( const std::string& InPath );
+    bool SaveRecovery( const std::filesystem::path& InPath );
+    bool RestoreRecovery( const std::filesystem::path& InPath );
+    void ClearRecovery();
+    bool OwnsRecovery( const std::filesystem::path& InPath ) const;
     bool BeginStroke( const TerrainData::BrushSettings& InBrush, double InX, double InZ );
     bool MoveStroke( double InX, double InZ );
     void EndStroke( bool InCancel = false );
@@ -34,6 +39,7 @@ public:
     uint64_t GetGUID() const { return m_guid; }
 
 private:
+    bool CheckSourceIdentity();
     std::string m_path, m_manifestText, m_error;
     uint64_t m_guid = 0;
     TerrainData::Heightfield m_field;
@@ -41,5 +47,9 @@ private:
     std::shared_ptr<const TerrainData::ResidentTerrain> m_preview;
     UndoStack m_undo;
     size_t m_historyBytes = 0;
+    std::filesystem::path m_recoveryPath;
+    std::vector<std::filesystem::path> m_restoredRecoveries;
+    uint64_t m_recoveryRevision = 0;
+    bool m_hasRecoveryRevision = false;
 };
 #endif

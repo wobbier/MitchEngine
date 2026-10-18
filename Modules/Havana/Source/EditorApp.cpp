@@ -135,6 +135,7 @@ void EditorApp::OnUpdate( const UpdateContext& inUpdateContext )
         if( !AutomationRunner::IsUnattendedRun() )
         {
             CheckForRecovery();
+            if( TerrainWidget::Get() ) TerrainWidget::Get()->RequestStartupRecovery();
         }
     }
     if( !AutomationRunner::IsUnattendedRun() )
@@ -257,6 +258,7 @@ void EditorApp::Play()
     {
         return;
     }
+    if( TerrainWidget::Get() ) TerrainWidget::Get()->PrepareForPlay();
     StartGame();
     m_isGamePaused = false;
     GetEngine().SetPaused( false );
