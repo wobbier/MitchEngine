@@ -126,13 +126,20 @@ void TerrainDocument::EndStroke( bool cancel )
         const size_t bytes = deltas.size() * sizeof( TerrainData::SampleDelta );
         if( m_historyBytes + bytes > 64 * 1024 * 1024 )
         {
-            m_undo.Clear(); m_historyBytes = 0;
+            DiscardHistory();
             BRUH( "Terrain history reached 64 MiB; older strokes were released" );
         }
         m_historyBytes += bytes;
         m_undo.Push( std::make_unique<SculptCommand>( *this, std::move( deltas ) ) );
     }
     PublishPreview();
+}
+
+void TerrainDocument::DiscardHistory()
+{
+    const bool dirty = m_undo.IsDirty();
+    m_undo.Clear(); m_historyBytes = 0;
+    if( dirty ) m_undo.MarkDirty();
 }
 
 bool TerrainDocument::PublishPreview()

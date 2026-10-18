@@ -81,6 +81,7 @@ namespace TerrainAutomation
         {
             if( document->IsDirty() != ( args == "true" ) ) { error = "Unexpected terrain document dirty state"; return false; }
         }
+        else if( command == "terrain-discard-history" ) document->DiscardHistory();
         else if( command == "terrain-bind" )
         {
             auto entity = EditorOps::GetWorld().FindEntityByName( args );

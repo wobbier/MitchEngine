@@ -19,6 +19,8 @@ public:
     bool BeginStroke( const TerrainData::BrushSettings& InBrush, double InX, double InZ );
     bool MoveStroke( double InX, double InZ );
     void EndStroke( bool InCancel = false );
+    // Releasing old history must not mark unsaved source samples as saved.
+    void DiscardHistory();
     bool PublishPreview();
     void ApplyDeltas( uint64_t InGUID, const std::vector<TerrainData::SampleDelta>& InDeltas, bool InAfter );
 
