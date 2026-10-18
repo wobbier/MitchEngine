@@ -98,10 +98,10 @@ void TerrainWidget::InstallActionRouting()
     actions.DocumentExecute = [this, previousExecute]( const std::string& id ) {
         if( ClaimsAction( id ) )
         {
-            m_active->EndStroke();
+            if( m_active ) m_active->EndStroke();
             if( id == "File.Save" ) m_active->Save();
-            else if( id == "Edit.Undo" ) m_active->GetUndo().Undo();
-            else if( id == "Edit.Redo" ) m_active->GetUndo().Redo();
+            else if( id == "Edit.Undo" ) GetHistory().Undo();
+            else if( id == "Edit.Redo" ) GetHistory().Redo();
         }
         else if( previousExecute ) previousExecute( id );
     };
@@ -110,8 +110,8 @@ void TerrainWidget::InstallActionRouting()
 bool TerrainWidget::ClaimsAction( const std::string& id ) const
 {
     if( !IsOpen ) return false;
-    return m_active && !IsPlaying() && ( m_focused || m_viewportOwnsActions || m_active->IsStroking() ) &&
-        ( id == "File.Save" || id == "Edit.Undo" || id == "Edit.Redo" );
+    return !IsPlaying() && ( m_focused || m_viewportOwnsActions || ( m_active && m_active->IsStroking() ) ) &&
+        ( ( m_active && id == "File.Save" ) || id == "Edit.Undo" || id == "Edit.Redo" );
 }
 
 void TerrainWidget::Destroy()
@@ -378,19 +378,22 @@ void TerrainWidget::DrawBrush()
     { if( m_active ) m_active->EndStroke(); BrushEnabled = !BrushEnabled; }
     ImGui::SameLine(); ImGui::Text( "%s  /  %s", kToolNames[static_cast<int>( Brush.Tool )], BrushEnabled ? "Active" : "Idle" );
     const float spacing = m_active ? m_active->GetField().GetSettings().SampleSpacing : 1.f;
-    bool edited = false;
     ImGui::BeginDisabled( IsPlaying() || ( m_active && m_active->IsStroking() ) );
-    HavanaUtils::Label( "Radius" ); edited |= ImGui::DragFloat( "##radius", &Brush.Radius, spacing * 0.1f, spacing * 0.25f, spacing * 128, "%.2f m", ImGuiSliderFlags_AlwaysClamp );
-    HavanaUtils::Label( "Strength" ); edited |= ImGui::DragFloat( "##strength", &Brush.Strength, 0.01f, 0.001f, 100.f, static_cast<int>( Brush.Tool ) >= 2 ? "%.3f blend" : "%.3f m / stamp", ImGuiSliderFlags_AlwaysClamp );
-    HavanaUtils::Label( "Falloff" ); edited |= ImGui::SliderFloat( "##falloff", &Brush.Falloff, 0.f, 1.f, "%.2f" );
-    HavanaUtils::Label( "Spacing" ); edited |= ImGui::SliderFloat( "##spacing", &Brush.Spacing, 0.05f, 1.f, "%.2f radii" );
+    auto control = [&]( BrushParameter parameter, const char* label, const char* id, float current, float speed, float min, float max, const char* format, bool slider ) {
+        HavanaUtils::Label( label );
+        float value = current;
+        const bool changed = slider ? ImGui::SliderFloat( id, &value, min, max, format ) : ImGui::DragFloat( id, &value, speed, min, max, format, ImGuiSliderFlags_AlwaysClamp );
+        const auto rectMin = ImGui::GetItemRectMin(), rectMax = ImGui::GetItemRectMax();
+        m_brushCenters[static_cast<int>( parameter )] = Vector2( ( rectMin.x + rectMax.x ) * 0.5f, ( rectMin.y + rectMax.y ) * 0.5f );
+        if( ImGui::IsItemActivated() ) m_brushBefore = current;
+        if( changed ) SetBrushParameter( parameter, value, false );
+        if( ImGui::IsItemDeactivatedAfterEdit() ) RecordBrushParameter( parameter, m_brushBefore );
+    };
+    control( BrushParameter::Radius, "Radius", "##radius", Brush.Radius, spacing * 0.1f, spacing * 0.25f, spacing * 128, "%.2f m", false );
+    control( BrushParameter::Strength, "Strength", "##strength", Brush.Strength, 0.01f, 0.001f, 100.f, static_cast<int>( Brush.Tool ) >= 2 ? "%.3f blend" : "%.3f m / stamp", false );
+    control( BrushParameter::Falloff, "Falloff", "##falloff", Brush.Falloff, 0, 0, 1, "%.2f", true );
+    control( BrushParameter::Spacing, "Spacing", "##spacing", Brush.Spacing, 0, 0.05f, 1, "%.2f radii", true );
     ImGui::EndDisabled();
-    if( edited )
-    {
-        auto& config = EditorConfig::GetInstance();
-        config.SetPreference( "Terrain.Radius", Brush.Radius ); config.SetPreference( "Terrain.Strength", Brush.Strength );
-        config.SetPreference( "Terrain.Falloff", Brush.Falloff ); config.SetPreference( "Terrain.Spacing", Brush.Spacing );
-    }
     ImGui::TextDisabled( "Drag to sculpt  /  Shift reverses raise & lower" );
     ImGui::TextDisabled( "Esc cancels stroke  /  RMB navigates" );
 }
@@ -430,9 +433,9 @@ void TerrainWidget::Render()
         RequestAssetSelectionEvent event( [this, source]( Path path ) { if( !source->SaveCopy( path.GetLocalPathString() ) ) m_error = source->GetError(); }, AssetType::Terrain, true ); event.Fire();
     }
     ImGui::SameLine( 0, ImGuiTheme::InnerGap() );
-    if( Button( "arrow-back-up", "Undo Stroke", "Undo a stroke in this terrain document.", editing && m_active && m_active->GetUndo().CanUndo(), false, true ) ) { m_active->EndStroke(); m_active->GetUndo().Undo(); }
+    if( Button( "arrow-back-up", "Undo Terrain", "Undo the latest terrain stroke or brush setting.", editing && GetHistory().CanUndo(), false, true ) ) { if( m_active ) m_active->EndStroke(); GetHistory().Undo(); }
     ImGui::SameLine( 0, ImGuiTheme::InnerGap() );
-    if( Button( "arrow-forward-up", "Redo Stroke", "Redo a stroke in this terrain document.", editing && m_active && m_active->GetUndo().CanRedo(), false, true ) ) { m_active->EndStroke(); m_active->GetUndo().Redo(); }
+    if( Button( "arrow-forward-up", "Redo Terrain", "Redo the latest terrain stroke or brush setting.", editing && GetHistory().CanRedo(), false, true ) ) { if( m_active ) m_active->EndStroke(); GetHistory().Redo(); }
     ImGuiTheme::SectionGap();
     if( m_active )
     {
@@ -447,6 +450,8 @@ void TerrainWidget::Render()
         const auto& s = m_active->GetField().GetSettings();
         ImGui::TextDisabled( "%u x %u tiles  /  %.0f x %.0f m", s.TilesX, s.TilesZ, s.TilesX * s.TileQuads * s.SampleSpacing, s.TilesZ * s.TileQuads * s.SampleSpacing );
         if( ImGui::IsItemHovered() ) ImGui::SetTooltip( "%s", m_active->GetPath().c_str() );
+        if( const auto& preview = m_active->GetPreview() )
+            ImGui::TextDisabled( "Last preview: %zu / %zu patches, %zu / %zu collision tiles rebuilt", preview->BuiltPatches, preview->Patches.size(), preview->BuiltCollisionTiles, preview->CollisionTiles.size() );
         ImGui::BeginDisabled( !editing );
         if( ImGui::Button( "Place in Scene", ImVec2( -1, 0 ) ) ) PlaceInScene();
         ImGui::EndDisabled();

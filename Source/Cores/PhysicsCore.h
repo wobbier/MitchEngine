@@ -17,7 +17,7 @@ class CharacterController;
 class PhysicsJoint;
 struct ColliderSettings;
 namespace Moonlight { class MeshData; }
-namespace TerrainData { struct ResidentTerrain; }
+namespace TerrainData { struct ResidentTerrain; struct CollisionTile; }
 
 // 3D physics (Box3D). Engine-owned: always present, builds bodies from Rigidbody / collider /
 // CharacterController / PhysicsJoint components, and steps at the fixed rate while the world is
@@ -63,6 +63,8 @@ public:
     Vector3 GetGravity() const;
     bool IsSimulating() const { return m_simulating; }
     size_t GetBodyCount() const { return m_bodies.size(); }
+    size_t GetTerrainCollisionMeshCount() const { return m_terrainCollisionMeshes.size(); }
+    uint64_t GetTerrainCollisionBuildCount() const { return m_terrainCollisionBuilds; }
     float GetLastStepMilliseconds() const { return m_lastStepMs; }
 
     // Draw every body, shape and joint (Scene View > View > Physics, or the inspector).
@@ -144,6 +146,13 @@ private:
         std::vector<void*> Meshes;
     };
     std::unordered_map<const TerrainData::ResidentTerrain*, TerrainMeshCache> m_terrainMeshes;
+    struct TerrainCollisionCache
+    {
+        std::shared_ptr<const TerrainData::CollisionTile> Source;
+        void* Mesh = nullptr;
+    };
+    std::unordered_map<const TerrainData::CollisionTile*, TerrainCollisionCache> m_terrainCollisionMeshes;
+    uint64_t m_terrainCollisionBuilds = 0;
     std::array<PhysicsTask, 128> m_tasks;
     int m_taskCount = 0;
     std::vector<CollisionEvent> m_pendingEvents;

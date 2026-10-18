@@ -237,9 +237,9 @@ void PhysicsCore::DestroyWorld()
         b3DestroyMesh( static_cast<b3MeshData*>( data ) );
     }
     m_meshes.clear();
-    for( auto& [source, cache] : m_terrainMeshes )
-        for( void* mesh : cache.Meshes ) b3DestroyMesh( static_cast<b3MeshData*>( mesh ) );
     m_terrainMeshes.clear();
+    for( auto& [source, cache] : m_terrainCollisionMeshes ) b3DestroyMesh( static_cast<b3MeshData*>( cache.Mesh ) );
+    m_terrainCollisionMeshes.clear();
 }
 
 
@@ -431,10 +431,15 @@ const std::vector<void*>* PhysicsCore::GetTerrainMeshes( std::shared_ptr<const T
     cache.Source = InData;
     for( const auto& tile : InData->CollisionTiles )
     {
+        if( auto found = m_terrainCollisionMeshes.find( tile.get() ); found != m_terrainCollisionMeshes.end() )
+        {
+            cache.Meshes.push_back( found->second.Mesh ); continue;
+        }
+        OPTICK_EVENT( "PhysicsCore::CookTerrainTile" );
         std::vector<b3Vec3> positions;
-        positions.reserve( tile.Positions.size() );
-        for( const Vector3& p : tile.Positions ) positions.push_back( ToB3( p ) );
-        std::vector<int32_t> indices( tile.Indices.begin(), tile.Indices.end() );
+        positions.reserve( tile->Positions.size() );
+        for( const Vector3& p : tile->Positions ) positions.push_back( ToB3( p ) );
+        std::vector<int32_t> indices( tile->Indices.begin(), tile->Indices.end() );
         b3MeshDef def{};
         def.vertices = positions.data(); def.stride = sizeof( b3Vec3 ); def.vertexCount = static_cast<int>( positions.size() );
         def.indices = indices.data(); def.triangleCount = static_cast<int>( indices.size() / 3 );
@@ -442,10 +447,11 @@ const std::vector<void*>* PhysicsCore::GetTerrainMeshes( std::shared_ptr<const T
         b3MeshData* mesh = b3CreateMesh( &def, nullptr, 0 );
         if( !mesh )
         {
-            for( void* created : cache.Meshes ) b3DestroyMesh( static_cast<b3MeshData*>( created ) );
             BRUH( "Physics: couldn't build terrain collision; keeping the previous shapes" );
             return nullptr;
         }
+        m_terrainCollisionMeshes.emplace( tile.get(), TerrainCollisionCache{ tile, mesh } );
+        ++m_terrainCollisionBuilds;
         cache.Meshes.push_back( mesh );
     }
     auto [entry, inserted] = m_terrainMeshes.emplace( InData.get(), std::move( cache ) );
@@ -649,7 +655,7 @@ void PhysicsCore::DestroyRecord( BodyRecord& InRecord )
 
 void PhysicsCore::CollectMeshCache()
 {
-    if( m_hulls.empty() && m_meshes.empty() && m_terrainMeshes.empty() )
+    if( m_hulls.empty() && m_meshes.empty() && m_terrainMeshes.empty() && m_terrainCollisionMeshes.empty() )
     {
         return;
     }
@@ -691,8 +697,16 @@ void PhysicsCore::CollectMeshCache()
     for( auto it = m_terrainMeshes.begin(); it != m_terrainMeshes.end(); )
     {
         if( terrainSources.contains( it->first ) ) { ++it; continue; }
-        for( void* mesh : it->second.Meshes ) b3DestroyMesh( static_cast<b3MeshData*>( mesh ) );
         it = m_terrainMeshes.erase( it );
+    }
+    std::set<const TerrainData::CollisionTile*> tiles;
+    for( const auto& [source, cache] : m_terrainMeshes )
+        for( const auto& tile : cache.Source->CollisionTiles ) tiles.insert( tile.get() );
+    for( auto it = m_terrainCollisionMeshes.begin(); it != m_terrainCollisionMeshes.end(); )
+    {
+        if( tiles.contains( it->first ) ) { ++it; continue; }
+        b3DestroyMesh( static_cast<b3MeshData*>( it->second.Mesh ) );
+        it = m_terrainCollisionMeshes.erase( it );
     }
 }
 

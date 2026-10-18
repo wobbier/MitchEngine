@@ -3,6 +3,7 @@
 #if USING( ME_EDITOR )
 
 #include "CLog.h"
+#include <algorithm>
 
 class UndoStack::Transaction
     : public UndoCommand
@@ -27,6 +28,12 @@ public:
     }
 
     std::string GetName() const override { return m_name; }
+
+    bool AffectsSavedState() const override
+    {
+        for( const auto& command : Commands ) if( command->AffectsSavedState() ) return true;
+        return false;
+    }
 
     std::vector<std::unique_ptr<UndoCommand>> Commands;
 
@@ -58,7 +65,7 @@ void UndoStack::Push( std::unique_ptr<UndoCommand> InCommand )
     if( !m_openTransactions.empty() )
     {
         auto& commands = m_openTransactions.back()->Commands;
-        if( commands.empty() || !commands.back()->MergeWith( *InCommand ) )
+        if( commands.empty() || commands.back()->AffectsSavedState() != InCommand->AffectsSavedState() || !commands.back()->MergeWith( *InCommand ) )
         {
             commands.push_back( std::move( InCommand ) );
         }
@@ -68,14 +75,16 @@ void UndoStack::Push( std::unique_ptr<UndoCommand> InCommand )
     // Anything that could be redone is discarded by a new edit.
     if( m_cursor < static_cast<int>( m_commands.size() ) )
     {
-        m_commands.erase( m_commands.begin() + m_cursor, m_commands.end() );
         if( m_savedCursor > m_cursor )
         {
-            m_savedCursor = -1;
+            bool discardedData = false;
+            for( int i = m_cursor; i < m_savedCursor; ++i ) discardedData |= m_commands[i]->AffectsSavedState();
+            m_savedCursor = discardedData ? -1 : m_cursor;
         }
+        m_commands.erase( m_commands.begin() + m_cursor, m_commands.end() );
     }
 
-    if( m_cursor > 0 && m_cursor != m_savedCursor && m_commands[m_cursor - 1]->MergeWith( *InCommand ) )
+    if( m_cursor > 0 && m_cursor != m_savedCursor && m_commands[m_cursor - 1]->AffectsSavedState() == InCommand->AffectsSavedState() && m_commands[m_cursor - 1]->MergeWith( *InCommand ) )
     {
         return;
     }
@@ -85,9 +94,10 @@ void UndoStack::Push( std::unique_ptr<UndoCommand> InCommand )
 
     if( m_commands.size() > kMaxCommands )
     {
+        const bool discardedData = m_commands.front()->AffectsSavedState();
         m_commands.erase( m_commands.begin() );
         --m_cursor;
-        m_savedCursor = m_savedCursor > 0 ? m_savedCursor - 1 : -1;
+        m_savedCursor = m_savedCursor > 0 ? m_savedCursor - 1 : ( m_savedCursor == 0 && !discardedData ? 0 : -1 );
     }
 }
 
@@ -194,7 +204,10 @@ void UndoStack::MarkSaved()
 
 bool UndoStack::IsDirty() const
 {
-    return m_forcedDirty || m_cursor != m_savedCursor;
+    if( m_forcedDirty || m_savedCursor < 0 ) return true;
+    for( int i = std::min( m_cursor, m_savedCursor ); i < std::max( m_cursor, m_savedCursor ); ++i )
+        if( m_commands[i]->AffectsSavedState() ) return true;
+    return false;
 }
 
 

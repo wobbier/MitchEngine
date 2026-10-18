@@ -217,7 +217,7 @@ bool TerrainDocument::PublishPreview()
 {
     if( m_preview && m_preview->Heights->GetRevision() == m_field.GetRevision() ) return true;
     std::shared_ptr<const TerrainData::ResidentTerrain> preview;
-    if( !TerrainData::BuildResidentTerrain( m_field, m_guid, preview, m_error ) ) return false;
+    if( !TerrainData::UpdateResidentTerrain( m_field, m_guid, m_preview, preview, m_error ) ) return false;
     m_preview = std::move( preview );
     Terrain::SetEditorPreview( Path( m_path ), m_preview );
     return true;

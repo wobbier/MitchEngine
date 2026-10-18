@@ -15,6 +15,7 @@
 #include "Havana.h"
 #include "imgui_internal.h"
 #include "ImGuiTheme.h"
+#include "Utils/EditorConfig.h"
 #include <SDL.h>
 #include <sstream>
 #include <cmath>
@@ -40,10 +41,51 @@ namespace TerrainAutomation
             s_fixture = ".tmp/Tests/TerrainAuthoringFlows/" + std::to_string( GUID::Generate() ) + "/Source.terrain";
             TerrainData::Settings settings; settings.TileQuads = 32; settings.PatchQuads = 16;
             settings.MinTile = { -1, -1 }; settings.TilesX = settings.TilesZ = 2;
+            if( !args.empty() ) settings.SampleSpacing = std::stof( args );
             return widget->Create( s_fixture, settings ) != nullptr;
         }
         if( command == "terrain-open" ) return widget->Open( args ) != nullptr;
+        if( command == "terrain-history-key" )
+        {
+            std::istringstream stream( args ); std::string operation, state;
+            if( !( stream >> operation >> state ) || ( operation != "undo" && operation != "redo" ) || ( state != "true" && state != "false" ) )
+            { error = "Expected undo|redo true|false"; return false; }
+            const bool down = state == "true";
+            auto& io = ImGui::GetIO();
+            io.AddKeyEvent( static_cast<ImGuiKey>( io.ConfigMacOSXBehaviors ? ImGuiMod_Super : ImGuiMod_Ctrl ), down );
+            io.AddKeyEvent( operation == "undo" ? ImGuiKey_Z : ImGuiKey_Y, down );
+            return true;
+        }
         if( command == "terrain-escape" ) { ImGui::GetIO().AddKeyEvent( ImGuiKey_Escape, args == "true" ); return true; }
+        if( command == "terrain-brush-setting" || command == "terrain-brush-assert" || command == "terrain-brush-pointer" )
+        {
+            std::istringstream stream( args ); std::string name; stream >> name;
+            const char* names[] = { "Radius", "Strength", "Falloff", "Spacing" };
+            int index = 0; while( index < 4 && name != names[index] ) ++index;
+            if( index == 4 ) { error = "Unknown brush parameter"; return false; }
+            const auto parameter = static_cast<TerrainWidget::BrushParameter>( index );
+            if( command == "terrain-brush-pointer" )
+            {
+                float offset; std::string state;
+                if( !( stream >> offset >> state ) ) { error = "Expected parameter offset hover|down|up"; return false; }
+                const Vector2 center = widget->GetBrushControlCenter( parameter );
+                SDL_WarpMouseGlobal( static_cast<int>( center.x + offset ), static_cast<int>( center.y ) );
+                ImGui::GetIO().AddMousePosEvent( center.x + offset, center.y );
+                if( state == "down" || state == "up" ) ImGui::GetIO().AddMouseButtonEvent( 0, state == "down" );
+                else if( state != "hover" ) return false;
+                return true;
+            }
+            float value;
+            if( !( stream >> value ) ) { error = "Expected a finite brush parameter value"; return false; }
+            if( command == "terrain-brush-setting" ) widget->SetBrushParameter( parameter, value );
+            else
+            {
+                const float values[] = { widget->Brush.Radius, widget->Brush.Strength, widget->Brush.Falloff, widget->Brush.Spacing };
+                if( std::abs( values[index] - value ) > 0.0001f || std::abs( EditorConfig::GetInstance().GetPreference<float>( "Terrain." + name, -1.f ) - value ) > 0.0001f )
+                { error = "Brush value/preference did not match: " + name; return false; }
+            }
+            return true;
+        }
         if( !document ) { error = "Open a terrain first"; return false; }
         if( command == "terrain-stroke" )
         {
@@ -83,6 +125,17 @@ namespace TerrainAutomation
         else if( command == "terrain-assert-dirty" )
         {
             if( document->IsDirty() != ( args == "true" ) ) { error = "Unexpected terrain document dirty state"; return false; }
+        }
+        else if( command == "terrain-assert-history" )
+        {
+            if( widget->GetHistory().GetHistory().size() != static_cast<size_t>( std::stoul( args ) ) )
+            { error = "Unexpected terrain history size"; return false; }
+        }
+        else if( command == "terrain-assert-rebuilt" )
+        {
+            std::istringstream stream( args ); size_t patches, tiles;
+            if( !( stream >> patches >> tiles ) || document->GetPreview()->BuiltPatches != patches || document->GetPreview()->BuiltCollisionTiles != tiles )
+            { error = "Unexpected incremental preview rebuild counts"; return false; }
         }
         else if( command == "terrain-discard-history" ) document->DiscardHistory();
         else if( command == "terrain-bind" )

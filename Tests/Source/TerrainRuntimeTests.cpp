@@ -138,8 +138,8 @@ TEST_CASE( "Terrain: resident preparation shares an immutable CPU snapshot and m
     CHECK( field.Query( 0.0, 0.0 ).Height == 9.f );
     for( const auto& tile : data->CollisionTiles )
     {
-        CHECK( tile.Positions.size() == 25 ); CHECK( tile.Indices.size() == 96 );
-        CHECK( tile.Positions.front().x == tile.Coordinate.X * 4.f );
+        CHECK( tile->Positions.size() == 25 ); CHECK( tile->Indices.size() == 96 );
+        CHECK( tile->Positions.front().x == tile->Coordinate.X * 4.f );
     }
     const auto original = data;
     field.UnloadTile( { 0, 0 } );
@@ -296,4 +296,27 @@ TEST_CASE( "Terrain: a failed resident load can be retried after its source page
     REQUIRE( TerrainData::SerializePage( MakeField( 2.f ), { -1, -1 }, bytes, error ) ); Files::Write( pagePath, bytes );
     terrain.ReloadAsset(); scene.Run( 1 );
     CHECK( scene.Terrains.IsCollisionReady() ); CHECK( terrain.GetData() != nullptr ); CHECK( scene.Physics.GetBodyCount() == 1 );
+}
+
+TEST_CASE( "Terrain: incremental collision cooking reuses unchanged tiles across shared instances" )
+{
+    auto field = MakeField(); std::string error;
+    std::shared_ptr<const TerrainData::ResidentTerrain> original, updated;
+    REQUIRE( TerrainData::BuildResidentTerrain( field, 123, original, error ) );
+    Scene scene; auto first = scene.Ground( original ); auto second = scene.Ground( original ); scene.Sync();
+    CHECK( scene.Physics.GetTerrainCollisionBuildCount() == 4 );
+    REQUIRE( field.SetSample( { -3, -3 }, 4.f, error ) );
+    REQUIRE( TerrainData::UpdateResidentTerrain( field, 123, original, updated, error ) );
+    first->GetComponent<Terrain>().SetData( updated ); scene.Sync();
+    CHECK( scene.Physics.GetTerrainCollisionBuildCount() == 5 );
+    CHECK( scene.Physics.GetTerrainCollisionMeshCount() == 5 );
+    second->GetComponent<Terrain>().SetData( updated ); scene.Sync();
+    CHECK( scene.Physics.GetTerrainCollisionBuildCount() == 5 );
+    CHECK( scene.Physics.GetTerrainCollisionMeshCount() == 4 );
+    second->GetComponent<Terrain>().Collision = false; scene.Sync();
+    RaycastHit hit;
+    REQUIRE( scene.Physics.Raycast( Vector3( -3.f, 10.f, -3.f ), Vector3( 0.f, -1.f, 0.f ), 20.f, hit ) );
+    CHECK( hit.Position.y == doctest::Approx( 4.f ) );
+    first->SetActive( false ); second->SetActive( false ); scene.Sync();
+    CHECK( scene.Physics.GetTerrainCollisionMeshCount() == 0 );
 }

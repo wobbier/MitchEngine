@@ -44,6 +44,10 @@ public:
     bool DrawViewport( SceneViewWidget& InView, const Vector2& InScreenMin, const Vector2& InScreenSize );
     bool WantsViewport() const;
     void SetCategory( int InCategory ) { m_category = InCategory >= 0 && InCategory < 6 ? InCategory : 0; }
+    enum class BrushParameter { Radius, Strength, Falloff, Spacing };
+    void SetBrushParameter( BrushParameter InParameter, float InValue, bool InRecord = true );
+    Vector2 GetBrushControlCenter( BrushParameter InParameter ) const { return m_brushCenters[static_cast<int>( InParameter )]; }
+    UndoStack& GetHistory() { return m_active ? m_active->GetUndo() : m_brushHistory; }
     TerrainData::BrushSettings Brush;
     bool BrushEnabled = false;
 
@@ -60,6 +64,7 @@ private:
     void DrawRecovery();
     bool AutomaticRecoveryEnabled() const;
     void DrawBrush();
+    void RecordBrushParameter( BrushParameter InParameter, float InBefore );
     void DrawTools();
     void PlaceInScene();
     bgfx::TextureHandle Icon( const char* InName );
@@ -80,6 +85,9 @@ private:
     int m_tiles[2] = { 2, 2 }, m_quads = 32;
     float m_spacing = 1, m_flatHeight = 0;
     std::string m_error;
+    UndoStack m_brushHistory;
+    float m_brushBefore = 0;
+    Vector2 m_brushCenters[4];
     uint64_t m_strokeEntity = 0;
     double m_lastPreviewTime = 0;
     struct RecoveryEntry

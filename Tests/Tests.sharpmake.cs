@@ -11,6 +11,8 @@ public class EngineTests : BaseProject
     {
         Name = "MitchEngine_Tests";
         SourceRootPath = Path.Combine("[project.SharpmakeCsPath]", "Source");
+        // Editor history is independent of the Havana application; test its save-point semantics directly.
+        SourceFiles.Add(Path.Combine("[project.SharpmakeCsPath]", "../Modules/Havana/Source/Editor/UndoStack.cpp"));
     }
 
     public override void ConfigureAll(Project.Configuration conf, CommonTarget target)

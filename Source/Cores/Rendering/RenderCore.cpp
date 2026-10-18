@@ -63,19 +63,29 @@ RenderCore::TerrainDraw* RenderCore::PrepareTerrainDraw( Entity& InEntity, Terra
     auto data = InTerrain.GetData();
     const uint64_t id = InEntity.GetId().Value();
     auto previous = m_terrainDraws.find( id );
-    if( previous != m_terrainDraws.end() && previous->second->Source != data ) RemoveTerrainDraw( id );
+    if( previous != m_terrainDraws.end() && ( previous->second->Source->AssetGUID != data->AssetGUID || previous->second->Parts.size() != data->Patches.size() ) ) RemoveTerrainDraw( id );
     auto& draw = m_terrainDraws[id];
     if( !draw )
     {
         draw = std::make_unique<TerrainDraw>();
-        draw->Source = data;
         draw->Surface = MakeShared<StandardMaterial>();
         draw->Surface->Init();
-        for( const auto& patch : data->Patches )
+        draw->Geometry.resize( data->Patches.size() );
+        draw->Parts.resize( data->Patches.size() );
+    }
+    if( draw->Source != data )
+    {
+        OPTICK_EVENT( "RenderCore::UpdateTerrainPatches" );
+        for( size_t i = 0; i < data->Patches.size(); ++i )
         {
+            const auto& patch = data->Patches[i];
+            if( draw->Source && draw->Source->Patches[i] == patch ) continue;
+            // Retire the old command before releasing its raw geometry pointer and GPU buffers.
+            if( draw->Parts[i] ) GetEngine().GetRenderer().GetMeshCache().Pop( draw->Parts[i]->GetId() );
+            draw->Parts[i].reset(); draw->Geometry[i].reset();
             std::vector<Moonlight::PosNormTexTanBiVertex> vertices;
-            vertices.reserve( patch.Mesh.Vertices.size() );
-            for( const auto& v : patch.Mesh.Vertices )
+            vertices.reserve( patch->Mesh.Vertices.size() );
+            for( const auto& v : patch->Mesh.Vertices )
             {
                 Moonlight::PosNormTexTanBiVertex vertex;
                 vertex.Position = v.Position; vertex.Normal = v.Normal;
@@ -87,12 +97,13 @@ RenderCore::TerrainDraw* RenderCore::PrepareTerrainDraw( Entity& InEntity, Terra
                 vertex.Tangent = Vector3( tangent ); vertex.BiTangent = Vector3( glm::normalize( glm::cross( tangent, n ) ) );
                 vertices.push_back( vertex );
             }
-            auto geometry = std::make_unique<Moonlight::MeshData>( std::move( vertices ), patch.Mesh.Lods.front().Indices, draw->Surface );
+            auto geometry = std::make_unique<Moonlight::MeshData>( std::move( vertices ), patch->Mesh.Lods.front().Indices, draw->Surface );
             auto mesh = std::make_unique<Mesh>( geometry.get() );
             mesh->Id = GetEngine().GetRenderer().GetMeshCache().Push( Moonlight::MeshCommand() );
-            draw->Geometry.push_back( std::move( geometry ) );
-            draw->Parts.push_back( std::move( mesh ) );
+            draw->Geometry[i] = std::move( geometry );
+            draw->Parts[i] = std::move( mesh );
         }
+        draw->Source = data;
     }
     for( auto& part : draw->Parts )
     {
@@ -188,7 +199,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
             TerrainDraw* draw = PrepareTerrainDraw( entity, *terrain );
             const auto& world = entity.GetComponent<Transform>().GetLocalToWorldMatrix().GetInternalMatrix();
             for( size_t i = 0; i < draw->Parts.size(); ++i )
-                items.push_back( { draw->Parts[i].get(), Matrix4( glm::translate( world, draw->Source->Patches[i].Offset.InternalVector ) ), entity.GetHandle() } );
+                items.push_back( { draw->Parts[i].get(), Matrix4( glm::translate( world, draw->Source->Patches[i]->Offset.InternalVector ) ), entity.GetHandle() } );
         }
         Mesh* directMesh = entity.TryGetComponent<Mesh>();
         if( Mesh* mesh = directMesh; mesh && mesh->IsEnabled() )

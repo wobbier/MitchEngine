@@ -17,6 +17,8 @@ public:
     virtual void Undo() = 0;
     virtual void Redo() = 0;
     virtual std::string GetName() const = 0;
+    // Tool preferences can share chronological history without changing saved document data.
+    virtual bool AffectsSavedState() const { return true; }
 
     // Fold a newer command into this one (e.g. consecutive edits of the same field). Return true if
     // merged; `InNext` is then discarded.
