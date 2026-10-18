@@ -13,6 +13,7 @@ public:
     ~TerrainDocument();
     bool Load();
     bool CreateFlat( const TerrainData::Settings& InSettings, float InHeight );
+    bool CreateFromField( TerrainData::Heightfield InField );
     bool Save();
     bool SaveCopy( const std::string& InPath );
     bool BeginStroke( const TerrainData::BrushSettings& InBrush, double InX, double InZ );

@@ -13,6 +13,7 @@
 #include "Engine/Engine.h"
 #include "Havana.h"
 #include "imgui_internal.h"
+#include "ImGuiTheme.h"
 #include <SDL.h>
 #include <sstream>
 #include <cmath>
@@ -23,6 +24,9 @@ namespace TerrainAutomation
     {
         std::string s_fixture;
         std::unique_ptr<TerrainData::Heightfield> s_mark;
+        std::string s_rawFile;
+        TerrainData::Settings s_rawSettings;
+        TerrainData::RawHeightmap s_rawFormat;
     }
     bool Execute( const std::string& command, const std::string& args, std::string& error )
     {
@@ -99,6 +103,54 @@ namespace TerrainAutomation
             error = "Unknown terrain workspace"; return false;
         }
         else if( command == "terrain-brush" ) widget->BrushEnabled = args == "true";
+        else if( command == "terrain-layout" )
+        {
+            if( auto* window = ImGui::FindWindowByName( "Terrain" ) )
+            {
+                const auto* viewport = ImGui::GetMainViewport();
+                ImGui::SetWindowDock( window, 0, ImGuiCond_Always );
+                ImGui::SetWindowPos( window, ImVec2( viewport->WorkPos.x + ImGuiTheme::Em( 3 ), viewport->WorkPos.y + ImGuiTheme::Em( 3 ) ), ImGuiCond_Always );
+                ImGui::SetWindowSize( window, ImVec2( ImGuiTheme::Em( 25 ), std::min( ImGuiTheme::Em( 52 ), viewport->WorkSize.y - ImGuiTheme::Em( 4 ) ) ), ImGuiCond_Always );
+            }
+        }
+        else if( command == "terrain-escape" ) ImGui::GetIO().AddKeyEvent( ImGuiKey_Escape, args == "true" );
+        else if( command == "terrain-export-fixture" )
+        {
+            s_rawSettings = document->GetField().GetSettings();
+            s_rawFormat.Width = s_rawSettings.TilesX * s_rawSettings.TileQuads + 1;
+            s_rawFormat.Height = s_rawSettings.TilesZ * s_rawSettings.TileQuads + 1;
+            s_rawFormat.Encoding = TerrainData::HeightEncoding::Float32;
+            s_rawFormat.BigEndian = true; s_rawFormat.FlipZ = true; s_rawFormat.Offset = 0; s_rawFormat.Scale = 1;
+            s_rawFile = ".tmp/Tests/TerrainHeightmapFlows/" + std::to_string( GUID::Generate() ) + "/Height.r32";
+            return TerrainData::WriteHeightmap( Path( s_rawFile ).FullPath, document->GetField(), s_rawFormat, error );
+        }
+        else if( command == "terrain-import-fixture" )
+        {
+            TerrainData::Heightfield imported;
+            if( s_rawFile.empty() || !TerrainData::ReadHeightmap( Path( s_rawFile ).FullPath, s_rawSettings, s_rawFormat, imported, error ) ) return false;
+            return widget->CreateFromField( std::filesystem::path( s_rawFile ).replace_filename( "Imported.terrain" ).generic_string(), std::move( imported ) ) != nullptr;
+        }
+        else if( command == "terrain-unique" )
+        {
+            const std::string path = ".tmp/Tests/TerrainHeightmapFlows/" + std::to_string( GUID::Generate() ) + "/Unique.terrain";
+            return widget->MakeUnique( path );
+        }
+        else if( command == "terrain-assert-independent" || command == "terrain-assert-marked-instance" )
+        {
+            auto entity = EditorOps::GetWorld().FindEntityByName( args );
+            const auto* terrain = entity ? entity->TryGetComponent<Terrain>() : nullptr;
+            const auto data = terrain ? terrain->GetData() : nullptr;
+            if( !data || data->AssetGUID == document->GetGUID() ) { error = "Expected an independent terrain asset"; return false; }
+            if( command == "terrain-assert-marked-instance" )
+            {
+                if( !s_mark ) { error = "Use terrain-mark first"; return false; }
+                for( const auto& [coordinate, tile] : s_mark->GetTiles() )
+                {
+                    const auto* other = data->Heights->FindTile( coordinate );
+                    if( !other || other->Heights != tile.Heights ) { error = "Shared source instance changed after making another instance unique"; return false; }
+                }
+            }
+        }
         else if( command == "terrain-pointer" )
         {
             // Real ImGui input on the private headless desktop. This uses FreeForm World View.

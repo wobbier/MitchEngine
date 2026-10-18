@@ -16,6 +16,7 @@
 #include "Utils/ImGuiUtils.h"
 #include "ImGuiTheme.h"
 #include "imgui_internal.h"
+#include "misc/cpp/imgui_stdlib.h"
 #include <bimg/decode.h>
 #include <bx/allocator.h>
 #include <algorithm>
@@ -30,6 +31,25 @@ namespace
     const char* kToolNames[] = { "Raise", "Lower", "Smooth", "Flatten" };
     const char* kToolIcons[] = { "arrow-up", "arrow-down", "blur", "equal" };
     std::string Key( const std::string& path ) { return std::filesystem::path( Path( path ).FullPath ).lexically_normal().generic_string(); }
+    void RawControls( TerrainData::RawHeightmap& format, const TerrainData::Settings* settings = nullptr )
+    {
+        int encoding = format.Encoding == TerrainData::HeightEncoding::UInt16 ? 0 : 1;
+        if( ImGui::Combo( "Encoding", &encoding, "UInt16 (normalized)\0Float32\0" ) )
+        {
+            format.Encoding = encoding ? TerrainData::HeightEncoding::Float32 : TerrainData::HeightEncoding::UInt16;
+            format.Offset = encoding ? 0 : ( settings ? settings->HeightBase : -512 );
+            format.Scale = encoding ? 1 : ( settings ? settings->HeightRange : 1024 );
+        }
+        int order = format.BigEndian ? 1 : 0;
+        if( ImGui::Combo( "Byte order", &order, "Little endian\0Big endian\0" ) ) format.BigEndian = order != 0;
+        ImGui::Checkbox( "Flip Z rows", &format.FlipZ );
+        ImGui::InputDouble( "Height offset (m)", &format.Offset, 0, 0, "%.6g" );
+        ImGui::InputDouble( "Height scale", &format.Scale, 0, 0, "%.6g" );
+        ImGui::Text( "%u x %u samples (outer border included)", format.Width, format.Height );
+        ImGui::TextDisabled( "Heights outside the terrain range are rejected." );
+        if( format.Encoding == TerrainData::HeightEncoding::UInt16 )
+            ImGui::TextDisabled( "UInt16 quantization: at most %.6g m + Float32 rounding", std::abs( format.Scale ) / 131070 );
+    }
 }
 
 TerrainWidget::TerrainWidget() : HavanaWidget( "Terrain" )
@@ -43,6 +63,7 @@ bool TerrainWidget::IsPlaying() const { return static_cast<EditorApp*>( GetEngin
 
 void TerrainWidget::Init()
 {
+    m_rawImport.Offset = -512; m_rawImport.Scale = 1024;
     auto& config = EditorConfig::GetInstance();
     Brush.Radius = std::clamp( config.GetPreference<float>( "Terrain.Radius", 4.f ), 0.25f, 128.f );
     Brush.Strength = std::clamp( config.GetPreference<float>( "Terrain.Strength", 0.5f ), 0.001f, 100.f );
@@ -51,6 +72,12 @@ void TerrainWidget::Init()
     auto& actions = EditorActions::Get();
     actions.Register( { "View.Terrain", "Terrain", "View", 0, 0, [this]() { IsOpen = true; m_focusRequested = true; } } );
     actions.Register( { "Terrain.New", "New Terrain...", "Terrain", 0, 0, [this]() { NewDialog(); }, [this]() { return !IsPlaying(); } } );
+    actions.Register( { "Terrain.Import", "Import Terrain Heightmap...", "Terrain", 0, 0, [this]() { ImportDialog(); }, [this]() { return !IsPlaying(); } } );
+    actions.Register( { "Terrain.Export", "Export Terrain Heightmap...", "Terrain", 0, 0, [this]() { ExportDialog(); }, [this]() { return m_active && !IsPlaying(); } } );
+    actions.Register( { "Terrain.MakeUnique", "Make Terrain Unique...", "Terrain", 0, 0, [this]() { MakeUniqueDialog(); }, [this]() {
+        auto selected = Selection::Get().GetActive(); auto* terrain = selected ? selected->TryGetComponent<Terrain>() : nullptr;
+        return m_active && terrain && !IsPlaying() && Key( terrain->Asset.GetLocalPathString() ) == Key( m_active->GetPath() );
+    } } );
     actions.Register( { "Terrain.Open", "Open Terrain...", "Terrain", 0, 0, [this]() {
         RequestAssetSelectionEvent event( [this]( Path path ) { Open( path.GetLocalPathString() ); }, AssetType::Terrain ); event.Fire();
     } } );
@@ -121,6 +148,32 @@ TerrainDocument* TerrainWidget::Create( const std::string& path, const TerrainDa
     return m_active;
 }
 
+TerrainDocument* TerrainWidget::CreateFromField( const std::string& path, TerrainData::Heightfield field )
+{
+    if( IsPlaying() ) return nullptr;
+    auto document = std::make_unique<TerrainDocument>( path );
+    if( !document->CreateFromField( std::move( field ) ) ) { m_error = document->GetError(); IsOpen = true; return nullptr; }
+    if( m_active ) m_active->EndStroke();
+    m_active = document.get(); m_documents.push_back( std::move( document ) );
+    IsOpen = true; m_focusRequested = true; m_error.clear();
+    return m_active;
+}
+
+bool TerrainWidget::MakeUnique( const std::string& path, uint64_t entityGUID )
+{
+    auto entity = entityGUID ? EditorOps::GetWorld().FindEntityByGUID( entityGUID ) : Selection::Get().GetActive();
+    auto* terrain = entity ? entity->TryGetComponent<Terrain>() : nullptr;
+    if( IsPlaying() || !m_active || !terrain || Key( terrain->Asset.GetLocalPathString() ) != Key( m_active->GetPath() ) )
+    { m_error = "Select an instance of the active terrain to make it unique"; return false; }
+    if( !m_active->SaveCopy( path ) ) { m_error = m_active->GetError(); return false; }
+    // Load the copy before changing the scene reference. Failure leaves the scene untouched.
+    if( !Open( path ) ) return false;
+    const auto before = EditorOps::CaptureComponent( *entity.Get(), "Terrain" );
+    terrain->Asset = Path( path );
+    EditorOps::RecordComponentEdit( *entity.Get(), "Terrain", before, EditorOps::CaptureComponent( *entity.Get(), "Terrain" ), "Make terrain unique" );
+    return true;
+}
+
 bool TerrainWidget::HasUnsaved() const
 {
     for( const auto& document : m_documents ) if( document->IsDirty() ) return true;
@@ -134,7 +187,24 @@ bool TerrainWidget::SaveAll()
     return true;
 }
 void TerrainWidget::ConfirmUnsaved( std::function<void()> action ) { m_pending = std::move( action ); m_confirmRequested = true; }
-void TerrainWidget::NewDialog() { IsOpen = true; m_newRequested = true; }
+void TerrainWidget::NewDialog() { IsOpen = true; m_newRequested = true; m_importHeightmap = false; }
+void TerrainWidget::ImportDialog() { NewDialog(); m_importHeightmap = true; }
+void TerrainWidget::ExportDialog()
+{
+    if( !m_active || IsPlaying() ) return;
+    m_active->EndStroke(); m_exportRequested = true;
+    const auto& s = m_active->GetField().GetSettings();
+    m_rawExport.Width = s.TilesX * s.TileQuads + 1; m_rawExport.Height = s.TilesZ * s.TileQuads + 1;
+    m_rawExport.Offset = m_rawExport.Encoding == TerrainData::HeightEncoding::UInt16 ? s.HeightBase : 0;
+    m_rawExport.Scale = m_rawExport.Encoding == TerrainData::HeightEncoding::UInt16 ? s.HeightRange : 1;
+}
+void TerrainWidget::MakeUniqueDialog()
+{
+    auto entity = Selection::Get().GetActive();
+    if( !entity || !m_active || IsPlaying() ) return;
+    const uint64_t guid = entity->GetGUID();
+    RequestAssetSelectionEvent event( [this, guid]( Path path ) { MakeUnique( path.GetLocalPathString(), guid ); }, AssetType::Terrain, true ); event.Fire();
+}
 
 bgfx::TextureHandle TerrainWidget::Icon( const char* name )
 {
@@ -246,8 +316,8 @@ void TerrainWidget::DrawTools()
             Planned( "copy", "Duplicate", "Duplicate tiles and resolve shared borders." );
             Planned( "border-all", "Stitch", "Inspect and repair imported page borders." );
             Planned( "arrows-maximize", "Resize", "Change terrain extents and sample density." );
-            Planned( "upload", "Heightmap", "Import RAW height data with dimensions, endian, scale and orientation controls." );
-            Planned( "download", "Export", "Export Float32 or UInt16 height data." );
+            ImGui::TableNextColumn(); if( Button( "upload", "Heightmap", "Create a terrain from RAW Float32 or UInt16 heights.", !IsPlaying() ) ) ImportDialog();
+            ImGui::TableNextColumn(); if( Button( "download", "Export", "Export this terrain's canonical samples as a RAW heightmap.", m_active && !IsPlaying() ) ) ExportDialog();
             Planned( "map-2", "Overview", "Navigate a large tiled terrain map." );
             Planned( "hand-stop", "Pin", "Keep selected source pages resident." );
             Planned( "refresh", "Stream", "Preview tile residency and streaming budgets." );
@@ -342,6 +412,10 @@ void TerrainWidget::Render()
     ImGui::SameLine( 0, ImGuiTheme::InnerGap() );
     if( Button( "folder-open", "Open Terrain", "Open an existing source terrain asset.", true, false, true ) ) EditorActions::Get().Execute( "Terrain.Open" );
     ImGui::SameLine( 0, ImGuiTheme::InnerGap() );
+    if( Button( "upload", "Import Heightmap", "Create terrain from a RAW UInt16 or Float32 heightmap.", editing, false, true ) ) ImportDialog();
+    ImGui::SameLine( 0, ImGuiTheme::InnerGap() );
+    if( Button( "download", "Export Heightmap", "Export this terrain's source heights.", editing && m_active, false, true ) ) ExportDialog();
+    ImGui::SameLine( 0, ImGuiTheme::InnerGap() );
     if( Button( "device-floppy", "Save Terrain", "Save this terrain asset. Scene references are saved separately.", editing && m_active && m_active->IsDirty(), false, true ) ) m_active->Save();
     ImGui::SameLine( 0, ImGuiTheme::InnerGap() );
     if( Button( "copy", "Save Copy", "Save the current heights as a new independent asset.", editing && m_active, false, true ) )
@@ -404,7 +478,11 @@ void TerrainWidget::Render()
         }
         if( ImGui::BeginTable( "Future asset tools", 3, ImGuiTableFlags_SizingStretchSame ) )
         {
-            Planned( "copy", "Make Unique", "Fork the selected instance and its companion pages." );
+            ImGui::TableNextColumn();
+            auto selected = Selection::Get().GetActive();
+            auto* selectedTerrain = selected ? selected->TryGetComponent<Terrain>() : nullptr;
+            const bool canFork = m_active && selectedTerrain && Key( selectedTerrain->Asset.GetLocalPathString() ) == Key( m_active->GetPath() );
+            if( Button( "copy", "Make Unique", "Copy the active heights to a new asset and rebind only the selected instance.", canFork && editing ) ) MakeUniqueDialog();
             Planned( "device-floppy", "Recovery", "Autosave dirty terrain documents and recover after a crash." );
             Planned( "package", "Build", "Cook heights, collision and material data." );
             Planned( "trash", "Compact", "Remove source generations no longer referenced." );
@@ -432,26 +510,68 @@ void TerrainWidget::PlaceInScene()
 void TerrainWidget::DrawModals()
 {
     if( m_newRequested ) { ImGui::OpenPopup( "New Terrain" ); m_newRequested = false; }
+    if( m_exportRequested ) { ImGui::OpenPopup( "Export Heightmap" ); m_exportRequested = false; }
     if( m_confirmRequested ) { ImGui::OpenPopup( "Unsaved Terrains" ); m_confirmRequested = false; }
     if( ImGui::BeginPopupModal( "New Terrain", nullptr, ImGuiWindowFlags_AlwaysAutoResize ) )
     {
-        ImGui::TextUnformatted( "Create a flat heightfield" );
+        ImGui::Checkbox( "Import RAW heightmap", &m_importHeightmap );
         ImGui::SetNextItemWidth( ImGuiTheme::Em( 18 ) ); ImGui::InputInt2( "Tiles X / Z", m_tiles );
         const char* sizes[] = { "32", "64", "128", "256" };
         int sizeIndex = m_quads == 32 ? 0 : m_quads == 64 ? 1 : m_quads == 128 ? 2 : 3;
         if( ImGui::Combo( "Quads per tile", &sizeIndex, sizes, 4 ) ) m_quads = 32 << sizeIndex;
         ImGui::DragFloat( "Sample spacing (m)", &m_spacing, 0.1f, 0.1f, 100.f, "%.2f", ImGuiSliderFlags_AlwaysClamp );
-        ImGui::DragFloat( "Starting height (m)", &m_flatHeight, 0.1f, -512.f, 512.f, "%.2f", ImGuiSliderFlags_AlwaysClamp );
+        if( !m_importHeightmap ) ImGui::DragFloat( "Starting height (m)", &m_flatHeight, 0.1f, -512.f, 512.f, "%.2f", ImGuiSliderFlags_AlwaysClamp );
+        else
+        {
+            ImGui::InputText( "RAW file", &m_rawPath );
+            if( ImGui::Button( "Browse RAW File..." ) )
+            {
+                RequestAssetSelectionEvent event( [this]( Path path ) { m_rawPath = path.FullPath; m_newRequested = true; }, AssetType::Unknown ); event.Fire();
+                ImGui::CloseCurrentPopup();
+            }
+            m_rawImport.Width = std::clamp( m_tiles[0], 1, 16 ) * m_quads + 1;
+            m_rawImport.Height = std::clamp( m_tiles[1], 1, 16 ) * m_quads + 1;
+            RawControls( m_rawImport );
+        }
         ImGui::TextDisabled( "Height range: -512 to +512 m. Up to 1M source samples." );
         if( ImGui::Button( "Choose Asset Path..." ) )
         {
             TerrainData::Settings settings; settings.TilesX = std::clamp( m_tiles[0], 1, 16 ); settings.TilesZ = std::clamp( m_tiles[1], 1, 16 );
             settings.TileQuads = m_quads; settings.PatchQuads = std::min( m_quads, 64 ); settings.SampleSpacing = m_spacing;
-            const float height = m_flatHeight;
-            RequestAssetSelectionEvent event( [this, settings, height]( Path path ) { Create( path.GetLocalPathString(), settings, height ); }, AssetType::Terrain, true ); event.Fire();
+            auto imported = std::make_shared<TerrainData::Heightfield>();
+            bool valid = true;
+            if( uint64_t( settings.TilesX ) * settings.TilesZ > 1024 * 1024 / settings.SamplesPerTile() ) { valid = false; m_error = "Choose a terrain with at most 1M stored source samples"; }
+            if( valid && m_importHeightmap ) valid = TerrainData::ReadHeightmap( Path( m_rawPath ).FullPath, settings, m_rawImport, *imported, m_error );
+            if( valid )
+            {
+                const bool importing = m_importHeightmap; const float height = m_flatHeight;
+                RequestAssetSelectionEvent event( [this, settings, height, importing, imported]( Path path ) {
+                    if( importing ) CreateFromField( path.GetLocalPathString(), std::move( *imported ) );
+                    else Create( path.GetLocalPathString(), settings, height );
+                }, AssetType::Terrain, true ); event.Fire();
+                m_error.clear(); ImGui::CloseCurrentPopup();
+            }
+        }
+        ImGui::SameLine(); if( ImGui::Button( "Cancel" ) || ImGui::IsKeyPressed( ImGuiKey_Escape ) ) ImGui::CloseCurrentPopup();
+        if( !m_error.empty() ) ImGui::TextWrapped( "%s", m_error.c_str() );
+        ImGui::EndPopup();
+    }
+    if( ImGui::BeginPopupModal( "Export Heightmap", nullptr, ImGuiWindowFlags_AlwaysAutoResize ) )
+    {
+        RawControls( m_rawExport, m_active ? &m_active->GetField().GetSettings() : nullptr );
+        ImGui::TextDisabled( "Use .r16 / .r32 / .raw. File contains samples only." );
+        if( ImGui::Button( "Choose Output File..." ) && m_active )
+        {
+            const auto format = m_rawExport; TerrainDocument* document = m_active;
+            RequestAssetSelectionEvent event( [this, document, format]( Path path ) {
+                const auto extension = std::filesystem::path( path.FullPath ).extension().string();
+                if( extension != ".r16" && extension != ".r32" && extension != ".raw" && extension != ".f32" && extension != ".h16" && extension != ".bin" )
+                { m_error = "Choose a .raw, .r16 or .r32 output file"; return; }
+                TerrainData::WriteHeightmap( path.FullPath, document->GetField(), format, m_error );
+            }, AssetType::Unknown, true ); event.Fire();
             ImGui::CloseCurrentPopup();
         }
-        ImGui::SameLine(); if( ImGui::Button( "Cancel" ) ) ImGui::CloseCurrentPopup();
+        ImGui::SameLine(); if( ImGui::Button( "Cancel" ) || ImGui::IsKeyPressed( ImGuiKey_Escape ) ) ImGui::CloseCurrentPopup();
         ImGui::EndPopup();
     }
     if( ImGui::BeginPopupModal( "Unsaved Terrains", nullptr, ImGuiWindowFlags_AlwaysAutoResize ) )

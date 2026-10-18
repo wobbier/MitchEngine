@@ -2,7 +2,6 @@
 #if USING( ME_EDITOR )
 #include "Components/Graphics/Terrain.h"
 #include "Terrain/TerrainAsset.h"
-#include "Resource/AssetDatabase.h"
 #include "Resource/ResourceCache.h"
 #include "Resource/MetaFile.h"
 #include "Utils/GUID.h"
@@ -51,7 +50,7 @@ bool TerrainDocument::Load()
         {
             json value; meta >> value;
             const auto id = value.value( "GUID", std::string() );
-            if( !id.empty() ) guid = std::stoull( id, nullptr, 16 );
+            if( !id.empty() ) { const uint64_t metadataGUID = std::stoull( id, nullptr, 16 ); if( metadataGUID ) guid = metadataGUID; }
         }
     }
     catch( const std::exception& e ) { m_error = std::string( "Invalid terrain metadata: " ) + e.what(); return false; }
@@ -67,11 +66,19 @@ bool TerrainDocument::Load()
 bool TerrainDocument::CreateFlat( const TerrainData::Settings& settings, float height )
 {
     if( !settings.Validate( m_error ) ) return false;
-    if( static_cast<uint64_t>( settings.TilesX ) * settings.TilesZ * settings.SamplesPerTile() > 1024 * 1024 )
+    if( static_cast<uint64_t>( settings.TilesX ) * settings.TilesZ > 1024 * 1024 / settings.SamplesPerTile() )
     { m_error = "The resident authoring prototype supports up to one million source samples"; return false; }
     TerrainData::Heightfield field( settings );
     for( uint32_t z = 0; z < settings.TilesZ; ++z ) for( uint32_t x = 0; x < settings.TilesX; ++x )
         if( !field.CreateFlatTile( { settings.MinTile.X + static_cast<int32_t>( x ), settings.MinTile.Z + static_cast<int32_t>( z ) }, height, m_error ) ) return false;
+    return CreateFromField( std::move( field ) );
+}
+
+bool TerrainDocument::CreateFromField( TerrainData::Heightfield field )
+{
+    const auto& settings = field.GetSettings();
+    if( static_cast<uint64_t>( settings.TilesX ) * settings.TilesZ > 1024 * 1024 / settings.SamplesPerTile() )
+    { m_error = "The resident authoring prototype supports up to one million source samples"; return false; }
     const uint64_t guid = GUID::Generate(); std::string text;
     std::shared_ptr<const TerrainData::ResidentTerrain> preview;
     if( !TerrainData::BuildResidentTerrain( field, guid, preview, m_error ) ) return false;
