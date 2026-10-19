@@ -15,7 +15,7 @@
 #include <bit>
 #include <chrono>
 
-bool TerrainWidget::StartStreamCook( const std::string& path, uint8_t base )
+bool TerrainWidget::StartStreamCook( const std::string& path, uint8_t base, bool paged )
 {
     if( !m_active || m_cook.valid() || IsPlaying() ) return false;
     m_active->EndStroke();
@@ -23,8 +23,8 @@ bool TerrainWidget::StartStreamCook( const std::string& path, uint8_t base )
     m_cookMessage = "Cooking " + output.generic_string();
     try
     {
-        m_cook = std::async( std::launch::async, [field = std::move( field ), guid, output, base]() {
-            std::string error; if( !TerrainData::CookStreamArchive( output, field, guid, base, error ) ) return error;
+        m_cook = std::async( std::launch::async, [field = std::move( field ), guid, output, base, paged]() {
+            std::string error; if( !( paged ? TerrainData::CookPagedStreamArchive( output, field, guid, base, error ) : TerrainData::CookStreamArchive( output, field, guid, base, error ) ) ) return error;
             return std::string();
         } );
     }
@@ -64,14 +64,15 @@ void TerrainWidget::DrawStreamCook()
     }
     const int maximum = m_active ? int( std::bit_width( m_active->GetField().GetSettings().PatchQuads ) - 1 ) : 0;
     ImGui::SliderInt( "Coverage level", &m_coverageLod, 0, maximum );
+    ImGui::Checkbox( "Page coverage (version 3)", &m_pagedCook );
     ImGui::PushTextWrapPos( ImGuiTheme::Em( 34 ) );
     ImGui::TextWrapped( "Higher coverage levels use fewer resident vertices while detail streams. Cooking uses a snapshot of the current heights, including unsaved strokes." );
-    ImGui::TextWrapped( "Runtime tiles support up to 256 quads. Larger overviews need a coarser cook or separate datasets." );
+    ImGui::TextWrapped( "Paged coverage loads a finite visual horizon around rendering cameras. Runtime tiles support up to 256 quads. Disable paging for the resident version 2 overview." );
     ImGui::PopTextWrapPos();
     const bool exists = std::filesystem::exists( Path( m_cookPath ).FullPath );
     if( exists ) ImGui::Checkbox( "Replace the existing cooked file", &m_replaceCook );
     ImGui::BeginDisabled( !m_active || IsCooking() || IsPlaying() || ( exists && !m_replaceCook ) );
-    if( ImGui::Button( "Cook" ) && StartStreamCook( m_cookPath, static_cast<uint8_t>( m_coverageLod ) ) ) ImGui::CloseCurrentPopup();
+    if( ImGui::Button( "Cook" ) && StartStreamCook( m_cookPath, static_cast<uint8_t>( m_coverageLod ), m_pagedCook ) ) ImGui::CloseCurrentPopup();
     ImGui::EndDisabled(); ImGui::SameLine(); if( ImGui::Button( "Cancel" ) ) ImGui::CloseCurrentPopup();
     ImGui::EndPopup();
 }
@@ -94,6 +95,12 @@ void TerrainWidget::DrawStreamingControls()
     ImGui::Text( "%zu resident / %zu detail / %zu retiring", stats->Resident, stats->Detail, stats->Retiring );
     if( stats->Retiring ) ImGui::Text( "Retiring pins: %zu query / %zu draw / %zu collision", stats->QueryPins, stats->DrawPins, stats->CollisionPins );
     ImGui::Text( "%zu pending  /  worker %s", stats->Pending, stats->Loading ? "loading" : "idle" );
+    if( terrain->GetData() && terrain->GetData()->PagedCoverage )
+    {
+        ImGui::Text( "Coverage: %zu pages / %zu pending / %zu retiring", stats->CoverageResident, stats->CoveragePending, stats->CoverageRetiring );
+        ImGui::Text( "Horizon: %s / %.0f m", stats->HorizonReady ? "ready" : "loading", terrain->CoverageDistance );
+        ImGui::Text( "Coverage loads %llu / evictions %llu", static_cast<unsigned long long>( stats->CoverageLoaded ), static_cast<unsigned long long>( stats->CoverageEvicted ) );
+    }
     constexpr double mib = 1024.0 * 1024;
     if( const auto* core = EditorOps::GetWorld().GetCore<TerrainCore>() )
     {

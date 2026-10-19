@@ -9,6 +9,7 @@ namespace TerrainData
     {
         TileCoord Coordinate;
         uint64_t Offset = 0, Size = 0, Checksum = 0;
+        uint64_t CoverageOffset = 0, CoverageSize = 0, CoverageChecksum = 0;
         float MinHeight = 0, MaxHeight = 0;
     };
 
@@ -26,6 +27,7 @@ namespace TerrainData
         Settings Config;
         uint64_t AssetGUID = 0, Revision = 0, FileSize = 0;
         uint8_t CoverageLod = 0;
+        bool PagedCoverage = false;
         std::vector<uint8_t> Header;
         std::vector<StreamBlock> Blocks;
         std::shared_ptr<const ResidentTerrain> Coverage;
@@ -36,6 +38,15 @@ namespace TerrainData
     // Cooking streams to a neighboring temporary file and atomically publishes only on success.
     bool CookStreamArchive( const std::filesystem::path& InPath, const Heightfield& InField, uint64_t InGUID,
         uint8_t InCoverageLod, std::string& OutError );
+    // Version 3 opens metadata only; each tile's coarse coverage is independently readable.
+    bool CookPagedStreamArchive( const std::filesystem::path& InPath, const Heightfield& InField, uint64_t InGUID,
+        uint8_t InCoverageLod, std::string& OutError );
+    struct StreamCoverageTile
+    {
+        TileCoord Coordinate;
+        std::vector<std::shared_ptr<const ResidentPatch>> Patches;
+    };
+    bool ReadStreamCoverage( const StreamArchive& InArchive, TileCoord InTile, std::shared_ptr<const StreamCoverageTile>& OutPage, std::string& OutError );
     // Reads the header, directory and coarse coverage only. No canonical tile payload is read.
     bool OpenStreamArchive( const std::filesystem::path& InPath, std::shared_ptr<const StreamArchive>& OutArchive, std::string& OutError );
     // Worker-only file I/O and CPU preparation. Rechecks the immutable archive identity.

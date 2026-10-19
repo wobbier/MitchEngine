@@ -51,6 +51,7 @@ private:
     struct TerrainDraw;
     TerrainDraw* PrepareTerrainDraw( Entity& InEntity, Terrain& InTerrain, std::span<const TerrainData::LodView> InViews );
     void RemoveTerrainDraw( uint64_t InEntityID );
+    void RetireTerrainDraw( std::unique_ptr<TerrainDraw> InDraw, const TerrainDraw* InKeep = nullptr );
     void ClearTerrainDraws();
     std::unordered_map<uint64_t, std::unique_ptr<TerrainDraw>> m_terrainDraws;
     struct RetiringTerrain

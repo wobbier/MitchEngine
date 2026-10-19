@@ -43,6 +43,7 @@ namespace TerrainData
         : m_archive( std::move( archive ) ), m_loader( std::move( loader ) ), m_snapshot( m_archive->Coverage )
     {
         m_tileCost = TileReservation( m_archive->Config );
+        m_pageCost = CoverageReservation( m_archive->Config, m_archive->CoverageLod );
         m_baseCost.CpuBytes = sizeof( StreamArchive ) + m_archive->Header.size() + m_archive->Blocks.size() * ( sizeof( StreamBlock ) + 256 );
         m_baseCost.GpuBytes = m_baseCost.CollisionBytes = 0;
         for( const auto& patch : m_archive->Coverage->Patches )
@@ -74,6 +75,7 @@ namespace TerrainData
     {
         if( m_job.valid() ) return false;
         for( const auto& [coord, entry] : m_entries ) if( entry.Tile || entry.Loading ) return false;
+        for( const auto& [coord, entry] : m_pages ) if( entry.Page || entry.Loading ) return false;
         m_snapshot = m_archive->Coverage; Measure();
         if( !m_snapshots.empty() ) return false;
         for( const auto& patch : m_archive->Coverage->Patches ) if( patch.use_count() > 1 ) return false;
@@ -84,6 +86,8 @@ namespace TerrainData
     void TerrainStreamCache::InvalidatePending()
     {
         for( auto& [coord, entry] : m_entries ) if( entry.Loading )
+        { entry.Request = ++m_request; entry.Active = false; ++m_stats.Cancelled; }
+        for( auto& [coord, entry] : m_pages ) if( entry.Loading )
         { entry.Request = ++m_request; entry.Active = false; ++m_stats.Cancelled; }
         m_publishDirty = true;
     }
@@ -103,6 +107,13 @@ namespace TerrainData
         m_stats.CpuReserved = m_baseCost.CpuBytes * m_limits.Instances; m_stats.GpuReserved = m_baseCost.GpuBytes * m_limits.Instances; m_stats.CollisionReserved = 0;
         m_stats.Resident = m_stats.Detail = m_stats.Retiring = 0;
         m_stats.QueryPins = m_stats.DrawPins = m_stats.CollisionPins = 0;
+        m_stats.CoverageResident = m_stats.CoverageRetiring = 0;
+        for( const auto& [coord, entry] : m_pages ) if( entry.Page || entry.Loading )
+        {
+            m_stats.CpuReserved += m_pageCost.CpuBytes * m_limits.Instances;
+            m_stats.GpuReserved += m_pageCost.GpuBytes * m_limits.Instances;
+            if( entry.Page ) { if( entry.Active ) ++m_stats.CoverageResident; else ++m_stats.CoverageRetiring; }
+        }
         for( const auto& [coord, entry] : m_entries )
         {
             if( entry.Tile || entry.Loading ) m_stats.CpuReserved += m_tileCost.CpuBytes * m_limits.Instances;
@@ -122,6 +133,7 @@ namespace TerrainData
             if( auto snapshot = it->lock() )
             {
                 m_stats.CpuReserved += sizeof( ResidentTerrain ) + snapshot->Patches.size() * ( sizeof( void* ) + sizeof( std::array<int32_t, 4> ) );
+                m_stats.CpuReserved += snapshot->CoveragePatches.size() * sizeof( void* ) + snapshot->CoverageTiles.size() * sizeof( TileCoord );
                 m_stats.CpuReserved += snapshot->Heights->GetTiles().size() * ( m_archive->Config.SamplesPerTile() * 4 + 256 ); ++it;
             }
             else it = m_snapshots.erase( it );
@@ -168,6 +180,7 @@ namespace TerrainData
 
     void TerrainStreamCache::Tick( uint64_t frame, std::span<const TileDemand> requests, const StreamLimits& limits, bool allowLoad )
     {
+        if( m_archive->PagedCoverage ) { TickPaged( frame, requests, limits, allowLoad ); return; }
         m_limits = limits; m_stats.Pressure.clear();
         if( !limits.Instances || limits.Instances > 65536 )
         { m_stats.CoverageReady = m_stats.CollisionReady = false; m_stats.Pressure = "Invalid terrain streaming limits"; return; }
@@ -323,7 +336,7 @@ namespace TerrainData
     }
 
 
-    void AddStreamDemand( const Settings& s, const Vector3& position, double radius, bool collision, std::map<TileCoord, TileDemand>& demand )
+    void AddStreamDemand( const Settings& s, const Vector3& position, double radius, bool collision, std::map<TileCoord, TileDemand>& demand, bool coverage )
     {
         if( !std::isfinite( position.x ) || !std::isfinite( position.z ) || !std::isfinite( radius ) || radius < 0 ) return;
         const double width = double( s.TileQuads ) * s.SampleSpacing;
@@ -337,8 +350,8 @@ namespace TerrainData
             const TileCoord coord{ static_cast<int32_t>( x ), static_cast<int32_t>( z ) };
             const double dx = ( x + 0.5 ) * width - position.x, dz = ( z + 0.5 ) * width - position.z;
             const double priority = dx * dx + dz * dz;
-            auto [it, added] = demand.emplace( coord, TileDemand{ coord, collision, !collision, priority } );
-            if( !added ) { it->second.Collision |= collision; it->second.Visual |= !collision; it->second.Priority = std::min( it->second.Priority, priority ); }
+            auto [it, added] = demand.emplace( coord, TileDemand{ coord, collision, !collision && !coverage, priority, coverage } );
+            if( !added ) { it->second.Collision |= collision; it->second.Visual |= !collision && !coverage; it->second.Coverage |= coverage; it->second.Priority = std::min( it->second.Priority, priority ); }
         }
     }
 }

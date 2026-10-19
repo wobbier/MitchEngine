@@ -39,8 +39,9 @@
 struct RenderCore::TerrainDraw
 {
     std::shared_ptr<const TerrainData::ResidentTerrain> Source;
-    std::vector<std::unique_ptr<Moonlight::MeshData>> Geometry;
-    std::vector<std::unique_ptr<Mesh>> Parts;
+    std::vector<std::shared_ptr<Moonlight::MeshData>> Geometry;
+    std::vector<std::shared_ptr<Mesh>> Parts;
+    std::unique_ptr<TerrainDraw> Previous;
     std::shared_ptr<TerrainData::ResidentTerrain> Active;
     std::vector<std::shared_ptr<Moonlight::MeshIndexData>> Fallback, Warmup;
     struct Retired { std::shared_ptr<const TerrainData::ResidentPatch> Patch; uint8_t Frames = 3; };
@@ -55,19 +56,31 @@ void RenderCore::RemoveTerrainDraw( uint64_t InEntityID )
 {
     auto found = m_terrainDraws.find( InEntityID );
     if( found == m_terrainDraws.end() ) return;
-    // Commands contain raw geometry pointers: retire them before destroying their buffers.
-    if( Moonlight::IsGpuAlive() )
-        for( auto& mesh : found->second->Parts ) if( mesh ) GetEngine().GetRenderer().GetMeshCache().Pop( mesh->GetId() );
-    if( Moonlight::IsGpuAlive() && found->second->Source && found->second->Source->Streamed )
-    {
-        // Destruction below queues BGFX buffer release. Keep both coverage and detail cache
-        // pins through deferred GPU retirement, including removal of a whole terrain instance.
-        RetiringTerrain pins; pins.Patches = found->second->Active->Patches;
-        for( const auto& retired : found->second->Retiring ) pins.Patches.push_back( retired.Patch );
-        m_retiringTerrains.push_back( std::move( pins ) );
-    }
-    m_terrainDraws.erase( found );
+    auto draw = std::move( found->second ); m_terrainDraws.erase( found );
+    RetireTerrainDraw( std::move( draw ) );
 }
+
+
+void RenderCore::RetireTerrainDraw( std::unique_ptr<TerrainDraw> draw, const TerrainDraw* keep )
+{
+    std::unordered_set<unsigned int> retained;
+    if( keep ) for( const auto& part : keep->Parts ) if( part ) retained.insert( part->GetId() );
+    while( draw )
+    {
+        // Reused overlapping patches keep their command IDs; other commands retire before buffers.
+        if( Moonlight::IsGpuAlive() )
+            for( const auto& part : draw->Parts ) if( part && !retained.contains( part->GetId() ) )
+            { GetEngine().GetRenderer().GetMeshCache().Pop( part->GetId() ); retained.insert( part->GetId() ); }
+        if( Moonlight::IsGpuAlive() && draw->Source && draw->Source->Streamed )
+        {
+            RetiringTerrain pins; pins.Patches = draw->Active->Patches;
+            for( const auto& retired : draw->Retiring ) pins.Patches.push_back( retired.Patch );
+            m_retiringTerrains.push_back( std::move( pins ) );
+        }
+        auto previous = std::move( draw->Previous ); draw.reset(); draw = std::move( previous );
+    }
+}
+
 
 void RenderCore::ClearTerrainDraws()
 {
@@ -83,9 +96,24 @@ RenderCore::TerrainDraw* RenderCore::PrepareTerrainDraw( Entity& InEntity, Terra
     if( auto* stats = InTerrain.GetStreamingStats(); stats && !stats->CoverageReady )
     { InTerrain.m_lodError = stats->Pressure; RemoveTerrainDraw( InEntity.GetId().Value() ); return nullptr; }
     const uint64_t id = InEntity.GetId().Value();
+    if( data->PagedCoverage && data->Patches.empty() )
+    {
+        RemoveTerrainDraw( id ); InTerrain.m_patchLods.clear(); InTerrain.m_lodTriangles = InTerrain.m_fullTriangles = 0;
+        InTerrain.m_lodError = "Loading paged terrain coverage"; return nullptr;
+    }
+    std::unique_ptr<TerrainDraw> priorWindow;
     auto previous = m_terrainDraws.find( id );
-    if( previous != m_terrainDraws.end() && ( previous->second->Source->AssetGUID != data->AssetGUID || previous->second->Source->StreamRevision != data->StreamRevision || previous->second->Parts.size() != data->Patches.size() ||
+    if( previous != m_terrainDraws.end() && ( previous->second->Source->AssetGUID != data->AssetGUID || previous->second->Source->StreamRevision != data->StreamRevision || ( !data->PagedCoverage && previous->second->Parts.size() != data->Patches.size() ) ||
         previous->second->Source->Heights->GetSettings().PatchQuads != data->Heights->GetSettings().PatchQuads || previous->second->Source->Heights->GetSettings().TilesX != data->Heights->GetSettings().TilesX || previous->second->Source->Heights->GetSettings().TilesZ != data->Heights->GetSettings().TilesZ ) ) RemoveTerrainDraw( id );
+    previous = m_terrainDraws.find( id );
+    if( previous != m_terrainDraws.end() && data->PagedCoverage && previous->second->Source->CoverageTiles != data->CoverageTiles )
+    {
+        priorWindow = std::move( previous->second ); m_terrainDraws.erase( previous );
+        if( priorWindow->Previous )
+        {
+            auto stable = std::move( priorWindow->Previous ); RetireTerrainDraw( std::move( priorWindow ), stable.get() ); priorWindow = std::move( stable );
+        }
+    }
     auto& draw = m_terrainDraws[id];
     if( !draw )
     {
@@ -97,6 +125,21 @@ RenderCore::TerrainDraw* RenderCore::PrepareTerrainDraw( Entity& InEntity, Terra
         draw->Fallback.resize( data->Patches.size() );
         draw->Active = std::make_shared<TerrainData::ResidentTerrain>( *data ); draw->Source = data;
         draw->Active->CollisionTiles.clear(); draw->Active->ResidencyPins.clear();
+        draw->Previous = std::move( priorWindow );
+        if( draw->Previous )
+        {
+            std::map<std::pair<int64_t, int64_t>, size_t> old;
+            for( size_t i = 0; i < draw->Previous->Parts.size(); ++i ) if( draw->Previous->Geometry[i] )
+            { const auto origin = draw->Previous->Active->Patches[i]->Mesh.SampleOrigin; old[{ origin.X, origin.Z }] = i; }
+            for( size_t i = 0; i < data->Patches.size(); ++i )
+            {
+                const auto origin = data->Patches[i]->Mesh.SampleOrigin; const auto found = old.find( { origin.X, origin.Z } );
+                if( found == old.end() ) continue;
+                const size_t j = found->second;
+                draw->Parts[i] = draw->Previous->Parts[j]; draw->Geometry[i] = draw->Previous->Geometry[j];
+                draw->Active->Patches[i] = draw->Previous->Active->Patches[j]; draw->Fallback[i] = draw->Previous->Fallback[j];
+            }
+        }
     }
     for( auto it = draw->Retiring.begin(); it != draw->Retiring.end(); )
         if( --it->Frames == 0 ) it = draw->Retiring.erase( it ); else ++it;
@@ -111,13 +154,17 @@ RenderCore::TerrainDraw* RenderCore::PrepareTerrainDraw( Entity& InEntity, Terra
     const bool initial = std::any_of( draw->Geometry.begin(), draw->Geometry.end(), []( const auto& geometry ) { return !geometry; } );
     // Establish complete coarse coverage before showing the first streamed frame. Subsequent
     // detail/eviction uploads replace individual patches while the previous grid remains usable.
-    const auto target = streamed && initial && InTerrain.m_stream ? InTerrain.m_stream->GetArchive().Coverage : data;
+    auto target = streamed && initial && InTerrain.m_stream && !data->PagedCoverage ? InTerrain.m_stream->GetArchive().Coverage : data;
+    if( data->PagedCoverage && initial )
+    {
+        auto coarse = std::make_shared<TerrainData::ResidentTerrain>( *data ); coarse->Patches = data->CoveragePatches; target = std::move( coarse );
+    }
     {
         OPTICK_EVENT( "RenderCore::UpdateTerrainPatches" );
         for( size_t i = 0; i < target->Patches.size(); ++i )
         {
             const auto& patch = target->Patches[i];
-            if( draw->Geometry[i] && draw->Active->Patches[i] == patch ) continue;
+            if( draw->Geometry[i] && ( draw->Active->Patches[i] == patch || ( initial && draw->Previous ) ) ) continue;
             const uint64_t bytes = patch->Mesh.Vertices.size() * sizeof( Moonlight::PosNormTexTanBiVertex ) + patch->Mesh.Lods.front().Indices.size() * 4 + 24;
             if( bytes > uploadLimit ) { uploadError = "A terrain patch exceeds Upload KiB; increase the budget or cook smaller patches"; continue; }
             const double elapsed = std::chrono::duration<double, std::milli>( std::chrono::steady_clock::now() - started ).count();
@@ -173,7 +220,8 @@ RenderCore::TerrainDraw* RenderCore::PrepareTerrainDraw( Entity& InEntity, Terra
         draw->Source = data;
     }
     if( std::any_of( draw->Geometry.begin(), draw->Geometry.end(), []( const auto& geometry ) { return !geometry; } ) )
-    { InTerrain.m_lodError = uploadError.empty() ? "Uploading initial terrain coverage" : uploadError; return nullptr; }
+    { InTerrain.m_lodError = uploadError.empty() ? "Uploading terrain coverage window" : uploadError; return draw->Previous.get(); }
+    if( draw->Previous ) RetireTerrainDraw( std::move( draw->Previous ), draw.get() );
     draw->Active->Heights = data->Heights;
     data = draw->Active;
     const auto translation = InEntity.GetComponent<Transform>().GetWorldPosition();

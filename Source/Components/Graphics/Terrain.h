@@ -31,6 +31,7 @@ public:
     bool ShowResidency = false;
     bool StreamDetail = true;
     float StreamDistance = 384.f, CollisionDistance = 8.f;
+    float CoverageDistance = 1024.f;
     int CpuBudgetMiB = 256, GpuBudgetMiB = 128, CollisionBudgetMiB = 512;
     int UploadKiB = 1024;
     float UploadMilliseconds = 2.f;

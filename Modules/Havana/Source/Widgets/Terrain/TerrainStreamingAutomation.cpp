@@ -107,7 +107,7 @@ namespace TerrainStreamingAutomation
             auto actor = EditorOps::GetWorld().CreateEntity( "Stream Player" ); actor->AddComponent<Transform>().SetPosition( Vector3( -40, 12, -40 ) ); actor->AddComponent<CharacterController>();
             Pose( -40 ); return true;
         }
-        if( command == "terrain-stream-cook" ) return widget->StartStreamCook( ( s_directory / "Runtime.terrainc" ).generic_string(), 2 );
+        if( command == "terrain-stream-cook" ) return widget->StartStreamCook( ( s_directory / "Runtime.terrainc" ).generic_string(), 2, false );
         if( command == "terrain-stream-cook-wait" ) { if( !widget->FinishStreamCook( true ) ) { error = "Streamed terrain cook failed"; return false; } return true; }
         auto ground = Ground(); auto* terrain = ground ? ground->TryGetComponent<Terrain>() : nullptr;
         if( !terrain ) return false;

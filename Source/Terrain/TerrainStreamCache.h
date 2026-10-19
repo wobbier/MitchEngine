@@ -18,6 +18,7 @@ namespace TerrainData
         TileCoord Coordinate;
         bool Collision = false, Visual = false;
         double Priority = 0; // Smaller first; collision always precedes visual requests.
+        bool Coverage = false;
     };
 
     struct StreamStats
@@ -26,6 +27,9 @@ namespace TerrainData
         uint64_t Loaded = 0, Evicted = 0, Cancelled = 0, Failed = 0, BytesRead = 0;
         size_t Resident = 0, Detail = 0, Retiring = 0, Pending = 0;
         size_t QueryPins = 0, DrawPins = 0, CollisionPins = 0;
+        size_t CoverageResident = 0, CoverageRetiring = 0, CoveragePending = 0;
+        uint64_t CoverageLoaded = 0, CoverageEvicted = 0;
+        bool HorizonReady = true;
         bool Loading = false, CollisionReady = true, CoverageReady = true;
         std::string Pressure, Error;
     };
@@ -51,6 +55,7 @@ namespace TerrainData
         const StreamStats& GetStats() const { return m_stats; }
         const StreamArchive& GetArchive() const { return *m_archive; }
         static StreamLimits TileReservation( const Settings& InSettings );
+        static StreamLimits CoverageReservation( const Settings& InSettings, uint8_t InBaseLod );
 
     private:
         friend class TerrainStreamScheduler;
@@ -65,18 +70,30 @@ namespace TerrainData
             TileCoord Coordinate;
             uint64_t Request = 0;
             std::shared_ptr<const StreamTile> Tile;
+            std::shared_ptr<const StreamCoverageTile> Page;
+            bool Coverage = false;
             std::string Error;
         };
         bool HasConsumers( const Entry& InEntry ) const;
         void Measure();
         bool Publish( const std::map<TileCoord, TileDemand>& InDemand );
+        void TickPaged( uint64_t InFrame, std::span<const TileDemand> InDemand, const StreamLimits& InLimits, bool InAllowLoad );
+        bool PublishPaged( const std::map<TileCoord, TileDemand>& InDemand );
+        struct CoverageEntry
+        {
+            std::shared_ptr<const StreamCoverageTile> Page;
+            uint64_t LastDemand = 0, Request = 0;
+            bool Active = false, Loading = false, Failed = false;
+        };
+        bool HasConsumers( const CoverageEntry& InEntry ) const;
         std::shared_ptr<const StreamArchive> m_archive;
         Loader m_loader;
         std::map<TileCoord, Entry> m_entries;
+        std::map<TileCoord, CoverageEntry> m_pages;
         std::future<Completion> m_job;
         std::shared_ptr<const ResidentTerrain> m_snapshot;
         std::vector<std::weak_ptr<const ResidentTerrain>> m_snapshots;
-        StreamLimits m_limits, m_tileCost, m_baseCost;
+        StreamLimits m_limits, m_tileCost, m_baseCost, m_pageCost;
         StreamStats m_stats;
         uint64_t m_request = 0;
         bool m_publishDirty = false;
@@ -85,5 +102,5 @@ namespace TerrainData
 
     // Adds a clipped terrain-local region; no full dataset traversal, including negative tiles.
     void AddStreamDemand( const Settings& InSettings, const Vector3& InLocalPosition, double InRadius,
-        bool InCollision, std::map<TileCoord, TileDemand>& InOutDemand );
+        bool InCollision, std::map<TileCoord, TileDemand>& InOutDemand, bool InCoverage = false );
 }

@@ -4,6 +4,7 @@
 #include "Components/Physics/Rigidbody.h"
 #include "Components/Physics/Colliders.h"
 #include "Components/Transform.h"
+#include "Components/Camera.h"
 #include "Cores/TerrainCore.h"
 #include "Cores/PhysicsCore.h"
 #include "Core/UpdateContext.h"
@@ -24,13 +25,13 @@ namespace
         Context Time;
         Path File;
         EntityHandle Ground, Player;
-        StreamScene()
+        StreamScene( bool paged = false )
         {
             static int sequence = 0; const auto path = std::filesystem::path( ".tmp/Tests/TerrainStreamingRuntime" ) / std::to_string( ++sequence ) / "Runtime.terrainc";
             TerrainData::Settings s; s.TileQuads = 16; s.PatchQuads = 8; s.MinTile = { -2, -2 }; s.TilesX = s.TilesZ = 5;
             TerrainData::Heightfield field( s ); std::string error;
             for( int x = -2; x <= 2; ++x ) for( int z = -2; z <= 2; ++z ) REQUIRE( field.CreateFlatTile( { x, z }, 3, error ) );
-            REQUIRE( TerrainData::CookStreamArchive( path, field, 345, 2, error ) ); File = Path( path.generic_string() );
+            REQUIRE( ( paged ? TerrainData::CookPagedStreamArchive( path, field, 345, 2, error ) : TerrainData::CookStreamArchive( path, field, 345, 2, error ) ) ); File = Path( path.generic_string() );
             GameWorld->IsLoading = false; GameWorld->AddCore( Terrains ); GameWorld->AddCore( Physics );
             Ground = GameWorld->CreateEntity( "Ground" ); Ground->AddComponent<Transform>(); auto& terrain = Ground->AddComponent<Terrain>(); terrain.Asset = File;
             terrain.CpuBudgetMiB = terrain.GpuBudgetMiB = terrain.CollisionBudgetMiB = 1; terrain.CollisionDistance = 1;
@@ -144,4 +145,18 @@ TEST_CASE( "Terrain streaming: shared world limits hold two assets until collisi
     RaycastHit hit; REQUIRE( scene.Physics.Raycast( Vector3( 1002, 20, 2 ), Vector3( 0, -1, 0 ), 30, hit ) ); CHECK( hit.Entity == second ); CHECK( hit.Position.y == doctest::Approx( 3 ) );
     second->SetActive( false ); player->SetActive( false ); drain(); scene.Step();
     CHECK( scene.Terrains.GetStreamingStats().ActiveAssets == 1 ); CHECK( scene.Terrains.GetStreamingStats().RetiringAssets == 0 );
+}
+
+TEST_CASE( "Terrain paging: physics and canonical queries stay independent of the moving visual horizon" )
+{
+    StreamScene scene( true ); auto& terrain = scene.Ground->GetComponent<Terrain>(); terrain.CollisionBudgetMiB = 2; terrain.StreamDetail = false; terrain.CoverageDistance = 24;
+    auto camera = scene.GameWorld->CreateEntity( "Coverage camera" ); camera->AddComponent<Transform>().SetPosition( Vector3( 24, 20, 24 ) ); camera->AddComponent<Camera>().OutputSize = Vector2( 1280, 720 );
+    scene.GameWorld->Start(); scene.Drain(); REQUIRE( scene.Terrains.IsCollisionReady() ); REQUIRE( terrain.GetStreamingStats()->HorizonReady );
+    CHECK( terrain.GetData()->Patches.size() == 36 ); CHECK( terrain.GetData()->Heights->Query( 40, 40 ).Status == TerrainData::QueryStatus::Unavailable );
+    scene.Player->GetComponent<CharacterController>().Teleport( Vector3( 24, 20, 24 ), Quaternion() );
+    camera->GetComponent<Transform>().SetPosition( Vector3( -24, 20, -24 ) ); scene.Terrains.SyncNow(); CHECK_FALSE( scene.Terrains.IsCollisionReady() );
+    for( int n = 0; n < 2; ++n ) scene.Drain();
+    REQUIRE( scene.Terrains.IsCollisionReady() ); REQUIRE( terrain.GetStreamingStats()->HorizonReady ); CHECK( terrain.GetStreamingStats()->CoverageEvicted > 0 );
+    CHECK( terrain.GetData()->Heights->Query( 24, 24 ).Status == TerrainData::QueryStatus::Ready );
+    RaycastHit hit; REQUIRE( scene.Physics.Raycast( Vector3( 26, 30, 24 ), Vector3( 0, -1, 0 ), 50, hit ) ); CHECK( hit.Entity == scene.Ground ); CHECK( hit.Position.y == doctest::Approx( 3 ) );
 }

@@ -83,7 +83,8 @@ void TerrainCore::SyncStreams()
             terrain.m_stream.reset(); continue;
         }
         if( terrain.CpuBudgetMiB < 1 || terrain.GpuBudgetMiB < 1 || terrain.CollisionBudgetMiB < 1 || terrain.CpuBudgetMiB > 4096 || terrain.GpuBudgetMiB > 4096 || terrain.CollisionBudgetMiB > 4096 ||
-            !std::isfinite( terrain.StreamDistance ) || terrain.StreamDistance < 0 || terrain.StreamDistance > 16384 || !std::isfinite( terrain.CollisionDistance ) || terrain.CollisionDistance < 1 || terrain.CollisionDistance > 1024 )
+            !std::isfinite( terrain.StreamDistance ) || terrain.StreamDistance < 0 || terrain.StreamDistance > 16384 || !std::isfinite( terrain.CollisionDistance ) || terrain.CollisionDistance < 1 || terrain.CollisionDistance > 1024 ||
+            !std::isfinite( terrain.CoverageDistance ) || terrain.CoverageDistance < 0 || terrain.CoverageDistance > 16384 )
         {
             terrain.m_data = terrain.m_resource->GetData(); terrain.m_stream.reset();
             terrain.m_valid = false; terrain.m_error = "Invalid terrain streaming budgets or demand radius";
@@ -98,7 +99,11 @@ void TerrainCore::SyncStreams()
         request.Limits.GpuBytes = std::min( request.Limits.GpuBytes, uint64_t( terrain.GpuBudgetMiB ) << 20 );
         request.Limits.CollisionBytes = std::min( request.Limits.CollisionBytes, uint64_t( terrain.CollisionBudgetMiB ) << 20 );
         const auto origin = entity.GetComponent<Transform>().GetWorldPosition();
-        if( terrain.StreamDetail ) for( const auto& position : cameras ) TerrainData::AddStreamDemand( archive->Config, position - origin, terrain.StreamDistance, false, request.Tiles );
+        for( const auto& position : cameras )
+        {
+            if( archive->PagedCoverage ) TerrainData::AddStreamDemand( archive->Config, position - origin, terrain.CoverageDistance, false, request.Tiles, true );
+            if( terrain.StreamDetail ) TerrainData::AddStreamDemand( archive->Config, position - origin, archive->PagedCoverage ? std::min( terrain.StreamDistance, terrain.CoverageDistance ) : terrain.StreamDistance, false, request.Tiles );
+        }
         if( terrain.Collision ) for( const auto& actor : actors ) TerrainData::AddStreamDemand( archive->Config, actor.Position - origin, terrain.CollisionDistance + actor.Radius + archive->Config.SampleSpacing, true, request.Tiles );
     }
     std::vector<TerrainData::StreamBatch> batches;
@@ -112,7 +117,7 @@ void TerrainCore::SyncStreams()
             batch.Limits.Instances = static_cast<uint32_t>( requests.Instances.size() );
             for( const auto& [coord, tile] : requests.Tiles ) batch.Demand.push_back( tile );
         }
-        batches.push_back( std::move( batch ) ); drainLimit += archive->Blocks.size();
+        batches.push_back( std::move( batch ) ); drainLimit += archive->Blocks.size() * ( archive->PagedCoverage ? 2 : 1 );
     }
     const auto& settings = ProjectSettings::Get();
     TerrainData::StreamWorldLimits limits;

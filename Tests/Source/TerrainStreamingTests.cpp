@@ -7,9 +7,15 @@
 #include <cmath>
 #include <future>
 #include <atomic>
+#include <bit>
 
 namespace
 {
+    void PageFixture( const std::filesystem::path& file, const TerrainData::Heightfield& field, std::shared_ptr<const TerrainData::StreamArchive>& archive )
+    {
+        std::string error; REQUIRE( TerrainData::CookPagedStreamArchive( file, field, 123, 1, error ) ); REQUIRE( TerrainData::OpenStreamArchive( file, archive, error ) );
+    }
+
     struct StreamFixture
     {
         std::filesystem::path Directory, File;
@@ -266,4 +272,112 @@ TEST_CASE( "Terrain streaming: GPU detail can leave an actor's tile while its ca
     const auto data = cache.GetData(); CHECK( data->Patches[f.Archive->TileIndex( { 0, 0 } ) * 4]->BaseLod == 1 );
     CHECK( data->Patches[f.Archive->TileIndex( { 1, 1 } ) * 4]->BaseLod == 0 );
     REQUIRE( data->CollisionTiles.size() == 1 ); CHECK( data->CollisionTiles[0]->Coordinate == TerrainData::TileCoord{ 0, 0 } );
+}
+
+TEST_CASE( "Terrain paging: metadata opens without overview geometry and independent coverage matches version 2" )
+{
+    StreamFixture f; auto legacy = f.Archive; PageFixture( f.File, f.Field, f.Archive ); std::string error;
+    REQUIRE( f.Archive->PagedCoverage ); CHECK( f.Archive->Coverage->Patches.empty() ); CHECK( f.Archive->Coverage->Heights->GetTiles().empty() );
+    CHECK( f.Archive->Coverage->Bounds.Min.InternalVector == legacy->Coverage->Bounds.Min.InternalVector );
+    CHECK( f.Archive->Coverage->Bounds.Max.InternalVector == legacy->Coverage->Bounds.Max.InternalVector );
+    for( const auto& block : f.Archive->Blocks )
+    {
+        std::shared_ptr<const TerrainData::StreamCoverageTile> page; REQUIRE( TerrainData::ReadStreamCoverage( *f.Archive, block.Coordinate, page, error ) ); REQUIRE( page->Patches.size() == 4 );
+        for( size_t i = 0; i < 4; ++i )
+        {
+            const auto& actual = page->Patches[i]->Mesh; const auto& expected = legacy->Coverage->Patches[f.Archive->TileIndex( block.Coordinate ) * 4 + i]->Mesh;
+            REQUIRE( actual.Vertices.size() == expected.Vertices.size() );
+            for( size_t v = 0; v < actual.Vertices.size(); ++v ) { CHECK( actual.Vertices[v].Position.InternalVector == expected.Vertices[v].Position.InternalVector ); CHECK( actual.Vertices[v].Normal.InternalVector == expected.Vertices[v].Normal.InternalVector ); }
+            for( size_t l = 0; l < actual.Lods.size(); ++l ) { CHECK( actual.Lods[l].Indices == expected.Lods[l].Indices ); CHECK( actual.Lods[l].MaxError == expected.Lods[l].MaxError ); }
+        }
+        std::shared_ptr<const TerrainData::StreamTile> detail; REQUIRE( TerrainData::ReadStreamTile( *f.Archive, block.Coordinate, detail, error ) ); CHECK( detail->Heights == f.Field.FindTile( block.Coordinate )->Heights );
+    }
+    Flip( f.File, f.Archive->Blocks[4].CoverageOffset + 17 );
+    std::shared_ptr<const TerrainData::StreamCoverageTile> page; CHECK_FALSE( TerrainData::ReadStreamCoverage( *f.Archive, { 0, 0 }, page, error ) );
+    REQUIRE( TerrainData::ReadStreamCoverage( *f.Archive, { -1, -1 }, page, error ) ); const auto retained = page;
+    CHECK_FALSE( TerrainData::ReadStreamCoverage( *f.Archive, { 0, 0 }, page, error ) ); CHECK( page == retained );
+    std::shared_ptr<const TerrainData::StreamTile> detail; REQUIRE( TerrainData::ReadStreamTile( *f.Archive, { 0, 0 }, detail, error ) ); // Collision does not depend on the coarse page.
+    auto archive = f.Archive; CHECK_FALSE( TerrainData::CookPagedStreamArchive( f.File, f.Field, 123, 10, error ) );
+    REQUIRE( TerrainData::OpenStreamArchive( f.File, f.Archive, error ) ); CHECK( f.Archive->Header == archive->Header );
+    REQUIRE( f.Field.SetSample( { 1, 1 }, 7, error ) ); REQUIRE( TerrainData::CookPagedStreamArchive( f.File, f.Field, 123, 1, error ) );
+    CHECK_FALSE( TerrainData::ReadStreamCoverage( *archive, { -1, -1 }, page, error ) ); CHECK( page == retained );
+    REQUIRE( TerrainData::OpenStreamArchive( f.File, f.Archive, error ) ); const auto retainedArchive = f.Archive;
+    auto header = f.Archive->Header; const uint32_t spacing = std::bit_cast<uint32_t>( 3e37f );
+    for( int i = 0; i < 4; ++i ) header[16 + i] = static_cast<uint8_t>( spacing >> ( i * 8 ) );
+    uint64_t hash = 14695981039346656037ull; for( size_t i = 0; i < 96; ++i ) hash = ( hash ^ header[i] ) * 1099511628211ull;
+    for( int i = 0; i < 8; ++i ) header[96 + i] = static_cast<uint8_t>( hash >> ( i * 8 ) );
+    { std::fstream file( f.File, std::ios::binary | std::ios::in | std::ios::out ); file.write( reinterpret_cast<const char*>( header.data() ), header.size() ); }
+    CHECK_FALSE( TerrainData::OpenStreamArchive( f.File, f.Archive, error ) ); CHECK( f.Archive == retainedArchive ); // Metadata bounds must remain finite before any page is read.
+}
+
+TEST_CASE( "Terrain paging: coverage travels within shared budgets and retired query snapshots keep their charge" )
+{
+    StreamFixture f; PageFixture( f.File, f.Field, f.Archive ); TerrainData::TerrainStreamCache cache( f.Archive );
+    const auto page = TerrainData::TerrainStreamCache::CoverageReservation( f.Field.GetSettings(), 1 );
+    TerrainData::StreamWorldLimits limits; limits.CpuBytes = cache.GetStats().CpuReserved + page.CpuBytes * 6 + TerrainData::TerrainStreamCache::TileReservation( f.Field.GetSettings() ).CpuBytes + 65536;
+    limits.GpuBytes = cache.GetStats().GpuReserved + page.GpuBytes * 4; limits.MaxLoads = 1;
+    TerrainData::StreamBatch batch{ &cache }; batch.Limits.HoldFrames = 0;
+    for( int x = -1; x <= 0; ++x ) for( int z = -1; z <= 0; ++z ) batch.Demand.push_back( { { x, z }, x == 0 && z == 0, false, double( x * x + z * z ), true } );
+    TerrainData::TerrainStreamScheduler scheduler; uint64_t frame = 0;
+    const auto step = [&]() { cache.WaitForRequest(); scheduler.Tick( ++frame, { &batch, 1 }, limits ); CHECK( scheduler.GetStats().CpuReserved <= limits.CpuBytes ); CHECK( scheduler.GetStats().GpuReserved <= limits.GpuBytes ); };
+    for( int n = 0; n < 35; ++n ) step();
+    REQUIRE( cache.GetData()->CoverageTiles.size() == 4 ); CHECK( cache.GetData()->Patches.size() == 16 ); CHECK( cache.GetStats().HorizonReady ); CHECK( cache.GetStats().CollisionReady );
+    CHECK( cache.GetData()->Heights->Query( -3, -3 ).Status == TerrainData::QueryStatus::Unavailable ); CHECK( cache.GetData()->Heights->Query( 3, 3 ).Status == TerrainData::QueryStatus::Ready );
+    auto pin = cache.GetData(); batch.Demand.clear();
+    for( int x = 0; x <= 1; ++x ) for( int z = 0; z <= 1; ++z ) batch.Demand.push_back( { { x, z }, x == 0 && z == 0, false, double( x * x + z * z ), true } );
+    for( int n = 0; n < 10; ++n ) step();
+    CHECK( cache.GetStats().CoverageRetiring == 3 ); CHECK( cache.GetStats().CoverageLoaded == 4 ); CHECK_FALSE( cache.GetStats().HorizonReady ); pin.reset();
+    for( int n = 0; n < 35; ++n ) step();
+    REQUIRE( cache.GetData()->CoverageTiles.size() == 4 ); CHECK( cache.GetStats().CoverageLoaded == 7 ); CHECK( cache.GetStats().CoverageEvicted >= 3 ); CHECK( cache.GetStats().HorizonReady );
+    TerrainData::LodSettings lod; lod.ForcedLevel = 0; std::vector<TerrainData::PatchLodChoice> choices; std::string error;
+    REQUIRE( TerrainData::SelectTerrainLods( *cache.GetData(), {}, {}, lod, {}, choices, error ) ); for( const auto& choice : choices ) CHECK( choice.Level >= 1 );
+    batch.Demand = { { { 0, 0 }, true, false, 0 } }; for( int n = 0; n < 20; ++n ) step();
+    CHECK( cache.GetData()->Patches.empty() ); CHECK( cache.GetStats().CollisionReady ); CHECK( cache.GetStats().CoverageResident == 0 ); CHECK( cache.GetData()->CollisionTiles.size() == 1 );
+}
+
+TEST_CASE( "Terrain paging: coverage failures and cancellation preserve canonical collision independence" )
+{
+    StreamFixture f; PageFixture( f.File, f.Field, f.Archive ); Flip( f.File, f.Archive->Blocks[4].CoverageOffset + 17 );
+    TerrainData::TerrainStreamCache cache( f.Archive ); TerrainData::StreamBatch batch{ &cache, {}, { { { 0, 0 }, true, false, 0, true } } };
+    TerrainData::TerrainStreamScheduler scheduler; TerrainData::StreamWorldLimits limits;
+    for( uint64_t frame = 0; frame < 30; ++frame ) { cache.WaitForRequest(); scheduler.Tick( frame, { &batch, 1 }, limits ); }
+    CHECK( cache.GetStats().Failed == 1 ); CHECK( cache.GetStats().CollisionReady ); CHECK_FALSE( cache.GetStats().HorizonReady ); CHECK( cache.GetData()->Patches.empty() );
+    CHECK( cache.GetData()->Heights->Query( 3, 3 ).Status == TerrainData::QueryStatus::Ready );
+    PageFixture( f.File, f.Field, f.Archive ); TerrainData::TerrainStreamCache restarted( f.Archive ); batch.Cache = &restarted; batch.Demand = { { { 0, 0 }, false, false, 0, true } };
+    scheduler.Tick( 1, { &batch, 1 }, limits ); REQUIRE( restarted.GetStats().Loading ); restarted.InvalidatePending();
+    for( uint64_t frame = 2; frame < 25; ++frame ) { restarted.WaitForRequest(); scheduler.Tick( frame, { &batch, 1 }, limits ); }
+    CHECK( restarted.GetStats().Cancelled >= 1 ); CHECK( restarted.GetStats().CoverageLoaded == 1 ); CHECK( restarted.GetStats().HorizonReady ); CHECK( restarted.GetStats().Loaded == 0 );
+}
+
+TEST_CASE( "Terrain paging: datasets beyond the resident patch limit open and draw only a bounded window" )
+{
+    StreamFixture f; TerrainData::Settings s; s.TileQuads = 8; s.PatchQuads = 2; s.MinTile = { -32, -32 }; s.TilesX = s.TilesZ = 65;
+    f.Field = TerrainData::Heightfield( s ); std::string error;
+    for( int x = -32; x <= 32; ++x ) for( int z = -32; z <= 32; ++z ) REQUIRE( f.Field.CreateFlatTile( { x, z }, 3, error ) );
+    CHECK_FALSE( TerrainData::CookStreamArchive( f.File, f.Field, 123, 1, error ) );
+    PageFixture( f.File, f.Field, f.Archive ); CHECK( f.Archive->Coverage->Patches.empty() ); CHECK( f.Archive->Blocks.size() == 4225 );
+    TerrainData::TerrainStreamCache cache( f.Archive ); TerrainData::StreamBatch batch{ &cache, {}, { { { -1, -1 }, false, false, 0, true }, { { 0, 0 }, false, false, 1, true } } };
+    TerrainData::TerrainStreamScheduler scheduler; TerrainData::StreamWorldLimits limits; limits.CpuBytes = 2 * 1024 * 1024; limits.GpuBytes = 1024 * 1024;
+    for( uint64_t frame = 0; frame < 20; ++frame )
+    {
+        cache.WaitForRequest(); scheduler.Tick( frame, { &batch, 1 }, limits );
+        CHECK( scheduler.GetStats().CpuReserved <= limits.CpuBytes ); CHECK( scheduler.GetStats().GpuReserved <= limits.GpuBytes );
+    }
+    CHECK( cache.GetData()->Patches.size() == 32 ); CHECK( cache.GetStats().CoverageLoaded == 2 ); CHECK( cache.GetStats().Loaded == 0 );
+}
+
+TEST_CASE( "Terrain paging: tight CPU grants remain stable after the coverage window publishes" )
+{
+    StreamFixture f; PageFixture( f.File, f.Field, f.Archive ); TerrainData::TerrainStreamCache cache( f.Archive );
+    const auto cost = TerrainData::TerrainStreamCache::CoverageReservation( f.Field.GetSettings(), 1 );
+    TerrainData::StreamWorldLimits limits; limits.CpuBytes = cache.GetStats().CpuReserved + 4096 + 4 * ( cost.CpuBytes + 4 * 256 + 512 );
+    TerrainData::StreamBatch batch{ &cache };
+    for( int x = -1; x <= 0; ++x ) for( int z = -1; z <= 0; ++z ) batch.Demand.push_back( { { x, z }, false, false, 0, true } );
+    TerrainData::TerrainStreamScheduler scheduler;
+    for( uint64_t frame = 0; frame < 50; ++frame )
+    {
+        cache.WaitForRequest(); scheduler.Tick( frame, { &batch, 1 }, limits ); CHECK( scheduler.GetStats().CpuReserved <= limits.CpuBytes );
+        if( frame > 10 ) CHECK( cache.GetData()->CoverageTiles.size() == 4 );
+    }
+    CHECK( cache.GetStats().CoverageLoaded == 4 ); CHECK( cache.GetStats().CoverageEvicted == 0 );
 }

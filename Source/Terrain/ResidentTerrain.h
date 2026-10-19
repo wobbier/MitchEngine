@@ -34,6 +34,10 @@ namespace TerrainData
         size_t BuiltCollisionTiles = 0;
         AABB Bounds;
         bool Streamed = false;
+        bool PagedCoverage = false;
+        // Version 3 visual window, grouped by tile. Canonical query/collision tiles are separate.
+        std::vector<TileCoord> CoverageTiles;
+        std::vector<std::shared_ptr<const ResidentPatch>> CoveragePatches;
         uint64_t StreamRevision = 0;
         // Retain cache reservations while a draw, query snapshot or collider still owns data.
         std::vector<std::shared_ptr<const void>> ResidencyPins;
