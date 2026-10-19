@@ -8,6 +8,8 @@
 #include "Renderer.h"
 #include "Materials/TerrainMaterial.h"
 #include "Core/CommandLine.h"
+#include "Utils/GUID.h"
+#include "JSON.h"
 #include <SDL.h>
 #include <imgui.h>
 #include <fstream>
@@ -56,15 +58,57 @@ namespace TerrainTextureAutomation
 
     bool Execute( const std::string& command, const std::string& args, std::string& error )
     {
-        auto* widget = TerrainWidget::Get(); auto* document = widget ? widget->GetActive() : nullptr;
+        auto* widget = TerrainWidget::Get();
+        const std::filesystem::path cacheRecord( Path( ".tmp/Tests/TerrainTextureCacheFlows/Latest.json" ).FullPath );
+        if( command == "terrain-texture-cache-open" )
+        {
+            std::ifstream file( cacheRecord ); const auto record = json::parse( file );
+            s_paths = record.at( "Paths" ).get<std::array<std::string, 3>>();
+            return widget && widget->Open( record.at( "Source" ).get<std::string>() );
+        }
+        auto* document = widget ? widget->GetActive() : nullptr;
         if( !document ) { error = "Open a terrain source first"; return false; }
-        if( command == "terrain-texture-fixture" )
+        if( command == "terrain-texture-fixture" || command == "terrain-texture-cache-fixture" )
         {
             const auto root = std::filesystem::path( document->GetPath() ).parent_path() / "Textures";
             std::filesystem::create_directories( Path( root.generic_string() ).FullPath );
             for( unsigned i = 0; i < 3; ++i ) { s_paths[i] = ( root / ( "Layer" + std::to_string( i ) + ".tga" ) ).generic_string(); WriteMap( i ); }
             auto surface = std::make_shared<TerrainData::Surface>(); surface->Layers[0].Color = { 1, 1, 1 }; surface->Layers[0].Metallic = 0.3f;
+            if( command == "terrain-texture-cache-fixture" )
+            {
+                // Unique bytes give this restart test its own content-addressed entry.
+                const uint64_t nonce = GUID::Generate();
+                std::array<uint8_t, 8> pixels; for( unsigned i = 0; i < 8; ++i ) pixels[i] = uint8_t( nonce >> ( i * 8 ) );
+                std::fstream file( Path( s_paths[0] ).FullPath, std::ios::binary | std::ios::in | std::ios::out );
+                file.seekp( 18 ); file.write( reinterpret_cast<const char*>( pixels.data() ), pixels.size() ); file.close();
+                surface->Layers[0].BaseColorMap = s_paths[0]; surface->Layers[0].NormalMap = s_paths[1]; surface->Layers[0].OrmMap = s_paths[2];
+            }
             return document->SetSurface( surface );
+        }
+        if( command == "terrain-texture-cache-record" || command == "terrain-texture-cache-corrupt" || command == "terrain-texture-cache-assert" )
+        {
+            const auto materials = Materials(); if( materials.empty() ) { error = "No terrain materials for cache check"; return false; }
+            for( const auto* material : materials )
+            {
+                const auto set = material->GetLayerTextures();
+                if( !set || !set->IsReady() || !set->GetError().empty() ) { error = "Terrain texture cache has no complete GPU pack"; return false; }
+                const auto& info = set->GetCacheInfo();
+                if( command == "terrain-texture-cache-assert" &&
+                    ( ( args == "hit" ? !info.Hit : ( info.Hit || !info.Stored ) ) || ( args == "repaired" && info.Warning.empty() ) ) )
+                { error = "Unexpected terrain texture cache state: " + args + " / " + info.Warning; return false; }
+            }
+            const auto& info = materials.front()->GetLayerTextures()->GetCacheInfo();
+            if( command == "terrain-texture-cache-record" )
+            {
+                std::filesystem::create_directories( cacheRecord.parent_path() );
+                std::ofstream( cacheRecord ) << json{ { "Source", document->GetPath() }, { "Paths", s_paths }, { "Cache", info.File.generic_string() } }.dump( 2 );
+            }
+            if( command == "terrain-texture-cache-corrupt" )
+            {
+                if( info.File.empty() ) return false;
+                std::ofstream file( info.File, std::ios::binary | std::ios::trunc ); file << "damaged derived terrain pack";
+            }
+            return true;
         }
         if( command == "terrain-texture-dialog" ) { widget->EditSurfaceLayer(); return true; }
         if( command == "terrain-texture-field" || command == "terrain-texture-apply" )

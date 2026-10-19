@@ -1,6 +1,8 @@
 #include "TerrainTextureSet.h"
 #include "Utils/BGFXUtils.h"
 #include "JSON.h"
+#include "Core/CommandLine.h"
+#include "CLog.h"
 #include <map>
 #include <condition_variable>
 #include <deque>
@@ -86,8 +88,12 @@ namespace Moonlight
     {
         m_stamp = TerrainTextureStamp( m_paths ); m_checkAt = std::chrono::steady_clock::now() + std::chrono::seconds( 1 );
         m_cancel = std::make_shared<std::atomic_bool>( false );
-        m_work = PackingQueue::Get().Submit( [paths = m_paths, layout = m_layout, cancel = m_cancel] {
-            Result result; if( cancel->load() ) return result; result.Success = PackTerrainTextures( paths, layout, result.Data, result.Error ); return result;
+        TerrainTextureCacheOptions options;
+        options.Directory = CommandLine::GetString( "--terrain-texture-cache-dir", options.Directory.generic_string() );
+        options.Enabled = !CommandLine::Has( "--no-terrain-texture-cache" );
+        m_work = PackingQueue::Get().Submit( [paths = m_paths, layout = m_layout, cancel = m_cancel, options = std::move( options )] {
+            Result result; if( cancel->load() ) return result;
+            result.Success = LoadOrPackTerrainTextures( paths, layout, options, result.Data, result.Error, result.Cache ); return result;
         } );
     }
 
@@ -105,7 +111,22 @@ namespace Moonlight
         if( m_work.valid() && ( wait || m_work.wait_for( std::chrono::seconds( 0 ) ) == std::future_status::ready ) )
         {
             auto result = m_work.get();
-            if( result.Success ) Upload( std::move( result.Data ) ); else m_error = std::move( result.Error );
+            // Changes after the worker's final check must not publish a stale generation.
+            if( TerrainTextureStamp( m_paths ) != m_stamp ) { Start(); return; }
+            if( result.Success )
+            {
+                if( Upload( std::move( result.Data ) ) )
+                {
+                    m_cacheInfo = std::move( result.Cache );
+                    if( CommandLine::Has( "--terrain-texture-cache-info" ) )
+                    {
+                        const std::string state = m_cacheInfo.Hit ? "hit" : ( m_cacheInfo.Stored ? "stored" : "bypassed" );
+                        CLog::Log( CLog::LogType::Info, "Terrain texture cache " + state + ": " + m_cacheInfo.File.generic_string() );
+                        if( !m_cacheInfo.Warning.empty() ) CLog::Log( CLog::LogType::Warning, "Terrain texture cache: " + m_cacheInfo.Warning );
+                    }
+                }
+            }
+            else m_error = std::move( result.Error );
         }
         if( !m_work.valid() && std::chrono::steady_clock::now() >= m_checkAt )
         {
