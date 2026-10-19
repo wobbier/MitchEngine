@@ -125,12 +125,12 @@ namespace Moonlight
     }
 
 
-    void PostProcess::SetupFullscreenView( bgfx::ViewId InView, bgfx::FrameBufferHandle InTarget, uint16_t InWidth, uint16_t InHeight )
+    void PostProcess::SetupFullscreenView( bgfx::ViewId InView, bgfx::FrameBufferHandle InTarget, uint16_t InWidth, uint16_t InHeight, uint16_t InX, uint16_t InY )
     {
         float ortho[16];
         bx::mtxOrtho( ortho, 0.f, 1.f, 1.f, 0.f, 0.f, 100.f, 0.f, bgfx::getCaps()->homogeneousDepth );
         bgfx::setViewFrameBuffer( InView, InTarget );
-        bgfx::setViewRect( InView, 0, 0, InWidth, InHeight );
+        bgfx::setViewRect( InView, InX, InY, InWidth, InHeight );
         bgfx::setViewTransform( InView, nullptr, ortho );
         bgfx::touch( InView );
     }
@@ -390,7 +390,7 @@ namespace Moonlight
     }
 
 
-    void PostProcess::Render( ViewAllocator& InViews, const CameraData& InCamera, FrameBuffer& InTargets, bgfx::FrameBufferHandle InOutput, uint16_t InOutputWidth, uint16_t InOutputHeight )
+    void PostProcess::Render( ViewAllocator& InViews, const CameraData& InCamera, FrameBuffer& InTargets, bgfx::FrameBufferHandle InOutput, uint16_t InOutputWidth, uint16_t InOutputHeight, uint16_t InOutputX, uint16_t InOutputY )
     {
         OPTICK_EVENT( "PostProcess::Render" );
         const PostProcessSettings& settings = InCamera.Post;
@@ -418,7 +418,7 @@ namespace Moonlight
         }
         else
         {
-            SetupFullscreenView( tonemapView, InOutput, InOutputWidth, InOutputHeight );
+            SetupFullscreenView( tonemapView, InOutput, InOutputWidth, InOutputHeight, InOutputX, InOutputY );
         }
 
         const float compensation = std::pow( 2.f, settings.ExposureCompensation );
@@ -442,7 +442,7 @@ namespace Moonlight
             {
                 return;
             }
-            SetupFullscreenView( fxaaView, InOutput, InOutputWidth, InOutputHeight );
+            SetupFullscreenView( fxaaView, InOutput, InOutputWidth, InOutputHeight, InOutputX, InOutputY );
             bgfx::setTexture( 0, s_ldrColor, InTargets.PostColor );
             SubmitFullscreen( fxaaView, m_fxaaProgram );
         }
