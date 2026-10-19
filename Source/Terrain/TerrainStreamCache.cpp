@@ -43,9 +43,10 @@ namespace TerrainData
         : m_archive( std::move( archive ) ), m_loader( std::move( loader ) ), m_snapshot( m_archive->Coverage )
     {
         m_tileCost = TileReservation( m_archive->Config );
-        m_pageCost = CoverageReservation( m_archive->Config, m_archive->CoverageLod );
+        m_pageCost = CoverageReservation( m_archive->Config, m_archive->CoverageLod, bool( m_archive->Coverage->Heights->GetSurface() ) );
         m_baseCost.CpuBytes = sizeof( StreamArchive ) + m_archive->Header.size() + m_archive->Blocks.size() * ( sizeof( StreamBlock ) + 256 );
         m_baseCost.GpuBytes = m_baseCost.CollisionBytes = 0;
+        if( m_archive->Coverage->Heights->GetSurface() ) m_baseCost.CpuBytes += 65536; // bounded palette and paths
         for( const auto& patch : m_archive->Coverage->Patches )
         {
             m_baseCost.CpuBytes += GeometryBytes( patch->Mesh ) + patch->Mesh.Vertices.size() * 24 + patch->Mesh.Lods.front().Indices.size() * 16 + 1024;

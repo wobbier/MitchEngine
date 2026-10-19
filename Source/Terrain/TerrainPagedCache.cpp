@@ -6,12 +6,20 @@
 
 namespace TerrainData
 {
-    StreamLimits TerrainStreamCache::CoverageReservation( const Settings& s, uint8_t base )
+    StreamLimits TerrainStreamCache::CoverageReservation( const Settings& s, uint8_t base, bool surface )
     {
         const uint64_t q = s.PatchQuads >> base, patches = uint64_t( s.TileQuads / s.PatchQuads ) * ( s.TileQuads / s.PatchQuads );
         const uint64_t vertices = ( q + 1 ) * ( q + 1 ) * patches, indices = q * q * 6 * patches;
         StreamLimits cost; cost.CpuBytes = vertices * 128 + indices * 28 + patches * 2048 + 2048;
-        cost.GpuBytes = 2 * ( vertices * 80 + indices * 12 ); cost.CollisionBytes = 0; return cost;
+        cost.GpuBytes = 2 * ( vertices * 80 + indices * 12 ); cost.CollisionBytes = 0;
+        if( surface )
+        {
+            const uint64_t weights = uint64_t( s.PatchQuads + 1 ) * ( s.PatchQuads + 1 ) * patches * 4;
+            // Encoded/decoded data, material copies, upload scratch and deferred replacement.
+            // Four GPU copies allow coarse/detail and old/new windows to overlap.
+            cost.CpuBytes += weights * 6; cost.GpuBytes += weights * 4;
+        }
+        return cost;
     }
 
 
@@ -51,6 +59,7 @@ namespace TerrainData
         }
         auto data = std::make_shared<ResidentTerrain>( *m_archive->Coverage ); auto heights = std::make_shared<Heightfield>( s );
         std::string error;
+        if( !heights->SetSurface( m_archive->Coverage->Heights->GetSurface(), error ) ) { m_stats.Error = error; return false; }
         for( const auto& coord : window )
         {
             const auto& page = m_pages.at( coord ).Page; data->CoverageTiles.push_back( coord ); data->ResidencyPins.push_back( page );

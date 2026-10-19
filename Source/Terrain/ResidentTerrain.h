@@ -12,6 +12,9 @@ namespace TerrainData
         Vector3 Offset;
         // Global sample stride of the stored vertices (0 for canonical resident patches).
         uint8_t BaseLod = 0;
+        // Paged surface weights stay at canonical resolution, regardless of the stored grid.
+        // Only coarse coverage patches own these; detail/collision blocks remain independent.
+        std::vector<std::array<uint8_t, 4>> Weights;
     };
 
     struct CollisionTile
@@ -35,7 +38,7 @@ namespace TerrainData
         AABB Bounds;
         bool Streamed = false;
         bool PagedCoverage = false;
-        // Version 3 visual window, grouped by tile. Canonical query/collision tiles are separate.
+        // Paged visual window, grouped by tile. Canonical query/collision tiles are separate.
         std::vector<TileCoord> CoverageTiles;
         std::vector<std::shared_ptr<const ResidentPatch>> CoveragePatches;
         uint64_t StreamRevision = 0;

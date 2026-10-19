@@ -14,6 +14,7 @@ public:
     SharedPtr<Material> CreateInstance() override;
     uint64_t GetInstanceBatchKey() const override;
     bool SetWeights( std::vector<std::array<uint8_t, 4>> InWeights, uint16_t InSide );
+    const std::vector<std::array<uint8_t, 4>>& GetWeights() const { return m_weightData; }
     void SetLayerTextures( std::shared_ptr<Moonlight::TerrainTextureSet> InTextures );
     const std::shared_ptr<Moonlight::TerrainTextureSet>& GetLayerTextures() const { return m_layerTextures; }
     bool LayersEnabled = false;

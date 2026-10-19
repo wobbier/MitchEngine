@@ -55,7 +55,7 @@ namespace TerrainData
         const StreamStats& GetStats() const { return m_stats; }
         const StreamArchive& GetArchive() const { return *m_archive; }
         static StreamLimits TileReservation( const Settings& InSettings );
-        static StreamLimits CoverageReservation( const Settings& InSettings, uint8_t InBaseLod );
+        static StreamLimits CoverageReservation( const Settings& InSettings, uint8_t InBaseLod, bool InSurface = false );
 
     private:
         friend class TerrainStreamScheduler;

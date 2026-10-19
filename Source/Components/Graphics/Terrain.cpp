@@ -30,14 +30,14 @@ ME_REFLECT_BEGIN( Terrain )
     ME_FIELD( ForcedLod ).Category( "LOD" ).NoSerialize().Range( -1, 10 ).Tooltip( "-1 selects by pixel error; 0 is full detail" );
     ME_FIELD( ShowLods ).Category( "LOD" ).NoSerialize();
     ME_FIELD( ShowPatches ).Category( "LOD" ).NoSerialize();
-    ME_FIELD( StreamDetail ).Category( "Streaming" ).Tooltip( "Load nearby detail from a version 2 cooked terrain; coarse coverage always remains" );
+    ME_FIELD( StreamDetail ).Category( "Streaming" ).Tooltip( "Load nearby detail from streamed cooked terrain; disabling this retains the coarse visual horizon" );
     ME_FIELD( StreamDistance ).Category( "Streaming" ).Range( 0.f, 16384.f );
-    ME_FIELD( CoverageDistance ).Category( "Streaming" ).Range( 0.f, 16384.f ).Tooltip( "Version 3 visual horizon; coarse pages outside this radius retire. Detail distance is clipped to this horizon." );
+    ME_FIELD( CoverageDistance ).Category( "Streaming" ).Range( 0.f, 16384.f ).Tooltip( "Paged visual horizon; coarse pages outside this radius retire. Detail distance is clipped to this horizon." );
     ME_FIELD( CollisionDistance ).Category( "Streaming" ).Range( 1.f, 1024.f ).Tooltip( "Safety margin around characters and moving bodies, independent of cameras" );
     ME_FIELD( CpuBudgetMiB ).Category( "Streaming" ).Range( 1, 4096 );
     ME_FIELD( GpuBudgetMiB ).Category( "Streaming" ).Range( 1, 4096 );
     ME_FIELD( CollisionBudgetMiB ).Category( "Streaming" ).Range( 1, 4096 );
-    ME_FIELD( UploadKiB ).Category( "Streaming" ).Range( 16, 16384 );
+    ME_FIELD( UploadKiB ).Category( "Streaming" ).Range( 16, 16384 ).Tooltip( "Per-frame terrain upload allowance, including patch geometry and painted weights" );
     ME_FIELD( UploadMilliseconds ).Category( "Streaming" ).Range( 0.1f, 16.f );
     ME_FIELD( ShowResidency ).Category( "Streaming" ).NoSerialize();
     ME_FIELD( Collision ).Category( "Collision" );

@@ -39,6 +39,7 @@ namespace TerrainData
     bool CookStreamArchive( const std::filesystem::path& InPath, const Heightfield& InField, uint64_t InGUID,
         uint8_t InCoverageLod, std::string& OutError );
     // Version 3 opens metadata only; each tile's coarse coverage is independently readable.
+    // Layered sources write version 4: bounded palette metadata and full-resolution page weights.
     bool CookPagedStreamArchive( const std::filesystem::path& InPath, const Heightfield& InField, uint64_t InGUID,
         uint8_t InCoverageLod, std::string& OutError );
     struct StreamCoverageTile

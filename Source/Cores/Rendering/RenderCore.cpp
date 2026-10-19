@@ -78,6 +78,7 @@ void RenderCore::RetireTerrainDraw( std::unique_ptr<TerrainDraw> draw, const Ter
         if( Moonlight::IsGpuAlive() && draw->Source && draw->Source->Streamed )
         {
             RetiringTerrain pins; pins.Patches = draw->Active->Patches;
+            pins.Patches.insert( pins.Patches.end(), draw->Active->CoveragePatches.begin(), draw->Active->CoveragePatches.end() );
             for( const auto& retired : draw->Retiring ) pins.Patches.push_back( retired.Patch );
             m_retiringTerrains.push_back( std::move( pins ) );
         }
@@ -169,7 +170,8 @@ RenderCore::TerrainDraw* RenderCore::PrepareTerrainDraw( Entity& InEntity, Terra
         {
             const auto& patch = target->Patches[i];
             if( draw->Geometry[i] && ( draw->Active->Patches[i] == patch || ( initial && draw->Previous ) ) ) continue;
-            const uint64_t bytes = patch->Mesh.Vertices.size() * sizeof( Moonlight::PosNormTexTanBiVertex ) + patch->Mesh.Lods.front().Indices.size() * 4 + 24;
+            const auto* weights = target->PagedCoverage && target->Heights->GetSurface() ? &target->CoveragePatches[i]->Weights : nullptr;
+            const uint64_t bytes = patch->Mesh.Vertices.size() * sizeof( Moonlight::PosNormTexTanBiVertex ) + patch->Mesh.Lods.front().Indices.size() * 4 + 24 + ( weights ? weights->size() * 4 : 0 );
             if( bytes > uploadLimit ) { uploadError = "A terrain patch exceeds Upload KiB; increase the budget or cook smaller patches"; continue; }
             const double elapsed = std::chrono::duration<double, std::milli>( std::chrono::steady_clock::now() - started ).count();
             if( bytes > uploadLimit - uploaded || ( streamed && !deterministic && uploaded && elapsed >= InTerrain.UploadMilliseconds ) ) break;
@@ -208,6 +210,9 @@ RenderCore::TerrainDraw* RenderCore::PrepareTerrainDraw( Entity& InEntity, Terra
             if( !bgfx::isValid( geometry->GetVertexBuffer() ) || !bgfx::isValid( geometry->GetIndexBuffer( 0 ) ) )
             { uploadError = "Terrain vertex upload failed; retaining previous coverage"; break; }
             auto mesh = std::make_unique<Mesh>( geometry.get() );
+            if( weights && !static_cast<TerrainMaterial&>( *mesh->MeshMaterial ).SetWeights( *weights,
+                static_cast<uint16_t>( target->Heights->GetSettings().PatchQuads + 1 ) ) )
+            { uploadError = "Terrain weight upload failed; retaining previous coverage"; break; }
             draw->PaintedSurface.reset();
             // Retire command references before a geometry replacement. Retain its cache pin for
             // three render frames, covering BGFX's deferred buffer retirement.
@@ -315,7 +320,7 @@ RenderCore::TerrainDraw* RenderCore::PrepareTerrainDraw( Entity& InEntity, Terra
                 const auto& source = surface->Layers[layer]; material.Layers[layer] = { source.Color[0], source.Color[1], source.Color[2], source.Roughness };
                 material.Mapping[layer] = { 1.f / source.TileSize, source.NormalStrength, source.Metallic, source.FlipNormalY ? -1.f : 1.f };
             }
-            if( draw->PaintedSurface != surface )
+            if( !streamed && draw->PaintedSurface != surface )
                 surfaceReady &= material.SetWeights( TerrainData::BuildSurfacePatch( *surface, data->Patches[i]->Mesh.SampleOrigin,
                     data->Heights->GetSettings().PatchQuads ), static_cast<uint16_t>( data->Heights->GetSettings().PatchQuads + 1 ) );
         }

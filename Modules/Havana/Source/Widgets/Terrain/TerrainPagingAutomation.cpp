@@ -15,6 +15,10 @@
 #include "Engine/ProjectSettings.h"
 #include "Engine/World.h"
 #include "Terrain/TerrainStreamCache.h"
+#include "Terrain/TerrainSurface.h"
+#include "Materials/TerrainMaterial.h"
+#include "Renderer.h"
+#include "Core/CommandLine.h"
 #include "World/Scene.h"
 #include "Utils/GUID.h"
 #include <cmath>
@@ -27,6 +31,7 @@ namespace TerrainPagingAutomation
     {
         std::filesystem::path s_directory;
         uint64_t s_loaded = 0;
+        std::shared_ptr<const TerrainData::Surface> s_surface;
         EntityHandle Ground() { return EditorOps::GetWorld().FindEntityByName( "Terrain" ); }
         EntityHandle Player() { return EditorOps::GetWorld().FindEntityByName( "Paged Player" ); }
         void Pose( float coordinate )
@@ -44,11 +49,40 @@ namespace TerrainPagingAutomation
         auto* widget = TerrainWidget::Get();
         if( command == "terrain-stream-paged-fixture" )
         {
-            s_directory = std::filesystem::path( Path( ".tmp/Tests/TerrainPagedCoverageFlows" ).FullPath ) / std::to_string( GUID::Generate() );
+            const bool painted = args == "painted"; s_surface.reset();
+            const std::string local = std::string( painted ? ".tmp/Tests/TerrainStreamedSurfaceFlows/" : ".tmp/Tests/TerrainPagedCoverageFlows/" ) + std::to_string( GUID::Generate() );
+            s_directory = Path( local ).FullPath;
             TerrainData::Settings s; s.TileQuads = 16; s.PatchQuads = 8; s.MinTile = { -20, -20 }; s.TilesX = s.TilesZ = 41;
             TerrainData::Heightfield field( s );
             for( int x = -20; x <= 20; ++x ) for( int z = -20; z <= 20; ++z ) if( !field.CreateFlatTile( { x, z }, 0, error ) ) return false;
             for( int z = -320; z <= 336; ++z ) for( int x = -320; x <= 336; ++x ) if( !field.SetSample( { x, z }, float( 2 * std::sin( x * 0.13 ) * std::cos( z * 0.11 ) ), error ) ) return false;
+            if( painted )
+            {
+                auto surface = std::make_shared<TerrainData::Surface>(); surface->BaseWeights = { 90, 80, 60, 25 };
+                std::filesystem::create_directories( s_directory );
+                for( unsigned kind = 0; kind < 3; ++kind )
+                {
+                    const auto name = "Map" + std::to_string( kind ) + ".tga";
+                    std::vector<uint8_t> bytes( 18 ); bytes[2] = 2; bytes[12] = bytes[14] = 32; bytes[16] = 32; bytes[17] = 0x28;
+                    for( unsigned z = 0; z < 32; ++z ) for( unsigned x = 0; x < 32; ++x )
+                    {
+                        const bool check = ( x / 4 + z / 4 ) % 2;
+                        const std::array<uint8_t, 3> rgb = kind == 0 ? ( check ? std::array<uint8_t, 3>{ 255, 240, 200 } : std::array<uint8_t, 3>{ 130, 120, 100 } ) :
+                            ( kind == 1 ? std::array<uint8_t, 3>{ uint8_t( check ? 165 : 90 ), 128, 255 } : std::array<uint8_t, 3>{ 220, 180, 128 } );
+                        bytes.insert( bytes.end(), { rgb[2], rgb[1], rgb[0], 255 } );
+                    }
+                    std::ofstream file( s_directory / name, std::ios::binary ); file.write( reinterpret_cast<const char*>( bytes.data() ), bytes.size() );
+                    for( auto& layer : surface->Layers )
+                    {
+                        auto& ref = kind == 0 ? layer.BaseColorMap : ( kind == 1 ? layer.NormalMap : layer.OrmMap ); ref = local + "/" + name;
+                        layer.TileSize = 2.5f; layer.NormalStrength = 0.5f; layer.Metallic = 0.2f; layer.FlipNormalY = true;
+                    }
+                }
+                for( int z = -320; z <= 336; ++z ) for( int x = -320; x <= 336; ++x )
+                    if( x % 8 == 0 || z % 13 == 0 ) surface->Set( { x, z }, x % 16 == 0 ? TerrainData::LayerWeights{ 0, 0, 255, 0 } : TerrainData::LayerWeights{ 0, 255, 0, 0 } );
+                if( !field.SetSurface( surface, error ) ) return false;
+                s_surface = surface;
+            }
             if( !widget->CreateFromField( ( s_directory / "Source.terrain" ).generic_string(), std::move( field ) ) ) return false;
             for( int i = 1; i <= 3; ++i ) if( auto box = EditorOps::GetWorld().FindEntityByName( "Terrain Box " + std::to_string( i ) ) ) box->MarkForDelete();
             auto actor = EditorOps::GetWorld().CreateEntity( "Paged Player" ); actor->AddComponent<Transform>().SetPosition( Vector3( -40, 12, -40 ) ); actor->AddComponent<CharacterController>();
@@ -64,7 +98,7 @@ namespace TerrainPagingAutomation
             terrain->Asset = Path( ( s_directory / "Runtime.terrainc" ).generic_string() ); terrain->ReloadAsset();
             terrain->CpuBudgetMiB = terrain->GpuBudgetMiB = terrain->CollisionBudgetMiB = 1;
             terrain->StreamDistance = 12; terrain->CoverageDistance = 24; terrain->CollisionDistance = 1;
-            terrain->UploadKiB = 16; terrain->UploadMilliseconds = 1; terrain->ShowResidency = true; Selection::Get().Set( ground ); return true;
+            terrain->UploadKiB = 16; terrain->UploadMilliseconds = 1; terrain->ShowResidency = !s_surface; Selection::Get().Set( ground ); return true;
         }
         if( command == "terrain-stream-paged-wait" ) { terrain->WaitForStreamingRequest(); GetEngine().Physics->WaitForTerrainCollision(); return true; }
         if( command == "terrain-stream-paged-camera" ) { Pose( std::stof( args ) ); return true; }
@@ -94,6 +128,30 @@ namespace TerrainPagingAutomation
         const auto& choices = terrain->GetPatchLods();
         if( choices.size() != data->Patches.size() ) { error = "Paged GPU window has not completed"; return false; }
         for( size_t i = 0; i < choices.size(); ++i ) for( int32_t n : data->PatchNeighbors[i] ) if( n >= 0 && std::abs( int( choices[i].Level ) - int( choices[n].Level ) ) > 1 ) { error = "Paged LODs lost 2:1 continuity"; return false; }
+        if( s_surface )
+        {
+            const auto palette = data->Heights->GetSurface();
+            if( !palette || !palette->Samples.empty() || palette->Layers != s_surface->Layers || palette->BaseWeights != s_surface->BaseWeights )
+            { error = "Streamed palette did not survive cooking/publication"; return false; }
+            const auto q = data->Heights->GetSettings().PatchQuads;
+            for( const auto& patch : data->CoveragePatches ) if( patch->Weights != TerrainData::BuildSurfacePatch( *s_surface, patch->Mesh.SampleOrigin, q ) )
+            { error = "Streamed weights differ from authored canonical samples"; return false; }
+            size_t count = 0; std::shared_ptr<Moonlight::TerrainTextureSet> shared;
+            const auto origin = ground->GetComponent<Transform>().GetWorldPosition();
+            for( const auto& command : GetEngine().GetRenderer().GetMeshCache().Commands )
+            {
+                if( !command.SingleMesh || command.ID != ground->GetId().Value() ) continue;
+                auto* material = dynamic_cast<TerrainMaterial*>( command.MeshMaterial.get() ); if( !material ) continue;
+                ++count; const auto& set = material->GetLayerTextures();
+                const TerrainData::SampleCoord sample{ std::llround( command.Transform[3].x - origin.x ), std::llround( command.Transform[3].z - origin.z ) };
+                if( !material->LayersEnabled || material->GetWeights() != TerrainData::BuildSurfacePatch( *s_surface, sample, q ) || !set || !set->IsReady() || !set->GetError().empty() )
+                { error = "Streamed GPU weights/textures do not match the authored surface"; return false; }
+                if( shared && shared != set ) { error = "Streamed patches did not share layer texture packs"; return false; } shared = set;
+                if( CommandLine::Has( "--terrain-texture-atlas" ) && set->GetLayout() != Moonlight::TerrainTextureLayout::Atlas )
+                { error = "Streamed surface did not select the atlas fallback"; return false; }
+            }
+            if( count != data->Patches.size() ) { error = "Painted GPU window has not completed"; return false; }
+        }
         if( !terrain->StreamDetail && ( stats->Detail || data->Heights->GetTiles().size() != 1 ) ) { error = "Coarse coverage loaded unrelated canonical heights"; return false; }
         const auto position = Player()->GetComponent<Transform>().GetWorldPosition(); const auto expected = data->Heights->Query( position.x + 2, position.z ); RaycastHit hit;
         if( !GetEngine().Terrains->IsCollisionReady() || !GetEngine().Physics->IsTerrainCollisionReady() || expected.Status != TerrainData::QueryStatus::Ready ||

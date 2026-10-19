@@ -2,6 +2,7 @@
 #include "Terrain/TerrainStreamCache.h"
 #include "Terrain/TerrainStreamScheduler.h"
 #include "Terrain/TerrainLod.h"
+#include "Terrain/TerrainSurface.h"
 #include <filesystem>
 #include <fstream>
 #include <cmath>
@@ -380,4 +381,152 @@ TEST_CASE( "Terrain paging: tight CPU grants remain stable after the coverage wi
         if( frame > 10 ) CHECK( cache.GetData()->CoverageTiles.size() == 4 );
     }
     CHECK( cache.GetStats().CoverageLoaded == 4 ); CHECK( cache.GetStats().CoverageEvicted == 0 );
+}
+
+namespace
+{
+    std::shared_ptr<const TerrainData::Surface> PaintFixture( StreamFixture& f )
+    {
+        auto surface = std::make_shared<TerrainData::Surface>();
+        surface->BaseWeights = { 10, 20, 30, 195 };
+        for( auto& layer : surface->Layers )
+        {
+            layer.BaseColorMap = "Assets/Textures/Terrain/Base.tga"; layer.NormalMap = "Assets/Textures/Terrain/Normal.tga";
+            layer.OrmMap = "Assets/Textures/Terrain/ORM.tga"; layer.TileSize = 2.5f; layer.NormalStrength = 0.4f;
+            layer.Metallic = 0.3f; layer.FlipNormalY = true;
+        }
+        for( int z = -8; z <= 16; ++z ) for( int x = -8; x <= 16; ++x )
+            surface->Set( { x, z }, TerrainData::NormalizeWeights( { float( x + 9 ), float( z + 9 ), float( ( x * x + z * z ) % 23 ), 5 } ) );
+        std::string error; REQUIRE( f.Field.SetSurface( surface, error ) ); PageFixture( f.File, f.Field, f.Archive ); return surface;
+    }
+
+
+    std::vector<uint8_t> StreamBytes( const std::filesystem::path& path )
+    {
+        std::ifstream file( path, std::ios::binary ); return { std::istreambuf_iterator<char>( file ), std::istreambuf_iterator<char>() };
+    }
+
+
+    uint64_t StreamHash( std::span<const uint8_t> bytes )
+    {
+        uint64_t hash = 14695981039346656037ull; for( auto b : bytes ) hash = ( hash ^ b ) * 1099511628211ull; return hash;
+    }
+
+
+    void StreamPut64( std::vector<uint8_t>& bytes, size_t offset, uint64_t value )
+    {
+        for( int i = 0; i < 8; ++i ) bytes.at( offset + i ) = static_cast<uint8_t>( value >> ( i * 8 ) );
+    }
+
+
+    void WriteStreamBytes( const std::filesystem::path& path, const std::vector<uint8_t>& bytes )
+    {
+        std::ofstream file( path, std::ios::binary | std::ios::trunc ); file.write( reinterpret_cast<const char*>( bytes.data() ), bytes.size() );
+    }
+}
+
+TEST_CASE( "Terrain streamed surfaces: metadata holds only the palette and page weights preserve canonical borders at every LOD" )
+{
+    StreamFixture f; const auto surface = PaintFixture( f ); std::string error;
+    REQUIRE( f.Archive->Header[3] == '4' ); CHECK( TerrainData::IsStreamArchive( f.Archive->Header ) );
+    REQUIRE( f.Archive->Coverage->Heights->GetSurface() );
+    CHECK( f.Archive->Coverage->Heights->GetSurface()->Layers == surface->Layers );
+    CHECK( f.Archive->Coverage->Heights->GetSurface()->BaseWeights == surface->BaseWeights );
+    CHECK( f.Archive->Coverage->Heights->GetSurface()->Samples.empty() );
+    CHECK( f.Archive->Coverage->Patches.empty() ); CHECK( f.Archive->Coverage->Heights->GetTiles().empty() );
+    for( uint8_t level : { 0, 1, 2 } )
+    {
+        REQUIRE( TerrainData::CookPagedStreamArchive( f.File, f.Field, 123, level, error ) );
+        REQUIRE( TerrainData::OpenStreamArchive( f.File, f.Archive, error ) );
+        for( const auto& block : f.Archive->Blocks )
+        {
+            std::shared_ptr<const TerrainData::StreamCoverageTile> page;
+            REQUIRE( TerrainData::ReadStreamCoverage( *f.Archive, block.Coordinate, page, error ) );
+            for( const auto& patch : page->Patches )
+            {
+                CHECK( patch->BaseLod == level ); CHECK( patch->Mesh.Vertices.size() == size_t( ( 4 >> level ) + 1 ) * ( ( 4 >> level ) + 1 ) );
+                CHECK( patch->Weights == TerrainData::BuildSurfacePatch( *surface, patch->Mesh.SampleOrigin, 4 ) );
+            }
+            std::shared_ptr<const TerrainData::StreamTile> tile;
+            REQUIRE( TerrainData::ReadStreamTile( *f.Archive, block.Coordinate, tile, error ) );
+            CHECK( tile->Heights == f.Field.FindTile( block.Coordinate )->Heights );
+            for( const auto& patch : tile->Patches ) CHECK( patch->Weights.empty() );
+        }
+    }
+}
+
+TEST_CASE( "Terrain streamed surfaces: a damaged weight page preserves other pages and canonical collision" )
+{
+    StreamFixture f; PaintFixture( f ); std::string error;
+    std::shared_ptr<const TerrainData::StreamCoverageTile> page;
+    REQUIRE( TerrainData::ReadStreamCoverage( *f.Archive, { -1, -1 }, page, error ) ); const auto before = page;
+    Flip( f.File, f.Archive->Blocks[4].CoverageOffset + f.Archive->Blocks[4].CoverageSize - 1 );
+    REQUIRE( TerrainData::OpenStreamArchive( f.File, f.Archive, error ) ); // Metadata-only open never reads weight pages.
+    CHECK_FALSE( TerrainData::ReadStreamCoverage( *f.Archive, { 0, 0 }, page, error ) ); CHECK( page == before );
+    REQUIRE( TerrainData::ReadStreamCoverage( *f.Archive, { 1, 1 }, page, error ) );
+    std::shared_ptr<const TerrainData::StreamTile> tile;
+    REQUIRE( TerrainData::ReadStreamTile( *f.Archive, { 0, 0 }, tile, error ) ); REQUIRE( tile->Collision );
+    TerrainData::TerrainStreamCache cache( f.Archive ); uint64_t frame = 0; TerrainData::StreamLimits limits;
+    const std::vector<TerrainData::TileDemand> demand{ { { 0, 0 }, true, false, 0, true } }; Drain( cache, demand, limits, frame );
+    CHECK( cache.GetStats().Failed == 1 ); CHECK( cache.GetStats().CollisionReady ); CHECK_FALSE( cache.GetStats().HorizonReady );
+    CHECK( cache.GetData()->Heights->Query( 2, 2 ).Status == TerrainData::QueryStatus::Ready );
+    const auto archive = f.Archive;
+    Flip( f.File, 104 + f.Archive->Blocks.size() * 64 + 24 ); // Bounded palette follows the directory.
+    CHECK_FALSE( TerrainData::OpenStreamArchive( f.File, f.Archive, error ) ); CHECK( f.Archive == archive );
+}
+
+TEST_CASE( "Terrain streamed surfaces: semantic weight validation survives recomputed checksums" )
+{
+    StreamFixture f; PaintFixture( f ); auto bytes = StreamBytes( f.File ); const auto block = f.Archive->Blocks[4];
+    const size_t firstWeight = static_cast<size_t>( block.CoverageOffset ) + 8 + 2 * 4 + 9 * 16;
+    std::fill_n( bytes.begin() + firstWeight, 4, 0 );
+    StreamPut64( bytes, 104 + 4 * 64 + 56, StreamHash( std::span( bytes ).subspan( block.CoverageOffset, block.CoverageSize ) ) );
+    StreamPut64( bytes, 88, StreamHash( std::span( bytes ).subspan( 104, f.Archive->Blocks.size() * 64 ) ) );
+    StreamPut64( bytes, 96, StreamHash( std::span( bytes ).first( 96 ) ) ); WriteStreamBytes( f.File, bytes );
+    std::string error; REQUIRE( TerrainData::OpenStreamArchive( f.File, f.Archive, error ) );
+    std::shared_ptr<const TerrainData::StreamCoverageTile> page;
+    CHECK_FALSE( TerrainData::ReadStreamCoverage( *f.Archive, { 0, 0 }, page, error ) ); CHECK( error.find( "normalized" ) != std::string::npos );
+    std::shared_ptr<const TerrainData::StreamTile> tile; REQUIRE( TerrainData::ReadStreamTile( *f.Archive, { 0, 0 }, tile, error ) );
+    StreamPut64( bytes, 72, 32793 ); StreamPut64( bytes, 96, StreamHash( std::span( bytes ).first( 96 ) ) ); WriteStreamBytes( f.File, bytes );
+    const auto before = f.Archive; CHECK_FALSE( TerrainData::OpenStreamArchive( f.File, f.Archive, error ) ); CHECK( f.Archive == before );
+}
+
+TEST_CASE( "Terrain streamed surfaces: palette and paint changes invalidate generations and failed cooks preserve destinations" )
+{
+    StreamFixture f; auto surface = PaintFixture( f ); auto previous = f.Archive; std::string error;
+    auto changed = std::make_shared<TerrainData::Surface>( *surface ); changed->Layers[1].TileSize = 37;
+    REQUIRE( f.Field.SetSurface( changed, error ) ); PageFixture( f.File, f.Field, f.Archive );
+    CHECK( previous->Revision != f.Archive->Revision ); CHECK( previous->Coverage->StreamRevision != f.Archive->Coverage->StreamRevision );
+    std::shared_ptr<const TerrainData::StreamCoverageTile> page;
+    CHECK_FALSE( TerrainData::ReadStreamCoverage( *previous, { 0, 0 }, page, error ) ); previous = f.Archive;
+    changed = std::make_shared<TerrainData::Surface>( *changed ); changed->Set( { 0, 0 }, { 0, 0, 255, 0 } );
+    REQUIRE( f.Field.SetSurface( changed, error ) ); PageFixture( f.File, f.Field, f.Archive ); CHECK( previous->Revision != f.Archive->Revision );
+    std::shared_ptr<const TerrainData::StreamTile> tile; CHECK_FALSE( TerrainData::ReadStreamTile( *previous, { 0, 0 }, tile, error ) );
+    auto before = StreamBytes( f.File ); CHECK_FALSE( TerrainData::CookPagedStreamArchive( f.File, f.Field, 123, 8, error ) ); CHECK( StreamBytes( f.File ) == before );
+    CHECK_FALSE( TerrainData::CookStreamArchive( f.File, f.Field, 123, 1, error ) ); CHECK( StreamBytes( f.File ) == before );
+}
+
+TEST_CASE( "Terrain streamed surfaces: shared budgets charge full-resolution weights and retain draw pins across travel" )
+{
+    StreamFixture f; const auto surface = PaintFixture( f ); TerrainData::TerrainStreamCache cache( f.Archive );
+    const auto plain = TerrainData::TerrainStreamCache::CoverageReservation( f.Field.GetSettings(), 1 );
+    const auto painted = TerrainData::TerrainStreamCache::CoverageReservation( f.Field.GetSettings(), 1, true );
+    CHECK( painted.CpuBytes > plain.CpuBytes ); CHECK( painted.GpuBytes > plain.GpuBytes );
+    TerrainData::StreamWorldLimits limits; limits.CpuBytes = limits.GpuBytes = limits.CollisionBytes = 1024 * 1024;
+    TerrainData::StreamBatch batch{ &cache, {}, { { { -1, -1 }, true, true, 0, true } } }; batch.Limits.HoldFrames = 0;
+    TerrainData::TerrainStreamScheduler scheduler; uint64_t frame = 0;
+    const auto step = [&]() { cache.WaitForRequest(); scheduler.Tick( ++frame, { &batch, 1 }, limits ); CHECK( scheduler.GetStats().CpuReserved <= limits.CpuBytes ); CHECK( scheduler.GetStats().GpuReserved <= limits.GpuBytes ); };
+    for( int n = 0; n < 20; ++n ) step();
+    REQUIRE( cache.GetStats().HorizonReady ); REQUIRE( cache.GetStats().Detail == 1 );
+    auto data = cache.GetData(); REQUIRE( data->Heights->GetSurface() ); CHECK( data->Heights->GetSurface()->Layers == surface->Layers );
+    auto pin = data->CoveragePatches[0]; CHECK( pin->Weights == TerrainData::BuildSurfacePatch( *surface, pin->Mesh.SampleOrigin, 4 ) ); data.reset();
+    batch.Demand = { { { 1, 1 }, false, false, 0, true } };
+    for( int n = 0; n < 20; ++n ) step();
+    CHECK( cache.GetStats().CoverageRetiring == 1 ); CHECK( cache.GetStats().CoverageResident == 0 );
+    CHECK_FALSE( cache.GetStats().HorizonReady ); CHECK( cache.GetStats().GpuReserved >= painted.GpuBytes );
+    pin.reset(); for( int n = 0; n < 20; ++n ) step();
+    CHECK( cache.GetStats().CoverageRetiring == 0 ); CHECK( cache.GetStats().CoverageResident == 1 ); CHECK( cache.GetStats().HorizonReady );
+    for( const auto& patch : cache.GetData()->CoveragePatches ) CHECK( patch->Weights == TerrainData::BuildSurfacePatch( *surface, patch->Mesh.SampleOrigin, 4 ) );
+    batch.Demand.clear(); for( int n = 0; n < 10; ++n ) step();
+    CHECK( cache.GetStats().CoverageRetiring == 0 ); CHECK( cache.GetStats().CoverageResident == 0 );
 }

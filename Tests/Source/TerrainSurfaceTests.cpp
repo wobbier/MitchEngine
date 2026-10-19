@@ -123,7 +123,10 @@ TEST_CASE( "Terrain surface: atomic source generations copy moves recovery and c
     std::vector<uint8_t> cooked{ 1, 2, 3 }; CHECK_FALSE( CookHeightfield( field, 123, HeightEncoding::Float32, cooked, error ) ); CHECK( cooked == std::vector<uint8_t>{ 1, 2, 3 } );
     const auto archive = files.Root / "Surface.terrainc"; { std::ofstream out( archive ); out << "sentinel"; }
     CHECK_FALSE( CookStreamArchive( archive, field, 123, 1, error ) ); CHECK( Text( archive ) == "sentinel" );
-    CHECK_FALSE( CookPagedStreamArchive( archive, field, 123, 1, error ) ); CHECK( Text( archive ) == "sentinel" );
+    REQUIRE( CookPagedStreamArchive( archive, field, 123, 1, error ) );
+    std::shared_ptr<const StreamArchive> streamed; REQUIRE( OpenStreamArchive( archive, streamed, error ) );
+    REQUIRE( streamed->Coverage->Heights->GetSurface() );
+    CHECK( streamed->Coverage->Heights->GetSurface()->Layers == surface->Layers );
     // External manifest edits still prevent publication, including its surface reference.
     { std::ofstream out( source ); out << "external"; }
     CHECK_FALSE( SaveSource( source, field, 123, &manifest, text, error ) ); CHECK( Text( source ) == "external" );

@@ -1,5 +1,6 @@
 #include "PCH.h"
 #include "TerrainStreamArchive.h"
+#include "TerrainSurface.h"
 #include "Utils/GUID.h"
 #include <algorithm>
 #include <bit>
@@ -17,6 +18,8 @@ namespace TerrainData
     {
         constexpr uint32_t kMagic = 0x3253544d; // MTS2, little endian.
         constexpr uint32_t kPagedMagic = 0x3353544d; // MTS3.
+        constexpr uint32_t kSurfaceMagic = 0x3453544d; // MTS4.
+        constexpr uint64_t kPaletteLimit = 32768 + 24;
         constexpr size_t kHeaderBytes = 104, kEntryBytes = 40, kPagedEntryBytes = 64;
         constexpr uint64_t kCoverageLimit = 64ull << 20, kTileLimit = 65536, kPatchLimit = 65536;
         constexpr uint64_t kHashSeed = 14695981039346656037ull;
@@ -115,7 +118,7 @@ namespace TerrainData
 
     bool IsStreamArchive( std::span<const uint8_t> prefix )
     {
-        return prefix.size() >= 4 && prefix[0] == 'M' && prefix[1] == 'T' && prefix[2] == 'S' && ( prefix[3] == '2' || prefix[3] == '3' );
+        return prefix.size() >= 4 && prefix[0] == 'M' && prefix[1] == 'T' && prefix[2] == 'S' && ( prefix[3] == '2' || prefix[3] == '3' || prefix[3] == '4' );
     }
 
 
@@ -145,7 +148,15 @@ namespace TerrainData
         std::filesystem::path temporary;
         try
         {
-            Require( !field.GetSurface(), "Streaming archives do not yet support terrain surface layers; use the .terrain source asset" );
+            const auto& surface = field.GetSurface();
+            Require( !surface || paged, "Layered terrain requires the paged streaming cooker" );
+            if( surface && !surface->Validate( field.GetSettings(), error ) ) throw std::runtime_error( error );
+            Bytes palette;
+            if( surface )
+            {
+                Surface metadata; metadata.Layers = surface->Layers; metadata.BaseWeights = surface->BaseWeights;
+                if( !SerializeSurface( metadata, field.GetSettings(), palette.Data, error ) ) throw std::runtime_error( error );
+            }
             const auto& s = field.GetSettings(); const uint64_t count = uint64_t( s.TilesX ) * s.TilesZ;
             Require( path.extension() == ".terrainc" && guid && count <= kTileLimit && field.GetTiles().size() == count, "Stream cooking requires a .terrainc destination, GUID and every source tile" );
             Require( s.TileQuads <= 256 && base <= LastLevel( s.PatchQuads ) && ( paged || PatchCount( s ) <= kPatchLimit ), "Stream cooking requires tiles <= 256 quads and bounded patch coverage" );
@@ -155,13 +166,14 @@ namespace TerrainData
                 Require( std::isfinite( position ) && position + s.SampleSpacing != position, "Terrain stream coordinates lose canonical Float32 precision" );
             }
             const uint32_t q = s.PatchQuads >> base, levels = LastLevel( q ) + 1, patches = s.TileQuads / s.PatchQuads;
-            const uint64_t coverageSize = PatchCount( s ) * ( 8 + levels * 4 + uint64_t( q + 1 ) * ( q + 1 ) * 16 );
+            const uint64_t weightBytes = surface ? uint64_t( s.PatchQuads + 1 ) * ( s.PatchQuads + 1 ) * 4 : 0;
+            const uint64_t coverageSize = PatchCount( s ) * ( 8 + levels * 4 + uint64_t( q + 1 ) * ( q + 1 ) * 16 + weightBytes );
             Require( ( paged ? coverageSize / count : coverageSize ) <= kCoverageLimit, "Terrain coarse coverage exceeds 64 MiB; increase its stride or split the dataset" );
             if( !path.parent_path().empty() ) std::filesystem::create_directories( path.parent_path() );
             temporary = path; temporary += "." + std::to_string( GUID::Generate() ) + ".tmp";
             std::ofstream file( temporary, std::ios::binary | std::ios::trunc ); Require( bool( file ), "Could not stage terrain cook" );
             Bytes coverage, directory; coverage.Data.reserve( static_cast<size_t>( paged ? coverageSize / count : coverageSize ) );
-            uint64_t offset = kHeaderBytes + count * ( paged ? kPagedEntryBytes : kEntryBytes ) + ( paged ? 0 : coverageSize ), revision = kHashSeed;
+            uint64_t offset = kHeaderBytes + count * ( paged ? kPagedEntryBytes : kEntryBytes ) + ( paged ? palette.Data.size() : coverageSize ), revision = surface ? Hash( palette.Data ) : kHashSeed;
             for( const auto& [tile, source] : field.GetTiles() )
             {
                 Bytes payload; payload.Data.reserve( s.SamplesPerTile() * 16 );
@@ -182,20 +194,22 @@ namespace TerrainData
                         const auto& v = mesh.Vertices[size_t( vz ) * ( s.PatchQuads + 1 ) + vx];
                         coverage.F32( v.Position.y ); coverage.F32( v.Normal.x ); coverage.F32( v.Normal.y ); coverage.F32( v.Normal.z );
                     }
+                    if( surface ) for( const auto& weights : BuildSurfacePatch( *surface, mesh.SampleOrigin, s.PatchQuads ) )
+                        coverage.Data.insert( coverage.Data.end(), weights.begin(), weights.end() );
                 }
                 const uint64_t coverageOffset = paged ? offset : 0;
                 const uint64_t coverageHash = paged ? Hash( coverage.Data ) : 0;
-                if( paged ) { Write( file, offset, coverage ); offset += coverage.Data.size(); }
+                if( paged ) { Write( file, offset, coverage ); offset += coverage.Data.size(); if( surface ) revision = Hash( coverage.Data, revision ); }
                 directory.U32( std::bit_cast<uint32_t>( tile.X ) ); directory.U32( std::bit_cast<uint32_t>( tile.Z ) );
                 directory.U64( offset ); directory.U64( payload.Data.size() ); directory.U64( Hash( payload.Data ) ); directory.F32( min ); directory.F32( max );
                 if( paged ) { directory.U64( coverageOffset ); directory.U64( coverage.Data.size() ); directory.U64( coverageHash ); coverage.Data.clear(); }
                 Write( file, offset, payload ); offset += payload.Data.size(); revision = Hash( payload.Data, revision );
             }
             Require( paged || coverage.Data.size() == coverageSize, "Internal terrain coverage size mismatch" );
-            Bytes header; header.U32( paged ? kPagedMagic : kMagic ); header.U32( paged ? 3 : 2 ); SettingsBytes( header, s ); header.U32( base ); header.U64( guid ); header.U64( revision );
-            header.U64( count ); header.U64( paged ? 0 : coverageSize ); header.U64( paged ? 0 : Hash( coverage.Data ) ); header.U64( Hash( directory.Data ) ); header.U64( Hash( header.Data ) );
+            Bytes header; header.U32( surface ? kSurfaceMagic : ( paged ? kPagedMagic : kMagic ) ); header.U32( surface ? 4 : ( paged ? 3 : 2 ) ); SettingsBytes( header, s ); header.U32( base ); header.U64( guid ); header.U64( revision );
+            header.U64( count ); header.U64( paged ? palette.Data.size() : coverageSize ); header.U64( surface ? Hash( palette.Data ) : ( paged ? 0 : Hash( coverage.Data ) ) ); header.U64( Hash( directory.Data ) ); header.U64( Hash( header.Data ) );
             Require( header.Data.size() == kHeaderBytes, "Internal terrain stream header mismatch" );
-            Write( file, 0, header ); Write( file, kHeaderBytes, directory ); if( !paged ) Write( file, kHeaderBytes + directory.Data.size(), coverage );
+            Write( file, 0, header ); Write( file, kHeaderBytes, directory ); if( paged ) Write( file, kHeaderBytes + directory.Data.size(), palette ); else Write( file, kHeaderBytes + directory.Data.size(), coverage );
             file.flush(); Require( file.good(), "Could not flush terrain stream cook" ); file.close(); Require( !file.fail(), "Could not close terrain stream cook" );
 #if USING( ME_PLATFORM_WINDOWS )
             Require( MoveFileExW( temporary.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH ) != 0, "Could not publish terrain stream cook" );
@@ -230,7 +244,8 @@ namespace TerrainData
             auto archive = std::make_shared<StreamArchive>(); archive->Path = path; archive->FileSize = static_cast<uint64_t>( size );
             auto header = Read( file, 0, kHeaderBytes ); archive->Header = header.Data;
             const uint32_t magic = header.Read32(), version = header.Read32();
-            archive->PagedCoverage = magic == kPagedMagic && version == 3;
+            const bool layered = magic == kSurfaceMagic && version == 4;
+            archive->PagedCoverage = layered || ( magic == kPagedMagic && version == 3 );
             Require( archive->PagedCoverage || ( magic == kMagic && version == 2 ), "Unsupported terrain stream format/version" );
             const bool paged = archive->PagedCoverage; const size_t entryBytes = paged ? kPagedEntryBytes : kEntryBytes;
             archive->Config = SettingsBytes( header ); const auto& s = archive->Config;
@@ -239,8 +254,10 @@ namespace TerrainData
             Require( Hash( std::span( header.Data ).first( kHeaderBytes - 8 ) ) == headerHash, "Terrain stream header checksum failed" );
             Require( archive->AssetGUID && count == uint64_t( s.TilesX ) * s.TilesZ && count <= kTileLimit && ( paged || PatchCount( s ) <= kPatchLimit ), "Invalid or excessive terrain stream directory" );
             const uint32_t q = s.PatchQuads >> base, levels = LastLevel( q ) + 1, patches = s.TileQuads / s.PatchQuads;
-            const uint64_t pageBytes = uint64_t( patches ) * patches * ( 8 + levels * 4 + uint64_t( q + 1 ) * ( q + 1 ) * 16 );
-            Require( paged ? ( coverageSize == 0 && coverageHash == 0 && pageBytes <= kCoverageLimit ) : ( coverageSize <= kCoverageLimit && coverageSize == count * pageBytes ), "Invalid terrain coverage size" );
+            const uint64_t weightBytes = layered ? uint64_t( s.PatchQuads + 1 ) * ( s.PatchQuads + 1 ) * 4 : 0;
+            const uint64_t pageBytes = uint64_t( patches ) * patches * ( 8 + levels * 4 + uint64_t( q + 1 ) * ( q + 1 ) * 16 + weightBytes );
+            Require( paged ? ( pageBytes <= kCoverageLimit && ( layered ? ( coverageSize >= 24 && coverageSize <= kPaletteLimit ) : ( coverageSize == 0 && coverageHash == 0 ) ) ) :
+                ( coverageSize <= kCoverageLimit && coverageSize == count * pageBytes ), "Invalid terrain coverage size" );
             Require( kHeaderBytes + count * entryBytes + coverageSize <= archive->FileSize, "Truncated terrain coverage" );
             auto directory = Read( file, kHeaderBytes, count * entryBytes ); Require( Hash( directory.Data ) == directoryHash, "Terrain stream directory checksum failed" );
             uint64_t offset = kHeaderBytes + count * entryBytes + coverageSize;
@@ -261,7 +278,17 @@ namespace TerrainData
             if( paged )
             {
                 auto data = std::make_shared<ResidentTerrain>(); data->AssetGUID = archive->AssetGUID; data->Streamed = data->PagedCoverage = true;
-                data->StreamRevision = headerHash; data->Heights = std::make_shared<Heightfield>( s );
+                data->StreamRevision = headerHash; auto heights = std::make_shared<Heightfield>( s );
+                if( layered )
+                {
+                    auto palette = Read( file, kHeaderBytes + count * entryBytes, coverageSize );
+                    Require( Hash( palette.Data ) == coverageHash, "Terrain surface palette checksum failed" );
+                    auto surface = std::make_shared<Surface>();
+                    if( !DeserializeSurface( palette.Data, s, *surface, error ) ) throw std::runtime_error( error );
+                    Require( surface->Samples.empty(), "Stream metadata must not contain painted samples" );
+                    if( !heights->SetSurface( surface, error ) ) throw std::runtime_error( error );
+                }
+                data->Heights = heights;
                 float min = std::numeric_limits<float>::max(), max = -min;
                 for( const auto& block : archive->Blocks ) { min = std::min( min, block.MinHeight ); max = std::max( max, block.MaxHeight ); }
                 data->Bounds.Min = Vector3( float( s.MinSample().X * double( s.SampleSpacing ) ), min, float( s.MinSample().Z * double( s.SampleSpacing ) ) );
@@ -320,6 +347,18 @@ namespace TerrainData
                 if( !BuildPatchLods( patch->Mesh, q, error ) ) throw std::runtime_error( error );
                 for( size_t l = 0; l < errors.size(); ++l ) patch->Mesh.Lods[l].MaxError = errors[l];
                 patch->Mesh.Bounds.Min = Vector3( 0, min, 0 ); patch->Mesh.Bounds.Max = Vector3( s.PatchQuads * s.SampleSpacing, max, s.PatchQuads * s.SampleSpacing );
+                if( archive.Coverage->Heights->GetSurface() )
+                {
+                    const size_t samples = size_t( s.PatchQuads + 1 ) * ( s.PatchQuads + 1 );
+                    patch->Weights.reserve( samples );
+                    for( size_t i = 0; i < samples; ++i )
+                    {
+                        Require( bytes.Position <= bytes.Data.size() && bytes.Data.size() - bytes.Position >= 4, "Truncated terrain surface weights" );
+                        std::array<uint8_t, 4> weights; std::copy_n( bytes.Data.begin() + bytes.Position, 4, weights.begin() ); bytes.Position += 4;
+                        Require( unsigned( weights[0] ) + weights[1] + weights[2] + weights[3] == 255, "Terrain page weights are not normalized" );
+                        patch->Weights.push_back( weights );
+                    }
+                }
                 page->Patches.push_back( patch );
             }
             Require( bytes.Position == bytes.Data.size(), "Trailing coverage page data" );
