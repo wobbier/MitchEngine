@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <map>
+#include <memory>
 #include <set>
 #include <string>
 #include <vector>
@@ -11,6 +12,7 @@
 // Authoritative CPU terrain data. No world, renderer, file I/O, or editor dependencies.
 namespace TerrainData
 {
+    struct Surface;
     struct TileCoord
     {
         int32_t X = 0;
@@ -87,6 +89,8 @@ namespace TerrainData
         // Invalid settings throw std::invalid_argument. External file codecs validate first.
         explicit Heightfield( const Settings& InSettings = {} );
 
+        const std::shared_ptr<const Surface>& GetSurface() const { return m_surface; }
+        bool SetSurface( std::shared_ptr<const Surface> InSurface, std::string& OutError );
         const Settings& GetSettings() const { return m_settings; }
         uint64_t GetRevision() const { return m_revision; }
         const std::map<TileCoord, Tile>& GetTiles() const { return m_tiles; }
@@ -113,6 +117,7 @@ namespace TerrainData
         std::vector<TileCoord> SharingTiles( SampleCoord InSample ) const;
         size_t Index( TileCoord InTile, SampleCoord InSample ) const;
 
+        std::shared_ptr<const Surface> m_surface;
         Settings m_settings;
         uint64_t m_revision = 0;
         std::map<TileCoord, Tile> m_tiles;

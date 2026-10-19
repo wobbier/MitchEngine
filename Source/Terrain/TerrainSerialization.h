@@ -18,6 +18,7 @@ namespace TerrainData
     {
         uint64_t AssetGUID = 0;
         Settings Config;
+        std::string SurfaceSource; // Optional v2 .tsurface companion in the same published generation.
         std::vector<PageReference> Pages; // Exactly one source page per declared tile.
     };
 

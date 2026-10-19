@@ -13,16 +13,20 @@ namespace TerrainData
         if( !std::isfinite( x ) || !std::isfinite( z ) || !std::isfinite( brush.Radius ) ||
             !std::isfinite( brush.Strength ) || !std::isfinite( brush.Falloff ) || !std::isfinite( brush.Spacing ) ||
             brush.Radius < s.SampleSpacing * 0.25f || brush.Radius > s.SampleSpacing * 128.f || brush.Strength < 0 ||
+            static_cast<unsigned>( brush.Tool ) > static_cast<unsigned>( BrushTool::Erase ) || brush.Layer >= 4 ||
             brush.Falloff < 0 || brush.Falloff > 1 || brush.Spacing < 0.05f || brush.Spacing > 1 )
         { error = "Invalid brush settings (maximum radius: 128 sample intervals)"; return false; }
         if( field.GetTiles().size() != static_cast<size_t>( s.TilesX ) * s.TilesZ )
         { error = "Load every source tile before sculpting"; return false; }
         auto hit = field.Query( x, z );
         if( hit.Status != QueryStatus::Ready ) { error = "Start the stroke on the terrain"; return false; }
+        m_beforeSurface = field.GetSurface(); m_paint.reset();
+        if( brush.Tool == BrushTool::Paint || brush.Tool == BrushTool::Erase )
+            m_paint = m_beforeSurface ? std::make_unique<Surface>( *m_beforeSurface ) : std::make_unique<Surface>();
         m_brush = brush; m_flattenHeight = hit.Height;
         m_x = x; m_z = z; m_remaining = brush.Radius * brush.Spacing;
         m_deltas.clear(); m_active = true;
-        if( !Stamp( field, x, z, error ) ) { Cancel( field ); return false; }
+        if( !Stamp( field, x, z, error ) || ( m_paint && !field.SetSurface( std::make_shared<Surface>( *m_paint ), error ) ) ) { Cancel( field ); return false; }
         return true;
     }
 
@@ -43,7 +47,7 @@ namespace TerrainData
             m_remaining = distance - length;
         }
         m_x = x; m_z = z;
-        return true;
+        return !m_paint || field.SetSurface( std::make_shared<Surface>( *m_paint ), error );
     }
 
     bool BrushStroke::Stamp( Heightfield& field, double x, double z, std::string& error )
@@ -66,6 +70,12 @@ namespace TerrainData
             if( field.GetSample( { sx, sz }, height ) != QueryStatus::Ready ) { error = "Source sample is unavailable"; return false; }
             const double edge = m_brush.Falloff == 0 ? 1 : std::clamp( ( 1 - d ) / m_brush.Falloff, 0.0, 1.0 );
             const float weight = static_cast<float>( edge * edge * ( 3 - 2 * edge ) );
+            if( m_paint )
+            {
+                const SampleCoord coordinate{ sx, sz };
+                m_paint->Set( coordinate, BlendLayer( m_paint->Get( coordinate ), m_brush.Layer, std::min( m_brush.Strength, 1.f ) * weight, m_brush.Tool == BrushTool::Erase ) );
+                continue;
+            }
             float result = height;
             if( m_brush.Tool == BrushTool::Raise || m_brush.Tool == BrushTool::Lower )
                 result += ( m_brush.Tool == BrushTool::Lower ? -1 : 1 ) * m_brush.Strength * weight;
@@ -101,13 +111,15 @@ namespace TerrainData
     {
         std::vector<SampleDelta> result;
         for( const auto& [key, delta] : m_deltas ) if( delta.Before != delta.After ) result.push_back( delta );
-        m_deltas.clear(); m_active = false;
+        m_deltas.clear(); m_active = false; m_paint.reset(); m_beforeSurface.reset();
         return result;
     }
 
     void BrushStroke::Cancel( Heightfield& field )
     {
         std::string error;
+        if( m_paint ) field.SetSurface( m_beforeSurface, error );
+        m_paint.reset(); m_beforeSurface.reset();
         for( const auto& [key, delta] : m_deltas ) field.SetSample( delta.Coordinate, delta.Before, error );
         m_deltas.clear(); m_active = false;
     }

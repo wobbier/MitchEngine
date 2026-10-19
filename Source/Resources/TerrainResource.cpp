@@ -1,6 +1,7 @@
 #include "PCH.h"
 #include "TerrainResource.h"
 #include "Terrain/TerrainSerialization.h"
+#include "Terrain/TerrainAsset.h"
 #include "Terrain/TerrainStreamArchive.h"
 #include "Resource/MetaRegistry.h"
 #include <filesystem>
@@ -63,30 +64,17 @@ bool TerrainResource::LoadAsync()
                 return true;
             }
         }
-        const auto bytes = ReadBytes( FilePath.FullPath );
-        if( bytes.empty() ) { m_error = "Terrain file is empty"; return false; }
         if( std::string_view( FilePath.GetExtension() ) == "terrainc" )
         {
+            const auto bytes = ReadBytes( FilePath.FullPath );
             TerrainData::CookInfo info;
             if( !TerrainData::ReadCookedHeightfield( bytes, field, info, m_error ) ) return false;
             guid = info.AssetGUID;
         }
         else
         {
-            TerrainData::Manifest manifest;
-            if( !TerrainData::DeserializeManifest( std::string_view( reinterpret_cast<const char*>( bytes.data() ), bytes.size() ), manifest, m_error ) ) return false;
-            guid = manifest.AssetGUID;
-            field = TerrainData::Heightfield( manifest.Config );
-            const auto directory = std::filesystem::path( FilePath.FullPath ).parent_path();
-            for( const auto& reference : manifest.Pages )
-            {
-                TerrainData::TilePage page;
-                const auto source = ReadBytes( directory / reference.Source );
-                if( !TerrainData::DeserializePage( source, manifest.Config, page, m_error ) ) return false;
-                if( page.Coordinate != reference.Coordinate ) { m_error = "Terrain source page coordinates disagree with its manifest reference"; return false; }
-                if( !field.LoadTile( page.Coordinate, std::move( page.Heights ), m_error ) ) return false;
-            }
-            field.ClearDirty();
+            std::string manifestText;
+            if( !TerrainData::LoadSource( FilePath.FullPath, field, guid, manifestText, m_error ) ) return false;
         }
         // The asset database's sidecar identity wins for moved/duplicated engine assets.
         // Embedded GUIDs remain usable when loading a standalone source/cooked file directly.

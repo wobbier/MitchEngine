@@ -48,7 +48,14 @@ public:
     // Drawn from the world viewport. True owns the entire gesture (gizmos and picking abstain).
     bool DrawViewport( SceneViewWidget& InView, const Vector2& InScreenMin, const Vector2& InScreenSize );
     bool WantsViewport() const;
-    void SetCategory( int InCategory ) { m_category = InCategory >= 0 && InCategory < 6 ? InCategory : 0; }
+    void SetCategory( int InCategory )
+    {
+        if( m_active ) m_active->EndStroke();
+        m_category = InCategory >= 0 && InCategory < 6 ? InCategory : 0;
+        if( m_category == 1 && Brush.Tool < TerrainData::BrushTool::Paint ) Brush.Tool = TerrainData::BrushTool::Paint;
+        if( m_category == 0 && Brush.Tool >= TerrainData::BrushTool::Paint ) Brush.Tool = TerrainData::BrushTool::Raise;
+    }
+    bool FillLayer( unsigned InLayer );
     enum class BrushParameter { Radius, Strength, Falloff, Spacing };
     void SetBrushParameter( BrushParameter InParameter, float InValue, bool InRecord = true );
     Vector2 GetBrushControlCenter( BrushParameter InParameter ) const { return m_brushCenters[static_cast<int>( InParameter )]; }
@@ -73,6 +80,7 @@ private:
     void DrawRecovery();
     bool AutomaticRecoveryEnabled() const;
     void DrawBrush();
+    void DrawPaint();
     void RecordBrushParameter( BrushParameter InParameter, float InBefore );
     void DrawTools();
     void DrawLodButtons();
@@ -97,6 +105,9 @@ private:
     std::string m_rawPath;
     TerrainData::RawHeightmap m_rawImport, m_rawExport;
     int m_category = 0;
+    TerrainData::SurfaceLayer m_layerDraft;
+    unsigned m_layerIndex = 0;
+    TerrainDocument* m_layerDocument = nullptr;
     int m_tiles[2] = { 2, 2 }, m_quads = 32;
     float m_spacing = 1, m_flatHeight = 0;
     std::string m_error;

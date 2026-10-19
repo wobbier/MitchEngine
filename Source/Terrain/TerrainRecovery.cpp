@@ -1,5 +1,6 @@
 #include "PCH.h"
 #include "TerrainRecovery.h"
+#include "TerrainSurface.h"
 #include "JSON.h"
 #include "Utils/GUID.h"
 #include <fstream>
@@ -58,7 +59,7 @@ namespace TerrainData
             const auto metadata = bytes.subspan( kHeaderSize, size );
             if( Hash( metadata ) != Get( bytes, 20, 8 ) ) { error = "Terrain recovery metadata checksum mismatch"; return false; }
             const auto value = json::parse( metadata.begin(), metadata.end() );
-            if( value.at( "Format" ) != "MitchTerrainRecovery" || value.at( "Version" ).get<int>() != 1 )
+            if( value.at( "Format" ) != "MitchTerrainRecovery" || ( value.at( "Version" ).get<int>() != 1 && value.at( "Version" ).get<int>() != 2 ) )
             { error = "Unsupported terrain recovery metadata version"; return false; }
             RecoveryInfo info; info.AssetPath = value.at( "AssetPath" ).get<std::string>();
             const auto guid = value.at( "AssetGUID" ).get<std::string>();
@@ -86,10 +87,19 @@ namespace TerrainData
             std::ostringstream guid; guid << std::hex << std::setw( 16 ) << std::setfill( '0' ) << info.AssetGUID;
             json value; value["Format"] = "MitchTerrainRecovery"; value["Version"] = 1;
             value["AssetPath"] = info.AssetPath; value["AssetGUID"] = guid.str(); value["SavedAt"] = info.SavedAt; value["BaseManifest"] = info.BaseManifest;
+            std::vector<uint8_t> payload;
+            Heightfield heights = field;
+            if( !heights.SetSurface( nullptr, error ) || !CookHeightfield( heights, info.AssetGUID, HeightEncoding::Float32, payload, error ) ) return false;
+            if( field.GetSurface() )
+            {
+                std::vector<uint8_t> surface;
+                if( !SerializeSurface( *field.GetSurface(), field.GetSettings(), surface, error ) ) return false;
+                value["Version"] = 2; value["HeightBytes"] = payload.size();
+                payload.insert( payload.end(), surface.begin(), surface.end() );
+            }
             const std::string metadata = value.dump();
             if( metadata.size() > kMaxMetadata ) { error = "Terrain recovery metadata exceeds its budget"; return false; }
-            std::vector<uint8_t> payload;
-            if( !CookHeightfield( field, info.AssetGUID, HeightEncoding::Float32, payload, error ) ) return false;
+
             if( payload.size() > kMaxPayload ) { error = "Terrain recovery exceeds the 128 MiB payload budget"; return false; }
             std::vector<uint8_t> bytes{ 'M', 'T', 'R', 'C' };
             Put( bytes, 1, 4 ); Put( bytes, metadata.size(), 4 ); Put( bytes, payload.size(), 8 );
@@ -111,7 +121,20 @@ namespace TerrainData
             const auto payload = bytes.subspan( kHeaderSize + metadataSize, static_cast<size_t>( payloadSize ) );
             if( Hash( payload ) != Get( bytes, 28, 8 ) ) { error = "Terrain recovery payload checksum mismatch"; return false; }
             Heightfield field; CookInfo cook;
-            if( !ReadCookedHeightfield( payload, field, cook, error ) ) return false;
+            const auto metadata = json::parse( bytes.begin() + kHeaderSize, bytes.begin() + kHeaderSize + metadataSize );
+            const bool surfaceVersion = metadata.at( "Version" ).get<int>() == 2;
+            const auto& heightBytes = surfaceVersion ? metadata.at( "HeightBytes" ) : json( payload.size() );
+            if( !heightBytes.is_number_unsigned() ) { error = "Invalid recovery height length"; return false; }
+            const uint64_t heightSize = heightBytes.get<uint64_t>();
+            if( !heightSize || heightSize > payload.size() || ( surfaceVersion && heightSize == payload.size() ) )
+            { error = "Invalid recovery height/surface boundary"; return false; }
+            if( !ReadCookedHeightfield( payload.first( static_cast<size_t>( heightSize ) ), field, cook, error ) ) return false;
+            if( surfaceVersion )
+            {
+                Surface surface;
+                if( !DeserializeSurface( payload.subspan( static_cast<size_t>( heightSize ) ), field.GetSettings(), surface, error ) ||
+                    !field.SetSurface( std::make_shared<Surface>( std::move( surface ) ), error ) ) return false;
+            }
             Manifest base;
             if( !ValidateInfo( info, base, error ) ) return false;
             if( cook.AssetGUID != info.AssetGUID || cook.Encoding != HeightEncoding::Float32 || !SameSettings( base.Config, field.GetSettings() ) )

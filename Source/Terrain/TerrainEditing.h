@@ -1,15 +1,16 @@
 #pragma once
-#include "Terrain/Heightfield.h"
+#include "Terrain/TerrainSurface.h"
 #include "Math/Bounds.h"
 #include <map>
 
 namespace TerrainData
 {
-    enum class BrushTool { Raise, Lower, Smooth, Flatten };
+    enum class BrushTool { Raise, Lower, Smooth, Flatten, Paint, Erase };
 
     struct BrushSettings
     {
         BrushTool Tool = BrushTool::Raise;
+        unsigned Layer = 0;
         float Radius = 4.f;     // Metres.
         float Strength = 0.5f;  // Metres per stamp; blend fraction for Smooth/Flatten.
         float Falloff = 0.65f;  // Fraction of the radius occupied by the soft edge.
@@ -32,6 +33,8 @@ namespace TerrainData
     private:
         bool Stamp( Heightfield& InField, double InX, double InZ, std::string& OutError );
         BrushSettings m_brush;
+        std::shared_ptr<const Surface> m_beforeSurface;
+        std::unique_ptr<Surface> m_paint;
         std::map<std::pair<int64_t, int64_t>, SampleDelta> m_deltas;
         double m_x = 0, m_z = 0, m_remaining = 0;
         float m_flattenHeight = 0;

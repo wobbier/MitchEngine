@@ -1,5 +1,6 @@
 #include "PCH.h"
 #include "Heightfield.h"
+#include "TerrainSurface.h"
 
 #include <algorithm>
 #include <cmath>
@@ -9,6 +10,14 @@
 
 namespace TerrainData
 {
+    bool Heightfield::SetSurface( std::shared_ptr<const Surface> surface, std::string& error )
+    {
+        if( surface && !surface->Validate( m_settings, error ) ) return false;
+        if( m_surface == surface || ( m_surface && surface && *m_surface == *surface ) ) { error.clear(); return true; }
+        m_surface = std::move( surface ); ++m_revision; error.clear(); return true;
+    }
+
+
     namespace
     {
         bool PowerOfTwo( uint32_t InValue ) { return InValue && !( InValue & ( InValue - 1 ) ); }

@@ -20,6 +20,28 @@ namespace
             metadata->Save();
         }
     }
+    class SurfaceCommand final : public UndoCommand
+    {
+    public:
+        SurfaceCommand( TerrainDocument& document, std::vector<uint8_t> before, std::vector<uint8_t> after )
+            : Document( document ), Before( std::move( before ) ), After( std::move( after ) ) {}
+        void Undo() override { Apply( Before ); }
+        void Redo() override { Apply( After ); }
+        std::string GetName() const override { return "Edit terrain surface"; }
+    private:
+        void Apply( const std::vector<uint8_t>& bytes )
+        {
+            if( bytes.empty() ) { Document.SetSurface( nullptr, false ); return; }
+            TerrainData::Surface surface; std::string error;
+            if( TerrainData::DeserializeSurface( bytes, Document.GetField().GetSettings(), surface, error ) )
+                Document.SetSurface( std::make_shared<TerrainData::Surface>( std::move( surface ) ), false );
+        }
+        TerrainDocument& Document;
+        // Compact encoded snapshots bound even a one-million-sample command below 64 MiB.
+        std::vector<uint8_t> Before, After;
+    };
+
+
     class SculptCommand : public UndoCommand
     {
     public:
@@ -195,7 +217,9 @@ void TerrainDocument::ClearRecovery()
 
 bool TerrainDocument::BeginStroke( const TerrainData::BrushSettings& brush, double x, double z )
 {
-    return m_stroke.Begin( m_field, brush, x, z, m_error );
+    const auto before = m_field.GetSurface();
+    if( !m_stroke.Begin( m_field, brush, x, z, m_error ) ) return false;
+    m_beforeSurface = before; return true;
 }
 
 bool TerrainDocument::MoveStroke( double x, double z ) { return m_stroke.Move( m_field, x, z, m_error ); }
@@ -203,8 +227,15 @@ bool TerrainDocument::MoveStroke( double x, double z ) { return m_stroke.Move( m
 void TerrainDocument::EndStroke( bool cancel )
 {
     if( !m_stroke.IsActive() ) return;
-    if( cancel ) { m_stroke.Cancel( m_field ); PublishPreview(); return; }
+    if( cancel ) { m_stroke.Cancel( m_field ); m_beforeSurface.reset(); PublishPreview(); return; }
     auto deltas = m_stroke.Finish();
+    if( m_beforeSurface != m_field.GetSurface() )
+    {
+        const auto after = m_field.GetSurface();
+        // SetSurface records the whole gesture as a single asset command.
+        m_field.SetSurface( m_beforeSurface, m_error ); SetSurface( after );
+    }
+    m_beforeSurface.reset();
     if( !deltas.empty() )
     {
         const size_t bytes = deltas.size() * sizeof( TerrainData::SampleDelta );
@@ -218,6 +249,30 @@ void TerrainDocument::EndStroke( bool cancel )
     }
     PublishPreview();
 }
+
+
+bool TerrainDocument::SetSurface( std::shared_ptr<const TerrainData::Surface> surface, bool record )
+{
+    if( IsStroking() ) { m_error = "Finish the terrain stroke before changing its surface"; return false; }
+    const auto before = m_field.GetSurface();
+    std::vector<uint8_t> beforeBytes, afterBytes;
+    if( record )
+    {
+        if( before && !TerrainData::SerializeSurface( *before, m_field.GetSettings(), beforeBytes, m_error ) ) return false;
+        if( surface && !TerrainData::SerializeSurface( *surface, m_field.GetSettings(), afterBytes, m_error ) ) return false;
+    }
+    if( !m_field.SetSurface( std::move( surface ), m_error ) ) return false;
+    if( before == m_field.GetSurface() ) return true;
+    if( record )
+    {
+        const size_t bytes = beforeBytes.size() + afterBytes.size();
+        if( m_historyBytes + bytes > 64 * 1024 * 1024 ) DiscardHistory();
+        m_historyBytes += bytes;
+        m_undo.Push( std::make_unique<SurfaceCommand>( *this, std::move( beforeBytes ), std::move( afterBytes ) ) );
+    }
+    return PublishPreview();
+}
+
 
 void TerrainDocument::DiscardHistory()
 {

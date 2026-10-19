@@ -145,6 +145,7 @@ namespace TerrainData
         std::filesystem::path temporary;
         try
         {
+            Require( !field.GetSurface(), "Streaming archives do not yet support terrain surface layers; use the .terrain source asset" );
             const auto& s = field.GetSettings(); const uint64_t count = uint64_t( s.TilesX ) * s.TilesZ;
             Require( path.extension() == ".terrainc" && guid && count <= kTileLimit && field.GetTiles().size() == count, "Stream cooking requires a .terrainc destination, GUID and every source tile" );
             Require( s.TileQuads <= 256 && base <= LastLevel( s.PatchQuads ) && ( paged || PatchCount( s ) <= kPatchLimit ), "Stream cooking requires tiles <= 256 quads and bounded patch coverage" );

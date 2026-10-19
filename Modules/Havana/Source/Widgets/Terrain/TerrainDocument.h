@@ -28,6 +28,7 @@ public:
     // Releasing old history must not mark unsaved source samples as saved.
     void DiscardHistory();
     bool PublishPreview();
+    bool SetSurface( std::shared_ptr<const TerrainData::Surface> InSurface, bool InRecord = true );
     void ApplyDeltas( uint64_t InGUID, const std::vector<TerrainData::SampleDelta>& InDeltas, bool InAfter );
 
     const std::string& GetPath() const { return m_path; }
@@ -45,6 +46,7 @@ private:
     uint64_t m_guid = 0;
     TerrainData::Heightfield m_field;
     TerrainData::BrushStroke m_stroke;
+    std::shared_ptr<const TerrainData::Surface> m_beforeSurface;
     std::shared_ptr<const TerrainData::ResidentTerrain> m_preview;
     UndoStack m_undo;
     size_t m_historyBytes = 0;

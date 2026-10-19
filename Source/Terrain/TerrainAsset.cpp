@@ -1,5 +1,6 @@
 #include "PCH.h"
 #include "TerrainAsset.h"
+#include "TerrainSurface.h"
 #include "Utils/GUID.h"
 #include <fstream>
 #include <iomanip>
@@ -55,6 +56,12 @@ namespace TerrainData
                 if( page.Coordinate != reference.Coordinate ) { error = "Source page coordinates disagree with the manifest"; return false; }
                 if( !field.LoadTile( page.Coordinate, std::move( page.Heights ), error ) ) return false;
             }
+            if( !manifest.SurfaceSource.empty() )
+            {
+                Surface surface;
+                if( !DeserializeSurface( Read( path.parent_path() / manifest.SurfaceSource ), manifest.Config, surface, error ) ||
+                    !field.SetSurface( std::make_shared<Surface>( std::move( surface ) ), error ) ) return false;
+            }
             field.ClearDirty();
             outField = std::move( field ); outGUID = manifest.AssetGUID; outText = text;
             error.clear(); return true;
@@ -96,6 +103,13 @@ namespace TerrainData
                 if( !SerializePage( field, coordinate, bytes, error ) ) throw std::runtime_error( error );
                 Write( generation / name, bytes.data(), bytes.size() );
                 manifest.Pages.push_back( { coordinate, ( relative / name ).generic_string() } );
+            }
+            if( field.GetSurface() )
+            {
+                std::vector<uint8_t> bytes;
+                if( !SerializeSurface( *field.GetSurface(), s, bytes, error ) ) throw std::runtime_error( error );
+                Write( generation / "Surface.tsurface", bytes.data(), bytes.size() );
+                manifest.SurfaceSource = ( relative / "Surface.tsurface" ).generic_string();
             }
             std::string text;
             if( !SerializeManifest( manifest, text, error ) ) throw std::runtime_error( error );

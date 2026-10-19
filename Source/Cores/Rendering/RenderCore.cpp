@@ -20,6 +20,8 @@
 #include "Components/Graphics/Mesh.h"
 #include "Components/Graphics/Terrain.h"
 #include "Materials/StandardMaterial.h"
+#include "Materials/TerrainMaterial.h"
+#include "Terrain/TerrainSurface.h"
 #include "Debug/DebugDraw.h"
 #include "Utils/BGFXUtils.h"
 #include <glm/gtc/matrix_transform.hpp>
@@ -46,7 +48,8 @@ struct RenderCore::TerrainDraw
     std::vector<std::shared_ptr<Moonlight::MeshIndexData>> Fallback, Warmup;
     struct Retired { std::shared_ptr<const TerrainData::ResidentPatch> Patch; uint8_t Frames = 3; };
     std::vector<Retired> Retiring;
-    SharedPtr<StandardMaterial> Surface;
+    SharedPtr<TerrainMaterial> Surface;
+    std::shared_ptr<const TerrainData::Surface> PaintedSurface;
     std::vector<TerrainData::PatchLodChoice> Choices;
     uint16_t RetryFrames = 0;
     std::string RetryError;
@@ -118,7 +121,7 @@ RenderCore::TerrainDraw* RenderCore::PrepareTerrainDraw( Entity& InEntity, Terra
     if( !draw )
     {
         draw = std::make_unique<TerrainDraw>();
-        draw->Surface = MakeShared<StandardMaterial>();
+        draw->Surface = MakeShared<TerrainMaterial>();
         draw->Surface->Init();
         draw->Geometry.resize( data->Patches.size() );
         draw->Parts.resize( data->Patches.size() );
@@ -204,6 +207,7 @@ RenderCore::TerrainDraw* RenderCore::PrepareTerrainDraw( Entity& InEntity, Terra
             if( !bgfx::isValid( geometry->GetVertexBuffer() ) || !bgfx::isValid( geometry->GetIndexBuffer( 0 ) ) )
             { uploadError = "Terrain vertex upload failed; retaining previous coverage"; break; }
             auto mesh = std::make_unique<Mesh>( geometry.get() );
+            draw->PaintedSurface.reset();
             // Retire command references before a geometry replacement. Retain its cache pin for
             // three render frames, covering BGFX's deferred buffer retirement.
             if( draw->Parts[i] ) GetEngine().GetRenderer().GetMeshCache().Pop( draw->Parts[i]->GetId() );
@@ -273,6 +277,8 @@ RenderCore::TerrainDraw* RenderCore::PrepareTerrainDraw( Entity& InEntity, Terra
     draw->Choices = std::move( choices ); InTerrain.m_patchLods = draw->Choices;
     InTerrain.m_lodTriangles = InTerrain.m_fullTriangles = 0;
     static const Vector3 colors[] = { { 0.2f, 0.85f, 0.3f }, { 0.95f, 0.8f, 0.15f }, { 1.f, 0.4f, 0.15f }, { 0.2f, 0.65f, 1.f }, { 0.65f, 0.3f, 1.f }, { 0.95f, 0.3f, 0.7f } };
+    const auto& surface = data->Heights->GetSurface();
+    bool surfaceReady = true;
     for( size_t i = 0; i < draw->Parts.size(); ++i )
     {
         auto& part = draw->Parts[i];
@@ -280,9 +286,18 @@ RenderCore::TerrainDraw* RenderCore::PrepareTerrainDraw( Entity& InEntity, Terra
         InTerrain.m_lodTriangles += draw->Geometry[i]->GetIndexCount() / 3;
         InTerrain.m_fullTriangles += uint64_t( data->Heights->GetSettings().PatchQuads ) * data->Heights->GetSettings().PatchQuads * 2;
         // Materials prepare themselves in parallel jobs, so each patch keeps its own instance.
-        auto& material = static_cast<StandardMaterial&>( *part->MeshMaterial );
+        auto& material = static_cast<TerrainMaterial&>( *part->MeshMaterial );
         material.DiffuseColor = InTerrain.ShowResidency && streamed ? ( data->Patches[i]->BaseLod ? Vector3( 0.25f, 0.55f, 0.9f ) : Vector3( 0.2f, 0.85f, 0.3f ) ) : ( InTerrain.ShowLods ? colors[draw->Choices[i].Level % 6] : InTerrain.Color );
         material.Roughness = std::clamp( InTerrain.Roughness, 0.f, 1.f );
+        if( surface )
+        {
+            for( size_t layer = 0; layer < 4; ++layer )
+            { const auto& source = surface->Layers[layer]; material.Layers[layer] = { source.Color[0], source.Color[1], source.Color[2], source.Roughness }; }
+            if( draw->PaintedSurface != surface )
+                surfaceReady &= material.SetWeights( TerrainData::BuildSurfacePatch( *surface, data->Patches[i]->Mesh.SampleOrigin,
+                    data->Heights->GetSettings().PatchQuads ), static_cast<uint16_t>( data->Heights->GetSettings().PatchQuads + 1 ) );
+        }
+        material.LayersEnabled = surface && !InTerrain.ShowLods && !InTerrain.ShowResidency;
         part->CastShadows = InTerrain.CastShadows;
         if( InTerrain.ShowPatches )
         {
@@ -292,6 +307,8 @@ RenderCore::TerrainDraw* RenderCore::PrepareTerrainDraw( Entity& InEntity, Terra
             DebugDraw::Box( bounds, Vector4( color.x, color.y, color.z, 1.f ), 0, DebugDraw::EditorOnly );
         }
     }
+    if( surfaceReady ) draw->PaintedSurface = surface;
+    else InTerrain.m_lodError = "Terrain weight texture upload failed";
     return draw.get();
 }
 

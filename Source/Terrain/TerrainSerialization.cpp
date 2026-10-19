@@ -102,6 +102,7 @@ namespace TerrainData
             if( !m.Config.Validate( error ) ) throw std::runtime_error( error );
             Require( m.AssetGUID != 0, "Terrain manifest requires a nonzero asset GUID" );
             Require( m.Pages.size() == static_cast<uint64_t>( m.Config.TilesX ) * m.Config.TilesZ, "Terrain manifest must reference every tile exactly once" );
+            Require( m.SurfaceSource.empty() || SafeRelativePath( m.SurfaceSource ), "Terrain surface path must be a portable relative path" );
             std::set<TileCoord> coords;
             std::set<std::string> paths;
             for( const auto& page : m.Pages )
@@ -160,6 +161,7 @@ namespace TerrainData
             auto pages = InManifest.Pages;
             std::sort( pages.begin(), pages.end(), []( const auto& a, const auto& b ) { return a.Coordinate < b.Coordinate; } );
             for( const auto& page : pages ) j["Pages"].push_back( { { "Tile", { page.Coordinate.X, page.Coordinate.Z } }, { "Source", page.Source } } );
+            if( !InManifest.SurfaceSource.empty() ) { j["Version"] = 2; j["Surface"] = InManifest.SurfaceSource; }
             OutText = j.dump( 2 ) + "\n";
         } );
     }
@@ -168,7 +170,7 @@ namespace TerrainData
     {
         return Checked( OutError, [&] {
             const json j = json::parse( InText );
-            Require( j.at( "Format" ) == "MitchTerrain" && Integer( j.at( "Version" ), 1, UINT32_MAX ) == kVersion, "Unsupported terrain manifest format/version" );
+            Require( j.at( "Format" ) == "MitchTerrain" && Integer( j.at( "Version" ), 1, UINT32_MAX ) <= 2, "Unsupported terrain manifest format/version" );
             Manifest m;
             const auto guid = j.at( "AssetGUID" ).get<std::string>();
             Require( guid.size() == 16, "Terrain GUID must contain sixteen hexadecimal digits" );
@@ -187,6 +189,11 @@ namespace TerrainData
             {
                 const auto& coord = p.at( "Tile" ); Require( coord.is_array() && coord.size() == 2, "Terrain Tile must be [x,z]" );
                 m.Pages.push_back( { { static_cast<int32_t>( Integer( coord[0], INT32_MIN, INT32_MAX ) ), static_cast<int32_t>( Integer( coord[1], INT32_MIN, INT32_MAX ) ) }, p.at( "Source" ).get<std::string>() } );
+            }
+            if( j.at( "Version" ) == 2 )
+            {
+                m.SurfaceSource = j.at( "Surface" ).get<std::string>();
+                Require( !m.SurfaceSource.empty(), "Version 2 terrain requires a surface companion" );
             }
             ValidateManifest( m );
             OutManifest = std::move( m );
@@ -232,6 +239,7 @@ namespace TerrainData
     bool CookHeightfield( const Heightfield& InField, uint64_t InAssetGUID, HeightEncoding InEncoding, std::vector<uint8_t>& OutData, std::string& OutError )
     {
         return Checked( OutError, [&] {
+            Require( !InField.GetSurface(), "This cooked format does not support terrain surface layers; use the .terrain source asset" );
             const Settings& s = InField.GetSettings();
             Require( InAssetGUID != 0, "Cooked terrain requires a nonzero asset GUID" );
             Require( InEncoding == HeightEncoding::Float32 || InEncoding == HeightEncoding::UInt16, "Unsupported terrain height encoding" );

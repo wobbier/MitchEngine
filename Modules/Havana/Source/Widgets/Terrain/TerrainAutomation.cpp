@@ -4,6 +4,7 @@
 #include "TerrainLodAutomation.h"
 #include "TerrainStreamingAutomation.h"
 #include "TerrainPagingAutomation.h"
+#include "TerrainPaintAutomation.h"
 #if USING( ME_EDITOR )
 #include "TerrainWidget.h"
 #include "Editor/EditorOperations.h"
@@ -38,6 +39,7 @@ namespace TerrainAutomation
     }
     bool Execute( const std::string& command, const std::string& args, std::string& error )
     {
+        if( command.rfind( "terrain-paint-", 0 ) == 0 ) return TerrainPaintAutomation::Execute( command, args, error );
         if( command.rfind( "terrain-stream-paged-", 0 ) == 0 ) return TerrainPagingAutomation::Execute( command, args, error );
         if( command.rfind( "terrain-stream-", 0 ) == 0 ) return TerrainStreamingAutomation::Execute( command, args, error );
         if( command.rfind( "terrain-lod-", 0 ) == 0 ) return TerrainLodAutomation::Execute( command, args, error );
@@ -112,7 +114,10 @@ namespace TerrainAutomation
             if( tool == "Lower" ) brush.Tool = TerrainData::BrushTool::Lower;
             else if( tool == "Smooth" ) brush.Tool = TerrainData::BrushTool::Smooth;
             else if( tool == "Flatten" ) brush.Tool = TerrainData::BrushTool::Flatten;
+            else if( tool == "Paint" ) brush.Tool = TerrainData::BrushTool::Paint;
+            else if( tool == "Erase" ) brush.Tool = TerrainData::BrushTool::Erase;
             else if( tool != "Raise" ) { error = "Unknown brush tool"; return false; }
+            brush.Layer = value.value( "Layer", 0u );
             brush.Radius = value.value( "Radius", 4.f ); brush.Strength = value.value( "Strength", 0.5f );
             brush.Falloff = value.value( "Falloff", 0.65f ); brush.Spacing = value.value( "Spacing", 0.2f );
             if( !document->BeginStroke( brush, value["From"][0].get<double>(), value["From"][1].get<double>() ) ||

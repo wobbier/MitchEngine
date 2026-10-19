@@ -29,7 +29,7 @@ namespace
     TerrainWidget* s_terrainWidget = nullptr;
     const char* kCategories[] = { "Sculpt", "Paint", "Tiles", "Foliage", "Splines", "Inspect" };
     const char* kCategoryIcons[] = { "mountain", "paint", "layout-grid", "plant", "route", "eye" };
-    const char* kToolNames[] = { "Raise", "Lower", "Smooth", "Flatten" };
+    const char* kToolNames[] = { "Raise", "Lower", "Smooth", "Flatten", "Paint", "Erase" };
     const char* kToolIcons[] = { "arrow-up", "arrow-down", "blur", "equal" };
     std::string Key( const std::string& path ) { return std::filesystem::path( Path( path ).FullPath ).lexically_normal().generic_string(); }
     void RawControls( TerrainData::RawHeightmap& format, const TerrainData::Settings* settings = nullptr )
@@ -308,12 +308,19 @@ void TerrainWidget::DrawTools()
         }
         else if( m_category == 1 )
         {
-            Planned( "brush", "Paint", "Paint terrain material weights." );
-            Planned( "eraser", "Erase", "Remove weights from the active layer." );
+            for( int i = 0; i < 2; ++i )
+            {
+                ImGui::TableNextColumn();
+                const auto tool = i ? TerrainData::BrushTool::Erase : TerrainData::BrushTool::Paint;
+                if( Button( i ? "eraser" : "brush", i ? "Erase" : "Paint", "Drag in World View to blend the selected surface layer. Shift reverses paint and erase.", m_active && !IsPlaying(), BrushEnabled && Brush.Tool == tool ) )
+                { m_active->EndStroke(); Brush.Tool = tool; BrushEnabled = true; }
+            }
             Planned( "blur", "Blend", "Smooth transitions between material layers." );
-            Planned( "bucket", "Fill", "Fill a tile or selection with a layer." );
+            ImGui::TableNextColumn();
+            if( Button( "bucket", "Fill", "Fill the whole terrain with the selected layer. Undo restores the previous weights.", m_active && !IsPlaying() ) ) FillLayer( Brush.Layer );
             Planned( "color-swatch", "Layers", "Create and reorder terrain material layers." );
-            Planned( "plus", "Add Layer", "Add a surface material to the terrain palette." );
+            ImGui::TableNextColumn();
+            if( Button( "eraser", "Clear", "Reset all weights to the first layer. Undo restores the previous surface.", m_active && !IsPlaying() ) ) FillLayer( 0 );
             Planned( "ruler", "Slope", "Paint using slope limits." );
             Planned( "mountain", "Altitude", "Paint within an elevation band." );
             Planned( "mask", "Masks", "Combine procedural painting masks." );
@@ -385,7 +392,7 @@ void TerrainWidget::DrawTools()
 void TerrainWidget::DrawBrush()
 {
     ImGui::SeparatorText( "Brush" );
-    if( Button( BrushEnabled ? "hand-stop" : "pointer", BrushEnabled ? "Stop sculpting" : "Enable brush", "Enable or release terrain input in World View.", m_active && !IsPlaying(), BrushEnabled, true ) )
+    if( Button( BrushEnabled ? "hand-stop" : "pointer", BrushEnabled ? "Stop brush" : "Enable brush", "Enable or release terrain input in World View.", m_active && !IsPlaying(), BrushEnabled, true ) )
     { if( m_active ) m_active->EndStroke(); BrushEnabled = !BrushEnabled; }
     ImGui::SameLine(); ImGui::Text( "%s  /  %s", kToolNames[static_cast<int>( Brush.Tool )], BrushEnabled ? "Active" : "Idle" );
     const float spacing = m_active ? m_active->GetField().GetSettings().SampleSpacing : 1.f;
@@ -405,7 +412,7 @@ void TerrainWidget::DrawBrush()
     control( BrushParameter::Falloff, "Falloff", "##falloff", Brush.Falloff, 0, 0, 1, "%.2f", true );
     control( BrushParameter::Spacing, "Spacing", "##spacing", Brush.Spacing, 0, 0.05f, 1, "%.2f radii", true );
     ImGui::EndDisabled();
-    ImGui::TextDisabled( "Drag to sculpt  /  Shift reverses raise & lower" );
+    ImGui::TextDisabled( m_category == 1 ? "Drag to paint  /  Shift reverses paint & erase" : "Drag to sculpt  /  Shift reverses raise & lower" );
     ImGui::TextDisabled( "Esc cancels stroke  /  RMB navigates" );
 }
 
@@ -483,12 +490,13 @@ void TerrainWidget::Render()
         for( int i = 0; i < 6; ++i )
         {
             ImGui::TableNextColumn();
-            if( Button( kCategoryIcons[i], kCategories[i], i ? "Browse the planned tools in this workspace." : "Sculpt source heights in World View.", true, m_category == i ) ) m_category = i;
+            if( Button( kCategoryIcons[i], kCategories[i], i ? "Browse the planned tools in this workspace." : "Sculpt source heights in World View.", true, m_category == i ) ) SetCategory( i );
         }
         ImGui::EndTable();
     }
     DrawTools();
     if( m_category == 0 ) DrawBrush();
+    if( m_category == 1 ) DrawPaint();
     if( ImGui::CollapsingHeader( "Asset & Build" ) )
     {
         if( ImGui::Button( "Save All Terrains", ImVec2( -1, 0 ) ) && editing ) SaveAll();
@@ -634,7 +642,7 @@ void TerrainWidget::DrawModals()
 
 bool TerrainWidget::WantsViewport() const
 {
-    if( !IsOpen || !BrushEnabled || m_category != 0 || !m_active || IsPlaying() ) return false;
+    if( !IsOpen || !BrushEnabled || ( m_category != 0 && m_category != 1 ) || !m_active || IsPlaying() ) return false;
     auto entity = Selection::Get().GetActive();
     if( !entity || !entity->IsActiveInHierarchy() ) return false;
     const auto* terrain = entity->TryGetComponent<Terrain>();
@@ -687,6 +695,7 @@ bool TerrainWidget::DrawViewport( SceneViewWidget& view, const Vector2& screenMi
         auto brush = Brush;
         const float spacing = m_active->GetField().GetSettings().SampleSpacing;
         brush.Radius = std::clamp( brush.Radius, spacing * 0.25f, spacing * 128 );
+        if( m_category == 1 && io.KeyShift ) brush.Tool = brush.Tool == TerrainData::BrushTool::Erase ? TerrainData::BrushTool::Paint : TerrainData::BrushTool::Erase;
         if( io.KeyShift && ( brush.Tool == TerrainData::BrushTool::Raise || brush.Tool == TerrainData::BrushTool::Lower ) )
             brush.Tool = brush.Tool == TerrainData::BrushTool::Raise ? TerrainData::BrushTool::Lower : TerrainData::BrushTool::Raise;
         if( m_active->BeginStroke( brush, point.x, point.z ) ) m_strokeEntity = entity->GetGUID();
