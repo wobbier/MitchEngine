@@ -1,0 +1,13 @@
+diff --git a/src/renderer_vk.cpp b/src/renderer_vk.cpp
+index c79714b89..54a52f877 100644
+--- a/src/renderer_vk.cpp
++++ b/src/renderer_vk.cpp
+@@ -6841,6 +6841,8 @@ VK_DESTROY
+ 		for (uint8_t stage = 0; stage < BX_COUNTOF(m_bindInfo); ++stage)
+ 		{
+ 			const ShaderVK* shader = NULL;
++			// Program slots are reused; an undeclared stage must not retain the previous sampler.
++			m_bindInfo[stage].uniformHandle = BGFX_INVALID_HANDLE;
+ 			if (isValid(m_vsh->m_bindInfo[stage].uniformHandle) )
+ 			{
+ 				shader = _vsh;

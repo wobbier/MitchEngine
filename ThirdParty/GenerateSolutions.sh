@@ -38,6 +38,12 @@ cd "$(dirname "$0")"
 )
 
 if [ "$1" = "--build-bgfx" ]; then
+    # Program handles are reused; clear sampler stages left by a previous program.
+    bgfx_sampler_patch="$PWD/Patches/bgfx-vulkan-program-samplers.patch"
+    if ! git -C bgfx apply --reverse --check "$bgfx_sampler_patch" >/dev/null 2>&1; then
+        git -C bgfx apply "$bgfx_sampler_patch"
+    fi
+
     if [ ! -d genie ]; then
         git clone https://github.com/bkaradzic/genie
     fi
