@@ -461,6 +461,7 @@ public:
     KeyCode GetLastKeyPressed();
 
     void SetMouseCapture( bool Capture );
+    bool IsMouseCaptured() const { return WantsToCaptureMouse; }
     void SetMouseOffset( const Vector2& InOffset );
 
     bool IsMouseButtonDown( MouseButton mouseButton );

@@ -153,3 +153,10 @@ int World_GetSceneState( int scene )
 
 ## Incremental local rotation (quaternion composition, avoiding Euler readback)
 void Transform_Rotate( Entity id, const Vector3* degrees )
+
+## Mouse capture: relative mode, hidden cursor (Engine/Docs/Input.md)
+void Input_SetMouseCapture( bool capture )
+bool Input_IsMouseCaptured()
+
+## Overlap query: entities whose colliders touch a sphere (deduplicated); returns the total found
+int Physics_OverlapSphere( const Vector3* center, float radius, Entity* outEntities, int maxEntities )

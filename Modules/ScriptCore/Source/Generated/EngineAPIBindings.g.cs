@@ -150,4 +150,11 @@ public unsafe struct EngineAPIBindings
 
     // Incremental local rotation (quaternion composition, avoiding Euler readback)
     public delegate* unmanaged<Entity, Vector3*, void> Transform_Rotate;
+
+    // Mouse capture: relative mode, hidden cursor (Engine/Docs/Input.md)
+    public delegate* unmanaged<byte, void> Input_SetMouseCapture;
+    public delegate* unmanaged<byte> Input_IsMouseCaptured;
+
+    // Overlap query: entities whose colliders touch a sphere (deduplicated); returns the total found
+    public delegate* unmanaged<Vector3*, float, Entity*, int, int> Physics_OverlapSphere;
 }

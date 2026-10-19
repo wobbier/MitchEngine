@@ -502,6 +502,13 @@ public static unsafe class Input
     // Mouse motion this frame in pixels (+Y up).
     public static Vector2 MouseDelta { get { Vector2 v; Engine._api.Input_GetMouseDelta(&v); return v; } }
 
+    // Locks and hides the cursor so the mouse only reports motion (FPS-style look).
+    public static bool MouseCaptured
+    {
+        get => Engine._api.Input_IsMouseCaptured() != 0;
+        set => Engine._api.Input_SetMouseCapture((byte)(value ? 1 : 0));
+    }
+
     // Actions from the project's .inputactions map (Engine/Docs/Input.md).
     public static float GetAction(string action)
     {

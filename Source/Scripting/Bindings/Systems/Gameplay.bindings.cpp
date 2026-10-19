@@ -366,6 +366,18 @@ static void Eng_Input_GetMouseDelta( Vector2* outDelta )
     *outDelta = GetEngine().GetInput().GetDeviceState().MouseDelta;
 }
 
+
+static void Eng_Input_SetMouseCapture( bool inCapture )
+{
+    GetEngine().GetInput().SetMouseCapture( inCapture );
+}
+
+
+static bool Eng_Input_IsMouseCaptured()
+{
+    return GetEngine().GetInput().IsMouseCaptured();
+}
+
 // Audio
 
 static void Eng_Audio_PlayOneShot( const uint8_t* inClip, float inVolume )
@@ -407,6 +419,23 @@ static bool Eng_Physics_Raycast( const Vector3* inOrigin, const Vector3* inDirec
     outHit->Normal = hit.Normal;
     outHit->Distance = hit.Distance;
     return true;
+}
+
+
+static int Eng_Physics_OverlapSphere( const Vector3* inCenter, float inRadius, EntityID* outEntities, int inMaxEntities )
+{
+    PhysicsCore* physics = GetEngine().Physics;
+    if( !physics )
+    {
+        return 0;
+    }
+    std::vector<EntityHandle> found = physics->OverlapSphere( *inCenter, inRadius );
+    const int count = std::min( static_cast<int>( found.size() ), std::max( inMaxEntities, 0 ) );
+    for( int i = 0; i < count; ++i )
+    {
+        outEntities[i] = found[i] ? found[i].GetID() : EntityID{};
+    }
+    return static_cast<int>( found.size() );
 }
 
 
@@ -641,6 +670,8 @@ void Register_GameplayBindings( ScriptEngineAPI& inAPI )
     inAPI.Input_WasActionReleased = Eng_Input_WasActionReleased;
     inAPI.Input_WasKeyPressed = Eng_Input_WasKeyPressed;
     inAPI.Input_GetMouseDelta = Eng_Input_GetMouseDelta;
+    inAPI.Input_SetMouseCapture = Eng_Input_SetMouseCapture;
+    inAPI.Input_IsMouseCaptured = Eng_Input_IsMouseCaptured;
     inAPI.Input_GetPlayerCount = Eng_Input_GetPlayerCount;
     inAPI.Input_GetPlayerActionValue = Eng_Input_GetPlayerActionValue;
     inAPI.Input_GetPlayerActionVector2 = Eng_Input_GetPlayerActionVector2;
@@ -652,6 +683,7 @@ void Register_GameplayBindings( ScriptEngineAPI& inAPI )
     inAPI.Audio_PlayOneShot = Eng_Audio_PlayOneShot;
     inAPI.Audio_PlayOneShotAt = Eng_Audio_PlayOneShotAt;
     inAPI.Physics_Raycast = Eng_Physics_Raycast;
+    inAPI.Physics_OverlapSphere = Eng_Physics_OverlapSphere;
     inAPI.Rigidbody_AddForce = Eng_Rigidbody_AddForce;
     inAPI.Rigidbody_GetVelocity = Eng_Rigidbody_GetVelocity;
     inAPI.Rigidbody_SetVelocity = Eng_Rigidbody_SetVelocity;
