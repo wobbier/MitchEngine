@@ -1,5 +1,6 @@
 #include <doctest/doctest.h>
 #include "Terrain/TerrainStreamCache.h"
+#include "Terrain/TerrainStreamScheduler.h"
 #include "Terrain/TerrainLod.h"
 #include <filesystem>
 #include <fstream>
@@ -45,6 +46,69 @@ namespace
         std::fstream file( path, std::ios::binary | std::ios::in | std::ios::out ); file.seekg( offset ); char value; file.read( &value, 1 );
         value ^= 0x20; file.seekp( offset ); file.write( &value, 1 );
     }
+}
+
+TEST_CASE( "Terrain streaming: merged world demand preserves a camera exactly at a tile center" )
+{
+    const auto settings = StreamFixture::Settings(); std::map<TerrainData::TileCoord, TerrainData::TileDemand> demand;
+    TerrainData::AddStreamDemand( settings, Vector3( 4, 0, 4 ), 0, false, demand );
+    TerrainData::AddStreamDemand( settings, Vector3( 6, 0, 6 ), 0, false, demand );
+    TerrainData::AddStreamDemand( settings, Vector3( 7, 0, 7 ), 0, true, demand );
+    REQUIRE( demand.size() == 1 ); CHECK( demand.begin()->second.Priority == 0 ); CHECK( demand.begin()->second.Visual ); CHECK( demand.begin()->second.Collision );
+}
+
+TEST_CASE( "Terrain streaming: world scheduling ranks collision across assets before optional detail" )
+{
+    StreamFixture a, b; TerrainData::TerrainStreamCache first( a.Archive ), second( b.Archive );
+    const auto cost = TerrainData::TerrainStreamCache::TileReservation( a.Field.GetSettings() );
+    TerrainData::StreamWorldLimits limits;
+    limits.CpuBytes = first.GetStats().CpuReserved + second.GetStats().CpuReserved + 2 * ( a.Archive->Coverage->Patches.size() * 128 + 4096 ) + cost.CpuBytes + a.Field.GetSettings().SamplesPerTile() * 16 + 1024;
+    limits.CollisionBytes = cost.CollisionBytes; limits.MaxLoads = 1;
+    TerrainData::StreamBatch batches[] = { { &first, {}, { { { -1, -1 }, false, true, 1 } } }, { &second, {}, { { { 1, 1 }, true, false, 10000 } } } };
+    TerrainData::TerrainStreamScheduler scheduler;
+    scheduler.Tick( 1, batches, limits );
+    CHECK_FALSE( first.GetStats().Loading ); REQUIRE( second.GetStats().Loading ); CHECK( scheduler.GetStats().Loading == 1 );
+    for( uint64_t frame = 2; frame < 30; ++frame )
+    {
+        first.WaitForRequest(); second.WaitForRequest(); scheduler.Tick( frame, batches, limits );
+        CHECK( scheduler.GetStats().CpuReserved <= limits.CpuBytes ); CHECK( scheduler.GetStats().CollisionReserved <= limits.CollisionBytes );
+    }
+    CHECK( first.GetStats().Loaded == 0 ); CHECK( second.GetStats().Loaded == 1 ); CHECK( second.GetStats().CollisionReady );
+    REQUIRE( second.GetData()->CollisionTiles.size() == 1 ); CHECK( scheduler.GetStats().Deferred == 1 );
+    // A lower cap keeps the required demand in the readiness calculation instead of dropping it.
+    limits.CollisionBytes = 0; batches[1].Demand[0].Coordinate = { 0, 0 }; scheduler.Tick( 31, batches, limits ); CHECK_FALSE( scheduler.GetStats().CollisionReady );
+}
+
+TEST_CASE( "Terrain streaming: world GPU handoff waits for another asset's retiring pins" )
+{
+    StreamFixture a, b; TerrainData::TerrainStreamCache first( a.Archive ), second( b.Archive );
+    const auto cost = TerrainData::TerrainStreamCache::TileReservation( a.Field.GetSettings() );
+    TerrainData::StreamWorldLimits limits; limits.GpuBytes = first.GetStats().GpuReserved + second.GetStats().GpuReserved + cost.GpuBytes; limits.MaxLoads = 1;
+    TerrainData::StreamBatch batches[] = { { &first, {}, { { { -1, -1 }, false, true, 100 } } }, { &second, {}, { { { 1, 1 }, false, true, 1 } } } };
+    TerrainData::TerrainStreamScheduler scheduler;
+    uint64_t frame = 0;
+    const auto step = [&]() { first.WaitForRequest(); second.WaitForRequest(); scheduler.Tick( ++frame, batches, limits ); CHECK( scheduler.GetStats().GpuReserved <= limits.GpuBytes ); CHECK( scheduler.GetStats().Loading <= 1 ); };
+    for( int n = 0; n < 20; ++n ) step();
+    REQUIRE( second.GetStats().Detail == 1 ); CHECK( first.GetStats().Loaded == 0 ); auto pin = second.GetData();
+    batches[0].Demand[0].Priority = 0; batches[1].Active = false;
+    for( int n = 0; n < 10; ++n ) step();
+    CHECK( first.GetStats().Detail == 0 ); CHECK( second.GetStats().Retiring == 1 ); CHECK_FALSE( second.CanRetire() ); CHECK( scheduler.GetStats().RetiringAssets == 1 );
+    CHECK( pin->Heights->Query( 10, 10 ).Status == TerrainData::QueryStatus::Ready ); pin.reset();
+    for( int n = 0; n < 20; ++n ) step();
+    CHECK( first.GetStats().Detail == 1 ); CHECK( second.CanRetire() ); CHECK( second.GetStats().Evicted == 1 );
+}
+
+TEST_CASE( "Terrain streaming: world admission respects asset ceilings and reports an oversized coverage floor" )
+{
+    StreamFixture a, b; TerrainData::TerrainStreamCache first( a.Archive ), second( b.Archive );
+    TerrainData::StreamBatch batches[] = { { &first, {}, { { { 0, 0 }, false, true, 0 } } }, { &second, {}, { { { 0, 0 }, false, true, 1 } } } };
+    batches[0].Limits.GpuBytes = first.GetStats().GpuReserved;
+    TerrainData::StreamWorldLimits limits; limits.MaxLoads = 1; TerrainData::TerrainStreamScheduler scheduler;
+    for( uint64_t frame = 0; frame < 20; ++frame ) { first.WaitForRequest(); second.WaitForRequest(); scheduler.Tick( frame, batches, limits ); }
+    CHECK( first.GetStats().Loaded == 0 ); CHECK( second.GetStats().Detail == 1 );
+    limits.CpuBytes = 1; limits.GpuBytes = 1; scheduler.Tick( 21, batches, limits );
+    CHECK( scheduler.GetStats().OverBudget ); CHECK_FALSE( scheduler.GetStats().Pressure.empty() );
+    CHECK_FALSE( first.GetStats().CoverageReady ); CHECK_FALSE( second.GetStats().CoverageReady ); CHECK( scheduler.GetStats().Loading == 0 );
 }
 
 TEST_CASE( "Terrain streaming: independent detail blocks match source geometry, normals and canonical queries" )

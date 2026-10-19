@@ -41,7 +41,9 @@ namespace TerrainData
         ~TerrainStreamCache();
         TerrainStreamCache( const TerrainStreamCache& ) = delete;
         TerrainStreamCache& operator=( const TerrainStreamCache& ) = delete;
-        void Tick( uint64_t InFrame, std::span<const TileDemand> InDemand, const StreamLimits& InLimits );
+        void Tick( uint64_t InFrame, std::span<const TileDemand> InDemand, const StreamLimits& InLimits, bool InAllowLoad = true );
+        // Drops an unused publication and checks pins before a world releases a retired cache.
+        bool CanRetire();
         // Explicit test/loading-screen drain: still performs I/O on the owned worker.
         void WaitForRequest();
         void InvalidatePending();
@@ -51,6 +53,7 @@ namespace TerrainData
         static StreamLimits TileReservation( const Settings& InSettings );
 
     private:
+        friend class TerrainStreamScheduler;
         struct Entry
         {
             std::shared_ptr<const StreamTile> Tile;

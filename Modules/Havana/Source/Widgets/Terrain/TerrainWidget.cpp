@@ -371,7 +371,9 @@ void TerrainWidget::DrawTools()
             Planned( "grid-dots", "Navmesh", "Inspect navigation rebuild status." );
             DrawResidencyButton();
             Planned( "search", "Validate", "Check source generations, borders and derived data." );
-            Planned( "settings", "Budgets", "Tune mesh, residency and history budgets." );
+            ImGui::TableNextColumn();
+            if( Button( "settings", "Budgets", "Open Project Settings > Terrain to tune shared CPU/GPU/collision limits and concurrent loads." ) )
+                EditorActions::Get().Execute( "Edit.ProjectSettings" );
             Planned( "tools", "Repair", "Repair or compact terrain asset data." );
         }
         ImGui::EndTable();

@@ -3,6 +3,10 @@
 #include "Editor/Selection.h"
 #include "Components/Graphics/Terrain.h"
 #include "Terrain/TerrainStreamCache.h"
+#include "Cores/TerrainCore.h"
+#include "Editor/EditorOperations.h"
+#include "Engine/ProjectSettings.h"
+#include "Engine/World.h"
 #include "Events/EditorEvents.h"
 #include "Path.h"
 #include "misc/cpp/imgui_stdlib.h"
@@ -91,6 +95,16 @@ void TerrainWidget::DrawStreamingControls()
     if( stats->Retiring ) ImGui::Text( "Retiring pins: %zu query / %zu draw / %zu collision", stats->QueryPins, stats->DrawPins, stats->CollisionPins );
     ImGui::Text( "%zu pending  /  worker %s", stats->Pending, stats->Loading ? "loading" : "idle" );
     constexpr double mib = 1024.0 * 1024;
+    if( const auto* core = EditorOps::GetWorld().GetCore<TerrainCore>() )
+    {
+        const auto& world = core->GetStreamingStats(); const auto& settings = ProjectSettings::Get();
+        ImGui::Text( "World: %zu assets / %zu retiring / %zu loads", world.ActiveAssets, world.RetiringAssets, world.Loading );
+        ImGui::Text( "World CPU: %.2f / %d MiB", world.CpuReserved / mib, settings.TerrainCpuBudgetMiB );
+        ImGui::Text( "World GPU: %.2f / %d MiB", world.GpuReserved / mib, settings.TerrainGpuBudgetMiB );
+        ImGui::Text( "World collision: %.2f / %d MiB", world.CollisionReserved / mib, settings.TerrainCollisionBudgetMiB );
+        if( !world.Pressure.empty() ) ImGui::TextWrapped( "%s", world.Pressure.c_str() );
+        ImGui::Separator();
+    }
     ImGui::Text( "CPU reserved: %.2f / %d MiB", stats->CpuReserved / mib, terrain->CpuBudgetMiB );
     ImGui::Text( "GPU reserved: %.2f / %d MiB", stats->GpuReserved / mib, terrain->GpuBudgetMiB );
     ImGui::Text( "Collision reserved: %.2f / %d MiB", stats->CollisionReserved / mib, terrain->CollisionBudgetMiB );

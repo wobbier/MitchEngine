@@ -58,6 +58,14 @@ void RenderCore::RemoveTerrainDraw( uint64_t InEntityID )
     // Commands contain raw geometry pointers: retire them before destroying their buffers.
     if( Moonlight::IsGpuAlive() )
         for( auto& mesh : found->second->Parts ) if( mesh ) GetEngine().GetRenderer().GetMeshCache().Pop( mesh->GetId() );
+    if( Moonlight::IsGpuAlive() && found->second->Source && found->second->Source->Streamed )
+    {
+        // Destruction below queues BGFX buffer release. Keep both coverage and detail cache
+        // pins through deferred GPU retirement, including removal of a whole terrain instance.
+        RetiringTerrain pins; pins.Patches = found->second->Active->Patches;
+        for( const auto& retired : found->second->Retiring ) pins.Patches.push_back( retired.Patch );
+        m_retiringTerrains.push_back( std::move( pins ) );
+    }
     m_terrainDraws.erase( found );
 }
 
@@ -294,6 +302,8 @@ RenderCore::~RenderCore()
 void RenderCore::Update( const UpdateContext& inUpdateContext )
 {
     OPTICK_CATEGORY( "RenderCore::Update", Optick::Category::Rendering );
+    for( auto it = m_retiringTerrains.begin(); it != m_retiringTerrains.end(); )
+        if( --it->Frames == 0 ) it = m_retiringTerrains.erase( it ); else ++it;
     auto& Renderables = GetEntities();
     Engine& engine = *inUpdateContext.GetSystem<Engine>();
     BGFXRenderer& renderer = engine.GetRenderer();

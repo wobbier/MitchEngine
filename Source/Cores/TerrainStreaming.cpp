@@ -9,6 +9,7 @@
 #include "Components/Physics/CharacterController.h"
 #include "Engine/World.h"
 #include "Engine/Engine.h"
+#include "Engine/ProjectSettings.h"
 #include "Resources/TerrainResource.h"
 #include "Terrain/TerrainStreamCache.h"
 #include "Utils/BGFXUtils.h"
@@ -31,10 +32,10 @@ void TerrainCore::SyncStreams()
         const auto& terrain = entity.GetComponent<Terrain>();
         if( entity.IsActiveInHierarchy() && terrain.IsEnabled() && terrain.m_valid && terrain.m_resource && terrain.m_resource->GetArchive() && terrain.m_data && terrain.m_data->Streamed ) { hasStreaming = true; break; }
     }
-    if( !hasStreaming )
+    if( !hasStreaming && m_streams.empty() )
     {
         for( Entity& entity : GetEntities() ) entity.GetComponent<Terrain>().m_stream.reset();
-        m_streams.clear(); return;
+        m_scheduler = {}; return;
     }
     // Physics safety follows actors, including off-camera actors. Expansion includes body size
     // and predicted motion; the sample guard requests the neighboring tile at a shared seam.
@@ -76,13 +77,21 @@ void TerrainCore::SyncStreams()
     {
         auto& terrain = entity.GetComponent<Terrain>();
         if( !entity.IsActiveInHierarchy() || !terrain.IsEnabled() || !terrain.m_valid || !terrain.m_resource || !terrain.m_resource->GetArchive() ||
-            terrain.m_data == nullptr || !terrain.m_data->Streamed ) { terrain.m_stream.reset(); continue; }
+            terrain.m_data == nullptr || !terrain.m_data->Streamed )
+        {
+            if( terrain.m_stream ) terrain.m_data = terrain.m_resource ? terrain.m_resource->GetData() : nullptr;
+            terrain.m_stream.reset(); continue;
+        }
+        if( terrain.CpuBudgetMiB < 1 || terrain.GpuBudgetMiB < 1 || terrain.CollisionBudgetMiB < 1 || terrain.CpuBudgetMiB > 4096 || terrain.GpuBudgetMiB > 4096 || terrain.CollisionBudgetMiB > 4096 ||
+            !std::isfinite( terrain.StreamDistance ) || terrain.StreamDistance < 0 || terrain.StreamDistance > 16384 || !std::isfinite( terrain.CollisionDistance ) || terrain.CollisionDistance < 1 || terrain.CollisionDistance > 1024 )
+        {
+            terrain.m_data = terrain.m_resource->GetData(); terrain.m_stream.reset();
+            terrain.m_valid = false; terrain.m_error = "Invalid terrain streaming budgets or demand radius";
+            if( terrain.Collision ) m_collisionReady = false; continue;
+        }
         const auto archive = terrain.m_resource->GetArchive();
         auto& cache = m_streams[archive.get()]; if( !cache ) cache = std::make_shared<TerrainData::TerrainStreamCache>( archive ); terrain.m_stream = cache;
         auto& request = groups[archive.get()]; request.Instances.push_back( &terrain );
-        if( terrain.CpuBudgetMiB < 1 || terrain.GpuBudgetMiB < 1 || terrain.CollisionBudgetMiB < 1 || terrain.CpuBudgetMiB > 4096 || terrain.GpuBudgetMiB > 4096 || terrain.CollisionBudgetMiB > 4096 ||
-            !std::isfinite( terrain.StreamDistance ) || terrain.StreamDistance < 0 || terrain.StreamDistance > 16384 || !std::isfinite( terrain.CollisionDistance ) || terrain.CollisionDistance < 1 || terrain.CollisionDistance > 1024 )
-        { terrain.m_valid = false; terrain.m_error = "Invalid terrain streaming budgets or demand radius"; if( terrain.Collision ) m_collisionReady = false; continue; }
         if( request.Instances.size() == 1 )
         { request.Limits.CpuBytes = uint64_t( terrain.CpuBudgetMiB ) << 20; request.Limits.GpuBytes = uint64_t( terrain.GpuBudgetMiB ) << 20; request.Limits.CollisionBytes = uint64_t( terrain.CollisionBudgetMiB ) << 20; }
         request.Limits.CpuBytes = std::min( request.Limits.CpuBytes, uint64_t( terrain.CpuBudgetMiB ) << 20 );
@@ -92,14 +101,35 @@ void TerrainCore::SyncStreams()
         if( terrain.StreamDetail ) for( const auto& position : cameras ) TerrainData::AddStreamDemand( archive->Config, position - origin, terrain.StreamDistance, false, request.Tiles );
         if( terrain.Collision ) for( const auto& actor : actors ) TerrainData::AddStreamDemand( archive->Config, actor.Position - origin, terrain.CollisionDistance + actor.Radius + archive->Config.SampleSpacing, true, request.Tiles );
     }
+    std::vector<TerrainData::StreamBatch> batches;
+    size_t drainLimit = 1;
+    for( auto& [archive, cache] : m_streams )
+    {
+        TerrainData::StreamBatch batch; batch.Cache = cache.get(); batch.Active = groups.contains( archive );
+        if( batch.Active )
+        {
+            auto& requests = groups.at( archive ); batch.Limits = requests.Limits;
+            batch.Limits.Instances = static_cast<uint32_t>( requests.Instances.size() );
+            for( const auto& [coord, tile] : requests.Tiles ) batch.Demand.push_back( tile );
+        }
+        batches.push_back( std::move( batch ) ); drainLimit += archive->Blocks.size();
+    }
+    const auto& settings = ProjectSettings::Get();
+    TerrainData::StreamWorldLimits limits;
+    limits.CpuBytes = uint64_t( std::clamp( settings.TerrainCpuBudgetMiB, 1, 4096 ) ) << 20;
+    limits.GpuBytes = uint64_t( std::clamp( settings.TerrainGpuBudgetMiB, 1, 4096 ) ) << 20;
+    limits.CollisionBytes = uint64_t( std::clamp( settings.TerrainCollisionBudgetMiB, 1, 4096 ) ) << 20;
+    limits.MaxLoads = static_cast<uint32_t>( std::clamp( settings.TerrainMaxLoads, 1, 64 ) );
+    m_scheduler.Tick( m_frame, batches, limits );
+    if( CommandLine::GetFloat( "--frame-time", 0 ) > 0 )
+        for( size_t step = 0; m_scheduler.GetStats().Loading && step < drainLimit; ++step )
+        {
+            for( auto& batch : batches ) batch.Cache->WaitForRequest();
+            m_scheduler.Tick( m_frame, batches, limits );
+        }
     for( auto& [archive, requests] : groups )
     {
-        std::vector<TerrainData::TileDemand> demand; for( const auto& [coord, tile] : requests.Tiles ) demand.push_back( tile );
-        requests.Limits.Instances = static_cast<uint32_t>( requests.Instances.size() );
-        auto& cache = m_streams.at( archive ); cache->Tick( m_frame, demand, requests.Limits );
-        if( CommandLine::GetFloat( "--frame-time", 0 ) > 0 )
-            for( size_t step = 0; cache->GetStats().Loading && step < archive->Blocks.size() + 1; ++step )
-            { cache->WaitForRequest(); cache->Tick( m_frame, demand, requests.Limits ); }
+        auto& cache = m_streams.at( archive );
         const auto& stats = cache->GetStats();
         for( auto* terrain : requests.Instances )
         {
@@ -108,10 +138,10 @@ void TerrainCore::SyncStreams()
             if( terrain->Collision && !stats.CollisionReady ) m_collisionReady = false;
         }
     }
-    // Components dropped their cache references above. Jobs owned by removed sessions join here;
-    // their results carry no world/component pointers and cannot publish into another scene.
+    // Removed instances still have draw/query/physics consumers until their normal sync points.
+    // Keep their reservations in the world allowance until those pins and owned jobs retire.
     for( auto it = m_streams.begin(); it != m_streams.end(); )
-        if( !groups.contains( it->first ) ) it = m_streams.erase( it ); else ++it;
+        if( !groups.contains( it->first ) && it->second->CanRetire() ) it = m_streams.erase( it ); else ++it;
 }
 
 
@@ -125,4 +155,14 @@ void TerrainCore::OnStart()
 void TerrainCore::OnStop()
 {
     for( auto& [archive, cache] : m_streams ) cache->InvalidatePending();
+}
+
+
+void TerrainCore::OnEntityRemoved( Entity& entity )
+{
+    if( auto* terrain = entity.TryGetComponent<Terrain>(); terrain && terrain->m_stream )
+    {
+        terrain->m_data = terrain->m_resource ? terrain->m_resource->GetData() : nullptr;
+        terrain->m_stream.reset();
+    }
 }

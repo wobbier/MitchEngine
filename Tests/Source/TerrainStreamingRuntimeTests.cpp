@@ -8,6 +8,7 @@
 #include "Cores/PhysicsCore.h"
 #include "Core/UpdateContext.h"
 #include "Engine/World.h"
+#include "Engine/ProjectSettings.h"
 #include "Terrain/TerrainStreamArchive.h"
 #include "Terrain/TerrainStreamCache.h"
 #include <filesystem>
@@ -110,4 +111,37 @@ TEST_CASE( "Terrain streaming: vertical falling velocity does not expand horizon
     scene.GameWorld->Simulate(); scene.Physics.SyncNow(); body.SetVelocity( Vector3( 0, -100, 0 ) ); scene.GameWorld->Start(); scene.Drain();
     REQUIRE( scene.Terrains.IsCollisionReady() ); auto& terrain = scene.Ground->GetComponent<Terrain>();
     REQUIRE( terrain.GetData() ); CHECK( terrain.GetData()->CollisionTiles.size() == 1 ); CHECK( terrain.GetStreamingStats()->CollisionReserved <= 1024 * 1024 );
+}
+
+TEST_CASE( "Terrain streaming: shared world limits hold two assets until collision capacity is raised" )
+{
+    auto& settings = ProjectSettings::Get();
+    struct Restore
+    {
+        ProjectSettings& Settings;
+        int Cpu, Gpu, Collision, Loads;
+        ~Restore() { Settings.TerrainCpuBudgetMiB = Cpu; Settings.TerrainGpuBudgetMiB = Gpu; Settings.TerrainCollisionBudgetMiB = Collision; Settings.TerrainMaxLoads = Loads; }
+    } restore{ settings, settings.TerrainCpuBudgetMiB, settings.TerrainGpuBudgetMiB, settings.TerrainCollisionBudgetMiB, settings.TerrainMaxLoads };
+    settings.TerrainCpuBudgetMiB = settings.TerrainGpuBudgetMiB = 4; settings.TerrainCollisionBudgetMiB = 2; settings.TerrainMaxLoads = 1;
+    StreamScene scene;
+    const auto path = std::filesystem::path( scene.File.FullPath ).parent_path() / "Second.terrainc";
+    std::filesystem::copy_file( scene.File.FullPath, path, std::filesystem::copy_options::overwrite_existing );
+    auto second = scene.GameWorld->CreateEntity( "Second ground" ); second->AddComponent<Transform>().SetPosition( Vector3( 1000, 0, 0 ) );
+    auto& terrain = second->AddComponent<Terrain>(); terrain.Asset = Path( path.generic_string() ); terrain.CpuBudgetMiB = terrain.GpuBudgetMiB = terrain.CollisionBudgetMiB = 4; terrain.CollisionDistance = 1;
+    scene.Ground->GetComponent<Terrain>().CpuBudgetMiB = scene.Ground->GetComponent<Terrain>().CollisionBudgetMiB = 4;
+    auto player = scene.GameWorld->CreateEntity( "Second player" ); player->AddComponent<Transform>().SetPosition( Vector3( 1000, 10, 0 ) ); player->AddComponent<CharacterController>();
+    scene.GameWorld->Start();
+    const auto drain = [&]() {
+        for( int n = 0; n < 60; ++n )
+        {
+            scene.Ground->GetComponent<Terrain>().WaitForStreamingRequest(); terrain.WaitForStreamingRequest(); scene.Physics.WaitForTerrainCollision(); scene.Step();
+            const auto& stats = scene.Terrains.GetStreamingStats(); CHECK( stats.Loading <= 1 ); CHECK( stats.CpuReserved <= 4ull * 1024 * 1024 ); CHECK( stats.CollisionReserved <= uint64_t( settings.TerrainCollisionBudgetMiB ) * 1024 * 1024 );
+        }
+    };
+    drain(); REQUIRE( scene.Terrains.GetStreamingStats().ActiveAssets == 2 ); CHECK_FALSE( scene.Terrains.IsCollisionReady() );
+    CHECK( scene.Player->GetComponent<Transform>().GetWorldPosition().y == doctest::Approx( 10 ) ); CHECK( player->GetComponent<Transform>().GetWorldPosition().y == doctest::Approx( 10 ) );
+    settings.TerrainCollisionBudgetMiB = 4; drain(); REQUIRE( scene.Terrains.IsCollisionReady() ); REQUIRE( scene.Physics.IsTerrainCollisionReady() );
+    RaycastHit hit; REQUIRE( scene.Physics.Raycast( Vector3( 1002, 20, 2 ), Vector3( 0, -1, 0 ), 30, hit ) ); CHECK( hit.Entity == second ); CHECK( hit.Position.y == doctest::Approx( 3 ) );
+    second->SetActive( false ); player->SetActive( false ); drain(); scene.Step();
+    CHECK( scene.Terrains.GetStreamingStats().ActiveAssets == 1 ); CHECK( scene.Terrains.GetStreamingStats().RetiringAssets == 0 );
 }

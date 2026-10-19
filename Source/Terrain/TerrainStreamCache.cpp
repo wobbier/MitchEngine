@@ -70,6 +70,17 @@ namespace TerrainData
     void TerrainStreamCache::WaitForRequest() { if( m_job.valid() ) m_job.wait(); }
 
 
+    bool TerrainStreamCache::CanRetire()
+    {
+        if( m_job.valid() ) return false;
+        for( const auto& [coord, entry] : m_entries ) if( entry.Tile || entry.Loading ) return false;
+        m_snapshot = m_archive->Coverage; Measure();
+        if( !m_snapshots.empty() ) return false;
+        for( const auto& patch : m_archive->Coverage->Patches ) if( patch.use_count() > 1 ) return false;
+        return true;
+    }
+
+
     void TerrainStreamCache::InvalidatePending()
     {
         for( auto& [coord, entry] : m_entries ) if( entry.Loading )
@@ -155,10 +166,10 @@ namespace TerrainData
     }
 
 
-    void TerrainStreamCache::Tick( uint64_t frame, std::span<const TileDemand> requests, const StreamLimits& limits )
+    void TerrainStreamCache::Tick( uint64_t frame, std::span<const TileDemand> requests, const StreamLimits& limits, bool allowLoad )
     {
         m_limits = limits; m_stats.Pressure.clear();
-        if( !limits.Instances || limits.Instances > 65536 || !limits.CpuBytes || !limits.GpuBytes || !limits.CollisionBytes )
+        if( !limits.Instances || limits.Instances > 65536 )
         { m_stats.CoverageReady = m_stats.CollisionReady = false; m_stats.Pressure = "Invalid terrain streaming limits"; return; }
         m_stats.CoverageReady = m_baseCost.CpuBytes * limits.Instances <= limits.CpuBytes && m_baseCost.GpuBytes * limits.Instances <= limits.GpuBytes;
         std::map<TileCoord, TileDemand> demand;
@@ -263,7 +274,7 @@ namespace TerrainData
             if( found == m_entries.end() )
             {
                 ++m_stats.Pending;
-                if( m_job.valid() ) continue;
+                if( m_job.valid() || !allowLoad ) continue;
                 const uint64_t snapshotAllowance = m_snapshot->Patches.size() * 32 + ( m_stats.Resident + 1 ) * ( m_archive->Config.SamplesPerTile() * 4 + 256 ) + 4096;
                 if( m_stats.CpuReserved > limits.CpuBytes || m_tileCost.CpuBytes * limits.Instances + snapshotAllowance > limits.CpuBytes - m_stats.CpuReserved )
                 { m_stats.Pressure = "CPU budget cannot admit the requested detail; coarse coverage remains visible"; continue; }
@@ -324,10 +335,10 @@ namespace TerrainData
         for( int64_t x = static_cast<int64_t>( minX ); x <= static_cast<int64_t>( maxX ); ++x ) for( int64_t z = static_cast<int64_t>( minZ ); z <= static_cast<int64_t>( maxZ ); ++z )
         {
             const TileCoord coord{ static_cast<int32_t>( x ), static_cast<int32_t>( z ) };
-            auto& request = demand[coord]; request.Coordinate = coord; request.Collision |= collision; request.Visual |= !collision;
             const double dx = ( x + 0.5 ) * width - position.x, dz = ( z + 0.5 ) * width - position.z;
             const double priority = dx * dx + dz * dz;
-            request.Priority = request.Priority == 0 ? priority : std::min( request.Priority, priority );
+            auto [it, added] = demand.emplace( coord, TileDemand{ coord, collision, !collision, priority } );
+            if( !added ) { it->second.Collision |= collision; it->second.Visual |= !collision; it->second.Priority = std::min( it->second.Priority, priority ); }
         }
     }
 }

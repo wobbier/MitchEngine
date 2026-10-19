@@ -749,6 +749,22 @@ void ProjectSettingsWidget::Render()
 		ImGui::EndTabItem();
 	}
 
+	if (ImGui::BeginTabItem("Terrain"))
+	{
+		ProjectSettings& settings = ProjectSettings::Get();
+		ImGui::TextWrapped("Shared streaming limits across terrain assets in each world. Terrain components retain their individual ceilings. Pending work and retiring consumers remain charged.");
+		const auto budget = [&](const char* label, int& value, int maximum) {
+			ImGui::SliderInt(label, &value, 1, maximum);
+			if (ImGui::IsItemDeactivatedAfterEdit()) settings.Save();
+		};
+		budget("CPU MiB", settings.TerrainCpuBudgetMiB, 4096);
+		budget("GPU MiB", settings.TerrainGpuBudgetMiB, 4096);
+		budget("Collision MiB", settings.TerrainCollisionBudgetMiB, 4096);
+		budget("Concurrent loads", settings.TerrainMaxLoads, 64);
+		ImGui::TextWrapped("Required collision takes priority. Reducing a limit waits for pinned data to retire; existing coarse coverage must fit before detail can stream.");
+		ImGui::EndTabItem();
+	}
+
 	if (ImGui::BeginTabItem("Navigation"))
 	{
 		// Area names show in area pickers; costs multiply the length of paths through an area.

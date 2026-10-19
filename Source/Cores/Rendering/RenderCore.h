@@ -53,6 +53,12 @@ private:
     void RemoveTerrainDraw( uint64_t InEntityID );
     void ClearTerrainDraws();
     std::unordered_map<uint64_t, std::unique_ptr<TerrainDraw>> m_terrainDraws;
+    struct RetiringTerrain
+    {
+        std::vector<std::shared_ptr<const TerrainData::ResidentPatch>> Patches;
+        uint8_t Frames = 4; // Includes a possible removal before this frame's render preparation.
+    };
+    std::vector<RetiringTerrain> m_retiringTerrains;
     std::unordered_map<uint64_t, std::shared_ptr<Moonlight::MeshIndexData>> m_terrainTopology;
     std::unordered_map<uint64_t, std::vector<unsigned int>> m_compactCommands;
     std::unordered_map<uint64_t, unsigned int> m_meshCommands;

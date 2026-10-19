@@ -14,6 +14,7 @@
 #include "Havana.h"
 #include "Engine/Engine.h"
 #include "Engine/World.h"
+#include "Engine/ProjectSettings.h"
 #include "Terrain/TerrainStreamCache.h"
 #include "Resource/ResourceCache.h"
 #include "Utils/GUID.h"
@@ -43,6 +44,57 @@ namespace TerrainStreamingAutomation
     bool Execute( const std::string& command, const std::string& args, std::string& error )
     {
         auto* widget = TerrainWidget::Get();
+        if( command.starts_with( "terrain-stream-world-" ) )
+        {
+            auto& world = EditorOps::GetWorld(); auto& settings = ProjectSettings::Get();
+            if( command == "terrain-stream-world-add" )
+            {
+                settings.TerrainCpuBudgetMiB = settings.TerrainGpuBudgetMiB = settings.TerrainCollisionBudgetMiB = 2; settings.TerrainMaxLoads = 1;
+                auto& first = Ground()->GetComponent<Terrain>(); first.CpuBudgetMiB = first.GpuBudgetMiB = first.CollisionBudgetMiB = 4;
+                const auto path = s_directory / "Peer.terrainc";
+                std::filesystem::copy_file( s_directory / "Runtime.terrainc", path, std::filesystem::copy_options::overwrite_existing );
+                auto peer = world.CreateEntity( "Stream Peer" ); peer->AddComponent<Transform>().SetPosition( Vector3( 512, 0, 0 ) );
+                auto& terrain = peer->AddComponent<Terrain>(); terrain.Asset = Path( path.generic_string() );
+                terrain.CpuBudgetMiB = terrain.GpuBudgetMiB = terrain.CollisionBudgetMiB = 4; terrain.CollisionDistance = 1;
+                terrain.StreamDistance = 24; terrain.UploadKiB = 16; terrain.UploadMilliseconds = 1; terrain.ShowResidency = true;
+                auto actor = world.CreateEntity( "Stream Peer Player" ); actor->AddComponent<Transform>().SetPosition( Vector3( 472, 12, -40 ) ); actor->AddComponent<CharacterController>();
+                static_cast<EditorApp*>( GetEngine().GetGame() )->EditorSceneManager->GetCameraController().SetPose( Vector3( 472, 25, -64 ), 30, 0 );
+                return true;
+            }
+            auto peer = world.FindEntityByName( "Stream Peer" ); auto actor = world.FindEntityByName( "Stream Peer Player" );
+            if( command == "terrain-stream-world-teleport" )
+            {
+                Player()->GetComponent<CharacterController>().Teleport( Vector3( 56, 20, 56 ), Quaternion() ); Pose( 56 );
+                actor->GetComponent<CharacterController>().Teleport( Vector3( 568, 20, 56 ), Quaternion() );
+                static_cast<EditorApp*>( GetEngine().GetGame() )->EditorSceneManager->GetCameraController().SetPose( Vector3( 568, 25, 32 ), 30, 0 );
+                GetEngine().Terrains->SyncNow();
+                if( GetEngine().Terrains->IsCollisionReady() ) { error = "World teleport skipped the canonical collision barrier"; return false; }
+                return true;
+            }
+            if( command == "terrain-stream-world-remove" ) { peer->MarkForDelete(); actor->MarkForDelete(); return true; }
+            const auto& stats = GetEngine().Terrains->GetStreamingStats();
+            if( stats.CpuReserved > 2 * 1024 * 1024 || stats.GpuReserved > 2 * 1024 * 1024 || stats.CollisionReserved > 2 * 1024 * 1024 || stats.Loading > 1 || stats.OverBudget )
+            { error = "World terrain reservations exceeded the shared allowance"; return false; }
+            if( command == "terrain-stream-world-remaining" )
+            {
+                if( stats.ActiveAssets != 1 || stats.RetiringAssets ) { error = "Removed world terrain retained its residency charge"; return false; }
+                return true;
+            }
+            if( command != "terrain-stream-world-assert" ) { error = "Unknown world terrain command"; return false; }
+            if( stats.ActiveAssets != 2 || !GetEngine().Terrains->IsCollisionReady() || !GetEngine().Physics->IsTerrainCollisionReady() || !stats.Deferred )
+            { error = "World terrain demand did not settle with shared budget pressure: " + stats.Pressure; return false; }
+            for( auto ground : { Ground(), peer } )
+            {
+                const auto position = ( ground == peer ? actor : Player() )->GetComponent<Transform>().GetWorldPosition();
+                const auto origin = ground->GetComponent<Transform>().GetWorldPosition(); const auto& terrain = ground->GetComponent<Terrain>();
+                if( !terrain.GetData() || !terrain.GetStreamingStats() || !terrain.GetStreamingStats()->Error.empty() || terrain.GetPatchLods().size() != 324 )
+                { error = "A streamed world asset lost coverage or failed"; return false; }
+                const auto sample = terrain.GetData()->Heights->Query( position.x + 2 - origin.x, position.z - origin.z ); RaycastHit hit;
+                if( sample.Status != TerrainData::QueryStatus::Ready || !GetEngine().Physics->Raycast( Vector3( position.x + 2, 40, position.z ), Vector3( 0, -1, 0 ), 100, hit ) || hit.Entity != ground || std::abs( hit.Position.y - sample.Height ) > 1e-4 )
+                { error = "World terrain collision did not match canonical heights"; return false; }
+            }
+            return true;
+        }
         if( command == "terrain-stream-fixture" )
         {
             s_directory = std::filesystem::path( Path( ".tmp/Tests/TerrainStreamingFlows" ).FullPath ) / std::to_string( GUID::Generate() );

@@ -35,6 +35,9 @@ public:
     std::array<float, kAudioBusCount> BusVolumes = { 1.f, 1.f, 1.f, 1.f, 1.f };
     // The game's action map (.inputactions), loaded into the game Input at startup.
     std::string InputActions = "Assets/Config/Input.inputactions";
+    // Shared across streamed terrain assets in a world, including pending/retiring work.
+    int TerrainCpuBudgetMiB = 256, TerrainGpuBudgetMiB = 128, TerrainCollisionBudgetMiB = 512;
+    int TerrainMaxLoads = 2;
     // Navigation areas (NavAreas): names and traversal cost multipliers. Area 0 is "Walkable" and
     // area 1 "Not Walkable" (never on the navmesh); area 2 is the default for NavMeshLinks.
     static constexpr int kNavAreaCount = 16;

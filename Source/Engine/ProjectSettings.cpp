@@ -3,6 +3,7 @@
 #include "File.h"
 #include "JSON.h"
 #include "Path.h"
+#include <algorithm>
 
 namespace
 {
@@ -78,6 +79,15 @@ void ProjectSettings::Load()
     {
         InputActions = root["InputActions"].get<std::string>();
     }
+    if( auto terrain = root.find( "TerrainStreaming" ); terrain != root.end() && terrain->is_object() )
+    {
+        const auto read = [&]( const char* name, int& value, int maximum ) {
+            auto found = terrain->find( name );
+            if( found != terrain->end() && found->is_number_integer() ) value = static_cast<int>( std::clamp( found->get<double>(), 1.0, double( maximum ) ) );
+        };
+        read( "CpuBudgetMiB", TerrainCpuBudgetMiB, 4096 ); read( "GpuBudgetMiB", TerrainGpuBudgetMiB, 4096 );
+        read( "CollisionBudgetMiB", TerrainCollisionBudgetMiB, 4096 ); read( "MaxLoads", TerrainMaxLoads, 64 );
+    }
     if( root.contains( "NavAreas" ) && root["NavAreas"].is_array() )
     {
         const json& areas = root["NavAreas"];
@@ -137,6 +147,8 @@ void ProjectSettings::Save() const
     root["Gravity"] = { Gravity.x, Gravity.y, Gravity.z };
     root["AudioBusVolumes"] = BusVolumes;
     root["InputActions"] = InputActions;
+    root["TerrainStreaming"] = { { "CpuBudgetMiB", TerrainCpuBudgetMiB }, { "GpuBudgetMiB", TerrainGpuBudgetMiB },
+        { "CollisionBudgetMiB", TerrainCollisionBudgetMiB }, { "MaxLoads", TerrainMaxLoads } };
     root["NavAreas"] = json::array();
     for( int i = 0; i < kNavAreaCount; ++i )
     {
