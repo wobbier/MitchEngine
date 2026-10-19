@@ -324,7 +324,8 @@ void TerrainWidget::DrawTools()
             Planned( "ruler", "Slope", "Paint using slope limits." );
             Planned( "mountain", "Altitude", "Paint within an elevation band." );
             Planned( "mask", "Masks", "Combine procedural painting masks." );
-            Planned( "sphere", "Material", "Edit terrain surface shading and tiling." );
+            ImGui::TableNextColumn();
+            if( Button( "sphere", "Material", "Edit the selected layer's maps, shading and tiling.", m_active && !IsPlaying() ) ) EditSurfaceLayer();
             Planned( "upload", "Import", "Import weight maps without color conversion." );
             Planned( "download", "Export", "Export terrain layer weight maps." );
         }

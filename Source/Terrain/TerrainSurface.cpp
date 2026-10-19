@@ -34,6 +34,23 @@ namespace TerrainData
         }
 
 
+        bool TexturePath( const std::string& path )
+        {
+            if( path.empty() ) return true;
+            if( path.size() > 1024 || path.front() == '/' || path.find_first_of( "\\:" ) != std::string::npos || path.find( '\0' ) != std::string::npos ) return false;
+            size_t start = 0;
+            while( start <= path.size() )
+            {
+                const size_t end = path.find( '/', start );
+                const auto part = path.substr( start, end == std::string::npos ? end : end - start );
+                if( part.empty() || part == "." || part == ".." ) return false;
+                if( end == std::string::npos ) break;
+                start = end + 1;
+            }
+            return true;
+        }
+
+
         bool Normalized( LayerWeights weights ) { return std::accumulate( weights.begin(), weights.end(), 0 ) == 255; }
     }
 
@@ -61,6 +78,11 @@ namespace TerrainData
             if( layer.Name.empty() || layer.Name.size() > 128 || layer.Name.find( '\0' ) != std::string::npos ||
                 !std::isfinite( layer.Roughness ) || layer.Roughness < 0 || layer.Roughness > 1 )
             { error = "Invalid terrain surface layer name or roughness"; return false; }
+            if( !TexturePath( layer.BaseColorMap ) || !TexturePath( layer.NormalMap ) || !TexturePath( layer.OrmMap ) ||
+                !std::isfinite( layer.TileSize ) || layer.TileSize < 0.01f || layer.TileSize > 4096 ||
+                !std::isfinite( layer.NormalStrength ) || layer.NormalStrength < 0 || layer.NormalStrength > 2 ||
+                !std::isfinite( layer.Metallic ) || layer.Metallic < 0 || layer.Metallic > 1 )
+            { error = "Invalid terrain texture reference, tiling or surface parameter"; return false; }
             for( float c : layer.Color ) if( !std::isfinite( c ) || c < 0 || c > 1 )
             { error = "Terrain layer colors must be finite sRGB values between zero and one"; return false; }
         }
@@ -124,14 +146,18 @@ namespace TerrainData
         {
             if( !surface.Validate( settings, error ) ) return false;
             json metadata; metadata["BaseWeights"] = surface.BaseWeights; metadata["Layers"] = json::array();
-            for( const auto& layer : surface.Layers ) metadata["Layers"].push_back( { { "Name", layer.Name }, { "Color", layer.Color }, { "Roughness", layer.Roughness } } );
-            const std::string text = metadata.dump(); std::vector<uint8_t> payload( text.begin(), text.end() );
+            for( const auto& layer : surface.Layers ) metadata["Layers"].push_back( { { "Name", layer.Name }, { "Color", layer.Color }, { "Roughness", layer.Roughness },
+                { "BaseColorMap", layer.BaseColorMap }, { "NormalMap", layer.NormalMap }, { "OrmMap", layer.OrmMap },
+                { "TileSize", layer.TileSize }, { "NormalStrength", layer.NormalStrength }, { "Metallic", layer.Metallic }, { "FlipNormalY", layer.FlipNormalY } } );
+            const std::string text = metadata.dump();
+            if( text.size() > 32768 ) { error = "Terrain surface metadata exceeds 32 KiB"; return false; }
+            std::vector<uint8_t> payload( text.begin(), text.end() );
             for( const auto& [key, weights] : surface.Samples )
             {
                 Put( payload, std::bit_cast<uint64_t>( key.first ), 8 ); Put( payload, std::bit_cast<uint64_t>( key.second ), 8 );
                 payload.insert( payload.end(), weights.begin(), weights.end() );
             }
-            std::vector<uint8_t> bytes{ 'M', 'T', 'S', 'F' }; Put( bytes, 1, 4 ); Put( bytes, text.size(), 4 );
+            std::vector<uint8_t> bytes{ 'M', 'T', 'S', 'F' }; Put( bytes, 2, 4 ); Put( bytes, text.size(), 4 );
             Put( bytes, surface.Samples.size(), 4 ); Put( bytes, Hash( payload ), 8 ); bytes.insert( bytes.end(), payload.begin(), payload.end() );
             out = std::move( bytes ); error.clear(); return true;
         }
@@ -143,9 +169,9 @@ namespace TerrainData
     {
         try
         {
-            if( bytes.size() < kHeader || Get( bytes, 0, 4 ) != 0x4653544d || Get( bytes, 4, 4 ) != 1 ) throw std::runtime_error( "Invalid terrain surface header/version" );
+            if( bytes.size() < kHeader || Get( bytes, 0, 4 ) != 0x4653544d || ( Get( bytes, 4, 4 ) != 1 && Get( bytes, 4, 4 ) != 2 ) ) throw std::runtime_error( "Invalid terrain surface header/version" );
             const uint64_t length = Get( bytes, 8, 4 ), count = Get( bytes, 12, 4 );
-            if( !length || length > 8192 || count > kMaxSamples || bytes.size() != kHeader + length + count * 20 ||
+            if( !length || length > 32768 || count > kMaxSamples || bytes.size() != kHeader + length + count * 20 ||
                 Hash( bytes.subspan( kHeader ) ) != Get( bytes, 16, 8 ) ) throw std::runtime_error( "Invalid terrain surface length or checksum" );
             const auto value = json::parse( bytes.begin() + kHeader, bytes.begin() + kHeader + length );
             Surface surface;
@@ -164,6 +190,13 @@ namespace TerrainData
                 const auto& color = item.at( "Color" );
                 if( !color.is_array() || color.size() != 3 ) throw std::runtime_error( "Invalid terrain layer color" );
                 layer.Color = color.get<std::array<float, 3>>(); layer.Roughness = item.at( "Roughness" ).get<float>();
+                if( Get( bytes, 4, 4 ) == 2 )
+                {
+                    layer.BaseColorMap = item.at( "BaseColorMap" ).get<std::string>(); layer.NormalMap = item.at( "NormalMap" ).get<std::string>();
+                    layer.OrmMap = item.at( "OrmMap" ).get<std::string>(); layer.TileSize = item.at( "TileSize" ).get<float>();
+                    layer.NormalStrength = item.at( "NormalStrength" ).get<float>(); layer.Metallic = item.at( "Metallic" ).get<float>();
+                    layer.FlipNormalY = item.at( "FlipNormalY" ).get<bool>();
+                }
             }
             for( size_t offset = kHeader + static_cast<size_t>( length ); offset < bytes.size(); offset += 20 )
             {

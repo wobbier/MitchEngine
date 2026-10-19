@@ -49,6 +49,7 @@ struct RenderCore::TerrainDraw
     struct Retired { std::shared_ptr<const TerrainData::ResidentPatch> Patch; uint8_t Frames = 3; };
     std::vector<Retired> Retiring;
     SharedPtr<TerrainMaterial> Surface;
+    std::shared_ptr<Moonlight::TerrainTextureSet> LayerTextures;
     std::shared_ptr<const TerrainData::Surface> PaintedSurface;
     std::vector<TerrainData::PatchLodChoice> Choices;
     uint16_t RetryFrames = 0;
@@ -278,6 +279,24 @@ RenderCore::TerrainDraw* RenderCore::PrepareTerrainDraw( Entity& InEntity, Terra
     InTerrain.m_lodTriangles = InTerrain.m_fullTriangles = 0;
     static const Vector3 colors[] = { { 0.2f, 0.85f, 0.3f }, { 0.95f, 0.8f, 0.15f }, { 1.f, 0.4f, 0.15f }, { 0.2f, 0.65f, 1.f }, { 0.65f, 0.3f, 1.f }, { 0.95f, 0.3f, 0.7f } };
     const auto& surface = data->Heights->GetSurface();
+    if( draw->PaintedSurface != surface )
+    {
+        Moonlight::TerrainTexturePaths paths{}; bool any = false;
+        if( surface ) for( size_t layer = 0; layer < 4; ++layer )
+        {
+            const auto& source = surface->Layers[layer];
+            const std::string refs[] = { source.BaseColorMap, source.NormalMap, source.OrmMap };
+            for( size_t kind = 0; kind < 3; ++kind ) if( !refs[kind].empty() )
+            { paths[layer][kind] = Path( refs[kind] ).FullPath; any = true; }
+        }
+        draw->LayerTextures = any ? Moonlight::TerrainTextureSet::Acquire( paths, CommandLine::Has( "--terrain-texture-atlas" ) ) : nullptr;
+    }
+    if( draw->LayerTextures )
+    {
+        draw->LayerTextures->Update( deterministic );
+        if( !draw->LayerTextures->GetError().empty() ) InTerrain.m_lodError = draw->LayerTextures->GetError();
+        else if( draw->LayerTextures->IsLoading() && !draw->LayerTextures->IsReady() ) InTerrain.m_lodError = "Preparing terrain layer textures";
+    }
     bool surfaceReady = true;
     for( size_t i = 0; i < draw->Parts.size(); ++i )
     {
@@ -292,11 +311,16 @@ RenderCore::TerrainDraw* RenderCore::PrepareTerrainDraw( Entity& InEntity, Terra
         if( surface )
         {
             for( size_t layer = 0; layer < 4; ++layer )
-            { const auto& source = surface->Layers[layer]; material.Layers[layer] = { source.Color[0], source.Color[1], source.Color[2], source.Roughness }; }
+            {
+                const auto& source = surface->Layers[layer]; material.Layers[layer] = { source.Color[0], source.Color[1], source.Color[2], source.Roughness };
+                material.Mapping[layer] = { 1.f / source.TileSize, source.NormalStrength, source.Metallic, source.FlipNormalY ? -1.f : 1.f };
+            }
             if( draw->PaintedSurface != surface )
                 surfaceReady &= material.SetWeights( TerrainData::BuildSurfacePatch( *surface, data->Patches[i]->Mesh.SampleOrigin,
                     data->Heights->GetSettings().PatchQuads ), static_cast<uint16_t>( data->Heights->GetSettings().PatchQuads + 1 ) );
         }
+        material.SetLayerTextures( draw->LayerTextures );
+        material.TerrainTranslation = Vector2( translation.x, translation.z );
         material.LayersEnabled = surface && !InTerrain.ShowLods && !InTerrain.ShowResidency;
         part->CastShadows = InTerrain.CastShadows;
         if( InTerrain.ShowPatches )

@@ -5,6 +5,7 @@
 #include "TerrainStreamingAutomation.h"
 #include "TerrainPagingAutomation.h"
 #include "TerrainPaintAutomation.h"
+#include "TerrainTextureAutomation.h"
 #if USING( ME_EDITOR )
 #include "TerrainWidget.h"
 #include "Editor/EditorOperations.h"
@@ -39,6 +40,7 @@ namespace TerrainAutomation
     }
     bool Execute( const std::string& command, const std::string& args, std::string& error )
     {
+        if( command.rfind( "terrain-texture-", 0 ) == 0 ) return TerrainTextureAutomation::Execute( command, args, error );
         if( command.rfind( "terrain-paint-", 0 ) == 0 ) return TerrainPaintAutomation::Execute( command, args, error );
         if( command.rfind( "terrain-stream-paged-", 0 ) == 0 ) return TerrainPagingAutomation::Execute( command, args, error );
         if( command.rfind( "terrain-stream-", 0 ) == 0 ) return TerrainStreamingAutomation::Execute( command, args, error );

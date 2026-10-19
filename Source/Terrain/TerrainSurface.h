@@ -12,6 +12,11 @@ namespace TerrainData
         std::string Name;
         std::array<float, 3> Color;
         float Roughness = 0.9f;
+        // Project-relative texture references. ORM: R occlusion, G roughness, B metallic.
+        std::string BaseColorMap, NormalMap, OrmMap;
+        float TileSize = 4.f; // Metres per repeat in terrain-local X/Z.
+        float NormalStrength = 1.f, Metallic = 0.f;
+        bool FlipNormalY = false;
         bool operator==( const SurfaceLayer& ) const = default;
     };
 

@@ -56,6 +56,9 @@ public:
         if( m_category == 0 && Brush.Tool >= TerrainData::BrushTool::Paint ) Brush.Tool = TerrainData::BrushTool::Raise;
     }
     bool FillLayer( unsigned InLayer );
+    void EditSurfaceLayer();
+    Vector2 GetLayerMapCenter( unsigned InKind ) const { return m_layerMapCenters[InKind]; }
+    Vector2 GetLayerApplyCenter() const { return m_layerApplyCenter; }
     enum class BrushParameter { Radius, Strength, Falloff, Spacing };
     void SetBrushParameter( BrushParameter InParameter, float InValue, bool InRecord = true );
     Vector2 GetBrushControlCenter( BrushParameter InParameter ) const { return m_brushCenters[static_cast<int>( InParameter )]; }
@@ -81,6 +84,7 @@ private:
     bool AutomaticRecoveryEnabled() const;
     void DrawBrush();
     void DrawPaint();
+    void DrawLayerMap( unsigned InKind, const char* InLabel, std::string& InPath );
     void RecordBrushParameter( BrushParameter InParameter, float InBefore );
     void DrawTools();
     void DrawLodButtons();
@@ -106,6 +110,9 @@ private:
     TerrainData::RawHeightmap m_rawImport, m_rawExport;
     int m_category = 0;
     TerrainData::SurfaceLayer m_layerDraft;
+    bool m_layerEditRequested = false;
+    uint64_t m_layerEditGeneration = 0;
+    Vector2 m_layerMapCenters[3], m_layerApplyCenter;
     unsigned m_layerIndex = 0;
     TerrainDocument* m_layerDocument = nullptr;
     int m_tiles[2] = { 2, 2 }, m_quads = 32;
