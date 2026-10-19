@@ -507,7 +507,9 @@ float4 fillMask(VS_OUTPUT input) {
   return float4(col.rgb * alpha, col.a * alpha);
 }
 
-float4 GetCol(in matrix m, uint i) { return float4(m[0][i], m[1][i], m[2][i], m[3][i]); }
+// GLSL matrices index by column (the HLSL original indexed rows of a transposed matrix), so a
+// clip matrix's column i is m[i], as in the SDK's GLSL fill shader.
+float4 GetCol(in matrix m, uint i) { return m[i]; }
 
 #define VISUALIZE_CLIP 0
 

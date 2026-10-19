@@ -431,6 +431,49 @@ TEST_CASE( "ShaderGraph: graphs round-trip through JSON" )
     CHECK( loaded.AddNode( "Float" ).Id > pannerId );
 }
 
+TEST_CASE( "ShaderGraph: post-process scene mipmaps survive export and reload" )
+{
+    Graph graph = Graph::CreateDefault( Target::PostProcess );
+    CHECK_FALSE( Compile( graph ).Manifest.contains( "SceneColorMips" ) );
+    graph.Settings.SceneColorMips = true;
+    graph.AddProperty( "Intensity", ValueType::Float );
+    graph.Settings.SceneColorMipThreshold = graph.AddProperty( "Threshold", ValueType::Float ).Id;
+    const uint32_t sample = graph.AddNode( "CustomFunction" ).Id;
+    graph.FindNode( sample )->Settings = {
+        { "Name", "FilteredScene" }, { "Inputs", json::array() },
+        { "Outputs", json::array( { { { "Name", "Color" }, { "Type", "Vec3" } } } ) },
+        { "Code", "#ifdef SHADER_GRAPH_PREVIEW_SH\nColor = sgSceneColor(vec2_splat(0.5));\n#else\nColor = texture2DLod(s_sgSceneColorMips, vec2_splat(0.5), 3.0).rgb;\n#endif" }
+    };
+    graph.Connect( sample, "Color", OutputOf( graph ).Id, "Color" );
+    json saved;
+    graph.Serialize( saved );
+    Graph loaded;
+    REQUIRE( loaded.Deserialize( saved ) );
+    REQUIRE( loaded.Settings.SceneColorMips );
+    CHECK( loaded.Settings.SceneColorMipThreshold == graph.Settings.SceneColorMipThreshold );
+    const CompileResult result = Compile( loaded );
+    REQUIRE( result.Success );
+    CHECK( result.Manifest.at( "SceneColorMips" ).get<bool>() );
+    CHECK( result.Manifest.at( "SceneColorMipThresholdSlot" ).get<int>() == 1 );
+    CHECK( CompileWithShaderc( result, "SceneColorMips" ).empty() );
+    CompileOptions preview;
+    preview.Preview = true;
+    CHECK( CompileWithShaderc( Compile( loaded, preview ), "SceneColorMipsPreview" ).empty() );
+    loaded.Settings.SceneColorMipThreshold = "missing-property";
+    CHECK_FALSE( Compile( loaded ).Success );
+    // Loading an older document into an existing graph must clear the opt-in.
+    saved["Settings"].erase( "SceneColorMips" );
+    saved["Settings"].erase( "SceneColorMipThreshold" );
+    REQUIRE( loaded.Deserialize( saved ) );
+    CHECK_FALSE( loaded.Settings.SceneColorMips );
+    CHECK( loaded.Settings.SceneColorMipThreshold.empty() );
+    loaded.RemoveNode( sample );
+    // The disabled feature exports neither a mip sampler nor a threshold binding.
+    const CompileResult disabled = Compile( loaded );
+    CHECK_FALSE( disabled.Manifest.contains( "SceneColorMips" ) );
+    CHECK_FALSE( disabled.Manifest.contains( "SceneColorMipThresholdSlot" ) );
+}
+
 namespace
 {
     // The varyings a shader declares on its $input / $output line, sorted.

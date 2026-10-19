@@ -74,7 +74,7 @@ namespace ImGuiTheme
     {
         ImVec4 Accent, Hovered, Pressed, AccentText;
         ImVec4 Text, Muted, Canvas, Window, Recessed, Header, Popup;
-        ImVec4 Control, ControlHovered, ControlPressed, Border, Highlight;
+        ImVec4 Control, ControlHovered, ControlPressed, Border, Separator, Highlight;
         // Status text: fixed hues, adjusted until readable on Window in either theme.
         ImVec4 Info, Success, Warning, Error;
     };
@@ -96,6 +96,8 @@ namespace ImGuiTheme
         p.ControlHovered = Gray( dark ? 0.27f : 0.95f );
         p.ControlPressed = Gray( dark ? 0.18f : 0.90f );
         p.Border = Gray( dark ? 0.059f : 0.72f );
+        // Dividers need their own contrast against panels and popups; chrome borders are too subtle.
+        p.Separator = Gray( dark ? 0.36f : 0.65f );
         p.Highlight = Gray( dark ? 0.30f : 0.80f );
 
         const ImVec4 chosen = SanitizeAccent( accent );
@@ -224,7 +226,7 @@ namespace ImGuiTheme
             p.Highlight,                                                // Header
             p.Hovered,                                                  // HeaderHovered
             p.Pressed,                                                  // HeaderActive
-            p.Border,                                                   // Separator
+            p.Separator,                                                // Separator
             p.Hovered,                                                  // SeparatorHovered
             p.Pressed,                                                  // SeparatorActive
             WithAlpha( p.Muted, 0.25f ),                                // ResizeGrip
@@ -288,7 +290,9 @@ namespace ImGuiTheme
         style.LogSliderDeadzone = px( 4 );
         style.DockingSeparatorSize = px( 6 );
         style.SeparatorTextBorderSize = 1.f;
-        style.SeparatorTextPadding = ImVec2( 0, px( 4 ) );
+        style.SeparatorTextAlign = ImVec2( 0.f, 0.5f );
+        // Leave a short leading rule as well as the trailing rule on every labeled divider.
+        style.SeparatorTextPadding = ImVec2( px( 20 ), px( 4 ) );
         style.DisplayWindowPadding = ImVec2( px( 19 ), px( 19 ) );
         style.DisplaySafeAreaPadding = ImVec2( px( 3 ), px( 3 ) );
         style.MouseCursorScale = 1.f;

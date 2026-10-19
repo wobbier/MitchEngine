@@ -3,14 +3,16 @@
 #include "ECS/ComponentDetail.h"
 #include "RenderCommands.h"
 
-// A light source. Directional lights use the entity's forward axis, or follow procedural sky bodies
-// through DirectionalSource (Automatic follows the sky for the primary light). The first visible
-// shadow caster uses cascaded shadows. Point lights radiate from the entity's position out to
+// A light source. Directional lights follow procedural sky bodies through DirectionalSource;
+// Automatic supplies sun and moon together. Without a procedural sky they use the entity's
+// forward axis. The first visible shadow caster uses cascaded shadows. Point lights radiate from
+// the entity's position out to
 // Range; spot lights are cones along forward with inner/outer angles. Bars emit along a capsule on
 // local X (for fluorescent tubes); boxes emit from a local cuboid; rectangles emit from a local XY
 // face into the forward (+Z) hemisphere. Extended emitters follow world
 // rotation/scale; Range measures the fade distance from their surface. Colours are sRGB, intensity
-// is an HDR multiplier. Extended lighting uses a closest-source approximation and has no shadows.
+// is an HDR multiplier. Extended lighting uses a closest-source approximation, softened near the
+// emitter by its projected area so it stays finite on its surface, and has no shadows.
 class Light
     : public Component<Light>
 {

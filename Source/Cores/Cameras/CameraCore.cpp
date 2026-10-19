@@ -34,6 +34,10 @@ void CameraCore::Update( const UpdateContext& inUpdateContext )
 void CameraCore::OnStart()
 {
     m_running = true;
+    for( Entity& entity : GetEntities() )
+    {
+        entity.GetComponent<Camera>().ResetSkyClock();
+    }
 }
 
 
@@ -42,6 +46,7 @@ void CameraCore::OnStop()
     m_running = false;
     for( Entity& entity : GetEntities() )
     {
+        entity.GetComponent<Camera>().ResetSkyClock();
         if( CameraSway* sway = entity.TryGetComponent<CameraSway>() )
         {
             sway->Reset();
@@ -115,7 +120,8 @@ void CameraCore::LateUpdate( const UpdateContext& inUpdateContext )
             CamData->Skybox = CameraComponent.Skybox;
             CamData->ClearColor = CameraComponent.ClearColor;
             CamData->ClearType = CameraComponent.ClearType;
-            CamData->ProceduralSky = CameraComponent.GetSkySettings( inUpdateContext.GetUnscaledDeltaTime() );
+            if( !m_running ) CameraComponent.ResetSkyClock();
+            CamData->ProceduralSky = CameraComponent.GetSkySettings( m_running ? inUpdateContext.GetDeltaTime() : 0.f );
             CamData->Projection = CameraComponent.Projection;
             CamData->OrthographicSize = CameraComponent.OrthographicSize;
             CamData->IsMain = CameraComponent.IsMain();

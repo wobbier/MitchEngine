@@ -250,6 +250,8 @@ void BGFXRenderer::Create( const RendererCreationSettings& settings )
         s_spotShadowMap = bgfx::createUniform( "s_spotShadowMap", bgfx::UniformType::Sampler );
         m_shadowProgram = Moonlight::ShaderCommand( "Assets/Shaders/ShadowDepth" );
         m_shadowSkinnedProgram = Moonlight::ShaderCommand( "Assets/Shaders/ShadowDepthSkinned", "Assets/Shaders/ShadowDepth" );
+        m_overdrawProgram = Moonlight::ShaderCommand( "Assets/Shaders/ShadowDepth", "Assets/Shaders/Overdraw" );
+        m_overdrawSkinnedProgram = Moonlight::ShaderCommand( "Assets/Shaders/ShadowDepthSkinned", "Assets/Shaders/Overdraw" );
         u_bones = bgfx::createUniform( "u_bones", bgfx::UniformType::Mat4, Moonlight::MeshData::kMaxBones );
         m_shadowsSupported = m_shadowProgram.IsLoaded();
         if( !m_shadowsSupported )
@@ -390,7 +392,7 @@ namespace
     // Post Process shader graphs injected at InInjection, in order: each reads the previous image
     // (InInput) and writes the next. The last writes InFinal when given (after tonemapping),
     // otherwise the passes ping-pong in the HDR targets and the last image is returned.
-    bgfx::TextureHandle RenderGraphPostPasses( Moonlight::ViewAllocator& InViews, const Moonlight::CameraData& InCamera, Moonlight::FrameBuffer& InTargets, const char* InInjection, bgfx::TextureHandle InInput, bgfx::FrameBufferHandle InFinal, uint16_t InFinalWidth, uint16_t InFinalHeight, uint16_t InFinalX = 0, uint16_t InFinalY = 0 )
+    bgfx::TextureHandle RenderGraphPostPasses( Moonlight::PostProcess& InPostProcess, Moonlight::ViewAllocator& InViews, const Moonlight::CameraData& InCamera, Moonlight::FrameBuffer& InTargets, const char* InInjection, bgfx::TextureHandle InInput, bgfx::FrameBufferHandle InFinal, uint16_t InFinalWidth, uint16_t InFinalHeight, uint16_t InFinalX = 0, uint16_t InFinalY = 0 )
     {
         std::vector<const Moonlight::ShaderGraphAsset*> passes;
         std::vector<const Moonlight::ShaderGraphBinding*> bindings;
@@ -423,6 +425,19 @@ namespace
         int write = hdr ? 0 : 1;
         for( size_t i = 0; i < passes.size(); ++i )
         {
+            bgfx::TextureHandle sceneMips = BGFX_INVALID_HANDLE;
+            if( passes[i]->GetManifest().value( "SceneColorMips", false ) )
+            {
+                float threshold = -1.f;
+                const int slot = passes[i]->GetManifest().value( "SceneColorMipThresholdSlot", -1 );
+                if( slot >= 0 && slot < Moonlight::ShaderGraphAsset::kMaxParameters )
+                {
+                    Vector4 defaults[Moonlight::ShaderGraphAsset::kMaxParameters];
+                    if( !bindings[i] ) passes[i]->PackParameters( {}, defaults );
+                    threshold = std::max( ( bindings[i] ? bindings[i]->Block[slot] : defaults[slot] ).x, 0.f );
+                }
+                sceneMips = InPostProcess.RenderGraphSceneMips( InViews, InTargets, input, threshold );
+            }
             const bool last = i + 1 == passes.size();
             const bgfx::ViewId view = InViews.Allocate( hdr ? "Shader Graph Post (HDR)" : "Shader Graph Post" );
             if( view == UINT16_MAX )
@@ -447,6 +462,12 @@ namespace
                 passes[i]->Bind( parameters, {} );
             }
             bgfx::setTexture( 6, GraphUniform( "s_sgSceneColor", bgfx::UniformType::Sampler ), input, BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP );
+            if( bgfx::isValid( sceneMips ) )
+            {
+                bgfx::setTexture( 8, GraphUniform( "s_sgSceneColorMips", bgfx::UniformType::Sampler ), sceneMips, BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP );
+                const float mipSize[4] = { static_cast<float>( InTargets.GraphSceneMips.Width ), static_cast<float>( InTargets.GraphSceneMips.Height ), 0.f, 0.f };
+                bgfx::setUniform( GraphUniform( "u_sgSceneColorMipSize", bgfx::UniformType::Vec4 ), mipSize );
+            }
             bgfx::setTexture( 7, GraphUniform( "s_sgSceneDepth", bgfx::UniformType::Sampler ), InTargets.DepthTexture, BGFX_SAMPLER_POINT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP );
             bgfx::setUniform( GraphUniform( "u_sgPostProjection", bgfx::UniformType::Vec4 ), projection1 );
             bgfx::setUniform( GraphUniform( "u_sgPostProjection2", bgfx::UniformType::Vec4 ), projection2 );
@@ -558,6 +579,8 @@ void BGFXRenderer::Destroy()
     DestroyShadowAtlas( m_spotShadowAtlas );
     m_shadowProgram = Moonlight::ShaderCommand();
     m_shadowSkinnedProgram = Moonlight::ShaderCommand();
+    m_overdrawProgram = Moonlight::ShaderCommand();
+    m_overdrawSkinnedProgram = Moonlight::ShaderCommand();
     if( bgfx::isValid( m_lightDataTexture ) )
     {
         bgfx::destroy( m_lightDataTexture );
@@ -653,6 +676,7 @@ void BGFXRenderer::Render( Moonlight::CameraData& EditorCamera, FrameRenderData&
     bgfx::setFrameUniform( s_time, &m_time.x );
 
     m_views.Reset();
+    m_viewTriangles.assign( bgfx::getCaps()->limits.maxViews, 0 );
     ++m_frameIndex;
     DebugDraw::CollectFrame( m_debugLines );
     PrepareFrameLighting();
@@ -758,7 +782,20 @@ void BGFXRenderer::GatherFrameStats()
     for( uint16_t i = 0; i < stats->numViews; ++i )
     {
         const bgfx::ViewStats& view = stats->viewStats[i];
-        out.Views.push_back( { view.name, double( view.cpuTimeEnd - view.cpuTimeBegin ) * 1000.0 / cpuFrequency, double( view.gpuTimeEnd - view.gpuTimeBegin ) * 1000.0 / gpuFrequency } );
+        const uint64_t triangles = view.view < m_viewTriangles.size() ? m_viewTriangles[view.view] : 0;
+        out.Views.push_back( { view.name, double( view.cpuTimeEnd - view.cpuTimeBegin ) * 1000.0 / cpuFrequency, double( view.gpuTimeEnd - view.gpuTimeBegin ) * 1000.0 / gpuFrequency, triangles } );
+    }
+    if( stats->numViews == 0 )
+    {
+        // No per-view timings from this backend/build: still report where the triangles went.
+        for( size_t id = 0; id < m_viewTriangles.size(); ++id )
+        {
+            if( m_viewTriangles[id] > 0 )
+            {
+                const std::string& name = m_views.GetName( static_cast<bgfx::ViewId>( id ) );
+                out.Views.push_back( { name.empty() ? "View " + std::to_string( id ) : name, 0.0, 0.0, m_viewTriangles[id] } );
+            }
+        }
     }
 }
 
@@ -810,7 +847,8 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     const bool sceneEffects = camera.Shading == Moonlight::ViewShadingMode::Lit;
     const bool wireframe = camera.Shading == Moonlight::ViewShadingMode::Wireframe;
     const bool depthView = camera.Shading == Moonlight::ViewShadingMode::Depth;
-    const bool background = options.Background && !wireframe && !depthView;
+    const bool overdraw = camera.Shading == Moonlight::ViewShadingMode::Overdraw && m_overdrawProgram.IsLoaded();
+    const bool background = options.Background && !wireframe && !depthView && !overdraw;
     if( !lit || !options.PostProcessing )
     {
         // Inspection modes need a neutral display transform, independent of scene settings.
@@ -822,7 +860,7 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
         camera.Post.VignetteIntensity = 0.f;
     }
     if( lit ) camera.Post.ExposureCompensation += options.Exposure;
-    camera.Post.Fog = camera.Post.Fog && options.Fog;
+    camera.Post.Fog = camera.Post.Fog && options.Fog && !overdraw;
     {
         const glm::mat4 viewProjection = camera.ProjectionMatrix.GetInternalMatrix() * camera.View.GetInternalMatrix();
         std::copy( &viewProjection[0][0], &viewProjection[0][0] + 16, targets.ViewProjection );
@@ -906,7 +944,7 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
 
     // Clear colours are authored in sRGB.
     auto toLinear = []( float c ) { return c <= 0.04045f ? c / 12.92f : std::pow( ( c + 0.055f ) / 1.055f, 2.4f ); };
-    const uint32_t color = depthView ? 0x000000ff : ( !background ? 0x050508ff : Moonlight::PackClearColor( toLinear( camera.ClearColor.x ), toLinear( camera.ClearColor.y ), toLinear( camera.ClearColor.z ) ) );
+    const uint32_t color = depthView || overdraw ? 0x000000ff : ( !background ? 0x050508ff : Moonlight::PackClearColor( toLinear( camera.ClearColor.x ), toLinear( camera.ClearColor.y ), toLinear( camera.ClearColor.z ) ) );
     bgfx::setViewClear( id, hasSkybox ? BGFX_CLEAR_NONE : BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, color, 1.0f, 0 );
 
     if( hasSkybox )
@@ -1015,6 +1053,12 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
                     continue;
                 }
 
+                if( overdraw )
+                {
+                    RenderOverdrawMesh( id, mesh );
+                    continue;
+                }
+
                 if( mesh.SkinBoneCount > 0 )
                 {
                     RenderSkinnedMesh( id, mesh, state );
@@ -1107,7 +1151,11 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
             for( auto index : TransparentIndicies )
             {
                 const Moonlight::MeshCommand& mesh = m_meshCache.Commands[index];
-                if( mesh.SkinBoneCount > 0 )
+                if( overdraw )
+                {
+                    RenderOverdrawMesh( transparentView, mesh );
+                }
+                else if( mesh.SkinBoneCount > 0 )
                 {
                     RenderSkinnedMesh( transparentView, mesh, transparentState );
                 }
@@ -1145,7 +1193,7 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     // graphs on the HDR scene (they replace the image bloom and tonemapping read) and on the display
     // image (the stock chain then renders into a ping-pong target, and the last graph writes target).
     m_postProcess->RenderTemporalAA( m_views, camera, *camera.Buffer );
-    camera.Buffer->PostInput = RenderGraphPostPasses( m_views, camera, *camera.Buffer, "BeforeTonemap", camera.Buffer->PostInput, BGFX_INVALID_HANDLE, 0, 0 );
+    camera.Buffer->PostInput = RenderGraphPostPasses( *m_postProcess, m_views, camera, *camera.Buffer, "BeforeTonemap", camera.Buffer->PostInput, BGFX_INVALID_HANDLE, 0, 0 );
     m_postProcess->DeltaSeconds = std::max( m_time.x, 0.0001f );
     const bool displayGraphs = std::any_of( camera.Post.Graphs.begin(), camera.Post.Graphs.end(), []( const SharedPtr<Moonlight::ShaderGraphAsset>& InGraph ) {
         return InGraph && InGraph->GetManifest().value( "Injection", std::string() ) == "AfterTonemap" && bgfx::isValid( InGraph->GetProgramHandle( "Forward" ) );
@@ -1155,7 +1203,7 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
         Moonlight::FrameBuffer& buffer = *camera.Buffer;
         buffer.EnsureGraphTargets( false, true );
         m_postProcess->Render( m_views, camera, buffer, buffer.GraphLdr[0].Buffer, buffer.GraphLdr[0].Width, buffer.GraphLdr[0].Height );
-        RenderGraphPostPasses( m_views, camera, buffer, "AfterTonemap", buffer.GraphLdr[0].Color, target, targetWidth, targetHeight, targetX, targetY );
+        RenderGraphPostPasses( *m_postProcess, m_views, camera, buffer, "AfterTonemap", buffer.GraphLdr[0].Color, target, targetWidth, targetHeight, targetX, targetY );
     }
     else
     {
@@ -1312,7 +1360,7 @@ void BGFXRenderer::PrepareFrameLighting()
                 light.Position.x, light.Position.y, light.Position.z, light.Range,
                 light.Color.x, light.Color.y, light.Color.z, static_cast<float>( light.Type ),
                 dir.x, dir.y, dir.z, light.CosOuter,
-                light.CosInner, light.Type == Moonlight::LightType::Bar ? light.HalfSize.y : 0.f, 0.f, 0.f,
+                light.CosInner, light.Type == Moonlight::LightType::Bar ? light.HalfSize.y : 0.f, light.GetNearFieldArea(), 0.f,
                 shadowSlot, texelScale, light.ShadowBias, light.ShadowNormalBias,
                 light.AxisX.x, light.AxisX.y, light.AxisX.z, light.HalfSize.x,
                 light.AxisY.x, light.AxisY.y, light.AxisY.z, light.HalfSize.y,
@@ -1347,13 +1395,13 @@ void BGFXRenderer::PrepareCameraLighting( Moonlight::CameraData& camera )
     // captures use it.
     if( m_dynamicSky )
     {
-        m_dynamicSky->ApplySettings( camera.ProceduralSky, camera, m_time.y );
+        m_dynamicSky->ApplySettings( camera.ProceduralSky, camera, camera.ProceduralSky.AnimationTime );
         if( camera.ClearType == Moonlight::ClearColorType::Procedural )
         {
             m_dynamicSky->Prepare( m_views, camera );
         }
     }
-    // A procedural sky drives the primary directional (or creates one). Explicit Sun/Moon
+    // A procedural sky drives every directional (or creates sun and moon lights). Explicit Sun/Moon
     // sources share this path, including CSM, fog, decals and particles. Solid/skybox cameras
     // retain authored directionals and the legacy sky fallback when no light exists.
     const bool useSky = m_dynamicSky && ( camera.ClearType == Moonlight::ClearColorType::Procedural || m_directionalLightCount == 0 );
@@ -1749,6 +1797,7 @@ void BGFXRenderer::SubmitShadowCasters( bgfx::ViewId view, uint32_t InViewIndex 
             }
             bgfx::setState( state );
             bgfx::submit( view, bgfx::isValid( custom ) ? custom : m_shadowProgram.GetProgram() );
+            CountTriangles( view, mesh, available );
             offset += available;
         }
     }
@@ -1783,6 +1832,7 @@ void BGFXRenderer::SubmitShadowCasters( bgfx::ViewId view, uint32_t InViewIndex 
         }
         bgfx::setState( state );
         bgfx::submit( view, program );
+        CountTriangles( view, mesh );
     }
 }
 
@@ -2165,6 +2215,7 @@ void BGFXRenderer::RenderSingleMesh( bgfx::ViewId id, const Moonlight::MeshComma
 
         // Submit primitive for rendering to view 0.
         bgfx::submit( id, program );
+        CountTriangles( id, mesh );
     }
     else
     {
@@ -2195,6 +2246,48 @@ void BGFXRenderer::RenderSkinnedMesh( bgfx::ViewId id, const Moonlight::MeshComm
     // Materials without a skinned program draw the bind pose.
     bgfx::setInstanceDataBuffer( &idb );
     bgfx::submit( id, program );
+    CountTriangles( id, mesh );
+}
+
+
+void BGFXRenderer::RenderOverdrawMesh( bgfx::ViewId id, const Moonlight::MeshCommand& mesh )
+{
+    constexpr uint16_t kInstanceStride = sizeof( glm::mat4 );
+    if( !mesh.SingleMesh || !bgfx::isValid( mesh.SingleMesh->GetVertexBuffer() ) || bgfx::getAvailInstanceDataBuffer( 1, kInstanceStride ) == 0 )
+    {
+        return;
+    }
+    const bool skinned = mesh.SkinBoneCount > 0 && bgfx::isValid( mesh.SingleMesh->GetSkinBuffer() ) && m_overdrawSkinnedProgram.IsLoaded();
+    bgfx::InstanceDataBuffer idb;
+    bgfx::allocInstanceDataBuffer( &idb, 1, kInstanceStride );
+    std::memcpy( idb.data, &mesh.Transform, kInstanceStride );
+
+    mesh.SingleMesh->BindVertexBuffer( mesh.PosedVertices );
+    if( skinned )
+    {
+        bgfx::setVertexBuffer( 1, mesh.SingleMesh->GetSkinBuffer() );
+        bgfx::setUniform( u_bones, mesh.SkinPalette, mesh.SkinBoneCount );
+    }
+    bgfx::setIndexBuffer( mesh.SingleMesh->GetIndexBuffer( mesh.Lod ) );
+    bgfx::setInstanceDataBuffer( &idb );
+    const float alpha[4] = { mesh.AlphaCutoff, mesh.MeshMaterial->Tiling.x, mesh.MeshMaterial->Tiling.y, 0.f };
+    BindStockShadowCaster( mesh, alpha );
+
+    // Every layer counts, hidden or not: no depth test or write, additive colour.
+    uint64_t state = BGFX_STATE_WRITE_RGB | BGFX_STATE_BLEND_ADD | BGFX_STATE_MSAA;
+    if( m_lighting.BackfaceCulling ) state |= mesh.MeshMaterial->GetRenderState( 0 ) & BGFX_STATE_CULL_MASK;
+    bgfx::setState( state );
+    bgfx::submit( id, skinned ? m_overdrawSkinnedProgram.GetProgram() : m_overdrawProgram.GetProgram() );
+    CountTriangles( id, mesh );
+}
+
+
+void BGFXRenderer::CountTriangles( bgfx::ViewId id, const Moonlight::MeshCommand& mesh, uint32_t instances )
+{
+    if( id < m_viewTriangles.size() && mesh.SingleMesh )
+    {
+        m_viewTriangles[id] += uint64_t( mesh.SingleMesh->GetIndexCount( mesh.Lod ) / 3 ) * instances;
+    }
 }
 
 
@@ -2225,6 +2318,7 @@ void BGFXRenderer::RenderMeshInstanced( bgfx::ViewId id, const Moonlight::MeshCo
         bgfx::setInstanceDataBuffer( &idb );
 
         bgfx::submit( id, program );
+        CountTriangles( id, representative, available );
 
         offset += available;
         remaining -= available;

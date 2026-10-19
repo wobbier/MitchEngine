@@ -476,4 +476,13 @@ void Havana::Save()
     }
 }
 
+void Havana::Destroy()
+{
+    ShaderGraphs->Destroy();
+    for( const auto& widget : RegisteredWidgets )
+    {
+        widget->Destroy();
+    }
+}
+
 #endif

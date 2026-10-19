@@ -1,6 +1,8 @@
 #pragma once
 #include <bgfx/bgfx.h>
 #include <cstdint>
+#include <string>
+#include <vector>
 
 // Every bgfx view ID the engine uses, in one place.
 //
@@ -39,6 +41,9 @@ namespace Moonlight::RenderView
     // Editor offscreen work submitted from the UI (shader graph node previews), sampled by ImGui.
     constexpr bgfx::ViewId EditorOffscreenFirst = UIComposite + 1;
     constexpr bgfx::ViewId EditorOffscreenCount = 16;
+    // The browser inspector has its own preview, including while graph documents are open.
+    constexpr bgfx::ViewId AssetPreviewTiles = EditorOffscreenFirst + EditorOffscreenCount - 2;
+    constexpr bgfx::ViewId AssetPreviewMain = AssetPreviewTiles + 1;
 
     // Stable IDs for detached ImGui windows; the main ImGui pass is last.
     constexpr bgfx::ViewId ImGuiPlatformFirst = EditorOffscreenFirst + EditorOffscreenCount;
@@ -61,9 +66,12 @@ namespace Moonlight
 
         uint32_t GetUsedCount() const { return m_next - RenderView::DynamicFirst; }
         bool IsExhausted() const { return m_exhausted; }
+        // This frame's name for a dynamic view (empty for fixed or unused ids).
+        const std::string& GetName( bgfx::ViewId InId ) const;
 
     private:
         uint32_t m_next = RenderView::DynamicFirst;
         bool m_exhausted = false;
+        std::vector<std::string> m_names;
     };
 }

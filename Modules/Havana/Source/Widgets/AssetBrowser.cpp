@@ -27,11 +27,15 @@
 #include "Events/EditorEvents.h"
 #include "optick.h"
 #include "ShaderGraph/Graph.h"
+#include "ShaderGraph/Compiler.h"
+#include "ShaderGraph/ShaderGraphPreview.h"
+#include <RenderViews.h>
 #include <Utils/CommonUtils.h>
 #include <Utils/EditorConfig.h>
 #include <CLog.h>
 #include "Utils/PlatformUtils.h"
 #include <ImGuiTheme.h>
+#include <Utils/HavanaUtils.h>
 #include "Utils/ImGuiUtils.h"
 #include <algorithm>
 #include <cctype>
@@ -266,6 +270,7 @@ void AssetBrowserWidget::Init()
             m_thumbnails.erase( ToGeneric( fs::path( path ) ) );
         }
         Refresh();
+        m_graphPreviewDirty = true;
     } );
 
     EditorConfig& config = EditorConfig::GetInstance();
@@ -275,6 +280,8 @@ void AssetBrowserWidget::Init()
         m_currentFolder = AbsoluteFolder( "Assets" );
     }
     m_showDetails = config.GetPreference<bool>( "AssetBrowser.Details", false );
+    m_folderView = config.GetPreference<bool>( "AssetBrowser.FolderView", false );
+    m_detailsWidth = config.GetPreference<float>( "AssetBrowser.DetailsWidth", 350.f );
     Navigate( m_currentFolder );
 }
 
@@ -285,6 +292,7 @@ void AssetBrowserWidget::Destroy()
     m_thumbnailOrder.clear();
     Icons.clear();
     TryDestroyMetaFile();
+    m_graphPreview.reset();
 }
 
 
@@ -322,6 +330,7 @@ void AssetBrowserWidget::ShowAsset( const std::string& InAsset )
     ShowFolder( fs::path( full ).parent_path().string() );
     m_selection = { full };
     m_selectionAnchor = full;
+    m_revealSelection = true;
     m_showDetails = true;
     SelectForDetails( full );
 }
@@ -361,6 +370,13 @@ void AssetBrowserWidget::Refresh()
 
 bool AssetBrowserWidget::PassesFilters( const Entry& InEntry ) const
 {
+    if( !m_folderView )
+    {
+        if( InEntry.IsDirectory ) return false;
+        const bool typeMatches = m_forcedType != AssetType::Unknown
+            ? InEntry.Type == m_forcedType : m_projectTypes.empty() || m_projectTypes.count( InEntry.Type ) != 0;
+        return typeMatches && m_projectFilter.PassFilter( RelativeToProject( InEntry.FullPath ).c_str() );
+    }
     const AssetType filter = m_forcedType != AssetType::Unknown ? m_forcedType : m_typeFilter;
     if( !InEntry.IsDirectory && filter != AssetType::Unknown && InEntry.Type != filter )
     {
@@ -409,7 +425,26 @@ void AssetBrowserWidget::RebuildEntries()
         }
     };
 
-    if( m_search[0] != '\0' )
+    if( !m_folderView )
+    {
+        // The original browser searches all project and engine assets, without navigating folders.
+        for( const char* rootName : { "Assets", "Engine/Assets" } )
+        {
+            for( fs::recursive_directory_iterator it( AbsoluteFolder( rootName ), fs::directory_options::skip_permission_denied, error ), end; it != end; it.increment( error ) )
+            {
+                const std::string name = it->path().filename().string();
+                if( it->is_directory( error ) )
+                {
+                    if( IsHiddenFile( name ) || EndsWith( name, ".sg" ) ) it.disable_recursion_pending();
+                }
+                else
+                {
+                    addEntry( *it );
+                }
+            }
+        }
+    }
+    else if( m_search[0] != '\0' )
     {
         // Search covers the current folder recursively; folders themselves aren't listed.
         for( fs::recursive_directory_iterator it( root, fs::directory_options::skip_permission_denied, error ), end; it != end; it.increment( error ) )
@@ -436,6 +471,7 @@ void AssetBrowserWidget::RebuildEntries()
         return ToLower( a.Name ) < ToLower( b.Name );
     } );
     m_entriesDirty = false;
+    m_sortDirty = true;
 
     // Drop selections that no longer exist.
     for( auto it = m_selection.begin(); it != m_selection.end(); )
@@ -573,28 +609,50 @@ void AssetBrowserWidget::Render()
         const std::string what = m_forcedType != AssetType::Unknown ? AssetTypeToString( m_forcedType ) : std::string( "asset" );
         ImGui::TextColored( ImGuiTheme::SuccessText(), m_isSaveDialog ? "Save %s: pick a folder and a name" : "Select a %s (double-click)", what.c_str() );
     }
-    DrawToolbar();
+    if( m_folderView ) DrawToolbar();
+    else DrawProjectToolbar();
 
     const float footer = picking ? ImGui::GetFrameHeightWithSpacing() + ImGui::GetStyle().ItemSpacing.y : 0.f;
     const float height = std::max( ImGui::GetContentRegionAvail().y - footer, ImGui::GetFrameHeightWithSpacing() * 2.f );
-    const float treeWidth = ImGuiTheme::Em( 10.f );
-    const float detailsWidth = m_showDetails ? ImGuiTheme::Em( 14.5f ) : 0.f;
-
-    ImGui::BeginChild( "##AssetTree", ImVec2( treeWidth, height ), true );
-    DrawFolderTree( AbsoluteFolder( "Assets" ), "Assets" );
-    if( fs::is_directory( AbsoluteFolder( "Engine/Assets" ) ) )
+    if( m_folderView )
     {
-        DrawFolderTree( AbsoluteFolder( "Engine/Assets" ), "Engine Assets" );
+        ImGui::BeginChild( "##AssetTree", ImVec2( ImGuiTheme::Em( 10.f ), height ), true );
+        DrawFolderTree( AbsoluteFolder( "Assets" ), "Assets" );
+        if( fs::is_directory( AbsoluteFolder( "Engine/Assets" ) ) )
+        {
+            DrawFolderTree( AbsoluteFolder( "Engine/Assets" ), "Engine Assets" );
+        }
+        ImGui::EndChild();
+        ImGui::SameLine();
     }
-    ImGui::EndChild();
 
-    ImGui::SameLine();
-    ImGui::BeginChild( "##AssetContents", ImVec2( m_showDetails ? ImGui::GetContentRegionAvail().x - detailsWidth - ImGui::GetStyle().ItemSpacing.x : 0.f, height ), true );
-    DrawContents();
+    const float spacing = ImGui::GetStyle().ItemSpacing.x;
+    const float splitterWidth = ImGuiTheme::Em( 0.35f );
+    const float available = ImGui::GetContentRegionAvail().x;
+    const float splitSpace = std::max( 2.f, available - splitterWidth - spacing * 2.f );
+    const float minPane = std::min( ImGuiTheme::Em( 10.f ), splitSpace * 0.35f );
+    m_detailsWidth = std::clamp( m_detailsWidth, minPane, splitSpace - minPane );
+    ImGui::BeginChild( "##AssetContents", ImVec2( m_showDetails ? splitSpace - m_detailsWidth : 0.f, height ), true );
+    if( !m_folderView )
+    {
+        DrawProjectFilters();
+        ImGui::BeginChild( "##ProjectAssetTable", ImVec2( 0.f, 0.f ), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse );
+        DrawContents();
+        ImGui::EndChild();
+    }
+    else DrawContents();
     ImGui::EndChild();
 
     if( m_showDetails )
     {
+        ImGui::SameLine();
+        ImGui::InvisibleButton( "##AssetDetailsSplitter", ImVec2( splitterWidth, height ) );
+        if( ImGui::IsItemHovered() || ImGui::IsItemActive() ) ImGui::SetMouseCursor( ImGuiMouseCursor_ResizeEW );
+        if( ImGui::IsItemActive() )
+        {
+            m_detailsWidth = std::clamp( m_detailsWidth - ImGui::GetIO().MouseDelta.x, minPane, splitSpace - minPane );
+            EditorConfig::GetInstance().SetPreference( "AssetBrowser.DetailsWidth", m_detailsWidth );
+        }
         ImGui::SameLine();
         ImGui::BeginChild( "##AssetDetails", ImVec2( 0.f, height ), true );
         DrawDetails();
@@ -610,8 +668,100 @@ void AssetBrowserWidget::Render()
 }
 
 
+void AssetBrowserWidget::DrawProjectToolbar()
+{
+    if( m_compiledAssets.empty() )
+    {
+        if( ImGui::Button( "Build Assets" ) ) BuildAssets();
+    }
+    else if( ImGui::Button( "Clear Assets" ) ) ClearAssets();
+    ImGui::SameLine();
+    if( ImGui::Button( "Refresh" ) )
+    {
+        Refresh();
+        m_graphPreviewDirty = true;
+        m_thumbnails.clear();
+        m_thumbnailOrder.clear();
+    }
+    ImGui::SameLine();
+    if( ImGui::Button( "+ Create" ) ) ImGui::OpenPopup( "CreateAssetMenu" );
+    if( ImGui::BeginPopup( "CreateAssetMenu" ) )
+    {
+        DrawCreateMenuItems();
+        ImGui::EndPopup();
+    }
+    ImGui::SameLine();
+    if( ImGui::Button( "Folder View" ) )
+    {
+        m_folderView = true;
+        m_entriesDirty = true;
+        EditorConfig::GetInstance().SetPreference( "AssetBrowser.FolderView", true );
+    }
+}
+
+
+void AssetBrowserWidget::ToggleDetails()
+{
+    m_showDetails = !m_showDetails;
+    EditorConfig::GetInstance().SetPreference( "AssetBrowser.Details", m_showDetails );
+    const std::string selected = m_detailsPath;
+    TryDestroyMetaFile();
+    if( !selected.empty() ) SelectForDetails( selected );
+}
+
+
+void AssetBrowserWidget::DrawProjectFilters()
+{
+    const char* label = m_showDetails ? "Details >" : "< Details";
+    const float searchWidth = std::max( 1.f, ImGui::GetContentRegionAvail().x - ImGuiTheme::ButtonWidth( label ) - ImGui::GetStyle().ItemSpacing.x );
+    ImGui::SetNextItemWidth( searchWidth );
+    if( ImGui::InputTextWithHint( "##AssetFilter", "Search assets by name or path", m_projectFilter.InputBuf, IM_ARRAYSIZE( m_projectFilter.InputBuf ) ) )
+    {
+        m_projectFilter.Build();
+        m_entriesDirty = true;
+    }
+    ImGui::SetItemTooltip( "Search asset names and paths. Separate terms with commas; prefix exclusions with -." );
+    ImGui::SameLine();
+    if( ImGui::Button( label ) ) ToggleDetails();
+
+    const bool forced = m_forcedType != AssetType::Unknown;
+    if( ImGui::CollapsingHeader( forced ? "Forced Asset Type Filter Active" : "Filters" ) )
+    {
+        const float maxHeight = std::max( ImGui::GetFrameHeight(), ImGui::GetContentRegionAvail().y * 0.5f );
+        m_filterHeight = std::clamp( m_filterHeight, ImGui::GetFrameHeight(), maxHeight );
+        ImGui::BeginChild( "##AssetTypeFilters", ImVec2( 0.f, m_filterHeight ), true );
+        ImGui::BeginDisabled( forced );
+        for( unsigned int i = 1; i < static_cast<unsigned int>( AssetType::Count ); ++i )
+        {
+            const AssetType type = static_cast<AssetType>( i );
+            bool selected = forced ? m_forcedType == type : m_projectTypes.count( type ) != 0;
+            if( ImGui::Checkbox( AssetTypeToString( type ).c_str(), &selected ) )
+            {
+                if( selected ) m_projectTypes.insert( type );
+                else m_projectTypes.erase( type );
+                m_entriesDirty = true;
+            }
+        }
+        ImGui::EndDisabled();
+        ImGui::EndChild();
+        ImGui::InvisibleButton( "##AssetFiltersSplitter", ImVec2( ImGui::GetContentRegionAvail().x, ImGuiTheme::Em( 0.35f ) ) );
+        if( ImGui::IsItemHovered() || ImGui::IsItemActive() ) ImGui::SetMouseCursor( ImGuiMouseCursor_ResizeNS );
+        if( ImGui::IsItemActive() ) m_filterHeight = std::clamp( m_filterHeight + ImGui::GetIO().MouseDelta.y, ImGui::GetFrameHeight(), maxHeight );
+    }
+}
+
+
 void AssetBrowserWidget::DrawToolbar()
 {
+    // Keep the folder-browser UX and navigation code for a separate follow-up pass.
+    // The project-wide asset table remains the default; Folder View is an explicit option.
+    if( ImGui::Button( "Project Table" ) )
+    {
+        m_folderView = false;
+        m_entriesDirty = true;
+        EditorConfig::GetInstance().SetPreference( "AssetBrowser.FolderView", false );
+    }
+    ImGui::SameLine();
     ImGui::BeginDisabled( m_historyIndex <= 0 );
     if( ImGui::ArrowButton( "##Back", ImGuiDir_Left ) )
     {
@@ -748,8 +898,7 @@ void AssetBrowserWidget::DrawToolbar()
     ImGui::SameLine();
     if( ImGui::Button( detailsLabel ) )
     {
-        m_showDetails = !m_showDetails;
-        config.SetPreference( "AssetBrowser.Details", m_showDetails );
+        ToggleDetails();
     }
 }
 
@@ -821,7 +970,11 @@ bool AssetBrowserWidget::AcceptDropInto( const std::string& InFolder )
 void AssetBrowserWidget::DrawContents()
 {
     // The empty area accepts entity drops (prefab creation) into the current folder.
-    if( EditorConfig::GetInstance().GetPreference<bool>( "AssetBrowser.ListView", false ) )
+    if( !m_folderView )
+    {
+        DrawProjectList();
+    }
+    else if( EditorConfig::GetInstance().GetPreference<bool>( "AssetBrowser.ListView", false ) )
     {
         DrawList();
     }
@@ -982,6 +1135,96 @@ void AssetBrowserWidget::DrawGrid()
 }
 
 
+void AssetBrowserWidget::DrawProjectList()
+{
+    const ImGuiTableFlags flags = ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable
+        | ImGuiTableFlags_Sortable | ImGuiTableFlags_SortMulti | ImGuiTableFlags_RowBg
+        | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY;
+    if( !ImGui::BeginTable( "##ProjectAssets", 4, flags ) ) return;
+    const float iconSize = ImGui::GetTextLineHeight();
+    ImGui::TableSetupColumn( "##Icon", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoResize | ImGuiTableColumnFlags_NoHide, iconSize, 0 );
+    ImGui::TableSetupColumn( "Name", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed, ImGuiTheme::Em( 14.f ), 1 );
+    ImGui::TableSetupColumn( "Local Path", ImGuiTableColumnFlags_WidthStretch, 0.f, 2 );
+    ImGui::TableSetupColumn( "Last Modified", ImGuiTableColumnFlags_WidthFixed, ImGuiTheme::Em( 11.f ), 3 );
+    ImGui::TableSetupScrollFreeze( 1, 1 );
+    if( ImGuiTableSortSpecs* sort = ImGui::TableGetSortSpecs(); sort && ( sort->SpecsDirty || m_sortDirty ) )
+    {
+        std::sort( m_entries.begin(), m_entries.end(), [sort]( const Entry& a, const Entry& b ) {
+            for( int i = 0; i < sort->SpecsCount; ++i )
+            {
+                const ImGuiTableColumnSortSpecs& spec = sort->Specs[i];
+                int order = 0;
+                switch( spec.ColumnUserID )
+                {
+                case 0: order = static_cast<int>( a.Type ) - static_cast<int>( b.Type ); break;
+                case 1: order = ToLower( a.Name ).compare( ToLower( b.Name ) ); break;
+                case 2: order = ToLower( a.FullPath ).compare( ToLower( b.FullPath ) ); break;
+                case 3: order = a.Modified < b.Modified ? -1 : a.Modified > b.Modified ? 1 : 0; break;
+                }
+                if( order != 0 ) return spec.SortDirection == ImGuiSortDirection_Descending ? order > 0 : order < 0;
+            }
+            return a.FullPath < b.FullPath;
+        } );
+        sort->SpecsDirty = false;
+        m_sortDirty = false;
+    }
+    ImGui::TableHeadersRow();
+    ImGuiListClipper clipper;
+    clipper.Begin( static_cast<int>( m_entries.size() ), iconSize + ImGui::GetStyle().CellPadding.y * 2.f );
+    if( m_revealSelection )
+    {
+        auto selected = std::find_if( m_entries.begin(), m_entries.end(), [this]( const Entry& entry ) { return entry.FullPath == m_selectionAnchor; } );
+        if( selected != m_entries.end() ) clipper.IncludeItemByIndex( static_cast<int>( selected - m_entries.begin() ) );
+        else m_revealSelection = false;
+    }
+    while( clipper.Step() )
+    {
+        for( int index = clipper.DisplayStart; index < clipper.DisplayEnd; ++index )
+        {
+            Entry& entry = m_entries[index];
+            ImGui::PushID( entry.FullPath.c_str() );
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex( 0 );
+            const ImVec2 position = ImGui::GetCursorScreenPos();
+            ImGui::Selectable( "##Entry", m_selection.count( entry.FullPath ) > 0,
+                ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap | ImGuiSelectableFlags_AllowDoubleClick, ImVec2( 0.f, iconSize ) );
+            HandleEntryInteraction( entry, index );
+            if( ImGui::IsItemHovered() ) ImGui::SetTooltip( "%s", RelativeToProject( entry.FullPath ).c_str() );
+            if( SharedPtr<Moonlight::Texture> icon = GetIcon( entry ); icon && bgfx::isValid( icon->TexHandle ) )
+            {
+                ImGui::GetWindowDrawList()->AddImage( ImGui::toId( icon->TexHandle, IMGUI_FLAGS_ALPHA_BLEND, 0 ), position,
+                    ImVec2( position.x + iconSize, position.y + iconSize ), ImVec2( 0, 0 ), ImVec2( 1, 1 ), ImGui::GetColorU32( ImGuiCol_Text ) );
+            }
+            ImGui::TableSetColumnIndex( 1 );
+            if( m_renamingPath == entry.FullPath )
+            {
+                if( m_focusRename )
+                {
+                    ImGui::SetKeyboardFocusHere();
+                    m_focusRename = false;
+                }
+                ImGui::SetNextItemWidth( -1.f );
+                const bool commit = ImGui::InputText( "##rename", m_renameBuffer, sizeof( m_renameBuffer ), ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll );
+                if( ImGui::IsKeyPressed( ImGuiKey_Escape ) ) m_renamingPath.clear();
+                else if( commit || ImGui::IsItemDeactivated() ) CommitRename();
+            }
+            else ImGui::TextUnformatted( entry.Name.c_str() );
+            ImGui::TableSetColumnIndex( 2 );
+            ImGui::TextUnformatted( RelativeToProject( entry.FullPath ).c_str() );
+            ImGui::TableSetColumnIndex( 3 );
+            ImGui::TextDisabled( "%s", FormatModified( entry.Modified ).c_str() );
+            if( m_revealSelection && entry.FullPath == m_selectionAnchor )
+            {
+                ImGui::SetScrollHereY( 0.5f );
+                m_revealSelection = false;
+            }
+            ImGui::PopID();
+        }
+    }
+    ImGui::EndTable();
+}
+
+
 void AssetBrowserWidget::DrawList()
 {
     const ImGuiTableFlags flags = ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY | ImGuiTableFlags_BordersInnerV;
@@ -1096,7 +1339,8 @@ void AssetBrowserWidget::HandleEntryInteraction( Entry& InEntry, int InIndex )
             SelectForDetails( InEntry.FullPath );
             if( m_isSaveDialog )
             {
-                std::snprintf( m_saveName, sizeof( m_saveName ), "%s", fs::path( InEntry.Name ).stem().string().c_str() );
+                const std::string name = m_folderView ? fs::path( InEntry.Name ).stem().string() : RelativeToProject( InEntry.FullPath );
+                std::snprintf( m_saveName, sizeof( m_saveName ), "%s", name.c_str() );
             }
         }
     }
@@ -1179,7 +1423,8 @@ void AssetBrowserWidget::OpenEntry( Entry& InEntry )
     }
     if( m_isSaveDialog )
     {
-        std::snprintf( m_saveName, sizeof( m_saveName ), "%s", fs::path( InEntry.Name ).stem().string().c_str() );
+        const std::string name = m_folderView ? fs::path( InEntry.Name ).stem().string() : RelativeToProject( InEntry.FullPath );
+        std::snprintf( m_saveName, sizeof( m_saveName ), "%s", name.c_str() );
         return;
     }
     if( InEntry.Type == AssetType::Terrain )
@@ -1396,6 +1641,11 @@ void AssetBrowserWidget::DrawDetails()
     }
     ImGui::Separator();
 
+    if( GetAssetType( m_detailsPath ) == AssetType::ShaderGraph )
+    {
+        DrawShaderGraphDetails();
+    }
+
     if( m_focusedResource )
     {
         if( SharedPtr<Moonlight::Texture> texture = std::dynamic_pointer_cast<Moonlight::Texture>( m_focusedResource ) )
@@ -1444,9 +1694,81 @@ void AssetBrowserWidget::DrawDetails()
 }
 
 
+void AssetBrowserWidget::DrawShaderGraphDetails()
+{
+    if( m_graphPreviewDirty )
+    {
+        m_graphPreviewDirty = false;
+        m_graphPreviewError.clear();
+        m_previewGraph = std::make_unique<ShaderGraph::Graph>();
+        if( m_previewGraph->Load( m_detailsPath, &m_graphPreviewError ) )
+        {
+            ShaderGraph::CompileOptions options;
+            options.GraphPath = RelativeToProject( m_detailsPath );
+            options.Preview = true;
+            const ShaderGraph::CompileResult result = ShaderGraph::Compile( *m_previewGraph, options );
+            if( result.Success )
+            {
+                // A separate work directory also avoids races with the graph editor's shaderc job.
+                if( !m_graphPreview ) m_graphPreview = std::make_unique<ShaderGraphPreview>( "AssetBrowser" );
+                m_graphPreview->Update( result, *m_previewGraph );
+            }
+            else m_graphPreviewError = result.FormatDiagnostics( *m_previewGraph );
+        }
+    }
+
+    ImGui::SeparatorText( "Preview" );
+    if( !m_graphPreviewError.empty() )
+    {
+        ImGui::TextWrapped( "%s", m_graphPreviewError.c_str() );
+    }
+    else if( m_graphPreview )
+    {
+        m_graphPreview->Render( Moonlight::RenderView::AssetPreviewTiles, Moonlight::RenderView::AssetPreviewMain );
+        ImVec2 uv0, uv1;
+        if( m_graphPreview->IsCompiling() ) ImGui::TextDisabled( "Compiling preview..." );
+        else if( !m_graphPreview->GetShaderErrors().empty() )
+        {
+            for( const ShaderGraph::Diagnostic& diagnostic : m_graphPreview->GetShaderErrors() )
+                ImGui::TextWrapped( "%s", diagnostic.Message.c_str() );
+        }
+        else if( m_graphPreview->GetMain( uv0, uv1 ) )
+        {
+            const float size = std::min( ImGui::GetContentRegionAvail().x, ImGuiTheme::Em( 21.f ) );
+            ImGui::SetCursorPosX( ImGui::GetCursorPosX() + ( ImGui::GetContentRegionAvail().x - size ) * 0.5f );
+            ImGui::Image( m_graphPreview->GetMainTexture(), ImVec2( size, size ), uv0, uv1 );
+        }
+    }
+    if( ImGui::Button( "Open Shader Graph", ImVec2( -1.f, 0.f ) ) )
+    {
+        OpenShaderGraphEvent event;
+        event.GraphPath = RelativeToProject( m_detailsPath );
+        event.Fire();
+    }
+    if( m_previewGraph && m_graphPreviewError.empty() )
+    {
+        // These are graph authoring settings, edited in the graph document, rather than a
+        // second importer. Registered metadata/import controls are drawn by DrawDetails below.
+        ImGui::SeparatorText( "Graph Settings" );
+        const auto& settings = m_previewGraph->Settings;
+        HavanaUtils::Label( "Target" );
+        ImGui::TextUnformatted( ShaderGraph::GetTargetName( settings.GraphTarget ) );
+        if( settings.GraphTarget == ShaderGraph::Target::Lit || settings.GraphTarget == ShaderGraph::Target::Unlit )
+        {
+            HavanaUtils::Label( "Surface" );
+            ImGui::TextUnformatted( settings.Surface == ShaderGraph::SurfaceType::Opaque ? "Opaque" : "Transparent" );
+            HavanaUtils::Label( "Alpha Clip" );
+            ImGui::TextUnformatted( settings.AlphaClip ? "On" : "Off" );
+            HavanaUtils::Label( "Cast Shadows" );
+            ImGui::TextUnformatted( settings.CastShadows ? "On" : "Off" );
+        }
+    }
+}
+
+
 void AssetBrowserWidget::SelectForDetails( const std::string& InPath )
 {
-    if( m_detailsPath == InPath )
+    if( m_detailsPath == InPath && ( !m_showDetails || m_metafile || m_focusedResource || m_previewGraph ) )
     {
         return;
     }
@@ -1485,6 +1807,9 @@ void AssetBrowserWidget::TryDestroyMetaFile()
     m_shouldDeleteMetaFile = false;
     m_focusedResource = nullptr;
     m_detailsPath.clear();
+    m_previewGraph.reset();
+    m_graphPreviewDirty = true;
+    m_graphPreviewError.clear();
 }
 
 
@@ -1509,7 +1834,9 @@ void AssetBrowserWidget::DrawPickerFooter()
             std::function<void( Path )> callback = m_pickCallback;
             IsOpen = false;
             m_pickCallback = nullptr;
-            callback( Path( m_currentFolder + "/" + name, true ) );
+            const bool projectPath = name.rfind( "Assets/", 0 ) == 0 || name.rfind( "Engine/Assets/", 0 ) == 0;
+            const std::string destination = fs::path( name ).is_absolute() ? name : projectPath ? AbsoluteFolder( name ) : m_currentFolder + "/" + name;
+            callback( Path( destination, true ) );
             Refresh();
         }
         ImGui::EndDisabled();

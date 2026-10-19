@@ -1,0 +1,42 @@
+# Sky time advances only during Play, respects Pause, and restores authored time after Stop.
+# Havana --scene Assets/Scenes/Tests/ShaderGraphTest.lvl --editor-exec Engine/Tests/Editor/SkyClock.edscript
+wait 10
+select Camera
+set Camera.ClearType "Procedural"
+set Camera.ProceduralSky.Time 17.2
+set Camera.ProceduralSky.TimeScale 0.5
+set Camera.ProceduralSky.CloudCoverage 0
+wait 20
+assert-playing 0
+assert-sky-time Camera | 17.2
+assert-sky-time @scene-view | 17.2
+assert-sky-animation-time @scene-view | 0
+play
+wait 10
+assert-sky-time Camera | != 17.2
+assert-sky-time @scene-view | != 17.2
+assert-sky-animation-time @scene-view | != 0
+assert-field Camera | Camera.ProceduralSky.Time | 17.2
+action Play.Pause
+select Camera
+set Camera.ProceduralSky.Time 8
+wait 20
+assert-sky-time Camera | 8
+action Play.Pause
+wait 10
+assert-sky-time Camera | != 8
+stop
+wait 20
+assert-playing 0
+assert-sky-time Camera | 17.2
+assert-sky-time @scene-view | 17.2
+assert-sky-animation-time @scene-view | 0
+# Repeat without changing the authored time: a cached clock must not resume the last run.
+play
+wait 20
+assert-sky-time @scene-view | != 17.2
+stop
+assert-sky-time Camera | 17.2
+assert-sky-time @scene-view | 17.2
+assert-sky-animation-time @scene-view | 0
+assert-sky-animation-time @editor-camera | 0

@@ -76,6 +76,7 @@ private:
         std::vector<std::pair<int, bgfx::TextureHandle>> Fallbacks;
         std::map<uint32_t, uint8_t> Modes;
         bool Animated = false;
+        bool Particle = false;
     };
     struct JobResult
     {
@@ -109,6 +110,7 @@ private:
     bgfx::UniformHandle u_select = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle u_params = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle s_textures[ShaderGraph::kMaxTextures];
+    bgfx::UniformHandle s_particle = BGFX_INVALID_HANDLE;
     bgfx::VertexLayout m_layout;
 
     // Tile per node, stable while the node exists.

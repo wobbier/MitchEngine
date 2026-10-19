@@ -97,6 +97,19 @@ vec4 fogClampOpacity(vec4 _fog)
 	return vec4(_fog.rgb * (capped / max(opacity, 1e-5)), 1.0 - capped);
 }
 
+#ifdef __LIGHTING_SH__
+vec3 fogDirectionalRadiance(vec3 _dir, vec3 _position)
+{
+	vec3 radiance = vec3_splat(0.0);
+	for (int i = 0; i < MAX_DIRECTIONAL_LIGHTS; ++i)
+	{
+		if (float(i) >= u_lightParams.x) break;
+		radiance += directionalRadiance(i, _position) * henyeyGreenstein(dot(_dir, -u_dirLightDirection[i].xyz), u_fogVolume.y) * u_fogVolume.x;
+	}
+	return radiance;
+}
+#endif
+
 // Fog between the camera and a forward-shaded point drawn after the fog pass (transparent meshes,
 // particles), analytic: rgb in-scattered light, a transmittance. _sunColor / _sunTravel are the
 // first directional light's radiance and travel direction (zero colour for none).
@@ -110,6 +123,9 @@ vec4 fogForward(vec3 _cameraPos, vec3 _worldPos, vec3 _sunColor, vec3 _sunTravel
 	float distance = max(length(ray), 1e-4);
 	vec3 dir = ray / distance;
 	vec3 sunRadiance = _sunColor * henyeyGreenstein(dot(dir, -_sunTravel), u_fogVolume.y) * u_fogVolume.x;
+#ifdef __LIGHTING_SH__
+	sunRadiance = fogDirectionalRadiance(dir, (_cameraPos + _worldPos) * 0.5);
+#endif
 	return fogClampOpacity(fogAnalytic(_cameraPos, dir, 0.0, distance, sunRadiance));
 }
 

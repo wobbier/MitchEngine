@@ -27,6 +27,8 @@ public:
         std::string Name;
         double CpuMilliseconds = 0.0;
         double GpuMilliseconds = 0.0;
+        // Mesh triangles the renderer submitted to this view (fullscreen and UI passes not counted).
+        uint64_t Triangles = 0;
     };
 
     struct RenderStats

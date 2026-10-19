@@ -116,6 +116,8 @@ namespace ShaderGraph
         OutJson["NormalSpace"] = kNormalSpaceNames[static_cast<size_t>( FragmentNormalSpace )];
         OutJson["OffsetSpace"] = kPositionSpaceNames[static_cast<size_t>( OffsetSpace )];
         OutJson["Injection"] = kInjectionNames[static_cast<size_t>( Injection )];
+        if( SceneColorMips ) OutJson["SceneColorMips"] = true;
+        if( !SceneColorMipThreshold.empty() ) OutJson["SceneColorMipThreshold"] = SceneColorMipThreshold;
         OutJson["ParticleLit"] = ParticleLit;
     }
 
@@ -135,6 +137,8 @@ namespace ShaderGraph
         FragmentNormalSpace = EnumFromJson( InJson, "NormalSpace", kNormalSpaceNames, FragmentNormalSpace );
         OffsetSpace = EnumFromJson( InJson, "OffsetSpace", kPositionSpaceNames, OffsetSpace );
         Injection = EnumFromJson( InJson, "Injection", kInjectionNames, Injection );
+        SceneColorMips = ValueOr( InJson, "SceneColorMips", false );
+        SceneColorMipThreshold = ValueOr( InJson, "SceneColorMipThreshold", std::string() );
         ParticleLit = ValueOr( InJson, "ParticleLit", ParticleLit );
     }
 

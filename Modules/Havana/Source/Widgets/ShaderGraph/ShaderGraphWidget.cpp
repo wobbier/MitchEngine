@@ -124,7 +124,7 @@ void ShaderGraphWidget::Render()
     bgfx::ViewId view = Moonlight::RenderView::EditorOffscreenFirst;
     for( const auto& document : m_documents )
     {
-        if( view + 1 >= Moonlight::RenderView::EditorOffscreenFirst + Moonlight::RenderView::EditorOffscreenCount )
+        if( view + 1 >= Moonlight::RenderView::AssetPreviewTiles )
         {
             break;
         }

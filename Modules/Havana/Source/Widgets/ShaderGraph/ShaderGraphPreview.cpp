@@ -90,7 +90,7 @@ ShaderGraphPreview::~ShaderGraphPreview()
             bgfx::destroy( *frameBuffer );   // destroys its texture too
         }
     }
-    for( bgfx::UniformHandle* uniform : { &u_preview, &u_select, &u_params } )
+    for( bgfx::UniformHandle* uniform : { &u_preview, &u_select, &u_params, &s_particle } )
     {
         if( bgfx::isValid( *uniform ) )
         {
@@ -124,6 +124,7 @@ void ShaderGraphPreview::CreateResources()
     u_preview = bgfx::createUniform( "u_sgPreview", bgfx::UniformType::Vec4, kMaxPreviewConstants );
     u_select = bgfx::createUniform( "u_sgPreviewSelect", bgfx::UniformType::Vec4 );
     u_params = bgfx::createUniform( "u_sgParams", bgfx::UniformType::Vec4, kMaxParameters );
+    s_particle = bgfx::createUniform( "s_sgPreviewParticle", bgfx::UniformType::Sampler );
     for( int i = 0; i < kMaxTextures; ++i )
     {
         s_textures[i] = bgfx::createUniform( ( "s_sgTex" + std::to_string( i ) ).c_str(), bgfx::UniformType::Sampler );
@@ -189,6 +190,7 @@ void ShaderGraphPreview::Update( const CompileResult& InPreview, const Graph& In
         }
     }
     snapshot.Animated = snapshot.Fragment.find( "sg_Time" ) != std::string::npos || snapshot.Fragment.find( "sg_DeltaTime" ) != std::string::npos;
+    snapshot.Particle = InGraph.Settings.GraphTarget == Target::Particle;
 
     // Tiles follow the nodes: new nodes get one, deleted nodes give theirs back.
     std::map<uint32_t, int> tiles;
@@ -220,6 +222,7 @@ void ShaderGraphPreview::Update( const CompileResult& InPreview, const Graph& In
     {
         // Same code, new values: no compile.
         m_active = m_latest;
+        m_shaderErrors.clear();
         m_dirty = true;
     }
     else if( !m_job.valid() )
@@ -329,6 +332,12 @@ void ShaderGraphPreview::DrawQuad( bgfx::ViewId InView, float InX, float InY, fl
     bgfx::setUniform( u_select, select );
     bgfx::setUniform( u_preview, m_active.Constants.data(), kMaxPreviewConstants );
     bgfx::setUniform( u_params, m_active.Parameters, kMaxParameters );
+    if( m_active.Particle )
+    {
+        // Particle output samples its sprite at stage 6, outside the graph's texture properties.
+        // A preview has no particle system to supply that sprite, so use the white stand-in.
+        bgfx::setTexture( 6, s_particle, Moonlight::GetDefaultTexture( Moonlight::DefaultTexture::White ) );
+    }
     for( const auto& fallback : m_active.Fallbacks )
     {
         bgfx::TextureHandle handle = fallback.second;

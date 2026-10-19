@@ -226,6 +226,7 @@ TEST_CASE( "Resources: loading a path whose asset moved this session loads it fr
 }
 
 
+#if USING( ME_TOOLS )
 namespace ReimportTest
 {
     std::atomic<int> s_exports{ 0 };
@@ -323,6 +324,7 @@ TEST_CASE( "Resources: slow cooks recompile in the background on hot reload, the
     CHECK( cache.GetPendingReimportCount() == 0 );
     s_exportDelayMs = 0;
 }
+#endif
 
 
 namespace FirstCookTest
@@ -414,6 +416,7 @@ namespace FirstCookTest
 
 ME_REGISTER_METADATA( "firstcook", FirstCookTest::CookMeta );
 
+#if USING( ME_TOOLS )
 TEST_CASE( "Resources: a background load cooks a new asset on its loader thread" )
 {
     using namespace FirstCookTest;
@@ -498,3 +501,24 @@ TEST_CASE( "Resources: metadata notifications during a first cook never block th
     CHECK( changed->Contents == "changed settings" );
     CHECK( cache.GetPendingReimportCount() == 0 );
 }
+#else
+TEST_CASE( "Resources: runtime loads compiled assets without running a cook" )
+{
+    using namespace FirstCookTest;
+    ResourceCache& cache = ResourceCache::GetInstance();
+    std::filesystem::create_directories( ".tmp/Tests/Resources" );
+    const std::string source = ".tmp/Tests/Resources/Runtime.firstcook";
+    std::ofstream( source ) << "source";
+    std::ofstream( source + ".cooked" ) << "packaged";
+    CookMeta metadata{ Path( source ) };
+    metadata.Save();
+    const int exportsBefore = s_exports.load();
+
+    SharedPtr<CookedAsset> asset = cache.GetAsync<CookedAsset>( Path( source ) );
+    REQUIRE( asset );
+    REQUIRE( ResourceTest::PumpUntilLoaded( asset ) );
+    CHECK_FALSE( asset->HasLoadFailed() );
+    CHECK( asset->Contents == "packaged" );
+    CHECK( s_exports.load() == exportsBefore );
+}
+#endif

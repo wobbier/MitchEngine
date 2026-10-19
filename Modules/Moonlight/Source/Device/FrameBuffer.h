@@ -77,6 +77,9 @@ namespace Moonlight
         Mip GraphHdr[2];
         Mip GraphLdr[2];
         void EnsureGraphTargets( bool InHdr, bool InLdr );
+        // Optional filtered graph input, separate from the original scene colour.
+        Mip GraphSceneMips;
+        void EnsureGraphSceneMips();
 
         // This frame's HDR image for bloom, exposure and tonemapping: the temporal resolve, or
         // SceneColor.

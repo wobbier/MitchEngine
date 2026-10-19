@@ -17,6 +17,15 @@ namespace Moonlight
         const bgfx::ViewId id = static_cast<bgfx::ViewId>( m_next++ );
         bgfx::resetView( id );
         bgfx::setViewName( id, InName );
+        if( m_names.size() <= id ) m_names.resize( id + 1 );
+        m_names[id] = InName;
         return id;
+    }
+
+
+    const std::string& ViewAllocator::GetName( bgfx::ViewId InId ) const
+    {
+        static const std::string kNone;
+        return InId < m_names.size() && InId >= RenderView::DynamicFirst && InId < m_next ? m_names[InId] : kNone;
     }
 }

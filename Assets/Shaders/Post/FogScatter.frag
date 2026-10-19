@@ -25,10 +25,10 @@ void main()
 	float originViewZ;
 	vec3 origin = fogRay(uv, viewZ, dir, distance, viewZPerMetre, originViewZ);
 
-	vec3 sunRadiance = vec3_splat(0.0);
-	if (u_lightParams.x > 0.5)
+	vec3 directionalScatter[MAX_DIRECTIONAL_LIGHTS];
+	for (int i = 0; i < MAX_DIRECTIONAL_LIGHTS; ++i)
 	{
-		sunRadiance = u_dirLightColor[0].rgb * henyeyGreenstein(dot(dir, -u_dirLightDirection[0].xyz), u_fogVolume.y) * u_fogVolume.x;
+		directionalScatter[i] = u_dirLightColor[i].rgb * henyeyGreenstein(dot(dir, -u_dirLightDirection[i].xyz), u_fogVolume.y) * u_fogVolume.x;
 	}
 	float isotropic = u_fogVolume.x / (4.0 * PI);
 
@@ -59,7 +59,13 @@ void main()
 		if (sigma > 0.0)
 		{
 			float stepViewZ = originViewZ + t * viewZPerMetre;
-			vec3 light = u_fogColor.rgb + sunRadiance * directionalEclipse(0, p) * sunShadowVolume(p, stepViewZ);
+			vec3 light = u_fogColor.rgb;
+			for (int j = 0; j < MAX_DIRECTIONAL_LIGHTS; ++j)
+			{
+				if (float(j) >= u_lightParams.x) break;
+				float visibility = j == 0 ? sunShadowVolume(p, stepViewZ) : 1.0;
+				light += directionalScatter[j] * directionalEclipse(j, p) * visibility;
+			}
 			if (u_lightParams.y > 0.5)
 			{
 				vec2 range = clusterRangeAt(pixel, stepViewZ);
@@ -78,6 +84,6 @@ void main()
 			transmittance *= stepTransmittance;
 		}
 	}
-	vec4 rest = fogAnalytic(origin, dir, marchEnd, distance, sunRadiance * directionalEclipse(0, origin + dir * ((marchEnd + distance) * 0.5)));
+	vec4 rest = fogAnalytic(origin, dir, marchEnd, distance, fogDirectionalRadiance(dir, origin + dir * ((marchEnd + distance) * 0.5)));
 	gl_FragColor = fogClampOpacity(vec4(scattered + transmittance * rest.rgb, transmittance * rest.a));
 }

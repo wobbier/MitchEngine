@@ -1,6 +1,7 @@
 #include "PCH.h"
 #include "AutomationRunner.h"
 #include "Core/CommandLine.h"
+#include "Profiling/FrameStats.h"
 #include "Renderer.h"
 #include "CLog.h"
 #include "JSON.h"
@@ -145,6 +146,17 @@ void AutomationRunner::WritePerfReport() const
         report["WallAverageMs"] = wallAverage;
         report["WallAverageFps"] = wallAverage > 0.0 ? 1000.0 / wallAverage : 0.0;
     }
+
+    // Last frame's per-view breakdown: where the time and triangles go.
+    const FrameStats::RenderStats& render = FrameStats::Get().GetRenderStats();
+    report["DrawCalls"] = render.DrawCalls;
+    report["Triangles"] = render.Triangles;
+    json views = json::array();
+    for( const FrameStats::GpuView& view : render.Views )
+    {
+        views.push_back( { { "Name", view.Name }, { "GpuMs", view.GpuMilliseconds }, { "Triangles", view.Triangles } } );
+    }
+    report["Views"] = views;
 
     std::ofstream out( m_perfReportPath );
     out << report.dump( 4 ) << std::endl;

@@ -63,6 +63,8 @@ public:
 
     // Advance once per update; other views can read the same clock with a zero delta.
     Moonlight::ProceduralSkySettings GetSkySettings( float deltaTime = 0.f );
+    // Discard playback state without changing the authored sky values.
+    void ResetSkyClock();
 
     Matrix4 WorldToCamera;
 
@@ -77,6 +79,7 @@ private:
     float m_skyStartTime = 15.f;
     float m_moonPhase = 0.4f;
     float m_moonStartPhase = 0.4f;
+    float m_skyAnimationTime = 0.f;
     float m_FOV = 60.f;
     unsigned int m_id = 0;
     glm::vec4 ObliqueMatData;

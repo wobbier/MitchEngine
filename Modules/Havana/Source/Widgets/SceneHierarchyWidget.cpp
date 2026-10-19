@@ -168,12 +168,12 @@ void SceneHierarchyWidget::Render()
 	{
 		if (ImGui::BeginMenu("Create"))
 		{
+			ImGui::SeparatorText("Basic");
 			EditorActions::Get().MenuItem("Entity.CreateEmpty", "Empty Entity");
 			if (ImGui::MenuItem("Empty Entity (no Transform)"))
 			{
 				EditorOps::CreateEntity("Entity", nullptr, false);
 			}
-			ImGui::Separator();
 			DrawCreateTemplates(Selection::Get().GetActiveTransform() ? Selection::Get().GetActiveTransform()->GetParentTransform() : nullptr);
 			if (ImGui::BeginMenu("Core"))
 			{
@@ -330,7 +330,10 @@ void SceneHierarchyWidget::DrawRowContents(Entity& entity, Transform* transform,
 		BeginRename();
 	}
 
+	// Compact hierarchy rows must not remove spacing from the context menu and its submenus.
+	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImGuiTheme::BaseStyle().ItemSpacing);
 	DrawEntityContextMenu(entity, transform);
+	ImGui::PopStyleVar();
 	HandleDragDrop(entity, transform);
 
 	// Inline rename field over the row label.
@@ -561,6 +564,7 @@ void SceneHierarchyWidget::DrawEntityContextMenu(Entity& entity, Transform* tran
 
 	if (transform && ImGui::BeginMenu("Create Child"))
 	{
+		ImGui::SeparatorText("Basic");
 		if (ImGui::MenuItem("Empty Entity"))
 		{
 			EditorOps::CreateEntity("New Entity", transform);
@@ -720,6 +724,7 @@ void SceneHierarchyWidget::DrawCreateTemplates(Transform* parent)
 		}
 		return json{ { "Type", "BoxCollider" }, { "Size", { 2.0, 2.0, 2.0 } } };
 	};
+	ImGui::SeparatorText("Geometry & Physics");
 	if (ImGui::BeginMenu("3D Object"))
 	{
 		for (const char* shape : { "Cube", "Plane", "Sphere", "Cylinder", "Capsule" })
@@ -778,6 +783,7 @@ void SceneHierarchyWidget::DrawCreateTemplates(Transform* parent)
 		}
 		ImGui::EndMenu();
 	}
+	ImGui::SeparatorText("Scene & Lighting");
 	if (ImGui::MenuItem("Camera"))
 	{
 		create("Camera", json::array({ json{ { "Type", "Transform" } }, json{ { "Type", "Camera" } } }));
@@ -810,6 +816,7 @@ void SceneHierarchyWidget::DrawCreateTemplates(Transform* parent)
 		}
 		ImGui::EndMenu();
 	}
+	ImGui::SeparatorText("Systems");
 	if (ImGui::BeginMenu("Effects"))
 	{
 		auto particles = [](json system) {
@@ -871,8 +878,7 @@ void SceneHierarchyWidget::DrawCreateTemplates(Transform* parent)
 
 void SceneHierarchyWidget::DrawAddCoreList()
 {
-	ImGui::Text("Cores");
-	ImGui::Separator();
+	ImGui::SeparatorText("Cores");
 
 	CoreRegistry& reg = GetCoreRegistry();
 

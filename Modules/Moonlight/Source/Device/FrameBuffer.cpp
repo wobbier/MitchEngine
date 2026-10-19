@@ -27,12 +27,12 @@ namespace
         handle = BGFX_INVALID_HANDLE;
     }
 
-    Moonlight::FrameBuffer::Mip CreateColorTarget( uint16_t width, uint16_t height, bgfx::TextureFormat::Enum format, const char* name )
+    Moonlight::FrameBuffer::Mip CreateColorTarget( uint16_t width, uint16_t height, bgfx::TextureFormat::Enum format, const char* name, bool mips = false )
     {
         Moonlight::FrameBuffer::Mip mip;
         mip.Width = std::max<uint16_t>( width, 1 );
         mip.Height = std::max<uint16_t>( height, 1 );
-        mip.Color = bgfx::createTexture2D( mip.Width, mip.Height, false, 1, format, BGFX_TEXTURE_RT | kClampLinear );
+        mip.Color = bgfx::createTexture2D( mip.Width, mip.Height, mips, 1, format, BGFX_TEXTURE_RT | kClampLinear );
         bgfx::setName( mip.Color, name );
         mip.Buffer = bgfx::createFrameBuffer( 1, &mip.Color, false );
         return mip;
@@ -107,7 +107,7 @@ void Moonlight::FrameBuffer::Release()
         DestroyIfValid( clouds.Color );
     }
     CloudValid = false;
-    for( Mip* graph : { &GraphHdr[0], &GraphHdr[1], &GraphLdr[0], &GraphLdr[1] } )
+    for( Mip* graph : { &GraphHdr[0], &GraphHdr[1], &GraphLdr[0], &GraphLdr[1], &GraphSceneMips } )
     {
         DestroyIfValid( graph->Buffer );
         DestroyIfValid( graph->Color );
@@ -163,6 +163,21 @@ void Moonlight::FrameBuffer::EnsureGraphTargets( bool InHdr, bool InLdr )
         {
             GraphLdr[i] = CreateColorTarget( width, height, bgfx::TextureFormat::RGBA8, "Shader Graph Post (LDR)" );
         }
+    }
+}
+
+
+void Moonlight::FrameBuffer::EnsureGraphSceneMips()
+{
+    if( !bgfx::isValid( GraphSceneMips.Color ) )
+    {
+        // Hardware mip blits use a 2x2 filter. Odd-sized reductions can skip source texels and
+        // make a small bright light pulse, so upsample once to a power-of-two grid first.
+        uint32_t width = 1;
+        uint32_t height = 1;
+        while( width < Width ) width *= 2;
+        while( height < Height ) height *= 2;
+        GraphSceneMips = CreateColorTarget( static_cast<uint16_t>( width ), static_cast<uint16_t>( height ), bgfx::TextureFormat::RGBA16F, "Shader Graph Scene Mips", true );
     }
 }
 

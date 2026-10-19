@@ -80,6 +80,11 @@ public:
     void RenderMeshInstanced( bgfx::ViewId id, const Moonlight::MeshCommand& representative, const glm::mat4* transforms, uint32_t count, uint64_t state );
     // One skinned mesh: the material's skinned program, the weights stream and the bone palette.
     void RenderSkinnedMesh( bgfx::ViewId id, const Moonlight::MeshCommand& mesh, uint64_t state );
+    // Overdraw view: any mesh (static, instanced or skinned) as one additive layer.
+    void RenderOverdrawMesh( bgfx::ViewId id, const Moonlight::MeshCommand& mesh );
+    // Per-view mesh triangle counts for the frame stats (bgfx only reports frame totals).
+    void CountTriangles( bgfx::ViewId id, const Moonlight::MeshCommand& mesh, uint32_t instances = 1 );
+    std::vector<uint64_t> m_viewTriangles;
 
     void WindowResized( const Vector2& newSize );
 
@@ -189,6 +194,9 @@ private:
     ShadowAtlas m_spotShadowAtlas;
     Moonlight::ShaderCommand m_shadowProgram;
     Moonlight::ShaderCommand m_shadowSkinnedProgram;
+    // Overdraw view: the shadow casters' vertex shaders with an additive fragment.
+    Moonlight::ShaderCommand m_overdrawProgram;
+    Moonlight::ShaderCommand m_overdrawSkinnedProgram;
     bgfx::UniformHandle u_bones = BGFX_INVALID_HANDLE;
     std::vector<size_t> m_skinnedShadowCasters;
     // What the cull and the batching need of a caster, copied compactly out of its mesh command.

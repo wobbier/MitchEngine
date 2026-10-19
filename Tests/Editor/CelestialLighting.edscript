@@ -26,9 +26,8 @@ undo
 assert-field CelestialDirectional | Light.DirectionalSource | "Moon"
 redo
 assert-field CelestialDirectional | Light.DirectionalSource | "Sun"
-set Light.DirectionalSource "Transform"
-assert-field CelestialDirectional | Light.DirectionalSource | "Transform"
 set Light.DirectionalSource "Automatic"
+assert-field CelestialDirectional | Light.DirectionalSource | "Automatic"
 save-as .tmp/CelestialLighting.lvl
 play
 wait 10

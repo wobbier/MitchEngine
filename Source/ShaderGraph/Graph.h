@@ -79,6 +79,10 @@ namespace ShaderGraph
         NormalSpace FragmentNormalSpace = NormalSpace::Tangent;
         PositionSpace OffsetSpace = PositionSpace::Object;
         PostInjection Injection = PostInjection::BeforeTonemap;
+        // Post-process custom functions can sample filtered scene colour with texture2DLod.
+        bool SceneColorMips = false;
+        // Optional Float property id: apply its soft brightness threshold before mip generation.
+        std::string SceneColorMipThreshold;
         // Particle graphs: shade with the scene's lights (volume lighting) or emit only.
         bool ParticleLit = false;
 

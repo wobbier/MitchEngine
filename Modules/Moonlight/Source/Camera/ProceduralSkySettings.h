@@ -10,7 +10,9 @@ namespace Moonlight
         ME_REFLECTABLE( ProceduralSkySettings )
     public:
         float Time = 15.f;
-        float TimeScale = 0.f; // sky hours per real second; zero holds the time of day
+        float TimeScale = 0.f; // sky hours per game second in Play; zero holds the time of day
+        // Evaluated runtime state, excluded from reflection and scene serialization.
+        float AnimationTime = 0.f;
         float Latitude = -6.f;
         float Turbidity = 1.9f;
         int Month = 5; // January = 0

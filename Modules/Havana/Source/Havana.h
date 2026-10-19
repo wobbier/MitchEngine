@@ -63,6 +63,8 @@ public:
 	Vector2 GetWorldEditorRenderSize() const;
 
 	void Save();
+	// Release editor-owned previews while the renderer is still alive.
+	void Destroy();
 
 	ImVec2 DockPos;
 	ImVec2 DockSize;

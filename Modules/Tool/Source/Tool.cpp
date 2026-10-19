@@ -144,7 +144,7 @@ void Tool::Start()
 
     // Hooking into ImGui
     {
-        ImGui::InitHooks( m_window, m_renderer->GetImGuiRenderer() );
+        ImGui::InitHooks();
     }
 
     /*{

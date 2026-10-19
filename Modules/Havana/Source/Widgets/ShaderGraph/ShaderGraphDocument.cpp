@@ -1139,22 +1139,42 @@ void ShaderGraphDocument::DrawMainPreview( float InWidth )
 
 void ShaderGraphDocument::DrawSidePanel( float InWidth )
 {
-    if( ImGui::CollapsingHeader( "Preview", ImGuiTreeNodeFlags_DefaultOpen ) )
+    if( !ImGui::BeginTabBar( "SidePanelTabs" ) )
+    {
+        return;
+    }
+    if( ImGui::BeginTabItem( "Node", nullptr, m_focusNodeInspector ? ImGuiTabItemFlags_SetSelected : 0 ) )
+    {
+        ImGui::BeginChild( "NodeInspector" );
+        if( m_focusNodeInspector )
+        {
+            ImGui::SetScrollY( 0.f );
+        }
+        DrawNodeInspector();
+        ImGui::EndChild();
+        ImGui::EndTabItem();
+    }
+    m_focusNodeInspector = false;
+    if( ImGui::BeginTabItem( "Blackboard" ) )
+    {
+        ImGui::BeginChild( "Blackboard" );
+        DrawBlackboard();
+        ImGui::EndChild();
+        ImGui::EndTabItem();
+    }
+    if( ImGui::BeginTabItem( "Graph" ) )
+    {
+        ImGui::BeginChild( "GraphSettings" );
+        DrawGraphSettings();
+        ImGui::EndChild();
+        ImGui::EndTabItem();
+    }
+    if( ImGui::BeginTabItem( "Preview" ) )
     {
         DrawMainPreview( InWidth );
+        ImGui::EndTabItem();
     }
-    if( ImGui::CollapsingHeader( "Graph", ImGuiTreeNodeFlags_DefaultOpen ) )
-    {
-        DrawGraphSettings();
-    }
-    if( ImGui::CollapsingHeader( "Blackboard", ImGuiTreeNodeFlags_DefaultOpen ) )
-    {
-        DrawBlackboard();
-    }
-    if( ImGui::CollapsingHeader( "Node", ImGuiTreeNodeFlags_DefaultOpen ) )
-    {
-        DrawNodeInspector();
-    }
+    ImGui::EndTabBar();
 }
 
 
@@ -1227,6 +1247,29 @@ void ShaderGraphDocument::DrawGraphSettings()
         if( ImGui::IsItemHovered() )
         {
             ImGui::SetTooltip( "Before: on HDR scene light (bloom and exposure see the result). After: on the display image." );
+        }
+        checkbox( "Scene Color Mips", settings.SceneColorMips, "Build a filtered scene-colour mip chain for texture2DLod(s_sgSceneColorMips, uv, lod) in Custom Functions. Adds a copy pass only for this graph." );
+        if( settings.SceneColorMips )
+        {
+            const Property* threshold = m_graph.FindProperty( settings.SceneColorMipThreshold );
+            if( ImGui::BeginCombo( "Mip Threshold", threshold ? threshold->Name.c_str() : "None" ) )
+            {
+                if( ImGui::Selectable( "None", settings.SceneColorMipThreshold.empty() ) )
+                {
+                    settings.SceneColorMipThreshold.clear();
+                    changed = true;
+                }
+                for( const Property& property : m_graph.Properties )
+                {
+                    if( property.Type == ValueType::Float && ImGui::Selectable( property.Name.c_str(), property.Id == settings.SceneColorMipThreshold ) )
+                    {
+                        settings.SceneColorMipThreshold = property.Id;
+                        changed = true;
+                    }
+                }
+                ImGui::EndCombo();
+            }
+            ImGui::SetItemTooltip( "Optional Float property: soft-threshold bright light before filtering. Ordinary Scene Color reads stay unchanged." );
         }
     }
 
@@ -1499,6 +1542,7 @@ void ShaderGraphDocument::DrawNodeInspector()
     ImGui::Text( "%s", def->GetTitle( m_graph, *node ).c_str() );
     ImGui::SameLine();
     ImGui::TextDisabled( "#%u", id );
+    ImGui::TextDisabled( "%s", node->Type.c_str() );
     if( !def->Description.empty() )
     {
         ImGui::PushStyleColor( ImGuiCol_Text, ImGui::GetStyleColorVec4( ImGuiCol_TextDisabled ) );
@@ -1510,6 +1554,10 @@ void ShaderGraphDocument::DrawNodeInspector()
         ImGui::PushStyleColor( ImGuiCol_Text, error.rfind( "Error", 0 ) == 0 ? ImGuiTheme::ErrorText() : ImGuiTheme::WarningText() );
         ImGui::TextWrapped( "%s", error.c_str() );
         ImGui::PopStyleColor();
+    }
+    if( !def->Settings.empty() )
+    {
+        ImGui::SeparatorText( "Settings" );
     }
     for( size_t i = 0; i < def->Settings.size(); ++i )
     {
@@ -1689,14 +1737,31 @@ bool ShaderGraphDocument::DrawSettingEditor( Node& InNode, const NodeDef& InDef,
     }
     case SettingKind::Texture:
     {
-        const std::string path = current.is_string() ? current.get<std::string>() : std::string();
-        if( ImGui::Button( path.empty() ? "(none)" : path.c_str(), ImVec2( -1.f, 0.f ) ) )
+        std::string path = current.is_string() ? current.get<std::string>() : std::string();
+        ImGui::SetNextItemWidth( std::max( 1.f, ImGui::GetContentRegionAvail().x - ImGuiTheme::IconButtonsWidth( 2 ) ) );
+        if( ImGui::InputTextWithHint( "##Setting", "(none)", &path ) )
+        {
+            value = path;
+            changed = true;
+        }
+        if( ImGui::IsItemHovered() && !path.empty() )
+        {
+            ImGui::SetTooltip( "%s", path.c_str() );
+        }
+        ImGui::SameLine( 0.f, ImGuiTheme::InnerGap() );
+        if( ImGui::Button( "..", ImGuiTheme::IconButtonSize() ) )
         {
             const std::string name = setting.Name;
             RequestAssetSelectionEvent evt( [this, id, name]( Path InSelected ) {
                 SetNodeSetting( id, name, InSelected.GetLocalPathString() );
             }, AssetType::Texture );
             evt.Fire();
+        }
+        ImGui::SameLine( 0.f, ImGuiTheme::InnerGap() );
+        if( ImGui::Button( "x", ImGuiTheme::IconButtonSize() ) )
+        {
+            value = "";
+            changed = true;
         }
         break;
     }
@@ -1950,6 +2015,24 @@ void ShaderGraphDocument::DrawCanvas()
     }
     ed::Resume();
 
+    if( m_frameOnNextDraw && ed::GetNodeCount() > 0 )
+    {
+        // Node sizes are only known once they've been drawn: frame a couple of frames in.
+        ed::NavigateToContent( 0.f );
+        m_frameOnNextDraw = false;
+    }
+    // End processes clicks and drags. Read the resulting selection and positions afterwards;
+    // Begin snapshots selection next frame, so checking before End loses mouse selections.
+    // The node library uses a one-pixel drag threshold. Suppress its drag detection until
+    // ImGui's normal screen-pixel threshold is reached, then restore the input for other UI.
+    ImGuiIO& io = ImGui::GetIO();
+    const float dragDistance = io.MouseDragMaxDistanceSqr[ImGuiMouseButton_Left];
+    if( dragDistance < io.MouseDragThreshold * io.MouseDragThreshold )
+    {
+        io.MouseDragMaxDistanceSqr[ImGuiMouseButton_Left] = 0.f;
+    }
+    ed::End();
+    io.MouseDragMaxDistanceSqr[ImGuiMouseButton_Left] = dragDistance;
     if( ed::HasSelectionChanged() )
     {
         const std::vector<uint32_t> selected = GetSelectedNodes();
@@ -1957,17 +2040,15 @@ void ShaderGraphDocument::DrawCanvas()
         {
             m_inspectedNode = selected[0];
             m_inspectedProperty.clear();
+            m_focusNodeInspector = true;
+        }
+        else
+        {
+            m_inspectedNode = 0;
         }
     }
 
     SyncNodePositions();
-    if( m_frameOnNextDraw && ed::GetNodeCount() > 0 )
-    {
-        // Node sizes are only known once they've been drawn: frame a couple of frames in.
-        ed::NavigateToContent( 0.f );
-        m_frameOnNextDraw = false;
-    }
-    ed::End();
 
     // Properties dragged from the blackboard.
     if( ImGui::BeginDragDropTargetCustom( ImGui::GetCurrentWindow()->InnerRect, ImGui::GetID( "CanvasDrop" ) ) )
@@ -2042,6 +2123,27 @@ void ShaderGraphDocument::DrawNode( Node& InNode )
     }
     const float headerBottom = ImGui::GetItemRectMax().y + 6.f;
     ImGui::Dummy( ImVec2( 0.f, 4.f ) );
+
+    if( def && !def->Settings.empty() )
+    {
+        if( ImGui::SmallButton( "Settings..." ) )
+        {
+            ed::SelectNode( static_cast<uint64_t>( id ) );
+            m_inspectedNode = id;
+            m_inspectedProperty.clear();
+            m_focusNodeInspector = true;
+        }
+        if( const SettingDef* texture = def->FindSetting( "Texture" ); texture && texture->Kind == SettingKind::Texture )
+        {
+            const std::string path = InNode.Settings.value( "Texture", std::string() );
+            const std::string filename = path.substr( path.find_last_of( "/\\" ) + 1 );
+            ImGui::TextDisabled( "%s", path.empty() ? "(no texture)" : filename.c_str() );
+            if( ImGui::IsItemHovered() && !path.empty() )
+            {
+                ImGui::SetTooltip( "%s", path.c_str() );
+            }
+        }
+    }
 
     // Enum settings on the node itself (they open a popup outside the canvas).
     if( def )
@@ -2435,6 +2537,7 @@ void ShaderGraphDocument::DrawPalette()
     {
         m_paletteSelection = 0;
     }
+    ImGui::Separator();
     if( ImGui::IsKeyPressed( ImGuiKey_DownArrow ) )
     {
         m_paletteSelection = std::min( m_paletteSelection + 1, static_cast<int>( entries.size() ) - 1 );

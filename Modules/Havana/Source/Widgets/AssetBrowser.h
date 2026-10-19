@@ -10,12 +10,15 @@
 #include <JSON.h>
 #include <list>
 #include <unordered_map>
+#include <memory>
 #include "Types/AssetDescriptor.h"
 
 class Transform;
 class Resource;
 struct MetaBase;
 class Havana;
+class ShaderGraphPreview;
+namespace ShaderGraph { class Graph; }
 
 namespace Moonlight {
     class Texture;
@@ -23,7 +26,7 @@ namespace Moonlight {
 
 #if USING( ME_EDITOR )
 
-// Project asset browser: folder tree, grid/list view with texture thumbnails, breadcrumbs and
+// Project asset browser: searchable project table by default, optional folder grid/list with
 // history, recursive search and type filter, multi-select, file operations (create, rename,
 // duplicate, move by drag, delete to .tmp/Trash, show in file manager), import settings, and the
 // asset picker / save dialog used by RequestAssetSelectionEvent. Refreshes when files change.
@@ -57,6 +60,8 @@ public:
 
 private:
     friend class TerrainFileAutomation;
+    friend class EditorAutomation;
+
     struct Entry
     {
         std::string FullPath;
@@ -68,14 +73,19 @@ private:
     };
 
     void DrawToolbar();
+    void DrawProjectToolbar();
+    void DrawProjectFilters();
+    void ToggleDetails();
     void DrawFolderTree( const std::string& InPath, const char* InLabel );
     void DrawContents();
     void DrawGrid();
     void DrawList();
+    void DrawProjectList();
     void DrawEntryContextMenu( Entry& InEntry );
     void DrawBackgroundContextMenu();
     void DrawCreateMenuItems();
     void DrawDetails();
+    void DrawShaderGraphDetails();
     void DrawPickerFooter();
     void DrawModals();
 
@@ -116,6 +126,11 @@ private:
     // Contents of the current folder (or search results)
     std::vector<Entry> m_entries;
     bool m_entriesDirty = true;
+    bool m_sortDirty = true;
+    bool m_folderView = false;
+    ImGuiTextFilter m_projectFilter;
+    std::set<AssetType> m_projectTypes;
+    float m_filterHeight = 140.f;
     std::map<std::string, std::vector<std::string>> m_subfolderCache;
     char m_search[256] = {};
     std::string m_builtSearch;
@@ -124,6 +139,7 @@ private:
     // Selection
     std::set<std::string> m_selection;
     std::string m_selectionAnchor;
+    bool m_revealSelection = false;
     std::string m_focusedPath;
 
     // Rename
@@ -143,12 +159,17 @@ private:
 
     // Details / import settings
     bool m_showDetails = false;
+    float m_detailsWidth = 350.f;
     SharedPtr<MetaBase> m_metafile = nullptr;
     // A data asset's contents were edited and not saved yet.
     bool m_editableDirty = false;
     bool m_shouldDeleteMetaFile = false;
     SharedPtr<Resource> m_focusedResource = nullptr;
     std::string m_detailsPath;
+    std::unique_ptr<ShaderGraph::Graph> m_previewGraph;
+    std::unique_ptr<ShaderGraphPreview> m_graphPreview;
+    bool m_graphPreviewDirty = true;
+    std::string m_graphPreviewError;
 
     // Picker / save dialog
     std::function<void( Path )> m_pickCallback;

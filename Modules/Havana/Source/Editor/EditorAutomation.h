@@ -28,6 +28,7 @@ private:
     std::vector<std::string> m_lines;
     size_t m_nextLine = 0;
     int m_waitFrames = 10;
+    int m_assetPreviewWaitFrames = 0;
     // wait-log: the text to wait for, frames left, and the log position it started at.
     std::string m_waitLogText;
     int m_waitLogFrames = 0;

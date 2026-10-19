@@ -27,11 +27,7 @@ void main()
 		float viewZPerMetre;
 		float originViewZ;
 		vec3 origin = fogRay(uv, viewZ, dir, distance, viewZPerMetre, originViewZ);
-		vec3 sunRadiance = vec3_splat(0.0);
-		if (u_lightParams.x > 0.5)
-		{
-			sunRadiance = directionalRadiance(0, origin + dir * (distance * 0.5)) * henyeyGreenstein(dot(dir, -u_dirLightDirection[0].xyz), u_fogVolume.y) * u_fogVolume.x;
-		}
+		vec3 sunRadiance = fogDirectionalRadiance(dir, origin + dir * (distance * 0.5));
 		gl_FragColor = fogClampOpacity(fogAnalytic(origin, dir, 0.0, distance, sunRadiance));
 		return;
 	}

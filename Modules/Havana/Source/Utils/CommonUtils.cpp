@@ -90,7 +90,7 @@ bool CommonUtils::DrawAddComponentList(const EntityHandle& entity, char* filterB
 	{
 		if (!folder.empty())
 		{
-			ImGui::TextDisabled("%s", folder.c_str());
+			ImGui::SeparatorText(folder.c_str());
 		}
 		for (const std::string& name : names)
 		{

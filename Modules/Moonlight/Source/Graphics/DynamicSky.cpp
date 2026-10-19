@@ -837,7 +837,9 @@ namespace Moonlight
     {
         // How much of the light's disc the clouds leave uncovered, seen from the camera: a short march
         // through the layer with the same density the clouds are drawn with.
-        if( !CloudsEnabled() || InLightDir.y <= 0.f )
+        // A setting body's upper limb can still illuminate the scene with its centre below the
+        // horizon. Keep cloud attenuation continuous until atmospheric visibility reaches zero.
+        if( !CloudsEnabled() )
         {
             return 1.f;
         }

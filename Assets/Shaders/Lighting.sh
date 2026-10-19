@@ -110,12 +110,13 @@ vec3 shadeLight(Surface _s, vec3 _L, vec3 _radiance)
 	return (diffuse * (vec3_splat(1.0) - F) + specular) * _radiance * NoL;
 }
 
-// Windowed inverse-square falloff (smoothly reaches zero at the range).
-float distanceAttenuation(float _distanceSq, float _range)
+// Windowed inverse-square falloff (smoothly reaches zero at the range). _nearField (m^2) keeps
+// extended emitters finite on their surface (LightCommand::GetNearFieldArea); 0 for points.
+float distanceAttenuation(float _distanceSq, float _range, float _nearField)
 {
 	float ratio = _distanceSq / (_range * _range);
 	float window = clamp(1.0 - ratio * ratio, 0.0, 1.0);
-	return window * window / max(_distanceSq, 0.0001);
+	return window * window / max(_distanceSq + _nearField, 0.0001);
 }
 
 vec4 fetchLightTexel(float _light, float _texel)
@@ -297,7 +298,7 @@ float pointShadow(Surface _s, vec3 _L, float _distance, vec4 _info)
 }
 
 // Light data texels: 0 position.xyz range | 1 colour.rgb type (1 point, 2 spot, 3 bar, 4 box, 5 rectangle)
-// | 2 direction.xyz cosOuter | 3 cosInner, bar radius | 4 shadow info
+// | 2 direction.xyz cosOuter | 3 cosInner, bar radius, near-field area | 4 shadow info
 // | 5/6/7 world X/Y/Z axis.xyz, half dimension. Bar: X half segment length.
 // Closest-source approximation: a continuous capsule/cuboid/face, without extra point lights.
 // Surface distance drives falloff; direction points at the closest point on the source.
@@ -347,9 +348,12 @@ vec4 localLightGeometry(vec3 _position, float _light, vec4 _source, float _type)
 
 // Rectangles emit from the front face only, fading with the emission angle. The explicit plane
 // test also excludes points exactly on the face, where the closest-source direction is undefined.
+// Extended emitters soften the falloff by their near-field area, so surfaces and fog touching
+// the source see a bounded brightness rather than a 1/d^2 spike across the whole emitter.
 float localLightAttenuation(vec3 _position, vec4 _geometry, float _light, vec4 _source, float _type)
 {
-	float attenuation = distanceAttenuation(_geometry.w, _source.w);
+	float nearField = _type > 2.5 ? fetchLightTexel(_light, 3.0).z : 0.0;
+	float attenuation = distanceAttenuation(_geometry.w, _source.w, nearField);
 	if (_type > 4.5)
 	{
 		vec3 forward = fetchLightTexel(_light, 2.0).xyz;

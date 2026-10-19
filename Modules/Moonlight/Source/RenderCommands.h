@@ -104,8 +104,8 @@ namespace Moonlight
 
     enum class DirectionalSource : uint8_t
     {
-        Automatic = 0, // primary directional follows a procedural sky; other lights use their transform
-        Transform,
+        Automatic = 0, // follows the procedural sun and supplies moonlight when no explicit Moon exists
+        Transform,     // legacy serialized value; resolves as Automatic with a procedural sky
         Sun,
         Moon,
     };
@@ -157,6 +157,21 @@ namespace Moonlight
             if( Type == LightType::Bar ) return Range + HalfSize.x + HalfSize.y;
             if( Type == LightType::Box || Type == LightType::Rectangle ) return Range + HalfSize.Length();
             return Range;
+        }
+
+        // Extended emitters: projected source area over pi (m^2), added to the squared surface
+        // distance in the falloff. An area source's irradiance stays finite on its surface instead
+        // of growing as 1/d^2 across the whole face, and still falls off as 1/d^2 far away (exact
+        // on-axis for a disc: I / (d^2 + r^2)). Zero for point and spot lights.
+        float GetNearFieldArea() const
+        {
+            constexpr float kInvPi = 0.318309886f;
+            if( Type == LightType::Rectangle ) return 4.f * HalfSize.x * HalfSize.y * kInvPi;
+            // A convex body's mean projected area is a quarter of its surface area.
+            if( Type == LightType::Box ) return 2.f * ( HalfSize.x * HalfSize.y + HalfSize.y * HalfSize.z + HalfSize.z * HalfSize.x ) * kInvPi;
+            // The tube side-on (length times diameter) plus its round ends.
+            if( Type == LightType::Bar ) return 4.f * HalfSize.x * HalfSize.y * kInvPi + HalfSize.y * HalfSize.y;
+            return 0.f;
         }
 
         bool CastShadows = false;

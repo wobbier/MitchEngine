@@ -952,6 +952,11 @@ namespace ShaderGraph
         {
             std::string code;
             code += "uniform vec4 u_sgParams[" + std::to_string( kMaxParameters ) + "];\n";
+            if( !Options.Preview && GraphRef.Settings.GraphTarget == Target::PostProcess && GraphRef.Settings.SceneColorMips )
+            {
+                code += "SAMPLER2D(s_sgSceneColorMips, 8);\n";
+                code += "uniform vec4 u_sgSceneColorMipSize; // xy filtered input dimensions\n";
+            }
             if( Options.Preview )
             {
                 code += "uniform vec4 u_sgPreview[" + std::to_string( kMaxPreviewConstants ) + "];\n";
@@ -995,6 +1000,24 @@ namespace ShaderGraph
             if( settings.GraphTarget == ShaderGraph::Target::PostProcess )
             {
                 manifest["Injection"] = settings.Injection == PostInjection::BeforeTonemap ? "BeforeTonemap" : "AfterTonemap";
+                if( settings.SceneColorMips )
+                {
+                    manifest["SceneColorMips"] = true;
+                    if( !settings.SceneColorMipThreshold.empty() )
+                    {
+                        auto threshold = std::find_if( Result.Parameters.begin(), Result.Parameters.end(), [&]( const ParameterSlot& InSlot ) {
+                            return InSlot.PropertyId == settings.SceneColorMipThreshold && InSlot.Type == ValueType::Float;
+                        } );
+                        if( threshold == Result.Parameters.end() )
+                        {
+                            AddDiagnostic( Diagnostic::Severity::Error, 0, "Scene Color Mip Threshold must reference a Float property." );
+                        }
+                        else
+                        {
+                            manifest["SceneColorMipThresholdSlot"] = threshold->Slot;
+                        }
+                    }
+                }
             }
             if( settings.GraphTarget == ShaderGraph::Target::Particle )
             {

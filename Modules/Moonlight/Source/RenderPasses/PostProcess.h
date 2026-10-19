@@ -37,6 +37,9 @@ namespace Moonlight
         // InTargets.ViewProjection before the scene draws.
         void RenderTemporalAA( ViewAllocator& InViews, const CameraData& InCamera, FrameBuffer& InTargets );
 
+        // Copy the current graph input and resolve its mip chain before a graph that requests it.
+        bgfx::TextureHandle RenderGraphSceneMips( ViewAllocator& InViews, FrameBuffer& InTargets, bgfx::TextureHandle InInput, float InThreshold = -1.f );
+
         void Render( ViewAllocator& InViews, const CameraData& InCamera, FrameBuffer& InTargets, bgfx::FrameBufferHandle InOutput, uint16_t InOutputWidth, uint16_t InOutputHeight, uint16_t InOutputX = 0, uint16_t InOutputY = 0 );
 
         // The sub-pixel jitter (in pixels, -0.5..0.5) of frame InFrame of the temporal sequence
@@ -67,6 +70,7 @@ namespace Moonlight
         ShaderCommand m_fogBlurProgram;
         ShaderCommand m_fogProgram;
         ShaderCommand m_taaProgram;
+        ShaderCommand m_copyProgram;
 
         bgfx::UniformHandle s_input0 = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle s_input1 = BGFX_INVALID_HANDLE;
@@ -94,6 +98,7 @@ namespace Moonlight
         bgfx::UniformHandle u_taaParams = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_taaJitter = BGFX_INVALID_HANDLE;
         bgfx::UniformHandle u_taaReproject = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle u_graphSceneFilter = BGFX_INVALID_HANDLE;
 
         bgfx::TextureHandle m_blackTexture = BGFX_INVALID_HANDLE;
         bgfx::TextureHandle m_whiteTexture = BGFX_INVALID_HANDLE;

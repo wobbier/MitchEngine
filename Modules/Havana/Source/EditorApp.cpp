@@ -21,6 +21,7 @@
 #include "Cores/SceneCore.h"
 #include "Events/SceneEvents.h"
 #include "RenderCommands.h"
+#include "Device/FrameBuffer.h"
 #include "Events/Event.h"
 #include "Math/Matrix4.h"
 #include "Math/Frustrum.h"
@@ -124,7 +125,8 @@ void EditorApp::OnUpdate( const UpdateContext& inUpdateContext )
     Transform* root = GetEngine().SceneNodes->GetRootTransform();
 
     EditorSceneManager->Update( inUpdateContext, root );
-    Camera::EditorCamera->GetSkySettings( inUpdateContext.GetUnscaledDeltaTime() );
+    if( !IsGameRunning() ) Camera::EditorCamera->ResetSkyClock();
+    Camera::EditorCamera->GetSkySettings( IsGameRunning() ? inUpdateContext.GetDeltaTime() : 0.f );
     Editor->UpdateWorld( root, EditorSceneManager->GetEntities() );
 
     UpdateCameras();
@@ -201,6 +203,7 @@ void EditorApp::OnEnd()
 {
     Editor->Save();
     EditorConfig::GetInstance().Save();
+    Editor->Destroy();
     // Only an interactive session owns the user's recovery files.
     if( !AutomationRunner::IsUnattendedRun() )
     {
@@ -367,6 +370,18 @@ void EditorApp::StopGame()
         GetEngine().LoadScene( InitialLevel );
     }
     m_isRestoringSnapshot = false;
+
+    // The scene snapshot recreates scene cameras, but the editor camera and its render targets
+    // survive Play. Restore their sky state before the first stopped frame is drawn.
+    Camera::EditorCamera->ResetSkyClock();
+    UpdateCameras();
+    if( Moonlight::FrameBuffer* buffer = GetEngine().EditorCamera.Buffer )
+    {
+        buffer->TemporalValid = false;
+        buffer->TemporalFrame = 0;
+        buffer->CloudValid = false;
+        buffer->CloudFrame = 0;
+    }
 
     UndoStack::Get().SetSuspended( false );
     if( m_wasDirtyBeforePlay )

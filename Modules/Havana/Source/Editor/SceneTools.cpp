@@ -20,7 +20,9 @@
 #include "Components/Physics/PhysicsJoint2D.h"
 #include "Components/Transform.h"
 #include "Debug/DebugDraw.h"
+#include "Engine/Engine.h"
 #include "Engine/World.h"
+#include "Graphics/DynamicSky.h"
 #include <algorithm>
 #include <cmath>
 
@@ -314,7 +316,10 @@ namespace SceneTools
         void DrawComponentGizmos()
         {
             World& world = EditorOps::GetWorld();
-            world.ForEachEntity( []( Entity& entity ) {
+            const auto& camera = GetEngine().EditorCamera;
+            const bool procedural = camera.ClearType == Moonlight::ClearColorType::Procedural;
+            const auto bodies = Moonlight::ComputeSkyCelestial( camera.ProceduralSky );
+            world.ForEachEntity( [&]( Entity& entity ) {
                 Transform* transform = entity.TryGetComponent<Transform>();
                 if( !transform || !entity.IsActiveInHierarchy() )
                 {
@@ -379,9 +384,20 @@ namespace SceneTools
                     switch( light->LightType )
                     {
                     case Moonlight::LightType::Directional:
-                        DebugDraw::Circle( position, transform->Front(), 0.35f, color, 0.f, DebugDraw::EditorOnly, 16 );
-                        DebugDraw::Arrow( position, position + transform->Front() * ( selected ? 2.f : 1.f ), color, 0.25f, 0.f, DebugDraw::EditorOnly );
+                    {
+                        auto drawDirection = [&]( const Vector3& direction ) {
+                            DebugDraw::Circle( position, direction, 0.35f, color, 0.f, DebugDraw::EditorOnly, 16 );
+                            DebugDraw::Arrow( position, position + direction * ( selected ? 2.f : 1.f ), color, 0.25f, 0.f, DebugDraw::EditorOnly );
+                        };
+                        if( procedural )
+                        {
+                            // Automatic represents both celestial sources, never the entity rotation.
+                            if( light->DirectionalSource != Moonlight::DirectionalSource::Moon ) drawDirection( Vector3( -bodies.Sun.x, -bodies.Sun.y, -bodies.Sun.z ) );
+                            if( light->DirectionalSource != Moonlight::DirectionalSource::Sun ) drawDirection( Vector3( -bodies.Moon.x, -bodies.Moon.y, -bodies.Moon.z ) );
+                        }
+                        else drawDirection( transform->Front() );
                         break;
+                    }
                     case Moonlight::LightType::Point:
                         DebugDraw::Sphere( position, selected ? light->Range : 0.25f, color, 0.f, DebugDraw::EditorOnly, selected ? 32 : 12 );
                         break;

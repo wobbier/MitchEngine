@@ -52,6 +52,10 @@ action View.Shading.VertexNormals
 action GameView.Shading.LightingOnly
 wait 5
 screenshot .tmp/ShadingModes-vertex-lighting.png
+action View.Shading.Overdraw
+action GameView.Shading.Overdraw
+wait 5
+screenshot .tmp/ShadingModes-overdraw.png
 action View.Shading.Lit
 action GameView.Shading.Lit
 action View.Toggle.PostProcessing

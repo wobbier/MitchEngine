@@ -21,7 +21,7 @@ TEST_CASE( "Directional lights: each camera resolves sky direction, radiance and
     authored.ShadowNormalBias = 1.25f;
     std::vector<Moonlight::LightCommand> lights { authored };
     auto day = Moonlight::ResolveDirectionalLighting( lights, &sky );
-    CHECK( day.Count == 1 );
+    CHECK( day.Count == 2 );
     CHECK( ( day.Lights[0].Direction == sky.Sun.Direction * -1.f ) );
     CHECK( ( day.Lights[0].Color == Vector3( 1.5f, 1.5f, 1.f ) ) );
     CHECK( day.Lights[0].SkySun );
@@ -29,6 +29,10 @@ TEST_CASE( "Directional lights: each camera resolves sky direction, radiance and
     CHECK( day.Lights[0].ShadowDistance == 213.f );
     CHECK( day.Lights[0].ShadowBias == 0.25f );
     CHECK( day.Lights[0].ShadowNormalBias == 1.25f );
+    CHECK( ( day.Lights[1].Direction == sky.Moon.Direction * -1.f ) );
+    CHECK( day.Lights[1].Color.x == doctest::Approx( 0.01f ) );
+    CHECK( day.Lights[1].Color.y == doctest::Approx( 0.0225f ) );
+    CHECK( day.Lights[1].Color.z == doctest::Approx( 0.04f ) );
 
     sky.Sun.Color = Vector3();
     auto night = Moonlight::ResolveDirectionalLighting( lights, &sky );
@@ -43,7 +47,7 @@ TEST_CASE( "Directional lights: each camera resolves sky direction, radiance and
     CHECK_FALSE( solid.Lights[0].SkySun );
 }
 
-TEST_CASE( "Directional lights: automatic primary, explicit bodies and transform sources share the CSM path" )
+TEST_CASE( "Directional lights: every source follows the procedural sky and shares the CSM path" )
 {
     Moonlight::SkyDirectionalLights sky;
     sky.Sun = { Vector3( 1.f, 0.f, 0.f ), Vector3( 3.f, 3.f, 3.f ) };
@@ -56,21 +60,107 @@ TEST_CASE( "Directional lights: automatic primary, explicit bodies and transform
     auto resolved = Moonlight::ResolveDirectionalLighting( lights, &sky );
     CHECK( resolved.Count == 3 );
     CHECK( ( resolved.Lights[0].Direction == sky.Moon.Direction * -1.f ) );
-    CHECK( ( resolved.Lights[1].Direction == lights[0].Direction ) ); // secondary Automatic stays authored
+    CHECK( ( resolved.Lights[1].Direction == sky.Sun.Direction * -1.f ) );
     CHECK( resolved.Lights[2].SkySun );
     lights[1].Source = Moonlight::DirectionalSource::Transform;
     resolved = Moonlight::ResolveDirectionalLighting( lights, &sky );
-    CHECK( ( resolved.Lights[0].Direction == lights[1].Direction ) );
+    REQUIRE( resolved.Count == 4 );
+    CHECK( ( resolved.Lights[0].Direction == sky.Sun.Direction * -1.f ) );
+    CHECK( resolved.Lights[0].CastShadows );
+    CHECK( ( resolved.Lights[1].Direction == sky.Sun.Direction * -1.f ) );
+    CHECK( ( resolved.Lights[3].Direction == sky.Moon.Direction * -1.f ) );
+    // The same sources retain authored lighting for a camera without a procedural sky.
+    auto manual = Moonlight::ResolveDirectionalLighting( lights, nullptr );
+    REQUIRE( manual.Count == 3 );
+    CHECK( ( manual.Lights[0].Direction == lights[1].Direction ) );
+    CHECK( ( manual.Lights[0].Color == lights[1].Color ) );
 
     auto fallback = Moonlight::ResolveDirectionalLighting( {}, &sky );
-    CHECK( fallback.Count == 1 );
+    CHECK( fallback.Count == 2 );
     CHECK( fallback.Lights[0].CastShadows );
     CHECK( fallback.Lights[0].SkySun );
     sky.SunVisibility = 0.f;
     resolved = Moonlight::ResolveDirectionalLighting( {}, &sky );
-    CHECK( resolved.Lights[0].SkySun ); // sunlit receivers outside the camera's umbra still need sunlight
-    CHECK( ( resolved.Lights[0].Direction == sky.Sun.Direction * -1.f ) );
+    CHECK( resolved.Lights[1].SkySun ); // sunlit receivers outside the camera's umbra still need sunlight
+    CHECK( ( resolved.Lights[1].Direction == sky.Sun.Direction * -1.f ) );
     CHECK( Moonlight::ResolveDirectionalLighting( {}, nullptr ).Count == 0 );
+}
+
+TEST_CASE( "Directional lights: sunset keeps solar shafts as moonlight becomes brighter" )
+{
+    Moonlight::SkyDirectionalLights sky;
+    sky.Sun.Direction = Vector3( 1.f, 0.01f, 0.f ).Normalized();
+    sky.Moon.Direction = Vector3( -1.f, 0.5f, 0.f ).Normalized();
+    sky.Moon.Color = Vector3( 0.1f );
+    Moonlight::LightCommand authored;
+    authored.Type = Moonlight::LightType::Directional;
+    authored.CastShadows = true;
+    for( float sunlight : { 0.11f, 0.1f, 0.09f, 0.01f } )
+    {
+        sky.Sun.Color = Vector3( sunlight );
+        auto dusk = Moonlight::ResolveDirectionalLighting( { authored }, &sky );
+        REQUIRE( dusk.Count == 2 );
+        CHECK( dusk.Lights[0].SkySun );
+        CHECK( ( dusk.Lights[0].Direction == sky.Sun.Direction * -1.f ) );
+        CHECK( dusk.Lights[0].Color.x == doctest::Approx( sunlight ) );
+        CHECK( dusk.Lights[1].Color.x == doctest::Approx( 0.1f ) );
+    }
+    sky.Sun.Color = Vector3();
+    auto night = Moonlight::ResolveDirectionalLighting( { authored }, &sky );
+    CHECK_FALSE( night.Lights[0].SkySun );
+    CHECK( ( night.Lights[0].Direction == sky.Moon.Direction * -1.f ) );
+    // The full uniform budget must still leave a slot for moonlight.
+    std::vector<Moonlight::LightCommand> full( 4, authored );
+    CHECK( Moonlight::ResolveDirectionalLighting( full, &sky ).Count == 4 );
+    // An explicitly authored moon already supplies lunar light; do not add another copy.
+    sky.Sun.Color = Vector3( 1.f );
+    Moonlight::LightCommand explicitMoon = authored;
+    explicitMoon.Source = Moonlight::DirectionalSource::Moon;
+    explicitMoon.Color = Vector3( 0.5f );
+    auto explicitNight = Moonlight::ResolveDirectionalLighting( { authored, explicitMoon }, &sky );
+    REQUIRE( explicitNight.Count == 2 );
+    CHECK( explicitNight.Lights[1].Color.x == doctest::Approx( 0.05f ) );
+}
+
+TEST_CASE( "Directional lights: automatic moonlight survives a full budget and arbitrary entity rotations" )
+{
+    Moonlight::SkyDirectionalLights sky;
+    sky.Sun = { Vector3( 0.6f, 0.8f, 0.f ), Vector3( 2.f ) };
+    sky.Moon = { Vector3( -0.8f, 0.6f, 0.f ), Vector3( 0.1f ) };
+    for( size_t caster = 0; caster < 4; ++caster )
+    {
+        std::vector<Moonlight::LightCommand> lights( 4 );
+        for( auto& light : lights )
+        {
+            light.Type = Moonlight::LightType::Directional;
+            light.Direction = Vector3( 0.f, 0.f, 1.f );
+        }
+        lights[caster].CastShadows = true;
+        lights[caster].ShadowDistance = 213.f;
+        auto day = Moonlight::ResolveDirectionalLighting( lights, &sky );
+        REQUIRE( day.Count == 4 );
+        CHECK( day.Lights[0].SkySun );
+        CHECK( day.Lights[0].CastShadows );
+        CHECK( day.Lights[0].ShadowDistance == 213.f );
+        size_t moons = 0;
+        for( size_t i = 0; i < day.Count; ++i )
+        {
+            auto& light = day.Lights[i];
+            CHECK( ( light.Direction == ( light.SkySun ? sky.Sun.Direction : sky.Moon.Direction ) * -1.f ) );
+            if( !light.SkySun ) ++moons;
+        }
+        CHECK( moons == 1 );
+        const auto sunlight = sky.Sun.Color;
+        sky.Sun.Color = Vector3();
+        auto night = Moonlight::ResolveDirectionalLighting( lights, &sky );
+        REQUIRE( night.Count == 4 );
+        CHECK_FALSE( night.Lights[0].SkySun );
+        CHECK( ( night.Lights[0].Direction == sky.Moon.Direction * -1.f ) );
+        CHECK( night.Lights[0].CastShadows );
+        CHECK( night.Lights[0].ShadowDistance == 213.f );
+        sky.Sun.Color = sunlight;
+        for( const auto& light : lights ) CHECK( ( Vector3( 0.f, 0.f, 1.f ) == light.Direction ) );
+    }
 }
 
 TEST_CASE( "Directional lights: celestial source survives component serialization" )
@@ -87,6 +177,13 @@ TEST_CASE( "Directional lights: celestial source survives component serializatio
     Light legacy;
     legacy.Deserialize( json { { "LightType", "Directional" } } );
     CHECK( legacy.DirectionalSource == Moonlight::DirectionalSource::Automatic );
+    for( const json oldSource : { json( "Transform" ), json( 1 ) } )
+    {
+        restored.Deserialize( json{ { "LightType", "Directional" }, { "DirectionalSource", oldSource } } );
+        CHECK( restored.DirectionalSource == Moonlight::DirectionalSource::Automatic );
+        restored.Serialize( saved );
+        CHECK( saved["DirectionalSource"] == "Automatic" );
+    }
 }
 
 TEST_CASE( "Solar eclipse: disc overlap covers clear, partial, annular and total contacts" )
@@ -278,6 +375,38 @@ TEST_CASE( "Light: rectangle emission direction follows world rotation and ignor
     CHECK( rectangle.HalfSize.x == doctest::Approx( 3.f ) );
     CHECK( rectangle.HalfSize.y == doctest::Approx( 1.5f ) );
     CHECK( rectangle.HalfSize.z == 0.f );
+}
+
+TEST_CASE( "Light: extended emitters soften their falloff by their projected area" )
+{
+    constexpr float kPi = 3.14159265f;
+    Transform transform;
+    Light light;
+    light.LightType = Moonlight::LightType::Rectangle;
+    light.RectangleWidth = 2.f;
+    light.RectangleHeight = 1.5f;
+    CHECK( light.BuildCommand( transform ).GetNearFieldArea() == doctest::Approx( 3.f / kPi ) );
+
+    // A unit cube: surface area 6, mean projected area 1.5.
+    light.LightType = Moonlight::LightType::Box;
+    light.Size = Vector3( 1.f, 1.f, 1.f );
+    CHECK( light.BuildCommand( transform ).GetNearFieldArea() == doctest::Approx( 1.5f / kPi ) );
+
+    light.LightType = Moonlight::LightType::Bar;
+    light.Length = 1.f;
+    light.Radius = 0.1f;
+    CHECK( light.BuildCommand( transform ).GetNearFieldArea() == doctest::Approx( ( 0.2f + kPi * 0.01f ) / kPi ) );
+
+    // Scale stretches the emitter, and with it the area.
+    transform.SetScale( Vector3( 2.f, 3.f, 1.f ) );
+    light.LightType = Moonlight::LightType::Rectangle;
+    CHECK( light.BuildCommand( transform ).GetNearFieldArea() == doctest::Approx( 18.f / kPi ) );
+
+    for( Moonlight::LightType type : { Moonlight::LightType::Point, Moonlight::LightType::Spot } )
+    {
+        light.LightType = type;
+        CHECK( light.BuildCommand( transform ).GetNearFieldArea() == 0.f );
+    }
 }
 
 TEST_CASE( "Light: invalid dimensions stay finite and point spot shadows remain available" )

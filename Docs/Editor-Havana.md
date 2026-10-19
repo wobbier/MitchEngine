@@ -133,11 +133,11 @@ Instances carry a link: `EntityRecord::PrefabAsset` (project-local path) and `Pr
 
 ### Asset browser
 
-A folder tree (Assets and Engine Assets, tracked by absolute path) plus grid or list contents:
+A searchable project-wide table is the default: type icon, name, local path and last modified, with sortable/reorderable columns, checkbox type filters and a resizable inspector on the right. Search matches paths as well as names (comma-separated terms and `-exclusions`). **Folder View** retains the folder tree, breadcrumbs and grid/list browser as an explicit option; that code is kept for a separate UX pass. **Project Table** returns to the original layout.
 
 - **Navigation**: back/forward/up, clickable breadcrumbs, recursive search and a type filter.
 - **Thumbnails**: textures that are already compiled, at most two loaded per frame.
-- **Details pane**: preview and import settings (Apply re-exports and reloads). Data assets (metadata that exposes a reflected object, e.g. `.inputactions`) show their contents in the reflection inspector with a Save button.
+- **Details pane**: texture and shader graph previews, plus registered import settings (Apply re-exports and reloads). Graph previews compile in the background without exporting or changing the graph; target/surface settings are summarized beside an Open Shader Graph button. Shader graphs have no separate import settings. Data assets (metadata that exposes a reflected object, e.g. `.inputactions`) show their contents in the reflection inspector with a Save button.
 - **File operations**: create folder/scene/prefab/material/input actions/C# script, rename (F2, moves the `.meta`), duplicate (Ctrl+D), move (Alt-drag files, or drag folders, onto folders or breadcrumbs), delete to `.tmp/Trash` after confirmation, show in file manager, copy path, reimport.
 - **Picker mode**: the same window serves `RequestAssetSelectionEvent`. Double-click selects; save dialogs save into the browsed folder with the right extension.
 - `AssetsChangedEvent` from the asset watcher refreshes it.
@@ -169,6 +169,7 @@ The script runs one command per frame after a short warm-up and logs `[editor-ex
 | `select a,b`, `select-add a`, `select-none` | Selection (names, or `Parent/Child` paths) |
 | `pick fx fy` | Clicks the scene view at that fraction of its size; GPU picking selects what is drawn there |
 | `show-asset path` | Opens the Assets window on a file with its details shown (data assets show their editable contents) |
+| `assert-browser-layout Project` (or `Folder`), `assert-browser-asset path`, `wait-asset-preview` | Check the browser layout and project-wide listing, or wait for the selected graph's GPU preview (fails on graph/shader errors or timeout) |
 | `replace-in-file path | old | new`, `wait-log text | frames` | Edit a file in place (hot reload tests) / wait until a log line containing the text appears (lines logged since the previous command started count, so `action X` then `wait-log` can't miss what X logged; consecutive `wait-log`s share that window, so several lines X logged at once can each be awaited), failing after the frame budget |
 | `create Name [| Parent]`, `rename Name`, `reparent Child | Parent|root` | Structural edits |
 | `add-component T`, `remove-component T`, `set Type.Field <json>`, `set-ref Type.Field | Entity/Path` | Component edits on the active entity (`set-ref` fills an entity reference with that entity's GUID) |
@@ -178,6 +179,7 @@ The script runs one command per frame after a short warm-up and logs `[editor-ex
 | `mark-count`, `assert-count N`, `assert-count-delta N` | Entity counts |
 | `assert-exists/-missing Name`, `assert-selected N`, `assert-active Name`, `assert-parent Child | Parent`, `assert-children Name | N`, `assert-near A | B | metres` (world positions) | Scene structure |
 | `assert-field Name | Type.Field | <json>` (numbers within 1e-3; append `~ tolerance` to widen; prefix `!=` to require a different value; `Type.Field.N` indexes arrays), `assert-dirty 0/1`, `assert-playing 0/1`, `assert-audio Name | 0/1` (its AudioSource is playing), `assert-prefab Name | path/none`, `assert-overridden Name | Type.Field | 0/1` | State |
+| `assert-sky-time Camera | 17.2` (or `!= 17.2`), `assert-sky-animation-time Camera | 0` | Check evaluated sky clocks. `@scene-view` reads the rendered viewport settings; `@editor-camera` reads the persistent editor camera. |
 
 `Assets/Scenes/Tests/EditorFlows.edscript` and `PrefabFlows.edscript` (run with `HierarchyTest.lvl`) `PhysicsFlows.edscript` (run with `PhysicsTest.lvl`) and `Physics2DFlows.edscript` (run with `Physics2DTest.lvl`) in the game repository are the regression scripts.
 
@@ -201,6 +203,7 @@ EditorActions::Get().Register( action );
 - Forms are property rows: `HavanaUtils::Label( "Name" )`, then the widget with a `##id` label (Label sets its width and returns it). Values start at one column per window whatever the indentation (40% of the row, at most 14 em) and end one panel inset from the right edge, in padded and unpadded panels alike. `HavanaUtils::SkipLabel()` puts a button or note under the values; `HavanaUtils::RowWidth()` replaces `-1` widths, which run to the window edge in panels without padding. Vectors use `HavanaUtils::DragAxes`.
 - Sizes come from `ImGuiTheme` (`Modules/ImGUI/Source/ImGuiTheme.h`), never pixel literals: `Em( n )` for fixed widths, table columns and popup or list sizes; `InnerGap()` between the parts of one control (a field and its buttons, vector components); `IconButtonSize()` / `IconButtonsWidth( n )` for square browse, clear, add and remove buttons; `ButtonWidth( label )`; `DialogButtonSize()` for dialog footers; `SectionGap()` between stacked groups; `PanelInset()` where a panel zeroes its padding.
 - Every control is one frame tall: use `Button`, not `SmallButton`, next to fields and in toolbars, and give inspector tree nodes `ImGuiTreeNodeFlags_FramePadding`. Inside an inspector, sub-sections are tree nodes or `SeparatorText`; full-width collapsing headers are for component groups.
+- Use `ImGui::SeparatorText( "Section" )` for non-collapsing section and menu category labels, and `ImGui::Separator()` for unlabeled dividers. The theme supplies a visible neutral line color independent of panel borders, one-pixel rules, and font-scaled spacing with lines on both sides of the label. Add Component, Create / Create Child, and the shader node palette use this same styling.
 - Colors come from the style or the theme: `ImGuiTheme::AccentText()` for accent text (prefab instances, overrides), `InfoText()`, `SuccessText()`, `WarningText()`, `ErrorText()` for status. They stay readable in both themes. Viewport overlays (stats, gizmo icons) keep fixed light-on-dark colors so they read over any scene.
 
 ## Caveats & Fragility

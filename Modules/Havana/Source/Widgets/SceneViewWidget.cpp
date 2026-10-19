@@ -65,7 +65,8 @@ namespace
 		{ "Emissive", "Emissive", "Emissive texture, color and intensity" },
 		{ "UV Checker", "UVChecker", "UV0 checker pattern with material tiling applied" },
 		{ "Depth", "Depth", "Linear camera depth: near = white, depth range and beyond = black" },
-		{ "Lighting Only", "LightingOnly", "Scene lighting on neutral nonmetallic surfaces, with normal maps and shadows" }
+		{ "Lighting Only", "LightingOnly", "Scene lighting on neutral nonmetallic surfaces, with normal maps and shadows" },
+		{ "Overdraw", "Overdraw", "Shaded layers per pixel, opaque and transparent: brown = 1, brighter orange to yellow with more layers, white = 25+" }
 	};
 	constexpr int kShadingCount = static_cast<int>(Moonlight::ViewShadingMode::Count);
 	static_assert(sizeof(kShadingOptions) / sizeof(kShadingOptions[0]) == kShadingCount);
@@ -98,6 +99,41 @@ namespace
 		case SceneViewWidget::GizmoOperation::Universal: return ImGuizmo::UNIVERSAL;
 		default: return ImGuizmo::TRANSLATE;
 		}
+	}
+
+	// Havana's gizmo look (the pre-submodule vendored ImGuizmo): softer red/green/blue at
+	// ~67% alpha, with a hovered or dragged handle drawn as its own axis color at full alpha.
+	const ImU32 kGizmoAxisColors[3] = { IM_COL32(0xFF, 0x33, 0x52, 0xAA), IM_COL32(0x8B, 0xDC, 0x00, 0xAA), IM_COL32(0x28, 0x8F, 0xFD, 0xAA) };
+
+	// ImGuizmo has a single selection color, so the manipulator's follows the highlighted handle's
+	// axis. The handle comes from the previous Manipulate call (one frame behind, which is invisible).
+	// Screen/uniform handles are drawn white when idle, so they highlight in the rotate-drag orange.
+	ImVec4 GizmoSelectionColor(ImGuizmo::MOVETYPE highlighted)
+	{
+		int axis = -1;
+		switch (highlighted)
+		{
+		case ImGuizmo::MT_MOVE_X: case ImGuizmo::MT_MOVE_YZ: case ImGuizmo::MT_ROTATE_X: case ImGuizmo::MT_SCALE_X: axis = 0; break;
+		case ImGuizmo::MT_MOVE_Y: case ImGuizmo::MT_MOVE_ZX: case ImGuizmo::MT_ROTATE_Y: case ImGuizmo::MT_SCALE_Y: axis = 1; break;
+		case ImGuizmo::MT_MOVE_Z: case ImGuizmo::MT_MOVE_XY: case ImGuizmo::MT_ROTATE_Z: case ImGuizmo::MT_SCALE_Z: axis = 2; break;
+		default: break;
+		}
+		return ImGui::ColorConvertU32ToFloat4(axis >= 0 ? kGizmoAxisColors[axis] | IM_COL32_A_MASK : IM_COL32(0xFF, 0x80, 0x10, 0xFF));
+	}
+
+	void ApplyGizmoStyle(const ImVec4& selection)
+	{
+		ImGuizmo::Style& style = ImGuizmo::GetStyle();
+		style.TranslationLineThickness = 4.f;
+		style.TranslationLineArrowSize = 7.f;
+		for (int i = 0; i < 3; ++i)
+		{
+			style.Colors[ImGuizmo::DIRECTION_X + i] = ImGui::ColorConvertU32ToFloat4(kGizmoAxisColors[i]);
+			style.Colors[ImGuizmo::PLANE_X + i] = ImGui::ColorConvertU32ToFloat4(kGizmoAxisColors[i]);
+		}
+		style.Colors[ImGuizmo::SELECTION] = selection;
+		// No hatching on flipped axes (zero alpha makes ImGui skip the line).
+		style.Colors[ImGuizmo::HATCHED_AXIS_LINES] = ImVec4(0.f, 0.f, 0.f, 0.f);
 	}
 
 	ImVec2 ToImVec2(const Vector2& v)
@@ -758,6 +794,7 @@ void SceneViewWidget::DrawManipulator()
 	ImGuizmo::SetDrawlist();
 	ImGuizmo::SetID(0);
 	ImGuizmo::SetRect(m_viewportScreenMin.x, m_viewportScreenMin.y, m_viewportScreenSize.x, m_viewportScreenSize.y);
+	ApplyGizmoStyle(GizmoSelectionColor(ImGuizmo::IsUsing() ? ImGuizmo::GetActiveHandleType() : ImGuizmo::GetHoveredHandleType()));
 
 	if (!m_dragging)
 	{
@@ -847,6 +884,8 @@ void SceneViewWidget::DrawViewCube()
 	const ImVec2 position(m_viewportScreenMin.x + m_viewportScreenSize.x - size - margin, m_viewportScreenMin.y + margin);
 	Matrix4 view = MainCamera->View;
 	const glm::mat4 before = view.GetInternalMatrix();
+	// The hovered cube face is unknown up front, so it brightens instead of taking its axis color.
+	ApplyGizmoStyle(ImVec4(1.f, 1.f, 1.f, 0.5f));
 	ImGuizmo::ViewManipulate(&view.GetInternalMatrix()[0][0], std::max((controller.GetPivot() - MainCamera->Position).Length(), 1.f), position, ImVec2(size, size), 0x10101010);
 	if (view.GetInternalMatrix() != before)
 	{

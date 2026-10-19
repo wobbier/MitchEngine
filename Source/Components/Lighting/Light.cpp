@@ -5,11 +5,11 @@
 #include <cmath>
 
 ME_REFLECT_ENUM( Moonlight::LightType, { { "Directional", Moonlight::LightType::Directional }, { "Point", Moonlight::LightType::Point }, { "Spot", Moonlight::LightType::Spot }, { "Bar", Moonlight::LightType::Bar }, { "Box", Moonlight::LightType::Box }, { "Rectangle", Moonlight::LightType::Rectangle } } )
-ME_REFLECT_ENUM( Moonlight::DirectionalSource, { { "Automatic", Moonlight::DirectionalSource::Automatic }, { "Transform", Moonlight::DirectionalSource::Transform }, { "Sun", Moonlight::DirectionalSource::Sun }, { "Moon", Moonlight::DirectionalSource::Moon } } )
+ME_REFLECT_ENUM( Moonlight::DirectionalSource, { { "Automatic", Moonlight::DirectionalSource::Automatic }, { "Sun", Moonlight::DirectionalSource::Sun }, { "Moon", Moonlight::DirectionalSource::Moon } } )
 
 ME_REFLECT_BEGIN( Light )
     ME_FIELD( LightType ).Display( "Type" );
-    ME_FIELD( DirectionalSource ).Display( "Directional Source" ).Tooltip( "With a procedural sky: Automatic makes the primary directional follow the sun or moon; Sun/Moon follow that body explicitly. Transform uses the entity rotation. Color and intensity tint/scale the sky light; shadow controls still apply." );
+    ME_FIELD( DirectionalSource ).Display( "Directional Source" ).Tooltip( "With a procedural sky, direction and radiance always follow the sky. Automatic supplies sun and moon together; Sun/Moon follow that body explicitly. Color and intensity tint/scale the sky light; shadow controls still apply. Without a procedural sky, directional lights use the entity rotation." );
     ME_FIELD( Color ).Color();
     ME_FIELD( Intensity ).Range( 0.f, 100.f ).Speed( 0.05f );
     ME_FIELD( Range ).Display( "Range (m)" ).Range( 0.01f, 1000.f ).Tooltip( "Local lights: fade distance from the source; bar/box/rectangle: measured from the emitter surface" );
@@ -40,14 +40,23 @@ void Light::Init()
 
 void Light::OnDeserialize( const json& inJson )
 {
-    if( inJson.contains( "LightType" ) && inJson["LightType"] == "Square" )
+    const bool square = inJson.contains( "LightType" ) && inJson["LightType"] == "Square";
+    const bool legacySource = inJson.contains( "DirectionalSource" ) &&
+        ( inJson["DirectionalSource"] == "Transform" || inJson["DirectionalSource"] == static_cast<int>( Moonlight::DirectionalSource::Transform ) );
+    if( square || legacySource )
     {
-        // Preserve scenes saved with the original square-face controls.
         json migrated = inJson;
-        migrated["LightType"] = "Rectangle";
-        const float side = inJson.contains( "SquareSize" ) && inJson["SquareSize"].is_number() ? inJson["SquareSize"].get<float>() : 1.f;
-        if( !migrated.contains( "RectangleWidth" ) ) migrated["RectangleWidth"] = side;
-        if( !migrated.contains( "RectangleHeight" ) ) migrated["RectangleHeight"] = side;
+        // Preserve scenes saved with the original square-face controls.
+        if( square )
+        {
+            migrated["LightType"] = "Rectangle";
+            const float side = inJson.contains( "SquareSize" ) && inJson["SquareSize"].is_number() ? inJson["SquareSize"].get<float>() : 1.f;
+            if( !migrated.contains( "RectangleWidth" ) ) migrated["RectangleWidth"] = side;
+            if( !migrated.contains( "RectangleHeight" ) ) migrated["RectangleHeight"] = side;
+        }
+        // Old Transform sources now follow the sky. Cameras without a procedural sky
+        // still use the authored rotation for every source.
+        if( legacySource ) migrated["DirectionalSource"] = "Automatic";
         Reflection::FromJson( StaticType(), this, migrated );
     }
     else

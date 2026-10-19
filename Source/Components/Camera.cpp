@@ -88,6 +88,14 @@ void Camera::OnPropertyChanged( const std::string& InFieldName )
     ProceduralSky.Clamp();
 }
 
+void Camera::ResetSkyClock()
+{
+    m_skyStartTime = m_skyTime = ProceduralSky.Time;
+    m_moonStartPhase = m_moonPhase = ProceduralSky.MoonPhase;
+    m_skyAnimationTime = 0.f;
+}
+
+
 Moonlight::ProceduralSkySettings Camera::GetSkySettings( float deltaTime )
 {
     if( m_skyStartTime != ProceduralSky.Time )
@@ -98,16 +106,21 @@ Moonlight::ProceduralSkySettings Camera::GetSkySettings( float deltaTime )
     {
         m_moonStartPhase = m_moonPhase = ProceduralSky.MoonPhase;
     }
-    if( ClearType == Moonlight::ClearColorType::Procedural && ProceduralSky.TimeScale > 0.f && deltaTime > 0.f )
+    if( ClearType == Moonlight::ClearColorType::Procedural && deltaTime > 0.f )
     {
-        const float hours = ProceduralSky.TimeScale * deltaTime;
-        m_skyTime = std::fmod( m_skyTime + hours, 24.f );
-        // A lunar month is 29.53 days: the moon rises about 50 minutes later each day.
-        m_moonPhase = std::fmod( m_moonPhase + hours / ( 24.f * 29.53f ), 1.f );
+        m_skyAnimationTime += deltaTime;
+        if( ProceduralSky.TimeScale > 0.f )
+        {
+            const float hours = ProceduralSky.TimeScale * deltaTime;
+            m_skyTime = std::fmod( m_skyTime + hours, 24.f );
+            // A lunar month is 29.53 days: the moon rises about 50 minutes later each day.
+            m_moonPhase = std::fmod( m_moonPhase + hours / ( 24.f * 29.53f ), 1.f );
+        }
     }
     Moonlight::ProceduralSkySettings settings = ProceduralSky;
     settings.Time = m_skyTime;
     settings.MoonPhase = m_moonPhase;
+    settings.AnimationTime = m_skyAnimationTime;
     return settings;
 }
 
@@ -241,8 +254,7 @@ void Camera::OnDeserialize( const json& inJson )
 {
     Reflection::FromJson( StaticType(), this, inJson );
     OnPropertyChanged( "" );
-    m_skyStartTime = m_skyTime = ProceduralSky.Time;
-    m_moonStartPhase = m_moonPhase = ProceduralSky.MoonPhase;
+    ResetSkyClock();
     if( inJson.contains( "Skybox" ) && inJson["Skybox"].is_string() )
     {
         Skybox = new Moonlight::SkyBox( inJson["Skybox"].get<std::string>() );
@@ -369,7 +381,7 @@ void Camera::OnEditorInspect()
         CameraTooltip( "24-hour local solar time. Changing this restarts the sky clock." );
         HavanaUtils::Label( "Time Scale" );
         changed |= ImGui::DragFloat( "##SkyTimeScale", &ProceduralSky.TimeScale, 0.01f, 0.f, 1.f, "%.2f h/s", ImGuiSliderFlags_AlwaysClamp );
-        CameraTooltip( "Sky hours per real second. Set to zero to hold the time of day." );
+        CameraTooltip( "Sky hours per game second during Play. Stops in Edit mode and while paused; zero holds the time of day." );
         HavanaUtils::Label( "Latitude" );
         changed |= ImGui::DragFloat( "##SkyLatitude", &ProceduralSky.Latitude, 0.1f, -90.f, 90.f, "%.1f deg", ImGuiSliderFlags_AlwaysClamp );
         CameraTooltip( "Sun position: -90 degrees at the South Pole, 0 at the equator, 90 at the North Pole." );

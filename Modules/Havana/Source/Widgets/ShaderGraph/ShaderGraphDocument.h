@@ -175,6 +175,7 @@ private:
     bool m_showCode = false;
     float m_sidePanelWidth = 300.f;
     uint32_t m_inspectedNode = 0;
+    bool m_focusNodeInspector = false;
     std::string m_inspectedProperty;
     std::string m_renamingProperty;
     char m_renameBuffer[128] = {};

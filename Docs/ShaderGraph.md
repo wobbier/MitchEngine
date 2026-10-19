@@ -64,11 +64,14 @@ Node-based shaders, edited in Havana and compiled to ordinary bgfx shader source
   - Drag from a pin into empty space for a palette of compatible nodes; the new node connects itself.
   - Incompatible links and loops are refused while you drag, with the reason.
   - **F** frames the selection (or everything). Right-drag pans.
-  - Select a node to edit all its settings and inputs in the side panel.
+  - Click a node once, or use its **Settings...** button, to open the **Node** tab in the side panel. It shows the node type, all its settings, and unconnected inputs.
+  - **Custom Function** nodes expose their name, editable input/output pin lists (names and types, add/remove), and multiline shader **Code**. Their canvas title is the function's name.
+  - **Texture 2D Asset** / **Cubemap Asset** nodes store a fixed texture path in their **Texture** setting. Edit the path, use **..** to pick an asset, or **x** to clear it; the canvas shows the assigned filename. A **Sample Texture** node samples that asset at its UV input.
   - Unconnected inputs edit inline on the node. Enum settings are buttons on the node.
   - Node menu (right-click a node): Copy, Duplicate, Convert to Property (constants), Show/Hide Preview, Group Selection, Delete.
   - Link menu: Insert Reroute, Delete.
-- **Blackboard:** typed properties (Float, Vector 2/3/4, Color, Boolean, Texture 2D, Cubemap).
+- **Side panel:** separate **Node**, **Blackboard**, **Graph**, and **Preview** tabs keep node settings reachable without scrolling past other panels. Selecting a node switches to **Node**.
+- **Blackboard tab:** typed properties (Float, Vector 2/3/4, Color, Boolean, Texture 2D, Cubemap).
   - Each has a default, an optional slider range, Color/HDR flags, and **Exposed** (shown on materials, settable per material).
   - Drag a property onto the canvas, or pick it in the palette.
 - **Actions:** while a graph window has focus, Ctrl+S, Ctrl+Z / Ctrl+Y, Ctrl+C / Ctrl+V / Ctrl+D, Delete and Ctrl+A act on the graph, through `EditorActions::DocumentClaims` / `DocumentExecute`. Each graph has its own undo history; a value drag is one step.
@@ -155,6 +158,7 @@ Generated sources are committed with the graph. Game builds cook them like any s
 - `RenderGraphPostPasses` (`Renderer.cpp`) runs Before Tonemap graphs after TAA, ping-ponging `FrameBuffer::GraphHdr` and replacing `PostInput`.
 - With After Tonemap graphs, `PostProcess::Render` writes `GraphLdr[0]`, and the last graph writes the camera's output.
 - Passes get `s_sgSceneColor` (6), `s_sgSceneDepth` (7), and the camera's projection terms and inverse view (full-screen views are orthographic).
+- **Scene Color Mips** (Graph tab, post-process only) opts into a fresh mipmapped copy of each pass's input on `s_sgSceneColorMips` (8). Custom Functions can use `texture2DLod(s_sgSceneColorMips, uv, lod).rgb` for filtered scene light; `u_sgSceneColorMipSize.xy` gives the mip texture's dimensions. The texture rounds up to powers of two so hardware mip reductions cover every source texel at any viewport size. **Mip Threshold** optionally selects a Float property whose soft brightness threshold is applied before filtering, preserving small bright sources as they move. The original Scene Color input stays available on stage 6. The copy and mip generation run only for graphs that request them. Preview Custom Functions should use `sgSceneColor(uv)` under `#ifdef SHADER_GRAPH_PREVIEW_SH`, since previews use an analytic scene. LensDirt demonstrates this for stable lens illumination.
 
 ### Targets and builtins
 

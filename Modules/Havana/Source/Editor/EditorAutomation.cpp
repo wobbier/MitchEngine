@@ -16,8 +16,10 @@
 #include "Utils/EditorConfig.h"
 #include "Widgets/ShaderGraph/ShaderGraphAutomation.h"
 #include "Widgets/Terrain/TerrainAutomation.h"
+#include "Widgets/ShaderGraph/ShaderGraphPreview.h"
 #include "Components/Audio/AudioSource.h"
 #include "Components/Transform.h"
+#include "Components/Camera.h"
 #include "Components/Graphics/Model.h"
 #include "Core/CommandLine.h"
 #include "Cores/SceneCore.h"
@@ -341,6 +343,51 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
         if( InApp.Editor && InApp.Editor->GetAssetBrowser() )
         {
             InApp.Editor->GetAssetBrowser()->ShowAsset( args );
+        }
+    }
+    else if( command == "assert-browser-layout" || command == "assert-browser-asset" || command == "wait-asset-preview" )
+    {
+        AssetBrowserWidget* browser = InApp.Editor ? InApp.Editor->GetAssetBrowser() : nullptr;
+        if( !browser || !browser->IsOpen ) Fail( "asset browser is not open" );
+        else if( command == "assert-browser-layout" )
+        {
+            if( args != ( browser->m_folderView ? "Folder" : "Project" ) ) Fail( "unexpected asset browser layout" );
+        }
+        else if( command == "assert-browser-asset" )
+        {
+            const std::string full = Path( args ).FullPath;
+            const bool found = std::any_of( browser->m_entries.begin(), browser->m_entries.end(), [&]( const auto& entry ) { return entry.FullPath == full; } );
+            if( !found ) Fail( "asset browser does not list " + args );
+        }
+        else
+        {
+            ImVec2 uv0, uv1;
+            const auto& preview = browser->m_graphPreview;
+            if( AssetBrowserWidget::GetAssetType( browser->m_detailsPath ) != AssetType::ShaderGraph )
+            {
+                Fail( "select a shader graph before waiting for its preview" );
+                m_assetPreviewWaitFrames = 0;
+            }
+            else if( !browser->m_graphPreviewError.empty() )
+            {
+                Fail( browser->m_graphPreviewError );
+                m_assetPreviewWaitFrames = 0;
+            }
+            else if( preview && !preview->IsCompiling() && !preview->GetShaderErrors().empty() )
+            {
+                Fail( preview->GetShaderErrors().front().Message );
+                m_assetPreviewWaitFrames = 0;
+            }
+            else if( !browser->m_showDetails || browser->m_graphPreviewDirty || !preview || preview->IsCompiling() || !preview->GetMain( uv0, uv1 ) )
+            {
+                if( ++m_assetPreviewWaitFrames < 1800 ) --m_nextLine;
+                else
+                {
+                    Fail( "asset browser preview did not render" );
+                    m_assetPreviewWaitFrames = 0;
+                }
+            }
+            else m_assetPreviewWaitFrames = 0;
         }
     }
     else if( command == "focus-window" )
@@ -771,6 +818,30 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
         if( !source || source->IsPlaying() != expected )
         {
             Fail( name + " audio " + ( source ? ( source->IsPlaying() ? "playing" : "stopped" ) : std::string( "<no AudioSource>" ) ) + ", expected " + ( expected ? "playing" : "stopped" ) );
+        }
+    }
+    else if( command == "assert-sky-time" || command == "assert-sky-animation-time" )
+    {
+        // Observe the evaluated clock, which deliberately does not change the authored Time field.
+        auto [name, valueText] = SplitArgs( args );
+        const bool negate = valueText.rfind( "!=", 0 ) == 0;
+        if( negate ) valueText = Trim( valueText.substr( 2 ) );
+        EntityHandle entity = FindEntity( name );
+        Camera* camera = name == "@editor-camera" ? Camera::EditorCamera : ( entity ? entity->TryGetComponent<Camera>() : nullptr );
+        const bool viewport = name == "@scene-view";
+        const json expected = json::parse( valueText, nullptr, false );
+        if( ( !camera && !viewport ) || !expected.is_number() )
+        {
+            Fail( "assert-sky-time: expected a camera and an hour value" );
+        }
+        else
+        {
+            const auto sky = viewport ? GetEngine().EditorCamera.ProceduralSky : camera->GetSkySettings();
+            const float actual = command == "assert-sky-time" ? sky.Time : sky.AnimationTime;
+            if( NearlyEqual( json( actual ), expected, 1e-3 ) == negate )
+            {
+                Fail( name + " " + command + " is " + std::to_string( actual ) + ", expected " + ( negate ? "not " : "" ) + valueText );
+            }
         }
     }
     else if( command == "assert-field" )

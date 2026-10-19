@@ -541,6 +541,39 @@ TEST_CASE( "Camera: sky clocks are independent and do not change serialized sett
     CHECK( first.GetSkySettings().Time == doctest::Approx( 23.5f ) );
 }
 
+TEST_CASE( "Camera: resetting playback restores authored sky and cloud animation" )
+{
+    Camera camera;
+    camera.ClearType = Moonlight::ClearColorType::Procedural;
+    camera.ProceduralSky.Time = 17.2f;
+    camera.ProceduralSky.TimeScale = 1.f;
+    camera.ProceduralSky.MoonPhase = 0.35f;
+    json authored;
+    camera.Serialize( authored );
+
+    const auto played = camera.GetSkySettings( 2.f );
+    CHECK( played.Time == doctest::Approx( 19.2f ) );
+    CHECK( played.AnimationTime == doctest::Approx( 2.f ) );
+    CHECK( played.MoonPhase > 0.35f );
+    camera.ResetSkyClock();
+    const auto stopped = camera.GetSkySettings();
+    CHECK( stopped.Time == doctest::Approx( 17.2f ) );
+    CHECK( stopped.MoonPhase == doctest::Approx( 0.35f ) );
+    CHECK( stopped.AnimationTime == 0.f );
+    json after;
+    camera.Serialize( after );
+    CHECK( after == authored );
+    CHECK_FALSE( after["ProceduralSky"].contains( "AnimationTime" ) );
+
+    // Holding the sun still does not freeze clouds during Play; a paused read does.
+    camera.ProceduralSky.TimeScale = 0.f;
+    CHECK( camera.GetSkySettings( 3.f ).Time == doctest::Approx( 17.2f ) );
+    CHECK( camera.GetSkySettings().AnimationTime == doctest::Approx( 3.f ) );
+    camera.Deserialize( authored );
+    CHECK( camera.GetSkySettings().AnimationTime == 0.f );
+    CHECK( camera.GetSkySettings().Time == doctest::Approx( 17.2f ) );
+}
+
 TEST_CASE( "Camera: procedural sky settings survive scene snapshots and clamp invalid values" )
 {
     auto source = MakeWorld();

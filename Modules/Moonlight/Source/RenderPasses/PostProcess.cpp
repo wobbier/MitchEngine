@@ -80,6 +80,7 @@ namespace Moonlight
         m_fogBlurProgram = LoadPost( "FogBlur" );
         m_fogProgram = LoadPost( "Fog" );
         m_taaProgram = LoadPost( "TAA" );
+        m_copyProgram = LoadPost( "Copy" );
 
         s_input0 = bgfx::createUniform( "s_input0", bgfx::UniformType::Sampler );
         s_input1 = bgfx::createUniform( "s_input1", bgfx::UniformType::Sampler );
@@ -107,6 +108,7 @@ namespace Moonlight
         u_taaParams = bgfx::createUniform( "u_taaParams", bgfx::UniformType::Vec4 );
         u_taaJitter = bgfx::createUniform( "u_taaJitter", bgfx::UniformType::Vec4 );
         u_taaReproject = bgfx::createUniform( "u_taaReproject", bgfx::UniformType::Mat4 );
+        u_graphSceneFilter = bgfx::createUniform( "u_graphSceneFilter", bgfx::UniformType::Vec4 );
 
         m_blackTexture = MakeSolid( 0.f );
         m_whiteTexture = MakeSolid( 1.f );
@@ -116,7 +118,7 @@ namespace Moonlight
     PostProcess::~PostProcess()
     {
         for( bgfx::UniformHandle* uniform : { &s_input0, &s_input1, &s_hdrColor, &s_bloom, &s_exposure, &s_ldrColor, &u_tonemap, &u_grading, &u_grading2, &u_exposure, &u_bloom, &u_ssao, &u_ssaoProjection, &u_ssaoScreen, &u_ssaoInvProjection, &u_adapt,
-            &u_fogProjection, &u_fogProjection2, &u_fogScreen, &u_fogInvView, &s_taaCurrent, &s_taaHistory, &s_taaDepth, &u_taaParams, &u_taaJitter, &u_taaReproject } )
+            &u_fogProjection, &u_fogProjection2, &u_fogScreen, &u_fogInvView, &s_taaCurrent, &s_taaHistory, &s_taaDepth, &u_taaParams, &u_taaJitter, &u_taaReproject, &u_graphSceneFilter } )
         {
             DestroyUniform( *uniform );
         }
@@ -141,6 +143,21 @@ namespace Moonlight
         bgfx::setState( InState ? InState : kWriteColor );
         screenSpaceQuad( 1.f, 1.f, 0.f, bgfx::getCaps()->originBottomLeft );
         bgfx::submit( InView, InProgram.GetProgram() );
+    }
+
+
+    bgfx::TextureHandle PostProcess::RenderGraphSceneMips( ViewAllocator& InViews, FrameBuffer& InTargets, bgfx::TextureHandle InInput, float InThreshold )
+    {
+        InTargets.EnsureGraphSceneMips();
+        const bgfx::ViewId view = InViews.Allocate( "Shader Graph Scene Mips" );
+        if( view == UINT16_MAX ) return InInput;
+        const FrameBuffer::Mip& target = InTargets.GraphSceneMips;
+        SetupFullscreenView( view, target.Buffer, target.Width, target.Height );
+        bgfx::setTexture( 0, s_input0, InInput, BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP );
+        const float filter[4] = { InThreshold, 0.f, 0.f, 0.f };
+        bgfx::setUniform( u_graphSceneFilter, filter );
+        SubmitFullscreen( view, m_copyProgram );
+        return target.Color;
     }
 
 

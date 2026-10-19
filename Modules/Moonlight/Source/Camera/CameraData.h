@@ -48,6 +48,7 @@ namespace Moonlight
         UVChecker,
         Depth,
         LightingOnly,
+        Overdraw,
         Count
     };
 

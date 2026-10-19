@@ -88,11 +88,12 @@ void ProfilerWidget::Render()
 		{
 			ImGui::TextDisabled("No per-view timings reported by the renderer backend.");
 		}
-		else if (ImGui::BeginTable("##Views", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV))
+		else if (ImGui::BeginTable("##Views", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV))
 		{
 			ImGui::TableSetupColumn("View", ImGuiTableColumnFlags_WidthStretch);
 			ImGui::TableSetupColumn("CPU ms", ImGuiTableColumnFlags_WidthFixed, ImGuiTheme::Em(4.f));
 			ImGui::TableSetupColumn("GPU ms", ImGuiTableColumnFlags_WidthFixed, ImGuiTheme::Em(4.f));
+			ImGui::TableSetupColumn("Tris", ImGuiTableColumnFlags_WidthFixed, ImGuiTheme::Em(5.f));
 			ImGui::TableHeadersRow();
 			for (const FrameStats::GpuView& view : render.Views)
 			{
@@ -103,6 +104,8 @@ void ProfilerWidget::Render()
 				ImGui::Text("%.3f", view.CpuMilliseconds);
 				ImGui::TableSetColumnIndex(2);
 				ImGui::Text("%.3f", view.GpuMilliseconds);
+				ImGui::TableSetColumnIndex(3);
+				if (view.Triangles > 0) ImGui::Text("%llu", static_cast<unsigned long long>(view.Triangles));
 			}
 			ImGui::EndTable();
 		}
