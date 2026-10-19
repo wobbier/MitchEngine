@@ -15,6 +15,7 @@ class CharacterController
 {
     ME_REFLECTABLE( CharacterController )
     friend class PhysicsCore;
+    friend class TerrainCore;
 public:
     CharacterController();
 

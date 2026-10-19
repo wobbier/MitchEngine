@@ -10,6 +10,7 @@
 #include <functional>
 #include <map>
 #include <set>
+#include <future>
 
 class SceneViewWidget;
 class TerrainWidget : public HavanaWidget, public EventReceiver
@@ -55,6 +56,9 @@ public:
     UndoStack& GetHistory() { return m_active ? m_active->GetUndo() : m_brushHistory; }
     TerrainData::BrushSettings Brush;
     bool BrushEnabled = false;
+    bool StartStreamCook( const std::string& InPath, uint8_t InCoverageLod );
+    bool FinishStreamCook( bool InWait = false );
+    bool IsCooking() const { return m_cook.valid(); }
 
 private:
     bool ClaimsAction( const std::string& InId ) const;
@@ -73,6 +77,10 @@ private:
     void DrawTools();
     void DrawLodButtons();
     void DrawLodControls();
+    void DrawStreamingControls();
+    void DrawResidencyButton();
+    void StreamCookDialog();
+    void DrawStreamCook();
     void PlaceInScene();
     bgfx::TextureHandle Icon( const char* InName );
     bool Button( const char* InIcon, const char* InLabel, const char* InDescription, bool InEnabled = true, bool InSelected = false, bool InCompact = false );
@@ -96,6 +104,10 @@ private:
     float m_brushBefore = 0;
     Vector2 m_brushCenters[4];
     Vector2 m_lodButtonCenters[2];
+    std::future<std::string> m_cook;
+    std::string m_cookPath, m_cookMessage;
+    int m_coverageLod = 3;
+    bool m_cookRequested = false, m_replaceCook = false;
     uint64_t m_strokeEntity = 0;
     double m_lastPreviewTime = 0;
     struct RecoveryEntry

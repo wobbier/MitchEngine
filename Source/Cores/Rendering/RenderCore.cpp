@@ -32,6 +32,8 @@
 #include "Profiling/FrameStats.h"
 #include <limits>
 #include <unordered_set>
+#include <chrono>
+#include "Terrain/TerrainStreamCache.h"
 
 
 struct RenderCore::TerrainDraw
@@ -39,6 +41,10 @@ struct RenderCore::TerrainDraw
     std::shared_ptr<const TerrainData::ResidentTerrain> Source;
     std::vector<std::unique_ptr<Moonlight::MeshData>> Geometry;
     std::vector<std::unique_ptr<Mesh>> Parts;
+    std::shared_ptr<TerrainData::ResidentTerrain> Active;
+    std::vector<std::shared_ptr<Moonlight::MeshIndexData>> Fallback, Warmup;
+    struct Retired { std::shared_ptr<const TerrainData::ResidentPatch> Patch; uint8_t Frames = 3; };
+    std::vector<Retired> Retiring;
     SharedPtr<StandardMaterial> Surface;
     std::vector<TerrainData::PatchLodChoice> Choices;
     uint16_t RetryFrames = 0;
@@ -51,7 +57,7 @@ void RenderCore::RemoveTerrainDraw( uint64_t InEntityID )
     if( found == m_terrainDraws.end() ) return;
     // Commands contain raw geometry pointers: retire them before destroying their buffers.
     if( Moonlight::IsGpuAlive() )
-        for( auto& mesh : found->second->Parts ) GetEngine().GetRenderer().GetMeshCache().Pop( mesh->GetId() );
+        for( auto& mesh : found->second->Parts ) if( mesh ) GetEngine().GetRenderer().GetMeshCache().Pop( mesh->GetId() );
     m_terrainDraws.erase( found );
 }
 
@@ -66,9 +72,12 @@ void RenderCore::OnRemovedFromWorld() { ClearTerrainDraws(); }
 RenderCore::TerrainDraw* RenderCore::PrepareTerrainDraw( Entity& InEntity, Terrain& InTerrain, std::span<const TerrainData::LodView> views )
 {
     auto data = InTerrain.GetData();
+    if( auto* stats = InTerrain.GetStreamingStats(); stats && !stats->CoverageReady )
+    { InTerrain.m_lodError = stats->Pressure; RemoveTerrainDraw( InEntity.GetId().Value() ); return nullptr; }
     const uint64_t id = InEntity.GetId().Value();
     auto previous = m_terrainDraws.find( id );
-    if( previous != m_terrainDraws.end() && ( previous->second->Source->AssetGUID != data->AssetGUID || previous->second->Parts.size() != data->Patches.size() ) ) RemoveTerrainDraw( id );
+    if( previous != m_terrainDraws.end() && ( previous->second->Source->AssetGUID != data->AssetGUID || previous->second->Source->StreamRevision != data->StreamRevision || previous->second->Parts.size() != data->Patches.size() ||
+        previous->second->Source->Heights->GetSettings().PatchQuads != data->Heights->GetSettings().PatchQuads || previous->second->Source->Heights->GetSettings().TilesX != data->Heights->GetSettings().TilesX || previous->second->Source->Heights->GetSettings().TilesZ != data->Heights->GetSettings().TilesZ ) ) RemoveTerrainDraw( id );
     auto& draw = m_terrainDraws[id];
     if( !draw )
     {
@@ -77,17 +86,51 @@ RenderCore::TerrainDraw* RenderCore::PrepareTerrainDraw( Entity& InEntity, Terra
         draw->Surface->Init();
         draw->Geometry.resize( data->Patches.size() );
         draw->Parts.resize( data->Patches.size() );
+        draw->Fallback.resize( data->Patches.size() );
+        draw->Active = std::make_shared<TerrainData::ResidentTerrain>( *data ); draw->Source = data;
+        draw->Active->CollisionTiles.clear(); draw->Active->ResidencyPins.clear();
     }
-    if( draw->Source != data )
+    for( auto it = draw->Retiring.begin(); it != draw->Retiring.end(); )
+        if( --it->Frames == 0 ) it = draw->Retiring.erase( it ); else ++it;
+    const auto started = std::chrono::steady_clock::now();
+    uint64_t uploaded = 0;
+    const bool streamed = data->Streamed;
+    const bool deterministic = CommandLine::GetFloat( "--frame-time", 0 ) > 0;
+    if( streamed && ( InTerrain.UploadKiB < 16 || InTerrain.UploadKiB > 16384 || !std::isfinite( InTerrain.UploadMilliseconds ) || InTerrain.UploadMilliseconds < 0.1f || InTerrain.UploadMilliseconds > 16.f ) )
+    { InTerrain.m_lodError = "Invalid terrain upload budget"; return nullptr; }
+    const uint64_t uploadLimit = streamed ? uint64_t( InTerrain.UploadKiB ) * 1024 : UINT64_MAX;
+    std::string uploadError;
+    const bool initial = std::any_of( draw->Geometry.begin(), draw->Geometry.end(), []( const auto& geometry ) { return !geometry; } );
+    // Establish complete coarse coverage before showing the first streamed frame. Subsequent
+    // detail/eviction uploads replace individual patches while the previous grid remains usable.
+    const auto target = streamed && initial && InTerrain.m_stream ? InTerrain.m_stream->GetArchive().Coverage : data;
     {
         OPTICK_EVENT( "RenderCore::UpdateTerrainPatches" );
-        for( size_t i = 0; i < data->Patches.size(); ++i )
+        for( size_t i = 0; i < target->Patches.size(); ++i )
         {
-            const auto& patch = data->Patches[i];
-            if( draw->Source && draw->Source->Patches[i] == patch ) continue;
-            // Retire the old command before releasing its raw geometry pointer and GPU buffers.
-            if( draw->Parts[i] ) GetEngine().GetRenderer().GetMeshCache().Pop( draw->Parts[i]->GetId() );
-            draw->Parts[i].reset(); draw->Geometry[i].reset();
+            const auto& patch = target->Patches[i];
+            if( draw->Geometry[i] && draw->Active->Patches[i] == patch ) continue;
+            const uint64_t bytes = patch->Mesh.Vertices.size() * sizeof( Moonlight::PosNormTexTanBiVertex ) + patch->Mesh.Lods.front().Indices.size() * 4 + 24;
+            if( bytes > uploadLimit ) { uploadError = "A terrain patch exceeds Upload KiB; increase the budget or cook smaller patches"; continue; }
+            const double elapsed = std::chrono::duration<double, std::milli>( std::chrono::steady_clock::now() - started ).count();
+            if( bytes > uploadLimit - uploaded || ( streamed && !deterministic && uploaded && elapsed >= InTerrain.UploadMilliseconds ) ) break;
+            const uint32_t grid = data->Heights->GetSettings().PatchQuads >> patch->BaseLod;
+            const uint8_t last = static_cast<uint8_t>( patch->Mesh.Lods.size() - 1 );
+            const uint64_t fallbackKey = ( uint64_t( grid ) << 16 ) | ( uint64_t( last ) << 8 );
+            std::shared_ptr<Moonlight::MeshIndexData> fallback;
+            if( streamed )
+            {
+                auto found = m_terrainTopology.find( fallbackKey );
+                if( found == m_terrainTopology.end() )
+                {
+                    std::vector<uint32_t> indices; std::string error;
+                    if( !TerrainData::BuildStitchedIndices( grid, grid, 0, indices, error ) ) { uploadError = error; break; }
+                    auto topology = std::make_shared<Moonlight::MeshIndexData>( std::move( indices ) );
+                    if( !bgfx::isValid( topology->GetBuffer() ) ) { uploadError = "Terrain fallback topology upload failed"; break; }
+                    found = m_terrainTopology.emplace( fallbackKey, std::move( topology ) ).first;
+                }
+                fallback = found->second;
+            }
             std::vector<Moonlight::PosNormTexTanBiVertex> vertices;
             vertices.reserve( patch->Mesh.Vertices.size() );
             for( const auto& v : patch->Mesh.Vertices )
@@ -103,13 +146,28 @@ RenderCore::TerrainDraw* RenderCore::PrepareTerrainDraw( Entity& InEntity, Terra
                 vertices.push_back( vertex );
             }
             auto geometry = std::make_unique<Moonlight::MeshData>( std::move( vertices ), patch->Mesh.Lods.front().Indices, draw->Surface );
+            if( !bgfx::isValid( geometry->GetVertexBuffer() ) || !bgfx::isValid( geometry->GetIndexBuffer( 0 ) ) )
+            { uploadError = "Terrain vertex upload failed; retaining previous coverage"; break; }
             auto mesh = std::make_unique<Mesh>( geometry.get() );
+            // Retire command references before a geometry replacement. Retain its cache pin for
+            // three render frames, covering BGFX's deferred buffer retirement.
+            if( draw->Parts[i] ) GetEngine().GetRenderer().GetMeshCache().Pop( draw->Parts[i]->GetId() );
+            draw->Parts[i].reset();
+            if( draw->Geometry[i] )
+            {
+                draw->Retiring.push_back( { draw->Active->Patches[i], 3 } );
+                draw->Geometry[i].reset(); // Queue BGFX retirement now; keep its reservation pin until completion.
+            }
             mesh->Id = GetEngine().GetRenderer().GetMeshCache().Push( Moonlight::MeshCommand() );
             draw->Geometry[i] = std::move( geometry );
-            draw->Parts[i] = std::move( mesh );
+            draw->Parts[i] = std::move( mesh ); draw->Active->Patches[i] = patch; draw->Fallback[i] = std::move( fallback ); uploaded += bytes;
         }
         draw->Source = data;
     }
+    if( std::any_of( draw->Geometry.begin(), draw->Geometry.end(), []( const auto& geometry ) { return !geometry; } ) )
+    { InTerrain.m_lodError = uploadError.empty() ? "Uploading initial terrain coverage" : uploadError; return nullptr; }
+    draw->Active->Heights = data->Heights;
+    data = draw->Active;
     const auto translation = InEntity.GetComponent<Transform>().GetWorldPosition();
     TerrainData::LodSettings settings{ InTerrain.LodPixelError, InTerrain.LodHysteresis, InTerrain.ForcedLod };
     std::vector<TerrainData::PatchLodChoice> choices;
@@ -117,17 +175,23 @@ RenderCore::TerrainDraw* RenderCore::PrepareTerrainDraw( Entity& InEntity, Terra
     bool ready = TerrainData::SelectTerrainLods( *data, translation, views, settings, draw->Choices, choices, error );
     if( ready && draw->RetryFrames ) { --draw->RetryFrames; ready = false; error = draw->RetryError; }
     std::vector<std::shared_ptr<Moonlight::MeshIndexData>> topologies( data->Patches.size() );
-    const uint32_t q = data->Heights->GetSettings().PatchQuads;
     if( ready ) for( size_t i = 0; i < choices.size(); ++i )
     {
         const auto choice = choices[i];
-        if( !choice.Level && !choice.Edges ) continue; // Existing full-detail buffer.
-        const uint64_t key = ( static_cast<uint64_t>( q ) << 16 ) | ( static_cast<uint64_t>( choice.Level ) << 8 ) | choice.Edges;
+        const uint32_t q = data->Heights->GetSettings().PatchQuads >> data->Patches[i]->BaseLod;
+        const uint8_t localLevel = choice.Level - data->Patches[i]->BaseLod;
+        if( !localLevel && !choice.Edges ) continue; // Existing base representation buffer.
+        const uint64_t key = ( static_cast<uint64_t>( q ) << 16 ) | ( static_cast<uint64_t>( localLevel ) << 8 ) | choice.Edges;
         auto found = m_terrainTopology.find( key );
         if( found == m_terrainTopology.end() )
         {
+            const double elapsed = std::chrono::duration<double, std::milli>( std::chrono::steady_clock::now() - started ).count();
+            if( streamed && !deterministic && uploaded && elapsed >= InTerrain.UploadMilliseconds ) { error = "Terrain index patterns are queued within the upload time budget"; ready = false; break; }
             std::vector<uint32_t> indices;
-            if( !TerrainData::BuildStitchedIndices( q, 1u << choice.Level, choice.Edges, indices, error ) ) { ready = false; break; }
+            if( !TerrainData::BuildStitchedIndices( q, 1u << localLevel, choice.Edges, indices, error ) ) { ready = false; break; }
+            const uint64_t bytes = indices.size() * 4;
+            if( bytes > uploadLimit - uploaded ) { error = "Terrain index patterns are queued within the upload budget"; ready = false; break; }
+            uploaded += bytes;
             auto topology = std::make_shared<Moonlight::MeshIndexData>( std::move( indices ) );
             if( !bgfx::isValid( topology->GetBuffer() ) )
             {
@@ -135,15 +199,21 @@ RenderCore::TerrainDraw* RenderCore::PrepareTerrainDraw( Entity& InEntity, Terra
                 draw->RetryFrames = 120; draw->RetryError = error; break;
             }
             found = m_terrainTopology.emplace( key, std::move( topology ) ).first;
+            draw->Warmup.push_back( found->second );
         }
         topologies[i] = found->second;
     }
     if( !ready )
     {
         choices.assign( data->Patches.size(), {} );
-        for( auto& topology : topologies ) topology.reset(); // Uniform fallback is seam safe.
+        for( size_t i = 0; i < choices.size(); ++i )
+        {
+            if( streamed ) { choices[i].Level = data->Patches[i]->BaseLod + static_cast<uint8_t>( data->Patches[i]->Mesh.Lods.size() - 1 ); topologies[i] = draw->Fallback[i]; }
+            else topologies[i].reset();
+        }
     }
-    InTerrain.m_lodError = error;
+    else draw->Warmup.clear();
+    InTerrain.m_lodError = error.empty() ? uploadError : error;
     draw->Choices = std::move( choices ); InTerrain.m_patchLods = draw->Choices;
     InTerrain.m_lodTriangles = InTerrain.m_fullTriangles = 0;
     static const Vector3 colors[] = { { 0.2f, 0.85f, 0.3f }, { 0.95f, 0.8f, 0.15f }, { 1.f, 0.4f, 0.15f }, { 0.2f, 0.65f, 1.f }, { 0.65f, 0.3f, 1.f }, { 0.95f, 0.3f, 0.7f } };
@@ -152,10 +222,10 @@ RenderCore::TerrainDraw* RenderCore::PrepareTerrainDraw( Entity& InEntity, Terra
         auto& part = draw->Parts[i];
         draw->Geometry[i]->SetIndexTopology( std::move( topologies[i] ) );
         InTerrain.m_lodTriangles += draw->Geometry[i]->GetIndexCount() / 3;
-        InTerrain.m_fullTriangles += data->Patches[i]->Mesh.Lods.front().Indices.size() / 3;
+        InTerrain.m_fullTriangles += uint64_t( data->Heights->GetSettings().PatchQuads ) * data->Heights->GetSettings().PatchQuads * 2;
         // Materials prepare themselves in parallel jobs, so each patch keeps its own instance.
         auto& material = static_cast<StandardMaterial&>( *part->MeshMaterial );
-        material.DiffuseColor = InTerrain.ShowLods ? colors[draw->Choices[i].Level % 6] : InTerrain.Color;
+        material.DiffuseColor = InTerrain.ShowResidency && streamed ? ( data->Patches[i]->BaseLod ? Vector3( 0.25f, 0.55f, 0.9f ) : Vector3( 0.2f, 0.85f, 0.3f ) ) : ( InTerrain.ShowLods ? colors[draw->Choices[i].Level % 6] : InTerrain.Color );
         material.Roughness = std::clamp( InTerrain.Roughness, 0.f, 1.f );
         part->CastShadows = InTerrain.CastShadows;
         if( InTerrain.ShowPatches )
@@ -266,6 +336,7 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
         {
             terrains.insert( entity.GetId().Value() );
             TerrainDraw* draw = PrepareTerrainDraw( entity, *terrain, terrainViews );
+            if( !draw ) continue;
             const auto& world = entity.GetComponent<Transform>().GetLocalToWorldMatrix().GetInternalMatrix();
             for( size_t i = 0; i < draw->Parts.size(); ++i )
                 items.push_back( { draw->Parts[i].get(), Matrix4( glm::translate( world, draw->Source->Patches[i]->Offset.InternalVector ) ), entity.GetHandle() } );

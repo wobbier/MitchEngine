@@ -3,6 +3,7 @@
 #include "Resource/ResourceCache.h"
 #include "Resource/AssetDatabase.h"
 #include "Resources/TerrainResource.h"
+#include "Terrain/TerrainStreamCache.h"
 #if USING( ME_EDITOR )
 #include "Events/EditorEvents.h"
 #include <filesystem>
@@ -29,6 +30,15 @@ ME_REFLECT_BEGIN( Terrain )
     ME_FIELD( ForcedLod ).Category( "LOD" ).NoSerialize().Range( -1, 10 ).Tooltip( "-1 selects by pixel error; 0 is full detail" );
     ME_FIELD( ShowLods ).Category( "LOD" ).NoSerialize();
     ME_FIELD( ShowPatches ).Category( "LOD" ).NoSerialize();
+    ME_FIELD( StreamDetail ).Category( "Streaming" ).Tooltip( "Load nearby detail from a version 2 cooked terrain; coarse coverage always remains" );
+    ME_FIELD( StreamDistance ).Category( "Streaming" ).Range( 0.f, 16384.f );
+    ME_FIELD( CollisionDistance ).Category( "Streaming" ).Range( 1.f, 1024.f ).Tooltip( "Safety margin around characters and moving bodies, independent of cameras" );
+    ME_FIELD( CpuBudgetMiB ).Category( "Streaming" ).Range( 1, 4096 );
+    ME_FIELD( GpuBudgetMiB ).Category( "Streaming" ).Range( 1, 4096 );
+    ME_FIELD( CollisionBudgetMiB ).Category( "Streaming" ).Range( 1, 4096 );
+    ME_FIELD( UploadKiB ).Category( "Streaming" ).Range( 16, 16384 );
+    ME_FIELD( UploadMilliseconds ).Category( "Streaming" ).Range( 0.1f, 16.f );
+    ME_FIELD( ShowResidency ).Category( "Streaming" ).NoSerialize();
     ME_FIELD( Collision ).Category( "Collision" );
     ME_FIELD( Friction ).Category( "Collision" ).Range( 0.f, 2.f );
     ME_FIELD( Restitution ).Category( "Collision" ).Range( 0.f, 1.f );
@@ -36,7 +46,7 @@ ME_REFLECT_END()
 
 void Terrain::SetData( std::shared_ptr<const TerrainData::ResidentTerrain> InData )
 {
-    Asset = Path(); m_loadedAsset.clear(); m_resource.reset();
+    Asset = Path(); m_loadedAsset.clear(); m_resource.reset(); m_stream.reset();
     m_patchLods.clear(); m_lodTriangles = m_fullTriangles = 0; m_lodError.clear();
     m_data = std::move( InData ); m_valid = false; m_error.clear();
 }
@@ -47,7 +57,7 @@ void Terrain::ReloadAsset()
 {
     if( Asset.GetLocalPathString().empty() ) return;
     if( m_resource ) ResourceCache::GetInstance().Evict( m_resource->GetPath().FullPath );
-    m_resource.reset(); m_data.reset(); m_loadedAsset.clear(); m_valid = false;
+    m_resource.reset(); m_stream.reset(); m_data.reset(); m_loadedAsset.clear(); m_valid = false;
     m_patchLods.clear(); m_lodTriangles = m_fullTriangles = 0; m_lodError.clear();
 }
 
@@ -65,14 +75,14 @@ void Terrain::Resolve( bool InWait )
         auto preview = s_editorTerrainPreviews.find( PreviewKey( Asset ) );
         if( preview != s_editorTerrainPreviews.end() )
         {
-            m_data = preview->second; m_valid = true; m_error.clear();
+            m_stream.reset(); m_data = preview->second; m_valid = true; m_error.clear();
             return;
         }
     }
 #endif
     if( path != m_loadedAsset )
     {
-        m_loadedAsset = path; m_resource.reset(); m_data.reset();
+        m_loadedAsset = path; m_resource.reset(); m_stream.reset(); m_data.reset();
         const Path current( path );
         if( !path.empty() && ( current.Exists || !AssetDatabase::Get().FindMovedPath( path ).empty() ) )
             m_resource = ResourceCache::GetInstance().GetAsync<TerrainResource>( current );
@@ -82,11 +92,17 @@ void Terrain::Resolve( bool InWait )
         if( InWait && m_resource->IsLoading() ) ResourceCache::GetInstance().CompleteLoad( m_resource );
         if( m_resource->IsLoading() ) { m_error = "Loading terrain"; m_valid = false; return; }
         if( m_resource->HasLoadFailed() ) { m_error = m_resource->GetError(); m_valid = false; return; }
-        m_data = m_resource->GetData();
+        m_data = m_stream ? m_stream->GetData() : m_resource->GetData();
     }
     m_valid = m_data != nullptr;
     m_error = m_valid ? "" : ( path.empty() ? "Select a terrain asset" : "Terrain asset could not be loaded" );
 }
+
+
+const TerrainData::StreamStats* Terrain::GetStreamingStats() const { return m_stream ? &m_stream->GetStats() : nullptr; }
+
+
+void Terrain::WaitForStreamingRequest() { if( m_stream ) m_stream->WaitForRequest(); }
 
 #if USING( ME_EDITOR )
 void Terrain::OnEditorInspect()

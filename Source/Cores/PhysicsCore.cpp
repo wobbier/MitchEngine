@@ -15,6 +15,8 @@
 #include "Physics/Box3DUtils.h"
 #include "Physics/PhysicsDebugDraw.h"
 #include "Physics/PhysicsHash.h"
+#include "Physics/TerrainCollisionCook.h"
+#include "Core/CommandLine.h"
 #include "optick.h"
 #include <algorithm>
 #include <chrono>
@@ -238,7 +240,8 @@ void PhysicsCore::DestroyWorld()
     }
     m_meshes.clear();
     m_terrainMeshes.clear();
-    for( auto& [source, cache] : m_terrainCollisionMeshes ) b3DestroyMesh( static_cast<b3MeshData*>( cache.Mesh ) );
+    if( m_terrainCook.valid() ) { m_terrainCook.wait(); try { m_terrainCook.get(); } catch( ... ) {} }
+    m_terrainCookSource.reset();
     m_terrainCollisionMeshes.clear();
 }
 
@@ -329,7 +332,12 @@ uint64_t PhysicsCore::ComputeShapeSignature( Entity& InOwner, const std::vector<
         }
         if( Terrain* terrain = Enabled<Terrain>( entity ); terrain && terrain->Collision )
         {
-            h = Mix( Mix( h, 5 ), reinterpret_cast<uintptr_t>( terrain->GetData().get() ) );
+            h = Mix( h, 5 );
+            if( auto data = terrain->GetData() )
+            {
+                h = Mix( h, data->AssetGUID );
+                for( const auto& tile : data->CollisionTiles ) h = Mix( h, reinterpret_cast<uintptr_t>( tile.get() ) );
+            }
             h = Mix( Mix( h, Bits( terrain->Friction ) ), Bits( terrain->Restitution ) );
         }
     }
@@ -433,24 +441,33 @@ const std::vector<void*>* PhysicsCore::GetTerrainMeshes( std::shared_ptr<const T
     {
         if( auto found = m_terrainCollisionMeshes.find( tile.get() ); found != m_terrainCollisionMeshes.end() )
         {
+            if( !found->second.Mesh ) return nullptr; // Failed cooks retry only after a source reload.
             cache.Meshes.push_back( found->second.Mesh ); continue;
         }
         OPTICK_EVENT( "PhysicsCore::CookTerrainTile" );
-        std::vector<b3Vec3> positions;
-        positions.reserve( tile->Positions.size() );
-        for( const Vector3& p : tile->Positions ) positions.push_back( ToB3( p ) );
-        std::vector<int32_t> indices( tile->Indices.begin(), tile->Indices.end() );
-        b3MeshDef def{};
-        def.vertices = positions.data(); def.stride = sizeof( b3Vec3 ); def.vertexCount = static_cast<int>( positions.size() );
-        def.indices = indices.data(); def.triangleCount = static_cast<int>( indices.size() / 3 );
-        def.weldVertices = true; def.weldTolerance = 0.0001f; def.identifyEdges = true;
-        b3MeshData* mesh = b3CreateMesh( &def, nullptr, 0 );
-        if( !mesh )
+        std::shared_ptr<void> ownership;
+        if( InData->Streamed )
         {
-            BRUH( "Physics: couldn't build terrain collision; keeping the previous shapes" );
+            if( !m_terrainCook.valid() )
+            {
+                m_terrainCookSource = tile;
+                try
+                {
+                    m_terrainCook = std::async( std::launch::async, [tile]() { return TerrainPhysics::Cook( *tile ); } );
+                    if( CommandLine::GetFloat( "--frame-time", 0 ) > 0 ) m_terrainCook.wait();
+                }
+                catch( const std::exception& e )
+                {
+                    BRUH( std::string( "Could not schedule terrain collision: " ) + e.what() );
+                    m_terrainCollisionMeshes.emplace( tile.get(), TerrainCollisionCache{ tile, nullptr, {} } ); m_terrainCookSource.reset();
+                }
+            }
             return nullptr;
         }
-        m_terrainCollisionMeshes.emplace( tile.get(), TerrainCollisionCache{ tile, mesh } );
+        ownership = TerrainPhysics::Cook( *tile );
+        if( !ownership ) { BRUH( "Physics: couldn't build terrain collision; keeping the previous shapes" ); return nullptr; }
+        void* mesh = ownership.get();
+        m_terrainCollisionMeshes.emplace( tile.get(), TerrainCollisionCache{ tile, mesh, std::move( ownership ) } );
         ++m_terrainCollisionBuilds;
         cache.Meshes.push_back( mesh );
     }
@@ -700,12 +717,18 @@ void PhysicsCore::CollectMeshCache()
         it = m_terrainMeshes.erase( it );
     }
     std::set<const TerrainData::CollisionTile*> tiles;
+    // New required tiles may be cooked before a whole shape replacement is ready. Keep these
+    // warm results, while old body snapshots still pin the shapes currently in the world.
+    for( Entity& entity : GetEntities() ) if( entity.IsActiveInHierarchy() )
+        if( auto* terrain = Enabled<Terrain>( entity ); terrain && terrain->Collision )
+            if( auto data = terrain->GetData() ) for( const auto& tile : data->CollisionTiles ) tiles.insert( tile.get() );
+    for( const auto& [id, body] : m_bodies ) if( body.TerrainSource )
+        for( const auto& tile : body.TerrainSource->CollisionTiles ) tiles.insert( tile.get() );
     for( const auto& [source, cache] : m_terrainMeshes )
         for( const auto& tile : cache.Source->CollisionTiles ) tiles.insert( tile.get() );
     for( auto it = m_terrainCollisionMeshes.begin(); it != m_terrainCollisionMeshes.end(); )
     {
         if( tiles.contains( it->first ) ) { ++it; continue; }
-        b3DestroyMesh( static_cast<b3MeshData*>( it->second.Mesh ) );
         it = m_terrainCollisionMeshes.erase( it );
     }
 }
@@ -726,6 +749,16 @@ void PhysicsCore::SyncBodies()
     }
 
     if( auto* terrain = GetWorld().GetCore<TerrainCore>() ) terrain->SyncNow( m_simulating );
+    m_terrainShapesReady = true;
+    if( m_terrainCook.valid() && m_terrainCook.wait_for( std::chrono::seconds( 0 ) ) == std::future_status::ready )
+    {
+        std::shared_ptr<void> mesh;
+        try { mesh = m_terrainCook.get(); } catch( const std::exception& e ) { BRUH( std::string( "Terrain collision cook failed: " ) + e.what() ); }
+        m_terrainCollisionMeshes.emplace( m_terrainCookSource.get(), TerrainCollisionCache{ m_terrainCookSource, mesh.get(), mesh } );
+        if( mesh ) ++m_terrainCollisionBuilds;
+        else BRUH( "Terrain collision cook failed; physics waits until the terrain source is reloaded" );
+        m_terrainCookSource.reset();
+    }
 
     // Resolve which body every collider belongs to.
     std::unordered_map<uint64_t, std::vector<ColliderEntry>> collidersByOwner;
@@ -823,9 +856,18 @@ void PhysicsCore::SyncBodies()
         if( shapesChanged )
         {
             rebuilt = true;
-            if( !BuildShapes( record, colliders ) ) continue;
+            if( !BuildShapes( record, colliders ) ) { m_terrainShapesReady = false; continue; }
             record.ShapeSignature = shapeSignature;
         }
+        if( !shapesChanged )
+            for( const auto& entry : colliders ) if( auto* terrain = Enabled<Terrain>( *entry.Entity.Get() ); terrain && terrain->Collision )
+            {
+                auto source = terrain->GetData();
+                // Query/render-only snapshot changes still retire cache ownership, even when
+                // the canonical collider list and its shape signature are unchanged.
+                if( record.TerrainSource != source ) rebuilt = true;
+                record.TerrainSource = std::move( source );
+            }
         if( shapesChanged || bodySignature != record.BodySignature )
         {
             ApplyBodySettings( record, rigidbody );
@@ -1211,6 +1253,7 @@ void PhysicsCore::FixedUpdate( const UpdateContext& inUpdateContext )
     const float dt = inUpdateContext.GetFixedDeltaTime();
     SyncBodies();
     // A failed required terrain stays inspectable while bodies wait instead of falling through it.
+    if( !m_terrainShapesReady ) return;
     if( auto* terrain = GetWorld().GetCore<TerrainCore>(); terrain && !terrain->IsCollisionReady() ) return;
     SyncJoints();
 

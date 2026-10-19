@@ -8,6 +8,7 @@
 #include <array>
 #include <cstdint>
 #include <memory>
+#include <future>
 #include <unordered_map>
 #include <vector>
 
@@ -65,6 +66,8 @@ public:
     size_t GetBodyCount() const { return m_bodies.size(); }
     size_t GetTerrainCollisionMeshCount() const { return m_terrainCollisionMeshes.size(); }
     uint64_t GetTerrainCollisionBuildCount() const { return m_terrainCollisionBuilds; }
+    bool IsTerrainCollisionReady() const { return m_terrainShapesReady; }
+    void WaitForTerrainCollision() { if( m_terrainCook.valid() ) m_terrainCook.wait(); }
     float GetLastStepMilliseconds() const { return m_lastStepMs; }
 
     // Draw every body, shape and joint (Scene View > View > Physics, or the inspector).
@@ -150,9 +153,13 @@ private:
     {
         std::shared_ptr<const TerrainData::CollisionTile> Source;
         void* Mesh = nullptr;
+        std::shared_ptr<void> Ownership;
     };
     std::unordered_map<const TerrainData::CollisionTile*, TerrainCollisionCache> m_terrainCollisionMeshes;
     uint64_t m_terrainCollisionBuilds = 0;
+    std::future<std::shared_ptr<void>> m_terrainCook;
+    std::shared_ptr<const TerrainData::CollisionTile> m_terrainCookSource;
+    bool m_terrainShapesReady = true;
     std::array<PhysicsTask, 128> m_tasks;
     int m_taskCount = 0;
     std::vector<CollisionEvent> m_pendingEvents;

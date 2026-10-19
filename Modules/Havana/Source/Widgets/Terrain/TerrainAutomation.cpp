@@ -2,6 +2,7 @@
 #include "TerrainRecoveryAutomation.h"
 #include "TerrainFileAutomation.h"
 #include "TerrainLodAutomation.h"
+#include "TerrainStreamingAutomation.h"
 #if USING( ME_EDITOR )
 #include "TerrainWidget.h"
 #include "Editor/EditorOperations.h"
@@ -36,6 +37,7 @@ namespace TerrainAutomation
     }
     bool Execute( const std::string& command, const std::string& args, std::string& error )
     {
+        if( command.rfind( "terrain-stream-", 0 ) == 0 ) return TerrainStreamingAutomation::Execute( command, args, error );
         if( command.rfind( "terrain-lod-", 0 ) == 0 ) return TerrainLodAutomation::Execute( command, args, error );
         if( command.rfind( "terrain-file-", 0 ) == 0 ) return TerrainFileAutomation::Execute( command, args, error );
         if( command.rfind( "terrain-recovery-", 0 ) == 0 ) return TerrainRecoveryAutomation::Execute( command, args, error );

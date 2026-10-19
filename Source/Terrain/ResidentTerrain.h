@@ -10,6 +10,8 @@ namespace TerrainData
     {
         PatchMesh Mesh;
         Vector3 Offset;
+        // Global sample stride of the stored vertices (0 for canonical resident patches).
+        uint8_t BaseLod = 0;
     };
 
     struct CollisionTile
@@ -31,6 +33,10 @@ namespace TerrainData
         size_t BuiltPatches = 0;
         size_t BuiltCollisionTiles = 0;
         AABB Bounds;
+        bool Streamed = false;
+        uint64_t StreamRevision = 0;
+        // Retain cache reservations while a draw, query snapshot or collider still owns data.
+        std::vector<std::shared_ptr<const void>> ResidencyPins;
     };
 
     // Worker-safe CPU preparation. The input must not mutate during the build. Failure preserves output.

@@ -1,6 +1,7 @@
 #include "PCH.h"
 #include "TerrainResource.h"
 #include "Terrain/TerrainSerialization.h"
+#include "Terrain/TerrainStreamArchive.h"
 #include "Resource/MetaRegistry.h"
 #include <filesystem>
 #include <fstream>
@@ -40,11 +41,28 @@ ME_REGISTER_METADATA( "terrainc", TerrainCookedMetadata );
 
 bool TerrainResource::LoadAsync()
 {
-    m_pending.reset(); m_error.clear();
+    m_pending.reset(); m_pendingArchive.reset(); m_error.clear();
     try
     {
         TerrainData::Heightfield field;
         uint64_t guid = 0;
+        if( std::string_view( FilePath.GetExtension() ) == "terrainc" )
+        {
+            std::ifstream file( FilePath.FullPath, std::ios::binary );
+            std::array<uint8_t, 4> prefix{}; file.read( reinterpret_cast<char*>( prefix.data() ), prefix.size() );
+            if( TerrainData::IsStreamArchive( prefix ) )
+            {
+                if( !TerrainData::OpenStreamArchive( FilePath.FullPath, m_pendingArchive, m_error ) ) return false;
+                m_pending = m_pendingArchive->Coverage;
+                if( Metadata && Metadata->GUID && Metadata->GUID != m_pending->AssetGUID )
+                {
+                    auto data = std::make_shared<TerrainData::ResidentTerrain>( *m_pending ); data->AssetGUID = Metadata->GUID;
+                    auto archive = std::make_shared<TerrainData::StreamArchive>( *m_pendingArchive ); archive->AssetGUID = Metadata->GUID; archive->Coverage = data;
+                    m_pendingArchive = archive; m_pending = data;
+                }
+                return true;
+            }
+        }
         const auto bytes = ReadBytes( FilePath.FullPath );
         if( bytes.empty() ) { m_error = "Terrain file is empty"; return false; }
         if( std::string_view( FilePath.GetExtension() ) == "terrainc" )
@@ -82,5 +100,6 @@ bool TerrainResource::FinishAsyncLoad()
 {
     if( !m_pending ) return false;
     m_data = std::move( m_pending );
+    m_archive = std::move( m_pendingArchive );
     return true;
 }

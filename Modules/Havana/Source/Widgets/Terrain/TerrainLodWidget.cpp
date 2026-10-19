@@ -30,8 +30,9 @@ void TerrainWidget::DrawLodButtons()
 
 void TerrainWidget::DrawLodControls()
 {
-    ImGui::SeparatorText( "Terrain LODs" );
     auto* terrain = SelectedTerrain();
+    const bool streaming = terrain && terrain->GetStreamingStats();
+    if( !ImGui::CollapsingHeader( streaming ? "Terrain LODs##streamed" : "Terrain LODs##resident", streaming ? 0 : ImGuiTreeNodeFlags_DefaultOpen ) ) return;
     if( !terrain ) { ImGui::TextDisabled( "Select a terrain instance to inspect LODs." ); return; }
     ImGui::TextWrapped( "Cameras share the finest requested detail." );
     const auto& choices = terrain->GetPatchLods();
@@ -44,9 +45,9 @@ void TerrainWidget::DrawLodControls()
     ImGui::Text( "Error budget: %.2f px", terrain->LodPixelError );
     ImGui::TextWrapped( "Tune error and hysteresis in the Terrain inspector." );
     int maximum = 0;
-    if( auto data = terrain->GetData(); data && !data->Patches.empty() ) maximum = static_cast<int>( data->Patches.front()->Mesh.Lods.size() ) - 1;
+    if( auto data = terrain->GetData(); data && !data->Patches.empty() ) maximum = data->Patches.front()->BaseLod + static_cast<int>( data->Patches.front()->Mesh.Lods.size() ) - 1;
     ImGui::SliderInt( "Force level", &terrain->ForcedLod, -1, maximum );
-    ImGui::TextWrapped( "-1 = Auto. Forced levels bypass the error budget." );
+    ImGui::TextWrapped( streaming ? "-1 = Auto. Forced levels respect available streamed detail." : "-1 = Auto. Forced levels bypass the error budget." );
     if( !terrain->GetLodError().empty() )
     {
         ImGui::PushStyleColor( ImGuiCol_Text, ImGuiTheme::ErrorText() );

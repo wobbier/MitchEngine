@@ -4,6 +4,7 @@
 #include "Components/Physics/Rigidbody.h"
 #include "Components/Transform.h"
 #include "ECS/ComponentFilter.h"
+#include "Core/UpdateContext.h"
 
 TerrainCore::TerrainCore() : Base( ComponentFilter().Requires<Transform>().Requires<Terrain>() )
 {
@@ -33,6 +34,14 @@ void TerrainCore::SyncNow( bool InWaitForCollision )
                     terrain.m_error = "Terrain is static and cannot belong to a dynamic or kinematic Rigidbody";
                     break;
                 }
-        if( entity.IsActiveInHierarchy() && terrain.Collision && !terrain.GetData() ) m_collisionReady = false;
+        if( entity.IsActiveInHierarchy() && terrain.IsEnabled() && terrain.Collision && !terrain.GetData() ) m_collisionReady = false;
     }
+    SyncStreams();
+}
+
+
+void TerrainCore::Update( const UpdateContext& context )
+{
+    m_frame = context.GetFrameID();
+    SyncNow();
 }

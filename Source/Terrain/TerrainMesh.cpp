@@ -32,6 +32,17 @@ namespace TerrainData
                 mesh.Bounds.Encapsulate( vertex.Position );
                 mesh.Vertices.push_back( vertex );
             }
+        if( !BuildPatchLods( mesh, q, OutError ) ) return false;
+        OutMesh = std::move( mesh );
+        return true;
+    }
+
+    bool BuildPatchLods( PatchMesh& mesh, uint32_t q, std::string& error )
+    {
+        if( !q || q > 1024 || ( q & ( q - 1 ) ) || mesh.Vertices.size() != static_cast<size_t>( q + 1 ) * ( q + 1 ) )
+        { error = "Invalid terrain vertex grid"; return false; }
+        const uint32_t side = q + 1;
+        mesh.Lods.clear();
         const auto heightAt = [&]( uint32_t x, uint32_t z ) { return static_cast<double>( mesh.Vertices[static_cast<size_t>( z ) * side + x].Position.y ); };
         for( uint32_t stride = 1; stride <= q; stride *= 2 )
         {
@@ -57,10 +68,11 @@ namespace TerrainData
             // Both triangulations use the same nested diagonals. Their difference is linear
             // inside every fine triangle, so its maximum occurs at a fine-grid vertex.
             lod.MaxError = static_cast<float>( maxError );
+            if( !std::isfinite( lod.MaxError ) ) { error = "Terrain geometric error exceeds Float32 range"; return false; }
             if( lod.MaxError < maxError ) lod.MaxError = std::nextafter( lod.MaxError, std::numeric_limits<float>::infinity() );
             mesh.Lods.push_back( std::move( lod ) );
         }
-        OutMesh = std::move( mesh );
-        return true;
+        error.clear(); return true;
     }
+
 }

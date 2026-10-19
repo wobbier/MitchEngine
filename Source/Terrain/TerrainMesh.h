@@ -32,6 +32,8 @@ namespace TerrainData
     // Reads an immutable heightfield snapshot, including neighbor samples for vertex normals.
     // Failure leaves OutMesh unchanged. Regular levels only; stitching uses the helper below.
     bool BuildPatch( const Heightfield& InField, TileCoord InTile, uint32_t InPatchX, uint32_t InPatchZ, PatchMesh& OutMesh, std::string& OutError );
+    // Builds regular index levels and errors over an already populated square vertex grid.
+    bool BuildPatchLods( PatchMesh& InMesh, uint32_t InQuads, std::string& OutError );
     // Bits identify edges adjoining a neighbor with twice this patch's stride.
     enum StitchEdge : uint8_t { MinX = 1, MaxX = 2, MinZ = 4, MaxZ = 8 };
     // Clockwise edge contraction preserves the next coarser grid's diagonals, including corners.

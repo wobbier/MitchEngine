@@ -9,6 +9,7 @@
 class TerrainResource;
 class TerrainCore;
 class RenderCore;
+namespace TerrainData { class TerrainStreamCache; struct StreamStats; }
 
 class Terrain : public Component<Terrain>
 {
@@ -27,6 +28,14 @@ public:
     int ForcedLod = -1;
     bool ShowLods = false;
     bool ShowPatches = false;
+    bool ShowResidency = false;
+    bool StreamDetail = true;
+    float StreamDistance = 384.f, CollisionDistance = 8.f;
+    int CpuBudgetMiB = 256, GpuBudgetMiB = 128, CollisionBudgetMiB = 512;
+    int UploadKiB = 1024;
+    float UploadMilliseconds = 2.f;
+    const TerrainData::StreamStats* GetStreamingStats() const;
+    void WaitForStreamingRequest();
     const std::vector<TerrainData::PatchLodChoice>& GetPatchLods() const { return m_patchLods; }
     const std::string& GetLodError() const { return m_lodError; }
     uint64_t GetLodTriangles() const { return m_lodTriangles; }
@@ -52,6 +61,7 @@ public:
 private:
     void Resolve( bool InWait );
     SharedPtr<TerrainResource> m_resource;
+    std::shared_ptr<TerrainData::TerrainStreamCache> m_stream;
     std::shared_ptr<const TerrainData::ResidentTerrain> m_data;
     std::string m_loadedAsset;
     std::string m_error, m_lodError;

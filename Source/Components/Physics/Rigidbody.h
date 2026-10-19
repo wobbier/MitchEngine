@@ -14,6 +14,7 @@ class Rigidbody
 {
     ME_REFLECTABLE( Rigidbody )
     friend class PhysicsCore;
+    friend class TerrainCore;
 public:
     Rigidbody();
 

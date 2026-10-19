@@ -87,6 +87,7 @@ void TerrainWidget::Init()
         if( SaveAll() ) static_cast<EditorApp*>( GetEngine().GetGame() )->SaveScene( false );
     }, [this]() { return !IsPlaying(); } } );
     actions.Register( { "Terrain.StopBrush", "Stop Terrain Brush", "Terrain", 0, 0, [this]() { if( m_active ) m_active->EndStroke(); BrushEnabled = false; } } );
+    actions.Register( { "Terrain.Cook", "Cook Streamed Terrain...", "Terrain", 0, 0, [this]() { StreamCookDialog(); }, [this]() { return m_active && !IsPlaying() && !IsCooking(); } } );
     InitRecovery();
 }
 
@@ -117,6 +118,7 @@ bool TerrainWidget::ClaimsAction( const std::string& id ) const
 
 void TerrainWidget::Destroy()
 {
+    FinishStreamCook( true );
     for( auto& document : m_documents ) document->EndStroke();
     if( AutomaticRecoveryEnabled() ) WriteRecoveries();
     m_active = nullptr; m_documents.clear();
@@ -332,7 +334,7 @@ void TerrainWidget::DrawTools()
             Planned( "map-2", "Overview", "Navigate a large tiled terrain map." );
             Planned( "hand-stop", "Pin", "Keep selected source pages resident." );
             Planned( "refresh", "Stream", "Preview tile residency and streaming budgets." );
-            Planned( "package", "Cook", "Publish optimized runtime terrain data." );
+            ImGui::TableNextColumn(); if( Button( "package", "Cook", "Cook a streamed runtime terrain with coarse coverage and independent detail blocks.", m_active && !IsPlaying() && !IsCooking() ) ) StreamCookDialog();
         }
         else if( m_category == 3 )
         {
@@ -367,7 +369,7 @@ void TerrainWidget::DrawTools()
             Planned( "sphere", "Normals", "Visualize heightfield normals." );
             Planned( "world", "Collision", "Compare static collision with the authoring surface." );
             Planned( "grid-dots", "Navmesh", "Inspect navigation rebuild status." );
-            Planned( "refresh", "Residency", "Inspect loaded, pending and evicted tiles." );
+            DrawResidencyButton();
             Planned( "search", "Validate", "Check source generations, borders and derived data." );
             Planned( "settings", "Budgets", "Tune mesh, residency and history budgets." );
             Planned( "tools", "Repair", "Repair or compact terrain asset data." );
@@ -375,7 +377,7 @@ void TerrainWidget::DrawTools()
         ImGui::EndTable();
     }
     ImGui::TextDisabled( "Dimmed tools are planned. Hover for details." );
-    if( m_category == 5 ) DrawLodControls();
+    if( m_category == 5 ) { DrawStreamingControls(); DrawLodControls(); }
 }
 
 void TerrainWidget::DrawBrush()
@@ -407,6 +409,8 @@ void TerrainWidget::DrawBrush()
 
 void TerrainWidget::Render()
 {
+    FinishStreamCook();
+    DrawStreamCook();
     UpdateRecovery();
     DrawRecovery();
     DrawModals();
@@ -508,7 +512,7 @@ void TerrainWidget::Render()
             ImGui::TableNextColumn();
             if( Button( "device-floppy", "Recovery", "Browse and restore unsaved terrain snapshots. Restoring keeps source conflict checks." ) )
             { ScanRecoveries(); m_showRecoveryRequested = true; }
-            Planned( "package", "Build", "Cook heights, collision and material data." );
+            ImGui::TableNextColumn(); if( Button( "package", "Build", "Cook the current heights for runtime streaming.", m_active && editing && !IsCooking() ) ) StreamCookDialog();
             Planned( "trash", "Compact", "Remove source generations no longer referenced." );
             Planned( "refresh", "Rebuild", "Rebuild all derived terrain caches." );
             Planned( "settings", "Settings", "Edit source ranges, resolution and streaming configuration." );

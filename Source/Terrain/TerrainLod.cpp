@@ -40,6 +40,25 @@ namespace TerrainData
         std::vector<PatchLodChoice> choices( count );
         std::vector<std::array<double, 11>> errors( count );
         std::vector<double> scales( count );
+        std::vector<uint8_t> minimum( count );
+        // An unloaded representation cannot be refined. Propagate its minimum stride before
+        // choosing levels, so fine neighbors coarsen into a watertight 2:1 transition band.
+        std::deque<size_t> floors;
+        for( size_t i = 0; i < count; ++i )
+        {
+            const auto& patch = terrain.Patches[i];
+            if( !patch || patch->BaseLod > 10 || patch->Mesh.Lods.empty() || patch->BaseLod + patch->Mesh.Lods.size() > 11 )
+            { error = "Invalid terrain patch LOD data"; return false; }
+            minimum[i] = patch->BaseLod; floors.push_back( i );
+            for( int32_t n : terrain.PatchNeighbors[i] ) if( n < -1 || n >= static_cast<int64_t>( count ) )
+            { error = "Invalid terrain patch neighbor"; return false; }
+        }
+        while( !floors.empty() )
+        {
+            const auto i = floors.front(); floors.pop_front();
+            for( int32_t n : terrain.PatchNeighbors[i] ) if( n >= 0 && minimum[i] > minimum[n] + 1 )
+            { minimum[n] = minimum[i] - 1; floors.push_back( n ); }
+        }
         std::deque<size_t> queue; std::vector<bool> queued( count, true );
         for( size_t i = 0; i < count; ++i )
         {
@@ -53,15 +72,16 @@ namespace TerrainData
             {
                 const auto& lod = patch->Mesh.Lods[level];
                 if( !std::isfinite( lod.MaxError ) || lod.MaxError < 0 ) { error = "Invalid terrain geometric error"; return false; }
-                envelope = std::max( envelope, static_cast<double>( lod.MaxError ) ); errors[i][level] = envelope;
+                envelope = std::max( envelope, static_cast<double>( lod.MaxError ) ); errors[i][patch->BaseLod + level] = envelope;
             }
-            const int last = static_cast<int>( patch->Mesh.Lods.size() ) - 1;
-            int level = 0;
-            if( settings.ForcedLevel >= 0 ) level = std::min( settings.ForcedLevel, last );
+            const int last = patch->BaseLod + static_cast<int>( patch->Mesh.Lods.size() ) - 1;
+            if( minimum[i] > last ) { error = "Incompatible terrain representation levels"; return false; }
+            int level = minimum[i];
+            if( settings.ForcedLevel >= 0 ) level = std::clamp( settings.ForcedLevel, int( minimum[i] ), last );
             else if( std::isfinite( scales[i] ) )
             {
                 const int old = previous.size() == count && previous[i].Level <= last ? previous[i].Level : -1;
-                for( int candidate = last; candidate >= 0; --candidate )
+                for( int candidate = last; candidate >= minimum[i]; --candidate )
                 {
                     const double threshold = old >= 0 && candidate > old ? settings.PixelError * ( 1.0 - settings.Hysteresis ) : settings.PixelError;
                     if( errors[i][candidate] * scales[i] <= threshold ) { level = candidate; break; }
@@ -83,9 +103,9 @@ namespace TerrainData
             const size_t level = choices[i].Level;
             // Each stitched triangle remains inside one next-level triangle. Relative to that
             // common plane, both surfaces deviate by at most E(next), hence a bound of 2E(next).
-            if( settings.ForcedLevel < 0 && level + 1 < terrain.Patches[i]->Mesh.Lods.size() &&
+            if( settings.ForcedLevel < 0 && level + 1 < terrain.Patches[i]->BaseLod + terrain.Patches[i]->Mesh.Lods.size() &&
                 ( !std::isfinite( scales[i] ) || 2 * errors[i][level + 1] * scales[i] > settings.PixelError ) )
-                for( int32_t n : terrain.PatchNeighbors[i] ) if( n >= 0 && choices[n].Level > level )
+                for( int32_t n : terrain.PatchNeighbors[i] ) if( n >= 0 && choices[n].Level > level && minimum[n] <= level )
                 { choices[n].Level = static_cast<uint8_t>( level ); enqueue( n ); }
         }
         for( size_t i = 0; i < count; ++i )
