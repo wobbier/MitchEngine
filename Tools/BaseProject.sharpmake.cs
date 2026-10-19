@@ -371,6 +371,7 @@ public abstract class BaseProject : Project
         conf.Options.Add(Options.Vc.Compiler.Inline.OnlyInline);
         conf.Defines.Add("DEFINE_ME_RELEASE");
         conf.Defines.Add("DEFINE_ME_TOOLS");
+        conf.Options.Add(Options.Makefile.Compiler.GenerateDebugInformation.Enable);
 
         if (conf.Platform == Platform.win64 )
         {
@@ -407,6 +408,8 @@ public abstract class BaseProject : Project
         }
 
         conf.Defines.Add("DEFINE_ME_RETAIL");
+        conf.Options.Add(Options.Makefile.Compiler.GenerateDebugInformation.Disable);
+        conf.Options.Add(Options.XCode.Compiler.GenerateDebuggingSymbols.Disable);
     }
 
     #endregion

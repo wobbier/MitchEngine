@@ -59,6 +59,16 @@ Outputs land in `.build/[target.Name]/` at the game-repo root (e.g. `.build/Edit
 
 Linux makefile config names follow `<mode>_<platform>_<opt>` lowercased, e.g. `make -f Drumsmith.make Havana config=editor_debug`, `Game_EntryPoint config=game_linux_debug`.
 
+All three optimizations are generated for both game and editor targets on Windows, Linux and macOS:
+
+| Optimization | Linux editor config | Linux game config | Behavior |
+|--------------|---------------------|-------------------|----------|
+| Debug | `editor_debug` | `game_linux_debug` | Unoptimized engine code, debug symbols, tools and profiling |
+| Release | `editor_release` | `game_linux_release` | Optimized code with debug symbols, tools and profiling |
+| Retail | `editor_retail` | `game_linux_retail` | Optimized engine code, debug-symbol generation and profiling disabled; game tools disabled, editor tools retained |
+
+Retail uses Release third-party libraries. Release/Retail Linux builds use `-O3` for engine code; the source-built physics and navigation libraries retain their own optimization settings. Prebuilt archives can retain debug information; Retail does not strip the final executable. These configurations are local builds; portable Linux packaging and the distribution toolchain are separate steps.
+
 ### The define conditions — "why is my feature compiled out"
 
 From `Tools/BaseProject.sharpmake.cs` (+ `Engine.sharpmake.cs` `Globals`):
@@ -68,6 +78,8 @@ From `Tools/BaseProject.sharpmake.cs` (+ `Engine.sharpmake.cs` `Globals`):
 | `DEFINE_ME_PLATFORM_*` | The target platform, always |
 | `DEFINE_ME_EDITOR` + `DEFINE_ME_TOOLS` | Editor-mode targets |
 | `DEFINE_ME_DEBUG` + `DEFINE_ME_TOOLS` | Debug optimization (tools ride along in debug game builds) |
+| `DEFINE_ME_RELEASE` + `DEFINE_ME_TOOLS` | Release optimization (optimized development build) |
+| `DEFINE_ME_RETAIL` | Retail optimization (tools only if the target is an editor) |
 | `DEFINE_ME_ULTRALIGHT` | `Globals.IsUltralightEnabled` (checks `ThirdParty/UltralightSDK` presence) |
 | `DEFINE_ME_FMOD` | `Globals.FMOD_<Platform>_Dir` exists (Win64/UWP: installed SDK path; Linux: SDK dir with `api/core/lib/x86_64`) |
 | `DEFINE_ME_DOTNET` | `Globals.DOTNET_Win64_Dir` (Win64/UWP) or `Globals.DOTNET_Linux_Dir` (Linux) exists — **no macOS path** |
@@ -81,6 +93,28 @@ Because these are **generation-time filesystem checks**, two machines with diffe
 1. **Once**: run `ThirdParty/GenerateSolutions.sh` (or `.bat`/`.command`) to generate third-party projects. On Linux this is cmake-configure only (produces `assimp/config.h` etc.); the engine links the prebuilt archives committed under `ThirdParty/Lib/*/linux/{Debug,Release}`. `GenerateSolutions.sh --build-bgfx` rebuilds the bgfx toolchain/archives from source when refreshing `ThirdParty/Lib/BGFX/linux`.
 2. **Per change**: run the game repo's `Project/GenerateSolution.sh` (Linux — also runs `bear -- make …` to produce `compile_commands.json` for clangd/CLion), `.bat` (Windows → `.sln`), or `.command` (macOS → Xcode). All three invoke `dotnet Engine/Tools/Sharpmake/Sharpmake.Application.dll /sources('../Game.sharpmake.cs')`.
 3. Build in the IDE, or on Linux: `make -f <Game>.make <Project> config=<config> -j$(nproc)`.
+
+The local Linux binaries also need the dev shell at runtime. From a regular terminal at the game-repo root, launch with `nix develop --command ./.build/Editor_Release/Havana` (or the corresponding game executable). The shell supplies `LD_LIBRARY_PATH` for fontconfig/Wayland, Ultralight's GTK dependencies and graphics loaders; the executable's own RUNPATH does not cover all of these. A direct launch outside the shell can fail at the loader with `libfontconfig.so.1: cannot open shared object file`. The MitchGame VS Code launch configurations enter the same environment through `.vscode/nix-gdb.sh`.
+
+For example, from the MitchGame root inside `nix develop`, build and test the optimized configurations with:
+
+```bash
+for optimization in release retail; do
+    make -f MitchGame.make Havana MitchEngine_Tests config=editor_$optimization -j"$(nproc)" || exit
+    make -f MitchGame.make Game_EntryPoint MitchEngine_Tests config=game_linux_$optimization -j"$(nproc)" || exit
+done
+for optimization in Release Retail; do
+    ./.build/Editor_$optimization/MitchEngine_Tests || exit
+    ./.build/Game_linux_$optimization/MitchEngine_Tests || exit
+done
+```
+
+When scripting is enabled, the Retail game expects precompiled script assemblies beside its executable; it does not run the development script compiler. Before running it locally, build those assemblies with:
+
+```bash
+dotnet build Project/Game.Script.csproj -c Release -o .build/Game_linux_Retail \
+    --artifacts-path .tmp/dotnet --nologo
+```
 
 ### ThirdParty inventory
 
@@ -120,7 +154,7 @@ When `Globals.DOTNET_Linux_Dir` (from `DOTNET_LINUX_NATIVE_DIR`) exists at gener
 - **macOS scripting is unwired** (no `DEFINE_ME_DOTNET` path or host-pack link) and Optick is Win64-only — platform feature parity is uneven by construction (see the matrix in `Docs/State-of-the-Engine.md`).
 - **The dev shell is load-bearing on Linux**: outside `nix develop`, the .NET native dir, GTK stack, and EGL paths must be assembled by hand.
 - **`ScriptCore`/`UserGameScript` sharpmake configs are near-duplicates** (in-code TODO: factor a common base "when there's a third one"), and the SDK-style `.csproj` files mirror them for CLI builds; a new script-side setting belongs in both.
-- **Retail builds still define `ME_TOOLS` in debug**-adjacent paths — the `Debug ⇒ DEFINE_ME_TOOLS` coupling means "game debug" builds carry tool code; only Retail is clean.
+- **Retail game builds omit development tools**: compile code that depends on editor inspection, ImGui or profiling behind the corresponding feature flag. Retail editor targets still need editor tools.
 
 ## Related Docs
 

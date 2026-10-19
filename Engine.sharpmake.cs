@@ -194,7 +194,7 @@ public class Engine : BaseProject
     {
         base.ConfigureWin64(conf, target);
 
-        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/Assimp/{target.Optimization}"));
+        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/Assimp/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/SDL/Win64/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
         conf.LibraryFiles.Add("winmm.lib");
         conf.LibraryFiles.Add("winhttp.lib");
@@ -295,7 +295,7 @@ public class Engine : BaseProject
     {
         base.ConfigureUWP(conf, target);
 
-        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/Assimp/{target.Optimization}"));
+        conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/Assimp/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
         conf.LibraryPaths.Add(Path.Combine("[project.SharpmakeCsPath]", $"ThirdParty/Lib/SDL/UWP/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"));
         conf.LibraryFiles.Add("winmm.lib");
         conf.LibraryFiles.Add("winhttp.lib");
@@ -462,37 +462,8 @@ public class Engine : BaseProject
         conf.LibraryFiles.Add("zlibstatic");
         // Link against the system-provided copies of the third-party libs we use on Linux.
 
-        // bgfx and SDL pull in the usual GL/X11/pthread stack on Linux.
-        conf.AdditionalLinkerOptions.Add("-l:libassimp.a");
-        conf.AdditionalLinkerOptions.Add("-l:libbgfxDebug.a");       // or Release, match your lib names
-        conf.AdditionalLinkerOptions.Add("-l:libbimgDebug.a");
-        conf.AdditionalLinkerOptions.Add("-l:libbimg_decodeDebug.a");
-        conf.AdditionalLinkerOptions.Add("-l:libbxDebug.a");
-        conf.AdditionalLinkerOptions.Add("-l:libzlibstatic.a");
-            conf.LibraryPaths.Add(Path.Combine(
-            "[project.SharpmakeCsPath]",
-            "ThirdParty/Lib/Assimp/linux/Release"
-        ));
-        conf.LibraryPaths.Add(Path.Combine(
-            "[project.SharpmakeCsPath]",
-            $"ThirdParty/Lib/BGFX/linux/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"
-        ));
-        //conf.LibraryPaths.Add(Path.Combine(
-        //    "[project.SharpmakeCsPath]",
-        //    $"ThirdParty/Lib/SDL/linux/{CommonTarget.GetThirdPartyOptimization(target.Optimization)}"
-        //));
-        conf.AdditionalLinkerOptions.Add(
-            "-l:libDementia.a " +
-            "-l:libImGui.a " +
-            "-l:libMitchEngine.a " +
-            "-l:libMoonlight.a " +
-            "-l:libassimp.a " +
-            "-l:libbgfxDebug.a " +          // Fix this
-            "-l:libbimgDebug.a " +
-            "-l:libbimg_decodeDebug.a " +
-            "-l:libbxDebug.a " +
-            "-l:libzlibstatic.a "
-        );
+        // Module dependencies carry the matching Debug/Release bgfx archives into
+        // the linker group configured by BaseProject.ConfigureLinux.
     }
 }
 

@@ -106,14 +106,14 @@ public class CommonTarget : Sharpmake.ITarget
                     var macOSTarget = new CommonTarget(
                         Platform.mac,
                         DevEnv.xcode,
-                        Optimization.Debug | Optimization.Release,
+                        Optimization.Debug | Optimization.Release | Optimization.Retail,
                         DotNetFramework.v4_8,
                         dotNetOS: 0);
                     macOSTarget.SubPlatform = SubPlatformType.macOS;
                     var macEditor = new CommonTarget(
                         Platform.mac,
                         DevEnv.xcode,
-                        Optimization.Debug | Optimization.Release,
+                        Optimization.Debug | Optimization.Release | Optimization.Retail,
                         DotNetFramework.v4_8,
                         dotNetOS: 0);
                     macEditor.SelectedMode = Mode.Editor;
@@ -126,14 +126,14 @@ public class CommonTarget : Sharpmake.ITarget
                     var linuxTarget = new CommonTarget(
                         Platform.linux,
                         DevEnv.make,
-                        Optimization.Debug | Optimization.Release,
+                        Optimization.Debug | Optimization.Release | Optimization.Retail,
                         DotNetFramework.v4_8,
                         dotNetOS: 0);
                     linuxTarget.SubPlatform = SubPlatformType.linux;
                     var linuxEditor = new CommonTarget(
                         Platform.linux,
                         DevEnv.make,
-                        Optimization.Debug | Optimization.Release,
+                        Optimization.Debug | Optimization.Release | Optimization.Retail,
                         DotNetFramework.v4_8,
                         dotNetOS: 0);
                     linuxEditor.SelectedMode = Mode.Editor;
