@@ -69,7 +69,9 @@ public:
 
     void Render( Moonlight::CameraData& EditorCamera, FrameRenderData& inFrameData );
     void SetGuizmoDrawCallback( std::function<void( DebugDrawer* )> GuizmoDrawingFunc );
-    void RenderCameraView( Moonlight::CameraData& camera, bool toBackbuffer );
+    // A split screen camera (partial Viewport) draws its final image into its rect of displayBuffer
+    // (or the backbuffer) instead of its own target.
+    void RenderCameraView( Moonlight::CameraData& camera, bool toBackbuffer, Moonlight::FrameBuffer* displayBuffer = nullptr );
     void SubmitDebugLines( const Moonlight::CameraData& camera, bgfx::ViewId id );
     void GatherFrameStats();
 
@@ -361,6 +363,8 @@ private:
     std::vector<size_t> TransparentIndicies;
 
     Moonlight::FrameBuffer* EditorCameraBuffer = nullptr;
+    // Scene targets for a split screen main camera, whose own buffer stays the full size display.
+    Moonlight::FrameBuffer* m_splitMainBuffer = nullptr;
     std::function<void( DebugDrawer* )> m_guizmoCallback;
     bgfx::VertexBufferHandle m_vbh = BGFX_INVALID_HANDLE;
     bgfx::IndexBufferHandle m_ibh = BGFX_INVALID_HANDLE;

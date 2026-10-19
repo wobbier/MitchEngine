@@ -74,6 +74,11 @@ void CameraCore::LateUpdate( const UpdateContext& inUpdateContext )
         {
             CameraComponent.OutputSize = windowSize;
         }
+        else if( CameraComponent.HasPartialViewport() )
+        {
+            // Split screen cameras share the main camera's output, so size from it.
+            CameraComponent.OutputSize = Camera::CurrentCamera ? Camera::CurrentCamera->OutputSize : windowSize;
+        }
 
         Moonlight::CameraData* CamData = cameraCache.Get( CameraComponent.m_id );
         if( CamData )
@@ -100,7 +105,9 @@ void CameraCore::LateUpdate( const UpdateContext& inUpdateContext )
                     sway->Reset();
                 }
             }
-            CamData->OutputSize = { Mathf::Abs( CameraComponent.OutputSize.x ), Mathf::Abs( CameraComponent.OutputSize.y ) };
+            const Vector2 viewportSize = CameraComponent.GetViewportSize();
+            CamData->OutputSize = { Mathf::Abs( viewportSize.x ), Mathf::Abs( viewportSize.y ) };
+            CamData->Viewport = CameraComponent.HasPartialViewport() ? CameraComponent.Viewport.InternalVector : glm::vec4( 0.f, 0.f, 1.f, 1.f );
 
             CamData->FOV = CameraComponent.GetFOV();
             CamData->Near = CameraComponent.Near;

@@ -45,6 +45,7 @@ ME_REFLECT_BEGIN( Camera )
     ME_FIELD( OrthographicSize ).Display( "Orthographic Size (m)" ).Range( 0.01f, 1000.f ).Tooltip( "Half the view height in metres" );
     ME_FIELD( Near ).Display( "Near Clip (m)" ).Speed( 0.01f ).Tooltip( "Distance to the near clipping plane in metres" );
     ME_FIELD( Far ).Display( "Far Clip (m)" ).Speed( 1.f ).Tooltip( "Distance to the far clipping plane in metres" );
+    ME_FIELD( Viewport ).Display( "Viewport Rect" ).Speed( 0.01f ).Tooltip( "Normalized x, y (from the top left), width and height of the screen this camera draws to, for split screen" );
     ME_FIELD( ClearType ).Display( "Background" ).CustomInspector();
     ME_FIELD( ClearColor ).Color().CustomInspector();
     ME_FIELD( ProceduralSky ).Display( "Procedural Sky" ).CustomInspector();
@@ -132,7 +133,22 @@ float Camera::GetFOV()
 
 float Camera::GetAspectRatio() const
 {
-    return ( OutputSize.x / OutputSize.y );
+    const Vector2 size = GetViewportSize();
+    return ( size.x / size.y );
+}
+
+
+bool Camera::HasPartialViewport() const
+{
+    return Viewport.x != 0.f || Viewport.y != 0.f || Viewport.z != 1.f || Viewport.w != 1.f;
+}
+
+
+Vector2 Camera::GetViewportSize() const
+{
+    const float width = std::clamp( Viewport.z, 0.01f, 1.f );
+    const float height = std::clamp( Viewport.w, 0.01f, 1.f );
+    return Vector2( std::max( 1.f, std::round( OutputSize.x * width ) ), std::max( 1.f, std::round( OutputSize.y * height ) ) );
 }
 
 const int Camera::GetCameraId() const
@@ -202,14 +218,15 @@ Matrix4 Camera::GetProjectionMatrix() const
 {
     // #TODO: output size in the game view of the editor is messed up cause it's not reading the output size of the editor window widget.
     Matrix4 outMatrix;
+    const Vector2 size = GetViewportSize();
     if( Projection == Moonlight::ProjectionType::Perspective )
     {
-        bx::mtxProj( &outMatrix.GetInternalMatrix()[0][0], m_FOV, float( OutputSize.x ) / float( OutputSize.y ), std::max( Near, 0.01f ), Far, bgfx::getCaps()->homogeneousDepth );
+        bx::mtxProj( &outMatrix.GetInternalMatrix()[0][0], m_FOV, float( size.x ) / float( size.y ), std::max( Near, 0.01f ), Far, bgfx::getCaps()->homogeneousDepth );
     }
     else
     {
         const float halfHeight = std::max( OrthographicSize, 0.001f );
-        const float halfWidth = OutputSize.y > 0.f ? halfHeight * OutputSize.x / OutputSize.y : halfHeight;
+        const float halfWidth = size.y > 0.f ? halfHeight * size.x / size.y : halfHeight;
         bx::mtxOrtho( &outMatrix.GetInternalMatrix()[0][0], -halfWidth, halfWidth, -halfHeight, halfHeight, Near, Far, 0.f, bgfx::getCaps()->homogeneousDepth );
     }
 

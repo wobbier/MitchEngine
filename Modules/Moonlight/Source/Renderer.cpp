@@ -390,7 +390,7 @@ namespace
     // Post Process shader graphs injected at InInjection, in order: each reads the previous image
     // (InInput) and writes the next. The last writes InFinal when given (after tonemapping),
     // otherwise the passes ping-pong in the HDR targets and the last image is returned.
-    bgfx::TextureHandle RenderGraphPostPasses( Moonlight::ViewAllocator& InViews, const Moonlight::CameraData& InCamera, Moonlight::FrameBuffer& InTargets, const char* InInjection, bgfx::TextureHandle InInput, bgfx::FrameBufferHandle InFinal, uint16_t InFinalWidth, uint16_t InFinalHeight )
+    bgfx::TextureHandle RenderGraphPostPasses( Moonlight::ViewAllocator& InViews, const Moonlight::CameraData& InCamera, Moonlight::FrameBuffer& InTargets, const char* InInjection, bgfx::TextureHandle InInput, bgfx::FrameBufferHandle InFinal, uint16_t InFinalWidth, uint16_t InFinalHeight, uint16_t InFinalX = 0, uint16_t InFinalY = 0 )
     {
         std::vector<const Moonlight::ShaderGraphAsset*> passes;
         std::vector<const Moonlight::ShaderGraphBinding*> bindings;
@@ -432,7 +432,7 @@ namespace
             Moonlight::FrameBuffer::Mip& target = pingPong[write];
             const bool toFinal = last && !hdr;
             bgfx::setViewFrameBuffer( view, toFinal ? InFinal : target.Buffer );
-            bgfx::setViewRect( view, 0, 0, toFinal ? InFinalWidth : target.Width, toFinal ? InFinalHeight : target.Height );
+            bgfx::setViewRect( view, toFinal ? InFinalX : 0, toFinal ? InFinalY : 0, toFinal ? InFinalWidth : target.Width, toFinal ? InFinalHeight : target.Height );
             bgfx::setViewTransform( view, nullptr, ortho );
             bgfx::touch( view );
 
@@ -509,6 +509,8 @@ void BGFXRenderer::Destroy()
     m_engineShaders.clear();
     delete EditorCameraBuffer;
     EditorCameraBuffer = nullptr;
+    delete m_splitMainBuffer;
+    m_splitMainBuffer = nullptr;
 
     const bgfx::UniformHandle uniforms[] = { s_texDiffuse, s_texNormal, s_texAlpha, s_texUI, s_time,
         u_lightParams, u_viewShading, u_dirLightDirection, u_dirLightColor, u_eclipseSun, u_eclipseMoon, u_eclipseParams, u_clusterParams, u_clusterGrid, u_ambientSky, u_ambientGround,
@@ -640,6 +642,10 @@ void BGFXRenderer::Render( Moonlight::CameraData& EditorCamera, FrameRenderData&
 #if USING( ME_EDITOR )
             EditorCamera.Buffer->ReCreate( m_resetFlags );
 #endif
+            if( m_splitMainBuffer )
+            {
+                m_splitMainBuffer->ReCreate( m_resetFlags );
+            }
         }
         NeedsReset = false;
     }
@@ -666,22 +672,55 @@ void BGFXRenderer::Render( Moonlight::CameraData& EditorCamera, FrameRenderData&
     constexpr bool kMainCameraToBackbuffer = true;
 #endif
 
-    // Secondary cameras first so the main camera can sample their output this frame.
+    auto isSplit = []( const Moonlight::CameraData& camData ) {
+        return camData.Viewport != glm::vec4( 0.f, 0.f, 1.f, 1.f );
+    };
+    Moonlight::CameraData* mainCamera = nullptr;
     for( auto& camData : m_cameraCache.Commands )
     {
-        if( camData.IsMain || !camData.ShouldRender )
+        if( camData.IsMain && camData.ShouldRender && camData.Buffer )
+        {
+            mainCamera = &camData;
+            break;
+        }
+    }
+
+    // Secondary cameras first so the main camera can sample their output this frame. Split screen
+    // cameras draw into the main camera's output, so they wait until it has rendered.
+    for( auto& camData : m_cameraCache.Commands )
+    {
+        if( camData.IsMain || !camData.ShouldRender || ( mainCamera && isSplit( camData ) ) )
         {
             continue;
         }
         RenderCameraView( camData, false );
     }
 
-    for( auto& camData : m_cameraCache.Commands )
+    if( mainCamera )
     {
-        if( camData.IsMain && camData.ShouldRender )
+        if( isSplit( *mainCamera ) )
         {
-            RenderCameraView( camData, kMainCameraToBackbuffer );
-            break;
+            // Keep the main buffer at the full display size; the scene renders at the rect's size.
+            if( !m_splitMainBuffer )
+            {
+                m_splitMainBuffer = new Moonlight::FrameBuffer( static_cast<uint32_t>( mainCamera->OutputSize.x ), static_cast<uint32_t>( mainCamera->OutputSize.y ) );
+            }
+            Moonlight::FrameBuffer* display = mainCamera->Buffer;
+            mainCamera->Buffer = m_splitMainBuffer;
+            RenderCameraView( *mainCamera, kMainCameraToBackbuffer, display );
+            mainCamera->Buffer = display;
+        }
+        else
+        {
+            RenderCameraView( *mainCamera, kMainCameraToBackbuffer );
+        }
+
+        for( auto& camData : m_cameraCache.Commands )
+        {
+            if( !camData.IsMain && camData.ShouldRender && isSplit( camData ) )
+            {
+                RenderCameraView( camData, kMainCameraToBackbuffer, mainCamera->Buffer );
+            }
         }
     }
 
@@ -730,7 +769,7 @@ void BGFXRenderer::SetGuizmoDrawCallback( std::function<void( DebugDrawer* )> Gu
 }
 
 
-void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackbuffer )
+void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackbuffer, Moonlight::FrameBuffer* displayBuffer )
 {
     OPTICK_CATEGORY( "Render Camera", Optick::Category::Camera );
     if( CurrentSize.IsZero() )
@@ -845,9 +884,16 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
     }
 
     // The scene renders in linear HDR; post-processing writes the final image here.
-    const bgfx::FrameBufferHandle target = toBackbuffer ? bgfx::FrameBufferHandle( BGFX_INVALID_HANDLE ) : camera.Buffer->Buffer;
-    const uint16_t targetWidth = toBackbuffer ? static_cast<uint16_t>( CurrentSize.x ) : width;
-    const uint16_t targetHeight = toBackbuffer ? static_cast<uint16_t>( CurrentSize.y ) : height;
+    Moonlight::FrameBuffer* display = displayBuffer ? displayBuffer : camera.Buffer;
+    const bgfx::FrameBufferHandle target = toBackbuffer ? bgfx::FrameBufferHandle( BGFX_INVALID_HANDLE ) : display->Buffer;
+    const uint16_t displayWidth = toBackbuffer ? static_cast<uint16_t>( CurrentSize.x ) : static_cast<uint16_t>( display->Width );
+    const uint16_t displayHeight = toBackbuffer ? static_cast<uint16_t>( CurrentSize.y ) : static_cast<uint16_t>( display->Height );
+    // Split screen: the final image goes into the camera's rect of the display.
+    const bool split = displayBuffer || camera.Viewport != glm::vec4( 0.f, 0.f, 1.f, 1.f );
+    const uint16_t targetX = split ? static_cast<uint16_t>( std::min<float>( std::round( camera.Viewport.x * displayWidth ), displayWidth - 1 ) ) : 0;
+    const uint16_t targetY = split ? static_cast<uint16_t>( std::min<float>( std::round( camera.Viewport.y * displayHeight ), displayHeight - 1 ) ) : 0;
+    const uint16_t targetWidth = split ? std::min<uint16_t>( width, displayWidth - targetX ) : ( toBackbuffer ? displayWidth : width );
+    const uint16_t targetHeight = split ? std::min<uint16_t>( height, displayHeight - targetY ) : ( toBackbuffer ? displayHeight : height );
 
     auto setupSceneView = [&]( bgfx::ViewId view ) {
         bgfx::setViewTransform( view, &camera.View.GetInternalMatrix()[0][0], &camera.ProjectionMatrix.GetInternalMatrix()[0][0] );
@@ -1109,11 +1155,11 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
         Moonlight::FrameBuffer& buffer = *camera.Buffer;
         buffer.EnsureGraphTargets( false, true );
         m_postProcess->Render( m_views, camera, buffer, buffer.GraphLdr[0].Buffer, buffer.GraphLdr[0].Width, buffer.GraphLdr[0].Height );
-        RenderGraphPostPasses( m_views, camera, buffer, "AfterTonemap", buffer.GraphLdr[0].Color, target, targetWidth, targetHeight );
+        RenderGraphPostPasses( m_views, camera, buffer, "AfterTonemap", buffer.GraphLdr[0].Color, target, targetWidth, targetHeight, targetX, targetY );
     }
     else
     {
-        m_postProcess->Render( m_views, camera, *camera.Buffer, target, targetWidth, targetHeight );
+        m_postProcess->Render( m_views, camera, *camera.Buffer, target, targetWidth, targetHeight, targetX, targetY );
     }
 
     float orthoProj[16];
@@ -1132,7 +1178,8 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
         const bgfx::ViewId view = Moonlight::RenderView::UIComposite;
         bgfx::setViewName( view, "UI Composite" );
 
-        bgfx::setViewRect( view, 0, 0, uint16_t( camera.OutputSize.x ), uint16_t( camera.OutputSize.y ) );
+        // The UI covers the whole display, even when the main camera only fills part of it.
+        bgfx::setViewRect( view, 0, 0, split ? displayWidth : uint16_t( camera.OutputSize.x ), split ? displayHeight : uint16_t( camera.OutputSize.y ) );
         bgfx::setViewTransform( view, NULL, orthoProj );
         bgfx::setViewFrameBuffer( view, target );
         bgfx::setState( 0

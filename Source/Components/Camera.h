@@ -29,6 +29,9 @@ public:
     float OrthographicSize = 5.f;
     float Near = 0.1f;
     float Far = 1000.f;
+    // Normalized screen rect (x, y from the top left, width, height) for split screen. A camera with
+    // a partial rect draws into that part of the main camera's output instead of its own target.
+    Vector4 Viewport = Vector4( 0.f, 0.f, 1.f, 1.f );
 
     Camera();
     ~Camera();
@@ -41,6 +44,9 @@ public:
     void SetCurrent();
     float GetFOV();
     float GetAspectRatio() const;
+    bool HasPartialViewport() const;
+    // OutputSize scaled by the viewport rect: the size this camera actually renders at.
+    Vector2 GetViewportSize() const;
 
     const int GetCameraId() const;
 
