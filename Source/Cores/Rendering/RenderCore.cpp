@@ -216,7 +216,10 @@ RenderCore::TerrainDraw* RenderCore::PrepareTerrainDraw( Entity& InEntity, Terra
             draw->PaintedSurface.reset();
             // Retire command references before a geometry replacement. Retain its cache pin for
             // three render frames, covering BGFX's deferred buffer retirement.
-            if( draw->Parts[i] ) GetEngine().GetRenderer().GetMeshCache().Pop( draw->Parts[i]->GetId() );
+            // A shrinking window can reuse every old part, then replace detail before its
+            // Previous window retires below. Let that owner release shared command slots once;
+            // freeing them here too lets retirement pop a slot already reused by a new patch.
+            if( draw->Parts[i] && draw->Parts[i].use_count() == 1 ) GetEngine().GetRenderer().GetMeshCache().Pop( draw->Parts[i]->GetId() );
             draw->Parts[i].reset();
             if( draw->Geometry[i] )
             {

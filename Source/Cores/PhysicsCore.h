@@ -114,7 +114,7 @@ private:
 
     void CreateWorld();
     void DestroyWorld();
-    void SyncBodies();
+    void SyncBodies( float InPhysicsStepSeconds = 0.f );
     void SyncJoints();
     bool BuildShapes( BodyRecord& InRecord, const std::vector<ColliderEntry>& InColliders );
     void ApplyBodySettings( BodyRecord& InRecord, Rigidbody* InRigidbody );

@@ -98,6 +98,7 @@ void TerrainWidget::DrawStreamingControls()
     ImGui::Text( "%zu resident / %zu detail / %zu retiring", stats->Resident, stats->Detail, stats->Retiring );
     if( stats->Retiring ) ImGui::Text( "Retiring pins: %zu query / %zu draw / %zu collision", stats->QueryPins, stats->DrawPins, stats->CollisionPins );
     ImGui::Text( "%zu pending  /  worker %s", stats->Pending, stats->Loading ? "loading" : "idle" );
+    ImGui::Text( "Look-ahead: %zu CPU pages / %zu pending", stats->PrefetchResident, stats->PrefetchPending );
     if( terrain->GetData() && terrain->GetData()->PagedCoverage )
     {
         ImGui::Text( "Coverage: %zu pages / %zu pending / %zu retiring", stats->CoverageResident, stats->CoveragePending, stats->CoverageRetiring );

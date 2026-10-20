@@ -37,15 +37,15 @@ void TerrainCore::SyncStreams()
         for( Entity& entity : GetEntities() ) entity.GetComponent<Terrain>().m_stream.reset();
         m_scheduler = {}; return;
     }
-    // Physics safety follows actors, including off-camera actors. Expansion includes body size
-    // and predicted motion; the sample guard requests the neighboring tile at a shared seam.
-    struct Actor { Vector3 Position; float Radius; };
+    // Required demand covers body extents and the next actual step/sweep. Longer look-ahead
+    // loads canonical CPU pages opportunistically and must never hold physics by itself.
+    struct Actor { Vector3 Position; float Radius, Speed, PendingDistance; };
     std::vector<Actor> actors;
     GetWorld().Each<Rigidbody, Transform>( [&]( Entity&, Rigidbody& body, Transform& transform ) {
         if( body.Type == BodyType::Static ) return;
         const auto velocity = body.GetVelocity();
-        Actor actor{ transform.GetWorldPosition(), 2.f + std::hypot( velocity.x, velocity.z ) * 0.5f };
-        if( body.m_hasPendingMove ) { const auto displacement = body.m_movePosition - actor.Position; actor.Radius += std::hypot( displacement.x, displacement.z ); }
+        Actor actor{ transform.GetWorldPosition(), 2.f, std::hypot( velocity.x, velocity.z ), 0.f };
+        if( body.m_hasPendingMove ) { const auto displacement = body.m_movePosition - actor.Position; actor.PendingDistance = std::hypot( displacement.x, displacement.z ); }
         const auto visit = [&]( const auto& self, Transform& node ) -> void {
             if( node.Parent )
             {
@@ -61,10 +61,13 @@ void TerrainCore::SyncStreams()
             }
             for( auto* child : node.GetChildren() ) self( self, *child );
         };
-        visit( visit, transform ); actors.push_back( actor );
+        visit( visit, transform ); actor.Radius += actor.Speed * m_physicsStepSeconds; actors.push_back( actor );
     } );
     GetWorld().Each<CharacterController, Transform>( [&]( Entity&, CharacterController& controller, Transform& transform ) {
-        actors.push_back( { transform.GetWorldPosition() + controller.Center, controller.Radius + controller.MaxSpeed * 0.5f + std::hypot( controller.m_pendingMove.x, controller.m_pendingMove.z ) } );
+        const float speed = std::max( std::hypot( controller.m_velocity.x, controller.m_velocity.z ), std::max( 0.f, controller.MaxSpeed ) * controller.m_moveInput.Length() );
+        actors.push_back( { transform.GetWorldPosition() + controller.Center,
+            controller.Radius + std::max( std::max( 0.f, controller.MaxSpeed ), speed ) * m_physicsStepSeconds,
+            speed, std::hypot( controller.m_pendingMove.x, controller.m_pendingMove.z ) } );
     } );
     std::vector<Vector3> cameras;
     GetWorld().Each<Camera, Transform>( [&]( Entity&, Camera& camera, Transform& transform ) {
@@ -84,7 +87,8 @@ void TerrainCore::SyncStreams()
         }
         if( terrain.CpuBudgetMiB < 1 || terrain.GpuBudgetMiB < 1 || terrain.CollisionBudgetMiB < 1 || terrain.CpuBudgetMiB > 4096 || terrain.GpuBudgetMiB > 4096 || terrain.CollisionBudgetMiB > 4096 ||
             !std::isfinite( terrain.StreamDistance ) || terrain.StreamDistance < 0 || terrain.StreamDistance > 16384 || !std::isfinite( terrain.CollisionDistance ) || terrain.CollisionDistance < 1 || terrain.CollisionDistance > 1024 ||
-            !std::isfinite( terrain.CoverageDistance ) || terrain.CoverageDistance < 0 || terrain.CoverageDistance > 16384 )
+            !std::isfinite( terrain.CoverageDistance ) || terrain.CoverageDistance < 0 || terrain.CoverageDistance > 16384 ||
+            !std::isfinite( terrain.CollisionPrefetchSeconds ) || terrain.CollisionPrefetchSeconds < 0 || terrain.CollisionPrefetchSeconds > 2 )
         {
             terrain.m_data = terrain.m_resource->GetData(); terrain.m_stream.reset();
             terrain.m_valid = false; terrain.m_error = "Invalid terrain streaming budgets or demand radius";
@@ -104,7 +108,14 @@ void TerrainCore::SyncStreams()
             if( archive->PagedCoverage ) TerrainData::AddStreamDemand( archive->Config, position - origin, terrain.CoverageDistance, false, request.Tiles, true );
             if( terrain.StreamDetail ) TerrainData::AddStreamDemand( archive->Config, position - origin, archive->PagedCoverage ? std::min( terrain.StreamDistance, terrain.CoverageDistance ) : terrain.StreamDistance, false, request.Tiles );
         }
-        if( terrain.Collision ) for( const auto& actor : actors ) TerrainData::AddStreamDemand( archive->Config, actor.Position - origin, terrain.CollisionDistance + actor.Radius + archive->Config.SampleSpacing, true, request.Tiles );
+        if( terrain.Collision ) for( const auto& actor : actors )
+        {
+            const double radius = terrain.CollisionDistance + actor.Radius + actor.PendingDistance + archive->Config.SampleSpacing;
+            TerrainData::AddStreamDemand( archive->Config, actor.Position - origin, radius, true, request.Tiles );
+            if( terrain.CollisionPrefetchSeconds > 0 && actor.Speed > 0 )
+                TerrainData::AddStreamDemand( archive->Config, actor.Position - origin,
+                    radius + std::min( double( actor.Speed ) * terrain.CollisionPrefetchSeconds, 16384.0 ), false, request.Tiles, false, true );
+        }
     }
     std::vector<TerrainData::StreamBatch> batches;
     size_t drainLimit = 1;

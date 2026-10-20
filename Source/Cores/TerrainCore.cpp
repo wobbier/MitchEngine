@@ -5,6 +5,7 @@
 #include "Components/Transform.h"
 #include "ECS/ComponentFilter.h"
 #include "Core/UpdateContext.h"
+#include <cmath>
 
 TerrainCore::TerrainCore() : Base( ComponentFilter().Requires<Transform>().Requires<Terrain>() )
 {
@@ -12,9 +13,10 @@ TerrainCore::TerrainCore() : Base( ComponentFilter().Requires<Transform>().Requi
     RunsBefore( "PhysicsCore" ); RunsBefore( "ScriptCore" );
 }
 
-void TerrainCore::SyncNow( bool InWaitForCollision )
+void TerrainCore::SyncNow( bool InWaitForCollision, float InPhysicsStepSeconds )
 {
     OPTICK_EVENT( "TerrainCore::SyncNow" );
+    if( std::isfinite( InPhysicsStepSeconds ) && InPhysicsStepSeconds > 0 ) m_physicsStepSeconds = InPhysicsStepSeconds;
     m_collisionReady = true;
     for( Entity& entity : GetEntities() )
     {
@@ -43,5 +45,5 @@ void TerrainCore::SyncNow( bool InWaitForCollision )
 void TerrainCore::Update( const UpdateContext& context )
 {
     m_frame = context.GetFrameID();
-    SyncNow();
+    SyncNow( false, context.GetFixedDeltaTime() );
 }

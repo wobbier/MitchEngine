@@ -150,7 +150,12 @@ namespace TerrainPagingAutomation
                 if( CommandLine::Has( "--terrain-texture-atlas" ) && set->GetLayout() != Moonlight::TerrainTextureLayout::Atlas )
                 { error = "Streamed surface did not select the atlas fallback"; return false; }
             }
-            if( count != data->Patches.size() ) { error = "Painted GPU window has not completed"; return false; }
+            if( count != data->Patches.size() )
+            {
+                error = "Painted GPU window has not completed: commands=" + std::to_string( count ) + " CPU patches=" + std::to_string( data->Patches.size() ) +
+                    " LODs=" + std::to_string( terrain->GetPatchLods().size() ) + " prefetch=" + std::to_string( stats->PrefetchResident ) +
+                    " / " + terrain->GetLodError() + " / " + stats->Pressure; return false;
+            }
         }
         if( !terrain->StreamDetail && ( stats->Detail || data->Heights->GetTiles().size() != 1 ) ) { error = "Coarse coverage loaded unrelated canonical heights"; return false; }
         const auto position = Player()->GetComponent<Transform>().GetWorldPosition(); const auto expected = data->Heights->Query( position.x + 2, position.z ); RaycastHit hit;

@@ -1,6 +1,6 @@
 # Terrain
 
-> Verified against engine commit `ec76c4e2` plus the terrain navigation change, 2026-10-20.
+> Verified against engine commit `ed08c80a` plus the optional look-ahead and window-retirement changes, 2026-10-20.
 
 The terrain system loads a fully resident tiled heightfield into one `Terrain` scene component, renders internal patches through the ordinary lit mesh path, and provides static triangle-mesh collision at canonical sample resolution. The `TerrainData` library supplies signed addressing, shared-border edits, normals and queries, patch geometry, source/cooked serialization, brush strokes and source publication. Havana provides a terrain authoring panel with four sculpting tools, four-layer surface painting, RAW heightmap exchange and recovery snapshots. Runtime patches select stitched LODs from camera pixel error. Version 2 cooked assets add bounded detail streaming over resident coarse coverage; version 3 streams the coverage window too. Version 4 adds painted surface pages and layer settings.
 
@@ -343,3 +343,16 @@ Add a `NavMeshSurface` and bake through its inspector or Navigation actions. Ter
 Navigation always uses canonical sample triangles. The main thread captures immutable sources; the bake worker reads selected version 2/3/4 archive detail pages independently of visual coverage, detail residency and physics demand. Bounds include a Recast border halo. Reads validate the archive generation and checksums, build no render/collision data, and do not populate the runtime tile cache. At most four million terrain triangles are accepted per bake; narrow the collection volume or split surfaces for larger terrain.
 
 Height edits mark the surface stale, and undo restores its prior geometry hash. Painting, texture changes and LOD selection preserve the bake. Source or settings changes during a running bake discard that result before file publication. `BakeOnLoad` retries pending terrain metadata, including in standalone games. Runtime carving uses the captured bake source and settings; first carving of a file-loaded mesh verifies source identity. See [Navigation](Navigation.md#terrain-sources) for details. Terrain rebakes remain explicit full-surface operations; runtime navmesh tile streaming is a later milestone.
+
+
+## Optional actor look-ahead
+
+Required collision demand covers actor extents, a sample border, the actual next fixed step and any explicit pending movement. `PhysicsCore` forwards its fixed timestep before synchronizing terrain, including custom step sizes. A larger future region is optional: `CollisionPrefetchSeconds` defaults to 0.5 seconds and accepts 0–2 seconds; zero disables look-ahead. Character demand includes current velocity and movement intent, and rigidbody demand uses horizontal velocity. Vertical falling speed does not widen the region.
+
+The world scheduler admits required collision first, coarse visual coverage next, then canonical prefetch and optional visual detail. CPU look-ahead shares the existing per-asset/world limits, worker limit, checksums, cancellation, retirement pins and eviction policy. Prefetched pages populate canonical height queries, but request no GPU detail or live collision shapes. When a page becomes required, its prepared CPU data is reused without another archive read; Box3D collision cooking and publication still use the required-ground readiness barrier.
+
+A corrupt optional page records an error without pausing physics or retrying each frame. If it later becomes required, readiness waits until the asset is repaired and reloaded. A budget-deferred optional request also leaves physics running. Teleports and explicit sweeps still wait when their required region is absent. Inspect shows look-ahead CPU pages and pending requests separately from visual detail and required collision. When a shrinking visual window reuses patches and demotes detail, shared draw command slots remain owned by the previous window until its retirement; this prevents duplicate slot release and missing patches.
+
+`Terrain prefetch:*` tests cover both coverage formats, promotion, corruption/reload, budget priority across assets, cancellation/pins, high-speed movement intent and custom timesteps. `../Assets/Scenes/Tests/TerrainPrefetchFlows.edscript` exercises the inspector, tight budgets, live simulation, warm promotion and Play/Stop.
+
+Linux validation on 2026-10-20: editor/game Debug builds pass with 339 editor and 336 game tests. The new prefetch flow and the existing version 2 streaming, paged coverage, shared-budget and painted surface flows pass; painted surfaces also pass with forced atlases. Standalone capture uses a custom 0.05-second fixed step. Win64/macOS builds were not run locally.

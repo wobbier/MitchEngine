@@ -740,7 +740,7 @@ void PhysicsCore::SyncNow()
 }
 
 
-void PhysicsCore::SyncBodies()
+void PhysicsCore::SyncBodies( float InPhysicsStepSeconds )
 {
     OPTICK_EVENT( "PhysicsCore::SyncBodies" );
     if( m_world == 0 )
@@ -748,7 +748,7 @@ void PhysicsCore::SyncBodies()
         return;
     }
 
-    if( auto* terrain = GetWorld().GetCore<TerrainCore>() ) terrain->SyncNow( m_simulating );
+    if( auto* terrain = GetWorld().GetCore<TerrainCore>() ) terrain->SyncNow( m_simulating, InPhysicsStepSeconds );
     m_terrainShapesReady = true;
     if( m_terrainCook.valid() && m_terrainCook.wait_for( std::chrono::seconds( 0 ) ) == std::future_status::ready )
     {
@@ -1251,7 +1251,7 @@ void PhysicsCore::FixedUpdate( const UpdateContext& inUpdateContext )
     }
     OPTICK_CATEGORY( "PhysicsCore::FixedUpdate", Optick::Category::Physics );
     const float dt = inUpdateContext.GetFixedDeltaTime();
-    SyncBodies();
+    SyncBodies( dt );
     // A failed required terrain stays inspectable while bodies wait instead of falling through it.
     if( !m_terrainShapesReady ) return;
     if( auto* terrain = GetWorld().GetCore<TerrainCore>(); terrain && !terrain->IsCollisionReady() ) return;

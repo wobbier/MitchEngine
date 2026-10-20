@@ -19,6 +19,7 @@ namespace TerrainData
         bool Collision = false, Visual = false;
         double Priority = 0; // Smaller first; collision always precedes visual requests.
         bool Coverage = false;
+        bool Prefetch = false; // Optional canonical CPU data; never gates physics or uploads detail.
     };
 
     struct StreamStats
@@ -27,6 +28,7 @@ namespace TerrainData
         uint64_t Loaded = 0, Evicted = 0, Cancelled = 0, Failed = 0, BytesRead = 0;
         size_t Resident = 0, Detail = 0, Retiring = 0, Pending = 0;
         size_t QueryPins = 0, DrawPins = 0, CollisionPins = 0;
+        size_t PrefetchResident = 0, PrefetchPending = 0;
         size_t CoverageResident = 0, CoverageRetiring = 0, CoveragePending = 0;
         uint64_t CoverageLoaded = 0, CoverageEvicted = 0;
         bool HorizonReady = true;
@@ -76,6 +78,7 @@ namespace TerrainData
         };
         bool HasConsumers( const Entry& InEntry ) const;
         void Measure();
+        void CountPrefetch( const std::map<TileCoord, TileDemand>& InDemand );
         bool Publish( const std::map<TileCoord, TileDemand>& InDemand );
         void TickPaged( uint64_t InFrame, std::span<const TileDemand> InDemand, const StreamLimits& InLimits, bool InAllowLoad );
         bool PublishPaged( const std::map<TileCoord, TileDemand>& InDemand );
@@ -102,5 +105,5 @@ namespace TerrainData
 
     // Adds a clipped terrain-local region; no full dataset traversal, including negative tiles.
     void AddStreamDemand( const Settings& InSettings, const Vector3& InLocalPosition, double InRadius,
-        bool InCollision, std::map<TileCoord, TileDemand>& InOutDemand, bool InCoverage = false );
+        bool InCollision, std::map<TileCoord, TileDemand>& InOutDemand, bool InCoverage = false, bool InPrefetch = false );
 }

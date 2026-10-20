@@ -34,6 +34,7 @@ ME_REFLECT_BEGIN( Terrain )
     ME_FIELD( StreamDistance ).Category( "Streaming" ).Range( 0.f, 16384.f );
     ME_FIELD( CoverageDistance ).Category( "Streaming" ).Range( 0.f, 16384.f ).Tooltip( "Paged visual horizon; coarse pages outside this radius retire. Detail distance is clipped to this horizon." );
     ME_FIELD( CollisionDistance ).Category( "Streaming" ).Range( 1.f, 1024.f ).Tooltip( "Safety margin around characters and moving bodies, independent of cameras" );
+    ME_FIELD( CollisionPrefetchSeconds ).Category( "Streaming" ).Range( 0.f, 2.f ).Tooltip( "Optional canonical data look-ahead for moving actors. Zero disables prefetch. Required ground still gates physics." );
     ME_FIELD( CpuBudgetMiB ).Category( "Streaming" ).Range( 1, 4096 );
     ME_FIELD( GpuBudgetMiB ).Category( "Streaming" ).Range( 1, 4096 );
     ME_FIELD( CollisionBudgetMiB ).Category( "Streaming" ).Range( 1, 4096 );

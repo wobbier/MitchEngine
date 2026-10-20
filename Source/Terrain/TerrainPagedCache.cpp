@@ -75,7 +75,7 @@ namespace TerrainData
             const auto wanted = demand.find( coord );
             if( entry.Collision && wanted != demand.end() && wanted->second.Collision ) data->CollisionTiles.push_back( entry.Tile->Collision );
         }
-        for( const auto& [coord, request] : demand ) if( ( request.Collision || request.Visual ) && !heights->FindTile( coord ) )
+        for( const auto& [coord, request] : demand ) if( ( request.Collision || request.Visual || request.Prefetch ) && !heights->FindTile( coord ) )
         {
             const auto entry = m_entries.find( coord ); if( entry == m_entries.end() || !entry->second.Failed ) heights->SetPending( coord, true );
         }
@@ -94,17 +94,17 @@ namespace TerrainData
         {
             request.Coverage |= request.Visual;
             auto [it, added] = demand.emplace( request.Coordinate, request );
-            if( !added ) { it->second.Collision |= request.Collision; it->second.Visual |= request.Visual; it->second.Coverage |= request.Coverage; it->second.Priority = std::min( it->second.Priority, request.Priority ); }
+            if( !added ) { it->second.Collision |= request.Collision; it->second.Visual |= request.Visual; it->second.Coverage |= request.Coverage; it->second.Prefetch |= request.Prefetch; it->second.Priority = std::min( it->second.Priority, request.Priority ); }
         }
         bool changed = demand.size() != m_publishedDemand.size();
         for( const auto& [coord, request] : demand )
         {
             const auto old = m_publishedDemand.find( coord );
-            if( old == m_publishedDemand.end() || old->second.Collision != request.Collision || old->second.Visual != request.Visual || old->second.Coverage != request.Coverage ) changed = true;
+            if( old == m_publishedDemand.end() || old->second.Collision != request.Collision || old->second.Visual != request.Visual || old->second.Coverage != request.Coverage || old->second.Prefetch != request.Prefetch ) changed = true;
         }
         for( auto& [coord, entry] : m_entries )
         {
-            const auto wanted = demand.find( coord ); const bool active = wanted != demand.end() && ( wanted->second.Collision || wanted->second.Visual );
+            const auto wanted = demand.find( coord ); const bool active = wanted != demand.end() && ( wanted->second.Collision || wanted->second.Visual || wanted->second.Prefetch );
             if( active ) { entry.LastDemand = frame; if( !entry.Active && !entry.Failed ) { entry.Active = true; changed = true; } }
             else if( entry.Active && ( entry.Loading || frame - std::min( frame, entry.LastDemand ) >= limits.HoldFrames ) )
             { entry.Active = false; changed = true; if( entry.Loading ) { entry.Request = ++m_request; ++m_stats.Cancelled; } }
@@ -159,7 +159,8 @@ namespace TerrainData
         {
             if( request.Collision ) tasks.push_back( { request, 0 } );
             if( request.Coverage ) tasks.push_back( { request, 1 } );
-            if( request.Visual && !request.Collision ) tasks.push_back( { request, 2 } );
+            if( request.Prefetch && !request.Collision ) tasks.push_back( { request, 2 } );
+            if( request.Visual && !request.Collision && !request.Prefetch ) tasks.push_back( { request, 3 } );
         }
         std::stable_sort( tasks.begin(), tasks.end(), []( const auto& a, const auto& b ) { if( a.Kind != b.Kind ) return a.Kind < b.Kind; if( a.Demand.Priority != b.Demand.Priority ) return a.Demand.Priority < b.Demand.Priority; return a.Demand.Coordinate < b.Demand.Coordinate; } );
         m_stats.Pending = m_stats.CoveragePending = 0;
@@ -205,6 +206,7 @@ namespace TerrainData
             }
             if( request.Coverage && !std::binary_search( m_snapshot->CoverageTiles.begin(), m_snapshot->CoverageTiles.end(), coord ) ) m_stats.HorizonReady = false;
         }
+        CountPrefetch( demand );
         Measure();
         if( !m_stats.CoverageReady ) m_stats.Pressure = "Paged terrain metadata exceeds the configured CPU/GPU budget";
         else if( !m_stats.HorizonReady ) m_stats.Pressure = "Loading the coarse terrain horizon; existing coverage retires before its reservations can be reused";

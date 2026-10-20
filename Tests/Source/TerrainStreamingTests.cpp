@@ -530,3 +530,83 @@ TEST_CASE( "Terrain streamed surfaces: shared budgets charge full-resolution wei
     batch.Demand.clear(); for( int n = 0; n < 10; ++n ) step();
     CHECK( cache.GetStats().CoverageRetiring == 0 ); CHECK( cache.GetStats().CoverageResident == 0 );
 }
+
+
+TEST_CASE( "Terrain prefetch: optional canonical pages promote to required collision without a second read" )
+{
+    StreamFixture fixture;
+    SUBCASE( "resident coverage" ) {}
+    SUBCASE( "paged coverage" ) { PageFixture( fixture.File, fixture.Field, fixture.Archive ); }
+    TerrainData::TerrainStreamCache cache( fixture.Archive ); TerrainData::StreamBatch batch{ &cache, {}, { { { 1, 1 }, false, false, 0, false, true } } };
+    TerrainData::StreamWorldLimits limits; limits.CollisionBytes = 0; TerrainData::TerrainStreamScheduler scheduler;
+    const auto gpu = cache.GetStats().GpuReserved; uint64_t frame = 0;
+    const auto step = [&]() { cache.WaitForRequest(); scheduler.Tick( ++frame, std::span( &batch, 1 ), limits ); };
+    for( int n = 0; n < 20; ++n ) step();
+    REQUIRE( cache.GetStats().Loaded == 1 ); CHECK( cache.GetStats().PrefetchResident == 1 ); CHECK( cache.GetStats().PrefetchPending == 0 );
+    CHECK( cache.GetStats().CollisionReady ); CHECK( scheduler.GetStats().CollisionReady ); CHECK( cache.GetStats().Detail == 0 );
+    CHECK( cache.GetStats().GpuReserved == gpu ); CHECK( cache.GetStats().CollisionReserved == 0 ); CHECK( cache.GetData()->CollisionTiles.empty() );
+    CHECK( cache.GetStats().CoverageLoaded == 0 );
+    const auto actual = cache.GetData()->Heights->Query( 12.25, 12.5 ), expected = fixture.Field.Query( 12.25, 12.5 );
+    REQUIRE( actual.Status == TerrainData::QueryStatus::Ready ); CHECK( actual.Height == expected.Height ); CHECK( actual.Normal.InternalVector == expected.Normal.InternalVector );
+    batch.Demand[0].Collision = true; step(); CHECK_FALSE( cache.GetStats().CollisionReady );
+    limits.CollisionBytes = TerrainData::TerrainStreamCache::TileReservation( fixture.Field.GetSettings() ).CollisionBytes;
+    for( int n = 0; n < 5; ++n ) step();
+    CHECK( cache.GetStats().CollisionReady ); CHECK( cache.GetStats().Loaded == 1 ); CHECK( cache.GetStats().PrefetchResident == 0 ); REQUIRE( cache.GetData()->CollisionTiles.size() == 1 );
+}
+
+
+TEST_CASE( "Terrain prefetch: world budgets admit another asset's required ground before optional look-ahead" )
+{
+    StreamFixture a, b; TerrainData::TerrainStreamCache first( a.Archive ), second( b.Archive );
+    const auto cost = TerrainData::TerrainStreamCache::TileReservation( a.Field.GetSettings() );
+    TerrainData::StreamWorldLimits limits;
+    limits.CpuBytes = first.GetStats().CpuReserved + second.GetStats().CpuReserved + 2 * ( a.Archive->Coverage->Patches.size() * 128 + 4096 ) + cost.CpuBytes + a.Field.GetSettings().SamplesPerTile() * 16 + 1024;
+    limits.CollisionBytes = cost.CollisionBytes; limits.MaxLoads = 1;
+    TerrainData::StreamBatch batches[] = { { &first, {}, { { { -1, -1 }, false, false, 0, false, true } } }, { &second, {}, { { { 1, 1 }, true, false, 10000 } } } };
+    TerrainData::TerrainStreamScheduler scheduler;
+    for( uint64_t frame = 1; frame <= 30; ++frame )
+    {
+        first.WaitForRequest(); second.WaitForRequest(); scheduler.Tick( frame, batches, limits );
+        CHECK( scheduler.GetStats().CpuReserved <= limits.CpuBytes ); CHECK( scheduler.GetStats().CollisionReserved <= limits.CollisionBytes ); CHECK( scheduler.GetStats().Loading <= 1 );
+    }
+    CHECK( first.GetStats().Loaded == 0 ); CHECK( first.GetStats().CollisionReady ); CHECK( second.GetStats().Loaded == 1 );
+    CHECK( scheduler.GetStats().CollisionReady ); CHECK( scheduler.GetStats().Deferred == 1 );
+}
+
+
+TEST_CASE( "Terrain prefetch: corrupt optional pages never gate physics or retry until reload" )
+{
+    StreamFixture fixture;
+    SUBCASE( "resident coverage" ) {}
+    SUBCASE( "paged coverage" ) { PageFixture( fixture.File, fixture.Field, fixture.Archive ); }
+    Flip( fixture.File, fixture.Archive->Blocks[fixture.Archive->TileIndex( { 1, 1 } )].Offset );
+    TerrainData::TerrainStreamCache cache( fixture.Archive ); TerrainData::StreamLimits limits; uint64_t frame = 0;
+    TerrainData::TileDemand request{ { 1, 1 }, false, false, 0, false, true };
+    Drain( cache, std::span( &request, 1 ), limits, frame );
+    REQUIRE( cache.GetStats().Failed == 1 ); CHECK( cache.GetStats().CollisionReady ); CHECK( cache.GetStats().PrefetchPending == 0 ); CHECK_FALSE( cache.GetStats().Error.empty() );
+    for( int n = 0; n < 10; ++n ) cache.Tick( ++frame, std::span( &request, 1 ), limits );
+    CHECK( cache.GetStats().Failed == 1 ); CHECK_FALSE( cache.GetStats().Loading );
+    request.Collision = true; cache.Tick( ++frame, std::span( &request, 1 ), limits ); CHECK_FALSE( cache.GetStats().CollisionReady );
+    Flip( fixture.File, fixture.Archive->Blocks[fixture.Archive->TileIndex( { 1, 1 } )].Offset );
+    TerrainData::TerrainStreamCache reloaded( fixture.Archive ); Drain( reloaded, std::span( &request, 1 ), limits, frame ); CHECK( reloaded.GetStats().CollisionReady );
+}
+
+
+TEST_CASE( "Terrain prefetch: cancelled look-ahead cannot publish after a teleport and pins retain their charge" )
+{
+    StreamFixture fixture; PageFixture( fixture.File, fixture.Field, fixture.Archive );
+    std::promise<void> entered, release; auto enteredFuture = entered.get_future(); auto gate = release.get_future().share();
+    TerrainData::TerrainStreamCache cache( fixture.Archive, [&]( const auto& archive, auto coord, auto& out, auto& error ) {
+        entered.set_value(); gate.wait(); return TerrainData::ReadStreamTile( archive, coord, out, error );
+    } );
+    TerrainData::StreamLimits limits; limits.HoldFrames = 0; uint64_t frame = 0;
+    TerrainData::TileDemand request{ { 1, 1 }, false, false, 0, false, true };
+    cache.Tick( ++frame, std::span( &request, 1 ), limits ); enteredFuture.wait();
+    cache.Tick( ++frame, {}, limits ); release.set_value(); cache.WaitForRequest(); Drain( cache, {}, limits, frame );
+    CHECK( cache.GetStats().Cancelled == 1 ); CHECK( cache.GetStats().Loaded == 0 ); CHECK( cache.GetStats().PrefetchResident == 0 );
+    CHECK( cache.GetData()->Heights->Query( 12, 12 ).Status == TerrainData::QueryStatus::Unavailable );
+    TerrainData::TerrainStreamCache warm( fixture.Archive ); Drain( warm, std::span( &request, 1 ), limits, frame ); auto pin = warm.GetData();
+    const auto reserved = warm.GetStats().CpuReserved; warm.Tick( ++frame, {}, limits );
+    CHECK( warm.GetStats().Retiring == 1 ); CHECK( warm.GetStats().CpuReserved >= reserved ); CHECK( warm.GetStats().PrefetchResident == 0 );
+    pin.reset(); Drain( warm, {}, limits, frame ); CHECK( warm.GetStats().Retiring == 0 ); CHECK( warm.GetStats().Evicted == 1 );
+}

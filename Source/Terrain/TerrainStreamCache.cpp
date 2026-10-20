@@ -190,13 +190,14 @@ namespace TerrainData
         for( const auto& request : requests ) if( m_archive->Config.Contains( request.Coordinate ) && std::isfinite( request.Priority ) )
         {
             auto [it, inserted] = demand.emplace( request.Coordinate, request );
-            if( !inserted ) { it->second.Collision |= request.Collision; it->second.Visual |= request.Visual; it->second.Priority = std::min( it->second.Priority, request.Priority ); }
+            if( !inserted ) { it->second.Collision |= request.Collision; it->second.Visual |= request.Visual; it->second.Prefetch |= request.Prefetch; it->second.Priority = std::min( it->second.Priority, request.Priority ); }
         }
         // Admit the closest optional demand that can fit, rather than retaining every tile
         // inside a wide camera radius and preventing higher-priority new detail from entering.
         std::vector<TileDemand> ranked; for( const auto& [coord, request] : demand ) ranked.push_back( request );
         std::stable_sort( ranked.begin(), ranked.end(), []( const auto& a, const auto& b ) {
             if( a.Collision != b.Collision ) return a.Collision;
+            if( a.Prefetch != b.Prefetch ) return a.Prefetch;
             if( a.Priority != b.Priority ) return a.Priority < b.Priority;
             return a.Coordinate < b.Coordinate;
         } );
@@ -221,7 +222,7 @@ namespace TerrainData
         if( !changed ) for( const auto& [coord, request] : demand )
         {
             const auto old = m_publishedDemand.find( coord );
-            if( old == m_publishedDemand.end() || old->second.Collision != request.Collision || old->second.Visual != request.Visual ) { changed = true; break; }
+            if( old == m_publishedDemand.end() || old->second.Collision != request.Collision || old->second.Visual != request.Visual || old->second.Prefetch != request.Prefetch ) { changed = true; break; }
         }
         for( auto& [coord, entry] : m_entries )
         {
@@ -277,6 +278,7 @@ namespace TerrainData
         std::vector<TileDemand> ordered; for( const auto& [coord, request] : demand ) ordered.push_back( request );
         std::stable_sort( ordered.begin(), ordered.end(), []( const auto& a, const auto& b ) {
             if( a.Collision != b.Collision ) return a.Collision;
+            if( a.Prefetch != b.Prefetch ) return a.Prefetch;
             if( a.Priority != b.Priority ) return a.Priority < b.Priority;
             return a.Coordinate < b.Coordinate;
         } );
@@ -331,13 +333,26 @@ namespace TerrainData
             if( found == m_entries.end() || !found->second.Tile || !found->second.Active || !found->second.Collision || found->second.Failed ||
                 std::find( m_snapshot->CollisionTiles.begin(), m_snapshot->CollisionTiles.end(), found->second.Tile->Collision ) == m_snapshot->CollisionTiles.end() ) m_stats.CollisionReady = false;
         }
+        CountPrefetch( demand );
         Measure();
         if( m_baseCost.CpuBytes * limits.Instances > limits.CpuBytes || m_baseCost.GpuBytes * limits.Instances > limits.GpuBytes )
         { m_stats.Pressure = "Coarse terrain coverage exceeds the configured CPU/GPU budget; increase budgets or recook a coarser/smaller dataset"; m_stats.CollisionReady = false; }
     }
 
 
-    void AddStreamDemand( const Settings& s, const Vector3& position, double radius, bool collision, std::map<TileCoord, TileDemand>& demand, bool coverage )
+    void TerrainStreamCache::CountPrefetch( const std::map<TileCoord, TileDemand>& demand )
+    {
+        m_stats.PrefetchResident = m_stats.PrefetchPending = 0;
+        for( const auto& [coord, request] : demand ) if( request.Prefetch && !request.Collision )
+        {
+            const auto entry = m_entries.find( coord );
+            if( entry != m_entries.end() && entry->second.Active && entry->second.Tile ) ++m_stats.PrefetchResident;
+            else if( entry == m_entries.end() || !entry->second.Failed ) ++m_stats.PrefetchPending;
+        }
+    }
+
+
+    void AddStreamDemand( const Settings& s, const Vector3& position, double radius, bool collision, std::map<TileCoord, TileDemand>& demand, bool coverage, bool prefetch )
     {
         if( !std::isfinite( position.x ) || !std::isfinite( position.z ) || !std::isfinite( radius ) || radius < 0 ) return;
         const double width = double( s.TileQuads ) * s.SampleSpacing;
@@ -351,8 +366,8 @@ namespace TerrainData
             const TileCoord coord{ static_cast<int32_t>( x ), static_cast<int32_t>( z ) };
             const double dx = ( x + 0.5 ) * width - position.x, dz = ( z + 0.5 ) * width - position.z;
             const double priority = dx * dx + dz * dz;
-            auto [it, added] = demand.emplace( coord, TileDemand{ coord, collision, !collision && !coverage, priority, coverage } );
-            if( !added ) { it->second.Collision |= collision; it->second.Visual |= !collision && !coverage; it->second.Coverage |= coverage; it->second.Priority = std::min( it->second.Priority, priority ); }
+            auto [it, added] = demand.emplace( coord, TileDemand{ coord, collision, !collision && !coverage && !prefetch, priority, coverage, prefetch } );
+            if( !added ) { it->second.Collision |= collision; it->second.Visual |= !collision && !coverage && !prefetch; it->second.Coverage |= coverage; it->second.Prefetch |= prefetch; it->second.Priority = std::min( it->second.Priority, priority ); }
         }
     }
 }

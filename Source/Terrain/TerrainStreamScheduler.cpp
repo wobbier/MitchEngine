@@ -46,17 +46,18 @@ namespace TerrainData
                 for( const auto& request : batch.Demand ) if( cache.m_archive->Config.Contains( request.Coordinate ) && std::isfinite( request.Priority ) )
                 {
                     auto [it, added] = merged.emplace( request.Coordinate, request );
-                    if( !added ) { it->second.Collision |= request.Collision; it->second.Visual |= request.Visual; it->second.Coverage |= request.Coverage; it->second.Priority = std::min( it->second.Priority, request.Priority ); }
+                    if( !added ) { it->second.Collision |= request.Collision; it->second.Visual |= request.Visual; it->second.Coverage |= request.Coverage; it->second.Prefetch |= request.Prefetch; it->second.Priority = std::min( it->second.Priority, request.Priority ); }
                 }
                 for( const auto& [coord, request] : merged )
                 {
                     if( request.Collision )
                     {
                         ranked.push_back( { plans.size(), request, 0 } );
-                        auto required = request; required.Visual = required.Coverage = false; plan.Selected[coord] = required;
+                        auto required = request; required.Visual = required.Coverage = required.Prefetch = false; plan.Selected[coord] = required;
                     }
                     if( cache.m_archive->PagedCoverage && ( request.Coverage || request.Visual ) ) ranked.push_back( { plans.size(), request, 1 } );
-                    if( request.Visual ) ranked.push_back( { plans.size(), request, 2 } );
+                    if( request.Prefetch && !request.Collision ) ranked.push_back( { plans.size(), request, 2 } );
+                    if( request.Visual ) ranked.push_back( { plans.size(), request, 3 } );
                 }
             }
             else ++m_stats.RetiringAssets;
@@ -85,7 +86,7 @@ namespace TerrainData
             const uint64_t cpuCost = !page && plan.Decoded.contains( coord ) ? 0 : tileCpu;
             const bool hasCoverage = !cache.m_archive->PagedCoverage || ( plan.Selected.contains( coord ) && plan.Selected.at( coord ).Coverage );
             const bool decoded = fits( cpu, cpuCost, limits.CpuBytes ) && fits( plan.Grant.CpuBytes, cpuCost, plan.Batch->Limits.CpuBytes );
-            const bool visual = candidate.Kind == 0 || ( fits( gpu, tileGpu, limits.GpuBytes ) && fits( plan.Grant.GpuBytes, tileGpu, plan.Batch->Limits.GpuBytes ) && ( page || hasCoverage ) );
+            const bool visual = candidate.Kind == 0 || candidate.Kind == 2 || ( fits( gpu, tileGpu, limits.GpuBytes ) && fits( plan.Grant.GpuBytes, tileGpu, plan.Batch->Limits.GpuBytes ) && ( page || hasCoverage ) );
             if( !decoded || !visual ) { ++m_stats.Deferred; continue; }
             cpu += cpuCost; plan.Grant.CpuBytes += cpuCost;
             if( !page ) plan.Decoded.insert( coord );
@@ -97,6 +98,7 @@ namespace TerrainData
                 { collision += tileCollision; plan.Grant.CollisionBytes += tileCollision; }
                 else ++m_stats.Deferred;
             }
+            else if( candidate.Kind == 2 ) selected->second.Prefetch = true;
             else
             {
                 gpu += tileGpu; plan.Grant.GpuBytes += tileGpu;
@@ -150,7 +152,8 @@ namespace TerrainData
                     const auto page = cache.m_pages.find( request.Coordinate );
                     if( page == cache.m_pages.end() || ( !page->second.Page && !page->second.Failed ) ) consider( 1 );
                 }
-                if( missing && request.Visual ) consider( 2 );
+                if( missing && request.Prefetch ) consider( 2 );
+                if( missing && request.Visual ) consider( 3 );
             }
             if( found ) next.push_back( best );
         }

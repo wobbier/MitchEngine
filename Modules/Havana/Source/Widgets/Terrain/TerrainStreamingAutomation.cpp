@@ -107,10 +107,31 @@ namespace TerrainStreamingAutomation
             auto actor = EditorOps::GetWorld().CreateEntity( "Stream Player" ); actor->AddComponent<Transform>().SetPosition( Vector3( -40, 12, -40 ) ); actor->AddComponent<CharacterController>();
             Pose( -40 ); return true;
         }
-        if( command == "terrain-stream-cook" ) return widget->StartStreamCook( ( s_directory / "Runtime.terrainc" ).generic_string(), 2, false );
+        if( command == "terrain-stream-cook" ) return widget->StartStreamCook( ( s_directory / "Runtime.terrainc" ).generic_string(), 2, args == "paged" );
         if( command == "terrain-stream-cook-wait" ) { if( !widget->FinishStreamCook( true ) ) { error = "Streamed terrain cook failed"; return false; } return true; }
         auto ground = Ground(); auto* terrain = ground ? ground->TryGetComponent<Terrain>() : nullptr;
         if( !terrain ) return false;
+        if( command == "terrain-stream-prefetch-start" )
+        {
+            terrain->StreamDetail = false; terrain->CoverageDistance = 0; terrain->CollisionPrefetchSeconds = 0.5f;
+            auto& actor = Player()->GetComponent<CharacterController>(); actor.MaxSpeed = 100; actor.Acceleration = 0; actor.AirControl = 0;
+            actor.Teleport( { -40, 12, -40 }, Quaternion() ); actor.SetMoveInput( { 1, 0, 0 } ); return true;
+        }
+        if( command == "terrain-stream-prefetch-promote" )
+        {
+            const auto data = terrain->GetData(); if( !data ) return false;
+            const auto& s = data->Heights->GetSettings();
+            for( const auto& [coord, tile] : data->Heights->GetTiles() )
+            {
+                bool required = false; for( const auto& collision : data->CollisionTiles ) required |= collision->Coordinate == coord;
+                if( required ) continue;
+                s_loaded = terrain->GetStreamingStats()->Loaded; terrain->CollisionPrefetchSeconds = 0;
+                auto& actor = Player()->GetComponent<CharacterController>(); actor.SetMoveInput( {} );
+                actor.Teleport( { ( coord.X + 0.5f ) * s.TileQuads * s.SampleSpacing, 12, ( coord.Z + 0.5f ) * s.TileQuads * s.SampleSpacing }, Quaternion() );
+                GetEngine().Terrains->SyncNow(); return true;
+            }
+            error = "No optional canonical page is available to promote"; return false;
+        }
         if( command == "terrain-stream-bind" )
         {
             terrain->Asset = Path( ( s_directory / "Runtime.terrainc" ).generic_string() ); terrain->ReloadAsset();
@@ -130,6 +151,19 @@ namespace TerrainStreamingAutomation
         if( command == "terrain-stream-wait" ) { terrain->WaitForStreamingRequest(); GetEngine().Physics->WaitForTerrainCollision(); return true; }
         const auto* stats = terrain->GetStreamingStats();
         if( !stats || !terrain->GetData() ) { error = "Streamed terrain has not loaded"; return false; }
+        if( command.starts_with( "terrain-stream-prefetch-" ) )
+        {
+            if( !GetEngine().Terrains->IsCollisionReady() || !GetEngine().Physics->IsTerrainCollisionReady() || stats->Detail ||
+                stats->CpuReserved > 1024 * 1024 || stats->GpuReserved > 1024 * 1024 || stats->CollisionReserved > 1024 * 1024 || !stats->Error.empty() )
+            { error = "Optional look-ahead gated physics, uploaded detail or exceeded its budgets: " + stats->Error + " / " + stats->Pressure; return false; }
+            if( command == "terrain-stream-prefetch-assert" && ( !stats->PrefetchResident || terrain->GetData()->CollisionTiles.size() != 1 ) )
+            { error = "Look-ahead did not retain CPU pages independently of the required collider"; return false; }
+            if( command == "terrain-stream-prefetch-fell" && Player()->GetComponent<Transform>().GetWorldPosition().y >= 11 )
+            { error = "Optional look-ahead stalled character simulation"; return false; }
+            if( command == "terrain-stream-prefetch-promoted" && ( stats->Loaded != s_loaded || stats->PrefetchResident || stats->PrefetchPending ) )
+            { error = "Promoting the warm page reread canonical data or retained disabled prefetch demand"; return false; }
+            return command == "terrain-stream-prefetch-assert" || command == "terrain-stream-prefetch-fell" || command == "terrain-stream-prefetch-promoted";
+        }
         if( command == "terrain-stream-mark" ) { s_loaded = stats->Loaded; return true; }
         if( command == "terrain-stream-assert-evicted" )
         {

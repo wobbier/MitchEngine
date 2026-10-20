@@ -160,3 +160,36 @@ TEST_CASE( "Terrain paging: physics and canonical queries stay independent of th
     CHECK( terrain.GetData()->Heights->Query( 24, 24 ).Status == TerrainData::QueryStatus::Ready );
     RaycastHit hit; REQUIRE( scene.Physics.Raycast( Vector3( 26, 30, 24 ), Vector3( 0, -1, 0 ), 50, hit ) ); CHECK( hit.Entity == scene.Ground ); CHECK( hit.Position.y == doctest::Approx( 3 ) );
 }
+
+
+TEST_CASE( "Terrain prefetch: high-speed look-ahead stays optional under tight physics budgets" )
+{
+    bool paged = false; SUBCASE( "resident coverage" ) {} SUBCASE( "paged coverage" ) { paged = true; }
+    StreamScene scene( paged ); auto& terrain = scene.Ground->GetComponent<Terrain>(); terrain.StreamDetail = false;
+    auto& player = scene.Player->GetComponent<CharacterController>(); player.Teleport( { 8, 10, 8 }, Quaternion() ); player.MaxSpeed = 100;
+    scene.GameWorld->Start(); scene.Drain(); REQUIRE( scene.Terrains.IsCollisionReady() ); REQUIRE( scene.Physics.IsTerrainCollisionReady() );
+    CHECK( terrain.GetData()->CollisionTiles.size() == 1 ); CHECK( terrain.GetStreamingStats()->PrefetchResident == 0 );
+    player.Teleport( { 8, 10, 8 }, Quaternion() ); player.SetMoveInput( { 1, 0, 0 } );
+    for( int n = 0; n < 20; ++n ) { terrain.WaitForStreamingRequest(); scene.Physics.WaitForTerrainCollision(); scene.Step(); }
+    CHECK( scene.Terrains.IsCollisionReady() ); CHECK( scene.Physics.IsTerrainCollisionReady() ); CHECK( terrain.GetStreamingStats()->PrefetchResident > 0 );
+    CHECK( scene.Player->GetComponent<Transform>().GetWorldPosition().y < 10 ); CHECK( terrain.GetData()->CollisionTiles.size() == 1 );
+    CHECK( terrain.GetStreamingStats()->CollisionReserved <= 1024 * 1024 ); CHECK( terrain.GetStreamingStats()->CpuReserved <= 1024 * 1024 );
+    terrain.CollisionPrefetchSeconds = 0; player.SetMoveInput( {} ); player.Teleport( { 8, 10, 8 }, Quaternion() ); scene.Drain();
+    CHECK( scene.Terrains.IsCollisionReady() ); CHECK( terrain.GetStreamingStats()->PrefetchResident == 0 ); CHECK( terrain.GetStreamingStats()->PrefetchPending == 0 );
+}
+
+
+TEST_CASE( "Terrain prefetch: required collision follows the real fixed step and an explicit sweep remains mandatory" )
+{
+    StreamScene scene; auto& terrain = scene.Ground->GetComponent<Terrain>(); terrain.CollisionPrefetchSeconds = 0;
+    scene.Player->GetComponent<CharacterController>().Teleport( { 8, 10, 8 }, Quaternion() ); scene.GameWorld->Start(); scene.Drain(); REQUIRE( scene.Terrains.IsCollisionReady() );
+    auto& player = scene.Player->GetComponent<CharacterController>(); player.MaxSpeed = 100;
+    scene.Time.FixedDeltaTime = 0.2f; scene.Physics.FixedUpdate( scene.Time ); CHECK_FALSE( scene.Terrains.IsCollisionReady() );
+    scene.Time.FixedDeltaTime = 0.001f;
+    const auto settle = [&]() {
+        for( int n = 0; n < 12; ++n ) { terrain.WaitForStreamingRequest(); scene.Physics.WaitForTerrainCollision(); scene.Physics.FixedUpdate( scene.Time ); }
+    };
+    settle(); REQUIRE( scene.Terrains.IsCollisionReady() );
+    player.Move( { 24, 0, 0 } ); scene.Terrains.SyncNow( false, 0.001f ); CHECK_FALSE( scene.Terrains.IsCollisionReady() );
+    player.Move( { -24, 0, 0 } ); settle(); CHECK( scene.Terrains.IsCollisionReady() );
+}

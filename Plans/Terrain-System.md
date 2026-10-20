@@ -17,6 +17,18 @@ Milestone 5 adds version 2 cooked archives with resident coarse coverage and ind
 
 Navigation checkpoint validation (Linux, 2026-10-20): 333 editor tests and 330 game tests pass, including eight terrain navigation cases. The native terrain flow covers resident and version 4 bakes, source-page independence, sculpt undo, agent travel and Play/Stop. The committed ordinary navigation fixture passes in a temporary scene copy; the locally modified NavTest adds terrain/surfaces and no longer matches its fixed Walker-position assertion. Standalone BakeOnLoad succeeds from streamed terrain with no preexisting navmesh. Win64/macOS builds were not run locally.
 
+## Near-term order: streaming, then foliage
+
+The existing source documents, sculpt/paint history, save/recovery, canonical collision, LODs and bounded runtime pages are enough to start a useful foliage authoring tool. Optional actor look-ahead is implemented; begin foliage next; neither hierarchical distant coverage nor runtime Detour tile streaming is a prerequisite for the first painter.
+
+1. **Streaming look-ahead — implemented:** separate required next-step/sweep ground from optional canonical look-ahead. Required collision wins admission; coverage follows, then prefetch and optional visual detail. Prefetch obeys CPU budgets, makes no live collider/GPU requests, and can promote to required data without rereading. Missing optional pages must not pause physics. Preserve teleport/pending-move barriers and custom fixed-step safety.
+2. **Next authoring checkpoint — foliage painting:** a small mesh palette; paint/erase with density, spacing, scale and yaw variation; canonical height/normal placement; deterministic strokes; one undo command per stroke; asset save/reopen and isolated Play/Stop. Store stable instance records by terrain tile and render them through the existing mesh instancing path. Start with trees/rocks and small authored populations so the workflow can be used and reviewed.
+3. **Then scale foliage:** bounded tile residency and per-species distance/LOD culling, collision policy, slope/altitude/layer masks, selection/reapply and larger populations. Grass-specific rendering, wind, procedural scattering and biome rules follow measured needs.
+
+Hierarchical coarse coverage, directory paging/compression, streamed height authoring, selective terrain navmesh rebakes and streamed Detour tiles stay on the scale backlog. They can advance alongside authoring when scene size requires them.
+
+Streaming look-ahead validation (Linux, 2026-10-20): 339 editor tests and 336 game tests pass, including six new prefetch cases. Native flows pass for CPU prefetch/promotion, version 2 streaming, paged coverage, shared world budgets and painted streaming with arrays and forced atlases. The painted regression exposed and now verifies a fix for duplicate retirement of shared GPU command slots during window shrink/demotion. A standalone capture passes with a 0.05-second fixed step. Win64/macOS builds were not run locally.
+
 ## Initial scope and assumptions
 
 - Terrain is a single elevation over local X/Z, with Y up and distances in metres. Caves, overhangs, and vertical structures use ordinary meshes. Voxel terrain would need a different data model.
@@ -170,6 +182,7 @@ Each milestone should remain usable on its own. Streaming can follow the LOD wor
 | **4. Terrain LODs — implemented** | Error-based selection, neighbor balancing, stitch variants, hysteresis and LOD debug view | Slow camera sweeps and forced levels show no internal cracks; two cameras both retain requested detail; collision/queries stay stable as visual levels change |
 | **5. Streaming — initial slice implemented** | Version 2 resident overview and version 3 paged coverage horizon, per-archive caches with shared world admission/load limits, independent budgets, staged window uploads, collision readiness and cancellation; hierarchical parents remain a follow-up | Traverse and teleport across a dataset larger than cache budgets; memory plateaus; missing pages retain coverage; no absent gameplay collision or stale publication after unload |
 | **6. Authoring and surface layers — first slice implemented** | Smooth/flatten and four-layer PBR texture painting with arrays/atlas fallback, fill/erase, asset undo, source/recovery persistence, independent weight textures, version 4 streamed surface pages and a persistent packed texture cache and canonical navigation bakes; weight masks and further authoring tools remain follow-ups | Layer edits and height edits save/undo across borders; low-weight normalization is defined; navigation bakes match terrain regardless of current visual residency |
+| **6a. Foliage authoring — next** | Mesh palette and deterministic paint/erase, per-tile instance records, placement variation, undo and persistence, initial instanced rendering | A stroke crosses tile borders, undo/redo restores exact instances, save/reopen and Play/Stop preserve authoring data |
 | **7. Scale-driven renderer work** | Per-view selection, hierarchy/coarse patch merging, shared GPU grids/displacement or a measured alternative | Profiling demonstrates a benefit; forward/shadow/picking silhouettes agree; existing camera, material, and viewport checks remain green |
 
 ### First implementation slice
