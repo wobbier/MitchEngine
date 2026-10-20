@@ -109,6 +109,7 @@ bool TerrainWidget::WriteRecoveries()
 
 void TerrainWidget::PrepareForPlay()
 {
+    EndFoliageStroke();
     for( auto& document : m_documents ) document->EndStroke();
     if( AutomaticRecoveryEnabled() ) WriteRecoveries();
 }

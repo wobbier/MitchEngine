@@ -100,8 +100,13 @@ void TerrainWidget::InstallActionRouting()
     actions.DocumentExecute = [this, previousExecute]( const std::string& id ) {
         if( ClaimsAction( id ) )
         {
+            EndFoliageStroke();
             if( m_active ) m_active->EndStroke();
-            if( id == "File.Save" ) m_active->Save();
+            if( id == "File.Save" )
+            {
+                if( m_category == 3 ) static_cast<EditorApp*>( GetEngine().GetGame() )->SaveScene( false );
+                else m_active->Save();
+            }
             else if( id == "Edit.Undo" ) GetHistory().Undo();
             else if( id == "Edit.Redo" ) GetHistory().Redo();
         }
@@ -118,6 +123,7 @@ bool TerrainWidget::ClaimsAction( const std::string& id ) const
 
 void TerrainWidget::Destroy()
 {
+    EndFoliageStroke();
     FinishStreamCook( true );
     for( auto& document : m_documents ) document->EndStroke();
     if( AutomaticRecoveryEnabled() ) WriteRecoveries();
@@ -346,15 +352,26 @@ void TerrainWidget::DrawTools()
         }
         else if( m_category == 3 )
         {
-            Planned( "tree", "Trees", "Paint instanced trees with species and density settings." );
-            Planned( "plant", "Grass", "Paint grass and ground cover." );
-            Planned( "flower", "Details", "Scatter rocks, flowers and small props." );
-            Planned( "eraser", "Erase", "Remove foliage within the brush." );
-            Planned( "grid-dots", "Density", "Paint a foliage density mask." );
-            Planned( "ruler", "Scale", "Set instance scale and rotation ranges." );
-            Planned( "mask", "Exclusion", "Keep vegetation away from paths and buildings." );
-            Planned( "refresh", "Reseed", "Regenerate deterministic placement." );
-            Planned( "eye", "Visibility", "Preview foliage culling and draw distances." );
+            ImGui::TableNextColumn();
+            if( Button( "tree", "Paint", "Paint the selected foliage model in World View.", m_active && !IsPlaying(), BrushEnabled && !FoliageBrush.Erase ) ) { EndFoliageStroke(); FoliageBrush.Erase = false; BrushEnabled = true; }
+            ImGui::TableNextColumn();
+            if( Button( "eraser", "Erase", "Erase selected foliage; hold Shift to reverse paint/erase.", m_active && !IsPlaying(), BrushEnabled && FoliageBrush.Erase ) ) { EndFoliageStroke(); FoliageBrush.Erase = true; BrushEnabled = true; }
+            ImGui::TableNextColumn();
+            if( Button( "magnet", "Reapply", "Fit foliage to the current source heights and normals. Undo restores placement.", m_active && !IsPlaying() ) ) ReprojectFoliage();
+            ImGui::TableNextColumn();
+            if( Button( "eye", "Visibility", "Toggle the selected terrain's foliage rendering.", !IsPlaying() ) )
+            {
+                auto entity = Selection::Get().GetActive();
+                if( entity && entity->GetComponentByName( "TerrainFoliage" ) )
+                {
+                    const auto before = EditorOps::CaptureComponent( *entity.Get(), "TerrainFoliage" );
+                    auto* foliage = entity->GetComponentByName( "TerrainFoliage" ); foliage->SetEnabled( !foliage->IsEnabled() );
+                    EditorOps::RecordComponentEdit( *entity.Get(), "TerrainFoliage", before, EditorOps::CaptureComponent( *entity.Get(), "TerrainFoliage" ), "Foliage visibility" );
+                }
+            }
+            Planned( "plant", "Grass", "Dense grass rendering and wind." );
+            Planned( "mask", "Masks", "Paint using terrain layers and exclusion masks." );
+            Planned( "refresh", "Reseed", "Regenerate procedural scattering rules." );
         }
         else if( m_category == 4 )
         {
@@ -419,6 +436,11 @@ void TerrainWidget::DrawBrush()
 
 void TerrainWidget::Render()
 {
+    if( m_foliageStroke.Active() )
+    {
+        if( ImGui::GetIO().AppFocusLost || ImGui::IsKeyPressed( ImGuiKey_Escape ) ) EndFoliageStroke( true );
+        else if( !IsOpen || IsPlaying() || !BrushEnabled || !ImGui::IsMouseDown( ImGuiMouseButton_Left ) ) EndFoliageStroke();
+    }
     FinishStreamCook();
     DrawStreamCook();
     UpdateRecovery();
@@ -446,7 +468,8 @@ void TerrainWidget::Render()
     ImGui::SameLine( 0, ImGuiTheme::InnerGap() );
     if( Button( "download", "Export Heightmap", "Export this terrain's source heights.", editing && m_active, false, true ) ) ExportDialog();
     ImGui::SameLine( 0, ImGuiTheme::InnerGap() );
-    if( Button( "device-floppy", "Save Terrain", "Save this terrain asset. Scene references are saved separately.", editing && m_active && m_active->IsDirty(), false, true ) ) m_active->Save();
+    if( Button( "device-floppy", m_category == 3 ? "Save Scene" : "Save Terrain", m_category == 3 ? "Save foliage with the scene." : "Save this terrain asset. Scene references are saved separately.", editing && ( m_category == 3 ? UndoStack::Get().IsDirty() : m_active && m_active->IsDirty() ), false, true ) )
+    { EndFoliageStroke(); if( m_category == 3 ) static_cast<EditorApp*>( GetEngine().GetGame() )->SaveScene( false ); else m_active->Save(); }
     ImGui::SameLine( 0, ImGuiTheme::InnerGap() );
     if( Button( "copy", "Save Copy", "Save the current heights as a new independent asset.", editing && m_active, false, true ) )
     {
@@ -458,9 +481,9 @@ void TerrainWidget::Render()
         }, AssetType::Terrain, true ); event.Fire();
     }
     ImGui::SameLine( 0, ImGuiTheme::InnerGap() );
-    if( Button( "arrow-back-up", "Undo Terrain", "Undo the latest terrain stroke or brush setting.", editing && GetHistory().CanUndo(), false, true ) ) { if( m_active ) m_active->EndStroke(); GetHistory().Undo(); }
+    if( Button( "arrow-back-up", "Undo Terrain", "Undo the latest terrain stroke or brush setting.", editing && GetHistory().CanUndo(), false, true ) ) { EndFoliageStroke(); if( m_active ) m_active->EndStroke(); GetHistory().Undo(); }
     ImGui::SameLine( 0, ImGuiTheme::InnerGap() );
-    if( Button( "arrow-forward-up", "Redo Terrain", "Redo the latest terrain stroke or brush setting.", editing && GetHistory().CanRedo(), false, true ) ) { if( m_active ) m_active->EndStroke(); GetHistory().Redo(); }
+    if( Button( "arrow-forward-up", "Redo Terrain", "Redo the latest terrain stroke or brush setting.", editing && GetHistory().CanRedo(), false, true ) ) { EndFoliageStroke(); if( m_active ) m_active->EndStroke(); GetHistory().Redo(); }
     ImGuiTheme::SectionGap();
     if( m_active )
     {
@@ -498,6 +521,7 @@ void TerrainWidget::Render()
     DrawTools();
     if( m_category == 0 ) DrawBrush();
     if( m_category == 1 ) DrawPaint();
+    if( m_category == 3 ) DrawFoliage();
     if( ImGui::CollapsingHeader( "Asset & Build" ) )
     {
         if( ImGui::Button( "Save All Terrains", ImVec2( -1, 0 ) ) && editing ) SaveAll();
@@ -643,7 +667,7 @@ void TerrainWidget::DrawModals()
 
 bool TerrainWidget::WantsViewport() const
 {
-    if( !IsOpen || !BrushEnabled || ( m_category != 0 && m_category != 1 ) || !m_active || IsPlaying() ) return false;
+    if( !IsOpen || !BrushEnabled || ( m_category != 0 && m_category != 1 && m_category != 3 ) || !m_active || IsPlaying() ) return false;
     auto entity = Selection::Get().GetActive();
     if( !entity || !entity->IsActiveInHierarchy() ) return false;
     const auto* terrain = entity->TryGetComponent<Terrain>();
@@ -653,6 +677,7 @@ bool TerrainWidget::WantsViewport() const
 
 bool TerrainWidget::DrawViewport( SceneViewWidget& view, const Vector2& screenMin, const Vector2& screenSize )
 {
+    if( m_category == 3 ) return DrawFoliageViewport( view, screenMin, screenSize );
     m_viewportOwnsActions = false;
     auto entity = Selection::Get().GetActive();
     if( !WantsViewport() || !view.MainCamera ) { if( m_active ) m_active->EndStroke(); return false; }

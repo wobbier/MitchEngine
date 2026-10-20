@@ -6,6 +6,7 @@
 #include "TerrainDocument.h"
 #include "Math/Vector2.h"
 #include "Terrain/TerrainHeightmap.h"
+#include "Foliage/FoliageData.h"
 #include <bgfx/bgfx.h>
 #include <functional>
 #include <map>
@@ -48,8 +49,18 @@ public:
     // Drawn from the world viewport. True owns the entire gesture (gizmos and picking abstain).
     bool DrawViewport( SceneViewWidget& InView, const Vector2& InScreenMin, const Vector2& InScreenSize );
     bool WantsViewport() const;
+    bool AddFoliageModel( const std::string& InPath );
+    bool AddFoliageStarters();
+    bool BeginFoliageStroke( double InX, double InZ, bool InReverse = false );
+    bool MoveFoliageStroke( double InX, double InZ );
+    void EndFoliageStroke( bool InCancel = false );
+    bool ClearFoliage( bool InAll );
+    bool ReprojectFoliage();
+    Foliage::Brush FoliageBrush;
+    void SetFoliageBrush( const Foliage::Brush& InBrush, bool InRecord = true );
     void SetCategory( int InCategory )
     {
+        EndFoliageStroke();
         if( m_active ) m_active->EndStroke();
         m_category = InCategory >= 0 && InCategory < 6 ? InCategory : 0;
         if( m_category == 1 && Brush.Tool < TerrainData::BrushTool::Paint ) Brush.Tool = TerrainData::BrushTool::Paint;
@@ -63,7 +74,7 @@ public:
     void SetBrushParameter( BrushParameter InParameter, float InValue, bool InRecord = true );
     Vector2 GetBrushControlCenter( BrushParameter InParameter ) const { return m_brushCenters[static_cast<int>( InParameter )]; }
     Vector2 GetLodButtonCenter( bool InPatches ) const { return m_lodButtonCenters[InPatches ? 0 : 1]; }
-    UndoStack& GetHistory() { return m_active ? m_active->GetUndo() : m_brushHistory; }
+    UndoStack& GetHistory() { return m_category == 3 ? UndoStack::Get() : m_active ? m_active->GetUndo() : m_brushHistory; }
     TerrainData::BrushSettings Brush;
     bool BrushEnabled = false;
     bool StartStreamCook( const std::string& InPath, uint8_t InCoverageLod, bool InPaged = true );
@@ -84,6 +95,12 @@ private:
     bool AutomaticRecoveryEnabled() const;
     void DrawBrush();
     void DrawPaint();
+    void DrawFoliage();
+    bool DrawFoliageViewport( SceneViewWidget& InView, const Vector2& InScreenMin, const Vector2& InScreenSize );
+    Foliage::Stroke m_foliageStroke;
+    Foliage::Data m_foliageBefore;
+    Foliage::Brush m_foliageControlBefore;
+    uint64_t m_foliageEntity = 0;
     void DrawLayerMap( unsigned InKind, const char* InLabel, std::string& InPath );
     void RecordBrushParameter( BrushParameter InParameter, float InBefore );
     void DrawTools();

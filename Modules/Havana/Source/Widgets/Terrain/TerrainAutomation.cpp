@@ -1,4 +1,5 @@
 #include "TerrainAutomation.h"
+#include "TerrainFoliageAutomation.h"
 #include "TerrainRecoveryAutomation.h"
 #include "TerrainFileAutomation.h"
 #include "TerrainLodAutomation.h"
@@ -41,6 +42,7 @@ namespace TerrainAutomation
     }
     bool Execute( const std::string& command, const std::string& args, std::string& error )
     {
+        if( command.starts_with( "foliage-" ) ) return TerrainFoliageAutomation::Execute( command, args, error );
         if( command.rfind( "terrain-nav-", 0 ) == 0 ) return TerrainNavigationAutomation::Execute( command, args, error );
         if( command.rfind( "terrain-texture-", 0 ) == 0 ) return TerrainTextureAutomation::Execute( command, args, error );
         if( command.rfind( "terrain-paint-", 0 ) == 0 ) return TerrainPaintAutomation::Execute( command, args, error );

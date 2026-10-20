@@ -1,0 +1,9 @@
+newmtl Bark
+Kd 0.24 0.13 0.06
+Ns 5
+newmtl Leaves
+Kd 0.16 0.46 0.10
+Ns 8
+newmtl Stone
+Kd 0.43 0.46 0.41
+Ns 10

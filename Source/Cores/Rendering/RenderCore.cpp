@@ -19,6 +19,7 @@
 #include "Components/Graphics/Decal.h"
 #include "Components/Graphics/Mesh.h"
 #include "Components/Graphics/Terrain.h"
+#include "Components/Graphics/TerrainFoliage.h"
 #include "Materials/StandardMaterial.h"
 #include "Materials/TerrainMaterial.h"
 #include "Terrain/TerrainSurface.h"
@@ -89,6 +90,7 @@ void RenderCore::RetireTerrainDraw( std::unique_ptr<TerrainDraw> draw, const Ter
 
 void RenderCore::ClearTerrainDraws()
 {
+    ClearFoliageDraws();
     while( !m_terrainDraws.empty() ) RemoveTerrainDraw( m_terrainDraws.begin()->first );
     m_terrainTopology.clear();
 }
@@ -345,7 +347,7 @@ RenderCore::TerrainDraw* RenderCore::PrepareTerrainDraw( Entity& InEntity, Terra
 }
 
 RenderCore::RenderCore()
-    : Base( ComponentFilter().Requires<Transform>().RequiresOneOf<Mesh>().RequiresOneOf<Model>().RequiresOneOf<Terrain>() )
+    : Base( ComponentFilter().Requires<Transform>().RequiresOneOf<Mesh>().RequiresOneOf<Model>().RequiresOneOf<Terrain>().RequiresOneOf<TerrainFoliage>() )
 {
     SetIsSerializable( false );
     //m_renderer = &GetEngine().GetRenderer();
@@ -373,6 +375,7 @@ void RenderCore::OnEntityAdded( Entity& NewEntity )
 void RenderCore::OnEntityRemoved( Entity& InEntity )
 {
     RemoveTerrainDraw( InEntity.GetId().Value() );
+    RemoveFoliageDraw( InEntity.GetId().Value() );
     auto parts = m_compactCommands.find( InEntity.GetId().Value() );
     if( parts != m_compactCommands.end() )
     {
@@ -443,11 +446,16 @@ void RenderCore::Update( const UpdateContext& inUpdateContext )
         {
             terrains.insert( entity.GetId().Value() );
             TerrainDraw* draw = PrepareTerrainDraw( entity, *terrain, terrainViews );
-            if( !draw ) continue;
-            const auto& world = entity.GetComponent<Transform>().GetLocalToWorldMatrix().GetInternalMatrix();
-            for( size_t i = 0; i < draw->Parts.size(); ++i )
-                items.push_back( { draw->Parts[i].get(), Matrix4( glm::translate( world, draw->Source->Patches[i]->Offset.InternalVector ) ), entity.GetHandle() } );
+            if( draw )
+            {
+                const auto& world = entity.GetComponent<Transform>().GetLocalToWorldMatrix().GetInternalMatrix();
+                for( size_t i = 0; i < draw->Parts.size(); ++i )
+                    items.push_back( { draw->Parts[i].get(), Matrix4( glm::translate( world, draw->Source->Patches[i]->Offset.InternalVector ) ), entity.GetHandle() } );
+            }
         }
+        if( auto* foliage = entity.TryGetComponent<TerrainFoliage>(); foliage && foliage->IsEnabled() && entity.IsActiveInHierarchy() )
+            PrepareFoliageDraw( entity, *foliage, terrainViews, [&]( Mesh* mesh, const Matrix4& matrix ) { items.push_back( { mesh, matrix, entity.GetHandle() } ); } );
+        else RemoveFoliageDraw( entity.GetId().Value() );
         Mesh* directMesh = entity.TryGetComponent<Mesh>();
         if( Mesh* mesh = directMesh; mesh && mesh->IsEnabled() )
         {

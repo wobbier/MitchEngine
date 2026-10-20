@@ -265,7 +265,7 @@ bool EditorAutomation::Execute( EditorApp& InApp, const std::string& InLine )
     auto [command, args] = SplitWord( InLine );
     World& world = EditorOps::GetWorld();
 
-    if( command.rfind( "terrain-", 0 ) == 0 )
+    if( ( command.rfind( "terrain-", 0 ) == 0 || command.rfind( "foliage-", 0 ) == 0 ) )
     {
         std::string error;
         if( !TerrainAutomation::Execute( command, args, error ) ) Fail( command + ": " + error );

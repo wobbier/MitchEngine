@@ -11,6 +11,7 @@ namespace Moonlight { class MeshIndexData; }
 
 class Mesh;
 class Terrain;
+class TerrainFoliage;
 
 class RenderCore final
     : public Core<RenderCore>
@@ -48,6 +49,19 @@ public:
 #endif
 
 private:
+    struct FoliageDraw
+    {
+        struct Prototype { Moonlight::MeshData* Geometry; Matrix4 Local; };
+        struct Source { std::string Path; SharedPtr<ModelResource> Resource; std::vector<Prototype> Parts; std::string Error; bool Prepared = false; };
+        struct Instance { unsigned Species; std::vector<std::unique_ptr<Mesh>> Parts; };
+        std::vector<Source> Sources;
+        std::map<uint64_t, Instance> Instances;
+    };
+    std::unordered_map<uint64_t, FoliageDraw> m_foliageDraws;
+    void RemoveFoliageDraw( uint64_t InID );
+    void ClearFoliageDraws();
+    void PrepareFoliageDraw( Entity& InEntity, TerrainFoliage& InFoliage, std::span<const TerrainData::LodView> InViews,
+        const std::function<void( Mesh*, const Matrix4& )>& InSubmit );
     struct TerrainDraw;
     TerrainDraw* PrepareTerrainDraw( Entity& InEntity, Terrain& InTerrain, std::span<const TerrainData::LodView> InViews );
     void RemoveTerrainDraw( uint64_t InEntityID );

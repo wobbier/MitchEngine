@@ -1036,17 +1036,15 @@ void BGFXRenderer::RenderCameraView( Moonlight::CameraData& camera, bool toBackb
         for( size_t i = 0; i < m_meshCache.Commands.size(); ++i )
         {
             const Moonlight::MeshCommand& mesh = m_meshCache.Commands[i];
-            if( hasCullingInfo && !camera.VisibleFlags[mesh.VisibilityIndex] )
+            // Resident foliage can retain a hidden command whose old visibility index
+            // exceeds this frame's smaller draw list. Ignore it before reading that list.
+            if( !mesh.Visible || !mesh.MeshMaterial ) continue;
+            if( hasCullingInfo && ( mesh.VisibilityIndex >= camera.VisibleFlags.size() || !camera.VisibleFlags[mesh.VisibilityIndex] ) )
             {
                 continue;
             }
 
             {
-                if( !mesh.MeshMaterial )
-                {
-                    continue;
-                }
-
                 if( mesh.IsTransparent )
                 {
                     if( options.Transparencies ) TransparentIndicies.push_back( i );
