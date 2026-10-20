@@ -32,6 +32,7 @@ namespace TerrainPagingAutomation
         std::filesystem::path s_directory;
         uint64_t s_loaded = 0;
         std::shared_ptr<const TerrainData::Surface> s_surface;
+        bool s_compressed = false;
         EntityHandle Ground() { return EditorOps::GetWorld().FindEntityByName( "Terrain" ); }
         EntityHandle Player() { return EditorOps::GetWorld().FindEntityByName( "Paged Player" ); }
         void Pose( float coordinate )
@@ -49,8 +50,9 @@ namespace TerrainPagingAutomation
         auto* widget = TerrainWidget::Get();
         if( command == "terrain-stream-paged-fixture" )
         {
-            const bool painted = args == "painted"; s_surface.reset();
-            const std::string local = std::string( painted ? ".tmp/Tests/TerrainStreamedSurfaceFlows/" : ".tmp/Tests/TerrainPagedCoverageFlows/" ) + std::to_string( GUID::Generate() );
+            s_compressed = args == "compressed" || args == "compressed-painted";
+            const bool painted = args == "painted" || args == "compressed-painted"; s_surface.reset();
+            const std::string local = std::string( s_compressed ? ".tmp/Tests/TerrainCompressedFlows/" : ( painted ? ".tmp/Tests/TerrainStreamedSurfaceFlows/" : ".tmp/Tests/TerrainPagedCoverageFlows/" ) ) + std::to_string( GUID::Generate() );
             s_directory = Path( local ).FullPath;
             TerrainData::Settings s; s.TileQuads = 16; s.PatchQuads = 8; s.MinTile = { -20, -20 }; s.TilesX = s.TilesZ = 41;
             TerrainData::Heightfield field( s );
@@ -88,7 +90,7 @@ namespace TerrainPagingAutomation
             auto actor = EditorOps::GetWorld().CreateEntity( "Paged Player" ); actor->AddComponent<Transform>().SetPosition( Vector3( -40, 12, -40 ) ); actor->AddComponent<CharacterController>();
             Pose( -40 );
             auto& settings = ProjectSettings::Get(); settings.TerrainCpuBudgetMiB = settings.TerrainGpuBudgetMiB = settings.TerrainCollisionBudgetMiB = 1; settings.TerrainMaxLoads = 1;
-            return widget->StartStreamCook( ( s_directory / "Runtime.terrainc" ).generic_string(), 2, true );
+            return widget->StartStreamCook( ( s_directory / "Runtime.terrainc" ).generic_string(), 2, true, s_compressed );
         }
         if( command == "terrain-stream-paged-cook-wait" ) return widget->FinishStreamCook( true );
         auto ground = Ground(); auto* terrain = ground ? ground->TryGetComponent<Terrain>() : nullptr;
@@ -117,6 +119,17 @@ namespace TerrainPagingAutomation
         const auto* stats = terrain->GetStreamingStats(); const auto data = terrain->GetData();
         if( !stats || !data || !data->PagedCoverage ) { error = "Paged runtime terrain has not loaded"; return false; }
         if( command == "terrain-stream-paged-mark" ) { s_loaded = stats->CoverageLoaded; return true; }
+        if( command == "terrain-stream-paged-assert-compressed" )
+        {
+            std::shared_ptr<const TerrainData::StreamArchive> archive;
+            if( !TerrainData::OpenStreamArchive( s_directory / "Runtime.terrainc", archive, error ) ) return false;
+            uint64_t stored = 0, decoded = 0;
+            for( const auto& block : archive->Blocks ) { stored += block.Size + block.CoverageSize; decoded += block.DecodedSize + block.CoverageDecodedSize; }
+            if( !archive->Compressed || !archive->Coverage->Patches.empty() || stored >= decoded || !stats->BytesRead || stats->BytesRead >= stats->DecodedBytesRead )
+            { error = "Compressed pages did not reduce file/read payloads or opened resident data"; return false; }
+            CLog::Log( CLog::LogType::Info, "Compressed terrain payloads: " + std::to_string( stored ) + " stored / " + std::to_string( decoded ) + " decoded bytes" );
+            return true;
+        }
         if( command == "terrain-stream-paged-evicted" )
         {
             if( !stats->CoverageEvicted || stats->CoverageLoaded <= s_loaded ) { error = "Coverage travel did not load/evict pages"; return false; }

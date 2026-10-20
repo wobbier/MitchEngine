@@ -1,12 +1,13 @@
 #include "PCH.h"
 #include "TerrainStreamCache.h"
 #include <algorithm>
+#include <bit>
 #include <chrono>
 #include <cmath>
 
 namespace TerrainData
 {
-    StreamLimits TerrainStreamCache::CoverageReservation( const Settings& s, uint8_t base, bool surface )
+    StreamLimits TerrainStreamCache::CoverageReservation( const Settings& s, uint8_t base, bool surface, bool compressed )
     {
         const uint64_t q = s.PatchQuads >> base, patches = uint64_t( s.TileQuads / s.PatchQuads ) * ( s.TileQuads / s.PatchQuads );
         const uint64_t vertices = ( q + 1 ) * ( q + 1 ) * patches, indices = q * q * 6 * patches;
@@ -18,6 +19,13 @@ namespace TerrainData
             // Encoded/decoded data, material copies, upload scratch and deferred replacement.
             // Four GPU copies allow coarse/detail and old/new windows to overlap.
             cost.CpuBytes += weights * 6; cost.GpuBytes += weights * 4;
+        }
+        if( compressed )
+        {
+            // Bound decode overlap by the raw page size, independently of compression ratio.
+            const uint64_t levels = std::bit_width( uint32_t( q ) );
+            cost.CpuBytes += patches * ( 8 + levels * 4 ) + vertices * 16 + 8;
+            if( surface ) cost.CpuBytes += uint64_t( s.PatchQuads + 1 ) * ( s.PatchQuads + 1 ) * patches * 4;
         }
         return cost;
     }
@@ -124,7 +132,7 @@ namespace TerrainData
                 auto& entry = m_pages.at( result.Coordinate ); entry.Loading = false;
                 if( entry.Active && entry.Request == result.Request )
                 {
-                    if( result.Page ) { entry.Page = std::move( result.Page ); ++m_stats.CoverageLoaded; m_stats.BytesRead += m_archive->Blocks[m_archive->TileIndex( result.Coordinate )].CoverageSize; }
+                    if( result.Page ) { entry.Page = std::move( result.Page ); ++m_stats.CoverageLoaded; m_stats.BytesRead += m_archive->Blocks[m_archive->TileIndex( result.Coordinate )].CoverageSize; m_stats.DecodedBytesRead += m_archive->Blocks[m_archive->TileIndex( result.Coordinate )].CoverageDecodedSize; }
                     else { entry.Failed = true; entry.Active = false; ++m_stats.Failed; m_stats.Error = result.Error; }
                 }
                 else entry.Active = false;
@@ -134,7 +142,7 @@ namespace TerrainData
                 auto& entry = m_entries.at( result.Coordinate ); entry.Loading = false;
                 if( entry.Active && entry.Request == result.Request )
                 {
-                    if( result.Tile ) { entry.Tile = std::move( result.Tile ); ++m_stats.Loaded; m_stats.BytesRead += m_archive->Blocks[m_archive->TileIndex( result.Coordinate )].Size; }
+                    if( result.Tile ) { entry.Tile = std::move( result.Tile ); ++m_stats.Loaded; m_stats.BytesRead += m_archive->Blocks[m_archive->TileIndex( result.Coordinate )].Size; m_stats.DecodedBytesRead += m_archive->Blocks[m_archive->TileIndex( result.Coordinate )].DecodedSize; }
                     else { entry.Failed = true; entry.Active = false; ++m_stats.Failed; m_stats.Error = result.Error; }
                 }
                 else entry.Active = false;

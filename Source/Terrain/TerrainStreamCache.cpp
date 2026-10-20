@@ -23,7 +23,7 @@ namespace TerrainData
     }
 
 
-    StreamLimits TerrainStreamCache::TileReservation( const Settings& s )
+    StreamLimits TerrainStreamCache::TileReservation( const Settings& s, bool compressed )
     {
         const uint64_t q = s.PatchQuads, count = uint64_t( s.TileQuads / q ) * ( s.TileQuads / q );
         const uint64_t vertices = ( q + 1 ) * ( q + 1 ) * count, indices = q * q * 6 * count;
@@ -31,6 +31,7 @@ namespace TerrainData
         // Canonical heights/normals during decode, prepared vertices/levels/collision, retained
         // MeshData CPU copies, vector/map bookkeeping, and overlap during upload retirement.
         cost.CpuBytes = s.SamplesPerTile() * 32 + vertices * 80 + indices * 28 + count * 2048 + 4096;
+        if( compressed ) cost.CpuBytes += s.SamplesPerTile() * 16 + 8; // stored + decoded buffers overlap
         cost.GpuBytes = 2 * ( vertices * 80 + indices * 12 );
         // Box3D's BVH, adjacency, weld/build scratch and publication overlap. Reserved, not a
         // claim about exact backend allocations; 512 bytes per canonical triangle is conservative.
@@ -42,8 +43,8 @@ namespace TerrainData
     TerrainStreamCache::TerrainStreamCache( std::shared_ptr<const StreamArchive> archive, Loader loader )
         : m_archive( std::move( archive ) ), m_loader( std::move( loader ) ), m_snapshot( m_archive->Coverage )
     {
-        m_tileCost = TileReservation( m_archive->Config );
-        m_pageCost = CoverageReservation( m_archive->Config, m_archive->CoverageLod, bool( m_archive->Coverage->Heights->GetSurface() ) );
+        m_tileCost = TileReservation( m_archive->Config, m_archive->Compressed );
+        m_pageCost = CoverageReservation( m_archive->Config, m_archive->CoverageLod, bool( m_archive->Coverage->Heights->GetSurface() ), m_archive->Compressed );
         m_baseCost.CpuBytes = sizeof( StreamArchive ) + m_archive->Header.size() + m_archive->Blocks.size() * ( sizeof( StreamBlock ) + 256 );
         m_baseCost.GpuBytes = m_baseCost.CollisionBytes = 0;
         if( m_archive->Coverage->Heights->GetSurface() ) m_baseCost.CpuBytes += 65536; // bounded palette and paths
@@ -243,7 +244,7 @@ namespace TerrainData
                 auto& entry = found->second; entry.Loading = false;
                 if( entry.Request == result.Request && entry.Active )
                 {
-                    if( result.Tile ) { entry.Tile = std::move( result.Tile ); ++m_stats.Loaded; m_stats.BytesRead += m_archive->Blocks[m_archive->TileIndex( result.Coordinate )].Size; }
+                    if( result.Tile ) { entry.Tile = std::move( result.Tile ); ++m_stats.Loaded; m_stats.BytesRead += m_archive->Blocks[m_archive->TileIndex( result.Coordinate )].Size; m_stats.DecodedBytesRead += m_archive->Blocks[m_archive->TileIndex( result.Coordinate )].DecodedSize; }
                     else { entry.Failed = true; entry.Active = false; ++m_stats.Failed; m_stats.Error = result.Error; }
                 }
                 else entry.Active = false;

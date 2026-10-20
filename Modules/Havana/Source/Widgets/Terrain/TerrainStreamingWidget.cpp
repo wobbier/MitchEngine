@@ -15,16 +15,17 @@
 #include <bit>
 #include <chrono>
 
-bool TerrainWidget::StartStreamCook( const std::string& path, uint8_t base, bool paged )
+bool TerrainWidget::StartStreamCook( const std::string& path, uint8_t base, bool paged, bool compressed )
 {
-    if( !m_active || m_cook.valid() || IsPlaying() ) return false;
+    if( !m_active || m_cook.valid() || IsPlaying() || ( compressed && !paged ) ) return false;
     m_active->EndStroke();
     auto field = m_active->GetField(); const uint64_t guid = m_active->GetGUID(); const auto output = std::filesystem::path( Path( path ).FullPath );
     m_cookMessage = "Cooking " + output.generic_string();
     try
     {
-        m_cook = std::async( std::launch::async, [field = std::move( field ), guid, output, base, paged]() {
-            std::string error; if( !( paged ? TerrainData::CookPagedStreamArchive( output, field, guid, base, error ) : TerrainData::CookStreamArchive( output, field, guid, base, error ) ) ) return error;
+        m_cook = std::async( std::launch::async, [field = std::move( field ), guid, output, base, paged, compressed]() {
+            std::string error; if( !( compressed ? TerrainData::CookCompressedStreamArchive( output, field, guid, base, error ) :
+                ( paged ? TerrainData::CookPagedStreamArchive( output, field, guid, base, error ) : TerrainData::CookStreamArchive( output, field, guid, base, error ) ) ) ) return error;
             return std::string();
         } );
     }
@@ -67,15 +68,17 @@ void TerrainWidget::DrawStreamCook()
     const bool layered = m_active && bool( m_active->GetField().GetSurface() );
     if( layered ) m_pagedCook = true;
     ImGui::BeginDisabled( layered ); ImGui::Checkbox( "Page coverage", &m_pagedCook ); ImGui::EndDisabled();
+    ImGui::BeginDisabled( !m_pagedCook ); ImGui::Checkbox( "Compress pages", &m_compressedCook ); ImGui::EndDisabled();
     if( layered ) ImGui::TextWrapped( "Painted terrain includes layer settings and full-resolution weights in paged coverage." );
     ImGui::PushTextWrapPos( ImGuiTheme::Em( 34 ) );
     ImGui::TextWrapped( "Higher coverage levels use fewer resident vertices while detail streams. Cooking uses a snapshot of the current heights and paint, including unsaved strokes." );
     ImGui::TextWrapped( "Paged coverage loads a finite visual horizon around rendering cameras. Runtime tiles support up to 256 quads. Disable paging for the resident version 2 overview." );
+    if( m_pagedCook && m_compressedCook ) ImGui::TextWrapped( "Lossless page compression reduces disk traffic. Canonical heights, normals and painted weights remain exact; decoded residency still uses the configured budgets." );
     ImGui::PopTextWrapPos();
     const bool exists = std::filesystem::exists( Path( m_cookPath ).FullPath );
     if( exists ) ImGui::Checkbox( "Replace the existing cooked file", &m_replaceCook );
     ImGui::BeginDisabled( !m_active || IsCooking() || IsPlaying() || ( exists && !m_replaceCook ) );
-    if( ImGui::Button( "Cook" ) && StartStreamCook( m_cookPath, static_cast<uint8_t>( m_coverageLod ), m_pagedCook ) ) ImGui::CloseCurrentPopup();
+    if( ImGui::Button( "Cook" ) && StartStreamCook( m_cookPath, static_cast<uint8_t>( m_coverageLod ), m_pagedCook, m_pagedCook && m_compressedCook ) ) ImGui::CloseCurrentPopup();
     ImGui::EndDisabled(); ImGui::SameLine(); if( ImGui::Button( "Cancel" ) ) ImGui::CloseCurrentPopup();
     ImGui::EndPopup();
 }
@@ -106,6 +109,7 @@ void TerrainWidget::DrawStreamingControls()
         ImGui::Text( "Coverage loads %llu / evictions %llu", static_cast<unsigned long long>( stats->CoverageLoaded ), static_cast<unsigned long long>( stats->CoverageEvicted ) );
     }
     constexpr double mib = 1024.0 * 1024;
+    ImGui::Text( "Page payloads: %.2f MiB read / %.2f MiB decoded", stats->BytesRead / mib, stats->DecodedBytesRead / mib );
     if( const auto* core = EditorOps::GetWorld().GetCore<TerrainCore>() )
     {
         const auto& world = core->GetStreamingStats(); const auto& settings = ProjectSettings::Get();

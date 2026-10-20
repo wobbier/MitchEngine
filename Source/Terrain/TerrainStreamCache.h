@@ -26,6 +26,7 @@ namespace TerrainData
     {
         uint64_t CpuReserved = 0, GpuReserved = 0, CollisionReserved = 0;
         uint64_t Loaded = 0, Evicted = 0, Cancelled = 0, Failed = 0, BytesRead = 0;
+        uint64_t DecodedBytesRead = 0;
         size_t Resident = 0, Detail = 0, Retiring = 0, Pending = 0;
         size_t QueryPins = 0, DrawPins = 0, CollisionPins = 0;
         size_t PrefetchResident = 0, PrefetchPending = 0;
@@ -56,8 +57,8 @@ namespace TerrainData
         std::shared_ptr<const ResidentTerrain> GetData() const { return m_snapshot; }
         const StreamStats& GetStats() const { return m_stats; }
         const StreamArchive& GetArchive() const { return *m_archive; }
-        static StreamLimits TileReservation( const Settings& InSettings );
-        static StreamLimits CoverageReservation( const Settings& InSettings, uint8_t InBaseLod, bool InSurface = false );
+        static StreamLimits TileReservation( const Settings& InSettings, bool InCompressed = false );
+        static StreamLimits CoverageReservation( const Settings& InSettings, uint8_t InBaseLod, bool InSurface = false, bool InCompressed = false );
 
     private:
         friend class TerrainStreamScheduler;
